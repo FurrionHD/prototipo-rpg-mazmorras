@@ -20,10 +20,19 @@ extends CharacterBody2D
 @export var stamina_per_resistencia: float = 0.15  # extra por Resistencia
 @export var stamina_per_agilidad: float = 0.05     # extra por Agilidad
 @export var run_drain: float = 35.0       # aguante/seg al correr
-@export var stamina_regen: float = 20.0   # aguante/seg recuperando
+# Recuperacion: base + extra FIJO por nivel (NO escala con stats, a proposito,
+# para no desequilibrar: si subiera con Resistencia/Agilidad daria doble ventaja).
+@export var stamina_regen: float = 20.0            # aguante/seg a nivel 1
+@export var stamina_regen_per_level: float = 2.0   # +/seg por cada nivel extra
+var _regen_actual: float = 20.0  # se calcula en _ready segun el nivel
 
 var max_stamina: float = 100.0
 var current_stamina: float = 100.0
+
+# Cuando el aguante llega a 0 entras en "agotado": no puedes correr y vas a
+# velocidad de sigilo hasta recuperar esta fraccion del aguante (la mitad).
+@export var exhausted_recover_ratio: float = 0.5
+var _exhausted: bool = false
 
 # Modo de movimiento actual (lo usa el enemigo para el "ruido"):
 # 0 = sigilo, 1 = andar, 2 = correr.
@@ -44,6 +53,9 @@ func _ready() -> void:
 	_stamina_bar.max_value = max_stamina
 	_stamina_bar.value = current_stamina
 
+	# Recuperacion segun el nivel (fija, no depende de stats).
+	_regen_actual = stamina_regen + stamina_regen_per_level * (Game.player_level - 1)
+
 
 func _physics_process(delta: float) -> void:
 	var direction: Vector2 = Input.get_vector(
@@ -51,12 +63,17 @@ func _physics_process(delta: float) -> void:
 	var moving: bool = direction != Vector2.ZERO
 
 	# Modo segun teclas (Ctrl = sigilo tiene prioridad sobre Shift = correr).
+	# Si estamos AGOTADOS, no se puede correr (hasta recuperar la mitad).
 	var sneaking: bool = Input.is_key_pressed(KEY_CTRL)
 	var running: bool = Input.is_key_pressed(KEY_SHIFT) and not sneaking \
-		and moving and current_stamina > 0.0
+		and moving and not _exhausted
 
 	var speed: float = walk_speed
-	if sneaking:
+	if _exhausted:
+		# Agotado: te arrastras a velocidad de sigilo, corras o no.
+		speed = walk_speed * sneak_multiplier
+		movement_mode = 0
+	elif sneaking:
 		speed = walk_speed * sneak_multiplier
 		movement_mode = 0
 	elif running:
@@ -67,10 +84,19 @@ func _physics_process(delta: float) -> void:
 
 	# Aguante: baja al correr, se recupera en cualquier otro caso.
 	if running:
-		current_stamina = maxf(0.0, current_stamina - run_drain * delta)
+		current_stamina -= run_drain * delta
+		if current_stamina <= 0.0:
+			current_stamina = 0.0
+			_exhausted = true  # nos quedamos sin fuelle
 	else:
-		current_stamina = minf(max_stamina, current_stamina + stamina_regen * delta)
+		current_stamina = minf(max_stamina, current_stamina + _regen_actual * delta)
+		# Salimos de agotado al recuperar la mitad del aguante.
+		if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
+			_exhausted = false
+
 	_stamina_bar.value = current_stamina
+	# Pista visual: la barra se pone rojiza mientras estas agotado.
+	_stamina_bar.modulate = Color(1.0, 0.4, 0.4) if _exhausted else Color.WHITE
 
 	velocity = direction * speed
 	move_and_slide()
