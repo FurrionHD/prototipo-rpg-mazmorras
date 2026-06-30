@@ -100,8 +100,22 @@ resources/     datos como .tres (items, enemigos, dificultad)
 - [x] `Camera2D` dentro de `player.tscn` que sigue al jugador.
 - [x] Probado: colisiones y cámara OK. (Jira KAN-13..17)
 
-### Próximo: Fase 3 — Enemigo en la mazmorra
-- Crear enemigo (placeholder), Resource de enemigo, y Area2D que dispare el combate al tocarlo.
+### Fase 3 — Enemigo en la mazmorra ✅ COMPLETADA
+- [x] `scripts/core/abilities.gd`: sistema de habilidades DanMachi (5 stats 0-999, rango I-S) — groundwork para Fase 4.
+- [x] `enemy_data.gd` (EnemyData, stats por franja) + `slime.tres`.
+- [x] `enemy.gd`: patrulla, persecución (Area2D circular de visión), regreso a su sitio, disparo de combate (placeholder) calculando iniciativa.
+- [x] `enemy.tscn` y enemigo colocado en `main.tscn`; jugador en grupo "player".
+- [x] Probado: patrulla → persecución → regreso → trigger de combate. (Jira KAN-18..22)
+
+### Próximo: Fase 4 — Combate por turnos
+- Integrar `Abilities` en jugador y enemigos. Implementar sistema de stats
+  con coeficientes ajustables y progresión por nivel (ver memoria
+  "sistema-stats-danmachi"). Máquina de turnos por Agilidad (incl. doble
+  acción), daño/defensa, victoria/derrota y vuelta a la mazmorra.
+
+Pendiente menor Fase 3: las capas de colisión del DetectionArea detectan
+también paredes y al propio enemigo (inofensivo, se filtra por grupo);
+se puede afinar con collision layers/masks más adelante.
 
 Nota: placeholders cuadrados (ColorRect) por ahora; lo visual/animaciones, al final.
 Pendiente menor: borrar `escena_2d_prueba.tscn` (raíz, sin uso).
