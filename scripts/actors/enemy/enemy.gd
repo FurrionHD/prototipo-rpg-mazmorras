@@ -52,6 +52,9 @@ var _winding: bool = false       # true mientras hace el aviso de ataque
 var _combat_triggered: bool = false
 var current_move_speed: float = 40.0
 
+var _dead: bool = false       # true cuando es un cadaver (combate ganado)
+var extracted: bool = false   # true cuando ya le has sacado el cristal
+
 # Indicadores visuales (creados por codigo).
 var _facing_line: Line2D = null
 var _vision_cone: Polygon2D = null
@@ -202,7 +205,29 @@ func _player_exhausted() -> bool:
 
 # Lo llama el JUGADOR cuando te ataca de cerca: combate con su iniciativa.
 func atacado_por_jugador() -> void:
+	if _dead:
+		return
 	_start_combat(false)
+
+
+# Lo llama Game al GANAR el combate: el enemigo queda como CADAVER (no se
+# borra), apagado e interactuable para extraerle el cristal (minijuego).
+func morir() -> void:
+	_dead = true
+	_winding = false
+	set_physics_process(false)  # detiene la IA
+	velocity = Vector2.ZERO
+	_color_rect.color = Color(0.4, 0.4, 0.4)  # cuerpo gris/apagado
+	if _vision_cone != null:
+		_vision_cone.visible = false
+	if _facing_line != null:
+		_facing_line.visible = false
+	remove_from_group("enemy")  # ya no es un enemigo activo
+	add_to_group("corpse")      # ahora es un cadaver interactuable
+
+
+func esta_muerto() -> bool:
+	return _dead
 
 
 func _return() -> void:

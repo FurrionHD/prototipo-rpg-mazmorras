@@ -31,9 +31,12 @@ class_name EnemyData
 @export var move_speed_min: float = 30.0
 @export var move_speed_max: float = 55.0
 
-# --- Loot: franja de valor del cristal que suelta (Fase 5) ---
-@export var crystal_value_min: int = 5
-@export var crystal_value_max: int = 15
+# --- Loot: CATEGORIA del cristal que se le puede extraer (Fase 5) ---
+# El cristal sale en una categoria aleatoria dentro de esta franja (mayor
+# categoria = mas valioso). La CALIDAD (intacto/dañado/roto) la decide el
+# minijuego de extraccion. El slime, p.ej., da categoria 3-5.
+@export var crystal_category_min: int = 3
+@export var crystal_category_max: int = 5
 
 
 # Crea un objeto Abilities a partir de los campos de habilidades.
@@ -51,3 +54,8 @@ func crear_abilities() -> Abilities:
 func crear_combatant() -> Combatant:
 	return Combatant.new(enemy_name, level, crear_abilities(),
 		base_hp, base_attack, base_defense, base_speed)
+
+
+# Tira una categoria de cristal al azar dentro de la franja del enemigo.
+func roll_crystal_category() -> int:
+	return randi_range(crystal_category_min, crystal_category_max)

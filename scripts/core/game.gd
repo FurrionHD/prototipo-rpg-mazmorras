@@ -74,9 +74,10 @@ func _on_combat_finished(player_won: bool, player_hp_left: int) -> void:
 	get_tree().paused = false
 	player_current_hp = player_hp_left
 
-	# Si ganaste, el enemigo desaparece de la mazmorra.
-	if player_won and is_instance_valid(_active_enemy):
-		_active_enemy.queue_free()
+	# Si ganaste, el enemigo NO desaparece: queda como cadaver para poder
+	# extraerle el cristal (minijuego, Fase 5).
+	if player_won and is_instance_valid(_active_enemy) and _active_enemy.has_method("morir"):
+		_active_enemy.morir()
 	_active_enemy = null
 
 	# Quitamos la capa del combate (con la pantalla dentro).
