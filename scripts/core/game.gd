@@ -69,10 +69,16 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 	var player_c := crear_player_combatant()
 	var enemy_c := enemy_data.crear_combatant()
 
+	# ¿El jugador entra agotado? (sus 2 primeras acciones seran mas lentas)
+	var player_exhausted := false
+	var pnode := get_tree().get_first_node_in_group("player")
+	if pnode != null and pnode.has_method("is_exhausted"):
+		player_exhausted = pnode.is_exhausted()
+
 	var combat := _combat_scene.instantiate()
 	# PROCESS_MODE_ALWAYS = el combate sigue funcionando aunque el arbol este en pausa.
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
-	combat.setup(player_c, enemy_c, enemy_initiated)
+	combat.setup(player_c, enemy_c, enemy_initiated, player_exhausted)
 	combat.combat_finished.connect(_on_combat_finished)
 
 	# Lo metemos en una CanvasLayer: asi NO le afecta la camara 2D de la

@@ -23,10 +23,11 @@ func calidad_texto() -> String:
 
 
 # Convierte un valor numerico (de la franja) en calidad. Umbrales ajustables.
+# (Permisivo a proposito: el drop ya es raro, asi que su calidad no es dura.)
 static func calidad_desde_valor(valor: int) -> Calidad:
 	if valor <= 2:
 		return Calidad.DEFECTUOSO
-	elif valor <= 4:
+	elif valor <= 3:
 		return Calidad.NORMAL
 	else:
 		return Calidad.EXCELENTE

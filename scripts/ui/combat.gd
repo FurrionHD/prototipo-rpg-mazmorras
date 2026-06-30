@@ -20,6 +20,10 @@ const UMBRAL := 100.0          # cuanto llenar la barra para actuar
 const SPEED_SCALE := 10.0      # ritmo de llenado (mas alto = combate mas rapido)
 const INICIATIVA_VENTAJA := 50.0  # media barra de ventaja para quien inicia
 
+# Si entras AGOTADO, tus primeras acciones van mas lentas.
+const EXHAUSTED_SLOW_ACTIONS := 2   # cuantas acciones afectadas
+const EXHAUSTED_RATE := 0.5         # a que ritmo (0.5 = la mitad)
+
 @onready var _enemy_name: Label = $VBox/EnemyName
 @onready var _enemy_hp: ProgressBar = $VBox/EnemyHP
 @onready var _player_name: Label = $VBox/PlayerName
@@ -41,12 +45,17 @@ var _injected: bool = false       # true si Game nos paso los combatientes
 var _enemy_initiated: bool = false
 var _player_won: bool = false
 
+var _player_exhausted_start: bool = false  # entro agotado
+var _slow_actions_left: int = 0            # acciones lentas que quedan
+
 
 # Lo llama Game ANTES de añadir esta escena al arbol.
-func setup(player_c: Combatant, enemy_c: Combatant, enemy_initiated: bool) -> void:
+func setup(player_c: Combatant, enemy_c: Combatant, enemy_initiated: bool,
+		player_exhausted: bool = false) -> void:
 	_player = player_c
 	_enemy = enemy_c
 	_enemy_initiated = enemy_initiated
+	_player_exhausted_start = player_exhausted
 	_injected = true
 
 
@@ -73,6 +82,10 @@ func _ready() -> void:
 	elif _injected:
 		_gauge[_player] = INICIATIVA_VENTAJA
 
+	# Si entro agotado, sus primeras acciones iran mas lentas.
+	if _player_exhausted_start:
+		_slow_actions_left = EXHAUSTED_SLOW_ACTIONS
+
 	_attack_button.pressed.connect(_on_attack_pressed)
 	_setup_ui()
 	if _enemy_initiated:
@@ -81,6 +94,8 @@ func _ready() -> void:
 		_set_log("¡Ataque por la espalda! Tienes la iniciativa. 🗡️")
 	else:
 		_set_log("¡Empieza el combate contra " + _enemy.nombre + "!")
+	if _player_exhausted_start:
+		_log.text += "  (Agotado: tus primeras acciones son mas lentas)"
 
 
 func _setup_ui() -> void:
@@ -105,7 +120,12 @@ func _process(delta: float) -> void:
 	if _state != State.ADVANCING:
 		return
 
-	_gauge[_player] += _player.spd() * delta * SPEED_SCALE
+	# Si estamos en una accion lenta por agotamiento, el jugador llena su
+	# barra a mitad de ritmo.
+	var player_rate: float = SPEED_SCALE
+	if _slow_actions_left > 0:
+		player_rate *= EXHAUSTED_RATE
+	_gauge[_player] += _player.spd() * delta * player_rate
 	_gauge[_enemy] += _enemy.spd() * delta * SPEED_SCALE
 
 	if _gauge[_player] >= UMBRAL or _gauge[_enemy] >= UMBRAL:
@@ -140,6 +160,10 @@ func _on_attack_pressed() -> void:
 	_set_log("%s ataca por %d de daño." % [_player.nombre, dmg])
 	_update_hp()
 	_attack_button.disabled = true
+
+	# Esta accion del jugador ya cuenta: gastamos una "accion lenta".
+	if _slow_actions_left > 0:
+		_slow_actions_left -= 1
 
 	if not _enemy.is_alive():
 		_end(true)
