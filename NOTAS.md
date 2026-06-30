@@ -119,22 +119,26 @@ resources/     datos como .tres (items, enemigos, dificultad)
 - [x] Probado: chocar con slime → combate → ganar → vuelta a la mazmorra. (Jira KAN-23..29)
 - Pendiente futuro: game over en condiciones, magia/huir/objetos, curación.
 
-### EN CURSO: Epic KAN-43 — Sigilo, aguante e iniciativa
-- [x] Movimiento jugador: sigilo (Ctrl) / andar / correr (Shift). (KAN-44)
-- [x] Aguante: gasto al correr, máximo por base + Resistencia + Agilidad. (KAN-45)
-- [x] Barra de aguante en pantalla (creada por código en player.gd). (KAN-46)
-- [ ] Visión en CONO del enemigo (mira hacia donde se mueve) + línea indicadora de a dónde mira. (KAN-47)
-- [ ] Oído del enemigo (te detecta según tu velocidad/ruido). (KAN-48)
-- [ ] Ataque por la espalda = iniciativa del jugador. (KAN-49)
+### Epic KAN-43 — Sigilo, aguante e iniciativa ✅ COMPLETADO
+- [x] Movimiento jugador: sigilo (Ctrl) / andar / correr (Shift) + aguante. (KAN-44/45/46)
+- [x] Enemigo: deambular aleatorio, visión en CONO (con cono+línea dibujados),
+  oído según tu ruido, y ataque desde distancia óptima con aviso de 0.15s
+  (instantáneo si estás agotado). (KAN-47/48/50)
+- [x] Atacar con ESPACIO para iniciar combate sin tocar al enemigo:
+  tú = tu iniciativa; el enemigo al alcanzarte = su iniciativa. (KAN-49)
+- Quitado el DetectionArea (detección ahora por distancia+ángulo).
 
-Plan KAN-47/48/49: cambiar el círculo de visión por filtro de ÁNGULO (ve solo
-si estás en el radio Y dentro del cono frontal, según su dirección de
-movimiento). Oído = radio que crece con tu velocidad (correr=ruidoso,
-sigilo=silencioso). Si lo tocas sin que te detecte (por su lado ciego) ->
-combate con iniciativa del JUGADOR; si te ve y te caza -> iniciativa del enemigo.
+### Pendiente PRÓXIMO (terminar el roadmap base): Fases 5, 6 y 7
+- **Fase 5 (KAN-30):** drop de cristal al ganar + minijuego de recogida.
+- **Fase 6 (KAN-35):** inventario + HUD.
+- **Fase 7 (KAN-39):** tienda / venta.
 
-Pendiente menor Fase 3: el DetectionArea detecta también paredes y al propio
-enemigo (inofensivo, se filtra por grupo); afinar con collision layers/masks.
+### Planificado a futuro (Epics creados, sin empezar)
+- **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
+  defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.
+- **KAN-59** Multi-enemigos y compañeros (en combate y siguiéndote por la mazmorra).
+- **KAN-65** Descanso y repoblado: respawn de enemigos + acampar para recuperarse.
+- (Y la mazmorra de muchos pisos: ver memoria "dungeon-pisos".)
 
 Nota: placeholders cuadrados (ColorRect) por ahora; lo visual/animaciones, al final.
 Pendiente menor: borrar `escena_2d_prueba.tscn` (raíz, sin uso).
