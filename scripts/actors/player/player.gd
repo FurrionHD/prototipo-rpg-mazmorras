@@ -38,6 +38,14 @@ var _exhausted: bool = false
 # 0 = sigilo, 1 = andar, 2 = correr.
 var movement_mode: int = 1
 
+# Direccion a la que "mira" el jugador (ultimo movimiento), para atacar.
+var _facing: Vector2 = Vector2.DOWN
+var _attack_was_pressed: bool = false
+
+# Ataque cuerpo a cuerpo para INICIAR combate (corto alcance hacia delante).
+@export var attack_range: float = 44.0
+@export var attack_half_angle_deg: float = 70.0
+
 # Barra de aguante (se crea por codigo, ver _crear_barra_aguante).
 var _stamina_bar: ProgressBar = null
 
@@ -61,6 +69,8 @@ func _physics_process(delta: float) -> void:
 	var direction: Vector2 = Input.get_vector(
 		"move_left", "move_right", "move_up", "move_down")
 	var moving: bool = direction != Vector2.ZERO
+	if moving:
+		_facing = direction.normalized()  # recordamos hacia donde miramos
 
 	# Modo segun teclas (Ctrl = sigilo tiene prioridad sobre Shift = correr).
 	# Si estamos AGOTADOS, no se puede correr (hasta recuperar la mitad).
@@ -100,6 +110,32 @@ func _physics_process(delta: float) -> void:
 
 	velocity = direction * speed
 	move_and_slide()
+
+	# Ataque hacia delante para iniciar combate (sin tener que tocar al enemigo).
+	var atk: bool = Input.is_key_pressed(KEY_SPACE)
+	if atk and not _attack_was_pressed:
+		_try_attack()
+	_attack_was_pressed = atk
+
+
+# True si estamos agotados (lo consulta el enemigo para atacar al instante).
+func is_exhausted() -> bool:
+	return _exhausted
+
+
+# Busca un enemigo justo enfrente y muy cerca; si lo hay, inicia el combate
+# con NUESTRA iniciativa.
+func _try_attack() -> void:
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if not is_instance_valid(e):
+			continue
+		var to_e: Vector2 = e.global_position - global_position
+		var dist: float = to_e.length()
+		if dist <= attack_range and dist > 0.01:
+			if absf(_facing.angle_to(to_e / dist)) <= deg_to_rad(attack_half_angle_deg):
+				if e.has_method("atacado_por_jugador"):
+					e.atacado_por_jugador()
+				return
 
 
 # Crea una barrita de aguante en pantalla (arriba a la izquierda).
