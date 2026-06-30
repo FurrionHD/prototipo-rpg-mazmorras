@@ -1,0 +1,39 @@
+[gd_scene format=3 uid="uid://cwhsj38v7icdk"]
+
+[ext_resource type="Script" uid="uid://bfm0hh1x10s1" path="res://scripts/ui/combat.gd" id="1_61gti"]
+
+[node name="Combat" type="Control" unique_id=1137647670]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_61gti")
+
+[node name="VBox" type="VBoxContainer" parent="." unique_id=553347106]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="EnemyName" type="Label" parent="VBox" unique_id=1080475183]
+layout_mode = 2
+
+[node name="EnemyHP" type="ProgressBar" parent="VBox" unique_id=1624741158]
+layout_mode = 2
+
+[node name="PlayerName" type="Label" parent="VBox" unique_id=1258537354]
+layout_mode = 2
+
+[node name="PlayerHP" type="ProgressBar" parent="VBox" unique_id=1357759220]
+layout_mode = 2
+
+[node name="Log" type="Label" parent="VBox" unique_id=855215507]
+layout_mode = 2
+
+[node name="AttackButton" type="Button" parent="VBox" unique_id=1387380876]
+layout_mode = 2
+text = "Atacar"
