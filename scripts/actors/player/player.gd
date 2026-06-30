@@ -1,41 +1,91 @@
 # ============================================================
 #  player.gd
-#  Controla el MOVIMIENTO del jugador en la exploración (top-down).
-#  Se engancha a un nodo CharacterBody2D (la escena player.tscn).
-#  Fase 1 del proyecto: solo moverse. Sin animaciones (placeholder cuadrado).
+#  Movimiento del jugador en la exploracion (top-down), con TRES velocidades:
+#    - Ctrl  : sigilo (despacio y silencioso)
+#    - normal: andar
+#    - Shift : correr (rapido y ruidoso) -> gasta AGUANTE
+#  El aguante maximo depende de Resistencia y Agilidad (stats del jugador,
+#  guardadas en el autoload Game). Se vacia al correr y se recupera al parar.
 # ============================================================
 
-# "extends CharacterBody2D" = este script ES un CharacterBody2D,
-# o sea hereda todas sus propiedades y funciones (como velocity y move_and_slide).
 extends CharacterBody2D
 
+# Velocidad base (andar) y multiplicadores de los otros modos.
+@export var walk_speed: float = 120.0
+@export var sneak_multiplier: float = 0.45  # sigilo: ~54 px/s
+@export var run_multiplier: float = 1.7     # correr: ~204 px/s
 
-# @export hace que esta variable APAREZCA en el Inspector de Godot,
-# así podrás cambiar la velocidad desde el editor sin tocar el código.
-# Está en píxeles por segundo.
-@export var speed: float = 120.0
+# --- Aguante (stamina) ---
+@export var base_stamina: float = 100.0
+@export var stamina_per_resistencia: float = 0.15  # extra por Resistencia
+@export var stamina_per_agilidad: float = 0.05     # extra por Agilidad
+@export var run_drain: float = 35.0       # aguante/seg al correr
+@export var stamina_regen: float = 20.0   # aguante/seg recuperando
+
+var max_stamina: float = 100.0
+var current_stamina: float = 100.0
+
+# Modo de movimiento actual (lo usa el enemigo para el "ruido"):
+# 0 = sigilo, 1 = andar, 2 = correr.
+var movement_mode: int = 1
+
+# Barra de aguante (se crea por codigo, ver _crear_barra_aguante).
+var _stamina_bar: ProgressBar = null
 
 
-# _physics_process() lo llama Godot automáticamente en CADA frame de física
-# (un ritmo fijo y estable, ideal para movimiento). El parámetro "delta" es
-# el tiempo entre frames; aquí no lo usamos (por eso el "_" delante).
-func _physics_process(_delta: float) -> void:
-	# Input.get_vector() lee las 4 acciones de input (las definimos en
-	# project.godot) y devuelve un Vector2 con la dirección.
-	# Ventaja: ya viene NORMALIZADO, así moverse en diagonal NO es más
-	# rápido que moverse en recto (un error muy típico).
-	#   - x negativo = izquierda, x positivo = derecha
-	#   - y negativo = arriba,    y positivo = abajo
+func _ready() -> void:
+	_stamina_bar = _crear_barra_aguante()
+
+	# Aguante maximo segun las stats del jugador (Resistencia y Agilidad).
+	max_stamina = base_stamina \
+		+ Game.player_resistencia * stamina_per_resistencia \
+		+ Game.player_agilidad * stamina_per_agilidad
+	current_stamina = max_stamina
+	_stamina_bar.max_value = max_stamina
+	_stamina_bar.value = current_stamina
+
+
+func _physics_process(delta: float) -> void:
 	var direction: Vector2 = Input.get_vector(
-		"move_left", "move_right", "move_up", "move_down"
-	)
+		"move_left", "move_right", "move_up", "move_down")
+	var moving: bool = direction != Vector2.ZERO
 
-	# "velocity" es una propiedad que YA trae CharacterBody2D.
-	# La rellenamos: dirección (hacia dónde) por velocidad (cómo de rápido).
+	# Modo segun teclas (Ctrl = sigilo tiene prioridad sobre Shift = correr).
+	var sneaking: bool = Input.is_key_pressed(KEY_CTRL)
+	var running: bool = Input.is_key_pressed(KEY_SHIFT) and not sneaking \
+		and moving and current_stamina > 0.0
+
+	var speed: float = walk_speed
+	if sneaking:
+		speed = walk_speed * sneak_multiplier
+		movement_mode = 0
+	elif running:
+		speed = walk_speed * run_multiplier
+		movement_mode = 2
+	else:
+		movement_mode = 1
+
+	# Aguante: baja al correr, se recupera en cualquier otro caso.
+	if running:
+		current_stamina = maxf(0.0, current_stamina - run_drain * delta)
+	else:
+		current_stamina = minf(max_stamina, current_stamina + stamina_regen * delta)
+	_stamina_bar.value = current_stamina
+
 	velocity = direction * speed
-
-	# move_and_slide() mueve el cuerpo usando "velocity" y resuelve
-	# colisiones automáticamente (cuando tengamos paredes, en la Fase 2).
-	# OJO: NO hay que multiplicar por delta aquí; move_and_slide() ya lo
-	# tiene en cuenta internamente al ser un cuerpo físico.
 	move_and_slide()
+
+
+# Crea una barrita de aguante en pantalla (arriba a la izquierda).
+# Va en su propia CanvasLayer para que no la mueva la camara.
+func _crear_barra_aguante() -> ProgressBar:
+	var layer := CanvasLayer.new()
+	layer.layer = 10
+	add_child(layer)
+
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(180, 16)
+	bar.position = Vector2(12, 12)
+	layer.add_child(bar)
+	return bar
