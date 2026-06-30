@@ -107,15 +107,34 @@ resources/     datos como .tres (items, enemigos, dificultad)
 - [x] `enemy.tscn` y enemigo colocado en `main.tscn`; jugador en grupo "player".
 - [x] Probado: patrulla → persecución → regreso → trigger de combate. (Jira KAN-18..22)
 
-### Próximo: Fase 4 — Combate por turnos
-- Integrar `Abilities` en jugador y enemigos. Implementar sistema de stats
-  con coeficientes ajustables y progresión por nivel (ver memoria
-  "sistema-stats-danmachi"). Máquina de turnos por Agilidad (incl. doble
-  acción), daño/defensa, victoria/derrota y vuelta a la mazmorra.
+### Fase 4 — Combate por turnos ✅ COMPLETADA
+- [x] Sistema de stats: `abilities.gd`, `stats_math.gd` (fórmulas DanMachi
+  con coeficientes ajustables), `combatant.gd`.
+- [x] Motor de turnos por velocidad (`battle.gd`, ATB, iniciativa, doble acción).
+- [x] Pantalla de combate interactiva `scenes/ui/combat.tscn` + `combat.gd`
+  (vida en números, botón Atacar/Continuar).
+- [x] Gestor `Game` (autoload): stats del jugador (persisten), abre el combate
+  como overlay en CanvasLayer y pausa la mazmorra; al ganar el enemigo desaparece.
+- [x] `EnemyData` migrado a stats de combate. `main.tscn` = escena principal.
+- [x] Probado: chocar con slime → combate → ganar → vuelta a la mazmorra. (Jira KAN-23..29)
+- Pendiente futuro: game over en condiciones, magia/huir/objetos, curación.
 
-Pendiente menor Fase 3: las capas de colisión del DetectionArea detectan
-también paredes y al propio enemigo (inofensivo, se filtra por grupo);
-se puede afinar con collision layers/masks más adelante.
+### EN CURSO: Epic KAN-43 — Sigilo, aguante e iniciativa
+- [x] Movimiento jugador: sigilo (Ctrl) / andar / correr (Shift). (KAN-44)
+- [x] Aguante: gasto al correr, máximo por base + Resistencia + Agilidad. (KAN-45)
+- [x] Barra de aguante en pantalla (creada por código en player.gd). (KAN-46)
+- [ ] Visión en CONO del enemigo (mira hacia donde se mueve) + línea indicadora de a dónde mira. (KAN-47)
+- [ ] Oído del enemigo (te detecta según tu velocidad/ruido). (KAN-48)
+- [ ] Ataque por la espalda = iniciativa del jugador. (KAN-49)
+
+Plan KAN-47/48/49: cambiar el círculo de visión por filtro de ÁNGULO (ve solo
+si estás en el radio Y dentro del cono frontal, según su dirección de
+movimiento). Oído = radio que crece con tu velocidad (correr=ruidoso,
+sigilo=silencioso). Si lo tocas sin que te detecte (por su lado ciego) ->
+combate con iniciativa del JUGADOR; si te ve y te caza -> iniciativa del enemigo.
+
+Pendiente menor Fase 3: el DetectionArea detecta también paredes y al propio
+enemigo (inofensivo, se filtra por grupo); afinar con collision layers/masks.
 
 Nota: placeholders cuadrados (ColorRect) por ahora; lo visual/animaciones, al final.
 Pendiente menor: borrar `escena_2d_prueba.tscn` (raíz, sin uso).
