@@ -1,0 +1,29 @@
+[gd_scene format=3 uid="uid://dg1p61ujpsj41"]
+
+[ext_resource type="Script" uid="uid://yxwyek6org0q" path="res://scripts/actors/enemy/enemy.gd" id="1_nm30c"]
+[ext_resource type="Resource" uid="uid://8o4mu6dxwacj" path="res://scenes/actors/enemy/slime.tres" id="2_xgcl8"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_x7qdl"]
+size = Vector2(32, 32)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_x7qdl"]
+radius = 80.0
+
+[node name="Enemy" type="CharacterBody2D" unique_id=20286081]
+script = ExtResource("1_nm30c")
+data = ExtResource("2_xgcl8")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=545258726]
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+color = Color(1, 0.4057799, 0.27551508, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=82516790]
+shape = SubResource("RectangleShape2D_x7qdl")
+
+[node name="DetectionArea" type="Area2D" parent="." unique_id=206077051]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectionArea" unique_id=1252119928]
+shape = SubResource("CircleShape2D_x7qdl")
