@@ -75,7 +75,12 @@ func _ready() -> void:
 
 	_attack_button.pressed.connect(_on_attack_pressed)
 	_setup_ui()
-	_set_log("¡Empieza el combate contra " + _enemy.nombre + "!")
+	if _enemy_initiated:
+		_set_log("¡" + _enemy.nombre + " te sorprende! Tiene la iniciativa.")
+	elif _injected:
+		_set_log("¡Ataque por la espalda! Tienes la iniciativa. 🗡️")
+	else:
+		_set_log("¡Empieza el combate contra " + _enemy.nombre + "!")
 
 
 func _setup_ui() -> void:

@@ -1,165 +1,268 @@
 # ============================================================
 #  enemy.gd
-#  Comportamiento del enemigo en la EXPLORACION (top-down).
-#  - Lee sus datos de un EnemyData (color, velocidades, stats...).
-#  - PATRULLA de lado a lado.
-#  - Si detecta al jugador (Area2D grande), lo PERSIGUE.
-#  - Al ALCANZARLO, dispara el combate. Quien va mas rapido en el choque
-#    consigue la INICIATIVA (le tocara el primer turno en la Fase 4).
+#  Enemigo en la EXPLORACION (top-down) con SIGILO:
+#   - DEAMBULA por una zona aleatoria alrededor de su sitio.
+#   - VISION EN CONO hacia donde mira (su direccion de movimiento). Dibuja
+#     el cono y una linea indicadora.
+#   - OIDO: te detecta segun tu ruido (tu velocidad). Correr = ruidoso,
+#     sigilo = silencioso.
+#   - Si te ve/oye, te PERSIGUE (iniciativa del enemigo en combate).
+#   - Si le tocas sin que te detecte (por la espalda) -> TU iniciativa.
 #  Se engancha a un CharacterBody2D (la escena enemy.tscn).
 # ============================================================
 
 extends CharacterBody2D
 
-# Datos de este enemigo (se asigna en el Inspector arrastrando un .tres
-# de tipo EnemyData).
 @export var data: EnemyData
 
-# Cuanto se aleja de su punto de inicio al patrullar (en pixeles).
-@export var patrol_distance: float = 80.0
+# --- Deambular ---
+@export var wander_radius: float = 90.0       # cuanto se aleja de su sitio
+@export var wander_pause_min: float = 0.4     # pausa minima al llegar a un punto
+@export var wander_pause_max: float = 1.2     # pausa maxima
 
-# Distancia (centro a centro) a la que se considera que ha "chocado" con el
-# jugador y empieza el combate. Los cuadros miden 32, asi que ~26 = tocandose.
-@export var contact_distance: float = 26.0
+# --- Vision (cono frontal) ---
+@export var vision_range: float = 130.0       # alcance del cono
+@export var vision_half_angle_deg: float = 50.0  # medio angulo del cono
 
-# Senal "ha empezado un combate". El segundo dato dice si lo inicio el
-# enemigo (true) o el jugador (false). La usaremos en la Fase 4.
+# --- Oido ---
+@export var hearing_factor: float = 0.55      # radio de oido = tu_velocidad * esto
+@export var hearing_max: float = 130.0        # radio de oido maximo
+
+# --- Persecucion / combate ---
+@export var lose_range: float = 220.0         # si te alejas mas, te pierde
+
+# Ataque del enemigo: distancia "optima" desde la que ataca y aviso previo.
+@export var attack_range: float = 44.0
+@export var attack_windup: float = 0.15       # segundos de aviso antes de atacar
+
 signal combat_started(enemy_data: EnemyData, enemy_initiated: bool)
 
-# Nodos hijos de enemy.tscn (¡los nombres deben coincidir!).
+enum State { WANDER, CHASE, RETURN }
+var _state: State = State.WANDER
+
+var _home: Vector2 = Vector2.ZERO
+var _facing: Vector2 = Vector2.RIGHT  # hacia donde mira (su cono)
+var _player: Node2D = null
+
+var _wander_target: Vector2 = Vector2.ZERO
+var _wander_timer: float = 0.0
+var _stuck_time: float = 0.0   # cuanto lleva atascado contra una pared
+var _windup_timer: float = -1.0  # -1 = no esta preparando ataque
+var _winding: bool = false       # true mientras hace el aviso de ataque
+var _combat_triggered: bool = false
+var current_move_speed: float = 40.0
+
+# Indicadores visuales (creados por codigo).
+var _facing_line: Line2D = null
+var _vision_cone: Polygon2D = null
+
 @onready var _color_rect: ColorRect = $ColorRect
-@onready var _detection_area: Area2D = $DetectionArea
-
-# --- Estado de la patrulla ---
-var _start_x: float = 0.0
-var _dir: int = 1  # 1 = derecha, -1 = izquierda
-
-# --- Persecucion ---
-var _target: Node2D = null      # el jugador, cuando lo estamos persiguiendo
-var _combat_triggered: bool = false  # para no disparar el combate dos veces
-
-# --- Regreso a casa ---
-var _home: Vector2 = Vector2.ZERO  # posicion original donde patrulla
-var _returning: bool = false       # true mientras vuelve a su sitio
-
-# Velocidad de exploracion concreta (al azar al aparecer). Las stats de
-# COMBATE (vida, ataque, velocidad de combate...) las calcula la pantalla de
-# combate desde EnemyData; aqui en la mazmorra solo importa moverse.
-var current_move_speed: float = 0.0
 
 
 func _ready() -> void:
-	# Modo "flotante": en top-down no hay gravedad ni suelo/techo, todas las
-	# direcciones son iguales. (El modo por defecto es para plataformas.)
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
-
-	_start_x = global_position.x
-	_home = global_position  # su sitio original, para volver tras perseguir
+	add_to_group("enemy")  # para que el jugador lo encuentre al atacar
+	_home = global_position
+	_player = get_tree().get_first_node_in_group("player")
 
 	if data != null:
-		# Color del placeholder segun los datos.
 		_color_rect.color = data.color
-		# Velocidad de exploracion al azar dentro de su franja.
 		current_move_speed = randf_range(data.move_speed_min, data.move_speed_max)
 
-	# Conectamos por codigo las senales del Area2D de deteccion.
-	_detection_area.body_entered.connect(_on_detection_body_entered)
-	_detection_area.body_exited.connect(_on_detection_body_exited)
+	_crear_indicadores()
+	_pick_wander_target()
 
 
-func _physics_process(_delta: float) -> void:
-	# Si ya empezo el combate o no hay datos, no nos movemos.
+func _physics_process(delta: float) -> void:
 	if _combat_triggered or data == null:
 		return
 
-	if _target != null:
-		_chase()
-	elif _returning:
-		_return()
-	else:
-		_patrol()
+	# Aseguramos referencia al jugador.
+	if _player == null or not is_instance_valid(_player):
+		_player = get_tree().get_first_node_in_group("player")
+
+	# Si no estamos ya persiguiendo, miramos si lo vemos u oimos.
+	if _state != State.CHASE:
+		_try_detect()
+
+	match _state:
+		State.WANDER: _wander(delta)
+		State.CHASE: _chase(delta)
+		State.RETURN: _return()
 
 	move_and_slide()
 
-	if _target != null:
-		# PERSIGUIENDO: si en este frame ha chocado con el jugador, ¡combate!
-		# (los cuerpos son solidos, asi que "alcanzar" = chocar con el).
-		for i in get_slide_collision_count():
-			if get_slide_collision(i).get_collider() == _target:
-				_start_combat()
-				return
-	elif not _returning:
-		# PATRULLANDO: si choca con una pared, se gira HACIA EL LADO CONTRARIO
-		# usando la "normal" del choque (asi no vibra pegado al muro).
+	# La direccion de mirada = hacia donde nos movemos (si nos movemos).
+	if velocity.length() > 1.0:
+		_facing = velocity.normalized()
+	_actualizar_indicadores()
+
+	# Anti-atasco al deambular: si chocamos con una pared, apuntamos de vuelta
+	# a nuestro sitio (nos despegamos hacia dentro). Si llevamos mucho rato
+	# atascados (p. ej. nos expulso fuera en una esquina), volvemos de golpe.
+	if _state == State.WANDER:
 		if get_slide_collision_count() > 0:
-			var normal_x := get_slide_collision(0).get_normal().x
-			if absf(normal_x) > 0.5:
-				_dir = signi(normal_x)
+			_stuck_time += delta
+			if _stuck_time > 1.5:
+				global_position = _home  # red de seguridad
+				_stuck_time = 0.0
+				_pick_wander_target()
+			else:
+				_wander_target = _home  # tira hacia casa para despegarse
+		else:
+			_stuck_time = 0.0
 
 
-# Persigue al jugador moviendose hacia el. Si lo alcanza, empieza el combate.
-func _chase() -> void:
-	var to_target: Vector2 = _target.global_position - global_position
-	velocity = to_target.normalized() * current_move_speed
 
-	# ¿Lo hemos alcanzado? -> combate.
-	if to_target.length() <= contact_distance:
-		_start_combat()
+# Comprueba si VE (cono) u OYE (ruido) al jugador. Si si, pasa a perseguir.
+func _try_detect() -> void:
+	if _player == null or not is_instance_valid(_player):
+		return
+	var to_p: Vector2 = _player.global_position - global_position
+	var dist: float = to_p.length()
+	if dist < 0.01:
+		return
+	var dir: Vector2 = to_p / dist
+
+	# Vision: dentro del alcance Y dentro del angulo del cono frontal.
+	var seen: bool = dist <= vision_range \
+		and absf(_facing.angle_to(dir)) <= deg_to_rad(vision_half_angle_deg)
+
+	# Oido: radio que crece con tu velocidad (ruido). Sigilo = casi 0.
+	var player_speed: float = 0.0
+	if "velocity" in _player:
+		player_speed = (_player.velocity as Vector2).length()
+	var hear_radius: float = minf(player_speed * hearing_factor, hearing_max)
+	var heard: bool = dist <= hear_radius
+
+	if seen or heard:
+		_state = State.CHASE
+		_facing = dir  # se gira hacia ti
 
 
-# Vuelve hacia su sitio original. Al llegar, reanuda la patrulla alli.
+func _wander(delta: float) -> void:
+	# En pausa: quieto, contando.
+	if _wander_timer > 0.0:
+		_wander_timer -= delta
+		velocity = Vector2.ZERO
+		return
+
+	var to_t: Vector2 = _wander_target - global_position
+	if to_t.length() <= 5.0:
+		# Llegamos: pausa y nuevo destino.
+		_wander_timer = randf_range(wander_pause_min, wander_pause_max)
+		_pick_wander_target()
+		velocity = Vector2.ZERO
+		return
+
+	velocity = to_t.normalized() * current_move_speed
+
+
+func _chase(delta: float) -> void:
+	if _player == null or not is_instance_valid(_player):
+		_state = State.RETURN
+		return
+	var to_p: Vector2 = _player.global_position - global_position
+	var dist: float = to_p.length()
+
+	if dist > lose_range:
+		_state = State.RETURN  # te perdio, vuelve a su sitio
+		velocity = Vector2.ZERO
+		_cancelar_aviso()
+		return
+
+	if dist > 0.01:
+		_facing = to_p / dist  # mira al jugador
+
+	if dist <= attack_range:
+		# A distancia de ataque: se para y hace el AVISO antes de golpear.
+		# Si el jugador esta agotado, ataca al instante (aviso = 0).
+		velocity = Vector2.ZERO
+		if _windup_timer < 0.0:
+			_windup_timer = 0.0 if _player_exhausted() else attack_windup
+		_winding = true
+		_windup_timer -= delta
+		if _windup_timer <= 0.0:
+			_start_combat(true)  # iniciativa del enemigo
+	else:
+		# Aun lejos: persigue normal.
+		velocity = to_p.normalized() * current_move_speed
+		_cancelar_aviso()
+
+
+func _cancelar_aviso() -> void:
+	_windup_timer = -1.0
+	_winding = false
+
+
+func _player_exhausted() -> bool:
+	return is_instance_valid(_player) and _player.has_method("is_exhausted") \
+		and _player.is_exhausted()
+
+
+# Lo llama el JUGADOR cuando te ataca de cerca: combate con su iniciativa.
+func atacado_por_jugador() -> void:
+	_start_combat(false)
+
+
 func _return() -> void:
 	var to_home: Vector2 = _home - global_position
-	if to_home.length() <= 3.0:
-		# Ya esta en casa: fijamos posicion y reanudamos patrulla.
+	if to_home.length() <= 5.0:
 		global_position = _home
 		velocity = Vector2.ZERO
-		_returning = false
-		_start_x = _home.x
-		_dir = 1
+		_state = State.WANDER
+		_pick_wander_target()
 	else:
 		velocity = to_home.normalized() * current_move_speed
 
 
-# Patrulla de izquierda a derecha entre dos limites (start_x ± patrol_distance).
-# Usa limites DETERMINISTAS: al pasarse de un lado, fija la direccion hacia el
-# otro (no alterna cada frame, asi no se queda vibrando si esta fuera de rango).
-func _patrol() -> void:
-	if global_position.x > _start_x + patrol_distance:
-		_dir = -1
-	elif global_position.x < _start_x - patrol_distance:
-		_dir = 1
-	velocity = Vector2(_dir * current_move_speed, 0.0)
+# Elige un punto aleatorio dentro de la zona de deambular (alrededor de su sitio).
+func _pick_wander_target() -> void:
+	var ang: float = randf() * TAU
+	var rad: float = randf_range(wander_radius * 0.3, wander_radius)
+	_wander_target = _home + Vector2(cos(ang), sin(ang)) * rad
 
 
-# El jugador entra en el radio de vision -> empezamos a perseguir.
-func _on_detection_body_entered(body: Node2D) -> void:
-	if body.is_in_group("player"):
-		_target = body
-
-
-# El jugador sale del radio de vision -> dejamos de perseguir (volvemos a patrullar).
-func _on_detection_body_exited(body: Node2D) -> void:
-	if body == _target:
-		_target = null
-		# En vez de patrullar donde quedo, REGRESA a su sitio original.
-		_returning = true
-
-
-# Inicia el combate una sola vez, calculando quien tiene la iniciativa.
-func _start_combat() -> void:
+func _start_combat(enemy_initiated: bool) -> void:
 	if _combat_triggered:
 		return
 	_combat_triggered = true
 	velocity = Vector2.ZERO
-
-	# Quien va mas rapido en el momento del choque "embiste" y entra primero.
-	var enemy_speed: float = current_move_speed
-	var player_speed: float = 0.0
-	if _target != null and "velocity" in _target:
-		player_speed = (_target.velocity as Vector2).length()
-	var enemy_initiated: bool = enemy_speed > player_speed
-
 	combat_started.emit(data, enemy_initiated)
-	# Abrimos la pantalla de combate (el gestor global pausa la mazmorra).
 	Game.start_combat(self, data, enemy_initiated)
+
+
+# --- Visual: cono de vision + linea de direccion ---
+func _crear_indicadores() -> void:
+	# Cono (poligono translucido), por detras del enemigo.
+	_vision_cone = Polygon2D.new()
+	var pts: PackedVector2Array = [Vector2.ZERO]
+	var half: float = deg_to_rad(vision_half_angle_deg)
+	var segs: int = 14
+	for i in range(segs + 1):
+		var a: float = -half + (2.0 * half) * float(i) / float(segs)
+		pts.append(Vector2(cos(a), sin(a)) * vision_range)
+	_vision_cone.polygon = pts
+	_vision_cone.color = Color(1.0, 1.0, 0.3, 0.12)
+	add_child(_vision_cone)
+	move_child(_vision_cone, 0)  # al fondo
+
+	# Linea de direccion (hacia donde mira).
+	_facing_line = Line2D.new()
+	_facing_line.add_point(Vector2.ZERO)
+	_facing_line.add_point(Vector2(26.0, 0.0))
+	_facing_line.width = 3.0
+	_facing_line.default_color = Color(1.0, 1.0, 0.0)
+	add_child(_facing_line)
+
+
+func _actualizar_indicadores() -> void:
+	var ang: float = _facing.angle()
+	if _vision_cone != null:
+		_vision_cone.rotation = ang
+	if _facing_line != null:
+		_facing_line.rotation = ang
+		# Rojo/naranja mientras avisa el ataque (telegrafia el golpe).
+		_facing_line.default_color = Color(1.0, 0.3, 0.1) if _winding else Color(1.0, 1.0, 0.0)
+	if _vision_cone != null:
+		_vision_cone.color = Color(1.0, 0.25, 0.1, 0.18) if _winding else Color(1.0, 1.0, 0.3, 0.12)
