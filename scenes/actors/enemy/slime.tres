@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://8o4mu6dxwacj"]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+
+[resource]
+script = ExtResource("1_g8nro")
+crystal_value_min = 3
+crystal_value_max = 5
+metadata/_custom_type_script = "uid://le6jfvhlcbou"
