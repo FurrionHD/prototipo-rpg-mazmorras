@@ -16,3 +16,5 @@ offset_bottom = 16.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=457845239]
 shape = SubResource("RectangleShape2D_x7qdl")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1382173583]
