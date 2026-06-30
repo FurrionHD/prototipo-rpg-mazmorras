@@ -128,10 +128,23 @@ resources/     datos como .tres (items, enemigos, dificultad)
   tú = tu iniciativa; el enemigo al alcanzarte = su iniciativa. (KAN-49)
 - Quitado el DetectionArea (detección ahora por distancia+ángulo).
 
-### Pendiente PRÓXIMO (terminar el roadmap base): Fases 5, 6 y 7
-- **Fase 5 (KAN-30):** drop de cristal al ganar + minijuego de recogida.
-- **Fase 6 (KAN-35):** inventario + HUD.
-- **Fase 7 (KAN-39):** tienda / venta.
+### Fase 5 — Loot: extracción de cristal + drop ✅ (núcleo completado)
+- [x] Al ganar, el cuerpo queda como CADAVER (gris, grupo "corpse").
+- [x] `F` sobre el cuerpo → minijuego de extracción (`scripts/ui/extraction.gd`):
+  barra con zona verde aleatoria, N pulsaciones (slime 3), acelera por acierto;
+  calidad por proporción de fallos (intacto/normal/dañado/roto).
+- [x] Tamaño de zona escala con Destreza vs "esperada" del enemigo (topes).
+- [x] Tras extraer, el cuerpo se desvanece; ~0.7s después puede dejar un DROP
+  en el suelo (`MonsterDrop`, `drop_pickup.gd`), calidad Defectuoso/Normal/
+  Excelente; se recoge con F. Cristales/drops en `Game.crystals` / `Game.drops`.
+- [ ] KAN-68: herramientas de recolección (cuchillos) — placeholders listos
+  (`Game.tool_hit_reduction` / `tool_destreza_bonus`); falta sistema de equipo.
+- OJO: `Game.dev_force_drop = true` (drop al 100% para pruebas). Poner en false
+  para usar el `drop_chance` real (2%).
+
+### Pendiente PRÓXIMO: Fases 6 y 7
+- **Fase 6 (KAN-35):** inventario + HUD (mostrar cristales y drops).
+- **Fase 7 (KAN-39):** tienda / venta (precio según categoría + calidad).
 
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
