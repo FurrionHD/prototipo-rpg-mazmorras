@@ -2,6 +2,7 @@
 
 [ext_resource type="PackedScene" uid="uid://bgndhyu01suwv" path="res://scenes/actors/player/player.tscn" id="1_72ix8"]
 [ext_resource type="PackedScene" uid="uid://bd26b4wbnosli" path="res://scenes/levels/wall.tscn" id="2_2vj2h"]
+[ext_resource type="PackedScene" uid="uid://dg1p61ujpsj41" path="res://scenes/actors/enemy/enemy.tscn" id="3_y0acb"]
 
 [node name="Main" type="Node2D" unique_id=731661649]
 
@@ -25,3 +26,6 @@ scale = Vector2(1, 9)
 [node name="WallRight" parent="Walls" unique_id=918058462 instance=ExtResource("2_2vj2h")]
 position = Vector2(560, 230)
 scale = Vector2(1, 9)
+
+[node name="Enemy" parent="." unique_id=20286081 instance=ExtResource("3_y0acb")]
+position = Vector2(480, 250)

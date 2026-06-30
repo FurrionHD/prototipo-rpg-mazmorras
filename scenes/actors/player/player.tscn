@@ -5,7 +5,7 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_x7qdl"]
 size = Vector2(32, 32)
 
-[node name="Player" type="CharacterBody2D" unique_id=283709743]
+[node name="Player" type="CharacterBody2D" unique_id=283709743 groups=["player"]]
 script = ExtResource("1_wmv1v")
 
 [node name="ColorRect" type="ColorRect" parent="." unique_id=620466546]
