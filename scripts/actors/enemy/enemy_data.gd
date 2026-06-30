@@ -46,6 +46,10 @@ class_name EnemyData
 # alto (necesitas mas Destreza para que la zona sea comoda).
 @export var extraction_req_destreza: int = 60
 
+# --- Drop raro del monstruo (material, Fase 5) ---
+@export var drop_name: String = "Material de Slime"
+@export var drop_chance: float = 0.02   # 2% normal (en pruebas se fuerza 100%)
+
 
 # Crea un objeto Abilities a partir de los campos de habilidades.
 func crear_abilities() -> Abilities:

@@ -148,21 +148,40 @@ func _try_attack() -> void:
 				return
 
 
-# Busca el cadaver mas cercano en rango y abre su minijuego de extraccion.
+# Con F: primero intenta EXTRAER de un cadaver cercano; si no hay, RECOGE un
+# drop del suelo cercano.
 func _try_interact() -> void:
+	# 1) Cadaver para extraer.
+	var corpse: Node = _mas_cercano_en_grupo("corpse", true)
+	if corpse != null:
+		Game.start_extraction(corpse)
+		return
+
+	# 2) Drop del suelo para recoger.
+	var pickup: Node = _mas_cercano_en_grupo("pickup", false)
+	if pickup != null and pickup.has_method("recoger"):
+		var drop: MonsterDrop = pickup.recoger()
+		if drop != null:
+			Game.drops.append(drop)
+			print("Recoges: ", drop.nombre, " (", drop.calidad_texto(),
+				"). Total drops: ", Game.drops.size())
+
+
+# Devuelve el nodo mas cercano del grupo dentro del rango de interaccion.
+# Si skip_extracted, ignora los cadaveres ya extraidos.
+func _mas_cercano_en_grupo(grupo: String, skip_extracted: bool) -> Node:
 	var nearest: Node = null
 	var best: float = INF
-	for c in get_tree().get_nodes_in_group("corpse"):
-		if not is_instance_valid(c):
+	for n in get_tree().get_nodes_in_group(grupo):
+		if not is_instance_valid(n):
 			continue
-		if "extracted" in c and c.extracted:
-			continue  # ya extraido
-		var d: float = global_position.distance_to(c.global_position)
+		if skip_extracted and "extracted" in n and n.extracted:
+			continue
+		var d: float = global_position.distance_to(n.global_position)
 		if d <= interact_range and d < best:
 			best = d
-			nearest = c
-	if nearest != null:
-		Game.start_extraction(nearest)
+			nearest = n
+	return nearest
 
 
 # Crea una barrita de aguante en pantalla (arriba a la izquierda).

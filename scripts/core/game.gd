@@ -24,14 +24,19 @@ var player_current_hp: int = -1
 
 var _combat_scene: PackedScene = preload("res://scenes/ui/combat.tscn")
 var _extraction_script: GDScript = preload("res://scripts/ui/extraction.gd")
+var _drop_pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
 var _active_enemy: Node = null     # enemigo del combate en curso
 var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
 
 # Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
 var current_floor: int = 1
 
-# Cristales obtenidos (inventario temporal hasta la Fase 6).
+# Cristales y drops obtenidos (inventario temporal hasta la Fase 6).
 var crystals: Array[Cristal] = []
+var drops: Array[MonsterDrop] = []
+
+# PRUEBAS: fuerza el drop al 100%. Poner en false para usar drop_chance real.
+var dev_force_drop: bool = true
 
 # Bonus de HERRAMIENTAS de recoleccion (cuchillos...). Placeholder hasta tener
 # sistema de equipo: las herramientas rellenaran estos valores.
@@ -132,6 +137,40 @@ func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 			" (", cristal.calidad_texto(), "). Total: ", crystals.size())
 	else:
 		print("El cristal se rompio: lo has perdido.")
+
+	# Drop raro del monstruo (probabilidad baja; en pruebas, 100%).
+	if cristal != null and is_instance_valid(corpse) and corpse.data != null:
+		_tirar_drop(corpse, cristal.categoria)
+
+
+# Tira (o no) el drop del monstruo. Si sale, aparece en el SUELO (para
+# recogerlo con F) DESPUES de que el cuerpo se desvanezca.
+func _tirar_drop(corpse: Node, categoria: int) -> void:
+	var data: EnemyData = corpse.data
+	var chance: float = 1.0 if dev_force_drop else data.drop_chance
+	if randf() >= chance:
+		return
+
+	# Valor en una franja de 3 que se desplaza con la categoria del cristal.
+	var base: int = maxi(1, categoria - 2)
+	var valor: int = randi_range(base, base + 2)
+	var drop := MonsterDrop.new()
+	drop.nombre = data.drop_name
+	drop.calidad = MonsterDrop.calidad_desde_valor(valor)
+
+	var pos: Vector2 = corpse.global_position
+	var parent: Node = corpse.get_parent()
+
+	# Esperamos a que el cuerpo termine de desvanecerse, y entonces dejamos
+	# el drop en el suelo donde estaba.
+	await get_tree().create_timer(0.7).timeout
+	if parent != null and is_instance_valid(parent):
+		var pickup: Node2D = _drop_pickup_script.new()
+		pickup.setup(drop)
+		parent.add_child(pickup)
+		pickup.global_position = pos
+		print("El monstruo deja un drop en el suelo: ", drop.nombre,
+			" (", drop.calidad_texto(), ")")
 
 
 func _on_combat_finished(player_won: bool, player_hp_left: int) -> void:
