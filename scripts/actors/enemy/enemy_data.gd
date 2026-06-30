@@ -1,48 +1,53 @@
 # ============================================================
 #  enemy_data.gd
-#  RECURSO (Resource) con los DATOS de un tipo de enemigo.
-#  No es un nodo: es un "molde de datos" que se guarda como archivo .tres.
-#  Asi puedes crear muchos enemigos distintos (slime, murcielago, jefe...)
-#  cambiando solo valores en el editor, sin tocar codigo.
+#  RECURSO (Resource) con los DATOS de un tipo de enemigo: identidad,
+#  habilidades de combate (DanMachi), stats base y datos de exploracion.
+#  Se guarda como archivo .tres. Sabe crear su propio Combatant para la
+#  pantalla de combate.
 # ============================================================
 
-# "extends Resource" = esto es un recurso de datos reutilizable.
 extends Resource
-
-# "class_name" registra el tipo en Godot, para poder crear archivos .tres
-# de tipo "EnemyData" desde el editor (clic derecho -> Nuevo Recurso).
 class_name EnemyData
 
 # --- Identidad ---
 @export var enemy_name: String = "Slime"
+@export var color: Color = Color(1.0, 0.2, 0.2)  # color del placeholder
 
-# --- Color del placeholder (mientras no haya sprites) ---
-@export var color: Color = Color(1.0, 0.2, 0.2)  # rojo por defecto
+# --- Combate: nivel + habilidades DanMachi (0-999) ---
+@export var level: int = 1
+@export_range(0, 999) var fuerza: int = 80
+@export_range(0, 999) var resistencia: int = 70
+@export_range(0, 999) var destreza: int = 30
+@export_range(0, 999) var agilidad: int = 60
+@export_range(0, 999) var magia: int = 0
 
-# --- Estadisticas de combate (se usaran en la Fase 4) ---
-# Son FRANJAS (min-max): cada enemigo concreto tira un valor aleatorio
-# dentro de la franja al aparecer (ver enemy.gd). Asi dos slimes no son
-# identicos. Si quisieras un valor fijo, pon min = max.
-@export var health_min: int = 18
-@export var health_max: int = 25
+# --- Combate: stats base (lo que tiene "de serie", sin habilidades) ---
+@export var base_hp: float = 40.0
+@export var base_attack: float = 4.0
+@export var base_defense: float = 5.0
+@export var base_speed: float = 4.0
 
-@export var attack_min: int = 4
-@export var attack_max: int = 7
-
-# Velocidad de COMBATE (agilidad): decide el orden de los turnos en la
-# Fase 4. Cuanto mayor, antes actua; si es muy superior a la del rival,
-# podra actuar 2 veces antes que el. Tambien es franja (min-max).
-@export var speed_min: int = 8
-@export var speed_max: int = 12
-
-# --- Movimiento en la exploracion (mazmorra) ---
-# Velocidad a la que PATRULLA y PERSIGUE por la mazmorra. Tambien franja:
-# un enemigo rapido te alcanza mas facil y podra iniciar el combate.
-# Es independiente de la velocidad de combate (speed_min/max).
+# --- Exploracion (mazmorra): velocidad de patrulla/persecucion (franja) ---
 @export var move_speed_min: float = 30.0
 @export var move_speed_max: float = 55.0
 
 # --- Loot: franja de valor del cristal que suelta (Fase 5) ---
-# Al morir generara un cristal con valor aleatorio entre estos dos.
 @export var crystal_value_min: int = 5
 @export var crystal_value_max: int = 15
+
+
+# Crea un objeto Abilities a partir de los campos de habilidades.
+func crear_abilities() -> Abilities:
+	var a := Abilities.new()
+	a.fuerza = fuerza
+	a.resistencia = resistencia
+	a.destreza = destreza
+	a.agilidad = agilidad
+	a.magia = magia
+	return a
+
+
+# Crea el Combatant (lo que usa la pantalla de combate) de este enemigo.
+func crear_combatant() -> Combatant:
+	return Combatant.new(enemy_name, level, crear_abilities(),
+		base_hp, base_attack, base_defense, base_speed)

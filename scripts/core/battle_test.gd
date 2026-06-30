@@ -29,5 +29,5 @@ func _ready() -> void:
 	slime_ab.magia = 0
 	var slime := Combatant.new("Slime", 1, slime_ab, 40, 4, 5, 4)
 
-	# Lanzamos la batalla. El heroe tiene la iniciativa (empezo el combate).
-	Battle.simulate(heroe, slime, heroe)
+	# Lanzamos la batalla. Para esta prueba, el SLIME tiene la iniciativa.
+	Battle.simulate(heroe, slime, slime)

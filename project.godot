@@ -11,9 +11,13 @@ config_version=5
 [application]
 
 config/name="prototipo rpg mazmoras"
-run/main_scene="uid://bgndhyu01suwv"
+run/main_scene="uid://d27u6g55m2ygj"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[autoload]
+
+Game="*res://scripts/core/game.gd"
 
 [display]
 

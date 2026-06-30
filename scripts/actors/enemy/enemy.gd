@@ -42,11 +42,10 @@ var _combat_triggered: bool = false  # para no disparar el combate dos veces
 var _home: Vector2 = Vector2.ZERO  # posicion original donde patrulla
 var _returning: bool = false       # true mientras vuelve a su sitio
 
-# --- Stats CONCRETAS de ESTE enemigo (tiradas al azar al aparecer) ---
-var current_health: int = 0
-var current_attack: int = 0
-var current_speed: int = 0        # agilidad de combate (orden de turnos)
-var current_move_speed: float = 0.0  # velocidad de exploracion (mazmorra)
+# Velocidad de exploracion concreta (al azar al aparecer). Las stats de
+# COMBATE (vida, ataque, velocidad de combate...) las calcula la pantalla de
+# combate desde EnemyData; aqui en la mazmorra solo importa moverse.
+var current_move_speed: float = 0.0
 
 
 func _ready() -> void:
@@ -60,15 +59,8 @@ func _ready() -> void:
 	if data != null:
 		# Color del placeholder segun los datos.
 		_color_rect.color = data.color
-
-		# Tiramos las stats al azar dentro de sus franjas (min-max).
-		current_health = randi_range(data.health_min, data.health_max)
-		current_attack = randi_range(data.attack_min, data.attack_max)
-		current_speed = randi_range(data.speed_min, data.speed_max)
+		# Velocidad de exploracion al azar dentro de su franja.
 		current_move_speed = randf_range(data.move_speed_min, data.move_speed_max)
-		print(data.enemy_name, " aparece -> vida=", current_health,
-			" ataque=", current_attack, " velCombate=", current_speed,
-			" velMazmorra=", roundi(current_move_speed))
 
 	# Conectamos por codigo las senales del Area2D de deteccion.
 	_detection_area.body_entered.connect(_on_detection_body_entered)
@@ -168,7 +160,6 @@ func _start_combat() -> void:
 		player_speed = (_target.velocity as Vector2).length()
 	var enemy_initiated: bool = enemy_speed > player_speed
 
-	var quien := "EL ENEMIGO" if enemy_initiated else "EL JUGADOR"
-	print("¡COMBATE contra ", data.enemy_name, "! Inicia ", quien,
-		" (aqui se abrira el combate en la Fase 4)")
 	combat_started.emit(data, enemy_initiated)
+	# Abrimos la pantalla de combate (el gestor global pausa la mazmorra).
+	Game.start_combat(self, data, enemy_initiated)
