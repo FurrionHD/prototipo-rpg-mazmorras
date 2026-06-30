@@ -84,16 +84,26 @@ resources/     datos como .tres (items, enemigos, dificultad)
 
 ---
 
-## Fase 1 — Movimiento (EN CURSO)
+## Progreso
 
-Hecho por Claude (VS Code):
-- [x] Estructura de carpetas creada.
-- [x] `player.gd` reubicado a `scripts/actors/player/player.gd` (con comentarios).
-- [x] Acciones de input `move_left/right/up/down` (WASD + flechas) añadidas a `project.godot`.
+### Fase 1 — Movimiento ✅ COMPLETADA
+- [x] Estructura de carpetas.
+- [x] `player.gd` (movimiento WASD/flechas, 8 dir) en `scripts/actors/player/`.
+- [x] Input map `move_left/right/up/down` en `project.godot`.
+- [x] Escena `scenes/actors/player/player.tscn` (CharacterBody2D + ColorRect + CollisionShape2D).
+- [x] Probado: el jugador se mueve. (Jira KAN-7..12)
 
-Pendiente por el usuario (en el editor de Godot):
-- [ ] Montar `scenes/actors/player/player.tscn` (CharacterBody2D + ColorRect cuadrado + CollisionShape2D) y asignarle `player.gd`.
-- [ ] Crear escena principal `scenes/levels/main.tscn`, meter al jugador y marcarla como escena principal.
-- [ ] Darle a Play y probar el movimiento.
+### Fase 2 — Sala con paredes ✅ COMPLETADA
+- [x] Escena de nivel `scenes/levels/main.tscn` con el jugador.
+- [x] Pared reutilizable `scenes/levels/wall.tscn` (StaticBody2D).
+- [x] Sala rectangular (contenedor `Walls` con 4 instancias escaladas); el jugador colisiona.
+- [x] `Camera2D` dentro de `player.tscn` que sigue al jugador.
+- [x] Probado: colisiones y cámara OK. (Jira KAN-13..17)
 
-Nota: placeholder cuadrado (ColorRect) por ahora; lo visual/animaciones, al final.
+### Próximo: Fase 3 — Enemigo en la mazmorra
+- Crear enemigo (placeholder), Resource de enemigo, y Area2D que dispare el combate al tocarlo.
+
+Nota: placeholders cuadrados (ColorRect) por ahora; lo visual/animaciones, al final.
+Pendiente menor: borrar `escena_2d_prueba.tscn` (raíz, sin uso).
+Recordatorio: `player.tscn` sigue siendo la escena principal del proyecto;
+si se quiere arrancar en el nivel, cambiar a `main.tscn` en Ajustes del proyecto.
