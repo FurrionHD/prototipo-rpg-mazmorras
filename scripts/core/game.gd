@@ -36,7 +36,7 @@ var crystals: Array[Cristal] = []
 var drops: Array[MonsterDrop] = []
 
 # PRUEBAS: fuerza el drop al 100%. Poner en false para usar drop_chance real.
-var dev_force_drop: bool = true
+var dev_force_drop: bool = false
 
 # Bonus de HERRAMIENTAS de recoleccion (cuchillos...). Placeholder hasta tener
 # sistema de equipo: las herramientas rellenaran estos valores.
