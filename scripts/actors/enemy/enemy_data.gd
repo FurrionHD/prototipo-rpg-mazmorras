@@ -38,6 +38,14 @@ class_name EnemyData
 @export var crystal_category_min: int = 3
 @export var crystal_category_max: int = 5
 
+# --- Extraccion (minijuego, Fase 5) ---
+# Pulsaciones base necesarias (slime 3; enemigos avanzados 4-5).
+@export var extraction_hits: int = 3
+# Destreza "esperada" para este enemigo: el tamaño de la zona escala con
+# tu_Destreza / esta. Debiles = bajo (la Destreza luce pronto); dificiles =
+# alto (necesitas mas Destreza para que la zona sea comoda).
+@export var extraction_req_destreza: int = 60
+
 
 # Crea un objeto Abilities a partir de los campos de habilidades.
 func crear_abilities() -> Abilities:

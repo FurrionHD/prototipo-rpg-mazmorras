@@ -230,6 +230,14 @@ func esta_muerto() -> bool:
 	return _dead
 
 
+# Tras extraer el cristal: el cuerpo se desvanece (baja opacidad) y desaparece.
+func desvanecer() -> void:
+	remove_from_group("corpse")  # ya no interactuable
+	var t := create_tween()
+	t.tween_property(self, "modulate:a", 0.0, 0.6)  # fundido a transparente
+	t.tween_callback(queue_free)
+
+
 func _return() -> void:
 	var to_home: Vector2 = _home - global_position
 	if to_home.length() <= 5.0:

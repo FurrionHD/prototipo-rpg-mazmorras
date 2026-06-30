@@ -46,6 +46,10 @@ var _attack_was_pressed: bool = false
 @export var attack_range: float = 44.0
 @export var attack_half_angle_deg: float = 70.0
 
+# Interaccion (F) con cadaveres para extraer el cristal.
+@export var interact_range: float = 40.0
+var _interact_was: bool = false
+
 # Barra de aguante (se crea por codigo, ver _crear_barra_aguante).
 var _stamina_bar: ProgressBar = null
 
@@ -117,6 +121,12 @@ func _physics_process(delta: float) -> void:
 		_try_attack()
 	_attack_was_pressed = atk
 
+	# Interactuar (F) con un cadaver cercano -> minijuego de extraccion.
+	var inter: bool = Input.is_key_pressed(KEY_F)
+	if inter and not _interact_was:
+		_try_interact()
+	_interact_was = inter
+
 
 # True si estamos agotados (lo consulta el enemigo para atacar al instante).
 func is_exhausted() -> bool:
@@ -136,6 +146,23 @@ func _try_attack() -> void:
 				if e.has_method("atacado_por_jugador"):
 					e.atacado_por_jugador()
 				return
+
+
+# Busca el cadaver mas cercano en rango y abre su minijuego de extraccion.
+func _try_interact() -> void:
+	var nearest: Node = null
+	var best: float = INF
+	for c in get_tree().get_nodes_in_group("corpse"):
+		if not is_instance_valid(c):
+			continue
+		if "extracted" in c and c.extracted:
+			continue  # ya extraido
+		var d: float = global_position.distance_to(c.global_position)
+		if d <= interact_range and d < best:
+			best = d
+			nearest = c
+	if nearest != null:
+		Game.start_extraction(nearest)
 
 
 # Crea una barrita de aguante en pantalla (arriba a la izquierda).

@@ -23,8 +23,20 @@ var player_base_speed: float = 5.0
 var player_current_hp: int = -1
 
 var _combat_scene: PackedScene = preload("res://scenes/ui/combat.tscn")
+var _extraction_script: GDScript = preload("res://scripts/ui/extraction.gd")
 var _active_enemy: Node = null     # enemigo del combate en curso
-var _active_layer: CanvasLayer = null  # capa donde vive la pantalla de combate
+var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
+
+# Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
+var current_floor: int = 1
+
+# Cristales obtenidos (inventario temporal hasta la Fase 6).
+var crystals: Array[Cristal] = []
+
+# Bonus de HERRAMIENTAS de recoleccion (cuchillos...). Placeholder hasta tener
+# sistema de equipo: las herramientas rellenaran estos valores.
+var tool_hit_reduction: int = 0    # reduce pulsaciones necesarias
+var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
 
 
 # Crea el Combatant del jugador con sus stats actuales (manteniendo la vida).
@@ -68,6 +80,58 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 	_active_layer = layer
 
 	get_tree().paused = true  # congela la mazmorra mientras luchas
+
+
+# Abre el minijuego de extraccion sobre el cuerpo de un enemigo.
+func start_extraction(corpse: Node) -> void:
+	if _active_layer != null or corpse == null:
+		return
+	var data: EnemyData = corpse.data
+	if data == null:
+		return
+
+	var categoria: int = data.roll_crystal_category()
+	var eff_destreza: int = player_destreza + tool_destreza_bonus
+
+	# Pulsaciones: base del enemigo, menos lo que ayuden las herramientas.
+	var required_hits: int = clampi(data.extraction_hits - tool_hit_reduction, 2, 9)
+	# Zona: escala con tu Destreza respecto a la "esperada" del enemigo (con topes).
+	var req: int = maxi(1, data.extraction_req_destreza)
+	var zone_ratio: float = clampf(0.13 * float(eff_destreza) / float(req), 0.05, 0.35)
+	# Marcador mas rapido cuanto mas profundo el piso, y acelera por acierto.
+	var marker_speed: float = 0.8 + float(current_floor - 1) * 0.08
+	var speed_step: float = 0.3
+
+	var ex: Control = _extraction_script.new()
+	ex.process_mode = Node.PROCESS_MODE_ALWAYS
+	ex.setup(categoria, required_hits, zone_ratio, marker_speed, speed_step)
+	ex.extraction_finished.connect(_on_extraction_finished.bind(corpse))
+
+	var layer := CanvasLayer.new()
+	layer.layer = 100
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	get_tree().root.add_child(layer)
+	layer.add_child(ex)
+	_active_layer = layer
+	get_tree().paused = true
+
+
+func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
+	get_tree().paused = false
+	if is_instance_valid(corpse):
+		corpse.extracted = true  # ya no se puede volver a extraer
+		if corpse.has_method("desvanecer"):
+			corpse.desvanecer()  # el cuerpo se desvanece y desaparece
+	if is_instance_valid(_active_layer):
+		_active_layer.queue_free()
+	_active_layer = null
+
+	if cristal != null and not cristal.se_pierde():
+		crystals.append(cristal)
+		print("Obtienes cristal categoria ", cristal.categoria,
+			" (", cristal.calidad_texto(), "). Total: ", crystals.size())
+	else:
+		print("El cristal se rompio: lo has perdido.")
 
 
 func _on_combat_finished(player_won: bool, player_hp_left: int) -> void:
