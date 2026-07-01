@@ -200,7 +200,7 @@ func _poder_enemigo_nodo(e: Node) -> float:
 	var p: float = 1.0
 	if "current_power" in e:
 		p = e.current_power
-	return float(e.data.suma_habilidades_base()) * p
+	return float(e.data.suma_habilidades(p))
 
 
 # Busca un enemigo justo enfrente y muy cerca; si lo hay, inicia el combate

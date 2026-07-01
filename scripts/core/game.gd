@@ -273,7 +273,7 @@ func start_extraction(corpse: Node) -> void:
 	var enemy_power: float = 1.0
 	if "current_power" in corpse:
 		enemy_power = corpse.current_power
-	var enemy_suma: float = float(data.suma_habilidades_base()) * enemy_power
+	var enemy_suma: float = float(data.suma_habilidades(enemy_power))
 	var req: float = maxf(1.0, enemy_suma * EXTRACTION_REQ_FACTOR)
 
 	# Zona: tu Destreza frente a la exigencia (bicho fuerte = zona mas pequeña).

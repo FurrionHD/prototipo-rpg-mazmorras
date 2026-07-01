@@ -84,7 +84,7 @@ func _ready() -> void:
 		current_move_speed = randf_range(data.move_speed_min, data.move_speed_max)
 		print(data.enemy_name, " aparece -> poder=", snappedf(current_power, 0.01),
 			" (t=", snappedf(poder_normalizado(), 0.01),
-			", suma~", roundi(data.suma_habilidades_base() * current_power), ")")
+			", suma~", data.suma_habilidades(current_power), ")")
 
 	_crear_indicadores()
 	_pick_wander_target()

@@ -54,9 +54,20 @@ class_name EnemyData
 @export var drop_chance: float = 0.02   # 2% normal (en pruebas se fuerza 100%)
 
 
-# Suma de las habilidades base (sin poder). El slime = 240 ahora mismo.
+# Suma de las habilidades base (sin poder).
 func suma_habilidades_base() -> int:
 	return fuerza + resistencia + destreza + agilidad + magia
+
+
+# Suma de las habilidades YA escaladas por el poder y CAPADAS a 999 c/u
+# (poder de combate REAL, maximo 4995). Se usa para dificultad/reto/loot,
+# asi coincide con lo que de verdad tiene el enemigo en combate.
+func suma_habilidades(power: float) -> int:
+	return clampi(int(round(fuerza * power)), 0, 999) \
+		+ clampi(int(round(resistencia * power)), 0, 999) \
+		+ clampi(int(round(destreza * power)), 0, 999) \
+		+ clampi(int(round(agilidad * power)), 0, 999) \
+		+ clampi(int(round(magia * power)), 0, 999)
 
 
 # Crea las Abilities, escaladas por el "poder" de ESTE bicho (1.0 = base).
