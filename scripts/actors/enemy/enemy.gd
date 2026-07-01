@@ -16,11 +16,15 @@ extends CharacterBody2D
 @export var data: EnemyData
 
 # Cada bicho tira un "poder" al aparecer que escala sus habilidades (bichos
-# flojos y fuertes). Tambien decide la categoria del cristal (mas poder =
-# mejor cristal). Para el slime (suma base 240) esto da ~144-336 de suma.
-@export var power_min: float = 0.6
-@export var power_max: float = 1.4
+# flojos y fuertes) y decide la categoria del cristal. La VARIACION se estrecha
+# cuanto mas fuerte es el enemigo: los flojos varian mucho (variedad temprana),
+# los muy fuertes casi nada (un enemigo poderoso es consistente, no unos
+# triviales y otros brutales).
+@export var power_variation_max: float = 0.4  # variacion a nivel bajo (±40%)
+const _POWER_VAR_REF := 4995.0  # suma de referencia (tope teorico 5x999)
 var current_power: float = 1.0
+var _power_min: float = 0.6
+var _power_max: float = 1.4
 
 # --- Deambular ---
 @export var wander_radius: float = 90.0       # cuanto se aleja de su sitio
@@ -75,8 +79,14 @@ func _ready() -> void:
 	_home = global_position
 	_player = get_tree().get_first_node_in_group("player")
 
-	# Poder de ESTE bicho (flojo o fuerte).
-	current_power = randf_range(power_min, power_max)
+	# Poder de ESTE bicho. La variacion se estrecha a mayor nivel del enemigo.
+	var v: float = power_variation_max
+	if data != null:
+		var nivel: float = clampf(float(data.suma_habilidades_base()) / _POWER_VAR_REF, 0.0, 1.0)
+		v = maxf(power_variation_max * (1.0 - nivel), 0.03)  # minimo 3% de variacion
+	_power_min = 1.0 - v
+	_power_max = 1.0 + v
+	current_power = randf_range(_power_min, _power_max)
 
 	if data != null:
 		# Color base + tinte por poder (los fuertes salen mas claros).
@@ -247,9 +257,9 @@ func esta_muerto() -> bool:
 # "t" (0..1): donde cae este bicho entre su version mas floja y la mas fuerte.
 # Lo usa la categoria del cristal (t alto = cristal de mejor categoria).
 func poder_normalizado() -> float:
-	if power_max <= power_min:
+	if _power_max <= _power_min:
 		return 0.5
-	return clampf((current_power - power_min) / (power_max - power_min), 0.0, 1.0)
+	return clampf((current_power - _power_min) / (_power_max - _power_min), 0.0, 1.0)
 
 
 # Tras extraer el cristal: el cuerpo se desvanece (baja opacidad) y desaparece.
