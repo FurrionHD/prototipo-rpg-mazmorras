@@ -45,6 +45,18 @@ var drops: Array[MonsterDrop] = []
 # PRUEBAS: fuerza el drop al 100%. Poner en false para usar drop_chance real.
 var dev_force_drop: bool = false
 
+# PRUEBAS: cuantos cristales meter en el inventario al arrancar (0 = ninguno).
+var dev_start_crystals: int = 0
+
+
+func _ready() -> void:
+	# TEMPORAL: relleno de cristales para probar el peso/sobrecarga.
+	for _i in dev_start_crystals:
+		var c := Cristal.new()
+		c.categoria = randi_range(3, 5)
+		c.calidad = Cristal.Calidad.INTACTO
+		crystals.append(c)
+
 # Bonus de HERRAMIENTAS de recoleccion (cuchillos...). Placeholder hasta tener
 # sistema de equipo: las herramientas rellenaran estos valores.
 var tool_hit_reduction: int = 0    # reduce pulsaciones necesarias
