@@ -35,9 +35,9 @@ const RETO_MAX := 3.0              # tope de dificultad relativa
 const PODER_JUGADOR_SUELO := 10.0  # suelo para no dividir por 0 a nivel 0
 # Ganancias base por fuente (ajustables).
 const GAIN_FUERZA_ATAQUE := 0.15
-const GAIN_FUERZA_PESO := 0.4
-const GAIN_AGILIDAD_CORRER := 0.4
-const GAIN_RESISTENCIA_GOLPE := 0.2
+const GAIN_FUERZA_PESO := 0.0    # DESACTIVADA por ahora (rediseñar sin romper escalado)
+const GAIN_AGILIDAD_CORRER := 0.12
+const GAIN_RESISTENCIA_GOLPE := 0.5
 const GAIN_DESTREZA_MINIJUEGO := 1.0
 
 # Dificultad del ultimo minijuego de extraccion (para la ganancia de Destreza).
@@ -71,17 +71,19 @@ var drops: Array[MonsterDrop] = []
 # PRUEBAS: fuerza el drop al 100%. Poner en false para usar drop_chance real.
 var dev_force_drop: bool = false
 
-# PRUEBAS: cuantos cristales meter en el inventario al arrancar (0 = ninguno).
-var dev_start_crystals: int = 0
+# PRUEBAS: peso inicial como % de la capacidad al arrancar (0 = nada).
+var dev_start_weight_ratio: float = 0.0
 
 
 func _ready() -> void:
-	# TEMPORAL: relleno de cristales para probar el peso/sobrecarga.
-	for _i in dev_start_crystals:
-		var c := Cristal.new()
-		c.categoria = randi_range(3, 5)
-		c.calidad = Cristal.Calidad.INTACTO
-		crystals.append(c)
+	# TEMPORAL: relleno de cristales hasta ~X% de la capacidad para probar peso.
+	if dev_start_weight_ratio > 0.0:
+		var objetivo: float = dev_start_weight_ratio * capacidad_carga()
+		while peso_actual() < objetivo and crystals.size() < 200:
+			var c := Cristal.new()
+			c.categoria = randi_range(1, 3)
+			c.calidad = Cristal.Calidad.INTACTO
+			crystals.append(c)
 
 # Bonus de HERRAMIENTAS de recoleccion (cuchillos...). Placeholder hasta tener
 # sistema de equipo: las herramientas rellenaran estos valores.

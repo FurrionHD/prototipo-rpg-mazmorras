@@ -7,7 +7,7 @@
 [node name="Main" type="Node2D" unique_id=731661649]
 
 [node name="Player" parent="." unique_id=283709743 instance=ExtResource("1_72ix8")]
-position = Vector2(300, 200)
+position = Vector2(157, 142)
 
 [node name="Walls" type="Node2D" parent="." unique_id=1337684330]
 

@@ -58,7 +58,7 @@ var _stamina_bar: ProgressBar = null
 var _last_pos: Vector2 = Vector2.ZERO
 var _dist_overload: float = 0.0
 var _dist_run: float = 0.0
-const _DIST_TICK := 64.0        # px recorridos por cada "tick" de ganancia
+const _DIST_TICK := 110.0       # px recorridos por cada "tick" de ganancia
 const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
 
 
@@ -81,9 +81,15 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	# Con el inventario abierto: no te mueves ni interactuas (F/ataque). El
-	# enemigo sigue su IA aparte, asi que puede emboscarte igualmente.
+	# enemigo sigue su IA aparte, asi que puede emboscarte igualmente. Pero el
+	# TIEMPO pasa, asi que el aguante se sigue recuperando.
 	if Game.inventory_open:
 		velocity = Vector2.ZERO
+		current_stamina = minf(max_stamina, current_stamina + _regen_actual * delta)
+		if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
+			_exhausted = false
+		_stamina_bar.value = current_stamina
+		_stamina_bar.modulate = Color(1.0, 0.4, 0.4) if _exhausted else Color.WHITE
 		return
 
 	var direction: Vector2 = Input.get_vector(

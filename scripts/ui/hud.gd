@@ -26,14 +26,22 @@ func _ready() -> void:
 
 	# Panel de inventario (oculto por defecto), a pantalla completa oscura.
 	_panel = ColorRect.new()
-	_panel.color = Color(0.05, 0.05, 0.08, 0.9)
+	_panel.color = Color(0.05, 0.05, 0.08, 0.95)
 	_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel.visible = false
 	add_child(_panel)
 
+	# ScrollContainer con margenes: permite scrollear cuando la lista es larga.
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.offset_left = 40
+	scroll.offset_top = 40
+	scroll.offset_right = -40
+	scroll.offset_bottom = -40
+	_panel.add_child(scroll)
+
 	_list = Label.new()
-	_list.position = Vector2(60, 50)
-	_panel.add_child(_list)
+	scroll.add_child(_list)
 
 
 func _process(_delta: float) -> void:
@@ -61,36 +69,53 @@ func _process(_delta: float) -> void:
 
 
 func _refrescar_lista() -> void:
-	var total: int = 0
 	var s: String = "INVENTARIO   ( [I] para cerrar )\n\n"
 
+	# --- HABILIDADES arriba (siempre visibles, aunque el inventario este lleno) ---
+	var ai: Dictionary = Game.ability_internal
+	s += "HABILIDADES (visible / interno):\n"
+	s += "  Fuerza: %d / %.1f     Resistencia: %d / %.1f     Destreza: %d / %.1f\n" % [
+		Game.player_fuerza, ai["fuerza"], Game.player_resistencia, ai["resistencia"],
+		Game.player_destreza, ai["destreza"]]
+	s += "  Agilidad: %d / %.1f    Magia: %d / %.1f\n" % [
+		Game.player_agilidad, ai["agilidad"], Game.player_magia, ai["magia"]]
+	s += "  [U] actualizar estado   [H] curar 100%   [R] respawn\n\n"
+
+	# --- Peso / valor ---
+	var total: int = 0
+	for c in Game.crystals:
+		total += c.valor_estimado()
+	for d in Game.drops:
+		total += d.valor_estimado()
+	s += "PESO: %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
+	if Game.esta_sobrecargado():
+		s += "  (SOBRECARGADO: vas mas lento)"
+	s += "\nVALOR TOTAL ESTIMADO: %d\n\n" % total
+
+	# --- Cristales AGRUPADOS (categoria + calidad) ---
 	s += "CRISTALES (%d):\n" % Game.crystals.size()
 	if Game.crystals.is_empty():
 		s += "  (vacio)\n"
-	for c in Game.crystals:
-		s += "  - Categoria %d  (%s)   ~%d\n" % [c.categoria, c.calidad_texto(), c.valor_estimado()]
-		total += c.valor_estimado()
+	else:
+		var grupos: Dictionary = {}
+		for c in Game.crystals:
+			var k: String = "%d|%s" % [c.categoria, c.calidad_texto()]
+			grupos[k] = grupos.get(k, 0) + 1
+		for k in grupos:
+			var p: PackedStringArray = k.split("|")
+			s += "  Cat %s (%s)  x%d\n" % [p[0], p[1], grupos[k]]
 
+	# --- Drops AGRUPADOS ---
 	s += "\nDROPS (%d):\n" % Game.drops.size()
 	if Game.drops.is_empty():
 		s += "  (vacio)\n"
-	for d in Game.drops:
-		s += "  - %s  (%s)   ~%d\n" % [d.nombre, d.calidad_texto(), d.valor_estimado()]
-		total += d.valor_estimado()
-
-	s += "\nVALOR TOTAL ESTIMADO: %d" % total
-	s += "\nPESO: %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
-	if Game.esta_sobrecargado():
-		s += "   (SOBRECARGADO: vas mas lento)"
-
-	# Habilidades: valor VISIBLE (en combate) / INTERNO (acumulado por uso).
-	var ai: Dictionary = Game.ability_internal
-	s += "\n\nHABILIDADES (visible / interno):\n"
-	s += "  Fuerza:     %d / %.1f\n" % [Game.player_fuerza, ai["fuerza"]]
-	s += "  Resistencia:%d / %.1f\n" % [Game.player_resistencia, ai["resistencia"]]
-	s += "  Destreza:   %d / %.1f\n" % [Game.player_destreza, ai["destreza"]]
-	s += "  Agilidad:   %d / %.1f\n" % [Game.player_agilidad, ai["agilidad"]]
-	s += "  Magia:      %d / %.1f\n" % [Game.player_magia, ai["magia"]]
-	s += "\n[U] actualizar estado (hogar)   [H] curar 100%   [R] respawn"
+	else:
+		var gd: Dictionary = {}
+		for d in Game.drops:
+			var k: String = "%s|%s" % [d.nombre, d.calidad_texto()]
+			gd[k] = gd.get(k, 0) + 1
+		for k in gd:
+			var p: PackedStringArray = k.split("|")
+			s += "  %s (%s)  x%d\n" % [p[0], p[1], gd[k]]
 
 	_list.text = s
