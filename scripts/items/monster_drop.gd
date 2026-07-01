@@ -30,6 +30,11 @@ func valor_estimado() -> int:
 		_: return 120
 
 
+# Peso del material (fijo, ligero).
+func peso() -> float:
+	return 2.0
+
+
 # Convierte un valor numerico (de la franja) en calidad. Umbrales ajustables.
 # (Permisivo a proposito: el drop ya es raro, asi que su calidad no es dura.)
 static func calidad_desde_valor(valor: int) -> Calidad:

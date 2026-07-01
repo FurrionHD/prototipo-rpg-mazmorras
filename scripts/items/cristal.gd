@@ -18,13 +18,21 @@ enum Calidad { INTACTO, NORMAL, DANADO, ROTO }
 @export var calidad: Calidad = Calidad.NORMAL
 
 
-# Multiplicador de valor segun la calidad.
+# Multiplicador de VALOR segun la calidad (precios bien marcados).
 func multiplicador_calidad() -> float:
 	match calidad:
-		Calidad.INTACTO: return 1.0
-		Calidad.NORMAL: return 0.7
-		Calidad.DANADO: return 0.4
+		Calidad.INTACTO: return 2.5
+		Calidad.NORMAL: return 1.0
+		Calidad.DANADO: return 0.45
 		_: return 0.0  # ROTO
+
+# Multiplicador de PESO segun la calidad (dañado pesa menos).
+func peso_mult_calidad() -> float:
+	match calidad:
+		Calidad.INTACTO: return 1.0
+		Calidad.NORMAL: return 0.9
+		Calidad.DANADO: return 0.7
+		_: return 0.0
 
 
 func se_pierde() -> bool:
@@ -39,6 +47,19 @@ func calidad_texto() -> String:
 		_: return "Roto"
 
 
+# Valor base por CATEGORIA en CURVA (no lineal): las categorias bajas valen
+# poco y las altas suben fuerte. valor_base = categoria^2 * factor.
+const VALOR_CAT_FACTOR := 4.0
+func valor_base_categoria() -> int:
+	return int(round(categoria * categoria * VALOR_CAT_FACTOR))
+
 # Valor ESTIMADO (para el HUD). El precio real con azar se calcula en la tienda.
 func valor_estimado() -> int:
-	return int(round(categoria * 10.0 * multiplicador_calidad()))
+	return int(round(valor_base_categoria() * multiplicador_calidad()))
+
+
+# Peso del cristal: mayor categoria = mas pesado, y la calidad lo ajusta
+# (dañado pesa menos). PESO_FACTOR global por si quieres aligerar todo.
+const PESO_FACTOR := 1.0
+func peso() -> float:
+	return maxf(0.4, categoria * PESO_FACTOR * peso_mult_calidad())

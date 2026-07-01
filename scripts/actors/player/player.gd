@@ -113,6 +113,9 @@ func _physics_process(delta: float) -> void:
 	# Pista visual: la barra se pone rojiza mientras estas agotado.
 	_stamina_bar.modulate = Color(1.0, 0.4, 0.4) if _exhausted else Color.WHITE
 
+	# Sobrecarga: cuanto mas peso, mas lento (gradual).
+	speed *= Game.overload_speed_factor()
+
 	velocity = direction * speed
 	move_and_slide()
 

@@ -37,9 +37,15 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	# Actualiza el contador.
-	_counts.text = "Cristales: %d    Drops: %d    [I] Inventario" % [
-		Game.crystals.size(), Game.drops.size()]
+	# Actualiza el contador (con peso/capacidad).
+	_counts.text = "Cristales: %d   Drops: %d   Peso: %d/%d   [I] Inventario" % [
+		Game.crystals.size(), Game.drops.size(),
+		roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
+	if Game.esta_sobrecargado():
+		_counts.text += "   (SOBRECARGADO)"
+		_counts.modulate = Color(1.0, 0.5, 0.5)
+	else:
+		_counts.modulate = Color.WHITE
 
 	# Alterna el panel con la tecla I.
 	var t: bool = Input.is_key_pressed(KEY_I)
@@ -70,4 +76,7 @@ func _refrescar_lista() -> void:
 		total += d.valor_estimado()
 
 	s += "\nVALOR TOTAL ESTIMADO: %d" % total
+	s += "\nPESO: %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
+	if Game.esta_sobrecargado():
+		s += "   (SOBRECARGADO: vas mas lento)"
 	_list.text = s
