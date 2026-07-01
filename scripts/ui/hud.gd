@@ -1,0 +1,73 @@
+# ============================================================
+#  hud.gd  (CanvasLayer creada por codigo desde el jugador)
+#  HUD de exploracion:
+#   - Contador SIEMPRE visible (arriba-izquierda): cristales y drops.
+#   - Panel de INVENTARIO que se abre/cierra con la tecla I: lista de
+#     cristales y drops (categoria/calidad) y el valor total estimado.
+#  Lee los datos del autoload Game (Game.crystals / Game.drops).
+# ============================================================
+
+extends CanvasLayer
+
+var _counts: Label = null
+var _panel: ColorRect = null
+var _list: Label = null
+var _panel_open: bool = false
+var _toggle_was: bool = false
+
+
+func _ready() -> void:
+	layer = 5  # por encima de la mazmorra, por debajo del combate (100)
+
+	# Contador siempre visible (debajo de la barra de aguante).
+	_counts = Label.new()
+	_counts.position = Vector2(12, 34)
+	add_child(_counts)
+
+	# Panel de inventario (oculto por defecto), a pantalla completa oscura.
+	_panel = ColorRect.new()
+	_panel.color = Color(0.05, 0.05, 0.08, 0.9)
+	_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_panel.visible = false
+	add_child(_panel)
+
+	_list = Label.new()
+	_list.position = Vector2(60, 50)
+	_panel.add_child(_list)
+
+
+func _process(_delta: float) -> void:
+	# Actualiza el contador.
+	_counts.text = "Cristales: %d    Drops: %d    [I] Inventario" % [
+		Game.crystals.size(), Game.drops.size()]
+
+	# Alterna el panel con la tecla I.
+	var t: bool = Input.is_key_pressed(KEY_I)
+	if t and not _toggle_was:
+		_panel_open = not _panel_open
+		_panel.visible = _panel_open
+		if _panel_open:
+			_refrescar_lista()
+	_toggle_was = t
+
+
+func _refrescar_lista() -> void:
+	var total: int = 0
+	var s: String = "INVENTARIO   ( [I] para cerrar )\n\n"
+
+	s += "CRISTALES (%d):\n" % Game.crystals.size()
+	if Game.crystals.is_empty():
+		s += "  (vacio)\n"
+	for c in Game.crystals:
+		s += "  - Categoria %d  (%s)   ~%d\n" % [c.categoria, c.calidad_texto(), c.valor_estimado()]
+		total += c.valor_estimado()
+
+	s += "\nDROPS (%d):\n" % Game.drops.size()
+	if Game.drops.is_empty():
+		s += "  (vacio)\n"
+	for d in Game.drops:
+		s += "  - %s  (%s)   ~%d\n" % [d.nombre, d.calidad_texto(), d.valor_estimado()]
+		total += d.valor_estimado()
+
+	s += "\nVALOR TOTAL ESTIMADO: %d" % total
+	_list.text = s

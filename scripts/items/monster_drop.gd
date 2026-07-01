@@ -22,6 +22,14 @@ func calidad_texto() -> String:
 		_: return "Excelente"
 
 
+# Valor ESTIMADO (para el HUD). El precio real con azar se calcula en la tienda.
+func valor_estimado() -> int:
+	match calidad:
+		Calidad.DEFECTUOSO: return 20
+		Calidad.NORMAL: return 50
+		_: return 120
+
+
 # Convierte un valor numerico (de la franja) en calidad. Umbrales ajustables.
 # (Permisivo a proposito: el drop ya es raro, asi que su calidad no es dura.)
 static func calidad_desde_valor(valor: int) -> Calidad:

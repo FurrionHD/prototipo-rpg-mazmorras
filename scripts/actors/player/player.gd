@@ -56,6 +56,7 @@ var _stamina_bar: ProgressBar = null
 
 func _ready() -> void:
 	_stamina_bar = _crear_barra_aguante()
+	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD de inventario
 
 	# Aguante maximo segun las stats del jugador (Resistencia y Agilidad).
 	max_stamina = base_stamina \

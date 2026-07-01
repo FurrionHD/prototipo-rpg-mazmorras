@@ -37,3 +37,8 @@ func calidad_texto() -> String:
 		Calidad.NORMAL: return "Normal"
 		Calidad.DANADO: return "Dañado"
 		_: return "Roto"
+
+
+# Valor ESTIMADO (para el HUD). El precio real con azar se calcula en la tienda.
+func valor_estimado() -> int:
+	return int(round(categoria * 10.0 * multiplicador_calidad()))
