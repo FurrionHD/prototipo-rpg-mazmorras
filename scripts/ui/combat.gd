@@ -184,11 +184,11 @@ func _on_attack_pressed() -> void:
 func _enemy_turn() -> void:
 	var dmg := StatsMath.damage(_enemy.atk(), _player.def_value())
 	_player.take_damage(dmg)
-	# Excelia: recibir golpes sube Resistencia, MAS cuanto mas daño te hacen
-	# (relativo a tu vida maxima), no solo por el hecho de recibir.
-	var reto_res: float = clampf(float(dmg) / maxf(1.0, float(_player.max_hp)) * 12.0,
-		0.0, Game.RETO_MAX)
-	Game.ganar("resistencia", reto_res, Game.GAIN_RESISTENCIA_GOLPE)
+	# Excelia: la Resistencia sube por la PELIGROSIDAD del enemigo (como el
+	# ataque), modulada por el DAÑO recibido (golpe gordo entrena mas). Asi
+	# tambien sube bien al principio, cuando el enemigo es un gran reto.
+	var dmg_mult: float = clampf(float(dmg) / maxf(1.0, float(_player.max_hp) * 0.1), 0.5, 2.0)
+	Game.ganar("resistencia", Game.reto(_poder_enemigo()) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE)
 	_set_log("%s te ataca por %d de daño." % [_enemy.nombre, dmg])
 	_update_hp()
 

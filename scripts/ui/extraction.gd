@@ -77,6 +77,10 @@ func _attempt() -> void:
 	else:
 		_misses += 1
 	_randomize_zone()
+	# Si ya has fallado lo suficiente (roto seguro), se acaba YA.
+	if _misses >= mini(3, _presses):
+		_finish()
+		return
 	if _done >= _presses:
 		_finish()
 
@@ -85,15 +89,18 @@ func _finish() -> void:
 	_state = FINISHED
 	var c := Cristal.new()
 	c.categoria = _categoria
-	var ratio: float = float(_misses) / float(_presses)
-	if _misses == 0:
-		c.calidad = Cristal.Calidad.INTACTO
-	elif ratio <= 1.0 / 3.0:
-		c.calidad = Cristal.Calidad.NORMAL
-	elif ratio <= 2.0 / 3.0:
-		c.calidad = Cristal.Calidad.DANADO
-	else:
+	# Calidad por NUMERO de fallos (no proporcional): 0 intacto, 1 normal,
+	# 2 dañado, y ROTO a los 3 fallos (o antes si pide pocas pulsaciones:
+	# roto = min(3, pulsaciones), asi con 2 pulsaciones roto a los 2, con 1 a 1).
+	var roto_en: int = mini(3, _presses)
+	if _misses >= roto_en:
 		c.calidad = Cristal.Calidad.ROTO
+	elif _misses == 0:
+		c.calidad = Cristal.Calidad.INTACTO
+	elif _misses == 1:
+		c.calidad = Cristal.Calidad.NORMAL
+	else:
+		c.calidad = Cristal.Calidad.DANADO
 	_result = c
 	queue_redraw()
 

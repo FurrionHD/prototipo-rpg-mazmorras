@@ -44,9 +44,14 @@ const GAIN_FUERZA_PESO := 0.0    # DESACTIVADA por ahora (rediseñar sin romper 
 const GAIN_AGILIDAD_CORRER := 0.12
 const GAIN_RESISTENCIA_GOLPE := 0.3
 const GAIN_DESTREZA_MINIJUEGO := 1.0
-# Dificultad de la extraccion: "exigencia" = suma_habilidades_enemigo x esto,
-# comparada con tu Destreza. Bicho fuerte = zona mas pequeña (mas dificil).
-const EXTRACTION_REQ_FACTOR := 0.15
+# --- Dificultad de la extraccion ---
+# Exigencia del enemigo = suma_habilidades x FACTOR. Dificultad relativa =
+# exigencia / (tu Destreza + SUELO). ~1 = a la par; >1 mas dificil. La
+# dificultad hace la zona mas pequeña Y el marcador mas rapido.
+const EXTRACTION_REQ_FACTOR := 0.25
+const EXTRACTION_BASE_ZONE := 0.16      # tamaño de zona a dificultad 1
+const EXTRACTION_DESTREZA_FLOOR := 50.0 # skill base (novato no siempre al minimo)
+const EXTRACTION_BASE_MARKER := 0.8     # velocidad del marcador a dificultad 1
 
 # Dificultad del ultimo minijuego de extraccion (para la ganancia de Destreza).
 var _last_extraction_zone: float = 0.13
@@ -276,20 +281,27 @@ func start_extraction(corpse: Node) -> void:
 	var enemy_suma: float = float(data.suma_habilidades(enemy_power))
 	var req: float = maxf(1.0, enemy_suma * EXTRACTION_REQ_FACTOR)
 
-	# Zona: tu Destreza frente a la exigencia (bicho fuerte = zona mas pequeña).
-	var zone_ratio: float = clampf(0.13 * float(eff_destreza) / req, 0.05, 0.35)
+	# Dificultad RELATIVA: exigencia del enemigo (su fuerza total) / tu DESTREZA
+	# (solo Destreza, con suelo). ~1 = a la par; >1 mas dificil.
+	var difficulty: float = req / (float(eff_destreza) + EXTRACTION_DESTREZA_FLOOR)
+	var zone_ratio: float = clampf(EXTRACTION_BASE_ZONE / difficulty, 0.05, 0.35)
 
-	# Pulsaciones: base del enemigo (bichos duros 4-5), menos por herramientas y
-	# por SUPERAR mucho la Destreza exigida (≈2x -> 1 menos, ≈3x -> 2 menos...).
-	var ratio_destreza: float = float(eff_destreza) / req
-	var reduccion_destreza: int = maxi(0, floori(ratio_destreza) - 1)
+	# Pulsaciones: base del enemigo, ajustadas por la DIFICULTAD:
+	#   dificil (enemigo muy superior) -> MAS pulsaciones (~2x = +1, ~3x = +2...);
+	#   facil (tu muy superior) -> MENOS (minimo 1). Y las herramientas restan.
+	var ajuste_hits: int = 0
+	if difficulty >= 1.0:
+		ajuste_hits = floori(difficulty) - 1
+	else:
+		ajuste_hits = -(floori(1.0 / difficulty) - 1)
 	var required_hits: int = maxi(1,
-		data.extraction_hits - tool_hit_reduction - reduccion_destreza)
+		data.extraction_hits + ajuste_hits - tool_hit_reduction)
 	# Guardamos la dificultad para la ganancia de Destreza al terminar.
 	_last_extraction_zone = zone_ratio
 	_last_extraction_hits = required_hits
-	# Marcador mas rapido cuanto mas profundo el piso, y acelera por acierto.
-	var marker_speed: float = 0.8 + float(current_floor - 1) * 0.08
+	# Marcador: mas rapido cuanto mas DIFICIL (y mas profundo el piso).
+	var marker_speed: float = EXTRACTION_BASE_MARKER * clampf(difficulty, 0.6, 2.5) \
+		+ float(current_floor - 1) * 0.08
 	var speed_step: float = 0.15
 
 	var ex: Control = _extraction_script.new()
@@ -322,7 +334,7 @@ func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 			" (", cristal.calidad_texto(), "). Total: ", crystals.size())
 		# Destreza: subes mas cuanto mas dificil era el minijuego (zona pequeña
 		# + mas pulsaciones). Facil = poco.
-		var dificultad: float = clampf((0.13 / _last_extraction_zone)
+		var dificultad: float = clampf((EXTRACTION_BASE_ZONE / _last_extraction_zone)
 			* (float(_last_extraction_hits) / 3.0), 0.0, RETO_MAX)
 		ganar("destreza", dificultad, GAIN_DESTREZA_MINIJUEGO)
 	else:
