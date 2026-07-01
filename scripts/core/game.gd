@@ -30,15 +30,23 @@ var player_current_hp: int = -1
 # el interno; dificultad relativa (enemigo/accion facil = sube poco).
 var ability_internal: Dictionary = {
 	"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
-const DIMINISH_K := 0.06           # mas alto = sube mas lento al ir teniendo mas
+# Rendimientos decrecientes RELATIVOS AL TOPE: subes bien casi todo el camino
+# y frena cerca de 999, pero con un SUELO para que nunca sea imposible.
+# factor = max(FLOOR, (1 - interno/999)^POWER).
+const ABILITY_CAP := 999.0
+const DIMINISH_POWER := 0.8        # <1 = curva mas suave (aguanta mas arriba)
+const DIMINISH_FLOOR := 0.15       # suelo: cerca de 999 sigues subiendo (lento, no 0)
 const RETO_MAX := 3.0              # tope de dificultad relativa
 const PODER_JUGADOR_SUELO := 10.0  # suelo para no dividir por 0 a nivel 0
 # Ganancias base por fuente (ajustables).
 const GAIN_FUERZA_ATAQUE := 0.15
 const GAIN_FUERZA_PESO := 0.0    # DESACTIVADA por ahora (rediseñar sin romper escalado)
 const GAIN_AGILIDAD_CORRER := 0.12
-const GAIN_RESISTENCIA_GOLPE := 0.5
+const GAIN_RESISTENCIA_GOLPE := 0.3
 const GAIN_DESTREZA_MINIJUEGO := 1.0
+# Dificultad de la extraccion: "exigencia" = suma_habilidades_enemigo x esto,
+# comparada con tu Destreza. Bicho fuerte = zona mas pequeña (mas dificil).
+const EXTRACTION_REQ_FACTOR := 0.15
 
 # Dificultad del ultimo minijuego de extraccion (para la ganancia de Destreza).
 var _last_extraction_zone: float = 0.13
@@ -169,7 +177,9 @@ func ganar(abil: String, reto_val: float, base: float) -> void:
 	if not ability_internal.has(abil):
 		return
 	var interno: float = ability_internal[abil]
-	var gain: float = base * clampf(reto_val, 0.0, RETO_MAX) / (1.0 + interno * DIMINISH_K)
+	var factor: float = maxf(DIMINISH_FLOOR,
+		pow(clampf(1.0 - interno / ABILITY_CAP, 0.0, 1.0), DIMINISH_POWER))
+	var gain: float = base * clampf(reto_val, 0.0, RETO_MAX) * factor
 	ability_internal[abil] = interno + gain
 
 # Poder del jugador (suma de visibles) con un suelo para no dividir por 0.
@@ -259,11 +269,22 @@ func start_extraction(corpse: Node) -> void:
 	var categoria: int = data.roll_crystal_category(t)
 	var eff_destreza: int = player_destreza + tool_destreza_bonus
 
-	# Pulsaciones: base del enemigo, menos lo que ayuden las herramientas.
-	var required_hits: int = clampi(data.extraction_hits - tool_hit_reduction, 2, 9)
-	# Zona: escala con tu Destreza respecto a la "esperada" del enemigo (con topes).
-	var req: int = maxi(1, data.extraction_req_destreza)
-	var zone_ratio: float = clampf(0.13 * float(eff_destreza) / float(req), 0.05, 0.35)
+	# Exigencia del monstruo: sale de su FUERZA (suma de habilidades x su poder).
+	var enemy_power: float = 1.0
+	if "current_power" in corpse:
+		enemy_power = corpse.current_power
+	var enemy_suma: float = float(data.suma_habilidades_base()) * enemy_power
+	var req: float = maxf(1.0, enemy_suma * EXTRACTION_REQ_FACTOR)
+
+	# Zona: tu Destreza frente a la exigencia (bicho fuerte = zona mas pequeña).
+	var zone_ratio: float = clampf(0.13 * float(eff_destreza) / req, 0.05, 0.35)
+
+	# Pulsaciones: base del enemigo (bichos duros 4-5), menos por herramientas y
+	# por SUPERAR mucho la Destreza exigida (≈2x -> 1 menos, ≈3x -> 2 menos...).
+	var ratio_destreza: float = float(eff_destreza) / req
+	var reduccion_destreza: int = maxi(0, floori(ratio_destreza) - 1)
+	var required_hits: int = maxi(1,
+		data.extraction_hits - tool_hit_reduction - reduccion_destreza)
 	# Guardamos la dificultad para la ganancia de Destreza al terminar.
 	_last_extraction_zone = zone_ratio
 	_last_extraction_hits = required_hits
