@@ -74,8 +74,18 @@ var dev_force_drop: bool = false
 # PRUEBAS: peso inicial como % de la capacidad al arrancar (0 = nada).
 var dev_start_weight_ratio: float = 0.0
 
+# PRUEBAS: arrancar con este valor en TODAS las habilidades (interno+visible).
+# 0 = empezar a 0 (normal). Util para revisar el escalado de la subida.
+var dev_start_abilities: int = 0
+
 
 func _ready() -> void:
+	# TEMPORAL: arrancar con las habilidades a un valor para revisar el escalado.
+	if dev_start_abilities > 0:
+		for k in ability_internal:
+			ability_internal[k] = float(dev_start_abilities)
+		actualizar_estado()  # sincroniza lo visible con lo interno
+
 	# TEMPORAL: relleno de cristales hasta ~X% de la capacidad para probar peso.
 	if dev_start_weight_ratio > 0.0:
 		var objetivo: float = dev_start_weight_ratio * capacidad_carga()
