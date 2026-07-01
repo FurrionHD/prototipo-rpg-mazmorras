@@ -21,11 +21,14 @@ class_name EnemyData
 @export_range(0, 999) var agilidad: int = 60
 @export_range(0, 999) var magia: int = 0
 
-# --- Combate: stats base (lo que tiene "de serie", sin habilidades) ---
-@export var base_hp: float = 40.0
-@export var base_attack: float = 4.0
-@export var base_defense: float = 5.0
-@export var base_speed: float = 4.0
+# --- Combate: MULTIPLICADORES de la base COMUN (Game.enemy_base_*) ---
+# Por defecto 1.0 = todos los enemigos comparten la misma base; lo que los
+# diferencia son sus HABILIDADES. Sube/baja estos para arquetipos (tanque,
+# cristal...) sin romper el principio.
+@export var base_hp_mult: float = 1.0
+@export var base_attack_mult: float = 1.0
+@export var base_defense_mult: float = 1.0
+@export var base_speed_mult: float = 1.0
 
 # --- Exploracion (mazmorra): velocidad de patrulla/persecucion (franja) ---
 @export var move_speed_min: float = 30.0
@@ -51,23 +54,38 @@ class_name EnemyData
 @export var drop_chance: float = 0.02   # 2% normal (en pruebas se fuerza 100%)
 
 
-# Crea un objeto Abilities a partir de los campos de habilidades.
-func crear_abilities() -> Abilities:
+# Suma de las habilidades base (sin poder). El slime = 240 ahora mismo.
+func suma_habilidades_base() -> int:
+	return fuerza + resistencia + destreza + agilidad + magia
+
+
+# Crea las Abilities, escaladas por el "poder" de ESTE bicho (1.0 = base).
+func crear_abilities(power: float = 1.0) -> Abilities:
 	var a := Abilities.new()
-	a.fuerza = fuerza
-	a.resistencia = resistencia
-	a.destreza = destreza
-	a.agilidad = agilidad
-	a.magia = magia
+	a.fuerza = clampi(int(round(fuerza * power)), 0, 999)
+	a.resistencia = clampi(int(round(resistencia * power)), 0, 999)
+	a.destreza = clampi(int(round(destreza * power)), 0, 999)
+	a.agilidad = clampi(int(round(agilidad * power)), 0, 999)
+	a.magia = clampi(int(round(magia * power)), 0, 999)
 	return a
 
 
-# Crea el Combatant (lo que usa la pantalla de combate) de este enemigo.
-func crear_combatant() -> Combatant:
-	return Combatant.new(enemy_name, level, crear_abilities(),
-		base_hp, base_attack, base_defense, base_speed)
+# Crea el Combatant. La BASE es comun (Game.enemy_base_*) ajustada por el
+# multiplicador de arquetipo; las HABILIDADES van escaladas por el poder.
+func crear_combatant(power: float = 1.0) -> Combatant:
+	return Combatant.new(enemy_name, level, crear_abilities(power),
+		Game.enemy_base_hp * base_hp_mult,
+		Game.enemy_base_attack * base_attack_mult,
+		Game.enemy_base_defense * base_defense_mult,
+		Game.enemy_base_speed * base_speed_mult)
 
 
-# Tira una categoria de cristal al azar dentro de la franja del enemigo.
-func roll_crystal_category() -> int:
-	return randi_range(crystal_category_min, crystal_category_max)
+# Tira la CATEGORIA del cristal PONDERADA por "t" (0..1 = poder del bicho).
+# Metodo "sube de categoria con probabilidad t": t bajo -> categorias bajas;
+# t alto -> categorias altas (y las altas salen menos = ponderado natural).
+func roll_crystal_category(t: float) -> int:
+	var cat := crystal_category_min
+	for _i in range(crystal_category_max - crystal_category_min):
+		if randf() < t:
+			cat += 1
+	return cat

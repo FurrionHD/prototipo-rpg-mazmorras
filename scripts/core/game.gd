@@ -22,6 +22,13 @@ var player_base_speed: float = 5.0
 # Vida actual (persiste entre combates). -1 = aun no inicializada (= llena).
 var player_current_hp: int = -1
 
+# Base de combate COMUN para los enemigos (los diferencia sus HABILIDADES).
+# Cada EnemyData la ajusta con multiplicadores de arquetipo (por defecto 1.0).
+var enemy_base_hp: float = 40.0
+var enemy_base_attack: float = 4.0
+var enemy_base_defense: float = 5.0
+var enemy_base_speed: float = 4.0
+
 var _combat_scene: PackedScene = preload("res://scenes/ui/combat.tscn")
 var _extraction_script: GDScript = preload("res://scripts/ui/extraction.gd")
 var _drop_pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
@@ -43,6 +50,20 @@ var dev_force_drop: bool = false
 var tool_hit_reduction: int = 0    # reduce pulsaciones necesarias
 var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
 
+# --- Peso / capacidad de carga ---
+# De serie llevas un ZURRON pequeño (base_capacity). La Fuerza sube la
+# capacidad. En el futuro: mochila y companero de apoyo sumaran aqui.
+var base_capacity: float = 25.0        # zurron de serie
+var extra_capacity: float = 0.0        # placeholder mochila/companero (futuro)
+# La Fuerza MULTIPLICA la capacidad del contenedor (zurron+mochila) hasta un
+# maximo (a Fuerza 999 = +50%). Asi no puedes llevar de todo con un zurron.
+var fuerza_capacity_bonus_max: float = 0.5  # +50% a Fuerza maxima
+# Sobrecarga GRADUAL: por encima del umbral, la penalizacion de velocidad crece
+# con la pendiente hasta un maximo. Ej: 80% -> 0%, 90% -> ~33%, 100% -> ~66%.
+var overload_threshold: float = 0.8    # % a partir del cual empiezas a ir lento
+var overload_slope: float = 3.3        # cuanto crece la penalizacion por encima
+var overload_max_penalty: float = 0.8  # penalizacion maxima (0.8 = -80% velocidad)
+
 
 # Crea el Combatant del jugador con sus stats actuales (manteniendo la vida).
 func crear_player_combatant() -> Combatant:
@@ -60,6 +81,37 @@ func crear_player_combatant() -> Combatant:
 	return c
 
 
+# --- Peso / capacidad ---
+func capacidad_carga() -> float:
+	var contenedor: float = base_capacity + extra_capacity
+	var mult: float = 1.0 + clampf(player_fuerza / 999.0, 0.0, 1.0) * fuerza_capacity_bonus_max
+	return contenedor * mult
+
+func peso_actual() -> float:
+	var w: float = 0.0
+	for c in crystals:
+		w += c.peso()
+	for d in drops:
+		w += d.peso()
+	return w
+
+func ratio_carga() -> float:
+	var cap: float = capacidad_carga()
+	return 0.0 if cap <= 0.0 else peso_actual() / cap
+
+func esta_sobrecargado() -> bool:
+	return ratio_carga() >= overload_threshold
+
+# Multiplicador de velocidad por sobrecarga (1.0 = normal). Baja GRADUALMENTE
+# cuanto mas te pasas del umbral, hasta un suelo (1 - overload_max_penalty).
+func overload_speed_factor() -> float:
+	var over: float = ratio_carga() - overload_threshold
+	if over <= 0.0:
+		return 1.0
+	var penalty: float = clampf(over * overload_slope, 0.0, overload_max_penalty)
+	return 1.0 - penalty
+
+
 # Abre el combate contra un enemigo de la mazmorra.
 func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool) -> void:
 	if _active_enemy != null or enemy_data == null:
@@ -67,7 +119,10 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 
 	_active_enemy = enemy_node
 	var player_c := crear_player_combatant()
-	var enemy_c := enemy_data.crear_combatant()
+	var power: float = 1.0
+	if "current_power" in enemy_node:
+		power = enemy_node.current_power
+	var enemy_c := enemy_data.crear_combatant(power)
 
 	# ¿El jugador entra agotado? (sus 2 primeras acciones seran mas lentas)
 	var player_exhausted := false
@@ -78,7 +133,7 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 	var combat := _combat_scene.instantiate()
 	# PROCESS_MODE_ALWAYS = el combate sigue funcionando aunque el arbol este en pausa.
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
-	combat.setup(player_c, enemy_c, enemy_initiated, player_exhausted)
+	combat.setup(player_c, enemy_c, enemy_initiated, player_exhausted, overload_speed_factor())
 	combat.combat_finished.connect(_on_combat_finished)
 
 	# Lo metemos en una CanvasLayer: asi NO le afecta la camara 2D de la
@@ -101,7 +156,11 @@ func start_extraction(corpse: Node) -> void:
 	if data == null:
 		return
 
-	var categoria: int = data.roll_crystal_category()
+	# Categoria ponderada por el poder del bicho (t).
+	var t: float = 0.5
+	if corpse.has_method("poder_normalizado"):
+		t = corpse.poder_normalizado()
+	var categoria: int = data.roll_crystal_category(t)
 	var eff_destreza: int = player_destreza + tool_destreza_bonus
 
 	# Pulsaciones: base del enemigo, menos lo que ayuden las herramientas.
@@ -111,7 +170,7 @@ func start_extraction(corpse: Node) -> void:
 	var zone_ratio: float = clampf(0.13 * float(eff_destreza) / float(req), 0.05, 0.35)
 	# Marcador mas rapido cuanto mas profundo el piso, y acelera por acierto.
 	var marker_speed: float = 0.8 + float(current_floor - 1) * 0.08
-	var speed_step: float = 0.3
+	var speed_step: float = 0.15
 
 	var ex: Control = _extraction_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS

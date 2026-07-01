@@ -15,6 +15,13 @@ extends CharacterBody2D
 
 @export var data: EnemyData
 
+# Cada bicho tira un "poder" al aparecer que escala sus habilidades (bichos
+# flojos y fuertes). Tambien decide la categoria del cristal (mas poder =
+# mejor cristal). Para el slime (suma base 240) esto da ~144-336 de suma.
+@export var power_min: float = 0.6
+@export var power_max: float = 1.4
+var current_power: float = 1.0
+
 # --- Deambular ---
 @export var wander_radius: float = 90.0       # cuanto se aleja de su sitio
 @export var wander_pause_min: float = 0.4     # pausa minima al llegar a un punto
@@ -68,9 +75,16 @@ func _ready() -> void:
 	_home = global_position
 	_player = get_tree().get_first_node_in_group("player")
 
+	# Poder de ESTE bicho (flojo o fuerte).
+	current_power = randf_range(power_min, power_max)
+
 	if data != null:
-		_color_rect.color = data.color
+		# Color base + tinte por poder (los fuertes salen mas claros).
+		_color_rect.color = data.color.lerp(Color.WHITE, poder_normalizado() * 0.45)
 		current_move_speed = randf_range(data.move_speed_min, data.move_speed_max)
+		print(data.enemy_name, " aparece -> poder=", snappedf(current_power, 0.01),
+			" (t=", snappedf(poder_normalizado(), 0.01),
+			", suma~", roundi(data.suma_habilidades_base() * current_power), ")")
 
 	_crear_indicadores()
 	_pick_wander_target()
@@ -228,6 +242,14 @@ func morir() -> void:
 
 func esta_muerto() -> bool:
 	return _dead
+
+
+# "t" (0..1): donde cae este bicho entre su version mas floja y la mas fuerte.
+# Lo usa la categoria del cristal (t alto = cristal de mejor categoria).
+func poder_normalizado() -> float:
+	if power_max <= power_min:
+		return 0.5
+	return clampf((current_power - power_min) / (power_max - power_min), 0.0, 1.0)
 
 
 # Tras extraer el cristal: el cuerpo se desvanece (baja opacidad) y desaparece.
