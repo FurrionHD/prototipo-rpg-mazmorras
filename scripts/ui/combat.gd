@@ -31,6 +31,9 @@ const EXHAUSTED_RATE := 0.5         # a que ritmo (0.5 = la mitad)
 @onready var _log: Label = $VBox/Log
 @onready var _attack_button: Button = $VBox/AttackButton
 
+# Linea de ORDEN DE TURNOS (estilo Epic Seven), creada por codigo.
+var _timeline: Control = null
+
 # Se emite al cerrar el combate (lo escucha Game para reanudar la mazmorra).
 signal combat_finished(player_won: bool, player_hp_left: int)
 
@@ -90,6 +93,7 @@ func _ready() -> void:
 
 	_attack_button.pressed.connect(_on_attack_pressed)
 	_setup_ui()
+	_crear_timeline()
 	if _enemy_initiated:
 		_set_log("¡" + _enemy.nombre + " te sorprende! Tiene la iniciativa.")
 	elif _injected:
@@ -119,6 +123,7 @@ func _update_hp() -> void:
 
 
 func _process(delta: float) -> void:
+	_update_timeline()  # refleja el orden de turnos siempre
 	if _state != State.ADVANCING:
 		return
 
@@ -197,6 +202,21 @@ func _end(player_won: bool) -> void:
 
 func _set_log(texto: String) -> void:
 	_log.text = texto
+
+
+# Crea la linea de orden de turnos (banda horizontal en la zona media).
+func _crear_timeline() -> void:
+	_timeline = preload("res://scripts/ui/turn_timeline.gd").new()
+	_timeline.anchor_left = 0.0
+	_timeline.anchor_right = 1.0
+	_timeline.offset_top = 320.0
+	_timeline.offset_bottom = 400.0
+	add_child(_timeline)
+
+
+func _update_timeline() -> void:
+	if _timeline != null:
+		_timeline.set_ratios(_gauge.get(_player, 0.0) / UMBRAL, _gauge.get(_enemy, 0.0) / UMBRAL)
 
 
 # Crea un fondo opaco a pantalla completa, por DETRAS de la interfaz.
