@@ -165,6 +165,8 @@ func _on_attack_pressed() -> void:
 
 	var dmg := StatsMath.damage(_player.atk(), _enemy.def_value())
 	_enemy.take_damage(dmg)
+	# Excelia: atacar sube Fuerza (arma_factor = 1.0 placeholder hasta tener equipo).
+	Game.ganar("fuerza", Game.reto(_poder_enemigo()) * 1.0, Game.GAIN_FUERZA_ATAQUE)
 	_set_log("%s ataca por %d de daño." % [_player.nombre, dmg])
 	_update_hp()
 	_attack_button.disabled = true
@@ -182,6 +184,8 @@ func _on_attack_pressed() -> void:
 func _enemy_turn() -> void:
 	var dmg := StatsMath.damage(_enemy.atk(), _player.def_value())
 	_player.take_damage(dmg)
+	# Excelia: recibir golpes sube Resistencia.
+	Game.ganar("resistencia", Game.reto(_poder_enemigo()), Game.GAIN_RESISTENCIA_GOLPE)
 	_set_log("%s te ataca por %d de daño." % [_enemy.nombre, dmg])
 	_update_hp()
 
@@ -202,6 +206,14 @@ func _end(player_won: bool) -> void:
 
 func _set_log(texto: String) -> void:
 	_log.text = texto
+
+
+# Poder del enemigo (suma de sus habilidades) para la dificultad relativa.
+func _poder_enemigo() -> float:
+	if _enemy == null or _enemy.abilities == null:
+		return 0.0
+	var a: Abilities = _enemy.abilities
+	return float(a.fuerza + a.resistencia + a.destreza + a.agilidad + a.magia)
 
 
 # Crea la linea de orden de turnos (banda horizontal en la zona media).

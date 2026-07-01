@@ -79,4 +79,15 @@ func _refrescar_lista() -> void:
 	s += "\nPESO: %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
 	if Game.esta_sobrecargado():
 		s += "   (SOBRECARGADO: vas mas lento)"
+
+	# Habilidades: valor VISIBLE (en combate) / INTERNO (acumulado por uso).
+	var ai: Dictionary = Game.ability_internal
+	s += "\n\nHABILIDADES (visible / interno):\n"
+	s += "  Fuerza:     %d / %.1f\n" % [Game.player_fuerza, ai["fuerza"]]
+	s += "  Resistencia:%d / %.1f\n" % [Game.player_resistencia, ai["resistencia"]]
+	s += "  Destreza:   %d / %.1f\n" % [Game.player_destreza, ai["destreza"]]
+	s += "  Agilidad:   %d / %.1f\n" % [Game.player_agilidad, ai["agilidad"]]
+	s += "  Magia:      %d / %.1f\n" % [Game.player_magia, ai["magia"]]
+	s += "\n[U] actualizar estado (hogar)   [H] curar 100%   [R] respawn"
+
 	_list.text = s

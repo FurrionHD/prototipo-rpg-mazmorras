@@ -53,10 +53,19 @@ var _interact_was: bool = false
 # Barra de aguante (se crea por codigo, ver _crear_barra_aguante).
 var _stamina_bar: ProgressBar = null
 
+# Excelia (subida de habilidades por uso): distancia recorrida para Fuerza
+# (cargando en sobrecarga) y Agilidad (corriendo cerca de un enemigo).
+var _last_pos: Vector2 = Vector2.ZERO
+var _dist_overload: float = 0.0
+var _dist_run: float = 0.0
+const _DIST_TICK := 64.0        # px recorridos por cada "tick" de ganancia
+const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
+
 
 func _ready() -> void:
 	_stamina_bar = _crear_barra_aguante()
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD de inventario
+	_last_pos = global_position
 
 	# Aguante maximo segun las stats del jugador (Resistencia y Agilidad).
 	max_stamina = base_stamina \
@@ -119,6 +128,27 @@ func _physics_process(delta: float) -> void:
 	velocity = direction * speed
 	move_and_slide()
 
+	# --- Excelia: subida de habilidades por uso (interno; se aplica en el hogar) ---
+	var moved: float = global_position.distance_to(_last_pos)
+	_last_pos = global_position
+
+	# Fuerza: cargar peso EN SOBRECARGA, solo mientras te MUEVES (no pasivo).
+	if moved > 0.0 and Game.esta_sobrecargado():
+		_dist_overload += moved
+		while _dist_overload >= _DIST_TICK:
+			_dist_overload -= _DIST_TICK
+			var over: float = Game.ratio_carga() - Game.overload_threshold
+			Game.ganar("fuerza", clampf(over * 5.0, 0.0, Game.RETO_MAX), Game.GAIN_FUERZA_PESO)
+
+	# Agilidad: CORRER cerca de un enemigo (correr sin enemigos no sirve).
+	if moved > 0.0 and movement_mode == 2:
+		var enemigo: Node = _enemigo_cercano_agilidad()
+		if enemigo != null:
+			_dist_run += moved
+			while _dist_run >= _DIST_TICK:
+				_dist_run -= _DIST_TICK
+				Game.ganar("agilidad", Game.reto(_poder_enemigo_nodo(enemigo)), Game.GAIN_AGILIDAD_CORRER)
+
 	# Ataque hacia delante para iniciar combate (sin tener que tocar al enemigo).
 	var atk: bool = Input.is_key_pressed(KEY_SPACE)
 	if atk and not _attack_was_pressed:
@@ -135,6 +165,30 @@ func _physics_process(delta: float) -> void:
 # True si estamos agotados (lo consulta el enemigo para atacar al instante).
 func is_exhausted() -> bool:
 	return _exhausted
+
+
+# Enemigo vivo mas cercano dentro del rango (para la Agilidad al correr).
+func _enemigo_cercano_agilidad() -> Node:
+	var best: float = INF
+	var nearest: Node = null
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if not is_instance_valid(e):
+			continue
+		var d: float = global_position.distance_to(e.global_position)
+		if d <= _AGILIDAD_RANGE and d < best:
+			best = d
+			nearest = e
+	return nearest
+
+
+# Poder de un enemigo (suma de habilidades base × su poder) para el "reto".
+func _poder_enemigo_nodo(e: Node) -> float:
+	if e == null or not is_instance_valid(e) or e.data == null:
+		return 0.0
+	var p: float = 1.0
+	if "current_power" in e:
+		p = e.current_power
+	return float(e.data.suma_habilidades_base()) * p
 
 
 # Busca un enemigo justo enfrente y muy cerca; si lo hay, inicia el combate

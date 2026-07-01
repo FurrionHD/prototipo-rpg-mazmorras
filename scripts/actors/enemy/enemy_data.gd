@@ -15,10 +15,10 @@ class_name EnemyData
 
 # --- Combate: nivel + habilidades DanMachi (0-999) ---
 @export var level: int = 1
-@export_range(0, 999) var fuerza: int = 80
-@export_range(0, 999) var resistencia: int = 70
-@export_range(0, 999) var destreza: int = 30
-@export_range(0, 999) var agilidad: int = 60
+@export_range(0, 999) var fuerza: int = 40
+@export_range(0, 999) var resistencia: int = 35
+@export_range(0, 999) var destreza: int = 20
+@export_range(0, 999) var agilidad: int = 30
 @export_range(0, 999) var magia: int = 0
 
 # --- Combate: MULTIPLICADORES de la base COMUN (Game.enemy_base_*) ---
@@ -38,8 +38,8 @@ class_name EnemyData
 # El cristal sale en una categoria aleatoria dentro de esta franja (mayor
 # categoria = mas valioso). La CALIDAD (intacto/dañado/roto) la decide el
 # minijuego de extraccion. El slime, p.ej., da categoria 3-5.
-@export var crystal_category_min: int = 3
-@export var crystal_category_max: int = 5
+@export var crystal_category_min: int = 1
+@export var crystal_category_max: int = 3
 
 # --- Extraccion (minijuego, Fase 5) ---
 # Pulsaciones base necesarias (slime 3; enemigos avanzados 4-5).

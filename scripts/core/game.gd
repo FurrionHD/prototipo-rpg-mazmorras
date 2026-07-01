@@ -10,11 +10,13 @@ extends Node
 
 # --- Stats del jugador (de momento fijas aqui; luego vendran de su .tres) ---
 var player_level: int = 1
-var player_fuerza: int = 120
-var player_resistencia: int = 90
-var player_destreza: int = 60
-var player_agilidad: int = 110
-var player_magia: int = 20
+# Habilidades VISIBLES (las que usa el combate/capacidad). Empiezan a 0 y solo
+# se actualizan al "volver al hogar" (tecla U -> actualizar_estado()).
+var player_fuerza: int = 0
+var player_resistencia: int = 0
+var player_destreza: int = 0
+var player_agilidad: int = 0
+var player_magia: int = 0
 var player_base_hp: float = 50.0
 var player_base_attack: float = 5.0
 var player_base_defense: float = 5.0
@@ -22,11 +24,31 @@ var player_base_speed: float = 5.0
 # Vida actual (persiste entre combates). -1 = aun no inicializada (= llena).
 var player_current_hp: int = -1
 
+# --- Subida de habilidades (Excelia estilo DanMachi) ---
+# Valor INTERNO (float) que sube con el uso. Lo visible (player_*) solo se
+# sincroniza al "actualizar estado" (hogar). Rendimientos decrecientes segun
+# el interno; dificultad relativa (enemigo/accion facil = sube poco).
+var ability_internal: Dictionary = {
+	"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+const DIMINISH_K := 0.06           # mas alto = sube mas lento al ir teniendo mas
+const RETO_MAX := 3.0              # tope de dificultad relativa
+const PODER_JUGADOR_SUELO := 10.0  # suelo para no dividir por 0 a nivel 0
+# Ganancias base por fuente (ajustables).
+const GAIN_FUERZA_ATAQUE := 0.25
+const GAIN_FUERZA_PESO := 0.4
+const GAIN_AGILIDAD_CORRER := 0.4
+const GAIN_RESISTENCIA_GOLPE := 0.3
+const GAIN_DESTREZA_MINIJUEGO := 1.0
+
+# Dificultad del ultimo minijuego de extraccion (para la ganancia de Destreza).
+var _last_extraction_zone: float = 0.13
+var _last_extraction_hits: int = 3
+
 # Base de combate COMUN para los enemigos (los diferencia sus HABILIDADES).
 # Cada EnemyData la ajusta con multiplicadores de arquetipo (por defecto 1.0).
-var enemy_base_hp: float = 40.0
-var enemy_base_attack: float = 4.0
-var enemy_base_defense: float = 5.0
+var enemy_base_hp: float = 28.0
+var enemy_base_attack: float = 3.0
+var enemy_base_defense: float = 3.0
 var enemy_base_speed: float = 4.0
 
 var _combat_scene: PackedScene = preload("res://scenes/ui/combat.tscn")
@@ -124,6 +146,52 @@ func overload_speed_factor() -> float:
 	return 1.0 - penalty
 
 
+# --- Subida de habilidades ---
+
+# Suma una ganancia al INTERNO de una habilidad, con rendimientos decrecientes.
+func ganar(abil: String, reto_val: float, base: float) -> void:
+	if not ability_internal.has(abil):
+		return
+	var interno: float = ability_internal[abil]
+	var gain: float = base * clampf(reto_val, 0.0, RETO_MAX) / (1.0 + interno * DIMINISH_K)
+	ability_internal[abil] = interno + gain
+
+# Poder del jugador (suma de visibles) con un suelo para no dividir por 0.
+func poder_jugador_eff() -> float:
+	var suma: float = float(player_fuerza + player_resistencia + player_destreza
+		+ player_agilidad + player_magia)
+	return maxf(suma, PODER_JUGADOR_SUELO)
+
+# Dificultad relativa: enemigo/accion facil respecto a ti = poco.
+func reto(poder_enemigo: float) -> float:
+	return clampf(poder_enemigo / poder_jugador_eff(), 0.0, RETO_MAX)
+
+# "Actualizar estado" (hogar / tu dios): aplica lo INTERNO a lo VISIBLE.
+func actualizar_estado() -> void:
+	player_fuerza = floori(ability_internal["fuerza"])
+	player_resistencia = floori(ability_internal["resistencia"])
+	player_destreza = floori(ability_internal["destreza"])
+	player_agilidad = floori(ability_internal["agilidad"])
+	player_magia = floori(ability_internal["magia"])
+	print("=== ESTADO ACTUALIZADO ===  F:", player_fuerza, " R:", player_resistencia,
+		" D:", player_destreza, " A:", player_agilidad, " M:", player_magia)
+
+
+# Teclas de DESARROLLO (temporales): U actualizar estado, H cura, R respawn.
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	match (event as InputEventKey).keycode:
+		KEY_U:
+			actualizar_estado()
+		KEY_H:
+			player_current_hp = -1  # se rellena a tope en el proximo combate
+			print("[dev] Vida al 100%")
+		KEY_R:
+			print("[dev] Respawn: recargando la mazmorra")
+			get_tree().reload_current_scene()
+
+
 # Abre el combate contra un enemigo de la mazmorra.
 func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool) -> void:
 	if _active_enemy != null or enemy_data == null:
@@ -180,6 +248,9 @@ func start_extraction(corpse: Node) -> void:
 	# Zona: escala con tu Destreza respecto a la "esperada" del enemigo (con topes).
 	var req: int = maxi(1, data.extraction_req_destreza)
 	var zone_ratio: float = clampf(0.13 * float(eff_destreza) / float(req), 0.05, 0.35)
+	# Guardamos la dificultad para la ganancia de Destreza al terminar.
+	_last_extraction_zone = zone_ratio
+	_last_extraction_hits = required_hits
 	# Marcador mas rapido cuanto mas profundo el piso, y acelera por acierto.
 	var marker_speed: float = 0.8 + float(current_floor - 1) * 0.08
 	var speed_step: float = 0.15
@@ -212,6 +283,11 @@ func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 		crystals.append(cristal)
 		print("Obtienes cristal categoria ", cristal.categoria,
 			" (", cristal.calidad_texto(), "). Total: ", crystals.size())
+		# Destreza: subes mas cuanto mas dificil era el minijuego (zona pequeña
+		# + mas pulsaciones). Facil = poco.
+		var dificultad: float = clampf((0.13 / _last_extraction_zone)
+			* (float(_last_extraction_hits) / 3.0), 0.0, RETO_MAX)
+		ganar("destreza", dificultad, GAIN_DESTREZA_MINIJUEGO)
 	else:
 		print("El cristal se rompio: lo has perdido.")
 
