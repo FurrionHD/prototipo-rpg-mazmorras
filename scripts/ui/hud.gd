@@ -52,9 +52,12 @@ func _process(_delta: float) -> void:
 	if t and not _toggle_was:
 		_panel_open = not _panel_open
 		_panel.visible = _panel_open
-		if _panel_open:
-			_refrescar_lista()
+		Game.inventory_open = _panel_open  # bloquea/desbloquea al jugador
 	_toggle_was = t
+
+	# Refresca la lista en vivo mientras esta abierto.
+	if _panel_open:
+		_refrescar_lista()
 
 
 func _refrescar_lista() -> void:

@@ -80,6 +80,12 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# Con el inventario abierto: no te mueves ni interactuas (F/ataque). El
+	# enemigo sigue su IA aparte, asi que puede emboscarte igualmente.
+	if Game.inventory_open:
+		velocity = Vector2.ZERO
+		return
+
 	var direction: Vector2 = Input.get_vector(
 		"move_left", "move_right", "move_up", "move_down")
 	var moving: bool = direction != Vector2.ZERO

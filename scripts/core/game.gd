@@ -34,10 +34,10 @@ const DIMINISH_K := 0.06           # mas alto = sube mas lento al ir teniendo ma
 const RETO_MAX := 3.0              # tope de dificultad relativa
 const PODER_JUGADOR_SUELO := 10.0  # suelo para no dividir por 0 a nivel 0
 # Ganancias base por fuente (ajustables).
-const GAIN_FUERZA_ATAQUE := 0.25
+const GAIN_FUERZA_ATAQUE := 0.15
 const GAIN_FUERZA_PESO := 0.4
 const GAIN_AGILIDAD_CORRER := 0.4
-const GAIN_RESISTENCIA_GOLPE := 0.3
+const GAIN_RESISTENCIA_GOLPE := 0.2
 const GAIN_DESTREZA_MINIJUEGO := 1.0
 
 # Dificultad del ultimo minijuego de extraccion (para la ganancia de Destreza).
@@ -59,6 +59,10 @@ var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
 
 # Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
 var current_floor: int = 1
+
+# True mientras el panel de inventario esta abierto: el jugador no se mueve ni
+# interactua (pero el enemigo sigue y puede emboscarte).
+var inventory_open: bool = false
 
 # Cristales y drops obtenidos (inventario temporal hasta la Fase 6).
 var crystals: Array[Cristal] = []
