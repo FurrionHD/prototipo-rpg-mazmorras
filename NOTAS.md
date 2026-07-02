@@ -142,9 +142,25 @@ resources/     datos como .tres (items, enemigos, dificultad)
 - OJO: `Game.dev_force_drop = true` (drop al 100% para pruebas). Poner en false
   para usar el `drop_chance` real (2%).
 
-### Pendiente PRÓXIMO: Fases 6 y 7
-- **Fase 6 (KAN-35):** inventario + HUD (mostrar cristales y drops).
-- **Fase 7 (KAN-39):** tienda / venta (precio según categoría + calidad).
+### Fase 6 — Inventario + HUD + Excelia ✅ COMPLETADA
+- [x] Inventario visual: panel con [I], muestra habilidades (visible/interno), cristales, drops, peso, valor estimado.
+- [x] Excelia (subida de habilidades por uso): interno (float) vs visible (int).
+- [x] Fuerza: cargar peso en sobrecarga. Resistencia: recibir daño×peligrosidad.
+  Agilidad: correr cerca de enemigos. Destreza: minijuego de extracción.
+- [x] Peso y capacidad: zurron 25px + bonus Fuerza (+50% a 999), sobrecarga gradual >80%.
+- [x] Actualizar estado (tecla U → hogar después): aplica interno a visible.
+- [x] Enemigos: variación de poder se estrecha a mayor nivel; suma capada a 999/habilidad.
+
+### Fase 7 — Pueblo (altar, tienda, puertas) ✅ COMPLETADA
+- [x] Dinero (`Game.money`) y venta de cristales en tienda.
+- [x] Precio: `valor_estimado() × (1 ± 20% azar)`.
+- [x] **Altar**: F → actualizar_estado() + curar 100% (sustituye tecla U, el hogar real).
+- [x] **Tienda**: F → vender SOLO cristales (drops serán para crafteo futuro), muestra ganancia.
+- [x] **Puertas viaje**: F para ir pueblo↔mazmorra (auto-detecta destino).
+- [x] NPCs interactuables: jugador busca grupo "interactable" al presionar F (antes cadáveres/drops).
+- [x] HUD actualizado: muestra dinero (arriba + inventario).
+- [x] town.tscn: nueva escena pueblo con paredes, altar, tienda, puerta a mazmorra.
+- [x] main.tscn: puerta de vuelta al pueblo.
 
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
@@ -153,7 +169,16 @@ resources/     datos como .tres (items, enemigos, dificultad)
 - **KAN-65** Descanso y repoblado: respawn de enemigos + acampar para recuperarse.
 - (Y la mazmorra de muchos pisos: ver memoria "dungeon-pisos".)
 
+**Pendientes futuros (Epics en Jira, sin empezar):**
+- **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
+  defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.
+- **KAN-59** Multi-enemigos y compañeros (en combate y siguiéndote por la mazmorra).
+- **KAN-65** Descanso y repoblado: respawn de enemigos + acampar para recuperarse.
+- **KAN-73** Mochila (extra_capacity) que sumas al zurron.
+- **KAN-83** Inventario tipo Minecraft (grid, drag&drop).
+- **KAN-84** Rediseñar Fuerza-por-peso (desactivada; Gain_FUERZA_PESO=0).
+- Subir de NIVEL: resetea habilidades a 0 pero anterior queda fijado como bonus (diseño guardado, NO tocar).
+- Mazmorra de muchos pisos (dificultad escala por fórmula con profundidad).
+
 Nota: placeholders cuadrados (ColorRect) por ahora; lo visual/animaciones, al final.
-Pendiente menor: borrar `escena_2d_prueba.tscn` (raíz, sin uso).
-Recordatorio: `player.tscn` sigue siendo la escena principal del proyecto;
-si se quiere arrancar en el nivel, cambiar a `main.tscn` en Ajustes del proyecto.
+Recordatorio: Town es ahora la escena por defecto; si arrancar en mazmorra, cambiar a `main.tscn` en Ajustes.
