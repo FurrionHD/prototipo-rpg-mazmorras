@@ -67,6 +67,13 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD de inventario
 	_last_pos = global_position
 
+	# Si llegamos a esta escena con F/Espacio ya pulsadas (p. ej. justo despues
+	# de viajar por una puerta), las marcamos como "ya pulsadas" para NO
+	# dispararlas de nuevo hasta que el jugador las suelte y las vuelva a pulsar.
+	# Esto evita el rebote entre escenas al mantener F pulsada.
+	_interact_was = Input.is_key_pressed(KEY_F)
+	_attack_was_pressed = Input.is_key_pressed(KEY_SPACE)
+
 	# Aguante maximo segun las stats del jugador (Resistencia y Agilidad).
 	max_stamina = base_stamina \
 		+ Game.player_resistencia * stamina_per_resistencia \
@@ -150,7 +157,8 @@ func _physics_process(delta: float) -> void:
 		while _dist_overload >= _DIST_TICK:
 			_dist_overload -= _DIST_TICK
 			var over: float = Game.ratio_carga() - Game.overload_threshold
-			Game.ganar("fuerza", clampf(over * 5.0, 0.0, Game.RETO_MAX), Game.GAIN_FUERZA_PESO)
+			Game.ganar("fuerza", clampf(over * 5.0, 0.0, Game.RETO_MAX_FISICO), Game.GAIN_FUERZA_PESO,
+				Game.RETO_MAX_FISICO)
 
 	# Agilidad: CORRER cerca de un enemigo (correr sin enemigos no sirve).
 	if moved > 0.0 and movement_mode == 2:
@@ -159,7 +167,8 @@ func _physics_process(delta: float) -> void:
 			_dist_run += moved
 			while _dist_run >= _DIST_TICK:
 				_dist_run -= _DIST_TICK
-				Game.ganar("agilidad", Game.reto(_poder_enemigo_nodo(enemigo)), Game.GAIN_AGILIDAD_CORRER)
+				Game.ganar("agilidad", Game.reto(_poder_enemigo_nodo(enemigo)), Game.GAIN_AGILIDAD_CORRER,
+					Game.RETO_MAX_FISICO)
 
 	# Ataque hacia delante para iniciar combate (sin tener que tocar al enemigo).
 	var atk: bool = Input.is_key_pressed(KEY_SPACE)

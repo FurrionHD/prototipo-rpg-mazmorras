@@ -36,22 +36,40 @@ var ability_internal: Dictionary = {
 const ABILITY_CAP := 999.0
 const DIMINISH_POWER := 0.8        # <1 = curva mas suave (aguanta mas arriba)
 const DIMINISH_FLOOR := 0.15       # suelo: cerca de 999 sigues subiendo (lento, no 0)
-const RETO_MAX := 3.0              # tope de dificultad relativa
-const PODER_JUGADOR_SUELO := 10.0  # suelo para no dividir por 0 a nivel 0
+const RETO_MAX := 8.0              # tope de dificultad relativa (enemigo muy superior = mas ganancia)
+# Tope de reto SOLO para las stats FISICAS (Fuerza/Resistencia/Agilidad): mas
+# bajo que el de Destreza (8) para que no se disparen contra enemigos superiores.
+const RETO_MAX_FISICO := 5.0
+# Suelo de PODER del jugador (solo lo usa reto() -> stats fisicas). A nivel 0 tu
+# poder real es ~0; este suelo evita que CUALQUIER bicho te parezca amenaza
+# maxima al arrancar (con 40, el slime por defecto de 125 da reto ~3, graduado).
+# OJO: el minijuego de Destreza usa OTRO piso (EXTRACTION_DESTREZA_FLOOR), aparte.
+const PODER_JUGADOR_SUELO := 40.0
 # Ganancias base por fuente (ajustables).
 const GAIN_FUERZA_ATAQUE := 0.15
 const GAIN_FUERZA_PESO := 0.0    # DESACTIVADA por ahora (rediseñar sin romper escalado)
 const GAIN_AGILIDAD_CORRER := 0.12
 const GAIN_RESISTENCIA_GOLPE := 0.3
-const GAIN_DESTREZA_MINIJUEGO := 1.0
+const GAIN_DESTREZA_MINIJUEGO := 2.2  # arranque (Destreza baja); el pivote de abajo modula el resto
 # --- Dificultad de la extraccion ---
 # Exigencia del enemigo = suma_habilidades x FACTOR. Dificultad relativa =
 # exigencia / (tu Destreza + SUELO). ~1 = a la par; >1 mas dificil. La
 # dificultad hace la zona mas pequeña Y el marcador mas rapido.
 const EXTRACTION_REQ_FACTOR := 0.25
 const EXTRACTION_BASE_ZONE := 0.16      # tamaño de zona a dificultad 1
-const EXTRACTION_DESTREZA_FLOOR := 50.0 # skill base (novato no siempre al minimo)
+const EXTRACTION_DESTREZA_FLOOR := 20.0 # skill base minimo (bajo: el novato SI sufre)
 const EXTRACTION_BASE_MARKER := 0.8     # velocidad del marcador a dificultad 1
+# Pivote para la GANANCIA de Destreza: solo aprendes de verdad si la extraccion
+# fue dura PARA TI. Por debajo de este reto la ganancia cae en picado (curva ^2);
+# por encima se mantiene. Sube el pivote para castigar mas las extracciones
+# faciles (experto sacando de bichos flojos ~0); bajalo para lo contrario.
+const EXTRACTION_DESTREZA_PIVOTE := 1.5
+# Por ENCIMA del pivote la Destreza SIGUE subiendo con el reto (extraccion
+# durisima = novato vs bicho superior = mucha mas Destreza), pero COMPRIMIDA por
+# esta pendiente para no dispararse, y con un tope PROPIO mas alto que el global
+# RETO_MAX (una extraccion brutal enseña mucho mas que una "solo dificil").
+const EXTRACTION_DESTREZA_SLOPE := 0.65
+const EXTRACTION_DESTREZA_RETO_MAX := 8.0
 
 # Dificultad del ultimo minijuego de extraccion (para la ganancia de Destreza).
 var _last_extraction_zone: float = 0.13
@@ -181,13 +199,15 @@ func overload_speed_factor() -> float:
 # --- Subida de habilidades ---
 
 # Suma una ganancia al INTERNO de una habilidad, con rendimientos decrecientes.
-func ganar(abil: String, reto_val: float, base: float) -> void:
+# max_reto = tope del reto para ESTA ganancia. Por defecto RETO_MAX (8, el de
+# Destreza); las stats fisicas pasan RETO_MAX_FISICO (5) para no dispararse.
+func ganar(abil: String, reto_val: float, base: float, max_reto: float = RETO_MAX) -> void:
 	if not ability_internal.has(abil):
 		return
 	var interno: float = ability_internal[abil]
 	var factor: float = maxf(DIMINISH_FLOOR,
 		pow(clampf(1.0 - interno / ABILITY_CAP, 0.0, 1.0), DIMINISH_POWER))
-	var gain: float = base * clampf(reto_val, 0.0, RETO_MAX) * factor
+	var gain: float = base * clampf(reto_val, 0.0, max_reto) * factor
 	ability_internal[abil] = interno + gain
 
 # Poder del jugador (suma de visibles) con un suelo para no dividir por 0.
@@ -291,13 +311,14 @@ func start_extraction(corpse: Node) -> void:
 
 	# Pulsaciones: base del enemigo, ajustadas por la DIFICULTAD:
 	#   dificil (enemigo muy superior) -> MAS pulsaciones (~2x = +1, ~3x = +2...);
-	#   facil (tu muy superior) -> MENOS (minimo 1). Y las herramientas restan.
+	#   facil (tu muy superior) -> MENOS. Y las herramientas restan.
+	# SIEMPRE minimo 3: una extraccion nunca es un "toque y listo".
 	var ajuste_hits: int = 0
 	if difficulty >= 1.0:
 		ajuste_hits = floori(difficulty) - 1
 	else:
 		ajuste_hits = -(floori(1.0 / difficulty) - 1)
-	var required_hits: int = maxi(1,
+	var required_hits: int = maxi(3,
 		data.extraction_hits + ajuste_hits - tool_hit_reduction)
 	# Guardamos la dificultad para la ganancia de Destreza al terminar.
 	_last_extraction_zone = zone_ratio
@@ -335,10 +356,24 @@ func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 		crystals.append(cristal)
 		print("Obtienes cristal categoria ", cristal.categoria,
 			" (", cristal.calidad_texto(), "). Total: ", crystals.size())
-		# Destreza: subes mas cuanto mas dificil era el minijuego (zona pequeña
-		# + mas pulsaciones). Facil = poco.
-		var dificultad: float = clampf((EXTRACTION_BASE_ZONE / _last_extraction_zone)
-			* (float(_last_extraction_hits) / 3.0), 0.0, RETO_MAX)
+		# Destreza: subes mas cuanto mas dificil era el minijuego PARA TI (zona
+		# pequeña + mas pulsaciones = reto alto). El reto ya es relativo a tu
+		# Destreza, asi que un experto sacando de un bicho flojo tiene reto bajo.
+		var reto_bruto: float = (EXTRACTION_BASE_ZONE / _last_extraction_zone) \
+			* (float(_last_extraction_hits) / 3.0)
+		# Forma de la curva segun el reto que fue PARA TI:
+		#  - reto <= pivote: curva ^2 que HUNDE lo facil (experto vs bicho flojo ~0);
+		#    baja los casos "200 vs mismo nivel/debil".
+		#  - reto  > pivote: SIGUE subiendo (lineal comprimido por SLOPE) hasta un
+		#    tope propio ALTO; asi "novato vs bicho muy superior" (extraccion
+		#    brutal) da mucha Destreza, no se queda capado como antes.
+		var dificultad: float
+		if reto_bruto <= EXTRACTION_DESTREZA_PIVOTE:
+			dificultad = reto_bruto * reto_bruto / EXTRACTION_DESTREZA_PIVOTE
+		else:
+			dificultad = EXTRACTION_DESTREZA_PIVOTE \
+				+ (reto_bruto - EXTRACTION_DESTREZA_PIVOTE) * EXTRACTION_DESTREZA_SLOPE
+		dificultad = clampf(dificultad, 0.0, EXTRACTION_DESTREZA_RETO_MAX)
 		ganar("destreza", dificultad, GAIN_DESTREZA_MINIJUEGO)
 	else:
 		print("El cristal se rompio: lo has perdido.")

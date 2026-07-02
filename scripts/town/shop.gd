@@ -1,7 +1,11 @@
 extends Node2D
 
-# Tienda: presionar F para vender SOLO cristales por dinero
-# Precio = valor_base(categoria^2) × multiplicador_calidad × (1 ± azar 20%)
+# Tienda: presionar F para vender SOLO cristales por dinero.
+# Precio de cada cristal = valor_estimado (categoria^2 x calidad) con un
+# margen ALEATORIO de +/- PRECIO_AZAR (20%) para arriba o para abajo.
+
+# Margen de aleatoriedad del precio respecto al valor estimado (0.2 = +/-20%).
+const PRECIO_AZAR := 0.2
 
 func _ready() -> void:
 	add_to_group("interactable")
@@ -15,13 +19,16 @@ func interact_with_player() -> void:
 	var total_dinero: int = 0
 	var cantidad: int = 0
 
-	# Vender todos los cristales.
+	# Vender todos los cristales. Cada uno tira su propio +/-20%.
 	for cristal in Game.crystals:
-		var precio_base: int = cristal.valor_estimado()
-		var azar: float = randf_range(-0.2, 0.2)
-		var precio_final: int = maxi(1, int(round(precio_base * (1.0 + azar))))
+		var estimado: int = cristal.valor_estimado()
+		var azar: float = randf_range(-PRECIO_AZAR, PRECIO_AZAR)
+		var precio_final: int = maxi(1, int(round(estimado * (1.0 + azar))))
 		total_dinero += precio_final
 		cantidad += 1
+		# Desglose por cristal para VER la aleatoriedad (estimado -> real).
+		print("[Tienda]   Cat %d (%s): estimado %d -> vendido %d" % [
+			cristal.categoria, cristal.calidad_texto(), estimado, precio_final])
 
 	Game.money += total_dinero
 	Game.crystals.clear()

@@ -19,6 +19,12 @@ var _toggle_was: bool = false
 func _ready() -> void:
 	layer = 5  # por encima de la mazmorra, por debajo del combate (100)
 
+	# Un HUD recien creado SIEMPRE arranca con el inventario cerrado. Reiniciamos
+	# el flag global por si veniamos de una escena con el inventario abierto (p.ej.
+	# pulsar R para recargar teniendolo abierto): si no, el jugador nuevo se
+	# quedaria congelado creyendo que el inventario sigue abierto.
+	Game.inventory_open = false
+
 	# Contador siempre visible (debajo de la barra de aguante).
 	_counts = Label.new()
 	_counts.position = Vector2(12, 34)

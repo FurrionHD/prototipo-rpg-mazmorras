@@ -162,6 +162,23 @@ resources/     datos como .tres (items, enemigos, dificultad)
 - [x] town.tscn: nueva escena pueblo con paredes, altar, tienda, puerta a mazmorra.
 - [x] main.tscn: puerta de vuelta al pueblo.
 
+### Ajustes de balance Excelia + fixes (post Fase 7) ✅
+Curva de subida de habilidades afinada en TODOS los tramos (novato↔experto × enemigo débil↔fuerte):
+- [x] **Destreza (extracción):** curva `dificultad²/PIVOTE` con pendiente y tope propios
+  (`EXTRACTION_DESTREZA_PIVOTE=1.5`, `_SLOPE=0.65`, `_RETO_MAX=8`). Un experto sacando
+  de bichos flojos casi no sube; un novato vs bicho superior sube mucho. Suelo del
+  minijuego `EXTRACTION_DESTREZA_FLOOR=20` (novato sufre en el minijuego).
+- [x] **Físicas (Fuerza/Resistencia/Agilidad):** tope de reto propio `RETO_MAX_FISICO=5`
+  (Destreza usa 8). `ganar()` acepta `max_reto` opcional. Suelo de poder del jugador
+  `PODER_JUGADOR_SUELO=10→40` para graduar el arranque (solo físicas; se autodesactiva
+  al superar 40 de stats totales). El minijuego usa su piso aparte (20), no se toca.
+- [x] `RETO_MAX` global 3→8 (enemigo muy superior = más ganancia de todo).
+- [x] Extracción: **mínimo 3 pulsaciones** siempre.
+- [x] **Fixes:** rebote de puertas al mantener F (jugador ignora teclas ya pulsadas al
+  aparecer); inventario congelado tras recargar con [I] abierto (HUD resetea el flag);
+  tienda con desglose por cristal y constante `PRECIO_AZAR`.
+- Pendiente: KAN-84 rediseñar Fuerza-por-peso (sigue desactivada, `GAIN_FUERZA_PESO=0`).
+
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
   defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.
