@@ -218,9 +218,15 @@ func _try_attack() -> void:
 				return
 
 
-# Con F: primero intenta EXTRAER de un cadaver cercano; si no hay, RECOGE un
-# drop del suelo cercano.
+# Con F: primero intenta INTERACTUAR con un NPC (altar, tienda, puerta);
+# luego intenta EXTRAER de un cadaver cercano; si no hay, RECOGE un drop del suelo.
 func _try_interact() -> void:
+	# 0) NPCs interactuables (altar, tienda, puerta, etc).
+	var interactable: Node = _mas_cercano_en_grupo("interactable", false)
+	if interactable != null and interactable.has_method("interact_with_player"):
+		interactable.interact_with_player()
+		return
+
 	# 1) Cadaver para extraer.
 	var corpse: Node = _mas_cercano_en_grupo("corpse", true)
 	if corpse != null:

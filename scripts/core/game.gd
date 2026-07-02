@@ -81,6 +81,9 @@ var inventory_open: bool = false
 var crystals: Array[Cristal] = []
 var drops: Array[MonsterDrop] = []
 
+# Dinero (obtenido por vender cristales en la tienda).
+var money: int = 0
+
 # PRUEBAS: fuerza el drop al 100%. Poner en false para usar drop_chance real.
 var dev_force_drop: bool = false
 

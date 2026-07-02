@@ -3,6 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://bgndhyu01suwv" path="res://scenes/actors/player/player.tscn" id="1_72ix8"]
 [ext_resource type="PackedScene" uid="uid://bd26b4wbnosli" path="res://scenes/levels/wall.tscn" id="2_2vj2h"]
 [ext_resource type="PackedScene" uid="uid://dg1p61ujpsj41" path="res://scenes/actors/enemy/enemy.tscn" id="3_y0acb"]
+[ext_resource type="Script" path="res://scripts/town/door.gd" id="4_l2q5x"]
 
 [node name="Main" type="Node2D" unique_id=731661649]
 
@@ -32,3 +33,28 @@ position = Vector2(480, 250)
 
 [node name="Enemy2" parent="." unique_id=1407901393 instance=ExtResource("3_y0acb")]
 position = Vector2(343, 296)
+
+[node name="DoorTown" type="Node2D" parent="." unique_id=4294967295]
+position = Vector2(157, 80)
+script = ExtResource("4_l2q5x")
+
+[node name="Sprite" type="ColorRect" parent="DoorTown"]
+offset_left = -15.0
+offset_top = -20.0
+offset_right = 15.0
+offset_bottom = 20.0
+color = Color(0.5, 0.2, 0.1, 1)
+
+[node name="Label" type="Label" parent="DoorTown/Sprite"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -8.0
+offset_right = 20.0
+offset_bottom = 8.0
+text = "← PUEBLO
+[F]"
+horizontal_alignment = 1
+vertical_alignment = 1

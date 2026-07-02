@@ -1,0 +1,105 @@
+[gd_scene load_steps=5 format=3 uid="uid://c1y22k61e8xmk"]
+
+[ext_resource type="PackedScene" uid="uid://bgndhyu01suwv" path="res://scenes/actors/player/player.tscn" id="1_72ix8"]
+[ext_resource type="PackedScene" uid="uid://bd26b4wbnosli" path="res://scenes/levels/wall.tscn" id="2_2vj2h"]
+[ext_resource type="Script" path="res://scripts/town/altar.gd" id="3_y0acb"]
+[ext_resource type="Script" path="res://scripts/town/shop.gd" id="4_l2q5x"]
+[ext_resource type="Script" path="res://scripts/town/door.gd" id="5_a9z8k"]
+
+[node name="Town" type="Node2D"]
+
+[node name="Player" parent="." instance=ExtResource("1_72ix8")]
+position = Vector2(340, 300)
+
+[node name="Walls" type="Node2D" parent="."]
+
+[node name="WallTop" parent="Walls" instance=ExtResource("2_2vj2h")]
+position = Vector2(340, 100)
+scale = Vector2(14, 1)
+
+[node name="WallBottom" parent="Walls" instance=ExtResource("2_2vj2h")]
+position = Vector2(340, 360)
+scale = Vector2(14, 1)
+
+[node name="WallLeft" parent="Walls" instance=ExtResource("2_2vj2h")]
+position = Vector2(120, 230)
+scale = Vector2(1, 9)
+
+[node name="WallRight" parent="Walls" instance=ExtResource("2_2vj2h")]
+position = Vector2(560, 230)
+scale = Vector2(1, 9)
+
+[node name="Altar" type="Node2D" parent="."]
+position = Vector2(200, 150)
+script = ExtResource("3_y0acb")
+
+[node name="Sprite" type="ColorRect" parent="Altar"]
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+color = Color(0.784314, 0.627451, 0.00392157, 1)
+
+[node name="Label" type="Label" parent="Altar/Sprite"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -8.0
+offset_right = 20.0
+offset_bottom = 8.0
+text = "ALTAR
+[F]"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Shop" type="Node2D" parent="."]
+position = Vector2(480, 150)
+script = ExtResource("4_l2q5x")
+
+[node name="Sprite" type="ColorRect" parent="Shop"]
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+color = Color(0, 0.6, 0.8, 1)
+
+[node name="Label" type="Label" parent="Shop/Sprite"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -8.0
+offset_right = 20.0
+offset_bottom = 8.0
+text = "TIENDA
+[F]"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Door" type="Node2D" parent="."]
+position = Vector2(340, 360)
+script = ExtResource("5_a9z8k")
+
+[node name="Sprite" type="ColorRect" parent="Door"]
+offset_left = -15.0
+offset_top = -20.0
+offset_right = 15.0
+offset_bottom = 20.0
+color = Color(0.5, 0.2, 0.1, 1)
+
+[node name="Label" type="Label" parent="Door/Sprite"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -8.0
+offset_right = 20.0
+offset_bottom = 8.0
+text = "→ MAZMORRA
+[F]"
+horizontal_alignment = 1
+vertical_alignment = 1
