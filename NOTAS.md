@@ -179,6 +179,33 @@ Curva de subida de habilidades afinada en TODOS los tramos (novato↔experto × 
   tienda con desglose por cristal y constante `PRECIO_AZAR`.
 - Pendiente: KAN-84 rediseñar Fuerza-por-peso (sigue desactivada, `GAIN_FUERZA_PESO=0`).
 
+### Combate avanzado — parte 1: críticos/evasión/defender (KAN-52/53/54) ✅
+- [x] **Crítico** (KAN-52) y **evasión** (KAN-53) por CONTEST relativo (`stats_math._contest`):
+  crit = tu Destreza vs Agilidad enemiga; esquiva = tu Agilidad vs Destreza enemiga.
+  Se auto-equilibra al subir de nivel (es un ratio). Crít fijo ×1.5 (`CRIT_MULT`).
+- [x] **Defender** (KAN-54): botón creado por código, mitiga el golpe y anula crítico hasta
+  tu próximo turno. Aún SIN coste de energía (llega en la Fase B de equipo).
+- [x] `resolve_attack()` en `stats_math.gd` centraliza esquiva→crít→mitigación→aturdir.
+
+### Equipamiento — Fase A: armas + loadout de 2 manos (modelo MH Motion Values) 🔧 A PROBAR
+Plan completo en `~/.claude/plans/daga-espada-corta-espada-cozy-kahan.md`.
+- [x] **Modelo estilo Monster Hunter**: el "raw" (daño base) es común (viene de tu Fuerza);
+  el arma aporta su **`motion_value`** (% de raw por golpe) y su **velocidad** (turnos ATB,
+  MULTIPLICATIVA). Equilibrio = motion_value × velocidad. Afinidad de MH = nuestro crítico.
+- [x] `WeaponData` (`scripts/items/weapon_data.gd`) + `ShieldData` (3 tamaños: peq/normal/grande).
+  9 armas en `resources/weapons/`, 3 escudos en `resources/shields/` (valores PROVISIONALES;
+  se afinan con el Excel del usuario).
+- [x] **Loadout de 2 manos** en `Game`: `equipped_main` + `equipped_off` (arma dual | escudo | nada).
+  `loadout_mods()` combina: dual = +velocidad; escudo = +bloqueo/−velocidad/−esquiva; arma a
+  2 manos = sin secundaria pero bloquea decente. Cierra **KAN-82** (arma_factor = motion_value).
+- [x] **Contundentes** (maza/martillo): menos daño (no cortan) + **aturdir/retrasar** (resta barra
+  ATB del enemigo). Prob = `aturdir_base × factor_relativo(media Fuerza+Destreza vs Fuerza enemiga)`.
+  Primer "estado" (adelanto de KAN-58).
+- [x] Teclas DEV: **K** cicla arma principal, **L** cicla mano secundaria (imprime el loadout).
+- OJO: con **Puños** (arma por defecto, MV 0.5) pegas la mitad que antes; equipa un arma real.
+- Pendiente Fase B: **energía de combate** compartida con el aguante (ataque básico recupera,
+  Defender/habilidades gastan); Fase MANT: desgaste + mantenimiento en el pueblo (sumidero $).
+
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
   defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.

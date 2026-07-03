@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Puños"
+tipo = 0
+dos_manos = false
+puede_dual = true
+ataque_base = 0.0
+motion_value = 0.5
+velocidad_mult = 1.0
+crit_bonus = 0.0
+bloqueo = 0.0
+dano_tipo = 1
+aturdir_base = 0.05

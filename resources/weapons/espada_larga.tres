@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Espada larga"
+tipo = 3
+dos_manos = false
+puede_dual = false
+off_hand_ligera_only = true
+ataque_base = 3.0
+motion_value = 1.0
+velocidad_mult = 1.0
+crit_bonus = 0.0
+bloqueo = 0.15
+dano_tipo = 0
+aturdir_base = 0.0

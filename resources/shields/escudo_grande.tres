@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ShieldData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/shield_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Escudo grande"
+tamano = 2
+bloqueo = 0.45
+velocidad_mult = 0.82
+evasion_penal = 0.08

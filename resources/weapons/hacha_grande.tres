@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Hacha grande"
+tipo = 6
+dos_manos = true
+puede_dual = false
+ataque_base = 3.0
+motion_value = 1.7
+velocidad_mult = 0.65
+crit_bonus = 0.0
+bloqueo = 0.2
+dano_tipo = 0
+aturdir_base = 0.0

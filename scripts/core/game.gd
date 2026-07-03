@@ -22,7 +22,7 @@ var player_base_attack: float = 5.0
 var player_base_defense: float = 5.0
 var player_base_speed: float = 5.0
 # Vida actual (persiste entre combates). -1 = aun no inicializada (= llena).
-var player_current_hp: int = -1
+var player_current_hp: float = -1.0
 
 # --- Subida de habilidades (Excelia estilo DanMachi) ---
 # Valor INTERNO (float) que sube con el uso. Lo visible (player_*) solo se
@@ -49,8 +49,13 @@ const PODER_JUGADOR_SUELO := 40.0
 const GAIN_FUERZA_ATAQUE := 0.15
 const GAIN_FUERZA_PESO := 0.0    # DESACTIVADA por ahora (rediseñar sin romper escalado)
 const GAIN_AGILIDAD_CORRER := 0.12
-const GAIN_RESISTENCIA_GOLPE := 0.3
+const GAIN_RESISTENCIA_GOLPE := 0.23
 const GAIN_DESTREZA_MINIJUEGO := 2.2  # arranque (Destreza baja); el pivote de abajo modula el resto
+# Fuentes de COMBATE para las stats que se farmean mal (bases altas: son eventos
+# raros, no ocurren cada turno como el ataque):
+const GAIN_AGILIDAD_ESQUIVAR := 0.6   # esquivar un golpe entrena Agilidad (adios correr en circulos)
+const GAIN_AGILIDAD_CRITICO := 0.3    # clavar un critico entrena Agilidad (encontrar el hueco)
+const GAIN_RESISTENCIA_BLOQUEO := 0.3 # bloquear con Defender entrena Resistencia extra (KAN-81); moderado para no sobre-premiar el escudo
 # --- Dificultad de la extraccion ---
 # Exigencia del enemigo = suma_habilidades x FACTOR. Dificultad relativa =
 # exigencia / (tu Destreza + SUELO). ~1 = a la par; >1 mas dificil. La
@@ -134,6 +139,39 @@ func _ready() -> void:
 var tool_hit_reduction: int = 0    # reduce pulsaciones necesarias
 var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
 
+# --- Equipamiento: loadout de DOS manos (arma principal + secundaria) ---
+# La secundaria puede ser otra WeaponData (dual-wield), un ShieldData o null.
+# Un arma a dos manos (dos_manos) obliga a secundaria = null.
+var equipped_main: WeaponData = preload("res://resources/weapons/punos.tres")
+var equipped_off: Resource = null   # WeaponData | ShieldData | null
+# Dual-wield: llevar arma en la secundaria acelera el ataque (mas turnos).
+const DUAL_SPEED_BONUS := 1.15
+# Bloqueo base al Defender (sin secundaria); la secundaria/escudo suma encima.
+const DEFEND_BLOCK_BASE := 0.30
+
+# PRUEBAS: cambiar loadout en caliente (K = arma principal, L = mano secundaria).
+var _dev_weapons: Array[String] = [
+	"res://resources/weapons/punos.tres",
+	"res://resources/weapons/daga.tres",
+	"res://resources/weapons/espada_corta.tres",
+	"res://resources/weapons/espada_larga.tres",
+	"res://resources/weapons/maza_peq.tres",
+	"res://resources/weapons/mandobles.tres",
+	"res://resources/weapons/hacha_grande.tres",
+	"res://resources/weapons/martillo_grande.tres",
+]
+var _dev_offs: Array = [
+	null,
+	"res://resources/weapons/daga.tres",
+	"res://resources/weapons/espada_corta.tres",
+	"res://resources/weapons/maza_peq.tres",
+	"res://resources/shields/escudo_pequeno.tres",
+	"res://resources/shields/escudo_normal.tres",
+	"res://resources/shields/escudo_grande.tres",
+]
+var _dev_main_idx: int = 0
+var _dev_off_idx: int = 0
+
 # --- Peso / capacidad de carga ---
 # De serie llevas un ZURRON pequeño (base_capacity). La Fuerza sube la
 # capacidad. En el futuro: mochila y companero de apoyo sumaran aqui.
@@ -159,10 +197,91 @@ func crear_player_combatant() -> Combatant:
 	a.magia = player_magia
 	var c := Combatant.new("Heroe", player_level, a,
 		player_base_hp, player_base_attack, player_base_defense, player_base_speed)
-	if player_current_hp < 0:
-		player_current_hp = c.max_hp  # primera vez: vida llena
-	c.current_hp = clampi(player_current_hp, 0, c.max_hp)
+	if player_current_hp < 0.0:
+		player_current_hp = float(c.max_hp)  # primera vez: vida llena
+	c.current_hp = clampf(player_current_hp, 0.0, float(c.max_hp))
+
+	# Aplicar los modificadores del loadout. Las MANOS (1 o 2) se alternan por
+	# golpe en combate; set_hands activa la primera. El resto son del loadout entero.
+	var m := loadout_mods()
+	c.set_hands(m["hands"])
+	c.velocidad_mult = m["velocidad_mult"]
+	c.defend_block = m["defend_block"]
+	c.evasion_penal = m["evasion_penal"]
 	return c
+
+
+# Combina la mano principal + la secundaria en los modificadores finales de
+# combate. La secundaria aporta VELOCIDAD (dual) o BLOQUEO/penalizacion (escudo).
+func loadout_mods() -> Dictionary:
+	var main: WeaponData = equipped_main
+	# Mods COMPARTIDOS (del loadout entero) + lista de MANOS (armas que alternan).
+	var m := {
+		"velocidad_mult": main.velocidad_mult,
+		"defend_block": DEFEND_BLOCK_BASE,
+		# El arma principal define lo escurridizo que eres (daga = +esquiva). Un
+		# evasion_penal NEGATIVO = bonus de esquiva (los escudos suman penal, encima).
+		"evasion_penal": -main.evasion_bonus,
+		"hands": [_hand_from(main)],   # mano principal siempre
+	}
+	if main.dos_manos:
+		# Arma grande a dos manos: sin secundaria, pero bloquea decente por su tamaño.
+		m["defend_block"] += main.bloqueo
+	elif equipped_off is ShieldData:
+		var sh: ShieldData = equipped_off
+		m["velocidad_mult"] *= sh.velocidad_mult   # el escudo te frena algo
+		m["defend_block"] += sh.bloqueo            # pero bloquea mucho
+		m["evasion_penal"] += sh.evasion_penal
+	elif equipped_off is WeaponData:
+		var off: WeaponData = equipped_off
+		m["velocidad_mult"] *= DUAL_SPEED_BONUS     # dual-wield: mas turnos
+		m["defend_block"] += off.bloqueo            # bloqueo mediocre con arma
+		# Dual: la secundaria es la 2ª mano -> se alterna con la principal golpe a
+		# golpe. Cada arma conserva su MV/crit/aturdir propios (no se promedian).
+		(m["hands"] as Array).append(_hand_from(off))
+	# else: mano secundaria vacia -> una sola mano (la principal).
+	return m
+
+
+# Extrae los datos POR MANO de un arma (lo que cambia golpe a golpe en dual).
+func _hand_from(w: WeaponData) -> Dictionary:
+	return {
+		"nombre": w.nombre,
+		"motion_value": w.motion_value,
+		"ataque_arma": w.ataque_base,
+		"crit_bonus": w.crit_bonus,
+		"dano_tipo": int(w.dano_tipo),
+		"aturdir_base": w.aturdir_base,
+	}
+
+
+# True si ESTE loadout (con 'main' de principal) admite 'item' en la secundaria.
+# Escudo o vacio: siempre (si la principal no es a 2 manos). Arma: debe permitir
+# dual y, si la principal solo admite off-hand ligera (espada larga), ser ligera.
+func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
+	if main.dos_manos:
+		return false
+	if item is WeaponData:
+		var w: WeaponData = item
+		if not w.puede_dual:
+			return false
+		if main.off_hand_ligera_only and not w.es_ligera:
+			return false
+	return true   # ShieldData o null
+
+# Equipa un arma en la mano principal. Revalida la secundaria: si la nueva
+# principal no la admite (2 manos, o solo-ligera), la quita.
+func equipar_arma(w: WeaponData) -> void:
+	equipped_main = w
+	if not _secundaria_valida(w, equipped_off):
+		equipped_off = null
+
+# Equipa la mano secundaria (arma dual o escudo); null = vacia.
+func equipar_secundaria(item: Resource) -> bool:
+	if not _secundaria_valida(equipped_main, item):
+		return false
+	equipped_off = item
+	return true
 
 
 # --- Peso / capacidad ---
@@ -244,6 +363,47 @@ func _input(event: InputEvent) -> void:
 		KEY_R:
 			print("[dev] Respawn: recargando la mazmorra")
 			get_tree().reload_current_scene()
+		KEY_K:
+			_dev_cycle_weapon()
+		KEY_L:
+			_dev_cycle_off()
+
+
+# --- PRUEBAS: ciclar el loadout con el teclado ---
+func _dev_cycle_weapon() -> void:
+	_dev_main_idx = wrapi(_dev_main_idx + 1, 0, _dev_weapons.size())
+	equipar_arma(load(_dev_weapons[_dev_main_idx]))
+	if equipped_off == null:   # la nueva principal pudo invalidar la secundaria
+		_dev_off_idx = 0
+	_dev_print_loadout()
+
+func _dev_cycle_off() -> void:
+	if equipped_main.dos_manos:
+		print("[dev] ", equipped_main.nombre, " es a dos manos: sin mano secundaria")
+		return
+	# Busca la SIGUIENTE secundaria valida para la principal actual (salta las que
+	# no admite, p.ej. espada larga + otra arma pesada).
+	for _i in range(_dev_offs.size()):
+		_dev_off_idx = wrapi(_dev_off_idx + 1, 0, _dev_offs.size())
+		var p: Variant = _dev_offs[_dev_off_idx]
+		var item: Resource = null if p == null else load(p)
+		if equipar_secundaria(item):
+			_dev_print_loadout()
+			return
+
+func _dev_print_loadout() -> void:
+	var off_name: String = "—"
+	if equipped_off is WeaponData:
+		off_name = (equipped_off as WeaponData).nombre + " (dual)"
+	elif equipped_off is ShieldData:
+		off_name = (equipped_off as ShieldData).nombre
+	var m := loadout_mods()
+	print("[dev] Loadout: ", equipped_main.nombre, " + ", off_name,
+		"  | vel×:", m["velocidad_mult"], " bloqueo:", m["defend_block"],
+		" esq-:", m["evasion_penal"], "  (manos alternan por golpe)")
+	for h in m["hands"]:
+		print("        mano ", h["nombre"], ": ATK ", h["ataque_arma"], " MV ", h["motion_value"],
+			" crit+ ", h["crit_bonus"], " aturdir ", h["aturdir_base"])
 
 
 # Abre el combate contra un enemigo de la mazmorra.
@@ -413,7 +573,7 @@ func _tirar_drop(corpse: Node, categoria: int) -> void:
 			" (", drop.calidad_texto(), ")")
 
 
-func _on_combat_finished(player_won: bool, player_hp_left: int) -> void:
+func _on_combat_finished(player_won: bool, player_hp_left: float) -> void:
 	get_tree().paused = false
 	player_current_hp = player_hp_left
 

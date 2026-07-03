@@ -24,18 +24,27 @@ const INICIATIVA_VENTAJA := 50.0  # media barra de ventaja para quien inicia
 const EXHAUSTED_SLOW_ACTIONS := 2   # cuantas acciones afectadas
 const EXHAUSTED_RATE := 0.5         # a que ritmo (0.5 = la mitad)
 
+# Aturdir/retrasar (armas contundentes). Un golpe contundente que aturde le RESTA
+# barra ATB al objetivo (pierde tempo). El retraso NORMAL es aleatorio dentro de
+# una franja; un golpe CRITICO que ademas aturde es un aturdimiento COMPLETO:
+# le manda la barra a -UMBRAL = pierde el turno entero.
+const ATB_STUN_MIN := 0.30   # retraso parcial minimo (fraccion de barra)
+const ATB_STUN_MAX := 0.60   # retraso parcial maximo
+
 @onready var _enemy_name: Label = $VBox/EnemyName
 @onready var _enemy_hp: ProgressBar = $VBox/EnemyHP
 @onready var _player_name: Label = $VBox/PlayerName
 @onready var _player_hp: ProgressBar = $VBox/PlayerHP
 @onready var _log: Label = $VBox/Log
 @onready var _attack_button: Button = $VBox/AttackButton
+# Boton Defender (KAN-54): lo creamos por codigo para no tocar la escena.
+var _defend_button: Button = null
 
 # Linea de ORDEN DE TURNOS (estilo Epic Seven), creada por codigo.
 var _timeline: Control = null
 
 # Se emite al cerrar el combate (lo escucha Game para reanudar la mazmorra).
-signal combat_finished(player_won: bool, player_hp_left: int)
+signal combat_finished(player_won: bool, player_hp_left: float)
 
 var _player: Combatant
 var _enemy: Combatant
@@ -51,6 +60,7 @@ var _player_won: bool = false
 var _player_exhausted_start: bool = false  # entro agotado
 var _slow_actions_left: int = 0            # acciones lentas que quedan
 var _player_overload_factor: float = 1.0   # <1 si entro sobrecargado (lento todo el combate)
+var _player_defending: bool = false        # true si elegiste Defender (dura hasta tu proximo turno)
 
 
 # Lo llama Game ANTES de añadir esta escena al arbol.
@@ -92,6 +102,7 @@ func _ready() -> void:
 		_slow_actions_left = EXHAUSTED_SLOW_ACTIONS
 
 	_attack_button.pressed.connect(_on_attack_pressed)
+	_crear_boton_defender()
 	_setup_ui()
 	_crear_timeline()
 	if _enemy_initiated:
@@ -104,6 +115,14 @@ func _ready() -> void:
 		_log.text += "  (Agotado: tus primeras acciones son mas lentas)"
 
 
+# Crea el boton "Defender" justo debajo del de Atacar (dentro del mismo VBox).
+func _crear_boton_defender() -> void:
+	_defend_button = Button.new()
+	_defend_button.text = "Defender"
+	_defend_button.pressed.connect(_on_defend_pressed)
+	$VBox.add_child(_defend_button)
+
+
 func _setup_ui() -> void:
 	_player_hp.max_value = _player.max_hp
 	_enemy_hp.max_value = _enemy.max_hp
@@ -111,14 +130,15 @@ func _setup_ui() -> void:
 	_enemy_hp.show_percentage = false
 	_update_hp()
 	_attack_button.disabled = true
+	_defend_button.disabled = true
 
 
 func _update_hp() -> void:
 	_player_hp.value = _player.current_hp
 	_enemy_hp.value = _enemy.current_hp
-	_enemy_name.text = "%s  (Nv.%d)   %d/%d" % [
+	_enemy_name.text = "%s  (Nv.%d)   %.2f/%d" % [
 		_enemy.nombre, _enemy.level, _enemy.current_hp, _enemy.max_hp]
-	_player_name.text = "%s  (Nv.%d)   %d/%d" % [
+	_player_name.text = "%s  (Nv.%d)   %.2f/%d" % [
 		_player.nombre, _player.level, _player.current_hp, _player.max_hp]
 
 
@@ -147,7 +167,9 @@ func _process(delta: float) -> void:
 
 func _begin_player_turn() -> void:
 	_state = State.WAITING_PLAYER
+	_player_defending = false  # la guardia solo dura hasta tu proximo turno
 	_attack_button.disabled = false
+	_defend_button.disabled = false
 	_set_log("¡Tu turno! Elige una accion.")
 
 
@@ -163,15 +185,36 @@ func _on_attack_pressed() -> void:
 	if _state != State.WAITING_PLAYER:
 		return
 
-	var dmg := StatsMath.damage(_player.atk(), _enemy.def_value())
-	_enemy.take_damage(dmg)
-	# Excelia: atacar sube Fuerza (arma_factor = 1.0 placeholder hasta tener equipo).
-	# Tope fisico (5) para no dispararse contra enemigos muy superiores.
-	Game.ganar("fuerza", Game.reto(_poder_enemigo()) * 1.0, Game.GAIN_FUERZA_ATAQUE,
+	# Los enemigos no defienden (de momento): defending = false.
+	var result := StatsMath.resolve_attack(_player, _enemy, false)
+	_debug_ataque(_player, _enemy, result)
+	# Excelia: atacar sube Fuerza aunque el enemigo esquive (has practicado el
+	# golpe). arma_factor = motion_value de la MANO ACTIVA (KAN-82); tope fisico (5).
+	var arma_factor: float = _player.motion_value
+	Game.ganar("fuerza", Game.reto(_poder_enemigo()) * arma_factor, Game.GAIN_FUERZA_ATAQUE,
 		Game.RETO_MAX_FISICO)
-	_set_log("%s ataca por %d de daño." % [_player.nombre, dmg])
+	var con_arma: String = _player.current_hand_name()
+	if result.evaded:
+		_set_log("%s esquiva tu ataque (%s). 💨" % [_enemy.nombre, con_arma])
+	else:
+		_enemy.take_damage(result.damage)
+		var txt: String
+		if result.crit:
+			txt = "¡CRITICO! %s golpea con %s por %.2f de daño. 💥" % [_player.nombre, con_arma, result.damage]
+			# Excelia: clavar un critico entrena Agilidad (encontraste el hueco).
+			Game.ganar("agilidad", Game.reto(_poder_enemigo()), Game.GAIN_AGILIDAD_CRITICO,
+				Game.RETO_MAX_FISICO)
+		else:
+			txt = "%s golpea con %s por %.2f de daño." % [_player.nombre, con_arma, result.damage]
+		# Aturdir/retrasar (arma contundente): el enemigo pierde tempo (barra ATB).
+		# Retraso parcial normal; si el golpe fue CRITICO, aturdimiento completo.
+		if result.aturde:
+			txt += _aplicar_aturdir(_enemy, result.crit)
+		_set_log(txt)
 	_update_hp()
+	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
 	_attack_button.disabled = true
+	_defend_button.disabled = true
 
 	# Esta accion del jugador ya cuenta: gastamos una "accion lenta".
 	if _slow_actions_left > 0:
@@ -183,17 +226,57 @@ func _on_attack_pressed() -> void:
 		_state = State.ADVANCING
 
 
+# Accion Defender (KAN-54): mitiga el proximo daño y anula criticos en tu contra
+# hasta tu siguiente turno. Cuesta el turno (no atacas).
+func _on_defend_pressed() -> void:
+	if _state != State.WAITING_PLAYER:
+		return
+	_player_defending = true
+	_set_log("%s se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)" % _player.nombre)
+	_attack_button.disabled = true
+	_defend_button.disabled = true
+	if _slow_actions_left > 0:
+		_slow_actions_left -= 1
+	_state = State.ADVANCING
+
+
 func _enemy_turn() -> void:
-	var dmg := StatsMath.damage(_enemy.atk(), _player.def_value())
+	var result := StatsMath.resolve_attack(_enemy, _player, _player_defending)
+	_debug_ataque(_enemy, _player, result)
+	if result.evaded:
+		_set_log("%s esquiva el ataque de %s. 💨" % [_player.nombre, _enemy.nombre])
+		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos).
+		Game.ganar("agilidad", Game.reto(_poder_enemigo()), Game.GAIN_AGILIDAD_ESQUIVAR,
+			Game.RETO_MAX_FISICO)
+		_update_hp()
+		return
+
+	var dmg: float = result.damage
 	_player.take_damage(dmg)
 	# Excelia: la Resistencia sube por la PELIGROSIDAD del enemigo (como el
 	# ataque), modulada por el DAÑO recibido (golpe gordo entrena mas). Asi
 	# tambien sube bien al principio, cuando el enemigo es un gran reto.
-	var dmg_mult: float = clampf(float(dmg) / maxf(1.0, float(_player.max_hp) * 0.1), 0.5, 2.0)
+	var dmg_mult: float = clampf(dmg / maxf(1.0, float(_player.max_hp) * 0.1), 0.5, 2.0)
 	Game.ganar("resistencia", Game.reto(_poder_enemigo()) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
 		Game.RETO_MAX_FISICO)
-	_set_log("%s te ataca por %d de daño." % [_enemy.nombre, dmg])
+	# Excelia: si BLOQUEAS (Defender), entrenas Resistencia EXTRA segun cuanto
+	# bloquees (escudo grande entrena mas). Formaliza KAN-81 y premia el escudo.
+	if _player_defending:
+		Game.ganar("resistencia", Game.reto(_poder_enemigo()) * _player.defend_block,
+			Game.GAIN_RESISTENCIA_BLOQUEO, Game.RETO_MAX_FISICO)
+	var msg: String
+	if result.crit:
+		msg = "%s te CLAVA un critico: %.2f de daño! 💥" % [_enemy.nombre, dmg]
+	else:
+		msg = "%s te ataca por %.2f de daño." % [_enemy.nombre, dmg]
+	if _player_defending:
+		msg += " (defendido 🛡️)"
+	# Aturdir/retrasar del enemigo (si algun dia lleva arma contundente).
+	if result.aturde:
+		msg += _aplicar_aturdir(_player, result.crit)
+	_set_log(msg)
 	_update_hp()
+	_enemy.advance_hand()  # (sin efecto ahora; los enemigos aun no llevan 2 armas)
 
 	if not _player.is_alive():
 		_end(false)
@@ -204,6 +287,9 @@ func _end(player_won: bool) -> void:
 	_state = State.FINISHED
 	_attack_button.disabled = false
 	_attack_button.text = "Continuar"
+	if _defend_button != null:
+		_defend_button.disabled = true
+		_defend_button.visible = false
 	if player_won:
 		_set_log("¡GANASTE el combate contra " + _enemy.nombre + "! 🎉")
 	else:
@@ -212,6 +298,32 @@ func _end(player_won: bool) -> void:
 
 func _set_log(texto: String) -> void:
 	_log.text = texto
+
+
+# Aplica el aturdir a un objetivo (resta barra ATB) y devuelve el texto para el log.
+# es_crit = el golpe fue CRITICO -> aturdimiento COMPLETO (pierde el turno).
+func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:
+	if es_crit:
+		_gauge[objetivo] = -UMBRAL   # barra a negativo: se salta el turno entero
+		return "  ¡ATURDIDO! 💫 (pierde el turno)"
+	var f: float = randf_range(ATB_STUN_MIN, ATB_STUN_MAX)
+	_gauge[objetivo] = maxf(0.0, _gauge[objetivo] - UMBRAL * f)
+	return "  ¡Retrasado! 💫"
+
+
+# Log de DESARROLLO (consola): probabilidades reales de esquiva/crit/aturdir de
+# CADA ataque, con las stats implicadas, para afinar la curva en cada situacion.
+func _debug_ataque(atacante: Combatant, defensor: Combatant, r: Dictionary) -> void:
+	var outcome: String = "esquivado" if r.evaded else ("CRITICO" if r.crit else "golpe")
+	if r.aturde:
+		outcome += "+ATURDE"
+	var mano: String = atacante.current_hand_name()
+	var quien: String = atacante.nombre + ("[" + mano + "]" if mano != "" else "")
+	print("[combate] %s(Dex %d) -> %s(Agi %d) | esquiva:%.1f%% crit:%.1f%% aturdir:%.1f%% | ATK:%.2f dmg:%.2f | %s" % [
+		quien, atacante.abilities.destreza,
+		defensor.nombre, defensor.abilities.agilidad,
+		r.evade_p * 100.0, r.crit_p * 100.0, r.aturde_p * 100.0,
+		atacante.atk(), r.damage, outcome])
 
 
 # Poder del enemigo (suma de sus habilidades) para la dificultad relativa.

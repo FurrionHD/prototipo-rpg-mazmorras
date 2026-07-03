@@ -10,11 +10,15 @@ extends RefCounted
 class_name StatsMath
 
 # --- Coeficientes ajustables ---------------------------------
-# Cada habilidad aporta (su valor × coef). El coef CRECE con el nivel:
-#   coef(nivel) = base + crecimiento × (nivel - 1)
-# Numeros bajos a proposito: 999 de Fuerza NO debe dar 999 de daño.
-const ATK_COEF_BASE := 0.02
-const ATK_COEF_GROWTH := 0.006
+# ATAQUE (nuevo modelo, estilo MH): la Fuerza NO se SUMA, MULTIPLICA el raw
+# (base + arma). factor_fuerza = 1 + Fuerza / FUERZA_DIV. Asi crecer en Fuerza
+# se nota de verdad y ademas escala con el arma. FUERZA_DIV = cada cuanta Fuerza
+# equivale a +100% de daño (250 -> a 250 de Fuerza pegas el DOBLE; a 999, ×5).
+# Se aplica IGUAL a jugador y enemigos (usan la misma Combatant.atk()).
+const FUERZA_DIV := 250.0
+
+# Resto de stats: siguen el modelo "base + habilidad × coef" (coef crece con el
+# nivel). Numeros bajos a proposito: 999 no debe dar 999 de golpe.
 const DEF_COEF_BASE := 0.02
 const DEF_COEF_GROWTH := 0.006
 const MAG_COEF_BASE := 0.02
@@ -29,6 +33,10 @@ const HP_FROM_RES := 0.15
 #   daño = ataque × K / (K + defensa)
 # Con K=30, una defensa de 6 ya reduce ~17% del daño.
 const MITIGATION_K := 30.0
+
+# Variacion aleatoria del daño por golpe (estilo Terraria): cada golpe hace
+# ±este % alrededor del valor base, para que no se sienta robotico.
+const DAMAGE_VARIANCE := 0.12   # ±12%
 # ------------------------------------------------------------
 
 
@@ -37,10 +45,12 @@ static func _coef(base: float, growth: float, level: int) -> float:
 	return base + growth * float(level - 1)
 
 
-# stat efectiva = base + habilidad × coef(nivel)
-static func attack_value(ab: Abilities, level: int, base_attack: float) -> float:
-	return base_attack + ab.fuerza * _coef(ATK_COEF_BASE, ATK_COEF_GROWTH, level)
+# ATAQUE: la Fuerza MULTIPLICA el raw (base + arma). Este es solo el factor;
+# la multiplicacion por (base + arma) y por el motion_value se hace en Combatant.atk().
+static func fuerza_factor(fuerza: float) -> float:
+	return 1.0 + fuerza / FUERZA_DIV
 
+# stat efectiva = base + habilidad × coef(nivel)
 static func defense_value(ab: Abilities, level: int, base_defense: float) -> float:
 	return base_defense + ab.resistencia * _coef(DEF_COEF_BASE, DEF_COEF_GROWTH, level)
 
@@ -55,7 +65,127 @@ static func max_hp_value(ab: Abilities, _level: int, base_hp: float) -> int:
 	return int(round(base_hp + ab.resistencia * HP_FROM_RES))
 
 
-# Daño = ataque mitigado por la defensa (rendimientos decrecientes, minimo 1).
+# Daño = ataque mitigado por la defensa (rendimientos decrecientes).
 #   daño = ataque × K / (K + defensa)
-static func damage(attack: float, defense: float) -> int:
-	return maxi(1, int(round(attack * MITIGATION_K / (MITIGATION_K + defense))))
+# Devuelve FLOAT (con decimales) para NO perder precision: asi mejoras pequeñas
+# (4.31 -> 4.65) se notan en vez de redondearse ambas a "4". Minimo 0.1.
+static func damage(attack: float, defense: float) -> float:
+	return maxf(0.1, attack * MITIGATION_K / (MITIGATION_K + defense))
+
+
+# ============================================================
+#  CRITICOS Y EVASION (KAN-52 / KAN-53)
+#  Se calculan como un CONTEST entre dos habilidades, o sea un RATIO:
+#     frac  = propia / (propia + rival)             -> 0.5 en igualdad
+#     chance = parity + (frac - 0.5) × 2 × spread   (capado suelo/techo)
+#  Al ser un ratio (adimensional) se AUTO-EQUILIBRA al subir de nivel: contra
+#  enemigos igual de escalados la probabilidad no cambia; solo sacas ventaja
+#  contra los que se quedan atras. Por eso NO necesita coeficiente por nivel.
+#  Reparto de stats: Destreza = precision (crit), Agilidad = esquiva.
+#
+#  SUELO (CONTEST_BASE): frac = propia/(propia+rival) se SATURA cuando una stat
+#  es ~0 (0 vs 14 se trata igual que 0 vs 999). Sumamos una base a AMBAS stats:
+#     frac = (propia+BASE) / (propia+BASE + rival+BASE)
+#  Asi al principio (stats bajas) todo queda cerca de la paridad (mas margen), y
+#  al subir de nivel (stats de cientos) la base es despreciable -> contest real.
+# ------------------------------------------------------------
+const CONTEST_BASE := 40.0  # suelo comun a ambas stats (suaviza el arranque)
+
+const CRIT_PARITY := 0.10   # prob. de critico con Destreza = Agilidad rival
+const CRIT_SPREAD := 0.35   # cuanto sube/baja por ventaja de habilidad
+const CRIT_MIN := 0.02
+const CRIT_MAX := 0.40      # tope: un enemigo bestial nunca te critea mas de esto
+const CRIT_MULT := 1.5      # multiplicador de daño critico (fijo por ahora; TODO KAN-52: escalar con Destreza)
+
+const EVADE_PARITY := 0.05
+const EVADE_SPREAD := 0.30
+const EVADE_MIN := 0.03     # siempre queda algo de esquiva (nunca casi 0)
+const EVADE_MAX := 0.35     # tope: nunca te esquivan mas de esto (peleable)
+
+# Defender: el daño recibido se multiplica por (1 - defend_block) del defensor,
+# donde defend_block viene del loadout (base 0.3 + escudo/arma secundaria).
+# Capamos la reduccion entre estos limites (nunca 0 daño, nunca casi todo).
+const DEFEND_TAKEN_MIN := 0.2   # como maximo bloquea el 80%
+const DEFEND_TAKEN_MAX := 0.9   # como minimo bloquea el 10%
+
+# Aturdir/retrasar con armas CONTUNDENTES (KAN-58 adelanto): la probabilidad =
+# aturdir_base × factor_relativo(media(Fuerza,Destreza) del atacante vs Fuerza
+# del defensor). Capada. Enemigo facil -> aturdes mas; fuerte -> casi nada.
+const ATURDIR_MAX := 0.6
+# ------------------------------------------------------------
+
+
+static func _contest(own: float, rival: float, parity: float, spread: float,
+		lo: float, hi: float) -> float:
+	# Base comun a ambas stats: evita la saturacion cuando una es ~0 y da margen
+	# al arranque (se vuelve despreciable con stats altas -> contest real).
+	var o := own + CONTEST_BASE
+	var r := rival + CONTEST_BASE
+	var frac := o / (o + r)
+	return clampf(parity + (frac - 0.5) * 2.0 * spread, lo, hi)
+
+# Factor RELATIVO 0..2: 1.0 en igualdad, >1 si superas al rival, <1 si te supera.
+# Sirve para escalar efectos por dificultad (p.ej. el aturdir). Mismo suelo.
+static func _ratio_factor(own: float, rival: float) -> float:
+	var o := own + CONTEST_BASE
+	var r := rival + CONTEST_BASE
+	return clampf((o / (o + r)) / 0.5, 0.0, 2.0)
+
+# Prob. de que el ATACANTE haga critico: su Destreza vs Agilidad del defensor.
+static func crit_chance(attacker_destreza: float, defender_agilidad: float) -> float:
+	return _contest(attacker_destreza, defender_agilidad,
+		CRIT_PARITY, CRIT_SPREAD, CRIT_MIN, CRIT_MAX)
+
+# Prob. de que el DEFENSOR esquive: su Agilidad vs Destreza del atacante.
+static func evade_chance(defender_agilidad: float, attacker_destreza: float) -> float:
+	return _contest(defender_agilidad, attacker_destreza,
+		EVADE_PARITY, EVADE_SPREAD, EVADE_MIN, EVADE_MAX)
+
+
+# Resuelve un ataque completo: esquiva -> critico -> mitigacion/defensa -> aturdir.
+# defending: true si el DEFENSOR eligio Defender este turno (mitiga y anula crit).
+# Usa los mods del loadout guardados en el Combatant (crit_bonus, evasion_penal,
+# defend_block, dano_tipo, aturdir_base). motion_value ya va dentro de atacante.atk().
+# Devuelve { "damage": float, "evaded": bool, "crit": bool, "aturde": bool,
+#            "evade_p": float, "crit_p": float, "aturde_p": float } (las _p para logs).
+static func resolve_attack(attacker: Combatant, defender: Combatant,
+		defending: bool = false) -> Dictionary:
+	var atk_dex := float(attacker.abilities.destreza)
+	var def_agi := float(defender.abilities.agilidad)
+
+	# Probabilidades (se calculan SIEMPRE, para poder loguearlas aunque no apliquen).
+	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal, 0.0, EVADE_MAX)
+	var crit_p := 0.0 if defending else clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus, 0.0, 1.0)
+	# El aturdir depende de aturdir_base (ya viene promediado del loadout: en dual,
+	# una maza en la secundaria aporta aunque la principal sea de corte).
+	var aturde_p := 0.0
+	if attacker.aturdir_base > 0.0:
+		var stat := (float(attacker.abilities.fuerza) + float(attacker.abilities.destreza)) * 0.5
+		aturde_p = clampf(attacker.aturdir_base * _ratio_factor(stat, float(defender.abilities.fuerza)),
+			0.0, ATURDIR_MAX)
+
+	# 1) Esquiva: base − penalizacion de esquiva del defensor (escudo estorba).
+	if randf() < evade_p:
+		return {"damage": 0.0, "evaded": true, "crit": false, "aturde": false,
+			"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p}
+
+	# 2) Daño base (raw×motion_value en atk()) mitigado por la defensa. FLOAT.
+	var dmg := damage(attacker.atk(), defender.def_value())
+	# Variacion aleatoria por golpe (±DAMAGE_VARIANCE), estilo Terraria.
+	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
+
+	# 3) Critico (Defender lo ANULA).
+	var is_crit := false
+	if crit_p > 0.0 and randf() < crit_p:
+		is_crit = true
+		dmg *= CRIT_MULT
+
+	# 4) Defensa activa: reduce el daño segun el bloqueo del loadout del defensor.
+	if defending:
+		dmg *= clampf(1.0 - defender.defend_block, DEFEND_TAKEN_MIN, DEFEND_TAKEN_MAX)
+
+	# 5) Aturdir/retrasar (solo armas CONTUNDENTES).
+	var aturde := aturde_p > 0.0 and randf() < aturde_p
+
+	return {"damage": maxf(0.1, dmg), "evaded": false, "crit": is_crit, "aturde": aturde,
+		"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p}
