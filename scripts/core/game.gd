@@ -144,8 +144,20 @@ var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
 # Un arma a dos manos (dos_manos) obliga a secundaria = null.
 var equipped_main: WeaponData = preload("res://resources/weapons/punos.tres")
 var equipped_off: Resource = null   # WeaponData | ShieldData | null
-# Dual-wield: llevar arma en la secundaria acelera el ataque (mas turnos).
-const DUAL_SPEED_BONUS := 1.15
+# Dual-wield: llevar arma en la secundaria acelera el ataque (mas turnos). La
+# velocidad final tiene DOS componentes (ver loadout_mods):
+#  1) Un bonus fijo por llevar dos armas, DECRECIENTE segun lo rapida que ya sea
+#     la principal (a la daga, ya en el tope de 1 mano, se le da menos empujon
+#     extra que a un arma lenta) para no desbordar frente a las armas a 2 manos.
+#  2) Un extra que suma la PROPIA velocidad de la secundaria por encima de la
+#     linea base (ONE_HAND_VEL_MIN): una daga de secundaria aporta velocidad de
+#     verdad; una maza (vel base, ONE_HAND_VEL_MIN) no aporta nada extra, ni
+#     tampoco resta - solo dejar de restar/promediar ya evita que te frene.
+const DUAL_BONUS_SLOW := 0.30      # bonus (1) cuando la principal = ONE_HAND_VEL_MIN
+const DUAL_BONUS_FAST := 0.10      # bonus (1) cuando la principal = ONE_HAND_VEL_MAX
+const ONE_HAND_VEL_MIN := 1.0      # velocidad_mult del arma a 1 mano mas lenta (maza/espada larga)
+const ONE_HAND_VEL_MAX := 1.35     # velocidad_mult del arma a 1 mano mas rapida (daga)
+const OFF_HAND_SPEED_WEIGHT := 0.5 # cuanto de la velocidad "extra" de la secundaria se suma (2)
 # Bloqueo base al Defender (sin secundaria); la secundaria/escudo suma encima.
 const DEFEND_BLOCK_BASE := 0.30
 
@@ -234,7 +246,13 @@ func loadout_mods() -> Dictionary:
 		m["evasion_penal"] += sh.evasion_penal
 	elif equipped_off is WeaponData:
 		var off: WeaponData = equipped_off
-		m["velocidad_mult"] *= DUAL_SPEED_BONUS     # dual-wield: mas turnos
+		# Base: la velocidad de la PRINCIPAL con el bonus fijo de dual (decreciente
+		# si la principal ya es rapida) + lo que aporte de mas la SECUNDARIA sobre
+		# la linea base (una maza de secundaria no resta ni suma; una daga si suma).
+		var frac := clampf((main.velocidad_mult - ONE_HAND_VEL_MIN) / (ONE_HAND_VEL_MAX - ONE_HAND_VEL_MIN), 0.0, 1.0)
+		var dual_bonus := lerpf(DUAL_BONUS_SLOW, DUAL_BONUS_FAST, frac)
+		var off_extra := maxf(0.0, off.velocidad_mult - ONE_HAND_VEL_MIN) * OFF_HAND_SPEED_WEIGHT
+		m["velocidad_mult"] = main.velocidad_mult * (1.0 + dual_bonus) + off_extra
 		m["defend_block"] += off.bloqueo            # bloqueo mediocre con arma
 		# Dual: la secundaria es la 2ª mano -> se alterna con la principal golpe a
 		# golpe. Cada arma conserva su MV/crit/aturdir propios (no se promedian).

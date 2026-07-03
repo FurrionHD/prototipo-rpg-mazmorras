@@ -242,7 +242,7 @@ func _on_defend_pressed() -> void:
 
 func _enemy_turn() -> void:
 	var result := StatsMath.resolve_attack(_enemy, _player, _player_defending)
-	_debug_ataque(_enemy, _player, result)
+	_debug_ataque(_enemy, _player, result, _player_defending)
 	if result.evaded:
 		_set_log("%s esquiva el ataque de %s. 💨" % [_player.nombre, _enemy.nombre])
 		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos).
@@ -313,10 +313,12 @@ func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:
 
 # Log de DESARROLLO (consola): probabilidades reales de esquiva/crit/aturdir de
 # CADA ataque, con las stats implicadas, para afinar la curva en cada situacion.
-func _debug_ataque(atacante: Combatant, defensor: Combatant, r: Dictionary) -> void:
+func _debug_ataque(atacante: Combatant, defensor: Combatant, r: Dictionary, bloqueando: bool = false) -> void:
 	var outcome: String = "esquivado" if r.evaded else ("CRITICO" if r.crit else "golpe")
 	if r.aturde:
 		outcome += "+ATURDE"
+	if bloqueando and not r.evaded:
+		outcome += "+BLOQUEO"
 	var mano: String = atacante.current_hand_name()
 	var quien: String = atacante.nombre + ("[" + mano + "]" if mano != "" else "")
 	print("[combate] %s(Dex %d) -> %s(Agi %d) | esquiva:%.1f%% crit:%.1f%% aturdir:%.1f%% | ATK:%.2f dmg:%.2f | %s" % [
