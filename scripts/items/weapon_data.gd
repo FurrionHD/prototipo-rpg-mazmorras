@@ -30,11 +30,10 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 # indica que vale como mano SECUNDARIA (dual-wield).
 @export var dos_manos: bool = false
 @export var puede_dual: bool = true
-# es_ligera = arma pequeña (daga): sirve de secundaria incluso con armas que solo
-# admiten off-hand ligera. off_hand_ligera_only = como PRINCIPAL, solo admite en
-# la otra mano un escudo o un arma ligera (la espada larga: espada+escudo/daga).
-@export var es_ligera: bool = false
-@export var off_hand_ligera_only: bool = false
+# off_hand_solo_escudo = como PRINCIPAL, en la otra mano SOLO admite escudo (o
+# nada); nunca otra arma. La espada larga: ya pega mucho de una mano, asi que su
+# unica combinacion es espada + escudo (o sola). No dual.
+@export var off_hand_solo_escudo: bool = false
 
 # --- Modificadores de combate ---
 # ataque_base = RAW que APORTA el arma (el "Attack" del arma en MH). Se SUMA al

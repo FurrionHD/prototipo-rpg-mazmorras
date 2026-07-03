@@ -265,8 +265,8 @@ func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
 		var w: WeaponData = item
 		if not w.puede_dual:
 			return false
-		if main.off_hand_ligera_only and not w.es_ligera:
-			return false
+		if main.off_hand_solo_escudo:
+			return false   # este main (espada larga) no admite NINGUN arma en off
 	return true   # ShieldData o null
 
 # Equipa un arma en la mano principal. Revalida la secundaria: si la nueva

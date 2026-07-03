@@ -8,7 +8,6 @@ nombre = "Daga"
 tipo = 1
 dos_manos = false
 puede_dual = true
-es_ligera = true
 ataque_base = 3.0
 motion_value = 0.65
 velocidad_mult = 1.35
