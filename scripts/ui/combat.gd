@@ -307,7 +307,9 @@ func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:
 		_gauge[objetivo] = -UMBRAL   # barra a negativo: se salta el turno entero
 		return "  ¡ATURDIDO! 💫 (pierde el turno)"
 	var f: float = randf_range(ATB_STUN_MIN, ATB_STUN_MAX)
-	_gauge[objetivo] = maxf(0.0, _gauge[objetivo] - UMBRAL * f)
+	# Sin recorte a 0: si la barra ya estaba baja, el retraso debe notarse igual
+	# (recortar a 0 lo dejaba igual que si no hubiera aturdido nada).
+	_gauge[objetivo] -= UMBRAL * f
 	return "  ¡Retrasado! 💫"
 
 
