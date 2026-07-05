@@ -15,3 +15,4 @@ crit_bonus = -0.02
 bloqueo = 0.1
 dano_tipo = 1
 aturdir_base = 0.12
+peso = 2.5

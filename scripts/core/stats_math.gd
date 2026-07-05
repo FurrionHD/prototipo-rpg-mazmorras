@@ -108,6 +108,12 @@ const EVADE_MAX := 0.35     # tope: nunca te esquivan mas de esto (peleable)
 const DEFEND_TAKEN_MIN := 0.2   # como maximo bloquea el 80%
 const DEFEND_TAKEN_MAX := 0.9   # como minimo bloquea el 10%
 
+# Armadura: reduccion PORCENTUAL SIEMPRE activa (aparte de la DEF plana, que va por
+# la mitigacion K/(K+DEF)). Se aplica a TODO golpe recibido, criticos incluidos.
+# Tope para que ni con set pesado de tier alto te vuelvas invulnerable (la DEF
+# plana NO tiene techo; el % SI). Ver Game.armor_mods() (media ponderada por slot).
+const ARMOR_REDUCTION_MAX := 0.20
+
 # Aturdir/retrasar con armas CONTUNDENTES (KAN-58 adelanto): la probabilidad =
 # aturdir_base × factor_relativo(media(Fuerza,Destreza) del atacante vs Fuerza
 # del defensor). Capada. Enemigo facil -> aturdes mas; fuerte -> casi nada.
@@ -179,6 +185,9 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	if crit_p > 0.0 and randf() < crit_p:
 		is_crit = true
 		dmg *= CRIT_MULT
+
+	# 3.5) Armadura: reduccion porcentual SIEMPRE activa (afecta tambien al critico).
+	dmg *= (1.0 - clampf(defender.armor_reduction, 0.0, ARMOR_REDUCTION_MAX))
 
 	# 4) Defensa activa: reduce el daño segun el bloqueo del loadout del defensor.
 	if defending:

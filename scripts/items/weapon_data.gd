@@ -55,6 +55,12 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 @export var dano_tipo: DanoTipo = DanoTipo.CONTUNDENTE
 @export var aturdir_base: float = 0.05    # 0 si CORTE; >0 = prob. base de aturdir/retrasar
 
+# --- Peso para el equip-load (estilo Souls) ---
+# Suma al peso de EQUIPO (separado del loot). SOLO afecta a la velocidad de MAPA:
+# el ATB de combate del arma ya lo modula velocidad_mult, asi NO se penaliza dos
+# veces. Puños ~0; ligeras bajo; armas grandes a 2 manos alto.
+@export var peso: float = 2.0
+
 # --- Energia (FASE B) ---
 # + recupera energia con el ataque basico, − la gasta. (Aun sin usar.)
 @export var energia_ataque: float = 0.0

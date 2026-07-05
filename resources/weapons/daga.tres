@@ -16,3 +16,4 @@ evasion_bonus = 0.05
 bloqueo = 0.05
 dano_tipo = 0
 aturdir_base = 0.0
+peso = 1.0

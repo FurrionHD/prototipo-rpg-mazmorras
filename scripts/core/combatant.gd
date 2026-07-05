@@ -39,6 +39,11 @@ var velocidad_mult: float = 1.0  # multiplica la velocidad de combate (turnos)
 var defend_block: float = 0.3    # reduccion al Defender (base sin secundaria)
 var evasion_penal: float = 0.0   # baja la esquiva propia (escudos)
 
+# --- ARMADURA (loadout de 5 piezas, ver Game.armor_mods()). Neutros por defecto,
+# asi un combatiente SIN armadura (enemigos) se comporta igual que antes. ---
+var extra_defense: float = 0.0   # DEF plana ADITIVA de la armadura (sube la mitigacion)
+var armor_reduction: float = 0.0 # % de reduccion de dano (SIEMPRE activo, acotado)
+
 # MANOS del loadout: 1 (arma sola / 2 manos / con escudo) o 2 (dual-wield). Cada
 # mano es un Dictionary {nombre, motion_value, ataque_arma, crit_bonus, dano_tipo,
 # aturdir_base}. Se ALTERNAN por golpe (advance_hand). Vacio = enemigos (sin arma).
@@ -69,7 +74,7 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 # spd() lleva la velocidad del arma (mas/menos turnos).
 func atk() -> float:
 	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(abilities.fuerza) * motion_value
-func def_value() -> float: return StatsMath.defense_value(abilities, level, base_defense)
+func def_value() -> float: return StatsMath.defense_value(abilities, level, base_defense + extra_defense)
 func spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * velocidad_mult
 
 func is_alive() -> bool:

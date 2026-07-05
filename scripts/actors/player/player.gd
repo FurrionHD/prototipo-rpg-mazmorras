@@ -141,8 +141,10 @@ func _physics_process(delta: float) -> void:
 	# Pista visual: la barra se pone rojiza mientras estas agotado.
 	_stamina_bar.modulate = Color(1.0, 0.4, 0.4) if _exhausted else Color.WHITE
 
-	# Sobrecarga: cuanto mas peso, mas lento (gradual).
+	# Sobrecarga (loot): cuanto mas peso en la mochila, mas lento (gradual).
 	speed *= Game.overload_speed_factor()
+	# Equip-load (equipo: armadura + arma/escudo): las armaduras pesadas te frenan.
+	speed *= Game.equip_load_factor(Game.equip_load_map())
 
 	velocity = direction * speed
 	move_and_slide()

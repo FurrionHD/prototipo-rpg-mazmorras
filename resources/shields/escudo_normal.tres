@@ -9,3 +9,4 @@ tamano = 1
 bloqueo = 0.35
 velocidad_mult = 0.88
 evasion_penal = 0.055
+peso = 3.0

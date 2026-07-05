@@ -206,6 +206,32 @@ Plan completo en `~/.claude/plans/daga-espada-corta-espada-cozy-kahan.md`.
 - Pendiente Fase B: **energía de combate** compartida con el aguante (ataque básico recupera,
   Defender/habilidades gastan); Fase MANT: desgaste + mantenimiento en el pueblo (sumidero $).
 
+### Equipamiento — Fase B(1): Armaduras (5 slots) + equip-load estilo Souls 🔧 A PROBAR
+Plan completo en `~/.claude/plans/ya-que-hemos-terminado-imperative-hejlsberg.md`. Verificado
+en headless (números exactos): DEF, reducción media y equip-load salen como el diseño.
+- [x] **`ArmorData`** (`scripts/items/armor_data.gd`) + 16 `.tres` en `resources/armor/`
+  (sets completos ligera/media/pesada tier 1 + 1 pieza pesada tier 2 de muestra).
+- [x] **Modelo espejo de las armas** ("motion value para armaduras"): `defensa_base` común por
+  tier × `motion_def` por tipo (ligera 0.5 / media 1.0 / pesada 2.0). A tier 1 sale
+  DEF/pieza 0.25 / 0.5 / 1.0. Equilibrio protección × movilidad ≈ cte.
+- [x] **5 slots** en `Game` (casco/pecho/manos/pantalones/botas) → `armor_mods()`:
+  - **DEF plana ADITIVA** (suma de `defensa_base × motion_def`), **SIN techo** (escala con el
+    tier; pasa por la mitigación `K/(K+DEF)`, sigue relevante en pisos altos).
+  - **% reducción = MEDIA PONDERADA por cobertura de slot** (pecho 0.35, casco/pantalón 0.20,
+    manos/botas 0.125), NO suma. Set completo = su % (5/7.5/10%); mezclar = media. Techo global
+    `StatsMath.ARMOR_REDUCTION_MAX = 0.20`. Se aplica en `resolve_attack()` y `battle.gd`.
+- [x] **Equip-load estilo Souls** (peso de EQUIPO, separado del loot): `WeaponData`/`ShieldData`/
+  `ArmorData` tienen `peso`. Capacidad = `base_equip_cap (20) + Fuerza × 0.03` → **escala con la
+  Fuerza** (revive la idea de KAN-84). Penalización gradual `equip_load_factor()`.
+  - **Mapa** (`player.gd`): peso de armadura + arma/escudo frena la velocidad.
+  - **Combate** (`combat.gd`): SOLO armadura frena el ATB (el arma ya frena por `velocidad_mult`
+    → **sin doble castigo**).
+- [x] Tecla DEV **J**: cicla set ninguna/ligera/media/pesada e imprime DEF, reducción, equip-load
+  y factores de mapa/combate.
+- Calibración a Fuerza 0: ligera = sin castigo, media ≈ −15%, pesada ≈ −60% (mejora con Fuerza).
+  Valores PROVISIONALES → **afinar con Excel** en playtest (hoja de armaduras pendiente).
+- Enemigos: `extra_defense`/`armor_reduction` = 0 (sin cambios); puerta abierta a darles armadura.
+
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
   defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.

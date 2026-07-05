@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ArmorData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/armor_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Coraza de placas +2"
+tipo = 2
+slot = 1
+tier = 2
+defensa_base = 1.3
+motion_def = 2.0
+reduccion = 0.11
+peso = 4.5

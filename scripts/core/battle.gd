@@ -55,6 +55,8 @@ static func simulate(a: Combatant, b: Combatant, iniciativa_de: Combatant = null
 
 static func _attack(attacker: Combatant, defender: Combatant) -> void:
 	var dmg := StatsMath.damage(attacker.atk(), defender.def_value())
+	# Reduccion porcentual de armadura (consistente con resolve_attack).
+	dmg *= (1.0 - clampf(defender.armor_reduction, 0.0, StatsMath.ARMOR_REDUCTION_MAX))
 	defender.take_damage(dmg)
 	print("  ", attacker.nombre, " ataca a ", defender.nombre, " -> ", dmg,
 		" daño  (", defender.nombre, ": ", defender.current_hp, "/", defender.max_hp, " HP)")

@@ -60,17 +60,20 @@ var _player_won: bool = false
 var _player_exhausted_start: bool = false  # entro agotado
 var _slow_actions_left: int = 0            # acciones lentas que quedan
 var _player_overload_factor: float = 1.0   # <1 si entro sobrecargado (lento todo el combate)
+var _equip_load_factor: float = 1.0        # <1 por armadura pesada (solo armadura, no el arma)
 var _player_defending: bool = false        # true si elegiste Defender (dura hasta tu proximo turno)
 
 
 # Lo llama Game ANTES de añadir esta escena al arbol.
 func setup(player_c: Combatant, enemy_c: Combatant, enemy_initiated: bool,
-		player_exhausted: bool = false, player_overload_factor: float = 1.0) -> void:
+		player_exhausted: bool = false, player_overload_factor: float = 1.0,
+		equip_load_factor: float = 1.0) -> void:
 	_player = player_c
 	_enemy = enemy_c
 	_enemy_initiated = enemy_initiated
 	_player_exhausted_start = player_exhausted
 	_player_overload_factor = player_overload_factor
+	_equip_load_factor = equip_load_factor
 	_injected = true
 
 
@@ -153,6 +156,7 @@ func _process(delta: float) -> void:
 	if _slow_actions_left > 0:
 		player_rate *= EXHAUSTED_RATE
 	player_rate *= _player_overload_factor
+	player_rate *= _equip_load_factor   # armadura pesada = ATB mas lento (solo armadura)
 	_gauge[_player] += _player.spd() * delta * player_rate
 	_gauge[_enemy] += _enemy.spd() * delta * SPEED_SCALE
 
