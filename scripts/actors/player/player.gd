@@ -65,6 +65,7 @@ const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
 func _ready() -> void:
 	_stamina_bar = _crear_barra_aguante()
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD de inventario
+	add_child(preload("res://scripts/ui/debug_panel.gd").new())  # panel de debug (cualquier sala)
 	_last_pos = global_position
 
 	# Si llegamos a esta escena con F/Espacio ya pulsadas (p. ej. justo despues
@@ -90,7 +91,7 @@ func _physics_process(delta: float) -> void:
 	# Con el inventario abierto: no te mueves ni interactuas (F/ataque). El
 	# enemigo sigue su IA aparte, asi que puede emboscarte igualmente. Pero el
 	# TIEMPO pasa, asi que el aguante se sigue recuperando.
-	if Game.inventory_open:
+	if Game.inventory_open or Game.debug_panel_open:
 		velocity = Vector2.ZERO
 		current_stamina = minf(max_stamina, current_stamina + _regen_actual * delta)
 		if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:

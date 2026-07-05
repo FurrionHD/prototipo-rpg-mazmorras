@@ -51,12 +51,18 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	# Actualiza el contador (con dinero, peso/capacidad).
-	_counts.text = "Dinero: %d   Cristales: %d   Drops: %d   Peso: %d/%d   [I] Inventario" % [
+	# Actualiza el contador (con dinero, peso de LOOT y peso de EQUIPO).
+	var equip_load: float = Game.equip_load_map()
+	var equip_cap: float = Game.equip_capacidad()
+	_counts.text = "Dinero: %d   Cristales: %d   Drops: %d   Peso: %d/%d   Equipo: %d/%d   [I] Inventario" % [
 		Game.money, Game.crystals.size(), Game.drops.size(),
-		roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
+		roundi(Game.peso_actual()), roundi(Game.capacidad_carga()),
+		roundi(equip_load), roundi(equip_cap)]
+	# Tinta rojizo si algo te frena: sobrecarga de loot O equip-load pesado.
+	var equip_frena: bool = Game.equip_load_factor(equip_load) < 1.0
 	if Game.esta_sobrecargado():
 		_counts.text += "   (SOBRECARGADO)"
+	if Game.esta_sobrecargado() or equip_frena:
 		_counts.modulate = Color(1.0, 0.5, 0.5)
 	else:
 		_counts.modulate = Color.WHITE
@@ -94,9 +100,16 @@ func _refrescar_lista() -> void:
 	for d in Game.drops:
 		total += d.valor_estimado()
 	s += "DINERO: %d\n" % Game.money
-	s += "PESO: %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
+	s += "PESO LOOT: %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
 	if Game.esta_sobrecargado():
 		s += "  (SOBRECARGADO: vas mas lento)"
+	# Peso de EQUIPO (equip-load: armadura + arma/escudo), aparte del loot.
+	var eload: float = Game.equip_load_map()
+	var ecap: float = Game.equip_capacidad()
+	var efactor: float = Game.equip_load_factor(eload)
+	s += "\nPESO EQUIPO: %d / %d" % [roundi(eload), roundi(ecap)]
+	if efactor < 1.0:
+		s += "  (te frena: -%d%% velocidad)" % roundi((1.0 - efactor) * 100.0)
 	s += "\nVALOR TOTAL ESTIMADO: %d\n\n" % total
 
 	# --- Cristales AGRUPADOS (categoria + calidad) ---

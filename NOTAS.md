@@ -232,6 +232,20 @@ en headless (números exactos): DEF, reducción media y equip-load salen como el
   Valores PROVISIONALES → **afinar con Excel** en playtest (hoja de armaduras pendiente).
 - Enemigos: `extra_defense`/`armor_reduction` = 0 (sin cambios); puerta abierta a darles armadura.
 
+### Herramientas — Panel de DEBUG clicable (en cualquier sala) ✅
+`scripts/ui/debug_panel.gd` (CanvasLayer, la crea el jugador junto al HUD → aparece en
+pueblo y mazmorra). Botón **DEBUG** abajo-izquierda abre/cierra un panel con:
+- **STATS**: 5 campos (F/R/D/A/M) + Aplicar → `Game.debug_set_abilities()` (escribe el
+  interno, `actualizar_estado()` y cura al 100%).
+- **Fuerza del ENEMIGO**: presets Base / 200 / 500 / Cheto → `Game.debug_enemy_stat_override`
+  (-1 = stats del `.tres`; >=0 = las 5 habilidades planas). Se aplica en `EnemyData.crear_abilities()`.
+- **ARMADURA por pieza**: dropdown Nada/Ligera/Media/Pesada por slot (carga `cuero/malla/placas`).
+- **ARMAS**: dropdowns de principal y secundaria (reusa `Game._dev_weapons`/`_dev_offs`,
+  `equipar_arma`/`equipar_secundaria`; revierte combinaciones inválidas).
+- Mientras está abierto, `Game.debug_panel_open` congela al jugador (teclear sin moverse).
+- **HUD**: la barra de arriba y el inventario muestran ahora también el **PESO DE EQUIPO**
+  (equip-load: armadura + arma/escudo) aparte del peso de loot; se tinta si te frena.
+
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
   defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.

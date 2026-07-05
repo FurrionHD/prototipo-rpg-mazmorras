@@ -117,6 +117,14 @@ var dev_start_weight_ratio: float = 0.0
 # 0 = empezar a 0 (normal). Util para revisar el escalado de la subida.
 var dev_start_abilities: int = 0
 
+# --- PANEL DE DEBUG (herramienta de desarrollo, ver scripts/ui/debug_panel.gd) ---
+# Override de las habilidades del ENEMIGO: -1 = usar las del EnemyData (Base);
+# >=0 = forzar las 5 habilidades a ese valor plano (presets 200 / 500 / 999).
+var debug_enemy_stat_override: int = -1
+# True mientras el panel de debug esta abierto: congela al jugador (para poder
+# escribir en los campos sin que WASD lo muevan). Lo consulta player.gd.
+var debug_panel_open: bool = false
+
 
 func _ready() -> void:
 	# TEMPORAL: arrancar con las habilidades a un valor para revisar el escalado.
@@ -462,6 +470,18 @@ func actualizar_estado() -> void:
 	player_magia = floori(ability_internal["magia"])
 	print("=== ESTADO ACTUALIZADO ===  F:", player_fuerza, " R:", player_resistencia,
 		" D:", player_destreza, " A:", player_agilidad, " M:", player_magia)
+
+
+# DEBUG: fija a mano las 5 habilidades (interno + visible) y cura al 100% para el
+# proximo combate. Lo usa el editor de stats del panel de debug.
+func debug_set_abilities(f: int, r: int, d: int, a: int, m: int) -> void:
+	ability_internal["fuerza"] = float(clampi(f, 0, 999))
+	ability_internal["resistencia"] = float(clampi(r, 0, 999))
+	ability_internal["destreza"] = float(clampi(d, 0, 999))
+	ability_internal["agilidad"] = float(clampi(a, 0, 999))
+	ability_internal["magia"] = float(clampi(m, 0, 999))
+	actualizar_estado()          # sincroniza lo visible con lo interno
+	player_current_hp = -1.0     # vida llena en el proximo combate
 
 
 # Teclas de DESARROLLO (temporales): U actualizar estado, H cura, R respawn.

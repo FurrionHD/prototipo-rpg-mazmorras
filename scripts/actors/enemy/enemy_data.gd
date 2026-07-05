@@ -73,6 +73,16 @@ func suma_habilidades(power: float) -> int:
 # Crea las Abilities, escaladas por el "poder" de ESTE bicho (1.0 = base).
 func crear_abilities(power: float = 1.0) -> Abilities:
 	var a := Abilities.new()
+	# DEBUG: si el panel forzo un valor plano, ignora las stats del .tres y el poder
+	# (presets 200 / 500 / 999). -1 = comportamiento normal.
+	if Game.debug_enemy_stat_override >= 0:
+		var v: int = clampi(Game.debug_enemy_stat_override, 0, 999)
+		a.fuerza = v
+		a.resistencia = v
+		a.destreza = v
+		a.agilidad = v
+		a.magia = v
+		return a
 	a.fuerza = clampi(int(round(fuerza * power)), 0, 999)
 	a.resistencia = clampi(int(round(resistencia * power)), 0, 999)
 	a.destreza = clampi(int(round(destreza * power)), 0, 999)
