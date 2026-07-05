@@ -23,9 +23,22 @@ var _open: bool = false
 
 var _stat_edits: Dictionary = {}     # "fuerza"/... -> LineEdit
 var _enemy_buttons: Array = []       # [ [Button, valor], ... ]
-var _armor_opts: Dictionary = {}     # slot -> OptionButton
+var _floor_edit: LineEdit = null     # selector de piso (profundidad)
+var _armor_opts: Dictionary = {}     # slot -> OptionButton (tipo)
+var _armor_tier_opts: Dictionary = {}  # slot -> OptionButton (tier)
 var _main_opt: OptionButton = null
+var _main_tier_opt: OptionButton = null
 var _off_opt: OptionButton = null
+var _off_tier_opt: OptionButton = null
+
+
+# Crea un OptionButton de tier (T1..T3). El callback recibe el TIER (1..3).
+func _make_tier_opt(cb: Callable) -> OptionButton:
+	var opt := OptionButton.new()
+	for t in [1, 2, 3]:
+		opt.add_item("T%d" % t, t)
+	opt.item_selected.connect(func(idx): cb.call(idx + 1))  # idx 0->tier 1
+	return opt
 
 
 func _ready() -> void:
@@ -119,6 +132,22 @@ func _build_enemy(vb: VBoxContainer) -> void:
 		b.pressed.connect(_set_enemy.bind(preset[1]))
 		row.add_child(b)
 		_enemy_buttons.append([b, preset[1]])
+	# Selector de PISO (profundidad): escala vida/ataque base y habilidades del enemigo.
+	var frow := HBoxContainer.new()
+	frow.add_theme_constant_override("separation", 4)
+	vb.add_child(frow)
+	var flbl := Label.new()
+	flbl.text = "Piso"
+	frow.add_child(flbl)
+	_floor_edit = LineEdit.new()
+	_floor_edit.custom_minimum_size = Vector2(48, 0)
+	_floor_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_floor_edit.text_submitted.connect(func(_t): _apply_floor())
+	frow.add_child(_floor_edit)
+	var fapply := Button.new()
+	fapply.text = "Aplicar"
+	fapply.pressed.connect(_apply_floor)
+	frow.add_child(fapply)
 
 
 func _build_armor(vb: VBoxContainer) -> void:
@@ -139,6 +168,10 @@ func _build_armor(vb: VBoxContainer) -> void:
 		opt.item_selected.connect(_set_armor.bind(slot))
 		row.add_child(opt)
 		_armor_opts[slot] = opt
+		# Tier al lado (T1..T3): multiplica la DEF de esta pieza.
+		var topt := _make_tier_opt(_set_armor_tier.bind(slot))
+		row.add_child(topt)
+		_armor_tier_opts[slot] = topt
 
 
 func _build_weapons(vb: VBoxContainer) -> void:
@@ -157,6 +190,8 @@ func _build_weapons(vb: VBoxContainer) -> void:
 		_main_opt.add_item(w.nombre, i)
 	_main_opt.item_selected.connect(_set_main)
 	row1.add_child(_main_opt)
+	_main_tier_opt = _make_tier_opt(func(t): Game.equipped_main_tier = t)
+	row1.add_child(_main_tier_opt)
 	# Secundaria
 	var row2 := HBoxContainer.new()
 	row2.add_theme_constant_override("separation", 6)
@@ -170,6 +205,9 @@ func _build_weapons(vb: VBoxContainer) -> void:
 		_off_opt.add_item(_off_label(Game._dev_offs[i]), i)
 	_off_opt.item_selected.connect(_set_off)
 	row2.add_child(_off_opt)
+	# Tier de la secundaria (solo aplica si es ARMA dual; con escudo se ignora).
+	_off_tier_opt = _make_tier_opt(func(t): Game.equipped_off_tier = t)
+	row2.add_child(_off_tier_opt)
 
 
 func _off_label(path) -> String:
@@ -208,12 +246,21 @@ func _set_enemy(valor: int) -> void:
 	_sync_enemy()
 
 
+func _apply_floor() -> void:
+	Game.current_floor = maxi(1, _floor_edit.text.to_int())
+	_floor_edit.text = str(Game.current_floor)
+
+
 func _set_armor(idx: int, slot: String) -> void:
 	if idx <= 0:
 		Game.set("equipped_" + slot, null)
 	else:
 		var path := "res://resources/armor/%s_%s.tres" % [ARMOR_PREFIX[idx], slot]
 		Game.set("equipped_" + slot, load(path))
+
+
+func _set_armor_tier(tier: int, slot: String) -> void:
+	Game.set("equipped_" + slot + "_tier", tier)
 
 
 func _set_main(idx: int) -> void:
@@ -237,6 +284,7 @@ func _sync_from_game() -> void:
 	_sync_enemy()
 	_sync_armor()
 	_sync_weapons()
+	_floor_edit.text = str(Game.current_floor)
 
 func _sync_stats() -> void:
 	_stat_edits["fuerza"].text = str(Game.player_fuerza)
@@ -256,6 +304,8 @@ func _sync_armor() -> void:
 		if pieza is ArmorData:
 			idx = (pieza as ArmorData).tipo + 1  # Tipo LIGERA/MEDIA/PESADA -> 1/2/3
 		(_armor_opts[slot] as OptionButton).select(idx)
+		var tier: int = int(Game.get("equipped_" + slot + "_tier"))
+		(_armor_tier_opts[slot] as OptionButton).select(clampi(tier - 1, 0, 2))
 
 func _sync_weapons() -> void:
 	# Principal: buscar el path equipado en la lista dev.
@@ -263,6 +313,8 @@ func _sync_weapons() -> void:
 		if load(Game._dev_weapons[i]) == Game.equipped_main:
 			_main_opt.select(i)
 			break
+	_main_tier_opt.select(clampi(Game.equipped_main_tier - 1, 0, 2))
+	_off_tier_opt.select(clampi(Game.equipped_off_tier - 1, 0, 2))
 	# Secundaria: casar por recurso (null / arma / escudo).
 	var off_idx := 0
 	for i in Game._dev_offs.size():

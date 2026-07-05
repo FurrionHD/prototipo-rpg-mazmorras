@@ -96,6 +96,22 @@ var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
 # Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
 var current_floor: int = 1
 
+# --- Escalado del ENEMIGO por PROFUNDIDAD (piso) ---
+# El bucle de mazmorra: bajas -> los enemigos escalan -> mejoras tu equipo (tier).
+# Dos ejes, ambos GEOMETRICOS con el piso (factor^(piso-1)):
+#  - STAT (hp/ataque base): SIN techo. Es lo que obliga a subir el RAW del arma
+#    (tier) y la DEF de la armadura (tier), porque tu Fuerza satura en 999.
+#  - ABILITY (habilidades via power): mas suave y ademas se capa a 999 por stat.
+# A piso 1 ambos = 1.0 (identico a hoy). Provisionales; se afinan con el Excel.
+const FLOOR_STAT_GROWTH := 1.18     # +18%/piso a hp/ataque base (piso5 ~x2, piso10 ~x4.4)
+const FLOOR_ABILITY_GROWTH := 1.12  # +12%/piso a las habilidades (capadas a 999)
+
+func enemy_floor_stat_factor() -> float:
+	return pow(FLOOR_STAT_GROWTH, float(current_floor - 1))
+
+func enemy_floor_ability_factor() -> float:
+	return pow(FLOOR_ABILITY_GROWTH, float(current_floor - 1))
+
 # True mientras el panel de inventario esta abierto: el jugador no se mueve ni
 # interactua (pero el enemigo sigue y puede emboscarte).
 var inventory_open: bool = false
@@ -152,6 +168,11 @@ var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
 # Un arma a dos manos (dos_manos) obliga a secundaria = null.
 var equipped_main: WeaponData = preload("res://resources/weapons/punos.tres")
 var equipped_off: Resource = null   # WeaponData | ShieldData | null
+# TIER del arma equipada (1..N). Mejorar el arma = subir su tier, que MULTIPLICA su
+# raw (ataque_base) sin techo -> mantiene el arma relevante frente a la Fuerza (que
+# satura en 999) y frente a enemigos de piso alto. Ver tier_mult().
+var equipped_main_tier: int = 1
+var equipped_off_tier: int = 1
 # Dual-wield: llevar arma en la secundaria acelera el ataque (mas turnos). La
 # velocidad final tiene DOS componentes (ver loadout_mods):
 #  1) Un bonus fijo por llevar dos armas, DECRECIENTE segun lo rapida que ya sea
@@ -169,6 +190,16 @@ const OFF_HAND_SPEED_WEIGHT := 0.5 # cuanto de la velocidad "extra" de la secund
 # Bloqueo base al Defender (sin secundaria); la secundaria/escudo suma encima.
 const DEFEND_BLOCK_BASE := 0.30
 
+# --- TIER de equipo: multiplicador del RAW (sin duplicar .tres) ---
+# Mejorar la MISMA arma/armadura = subir su tier. GEOMETRICO: tier^(t-1). Solo
+# escala NUMEROS (raw del arma, DEF de la armadura), SIN techo; NO toca la
+# reduccion % (acotada por tipo) ni la identidad (motion_value/velocidad). Deja
+# listo el enganche para la tienda/crafteo futuros. Provisional; se afina con Excel.
+const TIER_GROWTH := 2.2   # t1 x1, t2 x2.2, t3 x4.84
+
+func tier_mult(tier: int) -> float:
+	return pow(TIER_GROWTH, float(maxi(tier, 1) - 1))
+
 # --- Armadura: loadout de 5 piezas (ArmorData o null en cada slot) ---
 # Cada pieza aporta DEF plana (aditiva) + % de reduccion (se PROMEDIA) + peso.
 # Ver armor_mods(). Interfaz por codigo/DEV keys de momento (tecla J cicla sets).
@@ -177,6 +208,12 @@ var equipped_pecho: ArmorData = null
 var equipped_manos: ArmorData = null
 var equipped_pantalones: ArmorData = null
 var equipped_botas: ArmorData = null
+# TIER por slot de armadura (1..N): multiplica la DEF de esa pieza (ver tier_mult).
+var equipped_casco_tier: int = 1
+var equipped_pecho_tier: int = 1
+var equipped_manos_tier: int = 1
+var equipped_pantalones_tier: int = 1
+var equipped_botas_tier: int = 1
 # Cobertura de cada slot para la MEDIA PONDERADA de la reduccion (suma 1.0). El
 # pecho cubre lo mas; manos/botas lo menos. Un slot VACIO aporta 0 -> baja la media
 # (premia el set completo pero permite mezclar/ir sin armadura).
@@ -278,7 +315,7 @@ func loadout_mods() -> Dictionary:
 		# El arma principal define lo escurridizo que eres (daga = +esquiva). Un
 		# evasion_penal NEGATIVO = bonus de esquiva (los escudos suman penal, encima).
 		"evasion_penal": -main.evasion_bonus,
-		"hands": [_hand_from(main)],   # mano principal siempre
+		"hands": [_hand_from(main, equipped_main_tier)],   # mano principal siempre
 	}
 	if main.dos_manos:
 		# Arma grande a dos manos: sin secundaria, pero bloquea decente por su tamaño.
@@ -300,17 +337,18 @@ func loadout_mods() -> Dictionary:
 		m["defend_block"] += off.bloqueo            # bloqueo mediocre con arma
 		# Dual: la secundaria es la 2ª mano -> se alterna con la principal golpe a
 		# golpe. Cada arma conserva su MV/crit/aturdir propios (no se promedian).
-		(m["hands"] as Array).append(_hand_from(off))
+		(m["hands"] as Array).append(_hand_from(off, equipped_off_tier))
 	# else: mano secundaria vacia -> una sola mano (la principal).
 	return m
 
 
 # Extrae los datos POR MANO de un arma (lo que cambia golpe a golpe en dual).
-func _hand_from(w: WeaponData) -> Dictionary:
+# El TIER multiplica el raw del arma (ataque_base) sin techo (mejorar el arma).
+func _hand_from(w: WeaponData, tier: int = 1) -> Dictionary:
 	return {
 		"nombre": w.nombre,
 		"motion_value": w.motion_value,
-		"ataque_arma": w.ataque_base,
+		"ataque_arma": w.ataque_base * tier_mult(tier),
 		"crit_bonus": w.crit_bonus,
 		"dano_tipo": int(w.dano_tipo),
 		"aturdir_base": w.aturdir_base,
@@ -356,17 +394,18 @@ func armor_mods() -> Dictionary:
 	var reduction := 0.0
 	var weight := 0.0
 	var slots := [
-		[equipped_casco, COBERTURA_CASCO],
-		[equipped_pecho, COBERTURA_PECHO],
-		[equipped_manos, COBERTURA_MANOS],
-		[equipped_pantalones, COBERTURA_PANTALONES],
-		[equipped_botas, COBERTURA_BOTAS],
+		[equipped_casco, COBERTURA_CASCO, equipped_casco_tier],
+		[equipped_pecho, COBERTURA_PECHO, equipped_pecho_tier],
+		[equipped_manos, COBERTURA_MANOS, equipped_manos_tier],
+		[equipped_pantalones, COBERTURA_PANTALONES, equipped_pantalones_tier],
+		[equipped_botas, COBERTURA_BOTAS, equipped_botas_tier],
 	]
 	for s in slots:
 		var pieza: ArmorData = s[0]
 		if pieza == null:
 			continue
-		def_bonus += pieza.defensa_base * pieza.motion_def
+		# El TIER multiplica la DEF de la pieza (sin techo); la reduccion NO (acotada).
+		def_bonus += pieza.defensa_base * pieza.motion_def * tier_mult(int(s[2]))
 		reduction += float(s[1]) * pieza.reduccion   # media ponderada (cobertura suma 1.0)
 		weight += pieza.peso
 	reduction = clampf(reduction, 0.0, StatsMath.ARMOR_REDUCTION_MAX)

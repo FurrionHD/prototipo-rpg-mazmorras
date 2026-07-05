@@ -246,6 +246,23 @@ pueblo y mazmorra). Botón **DEBUG** abajo-izquierda abre/cierra un panel con:
 - **HUD**: la barra de arriba y el inventario muestran ahora también el **PESO DE EQUIPO**
   (equip-load: armadura + arma/escudo) aparte del peso de loot; se tinta si te frena.
 
+### Progresión — Escalado por PISO + TIERS de equipo 🔧 A PROBAR
+Plan en `~/.claude/plans/ya-que-hemos-terminado-imperative-hejlsberg.md`. Cierra el bucle
+"bajas de piso → enemigos más duros → mejoras tu equipo". Verificado con test de curva.
+- **Enemigo escala con `current_floor`** (`game.gd` + `enemy_data.gd`), geométrico:
+  - `FLOOR_STAT_GROWTH = 1.18` → vida/ataque BASE **sin techo** (piso5 ~×2, piso10 ~×4.4).
+  - `FLOOR_ABILITY_GROWTH = 1.12` → habilidades (vía power), **capadas a 999**.
+  - Defensa base escala más suave (`sqrt`); la velocidad NO (ATB justo). Piso 1 = como hoy.
+- **Tiers de equipo como MULTIPLICADOR en runtime** (sin duplicar `.tres`): `Game.tier_mult(t)
+  = pow(TIER_GROWTH=2.2, t-1)`. Escala **solo números sin techo**: `ataque_base` del arma
+  (`_hand_from`) y `defensa_base` de la armadura (`armor_mods`). La **reducción %** NO (acotada).
+  Tiers equipados: `equipped_main_tier`/`equipped_off_tier` y `equipped_<slot>_tier`.
+  Deja el enganche listo para la tienda/crafteo (subir tier del ítem equipado).
+- **Panel de debug**: dropdown de **tier (T1/T2/T3) al lado** de cada pieza de armadura y de
+  cada arma; **selector de PISO** en la sección Enemigo. HUD muestra el piso actual.
+- Curva verificada: piso 10 con equipo t1 = inviable (mueres antes de matar); con t3 se
+  normaliza. Constantes PROVISIONALES → afinar con Excel (hoja piso↔tier pendiente).
+
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
   defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.

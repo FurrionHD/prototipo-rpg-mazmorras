@@ -54,8 +54,8 @@ func _process(_delta: float) -> void:
 	# Actualiza el contador (con dinero, peso de LOOT y peso de EQUIPO).
 	var equip_load: float = Game.equip_load_map()
 	var equip_cap: float = Game.equip_capacidad()
-	_counts.text = "Dinero: %d   Cristales: %d   Drops: %d   Peso: %d/%d   Equipo: %d/%d   [I] Inventario" % [
-		Game.money, Game.crystals.size(), Game.drops.size(),
+	_counts.text = "Piso: %d   Dinero: %d   Cristales: %d   Drops: %d   Peso: %d/%d   Equipo: %d/%d   [I] Inventario" % [
+		Game.current_floor, Game.money, Game.crystals.size(), Game.drops.size(),
 		roundi(Game.peso_actual()), roundi(Game.capacidad_carga()),
 		roundi(equip_load), roundi(equip_cap)]
 	# Tinta rojizo si algo te frena: sobrecarga de loot O equip-load pesado.

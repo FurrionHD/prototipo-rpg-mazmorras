@@ -83,21 +83,30 @@ func crear_abilities(power: float = 1.0) -> Abilities:
 		a.agilidad = v
 		a.magia = v
 		return a
-	a.fuerza = clampi(int(round(fuerza * power)), 0, 999)
-	a.resistencia = clampi(int(round(resistencia * power)), 0, 999)
-	a.destreza = clampi(int(round(destreza * power)), 0, 999)
-	a.agilidad = clampi(int(round(agilidad * power)), 0, 999)
-	a.magia = clampi(int(round(magia * power)), 0, 999)
+	# La PROFUNDIDAD (piso) escala las habilidades ademas del poder del bicho. Sigue
+	# capado a 999 por stat (el escalado "sin techo" lo llevan las stats BASE, no las
+	# habilidades). A piso 1 el factor es 1.0 (identico a hoy).
+	var p: float = power * Game.enemy_floor_ability_factor()
+	a.fuerza = clampi(int(round(fuerza * p)), 0, 999)
+	a.resistencia = clampi(int(round(resistencia * p)), 0, 999)
+	a.destreza = clampi(int(round(destreza * p)), 0, 999)
+	a.agilidad = clampi(int(round(agilidad * p)), 0, 999)
+	a.magia = clampi(int(round(magia * p)), 0, 999)
 	return a
 
 
 # Crea el Combatant. La BASE es comun (Game.enemy_base_*) ajustada por el
 # multiplicador de arquetipo; las HABILIDADES van escaladas por el poder.
+# La PROFUNDIDAD (piso) escala las stats BASE de vida/ataque SIN techo: es lo que
+# obliga a mejorar el RAW del arma (tier) y la DEF de la armadura (tier), porque tu
+# Fuerza satura en 999. La defensa base escala mas suave (raiz) y la velocidad NO
+# (mantiene el ATB justo). A piso 1 el factor es 1.0 (identico a hoy).
 func crear_combatant(power: float = 1.0) -> Combatant:
+	var fstat: float = Game.enemy_floor_stat_factor()
 	return Combatant.new(enemy_name, level, crear_abilities(power),
-		Game.enemy_base_hp * base_hp_mult,
-		Game.enemy_base_attack * base_attack_mult,
-		Game.enemy_base_defense * base_defense_mult,
+		Game.enemy_base_hp * base_hp_mult * fstat,
+		Game.enemy_base_attack * base_attack_mult * fstat,
+		Game.enemy_base_defense * base_defense_mult * sqrt(fstat),
 		Game.enemy_base_speed * base_speed_mult)
 
 
