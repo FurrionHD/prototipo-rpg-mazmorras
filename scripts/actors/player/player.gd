@@ -144,8 +144,9 @@ func _physics_process(delta: float) -> void:
 
 	# Sobrecarga (loot): cuanto mas peso en la mochila, mas lento (gradual).
 	speed *= Game.overload_speed_factor()
-	# Equip-load (equipo: armadura + arma/escudo): las armaduras pesadas te frenan.
-	speed *= Game.equip_load_factor(Game.equip_load_map())
+	# Armadura: la categoria modula la velocidad de movimiento (placas te frenan,
+	# ir ligero/sin armadura te acelera un pelin). Igual que en el ATB de combate.
+	speed *= Game.armor_speed_mult()
 
 	velocity = direction * speed
 	move_and_slide()

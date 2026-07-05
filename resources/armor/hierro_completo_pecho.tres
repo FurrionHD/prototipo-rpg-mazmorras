@@ -4,11 +4,11 @@
 
 [resource]
 script = ExtResource("1")
-nombre = "Botas de malla"
-tipo = 1
-slot = 4
+nombre = "Coraza de hierro completo"
+tipo = 2
+slot = 1
 tier = 1
 defensa_base = 0.5
-motion_def = 1.0
-reduccion = 0.075
-peso = 2.5
+motion_def = 1.6
+reduccion = 0.09
+velocidad_mult = 0.93

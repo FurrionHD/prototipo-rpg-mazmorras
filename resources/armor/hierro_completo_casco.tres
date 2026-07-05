@@ -4,11 +4,11 @@
 
 [resource]
 script = ExtResource("1")
-nombre = "Guanteletes de placas"
-tipo = 3
-slot = 2
+nombre = "Yelmo de hierro completo"
+tipo = 2
+slot = 0
 tier = 1
 defensa_base = 0.5
-motion_def = 2.2
-reduccion = 0.11
-velocidad_mult = 0.88
+motion_def = 1.6
+reduccion = 0.09
+velocidad_mult = 0.93

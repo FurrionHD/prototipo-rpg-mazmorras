@@ -4,11 +4,11 @@
 
 [resource]
 script = ExtResource("1")
-nombre = "Casco de malla"
+nombre = "Casco de hierro"
 tipo = 1
 slot = 0
 tier = 1
 defensa_base = 0.5
 motion_def = 1.0
 reduccion = 0.075
-peso = 2.5
+velocidad_mult = 1.00

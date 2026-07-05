@@ -5,10 +5,10 @@
 [resource]
 script = ExtResource("1")
 nombre = "Botas de placas"
-tipo = 2
+tipo = 3
 slot = 4
 tier = 1
 defensa_base = 0.5
-motion_def = 2.0
-reduccion = 0.10
-peso = 4.0
+motion_def = 2.2
+reduccion = 0.11
+velocidad_mult = 0.88

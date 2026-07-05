@@ -206,30 +206,33 @@ Plan completo en `~/.claude/plans/daga-espada-corta-espada-cozy-kahan.md`.
 - Pendiente Fase B: **energía de combate** compartida con el aguante (ataque básico recupera,
   Defender/habilidades gastan); Fase MANT: desgaste + mantenimiento en el pueblo (sumidero $).
 
-### Equipamiento — Fase B(1): Armaduras (5 slots) + equip-load estilo Souls 🔧 A PROBAR
-Plan completo en `~/.claude/plans/ya-que-hemos-terminado-imperative-hejlsberg.md`. Verificado
-en headless (números exactos): DEF, reducción media y equip-load salen como el diseño.
-- [x] **`ArmorData`** (`scripts/items/armor_data.gd`) + 16 `.tres` en `resources/armor/`
-  (sets completos ligera/media/pesada tier 1 + 1 pieza pesada tier 2 de muestra).
-- [x] **Modelo espejo de las armas** ("motion value para armaduras"): `defensa_base` común por
-  tier × `motion_def` por tipo (ligera 0.5 / media 1.0 / pesada 2.0). A tier 1 sale
-  DEF/pieza 0.25 / 0.5 / 1.0. Equilibrio protección × movilidad ≈ cte.
-- [x] **5 slots** en `Game` (casco/pecho/manos/pantalones/botas) → `armor_mods()`:
-  - **DEF plana ADITIVA** (suma de `defensa_base × motion_def`), **SIN techo** (escala con el
-    tier; pasa por la mitigación `K/(K+DEF)`, sigue relevante en pisos altos).
-  - **% reducción = MEDIA PONDERADA por cobertura de slot** (pecho 0.35, casco/pantalón 0.20,
-    manos/botas 0.125), NO suma. Set completo = su % (5/7.5/10%); mezclar = media. Techo global
-    `StatsMath.ARMOR_REDUCTION_MAX = 0.20`. Se aplica en `resolve_attack()` y `battle.gd`.
-- [x] **Equip-load estilo Souls** (peso de EQUIPO, separado del loot): `WeaponData`/`ShieldData`/
-  `ArmorData` tienen `peso`. Capacidad = `base_equip_cap (20) + Fuerza × 0.03` → **escala con la
-  Fuerza** (revive la idea de KAN-84). Penalización gradual `equip_load_factor()`.
-  - **Mapa** (`player.gd`): peso de armadura + arma/escudo frena la velocidad.
-  - **Combate** (`combat.gd`): SOLO armadura frena el ATB (el arma ya frena por `velocidad_mult`
-    → **sin doble castigo**).
-- [x] Tecla DEV **J**: cicla set ninguna/ligera/media/pesada e imprime DEF, reducción, equip-load
-  y factores de mapa/combate.
-- Calibración a Fuerza 0: ligera = sin castigo, media ≈ −15%, pesada ≈ −60% (mejora con Fuerza).
-  Valores PROVISIONALES → **afinar con Excel** en playtest (hoja de armaduras pendiente).
+### Equipamiento — Fase B(1): Armaduras (5 slots) por CATEGORÍA + velocidad 🔧 A PROBAR
+Verificado en headless (números exactos: DEF, reducción media y velocidad).
+**OJO (rediseño):** se QUITÓ la mecánica de PESO/equip-load de armas y armaduras. Ahora la
+armadura, **como las armas, modula la VELOCIDAD** (combate ATB + movimiento en mapa).
+- [x] **`ArmorData`** (`scripts/items/armor_data.gd`) + 20 `.tres` en `resources/armor/`
+  (4 categorías × 5 slots). Campo `velocidad_mult` (no `peso`).
+- [x] **Escalón de categorías** (más DEF = más lento). `defensa_base` común (0.5) × `motion_def`;
+  la velocidad se combina por cobertura de slot; slot VACÍO = bonus de "ir ligero"
+  (`SIN_ARMADURA_VEL_MULT = 1.08`):
+
+  | Categoría | DEF/pieza | reducción | velocidad |
+  |---|---|---|---|
+  | (sin nada) | 0 | 0% | ×1.08 |
+  | **Cuero** | 0.25 | 5% | ×1.04 |
+  | **Hierro** (media) | 0.50 | 7.5% | ×1.00 |
+  | **Hierro completo** | 0.80 | 9% | ×0.93 |
+  | **Placas** (máx) | 1.10 | 11% | ×0.88 |
+
+- [x] **5 slots** en `Game` → `armor_mods()`:
+  - **DEF plana ADITIVA** (`defensa_base × motion_def × tier_mult`), **SIN techo**.
+  - **% reducción = MEDIA PONDERADA por cobertura** (pecho 0.35, casco/pantalón 0.20,
+    manos/botas 0.125), NO suma. Techo `StatsMath.ARMOR_REDUCTION_MAX = 0.20`.
+  - **velocidad_mult combinada** por cobertura (set completo = su valor; mezclar interpola;
+    vacío = bonus ligero). Va a `Combatant.velocidad_mult` (combate) y `Game.armor_speed_mult()`
+    (mapa, en `player.gd`).
+- [x] Tecla DEV **J**: cicla ninguna/cuero/hierro/hierro completo/placas (DEF, reducción, velocidad).
+- Valores PROVISIONALES → **afinar con Excel** en playtest.
 - Enemigos: `extra_defense`/`armor_reduction` = 0 (sin cambios); puerta abierta a darles armadura.
 
 ### Herramientas — Panel de DEBUG clicable (en cualquier sala) ✅
@@ -239,12 +242,14 @@ pueblo y mazmorra). Botón **DEBUG** abajo-izquierda abre/cierra un panel con:
   interno, `actualizar_estado()` y cura al 100%).
 - **Fuerza del ENEMIGO**: presets Base / 200 / 500 / Cheto → `Game.debug_enemy_stat_override`
   (-1 = stats del `.tres`; >=0 = las 5 habilidades planas). Se aplica en `EnemyData.crear_abilities()`.
-- **ARMADURA por pieza**: dropdown Nada/Ligera/Media/Pesada por slot (carga `cuero/malla/placas`).
-- **ARMAS**: dropdowns de principal y secundaria (reusa `Game._dev_weapons`/`_dev_offs`,
+- **ARMADURA por pieza**: dropdown Nada/Cuero/Hierro/Hierro compl./Placas + dropdown de TIER
+  (T1/T2/T3) al lado, por slot.
+- **ARMAS**: dropdowns de principal y secundaria + su TIER (reusa `Game._dev_weapons`/`_dev_offs`,
   `equipar_arma`/`equipar_secundaria`; revierte combinaciones inválidas).
+- **PISO**: campo para fijar `Game.current_floor` (escala al enemigo).
 - Mientras está abierto, `Game.debug_panel_open` congela al jugador (teclear sin moverse).
-- **HUD**: la barra de arriba y el inventario muestran ahora también el **PESO DE EQUIPO**
-  (equip-load: armadura + arma/escudo) aparte del peso de loot; se tinta si te frena.
+- **HUD**: la barra de arriba muestra piso, peso de loot y **velocidad de armadura** (×); el
+  inventario detalla la velocidad de armadura (+ por ir ligero / − por armadura pesada).
 
 ### Progresión — Escalado por PISO + TIERS de equipo 🔧 A PROBAR
 Plan en `~/.claude/plans/ya-que-hemos-terminado-imperative-hejlsberg.md`. Cierra el bucle

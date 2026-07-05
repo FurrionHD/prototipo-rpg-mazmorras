@@ -13,8 +13,8 @@
 
 extends CanvasLayer
 
-const ARMOR_PREFIX := ["", "cuero", "malla", "placas"]      # idx dropdown -> material
-const ARMOR_LABELS := ["Nada", "Ligera", "Media", "Pesada"]
+const ARMOR_PREFIX := ["", "cuero", "hierro", "hierro_completo", "placas"]  # idx dropdown -> material
+const ARMOR_LABELS := ["Nada", "Cuero", "Hierro", "Hierro compl.", "Placas"]
 const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas"]
 const ENEMY_PRESETS := [["Base", -1], ["200", 200], ["500", 500], ["Cheto", 999]]
 

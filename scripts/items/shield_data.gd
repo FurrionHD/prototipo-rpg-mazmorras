@@ -18,6 +18,3 @@ enum Tamano { PEQUENO, NORMAL, GRANDE }  # GRANDE = escudos de tanque
 @export var bloqueo: float = 0.25         # aporte GRANDE al Defender (mas que un arma)
 @export var velocidad_mult: float = 0.95  # penaliza algo la velocidad de combate (<1)
 @export var evasion_penal: float = 0.03   # baja la esquiva (grande penaliza mas)
-# Peso para el equip-load (estilo Souls). Solo afecta a la velocidad de MAPA
-# (el freno de combate ya lo da velocidad_mult). Grande pesa mas.
-@export var peso: float = 2.5

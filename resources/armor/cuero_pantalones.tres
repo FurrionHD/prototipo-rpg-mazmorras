@@ -11,4 +11,4 @@ tier = 1
 defensa_base = 0.5
 motion_def = 0.5
 reduccion = 0.05
-peso = 1.0
+velocidad_mult = 1.04

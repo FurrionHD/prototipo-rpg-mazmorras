@@ -260,19 +260,10 @@ var overload_threshold: float = 0.8    # % a partir del cual empiezas a ir lento
 var overload_slope: float = 3.3        # cuanto crece la penalizacion por encima
 var overload_max_penalty: float = 0.8  # penalizacion maxima (0.8 = -80% velocidad)
 
-# --- Equip-load (peso de EQUIPO, estilo Souls; SEPARADO del peso de loot) ---
-# Capacidad de equipo = base + Fuerza × coef. Escala con la Fuerza: un build fuerte
-# lleva pesado sin castigo (progresion; revive la idea de KAN-84). El ratio
-# peso/capacidad da una penalizacion GRADUAL de velocidad, misma forma que overload.
-# OJO: es OTRO pool distinto de capacidad_carga() (esa es la mochila/loot).
-# Calibrado (provisional, se afina con Excel) para que a Fuerza 0: set ligero
-# (~5) = sin castigo; medio (~12.5) = algo; pesado (~20) = bastante. La Fuerza sube
-# la capacidad y suaviza el castigo (progresion).
-var base_equip_cap: float = 20.0        # capacidad de equipo de serie
-var equip_cap_por_fuerza: float = 0.03  # +cap por punto de Fuerza (a 999 = +~30)
-var equip_threshold: float = 0.5        # % de capacidad desde el que empiezas a ir lento
-var equip_slope: float = 1.2            # cuanto crece la penalizacion por encima
-var equip_max_penalty: float = 0.7      # penalizacion maxima (-70% velocidad)
+# Velocidad al ir SIN una pieza de armadura (slot vacio): ir ligero da un pelin de
+# ventaja de velocidad, sin flipar. Se pondera por cobertura de slot (ir del todo
+# desnudo = este valor). Ver armor_mods().
+const SIN_ARMADURA_VEL_MULT := 1.08
 
 
 # Crea el Combatant del jugador con sus stats actuales (manteniendo la vida).
@@ -293,14 +284,15 @@ func crear_player_combatant() -> Combatant:
 	# golpe en combate; set_hands activa la primera. El resto son del loadout entero.
 	var m := loadout_mods()
 	c.set_hands(m["hands"])
-	c.velocidad_mult = m["velocidad_mult"]
 	c.defend_block = m["defend_block"]
 	c.evasion_penal = m["evasion_penal"]
 
-	# Armadura: DEF plana aditiva + % de reduccion (media ponderada, acotada).
+	# Armadura: DEF plana aditiva + % de reduccion (media ponderada, acotada) +
+	# velocidad (se combina con la del arma en el ATB de combate).
 	var am := armor_mods()
 	c.extra_defense = am["def_bonus"]
 	c.armor_reduction = am["reduction"]
+	c.velocidad_mult = float(m["velocidad_mult"]) * float(am["velocidad_mult"])
 	return c
 
 
@@ -385,14 +377,16 @@ func equipar_secundaria(item: Resource) -> bool:
 
 
 # Recorre los 5 slots de armadura y combina:
-#  - def_bonus: DEF plana SUMADA (defensa_base × motion_def de cada pieza). SIN techo.
+#  - def_bonus: DEF plana SUMADA (defensa_base × motion_def × tier). SIN techo.
 #  - reduction: % de reduccion como MEDIA PONDERADA por cobertura (slot vacio = 0),
 #    acotada por StatsMath.ARMOR_REDUCTION_MAX.
-#  - armor_weight: peso total de la armadura (para el equip-load).
+#  - velocidad_mult: velocidad combinada por cobertura (como las armas). Un slot
+#    VACIO aporta el bonus de "sin armadura" (ir ligero); set completo de una
+#    categoria = su velocidad; mezclar interpola. Afecta a combate Y mapa.
 func armor_mods() -> Dictionary:
 	var def_bonus := 0.0
 	var reduction := 0.0
-	var weight := 0.0
+	var vel_delta := 0.0   # suma ponderada de (velocidad_mult - 1)
 	var slots := [
 		[equipped_casco, COBERTURA_CASCO, equipped_casco_tier],
 		[equipped_pecho, COBERTURA_PECHO, equipped_pecho_tier],
@@ -402,14 +396,23 @@ func armor_mods() -> Dictionary:
 	]
 	for s in slots:
 		var pieza: ArmorData = s[0]
+		var cob: float = float(s[1])
 		if pieza == null:
+			# Slot vacio: bonus de ir ligero (ponderado por cobertura).
+			vel_delta += cob * (SIN_ARMADURA_VEL_MULT - 1.0)
 			continue
 		# El TIER multiplica la DEF de la pieza (sin techo); la reduccion NO (acotada).
 		def_bonus += pieza.defensa_base * pieza.motion_def * tier_mult(int(s[2]))
-		reduction += float(s[1]) * pieza.reduccion   # media ponderada (cobertura suma 1.0)
-		weight += pieza.peso
+		reduction += cob * pieza.reduccion             # media ponderada (cobertura suma 1.0)
+		vel_delta += cob * (pieza.velocidad_mult - 1.0)  # velocidad ponderada
 	reduction = clampf(reduction, 0.0, StatsMath.ARMOR_REDUCTION_MAX)
-	return {"def_bonus": def_bonus, "reduction": reduction, "armor_weight": weight}
+	return {"def_bonus": def_bonus, "reduction": reduction, "velocidad_mult": 1.0 + vel_delta}
+
+
+# Multiplicador de velocidad de la armadura (para el movimiento en mapa; en combate
+# ya va dentro de Combatant.velocidad_mult). 1.0 = neutro.
+func armor_speed_mult() -> float:
+	return float(armor_mods()["velocidad_mult"])
 
 
 # --- Peso / capacidad ---
@@ -440,39 +443,6 @@ func overload_speed_factor() -> float:
 	if over <= 0.0:
 		return 1.0
 	var penalty: float = clampf(over * overload_slope, 0.0, overload_max_penalty)
-	return 1.0 - penalty
-
-
-# --- Equip-load (peso de EQUIPO) ---
-func equip_capacidad() -> float:
-	return base_equip_cap + float(player_fuerza) * equip_cap_por_fuerza
-
-# Peso de equipo para el MAPA: armadura + arma principal + secundaria/escudo.
-func equip_load_map() -> float:
-	var w: float = float(armor_mods()["armor_weight"])
-	if equipped_main != null:
-		w += equipped_main.peso
-	if equipped_off is WeaponData:
-		w += (equipped_off as WeaponData).peso
-	elif equipped_off is ShieldData:
-		w += (equipped_off as ShieldData).peso
-	return w
-
-# Peso de equipo para el COMBATE: SOLO armadura (el arma ya frena por su
-# velocidad_mult; no la penalizamos dos veces).
-func equip_load_combat() -> float:
-	return float(armor_mods()["armor_weight"])
-
-# Factor de velocidad por equip-load (1.0 = sin castigo). Baja GRADUALMENTE por
-# encima del umbral hasta un suelo. Misma forma que overload_speed_factor().
-func equip_load_factor(load: float) -> float:
-	var cap: float = equip_capacidad()
-	if cap <= 0.0:
-		return 1.0
-	var over: float = (load / cap) - equip_threshold
-	if over <= 0.0:
-		return 1.0
-	var penalty: float = clampf(over * equip_slope, 0.0, equip_max_penalty)
 	return 1.0 - penalty
 
 
@@ -582,7 +552,7 @@ func _dev_print_loadout() -> void:
 
 
 # --- PRUEBAS: ciclar el SET de armadura con la tecla J (ninguna/ligera/media/pesada) ---
-var _dev_armor_sets: Array[String] = ["", "cuero", "malla", "placas"]
+var _dev_armor_sets: Array[String] = ["", "cuero", "hierro", "hierro_completo", "placas"]
 var _dev_armor_idx: int = 0
 
 func _dev_cycle_armor() -> void:
@@ -607,10 +577,8 @@ func _dev_print_armor() -> void:
 	var nombre_set: String = "SIN ARMADURA" if _dev_armor_sets[_dev_armor_idx] == "" \
 		else _dev_armor_sets[_dev_armor_idx]
 	print("[dev] Armadura: ", nombre_set, "  | DEF+:", am["def_bonus"],
-		" reduccion:", snappedf(float(am["reduction"]) * 100.0, 0.1), "%  peso:", am["armor_weight"])
-	print("        equip-load mapa:", equip_load_map(), "/", snappedf(equip_capacidad(), 0.1),
-		"  vel mapa ×", snappedf(equip_load_factor(equip_load_map()), 0.01),
-		"  vel combate ×", snappedf(equip_load_factor(equip_load_combat()), 0.01))
+		" reduccion:", snappedf(float(am["reduction"]) * 100.0, 0.1), "%",
+		"  vel armadura ×", snappedf(float(am["velocidad_mult"]), 0.01))
 
 
 # Abre el combate contra un enemigo de la mazmorra.
@@ -634,8 +602,7 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 	var combat := _combat_scene.instantiate()
 	# PROCESS_MODE_ALWAYS = el combate sigue funcionando aunque el arbol este en pausa.
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
-	combat.setup(player_c, enemy_c, enemy_initiated, player_exhausted, overload_speed_factor(),
-		equip_load_factor(equip_load_combat()))
+	combat.setup(player_c, enemy_c, enemy_initiated, player_exhausted, overload_speed_factor())
 	combat.combat_finished.connect(_on_combat_finished)
 
 	# Lo metemos en una CanvasLayer: asi NO le afecta la camara 2D de la
