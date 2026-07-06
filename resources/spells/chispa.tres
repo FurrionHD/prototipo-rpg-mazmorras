@@ -8,5 +8,5 @@ nombre = "Chispa"
 tipo = 0
 frases = Array[String](["Ignis, arde en mi mano"])
 coste_mana = 4
-dano_base = 18.0
+dano_base = 13.0
 descripcion = "Hechizo corto de fuego. Una sola frase: rapido pero poco potente."
