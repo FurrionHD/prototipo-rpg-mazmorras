@@ -22,12 +22,12 @@ var base_magic: float = 0.0     # base del hechizo (0 = sin magia; enemigos)
 
 # Vida actual / maxima (se calculan al crear). current_hp es FLOAT para no perder
 # precision con el daño decimal (asi ves mejoras pequeñas golpe a golpe).
-var max_hp: int = 0
+var max_hp: float = 0.0
 var current_hp: float = 0.0
 
 # --- MAGIA (KAN-56) ---
 # Mana (maximo por Magia; enemigos = 0). current_mp es FLOAT por el regen fino.
-var max_mp: int = 0
+var max_mp: float = 0.0
 var current_mp: float = 0.0
 # Hechizos equipados (Array[SpellData]). Vacio = no lanza magia (enemigos, o el
 # jugador sin hechizos equipados).
@@ -113,7 +113,7 @@ func spend_mana(amount: float) -> void:
 	current_mp = maxf(0.0, current_mp - amount)
 
 func regen_mana(amount: float) -> void:
-	current_mp = minf(float(max_mp), current_mp + amount)
+	current_mp = minf(max_mp, current_mp + amount)
 
 func has_mana(amount: float) -> bool:
 	return current_mp >= amount

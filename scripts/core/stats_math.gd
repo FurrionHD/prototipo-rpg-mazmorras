@@ -68,9 +68,10 @@ static func fuerza_factor(fuerza: float) -> float:
 static func magia_factor(magia: float) -> float:
 	return 1.0 + magia / MAGIA_DIV
 
-# Mana maximo segun la Magia (+ una base para que un mago novato ya tenga algo).
-static func max_mp_value(ab: Abilities, _level: int, base_mp: float = BASE_MP) -> int:
-	return int(round(base_mp + ab.magia * MP_FROM_MAGIA))
+# Mana maximo segun la Magia (+ una base). FLOAT: asi las subidas pequeñas de Magia
+# (y otras mejoras) se NOTAN en el maximo (se muestra con decimales).
+static func max_mp_value(ab: Abilities, _level: int, base_mp: float = BASE_MP) -> float:
+	return base_mp + ab.magia * MP_FROM_MAGIA
 
 # Mana que se regenera por turno de combate (escala con la Magia).
 static func mp_regen(magia: float) -> float:
@@ -86,9 +87,10 @@ static func magic_value(ab: Abilities, level: int, base_magic: float) -> float:
 static func speed_value(ab: Abilities, level: int, base_speed: float) -> float:
 	return base_speed + ab.agilidad * _coef(SPD_COEF_BASE, SPD_COEF_GROWTH, level)
 
-# Vida maxima = base + Resistencia × HP_FROM_RES
-static func max_hp_value(ab: Abilities, _level: int, base_hp: float) -> int:
-	return int(round(base_hp + ab.resistencia * HP_FROM_RES))
+# Vida maxima = base + Resistencia × HP_FROM_RES. FLOAT (se muestra con decimales,
+# para que las subidas pequeñas de Resistencia se noten en el maximo).
+static func max_hp_value(ab: Abilities, _level: int, base_hp: float) -> float:
+	return base_hp + ab.resistencia * HP_FROM_RES
 
 
 # Daño = ataque mitigado por la defensa (rendimientos decrecientes).

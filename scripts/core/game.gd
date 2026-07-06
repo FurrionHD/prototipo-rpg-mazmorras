@@ -325,7 +325,7 @@ func tiene_hechizos() -> bool:
 	return equipped_spells.size() > 0
 
 # Mana maximo del jugador segun su Magia (para el HUD; en combate lo lleva el Combatant).
-func player_max_mp() -> int:
+func player_max_mp() -> float:
 	var a := Abilities.new()
 	a.magia = player_magia
 	return StatsMath.max_mp_value(a, player_level)

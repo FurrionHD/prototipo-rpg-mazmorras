@@ -187,13 +187,13 @@ func _setup_ui() -> void:
 func _update_hp() -> void:
 	_player_hp.value = _player.current_hp
 	_enemy_hp.value = _enemy.current_hp
-	_enemy_name.text = "%s  (Nv.%d)   %.2f/%d" % [
+	_enemy_name.text = "%s  (Nv.%d)   %.2f/%.2f" % [
 		_enemy.nombre, _enemy.level, _enemy.current_hp, _enemy.max_hp]
 	# El jugador muestra ademas su MANA si tiene (KAN-56).
 	var mp_txt := ""
-	if _player.max_mp > 0:
-		mp_txt = "   MP %.2f/%d" % [_player.current_mp, _player.max_mp]
-	_player_name.text = "%s  (Nv.%d)   %.2f/%d%s" % [
+	if _player.max_mp > 0.0:
+		mp_txt = "   MP %.2f/%.2f" % [_player.current_mp, _player.max_mp]
+	_player_name.text = "%s  (Nv.%d)   %.2f/%.2f%s" % [
 		_player.nombre, _player.level, _player.current_hp, _player.max_hp, mp_txt]
 
 
@@ -309,11 +309,11 @@ func _accion_magia() -> void:
 		c.queue_free()
 	for spell in _player.spells:
 		var b := Button.new()
-		var coste: int = _coste_efectivo(spell)
-		b.text = "%s  (%d MP · %d frase%s)" % [
+		var coste: float = _coste_efectivo(spell)
+		b.text = "%s  (%.2f MP · %d frase%s)" % [
 			spell.nombre, coste, spell.longitud(),
 			"" if spell.longitud() == 1 else "s"]
-		if not _player.has_mana(float(coste)):
+		if not _player.has_mana(coste):
 			b.disabled = true
 			b.tooltip_text = "Mana insuficiente"
 		b.pressed.connect(_elegir_hechizo.bind(spell))
@@ -326,18 +326,19 @@ func _accion_magia() -> void:
 	_set_log("Elige un hechizo para recitar.")
 
 
-# Coste de maná EFECTIVO tras la mejora Eficiencia del equipo (KAN-95). Mínimo 1.
-func _coste_efectivo(spell: SpellData) -> int:
-	return maxi(1, ceili(float(spell.coste_mana) * (1.0 - _player.mana_reduccion)))
+# Coste de maná EFECTIVO tras la mejora Eficiencia del equipo (KAN-95). FLOAT (sin
+# redondeo hacia arriba: así CUALQUIER % de Eficiencia se nota). Mínimo 0.5.
+func _coste_efectivo(spell: SpellData) -> float:
+	return maxf(0.5, float(spell.coste_mana) * (1.0 - _player.mana_reduccion))
 
 
 # Empiezas a castear: se descuenta el mana YA (si fallas lo pierdes) y recitas la
 # primera frase en este MISMO turno.
 func _elegir_hechizo(spell: SpellData) -> void:
-	var coste: int = _coste_efectivo(spell)
-	if not _player.has_mana(float(coste)):
+	var coste: float = _coste_efectivo(spell)
+	if not _player.has_mana(coste):
 		return
-	_player.spend_mana(float(coste))
+	_player.spend_mana(coste)
 	_update_hp()
 	_cast_spell = spell
 	_cast_index = 0

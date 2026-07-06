@@ -53,9 +53,9 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	# Actualiza el contador (con dinero, MANA, peso de LOOT y velocidad de armadura).
 	# El mana SIEMPRE visible (-1 = lleno), con 2 decimales para ver el regen fino.
-	var max_mp: int = Game.player_max_mp()
-	var cur_mp: float = Game.player_current_mp if Game.player_current_mp >= 0.0 else float(max_mp)
-	_counts.text = "Piso: %d   Dinero: %d   Mana: %.2f/%d   Cristales: %d   Drops: %d   Peso: %d/%d   Vel arm: x%.2f   [I] Inventario" % [
+	var max_mp: float = Game.player_max_mp()
+	var cur_mp: float = Game.player_current_mp if Game.player_current_mp >= 0.0 else max_mp
+	_counts.text = "Piso: %d   Dinero: %d   Mana: %.2f/%.2f   Cristales: %d   Drops: %d   Peso: %d/%d   Vel arm: x%.2f   [I] Inventario" % [
 		Game.current_floor, Game.money, cur_mp, max_mp, Game.crystals.size(), Game.drops.size(),
 		roundi(Game.peso_actual()), roundi(Game.capacidad_carga()),
 		Game.armor_speed_mult()]
@@ -90,10 +90,10 @@ func _refrescar_lista() -> void:
 		Game.player_destreza, ai["destreza"]]
 	s += "  Agilidad: %d / %.1f    Magia: %d / %.1f\n" % [
 		Game.player_agilidad, ai["agilidad"], Game.player_magia, ai["magia"]]
-	# Mana (KAN-56): -1 = lleno. Con 2 decimales (regen fino).
-	var max_mp: int = Game.player_max_mp()
-	var cur_mp: float = Game.player_current_mp if Game.player_current_mp >= 0.0 else float(max_mp)
-	s += "  Mana: %.2f / %d    Hechizos equipados: %d\n" % [
+	# Mana (KAN-56): -1 = lleno. Con 2 decimales (regen fino y mejoras pequeñas).
+	var max_mp: float = Game.player_max_mp()
+	var cur_mp: float = Game.player_current_mp if Game.player_current_mp >= 0.0 else max_mp
+	s += "  Mana: %.2f / %.2f    Hechizos equipados: %d\n" % [
 		cur_mp, max_mp, Game.equipped_spells.size()]
 	s += "  [U] actualizar estado   [H] curar 100%   [R] respawn\n\n"
 
