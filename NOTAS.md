@@ -271,6 +271,21 @@ Estado por ítem en `Game.equip_meta[slot] = {tier, rareza, mejoras{cat:n}}` (no
 - Enganches: `_hand_from`/`loadout_mods`/`armor_mods` (game.gd) llaman a
   `Upgrades.weapon_mods` / `armor_piece_mods`. Verificado con test de curva.
 - Que un ítem obra maestra supere la base del tier siguiente es INTENCIONADO.
+
+### Progresión — Habilidades de enemigos por FRANJA de piso + reescalado base 🔧 A PROBAR
+- **Reescalado stats base**: `FLOOR_STAT_GROWTH 1.18 → 1.10` (game.gd). Piso 13 ≈ dureza
+  base del piso 8 de antes (1.10^12≈3.14 ≈ 1.18^7≈3.19). Nivel 1 = pisos 1-13.
+- **Habilidades por FRANJA de suma** (reemplaza el multiplicador plano; se quitó
+  `enemy_floor_ability_factor`): `Game.enemy_ability_sum_band(piso)` = `[175·(p-1),
+  200+250·(p-1)]` → piso1 [0,200], piso2 [175,450] … piso13 [2100,3200] (PROVISIONAL).
+- **Distribución por arquetipo** (enemy_data.gd): los campos `fuerza/…/magia` son ahora
+  **PESOS** (proporción), no absolutos. Cada arquetipo ocupa un sub-tramo con
+  `franja_low/high` (slime `[0.0,0.6]` = parte baja; goblins futuros la alta).
+- **Roll por enemigo** (enemy.gd): `current_t = randf()` (0..1, posición en su
+  sub-franja). `crear_abilities(t)` reparte la suma objetivo por pesos (cap 999/stat).
+  `suma_habilidades(t)`/`crear_combatant(t)`. `current_power` renombrado a `current_t`
+  (game.gd/player.gd actualizados). Debug override (200/500/999) sigue por encima.
+- Con solo slimes en la parte baja, los pisos salen más flojos (esperando goblins).
 - **HUD**: la barra de arriba muestra piso, peso de loot y **velocidad de armadura** (×); el
   inventario detalla la velocidad de armadura (+ por ir ligero / − por armadura pesada).
 

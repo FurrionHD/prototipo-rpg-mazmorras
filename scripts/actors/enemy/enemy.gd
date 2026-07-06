@@ -15,16 +15,11 @@ extends CharacterBody2D
 
 @export var data: EnemyData
 
-# Cada bicho tira un "poder" al aparecer que escala sus habilidades (bichos
-# flojos y fuertes) y decide la categoria del cristal. La VARIACION se estrecha
-# cuanto mas fuerte es el enemigo: los flojos varian mucho (variedad temprana),
-# los muy fuertes casi nada (un enemigo poderoso es consistente, no unos
-# triviales y otros brutales).
-@export var power_variation_max: float = 0.4  # variacion a nivel bajo (±40%)
-const _POWER_VAR_REF := 4995.0  # suma de referencia (tope teorico 5x999)
-var current_power: float = 1.0
-var _power_min: float = 0.6
-var _power_max: float = 1.4
+# Cada bicho tira una 't' (0..1) al aparecer: su POSICION dentro de la sub-franja de
+# su arquetipo para el piso actual (ver EnemyData.sum_band). t=0 -> el mas flojo de
+# su franja, t=1 -> el mas fuerte. Da variedad; la progresion por piso la lleva la
+# franja (no un multiplicador). Tambien decide la categoria del cristal.
+var current_t: float = 0.5
 
 # --- Deambular ---
 @export var wander_radius: float = 90.0       # cuanto se aleja de su sitio
@@ -79,22 +74,18 @@ func _ready() -> void:
 	_home = global_position
 	_player = get_tree().get_first_node_in_group("player")
 
-	# Poder de ESTE bicho. La variacion se estrecha a mayor nivel del enemigo.
-	var v: float = power_variation_max
-	if data != null:
-		var nivel: float = clampf(float(data.suma_habilidades_base()) / _POWER_VAR_REF, 0.0, 1.0)
-		v = maxf(power_variation_max * (1.0 - nivel), 0.03)  # minimo 3% de variacion
-	_power_min = 1.0 - v
-	_power_max = 1.0 + v
-	current_power = randf_range(_power_min, _power_max)
+	# Posicion de ESTE bicho dentro de su franja (uniforme = variedad). La progresion
+	# por piso la lleva la propia franja (EnemyData.sum_band), no un multiplicador.
+	current_t = randf()
 
 	if data != null:
-		# Color base + tinte por poder (los fuertes salen mas claros).
-		_color_rect.color = data.color.lerp(Color.WHITE, poder_normalizado() * 0.45)
+		# Color base + tinte por 't' (los mas fuertes de su franja salen mas claros).
+		_color_rect.color = data.color.lerp(Color.WHITE, current_t * 0.45)
 		current_move_speed = randf_range(data.move_speed_min, data.move_speed_max)
-		print(data.enemy_name, " aparece -> poder=", snappedf(current_power, 0.01),
-			" (t=", snappedf(poder_normalizado(), 0.01),
-			", suma~", data.suma_habilidades(current_power), ")")
+		var band: Vector2 = data.sum_band()
+		print(data.enemy_name, " (piso ", Game.current_floor, ") -> t=", snappedf(current_t, 0.01),
+			"  suma~", data.suma_habilidades(current_t),
+			"  (franja ", roundi(band.x), "-", roundi(band.y), ")")
 
 	_crear_indicadores()
 	_pick_wander_target()
@@ -254,12 +245,10 @@ func esta_muerto() -> bool:
 	return _dead
 
 
-# "t" (0..1): donde cae este bicho entre su version mas floja y la mas fuerte.
+# "t" (0..1): donde cae este bicho dentro de su franja (flojo..fuerte).
 # Lo usa la categoria del cristal (t alto = cristal de mejor categoria).
 func poder_normalizado() -> float:
-	if _power_max <= _power_min:
-		return 0.5
-	return clampf((current_power - _power_min) / (_power_max - _power_min), 0.0, 1.0)
+	return clampf(current_t, 0.0, 1.0)
 
 
 # Tras extraer el cristal: el cuerpo se desvanece (baja opacidad) y desaparece.

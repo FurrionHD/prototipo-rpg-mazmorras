@@ -97,20 +97,28 @@ var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
 var current_floor: int = 1
 
 # --- Escalado del ENEMIGO por PROFUNDIDAD (piso) ---
-# El bucle de mazmorra: bajas -> los enemigos escalan -> mejoras tu equipo (tier).
-# Dos ejes, ambos GEOMETRICOS con el piso (factor^(piso-1)):
-#  - STAT (hp/ataque base): SIN techo. Es lo que obliga a subir el RAW del arma
-#    (tier) y la DEF de la armadura (tier), porque tu Fuerza satura en 999.
-#  - ABILITY (habilidades via power): mas suave y ademas se capa a 999 por stat.
-# A piso 1 ambos = 1.0 (identico a hoy). Provisionales; se afinan con el Excel.
-const FLOOR_STAT_GROWTH := 1.18     # +18%/piso a hp/ataque base (piso5 ~x2, piso10 ~x4.4)
-const FLOOR_ABILITY_GROWTH := 1.12  # +12%/piso a las habilidades (capadas a 999)
+# NIVEL 1 = pisos 1..13. Dos ejes distintos:
+#  - STAT BASE (hp/ataque): GEOMETRICO y SIN techo. Es lo que obliga a subir el RAW
+#    del arma (tier) y la DEF de la armadura (tier). Reescalado suave: 1.10^12 ~= 3.19
+#    = 1.18^7, o sea el piso 13 tiene la dureza base que antes tenia el piso 8.
+#  - HABILIDADES: NO por multiplicador plano, sino por FRANJA de SUMA por piso (ver
+#    enemy_ability_sum_band); cada arquetipo ocupa un sub-tramo y reparte por sus pesos.
+const FLOOR_STAT_GROWTH := 1.10     # +10%/piso a hp/ataque base (piso13 ~= piso8 de antes)
 
 func enemy_floor_stat_factor() -> float:
 	return pow(FLOOR_STAT_GROWTH, float(current_floor - 1))
 
-func enemy_floor_ability_factor() -> float:
-	return pow(FLOOR_ABILITY_GROWTH, float(current_floor - 1))
+# Franja [min, max] de la SUMA de habilidades del enemigo segun el piso. Cada
+# arquetipo ocupa un sub-tramo (franja_low/high en EnemyData) y reparte esa suma por
+# sus pesos. Constantes PROVISIONALES (ejemplos del usuario): piso1 [0,200],
+# piso2 [175,450] ... piso13 [2100,3200]. Afinar con Excel.
+const SUM_MAX_F1 := 200.0    # techo de la franja en el piso 1
+const SUM_MIN_STEP := 175.0  # cuanto sube el suelo por piso
+const SUM_MAX_STEP := 250.0  # cuanto sube el techo por piso
+
+func enemy_ability_sum_band(floor: int) -> Vector2:
+	var f: float = float(maxi(1, floor) - 1)
+	return Vector2(SUM_MIN_STEP * f, SUM_MAX_F1 + SUM_MAX_STEP * f)
 
 # True mientras el panel de inventario esta abierto: el jugador no se mueve ni
 # interactua (pero el enemigo sigue y puede emboscarte).
@@ -646,10 +654,10 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 
 	_active_enemy = enemy_node
 	var player_c := crear_player_combatant()
-	var power: float = 1.0
-	if "current_power" in enemy_node:
-		power = enemy_node.current_power
-	var enemy_c := enemy_data.crear_combatant(power)
+	var t: float = 0.5
+	if "current_t" in enemy_node:
+		t = enemy_node.current_t
+	var enemy_c := enemy_data.crear_combatant(t)
 
 	# ¿El jugador entra agotado? (sus 2 primeras acciones seran mas lentas)
 	var player_exhausted := false
@@ -690,11 +698,8 @@ func start_extraction(corpse: Node) -> void:
 	var categoria: int = data.roll_crystal_category(t)
 	var eff_destreza: int = player_destreza + tool_destreza_bonus
 
-	# Exigencia del monstruo: sale de su FUERZA (suma de habilidades x su poder).
-	var enemy_power: float = 1.0
-	if "current_power" in corpse:
-		enemy_power = corpse.current_power
-	var enemy_suma: float = float(data.suma_habilidades(enemy_power))
+	# Exigencia del monstruo: sale de su SUMA de habilidades (segun su 't' = poder_normalizado).
+	var enemy_suma: float = float(data.suma_habilidades(t))
 	var req: float = maxf(1.0, enemy_suma * EXTRACTION_REQ_FACTOR)
 
 	# Dificultad RELATIVA: exigencia del enemigo (su fuerza total) / tu DESTREZA

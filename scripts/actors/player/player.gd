@@ -206,14 +206,14 @@ func _enemigo_cercano_agilidad() -> Node:
 	return nearest
 
 
-# Poder de un enemigo (suma de habilidades base × su poder) para el "reto".
+# Poder de un enemigo (suma de habilidades segun su 't') para el "reto".
 func _poder_enemigo_nodo(e: Node) -> float:
 	if e == null or not is_instance_valid(e) or e.data == null:
 		return 0.0
-	var p: float = 1.0
-	if "current_power" in e:
-		p = e.current_power
-	return float(e.data.suma_habilidades(p))
+	var t: float = 0.5
+	if "current_t" in e:
+		t = e.current_t
+	return float(e.data.suma_habilidades(t))
 
 
 # Busca un enemigo justo enfrente y muy cerca; si lo hay, inicia el combate
