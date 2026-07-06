@@ -208,7 +208,10 @@ func _process(delta: float) -> void:
 	if _slow_actions_left > 0:
 		player_rate *= EXHAUSTED_RATE
 	player_rate *= _player_overload_factor
-	_gauge[_player] += _player.spd() * delta * player_rate
+	# Al CASTEAR (KAN-95) la barra se llena a la velocidad de casteo (la varita del
+	# mago hibrido la cambia respecto al arma principal); si no, la velocidad normal.
+	var pspeed: float = _player.cast_spd() if _cast_spell != null else _player.spd()
+	_gauge[_player] += pspeed * delta * player_rate
 	_gauge[_enemy] += _enemy.spd() * delta * SPEED_SCALE
 
 	if _gauge[_player] >= UMBRAL or _gauge[_enemy] >= UMBRAL:
@@ -223,7 +226,8 @@ func _process(delta: float) -> void:
 func _begin_player_turn() -> void:
 	_state = State.WAITING_PLAYER
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
-	_player.regen_mana(StatsMath.mp_regen(float(_player.abilities.magia)))  # regen escala con Magia (KAN-56)
+	# Regen de maná: escala con la Magia (KAN-56) + el bonus del arma mágica (KAN-95).
+	_player.regen_mana(StatsMath.mp_regen(float(_player.abilities.magia)) + _player.mp_regen_bonus)
 	_update_hp()
 	# Si estas casteando un hechizo, el turno va al recitado / disparo, NO a las
 	# acciones normales (por diseño no puedes hacer otra cosa mientras cantas).
@@ -305,10 +309,11 @@ func _accion_magia() -> void:
 		c.queue_free()
 	for spell in _player.spells:
 		var b := Button.new()
+		var coste: int = _coste_efectivo(spell)
 		b.text = "%s  (%d MP · %d frase%s)" % [
-			spell.nombre, spell.coste_mana, spell.longitud(),
+			spell.nombre, coste, spell.longitud(),
 			"" if spell.longitud() == 1 else "s"]
-		if not _player.has_mana(float(spell.coste_mana)):
+		if not _player.has_mana(float(coste)):
 			b.disabled = true
 			b.tooltip_text = "Mana insuficiente"
 		b.pressed.connect(_elegir_hechizo.bind(spell))
@@ -321,12 +326,18 @@ func _accion_magia() -> void:
 	_set_log("Elige un hechizo para recitar.")
 
 
+# Coste de maná EFECTIVO tras la mejora Eficiencia del equipo (KAN-95). Mínimo 1.
+func _coste_efectivo(spell: SpellData) -> int:
+	return maxi(1, ceili(float(spell.coste_mana) * (1.0 - _player.mana_reduccion)))
+
+
 # Empiezas a castear: se descuenta el mana YA (si fallas lo pierdes) y recitas la
 # primera frase en este MISMO turno.
 func _elegir_hechizo(spell: SpellData) -> void:
-	if not _player.has_mana(float(spell.coste_mana)):
+	var coste: int = _coste_efectivo(spell)
+	if not _player.has_mana(float(coste)):
 		return
-	_player.spend_mana(float(spell.coste_mana))
+	_player.spend_mana(float(coste))
 	_update_hp()
 	_cast_spell = spell
 	_cast_index = 0

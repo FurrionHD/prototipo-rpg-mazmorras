@@ -236,6 +236,29 @@ Aciertas → avanzas; fallas → **backfire**. Ritmo: **N frases = N turnos de r
 - [x] HUD muestra maná y nº de hechizos equipados; la pantalla de combate muestra MP del jugador.
 - Constantes PROVISIONALES → afinar con Excel. Interrupción por golpes fuertes del enemigo → futuro.
 
+### Equipamiento — Armas de mago (KAN-95) 🔧 A PROBAR
+Dos arquetipos de mago, enganchados al `magic_amp` que KAN-56 dejó neutro:
+- **Mago puro — Bastón** (`baston.tres`, WeaponData `es_magica`, 2 manos, contundente): pega poco
+  (`motion_value 0.4`), `magic_amp 1.8`, `mp_regen_bonus 0.4`, bloquea decente. Castea a su propia
+  velocidad.
+- **Mago híbrido — arma ligera + Varita** (`WandData`, `wand_data.gd`, off-hand): la varita NO
+  ataca; da `magic_amp 1.4`, `mp_regen_bonus 0.15` y define la **velocidad de CASTEO**. Solo
+  compatible con daga / espada corta / maza peq (`_secundaria_valida`).
+- **Cast-speed switch**: en `combat._process`, mientras `_cast_spell != null` la barra ATB usa
+  `_player.cast_spd()` (velocidad de la varita / del bastón); atacando usa `spd()` (arma principal).
+- **Combatant** nuevos: `cast_velocidad_mult`, `mp_regen_bonus`, `mana_reduccion`, `cast_spd()`
+  (`magic_amp` ya existía). `Game.loadout_mods()` los calcula y combina (amp = producto main×off,
+  regen sumado, cast_base = varita si hay, si no arma; `crear_player_combatant` los vuelca + armadura
+  frena el casteo).
+- **Mejoras mágicas** (`upgrades.gd`, gated a armas mágicas por `weapon_categories`/`wand_categories`):
+  **Eficiencia** (−% coste maná, `dim_sum` asintota a `EFICIENCIA_CAP 0.25` → mucha inversión),
+  **Celeridad** (+vel casteo, cap 0.10), **Regeneración** (+% sobre el regen del arma, cap 0.40),
+  **Durabilidad** (reservada). `magic_mods()` las agrega; `MAGIC_AMP_FLAT 0.02` = primario (cada
+  mejora sube algo el amp). Las mágicas NO usan tier (no disparar el multiplicador) y NO tocan el
+  daño físico del bastón (`weapon_mods` corta si `es_magica`). Coste efectivo con Eficiencia en
+  `combat._coste_efectivo()`.
+- Equipables desde DEBUG (bastón en armas, varita en secundarias; mejoras por slot). PROVISIONALES.
+
 ### Equipamiento — Fase A: armas + loadout de 2 manos (modelo MH Motion Values) 🔧 A PROBAR
 Plan completo en `~/.claude/plans/daga-espada-corta-espada-cozy-kahan.md`.
 - [x] **Modelo estilo Monster Hunter**: el "raw" (daño base) es común (viene de tu Fuerza);

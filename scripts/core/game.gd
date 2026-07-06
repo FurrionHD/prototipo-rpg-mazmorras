@@ -295,6 +295,7 @@ var _dev_weapons: Array[String] = [
 	"res://resources/weapons/mandobles.tres",
 	"res://resources/weapons/hacha_grande.tres",
 	"res://resources/weapons/martillo_grande.tres",
+	"res://resources/weapons/baston.tres",
 ]
 var _dev_offs: Array = [
 	null,
@@ -304,6 +305,7 @@ var _dev_offs: Array = [
 	"res://resources/shields/escudo_pequeno.tres",
 	"res://resources/shields/escudo_normal.tres",
 	"res://resources/shields/escudo_grande.tres",
+	"res://resources/wands/varita.tres",
 ]
 var _dev_main_idx: int = 0
 var _dev_off_idx: int = 0
@@ -391,6 +393,12 @@ func crear_player_combatant() -> Combatant:
 	c.crit_resist = float(am["crit_resist"])
 	# La esquiva de armadura BAJA el evasion_penal (negativo = bonus de esquiva).
 	c.evasion_penal = float(m["evasion_penal"]) - float(am["evasion_bonus"])
+	# Magia del equipo (KAN-95): amplificador, regen extra, eficiencia y velocidad de
+	# casteo (la armadura frena también el casteo, como el ataque).
+	c.magic_amp = float(m["magic_amp"])
+	c.mp_regen_bonus = float(m["mp_regen_bonus"])
+	c.mana_reduccion = float(m["mana_reduccion"])
+	c.cast_velocidad_mult = float(m["cast_velocidad_mult"]) * float(am["velocidad_mult"])
 	return c
 
 
@@ -433,6 +441,33 @@ func loadout_mods() -> Dictionary:
 	var main_wm := Upgrades.weapon_mods(main, tier_mult(equip_tier("main")),
 		equip_rareza("main"), equip_mejoras("main"))
 	m["velocidad_mult"] = float(m["velocidad_mult"]) * float(main_wm["vel_mult"])
+
+	# --- MAGIA (KAN-95): magic_amp, regen de maná, eficiencia y velocidad de CASTEO ---
+	# El baston (main.es_magica) y/o la varita (off = WandData) aportan estos mods.
+	# La varita no añade mano de ataque (bloqueo/evasion ~0) -> se ignora en lo fisico.
+	var magic_amp := 1.0
+	var mp_regen_bonus := 0.0
+	var mana_reduccion := 0.0
+	var cast_vel_add := 0.0
+	var cast_base := main.velocidad_mult   # por defecto, la velocidad del arma principal
+	if main.es_magica:
+		var mm := Upgrades.magic_mods(main.magic_amp, equip_rareza("main"), equip_mejoras("main"))
+		magic_amp *= float(mm["magic_amp"])
+		mp_regen_bonus += main.mp_regen_bonus * float(mm["regen_mult"])
+		mana_reduccion += float(mm["mana_reduccion"])
+		cast_vel_add += float(mm["cast_vel_add"])
+	if equipped_off is WandData:
+		var wand: WandData = equipped_off
+		var mo := Upgrades.magic_mods(wand.magic_amp, equip_rareza("off"), equip_mejoras("off"))
+		magic_amp *= float(mo["magic_amp"])
+		mp_regen_bonus += wand.mp_regen_bonus * float(mo["regen_mult"])
+		mana_reduccion += float(mo["mana_reduccion"])
+		cast_vel_add += float(mo["cast_vel_add"])
+		cast_base = wand.velocidad_mult   # al castear, la barra usa la velocidad de la varita
+	m["magic_amp"] = magic_amp
+	m["mp_regen_bonus"] = mp_regen_bonus
+	m["mana_reduccion"] = minf(0.25, mana_reduccion)
+	m["cast_velocidad_mult"] = cast_base * (1.0 + cast_vel_add)
 	return m
 
 
@@ -458,6 +493,11 @@ func _hand_from(w: WeaponData, slot: String) -> Dictionary:
 func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
 	if main.dos_manos:
 		return false
+	if item is WandData:
+		# La varita (mago hibrido) solo con armas LIGERAS: daga / espada corta / maza peq.
+		if main.off_hand_solo_escudo:
+			return false
+		return int(main.tipo) in [WeaponData.Tipo.DAGA, WeaponData.Tipo.ESPADA_CORTA, WeaponData.Tipo.MAZA_PEQ]
 	if item is WeaponData:
 		var w: WeaponData = item
 		if not w.puede_dual:

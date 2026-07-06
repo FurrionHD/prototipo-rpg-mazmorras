@@ -20,6 +20,7 @@ class_name WeaponData
 enum Tipo {
 	PUNOS, DAGA, ESPADA_CORTA, ESPADA_LARGA, MANDOBLE,
 	HACHA_MANO, HACHA_GRANDE, MAZA_PEQ, MARTILLO_GRANDE,
+	BASTON,   # arma de mago (KAN-95): pega poco, potencia la magia
 }
 enum DanoTipo { CORTE, CONTUNDENTE }
 
@@ -58,6 +59,14 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 # --- Energia (FASE B) ---
 # + recupera energia con el ataque basico, − la gasta. (Aun sin usar.)
 @export var energia_ataque: float = 0.0
+
+# --- MAGIA (KAN-95): armas de mago (bastón) ---
+# es_magica marca las armas que potencian hechizos. magic_amp MULTIPLICA el daño
+# de los hechizos (1.0 = neutro; bastón alto). mp_regen_bonus SUMA al regen de maná
+# por turno de combate. La varita (WandData) lleva estos mismos campos en la off.
+@export var es_magica: bool = false
+@export var magic_amp: float = 1.0
+@export var mp_regen_bonus: float = 0.0
 
 # --- Desgaste / mantenimiento (FASE futura, sustituye al "filo" de MH) ---
 # El arma se desgasta con el uso; al bajar, pega menos, y en el pueblo pagas

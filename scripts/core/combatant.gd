@@ -32,8 +32,15 @@ var current_mp: float = 0.0
 # Hechizos equipados (Array[SpellData]). Vacio = no lanza magia (enemigos, o el
 # jugador sin hechizos equipados).
 var spells: Array = []
-# Amplificador de daño magico del arma (bastones/varitas, futuro KAN-95). Neutro.
+# Amplificador de daño magico del arma (bastones/varitas, KAN-95). Neutro por defecto.
 var magic_amp: float = 1.0
+# Regen de maná EXTRA por turno que aporta el arma magica (KAN-95).
+var mp_regen_bonus: float = 0.0
+# Reduccion PORCENTUAL del coste de maná (mejora Eficiencia, KAN-95). 0 = sin descuento.
+var mana_reduccion: float = 0.0
+# Velocidad de CASTEO: al lanzar hechizos la barra ATB usa esta (la varita del mago
+# hibrido la cambia respecto a la del arma principal). Por defecto = velocidad_mult.
+var cast_velocidad_mult: float = 1.0
 
 # --- Modificadores del LOADOUT (arma + secundaria). Neutros por defecto, asi un
 # combatiente SIN equipo (p.ej. enemigos) se comporta como antes. El jugador los
@@ -91,6 +98,8 @@ func atk() -> float:
 	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(abilities.fuerza) * motion_value
 func def_value() -> float: return StatsMath.defense_value(abilities, level, base_defense + extra_defense)
 func spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * velocidad_mult
+# Velocidad al CASTEAR (KAN-95): igual que spd() pero con la velocidad de casteo.
+func cast_spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * cast_velocidad_mult
 
 func is_alive() -> bool:
 	return current_hp > 0.0

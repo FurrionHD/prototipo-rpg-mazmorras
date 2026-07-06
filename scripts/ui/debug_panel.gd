@@ -287,6 +287,8 @@ func _off_label(path) -> String:
 	var res: Resource = load(path)
 	if res is WeaponData:
 		return (res as WeaponData).nombre + " (dual)"
+	if res is WandData:
+		return (res as WandData).nombre + " (varita)"
 	if res is ShieldData:
 		return (res as ShieldData).nombre
 	return "?"
@@ -308,6 +310,8 @@ func _slot_categories(slot: String) -> Array:
 	var item = _slot_item(slot)
 	if item is WeaponData:
 		return Upgrades.weapon_categories(item)
+	if item is WandData:
+		return Upgrades.wand_categories()   # varita: mejoras magicas
 	if item is ArmorData:
 		return Upgrades.armor_categories(item)
 	return []   # escudo / vacio: sin mejoras

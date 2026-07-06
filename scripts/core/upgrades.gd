@@ -34,6 +34,10 @@ const AGUDEZA := "agudeza"
 const PRECISION := "precision"
 const PESO := "peso"
 const RAPIDEZ := "rapidez"
+# Armas MAGICAS (baston/varita, KAN-95):
+const EFICIENCIA := "eficiencia"        # -% coste de maná
+const CELERIDAD := "celeridad"          # +velocidad de casteo
+const REGENERACION := "regeneracion"    # +% sobre el regen de maná del arma
 # Armaduras:
 const DUREZA := "dureza"
 const EVASION := "evasion"
@@ -45,6 +49,7 @@ const DURABILIDAD := "durabilidad"    # RESERVADA (mantenimiento)
 # Nombres legibles para la UI.
 const CAT_NOMBRE := {
 	"agudeza": "Agudeza", "precision": "Precision", "peso": "Peso", "rapidez": "Rapidez",
+	"eficiencia": "Eficiencia", "celeridad": "Celeridad", "regeneracion": "Regeneracion",
 	"dureza": "Dureza", "evasion": "Evasion", "resist_crit": "Resist. criticos",
 	"resistencia": "Resistencia (reservada)", "durabilidad": "Durabilidad (reservada)",
 }
@@ -61,6 +66,14 @@ const EVASION_STEP := 0.02        # +esquiva (ligeras/medias)
 const EVASION_CAP := 0.20         # tope del bonus de esquiva de armadura
 const RESIST_CRIT_STEP := 0.02    # -crit rival (pesadas)
 const RESIST_CRIT_CAP := 0.25     # tope de resistencia a criticos
+# Armas MAGICAS (KAN-95). Todos PROVISIONALES -> Excel.
+const MAGIC_AMP_FLAT := 0.02      # +magic_amp por CADA mejora (primario del arma magica)
+const EFICIENCIA_STEP := 0.05     # -% coste de maná (dim_sum asintota a 0.25 -> hay que invertir MUCHO)
+const EFICIENCIA_CAP := 0.25
+const CELERIDAD_STEP := 0.03      # +velocidad de casteo
+const CELERIDAD_CAP := 0.10
+const REGENERACION_STEP := 0.08   # +% sobre el regen de maná del arma
+const REGENERACION_CAP := 0.40
 
 
 static func rareza_mult(r: int) -> float:
@@ -92,13 +105,24 @@ static func total_mejoras(mejoras: Dictionary) -> int:
 
 
 # Categorias VALIDAS de un arma (para el gating y la UI). Peso solo si contundente.
+# Las armas MAGICAS (baston) usan las categorias magicas, NO las fisicas.
 static func weapon_categories(w: WeaponData) -> Array:
+	if w != null and w.es_magica:
+		return magic_categories()
 	var cats: Array = [AGUDEZA, PRECISION]
 	if w != null and int(w.dano_tipo) == 1:  # CONTUNDENTE
 		cats.append(PESO)
 	cats.append(RAPIDEZ)
 	cats.append(DURABILIDAD)  # reservada
 	return cats
+
+# Categorias magicas comunes al baston (arma magica) y a la varita (KAN-95).
+static func magic_categories() -> Array:
+	return [EFICIENCIA, CELERIDAD, REGENERACION, DURABILIDAD]
+
+# Categorias VALIDAS de una varita (siempre magicas).
+static func wand_categories() -> Array:
+	return magic_categories()
 
 # Categorias VALIDAS de una pieza de armadura (GATING por clase):
 #  ligera(CUERO=0)/media(HIERRO=1) -> Evasion; pesada(HIERRO_COMPLETO=2/PLACAS=3) -> ResistCrit.
@@ -116,6 +140,11 @@ static func armor_categories(a: ArmorData) -> Array:
 
 # Agregados de un ARMA (por mano). tmult = tier_mult(tier) ya calculado.
 static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
+	# Arma MAGICA (baston): sus mejoras son magicas (ver magic_mods) y NO deben tocar
+	# el daño fisico. El golpe basico usa solo la base × rareza × tier.
+	if w != null and w.es_magica:
+		return {"raw": w.ataque_base * rareza_mult(rareza) * tmult, "crit_add": 0.0,
+			"precision": 0.0, "aturdir_add": 0.0, "vel_mult": 1.0}
 	var n := total_mejoras(mejoras)
 	# +0.3 por CADA mejora (universal) + extra de Agudeza (decreciente). Todo x tier.
 	var raw_up := UPGRADE_FLAT * float(n) + dim_sum(AGUDEZA_STEP, _count(mejoras, AGUDEZA))
@@ -132,6 +161,20 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 		"aturdir_add": aturdir,
 		"vel_mult": 1.0 + rapidez,
 	}
+
+# Agregados MAGICOS de un arma de mago (baston o varita), por slot. Las mejoras
+# magicas NO usan tier (para no disparar el multiplicador): magic_amp sale de la
+# base × rareza + un flat por mejora; el resto son porcentajes con tope.
+#   base_amp = magic_amp base del item (baston 1.8 / varita 1.4).
+static func magic_mods(base_amp: float, rareza: int, mejoras: Dictionary) -> Dictionary:
+	var n := total_mejoras(mejoras)
+	return {
+		"magic_amp": base_amp * rareza_mult(rareza) + MAGIC_AMP_FLAT * float(n),
+		"mana_reduccion": minf(EFICIENCIA_CAP, dim_sum(EFICIENCIA_STEP, _count(mejoras, EFICIENCIA))),
+		"cast_vel_add": minf(CELERIDAD_CAP, dim_sum(CELERIDAD_STEP, _count(mejoras, CELERIDAD))),
+		"regen_mult": 1.0 + minf(REGENERACION_CAP, dim_sum(REGENERACION_STEP, _count(mejoras, REGENERACION))),
+	}
+
 
 # Agregados de una PIEZA de armadura. tmult = tier_mult(tier). La reduccion y la
 # velocidad de la pieza salen de la base (el tier/rareza/mejoras solo tocan DEF,
