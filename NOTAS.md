@@ -228,7 +228,9 @@ Aciertas → avanzas; fallas → **backfire**. Ritmo: **N frases = N turnos de r
 - [x] **Casteo en `combat.gd`**: submenú de hechizos (`_accion_magia`), test por frase
   (`_mostrar_test`/`_responder_frase`), disparo (`_mostrar_disparo`/`_disparar_hechizo`), backfire.
   Estado persistente `_cast_spell`/`_cast_index`. Mientras casteas NO hay otras acciones (el enemigo
-  te pega en cada hueco). **Excelia**: recitar y lanzar suben Magia (`GAIN_MAGIA_CAST`).
+  te pega en cada hueco). **Excelia (fórmula dedicada)**: la Magia sube SOLO al **lanzar** (no por
+  frase), escalada por `mana_factor = coste_mana/MAGIA_COSTE_REF(4)` × `reto(enemigo)` (tope 5), con
+  rendimientos decrecientes por la Magia interna. Contra slime: Chispa ~1.5, Bola ~3, Tormenta ~5/cast.
 - [x] **Equipables desde el DEBUG**: sección HECHIZOS (checkboxes) en `debug_panel.gd`; el jugador
   empieza **SIN hechizos** (`Game.equipped_spells = []`). La obtención aleatoria se verá más adelante.
 - [x] HUD muestra maná y nº de hechizos equipados; la pantalla de combate muestra MP del jugador.

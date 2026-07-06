@@ -59,10 +59,13 @@ const GAIN_DESTREZA_MINIJUEGO := 2.2  # arranque (Destreza baja); el pivote de a
 const GAIN_AGILIDAD_ESQUIVAR := 0.6   # esquivar un golpe entrena Agilidad (adios correr en circulos)
 const GAIN_AGILIDAD_CRITICO := 0.3    # clavar un critico entrena Agilidad (encontrar el hueco)
 const GAIN_RESISTENCIA_BLOQUEO := 0.3 # bloquear con Defender entrena Resistencia extra (KAN-81); moderado para no sobre-premiar el escudo
-# Magia (KAN-56): entrena al recitar bien una frase (poco) y al lanzar (extra en
-# _disparar_hechizo, escalado por la longitud del hechizo). Base baja + tope de reto
-# FISICO (5) para que no se dispare: una Chispa sube ~0.75, no varios puntos.
-const GAIN_MAGIA_CAST := 0.1
+# Magia (KAN-56): entrena SOLO al LANZAR el hechizo (no por frase, para que sea
+# predecible). Formula dedicada = GAIN_MAGIA_CAST × mana_factor × reto(enemigo),
+# con tope de reto FISICO (5) y rendimientos decrecientes por la Magia interna.
+# mana_factor = coste_mana / MAGIA_COSTE_REF -> hechizos caros entrenan mas (ya
+# reflejan mas daño/potencia). Contra un slime: Chispa ~1.5, Bola ~3, Tormenta ~5.
+const GAIN_MAGIA_CAST := 0.4
+const MAGIA_COSTE_REF := 4.0   # coste de referencia (Chispa) para el factor de mana
 # --- Dificultad de la extraccion ---
 # Exigencia del enemigo = suma_habilidades x FACTOR. Dificultad relativa =
 # exigencia / (tu Destreza + SUELO). ~1 = a la par; >1 mas dificil. La
