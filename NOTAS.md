@@ -250,13 +250,14 @@ Dos arquetipos de mago, enganchados al `magic_amp` que KAN-56 dejó neutro:
   (`magic_amp` ya existía). `Game.loadout_mods()` los calcula y combina (amp = producto main×off,
   regen sumado, cast_base = varita si hay, si no arma; `crear_player_combatant` los vuelca + armadura
   frena el casteo).
-- **Mejoras mágicas** (`upgrades.gd`, gated a armas mágicas por `weapon_categories`/`wand_categories`):
-  **Eficiencia** (−% coste maná, `dim_sum` asintota a `EFICIENCIA_CAP 0.25` → mucha inversión),
-  **Celeridad** (+vel casteo, cap 0.10), **Regeneración** (+% sobre el regen del arma, cap 0.40),
-  **Durabilidad** (reservada). `magic_mods()` las agrega; `MAGIC_AMP_FLAT 0.02` = primario (cada
-  mejora sube algo el amp). Las mágicas NO usan tier (no disparar el multiplicador) y NO tocan el
-  daño físico del bastón (`weapon_mods` corta si `es_magica`). Coste efectivo con Eficiencia en
-  `combat._coste_efectivo()`.
+- **Mejoras mágicas** (`upgrades.gd`, gated por `weapon_categories`/`wand_categories`):
+  **Potencia** (+magic_amp directo, `POTENCIA_STEP 0.05`, cap 0.25), **Eficiencia** (−% coste maná,
+  `dim_sum` asintota a `EFICIENCIA_CAP 0.25`), **Celeridad** (+vel casteo, cap 0.10),
+  **Regeneración** (+% regen del arma, cap 0.40), **Durabilidad** (reservada). `MAGIC_AMP_FLAT 0.02`
+  = primario universal (cada mejora sube algo el amp) + el extra de Potencia. `magic_mods()` las
+  agrega; NO usan tier. El **bastón** (arma mágica que SÍ ataca) admite ADEMÁS **Agudeza** (raw
+  melee) y **Peso** (aturdir, es contundente) — `weapon_mods` los honra para `es_magica`; la varita
+  no (no ataca). Coste efectivo con Eficiencia en `combat._coste_efectivo()`.
 - Equipables desde DEBUG (bastón en armas, varita en secundarias; mejoras por slot). PROVISIONALES.
 
 ### Equipamiento — Fase A: armas + loadout de 2 manos (modelo MH Motion Values) 🔧 A PROBAR
