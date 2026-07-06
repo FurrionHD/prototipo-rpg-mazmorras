@@ -242,8 +242,8 @@ Dos arquetipos de mago, enganchados al `magic_amp` que KAN-56 dejó neutro:
   (`motion_value 0.4`), `magic_amp 1.8`, `mp_regen_bonus 0.4`, bloquea decente. Castea a su propia
   velocidad.
 - **Mago híbrido — arma ligera + Varita** (`WandData`, `wand_data.gd`, off-hand): la varita NO
-  ataca; da `magic_amp 1.4`, `mp_regen_bonus 0.15` y define la **velocidad de CASTEO**. Solo
-  compatible con daga / espada corta / maza peq (`_secundaria_valida`).
+  ataca; da `magic_amp 1.4`, `mp_regen_bonus 0.15` y define la **velocidad de CASTEO**. Compatible
+  con daga / espada corta / maza peq **y espada larga** (soporte; la larga si no solo admite escudo).
 - **Cast-speed switch**: en `combat._process`, mientras `_cast_spell != null` la barra ATB usa
   `_player.cast_spd()` (velocidad de la varita / del bastón); atacando usa `spd()` (arma principal).
 - **Combatant** nuevos: `cast_velocidad_mult`, `mp_regen_bonus`, `mana_reduccion`, `cast_spd()`
@@ -255,7 +255,9 @@ Dos arquetipos de mago, enganchados al `magic_amp` que KAN-56 dejó neutro:
   `dim_sum` asintota a `EFICIENCIA_CAP 0.25`), **Celeridad** (+vel casteo, cap 0.10),
   **Regeneración** (+% regen del arma, cap 0.40), **Durabilidad** (reservada). `MAGIC_AMP_FLAT 0.02`
   = primario universal (cada mejora sube algo el amp) + el extra de Potencia. `magic_mods()` las
-  agrega; NO usan tier. El **bastón** (arma mágica que SÍ ataca) admite ADEMÁS **Agudeza** (raw
+  agrega. **Tier mágico** (`magic_tier_ratio`): el tier multiplica el `magic_amp` por el MISMO
+  factor de daño que da a un arma melee (`(5 + 3×tmult)/8` → t1 ×1, t2 ×1.45, t3 ×2.44), para que
+  subir de tier valga lo mismo en magia que en físico. El **bastón** (arma mágica que SÍ ataca) admite ADEMÁS **Agudeza** (raw
   melee) y **Peso** (aturdir, es contundente) — `weapon_mods` los honra para `es_magica`; la varita
   no (no ataca). Coste efectivo con Eficiencia en `combat._coste_efectivo()`.
 - Equipables desde DEBUG (bastón en armas, varita en secundarias; mejoras por slot). PROVISIONALES.

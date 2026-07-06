@@ -451,14 +451,14 @@ func loadout_mods() -> Dictionary:
 	var cast_vel_add := 0.0
 	var cast_base := main.velocidad_mult   # por defecto, la velocidad del arma principal
 	if main.es_magica:
-		var mm := Upgrades.magic_mods(main.magic_amp, equip_rareza("main"), equip_mejoras("main"))
+		var mm := Upgrades.magic_mods(main.magic_amp, tier_mult(equip_tier("main")), equip_rareza("main"), equip_mejoras("main"))
 		magic_amp *= float(mm["magic_amp"])
 		mp_regen_bonus += main.mp_regen_bonus * float(mm["regen_mult"])
 		mana_reduccion += float(mm["mana_reduccion"])
 		cast_vel_add += float(mm["cast_vel_add"])
 	if equipped_off is WandData:
 		var wand: WandData = equipped_off
-		var mo := Upgrades.magic_mods(wand.magic_amp, equip_rareza("off"), equip_mejoras("off"))
+		var mo := Upgrades.magic_mods(wand.magic_amp, tier_mult(equip_tier("off")), equip_rareza("off"), equip_mejoras("off"))
 		magic_amp *= float(mo["magic_amp"])
 		mp_regen_bonus += wand.mp_regen_bonus * float(mo["regen_mult"])
 		mana_reduccion += float(mo["mana_reduccion"])
@@ -494,10 +494,10 @@ func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
 	if main.dos_manos:
 		return false
 	if item is WandData:
-		# La varita (mago hibrido) solo con armas LIGERAS: daga / espada corta / maza peq.
-		if main.off_hand_solo_escudo:
-			return false
-		return int(main.tipo) in [WeaponData.Tipo.DAGA, WeaponData.Tipo.ESPADA_CORTA, WeaponData.Tipo.MAZA_PEQ]
+		# La varita (soporte) va con armas LIGERAS (daga / espada corta / maza peq) Y con
+		# la ESPADA LARGA (que si no solo admite escudo): buena combinacion de soporte.
+		return int(main.tipo) in [WeaponData.Tipo.DAGA, WeaponData.Tipo.ESPADA_CORTA,
+			WeaponData.Tipo.MAZA_PEQ, WeaponData.Tipo.ESPADA_LARGA]
 	if item is WeaponData:
 		var w: WeaponData = item
 		if not w.puede_dual:

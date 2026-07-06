@@ -71,6 +71,12 @@ const RESIST_CRIT_CAP := 0.25     # tope de resistencia a criticos
 const MAGIC_AMP_FLAT := 0.02      # +magic_amp por CADA mejora (primario del arma magica)
 const POTENCIA_STEP := 0.05       # +magic_amp de la categoria Potencia (extra, decreciente)
 const POTENCIA_CAP := 0.25        # tope del bonus de Potencia
+# TIER de las armas magicas: el tier escala el magic_amp por el MISMO factor de daño
+# que da a un arma MELEE, para que subir de tier valga lo mismo en magia que en fisico.
+# Melee: daño ∝ (base_jugador + raw×tmult); ratio = (BASE + RAW×tmult)/(BASE + RAW).
+# Con BASE=5 (base_attack del jugador) y RAW=3 (ataque_base t1): t1 ×1, t2 ×1.45, t3 ×2.44.
+const MAGIC_TIER_BASE := 5.0
+const MAGIC_TIER_RAW := 3.0
 const EFICIENCIA_STEP := 0.05     # -% coste de maná (dim_sum asintota a 0.25 -> hay que invertir MUCHO)
 const EFICIENCIA_CAP := 0.25
 const CELERIDAD_STEP := 0.03      # +velocidad de casteo
@@ -182,12 +188,18 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 # magicas NO usan tier (para no disparar el multiplicador): magic_amp sale de la
 # base × rareza + un flat por mejora; el resto son porcentajes con tope.
 #   base_amp = magic_amp base del item (baston 1.8 / varita 1.4).
-static func magic_mods(base_amp: float, rareza: int, mejoras: Dictionary) -> Dictionary:
+# Factor por el que el TIER escala el magic_amp = ratio de daño de una arma melee.
+static func magic_tier_ratio(tmult: float) -> float:
+	return (MAGIC_TIER_BASE + MAGIC_TIER_RAW * tmult) / (MAGIC_TIER_BASE + MAGIC_TIER_RAW)
+
+static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
 	var n := total_mejoras(mejoras)
 	# magic_amp = base×rareza + flat universal por CADA mejora + extra de Potencia (decreciente, tope).
+	# El TIER lo multiplica todo por el mismo factor de daño que una melee (magic_tier_ratio).
 	var potencia := minf(POTENCIA_CAP, dim_sum(POTENCIA_STEP, _count(mejoras, POTENCIA)))
+	var amp := (base_amp * rareza_mult(rareza) + MAGIC_AMP_FLAT * float(n) + potencia) * magic_tier_ratio(tmult)
 	return {
-		"magic_amp": base_amp * rareza_mult(rareza) + MAGIC_AMP_FLAT * float(n) + potencia,
+		"magic_amp": amp,
 		"mana_reduccion": minf(EFICIENCIA_CAP, dim_sum(EFICIENCIA_STEP, _count(mejoras, EFICIENCIA))),
 		"cast_vel_add": minf(CELERIDAD_CAP, dim_sum(CELERIDAD_STEP, _count(mejoras, CELERIDAD))),
 		"regen_mult": 1.0 + minf(REGENERACION_CAP, dim_sum(REGENERACION_STEP, _count(mejoras, REGENERACION))),
