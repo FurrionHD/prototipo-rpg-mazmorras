@@ -32,6 +32,7 @@ var current_hp: float = 0.0
 var ataque_arma: float = 0.0     # RAW que aporta el arma (se suma al raw del jugador)
 var motion_value: float = 1.0    # % del raw por golpe (arma). 1.0 = neutro
 var crit_bonus: float = 0.0      # se suma a la prob. de critico
+var precision: float = 0.0       # ACIERTO (mejora Precision): baja la evasion del rival
 var dano_tipo: int = 0           # 0 CORTE, 1 CONTUNDENTE (WeaponData.DanoTipo)
 var aturdir_base: float = 0.0    # prob. base de aturdir/retrasar (contundentes)
 # Estos NO cambian por mano (son del loadout entero):
@@ -43,6 +44,7 @@ var evasion_penal: float = 0.0   # baja la esquiva propia (escudos)
 # asi un combatiente SIN armadura (enemigos) se comporta igual que antes. ---
 var extra_defense: float = 0.0   # DEF plana ADITIVA de la armadura (sube la mitigacion)
 var armor_reduction: float = 0.0 # % de reduccion de dano (SIEMPRE activo, acotado)
+var crit_resist: float = 0.0     # RESIST. CRITICOS (armadura pesada): baja el crit del atacante
 
 # MANOS del loadout: 1 (arma sola / 2 manos / con escudo) o 2 (dual-wield). Cada
 # mano es un Dictionary {nombre, motion_value, ataque_arma, crit_bonus, dano_tipo,
@@ -97,6 +99,7 @@ func _apply_hand(i: int) -> void:
 	motion_value = h["motion_value"]
 	ataque_arma = h["ataque_arma"]
 	crit_bonus = h["crit_bonus"]
+	precision = h.get("precision", 0.0)
 	dano_tipo = h["dano_tipo"]
 	aturdir_base = h["aturdir_base"]
 

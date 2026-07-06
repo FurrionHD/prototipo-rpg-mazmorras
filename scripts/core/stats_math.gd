@@ -160,8 +160,11 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	var def_agi := float(defender.abilities.agilidad)
 
 	# Probabilidades (se calculan SIEMPRE, para poder loguearlas aunque no apliquen).
-	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal, 0.0, EVADE_MAX)
-	var crit_p := 0.0 if defending else clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus, 0.0, 1.0)
+	# ACIERTO del atacante (mejora Precision) baja la evasion del defensor. La esquiva
+	# de armadura del defensor ya entra via su evasion_penal (negativo = bonus).
+	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal - attacker.precision, 0.0, EVADE_MAX)
+	# RESIST. CRITICOS del defensor (armadura pesada) baja el crit del atacante.
+	var crit_p := 0.0 if defending else clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus - defender.crit_resist, 0.0, 1.0)
 	# El aturdir depende de aturdir_base (ya viene promediado del loadout: en dual,
 	# una maza en la secundaria aporta aunque la principal sea de corte).
 	var aturde_p := 0.0

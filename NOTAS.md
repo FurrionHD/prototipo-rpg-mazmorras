@@ -247,7 +247,30 @@ pueblo y mazmorra). Botón **DEBUG** abajo-izquierda abre/cierra un panel con:
 - **ARMAS**: dropdowns de principal y secundaria + su TIER (reusa `Game._dev_weapons`/`_dev_offs`,
   `equipar_arma`/`equipar_secundaria`; revierte combinaciones inválidas).
 - **PISO**: campo para fijar `Game.current_floor` (escala al enemigo).
+- **RAREZA** (dropdown por arma y pieza) + sección **MEJORAS** (elegir slot y repartir
+  mejoras por categoría con −/+, según el máximo de la rareza).
 - Mientras está abierto, `Game.debug_panel_open` congela al jugador (teclear sin moverse).
+
+### Progresión — Rarezas + Mejoras (upgrades) de equipo 🔧 A PROBAR
+`scripts/core/upgrades.gd` (class_name Upgrades, como StatsMath) centraliza enums+tablas+math.
+Estado por ítem en `Game.equip_meta[slot] = {tier, rareza, mejoras{cat:n}}` (no en el `.tres`).
+- **Rareza** (7: común→obra maestra): (1) `RAREZA_MULT` % pasivo sobre la base
+  (**común 1.00** = regresión exacta … obra maestra 1.15); (2) `RAREZA_SLOTS` nº de
+  mejoras (3→12).
+- **Cada mejora** sube el número base +**0.3 fijo ×tier** (raw de arma / DEF de armadura),
+  elijas la categoría que elijas (→ en un arma, cada mejora sube el raw). **Encima**, la
+  categoría da un extra **decreciente** (`dim_sum`, decay 0.8).
+- **Categorías arma**: Agudeza (+raw), Precisión (+crit +**acierto**), Peso (+stun, solo
+  contundentes), Rapidez (+vel, **tope +0.08**), Durabilidad (reservada).
+- **Categorías armadura** (GATING estricto por clase): Dureza (+DEF, todas); **Evasión**
+  (+esquiva) solo ligeras/medias (cuero/hierro); **Resist. críticos** (−crit rival) solo
+  pesadas (hierro completo/placas); Resistencia (estados) y Durabilidad reservadas.
+- **Mecánicas nuevas** en `resolve_attack()`: `attacker.precision` (acierto) baja la
+  evasión del defensor; `defender.crit_resist` baja el crit del atacante. Ambas acotadas
+  (`Upgrades.EVASION_CAP`, `RESIST_CRIT_CAP`).
+- Enganches: `_hand_from`/`loadout_mods`/`armor_mods` (game.gd) llaman a
+  `Upgrades.weapon_mods` / `armor_piece_mods`. Verificado con test de curva.
+- Que un ítem obra maestra supere la base del tier siguiente es INTENCIONADO.
 - **HUD**: la barra de arriba muestra piso, peso de loot y **velocidad de armadura** (×); el
   inventario detalla la velocidad de armadura (+ por ir ligero / − por armadura pesada).
 

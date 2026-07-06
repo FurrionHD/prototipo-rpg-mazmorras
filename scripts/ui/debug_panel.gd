@@ -1,14 +1,12 @@
 # ============================================================
 #  debug_panel.gd  (CanvasLayer creada por codigo desde el jugador)
-#  Panel de DEBUG clicable con el raton, disponible en CUALQUIER sala (el
-#  jugador lo crea igual que el HUD, en pueblo y mazmorra). Herramientas:
-#   - Editor de STATS: escribir las 5 habilidades y aplicarlas.
-#   - Fuerza del ENEMIGO: presets Base / 200 / 500 / Cheto (999).
-#   - ARMADURA por pieza: dropdown Nada/Ligera/Media/Pesada por slot.
-#   - ARMAS: dropdown de principal y secundaria.
-#  Todo por codigo (UI placeholder, como el resto del proyecto). Se apoya en
-#  Game (loadout, stats, override de enemigo). Mientras esta abierto congela al
-#  jugador (Game.debug_panel_open) para poder teclear sin moverse.
+#  Panel de DEBUG clicable, disponible en CUALQUIER sala. Herramientas:
+#   - STATS: escribir las 5 habilidades y aplicarlas.
+#   - ENEMIGO: presets Base/200/500/Cheto + selector de PISO.
+#   - ARMADURA por pieza: tipo + tier + rareza.
+#   - ARMAS: principal/secundaria + tier + rareza.
+#   - MEJORAS: elegir slot y repartir mejoras por categoria (segun rareza).
+#  Todo por codigo (UI placeholder). Mientras esta abierto congela al jugador.
 # ============================================================
 
 extends CanvasLayer
@@ -17,34 +15,53 @@ const ARMOR_PREFIX := ["", "cuero", "hierro", "hierro_completo", "placas"]  # id
 const ARMOR_LABELS := ["Nada", "Cuero", "Hierro", "Hierro compl.", "Placas"]
 const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas"]
 const ENEMY_PRESETS := [["Base", -1], ["200", 200], ["500", 500], ["Cheto", 999]]
+# Slots para el selector de MEJORAS: [etiqueta, clave].
+const MEJ_SLOTS := [["Principal", "main"], ["Secundaria", "off"], ["Casco", "casco"],
+	["Pecho", "pecho"], ["Manos", "manos"], ["Pantalones", "pantalones"], ["Botas", "botas"]]
 
 var _panel: PanelContainer = null
 var _open: bool = false
 
-var _stat_edits: Dictionary = {}     # "fuerza"/... -> LineEdit
-var _enemy_buttons: Array = []       # [ [Button, valor], ... ]
-var _floor_edit: LineEdit = null     # selector de piso (profundidad)
-var _armor_opts: Dictionary = {}     # slot -> OptionButton (tipo)
-var _armor_tier_opts: Dictionary = {}  # slot -> OptionButton (tier)
+var _stat_edits: Dictionary = {}
+var _enemy_buttons: Array = []
+var _floor_edit: LineEdit = null
+var _armor_opts: Dictionary = {}         # slot -> OptionButton (tipo)
+var _armor_tier_opts: Dictionary = {}    # slot -> OptionButton (tier)
+var _armor_rareza_opts: Dictionary = {}  # slot -> OptionButton (rareza)
 var _main_opt: OptionButton = null
 var _main_tier_opt: OptionButton = null
+var _main_rareza_opt: OptionButton = null
 var _off_opt: OptionButton = null
 var _off_tier_opt: OptionButton = null
+var _off_rareza_opt: OptionButton = null
+# MEJORAS
+var _mej_slot_opt: OptionButton = null
+var _mej_info: Label = null
+var _mej_rows: VBoxContainer = null
 
 
-# Crea un OptionButton de tier (T1..T3). El callback recibe el TIER (1..3).
+# OptionButton de tier (T1..T3). El callback recibe el TIER (1..3).
 func _make_tier_opt(cb: Callable) -> OptionButton:
 	var opt := OptionButton.new()
 	for t in [1, 2, 3]:
 		opt.add_item("T%d" % t, t)
-	opt.item_selected.connect(func(idx): cb.call(idx + 1))  # idx 0->tier 1
+	opt.item_selected.connect(func(idx): cb.call(idx + 1))
+	return opt
+
+# OptionButton de rareza (0..6) para un slot dado.
+func _make_rareza_opt(slot: String) -> OptionButton:
+	var opt := OptionButton.new()
+	for i in Upgrades.RAREZA_NOMBRE.size():
+		opt.add_item(Upgrades.RAREZA_NOMBRE[i], i)
+	opt.item_selected.connect(func(idx):
+		Game.set_equip_rareza(slot, idx)
+		_rebuild_mejoras())
 	return opt
 
 
 func _ready() -> void:
-	layer = 6  # sobre el HUD (5), bajo el combate (100)
+	layer = 6
 
-	# --- Boton flotante para abrir/cerrar (siempre visible, abajo-izquierda) ---
 	var toggle := Button.new()
 	toggle.text = "DEBUG"
 	toggle.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
@@ -54,12 +71,10 @@ func _ready() -> void:
 	toggle.pressed.connect(_toggle)
 	add_child(toggle)
 
-	# --- Panel con todas las secciones (oculto por defecto) ---
 	_panel = PanelContainer.new()
 	_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	_panel.offset_left = 8
-	_panel.offset_bottom = -40    # justo encima del boton
-	# Crece hacia ARRIBA y a la DERECHA desde la esquina inferior-izquierda.
+	_panel.offset_bottom = -40
 	_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_panel.grow_horizontal = Control.GROW_DIRECTION_END
 	_panel.visible = false
@@ -72,9 +87,16 @@ func _ready() -> void:
 	margin.add_theme_constant_override("margin_bottom", 8)
 	_panel.add_child(margin)
 
+	# Scroll para que no se salga por arriba con tantas secciones.
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(380, 560)
+	margin.add_child(scroll)
+
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 6)
-	margin.add_child(vb)
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vb)
 
 	_build_stats(vb)
 	_sep(vb)
@@ -83,6 +105,8 @@ func _ready() -> void:
 	_build_armor(vb)
 	_sep(vb)
 	_build_weapons(vb)
+	_sep(vb)
+	_build_mejoras(vb)
 
 
 # --- Secciones -----------------------------------------------
@@ -132,7 +156,6 @@ func _build_enemy(vb: VBoxContainer) -> void:
 		b.pressed.connect(_set_enemy.bind(preset[1]))
 		row.add_child(b)
 		_enemy_buttons.append([b, preset[1]])
-	# Selector de PISO (profundidad): escala vida/ataque base y habilidades del enemigo.
 	var frow := HBoxContainer.new()
 	frow.add_theme_constant_override("separation", 4)
 	vb.add_child(frow)
@@ -151,7 +174,7 @@ func _build_enemy(vb: VBoxContainer) -> void:
 
 
 func _build_armor(vb: VBoxContainer) -> void:
-	_header(vb, "ARMADURA por pieza")
+	_header(vb, "ARMADURA (tipo / tier / rareza)")
 	var nombres := {"casco": "Casco", "pecho": "Pecho", "manos": "Manos",
 		"pantalones": "Pantalon", "botas": "Botas"}
 	for slot in ARMOR_SLOTS:
@@ -160,7 +183,7 @@ func _build_armor(vb: VBoxContainer) -> void:
 		vb.add_child(row)
 		var lbl := Label.new()
 		lbl.text = nombres[slot]
-		lbl.custom_minimum_size = Vector2(80, 0)
+		lbl.custom_minimum_size = Vector2(72, 0)
 		row.add_child(lbl)
 		var opt := OptionButton.new()
 		for i in ARMOR_LABELS.size():
@@ -168,21 +191,23 @@ func _build_armor(vb: VBoxContainer) -> void:
 		opt.item_selected.connect(_set_armor.bind(slot))
 		row.add_child(opt)
 		_armor_opts[slot] = opt
-		# Tier al lado (T1..T3): multiplica la DEF de esta pieza.
 		var topt := _make_tier_opt(_set_armor_tier.bind(slot))
 		row.add_child(topt)
 		_armor_tier_opts[slot] = topt
+		var ropt := _make_rareza_opt(slot)
+		row.add_child(ropt)
+		_armor_rareza_opts[slot] = ropt
 
 
 func _build_weapons(vb: VBoxContainer) -> void:
-	_header(vb, "ARMAS")
+	_header(vb, "ARMAS (arma / tier / rareza)")
 	# Principal
 	var row1 := HBoxContainer.new()
 	row1.add_theme_constant_override("separation", 6)
 	vb.add_child(row1)
 	var l1 := Label.new()
 	l1.text = "Principal"
-	l1.custom_minimum_size = Vector2(80, 0)
+	l1.custom_minimum_size = Vector2(72, 0)
 	row1.add_child(l1)
 	_main_opt = OptionButton.new()
 	for i in Game._dev_weapons.size():
@@ -190,24 +215,44 @@ func _build_weapons(vb: VBoxContainer) -> void:
 		_main_opt.add_item(w.nombre, i)
 	_main_opt.item_selected.connect(_set_main)
 	row1.add_child(_main_opt)
-	_main_tier_opt = _make_tier_opt(func(t): Game.equipped_main_tier = t)
+	_main_tier_opt = _make_tier_opt(func(t): Game.set_equip_tier("main", t))
 	row1.add_child(_main_tier_opt)
+	_main_rareza_opt = _make_rareza_opt("main")
+	row1.add_child(_main_rareza_opt)
 	# Secundaria
 	var row2 := HBoxContainer.new()
 	row2.add_theme_constant_override("separation", 6)
 	vb.add_child(row2)
 	var l2 := Label.new()
 	l2.text = "Secundaria"
-	l2.custom_minimum_size = Vector2(80, 0)
+	l2.custom_minimum_size = Vector2(72, 0)
 	row2.add_child(l2)
 	_off_opt = OptionButton.new()
 	for i in Game._dev_offs.size():
 		_off_opt.add_item(_off_label(Game._dev_offs[i]), i)
 	_off_opt.item_selected.connect(_set_off)
 	row2.add_child(_off_opt)
-	# Tier de la secundaria (solo aplica si es ARMA dual; con escudo se ignora).
-	_off_tier_opt = _make_tier_opt(func(t): Game.equipped_off_tier = t)
+	_off_tier_opt = _make_tier_opt(func(t): Game.set_equip_tier("off", t))
 	row2.add_child(_off_tier_opt)
+	_off_rareza_opt = _make_rareza_opt("off")
+	row2.add_child(_off_rareza_opt)
+
+
+func _build_mejoras(vb: VBoxContainer) -> void:
+	_header(vb, "MEJORAS")
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 6)
+	vb.add_child(top)
+	_mej_slot_opt = OptionButton.new()
+	for i in MEJ_SLOTS.size():
+		_mej_slot_opt.add_item(MEJ_SLOTS[i][0], i)
+	_mej_slot_opt.item_selected.connect(func(_i): _rebuild_mejoras())
+	top.add_child(_mej_slot_opt)
+	_mej_info = Label.new()
+	top.add_child(_mej_info)
+	_mej_rows = VBoxContainer.new()
+	_mej_rows.add_theme_constant_override("separation", 3)
+	vb.add_child(_mej_rows)
 
 
 func _off_label(path) -> String:
@@ -219,6 +264,64 @@ func _off_label(path) -> String:
 	if res is ShieldData:
 		return (res as ShieldData).nombre
 	return "?"
+
+
+# --- MEJORAS: reconstruir las filas de categoria del slot elegido ---
+
+func _current_mej_slot() -> String:
+	return MEJ_SLOTS[_mej_slot_opt.selected][1]
+
+func _slot_item(slot: String):
+	if slot == "main":
+		return Game.equipped_main
+	if slot == "off":
+		return Game.equipped_off
+	return Game.get("equipped_" + slot)
+
+func _slot_categories(slot: String) -> Array:
+	var item = _slot_item(slot)
+	if item is WeaponData:
+		return Upgrades.weapon_categories(item)
+	if item is ArmorData:
+		return Upgrades.armor_categories(item)
+	return []   # escudo / vacio: sin mejoras
+
+func _rebuild_mejoras() -> void:
+	if _mej_rows == null:
+		return
+	for c in _mej_rows.get_children():
+		c.queue_free()
+	var slot := _current_mej_slot()
+	var cats := _slot_categories(slot)
+	var mj: Dictionary = Game.equip_mejoras(slot)
+	var maxm: int = Upgrades.rareza_slots(Game.equip_rareza(slot))
+	_mej_info.text = "  usadas %d / %d" % [Upgrades.total_mejoras(mj), maxm]
+	if cats.is_empty():
+		var l := Label.new()
+		l.text = "(sin mejoras para este item)"
+		_mej_rows.add_child(l)
+		return
+	for cat in cats:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		_mej_rows.add_child(row)
+		var name_l := Label.new()
+		name_l.text = Upgrades.cat_nombre(cat)
+		name_l.custom_minimum_size = Vector2(150, 0)
+		row.add_child(name_l)
+		var minus := Button.new()
+		minus.text = "-"
+		minus.pressed.connect(func(): Game.add_mejora(slot, cat, -1); _rebuild_mejoras())
+		row.add_child(minus)
+		var cnt := Label.new()
+		cnt.text = str(int(mj.get(cat, 0)))
+		cnt.custom_minimum_size = Vector2(24, 0)
+		cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		row.add_child(cnt)
+		var plus := Button.new()
+		plus.text = "+"
+		plus.pressed.connect(func(): Game.add_mejora(slot, cat, 1); _rebuild_mejoras())
+		row.add_child(plus)
 
 
 # --- Acciones -------------------------------------------------
@@ -238,7 +341,7 @@ func _apply_stats() -> void:
 		_stat_edits["destreza"].text.to_int(),
 		_stat_edits["agilidad"].text.to_int(),
 		_stat_edits["magia"].text.to_int())
-	_sync_stats()  # reflejar los valores ya clampeados/sincronizados
+	_sync_stats()
 
 
 func _set_enemy(valor: int) -> void:
@@ -257,27 +360,28 @@ func _set_armor(idx: int, slot: String) -> void:
 	else:
 		var path := "res://resources/armor/%s_%s.tres" % [ARMOR_PREFIX[idx], slot]
 		Game.set("equipped_" + slot, load(path))
+	_rebuild_mejoras()  # cambiar de pieza cambia las categorias validas
 
 
 func _set_armor_tier(tier: int, slot: String) -> void:
-	Game.set("equipped_" + slot + "_tier", tier)
+	Game.set_equip_tier(slot, tier)
 
 
 func _set_main(idx: int) -> void:
 	Game.equipar_arma(load(Game._dev_weapons[idx]))
-	# La nueva principal pudo invalidar la secundaria (2 manos / solo-escudo).
 	_sync_weapons()
+	_rebuild_mejoras()
 
 
 func _set_off(idx: int) -> void:
 	var path = Game._dev_offs[idx]
 	var item: Resource = null if path == null else load(path)
 	if not Game.equipar_secundaria(item):
-		# Combinacion invalida: revertir a lo que quedo equipado.
 		_sync_weapons()
+	_rebuild_mejoras()
 
 
-# --- Sincronizar los controles con el estado real de Game ----
+# --- Sincronizar con el estado real de Game ----
 
 func _sync_from_game() -> void:
 	_sync_stats()
@@ -285,6 +389,7 @@ func _sync_from_game() -> void:
 	_sync_armor()
 	_sync_weapons()
 	_floor_edit.text = str(Game.current_floor)
+	_rebuild_mejoras()
 
 func _sync_stats() -> void:
 	_stat_edits["fuerza"].text = str(Game.player_fuerza)
@@ -302,20 +407,20 @@ func _sync_armor() -> void:
 		var pieza = Game.get("equipped_" + slot)
 		var idx := 0
 		if pieza is ArmorData:
-			idx = (pieza as ArmorData).tipo + 1  # Tipo LIGERA/MEDIA/PESADA -> 1/2/3
+			idx = (pieza as ArmorData).tipo + 1
 		(_armor_opts[slot] as OptionButton).select(idx)
-		var tier: int = int(Game.get("equipped_" + slot + "_tier"))
-		(_armor_tier_opts[slot] as OptionButton).select(clampi(tier - 1, 0, 2))
+		(_armor_tier_opts[slot] as OptionButton).select(clampi(Game.equip_tier(slot) - 1, 0, 2))
+		(_armor_rareza_opts[slot] as OptionButton).select(Game.equip_rareza(slot))
 
 func _sync_weapons() -> void:
-	# Principal: buscar el path equipado en la lista dev.
 	for i in Game._dev_weapons.size():
 		if load(Game._dev_weapons[i]) == Game.equipped_main:
 			_main_opt.select(i)
 			break
-	_main_tier_opt.select(clampi(Game.equipped_main_tier - 1, 0, 2))
-	_off_tier_opt.select(clampi(Game.equipped_off_tier - 1, 0, 2))
-	# Secundaria: casar por recurso (null / arma / escudo).
+	_main_tier_opt.select(clampi(Game.equip_tier("main") - 1, 0, 2))
+	_off_tier_opt.select(clampi(Game.equip_tier("off") - 1, 0, 2))
+	_main_rareza_opt.select(Game.equip_rareza("main"))
+	_off_rareza_opt.select(Game.equip_rareza("off"))
 	var off_idx := 0
 	for i in Game._dev_offs.size():
 		var p = Game._dev_offs[i]

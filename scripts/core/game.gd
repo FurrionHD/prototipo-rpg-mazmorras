@@ -168,11 +168,6 @@ var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
 # Un arma a dos manos (dos_manos) obliga a secundaria = null.
 var equipped_main: WeaponData = preload("res://resources/weapons/punos.tres")
 var equipped_off: Resource = null   # WeaponData | ShieldData | null
-# TIER del arma equipada (1..N). Mejorar el arma = subir su tier, que MULTIPLICA su
-# raw (ataque_base) sin techo -> mantiene el arma relevante frente a la Fuerza (que
-# satura en 999) y frente a enemigos de piso alto. Ver tier_mult().
-var equipped_main_tier: int = 1
-var equipped_off_tier: int = 1
 # Dual-wield: llevar arma en la secundaria acelera el ataque (mas turnos). La
 # velocidad final tiene DOS componentes (ver loadout_mods):
 #  1) Un bonus fijo por llevar dos armas, DECRECIENTE segun lo rapida que ya sea
@@ -208,12 +203,56 @@ var equipped_pecho: ArmorData = null
 var equipped_manos: ArmorData = null
 var equipped_pantalones: ArmorData = null
 var equipped_botas: ArmorData = null
-# TIER por slot de armadura (1..N): multiplica la DEF de esa pieza (ver tier_mult).
-var equipped_casco_tier: int = 1
-var equipped_pecho_tier: int = 1
-var equipped_manos_tier: int = 1
-var equipped_pantalones_tier: int = 1
-var equipped_botas_tier: int = 1
+
+# --- Estado POR ITEM equipado: tier + rareza + mejoras (no van en el .tres
+# compartido). keyed por slot: "main","off","casco","pecho","manos","pantalones",
+# "botas". mejoras = {categoria: nº}. Ver upgrades.gd. ---
+var equip_meta: Dictionary = {
+	"main": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
+	"off": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
+	"casco": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
+	"pecho": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
+	"manos": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
+	"pantalones": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
+	"botas": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
+}
+
+func _meta(slot: String) -> Dictionary:
+	return equip_meta[slot]
+func equip_tier(slot: String) -> int:
+	return int(equip_meta[slot]["tier"])
+func equip_rareza(slot: String) -> int:
+	return int(equip_meta[slot]["rareza"])
+func equip_mejoras(slot: String) -> Dictionary:
+	return equip_meta[slot]["mejoras"]
+
+# --- Setters (los usa el panel de debug / futura tienda) ---
+func set_equip_tier(slot: String, t: int) -> void:
+	equip_meta[slot]["tier"] = maxi(1, t)
+func set_equip_rareza(slot: String, r: int) -> void:
+	equip_meta[slot]["rareza"] = clampi(r, 0, Upgrades.RAREZA_SLOTS.size() - 1)
+	_recortar_mejoras(slot)  # la nueva rareza puede admitir menos mejoras
+# Suma delta (+/-) a una categoria de mejora, respetando el maximo de la rareza.
+func add_mejora(slot: String, cat: String, delta: int) -> void:
+	var mj: Dictionary = equip_meta[slot]["mejoras"]
+	var actual: int = int(mj.get(cat, 0))
+	var nuevo: int = maxi(0, actual + delta)
+	if delta > 0 and Upgrades.total_mejoras(mj) >= Upgrades.rareza_slots(equip_rareza(slot)):
+		return  # sin slots libres
+	if nuevo == 0:
+		mj.erase(cat)
+	else:
+		mj[cat] = nuevo
+# Recorta el total de mejoras al maximo de la rareza (quita de las ultimas categorias).
+func _recortar_mejoras(slot: String) -> void:
+	var mj: Dictionary = equip_meta[slot]["mejoras"]
+	var maxm: int = Upgrades.rareza_slots(equip_rareza(slot))
+	while Upgrades.total_mejoras(mj) > maxm:
+		var claves: Array = mj.keys()
+		var k: String = claves[claves.size() - 1]
+		mj[k] = int(mj[k]) - 1
+		if int(mj[k]) <= 0:
+			mj.erase(k)
 # Cobertura de cada slot para la MEDIA PONDERADA de la reduccion (suma 1.0). El
 # pecho cubre lo mas; manos/botas lo menos. Un slot VACIO aporta 0 -> baja la media
 # (premia el set completo pero permite mezclar/ir sin armadura).
@@ -288,11 +327,14 @@ func crear_player_combatant() -> Combatant:
 	c.evasion_penal = m["evasion_penal"]
 
 	# Armadura: DEF plana aditiva + % de reduccion (media ponderada, acotada) +
-	# velocidad (se combina con la del arma en el ATB de combate).
+	# velocidad + esquiva (Evasion) + resist. criticos (ResistCrit).
 	var am := armor_mods()
 	c.extra_defense = am["def_bonus"]
 	c.armor_reduction = am["reduction"]
 	c.velocidad_mult = float(m["velocidad_mult"]) * float(am["velocidad_mult"])
+	c.crit_resist = float(am["crit_resist"])
+	# La esquiva de armadura BAJA el evasion_penal (negativo = bonus de esquiva).
+	c.evasion_penal = float(m["evasion_penal"]) - float(am["evasion_bonus"])
 	return c
 
 
@@ -307,7 +349,7 @@ func loadout_mods() -> Dictionary:
 		# El arma principal define lo escurridizo que eres (daga = +esquiva). Un
 		# evasion_penal NEGATIVO = bonus de esquiva (los escudos suman penal, encima).
 		"evasion_penal": -main.evasion_bonus,
-		"hands": [_hand_from(main, equipped_main_tier)],   # mano principal siempre
+		"hands": [_hand_from(main, "main")],   # mano principal siempre
 	}
 	if main.dos_manos:
 		# Arma grande a dos manos: sin secundaria, pero bloquea decente por su tamaño.
@@ -329,21 +371,28 @@ func loadout_mods() -> Dictionary:
 		m["defend_block"] += off.bloqueo            # bloqueo mediocre con arma
 		# Dual: la secundaria es la 2ª mano -> se alterna con la principal golpe a
 		# golpe. Cada arma conserva su MV/crit/aturdir propios (no se promedian).
-		(m["hands"] as Array).append(_hand_from(off, equipped_off_tier))
+		(m["hands"] as Array).append(_hand_from(off, "off"))
 	# else: mano secundaria vacia -> una sola mano (la principal).
+	# RAPIDEZ (mejora del arma principal): multiplica la velocidad final (capada).
+	var main_wm := Upgrades.weapon_mods(main, tier_mult(equip_tier("main")),
+		equip_rareza("main"), equip_mejoras("main"))
+	m["velocidad_mult"] = float(m["velocidad_mult"]) * float(main_wm["vel_mult"])
 	return m
 
 
-# Extrae los datos POR MANO de un arma (lo que cambia golpe a golpe en dual).
-# El TIER multiplica el raw del arma (ataque_base) sin techo (mejorar el arma).
-func _hand_from(w: WeaponData, tier: int = 1) -> Dictionary:
+# Extrae los datos POR MANO de un arma (lo que cambia golpe a golpe en dual). El
+# raw/crit/acierto/aturdir salen de Upgrades (tier × rareza × mejoras de ESE slot).
+func _hand_from(w: WeaponData, slot: String) -> Dictionary:
+	var wm := Upgrades.weapon_mods(w, tier_mult(equip_tier(slot)),
+		equip_rareza(slot), equip_mejoras(slot))
 	return {
 		"nombre": w.nombre,
 		"motion_value": w.motion_value,
-		"ataque_arma": w.ataque_base * tier_mult(tier),
-		"crit_bonus": w.crit_bonus,
+		"ataque_arma": wm["raw"],
+		"crit_bonus": w.crit_bonus + float(wm["crit_add"]),
+		"precision": wm["precision"],
 		"dano_tipo": int(w.dano_tipo),
-		"aturdir_base": w.aturdir_base,
+		"aturdir_base": w.aturdir_base + float(wm["aturdir_add"]),
 	}
 
 
@@ -386,13 +435,15 @@ func equipar_secundaria(item: Resource) -> bool:
 func armor_mods() -> Dictionary:
 	var def_bonus := 0.0
 	var reduction := 0.0
-	var vel_delta := 0.0   # suma ponderada de (velocidad_mult - 1)
+	var vel_delta := 0.0     # suma ponderada de (velocidad_mult - 1)
+	var evasion := 0.0       # esquiva de armadura (mejora Evasion, ligeras/medias)
+	var crit_resist := 0.0   # resist. criticos (mejora ResistCrit, pesadas)
 	var slots := [
-		[equipped_casco, COBERTURA_CASCO, equipped_casco_tier],
-		[equipped_pecho, COBERTURA_PECHO, equipped_pecho_tier],
-		[equipped_manos, COBERTURA_MANOS, equipped_manos_tier],
-		[equipped_pantalones, COBERTURA_PANTALONES, equipped_pantalones_tier],
-		[equipped_botas, COBERTURA_BOTAS, equipped_botas_tier],
+		[equipped_casco, COBERTURA_CASCO, "casco"],
+		[equipped_pecho, COBERTURA_PECHO, "pecho"],
+		[equipped_manos, COBERTURA_MANOS, "manos"],
+		[equipped_pantalones, COBERTURA_PANTALONES, "pantalones"],
+		[equipped_botas, COBERTURA_BOTAS, "botas"],
 	]
 	for s in slots:
 		var pieza: ArmorData = s[0]
@@ -401,12 +452,19 @@ func armor_mods() -> Dictionary:
 			# Slot vacio: bonus de ir ligero (ponderado por cobertura).
 			vel_delta += cob * (SIN_ARMADURA_VEL_MULT - 1.0)
 			continue
-		# El TIER multiplica la DEF de la pieza (sin techo); la reduccion NO (acotada).
-		def_bonus += pieza.defensa_base * pieza.motion_def * tier_mult(int(s[2]))
-		reduction += cob * pieza.reduccion             # media ponderada (cobertura suma 1.0)
-		vel_delta += cob * (pieza.velocidad_mult - 1.0)  # velocidad ponderada
+		var slot: String = s[2]
+		var pm := Upgrades.armor_piece_mods(pieza, tier_mult(equip_tier(slot)),
+			equip_rareza(slot), equip_mejoras(slot))
+		def_bonus += float(pm["def"])                        # DEF (tier×rareza×mejoras), sin techo
+		reduction += cob * float(pm["reduccion"])            # media ponderada (cobertura suma 1.0)
+		vel_delta += cob * (float(pm["vel_mult"]) - 1.0)     # velocidad ponderada
+		evasion += float(pm["evasion"])
+		crit_resist += float(pm["crit_resist"])
 	reduction = clampf(reduction, 0.0, StatsMath.ARMOR_REDUCTION_MAX)
-	return {"def_bonus": def_bonus, "reduction": reduction, "velocidad_mult": 1.0 + vel_delta}
+	evasion = clampf(evasion, 0.0, Upgrades.EVASION_CAP)
+	crit_resist = clampf(crit_resist, 0.0, Upgrades.RESIST_CRIT_CAP)
+	return {"def_bonus": def_bonus, "reduction": reduction, "velocidad_mult": 1.0 + vel_delta,
+		"evasion_bonus": evasion, "crit_resist": crit_resist}
 
 
 # Multiplicador de velocidad de la armadura (para el movimiento en mapa; en combate
