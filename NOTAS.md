@@ -187,6 +187,21 @@ Curva de subida de habilidades afinada en TODOS los tramos (novato↔experto × 
   tu próximo turno. Aún SIN coste de energía (llega en la Fase B de equipo).
 - [x] `resolve_attack()` en `stats_math.gd` centraliza esquiva→crít→mitigación→aturdir.
 
+### Combate avanzado — parte 2: Sistema de acciones (KAN-55) 🔧 A PROBAR
+Los dos botones ad-hoc (Atacar/Defender) pasan a una **barra de acciones de datos** en
+`combat.gd`: **Atacar · Magia · Defender · Huir** (enum `Action` + `_action_buttons`).
+Añadir una acción futura (habilidades, objetos) = una entrada más en la lista.
+- [x] El botón de la escena (`AttackButton`) se **reutiliza como "Continuar"** al terminar;
+  las 4 acciones se crean por código en un `HBoxContainer` (convención: UI por código).
+- [x] **Huir** (nuevo): `StatsMath.flee_chance()` = CONTEST de tu Agilidad vs la del enemigo
+  (50% en paridad, topes 10–95%). Entrar **agotado** la reduce (`FLEE_EXHAUSTED_MULT=0.6`).
+  Éxito → sales del combate SIN loot y el enemigo **sigue vivo** (`_end(false, true)`, mensaje
+  propio, no cuenta como derrota); fallo → pierdes el turno. Nota: al huir vuelves junto al
+  enemigo en la mazmorra (posible re-trigger inmediato; pendiente pulir).
+- [x] **Magia** (gancho KAN-56): botón presente pero **deshabilitado** (`_hay_hechizos()` = false)
+  con tooltip. Listo para enchufar hechizos cuando exista el sistema.
+- [x] `_slow_actions_left` se consume en `_fin_de_eleccion()` (común a atacar/defender/huir).
+
 ### Equipamiento — Fase A: armas + loadout de 2 manos (modelo MH Motion Values) 🔧 A PROBAR
 Plan completo en `~/.claude/plans/daga-espada-corta-espada-cozy-kahan.md`.
 - [x] **Modelo estilo Monster Hunter**: el "raw" (daño base) es común (viene de tu Fuerza);

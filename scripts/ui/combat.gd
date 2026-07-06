@@ -24,6 +24,9 @@ const INICIATIVA_VENTAJA := 50.0  # media barra de ventaja para quien inicia
 const EXHAUSTED_SLOW_ACTIONS := 2   # cuantas acciones afectadas
 const EXHAUSTED_RATE := 0.5         # a que ritmo (0.5 = la mitad)
 
+# Huir (KAN-55): entrar agotado dificulta la huida (la probabilidad se multiplica).
+const FLEE_EXHAUSTED_MULT := 0.6
+
 # Aturdir/retrasar (armas contundentes). Un golpe contundente que aturde le RESTA
 # barra ATB al objetivo (pierde tempo). El retraso NORMAL es aleatorio dentro de
 # una franja; un golpe CRITICO que ademas aturde es un aturdimiento COMPLETO:
@@ -36,9 +39,17 @@ const ATB_STUN_MAX := 0.60   # retraso parcial maximo
 @onready var _player_name: Label = $VBox/PlayerName
 @onready var _player_hp: ProgressBar = $VBox/PlayerHP
 @onready var _log: Label = $VBox/Log
-@onready var _attack_button: Button = $VBox/AttackButton
-# Boton Defender (KAN-54): lo creamos por codigo para no tocar la escena.
-var _defend_button: Button = null
+# La escena trae un unico boton (AttackButton). Ahora las 4 acciones se crean por
+# codigo (barra de acciones, KAN-55) y ESE boton se reutiliza como "Continuar" al
+# terminar el combate.
+@onready var _continue_button: Button = $VBox/AttackButton
+
+# Sistema de ACCIONES (KAN-55): barra con Atacar / Magia / Defender / Huir. Se
+# genera por codigo (convencion: UI por codigo por ahora) y es de datos, asi
+# futuras acciones (habilidades, objetos) solo añaden una entrada.
+enum Action { ATTACK, MAGIC, DEFEND, FLEE }
+var _actions_box: HBoxContainer = null
+var _action_buttons: Dictionary = {}   # Action(int) -> Button
 
 # Linea de ORDEN DE TURNOS (estilo Epic Seven), creada por codigo.
 var _timeline: Control = null
@@ -101,8 +112,10 @@ func _ready() -> void:
 	if _player_exhausted_start:
 		_slow_actions_left = EXHAUSTED_SLOW_ACTIONS
 
-	_attack_button.pressed.connect(_on_attack_pressed)
-	_crear_boton_defender()
+	_continue_button.text = "Continuar"
+	_continue_button.visible = false
+	_continue_button.pressed.connect(_on_continue_pressed)
+	_crear_acciones()
 	_setup_ui()
 	_crear_timeline()
 	if _enemy_initiated:
@@ -115,12 +128,24 @@ func _ready() -> void:
 		_log.text += "  (Agotado: tus primeras acciones son mas lentas)"
 
 
-# Crea el boton "Defender" justo debajo del de Atacar (dentro del mismo VBox).
-func _crear_boton_defender() -> void:
-	_defend_button = Button.new()
-	_defend_button.text = "Defender"
-	_defend_button.pressed.connect(_on_defend_pressed)
-	$VBox.add_child(_defend_button)
+# Crea la barra de acciones (KAN-55): Atacar / Magia / Defender / Huir, de datos.
+func _crear_acciones() -> void:
+	_actions_box = HBoxContainer.new()
+	$VBox.add_child(_actions_box)
+	var defs := [
+		[Action.ATTACK, "Atacar"],
+		[Action.MAGIC, "Magia"],
+		[Action.DEFEND, "Defender"],
+		[Action.FLEE, "Huir"],
+	]
+	for d in defs:
+		var b := Button.new()
+		b.text = d[1]
+		var id: int = d[0]
+		b.pressed.connect(_on_action.bind(id))
+		_actions_box.add_child(b)
+		_action_buttons[id] = b
+	_set_actions_visible(false)
 
 
 func _setup_ui() -> void:
@@ -129,8 +154,8 @@ func _setup_ui() -> void:
 	_player_hp.show_percentage = false
 	_enemy_hp.show_percentage = false
 	_update_hp()
-	_attack_button.disabled = true
-	_defend_button.disabled = true
+	_continue_button.visible = false
+	_set_actions_visible(false)
 
 
 func _update_hp() -> void:
@@ -168,23 +193,67 @@ func _process(delta: float) -> void:
 func _begin_player_turn() -> void:
 	_state = State.WAITING_PLAYER
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
-	_attack_button.disabled = false
-	_defend_button.disabled = false
+	_set_actions_visible(true)
+	_refresh_actions()
 	_set_log("¡Tu turno! Elige una accion.")
 
 
-func _on_attack_pressed() -> void:
-	# Si el combate ya termino, el boton hace de "Continuar" (cierra la pantalla).
-	if _state == State.FINISHED:
-		combat_finished.emit(_player_won, _player.current_hp)
-		# Si lo abrio Game, el cierra la capa; si es prueba (F6), nos cerramos solos.
-		if not _injected:
-			queue_free()
-		return
+func _set_actions_visible(v: bool) -> void:
+	if _actions_box != null:
+		_actions_box.visible = v
 
+
+# Habilita/inhabilita cada accion segun disponibilidad (en tu turno).
+func _refresh_actions() -> void:
+	for id in _action_buttons:
+		_action_buttons[id].disabled = not _accion_disponible(id)
+	# Magia aun no tiene sistema (KAN-56): queda visible pero deshabilitada.
+	_action_buttons[Action.MAGIC].tooltip_text = "Aun no tienes hechizos (KAN-56)"
+
+
+func _accion_disponible(id: int) -> bool:
+	match id:
+		Action.ATTACK: return true
+		Action.DEFEND: return true
+		Action.FLEE: return true
+		Action.MAGIC: return _hay_hechizos()
+	return false
+
+
+# KAN-56 pendiente: todavia no hay hechizos definidos por datos.
+func _hay_hechizos() -> bool:
+	return false
+
+
+# Oculta la barra tras elegir y consume una "accion lenta" si entraste agotado.
+func _fin_de_eleccion() -> void:
+	_set_actions_visible(false)
+	if _slow_actions_left > 0:
+		_slow_actions_left -= 1
+
+
+# Despacha la accion elegida (solo en tu turno).
+func _on_action(id: int) -> void:
 	if _state != State.WAITING_PLAYER:
 		return
+	match id:
+		Action.ATTACK: _accion_atacar()
+		Action.DEFEND: _accion_defender()
+		Action.FLEE: _accion_huir()
+		Action.MAGIC: pass  # KAN-56: aun sin hechizos
 
+
+# El boton reutilizado (antes "Atacar") cierra la pantalla al terminar el combate.
+func _on_continue_pressed() -> void:
+	if _state != State.FINISHED:
+		return
+	combat_finished.emit(_player_won, _player.current_hp)
+	# Si lo abrio Game, el cierra la capa; si es prueba (F6), nos cerramos solos.
+	if not _injected:
+		queue_free()
+
+
+func _accion_atacar() -> void:
 	# Los enemigos no defienden (de momento): defending = false.
 	var result := StatsMath.resolve_attack(_player, _enemy, false)
 	_debug_ataque(_player, _enemy, result)
@@ -213,12 +282,7 @@ func _on_attack_pressed() -> void:
 		_set_log(txt)
 	_update_hp()
 	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
-	_attack_button.disabled = true
-	_defend_button.disabled = true
-
-	# Esta accion del jugador ya cuenta: gastamos una "accion lenta".
-	if _slow_actions_left > 0:
-		_slow_actions_left -= 1
+	_fin_de_eleccion()
 
 	if not _enemy.is_alive():
 		_end(true)
@@ -228,16 +292,29 @@ func _on_attack_pressed() -> void:
 
 # Accion Defender (KAN-54): mitiga el proximo daño y anula criticos en tu contra
 # hasta tu siguiente turno. Cuesta el turno (no atacas).
-func _on_defend_pressed() -> void:
-	if _state != State.WAITING_PLAYER:
-		return
+func _accion_defender() -> void:
 	_player_defending = true
 	_set_log("%s se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)" % _player.nombre)
-	_attack_button.disabled = true
-	_defend_button.disabled = true
-	if _slow_actions_left > 0:
-		_slow_actions_left -= 1
+	_fin_de_eleccion()
 	_state = State.ADVANCING
+
+
+# Accion Huir (KAN-55): intento de escapar. Probabilidad = CONTEST de Agilidad
+# (tu Agilidad vs la del enemigo); entrar agotado la reduce. Si funciona, sales
+# del combate SIN loot y el enemigo sigue vivo; si fallas, pierdes el turno.
+func _accion_huir() -> void:
+	var chance := StatsMath.flee_chance(
+		float(_player.abilities.agilidad), float(_enemy.abilities.agilidad))
+	if _slow_actions_left > 0:
+		chance *= FLEE_EXHAUSTED_MULT
+	var ok := randf() < chance
+	_fin_de_eleccion()
+	if ok:
+		_end(false, true)  # huida: no ganas, pero tampoco es derrota
+	else:
+		_set_log("%s intenta huir pero %s se lo impide. (%.0f%%)" % [
+			_player.nombre, _enemy.nombre, chance * 100.0])
+		_state = State.ADVANCING
 
 
 func _enemy_turn() -> void:
@@ -282,16 +359,17 @@ func _enemy_turn() -> void:
 		_end(false)
 
 
-func _end(player_won: bool) -> void:
+func _end(player_won: bool, fled: bool = false) -> void:
 	_player_won = player_won
 	_state = State.FINISHED
-	_attack_button.disabled = false
-	_attack_button.text = "Continuar"
-	if _defend_button != null:
-		_defend_button.disabled = true
-		_defend_button.visible = false
+	_set_actions_visible(false)
+	_continue_button.visible = true
+	_continue_button.disabled = false
+	_continue_button.text = "Continuar"
 	if player_won:
 		_set_log("¡GANASTE el combate contra " + _enemy.nombre + "! 🎉")
+	elif fled:
+		_set_log("Has escapado de " + _enemy.nombre + ". 🏃")
 	else:
 		_set_log("Has caido en combate... 💀")
 

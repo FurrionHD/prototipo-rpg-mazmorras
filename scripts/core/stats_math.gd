@@ -118,6 +118,14 @@ const ARMOR_REDUCTION_MAX := 0.20
 # aturdir_base × factor_relativo(media(Fuerza,Destreza) del atacante vs Fuerza
 # del defensor). Capada. Enemigo facil -> aturdes mas; fuerte -> casi nada.
 const ATURDIR_MAX := 0.6
+
+# HUIR (KAN-55): probabilidad de escapar = CONTEST de Agilidad propia vs la del
+# rival (mismo modelo que esquiva/crit). 50% en igualdad; la ventaja de Agilidad
+# sube/baja hasta los topes. Al ser un ratio se auto-equilibra al escalar de nivel.
+const FLEE_PARITY := 0.5
+const FLEE_SPREAD := 0.45
+const FLEE_MIN := 0.10
+const FLEE_MAX := 0.95
 # ------------------------------------------------------------
 
 
@@ -146,6 +154,12 @@ static func crit_chance(attacker_destreza: float, defender_agilidad: float) -> f
 static func evade_chance(defender_agilidad: float, attacker_destreza: float) -> float:
 	return _contest(defender_agilidad, attacker_destreza,
 		EVADE_PARITY, EVADE_SPREAD, EVADE_MIN, EVADE_MAX)
+
+
+# Prob. de HUIR (KAN-55): tu Agilidad vs la Agilidad del enemigo.
+static func flee_chance(own_agilidad: float, rival_agilidad: float) -> float:
+	return _contest(own_agilidad, rival_agilidad,
+		FLEE_PARITY, FLEE_SPREAD, FLEE_MIN, FLEE_MAX)
 
 
 # Resuelve un ataque completo: esquiva -> critico -> mitigacion/defensa -> aturdir.
