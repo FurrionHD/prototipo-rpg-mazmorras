@@ -23,7 +23,7 @@ const MAGIA_DIV := 250.0
 
 # MANA: maximo = BASE_MP + Magia × MP_FROM_MAGIA. Regen y costes en combat.gd.
 # Numeros PROVISIONALES -> afinar con Excel.
-const BASE_MP := 10.0
+const BASE_MP := 20.0
 const MP_FROM_MAGIA := 0.08
 
 # Resto de stats: siguen el modelo "base + habilidad × coef" (coef crece con el

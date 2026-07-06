@@ -29,7 +29,7 @@ const FLEE_EXHAUSTED_MULT := 0.6
 
 # Magia (KAN-56): regen de mana MUY lento por turno (para no abusar) y nº de
 # opciones del test de recitado (a/b/c/d). PROVISIONALES -> Excel.
-const MP_REGEN_TURN := 1.5
+const MP_REGEN_TURN := 0.1
 const N_OPCIONES_TEST := 4
 
 # Aturdir/retrasar (armas contundentes). Un golpe contundente que aturde le RESTA
