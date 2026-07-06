@@ -366,8 +366,8 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 	if _state != State.WAITING_PLAYER:
 		return
 	if elegida == correcta:
-		# Excelia: recitar bien entrena Magia (practicas el conjuro).
-		Game.ganar("magia", Game.reto(_poder_enemigo()), Game.GAIN_MAGIA_CAST)
+		# Excelia: recitar bien entrena Magia (practicas el conjuro). Tope de reto fisico (5).
+		Game.ganar("magia", Game.reto(_poder_enemigo()), Game.GAIN_MAGIA_CAST, Game.RETO_MAX_FISICO)
 		_cast_index += 1
 		if _cast_index < _cast_spell.longitud():
 			_set_log("✓ Frase correcta. Continua el proximo turno...")
@@ -398,8 +398,8 @@ func _disparar_hechizo() -> void:
 	var spell := _cast_spell
 	var result := StatsMath.resolve_spell(_player, _enemy, spell)
 	_enemy.take_damage(result.damage)
-	# Excelia: lanzar entrena Magia extra, mas cuanto mas largo el hechizo.
-	Game.ganar("magia", Game.reto(_poder_enemigo()) * float(spell.longitud()), Game.GAIN_MAGIA_CAST)
+	# Excelia: lanzar entrena Magia extra, mas cuanto mas largo el hechizo. Tope reto fisico (5).
+	Game.ganar("magia", Game.reto(_poder_enemigo()) * float(spell.longitud()), Game.GAIN_MAGIA_CAST, Game.RETO_MAX_FISICO)
 	print("[magia] %s lanza %s | dano:%.2f (Magia %d)" % [
 		_player.nombre, spell.nombre, result.damage, _player.abilities.magia])
 	_set_log("🔥 %s impacta a %s por %.2f de daño." % [spell.nombre, _enemy.nombre, result.damage])

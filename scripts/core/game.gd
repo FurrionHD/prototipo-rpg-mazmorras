@@ -60,8 +60,9 @@ const GAIN_AGILIDAD_ESQUIVAR := 0.6   # esquivar un golpe entrena Agilidad (adio
 const GAIN_AGILIDAD_CRITICO := 0.3    # clavar un critico entrena Agilidad (encontrar el hueco)
 const GAIN_RESISTENCIA_BLOQUEO := 0.3 # bloquear con Defender entrena Resistencia extra (KAN-81); moderado para no sobre-premiar el escudo
 # Magia (KAN-56): entrena al recitar bien una frase (poco) y al lanzar (extra en
-# _disparar_hechizo, escalado por la longitud del hechizo). Base por frase acertada.
-const GAIN_MAGIA_CAST := 0.5
+# _disparar_hechizo, escalado por la longitud del hechizo). Base baja + tope de reto
+# FISICO (5) para que no se dispare: una Chispa sube ~0.75, no varios puntos.
+const GAIN_MAGIA_CAST := 0.1
 # --- Dificultad de la extraccion ---
 # Exigencia del enemigo = suma_habilidades x FACTOR. Dificultad relativa =
 # exigencia / (tu Destreza + SUELO). ~1 = a la par; >1 mas dificil. La
