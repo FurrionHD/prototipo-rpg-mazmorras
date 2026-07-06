@@ -192,7 +192,7 @@ func _update_hp() -> void:
 	# El jugador muestra ademas su MANA si tiene (KAN-56).
 	var mp_txt := ""
 	if _player.max_mp > 0:
-		mp_txt = "   MP %d/%d" % [roundi(_player.current_mp), _player.max_mp]
+		mp_txt = "   MP %.2f/%d" % [_player.current_mp, _player.max_mp]
 	_player_name.text = "%s  (Nv.%d)   %.2f/%d%s" % [
 		_player.nombre, _player.level, _player.current_hp, _player.max_hp, mp_txt]
 
