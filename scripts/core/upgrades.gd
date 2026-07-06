@@ -71,12 +71,10 @@ const RESIST_CRIT_CAP := 0.25     # tope de resistencia a criticos
 const MAGIC_AMP_FLAT := 0.02      # +magic_amp por CADA mejora (primario del arma magica)
 const POTENCIA_STEP := 0.05       # +magic_amp de la categoria Potencia (extra, decreciente)
 const POTENCIA_CAP := 0.25        # tope del bonus de Potencia
-# TIER de las armas magicas: el tier escala el magic_amp por el MISMO factor de daño
-# que da a un arma MELEE, para que subir de tier valga lo mismo en magia que en fisico.
-# Melee: daño ∝ (base_jugador + raw×tmult); ratio = (BASE + RAW×tmult)/(BASE + RAW).
-# Con BASE=5 (base_attack del jugador) y RAW=3 (ataque_base t1): t1 ×1, t2 ×1.45, t3 ×2.44.
-const MAGIC_TIER_BASE := 5.0
-const MAGIC_TIER_RAW := 3.0
+# TIER de las armas magicas: escala el magic_amp de forma MUCHO mas suave que el melee
+# (subir de tier en magia no debe valer tanto como en fisico). Curva = tmult^POWER con
+# un exponente bajo: t1 ×1.00, t2 ×1.12, t3 ×1.25. PROVISIONAL -> Excel.
+const MAGIC_TIER_POWER := 0.14
 const EFICIENCIA_STEP := 0.05     # -% coste de maná (dim_sum asintota a 0.25 -> hay que invertir MUCHO)
 const EFICIENCIA_CAP := 0.25
 const CELERIDAD_STEP := 0.03      # +velocidad de casteo
@@ -188,9 +186,9 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 # magicas NO usan tier (para no disparar el multiplicador): magic_amp sale de la
 # base × rareza + un flat por mejora; el resto son porcentajes con tope.
 #   base_amp = magic_amp base del item (baston 1.8 / varita 1.4).
-# Factor por el que el TIER escala el magic_amp = ratio de daño de una arma melee.
+# Factor por el que el TIER escala el magic_amp (curva suave, muy por debajo del melee).
 static func magic_tier_ratio(tmult: float) -> float:
-	return (MAGIC_TIER_BASE + MAGIC_TIER_RAW * tmult) / (MAGIC_TIER_BASE + MAGIC_TIER_RAW)
+	return pow(tmult, MAGIC_TIER_POWER)
 
 static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
 	var n := total_mejoras(mejoras)

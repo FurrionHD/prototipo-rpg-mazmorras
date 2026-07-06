@@ -255,9 +255,9 @@ Dos arquetipos de mago, enganchados al `magic_amp` que KAN-56 dejó neutro:
   `dim_sum` asintota a `EFICIENCIA_CAP 0.25`), **Celeridad** (+vel casteo, cap 0.10),
   **Regeneración** (+% regen del arma, cap 0.40), **Durabilidad** (reservada). `MAGIC_AMP_FLAT 0.02`
   = primario universal (cada mejora sube algo el amp) + el extra de Potencia. `magic_mods()` las
-  agrega. **Tier mágico** (`magic_tier_ratio`): el tier multiplica el `magic_amp` por el MISMO
-  factor de daño que da a un arma melee (`(5 + 3×tmult)/8` → t1 ×1, t2 ×1.45, t3 ×2.44), para que
-  subir de tier valga lo mismo en magia que en físico. El **bastón** (arma mágica que SÍ ataca) admite ADEMÁS **Agudeza** (raw
+  agrega. **Tier mágico** (`magic_tier_ratio = tmult^0.14`): el tier sube el `magic_amp` de forma
+  MUCHO más suave que el melee (t1 ×1, t2 ×1.12, t3 ×1.25) — subir de tier en magia rinde menos que
+  en físico. El **bastón** (arma mágica que SÍ ataca) admite ADEMÁS **Agudeza** (raw
   melee) y **Peso** (aturdir, es contundente) — `weapon_mods` los honra para `es_magica`; la varita
   no (no ataca). Coste efectivo con Eficiencia en `combat._coste_efectivo()`.
 - Equipables desde DEBUG (bastón en armas, varita en secundarias; mejoras por slot). PROVISIONALES.
