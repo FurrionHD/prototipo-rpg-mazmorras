@@ -292,7 +292,8 @@ Estado por ítem en `Game.equip_meta[slot] = {tier, rareza, mejoras{cat:n}}` (no
   base del piso 8 de antes (1.10^12≈3.14 ≈ 1.18^7≈3.19). Nivel 1 = pisos 1-13.
 - **Habilidades por FRANJA de suma** (reemplaza el multiplicador plano; se quitó
   `enemy_floor_ability_factor`): `Game.enemy_ability_sum_band(piso)` = `[175·(p-1),
-  200+250·(p-1)]` → piso1 [0,200], piso2 [175,450] … piso13 [2100,3200] (PROVISIONAL).
+  200+250·(p-1)]` → piso1 [80,200] (suelo `SUM_MIN_FLOOR=80` para que no salgan casi
+  vacíos), piso2 [175,450] … piso13 [2100,3200] (PROVISIONAL).
 - **Distribución por arquetipo** (enemy_data.gd): los campos `fuerza/…/magia` son ahora
   **PESOS** (proporción), no absolutos. Cada arquetipo ocupa un sub-tramo con
   `franja_low/high` (slime `[0.0,0.6]` = parte baja; goblins futuros la alta).

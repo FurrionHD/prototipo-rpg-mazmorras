@@ -110,15 +110,20 @@ func enemy_floor_stat_factor() -> float:
 
 # Franja [min, max] de la SUMA de habilidades del enemigo segun el piso. Cada
 # arquetipo ocupa un sub-tramo (franja_low/high en EnemyData) y reparte esa suma por
-# sus pesos. Constantes PROVISIONALES (ejemplos del usuario): piso1 [0,200],
+# sus pesos. Constantes PROVISIONALES (ejemplos del usuario): piso1 [80,200],
 # piso2 [175,450] ... piso13 [2100,3200]. Afinar con Excel.
 const SUM_MAX_F1 := 200.0    # techo de la franja en el piso 1
 const SUM_MIN_STEP := 175.0  # cuanto sube el suelo por piso
 const SUM_MAX_STEP := 250.0  # cuanto sube el techo por piso
+# Suelo MINIMO de la SUMA de habilidades: en el piso 1 el suelo teorico seria 0 y
+# los enemigos salian casi vacios (slime ocupa el sub-tramo bajo). Forzamos >=80.
+# Solo muerde en el piso 1: del piso 2 en adelante el suelo ya es >=175.
+const SUM_MIN_FLOOR := 80.0
 
 func enemy_ability_sum_band(floor: int) -> Vector2:
 	var f: float = float(maxi(1, floor) - 1)
-	return Vector2(SUM_MIN_STEP * f, SUM_MAX_F1 + SUM_MAX_STEP * f)
+	var low: float = maxf(SUM_MIN_STEP * f, SUM_MIN_FLOOR)
+	return Vector2(low, SUM_MAX_F1 + SUM_MAX_STEP * f)
 
 # True mientras el panel de inventario esta abierto: el jugador no se mueve ni
 # interactua (pero el enemigo sigue y puede emboscarte).
