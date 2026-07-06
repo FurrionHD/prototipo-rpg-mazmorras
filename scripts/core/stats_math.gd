@@ -23,12 +23,12 @@ const MAGIA_DIV := 250.0
 
 # MANA: maximo = BASE_MP + Magia × MP_FROM_MAGIA. Numeros PROVISIONALES -> Excel.
 const BASE_MP := 20.0
-const MP_FROM_MAGIA := 0.08
+const MP_FROM_MAGIA := 0.033   # magia 999 -> +33 (max = 20 + 33 = 53)
 # Regen de mana POR TURNO de combate. Escala con la Magia (magos mas potentes
 # reponen algo mas rapido), pero conservador para NO permitir spamear. El anti-spam
 # real llegara con los NIVELES de hechizo (mismo hechizo, version cara). PROVISIONAL.
 const MP_REGEN_BASE := 0.1
-const MP_REGEN_PER_MAGIA := 0.002   # magia 250 -> 0.6/turno; magia 999 -> ~2.1/turno
+const MP_REGEN_PER_MAGIA := 0.0002   # magia 999 -> ~0.3/turno
 
 # Resto de stats: siguen el modelo "base + habilidad × coef" (coef crece con el
 # nivel). Numeros bajos a proposito: 999 no debe dar 999 de golpe.
