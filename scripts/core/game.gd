@@ -23,6 +23,9 @@ var player_base_defense: float = 5.0
 var player_base_speed: float = 5.0
 # Vida actual (persiste entre combates). -1 = aun no inicializada (= llena).
 var player_current_hp: float = -1.0
+# Mana actual (persiste entre combates, como la vida). -1 = lleno. Se rellena en
+# el altar (descansar) y regenera muy poco por turno en combate (KAN-56).
+var player_current_mp: float = -1.0
 
 # --- Subida de habilidades (Excelia estilo DanMachi) ---
 # Valor INTERNO (float) que sube con el uso. Lo visible (player_*) solo se
@@ -56,6 +59,9 @@ const GAIN_DESTREZA_MINIJUEGO := 2.2  # arranque (Destreza baja); el pivote de a
 const GAIN_AGILIDAD_ESQUIVAR := 0.6   # esquivar un golpe entrena Agilidad (adios correr en circulos)
 const GAIN_AGILIDAD_CRITICO := 0.3    # clavar un critico entrena Agilidad (encontrar el hueco)
 const GAIN_RESISTENCIA_BLOQUEO := 0.3 # bloquear con Defender entrena Resistencia extra (KAN-81); moderado para no sobre-premiar el escudo
+# Magia (KAN-56): entrena al recitar bien una frase (poco) y al lanzar (extra en
+# _disparar_hechizo, escalado por la longitud del hechizo). Base por frase acertada.
+const GAIN_MAGIA_CAST := 0.5
 # --- Dificultad de la extraccion ---
 # Exigencia del enemigo = suma_habilidades x FACTOR. Dificultad relativa =
 # exigencia / (tu Destreza + SUELO). ~1 = a la par; >1 mas dificil. La
@@ -298,6 +304,33 @@ var _dev_offs: Array = [
 var _dev_main_idx: int = 0
 var _dev_off_idx: int = 0
 
+# --- HECHIZOS equipados (KAN-56) ---
+# Array[SpellData]. VACIO por defecto: no todos los personajes tienen magia. Se
+# equipan desde el panel de debug (la obtencion aleatoria se vera mas adelante).
+var equipped_spells: Array = []
+# Lista para el panel de debug (equipar/quitar). Rutas de los .tres de hechizos.
+var _dev_spells: Array[String] = [
+	"res://resources/spells/chispa.tres",
+	"res://resources/spells/bola_fuego.tres",
+	"res://resources/spells/tormenta.tres",
+]
+
+func tiene_hechizos() -> bool:
+	return equipped_spells.size() > 0
+
+# Mana maximo del jugador segun su Magia (para el HUD; en combate lo lleva el Combatant).
+func player_max_mp() -> int:
+	var a := Abilities.new()
+	a.magia = player_magia
+	return StatsMath.max_mp_value(a, player_level)
+
+func equipar_hechizo(spell: SpellData) -> void:
+	if spell != null and not equipped_spells.has(spell):
+		equipped_spells.append(spell)
+
+func quitar_hechizo(spell: SpellData) -> void:
+	equipped_spells.erase(spell)
+
 # --- Peso / capacidad de carga ---
 # De serie llevas un ZURRON pequeño (base_capacity). La Fuerza sube la
 # capacidad. En el futuro: mochila y companero de apoyo sumaran aqui.
@@ -331,6 +364,12 @@ func crear_player_combatant() -> Combatant:
 	if player_current_hp < 0.0:
 		player_current_hp = float(c.max_hp)  # primera vez: vida llena
 	c.current_hp = clampf(player_current_hp, 0.0, float(c.max_hp))
+
+	# Mana y hechizos (KAN-56). El mana persiste como la vida (-1 = lleno).
+	if player_current_mp < 0.0:
+		player_current_mp = float(c.max_mp)
+	c.current_mp = clampf(player_current_mp, 0.0, float(c.max_mp))
+	c.spells = equipped_spells
 
 	# Aplicar los modificadores del loadout. Las MANOS (1 o 2) se alternan por
 	# golpe en combate; set_hands activa la primera. El resto son del loadout entero.
@@ -562,6 +601,7 @@ func debug_set_abilities(f: int, r: int, d: int, a: int, m: int) -> void:
 	ability_internal["magia"] = float(clampi(m, 0, 999))
 	actualizar_estado()          # sincroniza lo visible con lo interno
 	player_current_hp = -1.0     # vida llena en el proximo combate
+	player_current_mp = -1.0     # mana lleno en el proximo combate
 
 
 # Teclas de DESARROLLO (temporales): U actualizar estado, H cura, R respawn.
@@ -573,7 +613,8 @@ func _input(event: InputEvent) -> void:
 			actualizar_estado()
 		KEY_H:
 			player_current_hp = -1  # se rellena a tope en el proximo combate
-			print("[dev] Vida al 100%")
+			player_current_mp = -1  # y el mana
+			print("[dev] Vida y mana al 100%")
 		KEY_R:
 			print("[dev] Respawn: recargando la mazmorra")
 			get_tree().reload_current_scene()
@@ -816,9 +857,11 @@ func _tirar_drop(corpse: Node, categoria: int) -> void:
 			" (", drop.calidad_texto(), ")")
 
 
-func _on_combat_finished(player_won: bool, player_hp_left: float) -> void:
+func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float = -1.0) -> void:
 	get_tree().paused = false
 	player_current_hp = player_hp_left
+	if player_mp_left >= 0.0:
+		player_current_mp = player_mp_left  # el mana gastado persiste al salir
 
 	# Si ganaste, el enemigo NO desaparece: queda como cadaver para poder
 	# extraerle el cristal (minijuego, Fase 5).

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Bola de Fuego"
+tipo = 0
+frases = Array[String](["Que la llama primigenia despierte", "Ceniza y brasa, obedeced"])
+coste_mana = 8
+dano_base = 18.0
+descripcion = "Hechizo medio de fuego. Dos frases: mas dano a cambio de un turno extra recitando."

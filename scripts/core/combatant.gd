@@ -18,11 +18,22 @@ var base_hp: float = 0.0
 var base_attack: float = 0.0
 var base_defense: float = 0.0
 var base_speed: float = 0.0
+var base_magic: float = 0.0     # base del hechizo (0 = sin magia; enemigos)
 
 # Vida actual / maxima (se calculan al crear). current_hp es FLOAT para no perder
 # precision con el daño decimal (asi ves mejoras pequeñas golpe a golpe).
 var max_hp: int = 0
 var current_hp: float = 0.0
+
+# --- MAGIA (KAN-56) ---
+# Mana (maximo por Magia; enemigos = 0). current_mp es FLOAT por el regen fino.
+var max_mp: int = 0
+var current_mp: float = 0.0
+# Hechizos equipados (Array[SpellData]). Vacio = no lanza magia (enemigos, o el
+# jugador sin hechizos equipados).
+var spells: Array = []
+# Amplificador de daño magico del arma (bastones/varitas, futuro KAN-95). Neutro.
+var magic_amp: float = 1.0
 
 # --- Modificadores del LOADOUT (arma + secundaria). Neutros por defecto, asi un
 # combatiente SIN equipo (p.ej. enemigos) se comporta como antes. El jugador los
@@ -65,6 +76,8 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 
 	max_hp = StatsMath.max_hp_value(abilities, level, base_hp)
 	current_hp = max_hp
+	max_mp = StatsMath.max_mp_value(abilities, level)
+	current_mp = max_mp
 
 
 # Valores reales de combate (calculados con las formulas de StatsMath).
@@ -84,6 +97,17 @@ func is_alive() -> bool:
 
 func take_damage(amount: float) -> void:
 	current_hp = maxf(0.0, current_hp - amount)
+
+
+# --- Mana (KAN-56) ---
+func spend_mana(amount: float) -> void:
+	current_mp = maxf(0.0, current_mp - amount)
+
+func regen_mana(amount: float) -> void:
+	current_mp = minf(float(max_mp), current_mp + amount)
+
+func has_mana(amount: float) -> bool:
+	return current_mp >= amount
 
 
 # Configura las manos del loadout y activa la primera. Cada mano es un Dictionary

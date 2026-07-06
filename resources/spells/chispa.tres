@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Chispa"
+tipo = 0
+frases = Array[String](["Ignis, arde en mi mano"])
+coste_mana = 4
+dano_base = 8.0
+descripcion = "Hechizo corto de fuego. Una sola frase: rapido pero poco potente."

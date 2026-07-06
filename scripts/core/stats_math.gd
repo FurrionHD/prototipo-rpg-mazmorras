@@ -17,6 +17,15 @@ class_name StatsMath
 # Se aplica IGUAL a jugador y enemigos (usan la misma Combatant.atk()).
 const FUERZA_DIV := 250.0
 
+# MAGIA: igual que la Fuerza, la Magia MULTIPLICA el raw del hechizo (dano_base).
+# magia_factor = 1 + Magia / MAGIA_DIV. A 250 de Magia un hechizo pega el DOBLE.
+const MAGIA_DIV := 250.0
+
+# MANA: maximo = BASE_MP + Magia × MP_FROM_MAGIA. Regen y costes en combat.gd.
+# Numeros PROVISIONALES -> afinar con Excel.
+const BASE_MP := 10.0
+const MP_FROM_MAGIA := 0.08
+
 # Resto de stats: siguen el modelo "base + habilidad × coef" (coef crece con el
 # nivel). Numeros bajos a proposito: 999 no debe dar 999 de golpe.
 const DEF_COEF_BASE := 0.02
@@ -49,6 +58,15 @@ static func _coef(base: float, growth: float, level: int) -> float:
 # la multiplicacion por (base + arma) y por el motion_value se hace en Combatant.atk().
 static func fuerza_factor(fuerza: float) -> float:
 	return 1.0 + fuerza / FUERZA_DIV
+
+# MAGIA: multiplica el dano_base del hechizo (paralelo a fuerza_factor). El
+# magic_amp del arma (bastones/varitas, KAN-95) se aplica aparte en resolve_spell.
+static func magia_factor(magia: float) -> float:
+	return 1.0 + magia / MAGIA_DIV
+
+# Mana maximo segun la Magia (+ una base para que un mago novato ya tenga algo).
+static func max_mp_value(ab: Abilities, _level: int, base_mp: float = BASE_MP) -> int:
+	return int(round(base_mp + ab.magia * MP_FROM_MAGIA))
 
 # stat efectiva = base + habilidad × coef(nivel)
 static func defense_value(ab: Abilities, level: int, base_defense: float) -> float:
@@ -215,3 +233,31 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 
 	return {"damage": maxf(0.1, dmg), "evaded": false, "crit": is_crit, "aturde": aturde,
 		"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p}
+
+
+# ============================================================
+#  MAGIA (KAN-56): hechizos por encantamientos
+#  El "acierto" del hechizo NO es RNG: depende de recitar bien las frases (test
+#  en combat.gd). Aqui solo va el DAÑO. Sin esquiva ni critico en magia v1.
+# ------------------------------------------------------------
+# Fraccion del dano_base que te haces a TI MISMO al fallar una frase (backfire),
+# escalada por lo avanzado que ibas. PROVISIONAL -> Excel.
+const BACKFIRE_FRAC := 0.5
+
+
+# Daño de un hechizo: dano_base × magia_factor(Magia) × magic_amp (arma), mitigado
+# por la "defensa magica" del objetivo (su Magia via magic_value). ±variacion.
+static func resolve_spell(attacker: Combatant, defender: Combatant, spell: SpellData) -> Dictionary:
+	var magic_atk := spell.dano_base * magia_factor(float(attacker.abilities.magia)) * attacker.magic_amp
+	var magic_def := magic_value(defender.abilities, defender.level, 0.0)
+	var dmg := damage(magic_atk, magic_def)
+	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
+	return {"damage": maxf(0.1, dmg)}
+
+
+# Backfire: daño que te haces al fallar una frase. Escala con dano_base (hechizos
+# largos duelen mas) y con el PROGRESO (cuantas frases llevabas: casi terminar y
+# fallar duele mas). Ignora defensa (es un descontrol interno).
+static func backfire_damage(spell: SpellData, cast_index: int, n_frases: int) -> float:
+	var progreso := float(cast_index + 1) / float(maxi(1, n_frases))
+	return maxf(1.0, spell.dano_base * BACKFIRE_FRAC * progreso)

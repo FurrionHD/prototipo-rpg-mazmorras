@@ -202,6 +202,35 @@ Añadir una acción futura (habilidades, objetos) = una entrada más en la lista
   con tooltip. Listo para enchufar hechizos cuando exista el sistema.
 - [x] `_slow_actions_left` se consume en `_fin_de_eleccion()` (común a atacar/defender/huir).
 
+### Combate avanzado — parte 3: Magia por encantamientos (KAN-56) 🔧 A PROBAR
+Los hechizos se lanzan **recitando frases**: cada turno un **test tipo examen (a/b/c/d)** con la
+frase correcta mezclada con distractores de un **repositorio** (`SpellBook.REPOSITORIO`).
+Aciertas → avanzas; fallas → **backfire**. Ritmo: **N frases = N turnos de recitado + 1 de disparo**
+(corto 1 frase, medio 2, largo 3). En el turno en que eliges el hechizo ya recitas la 1ª frase.
+- [x] **`SpellData`** (`scripts/items/spell_data.gd`) + 3 `.tres` en `resources/spells/`: `chispa`
+  (corto), `bola_fuego` (medio), `tormenta` (largo). Campo `tipo` = {ATAQUE, BUFF, DEBUFF} pero
+  **solo ATAQUE** implementado ahora (buff/debuff → futuro, con KAN-58).
+- [x] **`SpellBook`** (`scripts/core/spell_book.gd`): repositorio de ~22 frases + `opciones_test()`
+  (1 correcta + distractores barajados, excluyendo la correcta).
+- [x] **Maná** (nuevo recurso): `max_mp = BASE_MP + Magia×MP_FROM_MAGIA` (`stats_math`). Persiste
+  entre combates (`Game.player_current_mp`, −1 = lleno, como la vida). **Regen muy lento** por turno
+  (`MP_REGEN_TURN=1.5` en combat). El **altar** (y las teclas dev H / debug stats) lo rellenan al
+  100%. Se **descuenta al empezar** el casteo (si fallas, se pierde). Pociones en combate → futuro.
+- [x] **Daño**: `StatsMath.resolve_spell()` = `dano_base × magia_factor(Magia) × magic_amp`, mitigado
+  por la Magia del enemigo. Sin esquiva/crítico (el riesgo es recitar bien). **`magic_amp`** del
+  Combatant queda **neutro (1.0)**: gancho para las armas de mago (**KAN-95**, bastón/varita).
+- [x] **Backfire**: `StatsMath.backfire_damage()` escala con `dano_base` y con lo avanzado que ibas
+  (fallar la última frase de un hechizo largo duele mucho); interrumpe el conjuro y el maná ya está
+  perdido.
+- [x] **Casteo en `combat.gd`**: submenú de hechizos (`_accion_magia`), test por frase
+  (`_mostrar_test`/`_responder_frase`), disparo (`_mostrar_disparo`/`_disparar_hechizo`), backfire.
+  Estado persistente `_cast_spell`/`_cast_index`. Mientras casteas NO hay otras acciones (el enemigo
+  te pega en cada hueco). **Excelia**: recitar y lanzar suben Magia (`GAIN_MAGIA_CAST`).
+- [x] **Equipables desde el DEBUG**: sección HECHIZOS (checkboxes) en `debug_panel.gd`; el jugador
+  empieza **SIN hechizos** (`Game.equipped_spells = []`). La obtención aleatoria se verá más adelante.
+- [x] HUD muestra maná y nº de hechizos equipados; la pantalla de combate muestra MP del jugador.
+- Constantes PROVISIONALES → afinar con Excel. Interrupción por golpes fuertes del enemigo → futuro.
+
 ### Equipamiento — Fase A: armas + loadout de 2 manos (modelo MH Motion Values) 🔧 A PROBAR
 Plan completo en `~/.claude/plans/daga-espada-corta-espada-cozy-kahan.md`.
 - [x] **Modelo estilo Monster Hunter**: el "raw" (daño base) es común (viene de tu Fuerza);

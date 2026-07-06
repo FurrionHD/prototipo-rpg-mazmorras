@@ -87,6 +87,11 @@ func _refrescar_lista() -> void:
 		Game.player_destreza, ai["destreza"]]
 	s += "  Agilidad: %d / %.1f    Magia: %d / %.1f\n" % [
 		Game.player_agilidad, ai["agilidad"], Game.player_magia, ai["magia"]]
+	# Mana (KAN-56): -1 = lleno.
+	var max_mp: int = Game.player_max_mp()
+	var cur_mp: float = Game.player_current_mp if Game.player_current_mp >= 0.0 else float(max_mp)
+	s += "  Mana: %d / %d    Hechizos equipados: %d\n" % [
+		roundi(cur_mp), max_mp, Game.equipped_spells.size()]
 	s += "  [U] actualizar estado   [H] curar 100%   [R] respawn\n\n"
 
 	# --- Dinero, peso / valor ---

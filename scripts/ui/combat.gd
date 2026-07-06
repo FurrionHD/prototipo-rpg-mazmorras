@@ -27,6 +27,11 @@ const EXHAUSTED_RATE := 0.5         # a que ritmo (0.5 = la mitad)
 # Huir (KAN-55): entrar agotado dificulta la huida (la probabilidad se multiplica).
 const FLEE_EXHAUSTED_MULT := 0.6
 
+# Magia (KAN-56): regen de mana MUY lento por turno (para no abusar) y nº de
+# opciones del test de recitado (a/b/c/d). PROVISIONALES -> Excel.
+const MP_REGEN_TURN := 1.5
+const N_OPCIONES_TEST := 4
+
 # Aturdir/retrasar (armas contundentes). Un golpe contundente que aturde le RESTA
 # barra ATB al objetivo (pierde tempo). El retraso NORMAL es aleatorio dentro de
 # una franja; un golpe CRITICO que ademas aturde es un aturdimiento COMPLETO:
@@ -51,11 +56,21 @@ enum Action { ATTACK, MAGIC, DEFEND, FLEE }
 var _actions_box: HBoxContainer = null
 var _action_buttons: Dictionary = {}   # Action(int) -> Button
 
+# --- Casteo de hechizos (KAN-56) ---
+# Submenu de hechizos (al pulsar Magia) y caja dinamica del recitado/disparo.
+var _spell_box: VBoxContainer = null
+var _cast_box: VBoxContainer = null
+# Conjuro EN CURSO: hechizo elegido + cuantas frases llevas recitadas OK. Persiste
+# entre turnos (recitas una por turno). null = no estas casteando.
+var _cast_spell: SpellData = null
+var _cast_index: int = 0
+
 # Linea de ORDEN DE TURNOS (estilo Epic Seven), creada por codigo.
 var _timeline: Control = null
 
 # Se emite al cerrar el combate (lo escucha Game para reanudar la mazmorra).
-signal combat_finished(player_won: bool, player_hp_left: float)
+# player_mp_left persiste el mana gastado (KAN-56).
+signal combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float)
 
 var _player: Combatant
 var _enemy: Combatant
@@ -145,7 +160,19 @@ func _crear_acciones() -> void:
 		b.pressed.connect(_on_action.bind(id))
 		_actions_box.add_child(b)
 		_action_buttons[id] = b
-	_set_actions_visible(false)
+	# Cajas de magia (KAN-56): submenu de hechizos y caja del recitado/disparo.
+	_spell_box = VBoxContainer.new()
+	$VBox.add_child(_spell_box)
+	_cast_box = VBoxContainer.new()
+	$VBox.add_child(_cast_box)
+	_ocultar_cajas()
+
+
+# Oculta las tres cajas del turno del jugador (acciones / submenu magia / recitado).
+func _ocultar_cajas() -> void:
+	if _actions_box != null: _actions_box.visible = false
+	if _spell_box != null: _spell_box.visible = false
+	if _cast_box != null: _cast_box.visible = false
 
 
 func _setup_ui() -> void:
@@ -155,7 +182,7 @@ func _setup_ui() -> void:
 	_enemy_hp.show_percentage = false
 	_update_hp()
 	_continue_button.visible = false
-	_set_actions_visible(false)
+	_ocultar_cajas()
 
 
 func _update_hp() -> void:
@@ -163,8 +190,12 @@ func _update_hp() -> void:
 	_enemy_hp.value = _enemy.current_hp
 	_enemy_name.text = "%s  (Nv.%d)   %.2f/%d" % [
 		_enemy.nombre, _enemy.level, _enemy.current_hp, _enemy.max_hp]
-	_player_name.text = "%s  (Nv.%d)   %.2f/%d" % [
-		_player.nombre, _player.level, _player.current_hp, _player.max_hp]
+	# El jugador muestra ademas su MANA si tiene (KAN-56).
+	var mp_txt := ""
+	if _player.max_mp > 0:
+		mp_txt = "   MP %d/%d" % [roundi(_player.current_mp), _player.max_mp]
+	_player_name.text = "%s  (Nv.%d)   %.2f/%d%s" % [
+		_player.nombre, _player.level, _player.current_hp, _player.max_hp, mp_txt]
 
 
 func _process(delta: float) -> void:
@@ -193,22 +224,33 @@ func _process(delta: float) -> void:
 func _begin_player_turn() -> void:
 	_state = State.WAITING_PLAYER
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
-	_set_actions_visible(true)
+	_player.regen_mana(MP_REGEN_TURN)  # el mana se recupera muy poco a poco (KAN-56)
+	_update_hp()
+	# Si estas casteando un hechizo, el turno va al recitado / disparo, NO a las
+	# acciones normales (por diseño no puedes hacer otra cosa mientras cantas).
+	if _cast_spell != null:
+		if _cast_index < _cast_spell.longitud():
+			_mostrar_test(_cast_index)
+		else:
+			_mostrar_disparo()
+	else:
+		_mostrar_acciones()
+
+
+# Muestra la barra de acciones normales (Atacar/Magia/Defender/Huir).
+func _mostrar_acciones() -> void:
+	_ocultar_cajas()
+	_actions_box.visible = true
 	_refresh_actions()
 	_set_log("¡Tu turno! Elige una accion.")
-
-
-func _set_actions_visible(v: bool) -> void:
-	if _actions_box != null:
-		_actions_box.visible = v
 
 
 # Habilita/inhabilita cada accion segun disponibilidad (en tu turno).
 func _refresh_actions() -> void:
 	for id in _action_buttons:
 		_action_buttons[id].disabled = not _accion_disponible(id)
-	# Magia aun no tiene sistema (KAN-56): queda visible pero deshabilitada.
-	_action_buttons[Action.MAGIC].tooltip_text = "Aun no tienes hechizos (KAN-56)"
+	_action_buttons[Action.MAGIC].tooltip_text = (
+		"" if _hay_hechizos() else "No tienes hechizos equipados")
 
 
 func _accion_disponible(id: int) -> bool:
@@ -220,14 +262,14 @@ func _accion_disponible(id: int) -> bool:
 	return false
 
 
-# KAN-56 pendiente: todavia no hay hechizos definidos por datos.
+# ¿El jugador tiene hechizos equipados? (KAN-56)
 func _hay_hechizos() -> bool:
-	return false
+	return _player != null and _player.spells.size() > 0
 
 
 # Oculta la barra tras elegir y consume una "accion lenta" si entraste agotado.
 func _fin_de_eleccion() -> void:
-	_set_actions_visible(false)
+	_ocultar_cajas()
 	if _slow_actions_left > 0:
 		_slow_actions_left -= 1
 
@@ -240,17 +282,158 @@ func _on_action(id: int) -> void:
 		Action.ATTACK: _accion_atacar()
 		Action.DEFEND: _accion_defender()
 		Action.FLEE: _accion_huir()
-		Action.MAGIC: pass  # KAN-56: aun sin hechizos
+		Action.MAGIC: _accion_magia()
 
 
 # El boton reutilizado (antes "Atacar") cierra la pantalla al terminar el combate.
 func _on_continue_pressed() -> void:
 	if _state != State.FINISHED:
 		return
-	combat_finished.emit(_player_won, _player.current_hp)
+	combat_finished.emit(_player_won, _player.current_hp, _player.current_mp)
 	# Si lo abrio Game, el cierra la capa; si es prueba (F6), nos cerramos solos.
 	if not _injected:
 		queue_free()
+
+
+# ============================================================
+#  MAGIA (KAN-56): submenu de hechizos + recitado por frases + disparo
+# ------------------------------------------------------------
+# Accion Magia: abre el submenu con los hechizos equipados y su coste de mana.
+func _accion_magia() -> void:
+	_ocultar_cajas()
+	# Reconstruimos el submenu cada vez (el mana cambia -> disponibilidad).
+	for c in _spell_box.get_children():
+		c.queue_free()
+	for spell in _player.spells:
+		var b := Button.new()
+		b.text = "%s  (%d MP · %d frase%s)" % [
+			spell.nombre, spell.coste_mana, spell.longitud(),
+			"" if spell.longitud() == 1 else "s"]
+		if not _player.has_mana(float(spell.coste_mana)):
+			b.disabled = true
+			b.tooltip_text = "Mana insuficiente"
+		b.pressed.connect(_elegir_hechizo.bind(spell))
+		_spell_box.add_child(b)
+	var volver := Button.new()
+	volver.text = "◄ Volver"
+	volver.pressed.connect(_mostrar_acciones)
+	_spell_box.add_child(volver)
+	_spell_box.visible = true
+	_set_log("Elige un hechizo para recitar.")
+
+
+# Empiezas a castear: se descuenta el mana YA (si fallas lo pierdes) y recitas la
+# primera frase en este MISMO turno.
+func _elegir_hechizo(spell: SpellData) -> void:
+	if not _player.has_mana(float(spell.coste_mana)):
+		return
+	_player.spend_mana(float(spell.coste_mana))
+	_update_hp()
+	_cast_spell = spell
+	_cast_index = 0
+	_mostrar_test(0)
+
+
+# Muestra el test tipo examen para la frase idx del hechizo en curso.
+func _mostrar_test(idx: int) -> void:
+	_ocultar_cajas()
+	for c in _cast_box.get_children():
+		c.queue_free()
+	var correcta: String = _cast_spell.frases[idx]
+	var opciones := SpellBook.opciones_test(correcta, _otras_frases_equipadas(), N_OPCIONES_TEST)
+	var letras := ["a", "b", "c", "d", "e", "f"]
+	for i in opciones.size():
+		var b := Button.new()
+		b.text = "%s)  %s" % [letras[i], opciones[i]]
+		b.pressed.connect(_responder_frase.bind(String(opciones[i]), correcta))
+		_cast_box.add_child(b)
+	_cast_box.visible = true
+	_set_log("🔮 %s — recita la frase %d/%d:" % [
+		_cast_spell.nombre, idx + 1, _cast_spell.longitud()])
+
+
+# Frases de los OTROS hechizos equipados (para nutrir los distractores del test).
+func _otras_frases_equipadas() -> Array:
+	var pool: Array = []
+	for spell in _player.spells:
+		if spell != _cast_spell:
+			for f in spell.frases:
+				pool.append(f)
+	return pool
+
+
+# Responde una frase del test: acierto -> avanza; fallo -> backfire.
+func _responder_frase(elegida: String, correcta: String) -> void:
+	if _state != State.WAITING_PLAYER:
+		return
+	if elegida == correcta:
+		# Excelia: recitar bien entrena Magia (practicas el conjuro).
+		Game.ganar("magia", Game.reto(_poder_enemigo()), Game.GAIN_MAGIA_CAST)
+		_cast_index += 1
+		if _cast_index < _cast_spell.longitud():
+			_set_log("✓ Frase correcta. Continua el proximo turno...")
+		else:
+			_set_log("✓ ¡Encantamiento completo! El proximo turno lo lanzas.")
+		_fin_de_eleccion()
+		_state = State.ADVANCING
+	else:
+		_backfire()
+
+
+# Turno de DISPARO: un unico boton para lanzar el hechizo ya recitado.
+func _mostrar_disparo() -> void:
+	_ocultar_cajas()
+	for c in _cast_box.get_children():
+		c.queue_free()
+	var b := Button.new()
+	b.text = "🔥 ¡Lanzar %s!" % _cast_spell.nombre
+	b.pressed.connect(_disparar_hechizo)
+	_cast_box.add_child(b)
+	_cast_box.visible = true
+	_set_log("El conjuro esta listo. ¡Lanzalo!")
+
+
+func _disparar_hechizo() -> void:
+	if _state != State.WAITING_PLAYER:
+		return
+	var spell := _cast_spell
+	var result := StatsMath.resolve_spell(_player, _enemy, spell)
+	_enemy.take_damage(result.damage)
+	# Excelia: lanzar entrena Magia extra, mas cuanto mas largo el hechizo.
+	Game.ganar("magia", Game.reto(_poder_enemigo()) * float(spell.longitud()), Game.GAIN_MAGIA_CAST)
+	print("[magia] %s lanza %s | dano:%.2f (Magia %d)" % [
+		_player.nombre, spell.nombre, result.damage, _player.abilities.magia])
+	_set_log("🔥 %s impacta a %s por %.2f de daño." % [spell.nombre, _enemy.nombre, result.damage])
+	_limpiar_casteo()
+	_update_hp()
+	_fin_de_eleccion()
+	if not _enemy.is_alive():
+		_end(true)
+	else:
+		_state = State.ADVANCING
+
+
+# Fallar una frase: el conjuro se descontrola. Daño propio (mayor cuanto mas
+# avanzado ibas), el mana ya gastado se pierde y el conjuro se interrumpe.
+func _backfire() -> void:
+	var spell := _cast_spell
+	var dmg := StatsMath.backfire_damage(spell, _cast_index, spell.longitud())
+	_player.take_damage(dmg)
+	print("[magia] BACKFIRE %s | frase %d/%d | dano propio:%.2f" % [
+		spell.nombre, _cast_index + 1, spell.longitud(), dmg])
+	_set_log("💥 Recitas mal el conjuro y se descontrola: %.2f de daño. El hechizo se pierde." % dmg)
+	_limpiar_casteo()
+	_update_hp()
+	_fin_de_eleccion()
+	if not _player.is_alive():
+		_end(false)
+	else:
+		_state = State.ADVANCING
+
+
+func _limpiar_casteo() -> void:
+	_cast_spell = null
+	_cast_index = 0
 
 
 func _accion_atacar() -> void:
@@ -362,7 +545,8 @@ func _enemy_turn() -> void:
 func _end(player_won: bool, fled: bool = false) -> void:
 	_player_won = player_won
 	_state = State.FINISHED
-	_set_actions_visible(false)
+	_limpiar_casteo()
+	_ocultar_cajas()
 	_continue_button.visible = true
 	_continue_button.disabled = false
 	_continue_button.text = "Continuar"

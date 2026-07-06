@@ -34,6 +34,8 @@ var _main_rareza_opt: OptionButton = null
 var _off_opt: OptionButton = null
 var _off_tier_opt: OptionButton = null
 var _off_rareza_opt: OptionButton = null
+# HECHIZOS (KAN-56)
+var _spell_checks: Dictionary = {}       # path .tres -> CheckBox
 # MEJORAS
 var _mej_slot_opt: OptionButton = null
 var _mej_info: Label = null
@@ -105,6 +107,8 @@ func _ready() -> void:
 	_build_armor(vb)
 	_sep(vb)
 	_build_weapons(vb)
+	_sep(vb)
+	_build_spells(vb)
 	_sep(vb)
 	_build_mejoras(vb)
 
@@ -236,6 +240,28 @@ func _build_weapons(vb: VBoxContainer) -> void:
 	row2.add_child(_off_tier_opt)
 	_off_rareza_opt = _make_rareza_opt("off")
 	row2.add_child(_off_rareza_opt)
+
+
+# HECHIZOS (KAN-56): equipar/quitar hechizos (multi-seleccion con checkboxes). El
+# jugador empieza SIN hechizos; aqui se le equipan para probar.
+func _build_spells(vb: VBoxContainer) -> void:
+	_header(vb, "HECHIZOS (equipar/quitar)")
+	for i in Game._dev_spells.size():
+		var spell: SpellData = load(Game._dev_spells[i])
+		var cb := CheckBox.new()
+		cb.text = "%s  (%d MP · %d frase%s)" % [
+			spell.nombre, spell.coste_mana, spell.longitud(),
+			"" if spell.longitud() == 1 else "s"]
+		cb.toggled.connect(_set_spell.bind(spell))
+		_spell_checks[Game._dev_spells[i]] = cb
+		vb.add_child(cb)
+
+
+func _set_spell(pressed: bool, spell: SpellData) -> void:
+	if pressed:
+		Game.equipar_hechizo(spell)
+	else:
+		Game.quitar_hechizo(spell)
 
 
 func _build_mejoras(vb: VBoxContainer) -> void:
@@ -388,8 +414,14 @@ func _sync_from_game() -> void:
 	_sync_enemy()
 	_sync_armor()
 	_sync_weapons()
+	_sync_spells()
 	_floor_edit.text = str(Game.current_floor)
 	_rebuild_mejoras()
+
+func _sync_spells() -> void:
+	for path in _spell_checks:
+		var spell: SpellData = load(path)
+		(_spell_checks[path] as CheckBox).set_pressed_no_signal(Game.equipped_spells.has(spell))
 
 func _sync_stats() -> void:
 	_stat_edits["fuerza"].text = str(Game.player_fuerza)
