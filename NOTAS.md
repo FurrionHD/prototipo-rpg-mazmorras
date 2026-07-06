@@ -212,10 +212,13 @@ Aciertas → avanzas; fallas → **backfire**. Ritmo: **N frases = N turnos de r
   **solo ATAQUE** implementado ahora (buff/debuff → futuro, con KAN-58).
 - [x] **`SpellBook`** (`scripts/core/spell_book.gd`): repositorio de ~22 frases + `opciones_test()`
   (1 correcta + distractores barajados, excluyendo la correcta).
-- [x] **Maná** (nuevo recurso): `max_mp = BASE_MP + Magia×MP_FROM_MAGIA` (`stats_math`). Persiste
-  entre combates (`Game.player_current_mp`, −1 = lleno, como la vida). **Regen muy lento** por turno
-  (`MP_REGEN_TURN=1.5` en combat). El **altar** (y las teclas dev H / debug stats) lo rellenan al
+- [x] **Maná** (nuevo recurso): `max_mp = BASE_MP(20) + Magia×MP_FROM_MAGIA(0.08)` (`stats_math`).
+  Persiste entre combates (`Game.player_current_mp`, −1 = lleno, como la vida). **Regen por turno
+  escala con la Magia**: `StatsMath.mp_regen() = MP_REGEN_BASE(0.1) + Magia×MP_REGEN_PER_MAGIA(0.002)`
+  (magia 250 → 0.6/turno; 999 → ~2.1). El **altar** (y teclas dev H / debug stats) lo rellenan al
   100%. Se **descuenta al empezar** el casteo (si fallas, se pierde). Pociones en combate → futuro.
+  OJO anti-spam: el regen escalado permitiría spamear a Magia alta; se equilibra con los NIVELES de
+  hechizo (KAN-96): misma magia en versión cara (Chispa nv2 = 10-12 MP) al subir Magia/nivel.
 - [x] **Daño**: `StatsMath.resolve_spell()` = `dano_base × magia_factor(Magia) × magic_amp`, mitigado
   por la Magia del enemigo. Sin esquiva/crítico (el riesgo es recitar bien). **`magic_amp`** del
   Combatant queda **neutro (1.0)**: gancho para las armas de mago (**KAN-95**, bastón/varita).

@@ -27,9 +27,8 @@ const EXHAUSTED_RATE := 0.5         # a que ritmo (0.5 = la mitad)
 # Huir (KAN-55): entrar agotado dificulta la huida (la probabilidad se multiplica).
 const FLEE_EXHAUSTED_MULT := 0.6
 
-# Magia (KAN-56): regen de mana MUY lento por turno (para no abusar) y nº de
-# opciones del test de recitado (a/b/c/d). PROVISIONALES -> Excel.
-const MP_REGEN_TURN := 0.1
+# Magia (KAN-56): nº de opciones del test de recitado (a/b/c/d). El regen de mana
+# por turno lo calcula StatsMath.mp_regen() (escala con la Magia).
 const N_OPCIONES_TEST := 4
 
 # Aturdir/retrasar (armas contundentes). Un golpe contundente que aturde le RESTA
@@ -224,7 +223,7 @@ func _process(delta: float) -> void:
 func _begin_player_turn() -> void:
 	_state = State.WAITING_PLAYER
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
-	_player.regen_mana(MP_REGEN_TURN)  # el mana se recupera muy poco a poco (KAN-56)
+	_player.regen_mana(StatsMath.mp_regen(float(_player.abilities.magia)))  # regen escala con Magia (KAN-56)
 	_update_hp()
 	# Si estas casteando un hechizo, el turno va al recitado / disparo, NO a las
 	# acciones normales (por diseño no puedes hacer otra cosa mientras cantas).

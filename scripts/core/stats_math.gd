@@ -21,10 +21,14 @@ const FUERZA_DIV := 250.0
 # magia_factor = 1 + Magia / MAGIA_DIV. A 250 de Magia un hechizo pega el DOBLE.
 const MAGIA_DIV := 250.0
 
-# MANA: maximo = BASE_MP + Magia × MP_FROM_MAGIA. Regen y costes en combat.gd.
-# Numeros PROVISIONALES -> afinar con Excel.
+# MANA: maximo = BASE_MP + Magia × MP_FROM_MAGIA. Numeros PROVISIONALES -> Excel.
 const BASE_MP := 20.0
 const MP_FROM_MAGIA := 0.08
+# Regen de mana POR TURNO de combate. Escala con la Magia (magos mas potentes
+# reponen algo mas rapido), pero conservador para NO permitir spamear. El anti-spam
+# real llegara con los NIVELES de hechizo (mismo hechizo, version cara). PROVISIONAL.
+const MP_REGEN_BASE := 0.1
+const MP_REGEN_PER_MAGIA := 0.002   # magia 250 -> 0.6/turno; magia 999 -> ~2.1/turno
 
 # Resto de stats: siguen el modelo "base + habilidad × coef" (coef crece con el
 # nivel). Numeros bajos a proposito: 999 no debe dar 999 de golpe.
@@ -67,6 +71,10 @@ static func magia_factor(magia: float) -> float:
 # Mana maximo segun la Magia (+ una base para que un mago novato ya tenga algo).
 static func max_mp_value(ab: Abilities, _level: int, base_mp: float = BASE_MP) -> int:
 	return int(round(base_mp + ab.magia * MP_FROM_MAGIA))
+
+# Mana que se regenera por turno de combate (escala con la Magia).
+static func mp_regen(magia: float) -> float:
+	return MP_REGEN_BASE + magia * MP_REGEN_PER_MAGIA
 
 # stat efectiva = base + habilidad × coef(nivel)
 static func defense_value(ab: Abilities, level: int, base_defense: float) -> float:
