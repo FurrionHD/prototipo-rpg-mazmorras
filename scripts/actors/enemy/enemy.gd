@@ -83,8 +83,11 @@ func _ready() -> void:
 		_color_rect.color = data.color.lerp(Color.WHITE, current_t * 0.45)
 		current_move_speed = randf_range(data.move_speed_min, data.move_speed_max)
 		var band: Vector2 = data.sum_band()
+		var ab: Abilities = data.crear_abilities(current_t)
 		print(data.enemy_name, " (piso ", Game.current_floor, ") -> t=", snappedf(current_t, 0.01),
 			"  suma~", data.suma_habilidades(current_t),
+			"  [F", ab.fuerza, " R", ab.resistencia, " D", ab.destreza,
+			" A", ab.agilidad, " M", ab.magia, "]",
 			"  (franja ", roundi(band.x), "-", roundi(band.y), ")")
 
 	_crear_indicadores()
