@@ -277,8 +277,9 @@ combatiente (p.ej. `☠2 🔥1 ▼vel×3`).
 **Estados a incluir (v1, pedidos por el usuario):**
 - **Veneno** en varias CATEGORÍAS (tiers de daño/duración; definir cuántas y qué las distingue).
 - **Sangrado**.
-- **Aturdimiento "bien desarrollado" estilo Monster Hunter**: los golpes acumulan *stun buildup*;
-  al cruzar un UMBRAL → aturdido X turnos; el buildup DECAE con el tiempo.
+- **Aturdimiento**: se MANTIENE la mecánica actual por **PROBABILIDAD** (armas contundentes ya
+  tienen `aturdir_base` ~12%). "Bien desarrollado" = que el aturdido sea un estado en condiciones
+  (pierde el turno). **NO** es un sistema de buildup/umbral/decay.
 - **Quemadura** (DoT) — la aplican las magias de FUEGO (Chispa y Bola de Fuego).
 - **Pegajoso** (debuff de slimes): apilable **hasta 4**, **−5% velocidad por stack**, cada stack
   dura **3 turnos**. Probabilidad de aplicar: a definir (propuesta: base del efecto × factor
@@ -289,8 +290,10 @@ combatiente (p.ej. `☠2 🔥1 ▼vel×3`).
 **Cómo aplicarlos / probar (pedido por el usuario):**
 - **Slime VERDE** raro (poca prob. de aparición) que aplica **veneno** con algunos ataques.
 - **Buffs/debuffs con hechizos**; si faltan frases, **ampliar el repertorio** de `SpellBook`.
-- **Quemadura** ← Chispa y Bola de Fuego. **Tormenta** ← debuff de **RAYO** estilo MH que **facilita
-  la probabilidad de aturdimiento** del objetivo (sube su susceptibilidad al stun).
+- **Quemadura** ← Chispa y Bola de Fuego. **Tormenta** / hechizos de rayo ← aplican un **debuff de
+  RAYO** que **MULTIPLICA la probabilidad de aturdir del objetivo** (p.ej. ×1.5 sobre el ~12% del
+  arma) mientras dura — como el rayo de Monster Hunter que facilita el KO. NO cambia la mecánica de
+  stun, solo escala su probabilidad.
 - Entrega de paso los **buff/debuff de hechizos** que quedaron aplazados en KAN-56.
 - **Herramienta de test**: empezar con el **escenario VACÍO** y un **botón a la derecha (como el de
   DEBUG)** que permita **spawnear enemigos donde queramos** (clic para colocar). OJO: hoy `main.tscn`
@@ -300,13 +303,14 @@ combatiente (p.ej. `☠2 🔥1 ▼vel×3`).
 0. Escenario vacío + **botón spawner de enemigos** (base para probar todo lo demás).
 1. **Motor de estados** en `Combatant` (DoT, stat-mods, stacks, tick, display) + integración en
    `combat.gd`/`stats_math.gd`.
-2. **Aturdimiento MH** (buildup + umbral + decay) + **debuff de rayo** que lo facilita.
+2. **Aturdido como estado** (pierde turno; prob. actual por `aturdir_base`) + **debuff de rayo** que
+   MULTIPLICA la prob. de aturdir del objetivo (×1.5 aprox).
 3. **Contenido**: quemadura en Chispa/Bola, veneno en slime verde, pegajoso en slimes, buffs/debuffs
    con hechizos (+ frases nuevas).
 
 **Preguntas de diseño abiertas** (resolver al retomar): nº de categorías de veneno y qué las
-distingue; stat que resiste cada estado y fórmula de probabilidad de aplicación; umbral/decay del
-aturdimiento MH; magnitudes/duraciones concretas (PROVISIONALES → Excel).
+distingue; stat que resiste cada estado y fórmula de probabilidad de aplicación; multiplicador
+exacto del debuff de rayo (~×1.5) y su duración; magnitudes/duraciones concretas (PROVISIONALES → Excel).
 
 ### Equipamiento — Fase A: armas + loadout de 2 manos (modelo MH Motion Values) 🔧 A PROBAR
 Plan completo en `~/.claude/plans/daga-espada-corta-espada-cozy-kahan.md`.
