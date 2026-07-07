@@ -504,6 +504,8 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
   las habilidades son jugadas de COMPROMISO (gastas un pico de energía Y esperas turnos), no spam.
   Cooldowns por rol: filler barato (Doble tajo) cd 1; golpes estándar (Ráfaga/Puñalada/Golpe de
   escudo) cd 2; setups/nukes/power (Tajo quebrantador/pesado/desarmante, Guardia rota) cd 3.
+- **Orden del submenú** (combat.gd): habilidades y hechizos se listan por **coste DESCENDENTE**
+  (energía / maná efectivo; las más caras arriba). `sort_custom` sobre una copia de la lista.
 - **Combate** (`combat.gd`): acción **Habilidad** (`_accion_habilidad`/`_usar_habilidad`); cada
   golpe con su esquiva/crítico propios, log per-hit en consola, estados vía `_tirar_efectos_habilidad`
   (prob × resistencia del rival).

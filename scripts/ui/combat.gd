@@ -386,7 +386,10 @@ func _accion_magia() -> void:
 	# Reconstruimos el submenu cada vez (el mana cambia -> disponibilidad).
 	for c in _spell_box.get_children():
 		c.queue_free()
-	for spell in _player.spells:
+	# Ordenados por coste de mana EFECTIVO descendente (los mas caros arriba).
+	var spells_ord: Array = _player.spells.duplicate()
+	spells_ord.sort_custom(func(a, b): return _coste_efectivo(a) > _coste_efectivo(b))
+	for spell in spells_ord:
 		var b := Button.new()
 		var coste: float = _coste_efectivo(spell)
 		b.text = "%s  (%.2f MP · %d frase%s)" % [
@@ -563,7 +566,10 @@ func _accion_habilidad() -> void:
 	for c in _ability_box.get_children():
 		c.queue_free()
 	var manos: int = maxi(1, _player.hands.size())
-	for ab in _player.abilities_combate:
+	# Ordenadas por coste de energia DESCENDENTE (las mas caras arriba).
+	var abils: Array = _player.abilities_combate.duplicate()
+	abils.sort_custom(func(a, b): return a.coste(manos) > b.coste(manos))
+	for ab in abils:
 		var coste: float = ab.coste(manos)
 		var cd_left: int = _player.ability_cd_left(ab)
 		var b := Button.new()
