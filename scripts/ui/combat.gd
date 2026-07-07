@@ -168,6 +168,10 @@ func _ready() -> void:
 
 # Crea la barra de acciones (KAN-55): Atacar / Magia / Defender / Huir, de datos.
 func _crear_acciones() -> void:
+	# Espaciador: baja un pelin los botones de accion para que no queden pegados al log.
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 8)
+	$VBox.add_child(spacer)
 	_actions_box = HBoxContainer.new()
 	$VBox.add_child(_actions_box)
 	var defs := [
@@ -208,6 +212,9 @@ func _setup_ui() -> void:
 	_enemy_hp.max_value = _enemy.max_hp
 	_player_hp.show_percentage = false
 	_enemy_hp.show_percentage = false
+	# El log siempre muestra LOG_MAX lineas (ver _set_log), asi que ocupa un alto FIJO y
+	# los botones no se mueven. clip_text evita que una linea larga se derrame a la dcha.
+	_log.clip_text = true
 	_update_hp()
 	_continue_button.visible = false
 	_ocultar_cajas()
@@ -818,7 +825,13 @@ func _set_log(texto: String) -> void:
 	_log_lines.append(texto)
 	while _log_lines.size() > LOG_MAX:
 		_log_lines.pop_front()
-	_log.text = "\n".join(_log_lines)
+	# Se muestran SIEMPRE LOG_MAX lineas (rellenando con vacias ARRIBA cuando hay menos):
+	# asi el log ocupa un alto FIJO desde el primer frame y los botones de accion NO se
+	# desplazan al ir creciendo el historial. El texto nuevo queda pegado a los botones.
+	var display: Array[String] = _log_lines.duplicate()
+	while display.size() < LOG_MAX:
+		display.insert(0, "")
+	_log.text = "\n".join(display)
 
 
 # Aplica el aturdir a un objetivo y devuelve el texto para el log. Dos niveles (KAN-58):
@@ -877,27 +890,43 @@ func _update_timeline() -> void:
 
 
 # ============================================================
-#  DEV/TEST de estados (KAN-58 Fase 1): panel arriba-dcha para aplicar estados a
-#  mano al enemigo o al jugador y ver el motor funcionando (tick, stacks, stat,
-#  aturdido). Se retirara cuando los estados se enganchen a ataques/hechizos.
+#  DEV/TEST de estados (KAN-58 Fase 1): panel abajo-dcha (cerrable con su toggle)
+#  para aplicar estados a mano al enemigo o al jugador y ver el motor funcionando
+#  (tick, stacks, stat, aturdido). Se retirara cuando esten enganchados a todo.
 # ============================================================
 var _dev_target_enemy: bool = true
+var _estados_panel: PanelContainer = null
 
 func _crear_estados_dev() -> void:
-	var panel := PanelContainer.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	panel.offset_right = -8
-	panel.offset_top = 8
-	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	panel.custom_minimum_size = Vector2(260, 0)
-	add_child(panel)
+	# Boton toggle (abajo-dcha, siempre visible) para cerrar/abrir el panel dev.
+	var toggle := Button.new()
+	toggle.text = "ESTADOS (dev)"
+	toggle.toggle_mode = true
+	toggle.button_pressed = true   # arranca abierto (al fondo ya no tapa el HP de arriba)
+	toggle.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	toggle.offset_right = -8
+	toggle.offset_bottom = -8
+	toggle.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	toggle.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	toggle.toggled.connect(func(on: bool): _estados_panel.visible = on)
+	add_child(toggle)
+
+	# Panel anclado ABAJO-dcha; crece hacia ARRIBA (encima del toggle). No tapa el HP.
+	_estados_panel = PanelContainer.new()
+	_estados_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	_estados_panel.offset_right = -8
+	_estados_panel.offset_bottom = -40   # justo encima del boton toggle
+	_estados_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_estados_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_estados_panel.custom_minimum_size = Vector2(260, 0)
+	add_child(_estados_panel)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 8)
 	margin.add_theme_constant_override("margin_right", 8)
 	margin.add_theme_constant_override("margin_top", 6)
 	margin.add_theme_constant_override("margin_bottom", 6)
-	panel.add_child(margin)
+	_estados_panel.add_child(margin)
 
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 4)
