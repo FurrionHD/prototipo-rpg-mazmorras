@@ -531,7 +531,12 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
       Control sostenido/fiable (le robas turnos de ATB aunque no salte el stun). 26 EN (40 dual), cd 2.
     - **Aplastamiento** (`aplastamiento.tres`, `requiere_escudo`): combo escudo+maza, 2 golpes 1.15×,
       **Aturdido 55% + Vulnerable 60%** + guardia 1 turno. Lockdown del mace&board. 36 EN, cd 3.
-- **Siguiente**: kit de 2 habilidades para el resto (mandoble/hacha grande, martillo grande,
+  - **Espadón / Mandobles** (2 manos: sin dual ni escudo → 2 normales; daño bruto + compromiso):
+    - **Tajo devastador** (`tajo_devastador.tres`): 1 golpe 2.3×, daño puro. El nuke más grande.
+      Todo o nada (lento + cd 3). 36 EN, cd 3.
+    - **Molinete** (`molinete.tres`): giro de 2 tajos 1.2× con **Sangrado** 50%/golpe. Reparte el
+      riesgo en 2 esquivas y deja heridas. 32 EN, cd 2.
+- **Siguiente**: kit de 2 habilidades para el resto (hacha grande, martillo grande,
   hacha de mano, bastón). Enfoque acordado: **arma por arma sobre la marcha**.
 - Visión futura (no ahora): repertorio amplio desbloqueable, equipar/ordenar hasta 4 habilidades.
   "Imbuir veneno" → objeto futuro (viales), no habilidad.

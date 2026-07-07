@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_sang"]
+script = ExtResource("2")
+estado = 1
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+nombre = "Molinete"
+coste_energia = 32.0
+cooldown = 2
+golpes_min = 2
+golpes_max = 2
+dano_mult = 1.2
+efectos = [SubResource("SA_sang")]
+efectos_por_golpe = true
+descripcion = "Un giro amplio del espadón: 2 tajos pesados (1.2x del básico cada uno) con 50% de Sangrado por golpe. Reparte el riesgo en 2 esquivas y deja heridas profundas. 32 EN. Cooldown 2 turnos."

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Tajo devastador"
+coste_energia = 36.0
+cooldown = 3
+golpes_min = 1
+golpes_max = 1
+dano_mult = 2.3
+descripcion = "Un mandoble descendente con toda la masa del espadón (2.3x del básico), el golpe más brutal del arsenal. Todo o nada: lento y con cooldown, si te esquivan lo pagas caro. 36 EN. Cooldown 3 turnos."
