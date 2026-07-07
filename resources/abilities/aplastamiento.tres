@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_stun"]
+script = ExtResource("2")
+estado = 7
+prob = 0.55
+
+[sub_resource type="Resource" id="SA_vuln"]
+script = ExtResource("2")
+estado = 5
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Aplastamiento"
+coste_energia = 36.0
+cooldown = 3
+golpes_min = 2
+golpes_max = 2
+dano_mult = 1.15
+efectos = [SubResource("SA_stun"), SubResource("SA_vuln")]
+efectos_por_golpe = false
+bloqueo_turnos = 1
+requiere_escudo = true
+descripcion = "Técnica de maza + escudo: embestida de escudo y mazazo (2 golpes 1.15x). 55% de Aturdir + 60% de Vulnerable (le rompes la guardia) y te deja en guardia 1 turno. El lockdown del mace & board. Requiere escudo. 36 EN. Cooldown 3 turnos."

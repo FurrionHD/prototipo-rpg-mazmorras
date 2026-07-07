@@ -524,8 +524,13 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
       flojo 3t). Setup defensivo (la corta da Vulnerable ofensivo; la larga, Débil defensivo). 22 EN.
     - **Guardia rota** (`guardia_rota.tres`, `requiere_escudo`): combo escudo+espada, 2 golpes 1.2×,
       **Aturdido** 45% + guardia 1 turno. Remate del sword&board. 28 EN.
-- **Siguiente**: kit de 2 habilidades para el resto (mandoble/hacha grande,
-  maza/martillo, hacha de mano, bastón). Enfoque acordado: **arma por arma sobre la marcha**.
+  - **Maza pequeña** (contundente = control por aturdimiento; 1 normal + 1 con escudo):
+    - **Golpe demoledor** (`golpe_demoledor.tres`): 1 mazazo 1.4× (2 dual) + **Aturdido** 45% por
+      golpe. El control base (menos daño que espada, pero atonta). 28 EN (42 dual), cd 2.
+    - **Aplastamiento** (`aplastamiento.tres`, `requiere_escudo`): combo escudo+maza, 2 golpes 1.15×,
+      **Aturdido 55% + Vulnerable 60%** + guardia 1 turno. Lockdown del mace&board. 36 EN, cd 3.
+- **Siguiente**: kit de 2 habilidades para el resto (mandoble/hacha grande, martillo grande,
+  hacha de mano, bastón). Enfoque acordado: **arma por arma sobre la marcha**.
 - Visión futura (no ahora): repertorio amplio desbloqueable, equipar/ordenar hasta 4 habilidades.
   "Imbuir veneno" → objeto futuro (viales), no habilidad.
 

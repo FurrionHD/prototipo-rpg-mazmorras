@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_stun"]
+script = ExtResource("2")
+estado = 7
+prob = 0.45
+
+[resource]
+script = ExtResource("1")
+nombre = "Golpe demoledor"
+coste_energia = 28.0
+coste_energia_dual = 42.0
+cooldown = 2
+golpes_min = 1
+golpes_max = 1
+golpes_dual_min = 2
+golpes_dual_max = 2
+dano_mult = 1.4
+efectos = [SubResource("SA_stun")]
+efectos_por_golpe = true
+descripcion = "Un mazazo concusivo (1.4x del básico): 45% de Aturdir por golpe. Con dual, 2 golpes (2 tiradas de stun). El control de la maza: menos daño que una espada, pero atonta. 28 EN (42 dual). Cooldown 2 turnos."
