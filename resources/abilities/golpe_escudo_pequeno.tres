@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_stun"]
+script = ExtResource("2")
+estado = 7
+prob = 0.2
+
+[resource]
+script = ExtResource("1")
+nombre = "Golpe de escudo"
+coste_energia = 18.0
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.8
+dano_tipo_override = 1
+efectos = [SubResource("SA_stun")]
+efectos_por_golpe = false
+bloqueo_turnos = 1
+descripcion = "Escudo pequeño: golpe contundente (0.8x), 20% de aturdir y te deja en guardia 1 turno. 18 EN."

@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="ShieldData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/shield_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/abilities/golpe_escudo_normal.tres" id="2"]
 
 [resource]
 script = ExtResource("1")
@@ -9,3 +10,4 @@ tamano = 1
 bloqueo = 0.35
 velocidad_mult = 0.88
 evasion_penal = 0.055
+habilidades = [ExtResource("2")]
