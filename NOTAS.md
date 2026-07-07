@@ -490,7 +490,8 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
   (+ `_dual`), `dano_mult` (× básico por golpe), `efectos` (Array[StatusApplication]) con
   `efectos_por_golpe` (tirada por impacto vs una al final; cada `StatusApplication` admite
   `solo_crit` = solo prende si ese golpe fue crítico), `coste_energia` (+ `_dual`),
-  `bloqueo_turnos` (deja en guardia), `dano_tipo_override` (-1 arma / 0 corte / 1 contundente).
+  `bloqueo_turnos` (deja en guardia), `dano_tipo_override` (-1 arma / 0 corte / 1 contundente),
+  `requiere_escudo` (técnica arma+escudo; `Game` la filtra si `equipped_off` no es un escudo).
 - **Combate** (`combat.gd`): acción **Habilidad** (`_accion_habilidad`/`_usar_habilidad`); cada
   golpe con su esquiva/crítico propios, log per-hit en consola, estados vía `_tirar_efectos_habilidad`
   (prob × resistencia del rival).
@@ -508,7 +509,14 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
       (enemigo recibe más daño 3 turnos). Abridor táctico. 24 EN (36 dual).
     - **Doble tajo** (`doble_tajo.tres`): combo fiable de 2 tajos 0.9× (3 dual), sin estado, barato
       (18 EN / 28 dual). DPS consistente, el "pan de cada día".
-- **Siguiente**: kit de 2 habilidades para el resto (espada larga, mandoble/hacha grande,
+  - **Espada larga** (mandoble de 1 mano, sin dual, hecho para *sword & board*): 2 normales + 1
+    combinada con escudo (a petición del usuario, es el arma que más se combina con escudo):
+    - **Tajo pesado** (`tajo_pesado.tres`): 1 golpe 1.9×, daño puro. El mazazo. 24 EN.
+    - **Tajo desarmante** (`tajo_desarmante.tres`): 1 golpe 1.3× + **Débil** 70% (enemigo pega más
+      flojo 3t). Setup defensivo (la corta da Vulnerable ofensivo; la larga, Débil defensivo). 22 EN.
+    - **Guardia rota** (`guardia_rota.tres`, `requiere_escudo`): combo escudo+espada, 2 golpes 1.2×,
+      **Aturdido** 45% + guardia 1 turno. Remate del sword&board. 28 EN.
+- **Siguiente**: kit de 2 habilidades para el resto (mandoble/hacha grande,
   maza/martillo, hacha de mano, bastón). Enfoque acordado: **arma por arma sobre la marcha**.
 - Visión futura (no ahora): repertorio amplio desbloqueable, equipar/ordenar hasta 4 habilidades.
   "Imbuir veneno" → objeto futuro (viales), no habilidad.

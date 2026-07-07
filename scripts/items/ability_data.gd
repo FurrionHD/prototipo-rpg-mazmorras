@@ -40,6 +40,11 @@ class_name AbilityData
 # Activa la GUARDIA (Defender) durante N turnos tras usarla (golpe de escudo).
 @export var bloqueo_turnos: int = 0
 
+# true -> tecnica de ARMA + ESCUDO: solo aparece en el loadout si llevas un ESCUDO
+# equipado (Game filtra estas si equipped_off no es ShieldData). Ej: la espada larga,
+# que se combina a menudo con escudo, trae "Guardia rota" (bash + tajo + guardia).
+@export var requiere_escudo: bool = false
+
 
 # Nº de impactos (aleatorio dentro del rango; dual usa su rango si lo tiene).
 func num_golpes(manos: int) -> int:

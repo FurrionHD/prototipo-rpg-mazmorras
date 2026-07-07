@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Tajo pesado"
+coste_energia = 24.0
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.9
+descripcion = "Un mandoble descendente con todo el peso de la hoja (1.9x del básico). Daño puro, sin adornos: el mazazo de la espada larga. 24 EN."

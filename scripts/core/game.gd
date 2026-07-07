@@ -382,11 +382,16 @@ func crear_player_combatant() -> Combatant:
 	# Habilidades del loadout (KAN-57): las de la mano principal + las de la
 	# secundaria/escudo (sin duplicar; en dual de la misma arma aparece una vez).
 	var abils: Array = []
+	var tiene_escudo: bool = equipped_off is ShieldData
 	for it in [equipped_main, equipped_off]:
 		if (it is WeaponData or it is ShieldData) and not it.habilidades.is_empty():
 			for ab in it.habilidades:
-				if ab != null and not abils.has(ab):
-					abils.append(ab)
+				if ab == null or abils.has(ab):
+					continue
+				# Tecnicas de arma+escudo: solo si llevas escudo (ej: Guardia rota).
+				if ab.requiere_escudo and not tiene_escudo:
+					continue
+				abils.append(ab)
 	c.abilities_combate = abils
 
 	# Aplicar los modificadores del loadout. Las MANOS (1 o 2) se alternan por
