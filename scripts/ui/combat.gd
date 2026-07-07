@@ -31,10 +31,9 @@ const FLEE_EXHAUSTED_MULT := 0.6
 # por turno lo calcula StatsMath.mp_regen() (escala con la Magia).
 const N_OPCIONES_TEST := 4
 
-# Aturdir/retrasar (armas contundentes). Un golpe contundente que aturde le RESTA
-# barra ATB al objetivo (pierde tempo). El retraso NORMAL es aleatorio dentro de
-# una franja; un golpe CRITICO que ademas aturde es un aturdimiento COMPLETO:
-# le manda la barra a -UMBRAL = pierde el turno entero.
+# Aturdir/retrasar (armas contundentes). Golpe NORMAL que aturde = retraso PARCIAL de
+# barra ATB (stagger, franja de abajo). Golpe CRITICO que aturde = ESTADO Aturdido
+# (pierde su proximo turno, lo gestiona el motor de estados). Ver _aplicar_aturdir.
 const ATB_STUN_MIN := 0.30   # retraso parcial minimo (fraccion de barra)
 const ATB_STUN_MAX := 0.60   # retraso parcial maximo
 
@@ -149,6 +148,12 @@ func _ready() -> void:
 	if _player_exhausted_start:
 		intro += "  (Agotado: tus primeras acciones son mas lentas)"
 	_set_log(intro)
+
+	# Marca de INICIO en consola (para separar combates al montar los Excel).
+	var quien: String = "enemigo" if _enemy_initiated else "jugador"
+	print("[combate] ===== INICIO vs %s (Nv.%d) HP %.2f | %s HP %.2f%s | iniciativa: %s =====" % [
+		_enemy.nombre, _enemy.level, _enemy.max_hp, _player.nombre, _player.max_hp,
+		("" if _player.max_mp <= 0.0 else " MP %.2f" % _player.max_mp), quien])
 
 
 # Crea la barra de acciones (KAN-55): Atacar / Magia / Defender / Huir, de datos.
@@ -635,6 +640,12 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	else:
 		_set_log("Has caido en combate... 💀")
 
+	# Marca de FIN en consola (cierra el bloque del combate para los Excel).
+	var desenlace: String = ("huye %s" % _player.nombre) if fled else \
+		("gana %s" % (_player.nombre if player_won else _enemy.nombre))
+	print("[combate] ===== FIN: %s | %s HP %.2f | %s HP %.2f =====" % [
+		desenlace, _player.nombre, _player.current_hp, _enemy.nombre, _enemy.current_hp])
+
 
 # Log-HISTORIAL: cada evento se apila como una linea nueva y se muestran las
 # ultimas LOG_MAX (antes era una sola linea que se sobrescribia y no daba tiempo a
@@ -651,11 +662,13 @@ func _set_log(texto: String) -> void:
 	_log.text = "\n".join(_log_lines)
 
 
-# Aplica el aturdir a un objetivo (resta barra ATB) y devuelve el texto para el log.
-# es_crit = el golpe fue CRITICO -> aturdimiento COMPLETO (pierde el turno).
+# Aplica el aturdir a un objetivo y devuelve el texto para el log. Dos niveles (KAN-58):
+#  - CRITICO -> aplica el ESTADO Aturdido (pierde su proximo turno, via el motor de
+#    estados; se ve el 💫 en su etiqueta y lo gestiona el tick del turno).
+#  - normal  -> retraso PARCIAL de barra ATB (stagger; pierde tempo, no el turno).
 func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:
 	if es_crit:
-		_gauge[objetivo] = -UMBRAL   # barra a negativo: se salta el turno entero
+		objetivo.apply_status(StatusEffects.Id.ATURDIDO)
 		return "  ¡ATURDIDO! 💫 (pierde el turno)"
 	var f: float = randf_range(ATB_STUN_MIN, ATB_STUN_MAX)
 	# Sin recorte a 0: si la barra ya estaba baja, el retraso debe notarse igual

@@ -208,12 +208,13 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# RESIST. CRITICOS del defensor (armadura pesada) baja el crit del atacante.
 	var crit_p := 0.0 if defending else clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus - defender.crit_resist, 0.0, 1.0)
 	# El aturdir depende de aturdir_base (ya viene promediado del loadout: en dual,
-	# una maza en la secundaria aporta aunque la principal sea de corte).
+	# una maza en la secundaria aporta aunque la principal sea de corte). El debuff de
+	# RAYO del defensor (KAN-58) MULTIPLICA esa probabilidad (x1.5, estilo MH), antes del cap.
 	var aturde_p := 0.0
 	if attacker.aturdir_base > 0.0:
 		var stat := (float(attacker.abilities.fuerza) + float(attacker.abilities.destreza)) * 0.5
-		aturde_p = clampf(attacker.aturdir_base * _ratio_factor(stat, float(defender.abilities.fuerza)),
-			0.0, ATURDIR_MAX)
+		aturde_p = clampf(attacker.aturdir_base * _ratio_factor(stat, float(defender.abilities.fuerza))
+			* defender.stun_taken_mult(), 0.0, ATURDIR_MAX)
 
 	# 1) Esquiva: base − penalizacion de esquiva del defensor (escudo estorba).
 	if randf() < evade_p:

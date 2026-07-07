@@ -294,10 +294,16 @@ Orden acordado: **1) KAN-58 Estados alterados (esto), 2) KAN-57 Habilidades con 
   - Estados ya en el catálogo (magnitudes PROVISIONALES → Excel): Veneno, Sangrado, Quemadura (DoT),
     Lento/pegajoso (merge, −5%/stack, máx 4), Débil (atk×0.8), Vulnerable (def×0.8), Fortaleza
     (atk×1.25), Aturdido (is_stun), Rayo (stun_prob_mult ×1.5).
-- **Pendiente Fase 2** — aturdido como ESTADO enganchado al aturdir de contundentes + debuff de rayo
-  (×1.5). Hoy el estado Aturdido y el aturdir de armas (barra ATB) están SEPARADOS (el estado solo
-  se aplica desde el botón dev). **Pendiente Fase 3** — cablear veneno/quemadura/pegajoso a
-  slimes/hechizos y buffs/debuffs a hechizos.
+- **Fase 2 ✅** — aturdido como ESTADO + debuff de rayo:
+  - `stats_math.resolve_attack`: `aturde_p` se multiplica por `defender.stun_taken_mult()` (Rayo ×1.5,
+    antes del cap `ATURDIR_MAX`).
+  - `combat._aplicar_aturdir` (2 niveles, decisión del usuario): golpe **normal** que aturde =
+    retraso parcial de barra ATB (stagger); golpe **CRÍTICO** que aturde = aplica el **estado Aturdido**
+    (pierde su próximo turno vía el motor). El stun completo queda atado al crítico (depende de Destreza).
+  - Marcas de consola `[combate] ===== INICIO/FIN =====` para delimitar combates al montar Excel.
+  - Verificado: Rayo 18→27 y 40→60 (cap), crítico→Aturdido→pierde turno.
+- **Pendiente Fase 3** — cablear veneno/quemadura/pegajoso a slimes/hechizos y buffs/debuffs a hechizos
+  (con PROBABILIDAD que sube con la longitud del hechizo).
 
 **Motor de estados (propuesta base):** cada `Combatant` lleva estados activos
 `{tipo, turnos_restantes, magnitud/stacks}`. Tick al INICIO del turno del afectado: aplica DoT,
@@ -334,10 +340,9 @@ combatiente (p.ej. `☠2 🔥1 ▼vel×3`).
 0. ✅ Escenario vacío + **botón spawner de enemigos** (base para probar todo lo demás).
 1. ✅ **Motor de estados** en `Combatant` (DoT, stat-mods, stacks, tick, display) + integración en
    `combat.gd`.
-2. ⏭️ **Aturdido como estado** (pierde turno; prob. actual por `aturdir_base`) + **debuff de rayo** que
-   MULTIPLICA la prob. de aturdir del objetivo (×1.5 aprox).
-3. **Contenido**: quemadura en Chispa/Bola, veneno en slime verde, pegajoso en slimes, buffs/debuffs
-   con hechizos (+ frases nuevas).
+2. ✅ **Aturdido como estado** (crítico contundente) + **debuff de rayo** ×1.5 sobre la prob. de aturdir.
+3. ⏭️ **Contenido**: quemadura en Chispa/Bola, rayo en Tormenta, pegajoso en slimes, slime de veneno
+   (tier 1 máx), buff/debuff con hechizos. Efectos de hechizo con PROBABILIDAD que sube con la longitud.
 
 **Preguntas de diseño abiertas** (resolver al retomar): nº de categorías de veneno y qué las
 distingue; stat que resiste cada estado y fórmula de probabilidad de aplicación; multiplicador

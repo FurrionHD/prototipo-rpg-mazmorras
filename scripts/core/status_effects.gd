@@ -86,7 +86,7 @@ static var _defs: Dictionary = {
 		"id": Id.FORTALEZA, "nombre": "Fortaleza", "icono": "💪", "color": Color(0.95, 0.8, 0.2),
 		"turns": 3, "atk_mult": 1.25,
 	},
-	Id.ATURDIDO: {   # pierde el turno (Fase 2 lo enganchara al aturdir de contundentes)
+	Id.ATURDIDO: {   # pierde el turno; lo aplica el aturdir CRITICO de contundentes (Fase 2)
 		"id": Id.ATURDIDO, "nombre": "Aturdido", "icono": "💫", "color": Color(1.0, 0.9, 0.3),
 		"turns": 1, "is_stun": true,
 	},
