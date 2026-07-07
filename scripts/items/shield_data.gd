@@ -18,3 +18,6 @@ enum Tamano { PEQUENO, NORMAL, GRANDE }  # GRANDE = escudos de tanque
 @export var bloqueo: float = 0.25         # aporte GRANDE al Defender (mas que un arma)
 @export var velocidad_mult: float = 0.95  # penaliza algo la velocidad de combate (<1)
 @export var evasion_penal: float = 0.03   # baja la esquiva (grande penaliza mas)
+
+# --- HABILIDADES (KAN-57): las que aporta ESTE escudo (golpe de escudo...) ---
+@export var habilidades: Array = []

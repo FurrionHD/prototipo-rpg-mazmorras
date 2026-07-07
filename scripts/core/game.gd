@@ -379,6 +379,16 @@ func crear_player_combatant() -> Combatant:
 	c.current_mp = clampf(player_current_mp, 0.0, float(c.max_mp))
 	c.spells = equipped_spells
 
+	# Habilidades del loadout (KAN-57): las de la mano principal + las de la
+	# secundaria/escudo (sin duplicar; en dual de la misma arma aparece una vez).
+	var abils: Array = []
+	for it in [equipped_main, equipped_off]:
+		if (it is WeaponData or it is ShieldData) and not it.habilidades.is_empty():
+			for ab in it.habilidades:
+				if ab != null and not abils.has(ab):
+					abils.append(ab)
+	c.abilities_combate = abils
+
 	# Aplicar los modificadores del loadout. Las MANOS (1 o 2) se alternan por
 	# golpe en combate; set_hands activa la primera. El resto son del loadout entero.
 	var m := loadout_mods()
@@ -764,6 +774,12 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 	if pnode != null and pnode.has_method("is_exhausted"):
 		player_exhausted = pnode.is_exhausted()
 
+	# ENERGIA de combate (KAN-57) = la stamina de exploracion con la que ENTRAS. Solo
+	# el jugador la usa (habilidades/Defender gastan, basico regenera). Al salir vuelve.
+	if pnode != null and "current_stamina" in pnode and "max_stamina" in pnode:
+		player_c.max_energy = float(pnode.max_stamina)
+		player_c.current_energy = clampf(float(pnode.current_stamina), 0.0, float(pnode.max_stamina))
+
 	var combat := _combat_scene.instantiate()
 	# PROCESS_MODE_ALWAYS = el combate sigue funcionando aunque el arbol este en pausa.
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -910,11 +926,18 @@ func _tirar_drop(corpse: Node, categoria: int) -> void:
 			" (", drop.calidad_texto(), ")")
 
 
-func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float = -1.0) -> void:
+func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float = -1.0,
+		player_energy_left: float = -1.0) -> void:
 	get_tree().paused = false
 	player_current_hp = player_hp_left
 	if player_mp_left >= 0.0:
 		player_current_mp = player_mp_left  # el mana gastado persiste al salir
+
+	# La energia gastada/regenerada en combate persiste en la STAMINA de exploracion.
+	if player_energy_left >= 0.0:
+		var pnode := get_tree().get_first_node_in_group("player")
+		if pnode != null and "current_stamina" in pnode:
+			pnode.current_stamina = clampf(player_energy_left, 0.0, float(pnode.max_stamina))
 
 	# Si ganaste, el enemigo NO desaparece: queda como cadaver para poder
 	# extraerle el cristal (minijuego, Fase 5).

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_sang"]
+script = ExtResource("2")
+estado = 1
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+nombre = "Rafaga"
+coste_energia = 25.0
+golpes = 1
+por_mano = true
+dano_mult = 0.7
+efectos = [SubResource("SA_sang")]
+descripcion = "Golpea una vez por daga equipada (dual = 2 golpes). Cada golpe: 50% de aplicar 1 stack de Sangrado."

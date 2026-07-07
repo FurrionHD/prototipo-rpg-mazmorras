@@ -37,6 +37,11 @@ const N_OPCIONES_TEST := 4
 const ATB_STUN_MIN := 0.30   # retraso parcial minimo (fraccion de barra)
 const ATB_STUN_MAX := 0.60   # retraso parcial maximo
 
+# Energia de combate (KAN-57): Defender y HABILIDADES gastan; el ataque basico regenera.
+# Asi no puedes turtlear: hay que pegar para poder defender/soltar habilidades. PROVISIONAL.
+const DEFEND_ENERGY_COST := 15.0
+const ATTACK_ENERGY_REGEN := 12.0
+
 @onready var _enemy_name: Label = $VBox/EnemyName
 @onready var _enemy_hp: ProgressBar = $VBox/EnemyHP
 @onready var _player_name: Label = $VBox/PlayerName
@@ -50,9 +55,10 @@ const ATB_STUN_MAX := 0.60   # retraso parcial maximo
 # Sistema de ACCIONES (KAN-55): barra con Atacar / Magia / Defender / Huir. Se
 # genera por codigo (convencion: UI por codigo por ahora) y es de datos, asi
 # futuras acciones (habilidades, objetos) solo añaden una entrada.
-enum Action { ATTACK, MAGIC, DEFEND, FLEE }
+enum Action { ATTACK, HABILIDAD, MAGIC, DEFEND, FLEE }
 var _actions_box: HBoxContainer = null
 var _action_buttons: Dictionary = {}   # Action(int) -> Button
+var _ability_box: VBoxContainer = null   # submenu de habilidades (KAN-57)
 
 # --- Casteo de hechizos (KAN-56) ---
 # Submenu de hechizos (al pulsar Magia) y caja dinamica del recitado/disparo.
@@ -67,8 +73,9 @@ var _cast_index: int = 0
 var _timeline: Control = null
 
 # Se emite al cerrar el combate (lo escucha Game para reanudar la mazmorra).
-# player_mp_left persiste el mana gastado (KAN-56).
-signal combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float)
+# player_mp_left persiste el mana gastado (KAN-56); player_energy_left persiste la
+# energia = stamina de exploracion (KAN-57).
+signal combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float, player_energy_left: float)
 
 var _player: Combatant
 var _enemy: Combatant
@@ -119,6 +126,9 @@ func _ready() -> void:
 		var eab := Abilities.new()
 		eab.fuerza = 80; eab.resistencia = 70; eab.destreza = 30; eab.agilidad = 60; eab.magia = 0
 		_enemy = Combatant.new("Slime", 1, eab, 40, 4, 5, 4)
+		# Energia de prueba (F6): el jugador entra con la barra llena.
+		_player.max_energy = 100.0
+		_player.current_energy = 100.0
 
 	_gauge = {_player: 0.0, _enemy: 0.0}
 	# Iniciativa: quien empezo el combate arranca con media barra.
@@ -162,6 +172,7 @@ func _crear_acciones() -> void:
 	$VBox.add_child(_actions_box)
 	var defs := [
 		[Action.ATTACK, "Atacar"],
+		[Action.HABILIDAD, "Habilidad"],
 		[Action.MAGIC, "Magia"],
 		[Action.DEFEND, "Defender"],
 		[Action.FLEE, "Huir"],
@@ -178,6 +189,9 @@ func _crear_acciones() -> void:
 	$VBox.add_child(_spell_box)
 	_cast_box = VBoxContainer.new()
 	$VBox.add_child(_cast_box)
+	# Submenu de habilidades (KAN-57).
+	_ability_box = VBoxContainer.new()
+	$VBox.add_child(_ability_box)
 	_ocultar_cajas()
 
 
@@ -186,6 +200,7 @@ func _ocultar_cajas() -> void:
 	if _actions_box != null: _actions_box.visible = false
 	if _spell_box != null: _spell_box.visible = false
 	if _cast_box != null: _cast_box.visible = false
+	if _ability_box != null: _ability_box.visible = false
 
 
 func _setup_ui() -> void:
@@ -203,12 +218,15 @@ func _update_hp() -> void:
 	_enemy_hp.value = _enemy.current_hp
 	_enemy_name.text = "%s  (Nv.%d)   %.2f/%.2f%s" % [
 		_enemy.nombre, _enemy.level, _enemy.current_hp, _enemy.max_hp, _estados_txt(_enemy)]
-	# El jugador muestra ademas su MANA si tiene (KAN-56).
+	# El jugador muestra ademas su MANA (KAN-56) y su ENERGIA (KAN-57) si tiene.
 	var mp_txt := ""
 	if _player.max_mp > 0.0:
 		mp_txt = "   MP %.2f/%.2f" % [_player.current_mp, _player.max_mp]
-	_player_name.text = "%s  (Nv.%d)   %.2f/%.2f%s%s" % [
-		_player.nombre, _player.level, _player.current_hp, _player.max_hp, mp_txt, _estados_txt(_player)]
+	var en_txt := ""
+	if _player.max_energy > 0.0:
+		en_txt = "   EN %.1f/%.1f" % [_player.current_energy, _player.max_energy]
+	_player_name.text = "%s  (Nv.%d)   %.2f/%.2f%s%s%s" % [
+		_player.nombre, _player.level, _player.current_hp, _player.max_hp, mp_txt, en_txt, _estados_txt(_player)]
 
 
 # Estados alterados para la etiqueta del combatiente (KAN-58). "" si no tiene.
@@ -301,14 +319,19 @@ func _refresh_actions() -> void:
 		_action_buttons[id].disabled = not _accion_disponible(id)
 	_action_buttons[Action.MAGIC].tooltip_text = (
 		"" if _hay_hechizos() else "No tienes hechizos equipados")
+	_action_buttons[Action.DEFEND].tooltip_text = (
+		"" if _player.has_energy(DEFEND_ENERGY_COST) else "Sin energia (ataca para regenerar)")
+	_action_buttons[Action.HABILIDAD].tooltip_text = (
+		"" if not _player.abilities_combate.is_empty() else "Tu equipo no aporta habilidades")
 
 
 func _accion_disponible(id: int) -> bool:
 	match id:
 		Action.ATTACK: return true
-		Action.DEFEND: return true
+		Action.DEFEND: return _player.has_energy(DEFEND_ENERGY_COST)   # Defender cuesta energia
 		Action.FLEE: return true
 		Action.MAGIC: return _hay_hechizos()
+		Action.HABILIDAD: return not _player.abilities_combate.is_empty()
 	return false
 
 
@@ -333,13 +356,14 @@ func _on_action(id: int) -> void:
 		Action.DEFEND: _accion_defender()
 		Action.FLEE: _accion_huir()
 		Action.MAGIC: _accion_magia()
+		Action.HABILIDAD: _accion_habilidad()
 
 
 # El boton reutilizado (antes "Atacar") cierra la pantalla al terminar el combate.
 func _on_continue_pressed() -> void:
 	if _state != State.FINISHED:
 		return
-	combat_finished.emit(_player_won, _player.current_hp, _player.current_mp)
+	combat_finished.emit(_player_won, _player.current_hp, _player.current_mp, _player.current_energy)
 	# Si lo abrio Game, el cierra la capa; si es prueba (F6), nos cerramos solos.
 	if not _injected:
 		queue_free()
@@ -523,6 +547,76 @@ func _limpiar_casteo() -> void:
 	_cast_index = 0
 
 
+# ============================================================
+#  HABILIDADES (KAN-57): submenu del loadout + resolucion
+# ------------------------------------------------------------
+func _accion_habilidad() -> void:
+	_ocultar_cajas()
+	for c in _ability_box.get_children():
+		c.queue_free()
+	for ab in _player.abilities_combate:
+		var b := Button.new()
+		b.text = "%s  (%.0f EN)" % [ab.nombre, ab.coste_energia]
+		if not _player.has_energy(ab.coste_energia):
+			b.disabled = true
+			b.tooltip_text = "Sin energia suficiente"
+		b.pressed.connect(_usar_habilidad.bind(ab))
+		_ability_box.add_child(b)
+	var volver := Button.new()
+	volver.text = "◄ Volver"
+	volver.pressed.connect(_mostrar_acciones)
+	_ability_box.add_child(volver)
+	_ability_box.visible = true
+	_set_log("Elige una habilidad. (EN = energia)")
+
+
+func _usar_habilidad(ab: AbilityData) -> void:
+	if _state != State.WAITING_PLAYER or not _player.has_energy(ab.coste_energia):
+		return
+	_player.spend_energy(ab.coste_energia)
+	var manos: int = maxi(1, _player.hands.size())
+	var golpes: int = ab.num_golpes(manos)
+	var total: float = 0.0
+	var estados_log: Array = []
+	for i in golpes:
+		var result := StatsMath.resolve_attack(_player, _enemy, false)
+		if not result.evaded:
+			var dmg: float = result.damage * ab.dano_mult
+			_enemy.take_damage(dmg)
+			total += dmg
+			# Efectos de la habilidad, POR IMPACTO (cada uno con su prob y la resist. del rival).
+			for a in ab.efectos:
+				if a.estado < 0:
+					continue
+				if randf() < a.prob * (1.0 - _enemy.status_resist):
+					var mag: float = StatusEffects.app_magnitude(a, _player.atk())
+					_enemy.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
+					estados_log.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
+		_player.advance_hand()   # dual: el siguiente golpe con la otra mano
+		if not _enemy.is_alive():
+			break
+	if ab.bloqueo_turnos > 0:
+		_player_defending = true   # golpe de escudo: te deja en guardia
+	# Excelia: como el ataque, entrena Fuerza (por impacto medio).
+	Game.ganar("fuerza", Game.reto(_poder_enemigo()) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
+		Game.RETO_MAX_FISICO)
+	var msg := "%s usa %s: %.2f de daño (%d golpe%s)." % [
+		_player.nombre, ab.nombre, total, golpes, "" if golpes == 1 else "s"]
+	if not estados_log.is_empty():
+		msg += "  Aplica: %s." % ", ".join(estados_log)
+	if ab.bloqueo_turnos > 0:
+		msg += "  🛡️ En guardia."
+	_set_log(msg)
+	print("[habilidad] %s usa %s | golpes:%d dmg:%.2f | EN -%.1f -> %.1f/%.1f" % [
+		_player.nombre, ab.nombre, golpes, total, ab.coste_energia, _player.current_energy, _player.max_energy])
+	_update_hp()
+	_fin_de_eleccion()
+	if not _enemy.is_alive():
+		_end(true)
+	else:
+		_state = State.ADVANCING
+
+
 func _accion_atacar() -> void:
 	# Los enemigos no defienden (de momento): defending = false.
 	var result := StatsMath.resolve_attack(_player, _enemy, false)
@@ -553,6 +647,8 @@ func _accion_atacar() -> void:
 		for nom in _player.roll_on_hit(_enemy):
 			txt += "  Le infliges %s." % nom
 		_set_log(txt)
+	# El ataque basico REGENERA energia (KAN-57): te "cargas" pegando.
+	_player.regen_energy(ATTACK_ENERGY_REGEN)
 	_update_hp()
 	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
 	_fin_de_eleccion()
@@ -566,8 +662,10 @@ func _accion_atacar() -> void:
 # Accion Defender (KAN-54): mitiga el proximo daño y anula criticos en tu contra
 # hasta tu siguiente turno. Cuesta el turno (no atacas).
 func _accion_defender() -> void:
+	_player.spend_energy(DEFEND_ENERGY_COST)   # Defender consume energia (KAN-57)
 	_player_defending = true
 	_set_log("%s se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)" % _player.nombre)
+	_update_hp()
 	_fin_de_eleccion()
 	_state = State.ADVANCING
 

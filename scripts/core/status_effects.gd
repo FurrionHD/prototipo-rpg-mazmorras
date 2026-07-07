@@ -51,6 +51,17 @@ const SANGRADO_MAX_STACKS := 5
 static func sangrado_magnitude(applier_atk: float) -> float:
 	return applier_atk * SANGRADO_FRACCION_ATK
 
+# Magnitud EFECTIVA de un StatusApplication segun el aplicador. Si trae magnitud fija
+# (>=0) se usa esa; si es Sangrado sin magnitud, escala con el ataque del aplicador;
+# si no, -1 (que apply_status traduce al dot_default del catalogo).
+static func app_magnitude(app, applier_atk: float) -> float:
+	var m: float = float(app.magnitud)
+	if m >= 0.0:
+		return m
+	if int(app.estado) == Id.SANGRADO:
+		return sangrado_magnitude(applier_atk)
+	return -1.0
+
 # Catalogo. Cada entrada trae solo los campos que usa (el resto = neutro por defecto,
 # ver los get(...) del motor). 'turns' = duracion base por defecto; 'dot' = es DoT;
 # 'dot_default' = magnitud por defecto si el aplicador no pasa una (util para dev).

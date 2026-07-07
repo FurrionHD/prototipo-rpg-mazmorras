@@ -60,6 +60,9 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 # + recupera energia con el ataque basico, − la gasta. (Aun sin usar.)
 @export var energia_ataque: float = 0.0
 
+# --- HABILIDADES (KAN-57): las que aporta ESTA arma al loadout (Array[AbilityData]) ---
+@export var habilidades: Array = []
+
 # --- MAGIA (KAN-95): armas de mago (bastón) ---
 # es_magica marca las armas que potencian hechizos. magic_amp MULTIPLICA el daño
 # de los hechizos (1.0 = neutro; bastón alto). mp_regen_bonus SUMA al regen de maná

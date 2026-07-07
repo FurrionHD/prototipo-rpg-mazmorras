@@ -25,6 +25,13 @@ var base_magic: float = 0.0     # base del hechizo (0 = sin magia; enemigos)
 var max_hp: float = 0.0
 var current_hp: float = 0.0
 
+# --- ENERGIA DE COMBATE (KAN-57) ---
+# Es la MISMA stamina/aguante de exploracion: entras al combate con la que tengas y
+# al salir lo que quede vuelve a tu stamina. Solo el JUGADOR la usa (enemigos = 0).
+# Las HABILIDADES y DEFENDER la GASTAN; el ataque basico la REGENERA.
+var max_energy: float = 0.0
+var current_energy: float = 0.0
+
 # --- MAGIA (KAN-56) ---
 # Mana (maximo por Magia; enemigos = 0). current_mp es FLOAT por el regen fino.
 var max_mp: float = 0.0
@@ -32,6 +39,8 @@ var current_mp: float = 0.0
 # Hechizos equipados (Array[SpellData]). Vacio = no lanza magia (enemigos, o el
 # jugador sin hechizos equipados).
 var spells: Array = []
+# Habilidades de combate disponibles (Array[AbilityData]), del loadout (KAN-57).
+var abilities_combate: Array = []
 # Amplificador de daño magico del arma (bastones/varitas, KAN-95). Neutro por defecto.
 var magic_amp: float = 1.0
 # Regen de maná EXTRA por turno que aporta el arma magica (KAN-95).
@@ -119,6 +128,17 @@ func is_alive() -> bool:
 
 func take_damage(amount: float) -> void:
 	current_hp = maxf(0.0, current_hp - amount)
+
+
+# --- Energia de combate (KAN-57) ---
+func spend_energy(amount: float) -> void:
+	current_energy = maxf(0.0, current_energy - amount)
+
+func regen_energy(amount: float) -> void:
+	current_energy = minf(max_energy, current_energy + amount)
+
+func has_energy(amount: float) -> bool:
+	return current_energy >= amount
 
 
 # --- Mana (KAN-56) ---
@@ -327,7 +347,8 @@ func roll_on_hit(target: Combatant) -> Array:
 		var p: float = a.prob * (1.0 - target.status_resist)
 		if randf() >= p:
 			continue
-		target.apply_status(a.estado, a.turns, a.magnitud, 1, false, a.cap)
+		var mag: float = StatusEffects.app_magnitude(a, atk())   # sangrado escala con MI ataque
+		target.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
 		aplicados.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
 	return aplicados
 

@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/abilities/rafaga.tres" id="2"]
 
 [resource]
 script = ExtResource("1")
@@ -16,3 +17,4 @@ evasion_bonus = 0.05
 bloqueo = 0.05
 dano_tipo = 0
 aturdir_base = 0.0
+habilidades = [ExtResource("2")]
