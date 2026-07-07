@@ -481,6 +481,31 @@ Plan en `~/.claude/plans/ya-que-hemos-terminado-imperative-hejlsberg.md`. Cierra
 - Curva verificada: piso 10 con equipo t1 = inviable (mueres antes de matar); con t3 se
   normaliza. Constantes PROVISIONALES → afinar con Excel (hoja piso↔tier pendiente).
 
+### KAN-57 — Habilidades de armas (energía + framework) 🔧 EN CURSO
+Energía de combate = **stamina de exploración**: entras al combate con la que traigas y vuelve
+al salir (`Game.start_combat`/`_on_combat_finished`). El **básico regenera**, **Defender y las
+habilidades gastan** (ver memoria `energia-combate-habilidades`).
+- **`AbilityData`** (`scripts/items/ability_data.gd`, `.tres`): las arma/escudo traen sus
+  `habilidades`; el loadout las junta en `Combatant.abilities_combate`. Campos: `golpes_min/max`
+  (+ `_dual`), `dano_mult` (× básico por golpe), `efectos` (Array[StatusApplication]) con
+  `efectos_por_golpe` (tirada por impacto vs una al final), `coste_energia` (+ `_dual`),
+  `bloqueo_turnos` (deja en guardia), `dano_tipo_override` (-1 arma / 0 corte / 1 contundente).
+- **Combate** (`combat.gd`): acción **Habilidad** (`_accion_habilidad`/`_usar_habilidad`); cada
+  golpe con su esquiva/crítico propios, log per-hit en consola, estados vía `_tirar_efectos_habilidad`
+  (prob × resistencia del rival).
+- **Hechas** (números PROVISIONALES → Excel):
+  - **Daga · Ráfaga** (`resources/abilities/rafaga.tres`): 2 tajos 0.7× (3-4 dual), Sangrado
+    40%/hit. *Spray-and-pray*, riesgo repartido. 25 EN (38 dual).
+  - **Daga · Puñalada certera** (`resources/abilities/punalada.tres`): 1 tajo 1.6× (2 dual) con
+    Sangrado **garantizado** por golpe. *Todo o nada* (si te esquivan, pierdes el golpe entero);
+    se apoya en el crítico alto de la daga. 22 EN (34 dual). Contraste directo con Ráfaga.
+  - **Escudo · Golpe de escudo** ×3 tamaños (`golpe_escudo_*.tres`): 1 golpe contundente 1.0×,
+    stun 30% + guardia 1 turno (v1: coge el daño del arma principal).
+- **Siguiente**: kit de 2 habilidades para el resto (espadas corta/larga, mandoble/hacha grande,
+  maza/martillo, hacha de mano, bastón). Enfoque acordado: **arma por arma sobre la marcha**.
+- Visión futura (no ahora): repertorio amplio desbloqueable, equipar/ordenar hasta 4 habilidades.
+  "Imbuir veneno" → objeto futuro (viales), no habilidad.
+
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
   defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.
