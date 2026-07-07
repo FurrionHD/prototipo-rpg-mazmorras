@@ -524,9 +524,11 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
       flojo 3t). Setup defensivo (la corta da Vulnerable ofensivo; la larga, Débil defensivo). 22 EN.
     - **Guardia rota** (`guardia_rota.tres`, `requiere_escudo`): combo escudo+espada, 2 golpes 1.2×,
       **Aturdido** 45% + guardia 1 turno. Remate del sword&board. 28 EN.
-  - **Maza pequeña** (contundente = control por aturdimiento; 1 normal + 1 con escudo):
+  - **Maza pequeña** (contundente = control; 2 normales + 1 con escudo): dos sabores de control:
     - **Golpe demoledor** (`golpe_demoledor.tres`): 1 mazazo 1.4× (2 dual) + **Aturdido** 45% por
-      golpe. El control base (menos daño que espada, pero atonta). 28 EN (42 dual), cd 2.
+      golpe. Control por azar (stun = pierde turno). 28 EN (42 dual), cd 2.
+    - **Rompepiernas** (`rompepiernas.tres`): 1 golpe 1.25× (2 dual) + **Lento** 80% (−25% vel 3t).
+      Control sostenido/fiable (le robas turnos de ATB aunque no salte el stun). 26 EN (40 dual), cd 2.
     - **Aplastamiento** (`aplastamiento.tres`, `requiere_escudo`): combo escudo+maza, 2 golpes 1.15×,
       **Aturdido 55% + Vulnerable 60%** + guardia 1 turno. Lockdown del mace&board. 36 EN, cd 3.
 - **Siguiente**: kit de 2 habilidades para el resto (mandoble/hacha grande, martillo grande,

@@ -2,7 +2,8 @@
 
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/abilities/golpe_demoledor.tres" id="2"]
-[ext_resource type="Resource" path="res://resources/abilities/aplastamiento.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/abilities/rompepiernas.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/abilities/aplastamiento.tres" id="4"]
 
 [resource]
 script = ExtResource("1")
@@ -17,4 +18,4 @@ crit_bonus = -0.02
 bloqueo = 0.1
 dano_tipo = 1
 aturdir_base = 0.12
-habilidades = [ExtResource("2"), ExtResource("3")]
+habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("4")]

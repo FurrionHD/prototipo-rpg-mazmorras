@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_lento"]
+script = ExtResource("2")
+estado = 3
+prob = 0.8
+
+[resource]
+script = ExtResource("1")
+nombre = "Rompepiernas"
+coste_energia = 26.0
+coste_energia_dual = 40.0
+cooldown = 2
+golpes_min = 1
+golpes_max = 1
+golpes_dual_min = 2
+golpes_dual_max = 2
+dano_mult = 1.25
+efectos = [SubResource("SA_lento")]
+efectos_por_golpe = true
+descripcion = "Un mazazo bajo a las piernas (1.25x del básico): 80% de Lento (−25% velocidad 3 turnos). Control sostenido: aunque el stun no salte, le robas turnos de ATB. Con dual, 2 golpes. 26 EN (40 dual). Cooldown 2 turnos."
