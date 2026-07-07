@@ -899,6 +899,9 @@ func _crear_timeline() -> void:
 	_timeline.anchor_right = 1.0
 	_timeline.offset_top = 320.0
 	_timeline.offset_bottom = 400.0
+	# La barra ATB se dibuja por ENCIMA del VBox; sin esto se traga los clics de los
+	# botones (habilidades/hechizos/Volver) que caen en su franja. Solo dibuja -> IGNORE.
+	_timeline.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_timeline)
 
 
