@@ -536,8 +536,13 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
       Todo o nada (lento + cd 3). 36 EN, cd 3.
     - **Molinete** (`molinete.tres`): giro de 2 tajos 1.2× con **Sangrado** 50%/golpe. Reparte el
       riesgo en 2 esquivas y deja heridas. 32 EN, cd 2.
-- **Siguiente**: kit de 2 habilidades para el resto (hacha grande, martillo grande,
-  hacha de mano, bastón). Enfoque acordado: **arma por arma sobre la marcha**.
+  - **Hacha grande** (2 manos: 2 normales; desgarra-armaduras + hachazo brutal, con combo interno):
+    - **Hendedura** (`hendedura.tres`): 1 golpe 1.6× + **Vulnerable** 80% (raja armadura, recibe más
+      daño 3t). Abridor. 32 EN, cd 2.
+    - **Hachazo brutal** (`hachazo_brutal.tres`): 1 golpe 2.1×, daño puro. Remate tras abrir con
+      Hendedura. 36 EN, cd 3.
+- **Siguiente**: kit de 2 habilidades para el resto (martillo grande, hacha de mano, bastón).
+  Enfoque acordado: **arma por arma sobre la marcha**.
 - Visión futura (no ahora): repertorio amplio desbloqueable, equipar/ordenar hasta 4 habilidades.
   "Imbuir veneno" → objeto futuro (viales), no habilidad.
 
