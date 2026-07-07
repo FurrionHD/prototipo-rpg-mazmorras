@@ -28,3 +28,7 @@ class_name StatusApplication
 # true = SOLO se tira si el golpe fue CRITICO (premio al crit: p.ej. la Punalada de la
 # daga mete un 2o sangrado si critea). Ignorado por enemigos/hechizos (no hay crit ahi).
 @export var solo_crit: bool = false
+# NIVEL para estados de STAT (Vulnerable/Debil/Lento): multiplicador propio que sustituye
+# al del catalogo. 0.0 = usar el del catalogo. Ej: 0.70 = -30% (Vulnerable del hacha),
+# 0.80 = -20% (catalogo). Solo aplica a estados que modifican un stat; ignorado en DoT/stun.
+@export var mult: float = 0.0

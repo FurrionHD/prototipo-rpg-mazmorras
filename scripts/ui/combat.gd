@@ -660,7 +660,7 @@ func _tirar_efectos_habilidad(ab: AbilityData, fue_critico: bool = false) -> Arr
 			continue   # efecto reservado al critico (p.ej. 2o sangrado de la Punalada)
 		if randf() < a.prob * (1.0 - _enemy.status_resist):
 			var mag: float = StatusEffects.app_magnitude(a, _player.atk())
-			_enemy.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
+			_enemy.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
 			out.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
 	return out
 

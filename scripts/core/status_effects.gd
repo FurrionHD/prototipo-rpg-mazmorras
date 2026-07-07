@@ -130,6 +130,10 @@ class Instance extends RefCounted:
 	var turns: int = 0
 	var stacks: int = 1
 	var magnitude: float = 0.0  # daño por turno (DoT); la fija QUIEN lo aplica
+	# NIVEL del estado de stat (Vulnerable/Debil/Lento): multiplicador propio que SUSTITUYE
+	# al del catalogo. 0.0 = usar el del catalogo. Ej: Vulnerable 0.70 = -30% def (el hacha
+	# raja mas que el -20% base). Lo pasa QUIEN lo aplica (StatusApplication.mult).
+	var mult_override: float = 0.0
 
 	func _init(def_: Dictionary, turns_: int, stacks_: int = 1) -> void:
 		d = def_
@@ -153,7 +157,17 @@ class Instance extends RefCounted:
 
 	func _stat_mult(clave: String) -> float:
 		var m: float = float(d.get(clave, 1.0))
+		if mult_override > 0.0 and d.has(clave):   # nivel propio (solo al stat que modifica)
+			m = mult_override
 		return 1.0 + (m - 1.0) * float(stacks)
+
+	# Multiplicador BASE del estado de stat (override o catalogo), SIN contar stacks.
+	# 1.0 si el estado no modifica stats (DoT/stun). Para el label y comparar niveles.
+	func base_stat_mult() -> float:
+		for k in ["atk_mult", "def_mult", "spd_mult"]:
+			if d.has(k):
+				return mult_override if mult_override > 0.0 else float(d.get(k, 1.0))
+		return 1.0
 
 	func is_stun() -> bool:
 		return bool(d.get("is_stun", false))
@@ -171,6 +185,11 @@ class Instance extends RefCounted:
 			if stacks > 1:
 				return "%sx%d(%d)·%dt" % [ic, stacks, dmg, turns]
 			return "%s%d·%dt" % [ic, dmg, turns]
-		if stacks > 1:        # apilable sin DoT (Lento)
+		var bm: float = base_stat_mult()
+		if bm != 1.0:         # estado de stat (Vulnerable/Debil/Lento/Fortaleza): muestra el %
+			var pct: int = roundi((bm - 1.0) * 100.0)   # negativo = debuff, positivo = buff
+			var stk: String = "x%d" % stacks if stacks > 1 else ""
+			return "%s%s%+d%%·%dt" % [ic, stk, pct, turns]
+		if stacks > 1:        # apilable sin stat ni DoT
 			return "%sx%d·%dt" % [ic, stacks, turns]
 		return "%s·%dt" % [ic, turns]

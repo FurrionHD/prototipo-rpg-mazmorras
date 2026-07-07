@@ -492,7 +492,11 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
   `solo_crit` = solo prende si ese golpe fue crítico), `coste_energia` (+ `_dual`),
   `bloqueo_turnos` (deja en guardia), `dano_tipo_override` (-1 arma / 0 corte / 1 contundente),
   `requiere_escudo` (técnica arma+escudo; `Game` la filtra si `equipped_off` no es un escudo),
-  `cooldown` (turnos a esperar para reusarla; 0 = sin cooldown).
+  `cooldown` (turnos a esperar para reusarla; 0 = sin cooldown). Cada `StatusApplication` admite
+  además `mult` = **NIVEL** de un estado de stat (Vulnerable/Débil/Lento): multiplicador propio
+  que sustituye al del catálogo (0 = catálogo). Ej: Hendedura del hacha usa `mult=0.70` = −30% def
+  (vs −20% base). Vive en `Instance.mult_override`; al reaplicar se queda con el nivel más fuerte;
+  la etiqueta del enemigo muestra el % real (`🔻-30%·3t`).
 - **Cooldowns** (KAN-57): estado POR COMBATE en `Combatant.ability_cooldowns` (dict AbilityData→turnos).
   `start_cooldown` al usar, `tick_cooldowns` al inicio de cada turno (en `_begin_player_turn`),
   `ability_ready`/`ability_cd_left` para el botón (deshabilitado + "⏳N" mientras cuece). Un
@@ -537,8 +541,8 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
     - **Molinete** (`molinete.tres`): giro de 2 tajos 1.2× con **Sangrado** 50%/golpe. Reparte el
       riesgo en 2 esquivas y deja heridas. 32 EN, cd 2.
   - **Hacha grande** (2 manos: 2 normales; desgarra-armaduras + hachazo brutal, con combo interno):
-    - **Hendedura** (`hendedura.tres`): 1 golpe 1.6× + **Vulnerable** 80% (raja armadura, recibe más
-      daño 3t). Abridor. 32 EN, cd 2.
+    - **Hendedura** (`hendedura.tres`): 1 golpe 1.6× + **Vulnerable REFORZADO** 80% (**−30% def**,
+      vs −20% normal; `StatusApplication.mult=0.70`). Abridor que raja de verdad. 32 EN, cd 2.
     - **Hachazo brutal** (`hachazo_brutal.tres`): 1 golpe 2.1×, daño puro. Remate tras abrir con
       Hendedura. 36 EN, cd 3.
   - **Martillo grande** (contundente 2 manos, el más lento y aturdidor: daño demoledor + CC pesado):

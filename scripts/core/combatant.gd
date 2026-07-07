@@ -217,7 +217,8 @@ func current_hand_name() -> String:
 # stack_cap (>=0) = tope de stacks que ESTA aplicacion puede alcanzar (habilidades/
 # enemigos flojos capan a nivel bajo; ataques especiales, mas alto). -1 = tope del def.
 func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
-		stacks_add: int = 1, refresh_all: bool = false, stack_cap: int = -1) -> void:
+		stacks_add: int = 1, refresh_all: bool = false, stack_cap: int = -1,
+		mult_override: float = 0.0) -> void:
 	var d: Dictionary = StatusEffects.def(id)
 	if d.is_empty():
 		return
@@ -249,6 +250,7 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 			return
 		var ni := StatusEffects.Instance.new(d, turns, 1)
 		ni.magnitude = magnitude
+		ni.mult_override = mult_override
 		statuses.append(ni)
 		print("[estado] %s recibe %s: +1 stack (%.2f/turno c/u, %d turnos) -> %d stacks" % [
 			nombre, nombre_estado, magnitude, turns, _count_status(id)])
@@ -259,6 +261,9 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		if e.id() == id:
 			e.turns = turns   # resetea la duracion
 			e.magnitude = maxf(e.magnitude, magnitude)   # sube al mas fuerte
+			# Nivel de stat: se queda con el MAS FUERTE (mas lejos de 1.0).
+			if mult_override > 0.0 and absf(mult_override - 1.0) > absf(e.base_stat_mult() - 1.0):
+				e.mult_override = mult_override
 			if mode == "merge":
 				e.stacks = mini(e.stacks + stacks_add, maxs)
 			print("[estado] %s: %s re-aplicado (x%d, %.2f/turno, %d turnos)" % [
@@ -266,6 +271,7 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 			return
 	var inst := StatusEffects.Instance.new(d, turns, mini(stacks_add, maxs) if mode == "merge" else 1)
 	inst.magnitude = magnitude
+	inst.mult_override = mult_override
 	statuses.append(inst)
 	print("[estado] %s recibe %s (x%d, %.2f/turno, %d turnos)" % [
 		nombre, nombre_estado, inst.stacks, inst.dot_damage(), turns])
