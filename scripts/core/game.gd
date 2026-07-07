@@ -662,6 +662,9 @@ func _input(event: InputEvent) -> void:
 		KEY_R:
 			print("[dev] Respawn: recargando la mazmorra")
 			get_tree().reload_current_scene()
+		KEY_T:
+			print("[dev] Arena de pruebas (sandbox): escenario vacio + spawner")
+			get_tree().change_scene_to_file("res://scenes/levels/sandbox.tscn")
 		KEY_K:
 			_dev_cycle_weapon()
 		KEY_L:

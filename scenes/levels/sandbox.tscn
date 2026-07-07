@@ -1,0 +1,61 @@
+[gd_scene format=3 uid="uid://b3cucc2ofeiwt"]
+
+[ext_resource type="PackedScene" uid="uid://bgndhyu01suwv" path="res://scenes/actors/player/player.tscn" id="1_72ix8"]
+[ext_resource type="PackedScene" uid="uid://bd26b4wbnosli" path="res://scenes/levels/wall.tscn" id="2_2vj2h"]
+[ext_resource type="Script" uid="uid://06pqjtcbudsx" path="res://scripts/town/door.gd" id="3_door"]
+
+[node name="Sandbox" type="Node2D"]
+
+[node name="Player" parent="." instance=ExtResource("1_72ix8")]
+position = Vector2(340, 230)
+
+[node name="Walls" type="Node2D" parent="."]
+
+[node name="WallTop" parent="Walls" instance=ExtResource("2_2vj2h")]
+position = Vector2(340, 100)
+scale = Vector2(14, 1)
+
+[node name="WallBottom" parent="Walls" instance=ExtResource("2_2vj2h")]
+position = Vector2(340, 360)
+scale = Vector2(14, 1)
+
+[node name="WallLeft" parent="Walls" instance=ExtResource("2_2vj2h")]
+position = Vector2(120, 230)
+scale = Vector2(1, 9)
+
+[node name="WallRight" parent="Walls" instance=ExtResource("2_2vj2h")]
+position = Vector2(560, 230)
+scale = Vector2(1, 9)
+
+[node name="Titulo" type="Label" parent="."]
+offset_left = 140.0
+offset_top = 110.0
+offset_right = 540.0
+offset_bottom = 130.0
+text = "ARENA DE PRUEBAS — usa el SPAWNER (arriba dcha.) para colocar enemigos"
+horizontal_alignment = 1
+
+[node name="DoorTown" type="Node2D" parent="."]
+position = Vector2(340, 330)
+script = ExtResource("3_door")
+
+[node name="Sprite" type="ColorRect" parent="DoorTown"]
+offset_left = -15.0
+offset_top = -20.0
+offset_right = 15.0
+offset_bottom = 20.0
+color = Color(0.5, 0.2, 0.1, 1)
+
+[node name="Label" type="Label" parent="DoorTown/Sprite"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -8.0
+offset_right = 20.0
+offset_bottom = 8.0
+text = "← PUEBLO
+[F]"
+horizontal_alignment = 1
+vertical_alignment = 1

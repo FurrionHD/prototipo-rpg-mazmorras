@@ -221,6 +221,17 @@ func _player_exhausted() -> bool:
 		and _player.is_exhausted()
 
 
+# Recoloca el bicho y fija AHI su "hogar" (el punto al que deambula/regresa). Lo
+# usa el spawner de dev: _ready ya fijo _home en la posicion vieja, asi que hay
+# que re-hogarlo tras moverlo (si no, intenta volver a (0,0) y cruza las paredes).
+func recolocar(pos: Vector2) -> void:
+	global_position = pos
+	_home = pos
+	_state = State.WANDER
+	_stuck_time = 0.0
+	_pick_wander_target()
+
+
 # Lo llama el JUGADOR cuando te ataca de cerca: combate con su iniciativa.
 func atacado_por_jugador() -> void:
 	if _dead:
