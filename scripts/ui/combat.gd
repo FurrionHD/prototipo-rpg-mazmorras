@@ -554,10 +554,12 @@ func _accion_habilidad() -> void:
 	_ocultar_cajas()
 	for c in _ability_box.get_children():
 		c.queue_free()
+	var manos: int = maxi(1, _player.hands.size())
 	for ab in _player.abilities_combate:
+		var coste: float = ab.coste(manos)
 		var b := Button.new()
-		b.text = "%s  (%.0f EN)" % [ab.nombre, ab.coste_energia]
-		if not _player.has_energy(ab.coste_energia):
+		b.text = "%s  (%.0f EN)" % [ab.nombre, coste]
+		if not _player.has_energy(coste):
 			b.disabled = true
 			b.tooltip_text = "Sin energia suficiente"
 		b.pressed.connect(_usar_habilidad.bind(ab))
@@ -571,35 +573,50 @@ func _accion_habilidad() -> void:
 
 
 func _usar_habilidad(ab: AbilityData) -> void:
-	if _state != State.WAITING_PLAYER or not _player.has_energy(ab.coste_energia):
-		return
-	_player.spend_energy(ab.coste_energia)
 	var manos: int = maxi(1, _player.hands.size())
+	var coste: float = ab.coste(manos)
+	if _state != State.WAITING_PLAYER or not _player.has_energy(coste):
+		return
+	_player.spend_energy(coste)
 	var golpes: int = ab.num_golpes(manos)
+	# Cabecera en consola; debajo, cada golpe indentado (crit/esquivado/daño + estados).
+	print("[habilidad] %s usa %s  (%s, %.0f EN)" % [
+		_player.nombre, ab.nombre, ("dual" if manos >= 2 else "1 mano"), coste])
+	# GOLPES de daño (rango aleatorio; cada tajo con su ESQUIVA y CRITICO propios). Si
+	# efectos_por_golpe, cada tajo que acierta tira los efectos (sangrado 40%/hit).
 	var total: float = 0.0
+	var conecto: int = 0
 	var estados_log: Array = []
 	for i in golpes:
 		var result := StatsMath.resolve_attack(_player, _enemy, false)
-		if not result.evaded:
+		var linea := ""
+		if result.evaded:
+			linea = "golpe %d: esquivado 💨" % [i + 1]
+		else:
 			var dmg: float = result.damage * ab.dano_mult
-			_enemy.take_damage(dmg)
 			total += dmg
-			# Efectos de la habilidad, POR IMPACTO (cada uno con su prob y la resist. del rival).
-			for a in ab.efectos:
-				if a.estado < 0:
-					continue
-				if randf() < a.prob * (1.0 - _enemy.status_resist):
-					var mag: float = StatusEffects.app_magnitude(a, _player.atk())
-					_enemy.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
-					estados_log.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
+			_enemy.take_damage(dmg)
+			conecto += 1
+			linea = "golpe %d: %s %.2f" % [i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
+			if ab.efectos_por_golpe and _enemy.is_alive():
+				var ap: Array = _tirar_efectos_habilidad(ab)
+				estados_log += ap
+				if not ap.is_empty():
+					linea += "  -> " + ", ".join(ap)
+		print("        " + linea)
 		_player.advance_hand()   # dual: el siguiente golpe con la otra mano
 		if not _enemy.is_alive():
 			break
+	# Efectos NO por golpe: UNA tirada al final si conecto algo (golpe de escudo -> stun).
+	if not ab.efectos_por_golpe and conecto > 0 and _enemy.is_alive():
+		estados_log += _tirar_efectos_habilidad(ab)
 	if ab.bloqueo_turnos > 0:
 		_player_defending = true   # golpe de escudo: te deja en guardia
 	# Excelia: como el ataque, entrena Fuerza (por impacto medio).
 	Game.ganar("fuerza", Game.reto(_poder_enemigo()) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
 		Game.RETO_MAX_FISICO)
+	print("        total: %.2f de daño en %d golpe%s | EN -%.0f -> %.1f/%.1f" % [
+		total, golpes, "" if golpes == 1 else "s", coste, _player.current_energy, _player.max_energy])
 	var msg := "%s usa %s: %.2f de daño (%d golpe%s)." % [
 		_player.nombre, ab.nombre, total, golpes, "" if golpes == 1 else "s"]
 	if not estados_log.is_empty():
@@ -607,14 +624,26 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	if ab.bloqueo_turnos > 0:
 		msg += "  🛡️ En guardia."
 	_set_log(msg)
-	print("[habilidad] %s usa %s | golpes:%d dmg:%.2f | EN -%.1f -> %.1f/%.1f" % [
-		_player.nombre, ab.nombre, golpes, total, ab.coste_energia, _player.current_energy, _player.max_energy])
 	_update_hp()
 	_fin_de_eleccion()
 	if not _enemy.is_alive():
 		_end(true)
 	else:
 		_state = State.ADVANCING
+
+
+# Tira los efectos de una habilidad sobre el enemigo (cada uno con su prob y la
+# resistencia a estados del rival). Devuelve los NOMBRES de los que prenden.
+func _tirar_efectos_habilidad(ab: AbilityData) -> Array:
+	var out: Array = []
+	for a in ab.efectos:
+		if a.estado < 0:
+			continue
+		if randf() < a.prob * (1.0 - _enemy.status_resist):
+			var mag: float = StatusEffects.app_magnitude(a, _player.atk())
+			_enemy.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
+			out.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
+	return out
 
 
 func _accion_atacar() -> void:
