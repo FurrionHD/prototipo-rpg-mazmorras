@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_stun"]
+script = ExtResource("2")
+estado = 7
+prob = 0.5
+
+[sub_resource type="Resource" id="SA_lento"]
+script = ExtResource("2")
+estado = 3
+prob = 0.7
+
+[resource]
+script = ExtResource("1")
+nombre = "Onda expansiva"
+coste_energia = 32.0
+cooldown = 2
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.3
+efectos = [SubResource("SA_stun"), SubResource("SA_lento")]
+efectos_por_golpe = false
+descripcion = "Un martillazo al suelo que sacude al enemigo (1.3x del básico): 50% de Aturdir + 70% de Lento (−25% vel 3t). Concusión: primero le quita el turno, luego lo deja lento. Control más frecuente. 32 EN. Cooldown 2 turnos."

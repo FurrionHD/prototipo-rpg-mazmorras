@@ -541,7 +541,12 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
       daño 3t). Abridor. 32 EN, cd 2.
     - **Hachazo brutal** (`hachazo_brutal.tres`): 1 golpe 2.1×, daño puro. Remate tras abrir con
       Hendedura. 36 EN, cd 3.
-- **Siguiente**: kit de 2 habilidades para el resto (martillo grande, hacha de mano, bastón).
+  - **Martillo grande** (contundente 2 manos, el más lento y aturdidor: daño demoledor + CC pesado):
+    - **Golpe sísmico** (`golpe_sismico.tres`): 1 golpe 2.0× + **Aturdido** 55%. Firma: pega como
+      espadón y atonta. 38 EN, cd 3.
+    - **Onda expansiva** (`onda_expansiva.tres`): 1 golpe 1.3× + **Aturdido 50% + Lento 70%**.
+      Concusión (quita turno y luego ralentiza); control más frecuente. 32 EN, cd 2.
+- **Siguiente**: kit de 2 habilidades para el resto (hacha de mano, bastón).
   Enfoque acordado: **arma por arma sobre la marcha**.
 - Visión futura (no ahora): repertorio amplio desbloqueable, equipar/ordenar hasta 4 habilidades.
   "Imbuir veneno" → objeto futuro (viales), no habilidad.

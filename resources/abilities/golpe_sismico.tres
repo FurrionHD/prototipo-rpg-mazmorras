@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_stun"]
+script = ExtResource("2")
+estado = 7
+prob = 0.55
+
+[resource]
+script = ExtResource("1")
+nombre = "Golpe sísmico"
+coste_energia = 38.0
+cooldown = 3
+golpes_min = 1
+golpes_max = 1
+dano_mult = 2.0
+efectos = [SubResource("SA_stun")]
+efectos_por_golpe = false
+descripcion = "Un mazazo colosal con toda la masa del martillo (2.0x del básico): 55% de Aturdir. La firma del martillo: pega como un espadón y encima atonta. 38 EN. Cooldown 3 turnos."
