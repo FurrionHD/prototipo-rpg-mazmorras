@@ -319,6 +319,8 @@ var _dev_spells: Array[String] = [
 	"res://resources/spells/chispa.tres",
 	"res://resources/spells/bola_fuego.tres",
 	"res://resources/spells/tormenta.tres",
+	"res://resources/spells/fortaleza.tres",
+	"res://resources/spells/debilidad.tres",
 ]
 
 func tiene_hechizos() -> bool:
@@ -391,6 +393,7 @@ func crear_player_combatant() -> Combatant:
 	c.armor_reduction = am["reduction"]
 	c.velocidad_mult = float(m["velocidad_mult"]) * float(am["velocidad_mult"])
 	c.crit_resist = float(am["crit_resist"])
+	c.status_resist = float(am["resist_estados"])  # resist. a estados (mejora Resistencia, KAN-58)
 	# La esquiva de armadura BAJA el evasion_penal (negativo = bonus de esquiva).
 	c.evasion_penal = float(m["evasion_penal"]) - float(am["evasion_bonus"])
 	# Magia del equipo (KAN-95): amplificador, regen extra, eficiencia y velocidad de
@@ -534,6 +537,7 @@ func armor_mods() -> Dictionary:
 	var vel_delta := 0.0     # suma ponderada de (velocidad_mult - 1)
 	var evasion := 0.0       # esquiva de armadura (mejora Evasion, ligeras/medias)
 	var crit_resist := 0.0   # resist. criticos (mejora ResistCrit, pesadas)
+	var resist_estados := 0.0  # resist. a estados alterados (mejora Resistencia, KAN-58)
 	var slots := [
 		[equipped_casco, COBERTURA_CASCO, "casco"],
 		[equipped_pecho, COBERTURA_PECHO, "pecho"],
@@ -556,11 +560,13 @@ func armor_mods() -> Dictionary:
 		vel_delta += cob * (float(pm["vel_mult"]) - 1.0)     # velocidad ponderada
 		evasion += float(pm["evasion"])
 		crit_resist += float(pm["crit_resist"])
+		resist_estados += float(pm["resist_estados"])
 	reduction = clampf(reduction, 0.0, StatsMath.ARMOR_REDUCTION_MAX)
 	evasion = clampf(evasion, 0.0, Upgrades.EVASION_CAP)
 	crit_resist = clampf(crit_resist, 0.0, Upgrades.RESIST_CRIT_CAP)
+	resist_estados = clampf(resist_estados, 0.0, Upgrades.RESISTENCIA_CAP)
 	return {"def_bonus": def_bonus, "reduction": reduction, "velocidad_mult": 1.0 + vel_delta,
-		"evasion_bonus": evasion, "crit_resist": crit_resist}
+		"evasion_bonus": evasion, "crit_resist": crit_resist, "resist_estados": resist_estados}
 
 
 # Multiplicador de velocidad de la armadura (para el movimiento en mapa; en combate

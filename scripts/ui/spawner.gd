@@ -15,6 +15,8 @@ extends CanvasLayer
 # escena enemy.tscn; solo cambia el .tres de datos. Ampliar cuando haya mas bichos.
 const ENEMY_TYPES := [
 	["Slime", "res://scenes/actors/enemy/slime.tres"],
+	["Slime venenoso", "res://scenes/actors/enemy/slime_veneno.tres"],
+	["Slime de fuego", "res://scenes/actors/enemy/slime_fuego.tres"],
 ]
 
 var _enemy_scene: PackedScene = preload("res://scenes/actors/enemy/enemy.tscn")

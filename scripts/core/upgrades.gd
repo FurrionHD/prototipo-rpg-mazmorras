@@ -12,7 +12,7 @@
 #     DECRECIENTE (dim_sum). En un arma, por tanto, CADA mejora sube el daño raw.
 #   - Categorias DISTINTAS por tipo, con GATING por clase de armadura. Las que
 #     dependen de sistemas que aun no existen quedan RESERVADAS (efecto 0):
-#     Durabilidad (mantenimiento) y Resistencia a estados.
+#     Durabilidad (mantenimiento). La Resistencia a estados ya esta ACTIVA (KAN-58).
 # ============================================================
 
 extends RefCounted
@@ -43,7 +43,7 @@ const REGENERACION := "regeneracion"    # +% sobre el regen de maná del arma
 const DUREZA := "dureza"
 const EVASION := "evasion"
 const RESIST_CRIT := "resist_crit"
-const RESISTENCIA := "resistencia"    # RESERVADA (estados alterados)
+const RESISTENCIA := "resistencia"    # -prob. de estados alterados (KAN-58, activa)
 # Generica (arma y armadura):
 const DURABILIDAD := "durabilidad"    # RESERVADA (mantenimiento)
 
@@ -52,7 +52,7 @@ const CAT_NOMBRE := {
 	"agudeza": "Agudeza", "precision": "Precision", "peso": "Peso", "rapidez": "Rapidez",
 	"potencia": "Potencia", "eficiencia": "Eficiencia", "celeridad": "Celeridad", "regeneracion": "Regeneracion",
 	"dureza": "Dureza", "evasion": "Evasion", "resist_crit": "Resist. criticos",
-	"resistencia": "Resistencia (reservada)", "durabilidad": "Durabilidad (reservada)",
+	"resistencia": "Resistencia (estados)", "durabilidad": "Durabilidad (reservada)",
 }
 
 # --- Steps de cada categoria (extra DECRECIENTE por punto) ---
@@ -67,6 +67,8 @@ const EVASION_STEP := 0.02        # +esquiva (ligeras/medias)
 const EVASION_CAP := 0.20         # tope del bonus de esquiva de armadura
 const RESIST_CRIT_STEP := 0.02    # -crit rival (pesadas)
 const RESIST_CRIT_CAP := 0.25     # tope de resistencia a criticos
+const RESISTENCIA_STEP := 0.03    # -prob. de que te apliquen un estado alterado (KAN-58)
+const RESISTENCIA_CAP := 0.50     # tope de resistencia a estados (por armadura, sumando piezas)
 # Armas MAGICAS (KAN-95). Todos PROVISIONALES -> Excel.
 const MAGIC_AMP_FLAT := 0.02      # +magic_amp por CADA mejora (primario del arma magica)
 const POTENCIA_STEP := 0.05       # +magic_amp de la categoria Potencia (extra, decreciente)
@@ -148,7 +150,7 @@ static func armor_categories(a: ArmorData) -> Array:
 			cats.append(EVASION)
 		else:
 			cats.append(RESIST_CRIT)
-	cats.append(RESISTENCIA)   # reservada
+	cats.append(RESISTENCIA)   # resist. estados (activa, KAN-58)
 	cats.append(DURABILIDAD)   # reservada
 	return cats
 
@@ -217,10 +219,13 @@ static func armor_piece_mods(a: ArmorData, tmult: float, rareza: int, mejoras: D
 		evasion = dim_sum(EVASION_STEP, _count(mejoras, EVASION))
 	else:
 		crit_resist = dim_sum(RESIST_CRIT_STEP, _count(mejoras, RESIST_CRIT))
+	# Resistencia a ESTADOS alterados (KAN-58): disponible en TODA armadura.
+	var resist_estados := dim_sum(RESISTENCIA_STEP, _count(mejoras, RESISTENCIA))
 	return {
 		"def": deff,
 		"reduccion": a.reduccion,
 		"vel_mult": a.velocidad_mult,
 		"evasion": evasion,
 		"crit_resist": crit_resist,
+		"resist_estados": resist_estados,
 	}

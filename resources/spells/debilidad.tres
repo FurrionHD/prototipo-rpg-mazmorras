@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_debil"]
+script = ExtResource("2")
+estado = 4
+prob = 0.4
+en_objetivo = true
+
+[resource]
+script = ExtResource("1")
+nombre = "Debilidad"
+tipo = 2
+frases = Array[String](["Languidez, quiebra su fuerza", "Flaqueza, muerde sus huesos"])
+coste_mana = 7
+dano_base = 0.0
+efectos = [SubResource("SA_debil")]
+descripcion = "Debuff: baja el ataque del enemigo. Probabilidad segun la longitud (aqui 2 frases = 80%)."

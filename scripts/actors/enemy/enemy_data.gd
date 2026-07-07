@@ -64,6 +64,11 @@ class_name EnemyData
 @export var drop_name: String = "Material de Slime"
 @export var drop_chance: float = 0.02   # 2% normal (en pruebas se fuerza 100%)
 
+# --- ESTADOS ALTERADOS que aplica AL GOLPEAR (KAN-58 Fase 3) ---
+# Lista de StatusApplication (cada una con su prob). Un enemigo puede aplicar VARIOS:
+# p.ej. el slime venenoso mete Pegajoso Y Veneno. Ver status_application.gd.
+@export var al_golpear: Array = []
+
 
 # Suma total de los PESOS (para normalizar la distribucion).
 func peso_total() -> float:
@@ -119,11 +124,14 @@ func suma_habilidades(t: float) -> int:
 # defensa base escala mas suave (raiz) y la velocidad NO (ATB justo).
 func crear_combatant(t: float = 0.5) -> Combatant:
 	var fstat: float = Game.enemy_floor_stat_factor()
-	return Combatant.new(enemy_name, level, crear_abilities(t),
+	var c := Combatant.new(enemy_name, level, crear_abilities(t),
 		Game.enemy_base_hp * base_hp_mult * fstat,
 		Game.enemy_base_attack * base_attack_mult * fstat,
 		Game.enemy_base_defense * base_defense_mult * sqrt(fstat),
 		Game.enemy_base_speed * base_speed_mult)
+	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
+	c.on_hit = al_golpear
+	return c
 
 
 # Tira la CATEGORIA del cristal PONDERADA por "t" (0..1 = poder del bicho).

@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://8o4mu6dxwacj"]
+[gd_resource type="Resource" script_class="EnemyData" format=3]
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
@@ -8,7 +8,16 @@ script = ExtResource("2_sa")
 estado = 9
 prob = 0.5
 
+[sub_resource type="Resource" id="SA_ven"]
+script = ExtResource("2_sa")
+estado = 0
+prob = 0.35
+cap = 1
+
 [resource]
 script = ExtResource("1_g8nro")
-al_golpear = [SubResource("SA_peg")]
+enemy_name = "Slime venenoso"
+color = Color(0.29, 0.78, 0.33, 1)
+drop_name = "Material de Slime venenoso"
+al_golpear = [SubResource("SA_peg"), SubResource("SA_ven")]
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

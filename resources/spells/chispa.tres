@@ -1,6 +1,13 @@
 [gd_resource type="Resource" script_class="SpellData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_quema"]
+script = ExtResource("2")
+estado = 2
+prob = 0.5
+magnitud = 4.0
 
 [resource]
 script = ExtResource("1")
@@ -9,4 +16,5 @@ tipo = 0
 frases = Array[String](["Ignis, arde en mi mano"])
 coste_mana = 4
 dano_base = 13.0
-descripcion = "Hechizo corto de fuego. Una sola frase: rapido pero poco potente."
+efectos = [SubResource("SA_quema")]
+descripcion = "Hechizo corto de fuego. Una sola frase: rapido pero poco potente. Puede quemar."

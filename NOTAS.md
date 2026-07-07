@@ -302,8 +302,20 @@ Orden acordado: **1) KAN-58 Estados alterados (esto), 2) KAN-57 Habilidades con 
     (pierde su próximo turno vía el motor). El stun completo queda atado al crítico (depende de Destreza).
   - Marcas de consola `[combate] ===== INICIO/FIN =====` para delimitar combates al montar Excel.
   - Verificado: Rayo 18→27 y 40→60 (cap), crítico→Aturdido→pierde turno.
-- **Pendiente Fase 3** — cablear veneno/quemadura/pegajoso a slimes/hechizos y buffs/debuffs a hechizos
-  (con PROBABILIDAD que sube con la longitud del hechizo).
+- **Fase 3 ✅** — CONTENIDO (estados cableados a fuentes) + resistencia:
+  - Sistema genérico `StatusApplication` ([status_application.gd](scripts/items/status_application.gd)): lista de
+    efectos por fuente. `EnemyData.al_golpear` (al golpear) y `SpellData.efectos` (al lanzar). Una fuente
+    aplica VARIOS. Prob de hechizo = base × longitud (más largo = más fiable); buffs a uno mismo = siempre.
+  - **Slimes**: normal → Pegajoso 50%; **venenoso** (verde, nuevo) → Pegajoso 50% + Veneno 35% (tier 1, cap 1);
+    **de fuego** (naranja, nuevo) → Pegajoso 50% + Quemadura 35%. Los 3 en el spawner.
+  - **Hechizos**: Chispa/Bola → Quemadura (50%/70%); Tormenta → Rayo 90% + Aturdido 30%; **Fortaleza** (buff
+    atk×1.25 a uno mismo) y **Debilidad** (debuff atk al enemigo 80%) NUEVOS. Frases nuevas en SpellBook.
+  - **Lento vs Pegajoso SEPARADOS**: Lento 🐌 = ralentización FIJA −25% (no apila, hechizo/habilidad);
+    Pegajoso 🕸 = apilable independiente −5%/stack hasta 4 (slimes).
+  - **Resistencia de armadura** (mejora `RESISTENCIA`, antes reservada, ahora activa): baja la PROBABILIDAD
+    de que te apliquen un estado (`prob × (1−status_resist)`). `RESISTENCIA_STEP 0.03`, cap 0.50 sumando piezas.
+    Disponible en toda armadura. Cadena: mejora → `armor_piece_mods` → `armor_mods` → `Combatant.status_resist`.
+  - Pruebas exhaustivas de balance: aplazadas a cuando esté todo el combate avanzado (KAN-57 después).
 
 **Motor de estados (propuesta base):** cada `Combatant` lleva estados activos
 `{tipo, turnos_restantes, magnitud/stacks}`. Tick al INICIO del turno del afectado: aplica DoT,
@@ -341,8 +353,9 @@ combatiente (p.ej. `☠2 🔥1 ▼vel×3`).
 1. ✅ **Motor de estados** en `Combatant` (DoT, stat-mods, stacks, tick, display) + integración en
    `combat.gd`.
 2. ✅ **Aturdido como estado** (crítico contundente) + **debuff de rayo** ×1.5 sobre la prob. de aturdir.
-3. ⏭️ **Contenido**: quemadura en Chispa/Bola, rayo en Tormenta, pegajoso en slimes, slime de veneno
-   (tier 1 máx), buff/debuff con hechizos. Efectos de hechizo con PROBABILIDAD que sube con la longitud.
+3. ✅ **Contenido**: quemadura en Chispa/Bola, rayo+aturdido en Tormenta, pegajoso en slimes, slimes de
+   veneno (tier 1) y fuego, buff (Fortaleza) / debuff (Debilidad) con hechizos, resistencia de armadura.
+   Efectos con PROBABILIDAD que sube con la longitud. **KAN-58 COMPLETA.**
 
 **Preguntas de diseño abiertas** (resolver al retomar): nº de categorías de veneno y qué las
 distingue; stat que resiste cada estado y fórmula de probabilidad de aplicación; multiplicador

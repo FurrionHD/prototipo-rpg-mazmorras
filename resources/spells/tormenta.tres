@@ -1,6 +1,17 @@
 [gd_resource type="Resource" script_class="SpellData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_rayo"]
+script = ExtResource("2")
+estado = 8
+prob = 0.3
+
+[sub_resource type="Resource" id="SA_stun"]
+script = ExtResource("2")
+estado = 7
+prob = 0.1
 
 [resource]
 script = ExtResource("1")
@@ -9,4 +20,5 @@ tipo = 0
 frases = Array[String](["Fulgor, desciende del cielo", "Truenos, romped el silencio", "El viento aullara conmigo"])
 coste_mana = 14
 dano_base = 44.0
-descripcion = "Hechizo largo de rayo. Tres frases: mucho dano pero te expones tres turnos recitando."
+efectos = [SubResource("SA_rayo"), SubResource("SA_stun")]
+descripcion = "Hechizo largo de rayo. Aplica RAYO (facilita el aturdir) y tiene ~30% de aturdir directamente."

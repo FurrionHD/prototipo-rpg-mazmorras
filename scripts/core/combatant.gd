@@ -75,6 +75,14 @@ var _hand_idx: int = 0
 # (apply/tick/agregadores) vive aqui; las definiciones en status_effects.gd.
 var statuses: Array = []
 
+# Estados que este combatiente aplica AL GOLPEAR (KAN-58 Fase 3). Array[StatusApplication].
+# Lo rellena EnemyData (slimes: pegajoso/veneno) o el arma del jugador (futuro: sangrado).
+var on_hit: Array = []
+
+# Resistencia a ESTADOS alterados (0..1): MULTIPLICA a la baja la probabilidad de que
+# te apliquen un estado negativo. La aporta la mejora Resistencia de la armadura (KAN-58).
+var status_resist: float = 0.0
+
 
 func _init(nombre_: String, level_: int, abilities_: Abilities,
 		base_hp_: float, base_attack_: float, base_defense_: float, base_speed_: float) -> void:
@@ -304,6 +312,25 @@ func stun_taken_mult() -> float:
 	for e in statuses:
 		m *= e.stun_prob_mult()
 	return m
+
+# Tira los estados "al golpear" de este combatiente sobre 'target' (tras un golpe que
+# acierta). Cada uno con su propia probabilidad. Devuelve los NOMBRES aplicados (para
+# el log); vacio si ninguno prendio.
+func roll_on_hit(target: Combatant) -> Array:
+	var aplicados: Array = []
+	if target == null:
+		return aplicados
+	for a in on_hit:
+		if a.estado < 0:
+			continue
+		# La resistencia a estados del OBJETIVO baja la probabilidad de que prenda.
+		var p: float = a.prob * (1.0 - target.status_resist)
+		if randf() >= p:
+			continue
+		target.apply_status(a.estado, a.turns, a.magnitud, 1, false, a.cap)
+		aplicados.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
+	return aplicados
+
 
 # Resumen para la UI: "☠x2·3t 🔥·2t". Cadena vacia si no tiene estados.
 func status_summary() -> String:

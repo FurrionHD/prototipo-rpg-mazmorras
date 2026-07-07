@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_fort"]
+script = ExtResource("2")
+estado = 6
+prob = 1.0
+en_objetivo = false
+
+[resource]
+script = ExtResource("1")
+nombre = "Fortaleza"
+tipo = 1
+frases = Array[String](["Vigor, colma mis musculos", "Furia ancestral, empuname"])
+coste_mana = 7
+dano_base = 0.0
+efectos = [SubResource("SA_fort")]
+descripcion = "Buff: te potencia el daño un rato. Al lanzarlo sobre ti SIEMPRE prende (no falla)."

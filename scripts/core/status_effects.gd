@@ -34,7 +34,7 @@
 extends RefCounted
 class_name StatusEffects
 
-enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATURDIDO, RAYO }
+enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATURDIDO, RAYO, PEGAJOSO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -69,10 +69,14 @@ static var _defs: Dictionary = {
 		"id": Id.QUEMADURA, "nombre": "Quemadura", "icono": "🔥", "color": Color(1.0, 0.5, 0.1),
 		"dot": true, "turns": 2, "dot_default": 6.0,   # lo afinaran los hechizos (Fase 3)
 	},
-	Id.LENTO: {   # "Pegajoso" de los slimes: apila hasta 4, -5% vel/stack
+	Id.LENTO: {   # Ralentizacion FIJA (hechizo/habilidad): NO apila, un -25% plano.
 		"id": Id.LENTO, "nombre": "Lento", "icono": "🐌", "color": Color(0.3, 0.6, 0.9),
-		"stack_mode": "merge", "max_stacks": 4, "turns": 3,
-		"spd_mult": 0.95,
+		"turns": 3, "spd_mult": 0.75,
+	},
+	Id.PEGAJOSO: {   # Slimes: hasta 4 stacks INDEPENDIENTES, -5% vel/stack (cada uno su duracion)
+		"id": Id.PEGAJOSO, "nombre": "Pegajoso", "icono": "🕸", "color": Color(0.4, 0.8, 0.4),
+		"stack_mode": "independent", "max_stacks": 4, "turns": 3,
+		"spd_mult": 0.95,   # cada stack (instancia) multiplica x0.95 -> 4 stacks ~ -18.5%
 	},
 	Id.DEBIL: {   # debuff de ataque
 		"id": Id.DEBIL, "nombre": "Debil", "icono": "💢", "color": Color(0.7, 0.4, 0.9),

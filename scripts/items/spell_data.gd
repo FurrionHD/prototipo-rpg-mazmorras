@@ -37,7 +37,19 @@ enum TipoEfecto { ATAQUE, BUFF, DEBUFF }
 
 @export_multiline var descripcion: String = ""
 
+# --- ESTADOS ALTERADOS que aplica el hechizo (KAN-58 Fase 3) ---
+# Lista de StatusApplication. Un hechizo puede aplicar VARIOS: p.ej. Tormenta =
+# Rayo + Aturdido. En cada uno, 'prob' es la BASE por frase. Ver status_application.gd.
+@export var efectos: Array = []
+
+const ESTADO_PROB_MAX := 0.95
+
 
 # Numero de frases (= turnos de recitado). 1=corto, 2=medio, 3=largo.
 func longitud() -> int:
 	return frases.size()
+
+
+# Probabilidad FINAL de aplicar un efecto (sube con la longitud del hechizo).
+func efecto_prob(app: StatusApplication) -> float:
+	return clampf(app.prob * float(longitud()), 0.0, ESTADO_PROB_MAX)

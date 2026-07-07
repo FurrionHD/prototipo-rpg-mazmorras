@@ -455,16 +455,22 @@ func _disparar_hechizo() -> void:
 	if _state != State.WAITING_PLAYER:
 		return
 	var spell := _cast_spell
-	var result := StatsMath.resolve_spell(_player, _enemy, spell)
-	_enemy.take_damage(result.damage)
+	# DAÑO solo para hechizos de ATAQUE (los de BUFF/DEBUFF no pegan, solo aplican estado).
+	var dano: float = 0.0
+	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
+		dano = StatsMath.resolve_spell(_player, _enemy, spell).damage
+		_enemy.take_damage(dano)
+		_set_log("🔥 %s impacta a %s por %.2f de daño." % [spell.nombre, _enemy.nombre, dano])
+	else:
+		_set_log("✨ %s lanza %s." % [_player.nombre, spell.nombre])
+	# Estado alterado del hechizo (quemadura/rayo al enemigo, buff/debuff), KAN-58 Fase 3.
+	_aplicar_estado_hechizo(spell)
 	# Excelia (formula dedicada de Magia): entrena al LANZAR, escalado por el mana
 	# gastado (hechizos caros = mas potentes = entrenan mas) x reto del enemigo.
-	# El reto ya cubre el poder del monstruo; el mana refleja el daño/potencia.
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF
 	Game.ganar("magia", Game.reto(_poder_enemigo()), Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO)
 	print("[magia] %s lanza %s | dano:%.2f (Magia %d)" % [
-		_player.nombre, spell.nombre, result.damage, _player.abilities.magia])
-	_set_log("🔥 %s impacta a %s por %.2f de daño." % [spell.nombre, _enemy.nombre, result.damage])
+		_player.nombre, spell.nombre, dano, _player.abilities.magia])
 	_limpiar_casteo()
 	_update_hp()
 	_fin_de_eleccion()
@@ -472,6 +478,26 @@ func _disparar_hechizo() -> void:
 		_end(true)
 	else:
 		_state = State.ADVANCING
+
+
+# Aplica (o no) los estados del hechizo. Al ENEMIGO = con PROBABILIDAD (sube con la
+# longitud del hechizo; el enemigo puede resistir). A UNO MISMO (buff) = siempre.
+func _aplicar_estado_hechizo(spell: SpellData) -> void:
+	for a in spell.efectos:
+		if a.estado < 0:
+			continue
+		var al_enemigo: bool = a.en_objetivo
+		var objetivo: Combatant = _enemy if al_enemigo else _player
+		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
+		if al_enemigo:
+			# La resistencia a estados del objetivo baja la probabilidad efectiva.
+			var p: float = spell.efecto_prob(a) * (1.0 - objetivo.status_resist)
+			if randf() >= p:
+				_set_log("… pero %s resiste el %s. (%.0f%%)" % [_enemy.nombre, nom, p * 100.0])
+				print("[estado] %s RESISTE %s del hechizo (prob %.0f%%)" % [_enemy.nombre, nom, p * 100.0])
+				continue
+		objetivo.apply_status(a.estado, a.turns, a.magnitud, 1, false, a.cap)
+		_set_log("✨ %s: %s recibe %s." % [spell.nombre, objetivo.nombre, nom])
 
 
 # Fallar una frase: el conjuro se descontrola. Daño propio (mayor cuanto mas
@@ -523,6 +549,9 @@ func _accion_atacar() -> void:
 		# Retraso parcial normal; si el golpe fue CRITICO, aturdimiento completo.
 		if result.aturde:
 			txt += _aplicar_aturdir(_enemy, result.crit)
+		# Estados "al golpear" del jugador (arma; futuro: sangrado de cortantes).
+		for nom in _player.roll_on_hit(_enemy):
+			txt += "  Le infliges %s." % nom
 		_set_log(txt)
 	_update_hp()
 	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
@@ -608,6 +637,9 @@ func _enemy_turn() -> void:
 	# Aturdir/retrasar del enemigo (si algun dia lleva arma contundente).
 	if result.aturde:
 		msg += _aplicar_aturdir(_player, result.crit)
+	# Estados "al golpear" del enemigo (pegajoso/veneno de slimes, KAN-58 Fase 3).
+	for nom in _enemy.roll_on_hit(_player):
+		msg += "  Te inflige %s." % nom
 	_set_log(msg)
 	_update_hp()
 	_enemy.advance_hand()  # (sin efecto ahora; los enemigos aun no llevan 2 armas)

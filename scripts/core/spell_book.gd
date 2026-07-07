@@ -38,6 +38,12 @@ const REPOSITORIO: Array[String] = [
 	# Luz / sanacion
 	"Lumen, cierra esta herida",
 	"Luz sagrada, restaurame",
+	# Potenciacion propia (buff: Fortaleza)
+	"Vigor, colma mis musculos",
+	"Furia ancestral, empuname",
+	# Debilitamiento (debuff: Debil)
+	"Languidez, quiebra su fuerza",
+	"Flaqueza, muerde sus huesos",
 	# Genericas (relleno / despiste)
 	"Por el pacto de los ancianos",
 	"Que se cumpla mi voluntad",
