@@ -1,6 +1,8 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/abilities/tajo_quebrantador.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/abilities/doble_tajo.tres" id="3"]
 
 [resource]
 script = ExtResource("1")
@@ -15,3 +17,4 @@ crit_bonus = 0.02
 bloqueo = 0.12
 dano_tipo = 0
 aturdir_base = 0.0
+habilidades = [ExtResource("2"), ExtResource("3")]

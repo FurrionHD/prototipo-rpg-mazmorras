@@ -503,7 +503,12 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
     esquivan, pierdes el golpe entero). 22 EN (34 dual). Contraste directo con Ráfaga.
   - **Escudo · Golpe de escudo** ×3 tamaños (`golpe_escudo_*.tres`): 1 golpe contundente 1.0×,
     stun 30% + guardia 1 turno (v1: coge el daño del arma principal).
-- **Siguiente**: kit de 2 habilidades para el resto (espadas corta/larga, mandoble/hacha grande,
+  - **Espada corta** (versátil/táctica, contraste al azar de la daga):
+    - **Tajo quebrantador** (`tajo_quebrantador.tres`): 1 tajo 1.4× (2 dual) + **Vulnerable** 75%
+      (enemigo recibe más daño 3 turnos). Abridor táctico. 24 EN (36 dual).
+    - **Doble tajo** (`doble_tajo.tres`): combo fiable de 2 tajos 0.9× (3 dual), sin estado, barato
+      (18 EN / 28 dual). DPS consistente, el "pan de cada día".
+- **Siguiente**: kit de 2 habilidades para el resto (espada larga, mandoble/hacha grande,
   maza/martillo, hacha de mano, bastón). Enfoque acordado: **arma por arma sobre la marcha**.
 - Visión futura (no ahora): repertorio amplio desbloqueable, equipar/ordenar hasta 4 habilidades.
   "Imbuir veneno" → objeto futuro (viales), no habilidad.

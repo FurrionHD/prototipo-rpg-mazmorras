@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Doble tajo"
+coste_energia = 18.0
+coste_energia_dual = 28.0
+golpes_min = 2
+golpes_max = 2
+golpes_dual_min = 3
+golpes_dual_max = 3
+dano_mult = 0.9
+descripcion = "Combo fiable de 2 tajos (0.9x del básico cada uno; 3 con dual). Sin estados, pero sin depender de nada: daño sólido y barato, el pan de cada día de la espada. 18 EN (28 dual)."
