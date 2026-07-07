@@ -11,9 +11,10 @@ prob = 0.7
 [resource]
 script = ExtResource("1")
 nombre = "Tajo desarmante"
-coste_energia = 22.0
+coste_energia = 30.0
+cooldown = 3
 golpes_min = 1
 golpes_max = 1
 dano_mult = 1.3
 efectos = [SubResource("SA_debil")]
-descripcion = "Un tajo al brazo armado del enemigo (1.3x del básico): 70% de Débil (pega más flojo 3 turnos). Setup defensivo, ideal con escudo. 22 EN."
+descripcion = "Un tajo al brazo armado del enemigo (1.3x del básico): 70% de Débil (pega más flojo 3 turnos). Setup defensivo, ideal con escudo. 30 EN. Cooldown 3 turnos."

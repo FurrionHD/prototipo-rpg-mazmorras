@@ -40,6 +40,12 @@ class_name AbilityData
 # Activa la GUARDIA (Defender) durante N turnos tras usarla (golpe de escudo).
 @export var bloqueo_turnos: int = 0
 
+# COOLDOWN (KAN-57): turnos que debes ESPERAR para volver a usarla. 0 = sin cooldown
+# (usable cada turno). N = tras usarla, no vuelve a estar disponible hasta N turnos
+# tuyos despues. El estado (turnos restantes) vive en el Combatant, no aqui (recurso
+# compartido). Junto al coste, convierte las habilidades en jugadas de COMPROMISO.
+@export var cooldown: int = 0
+
 # true -> tecnica de ARMA + ESCUDO: solo aparece en el loadout si llevas un ESCUDO
 # equipado (Game filtra estas si equipped_off no es ShieldData). Ej: la espada larga,
 # que se combina a menudo con escudo, trae "Guardia rota" (bash + tajo + guardia).

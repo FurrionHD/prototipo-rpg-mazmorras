@@ -11,8 +11,9 @@ prob = 0.4
 [resource]
 script = ExtResource("1")
 nombre = "Rafaga"
-coste_energia = 25.0
-coste_energia_dual = 38.0
+coste_energia = 32.0
+coste_energia_dual = 48.0
+cooldown = 2
 golpes_min = 2
 golpes_max = 2
 golpes_dual_min = 3
@@ -20,4 +21,4 @@ golpes_dual_max = 4
 dano_mult = 0.7
 efectos = [SubResource("SA_sang")]
 efectos_por_golpe = true
-descripcion = "Ráfaga de tajos rápidos (0.7 del básico por golpe): 2 golpes con una daga (25 EN), 3-4 con dual (38 EN). Cada tajo que acierta: 40% de 1 stack de Sangrado."
+descripcion = "Ráfaga de tajos rápidos (0.7 del básico por golpe): 2 golpes con una daga (32 EN), 3-4 con dual (48 EN). Cada tajo que acierta: 40% de 1 stack de Sangrado. Cooldown 2 turnos."

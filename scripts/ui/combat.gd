@@ -277,6 +277,7 @@ func _process(delta: float) -> void:
 func _begin_player_turn() -> void:
 	_state = State.WAITING_PLAYER
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
+	_player.tick_cooldowns()   # habilidades (KAN-57): baja 1 turno los cooldowns activos
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
 	var ev: Dictionary = _player.tick_statuses()
 	_log_tick(_player, ev)
@@ -564,9 +565,14 @@ func _accion_habilidad() -> void:
 	var manos: int = maxi(1, _player.hands.size())
 	for ab in _player.abilities_combate:
 		var coste: float = ab.coste(manos)
+		var cd_left: int = _player.ability_cd_left(ab)
 		var b := Button.new()
-		b.text = "%s  (%.0f EN)" % [ab.nombre, coste]
-		if not _player.has_energy(coste):
+		var cd_txt := "  ⏳%d" % cd_left if cd_left > 0 else ""
+		b.text = "%s  (%.0f EN)%s" % [ab.nombre, coste, cd_txt]
+		if cd_left > 0:
+			b.disabled = true
+			b.tooltip_text = "En cooldown: %d turno%s" % [cd_left, "" if cd_left == 1 else "s"]
+		elif not _player.has_energy(coste):
 			b.disabled = true
 			b.tooltip_text = "Sin energia suficiente"
 		b.pressed.connect(_usar_habilidad.bind(ab))
@@ -582,9 +588,10 @@ func _accion_habilidad() -> void:
 func _usar_habilidad(ab: AbilityData) -> void:
 	var manos: int = maxi(1, _player.hands.size())
 	var coste: float = ab.coste(manos)
-	if _state != State.WAITING_PLAYER or not _player.has_energy(coste):
+	if _state != State.WAITING_PLAYER or not _player.has_energy(coste) or not _player.ability_ready(ab):
 		return
 	_player.spend_energy(coste)
+	_player.start_cooldown(ab)   # entra en cooldown (si la habilidad tiene)
 	var golpes: int = ab.num_golpes(manos)
 	# Cabecera en consola; debajo, cada golpe indentado (crit/esquivado/daño + estados).
 	print("[habilidad] %s usa %s  (%s, %.0f EN)" % [

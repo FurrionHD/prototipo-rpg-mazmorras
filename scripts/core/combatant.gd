@@ -141,6 +141,29 @@ func has_energy(amount: float) -> bool:
 	return current_energy >= amount
 
 
+# --- Cooldowns de habilidades (KAN-57) ---
+# Turnos restantes por AbilityData. Se decrementa al inicio de cada turno (tick_cooldowns);
+# es estado POR COMBATE (un Combatant nuevo por combate -> arranca vacio).
+var ability_cooldowns: Dictionary = {}
+
+# Turnos que le quedan a una habilidad para volver a estar disponible (0 = lista).
+func ability_cd_left(ab) -> int:
+	return int(ability_cooldowns.get(ab, 0))
+
+func ability_ready(ab) -> bool:
+	return ability_cd_left(ab) <= 0
+
+# Arranca el cooldown de una habilidad tras usarla (si tiene).
+func start_cooldown(ab) -> void:
+	if ab != null and ab.cooldown > 0:
+		ability_cooldowns[ab] = ab.cooldown
+
+# Decrementa todos los cooldowns un turno (al inicio del turno del combatiente).
+func tick_cooldowns() -> void:
+	for ab in ability_cooldowns.keys():
+		ability_cooldowns[ab] = maxi(0, int(ability_cooldowns[ab]) - 1)
+
+
 # --- Mana (KAN-56) ---
 func spend_mana(amount: float) -> void:
 	current_mp = maxf(0.0, current_mp - amount)

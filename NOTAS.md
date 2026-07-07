@@ -491,7 +491,15 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
   `efectos_por_golpe` (tirada por impacto vs una al final; cada `StatusApplication` admite
   `solo_crit` = solo prende si ese golpe fue crítico), `coste_energia` (+ `_dual`),
   `bloqueo_turnos` (deja en guardia), `dano_tipo_override` (-1 arma / 0 corte / 1 contundente),
-  `requiere_escudo` (técnica arma+escudo; `Game` la filtra si `equipped_off` no es un escudo).
+  `requiere_escudo` (técnica arma+escudo; `Game` la filtra si `equipped_off` no es un escudo),
+  `cooldown` (turnos a esperar para reusarla; 0 = sin cooldown).
+- **Cooldowns** (KAN-57): estado POR COMBATE en `Combatant.ability_cooldowns` (dict AbilityData→turnos).
+  `start_cooldown` al usar, `tick_cooldowns` al inicio de cada turno (en `_begin_player_turn`),
+  `ability_ready`/`ability_cd_left` para el botón (deshabilitado + "⏳N" mientras cuece). Un
+  Combatant nuevo por combate → arranca sin cooldowns. Junto a los **costes subidos (~+40%)**,
+  las habilidades son jugadas de COMPROMISO (gastas un pico de energía Y esperas turnos), no spam.
+  Cooldowns por rol: filler barato (Doble tajo) cd 1; golpes estándar (Ráfaga/Puñalada/Golpe de
+  escudo) cd 2; setups/nukes/power (Tajo quebrantador/pesado/desarmante, Guardia rota) cd 3.
 - **Combate** (`combat.gd`): acción **Habilidad** (`_accion_habilidad`/`_usar_habilidad`); cada
   golpe con su esquiva/crítico propios, log per-hit en consola, estados vía `_tirar_efectos_habilidad`
   (prob × resistencia del rival).

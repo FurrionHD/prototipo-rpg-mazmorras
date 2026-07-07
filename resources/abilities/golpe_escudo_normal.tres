@@ -11,7 +11,8 @@ prob = 0.3
 [resource]
 script = ExtResource("1")
 nombre = "Golpe de escudo"
-coste_energia = 22.0
+coste_energia = 30.0
+cooldown = 2
 golpes_min = 1
 golpes_max = 1
 dano_mult = 1.0
@@ -19,4 +20,4 @@ dano_tipo_override = 1
 efectos = [SubResource("SA_stun")]
 efectos_por_golpe = false
 bloqueo_turnos = 1
-descripcion = "Escudo normal: golpe contundente (1.0x), 30% de aturdir y te deja en guardia 1 turno. 22 EN."
+descripcion = "Escudo normal: golpe contundente (1.0x), 30% de aturdir y te deja en guardia 1 turno. 30 EN. Cooldown 2 turnos."

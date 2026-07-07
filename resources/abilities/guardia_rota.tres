@@ -11,7 +11,8 @@ prob = 0.45
 [resource]
 script = ExtResource("1")
 nombre = "Guardia rota"
-coste_energia = 28.0
+coste_energia = 38.0
+cooldown = 3
 golpes_min = 2
 golpes_max = 2
 dano_mult = 1.2
@@ -19,4 +20,4 @@ efectos = [SubResource("SA_stun")]
 efectos_por_golpe = false
 bloqueo_turnos = 1
 requiere_escudo = true
-descripcion = "Técnica de espada + escudo: embestida de escudo y tajo (2 golpes 1.2x). 45% de Aturdir y te deja en guardia 1 turno. El remate del sword & board. Requiere escudo. 28 EN."
+descripcion = "Técnica de espada + escudo: embestida de escudo y tajo (2 golpes 1.2x). 45% de Aturdir y te deja en guardia 1 turno. El remate del sword & board. Requiere escudo. 38 EN. Cooldown 3 turnos."

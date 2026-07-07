@@ -17,8 +17,9 @@ solo_crit = true
 [resource]
 script = ExtResource("1")
 nombre = "Puñalada certera"
-coste_energia = 22.0
-coste_energia_dual = 34.0
+coste_energia = 30.0
+coste_energia_dual = 46.0
+cooldown = 2
 golpes_min = 1
 golpes_max = 1
 golpes_dual_min = 2
@@ -26,4 +27,4 @@ golpes_dual_max = 2
 dano_mult = 1.6
 efectos = [SubResource("SA_sang"), SubResource("SA_sang_crit")]
 efectos_por_golpe = true
-descripcion = "Un único tajo profundo y comprometido (1.6x del básico) con Sangrado garantizado. Si el golpe es CRITICO, 50% de un 2o Sangrado (herida a fondo). Todo o nada: si te esquivan pierdes el golpe entero. Con dual, dos puñaladas. 22 EN (34 dual)."
+descripcion = "Un único tajo profundo y comprometido (1.6x del básico) con Sangrado garantizado. Si el golpe es CRITICO, 50% de un 2o Sangrado (herida a fondo). Todo o nada: si te esquivan pierdes el golpe entero. Con dual, dos puñaladas. 30 EN (46 dual). Cooldown 2 turnos."

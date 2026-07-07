@@ -11,8 +11,9 @@ prob = 0.75
 [resource]
 script = ExtResource("1")
 nombre = "Tajo quebrantador"
-coste_energia = 24.0
-coste_energia_dual = 36.0
+coste_energia = 32.0
+coste_energia_dual = 48.0
+cooldown = 3
 golpes_min = 1
 golpes_max = 1
 golpes_dual_min = 2
@@ -20,4 +21,4 @@ golpes_dual_max = 2
 dano_mult = 1.4
 efectos = [SubResource("SA_vuln")]
 efectos_por_golpe = true
-descripcion = "Un tajo firme (1.4x del básico) que abre la guardia del enemigo: 75% de Vulnerable (recibe más daño 3 turnos). Apertura táctica. Con dual, 2 tajos (2 tiradas de Vulnerable). 24 EN (36 dual)."
+descripcion = "Un tajo firme (1.4x del básico) que abre la guardia del enemigo: 75% de Vulnerable (recibe más daño 3 turnos). Apertura táctica. Con dual, 2 tajos (2 tiradas de Vulnerable). 32 EN (48 dual). Cooldown 3 turnos."
