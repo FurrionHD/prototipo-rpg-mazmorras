@@ -488,7 +488,8 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
 - **`AbilityData`** (`scripts/items/ability_data.gd`, `.tres`): las arma/escudo traen sus
   `habilidades`; el loadout las junta en `Combatant.abilities_combate`. Campos: `golpes_min/max`
   (+ `_dual`), `dano_mult` (× básico por golpe), `efectos` (Array[StatusApplication]) con
-  `efectos_por_golpe` (tirada por impacto vs una al final), `coste_energia` (+ `_dual`),
+  `efectos_por_golpe` (tirada por impacto vs una al final; cada `StatusApplication` admite
+  `solo_crit` = solo prende si ese golpe fue crítico), `coste_energia` (+ `_dual`),
   `bloqueo_turnos` (deja en guardia), `dano_tipo_override` (-1 arma / 0 corte / 1 contundente).
 - **Combate** (`combat.gd`): acción **Habilidad** (`_accion_habilidad`/`_usar_habilidad`); cada
   golpe con su esquiva/crítico propios, log per-hit en consola, estados vía `_tirar_efectos_habilidad`
@@ -497,8 +498,9 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
   - **Daga · Ráfaga** (`resources/abilities/rafaga.tres`): 2 tajos 0.7× (3-4 dual), Sangrado
     40%/hit. *Spray-and-pray*, riesgo repartido. 25 EN (38 dual).
   - **Daga · Puñalada certera** (`resources/abilities/punalada.tres`): 1 tajo 1.6× (2 dual) con
-    Sangrado **garantizado** por golpe. *Todo o nada* (si te esquivan, pierdes el golpe entero);
-    se apoya en el crítico alto de la daga. 22 EN (34 dual). Contraste directo con Ráfaga.
+    Sangrado **garantizado** por golpe, **+ 50% de un 2º Sangrado si el golpe es CRÍTICO**
+    (`StatusApplication.solo_crit`; premia el crítico alto de la daga). *Todo o nada* (si te
+    esquivan, pierdes el golpe entero). 22 EN (34 dual). Contraste directo con Ráfaga.
   - **Escudo · Golpe de escudo** ×3 tamaños (`golpe_escudo_*.tres`): 1 golpe contundente 1.0×,
     stun 30% + guardia 1 turno (v1: coge el daño del arma principal).
 - **Siguiente**: kit de 2 habilidades para el resto (espadas corta/larga, mandoble/hacha grande,

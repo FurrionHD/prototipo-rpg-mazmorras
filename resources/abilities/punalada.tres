@@ -8,6 +8,12 @@ script = ExtResource("2")
 estado = 1
 prob = 1.0
 
+[sub_resource type="Resource" id="SA_sang_crit"]
+script = ExtResource("2")
+estado = 1
+prob = 0.5
+solo_crit = true
+
 [resource]
 script = ExtResource("1")
 nombre = "Puñalada certera"
@@ -18,6 +24,6 @@ golpes_max = 1
 golpes_dual_min = 2
 golpes_dual_max = 2
 dano_mult = 1.6
-efectos = [SubResource("SA_sang")]
+efectos = [SubResource("SA_sang"), SubResource("SA_sang_crit")]
 efectos_por_golpe = true
-descripcion = "Un único tajo profundo y comprometido (1.6x del básico) con Sangrado garantizado. Todo o nada: si te esquivan pierdes el golpe entero. Con dual, dos puñaladas (2 stacks). 22 EN (34 dual)."
+descripcion = "Un único tajo profundo y comprometido (1.6x del básico) con Sangrado garantizado. Si el golpe es CRITICO, 50% de un 2o Sangrado (herida a fondo). Todo o nada: si te esquivan pierdes el golpe entero. Con dual, dos puñaladas. 22 EN (34 dual)."

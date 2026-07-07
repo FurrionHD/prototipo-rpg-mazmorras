@@ -25,3 +25,6 @@ class_name StatusApplication
 @export var magnitud: float = -1.0
 # Tope de stack por aplicacion (veneno tier: cap 1 = tier 1). -1 = sin tope propio.
 @export var cap: int = -1
+# true = SOLO se tira si el golpe fue CRITICO (premio al crit: p.ej. la Punalada de la
+# daga mete un 2o sangrado si critea). Ignorado por enemigos/hechizos (no hay crit ahi).
+@export var solo_crit: bool = false

@@ -593,6 +593,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	# efectos_por_golpe, cada tajo que acierta tira los efectos (sangrado 40%/hit).
 	var total: float = 0.0
 	var conecto: int = 0
+	var hubo_critico: bool = false   # para los efectos NO por golpe (tirada al final)
 	var estados_log: Array = []
 	for i in golpes:
 		var result := StatsMath.resolve_attack(_player, _enemy, false)
@@ -604,9 +605,11 @@ func _usar_habilidad(ab: AbilityData) -> void:
 			total += dmg
 			_enemy.take_damage(dmg)
 			conecto += 1
+			if result.crit:
+				hubo_critico = true
 			linea = "golpe %d: %s %.2f" % [i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
 			if ab.efectos_por_golpe and _enemy.is_alive():
-				var ap: Array = _tirar_efectos_habilidad(ab)
+				var ap: Array = _tirar_efectos_habilidad(ab, result.crit)
 				estados_log += ap
 				if not ap.is_empty():
 					linea += "  -> " + ", ".join(ap)
@@ -616,7 +619,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 			break
 	# Efectos NO por golpe: UNA tirada al final si conecto algo (golpe de escudo -> stun).
 	if not ab.efectos_por_golpe and conecto > 0 and _enemy.is_alive():
-		estados_log += _tirar_efectos_habilidad(ab)
+		estados_log += _tirar_efectos_habilidad(ab, hubo_critico)
 	if ab.bloqueo_turnos > 0:
 		_player_defending = true   # golpe de escudo: te deja en guardia
 	# Excelia: como el ataque, entrena Fuerza (por impacto medio).
@@ -641,11 +644,13 @@ func _usar_habilidad(ab: AbilityData) -> void:
 
 # Tira los efectos de una habilidad sobre el enemigo (cada uno con su prob y la
 # resistencia a estados del rival). Devuelve los NOMBRES de los que prenden.
-func _tirar_efectos_habilidad(ab: AbilityData) -> Array:
+func _tirar_efectos_habilidad(ab: AbilityData, fue_critico: bool = false) -> Array:
 	var out: Array = []
 	for a in ab.efectos:
 		if a.estado < 0:
 			continue
+		if a.solo_crit and not fue_critico:
+			continue   # efecto reservado al critico (p.ej. 2o sangrado de la Punalada)
 		if randf() < a.prob * (1.0 - _enemy.status_resist):
 			var mag: float = StatusEffects.app_magnitude(a, _player.atk())
 			_enemy.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
