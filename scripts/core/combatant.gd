@@ -70,6 +70,11 @@ var crit_resist: float = 0.0     # RESIST. CRITICOS (armadura pesada): baja el c
 var hands: Array = []
 var _hand_idx: int = 0
 
+# --- ESTADOS ALTERADOS (KAN-58) ---
+# Estados ACTIVOS sobre este combatiente (Array[StatusEffects.Instance]). El motor
+# (apply/tick/agregadores) vive aqui; las definiciones en status_effects.gd.
+var statuses: Array = []
+
 
 func _init(nombre_: String, level_: int, abilities_: Abilities,
 		base_hp_: float, base_attack_: float, base_defense_: float, base_speed_: float) -> void:
@@ -95,11 +100,11 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 #   - motion_value: reparte el raw por golpe (rapidas < 1, grandes > 1).
 # spd() lleva la velocidad del arma (mas/menos turnos).
 func atk() -> float:
-	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(abilities.fuerza) * motion_value
-func def_value() -> float: return StatsMath.defense_value(abilities, level, base_defense + extra_defense)
-func spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * velocidad_mult
+	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(abilities.fuerza) * motion_value * status_atk_mult()
+func def_value() -> float: return StatsMath.defense_value(abilities, level, base_defense + extra_defense) * status_def_mult()
+func spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * velocidad_mult * status_spd_mult()
 # Velocidad al CASTEAR (KAN-95): igual que spd() pero con la velocidad de casteo.
-func cast_spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * cast_velocidad_mult
+func cast_spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * cast_velocidad_mult * status_spd_mult()
 
 func is_alive() -> bool:
 	return current_hp > 0.0
@@ -146,3 +151,165 @@ func advance_hand() -> void:
 # Nombre del arma con la que golpeas AHORA (para el log). "" si no hay manos.
 func current_hand_name() -> String:
 	return hands[_hand_idx]["nombre"] if hands.size() > 0 else ""
+
+
+# ============================================================
+#  ESTADOS ALTERADOS (KAN-58) — motor
+# ============================================================
+
+# Aplica un estado con su MAGNITUD (daño/turno del DoT, la calcula el aplicador) y
+# su DURACION propias. El apilado depende del stack_mode del estado (ver
+# status_effects.gd): "none" (1 instancia, resetea+sube al mas fuerte), "merge" (1
+# instancia con cuenta de stacks) o "independent" (cada aplicacion = un stack con su
+# propia duracion; refresh_all reinicia la duracion de TODOS los stacks existentes).
+# turns < 0 = duracion base del def; magnitude < 0 = magnitud por defecto del def.
+# stack_cap (>=0) = tope de stacks que ESTA aplicacion puede alcanzar (habilidades/
+# enemigos flojos capan a nivel bajo; ataques especiales, mas alto). -1 = tope del def.
+func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
+		stacks_add: int = 1, refresh_all: bool = false, stack_cap: int = -1) -> void:
+	var d: Dictionary = StatusEffects.def(id)
+	if d.is_empty():
+		return
+	if turns < 0:
+		turns = int(d.get("turns", 3))
+	if magnitude < 0.0:
+		magnitude = float(d.get("dot_default", 0.0))
+	var mode: String = String(d.get("stack_mode", "none"))
+	var maxs: int = int(d.get("max_stacks", 99))
+	if stack_cap >= 0:
+		maxs = mini(maxs, stack_cap)   # esta aplicacion no puede pasar de su tope
+
+	var nombre_estado: String = String(d.get("nombre", "?"))
+
+	if mode == "independent":
+		# Una habilidad puede reiniciar la duracion de TODOS los stacks existentes.
+		if refresh_all:
+			for e in statuses:
+				if e.id() == id:
+					e.turns = turns
+		# Al tope: refresca el stack mas proximo a expirar (no añade otro).
+		if _count_status(id) >= maxs:
+			var viejo = _min_turns_status(id)
+			if viejo != null:
+				viejo.turns = turns
+				viejo.magnitude = maxf(viejo.magnitude, magnitude)
+			print("[estado] %s: %s al tope (%d stacks) -> refresca el mas viejo (mag %.2f, %d turnos)" % [
+				nombre, nombre_estado, maxs, magnitude, turns])
+			return
+		var ni := StatusEffects.Instance.new(d, turns, 1)
+		ni.magnitude = magnitude
+		statuses.append(ni)
+		print("[estado] %s recibe %s: +1 stack (%.2f/turno c/u, %d turnos) -> %d stacks" % [
+			nombre, nombre_estado, magnitude, turns, _count_status(id)])
+		return
+
+	# "none" / "merge": una sola instancia por id.
+	for e in statuses:
+		if e.id() == id:
+			e.turns = turns   # resetea la duracion
+			e.magnitude = maxf(e.magnitude, magnitude)   # sube al mas fuerte
+			if mode == "merge":
+				e.stacks = mini(e.stacks + stacks_add, maxs)
+			print("[estado] %s: %s re-aplicado (x%d, %.2f/turno, %d turnos)" % [
+				nombre, nombre_estado, e.stacks, e.dot_damage(), turns])
+			return
+	var inst := StatusEffects.Instance.new(d, turns, mini(stacks_add, maxs) if mode == "merge" else 1)
+	inst.magnitude = magnitude
+	statuses.append(inst)
+	print("[estado] %s recibe %s (x%d, %.2f/turno, %d turnos)" % [
+		nombre, nombre_estado, inst.stacks, inst.dot_damage(), turns])
+
+
+# Nº de instancias activas de un estado (para el tope de stacks independientes).
+func _count_status(id: int) -> int:
+	var n: int = 0
+	for e in statuses:
+		if e.id() == id:
+			n += 1
+	return n
+
+# Instancia de ese estado mas proxima a expirar (menor 'turns'), o null si ninguna.
+func _min_turns_status(id: int):
+	var best = null
+	for e in statuses:
+		if e.id() == id and (best == null or e.turns < best.turns):
+			best = e
+	return best
+
+
+# Tick AL INICIO del turno de este combatiente: aplica el DoT de todos sus estados,
+# calcula si esta ATURDIDO (pierde el turno) y decrementa/expira duraciones.
+# Devuelve {damage, stunned, expired:[nombres], dot:[etiquetas]} para el log.
+func tick_statuses() -> Dictionary:
+	var total_dmg: float = 0.0
+	var stunned: bool = false
+	var expired: Array = []
+	var dot_labels: Array = []
+	var kept: Array = []
+	for e in statuses:
+		if e.is_stun():
+			stunned = true
+		var dmg: float = e.dot_damage()
+		if dmg > 0.0:
+			total_dmg += dmg
+			dot_labels.append("%s %.1f" % [str(e.d.get("icono", "?")), dmg])
+		e.turns -= 1
+		if e.turns <= 0:
+			expired.append(str(e.d.get("nombre", "?")))
+		else:
+			kept.append(e)
+	statuses = kept
+	if total_dmg > 0.0:
+		take_damage(total_dmg)
+	# Log de consola para montar Excel (combate completo copiable). Un [estado] por
+	# tick con el desglose de DoT + la vida resultante, mas expiraciones y aturdido.
+	if total_dmg > 0.0:
+		print("[estado] %s sufre DoT: %s = %.2f | HP %.2f/%.2f" % [
+			nombre, " ".join(dot_labels), total_dmg, current_hp, max_hp])
+	for nom in expired:
+		print("[estado] %s: expira %s" % [nombre, nom])
+	if stunned:
+		print("[estado] %s aturdido: pierde el turno" % nombre)
+	return {"damage": total_dmg, "stunned": stunned, "expired": expired, "dot": dot_labels}
+
+
+# --- Consultas / agregadores ---
+func has_status(id: int) -> bool:
+	for e in statuses:
+		if e.id() == id:
+			return true
+	return false
+
+func status_atk_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.atk_mult()
+	return m
+
+func status_def_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.def_mult()
+	return m
+
+func status_spd_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.spd_mult()
+	return m
+
+# Multiplicador de la prob. de aturdir que RECIBE este combatiente (RAYO, KAN-58).
+func stun_taken_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.stun_prob_mult()
+	return m
+
+# Resumen para la UI: "☠x2·3t 🔥·2t". Cadena vacia si no tiene estados.
+func status_summary() -> String:
+	if statuses.is_empty():
+		return ""
+	var partes: Array = []
+	for e in statuses:
+		partes.append(e.etiqueta())
+	return " ".join(partes)

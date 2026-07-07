@@ -75,8 +75,14 @@ var _player: Combatant
 var _enemy: Combatant
 var _gauge: Dictionary = {}
 
-enum State { ADVANCING, WAITING_PLAYER, FINISHED }
+enum State { ADVANCING, WAITING_PLAYER, PAUSED, FINISHED }
 var _state: State = State.ADVANCING
+
+# Pausa breve tras la accion del ENEMIGO para poder leer que hizo (las barras ATB
+# se congelan durante la pausa). El combate corre con el arbol en pausa, pero esta
+# escena tiene PROCESS_MODE_ALWAYS, asi que el tiempo (delta) sigue corriendo.
+const ENEMY_TURN_PAUSE := 1.0   # segundos
+var _pause_left: float = 0.0
 
 var _injected: bool = false       # true si Game nos paso los combatientes
 var _enemy_initiated: bool = false
@@ -132,14 +138,17 @@ func _ready() -> void:
 	_crear_acciones()
 	_setup_ui()
 	_crear_timeline()
+	_crear_estados_dev()  # herramienta de test de estados (KAN-58 Fase 1)
+	var intro: String
 	if _enemy_initiated:
-		_set_log("¡" + _enemy.nombre + " te sorprende! Tiene la iniciativa.")
+		intro = "¡" + _enemy.nombre + " te sorprende! Tiene la iniciativa."
 	elif _injected:
-		_set_log("¡Ataque por la espalda! Tienes la iniciativa. 🗡️")
+		intro = "¡Ataque por la espalda! Tienes la iniciativa. 🗡️"
 	else:
-		_set_log("¡Empieza el combate contra " + _enemy.nombre + "!")
+		intro = "¡Empieza el combate contra " + _enemy.nombre + "!"
 	if _player_exhausted_start:
-		_log.text += "  (Agotado: tus primeras acciones son mas lentas)"
+		intro += "  (Agotado: tus primeras acciones son mas lentas)"
+	_set_log(intro)
 
 
 # Crea la barra de acciones (KAN-55): Atacar / Magia / Defender / Huir, de datos.
@@ -187,18 +196,30 @@ func _setup_ui() -> void:
 func _update_hp() -> void:
 	_player_hp.value = _player.current_hp
 	_enemy_hp.value = _enemy.current_hp
-	_enemy_name.text = "%s  (Nv.%d)   %.2f/%.2f" % [
-		_enemy.nombre, _enemy.level, _enemy.current_hp, _enemy.max_hp]
+	_enemy_name.text = "%s  (Nv.%d)   %.2f/%.2f%s" % [
+		_enemy.nombre, _enemy.level, _enemy.current_hp, _enemy.max_hp, _estados_txt(_enemy)]
 	# El jugador muestra ademas su MANA si tiene (KAN-56).
 	var mp_txt := ""
 	if _player.max_mp > 0.0:
 		mp_txt = "   MP %.2f/%.2f" % [_player.current_mp, _player.max_mp]
-	_player_name.text = "%s  (Nv.%d)   %.2f/%.2f%s" % [
-		_player.nombre, _player.level, _player.current_hp, _player.max_hp, mp_txt]
+	_player_name.text = "%s  (Nv.%d)   %.2f/%.2f%s%s" % [
+		_player.nombre, _player.level, _player.current_hp, _player.max_hp, mp_txt, _estados_txt(_player)]
+
+
+# Estados alterados para la etiqueta del combatiente (KAN-58). "" si no tiene.
+func _estados_txt(c: Combatant) -> String:
+	var s: String = c.status_summary()
+	return "\n   " + s if s != "" else ""
 
 
 func _process(delta: float) -> void:
 	_update_timeline()  # refleja el orden de turnos siempre
+	# Pausa de lectura tras la accion del enemigo: cuenta atras y reanuda el ATB.
+	if _state == State.PAUSED:
+		_pause_left -= delta
+		if _pause_left <= 0.0:
+			_state = State.ADVANCING
+		return
 	if _state != State.ADVANCING:
 		return
 
@@ -226,6 +247,18 @@ func _process(delta: float) -> void:
 func _begin_player_turn() -> void:
 	_state = State.WAITING_PLAYER
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
+	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
+	var ev: Dictionary = _player.tick_statuses()
+	_log_tick(_player, ev)
+	_update_hp()
+	if not _player.is_alive():
+		_set_log("%s cae por el daño de sus estados. ☠" % _player.nombre)
+		_end(false)   # el DoT (veneno...) puede matarte
+		return
+	if ev.stunned:
+		_set_log("%s esta aturdido y pierde el turno. 💫" % _player.nombre)
+		_pausa_lectura()
+		return
 	# Regen de maná: escala con la Magia (KAN-56) + el bonus del arma mágica (KAN-95).
 	_player.regen_mana(StatsMath.mp_regen(float(_player.abilities.magia)) + _player.mp_regen_bonus)
 	_update_hp()
@@ -238,6 +271,15 @@ func _begin_player_turn() -> void:
 			_mostrar_disparo()
 	else:
 		_mostrar_acciones()
+
+
+# Apila en el log los eventos del tick de estados: DoT sufrido (con iconos) y
+# estados que se disipan. No hace nada si el turno no traia eventos.
+func _log_tick(c: Combatant, ev: Dictionary) -> void:
+	if float(ev.damage) > 0.0:
+		_set_log("%s sufre %s (%.2f)." % [c.nombre, ", ".join(ev.dot), float(ev.damage)])
+	if not (ev.expired as Array).is_empty():
+		_set_log("A %s se le disipa: %s." % [c.nombre, ", ".join(ev.expired)])
 
 
 # Muestra la barra de acciones normales (Atacar/Magia/Defender/Huir).
@@ -515,6 +557,18 @@ func _accion_huir() -> void:
 
 
 func _enemy_turn() -> void:
+	# Estados alterados (KAN-58): tick al inicio del turno del enemigo.
+	var ev: Dictionary = _enemy.tick_statuses()
+	_log_tick(_enemy, ev)
+	_update_hp()
+	if not _enemy.is_alive():
+		_set_log("%s cae por el daño de sus estados. ☠" % _enemy.nombre)
+		_end(true)   # el DoT remata al enemigo
+		return
+	if ev.stunned:
+		_set_log("%s esta aturdido y pierde el turno. 💫" % _enemy.nombre)
+		_pausa_lectura()   # ya se le resto la barra ATB en _process; pierde la accion
+		return
 	var result := StatsMath.resolve_attack(_enemy, _player, _player_defending)
 	_debug_ataque(_enemy, _player, result, _player_defending)
 	if result.evaded:
@@ -523,6 +577,7 @@ func _enemy_turn() -> void:
 		Game.ganar("agilidad", Game.reto(_poder_enemigo()), Game.GAIN_AGILIDAD_ESQUIVAR,
 			Game.RETO_MAX_FISICO)
 		_update_hp()
+		_pausa_lectura()
 		return
 
 	var dmg: float = result.damage
@@ -554,6 +609,15 @@ func _enemy_turn() -> void:
 
 	if not _player.is_alive():
 		_end(false)
+	else:
+		_pausa_lectura()
+
+
+# Congela el ATB una fraccion de segundo tras la accion del enemigo, para poder
+# leer el log antes de que sigan llenandose las barras.
+func _pausa_lectura() -> void:
+	_pause_left = ENEMY_TURN_PAUSE
+	_state = State.PAUSED
 
 
 func _end(player_won: bool, fled: bool = false) -> void:
@@ -572,8 +636,19 @@ func _end(player_won: bool, fled: bool = false) -> void:
 		_set_log("Has caido en combate... 💀")
 
 
+# Log-HISTORIAL: cada evento se apila como una linea nueva y se muestran las
+# ultimas LOG_MAX (antes era una sola linea que se sobrescribia y no daba tiempo a
+# leer los DoT / lo que aplicabas). Evita duplicar la misma linea consecutiva.
+const LOG_MAX := 6
+var _log_lines: Array[String] = []
+
 func _set_log(texto: String) -> void:
-	_log.text = texto
+	if _log_lines.size() > 0 and _log_lines[_log_lines.size() - 1] == texto:
+		return
+	_log_lines.append(texto)
+	while _log_lines.size() > LOG_MAX:
+		_log_lines.pop_front()
+	_log.text = "\n".join(_log_lines)
 
 
 # Aplica el aturdir a un objetivo (resta barra ATB) y devuelve el texto para el log.
@@ -627,6 +702,104 @@ func _crear_timeline() -> void:
 func _update_timeline() -> void:
 	if _timeline != null:
 		_timeline.set_ratios(_gauge.get(_player, 0.0) / UMBRAL, _gauge.get(_enemy, 0.0) / UMBRAL)
+
+
+# ============================================================
+#  DEV/TEST de estados (KAN-58 Fase 1): panel arriba-dcha para aplicar estados a
+#  mano al enemigo o al jugador y ver el motor funcionando (tick, stacks, stat,
+#  aturdido). Se retirara cuando los estados se enganchen a ataques/hechizos.
+# ============================================================
+var _dev_target_enemy: bool = true
+
+func _crear_estados_dev() -> void:
+	var panel := PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	panel.offset_right = -8
+	panel.offset_top = 8
+	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	panel.custom_minimum_size = Vector2(260, 0)
+	add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	panel.add_child(margin)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 4)
+	margin.add_child(vb)
+
+	var title := Label.new()
+	title.text = "ESTADOS (dev/test)"
+	title.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
+	vb.add_child(title)
+
+	var tgt := CheckButton.new()
+	tgt.text = "Objetivo: Enemigo"
+	tgt.button_pressed = true
+	tgt.toggled.connect(func(on: bool):
+		_dev_target_enemy = on
+		tgt.text = "Objetivo: Enemigo" if on else "Objetivo: Jugador")
+	vb.add_child(tgt)
+
+	var flow := HFlowContainer.new()
+	vb.add_child(flow)
+	# Veneno: un solo boton; cada pulsacion = +1 stack (y cada stack DUPLICA el daño).
+	var bv := Button.new()
+	bv.text = "☠ Veneno +stack"
+	bv.pressed.connect(_dev_veneno)
+	flow.add_child(bv)
+	# Sangrado: magnitud = escala con el ATAQUE del aplicador (el bando contrario al objetivo).
+	var bs := Button.new()
+	bs.text = "🩸 Sangrado"
+	bs.pressed.connect(_dev_sangrado)
+	flow.add_child(bs)
+	# Resto de estados: magnitud/duracion por defecto del catalogo.
+	for id in StatusEffects.all_ids():
+		if int(id) == StatusEffects.Id.VENENO or int(id) == StatusEffects.Id.SANGRADO:
+			continue
+		var d: Dictionary = StatusEffects.def(id)
+		var b := Button.new()
+		b.text = "%s %s" % [d.get("icono", "?"), d.get("nombre", "?")]
+		b.pressed.connect(_dev_aplicar_estado.bind(int(id)))
+		flow.add_child(b)
+	var clr := Button.new()
+	clr.text = "Limpiar"
+	clr.pressed.connect(_dev_limpiar_estados)
+	flow.add_child(clr)
+
+
+func _dev_target() -> Combatant:
+	return _enemy if _dev_target_enemy else _player
+
+# Aplicador para estados que escalan con quien los lanza: el bando CONTRARIO al objetivo.
+func _dev_aplicador() -> Combatant:
+	return _player if _dev_target_enemy else _enemy
+
+func _dev_aplicar_estado(id: int) -> void:
+	_dev_target().apply_status(id)
+	_update_hp()
+	var d: Dictionary = StatusEffects.def(id)
+	_set_log("[dev] Aplicado %s a %s." % [d.get("nombre", "?"), _dev_target().nombre])
+
+func _dev_veneno() -> void:
+	_dev_target().apply_status(StatusEffects.Id.VENENO)   # +1 stack (dev: sin cap)
+	_update_hp()
+	_set_log("[dev] Veneno +1 stack a %s." % _dev_target().nombre)
+
+func _dev_sangrado() -> void:
+	var ap: Combatant = _dev_aplicador()
+	var mag: float = StatusEffects.sangrado_magnitude(ap.atk())
+	_dev_target().apply_status(StatusEffects.Id.SANGRADO, -1, mag)
+	_update_hp()
+	_set_log("[dev] Sangrado +1 stack (%.1f/stack · escala con %s) a %s." % [
+		mag, ap.nombre, _dev_target().nombre])
+
+func _dev_limpiar_estados() -> void:
+	_dev_target().statuses.clear()
+	_update_hp()
 
 
 # Crea un fondo opaco a pantalla completa, por DETRAS de la interfaz.

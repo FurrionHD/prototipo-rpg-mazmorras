@@ -262,11 +262,42 @@ Dos arquetipos de mago, enganchados al `magic_amp` que KAN-56 dejó neutro:
   no (no ataca). Coste efectivo con Eficiencia en `combat._coste_efectivo()`.
 - Equipables desde DEBUG (bastón en armas, varita en secundarias; mejoras por slot). PROVISIONALES.
 
-### ⏭️ PRÓXIMO — Diseño acordado para KAN-58 (Estados alterados) — SIN EMPEZAR
+### 🔧 KAN-58 (Estados alterados) — Fases 0 y 1 HECHAS, Fase 2 siguiente
 Objetivo global: **cerrar el combate** (mecánicas) antes de un playtest grande "todo junto".
 Orden acordado: **1) KAN-58 Estados alterados (esto), 2) KAN-57 Habilidades con energía**
 (energía = stamina de entrada; solo habilidades/Defender gastan, básicos regeneran — ver memoria
 `energia-combate-habilidades`). Los estados van primero porque magias/habilidades de buff/debuff los usan.
+
+**ESTADO ACTUAL (implementado y probado):**
+- **Fase 0 ✅** — `scenes/levels/sandbox.tscn` (arena vacía) + `scripts/ui/spawner.gd` (coloca
+  enemigos con clic, solo en la arena). Tecla dev **T** salta a la arena. `enemy.recolocar()` fija
+  el hogar en el punto del clic.
+- **Fase 1 ✅** — Motor de estados data-driven:
+  - `scripts/core/status_effects.gd`: catálogo (`Id`, `_defs`) + clase `Instance`. Campos:
+    `stack_mode` (`none`/`merge`/`independent`), `dot`/`dot_default`/`dot_stack_mult`, `atk/def/spd_mult`,
+    `is_stun`, `stun_prob_mult`, `max_stacks`.
+  - `Combatant`: `statuses[]`, `apply_status(id, turns, magnitude, stacks_add, refresh_all, stack_cap)`,
+    `tick_statuses()` (DoT + aturdido + expira, al inicio del turno), agregadores que multiplican
+    `atk()`/`def_value()`/`spd()`/`cast_spd()`, `stun_taken_mult()` (gancho del rayo).
+  - `combat.gd`: tick al inicio del turno de cada uno, muerte por DoT, salta turno si aturdido,
+    estados pintados en las etiquetas, **log en pantalla = HISTORIAL** (6 líneas), **pausa de ~1s**
+    tras la acción del enemigo, prints `[estado]` a consola (para montar Excel), y **panel dev**
+    "ESTADOS (dev/test)" arriba-dcha para aplicar a mano.
+  - **Diseño FINAL veneno vs sangrado** (acordado con el usuario):
+    - **Veneno** ☠: `merge` (misma duración todos los stacks); cada stack **DUPLICA** el daño
+      (base 3 × 2^(stacks−1) → 3·6·12·24·48). Un solo veneno; habilidades/enemigos capan hasta qué
+      stack pueden subirlo vía `stack_cap` (los flojos a nivel bajo). SIN tiers con nombre.
+    - **Sangrado** 🩸: `independent` (cada stack su propia duración, expiran solos); daño/stack =
+      **fracción baja del ATAQUE del aplicador** (0.15×atk), suma **lineal**. `refresh_all` reservado
+      para una habilidad que reinicie todos los stacks. Lo aplicarán habilidades con armas cortantes.
+    - Ambos los usan los dos bandos; la diferencia es la MECÁNICA, no quién los usa.
+  - Estados ya en el catálogo (magnitudes PROVISIONALES → Excel): Veneno, Sangrado, Quemadura (DoT),
+    Lento/pegajoso (merge, −5%/stack, máx 4), Débil (atk×0.8), Vulnerable (def×0.8), Fortaleza
+    (atk×1.25), Aturdido (is_stun), Rayo (stun_prob_mult ×1.5).
+- **Pendiente Fase 2** — aturdido como ESTADO enganchado al aturdir de contundentes + debuff de rayo
+  (×1.5). Hoy el estado Aturdido y el aturdir de armas (barra ATB) están SEPARADOS (el estado solo
+  se aplica desde el botón dev). **Pendiente Fase 3** — cablear veneno/quemadura/pegajoso a
+  slimes/hechizos y buffs/debuffs a hechizos.
 
 **Motor de estados (propuesta base):** cada `Combatant` lleva estados activos
 `{tipo, turnos_restantes, magnitud/stacks}`. Tick al INICIO del turno del afectado: aplica DoT,
@@ -300,10 +331,10 @@ combatiente (p.ej. `☠2 🔥1 ▼vel×3`).
   trae un slime pre-colocado.
 
 **Fases sugeridas de implementación:**
-0. Escenario vacío + **botón spawner de enemigos** (base para probar todo lo demás).
-1. **Motor de estados** en `Combatant` (DoT, stat-mods, stacks, tick, display) + integración en
-   `combat.gd`/`stats_math.gd`.
-2. **Aturdido como estado** (pierde turno; prob. actual por `aturdir_base`) + **debuff de rayo** que
+0. ✅ Escenario vacío + **botón spawner de enemigos** (base para probar todo lo demás).
+1. ✅ **Motor de estados** en `Combatant` (DoT, stat-mods, stacks, tick, display) + integración en
+   `combat.gd`.
+2. ⏭️ **Aturdido como estado** (pierde turno; prob. actual por `aturdir_base`) + **debuff de rayo** que
    MULTIPLICA la prob. de aturdir del objetivo (×1.5 aprox).
 3. **Contenido**: quemadura en Chispa/Bola, veneno en slime verde, pegajoso en slimes, buffs/debuffs
    con hechizos (+ frases nuevas).
