@@ -1014,7 +1014,7 @@ func _crear_estados_dev() -> void:
 	var toggle := Button.new()
 	toggle.text = "ESTADOS (dev)"
 	toggle.toggle_mode = true
-	toggle.button_pressed = true   # arranca abierto (al fondo ya no tapa el HP de arriba)
+	toggle.button_pressed = false   # arranca CERRADO (el tester lo abre si lo necesita)
 	toggle.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	toggle.offset_right = -8
 	toggle.offset_bottom = -88   # por ENCIMA de la barra ATB del fondo (80 px + 8 de margen)
@@ -1031,6 +1031,7 @@ func _crear_estados_dev() -> void:
 	_estados_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_estados_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_estados_panel.custom_minimum_size = Vector2(260, 0)
+	_estados_panel.visible = false   # cerrado de base (coincide con el toggle sin pulsar)
 	add_child(_estados_panel)
 
 	var margin := MarginContainer.new()
