@@ -1,0 +1,5 @@
+# Artefactos de exportacion (build compilado): NO se suben a git.
+# Se mantiene la carpeta y estos dos ignores.
+*
+!.gitignore
+!.gdignore
