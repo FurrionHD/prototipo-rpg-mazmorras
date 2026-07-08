@@ -441,6 +441,9 @@ pueblo y mazmorra). Botón **DEBUG** abajo-izquierda abre/cierra un panel con:
 - **RAREZA** (dropdown por arma y pieza) + sección **MEJORAS** (elegir slot y repartir
   mejoras por categoría con −/+, según el máximo de la rareza).
 - Mientras está abierto, `Game.debug_panel_open` congela al jugador (teclear sin moverse).
+- **Ayuda de teclas en pantalla** (`scripts/ui/keys_help.gd`, la crea el jugador): panel arriba-izq
+  con TODAS las teclas de debug (U/H/R/T/K/L/J + botón DEBUG + spawner) y los controles básicos.
+  Se oculta/muestra con **F1**. Para builds de PRUEBA que se reparten a testers.
 
 ### Progresión — Rarezas + Mejoras (upgrades) de equipo 🔧 A PROBAR
 `scripts/core/upgrades.gd` (class_name Upgrades, como StatsMath) centraliza enums+tablas+math.

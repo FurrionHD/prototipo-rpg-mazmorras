@@ -67,6 +67,7 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD de inventario
 	add_child(preload("res://scripts/ui/debug_panel.gd").new())  # panel de debug (cualquier sala)
 	add_child(preload("res://scripts/ui/spawner.gd").new())      # spawner de enemigos (dev/test)
+	add_child(preload("res://scripts/ui/keys_help.gd").new())    # ayuda de teclas en pantalla (F1)
 	_last_pos = global_position
 
 	# Si llegamos a esta escena con F/Espacio ya pulsadas (p. ej. justo despues
