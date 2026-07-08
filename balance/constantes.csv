@@ -1,0 +1,8 @@
+Constante;Valor
+Barra ATB (UMBRAL);100 puntos
+Ritmo de llenado (SPEED_SCALE);10 x velocidad /seg
+Ventaja de iniciativa;+50 (media barra)
+Regen energia (basico / casteo);+12
+Coste Defender;15 EN
+Vida base jugador / enemigo;50 / 28
+Mana base;20 + 0.033 x Magia

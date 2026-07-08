@@ -1,0 +1,11 @@
+Estado;id;Dur base;Efecto;Apila;Nivel por defecto
+Veneno;0;4t;DoT base 3, x2 por stack;merge (max 5);-
+Sangrado;1;3t;DoT = 0.30 x ataque del aplicador . por stack;independiente (max 5);escala con atk
+Quemadura;2;2t;DoT 6 (o el del hechizo);none;-
+Lento;3;3t;velocidad ATB;none;-25%
+Debil;4;3t;ataque enemigo;none;-20%
+Vulnerable;5;3t;defensa (recibe +dano);none;-20%
+Fortaleza;6;3t;ataque;none;+25%
+Aturdido;7;1t;pierde el turno;none;-
+Rayo;8;3t;x1.5 prob. de aturdir recibida;none;-
+Pegajoso;9;3t;velocidad, -5% por stack;independiente (max 4);-5%/stack
