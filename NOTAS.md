@@ -428,6 +428,16 @@ pueblo y mazmorra). Botón **DEBUG** abajo-izquierda abre/cierra un panel con:
 - **ARMAS**: dropdowns de principal y secundaria + su TIER (reusa `Game._dev_weapons`/`_dev_offs`,
   `equipar_arma`/`equipar_secundaria`; revierte combinaciones inválidas).
 - **PISO**: campo para fijar `Game.current_floor` (escala al enemigo).
+- **PRUEBA (muñeco)**: Off / **Saco DPS** / **Pegador** + campo de **HP** (def. 500).
+  `Game.debug_dummy_mode` (0/1/2) + `debug_dummy_hp`, aplicado en `start_combat`:
+  - **Saco**: HP alto, **0 defensa/esquiva** (DPS limpio), **no pega** (`dummy_dmg_out_mult=0`),
+    velocidad estándar (`dummy_speed_override = spd del jugador` → cadencia ~1:1). Para medir tu DPS.
+  - **Pegador**: aguanta y te pega normal (súbele el daño con los presets de stats). Para probar
+    la mitigación de la armadura.
+  - En ambos, el jugador es **invulnerable** (`Combatant.invulnerable`, tests largos sin morir; el
+    daño recibido se sigue midiendo). El combate loguea **`[dps]`** por acción (fuente + acumulado +
+    turnos + DPS/turno tuyo y del enemigo) y un **resumen final** (desglose por fuente + daño
+    recibido medio). Hooks: básico, habilidad, hechizo y DoT en `combat.gd` (`_dps_add`/`_dps_resumen`).
 - **RAREZA** (dropdown por arma y pieza) + sección **MEJORAS** (elegir slot y repartir
   mejoras por categoría con −/+, según el máximo de la rareza).
 - Mientras está abierto, `Game.debug_panel_open` congela al jugador (teclear sin moverse).

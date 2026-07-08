@@ -24,6 +24,8 @@ var _open: bool = false
 
 var _stat_edits: Dictionary = {}
 var _enemy_buttons: Array = []
+var _dummy_buttons: Array = []   # [boton, modo] del modo prueba (Off/Saco/Pegador)
+var _dummy_hp_edit: LineEdit = null
 var _floor_edit: LineEdit = null
 var _armor_opts: Dictionary = {}         # slot -> OptionButton (tipo)
 var _armor_tier_opts: Dictionary = {}    # slot -> OptionButton (tier)
@@ -175,6 +177,34 @@ func _build_enemy(vb: VBoxContainer) -> void:
 	fapply.text = "Aplicar"
 	fapply.pressed.connect(_apply_floor)
 	frow.add_child(fapply)
+
+	# MODO PRUEBA: muñeco de DPS (Saco) / pegador de armadura, con HP configurable.
+	_header(vb, "Prueba (muñeco)")
+	var drow := HBoxContainer.new()
+	drow.add_theme_constant_override("separation", 4)
+	vb.add_child(drow)
+	for dpreset in [["Off", 0], ["Saco DPS", 1], ["Pegador", 2]]:
+		var db := Button.new()
+		db.text = dpreset[0]
+		db.toggle_mode = true
+		db.pressed.connect(_set_dummy.bind(dpreset[1]))
+		drow.add_child(db)
+		_dummy_buttons.append([db, dpreset[1]])
+	var hrow := HBoxContainer.new()
+	hrow.add_theme_constant_override("separation", 4)
+	vb.add_child(hrow)
+	var hlbl := Label.new()
+	hlbl.text = "HP"
+	hrow.add_child(hlbl)
+	_dummy_hp_edit = LineEdit.new()
+	_dummy_hp_edit.custom_minimum_size = Vector2(60, 0)
+	_dummy_hp_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dummy_hp_edit.text_submitted.connect(func(_t): _apply_dummy_hp())
+	hrow.add_child(_dummy_hp_edit)
+	var hap := Button.new()
+	hap.text = "Aplicar"
+	hap.pressed.connect(_apply_dummy_hp)
+	hrow.add_child(hap)
 
 
 func _build_armor(vb: VBoxContainer) -> void:
@@ -379,6 +409,17 @@ func _set_enemy(valor: int) -> void:
 	_sync_enemy()
 
 
+func _set_dummy(modo: int) -> void:
+	Game.debug_dummy_mode = modo
+	_sync_dummy()
+
+
+func _apply_dummy_hp() -> void:
+	var v: float = maxf(1.0, float(_dummy_hp_edit.text.to_float()))
+	Game.debug_dummy_hp = v
+	_dummy_hp_edit.text = str(int(v))
+
+
 func _apply_floor() -> void:
 	Game.current_floor = maxi(1, _floor_edit.text.to_int())
 	_floor_edit.text = str(Game.current_floor)
@@ -437,6 +478,13 @@ func _sync_stats() -> void:
 func _sync_enemy() -> void:
 	for pair in _enemy_buttons:
 		(pair[0] as Button).button_pressed = (pair[1] == Game.debug_enemy_stat_override)
+	_sync_dummy()
+
+func _sync_dummy() -> void:
+	for pair in _dummy_buttons:
+		(pair[0] as Button).button_pressed = (pair[1] == Game.debug_dummy_mode)
+	if _dummy_hp_edit != null:
+		_dummy_hp_edit.text = str(int(Game.debug_dummy_hp))
 
 func _sync_armor() -> void:
 	for slot in ARMOR_SLOTS:

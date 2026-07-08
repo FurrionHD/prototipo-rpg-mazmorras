@@ -82,6 +82,16 @@ var _hand_idx: int = 0
 # Sirve para el DUAL: una habilidad solo usa su version dual si AMBAS armas la traen.
 var ability_hands: Dictionary = {}
 
+# --- MODO PRUEBA (dev): muñeco de DPS / pegador de armadura ---
+# es_dummy = este combatiente es un muñeco de pruebas (el combate loguea el DPS).
+var es_dummy: bool = false
+# dummy_dmg_out_mult multiplica el daño que HACE (Saco = 0: no pega). Neutro = 1.
+var dummy_dmg_out_mult: float = 1.0
+# Si >= 0, spd() devuelve esto (velocidad ESTANDAR fija, para cadencia de turnos regular).
+var dummy_speed_override: float = -1.0
+# invulnerable = no pierde vida (tests largos sin morir); el daño recibido se sigue logueando.
+var invulnerable: bool = false
+
 # --- ESTADOS ALTERADOS (KAN-58) ---
 # Estados ACTIVOS sobre este combatiente (Array[StatusEffects.Instance]). El motor
 # (apply/tick/agregadores) vive aqui; las definiciones en status_effects.gd.
@@ -122,7 +132,10 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 func atk() -> float:
 	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(abilities.fuerza) * motion_value * status_atk_mult()
 func def_value() -> float: return StatsMath.defense_value(abilities, level, base_defense + extra_defense) * status_def_mult()
-func spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * velocidad_mult * status_spd_mult()
+func spd() -> float:
+	if dummy_speed_override >= 0.0:
+		return dummy_speed_override   # modo prueba: velocidad estandar fija
+	return StatsMath.speed_value(abilities, level, base_speed) * velocidad_mult * status_spd_mult()
 # Velocidad al CASTEAR (KAN-95): igual que spd() pero con la velocidad de casteo.
 func cast_spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * cast_velocidad_mult * status_spd_mult()
 
@@ -130,6 +143,8 @@ func is_alive() -> bool:
 	return current_hp > 0.0
 
 func take_damage(amount: float) -> void:
+	if invulnerable:
+		return   # modo prueba: no pierde vida (el daño recibido se loguea igual)
 	current_hp = maxf(0.0, current_hp - amount)
 
 

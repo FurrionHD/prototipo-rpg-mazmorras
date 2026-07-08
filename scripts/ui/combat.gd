@@ -94,6 +94,15 @@ var _injected: bool = false       # true si Game nos paso los combatientes
 var _enemy_initiated: bool = false
 var _player_won: bool = false
 
+# --- MODO PRUEBA / medicion de DPS (dev) ---
+var _dps_on: bool = false             # el enemigo es un muñeco de pruebas
+var _dmg_dealt: Dictionary = {}       # fuente -> daño total infligido al enemigo
+var _dmg_dealt_total: float = 0.0
+var _dmg_taken_total: float = 0.0     # daño (que habrias) recibido (mide mitigacion)
+var _dmg_taken_hits: int = 0
+var _turnos_jugador: int = 0
+var _turnos_enemigo: int = 0
+
 var _player_exhausted_start: bool = false  # entro agotado
 var _slow_actions_left: int = 0            # acciones lentas que quedan
 var _player_overload_factor: float = 1.0   # <1 si entro sobrecargado (lento todo el combate)
@@ -109,6 +118,7 @@ func setup(player_c: Combatant, enemy_c: Combatant, enemy_initiated: bool,
 	_player_exhausted_start = player_exhausted
 	_player_overload_factor = player_overload_factor
 	_injected = true
+	_dps_on = enemy_c != null and enemy_c.es_dummy
 
 
 func _ready() -> void:
@@ -276,6 +286,8 @@ func _process(delta: float) -> void:
 
 func _begin_player_turn() -> void:
 	_state = State.WAITING_PLAYER
+	if _dps_on:
+		_turnos_jugador += 1
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
 	_player.tick_cooldowns()   # habilidades (KAN-57): baja 1 turno los cooldowns activos
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
@@ -496,6 +508,7 @@ func _disparar_hechizo() -> void:
 	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
 		dano = StatsMath.resolve_spell(_player, _enemy, spell).damage
 		_enemy.take_damage(dano)
+		_dps_add("Hechizo: %s" % spell.nombre, dano)
 		_set_log("🔥 %s impacta a %s por %.2f de daño." % [spell.nombre, _enemy.nombre, dano])
 	else:
 		_set_log("✨ %s lanza %s." % [_player.nombre, spell.nombre])
@@ -666,6 +679,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 			Game.RETO_MAX_FISICO)
 		print("        total: %.2f de daño en %d golpe%s | EN -%.0f -> %.1f/%.1f" % [
 			total, golpes, "" if golpes == 1 else "s", coste, _player.current_energy, _player.max_energy])
+		_dps_add(ab.nombre, total)
 	if ab.bloqueo_turnos > 0:
 		_player_defending = true   # golpe de escudo: te deja en guardia
 	# Mensaje al jugador.
@@ -720,6 +734,7 @@ func _accion_atacar() -> void:
 		_set_log("%s esquiva tu ataque (%s). 💨" % [_enemy.nombre, con_arma])
 	else:
 		_enemy.take_damage(result.damage)
+		_dps_add("Básico (%s)" % con_arma, result.damage)
 		var txt: String
 		if result.crit:
 			txt = "¡CRITICO! %s golpea con %s por %.2f de daño. 💥" % [_player.nombre, con_arma, result.damage]
@@ -778,9 +793,12 @@ func _accion_huir() -> void:
 
 
 func _enemy_turn() -> void:
+	if _dps_on:
+		_turnos_enemigo += 1
 	# Estados alterados (KAN-58): tick al inicio del turno del enemigo.
 	var ev: Dictionary = _enemy.tick_statuses()
 	_log_tick(_enemy, ev)
+	_dps_add("DoT (estados)", float(ev.get("damage", 0.0)))   # sangrado/veneno/quemadura que le pusiste
 	_update_hp()
 	if not _enemy.is_alive():
 		_set_log("%s cae por el daño de sus estados. ☠" % _enemy.nombre)
@@ -801,8 +819,11 @@ func _enemy_turn() -> void:
 		_pausa_lectura()
 		return
 
-	var dmg: float = result.damage
+	var dmg: float = result.damage * _enemy.dummy_dmg_out_mult   # Saco = 0 (no pega)
 	_player.take_damage(dmg)
+	if _dps_on:
+		_dmg_taken_total += dmg
+		_dmg_taken_hits += 1
 	# Excelia: la Resistencia sube por la PELIGROSIDAD del enemigo (como el
 	# ataque), modulada por el DAÑO recibido (golpe gordo entrena mas). Asi
 	# tambien sube bien al principio, cuando el enemigo es un gran reto.
@@ -844,7 +865,40 @@ func _pausa_lectura() -> void:
 	_state = State.PAUSED
 
 
+# Acumula daño INFLIGIDO al muñeco por FUENTE y loguea el DPS en vivo (solo modo prueba).
+func _dps_add(fuente: String, dmg: float) -> void:
+	if not _dps_on or dmg <= 0.0:
+		return
+	_dmg_dealt[fuente] = float(_dmg_dealt.get(fuente, 0.0)) + dmg
+	_dmg_dealt_total += dmg
+	var tj: int = maxi(1, _turnos_jugador)
+	var te: int = maxi(1, _turnos_enemigo)
+	print("[dps] +%.2f (%s) | total %.2f | turnos %d tuyos / %d enemigo | DPS %.2f/tuyo · %.2f/enemigo" % [
+		dmg, fuente, _dmg_dealt_total, _turnos_jugador, _turnos_enemigo,
+		_dmg_dealt_total / tj, _dmg_dealt_total / te])
+
+
+# Resumen final de la prueba: DPS medio + desglose por fuente + daño recibido medio.
+func _dps_resumen() -> void:
+	if not _dps_on:
+		return
+	var tj: int = maxi(1, _turnos_jugador)
+	var te: int = maxi(1, _turnos_enemigo)
+	print("[dps] ===== RESUMEN DE PRUEBA vs %s =====" % _enemy.nombre)
+	print("[dps] INFLIGIDO: %.2f total | %d turnos tuyos, %d del enemigo | DPS %.2f/tuyo · %.2f/enemigo" % [
+		_dmg_dealt_total, _turnos_jugador, _turnos_enemigo, _dmg_dealt_total / tj, _dmg_dealt_total / te])
+	var fuentes: Array = _dmg_dealt.keys()
+	fuentes.sort_custom(func(a, b): return float(_dmg_dealt[a]) > float(_dmg_dealt[b]))
+	for f in fuentes:
+		var d: float = float(_dmg_dealt[f])
+		print("[dps]    · %s: %.2f (%.1f%%)" % [f, d, 100.0 * d / maxf(1.0, _dmg_dealt_total)])
+	if _dmg_taken_hits > 0:
+		print("[dps] RECIBIDO: %.2f total en %d golpes | media %.2f/golpe (mitigacion de tu armadura)" % [
+			_dmg_taken_total, _dmg_taken_hits, _dmg_taken_total / float(_dmg_taken_hits)])
+
+
 func _end(player_won: bool, fled: bool = false) -> void:
+	_dps_resumen()
 	_player_won = player_won
 	_state = State.FINISHED
 	_limpiar_casteo()

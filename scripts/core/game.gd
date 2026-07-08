@@ -160,6 +160,11 @@ var dev_start_abilities: int = 0
 # Override de las habilidades del ENEMIGO: -1 = usar las del EnemyData (Base);
 # >=0 = forzar las 5 habilidades a ese valor plano (presets 200 / 500 / 999).
 var debug_enemy_stat_override: int = -1
+# MODO PRUEBA (muñeco): 0 = off, 1 = Saco (mucha vida, no pega, sin esquiva -> mide tu DPS),
+# 2 = Pegador (aguanta y te pega -> mide la mitigacion de tu armadura). Ambos: velocidad
+# estandar (cadencia regular) y el jugador es invulnerable (tests largos sin morir).
+var debug_dummy_mode: int = 0
+var debug_dummy_hp: float = 500.0
 # True mientras el panel de debug esta abierto: congela al jugador (para poder
 # escribir en los campos sin que WASD lo muevan). Lo consulta player.gd.
 var debug_panel_open: bool = false
@@ -789,6 +794,19 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 	if "current_t" in enemy_node:
 		t = enemy_node.current_t
 	var enemy_c := enemy_data.crear_combatant(t)
+
+	# MODO PRUEBA (dev): convierte al enemigo en muñeco de DPS o pegador de armadura.
+	if debug_dummy_mode > 0:
+		enemy_c.es_dummy = true
+		enemy_c.max_hp = debug_dummy_hp
+		enemy_c.current_hp = debug_dummy_hp
+		enemy_c.dummy_speed_override = player_c.spd()   # velocidad estandar (cadencia ~1:1)
+		player_c.invulnerable = true                    # no mueres durante la prueba
+		if debug_dummy_mode == 1:            # Saco: DPS limpio (sin defensa ni esquiva, no pega)
+			enemy_c.dummy_dmg_out_mult = 0.0
+			enemy_c.abilities.resistencia = 0
+			enemy_c.abilities.agilidad = 0
+		# debug_dummy_mode == 2 (Pegador): conserva sus stats y te pega (mult 1.0).
 
 	# ¿El jugador entra agotado? (sus 2 primeras acciones seran mas lentas)
 	var player_exhausted := false
