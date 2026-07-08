@@ -44,7 +44,7 @@ const VENENO_MAX_STACKS := 5
 
 # Sangrado: APILABLE. Cada stack = fraccion BAJA del ATAQUE del aplicador (no 1:1);
 # machacar con armas cortantes sube el daño total (dot = magnitud x stacks). PROVISIONAL.
-const SANGRADO_FRACCION_ATK := 0.15
+const SANGRADO_FRACCION_ATK := 0.30
 const SANGRADO_TURNS := 3
 const SANGRADO_MAX_STACKS := 5
 

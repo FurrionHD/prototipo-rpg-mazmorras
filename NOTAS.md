@@ -288,7 +288,7 @@ Orden acordado: **1) KAN-58 Estados alterados (esto), 2) KAN-57 Habilidades con 
       (base 3 × 2^(stacks−1) → 3·6·12·24·48). Un solo veneno; habilidades/enemigos capan hasta qué
       stack pueden subirlo vía `stack_cap` (los flojos a nivel bajo). SIN tiers con nombre.
     - **Sangrado** 🩸: `independent` (cada stack su propia duración, expiran solos); daño/stack =
-      **fracción baja del ATAQUE del aplicador** (0.15×atk), suma **lineal**. `refresh_all` reservado
+      **fracción del ATAQUE del aplicador** (0.30×atk; subido de 0.15 para que importe), suma **lineal**. `refresh_all` reservado
       para una habilidad que reinicie todos los stacks. Lo aplicarán habilidades con armas cortantes.
     - Ambos los usan los dos bandos; la diferencia es la MECÁNICA, no quién los usa.
   - Estados ya en el catálogo (magnitudes PROVISIONALES → Excel): Veneno, Sangrado, Quemadura (DoT),
