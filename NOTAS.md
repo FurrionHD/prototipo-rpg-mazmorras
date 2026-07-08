@@ -317,6 +317,13 @@ Orden acordado: **1) KAN-58 Estados alterados (esto), 2) KAN-57 Habilidades con 
     Disponible en toda armadura. Cadena: mejora → `armor_piece_mods` → `armor_mods` → `Combatant.status_resist`.
   - Pruebas exhaustivas de balance: aplazadas a cuando esté todo el combate avanzado (KAN-57 después).
 
+**Duración de buffs/debuffs de stat (fix):** los estados de stat (Vulnerable/Débil/Lento/
+Fortaleza/Rayo/Pegajoso) se saltan el PRIMER decremento del tick (flag `Instance.fresh`), así
+un buff/debuff de N turnos sigue activo durante la acción de los N turnos (antes se "gastaba"
+uno antes de poder usarlo: un buff de 3 solo servía 2). Los **DoT** (veneno/sangrado/quemadura)
+NO usan `fresh`: aplican daño al inicio del turno y expiran normal. El stun (1 turno) tampoco.
+`fresh` se resetea al reaplicar (refrescar = como nuevo).
+
 **Motor de estados (propuesta base):** cada `Combatant` lleva estados activos
 `{tipo, turnos_restantes, magnitud/stacks}`. Tick al INICIO del turno del afectado: aplica DoT,
 descuenta duración, expira. Los de stat modifican `atk()`/`def_value()`/`spd()`; aturdido = pierde
@@ -484,7 +491,8 @@ Plan en `~/.claude/plans/ya-que-hemos-terminado-imperative-hejlsberg.md`. Cierra
 ### KAN-57 — Habilidades de armas (energía + framework) 🔧 EN CURSO
 Energía de combate = **stamina de exploración**: entras al combate con la que traigas y vuelve
 al salir (`Game.start_combat`/`_on_combat_finished`). El **básico regenera**, **Defender y las
-habilidades gastan** (ver memoria `energia-combate-habilidades`).
+habilidades gastan** (ver memoria `energia-combate-habilidades`). **Castear también regenera**
+(recitar frase, lanzar, e incluso backfire): son turnos básicos que no gastan energía.
 - **`AbilityData`** (`scripts/items/ability_data.gd`, `.tres`): las arma/escudo traen sus
   `habilidades`; el loadout las junta en `Combatant.abilities_combate`. Campos: `golpes_min/max`
   (+ `_dual`), `dano_mult` (× básico por golpe), `efectos` (Array[StatusApplication]) con
@@ -552,8 +560,28 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`).
       espadón y atonta. 38 EN, cd 3.
     - **Onda expansiva** (`onda_expansiva.tres`): 1 golpe 1.3× + **Aturdido 50% + Lento 70%**.
       Concusión (quita turno y luego ralentiza); control más frecuente. 32 EN, cd 2.
-- **Siguiente**: kit de 2 habilidades para el resto (hacha de mano, bastón).
-  Enfoque acordado: **arma por arma sobre la marcha**.
+  - **Bastón** (mago, 2 manos: pega poquísimo → kit de gestión de recursos, no de daño):
+    - **Canalizar** (`canalizar.tres`): UTILIDAD pura (no golpea, `dano_mult 0`): **gasta TODA la
+      energía** y da **1 maná por cada 12.5 EN** (`energia_a_mana=12.5`; 103 EN → 8.24 maná). Ratio
+      bajo a propósito: el mago apenas gasta energía y ya hay regen base → colchón, no maná infinito.
+      cd 2. Solo disponible con EN ≥ 12.5 (al menos 1 de maná). El sobrante sobre `max_mp` se pierde.
+    - **Bastonazo** (`bastonazo.tres`): golpe físico flojo (1.6× sobre MV 0.4) + **Lento 60%**.
+      La opción física cuando andas corto de maná; el Lento da tiempo al mago frágil. 16 EN, cd 1.
+  - **Varita** (`varita.tres`, off-hand del mago híbrido): también trae **Canalizar**
+    (`canalizar_varita.tres`) pero a **peor ratio (18:1** vs 12.5 del bastón), porque es de soporte
+    y se lleva con otras armas. `WandData` ahora tiene `habilidades` y entra en el bucle que las
+    junta (`game.gd`, junto a WeaponData/ShieldData). cd 2.
+  - **Nuevo en AbilityData**: `mana_gain` (maná fijo), `energia_a_mana` (gasta toda la EN → maná a
+    ese ratio) y habilidades de UTILIDAD pura (`dano_mult 0` → no golpean). `_usar_habilidad` salta
+    el bucle de golpes y `_accion_habilidad` muestra "toda EN → X MP".
+  - **Estoque** (`estoque.tres`, sustituye al hacha de mano: enum `HACHA_MANO → ESTOQUE`, idx 5).
+    Duelista fino/perforante (MV 0.75, vel 1.2, crit 0.12, corte); en `_dev_weapons`/`_dev_offs`.
+    Distinto de la daga (sangrado/ráfaga) → identidad anti-armadura:
+    - **Estocada penetrante** (`estocada_penetrante.tres`): 1.6× (2 dual) + **Vulnerable −25%** 70%
+      (`mult=0.75`, perfora la guardia). 26/40 EN, cd 2.
+    - **Fintas** (`fintas.tres`): 2 estocadas 0.9× (3 dual), sin estado; DPS fiable apoyado en el
+      crítico alto. 20/30 EN, cd 1.
+- **ROSTER COMPLETO**: las 9 armas (+ estoque = 10) y el escudo tienen kit. Cierra el grueso de KAN-57.
 - Visión futura (no ahora): repertorio amplio desbloqueable, equipar/ordenar hasta 4 habilidades.
   "Imbuir veneno" → objeto futuro (viales), no habilidad.
 

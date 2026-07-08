@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Canalizar"
+coste_energia = 0.0
+energia_a_mana = 18.0
+dano_mult = 0.0
+cooldown = 2
+descripcion = "Canaliza todo tu aguante en maná a través de la varita (no golpea): gasta TODA la energía y recuperas 1 de maná por cada 18 de energía. Peor ratio que el bastón (12.5) porque la varita es de soporte y se lleva con otras armas. Cooldown 2 turnos."

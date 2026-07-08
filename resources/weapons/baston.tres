@@ -1,6 +1,8 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/abilities/canalizar.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/abilities/bastonazo.tres" id="3"]
 
 [resource]
 script = ExtResource("1")
@@ -19,3 +21,4 @@ aturdir_base = 0.05
 es_magica = true
 magic_amp = 1.8
 mp_regen_bonus = 0.4
+habilidades = [ExtResource("2"), ExtResource("3")]

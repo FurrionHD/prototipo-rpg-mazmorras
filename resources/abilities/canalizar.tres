@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Canalizar"
+coste_energia = 0.0
+energia_a_mana = 12.5
+dano_mult = 0.0
+cooldown = 2
+descripcion = "Canaliza TODO tu aguante en poder mágico (no golpea): gasta TODA la energía y recuperas 1 de maná por cada 12.5 de energía (103 EN → 8.24 maná). Ratio bajo a propósito: el mago apenas gasta energía y ya hay regen base, así que es un colchón, no maná infinito. Cooldown 2 turnos."

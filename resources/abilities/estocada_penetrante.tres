@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_vuln"]
+script = ExtResource("2")
+estado = 5
+prob = 0.7
+mult = 0.75
+
+[resource]
+script = ExtResource("1")
+nombre = "Estocada penetrante"
+coste_energia = 26.0
+coste_energia_dual = 40.0
+cooldown = 2
+golpes_min = 1
+golpes_max = 1
+golpes_dual_min = 2
+golpes_dual_max = 2
+dano_mult = 1.6
+efectos = [SubResource("SA_vuln")]
+efectos_por_golpe = true
+descripcion = "Una estocada precisa que busca el hueco de la armadura (1.6x del básico): 70% de Vulnerable REFORZADO (−25% def, perfora la guardia). Con dual, 2 estocadas. Se apoya en el crítico alto del estoque. 26 EN (40 dual). Cooldown 2 turnos."

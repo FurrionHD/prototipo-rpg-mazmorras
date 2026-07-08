@@ -19,7 +19,7 @@ class_name WeaponData
 
 enum Tipo {
 	PUNOS, DAGA, ESPADA_CORTA, ESPADA_LARGA, MANDOBLE,
-	HACHA_MANO, HACHA_GRANDE, MAZA_PEQ, MARTILLO_GRANDE,
+	ESTOQUE, HACHA_GRANDE, MAZA_PEQ, MARTILLO_GRANDE,   # ESTOQUE (idx 5) sustituye al viejo HACHA_MANO
 	BASTON,   # arma de mago (KAN-95): pega poco, potencia la magia
 }
 enum DanoTipo { CORTE, CONTUNDENTE }

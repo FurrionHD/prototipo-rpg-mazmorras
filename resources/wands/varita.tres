@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="WandData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/wand_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/abilities/canalizar_varita.tres" id="2"]
 
 [resource]
 script = ExtResource("1")
@@ -10,3 +11,4 @@ mp_regen_bonus = 0.15
 velocidad_mult = 1.2
 bloqueo = 0.0
 evasion_penal = 0.0
+habilidades = [ExtResource("2")]

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/abilities/estocada_penetrante.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/abilities/fintas.tres" id="3"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Estoque"
+tipo = 5
+dos_manos = false
+puede_dual = true
+ataque_base = 3.0
+motion_value = 0.75
+velocidad_mult = 1.2
+crit_bonus = 0.12
+evasion_bonus = 0.04
+bloqueo = 0.08
+dano_tipo = 0
+aturdir_base = 0.0
+habilidades = [ExtResource("2"), ExtResource("3")]

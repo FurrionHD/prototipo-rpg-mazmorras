@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Fintas"
+coste_energia = 20.0
+coste_energia_dual = 30.0
+cooldown = 1
+golpes_min = 2
+golpes_max = 2
+golpes_dual_min = 3
+golpes_dual_max = 3
+dano_mult = 0.9
+descripcion = "Serie de estocadas rápidas y precisas (0.9x del básico cada una; 3 con dual). Sin estados, pero se apoya en el crítico alto del estoque para hacer daño fiable. El pan de cada día del duelista. 20 EN (30 dual). Cooldown 1 turno."

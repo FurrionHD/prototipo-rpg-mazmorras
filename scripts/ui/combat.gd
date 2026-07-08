@@ -467,6 +467,7 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 			_set_log("✓ Frase correcta. Continua el proximo turno...")
 		else:
 			_set_log("✓ ¡Encantamiento completo! El proximo turno lo lanzas.")
+		_player.regen_energy(ATTACK_ENERGY_REGEN)   # recitar es un turno basico: regenera energia (KAN-57)
 		_fin_de_eleccion()
 		_state = State.ADVANCING
 	else:
@@ -506,6 +507,7 @@ func _disparar_hechizo() -> void:
 	Game.ganar("magia", Game.reto(_poder_enemigo()), Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO)
 	print("[magia] %s lanza %s | dano:%.2f (Magia %d)" % [
 		_player.nombre, spell.nombre, dano, _player.abilities.magia])
+	_player.regen_energy(ATTACK_ENERGY_REGEN)   # lanzar es un turno basico: regenera energia (KAN-57)
 	_limpiar_casteo()
 	_update_hp()
 	_fin_de_eleccion()
@@ -544,6 +546,7 @@ func _backfire() -> void:
 	print("[magia] BACKFIRE %s | frase %d/%d | dano propio:%.2f" % [
 		spell.nombre, _cast_index + 1, spell.longitud(), dmg])
 	_set_log("💥 Recitas mal el conjuro y se descontrola: %.2f de daño. El hechizo se pierde." % dmg)
+	_player.regen_energy(ATTACK_ENERGY_REGEN)   # aun fallando, es un turno sin gasto de energia (KAN-57)
 	_limpiar_casteo()
 	_update_hp()
 	_fin_de_eleccion()
@@ -570,15 +573,20 @@ func _accion_habilidad() -> void:
 	var abils: Array = _player.abilities_combate.duplicate()
 	abils.sort_custom(func(a, b): return a.coste(manos) > b.coste(manos))
 	for ab in abils:
-		var coste: float = ab.coste(manos)
+		var es_conv: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta toda la energia
+		var coste: float = _player.current_energy if es_conv else ab.coste(manos)
 		var cd_left: int = _player.ability_cd_left(ab)
 		var b := Button.new()
 		var cd_txt := "  ⏳%d" % cd_left if cd_left > 0 else ""
-		b.text = "%s  (%.0f EN)%s" % [ab.nombre, coste, cd_txt]
+		var costo_txt := ("toda EN → %.1f MP" % (coste / ab.energia_a_mana)) if es_conv else ("%.0f EN" % coste)
+		b.text = "%s  (%s)%s" % [ab.nombre, costo_txt, cd_txt]
 		if cd_left > 0:
 			b.disabled = true
 			b.tooltip_text = "En cooldown: %d turno%s" % [cd_left, "" if cd_left == 1 else "s"]
-		elif not _player.has_energy(coste):
+		elif es_conv and _player.current_energy < ab.energia_a_mana:
+			b.disabled = true
+			b.tooltip_text = "Necesitas al menos %.0f EN" % ab.energia_a_mana
+		elif not es_conv and not _player.has_energy(coste):
 			b.disabled = true
 			b.tooltip_text = "Sin energia suficiente"
 		b.pressed.connect(_usar_habilidad.bind(ab))
@@ -593,55 +601,77 @@ func _accion_habilidad() -> void:
 
 func _usar_habilidad(ab: AbilityData) -> void:
 	var manos: int = maxi(1, _player.hands.size())
-	var coste: float = ab.coste(manos)
-	if _state != State.WAITING_PLAYER or not _player.has_energy(coste) or not _player.ability_ready(ab):
+	var es_conversion: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta TODA la energia
+	var coste: float = _player.current_energy if es_conversion else ab.coste(manos)
+	if _state != State.WAITING_PLAYER or not _player.ability_ready(ab):
+		return
+	if es_conversion:
+		if _player.current_energy < ab.energia_a_mana:
+			return   # no llega ni para 1 de maná
+	elif not _player.has_energy(coste):
 		return
 	_player.spend_energy(coste)
 	_player.start_cooldown(ab)   # entra en cooldown (si la habilidad tiene)
-	var golpes: int = ab.num_golpes(manos)
-	# Cabecera en consola; debajo, cada golpe indentado (crit/esquivado/daño + estados).
-	print("[habilidad] %s usa %s  (%s, %.0f EN)" % [
-		_player.nombre, ab.nombre, ("dual" if manos >= 2 else "1 mano"), coste])
+	# Maná recuperado: FIJO (mana_gain) + por CONVERSION de toda la energia (energia_a_mana).
+	var mana_ganado: float = ab.mana_gain
+	if es_conversion:
+		mana_ganado += coste / ab.energia_a_mana
+	if mana_ganado > 0.0:
+		_player.regen_mana(mana_ganado)
+	var mana_txt := "  +%.1f MP" % mana_ganado if mana_ganado > 0.0 else ""
+	print("[habilidad] %s usa %s  (%s, %.0f EN%s)" % [
+		_player.nombre, ab.nombre, ("dual" if manos >= 2 else "1 mano"), coste, mana_txt])
+	var total: float = 0.0
+	var golpes: int = 0
+	var estados_log: Array = []
 	# GOLPES de daño (rango aleatorio; cada tajo con su ESQUIVA y CRITICO propios). Si
 	# efectos_por_golpe, cada tajo que acierta tira los efectos (sangrado 40%/hit).
-	var total: float = 0.0
-	var conecto: int = 0
-	var hubo_critico: bool = false   # para los efectos NO por golpe (tirada al final)
-	var estados_log: Array = []
-	for i in golpes:
-		var result := StatsMath.resolve_attack(_player, _enemy, false)
-		var linea := ""
-		if result.evaded:
-			linea = "golpe %d: esquivado 💨" % [i + 1]
-		else:
-			var dmg: float = result.damage * ab.dano_mult
-			total += dmg
-			_enemy.take_damage(dmg)
-			conecto += 1
-			if result.crit:
-				hubo_critico = true
-			linea = "golpe %d: %s %.2f" % [i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
-			if ab.efectos_por_golpe and _enemy.is_alive():
-				var ap: Array = _tirar_efectos_habilidad(ab, result.crit)
-				estados_log += ap
-				if not ap.is_empty():
-					linea += "  -> " + ", ".join(ap)
-		print("        " + linea)
-		_player.advance_hand()   # dual: el siguiente golpe con la otra mano
-		if not _enemy.is_alive():
-			break
-	# Efectos NO por golpe: UNA tirada al final si conecto algo (golpe de escudo -> stun).
-	if not ab.efectos_por_golpe and conecto > 0 and _enemy.is_alive():
-		estados_log += _tirar_efectos_habilidad(ab, hubo_critico)
+	# Las de UTILIDAD PURA (dano_mult 0, p.ej. Canalizar) NO golpean.
+	if ab.dano_mult > 0.0:
+		golpes = ab.num_golpes(manos)
+		var conecto: int = 0
+		var hubo_critico: bool = false   # para los efectos NO por golpe (tirada al final)
+		for i in golpes:
+			var result := StatsMath.resolve_attack(_player, _enemy, false)
+			var linea := ""
+			if result.evaded:
+				linea = "golpe %d: esquivado 💨" % [i + 1]
+			else:
+				var dmg: float = result.damage * ab.dano_mult
+				total += dmg
+				_enemy.take_damage(dmg)
+				conecto += 1
+				if result.crit:
+					hubo_critico = true
+				linea = "golpe %d: %s %.2f" % [i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
+				if ab.efectos_por_golpe and _enemy.is_alive():
+					var ap: Array = _tirar_efectos_habilidad(ab, result.crit)
+					estados_log += ap
+					if not ap.is_empty():
+						linea += "  -> " + ", ".join(ap)
+			print("        " + linea)
+			_player.advance_hand()   # dual: el siguiente golpe con la otra mano
+			if not _enemy.is_alive():
+				break
+		# Efectos NO por golpe: UNA tirada al final si conecto algo (golpe de escudo -> stun).
+		if not ab.efectos_por_golpe and conecto > 0 and _enemy.is_alive():
+			estados_log += _tirar_efectos_habilidad(ab, hubo_critico)
+		# Excelia: como el ataque, entrena Fuerza (por impacto medio).
+		Game.ganar("fuerza", Game.reto(_poder_enemigo()) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
+			Game.RETO_MAX_FISICO)
+		print("        total: %.2f de daño en %d golpe%s | EN -%.0f -> %.1f/%.1f" % [
+			total, golpes, "" if golpes == 1 else "s", coste, _player.current_energy, _player.max_energy])
 	if ab.bloqueo_turnos > 0:
 		_player_defending = true   # golpe de escudo: te deja en guardia
-	# Excelia: como el ataque, entrena Fuerza (por impacto medio).
-	Game.ganar("fuerza", Game.reto(_poder_enemigo()) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
-		Game.RETO_MAX_FISICO)
-	print("        total: %.2f de daño en %d golpe%s | EN -%.0f -> %.1f/%.1f" % [
-		total, golpes, "" if golpes == 1 else "s", coste, _player.current_energy, _player.max_energy])
-	var msg := "%s usa %s: %.2f de daño (%d golpe%s)." % [
-		_player.nombre, ab.nombre, total, golpes, "" if golpes == 1 else "s"]
+	# Mensaje al jugador.
+	var msg: String
+	if ab.dano_mult > 0.0:
+		msg = "%s usa %s: %.2f de daño (%d golpe%s)." % [
+			_player.nombre, ab.nombre, total, golpes, "" if golpes == 1 else "s"]
+	else:
+		msg = "%s usa %s." % [_player.nombre, ab.nombre]
+	if mana_ganado > 0.0:
+		msg += "  +%.1f MP." % mana_ganado
 	if not estados_log.is_empty():
 		msg += "  Aplica: %s." % ", ".join(estados_log)
 	if ab.bloqueo_turnos > 0:
@@ -895,12 +925,14 @@ func _poder_enemigo() -> float:
 # Crea la linea de orden de turnos (banda horizontal en la zona media).
 func _crear_timeline() -> void:
 	_timeline = preload("res://scripts/ui/turn_timeline.gd").new()
+	# Anclada ABAJO DEL TODO (full width, ultimos 80 px) para no pisar la zona de botones.
 	_timeline.anchor_left = 0.0
 	_timeline.anchor_right = 1.0
-	_timeline.offset_top = 320.0
-	_timeline.offset_bottom = 400.0
-	# La barra ATB se dibuja por ENCIMA del VBox; sin esto se traga los clics de los
-	# botones (habilidades/hechizos/Volver) que caen en su franja. Solo dibuja -> IGNORE.
+	_timeline.anchor_top = 1.0
+	_timeline.anchor_bottom = 1.0
+	_timeline.offset_top = -80.0
+	_timeline.offset_bottom = 0.0
+	# Solo dibuja -> IGNORE (que no robe clics a lo que quede por encima).
 	_timeline.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_timeline)
 
@@ -926,7 +958,7 @@ func _crear_estados_dev() -> void:
 	toggle.button_pressed = true   # arranca abierto (al fondo ya no tapa el HP de arriba)
 	toggle.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	toggle.offset_right = -8
-	toggle.offset_bottom = -8
+	toggle.offset_bottom = -88   # por ENCIMA de la barra ATB del fondo (80 px + 8 de margen)
 	toggle.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	toggle.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	toggle.toggled.connect(func(on: bool): _estados_panel.visible = on)
@@ -936,7 +968,7 @@ func _crear_estados_dev() -> void:
 	_estados_panel = PanelContainer.new()
 	_estados_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	_estados_panel.offset_right = -8
-	_estados_panel.offset_bottom = -40   # justo encima del boton toggle
+	_estados_panel.offset_bottom = -120   # justo encima del boton toggle (que ahora esta a -88)
 	_estados_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_estados_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_estados_panel.custom_minimum_size = Vector2(260, 0)

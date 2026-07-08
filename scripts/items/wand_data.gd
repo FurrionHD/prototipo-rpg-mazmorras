@@ -23,3 +23,7 @@ class_name WandData
 # La varita apenas bloquea/estorba (va casi neutra en lo defensivo).
 @export var bloqueo: float = 0.0
 @export var evasion_penal: float = 0.0
+
+# HABILIDADES (KAN-57) que aporta la varita al loadout (Array[AbilityData]). Como es de
+# soporte y se lleva con OTRAS armas, su Canalizar da maná a peor ratio que el bastón.
+@export var habilidades: Array = []

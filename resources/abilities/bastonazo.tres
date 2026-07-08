@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_lento"]
+script = ExtResource("2")
+estado = 3
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Bastonazo"
+coste_energia = 16.0
+cooldown = 1
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.6
+efectos = [SubResource("SA_lento")]
+descripcion = "Un golpe seco con el bastón (1.6x del básico; aún así pega poco, el bastón no es un arma física): 60% de Lento para ganar tiempo. La opción física del mago cuando anda corto de maná. 16 EN. Cooldown 1 turno."

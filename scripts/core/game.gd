@@ -289,6 +289,7 @@ const COBERTURA_BOTAS := 0.125
 var _dev_weapons: Array[String] = [
 	"res://resources/weapons/punos.tres",
 	"res://resources/weapons/daga.tres",
+	"res://resources/weapons/estoque.tres",
 	"res://resources/weapons/espada_corta.tres",
 	"res://resources/weapons/espada_larga.tres",
 	"res://resources/weapons/maza_peq.tres",
@@ -300,6 +301,7 @@ var _dev_weapons: Array[String] = [
 var _dev_offs: Array = [
 	null,
 	"res://resources/weapons/daga.tres",
+	"res://resources/weapons/estoque.tres",
 	"res://resources/weapons/espada_corta.tres",
 	"res://resources/weapons/maza_peq.tres",
 	"res://resources/shields/escudo_pequeno.tres",
@@ -384,7 +386,7 @@ func crear_player_combatant() -> Combatant:
 	var abils: Array = []
 	var tiene_escudo: bool = equipped_off is ShieldData
 	for it in [equipped_main, equipped_off]:
-		if (it is WeaponData or it is ShieldData) and not it.habilidades.is_empty():
+		if (it is WeaponData or it is ShieldData or it is WandData) and not it.habilidades.is_empty():
 			for ab in it.habilidades:
 				if ab == null or abils.has(ab):
 					continue

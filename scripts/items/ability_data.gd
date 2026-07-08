@@ -40,6 +40,15 @@ class_name AbilityData
 # Activa la GUARDIA (Defender) durante N turnos tras usarla (golpe de escudo).
 @export var bloqueo_turnos: int = 0
 
+# MANÁ FIJO que RECUPERA al usarla (0 = ninguno). Una habilidad de PURA UTILIDAD (sin
+# daño) se marca con dano_mult = 0: no golpea, solo su efecto.
+@export var mana_gain: float = 0.0
+
+# CONVERSION energía->maná (bastón, Canalizar): si > 0, la habilidad GASTA TODA la energía
+# actual y da 1 de maná por cada 'energia_a_mana' de energía (media dinámica: 103 EN / 12.5
+# = 8.24 maná). Ignora coste_energia. Solo disponible si tienes energía para >=1 de maná.
+@export var energia_a_mana: float = 0.0
+
 # COOLDOWN (KAN-57): turnos que debes ESPERAR para volver a usarla. 0 = sin cooldown
 # (usable cada turno). N = tras usarla, no vuelve a estar disponible hasta N turnos
 # tuyos despues. El estado (turnos restantes) vive en el Combatant, no aqui (recurso
