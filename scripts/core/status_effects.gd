@@ -134,6 +134,10 @@ class Instance extends RefCounted:
 	# al del catalogo. 0.0 = usar el del catalogo. Ej: Vulnerable 0.70 = -30% def (el hacha
 	# raja mas que el -20% base). Lo pasa QUIEN lo aplica (StatusApplication.mult).
 	var mult_override: float = 0.0
+	# Solo BUFFS/DEBUFFS de stat (no DoT ni stun): se saltan el PRIMER decremento del tick,
+	# para seguir ACTIVOS durante la accion del turno en que se aplican / expiran (si no, un
+	# buff de 3 turnos solo se usa en 2). Los DoT aplican daño y se van normal. Ver Combatant.
+	var fresh: bool = true
 
 	func _init(def_: Dictionary, turns_: int, stacks_: int = 1) -> void:
 		d = def_

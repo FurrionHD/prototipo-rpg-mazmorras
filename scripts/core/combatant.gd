@@ -260,6 +260,7 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	for e in statuses:
 		if e.id() == id:
 			e.turns = turns   # resetea la duracion
+			e.fresh = true    # refrescar = como recien aplicado (se salta el proximo decremento)
 			e.magnitude = maxf(e.magnitude, magnitude)   # sube al mas fuerte
 			# Nivel de stat: se queda con el MAS FUERTE (mas lejos de 1.0).
 			if mult_override > 0.0 and absf(mult_override - 1.0) > absf(e.base_stat_mult() - 1.0):
@@ -297,6 +298,9 @@ func _min_turns_status(id: int):
 # Tick AL INICIO del turno de este combatiente: aplica el DoT de todos sus estados,
 # calcula si esta ATURDIDO (pierde el turno) y decrementa/expira duraciones.
 # Devuelve {damage, stunned, expired:[nombres], dot:[etiquetas]} para el log.
+# DoT y stun: aplican su efecto y decrementan/expiran normal. BUFFS/DEBUFFS de stat:
+# se saltan el PRIMER decremento (flag 'fresh'), asi un buff/debuff de 3 turnos sigue
+# activo durante la accion de los 3 turnos (si no, se "gasta" uno antes de poder usarlo).
 func tick_statuses() -> Dictionary:
 	var total_dmg: float = 0.0
 	var stunned: bool = false
@@ -304,12 +308,17 @@ func tick_statuses() -> Dictionary:
 	var dot_labels: Array = []
 	var kept: Array = []
 	for e in statuses:
+		var dmg: float = e.dot_damage()
+		var es_stat: bool = dmg <= 0.0 and not e.is_stun()   # buff/debuff de stat (ni DoT ni stun)
 		if e.is_stun():
 			stunned = true
-		var dmg: float = e.dot_damage()
 		if dmg > 0.0:
 			total_dmg += dmg
 			dot_labels.append("%s %.1f" % [str(e.d.get("icono", "?")), dmg])
+		if es_stat and e.fresh:
+			e.fresh = false   # se salta el primer decremento: activo durante este turno
+			kept.append(e)
+			continue
 		e.turns -= 1
 		if e.turns <= 0:
 			expired.append(str(e.d.get("nombre", "?")))
