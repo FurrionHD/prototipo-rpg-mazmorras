@@ -395,6 +395,21 @@ func crear_player_combatant() -> Combatant:
 					continue
 				abils.append(ab)
 	c.abilities_combate = abils
+	# Mapa habilidad -> indices de MANO (arma) que la aportan. El dual de una habilidad
+	# SOLO se activa si AMBAS armas la traen (daga+daga), no daga+estoque: cada arma tiene
+	# SUS habilidades. Mano 0 = principal, 1 = secundaria (solo si es arma). Las de
+	# escudo/varita no cuelgan de una mano -> mano principal (0). Ver Combatant/_usar_habilidad.
+	var ability_hands: Dictionary = {}
+	for ab in abils:
+		var idxs: Array = []
+		if equipped_main is WeaponData and (equipped_main as WeaponData).habilidades.has(ab):
+			idxs.append(0)
+		if equipped_off is WeaponData and (equipped_off as WeaponData).habilidades.has(ab):
+			idxs.append(1)
+		if idxs.is_empty():
+			idxs.append(0)
+		ability_hands[ab] = idxs
+	c.ability_hands = ability_hands
 
 	# Aplicar los modificadores del loadout. Las MANOS (1 o 2) se alternan por
 	# golpe en combate; set_hands activa la primera. El resto son del loadout entero.

@@ -78,6 +78,9 @@ var crit_resist: float = 0.0     # RESIST. CRITICOS (armadura pesada): baja el c
 # aturdir_base}. Se ALTERNAN por golpe (advance_hand). Vacio = enemigos (sin arma).
 var hands: Array = []
 var _hand_idx: int = 0
+# Mapa AbilityData -> [indices de mano que la aportan] (KAN-57). Lo rellena Game.
+# Sirve para el DUAL: una habilidad solo usa su version dual si AMBAS armas la traen.
+var ability_hands: Dictionary = {}
 
 # --- ESTADOS ALTERADOS (KAN-58) ---
 # Estados ACTIVOS sobre este combatiente (Array[StatusEffects.Instance]). El motor
@@ -198,6 +201,20 @@ func advance_hand() -> void:
 	if hands.size() > 1:
 		_hand_idx = (_hand_idx + 1) % hands.size()
 		_apply_hand(_hand_idx)
+
+# Activa una mano CONCRETA por indice (KAN-57: las habilidades golpean con el arma que
+# las aporta, no con la que toque por el ciclo del dual). Fuera de rango = no hace nada.
+func set_active_hand(i: int) -> void:
+	if i >= 0 and i < hands.size():
+		_hand_idx = i
+		_apply_hand(i)
+
+# Indices de mano (arma) que aportan esta habilidad (dual solo si son 2). Por defecto [0].
+func ability_hand_indices(ab) -> Array:
+	return ability_hands.get(ab, [0])
+
+func ability_manos(ab) -> int:
+	return maxi(1, ability_hand_indices(ab).size())
 
 # Nombre del arma con la que golpeas AHORA (para el log). "" si no hay manos.
 func current_hand_name() -> String:

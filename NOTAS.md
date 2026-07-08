@@ -512,6 +512,11 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`). **Castear tamb
   las habilidades son jugadas de COMPROMISO (gastas un pico de energía Y esperas turnos), no spam.
   Cooldowns por rol: filler barato (Doble tajo) cd 1; golpes estándar (Ráfaga/Puñalada/Golpe de
   escudo) cd 2; setups/nukes/power (Tajo quebrantador/pesado/desarmante, Guardia rota) cd 3.
+- **Dual por arma** (fix): una habilidad usa su versión **dual** SOLO si AMBAS armas la aportan
+  (daga+daga), no daga+estoque — cada arma tiene sus habilidades. `Game` construye
+  `Combatant.ability_hands` (habilidad → índices de mano que la traen); `_usar_habilidad` usa
+  `ability_manos(ab)`/`ability_hand_indices(ab)` para los golpes/coste y golpea con el arma
+  correcta (`set_active_hand`), sin alternar si no es dual real. Las de escudo/varita → mano 0.
 - **Orden del submenú** (combat.gd): habilidades y hechizos se listan por **coste DESCENDENTE**
   (energía / maná efectivo; las más caras arriba). `sort_custom` sobre una copia de la lista.
 - **Combate** (`combat.gd`): acción **Habilidad** (`_accion_habilidad`/`_usar_habilidad`); cada

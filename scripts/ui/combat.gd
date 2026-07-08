@@ -568,11 +568,12 @@ func _accion_habilidad() -> void:
 	_ocultar_cajas()
 	for c in _ability_box.get_children():
 		c.queue_free()
-	var manos: int = maxi(1, _player.hands.size())
-	# Ordenadas por coste de energia DESCENDENTE (las mas caras arriba).
+	# Ordenadas por coste de energia DESCENDENTE (las mas caras arriba). El coste usa las
+	# manos que aportan CADA habilidad (dual solo si ambas armas la traen).
 	var abils: Array = _player.abilities_combate.duplicate()
-	abils.sort_custom(func(a, b): return a.coste(manos) > b.coste(manos))
+	abils.sort_custom(func(a, b): return a.coste(_player.ability_manos(a)) > b.coste(_player.ability_manos(b)))
 	for ab in abils:
+		var manos: int = _player.ability_manos(ab)
 		var es_conv: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta toda la energia
 		var coste: float = _player.current_energy if es_conv else ab.coste(manos)
 		var cd_left: int = _player.ability_cd_left(ab)
@@ -600,7 +601,9 @@ func _accion_habilidad() -> void:
 
 
 func _usar_habilidad(ab: AbilityData) -> void:
-	var manos: int = maxi(1, _player.hands.size())
+	# Manos que aportan ESTA habilidad (dual solo si son 2: daga+daga, no daga+estoque).
+	var idxs: Array = _player.ability_hand_indices(ab)
+	var manos: int = maxi(1, idxs.size())
 	var es_conversion: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta TODA la energia
 	var coste: float = _player.current_energy if es_conversion else ab.coste(manos)
 	if _state != State.WAITING_PLAYER or not _player.ability_ready(ab):
@@ -631,6 +634,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		golpes = ab.num_golpes(manos)
 		var conecto: int = 0
 		var hubo_critico: bool = false   # para los efectos NO por golpe (tirada al final)
+		_player.set_active_hand(idxs[0])   # empieza con el arma que aporta la habilidad
 		for i in golpes:
 			var result := StatsMath.resolve_attack(_player, _enemy, false)
 			var linea := ""
@@ -650,7 +654,8 @@ func _usar_habilidad(ab: AbilityData) -> void:
 					if not ap.is_empty():
 						linea += "  -> " + ", ".join(ap)
 			print("        " + linea)
-			_player.advance_hand()   # dual: el siguiente golpe con la otra mano
+			# Siguiente golpe: si es dual (2 armas la aportan) alterna; si no, sigue con la misma.
+			_player.set_active_hand(idxs[(i + 1) % idxs.size()])
 			if not _enemy.is_alive():
 				break
 		# Efectos NO por golpe: UNA tirada al final si conecto algo (golpe de escudo -> stun).
