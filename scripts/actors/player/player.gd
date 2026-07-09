@@ -72,6 +72,7 @@ const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
 func _ready() -> void:
 	_stamina_bar = _crear_barra_aguante()
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD de inventario
+	add_child(preload("res://scripts/ui/character_menu.gd").new())  # menu de personaje (C)
 	add_child(preload("res://scripts/ui/debug_panel.gd").new())  # panel de debug (cualquier sala)
 	add_child(preload("res://scripts/ui/spawner.gd").new())      # spawner de enemigos (dev/test)
 	add_child(preload("res://scripts/ui/keys_help.gd").new())    # ayuda de teclas en pantalla (F1)

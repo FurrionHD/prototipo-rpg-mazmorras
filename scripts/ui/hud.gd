@@ -93,7 +93,7 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	# Ayudas de tecla (el resto de datos viven en las barras / cuadrado de peso / inventario).
-	_counts.text = "[I] Inv   [Q] Curación óptima   [F1] Info"
+	_counts.text = "[I] Inv   [C] Personaje   [Q] Curación óptima   [F1] Info"
 
 	# Piso arriba a la derecha.
 	_floor_lbl.text = "Piso: %d" % Game.current_floor

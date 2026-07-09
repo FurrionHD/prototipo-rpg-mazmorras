@@ -26,6 +26,7 @@ const CONTROLS := [
 	["Espacio", "Atacar"],
 	["F", "Interactuar (puertas, altar, loot)"],
 	["I", "Inventario"],
+	["C", "Menú de personaje (stats / armas / armadura)"],
 ]
 
 var _root: Control = null       # backdrop + panel; se muestra/oculta como un todo

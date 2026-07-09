@@ -374,6 +374,12 @@ func player_max_hp() -> float:
 func player_hp() -> float:
 	return player_current_hp if player_current_hp >= 0.0 else player_max_hp()
 
+# True si la escena actual es el PUEBLO (donde se puede cambiar de equipo). Lo consulta
+# el menu de personaje para habilitar/bloquear los cambios de armas/armadura.
+func en_pueblo() -> bool:
+	var s: Node = get_tree().current_scene
+	return s != null and s.scene_file_path.ends_with("town.tscn")
+
 # --- OBJETOS / pociones ---
 func add_consumable(c: ConsumableData, n: int = 1) -> void:
 	if c == null:
