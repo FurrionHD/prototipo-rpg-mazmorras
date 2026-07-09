@@ -50,8 +50,15 @@ var _attack_was_pressed: bool = false
 @export var interact_range: float = 40.0
 var _interact_was: bool = false
 
-# Barra de aguante (se crea por codigo, ver _crear_barra_aguante).
+# Barras de estado (se crean por codigo, ver _crear_barra_aguante): aguante + vida + mana.
 var _stamina_bar: ProgressBar = null
+var _hp_bar: ProgressBar = null
+var _mp_bar: ProgressBar = null
+# Numeros superpuestos DENTRO de cada barra (energia/vida/mana).
+var _stamina_lbl: Label = null
+var _hp_lbl: Label = null
+var _mp_lbl: Label = null
+var _drink_was: bool = false   # antirebote de la tecla Q (beber pocion)
 
 # Excelia (subida de habilidades por uso): distancia recorrida para Fuerza
 # (cargando en sobrecarga) y Agilidad (corriendo cerca de un enemigo).
@@ -76,6 +83,7 @@ func _ready() -> void:
 	# Esto evita el rebote entre escenas al mantener F pulsada.
 	_interact_was = Input.is_key_pressed(KEY_F)
 	_attack_was_pressed = Input.is_key_pressed(KEY_SPACE)
+	_drink_was = Input.is_key_pressed(KEY_Q)
 
 	# Aguante maximo segun las stats del jugador (Resistencia y Agilidad).
 	max_stamina = base_stamina \
@@ -93,13 +101,16 @@ func _physics_process(delta: float) -> void:
 	# Con el inventario abierto: no te mueves ni interactuas (F/ataque). El
 	# enemigo sigue su IA aparte, asi que puede emboscarte igualmente. Pero el
 	# TIEMPO pasa, asi que el aguante se sigue recuperando.
+	Game.tick_heal(delta)         # cura de pociones (fuera de combate) corre siempre que pasa el tiempo
+	Game.tick_mana_regen(delta)   # regen pasiva de mana por el mapa (KAN-56/57)
+	Game.tick_mana_pocion(delta)  # maná de pociones de maná (fuera de combate)
 	if Game.inventory_open or Game.debug_panel_open:
 		velocity = Vector2.ZERO
 		current_stamina = minf(max_stamina, current_stamina + _regen_actual * delta)
 		if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
 			_exhausted = false
-		_stamina_bar.value = current_stamina
-		_stamina_bar.modulate = Color(1.0, 0.4, 0.4) if _exhausted else Color.WHITE
+		_actualizar_barra_aguante()
+		_refrescar_barras_vida()
 		return
 
 	var direction: Vector2 = Input.get_vector(
@@ -140,9 +151,8 @@ func _physics_process(delta: float) -> void:
 		if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
 			_exhausted = false
 
-	_stamina_bar.value = current_stamina
-	# Pista visual: la barra se pone rojiza mientras estas agotado.
-	_stamina_bar.modulate = Color(1.0, 0.4, 0.4) if _exhausted else Color.WHITE
+	_actualizar_barra_aguante()
+	_refrescar_barras_vida()
 
 	# Sobrecarga (loot): cuanto mas peso en la mochila, mas lento (gradual).
 	speed *= Game.overload_speed_factor()
@@ -187,6 +197,12 @@ func _physics_process(delta: float) -> void:
 	if inter and not _interact_was:
 		_try_interact()
 	_interact_was = inter
+
+	# Beber una pocion (Q): cura por el tiempo fuera de combate.
+	var drink: bool = Input.is_key_pressed(KEY_Q)
+	if drink and not _drink_was:
+		_beber_pocion()
+	_drink_was = drink
 
 
 # True si estamos agotados (lo consulta el enemigo para atacar al instante).
@@ -275,16 +291,90 @@ func _mas_cercano_en_grupo(grupo: String, skip_extracted: bool) -> Node:
 	return nearest
 
 
-# Crea una barrita de aguante en pantalla (arriba a la izquierda).
-# Va en su propia CanvasLayer para que no la mueva la camara.
+# Crea las barritas de estado en pantalla (arriba a la izquierda): AGUANTE (verde),
+# VIDA (roja) y MANA (azul), apiladas. Van en su propia CanvasLayer para que no las
+# mueva la camara. Devuelve la de aguante (las de vida/mana quedan en _hp_bar/_mp_bar).
 func _crear_barra_aguante() -> ProgressBar:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
 	add_child(layer)
 
+	# AGUANTE (verde). Usamos self_modulate para tintar SOLO el relleno de la barra,
+	# no el numero superpuesto (que es un hijo y heredaria modulate).
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
 	bar.custom_minimum_size = Vector2(180, 16)
 	bar.position = Vector2(12, 12)
+	bar.self_modulate = Color(0.4, 1.0, 0.5)
 	layer.add_child(bar)
+	_stamina_lbl = _crear_label_barra(bar)
+
+	# VIDA (roja) debajo del aguante.
+	_hp_bar = ProgressBar.new()
+	_hp_bar.show_percentage = false
+	_hp_bar.custom_minimum_size = Vector2(180, 12)
+	_hp_bar.position = Vector2(12, 32)
+	_hp_bar.self_modulate = Color(1.0, 0.4, 0.4)
+	layer.add_child(_hp_bar)
+	_hp_lbl = _crear_label_barra(_hp_bar)
+
+	# MANA (azul) debajo de la vida.
+	_mp_bar = ProgressBar.new()
+	_mp_bar.show_percentage = false
+	_mp_bar.custom_minimum_size = Vector2(180, 12)
+	_mp_bar.position = Vector2(12, 48)
+	_mp_bar.self_modulate = Color(0.4, 0.6, 1.0)
+	layer.add_child(_mp_bar)
+	_mp_lbl = _crear_label_barra(_mp_bar)
 	return bar
+
+
+# Crea un Label centrado que cubre toda la barra, para pintar el numero DENTRO.
+# Con outline oscuro para leerse sobre cualquier color de relleno.
+func _crear_label_barra(bar: ProgressBar) -> Label:
+	var l := Label.new()
+	l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", 11)
+	l.add_theme_color_override("font_color", Color.WHITE)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	l.add_theme_constant_override("outline_size", 4)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(l)
+	return l
+
+
+# Actualiza la barra de aguante: valor, tinte (verde normal / rojizo agotado) y numero.
+func _actualizar_barra_aguante() -> void:
+	_stamina_bar.value = current_stamina
+	# Pista visual: el relleno se pone rojizo mientras estas agotado.
+	_stamina_bar.self_modulate = Color(1.0, 0.4, 0.4) if _exhausted else Color(0.4, 1.0, 0.5)
+	if _stamina_lbl != null:
+		_stamina_lbl.text = "%.0f/%.0f" % [current_stamina, max_stamina]
+
+
+# Refresca las barras de VIDA y MANA con el estado persistente de Game (valen tanto
+# con el inventario abierto como explorando; la vida sube con la cura de pociones).
+func _refrescar_barras_vida() -> void:
+	if _hp_bar != null:
+		var maxhp: float = Game.player_max_hp()
+		var hp: float = Game.player_hp()
+		_hp_bar.max_value = maxhp
+		_hp_bar.value = hp
+		if _hp_lbl != null:
+			_hp_lbl.text = "%.1f/%.1f" % [hp, maxhp]
+	if _mp_bar != null:
+		var maxmp: float = Game.player_max_mp()
+		var curmp: float = Game.player_current_mp if Game.player_current_mp >= 0.0 else maxmp
+		_mp_bar.max_value = maxf(1.0, maxmp)
+		_mp_bar.value = curmp
+		if _mp_lbl != null:
+			_mp_lbl.text = "%.2f/%.2f" % [curmp, maxmp]
+
+
+# Bebe la PRIMERA poción del inventario (tecla Q, fuera de combate). Arranca la
+# cura-por-tiempo de Game (no hace nada si no tienes pociones o ya estas a tope).
+func _beber_pocion() -> void:
+	# Q = recuperación óptima (auto). Para ELEGIR una poción concreta, abre el inventario (I).
+	Game.beber_optima()

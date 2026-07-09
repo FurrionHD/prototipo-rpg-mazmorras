@@ -10,8 +10,12 @@
 extends CanvasLayer
 
 var _counts: Label = null
+var _floor_lbl: Label = null    # "Piso: N" en la esquina superior derecha
+var _peso_box: ColorRect = null # cuadrado (placeholder de bolsa) a la derecha de las barras
+var _peso_lbl: Label = null     # numero de peso encima del cuadrado
 var _panel: ColorRect = null
 var _list: Label = null
+var _objetos_box: VBoxContainer = null   # botones para BEBER pociones (elegir cual)
 var _panel_open: bool = false
 var _toggle_was: bool = false
 
@@ -25,10 +29,37 @@ func _ready() -> void:
 	# quedaria congelado creyendo que el inventario sigue abierto.
 	Game.inventory_open = false
 
-	# Contador siempre visible (debajo de la barra de aguante).
+	# Ayudas de tecla, debajo de las barras de aguante/vida/mana del jugador.
 	_counts = Label.new()
-	_counts.position = Vector2(12, 34)
+	_counts.position = Vector2(12, 66)
 	add_child(_counts)
+
+	# "Piso: N" en la esquina superior derecha.
+	_floor_lbl = Label.new()
+	_floor_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_floor_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_floor_lbl.offset_left = -160
+	_floor_lbl.offset_right = -12
+	_floor_lbl.offset_top = 10
+	add_child(_floor_lbl)
+
+	# Cuadrado de PESO (placeholder de una futura bolsa/mochila) a la derecha de las
+	# barras, con el numero encima. Cambia de color segun te vas cargando.
+	_peso_box = ColorRect.new()
+	_peso_box.position = Vector2(200, 16)
+	_peso_box.size = Vector2(44, 44)
+	add_child(_peso_box)
+
+	_peso_lbl = Label.new()
+	_peso_lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_peso_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_peso_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_peso_lbl.add_theme_font_size_override("font_size", 11)
+	_peso_lbl.add_theme_color_override("font_color", Color.WHITE)
+	_peso_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_peso_lbl.add_theme_constant_override("outline_size", 4)
+	_peso_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_peso_box.add_child(_peso_lbl)
 
 	# Panel de inventario (oculto por defecto), a pantalla completa oscura.
 	_panel = ColorRect.new()
@@ -46,25 +77,39 @@ func _ready() -> void:
 	scroll.offset_bottom = -40
 	_panel.add_child(scroll)
 
+	# Dentro del scroll: BOTONES de objetos (elegir poción) arriba + la lista de texto debajo.
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 4)
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vb)
+
+	_objetos_box = VBoxContainer.new()
+	_objetos_box.add_theme_constant_override("separation", 3)
+	vb.add_child(_objetos_box)
+
 	_list = Label.new()
-	scroll.add_child(_list)
+	vb.add_child(_list)
 
 
 func _process(_delta: float) -> void:
-	# Actualiza el contador (con dinero, MANA, peso de LOOT y velocidad de armadura).
-	# El mana SIEMPRE visible (-1 = lleno), con 2 decimales para ver el regen fino.
-	var max_mp: float = Game.player_max_mp()
-	var cur_mp: float = Game.player_current_mp if Game.player_current_mp >= 0.0 else max_mp
-	_counts.text = "Piso: %d   Dinero: %d   Mana: %.2f/%.2f   Cristales: %d   Drops: %d   Peso: %d/%d   Vel arm: x%.2f   [I] Inventario" % [
-		Game.current_floor, Game.money, cur_mp, max_mp, Game.crystals.size(), Game.drops.size(),
-		roundi(Game.peso_actual()), roundi(Game.capacidad_carga()),
-		Game.armor_speed_mult()]
-	# Tinta rojizo solo si vas SOBRECARGADO de loot (la armadura es un tradeoff, no un mal).
+	# Ayudas de tecla (el resto de datos viven en las barras / cuadrado de peso / inventario).
+	_counts.text = "[I] Inv   [Q] Óptima"
+
+	# Piso arriba a la derecha.
+	_floor_lbl.text = "Piso: %d" % Game.current_floor
+
+	# Cuadrado de PESO: numero encima y color por ratio de carga.
+	# Blanco/gris cuando vas ligero -> amarillo al acercarte al limite -> rojo sobrecargado.
+	_peso_lbl.text = "%d/%d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
+	var ratio: float = Game.ratio_carga()
+	var col: Color
 	if Game.esta_sobrecargado():
-		_counts.text += "   (SOBRECARGADO)"
-		_counts.modulate = Color(1.0, 0.5, 0.5)
+		col = Color(0.85, 0.15, 0.15)  # rojo pleno
 	else:
-		_counts.modulate = Color.WHITE
+		# 0..overload_threshold -> gris a amarillo.
+		var t: float = clampf(ratio / maxf(0.01, Game.overload_threshold), 0.0, 1.0)
+		col = Color(0.35, 0.35, 0.38).lerp(Color(0.9, 0.8, 0.1), t)
+	_peso_box.color = col
 
 	# Alterna el panel con la tecla I.
 	var t: bool = Input.is_key_pressed(KEY_I)
@@ -72,11 +117,43 @@ func _process(_delta: float) -> void:
 		_panel_open = not _panel_open
 		_panel.visible = _panel_open
 		Game.inventory_open = _panel_open  # bloquea/desbloquea al jugador
+		if _panel_open:
+			_build_objeto_buttons()   # botones de pociones (elegir) al abrir
 	_toggle_was = t
 
 	# Refresca la lista en vivo mientras esta abierto.
 	if _panel_open:
 		_refrescar_lista()
+
+
+# Construye los botones para ELEGIR que poción beber (fuera de combate) + el de recuperación
+# óptima (auto). Se reconstruye al abrir el panel y tras cada trago (cambian las cantidades).
+func _build_objeto_buttons() -> void:
+	if _objetos_box == null:
+		return
+	for c in _objetos_box.get_children():
+		c.queue_free()
+	var maxhp: float = Game.player_max_hp()
+	var maxmp: float = Game.player_max_mp()
+	# Botón de recuperación óptima (auto: bebe lo que menos desperdicie).
+	var opt := Button.new()
+	opt.text = "🧪 Recuperación óptima (auto)   [Q]"
+	opt.pressed.connect(func(): Game.beber_optima(); _build_objeto_buttons())
+	_objetos_box.add_child(opt)
+	# Un botón por poción para ELEGIR cuál beber.
+	if Game.consumibles_total() <= 0:
+		var l := Label.new()
+		l.text = "  (sin pociones)"
+		_objetos_box.add_child(l)
+	else:
+		for cons in Game.consumables.keys():
+			var n: int = int(Game.consumables[cons])
+			if n <= 0:
+				continue
+			var b := Button.new()
+			b.text = "Beber %s  x%d  (%s)" % [cons.nombre, n, cons.resumen(maxhp, maxmp)]
+			b.pressed.connect(func(): Game.beber_pocion_fuera(cons); _build_objeto_buttons())
+			_objetos_box.add_child(b)
 
 
 func _refrescar_lista() -> void:
@@ -115,6 +192,8 @@ func _refrescar_lista() -> void:
 	elif avel < 1.0:
 		s += "  (-%d%% por armadura pesada)" % roundi((1.0 - avel) * 100.0)
 	s += "\nVALOR TOTAL ESTIMADO: %d\n\n" % total
+
+	# (Los OBJETOS/pociones se muestran arriba como BOTONES para elegir cuál beber.)
 
 	# --- Cristales AGRUPADOS (categoria + calidad) ---
 	s += "CRISTALES (%d):\n" % Game.crystals.size()
