@@ -246,8 +246,9 @@ func _build_stats_page() -> void:
 	Game.player_current_mp = mp_was
 	_row(_content, "Ataque total", "%.1f" % _ataque_total(c))
 	_row(_content, "Velocidad", "%.1f" % c.spd())
+	# Critico contra un enemigo ESPEJO (tus mismas stats): tu Destreza vs tu Agilidad.
 	var crit_p: float = clampf(StatsMath.crit_chance(float(c.abilities.destreza),
-		float(c.abilities.destreza)) + _crit_bonus_promedio(c), 0.0, 1.0)
+		float(c.abilities.agilidad)) + _crit_bonus_promedio(c), 0.0, 1.0)
 	_row(_content, "Prob. crítico", _fmt_pct(crit_p))
 	_row(_content, "Daño crítico", "×%.2f (+%d%%)" % [
 		StatsMath.CRIT_MULT, roundi((StatsMath.CRIT_MULT - 1.0) * 100.0)])
@@ -256,7 +257,7 @@ func _build_stats_page() -> void:
 	_row(_content, "Defensa", "%.1f" % c.def_value())
 	if c.max_mp > 0.0:
 		_row(_content, "Maná máx.", "%.2f" % c.max_mp)
-	_note(_content, "Ataque total = raw (base + arma) × Fuerza, ANTES del motion value (cada golpe aplica su %). Crítico en promedio contra un enemigo equiparado; varía según el rival.")
+	_note(_content, "Ataque total = raw (base + arma) × Fuerza, ANTES del motion value (cada golpe aplica su %). Prob. crítico calculada contra un enemigo con TUS mismas stats: sube con Destreza y baja con Agilidad.")
 
 
 func _build_habilidades_page() -> void:
