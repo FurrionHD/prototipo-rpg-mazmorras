@@ -87,9 +87,7 @@ func _ready() -> void:
 	_drink_was = Input.is_key_pressed(KEY_Q)
 
 	# Aguante maximo segun las stats del jugador (Resistencia y Agilidad).
-	max_stamina = base_stamina \
-		+ Game.player_resistencia * stamina_per_resistencia \
-		+ Game.player_agilidad * stamina_per_agilidad
+	max_stamina = _calc_max_aguante()
 	current_stamina = max_stamina
 	_stamina_bar.max_value = max_stamina
 	_stamina_bar.value = current_stamina
@@ -105,6 +103,7 @@ func _physics_process(delta: float) -> void:
 	Game.tick_heal(delta)         # cura de pociones (fuera de combate) corre siempre que pasa el tiempo
 	Game.tick_mana_regen(delta)   # regen pasiva de mana por el mapa (KAN-56/57)
 	Game.tick_mana_pocion(delta)  # maná de pociones de maná (fuera de combate)
+	_actualizar_max_aguante()     # el maximo escala con Resistencia/Agilidad (refresca si cambian las stats)
 	if Game.inventory_open or Game.debug_panel_open:
 		velocity = Vector2.ZERO
 		current_stamina = minf(max_stamina, current_stamina + _regen_actual * delta)
@@ -204,6 +203,24 @@ func _physics_process(delta: float) -> void:
 	if drink and not _drink_was:
 		_beber_pocion()
 	_drink_was = drink
+
+
+# Aguante maximo segun las stats ACTUALES (Resistencia y Agilidad).
+func _calc_max_aguante() -> float:
+	return base_stamina \
+		+ Game.player_resistencia * stamina_per_resistencia \
+		+ Game.player_agilidad * stamina_per_agilidad
+
+# Recalcula el aguante maximo por si las stats cambiaron (panel DEBUG, tecla U, subida en
+# el hogar...). Si la barra estaba llena, la mantiene llena; si no, respeta lo que quede.
+func _actualizar_max_aguante() -> void:
+	var nuevo: float = _calc_max_aguante()
+	if is_equal_approx(nuevo, max_stamina):
+		return
+	var estaba_llena: bool = current_stamina >= max_stamina - 0.01
+	max_stamina = nuevo
+	current_stamina = max_stamina if estaba_llena else minf(current_stamina, max_stamina)
+	_stamina_bar.max_value = max_stamina
 
 
 # True si estamos agotados (lo consulta el enemigo para atacar al instante).
