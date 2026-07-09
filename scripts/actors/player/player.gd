@@ -299,30 +299,30 @@ func _crear_barra_aguante() -> ProgressBar:
 	layer.layer = 10
 	add_child(layer)
 
-	# AGUANTE (verde). Usamos self_modulate para tintar SOLO el relleno de la barra,
-	# no el numero superpuesto (que es un hijo y heredaria modulate).
-	var bar := ProgressBar.new()
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(180, 16)
-	bar.position = Vector2(12, 12)
-	bar.self_modulate = Color(0.4, 1.0, 0.5)
-	layer.add_child(bar)
-	_stamina_lbl = _crear_label_barra(bar)
-
-	# VIDA (roja) debajo del aguante.
+	# VIDA (roja) ARRIBA y mas GORDA: es la barra mas importante.
+	# Usamos self_modulate para tintar SOLO el relleno, no el numero (hijo) superpuesto.
 	_hp_bar = ProgressBar.new()
 	_hp_bar.show_percentage = false
-	_hp_bar.custom_minimum_size = Vector2(180, 12)
-	_hp_bar.position = Vector2(12, 32)
+	_hp_bar.custom_minimum_size = Vector2(180, 18)
+	_hp_bar.position = Vector2(12, 12)
 	_hp_bar.self_modulate = Color(1.0, 0.4, 0.4)
 	layer.add_child(_hp_bar)
 	_hp_lbl = _crear_label_barra(_hp_bar)
 
-	# MANA (azul) debajo de la vida.
+	# AGUANTE (verde) debajo de la vida.
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(180, 12)
+	bar.position = Vector2(12, 34)
+	bar.self_modulate = Color(0.4, 1.0, 0.5)
+	layer.add_child(bar)
+	_stamina_lbl = _crear_label_barra(bar)
+
+	# MANA (azul) debajo del aguante.
 	_mp_bar = ProgressBar.new()
 	_mp_bar.show_percentage = false
 	_mp_bar.custom_minimum_size = Vector2(180, 12)
-	_mp_bar.position = Vector2(12, 48)
+	_mp_bar.position = Vector2(12, 50)
 	_mp_bar.self_modulate = Color(0.4, 0.6, 1.0)
 	layer.add_child(_mp_bar)
 	_mp_lbl = _crear_label_barra(_mp_bar)
