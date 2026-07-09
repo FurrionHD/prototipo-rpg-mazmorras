@@ -55,10 +55,14 @@ const ATTACK_ENERGY_REGEN := 12.0
 # Sistema de ACCIONES (KAN-55): barra con Atacar / Magia / Defender / Huir. Se
 # genera por codigo (convencion: UI por codigo por ahora) y es de datos, asi
 # futuras acciones (habilidades, objetos) solo añaden una entrada.
-enum Action { ATTACK, HABILIDAD, MAGIC, DEFEND, FLEE }
+enum Action { ATTACK, HABILIDAD, MAGIC, DEFEND, OBJETO, FLEE }
 var _actions_box: HBoxContainer = null
 var _action_buttons: Dictionary = {}   # Action(int) -> Button
 var _ability_box: VBoxContainer = null   # submenu de habilidades (KAN-57)
+var _objeto_box: VBoxContainer = null    # submenu de objetos/pociones (KAN-57)
+# Barras extra del jugador (creadas por codigo): energia y mana bajo la de vida.
+var _player_en_bar: ProgressBar = null
+var _player_mp_bar: ProgressBar = null
 
 # --- Casteo de hechizos (KAN-56) ---
 # Submenu de hechizos (al pulsar Magia) y caja dinamica del recitado/disparo.
@@ -189,6 +193,7 @@ func _crear_acciones() -> void:
 		[Action.HABILIDAD, "Habilidad"],
 		[Action.MAGIC, "Magia"],
 		[Action.DEFEND, "Defender"],
+		[Action.OBJETO, "Objeto"],
 		[Action.FLEE, "Huir"],
 	]
 	for d in defs:
@@ -206,6 +211,9 @@ func _crear_acciones() -> void:
 	# Submenu de habilidades (KAN-57).
 	_ability_box = VBoxContainer.new()
 	$VBox.add_child(_ability_box)
+	# Submenu de objetos/pociones (KAN-57).
+	_objeto_box = VBoxContainer.new()
+	$VBox.add_child(_objeto_box)
 	_ocultar_cajas()
 
 
@@ -215,6 +223,7 @@ func _ocultar_cajas() -> void:
 	if _spell_box != null: _spell_box.visible = false
 	if _cast_box != null: _cast_box.visible = false
 	if _ability_box != null: _ability_box.visible = false
+	if _objeto_box != null: _objeto_box.visible = false
 
 
 func _setup_ui() -> void:
@@ -222,6 +231,7 @@ func _setup_ui() -> void:
 	_enemy_hp.max_value = _enemy.max_hp
 	_player_hp.show_percentage = false
 	_enemy_hp.show_percentage = false
+	_crear_barras_jugador()
 	# El log siempre muestra LOG_MAX lineas (ver _set_log), asi que ocupa un alto FIJO y
 	# los botones no se mueven. clip_text evita que una linea larga se derrame a la dcha.
 	_log.clip_text = true
@@ -230,9 +240,39 @@ func _setup_ui() -> void:
 	_ocultar_cajas()
 
 
+# Crea las barras de ENERGIA (amarilla) y MANA (azul) del jugador, justo debajo de la
+# barra de vida. Por codigo (la escena solo trae las de vida). Solo una vez.
+func _crear_barras_jugador() -> void:
+	if _player_en_bar != null:
+		return
+	var idx: int = _player_hp.get_index()
+	if _player.max_energy > 0.0:
+		_player_en_bar = ProgressBar.new()
+		_player_en_bar.show_percentage = false
+		_player_en_bar.max_value = _player.max_energy
+		_player_en_bar.custom_minimum_size = Vector2(0, 8)
+		_player_en_bar.modulate = Color(0.95, 0.85, 0.3)   # energia = amarillo
+		$VBox.add_child(_player_en_bar)
+		idx += 1
+		$VBox.move_child(_player_en_bar, idx)
+	if _player.max_mp > 0.0:
+		_player_mp_bar = ProgressBar.new()
+		_player_mp_bar.show_percentage = false
+		_player_mp_bar.max_value = _player.max_mp
+		_player_mp_bar.custom_minimum_size = Vector2(0, 8)
+		_player_mp_bar.modulate = Color(0.4, 0.6, 1.0)     # mana = azul
+		$VBox.add_child(_player_mp_bar)
+		idx += 1
+		$VBox.move_child(_player_mp_bar, idx)
+
+
 func _update_hp() -> void:
 	_player_hp.value = _player.current_hp
 	_enemy_hp.value = _enemy.current_hp
+	if _player_en_bar != null:
+		_player_en_bar.value = _player.current_energy
+	if _player_mp_bar != null:
+		_player_mp_bar.value = _player.current_mp
 	_enemy_name.text = "%s  (Nv.%d)   %.2f/%.2f%s" % [
 		_enemy.nombre, _enemy.level, _enemy.current_hp, _enemy.max_hp, _estados_txt(_enemy)]
 	# El jugador muestra ademas su MANA (KAN-56) y su ENERGIA (KAN-57) si tiene.
@@ -250,6 +290,59 @@ func _update_hp() -> void:
 func _estados_txt(c: Combatant) -> String:
 	var s: String = c.status_summary()
 	return "\n   " + s if s != "" else ""
+
+
+# Teclas de DESARROLLO DENTRO del combate. El combate corre con el arbol en PAUSA, asi
+# que el _input de Game (autoload, pausable) no llega aqui; esta escena es
+# PROCESS_MODE_ALWAYS, por eso reproducimos las teclas utiles sobre el combate en curso:
+#   H = curacion total (vida/mana/energia al 100%)
+#   K = cambiar arma principal   L = cambiar mano secundaria
+func _input(event: InputEvent) -> void:
+	if _state == State.FINISHED:
+		return
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	match (event as InputEventKey).keycode:
+		KEY_H:
+			_dev_heal_full()
+		KEY_K:
+			_dev_swap_weapon(true)
+		KEY_L:
+			_dev_swap_weapon(false)
+
+
+# [dev] Cura al jugador del combate a tope (vida + mana + energia) y refresca las barras.
+func _dev_heal_full() -> void:
+	_player.current_hp = _player.max_hp
+	if _player.max_mp > 0.0:
+		_player.current_mp = _player.max_mp
+	if _player.max_energy > 0.0:
+		_player.current_energy = _player.max_energy
+	_update_hp()
+	_set_log("[dev] Curación total: vida/maná/energía al 100%")
+
+
+# [dev] Cambia el arma (principal si main=true, si no la secundaria) usando el ciclador
+# de Game y REAPLICA el loadout al combatiente en curso (sin perder vida/mana/energia).
+# Solo con combatientes reales inyectados por Game (no en el modo prueba F6).
+func _dev_swap_weapon(main: bool) -> void:
+	if not _injected:
+		return
+	if main:
+		Game._dev_cycle_weapon()
+	else:
+		Game._dev_cycle_off()
+	Game._aplicar_loadout(_player)
+	_update_hp()
+	var oname := "—"
+	if Game.equipped_off is WeaponData:
+		oname = (Game.equipped_off as WeaponData).nombre + " (dual)"
+	elif Game.equipped_off is WandData:
+		oname = (Game.equipped_off as WandData).nombre + " (varita)"
+	elif Game.equipped_off is ShieldData:
+		oname = (Game.equipped_off as ShieldData).nombre
+	var mano: String = "principal" if main else "secundaria"
+	_set_log("[dev] Cambiada %s → %s + %s" % [mano, Game.equipped_main.nombre, oname])
 
 
 func _process(delta: float) -> void:
@@ -322,6 +415,10 @@ func _begin_player_turn() -> void:
 func _log_tick(c: Combatant, ev: Dictionary) -> void:
 	if float(ev.damage) > 0.0:
 		_set_log("%s sufre %s (%.2f)." % [c.nombre, ", ".join(ev.dot), float(ev.damage)])
+	if float(ev.get("heal", 0.0)) > 0.0:
+		_set_log("%s se cura %s (%.2f). ✚" % [c.nombre, ", ".join(ev.get("heal_labels", [])), float(ev.heal)])
+	if float(ev.get("mana", 0.0)) > 0.0:
+		_set_log("%s recupera %.2f de maná. 🔷" % [c.nombre, float(ev.mana)])
 	if not (ev.expired as Array).is_empty():
 		_set_log("A %s se le disipa: %s." % [c.nombre, ", ".join(ev.expired)])
 
@@ -344,6 +441,8 @@ func _refresh_actions() -> void:
 		"" if _player.has_energy(DEFEND_ENERGY_COST) else "Sin energia (ataca para regenerar)")
 	_action_buttons[Action.HABILIDAD].tooltip_text = (
 		"" if not _player.abilities_combate.is_empty() else "Tu equipo no aporta habilidades")
+	_action_buttons[Action.OBJETO].tooltip_text = (
+		"" if Game.consumibles_total() > 0 else "No tienes objetos")
 
 
 func _accion_disponible(id: int) -> bool:
@@ -353,6 +452,7 @@ func _accion_disponible(id: int) -> bool:
 		Action.FLEE: return true
 		Action.MAGIC: return _hay_hechizos()
 		Action.HABILIDAD: return not _player.abilities_combate.is_empty()
+		Action.OBJETO: return Game.consumibles_total() > 0
 	return false
 
 
@@ -378,12 +478,18 @@ func _on_action(id: int) -> void:
 		Action.FLEE: _accion_huir()
 		Action.MAGIC: _accion_magia()
 		Action.HABILIDAD: _accion_habilidad()
+		Action.OBJETO: _accion_objeto()
 
 
 # El boton reutilizado (antes "Atacar") cierra la pantalla al terminar el combate.
 func _on_continue_pressed() -> void:
 	if _state != State.FINISHED:
 		return
+	# Si sobrevives, la cura/maná de poción que quedaba a medias se arrastra a fuera de
+	# combate (no se malgasta). Si moriste, no hay nada que arrastrar. (KAN-57)
+	if _player.is_alive():
+		Game.arrastrar_regen(_player.regen_pendiente())
+		Game.arrastrar_regen_mana(_player.regen_mana_pendiente())
 	combat_finished.emit(_player_won, _player.current_hp, _player.current_mp, _player.current_energy)
 	# Si lo abrio Game, el cierra la capa; si es prueba (F6), nos cerramos solos.
 	if not _injected:
@@ -508,9 +614,16 @@ func _disparar_hechizo() -> void:
 	var dano: float = 0.0
 	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
 		dano = StatsMath.resolve_spell(_player, _enemy, spell).damage
+		# Foco arcano (Canalización): gasta 1 carga y amplifica el daño del hechizo. Solo
+		# los OFENSIVOS gastan carga; el largo la gasta AL DISPARAR (respeta el canto).
+		var foco: float = _player.consumir_foco()
+		if foco > 1.0:
+			dano *= foco
 		_enemy.take_damage(dano)
 		_dps_add("Hechizo: %s" % spell.nombre, dano)
-		_set_log("🔥 %s impacta a %s por %.2f de daño." % [spell.nombre, _enemy.nombre, dano])
+		var foco_txt := "  🔮Foco arcano +%d%% (quedan %d)" % [
+			roundi(Combatant.FOCO_BONUS * 100.0), _player.foco_cargas] if foco > 1.0 else ""
+		_set_log("🔥 %s impacta a %s por %.2f de daño.%s" % [spell.nombre, _enemy.nombre, dano, foco_txt])
 	else:
 		_set_log("✨ %s lanza %s." % [_player.nombre, spell.nombre])
 	# Estado alterado del hechizo (quemadura/rayo al enemigo, buff/debuff), KAN-58 Fase 3.
@@ -594,10 +707,14 @@ func _accion_habilidad() -> void:
 		var b := Button.new()
 		var cd_txt := "  ⏳%d" % cd_left if cd_left > 0 else ""
 		var costo_txt := ("toda EN → %.1f MP" % (coste / ab.energia_a_mana)) if es_conv else ("%.0f EN" % coste)
-		b.text = "%s  (%s)%s" % [ab.nombre, costo_txt, cd_txt]
+		var foco_txt := "  🔮%d cargas" % ab.foco_cargas if ab.foco_cargas > 0 else ""
+		b.text = "%s  (%s)%s%s" % [ab.nombre, costo_txt, foco_txt, cd_txt]
 		if cd_left > 0:
 			b.disabled = true
 			b.tooltip_text = "En cooldown: %d turno%s" % [cd_left, "" if cd_left == 1 else "s"]
+		elif ab.foco_cargas > 0 and _player.foco_cargas > 0:
+			b.disabled = true
+			b.tooltip_text = "Aún te quedan %d cargas de Foco arcano: gástalas antes" % _player.foco_cargas
 		elif es_conv and _player.current_energy < ab.energia_a_mana:
 			b.disabled = true
 			b.tooltip_text = "Necesitas al menos %.0f EN" % ab.energia_a_mana
@@ -621,6 +738,9 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	var es_conversion: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta TODA la energia
 	var coste: float = _player.current_energy if es_conversion else ab.coste(manos)
 	if _state != State.WAITING_PLAYER or not _player.ability_ready(ab):
+		return
+	# Foco arcano: no se puede recanalizar mientras te queden cargas (gate por hechizos).
+	if ab.foco_cargas > 0 and _player.foco_cargas > 0:
 		return
 	if es_conversion:
 		if _player.current_energy < ab.energia_a_mana:
@@ -690,6 +810,9 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		_player.guardia_spd_mult = ab.guardia_spd_mult
 		_player.evasion_bonus = ab.evasion_bonus
 		_player.guardia_contra_mult = ab.contra_mult
+	# Foco arcano (Canalización): concede cargas que amplifican tus proximos hechizos.
+	if ab.foco_cargas > 0:
+		_player.foco_cargas += ab.foco_cargas
 	# Mensaje al jugador.
 	var msg: String
 	if ab.dano_mult > 0.0:
@@ -705,6 +828,9 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		msg += "  🛡️ En guardia."
 	if ab.postura_contraataque:
 		msg += "  🤺 En guardia (contraataque al esquivar)."
+	if ab.foco_cargas > 0:
+		msg += "  🔮 Foco arcano: %d cargas (+%d%% daño a tus próximos hechizos)." % [
+			_player.foco_cargas, roundi(Combatant.FOCO_BONUS * 100.0)]
 	_set_log(msg)
 	_update_hp()
 	_fin_de_eleccion()
@@ -712,6 +838,56 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		_end(true)
 	else:
 		_state = State.ADVANCING
+
+
+# ============================================================
+#  OBJETOS / pociones (KAN-57): submenu del inventario + uso
+# ------------------------------------------------------------
+func _accion_objeto() -> void:
+	_ocultar_cajas()
+	for c in _objeto_box.get_children():
+		c.queue_free()
+	# Una fila por tipo de poción del inventario, con la cantidad.
+	for cons in Game.consumables:
+		var n: int = int(Game.consumables[cons])
+		if n <= 0:
+			continue
+		var b := Button.new()
+		b.text = "%s  x%d  (%s en %d turnos)" % [
+			cons.nombre, n, cons.resumen(_player.max_hp, _player.max_mp), cons.turnos]
+		b.tooltip_text = cons.descripcion
+		b.pressed.connect(_usar_objeto.bind(cons))
+		_objeto_box.add_child(b)
+	var volver := Button.new()
+	volver.text = "◄ Volver"
+	volver.pressed.connect(_mostrar_acciones)
+	_objeto_box.add_child(volver)
+	_objeto_box.visible = true
+	_set_log("Elige un objeto. Beber una poción GASTA tu turno (luego aguanta mientras cura).")
+
+
+# Bebe una poción: aplica Regeneración de vida y/o maná (por turno) y GASTA el turno. No
+# cuesta energia. Una poción puede curar vida, dar maná, o las dos (mixta).
+func _usar_objeto(cons: ConsumableData) -> void:
+	if _state != State.WAITING_PLAYER or not Game.gastar_consumible(cons):
+		return
+	var partes: Array = []
+	if cons.cura_hp():
+		var por_turno: float = cons.cura_por_turno(_player.max_hp)
+		var total: float = cons.cura_efectiva(_player.max_hp)
+		_player.apply_status(StatusEffects.Id.REGENERACION, cons.turnos, por_turno)
+		partes.append("✚ %.0f de vida" % total)
+	if cons.da_mana():
+		var mana_turno: float = cons.mana_por_turno(_player.max_mp)
+		var mana_total: float = cons.mana_efectivo(_player.max_mp)
+		_player.apply_status(StatusEffects.Id.REGEN_MANA, cons.turnos, mana_turno)
+		partes.append("🔷 %.0f de maná" % mana_total)
+	print("[objeto] %s bebe %s (x%d turnos)" % [_player.nombre, cons.nombre, cons.turnos])
+	_set_log("%s bebe %s. %s, repartido en %d turnos." % [
+		_player.nombre, cons.nombre, " y ".join(partes), cons.turnos])
+	_update_hp()
+	_fin_de_eleccion()
+	_state = State.ADVANCING
 
 
 # Tira los efectos de una habilidad sobre el enemigo (cada uno con su prob y la

@@ -143,6 +143,26 @@ var inventory_open: bool = false
 var crystals: Array[Cristal] = []
 var drops: Array[MonsterDrop] = []
 
+# OBJETOS consumibles (pociones): ConsumableData -> cantidad. Por ahora se consiguen
+# desde el panel de debug (KAN-57). Curan por el tiempo (ver ConsumableData).
+var consumables: Dictionary = {}
+# Lista para el panel de debug (añadir pociones al inventario).
+var _dev_consumables: Array[String] = [
+	"res://resources/consumables/pocion_menor.tres",
+	"res://resources/consumables/pocion_normal.tres",
+	"res://resources/consumables/pocion_menor_2.tres",
+	"res://resources/consumables/pocion_mana_menor.tres",
+	"res://resources/consumables/pocion_mana_menor_1.tres",
+	"res://resources/consumables/pocion_mana_menor_2.tres",
+]
+# CURA FUERA DE COMBATE (heal-over-time por tiempo real). player.gd la tiquea cada
+# frame con tick_heal(). player_heal_left = vida que queda por curar; _rate = vida/seg.
+var player_heal_left: float = 0.0
+var player_heal_rate: float = 0.0
+# Igual pero para el MANÁ (pociones de maná fuera de combate). Se suma a la regen pasiva.
+var player_mana_heal_left: float = 0.0
+var player_mana_heal_rate: float = 0.0
+
 # Dinero (obtenido por vender cristales en la tienda).
 var money: int = 0
 
@@ -339,6 +359,183 @@ func player_max_mp() -> float:
 	a.magia = player_magia
 	return StatsMath.max_mp_value(a, player_level)
 
+# Vida MAXIMA del jugador con sus stats actuales (para la barra de HP fuera de combate
+# y el tope de la cura). Mismo calculo que crear_player_combatant.
+func player_max_hp() -> float:
+	var a := Abilities.new()
+	a.fuerza = player_fuerza
+	a.resistencia = player_resistencia
+	a.destreza = player_destreza
+	a.agilidad = player_agilidad
+	a.magia = player_magia
+	return StatsMath.max_hp_value(a, player_level, player_base_hp)
+
+# Vida ACTUAL concreta (player_current_hp puede ser -1 = "llena"). La usan las barras.
+func player_hp() -> float:
+	return player_current_hp if player_current_hp >= 0.0 else player_max_hp()
+
+# --- OBJETOS / pociones ---
+func add_consumable(c: ConsumableData, n: int = 1) -> void:
+	if c == null:
+		return
+	consumables[c] = int(consumables.get(c, 0)) + n
+
+# Total de pociones en el inventario (para el contador del HUD).
+func consumibles_total() -> int:
+	var t: int = 0
+	for c in consumables:
+		t += int(consumables[c])
+	return t
+
+# Quita 1 unidad de una poción (true si habia). Limpia la clave al llegar a 0.
+func gastar_consumible(c: ConsumableData) -> bool:
+	var n: int = int(consumables.get(c, 0))
+	if n <= 0:
+		return false
+	n -= 1
+	if n <= 0:
+		consumables.erase(c)
+	else:
+		consumables[c] = n
+	return true
+
+# BEBER una poción FUERA de combate: arranca la cura/maná-por-tiempo (heal-over-time). No
+# hace nada si su efecto no sirve (vida llena en una de vida, maná lleno en una de maná).
+# Devuelve true si bebiste.
+func beber_pocion_fuera(c: ConsumableData) -> bool:
+	if c == null:
+		return false
+	var maxhp: float = player_max_hp()
+	var maxmp: float = player_max_mp()
+	if player_current_hp < 0.0:
+		player_current_hp = maxhp   # concreta la vida "llena"
+	if player_current_mp < 0.0:
+		player_current_mp = maxmp   # concreta el maná "lleno"
+	# ¿Sirve de algo? (cura y no estas a tope de vida, o da maná y no estas a tope de maná)
+	var util_hp: bool = c.cura_hp() and (player_current_hp < maxhp - 0.01 or player_heal_left > 0.0)
+	var util_mp: bool = c.da_mana() and (player_current_mp < maxmp - 0.01 or player_mana_heal_left > 0.0)
+	if not util_hp and not util_mp:
+		print("[objeto] No hace falta: no bebes la ", c.nombre)
+		return false
+	if not gastar_consumible(c):
+		return false
+	var partes: Array = []
+	if c.cura_hp():
+		var total: float = c.cura_efectiva(maxhp)
+		player_heal_left += total
+		player_heal_rate = maxf(player_heal_rate, c.cura_por_segundo(maxhp))
+		partes.append("+%.0f vida" % total)
+	if c.da_mana():
+		var total_mp: float = c.mana_efectivo(maxmp)
+		player_mana_heal_left += total_mp
+		player_mana_heal_rate = maxf(player_mana_heal_rate, c.mana_por_segundo(maxmp))
+		partes.append("+%.0f maná" % total_mp)
+	print("[objeto] Bebes %s: %s en el tiempo" % [c.nombre, ", ".join(partes)])
+	return true
+
+# RECUPERACIÓN ÓPTIMA (fuera de combate): bebe automaticamente lo que menos desperdicie —
+# la poción de VIDA de menor efecto que sirva (si te falta vida) y/o la de MANÁ de menor
+# efecto (si te falta maná). Presiona otra vez para seguir rellenando. Devuelve true si bebio.
+func beber_optima() -> bool:
+	var bebio: bool = false
+	var pv: ConsumableData = _pocion_menor_util(true)
+	if pv != null and beber_pocion_fuera(pv):
+		bebio = true
+	var pm: ConsumableData = _pocion_menor_util(false)
+	if pm != null and beber_pocion_fuera(pm):
+		bebio = true
+	if not bebio:
+		print("[objeto] Recuperación óptima: nada que recuperar o sin pociones útiles.")
+	return bebio
+
+# La poción de VIDA (es_vida=true) o de MANÁ (false) de MENOR efecto que tengas en stock
+# (menos desperdicio); null si no tienes de ese tipo.
+func _pocion_menor_util(es_vida: bool) -> ConsumableData:
+	var mejor: ConsumableData = null
+	var mejor_val: float = INF
+	for c in consumables.keys():
+		if int(consumables[c]) <= 0:
+			continue
+		if es_vida and not c.cura_hp():
+			continue
+		if not es_vida and not c.da_mana():
+			continue
+		var val: float = c.cura_efectiva(player_max_hp()) if es_vida else c.mana_efectivo(player_max_mp())
+		if val < mejor_val:
+			mejor_val = val
+			mejor = c
+	return mejor
+
+# Ritmo (vida/seg) al que se cura por el mapa la Regeneración ARRASTRADA de un combate
+# (no cae de golpe, coherente con el HoT de las pociones). PROVISIONAL.
+const CARRY_HEAL_RATE := 6.0
+
+# Arrastra a la cura FUERA de combate la Regeneración que quedaba pendiente al terminar el
+# combate (la llama combat.gd si el jugador sobrevive). Asi una poción a medias no se pierde.
+func arrastrar_regen(total: float) -> void:
+	if total <= 0.0:
+		return
+	player_heal_left += total
+	player_heal_rate = maxf(player_heal_rate, CARRY_HEAL_RATE)
+	print("[objeto] Arrastras %.1f de cura pendiente al salir del combate (%.1f/s)" % [
+		total, CARRY_HEAL_RATE])
+
+# Igual que arrastrar_regen pero para el MANÁ pendiente de una poción de maná (KAN-56/57).
+func arrastrar_regen_mana(total: float) -> void:
+	if total <= 0.0:
+		return
+	player_mana_heal_left += total
+	player_mana_heal_rate = maxf(player_mana_heal_rate, CARRY_HEAL_RATE)
+	print("[objeto] Arrastras %.1f de maná pendiente al salir del combate (%.1f/s)" % [
+		total, CARRY_HEAL_RATE])
+
+# Maná que recuperarías en UN TURNO de combate con tu loadout actual (base por Magia +
+# bonus de arma mágica, igual que combat.gd). Lo usa la regen pasiva fuera de combate.
+func mana_regen_por_turno() -> float:
+	var bonus: float = float(loadout_mods().get("mp_regen_bonus", 0.0))
+	return StatsMath.mp_regen(float(player_magia)) + bonus
+
+# Regen PASIVA de maná FUERA de combate: rellena "lo de un turno" pero POR SEGUNDO (lento;
+# un pool grande tarda mas). Si quieres ir rapido, bebes una poción. player_current_mp = -1
+# significa "lleno", asi que no toca nada. En COMBATE la regen es por turno (combat.gd).
+func tick_mana_regen(delta: float) -> void:
+	var maxmp: float = player_max_mp()
+	if maxmp <= 0.0 or player_current_mp < 0.0 or player_current_mp >= maxmp:
+		return
+	player_current_mp = minf(maxmp, player_current_mp + mana_regen_por_turno() * delta)
+
+# Tiquea la cura fuera de combate (la llama player.gd cada frame). Sube player_current_hp
+# sin pasarse del maximo, gastando player_heal_left.
+func tick_heal(delta: float) -> void:
+	if player_heal_left <= 0.0:
+		return
+	var maxhp: float = player_max_hp()
+	if player_current_hp < 0.0:
+		player_current_hp = maxhp
+	var sube: float = minf(player_heal_rate * delta, player_heal_left)
+	sube = minf(sube, maxhp - player_current_hp)   # no pasar del maximo
+	player_current_hp = minf(maxhp, player_current_hp + sube)
+	player_heal_left -= maxf(0.0, sube)
+	if player_current_hp >= maxhp - 0.01 or player_heal_left <= 0.01:
+		player_heal_left = 0.0
+		player_heal_rate = 0.0
+
+# Tiquea el MANÁ de poción fuera de combate (la llama player.gd). Sube player_current_mp
+# gastando player_mana_heal_left. Va ADEMAS de la regen pasiva (tick_mana_regen).
+func tick_mana_pocion(delta: float) -> void:
+	if player_mana_heal_left <= 0.0:
+		return
+	var maxmp: float = player_max_mp()
+	if player_current_mp < 0.0:
+		player_current_mp = maxmp
+	var sube: float = minf(player_mana_heal_rate * delta, player_mana_heal_left)
+	sube = minf(sube, maxmp - player_current_mp)
+	player_current_mp = minf(maxmp, player_current_mp + sube)
+	player_mana_heal_left -= maxf(0.0, sube)
+	if player_current_mp >= maxmp - 0.01 or player_mana_heal_left <= 0.01:
+		player_mana_heal_left = 0.0
+		player_mana_heal_rate = 0.0
+
 func equipar_hechizo(spell: SpellData) -> void:
 	if spell != null and not equipped_spells.has(spell):
 		equipped_spells.append(spell)
@@ -386,6 +583,16 @@ func crear_player_combatant() -> Combatant:
 	c.current_mp = clampf(player_current_mp, 0.0, float(c.max_mp))
 	c.spells = equipped_spells
 
+	_aplicar_loadout(c)
+	return c
+
+
+# Aplica al Combatant los modificadores del LOADOUT actual (armas + armadura):
+# habilidades de combate, manos, bloqueo/evasion, velocidad, defensa de armadura y
+# magia del equipo. Se usa al CREAR el combatiente y tambien para REAPLICAR el loadout
+# en caliente cuando cambias de arma DURANTE el combate (dev, teclas K/L). No toca
+# vida/mana/energia ni las stats base, solo lo que depende del equipo.
+func _aplicar_loadout(c: Combatant) -> void:
 	# Habilidades del loadout (KAN-57): las de la mano principal + las de la
 	# secundaria/escudo (sin duplicar; en dual de la misma arma aparece una vez).
 	var abils: Array = []
@@ -445,7 +652,6 @@ func crear_player_combatant() -> Combatant:
 	c.mp_regen_bonus = float(m["mp_regen_bonus"])
 	c.mana_reduccion = float(m["mana_reduccion"])
 	c.cast_velocidad_mult = float(m["cast_velocidad_mult"]) * float(am["velocidad_mult"])
-	return c
 
 
 # Combina la mano principal + la secundaria en los modificadores finales de
