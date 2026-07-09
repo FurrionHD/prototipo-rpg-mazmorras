@@ -1,20 +1,20 @@
 # ============================================================
 #  character_menu.gd  (CanvasLayer creada por codigo desde el jugador)
-#  Menu de PERSONAJE estilo gacha (Genshin/Honkai), se abre/cierra con C.
-#  Tres pestañas:
-#    1) PERSONAJE  - stats de combate calculadas (Ataque/Velocidad/Critico/...);
-#                    con flechas ◀ ▶ alterna con las 5 habilidades DanMachi.
-#    2) ARMAS      - arma principal + secundaria equipadas y sus stats. En el
-#                    PUEBLO se puede cambiar entre el catalogo de armas.
-#    3) ARMADURA   - las 5 piezas; entrar en cada slot para ver stats/mejoras y
-#                    (en el pueblo) cambiar la pieza.
-#  Solo consulta fuera del pueblo (Game.en_pueblo()). Pausa el juego mientras
-#  esta abierto (como la ayuda F1). UI por codigo (placeholder).
+#  Menu de PERSONAJE a PANTALLA COMPLETA (estilo Genshin/Honkai), tecla C.
+#  Barra de pestañas VERTICAL a la izquierda + contenido a la derecha:
+#    1) PERSONAJE - stats de combate calculadas; el boton ⇄ alterna con las 5
+#                   habilidades DanMachi.
+#    2) ARMAS     - arma principal/secundaria equipadas y sus stats. Boton
+#                   "Cambiar" -> CUADRICULA de armas + panel de stats a la derecha
+#                   + "Equipar". Solo en el pueblo.
+#    3) ARMADURA  - 5 slots; entras en uno, ves stats/mejoras y "Cambiar" abre la
+#                   misma cuadricula con los materiales. Solo en el pueblo.
+#  Al entrar en "Cambiar", viene preseleccionado lo equipado (siempre hay stats).
+#  Pausa el juego mientras esta abierto. UI por codigo (placeholder).
 # ============================================================
 
 extends CanvasLayer
 
-# Catalogo de armaduras por material (mismo patron que debug_panel.gd).
 const ARMOR_MATERIALS := ["", "cuero", "hierro", "hierro_completo", "placas"]
 const ARMOR_MAT_LABELS := ["(sin pieza)", "Cuero", "Hierro", "Hierro compl.", "Placas"]
 const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas"]
@@ -25,84 +25,88 @@ const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "
 	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
 
 var _root: Control = null
-var _panel: PanelContainer = null
-var _content: VBoxContainer = null       # cuerpo que se reconstruye por pestaña
-var _tab_buttons: Array = []             # [Button, idx]
+var _content: VBoxContainer = null        # cuerpo (derecha) que se reconstruye
+var _tab_buttons: Array = []              # botones de pestaña (izquierda)
 
-var _tab: int = 0                        # 0 personaje, 1 armas, 2 armadura
-var _char_page: int = 0                  # 0 stats, 1 habilidades
-var _armor_slot_sel: String = ""         # slot abierto en detalle; "" = lista
+var _tab: int = 0                         # 0 personaje, 1 armas, 2 armadura
+var _char_page: int = 0                   # 0 stats, 1 habilidades
+var _arma_change: String = ""             # "" | "main" | "off"
+var _arma_cand: int = 0                   # indice del candidato en el catalogo
+var _armor_slot_sel: String = ""          # "" lista | slot en detalle
+var _armor_change: bool = false           # true = eligiendo material del slot
+var _armor_cand: int = 0                  # indice de material candidato
 
 
 func _ready() -> void:
-	layer = 92   # por encima del HUD, por debajo del combate (100)
-	process_mode = Node.PROCESS_MODE_ALWAYS  # sigue vivo con el arbol en pausa
+	layer = 92
+	process_mode = Node.PROCESS_MODE_ALWAYS
 
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.visible = false
 	add_child(_root)
 
-	var backdrop := ColorRect.new()
-	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.6)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	_root.add_child(backdrop)
+	# Fondo opaco a pantalla completa.
+	var bg := ColorRect.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.05, 0.06, 0.08, 1.0)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	_root.add_child(bg)
 
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.add_child(center)
+	var hb := HBoxContainer.new()
+	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hb.offset_left = 16
+	hb.offset_top = 16
+	hb.offset_right = -16
+	hb.offset_bottom = -16
+	hb.add_theme_constant_override("separation", 18)
+	_root.add_child(hb)
 
-	_panel = PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.07, 0.09, 0.97)
-	sb.border_color = Color(0.87, 0.57, 0.26, 0.7)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(6)
-	sb.content_margin_left = 16
-	sb.content_margin_right = 16
-	sb.content_margin_top = 12
-	sb.content_margin_bottom = 12
-	_panel.add_theme_stylebox_override("panel", sb)
-	center.add_child(_panel)
+	# --- Barra de pestañas VERTICAL a la izquierda ---
+	var side := VBoxContainer.new()
+	side.custom_minimum_size = Vector2(190, 0)
+	side.add_theme_constant_override("separation", 6)
+	hb.add_child(side)
 
-	var outer := VBoxContainer.new()
-	outer.add_theme_constant_override("separation", 8)
-	outer.custom_minimum_size = Vector2(460, 0)
-	_panel.add_child(outer)
+	var titulo := Label.new()
+	titulo.text = "PERSONAJE"
+	titulo.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	titulo.add_theme_font_size_override("font_size", 18)
+	side.add_child(titulo)
+	side.add_child(HSeparator.new())
 
-	# Barra de pestañas + boton de cerrar.
-	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 6)
-	outer.add_child(tabs)
 	var nombres := ["Personaje", "Armas", "Armadura"]
 	for i in nombres.size():
 		var b := Button.new()
 		b.text = nombres[i]
 		b.toggle_mode = true
+		b.custom_minimum_size = Vector2(0, 34)
 		b.pressed.connect(_on_tab.bind(i))
-		tabs.add_child(b)
+		side.add_child(b)
 		_tab_buttons.append(b)
+
 	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tabs.add_child(spacer)
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.add_child(spacer)
 	var cerrar := Button.new()
-	cerrar.text = "✕ Cerrar"
+	cerrar.text = "✕ Cerrar  (C)"
+	cerrar.custom_minimum_size = Vector2(0, 34)
 	cerrar.pressed.connect(_cerrar)
-	tabs.add_child(cerrar)
+	side.add_child(cerrar)
 
-	outer.add_child(HSeparator.new())
-
+	# --- Contenido (derecha) ---
+	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_theme_constant_override("margin_left", 8)
+	hb.add_child(margin)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	margin.add_child(scroll)
 	_content = VBoxContainer.new()
 	_content.add_theme_constant_override("separation", 4)
-	_content.custom_minimum_size = Vector2(0, 300)
-	outer.add_child(_content)
-
-	var hint := Label.new()
-	hint.text = "C / ✕ Cerrar — cerrar"
-	hint.add_theme_color_override("font_color", Color(0.55, 0.6, 0.68))
-	hint.add_theme_font_size_override("font_size", 11)
-	outer.add_child(hint)
+	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_content)
 
 
 func _input(event: InputEvent) -> void:
@@ -117,7 +121,6 @@ func _input(event: InputEvent) -> void:
 
 func _toggle() -> void:
 	if not _root.visible:
-		# No abrir sobre un combate/extraccion o con otro modal abierto.
 		if Game._active_layer != null or Game.inventory_open or Game.debug_panel_open:
 			return
 		_set_open(true)
@@ -135,13 +138,17 @@ func _set_open(open: bool) -> void:
 	if open:
 		_tab = 0
 		_char_page = 0
+		_arma_change = ""
 		_armor_slot_sel = ""
+		_armor_change = false
 		_rebuild()
 
 
 func _on_tab(i: int) -> void:
 	_tab = i
+	_arma_change = ""
 	_armor_slot_sel = ""
+	_armor_change = false
 	_rebuild()
 
 
@@ -164,7 +171,7 @@ func _title(vb: VBoxContainer, txt: String) -> void:
 	var l := Label.new()
 	l.text = txt
 	l.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
-	l.add_theme_font_size_override("font_size", 15)
+	l.add_theme_font_size_override("font_size", 16)
 	vb.add_child(l)
 
 func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
@@ -199,26 +206,23 @@ func _fmt_pct(x: float) -> String:
 # ============================================================
 
 func _build_personaje() -> void:
-	_title(_content, "PERSONAJE  (Nv. %d)" % Game.player_level)
-
-	# Fila de flechas para alternar pagina (stats <-> habilidades).
-	var nav := HBoxContainer.new()
-	nav.add_theme_constant_override("separation", 8)
-	var izq := Button.new()
-	izq.text = "◀"
-	izq.pressed.connect(_flip_char_page)
-	nav.add_child(izq)
-	var pg := Label.new()
-	pg.text = "Estadísticas" if _char_page == 0 else "Habilidades"
-	pg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pg.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
-	nav.add_child(pg)
-	var der := Button.new()
-	der.text = "▶"
-	der.pressed.connect(_flip_char_page)
-	nav.add_child(der)
-	_content.add_child(nav)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 10)
+	var t := Label.new()
+	t.text = "PERSONAJE  (Nv. %d)   —   %s" % [
+		Game.player_level, "Estadísticas" if _char_page == 0 else "Habilidades"]
+	t.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	t.add_theme_font_size_override("font_size", 16)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(t)
+	# Icono de intercambio ⇄: alterna stats <-> habilidades.
+	var swap := Button.new()
+	swap.text = "⇄"
+	swap.tooltip_text = "Cambiar vista (estadísticas / habilidades)"
+	swap.custom_minimum_size = Vector2(44, 34)
+	swap.pressed.connect(_flip_char_page)
+	head.add_child(swap)
+	_content.add_child(head)
 	_content.add_child(HSeparator.new())
 
 	if _char_page == 0:
@@ -284,6 +288,10 @@ func _crit_bonus_promedio(c: Combatant) -> float:
 # ============================================================
 
 func _build_armas() -> void:
+	if _arma_change != "":
+		_build_armas_cambiar()
+		return
+
 	_title(_content, "ARMAS")
 	var pueblo: bool = Game.en_pueblo()
 	if not pueblo:
@@ -291,37 +299,123 @@ func _build_armas() -> void:
 
 	# --- Principal ---
 	_content.add_child(HSeparator.new())
-	var head1 := HBoxContainer.new()
-	head1.add_theme_constant_override("separation", 8)
-	var t1 := Label.new()
-	t1.text = "Principal:  %s" % Game.equipped_main.nombre
-	t1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t1.add_theme_color_override("font_color", Color(0.9, 0.95, 0.8))
-	head1.add_child(t1)
-	if pueblo:
-		var mi := Button.new(); mi.text = "◀"; mi.pressed.connect(_cycle_main.bind(-1)); head1.add_child(mi)
-		var md := Button.new(); md.text = "▶"; md.pressed.connect(_cycle_main.bind(1)); head1.add_child(md)
-	_content.add_child(head1)
+	_bloque_arma("Principal", Game.equipped_main.nombre, pueblo, _abrir_cambio.bind("main"))
 	_weapon_stats(_content, Game.equipped_main, "main")
 
 	# --- Secundaria ---
 	_content.add_child(HSeparator.new())
-	var head2 := HBoxContainer.new()
-	head2.add_theme_constant_override("separation", 8)
-	var t2 := Label.new()
-	t2.text = "Secundaria:  %s" % _off_nombre(Game.equipped_off)
-	t2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t2.add_theme_color_override("font_color", Color(0.9, 0.95, 0.8))
-	head2.add_child(t2)
-	if pueblo:
-		var oi := Button.new(); oi.text = "◀"; oi.pressed.connect(_cycle_off.bind(-1)); head2.add_child(oi)
-		var od := Button.new(); od.text = "▶"; od.pressed.connect(_cycle_off.bind(1)); head2.add_child(od)
-	_content.add_child(head2)
-	if Game.equipped_main.dos_manos:
+	var dos_manos: bool = Game.equipped_main.dos_manos
+	_bloque_arma("Secundaria", _off_nombre(Game.equipped_off), pueblo and not dos_manos,
+		_abrir_cambio.bind("off"))
+	if dos_manos:
 		_note(_content, "El arma principal es a dos manos: no admite secundaria.")
 	else:
 		_off_stats(_content, Game.equipped_off)
 
+
+# Cabecera de un bloque de arma: nombre + boton Cambiar (si procede).
+func _bloque_arma(rol: String, nombre: String, permite_cambio: bool, on_cambiar: Callable) -> void:
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	var t := Label.new()
+	t.text = "%s:  %s" % [rol, nombre]
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.add_theme_color_override("font_color", Color(0.9, 0.95, 0.8))
+	head.add_child(t)
+	if permite_cambio:
+		var b := Button.new()
+		b.text = "Cambiar"
+		b.pressed.connect(on_cambiar)
+		head.add_child(b)
+	_content.add_child(head)
+
+
+func _abrir_cambio(slot: String) -> void:
+	_arma_change = slot
+	if slot == "main":
+		_arma_cand = _index_of_main()
+	else:
+		_arma_cand = _off_current_index(Game._dev_offs)
+	_rebuild()
+
+
+func _build_armas_cambiar() -> void:
+	var es_main: bool = _arma_change == "main"
+	_title(_content, "Cambiar %s" % ("arma principal" if es_main else "mano secundaria"))
+	_content.add_child(HSeparator.new())
+
+	var catalogo: Array = Game._dev_weapons if es_main else Game._dev_offs
+	var labels: Array = []
+	var disabled: Array = []
+	for i in catalogo.size():
+		if es_main:
+			labels.append((load(catalogo[i]) as WeaponData).nombre)
+		else:
+			var p = catalogo[i]
+			var item: Resource = null if p == null else load(p)
+			labels.append(_off_nombre(item))
+			# Deshabilita las secundarias incompatibles con la principal actual.
+			if not Game._secundaria_valida(Game.equipped_main, item):
+				disabled.append(i)
+
+	_build_cambiar_layout(labels, _arma_cand, disabled, _pick_arma,
+		_preview_arma, _equipar_arma, _cancelar_arma)
+
+
+func _pick_arma(i: int) -> void:
+	_arma_cand = i
+	_rebuild()
+
+func _cancelar_arma() -> void:
+	_arma_change = ""
+	_rebuild()
+
+func _equipar_arma() -> void:
+	if _arma_change == "main":
+		Game.equipar_arma(load(Game._dev_weapons[_arma_cand]))
+	else:
+		var p = Game._dev_offs[_arma_cand]
+		var item: Resource = null if p == null else load(p)
+		Game.equipar_secundaria(item)
+	_arma_change = ""
+	_rebuild()
+
+
+# Construye el panel de stats del candidato de arma (derecha de la cuadricula).
+func _preview_arma(vb: VBoxContainer) -> void:
+	var es_main: bool = _arma_change == "main"
+	if es_main:
+		var w: WeaponData = load(Game._dev_weapons[_arma_cand])
+		_title(vb, w.nombre)
+		_weapon_stats(vb, w, "main")
+	else:
+		var p = Game._dev_offs[_arma_cand]
+		var item: Resource = null if p == null else load(p)
+		_title(vb, _off_nombre(item))
+		_off_stats(vb, item)
+		if item != null and not Game._secundaria_valida(Game.equipped_main, item):
+			_note(vb, "No compatible con el arma principal actual.")
+
+
+func _index_of_main() -> int:
+	for i in Game._dev_weapons.size():
+		if load(Game._dev_weapons[i]) == Game.equipped_main:
+			return i
+	return 0
+
+
+func _off_current_index(list: Array) -> int:
+	for i in list.size():
+		var p = list[i]
+		if p == null:
+			if Game.equipped_off == null:
+				return i
+		elif load(p) == Game.equipped_off:
+			return i
+	return 0
+
+
+# --- Fichas de stats (reutilizadas por la vista normal y la preview) ---
 
 func _weapon_stats(vb: VBoxContainer, w: WeaponData, slot: String) -> void:
 	if w == null:
@@ -360,7 +454,7 @@ func _off_stats(vb: VBoxContainer, item: Resource) -> void:
 
 func _off_nombre(item: Resource) -> String:
 	if item == null:
-		return "—"
+		return "— (sin secundaria)"
 	if item is WeaponData:
 		return (item as WeaponData).nombre + " (dual)"
 	if item is WandData:
@@ -370,44 +464,6 @@ func _off_nombre(item: Resource) -> String:
 	return "?"
 
 
-func _cycle_main(delta: int) -> void:
-	var list: Array = Game._dev_weapons
-	var idx: int = 0
-	for i in list.size():
-		if load(list[i]) == Game.equipped_main:
-			idx = i
-			break
-	idx = wrapi(idx + delta, 0, list.size())
-	Game.equipar_arma(load(list[idx]))
-	_rebuild()
-
-
-func _cycle_off(delta: int) -> void:
-	if Game.equipped_main.dos_manos:
-		return
-	var list: Array = Game._dev_offs
-	var idx: int = _off_current_index(list)
-	# Busca la SIGUIENTE secundaria valida en esa direccion (salta las incompatibles).
-	for _n in range(list.size()):
-		idx = wrapi(idx + delta, 0, list.size())
-		var p = list[idx]
-		var item: Resource = null if p == null else load(p)
-		if Game.equipar_secundaria(item):
-			break
-	_rebuild()
-
-
-func _off_current_index(list: Array) -> int:
-	for i in list.size():
-		var p = list[i]
-		if p == null:
-			if Game.equipped_off == null:
-				return i
-		elif load(p) == Game.equipped_off:
-			return i
-	return 0
-
-
 # ============================================================
 #  Pestaña ARMADURA
 # ============================================================
@@ -415,6 +471,8 @@ func _off_current_index(list: Array) -> int:
 func _build_armadura() -> void:
 	if _armor_slot_sel == "":
 		_build_armadura_lista()
+	elif _armor_change:
+		_build_armadura_cambiar()
 	else:
 		_build_armadura_detalle(_armor_slot_sel)
 
@@ -442,6 +500,11 @@ func _build_armadura_lista() -> void:
 
 func _abrir_slot(slot: String) -> void:
 	_armor_slot_sel = slot
+	_armor_change = false
+	_rebuild()
+
+func _cerrar_slot() -> void:
+	_armor_slot_sel = ""
 	_rebuild()
 
 
@@ -452,8 +515,6 @@ func _build_armadura_detalle(slot: String) -> void:
 	_content.add_child(volver)
 
 	var pieza = Game.get("equipped_" + slot)
-	var pueblo: bool = Game.en_pueblo()
-
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
 	var t := Label.new()
@@ -461,57 +522,150 @@ func _build_armadura_detalle(slot: String) -> void:
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	t.add_theme_color_override("font_color", Color(0.9, 0.95, 0.8))
 	head.add_child(t)
-	if pueblo:
-		var mi := Button.new(); mi.text = "◀"; mi.pressed.connect(_cycle_armor.bind(slot, -1)); head.add_child(mi)
-		var md := Button.new(); md.text = "▶"; md.pressed.connect(_cycle_armor.bind(slot, 1)); head.add_child(md)
+	if Game.en_pueblo():
+		var b := Button.new()
+		b.text = "Cambiar"
+		b.pressed.connect(_abrir_cambio_armor.bind(slot))
+		head.add_child(b)
 	_content.add_child(head)
 	_content.add_child(HSeparator.new())
 
-	if not (pieza is ArmorData):
-		_note(_content, "Sin pieza en este slot.")
-		return
+	_armor_ficha(_content, slot)
 
+
+# Ficha de stats + mejoras de la pieza equipada en un slot.
+func _armor_ficha(vb: VBoxContainer, slot: String) -> void:
+	var pieza = Game.get("equipped_" + slot)
+	if not (pieza is ArmorData):
+		_note(vb, "Sin pieza en este slot.")
+		return
 	var a := pieza as ArmorData
 	var mods: Dictionary = Upgrades.armor_piece_mods(a, Game.tier_mult(Game.equip_tier(slot)),
 		Game.equip_rareza(slot), Game.equip_mejoras(slot))
-	_row(_content, "  Defensa", "%.1f" % float(mods["def"]))
-	_row(_content, "  Reducción", _fmt_pct(float(mods["reduccion"])))
-	_row(_content, "  Velocidad", "×%.2f" % float(mods["vel_mult"]))
+	_row(vb, "  Defensa", "%.1f" % float(mods["def"]))
+	_row(vb, "  Reducción", _fmt_pct(float(mods["reduccion"])))
+	_row(vb, "  Velocidad", "×%.2f" % float(mods["vel_mult"]))
 	if float(mods["evasion"]) > 0.0:
-		_row(_content, "  Evasión", "+%s" % _fmt_pct(float(mods["evasion"])))
+		_row(vb, "  Evasión", "+%s" % _fmt_pct(float(mods["evasion"])))
 	if float(mods["crit_resist"]) > 0.0:
-		_row(_content, "  Resist. crítico", "+%s" % _fmt_pct(float(mods["crit_resist"])))
+		_row(vb, "  Resist. crítico", "+%s" % _fmt_pct(float(mods["crit_resist"])))
 	if float(mods["resist_estados"]) > 0.0:
-		_row(_content, "  Resist. estados", "+%s" % _fmt_pct(float(mods["resist_estados"])))
-	_row(_content, "  Tier / rareza", "T%d · %s" % [Game.equip_tier(slot), Upgrades.rareza_nombre(Game.equip_rareza(slot))])
-
-	# Mejoras de la pieza (solo consulta; se editan en el panel DEBUG).
-	_content.add_child(HSeparator.new())
+		_row(vb, "  Resist. estados", "+%s" % _fmt_pct(float(mods["resist_estados"])))
+	_row(vb, "  Tier / rareza", "T%d · %s" % [Game.equip_tier(slot), Upgrades.rareza_nombre(Game.equip_rareza(slot))])
 	var mj: Dictionary = Game.equip_mejoras(slot)
-	_row(_content, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mj), Upgrades.rareza_slots(Game.equip_rareza(slot))])
-	if mj.is_empty():
-		_note(_content, "  (sin mejoras)")
-	else:
+	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mj), Upgrades.rareza_slots(Game.equip_rareza(slot))])
+	if not mj.is_empty():
 		for cat in mj:
-			_row(_content, "    · " + Upgrades.cat_nombre(cat), "x%d" % int(mj[cat]))
+			_row(vb, "    · " + Upgrades.cat_nombre(cat), "x%d" % int(mj[cat]))
 
 
-func _cerrar_slot() -> void:
-	_armor_slot_sel = ""
+func _abrir_cambio_armor(slot: String) -> void:
+	_armor_slot_sel = slot
+	_armor_change = true
+	var pieza = Game.get("equipped_" + slot)
+	_armor_cand = (int((pieza as ArmorData).tipo) + 1) if pieza is ArmorData else 0
 	_rebuild()
 
 
-# Cambia el material de la pieza de un slot recorriendo el catalogo (en el pueblo).
-func _cycle_armor(slot: String, delta: int) -> void:
-	var pieza = Game.get("equipped_" + slot)
-	var idx: int = 0
-	if pieza is ArmorData:
-		# tipo 0..3 (cuero..placas) -> indice 1..4 en ARMOR_MATERIALS.
-		idx = int((pieza as ArmorData).tipo) + 1
-	idx = wrapi(idx + delta, 0, ARMOR_MATERIALS.size())
-	if idx == 0:
+func _build_armadura_cambiar() -> void:
+	var slot: String = _armor_slot_sel
+	_title(_content, "Cambiar %s" % ARMOR_SLOT_LABELS[slot])
+	_content.add_child(HSeparator.new())
+	var labels: Array = []
+	for s in ARMOR_MAT_LABELS:
+		labels.append(s)
+	_build_cambiar_layout(labels, _armor_cand, [], _pick_armor,
+		_preview_armor, _equipar_armor, _cancelar_armor)
+
+
+func _pick_armor(i: int) -> void:
+	_armor_cand = i
+	_rebuild()
+
+func _cancelar_armor() -> void:
+	_armor_change = false
+	_rebuild()
+
+func _equipar_armor() -> void:
+	var slot: String = _armor_slot_sel
+	if _armor_cand == 0:
 		Game.set("equipped_" + slot, null)
 	else:
-		var path := "res://resources/armor/%s_%s.tres" % [ARMOR_MATERIALS[idx], slot]
+		var path := "res://resources/armor/%s_%s.tres" % [ARMOR_MATERIALS[_armor_cand], slot]
 		Game.set("equipped_" + slot, load(path))
+	_armor_change = false
 	_rebuild()
+
+
+# Panel de stats del material candidato (derecha de la cuadricula).
+func _preview_armor(vb: VBoxContainer) -> void:
+	var slot: String = _armor_slot_sel
+	if _armor_cand == 0:
+		_title(vb, "(sin pieza)")
+		_note(vb, "Sin armadura en este slot: +velocidad por ir ligero, 0 defensa.")
+		return
+	var path := "res://resources/armor/%s_%s.tres" % [ARMOR_MATERIALS[_armor_cand], slot]
+	var a: ArmorData = load(path)
+	_title(vb, a.nombre)
+	var mods: Dictionary = Upgrades.armor_piece_mods(a, Game.tier_mult(Game.equip_tier(slot)),
+		Game.equip_rareza(slot), Game.equip_mejoras(slot))
+	_row(vb, "  Defensa", "%.1f" % float(mods["def"]))
+	_row(vb, "  Reducción", _fmt_pct(float(mods["reduccion"])))
+	_row(vb, "  Velocidad", "×%.2f" % float(mods["vel_mult"]))
+	if float(mods["evasion"]) > 0.0:
+		_row(vb, "  Evasión", "+%s" % _fmt_pct(float(mods["evasion"])))
+	if float(mods["crit_resist"]) > 0.0:
+		_row(vb, "  Resist. crítico", "+%s" % _fmt_pct(float(mods["crit_resist"])))
+
+
+# ============================================================
+#  Cuadricula de seleccion + panel de stats a la derecha (comun armas/armadura)
+# ============================================================
+
+func _build_cambiar_layout(labels: Array, cand: int, disabled: Array,
+		on_pick: Callable, preview_builder: Callable,
+		on_equipar: Callable, on_cancel: Callable) -> void:
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 20)
+	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(hb)
+
+	# Izquierda: cuadricula de botones (uno por item).
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	for i in labels.size():
+		var b := Button.new()
+		b.text = str(labels[i])
+		b.toggle_mode = true
+		b.button_pressed = (i == cand)
+		b.clip_text = true
+		b.custom_minimum_size = Vector2(120, 46)
+		if disabled.has(i):
+			b.disabled = true
+		else:
+			b.pressed.connect(on_pick.bind(i))
+		grid.add_child(b)
+	hb.add_child(grid)
+
+	# Derecha: stats del candidato + acciones.
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 4)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hb.add_child(right)
+	preview_builder.call(right)
+
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	var eq := Button.new()
+	eq.text = "Equipar"
+	eq.disabled = disabled.has(cand)
+	eq.pressed.connect(on_equipar)
+	actions.add_child(eq)
+	var ca := Button.new()
+	ca.text = "Cancelar"
+	ca.pressed.connect(on_cancel)
+	actions.add_child(ca)
+	right.add_child(HSeparator.new())
+	right.add_child(actions)
