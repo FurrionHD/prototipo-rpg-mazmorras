@@ -17,8 +17,8 @@ extends CharacterBody2D
 
 # --- Aguante (stamina) ---
 @export var base_stamina: float = 100.0
-@export var stamina_per_resistencia: float = 0.15  # extra por Resistencia
-@export var stamina_per_agilidad: float = 0.05     # extra por Agilidad
+@export var stamina_per_resistencia: float = 0.075  # extra por Resistencia (bajado: la energia ya la gastan habilidades)
+@export var stamina_per_agilidad: float = 0.025     # extra por Agilidad
 @export var run_drain: float = 35.0       # aguante/seg al correr
 # Recuperacion: base + extra FIJO por nivel (NO escala con stats, a proposito,
 # para no desequilibrar: si subiera con Resistencia/Agilidad daria doble ventaja).
