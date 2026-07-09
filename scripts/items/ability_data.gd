@@ -60,6 +60,24 @@ class_name AbilityData
 # que se combina a menudo con escudo, trae "Guardia rota" (bash + tajo + guardia).
 @export var requiere_escudo: bool = false
 
+# true -> tecnica de UNA MANO LIBRE: solo aparece si la mano secundaria esta VACIA o lleva
+# una VARITA (WandData, que no pesa ni estorba). Inverso de requiere_escudo. Ej: el estoque,
+# que trae "En guardia" (postura de contraataque de duelo). Game la filtra en el loadout.
+@export var requiere_off_libre: bool = false
+
+# --- POSTURA DE CONTRAATAQUE (estoque, "En guardia"): dura hasta tu proxima accion, como
+# el Defender. Bajas tu velocidad a cambio de mas reduccion de daño (rama defending) y mas
+# evasion; cada golpe que ESQUIVAS lo devuelves (riposte). Marca dano_mult = 0 (utilitaria). ---
+@export var postura_contraataque: bool = false
+# Multiplicador de velocidad mientras aguantas en guardia (< 1.0 = mas lento). El estoque
+# es rapido de base, asi que la postura pega un frenazo fuerte (0.5 = mitad de velocidad).
+@export var guardia_spd_mult: float = 0.5
+# Esquiva EXTRA que da la habilidad (se suma a tu esquiva). Si > 0, rompe el tope normal
+# de esquiva (0.35 -> 0.65). Generico: cualquier habilidad/buff de esquiva puede usarlo.
+@export var evasion_bonus: float = 0.0
+# Daño del contraataque (riposte) respecto a un básico (1.0 = golpe normal).
+@export var contra_mult: float = 1.0
+
 
 # Nº de impactos (aleatorio dentro del rango; dual usa su rango si lo tiene).
 func num_golpes(manos: int) -> int:

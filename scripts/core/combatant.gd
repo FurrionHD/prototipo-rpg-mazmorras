@@ -67,6 +67,18 @@ var velocidad_mult: float = 1.0  # multiplica la velocidad de combate (turnos)
 var defend_block: float = 0.3    # reduccion al Defender (base sin secundaria)
 var evasion_penal: float = 0.0   # baja la esquiva propia (escudos)
 
+# --- POSTURA DE CONTRAATAQUE del estoque ("En guardia", KAN-57). Flag TRANSITORIO que dura
+# hasta tu proxima accion (como _player_defending, lo limpia el combate). Lleva sus propios
+# numeros, copiados del AbilityData al activarla (data-driven). Neutros = sin postura. ---
+var en_guardia: bool = false        # true = estas en la postura de guardia/contraataque
+var guardia_spd_mult: float = 1.0   # multiplica tu velocidad mientras aguantas (< 1 = lento)
+var guardia_contra_mult: float = 1.0    # daño del riposte al esquivar (vs un básico)
+
+# Esquiva EXTRA por HABILIDADES/BUFFS (0 = ninguna). Generico: la suben la postura del
+# estoque y (futuro) cualquier buff de esquiva. Si > 0, rompe el tope normal de esquiva
+# (EVADE_MAX 0.35 -> EVADE_MAX_BUFF 0.65) en StatsMath.resolve_attack.
+var evasion_bonus: float = 0.0
+
 # --- ARMADURA (loadout de 5 piezas, ver Game.armor_mods()). Neutros por defecto,
 # asi un combatiente SIN armadura (enemigos) se comporta igual que antes. ---
 var extra_defense: float = 0.0   # DEF plana ADITIVA de la armadura (sube la mitigacion)
@@ -135,9 +147,20 @@ func def_value() -> float: return StatsMath.defense_value(abilities, level, base
 func spd() -> float:
 	if dummy_speed_override >= 0.0:
 		return dummy_speed_override   # modo prueba: velocidad estandar fija
-	return StatsMath.speed_value(abilities, level, base_speed) * velocidad_mult * status_spd_mult()
+	return StatsMath.speed_value(abilities, level, base_speed) * velocidad_mult * status_spd_mult() * _guardia_spd()
 # Velocidad al CASTEAR (KAN-95): igual que spd() pero con la velocidad de casteo.
-func cast_spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * cast_velocidad_mult * status_spd_mult()
+func cast_spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * cast_velocidad_mult * status_spd_mult() * _guardia_spd()
+
+# Penalizacion de velocidad de la postura de guardia (1.0 = sin postura).
+func _guardia_spd() -> float: return guardia_spd_mult if en_guardia else 1.0
+
+# Sale de la postura de guardia y resetea sus numeros (lo llama el combate al empezar tu
+# turno: la postura dura "hasta tu proxima accion", como el Defender).
+func salir_de_guardia() -> void:
+	en_guardia = false
+	guardia_spd_mult = 1.0
+	guardia_contra_mult = 1.0
+	evasion_bonus = 0.0
 
 func is_alive() -> bool:
 	return current_hp > 0.0

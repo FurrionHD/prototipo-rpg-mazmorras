@@ -289,6 +289,7 @@ func _begin_player_turn() -> void:
 	if _dps_on:
 		_turnos_jugador += 1
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
+	_player.salir_de_guardia() # la postura de contraataque tambien dura hasta tu proxima accion
 	_player.tick_cooldowns()   # habilidades (KAN-57): baja 1 turno los cooldowns activos
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
 	var ev: Dictionary = _player.tick_statuses()
@@ -682,6 +683,13 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		_dps_add(ab.nombre, total)
 	if ab.bloqueo_turnos > 0:
 		_player_defending = true   # golpe de escudo: te deja en guardia
+	# Postura de contraataque del estoque (KAN-57): entras en guardia hasta tu proxima accion.
+	# Bajas velocidad (data-driven), esquivas mas y devuelves los golpes que esquivas (riposte).
+	if ab.postura_contraataque:
+		_player.en_guardia = true
+		_player.guardia_spd_mult = ab.guardia_spd_mult
+		_player.evasion_bonus = ab.evasion_bonus
+		_player.guardia_contra_mult = ab.contra_mult
 	# Mensaje al jugador.
 	var msg: String
 	if ab.dano_mult > 0.0:
@@ -695,6 +703,8 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		msg += "  Aplica: %s." % ", ".join(estados_log)
 	if ab.bloqueo_turnos > 0:
 		msg += "  🛡️ En guardia."
+	if ab.postura_contraataque:
+		msg += "  🤺 En guardia (contraataque al esquivar)."
 	_set_log(msg)
 	_update_hp()
 	_fin_de_eleccion()
@@ -808,13 +818,25 @@ func _enemy_turn() -> void:
 		_set_log("%s esta aturdido y pierde el turno. 💫" % _enemy.nombre)
 		_pausa_lectura()   # ya se le resto la barra ATB en _process; pierde la accion
 		return
-	var result := StatsMath.resolve_attack(_enemy, _player, _player_defending)
-	_debug_ataque(_enemy, _player, result, _player_defending)
+	# La postura de guardia del estoque reduce el daño como el Defender (rama defending).
+	var defendiendo: bool = _player_defending or _player.en_guardia
+	var result := StatsMath.resolve_attack(_enemy, _player, defendiendo)
+	_debug_ataque(_enemy, _player, result, defendiendo)
 	if result.evaded:
-		_set_log("%s esquiva el ataque de %s. 💨" % [_player.nombre, _enemy.nombre])
 		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos).
 		Game.ganar("agilidad", Game.reto(_poder_enemigo()), Game.GAIN_AGILIDAD_ESQUIVAR,
 			Game.RETO_MAX_FISICO)
+		# CONTRAATAQUE (estoque, KAN-57): en guardia, cada golpe esquivado lo devuelves.
+		if _player.en_guardia:
+			var msg_ev := _contraatacar()
+			_update_hp()
+			if not _enemy.is_alive():
+				_end(true)
+				return
+			_set_log(msg_ev)
+			_pausa_lectura()
+			return
+		_set_log("%s esquiva el ataque de %s. 💨" % [_player.nombre, _enemy.nombre])
 		_update_hp()
 		_pausa_lectura()
 		return
@@ -856,6 +878,24 @@ func _enemy_turn() -> void:
 		_end(false)
 	else:
 		_pausa_lectura()
+
+
+# CONTRAATAQUE del estoque (KAN-57): al esquivar en guardia, devuelves el golpe con el arma
+# principal (el estoque). Aplica el daño al enemigo y devuelve el texto para el log.
+func _contraatacar() -> String:
+	_player.set_active_hand(0)   # el estoque va en la mano principal
+	var result := StatsMath.resolve_attack(_player, _enemy, false)
+	_debug_ataque(_player, _enemy, result, false)
+	if result.evaded:
+		return "%s esquiva y contraataca, pero %s lo esquiva. 💨" % [_player.nombre, _enemy.nombre]
+	var dmg: float = result.damage * _player.guardia_contra_mult
+	_enemy.take_damage(dmg)
+	_dps_add("Contraataque", dmg)
+	# Excelia: el contraataque golpea, entrena Fuerza como un ataque normal.
+	Game.ganar("fuerza", Game.reto(_poder_enemigo()) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
+		Game.RETO_MAX_FISICO)
+	var extra := "un CRITICO 💥 " if result.crit else ""
+	return "%s esquiva y CONTRAATACA con el estoque: %s%.2f de daño! 🤺" % [_player.nombre, extra, dmg]
 
 
 # Congela el ATB una fraccion de segundo tras la accion del enemigo, para poder

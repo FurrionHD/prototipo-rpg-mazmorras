@@ -390,6 +390,8 @@ func crear_player_combatant() -> Combatant:
 	# secundaria/escudo (sin duplicar; en dual de la misma arma aparece una vez).
 	var abils: Array = []
 	var tiene_escudo: bool = equipped_off is ShieldData
+	# Mano secundaria LIBRE = vacia o con varita (WandData no pesa ni estorba el movimiento).
+	var off_libre: bool = equipped_off == null or equipped_off is WandData
 	for it in [equipped_main, equipped_off]:
 		if (it is WeaponData or it is ShieldData or it is WandData) and not it.habilidades.is_empty():
 			for ab in it.habilidades:
@@ -397,6 +399,10 @@ func crear_player_combatant() -> Combatant:
 					continue
 				# Tecnicas de arma+escudo: solo si llevas escudo (ej: Guardia rota).
 				if ab.requiere_escudo and not tiene_escudo:
+					continue
+				# Tecnicas de una mano libre: solo con la otra mano vacia o con varita
+				# (ej: el estoque, "En guardia" / contraataque de duelo).
+				if ab.requiere_off_libre and not off_libre:
 					continue
 				abils.append(ab)
 	c.abilities_combate = abils
@@ -534,10 +540,10 @@ func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
 	if main.dos_manos:
 		return false
 	if item is WandData:
-		# La varita (soporte) va con armas LIGERAS (daga / espada corta / maza peq) Y con
-		# la ESPADA LARGA (que si no solo admite escudo): buena combinacion de soporte.
+		# La varita (soporte) va con armas LIGERAS (daga / espada corta / maza peq / estoque)
+		# Y con la ESPADA LARGA (que si no solo admite escudo): buena combinacion de soporte.
 		return int(main.tipo) in [WeaponData.Tipo.DAGA, WeaponData.Tipo.ESPADA_CORTA,
-			WeaponData.Tipo.MAZA_PEQ, WeaponData.Tipo.ESPADA_LARGA]
+			WeaponData.Tipo.MAZA_PEQ, WeaponData.Tipo.ESPADA_LARGA, WeaponData.Tipo.ESTOQUE]
 	if item is WeaponData:
 		var w: WeaponData = item
 		if not w.puede_dual:

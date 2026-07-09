@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "En guardia"
+coste_energia = 40.0
+dano_mult = 0.0
+cooldown = 0
+postura_contraataque = true
+requiere_off_libre = true
+guardia_spd_mult = 0.35
+evasion_bonus = 0.20
+contra_mult = 1.0
+descripcion = "Postura de duelo del estoque (una mano, la otra libre o con varita): entras EN GUARDIA hasta tu próxima acción. Bajas a la mitad tu velocidad, pero recibes menos daño y esquivas mucho más; cada golpe que ESQUIVAS lo devuelves con una estocada (contraataque). Alto riesgo/recompensa: aguanta, esquiva y castiga."

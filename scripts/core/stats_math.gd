@@ -128,7 +128,8 @@ const CRIT_MULT := 1.5      # multiplicador de daño critico (fijo por ahora; TO
 const EVADE_PARITY := 0.05
 const EVADE_SPREAD := 0.30
 const EVADE_MIN := 0.03     # siempre queda algo de esquiva (nunca casi 0)
-const EVADE_MAX := 0.35     # tope: nunca te esquivan mas de esto (peleable)
+const EVADE_MAX := 0.35     # tope normal: nunca te esquivan mas de esto (peleable)
+const EVADE_MAX_BUFF := 0.65  # tope ELEVADO cuando una HABILIDAD o BUFF sube tu esquiva (rompe el 0.35)
 
 # Defender: el daño recibido se multiplica por (1 - defend_block) del defensor,
 # donde defend_block viene del loadout (base 0.3 + escudo/arma secundaria).
@@ -204,7 +205,12 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# Probabilidades (se calculan SIEMPRE, para poder loguearlas aunque no apliquen).
 	# ACIERTO del atacante (mejora Precision) baja la evasion del defensor. La esquiva
 	# de armadura del defensor ya entra via su evasion_penal (negativo = bonus).
-	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal - attacker.precision, 0.0, EVADE_MAX)
+	# Esquiva EXTRA de HABILIDADES/BUFFS (0 = ninguna). Si hay, SUMA a la esquiva y ademas
+	# ROMPE el tope normal: puedes pasar del EVADE_MAX de 0.35 hasta EVADE_MAX_BUFF (0.65).
+	# Generico: hoy lo alimenta la postura del estoque, manana cualquier buff de esquiva.
+	var evasion_extra := defender.evasion_bonus
+	var evade_cap := EVADE_MAX_BUFF if evasion_extra > 0.0 else EVADE_MAX
+	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal - attacker.precision + evasion_extra, 0.0, evade_cap)
 	# RESIST. CRITICOS del defensor (armadura pesada) baja el crit del atacante.
 	var crit_p := 0.0 if defending else clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus - defender.crit_resist, 0.0, 1.0)
 	# El aturdir depende de aturdir_base (ya viene promediado del loadout: en dual,

@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/abilities/estocada_penetrante.tres" id="2"]
 [ext_resource type="Resource" path="res://resources/abilities/fintas.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/abilities/en_guardia.tres" id="4"]
 
 [resource]
 script = ExtResource("1")
@@ -18,4 +19,4 @@ evasion_bonus = 0.04
 bloqueo = 0.08
 dano_tipo = 0
 aturdir_base = 0.0
-habilidades = [ExtResource("2"), ExtResource("3")]
+habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("4")]
