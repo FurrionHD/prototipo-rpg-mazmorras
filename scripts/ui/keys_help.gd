@@ -28,33 +28,68 @@ const CONTROLS := [
 	["I", "Inventario"],
 ]
 
+var _root: Control = null       # backdrop + panel; se muestra/oculta como un todo
 var _panel: PanelContainer = null
 
 
 func _ready() -> void:
 	layer = 90   # por debajo del combate (100) pero encima del mundo
+	# El panel debe seguir procesando (input, boton de cerrar) aunque pausemos el juego.
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+	# Raiz a pantalla completa: un fondo oscuro modal + el panel centrado. Arranca
+	# OCULTA para no interrumpir el juego; se abre con F1 (y entonces pausa).
+	_root = Control.new()
+	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_root.visible = false
+	add_child(_root)
+
+	# Fondo oscuro que atenua el juego y bloquea los clics al mundo de detras.
+	var backdrop := ColorRect.new()
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	_root.add_child(backdrop)
+
+	# Centrador a pantalla completa: coloca el panel en el centro exacto.
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_root.add_child(center)
+
 	_panel = PanelContainer.new()
-	_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	_panel.offset_left = 8
-	_panel.offset_top = 8
-	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(_panel)
 
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.07, 0.09, 0.82)
+	sb.bg_color = Color(0.06, 0.07, 0.09, 0.95)
 	sb.border_color = Color(0.87, 0.57, 0.26, 0.7)
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(6)
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
 	_panel.add_theme_stylebox_override("panel", sb)
 
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 2)
 	_panel.add_child(vb)
 
-	_titulo(vb, "TECLAS DE DEBUG  (build de prueba)")
+	# Cabecera: titulo a la izquierda y boton de cerrar (X) a la derecha.
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 12)
+	var htit := Label.new()
+	htit.text = "TECLAS DE DEBUG  (build de prueba)"
+	htit.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	htit.add_theme_font_size_override("font_size", 13)
+	htit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(htit)
+	var cerrar := Button.new()
+	cerrar.text = "✕ Cerrar"
+	cerrar.pressed.connect(_cerrar)
+	header.add_child(cerrar)
+	vb.add_child(header)
+	_sep(vb)
+
 	for par in DEBUG_KEYS:
 		_linea(vb, par[0], par[1])
 	_sep(vb)
@@ -62,9 +97,7 @@ func _ready() -> void:
 	for par in CONTROLS:
 		_linea(vb, par[0], par[1])
 	_sep(vb)
-	_hint(vb, "F1 — ocultar / mostrar esta ayuda")
-
-	add_child(_panel)
+	_hint(vb, "F1 / ✕ Cerrar — cerrar y reanudar el juego")
 
 
 func _titulo(vb: VBoxContainer, txt: String) -> void:
@@ -109,4 +142,14 @@ func _hint(vb: VBoxContainer, txt: String) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo \
 			and (event as InputEventKey).keycode == KEY_F1:
-		_panel.visible = not _panel.visible
+		_set_open(not _root.visible)
+
+
+func _cerrar() -> void:
+	_set_open(false)
+
+
+# Abre/cierra la ayuda. Mientras esta abierta, el juego queda PAUSADO.
+func _set_open(open: bool) -> void:
+	_root.visible = open
+	get_tree().paused = open
