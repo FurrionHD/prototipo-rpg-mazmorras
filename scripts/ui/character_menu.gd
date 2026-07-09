@@ -240,7 +240,7 @@ func _build_stats_page() -> void:
 	var c: Combatant = Game.crear_player_combatant()
 	Game.player_current_hp = hp_was
 	Game.player_current_mp = mp_was
-	_row(_content, "Ataque (medio)", "%.1f" % _ataque_promedio(c))
+	_row(_content, "Ataque total", "%.1f" % _ataque_total(c))
 	_row(_content, "Velocidad", "%.1f" % c.spd())
 	var crit_p: float = clampf(StatsMath.crit_chance(float(c.abilities.destreza),
 		float(c.abilities.destreza)) + _crit_bonus_promedio(c), 0.0, 1.0)
@@ -252,7 +252,7 @@ func _build_stats_page() -> void:
 	_row(_content, "Defensa", "%.1f" % c.def_value())
 	if c.max_mp > 0.0:
 		_row(_content, "Maná máx.", "%.2f" % c.max_mp)
-	_note(_content, "Valores en promedio contra un enemigo equiparado; varían según las stats del rival.")
+	_note(_content, "Ataque total = raw (base + arma) × Fuerza, ANTES del motion value (cada golpe aplica su %). Crítico en promedio contra un enemigo equiparado; varía según el rival.")
 
 
 func _build_habilidades_page() -> void:
@@ -264,16 +264,10 @@ func _build_habilidades_page() -> void:
 	_note(_content, "Las 5 habilidades DanMachi (0–999). Suben con el uso y se aplican en el hogar.")
 
 
-# Media del ataque por golpe sobre las manos del loadout (dual = media de ambas).
-func _ataque_promedio(c: Combatant) -> float:
-	if c.hands.is_empty():
-		return c.atk()
-	var total: float = 0.0
-	for i in c.hands.size():
-		c.set_active_hand(i)
-		total += c.atk()
-	c.set_active_hand(0)
-	return total / float(c.hands.size())
+# Ataque TOTAL (raw): (base + arma) × factor_fuerza × estados, SIN el motion_value
+# (ese se aplica por golpe). c ya tiene activa la mano principal (0) tras crearlo.
+func _ataque_total(c: Combatant) -> float:
+	return (c.base_attack + c.ataque_arma) * StatsMath.fuerza_factor(float(c.abilities.fuerza)) * c.status_atk_mult()
 
 # Media del crit_bonus del arma sobre las manos (afinidad).
 func _crit_bonus_promedio(c: Combatant) -> float:
