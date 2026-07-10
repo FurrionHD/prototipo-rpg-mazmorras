@@ -71,7 +71,8 @@ const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
 
 func _ready() -> void:
 	_stamina_bar = _crear_barra_aguante()
-	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD de inventario
+	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD (barras, peso, piso, ayudas)
+	add_child(preload("res://scripts/ui/inventory_menu.gd").new())  # inventario (I)
 	add_child(preload("res://scripts/ui/character_menu.gd").new())  # menu de personaje (C)
 	add_child(preload("res://scripts/ui/debug_panel.gd").new())  # panel de debug (cualquier sala)
 	add_child(preload("res://scripts/ui/spawner.gd").new())      # spawner de enemigos (dev/test)
@@ -282,14 +283,19 @@ func _try_interact() -> void:
 		Game.start_extraction(corpse)
 		return
 
-	# 2) Drop del suelo para recoger.
+	# 2) Item del suelo para recoger (drop del monstruo o cristal soltado del inventario).
 	var pickup: Node = _mas_cercano_en_grupo("pickup", false)
 	if pickup != null and pickup.has_method("recoger"):
-		var drop: MonsterDrop = pickup.recoger()
-		if drop != null:
-			Game.drops.append(drop)
-			print("Recoges: ", drop.nombre, " (", drop.calidad_texto(),
-				"). Total drops: ", Game.drops.size())
+		var item: Resource = pickup.recoger()
+		if item is MonsterDrop:
+			var d := item as MonsterDrop
+			Game.drops.append(d)
+			print("Recoges: ", d.nombre, " (", d.calidad_texto(), "). Total drops: ", Game.drops.size())
+		elif item is Cristal:
+			var c := item as Cristal
+			Game.crystals.append(c)
+			print("Recoges: Cristal Cat ", c.categoria, " (", c.calidad_texto(),
+				"). Total cristales: ", Game.crystals.size())
 
 
 # Devuelve el nodo mas cercano del grupo dentro del rango de interaccion.

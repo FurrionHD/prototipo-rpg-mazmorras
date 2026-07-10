@@ -15,8 +15,6 @@
 
 extends CanvasLayer
 
-const ARMOR_MATERIALS := ["", "cuero", "hierro", "hierro_completo", "placas"]
-const ARMOR_MAT_LABELS := ["(sin pieza)", "Cuero", "Hierro", "Hierro compl.", "Placas"]
 const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas"]
 const ARMOR_SLOT_LABELS := {
 	"casco": "Casco", "pecho": "Pecho", "manos": "Manos",
@@ -331,12 +329,38 @@ func _bloque_arma(rol: String, nombre: String, permite_cambio: bool, on_cambiar:
 	_content.add_child(head)
 
 
+# --- Catalogos: solo lo que TIENES en el baul (Game.owned_*) ---
+
+# Armas validas como PRINCIPAL (solo WeaponData).
+func _catalogo_main() -> Array:
+	var r: Array = []
+	for it in Game.owned_weapons:
+		if it is WeaponData:
+			r.append(it)
+	return r
+
+# Manos SECUNDARIAS posibles: "nada" (null) + todo el baul (la validez la filtra
+# _secundaria_valida; se puede repetir la misma arma para el dual).
+func _catalogo_off() -> Array:
+	var r: Array = [null]
+	for it in Game.owned_weapons:
+		r.append(it)
+	return r
+
+# Piezas del baul que encajan en el slot + la opcion de ir sin pieza.
+func _catalogo_armor(slot: String) -> Array:
+	var r: Array = [null]
+	for p in Game.owned_armor_de_slot(slot):
+		r.append(p)
+	return r
+
+
 func _abrir_cambio(slot: String) -> void:
 	_arma_change = slot
 	if slot == "main":
 		_arma_cand = _index_of_main()
 	else:
-		_arma_cand = _off_current_index(Game._dev_offs)
+		_arma_cand = _off_current_index(_catalogo_off())
 	_rebuild()
 
 
@@ -345,15 +369,17 @@ func _build_armas_cambiar() -> void:
 	_title(_content, "Cambiar %s" % ("arma principal" if es_main else "mano secundaria"))
 	_content.add_child(HSeparator.new())
 
-	var catalogo: Array = Game._dev_weapons if es_main else Game._dev_offs
+	var catalogo: Array = _catalogo_main() if es_main else _catalogo_off()
+	if catalogo.is_empty():
+		_note(_content, "No tienes armas en el baúl.")
+		return
 	var labels: Array = []
 	var disabled: Array = []
 	for i in catalogo.size():
+		var item: Resource = catalogo[i]
 		if es_main:
-			labels.append((load(catalogo[i]) as WeaponData).nombre)
+			labels.append((item as WeaponData).nombre)
 		else:
-			var p = catalogo[i]
-			var item: Resource = null if p == null else load(p)
 			labels.append(_off_nombre(item))
 			# Deshabilita las secundarias incompatibles con la principal actual.
 			if not Game._secundaria_valida(Game.equipped_main, item):
@@ -373,25 +399,31 @@ func _cancelar_arma() -> void:
 
 func _equipar_arma() -> void:
 	if _arma_change == "main":
-		Game.equipar_arma(load(Game._dev_weapons[_arma_cand]))
+		var cat: Array = _catalogo_main()
+		if _arma_cand < cat.size():
+			Game.equipar_arma(cat[_arma_cand])
 	else:
-		var p = Game._dev_offs[_arma_cand]
-		var item: Resource = null if p == null else load(p)
-		Game.equipar_secundaria(item)
+		var cat_off: Array = _catalogo_off()
+		if _arma_cand < cat_off.size():
+			Game.equipar_secundaria(cat_off[_arma_cand])
 	_arma_change = ""
 	_rebuild()
 
 
 # Construye el panel de stats del candidato de arma (derecha de la cuadricula).
 func _preview_arma(vb: VBoxContainer) -> void:
-	var es_main: bool = _arma_change == "main"
-	if es_main:
-		var w: WeaponData = load(Game._dev_weapons[_arma_cand])
+	if _arma_change == "main":
+		var cat: Array = _catalogo_main()
+		if _arma_cand >= cat.size():
+			return
+		var w: WeaponData = cat[_arma_cand]
 		_title(vb, w.nombre)
 		_weapon_stats(vb, w, "main")
 	else:
-		var p = Game._dev_offs[_arma_cand]
-		var item: Resource = null if p == null else load(p)
+		var cat_off: Array = _catalogo_off()
+		if _arma_cand >= cat_off.size():
+			return
+		var item: Resource = cat_off[_arma_cand]
 		_title(vb, _off_nombre(item))
 		_off_stats(vb, item)
 		if item != null and not Game._secundaria_valida(Game.equipped_main, item):
@@ -399,19 +431,16 @@ func _preview_arma(vb: VBoxContainer) -> void:
 
 
 func _index_of_main() -> int:
-	for i in Game._dev_weapons.size():
-		if load(Game._dev_weapons[i]) == Game.equipped_main:
+	var cat: Array = _catalogo_main()
+	for i in cat.size():
+		if cat[i] == Game.equipped_main:
 			return i
 	return 0
 
 
 func _off_current_index(list: Array) -> int:
 	for i in list.size():
-		var p = list[i]
-		if p == null:
-			if Game.equipped_off == null:
-				return i
-		elif load(p) == Game.equipped_off:
+		if list[i] == Game.equipped_off:
 			return i
 	return 0
 
@@ -564,7 +593,12 @@ func _abrir_cambio_armor(slot: String) -> void:
 	_armor_slot_sel = slot
 	_armor_change = true
 	var pieza = Game.get("equipped_" + slot)
-	_armor_cand = (int((pieza as ArmorData).tipo) + 1) if pieza is ArmorData else 0
+	_armor_cand = 0
+	var cat: Array = _catalogo_armor(slot)
+	for i in cat.size():
+		if cat[i] == pieza:
+			_armor_cand = i
+			break
 	_rebuild()
 
 
@@ -572,9 +606,12 @@ func _build_armadura_cambiar() -> void:
 	var slot: String = _armor_slot_sel
 	_title(_content, "Cambiar %s" % ARMOR_SLOT_LABELS[slot])
 	_content.add_child(HSeparator.new())
+	var cat: Array = _catalogo_armor(slot)
 	var labels: Array = []
-	for s in ARMOR_MAT_LABELS:
-		labels.append(s)
+	for p in cat:
+		labels.append("(sin pieza)" if p == null else (p as ArmorData).nombre)
+	if cat.size() <= 1:
+		_note(_content, "No tienes piezas de este slot en el baúl.")
 	_build_cambiar_layout(labels, _armor_cand, [], _pick_armor,
 		_preview_armor, _equipar_armor, _cancelar_armor)
 
@@ -589,24 +626,22 @@ func _cancelar_armor() -> void:
 
 func _equipar_armor() -> void:
 	var slot: String = _armor_slot_sel
-	if _armor_cand == 0:
-		Game.set("equipped_" + slot, null)
-	else:
-		var path := "res://resources/armor/%s_%s.tres" % [ARMOR_MATERIALS[_armor_cand], slot]
-		Game.set("equipped_" + slot, load(path))
+	var cat: Array = _catalogo_armor(slot)
+	if _armor_cand < cat.size():
+		Game.set("equipped_" + slot, cat[_armor_cand])
 	_armor_change = false
 	_rebuild()
 
 
-# Panel de stats del material candidato (derecha de la cuadricula).
+# Panel de stats de la pieza candidata (derecha de la cuadricula).
 func _preview_armor(vb: VBoxContainer) -> void:
 	var slot: String = _armor_slot_sel
-	if _armor_cand == 0:
+	var cat: Array = _catalogo_armor(slot)
+	if _armor_cand >= cat.size() or cat[_armor_cand] == null:
 		_title(vb, "(sin pieza)")
 		_note(vb, "Sin armadura en este slot: +velocidad por ir ligero, 0 defensa.")
 		return
-	var path := "res://resources/armor/%s_%s.tres" % [ARMOR_MATERIALS[_armor_cand], slot]
-	var a: ArmorData = load(path)
+	var a: ArmorData = cat[_armor_cand]
 	_title(vb, a.nombre)
 	var mods: Dictionary = Upgrades.armor_piece_mods(a, Game.tier_mult(Game.equip_tier(slot)),
 		Game.equip_rareza(slot), Game.equip_mejoras(slot))

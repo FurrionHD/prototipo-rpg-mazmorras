@@ -113,6 +113,8 @@ func _ready() -> void:
 	_build_spells(vb)
 	_sep(vb)
 	_build_mejoras(vb)
+	_sep(vb)
+	_build_objetos(vb)
 
 
 # --- Secciones -----------------------------------------------
@@ -208,7 +210,7 @@ func _build_enemy(vb: VBoxContainer) -> void:
 
 
 func _build_armor(vb: VBoxContainer) -> void:
-	_header(vb, "ARMADURA (tipo / tier / rareza)")
+	_header(vb, "ARMADURA (elegir = AÑADIR al baúl / tier / rareza)")
 	var nombres := {"casco": "Casco", "pecho": "Pecho", "manos": "Manos",
 		"pantalones": "Pantalon", "botas": "Botas"}
 	for slot in ARMOR_SLOTS:
@@ -234,7 +236,7 @@ func _build_armor(vb: VBoxContainer) -> void:
 
 
 func _build_weapons(vb: VBoxContainer) -> void:
-	_header(vb, "ARMAS (arma / tier / rareza)")
+	_header(vb, "ARMAS (elegir = AÑADIR al baúl / tier / rareza)")
 	# Principal
 	var row1 := HBoxContainer.new()
 	row1.add_theme_constant_override("separation", 6)
@@ -270,6 +272,18 @@ func _build_weapons(vb: VBoxContainer) -> void:
 	row2.add_child(_off_tier_opt)
 	_off_rareza_opt = _make_rareza_opt("off")
 	row2.add_child(_off_rareza_opt)
+
+
+# OBJETOS (KAN-57): botones para AÑADIR pociones al inventario (Game.consumables).
+# El jugador las usa con "Objeto" en combate o con [Q] fuera de combate.
+func _build_objetos(vb: VBoxContainer) -> void:
+	_header(vb, "OBJETOS (añadir pociones)")
+	for path in Game._dev_consumables:
+		var cons: ConsumableData = load(path)
+		var b := Button.new()
+		b.text = "+1 %s  (%s)" % [cons.nombre, cons.resumen(Game.player_max_hp(), Game.player_max_mp())]
+		b.pressed.connect(func(): Game.add_consumable(cons, 1))
+		vb.add_child(b)
 
 
 # HECHIZOS (KAN-56): equipar/quitar hechizos (multi-seleccion con checkboxes). El
@@ -425,13 +439,17 @@ func _apply_floor() -> void:
 	_floor_edit.text = str(Game.current_floor)
 
 
+# NOTA: los selectores de ARMA/ARMADURA ya NO equipan: AÑADEN la pieza a tu baul
+# (Game.owned_*). Equipar se hace desde el menu de personaje [C] (en el pueblo).
+# Las teclas dev K/L/J siguen equipando en caliente para probar rapido.
+
 func _set_armor(idx: int, slot: String) -> void:
 	if idx <= 0:
-		Game.set("equipped_" + slot, null)
-	else:
-		var path := "res://resources/armor/%s_%s.tres" % [ARMOR_PREFIX[idx], slot]
-		Game.set("equipped_" + slot, load(path))
-	_rebuild_mejoras()  # cambiar de pieza cambia las categorias validas
+		return  # "Nada": no hay pieza que añadir
+	var path := "res://resources/armor/%s_%s.tres" % [ARMOR_PREFIX[idx], slot]
+	var pieza: ArmorData = load(path)
+	Game.add_owned_armor(pieza)
+	print("[dev] Añadida al baul: ", pieza.nombre)
 
 
 func _set_armor_tier(tier: int, slot: String) -> void:
@@ -439,17 +457,18 @@ func _set_armor_tier(tier: int, slot: String) -> void:
 
 
 func _set_main(idx: int) -> void:
-	Game.equipar_arma(load(Game._dev_weapons[idx]))
-	_sync_weapons()
-	_rebuild_mejoras()
+	var w: WeaponData = load(Game._dev_weapons[idx])
+	Game.add_owned_weapon(w)
+	print("[dev] Añadida al baul: ", w.nombre)
 
 
 func _set_off(idx: int) -> void:
 	var path = Game._dev_offs[idx]
-	var item: Resource = null if path == null else load(path)
-	if not Game.equipar_secundaria(item):
-		_sync_weapons()
-	_rebuild_mejoras()
+	if path == null:
+		return  # "Nada": no hay item que añadir
+	var item: Resource = load(path)
+	Game.add_owned_weapon(item)
+	print("[dev] Añadida al baul: ", item.nombre)
 
 
 # --- Sincronizar con el estado real de Game ----

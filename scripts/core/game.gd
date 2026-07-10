@@ -139,9 +139,20 @@ func enemy_ability_sum_band(floor: int) -> Vector2:
 # interactua (pero el enemigo sigue y puede emboscarte).
 var inventory_open: bool = false
 
-# Cristales y drops obtenidos (inventario temporal hasta la Fase 6).
+# --- BOLSA: lo que llevas ENCIMA de la expedicion. Es lo unico que PESA (peso_actual).
+# Los cristales solo salen de la bolsa vendiendolos en la tienda; los drops se pueden
+# guardar en el HOGAR (ver guardar_materiales_en_hogar).
 var crystals: Array[Cristal] = []
 var drops: Array[MonsterDrop] = []
+
+# --- BAUL DEL HOGAR: materiales (drops) ya guardados en casa. No pesan.
+var almacen_materiales: Array[MonsterDrop] = []
+
+# --- BAUL DE EQUIPO: lo que POSEES (aunque no lo lleves puesto). De momento se llena
+# desde el panel de debug; en el futuro, comprando/crafteando. El menu de personaje solo
+# deja equipar lo que este aqui. owned_weapons mezcla WeaponData / ShieldData / WandData.
+var owned_weapons: Array[Resource] = []
+var owned_armor: Array[ArmorData] = []
 
 # OBJETOS consumibles (pociones): ConsumableData -> cantidad. Por ahora se consiguen
 # desde el panel de debug (KAN-57). Curan por el tiempo (ver ConsumableData).
@@ -191,6 +202,9 @@ var debug_panel_open: bool = false
 
 
 func _ready() -> void:
+	# El baul arranca con el arma que llevas puesta (puños): siempre puedes volver a ella.
+	add_owned_weapon(equipped_main)
+
 	# TEMPORAL: arrancar con las habilidades a un valor para revisar el escalado.
 	if dev_start_abilities > 0:
 		for k in ability_internal:
@@ -850,6 +864,109 @@ func ratio_carga() -> float:
 
 func esta_sobrecargado() -> bool:
 	return ratio_carga() >= overload_threshold
+
+
+# ============================================================
+#  BAUL DE EQUIPO (armas/armaduras poseidas) y ALMACEN DEL HOGAR (materiales)
+# ============================================================
+
+# Añade un arma/escudo/varita al baul (sin duplicados).
+func add_owned_weapon(item: Resource) -> void:
+	if item != null and not owned_weapons.has(item):
+		owned_weapons.append(item)
+
+# Añade una pieza de armadura al baul (sin duplicados).
+func add_owned_armor(pieza: ArmorData) -> void:
+	if pieza != null and not owned_armor.has(pieza):
+		owned_armor.append(pieza)
+
+# Piezas del baul que encajan en un slot concreto ("casco", "pecho", ...).
+func owned_armor_de_slot(slot: String) -> Array:
+	var idx: int = ARMOR_SLOT_ORDEN.find(slot)
+	var res: Array = []
+	for p in owned_armor:
+		if int(p.slot) == idx:
+			res.append(p)
+	return res
+
+# Orden de ArmorData.Slot (CASCO, PECHO, MANOS, PANTALONES, BOTAS).
+const ARMOR_SLOT_ORDEN := ["casco", "pecho", "manos", "pantalones", "botas"]
+
+
+# HOGAR: guarda en el baul los MATERIALES (drops) de la bolsa. Los CRISTALES no: esos
+# hay que venderlos en la tienda si o si. Devuelve cuantos materiales guardo.
+func guardar_materiales_en_hogar() -> int:
+	var n: int = drops.size()
+	if n == 0:
+		return 0
+	for d in drops:
+		almacen_materiales.append(d)
+	drops.clear()
+	print("[hogar] Guardas %d materiales. Total en casa: %d" % [n, almacen_materiales.size()])
+	return n
+
+
+# ============================================================
+#  SOLTAR items de la bolsa al SUELO (se pueden recoger con F)
+# ============================================================
+
+# Suelta `cantidad` unidades EQUIVALENTES a `modelo` (mismo tipo/categoria/calidad) de la
+# bolsa, dejandolas en el suelo junto al jugador. Devuelve cuantas solto.
+func soltar_item(modelo: Resource, cantidad: int) -> int:
+	if modelo == null or cantidad <= 0:
+		return 0
+	var pnode := get_tree().get_first_node_in_group("player")
+	if pnode == null:
+		return 0
+	var parent: Node = pnode.get_parent()
+	if parent == null:
+		return 0
+
+	var soltados: int = 0
+	while soltados < cantidad:
+		var item: Resource = _sacar_de_bolsa(modelo)
+		if item == null:
+			break
+		var pickup: Node2D = _drop_pickup_script.new()
+		pickup.setup(item)
+		parent.add_child(pickup)
+		# Pequeño offset aleatorio para que no queden todos apilados en el mismo pixel.
+		pickup.global_position = pnode.global_position + Vector2(
+			randf_range(-18.0, 18.0), randf_range(-18.0, 18.0))
+		soltados += 1
+	if soltados > 0:
+		print("[bolsa] Sueltas %d x %s al suelo" % [soltados, _nombre_item(modelo)])
+	return soltados
+
+
+# Saca de la bolsa UNA unidad equivalente al modelo (y la devuelve). null si no queda.
+func _sacar_de_bolsa(modelo: Resource) -> Resource:
+	if modelo is Cristal:
+		var m := modelo as Cristal
+		for i in crystals.size():
+			var c := crystals[i]
+			if c.categoria == m.categoria and c.calidad == m.calidad:
+				crystals.remove_at(i)
+				return c
+	elif modelo is MonsterDrop:
+		var md := modelo as MonsterDrop
+		for i in drops.size():
+			var d := drops[i]
+			if d.nombre == md.nombre and d.calidad == md.calidad:
+				drops.remove_at(i)
+				return d
+	return null
+
+
+# Nombre legible de un item de bolsa (para logs / UI).
+func _nombre_item(item: Resource) -> String:
+	if item is Cristal:
+		var c := item as Cristal
+		return "Cristal Cat %d (%s)" % [c.categoria, c.calidad_texto()]
+	if item is MonsterDrop:
+		var d := item as MonsterDrop
+		return "%s (%s)" % [d.nombre, d.calidad_texto()]
+	return "?"
 
 # Multiplicador de velocidad por sobrecarga (1.0 = normal). Baja GRADUALMENTE
 # cuanto mas te pasas del umbral, hasta un suelo (1 - overload_max_penalty).
