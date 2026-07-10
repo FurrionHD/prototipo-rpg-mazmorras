@@ -434,11 +434,11 @@ func _build_armas() -> void:
 
 func _nombre_equipo(item: Resource) -> String:
 	if item is WeaponData:
-		return (item as WeaponData).nombre
+		return (item as WeaponData).nombre + Game.item_plus(item)
 	if item is ShieldData:
-		return (item as ShieldData).nombre + "\n(escudo)"
+		return (item as ShieldData).nombre + Game.item_plus(item) + "\n(escudo)"
 	if item is WandData:
-		return (item as WandData).nombre + "\n(varita)"
+		return (item as WandData).nombre + Game.item_plus(item) + "\n(varita)"
 	return "?"
 
 
@@ -447,7 +447,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 	var equipada: bool = item == Game.equipped_main or item == Game.equipped_off
 	if item is WeaponData:
 		var w := item as WeaponData
-		_title(vb, w.nombre + ("   [equipada]" if equipada else ""))
+		_title(vb, Game.item_display_name(w) + ("   [equipada]" if equipada else ""))
 		_row(vb, "Tipo", WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)]
 			+ ("  (magia)" if w.es_magica else ""))
 		_row(vb, "Manejo", "Dos manos" if w.dos_manos else "Una mano")
@@ -460,13 +460,13 @@ func _preview_arma(vb: VBoxContainer) -> void:
 			_row(vb, "Amplif. magia", "×%.2f" % w.magic_amp)
 	elif item is ShieldData:
 		var s := item as ShieldData
-		_title(vb, s.nombre + ("   [equipado]" if equipada else ""))
+		_title(vb, Game.item_display_name(s) + ("   [equipado]" if equipada else ""))
 		_row(vb, "Bloqueo", "+%.0f%%" % (s.bloqueo * 100.0))
 		_row(vb, "Velocidad", "×%.2f" % s.velocidad_mult)
 		_row(vb, "Penal. esquiva", "-%.0f%%" % (s.evasion_penal * 100.0))
 	elif item is WandData:
 		var wd := item as WandData
-		_title(vb, wd.nombre + ("   [equipada]" if equipada else ""))
+		_title(vb, Game.item_display_name(wd) + ("   [equipada]" if equipada else ""))
 		_row(vb, "Amplif. magia", "×%.2f" % wd.magic_amp)
 		_row(vb, "Regen maná", "+%.2f/turno" % wd.mp_regen_bonus)
 		_row(vb, "Vel. casteo", "×%.2f" % wd.velocidad_mult)
@@ -486,14 +486,14 @@ func _build_armaduras() -> void:
 	var labels: Array = []
 	for s in _stacks:
 		var a: ArmorData = s["modelo"]
-		labels.append("%s\n(%s)" % [a.nombre, ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)]])
+		labels.append("%s%s\n(%s)" % [a.nombre, Game.item_plus(a), ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)]])
 	_grid_detail(labels, _preview_armadura)
 
 
 func _preview_armadura(vb: VBoxContainer) -> void:
 	var a: ArmorData = _stacks[_sel]["modelo"]
 	var equipada: bool = Game.get("equipped_" + Game.ARMOR_SLOT_ORDEN[clampi(int(a.slot), 0, 4)]) == a
-	_title(vb, a.nombre + ("   [equipada]" if equipada else ""))
+	_title(vb, Game.item_display_name(a) + ("   [equipada]" if equipada else ""))
 	_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
 	_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, 3)])
 	_row(vb, "Defensa base", "%.2f" % (a.defensa_base * a.motion_def))

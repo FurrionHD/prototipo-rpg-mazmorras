@@ -3,17 +3,24 @@
 #  Panel de DEBUG clicable, disponible en CUALQUIER sala. Herramientas:
 #   - STATS: escribir las 5 habilidades y aplicarlas.
 #   - ENEMIGO: presets Base/200/500/Cheto + selector de PISO.
-#   - ARMADURA por pieza: tipo + tier + rareza.
-#   - ARMAS: principal/secundaria + tier + rareza.
-#   - MEJORAS: elegir slot y repartir mejoras por categoria (segun rareza).
+#   - FORJA: crear un objeto (que + cual + tier + rareza + mejoras) y meterlo
+#     en el baul. Equipar se hace desde el menu de personaje [C].
+#   - MEJORAS: mejorar el objeto YA EQUIPADO en un slot (segun su rareza).
 #  Todo por codigo (UI placeholder). Mientras esta abierto congela al jugador.
 # ============================================================
 
 extends CanvasLayer
 
-const ARMOR_PREFIX := ["", "cuero", "hierro", "hierro_completo", "placas"]  # idx dropdown -> material
-const ARMOR_LABELS := ["Nada", "Cuero", "Hierro", "Hierro compl.", "Placas"]
-const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas"]
+const ARMOR_PREFIX := ["cuero", "hierro", "hierro_completo", "placas"]  # idx -> material
+const ARMOR_LABELS := ["Cuero", "Hierro", "Hierro compl.", "Placas"]
+# FORJA: que se puede crear. [etiqueta, clave]. Las claves de armadura son el slot.
+const FORJA_CATS := [["Arma", "arma"], ["Escudo", "escudo"], ["Varita", "varita"],
+	["Casco", "casco"], ["Pecho", "pecho"], ["Manos", "manos"],
+	["Pantalon", "pantalones"], ["Botas", "botas"]]
+const FORJA_SHIELDS := ["res://resources/shields/escudo_pequeno.tres",
+	"res://resources/shields/escudo_normal.tres",
+	"res://resources/shields/escudo_grande.tres"]
+const FORJA_WANDS := ["res://resources/wands/varita.tres"]
 const ENEMY_PRESETS := [["Base", -1], ["200", 200], ["500", 500], ["Cheto", 999]]
 # Slots para el selector de MEJORAS: [etiqueta, clave].
 const MEJ_SLOTS := [["Principal", "main"], ["Secundaria", "off"], ["Casco", "casco"],
@@ -27,15 +34,14 @@ var _enemy_buttons: Array = []
 var _dummy_buttons: Array = []   # [boton, modo] del modo prueba (Off/Saco/Pegador)
 var _dummy_hp_edit: LineEdit = null
 var _floor_edit: LineEdit = null
-var _armor_opts: Dictionary = {}         # slot -> OptionButton (tipo)
-var _armor_tier_opts: Dictionary = {}    # slot -> OptionButton (tier)
-var _armor_rareza_opts: Dictionary = {}  # slot -> OptionButton (rareza)
-var _main_opt: OptionButton = null
-var _main_tier_opt: OptionButton = null
-var _main_rareza_opt: OptionButton = null
-var _off_opt: OptionButton = null
-var _off_tier_opt: OptionButton = null
-var _off_rareza_opt: OptionButton = null
+# FORJA
+var _forja_cat_opt: OptionButton = null
+var _forja_item_opt: OptionButton = null
+var _forja_tier: int = 1
+var _forja_rareza: int = Upgrades.Rareza.COMUN
+var _forja_mejoras: Dictionary = {}      # categoria -> nº de mejoras
+var _forja_rows: VBoxContainer = null
+var _forja_nombre: Label = null
 # HECHIZOS (KAN-56)
 var _spell_checks: Dictionary = {}       # path .tres -> CheckBox
 # MEJORAS
@@ -52,14 +58,12 @@ func _make_tier_opt(cb: Callable) -> OptionButton:
 	opt.item_selected.connect(func(idx): cb.call(idx + 1))
 	return opt
 
-# OptionButton de rareza (0..6) para un slot dado.
-func _make_rareza_opt(slot: String) -> OptionButton:
+# OptionButton de rareza (0..6). El callback recibe la rareza (0..6).
+func _make_rareza_opt(cb: Callable) -> OptionButton:
 	var opt := OptionButton.new()
 	for i in Upgrades.RAREZA_NOMBRE.size():
 		opt.add_item(Upgrades.RAREZA_NOMBRE[i], i)
-	opt.item_selected.connect(func(idx):
-		Game.set_equip_rareza(slot, idx)
-		_rebuild_mejoras())
+	opt.item_selected.connect(func(idx): cb.call(idx))
 	return opt
 
 
@@ -106,9 +110,7 @@ func _ready() -> void:
 	_sep(vb)
 	_build_enemy(vb)
 	_sep(vb)
-	_build_armor(vb)
-	_sep(vb)
-	_build_weapons(vb)
+	_build_forja(vb)
 	_sep(vb)
 	_build_spells(vb)
 	_sep(vb)
@@ -209,69 +211,179 @@ func _build_enemy(vb: VBoxContainer) -> void:
 	hrow.add_child(hap)
 
 
-func _build_armor(vb: VBoxContainer) -> void:
-	_header(vb, "ARMADURA (elegir = AÑADIR al baúl / tier / rareza)")
-	var nombres := {"casco": "Casco", "pecho": "Pecho", "manos": "Manos",
-		"pantalones": "Pantalon", "botas": "Botas"}
-	for slot in ARMOR_SLOTS:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 6)
-		vb.add_child(row)
-		var lbl := Label.new()
-		lbl.text = nombres[slot]
-		lbl.custom_minimum_size = Vector2(72, 0)
-		row.add_child(lbl)
-		var opt := OptionButton.new()
-		for i in ARMOR_LABELS.size():
-			opt.add_item(ARMOR_LABELS[i], i)
-		opt.item_selected.connect(_set_armor.bind(slot))
-		row.add_child(opt)
-		_armor_opts[slot] = opt
-		var topt := _make_tier_opt(_set_armor_tier.bind(slot))
-		row.add_child(topt)
-		_armor_tier_opts[slot] = topt
-		var ropt := _make_rareza_opt(slot)
-		row.add_child(ropt)
-		_armor_rareza_opts[slot] = ropt
+# ============================================================
+#  FORJA: crear un objeto y meterlo en el baul
+# ============================================================
+#  Eliges QUE (arma / escudo / varita / pieza de armadura), CUAL dentro de esa
+#  categoria, su TIER, su RAREZA (que decide cuantas mejoras admite) y repartes
+#  las MEJORAS. "Crear" duplica la plantilla .tres: cada copia es un objeto
+#  propio con sus stats, asi que puedes forjar dos espadas cortas y llevar una
+#  en cada mano. NO se equipa: se equipa desde el menu de personaje [C].
 
+func _build_forja(vb: VBoxContainer) -> void:
+	_header(vb, "FORJA (crear objeto -> baúl)")
 
-func _build_weapons(vb: VBoxContainer) -> void:
-	_header(vb, "ARMAS (elegir = AÑADIR al baúl / tier / rareza)")
-	# Principal
 	var row1 := HBoxContainer.new()
 	row1.add_theme_constant_override("separation", 6)
 	vb.add_child(row1)
-	var l1 := Label.new()
-	l1.text = "Principal"
-	l1.custom_minimum_size = Vector2(72, 0)
-	row1.add_child(l1)
-	_main_opt = OptionButton.new()
-	for i in Game._dev_weapons.size():
-		var w: WeaponData = load(Game._dev_weapons[i])
-		_main_opt.add_item(w.nombre, i)
-	_main_opt.item_selected.connect(_set_main)
-	row1.add_child(_main_opt)
-	_main_tier_opt = _make_tier_opt(func(t): Game.set_equip_tier("main", t))
-	row1.add_child(_main_tier_opt)
-	_main_rareza_opt = _make_rareza_opt("main")
-	row1.add_child(_main_rareza_opt)
-	# Secundaria
+	_forja_cat_opt = OptionButton.new()
+	for i in FORJA_CATS.size():
+		_forja_cat_opt.add_item(FORJA_CATS[i][0], i)
+	_forja_cat_opt.item_selected.connect(func(_i): _on_forja_cat())
+	row1.add_child(_forja_cat_opt)
+	_forja_item_opt = OptionButton.new()
+	_forja_item_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_forja_item_opt.item_selected.connect(func(_i): _on_forja_item())
+	row1.add_child(_forja_item_opt)
+
 	var row2 := HBoxContainer.new()
 	row2.add_theme_constant_override("separation", 6)
 	vb.add_child(row2)
-	var l2 := Label.new()
-	l2.text = "Secundaria"
-	l2.custom_minimum_size = Vector2(72, 0)
-	row2.add_child(l2)
-	_off_opt = OptionButton.new()
-	for i in Game._dev_offs.size():
-		_off_opt.add_item(_off_label(Game._dev_offs[i]), i)
-	_off_opt.item_selected.connect(_set_off)
-	row2.add_child(_off_opt)
-	_off_tier_opt = _make_tier_opt(func(t): Game.set_equip_tier("off", t))
-	row2.add_child(_off_tier_opt)
-	_off_rareza_opt = _make_rareza_opt("off")
-	row2.add_child(_off_rareza_opt)
+	row2.add_child(_make_tier_opt(_on_forja_tier))
+	row2.add_child(_make_rareza_opt(_on_forja_rareza))
+	_forja_nombre = Label.new()
+	_forja_nombre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row2.add_child(_forja_nombre)
+
+	_forja_rows = VBoxContainer.new()
+	_forja_rows.add_theme_constant_override("separation", 3)
+	vb.add_child(_forja_rows)
+
+	var crear := Button.new()
+	crear.text = "Crear"
+	crear.pressed.connect(_on_crear)
+	vb.add_child(crear)
+
+	_on_forja_cat()
+
+
+# Clave de la categoria elegida ("arma", "escudo", "varita", o un slot de armadura).
+func _forja_cat() -> String:
+	return FORJA_CATS[maxi(0, _forja_cat_opt.selected)][1]
+
+# Plantillas .tres disponibles en la categoria elegida.
+func _forja_paths() -> Array:
+	var cat := _forja_cat()
+	if cat == "arma":
+		return Game._dev_weapons
+	if cat == "escudo":
+		return FORJA_SHIELDS
+	if cat == "varita":
+		return FORJA_WANDS
+	var res: Array = []
+	for pref in ARMOR_PREFIX:
+		res.append("res://resources/armor/%s_%s.tres" % [pref, cat])
+	return res
+
+func _forja_base() -> Resource:
+	var paths := _forja_paths()
+	if paths.is_empty():
+		return null
+	return load(paths[clampi(_forja_item_opt.selected, 0, paths.size() - 1)])
+
+
+# Cambiar de categoria: repuebla el desplegable de items y resetea las mejoras.
+func _on_forja_cat() -> void:
+	_forja_item_opt.clear()
+	var cat := _forja_cat()
+	var paths := _forja_paths()
+	var es_armadura: bool = not (cat in ["arma", "escudo", "varita"])
+	for i in paths.size():
+		var etiqueta: String = ARMOR_LABELS[i] if es_armadura else str(load(paths[i]).get("nombre"))
+		_forja_item_opt.add_item(etiqueta, i)
+	_forja_item_opt.select(0)
+	_on_forja_item()
+
+func _on_forja_item() -> void:
+	_forja_mejoras.clear()   # otro item = otras categorias de mejora
+	_rebuild_forja()
+
+func _on_forja_tier(t: int) -> void:
+	_forja_tier = t
+	_rebuild_forja()
+
+func _on_forja_rareza(r: int) -> void:
+	_forja_rareza = clampi(r, 0, Upgrades.RAREZA_SLOTS.size() - 1)
+	# La nueva rareza puede admitir MENOS mejoras: recorta el sobrante.
+	while Upgrades.total_mejoras(_forja_mejoras) > Upgrades.rareza_slots(_forja_rareza):
+		var k: String = _forja_mejoras.keys().back()
+		_forja_mejoras[k] = int(_forja_mejoras[k]) - 1
+		if int(_forja_mejoras[k]) <= 0:
+			_forja_mejoras.erase(k)
+	_rebuild_forja()
+
+
+# Categorias de mejora validas para la plantilla elegida (el escudo no admite).
+func _forja_categorias(base: Resource) -> Array:
+	if base is WeaponData:
+		return Upgrades.weapon_categories(base as WeaponData)
+	if base is WandData:
+		return Upgrades.wand_categories()
+	if base is ArmorData:
+		return Upgrades.armor_categories(base as ArmorData)
+	return []
+
+
+func _add_forja_mejora(cat: String, delta: int) -> void:
+	var actual: int = int(_forja_mejoras.get(cat, 0))
+	if delta > 0 and Upgrades.total_mejoras(_forja_mejoras) >= Upgrades.rareza_slots(_forja_rareza):
+		return  # sin slots libres para esta rareza
+	var nuevo: int = maxi(0, actual + delta)
+	if nuevo == 0:
+		_forja_mejoras.erase(cat)
+	else:
+		_forja_mejoras[cat] = nuevo
+	_rebuild_forja()
+
+
+func _rebuild_forja() -> void:
+	if _forja_rows == null:
+		return
+	for c in _forja_rows.get_children():
+		c.queue_free()
+	var base := _forja_base()
+	var usadas: int = Upgrades.total_mejoras(_forja_mejoras)
+	var maxm: int = Upgrades.rareza_slots(_forja_rareza)
+	var nombre: String = "?" if base == null else str(base.get("nombre"))
+	if usadas > 0:
+		nombre += " +%d" % usadas
+	_forja_nombre.text = "%s   (%d/%d mejoras)" % [nombre, usadas, maxm]
+
+	var cats := _forja_categorias(base)
+	if cats.is_empty():
+		var l := Label.new()
+		l.text = "(este objeto no admite mejoras)"
+		_forja_rows.add_child(l)
+		return
+	for cat in cats:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		_forja_rows.add_child(row)
+		var name_l := Label.new()
+		name_l.text = Upgrades.cat_nombre(cat)
+		name_l.custom_minimum_size = Vector2(150, 0)
+		row.add_child(name_l)
+		var minus := Button.new()
+		minus.text = "-"
+		minus.pressed.connect(_add_forja_mejora.bind(cat, -1))
+		row.add_child(minus)
+		var cnt := Label.new()
+		cnt.text = str(int(_forja_mejoras.get(cat, 0)))
+		cnt.custom_minimum_size = Vector2(24, 0)
+		cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		row.add_child(cnt)
+		var plus := Button.new()
+		plus.text = "+"
+		plus.pressed.connect(_add_forja_mejora.bind(cat, 1))
+		row.add_child(plus)
+
+
+func _on_crear() -> void:
+	var base := _forja_base()
+	if base == null:
+		return
+	var item: Resource = Game.crear_item(base, _forja_tier, _forja_rareza, _forja_mejoras)
+	print("[dev] Forjado y añadido al baúl: ", Game.item_display_name(item))
 
 
 # OBJETOS (KAN-57): botones para AÑADIR pociones al inventario (Game.consumables).
@@ -323,19 +435,6 @@ func _build_mejoras(vb: VBoxContainer) -> void:
 	_mej_rows = VBoxContainer.new()
 	_mej_rows.add_theme_constant_override("separation", 3)
 	vb.add_child(_mej_rows)
-
-
-func _off_label(path) -> String:
-	if path == null:
-		return "Nada"
-	var res: Resource = load(path)
-	if res is WeaponData:
-		return (res as WeaponData).nombre + " (dual)"
-	if res is WandData:
-		return (res as WandData).nombre + " (varita)"
-	if res is ShieldData:
-		return (res as ShieldData).nombre
-	return "?"
 
 
 # --- MEJORAS: reconstruir las filas de categoria del slot elegido ---
@@ -439,36 +538,9 @@ func _apply_floor() -> void:
 	_floor_edit.text = str(Game.current_floor)
 
 
-# NOTA: los selectores de ARMA/ARMADURA ya NO equipan: AÑADEN la pieza a tu baul
-# (Game.owned_*). Equipar se hace desde el menu de personaje [C] (en el pueblo).
-# Las teclas dev K/L/J siguen equipando en caliente para probar rapido.
-
-func _set_armor(idx: int, slot: String) -> void:
-	if idx <= 0:
-		return  # "Nada": no hay pieza que añadir
-	var path := "res://resources/armor/%s_%s.tres" % [ARMOR_PREFIX[idx], slot]
-	var pieza: ArmorData = load(path)
-	Game.add_owned_armor(pieza)
-	print("[dev] Añadida al baul: ", pieza.nombre)
-
-
-func _set_armor_tier(tier: int, slot: String) -> void:
-	Game.set_equip_tier(slot, tier)
-
-
-func _set_main(idx: int) -> void:
-	var w: WeaponData = load(Game._dev_weapons[idx])
-	Game.add_owned_weapon(w)
-	print("[dev] Añadida al baul: ", w.nombre)
-
-
-func _set_off(idx: int) -> void:
-	var path = Game._dev_offs[idx]
-	if path == null:
-		return  # "Nada": no hay item que añadir
-	var item: Resource = load(path)
-	Game.add_owned_weapon(item)
-	print("[dev] Añadida al baul: ", item.nombre)
+# NOTA: la FORJA no equipa: mete el objeto en tu baul (Game.owned_*). Equipar se
+# hace desde el menu de personaje [C] (en el pueblo). Las teclas dev K/L/J siguen
+# equipando en caliente para probar rapido.
 
 
 # --- Sincronizar con el estado real de Game ----
@@ -476,8 +548,6 @@ func _set_off(idx: int) -> void:
 func _sync_from_game() -> void:
 	_sync_stats()
 	_sync_enemy()
-	_sync_armor()
-	_sync_weapons()
 	_sync_spells()
 	_floor_edit.text = str(Game.current_floor)
 	_rebuild_mejoras()
@@ -504,34 +574,3 @@ func _sync_dummy() -> void:
 		(pair[0] as Button).button_pressed = (pair[1] == Game.debug_dummy_mode)
 	if _dummy_hp_edit != null:
 		_dummy_hp_edit.text = str(int(Game.debug_dummy_hp))
-
-func _sync_armor() -> void:
-	for slot in ARMOR_SLOTS:
-		var pieza = Game.get("equipped_" + slot)
-		var idx := 0
-		if pieza is ArmorData:
-			idx = (pieza as ArmorData).tipo + 1
-		(_armor_opts[slot] as OptionButton).select(idx)
-		(_armor_tier_opts[slot] as OptionButton).select(clampi(Game.equip_tier(slot) - 1, 0, 2))
-		(_armor_rareza_opts[slot] as OptionButton).select(Game.equip_rareza(slot))
-
-func _sync_weapons() -> void:
-	for i in Game._dev_weapons.size():
-		if load(Game._dev_weapons[i]) == Game.equipped_main:
-			_main_opt.select(i)
-			break
-	_main_tier_opt.select(clampi(Game.equip_tier("main") - 1, 0, 2))
-	_off_tier_opt.select(clampi(Game.equip_tier("off") - 1, 0, 2))
-	_main_rareza_opt.select(Game.equip_rareza("main"))
-	_off_rareza_opt.select(Game.equip_rareza("off"))
-	var off_idx := 0
-	for i in Game._dev_offs.size():
-		var p = Game._dev_offs[i]
-		if p == null:
-			if Game.equipped_off == null:
-				off_idx = i
-				break
-		elif load(p) == Game.equipped_off:
-			off_idx = i
-			break
-	_off_opt.select(off_idx)

@@ -204,6 +204,7 @@ var debug_panel_open: bool = false
 func _ready() -> void:
 	# El baul arranca con el arma que llevas puesta (puños): siempre puedes volver a ella.
 	add_owned_weapon(equipped_main)
+	equip_meta["main"] = meta_de(equipped_main)   # el slot comparte la meta del objeto
 
 	# TEMPORAL: arrancar con las habilidades a un valor para revisar el escalado.
 	if dev_start_abilities > 0:
@@ -278,6 +279,23 @@ var equip_meta: Dictionary = {
 	"pantalones": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
 	"botas": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
 }
+
+# --- Estado POR OBJETO POSEIDO (baul): el mismo dict que acaba en equip_meta al
+# equiparlo, POR REFERENCIA. Asi mejorar el item equipado mejora el item del baul,
+# y desequiparlo no pierde sus mejoras. keyed por instancia de Resource. ---
+var item_meta: Dictionary = {}
+
+# Meta de un item, creandola por defecto (T1/Comun/sin mejoras) la primera vez.
+func meta_de(item: Resource) -> Dictionary:
+	if item == null:
+		return _meta_por_defecto()
+	if not item_meta.has(item):
+		item_meta[item] = _meta_por_defecto()
+	return item_meta[item]
+
+func _meta_por_defecto() -> Dictionary:
+	return {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}}
+
 
 func _meta(slot: String) -> Dictionary:
 	return equip_meta[slot]
@@ -762,9 +780,13 @@ func _hand_from(w: WeaponData, slot: String) -> Dictionary:
 # True si ESTE loadout (con 'main' de principal) admite 'item' en la secundaria.
 # Escudo o vacio: siempre (si la principal no es a 2 manos). Arma: debe permitir
 # dual y, si la principal solo admite off-hand ligera (espada larga), ser ligera.
+# Ademas, no puedes llevar en las dos manos el MISMO objeto: para ir a dual
+# necesitas dos armas distintas en el baul.
 func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
 	if main.dos_manos:
 		return false
+	if item != null and item == main:
+		return false   # la misma arma fisica no puede ocupar las dos manos
 	if item is WandData:
 		# La varita (soporte) va con armas LIGERAS (daga / espada corta / maza peq / estoque)
 		# Y con la ESPADA LARGA (que si no solo admite escudo): buena combinacion de soporte.
@@ -782,15 +804,23 @@ func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
 # principal no la admite (2 manos, o solo-ligera), la quita.
 func equipar_arma(w: WeaponData) -> void:
 	equipped_main = w
+	equip_meta["main"] = meta_de(w)
 	if not _secundaria_valida(w, equipped_off):
 		equipped_off = null
+		equip_meta["off"] = _meta_por_defecto()
 
 # Equipa la mano secundaria (arma dual o escudo); null = vacia.
 func equipar_secundaria(item: Resource) -> bool:
 	if not _secundaria_valida(equipped_main, item):
 		return false
 	equipped_off = item
+	equip_meta["off"] = meta_de(item)
 	return true
+
+# Equipa una pieza de armadura en su slot ("casco", "pecho", ...); null = vacio.
+func equipar_armadura(slot: String, pieza: ArmorData) -> void:
+	set("equipped_" + slot, pieza)
+	equip_meta[slot] = meta_de(pieza)
 
 
 # Recorre los 5 slots de armadura y combina:
@@ -879,6 +909,45 @@ func add_owned_weapon(item: Resource) -> void:
 func add_owned_armor(pieza: ArmorData) -> void:
 	if pieza != null and not owned_armor.has(pieza):
 		owned_armor.append(pieza)
+
+
+# --- FORJA: crear una INSTANCIA propia de un item, con su tier/rareza/mejoras ---
+# 'base' es el .tres compartido (plantilla). Se duplica para que cada copia tenga
+# su propia identidad: asi puedes tener dos espadas cortas distintas, y llevar una
+# en cada mano. Devuelve la instancia creada, ya metida en el baul.
+func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary) -> Resource:
+	if base == null:
+		return null
+	var copia: Resource = base.duplicate()
+	item_meta[copia] = {
+		"tier": maxi(1, tier),
+		"rareza": clampi(rareza, 0, Upgrades.RAREZA_SLOTS.size() - 1),
+		"mejoras": mejoras.duplicate(),
+	}
+	if copia is ArmorData:
+		add_owned_armor(copia as ArmorData)
+	else:
+		add_owned_weapon(copia)
+	return copia
+
+
+# Nombre para mostrar: "Espada corta +3  ·  T2 Epico". Como ahora puedes tener
+# varias copias de la misma plantilla, el nombre a secas ya no las distingue.
+func item_plus(item: Resource) -> String:
+	if item == null:
+		return ""
+	var n: int = Upgrades.total_mejoras(meta_de(item)["mejoras"])
+	return "" if n == 0 else " +%d" % n
+
+func item_display_name(item: Resource) -> String:
+	if item == null:
+		return "(nada)"
+	var m: Dictionary = meta_de(item)
+	var n: int = Upgrades.total_mejoras(m["mejoras"])
+	var txt: String = str(item.get("nombre"))
+	if n > 0:
+		txt += " +%d" % n
+	return "%s  ·  T%d %s" % [txt, int(m["tier"]), Upgrades.rareza_nombre(int(m["rareza"]))]
 
 # Piezas del baul que encajan en un slot concreto ("casco", "pecho", ...).
 func owned_armor_de_slot(slot: String) -> Array:
@@ -1054,7 +1123,9 @@ func _input(event: InputEvent) -> void:
 # --- PRUEBAS: ciclar el loadout con el teclado ---
 func _dev_cycle_weapon() -> void:
 	_dev_main_idx = wrapi(_dev_main_idx + 1, 0, _dev_weapons.size())
-	equipar_arma(load(_dev_weapons[_dev_main_idx]))
+	var w: WeaponData = load(_dev_weapons[_dev_main_idx])
+	add_owned_weapon(w)   # que aparezca tambien en el baul / menu de personaje
+	equipar_arma(w)
 	if equipped_off == null:   # la nueva principal pudo invalidar la secundaria
 		_dev_off_idx = 0
 	_dev_print_loadout()
@@ -1070,6 +1141,7 @@ func _dev_cycle_off() -> void:
 		var p: Variant = _dev_offs[_dev_off_idx]
 		var item: Resource = null if p == null else load(p)
 		if equipar_secundaria(item):
+			add_owned_weapon(item)   # que aparezca tambien en el baul
 			_dev_print_loadout()
 			return
 

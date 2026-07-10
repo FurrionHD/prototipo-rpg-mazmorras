@@ -298,8 +298,8 @@ func _build_armas() -> void:
 
 	# --- Principal ---
 	_content.add_child(HSeparator.new())
-	_bloque_arma("Principal", Game.equipped_main.nombre, pueblo, _abrir_cambio.bind("main"))
-	_weapon_stats(_content, Game.equipped_main, "main")
+	_bloque_arma("Principal", Game.item_display_name(Game.equipped_main), pueblo, _abrir_cambio.bind("main"))
+	_weapon_stats(_content, Game.equipped_main)
 
 	# --- Secundaria ---
 	_content.add_child(HSeparator.new())
@@ -340,7 +340,7 @@ func _catalogo_main() -> Array:
 	return r
 
 # Manos SECUNDARIAS posibles: "nada" (null) + todo el baul (la validez la filtra
-# _secundaria_valida; se puede repetir la misma arma para el dual).
+# _secundaria_valida, que ya descarta la que llevas en la principal).
 func _catalogo_off() -> Array:
 	var r: Array = [null]
 	for it in Game.owned_weapons:
@@ -378,7 +378,7 @@ func _build_armas_cambiar() -> void:
 	for i in catalogo.size():
 		var item: Resource = catalogo[i]
 		if es_main:
-			labels.append((item as WeaponData).nombre)
+			labels.append(Game.item_display_name(item))
 		else:
 			labels.append(_off_nombre(item))
 			# Deshabilita las secundarias incompatibles con la principal actual.
@@ -417,8 +417,8 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		if _arma_cand >= cat.size():
 			return
 		var w: WeaponData = cat[_arma_cand]
-		_title(vb, w.nombre)
-		_weapon_stats(vb, w, "main")
+		_title(vb, Game.item_display_name(w))
+		_weapon_stats(vb, w)
 	else:
 		var cat_off: Array = _catalogo_off()
 		if _arma_cand >= cat_off.size():
@@ -426,7 +426,9 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		var item: Resource = cat_off[_arma_cand]
 		_title(vb, _off_nombre(item))
 		_off_stats(vb, item)
-		if item != null and not Game._secundaria_valida(Game.equipped_main, item):
+		if item != null and item == Game.equipped_main:
+			_note(vb, "Ya la llevas en la mano principal: necesitas otra igual para el dual.")
+		elif item != null and not Game._secundaria_valida(Game.equipped_main, item):
 			_note(vb, "No compatible con el arma principal actual.")
 
 
@@ -447,9 +449,12 @@ func _off_current_index(list: Array) -> int:
 
 # --- Fichas de stats (reutilizadas por la vista normal y la preview) ---
 
-func _weapon_stats(vb: VBoxContainer, w: WeaponData, slot: String) -> void:
+# Tier/rareza/mejoras salen del PROPIO objeto (Game.meta_de), no del slot: asi el
+# panel del candidato muestra sus datos aunque no lo lleves puesto.
+func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 	if w == null:
 		return
+	var m: Dictionary = Game.meta_de(w)
 	var tipo: String = WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)]
 	_row(vb, "  Tipo", tipo + ("  (magia)" if w.es_magica else ""))
 	_row(vb, "  Ataque base", "%.1f" % w.ataque_base)
@@ -459,9 +464,9 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData, slot: String) -> void:
 		_row(vb, "  Crítico", "+%s" % _fmt_pct(w.crit_bonus))
 	if w.es_magica:
 		_row(vb, "  Amplif. magia", "×%.2f" % w.magic_amp)
-	_row(vb, "  Tier / rareza", "T%d · %s" % [Game.equip_tier(slot), Upgrades.rareza_nombre(Game.equip_rareza(slot))])
-	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(Game.equip_mejoras(slot)),
-		Upgrades.rareza_slots(Game.equip_rareza(slot))])
+	_row(vb, "  Tier / rareza", "T%d · %s" % [int(m["tier"]), Upgrades.rareza_nombre(int(m["rareza"]))])
+	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(m["mejoras"]),
+		Upgrades.rareza_slots(int(m["rareza"]))])
 
 
 func _off_stats(vb: VBoxContainer, item: Resource) -> void:
@@ -469,7 +474,7 @@ func _off_stats(vb: VBoxContainer, item: Resource) -> void:
 		_note(vb, "  (sin mano secundaria)")
 		return
 	if item is WeaponData:
-		_weapon_stats(vb, item as WeaponData, "off")
+		_weapon_stats(vb, item as WeaponData)
 	elif item is ShieldData:
 		var s := item as ShieldData
 		_row(vb, "  Bloqueo", "+%s" % _fmt_pct(s.bloqueo))
@@ -514,7 +519,7 @@ func _build_armadura_lista() -> void:
 	_content.add_child(HSeparator.new())
 	for slot in ARMOR_SLOTS:
 		var pieza = Game.get("equipped_" + slot)
-		var nombre: String = pieza.nombre if pieza is ArmorData else "(sin pieza)"
+		var nombre: String = Game.item_display_name(pieza) if pieza is ArmorData else "(sin pieza)"
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		var l := Label.new()
@@ -548,7 +553,7 @@ func _build_armadura_detalle(slot: String) -> void:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
 	var t := Label.new()
-	t.text = "%s:  %s" % [ARMOR_SLOT_LABELS[slot], (pieza.nombre if pieza is ArmorData else "(sin pieza)")]
+	t.text = "%s:  %s" % [ARMOR_SLOT_LABELS[slot], (Game.item_display_name(pieza) if pieza is ArmorData else "(sin pieza)")]
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	t.add_theme_color_override("font_color", Color(0.9, 0.95, 0.8))
 	head.add_child(t)
@@ -570,8 +575,9 @@ func _armor_ficha(vb: VBoxContainer, slot: String) -> void:
 		_note(vb, "Sin pieza en este slot.")
 		return
 	var a := pieza as ArmorData
-	var mods: Dictionary = Upgrades.armor_piece_mods(a, Game.tier_mult(Game.equip_tier(slot)),
-		Game.equip_rareza(slot), Game.equip_mejoras(slot))
+	var am: Dictionary = Game.meta_de(a)
+	var mods: Dictionary = Upgrades.armor_piece_mods(a, Game.tier_mult(int(am["tier"])),
+		int(am["rareza"]), am["mejoras"])
 	_row(vb, "  Defensa", "%.1f" % float(mods["def"]))
 	_row(vb, "  Reducción", _fmt_pct(float(mods["reduccion"])))
 	_row(vb, "  Velocidad", "×%.2f" % float(mods["vel_mult"]))
@@ -609,7 +615,7 @@ func _build_armadura_cambiar() -> void:
 	var cat: Array = _catalogo_armor(slot)
 	var labels: Array = []
 	for p in cat:
-		labels.append("(sin pieza)" if p == null else (p as ArmorData).nombre)
+		labels.append("(sin pieza)" if p == null else Game.item_display_name(p))
 	if cat.size() <= 1:
 		_note(_content, "No tienes piezas de este slot en el baúl.")
 	_build_cambiar_layout(labels, _armor_cand, [], _pick_armor,
@@ -628,7 +634,7 @@ func _equipar_armor() -> void:
 	var slot: String = _armor_slot_sel
 	var cat: Array = _catalogo_armor(slot)
 	if _armor_cand < cat.size():
-		Game.set("equipped_" + slot, cat[_armor_cand])
+		Game.equipar_armadura(slot, cat[_armor_cand])
 	_armor_change = false
 	_rebuild()
 
@@ -642,9 +648,10 @@ func _preview_armor(vb: VBoxContainer) -> void:
 		_note(vb, "Sin armadura en este slot: +velocidad por ir ligero, 0 defensa.")
 		return
 	var a: ArmorData = cat[_armor_cand]
-	_title(vb, a.nombre)
-	var mods: Dictionary = Upgrades.armor_piece_mods(a, Game.tier_mult(Game.equip_tier(slot)),
-		Game.equip_rareza(slot), Game.equip_mejoras(slot))
+	_title(vb, Game.item_display_name(a))
+	var am: Dictionary = Game.meta_de(a)
+	var mods: Dictionary = Upgrades.armor_piece_mods(a, Game.tier_mult(int(am["tier"])),
+		int(am["rareza"]), am["mejoras"])
 	_row(vb, "  Defensa", "%.1f" % float(mods["def"]))
 	_row(vb, "  Reducción", _fmt_pct(float(mods["reduccion"])))
 	_row(vb, "  Velocidad", "×%.2f" % float(mods["vel_mult"]))
