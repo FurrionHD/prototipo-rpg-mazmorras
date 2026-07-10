@@ -264,7 +264,7 @@ func _build_habilidades_page() -> void:
 	_row(_content, "Destreza", str(Game.player_destreza))
 	_row(_content, "Agilidad", str(Game.player_agilidad))
 	_row(_content, "Magia", str(Game.player_magia))
-	_note(_content, "Las 5 habilidades DanMachi (0–999). Suben con el uso y se aplican en el hogar.")
+	_note(_content, "Las 5 habilidades (0–999). Suben con el uso y se aplican en el hogar.")
 
 
 # Ataque TOTAL (raw): (base + arma) × factor_fuerza × estados, SIN el motion_value
