@@ -1132,7 +1132,6 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
 		for i in golpes:
 			var result := StatsMath.resolve_attack(_enemy, _player, defendiendo)
-			_debug_ataque(_enemy, _player, result, defendiendo)
 			if result.evaded:
 				print("        golpe %d: esquivado 💨" % [i + 1])
 			else:
