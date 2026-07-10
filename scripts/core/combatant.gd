@@ -127,6 +127,11 @@ var statuses: Array = []
 # Lo rellena EnemyData (slimes: pegajoso/veneno) o el arma del jugador (futuro: sangrado).
 var on_hit: Array = []
 
+# HABILIDADES del enemigo (Array[AbilityData]) y probabilidad de usar una cada turno.
+# Las rellena EnemyData; el jugador no las usa por aqui (tira de su loadout). Ver combat.gd.
+var abilities: Array = []
+var prob_habilidad: float = 0.5
+
 # Resistencia a ESTADOS alterados (0..1): MULTIPLICA a la baja la probabilidad de que
 # te apliquen un estado negativo. La aporta la mejora Resistencia de la armadura (KAN-58).
 var status_resist: float = 0.0

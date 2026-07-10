@@ -112,6 +112,11 @@ var _slow_actions_left: int = 0            # acciones lentas que quedan
 var _player_overload_factor: float = 1.0   # <1 si entro sobrecargado (lento todo el combate)
 var _player_defending: bool = false        # true si elegiste Defender (dura hasta tu proximo turno)
 
+# ATAQUE DE CARGA del enemigo: habilidad que se esta "cargando" (telegrafiada) y turnos que le
+# quedan para dispararse. null = no esta cargando. Aturdir al enemigo mientras carga la cancela.
+var _enemy_charging: AbilityData = null
+var _enemy_charge_left: int = 0
+
 
 # Lo llama Game ANTES de añadir esta escena al arbol.
 func setup(player_c: Combatant, enemy_c: Combatant, enemy_initiated: bool,
@@ -981,6 +986,7 @@ func _accion_huir() -> void:
 func _enemy_turn() -> void:
 	if _dps_on:
 		_turnos_enemigo += 1
+	_enemy.tick_cooldowns()   # habilidades del enemigo (KAN-58): baja 1 turno los cooldowns
 	# Estados alterados (KAN-58): tick al inicio del turno del enemigo.
 	var ev: Dictionary = _enemy.tick_statuses()
 	_log_tick(_enemy, ev)
@@ -991,9 +997,44 @@ func _enemy_turn() -> void:
 		_end(true)   # el DoT remata al enemigo
 		return
 	if ev.stunned:
-		_set_log("%s esta aturdido y pierde el turno. 💫" % _enemy.nombre)
+		# Aturdir a un enemigo que se estaba CARGANDO cancela su ataque (interrupcion).
+		if _enemy_charging != null:
+			var interrumpida: String = _enemy_charging.nombre
+			_enemy_charging = null
+			_enemy_charge_left = 0
+			_set_log("%s esta aturdido: se le interrumpe %s. 💫" % [_enemy.nombre, interrumpida])
+		else:
+			_set_log("%s esta aturdido y pierde el turno. 💫" % _enemy.nombre)
 		_pausa_lectura()   # ya se le resto la barra ATB en _process; pierde la accion
 		return
+
+	# ATAQUE DE CARGA en curso: consume un turno cargando; al llegar a 0, se dispara.
+	if _enemy_charging != null:
+		_enemy_charge_left -= 1
+		if _enemy_charge_left > 0:
+			_set_log("%s sigue cargando %s... ⚡ (prepárate)" % [_enemy.nombre, _enemy_charging.nombre])
+			_pausa_lectura()
+			return
+		var cargada: AbilityData = _enemy_charging
+		_enemy_charging = null
+		_enemy_use_ability(cargada)
+		return
+
+	# Decision: usar una HABILIDAD (si tiene alguna lista y sale la tirada) o atacar normal.
+	# En modo muñeco (Saco/Pegador) NO usa habilidades: mantiene limpias las pruebas de DPS/armadura.
+	var listas: Array = []
+	if not _dps_on:
+		for ab in _enemy.abilities:
+			if _enemy.ability_ready(ab):
+				listas.append(ab)
+	if not listas.is_empty() and randf() < _enemy.prob_habilidad:
+		var elegida: AbilityData = listas[randi() % listas.size()]
+		if elegida.carga_turnos > 0:
+			_enemy_begin_charge(elegida)
+		else:
+			_enemy_use_ability(elegida)
+		return
+
 	# La postura de guardia del estoque reduce el daño como el Defender (rama defending).
 	var defendiendo: bool = _player_defending or _player.en_guardia
 	var result := StatsMath.resolve_attack(_enemy, _player, defendiendo)
@@ -1054,6 +1095,102 @@ func _enemy_turn() -> void:
 		_end(false)
 	else:
 		_pausa_lectura()
+
+
+# ============================================================
+#  HABILIDADES DEL ENEMIGO (KAN-58)
+# ------------------------------------------------------------
+
+# Empieza a cargar un ataque telegrafiado: no pega este turno, lo anuncia. El cooldown
+# arranca YA (para que no reintente cargar en cuanto dispare). Aturdirlo mientras carga
+# lo cancela (ver _enemy_turn). Te da tus turnos para defender/curarte/reventarlo.
+func _enemy_begin_charge(ab: AbilityData) -> void:
+	_enemy_charging = ab
+	_enemy_charge_left = ab.carga_turnos
+	_enemy.start_cooldown(ab)
+	print("[habilidad enemigo] %s empieza a cargar %s (%d turno%s)" % [
+		_enemy.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
+	_set_log("⚡ %s se prepara para %s. ¡Prepárate! (aturdirlo lo interrumpe)" % [_enemy.nombre, ab.nombre])
+	_pausa_lectura()
+
+
+# Ejecuta una habilidad del enemigo: multi-golpe con dano_mult + sus estados (StatusApplication).
+# Espejo compacto de _usar_habilidad del jugador (sin energia/dual/excelia de ataque).
+func _enemy_use_ability(ab: AbilityData) -> void:
+	_enemy.start_cooldown(ab)   # instantaneas: cooldown al usar (las cargadas ya lo arrancaron)
+	print("[habilidad enemigo] %s usa %s" % [_enemy.nombre, ab.nombre])
+	var defendiendo: bool = _player_defending or _player.en_guardia
+	var total: float = 0.0
+	var golpes: int = 0
+	var conecto: int = 0
+	var estados_log: Array = []
+	if ab.dano_mult > 0.0:
+		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
+		for i in golpes:
+			var result := StatsMath.resolve_attack(_enemy, _player, defendiendo)
+			_debug_ataque(_enemy, _player, result, defendiendo)
+			if result.evaded:
+				print("        golpe %d: esquivado 💨" % [i + 1])
+			else:
+				var dmg: float = result.damage * ab.dano_mult * _enemy.dummy_dmg_out_mult
+				_player.take_damage(dmg)
+				total += dmg
+				conecto += 1
+				var et := "golpe %d: %s %.2f" % [i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
+				if ab.efectos_por_golpe:
+					var ap: Array = _enemy_tirar_efectos(ab)
+					estados_log += ap
+					if not ap.is_empty():
+						et += "  -> " + ", ".join(ap)
+				print("        " + et)
+			if not _player.is_alive():
+				break
+		if not ab.efectos_por_golpe and conecto > 0 and _player.is_alive():
+			estados_log += _enemy_tirar_efectos(ab)
+		print("        total: %.2f de daño en %d golpe%s" % [total, golpes, "" if golpes == 1 else "s"])
+	else:
+		# Habilidad de puro estado (sin daño): tira sus efectos directamente.
+		estados_log += _enemy_tirar_efectos(ab)
+
+	# Excelia: recibir el golpe entrena Resistencia (como en el ataque basico), modulada
+	# por el daño total encajado.
+	if total > 0.0:
+		var dmg_mult: float = clampf(total / maxf(1.0, float(_player.max_hp) * 0.1), 0.5, 2.0)
+		Game.ganar("resistencia", Game.reto(_poder_enemigo()) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
+			Game.RETO_MAX_FISICO)
+
+	var msg: String = "%s usa %s" % [_enemy.nombre, ab.nombre]
+	if total > 0.0:
+		msg += ": %.2f de daño (%d golpe%s)." % [total, golpes, "" if golpes == 1 else "s"]
+	else:
+		msg += "."
+	if not estados_log.is_empty():
+		msg += "  Te aplica: %s." % ", ".join(estados_log)
+	_set_log(msg)
+	_update_hp()
+
+	if not _player.is_alive():
+		_end(false)
+	else:
+		_pausa_lectura()
+
+
+# Tira los estados (StatusApplication) de una habilidad del enemigo sobre el jugador.
+# Cada uno: prob (reducida por tu resistencia a estados) y N stacks (a.stacks). Devuelve
+# los nombres aplicados para el log.
+func _enemy_tirar_efectos(ab: AbilityData) -> Array:
+	var out: Array = []
+	for a in ab.efectos:
+		if a.estado < 0:
+			continue
+		if randf() >= a.prob * (1.0 - _player.status_resist):
+			continue
+		var mag: float = StatusEffects.app_magnitude(a, _enemy.atk())
+		# Aplica los stacks de uno en uno (los independientes/merge suben stack por llamada).
+		for _s in maxi(1, a.stacks):
+			_player.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
+		out.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
+	return out
 
 
 # CONTRAATAQUE del estoque (KAN-57): al esquivar en guardia, devuelves el golpe con el arma

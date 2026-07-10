@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_peg"]
+script = ExtResource("2")
+estado = 9
+prob = 1.0
+stacks = 1
+
+[sub_resource type="Resource" id="SA_lento"]
+script = ExtResource("2")
+estado = 3
+prob = 0.75
+turns = 2
+mult = 0.8
+
+[resource]
+script = ExtResource("1")
+nombre = "Placaje viscoso"
+cooldown = 2
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.2
+efectos = [SubResource("SA_peg"), SubResource("SA_lento")]
+efectos_por_golpe = false
+descripcion = "El slime se abalanza (1.2x del básico): 100% de Pegajoso (+1 stack) y 75% de Lento (−20% velocidad, 2 turnos). Te pega y te ralentiza. Cooldown 2 turnos."

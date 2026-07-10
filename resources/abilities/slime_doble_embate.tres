@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_peg2"]
+script = ExtResource("2")
+estado = 9
+prob = 0.75
+stacks = 2
+
+[resource]
+script = ExtResource("1")
+nombre = "Doble embate"
+cooldown = 2
+golpes_min = 2
+golpes_max = 2
+dano_mult = 0.75
+efectos = [SubResource("SA_peg2")]
+efectos_por_golpe = false
+descripcion = "Dos golpes rápidos (0.75x del básico cada uno): 75% de aplicarte 2 stacks de Pegajoso de golpe. Menos daño por impacto pero te embadurna. Cooldown 2 turnos."

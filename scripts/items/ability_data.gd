@@ -55,6 +55,13 @@ class_name AbilityData
 # por turnos). Utilitaria: dano_mult = 0. Coste alto de energia (es una jugada de pico).
 @export var foco_cargas: int = 0
 
+# ATAQUE DE CARGA (telegrafiado): N > 0 = la habilidad NO pega el turno que la anuncia;
+# se "carga" durante N turnos (el enemigo pierde esos turnos preparandola) y se dispara al
+# terminar. Te da margen para defender, curarte o interrumpirla ATURDIENDO al enemigo (un
+# stun cancela la carga). Pensada para golpes MUY fuertes (dano_mult alto). Solo la usan los
+# enemigos de momento (el jugador no tiene cargas). 0 = ataque instantaneo normal.
+@export var carga_turnos: int = 0
+
 # COOLDOWN (KAN-57): turnos que debes ESPERAR para volver a usarla. 0 = sin cooldown
 # (usable cada turno). N = tras usarla, no vuelve a estar disponible hasta N turnos
 # tuyos despues. El estado (turnos restantes) vive en el Combatant, no aqui (recurso

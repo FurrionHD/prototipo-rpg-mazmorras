@@ -69,6 +69,14 @@ class_name EnemyData
 # p.ej. el slime venenoso mete Pegajoso Y Veneno. Ver status_application.gd.
 @export var al_golpear: Array = []
 
+# --- HABILIDADES del enemigo (Array[AbilityData]) ---
+# Tecnicas que puede lanzar en combate ademas del ataque basico (multi-golpe, estados,
+# cargas...). Cada turno tira una tirada: con prob_habilidad usa una habilidad LISTA (fuera
+# de cooldown) al azar; si no, ataca normal. Los cooldowns por habilidad + esta probabilidad
+# evitan que encadene todas las tecnicas seguidas. Vacio = solo ataque basico (como antes).
+@export var habilidades: Array = []
+@export_range(0.0, 1.0) var prob_habilidad: float = 0.5
+
 
 # Suma total de los PESOS (para normalizar la distribucion).
 func peso_total() -> float:
@@ -131,6 +139,9 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 		Game.enemy_base_speed * base_speed_mult)
 	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
 	c.on_hit = al_golpear
+	# Habilidades del enemigo (KAN-58): tecnicas que puede lanzar en combate.
+	c.abilities = habilidades
+	c.prob_habilidad = prob_habilidad
 	return c
 
 
