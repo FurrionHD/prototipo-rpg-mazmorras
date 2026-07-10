@@ -19,10 +19,10 @@ mult = 0.8
 [resource]
 script = ExtResource("1")
 nombre = "Placaje viscoso"
-cooldown = 2
+cooldown = 3
 golpes_min = 1
 golpes_max = 1
 dano_mult = 1.2
 efectos = [SubResource("SA_peg"), SubResource("SA_lento")]
 efectos_por_golpe = false
-descripcion = "El slime se abalanza (1.2x del básico): 100% de Pegajoso (+1 stack) y 75% de Lento (−20% velocidad, 2 turnos). Te pega y te ralentiza. Cooldown 2 turnos."
+descripcion = "El slime se abalanza (1.2x del básico): 100% de Pegajoso (+1 stack) y 75% de Lento (−20% velocidad, 2 turnos). Te pega y te ralentiza. Cooldown 3 turnos."
