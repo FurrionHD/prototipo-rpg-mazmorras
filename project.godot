@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="prototipo rpg mazmoras"
-run/main_scene="uid://d27u6g55m2ygj"
+run/main_scene="uid://c1y22k61e8xmk"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
