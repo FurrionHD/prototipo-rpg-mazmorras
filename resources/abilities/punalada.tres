@@ -27,4 +27,4 @@ golpes_dual_max = 2
 dano_mult = 1.6
 efectos = [SubResource("SA_sang"), SubResource("SA_sang_crit")]
 efectos_por_golpe = true
-descripcion = "Un único tajo profundo y comprometido (1.6x del básico) con Sangrado garantizado. Si el golpe es CRITICO, 50% de un 2o Sangrado (herida a fondo). Todo o nada: si te esquivan pierdes el golpe entero. Con dual, dos puñaladas. 30 EN (46 dual). Cooldown 2 turnos."
+descripcion = "Un único tajo profundo y comprometido con sangrado garantizado; si clavas un crítico, abres una segunda herida. Todo o nada: si te esquivan pierdes el golpe entero."

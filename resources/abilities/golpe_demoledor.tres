@@ -21,4 +21,4 @@ golpes_dual_max = 2
 dano_mult = 1.4
 efectos = [SubResource("SA_stun")]
 efectos_por_golpe = true
-descripcion = "Un mazazo concusivo (1.4x del básico): 45% de Aturdir por golpe. Con dual, 2 golpes (2 tiradas de stun). El control de la maza: menos daño que una espada, pero atonta. 28 EN (42 dual). Cooldown 2 turnos."
+descripcion = "Un mazazo concusivo que atonta al enemigo. El control de la maza: menos daño que una espada, pero deja tambaleando."

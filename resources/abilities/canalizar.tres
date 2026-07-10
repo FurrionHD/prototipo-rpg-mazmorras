@@ -9,4 +9,4 @@ coste_energia = 70.0
 dano_mult = 0.0
 cooldown = 0
 foco_cargas = 2
-descripcion = "Canalizas tu aguante físico en potencia mágica (no golpea, no da maná): gastas 70 de energía y ganas 2 CARGAS de Foco arcano. Cada hechizo OFENSIVO que lances gasta 1 carga y pega +30% de daño; un hechizo largo gasta la carga al DISPARARLO (respeta el canto). No puedes volver a canalizar hasta gastar las 2 cargas (recuperación por hechizos, no por turnos)."
+descripcion = "Canalizas tu aguante físico en potencia mágica: no golpeas ni ganas maná, pero cargas Foco arcano para que tus próximos hechizos ofensivos peguen más. No puedes recanalizar hasta gastar las cargas."

@@ -13,4 +13,4 @@ requiere_off_libre = true
 guardia_spd_mult = 0.35
 evasion_bonus = 0.20
 contra_mult = 1.0
-descripcion = "Postura de duelo del estoque (una mano, la otra libre o con varita): entras EN GUARDIA hasta tu próxima acción. Bajas a la mitad tu velocidad, pero recibes menos daño y esquivas mucho más; cada golpe que ESQUIVAS lo devuelves con una estocada (contraataque). Alto riesgo/recompensa: aguanta, esquiva y castiga."
+descripcion = "Postura de duelo del estoque (una mano, la otra libre o con varita): entras en guardia hasta tu próxima acción. Bajas tu velocidad, pero recibes menos daño y esquivas mucho más; cada golpe que esquivas lo devuelves con una estocada. Alto riesgo y recompensa: aguanta, esquiva y castiga."

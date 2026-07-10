@@ -21,4 +21,4 @@ golpes_dual_max = 2
 dano_mult = 1.25
 efectos = [SubResource("SA_lento")]
 efectos_por_golpe = true
-descripcion = "Un mazazo bajo a las piernas (1.25x del básico): 80% de Lento (−25% velocidad 3 turnos). Control sostenido: aunque el stun no salte, le robas turnos de ATB. Con dual, 2 golpes. 26 EN (40 dual). Cooldown 2 turnos."
+descripcion = "Un mazazo bajo a las piernas que ralentiza al enemigo. Control sostenido: aunque no lo aturdas, le robas turnos de ATB."

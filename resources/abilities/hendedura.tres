@@ -19,4 +19,4 @@ golpes_max = 1
 dano_mult = 1.6
 efectos = [SubResource("SA_vuln")]
 efectos_por_golpe = false
-descripcion = "Un hachazo que raja armadura y carne (1.6x del básico): 80% de Vulnerable REFORZADO (−30% def, más que el −20% normal; recibe más daño 3 turnos). El abridor del hacha: raja para que el siguiente golpe duela más. 32 EN. Cooldown 2 turnos."
+descripcion = "Un hachazo que raja armadura y carne y deja al enemigo muy expuesto. El abridor del hacha: raja para que el siguiente golpe duela más."

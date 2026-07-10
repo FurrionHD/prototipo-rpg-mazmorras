@@ -25,4 +25,4 @@ efectos = [SubResource("SA_stun"), SubResource("SA_vuln")]
 efectos_por_golpe = false
 bloqueo_turnos = 1
 requiere_escudo = true
-descripcion = "Técnica de maza + escudo: embestida de escudo y mazazo (2 golpes 1.15x). 55% de Aturdir + 60% de Vulnerable (le rompes la guardia) y te deja en guardia 1 turno. El lockdown del mace & board. Requiere escudo. 36 EN. Cooldown 3 turnos."
+descripcion = "Técnica de maza y escudo: embistes con el escudo y rematas con un mazazo que le rompe la guardia y lo deja aturdido, mientras tú quedas cubierto. El lockdown del mace & board."

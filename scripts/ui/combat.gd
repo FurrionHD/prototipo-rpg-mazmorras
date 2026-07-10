@@ -714,18 +714,22 @@ func _accion_habilidad() -> void:
 		var costo_txt := ("toda EN → %.1f MP" % (coste / ab.energia_a_mana)) if es_conv else ("%.0f EN" % coste)
 		var foco_txt := "  🔮%d cargas" % ab.foco_cargas if ab.foco_cargas > 0 else ""
 		b.text = "%s  (%s)%s%s" % [ab.nombre, costo_txt, foco_txt, cd_txt]
+		# Tooltip: datos DERIVADos de los campos (resumen) + el sabor de la descripcion.
+		b.tooltip_text = ab.resumen(manos)
+		if ab.descripcion != "":
+			b.tooltip_text += "\n\n" + ab.descripcion
 		if cd_left > 0:
 			b.disabled = true
-			b.tooltip_text = "En cooldown: %d turno%s" % [cd_left, "" if cd_left == 1 else "s"]
+			b.tooltip_text = "⛔ En cooldown: %d turno%s\n\n%s" % [cd_left, "" if cd_left == 1 else "s", b.tooltip_text]
 		elif ab.foco_cargas > 0 and _player.foco_cargas > 0:
 			b.disabled = true
-			b.tooltip_text = "Aún te quedan %d cargas de Foco arcano: gástalas antes" % _player.foco_cargas
+			b.tooltip_text = "⛔ Aún te quedan %d cargas de Foco arcano: gástalas antes\n\n%s" % [_player.foco_cargas, b.tooltip_text]
 		elif es_conv and _player.current_energy < ab.energia_a_mana:
 			b.disabled = true
-			b.tooltip_text = "Necesitas al menos %.0f EN" % ab.energia_a_mana
+			b.tooltip_text = "⛔ Necesitas al menos %.0f EN\n\n%s" % [ab.energia_a_mana, b.tooltip_text]
 		elif not es_conv and not _player.has_energy(coste):
 			b.disabled = true
-			b.tooltip_text = "Sin energia suficiente"
+			b.tooltip_text = "⛔ Sin energia suficiente\n\n%s" % b.tooltip_text
 		b.pressed.connect(_usar_habilidad.bind(ab))
 		_ability_box.add_child(b)
 	var volver := Button.new()

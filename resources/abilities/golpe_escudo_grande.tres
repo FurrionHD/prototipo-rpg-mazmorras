@@ -20,4 +20,4 @@ dano_tipo_override = 1
 efectos = [SubResource("SA_stun")]
 efectos_por_golpe = false
 bloqueo_turnos = 1
-descripcion = "Escudo grande: golpe contundente (1.3x), 45% de aturdir y te deja en guardia 1 turno. 38 EN. Cooldown 2 turnos."
+descripcion = "Escudo grande: un golpe contundente que aturde al enemigo y te deja en guardia."

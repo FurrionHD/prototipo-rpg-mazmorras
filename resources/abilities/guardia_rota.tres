@@ -20,4 +20,4 @@ efectos = [SubResource("SA_stun")]
 efectos_por_golpe = false
 bloqueo_turnos = 1
 requiere_escudo = true
-descripcion = "Técnica de espada + escudo: embestida de escudo y tajo (2 golpes 1.2x). 45% de Aturdir y te deja en guardia 1 turno. El remate del sword & board. Requiere escudo. 38 EN. Cooldown 3 turnos."
+descripcion = "Técnica de espada y escudo: embistes con el escudo y rematas con un tajo que aturde, y quedas en guardia. El remate del sword & board."

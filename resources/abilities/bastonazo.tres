@@ -17,4 +17,4 @@ golpes_min = 1
 golpes_max = 1
 dano_mult = 1.6
 efectos = [SubResource("SA_lento")]
-descripcion = "Un golpe seco con el bastón (1.6x del básico; aún así pega poco, el bastón no es un arma física): 60% de Lento para ganar tiempo. La opción física del mago cuando anda corto de maná. 16 EN. Cooldown 1 turno."
+descripcion = "Un golpe seco con el bastón para ganar algo de tiempo. La opción física del mago cuando anda corto de maná."

@@ -13,4 +13,4 @@ golpes_max = 2
 golpes_dual_min = 3
 golpes_dual_max = 3
 dano_mult = 0.9
-descripcion = "Combo fiable de 2 tajos (0.9x del básico cada uno; 3 con dual). Sin estados, pero sin depender de nada: daño sólido y barato, el pan de cada día de la espada. 22 EN (32 dual). Cooldown 1 turno."
+descripcion = "Combo fiable de tajos encadenados. Sin estados, pero sin depender de nada: daño sólido y barato, el pan de cada día de la espada."

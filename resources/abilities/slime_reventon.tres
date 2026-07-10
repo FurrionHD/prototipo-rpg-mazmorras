@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1")
+coste_energia = 0.0
 nombre = "Reventón"
 cooldown = 4
 carga_turnos = 1
@@ -12,4 +13,4 @@ golpes_max = 1
 dano_mult = 2.5
 efectos = []
 efectos_por_golpe = false
-descripcion = "ATAQUE DE CARGA: el slime se hincha un turno (te da tiempo a defender, curarte o aturdirlo para cancelarlo) y luego revienta por 2.5x del básico. Números PROVISIONALES. Cooldown 4 turnos."
+descripcion = "El slime se hincha hasta casi reventar y descarga toda esa presión de golpe. Aturdirlo mientras se infla lo interrumpe."

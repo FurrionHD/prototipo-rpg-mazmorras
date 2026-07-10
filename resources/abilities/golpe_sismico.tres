@@ -18,4 +18,4 @@ golpes_max = 1
 dano_mult = 2.0
 efectos = [SubResource("SA_stun")]
 efectos_por_golpe = false
-descripcion = "Un mazazo colosal con toda la masa del martillo (2.0x del básico): 55% de Aturdir. La firma del martillo: pega como un espadón y encima atonta. 38 EN. Cooldown 3 turnos."
+descripcion = "Un mazazo colosal con toda la masa del martillo. La firma del martillo: pega como un espadón y encima atonta."

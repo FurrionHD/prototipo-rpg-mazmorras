@@ -9,4 +9,4 @@ coste_energia = 40.0
 dano_mult = 0.0
 cooldown = 0
 foco_cargas = 1
-descripcion = "Canalizas tu aguante en potencia mágica a través de la varita (no golpea, no da maná): gastas 40 de energía y ganas 1 CARGA de Foco arcano (+30% de daño a tu próximo hechizo ofensivo; el largo la gasta al disparar). Versión de soporte: 1 sola carga (el bastón da 2). No puedes recanalizar hasta gastarla."
+descripcion = "Canalizas tu aguante en potencia mágica a través de la varita: versión de soporte, carga menos Foco que el bastón. No golpea ni da maná; alimenta tu próximo hechizo ofensivo."

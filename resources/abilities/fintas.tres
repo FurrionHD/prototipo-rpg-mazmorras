@@ -13,4 +13,4 @@ golpes_max = 2
 golpes_dual_min = 3
 golpes_dual_max = 3
 dano_mult = 0.9
-descripcion = "Serie de estocadas rápidas y precisas (0.9x del básico cada una; 3 con dual). Sin estados, pero se apoya en el crítico alto del estoque para hacer daño fiable. El pan de cada día del duelista. 20 EN (30 dual). Cooldown 1 turno."
+descripcion = "Serie de estocadas rápidas y precisas. Sin estados, pero se apoya en el crítico alto del estoque para hacer daño fiable. El pan de cada día del duelista."

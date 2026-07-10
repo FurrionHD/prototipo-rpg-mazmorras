@@ -10,4 +10,4 @@ cooldown = 3
 golpes_min = 1
 golpes_max = 1
 dano_mult = 2.3
-descripcion = "Un mandoble descendente con toda la masa del espadón (2.3x del básico), el golpe más brutal del arsenal. Todo o nada: lento y con cooldown, si te esquivan lo pagas caro. 36 EN. Cooldown 3 turnos."
+descripcion = "Un mandoble descendente con toda la masa del espadón, el golpe más brutal del arsenal. Todo o nada: lento y comprometido, si te esquivan lo pagas caro."

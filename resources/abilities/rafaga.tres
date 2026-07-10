@@ -21,4 +21,4 @@ golpes_dual_max = 4
 dano_mult = 0.7
 efectos = [SubResource("SA_sang")]
 efectos_por_golpe = true
-descripcion = "Ráfaga de tajos rápidos (0.7 del básico por golpe): 2 golpes con una daga (32 EN), 3-4 con dual (48 EN). Cada tajo que acierta: 40% de 1 stack de Sangrado. Cooldown 2 turnos."
+descripcion = "Ráfaga de tajos rápidos y superficiales; con dos dagas caen aún más. Cada tajo que acierta puede abrir una herida sangrante."

@@ -103,3 +103,69 @@ func coste(manos: int) -> float:
 	if manos >= 2 and coste_energia_dual > 0.0:
 		return coste_energia_dual
 	return coste_energia
+
+
+# Numero compacto: "1.4", "2", "0.75" (sin ceros de cola sobrantes).
+func _num(x: float) -> String:
+	var s: String = "%.2f" % x
+	while s.ends_with("0"):
+		s = s.substr(0, s.length() - 1)
+	if s.ends_with("."):
+		s = s.substr(0, s.length() - 1)
+	return s
+
+# Rango de golpes como texto ("1", "2", "1-2") para el 'manos' dado.
+func _golpes_txt(manos: int) -> String:
+	var lo: int = golpes_min
+	var hi: int = golpes_max
+	if manos >= 2 and golpes_dual_max > 0:
+		lo = golpes_dual_min
+		hi = golpes_dual_max
+	return str(lo) if lo == hi else "%d-%d" % [lo, hi]
+
+
+# RESUMEN mecanico GENERADO desde los campos (nunca hardcodeado en la descripcion):
+# daño, golpes, coste, cooldown, carga, foco/mana y estados. Asi cambiar un valor
+# (p.ej. cooldown) actualiza el texto solo. La 'descripcion' queda para el SABOR.
+# Lo usa el tooltip de habilidad (combat.gd) y cualquier UI futura.
+func resumen(manos: int = 1) -> String:
+	var p: Array = []
+	if dano_mult > 0.0:
+		var g: String = _golpes_txt(manos)
+		p.append("%s× · %s golpe%s" % [_num(dano_mult), g, "" if g == "1" else "s"])
+	var c: float = coste(manos)
+	if c > 0.0:
+		p.append("%.0f EN" % c)
+	if carga_turnos > 0:
+		p.append("carga %dt" % carga_turnos)
+	if cooldown > 0:
+		p.append("CD %dt" % cooldown)
+	if foco_cargas > 0:
+		p.append("+%d Foco" % foco_cargas)
+	if mana_gain > 0.0:
+		p.append("+%.0f MP" % mana_gain)
+	if bloqueo_turnos > 0:
+		p.append("guardia %dt" % bloqueo_turnos)
+	for a in efectos:
+		var et: String = _efecto_txt(a)
+		if et != "":
+			p.append(et)
+	return " · ".join(p)
+
+
+# Texto de UN estado que aplica, a partir de su StatusApplication (nombre del catalogo
+# + probabilidad + stacks/nivel/duracion, todo derivado de los campos).
+func _efecto_txt(a) -> String:
+	if a == null or int(a.estado) < 0:
+		return ""
+	var s: String = "%s %d%%" % [
+		String(StatusEffects.def(int(a.estado)).get("nombre", "?")), roundi(a.prob * 100.0)]
+	if int(a.stacks) > 1:
+		s += " x%d" % int(a.stacks)
+	if a.mult > 0.0:
+		# Nivel de un debuff/buff de stat: 0.80 -> -20%, 1.25 -> +25%.
+		var delta: int = roundi((a.mult - 1.0) * 100.0)
+		s += " %+d%%" % delta
+	if int(a.turns) > 0:
+		s += " %dt" % int(a.turns)
+	return s

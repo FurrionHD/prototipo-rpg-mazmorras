@@ -10,4 +10,4 @@ cooldown = 3
 golpes_min = 1
 golpes_max = 1
 dano_mult = 1.9
-descripcion = "Un mandoble descendente con todo el peso de la hoja (1.9x del básico). Daño puro, sin adornos: el mazazo de la espada larga. 34 EN. Cooldown 3 turnos."
+descripcion = "Un mandoble descendente con todo el peso de la hoja. Daño puro, sin adornos: el mazazo de la espada larga."
