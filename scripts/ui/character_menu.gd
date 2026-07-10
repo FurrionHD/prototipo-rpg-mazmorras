@@ -30,9 +30,8 @@ var _tab: int = 0                         # 0 personaje, 1 armas, 2 armadura
 var _char_page: int = 0                   # 0 stats, 1 habilidades
 var _arma_change: String = ""             # "" | "main" | "off"
 var _arma_cand: int = 0                   # indice del candidato en el catalogo
-var _armor_slot_sel: String = ""          # "" lista | slot en detalle
-var _armor_change: bool = false           # true = eligiendo material del slot
-var _armor_cand: int = 0                  # indice de material candidato
+var _armor_slot_sel: String = ""          # "" = lista de slots | slot abierto en cuadricula
+var _armor_cand: int = 0                  # indice de la pieza candidata en el catalogo del slot
 
 
 func _ready() -> void:
@@ -138,7 +137,6 @@ func _set_open(open: bool) -> void:
 		_char_page = 0
 		_arma_change = ""
 		_armor_slot_sel = ""
-		_armor_change = false
 		_rebuild()
 
 
@@ -146,7 +144,6 @@ func _on_tab(i: int) -> void:
 	_tab = i
 	_arma_change = ""
 	_armor_slot_sel = ""
-	_armor_change = false
 	_rebuild()
 
 
@@ -506,10 +503,8 @@ func _off_nombre(item: Resource) -> String:
 func _build_armadura() -> void:
 	if _armor_slot_sel == "":
 		_build_armadura_lista()
-	elif _armor_change:
-		_build_armadura_cambiar()
 	else:
-		_build_armadura_detalle(_armor_slot_sel)
+		_build_armadura_slot(_armor_slot_sel)
 
 
 func _build_armadura_lista() -> void:
@@ -535,69 +530,24 @@ func _build_armadura_lista() -> void:
 
 func _abrir_slot(slot: String) -> void:
 	_armor_slot_sel = slot
-	_armor_change = false
+	_preseleccionar_equipada(slot)
 	_rebuild()
 
 func _cerrar_slot() -> void:
 	_armor_slot_sel = ""
 	_rebuild()
 
-
-func _build_armadura_detalle(slot: String) -> void:
-	var volver := Button.new()
-	volver.text = "◀ Volver"
-	volver.pressed.connect(_cerrar_slot)
-	_content.add_child(volver)
-
-	var pieza = Game.get("equipped_" + slot)
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 8)
-	var t := Label.new()
-	t.text = "%s:  %s" % [ARMOR_SLOT_LABELS[slot], (Game.item_display_name(pieza) if pieza is ArmorData else "(sin pieza)")]
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t.add_theme_color_override("font_color", Color(0.9, 0.95, 0.8))
-	head.add_child(t)
-	if Game.en_pueblo():
-		var b := Button.new()
-		b.text = "Cambiar"
-		b.pressed.connect(_abrir_cambio_armor.bind(slot))
-		head.add_child(b)
-	_content.add_child(head)
-	_content.add_child(HSeparator.new())
-
-	_armor_ficha(_content, slot)
-
-
-# Ficha de stats + mejoras de la pieza equipada en un slot.
-func _armor_ficha(vb: VBoxContainer, slot: String) -> void:
-	var pieza = Game.get("equipped_" + slot)
-	if not (pieza is ArmorData):
-		_note(vb, "Sin pieza en este slot.")
-		return
-	var a := pieza as ArmorData
-	var am: Dictionary = Game.meta_de(a)
-	var mods: Dictionary = Upgrades.armor_piece_mods(a, Game.tier_mult(int(am["tier"])),
-		int(am["rareza"]), am["mejoras"])
-	_row(vb, "  Defensa", "%.1f" % float(mods["def"]))
-	_row(vb, "  Reducción", _fmt_pct(float(mods["reduccion"])))
-	_row(vb, "  Velocidad", "×%.2f" % float(mods["vel_mult"]))
-	if float(mods["evasion"]) > 0.0:
-		_row(vb, "  Evasión", "+%s" % _fmt_pct(float(mods["evasion"])))
-	if float(mods["crit_resist"]) > 0.0:
-		_row(vb, "  Resist. crítico", "+%s" % _fmt_pct(float(mods["crit_resist"])))
-	if float(mods["resist_estados"]) > 0.0:
-		_row(vb, "  Resist. estados", "+%s" % _fmt_pct(float(mods["resist_estados"])))
-	_row(vb, "  Tier / rareza", "T%d · %s" % [Game.equip_tier(slot), Upgrades.rareza_nombre(Game.equip_rareza(slot))])
-	var mj: Dictionary = Game.equip_mejoras(slot)
-	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mj), Upgrades.rareza_slots(Game.equip_rareza(slot))])
-	if not mj.is_empty():
-		for cat in mj:
-			_row(vb, "    · " + Upgrades.cat_nombre(cat), "x%d" % int(mj[cat]))
-
-
-func _abrir_cambio_armor(slot: String) -> void:
+# Salta al slot anterior/siguiente (Casco <-> Botas envuelve) sin volver a la lista.
+func _ciclar_slot(dir: int) -> void:
+	var i: int = ARMOR_SLOTS.find(_armor_slot_sel)
+	var slot: String = ARMOR_SLOTS[wrapi(i + dir, 0, ARMOR_SLOTS.size())]
 	_armor_slot_sel = slot
-	_armor_change = true
+	_preseleccionar_equipada(slot)
+	_rebuild()
+
+# Deja _armor_cand en la pieza equipada del slot (o 0 = "(sin pieza)"), para que la
+# cuadricula abra siempre con stats a la vista.
+func _preseleccionar_equipada(slot: String) -> void:
 	var pieza = Game.get("equipped_" + slot)
 	_armor_cand = 0
 	var cat: Array = _catalogo_armor(slot)
@@ -605,29 +555,57 @@ func _abrir_cambio_armor(slot: String) -> void:
 		if cat[i] == pieza:
 			_armor_cand = i
 			break
-	_rebuild()
 
 
-func _build_armadura_cambiar() -> void:
-	var slot: String = _armor_slot_sel
-	_title(_content, "Cambiar %s" % ARMOR_SLOT_LABELS[slot])
+# Vista de un slot: cabecera con flechas para cambiar de slot + cuadricula de piezas
+# del baul (equipada preseleccionada) + panel de stats y "Equipar". Solo en el pueblo.
+func _build_armadura_slot(slot: String) -> void:
+	# Cabecera: ◀  [Slot]  ▶ ......... Volver
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	var prev := Button.new()
+	prev.text = "◀"
+	prev.custom_minimum_size = Vector2(40, 0)
+	prev.pressed.connect(_ciclar_slot.bind(-1))
+	head.add_child(prev)
+	var t := Label.new()
+	t.text = ARMOR_SLOT_LABELS[slot]
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	t.add_theme_font_size_override("font_size", 16)
+	head.add_child(t)
+	var next := Button.new()
+	next.text = "▶"
+	next.custom_minimum_size = Vector2(40, 0)
+	next.pressed.connect(_ciclar_slot.bind(1))
+	head.add_child(next)
+	var volver := Button.new()
+	volver.text = "Volver"
+	volver.pressed.connect(_cerrar_slot)
+	head.add_child(volver)
+	_content.add_child(head)
+
+	var pueblo: bool = Game.en_pueblo()
+	if not pueblo:
+		_note(_content, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
 	_content.add_child(HSeparator.new())
+
 	var cat: Array = _catalogo_armor(slot)
 	var labels: Array = []
 	for p in cat:
 		labels.append("(sin pieza)" if p == null else Game.item_display_name(p))
 	if cat.size() <= 1:
 		_note(_content, "No tienes piezas de este slot en el baúl.")
-	_build_cambiar_layout(labels, _armor_cand, [], _pick_armor,
-		_preview_armor, _equipar_armor, _cancelar_armor)
+	# Fuera del pueblo: apagar solo "Equipar" (marcando el candidato como disabled, que es
+	# lo que mira _build_cambiar_layout). El resto de la cuadricula sigue navegable/consultable.
+	var disabled: Array = [_armor_cand] if not pueblo else []
+	_build_cambiar_layout(labels, _armor_cand, disabled, _pick_armor,
+		_preview_armor, _equipar_armor, _cerrar_slot)
 
 
 func _pick_armor(i: int) -> void:
 	_armor_cand = i
-	_rebuild()
-
-func _cancelar_armor() -> void:
-	_armor_change = false
 	_rebuild()
 
 func _equipar_armor() -> void:
@@ -635,8 +613,7 @@ func _equipar_armor() -> void:
 	var cat: Array = _catalogo_armor(slot)
 	if _armor_cand < cat.size():
 		Game.equipar_armadura(slot, cat[_armor_cand])
-	_armor_change = false
-	_rebuild()
+	_rebuild()   # se queda en el slot; la recien equipada queda marcada
 
 
 # Panel de stats de la pieza candidata (derecha de la cuadricula).
