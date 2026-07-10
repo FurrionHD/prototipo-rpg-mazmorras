@@ -137,6 +137,16 @@ var prob_habilidad: float = 0.5
 # te apliquen un estado negativo. La aporta la mejora Resistencia de la armadura (KAN-58).
 var status_resist: float = 0.0
 
+# --- SISTEMA ELEMENTAL (KAN-58) ---
+# Afinidad propia; su perfil por defecto (Elementos.PERFIL_DEFECTO) define que resiste/le
+# duele. resist_elemental = override arbitrario (Elemento -> mult), gana a la tabla (un
+# minotauro puede resistir Fuego sin ser de fuego). inmune_estados = ids de StatusEffects.Id
+# que este combatiente NO puede recibir (slime de fuego: inmune a Quemadura). Los rellena
+# EnemyData; el jugador los deja neutros por ahora.
+var elemento: int = Elementos.Elemento.NINGUNO
+var resist_elemental: Dictionary = {}
+var inmune_estados: Array = []
+
 
 func _init(nombre_: String, level_: int, abilities_: Abilities,
 		base_hp_: float, base_attack_: float, base_defense_: float, base_speed_: float) -> void:
@@ -301,6 +311,11 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		mult_override: float = 0.0) -> void:
 	var d: Dictionary = StatusEffects.def(id)
 	if d.is_empty():
+		return
+	# INMUNIDAD a estados (choke point unico): el slime de fuego es inmune a Quemadura, etc.
+	# Cubre TODAS las vias (golpes, hechizos, skills enemigas, teclas dev) al pasar todas por aqui.
+	if inmune_estados.has(id):
+		print("[estado] %s es INMUNE a %s" % [nombre, String(d.get("nombre", "?"))])
 		return
 	if turns < 0:
 		turns = int(d.get("turns", 3))

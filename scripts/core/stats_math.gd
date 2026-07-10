@@ -269,7 +269,10 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 	var magic_def := magic_value(defender.abilities, defender.level, 0.0)
 	var dmg := damage(magic_atk, magic_def)
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
-	return {"damage": maxf(0.1, dmg)}
+	# Multiplicador ELEMENTAL segun la resistencia/debilidad del objetivo (KAN-58).
+	var mult_elem := Elementos.mult_recibido(spell.elemento, defender)
+	dmg *= mult_elem
+	return {"damage": maxf(0.1, dmg), "mult_elem": mult_elem}
 
 
 # Backfire: daño que te haces al fallar una frase. Escala con dano_base (hechizos

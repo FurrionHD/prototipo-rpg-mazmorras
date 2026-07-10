@@ -13,6 +13,7 @@ magnitud = 8.0
 script = ExtResource("1")
 nombre = "Bola de Fuego"
 tipo = 0
+elemento = 1
 frases = Array[String](["Que la llama primigenia despierte", "Ceniza y brasa, obedeced"])
 coste_mana = 8
 dano_base = 26.0

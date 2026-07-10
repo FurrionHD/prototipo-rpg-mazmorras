@@ -17,6 +17,7 @@ prob = 0.1
 script = ExtResource("1")
 nombre = "Tormenta"
 tipo = 0
+elemento = 3
 frases = Array[String](["Fulgor, desciende del cielo", "Truenos, romped el silencio", "El viento aullara conmigo"])
 coste_mana = 14
 dano_base = 44.0

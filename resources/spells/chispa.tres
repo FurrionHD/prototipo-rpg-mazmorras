@@ -13,6 +13,7 @@ magnitud = 4.0
 script = ExtResource("1")
 nombre = "Chispa"
 tipo = 0
+elemento = 1
 frases = Array[String](["Ignis, arde en mi mano"])
 coste_mana = 4
 dano_base = 13.0

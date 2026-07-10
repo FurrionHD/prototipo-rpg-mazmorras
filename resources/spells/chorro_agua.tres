@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Chorro de agua"
+tipo = 0
+elemento = 2
+frases = Array[String](["Que la corriente me responda", "Rómpete contra mi enemigo"])
+coste_mana = 8
+dano_base = 24.0
+efectos = []
+descripcion = "Hechizo medio de agua: una lanza de presión que revienta contra el enemigo. Devastador contra criaturas de fuego."

@@ -35,6 +35,10 @@ enum TipoEfecto { ATAQUE, BUFF, DEBUFF }
 # magic_amp del arma (bastones/varitas, futuro KAN-95). PROVISIONAL -> Excel.
 @export var dano_base: float = 10.0
 
+# ELEMENTO del hechizo (Elementos.Elemento): decide la resistencia/debilidad del objetivo.
+# NINGUNO = daño mágico neutro (no lo modula ningún elemento). Ver elements.gd.
+@export var elemento: int = Elementos.Elemento.NINGUNO
+
 @export_multiline var descripcion: String = ""
 
 # --- ESTADOS ALTERADOS que aplica el hechizo (KAN-58 Fase 3) ---

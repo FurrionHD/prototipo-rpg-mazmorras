@@ -69,6 +69,15 @@ class_name EnemyData
 # p.ej. el slime venenoso mete Pegajoso Y Veneno. Ver status_application.gd.
 @export var al_golpear: Array = []
 
+# --- SISTEMA ELEMENTAL (KAN-58) ---
+# elemento = afinidad propia (Elementos.Elemento): define su perfil de resist/debilidad por
+# defecto (ver elements.gd). resist_elemental = override arbitrario {Elemento: mult} que gana
+# a la tabla (un enemigo puede resistir algo sin ser de ese elemento). inmune_estados = ids de
+# StatusEffects.Id que NO puede recibir (slime de fuego: [2] = Quemadura).
+@export var elemento: int = Elementos.Elemento.NINGUNO
+@export var resist_elemental: Dictionary = {}
+@export var inmune_estados: Array = []
+
 # --- HABILIDADES del enemigo (Array[AbilityData]) ---
 # Tecnicas que puede lanzar en combate ademas del ataque basico (multi-golpe, estados,
 # cargas...). Cada turno tira una tirada: con prob_habilidad usa una habilidad LISTA (fuera
@@ -142,6 +151,10 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	# Habilidades del enemigo (KAN-58): tecnicas que puede lanzar en combate.
 	c.habilidades = habilidades
 	c.prob_habilidad = prob_habilidad
+	# Sistema elemental (KAN-58): afinidad, overrides de resistencia e inmunidad a estados.
+	c.elemento = elemento
+	c.resist_elemental = resist_elemental
+	c.inmune_estados = inmune_estados
 	return c
 
 

@@ -618,7 +618,9 @@ func _disparar_hechizo() -> void:
 	# DAÑO solo para hechizos de ATAQUE (los de BUFF/DEBUFF no pegan, solo aplican estado).
 	var dano: float = 0.0
 	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
-		dano = StatsMath.resolve_spell(_player, _enemy, spell).damage
+		var res: Dictionary = StatsMath.resolve_spell(_player, _enemy, spell)
+		dano = res.damage
+		var mult_elem: float = float(res.get("mult_elem", 1.0))
 		# Foco arcano (Canalización): gasta 1 carga y amplifica el daño del hechizo. Solo
 		# los OFENSIVOS gastan carga; el largo la gasta AL DISPARAR (respeta el canto).
 		var foco: float = _player.consumir_foco()
@@ -628,7 +630,13 @@ func _disparar_hechizo() -> void:
 		_dps_add("Hechizo: %s" % spell.nombre, dano)
 		var foco_txt := "  🔮Foco arcano +%d%% (quedan %d)" % [
 			roundi(Combatant.FOCO_BONUS * 100.0), _player.foco_cargas] if foco > 1.0 else ""
-		_set_log("🔥 %s impacta a %s por %.2f de daño.%s" % [spell.nombre, _enemy.nombre, dano, foco_txt])
+		# Feedback elemental: ¡débil! (×>1) o resiste (×<1).
+		var elem_txt := ""
+		if mult_elem > 1.01:
+			elem_txt = "  ¡DÉBIL! ×%.2g" % mult_elem
+		elif mult_elem < 0.99:
+			elem_txt = "  resiste ×%.2g" % mult_elem
+		_set_log("🔥 %s impacta a %s por %.2f de daño.%s%s" % [spell.nombre, _enemy.nombre, dano, elem_txt, foco_txt])
 	else:
 		_set_log("✨ %s lanza %s." % [_player.nombre, spell.nombre])
 	# Estado alterado del hechizo (quemadura/rayo al enemigo, buff/debuff), KAN-58 Fase 3.
@@ -658,6 +666,10 @@ func _aplicar_estado_hechizo(spell: SpellData) -> void:
 		var al_enemigo: bool = a.en_objetivo
 		var objetivo: Combatant = _enemy if al_enemigo else _player
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
+		# Inmunidad elemental: si el objetivo no puede recibir el estado, avisar y no tirar.
+		if objetivo.inmune_estados.has(a.estado):
+			_set_log("… %s es INMUNE a %s." % [objetivo.nombre, nom])
+			continue
 		if al_enemigo:
 			# La resistencia a estados del objetivo baja la probabilidad efectiva.
 			var p: float = spell.efecto_prob(a) * (1.0 - objetivo.status_resist)
