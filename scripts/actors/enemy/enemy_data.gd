@@ -140,7 +140,7 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
 	c.on_hit = al_golpear
 	# Habilidades del enemigo (KAN-58): tecnicas que puede lanzar en combate.
-	c.abilities = habilidades
+	c.habilidades = habilidades
 	c.prob_habilidad = prob_habilidad
 	return c
 

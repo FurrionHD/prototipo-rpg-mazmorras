@@ -1028,7 +1028,7 @@ func _enemy_turn() -> void:
 	# En modo muñeco (Saco/Pegador) NO usa habilidades: mantiene limpias las pruebas de DPS/armadura.
 	var listas: Array = []
 	if not _dps_on:
-		for ab in _enemy.abilities:
+		for ab in _enemy.habilidades:
 			if _enemy.ability_ready(ab):
 				listas.append(ab)
 	if not listas.is_empty() and randf() < _enemy.prob_habilidad:

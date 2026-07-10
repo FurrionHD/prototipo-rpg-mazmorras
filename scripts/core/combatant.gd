@@ -129,7 +129,8 @@ var on_hit: Array = []
 
 # HABILIDADES del enemigo (Array[AbilityData]) y probabilidad de usar una cada turno.
 # Las rellena EnemyData; el jugador no las usa por aqui (tira de su loadout). Ver combat.gd.
-var abilities: Array = []
+# OJO: se llama 'habilidades' (no 'abilities') para no chocar con 'abilities' (las 5 stats).
+var habilidades: Array = []
 var prob_habilidad: float = 0.5
 
 # Resistencia a ESTADOS alterados (0..1): MULTIPLICA a la baja la probabilidad de que
