@@ -44,10 +44,16 @@ class_name AbilityData
 # daño) se marca con dano_mult = 0: no golpea, solo su efecto.
 @export var mana_gain: float = 0.0
 
-# CONVERSION energía->maná (bastón, Canalizar): si > 0, la habilidad GASTA TODA la energía
-# actual y da 1 de maná por cada 'energia_a_mana' de energía (media dinámica: 103 EN / 12.5
-# = 8.24 maná). Ignora coste_energia. Solo disponible si tienes energía para >=1 de maná.
+# CONVERSION energía->maná (LEGACY, ya no lo usa Canalizar; reemplazado por foco_cargas): si
+# > 0, la habilidad GASTA TODA la energía y da 1 de maná por cada 'energia_a_mana'. Se deja
+# por si alguna habilidad futura quiere el modelo de conversion directa.
 @export var energia_a_mana: float = 0.0
+
+# FOCO ARCANO (Canalización reworkeada, KAN-56/57): si > 0, la habilidad NO da maná; concede
+# N CARGAS de Foco arcano (Combatant.foco_cargas). Cada hechizo ofensivo gasta 1 carga y pega
+# +30%. No se puede volver a usar mientras te queden cargas (recuperacion por hechizos, no
+# por turnos). Utilitaria: dano_mult = 0. Coste alto de energia (es una jugada de pico).
+@export var foco_cargas: int = 0
 
 # COOLDOWN (KAN-57): turnos que debes ESPERAR para volver a usarla. 0 = sin cooldown
 # (usable cada turno). N = tras usarla, no vuelve a estar disponible hasta N turnos

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Poción menor +1"
+cura_total = 44.0
+cura_pct = 0.08
+turnos = 4
+segundos = 8.0
+descripcion = "Cura 44 + 8% de tu vida máxima, repartido en el tiempo (a 50 de vida = ~48 total, 12/turno x4 en combate o en 8s por el mapa). Cura más por turno y más en total que la menor: el siguiente escalón."

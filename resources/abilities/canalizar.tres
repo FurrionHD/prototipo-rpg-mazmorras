@@ -4,9 +4,9 @@
 
 [resource]
 script = ExtResource("1")
-nombre = "Canalizar"
-coste_energia = 0.0
-energia_a_mana = 12.5
+nombre = "Foco arcano"
+coste_energia = 70.0
 dano_mult = 0.0
-cooldown = 2
-descripcion = "Canaliza TODO tu aguante en poder mágico (no golpea): gasta TODA la energía y recuperas 1 de maná por cada 12.5 de energía (103 EN → 8.24 maná). Ratio bajo a propósito: el mago apenas gasta energía y ya hay regen base, así que es un colchón, no maná infinito. Cooldown 2 turnos."
+cooldown = 0
+foco_cargas = 2
+descripcion = "Canalizas tu aguante físico en potencia mágica (no golpea, no da maná): gastas 70 de energía y ganas 2 CARGAS de Foco arcano. Cada hechizo OFENSIVO que lances gasta 1 carga y pega +30% de daño; un hechizo largo gasta la carga al DISPARARLO (respeta el canto). No puedes volver a canalizar hasta gastar las 2 cargas (recuperación por hechizos, no por turnos)."

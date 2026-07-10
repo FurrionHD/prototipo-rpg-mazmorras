@@ -34,7 +34,7 @@
 extends RefCounted
 class_name StatusEffects
 
-enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATURDIDO, RAYO, PEGAJOSO }
+enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATURDIDO, RAYO, PEGAJOSO, REGENERACION, REGEN_MANA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -109,6 +109,14 @@ static var _defs: Dictionary = {
 		"id": Id.RAYO, "nombre": "Rayo", "icono": "⚡", "color": Color(0.6, 0.8, 1.0),
 		"turns": 3, "stun_prob_mult": 1.5,
 	},
+	Id.REGENERACION: {   # CURA por turno (espejo del DoT): pociones (KAN-57). magnitud = cura/turno.
+		"id": Id.REGENERACION, "nombre": "Regeneración", "icono": "✚", "color": Color(0.4, 0.9, 0.55),
+		"heal": true, "turns": 3, "heal_default": 8.0,
+	},
+	Id.REGEN_MANA: {   # MANÁ por turno (pociones de maná, KAN-56/57). magnitud = maná/turno.
+		"id": Id.REGEN_MANA, "nombre": "Regen. maná", "icono": "🔷", "color": Color(0.4, 0.6, 1.0),
+		"mana_heal": true, "turns": 3, "mana_default": 4.0,
+	},
 }
 
 
@@ -151,6 +159,24 @@ class Instance extends RefCounted:
 	# dot_stack_mult: por defecto 1.0 (cada instancia = magnitud; Sangrado suma varias
 	# instancias). Veneno usa 2.0 -> base x 2^(stacks-1) (cada stack "sube de tier").
 	func dot_damage() -> float:
+		if is_heal() or is_mana_heal():
+			return 0.0   # Regeneración: la magnitud es CURA/MANÁ, no daño (ver heal/mana_amount)
+		var mult: float = float(d.get("dot_stack_mult", 1.0))
+		return magnitude * pow(mult, float(maxi(stacks, 1) - 1))
+
+	# CURA de VIDA por turno de este estado (0 si no es de cura). Espejo de dot_damage.
+	func is_heal() -> bool: return bool(d.get("heal", false))
+	func heal_amount() -> float:
+		if not is_heal():
+			return 0.0
+		var mult: float = float(d.get("dot_stack_mult", 1.0))
+		return magnitude * pow(mult, float(maxi(stacks, 1) - 1))
+
+	# MANÁ restaurado por turno de este estado (0 si no es de maná).
+	func is_mana_heal() -> bool: return bool(d.get("mana_heal", false))
+	func mana_amount() -> float:
+		if not is_mana_heal():
+			return 0.0
 		var mult: float = float(d.get("dot_stack_mult", 1.0))
 		return magnitude * pow(mult, float(maxi(stacks, 1) - 1))
 

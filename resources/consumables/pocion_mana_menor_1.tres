@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Poción de maná menor +1"
+cura_total = 0.0
+cura_pct = 0.0
+mana_total = 13.0
+mana_pct = 0.10
+turnos = 4
+segundos = 8.0
+descripcion = "Restaura 13 + 10% de tu maná máximo, repartido en el tiempo (a 20 de maná = ~15 total, ~3,75/turno x4 en combate o en 8s por el mapa). El siguiente escalón de maná: más total pero más turnos."

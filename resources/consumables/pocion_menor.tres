@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Poción menor"
+cura_total = 23.0
+cura_pct = 0.08
+turnos = 3
+segundos = 6.0
+descripcion = "Cura 23 + 8% de tu vida máxima, repartido en el tiempo (a 50 de vida = ~27 total, 9/turno x3 en combate o en 6s por el mapa). No cura de golpe: te toca AGUANTAR mientras hace efecto."

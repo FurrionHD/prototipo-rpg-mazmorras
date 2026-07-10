@@ -79,6 +79,20 @@ var guardia_contra_mult: float = 1.0    # daño del riposte al esquivar (vs un b
 # (EVADE_MAX 0.35 -> EVADE_MAX_BUFF 0.65) en StatsMath.resolve_attack.
 var evasion_bonus: float = 0.0
 
+# --- FOCO ARCANO (Canalización reworkeada, KAN-56/57) ---
+# Cargas que amplifican tus HECHIZOS: cada hechizo OFENSIVO que lanzas gasta 1 y pega
+# +FOCO_BONUS. No expiran por turnos (aguantan el canto largo); se resetean por combate.
+var foco_cargas: int = 0
+const FOCO_BONUS := 0.30   # +30% de daño al hechizo con carga de Foco arcano
+
+# Multiplicador de daño del hechizo por Foco arcano: 1+FOCO_BONUS si tienes carga (la GASTA),
+# 1.0 si no. Lo llama combat.gd al disparar un hechizo OFENSIVO (los de buff/debuff no gastan).
+func consumir_foco() -> float:
+	if foco_cargas > 0:
+		foco_cargas -= 1
+		return 1.0 + FOCO_BONUS
+	return 1.0
+
 # --- ARMADURA (loadout de 5 piezas, ver Game.armor_mods()). Neutros por defecto,
 # asi un combatiente SIN armadura (enemigos) se comporta igual que antes. ---
 var extra_defense: float = 0.0   # DEF plana ADITIVA de la armadura (sube la mitigacion)
@@ -169,6 +183,11 @@ func take_damage(amount: float) -> void:
 	if invulnerable:
 		return   # modo prueba: no pierde vida (el daño recibido se loguea igual)
 	current_hp = maxf(0.0, current_hp - amount)
+
+# Cura vida SIN pasarse del maximo (pociones / Regeneración). No revive (si estas a 0
+# es que ya perdiste el turno de tick).
+func heal(amount: float) -> void:
+	current_hp = minf(max_hp, current_hp + maxf(0.0, amount))
 
 
 # --- Energia de combate (KAN-57) ---
@@ -281,6 +300,10 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		turns = int(d.get("turns", 3))
 	if magnitude < 0.0:
 		magnitude = float(d.get("dot_default", 0.0))
+		if magnitude <= 0.0:
+			magnitude = float(d.get("heal_default", 0.0))   # Regeneración: cura por defecto (dev)
+		if magnitude <= 0.0:
+			magnitude = float(d.get("mana_default", 0.0))   # Regen. maná por defecto (dev)
 	var mode: String = String(d.get("stack_mode", "none"))
 	var maxs: int = int(d.get("max_stacks", 99))
 	if stack_cap >= 0:
@@ -358,18 +381,29 @@ func _min_turns_status(id: int):
 # activo durante la accion de los 3 turnos (si no, se "gasta" uno antes de poder usarlo).
 func tick_statuses() -> Dictionary:
 	var total_dmg: float = 0.0
+	var total_heal: float = 0.0
+	var total_mana: float = 0.0
 	var stunned: bool = false
 	var expired: Array = []
 	var dot_labels: Array = []
+	var heal_labels: Array = []
 	var kept: Array = []
 	for e in statuses:
 		var dmg: float = e.dot_damage()
-		var es_stat: bool = dmg <= 0.0 and not e.is_stun()   # buff/debuff de stat (ni DoT ni stun)
+		var cura: float = e.heal_amount()
+		var mana: float = e.mana_amount()
+		# Buff/debuff de stat = ni DoT, ni cura, ni maná, ni stun (se salta el primer decremento).
+		var es_stat: bool = dmg <= 0.0 and cura <= 0.0 and mana <= 0.0 and not e.is_stun()
 		if e.is_stun():
 			stunned = true
 		if dmg > 0.0:
 			total_dmg += dmg
 			dot_labels.append("%s %.1f" % [str(e.d.get("icono", "?")), dmg])
+		if cura > 0.0:
+			total_heal += cura
+			heal_labels.append("%s %.1f" % [str(e.d.get("icono", "?")), cura])
+		if mana > 0.0:
+			total_mana += mana
 		if es_stat and e.fresh:
 			e.fresh = false   # se salta el primer decremento: activo durante este turno
 			kept.append(e)
@@ -382,16 +416,46 @@ func tick_statuses() -> Dictionary:
 	statuses = kept
 	if total_dmg > 0.0:
 		take_damage(total_dmg)
+	if total_heal > 0.0:
+		heal(total_heal)
+	if total_mana > 0.0:
+		regen_mana(total_mana)
 	# Log de consola para montar Excel (combate completo copiable). Un [estado] por
 	# tick con el desglose de DoT + la vida resultante, mas expiraciones y aturdido.
 	if total_dmg > 0.0:
 		print("[estado] %s sufre DoT: %s = %.2f | HP %.2f/%.2f" % [
 			nombre, " ".join(dot_labels), total_dmg, current_hp, max_hp])
+	if total_heal > 0.0:
+		print("[estado] %s se cura: %s = %.2f | HP %.2f/%.2f" % [
+			nombre, " ".join(heal_labels), total_heal, current_hp, max_hp])
+	if total_mana > 0.0:
+		print("[estado] %s recupera maná: %.2f | MP %.2f/%.2f" % [
+			nombre, total_mana, current_mp, max_mp])
 	for nom in expired:
 		print("[estado] %s: expira %s" % [nombre, nom])
 	if stunned:
 		print("[estado] %s aturdido: pierde el turno" % nombre)
-	return {"damage": total_dmg, "stunned": stunned, "expired": expired, "dot": dot_labels}
+	return {"damage": total_dmg, "heal": total_heal, "mana": total_mana, "stunned": stunned,
+		"expired": expired, "dot": dot_labels, "heal_labels": heal_labels}
+
+
+# Cura que TODAVIA queda por dar de los estados de Regeneración activos (ticks restantes x
+# cura por turno). Al terminar el combate se arrastra a la cura fuera de combate (KAN-57),
+# para no malgastar una poción que no acabo de hacer efecto.
+func regen_pendiente() -> float:
+	var total: float = 0.0
+	for e in statuses:
+		if e.is_heal():
+			total += e.heal_amount() * float(maxi(0, e.turns))
+	return total
+
+# Igual que regen_pendiente pero para el MANÁ (Regen. maná): lo que quedaba por restaurar.
+func regen_mana_pendiente() -> float:
+	var total: float = 0.0
+	for e in statuses:
+		if e.is_mana_heal():
+			total += e.mana_amount() * float(maxi(0, e.turns))
+	return total
 
 
 # --- Consultas / agregadores ---
