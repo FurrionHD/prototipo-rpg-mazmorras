@@ -70,6 +70,11 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 @export var es_magica: bool = false
 @export var magic_amp: float = 1.0
 @export var mp_regen_bonus: float = 0.0
+# Velocidad de CASTEO (multiplica la barra mientras recitas). Es un campo APARTE de
+# velocidad_mult a proposito: esa es lo rapido que BLANDES el arma, y no tiene por que ser
+# lo rapido que recitas con ella. Solo cuenta si es_magica (a las demas se les ignora: sin
+# arma magica se recita a velocidad normal, un mandoble no te frena el conjuro).
+@export var cast_vel_mult: float = 1.0
 
 # --- Desgaste / mantenimiento (FASE futura, sustituye al "filo" de MH) ---
 # El arma se desgasta con el uso; al bajar, pega menos, y en el pueblo pagas

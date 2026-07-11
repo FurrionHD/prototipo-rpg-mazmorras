@@ -21,4 +21,5 @@ aturdir_base = 0.05
 es_magica = true
 magic_amp = 1.8
 mp_regen_bonus = 0.4
+cast_vel_mult = 1.05
 habilidades = [ExtResource("2"), ExtResource("3")]

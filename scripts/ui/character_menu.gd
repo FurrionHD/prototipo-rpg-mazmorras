@@ -494,6 +494,7 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 		_row(vb, "  Crítico", "+%s" % _fmt_pct(w.crit_bonus))
 	if w.es_magica:
 		_row(vb, "  Amplif. magia", "×%.2f" % w.magic_amp)
+		_row(vb, "  Vel. casteo", "×%.2f" % w.cast_vel_mult)
 	_row(vb, "  Tier / rareza", "T%d · %s" % [int(m["tier"]), Upgrades.rareza_nombre(int(m["rareza"]))])
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(m["mejoras"]),
 		Upgrades.rareza_slots(int(m["rareza"]))])
@@ -514,7 +515,7 @@ func _off_stats(vb: VBoxContainer, item: Resource) -> void:
 		var wd := item as WandData
 		_row(vb, "  Amplif. magia", "×%.2f" % wd.magic_amp)
 		_row(vb, "  Regen maná", "+%.2f/turno" % wd.mp_regen_bonus)
-		_row(vb, "  Vel. casteo", "×%.2f" % wd.velocidad_mult)
+		_row(vb, "  Vel. casteo", "×%.2f" % wd.cast_vel_mult)
 
 
 func _off_nombre(item: Resource) -> String:

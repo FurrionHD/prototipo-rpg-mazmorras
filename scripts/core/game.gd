@@ -759,12 +759,12 @@ func loadout_mods() -> Dictionary:
 	var mp_regen_bonus := 0.0
 	var mana_reduccion := 0.0
 	var cast_vel_add := 0.0
-	# Recitar un encantamiento no se hace con el arma: por defecto va a velocidad NORMAL. Solo
-	# las armas MAGICAS (baston / varita) la tocan; un mandoble ya no te frena el conjuro.
-	# OJO: la velocidad_mult de un arma magica ES su velocidad de casteo (decision de DATOS).
+	# Recitar un encantamiento no se hace con el arma: por defecto va a velocidad NORMAL (1.0).
+	# Solo las armas MAGICAS (baston / varita) la tocan, y con su campo PROPIO cast_vel_mult:
+	# lo rapido que RECITAS con un arma no tiene por que ser lo rapido que la BLANDES.
 	var cast_base := 1.0
 	if main.es_magica:
-		cast_base = main.velocidad_mult
+		cast_base = main.cast_vel_mult
 		var mm := Upgrades.magic_mods(main.magic_amp, tier_mult(equip_tier("main")), equip_rareza("main"), equip_mejoras("main"))
 		magic_amp *= float(mm["magic_amp"])
 		mp_regen_bonus += main.mp_regen_bonus * float(mm["regen_mult"])
@@ -777,7 +777,7 @@ func loadout_mods() -> Dictionary:
 		mp_regen_bonus += wand.mp_regen_bonus * float(mo["regen_mult"])
 		mana_reduccion += float(mo["mana_reduccion"])
 		cast_vel_add += float(mo["cast_vel_add"])
-		cast_base = wand.velocidad_mult   # al castear, la barra usa la velocidad de la varita
+		cast_base = wand.cast_vel_mult   # al castear, la barra usa la velocidad de la varita
 	m["magic_amp"] = magic_amp
 	m["mp_regen_bonus"] = mp_regen_bonus
 	m["mana_reduccion"] = minf(0.25, mana_reduccion)

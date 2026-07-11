@@ -18,8 +18,10 @@ class_name WandData
 @export var magic_amp: float = 1.4
 # Regen de maná por turno que aporta (poca).
 @export var mp_regen_bonus: float = 0.15
-# VELOCIDAD DE CASTEO: mientras casteas, la barra ATB usa esta velocidad.
-@export var velocidad_mult: float = 1.2
+# VELOCIDAD DE CASTEO: mientras casteas, la barra ATB usa esta velocidad. Se llama igual que
+# en WeaponData (cast_vel_mult) y NO 'velocidad_mult': la varita no se blande, no tiene
+# velocidad fisica, y tener el mismo nombre para dos cosas distintas se prestaba a liarla.
+@export var cast_vel_mult: float = 1.2
 # La varita apenas bloquea/estorba (va casi neutra en lo defensivo).
 @export var bloqueo: float = 0.0
 @export var evasion_penal: float = 0.0
