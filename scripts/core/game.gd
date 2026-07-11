@@ -376,7 +376,7 @@ var _dev_spells: Array[String] = [
 	"res://resources/spells/chispa.tres",
 	"res://resources/spells/bola_fuego.tres",
 	"res://resources/spells/chorro_agua.tres",
-	"res://resources/spells/filo_escarcha.tres",
+	"res://resources/spells/filo_torrente.tres",
 	"res://resources/spells/manto_marea.tres",
 	"res://resources/spells/tormenta.tres",
 	"res://resources/spells/fortaleza.tres",

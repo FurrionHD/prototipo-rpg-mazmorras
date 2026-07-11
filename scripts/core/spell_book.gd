@@ -25,7 +25,16 @@ const REPOSITORIO: Array[String] = [
 	"Fulgor, desciende del cielo",
 	"Truenos, romped el silencio",
 	"El viento aullara conmigo",
-	# Hielo
+	# Agua (chorro_agua / filo_torrente / manto_marea). OJO: el AGUA y el HIELO son
+	# elementos DISTINTOS: el agua apaga el fuego, pero el hielo se derrite con el.
+	"Que la corriente me responda",
+	"Rompete contra mi enemigo",
+	"Que el rio abrace mi acero",
+	"Torrente, muerde por mi",
+	"Aguas profundas, cubridme",
+	"Que la marea sea mi piel",
+	"Soy el mar, y el mar no arde",
+	# Hielo (elemento FUTURO: aun no existe en Elementos)
 	"Aqua, congela el aliento",
 	"Escarcha, sella su avance",
 	"Hielo eterno, alza tu muro",
