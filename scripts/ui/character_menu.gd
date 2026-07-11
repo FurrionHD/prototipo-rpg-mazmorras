@@ -349,10 +349,10 @@ func _bloque_arma(rol: String, nombre: String, permite_cambio: bool, on_cambiar:
 
 # --- Catalogos: solo lo que TIENES en el baul (Game.owned_*) ---
 
-# Armas validas como PRINCIPAL: "nada" (null = manos vacias, peleas a puños) + las WeaponData
-# del baul. Los puños NO son un objeto del baul: son justamente esta opcion de "nada".
+# Armas validas como PRINCIPAL: solo las WeaponData del baul. NO hay entrada de "nada": ir a
+# manos vacias no es equipar un objeto, es DESEQUIPAR el que llevas (ver _equipar_arma).
 func _catalogo_main() -> Array:
-	var r: Array = [null]
+	var r: Array = []
 	for it in Game.owned_weapons:
 		if it is WeaponData:
 			r.append(it)
@@ -363,17 +363,18 @@ func _catalogo_main() -> Array:
 func _main_nombre(item: Resource) -> String:
 	return "— (sin arma)" if item == null else Game.item_display_name(item)
 
-# Manos SECUNDARIAS posibles: "nada" (null) + todo el baul (la validez la filtra
-# _secundaria_valida, que ya descarta la que llevas en la principal).
+# Manos SECUNDARIAS posibles: todo el baul (la validez la filtra _secundaria_valida, que ya
+# descarta la que llevas en la principal). Sin entrada de "nada": se DESEQUIPA la que llevas.
 func _catalogo_off() -> Array:
-	var r: Array = [null]
+	var r: Array = []
 	for it in Game.owned_weapons:
 		r.append(it)
 	return r
 
-# Piezas del baul que encajan en el slot + la opcion de ir sin pieza.
+# Piezas del baul que encajan en el slot. Sin entrada de "nada": para ir sin pieza se
+# DESEQUIPA la que llevas puesta (el boton cambia solo).
 func _catalogo_armor(slot: String) -> Array:
-	var r: Array = [null]
+	var r: Array = []
 	for p in Game.owned_armor_de_slot(slot):
 		r.append(p)
 	return r
@@ -409,11 +410,21 @@ func _build_armas_cambiar() -> void:
 			if not Game._secundaria_valida(Game.equipped_main, item):
 				disabled.append(i)
 
-	# El candidato "nada" no se EQUIPA, se DESEQUIPA (es volver a los puños / a la mano libre).
-	var cand_nada: bool = _arma_cand < catalogo.size() and catalogo[_arma_cand] == null
+	# Si el candidato es JUSTO lo que ya llevas puesto, el boton no equipa: DESEQUIPA. Asi
+	# quedarse sin arma (peleas a puños) o sin secundaria no necesita una entrada falsa de
+	# "nada" en la rejilla: es el mismo boton, que se da la vuelta.
 	_build_cambiar_layout(labels, _arma_cand, disabled, _pick_arma,
 		_preview_arma, _equipar_arma, _cancelar_arma,
-		"Desequipar" if cand_nada else "Equipar")
+		"Desequipar" if _arma_cand_equipada() else "Equipar")
+
+
+# True si el arma marcada ahora mismo es la que ya llevas en esa mano.
+func _arma_cand_equipada() -> bool:
+	var es_main: bool = _arma_change == "main"
+	var cat: Array = _catalogo_main() if es_main else _catalogo_off()
+	if _arma_cand >= cat.size():
+		return false
+	return cat[_arma_cand] == (Game.equipped_main if es_main else Game.equipped_off)
 
 
 func _pick_arma(i: int) -> void:
@@ -424,15 +435,17 @@ func _cancelar_arma() -> void:
 	_arma_change = ""
 	_rebuild()
 
+# Equipar el candidato... o DESEQUIPAR, si el candidato es lo que ya llevas puesto.
 func _equipar_arma() -> void:
+	var quitar: bool = _arma_cand_equipada()
 	if _arma_change == "main":
 		var cat: Array = _catalogo_main()
 		if _arma_cand < cat.size():
-			Game.equipar_arma(cat[_arma_cand])
+			Game.equipar_arma(null if quitar else cat[_arma_cand])
 	else:
 		var cat_off: Array = _catalogo_off()
 		if _arma_cand < cat_off.size():
-			Game.equipar_secundaria(cat_off[_arma_cand])
+			Game.equipar_secundaria(null if quitar else cat_off[_arma_cand])
 	_arma_change = ""
 	_rebuild()
 
@@ -445,10 +458,9 @@ func _preview_arma(vb: VBoxContainer) -> void:
 			return
 		var w: WeaponData = cat[_arma_cand]
 		_title(vb, _main_nombre(w))
-		if w == null:
-			_note(vb, "Manos vacías: peleas a puños. Poco daño, pero rápido y sin peso.")
-			_note(vb, "Con las manos libres solo puedes llevar escudo o varita en la otra mano.")
 		_weapon_stats(vb, w)
+		if w == Game.equipped_main:
+			_note(vb, "Ya la llevas puesta: al desequiparla pelearás a puños.")
 	else:
 		var cat_off: Array = _catalogo_off()
 		if _arma_cand >= cat_off.size():
@@ -456,7 +468,9 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		var item: Resource = cat_off[_arma_cand]
 		_title(vb, _off_nombre(item))
 		_off_stats(vb, item)
-		if item != null and item == Game.equipped_main:
+		if item != null and item == Game.equipped_off:
+			_note(vb, "Ya la llevas puesta: al desequiparla te quedas con la mano libre.")
+		elif item != null and item == Game.equipped_main:
 			_note(vb, "Ya la llevas en la mano principal: necesitas otra igual para el dual.")
 		elif item != null and not Game._secundaria_valida(Game.equipped_main, item):
 			_note(vb, "No compatible con el arma principal actual.")
@@ -579,8 +593,8 @@ func _ciclar_slot(dir: int) -> void:
 	_preseleccionar_equipada(slot)
 	_rebuild()
 
-# Deja _armor_cand en la pieza equipada del slot (o 0 = "(sin pieza)"), para que la
-# cuadricula abra siempre con stats a la vista.
+# Deja _armor_cand en la pieza equipada del slot (o en la primera del baul si no llevas
+# ninguna), para que la cuadricula abra siempre con stats a la vista.
 func _preseleccionar_equipada(slot: String) -> void:
 	var pieza = Game.get("equipped_" + slot)
 	_armor_cand = 0
@@ -628,27 +642,36 @@ func _build_armadura_slot(slot: String) -> void:
 	var cat: Array = _catalogo_armor(slot)
 	var labels: Array = []
 	for p in cat:
-		labels.append("(sin pieza)" if p == null else Game.item_display_name(p))
-	if cat.size() <= 1:
+		labels.append(Game.item_display_name(p))
+	if cat.is_empty():
 		_note(_content, "No tienes piezas de este slot en el baúl.")
+		return
 	# Fuera del pueblo: apagar solo "Equipar" (marcando el candidato como disabled, que es
 	# lo que mira _build_cambiar_layout). El resto de la cuadricula sigue navegable/consultable.
 	var disabled: Array = [_armor_cand] if not pueblo else []
-	var cand_nada: bool = _armor_cand < cat.size() and cat[_armor_cand] == null
 	_build_cambiar_layout(labels, _armor_cand, disabled, _pick_armor,
 		_preview_armor, _equipar_armor, _cerrar_slot,
-		"Desequipar" if cand_nada else "Equipar")
+		"Desequipar" if _armor_cand_equipada() else "Equipar")
+
+
+# True si la pieza marcada ahora mismo es la que ya llevas puesta en ese slot.
+func _armor_cand_equipada() -> bool:
+	var cat: Array = _catalogo_armor(_armor_slot_sel)
+	if _armor_cand >= cat.size():
+		return false
+	return cat[_armor_cand] == Game.get("equipped_" + _armor_slot_sel)
 
 
 func _pick_armor(i: int) -> void:
 	_armor_cand = i
 	_rebuild()
 
+# Equipar la pieza marcada... o QUITARLA, si es justo la que ya llevas puesta.
 func _equipar_armor() -> void:
 	var slot: String = _armor_slot_sel
 	var cat: Array = _catalogo_armor(slot)
 	if _armor_cand < cat.size():
-		Game.equipar_armadura(slot, cat[_armor_cand])
+		Game.equipar_armadura(slot, null if _armor_cand_equipada() else cat[_armor_cand])
 	_rebuild()   # se queda en el slot; la recien equipada queda marcada
 
 
@@ -657,11 +680,11 @@ func _preview_armor(vb: VBoxContainer) -> void:
 	var slot: String = _armor_slot_sel
 	var cat: Array = _catalogo_armor(slot)
 	if _armor_cand >= cat.size() or cat[_armor_cand] == null:
-		_title(vb, "(sin pieza)")
-		_note(vb, "Sin armadura en este slot: +velocidad por ir ligero, 0 defensa.")
 		return
 	var a: ArmorData = cat[_armor_cand]
 	_title(vb, Game.item_display_name(a))
+	if a == Game.get("equipped_" + slot):
+		_note(vb, "Ya la llevas puesta: al quitarla vas ligero (+velocidad, 0 defensa).")
 	var am: Dictionary = Game.meta_de(a)
 	var mods: Dictionary = Upgrades.armor_piece_mods(a, Game.tier_mult(int(am["tier"])),
 		int(am["rareza"]), am["mejoras"])
