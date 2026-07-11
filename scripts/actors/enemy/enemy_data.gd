@@ -12,6 +12,9 @@ class_name EnemyData
 # --- Identidad ---
 @export var enemy_name: String = "Slime"
 @export var color: Color = Color(1.0, 0.2, 0.2)  # color del placeholder
+# TAMAÑO en el mapa (fuera de combate): multiplica el cuerpo y su colision. 1.0 = normal
+# (32x32). Los ELITES (slimes elementales) van mas grandes para que se les vea venir.
+@export var escala_visual: float = 1.0
 
 # --- Combate: nivel + PESOS de distribucion de habilidades ---
 # Estos ya NO son valores absolutos: son los PESOS con los que se reparte la SUMA de

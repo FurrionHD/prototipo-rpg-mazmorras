@@ -81,6 +81,7 @@ func _ready() -> void:
 	if data != null:
 		# Color base + tinte por 't' (los mas fuertes de su franja salen mas claros).
 		_color_rect.color = data.color.lerp(Color.WHITE, current_t * 0.45)
+		_aplicar_escala(data.escala_visual)   # los elites se ven mas grandes en el mapa
 		current_move_speed = randf_range(data.move_speed_min, data.move_speed_max)
 		var band: Vector2 = data.sum_band()
 		var ab: Abilities = data.crear_abilities(current_t)
@@ -92,6 +93,24 @@ func _ready() -> void:
 
 	_crear_indicadores()
 	_pick_wander_target()
+
+
+# Escala el cuerpo (ColorRect) y su colision. El cuerpo base es 32x32 centrado.
+# OJO: la RectangleShape2D viene del .tscn y se COMPARTE entre instancias -> hay que
+# duplicarla antes de tocarla, o cambiaria el tamaño de TODOS los enemigos.
+func _aplicar_escala(escala: float) -> void:
+	var s: float = maxf(0.1, escala)
+	if is_equal_approx(s, 1.0):
+		return
+	var medio: float = 16.0 * s
+	_color_rect.offset_left = -medio
+	_color_rect.offset_top = -medio
+	_color_rect.offset_right = medio
+	_color_rect.offset_bottom = medio
+	var col: CollisionShape2D = get_node_or_null("CollisionShape2D")
+	if col != null and col.shape is RectangleShape2D:
+		col.shape = col.shape.duplicate()   # instancia propia: no tocar la de los demas
+		(col.shape as RectangleShape2D).size = Vector2(32.0 * s, 32.0 * s)
 
 
 func _physics_process(delta: float) -> void:

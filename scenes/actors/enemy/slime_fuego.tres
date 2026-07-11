@@ -21,6 +21,7 @@ prob = 0.35
 script = ExtResource("1_g8nro")
 enemy_name = "Slime de fuego"
 color = Color(1.0, 0.5, 0.12, 1)
+escala_visual = 1.6
 elemento = 1
 inmune_estados = [2]
 drop_name = "Material de Slime de fuego"
