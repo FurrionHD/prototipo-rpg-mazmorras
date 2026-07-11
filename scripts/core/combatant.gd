@@ -201,6 +201,17 @@ func aplicar_imbue(elem: int, pct: float, turnos: int, cuerpo: bool,
 		elemento_intensidad = intensidad
 
 
+# Etiqueta de la IMBUICION activa para el HUD ("" si no hay ninguna). DERIVADA de los campos:
+# el icono dice si es de ARMA (🗡) o de CUERPO (🛡), y detras van el elemento, el bonus y los
+# turnos que le quedan. Ej: "🗡💧Agua +30%·4t".
+func imbue_etiqueta() -> String:
+	if imbue_elemento == Elementos.Elemento.NINGUNO or imbue_turnos <= 0:
+		return ""
+	return "%s%s%s +%d%%·%dt" % [
+		"🛡" if imbue_cuerpo else "🗡", Elementos.icono(imbue_elemento),
+		Elementos.nombre(imbue_elemento), roundi(imbue_pct * 100.0), imbue_turnos]
+
+
 # Tira el ESTADO de la imbuicion tras un golpe que ACIERTA. Devuelve su nombre si prende, ""
 # si no. La probabilidad escala con tu Magia RELATIVA a la Resistencia del rival (ver
 # StatsMath.imbue_proc_chance) y la baja su resistencia a estados. apply_status() ya corta

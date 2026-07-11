@@ -291,10 +291,18 @@ func _update_hp() -> void:
 		_player.nombre, _player.level, _player.current_hp, _player.max_hp, mp_txt, en_txt, _estados_txt(_player)]
 
 
-# Estados alterados para la etiqueta del combatiente (KAN-58). "" si no tiene.
+# Estados alterados + IMBUICION activa para la etiqueta del combatiente (KAN-58). "" si no
+# tiene nada. La imbuicion NO es un estado (vive en sus propios campos), pero el jugador
+# necesita VERLA en el HUD igual que ve una quemadura: elemento, bonus y turnos que quedan.
 func _estados_txt(c: Combatant) -> String:
+	var partes: Array = []
+	var imb: String = c.imbue_etiqueta()
+	if imb != "":
+		partes.append(imb)
 	var s: String = c.status_summary()
-	return "\n   " + s if s != "" else ""
+	if s != "":
+		partes.append(s)
+	return "\n   " + "  ".join(partes) if not partes.is_empty() else ""
 
 
 # Teclas de DESARROLLO DENTRO del combate. El combate corre con el arbol en PAUSA, asi
@@ -742,6 +750,19 @@ func _mult_sufijo(mult: float) -> String:
 	return ""
 
 
+# Cuanto daño de un golpe lo ha puesto la IMBUICION ("" si no hay imbuicion). Enseña la
+# PORCION elemental y su multiplicador cuando no es neutro: "  💧+2.14 de Agua ×1.5".
+# 'escala' = el dano_mult de la habilidad (el golpe entero se escala, la porcion tambien).
+func _imbue_dmg_txt(result: Dictionary, escala: float = 1.0) -> String:
+	var d: float = float(result.get("dmg_imbue", 0.0)) * escala
+	if d <= 0.0:
+		return ""
+	var mult: float = float(result.get("mult_imbue", 1.0))
+	return "  %s+%.2f de %s%s" % [
+		Elementos.icono(_player.imbue_elemento), d,
+		Elementos.nombre(_player.imbue_elemento), _mult_sufijo(mult)]
+
+
 # Feedback elemental de un hechizo de UN solo golpe. OJO: GDScript no soporta %g.
 func _elem_txt(mult: float) -> String:
 	if mult > 1.01:
@@ -919,7 +940,9 @@ func _usar_habilidad(ab: AbilityData) -> void:
 				conecto += 1
 				if result.crit:
 					hubo_critico = true
-				linea = "golpe %d: %s %.2f" % [i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
+				linea = "golpe %d: %s %.2f%s" % [i + 1,
+					("CRITICO 💥" if result.crit else "acierta"), dmg,
+					_imbue_dmg_txt(result, ab.dano_mult)]
 				if ab.efectos_por_golpe and _enemy.is_alive():
 					var ap: Array = _tirar_efectos_habilidad(ab, result.crit)
 					estados_log += ap
@@ -1073,6 +1096,9 @@ func _accion_atacar() -> void:
 				Game.RETO_MAX_FISICO)
 		else:
 			txt = "%s golpea con %s por %.2f de daño." % [_player.nombre, con_arma, result.damage]
+		# Cuanto de ese daño lo ha puesto la IMBUICION, y si el objetivo era debil/resistente
+		# a ella. Sin esto el bonus elemental era invisible: el daño total no lo delata.
+		txt += _imbue_dmg_txt(result)
 		# Aturdir/retrasar (arma contundente): el enemigo pierde tempo (barra ATB).
 		# Retraso parcial normal; si el golpe fue CRITICO, aturdimiento completo.
 		if result.aturde:
@@ -1471,11 +1497,18 @@ func _debug_ataque(atacante: Combatant, defensor: Combatant, r: Dictionary, bloq
 		outcome += "+BLOQUEO"
 	var mano: String = atacante.current_hand_name()
 	var quien: String = atacante.nombre + ("[" + mano + "]" if mano != "" else "")
-	print("[combate] %s(Dex %d) -> %s(Agi %d) | esquiva:%.1f%% crit:%.1f%% aturdir:%.1f%% | ATK:%.2f dmg:%.2f | %s" % [
+	# Desglose de la IMBUICION: cuanto del dmg es la porcion elemental y con que multiplicador
+	# (x1.5 contra un debil, x0.5 contra un resistente). Sin esto el bonus era invisible.
+	var imb: String = ""
+	var d_imb: float = float(r.get("dmg_imbue", 0.0))
+	if d_imb > 0.0:
+		imb = " (imbue %s +%.2f x%.2f)" % [
+			Elementos.nombre(atacante.imbue_elemento), d_imb, float(r.get("mult_imbue", 1.0))]
+	print("[combate] %s(Dex %d) -> %s(Agi %d) | esquiva:%.1f%% crit:%.1f%% aturdir:%.1f%% | ATK:%.2f dmg:%.2f%s | %s" % [
 		quien, atacante.abilities.destreza,
 		defensor.nombre, defensor.abilities.agilidad,
 		r.evade_p * 100.0, r.crit_p * 100.0, r.aturde_p * 100.0,
-		atacante.atk(), r.damage, outcome])
+		atacante.atk(), r.damage, imb, outcome])
 
 
 # Poder del enemigo (suma de sus habilidades) para la dificultad relativa.

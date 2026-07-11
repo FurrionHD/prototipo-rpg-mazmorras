@@ -262,16 +262,18 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	var mult_elem := Elementos.mult_recibido(attacker.elemento_ataque, defender)
 	dmg *= mult_elem
 	var mult_imbue := 1.0
+	var dmg_imbue := 0.0   # la PORCION elemental, aparte: para poder ENSEÑARLA en el log
 	if attacker.imbue_pct > 0.0 and attacker.imbue_elemento != Elementos.Elemento.NINGUNO:
 		mult_imbue = Elementos.mult_recibido(attacker.imbue_elemento, defender)
-		dmg *= (1.0 + attacker.imbue_pct * mult_imbue)
+		dmg_imbue = dmg * attacker.imbue_pct * mult_imbue
+		dmg += dmg_imbue
 
 	# 5) Aturdir/retrasar (solo armas CONTUNDENTES).
 	var aturde := aturde_p > 0.0 and randf() < aturde_p
 
 	return {"damage": maxf(0.1, dmg), "evaded": false, "crit": is_crit, "aturde": aturde,
 		"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p,
-		"mult_elem": mult_elem, "mult_imbue": mult_imbue}
+		"mult_elem": mult_elem, "mult_imbue": mult_imbue, "dmg_imbue": dmg_imbue}
 
 
 # ============================================================
