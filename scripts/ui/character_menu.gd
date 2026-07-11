@@ -830,10 +830,11 @@ func _afinidad_hechizo(vb: VBoxContainer, s: SpellData) -> void:
 	for e in Elementos.PERFIL_DEFECTO.get(s.elemento, {}):
 		var puro: float = float(Elementos.PERFIL_DEFECTO[s.elemento][e])
 		var m: float = Elementos.escalar_intensidad(puro, s.imbue_intensidad)
+		# En positivo y sin restas mentales: "20% de resistencia" / "+20% de daño".
 		if m < 0.99:
-			resiste.append("%s (recibes %d%%)" % [Elementos.nombre(e), roundi(m * 100.0)])
+			resiste.append("%s (%d%% de resistencia)" % [Elementos.nombre(e), roundi((1.0 - m) * 100.0)])
 		elif m > 1.01:
-			debil.append("%s (recibes %d%%)" % [Elementos.nombre(e), roundi(m * 100.0)])
+			debil.append("%s (+%d%% de daño)" % [Elementos.nombre(e), roundi((m - 1.0) * 100.0)])
 	if not resiste.is_empty():
 		_row(vb, "  🛡 Resistes", ", ".join(resiste))
 	var inm: Array = []

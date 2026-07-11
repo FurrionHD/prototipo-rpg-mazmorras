@@ -686,12 +686,13 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 		var debil: Array = []
 		for e in Elementos.PERFIL_DEFECTO.get(spell.elemento, {}):
 			var m: float = Elementos.mult_recibido(e, _player)
+			# En positivo y sin restas mentales: "20% de resistencia" / "+20% de daño".
 			if m < 0.99:
-				resiste.append("%s (%d%%)" % [Elementos.nombre(e), roundi(m * 100.0)])
+				resiste.append("%s (%d%%)" % [Elementos.nombre(e), roundi((1.0 - m) * 100.0)])
 			elif m > 1.01:
-				debil.append("%s (%d%%)" % [Elementos.nombre(e), roundi(m * 100.0)])
+				debil.append("%s (+%d%%)" % [Elementos.nombre(e), roundi((m - 1.0) * 100.0)])
 		if not resiste.is_empty():
-			msg += "  🛡 Recibes menos de: %s." % ", ".join(resiste)
+			msg += "  🛡 Resistes: %s." % ", ".join(resiste)
 		var inm: Array = []
 		for id in Elementos.inmunidades_de(spell.elemento):
 			inm.append(str(StatusEffects.def(id).get("nombre", "?")))
