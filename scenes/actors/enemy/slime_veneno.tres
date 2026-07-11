@@ -2,6 +2,9 @@
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_placaje_viscoso.tres" id="3_plc"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_doble_embate.tres" id="4_dbe"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_escupitajo_toxico.tres" id="5_esc"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
@@ -18,6 +21,15 @@ cap = 1
 script = ExtResource("1_g8nro")
 enemy_name = "Slime venenoso"
 color = Color(0.29, 0.78, 0.33, 1)
+escala_visual = 1.15
+base_hp = 34.0
+base_attack = 3.4
+base_defense = 3.0
+base_speed = 4.0
+elemento = 4
+inmune_estados = [0]
 drop_name = "Material de Slime venenoso"
 al_golpear = [SubResource("SA_peg"), SubResource("SA_ven")]
+habilidades = [ExtResource("3_plc"), ExtResource("4_dbe"), ExtResource("5_esc")]
+prob_habilidad = 0.5
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
