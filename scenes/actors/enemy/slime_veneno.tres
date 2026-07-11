@@ -2,8 +2,8 @@
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
-[ext_resource type="Resource" path="res://resources/abilities/slime_placaje_viscoso.tres" id="3_plc"]
-[ext_resource type="Resource" path="res://resources/abilities/slime_doble_embate.tres" id="4_dbe"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_placaje_corrosivo.tres" id="3_plc"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_rociada_corrosiva.tres" id="4_dbe"]
 [ext_resource type="Resource" path="res://resources/abilities/slime_escupitajo_toxico.tres" id="5_esc"]
 
 [sub_resource type="Resource" id="SA_peg"]
