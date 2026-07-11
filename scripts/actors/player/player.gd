@@ -78,10 +78,10 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/keys_help.gd").new())    # ayuda de teclas en pantalla (F1)
 	_last_pos = global_position
 
-	# Si llegamos a esta escena con F/Espacio ya pulsadas (p. ej. justo despues
-	# de viajar por una puerta), las marcamos como "ya pulsadas" para NO
-	# dispararlas de nuevo hasta que el jugador las suelte y las vuelva a pulsar.
-	# Esto evita el rebote entre escenas al mantener F pulsada.
+	# Si llegamos a esta escena con F/Q ya pulsadas (p. ej. justo despues de viajar
+	# por una puerta), las marcamos como "ya pulsadas" para NO dispararlas de nuevo
+	# hasta que el jugador las suelte y las vuelva a pulsar. Esto evita el rebote
+	# entre escenas al mantener F pulsada.
 	_interact_was = Input.is_key_pressed(KEY_F)
 	_drink_was = Input.is_key_pressed(KEY_Q)
 
