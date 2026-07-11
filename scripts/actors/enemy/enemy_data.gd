@@ -35,14 +35,17 @@ class_name EnemyData
 @export_range(0.0, 1.0) var franja_low: float = 0.0
 @export_range(0.0, 1.0) var franja_high: float = 0.6
 
-# --- Combate: MULTIPLICADORES de la base COMUN (Game.enemy_base_*) ---
-# Por defecto 1.0 = todos los enemigos comparten la misma base; lo que los
-# diferencia son sus HABILIDADES. Sube/baja estos para arquetipos (tanque,
-# cristal...) sin romper el principio.
-@export var base_hp_mult: float = 1.0
-@export var base_attack_mult: float = 1.0
-@export var base_defense_mult: float = 1.0
-@export var base_speed_mult: float = 1.0
+# --- Combate: STATS BASE PROPIAS de este enemigo (absolutas, no multiplicadores) ---
+# Cada bicho declara las suyas: un minotauro pone 120/9/12/3 y se entiende de un vistazo.
+# Los valores por defecto son el baremo del enemigo comun (el slime normal).
+# La PROFUNDIDAD las escala encima (ver crear_combatant): vida/ataque x factor_piso,
+# defensa x raiz(factor_piso) (mas suave) y la velocidad NO escala (ATB justo).
+# OJO: esto es solo la BASE. Encima suman las 5 habilidades del bicho (la Resistencia
+# aporta vida y defensa, la Agilidad velocidad...), repartidas por sus PESOS de abajo.
+@export var base_hp: float = 28.0
+@export var base_attack: float = 3.0
+@export var base_defense: float = 3.0
+@export var base_speed: float = 4.0
 
 # --- Exploracion (mazmorra): velocidad de patrulla/persecucion (franja) ---
 @export var move_speed_min: float = 30.0
@@ -139,16 +142,16 @@ func suma_habilidades(t: float) -> int:
 	return a.fuerza + a.resistencia + a.destreza + a.agilidad + a.magia
 
 
-# Crea el Combatant. Las HABILIDADES salen de la franja del piso (via 't'); la BASE
-# (hp/ataque) la escala la PROFUNDIDAD sin techo (obliga a mejorar el equipo). La
-# defensa base escala mas suave (raiz) y la velocidad NO (ATB justo).
+# Crea el Combatant. Las HABILIDADES salen de la franja del piso (via 't'); las STATS
+# BASE son las PROPIAS de este enemigo y las escala la PROFUNDIDAD sin techo (obliga a
+# mejorar el equipo). La defensa escala mas suave (raiz) y la velocidad NO (ATB justo).
 func crear_combatant(t: float = 0.5) -> Combatant:
 	var fstat: float = Game.enemy_floor_stat_factor()
 	var c := Combatant.new(enemy_name, level, crear_abilities(t),
-		Game.enemy_base_hp * base_hp_mult * fstat,
-		Game.enemy_base_attack * base_attack_mult * fstat,
-		Game.enemy_base_defense * base_defense_mult * sqrt(fstat),
-		Game.enemy_base_speed * base_speed_mult)
+		base_hp * fstat,
+		base_attack * fstat,
+		base_defense * sqrt(fstat),
+		base_speed)
 	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
 	c.on_hit = al_golpear
 	# Habilidades del enemigo (KAN-58): tecnicas que puede lanzar en combate.

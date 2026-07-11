@@ -90,12 +90,10 @@ const EXTRACTION_DESTREZA_RETO_MAX := 8.0
 var _last_extraction_zone: float = 0.13
 var _last_extraction_hits: int = 3
 
-# Base de combate COMUN para los enemigos (los diferencia sus HABILIDADES).
-# Cada EnemyData la ajusta con multiplicadores de arquetipo (por defecto 1.0).
-var enemy_base_hp: float = 28.0
-var enemy_base_attack: float = 3.0
-var enemy_base_defense: float = 3.0
-var enemy_base_speed: float = 4.0
+# NOTA: las stats base de los enemigos ya NO son globales. Cada EnemyData declara las
+# SUYAS (base_hp/base_attack/base_defense/base_speed), porque un goblin y un minotauro no
+# son variantes del mismo bicho. El baremo del enemigo comun son los valores por defecto
+# de EnemyData (28/3/3/4). El factor de piso (enemy_floor_stat_factor) las escala encima.
 
 var _combat_scene: PackedScene = preload("res://scenes/ui/combat.tscn")
 var _extraction_script: GDScript = preload("res://scripts/ui/extraction.gd")
