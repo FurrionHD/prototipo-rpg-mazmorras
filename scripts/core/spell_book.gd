@@ -17,14 +17,24 @@ class_name SpellBook
 # de los .tres de hechizos DEBEN salir de aqui (verbatim) para que nunca aparezcan
 # como su propio distractor. Ampliable libremente.
 const REPOSITORIO: Array[String] = [
-	# Fuego (chispa / bola_fuego)
+	# Fuego (chispa / bola_fuego / filo_ardiente / manto_brasas)
 	"Ignis, arde en mi mano",
 	"Que la llama primigenia despierte",
 	"Ceniza y brasa, obedeced",
-	# Tormenta / rayo (tormenta)
+	"Que la brasa cubra mi filo",
+	"Arde con cada tajo",
+	"Fuego interior, despierta",
+	"Que mi piel sea ascua",
+	"Soy la hoguera, y la hoguera no arde",
+	# Rayo (tormenta / filo_fulgurante / manto_centellas)
 	"Fulgor, desciende del cielo",
 	"Truenos, romped el silencio",
 	"El viento aullara conmigo",
+	"Que el rayo duerma en mi acero",
+	"Chispa, salta al golpear",
+	"Tormenta, hazme tu cauce",
+	"Que el trueno lata en mi pecho",
+	"Soy la centella, y no me alcanzan",
 	# Agua (chorro_agua / filo_torrente / manto_marea). OJO: el AGUA y el HIELO son
 	# elementos DISTINTOS: el agua apaga el fuego, pero el hielo se derrite con el.
 	"Que la corriente me responda",

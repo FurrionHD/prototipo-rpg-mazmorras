@@ -670,7 +670,8 @@ func _disparar_hechizo() -> void:
 #             vuelves INMUNE a los estados de ese elemento (imbuido en agua no te queman).
 func _aplicar_imbuicion(spell: SpellData) -> void:
 	var cuerpo: bool = spell.imbue_tipo == 2
-	_player.aplicar_imbue(spell.elemento, spell.imbue_pct, spell.imbue_turnos, cuerpo)
+	_player.aplicar_imbue(spell.elemento, spell.imbue_pct, spell.imbue_turnos, cuerpo,
+		spell.imbue_estado, spell.imbue_prob)
 	var elem: String = Elementos.nombre(spell.elemento)
 	print("[imbuicion] %s se imbuye %s de %s: +%d%% de daño %s durante %d turnos" % [
 		_player.nombre, ("el CUERPO" if cuerpo else "el ARMA"), elem,
@@ -852,6 +853,12 @@ func _usar_habilidad(ab: AbilityData) -> void:
 					estados_log += ap
 					if not ap.is_empty():
 						linea += "  -> " + ", ".join(ap)
+				# IMBUICION: cada golpe que acierta tira su estado (un arma multi-golpe = mas tiradas).
+				if _enemy.is_alive():
+					var imb_h: String = _player.roll_imbue(_enemy)
+					if imb_h != "":
+						estados_log.append(imb_h)
+						linea += "  ⚡ " + imb_h
 			print("        " + linea)
 			# Siguiente golpe: si es dual (2 armas la aportan) alterna; si no, sigue con la misma.
 			_player.set_active_hand(idxs[(i + 1) % idxs.size()])
@@ -1001,6 +1008,10 @@ func _accion_atacar() -> void:
 		# Estados "al golpear" del jugador (arma; futuro: sangrado de cortantes).
 		for nom in _player.roll_on_hit(_enemy):
 			txt += "  Le infliges %s." % nom
+		# IMBUICION (KAN-58): el elemento de tus golpes puede prender su estado.
+		var imb: String = _player.roll_imbue(_enemy)
+		if imb != "":
+			txt += "  ⚡ Le infliges %s." % imb
 		_set_log(txt)
 	# El ataque basico REGENERA energia (KAN-57): te "cargas" pegando.
 	_player.regen_energy(ATTACK_ENERGY_REGEN)

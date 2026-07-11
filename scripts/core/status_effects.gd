@@ -34,7 +34,7 @@
 extends RefCounted
 class_name StatusEffects
 
-enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATURDIDO, RAYO, PEGAJOSO, REGENERACION, REGEN_MANA }
+enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATURDIDO, RAYO, PEGAJOSO, REGENERACION, REGEN_MANA, MOJADO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -116,6 +116,15 @@ static var _defs: Dictionary = {
 	Id.REGEN_MANA: {   # MANÁ por turno (pociones de maná, KAN-56/57). magnitud = maná/turno.
 		"id": Id.REGEN_MANA, "nombre": "Regen. maná", "icono": "🔷", "color": Color(0.4, 0.6, 1.0),
 		"mana_heal": true, "turns": 3, "mana_default": 4.0,
+	},
+	Id.MOJADO: {   # Lo aplican los golpes imbuidos de AGUA. Empapado no ardes... pero conduces.
+		# El "+50% de daño de RAYO recibido" NO vive aqui sino en Elementos.AMPLIFICA_POR_ESTADO:
+		# elements.gd ya depende de este archivo, y referenciar Elementos desde aqui haria un
+		# CICLO de dependencias (no compilaria).
+		"id": Id.MOJADO, "nombre": "Mojado", "icono": "💧", "color": Color(0.4, 0.7, 1.0),
+		"turns": 3,
+		"inmune": [Id.QUEMADURA],   # empapado NO puedes arder
+		"limpia": [Id.QUEMADURA],   # y te APAGA la quemadura que llevaras encima
 	},
 }
 
@@ -205,6 +214,14 @@ class Instance extends RefCounted:
 	# Multiplicador de la prob. de aturdir que RECIBE el objetivo (RAYO). 1.0 = neutro.
 	func stun_prob_mult() -> float:
 		return float(d.get("stun_prob_mult", 1.0))
+
+	# True si tener ESTE estado te hace INMUNE al estado 'id' (Mojado -> Quemadura).
+	func inmuniza_a(id_estado: int) -> bool:
+		return (d.get("inmune", []) as Array).has(id_estado)
+
+	# Estados que este estado APAGA al aplicarse (Mojado apaga la Quemadura).
+	func limpia() -> Array:
+		return d.get("limpia", [])
 
 	# Texto corto para la UI. DoT: muestra el daño/turno REAL (ya escalado por stacks).
 	# Ej "☠12·4t" (veneno x3), "☠x3(12)·4t", "🩸5·3t", "🐌x3·3t", "💫·1t".

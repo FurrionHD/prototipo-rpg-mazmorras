@@ -191,6 +191,15 @@ static func flee_chance(own_agilidad: float, rival_agilidad: float) -> float:
 		FLEE_PARITY, FLEE_SPREAD, FLEE_MIN, FLEE_MAX)
 
 
+# IMBUICION (KAN-58): prob. de que tus golpes imbuidos PRENDAN su estado (quemadura, rayo,
+# mojado). Es la 'base' del hechizo escalada por un CONTEST de tu Magia contra la Resistencia
+# del rival: 1.0 en igualdad (te quedas en la base), sube contra debiles y baja contra bestias.
+# Asi escala con tu Magia de forma RELATIVA y nunca se infla ni se queda obsoleta.
+const IMBUE_PROC_MAX := 0.60
+static func imbue_proc_chance(base: float, magia: float, rival_resistencia: float) -> float:
+	return clampf(base * _ratio_factor(magia, rival_resistencia), 0.0, IMBUE_PROC_MAX)
+
+
 # Resuelve un ataque completo: esquiva -> critico -> mitigacion/defensa -> aturdir.
 # defending: true si el DEFENSOR eligio Defender este turno (mitiga y anula crit).
 # Usa los mods del loadout guardados en el Combatant (crit_bonus, evasion_penal,

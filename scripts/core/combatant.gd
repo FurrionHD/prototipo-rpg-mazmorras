@@ -161,22 +161,53 @@ var imbue_elemento: int = Elementos.Elemento.NINGUNO
 var imbue_pct: float = 0.0
 var imbue_turnos: int = 0
 var imbue_cuerpo: bool = false
+# ESTADO que aplican tus golpes imbuidos (Quemadura / Rayo / Mojado) y su probabilidad BASE
+# (en igualdad de poder). La prob. real la escala un contest de tu Magia vs su Resistencia.
+var imbue_estado: int = -1
+var imbue_prob: float = 0.0
 
 
-# True si este combatiente NO puede recibir el estado 'id': por inmunidad a medida
-# (inmune_estados) o, sobre todo, por su AFINIDAD elemental (ver Elementos).
+# True si este combatiente NO puede recibir el estado 'id'. Tres vias:
+#  - inmunidad a medida (inmune_estados): un minotauro peludo inmune a algo sin ser de ese elemento.
+#  - su AFINIDAD elemental: un ser de fuego no se quema.
+#  - un ESTADO que lleve encima: si estas Mojado no puedes arder.
 func es_inmune(id: int) -> bool:
-	return inmune_estados.has(id) or Elementos.inmunidades_de(elemento).has(id)
+	if inmune_estados.has(id) or Elementos.inmunidades_de(elemento).has(id):
+		return true
+	for e in statuses:
+		if e.inmuniza_a(id):
+			return true
+	return false
 
 
 # Imbuye el arma (cuerpo = false) o el CUERPO (cuerpo = true) con un elemento.
-func aplicar_imbue(elem: int, pct: float, turnos: int, cuerpo: bool) -> void:
+func aplicar_imbue(elem: int, pct: float, turnos: int, cuerpo: bool,
+		estado: int = -1, prob: float = 0.0) -> void:
 	imbue_elemento = elem
 	imbue_pct = pct
 	imbue_turnos = maxi(1, turnos)
 	imbue_cuerpo = cuerpo
+	imbue_estado = estado
+	imbue_prob = prob
 	if cuerpo:
 		elemento = elem   # afinidad: resistencias/debilidades/inmunidades por la tabla
+
+
+# Tira el ESTADO de la imbuicion tras un golpe que ACIERTA. Devuelve su nombre si prende, ""
+# si no. La probabilidad escala con tu Magia RELATIVA a la Resistencia del rival (ver
+# StatsMath.imbue_proc_chance) y la baja su resistencia a estados. apply_status() ya corta
+# solo si el objetivo es inmune (el slime de fuego no se quema).
+func roll_imbue(target: Combatant) -> String:
+	if imbue_estado < 0 or imbue_prob <= 0.0 or target == null:
+		return ""
+	if target.es_inmune(imbue_estado):
+		return ""
+	var p: float = StatsMath.imbue_proc_chance(imbue_prob, float(abilities.magia),
+		float(target.abilities.resistencia)) * (1.0 - target.status_resist)
+	if randf() >= p:
+		return ""
+	target.apply_status(imbue_estado)   # duracion/magnitud por defecto del catalogo
+	return String(StatusEffects.def(imbue_estado).get("nombre", "?"))
 
 
 # Baja un turno la imbuicion. Al expirar limpia el bonus y, si era de CUERPO, la afinidad.
@@ -192,6 +223,8 @@ func tick_imbue() -> bool:
 	imbue_elemento = Elementos.Elemento.NINGUNO
 	imbue_pct = 0.0
 	imbue_cuerpo = false
+	imbue_estado = -1
+	imbue_prob = 0.0
 	return true
 
 
@@ -365,6 +398,12 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	if es_inmune(id):
 		print("[estado] %s es INMUNE a %s" % [nombre, String(d.get("nombre", "?"))])
 		return
+	# Estados que APAGAN a otros al aplicarse: Mojado te apaga la Quemadura que llevaras.
+	for id_apagado in (d.get("limpia", []) as Array):
+		var quitados: int = _quitar_status(id_apagado)
+		if quitados > 0:
+			print("[estado] %s: %s APAGA %s" % [nombre, String(d.get("nombre", "?")),
+				String(StatusEffects.def(id_apagado).get("nombre", "?"))])
 	if turns < 0:
 		turns = int(d.get("turns", 3))
 	if magnitude < 0.0:
@@ -423,6 +462,17 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	statuses.append(inst)
 	print("[estado] %s recibe %s (x%d, %.2f/turno, %d turnos)" % [
 		nombre, nombre_estado, inst.stacks, inst.dot_damage(), turns])
+
+
+# Quita TODAS las instancias de un estado. Devuelve cuantas quito (0 = no lo tenia).
+func _quitar_status(id: int) -> int:
+	var antes: int = statuses.size()
+	var quedan: Array = []
+	for e in statuses:
+		if e.id() != id:
+			quedan.append(e)
+	statuses = quedan
+	return antes - statuses.size()
 
 
 # Nº de instancias activas de un estado (para el tope de stacks independientes).
@@ -552,9 +602,10 @@ func status_spd_mult() -> float:
 		m *= e.spd_mult()
 	return m
 
-# Multiplicador de la prob. de aturdir que RECIBE este combatiente (RAYO, KAN-58).
+# Multiplicador de la prob. de aturdir que RECIBE este combatiente. Lo SUBE el estado RAYO
+# (x1.5) y lo BAJA la afinidad de Rayo (cuerpo imbuido: resistente al aturdimiento, no inmune).
 func stun_taken_mult() -> float:
-	var m: float = 1.0
+	var m: float = Elementos.stun_taken_por_afinidad(elemento)
 	for e in statuses:
 		m *= e.stun_prob_mult()
 	return m

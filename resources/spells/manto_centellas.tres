@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Manto de centellas"
+tipo = 1
+elemento = 3
+frases = Array[String](["Tormenta, hazme tu cauce", "Que el trueno lata en mi pecho", "Soy la centella, y no me alcanzan"])
+coste_mana = 18
+dano_base = 0.0
+imbue_tipo = 2
+imbue_pct = 0.15
+imbue_turnos = 4
+imbue_estado = 8
+imbue_prob = 0.1
+efectos = []
+descripcion = "Un canto largo que te convierte en pura descarga: los golpes te atontan mucho menos. Arde tu maná deprisa y se apaga pronto."

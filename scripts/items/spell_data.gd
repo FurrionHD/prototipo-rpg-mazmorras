@@ -47,6 +47,12 @@ enum TipoEfecto { ATAQUE, BUFF, DEBUFF }
 @export var imbue_tipo: int = 0
 @export var imbue_pct: float = 0.0
 @export var imbue_turnos: int = 0
+# ESTADO que aplican tus golpes imbuidos (StatusEffects.Id; -1 = ninguno) y su probabilidad
+# BASE en igualdad de poder. La prob. real la escala un CONTEST de tu Magia vs la Resistencia
+# del rival (neutra en igualdad, sube contra debiles, baja contra fuertes). Las de CUERPO
+# llevan menos prob. que las de ARMA: a cambio dan la afinidad entera.
+@export var imbue_estado: int = -1
+@export var imbue_prob: float = 0.0
 
 @export_multiline var descripcion: String = ""
 

@@ -4,16 +4,16 @@
 
 [resource]
 script = ExtResource("1")
-nombre = "Filo de torrente"
+nombre = "Filo ardiente"
 tipo = 1
-elemento = 2
-frases = Array[String](["Que el rio abrace mi acero", "Torrente, muerde por mi"])
+elemento = 1
+frases = Array[String](["Que la brasa cubra mi filo", "Arde con cada tajo"])
 coste_mana = 8
 dano_base = 0.0
 imbue_tipo = 1
 imbue_pct = 0.3
 imbue_turnos = 4
-imbue_estado = 12
+imbue_estado = 2
 imbue_prob = 0.2
 efectos = []
-descripcion = "Envuelves tu arma en una corriente viva: cada golpe descarga un latigazo de agua a presión. Devastador contra criaturas de fuego."
+descripcion = "Tu arma se cubre de brasas vivas: cada golpe deja la carne humeando."

@@ -13,5 +13,7 @@ dano_base = 0.0
 imbue_tipo = 2
 imbue_pct = 0.15
 imbue_turnos = 6
+imbue_estado = 12
+imbue_prob = 0.1
 efectos = []
 descripcion = "Un canto largo que te reviste de agua viva: te afinas al elemento. Las llamas se apagan al tocarte, pero la tormenta te encontrará indefenso."
