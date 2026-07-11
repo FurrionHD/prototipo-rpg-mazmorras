@@ -314,12 +314,14 @@ func _build_armas() -> void:
 
 	# --- Principal ---
 	_content.add_child(HSeparator.new())
-	_bloque_arma("Principal", Game.item_display_name(Game.equipped_main), pueblo, _abrir_cambio.bind("main"))
+	_bloque_arma("Principal", _main_nombre(Game.equipped_main), pueblo, _abrir_cambio.bind("main"))
+	if Game.equipped_main == null:
+		_note(_content, "Sin arma: peleas a puños (poco daño, pero rápido y sin peso).")
 	_weapon_stats(_content, Game.equipped_main)
 
 	# --- Secundaria ---
 	_content.add_child(HSeparator.new())
-	var dos_manos: bool = Game.equipped_main.dos_manos
+	var dos_manos: bool = Game.arma_main().dos_manos and Game.equipped_main != null
 	_bloque_arma("Secundaria", _off_nombre(Game.equipped_off), pueblo and not dos_manos,
 		_abrir_cambio.bind("off"))
 	if dos_manos:
@@ -347,13 +349,19 @@ func _bloque_arma(rol: String, nombre: String, permite_cambio: bool, on_cambiar:
 
 # --- Catalogos: solo lo que TIENES en el baul (Game.owned_*) ---
 
-# Armas validas como PRINCIPAL (solo WeaponData).
+# Armas validas como PRINCIPAL: "nada" (null = manos vacias, peleas a puños) + las WeaponData
+# del baul. Los puños NO son un objeto del baul: son justamente esta opcion de "nada".
 func _catalogo_main() -> Array:
-	var r: Array = []
+	var r: Array = [null]
 	for it in Game.owned_weapons:
 		if it is WeaponData:
 			r.append(it)
 	return r
+
+
+# Nombre de una candidata a mano PRINCIPAL (null = manos vacias).
+func _main_nombre(item: Resource) -> String:
+	return "— (sin arma)" if item == null else Game.item_display_name(item)
 
 # Manos SECUNDARIAS posibles: "nada" (null) + todo el baul (la validez la filtra
 # _secundaria_valida, que ya descarta la que llevas en la principal).
@@ -394,15 +402,18 @@ func _build_armas_cambiar() -> void:
 	for i in catalogo.size():
 		var item: Resource = catalogo[i]
 		if es_main:
-			labels.append(Game.item_display_name(item))
+			labels.append(_main_nombre(item))
 		else:
 			labels.append(_off_nombre(item))
 			# Deshabilita las secundarias incompatibles con la principal actual.
 			if not Game._secundaria_valida(Game.equipped_main, item):
 				disabled.append(i)
 
+	# El candidato "nada" no se EQUIPA, se DESEQUIPA (es volver a los puños / a la mano libre).
+	var cand_nada: bool = _arma_cand < catalogo.size() and catalogo[_arma_cand] == null
 	_build_cambiar_layout(labels, _arma_cand, disabled, _pick_arma,
-		_preview_arma, _equipar_arma, _cancelar_arma)
+		_preview_arma, _equipar_arma, _cancelar_arma,
+		"Desequipar" if cand_nada else "Equipar")
 
 
 func _pick_arma(i: int) -> void:
@@ -433,7 +444,10 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		if _arma_cand >= cat.size():
 			return
 		var w: WeaponData = cat[_arma_cand]
-		_title(vb, Game.item_display_name(w))
+		_title(vb, _main_nombre(w))
+		if w == null:
+			_note(vb, "Manos vacías: peleas a puños. Poco daño, pero rápido y sin peso.")
+			_note(vb, "Con las manos libres solo puedes llevar escudo o varita en la otra mano.")
 		_weapon_stats(vb, w)
 	else:
 		var cat_off: Array = _catalogo_off()
@@ -619,8 +633,10 @@ func _build_armadura_slot(slot: String) -> void:
 	# Fuera del pueblo: apagar solo "Equipar" (marcando el candidato como disabled, que es
 	# lo que mira _build_cambiar_layout). El resto de la cuadricula sigue navegable/consultable.
 	var disabled: Array = [_armor_cand] if not pueblo else []
+	var cand_nada: bool = _armor_cand < cat.size() and cat[_armor_cand] == null
 	_build_cambiar_layout(labels, _armor_cand, disabled, _pick_armor,
-		_preview_armor, _equipar_armor, _cerrar_slot)
+		_preview_armor, _equipar_armor, _cerrar_slot,
+		"Desequipar" if cand_nada else "Equipar")
 
 
 func _pick_armor(i: int) -> void:
@@ -661,9 +677,12 @@ func _preview_armor(vb: VBoxContainer) -> void:
 #  Cuadricula de seleccion + panel de stats a la derecha (comun armas/armadura)
 # ============================================================
 
+# 'equipar_txt' lo pasa quien llama: si el candidato es "nada", el boton dice DESEQUIPAR
+# (elegir "(nada)" en la principal = pelear a puños; en la armadura = quitarse la pieza).
 func _build_cambiar_layout(labels: Array, cand: int, disabled: Array,
 		on_pick: Callable, preview_builder: Callable,
-		on_equipar: Callable, on_cancel: Callable) -> void:
+		on_equipar: Callable, on_cancel: Callable,
+		equipar_txt: String = "Equipar") -> void:
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 20)
 	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -698,7 +717,7 @@ func _build_cambiar_layout(labels: Array, cand: int, disabled: Array,
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 8)
 	var eq := Button.new()
-	eq.text = "Equipar"
+	eq.text = equipar_txt
 	eq.disabled = disabled.has(cand)
 	eq.pressed.connect(on_equipar)
 	actions.add_child(eq)

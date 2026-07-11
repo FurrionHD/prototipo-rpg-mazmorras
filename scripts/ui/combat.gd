@@ -355,7 +355,8 @@ func _dev_swap_weapon(main: bool) -> void:
 	elif Game.equipped_off is ShieldData:
 		oname = (Game.equipped_off as ShieldData).nombre
 	var mano: String = "principal" if main else "secundaria"
-	_set_log("[dev] Cambiada %s → %s + %s" % [mano, Game.equipped_main.nombre, oname])
+	var mname: String = Game.equipped_main.nombre if Game.equipped_main != null else "— (sin arma)"
+	_set_log("[dev] Cambiada %s → %s + %s" % [mano, mname, oname])
 
 
 func _process(delta: float) -> void:
@@ -531,6 +532,11 @@ func _accion_magia() -> void:
 		if not _player.has_mana(coste):
 			b.disabled = true
 			b.tooltip_text = "Mana insuficiente"
+		elif spell.imbue_tipo == 1 and Game.equipped_main == null:
+			# Imbuir el ARMA sin llevar arma no tiene sentido: no hay filo que teñir. Las de
+			# CUERPO si valen a manos vacias (te imbuyes tu, no el acero).
+			b.disabled = true
+			b.tooltip_text = "No llevas arma que imbuir"
 		b.pressed.connect(_elegir_hechizo.bind(spell))
 		_spell_box.add_child(b)
 	var volver := Button.new()

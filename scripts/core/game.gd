@@ -200,9 +200,9 @@ var debug_panel_open: bool = false
 
 
 func _ready() -> void:
-	# El baul arranca con el arma que llevas puesta (puños): siempre puedes volver a ella.
-	add_owned_weapon(equipped_main)
-	equip_meta["main"] = meta_de(equipped_main)   # el slot comparte la meta del objeto
+	# El baul NO arranca con nada: empiezas a manos vacias. Los puños no son un objeto que
+	# poseas (no se compran, ni se forjan, ni se mejoran), son la AUSENCIA de arma.
+	equip_meta["main"] = _meta_por_defecto()
 
 	# TEMPORAL: arrancar con las habilidades a un valor para revisar el escalado.
 	if dev_start_abilities > 0:
@@ -227,8 +227,22 @@ var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
 # --- Equipamiento: loadout de DOS manos (arma principal + secundaria) ---
 # La secundaria puede ser otra WeaponData (dual-wield), un ShieldData o null.
 # Un arma a dos manos (dos_manos) obliga a secundaria = null.
-var equipped_main: WeaponData = preload("res://resources/weapons/punos.tres")
+# AMBAS manos admiten null: null en la principal = MANOS VACIAS (peleas a puños).
+#
+# Los PUÑOS no son un arma: son la LINEA BASE de pelear sin nada. Sus numeros (motion value,
+# aturdir, contundente) viven en un .tres para no hardcodearlos, pero el objeto NO se posee,
+# ni se forja, ni se mejora, ni sale en el baul. Solo lo usa arma_main() como respaldo.
+const PUNOS_BASE := preload("res://resources/weapons/punos.tres")
+
+var equipped_main: WeaponData = null   # null = manos vacias (puños)
 var equipped_off: Resource = null   # WeaponData | ShieldData | null
+
+
+# El arma con la que peleas DE VERDAD: la equipada, o los puños si no llevas nada. Punto
+# unico por el que pasa todo el combate, para que "sin arma" no sea un caso especial en
+# cada formula. Ojo: para saber si llevas algo EQUIPADO, mira equipped_main, no esto.
+func arma_main() -> WeaponData:
+	return equipped_main if equipped_main != null else (PUNOS_BASE as WeaponData)
 # Dual-wield: llevar arma en la secundaria acelera el ataque (mas turnos). La
 # velocidad final tiene DOS componentes (ver loadout_mods):
 #  1) Un bonus fijo por llevar dos armas, DECRECIENTE segun lo rapida que ya sea
@@ -341,8 +355,9 @@ const COBERTURA_PANTALONES := 0.20
 const COBERTURA_BOTAS := 0.125
 
 # PRUEBAS: cambiar loadout en caliente (K = arma principal, L = mano secundaria).
+# Es tambien el catalogo de la FORJA del panel de debug. Los PUÑOS no estan y no deben
+# estar: no son un arma que se cree ni se mejore (para ir a puños, DESEQUIPA la principal).
 var _dev_weapons: Array[String] = [
-	"res://resources/weapons/punos.tres",
 	"res://resources/weapons/daga.tres",
 	"res://resources/weapons/estoque.tres",
 	"res://resources/weapons/espada_corta.tres",
@@ -364,7 +379,7 @@ var _dev_offs: Array = [
 	"res://resources/shields/escudo_grande.tres",
 	"res://resources/wands/varita.tres",
 ]
-var _dev_main_idx: int = 0
+var _dev_main_idx: int = -1   # -1 = manos vacias (como arranca el jugador)
 var _dev_off_idx: int = 0
 
 # --- HECHIZOS equipados (KAN-56) ---
@@ -700,7 +715,7 @@ func _aplicar_loadout(c: Combatant) -> void:
 # Combina la mano principal + la secundaria en los modificadores finales de
 # combate. La secundaria aporta VELOCIDAD (dual) o BLOQUEO/penalizacion (escudo).
 func loadout_mods() -> Dictionary:
-	var main: WeaponData = equipped_main
+	var main: WeaponData = arma_main()   # sin arma equipada -> los puños
 	# Mods COMPARTIDOS (del loadout entero) + lista de MANOS (armas que alternan).
 	var m := {
 		"velocidad_mult": main.velocidad_mult,
@@ -744,8 +759,12 @@ func loadout_mods() -> Dictionary:
 	var mp_regen_bonus := 0.0
 	var mana_reduccion := 0.0
 	var cast_vel_add := 0.0
-	var cast_base := main.velocidad_mult   # por defecto, la velocidad del arma principal
+	# Recitar un encantamiento no se hace con el arma: por defecto va a velocidad NORMAL. Solo
+	# las armas MAGICAS (baston / varita) la tocan; un mandoble ya no te frena el conjuro.
+	# OJO: la velocidad_mult de un arma magica ES su velocidad de casteo (decision de DATOS).
+	var cast_base := 1.0
 	if main.es_magica:
+		cast_base = main.velocidad_mult
 		var mm := Upgrades.magic_mods(main.magic_amp, tier_mult(equip_tier("main")), equip_rareza("main"), equip_mejoras("main"))
 		magic_amp *= float(mm["magic_amp"])
 		mp_regen_bonus += main.mp_regen_bonus * float(mm["regen_mult"])
@@ -787,7 +806,12 @@ func _hand_from(w: WeaponData, slot: String) -> Dictionary:
 # dual y, si la principal solo admite off-hand ligera (espada larga), ser ligera.
 # Ademas, no puedes llevar en las dos manos el MISMO objeto: para ir a dual
 # necesitas dos armas distintas en el baul.
+# 'main' puede ser null (MANOS VACIAS): entonces solo se admite escudo, varita o nada. Un
+# arma en la secundaria con la principal vacia seria un descuido, no una jugada: si quieres
+# esa espada, va en la PRINCIPAL.
 func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
+	if main == null:
+		return item == null or item is ShieldData or item is WandData
 	if main.dos_manos:
 		return false
 	if item != null and item == main:
@@ -805,11 +829,12 @@ func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
 			return false   # este main (espada larga) no admite NINGUN arma en off
 	return true   # ShieldData o null
 
-# Equipa un arma en la mano principal. Revalida la secundaria: si la nueva
-# principal no la admite (2 manos, o solo-ligera), la quita.
+# Equipa un arma en la mano principal; null = DESEQUIPAR (manos vacias, peleas a puños).
+# Revalida la secundaria: si la nueva principal no la admite (2 manos, solo-ligera, o manos
+# vacias con un arma en la off), la quita.
 func equipar_arma(w: WeaponData) -> void:
 	equipped_main = w
-	equip_meta["main"] = meta_de(w)
+	equip_meta["main"] = meta_de(w)   # null -> meta por defecto: el puño no se mejora
 	if not _secundaria_valida(w, equipped_off):
 		equipped_off = null
 		equip_meta["off"] = _meta_por_defecto()
@@ -1126,17 +1151,24 @@ func _input(event: InputEvent) -> void:
 
 
 # --- PRUEBAS: ciclar el loadout con el teclado ---
+# El ciclo pasa por SIN ARMA (indice -1, manos vacias) antes de volver a la primera: asi se
+# pueden probar los puños sin que sean un objeto del baul.
 func _dev_cycle_weapon() -> void:
-	_dev_main_idx = wrapi(_dev_main_idx + 1, 0, _dev_weapons.size())
-	var w: WeaponData = load(_dev_weapons[_dev_main_idx])
-	add_owned_weapon(w)   # que aparezca tambien en el baul / menu de personaje
-	equipar_arma(w)
+	_dev_main_idx += 1
+	if _dev_main_idx >= _dev_weapons.size():
+		_dev_main_idx = -1   # una vuelta a manos vacias
+	if _dev_main_idx < 0:
+		equipar_arma(null)
+	else:
+		var w: WeaponData = load(_dev_weapons[_dev_main_idx])
+		add_owned_weapon(w)   # que aparezca tambien en el baul / menu de personaje
+		equipar_arma(w)
 	if equipped_off == null:   # la nueva principal pudo invalidar la secundaria
 		_dev_off_idx = 0
 	_dev_print_loadout()
 
 func _dev_cycle_off() -> void:
-	if equipped_main.dos_manos:
+	if arma_main().dos_manos and equipped_main != null:
 		print("[dev] ", equipped_main.nombre, " es a dos manos: sin mano secundaria")
 		return
 	# Busca la SIGUIENTE secundaria valida para la principal actual (salta las que
@@ -1157,7 +1189,8 @@ func _dev_print_loadout() -> void:
 	elif equipped_off is ShieldData:
 		off_name = (equipped_off as ShieldData).nombre
 	var m := loadout_mods()
-	print("[dev] Loadout: ", equipped_main.nombre, " + ", off_name,
+	var main_name: String = equipped_main.nombre if equipped_main != null else "— (sin arma)"
+	print("[dev] Loadout: ", main_name, " + ", off_name,
 		"  | vel×:", m["velocidad_mult"], " bloqueo:", m["defend_block"],
 		" esq-:", m["evasion_penal"], "  (manos alternan por golpe)")
 	for h in m["hands"]:
