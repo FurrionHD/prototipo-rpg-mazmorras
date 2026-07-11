@@ -161,6 +161,9 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	c.elemento = elemento
 	c.resist_elemental = resist_elemental
 	c.inmune_estados = inmune_estados
+	# Sus GOLPES van de su elemento (el slime de fuego pega fuego). Ojo: un bicho que resista
+	# fuego por un override (minotauro peludo) tiene elemento NINGUNO -> sus golpes NO son de fuego.
+	c.elemento_ataque = elemento
 	return c
 
 

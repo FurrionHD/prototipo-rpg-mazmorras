@@ -27,7 +27,6 @@ base_attack = 4.0
 base_defense = 3.0
 base_speed = 4.0
 elemento = 1
-inmune_estados = [2]
 drop_name = "Material de Slime de fuego"
 al_golpear = [SubResource("SA_peg"), SubResource("SA_quema")]
 habilidades = [ExtResource("3_lla"), ExtResource("4_sal"), ExtResource("5_com"), ExtResource("6_ign")]

@@ -147,6 +147,53 @@ var elemento: int = Elementos.Elemento.NINGUNO
 var resist_elemental: Dictionary = {}
 var inmune_estados: Array = []
 
+# Elemento del que va tu GOLPE ENTERO (lo usan los enemigos: el slime de fuego pega fuego).
+# En el JUGADOR se queda siempre NINGUNO: su daño elemental sale de la IMBUICION (abajo), no
+# de teñir el golpe entero — si no, contra un enemigo resistente se le partiria el daño base.
+var elemento_ataque: int = Elementos.Elemento.NINGUNO
+
+# --- IMBUICION (buff por combate, como foco_cargas) ---
+# Añade una PORCION de daño elemental a tus golpes de arma: daño × (1 + imbue_pct × mult_elem).
+# Es porcentual a proposito: escala sola con Fuerza/arma/mejoras/criticos y nunca hay que
+# retunearla. La de CUERPO ademas fija tu 'elemento' (afinidad) -> resistencias, debilidades
+# e inmunidades por la tabla; al expirar vuelve a NINGUNO.
+var imbue_elemento: int = Elementos.Elemento.NINGUNO
+var imbue_pct: float = 0.0
+var imbue_turnos: int = 0
+var imbue_cuerpo: bool = false
+
+
+# True si este combatiente NO puede recibir el estado 'id': por inmunidad a medida
+# (inmune_estados) o, sobre todo, por su AFINIDAD elemental (ver Elementos).
+func es_inmune(id: int) -> bool:
+	return inmune_estados.has(id) or Elementos.inmunidades_de(elemento).has(id)
+
+
+# Imbuye el arma (cuerpo = false) o el CUERPO (cuerpo = true) con un elemento.
+func aplicar_imbue(elem: int, pct: float, turnos: int, cuerpo: bool) -> void:
+	imbue_elemento = elem
+	imbue_pct = pct
+	imbue_turnos = maxi(1, turnos)
+	imbue_cuerpo = cuerpo
+	if cuerpo:
+		elemento = elem   # afinidad: resistencias/debilidades/inmunidades por la tabla
+
+
+# Baja un turno la imbuicion. Al expirar limpia el bonus y, si era de CUERPO, la afinidad.
+# Devuelve true si acaba de expirar (para el log).
+func tick_imbue() -> bool:
+	if imbue_turnos <= 0:
+		return false
+	imbue_turnos -= 1
+	if imbue_turnos > 0:
+		return false
+	if imbue_cuerpo:
+		elemento = Elementos.Elemento.NINGUNO
+	imbue_elemento = Elementos.Elemento.NINGUNO
+	imbue_pct = 0.0
+	imbue_cuerpo = false
+	return true
+
 
 func _init(nombre_: String, level_: int, abilities_: Abilities,
 		base_hp_: float, base_attack_: float, base_defense_: float, base_speed_: float) -> void:
@@ -312,9 +359,10 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	var d: Dictionary = StatusEffects.def(id)
 	if d.is_empty():
 		return
-	# INMUNIDAD a estados (choke point unico): el slime de fuego es inmune a Quemadura, etc.
-	# Cubre TODAS las vias (golpes, hechizos, skills enemigas, teclas dev) al pasar todas por aqui.
-	if inmune_estados.has(id):
+	# INMUNIDAD a estados (choke point unico): por AFINIDAD (el de fuego no se quema, el
+	# imbuido en agua tampoco) o a medida. Cubre TODAS las vias (golpes, hechizos, skills
+	# enemigas, teclas dev) porque todas pasan por aqui.
+	if es_inmune(id):
 		print("[estado] %s es INMUNE a %s" % [nombre, String(d.get("nombre", "?"))])
 		return
 	if turns < 0:

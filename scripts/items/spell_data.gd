@@ -39,6 +39,15 @@ enum TipoEfecto { ATAQUE, BUFF, DEBUFF }
 # NINGUNO = daño mágico neutro (no lo modula ningún elemento). Ver elements.gd.
 @export var elemento: int = Elementos.Elemento.NINGUNO
 
+# --- IMBUICION: el hechizo no pega, TIÑE tus golpes de arma con su 'elemento' ---
+# imbue_tipo: 0 = no es imbuicion | 1 = ARMA (solo ofensiva) | 2 = CUERPO (ademas te da la
+# AFINIDAD del elemento: resistencias, debilidades e inmunidades; casteo mas largo).
+# imbue_pct: fraccion del daño que se añade como daño ELEMENTAL (0.30 = +30%). Porcentual a
+# proposito: escala sola con tu Fuerza/arma/mejoras y no hay que retunearla nunca.
+@export var imbue_tipo: int = 0
+@export var imbue_pct: float = 0.0
+@export var imbue_turnos: int = 0
+
 @export_multiline var descripcion: String = ""
 
 # --- ESTADOS ALTERADOS que aplica el hechizo (KAN-58 Fase 3) ---

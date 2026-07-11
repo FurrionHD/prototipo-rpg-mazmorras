@@ -34,9 +34,26 @@ const PERFIL_DEFECTO := {
 }
 
 
+# Estados a los que te hace INMUNE tener esta afinidad. La inmunidad es CONSECUENCIA del
+# elemento, no un dato suelto: un ser de fuego no se quema, uno de agua tampoco (la apaga),
+# uno toxico no se envenena. Lo aprovechan tanto los enemigos (slime de fuego/veneno) como
+# el jugador cuando se imbuye el CUERPO.
+const INMUNIDAD_POR_AFINIDAD := {
+	Elemento.FUEGO: [StatusEffects.Id.QUEMADURA],    # eres fuego
+	Elemento.AGUA: [StatusEffects.Id.QUEMADURA],     # el agua apaga el fuego
+	Elemento.RAYO: [StatusEffects.Id.RAYO],
+	Elemento.VENENO: [StatusEffects.Id.VENENO],      # eres toxico
+}
+
+
 # Nombre legible de un elemento (para logs / UI).
 static func nombre(elem: int) -> String:
 	return String(NOMBRE.get(elem, "?"))
+
+
+# Estados a los que es inmune quien tenga esta afinidad ([] si NINGUNO).
+static func inmunidades_de(elem: int) -> Array:
+	return INMUNIDAD_POR_AFINIDAD.get(elem, [])
 
 
 # Multiplicador de daño que RECIBE 'defender' de un ataque de elemento 'elem'.

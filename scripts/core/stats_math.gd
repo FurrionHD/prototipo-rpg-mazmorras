@@ -245,11 +245,24 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	if defending:
 		dmg *= clampf(1.0 - defender.defend_block, DEFEND_TAKEN_MIN, DEFEND_TAKEN_MAX)
 
+	# 4.5) ELEMENTOS (KAN-58). Dos cosas distintas, a proposito:
+	#  a) El golpe ENTERO va del elemento del atacante (enemigos: el slime de fuego pega fuego).
+	#     El jugador tiene elemento_ataque NINGUNO -> mult 1.0, no le afecta.
+	#  b) La IMBUICION añade una PORCION de daño elemental encima, que SI sufre la
+	#     resistencia/debilidad del objetivo. Nunca penaliza el daño base: solo el extra.
+	var mult_elem := Elementos.mult_recibido(attacker.elemento_ataque, defender)
+	dmg *= mult_elem
+	var mult_imbue := 1.0
+	if attacker.imbue_pct > 0.0 and attacker.imbue_elemento != Elementos.Elemento.NINGUNO:
+		mult_imbue = Elementos.mult_recibido(attacker.imbue_elemento, defender)
+		dmg *= (1.0 + attacker.imbue_pct * mult_imbue)
+
 	# 5) Aturdir/retrasar (solo armas CONTUNDENTES).
 	var aturde := aturde_p > 0.0 and randf() < aturde_p
 
 	return {"damage": maxf(0.1, dmg), "evaded": false, "crit": is_crit, "aturde": aturde,
-		"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p}
+		"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p,
+		"mult_elem": mult_elem, "mult_imbue": mult_imbue}
 
 
 # ============================================================

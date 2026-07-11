@@ -389,6 +389,10 @@ func _begin_player_turn() -> void:
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
 	_player.salir_de_guardia() # la postura de contraataque tambien dura hasta tu proxima accion
 	_player.tick_cooldowns()   # habilidades (KAN-57): baja 1 turno los cooldowns activos
+	# IMBUICION (KAN-58): baja un turno; al expirar se pierde el bonus (y la afinidad si era de cuerpo).
+	if _player.tick_imbue():
+		print("[imbuicion] Se agota la imbuición de %s." % _player.nombre)
+		_set_log("Se agota tu imbuición. ✨")
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
 	var ev: Dictionary = _player.tick_statuses()
 	_log_tick(_player, ev)
@@ -639,6 +643,9 @@ func _disparar_hechizo() -> void:
 		_set_log("🔥 %s impacta a %s por %.2f de daño.%s%s" % [spell.nombre, _enemy.nombre, dano, elem_txt, foco_txt])
 	else:
 		_set_log("✨ %s lanza %s." % [_player.nombre, spell.nombre])
+	# IMBUICION (KAN-58): el hechizo no pega, tiñe tus GOLPES DE ARMA con su elemento.
+	if spell.imbue_tipo > 0:
+		_aplicar_imbuicion(spell)
 	# Estado alterado del hechizo (quemadura/rayo al enemigo, buff/debuff), KAN-58 Fase 3.
 	_aplicar_estado_hechizo(spell)
 	# Excelia (formula dedicada de Magia): entrena al LANZAR, escalado por el mana
@@ -657,6 +664,43 @@ func _disparar_hechizo() -> void:
 		_state = State.ADVANCING
 
 
+# IMBUICION (KAN-58): tiñe tus golpes de arma con el elemento del hechizo.
+#   ARMA   -> solo el bonus de daño elemental.
+#   CUERPO -> ademas te da la AFINIDAD: resistes/eres debil a lo que diga la tabla, y te
+#             vuelves INMUNE a los estados de ese elemento (imbuido en agua no te queman).
+func _aplicar_imbuicion(spell: SpellData) -> void:
+	var cuerpo: bool = spell.imbue_tipo == 2
+	_player.aplicar_imbue(spell.elemento, spell.imbue_pct, spell.imbue_turnos, cuerpo)
+	var elem: String = Elementos.nombre(spell.elemento)
+	print("[imbuicion] %s se imbuye %s de %s: +%d%% de daño %s durante %d turnos" % [
+		_player.nombre, ("el CUERPO" if cuerpo else "el ARMA"), elem,
+		roundi(spell.imbue_pct * 100.0), elem, spell.imbue_turnos])
+	var msg: String = "✨ Imbuyes tu %s de %s: +%d%% de daño de %s (%d turnos)." % [
+		("cuerpo" if cuerpo else "arma"), elem, roundi(spell.imbue_pct * 100.0), elem, spell.imbue_turnos]
+	if cuerpo:
+		# Afinidad: contar lo que gana y lo que pierde, DERIVADO de la tabla (no hardcodeado).
+		var resiste: Array = []
+		var debil: Array = []
+		var perfil: Dictionary = Elementos.PERFIL_DEFECTO.get(spell.elemento, {})
+		for e in perfil:
+			if float(perfil[e]) < 1.0:
+				resiste.append(Elementos.nombre(e))
+			elif float(perfil[e]) > 1.0:
+				debil.append(Elementos.nombre(e))
+		if not resiste.is_empty():
+			msg += "  🛡 Resistes: %s." % ", ".join(resiste)
+		var inm: Array = []
+		for id in Elementos.inmunidades_de(spell.elemento):
+			inm.append(str(StatusEffects.def(id).get("nombre", "?")))
+		if not inm.is_empty():
+			msg += "  Inmune a: %s." % ", ".join(inm)
+		if not debil.is_empty():
+			msg += "  ⚠ Débil a: %s." % ", ".join(debil)
+		print("[imbuicion] afinidad %s -> resiste %s | inmune %s | debil a %s" % [
+			elem, resiste, inm, debil])
+	_set_log(msg)
+
+
 # Aplica (o no) los estados del hechizo. Al ENEMIGO = con PROBABILIDAD (sube con la
 # longitud del hechizo; el enemigo puede resistir). A UNO MISMO (buff) = siempre.
 func _aplicar_estado_hechizo(spell: SpellData) -> void:
@@ -667,7 +711,7 @@ func _aplicar_estado_hechizo(spell: SpellData) -> void:
 		var objetivo: Combatant = _enemy if al_enemigo else _player
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		# Inmunidad elemental: si el objetivo no puede recibir el estado, avisar y no tirar.
-		if objetivo.inmune_estados.has(a.estado):
+		if objetivo.es_inmune(a.estado):   # incluye la inmunidad derivada de su AFINIDAD elemental
 			_set_log("… %s es INMUNE a %s." % [objetivo.nombre, nom])
 			continue
 		if al_enemigo:
@@ -1204,7 +1248,7 @@ func _enemy_tirar_efectos(ab: AbilityData) -> Array:
 		var al_jugador: bool = a.en_objetivo
 		var objetivo: Combatant = _player if al_jugador else _enemy
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
-		if objetivo.inmune_estados.has(a.estado):
+		if objetivo.es_inmune(a.estado):   # incluye la inmunidad derivada de su AFINIDAD elemental
 			continue   # apply_status ya lo avisaria, pero asi no ensucia el log de aplicados
 		# Solo los estados que te LANZAN a ti se resisten; los buffs propios siempre prenden.
 		var p: float = a.prob * (1.0 - _player.status_resist) if al_jugador else a.prob

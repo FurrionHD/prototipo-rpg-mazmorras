@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Manto de marea"
+tipo = 1
+elemento = 2
+frases = Array[String](["Aguas profundas, cubridme", "Que la marea sea mi piel", "Soy el mar, y el mar no arde"])
+coste_mana = 14
+dano_base = 0.0
+imbue_tipo = 2
+imbue_pct = 0.15
+imbue_turnos = 6
+efectos = []
+descripcion = "Un canto largo que te reviste de agua viva: te afinas al elemento. Las llamas se apagan al tocarte, pero la tormenta te encontrará indefenso."

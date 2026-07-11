@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Filo de escarcha"
+tipo = 1
+elemento = 2
+frases = Array[String](["Que el hielo abrace mi acero", "Muerde, escarcha"])
+coste_mana = 8
+dano_base = 0.0
+imbue_tipo = 1
+imbue_pct = 0.3
+imbue_turnos = 4
+efectos = []
+descripcion = "Envuelves tu arma en agua helada: tus golpes cortan y congelan. Devastador contra criaturas de fuego."
