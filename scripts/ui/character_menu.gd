@@ -26,7 +26,9 @@ var _root: Control = null
 var _content: VBoxContainer = null        # cuerpo (derecha) que se reconstruye
 var _tab_buttons: Array = []              # botones de pestaña (izquierda)
 
-var _tab: int = 0                         # 0 personaje, 1 armas, 2 armadura
+var _tab_box: VBoxContainer = null        # contenedor de los botones de pestaña
+var _tab: int = 0                         # 0 personaje, 1 armas, 2 armadura, 3 hechizos
+var _spell_sel: int = 0                   # hechizo seleccionado en la pestaña Hechizos
 var _char_page: int = 0                   # 0 stats, 1 habilidades
 var _arma_change: String = ""             # "" | "main" | "off"
 var _arma_cand: int = 0                   # indice del candidato en el catalogo
@@ -72,15 +74,11 @@ func _ready() -> void:
 	side.add_child(titulo)
 	side.add_child(HSeparator.new())
 
-	var nombres := ["Personaje", "Armas", "Armadura"]
-	for i in nombres.size():
-		var b := Button.new()
-		b.text = nombres[i]
-		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, 34)
-		b.pressed.connect(_on_tab.bind(i))
-		side.add_child(b)
-		_tab_buttons.append(b)
+	# Las pestañas se reconstruyen al ABRIR el menu (_rebuild_tabs): la de Hechizos solo
+	# aparece si el personaje conoce alguno.
+	_tab_box = VBoxContainer.new()
+	_tab_box.add_theme_constant_override("separation", 6)
+	side.add_child(_tab_box)
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -137,7 +135,27 @@ func _set_open(open: bool) -> void:
 		_char_page = 0
 		_arma_change = ""
 		_armor_slot_sel = ""
+		_spell_sel = 0
+		_rebuild_tabs()   # la pestaña de Hechizos aparece/desaparece segun lo que sepas
 		_rebuild()
+
+
+# Reconstruye la barra de pestañas. "Hechizos" SOLO si el personaje conoce alguno.
+func _rebuild_tabs() -> void:
+	for c in _tab_box.get_children():
+		c.queue_free()
+	_tab_buttons.clear()
+	var nombres: Array = ["Personaje", "Armas", "Armadura"]
+	if Game.tiene_hechizos():
+		nombres.append("Hechizos")
+	for i in nombres.size():
+		var b := Button.new()
+		b.text = str(nombres[i])
+		b.toggle_mode = true
+		b.custom_minimum_size = Vector2(0, 34)
+		b.pressed.connect(_on_tab.bind(i))
+		_tab_box.add_child(b)
+		_tab_buttons.append(b)
 
 
 func _on_tab(i: int) -> void:
@@ -156,6 +174,7 @@ func _rebuild() -> void:
 		0: _build_personaje()
 		1: _build_armas()
 		2: _build_armadura()
+		3: _build_hechizos()
 
 
 # ============================================================
@@ -689,3 +708,141 @@ func _build_cambiar_layout(labels: Array, cand: int, disabled: Array,
 	actions.add_child(ca)
 	right.add_child(HSeparator.new())
 	right.add_child(actions)
+
+
+# ============================================================
+#  Pestaña HECHIZOS (solo si conoces alguno)
+#  Cuadricula de hechizos + ficha del seleccionado: que hace (todo DERIVADO de sus
+#  campos, ver SpellData.resumen) y su ENCANTAMIENTO (las frases que hay que recitar).
+# ============================================================
+
+func _build_hechizos() -> void:
+	_title(_content, "HECHIZOS")
+	_note(_content, "Se lanzan RECITANDO su encantamiento: una frase por turno. Si fallas una, el hechizo se te vuelve en contra.")
+	_content.add_child(HSeparator.new())
+
+	var spells: Array = Game.equipped_spells
+	if spells.is_empty():
+		_note(_content, "No conoces ningún hechizo.")
+		return
+	_spell_sel = clampi(_spell_sel, 0, spells.size() - 1)
+
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 20)
+	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(hb)
+
+	# Izquierda: cuadricula de hechizos.
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	for i in spells.size():
+		var s: SpellData = spells[i]
+		var b := Button.new()
+		b.text = "%s\n%d MP" % [s.nombre, s.coste_mana]
+		b.toggle_mode = true
+		b.button_pressed = (i == _spell_sel)
+		b.clip_text = true
+		b.custom_minimum_size = Vector2(120, 46)
+		b.pressed.connect(_pick_hechizo.bind(i))
+		grid.add_child(b)
+	hb.add_child(grid)
+
+	# Derecha: la ficha del seleccionado.
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 4)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hb.add_child(right)
+	_ficha_hechizo(right, spells[_spell_sel])
+
+
+func _pick_hechizo(i: int) -> void:
+	_spell_sel = i
+	_rebuild()
+
+
+# Ficha de un hechizo. TODO sale de sus campos: si tocas un numero en el .tres, esto se
+# actualiza solo (la 'descripcion' es solo SABOR y no repite ninguna cifra).
+func _ficha_hechizo(vb: VBoxContainer, s: SpellData) -> void:
+	_title(vb, s.nombre)
+	_row(vb, "  Encantamiento", "%s (%d frase%s)" % [
+		s.longitud_texto(), s.longitud(), "" if s.longitud() == 1 else "s"])
+	_row(vb, "  Coste", "%d de maná" % s.coste_mana)
+	if s.elemento != Elementos.Elemento.NINGUNO:
+		_row(vb, "  Elemento", Elementos.nombre(s.elemento))
+
+	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
+		_row(vb, "  Daño base", "%.0f" % s.dano_base)
+		_note(vb, "El daño real escala con tu Magia y con el arma mágica que lleves.")
+
+	# IMBUICION: lo que le hace a tus golpes de arma.
+	if s.es_imbuicion():
+		vb.add_child(HSeparator.new())
+		_row(vb, "  Imbuye", "tu %s de %s" % [s.imbue_texto(), Elementos.nombre(s.elemento)])
+		_row(vb, "  Daño extra", "+%d%% de %s en tus golpes" % [
+			roundi(s.imbue_pct * 100.0), Elementos.nombre(s.elemento)])
+		if s.imbue_estado >= 0 and s.imbue_prob > 0.0:
+			_row(vb, "  Al golpear", "%d%% de %s" % [roundi(s.imbue_prob * 100.0),
+				String(StatusEffects.def(s.imbue_estado).get("nombre", "?"))])
+			_note(vb, "Esa probabilidad sube contra enemigos más débiles que tu Magia y baja contra los más fuertes.")
+		_row(vb, "  Duración", "%d turnos" % s.imbue_turnos)
+		if s.imbue_tipo == 2:
+			_afinidad_hechizo(vb, s)
+
+	# Estados que aplica el propio hechizo al lanzarlo.
+	var lineas: Array = []
+	for a in s.efectos:
+		if a == null or int(a.estado) < 0:
+			continue
+		var quien: String = "al enemigo" if a.en_objetivo else "a ti"
+		lineas.append("%s  %d%% (%s)" % [
+			String(StatusEffects.def(int(a.estado)).get("nombre", "?")),
+			roundi(s.efecto_prob(a) * 100.0), quien])
+	if not lineas.is_empty():
+		vb.add_child(HSeparator.new())
+		_row(vb, "  Aplica", lineas[0])
+		for i in range(1, lineas.size()):
+			_row(vb, "", lineas[i])
+		_note(vb, "La probabilidad ya incluye el bonus por la longitud del encantamiento.")
+
+	# EL ENCANTAMIENTO: las frases que hay que recitar, en orden.
+	vb.add_child(HSeparator.new())
+	_title(vb, "Encantamiento")
+	for i in s.frases.size():
+		var l := Label.new()
+		l.text = "  %d. «%s»" % [i + 1, s.frases[i]]
+		l.add_theme_color_override("font_color", Color(0.85, 0.8, 0.95))
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size = Vector2(420, 0)
+		vb.add_child(l)
+
+	if s.descripcion != "":
+		vb.add_child(HSeparator.new())
+		_note(vb, s.descripcion)
+
+
+# Lo que te da y lo que te cuesta la afinidad de un imbue de CUERPO. Los % se DERIVAN de la
+# tabla y de la franja de intensidad del hechizo, asi que nunca mienten.
+func _afinidad_hechizo(vb: VBoxContainer, s: SpellData) -> void:
+	var resiste: Array = []
+	var debil: Array = []
+	for e in Elementos.PERFIL_DEFECTO.get(s.elemento, {}):
+		var puro: float = float(Elementos.PERFIL_DEFECTO[s.elemento][e])
+		var m: float = Elementos.escalar_intensidad(puro, s.imbue_intensidad)
+		if m < 0.99:
+			resiste.append("%s (recibes %d%%)" % [Elementos.nombre(e), roundi(m * 100.0)])
+		elif m > 1.01:
+			debil.append("%s (recibes %d%%)" % [Elementos.nombre(e), roundi(m * 100.0)])
+	if not resiste.is_empty():
+		_row(vb, "  🛡 Resistes", ", ".join(resiste))
+	var inm: Array = []
+	for id in Elementos.inmunidades_de(s.elemento):
+		inm.append(String(StatusEffects.def(id).get("nombre", "?")))
+	if not inm.is_empty():
+		_row(vb, "  Inmune a", ", ".join(inm))
+	var st: float = Elementos.stun_taken_por_afinidad(s.elemento)
+	if st < 0.99:
+		_row(vb, "  Aturdimiento", "te aturden un %d%% menos" % roundi((1.0 - st) * 100.0))
+	if not debil.is_empty():
+		_row(vb, "  ⚠ Débil a", ", ".join(debil))

@@ -76,3 +76,48 @@ func longitud() -> int:
 # Probabilidad FINAL de aplicar un efecto (sube con la longitud del hechizo).
 func efecto_prob(app: StatusApplication) -> float:
 	return clampf(app.prob * float(longitud()), 0.0, ESTADO_PROB_MAX)
+
+
+# "Corto" / "Medio" / "Largo" segun el nº de frases del encantamiento.
+func longitud_texto() -> String:
+	match longitud():
+		1: return "Corto"
+		2: return "Medio"
+		3: return "Largo"
+	return "%d frases" % longitud()
+
+
+func es_imbuicion() -> bool:
+	return imbue_tipo > 0
+
+func imbue_texto() -> String:
+	return "cuerpo" if imbue_tipo == 2 else "arma"
+
+
+# RESUMEN mecanico GENERADO desde los campos (nunca hardcodeado en la descripcion, que
+# queda para el SABOR). Lo usa el menu de personaje. Ver tambien AbilityData.resumen().
+func resumen() -> String:
+	var p: Array = []
+	p.append("%s (%d frase%s)" % [longitud_texto(), longitud(), "" if longitud() == 1 else "s"])
+	p.append("%d maná" % coste_mana)
+	if tipo == TipoEfecto.ATAQUE and dano_base > 0.0:
+		var d: String = "%.0f de daño" % dano_base
+		if elemento != Elementos.Elemento.NINGUNO:
+			d += " de %s" % Elementos.nombre(elemento)
+		p.append(d)
+	if es_imbuicion():
+		p.append("imbuye el %s de %s" % [imbue_texto(), Elementos.nombre(elemento)])
+		p.append("+%d%% de daño" % roundi(imbue_pct * 100.0))
+		p.append("%d turnos" % imbue_turnos)
+		if imbue_estado >= 0 and imbue_prob > 0.0:
+			p.append("%s %d%% al golpear" % [
+				String(StatusEffects.def(imbue_estado).get("nombre", "?")),
+				roundi(imbue_prob * 100.0)])
+	for a in efectos:
+		if a == null or int(a.estado) < 0:
+			continue
+		var quien: String = "" if a.en_objetivo else " (a ti)"
+		p.append("%s %d%%%s" % [
+			String(StatusEffects.def(int(a.estado)).get("nombre", "?")),
+			roundi(efecto_prob(a) * 100.0), quien])
+	return " · ".join(p)
