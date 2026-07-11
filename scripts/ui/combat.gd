@@ -748,17 +748,23 @@ func _mult_sufijo(mult: float) -> String:
 	return ""
 
 
-# Cuanto daño de un golpe lo ha puesto la IMBUICION ("" si no hay imbuicion). Enseña la
-# PORCION elemental y su multiplicador cuando no es neutro: "  💧+2.14 de Agua ×1.5".
-# 'escala' = el dano_mult de la habilidad (el golpe entero se escala, la porcion tambien).
-func _imbue_dmg_txt(result: Dictionary, escala: float = 1.0) -> String:
-	var d: float = float(result.get("dmg_imbue", 0.0)) * escala
-	if d <= 0.0:
+# DESGLOSE de un daño ya hecho: cuanto fue fisico y cuanto lo puso la IMBUICION ("" si no hay
+# imbuicion). El daño elemental va DENTRO del total, no encima: por eso se resta en vez de
+# sumarse. Ej con un total de 38.16:  "(27.29 físico + 💧10.87 de Agua ×1.5)".
+func _desglose_imbue(total: float, dmg_imbue: float, mult_imbue: float) -> String:
+	if dmg_imbue <= 0.0:
 		return ""
-	var mult: float = float(result.get("mult_imbue", 1.0))
-	return "  %s+%.2f de %s%s" % [
-		Elementos.icono(_player.imbue_elemento), d,
-		Elementos.nombre(_player.imbue_elemento), _mult_sufijo(mult)]
+	return "  (%.2f físico + %s%.2f de %s%s)" % [
+		maxf(0.0, total - dmg_imbue), Elementos.icono(_player.imbue_elemento), dmg_imbue,
+		Elementos.nombre(_player.imbue_elemento), _mult_sufijo(mult_imbue)]
+
+
+# Lo mismo para UN golpe suelto, a partir del result de resolve_attack.
+# 'escala' = el dano_mult de la habilidad (escala el golpe entero, y con el la porcion).
+func _imbue_dmg_txt(result: Dictionary, escala: float = 1.0) -> String:
+	return _desglose_imbue(float(result.damage) * escala,
+		float(result.get("dmg_imbue", 0.0)) * escala,
+		float(result.get("mult_imbue", 1.0)))
 
 
 # Feedback elemental de un hechizo de UN solo golpe. OJO: GDScript no soporta %g.
@@ -926,6 +932,8 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	print("[habilidad] %s usa %s  (%s, %.0f EN%s)" % [
 		_player.nombre, ab.nombre, ("dual" if manos >= 2 else "1 mano"), coste, mana_txt])
 	var total: float = 0.0
+	var total_imbue: float = 0.0   # cuanto del total lo ha puesto la imbuicion (va DENTRO de 'total')
+	var mult_imbue: float = 1.0
 	var golpes: int = 0
 	var estados_log: Array = []
 	# GOLPES de daño (rango aleatorio; cada tajo con su ESQUIVA y CRITICO propios). Si
@@ -944,6 +952,8 @@ func _usar_habilidad(ab: AbilityData) -> void:
 			else:
 				var dmg: float = result.damage * ab.dano_mult
 				total += dmg
+				total_imbue += float(result.get("dmg_imbue", 0.0)) * ab.dano_mult
+				mult_imbue = float(result.get("mult_imbue", 1.0))
 				_enemy.take_damage(dmg)
 				conecto += 1
 				if result.crit:
@@ -973,8 +983,10 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		# Excelia: como el ataque, entrena Fuerza (por impacto medio).
 		Game.ganar("fuerza", Game.reto(_poder_enemigo()) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
 			Game.RETO_MAX_FISICO)
-		print("        total: %.2f de daño en %d golpe%s | EN -%.0f -> %.1f/%.1f" % [
-			total, golpes, "" if golpes == 1 else "s", coste, _player.current_energy, _player.max_energy])
+		print("        total: %.2f de daño en %d golpe%s%s | EN -%.0f -> %.1f/%.1f" % [
+			total, golpes, "" if golpes == 1 else "s",
+			_desglose_imbue(total, total_imbue, mult_imbue),
+			coste, _player.current_energy, _player.max_energy])
 		_dps_add(ab.nombre, total)
 		# Una habilidad = UN uso de imbuicion, traiga los golpes que traiga (si no, las
 		# multi-golpe la fundirian de una). Las de utilidad pura (Canalizar) no la gastan.
@@ -994,8 +1006,10 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	# Mensaje al jugador.
 	var msg: String
 	if ab.dano_mult > 0.0:
-		msg = "%s usa %s: %.2f de daño (%d golpe%s)." % [
-			_player.nombre, ab.nombre, total, golpes, "" if golpes == 1 else "s"]
+		# El desglose es del TOTAL de la habilidad (sumando lo elemental de todos sus golpes).
+		msg = "%s usa %s: %.2f de daño (%d golpe%s).%s" % [
+			_player.nombre, ab.nombre, total, golpes, "" if golpes == 1 else "s",
+			_desglose_imbue(total, total_imbue, mult_imbue)]
 	else:
 		msg = "%s usa %s." % [_player.nombre, ab.nombre]
 	if mana_ganado > 0.0:
@@ -1514,8 +1528,10 @@ func _debug_ataque(atacante: Combatant, defensor: Combatant, r: Dictionary, bloq
 	var imb: String = ""
 	var d_imb: float = float(r.get("dmg_imbue", 0.0))
 	if d_imb > 0.0:
-		imb = " (imbue %s +%.2f x%.2f)" % [
-			Elementos.nombre(atacante.imbue_elemento), d_imb, float(r.get("mult_imbue", 1.0))]
+		# El daño elemental va DENTRO del dmg, no encima: por eso se resta para sacar el fisico.
+		imb = " (%.2f fis + %.2f %s x%.2f)" % [
+			maxf(0.0, float(r.damage) - d_imb), d_imb,
+			Elementos.nombre(atacante.imbue_elemento), float(r.get("mult_imbue", 1.0))]
 	print("[combate] %s(Dex %d) -> %s(Agi %d) | esquiva:%.1f%% crit:%.1f%% aturdir:%.1f%% | ATK:%.2f dmg:%.2f%s | %s" % [
 		quien, atacante.abilities.destreza,
 		defensor.nombre, defensor.abilities.agilidad,
