@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_quema"]
+script = ExtResource("2")
+estado = 2
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+coste_energia = 0.0
+nombre = "Salpicadura ardiente"
+cooldown = 3
+golpes_min = 2
+golpes_max = 2
+dano_mult = 0.75
+efectos = [SubResource("SA_quema")]
+efectos_por_golpe = true
+descripcion = "Sacude su masa incandescente y te rocía de gotas de lava. Cada salpicón puede prenderte."

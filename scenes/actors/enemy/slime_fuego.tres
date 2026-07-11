@@ -2,6 +2,10 @@
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_llamarada.tres" id="3_lla"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_salpicadura_ardiente.tres" id="4_sal"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_combustion.tres" id="5_com"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_ignicion.tres" id="6_ign"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
@@ -21,4 +25,6 @@ elemento = 1
 inmune_estados = [2]
 drop_name = "Material de Slime de fuego"
 al_golpear = [SubResource("SA_peg"), SubResource("SA_quema")]
+habilidades = [ExtResource("3_lla"), ExtResource("4_sal"), ExtResource("5_com"), ExtResource("6_ign")]
+prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

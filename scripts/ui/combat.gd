@@ -1180,7 +1180,8 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 	else:
 		msg += "."
 	if not estados_log.is_empty():
-		msg += "  Te aplica: %s." % ", ".join(estados_log)
+		# Neutro: las entradas ya dicen "(a sí mismo)" cuando el estado es un buff propio.
+		msg += "  Aplica: %s." % ", ".join(estados_log)
 	_set_log(msg)
 	_update_hp()
 
@@ -1190,21 +1191,29 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 		_pausa_lectura()
 
 
-# Tira los estados (StatusApplication) de una habilidad del enemigo sobre el jugador.
-# Cada uno: prob (reducida por tu resistencia a estados) y N stacks (a.stacks). Devuelve
-# los nombres aplicados para el log.
+# Tira los estados (StatusApplication) de una habilidad del enemigo. Respeta 'en_objetivo':
+#   true  = al JUGADOR (debuff/DoT; tu resistencia a estados baja la probabilidad).
+#   false = A SI MISMO (buff, p.ej. Fortaleza del slime de fuego): siempre prende.
+# N stacks por tirada (a.stacks). Devuelve los nombres aplicados para el log.
 func _enemy_tirar_efectos(ab: AbilityData) -> Array:
 	var out: Array = []
 	for a in ab.efectos:
 		if a.estado < 0:
 			continue
-		if randf() >= a.prob * (1.0 - _player.status_resist):
+		var al_jugador: bool = a.en_objetivo
+		var objetivo: Combatant = _player if al_jugador else _enemy
+		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
+		if objetivo.inmune_estados.has(a.estado):
+			continue   # apply_status ya lo avisaria, pero asi no ensucia el log de aplicados
+		# Solo los estados que te LANZAN a ti se resisten; los buffs propios siempre prenden.
+		var p: float = a.prob * (1.0 - _player.status_resist) if al_jugador else a.prob
+		if randf() >= p:
 			continue
 		var mag: float = StatusEffects.app_magnitude(a, _enemy.atk())
 		# Aplica los stacks de uno en uno (los independientes/merge suben stack por llamada).
 		for _s in maxi(1, a.stacks):
-			_player.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
-		out.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
+			objetivo.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
+		out.append(nom if al_jugador else "%s (a sí mismo)" % nom)
 	return out
 
 
