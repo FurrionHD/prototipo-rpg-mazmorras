@@ -397,10 +397,7 @@ func _begin_player_turn() -> void:
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
 	_player.salir_de_guardia() # la postura de contraataque tambien dura hasta tu proxima accion
 	_player.tick_cooldowns()   # habilidades (KAN-57): baja 1 turno los cooldowns activos
-	# IMBUICION (KAN-58): baja un turno; al expirar se pierde el bonus (y la afinidad si era de cuerpo).
-	if _player.tick_imbue():
-		print("[imbuicion] Se agota la imbuición de %s." % _player.nombre)
-		_set_log("Se agota tu imbuición. ✨")
+	# La IMBUICION ya NO baja aqui: dura ATAQUES, no turnos. Ver _gastar_imbue().
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
 	var ev: Dictionary = _player.tick_statuses()
 	_log_tick(_player, ev)
@@ -666,14 +663,15 @@ func _disparar_hechizo() -> void:
 #             vuelves INMUNE a los estados de ese elemento (imbuido en agua no te queman).
 func _aplicar_imbuicion(spell: SpellData) -> void:
 	var cuerpo: bool = spell.imbue_tipo == 2
-	_player.aplicar_imbue(spell.elemento, spell.imbue_pct, spell.imbue_turnos, cuerpo,
+	_player.aplicar_imbue(spell.elemento, spell.imbue_pct, spell.imbue_usos, cuerpo,
 		spell.imbue_estado, spell.imbue_prob, spell.imbue_intensidad)
 	var elem: String = Elementos.nombre(spell.elemento)
-	print("[imbuicion] %s se imbuye %s de %s: +%d%% de daño %s durante %d turnos" % [
+	var usos_txt: String = "%d ataque%s" % [spell.imbue_usos, "" if spell.imbue_usos == 1 else "s"]
+	print("[imbuicion] %s se imbuye %s de %s: +%d%% de daño %s durante %s" % [
 		_player.nombre, ("el CUERPO" if cuerpo else "el ARMA"), elem,
-		roundi(spell.imbue_pct * 100.0), elem, spell.imbue_turnos])
-	var msg: String = "✨ Imbuyes tu %s de %s: +%d%% de daño de %s (%d turnos)." % [
-		("cuerpo" if cuerpo else "arma"), elem, roundi(spell.imbue_pct * 100.0), elem, spell.imbue_turnos]
+		roundi(spell.imbue_pct * 100.0), elem, usos_txt])
+	var msg: String = "✨ Imbuyes tu %s de %s: +%d%% de daño de %s (%s)." % [
+		("cuerpo" if cuerpo else "arma"), elem, roundi(spell.imbue_pct * 100.0), elem, usos_txt]
 	if cuerpo:
 		# Lo que ganas y lo que pierdes, DERIVADO del estado REAL del jugador (ya lleva la
 		# afinidad puesta con su FRANJA de intensidad). Nada hardcodeado: si tocas la tabla o
@@ -770,6 +768,16 @@ func _elem_txt(mult: float) -> String:
 	if mult < 0.99:
 		return "  resiste ×%.1f" % mult
 	return ""
+
+
+# Gasta UN uso de la imbuicion. Lo llaman las acciones que ATACAN (basico y habilidades que
+# pegan), NUNCA el paso del turno: asi recitar un conjuro largo, defenderte o beber no te funde
+# el filo antes de haberlo usado. Se llama DESPUES de resolver el ataque (el golpe que la gasta
+# tambien se beneficia de ella).
+func _gastar_imbue() -> void:
+	if _player.consumir_imbue():
+		print("[imbuicion] Se agota la imbuición de %s (sin usos)." % _player.nombre)
+		_set_log("Se agota tu imbuición. ✨")
 
 
 # Aplica (o no) los estados del hechizo. Al ENEMIGO = con PROBABILIDAD (el enemigo puede
@@ -968,6 +976,9 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		print("        total: %.2f de daño en %d golpe%s | EN -%.0f -> %.1f/%.1f" % [
 			total, golpes, "" if golpes == 1 else "s", coste, _player.current_energy, _player.max_energy])
 		_dps_add(ab.nombre, total)
+		# Una habilidad = UN uso de imbuicion, traiga los golpes que traiga (si no, las
+		# multi-golpe la fundirian de una). Las de utilidad pura (Canalizar) no la gastan.
+		_gastar_imbue()
 	if ab.bloqueo_turnos > 0:
 		_player_defending = true   # golpe de escudo: te deja en guardia
 	# Postura de contraataque del estoque (KAN-57): entras en guardia hasta tu proxima accion.
@@ -1111,6 +1122,7 @@ func _accion_atacar() -> void:
 		if imb != "":
 			txt += "  ⚡ Le infliges %s." % imb
 		_set_log(txt)
+	_gastar_imbue()   # blandir el arma gasta un uso, acierte o falle
 	# El ataque basico REGENERA energia (KAN-57): te "cargas" pegando.
 	_player.regen_energy(ATTACK_ENERGY_REGEN)
 	_update_hp()

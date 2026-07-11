@@ -61,7 +61,9 @@ enum TipoEfecto { ATAQUE, BUFF, DEBUFF }
 # proposito: escala sola con tu Fuerza/arma/mejoras y no hay que retunearla nunca.
 @export var imbue_tipo: int = 0
 @export var imbue_pct: float = 0.0
-@export var imbue_turnos: int = 0
+# Duracion en ATAQUES, no en turnos: cada ataque que lanzas (basico o habilidad) gasta un uso.
+# Si durase turnos, recitar un conjuro largo te la fundiria antes de poder pegar con ella.
+@export var imbue_usos: int = 0
 # ESTADO que aplican tus golpes imbuidos (StatusEffects.Id; -1 = ninguno) y su probabilidad
 # BASE en igualdad de poder. La prob. real la escala un CONTEST de tu Magia vs la Resistencia
 # del rival (neutra en igualdad, sube contra debiles, baja contra fuertes). Las de CUERPO
@@ -192,7 +194,7 @@ func resumen() -> String:
 	if es_imbuicion():
 		p.append("imbuye el %s de %s" % [imbue_texto(), Elementos.nombre(elemento)])
 		p.append("+%d%% de daño" % roundi(imbue_pct * 100.0))
-		p.append("%d turnos" % imbue_turnos)
+		p.append("%d ataque%s" % [imbue_usos, "" if imbue_usos == 1 else "s"])
 		if imbue_estado >= 0 and imbue_prob > 0.0:
 			p.append("%s %d%% al golpear" % [
 				String(StatusEffects.def(imbue_estado).get("nombre", "?")),

@@ -163,7 +163,10 @@ var elemento_ataque: int = Elementos.Elemento.NINGUNO
 # e inmunidades por la tabla; al expirar vuelve a NINGUNO.
 var imbue_elemento: int = Elementos.Elemento.NINGUNO
 var imbue_pct: float = 0.0
-var imbue_turnos: int = 0
+# Dura ATAQUES, no turnos: se gasta un uso por cada ATAQUE que lanzas (basico o habilidad),
+# no por cada turno que pasa. Si durase turnos, recitar un conjuro largo te la fundiria antes
+# de llegar a pegar un solo golpe con ella.
+var imbue_usos: int = 0
 var imbue_cuerpo: bool = false
 # ESTADO que aplican tus golpes imbuidos (Quemadura / Rayo / Mojado) y su probabilidad BASE
 # (en igualdad de poder). La prob. real la escala un contest de tu Magia vs su Resistencia.
@@ -185,12 +188,12 @@ func es_inmune(id: int) -> bool:
 
 
 # Imbuye el arma (cuerpo = false) o el CUERPO (cuerpo = true) con un elemento.
-func aplicar_imbue(elem: int, pct: float, turnos: int, cuerpo: bool,
+func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 		estado: int = -1, prob: float = 0.0,
 		intensidad: float = Elementos.INTENSIDAD_IMBUIDO) -> void:
 	imbue_elemento = elem
 	imbue_pct = pct
-	imbue_turnos = maxi(1, turnos)
+	imbue_usos = maxi(1, usos)
 	imbue_cuerpo = cuerpo
 	imbue_estado = estado
 	imbue_prob = prob
@@ -203,13 +206,14 @@ func aplicar_imbue(elem: int, pct: float, turnos: int, cuerpo: bool,
 
 # Etiqueta de la IMBUICION activa para el HUD ("" si no hay ninguna). DERIVADA de los campos:
 # el icono dice si es de ARMA (🗡) o de CUERPO (🛡), y detras van el elemento, el bonus y los
-# turnos que le quedan. Ej: "🗡💧Agua +30%·4t".
+# ATAQUES que le quedan. Ej: "🗡💧Agua +30%·4 ataques".
 func imbue_etiqueta() -> String:
-	if imbue_elemento == Elementos.Elemento.NINGUNO or imbue_turnos <= 0:
+	if imbue_elemento == Elementos.Elemento.NINGUNO or imbue_usos <= 0:
 		return ""
-	return "%s%s%s +%d%%·%dt" % [
+	return "%s%s%s +%d%%·%d ataque%s" % [
 		"🛡" if imbue_cuerpo else "🗡", Elementos.icono(imbue_elemento),
-		Elementos.nombre(imbue_elemento), roundi(imbue_pct * 100.0), imbue_turnos]
+		Elementos.nombre(imbue_elemento), roundi(imbue_pct * 100.0), imbue_usos,
+		"" if imbue_usos == 1 else "s"]
 
 
 # Tira el ESTADO de la imbuicion tras un golpe que ACIERTA. Devuelve su nombre si prende, ""
@@ -229,13 +233,15 @@ func roll_imbue(target: Combatant) -> String:
 	return String(StatusEffects.def(imbue_estado).get("nombre", "?"))
 
 
-# Baja un turno la imbuicion. Al expirar limpia el bonus y, si era de CUERPO, la afinidad.
-# Devuelve true si acaba de expirar (para el log).
-func tick_imbue() -> bool:
-	if imbue_turnos <= 0:
+# Gasta UN USO de la imbuicion: lo llama cada ATAQUE que lanzas (basico o habilidad), da igual
+# cuantos golpes traiga o si fallan (el filo se desgasta al blandirlo). Los turnos que pases
+# recitando, defendiendote o bebiendo NO la gastan.
+# Al agotarse limpia el bonus y, si era de CUERPO, la afinidad. True si acaba de agotarse.
+func consumir_imbue() -> bool:
+	if imbue_usos <= 0:
 		return false
-	imbue_turnos -= 1
-	if imbue_turnos > 0:
+	imbue_usos -= 1
+	if imbue_usos > 0:
 		return false
 	if imbue_cuerpo:
 		elemento = Elementos.Elemento.NINGUNO

@@ -786,7 +786,7 @@ func _ficha_hechizo(vb: VBoxContainer, s: SpellData) -> void:
 			_row(vb, "  Al golpear", "%d%% de %s" % [roundi(s.imbue_prob * 100.0),
 				String(StatusEffects.def(s.imbue_estado).get("nombre", "?"))])
 			_note(vb, "Esa probabilidad sube contra enemigos más débiles que tu Magia y baja contra los más fuertes.")
-		_row(vb, "  Duración", "%d turnos" % s.imbue_turnos)
+		_row(vb, "  Duración", "%d ataque%s" % [s.imbue_usos, "" if s.imbue_usos == 1 else "s"])
 		if s.imbue_tipo == 2:
 			_afinidad_hechizo(vb, s)
 
