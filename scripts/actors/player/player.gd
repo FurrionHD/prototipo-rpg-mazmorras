@@ -308,7 +308,11 @@ func _mas_cercano_en_grupo(grupo: String, skip_extracted: bool) -> Node:
 			continue
 		if skip_extracted and "extracted" in n and n.extracted:
 			continue
-		var d: float = global_position.distance_to(n.global_position)
+		# Los cuerpos GRANDES (elites) te empujan mas lejos de su centro con su propia
+		# colision, asi que descontamos lo que sobresalen: la distancia se mide contra el
+		# BORDE del bicho, no su centro. Tamaño normal -> radio_extra 0 (nada cambia).
+		var extra: float = float(n.radio_extra) if "radio_extra" in n else 0.0
+		var d: float = maxf(0.0, global_position.distance_to(n.global_position) - extra)
 		if d <= interact_range and d < best:
 			best = d
 			nearest = n

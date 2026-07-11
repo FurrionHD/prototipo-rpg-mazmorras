@@ -95,6 +95,13 @@ func _ready() -> void:
 	_pick_wander_target()
 
 
+# Cuanto SOBRESALE este cuerpo respecto al tamaño normal (32x32 -> radio 16). Un elite
+# grande te mantiene mas lejos de su CENTRO con su propia colision, asi que el jugador
+# descuenta esto al medir la distancia de interaccion (ver player._mas_cercano_en_grupo);
+# si no, no llegarias a extraerle el cristal. 0 = tamaño normal.
+var radio_extra: float = 0.0
+
+
 # Escala el cuerpo (ColorRect) y su colision. El cuerpo base es 32x32 centrado.
 # OJO: la RectangleShape2D viene del .tscn y se COMPARTE entre instancias -> hay que
 # duplicarla antes de tocarla, o cambiaria el tamaño de TODOS los enemigos.
@@ -102,6 +109,7 @@ func _aplicar_escala(escala: float) -> void:
 	var s: float = maxf(0.1, escala)
 	if is_equal_approx(s, 1.0):
 		return
+	radio_extra = 16.0 * (s - 1.0)
 	var medio: float = 16.0 * s
 	_color_rect.offset_left = -medio
 	_color_rect.offset_top = -medio
