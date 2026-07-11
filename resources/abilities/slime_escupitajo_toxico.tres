@@ -7,7 +7,7 @@
 script = ExtResource("2")
 estado = 0
 prob = 1.0
-cap = 2
+cap = 1
 
 [resource]
 script = ExtResource("1")
@@ -19,4 +19,4 @@ golpes_max = 1
 dano_mult = 1.2
 efectos = [SubResource("SA_ven2")]
 efectos_por_golpe = false
-descripcion = "El slime te escupe una bilis corrosiva que agrava el veneno que llevas encima, llevándolo a un punto mucho peor."
+descripcion = "El slime te escupe una bilis corrosiva directa a la cara: el veneno prende sin fallar."
