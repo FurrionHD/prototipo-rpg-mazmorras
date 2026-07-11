@@ -630,12 +630,12 @@ func _disparar_hechizo() -> void:
 		_dps_add("Hechizo: %s" % spell.nombre, dano)
 		var foco_txt := "  🔮Foco arcano +%d%% (quedan %d)" % [
 			roundi(Combatant.FOCO_BONUS * 100.0), _player.foco_cargas] if foco > 1.0 else ""
-		# Feedback elemental: ¡débil! (×>1) o resiste (×<1).
+		# Feedback elemental: ¡débil! (×>1) o resiste (×<1). OJO: GDScript no soporta %g.
 		var elem_txt := ""
 		if mult_elem > 1.01:
-			elem_txt = "  ¡DÉBIL! ×%.2g" % mult_elem
+			elem_txt = "  ¡DÉBIL! ×%.1f" % mult_elem
 		elif mult_elem < 0.99:
-			elem_txt = "  resiste ×%.2g" % mult_elem
+			elem_txt = "  resiste ×%.1f" % mult_elem
 		_set_log("🔥 %s impacta a %s por %.2f de daño.%s%s" % [spell.nombre, _enemy.nombre, dano, elem_txt, foco_txt])
 	else:
 		_set_log("✨ %s lanza %s." % [_player.nombre, spell.nombre])
