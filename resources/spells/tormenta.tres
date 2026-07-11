@@ -3,23 +3,36 @@
 [ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
 
-[sub_resource type="Resource" id="SA_rayo"]
+[sub_resource type="Resource" id="SA_mojado"]
+script = ExtResource("2")
+estado = 12
+prob = 0.09
+elemento_req = 2
+
+[sub_resource type="Resource" id="SA_electrizado"]
 script = ExtResource("2")
 estado = 8
-prob = 0.3
+prob = 0.06
+elemento_req = 3
 
 [sub_resource type="Resource" id="SA_stun"]
 script = ExtResource("2")
 estado = 7
-prob = 0.1
+prob = 0.036
+elemento_req = 3
 
 [resource]
 script = ExtResource("1")
 nombre = "Tormenta"
 tipo = 0
 elemento = 3
+elemento_mix = {
+2: 0.7,
+3: 0.3
+}
+hits = 20
 frases = Array[String](["Fulgor, desciende del cielo", "Truenos, romped el silencio", "El viento aullara conmigo"])
 coste_mana = 14
-dano_base = 44.0
-efectos = [SubResource("SA_rayo"), SubResource("SA_stun")]
-descripcion = "Hechizo largo de rayo. Aplica RAYO (facilita el aturdir) y tiene ~30% de aturdir directamente."
+dano_base = 33.0
+efectos = [SubResource("SA_mojado"), SubResource("SA_electrizado"), SubResource("SA_stun")]
+descripcion = "Se abre el cielo. Cae la lluvia a cantaros y, entre ella, los rayos buscan lo que ya esta empapado."

@@ -37,7 +37,22 @@ enum TipoEfecto { ATAQUE, BUFF, DEBUFF }
 
 # ELEMENTO del hechizo (Elementos.Elemento): decide la resistencia/debilidad del objetivo.
 # NINGUNO = daño mágico neutro (no lo modula ningún elemento). Ver elements.gd.
+# Con 'elemento_mix' (abajo) sigue siendo el elemento de IDENTIDAD del hechizo: el que usa
+# la imbuicion y el que vale de fallback si no hay reparto.
 @export var elemento: int = Elementos.Elemento.NINGUNO
+
+# --- MULTI-GOLPE (KAN: Tormenta) ---
+# Nº de GOLPES en que se reparte el dano_base. 1 = un solo impacto (lo normal).
+# Cada golpe se resuelve por separado: elige su elemento, se mitiga y tira SUS estados.
+# La mitigacion es LINEAL en el ataque, asi que partir el daño no cambia el total: lo que
+# cambia es que cada golpe pasa por la tabla de tipos con SU elemento y ve el estado del
+# objetivo TAL COMO ESTA en ese momento (los golpes de antes ya han podido mojarlo).
+@export var hits: int = 1
+
+# REPARTO de elementos entre los golpes: { Elementos.Elemento: peso }. Vacio = todos los
+# golpes usan 'elemento'. Tormenta: { AGUA: 0.7, RAYO: 0.3 } -> llueve mucho y cae algun
+# rayo, en orden ALEATORIO. Los pesos no hace falta que sumen 1 (se normalizan solos).
+@export var elemento_mix: Dictionary = {}
 
 # --- IMBUICION: el hechizo no pega, TIÑE tus golpes de arma con su 'elemento' ---
 # imbue_tipo: 0 = no es imbuicion | 1 = ARMA (solo ofensiva) | 2 = CUERPO (ademas te da la
@@ -73,9 +88,70 @@ func longitud() -> int:
 	return frases.size()
 
 
-# Probabilidad FINAL de aplicar un efecto (sube con la longitud del hechizo).
+# Nº de golpes REAL (minimo 1).
+func golpes() -> int:
+	return maxi(hits, 1)
+
+func es_multigolpe() -> bool:
+	return golpes() > 1
+
+
+# Peso (0..1) de un elemento en el reparto. Sin reparto: 1.0 para el elemento del hechizo.
+func peso_elemento(elem: int) -> float:
+	if elemento_mix.is_empty():
+		return 1.0 if elem == elemento else 0.0
+	var total: float = 0.0
+	for e in elemento_mix:
+		total += maxf(0.0, float(elemento_mix[e]))
+	if total <= 0.0:
+		return 0.0
+	return maxf(0.0, float(elemento_mix.get(elem, 0.0))) / total
+
+
+# Nº de golpes que se espera que salgan de 'elem' (media). Con elem < 0 = todos los golpes.
+func golpes_esperados(elem: int) -> float:
+	if elem < 0:
+		return float(golpes())
+	return float(golpes()) * peso_elemento(elem)
+
+
+# ELEMENTO de UN golpe: tirada ponderada sobre 'elemento_mix'. Sin reparto, siempre el
+# elemento del hechizo. Es lo que hace que el orden agua/rayo sea ALEATORIO.
+func elemento_de_golpe() -> int:
+	if elemento_mix.is_empty():
+		return elemento
+	var total: float = 0.0
+	for e in elemento_mix:
+		total += maxf(0.0, float(elemento_mix[e]))
+	if total <= 0.0:
+		return elemento
+	var r: float = randf() * total
+	for e in elemento_mix:
+		r -= maxf(0.0, float(elemento_mix[e]))
+		if r <= 0.0:
+			return int(e)
+	return elemento   # por redondeo
+
+
+# Probabilidad de aplicar un efecto EN UNA TIRADA.
+#  - 1 golpe   -> la longitud del hechizo la multiplica: un conjuro largo es mas fiable.
+#  - N golpes  -> es la prob POR GOLPE tal cual: la fiabilidad ya la dan las N tiradas
+#                 (multiplicarla ademas por la longitud la dispararia). Ver prob_total().
 func efecto_prob(app: StatusApplication) -> float:
+	if es_multigolpe():
+		return clampf(app.prob, 0.0, ESTADO_PROB_MAX)
 	return clampf(app.prob * float(longitud()), 0.0, ESTADO_PROB_MAX)
+
+
+# Probabilidad ACUMULADA de que un efecto acabe entrando en todo el hechizo: 1 - (1-p)^n,
+# con n = los golpes en los que ese efecto llega a tirarse (los de su elemento_req).
+# Es la que va a la FICHA: con 20 golpes, un 9% por golpe es un ~74% de verdad.
+func prob_total(app: StatusApplication) -> float:
+	var p: float = efecto_prob(app)
+	var n: float = golpes_esperados(int(app.elemento_req))
+	if n <= 0.0:
+		return 0.0
+	return clampf(1.0 - pow(1.0 - p, n), 0.0, ESTADO_PROB_MAX)
 
 
 # "Corto" / "Medio" / "Largo" segun el nº de frases del encantamiento.
@@ -102,7 +178,15 @@ func resumen() -> String:
 	p.append("%d maná" % coste_mana)
 	if tipo == TipoEfecto.ATAQUE and dano_base > 0.0:
 		var d: String = "%.0f de daño" % dano_base
-		if elemento != Elementos.Elemento.NINGUNO:
+		if es_multigolpe():
+			d += " en %d golpes" % golpes()
+		if not elemento_mix.is_empty():
+			# Reparto DERIVADO de los pesos: "70% Agua · 30% Rayo".
+			var partes: Array = []
+			for e in elemento_mix:
+				partes.append("%d%% %s" % [roundi(peso_elemento(int(e)) * 100.0), Elementos.nombre(int(e))])
+			d += " (%s)" % " · ".join(partes)
+		elif elemento != Elementos.Elemento.NINGUNO:
 			d += " de %s" % Elementos.nombre(elemento)
 		p.append(d)
 	if es_imbuicion():
@@ -117,7 +201,8 @@ func resumen() -> String:
 		if a == null or int(a.estado) < 0:
 			continue
 		var quien: String = "" if a.en_objetivo else " (a ti)"
+		# El % que se enseña es el ACUMULADO de todo el hechizo (no el de una tirada suelta).
 		p.append("%s %d%%%s" % [
 			String(StatusEffects.def(int(a.estado)).get("nombre", "?")),
-			roundi(efecto_prob(a) * 100.0), quien])
+			roundi(prob_total(a) * 100.0), quien])
 	return " · ".join(p)

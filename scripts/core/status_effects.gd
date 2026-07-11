@@ -105,8 +105,10 @@ static var _defs: Dictionary = {
 		"id": Id.ATURDIDO, "nombre": "Aturdido", "icono": "💫", "color": Color(1.0, 0.9, 0.3),
 		"turns": 1, "is_stun": true,
 	},
-	Id.RAYO: {   # debuff estilo MH: x1.5 a la prob. de aturdir que recibe
-		"id": Id.RAYO, "nombre": "Rayo", "icono": "⚡", "color": Color(0.6, 0.8, 1.0),
+	Id.RAYO: {   # debuff estilo MH: x1.5 a la prob. de aturdir que recibe.
+		# Se LLAMA "Electrizado" aunque el Id sea RAYO: el ELEMENTO ya se llama Rayo y tener
+		# los dos con el mismo nombre hacia ilegible la ficha ("daño de Rayo · Rayo 32%").
+		"id": Id.RAYO, "nombre": "Electrizado", "icono": "⚡", "color": Color(0.6, 0.8, 1.0),
 		"turns": 3, "stun_prob_mult": 1.5,
 	},
 	Id.REGENERACION: {   # CURA por turno (espejo del DoT): pociones (KAN-57). magnitud = cura/turno.

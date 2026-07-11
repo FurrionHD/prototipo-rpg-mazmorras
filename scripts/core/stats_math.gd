@@ -286,15 +286,24 @@ const BACKFIRE_FRAC := 0.5
 
 # Daño de un hechizo: dano_base × magia_factor(Magia) × magic_amp (arma), mitigado
 # por la "defensa magica" del objetivo (su Magia via magic_value). ±variacion.
-static func resolve_spell(attacker: Combatant, defender: Combatant, spell: SpellData) -> Dictionary:
-	var magic_atk := spell.dano_base * magia_factor(float(attacker.abilities.magia)) * attacker.magic_amp
+#
+# MULTI-GOLPE: un hechizo de N golpes llama a esto N veces con dano_frac = 1/N y el
+# elemento de CADA golpe (elem_override). Repartir el daño NO cambia el total mitigado
+# (damage() es lineal en el ataque); lo que cambia es que cada golpe pasa por la tabla de
+# tipos con su elemento y ve el estado del defensor TAL COMO ESTA en ese instante: si un
+# golpe anterior lo mojo, este rayo ya cobra el ×1.5.
+static func resolve_spell(attacker: Combatant, defender: Combatant, spell: SpellData,
+		elem_override: int = -1, dano_frac: float = 1.0) -> Dictionary:
+	var elem: int = elem_override if elem_override >= 0 else spell.elemento
+	var raw := spell.dano_base * dano_frac
+	var magic_atk := raw * magia_factor(float(attacker.abilities.magia)) * attacker.magic_amp
 	var magic_def := magic_value(defender.abilities, defender.level, 0.0)
 	var dmg := damage(magic_atk, magic_def)
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 	# Multiplicador ELEMENTAL segun la resistencia/debilidad del objetivo (KAN-58).
-	var mult_elem := Elementos.mult_recibido(spell.elemento, defender)
+	var mult_elem := Elementos.mult_recibido(elem, defender)
 	dmg *= mult_elem
-	return {"damage": maxf(0.1, dmg), "mult_elem": mult_elem}
+	return {"damage": maxf(0.1, dmg), "mult_elem": mult_elem, "elemento": elem}
 
 
 # Backfire: daño que te haces al fallar una frase. Escala con dano_base (hechizos

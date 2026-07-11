@@ -17,4 +17,4 @@ frases = Array[String](["Languidez, quiebra su fuerza", "Flaqueza, muerde sus hu
 coste_mana = 7
 dano_base = 0.0
 efectos = [SubResource("SA_debil")]
-descripcion = "Debuff: baja el ataque del enemigo. Probabilidad segun la longitud (aqui 2 frases = 80%)."
+descripcion = "Le pesan los brazos. Cada golpe suyo llega mas blando que el anterior."

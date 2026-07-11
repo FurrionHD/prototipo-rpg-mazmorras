@@ -622,32 +622,20 @@ func _disparar_hechizo() -> void:
 	# DAÑO solo para hechizos de ATAQUE (los de BUFF/DEBUFF no pegan, solo aplican estado).
 	var dano: float = 0.0
 	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
-		var res: Dictionary = StatsMath.resolve_spell(_player, _enemy, spell)
-		dano = res.damage
-		var mult_elem: float = float(res.get("mult_elem", 1.0))
 		# Foco arcano (Canalización): gasta 1 carga y amplifica el daño del hechizo. Solo
-		# los OFENSIVOS gastan carga; el largo la gasta AL DISPARAR (respeta el canto).
+		# los OFENSIVOS gastan carga; el largo la gasta AL DISPARAR (respeta el canto). Se
+		# consume UNA vez y multiplica TODOS los golpes.
 		var foco: float = _player.consumir_foco()
-		if foco > 1.0:
-			dano *= foco
-		_enemy.take_damage(dano)
+		dano = _resolver_golpes_hechizo(spell, _enemy, foco)
 		_dps_add("Hechizo: %s" % spell.nombre, dano)
-		var foco_txt := "  🔮Foco arcano +%d%% (quedan %d)" % [
-			roundi(Combatant.FOCO_BONUS * 100.0), _player.foco_cargas] if foco > 1.0 else ""
-		# Feedback elemental: ¡débil! (×>1) o resiste (×<1). OJO: GDScript no soporta %g.
-		var elem_txt := ""
-		if mult_elem > 1.01:
-			elem_txt = "  ¡DÉBIL! ×%.1f" % mult_elem
-		elif mult_elem < 0.99:
-			elem_txt = "  resiste ×%.1f" % mult_elem
-		_set_log("🔥 %s impacta a %s por %.2f de daño.%s%s" % [spell.nombre, _enemy.nombre, dano, elem_txt, foco_txt])
 	else:
 		_set_log("✨ %s lanza %s." % [_player.nombre, spell.nombre])
+		# Los estados de un hechizo sin daño (buff/debuff) se aplican aqui: no hay golpes que
+		# los lleven. Los de ATAQUE ya los ha tirado cada golpe con SU elemento.
+		_aplicar_estado_hechizo(spell)
 	# IMBUICION (KAN-58): el hechizo no pega, tiñe tus GOLPES DE ARMA con su elemento.
 	if spell.imbue_tipo > 0:
 		_aplicar_imbuicion(spell)
-	# Estado alterado del hechizo (quemadura/rayo al enemigo, buff/debuff), KAN-58 Fase 3.
-	_aplicar_estado_hechizo(spell)
 	# Excelia (formula dedicada de Magia): entrena al LANZAR, escalado por el mana
 	# gastado (hechizos caros = mas potentes = entrenan mas) x reto del enemigo.
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF
@@ -705,28 +693,109 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 	_set_log(msg)
 
 
-# Aplica (o no) los estados del hechizo. Al ENEMIGO = con PROBABILIDAD (sube con la
-# longitud del hechizo; el enemigo puede resistir). A UNO MISMO (buff) = siempre.
-func _aplicar_estado_hechizo(spell: SpellData) -> void:
+# Resuelve TODOS los golpes de un hechizo de ATAQUE. Devuelve el daño total.
+# Cada golpe elige SU elemento (aleatorio si el hechizo trae reparto), pega, y tira SUS
+# estados. El orden es el que hace bonito el multi-elemento: los estados de un golpe se
+# aplican DESPUES de su daño, asi que un golpe nunca se amplifica a si mismo... pero la
+# lluvia que moja SI amplifica (x1.5) los rayos que caigan DETRAS.
+# 'objetivo' es un parametro (y no _enemy directamente) porque es el gancho de los ataques
+# que rebotaran entre varios enemigos cuando el combate deje de ser 1v1.
+func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float) -> float:
+	var n: int = spell.golpes()
+	var frac: float = 1.0 / float(n)
+	var multi: bool = n > 1
+	var total: float = 0.0
+	var trail: Array = []
+	var anunciados: Dictionary = {}   # estados ya contados en el log (si no, 20 lineas iguales)
+	var ultimo_mult: float = 1.0
+	for i in n:
+		if not objetivo.is_alive():
+			break   # ya ha caido: los golpes que quedaban se pierden
+		var elem: int = spell.elemento_de_golpe()
+		var res: Dictionary = StatsMath.resolve_spell(_player, objetivo, spell, elem, frac)
+		var dmg: float = float(res.damage) * foco
+		var mult: float = float(res.get("mult_elem", 1.0))
+		ultimo_mult = mult
+		objetivo.take_damage(dmg)
+		total += dmg
+		trail.append("%s%.1f%s" % [Elementos.icono(elem), dmg, _mult_sufijo(mult)])
+		print("[magia] %s golpe %d/%d %s: %.2f (x%.2f)" % [
+			spell.nombre, i + 1, n, Elementos.nombre(elem), dmg, mult])
+		# Estados de ESTE golpe (solo los que pidan su elemento). Van DESPUES de su daño.
+		_aplicar_estado_hechizo(spell, objetivo, elem, not multi, anunciados)
+	var foco_txt: String = "  🔮Foco arcano +%d%% (quedan %d)" % [
+		roundi(Combatant.FOCO_BONUS * 100.0), _player.foco_cargas] if foco > 1.0 else ""
+	if multi:
+		_set_log("🌩 %s descarga %d golpes sobre %s: %s" % [
+			spell.nombre, trail.size(), objetivo.nombre, " · ".join(trail)])
+		_set_log("… %.2f de daño en total.%s" % [total, foco_txt])
+	else:
+		_set_log("🔥 %s impacta a %s por %.2f de daño.%s%s" % [
+			spell.nombre, objetivo.nombre, total, _elem_txt(ultimo_mult), foco_txt])
+	return total
+
+
+# Feedback elemental de UN golpe, compacto, para el rastro del log ("⚡4.1×1.5").
+func _mult_sufijo(mult: float) -> String:
+	if mult > 1.01 or mult < 0.99:
+		return "×%.1f" % mult
+	return ""
+
+
+# Feedback elemental de un hechizo de UN solo golpe. OJO: GDScript no soporta %g.
+func _elem_txt(mult: float) -> String:
+	if mult > 1.01:
+		return "  ¡DÉBIL! ×%.1f" % mult
+	if mult < 0.99:
+		return "  resiste ×%.1f" % mult
+	return ""
+
+
+# Aplica (o no) los estados del hechizo. Al ENEMIGO = con PROBABILIDAD (el enemigo puede
+# resistir). A UNO MISMO (buff) = siempre.
+#   elem_golpe >= 0 -> solo se tiran los efectos de ESE elemento (los que piden otro se
+#                      saltan). Es lo que hace que la Tormenta moje con el agua y electrice
+#                      con el rayo. < 0 = sin filtro (hechizos de buff/debuff, sin golpes).
+#   verboso    -> false en multi-golpe: 20 tiradas fallidas serian 20 lineas de log. Los
+#                 fallos se ven igual en la consola; en el log solo se anuncia lo que ENTRA.
+#   anunciados -> estados ya nombrados en el log (no repetir "recibe Mojado" en cada golpe).
+func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null,
+		elem_golpe: int = -1, verboso: bool = true, anunciados: Dictionary = {}) -> void:
+	var enemigo: Combatant = objetivo_ataque if objetivo_ataque != null else _enemy
 	for a in spell.efectos:
 		if a.estado < 0:
 			continue
+		# Filtro por elemento del golpe: elemento_req -1 = en todos los golpes.
+		if elem_golpe >= 0 and int(a.elemento_req) >= 0 and int(a.elemento_req) != elem_golpe:
+			continue
 		var al_enemigo: bool = a.en_objetivo
-		var objetivo: Combatant = _enemy if al_enemigo else _player
+		var objetivo: Combatant = enemigo if al_enemigo else _player
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		# Inmunidad elemental: si el objetivo no puede recibir el estado, avisar y no tirar.
 		if objetivo.es_inmune(a.estado):   # incluye la inmunidad derivada de su AFINIDAD elemental
-			_set_log("… %s es INMUNE a %s." % [objetivo.nombre, nom])
+			if not anunciados.has(a.estado):
+				anunciados[a.estado] = true
+				_set_log("… %s es INMUNE a %s." % [objetivo.nombre, nom])
 			continue
 		if al_enemigo:
 			# La resistencia a estados del objetivo baja la probabilidad efectiva.
 			var p: float = spell.efecto_prob(a) * (1.0 - objetivo.status_resist)
+			if a.estado == StatusEffects.Id.ATURDIDO:
+				# El aturdir de un hechizo escala igual que el de un golpe fisico: x1.5 si el
+				# objetivo esta ELECTRIZADO, x0.6 si su afinidad es Rayo. Sin esto, electrizar
+				# con un golpe de rayo no serviria de nada para aturdir con los siguientes.
+				p = clampf(p * objetivo.stun_taken_mult(), 0.0, StatsMath.ATURDIR_MAX)
 			if randf() >= p:
-				_set_log("… pero %s resiste el %s. (%.0f%%)" % [_enemy.nombre, nom, p * 100.0])
-				print("[estado] %s RESISTE %s del hechizo (prob %.0f%%)" % [_enemy.nombre, nom, p * 100.0])
+				if verboso:   # en multi-golpe callamos los fallos: serian 20 lineas de ruido
+					_set_log("… pero %s resiste el %s. (%.0f%%)" % [objetivo.nombre, nom, p * 100.0])
+					print("[estado] %s RESISTE %s del hechizo (prob %.0f%%)" % [objetivo.nombre, nom, p * 100.0])
 				continue
 		objetivo.apply_status(a.estado, a.turns, a.magnitud, 1, false, a.cap)
-		_set_log("✨ %s: %s recibe %s." % [spell.nombre, objetivo.nombre, nom])
+		print("[estado] %s recibe %s del hechizo %s (prob %.0f%%)" % [
+			objetivo.nombre, nom, spell.nombre, spell.efecto_prob(a) * 100.0])
+		if not anunciados.has(a.estado):
+			anunciados[a.estado] = true
+			_set_log("✨ %s: %s recibe %s." % [spell.nombre, objetivo.nombre, nom])
 
 
 # Fallar una frase: el conjuro se descontrola. Daño propio (mayor cuanto mas

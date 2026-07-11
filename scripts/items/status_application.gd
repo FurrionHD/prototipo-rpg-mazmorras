@@ -36,3 +36,8 @@ class_name StatusApplication
 # 1 = un stack (lo normal). Ej: una habilidad de slime que mete "2 stacks de Pegajoso" de
 # golpe usa stacks = 2. Para estados que no apilan (Lento/Vulnerable) es indiferente.
 @export var stacks: int = 1
+# ELEMENTO que debe traer el GOLPE para que este efecto se tire (Elementos.Elemento).
+# -1 = se tira en TODOS los golpes. Solo tiene sentido en hechizos MULTI-GOLPE con reparto
+# de elementos: es lo que ata cada estado a su elemento sin campos a medida (la Tormenta
+# MOJA con sus golpes de Agua y ELECTRIZA/aturde con los de Rayo).
+@export var elemento_req: int = -1

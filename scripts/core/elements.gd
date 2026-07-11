@@ -21,6 +21,14 @@ const NOMBRE := {
 	Elemento.RAYO: "Rayo",
 }
 
+# Icono de cada elemento (para el log: el rastro de golpes de un hechizo multi-elemento).
+const ICONO := {
+	Elemento.NINGUNO: "✨",
+	Elemento.FUEGO: "🔥",
+	Elemento.AGUA: "💧",
+	Elemento.RAYO: "⚡",
+}
+
 # TABLA DE TIPOS por defecto: perfil de resistencia segun la AFINIDAD del defensor
 # (multiplicador que RECIBE de cada elemento). Lo que no aparezca = 1.0 (neutro).
 #   FUEGO: resiste Fuego (×0.5), débil a Agua (×1.5).
@@ -51,7 +59,9 @@ static func escalar_intensidad(mult_puro: float, intensidad: float) -> float:
 # Lo aprovechan los enemigos (slime de fuego) y el jugador al imbuirse el CUERPO.
 const INMUNIDAD_POR_AFINIDAD := {
 	Elemento.FUEGO: [StatusEffects.Id.QUEMADURA],    # eres fuego
-	Elemento.AGUA: [StatusEffects.Id.QUEMADURA],     # el agua apaga el fuego
+	# El agua apaga el fuego. Y NO se puede mojar: un ser de agua ya conduce de por si, su
+	# debilidad x1.5 al Rayo ES su humedad; mojarlo encima cobraria dos veces lo mismo (x2.25).
+	Elemento.AGUA: [StatusEffects.Id.QUEMADURA, StatusEffects.Id.MOJADO],
 	Elemento.RAYO: [StatusEffects.Id.RAYO],
 }
 
@@ -72,6 +82,11 @@ const AMPLIFICA_POR_ESTADO := {
 # Nombre legible de un elemento (para logs / UI).
 static func nombre(elem: int) -> String:
 	return String(NOMBRE.get(elem, "?"))
+
+
+# Icono de un elemento (para el log).
+static func icono(elem: int) -> String:
+	return String(ICONO.get(elem, "✨"))
 
 
 # Estados a los que es inmune quien tenga esta afinidad ([] si NINGUNO).
