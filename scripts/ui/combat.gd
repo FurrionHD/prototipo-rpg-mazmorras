@@ -1018,6 +1018,7 @@ func _enemy_turn() -> void:
 			var interrumpida: String = _enemy_charging.nombre
 			_enemy_charging = null
 			_enemy_charge_left = 0
+			print("[habilidad enemigo] %s ATURDIDO: se le INTERRUMPE %s" % [_enemy.nombre, interrumpida])
 			_set_log("%s esta aturdido: se le interrumpe %s. 💫" % [_enemy.nombre, interrumpida])
 		else:
 			_set_log("%s esta aturdido y pierde el turno. 💫" % _enemy.nombre)
