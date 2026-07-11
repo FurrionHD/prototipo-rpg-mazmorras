@@ -299,7 +299,11 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 	var elem: int = elem_override if elem_override >= 0 else spell.elemento
 	var raw := spell.dano_base * dano_frac
 	var magic_atk := raw * magia_factor(float(attacker.abilities.magia)) * attacker.magic_amp
-	var magic_def := magic_value(defender.abilities, defender.level, 0.0)
+	# Defensa MAGICA del objetivo, espejo exacto de la fisica: una BASE propia del bicho +
+	# lo que aporte su Magia. Antes se pasaba 0.0 a pelo, y como ademas ningun enemigo tenia
+	# Magia, la defensa magica era CERO: los hechizos entraban a raw limpio mientras los
+	# golpes fisicos si se mitigaban. Por eso la magia parecia rota (lo estaba).
+	var magic_def := magic_value(defender.abilities, defender.level, defender.base_magic)
 	var dmg := damage(magic_atk, magic_def)
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 	# Multiplicador ELEMENTAL segun la resistencia/debilidad del objetivo (KAN-58).

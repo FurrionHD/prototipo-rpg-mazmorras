@@ -18,7 +18,10 @@ var base_hp: float = 0.0
 var base_attack: float = 0.0
 var base_defense: float = 0.0
 var base_speed: float = 0.0
-var base_magic: float = 0.0     # base del hechizo (0 = sin magia; enemigos)
+# DEFENSA MAGICA base: lo que mitiga los hechizos que RECIBES, aunque tu Magia sea 0. Es el
+# espejo de base_defense (que hace lo propio con los golpes fisicos). Sin esto, un bicho sin
+# Magia recibe los hechizos a raw limpio, y la magia siempre gana. Ver StatsMath.resolve_spell.
+var base_magic: float = 0.0
 
 # Vida actual / maxima (se calculan al crear). current_hp es FLOAT para no perder
 # precision con el daño decimal (asi ves mejoras pequeñas golpe a golpe).

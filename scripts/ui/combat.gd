@@ -651,8 +651,9 @@ func _disparar_hechizo() -> void:
 	# gastado (hechizos caros = mas potentes = entrenan mas) x reto del enemigo.
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF
 	Game.ganar("magia", Game.reto(_poder_enemigo()), Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO)
-	print("[magia] %s lanza %s | dano:%.2f (Magia %d)" % [
-		_player.nombre, spell.nombre, dano, _player.abilities.magia])
+	print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
+		_player.nombre, spell.nombre, dano, _player.abilities.magia, _enemy.nombre,
+		StatsMath.magic_value(_enemy.abilities, _enemy.level, _enemy.base_magic)])
 	_player.regen_energy(ATTACK_ENERGY_REGEN)   # lanzar es un turno basico: regenera energia (KAN-57)
 	_limpiar_casteo()
 	_update_hp()

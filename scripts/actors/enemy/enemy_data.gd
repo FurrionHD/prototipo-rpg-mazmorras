@@ -26,7 +26,10 @@ class_name EnemyData
 @export_range(0, 999) var resistencia: int = 35
 @export_range(0, 999) var destreza: int = 20
 @export_range(0, 999) var agilidad: int = 30
-@export_range(0, 999) var magia: int = 0
+# Magia: no es que el slime CASTEE (no tiene hechizos), es que la Magia es tambien su DEFENSA
+# MAGICA. Con peso 0 todos los bichos recibian los hechizos a raw limpio y la magia no podia
+# perder nunca. Peso bajo (un slime es tonto), pero que exista y escale con el piso.
+@export_range(0, 999) var magia: int = 15
 
 # --- Sub-tramo de la franja del piso que ocupa ESTE arquetipo (0..1) ---
 # La suma de habilidades cae en lerp(franja_del_piso, franja_low..franja_high). El
@@ -45,6 +48,10 @@ class_name EnemyData
 @export var base_hp: float = 28.0
 @export var base_attack: float = 3.0
 @export var base_defense: float = 3.0
+# DEFENSA MAGICA base (espejo de base_defense, pero contra hechizos). Un bicho sin esto recibe
+# la magia a raw limpio: los hechizos no los mitigaba NADIE. Un elemental / algo antimagico
+# pondria aqui un valor alto; un saco de carne, bajo.
+@export var base_magic: float = 3.0
 @export var base_speed: float = 4.0
 
 # --- Exploracion (mazmorra): velocidad de patrulla/persecucion (franja) ---
@@ -155,6 +162,9 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 		base_attack * fstat,
 		base_defense * sqrt(fstat),
 		base_speed)
+	# Defensa MAGICA: escala con la profundidad igual (raiz) que la fisica, para que la magia
+	# no se despegue del resto a medida que bajas de piso.
+	c.base_magic = base_magic * sqrt(fstat)
 	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
 	c.on_hit = al_golpear
 	# Habilidades del enemigo (KAN-58): tecnicas que puede lanzar en combate.

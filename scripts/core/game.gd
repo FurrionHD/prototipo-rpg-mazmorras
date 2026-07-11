@@ -20,6 +20,10 @@ var player_magia: int = 0
 var player_base_hp: float = 50.0
 var player_base_attack: float = 5.0
 var player_base_defense: float = 5.0
+# Defensa MAGICA base del jugador (espejo de la fisica). Hoy no la usa nadie porque los
+# enemigos aun no lanzan hechizos, pero el dia que lo hagan no queremos que el jugador este
+# desnudo ante la magia como lo estaban ellos. Ver StatsMath.resolve_spell.
+var player_base_magic: float = 5.0
 var player_base_speed: float = 5.0
 # Vida actual (persiste entre combates). -1 = aun no inicializada (= llena).
 var player_current_hp: float = -1.0
@@ -631,6 +635,7 @@ func crear_player_combatant() -> Combatant:
 	a.magia = player_magia
 	var c := Combatant.new("Heroe", player_level, a,
 		player_base_hp, player_base_attack, player_base_defense, player_base_speed)
+	c.base_magic = player_base_magic
 	if player_current_hp < 0.0:
 		player_current_hp = float(c.max_hp)  # primera vez: vida llena
 	c.current_hp = clampf(player_current_hp, 0.0, float(c.max_hp))
