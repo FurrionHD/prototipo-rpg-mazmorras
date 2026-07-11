@@ -40,7 +40,6 @@ var movement_mode: int = 1
 
 # Direccion a la que "mira" el jugador (ultimo movimiento), para atacar.
 var _facing: Vector2 = Vector2.DOWN
-var _attack_was_pressed: bool = false
 
 # Ataque cuerpo a cuerpo para INICIAR combate (corto alcance hacia delante).
 @export var attack_range: float = 44.0
@@ -84,7 +83,6 @@ func _ready() -> void:
 	# dispararlas de nuevo hasta que el jugador las suelte y las vuelva a pulsar.
 	# Esto evita el rebote entre escenas al mantener F pulsada.
 	_interact_was = Input.is_key_pressed(KEY_F)
-	_attack_was_pressed = Input.is_key_pressed(KEY_SPACE)
 	_drink_was = Input.is_key_pressed(KEY_Q)
 
 	# Aguante maximo segun las stats del jugador (Resistencia y Agilidad).
@@ -187,13 +185,8 @@ func _physics_process(delta: float) -> void:
 				Game.ganar("agilidad", Game.reto(_poder_enemigo_nodo(enemigo)), Game.GAIN_AGILIDAD_CORRER,
 					Game.RETO_MAX_FISICO)
 
-	# Ataque hacia delante para iniciar combate (sin tener que tocar al enemigo).
-	var atk: bool = Input.is_key_pressed(KEY_SPACE)
-	if atk and not _attack_was_pressed:
-		_try_attack()
-	_attack_was_pressed = atk
-
-	# Interactuar (F) con un cadaver cercano -> minijuego de extraccion.
+	# F lo hace TODO (mas intuitivo): atacar al enemigo que tengas enfrente, hablar con un
+	# NPC, extraer el cristal de un cadaver o recoger un item. Ver _try_interact().
 	var inter: bool = Input.is_key_pressed(KEY_F)
 	if inter and not _interact_was:
 		_try_interact()
@@ -253,9 +246,10 @@ func _poder_enemigo_nodo(e: Node) -> float:
 	return float(e.data.suma_habilidades(t))
 
 
-# Busca un enemigo justo enfrente y muy cerca; si lo hay, inicia el combate
-# con NUESTRA iniciativa.
-func _try_attack() -> void:
+# Busca un enemigo VIVO justo enfrente y muy cerca; si lo hay, inicia el combate
+# con NUESTRA iniciativa. Devuelve true si ataco (lo usa _try_interact para saber
+# si ya ha consumido la pulsacion de F).
+func _try_attack() -> bool:
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e):
 			continue
@@ -265,13 +259,23 @@ func _try_attack() -> void:
 			if absf(_facing.angle_to(to_e / dist)) <= deg_to_rad(attack_half_angle_deg):
 				if e.has_method("atacado_por_jugador"):
 					e.atacado_por_jugador()
-				return
+					return true
+	return false
 
 
-# Con F: primero intenta INTERACTUAR con un NPC (altar, tienda, puerta);
-# luego intenta EXTRAER de un cadaver cercano; si no hay, RECOGE un drop del suelo.
+# TODO va con F (una sola tecla, mas intuitivo). Por orden:
+#   0) ATACAR a un enemigo vivo que tengas ENFRENTE -> inicia el combate.
+#   1) NPC interactuable (altar, tienda, puerta, hogar).
+#   2) EXTRAER el cristal de un cadaver.
+#   3) RECOGER un item del suelo.
+# El ataque va primero porque exige MIRAR al bicho (cono frontal), asi que es una
+# accion deliberada: no se dispara por accidente mientras looteas de espaldas.
 func _try_interact() -> void:
-	# 0) NPCs interactuables (altar, tienda, puerta, etc).
+	# 0) Enemigo vivo enfrente -> a por el.
+	if _try_attack():
+		return
+
+	# 1) NPCs interactuables (altar, tienda, puerta, etc).
 	var interactable: Node = _mas_cercano_en_grupo("interactable", false)
 	if interactable != null and interactable.has_method("interact_with_player"):
 		interactable.interact_with_player()

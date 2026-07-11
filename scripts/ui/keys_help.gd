@@ -23,8 +23,7 @@ const CONTROLS := [
 	["WASD / flechas", "Mover"],
 	["Shift", "Correr"],
 	["Ctrl", "Sigilo (andar despacio)"],
-	["Espacio", "Atacar"],
-	["F", "Interactuar (puertas, altar, loot)"],
+	["F", "Atacar / interactuar (enemigo, puertas, altar, loot)"],
 	["I", "Inventario"],
 	["C", "Menú de personaje (stats / armas / armadura)"],
 ]
