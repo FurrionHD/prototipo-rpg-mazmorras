@@ -53,6 +53,10 @@ enum TipoEfecto { ATAQUE, BUFF, DEBUFF }
 # llevan menos prob. que las de ARMA: a cambio dan la afinidad entera.
 @export var imbue_estado: int = -1
 @export var imbue_prob: float = 0.0
+# FRANJA de la afinidad que da el imbue de CUERPO (solo aplica si imbue_tipo = 2).
+# 1.0 = como una criatura PURA del elemento (×0.5 / ×1.5). 0.4 = imbuido (×0.8 / ×1.2):
+# no es lo mismo SER de fuego que haberte echado un manto encima. Ver Elementos.
+@export var imbue_intensidad: float = 0.4
 
 @export_multiline var descripcion: String = ""
 

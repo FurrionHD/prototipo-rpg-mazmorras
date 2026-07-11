@@ -15,5 +15,6 @@ imbue_pct = 0.15
 imbue_turnos = 4
 imbue_estado = 8
 imbue_prob = 0.15
+imbue_intensidad = 0.4
 efectos = []
 descripcion = "Un canto largo que te convierte en pura descarga: los golpes te atontan mucho menos. Arde tu maná deprisa y se apaga pronto."

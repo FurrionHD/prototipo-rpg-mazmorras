@@ -144,6 +144,10 @@ var status_resist: float = 0.0
 # que este combatiente NO puede recibir (slime de fuego: inmune a Quemadura). Los rellena
 # EnemyData; el jugador los deja neutros por ahora.
 var elemento: int = Elementos.Elemento.NINGUNO
+# FRANJA de la afinidad: 1.0 = PURO (una criatura hecha del elemento: ×0.5 / ×1.5), menos =
+# mas suave. Un cuerpo imbuido va a INTENSIDAD_IMBUIDO (0.4 -> ×0.8 / ×1.2): no es lo mismo
+# SER de fuego que haberte echado un manto por encima. No afecta a inmunidades (son binarias).
+var elemento_intensidad: float = Elementos.INTENSIDAD_PURA
 var resist_elemental: Dictionary = {}
 var inmune_estados: Array = []
 
@@ -182,7 +186,8 @@ func es_inmune(id: int) -> bool:
 
 # Imbuye el arma (cuerpo = false) o el CUERPO (cuerpo = true) con un elemento.
 func aplicar_imbue(elem: int, pct: float, turnos: int, cuerpo: bool,
-		estado: int = -1, prob: float = 0.0) -> void:
+		estado: int = -1, prob: float = 0.0,
+		intensidad: float = Elementos.INTENSIDAD_IMBUIDO) -> void:
 	imbue_elemento = elem
 	imbue_pct = pct
 	imbue_turnos = maxi(1, turnos)
@@ -190,7 +195,10 @@ func aplicar_imbue(elem: int, pct: float, turnos: int, cuerpo: bool,
 	imbue_estado = estado
 	imbue_prob = prob
 	if cuerpo:
-		elemento = elem   # afinidad: resistencias/debilidades/inmunidades por la tabla
+		# Afinidad: resistencias/debilidades/inmunidades por la tabla, pero en la franja
+		# SUAVE del imbuido (no eres el elemento, te lo has puesto encima).
+		elemento = elem
+		elemento_intensidad = intensidad
 
 
 # Tira el ESTADO de la imbuicion tras un golpe que ACIERTA. Devuelve su nombre si prende, ""
@@ -220,6 +228,7 @@ func tick_imbue() -> bool:
 		return false
 	if imbue_cuerpo:
 		elemento = Elementos.Elemento.NINGUNO
+		elemento_intensidad = Elementos.INTENSIDAD_PURA   # vuelve al valor neutro por defecto
 	imbue_elemento = Elementos.Elemento.NINGUNO
 	imbue_pct = 0.0
 	imbue_cuerpo = false

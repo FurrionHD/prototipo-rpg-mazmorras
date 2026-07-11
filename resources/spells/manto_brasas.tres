@@ -15,5 +15,6 @@ imbue_pct = 0.15
 imbue_turnos = 6
 imbue_estado = 2
 imbue_prob = 0.15
+imbue_intensidad = 0.4
 efectos = []
 descripcion = "Un canto largo que enciende tus venas: te afinas al fuego. Las llamas ya no te tocan, pero el agua te apagará."

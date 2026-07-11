@@ -81,6 +81,9 @@ class_name EnemyData
 # a la tabla (un enemigo puede resistir algo sin ser de ese elemento). inmune_estados = ids de
 # StatusEffects.Id que NO puede recibir (slime de fuego: [2] = Quemadura).
 @export var elemento: int = Elementos.Elemento.NINGUNO
+# FRANJA de su afinidad. 1.0 = PURO (el slime de fuego ESTA hecho de fuego: ×0.5 / ×1.5).
+# Bajalo para un bicho solo "tocado" por el elemento (p.ej. 0.5 -> ×0.75 / ×1.25).
+@export var elemento_intensidad: float = 1.0
 @export var resist_elemental: Dictionary = {}
 @export var inmune_estados: Array = []
 
@@ -159,6 +162,7 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	c.prob_habilidad = prob_habilidad
 	# Sistema elemental (KAN-58): afinidad, overrides de resistencia e inmunidad a estados.
 	c.elemento = elemento
+	c.elemento_intensidad = elemento_intensidad
 	c.resist_elemental = resist_elemental
 	c.inmune_estados = inmune_estados
 	# Sus GOLPES van de su elemento (el slime de fuego pega fuego). Ojo: un bicho que resista

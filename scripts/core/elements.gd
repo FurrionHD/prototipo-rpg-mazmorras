@@ -27,11 +27,23 @@ const NOMBRE := {
 #   AGUA:  resiste Agua y Fuego (×0.5), débil a Rayo (×1.5).
 #   RAYO:  resiste Rayo. SIN DEBILIDAD todavia (ya llegara su counter, p.ej. Tierra); mientras
 #          tanto su imbuicion de cuerpo lo paga con mas maná y menos turnos.
+# Los valores de esta tabla son los del elemento PURO (intensidad 1.0).
 const PERFIL_DEFECTO := {
 	Elemento.FUEGO: { Elemento.FUEGO: 0.5, Elemento.AGUA: 1.5 },
 	Elemento.AGUA: { Elemento.AGUA: 0.5, Elemento.FUEGO: 0.5, Elemento.RAYO: 1.5 },
 	Elemento.RAYO: { Elemento.RAYO: 0.5 },
 }
+
+# FRANJAS DE INTENSIDAD de la afinidad. El perfil de arriba es el del elemento PURO; esta
+# intensidad lo suaviza:   mult = 1 + (mult_puro - 1) × intensidad
+# No es lo mismo ESTAR HECHO de fuego que haberte echado un manto de fuego por encima.
+const INTENSIDAD_PURA := 1.0       # criatura del elemento (slime de fuego): ×0.5 / ×1.5
+const INTENSIDAD_IMBUIDO := 0.4    # cuerpo imbuido (jugador):               ×0.8 / ×1.2
+
+
+# Aplica la franja de intensidad al multiplicador de un elemento PURO.
+static func escalar_intensidad(mult_puro: float, intensidad: float) -> float:
+	return 1.0 + (mult_puro - 1.0) * intensidad
 
 
 # Estados a los que te hace INMUNE tener esta afinidad. La inmunidad es CONSECUENCIA del
@@ -90,8 +102,10 @@ static func mult_recibido(elem: int, defender) -> float:
 		return 1.0
 	var base: float
 	if defender.resist_elemental.has(elem):
+		# Override a medida: es un valor ABSOLUTO que puso el diseñador. No se escala.
 		base = float(defender.resist_elemental[elem])
 	else:
+		# Perfil de la afinidad, suavizado por su FRANJA de intensidad (puro vs imbuido).
 		var perfil: Dictionary = PERFIL_DEFECTO.get(defender.elemento, {})
-		base = float(perfil.get(elem, 1.0))
+		base = escalar_intensidad(float(perfil.get(elem, 1.0)), defender.elemento_intensidad)
 	return base * mult_por_estados(elem, defender)

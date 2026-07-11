@@ -671,7 +671,7 @@ func _disparar_hechizo() -> void:
 func _aplicar_imbuicion(spell: SpellData) -> void:
 	var cuerpo: bool = spell.imbue_tipo == 2
 	_player.aplicar_imbue(spell.elemento, spell.imbue_pct, spell.imbue_turnos, cuerpo,
-		spell.imbue_estado, spell.imbue_prob)
+		spell.imbue_estado, spell.imbue_prob, spell.imbue_intensidad)
 	var elem: String = Elementos.nombre(spell.elemento)
 	print("[imbuicion] %s se imbuye %s de %s: +%d%% de daño %s durante %d turnos" % [
 		_player.nombre, ("el CUERPO" if cuerpo else "el ARMA"), elem,
@@ -679,17 +679,19 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 	var msg: String = "✨ Imbuyes tu %s de %s: +%d%% de daño de %s (%d turnos)." % [
 		("cuerpo" if cuerpo else "arma"), elem, roundi(spell.imbue_pct * 100.0), elem, spell.imbue_turnos]
 	if cuerpo:
-		# Afinidad: contar lo que gana y lo que pierde, DERIVADO de la tabla (no hardcodeado).
+		# Lo que ganas y lo que pierdes, DERIVADO del estado REAL del jugador (ya lleva la
+		# afinidad puesta con su FRANJA de intensidad). Nada hardcodeado: si tocas la tabla o
+		# la intensidad, este texto se actualiza solo y dice el % de verdad.
 		var resiste: Array = []
 		var debil: Array = []
-		var perfil: Dictionary = Elementos.PERFIL_DEFECTO.get(spell.elemento, {})
-		for e in perfil:
-			if float(perfil[e]) < 1.0:
-				resiste.append(Elementos.nombre(e))
-			elif float(perfil[e]) > 1.0:
-				debil.append(Elementos.nombre(e))
+		for e in Elementos.PERFIL_DEFECTO.get(spell.elemento, {}):
+			var m: float = Elementos.mult_recibido(e, _player)
+			if m < 0.99:
+				resiste.append("%s (%d%%)" % [Elementos.nombre(e), roundi(m * 100.0)])
+			elif m > 1.01:
+				debil.append("%s (%d%%)" % [Elementos.nombre(e), roundi(m * 100.0)])
 		if not resiste.is_empty():
-			msg += "  🛡 Resistes: %s." % ", ".join(resiste)
+			msg += "  🛡 Recibes menos de: %s." % ", ".join(resiste)
 		var inm: Array = []
 		for id in Elementos.inmunidades_de(spell.elemento):
 			inm.append(str(StatusEffects.def(id).get("nombre", "?")))
@@ -697,8 +699,8 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 			msg += "  Inmune a: %s." % ", ".join(inm)
 		if not debil.is_empty():
 			msg += "  ⚠ Débil a: %s." % ", ".join(debil)
-		print("[imbuicion] afinidad %s -> resiste %s | inmune %s | debil a %s" % [
-			elem, resiste, inm, debil])
+		print("[imbuicion] afinidad %s (intensidad %.2f) -> resiste %s | inmune %s | debil a %s" % [
+			elem, spell.imbue_intensidad, resiste, inm, debil])
 	_set_log(msg)
 
 
