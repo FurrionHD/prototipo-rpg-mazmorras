@@ -14,6 +14,6 @@ imbue_tipo = 1
 imbue_pct = 0.3
 imbue_turnos = 4
 imbue_estado = 2
-imbue_prob = 0.2
+imbue_prob = 0.3
 efectos = []
 descripcion = "Tu arma se cubre de brasas vivas: cada golpe deja la carne humeando."

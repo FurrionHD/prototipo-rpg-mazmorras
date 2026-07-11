@@ -14,6 +14,6 @@ imbue_tipo = 1
 imbue_pct = 0.3
 imbue_turnos = 4
 imbue_estado = 12
-imbue_prob = 0.2
+imbue_prob = 0.3
 efectos = []
 descripcion = "Envuelves tu arma en una corriente viva: cada golpe descarga un latigazo de agua a presión. Devastador contra criaturas de fuego."

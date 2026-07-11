@@ -14,6 +14,6 @@ imbue_tipo = 1
 imbue_pct = 0.3
 imbue_turnos = 4
 imbue_estado = 8
-imbue_prob = 0.2
+imbue_prob = 0.3
 efectos = []
 descripcion = "Tu arma cruje de electricidad: cada impacto sacude al enemigo y lo deja aturdido y torpe."
