@@ -124,13 +124,20 @@ func enemy_floor_stat_factor() -> float:
 # arquetipo ocupa un sub-tramo (franja_low/high en EnemyData) y reparte esa suma por
 # sus pesos. Constantes PROVISIONALES (ejemplos del usuario): piso1 [80,200],
 # piso2 [175,450] ... piso13 [2100,3200]. Afinar con Excel.
-const SUM_MAX_F1 := 200.0    # techo de la franja en el piso 1
-const SUM_MIN_STEP := 175.0  # cuanto sube el suelo por piso
-const SUM_MAX_STEP := 250.0  # cuanto sube el techo por piso
+#
+# OJO al ×1.12: al dar peso de MAGIA a los enemigos (defensa magica), la suma se reparte
+# ahora entre 5 stats y no 4, asi que las fisicas se habrian encogido ~11% de rebote (los
+# pesos del slime pasan de sumar 125 a 140). Subimos la franja en esa misma proporcion
+# (140/125 = 1.12) para que las 4 fisicas queden EXACTAMENTE como estaban y la Magia se
+# añada ENCIMA, en vez de robarles presupuesto. El techo de 999 no se mueve: la stat alta
+# del slime al piso 13 sigue saliendo igual (40/140 × 1.12 = 40/125).
+const SUM_MAX_F1 := 224.0    # techo de la franja en el piso 1   (era 200)
+const SUM_MIN_STEP := 196.0  # cuanto sube el suelo por piso     (era 175)
+const SUM_MAX_STEP := 280.0  # cuanto sube el techo por piso     (era 250)
 # Suelo MINIMO de la SUMA de habilidades: en el piso 1 el suelo teorico seria 0 y
-# los enemigos salian casi vacios (slime ocupa el sub-tramo bajo). Forzamos >=80.
-# Solo muerde en el piso 1: del piso 2 en adelante el suelo ya es >=175.
-const SUM_MIN_FLOOR := 80.0
+# los enemigos salian casi vacios (slime ocupa el sub-tramo bajo). Forzamos >=90.
+# Solo muerde en el piso 1: del piso 2 en adelante el suelo ya es >=196.
+const SUM_MIN_FLOOR := 90.0
 
 func enemy_ability_sum_band(floor: int) -> Vector2:
 	var f: float = float(maxi(1, floor) - 1)
