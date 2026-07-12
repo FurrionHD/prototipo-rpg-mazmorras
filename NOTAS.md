@@ -421,8 +421,11 @@ armadura, **como las armas, modula la VELOCIDAD** (combate ATB + movimiento en m
 pueblo y mazmorra). Botón **DEBUG** abajo-izquierda abre/cierra un panel con:
 - **STATS**: 5 campos (F/R/D/A/M) + Aplicar → `Game.debug_set_abilities()` (escribe el
   interno, `actualizar_estado()` y cura al 100%).
-- **Fuerza del ENEMIGO**: presets Base / 200 / 500 / Cheto → `Game.debug_enemy_stat_override`
-  (-1 = stats del `.tres`; >=0 = las 5 habilidades planas). Se aplica en `EnemyData.crear_abilities()`.
+- **Habilidades del ENEMIGO**: 5 campos (F/R/D/A/M) que se escriben como los tuyos, más presets
+  rápidos Base / 200 / 500 / Cheto → `Game.debug_enemy_override` (Dictionary por stat). Una casilla
+  **vacía deja esa stat en su valor natural** (el reparto por pesos del piso), así se puede aislar UNA
+  sola (p.ej. subir solo la Magia para ver cuánto frena la defensa mágica) sin deformar el resto del
+  bicho. Se aplica en `EnemyData.crear_abilities()`.
 - **ARMADURA por pieza**: dropdown Nada/Cuero/Hierro/Hierro compl./Placas + dropdown de TIER
   (T1/T2/T3) al lado, por slot.
 - **ARMAS**: dropdowns de principal y secundaria + su TIER (reusa `Game._dev_weapons`/`_dev_offs`,

@@ -122,26 +122,21 @@ func _target_sum(t: float) -> float:
 
 
 # Crea las Abilities: reparte la suma objetivo (segun 't' y el piso) por los PESOS,
-# capando cada stat a 999. El override de debug (200/500/999) manda por encima.
+# capando cada stat a 999. Encima, el panel de DEBUG puede pisar stats SUELTAS
+# (Game.debug_enemy_override): las que no toque se quedan en su valor natural.
 func crear_abilities(t: float = 0.5) -> Abilities:
 	var a := Abilities.new()
-	if Game.debug_enemy_stat_override >= 0:
-		var v: int = clampi(Game.debug_enemy_stat_override, 0, 999)
-		a.fuerza = v
-		a.resistencia = v
-		a.destreza = v
-		a.agilidad = v
-		a.magia = v
-		return a
 	var wt: float = peso_total()
-	if wt <= 0.0:
-		return a  # sin pesos -> todo 0
-	var target: float = _target_sum(t)
-	a.fuerza = clampi(int(round(target * float(fuerza) / wt)), 0, 999)
-	a.resistencia = clampi(int(round(target * float(resistencia) / wt)), 0, 999)
-	a.destreza = clampi(int(round(target * float(destreza) / wt)), 0, 999)
-	a.agilidad = clampi(int(round(target * float(agilidad) / wt)), 0, 999)
-	a.magia = clampi(int(round(target * float(magia) / wt)), 0, 999)
+	if wt > 0.0:
+		var target: float = _target_sum(t)
+		a.fuerza = clampi(int(round(target * float(fuerza) / wt)), 0, 999)
+		a.resistencia = clampi(int(round(target * float(resistencia) / wt)), 0, 999)
+		a.destreza = clampi(int(round(target * float(destreza) / wt)), 0, 999)
+		a.agilidad = clampi(int(round(target * float(agilidad) / wt)), 0, 999)
+		a.magia = clampi(int(round(target * float(magia) / wt)), 0, 999)
+	# DEBUG: pisa solo las stats que el panel haya fijado.
+	for clave in Game.debug_enemy_override:
+		a.set(clave, clampi(int(Game.debug_enemy_override[clave]), 0, 999))
 	return a
 
 

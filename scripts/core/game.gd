@@ -197,9 +197,11 @@ var dev_start_weight_ratio: float = 0.0
 var dev_start_abilities: int = 0
 
 # --- PANEL DE DEBUG (herramienta de desarrollo, ver scripts/ui/debug_panel.gd) ---
-# Override de las habilidades del ENEMIGO: -1 = usar las del EnemyData (Base);
-# >=0 = forzar las 5 habilidades a ese valor plano (presets 200 / 500 / 999).
-var debug_enemy_stat_override: int = -1
+# Override de las habilidades del ENEMIGO, POR STAT: { "fuerza": 500, "magia": 0, ... }.
+# Vacio = Base (el reparto normal por pesos y piso). Una stat que NO este en el diccionario
+# se queda en su valor natural, asi se puede aislar UNA sola (p.ej. subir solo la Magia para
+# ver cuanto frena de verdad la defensa magica) sin deformar el resto del bicho.
+var debug_enemy_override: Dictionary = {}
 # MODO PRUEBA (muñeco): 0 = off, 1 = Saco (mucha vida, no pega, sin esquiva -> mide tu DPS),
 # 2 = Pegador (aguanta y te pega -> mide la mitigacion de tu armadura). Ambos: velocidad
 # estandar (cadencia regular) y el jugador es invulnerable (tests largos sin morir).

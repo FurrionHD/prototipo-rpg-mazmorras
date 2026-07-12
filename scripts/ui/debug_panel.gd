@@ -30,6 +30,7 @@ var _panel: PanelContainer = null
 var _open: bool = false
 
 var _stat_edits: Dictionary = {}
+var _enemy_edits: Dictionary = {}   # habilidades del enemigo, una LineEdit por stat
 var _enemy_buttons: Array = []
 var _dummy_buttons: Array = []   # [boton, modo] del modo prueba (Off/Saco/Pegador)
 var _dummy_hp_edit: LineEdit = null
@@ -155,7 +156,30 @@ func _build_stats(vb: VBoxContainer) -> void:
 
 
 func _build_enemy(vb: VBoxContainer) -> void:
-	_header(vb, "Fuerza del ENEMIGO")
+	# Habilidades del ENEMIGO, como las tuyas: se escriben una a una. Lo que dejes VACIO se
+	# queda en su valor natural (el reparto por pesos del piso), asi se puede aislar UNA stat.
+	_header(vb, "Habilidades del ENEMIGO (vacío = natural)")
+	var erow := HBoxContainer.new()
+	erow.add_theme_constant_override("separation", 4)
+	vb.add_child(erow)
+	for k in [["F", "fuerza"], ["R", "resistencia"], ["D", "destreza"],
+			["A", "agilidad"], ["M", "magia"]]:
+		var l := Label.new()
+		l.text = k[0]
+		erow.add_child(l)
+		var e := LineEdit.new()
+		e.custom_minimum_size = Vector2(48, 0)
+		e.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		e.placeholder_text = "—"
+		e.text_submitted.connect(func(_t): _apply_enemy_stats())
+		erow.add_child(e)
+		_enemy_edits[k[1]] = e
+	var eapply := Button.new()
+	eapply.text = "Aplicar"
+	eapply.pressed.connect(_apply_enemy_stats)
+	erow.add_child(eapply)
+
+	_header(vb, "Presets rápidos")
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 	vb.add_child(row)
@@ -517,8 +541,23 @@ func _apply_stats() -> void:
 	_sync_stats()
 
 
+# Lee las 5 casillas: la que este VACIA no pisa nada (esa stat queda natural).
+func _apply_enemy_stats() -> void:
+	Game.debug_enemy_override.clear()
+	for clave in _enemy_edits:
+		var t: String = (_enemy_edits[clave] as LineEdit).text.strip_edges()
+		if t != "":
+			Game.debug_enemy_override[clave] = clampi(t.to_int(), 0, 999)
+	print("[dev] Habilidades del enemigo: ", Game.debug_enemy_override if not Game.debug_enemy_override.is_empty() else "Base (natural)")
+	_sync_enemy()
+
+
+# Presets: Base (-1) limpia los overrides; el resto pone las 5 stats a ese valor plano.
 func _set_enemy(valor: int) -> void:
-	Game.debug_enemy_stat_override = valor
+	Game.debug_enemy_override.clear()
+	if valor >= 0:
+		for clave in _enemy_edits:
+			Game.debug_enemy_override[clave] = valor
 	_sync_enemy()
 
 
@@ -565,8 +604,16 @@ func _sync_stats() -> void:
 	_stat_edits["magia"].text = str(Game.player_magia)
 
 func _sync_enemy() -> void:
+	var ov: Dictionary = Game.debug_enemy_override
+	# Casilla vacia = esa stat va natural.
+	for clave in _enemy_edits:
+		(_enemy_edits[clave] as LineEdit).text = str(ov[clave]) if ov.has(clave) else ""
+	# Un preset esta "activo" si las 5 stats estan pisadas con SU valor. Base = sin overrides.
 	for pair in _enemy_buttons:
-		(pair[0] as Button).button_pressed = (pair[1] == Game.debug_enemy_stat_override)
+		var valor: int = int(pair[1])
+		var activo: bool = ov.is_empty() if valor < 0 else (
+			ov.size() == _enemy_edits.size() and ov.values().all(func(v): return int(v) == valor))
+		(pair[0] as Button).button_pressed = activo
 	_sync_dummy()
 
 func _sync_dummy() -> void:
