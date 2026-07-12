@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="SA_mojado"]
 script = ExtResource("2")
 estado = 12
-prob = 0.09
+prob = 0.2
 elemento_req = 2
 
 [sub_resource type="Resource" id="SA_electrizado"]
