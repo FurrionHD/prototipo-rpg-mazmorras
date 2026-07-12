@@ -177,6 +177,22 @@ var imbue_estado: int = -1
 var imbue_prob: float = 0.0
 
 
+# Un golpe de 'elem' GASTA los estados que lo amplificaban: el rayo evapora el Mojado al
+# caer sobre el. Si no, una sola tirada afortunada (mojas en el golpe 1) cobraria el x1.5 en
+# TODOS los rayos que vinieran detras; asi cada amplificacion se cobra UNA vez y hay que
+# volver a mojar. Es generico: no sabe nada de Mojado ni de Rayo, solo lee la tabla
+# AMPLIFICA_POR_ESTADO. Devuelve los nombres de los estados gastados (para el log).
+func consumir_amplificadores(elem: int) -> Array:
+	var gastados: Array = []
+	for i in range(statuses.size() - 1, -1, -1):
+		var e = statuses[i]
+		var tabla: Dictionary = Elementos.AMPLIFICA_POR_ESTADO.get(e.id(), {})
+		if float(tabla.get(elem, 1.0)) != 1.0:
+			gastados.append(String(e.d.get("nombre", "?")))
+			statuses.remove_at(i)
+	return gastados
+
+
 # True si este combatiente NO puede recibir el estado 'id'. Tres vias:
 #  - inmunidad a medida (inmune_estados): un minotauro peludo inmune a algo sin ser de ese elemento.
 #  - su AFINIDAD elemental: un ser de fuego no se quema.

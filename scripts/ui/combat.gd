@@ -734,6 +734,9 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		trail.append("%s%.1f%s" % [Elementos.icono(elem), dmg, _mult_sufijo(mult)])
 		print("[magia] %s golpe %d/%d %s: %.2f (x%.2f)" % [
 			spell.nombre, i + 1, n, Elementos.nombre(elem), dmg, mult])
+		# Este golpe GASTA lo que lo amplificaba (el rayo evapora el Mojado): el x1.5 se cobra
+		# una vez y hay que volver a mojar. Va DESPUES del daño (este golpe si lo cobra).
+		_gastar_amplificadores(objetivo, elem)
 		# Estados de ESTE golpe (solo los que pidan su elemento). Van DESPUES de su daño.
 		_aplicar_estado_hechizo(spell, objetivo, elem, not multi, anunciados)
 	var foco_txt: String = "  🔮Foco arcano +%d%% (quedan %d)" % [
@@ -746,6 +749,16 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		_set_log("🔥 %s impacta a %s por %.2f de daño.%s%s" % [
 			spell.nombre, objetivo.nombre, total, _elem_txt(ultimo_mult), foco_txt])
 	return total
+
+
+# Un golpe de 'elem' gasta los estados que lo amplificaban (Rayo sobre Mojado). Solo se
+# anuncia en la consola: en el log del combate seria una linea por golpe.
+func _gastar_amplificadores(objetivo: Combatant, elem: int) -> void:
+	if elem == Elementos.Elemento.NINGUNO:
+		return
+	for nom in objetivo.consumir_amplificadores(elem):
+		print("[estado] el golpe de %s GASTA el %s de %s (el x1.5 no se repite)" % [
+			Elementos.nombre(elem), nom, objetivo.nombre])
 
 
 # Feedback elemental de UN golpe, compacto, para el rastro del log ("⚡4.1×1.5").
@@ -962,6 +975,8 @@ func _usar_habilidad(ab: AbilityData) -> void:
 				total_imbue += float(result.get("dmg_imbue", 0.0)) * ab.dano_mult
 				mult_imbue = float(result.get("mult_imbue", 1.0))
 				_enemy.take_damage(dmg)
+				if float(result.get("dmg_imbue", 0.0)) > 0.0:
+					_gastar_amplificadores(_enemy, _player.imbue_elemento)
 				conecto += 1
 				if result.crit:
 					hubo_critico = true
@@ -1119,6 +1134,9 @@ func _accion_atacar() -> void:
 		_set_log("%s esquiva tu ataque (%s). 💨" % [_enemy.nombre, con_arma])
 	else:
 		_enemy.take_damage(result.damage)
+		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).
+		if float(result.get("dmg_imbue", 0.0)) > 0.0:
+			_gastar_amplificadores(_enemy, _player.imbue_elemento)
 		_dps_add("Básico (%s)" % con_arma, result.damage)
 		var txt: String
 		if result.crit:
