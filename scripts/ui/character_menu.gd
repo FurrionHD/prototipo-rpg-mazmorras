@@ -15,10 +15,12 @@
 
 extends CanvasLayer
 
-const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas"]
+# La MOCHILA va aqui aunque no sea armadura: no ocupa mano, no pesa y no da defensa, pero se
+# equipa igual y este es el sitio donde el jugador la va a buscar.
+const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas", "mochila"]
 const ARMOR_SLOT_LABELS := {
 	"casco": "Casco", "pecho": "Pecho", "manos": "Manos",
-	"pantalones": "Pantalones", "botas": "Botas"}
+	"pantalones": "Pantalones", "botas": "Botas", "mochila": "Mochila"}
 const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "Mandoble",
 	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
 
@@ -384,6 +386,10 @@ func _catalogo_off() -> Array:
 # DESEQUIPA la que llevas puesta (el boton cambia solo).
 func _catalogo_armor(slot: String) -> Array:
 	var r: Array = []
+	if slot == "mochila":
+		for m in Game.owned_mochilas:
+			r.append(m)
+		return r
 	for p in Game.owned_armor_de_slot(slot):
 		r.append(p)
 	return r
@@ -642,7 +648,9 @@ func _build_armadura_lista() -> void:
 	_content.add_child(HSeparator.new())
 	for slot in ARMOR_SLOTS:
 		var pieza = Game.get("equipped_" + slot)
-		var nombre: String = Game.item_display_name(pieza) if pieza is ArmorData else "(sin pieza)"
+		var nombre: String = "(sin pieza)"
+		if pieza is ArmorData or pieza is BackpackData:
+			nombre = Game.item_display_name(pieza)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		var l := Label.new()
@@ -751,7 +759,11 @@ func _equipar_armor() -> void:
 	var slot: String = _armor_slot_sel
 	var cat: Array = _catalogo_armor(slot)
 	if _armor_cand < cat.size():
-		Game.equipar_armadura(slot, null if _armor_cand_equipada() else cat[_armor_cand])
+		var elegido = null if _armor_cand_equipada() else cat[_armor_cand]
+		if slot == "mochila":
+			Game.equipar_mochila(elegido)
+		else:
+			Game.equipar_armadura(slot, elegido)
 	_rebuild()   # se queda en el slot; la recien equipada queda marcada
 
 
@@ -761,11 +773,33 @@ func _preview_armor(vb: VBoxContainer) -> void:
 	var cat: Array = _catalogo_armor(slot)
 	if _armor_cand >= cat.size() or cat[_armor_cand] == null:
 		return
+	if slot == "mochila":
+		_mochila_stats(vb, cat[_armor_cand] as BackpackData)
+		return
 	var a: ArmorData = cat[_armor_cand]
 	_title(vb, Game.item_display_name(a))
 	if a == Game.get("equipped_" + slot):
 		_note(vb, "Ya la llevas puesta: al quitarla vas ligero (+velocidad, 0 defensa).")
 	_armor_stats(vb, a)
+
+
+# Ficha de una MOCHILA: lo unico que hace es subir la carga, asi que se enseña lo que SUMA y lo
+# que llevarias con ella puesta (la Fuerza multiplica el conjunto, asi que el numero final no es
+# una suma a pelo).
+func _mochila_stats(vb: VBoxContainer, m: BackpackData) -> void:
+	if m == null:
+		return
+	var meta: Dictionary = Game.meta_de(m)
+	_title(vb, Game.item_display_name(m))
+	if m == Game.equipped_mochila:
+		_note(vb, "Ya la llevas puesta: al quitarla te quedas con el zurrón de serie.")
+	_row(vb, "  Capacidad", "+%.0f de carga" % Game.capacidad_mochila(m))
+	_row(vb, "  Tier / rareza", "T%d · %s" % [
+		int(meta["tier"]), Upgrades.rareza_nombre(int(meta["rareza"]))])
+	_row(vb, "  Llevarías", "%.0f  (ahora: %.0f)" % [
+		Game.capacidad_con_mochila(m), Game.capacidad_carga()])
+	if m.descripcion != "":
+		_note(vb, m.descripcion)
 
 
 # Ficha de una pieza de armadura. Como en las armas: los numeros son los REALES (con su tier,

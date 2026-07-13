@@ -216,6 +216,9 @@ func nueva_partida() -> void:
 	almacen_materiales.clear()
 	owned_weapons.clear()
 	owned_armor.clear()
+	owned_mochilas.clear()
+	equipped_mochila = null
+	extra_capacity = 0.0
 	consumables.clear()
 	equipped_spells.clear()
 	item_meta.clear()
@@ -276,6 +279,8 @@ func exportar_partida() -> SaveData:
 	d.almacen_materiales = almacen_materiales.duplicate()
 	d.owned_weapons = owned_weapons.duplicate()
 	d.owned_armor = owned_armor.duplicate()
+	d.owned_mochilas = owned_mochilas.duplicate()
+	d.equipped_mochila = equipped_mochila
 
 	d.equipped_main = equipped_main
 	d.equipped_off = equipped_off
@@ -346,6 +351,7 @@ func importar_partida(d: SaveData) -> void:
 	almacen_materiales.assign(d.almacen_materiales)
 	owned_weapons.assign(d.owned_weapons)
 	owned_armor.assign(d.owned_armor)
+	owned_mochilas.assign(d.owned_mochilas)
 
 	equipped_main = d.equipped_main
 	equipped_off = d.equipped_off
@@ -355,12 +361,18 @@ func importar_partida(d: SaveData) -> void:
 	equipped_pantalones = d.equipped_pantalones
 	equipped_botas = d.equipped_botas
 	equip_meta = d.equip_meta.duplicate(true)
+	equipped_mochila = d.equipped_mochila as BackpackData
+	# extra_capacity se REDERIVA de la mochila (mas abajo, cuando item_meta ya este rearmada:
+	# la capacidad depende del tier/rareza, que viven ahi).
 
 	# Rearmamos item_meta con los MISMOS objetos que hay en el baul/equipo: Godot ha
 	# conservado la identidad, asi que la espada equipada y la del baul siguen siendo una.
 	item_meta.clear()
 	for i in range(mini(d.meta_items.size(), d.meta_datos.size())):
 		item_meta[d.meta_items[i]] = (d.meta_datos[i] as Dictionary).duplicate(true)
+
+	# Ya con la meta rearmada: la capacidad de la mochila sale de su tier y su rareza.
+	extra_capacity = capacidad_mochila()
 
 	consumables.clear()
 	for ruta in d.consumibles:
@@ -562,6 +574,8 @@ var almacen_materiales: Array[MaterialItem] = []
 # deja equipar lo que este aqui. owned_weapons mezcla WeaponData / ShieldData / WandData.
 var owned_weapons: Array[Resource] = []
 var owned_armor: Array[ArmorData] = []
+# Mochilas poseidas (van aparte: no son equipo de combate, tienen su propio slot).
+var owned_mochilas: Array[BackpackData] = []
 
 # OBJETOS consumibles (pociones): ConsumableData -> cantidad. Por ahora se consiguen
 # desde el panel de debug (KAN-57). Curan por el tiempo (ver ConsumableData).
@@ -1112,10 +1126,41 @@ func quitar_hechizo(spell: SpellData) -> void:
 	equipped_spells.erase(spell)
 
 # --- Peso / capacidad de carga ---
-# De serie llevas un ZURRON pequeño (base_capacity). La Fuerza sube la
-# capacidad. En el futuro: mochila y companero de apoyo sumaran aqui.
+# De serie llevas un ZURRON pequeño (base_capacity). La Fuerza sube la capacidad.
 var base_capacity: float = 25.0        # zurron de serie
-var extra_capacity: float = 0.0        # placeholder mochila/companero (futuro)
+# Lo que suma la MOCHILA (y, algun dia, un compañero de apoyo). Ya NO es un placeholder: lo
+# rellena la mochila equipada (ver capacidad_mochila).
+var extra_capacity: float = 0.0
+
+# --- MOCHILA (slot propio; no es equipo de combate) ---
+# La UNICA cosa que sube la capacidad de carga. La basica suma +15 sobre los 25 del zurron;
+# el TIER y la RAREZA la escalan. No se mejora con nucleos: los nucleos son para matar y
+# aguantar, no para llevar mas trastos.
+var equipped_mochila: BackpackData = null
+
+# Cuanto suma ESTA mochila, con su tier y su rareza. El tier pesa poco a proposito (una mochila
+# de adamante no es una mochila el doble de grande: son mejores herrajes, no mas tela), asi que
+# se usa una curva suave en vez del tier_mult del combate.
+const MOCHILA_TIER_BONUS := 0.35   # +35% por tier por encima del primero
+
+func capacidad_mochila(m: BackpackData = null) -> float:
+	var mo: BackpackData = m if m != null else equipped_mochila
+	if mo == null:
+		return 0.0
+	var meta: Dictionary = meta_de(mo)
+	var tier_f: float = 1.0 + MOCHILA_TIER_BONUS * float(maxi(1, int(meta["tier"])) - 1)
+	return mo.capacidad * tier_f * Upgrades.rareza_mult_capacidad(int(meta["rareza"]))
+
+func equipar_mochila(m: BackpackData) -> void:
+	equipped_mochila = m
+	extra_capacity = capacidad_mochila()
+
+# Lo que llevarias CON esta mochila puesta (para comparar en el menu antes de equiparla). No es
+# una suma a pelo: la Fuerza multiplica el contenedor entero, mochila incluida.
+func capacidad_con_mochila(m: BackpackData) -> float:
+	var contenedor: float = base_capacity + capacidad_mochila(m)
+	var mult: float = 1.0 + clampf(player_fuerza / 999.0, 0.0, 1.0) * fuerza_capacity_bonus_max
+	return contenedor * mult
 # La Fuerza MULTIPLICA la capacidad del contenedor (zurron+mochila) hasta un
 # maximo (a Fuerza 999 = +50%). Asi no puedes llevar de todo con un zurron.
 var fuerza_capacity_bonus_max: float = 0.5  # +50% a Fuerza maxima
@@ -1467,6 +1512,9 @@ func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary) -> 
 	}
 	if copia is ArmorData:
 		add_owned_armor(copia as ArmorData)
+	elif copia is BackpackData:
+		if not owned_mochilas.has(copia):
+			owned_mochilas.append(copia as BackpackData)
 	else:
 		add_owned_weapon(copia)
 	return copia
@@ -1773,31 +1821,47 @@ func peleteria_activa() -> float:
 func herreria_activa() -> float:
 	return herreria_exp if habilidad_herreria else 0.0
 
-# Cada metal, su cadena: el TIER se conserva de la veta a la chapa.
+# Cada metal, su cadena: el TIER se conserva de la veta a la hebilla.
+#   mineral -> lingote -> chapa (armaduras) / hebillas (mochilas)
 const _FORJA_METALES: Array = [
 	["res://resources/materials/cobre.tres",
 		"res://resources/materials/lingote_cobre.tres",
-		"res://resources/materials/chapa_cobre.tres"],        # T1
+		"res://resources/materials/chapa_cobre.tres",
+		"res://resources/materials/hebillas_cobre.tres"],        # T1
 	["res://resources/materials/hierro.tres",
 		"res://resources/materials/lingote_hierro.tres",
-		"res://resources/materials/chapa_hierro.tres"],       # T2
+		"res://resources/materials/chapa_hierro.tres",
+		"res://resources/materials/hebillas_hierro.tres"],       # T2
 	["res://resources/materials/adamante.tres",
 		"res://resources/materials/lingote_adamante.tres",
-		"res://resources/materials/chapa_adamante.tres"],     # T3
+		"res://resources/materials/chapa_adamante.tres",
+		"res://resources/materials/hebillas_adamante.tres"],     # T3
 ]
 const _CUERO_CRUDO := "res://resources/materials/cuero_rata.tres"
 const _CUERO_CURTIDO := "res://resources/materials/cuero_curtido.tres"
+const _CORREA := "res://resources/materials/correa_cuero.tres"
 
-# {mineral, lingote, chapa} de cada metal (para los menus del herrero).
+# {mineral, lingote, chapa, hebillas} de cada metal (para los menus del herrero).
 func metales_forja() -> Array:
 	var out: Array = []
 	for t in _FORJA_METALES:
 		var mineral: Resource = load(t[0])
 		var lingote: Resource = load(t[1])
 		var chapa: Resource = load(t[2])
-		if mineral != null and lingote != null and chapa != null:
-			out.append({"mineral": mineral, "lingote": lingote, "chapa": chapa})
+		var hebillas: Resource = load(t[3])
+		if mineral != null and lingote != null and chapa != null and hebillas != null:
+			out.append({"mineral": mineral, "lingote": lingote, "chapa": chapa, "hebillas": hebillas})
 	return out
+
+func hebillas_forja() -> Array:
+	var out: Array = []
+	for m in metales_forja():
+		out.append(m["hebillas"])
+	return out
+
+# La CORREA: el otro ingrediente de la mochila, y lo que hace el peletero con el cuero curtido.
+func correa() -> MaterialData:
+	return load(_CORREA) as MaterialData
 
 func lingotes_forja() -> Array:
 	var out: Array = []
@@ -1863,6 +1927,16 @@ func batir_chapa(lingote: MaterialData, cal: int, veces: int) -> int:
 
 func curtir(cal: int, veces: int) -> int:
 	return refinar(cuero_crudo(), cuero_forja(), cal, veces, Forge.CUERO_POR_CURTIDO, "peleteria")
+
+# Las dos piezas de la MOCHILA: el metal las hace el herrero, la piel el peletero.
+func hacer_hebillas(lingote: MaterialData, cal: int, veces: int) -> int:
+	return refinar(lingote, hebillas_de(lingote), cal, veces, Forge.LINGOTE_POR_HEBILLAS, "metalurgia")
+
+func hacer_correa(cal: int, veces: int) -> int:
+	return refinar(cuero_forja(), correa(), cal, veces, Forge.CUERO_POR_CORREA, "peleteria")
+
+func hebillas_de(lingote: MaterialData) -> MaterialData:
+	return _mismo_metal(lingote, 1, 3)
 
 # El lingote que sale de este mineral, y la chapa que sale de este lingote (mismo metal, mismo
 # tier: el metal no cambia al refinarlo, solo la forma).
@@ -2031,6 +2105,56 @@ func _tirar_devolucion(mat: MaterialData, gasto: Dictionary, necesita: int, bonu
 	almacen_materiales.append(MaterialItem.crear(mat, peor))
 	print("[herrero] Aprovechas el recorte: recuperas 1 x %s (%s)" % [
 		mat.nombre, MaterialItem.crear(mat, peor).calidad_texto()])
+
+
+# --- FABRICAR una MOCHILA (peletero) ---
+# Misma idea que la forja, pero con las piezas de la mochila: las HEBILLAS ponen el metal (y con
+# el, el TIER) y las CORREAS + el CUERO CURTIDO ponen la tela. La RAREZA se tira con la calidad
+# media de todo lo que metes (mas la Peleteria, cuando exista): es lo unico que diferencia una
+# mochila de otra, asi que aqui la tirada importa mas que en ningun sitio.
+const MOCHILA_BASE := "res://resources/backpacks/mochila_basica.tres"
+# Coste, en unidades (mismas que el resto del crafteo: puro 4 / intacto 3 / normal 2 / dañado 1).
+const MOCHILA_COSTE := {"hebillas": 3, "correa": 4, "cuero": 6}
+
+func mochila_base() -> BackpackData:
+	return load(MOCHILA_BASE) as BackpackData
+
+func score_mochila(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dictionary, sel_cue: Dictionary) -> float:
+	return score_seleccion([sel_heb, sel_cor, sel_cue]) \
+		+ Forge.bonus_herreria(peleteria_activa()) \
+		+ Forge.bonus_metal(hebillas)
+
+func mochila_valida(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dictionary, sel_cue: Dictionary) -> bool:
+	if hebillas == null:
+		return false
+	if not _sel_disponible(hebillas, sel_heb) or not _sel_disponible(correa(), sel_cor) \
+			or not _sel_disponible(cuero_forja(), sel_cue):
+		return false
+	return uds_seleccion(sel_heb) >= int(MOCHILA_COSTE["hebillas"]) \
+		and uds_seleccion(sel_cor) >= int(MOCHILA_COSTE["correa"]) \
+		and uds_seleccion(sel_cue) >= int(MOCHILA_COSTE["cuero"])
+
+func fabricar_mochila(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dictionary, sel_cue: Dictionary) -> Resource:
+	if not mochila_valida(hebillas, sel_heb, sel_cor, sel_cue):
+		return null
+	var g_heb: Dictionary = recortar_seleccion(sel_heb, int(MOCHILA_COSTE["hebillas"]))
+	var g_cor: Dictionary = recortar_seleccion(sel_cor, int(MOCHILA_COSTE["correa"]))
+	var g_cue: Dictionary = recortar_seleccion(sel_cue, int(MOCHILA_COSTE["cuero"]))
+	var tier: int = Forge.tier_de_metal(hebillas)
+	var rareza: int = Forge.tirar_rareza(score_mochila(hebillas, sel_heb, sel_cor, sel_cue))
+	var bonus: float = Crafting.bonus_ahorro(peleteria_activa())
+	_consumir_seleccion_material(hebillas, g_heb)
+	_consumir_seleccion_material(correa(), g_cor)
+	_consumir_seleccion_material(cuero_forja(), g_cue)
+	_tirar_devolucion(hebillas, g_heb, int(MOCHILA_COSTE["hebillas"]), bonus)
+	_tirar_devolucion(correa(), g_cor, int(MOCHILA_COSTE["correa"]), bonus)
+	_tirar_devolucion(cuero_forja(), g_cue, int(MOCHILA_COSTE["cuero"]), bonus)
+	var m: Resource = crear_item(mochila_base(), tier, rareza, {})
+	peleteria_exp += Forge.HERRERIA_POR_PIEZA
+	print("[peletero] Coses una mochila con %s -> T%d %s (+%.0f de carga).  Peleteria %s" % [
+		hebillas.nombre, tier, Upgrades.rareza_nombre(rareza),
+		capacidad_mochila(m as BackpackData), snappedf(peleteria_exp, 0.1)])
+	return m
 
 
 # --- MEJORAR una pieza con NUCLEOS ---

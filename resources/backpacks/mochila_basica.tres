@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="BackpackData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/backpack_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Mochila"
+capacidad = 15.0
+valor_base = 400
+descripcion = "Un fardo de cuero con tirantes y hebillas. No es gran cosa, pero la diferencia entre volver con el botín y dejarlo tirado en un pasillo suele ser esto."

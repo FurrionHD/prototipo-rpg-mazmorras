@@ -1,15 +1,21 @@
 # ============================================================
 #  tannery_menu.gd  (CanvasLayer creada por codigo desde el jugador)
-#  Menu del PELETERO: CURTIR el cuero crudo del baul (cuero curtido = lo unico que admite la
-#  forja). Misma regla que el herrero al fundir: NO se mezclan calidades, hacen falta N pieles
-#  de la MISMA calidad y sale un cuero de esa calidad. Sube el contador de Peleteria.
+#  Menu del PELETERO. Tres pestañas:
+#    1) CURTIR   - cuero crudo -> CUERO CURTIDO (lo unico que admite la forja).
+#    2) CORREAS  - cuero curtido -> CORREAS (los tirantes de la mochila).
+#    3) MOCHILAS - hebillas (del herrero) + correas + cuero curtido -> MOCHILA.
 #
-#  Cuando existan las MOCHILAS (Game.extra_capacity, hoy placeholder), se confeccionan aqui.
+#  Curtir y hacer correas son REFINADOS: NO se mezclan calidades (N piezas de la MISMA calidad
+#  dan una de esa calidad); solo la Peleteria puede regalarte un escalon. Coser la mochila, en
+#  cambio, SI mezcla: la calidad media tira su RAREZA, que es lo unico que la diferencia (no
+#  lleva mejoras). El TIER lo ponen las hebillas.
 #
-#  La math vive en Game/Forge; aqui solo se pinta.
+#  La math vive en Game/Forge/Crafting; aqui solo se pinta.
 # ============================================================
 
 extends CanvasLayer
+
+const TABS := ["Curtir", "Correas", "Mochilas"]
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
@@ -24,8 +30,17 @@ var _root: Control = null
 var _header: VBoxContainer = null    # cabecera FIJA
 var _content: VBoxContainer = null   # lo que se desplaza
 var _aviso_lbl: Label = null         # linea de aviso, de altura fija (no empuja el titulo)
+var _tab_buttons: Array = []
 var _aviso: String = ""
 var _aviso_ok: bool = true
+
+var _tab: int = 0
+
+# --- MOCHILAS ---
+var _heb_idx: int = 0                # metal de las hebillas (fija el tier)
+var _sel_heb: Dictionary = {}
+var _sel_cor: Dictionary = {}
+var _sel_cue: Dictionary = {}
 
 
 func _ready() -> void:
@@ -33,7 +48,7 @@ func _ready() -> void:
 	add_to_group("tannery_menu")
 
 	var m: Dictionary = MenuScaffold.construir(self, "PELETERO",
-		"Curte las pieles que traigas de la mazmorra. Sin cuero curtido no hay armadura que valga.",
+		"Curte las pieles que traigas de la mazmorra. Sin cuero curtido no hay armadura que valga... ni mochila que te deje cargar con el botín.",
 		_cerrar)
 	_root = m["root"]
 	_header = m["header"]
@@ -42,11 +57,22 @@ func _ready() -> void:
 	# El peletero no tiene cuadricula de piezas: una sola columna, a lo ancho.
 	(m["lista_scroll"] as ScrollContainer).visible = false
 
+	for i in TABS.size():
+		var b := Button.new()
+		b.text = TABS[i]
+		b.toggle_mode = true
+		b.custom_minimum_size = Vector2(0, 34)
+		b.pressed.connect(_on_tab.bind(i))
+		(m["side"] as VBoxContainer).add_child(b)
+		_tab_buttons.append(b)
+
 
 func abrir() -> void:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
+	_tab = 0
 	_aviso = ""
+	_limpiar()
 	_root.visible = true
 	Game.inventory_open = true
 	_rebuild()
@@ -66,79 +92,278 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
+func _limpiar() -> void:
+	_sel_heb = {}
+	_sel_cor = {}
+	_sel_cue = {}
+
+
+func _on_tab(i: int) -> void:
+	_tab = i
+	_aviso = ""
+	_limpiar()
+	_rebuild()
+
+
 func _rebuild() -> void:
 	for zona in [_header, _content]:
 		for c in zona.get_children():
 			c.queue_free()
-
+	for i in _tab_buttons.size():
+		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 
-	var crudo: MaterialData = Game.cuero_crudo()
-	var curtido: MaterialData = Game.cuero_forja()
+	match _tab:
+		0: _build_refinar(false)   # piel -> cuero curtido
+		1: _build_refinar(true)    # cuero curtido -> correa
+		2: _build_mochilas()
 
-	# Cabecera FIJA: el titulo y las reglas del curtido no se van con el scroll.
-	MenuScaffold.titulo(_header, "CURTIR")
-	MenuScaffold.nota(_header, "%d pieles de la MISMA calidad = 1 cuero curtido de esa calidad. No se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón." % Forge.CUERO_POR_CURTIDO)
+
+# ============================================================
+#  CURTIR y CORREAS: el mismo refinado, distinto material
+# ============================================================
+
+func _build_refinar(correas: bool) -> void:
+	var origen: MaterialData = Game.cuero_forja() if correas else Game.cuero_crudo()
+	var destino: MaterialData = Game.correa() if correas else Game.cuero_forja()
+	var por_uno: int = Forge.CUERO_POR_CORREA if correas else Forge.CUERO_POR_CURTIDO
+
+	MenuScaffold.titulo(_header, "HACER CORREAS" if correas else "CURTIR")
+	if correas:
+		MenuScaffold.nota(_header, "%d cueros curtidos de la MISMA calidad = 1 correa. Son los tirantes de la mochila: sin ellas, un fardo de cuero es un fardo de cuero." % por_uno)
+	else:
+		MenuScaffold.nota(_header, "%d pieles de la MISMA calidad = 1 cuero curtido de esa calidad. No se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón." % por_uno)
 	_header.add_child(HSeparator.new())
 
 	var hubo: bool = false
 	for cal in CALIDADES:
-		if cal == MaterialItem.Calidad.PURO:
-			continue   # no hay piel pura: el PURO solo sale del curtido
-		var tengo: int = Game.items_calidad_en_hogar(crudo, int(cal))
+		var tengo: int = Game.items_calidad_en_hogar(origen, int(cal))
 		if tengo <= 0:
 			continue
 		hubo = true
-		var salen: int = Game.refinados_posibles(crudo, int(cal), Forge.CUERO_POR_CURTIDO)
+		var salen: int = Game.refinados_posibles(origen, int(cal), por_uno)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		var l := Label.new()
-		l.text = "%s:  %d piel%s  →  %d cuero%s" % [
-			_cal_txt(int(cal)), tengo, "" if tengo == 1 else "es", salen, "" if salen == 1 else "s"]
-		l.custom_minimum_size = Vector2(320, 0)
+		l.text = "%s:  %d  →  %d" % [_cal_txt(int(cal)), tengo, salen]
+		l.custom_minimum_size = Vector2(240, 0)
 		l.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92) if salen > 0 else GRIS)
 		row.add_child(l)
 		var b1 := Button.new()
-		b1.text = "Curtir 1"
+		b1.text = "Hacer 1"
 		b1.disabled = salen < 1
-		b1.pressed.connect(_on_curtir.bind(int(cal), 1))
+		b1.pressed.connect(_on_refinar.bind(correas, int(cal), 1))
 		row.add_child(b1)
 		var bt := Button.new()
-		bt.text = "Curtir todo (%d)" % salen
+		bt.text = "Hacer todo (%d)" % salen
 		bt.disabled = salen < 1
-		bt.pressed.connect(_on_curtir.bind(int(cal), salen))
+		bt.pressed.connect(_on_refinar.bind(correas, int(cal), salen))
 		row.add_child(bt)
 		_content.add_child(row)
 	if not hubo:
-		_note("No tienes pieles guardadas en el Hogar. Las sueltan los bichos con pelo; guárdalas al volver.")
+		if correas:
+			_note("No tienes cuero curtido. Cúrtelo primero en la pestaña Curtir.")
+		else:
+			_note("No tienes pieles guardadas en el Hogar. Las sueltan los bichos con pelo; guárdalas al volver.")
 
 	_content.add_child(HSeparator.new())
-	_title("EN EL ALMACÉN")
+	MenuScaffold.titulo(_content, "EN EL ALMACÉN")
 	var alguno: bool = false
 	for cal in CALIDADES:
-		var n: int = Game.items_calidad_en_hogar(curtido, int(cal))
+		var n: int = Game.items_calidad_en_hogar(destino, int(cal))
 		if n > 0:
 			alguno = true
-			_row("%s (%s)" % [curtido.nombre, _cal_txt(int(cal))], "%d" % n)
+			_row("%s (%s)" % [destino.nombre, _cal_txt(int(cal))], str(n))
 	if not alguno:
-		_note("Ningún cuero curtido todavía.")
+		_note("Ningún %s todavía." % destino.nombre.to_lower())
 
 	_content.add_child(HSeparator.new())
+	_estado_peleteria()
+
+
+func _on_refinar(correas: bool, cal: int, veces: int) -> void:
+	var n: int = Game.hacer_correa(cal, veces) if correas else Game.curtir(cal, veces)
+	if n > 0:
+		_decir("Sacas %d %s de calidad %s." % [n, "correa(s)" if correas else "cuero(s)",
+			_cal_txt(cal).to_lower()])
+	else:
+		_decir("No te llega el material.", false)
+	_rebuild()
+
+
+# ============================================================
+#  MOCHILAS
+# ============================================================
+
+func _build_mochilas() -> void:
+	MenuScaffold.titulo(_header, "COSER UNA MOCHILA")
+	MenuScaffold.nota(_header, "Lo único que sube tu capacidad de carga. El METAL de las hebillas le pone el tier; la CALIDAD de lo que metas tira su rareza, que es lo único que la diferencia (una mochila no se mejora con núcleos). Y la Fuerza la aprovecha: multiplica el zurrón entero, mochila incluida.")
+	_header.add_child(HSeparator.new())
+
+	var hebillas: Array = Game.hebillas_forja()
+	_heb_idx = clampi(_heb_idx, 0, hebillas.size() - 1)
+	var heb: MaterialData = hebillas[_heb_idx]
+	var coste: Dictionary = Game.MOCHILA_COSTE
+
+	# --- Metal de las hebillas: fija el TIER ---
+	var fila := GridContainer.new()
+	fila.columns = 2
+	fila.add_theme_constant_override("h_separation", 6)
+	fila.add_theme_constant_override("v_separation", 6)
+	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for i in hebillas.size():
+		var h: MaterialData = hebillas[i]
+		var tengo: int = Game.unidades_material_en_hogar(h)
+		var b := Button.new()
+		b.text = "%s (T%d) · %d uds" % [h.nombre, h.tier, tengo]
+		b.toggle_mode = true
+		b.clip_text = true
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.button_pressed = (i == _heb_idx)
+		b.disabled = tengo <= 0
+		b.pressed.connect(_on_hebillas.bind(i))
+		fila.add_child(b)
+	_content.add_child(fila)
+
+	var tier: int = Forge.tier_de_metal(heb)
+	_row("Tier", "T%d  (por las hebillas de %s)" % [tier, heb.nombre.to_lower()])
+
+	# --- Contadores de los tres materiales ---
+	_content.add_child(HSeparator.new())
+	_contadores(heb, _sel_heb, int(coste["hebillas"]))
+	_contadores(Game.correa(), _sel_cor, int(coste["correa"]))
+	_contadores(Game.cuero_forja(), _sel_cue, int(coste["cuero"]))
+	_note("Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la mochila: mejora la RAREZA, y con ella lo que te cabe dentro.")
+
+	# --- Rareza EN VIVO, y lo que daria cada una ---
+	_content.add_child(HSeparator.new())
+	var score: float = Game.score_mochila(heb, _sel_heb, _sel_cor, _sel_cue)
+	MenuScaffold.titulo(_content, "Rareza que puede salir")
+	var probs: Array = Forge.probs_rareza(score)
+	for i in probs.size():
+		var p: float = float(probs[i])
+		if p <= 0.0:
+			continue
+		_row(Upgrades.rareza_nombre(i), "%s%%   →  +%.0f de carga" % [
+			str(snappedf(p * 100.0, 0.1)), _carga_de(tier, i)])
+	_row("Llevas ahora", "%d de capacidad" % roundi(Game.capacidad_carga()))
+
+	_content.add_child(HSeparator.new())
+	var ok: bool = Game.mochila_valida(heb, _sel_heb, _sel_cor, _sel_cue)
+	var b_hacer := Button.new()
+	b_hacer.text = "Coser la mochila" if ok else "Faltan materiales"
+	b_hacer.disabled = not ok
+	b_hacer.custom_minimum_size = Vector2(0, 36)
+	b_hacer.pressed.connect(_on_coser)
+	_content.add_child(b_hacer)
+
+	_content.add_child(HSeparator.new())
+	_estado_peleteria()
+
+
+# Lo que daria una mochila de este tier y esta rareza (derivado, nunca escrito a mano).
+func _carga_de(tier: int, rareza: int) -> float:
+	var base: BackpackData = Game.mochila_base()
+	var tier_f: float = 1.0 + Game.MOCHILA_TIER_BONUS * float(maxi(1, tier) - 1)
+	return base.capacidad * tier_f * Upgrades.rareza_mult_capacidad(rareza)
+
+
+func _on_hebillas(i: int) -> void:
+	_heb_idx = i
+	_sel_heb = {}
+	_rebuild()
+
+
+func _on_coser() -> void:
+	var heb: MaterialData = Game.hebillas_forja()[_heb_idx]
+	var m: Resource = Game.fabricar_mochila(heb, _sel_heb, _sel_cor, _sel_cue)
+	if m != null:
+		_decir("Coses %s: +%.0f de carga. Equípala en el menú de personaje [C]." % [
+			Game.item_display_name(m), Game.capacidad_mochila(m as BackpackData)])
+	else:
+		_decir("Te faltan materiales.", false)
+	_limpiar()
+	_rebuild()
+
+
+# Fila "material: −  n  +" por cada calidad que tengas en el baul (igual que en el herrero).
+func _contadores(mat: MaterialData, sel: Dictionary, necesita: int) -> void:
+	var uds: int = Game.uds_seleccion(sel)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var k := Label.new()
+	k.text = mat.nombre
+	k.custom_minimum_size = Vector2(170, 0)
+	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
+	row.add_child(k)
+	var v := Label.new()
+	v.text = "%d / %d unidades" % [uds, necesita]
+	v.add_theme_color_override("font_color", VERDE if uds >= necesita else ROJO)
+	row.add_child(v)
+	_content.add_child(row)
+
+	# Si te pasas, decir lo que se gasta DE VERDAD (el resto se queda en el Hogar).
+	if uds >= necesita and necesita > 0:
+		var gasto: Dictionary = Game.recortar_seleccion(sel, necesita)
+		var gastadas: int = Game.uds_seleccion(gasto)
+		var sobra: int = gastadas - necesita
+		var partes: PackedStringArray = []
+		if uds > gastadas:
+			partes.append("se gastan %d uds y el resto se queda en el Hogar" % gastadas)
+		if sobra > 0:
+			partes.append("sobran %d uds del recorte: %d%% de recuperar una pieza" % [
+				sobra, roundi(Crafting.prob_devolver(sobra, Game.peleteria_activa()) * 100.0)])
+		if not partes.is_empty():
+			_note("   " + "; ".join(partes) + ".")
+
+	var hubo: bool = false
+	for cal in CALIDADES:
+		var disp: int = Game.items_calidad_en_hogar(mat, int(cal))
+		if disp <= 0:
+			continue
+		hubo = true
+		var r := HBoxContainer.new()
+		r.add_theme_constant_override("separation", 6)
+		var lab := Label.new()
+		lab.text = "   %s  (tienes %d)" % [_cal_txt(int(cal)), disp]
+		lab.custom_minimum_size = Vector2(190, 0)
+		r.add_child(lab)
+		var minus := Button.new()
+		minus.text = "−"
+		minus.custom_minimum_size = Vector2(30, 0)
+		minus.pressed.connect(_mat_delta.bind(sel, mat, int(cal), -1))
+		r.add_child(minus)
+		var cnt := Label.new()
+		cnt.text = str(int(sel.get(cal, 0)))
+		cnt.custom_minimum_size = Vector2(26, 0)
+		cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		r.add_child(cnt)
+		var plus := Button.new()
+		plus.text = "+"
+		plus.custom_minimum_size = Vector2(30, 0)
+		plus.pressed.connect(_mat_delta.bind(sel, mat, int(cal), 1))
+		r.add_child(plus)
+		_content.add_child(r)
+	if not hubo:
+		_note("   No tienes %s en el Hogar." % mat.nombre.to_lower())
+
+
+func _mat_delta(sel: Dictionary, mat: MaterialData, cal: int, delta: int) -> void:
+	var disp: int = Game.items_calidad_en_hogar(mat, cal)
+	var nuevo: int = clampi(int(sel.get(cal, 0)) + delta, 0, disp)
+	if nuevo <= 0:
+		sel.erase(cal)
+	else:
+		sel[cal] = nuevo
+	_rebuild()
+
+
+func _estado_peleteria() -> void:
 	_row("Peletería", "%s de oficio%s" % [
 		str(snappedf(Game.peleteria_exp, 0.1)),
 		"" if Game.habilidad_peleteria else "   (habilidad aún bloqueada)"])
 	if not Game.habilidad_peleteria:
 		_note("El progreso se guarda desde ya: cuando se desbloquee, tirará por sacar el cuero un escalón por encima de la piel que metas.")
-	_note("Aquí se confeccionarán también las mochilas, cuando las haya.")
-
-
-func _on_curtir(cal: int, veces: int) -> void:
-	var n: int = Game.curtir(cal, veces)
-	if n > 0:
-		_decir("Curtes %d cuero%s de calidad %s." % [n, "" if n == 1 else "s", _cal_txt(cal).to_lower()])
-	else:
-		_decir("No te llegan las pieles.", false)
-	_rebuild()
 
 
 func _decir(txt: String, ok: bool = true) -> void:
@@ -155,34 +380,9 @@ func _cal_txt(cal: int) -> String:
 		_: return "Roto"
 
 
-func _title(txt: String) -> void:
-	var l := Label.new()
-	l.text = txt
-	l.add_theme_color_override("font_color", AMBAR)
-	l.add_theme_font_size_override("font_size", 16)
-	_content.add_child(l)
-
-
 func _row(etiqueta: String, valor: String) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	var k := Label.new()
-	k.text = etiqueta
-	k.custom_minimum_size = Vector2(200, 0)
-	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
-	row.add_child(k)
-	var v := Label.new()
-	v.text = valor
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(v)
-	_content.add_child(row)
+	MenuScaffold.fila(_content, etiqueta, valor, 200)
 
 
 func _note(txt: String) -> void:
-	var l := Label.new()
-	l.text = txt
-	l.add_theme_color_override("font_color", GRIS)
-	l.add_theme_font_size_override("font_size", 11)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.add_child(l)
+	MenuScaffold.nota(_content, txt)

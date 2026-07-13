@@ -27,6 +27,10 @@ class_name Forge
 const MINERAL_POR_LINGOTE := 3
 const LINGOTE_POR_CHAPA := 1     # un lingote batido da una chapa (mismo metal, misma calidad)
 const CUERO_POR_CURTIDO := 2
+# Piezas de la MOCHILA. Las hebillas salen caras en metal (3 lingotes por juego): son un puñado
+# de herrajes pequeños, pero hay que hacerlos de uno en uno.
+const LINGOTE_POR_HEBILLAS := 3
+const CUERO_POR_CORREA := 2
 
 # DEUDA CONOCIDA (a proposito, no es un olvido): el METAL tiene tres tiers (cobre / hierro /
 # adamante) pero la PIEL solo tiene uno, el cuero de rata. O sea que una pieza T2 se acaba

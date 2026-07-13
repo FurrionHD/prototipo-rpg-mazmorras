@@ -21,7 +21,10 @@
 
 extends CanvasLayer
 
-const TABS := ["Fundir", "Chapas", "Forjar", "Mejorar"]
+const TABS := ["Fundir", "Chapas", "Hebillas", "Forjar", "Mejorar"]
+# Los tres refinados de metal comparten pantalla (_build_refinar): solo cambian de que salen,
+# en que se convierten y cuantos hacen falta.
+enum Refinado { LINGOTE, CHAPA, HEBILLAS }
 const SUBS_FORJA := ["Armas", "Secundarias", "Armaduras"]
 # Dentro de Armaduras, un submenu por juego (si no, son 20 piezas de golpe en la cuadricula).
 const ARMOR_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
@@ -168,15 +171,16 @@ func _rebuild() -> void:
 			c.queue_free()
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
-	# Fundir y Chapas no tienen cuadricula: se quedan con el ancho entero.
-	_scroll_lista.visible = _tab >= 2
+	# Los refinados (Fundir / Chapas / Hebillas) no tienen cuadricula: ancho entero para ellos.
+	_scroll_lista.visible = _tab >= 3
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 
 	match _tab:
-		0: _build_refinar(false)   # mineral -> lingote
-		1: _build_refinar(true)    # lingote -> chapa
-		2: _build_forjar()
-		3: _build_mejorar()
+		0: _build_refinar(Refinado.LINGOTE)    # mineral -> lingote
+		1: _build_refinar(Refinado.CHAPA)      # lingote -> chapa (armaduras)
+		2: _build_refinar(Refinado.HEBILLAS)   # lingote -> hebillas (mochilas)
+		3: _build_forjar()
+		4: _build_mejorar()
 
 
 func _decir(txt: String, ok: bool = true) -> void:
@@ -274,41 +278,43 @@ func _grid_detail(labels: Array, preview: Callable) -> void:
 #  material de entrada, el de salida y cuantos hacen falta.
 # ============================================================
 
-func _build_refinar(chapas: bool) -> void:
+func _build_refinar(que: int) -> void:
 	var metales: Array = Game.metales_forja()
 	_metal_idx = clampi(_metal_idx, 0, metales.size() - 1)
-	var origen: MaterialData = metales[_metal_idx]["lingote" if chapas else "mineral"]
-	var destino: MaterialData = metales[_metal_idx]["chapa" if chapas else "lingote"]
-	var por_uno: int = Forge.LINGOTE_POR_CHAPA if chapas else Forge.MINERAL_POR_LINGOTE
+	var de_lingote: bool = que != Refinado.LINGOTE   # chapas y hebillas parten del lingote
+	var origen: MaterialData = metales[_metal_idx]["lingote" if de_lingote else "mineral"]
+	var destino: MaterialData = metales[_metal_idx][_clave_destino(que)]
+	var por_uno: int = _por_uno(que)
 
-	_title(_header, "BATIR CHAPAS" if chapas else "FUNDIR")
-	if chapas:
-		_note(_header, "%d lingote(s) = 1 chapa de la MISMA calidad. Las chapas son lo que pide la ARMADURA; el arma se golpea del lingote directamente." % por_uno)
-	else:
-		_note(_header, "%d minerales de la MISMA calidad = 1 lingote de esa calidad. No se mezclan: juntando dañados no sale un normal. Solo la Metalurgia puede regalarte un escalón." % por_uno)
+	_title(_header, _titulo_refinado(que))
+	_note(_header, _nota_refinado(que, por_uno))
 	_header.add_child(HSeparator.new())
 
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 6)
+	var fila := GridContainer.new()
+	fila.columns = 2
+	fila.add_theme_constant_override("h_separation", 6)
+	fila.add_theme_constant_override("v_separation", 6)
+	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for i in metales.size():
-		var m: MaterialData = metales[i]["lingote" if chapas else "mineral"]
+		var m: MaterialData = metales[i]["lingote" if de_lingote else "mineral"]
 		var b := Button.new()
 		b.text = "%s  (T%d)" % [m.nombre, m.tier]
 		b.toggle_mode = true
+		b.clip_text = true
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.button_pressed = (i == _metal_idx)
-		b.custom_minimum_size = Vector2(180, 32)
+		b.custom_minimum_size = Vector2(0, 32)
 		b.pressed.connect(_on_metal.bind(i))
 		fila.add_child(b)
 	_content.add_child(fila)
 	_content.add_child(HSeparator.new())
 
-	_row(_content, "Sale", "%s  ·  Tier %d  (×%.2f al daño/defensa de lo que forjes)" % [
-		destino.nombre, destino.tier, Game.tier_mult(destino.tier)])
+	_row(_content, "Sale", "%s  ·  Tier %d" % [destino.nombre, destino.tier])
 
 	# Una fila por calidad: lo que tienes, lo que sale y los botones.
 	var hubo: bool = false
 	for cal in CALIDADES:
-		# El PURO solo aparece si YA lo tienes (fundido con oficio): en bruto no existe.
+		# El PURO solo aparece si YA lo tienes (refinado con oficio): en bruto no existe.
 		var tengo: int = Game.items_calidad_en_hogar(origen, int(cal))
 		if tengo <= 0:
 			continue
@@ -317,24 +323,23 @@ func _build_refinar(chapas: bool) -> void:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		var l := Label.new()
-		l.text = "%s:  %d  →  %d %s" % [_cal_txt(int(cal)), tengo, salen,
-			"chapa(s)" if chapas else "lingote(s)"]
-		l.custom_minimum_size = Vector2(320, 0)
+		l.text = "%s:  %d  →  %d" % [_cal_txt(int(cal)), tengo, salen]
+		l.custom_minimum_size = Vector2(240, 0)
 		l.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92) if salen > 0 else GRIS)
 		row.add_child(l)
 		var b1 := Button.new()
 		b1.text = "Hacer 1"
 		b1.disabled = salen < 1
-		b1.pressed.connect(_on_refinar.bind(chapas, int(cal), 1))
+		b1.pressed.connect(_on_refinar.bind(que, int(cal), 1))
 		row.add_child(b1)
 		var bt := Button.new()
 		bt.text = "Hacer todo (%d)" % salen
 		bt.disabled = salen < 1
-		bt.pressed.connect(_on_refinar.bind(chapas, int(cal), salen))
+		bt.pressed.connect(_on_refinar.bind(que, int(cal), salen))
 		row.add_child(bt)
 		_content.add_child(row)
 	if not hubo:
-		if chapas:
+		if de_lingote:
 			_note(_content, "No tienes %s. Fúndelo primero en la pestaña Fundir." % origen.nombre.to_lower())
 		else:
 			_note(_content, "No tienes %s guardado en el Hogar. Pica vetas en la mazmorra y guárdalo al volver." % origen.nombre.to_lower())
@@ -357,17 +362,52 @@ func _build_refinar(chapas: bool) -> void:
 		"tirará por sacar el metal un escalón por encima de lo que metas (y con oficio de sobra, un intacto puede salir PURO).")
 
 
+# --- Los tres refinados de metal, en tablas (la pantalla es la misma) ---
+
+func _clave_destino(que: int) -> String:
+	match que:
+		Refinado.CHAPA: return "chapa"
+		Refinado.HEBILLAS: return "hebillas"
+		_: return "lingote"
+
+func _por_uno(que: int) -> int:
+	match que:
+		Refinado.CHAPA: return Forge.LINGOTE_POR_CHAPA
+		Refinado.HEBILLAS: return Forge.LINGOTE_POR_HEBILLAS
+		_: return Forge.MINERAL_POR_LINGOTE
+
+func _titulo_refinado(que: int) -> String:
+	match que:
+		Refinado.CHAPA: return "BATIR CHAPAS"
+		Refinado.HEBILLAS: return "HACER HEBILLAS"
+		_: return "FUNDIR"
+
+func _nota_refinado(que: int, por_uno: int) -> String:
+	match que:
+		Refinado.CHAPA:
+			return "%d lingote(s) = 1 chapa de la MISMA calidad. Las chapas son lo que pide la ARMADURA; el arma se golpea del lingote directamente." % por_uno
+		Refinado.HEBILLAS:
+			return "%d lingotes = 1 juego de hebillas de la MISMA calidad. Salen caras en metal (son muchos herrajes pequeños, y hay que hacerlos de uno en uno), y es lo que sujeta una MOCHILA: la cose el peletero." % por_uno
+		_:
+			return "%d minerales de la MISMA calidad = 1 lingote de esa calidad. No se mezclan: juntando dañados no sale un normal. Solo la Metalurgia puede regalarte un escalón." % por_uno
+
+
 func _on_metal(i: int) -> void:
 	_metal_idx = i
 	_rebuild()
 
 
-func _on_refinar(chapas: bool, cal: int, veces: int) -> void:
+func _on_refinar(que: int, cal: int, veces: int) -> void:
 	var metales: Array = Game.metales_forja()
-	var origen: MaterialData = metales[_metal_idx]["lingote" if chapas else "mineral"]
-	var n: int = Game.batir_chapa(origen, cal, veces) if chapas else Game.fundir(origen, cal, veces)
+	var origen: MaterialData = metales[_metal_idx]["mineral" if que == Refinado.LINGOTE else "lingote"]
+	var n: int = 0
+	match que:
+		Refinado.CHAPA: n = Game.batir_chapa(origen, cal, veces)
+		Refinado.HEBILLAS: n = Game.hacer_hebillas(origen, cal, veces)
+		_: n = Game.fundir(origen, cal, veces)
 	if n > 0:
-		_decir("Sacas %d %s de calidad %s." % [n, "chapa(s)" if chapas else "lingote(s)",
+		_decir("Sacas %d x %s de calidad %s." % [n,
+			Game.metales_forja()[_metal_idx][_clave_destino(que)].nombre.to_lower(),
 			_cal_txt(cal).to_lower()])
 	else:
 		_decir("No te llega el material.", false)

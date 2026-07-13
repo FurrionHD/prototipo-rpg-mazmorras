@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"hebillas_cobre"
+nombre = "Hebillas de cobre"
+descripcion = "Un puñado de hebillas, anillas y remaches. Lo que sujeta una mochila no es el cuero: es esto."
+familia = 0
+tipo = 5
+tier = 1
+exigencia = 0.0
+peso_base = 0.6
+valor_base = 90
+color = Color(0.82, 0.5, 0.31, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

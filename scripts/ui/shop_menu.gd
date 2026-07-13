@@ -23,7 +23,7 @@ const TABS := ["Vender", "Tienda", "Recomprar", "Pack inicial"]
 const SUBS_VENDER := ["Bolsa", "Hogar", "Equipo", "Consumibles"]
 # El grimorio es un consumible en el inventario, pero en el mostrador va aparte: buscar un
 # libro de 2200 entre las pociones es incomodo.
-const SUBS_TIENDA := ["Armas", "Armaduras", "Consumibles", "Grimorios"]
+const SUBS_TIENDA := ["Armas", "Armaduras", "Mochilas", "Consumibles", "Grimorios"]
 
 const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
 const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
@@ -50,6 +50,10 @@ const CAT_SECUNDARIAS: Array[String] = [
 	"res://resources/shields/escudo_normal.tres",
 	"res://resources/shields/escudo_grande.tres",
 	"res://resources/wands/varita.tres",
+]
+# La mochila basica: la unica que se compra hecha. Las buenas las cose el peletero.
+const CAT_MOCHILAS: Array[String] = [
+	"res://resources/backpacks/mochila_basica.tres",
 ]
 const CAT_POCIONES: Array[String] = [
 	"res://resources/consumables/pocion_menor.tres",
@@ -548,9 +552,12 @@ func _build_tienda() -> void:
 			rutas = _rutas_armaduras()
 			_note(_header, "Cinco piezas por juego: casco, pecho, manos, pantalones y botas. Cuanto más cubre, más frena; los huecos vacíos te dejan ir ligero.")
 		2:
+			rutas = CAT_MOCHILAS
+			_note(_header, "Lo único que sube tu capacidad de carga. Esta es la básica y la única que se compra hecha: las buenas (mejor tier y rareza, más carga) las cose el Peletero.")
+		3:
 			rutas = CAT_POCIONES
 			_note(_header, "Comprarlas sale caro: si puedes, fabrícalas en la Boticaria con lo que traigas de la mazmorra.")
-		3:
+		4:
 			rutas = CAT_GRIMORIOS
 			_note(_header, "Un libro por hechizo. Se estudia desde Consumibles, en el inventario [I]. Caben %d hechizos a la vez." % Game.MAX_HECHIZOS)
 
@@ -593,6 +600,10 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		else:
 			_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
 			_row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(c, 0)))
+	elif base is BackpackData:
+		var mo := base as BackpackData
+		_row(vb, "Capacidad", "+%.0f de carga" % mo.capacidad)
+		_row(vb, "Llevas ahora", "%d" % roundi(Game.capacidad_carga()))
 	elif base is ArmorData:
 		var a := base as ArmorData
 		_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])

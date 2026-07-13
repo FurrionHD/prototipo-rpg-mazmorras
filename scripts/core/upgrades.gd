@@ -94,6 +94,16 @@ const REGENERACION_STEP := 0.08   # +% sobre el regen de maná del arma
 const REGENERACION_CAP := 0.40
 
 
+# La rareza de COMBATE apenas mueve los numeros (x1.00 a x1.15): un arma legendaria lo es por
+# sus huecos de mejora, no por su base. Pero la MOCHILA no tiene mejoras, asi que su rareza es
+# lo UNICO que la diferencia -> necesita su propia tabla, y una que se note: de comun a obra
+# maestra hay un +50% de carga (no el +15% de risa del combate).
+const RAREZA_CAPACIDAD := [1.00, 1.07, 1.15, 1.23, 1.32, 1.41, 1.50]
+
+static func rareza_mult_capacidad(r: int) -> float:
+	return RAREZA_CAPACIDAD[clampi(r, 0, RAREZA_CAPACIDAD.size() - 1)]
+
+
 static func rareza_mult(r: int) -> float:
 	return RAREZA_MULT[clampi(r, 0, RAREZA_MULT.size() - 1)]
 

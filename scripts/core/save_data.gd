@@ -71,6 +71,9 @@ const VERSION_ACTUAL := 2
 @export var almacen_materiales: Array = []  # MaterialItem guardados en el Hogar
 @export var owned_weapons: Array = []       # baul (instancias propias, con su identidad)
 @export var owned_armor: Array = []
+# MOCHILAS: van aparte del equipo de combate (tienen su propio slot y solo suben la carga).
+@export var owned_mochilas: Array = []
+@export var equipped_mochila: Resource = null
 
 # Equipo puesto. Son referencias a objetos que TAMBIEN estan en el baul: Godot conserva que
 # sean el mismo, que es justo lo que hace que mejorar el arma equipada mejore la del baul.
