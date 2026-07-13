@@ -556,19 +556,20 @@ func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base
 		_row(vb, "  Coste de maná", "-%s" % _fmt_pct(float(mg["mana_reduccion"])))
 
 
-# "14.5 + 6.1 = 20.6". El BASE ya lleva dentro el tier y la rareza de ESTE objeto (no es el
-# numero del .tres); lo que se suma es lo que dan las mejoras. Sin mejoras, el numero a secas.
+# "14.5 + (6.1) = 20.6". El BASE ya lleva dentro el tier y la rareza de ESTE objeto (no es el
+# numero del .tres); lo que va ENTRE PARENTESIS es lo que ponen las mejoras, para que se sepa
+# de donde sale. Sin mejoras, el numero a secas.
 func _con_mejoras(fmt: String, base: float, total: float) -> String:
 	if absf(total - base) < 0.005:
 		return fmt % total
-	return "%s + %s = %s" % [fmt % base, fmt % (total - base), fmt % total]
+	return "%s + (%s) = %s" % [fmt % base, fmt % (total - base), fmt % total]
 
 
 # Igual pero en porcentaje (critico, aturdir).
 func _con_mejoras_pct(base: float, total: float) -> String:
 	if absf(total - base) < 0.0005:
 		return "+%s" % _fmt_pct(total)
-	return "%s + %s = %s" % [_fmt_pct(base), _fmt_pct(total - base), _fmt_pct(total)]
+	return "%s + (%s) = %s" % [_fmt_pct(base), _fmt_pct(total - base), _fmt_pct(total)]
 
 
 # "Agudeza 2, Precision 1": en QUE se gastaron las mejoras (dos armas con el mismo +N pueden
