@@ -211,8 +211,14 @@ func _on_sub(i: int) -> void:
 func _rebuild() -> void:
 	for c in _content.get_children():
 		c.queue_free()
+	# El pack inicial es de usar y tirar: una vez reclamado, su pestaña desaparece del menu.
+	var hay_pack: bool = not Game.pack_inicial_reclamado
+	if _tab == 3 and not hay_pack:
+		_tab = 0
 	for i in _tab_buttons.size():
-		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
+		var b := _tab_buttons[i] as Button
+		b.visible = (i != 3 or hay_pack)
+		b.button_pressed = (i == _tab)
 	_dinero_lbl.text = "%d monedas" % Game.money
 	_dinero_top.text = "%d monedas" % Game.money
 
