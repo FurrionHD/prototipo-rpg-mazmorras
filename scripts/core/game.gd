@@ -1138,18 +1138,25 @@ var extra_capacity: float = 0.0
 # aguantar, no para llevar mas trastos.
 var equipped_mochila: BackpackData = null
 
-# Cuanto suma ESTA mochila, con su tier y su rareza. El tier pesa poco a proposito (una mochila
-# de adamante no es una mochila el doble de grande: son mejores herrajes, no mas tela), asi que
-# se usa una curva suave en vez del tier_mult del combate.
-const MOCHILA_TIER_BONUS := 0.35   # +35% por tier por encima del primero
+# Cuanto suma ESTA mochila, con su tier y su rareza. El TIER es el eje gordo (bajar a por metal
+# mejor tiene que notarse), y el salto se ACELERA: sobre la basica de +15, un T2 da +25 y un T3
+# +40. Es una tabla y no una formula a proposito: los saltos son una decision de diseño (15/25/40),
+# no el resultado de una curva que haya que adivinar. Nada de tier_mult del combate, que es
+# geometrico y dispararia la carga.
+const MOCHILA_CAPACIDAD_TIER := [15.0, 25.0, 40.0]
+
+# Factor del tier respecto a la mochila base: sale de la tabla de arriba, nunca a mano.
+func mochila_tier_factor(tier: int) -> float:
+	var t: int = clampi(tier, 1, MOCHILA_CAPACIDAD_TIER.size())
+	return float(MOCHILA_CAPACIDAD_TIER[t - 1]) / float(MOCHILA_CAPACIDAD_TIER[0])
 
 func capacidad_mochila(m: BackpackData = null) -> float:
 	var mo: BackpackData = m if m != null else equipped_mochila
 	if mo == null:
 		return 0.0
 	var meta: Dictionary = meta_de(mo)
-	var tier_f: float = 1.0 + MOCHILA_TIER_BONUS * float(maxi(1, int(meta["tier"])) - 1)
-	return mo.capacidad * tier_f * Upgrades.rareza_mult_capacidad(int(meta["rareza"]))
+	return mo.capacidad * mochila_tier_factor(int(meta["tier"])) \
+		* Upgrades.rareza_mult_capacidad(int(meta["rareza"]))
 
 func equipar_mochila(m: BackpackData) -> void:
 	equipped_mochila = m

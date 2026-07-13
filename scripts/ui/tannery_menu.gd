@@ -263,9 +263,8 @@ func _build_mochilas() -> void:
 
 # Lo que daria una mochila de este tier y esta rareza (derivado, nunca escrito a mano).
 func _carga_de(tier: int, rareza: int) -> float:
-	var base: BackpackData = Game.mochila_base()
-	var tier_f: float = 1.0 + Game.MOCHILA_TIER_BONUS * float(maxi(1, tier) - 1)
-	return base.capacidad * tier_f * Upgrades.rareza_mult_capacidad(rareza)
+	return Game.mochila_base().capacidad * Game.mochila_tier_factor(tier) \
+		* Upgrades.rareza_mult_capacidad(rareza)
 
 
 func _on_hebillas(i: int) -> void:
