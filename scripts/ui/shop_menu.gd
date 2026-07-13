@@ -17,7 +17,9 @@
 
 extends CanvasLayer
 
-const TABS := ["Vender", "Recomprar", "Tienda", "Pack inicial"]
+# Recomprar va DEBAJO de Tienda (y solo aparece si le has vendido algo al tendero); el pack
+# inicial desaparece al reclamarlo. Un menu vacio no merece su boton.
+const TABS := ["Vender", "Tienda", "Recomprar", "Pack inicial"]
 const SUBS_VENDER := ["Bolsa", "Hogar", "Equipo", "Consumibles"]
 # El grimorio es un consumible en el inventario, pero en el mostrador va aparte: buscar un
 # libro de 2200 entre las pociones es incomodo.
@@ -220,13 +222,14 @@ func _on_sub(i: int) -> void:
 func _rebuild() -> void:
 	for c in _content.get_children():
 		c.queue_free()
-	# El pack inicial es de usar y tirar: una vez reclamado, su pestaña desaparece del menu.
-	var hay_pack: bool = not Game.pack_inicial_reclamado
-	if _tab == 3 and not hay_pack:
+	# Pestañas que solo existen cuando tienen algo dentro: el mostrador de recompra (2) y el
+	# pack inicial (3), que es de usar y tirar.
+	var visible_tab := {2: not Game.recompra.is_empty(), 3: not Game.pack_inicial_reclamado}
+	if not bool(visible_tab.get(_tab, true)):
 		_tab = 0
 	for i in _tab_buttons.size():
 		var b := _tab_buttons[i] as Button
-		b.visible = (i != 3 or hay_pack)
+		b.visible = bool(visible_tab.get(i, true))
 		b.button_pressed = (i == _tab)
 	_dinero_lbl.text = "%d monedas" % Game.money
 	_dinero_top.text = "%d monedas" % Game.money
@@ -240,8 +243,8 @@ func _rebuild() -> void:
 
 	match _tab:
 		0: _build_vender()
-		1: _build_recomprar()
-		2: _build_tienda()
+		1: _build_tienda()
+		2: _build_recomprar()
 		3: _build_pack()
 
 
