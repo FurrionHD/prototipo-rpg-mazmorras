@@ -25,7 +25,16 @@ const RAREZA_MULT := [1.00, 1.02, 1.04, 1.06, 1.09, 1.12, 1.15]
 const RAREZA_SLOTS := [3, 4, 5, 6, 8, 10, 12]
 const RAREZA_NOMBRE := ["Comun", "Poco comun", "Raro", "Epico", "Legendario", "Mitico", "Obra maestra"]
 
-const UPGRADE_FLAT := 0.3   # +primary (raw/DEF) por CADA mejora (x tier)
+# Lo que sube el numero PRIMARIO (raw del arma / DEF de la armadura) por CADA mejora. Es un
+# PORCENTAJE de la base del PROPIO objeto, no un flat.
+#
+# Antes era un +0.3 plano, y ahi habia un bug de escala gordo: el ataque de un arma es 3.0
+# (asi que +0.3 = +10%, razonable) pero la defensa de un peto de cuero es 0.5x0.5 = 0.25 (asi
+# que +0.3 = +120%: dos mejoras TRIPLICABAN la pieza). Y ademas la misma mejora valia cuatro
+# veces menos en placas (base 1.1) que en cuero. Con un %, cada pieza sube en SU escala y las
+# dos ramas quedan coherentes. En las armas el resultado es identico al de antes: 0.3 sobre
+# 3.0 ya era justo el 10%.
+const UPGRADE_PCT := 0.10   # +10% de la base por CADA mejora
 const DECAY := 0.8          # rendimientos decrecientes de las categorias
 
 # --- Claves de categoria (en el dict de mejoras {categoria: nº}) ---
@@ -56,13 +65,13 @@ const CAT_NOMBRE := {
 }
 
 # --- Steps de cada categoria (extra DECRECIENTE por punto) ---
-const AGUDEZA_STEP := 0.15        # +raw (x tier)
+const AGUDEZA_STEP := 0.05        # +raw, en % de la base del arma (decreciente)
 const PRECISION_CRIT_STEP := 0.02 # +prob. critico
 const PRECISION_HIT_STEP := 0.02  # +acierto (baja evasion rival)
 const PESO_STEP := 0.03           # +aturdir/stun (solo contundentes)
 const RAPIDEZ_STEP := 0.03        # +velocidad arma
 const RAPIDEZ_CAP := 0.08         # tope del bonus de rapidez
-const DUREZA_STEP := 0.15         # +DEF (x tier)
+const DUREZA_STEP := 0.05         # +DEF, en % de la base de la pieza (decreciente)
 const EVASION_STEP := 0.02        # +esquiva (ligeras/medias)
 const EVASION_CAP := 0.20         # tope del bonus de esquiva de armadura
 const RESIST_CRIT_STEP := 0.02    # -crit rival (pesadas)
@@ -161,16 +170,18 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 	# FISICO del golpe: base × rareza + Agudeza (raw), y Peso (aturdir) si contundente.
 	# El resto de mejoras magicas NO tocan el daño fisico.
 	if w != null and w.es_magica:
-		var raw_mag := (w.ataque_base * rareza_mult(rareza) + dim_sum(AGUDEZA_STEP, _count(mejoras, AGUDEZA))) * tmult
+		var raw_mag := w.ataque_base * rareza_mult(rareza) \
+			* (1.0 + dim_sum(AGUDEZA_STEP, _count(mejoras, AGUDEZA))) * tmult
 		var aturdir_mag := 0.0
 		if int(w.dano_tipo) == 1:  # CONTUNDENTE
 			aturdir_mag = dim_sum(PESO_STEP, _count(mejoras, PESO))
 		return {"raw": raw_mag, "crit_add": 0.0, "precision": 0.0,
 			"aturdir_add": aturdir_mag, "vel_mult": 1.0}
 	var n := total_mejoras(mejoras)
-	# +0.3 por CADA mejora (universal) + extra de Agudeza (decreciente). Todo x tier.
-	var raw_up := UPGRADE_FLAT * float(n) + dim_sum(AGUDEZA_STEP, _count(mejoras, AGUDEZA))
-	var raw := (w.ataque_base * rareza_mult(rareza) + raw_up) * tmult
+	# +10% de la base por CADA mejora (universal) + extra de Agudeza (decreciente, tambien en %
+	# de la base). Todo sobre la base × rareza, y el conjunto × tier.
+	var subida := UPGRADE_PCT * float(n) + dim_sum(AGUDEZA_STEP, _count(mejoras, AGUDEZA))
+	var raw := w.ataque_base * rareza_mult(rareza) * (1.0 + subida) * tmult
 	var kp := _count(mejoras, PRECISION)
 	var aturdir := 0.0
 	if int(w.dano_tipo) == 1:  # solo contundentes
@@ -211,8 +222,11 @@ static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dict
 # evasion y resist. criticos). game.gd combina las 5 piezas por cobertura.
 static func armor_piece_mods(a: ArmorData, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
 	var n := total_mejoras(mejoras)
-	var def_up := UPGRADE_FLAT * float(n) + dim_sum(DUREZA_STEP, _count(mejoras, DUREZA))
-	var deff := (a.defensa_base * a.motion_def * rareza_mult(rareza) + def_up) * tmult
+	# Mismo modelo que el arma: la mejora sube un % de la DEF de ESTA pieza, no un flat. Asi un
+	# peto de cuero (base 0.25) y una coraza de placas (base 1.1) suben lo mismo EN PROPORCION,
+	# en vez de que dos mejoras tripliquen el cuero y apenas se noten en las placas.
+	var subida := UPGRADE_PCT * float(n) + dim_sum(DUREZA_STEP, _count(mejoras, DUREZA))
+	var deff := a.defensa_base * a.motion_def * rareza_mult(rareza) * (1.0 + subida) * tmult
 	var evasion := 0.0
 	var crit_resist := 0.0
 	if int(a.tipo) <= 1:
