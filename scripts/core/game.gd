@@ -204,6 +204,7 @@ func nueva_partida() -> void:
 	player_current_hp = -1.0
 	player_current_mp = -1.0
 	money = 0
+	mezcla_exp = 0.0
 
 	crystals.clear()
 	materiales.clear()
@@ -259,6 +260,7 @@ func exportar_partida() -> SaveData:
 	d.player_current_mp = player_current_mp
 	d.stamina = float(player.current_stamina) if player != null and "current_stamina" in player else -1.0
 	d.money = money
+	d.mezcla_exp = mezcla_exp
 
 	d.crystals = crystals.duplicate()
 	d.materiales = materiales.duplicate()
@@ -321,6 +323,7 @@ func importar_partida(d: SaveData) -> void:
 	player_current_hp = d.player_current_hp
 	player_current_mp = d.player_current_mp
 	money = d.money
+	mezcla_exp = d.mezcla_exp
 
 	crystals.assign(d.crystals)
 	materiales.assign(d.materiales)
@@ -556,12 +559,27 @@ var _dev_consumables: Array[String] = [
 	"res://resources/consumables/pocion_mana_menor_1.tres",
 	"res://resources/consumables/pocion_mana_menor_2.tres",
 ]
-# DEV: materiales que piden las recetas de la boticaria (para sembrar el baul en pruebas).
-var _dev_craft_materials: Array[String] = [
+# DEV: TODOS los materiales, para sembrar el baul en pruebas. No solo los de pociones (babas
+# y hierbas): tambien nucleos, cuero y mineral, para poder probar luego las mejoras y el
+# crafteo de armas/armaduras.
+var _dev_materiales: Array[String] = [
+	# Babas (pociones)
 	"res://resources/materials/baba_slime.tres",
 	"res://resources/materials/baba_venenosa.tres",
 	"res://resources/materials/baba_fuego.tres",
+	# Hierbas (pociones)
 	"res://resources/materials/hierba_palida.tres",
+	"res://resources/materials/raiz_amarga.tres",
+	# Minerales
+	"res://resources/materials/cobre.tres",
+	"res://resources/materials/hierro.tres",
+	# Cuero
+	"res://resources/materials/cuero_rata.tres",
+	# Nucleos (mejora de equipo)
+	"res://resources/materials/nucleo_slime.tres",
+	"res://resources/materials/nucleo_venenoso.tres",
+	"res://resources/materials/nucleo_fuego.tres",
+	"res://resources/materials/nucleo_rata.tres",
 ]
 # CURA FUERA DE COMBATE (heal-over-time por tiempo real). player.gd la tiquea cada
 # frame con tick_heal(). player_heal_left = vida que queda por curar; _rate = vida/seg.
@@ -573,6 +591,12 @@ var player_mana_heal_rate: float = 0.0
 
 # Dinero (obtenido por vender cristales en la tienda).
 var money: int = 0
+
+# MEZCLA (調合): parametro OCULTO que sube cada vez que CRAFTEAS pociones (no al comprarlas).
+# Semilla de una futura habilidad de desarrollo estilo DanMachi: "Mezcla" mejora la calidad
+# al crear objetos. De momento solo se acumula y se guarda; el efecto se ajustara despues.
+var mezcla_exp: float = 0.0
+const MEZCLA_EXP_POR_POCION := 1.0   # PROVISIONAL: cuanto sube por poción fabricada
 
 # PRUEBAS: fuerza el drop al 100%. Poner en false para usar drop_chance real.
 var dev_force_drop: bool = false
@@ -1570,8 +1594,11 @@ func craftear_con(receta: RecipeData, seleccion: Array) -> bool:
 			continue
 		_consumir_seleccion_material(ing.material, seleccion[i])
 	add_consumable(receta.resultado, total)
+	# MEZCLA: crear pociones (no comprarlas) alimenta el parametro oculto. Cuenta por poción
+	# fabricada (incluidas las que salen dobles): mezclar mas = mas experiencia de Mezcla.
+	mezcla_exp += MEZCLA_EXP_POR_POCION * float(total)
 	print("[boticaria] Fabricas ", n, " poción(es) -> ", total, " x ", receta.resultado.nombre,
-		"  (prob. doble ", roundi(prob * 100.0), "% por poción)")
+		"  (prob. doble ", roundi(prob * 100.0), "% por poción)  ·  Mezcla ", snappedf(mezcla_exp, 0.1))
 	return true
 
 

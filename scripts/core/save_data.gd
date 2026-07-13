@@ -51,6 +51,9 @@ const VERSION_ACTUAL := 2
 @export var player_current_mp: float = -1.0
 @export var stamina: float = -1.0
 @export var money: int = 0
+# MEZCLA (調合): parametro oculto que sube al craftear pociones (futura habilidad de
+# desarrollo estilo DanMachi que mejorara la calidad al crear objetos). Ver Game.mezcla_exp.
+@export var mezcla_exp: float = 0.0
 
 # --- Cosas ---
 @export var crystals: Array = []            # Cristal (runtime -> se incrustan)

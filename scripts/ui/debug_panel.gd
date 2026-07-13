@@ -440,8 +440,8 @@ func _build_materiales(vb: VBoxContainer) -> void:
 	_mat_material_opt = OptionButton.new()
 	_mat_material_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mat_material_opt.add_item("Todos", 0)   # id 0 = todos; id i+1 = material i
-	for i in Game._dev_craft_materials.size():
-		var d: MaterialData = load(Game._dev_craft_materials[i])
+	for i in Game._dev_materiales.size():
+		var d: MaterialData = load(Game._dev_materiales[i])
 		if d != null:
 			_mat_material_opt.add_item(d.nombre, i + 1)
 	_mat_material_opt.select(0)
@@ -480,9 +480,9 @@ func _on_add_materiales() -> void:
 	var rutas: Array = []
 	var mid: int = _mat_material_opt.get_selected_id()
 	if mid == 0:
-		rutas = Game._dev_craft_materials.duplicate()
+		rutas = Game._dev_materiales.duplicate()
 	else:
-		rutas = [Game._dev_craft_materials[mid - 1]]
+		rutas = [Game._dev_materiales[mid - 1]]
 	# Calidades: id 0 = todas; si no, id-1 = enum (intacto 0 / normal 1 / dañado 2).
 	var cals: Array = []
 	var cid: int = _mat_calidad_opt.get_selected_id()
