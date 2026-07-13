@@ -605,12 +605,15 @@ var _dev_materiales: Array[String] = [
 	"res://resources/materials/hierro.tres",
 	"res://resources/materials/adamante.tres",
 	# Cuero
-	"res://resources/materials/cuero_rata.tres",
-	# Nucleos (mejora de equipo)
+	"res://resources/materials/cuero_simple.tres",
+	# Nucleos de ARMA (slime +3 / venenoso +5 / fuego +7)
 	"res://resources/materials/nucleo_slime.tres",
 	"res://resources/materials/nucleo_venenoso.tres",
 	"res://resources/materials/nucleo_fuego.tres",
+	# Nucleos de ARMADURA (rata +3 / rey rata +5 / jabali +7): la misma escalera, en la otra rama
 	"res://resources/materials/nucleo_rata.tres",
+	"res://resources/materials/nucleo_rey_rata.tres",
+	"res://resources/materials/nucleo_jabali.tres",
 ]
 # CURA FUERA DE COMBATE (heal-over-time por tiempo real). player.gd la tiquea cada
 # frame con tick_heal(). player_heal_left = vida que queda por curar; _rate = vida/seg.
@@ -1844,7 +1847,7 @@ const _FORJA_METALES: Array = [
 		"res://resources/materials/chapa_adamante.tres",
 		"res://resources/materials/hebillas_adamante.tres"],     # T3
 ]
-const _CUERO_CRUDO := "res://resources/materials/cuero_rata.tres"
+const _CUERO_CRUDO := "res://resources/materials/cuero_simple.tres"
 const _CUERO_CURTIDO := "res://resources/materials/cuero_curtido.tres"
 const _CORREA := "res://resources/materials/correa_cuero.tres"
 

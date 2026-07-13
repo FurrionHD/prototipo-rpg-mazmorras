@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nucleo_jabali"
+nombre = "Núcleo de jabalí"
+descripcion = "Pesa como una piedra y suena hueco al golpearlo. Una armadura que lo lleve dentro aguanta embestidas que no deberia aguantar."
+familia = 1
+tipo = 4
+tier = 3
+exigencia = 0.0
+peso_base = 0.9
+valor_base = 340
+color = Color(0.45, 0.32, 0.28, 1)
+mejora_max = 7
+uso_mejora = 2
+piso_min = 3
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

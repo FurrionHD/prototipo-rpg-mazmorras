@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_simple.tres" id="3_cuero"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_jabali.tres" id="4_nuc"]
+[ext_resource type="Resource" path="res://resources/abilities/jabali_embestida.tres" id="5_emb"]
+[ext_resource type="Resource" path="res://resources/abilities/jabali_pisoton.tres" id="6_pis"]
+
+[sub_resource type="Resource" id="SA_stun"]
+script = ExtResource("2_sa")
+estado = 7
+prob = 0.2
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Jabalí"
+color = Color(0.35, 0.26, 0.22, 1)
+escala_visual = 1.7
+fuerza = 52
+resistencia = 44
+destreza = 14
+agilidad = 26
+magia = 8
+franja_low = 0.45
+franja_high = 1.0
+base_hp = 52.0
+base_attack = 5.5
+base_defense = 4.0
+base_magic = 1.0
+base_speed = 4.5
+move_speed_min = 40.0
+move_speed_max = 65.0
+chase_speed_mult = 3.0
+crystal_category_min = 3
+crystal_category_max = 4
+extraction_hits = 4
+extraction_req_destreza = 75
+drop_material = ExtResource("3_cuero")
+drop_chance = 0.4
+nucleo = ExtResource("4_nuc")
+nucleo_chance = 0.05
+al_golpear = [SubResource("SA_stun")]
+habilidades = [ExtResource("5_emb"), ExtResource("6_pis")]
+prob_habilidad = 0.6
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

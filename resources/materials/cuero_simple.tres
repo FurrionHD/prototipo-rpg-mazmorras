@@ -4,9 +4,9 @@
 
 [resource]
 script = ExtResource("1")
-id = &"cuero_rata"
-nombre = "Cuero de rata"
-descripcion = "Áspero y curtido de correr por túneles. Poca cosa una pieza, pero cosidas unas cuantas aguantan lo suyo: con esto se empieza a cargar más de lo que cabe en las manos."
+id = &"cuero_simple"
+nombre = "Cuero simple"
+descripcion = "Piel curtible de bicho pequeño: rata, rey rata, jabalí. Ninguna es gran cosa por separado, pero es lo que forra media mazmorra."
 familia = 0
 tipo = 3
 tier = 1

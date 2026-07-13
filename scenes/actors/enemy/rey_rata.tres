@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_simple.tres" id="3_cuero"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_rey_rata.tres" id="4_nuc"]
+[ext_resource type="Resource" path="res://resources/abilities/rata_mordisco_sangrante.tres" id="5_mor"]
+[ext_resource type="Resource" path="res://resources/abilities/rata_frenesi_dentelladas.tres" id="6_fre"]
+
+[sub_resource type="Resource" id="SA_sang"]
+script = ExtResource("2_sa")
+estado = 1
+prob = 0.35
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Rey rata"
+color = Color(0.62, 0.5, 0.3, 1)
+escala_visual = 1.2
+fuerza = 34
+resistencia = 26
+destreza = 38
+agilidad = 44
+magia = 14
+franja_low = 0.2
+franja_high = 0.7
+base_hp = 34.0
+base_attack = 4.2
+base_defense = 2.8
+base_magic = 1.5
+base_speed = 6.0
+move_speed_min = 50.0
+move_speed_max = 80.0
+chase_speed_mult = 2.6
+crystal_category_min = 2
+crystal_category_max = 3
+extraction_hits = 3
+extraction_req_destreza = 60
+drop_material = ExtResource("3_cuero")
+drop_chance = 0.35
+nucleo = ExtResource("4_nuc")
+nucleo_chance = 0.05
+al_golpear = [SubResource("SA_sang")]
+habilidades = [ExtResource("5_mor"), ExtResource("6_fre")]
+prob_habilidad = 0.55
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

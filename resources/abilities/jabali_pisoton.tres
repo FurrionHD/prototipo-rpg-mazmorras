@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Pisotón"
+descripcion = "Se revuelve sobre las patas delanteras y machaca lo que tenga debajo. Menos espectacular que la embestida, pero llega siempre."
+coste_energia = 0.0
+golpes_min = 2
+golpes_max = 2
+dano_mult = 0.9
+cooldown = 2
