@@ -55,6 +55,18 @@ func peso_mult_calidad() -> float:
 		_: return 0.0
 
 
+# UNIDADES que aporta este item a una RECETA de crafteo (KAN, boticaria). La calidad no
+# cambia la receta: cambia CUANTOS items necesitas. Un intacto rinde por tres, un dañado
+# por uno; asi el que se esfuerza en el minijuego (o tiene suerte) gasta menos botin.
+# ROTO no llega nunca a la bolsa (se pierde), pero por si acaso aporta 0.
+func unidades_crafteo() -> int:
+	match calidad:
+		Calidad.INTACTO: return 3
+		Calidad.NORMAL: return 2
+		Calidad.DANADO: return 1
+		_: return 0
+
+
 # El valor sube en CURVA con el grado (como el cristal con la categoria): los materiales
 # de arriba valen mucho mas, y no un poco mas.
 const VALOR_TIER_FACTOR := 0.35

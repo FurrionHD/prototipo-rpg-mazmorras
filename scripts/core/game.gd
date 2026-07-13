@@ -550,11 +550,18 @@ var consumables: Dictionary = {}
 # Lista para el panel de debug (añadir pociones al inventario).
 var _dev_consumables: Array[String] = [
 	"res://resources/consumables/pocion_menor.tres",
-	"res://resources/consumables/pocion_normal.tres",
+	"res://resources/consumables/pocion_menor_1.tres",
 	"res://resources/consumables/pocion_menor_2.tres",
 	"res://resources/consumables/pocion_mana_menor.tres",
 	"res://resources/consumables/pocion_mana_menor_1.tres",
 	"res://resources/consumables/pocion_mana_menor_2.tres",
+]
+# DEV: materiales que piden las recetas de la boticaria (para sembrar el baul en pruebas).
+var _dev_craft_materials: Array[String] = [
+	"res://resources/materials/baba_slime.tres",
+	"res://resources/materials/baba_venenosa.tres",
+	"res://resources/materials/baba_fuego.tres",
+	"res://resources/materials/hierba_palida.tres",
 ]
 # CURA FUERA DE COMBATE (heal-over-time por tiempo real). player.gd la tiquea cada
 # frame con tick_heal(). player_heal_left = vida que queda por curar; _rate = vida/seg.
@@ -1429,6 +1436,205 @@ func guardar_materiales_en_hogar() -> int:
 
 
 # ============================================================
+#  CRAFTEO (boticaria): pociones a partir de materiales del HOGAR
+#  Los materiales salen del baul (almacen_materiales), no de la bolsa: craftear es una
+#  actividad de pueblo. La CALIDAD no cambia la receta, cambia cuantos items hacen falta
+#  (un intacto = 3 unidades, normal = 2, dañado = 1; ver MaterialItem.unidades_crafteo).
+# ============================================================
+
+# Unidades DISPONIBLES de un material en el baul del Hogar (suma de calidades).
+func unidades_material_en_hogar(mat: MaterialData) -> int:
+	if mat == null:
+		return 0
+	var total: int = 0
+	for it in almacen_materiales:
+		if it != null and it.data != null and it.data.id == mat.id:
+			total += it.unidades_crafteo()
+	return total
+
+
+# Cuantos ITEMS de un material Y calidad concreta hay en el baul (tope del contador de la UI).
+func items_calidad_en_hogar(mat: MaterialData, cal: int) -> int:
+	if mat == null:
+		return 0
+	var n: int = 0
+	for it in almacen_materiales:
+		if it != null and it.data != null and it.data.id == mat.id and int(it.calidad) == int(cal):
+			n += 1
+	return n
+
+
+# Unidades que aporta un item segun su calidad (intacto 3 / normal 2 / dañado 1).
+func _uds_calidad(cal: int) -> int:
+	match cal:
+		MaterialItem.Calidad.INTACTO: return 3
+		MaterialItem.Calidad.NORMAL: return 2
+		MaterialItem.Calidad.DANADO: return 1
+		_: return 0
+
+
+# Unidades sumadas por una entrada de seleccion {calidad: cantidad}.
+func _uds_de_seleccion(dict: Dictionary) -> int:
+	var u: int = 0
+	for cal in dict:
+		u += int(dict[cal]) * _uds_calidad(int(cal))
+	return u
+
+
+# ¿Es valida ESTA seleccion para fabricar `veces` pociones? La 'seleccion' es un Array
+# paralelo a receta.ingredientes; cada entrada un {calidad: cantidad} POR POCION. Vale si:
+# hay `veces` pociones base (si es mejora), cada ingrediente llega a sus unidades (se permite
+# pasarse) y hay stock para `veces` × lo elegido de cada calidad.
+# Cuantas POCIONES completas cubre esta seleccion = min por ingrediente de (unidades
+# elegidas / unidades por poción). Meter 6 uds en una receta de 3 -> 2 pociones. Acotado por
+# el stock (no puedes elegir mas de lo que tienes) y, si es mejora, por las pociones base.
+func pociones_de_seleccion(receta: RecipeData, seleccion: Array) -> int:
+	if receta == null or receta.resultado == null:
+		return 0
+	if seleccion.size() < receta.ingredientes.size():
+		return 0
+	var n: int = 1000000
+	var hubo: bool = false
+	for i in receta.ingredientes.size():
+		var ing = receta.ingredientes[i]
+		if ing == null or ing.material == null or ing.unidades <= 0:
+			continue
+		hubo = true
+		var dict: Dictionary = seleccion[i]
+		for cal in dict:
+			if int(dict[cal]) > items_calidad_en_hogar(ing.material, int(cal)):
+				return 0   # pides mas de lo que tienes
+		n = mini(n, _uds_de_seleccion(dict) / ing.unidades)
+	if not hubo:
+		return 0
+	if receta.es_mejora():
+		n = mini(n, int(consumables.get(receta.pocion_base, 0)))
+	return maxi(0, n)
+
+
+# ¿Se puede fabricar al menos UNA poción con esta seleccion?
+func seleccion_valida(receta: RecipeData, seleccion: Array) -> bool:
+	return pociones_de_seleccion(receta, seleccion) >= 1
+
+
+# BONUS DE DOBLE: probabilidad de que la receta rinda 2 pociones en vez de 1, segun la
+# calidad MEDIA (ponderada por unidades) de los materiales que ELIGES. Premia meter buen
+# material: todo intacto -> MAX_PROB_DOBLE; baja con calidades peores; todo dañado -> 0%.
+# No cuenta la poción base de una mejora (no es un material).
+const MAX_PROB_DOBLE := 0.25   # tope: usando SOLO intactos
+
+func prob_doble_desde_seleccion(receta: RecipeData, seleccion: Array) -> float:
+	if receta == null:
+		return 0.0
+	var suma_score: float = 0.0
+	var suma_uds: float = 0.0
+	for i in mini(seleccion.size(), receta.ingredientes.size()):
+		var dict: Dictionary = seleccion[i]
+		for cal in dict:
+			var cant: int = int(dict[cal])
+			if cant <= 0:
+				continue
+			var u: float = float(_uds_calidad(int(cal))) * float(cant)
+			suma_score += _score_calidad(int(cal)) * u
+			suma_uds += u
+	if suma_uds <= 0.0:
+		return 0.0
+	return MAX_PROB_DOBLE * (suma_score / suma_uds)
+
+
+# Puntuacion de calidad 0..1 para el bonus de doble (intacto 1, normal 0.5, dañado 0).
+func _score_calidad(cal: int) -> float:
+	match cal:
+		MaterialItem.Calidad.INTACTO: return 1.0
+		MaterialItem.Calidad.NORMAL: return 0.5
+		_: return 0.0
+
+
+# Fabrica CUANTAS pociones cubra la seleccion (pociones_de_seleccion). Consume la seleccion
+# entera y, si es mejora, una poción base por cada una; el bonus de doble se tira POR
+# SEPARADO en cada poción (cada una puede salir doble). Devuelve true si fabricó algo.
+func craftear_con(receta: RecipeData, seleccion: Array) -> bool:
+	var n: int = pociones_de_seleccion(receta, seleccion)
+	if n < 1:
+		return false
+	var prob: float = prob_doble_desde_seleccion(receta, seleccion)
+	var total: int = 0
+	for _k in range(n):
+		if receta.es_mejora():
+			gastar_consumible(receta.pocion_base)
+		total += 2 if randf() < prob else 1
+	# Consumir la seleccion entera (son los materiales de las n pociones).
+	for i in receta.ingredientes.size():
+		var ing = receta.ingredientes[i]
+		if ing == null or ing.material == null:
+			continue
+		_consumir_seleccion_material(ing.material, seleccion[i])
+	add_consumable(receta.resultado, total)
+	print("[boticaria] Fabricas ", n, " poción(es) -> ", total, " x ", receta.resultado.nombre,
+		"  (prob. doble ", roundi(prob * 100.0), "% por poción)")
+	return true
+
+
+# Quita del baul `cantidad` items de cada (material, calidad) de la seleccion.
+func _consumir_seleccion_material(mat: MaterialData, dict: Dictionary) -> void:
+	for cal in dict:
+		var restan: int = int(dict[cal])
+		var i: int = almacen_materiales.size() - 1
+		while i >= 0 and restan > 0:
+			var it: MaterialItem = almacen_materiales[i]
+			if it != null and it.data != null and it.data.id == mat.id and int(it.calidad) == int(cal):
+				almacen_materiales.remove_at(i)
+				restan -= 1
+			i -= 1
+
+
+# Seleccion AUTO (peor calidad primero) que cubre las unidades de cada ingrediente. La usa el
+# boton "Auto" del menu para rellenar de un clic; luego el jugador la retoca a mano.
+func seleccion_auto_peor(receta: RecipeData) -> Array:
+	var sel: Array = []
+	if receta == null:
+		return sel
+	var orden: Array = [MaterialItem.Calidad.DANADO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.INTACTO]
+	for ing in receta.ingredientes:
+		var dict: Dictionary = {}
+		if ing != null and ing.material != null:
+			var restante: int = ing.unidades
+			for cal in orden:
+				if restante <= 0:
+					break
+				var disp: int = items_calidad_en_hogar(ing.material, int(cal))
+				var uds: int = _uds_calidad(int(cal))
+				if disp <= 0 or uds <= 0:
+					continue
+				var quiero: int = int(ceil(float(restante) / float(uds)))
+				var usar: int = mini(quiero, disp)
+				if usar > 0:
+					dict[cal] = usar
+					restante -= usar * uds
+		sel.append(dict)
+	return sel
+
+
+# Lista de todas las recetas de la boticaria (para el menu). Orden: vida y luego maná.
+const _RECIPE_PATHS: Array[String] = [
+	"res://resources/recipes/pocion_vida_base.tres",
+	"res://resources/recipes/pocion_vida_1.tres",
+	"res://resources/recipes/pocion_vida_2.tres",
+	"res://resources/recipes/pocion_mana_base.tres",
+	"res://resources/recipes/pocion_mana_1.tres",
+	"res://resources/recipes/pocion_mana_2.tres",
+]
+
+func recetas_boticaria() -> Array:
+	var out: Array = []
+	for ruta in _RECIPE_PATHS:
+		var r: Resource = load(ruta)
+		if r != null:
+			out.append(r)
+	return out
+
+
+# ============================================================
 #  SOLTAR items de la bolsa al SUELO (se pueden recoger con F)
 # ============================================================
 
@@ -1833,9 +2039,11 @@ func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 	else:
 		print("El cristal se rompio: lo has perdido.")
 
-	# Lo que deja el bicho (probabilidad baja; en pruebas, 100%).
+	# Lo que deja el bicho (probabilidad baja; en pruebas, 100%). La CALIDAD del material
+	# la hereda de TU cristal: si lo sacaste intacto, el material sale intacto (premia el
+	# minijuego, no el grindeo).
 	if cristal != null and is_instance_valid(corpse) and corpse.data != null:
-		_tirar_drop(corpse, cristal.categoria)
+		_tirar_drop(corpse, _calidad_material_de_cristal(cristal.calidad))
 
 
 # Tira (o no) lo que suelta el monstruo. Son DOS tiradas independientes, y esa separacion
@@ -1844,17 +2052,17 @@ func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 #   - el NUCLEO: raro de verdad, va a mejorar el equipo.
 # Un bicho puede dejar los dos, uno, o ninguno. Aparecen en el SUELO (se recogen con F)
 # DESPUES de que el cuerpo se desvanezca.
-func _tirar_drop(corpse: Node, categoria: int) -> void:
+func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 	var data: EnemyData = corpse.data
 	var caidos: Array[MaterialItem] = []
 
 	var chance: float = 1.0 if dev_force_drop else data.drop_chance
 	if data.drop_material != null and randf() < chance:
-		caidos.append(MaterialItem.crear(data.drop_material, _calidad_de_drop(categoria)))
+		caidos.append(MaterialItem.crear(data.drop_material, calidad))
 
 	var chance_n: float = 1.0 if dev_force_drop else data.nucleo_chance
 	if data.nucleo != null and randf() < chance_n:
-		caidos.append(MaterialItem.crear(data.nucleo, _calidad_de_drop(categoria)))
+		caidos.append(MaterialItem.crear(data.nucleo, calidad))
 
 	if caidos.is_empty():
 		return
@@ -1875,17 +2083,13 @@ func _tirar_drop(corpse: Node, categoria: int) -> void:
 		print("El monstruo deja en el suelo: ", item.nombre(), " (", item.calidad_texto(), ")")
 
 
-# Calidad de lo que CAE de un bicho. No hay minijuego de por medio, asi que se tira en una
-# franja que se desplaza con la categoria del cristal (bicho mas potente = mejor pieza).
-# Nunca sale ROTO: lo que se rompe es lo que TU manejas mal, no lo que te encuentras.
-func _calidad_de_drop(categoria: int) -> MaterialItem.Calidad:
-	var base: int = maxi(1, categoria - 2)
-	var valor: int = randi_range(base, base + 2)
-	if valor <= 2:
-		return MaterialItem.Calidad.DANADO
-	elif valor <= 3:
-		return MaterialItem.Calidad.NORMAL
-	return MaterialItem.Calidad.INTACTO
+# Calidad del material que cae, HEREDADA de la del cristal que extrajiste (mismo enum en
+# Cristal y MaterialItem). Asi lo que dejas el bicho refleja como te salio el minijuego:
+# cristal intacto -> material intacto. Unico matiz: un cristal ROTO (se pierde) no deja el
+# material tambien roto (seria doble castigo y ademas ROTO se descarta): baja a DAÑADO, que
+# el material bruto -baba, cuero- es mas resistente que el cristal fragil y sobrevive pobre.
+func _calidad_material_de_cristal(cal: int) -> MaterialItem.Calidad:
+	return mini(int(cal), int(MaterialItem.Calidad.DANADO))
 
 
 # ============================================================

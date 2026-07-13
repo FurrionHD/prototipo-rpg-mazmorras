@@ -45,6 +45,10 @@ var _forja_rows: VBoxContainer = null
 var _forja_nombre: Label = null
 # HECHIZOS (KAN-56)
 var _spell_checks: Dictionary = {}       # path .tres -> CheckBox
+# MATERIALES (baul del Hogar, para probar la boticaria)
+var _mat_material_opt: OptionButton = null
+var _mat_calidad_opt: OptionButton = null
+var _mat_cantidad_spin: SpinBox = null
 # MEJORAS
 var _mej_slot_opt: OptionButton = null
 var _mej_info: Label = null
@@ -118,6 +122,8 @@ func _ready() -> void:
 	_build_mejoras(vb)
 	_sep(vb)
 	_build_objetos(vb)
+	_sep(vb)
+	_build_materiales(vb)
 
 
 # --- Secciones -----------------------------------------------
@@ -420,6 +426,80 @@ func _build_objetos(vb: VBoxContainer) -> void:
 		b.text = "+1 %s  (%s)" % [cons.nombre, cons.resumen(Game.player_max_hp(), Game.player_max_mp())]
 		b.pressed.connect(func(): Game.add_consumable(cons, 1))
 		vb.add_child(b)
+
+
+# MATERIALES: mete materiales de crafteo en el baul del Hogar (para probar la boticaria sin
+# farmear). Eliges material (o Todos), calidad (o Todas) y cantidad, y le das a Añadir.
+func _build_materiales(vb: VBoxContainer) -> void:
+	_header(vb, "MATERIALES (baúl del Hogar)")
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	vb.add_child(row)
+
+	_mat_material_opt = OptionButton.new()
+	_mat_material_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mat_material_opt.add_item("Todos", 0)   # id 0 = todos; id i+1 = material i
+	for i in Game._dev_craft_materials.size():
+		var d: MaterialData = load(Game._dev_craft_materials[i])
+		if d != null:
+			_mat_material_opt.add_item(d.nombre, i + 1)
+	_mat_material_opt.select(0)
+	row.add_child(_mat_material_opt)
+
+	_mat_calidad_opt = OptionButton.new()
+	_mat_calidad_opt.add_item("Todas", 0)    # id 0 = todas; id 1/2/3 = intacto/normal/dañado
+	_mat_calidad_opt.add_item("Intacto", 1)
+	_mat_calidad_opt.add_item("Normal", 2)
+	_mat_calidad_opt.add_item("Dañado", 3)
+	_mat_calidad_opt.select(0)
+	row.add_child(_mat_calidad_opt)
+
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 6)
+	vb.add_child(row2)
+	var lc := Label.new()
+	lc.text = "Cantidad (de cada)"
+	row2.add_child(lc)
+	_mat_cantidad_spin = SpinBox.new()
+	_mat_cantidad_spin.min_value = 1
+	_mat_cantidad_spin.max_value = 999
+	_mat_cantidad_spin.step = 1
+	_mat_cantidad_spin.value = 10
+	row2.add_child(_mat_cantidad_spin)
+	var add := Button.new()
+	add.text = "Añadir al baúl"
+	add.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add.pressed.connect(_on_add_materiales)
+	row2.add_child(add)
+
+
+func _on_add_materiales() -> void:
+	var n: int = int(_mat_cantidad_spin.value)
+	# Materiales: id 0 = todos.
+	var rutas: Array = []
+	var mid: int = _mat_material_opt.get_selected_id()
+	if mid == 0:
+		rutas = Game._dev_craft_materials.duplicate()
+	else:
+		rutas = [Game._dev_craft_materials[mid - 1]]
+	# Calidades: id 0 = todas; si no, id-1 = enum (intacto 0 / normal 1 / dañado 2).
+	var cals: Array = []
+	var cid: int = _mat_calidad_opt.get_selected_id()
+	if cid == 0:
+		cals = [MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
+	else:
+		cals = [cid - 1]
+	var total: int = 0
+	for ruta in rutas:
+		var d: MaterialData = load(ruta)
+		if d == null:
+			continue
+		for cal in cals:
+			for _i in range(n):
+				Game.almacen_materiales.append(MaterialItem.crear(d, cal))
+				total += 1
+	print("[dev] Baúl: +", total, " materiales de crafteo. Total en casa: ", Game.almacen_materiales.size())
 
 
 # HECHIZOS (KAN-56): equipar/quitar hechizos (multi-seleccion con checkboxes). El

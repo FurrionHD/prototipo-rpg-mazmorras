@@ -73,6 +73,7 @@ func _ready() -> void:
 	_stamina_bar = _crear_barra_aguante()
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD (barras, peso, piso, ayudas)
 	add_child(preload("res://scripts/ui/inventory_menu.gd").new())  # inventario (I)
+	add_child(preload("res://scripts/ui/craft_menu.gd").new())      # boticaria (F sobre el NPC)
 	add_child(preload("res://scripts/ui/character_menu.gd").new())  # menu de personaje (C)
 	add_child(preload("res://scripts/ui/debug_panel.gd").new())  # panel de debug (cualquier sala)
 	add_child(preload("res://scripts/ui/spawner.gd").new())      # spawner de enemigos (dev/test)
