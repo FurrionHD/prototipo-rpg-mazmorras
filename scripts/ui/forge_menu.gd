@@ -481,13 +481,15 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 
 	# --- Tabla de rareza EN VIVO, con el score REAL (material + metal + herrería) ---
 	vb.add_child(HSeparator.new())
-	var score: float = Game.score_forja(metal, _sel_metal, _sel_cuero)
+	var score: float = Game.score_forja(base, metal, _sel_metal, _sel_cuero)
 	var t := Label.new()
 	t.text = "Rareza que puede salir"
 	t.add_theme_color_override("font_color", AMBAR)
 	vb.add_child(t)
+	# La calidad que cuenta es la de lo que se GASTA (el sobrante no entra en la media).
+	var bonos: float = Forge.bonus_metal(metal) + Forge.bonus_herreria(Game.herreria_activa())
 	_note(vb, "Calidad del material %d%%  +  metal %+d%%  +  herrería %+d%%" % [
-		roundi(Game.score_seleccion([_sel_metal, _sel_cuero]) * 100.0),
+		roundi((score - bonos) * 100.0),
 		roundi(Forge.bonus_metal(metal) * 100.0),
 		roundi(Forge.bonus_herreria(Game.herreria_activa()) * 100.0)])
 	var probs: Array = Forge.probs_rareza(score)
@@ -534,6 +536,25 @@ func _contadores(vb: VBoxContainer, mat: MaterialData, sel: Dictionary, necesita
 	v.add_theme_color_override("font_color", VERDE if uds >= necesita else ROJO)
 	row.add_child(v)
 	vb.add_child(row)
+
+	# Si te has pasado, decir QUE se va a gastar de verdad: el sobrante se queda en el baul. Y
+	# de lo que se gasta, las unidades que sobren del ultimo trozo pueden volver (el recorte).
+	if uds >= necesita and necesita > 0:
+		var gasto: Dictionary = Game.recortar_seleccion(sel, necesita)
+		var gastadas: int = Game.uds_seleccion(gasto)
+		var partes: PackedStringArray = []
+		for cal in CALIDADES:
+			var n: int = int(gasto.get(cal, 0))
+			if n > 0:
+				partes.append("%d %s" % [n, _cal_txt(int(cal)).to_lower()])
+		var txt: String = "   Se gastarán %s (%d uds)" % [", ".join(partes), gastadas]
+		if uds > gastadas:
+			txt += "; el resto se queda en el Hogar"
+		var sobra: int = gastadas - necesita
+		if sobra > 0:
+			txt += ".  Sobran %d uds del recorte: %d%% de recuperar una pieza" % [
+				sobra, roundi(Forge.prob_devolver(sobra, Game.herreria_activa()) * 100.0)]
+		_note(vb, txt + ".")
 
 	var hubo: bool = false
 	for cal in CALIDADES:

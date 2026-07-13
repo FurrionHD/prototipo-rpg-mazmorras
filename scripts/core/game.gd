@@ -1927,10 +1927,35 @@ func score_seleccion(dicts: Array) -> float:
 # El score con el que se va a tirar DE VERDAD: la calidad del material + lo que aporta tu
 # Herreria + lo que aporta el METAL (el adamante ya viene medio hecho). La UI pinta ESTE, no
 # el otro: lo que ves es lo que se tira.
-func score_forja(metal: MaterialData, sel_metal: Dictionary, sel_cuero: Dictionary) -> float:
-	return score_seleccion([sel_metal, sel_cuero]) \
+func score_forja(base: Resource, metal: MaterialData, sel_metal: Dictionary, sel_cuero: Dictionary) -> float:
+	var c: Dictionary = Forge.coste(base)
+	return score_seleccion([
+			recortar_seleccion(sel_metal, int(c["metal"])),
+			recortar_seleccion(sel_cuero, int(c["cuero"]))]) \
 		+ Forge.bonus_herreria(herreria_activa()) \
 		+ Forge.bonus_metal(metal)
+
+
+# Lo que se va a GASTAR de verdad de una seleccion que cubre `necesita` unidades. Si te pasas,
+# el sobrante NO se quema: se devuelve al baul. Lo que se descarta es lo PEOR que hayas metido
+# (mientras el resto siga cubriendo el coste), asi que pasarse nunca te perjudica: te quedas el
+# material bueno Y forjas con la mejor media de calidad posible.
+func recortar_seleccion(sel: Dictionary, necesita: int) -> Dictionary:
+	var out: Dictionary = sel.duplicate()
+	var uds: int = _uds_de_seleccion(out)
+	# De peor a mejor: dañado, normal, intacto, puro.
+	for cal in [MaterialItem.Calidad.DANADO, MaterialItem.Calidad.NORMAL,
+			MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.PURO]:
+		var n: int = int(out.get(cal, 0))
+		var u: int = _uds_calidad(int(cal))
+		while n > 0 and uds - u >= necesita:
+			n -= 1
+			uds -= u
+		if n <= 0:
+			out.erase(cal)
+		else:
+			out[cal] = n
+	return out
 
 
 # El METAL que pide esta pieza: la CHAPA si es armadura, el LINGOTE si es arma. La UI le pide
@@ -1960,21 +1985,49 @@ func _sel_disponible(mat: MaterialData, dict: Dictionary) -> bool:
 
 
 # FORJA una pieza: el METAL (lingote si es arma, chapa si es armadura) fija el tier, y la
-# calidad media de lo que metes (mas tu Herreria) tira la rareza. Consume la seleccion entera y
-# devuelve el item nuevo, ya en el baul; null si la seleccion no llega.
+# calidad media de lo que metes (mas tu Herreria) tira la rareza. Solo se gasta lo NECESARIO:
+# si te pasas de unidades, el sobrante se queda en el baul (ver recortar_seleccion). Devuelve
+# el item nuevo, ya en el baul; null si la seleccion no llega.
 func forjar(base: Resource, metal: MaterialData, sel_metal: Dictionary, sel_cuero: Dictionary) -> Resource:
 	if not forja_valida(base, metal, sel_metal, sel_cuero):
 		return null
+	var c: Dictionary = Forge.coste(base)
+	var gasto_metal: Dictionary = recortar_seleccion(sel_metal, int(c["metal"]))
+	var gasto_cuero: Dictionary = recortar_seleccion(sel_cuero, int(c["cuero"]))
 	var tier: int = Forge.tier_de_metal(metal)
-	var rareza: int = Forge.tirar_rareza(score_forja(metal, sel_metal, sel_cuero))
-	_consumir_seleccion_material(metal, sel_metal)
-	_consumir_seleccion_material(cuero_forja(), sel_cuero)
+	var rareza: int = Forge.tirar_rareza(score_forja(base, metal, sel_metal, sel_cuero))
+	_consumir_seleccion_material(metal, gasto_metal)
+	_consumir_seleccion_material(cuero_forja(), gasto_cuero)
+	# Aprovechamiento: lo que sobra del ultimo trozo puede volver al baul (ver Forge).
+	_tirar_devolucion(metal, gasto_metal, int(c["metal"]))
+	_tirar_devolucion(cuero_forja(), gasto_cuero, int(c["cuero"]))
 	var item: Resource = crear_item(base, tier, rareza, {})
 	herreria_exp += Forge.HERRERIA_POR_PIEZA
 	print("[herrero] Forjas %s con %s -> T%d %s.  Herreria %s" % [
 		str(base.get("nombre")), metal.nombre, tier, Upgrades.rareza_nombre(rareza),
 		snappedf(herreria_exp, 0.1)])
 	return item
+
+
+# Tira por devolver al baul UNA pieza del material, segun las unidades que hayan SOBRADO del
+# gasto (un lingote intacto vale 3 uds; si la pieza pedia 4, gastas 2 lingotes = 6 y sobran 2).
+# Devuelve la PEOR calidad de las que gastaste: el recorte ya te guardo las buenas.
+func _tirar_devolucion(mat: MaterialData, gasto: Dictionary, necesita: int) -> void:
+	var sobra: int = _uds_de_seleccion(gasto) - necesita
+	if mat == null or sobra <= 0:
+		return
+	if randf() >= Forge.prob_devolver(sobra, herreria_activa()):
+		return
+	var peor: int = -1
+	for cal in [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
+			MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]:
+		if int(gasto.get(cal, 0)) > 0:
+			peor = int(cal)   # el ultimo que quede en el bucle es el peor
+	if peor < 0:
+		return
+	almacen_materiales.append(MaterialItem.crear(mat, peor))
+	print("[herrero] Aprovechas el recorte: recuperas 1 x %s (%s)" % [
+		mat.nombre, MaterialItem.crear(mat, peor).calidad_texto()])
 
 
 # --- MEJORAR una pieza con NUCLEOS ---
