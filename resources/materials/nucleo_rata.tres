@@ -4,18 +4,18 @@
 
 [resource]
 script = ExtResource("1")
-id = &"nucleo_slime"
-nombre = "Núcleo de slime"
-descripcion = "El grumo denso que late en el centro del bicho. No se funde, no se rompe: se le pide permiso al metal para meterlo dentro."
+id = &"nucleo_rata"
+nombre = "Núcleo de rata"
+descripcion = "Menudo y correoso, del tamaño de una avellana. No sirve para un arma, pero cosido bajo el cuero endurece la pieza sin que pese más."
 familia = 1
 tipo = 4
 tier = 1
 exigencia = 0.0
-peso_base = 0.6
-valor_base = 90
-color = Color(0.85, 0.75, 1.0, 1)
+peso_base = 0.4
+valor_base = 70
+color = Color(0.7, 0.6, 0.5, 1)
 mejora_max = 3
-uso_mejora = 1
+uso_mejora = 2
 piso_min = 1
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"

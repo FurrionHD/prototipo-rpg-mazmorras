@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_sang"]
+script = ExtResource("2")
+estado = 1
+prob = 0.45
+
+[resource]
+script = ExtResource("1")
+nombre = "Frenesí de dentelladas"
+descripcion = "ATAQUE DE CARGA: se agazapa un instante y se lanza hecha una furia, mordiendo una y otra vez por todo el cuerpo. Cada bocado abre una herida nueva. Aturdirla mientras se prepara corta el frenesí."
+coste_energia = 0.0
+carga_turnos = 1
+golpes_min = 5
+golpes_max = 6
+dano_mult = 0.5
+efectos = [SubResource("SA_sang")]
+efectos_por_golpe = true
+cooldown = 4

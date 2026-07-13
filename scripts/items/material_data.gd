@@ -17,6 +17,9 @@ class_name MaterialData
 
 enum Familia { CORRIENTE, NUCLEO }
 enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO }
+# A QUE se le puede meter este nucleo. Los del slime van al ARMA; el de la rata, a la
+# ARMADURA. CUALQUIERA = comodin (no lo usa ningun nucleo hoy, pero el campo lo admite).
+enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
 
 @export var id: StringName = &"material"
 @export var nombre: String = "Material"
@@ -35,6 +38,15 @@ enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO }
 
 @export var peso_base: float = 1.5
 @export var valor_base: int = 20
+
+# --- SOLO para la familia NUCLEO: hasta donde deja subir el equipo ---
+# El nucleo no es "un material mas caro": es el PERMISO para seguir mejorando. Un nucleo
+# de slime te deja llegar a +3; uno de un bicho hondo, mucho mas lejos. El techo real del
+# sistema es el de la rareza mas alta (Upgrades.RAREZA_SLOTS, obra maestra = 12): no se
+# escribe aqui a mano, se lee de alli (ver mejora_tope).
+# 0 = este material no mejora nada (todos los CORRIENTES).
+@export var mejora_max: int = 0
+@export var uso_mejora: UsoMejora = UsoMejora.CUALQUIERA
 
 # Placeholder visual (el arte va al final): color del nodo en el mapa y del item del suelo.
 @export var color: Color = Color(0.7, 0.7, 0.75)
@@ -71,6 +83,22 @@ func es_planta() -> bool:
 	return tipo == Tipo.PLANTA
 
 
+# ¿Este material es un nucleo que sirve para MEJORAR el equipo?
+func mejora_equipo() -> bool:
+	return familia == Familia.NUCLEO and mejora_max > 0
+
+# Tope de mejora EFECTIVO: el campo, pero nunca por encima del maximo real del sistema
+# (la rareza mas alta de Upgrades). Asi un .tres no puede prometer un +20 que no existe.
+func mejora_tope() -> int:
+	return clampi(mejora_max, 0, Upgrades.RAREZA_SLOTS[Upgrades.RAREZA_SLOTS.size() - 1])
+
+func uso_mejora_texto() -> String:
+	match uso_mejora:
+		UsoMejora.ARMA: return "armas"
+		UsoMejora.ARMADURA: return "armaduras"
+		_: return "equipo"
+
+
 # Los NUMEROS visibles salen de aqui, no de la descripcion.
 func resumen() -> String:
 	var partes: PackedStringArray = [
@@ -80,6 +108,8 @@ func resumen() -> String:
 	]
 	if es_veta() or es_planta():
 		partes.append("exigencia %d" % roundi(exigencia))
+	if mejora_equipo():
+		partes.append("mejora hasta +%d · %s" % [mejora_tope(), uso_mejora_texto()])
 	var pisos: String = "piso %d+" % piso_min if piso_max <= 0 else "pisos %d-%d" % [piso_min, piso_max]
 	partes.append(pisos)
 	return "  ·  ".join(partes)

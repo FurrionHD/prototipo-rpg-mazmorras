@@ -182,6 +182,9 @@ func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
 	var v := Label.new()
 	v.text = valor
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Sin esto una linea larga (p.ej. el resumen() del material) se sale del ancho y, como
+	# el scroll horizontal esta apagado, se recorta en el borde y arrastra a toda la columna.
+	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(v)
 	vb.add_child(row)
 

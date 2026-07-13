@@ -5,8 +5,8 @@
 [ext_resource type="Resource" path="res://resources/abilities/slime_placaje_corrosivo.tres" id="3_plc"]
 [ext_resource type="Resource" path="res://resources/abilities/slime_rociada_corrosiva.tres" id="4_dbe"]
 [ext_resource type="Resource" path="res://resources/abilities/slime_escupitajo_toxico.tres" id="5_esc"]
-[ext_resource type="Resource" path="res://resources/materials/baba_slime.tres" id="6_baba"]
-[ext_resource type="Resource" path="res://resources/materials/nucleo_slime.tres" id="7_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/baba_venenosa.tres" id="6_baba"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_venenoso.tres" id="7_nuc"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")

@@ -6,8 +6,8 @@
 [ext_resource type="Resource" path="res://resources/abilities/slime_salpicadura_ardiente.tres" id="4_sal"]
 [ext_resource type="Resource" path="res://resources/abilities/slime_combustion.tres" id="5_com"]
 [ext_resource type="Resource" path="res://resources/abilities/slime_ignicion.tres" id="6_ign"]
-[ext_resource type="Resource" path="res://resources/materials/baba_slime.tres" id="7_baba"]
-[ext_resource type="Resource" path="res://resources/materials/nucleo_slime.tres" id="8_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/baba_fuego.tres" id="7_baba"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_fuego.tres" id="8_nuc"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")

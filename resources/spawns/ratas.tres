@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="SpawnTable" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
+[ext_resource type="Script" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/rata.tres" id="3_rata"]
+
+[sub_resource type="Resource" id="E_rata"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("3_rata")
+peso = 100.0
+piso_min = 1
+piso_max = 0
+
+[resource]
+script = ExtResource("1_tabla")
+nombre = "Ratas"
+entradas = [SubResource("E_rata")]
+metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"

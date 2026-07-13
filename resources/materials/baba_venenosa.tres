@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"baba_venenosa"
+nombre = "Baba venenosa"
+descripcion = "Verde y traslúcida, todavía burbujea un poco cuando la recoges. El boticario la trata con respeto: lo que enferma también cura si sabes la medida."
+familia = 0
+tipo = 0
+tier = 2
+exigencia = 0.0
+peso_base = 1.1
+valor_base = 35
+color = Color(0.35, 0.72, 0.28, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_rata.tres" id="2_cuero"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_rata.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/abilities/rata_mordisco_sangrante.tres" id="4_mor"]
+[ext_resource type="Resource" path="res://resources/abilities/rata_frenesi_dentelladas.tres" id="5_fre"]
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Rata de mazmorra"
+color = Color(0.5, 0.42, 0.34, 1)
+escala_visual = 0.85
+fuerza = 26
+resistencia = 18
+destreza = 36
+agilidad = 42
+magia = 14
+franja_low = 0.0
+franja_high = 0.45
+base_hp = 22.0
+base_attack = 3.5
+base_defense = 2.4
+base_magic = 1.5
+base_speed = 6.0
+move_speed_min = 45.0
+move_speed_max = 75.0
+chase_speed_mult = 2.6
+crystal_category_min = 1
+crystal_category_max = 2
+extraction_hits = 3
+extraction_req_destreza = 45
+drop_material = ExtResource("2_cuero")
+drop_chance = 0.3
+nucleo = ExtResource("3_nuc")
+nucleo_chance = 0.05
+habilidades = [ExtResource("4_mor"), ExtResource("5_fre")]
+prob_habilidad = 0.5
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

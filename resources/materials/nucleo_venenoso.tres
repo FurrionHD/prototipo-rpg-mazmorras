@@ -4,17 +4,17 @@
 
 [resource]
 script = ExtResource("1")
-id = &"nucleo_slime"
-nombre = "Núcleo de slime"
-descripcion = "El grumo denso que late en el centro del bicho. No se funde, no se rompe: se le pide permiso al metal para meterlo dentro."
+id = &"nucleo_venenoso"
+nombre = "Núcleo venenoso"
+descripcion = "Late más despacio que el de un slime común, y deja un cerco oscuro allá donde lo apoyas. El acero que lo acepta muerde más hondo."
 familia = 1
 tipo = 4
-tier = 1
+tier = 2
 exigencia = 0.0
 peso_base = 0.6
-valor_base = 90
-color = Color(0.85, 0.75, 1.0, 1)
-mejora_max = 3
+valor_base = 180
+color = Color(0.5, 0.85, 0.4, 1)
+mejora_max = 5
 uso_mejora = 1
 piso_min = 1
 piso_max = 0
