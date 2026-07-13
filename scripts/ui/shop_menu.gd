@@ -68,9 +68,11 @@ const CAT_GRIMORIOS: Array[String] = [
 const ARMOR_TIPOS: Array[String] = ["cuero", "hierro", "hierro_completo", "placas"]
 
 var _root: Control = null
-var _content: VBoxContainer = null
-var _dinero_lbl: Label = null       # bajo el titulo, en la columna
-var _dinero_top: Label = null       # arriba a la derecha, como en el inventario
+var _header: VBoxContainer = null    # cabecera FIJA (titulo + subpestañas)
+var _lista: VBoxContainer = null     # cuadricula, con su scroll
+var _scroll_lista: ScrollContainer = null
+var _content: VBoxContainer = null   # detalle, con el suyo
+var _dinero_top: Label = null        # monedas arriba a la derecha
 var _tab_buttons: Array = []
 
 var _tab: int = 0
@@ -90,54 +92,13 @@ func _ready() -> void:
 	layer = 91
 	add_to_group("shop_menu")
 
-	_root = Control.new()
-	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.visible = false
-	add_child(_root)
-
-	var bg := ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.05, 0.06, 0.08, 1.0)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	_root.add_child(bg)
-
-	var hb := HBoxContainer.new()
-	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hb.offset_left = 16
-	hb.offset_top = 16
-	hb.offset_right = -16
-	hb.offset_bottom = -16
-	hb.add_theme_constant_override("separation", 18)
-	_root.add_child(hb)
-
-	# Dinero arriba a la derecha (mismo sitio que en el inventario): comprando es EL dato.
-	_dinero_top = Label.new()
-	_dinero_top.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	_dinero_top.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_dinero_top.offset_left = -240
-	_dinero_top.offset_right = -20
-	_dinero_top.offset_top = 16
-	_dinero_top.add_theme_color_override("font_color", Color(0.95, 0.86, 0.5))
-	_dinero_top.add_theme_font_size_override("font_size", 18)
-	_root.add_child(_dinero_top)
-
-	# Columna izquierda: titulo, dinero, pestañas.
-	var side := VBoxContainer.new()
-	side.custom_minimum_size = Vector2(220, 0)
-	side.add_theme_constant_override("separation", 6)
-	hb.add_child(side)
-
-	var titulo := Label.new()
-	titulo.text = "TIENDA"
-	titulo.add_theme_color_override("font_color", AMBAR)
-	titulo.add_theme_font_size_override("font_size", 18)
-	side.add_child(titulo)
-
-	_dinero_lbl = Label.new()
-	_dinero_lbl.add_theme_color_override("font_color", Color(0.95, 0.86, 0.5))
-	_dinero_lbl.add_theme_font_size_override("font_size", 15)
-	side.add_child(_dinero_lbl)
-	side.add_child(HSeparator.new())
+	var m: Dictionary = MenuScaffold.construir(self, "TIENDA", "", _cerrar, true)
+	_root = m["root"]
+	_header = m["header"]
+	_lista = m["lista"]
+	_scroll_lista = m["lista_scroll"]
+	_content = m["content"]
+	_dinero_top = m["dinero"]
 
 	for i in TABS.size():
 		var b := Button.new()
@@ -145,32 +106,8 @@ func _ready() -> void:
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(0, 34)
 		b.pressed.connect(_on_tab.bind(i))
-		side.add_child(b)
+		(m["side"] as VBoxContainer).add_child(b)
 		_tab_buttons.append(b)
-
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side.add_child(spacer)
-	var cerrar := Button.new()
-	cerrar.text = "✕ Cerrar  (Esc)"
-	cerrar.custom_minimum_size = Vector2(0, 34)
-	cerrar.pressed.connect(_cerrar)
-	side.add_child(cerrar)
-
-	# Columna derecha: contenido.
-	var margin := MarginContainer.new()
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 16)
-	hb.add_child(margin)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	margin.add_child(scroll)
-	_content = VBoxContainer.new()
-	_content.add_theme_constant_override("separation", 4)
-	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_content)
 
 
 func abrir() -> void:
@@ -220,8 +157,9 @@ func _on_sub(i: int) -> void:
 
 
 func _rebuild() -> void:
-	for c in _content.get_children():
-		c.queue_free()
+	for zona in [_header, _lista, _content]:
+		for c in zona.get_children():
+			c.queue_free()
 	# Pestañas que solo existen cuando tienen algo dentro: el mostrador de recompra (2) y el
 	# pack inicial (3), que es de usar y tirar.
 	var visible_tab := {2: not Game.recompra.is_empty(), 3: not Game.pack_inicial_reclamado}
@@ -231,7 +169,6 @@ func _rebuild() -> void:
 		var b := _tab_buttons[i] as Button
 		b.visible = bool(visible_tab.get(i, true))
 		b.button_pressed = (i == _tab)
-	_dinero_lbl.text = "%d monedas" % Game.money
 	_dinero_top.text = "%d monedas" % Game.money
 
 	if _aviso != "":
@@ -239,7 +176,7 @@ func _rebuild() -> void:
 		l.text = _aviso
 		l.add_theme_color_override("font_color", VERDE if _aviso_ok else ROJO)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_content.add_child(l)
+		_header.add_child(l)
 
 	match _tab:
 		0: _build_vender()
@@ -291,37 +228,15 @@ func _note(vb: VBoxContainer, txt: String) -> void:
 	vb.add_child(l)
 
 
-# Cuadricula (izquierda) + panel de detalle (derecha), como el inventario.
+# La cuadricula va a la columna de la LISTA (con su scroll) y la ficha al DETALLE (con el
+# suyo). La cabecera se queda quieta arriba.
 func _grid_detail(labels: Array, preview: Callable) -> void:
 	if labels.is_empty():
 		_note(_content, "(nada por aquí)")
 		return
 	_sel = clampi(_sel, 0, labels.size() - 1)
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 20)
-	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.add_child(hb)
-
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	for i in labels.size():
-		var b := Button.new()
-		b.text = str(labels[i])
-		b.toggle_mode = true
-		b.button_pressed = (i == _sel)
-		b.clip_text = true
-		b.custom_minimum_size = Vector2(150, 48)
-		b.pressed.connect(_pick.bind(i))
-		grid.add_child(b)
-	hb.add_child(grid)
-
-	var right := VBoxContainer.new()
-	right.add_theme_constant_override("separation", 4)
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hb.add_child(right)
-	preview.call(right)
+	MenuScaffold.cuadricula(_lista, labels, _sel, _pick)
+	preview.call(_content)
 
 
 func _pick(i: int) -> void:
@@ -330,19 +245,10 @@ func _pick(i: int) -> void:
 
 
 # Fila de subpestañas (la usan Vender y Tienda).
+# Las subpestañas van a la CABECERA: no se van con el scroll.
 func _subpestanas(nombres: Array) -> void:
-	var subs := HBoxContainer.new()
-	subs.add_theme_constant_override("separation", 6)
-	for i in nombres.size():
-		var b := Button.new()
-		b.text = str(nombres[i])
-		b.toggle_mode = true
-		b.button_pressed = (i == _sub)
-		b.custom_minimum_size = Vector2(110, 30)
-		b.pressed.connect(_on_sub.bind(i))
-		subs.add_child(b)
-	_content.add_child(subs)
-	_content.add_child(HSeparator.new())
+	MenuScaffold.pestanas(_header, nombres, _sub, _on_sub, 110)
+	_header.add_child(HSeparator.new())
 
 
 func _boton(vb: VBoxContainer, txt: String, cb: Callable, activo: bool = true) -> void:
@@ -402,8 +308,8 @@ func _labels_stacks(stacks: Array) -> Array:
 # ============================================================
 
 func _build_vender() -> void:
-	_title(_content, "VENDER")
-	_note(_content, "Te pagan el valor estimado que ya ves en el inventario: sin regateo ni sorpresas. Los cristales solo se sacan de encima aquí.")
+	_title(_header, "VENDER")
+	_note(_header, "Te pagan el valor estimado que ya ves en el inventario: sin regateo ni sorpresas. Los cristales solo se sacan de encima aquí.")
 
 	_subpestanas(SUBS_VENDER)
 	match _sub:
@@ -419,9 +325,9 @@ func _build_vender_bolsa() -> void:
 		var total: int = 0
 		for c in Game.crystals:
 			total += Game.precio_venta_item(c)
-		_boton(_content, "Vender TODOS los cristales  (%d → %d monedas)" % [cristales, total],
+		_boton(_header, "Vender TODOS los cristales  (%d → %d monedas)" % [cristales, total],
 			_on_vender_todos)
-		_content.add_child(HSeparator.new())
+		_header.add_child(HSeparator.new())
 
 	var items: Array = []
 	for c in Game.crystals:
@@ -433,7 +339,7 @@ func _build_vender_bolsa() -> void:
 
 
 func _build_vender_hogar() -> void:
-	_note(_content, "Los materiales que tienes guardados en el Hogar. Piénsatelo: lo que vendas hoy te tocará farmearlo mañana para craftear.")
+	_note(_header, "Los materiales que tienes guardados en el Hogar. Piénsatelo: lo que vendas hoy te tocará farmearlo mañana para craftear.")
 	_stacks = _agrupar(Game.almacen_materiales)
 	_grid_detail(_labels_stacks(_stacks), _preview_venta_bolsa)
 
@@ -483,7 +389,7 @@ func _on_vender_todos() -> void:
 # --- Vender EQUIPO (con derecho a recompra) ---
 
 func _build_vender_equipo() -> void:
-	_note(_content, "Lo que le vendas al tendero se queda en su mostrador: puedes recomprarlo (pestaña Recomprar) por lo mismo que te pagó, hasta que se le acumulen más de %d trastos. Lo que llevas puesto no se vende: desequípalo antes [C]." % Game.RECOMPRA_MAX)
+	_note(_header, "Lo que le vendas al tendero se queda en su mostrador: puedes recomprarlo (pestaña Recomprar) por lo mismo que te pagó, hasta que se le acumulen más de %d trastos. Lo que llevas puesto no se vende: desequípalo antes [C]." % Game.RECOMPRA_MAX)
 	_stacks = []
 	for w in Game.owned_weapons:
 		_stacks.append({"modelo": w, "cantidad": 1})
@@ -533,7 +439,7 @@ func _on_vender_equipo() -> void:
 # --- Vender CONSUMIBLES (pociones y grimorios) ---
 
 func _build_vender_consumibles() -> void:
-	_note(_content, "Pociones y grimorios de tu inventario. No van al mostrador de recompra: el tendero ya los vende de serie, así que si te arrepientes los compras otra vez en la Tienda.")
+	_note(_header, "Pociones y grimorios de tu inventario. No van al mostrador de recompra: el tendero ya los vende de serie, así que si te arrepientes los compras otra vez en la Tienda.")
 	_stacks = []
 	for c in Game.consumables.keys():
 		var n: int = int(Game.consumables[c])
@@ -587,9 +493,9 @@ func _confirmar_venta_consumible(cant: int) -> void:
 # ============================================================
 
 func _build_recomprar() -> void:
-	_title(_content, "RECOMPRAR")
-	_note(_content, "El mostrador del tendero: lo último que le has vendido (máx. %d). Vuelve a ti tal y como estaba, con su tier y sus mejoras, por lo mismo que te pagó. Al pasarse de %d, lo más viejo se pierde." % [Game.RECOMPRA_MAX, Game.RECOMPRA_MAX])
-	_content.add_child(HSeparator.new())
+	_title(_header, "RECOMPRAR")
+	_note(_header, "El mostrador del tendero: lo último que le has vendido (máx. %d). Vuelve a ti tal y como estaba, con su tier y sus mejoras, por lo mismo que te pagó. Al pasarse de %d, lo más viejo se pierde." % [Game.RECOMPRA_MAX, Game.RECOMPRA_MAX])
+	_header.add_child(HSeparator.new())
 
 	_stacks = []
 	for i in Game.recompra.size():
@@ -633,24 +539,24 @@ func _on_recomprar() -> void:
 # ============================================================
 
 func _build_tienda() -> void:
-	_title(_content, "A LA VENTA")
-	_note(_content, "Todo lo de aquí sale a tier 1 y calidad común: el tendero no forja, revende. Lo bueno tendrás que fabricártelo tú.")
+	_title(_header, "A LA VENTA")
+	_note(_header, "Todo lo de aquí sale a tier 1 y calidad común: el tendero no forja, revende. Lo bueno tendrás que fabricártelo tú.")
 	_subpestanas(SUBS_TIENDA)
 
 	var rutas: Array = []
 	match _sub:
 		0:
 			rutas = CAT_ARMAS + CAT_SECUNDARIAS
-			_note(_content, "Armas de mano principal, y escudos y varita para la secundaria.")
+			_note(_header, "Armas de mano principal, y escudos y varita para la secundaria.")
 		1:
 			rutas = _rutas_armaduras()
-			_note(_content, "Cinco piezas por juego: casco, pecho, manos, pantalones y botas. Cuanto más cubre, más frena; los huecos vacíos te dejan ir ligero.")
+			_note(_header, "Cinco piezas por juego: casco, pecho, manos, pantalones y botas. Cuanto más cubre, más frena; los huecos vacíos te dejan ir ligero.")
 		2:
 			rutas = CAT_POCIONES
-			_note(_content, "Comprarlas sale caro: si puedes, fabrícalas en la Boticaria con lo que traigas de la mazmorra.")
+			_note(_header, "Comprarlas sale caro: si puedes, fabrícalas en la Boticaria con lo que traigas de la mazmorra.")
 		3:
 			rutas = CAT_GRIMORIOS
-			_note(_content, "Un libro por hechizo. Se estudia desde Consumibles, en el inventario [I]. Caben %d hechizos a la vez." % Game.MAX_HECHIZOS)
+			_note(_header, "Un libro por hechizo. Se estudia desde Consumibles, en el inventario [I]. Caben %d hechizos a la vez." % Game.MAX_HECHIZOS)
 
 	_stacks = []
 	for ruta in rutas:
@@ -774,13 +680,13 @@ func _confirmar_compra_varias(cant: int) -> void:
 # ============================================================
 
 func _build_pack() -> void:
-	_title(_content, "PACK INICIAL")
+	_title(_header, "PACK INICIAL")
 	if Game.pack_inicial_reclamado:
-		_note(_content, "Ya reclamaste tu pack. Lo que quieras a partir de ahora sale de tu bolsillo: vende cristales en la pestaña Vender y compra en la Tienda.")
+		_note(_header, "Ya reclamaste tu pack. Lo que quieras a partir de ahora sale de tu bolsillo: vende cristales en la pestaña Vender y compra en la Tienda.")
 		return
 
-	_note(_content, "Regalo de bienvenida, UNA sola vez: elige un arma y llévatela gratis, con %d pociones menores de propina. El bastón y la varita no entran: la magia te la pagas tú." % Game.PACK_POCIONES_N)
-	_content.add_child(HSeparator.new())
+	_note(_header, "Regalo de bienvenida, UNA sola vez: elige un arma y llévatela gratis, con %d pociones menores de propina. El bastón y la varita no entran: la magia te la pagas tú." % Game.PACK_POCIONES_N)
+	_header.add_child(HSeparator.new())
 
 	_stacks = []
 	for ruta in Game.PACK_ARMAS:

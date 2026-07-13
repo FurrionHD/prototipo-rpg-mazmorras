@@ -11,8 +11,9 @@
 extends CanvasLayer
 
 var _root: Control = null
-var _list: VBoxContainer = null      # botones de receta (izquierda)
-var _detail: VBoxContainer = null    # detalle de la receta seleccionada (derecha)
+var _header: VBoxContainer = null    # cabecera FIJA
+var _list: VBoxContainer = null      # botones de receta (izquierda), con su scroll
+var _detail: VBoxContainer = null    # detalle de la receta seleccionada (derecha), con el suyo
 var _recetas: Array = []
 var _sel: int = 0
 # SELECCION de materiales de la receta actual: Array paralelo a receta.ingredientes; cada
@@ -29,72 +30,15 @@ func _ready() -> void:
 	layer = 91
 	add_to_group("craft_menu")
 
-	_root = Control.new()
-	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.visible = false
-	add_child(_root)
-
-	var bg := ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.05, 0.06, 0.08, 1.0)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	_root.add_child(bg)
-
-	var hb := HBoxContainer.new()
-	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hb.offset_left = 16
-	hb.offset_top = 16
-	hb.offset_right = -16
-	hb.offset_bottom = -16
-	hb.add_theme_constant_override("separation", 18)
-	_root.add_child(hb)
-
-	# Columna izquierda: titulo + lista de recetas + cerrar.
-	var side := VBoxContainer.new()
-	side.custom_minimum_size = Vector2(280, 0)
-	side.add_theme_constant_override("separation", 6)
-	hb.add_child(side)
-
-	var titulo := Label.new()
-	titulo.text = "BOTICARIA"
-	titulo.add_theme_color_override("font_color", AMBAR)
-	titulo.add_theme_font_size_override("font_size", 18)
-	side.add_child(titulo)
-	var nota := Label.new()
-	nota.text = "Fabrica pociones con lo que tengas guardado en el Hogar. Las mejoras (+1, +2) consumen la poción del escalón anterior."
-	nota.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
-	nota.add_theme_font_size_override("font_size", 11)
-	nota.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	side.add_child(nota)
-	side.add_child(HSeparator.new())
-
-	_list = VBoxContainer.new()
-	_list.add_theme_constant_override("separation", 4)
-	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side.add_child(_list)
-
-	var cerrar := Button.new()
-	cerrar.text = "✕ Cerrar  (Esc)"
-	cerrar.custom_minimum_size = Vector2(0, 34)
-	cerrar.pressed.connect(_cerrar)
-	side.add_child(cerrar)
-
-	# Columna derecha: detalle.
-	var margin := MarginContainer.new()
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_theme_constant_override("margin_left", 8)
-	# Margen a la derecha para que la columna de valores (0/6...) no quede pegada al borde
-	# ni la tape la barra de scroll.
-	margin.add_theme_constant_override("margin_right", 16)
-	hb.add_child(margin)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	margin.add_child(scroll)
-	_detail = VBoxContainer.new()
-	_detail.add_theme_constant_override("separation", 4)
-	_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_detail)
+	# Misma forma que el resto de menus: cabecera fija, lista con su scroll (las recetas) y
+	# detalle con el suyo (los contadores de material, que se hacen largos).
+	var m: Dictionary = MenuScaffold.construir(self, "BOTICARIA",
+		"Fabrica pociones con lo que tengas guardado en el Hogar. Las mejoras (+1, +2) consumen la poción del escalón anterior.",
+		_cerrar)
+	_root = m["root"]
+	_header = m["header"]
+	_list = m["lista"]
+	_detail = m["content"]
 
 
 func abrir() -> void:
@@ -135,10 +79,11 @@ func _input(event: InputEvent) -> void:
 
 
 func _rebuild() -> void:
-	for c in _list.get_children():
-		c.queue_free()
-	for c in _detail.get_children():
-		c.queue_free()
+	for zona in [_header, _list, _detail]:
+		for c in zona.get_children():
+			c.queue_free()
+	MenuScaffold.titulo(_header, "RECETAS")
+	_header.add_child(HSeparator.new())
 	if _recetas.is_empty():
 		var l := Label.new()
 		l.text = "(no hay recetas)"

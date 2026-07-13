@@ -21,7 +21,8 @@ const CALIDADES := [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
 	MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
 
 var _root: Control = null
-var _content: VBoxContainer = null
+var _header: VBoxContainer = null    # cabecera FIJA
+var _content: VBoxContainer = null   # lo que se desplaza
 var _aviso: String = ""
 var _aviso_ok: bool = true
 
@@ -30,66 +31,14 @@ func _ready() -> void:
 	layer = 91
 	add_to_group("tannery_menu")
 
-	_root = Control.new()
-	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.visible = false
-	add_child(_root)
-
-	var bg := ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.05, 0.06, 0.08, 1.0)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	_root.add_child(bg)
-
-	var hb := HBoxContainer.new()
-	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hb.offset_left = 16
-	hb.offset_top = 16
-	hb.offset_right = -16
-	hb.offset_bottom = -16
-	hb.add_theme_constant_override("separation", 18)
-	_root.add_child(hb)
-
-	var side := VBoxContainer.new()
-	side.custom_minimum_size = Vector2(230, 0)
-	side.add_theme_constant_override("separation", 6)
-	hb.add_child(side)
-
-	var titulo := Label.new()
-	titulo.text = "PELETERO"
-	titulo.add_theme_color_override("font_color", AMBAR)
-	titulo.add_theme_font_size_override("font_size", 18)
-	side.add_child(titulo)
-	var nota := Label.new()
-	nota.text = "Curte las pieles que traigas de la mazmorra. Sin cuero curtido no hay armadura que valga."
-	nota.add_theme_color_override("font_color", GRIS)
-	nota.add_theme_font_size_override("font_size", 11)
-	nota.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	side.add_child(nota)
-	side.add_child(HSeparator.new())
-
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side.add_child(spacer)
-	var cerrar := Button.new()
-	cerrar.text = "✕ Cerrar  (Esc)"
-	cerrar.custom_minimum_size = Vector2(0, 34)
-	cerrar.pressed.connect(_cerrar)
-	side.add_child(cerrar)
-
-	var margin := MarginContainer.new()
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 16)
-	hb.add_child(margin)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	margin.add_child(scroll)
-	_content = VBoxContainer.new()
-	_content.add_theme_constant_override("separation", 4)
-	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_content)
+	var m: Dictionary = MenuScaffold.construir(self, "PELETERO",
+		"Curte las pieles que traigas de la mazmorra. Sin cuero curtido no hay armadura que valga.",
+		_cerrar)
+	_root = m["root"]
+	_header = m["header"]
+	_content = m["content"]
+	# El peletero no tiene cuadricula de piezas: una sola columna, a lo ancho.
+	(m["lista_scroll"] as ScrollContainer).visible = false
 
 
 func abrir() -> void:
@@ -116,22 +65,24 @@ func _input(event: InputEvent) -> void:
 
 
 func _rebuild() -> void:
-	for c in _content.get_children():
-		c.queue_free()
+	for zona in [_header, _content]:
+		for c in zona.get_children():
+			c.queue_free()
 
 	if _aviso != "":
 		var a := Label.new()
 		a.text = _aviso
 		a.add_theme_color_override("font_color", VERDE if _aviso_ok else ROJO)
 		a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_content.add_child(a)
+		_header.add_child(a)
 
 	var crudo: MaterialData = Game.cuero_crudo()
 	var curtido: MaterialData = Game.cuero_forja()
 
-	_title("CURTIR")
-	_note("%d pieles de la MISMA calidad = 1 cuero curtido de esa calidad. No se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón." % Forge.CUERO_POR_CURTIDO)
-	_content.add_child(HSeparator.new())
+	# Cabecera FIJA: el titulo y las reglas del curtido no se van con el scroll.
+	MenuScaffold.titulo(_header, "CURTIR")
+	MenuScaffold.nota(_header, "%d pieles de la MISMA calidad = 1 cuero curtido de esa calidad. No se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón." % Forge.CUERO_POR_CURTIDO)
+	_header.add_child(HSeparator.new())
 
 	var hubo: bool = false
 	for cal in CALIDADES:

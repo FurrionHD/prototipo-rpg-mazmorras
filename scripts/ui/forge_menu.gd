@@ -56,7 +56,10 @@ const CAT_SECUNDARIAS: Array[String] = [
 const ARMOR_TIPOS: Array[String] = ["cuero", "hierro", "hierro_completo", "placas"]
 
 var _root: Control = null
-var _content: VBoxContainer = null
+var _header: VBoxContainer = null       # cabecera FIJA (titulo + pestañas)
+var _lista: VBoxContainer = null        # cuadricula de piezas, con su propio scroll
+var _scroll_lista: ScrollContainer = null
+var _content: VBoxContainer = null      # panel de detalle, con el suyo
 var _tab_buttons: Array = []
 
 var _tab: int = 0
@@ -84,43 +87,14 @@ func _ready() -> void:
 	layer = 91
 	add_to_group("forge_menu")
 
-	_root = Control.new()
-	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.visible = false
-	add_child(_root)
-
-	var bg := ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.05, 0.06, 0.08, 1.0)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	_root.add_child(bg)
-
-	var hb := HBoxContainer.new()
-	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hb.offset_left = 16
-	hb.offset_top = 16
-	hb.offset_right = -16
-	hb.offset_bottom = -16
-	hb.add_theme_constant_override("separation", 18)
-	_root.add_child(hb)
-
-	var side := VBoxContainer.new()
-	side.custom_minimum_size = Vector2(230, 0)
-	side.add_theme_constant_override("separation", 6)
-	hb.add_child(side)
-
-	var titulo := Label.new()
-	titulo.text = "HERRERO"
-	titulo.add_theme_color_override("font_color", AMBAR)
-	titulo.add_theme_font_size_override("font_size", 18)
-	side.add_child(titulo)
-	var nota := Label.new()
-	nota.text = "Primero se funde el metal, después se golpea. Todo sale de lo que tengas guardado en el Hogar."
-	nota.add_theme_color_override("font_color", GRIS)
-	nota.add_theme_font_size_override("font_size", 11)
-	nota.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	side.add_child(nota)
-	side.add_child(HSeparator.new())
+	var m: Dictionary = MenuScaffold.construir(self, "HERRERO",
+		"Primero se funde el metal, después se golpea. Todo sale de lo que tengas guardado en el Hogar.",
+		_cerrar)
+	_root = m["root"]
+	_header = m["header"]
+	_lista = m["lista"]
+	_scroll_lista = m["lista_scroll"]
+	_content = m["content"]
 
 	for i in TABS.size():
 		var b := Button.new()
@@ -128,31 +102,8 @@ func _ready() -> void:
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(0, 34)
 		b.pressed.connect(_on_tab.bind(i))
-		side.add_child(b)
+		(m["side"] as VBoxContainer).add_child(b)
 		_tab_buttons.append(b)
-
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side.add_child(spacer)
-	var cerrar := Button.new()
-	cerrar.text = "✕ Cerrar  (Esc)"
-	cerrar.custom_minimum_size = Vector2(0, 34)
-	cerrar.pressed.connect(_cerrar)
-	side.add_child(cerrar)
-
-	var margin := MarginContainer.new()
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 16)
-	hb.add_child(margin)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	margin.add_child(scroll)
-	_content = VBoxContainer.new()
-	_content.add_theme_constant_override("separation", 4)
-	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_content)
 
 
 func abrir() -> void:
@@ -210,17 +161,20 @@ func _pick(i: int) -> void:
 
 
 func _rebuild() -> void:
-	for c in _content.get_children():
-		c.queue_free()
+	for zona in [_header, _lista, _content]:
+		for c in zona.get_children():
+			c.queue_free()
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
+	# Fundir y Chapas no tienen cuadricula: se quedan con el ancho entero.
+	_scroll_lista.visible = _tab >= 2
 
 	if _aviso != "":
 		var l := Label.new()
 		l.text = _aviso
 		l.add_theme_color_override("font_color", VERDE if _aviso_ok else ROJO)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_content.add_child(l)
+		_header.add_child(l)
 
 	match _tab:
 		0: _build_refinar(false)   # mineral -> lingote
@@ -301,51 +255,21 @@ func _uds(cal: int) -> int:
 	return MaterialItem.crear(null, cal).unidades_crafteo()
 
 
+# Las subpestañas van a la CABECERA: no se van con el scroll.
 func _subpestanas(nombres: Array) -> void:
-	var subs := HBoxContainer.new()
-	subs.add_theme_constant_override("separation", 6)
-	for i in nombres.size():
-		var b := Button.new()
-		b.text = str(nombres[i])
-		b.toggle_mode = true
-		b.button_pressed = (i == _sub)
-		b.custom_minimum_size = Vector2(120, 30)
-		b.pressed.connect(_on_sub.bind(i))
-		subs.add_child(b)
-	_content.add_child(subs)
-	_content.add_child(HSeparator.new())
+	MenuScaffold.pestanas(_header, nombres, _sub, _on_sub)
+	_header.add_child(HSeparator.new())
 
 
+# La cuadricula va a la columna de la LISTA y la ficha al panel de DETALLE: cada una con su
+# scroll, y la cabecera quieta arriba.
 func _grid_detail(labels: Array, preview: Callable) -> void:
 	if labels.is_empty():
 		_note(_content, "(nada por aquí)")
 		return
 	_sel = clampi(_sel, 0, labels.size() - 1)
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 20)
-	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.add_child(hb)
-
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	for i in labels.size():
-		var b := Button.new()
-		b.text = str(labels[i])
-		b.toggle_mode = true
-		b.button_pressed = (i == _sel)
-		b.clip_text = true
-		b.custom_minimum_size = Vector2(150, 44)
-		b.pressed.connect(_pick.bind(i))
-		grid.add_child(b)
-	hb.add_child(grid)
-
-	var right := VBoxContainer.new()
-	right.add_theme_constant_override("separation", 4)
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hb.add_child(right)
-	preview.call(right)
+	MenuScaffold.cuadricula(_lista, labels, _sel, _pick)
+	preview.call(_content)
 
 
 # ============================================================
@@ -361,12 +285,12 @@ func _build_refinar(chapas: bool) -> void:
 	var destino: MaterialData = metales[_metal_idx]["chapa" if chapas else "lingote"]
 	var por_uno: int = Forge.LINGOTE_POR_CHAPA if chapas else Forge.MINERAL_POR_LINGOTE
 
-	_title(_content, "BATIR CHAPAS" if chapas else "FUNDIR")
+	_title(_header, "BATIR CHAPAS" if chapas else "FUNDIR")
 	if chapas:
-		_note(_content, "%d lingote(s) = 1 chapa de la MISMA calidad. Las chapas son lo que pide la ARMADURA; el arma se golpea del lingote directamente." % por_uno)
+		_note(_header, "%d lingote(s) = 1 chapa de la MISMA calidad. Las chapas son lo que pide la ARMADURA; el arma se golpea del lingote directamente." % por_uno)
 	else:
-		_note(_content, "%d minerales de la MISMA calidad = 1 lingote de esa calidad. No se mezclan: juntando dañados no sale un normal. Solo la Metalurgia puede regalarte un escalón." % por_uno)
-	_content.add_child(HSeparator.new())
+		_note(_header, "%d minerales de la MISMA calidad = 1 lingote de esa calidad. No se mezclan: juntando dañados no sale un normal. Solo la Metalurgia puede regalarte un escalón." % por_uno)
+	_header.add_child(HSeparator.new())
 
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 6)
@@ -467,7 +391,7 @@ func _estado_oficio(vb: VBoxContainer, nombre: String, exp_val: float, activa: b
 # ============================================================
 
 func _build_forjar() -> void:
-	_title(_content, "FORJAR")
+	_title(_header, "FORJAR")
 	_subpestanas(SUBS_FORJA)
 
 	var rutas: Array = []
@@ -490,21 +414,11 @@ func _build_forjar() -> void:
 	_grid_detail(labels, _preview_forjar)
 
 
-# Fila de botones con los cuatro juegos de armadura.
+# Fila de botones con los cuatro juegos de armadura (tambien en la cabecera fija).
 func _juegos_armadura() -> void:
 	_armor_idx = clampi(_armor_idx, 0, ARMOR_TIPOS.size() - 1)
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 6)
-	for i in ARMOR_TIPOS.size():
-		var b := Button.new()
-		b.text = ARMOR_LABELS[i]
-		b.toggle_mode = true
-		b.button_pressed = (i == _armor_idx)
-		b.custom_minimum_size = Vector2(130, 28)
-		b.pressed.connect(_on_juego.bind(i))
-		fila.add_child(b)
-	_content.add_child(fila)
-	_content.add_child(HSeparator.new())
+	MenuScaffold.pestanas(_header, ARMOR_LABELS, _armor_idx, _on_juego, 130)
+	_header.add_child(HSeparator.new())
 
 
 func _on_juego(i: int) -> void:
@@ -721,9 +635,9 @@ func _on_forjar() -> void:
 # ============================================================
 
 func _build_mejorar() -> void:
-	_title(_content, "MEJORAR")
-	_note(_content, "Cada mejora sube el número base de la pieza (daño o defensa) y, además, lo suyo propio. El NÚCLEO manda: uno de slime no te lleva más allá de +3 por muchos huecos que tenga la pieza.")
-	_content.add_child(HSeparator.new())
+	_title(_header, "MEJORAR")
+	_note(_header, "Cada mejora sube el número base de la pieza (daño o defensa) y, además, lo suyo propio. El NÚCLEO manda: uno de slime no te lleva más allá de +3 por muchos huecos que tenga la pieza.")
+	_header.add_child(HSeparator.new())
 
 	_stacks = []
 	for w in Game.owned_weapons:

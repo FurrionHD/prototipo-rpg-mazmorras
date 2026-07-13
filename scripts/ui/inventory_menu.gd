@@ -22,7 +22,9 @@ const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
 const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
 
 var _root: Control = null
-var _content: VBoxContainer = null
+var _header: VBoxContainer = null   # cabecera FIJA (titulo de la pestaña, peso, avisos)
+var _lista: VBoxContainer = null    # cuadricula de stacks, con su propio scroll
+var _content: VBoxContainer = null  # ficha del item elegido, con el suyo
 var _dinero_lbl: Label = null       # monedas, arriba a la derecha
 var _tab_buttons: Array = []
 var _modal: Control = null          # modal de cantidad (null = cerrado)
@@ -37,49 +39,12 @@ var _stacks: Array = []             # stacks visibles de la pestaña actual
 func _ready() -> void:
 	layer = 91   # encima del HUD, debajo del menu de personaje (92) y del combate (100)
 
-	_root = Control.new()
-	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.visible = false
-	add_child(_root)
-
-	var bg := ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.05, 0.06, 0.08, 1.0)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	_root.add_child(bg)
-
-	var hb := HBoxContainer.new()
-	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hb.offset_left = 16
-	hb.offset_top = 16
-	hb.offset_right = -16
-	hb.offset_bottom = -16
-	hb.add_theme_constant_override("separation", 18)
-	_root.add_child(hb)
-
-	# Dinero arriba a la derecha: lo que puedes gastar en la tienda se mira desde aqui.
-	_dinero_lbl = Label.new()
-	_dinero_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	_dinero_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_dinero_lbl.offset_left = -240
-	_dinero_lbl.offset_right = -20
-	_dinero_lbl.offset_top = 16
-	_dinero_lbl.add_theme_color_override("font_color", Color(0.95, 0.86, 0.5))
-	_dinero_lbl.add_theme_font_size_override("font_size", 18)
-	_root.add_child(_dinero_lbl)
-
-	# Pestañas verticales a la izquierda.
-	var side := VBoxContainer.new()
-	side.custom_minimum_size = Vector2(190, 0)
-	side.add_theme_constant_override("separation", 6)
-	hb.add_child(side)
-
-	var titulo := Label.new()
-	titulo.text = "INVENTARIO"
-	titulo.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
-	titulo.add_theme_font_size_override("font_size", 18)
-	side.add_child(titulo)
-	side.add_child(HSeparator.new())
+	var m: Dictionary = MenuScaffold.construir(self, "INVENTARIO", "", _cerrar, true)
+	_root = m["root"]
+	_header = m["header"]
+	_lista = m["lista"]
+	_content = m["content"]
+	_dinero_lbl = m["dinero"]
 
 	for i in TABS.size():
 		var b := Button.new()
@@ -87,31 +52,8 @@ func _ready() -> void:
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(0, 34)
 		b.pressed.connect(_on_tab.bind(i))
-		side.add_child(b)
+		(m["side"] as VBoxContainer).add_child(b)
 		_tab_buttons.append(b)
-
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side.add_child(spacer)
-	var cerrar := Button.new()
-	cerrar.text = "✕ Cerrar  (I)"
-	cerrar.custom_minimum_size = Vector2(0, 34)
-	cerrar.pressed.connect(_cerrar)
-	side.add_child(cerrar)
-
-	# Contenido a la derecha.
-	var margin := MarginContainer.new()
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_theme_constant_override("margin_left", 8)
-	hb.add_child(margin)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	margin.add_child(scroll)
-	_content = VBoxContainer.new()
-	_content.add_theme_constant_override("separation", 4)
-	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_content)
 
 
 func _input(event: InputEvent) -> void:
@@ -161,8 +103,9 @@ func _on_tab(i: int) -> void:
 
 func _rebuild() -> void:
 	_dinero_lbl.text = "%d monedas" % Game.money
-	for c in _content.get_children():
-		c.queue_free()
+	for zona in [_header, _lista, _content]:
+		for c in zona.get_children():
+			c.queue_free()
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	match _tab:
@@ -207,42 +150,21 @@ func _note(vb: VBoxContainer, txt: String) -> void:
 	l.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
 	l.add_theme_font_size_override("font_size", 11)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size = Vector2(420, 0)
+	# Sin ancho MINIMO: en el panel de detalle (estrecho) empujaria la columna fuera de la
+	# pantalla. Que se ajuste al hueco y parta las lineas.
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(l)
 
 
-# Cuadricula (izquierda) + panel de detalle (derecha). `labels` es la lista de textos de
-# los botones; `preview` rellena el panel derecho con el elemento `_sel`.
+# La cuadricula va a la columna de la LISTA (con su scroll: la bolsa se llena) y la ficha al
+# panel de DETALLE (con el suyo). La cabecera se queda quieta arriba.
 func _grid_detail(labels: Array, preview: Callable) -> void:
 	if labels.is_empty():
 		_note(_content, "(vacío)")
 		return
 	_sel = clampi(_sel, 0, labels.size() - 1)
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 20)
-	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.add_child(hb)
-
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	for i in labels.size():
-		var b := Button.new()
-		b.text = str(labels[i])
-		b.toggle_mode = true
-		b.button_pressed = (i == _sel)
-		b.clip_text = true
-		b.custom_minimum_size = Vector2(130, 48)
-		b.pressed.connect(_pick.bind(i))
-		grid.add_child(b)
-	hb.add_child(grid)
-
-	var right := VBoxContainer.new()
-	right.add_theme_constant_override("separation", 4)
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hb.add_child(right)
-	preview.call(right)
+	MenuScaffold.cuadricula(_lista, labels, _sel, _pick)
+	preview.call(_content)
 
 
 func _pick(i: int) -> void:
@@ -302,7 +224,7 @@ func _labels_stacks(stacks: Array) -> Array:
 # ============================================================
 
 func _build_bolsa() -> void:
-	_title(_content, "BOLSA  (expedición)")
+	_title(_header, "BOLSA  (expedición)")
 	var peso: float = Game.peso_actual()
 	var cap: float = Game.capacidad_carga()
 	var cab := Label.new()
@@ -310,9 +232,9 @@ func _build_bolsa() -> void:
 		"    ¡SOBRECARGADO!" if Game.esta_sobrecargado() else ""]
 	cab.add_theme_color_override("font_color",
 		Color(1.0, 0.5, 0.5) if Game.esta_sobrecargado() else Color(0.85, 0.88, 0.92))
-	_content.add_child(cab)
-	_note(_content, "Lo que llevas encima. Los cristales solo salen vendiéndolos en la tienda; los materiales puedes guardarlos en el Hogar.")
-	_content.add_child(HSeparator.new())
+	_header.add_child(cab)
+	_note(_header, "Lo que llevas encima. Los cristales solo salen vendiéndolos en la tienda; los materiales puedes guardarlos en el Hogar.")
+	_header.add_child(HSeparator.new())
 
 	var items: Array = []
 	for c in Game.crystals:
@@ -375,9 +297,9 @@ func _confirmar_soltar(cant: int) -> void:
 # ============================================================
 
 func _build_consumibles() -> void:
-	_title(_content, "CONSUMIBLES")
-	_note(_content, "Selecciona una poción y pulsa Usar. Cura por el tiempo (no de golpe).")
-	_content.add_child(HSeparator.new())
+	_title(_header, "CONSUMIBLES")
+	_note(_header, "Selecciona una poción y pulsa Usar. Cura por el tiempo (no de golpe).")
+	_header.add_child(HSeparator.new())
 
 	_stacks = []
 	for c in Game.consumables.keys():
@@ -432,9 +354,9 @@ func _on_usar(cons: ConsumableData) -> void:
 # ============================================================
 
 func _build_materiales() -> void:
-	_title(_content, "MATERIALES  (guardados en el Hogar)")
-	_note(_content, "Los materiales que has depositado en el Hogar del pueblo. No pesan. Los cristales no se guardan aquí: hay que venderlos en la tienda.")
-	_content.add_child(HSeparator.new())
+	_title(_header, "MATERIALES  (guardados en el Hogar)")
+	_note(_header, "Los materiales que has depositado en el Hogar del pueblo. No pesan. Los cristales no se guardan aquí: hay que venderlos en la tienda.")
+	_header.add_child(HSeparator.new())
 	_stacks = _agrupar(Game.almacen_materiales)
 	_grid_detail(_labels_stacks(_stacks), _preview_material)
 
@@ -457,9 +379,9 @@ func _preview_material(vb: VBoxContainer) -> void:
 # ============================================================
 
 func _build_armas() -> void:
-	_title(_content, "ARMAS  (tu baúl)")
-	_note(_content, "Lo que posees. Para equiparlo, abre el menú de personaje [C] en el pueblo.")
-	_content.add_child(HSeparator.new())
+	_title(_header, "ARMAS  (tu baúl)")
+	_note(_header, "Lo que posees. Para equiparlo, abre el menú de personaje [C] en el pueblo.")
+	_header.add_child(HSeparator.new())
 	_stacks = []
 	for w in Game.owned_weapons:
 		_stacks.append({"modelo": w, "cantidad": 1})
@@ -514,9 +436,9 @@ func _preview_arma(vb: VBoxContainer) -> void:
 # ============================================================
 
 func _build_armaduras() -> void:
-	_title(_content, "ARMADURAS  (tu baúl)")
-	_note(_content, "Lo que posees. Para equiparlo, abre el menú de personaje [C] en el pueblo.")
-	_content.add_child(HSeparator.new())
+	_title(_header, "ARMADURAS  (tu baúl)")
+	_note(_header, "Lo que posees. Para equiparlo, abre el menú de personaje [C] en el pueblo.")
+	_header.add_child(HSeparator.new())
 	_stacks = []
 	for p in Game.owned_armor:
 		_stacks.append({"modelo": p, "cantidad": 1})
