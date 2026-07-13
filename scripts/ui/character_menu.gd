@@ -276,7 +276,11 @@ func _build_stats_page() -> void:
 	_row(_content, "Defensa", "%.1f" % c.def_value())
 	if c.max_mp > 0.0:
 		_row(_content, "Maná máx.", "%.2f" % c.max_mp)
-	_note(_content, "Ataque total = raw (base + arma) × Fuerza, ANTES del motion value (cada golpe aplica su %). Prob. crítico calculada contra un enemigo con TUS mismas stats: sube con Destreza y baja con Agilidad.")
+	# OJO con esta nota: el critico es un CONTEST (tu Destreza contra la Agilidad del que recibe
+	# el golpe). Como aqui no hay enemigo, se enseña contra un espejo de ti mismo, y por eso TU
+	# Agilidad sale en la cuenta... haciendo de la del rival. Tu Agilidad NO te baja el critico:
+	# te sube la esquiva. Decirlo mal era sembrar la duda de que la Agilidad te perjudica.
+	_note(_content, "Ataque total = raw (base + arma) × Fuerza, ANTES del motion value (cada golpe aplica su %). El crítico es tu Destreza contra la Agilidad del que recibe el golpe: aquí se muestra contra un maniquí con TUS mismas stats, así que un rival más ágil que tú te dará menos crítico, y uno más torpe, más. Tu Agilidad es la que te hace esquivar a ti.")
 
 
 func _build_habilidades_page() -> void:
