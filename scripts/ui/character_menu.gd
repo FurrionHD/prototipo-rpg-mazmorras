@@ -778,7 +778,9 @@ func _armor_stats(vb: VBoxContainer, a: ArmorData) -> void:
 	var mods: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, mejoras)
 	var base: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, {})
 
-	_row(vb, "  Defensa", _con_mejoras("%.1f", float(base["def"]), float(mods["def"])))
+	# DOS decimales: la DEF de una pieza es un numero pequeño (un peto de cuero son 0.25), y con
+	# uno solo se redondea a "0.3" y parece otra cosa.
+	_row(vb, "  Defensa", _con_mejoras("%.2f", float(base["def"]), float(mods["def"])))
 	_row(vb, "  Reducción", _fmt_pct(float(mods["reduccion"])))
 	_row(vb, "  Velocidad", "×%.2f" % float(mods["vel_mult"]))
 	if float(mods["evasion"]) > 0.0:
