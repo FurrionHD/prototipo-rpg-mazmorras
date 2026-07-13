@@ -18,7 +18,13 @@
 extends CanvasLayer
 
 const TABS := ["Vender", "Recomprar", "Tienda", "Pack inicial"]
-const SUBS := ["Bolsa", "Hogar", "Equipo", "Consumibles"]
+const SUBS_VENDER := ["Bolsa", "Hogar", "Equipo", "Consumibles"]
+# El grimorio es un consumible en el inventario, pero en el mostrador va aparte: buscar un
+# libro de 2200 entre las pociones es incomodo.
+const SUBS_TIENDA := ["Armas", "Armaduras", "Consumibles", "Grimorios"]
+
+const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
+const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
@@ -56,6 +62,8 @@ const CAT_GRIMORIOS: Array[String] = [
 	"res://resources/consumables/grimorio_brasa.tres",
 	"res://resources/consumables/grimorio_rocio.tres",
 ]
+# Armaduras: los 4 tipos x los 5 slots, en orden de cobertura (Game.ARMOR_SLOT_ORDEN).
+const ARMOR_TIPOS: Array[String] = ["cuero", "hierro", "hierro_completo", "placas"]
 
 var _root: Control = null
 var _content: VBoxContainer = null
@@ -196,6 +204,7 @@ func _input(event: InputEvent) -> void:
 
 func _on_tab(i: int) -> void:
 	_tab = i
+	_sub = 0   # Vender y Tienda tienen subpestañas distintas: no arrastres la del otro
 	_sel = 0
 	_aviso = ""
 	_rebuild()
@@ -315,6 +324,22 @@ func _pick(i: int) -> void:
 	_rebuild()
 
 
+# Fila de subpestañas (la usan Vender y Tienda).
+func _subpestanas(nombres: Array) -> void:
+	var subs := HBoxContainer.new()
+	subs.add_theme_constant_override("separation", 6)
+	for i in nombres.size():
+		var b := Button.new()
+		b.text = str(nombres[i])
+		b.toggle_mode = true
+		b.button_pressed = (i == _sub)
+		b.custom_minimum_size = Vector2(110, 30)
+		b.pressed.connect(_on_sub.bind(i))
+		subs.add_child(b)
+	_content.add_child(subs)
+	_content.add_child(HSeparator.new())
+
+
 func _boton(vb: VBoxContainer, txt: String, cb: Callable, activo: bool = true) -> void:
 	var b := Button.new()
 	b.text = txt
@@ -375,19 +400,7 @@ func _build_vender() -> void:
 	_title(_content, "VENDER")
 	_note(_content, "Te pagan el valor estimado que ya ves en el inventario: sin regateo ni sorpresas. Los cristales solo se sacan de encima aquí.")
 
-	var subs := HBoxContainer.new()
-	subs.add_theme_constant_override("separation", 6)
-	for i in SUBS.size():
-		var b := Button.new()
-		b.text = SUBS[i]
-		b.toggle_mode = true
-		b.button_pressed = (i == _sub)
-		b.custom_minimum_size = Vector2(110, 30)
-		b.pressed.connect(_on_sub.bind(i))
-		subs.add_child(b)
-	_content.add_child(subs)
-	_content.add_child(HSeparator.new())
-
+	_subpestanas(SUBS_VENDER)
 	match _sub:
 		0: _build_vender_bolsa()
 		1: _build_vender_hogar()
@@ -617,10 +630,25 @@ func _on_recomprar() -> void:
 func _build_tienda() -> void:
 	_title(_content, "A LA VENTA")
 	_note(_content, "Todo lo de aquí sale a tier 1 y calidad común: el tendero no forja, revende. Lo bueno tendrás que fabricártelo tú.")
-	_content.add_child(HSeparator.new())
+	_subpestanas(SUBS_TIENDA)
+
+	var rutas: Array = []
+	match _sub:
+		0:
+			rutas = CAT_ARMAS + CAT_SECUNDARIAS
+			_note(_content, "Armas de mano principal, y escudos y varita para la secundaria.")
+		1:
+			rutas = _rutas_armaduras()
+			_note(_content, "Cinco piezas por juego: casco, pecho, manos, pantalones y botas. Cuanto más cubre, más frena; los huecos vacíos te dejan ir ligero.")
+		2:
+			rutas = CAT_POCIONES
+			_note(_content, "Comprarlas sale caro: si puedes, fabrícalas en la Boticaria con lo que traigas de la mazmorra.")
+		3:
+			rutas = CAT_GRIMORIOS
+			_note(_content, "Un libro por hechizo. Se estudia desde Consumibles, en el inventario [I]. Caben %d hechizos a la vez." % Game.MAX_HECHIZOS)
 
 	_stacks = []
-	for ruta in CAT_ARMAS + CAT_SECUNDARIAS + CAT_POCIONES + CAT_GRIMORIOS:
+	for ruta in rutas:
 		var base: Resource = load(ruta)
 		if base != null:
 			_stacks.append({"modelo": base})
@@ -629,6 +657,16 @@ func _build_tienda() -> void:
 		var base: Resource = s["modelo"]
 		labels.append("%s\n%d monedas" % [str(base.get("nombre")), Game.precio_compra(base)])
 	_grid_detail(labels, _preview_tienda)
+
+
+# Las 20 piezas de armadura: por TIPO (de la mas ligera a la mas pesada) y, dentro de cada
+# tipo, por slot en el orden de siempre (Game.ARMOR_SLOT_ORDEN).
+func _rutas_armaduras() -> Array:
+	var out: Array = []
+	for tipo in ARMOR_TIPOS:
+		for slot in Game.ARMOR_SLOT_ORDEN:
+			out.append("res://resources/armor/%s_%s.tres" % [tipo, slot])
+	return out
 
 
 func _preview_tienda(vb: VBoxContainer) -> void:
@@ -648,6 +686,13 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		else:
 			_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
 			_row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(c, 0)))
+	elif base is ArmorData:
+		var a := base as ArmorData
+		_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
+		_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, 3)])
+		_row(vb, "Defensa base", "%.2f" % (a.defensa_base * a.motion_def))
+		_row(vb, "Reducción", "%.0f%%" % (a.reduccion * 100.0))
+		_row(vb, "Velocidad", "×%.2f" % a.velocidad_mult)
 	else:
 		_row(vb, "Tipo", _tipo_equipo(base))
 	if str(base.get("descripcion")) != "":
