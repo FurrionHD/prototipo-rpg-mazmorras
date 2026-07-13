@@ -449,10 +449,12 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	vb.add_child(HSeparator.new())
 	_row(vb, "Metal", "%s  →  Tier %d  (×%.2f al daño/defensa)" % [
 		metal.nombre, Forge.tier_de_metal(metal), Game.tier_mult(Forge.tier_de_metal(metal))])
-	# Botones cortos y que se reparten el ancho: el panel de detalle es estrecho y con el
-	# nombre entero ("Lingote de adamante") la fila se salia de la pantalla.
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 6)
+	# Botones cortos, de dos en dos y repartiendose el ancho: el panel de detalle es estrecho y
+	# con el nombre entero ("Lingote de adamante") la fila se salia de la pantalla.
+	var fila := GridContainer.new()
+	fila.columns = 2
+	fila.add_theme_constant_override("h_separation", 6)
+	fila.add_theme_constant_override("v_separation", 6)
 	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for i in metales.size():
 		var m: MaterialData = metales[i]
@@ -687,14 +689,20 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 	_row(vb, "Huecos por rareza", str(Upgrades.rareza_slots(int(Game.meta_de(item)["rareza"]))))
 
 	vb.add_child(HSeparator.new())
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 6)
+	# Los nucleos, tambien de dos en dos y repartiendose el ancho: sus nombres son largos.
+	var fila := GridContainer.new()
+	fila.columns = 2
+	fila.add_theme_constant_override("h_separation", 6)
+	fila.add_theme_constant_override("v_separation", 6)
+	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for i in nucleos.size():
 		var n: MaterialData = nucleos[i]
 		var b := Button.new()
 		b.text = "%s  ·  %d  (hasta +%d)" % [n.nombre, Game.nucleos_en_hogar(n), n.mejora_max]
 		b.toggle_mode = true
 		b.button_pressed = (i == _nucleo_idx)
+		b.clip_text = true
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(_on_nucleo.bind(i))
 		fila.add_child(b)
 	vb.add_child(fila)
@@ -707,10 +715,12 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 		_note(vb, "Esta pieza no admite mejoras.")
 		return
 	_cat_idx = clampi(_cat_idx, 0, cats.size() - 1)
+	# DOS por fila: con tres, los nombres largos ("Resistencia (estados)") se salian del panel.
 	var grid := GridContainer.new()
-	grid.columns = 3
+	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var mj: Dictionary = Game.meta_de(item)["mejoras"]
 	for i in cats.size():
 		var cat: String = str(cats[i])
@@ -718,7 +728,9 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 		b.text = "%s  (%d)" % [Upgrades.cat_nombre(cat), int(mj.get(cat, 0))]
 		b.toggle_mode = true
 		b.button_pressed = (i == _cat_idx)
-		b.custom_minimum_size = Vector2(160, 30)
+		b.clip_text = true
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(0, 30)
 		b.pressed.connect(_on_cat.bind(i))
 		grid.add_child(b)
 	vb.add_child(grid)
