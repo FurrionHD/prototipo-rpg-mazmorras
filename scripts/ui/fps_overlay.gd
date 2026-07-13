@@ -15,6 +15,10 @@
 extends CanvasLayer
 
 var _lbl: Label = null
+var _caja: PanelContainer = null
+# Lo que dice F3. La visibilidad REAL ademas se apaga sola con un menu abierto (_menu_abierto),
+# asi que hace falta recordar aparte si el jugador lo quiere encendido.
+var _encendido: bool = false
 
 # Muestras del ultimo segundo (ms por frame).
 var _muestras: PackedFloat32Array = PackedFloat32Array()
@@ -26,28 +30,56 @@ const VENTANA := 1.0   # cada cuanto se refresca el texto (segundos)
 func _ready() -> void:
 	layer = 200
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Apagado de serie: es una herramienta de medir, no parte del juego. Se enciende con F3
+	# (la tecla la recuerda la linea de ayudas del HUD).
+	visible = false
+
+	# Debajo del "Piso: N" Y del contador de monedas del HUD (que estan en 10 y 32): antes se
+	# solapaba con el dinero. Dentro de un panel negro semitransparente, para que se lea
+	# tambien sobre una pared clara.
+	_caja = PanelContainer.new()
+	_caja.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_caja.offset_left = -270
+	_caja.offset_right = -12
+	_caja.offset_top = 58
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0.55)
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
+	_caja.add_theme_stylebox_override("panel", sb)
+	_caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_caja)
 
 	_lbl = Label.new()
-	_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_lbl.offset_left = -260
-	_lbl.offset_right = -12
-	_lbl.offset_top = 34      # justo debajo del "Piso: N" del HUD
 	_lbl.add_theme_font_size_override("font_size", 13)
 	_lbl.add_theme_color_override("font_color", Color(0.6, 1.0, 0.6))
-	_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	_lbl.add_theme_constant_override("outline_size", 4)
 	_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_lbl)
+	_caja.add_child(_lbl)
 
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo \
 			and (event as InputEventKey).keycode == KEY_F3:
-		visible = not visible
+		_encendido = not _encendido
+		visible = _encendido
+
+
+# Con un MENU abierto el contador estorba y no mide nada util (el juego esta parado). En
+# COMBATE y en los MINIJUEGOS, en cambio, se queda: son justo los sitios donde hay que medir.
+func _menu_abierto() -> bool:
+	if Game._active_layer != null:
+		return false   # combate / minijuego: aqui SI queremos verlo
+	return Game.inventory_open or Game.debug_panel_open or get_tree().paused
 
 
 func _process(delta: float) -> void:
+	if not _encendido:
+		return
+	visible = not _menu_abierto()
 	if not visible:
 		return
 	_muestras.append(delta * 1000.0)

@@ -104,12 +104,9 @@ func _ready() -> void:
 	_sep(vb)
 	_hint(vb, "F1 / ✕ Cerrar — cerrar y reanudar el juego")
 
-	# Al ARRANCAR el juego se abre sola (una vez): el tester ve de entrada que teclas tiene.
-	# A partir de ahi, solo con F1. La marca vive en Game porque este panel se reconstruye en
-	# cada escena y si no volveria a saltar al cruzar cada puerta.
-	if not Game.ayuda_mostrada:
-		Game.ayuda_mostrada = true
-		_set_open(true)
+	# CERRADA de serie. Antes se abria sola la primera vez, para que un tester nuevo viera que
+	# teclas tiene; ahora que las teclas estan escritas en el HUD, saltarle un panel a la cara
+	# nada mas entrar sobra. Se abre con F1 y punto.
 
 
 func _titulo(vb: VBoxContainer, txt: String) -> void:

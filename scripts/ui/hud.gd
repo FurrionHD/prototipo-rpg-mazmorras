@@ -27,29 +27,46 @@ func _ready() -> void:
 	# quedaria congelado creyendo que el inventario sigue abierto.
 	Game.inventory_open = false
 
-	# Ayudas de tecla, debajo de las barras de aguante/vida/mana del jugador.
-	_counts = Label.new()
-	_counts.position = Vector2(12, 66)
-	add_child(_counts)
+	# Ayudas de tecla, debajo de las barras de aguante/vida/mana del jugador. En DOS filas (en
+	# una sola ya no cabian) y dentro de un panel negro semitransparente: el texto blanco sobre
+	# una pared clara no habia quien lo leyera.
+	var caja := PanelContainer.new()
+	caja.position = Vector2(8, 64)
+	caja.add_theme_stylebox_override("panel", _fondo_negro())
+	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(caja)
 
-	# "Piso: N" en la esquina superior derecha.
+	_counts = Label.new()
+	_counts.add_theme_font_size_override("font_size", 12)
+	_counts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caja.add_child(_counts)
+
+	# "Piso: N" y las MONEDAS en la esquina superior derecha, en el mismo panel negro
+	# semitransparente (sobre una pared clara, el texto a pelo no se leia).
+	var esq := PanelContainer.new()
+	esq.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	esq.offset_left = -170
+	esq.offset_right = -12
+	esq.offset_top = 8
+	esq.add_theme_stylebox_override("panel", _fondo_negro())
+	esq.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(esq)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	esq.add_child(col)
+
 	_floor_lbl = Label.new()
-	_floor_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	_floor_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_floor_lbl.offset_left = -160
-	_floor_lbl.offset_right = -12
-	_floor_lbl.offset_top = 10
-	add_child(_floor_lbl)
+	_floor_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(_floor_lbl)
 
 	# Monedas, justo debajo del piso: ahora que la tienda cobra, hay que ver lo que llevas.
 	_money_lbl = Label.new()
-	_money_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	_money_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_money_lbl.offset_left = -160
-	_money_lbl.offset_right = -12
-	_money_lbl.offset_top = 32
 	_money_lbl.add_theme_color_override("font_color", Color(0.95, 0.86, 0.5))
-	add_child(_money_lbl)
+	_money_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(_money_lbl)
 
 	# Cuadrado de PESO (placeholder de una futura bolsa/mochila) a la derecha de las
 	# barras, con el numero encima. Cambia de color segun te vas cargando.
@@ -99,9 +116,22 @@ func _avisar_muerte() -> void:
 	t.tween_callback(aviso.queue_free)
 
 
+# Panel negro semitransparente: lo que va SOBRE el mapa (teclas, piso, monedas) tiene que
+# leerse igual en un suelo oscuro que en una pared blanca.
+func _fondo_negro() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0.55)
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	return sb
+
+
 func _process(_delta: float) -> void:
 	# Ayudas de tecla (el resto de datos viven en las barras / cuadrado de peso / menus).
-	_counts.text = "[I] Inventario   [C] Personaje   [Q] Curación óptima   [F1] Info"
+	_counts.text = "[I] Inventario   [C] Personaje   [Q] Curación óptima\n[F1] Ayuda   [F3] FPS   [Esc] Pausa"
 
 	# Piso arriba a la derecha, y el dinero debajo.
 	_floor_lbl.text = "Piso: %d" % Game.current_floor
