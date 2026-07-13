@@ -54,6 +54,12 @@ const VERSION_ACTUAL := 2
 # MEZCLA (調合): parametro oculto que sube al craftear pociones (futura habilidad de
 # desarrollo estilo DanMachi que mejorara la calidad al crear objetos). Ver Game.mezcla_exp.
 @export var mezcla_exp: float = 0.0
+# METALURGIA / HERRERIA: los otros dos contadores ocultos, que suben fundiendo y forjando en
+# el herrero. Como la Mezcla: hoy solo se acumulan; seran lo que desbloquee la habilidad de
+# desarrollo al subir de nivel. Ver Game.metalurgia_exp / herreria_exp.
+@export var metalurgia_exp: float = 0.0
+@export var peleteria_exp: float = 0.0
+@export var herreria_exp: float = 0.0
 # PACK INICIAL de la tienda (arma gratis + pociones): una sola vez por partida. Un @export
 # nuevo con valor por defecto NO invalida las partidas viejas (Godot rellena el default), asi
 # que esto no toca VERSION_ACTUAL: una partida de antes de la tienda arranca sin reclamar.

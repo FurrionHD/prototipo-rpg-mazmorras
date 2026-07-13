@@ -16,7 +16,10 @@ extends Resource
 class_name MaterialData
 
 enum Familia { CORRIENTE, NUCLEO }
-enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO }
+# LINGOTE va el ULTIMO a proposito: los .tres guardan el enum como numero, asi que meterlo
+# en medio le cambiaria el tipo a todos los materiales que ya existen. No se recolecta: sale
+# de FUNDIR mineral en el herrero, y es lo unico con lo que se forja.
+enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE }
 # A QUE se le puede meter este nucleo. Los del slime van al ARMA; el de la rata, a la
 # ARMADURA. CUALQUIERA = comodin (no lo usa ningun nucleo hoy, pero el campo lo admite).
 enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }

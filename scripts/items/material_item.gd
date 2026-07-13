@@ -10,7 +10,12 @@
 extends Resource
 class_name MaterialItem
 
-enum Calidad { INTACTO, NORMAL, DANADO, ROTO }
+# PURO va el ULTIMO (no delante de INTACTO) porque los .tres y las partidas guardadas
+# almacenan el enum como NUMERO: meterlo en medio le cambiaria la calidad a todo el botin ya
+# guardado. Es una calidad que NO se recolecta: solo sale de FUNDIR con Metalurgia alta, y es
+# el techo de esa habilidad. Ojo: el orden del enum ya no es el orden de calidad -> para
+# comparar o puntuar, usa siempre las funciones de abajo, nunca int(calidad).
+enum Calidad { INTACTO, NORMAL, DANADO, ROTO, PURO }
 
 @export var data: MaterialData = null
 @export var calidad: Calidad = Calidad.NORMAL
@@ -33,15 +38,18 @@ func nombre() -> String:
 
 func calidad_texto() -> String:
 	match calidad:
+		Calidad.PURO: return "Puro"
 		Calidad.INTACTO: return "Intacto"
 		Calidad.NORMAL: return "Normal"
 		Calidad.DANADO: return "Dañado"
 		_: return "Roto"
 
 
-# Mismos multiplicadores que el Cristal: la calidad vale lo mismo saques lo que saques.
+# Mismos multiplicadores que el Cristal (la calidad vale lo mismo saques lo que saques), mas
+# el escalon PURO, que solo existe en los lingotes bien fundidos.
 func multiplicador_calidad() -> float:
 	match calidad:
+		Calidad.PURO: return 4.0
 		Calidad.INTACTO: return 2.5
 		Calidad.NORMAL: return 1.0
 		Calidad.DANADO: return 0.45
@@ -49,6 +57,7 @@ func multiplicador_calidad() -> float:
 
 func peso_mult_calidad() -> float:
 	match calidad:
+		Calidad.PURO: return 1.0
 		Calidad.INTACTO: return 1.0
 		Calidad.NORMAL: return 0.9
 		Calidad.DANADO: return 0.7
@@ -61,10 +70,32 @@ func peso_mult_calidad() -> float:
 # ROTO no llega nunca a la bolsa (se pierde), pero por si acaso aporta 0.
 func unidades_crafteo() -> int:
 	match calidad:
+		Calidad.PURO: return 4
 		Calidad.INTACTO: return 3
 		Calidad.NORMAL: return 2
 		Calidad.DANADO: return 1
 		_: return 0
+
+
+# Puntuacion de CALIDAD para las tiradas que dependen del material (rareza al forjar, doble
+# poción en la boticaria). Es la escala ORDENADA de verdad, que el enum ya no es. El PURO se
+# sale del 0..1 a proposito: es lo que permite pasar del techo del material recolectado.
+func score_calidad() -> float:
+	match calidad:
+		Calidad.PURO: return 1.5
+		Calidad.INTACTO: return 1.0
+		Calidad.NORMAL: return 0.5
+		_: return 0.0   # DAÑADO / ROTO
+
+
+# La calidad de UN escalon por encima (lo que puede regalarte la Metalurgia al fundir). El
+# PURO ya es el techo: no sube mas.
+static func subir_calidad(cal: int) -> int:
+	match cal:
+		Calidad.DANADO: return Calidad.NORMAL
+		Calidad.NORMAL: return Calidad.INTACTO
+		Calidad.INTACTO: return Calidad.PURO
+		_: return cal
 
 
 # El valor sube en CURVA con el grado (como el cristal con la categoria): los materiales

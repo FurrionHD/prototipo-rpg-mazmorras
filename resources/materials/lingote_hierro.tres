@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"lingote_hierro"
+nombre = "Lingote de hierro"
+descripcion = "Gris, pesado y honesto. Aguanta lo que le eches encima."
+familia = 0
+tipo = 5
+tier = 2
+exigencia = 0.0
+peso_base = 2.4
+valor_base = 150
+color = Color(0.62, 0.64, 0.68, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

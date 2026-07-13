@@ -7,6 +7,8 @@
 [ext_resource type="Script" path="res://scripts/town/door.gd" id="5_a9z8k"]
 [ext_resource type="Script" path="res://scripts/town/hogar.gd" id="6_hg1ar"]
 [ext_resource type="Script" path="res://scripts/town/boticaria.gd" id="7_botica"]
+[ext_resource type="Script" path="res://scripts/town/herrero.gd" id="8_herrero"]
+[ext_resource type="Script" path="res://scripts/town/peletero.gd" id="9_pelet"]
 
 [node name="Town" type="Node2D"]
 
@@ -127,6 +129,56 @@ offset_top = -8.0
 offset_right = 20.0
 offset_bottom = 8.0
 text = "BOTICARIA
+[F]"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Herrero" type="Node2D" parent="."]
+position = Vector2(620, 150)
+script = ExtResource("8_herrero")
+
+[node name="Sprite" type="ColorRect" parent="Herrero"]
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+color = Color(0.45, 0.42, 0.5, 1)
+
+[node name="Label" type="Label" parent="Herrero/Sprite"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -8.0
+offset_right = 20.0
+offset_bottom = 8.0
+text = "HERRERO
+[F]"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Peletero" type="Node2D" parent="."]
+position = Vector2(620, 280)
+script = ExtResource("9_pelet")
+
+[node name="Sprite" type="ColorRect" parent="Peletero"]
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+color = Color(0.55, 0.38, 0.25, 1)
+
+[node name="Label" type="Label" parent="Peletero/Sprite"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -8.0
+offset_right = 20.0
+offset_bottom = 8.0
+text = "PELETERO
 [F]"
 horizontal_alignment = 1
 vertical_alignment = 1

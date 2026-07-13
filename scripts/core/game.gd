@@ -205,6 +205,9 @@ func nueva_partida() -> void:
 	player_current_mp = -1.0
 	money = 0
 	mezcla_exp = 0.0
+	metalurgia_exp = 0.0
+	peleteria_exp = 0.0
+	herreria_exp = 0.0
 	pack_inicial_reclamado = false
 	recompra.clear()
 
@@ -263,6 +266,9 @@ func exportar_partida() -> SaveData:
 	d.stamina = float(player.current_stamina) if player != null and "current_stamina" in player else -1.0
 	d.money = money
 	d.mezcla_exp = mezcla_exp
+	d.metalurgia_exp = metalurgia_exp
+	d.peleteria_exp = peleteria_exp
+	d.herreria_exp = herreria_exp
 	d.pack_inicial = pack_inicial_reclamado
 
 	d.crystals = crystals.duplicate()
@@ -327,6 +333,9 @@ func importar_partida(d: SaveData) -> void:
 	player_current_mp = d.player_current_mp
 	money = d.money
 	mezcla_exp = d.mezcla_exp
+	metalurgia_exp = d.metalurgia_exp
+	peleteria_exp = d.peleteria_exp
+	herreria_exp = d.herreria_exp
 	pack_inicial_reclamado = d.pack_inicial
 	# El historial de recompra es de SESION: cargar partida no te devuelve el mostrador del
 	# tendero tal y como lo dejaste hace tres dias.
@@ -580,6 +589,7 @@ var _dev_materiales: Array[String] = [
 	# Minerales
 	"res://resources/materials/cobre.tres",
 	"res://resources/materials/hierro.tres",
+	"res://resources/materials/adamante.tres",
 	# Cuero
 	"res://resources/materials/cuero_rata.tres",
 	# Nucleos (mejora de equipo)
@@ -1721,6 +1731,310 @@ func reclamar_pack_inicial(base_arma: Resource) -> bool:
 	print("[tienda] Reclamas el pack inicial: %s + %d pociones menores." % [
 		item_display_name(arma), PACK_POCIONES_N])
 	return true
+
+
+# ============================================================
+#  OFICIOS: REFINAR (herrero: fundir/batir · peletero: curtir), FORJAR y MEJORAR
+#  La math vive en forge.gd; aqui solo el estado (que hay en el baul, que se consume).
+#  Igual que la boticaria: todo sale del HOGAR, no de la bolsa.
+#
+#  La cadena:
+#    mineral --fundir--> LINGOTE --batir--> CHAPA        (herrero)
+#    cuero   --curtir--> CUERO CURTIDO                   (peletero)
+#    ARMA     = lingote + cuero curtido
+#    ARMADURA = chapa   + cuero curtido  (un paso mas: por eso es mas trabajo)
+# ============================================================
+
+# Las TRES habilidades de oficio, hermanas de la Mezcla de la boticaria. HOY NO EXISTEN COMO
+# HABILIDAD: lo unico que hay es el CONTADOR OCULTO, que sube solo con el oficio y que sera lo
+# que desbloquee la habilidad al subir de nivel. Hasta entonces los efectos estan ESCRITOS
+# pero APAGADOS (ver habilidad_*): asi el dia que se desbloqueen, el que lleve mil lingotes
+# fundidos ya se los ha ganado.
+#   - Metalurgia: al refinar metal, tira por subir UN escalon la calidad (y con oficio de
+#     sobra, un intacto puede salir PURO, que es una calidad que no se recolecta).
+#   - Peleteria: lo mismo, con la piel.
+#   - Herreria: al forjar, empuja la tirada de rareza a tu favor.
+var metalurgia_exp: float = 0.0
+var peleteria_exp: float = 0.0
+var herreria_exp: float = 0.0
+# Interruptores (los pondra a true el sistema de habilidades de desarrollo cuando exista).
+# Con esto en false, el oficio solo ACUMULA.
+var habilidad_metalurgia: bool = false
+var habilidad_peleteria: bool = false
+var habilidad_herreria: bool = false
+
+# Exp EFECTIVA: 0 mientras la habilidad no este desbloqueada (el progreso sigue guardandose).
+func metalurgia_activa() -> float:
+	return metalurgia_exp if habilidad_metalurgia else 0.0
+
+func peleteria_activa() -> float:
+	return peleteria_exp if habilidad_peleteria else 0.0
+
+func herreria_activa() -> float:
+	return herreria_exp if habilidad_herreria else 0.0
+
+# Cada metal, su cadena: el TIER se conserva de la veta a la chapa.
+const _FORJA_METALES: Array = [
+	["res://resources/materials/cobre.tres",
+		"res://resources/materials/lingote_cobre.tres",
+		"res://resources/materials/chapa_cobre.tres"],        # T1
+	["res://resources/materials/hierro.tres",
+		"res://resources/materials/lingote_hierro.tres",
+		"res://resources/materials/chapa_hierro.tres"],       # T2
+	["res://resources/materials/adamante.tres",
+		"res://resources/materials/lingote_adamante.tres",
+		"res://resources/materials/chapa_adamante.tres"],     # T3
+]
+const _CUERO_CRUDO := "res://resources/materials/cuero_rata.tres"
+const _CUERO_CURTIDO := "res://resources/materials/cuero_curtido.tres"
+
+# {mineral, lingote, chapa} de cada metal (para los menus del herrero).
+func metales_forja() -> Array:
+	var out: Array = []
+	for t in _FORJA_METALES:
+		var mineral: Resource = load(t[0])
+		var lingote: Resource = load(t[1])
+		var chapa: Resource = load(t[2])
+		if mineral != null and lingote != null and chapa != null:
+			out.append({"mineral": mineral, "lingote": lingote, "chapa": chapa})
+	return out
+
+func lingotes_forja() -> Array:
+	var out: Array = []
+	for m in metales_forja():
+		out.append(m["lingote"])
+	return out
+
+func chapas_forja() -> Array:
+	var out: Array = []
+	for m in metales_forja():
+		out.append(m["chapa"])
+	return out
+
+func cuero_crudo() -> MaterialData:
+	return load(_CUERO_CRUDO) as MaterialData
+
+# El cuero que pide la FORJA es el curtido: el crudo se queda en el peletero.
+func cuero_forja() -> MaterialData:
+	return load(_CUERO_CURTIDO) as MaterialData
+
+
+# --- REFINAR (una sola operacion para fundir, batir y curtir) ---
+# Cuantas piezas refinadas puedes sacar de ESTA calidad (hacen falta `por_uno` items de la
+# MISMA calidad: juntar tres dañados NO da un normal).
+func refinados_posibles(origen: MaterialData, cal: int, por_uno: int) -> int:
+	return items_calidad_en_hogar(origen, cal) / maxi(1, por_uno)
+
+# Refina `veces` piezas: consume `por_uno` items de `origen` (todos de la calidad `cal`) y
+# devuelve `destino` de esa MISMA calidad... salvo que la habilidad del oficio tire a tu favor
+# y la suba un escalon (y con oficio de sobra, un intacto puede salir PURO). `oficio` dice cual
+# de los contadores sube ("metalurgia" o "peleteria"). Devuelve cuantas refino.
+func refinar(origen: MaterialData, destino: MaterialData, cal: int, veces: int, por_uno: int, oficio: String) -> int:
+	if origen == null or destino == null or veces <= 0:
+		return 0
+	var n: int = mini(veces, refinados_posibles(origen, cal, por_uno))
+	if n <= 0:
+		return 0
+	var prob: float = Forge.prob_subir_calidad(
+		peleteria_activa() if oficio == "peleteria" else metalurgia_activa())
+	var subidos: int = 0
+	for _k in range(n):
+		_consumir_items_calidad(origen, cal, por_uno)
+		var cal_final: int = cal
+		if randf() < prob:
+			cal_final = MaterialItem.subir_calidad(cal)
+			if cal_final != cal:
+				subidos += 1
+		almacen_materiales.append(MaterialItem.crear(destino, cal_final))
+		if oficio == "peleteria":
+			peleteria_exp += Forge.OFICIO_POR_REFINADO
+		else:
+			metalurgia_exp += Forge.OFICIO_POR_REFINADO
+	print("[oficio] %d x %s -> %d x %s  (%d salieron mejor de lo que entraron)" % [
+		n * por_uno, origen.nombre, n, destino.nombre, subidos])
+	return n
+
+# Atajos para los tres refinados (cada uno sabe su coste y su oficio).
+func fundir(mineral: MaterialData, cal: int, veces: int) -> int:
+	return refinar(mineral, lingote_de(mineral), cal, veces, Forge.MINERAL_POR_LINGOTE, "metalurgia")
+
+func batir_chapa(lingote: MaterialData, cal: int, veces: int) -> int:
+	return refinar(lingote, chapa_de(lingote), cal, veces, Forge.LINGOTE_POR_CHAPA, "metalurgia")
+
+func curtir(cal: int, veces: int) -> int:
+	return refinar(cuero_crudo(), cuero_forja(), cal, veces, Forge.CUERO_POR_CURTIDO, "peleteria")
+
+# El lingote que sale de este mineral, y la chapa que sale de este lingote (mismo metal, mismo
+# tier: el metal no cambia al refinarlo, solo la forma).
+func lingote_de(mineral: MaterialData) -> MaterialData:
+	return _mismo_metal(mineral, 0, 1)
+
+func chapa_de(lingote: MaterialData) -> MaterialData:
+	return _mismo_metal(lingote, 1, 2)
+
+# Busca `mat` en la columna `col` de la cadena de metales y devuelve la de la columna `destino`.
+func _mismo_metal(mat: MaterialData, col: int, destino: int) -> MaterialData:
+	if mat == null:
+		return null
+	for t in _FORJA_METALES:
+		var m: Resource = load(t[col])
+		if m != null and (m as MaterialData).id == mat.id:
+			return load(t[destino]) as MaterialData
+	return null
+
+# Quita n items de un material Y calidad concretos del hogar.
+func _consumir_items_calidad(mat: MaterialData, cal: int, n: int) -> void:
+	var restan: int = n
+	var i: int = almacen_materiales.size() - 1
+	while i >= 0 and restan > 0:
+		var it: MaterialItem = almacen_materiales[i]
+		if it != null and it.data != null and it.data.id == mat.id and int(it.calidad) == int(cal):
+			almacen_materiales.remove_at(i)
+			restan -= 1
+		i -= 1
+
+# Todos los NUCLEOS que tienes en el hogar y sirven para mejorar esta pieza (arma o armadura).
+func nucleos_para(item: Resource) -> Array:
+	var vistos: Array = []
+	for it in almacen_materiales:
+		if it == null or it.data == null:
+			continue
+		if not Forge.nucleo_vale(it.data, item):
+			continue
+		if not vistos.has(it.data):
+			vistos.append(it.data)
+	return vistos
+
+
+# --- FORJAR ---
+# Unidades que aporta una seleccion {calidad: cantidad}: dice si LLEGAS al coste.
+func uds_seleccion(dict: Dictionary) -> int:
+	return _uds_de_seleccion(dict)
+
+# Score de calidad MEDIO de lo que metes (ponderado por unidades). Es lo que tira la rareza:
+# 0 = todo dañado, 0.5 = normal, 1 = intacto, 1.5 = lingote PURO. Al forjar SI se mezclan
+# calidades (a diferencia de fundir): meter un puro entre normales sube la media.
+func score_seleccion(dicts: Array) -> float:
+	var suma: float = 0.0
+	var uds: float = 0.0
+	for d in dicts:
+		for cal in d:
+			var u: float = float(_uds_calidad(int(cal)) * int(d[cal]))
+			suma += _score_calidad(int(cal)) * u
+			uds += u
+	return 0.0 if uds <= 0.0 else suma / uds
+
+# El score con el que se va a tirar DE VERDAD: la calidad del material + lo que aporta tu
+# Herreria + lo que aporta el METAL (el adamante ya viene medio hecho). La UI pinta ESTE, no
+# el otro: lo que ves es lo que se tira.
+func score_forja(metal: MaterialData, sel_metal: Dictionary, sel_cuero: Dictionary) -> float:
+	return score_seleccion([sel_metal, sel_cuero]) \
+		+ Forge.bonus_herreria(herreria_activa()) \
+		+ Forge.bonus_metal(metal)
+
+
+# El METAL que pide esta pieza: la CHAPA si es armadura, el LINGOTE si es arma. La UI le pide
+# a Game el material concreto en vez de decidirlo ella.
+func metal_de_forja(base: Resource, idx: int) -> MaterialData:
+	var lista: Array = chapas_forja() if bool(Forge.coste(base)["usa_chapa"]) else lingotes_forja()
+	if lista.is_empty():
+		return null
+	return lista[clampi(idx, 0, lista.size() - 1)]
+
+
+# ¿Cubre esta seleccion el coste de forjar `base`? (y no pide mas de lo que hay en el baul)
+func forja_valida(base: Resource, metal: MaterialData, sel_metal: Dictionary, sel_cuero: Dictionary) -> bool:
+	if base == null or metal == null:
+		return false
+	var c: Dictionary = Forge.coste(base)
+	if not _sel_disponible(metal, sel_metal) or not _sel_disponible(cuero_forja(), sel_cuero):
+		return false
+	return uds_seleccion(sel_metal) >= int(c["metal"]) and uds_seleccion(sel_cuero) >= int(c["cuero"])
+
+# ¿Tienes en el baul lo que dice la seleccion? (la UI ya lo acota, pero la math no se fia)
+func _sel_disponible(mat: MaterialData, dict: Dictionary) -> bool:
+	for cal in dict:
+		if int(dict[cal]) > items_calidad_en_hogar(mat, int(cal)):
+			return false
+	return true
+
+
+# FORJA una pieza: el METAL (lingote si es arma, chapa si es armadura) fija el tier, y la
+# calidad media de lo que metes (mas tu Herreria) tira la rareza. Consume la seleccion entera y
+# devuelve el item nuevo, ya en el baul; null si la seleccion no llega.
+func forjar(base: Resource, metal: MaterialData, sel_metal: Dictionary, sel_cuero: Dictionary) -> Resource:
+	if not forja_valida(base, metal, sel_metal, sel_cuero):
+		return null
+	var tier: int = Forge.tier_de_metal(metal)
+	var rareza: int = Forge.tirar_rareza(score_forja(metal, sel_metal, sel_cuero))
+	_consumir_seleccion_material(metal, sel_metal)
+	_consumir_seleccion_material(cuero_forja(), sel_cuero)
+	var item: Resource = crear_item(base, tier, rareza, {})
+	herreria_exp += Forge.HERRERIA_POR_PIEZA
+	print("[herrero] Forjas %s con %s -> T%d %s.  Herreria %s" % [
+		str(base.get("nombre")), metal.nombre, tier, Upgrades.rareza_nombre(rareza),
+		snappedf(herreria_exp, 0.1)])
+	return item
+
+
+# --- MEJORAR una pieza con NUCLEOS ---
+# Tope de mejoras de la pieza: lo MENOR entre lo que admite su rareza (huecos) y hasta donde
+# deja llegar el nucleo que uses. Un nucleo de slime no te sube una legendaria mas alla de +3
+# por muchos huecos que tenga: para eso hay que bajar a por bichos mas hondos.
+func tope_mejoras(item: Resource, nucleo: MaterialData) -> int:
+	if item == null:
+		return 0
+	var por_rareza: int = Upgrades.rareza_slots(int(meta_de(item)["rareza"]))
+	if nucleo == null:
+		return por_rareza
+	return mini(por_rareza, maxi(0, nucleo.mejora_max))
+
+func mejoras_actuales(item: Resource) -> int:
+	return Upgrades.total_mejoras(meta_de(item)["mejoras"])
+
+# Nucleos (items, no unidades) que hay en el hogar de ese tipo.
+func nucleos_en_hogar(nucleo: MaterialData) -> int:
+	var n: int = 0
+	for it in almacen_materiales:
+		if it != null and it.data != null and nucleo != null and it.data.id == nucleo.id:
+			n += 1
+	return n
+
+func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
+	if item == null or not Forge.nucleo_vale(nucleo, item):
+		return false
+	if mejoras_actuales(item) >= tope_mejoras(item, nucleo):
+		return false
+	return nucleos_en_hogar(nucleo) >= Forge.nucleos_para_mejora(mejoras_actuales(item))
+
+# Mete UNA mejora de la categoria `cat` en la pieza, gastando nucleos. La meta va POR OBJETO
+# (item_meta), y equip_meta apunta al MISMO dict: mejorar el arma que llevas puesta la mejora
+# de verdad, sin tener que desequiparla.
+func mejorar_item(item: Resource, cat: String, nucleo: MaterialData) -> bool:
+	if not puede_mejorar(item, nucleo):
+		return false
+	var cuesta: int = Forge.nucleos_para_mejora(mejoras_actuales(item))
+	_consumir_nucleos(nucleo, cuesta)
+	var mj: Dictionary = meta_de(item)["mejoras"]
+	mj[cat] = int(mj.get(cat, 0)) + 1
+	print("[herrero] Mejoras %s con %d x %s -> %s +%d" % [
+		str(item.get("nombre")), cuesta, nucleo.nombre,
+		Upgrades.cat_nombre(cat), int(mj[cat])])
+	return true
+
+# Quita n nucleos del hogar, los PEORES primero (dañado antes que intacto): un nucleo es un
+# permiso, no un ingrediente de calidad, asi que no tiene sentido quemar los buenos.
+func _consumir_nucleos(nucleo: MaterialData, n: int) -> void:
+	var orden: Array = [MaterialItem.Calidad.DANADO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.INTACTO]
+	var restan: int = n
+	for cal in orden:
+		var i: int = almacen_materiales.size() - 1
+		while i >= 0 and restan > 0:
+			var it: MaterialItem = almacen_materiales[i]
+			if it != null and it.data != null and it.data.id == nucleo.id and int(it.calidad) == int(cal):
+				almacen_materiales.remove_at(i)
+				restan -= 1
+			i -= 1
 
 
 # ============================================================
