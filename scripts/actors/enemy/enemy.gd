@@ -375,6 +375,12 @@ func atacado_por_jugador() -> void:
 	_start_combat(false)
 
 
+# True si este bicho es el BOSS de su piso (lo pone DungeonFloor al colocarlo). Un boss no lo
+# recicla el spawner y, al morir, abre el piso: bajada, salida al pueblo y atajo desde el
+# pueblo (ver Game.marcar_boss_derrotado).
+var es_boss: bool = false
+
+
 # Lo llama Game al GANAR el combate: el enemigo queda como CADAVER (no se
 # borra), apagado e interactuable para extraerle el cristal (minijuego).
 func morir() -> void:
@@ -389,6 +395,13 @@ func morir() -> void:
 		_facing_line.visible = false
 	remove_from_group("enemy")  # ya no es un enemigo activo
 	add_to_group("corpse")      # ahora es un cadaver interactuable
+
+	# El boss cae: el piso se abre AHORA MISMO (sin salir ni volver a entrar).
+	if es_boss:
+		Game.marcar_boss_derrotado(Game.current_floor)
+		var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+		if piso != null and piso.has_method("abrir_salidas"):
+			piso.abrir_salidas()
 
 
 func esta_muerto() -> bool:

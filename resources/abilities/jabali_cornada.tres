@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 5
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Cornada"
+descripcion = "Mete el colmillo por debajo del escudo y levanta. No es el golpe lo que duele: es quedarte abierto después."
+coste_energia = 0.0
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.2
+efectos = [SubResource("SA_0")]
+cooldown = 3

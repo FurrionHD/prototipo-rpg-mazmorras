@@ -4,8 +4,9 @@
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
 [ext_resource type="Resource" path="res://resources/materials/cuero_simple.tres" id="3_cuero"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_rey_rata.tres" id="4_nuc"]
-[ext_resource type="Resource" path="res://resources/abilities/rata_mordisco_sangrante.tres" id="5_mor"]
-[ext_resource type="Resource" path="res://resources/abilities/rata_frenesi_dentelladas.tres" id="6_fre"]
+[ext_resource type="Resource" path="res://resources/abilities/rey_rata_dentellada_real.tres" id="5_den"]
+[ext_resource type="Resource" path="res://resources/abilities/rey_rata_chillido.tres" id="6_chi"]
+[ext_resource type="Resource" path="res://resources/abilities/rey_rata_yugular.tres" id="7_yug"]
 
 [sub_resource type="Resource" id="SA_sang"]
 script = ExtResource("2_sa")
@@ -41,6 +42,6 @@ drop_chance = 0.35
 nucleo = ExtResource("4_nuc")
 nucleo_chance = 0.05
 al_golpear = [SubResource("SA_sang")]
-habilidades = [ExtResource("5_mor"), ExtResource("6_fre")]
+habilidades = [ExtResource("5_den"), ExtResource("6_chi"), ExtResource("7_yug")]
 prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

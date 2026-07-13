@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 4
+prob = 0.5
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 5
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+nombre = "Marea corrosiva"
+descripcion = "Toda la sala se inunda de él. No hay dónde apartarse: solo aguantar y esperar a que baje."
+coste_energia = 0.0
+golpes_min = 2
+golpes_max = 3
+dano_mult = 1.1
+efectos = [SubResource("SA_0"), SubResource("SA_1")]
+carga_turnos = 1
+cooldown = 5

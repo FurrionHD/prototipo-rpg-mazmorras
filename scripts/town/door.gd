@@ -26,6 +26,12 @@ func interact_with_player() -> void:
 	# profundidad vive en el autoload Game y no se reinicia sola, asi que al volver al
 	# pueblo y reentrar te quedabas en el ultimo piso al que habias bajado.
 	if _destination == dungeon_path:
+		# Si hay ATAJOS abiertos (cada boss derrotado abre el suyo), se elige por donde entras.
+		# Con solo el piso 1 desbloqueado no hay nada que preguntar: se entra y punto.
+		var menu: Node = get_tree().get_first_node_in_group("floor_menu")
+		if Game.pisos_desbloqueados().size() > 1 and menu != null and menu.has_method("abrir"):
+			menu.abrir()
+			return
 		Game.current_floor = 1
 		# Y la mazmorra se repuebla: lo que dejaste en los pisos la expedicion anterior ya no
 		# esta. Si se recordara entre expediciones, los pisos se vaciarian para siempre.

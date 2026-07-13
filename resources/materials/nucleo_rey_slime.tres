@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nucleo_rey_slime"
+nombre = "Núcleo de rey slime"
+descripcion = "Del tamaño de un puño y todavía latiendo. Pesa mucho más de lo que deberia y, si lo miras fijamente, notas que el te esta mirando a ti."
+familia = 1
+tipo = 4
+tier = 4
+exigencia = 0.0
+peso_base = 1.2
+valor_base = 700
+color = Color(0.4, 0.75, 0.95, 1)
+mejora_max = 9
+uso_mejora = 0
+piso_min = 5
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

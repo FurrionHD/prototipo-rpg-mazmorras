@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 9
+prob = 0.3
+
+[resource]
+script = ExtResource("1")
+nombre = "Escisión"
+descripcion = "Se parte en pedazos que te vienen encima desde todos los lados a la vez, y vuelve a juntarse detrás de ti."
+coste_energia = 0.0
+golpes_min = 4
+golpes_max = 6
+dano_mult = 0.55
+efectos = [SubResource("SA_0")]
+efectos_por_golpe = true
+cooldown = 3

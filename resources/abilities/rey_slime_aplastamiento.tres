@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 7
+prob = 0.45
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 9
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Aplastamiento"
+descripcion = "Se alza hasta rozar el techo de la sala y se deja caer entero. Lo que pilla debajo deja de moverse un rato."
+coste_energia = 0.0
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.9
+efectos = [SubResource("SA_0"), SubResource("SA_1")]
+cooldown = 4

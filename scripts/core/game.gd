@@ -209,6 +209,7 @@ func nueva_partida() -> void:
 	peleteria_exp = 0.0
 	herreria_exp = 0.0
 	pack_inicial_reclamado = false
+	bosses_derrotados.clear()
 	recompra.clear()
 
 	crystals.clear()
@@ -273,6 +274,7 @@ func exportar_partida() -> SaveData:
 	d.peleteria_exp = peleteria_exp
 	d.herreria_exp = herreria_exp
 	d.pack_inicial = pack_inicial_reclamado
+	d.bosses_derrotados = bosses_derrotados.duplicate()
 
 	d.crystals = crystals.duplicate()
 	d.materiales = materiales.duplicate()
@@ -342,6 +344,7 @@ func importar_partida(d: SaveData) -> void:
 	peleteria_exp = d.peleteria_exp
 	herreria_exp = d.herreria_exp
 	pack_inicial_reclamado = d.pack_inicial
+	bosses_derrotados = d.bosses_derrotados.duplicate()
 	# El historial de recompra es de SESION: cargar partida no te devuelve el mostrador del
 	# tendero tal y como lo dejaste hace tres dias.
 	recompra.clear()
@@ -518,6 +521,53 @@ func enemy_ability_sum_band(floor: int) -> Vector2:
 # la puerta del pueblo- con la F aun pulsada, y te escupia al pueblo de rebote.
 # Regenerar sin tocar el arbol conserva al jugador, su HUD y sus menus.
 # Tu vida, tu bolsa y tus stats siguen donde estaban: bajar no cura ni descansa.
+# ============================================================
+#  BOSSES: los hitos de la mazmorra
+#  Un boss guarda una sala (la central de su piso) y BLOQUEA la bajada. Matarlo la primera vez
+#  es un HITO PERMANENTE de la partida: a partir de ahi ese piso tiene bajada, tiene salida al
+#  pueblo, y se puede saltar a el desde la entrada de la mazmorra.
+#
+#  El boss SIGUE apareciendo despues (por su botin, que es el mejor del juego), pero ya no
+#  bloquea nada: lo que se gana no se pierde. Por eso esto NO vive en memoria_pisos (que se
+#  borra en cada expedicion) sino en la PARTIDA.
+# ============================================================
+
+# {piso: EnemyData} — que boss guarda cada piso. El unico por ahora: el Rey Slime, en el 5.
+const BOSSES := {5: "res://scenes/actors/enemy/rey_slime.tres"}
+
+# {piso: true} de los bosses YA derrotados alguna vez en esta partida. Se guarda en SaveData.
+var bosses_derrotados: Dictionary = {}
+
+func boss_del_piso(piso: int) -> EnemyData:
+	if not BOSSES.has(piso):
+		return null
+	return load(BOSSES[piso]) as EnemyData
+
+func boss_derrotado(piso: int) -> bool:
+	return bool(bosses_derrotados.get(piso, false))
+
+# El piso esta CERRADO si tiene boss y no lo has matado nunca: sin bajada y sin salida.
+func piso_bloqueado(piso: int) -> bool:
+	return BOSSES.has(piso) and not boss_derrotado(piso)
+
+# Lo llama el enemigo al morir (enemy.gd) si era el boss de su piso.
+func marcar_boss_derrotado(piso: int) -> void:
+	if boss_derrotado(piso):
+		return
+	bosses_derrotados[piso] = true
+	print("[mazmorra] ¡Boss del piso %d derrotado! Se abren la bajada y la salida al pueblo." % piso)
+
+# Pisos a los que se puede SALTAR desde la entrada de la mazmorra: el 1 siempre, y cada piso
+# cuyo boss hayas matado (ese es el premio del boss: no volver a caminar lo ya caminado).
+func pisos_desbloqueados() -> Array:
+	var out: Array = [1]
+	for piso in BOSSES:
+		if boss_derrotado(piso) and not out.has(piso):
+			out.append(piso)
+	out.sort()
+	return out
+
+
 func bajar_piso() -> void:
 	# Bajas: apareces en la ENTRADA del piso nuevo (su boca) y te toca cruzarlo entero.
 	_cambiar_piso(current_floor + 1, false)

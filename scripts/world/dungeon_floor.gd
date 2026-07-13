@@ -122,8 +122,17 @@ var gen: DungeonGenerator = null
 var _enemy_scene: PackedScene = preload("res://scenes/actors/enemy/enemy.tscn")
 var _zone_script: GDScript = preload("res://scripts/world/spawn_zone.gd")
 var _stairs_script: GDScript = preload("res://scripts/world/stairs.gd")
+var _exit_script: GDScript = preload("res://scripts/world/dungeon_exit.gd")
 var _pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
 var _reco_script: GDScript = preload("res://scripts/world/resource_node.gd")
+
+# --- BOSS del piso (si lo hay) ---
+# Donde van la bajada y la salida al pueblo, y si ya estan puestas. En un piso con boss SIN
+# matar no se colocan: el piso es un callejon hasta que cae.
+var _salida_pos: Vector2 = Vector2.INF
+var _salidas_puestas: bool = false
+# Zona (sala) que ocupa el boss: no pare bichos. Nadie le hace de escolta.
+var _sala_boss: int = -1
 
 var _geo: Node2D = null      # toda la geometria del piso (se tira entera al regenerar)
 var _zonas: Node2D = null    # todas las SpawnZone
@@ -182,6 +191,11 @@ func _limpiar() -> void:
 
 func _construir(por_la_bajada: bool = false) -> void:
 	_piso_construido = Game.current_floor
+	# Estado del boss: se recalcula en cada piso (las salidas se colocan mas abajo, y la sala
+	# del boss se decide al colocarlo).
+	_salida_pos = Vector2.INF
+	_salidas_puestas = false
+	_sala_boss = -1
 	gen = DungeonGenerator.new()
 	gen.generar(ancho_celdas, alto_celdas, _semilla_del_piso(),
 		max_salas, sala_min, sala_max, ancho_pasillo)
@@ -310,13 +324,73 @@ func _colocar_actores(por_la_bajada: bool = false) -> void:
 		subir.position = boca
 		_geo.add_child(subir)
 
+	# El BOSS del piso (si lo hay) guarda la sala central. Se coloca ANTES que la escalera,
+	# porque mientras siga sin caer la primera vez no hay escalera que colocar.
+	_colocar_boss()
+
 	# La escalera de BAJAR, en la sala mas LEJANA a la entrada: descender obliga a cruzar la
 	# mazmorra, que es justo donde el sistema de spawns se tiene que sostener. Va 2 celdas
 	# por encima del centro (igual que la boca) para no aterrizar ENCIMA de ella al subir.
-	if lejana.size != Vector2i.ZERO:
-		var bajar = _stairs_script.new()
-		bajar.position = fondo + Vector2(0.0, -2.0 * float(DungeonGenerator.CELDA))
-		_geo.add_child(bajar)
+	#
+	# EXCEPCION: en un piso con boss SIN MATAR no hay bajada ni salida. Es un callejon: o lo
+	# matas, o te vuelves por donde has venido.
+	_salida_pos = fondo + Vector2(0.0, -2.0 * float(DungeonGenerator.CELDA))
+	if lejana.size != Vector2i.ZERO and not Game.piso_bloqueado(Game.current_floor):
+		abrir_salidas()
+
+
+# La bajada al piso siguiente y, si el piso tiene BOSS, una salida al pueblo a su lado. Se
+# llama al construir un piso ya abierto, y en caliente cuando cae el boss (enemy.gd:morir).
+func abrir_salidas() -> void:
+	if _salidas_puestas or _salida_pos == Vector2.INF:
+		return
+	_salidas_puestas = true
+
+	var bajar = _stairs_script.new()
+	bajar.position = _salida_pos
+	_geo.add_child(bajar)
+
+	# Salida al PUEBLO junto a la bajada: el premio del boss es no tener que desandar el
+	# camino. Van separadas 3 celdas porque el jugador solo puede interactuar con el
+	# interactable MAS CERCANO (player._try_interact): pegadas, una taparia a la otra.
+	if not Game.BOSSES.has(Game.current_floor):
+		return
+	var puerta = _exit_script.new()
+	puerta.position = _salida_pos + Vector2(3.0 * float(DungeonGenerator.CELDA), 0.0)
+	_geo.add_child(puerta)
+
+
+# ------------------------------------------------------------
+#  BOSS: guarda la sala central y bloquea la bajada hasta que cae (la primera vez).
+# ------------------------------------------------------------
+func _colocar_boss() -> void:
+	var data: EnemyData = Game.boss_del_piso(Game.current_floor)
+	if data == null:
+		return
+	# Si el piso se RESTAURA de memoria, el boss ya vendra con los demas enemigos: no duplicar.
+	if Game.memoria_pisos.has(_piso_construido):
+		return
+	var sala: Rect2i = _sala_central()
+	if sala.size == Vector2i.ZERO:
+		return
+	_sala_boss = gen.zona_en(sala.get_center())   # su zona NO parira bichos (ver _crear_zonas)
+	var e = crear_enemigo(data, gen.centro_px(sala.get_center()), 0.0, 1.0)  # t = 1.0: el techo
+	if e != null:
+		e.es_boss = true
+
+
+# La sala mas CENTRADA del mapa. El boss no se esconde en un rincon: se planta en medio y hay
+# que pasar por encima de el.
+func _sala_central() -> Rect2i:
+	var mejor := Rect2i()
+	var best_d: float = INF
+	var centro_mapa := Vector2(float(gen.ancho), float(gen.alto)) * 0.5
+	for s in gen.salas:
+		var d: float = centro_mapa.distance_to(Vector2(s.get_center()))
+		if d < best_d:
+			best_d = d
+			mejor = s
+	return mejor
 
 
 # ------------------------------------------------------------
@@ -514,6 +588,11 @@ func _crear_zonas() -> void:
 		if celdas.is_empty() or partos.is_empty():
 			continue  # una zona sin paredes propias no puede parir nada
 
+		# La sala del BOSS no pare NADA: el rey slime pelea solo, sin escolta que se te eche
+		# encima mientras lo tienes a media vida.
+		if i == _sala_boss:
+			continue
+
 		var es_sala: bool = z["tipo"] == "sala"
 		var zona = _zone_script.new()
 		zona.piso = self
@@ -673,6 +752,7 @@ func _restaurar_estado() -> void:
 	if mem.is_empty():
 		return
 
+	var data_boss: EnemyData = Game.boss_del_piso(_piso_construido)
 	for d in (mem.get("enemigos", []) as Array):
 		var zona = _zona(int(d["zona"]))
 		var radio: float = zona.wander_radius if zona != null else 90.0
@@ -680,6 +760,9 @@ func _restaurar_estado() -> void:
 		if e == null:
 			continue
 		e.zona_idx = int(d["zona"])
+		# Que el boss siga siendo el boss al volver al piso: si no, se lo llevaria el reciclador
+		# y su muerte no abriria nada.
+		e.es_boss = data_boss != null and d["data"] == data_boss
 		if bool(d["muerto"]):
 			e.morir()   # vuelve a ser un cadaver: gris, sin IA y con su cristal dentro
 		elif zona != null:
@@ -744,6 +827,10 @@ func _reciclar_lejano() -> bool:
 	var best: float = dist_reciclar
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e) or not (e is Node2D):
+			continue
+		# El BOSS no se recicla NUNCA: guarda su sala hasta que lo maten. Sin esto, alejarse lo
+		# suficiente lo borraria y el piso se quedaria cerrado para siempre.
+		if e.get("es_boss"):
 			continue
 		var d: float = pj.distance_to((e as Node2D).global_position)
 		if d > best:

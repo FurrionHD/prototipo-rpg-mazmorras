@@ -6,6 +6,7 @@
 [ext_resource type="Resource" path="res://resources/materials/nucleo_jabali.tres" id="4_nuc"]
 [ext_resource type="Resource" path="res://resources/abilities/jabali_embestida.tres" id="5_emb"]
 [ext_resource type="Resource" path="res://resources/abilities/jabali_pisoton.tres" id="6_pis"]
+[ext_resource type="Resource" path="res://resources/abilities/jabali_cornada.tres" id="7_cor"]
 
 [sub_resource type="Resource" id="SA_stun"]
 script = ExtResource("2_sa")
@@ -41,6 +42,6 @@ drop_chance = 0.4
 nucleo = ExtResource("4_nuc")
 nucleo_chance = 0.05
 al_golpear = [SubResource("SA_stun")]
-habilidades = [ExtResource("5_emb"), ExtResource("6_pis")]
+habilidades = [ExtResource("5_emb"), ExtResource("6_pis"), ExtResource("7_cor")]
 prob_habilidad = 0.6
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

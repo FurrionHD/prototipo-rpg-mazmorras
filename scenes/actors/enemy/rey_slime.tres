@@ -1,0 +1,47 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/materials/baba_slime.tres" id="3_baba"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_rey_slime.tres" id="4_nuc"]
+[ext_resource type="Resource" path="res://resources/abilities/rey_slime_aplastamiento.tres" id="5_apl"]
+[ext_resource type="Resource" path="res://resources/abilities/rey_slime_escision.tres" id="6_esc"]
+[ext_resource type="Resource" path="res://resources/abilities/rey_slime_marea.tres" id="7_mar"]
+
+[sub_resource type="Resource" id="SA_peg"]
+script = ExtResource("2_sa")
+estado = 9
+prob = 0.7
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Rey Slime"
+color = Color(0.35, 0.7, 0.95, 1)
+escala_visual = 2.6
+fuerza = 48
+resistencia = 52
+destreza = 26
+agilidad = 24
+magia = 30
+franja_low = 1.0
+franja_high = 1.0
+base_hp = 190.0
+base_attack = 7.8
+base_defense = 5.0
+base_magic = 4.0
+base_speed = 3.6
+move_speed_min = 28.0
+move_speed_max = 42.0
+chase_speed_mult = 2.0
+crystal_category_min = 4
+crystal_category_max = 6
+extraction_hits = 5
+extraction_req_destreza = 90
+drop_material = ExtResource("3_baba")
+drop_chance = 1.0
+nucleo = ExtResource("4_nuc")
+nucleo_chance = 1.0
+al_golpear = [SubResource("SA_peg")]
+habilidades = [ExtResource("5_apl"), ExtResource("6_esc"), ExtResource("7_mar")]
+prob_habilidad = 0.7
+metadata/_custom_type_script = "uid://le6jfvhlcbou"
