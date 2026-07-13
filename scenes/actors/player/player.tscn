@@ -18,3 +18,6 @@ offset_bottom = 16.0
 shape = SubResource("RectangleShape2D_x7qdl")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1382173583]
+zoom = Vector2(1.8, 1.8)
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0

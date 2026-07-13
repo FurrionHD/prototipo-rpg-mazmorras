@@ -21,10 +21,28 @@ extends CharacterBody2D
 # franja (no un multiplicador). Tambien decide la categoria del cristal.
 var current_t: float = 0.5
 
+# 't' IMPUESTA desde fuera (>= 0). La usa la memoria de la mazmorra al restaurar un piso:
+# si volviera a tirar randf(), el mismo slime reaparecería con OTRAS stats (la 't' es su
+# posicion dentro de la franja de habilidades del piso). -1 = tirala tu, como siempre.
+var t_forzada: float = -1.0
+
+# Zona (sala/pasillo) a la que pertenece. La fija el piso al crearlo; sirve para devolverlo
+# a SU zona al restaurar el piso.
+var zona_idx: int = -1
+
 # --- Deambular ---
-@export var wander_radius: float = 90.0       # cuanto se aleja de su sitio
+@export var wander_radius: float = 90.0       # cuanto se aleja de su sitio (si no tiene zona)
 @export var wander_pause_min: float = 0.4     # pausa minima al llegar a un punto
 @export var wander_pause_max: float = 1.2     # pausa maxima
+
+# ZONA por la que puede moverse: las posiciones (en mundo) de las celdas PISABLES de su
+# sala o pasillo. Si la tiene, deambula ENTRE ELLAS. Si no (spawner de dev, arena), cae
+# al modo viejo: puntos al azar en un circulo alrededor de su sitio.
+#
+# El circulo era el bug: un bicho que nace pegado a la pared (la pared es la que lo pare)
+# tenia medio circulo DENTRO de la roca, chocaba, el anti-atasco lo devolvia a su sitio...
+# y se quedaba clavado en la pared en vez de merodear por la sala.
+var zona_puntos: Array = []
 
 # --- Vision (cono frontal) ---
 @export var vision_range: float = 130.0       # alcance del cono
@@ -70,13 +88,24 @@ var _vision_cone: Polygon2D = null
 
 func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
+
+	# COLISION: el bicho choca SOLO con la roca (capa 1). Ni con otros bichos ni contigo.
+	# Cuando chocaban entre si, dos que se solapaban (al nacer juntos, o al converger sobre
+	# ti) se des-penetraban a empujones: se apilaban en columna y, con el empujon, alguno
+	# salia disparado ATRAVESANDO la pared como un proyectil. Sin colision entre ellos, ese
+	# problema no existe. Tocarte tampoco hace falta: el combate lo dispara la DISTANCIA
+	# (ver _chase), no el contacto fisico.
+	collision_layer = 2   # capa "enemigos": nadie la vigila, pero los deja identificados
+	collision_mask = 1    # solo el mundo (paredes)
+
 	add_to_group("enemy")  # para que el jugador lo encuentre al atacar
 	_home = global_position
 	_player = get_tree().get_first_node_in_group("player")
 
 	# Posicion de ESTE bicho dentro de su franja (uniforme = variedad). La progresion
 	# por piso la lleva la propia franja (EnemyData.sum_band), no un multiplicador.
-	current_t = randf()
+	# Si viene restaurado de la memoria del piso, se respeta la suya (mismas stats que tenia).
+	current_t = t_forzada if t_forzada >= 0.0 else randf()
 
 	if data != null:
 		# Color base + tinte por 't' (los mas fuertes de su franja salen mas claros).
@@ -222,7 +251,7 @@ func _chase(delta: float) -> void:
 	if dist > 0.01:
 		_facing = to_p / dist  # mira al jugador
 
-	if dist <= attack_range:
+	if hueco_hasta(_player) <= margen_ataque():
 		# A distancia de ataque: se para y hace el AVISO antes de golpear.
 		# Si el jugador esta agotado, ataca al instante (aviso = 0).
 		velocity = Vector2.ZERO
@@ -233,9 +262,45 @@ func _chase(delta: float) -> void:
 		if _windup_timer <= 0.0:
 			_start_combat(true)  # iniciativa del enemigo
 	else:
-		# Aun lejos: persigue normal.
-		velocity = to_p.normalized() * current_move_speed
+		# Aun lejos: a por ti. Perseguir NO va a la velocidad de merodear (ver chase_speed_mult).
+		velocity = to_p.normalized() * _chase_speed()
 		_cancelar_aviso()
+
+
+# Velocidad de persecucion = la suya de merodeo x lo que declare su .tres.
+func _chase_speed() -> float:
+	var mult: float = data.chase_speed_mult if data != null else 1.0
+	return current_move_speed * maxf(1.0, mult)
+
+
+# ------------------------------------------------------------
+#  ALCANCE: el HUECO entre los dos cuerpos, no la distancia entre centros.
+#
+#  Medir centro a centro tenia un agujero: dos cuerpos de 32x32 pegados POR LA ESQUINA
+#  tienen los centros a raiz(32²+32²) = 45.2 px. Con attack_range = 44, el bicho estaba
+#  literalmente encima de ti y creia que no llegaba: no atacaba nunca en diagonal. Con los
+#  ELITES era peor (el slime de fuego mide 1.6x: la esquina son ~59 px), asi que el bicho mas
+#  peligroso del juego tenia un angulo muerto en el que era inofensivo.
+#
+#  Midiendo el hueco entre los dos rectangulos, tocarse de esquina cuenta igual que tocarse
+#  de frente, y el tamaño del bicho entra en la cuenta solo.
+# ------------------------------------------------------------
+const _MEDIO_CUERPO := 16.0   # el cuerpo base es 32x32 (jugador y bicho normal)
+
+
+# Cuanto SEPARA a los dos cuerpos. 0 = tocandose (de lado o de esquina); < 0 = solapados.
+func hueco_hasta(otro: Node2D) -> float:
+	if otro == null or not is_instance_valid(otro):
+		return INF
+	var d: Vector2 = (otro.global_position - global_position).abs()
+	var suma: float = _MEDIO_CUERPO + _MEDIO_CUERPO + radio_extra   # medio jugador + medio bicho (+ lo que sobresale el elite)
+	return maxf(d.x - suma, d.y - suma)
+
+
+# Margen de alcance REAL: el attack_range de siempre era "32 px de cuerpos + margen", asi que
+# el margen es lo que sobra de 32. Los numeros ya afinados siguen valiendo igual.
+func margen_ataque() -> float:
+	return attack_range - _MEDIO_CUERPO * 2.0
 
 
 func _cancelar_aviso() -> void:
@@ -311,11 +376,24 @@ func _return() -> void:
 		velocity = to_home.normalized() * current_move_speed
 
 
-# Elige un punto aleatorio dentro de la zona de deambular (alrededor de su sitio).
+# Elige el siguiente destino: una celda pisable AL AZAR de su zona (sala/pasillo). Sin
+# zona asignada, el modo viejo: un punto al azar en un circulo alrededor de su sitio.
 func _pick_wander_target() -> void:
+	if not zona_puntos.is_empty():
+		_wander_target = zona_puntos[randi() % zona_puntos.size()]
+		return
 	var ang: float = randf() * TAU
 	var rad: float = randf_range(wander_radius * 0.3, wander_radius)
 	_wander_target = _home + Vector2(cos(ang), sin(ang)) * rad
+
+
+# Le asigna la zona por la que puede merodear y su "hogar" (a donde regresa si te pierde).
+# El hogar va DENTRO de la sala, no en la pared por la que nacio: si no, el bicho vuelve a
+# pegarse a la roca en cuanto deja de perseguirte.
+func asignar_zona(puntos: Array, hogar: Vector2) -> void:
+	zona_puntos = puntos
+	_home = hogar
+	_pick_wander_target()
 
 
 func _start_combat(enemy_initiated: bool) -> void:

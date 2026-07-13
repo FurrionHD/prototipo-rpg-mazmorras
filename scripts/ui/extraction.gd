@@ -127,11 +127,11 @@ func _draw() -> void:
 
 	var font: Font = ThemeDB.fallback_font
 	draw_string(font, Vector2(bar_x, bar_y - 64.0),
-		"Extraccion de cristal (categoria %d)" % _categoria,
+		"Extracción de cristal (categoría %d)" % _categoria,
 		HORIZONTAL_ALIGNMENT_CENTER, bar_w, 22)
 	if _state == RUNNING:
 		draw_string(font, Vector2(bar_x, bar_y - 30.0),
-			"Pulsacion %d/%d   Fallos: %d   -  pulsa ESPACIO" % [_done + 1, _presses, _misses],
+			"Pulsación %d/%d   Fallos: %d   ·  pulsa ESPACIO" % [_done + 1, _presses, _misses],
 			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 18)
 	else:
 		var txt: String = "Cristal ROTO: lo has perdido" if _result.se_pierde() \

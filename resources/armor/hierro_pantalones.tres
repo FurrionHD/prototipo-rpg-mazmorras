@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1")
-nombre = "Pantalon de hierro"
+nombre = "Pantalón de hierro"
 tipo = 1
 slot = 3
 tier = 1

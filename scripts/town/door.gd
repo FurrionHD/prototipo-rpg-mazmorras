@@ -22,5 +22,13 @@ func _detectar_destino() -> void:
 
 
 func interact_with_player() -> void:
+	# Entrar a la mazmorra = EXPEDICION NUEVA: siempre se empieza por el piso 1. La
+	# profundidad vive en el autoload Game y no se reinicia sola, asi que al volver al
+	# pueblo y reentrar te quedabas en el ultimo piso al que habias bajado.
+	if _destination == dungeon_path:
+		Game.current_floor = 1
+		# Y la mazmorra se repuebla: lo que dejaste en los pisos la expedicion anterior ya no
+		# esta. Si se recordara entre expediciones, los pisos se vaciarian para siempre.
+		Game.olvidar_mazmorra()
 	print("[Puerta] Viajando a: %s" % _destination)
 	get_tree().change_scene_to_file(_destination)

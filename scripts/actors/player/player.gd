@@ -48,6 +48,7 @@ var _facing: Vector2 = Vector2.DOWN
 # Interaccion (F) con cadaveres para extraer el cristal.
 @export var interact_range: float = 40.0
 var _interact_was: bool = false
+var _attack_was: bool = false   # antirrebote de ESPACIO (atacar)
 
 # Barras de estado (se crean por codigo, ver _crear_barra_aguante): aguante + vida + mana.
 var _stamina_bar: ProgressBar = null
@@ -76,6 +77,7 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/debug_panel.gd").new())  # panel de debug (cualquier sala)
 	add_child(preload("res://scripts/ui/spawner.gd").new())      # spawner de enemigos (dev/test)
 	add_child(preload("res://scripts/ui/keys_help.gd").new())    # ayuda de teclas en pantalla (F1)
+	add_child(preload("res://scripts/ui/pause_menu.gd").new())   # menu de pausa (ESC): guardar / salir
 	_last_pos = global_position
 
 	# Si llegamos a esta escena con F/Q ya pulsadas (p. ej. justo despues de viajar
@@ -83,11 +85,17 @@ func _ready() -> void:
 	# hasta que el jugador las suelte y las vuelva a pulsar. Esto evita el rebote
 	# entre escenas al mantener F pulsada.
 	_interact_was = Input.is_key_pressed(KEY_F)
+	_attack_was = Input.is_key_pressed(KEY_SPACE)
 	_drink_was = Input.is_key_pressed(KEY_Q)
 
 	# Aguante maximo segun las stats del jugador (Resistencia y Agilidad).
 	max_stamina = _calc_max_aguante()
 	current_stamina = max_stamina
+	# Si venimos de CARGAR una partida, se respeta el aguante que tenias (no te regalamos la
+	# barra llena por haber guardado y salido). -1 = no hay partida cargada: a tope.
+	var guardado: float = Game.stamina_cargada()
+	if guardado >= 0.0:
+		current_stamina = clampf(guardado, 0.0, max_stamina)
 	_stamina_bar.max_value = max_stamina
 	_stamina_bar.value = current_stamina
 
@@ -185,8 +193,17 @@ func _physics_process(delta: float) -> void:
 				Game.ganar("agilidad", Game.reto(_poder_enemigo_nodo(enemigo)), Game.GAIN_AGILIDAD_CORRER,
 					Game.RETO_MAX_FISICO)
 
-	# F lo hace TODO (mas intuitivo): atacar al enemigo que tengas enfrente, hablar con un
-	# NPC, extraer el cristal de un cadaver o recoger un item. Ver _try_interact().
+	# DOS teclas, y no una: ATACAR y TOCAR COSAS son intenciones distintas y no se pueden
+	# confundir. Con una sola tecla, ir a extraer un cristal con un bicho cerca podia
+	# lanzarte al combate sin querer.
+	#   ESPACIO = atacar al enemigo que tengas ENFRENTE (entra en combate). Va en el pulgar,
+	#             que es lo comodo teniendo el WASD ocupado.
+	#   F       = interactuar: puerta, escalera, altar, tienda, cadaver, objeto del suelo.
+	var atk: bool = Input.is_key_pressed(KEY_SPACE)
+	if atk and not _attack_was:
+		_try_attack()
+	_attack_was = atk
+
 	var inter: bool = Input.is_key_pressed(KEY_F)
 	if inter and not _interact_was:
 		_try_interact()
@@ -255,26 +272,41 @@ func _try_attack() -> bool:
 			continue
 		var to_e: Vector2 = e.global_position - global_position
 		var dist: float = to_e.length()
-		if dist <= attack_range and dist > 0.01:
-			if absf(_facing.angle_to(to_e / dist)) <= deg_to_rad(attack_half_angle_deg):
-				if e.has_method("atacado_por_jugador"):
-					e.atacado_por_jugador()
-					return true
+		if dist <= 0.01:
+			continue
+		# El alcance se mide por el HUECO entre los dos cuerpos, no entre sus centros: dos
+		# cuadrados de 32x32 tocandose POR LA ESQUINA tienen los centros a 45.2 px, o sea mas
+		# de attack_range (44) -> estabas pegado al slime y no podias pegarle. Con un elite
+		# (1.6x de tamaño) la esquina son ~59 px: era intocable en diagonal. Ver enemy.hueco_hasta().
+		if _hueco_hasta(e) > attack_range - 32.0:
+			continue
+		# El CONO sigue mandando: atacar exige mirar al bicho, es una accion deliberada.
+		if absf(_facing.angle_to(to_e / dist)) <= deg_to_rad(attack_half_angle_deg):
+			if e.has_method("atacado_por_jugador"):
+				e.atacado_por_jugador()
+				return true
 	return false
 
 
-# TODO va con F (una sola tecla, mas intuitivo). Por orden:
-#   0) ATACAR a un enemigo vivo que tengas ENFRENTE -> inicia el combate.
-#   1) NPC interactuable (altar, tienda, puerta, hogar).
+# Hueco entre el cuerpo del jugador y el de 'otro' (0 = tocandose, de lado o de esquina).
+# Descuenta lo que sobresale un elite (radio_extra), igual que hace la interaccion con los
+# cadaveres en _mas_cercano_en_grupo.
+func _hueco_hasta(otro: Node) -> float:
+	if not (otro is Node2D):
+		return INF
+	var d: Vector2 = ((otro as Node2D).global_position - global_position).abs()
+	var extra: float = float(otro.radio_extra) if "radio_extra" in otro else 0.0
+	var suma: float = 32.0 + extra   # medio jugador (16) + medio bicho (16) + lo que sobresale el elite
+	return maxf(d.x - suma, d.y - suma)
+
+
+# INTERACTUAR (F). Por orden de cercania de la intencion:
+#   1) NPC interactuable (altar, tienda, puerta, escalera, hogar).
 #   2) EXTRAER el cristal de un cadaver.
 #   3) RECOGER un item del suelo.
-# El ataque va primero porque exige MIRAR al bicho (cono frontal), asi que es una
-# accion deliberada: no se dispara por accidente mientras looteas de espaldas.
+# ATACAR ya NO esta aqui: tiene su propia tecla (ESPACIO). Asi, acercarte a lootear con un
+# bicho al lado no te mete en un combate que no habias pedido.
 func _try_interact() -> void:
-	# 0) Enemigo vivo enfrente -> a por el.
-	if _try_attack():
-		return
-
 	# 1) NPCs interactuables (altar, tienda, puerta, etc).
 	var interactable: Node = _mas_cercano_en_grupo("interactable", false)
 	if interactable != null and interactable.has_method("interact_with_player"):
@@ -300,6 +332,28 @@ func _try_interact() -> void:
 			Game.crystals.append(c)
 			print("Recoges: Cristal Cat ", c.categoria, " (", c.calidad_texto(),
 				"). Total cristales: ", Game.crystals.size())
+
+
+# Recoloca al jugador (lo usa el generador del piso para plantarte en la sala de
+# entrada, que cambia con cada mapa). Reinicia la referencia de distancia: un
+# teletransporte NO es distancia recorrida y no debe contar como excelia.
+func recolocar(pos: Vector2) -> void:
+	global_position = pos
+	_last_pos = pos
+	# La camara va suavizada: sin esto, al plantarte en el piso nuevo se vendria detras
+	# haciendo una panoramica de media mazmorra en vez de estar YA donde estas.
+	var cam: Camera2D = get_node_or_null("Camera2D")
+	if cam != null:
+		cam.reset_smoothing()
+
+
+# Ignora ESPACIO y F hasta que las SUELTES. Hace falta porque esas mismas pulsaciones pueden
+# venir de cerrar otra pantalla: bajar de piso es pulsar F, y el minijuego de extraccion se
+# juega a ESPACIAZOS. Sin esto, el ultimo espacio del minijuego te lanzaria contra el bicho
+# que tengas al lado nada mas volver al mapa.
+func bloquear_interaccion() -> void:
+	_interact_was = true
+	_attack_was = true
 
 
 # Devuelve el nodo mas cercano del grupo dentro del rango de interaccion.

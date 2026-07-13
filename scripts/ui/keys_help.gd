@@ -15,6 +15,8 @@ const DEBUG_KEYS := [
 	["K", "Cambiar arma principal"],
 	["L", "Cambiar mano secundaria (arma/escudo/varita)"],
 	["J", "Cambiar armadura (categoría)"],
+	["P", "Tirar 200 veces la tabla de spawns y contar (consola)"],
+	["B", "Forzar un brote en la zona más cercana"],
 	["DEBUG", "Botón abajo-izq: panel (stats, enemigo, armas,"],
 	["", "armadura, piso, MUÑECO DPS/pegador, mejoras)"],
 	["Spawner", "En la sandbox: clic izq coloca enemigo / der quita"],
@@ -23,7 +25,9 @@ const CONTROLS := [
 	["WASD / flechas", "Mover"],
 	["Shift", "Correr"],
 	["Ctrl", "Sigilo (andar despacio)"],
-	["F", "Atacar / interactuar (enemigo, puertas, altar, loot)"],
+	["ESPACIO", "Atacar al enemigo que tengas enfrente (entra en combate)"],
+	["F", "Interactuar (puertas, escaleras, altar, tienda, cadáveres, loot)"],
+	["ESC", "Pausa: guardar / guardar y salir"],
 	["I", "Inventario"],
 	["C", "Menú de personaje (stats / armas / armadura)"],
 ]
@@ -98,6 +102,13 @@ func _ready() -> void:
 		_linea(vb, par[0], par[1])
 	_sep(vb)
 	_hint(vb, "F1 / ✕ Cerrar — cerrar y reanudar el juego")
+
+	# Al ARRANCAR el juego se abre sola (una vez): el tester ve de entrada que teclas tiene.
+	# A partir de ahi, solo con F1. La marca vive en Game porque este panel se reconstruye en
+	# cada escena y si no volveria a saltar al cruzar cada puerta.
+	if not Game.ayuda_mostrada:
+		Game.ayuda_mostrada = true
+		_set_open(true)
 
 
 func _titulo(vb: VBoxContainer, txt: String) -> void:

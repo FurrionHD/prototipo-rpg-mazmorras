@@ -64,6 +64,13 @@ var _objeto_box: VBoxContainer = null    # submenu de objetos/pociones (KAN-57)
 var _player_en_bar: ProgressBar = null
 var _player_mp_bar: ProgressBar = null
 
+# Numeros DENTRO de cada barra (como las del mapa): la etiqueta de arriba se queda solo
+# con el nombre, el nivel y los estados.
+var _enemy_hp_lbl: Label = null
+var _player_hp_lbl: Label = null
+var _player_en_lbl: Label = null
+var _player_mp_lbl: Label = null
+
 # --- Casteo de hechizos (KAN-56) ---
 # Submenu de hechizos (al pulsar Magia) y caja dinamica del recitado/disparo.
 var _spell_box: VBoxContainer = null
@@ -175,7 +182,7 @@ func _ready() -> void:
 	else:
 		intro = "¡Empieza el combate contra " + _enemy.nombre + "!"
 	if _player_exhausted_start:
-		intro += "  (Agotado: tus primeras acciones son mas lentas)"
+		intro += "  (Agotado: tus primeras acciones son más lentas)"
 	_set_log(intro)
 
 	# Marca de INICIO en consola (para separar combates al montar los Excel).
@@ -202,7 +209,7 @@ func _crear_acciones() -> void:
 		[Action.FLEE, "Huir"],
 	]
 	for d in defs:
-		var b := Button.new()
+		var b := TooltipButton.new()   # tooltip con ancho maximo (ver tooltip_button.gd)
 		b.text = d[1]
 		var id: int = d[0]
 		b.pressed.connect(_on_action.bind(id))
@@ -236,6 +243,13 @@ func _setup_ui() -> void:
 	_enemy_hp.max_value = _enemy.max_hp
 	_player_hp.show_percentage = false
 	_enemy_hp.show_percentage = false
+	# Barras de VIDA gordas y con el numero DENTRO, como las del mapa (ver player.gd).
+	_enemy_hp.custom_minimum_size = Vector2(0, 24)
+	_enemy_hp.self_modulate = Color(1.0, 0.4, 0.4)
+	_enemy_hp_lbl = _crear_label_barra(_enemy_hp, 13)
+	_player_hp.custom_minimum_size = Vector2(0, 24)
+	_player_hp.self_modulate = Color(1.0, 0.4, 0.4)
+	_player_hp_lbl = _crear_label_barra(_player_hp, 13)
 	_crear_barras_jugador()
 	# El log siempre muestra LOG_MAX lineas (ver _set_log), asi que ocupa un alto FIJO y
 	# los botones no se mueven. clip_text evita que una linea larga se derrame a la dcha.
@@ -251,24 +265,44 @@ func _crear_barras_jugador() -> void:
 	if _player_en_bar != null:
 		return
 	var idx: int = _player_hp.get_index()
+	# OJO: self_modulate y no modulate. modulate tiñe TAMBIEN a los hijos, y estas barras
+	# llevan dentro el Label con el numero: se pintaria de amarillo/azul y no se leeria.
 	if _player.max_energy > 0.0:
 		_player_en_bar = ProgressBar.new()
 		_player_en_bar.show_percentage = false
 		_player_en_bar.max_value = _player.max_energy
-		_player_en_bar.custom_minimum_size = Vector2(0, 8)
-		_player_en_bar.modulate = Color(0.95, 0.85, 0.3)   # energia = amarillo
+		_player_en_bar.custom_minimum_size = Vector2(0, 16)
+		_player_en_bar.self_modulate = Color(0.95, 0.85, 0.3)   # energia = amarillo
 		$VBox.add_child(_player_en_bar)
+		_player_en_lbl = _crear_label_barra(_player_en_bar, 11)
 		idx += 1
 		$VBox.move_child(_player_en_bar, idx)
 	if _player.max_mp > 0.0:
 		_player_mp_bar = ProgressBar.new()
 		_player_mp_bar.show_percentage = false
 		_player_mp_bar.max_value = _player.max_mp
-		_player_mp_bar.custom_minimum_size = Vector2(0, 8)
-		_player_mp_bar.modulate = Color(0.4, 0.6, 1.0)     # mana = azul
+		_player_mp_bar.custom_minimum_size = Vector2(0, 16)
+		_player_mp_bar.self_modulate = Color(0.4, 0.6, 1.0)     # mana = azul
 		$VBox.add_child(_player_mp_bar)
+		_player_mp_lbl = _crear_label_barra(_player_mp_bar, 11)
 		idx += 1
 		$VBox.move_child(_player_mp_bar, idx)
+
+
+# Label centrado que cubre toda la barra, para pintar el numero DENTRO. Con borde oscuro
+# para que se lea sobre cualquier color de relleno (mismo patron que las barras del mapa).
+func _crear_label_barra(bar: ProgressBar, tam: int) -> Label:
+	var l := Label.new()
+	l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", tam)
+	l.add_theme_color_override("font_color", Color.WHITE)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	l.add_theme_constant_override("outline_size", 4)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(l)
+	return l
 
 
 func _update_hp() -> void:
@@ -278,17 +312,23 @@ func _update_hp() -> void:
 		_player_en_bar.value = _player.current_energy
 	if _player_mp_bar != null:
 		_player_mp_bar.value = _player.current_mp
-	_enemy_name.text = "%s  (Nv.%d)   %.2f/%.2f%s" % [
-		_enemy.nombre, _enemy.level, _enemy.current_hp, _enemy.max_hp, _estados_txt(_enemy)]
-	# El jugador muestra ademas su MANA (KAN-56) y su ENERGIA (KAN-57) si tiene.
-	var mp_txt := ""
-	if _player.max_mp > 0.0:
-		mp_txt = "   MP %.2f/%.2f" % [_player.current_mp, _player.max_mp]
-	var en_txt := ""
-	if _player.max_energy > 0.0:
-		en_txt = "   EN %.1f/%.1f" % [_player.current_energy, _player.max_energy]
-	_player_name.text = "%s  (Nv.%d)   %.2f/%.2f%s%s%s" % [
-		_player.nombre, _player.level, _player.current_hp, _player.max_hp, mp_txt, en_txt, _estados_txt(_player)]
+
+	# Los NUMEROS van dentro de su barra (vida, energia y mana), no amontonados en la
+	# etiqueta del nombre: cada cifra al lado de la barra a la que pertenece.
+	if _enemy_hp_lbl != null:
+		_enemy_hp_lbl.text = "%.2f / %.2f" % [_enemy.current_hp, _enemy.max_hp]
+	if _player_hp_lbl != null:
+		_player_hp_lbl.text = "%.2f / %.2f" % [_player.current_hp, _player.max_hp]
+	if _player_en_lbl != null:
+		_player_en_lbl.text = "EN  %.1f / %.1f" % [_player.current_energy, _player.max_energy]
+	if _player_mp_lbl != null:
+		_player_mp_lbl.text = "MP  %.2f / %.2f" % [_player.current_mp, _player.max_mp]
+
+	# Y la etiqueta se queda con lo suyo: nombre, nivel y los estados AL LADO.
+	_enemy_name.text = "%s  (Nv.%d)%s" % [
+		_enemy.nombre, _enemy.level, _estados_txt(_enemy)]
+	_player_name.text = "%s  (Nv.%d)%s" % [
+		_player.nombre, _player.level, _estados_txt(_player)]
 
 
 # Estados alterados + IMBUICION activa para la etiqueta del combatiente (KAN-58). "" si no
@@ -302,7 +342,9 @@ func _estados_txt(c: Combatant) -> String:
 	var s: String = c.status_summary()
 	if s != "":
 		partes.append(s)
-	return "\n   " + "  ".join(partes) if not partes.is_empty() else ""
+	# AL LADO del nombre, en la misma linea (antes iba con un salto de linea y los estados
+	# quedaban colgando debajo, separados de quien los sufre).
+	return "   " + "  ".join(partes) if not partes.is_empty() else ""
 
 
 # Teclas de DESARROLLO DENTRO del combate. El combate corre con el arbol en PAUSA, asi
@@ -408,7 +450,7 @@ func _begin_player_turn() -> void:
 		_end(false)   # el DoT (veneno...) puede matarte
 		return
 	if ev.stunned:
-		_set_log("%s esta aturdido y pierde el turno. 💫" % _player.nombre)
+		_set_log("%s está aturdido y pierde el turno. 💫" % _player.nombre)
 		_pausa_lectura()
 		return
 	# Regen de maná: escala con la Magia (KAN-56) + el bonus del arma mágica (KAN-95).
@@ -443,21 +485,45 @@ func _mostrar_acciones() -> void:
 	_ocultar_cajas()
 	_actions_box.visible = true
 	_refresh_actions()
-	_set_log("¡Tu turno! Elige una accion.")
+	_set_log("¡Tu turno! Elige una acción.")
 
 
-# Habilita/inhabilita cada accion segun disponibilidad (en tu turno).
+# Que hace cada accion. El coste de Defender NO se escribe a mano: sale de la constante.
+func _ayuda_accion(id: int) -> String:
+	match id:
+		Action.ATTACK:
+			return "Golpe básico con lo que lleves en las manos. No cuesta energía: la RECUPERA, así que es lo que te permite volver a lanzar habilidades."
+		Action.HABILIDAD:
+			return "Técnicas que te dan tus armas. Cuestan energía y tienen enfriamiento."
+		Action.MAGIC:
+			return "Recitas un hechizo, frase a frase. Cuesta maná (se paga al empezar) y fallar una frase lo malogra: cuantas más frases, más potente y más te expones."
+		Action.DEFEND:
+			return "Te cubres: encajas mucho menos daño en el próximo golpe y entrenas Resistencia. Cuesta %.0f de energía." % DEFEND_ENERGY_COST
+		Action.OBJETO:
+			return "Bebes una poción. Cura poco a poco, no de golpe: te toca aguantar mientras hace efecto."
+		Action.FLEE:
+			return "Abandonas el combate. Te llevas lo que ya tengas, pero el enemigo sigue vivo."
+	return ""
+
+
+# Habilita/inhabilita cada accion segun disponibilidad (en tu turno). Cada boton explica QUE
+# HACE; si esta bloqueado, el motivo va DELANTE (y no en lugar de) la explicacion.
 func _refresh_actions() -> void:
 	for id in _action_buttons:
-		_action_buttons[id].disabled = not _accion_disponible(id)
-	_action_buttons[Action.MAGIC].tooltip_text = (
-		"" if _hay_hechizos() else "No tienes hechizos equipados")
-	_action_buttons[Action.DEFEND].tooltip_text = (
-		"" if _player.has_energy(DEFEND_ENERGY_COST) else "Sin energia (ataca para regenerar)")
-	_action_buttons[Action.HABILIDAD].tooltip_text = (
-		"" if not _player.abilities_combate.is_empty() else "Tu equipo no aporta habilidades")
-	_action_buttons[Action.OBJETO].tooltip_text = (
-		"" if Game.consumibles_total() > 0 else "No tienes objetos")
+		var disponible: bool = _accion_disponible(id)
+		_action_buttons[id].disabled = not disponible
+		var ayuda: String = _ayuda_accion(id)
+		var motivo: String = "" if disponible else _motivo_bloqueo(id)
+		_action_buttons[id].tooltip_text = ayuda if motivo == "" else "⛔ %s\n\n%s" % [motivo, ayuda]
+
+
+func _motivo_bloqueo(id: int) -> String:
+	match id:
+		Action.MAGIC: return "No tienes hechizos equipados"
+		Action.DEFEND: return "Sin energía (ataca para regenerar)"
+		Action.HABILIDAD: return "Tu equipo no aporta habilidades"
+		Action.OBJETO: return "No tienes objetos"
+	return ""
 
 
 func _accion_disponible(id: int) -> bool:
@@ -524,19 +590,27 @@ func _accion_magia() -> void:
 	var spells_ord: Array = _player.spells.duplicate()
 	spells_ord.sort_custom(func(a, b): return _coste_efectivo(a) > _coste_efectivo(b))
 	for spell in spells_ord:
-		var b := Button.new()
+		var b := TooltipButton.new()
 		var coste: float = _coste_efectivo(spell)
 		b.text = "%s  (%.2f MP · %d frase%s)" % [
 			spell.nombre, coste, spell.longitud(),
 			"" if spell.longitud() == 1 else "s"]
+		# Tooltip: datos DERIVADOS de los campos (resumen) + el sabor de la descripcion.
+		# Igual que las habilidades (ver _accion_habilidad): la magia lo tenia todo escrito
+		# en SpellData.resumen() y no lo enseñaba nadie.
+		b.tooltip_text = spell.resumen()
+		if spell.descripcion != "":
+			b.tooltip_text += "\n\n" + spell.descripcion
+		# El motivo del bloqueo va DELANTE del resumen, no en su lugar: si no te llega el
+		# maná es justo cuando quieres mirar lo que hace el hechizo.
 		if not _player.has_mana(coste):
 			b.disabled = true
-			b.tooltip_text = "Mana insuficiente"
+			b.tooltip_text = "⛔ Maná insuficiente\n\n%s" % b.tooltip_text
 		elif spell.imbue_tipo == 1 and Game.equipped_main == null:
 			# Imbuir el ARMA sin llevar arma no tiene sentido: no hay filo que teñir. Las de
 			# CUERPO si valen a manos vacias (te imbuyes tu, no el acero).
 			b.disabled = true
-			b.tooltip_text = "No llevas arma que imbuir"
+			b.tooltip_text = "⛔ No llevas arma que imbuir\n\n%s" % b.tooltip_text
 		b.pressed.connect(_elegir_hechizo.bind(spell))
 		_spell_box.add_child(b)
 	var volver := Button.new()
@@ -623,7 +697,7 @@ func _mostrar_disparo() -> void:
 	b.pressed.connect(_disparar_hechizo)
 	_cast_box.add_child(b)
 	_cast_box.visible = true
-	_set_log("El conjuro esta listo. ¡Lanzalo!")
+	_set_log("El conjuro está listo. ¡Lánzalo!")
 
 
 func _disparar_hechizo() -> void:
@@ -893,7 +967,7 @@ func _accion_habilidad() -> void:
 		var es_conv: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta toda la energia
 		var coste: float = _player.current_energy if es_conv else ab.coste(manos)
 		var cd_left: int = _player.ability_cd_left(ab)
-		var b := Button.new()
+		var b := TooltipButton.new()
 		var cd_txt := "  ⏳%d" % cd_left if cd_left > 0 else ""
 		var costo_txt := ("toda EN → %.1f MP" % (coste / ab.energia_a_mana)) if es_conv else ("%.0f EN" % coste)
 		var foco_txt := "  🔮%d cargas" % ab.foco_cargas if ab.foco_cargas > 0 else ""
@@ -913,7 +987,7 @@ func _accion_habilidad() -> void:
 			b.tooltip_text = "⛔ Necesitas al menos %.0f EN\n\n%s" % [ab.energia_a_mana, b.tooltip_text]
 		elif not es_conv and not _player.has_energy(coste):
 			b.disabled = true
-			b.tooltip_text = "⛔ Sin energia suficiente\n\n%s" % b.tooltip_text
+			b.tooltip_text = "⛔ Sin energía suficiente\n\n%s" % b.tooltip_text
 		b.pressed.connect(_usar_habilidad.bind(ab))
 		_ability_box.add_child(b)
 	var volver := Button.new()
@@ -921,7 +995,7 @@ func _accion_habilidad() -> void:
 	volver.pressed.connect(_mostrar_acciones)
 	_ability_box.add_child(volver)
 	_ability_box.visible = true
-	_set_log("Elige una habilidad. (EN = energia)")
+	_set_log("Elige una habilidad. (EN = energía)")
 
 
 func _usar_habilidad(ab: AbilityData) -> void:
@@ -1066,7 +1140,7 @@ func _accion_objeto() -> void:
 		var n: int = int(Game.consumables[cons])
 		if n <= 0:
 			continue
-		var b := Button.new()
+		var b := TooltipButton.new()
 		b.text = "%s  x%d  (%s en %d turnos)" % [
 			cons.nombre, n, cons.resumen(_player.max_hp, _player.max_mp), cons.turnos]
 		b.tooltip_text = cons.descripcion
@@ -1223,9 +1297,9 @@ func _enemy_turn() -> void:
 			_enemy_charging = null
 			_enemy_charge_left = 0
 			print("[habilidad enemigo] %s ATURDIDO: se le INTERRUMPE %s" % [_enemy.nombre, interrumpida])
-			_set_log("%s esta aturdido: se le interrumpe %s. 💫" % [_enemy.nombre, interrumpida])
+			_set_log("%s está aturdido: se le interrumpe %s. 💫" % [_enemy.nombre, interrumpida])
 		else:
-			_set_log("%s esta aturdido y pierde el turno. 💫" % _enemy.nombre)
+			_set_log("%s está aturdido y pierde el turno. 💫" % _enemy.nombre)
 		_pausa_lectura()   # ya se le resto la barra ATB en _process; pierde la accion
 		return
 

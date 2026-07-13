@@ -54,9 +54,16 @@ class_name EnemyData
 @export var base_magic: float = 3.0
 @export var base_speed: float = 4.0
 
-# --- Exploracion (mazmorra): velocidad de patrulla/persecucion (franja) ---
+# --- Exploracion (mazmorra): velocidad de MERODEO (franja; cada bicho tira la suya) ---
+# Va lenta a proposito: un bicho patrullando no tiene prisa, y asi puedes esquivarlo.
 @export var move_speed_min: float = 30.0
 @export var move_speed_max: float = 55.0
+
+# Multiplicador de velocidad al PERSEGUIRTE. Merodear y perseguir NO son lo mismo: un
+# bicho que te ha visto se lanza. Referencia: el jugador anda a 120 px/s y corre a ~204.
+# El slime (30-55 merodeando) persigue a 66-121: el mas rapido te pisa los talones si
+# andas, pero corriendo SIEMPRE te escapas. Un bicho agil pondria aqui mas.
+@export var chase_speed_mult: float = 2.2
 
 # --- Loot: CATEGORIA del cristal que se le puede extraer (Fase 5) ---
 # El cristal sale en una categoria aleatoria dentro de esta franja (mayor

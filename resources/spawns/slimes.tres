@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="SpawnTable" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
+[ext_resource type="Script" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/slime.tres" id="3_slime"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_veneno.tres" id="4_veneno"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_fuego.tres" id="5_fuego"]
+
+[sub_resource type="Resource" id="E_slime"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("3_slime")
+peso = 88.0
+piso_min = 1
+piso_max = 0
+
+[sub_resource type="Resource" id="E_veneno"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("4_veneno")
+peso = 10.0
+piso_min = 1
+piso_max = 0
+
+[sub_resource type="Resource" id="E_fuego"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("5_fuego")
+peso = 2.0
+piso_min = 2
+piso_max = 0
+
+[resource]
+script = ExtResource("1_tabla")
+nombre = "Slimes"
+entradas = [SubResource("E_slime"), SubResource("E_veneno"), SubResource("E_fuego")]
+metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"

@@ -58,6 +58,35 @@ func _ready() -> void:
 	_peso_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_peso_box.add_child(_peso_lbl)
 
+	_avisar_muerte()
+
+
+# Si vienes de MORIR, el aviso se enseña AQUI (ya en el pueblo) y no en la pantalla de
+# combate: alli el jugador acaba de pulsar "Continuar" para largarse y no lo leeria.
+func _avisar_muerte() -> void:
+	if Game.mensaje_muerte == "":
+		return
+	var aviso := Label.new()
+	aviso.text = Game.mensaje_muerte
+	Game.mensaje_muerte = ""   # ya avisado: que no vuelva a saltar al cambiar de escena
+	aviso.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	aviso.offset_top = 90
+	aviso.offset_left = -420
+	aviso.offset_right = 420
+	aviso.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	aviso.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	aviso.add_theme_font_size_override("font_size", 18)
+	aviso.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
+	aviso.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	aviso.add_theme_constant_override("outline_size", 5)
+	add_child(aviso)
+
+	# Se queda un rato y se desvanece: no es un menu, es una noticia.
+	var t := create_tween()
+	t.tween_interval(6.0)
+	t.tween_property(aviso, "modulate:a", 0.0, 1.5)
+	t.tween_callback(aviso.queue_free)
+
 
 func _process(_delta: float) -> void:
 	# Ayudas de tecla (el resto de datos viven en las barras / cuadrado de peso / menus).

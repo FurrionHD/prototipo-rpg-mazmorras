@@ -105,8 +105,275 @@ var _drop_pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd"
 var _active_enemy: Node = null     # enemigo del combate en curso
 var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
 
+
+# ¿Hay una pantalla modal por encima del mapa (combate o extraccion)? Lo consulta el menu de
+# PAUSA: ahi no se guarda. Guardar a mitad de un combate seria guardar un estado que luego no
+# se puede reconstruir (media pelea, un bicho a medio matar).
+func hay_pantalla_abierta() -> bool:
+	return _active_layer != null and is_instance_valid(_active_layer)
+
 # Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
 var current_floor: int = 1
+
+# MEMORIA DE LA MAZMORRA: piso -> {"enemigos": [...], "suelo": [...]}. Guarda lo que dejaste
+# en cada piso (bichos vivos, cadaveres sin extraer y cosas por el suelo) para que al volver
+# este todo donde estaba: una mazmorra es un SITIO, no un decorado que se rehace a tu espalda.
+# La FORMA del piso no se guarda: sale sola de la semilla (ver DungeonFloor).
+# Dura lo que dura la EXPEDICION: al entrar desde el pueblo se olvida (ver door.gd), o los
+# pisos se irian vaciando para siempre y no se podria volver a farmear.
+var memoria_pisos: Dictionary = {}
+
+
+func olvidar_mazmorra() -> void:
+	memoria_pisos.clear()
+
+
+# ============================================================
+#  GUARDAR / CARGAR PARTIDA  (el fichero lo escribe Perfil; aqui se arma el SaveData)
+# ============================================================
+
+# Semilla del MUNDO de esta partida: de ella salen todos los mapas (ver DungeonFloor).
+# Cada partida nueva estrena la suya, asi que dos ranuras tienen mazmorras distintas.
+var semilla_mundo: int = 0
+
+# Al CARGAR una partida hecha dentro de la mazmorra: donde hay que plantar al jugador. El
+# DungeonFloor lo lee al construir el piso en vez de mandarte a la entrada.
+var pos_cargada: Vector2 = Vector2.INF
+
+
+# Empieza una partida DE CERO (menu -> Nueva partida). Mundo nuevo y personaje a estrenar.
+func nueva_partida() -> void:
+	randomize()
+	semilla_mundo = randi()
+	if semilla_mundo == 0:
+		semilla_mundo = 1   # 0 = "sin semilla"; nunca puede ser el valor bueno
+
+	player_level = 1
+	ability_internal = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+	actualizar_estado()
+	player_current_hp = -1.0
+	player_current_mp = -1.0
+	money = 0
+
+	crystals.clear()
+	drops.clear()
+	almacen_materiales.clear()
+	owned_weapons.clear()
+	owned_armor.clear()
+	consumables.clear()
+	equipped_spells.clear()
+	item_meta.clear()
+
+	equipped_main = null
+	equipped_off = null
+	equipped_casco = null
+	equipped_pecho = null
+	equipped_manos = null
+	equipped_pantalones = null
+	equipped_botas = null
+
+	tool_hit_reduction = 0
+	tool_destreza_bonus = 0
+
+	current_floor = 1
+	pos_cargada = Vector2.INF
+	olvidar_mazmorra()
+	print("[partida] mundo nuevo. Semilla: ", semilla_mundo)
+
+
+func exportar_partida() -> SaveData:
+	var d := SaveData.new()
+
+	# El piso en el que estas AHORA aun no esta en memoria_pisos (un piso solo se vuelca al
+	# ABANDONARLO). Si no le pidieramos el volcado, guardarias vacio el piso que estas pisando.
+	#
+	# EXCEPCION: si acabas de MORIR, el nodo de la mazmorra sigue existiendo (aun no ha dado
+	# tiempo a cambiar de escena) pero tu ya no estas ahi: te rescatan al pueblo. Sin esta
+	# salvedad, la partida se guardaria como "dentro de la mazmorra" y ademas volveria a
+	# volcar el piso a la memoria que la muerte acaba de borrar -> cargarias muerto, abajo.
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var en_mazmorra: bool = piso != null and not _muriendo
+	if en_mazmorra and piso.has_method("volcar_a_memoria"):
+		piso.volcar_a_memoria()
+
+	var player := get_tree().get_first_node_in_group("player")
+
+	d.semilla_mundo = semilla_mundo
+	d.ability_internal = ability_internal.duplicate()
+	d.player_level = player_level
+	d.player_current_hp = player_hp()
+	d.player_current_mp = player_current_mp
+	d.stamina = float(player.current_stamina) if player != null and "current_stamina" in player else -1.0
+	d.money = money
+
+	d.crystals = crystals.duplicate()
+	d.drops = drops.duplicate()
+	d.almacen_materiales = almacen_materiales.duplicate()
+	d.owned_weapons = owned_weapons.duplicate()
+	d.owned_armor = owned_armor.duplicate()
+
+	d.equipped_main = equipped_main
+	d.equipped_off = equipped_off
+	d.equipped_casco = equipped_casco
+	d.equipped_pecho = equipped_pecho
+	d.equipped_manos = equipped_manos
+	d.equipped_pantalones = equipped_pantalones
+	d.equipped_botas = equipped_botas
+	d.equip_meta = equip_meta.duplicate(true)
+
+	# item_meta va indexado por el PROPIO objeto: se desmonta en dos arrays paralelos y se
+	# rearma al cargar (no me fio de que un Resource sobreviva como CLAVE de diccionario).
+	d.meta_items = []
+	d.meta_datos = []
+	for item in item_meta:
+		d.meta_items.append(item)
+		d.meta_datos.append((item_meta[item] as Dictionary).duplicate(true))
+
+	# Consumibles: la clave es el .tres de la pocion, o sea un fichero -> basta su ruta.
+	d.consumibles = {}
+	for c in consumables:
+		if c != null and c.resource_path != "":
+			d.consumibles[c.resource_path] = int(consumables[c])
+
+	d.equipped_spells = equipped_spells.duplicate()
+	d.tool_hit_reduction = tool_hit_reduction
+	d.tool_destreza_bonus = tool_destreza_bonus
+
+	d.en_mazmorra = en_mazmorra
+	d.current_floor = current_floor
+	if player is Node2D:
+		d.pos_jugador = (player as Node2D).global_position
+	d.memoria_pisos = memoria_pisos.duplicate(true)
+
+	# Cabecera (lo que se ve en la lista de ranuras).
+	d.fecha = Time.get_datetime_string_from_system(false, true)
+	d.cab_nivel = player_level
+	d.cab_piso = current_floor
+	d.cab_dinero = money
+	d.cab_lugar = ("Mazmorra · piso %d" % current_floor) if en_mazmorra else "Pueblo"
+	return d
+
+
+func importar_partida(d: SaveData) -> void:
+	semilla_mundo = d.semilla_mundo
+
+	ability_internal = d.ability_internal.duplicate()
+	player_level = d.player_level
+	actualizar_estado()   # las stats VISIBLES se derivan de las internas, no se guardan aparte
+	player_current_hp = d.player_current_hp
+	player_current_mp = d.player_current_mp
+	money = d.money
+
+	crystals.assign(d.crystals)
+	drops.assign(d.drops)
+	almacen_materiales.assign(d.almacen_materiales)
+	owned_weapons.assign(d.owned_weapons)
+	owned_armor.assign(d.owned_armor)
+
+	equipped_main = d.equipped_main
+	equipped_off = d.equipped_off
+	equipped_casco = d.equipped_casco
+	equipped_pecho = d.equipped_pecho
+	equipped_manos = d.equipped_manos
+	equipped_pantalones = d.equipped_pantalones
+	equipped_botas = d.equipped_botas
+	equip_meta = d.equip_meta.duplicate(true)
+
+	# Rearmamos item_meta con los MISMOS objetos que hay en el baul/equipo: Godot ha
+	# conservado la identidad, asi que la espada equipada y la del baul siguen siendo una.
+	item_meta.clear()
+	for i in range(mini(d.meta_items.size(), d.meta_datos.size())):
+		item_meta[d.meta_items[i]] = (d.meta_datos[i] as Dictionary).duplicate(true)
+
+	consumables.clear()
+	for ruta in d.consumibles:
+		var c: Resource = load(ruta)
+		if c != null:
+			consumables[c] = int(d.consumibles[ruta])
+
+	equipped_spells.assign(d.equipped_spells)
+	tool_hit_reduction = d.tool_hit_reduction
+	tool_destreza_bonus = d.tool_destreza_bonus
+
+	current_floor = d.current_floor
+	memoria_pisos = d.memoria_pisos.duplicate(true)
+	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
+
+	# Curas a medias y estados de la sesion anterior: fuera.
+	player_heal_left = 0.0
+	player_mana_heal_left = 0.0
+	inventory_open = false
+	debug_panel_open = false
+	_stamina_cargada = d.stamina
+
+
+# Aguante con el que hay que arrancar al jugador tras cargar (-1 = al maximo). Lo lee el
+# jugador en su _ready: el nodo aun no existe cuando se importa la partida.
+var _stamina_cargada: float = -1.0
+
+func stamina_cargada() -> float:
+	var s: float = _stamina_cargada
+	_stamina_cargada = -1.0   # de un solo uso: al recargar la escena vuelve a su maximo normal
+	return s
+
+
+# --- MUERTE ---
+# Que fraccion de la BOLSA se queda en la mazmorra al caer. Alto a proposito: es lo que hace
+# que "¿subo a vender o bajo un piso mas?" sea una decision y no un tramite.
+const MUERTE_PERDIDA := 0.8
+
+# Aviso pendiente de enseñar al aparecer en el pueblo (el jugador acaba de pulsar
+# "Continuar" para salir del combate: nada que se pinte en esa pantalla lo va a leer).
+var mensaje_muerte: String = ""
+
+# True mientras se resuelve la muerte: le dice a exportar_partida que, aunque el nodo de la
+# mazmorra siga vivo, tu ya no estas en ella (te despiertas en el pueblo).
+var _muriendo: bool = false
+
+
+# Has caido en la mazmorra: pierdes el 80% de lo que llevabas encima, despiertas en el pueblo
+# curado y la expedicion se acaba (la mazmorra se repuebla). El DINERO, el EQUIPO y lo que ya
+# tuvieras guardado en el Hogar no se tocan: el castigo es el botin de ESTA bajada.
+func morir_jugador() -> void:
+	_muriendo = true
+	var perdidos_c: int = _perder_de(crystals)
+	var perdidos_d: int = _perder_de(drops)
+
+	# Despiertas entero: ya has pagado con el botin, no hace falta ademas un paseo al altar.
+	player_current_hp = -1   # -1 = "a tope" (se rellena al vuelo)
+	player_current_mp = -1
+	player_heal_left = 0.0
+	player_mana_heal_left = 0.0
+
+	# Expedicion nueva: vuelves al piso 1 y la mazmorra se olvida de lo que dejaste.
+	current_floor = 1
+	olvidar_mazmorra()
+
+	mensaje_muerte = "Has caído en la mazmorra. Te rescatan, pero el botín se queda abajo: pierdes %d cristal%s y %d material%s." % [
+		perdidos_c, "" if perdidos_c == 1 else "es",
+		perdidos_d, "" if perdidos_d == 1 else "es"]
+	print("[muerte] ", mensaje_muerte, " | te quedan ", crystals.size(), " cristales y ",
+		drops.size(), " materiales")
+
+	# La muerte se GUARDA SOLA: no vale morir y recargar la partida de hace un rato. Si se
+	# pudiera deshacer, el castigo por caer seria decorativo y la decision de "¿subo a vender
+	# o bajo un piso mas?" dejaria de tener peso.
+	Perfil.guardar_actual()
+	_muriendo = false
+
+	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
+
+
+# Descarta el 80% de una lista de la bolsa: la CANTIDAD es fija (round(n * 0.8), asi es
+# predecible y se puede contar), pero CUALES se pierden es al azar. Devuelve cuantos cayeron.
+func _perder_de(lista: Array) -> int:
+	var n: int = lista.size()
+	if n == 0:
+		return 0
+	var perder: int = mini(n, int(round(float(n) * MUERTE_PERDIDA)))
+	for _i in range(perder):
+		lista.remove_at(randi() % lista.size())
+	return perder
 
 # --- Escalado del ENEMIGO por PROFUNDIDAD (piso) ---
 # NIVEL 1 = pisos 1..13. Dos ejes distintos:
@@ -143,6 +410,47 @@ func enemy_ability_sum_band(floor: int) -> Vector2:
 	var f: float = float(maxi(1, floor) - 1)
 	var low: float = maxf(SUM_MIN_STEP * f, SUM_MIN_FLOOR)
 	return Vector2(low, SUM_MAX_F1 + SUM_MAX_STEP * f)
+
+
+# Bajar un piso (lo llama la escalera). El mapa se REGENERA EN SITIO: nada de recargar
+# la escena. Recargarla reinstanciaba al jugador en la sala de entrada -justo al lado de
+# la puerta del pueblo- con la F aun pulsada, y te escupia al pueblo de rebote.
+# Regenerar sin tocar el arbol conserva al jugador, su HUD y sus menus.
+# Tu vida, tu bolsa y tus stats siguen donde estaban: bajar no cura ni descansa.
+func bajar_piso() -> void:
+	# Bajas: apareces en la ENTRADA del piso nuevo (su boca) y te toca cruzarlo entero.
+	_cambiar_piso(current_floor + 1, false)
+
+
+# Subir (escalera de la sala de entrada, solo del piso 2 en adelante). En el piso 1 no hay
+# escalera de subir: ahi esta la PUERTA al pueblo.
+func subir_piso() -> void:
+	if current_floor <= 1:
+		return
+	# Subes: apareces JUNTO A LA ESCALERA POR LA QUE BAJASTE, en el fondo del piso de
+	# arriba, no en su entrada. Si no, subir un piso seria un atajo gratis a la salida.
+	_cambiar_piso(current_floor - 1, true)
+
+
+# Ignora la tecla de actuar (ESPACIO/F) hasta que el jugador la suelte. Se llama al VOLVER
+# al mapa desde una pantalla que se cierra con esa misma tecla (combate, extraccion).
+func _bloquear_interaccion_jugador() -> void:
+	var p: Node = get_tree().get_first_node_in_group("player")
+	if p != null and p.has_method("bloquear_interaccion"):
+		p.bloquear_interaccion()
+
+
+func _cambiar_piso(nuevo: int, por_la_bajada: bool) -> void:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null or not piso.has_method("regenerar"):
+		push_warning("[mazmorra] no hay piso que regenerar (¿escalera fuera de la mazmorra?)")
+		return
+	current_floor = maxi(1, nuevo)
+	var band: Vector2 = enemy_ability_sum_band(current_floor)
+	print("[mazmorra] piso ", current_floor,
+		" | stat base x", snappedf(enemy_floor_stat_factor(), 0.01),
+		" | franja de habilidades ", roundi(band.x), "-", roundi(band.y))
+	piso.regenerar(por_la_bajada)
 
 # True mientras el panel de inventario esta abierto: el jugador no se mueve ni
 # interactua (pero el enemigo sigue y puede emboscarte).
@@ -210,6 +518,12 @@ var debug_dummy_hp: float = 500.0
 # True mientras el panel de debug esta abierto: congela al jugador (para poder
 # escribir en los campos sin que WASD lo muevan). Lo consulta player.gd.
 var debug_panel_open: bool = false
+
+# La ayuda (F1) se abre SOLA la primera vez que arrancas el juego, para que un tester que
+# no ha visto nunca esto sepa que teclas tiene. Solo la primera: vive aqui (en el autoload)
+# y no en el panel porque el panel lo crea el jugador y se reconstruye en CADA escena; si
+# no, la ayuda se te volveria a abrir cada vez que cruzas una puerta.
+var ayuda_mostrada: bool = false
 
 
 func _ready() -> void:
@@ -1162,6 +1476,27 @@ func _input(event: InputEvent) -> void:
 			_dev_cycle_off()
 		KEY_J:
 			_dev_cycle_armor()
+		KEY_P:
+			_dev_test_spawns()
+		KEY_B:
+			_dev_brote()
+
+
+# --- PRUEBAS del sistema de spawns ---
+# P: tira 200 veces la tabla del piso y cuenta que sale. Valida en un segundo que el
+# venenoso cae ~1/10 y el de fuego ~1/50, sin jugarte una hora esperando partos.
+func _dev_test_spawns() -> void:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso != null and piso.has_method("test_proporciones"):
+		piso.test_proporciones(200)
+
+
+# B: fuerza un BROTE en la zona donde estas (el sistema esta apagado en juego; esto es
+# para poder verlo). Sale por la pared mas cercana que no tengas encima.
+func _dev_brote() -> void:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso != null and piso.has_method("dev_brote_cercano"):
+		piso.dev_brote_cercano()
 
 
 # --- PRUEBAS: ciclar el loadout con el teclado ---
@@ -1356,6 +1691,10 @@ func start_extraction(corpse: Node) -> void:
 
 func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 	get_tree().paused = false
+	# El minijuego se juega con ESPACIO, que ahora es TAMBIEN la tecla de atacar/interactuar:
+	# sin esto, la ultima pulsacion del minijuego te lanzaria contra el bicho que tengas al
+	# lado nada mas volver al mapa.
+	_bloquear_interaccion_jugador()
 	if is_instance_valid(corpse):
 		corpse.extracted = true  # ya no se puede volver a extraer
 		if corpse.has_method("desvanecer"):
@@ -1428,6 +1767,7 @@ func _tirar_drop(corpse: Node, categoria: int) -> void:
 func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float = -1.0,
 		player_energy_left: float = -1.0) -> void:
 	get_tree().paused = false
+	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
 	player_current_hp = player_hp_left
 	if player_mp_left >= 0.0:
 		player_current_mp = player_mp_left  # el mana gastado persiste al salir
@@ -1448,3 +1788,9 @@ func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left
 	if is_instance_valid(_active_layer):
 		_active_layer.queue_free()
 	_active_layer = null
+
+	# ¿MUERTO? Se mira la VIDA, no player_won: al HUIR tambien llega player_won = false
+	# (combat._end(false, true)), y huir es una decision legitima que ya pagas perdiendo el
+	# combate. Castigar la huida como la muerte seria un error muy facil de colar aqui.
+	if player_hp_left <= 0.0:
+		morir_jugador()
