@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="MaterialTable" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/material_table.gd" id="1_tabla"]
+[ext_resource type="Script" path="res://scripts/world/material_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" path="res://resources/materials/hierba_palida.tres" id="3_hierba"]
+[ext_resource type="Resource" path="res://resources/materials/raiz_amarga.tres" id="4_raiz"]
+
+[sub_resource type="Resource" id="E_hierba"]
+script = ExtResource("2_entrada")
+material = ExtResource("3_hierba")
+peso = 70.0
+
+[sub_resource type="Resource" id="E_raiz"]
+script = ExtResource("2_entrada")
+material = ExtResource("4_raiz")
+peso = 30.0
+
+[resource]
+script = ExtResource("1_tabla")
+nombre = "Plantas"
+entradas = [SubResource("E_hierba"), SubResource("E_raiz")]
+metadata/_custom_type_script = "res://scripts/world/material_table.gd"

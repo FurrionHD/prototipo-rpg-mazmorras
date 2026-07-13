@@ -235,6 +235,29 @@ func imbue_etiqueta() -> String:
 		"" if imbue_usos == 1 else "s"]
 
 
+# FICHA de la imbuicion activa, para el tooltip del combate ("" si no hay ninguna). Todos los
+# numeros salen de los campos, como en StatusEffects.Instance.resumen().
+func imbue_resumen() -> String:
+	if imbue_elemento == Elementos.Elemento.NINGUNO or imbue_usos <= 0:
+		return ""
+	var elem: String = Elementos.nombre(imbue_elemento)
+	var lineas: PackedStringArray = []
+	lineas.append("%s Imbuición de %s (%s)" % [
+		Elementos.icono(imbue_elemento), elem, "cuerpo" if imbue_cuerpo else "arma"])
+	lineas.append("Tus golpes añaden un %d%% de daño de %s (ajustado por lo que resista o sufra el rival)."
+		% [roundi(imbue_pct * 100.0), elem])
+	if imbue_cuerpo:
+		lineas.append("Al llevarlo ENCIMA, adoptas la afinidad de %s: sus resistencias, sus debilidades y sus inmunidades." % elem)
+	if imbue_estado >= 0 and imbue_prob > 0.0:
+		lineas.append("Cada golpe que acierta puede dejar %s (%d%% base; la probabilidad real depende de tu Magia contra su Resistencia)."
+			% [str(StatusEffects.def(imbue_estado).get("nombre", "?")), roundi(imbue_prob * 100.0)])
+	# Se gasta por ATAQUE, no por turno: es la diferencia que hay que entender para no
+	# fundirsela recitando un conjuro largo.
+	lineas.append("Le quedan %d ataque%s (se gasta al ATACAR, no con los turnos)." % [
+		imbue_usos, "" if imbue_usos == 1 else "s"])
+	return "\n".join(lineas)
+
+
 # Tira el ESTADO de la imbuicion tras un golpe que ACIERTA. Devuelve su nombre si prende, ""
 # si no. La probabilidad escala con tu Magia RELATIVA a la Resistencia del rival (ver
 # StatsMath.imbue_proc_chance) y la baja su resistencia a estados. apply_status() ya corta

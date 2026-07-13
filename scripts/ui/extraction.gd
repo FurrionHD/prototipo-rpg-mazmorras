@@ -21,6 +21,13 @@ var _zone_ratio: float = 0.13  # ancho de la zona (fraccion de la barra)
 var _marker_speed: float = 0.8 # recorrido por segundo (0..1)
 var _speed_step: float = 0.3   # cuanto acelera por cada acierto
 
+# TECHO de la velocidad del marcador. Sin el, los aciertos lo aceleran sin fin (_speed_step
+# por acierto) y en las extracciones largas el marcador acaba yendo tan rapido que se ve
+# BORROSO: salta decenas de pixeles por frame aunque el juego vaya a 144 fps clavados. El
+# reto tiene que estar en la ZONA (que se estrecha con la dificultad), no en perseguir con la
+# vista algo que ya no se puede seguir. Game lo cape tambien de entrada (EXTRACTION_MARKER_MAX).
+const VEL_MAX := 1.4
+
 var _done: int = 0
 var _misses: int = 0
 var _marker: float = 0.0
@@ -73,7 +80,8 @@ func _process(delta: float) -> void:
 func _attempt() -> void:
 	_done += 1
 	if _marker >= _zone_start and _marker <= _zone_start + _zone_ratio:
-		_marker_speed += _speed_step  # acierto: acelera el marcador
+		# Acierto: acelera el marcador, pero nunca por encima del techo (ver VEL_MAX).
+		_marker_speed = minf(_marker_speed + _speed_step, VEL_MAX)
 	else:
 		_misses += 1
 	_randomize_zone()
@@ -122,8 +130,9 @@ func _draw() -> void:
 	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.25, 0.25, 0.28))
 	draw_rect(Rect2(bar_x + _zone_start * bar_w, bar_y, _zone_ratio * bar_w, bar_h),
 		Color(0.2, 0.8, 0.2))
+	# Marcador GRUESO: en movimiento, un palo de 4 px se lee mucho peor que uno de 6.
 	var mx: float = bar_x + _marker * bar_w
-	draw_rect(Rect2(mx - 2.0, bar_y - 8.0, 4.0, bar_h + 16.0), Color.WHITE)
+	draw_rect(Rect2(mx - 3.0, bar_y - 8.0, 6.0, bar_h + 16.0), Color.WHITE)
 
 	var font: Font = ThemeDB.fallback_font
 	draw_string(font, Vector2(bar_x, bar_y - 64.0),

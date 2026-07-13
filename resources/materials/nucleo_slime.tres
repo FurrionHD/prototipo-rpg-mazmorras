@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nucleo_slime"
+nombre = "Núcleo de slime"
+descripcion = "El grumo denso que late en el centro del bicho. No se funde, no se rompe: se le pide permiso al metal para meterlo dentro."
+familia = 1
+tipo = 4
+tier = 1
+exigencia = 0.0
+peso_base = 0.6
+valor_base = 90
+color = Color(0.85, 0.75, 1.0, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

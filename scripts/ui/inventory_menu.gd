@@ -1,11 +1,11 @@
 # ============================================================
 #  inventory_menu.gd  (CanvasLayer creada por codigo desde el jugador)
 #  INVENTARIO a pantalla completa (tecla I), con pestañas verticales:
-#    1) BOLSA       - lo que llevas de la expedicion (cristales + drops). Es lo que
+#    1) BOLSA       - lo que llevas de la expedicion (cristales + materiales). Es lo que
 #                     PESA. Seleccionas un stack y puedes SOLTARLO al suelo (modal de
 #                     cantidad si hay mas de 1); lo soltado se recoge de nuevo con F.
 #    2) CONSUMIBLES - pociones: seleccionas una y le das a "Usar".
-#    3) MATERIALES  - drops ya guardados en el HOGAR (no pesan). Solo consulta.
+#    3) MATERIALES  - los ya guardados en el HOGAR (no pesan). Solo consulta.
 #    4) ARMAS       - armas/escudos/varitas de tu baul. Solo consulta (equipar: menu C).
 #    5) ARMADURAS   - piezas de armadura de tu baul. Solo consulta.
 #
@@ -238,7 +238,7 @@ func _pick(i: int) -> void:
 #  Stacks (agrupacion de items iguales)
 # ============================================================
 
-# Agrupa una lista de Cristal/MonsterDrop en stacks {modelo, cantidad}.
+# Agrupa una lista de Cristal/MaterialItem en stacks {modelo, cantidad}.
 func _agrupar(items: Array) -> Array:
 	var claves: Array = []
 	var mapa: Dictionary = {}
@@ -258,9 +258,9 @@ func _clave_item(it: Resource) -> String:
 	if it is Cristal:
 		var c := it as Cristal
 		return "c|%d|%d" % [c.categoria, int(c.calidad)]
-	if it is MonsterDrop:
-		var d := it as MonsterDrop
-		return "d|%s|%d" % [d.nombre, int(d.calidad)]
+	if it is MaterialItem:
+		var m := it as MaterialItem
+		return "m|%s|%d" % [m.nombre(), int(m.calidad)]
 	return "?"
 
 
@@ -268,9 +268,9 @@ func _nombre_item(it: Resource) -> String:
 	if it is Cristal:
 		var c := it as Cristal
 		return "Cristal Cat %d\n(%s)" % [c.categoria, c.calidad_texto()]
-	if it is MonsterDrop:
-		var d := it as MonsterDrop
-		return "%s\n(%s)" % [d.nombre, d.calidad_texto()]
+	if it is MaterialItem:
+		var m := it as MaterialItem
+		return "%s\n(%s)" % [m.nombre(), m.calidad_texto()]
 	return "?"
 
 
@@ -301,8 +301,8 @@ func _build_bolsa() -> void:
 	var items: Array = []
 	for c in Game.crystals:
 		items.append(c)
-	for d in Game.drops:
-		items.append(d)
+	for m in Game.materiales:
+		items.append(m)
 	_stacks = _agrupar(items)
 	_grid_detail(_labels_stacks(_stacks), _preview_bolsa)
 
@@ -319,11 +319,15 @@ func _preview_bolsa(vb: VBoxContainer) -> void:
 		_row(vb, "Calidad", c.calidad_texto())
 		_row(vb, "Valor estimado", "%d  (total %d)" % [c.valor_estimado(), c.valor_estimado() * n])
 		_row(vb, "Peso", "%.1f  (total %.1f)" % [c.peso(), c.peso() * n])
-	elif modelo is MonsterDrop:
-		var d := modelo as MonsterDrop
-		_row(vb, "Calidad", d.calidad_texto())
-		_row(vb, "Valor estimado", "%d  (total %d)" % [d.valor_estimado(), d.valor_estimado() * n])
-		_row(vb, "Peso", "%.1f  (total %.1f)" % [d.peso(), d.peso() * n])
+	elif modelo is MaterialItem:
+		var m := modelo as MaterialItem
+		if m.data != null:
+			_row(vb, "Material", m.data.resumen())
+		_row(vb, "Calidad", m.calidad_texto())
+		_row(vb, "Valor estimado", "%d  (total %d)" % [m.valor_estimado(), m.valor_estimado() * n])
+		_row(vb, "Peso", "%.1f  (total %.1f)" % [m.peso(), m.peso() * n])
+		if m.data != null and m.data.descripcion != "":
+			_note(vb, m.data.descripcion)
 
 	vb.add_child(HSeparator.new())
 	var soltar := Button.new()
@@ -407,12 +411,16 @@ func _build_materiales() -> void:
 
 
 func _preview_material(vb: VBoxContainer) -> void:
-	var d: MonsterDrop = _stacks[_sel]["modelo"]
+	var m: MaterialItem = _stacks[_sel]["modelo"]
 	var n: int = int(_stacks[_sel]["cantidad"])
-	_title(vb, d.nombre)
+	_title(vb, m.nombre())
 	_row(vb, "Cantidad", str(n))
-	_row(vb, "Calidad", d.calidad_texto())
-	_row(vb, "Valor estimado", "%d  (total %d)" % [d.valor_estimado(), d.valor_estimado() * n])
+	if m.data != null:
+		_row(vb, "Material", m.data.resumen())
+	_row(vb, "Calidad", m.calidad_texto())
+	_row(vb, "Valor estimado", "%d  (total %d)" % [m.valor_estimado(), m.valor_estimado() * n])
+	if m.data != null and m.data.descripcion != "":
+		_note(vb, m.data.descripcion)
 
 
 # ============================================================

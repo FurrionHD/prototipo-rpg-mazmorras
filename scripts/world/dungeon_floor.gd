@@ -36,14 +36,33 @@ class_name DungeonFloor
 # --- QUE pare la mazmorra: la tabla del piso (familias -> variantes) ---
 @export var spawn_table: SpawnTable
 
+# --- QUE SE RECOLECTA en el piso ---
+# Las PLANTAS crecen en los PASILLOS (las pisas de camino a cualquier sitio: es el botin
+# del transito). Las VETAS estan en las SALAS LEJANAS, y nunca en la de entrada ni en la de
+# la escalera de bajar: picar tiene que costarte meterte en la mazmorra, no ser un peaje que
+# pagas de paso. Los .tres van como valor por defecto para no tener que tocar la escena.
+@export var tabla_vetas: MaterialTable = preload("res://resources/world/vetas.tres")
+@export var tabla_plantas: MaterialTable = preload("res://resources/world/plantas.tres")
+# Cuantas celdas de pasillo por planta, y cuantas plantas aguanta un pasillo.
+@export var celdas_por_planta: int = 18
+@export var max_plantas_pasillo: int = 3
+# Vetas por sala elegida (se tira entre estos dos).
+@export var vetas_min_sala: int = 1
+@export var vetas_max_sala: int = 2
+# TOPE por piso. Es lo que de verdad manda: los numeros de arriba son la forma del reparto
+# (donde caen), esto es CUANTAS hay. En el PISO 1. Ver escalar_con_el_piso().
+@export var max_vetas_piso: int = 5
+@export var max_plantas_piso: int = 10
+
 # --- RITMO de los partos (segundos). Franja ANCHA y LENTA a proposito: ver spawn_zone.gd ---
 @export var intervalo_min: float = 25.0
 @export var intervalo_max: float = 70.0
 
 # --- Topes de poblacion ---
-# Vivos que aguanta el piso ENTERO. Toda la mazmorra pare a la vez, asi que sin este tope
-# el mapa se llenaria hasta reventar el rendimiento.
-@export var max_vivos_piso: int = 28
+# Vivos que aguanta el piso ENTERO EN EL PISO 1. Toda la mazmorra pare a la vez, asi que sin
+# este tope el mapa se llenaria hasta reventar el rendimiento. NO se usa a pelo: se escala
+# con la profundidad (ver max_vivos()), porque los pisos van a ir creciendo al bajar.
+@export var max_vivos_piso: int = 20
 # Vivos por zona: se derivan del AREA (celdas / esto), acotados por los maximos de abajo.
 # OJO al contar: los pasillos que desembocan en una sala tienen SUS bichos, y desde dentro
 # de la sala parecen suyos. Una sala a tope (3) con dos bocas de pasillo (1 cada una) ya se
@@ -79,16 +98,41 @@ class_name DungeonFloor
 # el grupo lo añade door.gd en su _ready, que puede correr DESPUES que el nuestro.
 @export var puerta_pueblo: NodePath
 
+# ------------------------------------------------------------
+#  DENSIDAD POR PISO
+#  Los pisos van a ir CRECIENDO al bajar (~+10% por piso; el trazado aun esta por hacer).
+#  Si los topes fueran numeros fijos, un piso el doble de grande tendria la MITAD de
+#  densidad: la misma mazmorra se iria vaciando cuanto mas hondo, que es justo lo contrario
+#  de lo que tiene que pasar. Asi que TODO lo que se reparte por el piso (bichos, vetas,
+#  plantas) se declara para el PISO 1 y se escala con esta misma constante. El dia que el
+#  generador crezca de verdad, la densidad ya esta atada a ella y no hay que retocar nada.
+# ------------------------------------------------------------
+const FLOOR_GROWTH := 1.10
+
+func escalar_con_el_piso(base: int) -> int:
+	return maxi(1, roundi(float(base) * pow(FLOOR_GROWTH, float(Game.current_floor - 1))))
+
+# Vivos que aguanta ESTE piso (el @export es el del piso 1).
+func max_vivos() -> int:
+	return escalar_con_el_piso(max_vivos_piso)
+
+
 var gen: DungeonGenerator = null
 
 var _enemy_scene: PackedScene = preload("res://scenes/actors/enemy/enemy.tscn")
 var _zone_script: GDScript = preload("res://scripts/world/spawn_zone.gd")
 var _stairs_script: GDScript = preload("res://scripts/world/stairs.gd")
 var _pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
+var _reco_script: GDScript = preload("res://scripts/world/resource_node.gd")
 
 var _geo: Node2D = null      # toda la geometria del piso (se tira entera al regenerar)
 var _zonas: Node2D = null    # todas las SpawnZone
 var _t_barrido: float = 0.0  # acumulador del barrido de congelado
+
+# CELDAS ya recolectadas de este piso (celda -> true). Lo unico que hace falta recordar de
+# la recoleccion: DONDE estaba cada veta y de que era ya lo decide la semilla, asi que basta
+# con saber cuales YA NO estan. Se vuelca a Game.memoria_pisos y vuelve de ahi.
+var _agotados: Dictionary = {}
 
 # QUE profundidad esta construida ahora mismo. NO se puede usar Game.current_floor para
 # guardar el estado al salir: cuando el piso se regenera, current_floor YA vale el piso
@@ -118,7 +162,7 @@ func regenerar(por_la_bajada: bool = false) -> void:
 
 func _limpiar() -> void:
 	_guardar_estado()   # ANTES de tirar nada: el piso que dejas se queda como lo dejas
-	for grupo in ["enemy", "corpse", "pickup"]:
+	for grupo in ["enemy", "corpse", "pickup", "recolectable"]:
 		for n in get_tree().get_nodes_in_group(grupo):
 			if not is_instance_valid(n):
 				continue
@@ -142,9 +186,18 @@ func _construir(por_la_bajada: bool = false) -> void:
 	gen.generar(ancho_celdas, alto_celdas, _semilla_del_piso(),
 		max_salas, sala_min, sala_max, ancho_pasillo)
 
+	# Lo que ya picaste en este piso (si lo habias pisado antes en esta expedicion).
+	var mem: Dictionary = Game.memoria_pisos.get(_piso_construido, {})
+	_agotados = (mem.get("agotados", {}) as Dictionary).duplicate()
+
 	_construir_geometria()
 	_colocar_actores(por_la_bajada)
 	_crear_zonas()
+	# DIFERIDO, por lo mismo que poblar() (ver _crear_zonas): al construir el piso desde
+	# _ready, el nodo padre (Main) aun esta montando sus hijos y Godot RECHAZA cualquier
+	# add_child. Las vetas y las plantas se creaban, se contaban en el log... y no entraban
+	# en la escena: un piso entero sin un solo mineral a la vista.
+	call_deferred("_colocar_recolectables")
 
 	print("[mazmorra] piso ", Game.current_floor, " | semilla ", gen.semilla,
 		" | ", gen.salas.size(), " salas, ", gen.zonas.size(), " zonas",
@@ -266,6 +319,163 @@ func _colocar_actores(por_la_bajada: bool = false) -> void:
 		_geo.add_child(bajar)
 
 
+# ------------------------------------------------------------
+#  RECOLECTABLES: vetas (pico/Fuerza) y plantas (hoz/Destreza).
+#  DETERMINISTAS: el mismo piso pone siempre las mismas vetas, del mismo material y en la
+#  misma celda. Por eso la memoria del piso solo tiene que recordar cuales YA PICASTE
+#  (_agotados) y no la lista entera: lo demas se rehace igual desde la semilla.
+# ------------------------------------------------------------
+func _colocar_recolectables() -> void:
+	if gen == null or gen.salas.is_empty():
+		return
+	# RNG propio, sembrado aparte del generador: asi tocar la colocacion de las vetas no
+	# cambia el TRAZADO del piso (que ya esta hecho y no se toca).
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _semilla_del_piso() + 1013
+	_ocupada.clear()   # el piso se rehace: las celdas ocupadas del piso viejo no valen
+
+	var plantas: int = _colocar_plantas(rng)
+	var vetas: int = _colocar_vetas(rng)
+	print("[mazmorra] recolectables: ", vetas, " vetas y ", plantas, " plantas",
+		" (", _agotados.size(), " ya picadas)")
+	if tabla_vetas != null:
+		print("[mazmorra] vetas del piso: ", tabla_vetas.resumen(Game.current_floor))
+	if tabla_plantas != null:
+		print("[mazmorra] plantas del piso: ", tabla_plantas.resumen(Game.current_floor))
+
+
+# PLANTAS: en los PASILLOS. Es el botin del transito: las pisas yendo a cualquier parte.
+# El TOPE del piso manda sobre el reparto: se van llenando pasillos hasta agotarlo.
+#
+# OJO: lo que cuenta contra el tope son los SITIOS (los huecos que el piso tiene para una
+# planta), no las plantas que acaban naciendo. Si contara solo las nacidas, cada planta que
+# ya recolectaste liberaria su cupo y brotaria OTRA en el siguiente hueco: volver a un piso
+# lo repoblaria de plantas nuevas y recolectar no serviria de nada.
+func _colocar_plantas(rng: RandomNumberGenerator) -> int:
+	if tabla_plantas == null:
+		return 0
+	var tope: int = escalar_con_el_piso(max_plantas_piso)
+	var sitios: int = 0
+	var puestas: int = 0
+	for i in range(gen.zonas.size()):
+		if sitios >= tope:
+			break
+		var z: Dictionary = gen.zonas[i]
+		if z["tipo"] != "pasillo":
+			continue
+		var celdas: Array = z["celdas"]
+		var n: int = clampi(celdas.size() / maxi(1, celdas_por_planta), 0, max_plantas_pasillo)
+		n = mini(n, tope - sitios)
+		for _k in range(n):
+			var c: Vector2i = _celda_junto_a_pared(celdas, rng)
+			if c == Vector2i.MAX:
+				break
+			sitios += 1
+			if _crear_recolectable(1, c, tabla_plantas, rng):
+				puestas += 1
+	return puestas
+
+
+# VETAS: en las salas MAS LEJANAS, y NUNCA en la de entrada ni en la de la escalera de
+# bajar. Picar tiene que costarte meterte en la mazmorra; si la veta estuviera en la boca
+# del piso, farmear mineral seria entrar, picar y salir, sin cruzarte con nada.
+func _colocar_vetas(rng: RandomNumberGenerator) -> int:
+	if tabla_vetas == null:
+		return 0
+	var entrada: Rect2i = gen.salas[0]
+	var escalera: Rect2i = _sala_mas_lejana(entrada)
+	var origen: Vector2 = Vector2(entrada.get_center())
+
+	var candidatas: Array[Rect2i] = []
+	for s in gen.salas:
+		if s == entrada or s == escalera:
+			continue
+		candidatas.append(s)
+	if candidatas.is_empty():
+		return 0
+	# De las que quedan, solo la MITAD MAS LEJANA lleva veta. Y se empieza por la MAS lejana:
+	# si el tope del piso se agota antes de recorrerlas todas, las que se quedan sin veta son
+	# las de mas cerca de la entrada, que es justo como tiene que ser.
+	candidatas.sort_custom(func(a: Rect2i, b: Rect2i):
+		return origen.distance_to(Vector2(a.get_center())) > origen.distance_to(Vector2(b.get_center())))
+	var cuantas: int = maxi(1, candidatas.size() / 2)
+
+	# Igual que con las plantas: lo que se cuenta contra el tope son los SITIOS, no las vetas
+	# que nacen. Si no, una veta ya picada dejaria su hueco libre para otra mas alla.
+	var tope: int = escalar_con_el_piso(max_vetas_piso)
+	var sitios: int = 0
+	var puestas: int = 0
+	for i in range(cuantas):
+		if sitios >= tope:
+			break
+		var idx: int = gen.zona_en(candidatas[i].get_center())
+		if idx < 0:
+			continue
+		var celdas: Array = gen.zonas[idx]["celdas"]
+		var n: int = mini(rng.randi_range(vetas_min_sala, vetas_max_sala), tope - sitios)
+		for _k in range(n):
+			var c: Vector2i = _celda_junto_a_pared(celdas, rng)
+			if c == Vector2i.MAX:
+				break
+			sitios += 1
+			if _crear_recolectable(0, c, tabla_vetas, rng):
+				puestas += 1
+	return puestas
+
+
+# Instancia un recolectable (tipo 0 = veta, 1 = planta). Devuelve false si esa celda ya la
+# picaste (entonces no nace: una veta agotada no reaparece entera al volver al piso) o si la
+# tabla no tiene nada para esta profundidad.
+func _crear_recolectable(tipo: int, celda: Vector2i, tabla: MaterialTable,
+		rng: RandomNumberGenerator) -> bool:
+	# La tirada del material se hace SIEMPRE, incluso si la celda esta agotada: si no, saltarse
+	# una veta picada desplazaria la secuencia del RNG y cambiaria el material de TODAS las
+	# demas al volver al piso.
+	var m: MaterialData = tabla.elegir(Game.current_floor, rng)
+	if m == null or _agotados.has(celda):
+		return false
+	var nodo = _reco_script.new()   # sin tipar: asi GDScript deja escribirle lo suyo
+	nodo.tipo = tipo
+	nodo.material_data = m
+	nodo.celda = celda
+	# Cuelgan del PADRE del piso (junto al jugador), no del piso: si no, heredan su z_index
+	# de -1 y se dibujan por debajo del suelo.
+	var mundo: Node = get_parent()
+	if mundo == null:
+		mundo = self
+	mundo.add_child(nodo)
+	nodo.global_position = gen.centro_px(celda)
+	return true
+
+
+# Una celda de la zona que TOQUE pared (las vetas salen de la roca, y una planta en mitad
+# del paso se ve peor que una arrimada al muro). Vector2i.MAX = no hay ninguna libre.
+func _celda_junto_a_pared(celdas: Array, rng: RandomNumberGenerator) -> Vector2i:
+	if celdas.is_empty():
+		return Vector2i.MAX
+	# Se tantea desde un punto al azar y se avanza en circulo: barato y sin repetir celda.
+	var n: int = celdas.size()
+	var ini: int = rng.randi_range(0, n - 1)
+	for k in range(n):
+		var c: Vector2i = celdas[(ini + k) % n]
+		if _ocupada.has(c):
+			continue
+		for d in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+			if gen.es_solido(c + d):
+				_ocupada[c] = true
+				return c
+	return Vector2i.MAX
+
+
+# Celdas que ya tienen algo puesto (para no apilar dos vetas en el mismo sitio).
+var _ocupada: Dictionary = {}
+
+
+# Lo llama Game al terminar un minijuego de recoleccion: esa celda ya esta explotada.
+func marcar_agotado(celda: Vector2i) -> void:
+	_agotados[celda] = true
+
+
 func _sala_mas_lejana(desde: Rect2i) -> Rect2i:
 	var mejor := Rect2i()
 	var best_d: float = -1.0
@@ -328,12 +538,9 @@ func _crear_zonas() -> void:
 		zona.puntos = pts
 		zona.hogar = _centro_pisable(pts)
 		_zonas.add_child(zona)
-		# DIFERIDO: al construir el piso desde _ready, el nodo padre (Main) aun esta montando
-		# sus hijos y Godot rechaza cualquier add_child -> los bichos no llegaban a entrar en
-		# la escena. Poblar un frame despues, con el arbol ya montado, los mete sin drama.
-		if not recordado:
-			var n: int = 0 if i == zona_entrada else int(round(float(zona.max_vivos) * poblacion_inicial))
-			zona.call_deferred("poblar", n)
+
+	if not recordado:
+		_poblar_el_piso(zona_entrada)
 
 	# DIFERIDO igual que poblar: durante _ready el nodo padre aun se esta montando y Godot
 	# rechaza los add_child (los bichos no llegarian a entrar en la escena).
@@ -342,9 +549,53 @@ func _crear_zonas() -> void:
 	call_deferred("_log_poblacion", recordado)
 
 
+# POBLACION INICIAL: la fraccion del TOPE DEL PISO que ya esta deambulando cuando llegas.
+#
+# Antes se aplicaba zona a zona (60% del aforo de CADA zona), y la suma de los aforos se
+# pasaba MUY por encima del tope global: el piso nacia lleno a reventar (28/28) y las
+# paredes no tenian nada que parir. El goteo de partos, que es EL sistema, no se llegaba a
+# ver nunca. Ahora el cupo se calcula sobre el tope del piso y se REPARTE entre las zonas en
+# proporcion a su aforo, asi que entrar deja sitio libre a proposito.
+#
+# La sala de ENTRADA no entra en el reparto: nace limpia (ver entrada_despejada).
+func _poblar_el_piso(zona_entrada: int) -> void:
+	var cupo: int = int(round(float(max_vivos()) * poblacion_inicial))
+	if cupo <= 0 or _zonas == null:
+		return
+
+	var pobladas: Array = []
+	var aforo_total: int = 0
+	for hijo in _zonas.get_children():
+		if hijo.zona_idx == zona_entrada:
+			continue
+		pobladas.append(hijo)
+		aforo_total += hijo.max_vivos
+	if aforo_total <= 0:
+		return
+
+	# Reparto proporcional al aforo. El redondeo se hace ACUMULANDO (y no zona a zona) para
+	# que los restos no se pierdan: si no, con muchas zonas pequeñas el cupo se quedaba corto.
+	var ratio: float = minf(1.0, float(cupo) / float(aforo_total))
+	var acumulado: float = 0.0
+	var puestos: int = 0
+	for zona in pobladas:
+		if puestos >= cupo:
+			break
+		acumulado += float(zona.max_vivos) * ratio
+		var n: int = mini(int(round(acumulado)) - puestos, cupo - puestos)
+		n = clampi(n, 0, zona.max_vivos)
+		if n <= 0:
+			continue
+		puestos += n
+		# DIFERIDO: al construir el piso desde _ready, el nodo padre (Main) aun esta montando
+		# sus hijos y Godot rechaza cualquier add_child -> los bichos no llegaban a entrar en
+		# la escena. Poblar un frame despues, con el arbol ya montado, los mete sin drama.
+		zona.call_deferred("poblar", n)
+
+
 func _log_poblacion(recordado: bool) -> void:
 	print("[mazmorra] ", "RESTAURADO (ya lo habias pisado): " if recordado else "poblacion inicial: ",
-		_vivos_en_el_piso(), " bichos vivos (tope ", max_vivos_piso, ")",
+		_vivos_en_el_piso(), " bichos vivos (tope ", max_vivos(), ")",
 		", ", get_tree().get_nodes_in_group("corpse").size(), " cadaveres")
 
 
@@ -407,9 +658,14 @@ func _guardar_estado() -> void:
 		if is_instance_valid(p) and p.item != null:
 			suelo.append({"item": p.item, "pos": p.global_position})
 
-	Game.memoria_pisos[_piso_construido] = {"enemigos": enemigos, "suelo": suelo}
+	# 'agotados': las celdas que ya has picado. No se guardan los recolectables enteros porque
+	# donde estan y de que son sale de la semilla; lo unico que la semilla no puede saber es
+	# lo que TU has hecho. Asi esto no crece con el tamaño del mapa.
+	Game.memoria_pisos[_piso_construido] = {
+		"enemigos": enemigos, "suelo": suelo, "agotados": _agotados.duplicate()}
 	print("[mazmorra] guardado el piso ", _piso_construido, ": ", enemigos.size(),
-		" bichos (vivos+cadaveres), ", suelo.size(), " cosas por el suelo")
+		" bichos (vivos+cadaveres), ", suelo.size(), " cosas por el suelo, ",
+		_agotados.size(), " recolectables picados")
 
 
 func _restaurar_estado() -> void:
@@ -466,7 +722,7 @@ func elegir_enemigo() -> EnemyData:
 # Al POBLAR el piso al entrar se llama con reciclar=false: si no, las ultimas zonas en
 # poblarse se pondrian a borrar los bichos de las primeras para hacerse sitio.
 func hay_sitio(reciclar: bool = true) -> bool:
-	if _vivos_en_el_piso() < max_vivos_piso:
+	if _vivos_en_el_piso() < max_vivos():
 		return true
 	return reciclar and _reciclar_lejano()
 

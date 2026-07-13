@@ -23,7 +23,10 @@ class_name SaveData
 
 # Si algun dia cambia la estructura, esto evita cargar a medias una partida vieja y dejar el
 # juego en un estado imposible: se avisa y se ignora la ranura.
-const VERSION_ACTUAL := 1
+# v2: los materiales dejan de ser el MonsterDrop pobre (un String y una calidad) y pasan a
+# ser MaterialItem (plantilla + calidad, con familia y tipo). Una partida v1 lleva dentro
+# objetos de una clase que ya no existe: no se puede convertir, se ignora la ranura.
+const VERSION_ACTUAL := 2
 @export var version: int = VERSION_ACTUAL
 
 # --- Cabecera: lo que se pinta en la lista de ranuras SIN tener que adivinar nada ---
@@ -51,8 +54,8 @@ const VERSION_ACTUAL := 1
 
 # --- Cosas ---
 @export var crystals: Array = []            # Cristal (runtime -> se incrustan)
-@export var drops: Array = []               # MonsterDrop (runtime)
-@export var almacen_materiales: Array = []  # lo guardado en el Hogar
+@export var materiales: Array = []          # MaterialItem de la BOLSA (runtime)
+@export var almacen_materiales: Array = []  # MaterialItem guardados en el Hogar
 @export var owned_weapons: Array = []       # baul (instancias propias, con su identidad)
 @export var owned_armor: Array = []
 
@@ -77,6 +80,11 @@ const VERSION_ACTUAL := 1
 @export var equipped_spells: Array = []     # .tres de hechizos (referencias)
 @export var tool_hit_reduction: int = 0
 @export var tool_destreza_bonus: int = 0
+
+# Herramientas de recoleccion. Son .tres del proyecto (no instancias con identidad propia,
+# como las armas), asi que basta su RUTA: igual que los consumibles.
+@export var pico: String = ""
+@export var hoz: String = ""
 
 # --- Donde estabas ---
 @export var en_mazmorra: bool = false

@@ -201,20 +201,64 @@ func _try_detect() -> void:
 		return
 	var dir: Vector2 = to_p / dist
 
-	# Vision: dentro del alcance Y dentro del angulo del cono frontal.
-	var seen: bool = dist <= vision_range \
+	# Vision: alcance + angulo del cono. Los dos chequeos BARATOS van primero; el raycast
+	# (que es lo caro) solo se tira si ya has pasado los dos.
+	var en_cono: bool = dist <= vision_range \
 		and absf(_facing.angle_to(dir)) <= deg_to_rad(vision_half_angle_deg)
 
-	# Oido: radio que crece con tu velocidad (ruido). Sigilo = casi 0.
+	# ¿Hay roca de por medio? Se calcula UNA vez y la usan la vista y el oido.
+	# Solo hace falta saberlo si estas en el cono o dentro del alcance del oido; si no, ni se
+	# tira el rayo (un piso con 20 bichos son 20 rayos por frame como mucho).
 	var player_speed: float = 0.0
 	if "velocity" in _player:
 		player_speed = (_player.velocity as Vector2).length()
 	var hear_radius: float = minf(player_speed * hearing_factor, hearing_max)
+
+	var tapado: bool = false
+	if en_cono or dist <= hear_radius:
+		tapado = not _linea_de_vision_libre(_player.global_position)
+
+	# La VISTA no atraviesa la roca. Punto.
+	var seen: bool = en_cono and not tapado
+
+	# El OIDO si la atraviesa, pero AMORTIGUADO: un muro no es una cabina insonorizada, pero
+	# tampoco deja pasar tus pasos igual que el aire. Sin esta amortiguacion (oir igual a
+	# traves de la pared) el sigilo no serviria de nada en interiores; y cortando el sonido
+	# del todo, pegarte al otro lado de un muro te volveria literalmente indetectable.
+	if tapado:
+		hear_radius *= OIDO_TRAS_PARED
 	var heard: bool = dist <= hear_radius
 
 	if seen or heard:
 		_state = State.CHASE
 		_facing = dir  # se gira hacia ti
+
+
+# Cuanto se amortigua el oido cuando hay roca de por medio.
+const OIDO_TRAS_PARED := 0.5
+# Capa de fisica de la ROCA (los muros del piso). El bicho ya colisiona solo con ella.
+const CAPA_ROCA := 1
+
+
+# ¿Se ve el punto desde aqui, sin roca de por medio? Rayo contra la capa de los muros.
+#
+# OJO CON EL JUGADOR: esta en la capa 1, la MISMA que la roca. Si no se le excluye del rayo,
+# el rayo que lanzamos HACIA EL choca con el en cuanto llega, damos la linea por cortada, y
+# ningun bicho volveria a verte en su vida. Los otros enemigos no estorban (capa 2).
+func _linea_de_vision_libre(punto: Vector2) -> bool:
+	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	var query := PhysicsRayQueryParameters2D.create(global_position, punto, CAPA_ROCA)
+	query.exclude = _excluir_del_rayo()
+	return espacio.intersect_ray(query).is_empty()
+
+
+# Cuerpos que un rayo de vision NUNCA debe considerar un obstaculo: el jugador (comparte capa
+# con la roca) y uno mismo.
+func _excluir_del_rayo() -> Array[RID]:
+	var out: Array[RID] = [get_rid()]
+	if _player != null and is_instance_valid(_player) and _player is CollisionObject2D:
+		out.append((_player as CollisionObject2D).get_rid())
+	return out
 
 
 func _wander(delta: float) -> void:
@@ -406,16 +450,23 @@ func _start_combat(enemy_initiated: bool) -> void:
 
 
 # --- Visual: cono de vision + linea de direccion ---
+# El cono se dibuja RECORTADO por la roca: cada uno de sus rayos se para donde topa con la
+# pared. Si se pintara entero (atravesando el muro) el dibujo mentiria -parece que te ve y no
+# te ve-, y el sigilo se juega MIRANDO el cono: tiene que enseñar donde te pueden pillar de
+# verdad. Se recalcula solo cuando el bicho se ha movido o girado lo suficiente, no cada
+# frame: son SEGMENTOS_CONO rayos y no hace falta rehacerlos por medio pixel.
+const SEGMENTOS_CONO := 14
+const RECALCULO_ANGULO := 0.10   # rad girados que obligan a rehacer el cono
+const RECALCULO_DIST := 6.0      # px movidos que obligan a rehacerlo
+
+var _cono_hecho: bool = false    # ¿ya hay un cono pintado? (el primero se traza siempre)
+var _cono_ang: float = 0.0       # angulo con el que se trazo el cono que hay pintado
+var _cono_pos: Vector2 = Vector2.ZERO
+
+
 func _crear_indicadores() -> void:
 	# Cono (poligono translucido), por detras del enemigo.
 	_vision_cone = Polygon2D.new()
-	var pts: PackedVector2Array = [Vector2.ZERO]
-	var half: float = deg_to_rad(vision_half_angle_deg)
-	var segs: int = 14
-	for i in range(segs + 1):
-		var a: float = -half + (2.0 * half) * float(i) / float(segs)
-		pts.append(Vector2(cos(a), sin(a)) * vision_range)
-	_vision_cone.polygon = pts
 	_vision_cone.color = Color(1.0, 1.0, 0.3, 0.12)
 	add_child(_vision_cone)
 	move_child(_vision_cone, 0)  # al fondo
@@ -431,11 +482,40 @@ func _crear_indicadores() -> void:
 
 func _actualizar_indicadores() -> void:
 	var ang: float = _facing.angle()
-	if _vision_cone != null:
-		_vision_cone.rotation = ang
 	if _facing_line != null:
 		_facing_line.rotation = ang
 		# Rojo/naranja mientras avisa el ataque (telegrafia el golpe).
 		_facing_line.default_color = Color(1.0, 0.3, 0.1) if _winding else Color(1.0, 1.0, 0.0)
 	if _vision_cone != null:
 		_vision_cone.color = Color(1.0, 0.25, 0.1, 0.18) if _winding else Color(1.0, 1.0, 0.3, 0.12)
+		if not _cono_hecho \
+				or absf(angle_difference(ang, _cono_ang)) > RECALCULO_ANGULO \
+				or global_position.distance_to(_cono_pos) > RECALCULO_DIST:
+			_redibujar_cono(ang)
+
+
+# Traza el cono rayo a rayo y corta cada uno donde encuentra roca. El poligono va en
+# coordenadas LOCALES (es hijo del bicho), asi que los puntos se pasan a local; y por eso
+# mismo el Polygon2D NO se rota: sus puntos ya vienen con el giro dentro.
+func _redibujar_cono(ang: float) -> void:
+	_cono_hecho = true
+	_cono_ang = ang
+	_cono_pos = global_position
+	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	var half: float = deg_to_rad(vision_half_angle_deg)
+	# Mismo motivo que en _linea_de_vision_libre: el jugador comparte capa con la roca y, sin
+	# excluirlo, el cono se recortaria CONTRA TI (te taparias a ti mismo del cono que te ve).
+	var fuera: Array[RID] = _excluir_del_rayo()
+
+	var pts: PackedVector2Array = [Vector2.ZERO]
+	for i in range(SEGMENTOS_CONO + 1):
+		var a: float = ang - half + (2.0 * half) * float(i) / float(SEGMENTOS_CONO)
+		var dir: Vector2 = Vector2(cos(a), sin(a))
+		var fin: Vector2 = global_position + dir * vision_range
+		var query := PhysicsRayQueryParameters2D.create(global_position, fin, CAPA_ROCA)
+		query.exclude = fuera
+		var hit: Dictionary = espacio.intersect_ray(query)
+		if not hit.is_empty():
+			fin = hit["position"]
+		pts.append(fin - global_position)   # a local
+	_vision_cone.polygon = pts

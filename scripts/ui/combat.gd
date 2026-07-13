@@ -64,6 +64,12 @@ var _objeto_box: VBoxContainer = null    # submenu de objetos/pociones (KAN-57)
 var _player_en_bar: ProgressBar = null
 var _player_mp_bar: ProgressBar = null
 
+# Filas de ESTADOS (una por combatiente): un "chip" con tooltip por estado activo. Antes los
+# estados iban como texto DENTRO de la etiqueta del nombre, y un Label no se puede señalar
+# por trozos: veias "☠x2·3t" y no habia forma de saber que hacia eso ni cuanto.
+var _enemy_chips: HBoxContainer = null
+var _player_chips: HBoxContainer = null
+
 # Numeros DENTRO de cada barra (como las del mapa): la etiqueta de arriba se queda solo
 # con el nombre, el nivel y los estados.
 var _enemy_hp_lbl: Label = null
@@ -250,6 +256,7 @@ func _setup_ui() -> void:
 	_player_hp.custom_minimum_size = Vector2(0, 24)
 	_player_hp.self_modulate = Color(1.0, 0.4, 0.4)
 	_player_hp_lbl = _crear_label_barra(_player_hp, 13)
+	_crear_filas_estados()
 	_crear_barras_jugador()
 	# El log siempre muestra LOG_MAX lineas (ver _set_log), asi que ocupa un alto FIJO y
 	# los botones no se mueven. clip_text evita que una linea larga se derrame a la dcha.
@@ -324,27 +331,58 @@ func _update_hp() -> void:
 	if _player_mp_lbl != null:
 		_player_mp_lbl.text = "MP  %.2f / %.2f" % [_player.current_mp, _player.max_mp]
 
-	# Y la etiqueta se queda con lo suyo: nombre, nivel y los estados AL LADO.
-	_enemy_name.text = "%s  (Nv.%d)%s" % [
-		_enemy.nombre, _enemy.level, _estados_txt(_enemy)]
-	_player_name.text = "%s  (Nv.%d)%s" % [
-		_player.nombre, _player.level, _estados_txt(_player)]
+	# La etiqueta se queda SOLO con el nombre y el nivel; los estados van debajo, en su fila
+	# de chips, porque ahi cada uno se puede señalar y explicarse solo.
+	_enemy_name.text = "%s  (Nv.%d)" % [_enemy.nombre, _enemy.level]
+	_player_name.text = "%s  (Nv.%d)" % [_player.nombre, _player.level]
+	_refrescar_chips(_enemy, _enemy_chips)
+	_refrescar_chips(_player, _player_chips)
 
 
-# Estados alterados + IMBUICION activa para la etiqueta del combatiente (KAN-58). "" si no
-# tiene nada. La imbuicion NO es un estado (vive en sus propios campos), pero el jugador
-# necesita VERLA en el HUD igual que ve una quemadura: elemento, bonus y turnos que quedan.
-func _estados_txt(c: Combatant) -> String:
-	var partes: Array = []
+# Una fila de chips por combatiente, justo debajo de su nombre.
+func _crear_filas_estados() -> void:
+	if _enemy_chips != null:
+		return
+	_enemy_chips = _crear_fila_chips(_enemy_name)
+	_player_chips = _crear_fila_chips(_player_name)
+
+
+func _crear_fila_chips(bajo: Label) -> HBoxContainer:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	$VBox.add_child(box)
+	$VBox.move_child(box, bajo.get_index() + 1)
+	return box
+
+
+# Reconstruye los chips de un combatiente: uno por estado ACTIVO (mas la imbuicion, que no es
+# un estado -vive en sus propios campos- pero se sufre igual y hay que poder consultarla).
+# Se rehace entero en cada refresco: son 0-5 botones y asi no hay que llevar la cuenta de
+# cuales han expirado.
+func _refrescar_chips(c: Combatant, box: HBoxContainer) -> void:
+	if box == null:
+		return
+	for hijo in box.get_children():
+		hijo.queue_free()
+
 	var imb: String = c.imbue_etiqueta()
 	if imb != "":
-		partes.append(imb)
-	var s: String = c.status_summary()
-	if s != "":
-		partes.append(s)
-	# AL LADO del nombre, en la misma linea (antes iba con un salto de linea y los estados
-	# quedaban colgando debajo, separados de quien los sufre).
-	return "   " + "  ".join(partes) if not partes.is_empty() else ""
+		_chip(box, imb, c.imbue_resumen())
+	for e in c.statuses:
+		_chip(box, e.etiqueta(), e.resumen())
+	box.visible = box.get_child_count() > 0
+
+
+# Un chip: el icono+numeros de siempre (etiqueta()), y al pasar el raton por encima, la ficha
+# entera (resumen()). TooltipButton porque el tooltip por defecto de Godot no parte lineas.
+func _chip(box: HBoxContainer, texto: String, tooltip: String) -> void:
+	var b := TooltipButton.new()
+	b.text = texto
+	b.tooltip_text = tooltip
+	b.flat = true                      # es una etiqueta que se puede señalar, no un boton
+	b.focus_mode = Control.FOCUS_NONE  # que no robe el foco al tabular por las acciones
+	b.add_theme_font_size_override("font_size", 13)
+	box.add_child(b)
 
 
 # Teclas de DESARROLLO DENTRO del combate. El combate corre con el arbol en PAUSA, asi

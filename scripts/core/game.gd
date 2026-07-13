@@ -57,7 +57,14 @@ const GAIN_FUERZA_ATAQUE := 0.15
 const GAIN_FUERZA_PESO := 0.0    # DESACTIVADA por ahora (rediseñar sin romper escalado)
 const GAIN_AGILIDAD_CORRER := 0.12
 const GAIN_RESISTENCIA_GOLPE := 0.23
-const GAIN_DESTREZA_MINIJUEGO := 2.2  # arranque (Destreza baja); el pivote de abajo modula el resto
+# DESTREZA: ya NO se entrena en un solo sitio. La extraccion del cristal la comparte ahora
+# con la herboristeria, asi que el total (2.0) se reparte entre las dos y ninguna sube sola
+# la curva entera. La planta pesa un pelin mas POR PIEZA porque es mas escasa y menos
+# perdonable (una sola pasada por tallo); el cristal cae de cada bicho que matas.
+const GAIN_DESTREZA_MINIJUEGO := 0.9  # extraccion del cristal (era 2.2, cuando era la unica fuente)
+const GAIN_DESTREZA_PLANTA := 1.1     # herboristeria (hoz)
+# FUERZA: la mineria es la primera fuente de Fuerza que no es pegarse con algo.
+const GAIN_FUERZA_MINERIA := 0.9
 # Fuentes de COMBATE para las stats que se farmean mal (bases altas: son eventos
 # raros, no ocurren cada turno como el ataque):
 const GAIN_AGILIDAD_ESQUIVAR := 0.6   # esquivar un golpe entrena Agilidad (adios correr en circulos)
@@ -77,7 +84,16 @@ const MAGIA_COSTE_REF := 4.0   # coste de referencia (Chispa) para el factor de 
 const EXTRACTION_REQ_FACTOR := 0.25
 const EXTRACTION_BASE_ZONE := 0.16      # tamaño de zona a dificultad 1
 const EXTRACTION_DESTREZA_FLOOR := 20.0 # skill base minimo (bajo: el novato SI sufre)
-const EXTRACTION_BASE_MARKER := 0.8     # velocidad del marcador a dificultad 1
+const EXTRACTION_BASE_MARKER := 0.55    # velocidad del marcador a dificultad 1
+# TECHO de la velocidad del marcador (recorridos de la barra por segundo).
+#
+# Es el minijuego mas VIEJO y el unico que no tenia tope: la dificultad lo aceleraba, el piso
+# lo aceleraba, y ademas CADA ACIERTO lo acelera otra vez (speed_step). Con la barra midiendo
+# ~1150 px, a 0.8 ya iban ~920 px/s, y tras un par de aciertos se ponia en el doble: a esas
+# velocidades el marcador salta decenas de pixeles por frame y se ve BORROSO por muchos FPS
+# que haya (a 144 estables seguia sin verse nitido). Lo dificil tiene que ser acertar en una
+# zona ESTRECHA, no perseguir con la vista algo que ya no se puede seguir.
+const EXTRACTION_MARKER_MAX := 1.1
 # Pivote para la GANANCIA de Destreza: solo aprendes de verdad si la extraccion
 # fue dura PARA TI. Por debajo de este reto la ganancia cae en picado (curva ^2);
 # por encima se mantiene. Sube el pivote para castigar mas las extracciones
@@ -90,6 +106,38 @@ const EXTRACTION_DESTREZA_PIVOTE := 1.5
 const EXTRACTION_DESTREZA_SLOPE := 0.65
 const EXTRACTION_DESTREZA_RETO_MAX := 8.0
 
+# --- RECOLECCION: dificultad de los dos minijuegos ---
+# Misma idea que la extraccion (dificultad RELATIVA: lo que exige el material contra la
+# stat que lo trabaja), pero cada actividad mira SU stat: la veta pide FUERZA, la planta
+# pide DESTREZA. La profundidad endurece el material (roca mas apretada, tallos mas secos).
+const RECOLECCION_PISO_FACTOR := 1.08   # exigencia x1.08 por piso
+
+# MINERIA (pico, Fuerza). La Fuerza ensancha la franja optima Y la baja: un brazo fuerte
+# rompe la veta sin tener que cargar el pico hasta arriba.
+const MINERIA_FUERZA_FLOOR := 20.0      # suelo de skill (el novato SI sufre)
+const MINERIA_BASE_VENTANA := 0.22      # ancho de la franja optima a dificultad 1
+const MINERIA_BASE_CARGA := 1.0         # velocidad de la barra de carga a dificultad 1
+# TECHO de la barra de carga: por encima de esto la barra deja de ser un reto y pasa a ser un
+# borron (ver EXTRACTION_MARKER_MAX, que es donde se noto el problema).
+const MINERIA_CARGA_MAX := 2.2
+const MINERIA_GOLPES_BASE := 3.0        # golpes necesarios a dificultad 1
+const MINERIA_PIVOTE := 1.5             # por debajo de este reto, la Fuerza casi no sube
+const MINERIA_SLOPE := 0.65
+const MINERIA_RETO_MAX := 5.0           # tope FISICO (como el resto de la Fuerza)
+
+# HERBORISTERIA (hoz, Destreza). El nucleo del corte limpio es FINO: aqui no se machaca,
+# se acierta. La Destreza lo ensancha y frena la pasada.
+const HERB_DESTREZA_FLOOR := 20.0
+const HERB_BASE_NUCLEO := 0.06          # semiancho del corte limpio a dificultad 1
+const HERB_BORDE_MULT := 2.2            # el borde (corte sucio) es este multiplo del nucleo
+const HERB_BASE_VEL := 0.7              # pasadas/seg a dificultad 1
+# TECHO de la pasada (mismo motivo que MINERIA_CARGA_MAX): lo que hace dificil un tallo es que
+# el NUCLEO sea fino, no que el marcador sea imposible de seguir con la vista.
+const HERB_VEL_MAX := 1.6
+const HERB_PIVOTE := 1.5
+const HERB_SLOPE := 0.65
+const HERB_RETO_MAX := 8.0              # mismo tope que la extraccion: las dos son Destreza
+
 # Dificultad del ultimo minijuego de extraccion (para la ganancia de Destreza).
 var _last_extraction_zone: float = 0.13
 var _last_extraction_hits: int = 3
@@ -101,6 +149,8 @@ var _last_extraction_hits: int = 3
 
 var _combat_scene: PackedScene = preload("res://scenes/ui/combat.tscn")
 var _extraction_script: GDScript = preload("res://scripts/ui/extraction.gd")
+var _mining_script: GDScript = preload("res://scripts/ui/mining.gd")
+var _harvest_script: GDScript = preload("res://scripts/ui/harvest.gd")
 var _drop_pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
 var _active_enemy: Node = null     # enemigo del combate en curso
 var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
@@ -156,7 +206,7 @@ func nueva_partida() -> void:
 	money = 0
 
 	crystals.clear()
-	drops.clear()
+	materiales.clear()
 	almacen_materiales.clear()
 	owned_weapons.clear()
 	owned_armor.clear()
@@ -174,6 +224,10 @@ func nueva_partida() -> void:
 
 	tool_hit_reduction = 0
 	tool_destreza_bonus = 0
+	# Bajas a la mazmorra con un pico y una hoz de serie: recolectar no es una habilidad
+	# que haya que desbloquear, es lo que hace cualquiera que entre ahi a buscarse la vida.
+	equipped_pico = PICO_BASICO as ToolData
+	equipped_hoz = HOZ_BASICA as ToolData
 
 	current_floor = 1
 	pos_cargada = Vector2.INF
@@ -207,7 +261,7 @@ func exportar_partida() -> SaveData:
 	d.money = money
 
 	d.crystals = crystals.duplicate()
-	d.drops = drops.duplicate()
+	d.materiales = materiales.duplicate()
 	d.almacen_materiales = almacen_materiales.duplicate()
 	d.owned_weapons = owned_weapons.duplicate()
 	d.owned_armor = owned_armor.duplicate()
@@ -238,6 +292,10 @@ func exportar_partida() -> SaveData:
 	d.equipped_spells = equipped_spells.duplicate()
 	d.tool_hit_reduction = tool_hit_reduction
 	d.tool_destreza_bonus = tool_destreza_bonus
+	# El pico y la hoz son .tres del proyecto (no instancias con identidad propia, como las
+	# armas): basta con guardar su ruta, igual que las pociones.
+	d.pico = pico().resource_path
+	d.hoz = hoz().resource_path
 
 	d.en_mazmorra = en_mazmorra
 	d.current_floor = current_floor
@@ -265,7 +323,7 @@ func importar_partida(d: SaveData) -> void:
 	money = d.money
 
 	crystals.assign(d.crystals)
-	drops.assign(d.drops)
+	materiales.assign(d.materiales)
 	almacen_materiales.assign(d.almacen_materiales)
 	owned_weapons.assign(d.owned_weapons)
 	owned_armor.assign(d.owned_armor)
@@ -294,6 +352,8 @@ func importar_partida(d: SaveData) -> void:
 	equipped_spells.assign(d.equipped_spells)
 	tool_hit_reduction = d.tool_hit_reduction
 	tool_destreza_bonus = d.tool_destreza_bonus
+	equipped_pico = _cargar_tool(d.pico, PICO_BASICO)
+	equipped_hoz = _cargar_tool(d.hoz, HOZ_BASICA)
 
 	current_floor = d.current_floor
 	memoria_pisos = d.memoria_pisos.duplicate(true)
@@ -305,6 +365,16 @@ func importar_partida(d: SaveData) -> void:
 	inventory_open = false
 	debug_panel_open = false
 	_stamina_cargada = d.stamina
+
+
+# Carga una herramienta por su ruta. Si la partida es vieja o el .tres ya no existe, se
+# cae a la basica: quedarse SIN pico por un fichero que se movio bloquearia la mineria.
+func _cargar_tool(ruta: String, respaldo: Resource) -> ToolData:
+	if ruta != "":
+		var t: Resource = load(ruta)
+		if t is ToolData:
+			return t as ToolData
+	return respaldo as ToolData
 
 
 # Aguante con el que hay que arrancar al jugador tras cargar (-1 = al maximo). Lo lee el
@@ -337,7 +407,7 @@ var _muriendo: bool = false
 func morir_jugador() -> void:
 	_muriendo = true
 	var perdidos_c: int = _perder_de(crystals)
-	var perdidos_d: int = _perder_de(drops)
+	var perdidos_d: int = _perder_de(materiales)
 
 	# Despiertas entero: ya has pagado con el botin, no hace falta ademas un paseo al altar.
 	player_current_hp = -1   # -1 = "a tope" (se rellena al vuelo)
@@ -353,7 +423,7 @@ func morir_jugador() -> void:
 		perdidos_c, "" if perdidos_c == 1 else "es",
 		perdidos_d, "" if perdidos_d == 1 else "es"]
 	print("[muerte] ", mensaje_muerte, " | te quedan ", crystals.size(), " cristales y ",
-		drops.size(), " materiales")
+		materiales.size(), " materiales")
 
 	# La muerte se GUARDA SOLA: no vale morir y recargar la partida de hace un rato. Si se
 	# pudiera deshacer, el castigo por caer seria decorativo y la decision de "¿subo a vender
@@ -457,13 +527,16 @@ func _cambiar_piso(nuevo: int, por_la_bajada: bool) -> void:
 var inventory_open: bool = false
 
 # --- BOLSA: lo que llevas ENCIMA de la expedicion. Es lo unico que PESA (peso_actual).
-# Los cristales solo salen de la bolsa vendiendolos en la tienda; los drops se pueden
+# Los cristales solo salen de la bolsa vendiendolos en la tienda; los materiales se pueden
 # guardar en el HOGAR (ver guardar_materiales_en_hogar).
 var crystals: Array[Cristal] = []
-var drops: Array[MonsterDrop] = []
+# MATERIALES: lo que sueltan los bichos (baba, nucleo) y lo que recolectas (mineral, planta).
+# Todos son MaterialItem = plantilla (MaterialData) + calidad. Las dos FAMILIAS (corriente /
+# nucleo) conviven en la misma bolsa: quien las separa es el que las usa (pociones vs forja).
+var materiales: Array[MaterialItem] = []
 
-# --- BAUL DEL HOGAR: materiales (drops) ya guardados en casa. No pesan.
-var almacen_materiales: Array[MonsterDrop] = []
+# --- BAUL DEL HOGAR: materiales ya guardados en casa. No pesan.
+var almacen_materiales: Array[MaterialItem] = []
 
 # --- BAUL DE EQUIPO: lo que POSEES (aunque no lo lleves puesto). De momento se llena
 # desde el panel de debug; en el futuro, comprando/crafteando. El menu de personaje solo
@@ -527,6 +600,11 @@ var ayuda_mostrada: bool = false
 
 
 func _ready() -> void:
+	# Contador de FPS / frame time (F3). Vive AQUI y no en el HUD porque el HUD lo crea el
+	# jugador y desaparece en los menus, y porque tiene que verse por encima del combate y de
+	# los minijuegos, que es justo donde hay que medir.
+	add_child(preload("res://scripts/ui/fps_overlay.gd").new())
+
 	# El baul NO arranca con nada: empiezas a manos vacias. Los puños no son un objeto que
 	# poseas (no se compran, ni se forjan, ni se mejoran), son la AUSENCIA de arma.
 	equip_meta["main"] = _meta_por_defecto()
@@ -546,10 +624,27 @@ func _ready() -> void:
 			c.calidad = Cristal.Calidad.INTACTO
 			crystals.append(c)
 
-# Bonus de HERRAMIENTAS de recoleccion (cuchillos...). Placeholder hasta tener
-# sistema de equipo: las herramientas rellenaran estos valores.
+# Bonus del CUCHILLO de extraccion (el cristal del cadaver). Placeholder hasta tener
+# sistema de equipo: la herramienta rellenara estos valores. OJO: esto es la extraccion,
+# NO la recoleccion: el pico y la hoz son otra cosa y van en sus propios slots (abajo).
 var tool_hit_reduction: int = 0    # reduce pulsaciones necesarias
 var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
+
+# --- HERRAMIENTAS DE RECOLECCION: pico (vetas) y hoz (plantas) ---
+# Slots APARTE: no ocupan mano, no pesan y no entran en el combate. Una herramienta mejor
+# no sube tu stat, solo hace el minijuego menos hostil (ver ToolData). Se arranca con las
+# basicas; la tienda vendera mejores.
+const PICO_BASICO := preload("res://resources/tools/pico_basico.tres")
+const HOZ_BASICA := preload("res://resources/tools/hoz_basica.tres")
+
+var equipped_pico: ToolData = null
+var equipped_hoz: ToolData = null
+
+func pico() -> ToolData:
+	return equipped_pico if equipped_pico != null else (PICO_BASICO as ToolData)
+
+func hoz() -> ToolData:
+	return equipped_hoz if equipped_hoz != null else (HOZ_BASICA as ToolData)
 
 # --- Equipamiento: loadout de DOS manos (arma principal + secundaria) ---
 # La secundaria puede ser otra WeaponData (dual-wield), un ShieldData o null.
@@ -1242,8 +1337,8 @@ func peso_actual() -> float:
 	var w: float = 0.0
 	for c in crystals:
 		w += c.peso()
-	for d in drops:
-		w += d.peso()
+	for m in materiales:
+		w += m.peso()
 	return w
 
 func ratio_carga() -> float:
@@ -1320,15 +1415,15 @@ func owned_armor_de_slot(slot: String) -> Array:
 const ARMOR_SLOT_ORDEN := ["casco", "pecho", "manos", "pantalones", "botas"]
 
 
-# HOGAR: guarda en el baul los MATERIALES (drops) de la bolsa. Los CRISTALES no: esos
-# hay que venderlos en la tienda si o si. Devuelve cuantos materiales guardo.
+# HOGAR: guarda en el baul los MATERIALES de la bolsa. Los CRISTALES no: esos hay que
+# venderlos en la tienda si o si. Devuelve cuantos materiales guardo.
 func guardar_materiales_en_hogar() -> int:
-	var n: int = drops.size()
+	var n: int = materiales.size()
 	if n == 0:
 		return 0
-	for d in drops:
-		almacen_materiales.append(d)
-	drops.clear()
+	for m in materiales:
+		almacen_materiales.append(m)
+	materiales.clear()
 	print("[hogar] Guardas %d materiales. Total en casa: %d" % [n, almacen_materiales.size()])
 	return n
 
@@ -1375,13 +1470,13 @@ func _sacar_de_bolsa(modelo: Resource) -> Resource:
 			if c.categoria == m.categoria and c.calidad == m.calidad:
 				crystals.remove_at(i)
 				return c
-	elif modelo is MonsterDrop:
-		var md := modelo as MonsterDrop
-		for i in drops.size():
-			var d := drops[i]
-			if d.nombre == md.nombre and d.calidad == md.calidad:
-				drops.remove_at(i)
-				return d
+	elif modelo is MaterialItem:
+		var mm := modelo as MaterialItem
+		for i in materiales.size():
+			var m := materiales[i]
+			if m.data == mm.data and m.calidad == mm.calidad:
+				materiales.remove_at(i)
+				return m
 	return null
 
 
@@ -1390,9 +1485,9 @@ func _nombre_item(item: Resource) -> String:
 	if item is Cristal:
 		var c := item as Cristal
 		return "Cristal Cat %d (%s)" % [c.categoria, c.calidad_texto()]
-	if item is MonsterDrop:
-		var d := item as MonsterDrop
-		return "%s (%s)" % [d.nombre, d.calidad_texto()]
+	if item is MaterialItem:
+		var m := item as MaterialItem
+		return "%s (%s)" % [m.nombre(), m.calidad_texto()]
 	return "?"
 
 # Multiplicador de velocidad por sobrecarga (1.0 = normal). Baja GRADUALMENTE
@@ -1428,6 +1523,22 @@ func poder_jugador_eff() -> float:
 # Dificultad relativa: enemigo/accion facil respecto a ti = poco.
 func reto(poder_enemigo: float) -> float:
 	return clampf(poder_enemigo / poder_jugador_eff(), 0.0, RETO_MAX)
+
+
+# FORMA DE LA CURVA de aprendizaje de los MINIJUEGOS (extraccion, mineria, herboristeria).
+# La comparten las tres para que compararlas sea honesto: si una diera mas por la forma de
+# su curva y no por su ganancia base, tunear el reparto seria imposible.
+#   - reto <= pivote: curva ^2 que HUNDE lo facil (un experto sacando de una veta de piso 1
+#     no aprende nada; es trabajo, no entrenamiento).
+#   - reto  > pivote: SIGUE subiendo (lineal, comprimido por slope) hasta el tope. Meterte
+#     con algo muy por encima de ti enseña de verdad, y no se queda capado.
+func curva_reto(reto_bruto: float, pivote: float, slope: float, tope: float) -> float:
+	var d: float
+	if reto_bruto <= pivote:
+		d = reto_bruto * reto_bruto / pivote
+	else:
+		d = pivote + (reto_bruto - pivote) * slope
+	return clampf(d, 0.0, tope)
 
 # "Actualizar estado" (hogar / tu dios): aplica lo INTERNO a lo VISIBLE.
 func actualizar_estado() -> void:
@@ -1630,6 +1741,7 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 	_active_layer = layer
 
 	get_tree().paused = true  # congela la mazmorra mientras luchas
+	esconder_mundo(true)      # ...y deja de PINTARLA: la pantalla de combate la tapa entera
 
 
 # Abre el minijuego de extraccion sobre el cuerpo de un enemigo.
@@ -1670,9 +1782,10 @@ func start_extraction(corpse: Node) -> void:
 	# Guardamos la dificultad para la ganancia de Destreza al terminar.
 	_last_extraction_zone = zone_ratio
 	_last_extraction_hits = required_hits
-	# Marcador: mas rapido cuanto mas DIFICIL (y mas profundo el piso).
+	# Marcador: mas rapido cuanto mas DIFICIL (y mas profundo el piso), pero con TECHO.
 	var marker_speed: float = EXTRACTION_BASE_MARKER * clampf(difficulty, 0.6, 2.5) \
 		+ float(current_floor - 1) * 0.08
+	marker_speed = minf(marker_speed, EXTRACTION_MARKER_MAX)
 	var speed_step: float = 0.15
 
 	var ex: Control = _extraction_script.new()
@@ -1687,10 +1800,12 @@ func start_extraction(corpse: Node) -> void:
 	layer.add_child(ex)
 	_active_layer = layer
 	get_tree().paused = true
+	esconder_mundo(true)
 
 
 func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 	get_tree().paused = false
+	esconder_mundo(false)
 	# El minijuego se juega con ESPACIO, que ahora es TAMBIEN la tecla de atacar/interactuar:
 	# sin esto, la ultima pulsacion del minijuego te lanzaria contra el bicho que tengas al
 	# lado nada mas volver al mapa.
@@ -1712,61 +1827,251 @@ func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 		# Destreza, asi que un experto sacando de un bicho flojo tiene reto bajo.
 		var reto_bruto: float = (EXTRACTION_BASE_ZONE / _last_extraction_zone) \
 			* (float(_last_extraction_hits) / 3.0)
-		# Forma de la curva segun el reto que fue PARA TI:
-		#  - reto <= pivote: curva ^2 que HUNDE lo facil (experto vs bicho flojo ~0);
-		#    baja los casos "200 vs mismo nivel/debil".
-		#  - reto  > pivote: SIGUE subiendo (lineal comprimido por SLOPE) hasta un
-		#    tope propio ALTO; asi "novato vs bicho muy superior" (extraccion
-		#    brutal) da mucha Destreza, no se queda capado como antes.
-		var dificultad: float
-		if reto_bruto <= EXTRACTION_DESTREZA_PIVOTE:
-			dificultad = reto_bruto * reto_bruto / EXTRACTION_DESTREZA_PIVOTE
-		else:
-			dificultad = EXTRACTION_DESTREZA_PIVOTE \
-				+ (reto_bruto - EXTRACTION_DESTREZA_PIVOTE) * EXTRACTION_DESTREZA_SLOPE
-		dificultad = clampf(dificultad, 0.0, EXTRACTION_DESTREZA_RETO_MAX)
+		var dificultad: float = curva_reto(reto_bruto, EXTRACTION_DESTREZA_PIVOTE,
+			EXTRACTION_DESTREZA_SLOPE, EXTRACTION_DESTREZA_RETO_MAX)
 		ganar("destreza", dificultad, GAIN_DESTREZA_MINIJUEGO)
 	else:
 		print("El cristal se rompio: lo has perdido.")
 
-	# Drop raro del monstruo (probabilidad baja; en pruebas, 100%).
+	# Lo que deja el bicho (probabilidad baja; en pruebas, 100%).
 	if cristal != null and is_instance_valid(corpse) and corpse.data != null:
 		_tirar_drop(corpse, cristal.categoria)
 
 
-# Tira (o no) el drop del monstruo. Si sale, aparece en el SUELO (para
-# recogerlo con F) DESPUES de que el cuerpo se desvanezca.
+# Tira (o no) lo que suelta el monstruo. Son DOS tiradas independientes, y esa separacion
+# es justo el punto del modelo de familias:
+#   - el material CORRIENTE (la baba): frecuente, va a las pociones.
+#   - el NUCLEO: raro de verdad, va a mejorar el equipo.
+# Un bicho puede dejar los dos, uno, o ninguno. Aparecen en el SUELO (se recogen con F)
+# DESPUES de que el cuerpo se desvanezca.
 func _tirar_drop(corpse: Node, categoria: int) -> void:
 	var data: EnemyData = corpse.data
-	var chance: float = 1.0 if dev_force_drop else data.drop_chance
-	if randf() >= chance:
-		return
+	var caidos: Array[MaterialItem] = []
 
-	# Valor en una franja de 3 que se desplaza con la categoria del cristal.
-	var base: int = maxi(1, categoria - 2)
-	var valor: int = randi_range(base, base + 2)
-	var drop := MonsterDrop.new()
-	drop.nombre = data.drop_name
-	drop.calidad = MonsterDrop.calidad_desde_valor(valor)
+	var chance: float = 1.0 if dev_force_drop else data.drop_chance
+	if data.drop_material != null and randf() < chance:
+		caidos.append(MaterialItem.crear(data.drop_material, _calidad_de_drop(categoria)))
+
+	var chance_n: float = 1.0 if dev_force_drop else data.nucleo_chance
+	if data.nucleo != null and randf() < chance_n:
+		caidos.append(MaterialItem.crear(data.nucleo, _calidad_de_drop(categoria)))
+
+	if caidos.is_empty():
+		return
 
 	var pos: Vector2 = corpse.global_position
 	var parent: Node = corpse.get_parent()
 
-	# Esperamos a que el cuerpo termine de desvanecerse, y entonces dejamos
-	# el drop en el suelo donde estaba.
+	# Esperamos a que el cuerpo termine de desvanecerse, y entonces dejamos lo suyo
+	# en el suelo donde estaba.
 	await get_tree().create_timer(0.7).timeout
-	if parent != null and is_instance_valid(parent):
+	if parent == null or not is_instance_valid(parent):
+		return
+	for item in caidos:
 		var pickup: Node2D = _drop_pickup_script.new()
-		pickup.setup(drop)
+		pickup.setup(item)
 		parent.add_child(pickup)
-		pickup.global_position = pos
-		print("El monstruo deja un drop en el suelo: ", drop.nombre,
-			" (", drop.calidad_texto(), ")")
+		pickup.global_position = pos + Vector2(randf_range(-14.0, 14.0), randf_range(-14.0, 14.0))
+		print("El monstruo deja en el suelo: ", item.nombre(), " (", item.calidad_texto(), ")")
+
+
+# Calidad de lo que CAE de un bicho. No hay minijuego de por medio, asi que se tira en una
+# franja que se desplaza con la categoria del cristal (bicho mas potente = mejor pieza).
+# Nunca sale ROTO: lo que se rompe es lo que TU manejas mal, no lo que te encuentras.
+func _calidad_de_drop(categoria: int) -> MaterialItem.Calidad:
+	var base: int = maxi(1, categoria - 2)
+	var valor: int = randi_range(base, base + 2)
+	if valor <= 2:
+		return MaterialItem.Calidad.DANADO
+	elif valor <= 3:
+		return MaterialItem.Calidad.NORMAL
+	return MaterialItem.Calidad.INTACTO
+
+
+# ============================================================
+#  RECOLECCION: mineria (veta -> pico -> FUERZA) y herboristeria (planta -> hoz -> DESTREZA)
+#  Los dos abren su pantalla igual que la extraccion (CanvasLayer + arbol en pausa), pero
+#  el minijuego de dentro NO se parece: ver mining.gd y harvest.gd.
+# ============================================================
+
+# Cuanto exige un material A ESTA PROFUNDIDAD (la roca esta mas apretada abajo).
+func _exigencia_material(m: MaterialData) -> float:
+	if m == null:
+		return 1.0
+	return maxf(1.0, m.exigencia * pow(RECOLECCION_PISO_FACTOR, float(current_floor - 1)))
+
+
+# --- MINERIA ---
+# 'nodo' va SIN TIPAR (es un ResourceNode, que no tiene class_name): asi GDScript deja
+# leerle lo suyo (material_data, celda) sin pelearse con el tipo estatico.
+func start_mineria(nodo) -> void:
+	if _active_layer != null or nodo == null or nodo.material_data == null:
+		return
+	var m: MaterialData = nodo.material_data
+	var p: ToolData = pico()
+
+	# Dificultad RELATIVA: lo dura que es la veta contra tu FUERZA (con suelo). ~1 = a la par.
+	var d: float = _exigencia_material(m) / (float(player_fuerza) + MINERIA_FUERZA_FLOOR)
+
+	# La Fuerza ensancha la franja optima Y la baja (no necesitas cargar tanto el pico).
+	var ancho: float = clampf(MINERIA_BASE_VENTANA / d, 0.06, 0.45) + p.ventana_bonus
+	ancho = clampf(ancho, 0.06, 0.60)
+	var ini: float = clampf(0.45 * d, 0.15, 1.0 - ancho - 0.05)
+	var carga: float = MINERIA_BASE_CARGA * clampf(d, 0.7, 2.5) \
+		+ 0.06 * float(current_floor - 1) - p.control
+	# El techo se aplica AL FINAL, con el piso y el pico ya dentro: si se aplicara antes, la
+	# profundidad volveria a colarse por encima de el.
+	carga = clampf(carga, 0.35, MINERIA_CARGA_MAX)
+	var golpes: int = clampi(roundi(MINERIA_GOLPES_BASE * d), 2, 8) - p.golpes_menos
+	golpes = maxi(2, golpes)
+
+	_last_reco_reto = d
+	var ex: Control = _mining_script.new()
+	ex.process_mode = Node.PROCESS_MODE_ALWAYS
+	ex.setup(m, golpes, ini, ancho, carga)
+	ex.mineria_finished.connect(_on_mineria_finished.bind(nodo))
+	_abrir_pantalla(ex)
+
+
+func _on_mineria_finished(item: MaterialItem, nodo) -> void:
+	_cerrar_recoleccion(nodo)
+	if item == null:
+		return
+	if not item.se_pierde():
+		materiales.append(item)
+		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
+	else:
+		print("La veta se deshace en escombro: no sacas nada.")
+	# La FUERZA se entrena aunque la pieza salga rota: has picado igual. Lo que pierdes al
+	# hacerlo mal es el botin, no el aprendizaje.
+	ganar("fuerza", curva_reto(_last_reco_reto, MINERIA_PIVOTE, MINERIA_SLOPE, MINERIA_RETO_MAX),
+		GAIN_FUERZA_MINERIA, RETO_MAX_FISICO)
+
+
+# --- HERBORISTERIA ---
+func start_herboristeria(nodo) -> void:
+	if _active_layer != null or nodo == null or nodo.material_data == null:
+		return
+	var m: MaterialData = nodo.material_data
+	var h: ToolData = hoz()
+
+	var d: float = _exigencia_material(m) / (float(player_destreza) + HERB_DESTREZA_FLOOR)
+
+	var nucleo: float = clampf(HERB_BASE_NUCLEO / d, 0.015, 0.14) + h.filo
+	var borde: float = nucleo * HERB_BORDE_MULT
+	var vel: float = HERB_BASE_VEL * clampf(d, 0.7, 2.5) + 0.05 * float(current_floor - 1)
+	var cortes: int = clampi(2 + floori(d), 2, 5) - h.cortes_menos
+	cortes = maxi(2, cortes)
+
+	_last_reco_reto = d
+	var ex: Control = _harvest_script.new()
+	ex.process_mode = Node.PROCESS_MODE_ALWAYS
+	ex.setup(m, cortes, nucleo, borde, vel)
+	ex.recoleccion_finished.connect(_on_herboristeria_finished.bind(nodo))
+	_abrir_pantalla(ex)
+
+
+func _on_herboristeria_finished(item: MaterialItem, nodo) -> void:
+	_cerrar_recoleccion(nodo)
+	if item == null:
+		return
+	if not item.se_pierde():
+		materiales.append(item)
+		print("Recoges ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
+	else:
+		print("La planta queda hecha jirones: no sirve.")
+	ganar("destreza", curva_reto(_last_reco_reto, HERB_PIVOTE, HERB_SLOPE, HERB_RETO_MAX),
+		GAIN_DESTREZA_PLANTA)
+
+
+# Dificultad del ultimo minijuego de recoleccion (para la ganancia de stat al terminar).
+var _last_reco_reto: float = 1.0
+
+
+# Monta la pantalla de un minijuego encima del mapa y congela el mundo. Lo comparten la
+# mineria y la herboristeria (la extraccion lo hace a mano por su cuenta, ya estaba escrito).
+func _abrir_pantalla(pantalla: Control) -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 100
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	get_tree().root.add_child(layer)
+	layer.add_child(pantalla)
+	_active_layer = layer
+	get_tree().paused = true
+	esconder_mundo(true)
+
+
+# ESCONDE (o devuelve) el mapa mientras hay una pantalla modal encima.
+#
+# Pausar el arbol congela la LOGICA, pero no el DIBUJADO: la mazmorra entera (miles de
+# ColorRect de suelo y muro, los bichos, sus conos de vision) se seguia RENDERIZANDO cada
+# frame por detras de una pantalla opaca que la tapa entera. Godot no descarta lo que queda
+# oculto en 2D. O sea: pagabamos el coste de pintar el piso completo para no verlo, y quien
+# lo pagaba era el minijuego, que es lo unico que se mueve rapido y donde se nota.
+#
+# El HUD y las barras NO se van con esto: cuelgan de CanvasLayer, que no es un CanvasItem y
+# no hereda la visibilidad del mundo. Y tapados por la pantalla modal quedan igual que antes.
+func esconder_mundo(esconder: bool) -> void:
+	var escena: Node = get_tree().current_scene
+	if escena is CanvasItem:
+		(escena as CanvasItem).visible = not esconder
+
+
+# Cierra el minijuego y AGOTA el recolectable: la veta picada no vuelve a estar entera, ni
+# ahora ni cuando vuelvas al piso (su celda queda apuntada en la memoria del piso).
+func _cerrar_recoleccion(nodo) -> void:
+	get_tree().paused = false
+	esconder_mundo(false)
+	_bloquear_interaccion_jugador()   # el minijuego se juega a ESPACIAZOS: que no ataque al salir
+	if is_instance_valid(nodo):
+		var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+		if piso != null and piso.has_method("marcar_agotado"):
+			piso.marcar_agotado(nodo.celda)
+		if nodo.has_method("agotar"):
+			nodo.agotar()
+	if is_instance_valid(_active_layer):
+		_active_layer.queue_free()
+	_active_layer = null
+
+
+# ============================================================
+#  DEV: la curva de las tres actividades sin tener que jugar una hora.
+#  Imprime, para un piso, que dificultad tiene cada minijuego CON TUS STATS DE AHORA y
+#  cuanta stat te daria. Sirve para afinar el reparto de la Destreza (cristal vs planta)
+#  con datos y no a ojo: mira la curva ENTERA (piso 1, 5, 13), no un piso suelto.
+# ============================================================
+func dev_curva_recoleccion(pisos: Array = [1, 3, 5, 8, 13]) -> void:
+	var piso_real: int = current_floor
+	var vetas: MaterialTable = load("res://resources/world/vetas.tres")
+	var plantas: MaterialTable = load("res://resources/world/plantas.tres")
+	print("[dev] curva de recoleccion con F:", player_fuerza, " D:", player_destreza)
+	for p in pisos:
+		current_floor = int(p)
+		var linea: String = "   piso %2d |" % int(p)
+		for tabla in [vetas, plantas]:
+			if tabla == null:
+				continue
+			for e in tabla.disponibles(int(p)):
+				var m: MaterialData = (e as MaterialEntry).material
+				var es_veta: bool = m.es_veta()
+				var stat: float = float(player_fuerza if es_veta else player_destreza)
+				var suelo: float = MINERIA_FUERZA_FLOOR if es_veta else HERB_DESTREZA_FLOOR
+				var d: float = _exigencia_material(m) / (stat + suelo)
+				var dif: float = curva_reto(d,
+					MINERIA_PIVOTE if es_veta else HERB_PIVOTE,
+					MINERIA_SLOPE if es_veta else HERB_SLOPE,
+					MINERIA_RETO_MAX if es_veta else HERB_RETO_MAX)
+				var base: float = GAIN_FUERZA_MINERIA if es_veta else GAIN_DESTREZA_PLANTA
+				linea += "  %s d=%.2f -> %s +%.2f |" % [m.nombre, d,
+					"FUE" if es_veta else "DES", dif * base]
+		print(linea)
+	current_floor = piso_real
 
 
 func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float = -1.0,
 		player_energy_left: float = -1.0) -> void:
 	get_tree().paused = false
+	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
 	player_current_hp = player_hp_left
 	if player_mp_left >= 0.0:

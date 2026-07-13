@@ -303,7 +303,10 @@ func _hueco_hasta(otro: Node) -> float:
 # INTERACTUAR (F). Por orden de cercania de la intencion:
 #   1) NPC interactuable (altar, tienda, puerta, escalera, hogar).
 #   2) EXTRAER el cristal de un cadaver.
-#   3) RECOGER un item del suelo.
+#   3) RECOLECTAR una veta o una planta (su minijuego).
+#   4) RECOGER un item del suelo.
+# El cadaver va ANTES que el recolectable a proposito: un bicho que cae encima de una veta
+# no puede dejarte sin tu cristal (y la veta no se va a ningun sitio, sigue ahi despues).
 # ATACAR ya NO esta aqui: tiene su propia tecla (ESPACIO). Asi, acercarte a lootear con un
 # bicho al lado no te mete en un combate que no habias pedido.
 func _try_interact() -> void:
@@ -313,20 +316,27 @@ func _try_interact() -> void:
 		interactable.interact_with_player()
 		return
 
-	# 1) Cadaver para extraer.
+	# 2) Cadaver para extraer.
 	var corpse: Node = _mas_cercano_en_grupo("corpse", true)
 	if corpse != null:
 		Game.start_extraction(corpse)
 		return
 
-	# 2) Item del suelo para recoger (drop del monstruo o cristal soltado del inventario).
+	# 3) Veta o planta: abre su minijuego (pico -> Fuerza, hoz -> Destreza).
+	var reco: Node = _mas_cercano_en_grupo("recolectable", false)
+	if reco != null and reco.has_method("interactuar"):
+		reco.interactuar()
+		return
+
+	# 4) Item del suelo para recoger (lo que solto el monstruo, o algo que tiraste tu).
 	var pickup: Node = _mas_cercano_en_grupo("pickup", false)
 	if pickup != null and pickup.has_method("recoger"):
 		var item: Resource = pickup.recoger()
-		if item is MonsterDrop:
-			var d := item as MonsterDrop
-			Game.drops.append(d)
-			print("Recoges: ", d.nombre, " (", d.calidad_texto(), "). Total drops: ", Game.drops.size())
+		if item is MaterialItem:
+			var m := item as MaterialItem
+			Game.materiales.append(m)
+			print("Recoges: ", m.nombre(), " (", m.calidad_texto(), "). Total materiales: ",
+				Game.materiales.size())
 		elif item is Cristal:
 			var c := item as Cristal
 			Game.crystals.append(c)

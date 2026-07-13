@@ -5,6 +5,8 @@
 [ext_resource type="Resource" path="res://resources/abilities/slime_placaje_corrosivo.tres" id="3_plc"]
 [ext_resource type="Resource" path="res://resources/abilities/slime_rociada_corrosiva.tres" id="4_dbe"]
 [ext_resource type="Resource" path="res://resources/abilities/slime_escupitajo_toxico.tres" id="5_esc"]
+[ext_resource type="Resource" path="res://resources/materials/baba_slime.tres" id="6_baba"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_slime.tres" id="7_nuc"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
@@ -27,7 +29,8 @@ base_attack = 3.4
 base_defense = 3.0
 base_speed = 4.0
 inmune_estados = [0]
-drop_name = "Material de Slime venenoso"
+drop_material = ExtResource("6_baba")
+nucleo = ExtResource("7_nuc")
 al_golpear = [SubResource("SA_peg"), SubResource("SA_ven")]
 habilidades = [ExtResource("3_plc"), ExtResource("4_dbe"), ExtResource("5_esc")]
 prob_habilidad = 0.5

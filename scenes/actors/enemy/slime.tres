@@ -5,6 +5,8 @@
 [ext_resource type="Resource" uid="uid://dx8884gnourd2" path="res://resources/abilities/slime_placaje_viscoso.tres" id="3_plc"]
 [ext_resource type="Resource" uid="uid://divj4yifpx26l" path="res://resources/abilities/slime_doble_embate.tres" id="4_dbe"]
 [ext_resource type="Resource" path="res://resources/abilities/slime_reventon.tres" id="5_rev"]
+[ext_resource type="Resource" path="res://resources/materials/baba_slime.tres" id="6_baba"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_slime.tres" id="7_nuc"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
@@ -13,6 +15,8 @@ prob = 0.5
 
 [resource]
 script = ExtResource("1_g8nro")
+drop_material = ExtResource("6_baba")
+nucleo = ExtResource("7_nuc")
 al_golpear = [SubResource("SA_peg")]
 habilidades = [ExtResource("3_plc"), ExtResource("4_dbe"), ExtResource("5_rev")]
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

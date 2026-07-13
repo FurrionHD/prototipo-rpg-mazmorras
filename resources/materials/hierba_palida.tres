@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"hierba_palida"
+nombre = "Hierba pálida"
+descripcion = "Crece en los pasillos, lejos de toda luz. El tallo se parte solo con mirarlo mal, y una hoja machacada no sirve para nada."
+familia = 0
+tipo = 1
+tier = 1
+exigencia = 25.0
+peso_base = 0.5
+valor_base = 12
+color = Color(0.62, 0.85, 0.55, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

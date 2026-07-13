@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="MaterialTable" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/material_table.gd" id="1_tabla"]
+[ext_resource type="Script" path="res://scripts/world/material_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" path="res://resources/materials/cobre.tres" id="3_cobre"]
+[ext_resource type="Resource" path="res://resources/materials/hierro.tres" id="4_hierro"]
+
+[sub_resource type="Resource" id="E_cobre"]
+script = ExtResource("2_entrada")
+material = ExtResource("3_cobre")
+peso = 70.0
+
+[sub_resource type="Resource" id="E_hierro"]
+script = ExtResource("2_entrada")
+material = ExtResource("4_hierro")
+peso = 30.0
+
+[resource]
+script = ExtResource("1_tabla")
+nombre = "Vetas"
+entradas = [SubResource("E_cobre"), SubResource("E_hierro")]
+metadata/_custom_type_script = "res://scripts/world/material_table.gd"

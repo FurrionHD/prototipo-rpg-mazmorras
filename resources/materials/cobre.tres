@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"cobre"
+nombre = "Cobre en bruto"
+descripcion = "Vetas rojizas que asoman en la roca de los primeros pisos. Blando, agradecido: cede sin pelear demasiado."
+familia = 0
+tipo = 2
+tier = 1
+exigencia = 30.0
+peso_base = 2.0
+valor_base = 18
+color = Color(0.76, 0.45, 0.28, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

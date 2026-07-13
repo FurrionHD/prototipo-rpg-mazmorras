@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ToolData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/tool_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+tipo = 0
+nombre = "Pico gastado"
+descripcion = "El que te dieron al entrar. Pesa mal, rebota y te obliga a medir cada golpe. Con él, la roca la rompes tú, no la herramienta."
+tier = 1
+valor_base = 40
+ventana_bonus = 0.0
+control = 0.0
+golpes_menos = 0
+metadata/_custom_type_script = "res://scripts/items/tool_data.gd"

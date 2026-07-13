@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ToolData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/tool_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+tipo = 1
+nombre = "Hoz mellada"
+descripcion = "Corta si aciertas donde debes y machaca si no. Un pulso firme vale más que un filo nuevo."
+tier = 1
+valor_base = 40
+filo = 0.0
+cortes_menos = 0
+metadata/_custom_type_script = "res://scripts/items/tool_data.gd"

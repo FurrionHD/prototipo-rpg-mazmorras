@@ -70,54 +70,66 @@ static var _defs: Dictionary = {
 		"id": Id.VENENO, "nombre": "Veneno", "icono": "☠", "color": Color(0.45, 0.85, 0.2),
 		"dot": true, "turns": VENENO_TURNS, "dot_default": VENENO_BASE_DMG,
 		"stack_mode": "merge", "max_stacks": VENENO_MAX_STACKS, "dot_stack_mult": 2.0,
+		"descripcion": "Corre por dentro y no se cansa. Cada dosis nueva no se suma a la anterior: la multiplica.",
 	},
 	Id.SANGRADO: {
 		"id": Id.SANGRADO, "nombre": "Sangrado", "icono": "🩸", "color": Color(0.85, 0.15, 0.15),
 		"dot": true, "turns": SANGRADO_TURNS,   # magnitud/stack = escala con el aplicador
 		"stack_mode": "independent", "max_stacks": SANGRADO_MAX_STACKS,
+		"descripcion": "Una herida abierta que no espera. Cuanto más fuerte el que corta, más se abre; y cada corte sangra por su cuenta.",
 	},
 	Id.QUEMADURA: {
 		"id": Id.QUEMADURA, "nombre": "Quemadura", "icono": "🔥", "color": Color(1.0, 0.5, 0.1),
 		"dot": true, "turns": 2, "dot_default": 6.0,   # lo afinaran los hechizos (Fase 3)
+		"descripcion": "Sigue ardiendo cuando la llama ya no está. El agua la apaga.",
 	},
 	Id.LENTO: {   # Ralentizacion FIJA (hechizo/habilidad): NO apila, un -25% plano.
 		"id": Id.LENTO, "nombre": "Lento", "icono": "🐌", "color": Color(0.3, 0.6, 0.9),
 		"turns": 3, "spd_mult": 0.75,
+		"descripcion": "Los miembros pesan y el turno tarda en llegar.",
 	},
 	Id.PEGAJOSO: {   # Slimes: hasta 4 stacks INDEPENDIENTES, -5% vel/stack (cada uno su duracion)
 		"id": Id.PEGAJOSO, "nombre": "Pegajoso", "icono": "🕸", "color": Color(0.4, 0.8, 0.4),
 		"stack_mode": "independent", "max_stacks": 4, "turns": 3,
 		"spd_mult": 0.95,   # cada stack (instancia) multiplica x0.95 -> 4 stacks ~ -18.5%
+		"descripcion": "Baba que se agarra a todo. Una capa se nota poco; cuatro te dejan luchando dentro de un tarro.",
 	},
 	Id.DEBIL: {   # debuff de ataque
 		"id": Id.DEBIL, "nombre": "Debil", "icono": "💢", "color": Color(0.7, 0.4, 0.9),
 		"turns": 3, "atk_mult": 0.80,
+		"descripcion": "El golpe sale, pero sale sin nadie detrás.",
 	},
 	Id.VULNERABLE: {   # debuff de defensa (recibe mas daño)
 		"id": Id.VULNERABLE, "nombre": "Vulnerable", "icono": "🔻", "color": Color(0.9, 0.3, 0.5),
 		"turns": 3, "def_mult": 0.80,
+		"descripcion": "La guardia se ha abierto y todo entra más hondo.",
 	},
 	Id.FORTALEZA: {   # buff de ataque
 		"id": Id.FORTALEZA, "nombre": "Fortaleza", "icono": "💪", "color": Color(0.95, 0.8, 0.2),
 		"turns": 3, "atk_mult": 1.25,
+		"descripcion": "Los golpes salen con todo el cuerpo detrás.",
 	},
 	Id.ATURDIDO: {   # pierde el turno; lo aplica el aturdir CRITICO de contundentes (Fase 2)
 		"id": Id.ATURDIDO, "nombre": "Aturdido", "icono": "💫", "color": Color(1.0, 0.9, 0.3),
 		"turns": 1, "is_stun": true,
+		"descripcion": "El mundo se va un momento. Cuando vuelve, ya te han pegado.",
 	},
 	Id.RAYO: {   # debuff estilo MH: x1.5 a la prob. de aturdir que recibe.
 		# Se LLAMA "Electrizado" aunque el Id sea RAYO: el ELEMENTO ya se llama Rayo y tener
 		# los dos con el mismo nombre hacia ilegible la ficha ("daño de Rayo · Rayo 32%").
 		"id": Id.RAYO, "nombre": "Electrizado", "icono": "⚡", "color": Color(0.6, 0.8, 1.0),
 		"turns": 3, "stun_prob_mult": 1.5,
+		"descripcion": "Los músculos responden tarde y mal: un buen mazazo ahora te tumba mucho más fácil.",
 	},
 	Id.REGENERACION: {   # CURA por turno (espejo del DoT): pociones (KAN-57). magnitud = cura/turno.
 		"id": Id.REGENERACION, "nombre": "Regeneración", "icono": "✚", "color": Color(0.4, 0.9, 0.55),
 		"heal": true, "turns": 3, "heal_default": 8.0,
+		"descripcion": "La poción hace su trabajo poco a poco: te cura mientras aguantas, no antes.",
 	},
 	Id.REGEN_MANA: {   # MANÁ por turno (pociones de maná, KAN-56/57). magnitud = maná/turno.
 		"id": Id.REGEN_MANA, "nombre": "Regen. maná", "icono": "🔷", "color": Color(0.4, 0.6, 1.0),
 		"mana_heal": true, "turns": 3, "mana_default": 4.0,
+		"descripcion": "El pozo se va llenando solo, gota a gota.",
 	},
 	Id.MOJADO: {   # Lo aplican los golpes imbuidos de AGUA. Empapado no ardes... pero conduces.
 		# El "+50% de daño de RAYO recibido" NO vive aqui sino en Elementos.AMPLIFICA_POR_ESTADO:
@@ -127,6 +139,7 @@ static var _defs: Dictionary = {
 		"turns": 3,
 		"inmune": [Id.QUEMADURA],   # empapado NO puedes arder
 		"limpia": [Id.QUEMADURA],   # y te APAGA la quemadura que llevaras encima
+		"descripcion": "Empapado no ardes. Pero el agua conduce, y un rayo encuentra el camino.",
 	},
 }
 
@@ -242,3 +255,51 @@ class Instance extends RefCounted:
 		if stacks > 1:        # apilable sin stat ni DoT
 			return "%sx%d·%dt" % [ic, stacks, turns]
 		return "%s·%dt" % [ic, turns]
+
+	# FICHA COMPLETA del estado (para el tooltip del combate). TODOS los numeros salen de los
+	# campos de esta instancia y de su definicion: la 'descripcion' del catalogo es solo
+	# SABOR y no repite ni una cifra (si lo hiciera, se quedaria vieja al tocar el balance).
+	func resumen() -> String:
+		var lineas: PackedStringArray = []
+		lineas.append("%s  %s" % [str(d.get("icono", "?")), str(d.get("nombre", "?"))])
+
+		# Que te HACE, con la magnitud REAL de esta instancia (stacks ya dentro).
+		if dot_damage() > 0.0:
+			lineas.append("Te hace %.1f de daño al empezar cada uno de tus turnos." % dot_damage())
+		if heal_amount() > 0.0:
+			lineas.append("Te cura %.1f de vida al empezar cada uno de tus turnos." % heal_amount())
+		if mana_amount() > 0.0:
+			lineas.append("Te devuelve %.1f de maná al empezar cada uno de tus turnos." % mana_amount())
+		for par in [["atk_mult", "ataque"], ["def_mult", "defensa"], ["spd_mult", "velocidad"]]:
+			if not d.has(par[0]):
+				continue
+			var m: float = atk_mult() if par[0] == "atk_mult" else \
+				(def_mult() if par[0] == "def_mult" else spd_mult())
+			lineas.append("%s: %+d%% (ahora mismo, con los stacks que llevas)" % [
+				str(par[1]).capitalize(), roundi((m - 1.0) * 100.0)])
+		if is_stun():
+			lineas.append("Pierdes el turno.")
+		if stun_prob_mult() != 1.0:
+			lineas.append("Te aturden %+d%% más fácil." % roundi((stun_prob_mult() - 1.0) * 100.0))
+		for id_inm in (d.get("inmune", []) as Array):
+			lineas.append("Mientras dure, eres inmune a: %s." % str(StatusEffects.def(id_inm).get("nombre", "?")))
+
+		# Stacks y como apila (solo si apila de verdad: si no, es ruido).
+		var maxs: int = int(d.get("max_stacks", 1))
+		if maxs > 1:
+			var modo: String = str(d.get("stack_mode", "none"))
+			var como: String = ""
+			if modo == "merge":
+				como = "cada stack multiplica el efecto" if float(d.get("dot_stack_mult", 1.0)) > 1.0 \
+					else "los stacks comparten duración"
+			elif modo == "independent":
+				como = "cada stack dura por su cuenta"
+			lineas.append("Stacks: %d de %d%s." % [stacks, maxs, "" if como == "" else "  (%s)" % como])
+
+		lineas.append("Le quedan %d turno%s." % [turns, "" if turns == 1 else "s"])
+
+		var desc: String = str(d.get("descripcion", ""))
+		if desc != "":
+			lineas.append("")
+			lineas.append(desc)
+		return "\n".join(lineas)

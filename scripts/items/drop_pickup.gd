@@ -1,14 +1,14 @@
 # ============================================================
 #  drop_pickup.gd
-#  Un ITEM DE BOLSA tirado en el SUELO de la mazmorra: un MonsterDrop (drop del
-#  monstruo) o un Cristal que el jugador ha SOLTADO desde el inventario. Se ve como
-#  un cuadradito de color segun su tipo/calidad. El jugador lo recoge acercandose y
-#  pulsando F (ver player.gd). Se crea por codigo (sin .tscn).
+#  Un ITEM DE BOLSA tirado en el SUELO de la mazmorra: un MaterialItem (lo que suelta el
+#  monstruo) o un Cristal que el jugador ha SOLTADO desde el inventario. Se ve como un
+#  cuadradito de color segun su tipo/calidad. El jugador lo recoge acercandose y pulsando
+#  F (ver player.gd). Se crea por codigo (sin .tscn).
 # ============================================================
 
 extends Node2D
 
-# El item que hay en el suelo: Cristal | MonsterDrop.
+# El item que hay en el suelo: Cristal | MaterialItem.
 var item: Resource = null
 
 
@@ -25,14 +25,11 @@ func _ready() -> void:
 	add_child(rect)
 
 
-# Color por tipo y calidad. Los cristales tiran a cian/violeta; los materiales, a la
-# escala gris/azul/dorado de siempre.
+# Color por tipo y calidad. Los cristales tiran a cian/violeta; los materiales llevan SU
+# color (el del .tres), apagado o realzado segun la calidad (ver MaterialItem.color()).
 func _color_item() -> Color:
-	if item is MonsterDrop:
-		match (item as MonsterDrop).calidad:
-			MonsterDrop.Calidad.DEFECTUOSO: return Color(0.6, 0.6, 0.6)   # gris
-			MonsterDrop.Calidad.NORMAL: return Color(0.4, 0.7, 1.0)        # azul
-			_: return Color(1.0, 0.85, 0.2)                                # dorado (excelente)
+	if item is MaterialItem:
+		return (item as MaterialItem).color()
 	if item is Cristal:
 		match (item as Cristal).calidad:
 			Cristal.Calidad.INTACTO: return Color(0.4, 1.0, 0.9)   # cian brillante
@@ -42,7 +39,7 @@ func _color_item() -> Color:
 
 
 # El jugador lo recoge: devuelve el item y se elimina del suelo. Quien llama decide
-# en que parte de la bolsa lo mete (cristales / drops).
+# en que parte de la bolsa lo mete (cristales / materiales).
 func recoger() -> Resource:
 	var i := item
 	queue_free()

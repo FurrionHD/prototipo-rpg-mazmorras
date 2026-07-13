@@ -80,9 +80,20 @@ class_name EnemyData
 # alto (necesitas mas Destreza para que la zona sea comoda).
 @export var extraction_req_destreza: int = 60
 
-# --- Drop raro del monstruo (material, Fase 5) ---
-@export var drop_name: String = "Material de Slime"
-@export var drop_chance: float = 0.02   # 2% normal (en pruebas se fuerza 100%)
+# --- LO QUE SUELTA EL MONSTRUO (aparte del cristal) ---
+# Dos tiradas INDEPENDIENTES, una por familia de material (ver MaterialData):
+#   - drop_material: el material CORRIENTE del bicho (su baba, su cuero). Va a POCIONES.
+#   - nucleo: el NUCLEO. Raro de verdad, y es lo que MEJORA EL EQUIPO.
+# Un bicho puede dejar los dos, uno o ninguno. Si un campo esta vacio, ese bicho no lo suelta.
+#
+# El material corriente NO es un premio raro: es lo que sale de descuartizar un bicho, y las
+# pociones se comen muchisimo. Que caiga 1 de cada 4 es lo que hace que la boticaria tenga
+# sentido. El NUCLEO si es raro (1 de cada 20): es lo que sube el equipo, y ahi la escasez
+# ES el sistema de progresion.
+@export var drop_material: MaterialData = null
+@export var drop_chance: float = 0.25   # 1 de cada 4 (en pruebas se fuerza 100%)
+@export var nucleo: MaterialData = null
+@export var nucleo_chance: float = 0.05   # 1 de cada 20
 
 # --- ESTADOS ALTERADOS que aplica AL GOLPEAR (KAN-58 Fase 3) ---
 # Lista de StatusApplication (cada una con su prob). Un enemigo puede aplicar VARIOS:
