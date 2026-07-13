@@ -59,7 +59,8 @@ const CAT_GRIMORIOS: Array[String] = [
 
 var _root: Control = null
 var _content: VBoxContainer = null
-var _dinero_lbl: Label = null
+var _dinero_lbl: Label = null       # bajo el titulo, en la columna
+var _dinero_top: Label = null       # arriba a la derecha, como en el inventario
 var _tab_buttons: Array = []
 
 var _tab: int = 0
@@ -98,6 +99,17 @@ func _ready() -> void:
 	hb.offset_bottom = -16
 	hb.add_theme_constant_override("separation", 18)
 	_root.add_child(hb)
+
+	# Dinero arriba a la derecha (mismo sitio que en el inventario): comprando es EL dato.
+	_dinero_top = Label.new()
+	_dinero_top.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_dinero_top.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_dinero_top.offset_left = -240
+	_dinero_top.offset_right = -20
+	_dinero_top.offset_top = 16
+	_dinero_top.add_theme_color_override("font_color", Color(0.95, 0.86, 0.5))
+	_dinero_top.add_theme_font_size_override("font_size", 18)
+	_root.add_child(_dinero_top)
 
 	# Columna izquierda: titulo, dinero, pestañas.
 	var side := VBoxContainer.new()
@@ -202,6 +214,7 @@ func _rebuild() -> void:
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	_dinero_lbl.text = "%d monedas" % Game.money
+	_dinero_top.text = "%d monedas" % Game.money
 
 	if _aviso != "":
 		var l := Label.new()

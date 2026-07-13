@@ -23,6 +23,7 @@ const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
 
 var _root: Control = null
 var _content: VBoxContainer = null
+var _dinero_lbl: Label = null       # monedas, arriba a la derecha
 var _tab_buttons: Array = []
 var _modal: Control = null          # modal de cantidad (null = cerrado)
 var _modal_spin: SpinBox = null     # selector de cantidad del modal
@@ -55,6 +56,17 @@ func _ready() -> void:
 	hb.offset_bottom = -16
 	hb.add_theme_constant_override("separation", 18)
 	_root.add_child(hb)
+
+	# Dinero arriba a la derecha: lo que puedes gastar en la tienda se mira desde aqui.
+	_dinero_lbl = Label.new()
+	_dinero_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_dinero_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_dinero_lbl.offset_left = -240
+	_dinero_lbl.offset_right = -20
+	_dinero_lbl.offset_top = 16
+	_dinero_lbl.add_theme_color_override("font_color", Color(0.95, 0.86, 0.5))
+	_dinero_lbl.add_theme_font_size_override("font_size", 18)
+	_root.add_child(_dinero_lbl)
 
 	# Pestañas verticales a la izquierda.
 	var side := VBoxContainer.new()
@@ -148,6 +160,7 @@ func _on_tab(i: int) -> void:
 
 
 func _rebuild() -> void:
+	_dinero_lbl.text = "%d monedas" % Game.money
 	for c in _content.get_children():
 		c.queue_free()
 	for i in _tab_buttons.size():
