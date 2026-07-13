@@ -527,7 +527,7 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 	if crit != 0.0:
 		_row(vb, "  Crítico", _con_mejoras_pct(w.crit_bonus, crit))
 	if float(mods["precision"]) > 0.0:
-		_row(vb, "  Precisión", "+%s  (por las mejoras)" % _fmt_pct(float(mods["precision"])))
+		_row(vb, "  Precisión", "+%s" % _fmt_pct(float(mods["precision"])))
 	var aturdir: float = w.aturdir_base + float(mods["aturdir_add"])
 	if aturdir > 0.0:
 		_row(vb, "  Aturdir", _con_mejoras_pct(w.aturdir_base, aturdir))
@@ -553,24 +553,22 @@ func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base
 	_row(vb, "  Vel. casteo", _con_mejoras("×%.2f",
 		cast_base + float(mgb["cast_vel_add"]), cast_base + float(mg["cast_vel_add"])))
 	if float(mg["mana_reduccion"]) > 0.0:
-		_row(vb, "  Coste de maná", "-%s  (por las mejoras)" % _fmt_pct(float(mg["mana_reduccion"])))
+		_row(vb, "  Coste de maná", "-%s" % _fmt_pct(float(mg["mana_reduccion"])))
 
 
-# "14.5  +6.1 por las mejoras  =  20.6". El BASE ya lleva dentro el tier y la rareza de ESTE
-# objeto (no es el numero del .tres); lo que se suma aparte es solo lo que dan las mejoras. Si
-# no tiene mejoras, se enseña el numero a secas.
+# "14.5 + 6.1 = 20.6". El BASE ya lleva dentro el tier y la rareza de ESTE objeto (no es el
+# numero del .tres); lo que se suma es lo que dan las mejoras. Sin mejoras, el numero a secas.
 func _con_mejoras(fmt: String, base: float, total: float) -> String:
 	if absf(total - base) < 0.005:
 		return fmt % total
-	return "%s  +%s por las mejoras  =  %s" % [fmt % base, fmt % (total - base), fmt % total]
+	return "%s + %s = %s" % [fmt % base, fmt % (total - base), fmt % total]
 
 
 # Igual pero en porcentaje (critico, aturdir).
 func _con_mejoras_pct(base: float, total: float) -> String:
 	if absf(total - base) < 0.0005:
 		return "+%s" % _fmt_pct(total)
-	return "+%s  +%s por las mejoras  =  +%s" % [
-		_fmt_pct(base), _fmt_pct(total - base), _fmt_pct(total)]
+	return "%s + %s = %s" % [_fmt_pct(base), _fmt_pct(total - base), _fmt_pct(total)]
 
 
 # "Agudeza 2, Precision 1": en QUE se gastaron las mejoras (dos armas con el mismo +N pueden
@@ -762,16 +760,36 @@ func _preview_armor(vb: VBoxContainer) -> void:
 	_title(vb, Game.item_display_name(a))
 	if a == Game.get("equipped_" + slot):
 		_note(vb, "Ya la llevas puesta: al quitarla vas ligero (+velocidad, 0 defensa).")
+	_armor_stats(vb, a)
+
+
+# Ficha de una pieza de armadura. Como en las armas: los numeros son los REALES (con su tier,
+# rareza y mejoras) y la DEFENSA se desglosa en "base + lo que suman las mejoras", donde el
+# base ya lleva dentro el tier y la rareza de ESTA pieza.
+func _armor_stats(vb: VBoxContainer, a: ArmorData) -> void:
+	if a == null:
+		return
 	var am: Dictionary = Game.meta_de(a)
-	var mods: Dictionary = Upgrades.armor_piece_mods(a, Game.tier_mult(int(am["tier"])),
-		int(am["rareza"]), am["mejoras"])
-	_row(vb, "  Defensa", "%.1f" % float(mods["def"]))
+	var tier: int = int(am["tier"])
+	var rareza: int = int(am["rareza"])
+	var mejoras: Dictionary = am["mejoras"]
+	var tm: float = Game.tier_mult(tier)
+	var mods: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, mejoras)
+	var base: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, {})
+
+	_row(vb, "  Defensa", _con_mejoras("%.1f", float(base["def"]), float(mods["def"])))
 	_row(vb, "  Reducción", _fmt_pct(float(mods["reduccion"])))
 	_row(vb, "  Velocidad", "×%.2f" % float(mods["vel_mult"]))
 	if float(mods["evasion"]) > 0.0:
 		_row(vb, "  Evasión", "+%s" % _fmt_pct(float(mods["evasion"])))
 	if float(mods["crit_resist"]) > 0.0:
 		_row(vb, "  Resist. crítico", "+%s" % _fmt_pct(float(mods["crit_resist"])))
+	if float(mods["resist_estados"]) > 0.0:
+		_row(vb, "  Resist. estados", "+%s" % _fmt_pct(float(mods["resist_estados"])))
+	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)])
+	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
+	if not mejoras.is_empty():
+		_note(vb, "    " + _lista_mejoras(mejoras))
 
 
 # ============================================================
