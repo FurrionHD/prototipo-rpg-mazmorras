@@ -285,7 +285,9 @@ func _note(vb: VBoxContainer, txt: String) -> void:
 	l.add_theme_color_override("font_color", GRIS)
 	l.add_theme_font_size_override("font_size", 11)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size = Vector2(420, 0)
+	# Sin ancho MINIMO: en el panel de detalle (estrecho) un minimo de 420 px empuja la columna
+	# fuera de la pantalla. Que se ajuste a lo que haya y parta las lineas.
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(l)
 
 

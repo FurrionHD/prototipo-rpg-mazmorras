@@ -236,5 +236,5 @@ func _note(txt: String) -> void:
 	l.add_theme_color_override("font_color", GRIS)
 	l.add_theme_font_size_override("font_size", 11)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size = Vector2(420, 0)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_child(l)

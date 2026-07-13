@@ -266,7 +266,9 @@ func _note(vb: VBoxContainer, txt: String) -> void:
 	l.add_theme_color_override("font_color", GRIS)
 	l.add_theme_font_size_override("font_size", 11)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size = Vector2(420, 0)
+	# Sin ancho MINIMO: en el panel de detalle (que es estrecho) un minimo de 420 px empuja la
+	# columna entera fuera de la pantalla. Que se ajuste a lo que haya y parta las lineas.
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(l)
 
 func _boton(vb: VBoxContainer, txt: String, cb: Callable, activo: bool = true) -> void:
@@ -276,6 +278,13 @@ func _boton(vb: VBoxContainer, txt: String, cb: Callable, activo: bool = true) -
 	b.custom_minimum_size = Vector2(0, 36)
 	b.pressed.connect(cb)
 	vb.add_child(b)
+
+
+# Solo el METAL, sin la forma: "Lingote de cobre" / "Chapa de cobre" -> "Cobre". En los
+# botones estrechos del panel de detalle lo que importa es cual de los tres metales es.
+func _metal_corto(m: MaterialData) -> String:
+	var partes: PackedStringArray = m.nombre.split(" de ")
+	return (partes[partes.size() - 1] if partes.size() > 1 else m.nombre).capitalize()
 
 
 # Texto de una calidad (el enum no esta ordenado: siempre pasar por aqui).
@@ -530,14 +539,20 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	vb.add_child(HSeparator.new())
 	_row(vb, "Metal", "%s  →  Tier %d  (×%.2f al daño/defensa)" % [
 		metal.nombre, Forge.tier_de_metal(metal), Game.tier_mult(Forge.tier_de_metal(metal))])
+	# Botones cortos y que se reparten el ancho: el panel de detalle es estrecho y con el
+	# nombre entero ("Lingote de adamante") la fila se salia de la pantalla.
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 6)
+	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for i in metales.size():
 		var m: MaterialData = metales[i]
 		var tengo: int = Game.unidades_material_en_hogar(m)
 		var b := Button.new()
-		b.text = "%s (T%d)  ·  %d uds" % [m.nombre, m.tier, tengo]
+		b.text = "%s T%d · %d uds" % [_metal_corto(m), m.tier, tengo]
+		b.tooltip_text = m.nombre
 		b.toggle_mode = true
+		b.clip_text = true
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.button_pressed = (i == _lingote_idx)
 		b.disabled = tengo <= 0
 		b.pressed.connect(_on_lingote.bind(i))
