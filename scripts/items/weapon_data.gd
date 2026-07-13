@@ -63,6 +63,10 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 # --- HABILIDADES (KAN-57): las que aporta ESTA arma al loadout (Array[AbilityData]) ---
 @export var habilidades: Array = []
 
+# PRECIO base de la tienda (lo que cuesta comprarla a T1/Comun, que es lo unico que vende
+# el tendero). Vendersela de vuelta paga solo una fraccion; ver Game.precio_venta_equipo.
+@export var valor_base: int = 400
+
 # --- MAGIA (KAN-95): armas de mago (bastón) ---
 # es_magica marca las armas que potencian hechizos. magic_amp MULTIPLICA el daño
 # de los hechizos (1.0 = neutro; bastón alto). mp_regen_bonus SUMA al regen de maná

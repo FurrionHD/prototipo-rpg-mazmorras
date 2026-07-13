@@ -380,24 +380,37 @@ func _build_consumibles() -> void:
 func _preview_consumible(vb: VBoxContainer) -> void:
 	var cons: ConsumableData = _stacks[_sel]["modelo"]
 	var n: int = int(_stacks[_sel]["cantidad"])
-	var maxhp: float = Game.player_max_hp()
-	var maxmp: float = Game.player_max_mp()
 	_title(vb, cons.nombre)
 	_row(vb, "Cantidad", str(n))
-	_row(vb, "Efecto", cons.resumen(maxhp, maxmp))
-	_row(vb, "Duración", "%.0f s (fuera de combate)" % cons.segundos)
-	_row(vb, "En combate", "%d turnos" % cons.turnos)
+
+	var sabido: bool = false
+	if cons.es_grimorio():
+		sabido = Game.equipped_spells.has(cons.spell)
+		_row(vb, "Enseña", cons.spell.nombre)
+		_row(vb, "Coste", "%d de maná" % cons.spell.coste_mana)
+		_row(vb, "Hechizos", "%d / %d aprendidos" % [Game.equipped_spells.size(), Game.MAX_HECHIZOS])
+	else:
+		_row(vb, "Efecto", cons.resumen(Game.player_max_hp(), Game.player_max_mp()))
+		_row(vb, "Duración", "%.0f s (fuera de combate)" % cons.segundos)
+		_row(vb, "En combate", "%d turnos" % cons.turnos)
 	if cons.descripcion != "":
 		_note(vb, cons.descripcion)
+
 	vb.add_child(HSeparator.new())
 	var usar := Button.new()
-	usar.text = "Usar"
+	usar.text = "Estudiar" if cons.es_grimorio() else "Usar"
+	usar.disabled = cons.es_grimorio() and (sabido or Game.hechizos_llenos())
 	usar.pressed.connect(_on_usar.bind(cons))
 	vb.add_child(usar)
+	if cons.es_grimorio():
+		if sabido:
+			_note(vb, "Ya te sabes este hechizo: el libro no te dice nada nuevo.")
+		elif Game.hechizos_llenos():
+			_note(vb, "No te caben más de %d hechizos a la vez: tendrás que olvidar uno antes." % Game.MAX_HECHIZOS)
 
 
 func _on_usar(cons: ConsumableData) -> void:
-	Game.beber_pocion_fuera(cons)
+	Game.usar_consumible(cons)   # poción -> se bebe; grimorio -> se estudia
 	_rebuild()
 
 

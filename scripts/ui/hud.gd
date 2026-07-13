@@ -13,6 +13,7 @@ extends CanvasLayer
 
 var _counts: Label = null
 var _floor_lbl: Label = null    # "Piso: N" en la esquina superior derecha
+var _money_lbl: Label = null    # monedas, debajo del piso
 var _peso_box: ColorRect = null # cuadrado (placeholder de bolsa) a la derecha de las barras
 var _peso_lbl: Label = null     # numero de peso encima del cuadrado
 
@@ -39,6 +40,16 @@ func _ready() -> void:
 	_floor_lbl.offset_right = -12
 	_floor_lbl.offset_top = 10
 	add_child(_floor_lbl)
+
+	# Monedas, justo debajo del piso: ahora que la tienda cobra, hay que ver lo que llevas.
+	_money_lbl = Label.new()
+	_money_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_money_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_money_lbl.offset_left = -160
+	_money_lbl.offset_right = -12
+	_money_lbl.offset_top = 32
+	_money_lbl.add_theme_color_override("font_color", Color(0.95, 0.86, 0.5))
+	add_child(_money_lbl)
 
 	# Cuadrado de PESO (placeholder de una futura bolsa/mochila) a la derecha de las
 	# barras, con el numero encima. Cambia de color segun te vas cargando.
@@ -92,8 +103,9 @@ func _process(_delta: float) -> void:
 	# Ayudas de tecla (el resto de datos viven en las barras / cuadrado de peso / menus).
 	_counts.text = "[I] Inventario   [C] Personaje   [Q] Curación óptima   [F1] Info"
 
-	# Piso arriba a la derecha.
+	# Piso arriba a la derecha, y el dinero debajo.
 	_floor_lbl.text = "Piso: %d" % Game.current_floor
+	_money_lbl.text = "%d monedas" % Game.money
 
 	# Cuadrado de PESO: numero encima y color por ratio de carga.
 	# Blanco/gris cuando vas ligero -> amarillo al acercarte al limite -> rojo sobrecargado.

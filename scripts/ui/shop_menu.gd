@@ -1,0 +1,775 @@
+# ============================================================
+#  shop_menu.gd  (CanvasLayer creada por codigo desde el jugador)
+#  Menu de la TIENDA. Lo abre el tendero del pueblo (shop.gd -> abrir()); no tiene tecla
+#  propia. Congela al jugador via Game.inventory_open mientras esta abierto.
+#
+#  Cuatro pestañas:
+#   1) VENDER       - subpestañas Bolsa (cristales+materiales) / Hogar (materiales del baul)
+#                     / Equipo (armas y armaduras). Cantidad por modal, igual que "soltar" en
+#                     el inventario. Boton de "vender todos los cristales" de un clic.
+#   2) RECOMPRAR    - lo que le has vendido al tendero (hasta 7), al mismo precio que te pago.
+#   3) TIENDA       - armas/escudos/varita/bastón a T1 comun, pociones y grimorios.
+#   4) PACK INICIAL - una vez por partida: un arma gratis (ni bastón ni varita) + 3 pociones.
+#
+#  Toda la MATH vive en Game (precio_compra / vender_item / comprar_equipo / recomprar...);
+#  aqui solo se pinta.
+# ============================================================
+
+extends CanvasLayer
+
+const TABS := ["Vender", "Recomprar", "Tienda", "Pack inicial"]
+const SUBS := ["Bolsa", "Hogar", "Equipo"]
+
+const AMBAR := Color(0.95, 0.72, 0.36)
+const VERDE := Color(0.55, 0.85, 0.55)
+const ROJO := Color(0.9, 0.5, 0.5)
+const GRIS := Color(0.6, 0.63, 0.7)
+
+# Catalogo de la tienda: lo que hay a la venta, por bloques.
+const CAT_ARMAS: Array[String] = [
+	"res://resources/weapons/daga.tres",
+	"res://resources/weapons/estoque.tres",
+	"res://resources/weapons/espada_corta.tres",
+	"res://resources/weapons/espada_larga.tres",
+	"res://resources/weapons/maza_peq.tres",
+	"res://resources/weapons/mandobles.tres",
+	"res://resources/weapons/hacha_grande.tres",
+	"res://resources/weapons/martillo_grande.tres",
+	"res://resources/weapons/baston.tres",
+]
+const CAT_SECUNDARIAS: Array[String] = [
+	"res://resources/shields/escudo_pequeno.tres",
+	"res://resources/shields/escudo_normal.tres",
+	"res://resources/shields/escudo_grande.tres",
+	"res://resources/wands/varita.tres",
+]
+const CAT_POCIONES: Array[String] = [
+	"res://resources/consumables/pocion_menor.tres",
+	"res://resources/consumables/pocion_menor_1.tres",
+	"res://resources/consumables/pocion_menor_2.tres",
+	"res://resources/consumables/pocion_mana_menor.tres",
+	"res://resources/consumables/pocion_mana_menor_1.tres",
+	"res://resources/consumables/pocion_mana_menor_2.tres",
+]
+const CAT_GRIMORIOS: Array[String] = [
+	"res://resources/consumables/grimorio_descarga.tres",
+	"res://resources/consumables/grimorio_brasa.tres",
+	"res://resources/consumables/grimorio_rocio.tres",
+]
+
+var _root: Control = null
+var _content: VBoxContainer = null
+var _dinero_lbl: Label = null
+var _tab_buttons: Array = []
+
+var _tab: int = 0
+var _sub: int = 0                    # subpestaña de VENDER (Bolsa / Hogar / Equipo)
+var _sel: int = 0                    # seleccion dentro de la cuadricula actual
+var _stacks: Array = []              # lo que hay pintado en la cuadricula actual
+var _aviso: String = ""              # mensaje de la ultima accion (compra fallida, etc.)
+var _aviso_ok: bool = true
+
+var _modal: Control = null
+var _modal_spin: SpinBox = null
+var _pending_modelo: Resource = null  # stack que se va a vender (espera al modal)
+var _pending_base: Resource = null    # consumible que se va a comprar (espera al modal)
+
+
+func _ready() -> void:
+	layer = 91
+	add_to_group("shop_menu")
+
+	_root = Control.new()
+	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_root.visible = false
+	add_child(_root)
+
+	var bg := ColorRect.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.05, 0.06, 0.08, 1.0)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	_root.add_child(bg)
+
+	var hb := HBoxContainer.new()
+	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hb.offset_left = 16
+	hb.offset_top = 16
+	hb.offset_right = -16
+	hb.offset_bottom = -16
+	hb.add_theme_constant_override("separation", 18)
+	_root.add_child(hb)
+
+	# Columna izquierda: titulo, dinero, pestañas.
+	var side := VBoxContainer.new()
+	side.custom_minimum_size = Vector2(220, 0)
+	side.add_theme_constant_override("separation", 6)
+	hb.add_child(side)
+
+	var titulo := Label.new()
+	titulo.text = "TIENDA"
+	titulo.add_theme_color_override("font_color", AMBAR)
+	titulo.add_theme_font_size_override("font_size", 18)
+	side.add_child(titulo)
+
+	_dinero_lbl = Label.new()
+	_dinero_lbl.add_theme_color_override("font_color", Color(0.95, 0.86, 0.5))
+	_dinero_lbl.add_theme_font_size_override("font_size", 15)
+	side.add_child(_dinero_lbl)
+	side.add_child(HSeparator.new())
+
+	for i in TABS.size():
+		var b := Button.new()
+		b.text = TABS[i]
+		b.toggle_mode = true
+		b.custom_minimum_size = Vector2(0, 34)
+		b.pressed.connect(_on_tab.bind(i))
+		side.add_child(b)
+		_tab_buttons.append(b)
+
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.add_child(spacer)
+	var cerrar := Button.new()
+	cerrar.text = "✕ Cerrar  (Esc)"
+	cerrar.custom_minimum_size = Vector2(0, 34)
+	cerrar.pressed.connect(_cerrar)
+	side.add_child(cerrar)
+
+	# Columna derecha: contenido.
+	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 16)
+	hb.add_child(margin)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	margin.add_child(scroll)
+	_content = VBoxContainer.new()
+	_content.add_theme_constant_override("separation", 4)
+	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_content)
+
+
+func abrir() -> void:
+	# No abrir sobre un combate/extraccion ni con el panel DEBUG abierto.
+	if Game._active_layer != null or Game.debug_panel_open:
+		return
+	_tab = 0
+	_sub = 0
+	_sel = 0
+	_aviso = ""
+	_root.visible = true
+	Game.inventory_open = true   # congela al jugador
+	_rebuild()
+
+
+func _cerrar() -> void:
+	_cerrar_modal()
+	_root.visible = false
+	Game.inventory_open = false
+
+
+func _input(event: InputEvent) -> void:
+	if not _root.visible:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if (event as InputEventKey).keycode == KEY_ESCAPE:
+			if _modal != null:
+				_cerrar_modal()
+			else:
+				_cerrar()
+			get_viewport().set_input_as_handled()
+
+
+func _on_tab(i: int) -> void:
+	_tab = i
+	_sel = 0
+	_aviso = ""
+	_rebuild()
+
+
+func _on_sub(i: int) -> void:
+	_sub = i
+	_sel = 0
+	_aviso = ""
+	_rebuild()
+
+
+func _rebuild() -> void:
+	for c in _content.get_children():
+		c.queue_free()
+	for i in _tab_buttons.size():
+		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
+	_dinero_lbl.text = "%d monedas" % Game.money
+
+	if _aviso != "":
+		var l := Label.new()
+		l.text = _aviso
+		l.add_theme_color_override("font_color", VERDE if _aviso_ok else ROJO)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_content.add_child(l)
+
+	match _tab:
+		0: _build_vender()
+		1: _build_recomprar()
+		2: _build_tienda()
+		3: _build_pack()
+
+
+func _decir(txt: String, ok: bool = true) -> void:
+	_aviso = txt
+	_aviso_ok = ok
+
+
+# ============================================================
+#  Helpers de UI (mismos que el inventario)
+# ============================================================
+
+func _title(vb: VBoxContainer, txt: String) -> void:
+	var l := Label.new()
+	l.text = txt
+	l.add_theme_color_override("font_color", AMBAR)
+	l.add_theme_font_size_override("font_size", 16)
+	vb.add_child(l)
+
+func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var k := Label.new()
+	k.text = etiqueta
+	k.custom_minimum_size = Vector2(150, 0)
+	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
+	row.add_child(k)
+	var v := Label.new()
+	v.text = valor
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	row.add_child(v)
+	vb.add_child(row)
+
+func _note(vb: VBoxContainer, txt: String) -> void:
+	var l := Label.new()
+	l.text = txt
+	l.add_theme_color_override("font_color", GRIS)
+	l.add_theme_font_size_override("font_size", 11)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(420, 0)
+	vb.add_child(l)
+
+
+# Cuadricula (izquierda) + panel de detalle (derecha), como el inventario.
+func _grid_detail(labels: Array, preview: Callable) -> void:
+	if labels.is_empty():
+		_note(_content, "(nada por aquí)")
+		return
+	_sel = clampi(_sel, 0, labels.size() - 1)
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 20)
+	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(hb)
+
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	for i in labels.size():
+		var b := Button.new()
+		b.text = str(labels[i])
+		b.toggle_mode = true
+		b.button_pressed = (i == _sel)
+		b.clip_text = true
+		b.custom_minimum_size = Vector2(150, 48)
+		b.pressed.connect(_pick.bind(i))
+		grid.add_child(b)
+	hb.add_child(grid)
+
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 4)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hb.add_child(right)
+	preview.call(right)
+
+
+func _pick(i: int) -> void:
+	_sel = i
+	_rebuild()
+
+
+func _boton(vb: VBoxContainer, txt: String, cb: Callable, activo: bool = true) -> void:
+	var b := Button.new()
+	b.text = txt
+	b.disabled = not activo
+	b.custom_minimum_size = Vector2(0, 32)
+	b.pressed.connect(cb)
+	vb.add_child(b)
+
+
+# Agrupa Cristal/MaterialItem en stacks {modelo, cantidad} (igual que el inventario).
+func _agrupar(items: Array) -> Array:
+	var claves: Array = []
+	var mapa: Dictionary = {}
+	for it in items:
+		var k: String = _clave_item(it)
+		if not mapa.has(k):
+			mapa[k] = {"modelo": it, "cantidad": 0}
+			claves.append(k)
+		mapa[k]["cantidad"] += 1
+	var res: Array = []
+	for k in claves:
+		res.append(mapa[k])
+	return res
+
+
+func _clave_item(it: Resource) -> String:
+	if it is Cristal:
+		var c := it as Cristal
+		return "c|%d|%d" % [c.categoria, int(c.calidad)]
+	if it is MaterialItem:
+		var m := it as MaterialItem
+		return "m|%s|%d" % [m.nombre(), int(m.calidad)]
+	return "?"
+
+
+func _nombre_item(it: Resource) -> String:
+	if it is Cristal:
+		var c := it as Cristal
+		return "Cristal Cat %d\n(%s)" % [c.categoria, c.calidad_texto()]
+	if it is MaterialItem:
+		var m := it as MaterialItem
+		return "%s\n(%s)" % [m.nombre(), m.calidad_texto()]
+	return "?"
+
+
+func _labels_stacks(stacks: Array) -> Array:
+	var labels: Array = []
+	for s in stacks:
+		labels.append("%s  x%d" % [_nombre_item(s["modelo"]), int(s["cantidad"])])
+	return labels
+
+
+# ============================================================
+#  Pestaña VENDER
+# ============================================================
+
+func _build_vender() -> void:
+	_title(_content, "VENDER")
+	_note(_content, "Te pagan el valor estimado que ya ves en el inventario: sin regateo ni sorpresas. Los cristales solo se sacan de encima aquí.")
+
+	var subs := HBoxContainer.new()
+	subs.add_theme_constant_override("separation", 6)
+	for i in SUBS.size():
+		var b := Button.new()
+		b.text = SUBS[i]
+		b.toggle_mode = true
+		b.button_pressed = (i == _sub)
+		b.custom_minimum_size = Vector2(110, 30)
+		b.pressed.connect(_on_sub.bind(i))
+		subs.add_child(b)
+	_content.add_child(subs)
+	_content.add_child(HSeparator.new())
+
+	match _sub:
+		0: _build_vender_bolsa()
+		1: _build_vender_hogar()
+		2: _build_vender_equipo()
+
+
+func _build_vender_bolsa() -> void:
+	var cristales: int = Game.crystals.size()
+	if cristales > 0:
+		var total: int = 0
+		for c in Game.crystals:
+			total += Game.precio_venta_item(c)
+		_boton(_content, "Vender TODOS los cristales  (%d → %d monedas)" % [cristales, total],
+			_on_vender_todos)
+		_content.add_child(HSeparator.new())
+
+	var items: Array = []
+	for c in Game.crystals:
+		items.append(c)
+	for m in Game.materiales:
+		items.append(m)
+	_stacks = _agrupar(items)
+	_grid_detail(_labels_stacks(_stacks), _preview_venta_bolsa)
+
+
+func _build_vender_hogar() -> void:
+	_note(_content, "Los materiales que tienes guardados en el Hogar. Piénsatelo: lo que vendas hoy te tocará farmearlo mañana para craftear.")
+	_stacks = _agrupar(Game.almacen_materiales)
+	_grid_detail(_labels_stacks(_stacks), _preview_venta_bolsa)
+
+
+func _preview_venta_bolsa(vb: VBoxContainer) -> void:
+	var s: Dictionary = _stacks[_sel]
+	var modelo: Resource = s["modelo"]
+	var n: int = int(s["cantidad"])
+	var precio: int = Game.precio_venta_item(modelo)
+	_title(vb, _nombre_item(modelo).replace("\n", " "))
+	_row(vb, "Cantidad", str(n))
+	if modelo is Cristal:
+		_row(vb, "Categoría", str((modelo as Cristal).categoria))
+	elif modelo is MaterialItem and (modelo as MaterialItem).data != null:
+		_row(vb, "Material", (modelo as MaterialItem).data.resumen())
+	_row(vb, "Te pagan", "%d por unidad  (todo: %d)" % [precio, precio * n])
+	vb.add_child(HSeparator.new())
+	_boton(vb, "Vender", _on_vender_stack)
+
+
+func _on_vender_stack() -> void:
+	var s: Dictionary = _stacks[_sel]
+	var n: int = int(s["cantidad"])
+	_pending_modelo = s["modelo"]
+	if n <= 1:
+		_confirmar_venta(1)
+	else:
+		_abrir_modal_cantidad("¿Cuántas quieres vender?", n, _confirmar_venta)
+
+
+func _confirmar_venta(cant: int) -> void:
+	if _pending_modelo != null:
+		var cobrado: int = Game.vender_item(_pending_modelo, cant, _sub == 1)
+		_decir("Vendes %d x %s por %d monedas." % [
+			cant, _nombre_item(_pending_modelo).replace("\n", " "), cobrado])
+		_pending_modelo = null
+	_rebuild()
+
+
+func _on_vender_todos() -> void:
+	var n: int = Game.crystals.size()
+	var total: int = Game.vender_todos_cristales()
+	_decir("Vendes %d cristales por %d monedas." % [n, total])
+	_rebuild()
+
+
+# --- Vender EQUIPO (con derecho a recompra) ---
+
+func _build_vender_equipo() -> void:
+	_note(_content, "Lo que le vendas al tendero se queda en su mostrador: puedes recomprarlo (pestaña Recomprar) por lo mismo que te pagó, hasta que se le acumulen más de %d trastos. Lo que llevas puesto no se vende: desequípalo antes [C]." % Game.RECOMPRA_MAX)
+	_stacks = []
+	for w in Game.owned_weapons:
+		_stacks.append({"modelo": w, "cantidad": 1})
+	for a in Game.owned_armor:
+		_stacks.append({"modelo": a, "cantidad": 1})
+	var labels: Array = []
+	for s in _stacks:
+		var item: Resource = s["modelo"]
+		labels.append("%s%s\n%d monedas" % [
+			str(item.get("nombre")), Game.item_plus(item), Game.precio_venta_equipo(item)])
+	_grid_detail(labels, _preview_venta_equipo)
+
+
+func _equipado(item: Resource) -> bool:
+	if item == Game.equipped_main or item == Game.equipped_off:
+		return true
+	for slot in Game.ARMOR_SLOT_ORDEN:
+		if Game.get("equipped_" + slot) == item:
+			return true
+	return false
+
+
+func _preview_venta_equipo(vb: VBoxContainer) -> void:
+	var item: Resource = _stacks[_sel]["modelo"]
+	var puesto: bool = _equipado(item)
+	_title(vb, Game.item_display_name(item) + ("   [equipado]" if puesto else ""))
+	_row(vb, "Precio de tienda", "%d (a T1 común)" % Game.precio_compra(item))
+	_row(vb, "Te pagan", "%d monedas" % Game.precio_venta_equipo(item))
+	vb.add_child(HSeparator.new())
+	_boton(vb, "Vender", _on_vender_equipo, not puesto)
+	if puesto:
+		_note(vb, "Lo llevas puesto. Desequípalo en el menú de personaje [C] antes de venderlo.")
+
+
+func _on_vender_equipo() -> void:
+	var item: Resource = _stacks[_sel]["modelo"]
+	var nombre: String = Game.item_display_name(item)
+	var cobrado: int = Game.vender_equipo(item)
+	if cobrado > 0:
+		_decir("Vendes %s por %d monedas." % [nombre, cobrado])
+	else:
+		_decir("No puedes vender eso.", false)
+	_sel = 0
+	_rebuild()
+
+
+# ============================================================
+#  Pestaña RECOMPRAR
+# ============================================================
+
+func _build_recomprar() -> void:
+	_title(_content, "RECOMPRAR")
+	_note(_content, "El mostrador del tendero: lo último que le has vendido (máx. %d). Vuelve a ti tal y como estaba, con su tier y sus mejoras, por lo mismo que te pagó. Al pasarse de %d, lo más viejo se pierde." % [Game.RECOMPRA_MAX, Game.RECOMPRA_MAX])
+	_content.add_child(HSeparator.new())
+
+	_stacks = []
+	for i in Game.recompra.size():
+		_stacks.append({"modelo": Game.recompra[i]["item"], "idx": i,
+			"precio": int(Game.recompra[i]["precio"])})
+	var labels: Array = []
+	for s in _stacks:
+		var item: Resource = s["modelo"]
+		labels.append("%s%s\n%d monedas" % [
+			str(item.get("nombre")), Game.item_plus(item), int(s["precio"])])
+	_grid_detail(labels, _preview_recompra)
+
+
+func _preview_recompra(vb: VBoxContainer) -> void:
+	var s: Dictionary = _stacks[_sel]
+	var item: Resource = s["modelo"]
+	var precio: int = int(s["precio"])
+	var llego: bool = Game.puede_pagar(precio)
+	_title(vb, Game.item_display_name(item))
+	_row(vb, "Precio", "%d monedas" % precio)
+	_row(vb, "Tienes", "%d monedas" % Game.money)
+	vb.add_child(HSeparator.new())
+	_boton(vb, "Recomprar", _on_recomprar, llego)
+	if not llego:
+		_note(vb, "No te llega.")
+
+
+func _on_recomprar() -> void:
+	var s: Dictionary = _stacks[_sel]
+	var nombre: String = Game.item_display_name(s["modelo"])
+	if Game.recomprar(int(s["idx"])):
+		_decir("Recompras %s por %d monedas." % [nombre, int(s["precio"])])
+	else:
+		_decir("No te llega para recomprar %s." % nombre, false)
+	_sel = 0
+	_rebuild()
+
+
+# ============================================================
+#  Pestaña TIENDA (comprar)
+# ============================================================
+
+func _build_tienda() -> void:
+	_title(_content, "A LA VENTA")
+	_note(_content, "Todo lo de aquí sale a tier 1 y calidad común: el tendero no forja, revende. Lo bueno tendrás que fabricártelo tú.")
+	_content.add_child(HSeparator.new())
+
+	_stacks = []
+	for ruta in CAT_ARMAS + CAT_SECUNDARIAS + CAT_POCIONES + CAT_GRIMORIOS:
+		var base: Resource = load(ruta)
+		if base != null:
+			_stacks.append({"modelo": base})
+	var labels: Array = []
+	for s in _stacks:
+		var base: Resource = s["modelo"]
+		labels.append("%s\n%d monedas" % [str(base.get("nombre")), Game.precio_compra(base)])
+	_grid_detail(labels, _preview_tienda)
+
+
+func _preview_tienda(vb: VBoxContainer) -> void:
+	var base: Resource = _stacks[_sel]["modelo"]
+	var precio: int = Game.precio_compra(base)
+	var llego: bool = Game.puede_pagar(precio)
+	_title(vb, str(base.get("nombre")))
+	_row(vb, "Precio", "%d monedas" % precio)
+	_row(vb, "Tienes", "%d monedas" % Game.money)
+
+	if base is ConsumableData:
+		var c := base as ConsumableData
+		if c.es_grimorio():
+			_row(vb, "Enseña", c.spell.nombre)
+			_row(vb, "Coste del hechizo", "%d de maná" % c.spell.coste_mana)
+			_row(vb, "Hechizos", "%d / %d aprendidos" % [Game.equipped_spells.size(), Game.MAX_HECHIZOS])
+		else:
+			_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
+			_row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(c, 0)))
+	else:
+		_row(vb, "Tipo", _tipo_equipo(base))
+	if str(base.get("descripcion")) != "":
+		_note(vb, str(base.get("descripcion")))
+
+	vb.add_child(HSeparator.new())
+	if base is ConsumableData:
+		_boton(vb, "Comprar 1", _on_comprar_consumible.bind(1), llego)
+		if not (base as ConsumableData).es_grimorio():
+			_boton(vb, "Comprar varias...", _on_comprar_varias, llego)
+	else:
+		_boton(vb, "Comprar", _on_comprar_equipo, llego)
+	if not llego:
+		_note(vb, "No te llega. Baja a por más cristales.")
+
+
+func _tipo_equipo(base: Resource) -> String:
+	if base is ShieldData:
+		return "Escudo (mano secundaria)"
+	if base is WandData:
+		return "Varita (mano secundaria, magia)"
+	if base is WeaponData:
+		var w := base as WeaponData
+		var t: String = "Arma a dos manos" if w.dos_manos else "Arma a una mano"
+		return t + ("  ·  mágica" if w.es_magica else "")
+	return "?"
+
+
+func _on_comprar_equipo() -> void:
+	var base: Resource = _stacks[_sel]["modelo"]
+	var item: Resource = Game.comprar_equipo(base)
+	if item != null:
+		_decir("Compras %s. Está en tu baúl: equípalo en el menú de personaje [C]." % Game.item_display_name(item))
+	else:
+		_decir("No te llega para %s." % str(base.get("nombre")), false)
+	_rebuild()
+
+
+func _on_comprar_consumible(n: int) -> void:
+	var base: ConsumableData = _stacks[_sel]["modelo"]
+	if Game.comprar_consumible(base, n):
+		if base.es_grimorio():
+			_decir("Compras %s. Úsalo desde Consumibles en el inventario [I] para aprender %s." % [
+				base.nombre, base.spell.nombre])
+		else:
+			_decir("Compras %d x %s." % [n, base.nombre])
+	else:
+		_decir("No te llega para %d x %s." % [n, base.nombre], false)
+	_rebuild()
+
+
+func _on_comprar_varias() -> void:
+	var base: ConsumableData = _stacks[_sel]["modelo"]
+	var precio: int = Game.precio_compra(base)
+	var maximo: int = 99 if precio <= 0 else maxi(1, Game.money / precio)
+	_pending_base = base
+	_abrir_modal_cantidad("¿Cuántas quieres comprar?  (te llega para %d)" % maximo, maximo,
+		_confirmar_compra_varias)
+
+
+func _confirmar_compra_varias(cant: int) -> void:
+	if _pending_base != null:
+		var base: ConsumableData = _pending_base
+		_pending_base = null
+		if Game.comprar_consumible(base, cant):
+			_decir("Compras %d x %s." % [cant, base.nombre])
+		else:
+			_decir("No te llega para %d x %s." % [cant, base.nombre], false)
+	_rebuild()
+
+
+# ============================================================
+#  Pestaña PACK INICIAL
+# ============================================================
+
+func _build_pack() -> void:
+	_title(_content, "PACK INICIAL")
+	if Game.pack_inicial_reclamado:
+		_note(_content, "Ya reclamaste tu pack. Lo que quieras a partir de ahora sale de tu bolsillo: vende cristales en la pestaña Vender y compra en la Tienda.")
+		return
+
+	_note(_content, "Regalo de bienvenida, UNA sola vez: elige un arma y llévatela gratis, con %d pociones menores de propina. El bastón y la varita no entran: la magia te la pagas tú." % Game.PACK_POCIONES_N)
+	_content.add_child(HSeparator.new())
+
+	_stacks = []
+	for ruta in Game.PACK_ARMAS:
+		var base: Resource = load(ruta)
+		if base != null:
+			_stacks.append({"modelo": base})
+	var labels: Array = []
+	for s in _stacks:
+		labels.append(str((s["modelo"] as Resource).get("nombre")))
+	_grid_detail(labels, _preview_pack)
+
+
+func _preview_pack(vb: VBoxContainer) -> void:
+	var base: WeaponData = _stacks[_sel]["modelo"]
+	_title(vb, base.nombre)
+	_row(vb, "Tipo", _tipo_equipo(base))
+	_row(vb, "Ataque base", "%.1f" % base.ataque_base)
+	_row(vb, "Motion value", "×%.2f" % base.motion_value)
+	_row(vb, "Velocidad", "×%.2f" % base.velocidad_mult)
+	if base.crit_bonus != 0.0:
+		_row(vb, "Crítico", "%+.0f%%" % (base.crit_bonus * 100.0))
+	_row(vb, "Valor", "%d monedas (gratis para ti)" % Game.precio_compra(base))
+	vb.add_child(HSeparator.new())
+	_boton(vb, "Reclamar el pack con esta arma", _on_reclamar_pack)
+
+
+func _on_reclamar_pack() -> void:
+	var base: Resource = _stacks[_sel]["modelo"]
+	if Game.reclamar_pack_inicial(base):
+		_decir("Te llevas %s y %d pociones menores. Equípala en el menú de personaje [C]." % [
+			str(base.get("nombre")), Game.PACK_POCIONES_N])
+	else:
+		_decir("El pack ya estaba reclamado.", false)
+	_rebuild()
+
+
+# ============================================================
+#  Modal de CANTIDAD (vender varias / comprar varias)
+# ============================================================
+
+func _abrir_modal_cantidad(pregunta: String, maximo: int, cb: Callable) -> void:
+	_cerrar_modal()
+	_modal = Control.new()
+	_modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_root.add_child(_modal)
+
+	var back := ColorRect.new()
+	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	back.color = Color(0, 0, 0, 0.6)
+	back.mouse_filter = Control.MOUSE_FILTER_STOP
+	_modal.add_child(back)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_modal.add_child(center)
+
+	var panel := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.09, 0.12, 1.0)
+	sb.border_color = Color(0.87, 0.57, 0.26, 0.8)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	panel.add_child(vb)
+
+	var l := Label.new()
+	l.text = "%s  (máx. %d)" % [pregunta, maximo]
+	vb.add_child(l)
+
+	_modal_spin = SpinBox.new()
+	_modal_spin.min_value = 1
+	_modal_spin.max_value = maxi(1, maximo)
+	_modal_spin.step = 1
+	_modal_spin.value = 1
+	vb.add_child(_modal_spin)
+
+	var acciones := HBoxContainer.new()
+	acciones.add_theme_constant_override("separation", 8)
+	var ok := Button.new()
+	ok.text = "Aceptar"
+	ok.pressed.connect(_modal_aceptar.bind(cb))
+	acciones.add_child(ok)
+	var ca := Button.new()
+	ca.text = "Cancelar"
+	ca.pressed.connect(_cancelar_modal)
+	acciones.add_child(ca)
+	vb.add_child(acciones)
+
+
+func _modal_aceptar(cb: Callable) -> void:
+	var cant: int = int(_modal_spin.value) if _modal_spin != null else 1
+	_cerrar_modal()
+	cb.call(cant)
+
+
+func _cancelar_modal() -> void:
+	_pending_modelo = null
+	_pending_base = null
+	_cerrar_modal()
+
+
+func _cerrar_modal() -> void:
+	if _modal != null:
+		_modal.queue_free()
+		_modal = null
+	_modal_spin = null

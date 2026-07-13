@@ -1173,10 +1173,11 @@ func _accion_objeto() -> void:
 	_ocultar_cajas()
 	for c in _objeto_box.get_children():
 		c.queue_free()
-	# Una fila por tipo de poción del inventario, con la cantidad.
+	# Una fila por tipo de poción del inventario, con la cantidad. Los grimorios NO salen: en
+	# mitad de una pelea no te pones a estudiar (se usan desde el inventario, en el pueblo).
 	for cons in Game.consumables:
 		var n: int = int(Game.consumables[cons])
-		if n <= 0:
+		if n <= 0 or cons.es_grimorio():
 			continue
 		var b := TooltipButton.new()
 		b.text = "%s  x%d  (%s en %d turnos)" % [

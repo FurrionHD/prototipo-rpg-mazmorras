@@ -29,3 +29,6 @@ class_name WandData
 # HABILIDADES (KAN-57) que aporta la varita al loadout (Array[AbilityData]). Como es de
 # soporte y se lleva con OTRAS armas, su Canalizar da maná a peor ratio que el bastón.
 @export var habilidades: Array = []
+
+# PRECIO base de la tienda (ver WeaponData.valor_base).
+@export var valor_base: int = 480

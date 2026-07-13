@@ -11,3 +11,4 @@ bloqueo = 0.45
 velocidad_mult = 0.82
 evasion_penal = 0.08
 habilidades = [ExtResource("2")]
+valor_base = 500

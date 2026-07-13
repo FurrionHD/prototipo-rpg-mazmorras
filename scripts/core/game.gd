@@ -205,6 +205,8 @@ func nueva_partida() -> void:
 	player_current_mp = -1.0
 	money = 0
 	mezcla_exp = 0.0
+	pack_inicial_reclamado = false
+	recompra.clear()
 
 	crystals.clear()
 	materiales.clear()
@@ -261,6 +263,7 @@ func exportar_partida() -> SaveData:
 	d.stamina = float(player.current_stamina) if player != null and "current_stamina" in player else -1.0
 	d.money = money
 	d.mezcla_exp = mezcla_exp
+	d.pack_inicial = pack_inicial_reclamado
 
 	d.crystals = crystals.duplicate()
 	d.materiales = materiales.duplicate()
@@ -324,6 +327,10 @@ func importar_partida(d: SaveData) -> void:
 	player_current_mp = d.player_current_mp
 	money = d.money
 	mezcla_exp = d.mezcla_exp
+	pack_inicial_reclamado = d.pack_inicial
+	# El historial de recompra es de SESION: cargar partida no te devuelve el mostrador del
+	# tendero tal y como lo dejaste hace tres dias.
+	recompra.clear()
 
 	crystals.assign(d.crystals)
 	materiales.assign(d.materiales)
@@ -841,7 +848,9 @@ var _dev_off_idx: int = 0
 var equipped_spells: Array = []
 # Lista para el panel de debug (equipar/quitar). Rutas de los .tres de hechizos.
 var _dev_spells: Array[String] = [
-	"res://resources/spells/chispa.tres",
+	"res://resources/spells/descarga.tres",
+	"res://resources/spells/brasa.tres",
+	"res://resources/spells/rocio.tres",
 	"res://resources/spells/bola_fuego.tres",
 	"res://resources/spells/chorro_agua.tres",
 	"res://resources/spells/filo_torrente.tres",
@@ -908,6 +917,33 @@ func gastar_consumible(c: ConsumableData) -> bool:
 		consumables.erase(c)
 	else:
 		consumables[c] = n
+	return true
+
+# USAR un consumible del inventario (lo que hace el boton "Usar"): una poción se BEBE, un
+# grimorio se ESTUDIA. Punto unico para que la UI no tenga que saber cual es cual.
+func usar_consumible(c: ConsumableData) -> bool:
+	if c == null:
+		return false
+	if c.es_grimorio():
+		return aprender_de_grimorio(c)
+	return beber_pocion_fuera(c)
+
+# Estudia un grimorio: aprendes su hechizo y el libro se gasta. Si ya te lo sabias o tienes
+# la cabeza llena (MAX_HECHIZOS), NO se gasta: un libro caro no se quema por un clic tonto.
+func aprender_de_grimorio(c: ConsumableData) -> bool:
+	if c == null or not c.es_grimorio():
+		return false
+	if equipped_spells.has(c.spell):
+		print("[grimorio] Ya te sabes %s: no abres el libro." % c.spell.nombre)
+		return false
+	if hechizos_llenos():
+		print("[grimorio] No te caben mas de %d hechizos: olvida uno antes." % MAX_HECHIZOS)
+		return false
+	if not gastar_consumible(c):
+		return false
+	equipar_hechizo(c.spell)
+	print("[grimorio] Estudias %s y aprendes %s (%d/%d hechizos)." % [
+		c.nombre, c.spell.nombre, equipped_spells.size(), MAX_HECHIZOS])
 	return true
 
 # BEBER una poción FUERA de combate: arranca la cura/maná-por-tiempo (heal-over-time). No
@@ -1047,9 +1083,20 @@ func tick_mana_pocion(delta: float) -> void:
 		player_mana_heal_left = 0.0
 		player_mana_heal_rate = 0.0
 
-func equipar_hechizo(spell: SpellData) -> void:
-	if spell != null and not equipped_spells.has(spell):
-		equipped_spells.append(spell)
+# Cuantos hechizos caben en la cabeza a la vez. Aprender no es gratis: al llegar al tope hay
+# que OLVIDAR uno para meter otro (el objeto que devuelve un hechizo a su libro vendra luego,
+# caro o dificil de fabricar a proposito: cambiar de repertorio tiene que doler).
+const MAX_HECHIZOS := 7
+
+func hechizos_llenos() -> bool:
+	return equipped_spells.size() >= MAX_HECHIZOS
+
+# Aprende un hechizo. false si ya lo sabias o si tienes la cabeza llena (MAX_HECHIZOS).
+func equipar_hechizo(spell: SpellData) -> bool:
+	if spell == null or equipped_spells.has(spell) or hechizos_llenos():
+		return false
+	equipped_spells.append(spell)
+	return true
 
 func quitar_hechizo(spell: SpellData) -> void:
 	equipped_spells.erase(spell)
@@ -1457,6 +1504,200 @@ func guardar_materiales_en_hogar() -> int:
 	materiales.clear()
 	print("[hogar] Guardas %d materiales. Total en casa: %d" % [n, almacen_materiales.size()])
 	return n
+
+
+# ============================================================
+#  TIENDA: dinero, venta (bolsa/hogar/equipo), recompra, compra y PACK INICIAL
+#  Toda la math vive aqui; shop_menu.gd solo pinta.
+# ============================================================
+
+func puede_pagar(precio: int) -> bool:
+	return money >= precio
+
+func ingresar(n: int) -> void:
+	money += maxi(0, n)
+
+# Cobra `precio` (false y no cobra nada si no llegas).
+func gastar(precio: int) -> bool:
+	if precio < 0 or not puede_pagar(precio):
+		return false
+	money -= precio
+	return true
+
+# Precio de COMPRA de una plantilla (arma/escudo/varita/armadura/poción/grimorio). Es el
+# precio a T1/Comun, que es lo unico que el tendero vende: lo bueno sale de la forja.
+func precio_compra(base: Resource) -> int:
+	if base == null:
+		return 0
+	return maxi(0, int(base.get("valor_base")))
+
+# Lo que el tendero PAGA por tu equipo usado: una fraccion del precio de tienda. Ese mismo
+# importe es el que costara RECOMPRARLO (no hay margen: el tendero te lo guarda, no te lo
+# revende con recargo).
+const REVENTA_EQUIPO := 0.4
+
+func precio_venta_equipo(item: Resource) -> int:
+	if item == null:
+		return 0
+	# El tier y las mejoras suben el valor: no es lo mismo una daga recien comprada que una
+	# daga T3 +4. La rareza no toca aqui (solo abre huecos de mejora, ya contados en `n`).
+	var m: Dictionary = meta_de(item)
+	var mult: float = tier_mult(int(m["tier"])) * (1.0 + 0.25 * float(Upgrades.total_mejoras(m["mejoras"])))
+	return maxi(1, int(round(precio_compra(item) * mult * REVENTA_EQUIPO)))
+
+# Precio de venta de un item de bolsa/hogar (cristal o material). Es su valor_estimado tal
+# cual: lo que el inventario ya te enseña es lo que te pagan, sin sorpresas.
+func precio_venta_item(item: Resource) -> int:
+	if item == null:
+		return 0
+	return maxi(0, int(item.call("valor_estimado")))
+
+
+# --- VENDER cristales/materiales ---
+# Vende `cantidad` unidades equivalentes a `modelo`, sacandolas de la BOLSA o del baul del
+# HOGAR (desde_hogar). Devuelve lo cobrado.
+func vender_item(modelo: Resource, cantidad: int, desde_hogar: bool = false) -> int:
+	if modelo == null or cantidad <= 0:
+		return 0
+	var total: int = 0
+	var vendidos: int = 0
+	while vendidos < cantidad:
+		var item: Resource = _sacar_del_hogar(modelo) if desde_hogar else _sacar_de_bolsa(modelo)
+		if item == null:
+			break
+		total += precio_venta_item(item)
+		vendidos += 1
+	if vendidos > 0:
+		ingresar(total)
+		print("[tienda] Vendes %d x %s por %d. Dinero: %d" % [
+			vendidos, _nombre_item(modelo), total, money])
+	return total
+
+# Saca del baul del hogar UNA unidad equivalente al modelo (gemelo de _sacar_de_bolsa).
+func _sacar_del_hogar(modelo: Resource) -> Resource:
+	if not (modelo is MaterialItem):
+		return null
+	var mm := modelo as MaterialItem
+	for i in almacen_materiales.size():
+		var m := almacen_materiales[i]
+		if m.data == mm.data and m.calidad == mm.calidad:
+			almacen_materiales.remove_at(i)
+			return m
+	return null
+
+# Vacia la bolsa de cristales de un clic (lo que hacia la tienda vieja).
+func vender_todos_cristales() -> int:
+	if crystals.is_empty():
+		return 0
+	var total: int = 0
+	for c in crystals:
+		total += precio_venta_item(c)
+	var n: int = crystals.size()
+	crystals.clear()
+	ingresar(total)
+	print("[tienda] Vendes %d cristales por %d. Dinero: %d" % [n, total, money])
+	return total
+
+
+# --- VENDER equipo, con derecho a RECOMPRA ---
+# Historial de lo que le has vendido al tendero: {item, precio}, el mas reciente al final.
+# Es de SESION (no se guarda): el tendero no te guarda el trasto entre partidas. Al pasarse
+# de RECOMPRA_MAX, lo mas viejo se pierde de verdad.
+const RECOMPRA_MAX := 7
+var recompra: Array = []
+
+func vender_equipo(item: Resource) -> int:
+	if item == null:
+		return 0
+	if item == equipped_main or item == equipped_off:
+		print("[tienda] No vendes lo que llevas puesto: desequipalo antes.")
+		return 0
+	for slot in ARMOR_SLOT_ORDEN:
+		if get("equipped_" + slot) == item:
+			print("[tienda] No vendes lo que llevas puesto: desequipalo antes.")
+			return 0
+	var precio: int = precio_venta_equipo(item)
+	if item is ArmorData:
+		owned_armor.erase(item)
+	else:
+		owned_weapons.erase(item)
+	recompra.append({"item": item, "precio": precio})
+	while recompra.size() > RECOMPRA_MAX:
+		recompra.pop_front()
+	ingresar(precio)
+	print("[tienda] Vendes %s por %d. Dinero: %d" % [item_display_name(item), precio, money])
+	return precio
+
+# Recompra la entrada `idx` del historial por lo mismo que te pagaron. El objeto vuelve TAL
+# CUAL (misma instancia, misma item_meta): sigue siendo tu espada +3, no una copia nueva.
+func recomprar(idx: int) -> bool:
+	if idx < 0 or idx >= recompra.size():
+		return false
+	var e: Dictionary = recompra[idx]
+	if not gastar(int(e["precio"])):
+		return false
+	var item: Resource = e["item"]
+	if item is ArmorData:
+		add_owned_armor(item as ArmorData)
+	else:
+		add_owned_weapon(item)
+	recompra.remove_at(idx)
+	print("[tienda] Recompras %s por %d. Dinero: %d" % [
+		item_display_name(item), int(e["precio"]), money])
+	return true
+
+
+# --- COMPRAR ---
+# Compra una pieza de equipo: sale del taller a T1/Comun/sin mejoras, con identidad propia.
+func comprar_equipo(base: Resource) -> Resource:
+	var precio: int = precio_compra(base)
+	if not gastar(precio):
+		return null
+	var item: Resource = crear_item(base, 1, Upgrades.Rareza.COMUN, {})
+	print("[tienda] Compras %s por %d. Dinero: %d" % [item_display_name(item), precio, money])
+	return item
+
+func comprar_consumible(base: ConsumableData, n: int = 1) -> bool:
+	if base == null or n <= 0:
+		return false
+	var precio: int = precio_compra(base) * n
+	if not gastar(precio):
+		return false
+	add_consumable(base, n)
+	print("[tienda] Compras %d x %s por %d. Dinero: %d" % [n, base.nombre, precio, money])
+	return true
+
+
+# --- PACK INICIAL ---
+# Regalo de bienvenida, UNA vez por partida: un arma a elegir (ni bastón ni varita: la magia
+# te la pagas tu) y tres pociones menores. Es la red de seguridad de que nadie baje a la
+# mazmorra a puños; a partir de ahi, la tienda cobra.
+var pack_inicial_reclamado: bool = false
+
+const PACK_ARMAS: Array[String] = [
+	"res://resources/weapons/daga.tres",
+	"res://resources/weapons/estoque.tres",
+	"res://resources/weapons/espada_corta.tres",
+	"res://resources/weapons/espada_larga.tres",
+	"res://resources/weapons/maza_peq.tres",
+	"res://resources/weapons/mandobles.tres",
+	"res://resources/weapons/hacha_grande.tres",
+	"res://resources/weapons/martillo_grande.tres",
+]
+const PACK_POCION := "res://resources/consumables/pocion_menor.tres"
+const PACK_POCIONES_N := 3
+
+func reclamar_pack_inicial(base_arma: Resource) -> bool:
+	if pack_inicial_reclamado or base_arma == null:
+		return false
+	var arma: Resource = crear_item(base_arma, 1, Upgrades.Rareza.COMUN, {})
+	var pocion: Resource = load(PACK_POCION)
+	if pocion != null:
+		add_consumable(pocion as ConsumableData, PACK_POCIONES_N)
+	pack_inicial_reclamado = true
+	print("[tienda] Reclamas el pack inicial: %s + %d pociones menores." % [
+		item_display_name(arma), PACK_POCIONES_N])
+	return true
 
 
 # ============================================================

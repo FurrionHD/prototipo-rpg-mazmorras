@@ -10,3 +10,4 @@ cura_pct = 0.08
 turnos = 3
 segundos = 6.0
 descripcion = "Cura 23 + 8% de tu vida máxima, repartido en el tiempo (a 50 de vida = ~27 total, 9/turno x3 en combate o en 6s por el mapa). No cura de golpe: te toca AGUANTAR mientras hace efecto."
+valor_base = 100

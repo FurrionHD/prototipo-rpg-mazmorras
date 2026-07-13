@@ -518,10 +518,16 @@ func _build_spells(vb: VBoxContainer) -> void:
 
 
 func _set_spell(pressed: bool, spell: SpellData) -> void:
-	if pressed:
-		Game.equipar_hechizo(spell)
-	else:
+	if not pressed:
 		Game.quitar_hechizo(spell)
+		return
+	# El tope de MAX_HECHIZOS tambien vale aqui: si no cabe, se desmarca la casilla (si no,
+	# se quedaria marcada mintiendo sobre un hechizo que no tienes).
+	if not Game.equipar_hechizo(spell):
+		var cb: CheckBox = _spell_checks.get(spell.resource_path)
+		if cb != null:
+			cb.set_pressed_no_signal(false)
+		print("[debug] No caben mas de %d hechizos." % Game.MAX_HECHIZOS)
 
 
 func _build_mejoras(vb: VBoxContainer) -> void:

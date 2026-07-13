@@ -23,3 +23,4 @@ magic_amp = 1.7
 mp_regen_bonus = 0.4
 cast_vel_mult = 1.05
 habilidades = [ExtResource("2"), ExtResource("3")]
+valor_base = 500

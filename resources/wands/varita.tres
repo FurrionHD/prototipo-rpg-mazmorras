@@ -12,3 +12,4 @@ cast_vel_mult = 1.2
 bloqueo = 0.0
 evasion_penal = 0.0
 habilidades = [ExtResource("2")]
+valor_base = 480

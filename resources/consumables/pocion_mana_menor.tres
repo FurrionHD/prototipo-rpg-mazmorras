@@ -12,3 +12,4 @@ mana_pct = 0.10
 turnos = 3
 segundos = 6.0
 descripcion = "Restaura 8 + 10% de tu maná máximo, repartido en el tiempo (a 20 de maná = ~10 total, ~3,3/turno x3 en combate o en 6s por el mapa). Sostén de casteo: la regen pasiva es un goteo, esto es el empujón."
+valor_base = 250

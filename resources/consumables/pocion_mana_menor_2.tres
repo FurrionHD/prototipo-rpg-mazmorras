@@ -12,3 +12,4 @@ mana_pct = 0.10
 turnos = 5
 segundos = 10.0
 descripcion = "Restaura 20 + 10% de tu maná máximo, repartido en el tiempo (a 20 de maná = ~22 total, ~4,4/turno x5 en combate o en 10s por el mapa). El escalón grande: mucho maná pero hay que sostenerlo 5 turnos."
+valor_base = 1125

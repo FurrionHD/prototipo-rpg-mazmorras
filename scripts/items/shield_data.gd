@@ -21,3 +21,6 @@ enum Tamano { PEQUENO, NORMAL, GRANDE }  # GRANDE = escudos de tanque
 
 # --- HABILIDADES (KAN-57): las que aporta ESTE escudo (golpe de escudo...) ---
 @export var habilidades: Array = []
+
+# PRECIO base de la tienda (ver WeaponData.valor_base).
+@export var valor_base: int = 400

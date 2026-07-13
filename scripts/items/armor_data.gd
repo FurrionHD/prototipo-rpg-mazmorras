@@ -53,3 +53,7 @@ enum Slot { CASCO, PECHO, MANOS, PANTALONES, BOTAS }
 # cuero 1.04, hierro 1.00 (base), hierro completo 0.93, placas 0.88. Se combina por
 # cobertura en Game.armor_mods() y afecta al ATB de combate y al movimiento en mapa.
 @export var velocidad_mult: float = 1.0
+
+# PRECIO base (ver WeaponData.valor_base). La tienda NO vende armaduras todavia, pero SI te
+# compra las que traigas: por eso necesitan precio.
+@export var valor_base: int = 300

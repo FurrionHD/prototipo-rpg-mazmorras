@@ -33,6 +33,18 @@ class_name ConsumableData
 # FUERA de combate: se reparte en estos segundos de tiempo real.
 @export var segundos: float = 6.0
 
+# GRIMORIO: si lleva hechizo, este "consumible" no se bebe, se ESTUDIA. Al usarlo desde el
+# inventario aprendes ese hechizo (Game.usar_consumible -> aprender_de_grimorio) y el libro
+# se gasta. Un grimorio no cura ni da maná: sus campos de poción se quedan a 0.
+@export var spell: SpellData = null
+
+# PRECIO base de la tienda. Las de maná valen ~2.5 veces lo que las de vida equivalentes, y
+# los grimorios son el gasto gordo del principio.
+@export var valor_base: int = 100
+
+func es_grimorio() -> bool:
+	return spell != null
+
 # ¿Esta poción cura VIDA? ¿da MANÁ? (para el menu y el uso).
 func cura_hp() -> bool: return cura_total > 0.0 or cura_pct > 0.0
 func da_mana() -> bool: return mana_total > 0.0 or mana_pct > 0.0

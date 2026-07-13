@@ -18,3 +18,4 @@ bloqueo = 0.15
 dano_tipo = 0
 aturdir_base = 0.0
 habilidades = [ExtResource("2"), ExtResource("3")]
+valor_base = 540

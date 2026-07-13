@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_mojado"]
+script = ExtResource("2")
+estado = 12
+prob = 0.3
+
+[resource]
+script = ExtResource("1")
+nombre = "Rocío"
+tipo = 0
+elemento = 2
+hits = 3
+frases = Array[String](["Gota, hiere al caer"])
+coste_mana = 4
+dano_base = 14.0
+efectos = [SubResource("SA_mojado")]
+descripcion = "Hechizo corto de agua. Una sola frase y tres gotas a presion: barato y rapido. Deja empapado, que arde peor... y conduce el rayo mejor."

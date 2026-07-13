@@ -10,3 +10,4 @@ cura_pct = 0.08
 turnos = 5
 segundos = 10.0
 descripcion = "Cura 71 + 8% de tu vida máxima, repartido en el tiempo (a 50 de vida = ~75 total, 15/turno x5 en combate o en 10s por el mapa). El escalón grande de las menores: mucha cura pero hay que sostener la defensa 5 turnos."
+valor_base = 450
