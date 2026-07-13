@@ -18,19 +18,19 @@ position = Vector2(340, 300)
 [node name="Walls" type="Node2D" parent="."]
 
 [node name="WallTop" parent="Walls" instance=ExtResource("2_2vj2h")]
-position = Vector2(340, 100)
-scale = Vector2(14, 1)
+position = Vector2(410, 100)
+scale = Vector2(18, 1)
 
 [node name="WallBottom" parent="Walls" instance=ExtResource("2_2vj2h")]
-position = Vector2(340, 360)
-scale = Vector2(14, 1)
+position = Vector2(410, 360)
+scale = Vector2(18, 1)
 
 [node name="WallLeft" parent="Walls" instance=ExtResource("2_2vj2h")]
 position = Vector2(120, 230)
 scale = Vector2(1, 9)
 
 [node name="WallRight" parent="Walls" instance=ExtResource("2_2vj2h")]
-position = Vector2(560, 230)
+position = Vector2(700, 230)
 scale = Vector2(1, 9)
 
 [node name="Altar" type="Node2D" parent="."]
