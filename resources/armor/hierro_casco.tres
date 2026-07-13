@@ -12,4 +12,4 @@ defensa_base = 0.5
 motion_def = 1.0
 reduccion = 0.075
 velocidad_mult = 1.00
-valor_base = 180
+valor_base = 260
