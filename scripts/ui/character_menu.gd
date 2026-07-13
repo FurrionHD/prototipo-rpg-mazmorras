@@ -199,6 +199,9 @@ func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
 	var v := Label.new()
 	v.text = valor
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Sin esto, un valor largo (la lista de mejoras, el desglose del ataque) se sale por el
+	# borde derecho en vez de partirse en dos lineas.
+	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(v)
 	vb.add_child(row)
 
@@ -208,7 +211,9 @@ func _note(vb: VBoxContainer, txt: String) -> void:
 	l.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
 	l.add_theme_font_size_override("font_size", 11)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size = Vector2(420, 0)
+	# Sin ancho MINIMO: en las columnas estrechas (el panel del candidato) empujaria el texto
+	# fuera de la pantalla en vez de partirlo.
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(l)
 
 func _fmt_pct(x: float) -> String:
@@ -508,53 +513,73 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 	var mejoras: Dictionary = m["mejoras"]
 	var tmult: float = Game.tier_mult(tier)
 	var mods: Dictionary = Upgrades.weapon_mods(w, tmult, rareza, mejoras)
+	# El BASE de ESTA arma no es el del .tres: es el suyo con su tier y su rareza, sin las
+	# mejoras. Lo sacamos pidiendo los mismos mods con la lista de mejoras vacia.
+	var base: Dictionary = Upgrades.weapon_mods(w, tmult, rareza, {})
 
 	var tipo: String = WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)]
 	_row(vb, "  Tipo", tipo + ("  (magia)" if w.es_magica else ""))
-	_row(vb, "  Ataque", _mejor("%.1f", float(mods["raw"]), w.ataque_base))
+	_row(vb, "  Ataque", _con_mejoras("%.1f", float(base["raw"]), float(mods["raw"])))
 	_row(vb, "  Motion value", "×%.2f" % w.motion_value)
-	_row(vb, "  Velocidad", _mejor("×%.2f", w.velocidad_mult * float(mods["vel_mult"]), w.velocidad_mult))
+	_row(vb, "  Velocidad", _con_mejoras("×%.2f",
+		w.velocidad_mult * float(base["vel_mult"]), w.velocidad_mult * float(mods["vel_mult"])))
 	var crit: float = w.crit_bonus + float(mods["crit_add"])
 	if crit != 0.0:
-		_row(vb, "  Crítico", "+" + _mejor("%s", crit, w.crit_bonus, true))
+		_row(vb, "  Crítico", _con_mejoras_pct(w.crit_bonus, crit))
 	if float(mods["precision"]) > 0.0:
-		_row(vb, "  Precisión", "+%s" % _fmt_pct(float(mods["precision"])))
-	if float(mods["aturdir_add"]) > 0.0:
-		_row(vb, "  Aturdir", _mejor("%s", w.aturdir_base + float(mods["aturdir_add"]), w.aturdir_base, true))
+		_row(vb, "  Precisión", "+%s  (por las mejoras)" % _fmt_pct(float(mods["precision"])))
+	var aturdir: float = w.aturdir_base + float(mods["aturdir_add"])
+	if aturdir > 0.0:
+		_row(vb, "  Aturdir", _con_mejoras_pct(w.aturdir_base, aturdir))
 	if w.es_magica:
 		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras)
-		_magic_stats(vb, mg, w.magic_amp, w.mp_regen_bonus, w.cast_vel_mult)
+		var mgb: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, {})
+		_magic_stats(vb, mg, mgb, w.mp_regen_bonus, w.cast_vel_mult)
 	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)])
-	_row(vb, "  Mejoras", "%d / %d%s" % [Upgrades.total_mejoras(mejoras),
-		Upgrades.rareza_slots(rareza), _lista_mejoras(mejoras)])
+	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
+	# En QUE se gastaron, en su propia linea: con 12 huecos (obra maestra) la lista no cabe
+	# nunca al lado del contador.
+	if not mejoras.is_empty():
+		_note(vb, "    " + _lista_mejoras(mejoras))
 
 
-# Las lineas magicas (baston y varita comparten math: Upgrades.magic_mods).
-func _magic_stats(vb: VBoxContainer, mg: Dictionary, amp_base: float, regen_base: float, cast_base: float) -> void:
-	_row(vb, "  Amplif. magia", _mejor("×%.2f", float(mg["magic_amp"]), amp_base))
-	_row(vb, "  Regen maná", "+%.2f/turno" % (regen_base * float(mg["regen_mult"])))
-	_row(vb, "  Vel. casteo", _mejor("×%.2f", cast_base + float(mg["cast_vel_add"]), cast_base))
+# Las lineas magicas (baston y varita comparten math: Upgrades.magic_mods). 'mg' = con mejoras,
+# 'mgb' = el mismo item SIN ellas (su base con tier y rareza).
+func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base: float, cast_base: float) -> void:
+	_row(vb, "  Amplif. magia", _con_mejoras("×%.2f",
+		float(mgb["magic_amp"]), float(mg["magic_amp"])))
+	_row(vb, "  Regen maná", _con_mejoras("+%.2f/turno",
+		regen_base * float(mgb["regen_mult"]), regen_base * float(mg["regen_mult"])))
+	_row(vb, "  Vel. casteo", _con_mejoras("×%.2f",
+		cast_base + float(mgb["cast_vel_add"]), cast_base + float(mg["cast_vel_add"])))
 	if float(mg["mana_reduccion"]) > 0.0:
-		_row(vb, "  Coste de maná", "-%s" % _fmt_pct(float(mg["mana_reduccion"])))
+		_row(vb, "  Coste de maná", "-%s  (por las mejoras)" % _fmt_pct(float(mg["mana_reduccion"])))
 
 
-# "12.4  (de fábrica 3.0)" si el objeto ha subido; si esta a pelo, solo el numero.
-func _mejor(fmt: String, valor: float, base: float, pct: bool = false) -> String:
-	var v: String = _fmt_pct(valor) if pct else (fmt % valor)
-	if absf(valor - base) < 0.005:
-		return v
-	var b: String = _fmt_pct(base) if pct else (fmt % base)
-	return "%s   (de fábrica %s)" % [v, b]
+# "14.5  +6.1 por las mejoras  =  20.6". El BASE ya lleva dentro el tier y la rareza de ESTE
+# objeto (no es el numero del .tres); lo que se suma aparte es solo lo que dan las mejoras. Si
+# no tiene mejoras, se enseña el numero a secas.
+func _con_mejoras(fmt: String, base: float, total: float) -> String:
+	if absf(total - base) < 0.005:
+		return fmt % total
+	return "%s  +%s por las mejoras  =  %s" % [fmt % base, fmt % (total - base), fmt % total]
 
 
-# "  ·  Agudeza 2, Precision 1" para saber EN QUE se gastaron las mejoras.
+# Igual pero en porcentaje (critico, aturdir).
+func _con_mejoras_pct(base: float, total: float) -> String:
+	if absf(total - base) < 0.0005:
+		return "+%s" % _fmt_pct(total)
+	return "+%s  +%s por las mejoras  =  +%s" % [
+		_fmt_pct(base), _fmt_pct(total - base), _fmt_pct(total)]
+
+
+# "Agudeza 2, Precision 1": en QUE se gastaron las mejoras (dos armas con el mismo +N pueden
+# ser cosas muy distintas).
 func _lista_mejoras(mejoras: Dictionary) -> String:
-	if mejoras.is_empty():
-		return ""
 	var partes: PackedStringArray = []
 	for cat in mejoras:
 		partes.append("%s %d" % [Upgrades.cat_nombre(str(cat)), int(mejoras[cat])])
-	return "  ·  " + ", ".join(partes)
+	return ", ".join(partes)
 
 
 func _off_stats(vb: VBoxContainer, item: Resource) -> void:
@@ -576,11 +601,16 @@ func _off_stats(vb: VBoxContainer, item: Resource) -> void:
 		_row(vb, "  Penal. esquiva", "-%s" % _fmt_pct(s.evasion_penal))
 	elif item is WandData:
 		var wd := item as WandData
-		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(tier), rareza, mejoras)
-		_magic_stats(vb, mg, wd.magic_amp, wd.mp_regen_bonus, wd.cast_vel_mult)
+		var tm: float = Game.tier_mult(tier)
+		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, tm, rareza, mejoras)
+		var mgb: Dictionary = Upgrades.magic_mods(wd.magic_amp, tm, rareza, {})
+		_magic_stats(vb, mg, mgb, wd.mp_regen_bonus, wd.cast_vel_mult)
 	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)])
-	_row(vb, "  Mejoras", "%d / %d%s" % [Upgrades.total_mejoras(mejoras),
-		Upgrades.rareza_slots(rareza), _lista_mejoras(mejoras)])
+	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
+	# En QUE se gastaron, en su propia linea: con 12 huecos (obra maestra) la lista no cabe
+	# nunca al lado del contador.
+	if not mejoras.is_empty():
+		_note(vb, "    " + _lista_mejoras(mejoras))
 
 
 # Nombre completo del item de la secundaria, con su tier/rareza/+N (Game.item_display_name),
