@@ -2012,11 +2012,14 @@ func forjar(base: Resource, metal: MaterialData, sel_metal: Dictionary, sel_cuer
 # Tira por devolver al baul UNA pieza del material, segun las unidades que hayan SOBRADO del
 # gasto (un lingote intacto vale 3 uds; si la pieza pedia 4, gastas 2 lingotes = 6 y sobran 2).
 # Devuelve la PEOR calidad de las que gastaste: el recorte ya te guardo las buenas.
-func _tirar_devolucion(mat: MaterialData, gasto: Dictionary, necesita: int) -> void:
+func _tirar_devolucion(mat: MaterialData, gasto: Dictionary, necesita: int, bonus_oficio: float = -1.0) -> void:
 	var sobra: int = _uds_de_seleccion(gasto) - necesita
 	if mat == null or sobra <= 0:
 		return
-	if randf() >= Forge.prob_devolver(sobra, herreria_activa()):
+	# Por defecto, el oficio es la HERRERIA (la forja es quien mas llama a esto); la boticaria
+	# pasa el suyo (la Mezcla). Ninguno da nada todavia: sus habilidades siguen bloqueadas.
+	var bonus: float = Crafting.bonus_ahorro(herreria_activa()) if bonus_oficio < 0.0 else bonus_oficio
+	if randf() >= Crafting.prob_devolver(sobra, bonus):
 		return
 	var peor: int = -1
 	for cal in [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
@@ -2172,6 +2175,24 @@ func seleccion_valida(receta: RecipeData, seleccion: Array) -> bool:
 	return pociones_de_seleccion(receta, seleccion) >= 1
 
 
+# La MEZCLA (el oficio de la boticaria) tampoco esta desbloqueada todavia: 0 de bonus.
+const MEZCLA_ACTIVA := 0.0
+
+# Lo que se va a gastar DE VERDAD de cada ingrediente (array paralelo a receta.ingredientes).
+# Es la seleccion recortada a lo justo para las n pociones que salen: el resto se queda en el
+# baul. Lo usa el crafteo y lo pinta el menu, para que lo que ves sea lo que se gasta.
+func gasto_crafteo(receta: RecipeData, seleccion: Array) -> Array:
+	var out: Array = []
+	var n: int = pociones_de_seleccion(receta, seleccion)
+	for i in receta.ingredientes.size():
+		var ing = receta.ingredientes[i]
+		if ing == null or ing.material == null or i >= seleccion.size():
+			out.append({})
+			continue
+		out.append(recortar_seleccion(seleccion[i], n * ing.unidades))
+	return out
+
+
 # BONUS DE DOBLE: probabilidad de que la receta rinda 2 pociones en vez de 1, segun la
 # calidad MEDIA (ponderada por unidades) de los materiales que ELIGES. Premia meter buen
 # material: todo intacto -> MAX_PROB_DOBLE; baja con calidades peores; todo dañado -> 0%.
@@ -2205,25 +2226,31 @@ func _score_calidad(cal: int) -> float:
 		_: return 0.0
 
 
-# Fabrica CUANTAS pociones cubra la seleccion (pociones_de_seleccion). Consume la seleccion
-# entera y, si es mejora, una poción base por cada una; el bonus de doble se tira POR
-# SEPARADO en cada poción (cada una puede salir doble). Devuelve true si fabricó algo.
+# Fabrica CUANTAS pociones cubra la seleccion (pociones_de_seleccion) y, si es mejora, gasta una
+# poción base por cada una; el bonus de doble se tira POR SEPARADO en cada poción (cada una
+# puede salir doble). Devuelve true si fabricó algo.
+#
+# Solo se gasta lo NECESARIO: si metes de mas, el sobrante se queda en el baul, y lo que sobra
+# del ultimo trozo puede volver (mismo trato que en la forja; ver crafting.gd).
 func craftear_con(receta: RecipeData, seleccion: Array) -> bool:
 	var n: int = pociones_de_seleccion(receta, seleccion)
 	if n < 1:
 		return false
-	var prob: float = prob_doble_desde_seleccion(receta, seleccion)
+	# Lo que se gasta DE VERDAD, por ingrediente. La prob. de doble se calcula con esto y no con
+	# lo elegido: un dañado que ni se llega a usar no tiene por que bajarte la media.
+	var gasto: Array = gasto_crafteo(receta, seleccion)
+	var prob: float = prob_doble_desde_seleccion(receta, gasto)
 	var total: int = 0
 	for _k in range(n):
 		if receta.es_mejora():
 			gastar_consumible(receta.pocion_base)
 		total += 2 if randf() < prob else 1
-	# Consumir la seleccion entera (son los materiales de las n pociones).
 	for i in receta.ingredientes.size():
 		var ing = receta.ingredientes[i]
 		if ing == null or ing.material == null:
 			continue
-		_consumir_seleccion_material(ing.material, seleccion[i])
+		_consumir_seleccion_material(ing.material, gasto[i])
+		_tirar_devolucion(ing.material, gasto[i], n * ing.unidades, MEZCLA_ACTIVA)
 	add_consumable(receta.resultado, total)
 	# MEZCLA: crear pociones (no comprarlas) alimenta el parametro oculto. Cuenta por poción
 	# fabricada (incluidas las que salen dobles): mezclar mas = mas experiencia de Mezcla.

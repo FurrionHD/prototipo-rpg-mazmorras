@@ -163,8 +163,12 @@ func _build_detail(r: RecipeData) -> void:
 		_fila_coste("1× %s" % r.pocion_base.nombre, tengo_p, 1)
 
 	# Ingredientes: por cada uno, un contador -/+ por cada calidad que tengas en el baul.
-	var cals: Array = [MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
+	# PURO no lo suelta la mazmorra (solo sale de refinar con oficio), pero si algun dia una
+	# receta pide un refinado, aqui esta: mejor tenerlo que descubrir que no se puede elegir.
+	var cals: Array = [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
+		MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
 	var cal_nom: Dictionary = {
+		MaterialItem.Calidad.PURO: "Puro",
 		MaterialItem.Calidad.INTACTO: "Intacto",
 		MaterialItem.Calidad.NORMAL: "Normal",
 		MaterialItem.Calidad.DANADO: "Dañado",
@@ -216,14 +220,19 @@ func _build_detail(r: RecipeData) -> void:
 			_detail.add_child(row)
 
 	var uds := Label.new()
-	uds.text = "(intacto = 3 uds · normal = 2 · dañado = 1.  Mejor material = más probabilidad de fabricar 2)"
+	uds.text = "(puro = 4 uds · intacto = 3 · normal = 2 · dañado = 1.  Mejor material = más probabilidad de fabricar 2)"
 	uds.add_theme_color_override("font_color", Color(0.55, 0.58, 0.65))
 	uds.add_theme_font_size_override("font_size", 10)
 	uds.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail.add_child(uds)
 
-	# Bonus de DOBLE segun lo que has ELEGIDO (en vivo). Es POR poción fabricada.
-	var prob: float = Game.prob_doble_desde_seleccion(r, _seleccion)
+	# Lo que se GASTA de verdad: si te pasas, el sobrante se queda en el Hogar, y lo que sobre
+	# del ultimo trozo puede volver. Mismo trato que en la forja.
+	var gasto: Array = Game.gasto_crafteo(r, _seleccion)
+	_aviso_recorte(r, gasto)
+
+	# Bonus de DOBLE segun lo que se va a GASTAR (en vivo). Es POR poción fabricada.
+	var prob: float = Game.prob_doble_desde_seleccion(r, gasto)
 	var bono := Label.new()
 	bono.text = "Fabricar 2 de golpe: %d%%  (por poción)" % roundi(prob * 100.0)
 	bono.add_theme_color_override("font_color", VERDE if prob > 0.0 else Color(0.55, 0.58, 0.65))
@@ -252,6 +261,38 @@ func _build_detail(r: RecipeData) -> void:
 	fab.custom_minimum_size = Vector2(0, 36)
 	fab.pressed.connect(_on_fabricar)
 	_detail.add_child(fab)
+
+
+# Avisa de lo que se va a gastar DE VERDAD (el recorte) por cada ingrediente: lo que sobra se
+# queda en el Hogar, y las unidades que sobren del ultimo trozo pueden volver. Solo se pinta si
+# hay algo que decir (te has pasado, o el material no cuadra justo con la receta).
+func _aviso_recorte(r: RecipeData, gasto: Array) -> void:
+	var n: int = Game.pociones_de_seleccion(r, _seleccion)
+	if n < 1:
+		return
+	for i in mini(gasto.size(), r.ingredientes.size()):
+		var ing = r.ingredientes[i]
+		if ing == null or ing.material == null:
+			continue
+		var elegidas: int = Game.uds_seleccion(_seleccion[i])
+		var gastadas: int = Game.uds_seleccion(gasto[i])
+		var necesita: int = n * ing.unidades
+		var partes: PackedStringArray = []
+		if gastadas < elegidas:
+			partes.append("de %s se gastan %d uds y el resto se queda en el Hogar" % [
+				ing.material.nombre.to_lower(), gastadas])
+		var sobra: int = gastadas - necesita
+		if sobra > 0:
+			partes.append("sobran %d uds del recorte: %d%% de recuperar una pieza" % [
+				sobra, roundi(Crafting.prob_devolver(sobra, Game.MEZCLA_ACTIVA) * 100.0)])
+		if not partes.is_empty():
+			var l := Label.new()
+			l.text = "  " + "; ".join(partes) + "."
+			l.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+			l.add_theme_font_size_override("font_size", 11)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_detail.add_child(l)
 
 
 # Fila simple de texto en el detalle.
@@ -288,11 +329,7 @@ func _uds_sel(i: int) -> int:
 	return u
 
 func _uds(cal: int) -> int:
-	match cal:
-		MaterialItem.Calidad.INTACTO: return 3
-		MaterialItem.Calidad.NORMAL: return 2
-		MaterialItem.Calidad.DANADO: return 1
-		_: return 0
+	return MaterialItem.crear(null, cal).unidades_crafteo()
 
 
 # Sube/baja el contador de (ingrediente i, calidad cal), acotado a lo que tienes en el baul.

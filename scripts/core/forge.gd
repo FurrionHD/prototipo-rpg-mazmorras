@@ -127,24 +127,11 @@ static func coste(base: Resource) -> Dictionary:
 	}
 
 
-# APROVECHAMIENTO: el material no se parte por la mitad. Si la pieza pide 4 unidades y un
-# lingote intacto vale 3, tienes que meter DOS: gastas 6 y sobran 2 unidades que se irian a la
-# basura... salvo por esto. Cada unidad que sobra da una probabilidad de recuperar UNA pieza
-# del material (la peor de las que gastaste). Asi pasarse de poco no escuece.
-#
-# La base es DE MANO CORTA a proposito (20% por unidad: con 2 de sobra, un 40%): el margen para
-# que esto se vuelva generoso se lo guarda la HERRERIA, que cuando se desbloquee sumara su
-# bonus aqui encima (bonus_ahorro, hoy 0). El oficio es lo que hace que no se desperdicie nada.
-const DEVOLVER_POR_UNIDAD := 0.20
-
+# APROVECHAMIENTO del recorte: no es cosa de la forja, es de TODO lo que se fabrica (la
+# boticaria se topa con lo mismo), asi que vive en crafting.gd. Aqui solo se le pasa el bonus
+# de la HERRERIA, que es el oficio que le toca a la forja.
 static func prob_devolver(unidades_de_sobra: int, herreria_exp: float = 0.0) -> float:
-	var base: float = DEVOLVER_POR_UNIDAD * float(maxi(0, unidades_de_sobra))
-	return clampf(base + bonus_ahorro(herreria_exp), 0.0, 0.99)
-
-# RESERVADO: lo que la HERRERIA sumara al aprovechamiento cuando la habilidad exista. Sin
-# numeros todavia (van al Excel con el resto de la curva).
-static func bonus_ahorro(_herreria_exp: float) -> float:
-	return 0.0
+	return Crafting.prob_devolver(unidades_de_sobra, Crafting.bonus_ahorro(herreria_exp))
 
 
 # --- TIER: lo fija el metal del lingote (su 'tier' de MaterialData) ---
