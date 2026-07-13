@@ -347,11 +347,28 @@ func _crear_filas_estados() -> void:
 	_player_chips = _crear_fila_chips(_player_name)
 
 
-func _crear_fila_chips(bajo: Label) -> HBoxContainer:
+# Los chips van A LA DERECHA del nombre, en su MISMA linea. Antes iban en una fila propia
+# debajo, y eso movia toda la columna hacia abajo cada vez que a alguien le entraba (o se le
+# iba) un estado: el menu entero bailaba en mitad del combate.
+#
+# Para meterlos al lado hay que envolver la etiqueta del nombre en una fila: se saca el Label
+# de la columna, se mete en un HBox en su MISMO sitio, y los chips se añaden detras.
+func _crear_fila_chips(nombre: Label) -> HBoxContainer:
+	var col: VBoxContainer = $VBox
+	var pos: int = nombre.get_index()
+
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 8)
+	col.add_child(fila)
+	col.move_child(fila, pos)
+
+	col.remove_child(nombre)
+	fila.add_child(nombre)
+
 	var box := HBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
-	$VBox.add_child(box)
-	$VBox.move_child(box, bajo.get_index() + 1)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fila.add_child(box)
 	return box
 
 
