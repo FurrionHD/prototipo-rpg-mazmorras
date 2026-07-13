@@ -60,6 +60,7 @@ var _header: VBoxContainer = null       # cabecera FIJA (titulo + pestañas)
 var _lista: VBoxContainer = null        # cuadricula de piezas, con su propio scroll
 var _scroll_lista: ScrollContainer = null
 var _content: VBoxContainer = null      # panel de detalle, con el suyo
+var _aviso_lbl: Label = null            # linea de aviso, de altura fija (no empuja el titulo)
 var _tab_buttons: Array = []
 
 var _tab: int = 0
@@ -95,6 +96,7 @@ func _ready() -> void:
 	_lista = m["lista"]
 	_scroll_lista = m["lista_scroll"]
 	_content = m["content"]
+	_aviso_lbl = m["aviso"]
 
 	for i in TABS.size():
 		var b := Button.new()
@@ -168,13 +170,7 @@ func _rebuild() -> void:
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	# Fundir y Chapas no tienen cuadricula: se quedan con el ancho entero.
 	_scroll_lista.visible = _tab >= 2
-
-	if _aviso != "":
-		var l := Label.new()
-		l.text = _aviso
-		l.add_theme_color_override("font_color", VERDE if _aviso_ok else ROJO)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_header.add_child(l)
+	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 
 	match _tab:
 		0: _build_refinar(false)   # mineral -> lingote

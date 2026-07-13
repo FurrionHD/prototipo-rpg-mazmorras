@@ -120,6 +120,15 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 	col.add_theme_constant_override("separation", 6)
 	margin.add_child(col)
 
+	# Linea de AVISO ("Sacas 3 lingotes...", "No te llega"). Vive FUERA del header y con una
+	# altura FIJA aunque este vacia: si apareciera y desapareciera con el mensaje, empujaria el
+	# titulo y todo el menu bailaria cada vez que haces algo.
+	var aviso := Label.new()
+	aviso.custom_minimum_size = Vector2(0, 22)
+	aviso.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	aviso.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_child(aviso)
+
 	var header := VBoxContainer.new()
 	header.add_theme_constant_override("separation", 4)
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -152,9 +161,18 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 	scroll_det.add_child(content)
 
 	return {
-		"root": root, "side": tabs, "header": header,
+		"root": root, "side": tabs, "header": header, "aviso": aviso,
 		"lista": lista, "lista_scroll": scroll_lista, "content": content, "dinero": dinero,
 	}
+
+
+# Pinta (o borra) el mensaje de la linea de aviso. Verde = salio bien, rojo = no.
+static func decir(aviso: Label, txt: String, ok: bool = true) -> void:
+	if aviso == null:
+		return
+	aviso.text = txt
+	aviso.add_theme_color_override("font_color",
+		Color(0.55, 0.85, 0.55) if ok else Color(0.9, 0.5, 0.5))
 
 
 # --- Piezas sueltas que repiten los cinco menus ---

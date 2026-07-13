@@ -73,6 +73,7 @@ var _lista: VBoxContainer = null     # cuadricula, con su scroll
 var _scroll_lista: ScrollContainer = null
 var _content: VBoxContainer = null   # detalle, con el suyo
 var _dinero_top: Label = null        # monedas arriba a la derecha
+var _aviso_lbl: Label = null         # linea de aviso, de altura fija (no empuja el titulo)
 var _tab_buttons: Array = []
 
 var _tab: int = 0
@@ -99,6 +100,7 @@ func _ready() -> void:
 	_scroll_lista = m["lista_scroll"]
 	_content = m["content"]
 	_dinero_top = m["dinero"]
+	_aviso_lbl = m["aviso"]
 
 	for i in TABS.size():
 		var b := Button.new()
@@ -170,13 +172,7 @@ func _rebuild() -> void:
 		b.visible = bool(visible_tab.get(i, true))
 		b.button_pressed = (i == _tab)
 	_dinero_top.text = "%d monedas" % Game.money
-
-	if _aviso != "":
-		var l := Label.new()
-		l.text = _aviso
-		l.add_theme_color_override("font_color", VERDE if _aviso_ok else ROJO)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_header.add_child(l)
+	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 
 	match _tab:
 		0: _build_vender()

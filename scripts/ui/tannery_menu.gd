@@ -23,6 +23,7 @@ const CALIDADES := [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
 var _root: Control = null
 var _header: VBoxContainer = null    # cabecera FIJA
 var _content: VBoxContainer = null   # lo que se desplaza
+var _aviso_lbl: Label = null         # linea de aviso, de altura fija (no empuja el titulo)
 var _aviso: String = ""
 var _aviso_ok: bool = true
 
@@ -37,6 +38,7 @@ func _ready() -> void:
 	_root = m["root"]
 	_header = m["header"]
 	_content = m["content"]
+	_aviso_lbl = m["aviso"]
 	# El peletero no tiene cuadricula de piezas: una sola columna, a lo ancho.
 	(m["lista_scroll"] as ScrollContainer).visible = false
 
@@ -69,12 +71,7 @@ func _rebuild() -> void:
 		for c in zona.get_children():
 			c.queue_free()
 
-	if _aviso != "":
-		var a := Label.new()
-		a.text = _aviso
-		a.add_theme_color_override("font_color", VERDE if _aviso_ok else ROJO)
-		a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_header.add_child(a)
+	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 
 	var crudo: MaterialData = Game.cuero_crudo()
 	var curtido: MaterialData = Game.cuero_forja()
