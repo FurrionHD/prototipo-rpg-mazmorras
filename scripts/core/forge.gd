@@ -28,6 +28,19 @@ const MINERAL_POR_LINGOTE := 3
 const LINGOTE_POR_CHAPA := 1     # un lingote batido da una chapa (mismo metal, misma calidad)
 const CUERO_POR_CURTIDO := 2
 
+# DEUDA CONOCIDA (a proposito, no es un olvido): el METAL tiene tres tiers (cobre / hierro /
+# adamante) pero la PIEL solo tiene uno, el cuero de rata. O sea que una pieza T2 se acaba
+# cosiendo con la misma piel de rata que una T1, que no tiene ningun sentido.
+#
+# Lo suyo es que cada tier de metal pida piel de SU profundidad, pero hoy NINGUN enemigo
+# suelta cuero que no sea el de rata: exigirlo ahora dejaria el T2 y el T3 imposibles de
+# forjar. Asi que la regla se queda escrita y APAGADA hasta que haya bichos con pieles
+# mejores; entonces basta con comparar el tier del cuero contra el del metal aqui.
+static func cuero_vale_para(cuero: MaterialData, metal: MaterialData) -> bool:
+	if cuero == null or metal == null:
+		return false
+	return true   # TODO(pieles por tier): return cuero.tier >= metal.tier
+
 # METALURGIA: probabilidad de que el lingote salga UN ESCALON por encima del mineral que
 # fundiste (dañado -> normal, normal -> intacto; un intacto ya no sube). Asintotica: nunca
 # llega al tope, pero al principio se nota rapido.
