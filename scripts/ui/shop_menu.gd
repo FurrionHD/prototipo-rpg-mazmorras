@@ -18,7 +18,7 @@
 extends CanvasLayer
 
 const TABS := ["Vender", "Recomprar", "Tienda", "Pack inicial"]
-const SUBS := ["Bolsa", "Hogar", "Equipo"]
+const SUBS := ["Bolsa", "Hogar", "Equipo", "Consumibles"]
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
@@ -392,6 +392,7 @@ func _build_vender() -> void:
 		0: _build_vender_bolsa()
 		1: _build_vender_hogar()
 		2: _build_vender_equipo()
+		3: _build_vender_consumibles()
 
 
 func _build_vender_bolsa() -> void:
@@ -507,6 +508,58 @@ func _on_vender_equipo() -> void:
 		_decir("Vendes %s por %d monedas." % [nombre, cobrado])
 	else:
 		_decir("No puedes vender eso.", false)
+	_sel = 0
+	_rebuild()
+
+
+# --- Vender CONSUMIBLES (pociones y grimorios) ---
+
+func _build_vender_consumibles() -> void:
+	_note(_content, "Pociones y grimorios de tu inventario. No van al mostrador de recompra: el tendero ya los vende de serie, así que si te arrepientes los compras otra vez en la Tienda.")
+	_stacks = []
+	for c in Game.consumables.keys():
+		var n: int = int(Game.consumables[c])
+		if n > 0:
+			_stacks.append({"modelo": c, "cantidad": n})
+	var labels: Array = []
+	for s in _stacks:
+		var c: ConsumableData = s["modelo"]
+		labels.append("%s x%d\n%d monedas" % [c.nombre, int(s["cantidad"]),
+			Game.precio_venta_consumible(c)])
+	_grid_detail(labels, _preview_venta_consumible)
+
+
+func _preview_venta_consumible(vb: VBoxContainer) -> void:
+	var c: ConsumableData = _stacks[_sel]["modelo"]
+	var n: int = int(_stacks[_sel]["cantidad"])
+	var precio: int = Game.precio_venta_consumible(c)
+	_title(vb, c.nombre)
+	_row(vb, "Cantidad", str(n))
+	if c.es_grimorio():
+		_row(vb, "Enseña", c.spell.nombre)
+	else:
+		_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
+	_row(vb, "Te pagan", "%d por unidad  (todo: %d)" % [precio, precio * n])
+	vb.add_child(HSeparator.new())
+	_boton(vb, "Vender", _on_vender_consumible)
+
+
+func _on_vender_consumible() -> void:
+	var c: ConsumableData = _stacks[_sel]["modelo"]
+	var n: int = int(_stacks[_sel]["cantidad"])
+	_pending_base = c
+	if n <= 1:
+		_confirmar_venta_consumible(1)
+	else:
+		_abrir_modal_cantidad("¿Cuántas quieres vender?", n, _confirmar_venta_consumible)
+
+
+func _confirmar_venta_consumible(cant: int) -> void:
+	if _pending_base != null:
+		var c: ConsumableData = _pending_base
+		_pending_base = null
+		var cobrado: int = Game.vender_consumible(c, cant)
+		_decir("Vendes %d x %s por %d monedas." % [cant, c.nombre, cobrado])
 	_sel = 0
 	_rebuild()
 

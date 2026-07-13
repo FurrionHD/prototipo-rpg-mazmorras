@@ -1585,6 +1585,29 @@ func _sacar_del_hogar(modelo: Resource) -> Resource:
 			return m
 	return null
 
+# Lo que te pagan por una poción/grimorio: la misma fraccion que por el equipo. No van al
+# mostrador de recompra (son apilables y el tendero los vende de serie: si te arrepientes,
+# vuelves a comprarlos en la pestaña Tienda).
+func precio_venta_consumible(c: ConsumableData) -> int:
+	if c == null:
+		return 0
+	return maxi(1, int(round(precio_compra(c) * REVENTA_EQUIPO)))
+
+# Vende n unidades de una poción/grimorio del inventario. Devuelve lo cobrado.
+func vender_consumible(c: ConsumableData, n: int) -> int:
+	if c == null or n <= 0:
+		return 0
+	var vendidos: int = 0
+	while vendidos < n and gastar_consumible(c):
+		vendidos += 1
+	if vendidos <= 0:
+		return 0
+	var total: int = precio_venta_consumible(c) * vendidos
+	ingresar(total)
+	print("[tienda] Vendes %d x %s por %d. Dinero: %d" % [vendidos, c.nombre, total, money])
+	return total
+
+
 # Vacia la bolsa de cristales de un clic (lo que hacia la tienda vieja).
 func vender_todos_cristales() -> int:
 	if crystals.is_empty():
