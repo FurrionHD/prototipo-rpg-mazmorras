@@ -200,7 +200,11 @@ func _build_mochilas() -> void:
 	MenuScaffold.nota(_header, "Lo único que sube tu capacidad de carga. El METAL de las hebillas le pone el tier; la CALIDAD de lo que metas tira su rareza, que es lo único que la diferencia (una mochila no se mejora con núcleos). Y la Fuerza la aprovecha: multiplica el zurrón entero, mochila incluida.")
 	_header.add_child(HSeparator.new())
 
-	var hebillas: Array = Game.hebillas_forja()
+	# Solo los metales que conoces (mismo criterio que el herrero: ver Game.materiales_vistos).
+	var hebillas: Array = Game.hebillas_conocidas()
+	if hebillas.is_empty():
+		MenuScaffold.nota(_header, "No conoces ningún metal, y sin hebillas no hay mochila que valga. Pica una veta y pásate por el herrero.")
+		return
 	_heb_idx = clampi(_heb_idx, 0, hebillas.size() - 1)
 	var heb: MaterialData = hebillas[_heb_idx]
 	var coste: Dictionary = Game.MOCHILA_COSTE
@@ -274,7 +278,10 @@ func _on_hebillas(i: int) -> void:
 
 
 func _on_coser() -> void:
-	var heb: MaterialData = Game.hebillas_forja()[_heb_idx]
+	var hebillas: Array = Game.hebillas_conocidas()
+	if hebillas.is_empty():
+		return
+	var heb: MaterialData = hebillas[clampi(_heb_idx, 0, hebillas.size() - 1)]
 	var m: Resource = Game.fabricar_mochila(heb, _sel_heb, _sel_cor, _sel_cue)
 	if m != null:
 		_decir("Coses %s: +%.0f de carga. Equípala en el menú de personaje [C]." % [

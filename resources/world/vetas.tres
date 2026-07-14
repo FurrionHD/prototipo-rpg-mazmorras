@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://scripts/world/material_entry.gd" id="2_entrada"]
 [ext_resource type="Resource" path="res://resources/materials/cobre.tres" id="3_cobre"]
 [ext_resource type="Resource" path="res://resources/materials/hierro.tres" id="4_hierro"]
-[ext_resource type="Resource" path="res://resources/materials/adamante.tres" id="5_adamante"]
+[ext_resource type="Resource" path="res://resources/materials/acero.tres" id="5_acero"]
 
 [sub_resource type="Resource" id="E_cobre"]
 script = ExtResource("2_entrada")
@@ -16,13 +16,13 @@ script = ExtResource("2_entrada")
 material = ExtResource("4_hierro")
 peso = 30.0
 
-[sub_resource type="Resource" id="E_adamante"]
+[sub_resource type="Resource" id="E_acero"]
 script = ExtResource("2_entrada")
-material = ExtResource("5_adamante")
+material = ExtResource("5_acero")
 peso = 12.0
 
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Vetas"
-entradas = [SubResource("E_cobre"), SubResource("E_hierro"), SubResource("E_adamante")]
+entradas = [SubResource("E_cobre"), SubResource("E_hierro"), SubResource("E_acero")]
 metadata/_custom_type_script = "res://scripts/world/material_table.gd"

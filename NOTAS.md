@@ -214,11 +214,19 @@ Aciertas → avanzas; fallas → **backfire**. Ritmo: **N frases = N turnos de r
   (1 correcta + distractores barajados, excluyendo la correcta).
 - [x] **Maná** (nuevo recurso): `max_mp = BASE_MP(20) + Magia×MP_FROM_MAGIA(0.033)` (`stats_math`)
   → a Magia 999 = 53 máx. Persiste entre combates (`Game.player_current_mp`, −1 = lleno, como la
-  vida). **Regen por turno escala con la Magia**: `StatsMath.mp_regen() = MP_REGEN_BASE(0.1) +
-  Magia×MP_REGEN_PER_MAGIA(0.0002)` (magia 999 → ~0.3/turno). El **altar** (y teclas dev H / debug stats) lo rellenan al
-  100%. Se **descuenta al empezar** el casteo (si fallas, se pierde). Pociones en combate → futuro.
-  OJO anti-spam: el regen escalado permitiría spamear a Magia alta; se equilibra con los NIVELES de
-  hechizo (KAN-96): misma magia en versión cara (Chispa nv2 = 10-12 MP) al subir Magia/nivel.
+  vida). **El maná se recupera JUGANDO, no esperando** (rediseño): ya NO hay regen pasiva por el
+  mapa (`tick_mana_regen`, borrada: el jugador se plantaba quieto mirando la barra) ni goteo base
+  por turno. Las fuentes son:
+  - **Al PEGAR**: cada golpe de arma que ACIERTA (básico, golpe de habilidad o contraataque de la
+    postura) devuelve `StatsMath.MP_POR_GOLPE_PCT(4%)` del maná máximo. Porcentual → escala solo
+    con la Magia, nunca hay que retunearlo.
+  - **Al GANAR** el combate: `MP_VICTORIA_PCT(25%)` del máximo (huir NO lo da: hay que rematar).
+  - **Por turno**: solo lo que aporte el **arma mágica** (`mp_regen_bonus`, mejora Regeneración
+    KAN-95), que así pasa de marginal a ser la firma del bastón/varita.
+  - Fuera de combate: **pociones** de maná (con arrastre) y el **altar** (rellena al 100%; teclas
+    dev H / debug stats también).
+  Se **descuenta al empezar** el casteo (si fallas, se pierde). El mago que se queda a cero lejos
+  del pueblo no espera: pega (Bastonazo) y recarga, o bebe.
 - [x] **Daño**: `StatsMath.resolve_spell()` = `dano_base × magia_factor(Magia) × magic_amp`, mitigado
   por la Magia del enemigo. Sin esquiva/crítico (el riesgo es recitar bien). **`magic_amp`** del
   Combatant queda **neutro (1.0)**: gancho para las armas de mago (**KAN-95**, bastón/varita).

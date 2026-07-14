@@ -42,7 +42,7 @@ func _init() -> void:
 	_curva_material("VETAS    (Fuerza, suelo %d)" % int(Game.MINERIA_FUERZA_FLOOR),
 		["res://resources/materials/cobre.tres",
 		 "res://resources/materials/hierro.tres",
-		 "res://resources/materials/adamante.tres"],
+		 "res://resources/materials/acero.tres"],
 		Game.MINERIA_FUERZA_FLOOR)
 
 	_curva_material("MADERAS  (Agilidad, suelo %d)" % int(Game.TALA_AGILIDAD_FLOOR),
@@ -55,7 +55,44 @@ func _init() -> void:
 	_reparto("PLANTAS", "res://resources/world/plantas.tres")
 	_reparto("VETAS", "res://resources/world/vetas.tres")
 	_reparto("MADERAS", "res://resources/world/maderas.tres")
+
+	_forjable()
 	quit()
+
+
+# QUE se puede forjar con cada metal. Lo que se comprueba aqui es el FRENO: la armadura T2/T3
+# tiene que salir BLOQUEADA (no hay cuero que no sea el de rata), y el arma T2/T3 NO.
+#
+# Se prueba contra Forge, que es donde vive la regla y es ESTATICO. Game no vale aqui: en modo
+# --script los autoloads no se instancian.
+const METALES: Array[String] = [
+	"res://resources/materials/lingote_cobre.tres",
+	"res://resources/materials/lingote_hierro.tres",
+	"res://resources/materials/lingote_acero.tres",
+]
+const MADERAS: Array[String] = [
+	"res://resources/materials/madera_comun.tres",
+	"res://resources/materials/madera_dura.tres",
+	"res://resources/materials/madera_negra.tres",
+]
+const CUERO := "res://resources/materials/cuero_curtido.tres"
+
+func _forjable() -> void:
+	print("\n=========== QUE SE PUEDE FORJAR CON CADA METAL ===========")
+	var cuero: MaterialData = load(CUERO) as MaterialData
+	for ruta in METALES:
+		var metal: MaterialData = load(ruta) as MaterialData
+		# El ARMA necesita una madera de la altura del metal.
+		var mango: String = "BLOQUEADA"
+		for rm in MADERAS:
+			var mad: MaterialData = load(rm) as MaterialData
+			if Forge.madera_vale_para(mad, metal):
+				mango = mad.nombre
+				break
+		var piel: String = cuero.nombre if Forge.cuero_vale_para(cuero, metal) \
+			else "BLOQUEADA (no hay cuero a su altura)"
+		print("  T%d %-8s  arma -> %-16s   armadura -> %s" % [
+			metal.tier, metal.nombre.replace("Lingote de ", ""), mango, piel])
 
 
 # El reparto REAL de la tabla piso a piso (lo deriva de los pesos, no se escribe a mano).

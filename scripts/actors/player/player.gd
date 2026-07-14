@@ -93,6 +93,14 @@ func _ready() -> void:
 	_attack_was = Input.is_key_pressed(KEY_SPACE)
 	_drink_was = Input.is_key_pressed(KEY_Q)
 
+	# ASPECTO del personaje: el color y el acabado que eligio al crear la partida (van en el
+	# SaveData). El cuerpo es un ColorRect mientras no haya arte; el brillo metalico lo pinta
+	# un shader por encima de ese color (null = mate).
+	var cuerpo := get_node_or_null("ColorRect") as ColorRect
+	if cuerpo != null:
+		cuerpo.color = Game.player_color
+		cuerpo.material = Game.material_cuerpo()
+
 	# Aguante maximo segun las stats del jugador (Resistencia y Agilidad).
 	max_stamina = _calc_max_aguante()
 	current_stamina = max_stamina
@@ -113,7 +121,6 @@ func _physics_process(delta: float) -> void:
 	# enemigo sigue su IA aparte, asi que puede emboscarte igualmente. Pero el
 	# TIEMPO pasa, asi que el aguante se sigue recuperando.
 	Game.tick_heal(delta)         # cura de pociones (fuera de combate) corre siempre que pasa el tiempo
-	Game.tick_mana_regen(delta)   # regen pasiva de mana por el mapa (KAN-56/57)
 	Game.tick_mana_pocion(delta)  # maná de pociones de maná (fuera de combate)
 	_actualizar_max_aguante()     # el maximo escala con Resistencia/Agilidad (refresca si cambian las stats)
 	if Game.inventory_open or Game.debug_panel_open:
@@ -340,6 +347,7 @@ func _try_interact() -> void:
 		if item is MaterialItem:
 			var m := item as MaterialItem
 			Game.materiales.append(m)
+			Game.descubrir(m.data)
 			print("Recoges: ", m.nombre(), " (", m.calidad_texto(), "). Total materiales: ",
 				Game.materiales.size())
 		elif item is Cristal:

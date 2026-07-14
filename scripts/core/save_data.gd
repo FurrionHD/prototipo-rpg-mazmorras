@@ -113,6 +113,10 @@ const VERSION_ACTUAL := 2
 @export var hoz: String = ""
 @export var hacha: String = ""
 
+# Que materiales has visto alguna vez (id -> true). Es lo que decide QUE te enseña el herrero:
+# un metal que no conoces no aparece en su menu. Ver Game.materiales_vistos.
+@export var materiales_vistos: Dictionary = {}
+
 # --- Donde estabas ---
 @export var en_mazmorra: bool = false
 @export var current_floor: int = 1

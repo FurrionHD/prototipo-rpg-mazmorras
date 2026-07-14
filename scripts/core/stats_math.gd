@@ -24,11 +24,25 @@ const MAGIA_DIV := 250.0
 # MANA: maximo = BASE_MP + Magia × MP_FROM_MAGIA. Numeros PROVISIONALES -> Excel.
 const BASE_MP := 20.0
 const MP_FROM_MAGIA := 0.033   # magia 999 -> +33 (max = 20 + 33 = 53)
-# Regen de mana POR TURNO de combate. Escala con la Magia (magos mas potentes
-# reponen algo mas rapido), pero conservador para NO permitir spamear. El anti-spam
-# real llegara con los NIVELES de hechizo (mismo hechizo, version cara). PROVISIONAL.
-const MP_REGEN_BASE := 0.1
-const MP_REGEN_PER_MAGIA := 0.0002   # magia 999 -> ~0.3/turno
+# REGEN DE MANÁ: ya NO hay goteo por "estar ahi" (ni por turno de combate ni parado en el
+# mapa: eso era esperar, no jugar). El maná se recupera JUGANDO — pegando y ganando — y el
+# unico goteo por turno que queda lo pone el ARMA MAGICA (Combatant.mp_regen_bonus, mejora
+# Regeneración), que asi pasa de marginal a ser la firma del baston/varita.
+#
+# MANÁ AL PEGAR: cada golpe de arma que ACIERTA (basico o golpe de habilidad) devuelve este
+# % del maná MAXIMO. Porcentual a proposito: escala solo con la Magia y nunca hay que
+# retunearlo. Un basico ~1 MP con un pool de 23; un Molinete de 2 golpes, el doble.
+const MP_POR_GOLPE_PCT := 0.04
+# MANÁ AL GANAR el combate: % del maná maximo (el nucleo del enemigo se disuelve en ti).
+const MP_VICTORIA_PCT := 0.25
+
+# Maná que devuelve UN golpe de arma que acierta, para un maná maximo dado.
+static func mp_por_golpe(max_mp: float) -> float:
+	return max_mp * MP_POR_GOLPE_PCT
+
+# Maná que devuelve GANAR un combate.
+static func mp_por_victoria(max_mp: float) -> float:
+	return max_mp * MP_VICTORIA_PCT
 
 # Resto de stats: siguen el modelo "base + habilidad × coef" (coef crece con el
 # nivel). Numeros bajos a proposito: 999 no debe dar 999 de golpe.
@@ -72,10 +86,6 @@ static func magia_factor(magia: float) -> float:
 # (y otras mejoras) se NOTAN en el maximo (se muestra con decimales).
 static func max_mp_value(ab: Abilities, _level: int, base_mp: float = BASE_MP) -> float:
 	return base_mp + ab.magia * MP_FROM_MAGIA
-
-# Mana que se regenera por turno de combate (escala con la Magia).
-static func mp_regen(magia: float) -> float:
-	return MP_REGEN_BASE + magia * MP_REGEN_PER_MAGIA
 
 # stat efectiva = base + habilidad × coef(nivel)
 static func defense_value(ab: Abilities, level: int, base_defense: float) -> float:

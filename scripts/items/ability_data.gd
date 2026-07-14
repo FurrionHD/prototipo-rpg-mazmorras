@@ -27,6 +27,11 @@ class_name AbilityData
 
 # Daño por impacto respecto a un ataque normal (1.0 = como un básico; <1 = flurry).
 @export var dano_mult: float = 1.0
+
+# Lo que aporta la SEGUNDA MANO vale la MITAD: los golpes EXTRA que solo existen porque
+# llevas dos armas (los que pasan del rango de UNA mano) pegan a este multiplicador. Asi
+# el dual vale ~1.5x la version a una mano, no 2x ni 3x (que era lo que la disparaba).
+@export var dual_golpe_mult: float = 0.5
 # Tipo de daño forzado: -1 = el del arma; 0 CORTE, 1 CONTUNDENTE (golpe de escudo).
 @export var dano_tipo_override: int = -1
 
@@ -98,6 +103,14 @@ func num_golpes(manos: int) -> int:
 		return randi_range(maxi(1, golpes_dual_min), maxi(golpes_dual_min, golpes_dual_max))
 	return randi_range(maxi(1, golpes_min), maxi(golpes_min, golpes_max))
 
+# Multiplicador del golpe 'i' (0-indexado) segun el loadout. Los primeros golpes_max (el
+# tope del rango a UNA mano) van al 100%; los que vengan detras son los que pone la segunda
+# arma, y valen dual_golpe_mult. Con 1 mano siempre 1.0.
+func mult_golpe(i: int, manos: int) -> float:
+	if manos >= 2 and golpes_dual_max > 0 and i >= golpes_max:
+		return dual_golpe_mult
+	return 1.0
+
 # Coste de energia segun el loadout (dual gasta mas si tiene coste propio).
 func coste(manos: int) -> float:
 	if manos >= 2 and coste_energia_dual > 0.0:
@@ -133,6 +146,9 @@ func resumen(manos: int = 1) -> String:
 	if dano_mult > 0.0:
 		var g: String = _golpes_txt(manos)
 		p.append("%s× · %s golpe%s" % [_num(dano_mult), g, "" if g == "1" else "s"])
+		# DUAL: los golpes que pone la segunda arma pegan a la mitad (dual_golpe_mult).
+		if manos >= 2 and golpes_dual_max > golpes_max:
+			p.append("del %dº en adelante al %d%%" % [golpes_max + 1, roundi(dual_golpe_mult * 100.0)])
 	var c: float = coste(manos)
 	if c > 0.0:
 		p.append("%.0f EN" % c)

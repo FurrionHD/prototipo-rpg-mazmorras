@@ -32,18 +32,29 @@ const CUERO_POR_CURTIDO := 2
 const LINGOTE_POR_HEBILLAS := 3
 const CUERO_POR_CORREA := 2
 
-# DEUDA CONOCIDA (a proposito, no es un olvido): el METAL tiene tres tiers (cobre / hierro /
-# adamante) pero la PIEL solo tiene uno, el cuero de rata. O sea que una pieza T2 se acaba
-# cosiendo con la misma piel de rata que una T1, que no tiene ningun sentido.
+# El ACOMPAÑANTE del metal tiene que ser de SU altura: no tiene ningun sentido coser una
+# coraza de acero con la misma piel de rata que un chaleco de cobre, ni ponerle a una espada
+# de acero un mango de la madera que se cae de las paredes del primer piso.
 #
-# Lo suyo es que cada tier de metal pida piel de SU profundidad, pero hoy NINGUN enemigo
-# suelta cuero que no sea el de rata: exigirlo ahora dejaria el T2 y el T3 imposibles de
-# forjar. Asi que la regla se queda escrita y APAGADA hasta que haya bichos con pieles
-# mejores; entonces basta con comparar el tier del cuero contra el del metal aqui.
+# ARMADURA -> chapa + CUERO. Y aqui esta la gracia: hoy el unico cuero que existe es el de
+# rata (T1), asi que exigir esto deja la armadura T2 y T3 SIN FORJAR. Es a proposito, no es
+# un bug: esas piezas estaban absurdamente rotas para lo pronto que se conseguian. La
+# armadura T2 se desbloqueara sola el dia que un bicho hondo suelte una piel mejor, sin
+# tocar una linea de aqui.
+#
+# ARMA -> lingote + MADERA (el mango). Las armas SI suben de tier, porque la madera si tiene
+# tres tiers y sale de la misma profundidad que el metal (madera dura y hierro, los dos en el
+# piso 6). Un arma buena pide bajar; una armadura buena, ademas, pide un bicho que aun no existe.
 static func cuero_vale_para(cuero: MaterialData, metal: MaterialData) -> bool:
-	if cuero == null or metal == null:
+	return _acompana_a(cuero, metal)
+
+static func madera_vale_para(madera: MaterialData, metal: MaterialData) -> bool:
+	return _acompana_a(madera, metal)
+
+static func _acompana_a(mat: MaterialData, metal: MaterialData) -> bool:
+	if mat == null or metal == null:
 		return false
-	return true   # TODO(pieles por tier): return cuero.tier >= metal.tier
+	return mat.tier >= metal.tier
 
 # METALURGIA: probabilidad de que el lingote salga UN ESCALON por encima del mineral que
 # fundiste (dañado -> normal, normal -> intacto; un intacto ya no sube). Asintotica: nunca
@@ -63,7 +74,7 @@ const HERRERIA_K := 30.0
 static func bonus_herreria(herreria_exp: float) -> float:
 	return HERRERIA_BONUS_MAX * _curva(herreria_exp, HERRERIA_K)
 
-# El METAL tambien empuja la rareza: forjar con adamante no solo sube el tier, ademas hace
+# El METAL tambien empuja la rareza: forjar con acero no solo sube el tier, ademas hace
 # mas probables las rarezas buenas. Un tocho de metal noble ya viene medio hecho.
 const BONUS_POR_TIER_METAL := 0.10   # T1 +0, T2 +0.10, T3 +0.20 al score
 
@@ -96,15 +107,16 @@ const HERRERIA_POR_PIEZA := 1.0
 # precio de tienda. Lo caro cuesta mas material. Se paga en UNIDADES (un refinado puro rinde
 # por 4, uno dañado por 1), asi que refinar bien te ahorra material.
 #
-# Dos ramas, y en esto se nota que una armadura es mas trabajo que un arma:
-#   ARMA     = LINGOTE (se golpea directo) + algo de cuero para la empuñadura.
-#   ARMADURA = CHAPA (un paso mas de refinado) + cuero, en la proporcion de su tipo. La de
+# Dos ramas, y en esto se nota que una armadura es mas trabajo que un arma. Las dos llevan
+# metal + una FIBRA, pero no es la misma fibra:
+#   ARMA     = LINGOTE (se golpea directo) + MADERA para el mango.
+#   ARMADURA = CHAPA (un paso mas de refinado) + CUERO, en la proporcion de su tipo. La de
 #              cuero es casi toda piel; la ligera de metal lleva MAS cuero que metal; la
 #              pesada, al reves; las placas son casi todo chapa.
 const MONEDAS_POR_UNIDAD := 90.0
 const METAL_MIN := 2
 
-# Multiplicadores sobre las "unidades base" (precio / MONEDAS_POR_UNIDAD): [metal, cuero].
+# Multiplicadores sobre las "unidades base" (precio / MONEDAS_POR_UNIDAD): [metal, fibra].
 const MIX_ARMA := [1.0, 0.35]
 const MIX_ARMADURA := {
 	ArmorData.Tipo.CUERO: [0.25, 2.0],             # hebillas y poco mas; todo piel
@@ -113,11 +125,13 @@ const MIX_ARMADURA := {
 	ArmorData.Tipo.PLACAS: [1.5, 0.25],            # casi todo chapa
 }
 
-# Coste de forjar `base`, en UNIDADES: {"metal": n, "cuero": n, "usa_chapa": bool}.
-# 'usa_chapa' dice de que rama tira el metal: chapa (armadura) o lingote (arma).
+# Coste de forjar `base`, en UNIDADES: {"metal": n, "fibra": n, "usa_chapa": bool}.
+# 'usa_chapa' dice de que rama tira el metal (chapa = armadura, lingote = arma) y, con el, cual
+# es la fibra: el cuero de la armadura o la madera del mango. QUE material concreto es lo decide
+# Game.fibra_de_forja, que ademas lo exige del tier del metal.
 static func coste(base: Resource) -> Dictionary:
 	if base == null:
-		return {"metal": 0, "cuero": 0, "usa_chapa": false}
+		return {"metal": 0, "fibra": 0, "usa_chapa": false}
 	var uds: float = float(base.get("valor_base")) / MONEDAS_POR_UNIDAD
 	var mix: Array = MIX_ARMA
 	var usa_chapa: bool = false
@@ -126,7 +140,7 @@ static func coste(base: Resource) -> Dictionary:
 		mix = MIX_ARMADURA.get(int((base as ArmorData).tipo), MIX_ARMA)
 	return {
 		"metal": maxi(METAL_MIN, int(round(uds * float(mix[0])))),
-		"cuero": maxi(1, int(round(uds * float(mix[1])))),
+		"fibra": maxi(1, int(round(uds * float(mix[1])))),
 		"usa_chapa": usa_chapa,
 	}
 
@@ -219,6 +233,24 @@ static func tirar_rareza(score: float) -> int:
 static func nucleos_para_mejora(mejoras_actuales: int, nucleo: MaterialData = null) -> int:
 	var desde: int = 0 if nucleo == null else maxi(0, nucleo.mejora_min)
 	return maxi(1, mejoras_actuales + 1 - desde)
+
+
+# Y ademas del nucleo, MATERIAL: el nucleo es el permiso, pero la pieza hay que rehacerla. Se
+# paga de lo MISMO con lo que se forjo y del MISMO tier (metal + su fibra: madera si es un arma,
+# cuero si es una armadura), asi que reforzar una pieza honda pide bajar a por su material.
+#
+# La calidad da igual aqui (la rareza ya esta tirada y no se toca): solo cuentan las UNIDADES.
+# Por eso el menu no te hace elegir calidades como en la forja: gasta lo peor que tengas.
+const MEJORA_METAL_BASE := 2
+const MEJORA_FIBRA_BASE := 1
+
+# Unidades de material que cuesta pasar de +k a +(k+1). PROVISIONAL -> Excel.
+static func material_para_mejora(mejoras_actuales: int) -> Dictionary:
+	var n: int = maxi(0, mejoras_actuales)
+	return {
+		"metal": MEJORA_METAL_BASE + n,
+		"fibra": MEJORA_FIBRA_BASE + n,
+	}
 
 
 static func nucleo_vale(nucleo: MaterialData, item: Resource) -> bool:

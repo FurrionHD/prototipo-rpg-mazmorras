@@ -9,5 +9,5 @@ coste_energia = 34.0
 cooldown = 3
 golpes_min = 1
 golpes_max = 1
-dano_mult = 1.9
+dano_mult = 1.75
 descripcion = "Un mandoble descendente con todo el peso de la hoja. Daño puro, sin adornos: el mazazo de la espada larga."

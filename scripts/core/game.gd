@@ -300,6 +300,8 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	equipped_pico = PICO_BASICO as ToolData
 	equipped_hoz = HOZ_BASICA as ToolData
 	equipped_hacha = HACHA_BASICA as ToolData
+	# Empiezas sin conocer NINGUN metal: el herrero solo te enseñara los que te traigas.
+	materiales_vistos.clear()
 
 	current_floor = 1
 	pos_cargada = Vector2.INF
@@ -380,6 +382,7 @@ func exportar_partida() -> SaveData:
 	d.pico = pico().resource_path
 	d.hoz = hoz().resource_path
 	d.hacha = hacha().resource_path
+	d.materiales_vistos = materiales_vistos.duplicate()
 
 	d.en_mazmorra = en_mazmorra
 	d.current_floor = current_floor
@@ -459,6 +462,15 @@ func importar_partida(d: SaveData) -> void:
 	equipped_hoz = _cargar_tool(d.hoz, HOZ_BASICA)
 	# Las partidas de antes de la madera no tienen hacha guardada: _cargar_tool cae al respaldo.
 	equipped_hacha = _cargar_tool(d.hacha, HACHA_BASICA)
+
+	# Lo descubierto. Las partidas de antes de esto lo traen vacio, asi que se reconstruye de lo
+	# que tengas encima o en el baul: si no, un veterano con el baul lleno de hierro abriria la
+	# forja y no veria ni el hierro.
+	materiales_vistos = d.materiales_vistos.duplicate()
+	for lista in [materiales, almacen_materiales]:
+		for it in lista:
+			if it != null:
+				descubrir((it as MaterialItem).data)
 
 	current_floor = d.current_floor
 	memoria_pisos = d.memoria_pisos.duplicate(true)
@@ -724,7 +736,7 @@ var _dev_materiales: Array[String] = [
 	# Minerales
 	"res://resources/materials/cobre.tres",
 	"res://resources/materials/hierro.tres",
-	"res://resources/materials/adamante.tres",
+	"res://resources/materials/acero.tres",
 	# Cuero
 	"res://resources/materials/cuero_simple.tres",
 	# Nucleos de ARMA (slime +3 / venenoso +5 / fuego +7)
@@ -1959,14 +1971,21 @@ const _FORJA_METALES: Array = [
 		"res://resources/materials/lingote_hierro.tres",
 		"res://resources/materials/chapa_hierro.tres",
 		"res://resources/materials/hebillas_hierro.tres"],       # T2
-	["res://resources/materials/adamante.tres",
-		"res://resources/materials/lingote_adamante.tres",
-		"res://resources/materials/chapa_adamante.tres",
-		"res://resources/materials/hebillas_adamante.tres"],     # T3
+	["res://resources/materials/acero.tres",
+		"res://resources/materials/lingote_acero.tres",
+		"res://resources/materials/chapa_acero.tres",
+		"res://resources/materials/hebillas_acero.tres"],     # T3
 ]
 const _CUERO_CRUDO := "res://resources/materials/cuero_simple.tres"
 const _CUERO_CURTIDO := "res://resources/materials/cuero_curtido.tres"
 const _CORREA := "res://resources/materials/correa_cuero.tres"
+# Las MADERAS, por tier. Son el MANGO del arma, y van indexadas igual que _FORJA_METALES: el
+# mango tiene que estar a la altura del metal (ver Forge.madera_vale_para).
+const _MADERAS: Array = [
+	"res://resources/materials/madera_comun.tres",   # T1
+	"res://resources/materials/madera_dura.tres",    # T2
+	"res://resources/materials/madera_negra.tres",   # T3
+]
 
 # {mineral, lingote, chapa, hebillas} de cada metal (para los menus del herrero).
 func metales_forja() -> Array:
@@ -2009,6 +2028,85 @@ func cuero_crudo() -> MaterialData:
 func cuero_forja() -> MaterialData:
 	return load(_CUERO_CURTIDO) as MaterialData
 
+# --- LO QUE YA HAS VISTO (id -> true) ---
+# El menu del herrero listaba los tres metales desde el minuto uno. Eso es abrumador y ademas
+# te enseña cosas que no puedes hacer: te pasas la partida mirando una fila de acero que no vas
+# a tocar hasta el piso 11. Un metal solo aparece en la forja cuando te has traido algo de el.
+#
+# Se apunta el ID, no el item: gastarte el ultimo lingote no te des-enseña que el hierro existe.
+var materiales_vistos: Dictionary = {}
+
+func descubrir(mat: MaterialData) -> void:
+	if mat != null:
+		materiales_vistos[String(mat.id)] = true
+
+func material_visto(mat: MaterialData) -> bool:
+	return mat != null and materiales_vistos.has(String(mat.id))
+
+
+# Los metales que el herrero te va a ENSEÑAR: los que conoces por alguna de sus cuatro formas
+# (mineral, lingote, chapa o hebillas). Los menus tiran de esta, no de metales_forja().
+func metales_forja_conocidos() -> Array:
+	var out: Array = []
+	for fila in metales_forja():
+		for clave in ["mineral", "lingote", "chapa", "hebillas"]:
+			if material_visto(fila[clave] as MaterialData):
+				out.append(fila)
+				break
+	return out
+
+# Las tres formas, ya filtradas por lo que conoces. Son las que pinta el menu del herrero (la
+# math sigue usando las listas COMPLETAS: buscar el lingote de un tier no depende de si lo has
+# visto). OJO: los indices de la UI van contra ESTAS, asi que metal_de_forja tira de aqui.
+func lingotes_conocidos() -> Array:
+	var out: Array = []
+	for m in metales_forja_conocidos():
+		out.append(m["lingote"])
+	return out
+
+func chapas_conocidas() -> Array:
+	var out: Array = []
+	for m in metales_forja_conocidos():
+		out.append(m["chapa"])
+	return out
+
+func hebillas_conocidas() -> Array:
+	var out: Array = []
+	for m in metales_forja_conocidos():
+		out.append(m["hebillas"])
+	return out
+
+
+func maderas_forja() -> Array:
+	var out: Array = []
+	for ruta in _MADERAS:
+		var m: Resource = load(ruta)
+		if m != null:
+			out.append(m)
+	return out
+
+
+# La FIBRA que acompaña al metal en esta pieza: MADERA si es un arma (el mango) y CUERO si es
+# una armadura. Y tiene que ser de la ALTURA del metal: una espada de acero no lleva el palo que
+# se cae de la pared del primer piso.
+#
+# Devuelve null cuando no existe fibra a esa altura, y eso NO es un error: es el freno. Hoy el
+# unico cuero que hay es el de rata (T1), asi que una armadura de hierro o de acero devuelve null
+# y no se puede forjar. Es a proposito (ver Forge.cuero_vale_para). Las armas si suben, porque la
+# madera si tiene los tres tiers.
+func fibra_de_forja(base: Resource, metal: MaterialData) -> MaterialData:
+	if base == null or metal == null:
+		return null
+	var tier: int = Forge.tier_de_metal(metal)
+	if base is ArmorData:
+		var cuero: MaterialData = cuero_forja()
+		return cuero if Forge.cuero_vale_para(cuero, metal) else null
+	var maderas: Array = maderas_forja()
+	for m in maderas:
+		if (m as MaterialData).tier == tier:
+			return m as MaterialData
+	return null
+
 
 # --- REFINAR (una sola operacion para fundir, batir y curtir) ---
 # Cuantas piezas refinadas puedes sacar de ESTA calidad (hacen falta `por_uno` items de la
@@ -2037,6 +2135,7 @@ func refinar(origen: MaterialData, destino: MaterialData, cal: int, veces: int, 
 			if cal_final != cal:
 				subidos += 1
 		almacen_materiales.append(MaterialItem.crear(destino, cal_final))
+		descubrir(destino)
 		if oficio == "peleteria":
 			peleteria_exp += Forge.OFICIO_POR_REFINADO
 		else:
@@ -2126,13 +2225,13 @@ func score_seleccion(dicts: Array) -> float:
 	return 0.0 if uds <= 0.0 else suma / uds
 
 # El score con el que se va a tirar DE VERDAD: la calidad del material + lo que aporta tu
-# Herreria + lo que aporta el METAL (el adamante ya viene medio hecho). La UI pinta ESTE, no
+# Herreria + lo que aporta el METAL (el acero ya viene medio hecho). La UI pinta ESTE, no
 # el otro: lo que ves es lo que se tira.
-func score_forja(base: Resource, metal: MaterialData, sel_metal: Dictionary, sel_cuero: Dictionary) -> float:
+func score_forja(base: Resource, metal: MaterialData, sel_metal: Dictionary, sel_fibra: Dictionary) -> float:
 	var c: Dictionary = Forge.coste(base)
 	return score_seleccion([
 			recortar_seleccion(sel_metal, int(c["metal"])),
-			recortar_seleccion(sel_cuero, int(c["cuero"]))]) \
+			recortar_seleccion(sel_fibra, int(c["fibra"]))]) \
 		+ Forge.bonus_herreria(herreria_activa()) \
 		+ Forge.bonus_metal(metal)
 
@@ -2162,20 +2261,26 @@ func recortar_seleccion(sel: Dictionary, necesita: int) -> Dictionary:
 # El METAL que pide esta pieza: la CHAPA si es armadura, el LINGOTE si es arma. La UI le pide
 # a Game el material concreto en vez de decidirlo ella.
 func metal_de_forja(base: Resource, idx: int) -> MaterialData:
-	var lista: Array = chapas_forja() if bool(Forge.coste(base)["usa_chapa"]) else lingotes_forja()
+	# CONOCIDOS: el indice viene de los botones del menu, y el menu solo pinta los que conoces.
+	var lista: Array = chapas_conocidas() if bool(Forge.coste(base)["usa_chapa"]) else lingotes_conocidos()
 	if lista.is_empty():
 		return null
 	return lista[clampi(idx, 0, lista.size() - 1)]
 
 
 # ¿Cubre esta seleccion el coste de forjar `base`? (y no pide mas de lo que hay en el baul)
-func forja_valida(base: Resource, metal: MaterialData, sel_metal: Dictionary, sel_cuero: Dictionary) -> bool:
+# Si no hay FIBRA a la altura del metal, esta pieza no se forja y punto: es lo que hoy frena la
+# armadura T2/T3 (no existe cuero que no sea el de rata). Ver fibra_de_forja.
+func forja_valida(base: Resource, metal: MaterialData, sel_metal: Dictionary, sel_fibra: Dictionary) -> bool:
 	if base == null or metal == null:
 		return false
-	var c: Dictionary = Forge.coste(base)
-	if not _sel_disponible(metal, sel_metal) or not _sel_disponible(cuero_forja(), sel_cuero):
+	var fibra: MaterialData = fibra_de_forja(base, metal)
+	if fibra == null:
 		return false
-	return uds_seleccion(sel_metal) >= int(c["metal"]) and uds_seleccion(sel_cuero) >= int(c["cuero"])
+	var c: Dictionary = Forge.coste(base)
+	if not _sel_disponible(metal, sel_metal) or not _sel_disponible(fibra, sel_fibra):
+		return false
+	return uds_seleccion(sel_metal) >= int(c["metal"]) and uds_seleccion(sel_fibra) >= int(c["fibra"])
 
 # ¿Tienes en el baul lo que dice la seleccion? (la UI ya lo acota, pero la math no se fia)
 func _sel_disponible(mat: MaterialData, dict: Dictionary) -> bool:
@@ -2189,24 +2294,25 @@ func _sel_disponible(mat: MaterialData, dict: Dictionary) -> bool:
 # calidad media de lo que metes (mas tu Herreria) tira la rareza. Solo se gasta lo NECESARIO:
 # si te pasas de unidades, el sobrante se queda en el baul (ver recortar_seleccion). Devuelve
 # el item nuevo, ya en el baul; null si la seleccion no llega.
-func forjar(base: Resource, metal: MaterialData, sel_metal: Dictionary, sel_cuero: Dictionary) -> Resource:
-	if not forja_valida(base, metal, sel_metal, sel_cuero):
+func forjar(base: Resource, metal: MaterialData, sel_metal: Dictionary, sel_fibra: Dictionary) -> Resource:
+	if not forja_valida(base, metal, sel_metal, sel_fibra):
 		return null
+	var fibra: MaterialData = fibra_de_forja(base, metal)
 	var c: Dictionary = Forge.coste(base)
 	var gasto_metal: Dictionary = recortar_seleccion(sel_metal, int(c["metal"]))
-	var gasto_cuero: Dictionary = recortar_seleccion(sel_cuero, int(c["cuero"]))
+	var gasto_fibra: Dictionary = recortar_seleccion(sel_fibra, int(c["fibra"]))
 	var tier: int = Forge.tier_de_metal(metal)
-	var rareza: int = Forge.tirar_rareza(score_forja(base, metal, sel_metal, sel_cuero))
+	var rareza: int = Forge.tirar_rareza(score_forja(base, metal, sel_metal, sel_fibra))
 	_consumir_seleccion_material(metal, gasto_metal)
-	_consumir_seleccion_material(cuero_forja(), gasto_cuero)
+	_consumir_seleccion_material(fibra, gasto_fibra)
 	# Aprovechamiento: lo que sobra del ultimo trozo puede volver al baul (ver Forge).
 	_tirar_devolucion(metal, gasto_metal, int(c["metal"]))
-	_tirar_devolucion(cuero_forja(), gasto_cuero, int(c["cuero"]))
+	_tirar_devolucion(fibra, gasto_fibra, int(c["fibra"]))
 	var item: Resource = crear_item(base, tier, rareza, {})
 	herreria_exp += Forge.HERRERIA_POR_PIEZA
-	print("[herrero] Forjas %s con %s -> T%d %s.  Herreria %s" % [
-		str(base.get("nombre")), metal.nombre, tier, Upgrades.rareza_nombre(rareza),
-		snappedf(herreria_exp, 0.1)])
+	print("[herrero] Forjas %s con %s + %s -> T%d %s.  Herreria %s" % [
+		str(base.get("nombre")), metal.nombre, fibra.nombre, tier,
+		Upgrades.rareza_nombre(rareza), snappedf(herreria_exp, 0.1)])
 	return item
 
 
@@ -2307,25 +2413,56 @@ func nucleos_en_hogar(nucleo: MaterialData) -> int:
 			n += 1
 	return n
 
+# El MATERIAL que pide mejorar esta pieza: el mismo con el que se forjo y del MISMO tier, o sea
+# {metal (lingote/chapa), fibra (madera/cuero)}. Cualquiera de los dos puede venir null si a ese
+# tier no existe (la fibra de una armadura T2, hoy), y entonces la pieza no se puede mejorar.
+func materiales_mejora(item: Resource) -> Dictionary:
+	if item == null:
+		return {"metal": null, "fibra": null}
+	var tier: int = int(meta_de(item)["tier"])
+	var metales: Array = chapas_forja() if item is ArmorData else lingotes_forja()
+	var metal: MaterialData = null
+	for m in metales:
+		if (m as MaterialData).tier == tier:
+			metal = m as MaterialData
+			break
+	return {"metal": metal, "fibra": fibra_de_forja(item, metal)}
+
+
 func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
 	if item == null or not Forge.nucleo_vale(nucleo, item):
 		return false
 	if mejoras_actuales(item) >= tope_mejoras(item, nucleo):
 		return false
-	return nucleos_en_hogar(nucleo) >= Forge.nucleos_para_mejora(mejoras_actuales(item), nucleo)
+	if nucleos_en_hogar(nucleo) < Forge.nucleos_para_mejora(mejoras_actuales(item), nucleo):
+		return false
+	# Y el material de refuerzo (ver materiales_mejora).
+	var mats: Dictionary = materiales_mejora(item)
+	var c: Dictionary = Forge.material_para_mejora(mejoras_actuales(item))
+	if mats["metal"] == null or mats["fibra"] == null:
+		return false
+	return unidades_material_en_hogar(mats["metal"]) >= int(c["metal"]) \
+		and unidades_material_en_hogar(mats["fibra"]) >= int(c["fibra"])
 
-# Mete UNA mejora de la categoria `cat` en la pieza, gastando nucleos. La meta va POR OBJETO
-# (item_meta), y equip_meta apunta al MISMO dict: mejorar el arma que llevas puesta la mejora
-# de verdad, sin tener que desequiparla.
+# Mete UNA mejora de la categoria `cat` en la pieza, gastando nucleos Y material. La meta va POR
+# OBJETO (item_meta), y equip_meta apunta al MISMO dict: mejorar el arma que llevas puesta la
+# mejora de verdad, sin tener que desequiparla.
 func mejorar_item(item: Resource, cat: String, nucleo: MaterialData) -> bool:
 	if not puede_mejorar(item, nucleo):
 		return false
-	var cuesta: int = Forge.nucleos_para_mejora(mejoras_actuales(item), nucleo)
+	var nivel: int = mejoras_actuales(item)
+	var cuesta: int = Forge.nucleos_para_mejora(nivel, nucleo)
+	var mats: Dictionary = materiales_mejora(item)
+	var c: Dictionary = Forge.material_para_mejora(nivel)
 	_consumir_nucleos(nucleo, cuesta)
+	_consumir_unidades(mats["metal"], int(c["metal"]))
+	_consumir_unidades(mats["fibra"], int(c["fibra"]))
 	var mj: Dictionary = meta_de(item)["mejoras"]
 	mj[cat] = int(mj.get(cat, 0)) + 1
-	print("[herrero] Mejoras %s con %d x %s -> %s +%d" % [
+	print("[herrero] Mejoras %s con %d x %s + %d uds de %s + %d uds de %s -> %s +%d" % [
 		str(item.get("nombre")), cuesta, nucleo.nombre,
+		int(c["metal"]), (mats["metal"] as MaterialData).nombre,
+		int(c["fibra"]), (mats["fibra"] as MaterialData).nombre,
 		Upgrades.cat_nombre(cat), int(mj[cat])])
 	return true
 
@@ -2341,6 +2478,26 @@ func _consumir_nucleos(nucleo: MaterialData, n: int) -> void:
 			if it != null and it.data != null and it.data.id == nucleo.id and int(it.calidad) == int(cal):
 				almacen_materiales.remove_at(i)
 				restan -= 1
+			i -= 1
+
+
+# Quita `uds` UNIDADES de un material del hogar, gastando lo PEOR primero. Es lo que usa la
+# MEJORA, y por eso no hay selector de calidades como en la forja: ahi la calidad decide la
+# rareza y tienes que poder elegir, pero la rareza de una pieza ya forjada no se toca, asi que
+# meter material bueno a reforzarla no te daria nada. Se gasta la morralla y punto.
+func _consumir_unidades(mat: MaterialData, uds: int) -> void:
+	if mat == null or uds <= 0:
+		return
+	var orden: Array = [MaterialItem.Calidad.DANADO, MaterialItem.Calidad.NORMAL,
+		MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.PURO]
+	var restan: int = uds
+	for cal in orden:
+		var i: int = almacen_materiales.size() - 1
+		while i >= 0 and restan > 0:
+			var it: MaterialItem = almacen_materiales[i]
+			if it != null and it.data != null and it.data.id == mat.id and int(it.calidad) == int(cal):
+				almacen_materiales.remove_at(i)
+				restan -= it.unidades_crafteo()
 			i -= 1
 
 
@@ -2373,9 +2530,13 @@ func items_calidad_en_hogar(mat: MaterialData, cal: int) -> int:
 	return n
 
 
-# Unidades que aporta un item segun su calidad (intacto 3 / normal 2 / dañado 1).
+# Unidades que aporta un item segun su calidad (puro 4 / intacto 3 / normal 2 / dañado 1).
+# Es la MISMA tabla que MaterialItem.unidades_crafteo(), y tiene que seguir siendolo: aqui se
+# olvidaba el PURO y devolvia 0, asi que un lingote puro (el que saca la Metalurgia alta, el
+# mejor material del juego) contaba como NADA al forjar. El premio del oficio no valia nada.
 func _uds_calidad(cal: int) -> int:
 	match cal:
+		MaterialItem.Calidad.PURO: return 4
 		MaterialItem.Calidad.INTACTO: return 3
 		MaterialItem.Calidad.NORMAL: return 2
 		MaterialItem.Calidad.DANADO: return 1
@@ -3098,6 +3259,7 @@ func _on_mineria_finished(item: MaterialItem, nodo) -> void:
 		return
 	if not item.se_pierde():
 		materiales.append(item)
+		descubrir(item.data)
 		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
 	else:
 		print("La veta se deshace en escombro: no sacas nada.")
@@ -3144,6 +3306,7 @@ func _on_herboristeria_finished(item: MaterialItem, nodo) -> void:
 		return
 	if not item.se_pierde():
 		materiales.append(item)
+		descubrir(item.data)
 		print("Recoges ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
 	else:
 		print("La planta queda hecha jirones: no sirve.")
@@ -3186,6 +3349,7 @@ func _on_talado_finished(item: MaterialItem, nodo) -> void:
 		return
 	if not item.se_pierde():
 		materiales.append(item)
+		descubrir(item.data)
 		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
 	else:
 		print("El tronco se raja en astillas: no sacas nada.")

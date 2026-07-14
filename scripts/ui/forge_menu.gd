@@ -10,11 +10,13 @@
 #      esa calidad) y suben el contador de Metalurgia, que algun dia dara la habilidad de
 #      subirlo un escalon (hasta el PURO).
 #   3) FORJAR  - eliges la pieza, el METAL (lingote para armas, chapa para armaduras: fija el
-#      TIER) y cuanto metes de cada calidad, mas el cuero curtido del peletero. Aqui SI se
-#      mezcla. La RAREZA es una tirada y su tabla se pinta EN VIVO con el score real. Sube el
-#      contador de Herreria.
-#   4) MEJORAR - eliges una pieza de tu baul, un NUCLEO y una categoria. Cada mejora cuesta
-#      mas nucleos que la anterior, y el nucleo marca hasta donde te deja llegar.
+#      TIER) y cuanto metes de cada calidad, mas la FIBRA que la remata: MADERA si es un arma
+#      (el mango) y CUERO si es una armadura, siempre de la altura del metal. Aqui SI se mezcla.
+#      La RAREZA es una tirada y su tabla se pinta EN VIVO con el score real. Sube el contador
+#      de Herreria.
+#   4) MEJORAR - eliges una pieza de tu baul, un NUCLEO y una categoria. Cada nucleo cubre un
+#      tramo de mejoras y dentro de el cada una cuesta un nucleo mas; al saltar al nucleo
+#      siguiente la cuenta vuelve a empezar.
 #
 #  Toda la MATH vive en Game/Forge; aqui solo se pinta y se derivan los numeros de los campos.
 # ============================================================
@@ -80,7 +82,7 @@ var _metal_idx: int = 0            # cual de Game.metales_forja()
 var _armor_idx: int = 0            # juego de armadura (submenu de la subpestaña Armaduras)
 var _lingote_idx: int = 0          # metal elegido (indice en lingotes o chapas, misma lista)
 var _sel_metal: Dictionary = {}    # {calidad: cantidad}
-var _sel_cuero: Dictionary = {}
+var _sel_fibra: Dictionary = {}
 
 # --- MEJORAR ---
 var _nucleo_idx: int = 0
@@ -140,7 +142,7 @@ func _input(event: InputEvent) -> void:
 
 func _limpiar_seleccion() -> void:
 	_sel_metal = {}
-	_sel_cuero = {}
+	_sel_fibra = {}
 
 
 func _on_tab(i: int) -> void:
@@ -279,7 +281,13 @@ func _grid_detail(labels: Array, preview: Callable) -> void:
 # ============================================================
 
 func _build_refinar(que: int) -> void:
-	var metales: Array = Game.metales_forja()
+	# Solo los metales que CONOCES. Con una partida nueva no conoces ninguno, y entonces aqui no
+	# hay nada que enseñar (ni siquiera una fila vacia: se dice y ya).
+	var metales: Array = Game.metales_forja_conocidos()
+	if metales.is_empty():
+		_title(_header, _titulo_refinado(que))
+		_note(_header, "No traes ningún metal. Baja a la mazmorra y pica una veta: el herrero no puede fundir lo que no tiene.")
+		return
 	_metal_idx = clampi(_metal_idx, 0, metales.size() - 1)
 	var de_lingote: bool = que != Refinado.LINGOTE   # chapas y hebillas parten del lingote
 	var origen: MaterialData = metales[_metal_idx]["lingote" if de_lingote else "mineral"]
@@ -398,7 +406,10 @@ func _on_metal(i: int) -> void:
 
 
 func _on_refinar(que: int, cal: int, veces: int) -> void:
-	var metales: Array = Game.metales_forja()
+	var metales: Array = Game.metales_forja_conocidos()
+	if metales.is_empty():
+		return
+	_metal_idx = clampi(_metal_idx, 0, metales.size() - 1)
 	var origen: MaterialData = metales[_metal_idx]["mineral" if que == Refinado.LINGOTE else "lingote"]
 	var n: int = 0
 	match que:
@@ -407,7 +418,7 @@ func _on_refinar(que: int, cal: int, veces: int) -> void:
 		_: n = Game.fundir(origen, cal, veces)
 	if n > 0:
 		_decir("Sacas %d x %s de calidad %s." % [n,
-			Game.metales_forja()[_metal_idx][_clave_destino(que)].nombre.to_lower(),
+			metales[_metal_idx][_clave_destino(que)].nombre.to_lower(),
 			_cal_txt(cal).to_lower()])
 	else:
 		_decir("No te llega el material.", false)
@@ -476,21 +487,31 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	var coste: Dictionary = Forge.coste(base)
 	var usa_chapa: bool = bool(coste["usa_chapa"])
 	# El metal de una ARMADURA son CHAPAS; el de un ARMA, lingotes.
-	var metales: Array = Game.chapas_forja() if usa_chapa else Game.lingotes_forja()
+	var metales: Array = Game.chapas_conocidas() if usa_chapa else Game.lingotes_conocidos()
+	if metales.is_empty():
+		_title(vb, str(base.get("nombre")))
+		_note(vb, "No conoces ningún metal todavía. Pica una veta en la mazmorra y vuelve.")
+		return
 	_lingote_idx = clampi(_lingote_idx, 0, metales.size() - 1)
 	var metal: MaterialData = metales[_lingote_idx]
+
+	# La FIBRA que acompaña al metal: cuero si es armadura, madera (el mango) si es arma. Tiene
+	# que ser de la altura del metal, y si no existe a esa altura la pieza NO se forja.
+	var fibra: MaterialData = Game.fibra_de_forja(base, metal)
 
 	_title(vb, str(base.get("nombre")))
 	if base is ArmorData:
 		_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int((base as ArmorData).slot), 0, 4)])
-	_row(vb, "Lleva", "%s + cuero curtido" % ("chapas" if usa_chapa else "lingotes"))
+	_row(vb, "Lleva", "%s + %s" % [
+		"chapas" if usa_chapa else "lingotes",
+		fibra.nombre if fibra != null else "(nada a la altura de este metal)"])
 
 	# --- Metal: fija el TIER (y empuja la rareza) ---
 	vb.add_child(HSeparator.new())
 	_row(vb, "Metal", "%s  →  Tier %d  (×%.2f al daño/defensa)" % [
 		metal.nombre, Forge.tier_de_metal(metal), Game.tier_mult(Forge.tier_de_metal(metal))])
 	# Botones cortos, de dos en dos y repartiendose el ancho: el panel de detalle es estrecho y
-	# con el nombre entero ("Lingote de adamante") la fila se salia de la pantalla.
+	# con el nombre entero ("Lingote de acero") la fila se salia de la pantalla.
 	var fila := GridContainer.new()
 	fila.columns = 2
 	fila.add_theme_constant_override("h_separation", 6)
@@ -511,15 +532,21 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 		fila.add_child(b)
 	vb.add_child(fila)
 
+	# Sin fibra a la altura del metal no hay nada que enseñar: se corta aqui y se explica.
+	if fibra == null:
+		vb.add_child(HSeparator.new())
+		_note(vb, "No hay con qué rematar una pieza de este metal. Una coraza de %s pide un cuero de su altura, y el único que se conoce es el de rata: sirve para el cobre y para nada más. Hasta que no aparezca una bestia con mejor piel, este metal solo vale para ARMAS." % _metal_corto(metal).to_lower())
+		return
+
 	# --- Contadores de material ---
 	vb.add_child(HSeparator.new())
 	_contadores(vb, metal, _sel_metal, int(coste["metal"]))
-	_contadores(vb, Game.cuero_forja(), _sel_cuero, int(coste["cuero"]))
+	_contadores(vb, fibra, _sel_fibra, int(coste["fibra"]))
 	_note(vb, "Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la pieza: mejora la RAREZA que te va a tocar.")
 
 	# --- Tabla de rareza EN VIVO, con el score REAL (material + metal + herrería) ---
 	vb.add_child(HSeparator.new())
-	var score: float = Game.score_forja(base, metal, _sel_metal, _sel_cuero)
+	var score: float = Game.score_forja(base, metal, _sel_metal, _sel_fibra)
 	var t := Label.new()
 	t.text = "Rareza que puede salir"
 	t.add_theme_color_override("font_color", AMBAR)
@@ -551,7 +578,7 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	acc.add_child(limpiar)
 	vb.add_child(acc)
 
-	var ok: bool = Game.forja_valida(base, metal, _sel_metal, _sel_cuero)
+	var ok: bool = Game.forja_valida(base, metal, _sel_metal, _sel_fibra)
 	_boton(vb, "Forjar" if ok else "Faltan materiales", _on_forjar, ok)
 
 	vb.add_child(HSeparator.new())
@@ -649,7 +676,8 @@ func _on_auto() -> void:
 	var coste: Dictionary = Forge.coste(base)
 	var metal: MaterialData = Game.metal_de_forja(base, _lingote_idx)
 	_sel_metal = _auto_sel(metal, int(coste["metal"]))
-	_sel_cuero = _auto_sel(Game.cuero_forja(), int(coste["cuero"]))
+	var fibra: MaterialData = Game.fibra_de_forja(base, metal)
+	_sel_fibra = {} if fibra == null else _auto_sel(fibra, int(coste["fibra"]))
 	_rebuild()
 
 
@@ -680,7 +708,7 @@ func _on_limpiar() -> void:
 func _on_forjar() -> void:
 	var base: Resource = _stacks[_sel]["modelo"]
 	var metal: MaterialData = Game.metal_de_forja(base, _lingote_idx)
-	var item: Resource = Game.forjar(base, metal, _sel_metal, _sel_cuero)
+	var item: Resource = Game.forjar(base, metal, _sel_metal, _sel_fibra)
 	if item != null:
 		_decir("Forjas %s. Está en tu baúl: equípalo en el menú de personaje [C]." % Game.item_display_name(item))
 	else:
@@ -746,8 +774,21 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 		b.pressed.connect(_on_nucleo.bind(i))
 		fila.add_child(b)
 	vb.add_child(fila)
-	_row(vb, "Cuesta", "%d × %s  (tienes %d)" % [cuesta, nucleo.nombre, Game.nucleos_en_hogar(nucleo)])
-	_note(vb, "Cada núcleo cubre un tramo de mejoras, y dentro de él cada mejora cuesta un núcleo más que la anterior. Al cambiar a un núcleo mejor, la cuenta vuelve a empezar en uno.")
+	_row(vb, "Núcleos", "%d × %s  (tienes %d)" % [cuesta, nucleo.nombre, Game.nucleos_en_hogar(nucleo)])
+
+	# Y el MATERIAL de refuerzo: el mismo con el que se forjo, del mismo tier. Sin selector de
+	# calidades a proposito (la rareza ya esta tirada: meter material bueno no daria nada).
+	var mats: Dictionary = Game.materiales_mejora(item)
+	var cmat: Dictionary = Forge.material_para_mejora(actuales)
+	for clave in ["metal", "fibra"]:
+		var m: MaterialData = mats[clave]
+		if m == null:
+			_row(vb, "Material", "no existe a este tier: esta pieza no se puede reforzar")
+			continue
+		var necesita: int = int(cmat[clave])
+		var tengo: int = Game.unidades_material_en_hogar(m)
+		_row(vb, m.nombre, "%d uds  (tienes %d)" % [necesita, tengo])
+	_note(vb, "Cada núcleo cubre un tramo de mejoras, y dentro de él cada mejora cuesta un núcleo más que la anterior; al cambiar a un núcleo mejor, la cuenta vuelve a empezar en uno. El núcleo es el permiso, pero la pieza hay que rehacerla: gasta también material de su tier, y del peor que tengas (la rareza ya está echada y no se toca).")
 
 	vb.add_child(HSeparator.new())
 	var cats: Array = _categorias(item)

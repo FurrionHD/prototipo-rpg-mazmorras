@@ -27,8 +27,9 @@ const EXHAUSTED_RATE := 0.5         # a que ritmo (0.5 = la mitad)
 # Huir (KAN-55): entrar agotado dificulta la huida (la probabilidad se multiplica).
 const FLEE_EXHAUSTED_MULT := 0.6
 
-# Magia (KAN-56): nº de opciones del test de recitado (a/b/c/d). El regen de mana
-# por turno lo calcula StatsMath.mp_regen() (escala con la Magia).
+# Magia (KAN-56): nº de opciones del test de recitado (a/b/c/d). El maná se recupera
+# PEGANDO (_ganar_mana_golpe) y GANANDO el combate (_end): ya no hay goteo por turno,
+# salvo el que aporte el arma magica (mp_regen_bonus).
 const N_OPCIONES_TEST := 4
 
 # Aturdir/retrasar (armas contundentes). Golpe NORMAL que aturde = retraso PARCIAL de
@@ -508,8 +509,11 @@ func _begin_player_turn() -> void:
 		_set_log("%s está aturdido y pierde el turno. 💫" % _player.nombre)
 		_pausa_lectura()
 		return
-	# Regen de maná: escala con la Magia (KAN-56) + el bonus del arma mágica (KAN-95).
-	_player.regen_mana(StatsMath.mp_regen(float(_player.abilities.magia)) + _player.mp_regen_bonus)
+	# Regen de maná POR TURNO: ya solo la del ARMA MAGICA (mejora Regeneración, KAN-95). La
+	# base por Magia se quito: el maná se gana PEGANDO (_ganar_mana_golpe) y GANANDO, no por
+	# dejar pasar turnos. Sin arma mágica, este turno no repone nada.
+	if _player.mp_regen_bonus > 0.0:
+		_player.regen_mana(_player.mp_regen_bonus)
 	_update_hp()
 	# Si estas casteando un hechizo, el turno va al recitado / disparo, NO a las
 	# acciones normales (por diseño no puedes hacer otra cosa mientras cantas).
@@ -1092,26 +1096,31 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		golpes = ab.num_golpes(manos)
 		var conecto: int = 0
 		var hubo_critico: bool = false   # para los efectos NO por golpe (tirada al final)
+		var mana_ganado_golpes: float = 0.0
 		_player.set_active_hand(idxs[0])   # empieza con el arma que aporta la habilidad
 		for i in golpes:
 			var result := StatsMath.resolve_attack(_player, _enemy, false)
 			var linea := ""
+			# DUAL: los golpes que pone la SEGUNDA arma valen la mitad (AbilityData.mult_golpe).
+			var m_golpe: float = ab.mult_golpe(i, manos)
 			if result.evaded:
 				linea = "golpe %d: esquivado 💨" % [i + 1]
 			else:
-				var dmg: float = result.damage * ab.dano_mult
+				var dmg: float = result.damage * ab.dano_mult * m_golpe
 				total += dmg
-				total_imbue += float(result.get("dmg_imbue", 0.0)) * ab.dano_mult
+				total_imbue += float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe
 				mult_imbue = float(result.get("mult_imbue", 1.0))
 				_enemy.take_damage(dmg)
+				mana_ganado_golpes += _ganar_mana_golpe()   # cada golpe que conecta repone maná
 				if float(result.get("dmg_imbue", 0.0)) > 0.0:
 					_gastar_amplificadores(_enemy, _player.imbue_elemento)
 				conecto += 1
 				if result.crit:
 					hubo_critico = true
-				linea = "golpe %d: %s %.2f%s" % [i + 1,
+				linea = "golpe %d%s: %s %.2f%s" % [i + 1,
+					("" if m_golpe >= 1.0 else " [2ª mano %d%%]" % roundi(m_golpe * 100.0)),
 					("CRITICO 💥" if result.crit else "acierta"), dmg,
-					_imbue_dmg_txt(result, ab.dano_mult)]
+					_imbue_dmg_txt(result, ab.dano_mult * m_golpe)]
 				if ab.efectos_por_golpe and _enemy.is_alive():
 					var ap: Array = _tirar_efectos_habilidad(ab, result.crit)
 					estados_log += ap
@@ -1134,10 +1143,15 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		# Excelia: como el ataque, entrena Fuerza (por impacto medio).
 		Game.ganar("fuerza", Game.reto(_poder_enemigo()) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
 			Game.RETO_MAX_FISICO)
-		print("        total: %.2f de daño en %d golpe%s%s | EN -%.0f -> %.1f/%.1f" % [
+		print("        total: %.2f de daño en %d golpe%s%s | EN -%.0f -> %.1f/%.1f%s" % [
 			total, golpes, "" if golpes == 1 else "s",
 			_desglose_imbue(total, total_imbue, mult_imbue),
-			coste, _player.current_energy, _player.max_energy])
+			coste, _player.current_energy, _player.max_energy,
+			"" if mana_ganado_golpes <= 0.0 else " | MP +%.1f -> %.1f/%.1f" % [
+				mana_ganado_golpes, _player.current_mp, _player.max_mp]])
+		# El maná que han repuesto los golpes se suma al del propio efecto de la habilidad
+		# (mana_gain), que ya se aplico arriba: aqui solo se junta para el mensaje.
+		mana_ganado += mana_ganado_golpes
 		_dps_add(ab.nombre, total)
 		# Una habilidad = UN uso de imbuicion, traiga los golpes que traiga (si no, las
 		# multi-golpe la fundirian de una). Las de utilidad pura (Canalizar) no la gastan.
@@ -1250,6 +1264,18 @@ func _tirar_efectos_habilidad(ab: AbilityData, fue_critico: bool = false) -> Arr
 	return out
 
 
+# MANÁ AL PEGAR: cada golpe de arma que ACIERTA (basico, golpe de habilidad o contraataque)
+# devuelve un pellizco de maná (% del maximo, ver StatsMath.MP_POR_GOLPE_PCT). Es la fuente
+# principal de maná del juego: recuperarlo es CONSECUENCIA de pelear, no de esperar plantado.
+# Devuelve lo ganado (0 si el jugador no tiene maná: un guerrero puro).
+func _ganar_mana_golpe() -> float:
+	if _player.max_mp <= 0.0 or _player.current_mp >= _player.max_mp:
+		return 0.0
+	var antes: float = _player.current_mp
+	_player.regen_mana(StatsMath.mp_por_golpe(_player.max_mp))
+	return _player.current_mp - antes
+
+
 func _accion_atacar() -> void:
 	# Los enemigos no defienden (de momento): defending = false.
 	var result := StatsMath.resolve_attack(_player, _enemy, false)
@@ -1290,6 +1316,10 @@ func _accion_atacar() -> void:
 		var imb: String = _player.roll_imbue(_enemy)
 		if imb != "":
 			txt += "  ⚡ Le infliges %s." % imb
+		# El golpe que conecta REPONE maná (no los que fallan: hay que acertar).
+		var mp: float = _ganar_mana_golpe()
+		if mp > 0.0:
+			txt += "  🔷 +%.1f MP." % mp
 		_set_log(txt)
 	_gastar_imbue()   # blandir el arma gasta un uso, acierte o falle
 	# El ataque basico REGENERA energia (KAN-57): te "cargas" pegando.
@@ -1475,12 +1505,22 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 	var golpes: int = 0
 	var conecto: int = 0
 	var estados_log: Array = []
+	# CONTRAATAQUE del estoque (postura "En guardia"): tambien responde a las HABILIDADES, no
+	# solo a los basicos. UNA vez por habilidad, aunque esquives varios de sus golpes: una
+	# accion del enemigo = como mucho una respuesta tuya (igual que con el basico). Si fuese
+	# por golpe, un Frenesí de dentelladas (5-6 golpes) con la esquiva de la postura te
+	# regalaria tres o cuatro estocadas en un turno.
+	var contra_txt: String = ""
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
 		for i in golpes:
 			var result := StatsMath.resolve_attack(_enemy, _player, defendiendo)
 			if result.evaded:
 				print("        golpe %d: esquivado 💨" % [i + 1])
+				if _player.en_guardia and contra_txt == "":
+					contra_txt = _contraatacar()
+					if not _enemy.is_alive():
+						break
 			else:
 				var dmg: float = result.damage * ab.dano_mult * _enemy.dummy_dmg_out_mult
 				_player.take_damage(dmg)
@@ -1495,7 +1535,9 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 				print("        " + et)
 			if not _player.is_alive():
 				break
-		if not ab.efectos_por_golpe and conecto > 0 and _player.is_alive():
+		# Efectos NO por golpe: solo si el enemigo sigue vivo (un contraataque puede haberlo
+		# matado a mitad de su propia habilidad: un muerto no te envenena).
+		if not ab.efectos_por_golpe and conecto > 0 and _player.is_alive() and _enemy.is_alive():
 			estados_log += _enemy_tirar_efectos(ab)
 		print("        total: %.2f de daño en %d golpe%s" % [total, golpes, "" if golpes == 1 else "s"])
 	else:
@@ -1517,10 +1559,14 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 	if not estados_log.is_empty():
 		# Neutro: las entradas ya dicen "(a sí mismo)" cuando el estado es un buff propio.
 		msg += "  Aplica: %s." % ", ".join(estados_log)
+	if contra_txt != "":
+		msg += "  " + contra_txt
 	_set_log(msg)
 	_update_hp()
 
-	if not _player.is_alive():
+	if not _enemy.is_alive():
+		_end(true)    # el contraataque de la postura lo ha matado en mitad de su habilidad
+	elif not _player.is_alive():
 		_end(false)
 	else:
 		_pausa_lectura()
@@ -1563,6 +1609,7 @@ func _contraatacar() -> String:
 	var dmg: float = result.damage * _player.guardia_contra_mult
 	_enemy.take_damage(dmg)
 	_dps_add("Contraataque", dmg)
+	_ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
 	# Excelia: el contraataque golpea, entrena Fuerza como un ataque normal.
 	Game.ganar("fuerza", Game.reto(_poder_enemigo()) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
 		Game.RETO_MAX_FISICO)
@@ -1619,7 +1666,19 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	_continue_button.disabled = false
 	_continue_button.text = "Continuar"
 	if player_won:
-		_set_log("¡GANASTE el combate contra " + _enemy.nombre + "! 🎉")
+		# MANÁ AL GANAR: el nucleo del enemigo se disuelve en ti. Es la otra mitad del modelo
+		# (la primera es el maná por golpe): recuperar magia sale de PELEAR, no de esperar.
+		# Huir no lo da: hay que rematar. Va antes de combat_finished, que arrastra el maná.
+		var mp_vic: float = 0.0
+		if _player.is_alive() and _player.max_mp > 0.0 and _player.current_mp < _player.max_mp:
+			var antes: float = _player.current_mp
+			_player.regen_mana(StatsMath.mp_por_victoria(_player.max_mp))
+			mp_vic = _player.current_mp - antes
+			_update_hp()
+			print("[combate] maná por victoria: +%.2f -> %.2f/%.2f" % [
+				mp_vic, _player.current_mp, _player.max_mp])
+		_set_log("¡GANASTE el combate contra " + _enemy.nombre + "! 🎉"
+			+ ("" if mp_vic <= 0.0 else "  🔷 +%.1f MP." % mp_vic))
 	elif fled:
 		_set_log("Has escapado de " + _enemy.nombre + ". 🏃")
 	else:

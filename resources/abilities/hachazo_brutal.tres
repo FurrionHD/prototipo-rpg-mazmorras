@@ -9,5 +9,5 @@ coste_energia = 36.0
 cooldown = 3
 golpes_min = 1
 golpes_max = 1
-dano_mult = 2.1
+dano_mult = 1.65
 descripcion = "Un hachazo salvaje con todo el cuerpo, daño puro. El remate del hacha: brutal tras abrir la guardia con Hendedura."
