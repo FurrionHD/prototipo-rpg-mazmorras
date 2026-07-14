@@ -242,15 +242,23 @@ var mapa_snapshot: Dictionary = {}
 # Copia el estado actual del piso vivo a la libreta. La llaman las salidas al pueblo (door.gd,
 # dungeon_exit.gd) ANTES de irse: en ese momento el DungeonFloor aun esta vivo.
 func capturar_mapa() -> void:
-	if get_tree().get_first_node_in_group("dungeon_floor") == null:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null or piso.gen == null:
 		return
 	var persist: Dictionary = persistente_piso(current_floor)
+	var vistas: Dictionary = persist["zonas_vistas"]
+	# SOLO los nodos de las zonas que has EXPLORADO. Si no, el mapa marca vetas y plantas en
+	# salas por las que no has pasado (te chiva materiales que no has descubierto): eran TODOS
+	# los del piso, deterministas por la semilla, los pises o no.
 	var vivos: Array = []
 	for nodo in get_tree().get_nodes_in_group("recolectable"):
-		if is_instance_valid(nodo) and nodo.material_data != null:
-			vivos.append({"cell": nodo.celda, "color": nodo.material_data.color})
+		if not is_instance_valid(nodo) or nodo.material_data == null:
+			continue
+		if not vistas.has(piso.gen.zona_en(nodo.celda)):
+			continue
+		vivos.append({"cell": nodo.celda, "color": nodo.material_data.color})
 	mapa_snapshot[current_floor] = {
-		"zonas": (persist["zonas_vistas"] as Dictionary).duplicate(),
+		"zonas": (vistas as Dictionary).duplicate(),
 		"vivos": vivos,
 		"agotados": (persist["agotados"] as Dictionary).duplicate(),
 	}
