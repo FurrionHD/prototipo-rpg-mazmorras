@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"madera_negra"
+nombre = "Madera negra"
+descripcion = "Pesa como el metal y no flota. Nadie sabe de qué se alimenta ahí abajo, y el corte huele a algo que estuvo vivo hace mucho y no era un árbol."
+familia = 0
+tipo = 6
+tier = 3
+exigencia = 650.0
+peso_base = 2.1
+valor_base = 110
+color = Color(0.16, 0.14, 0.15, 1)
+piso_min = 11
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"madera_dura"
+nombre = "Madera dura"
+descripcion = "Creció apretada contra la roca y salió con la veta retorcida. El hacha rebota más de lo que muerde, pero un mango de esto no se parte aunque le pegues a una piedra."
+familia = 0
+tipo = 6
+tier = 2
+exigencia = 350.0
+peso_base = 1.6
+valor_base = 48
+color = Color(0.3, 0.24, 0.16, 1)
+piso_min = 6
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

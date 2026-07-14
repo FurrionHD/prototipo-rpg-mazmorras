@@ -16,10 +16,13 @@ extends Resource
 class_name MaterialData
 
 enum Familia { CORRIENTE, NUCLEO }
-# LINGOTE va el ULTIMO a proposito: los .tres guardan el enum como numero, asi que meterlo
-# en medio le cambiaria el tipo a todos los materiales que ya existen. No se recolecta: sale
-# de FUNDIR mineral en el herrero, y es lo unico con lo que se forja.
-enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE }
+# LINGOTE y MADERA van los ULTIMOS a proposito: los .tres guardan el enum como numero, asi que
+# meter uno en medio le cambiaria el tipo a todos los materiales que ya existen. Cualquier tipo
+# nuevo va SIEMPRE al final.
+#   LINGOTE no se recolecta: sale de FUNDIR mineral en el herrero.
+#   MADERA se saca con el HACHA de los arboles y las enredaderas de los pasillos, y es el
+#   MANGO de las armas (antes se les ponia una empuñadura de cuero, que no tenia mucho sentido).
+enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA }
 # A QUE se le puede meter este nucleo. Los del slime van al ARMA; el de la rata, a la
 # ARMADURA. CUALQUIERA = comodin (no lo usa ningun nucleo hoy, pero el campo lo admite).
 enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
@@ -84,15 +87,21 @@ func tipo_texto() -> String:
 		Tipo.PLANTA: return "Planta"
 		Tipo.MINERAL: return "Mineral"
 		Tipo.CUERO: return "Cuero"
+		Tipo.LINGOTE: return "Lingote"
+		Tipo.MADERA: return "Madera"
 		_: return "Núcleo"
 
 
-# ¿Se saca con el PICO? (mineral) ¿Con la HOZ? (planta) El resto cae de los monstruos.
+# ¿Se saca con el PICO? (mineral) ¿Con la HOZ? (planta) ¿Con el HACHA? (madera)
+# El resto cae de los monstruos.
 func es_veta() -> bool:
 	return tipo == Tipo.MINERAL
 
 func es_planta() -> bool:
 	return tipo == Tipo.PLANTA
+
+func es_madera() -> bool:
+	return tipo == Tipo.MADERA
 
 
 # ¿Este material es un nucleo que sirve para MEJORAR el equipo?
@@ -118,7 +127,7 @@ func resumen() -> String:
 		"valor base %d" % valor_base,
 		"peso %.1f" % peso_base,
 	]
-	if es_veta() or es_planta():
+	if es_veta() or es_planta() or es_madera():
 		partes.append("exigencia %d" % roundi(exigencia))
 	if mejora_equipo():
 		partes.append("mejora hasta +%d · %s" % [mejora_tope(), uso_mejora_texto()])

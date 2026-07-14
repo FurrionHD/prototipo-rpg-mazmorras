@@ -30,7 +30,14 @@ const VERSION_ACTUAL := 2
 @export var version: int = VERSION_ACTUAL
 
 # --- Cabecera: lo que se pinta en la lista de ranuras SIN tener que adivinar nada ---
+# El nombre y el color los ELIGE el jugador al crear la partida (ver main_menu.gd). El color
+# tiñe su cuerpo por el mapa (el ColorRect de player.tscn). Son de la PARTIDA, no del perfil:
+# cada ranura es un personaje distinto. Un @export nuevo con default NO invalida las partidas
+# viejas (Godot rellena el default), asi que esto no toca VERSION_ACTUAL.
 @export var nombre: String = "Aventurero"
+@export var color: Color = Color(1, 1, 1)
+# Acabado METALICO del cuerpo (0 = mate, 1 = pulido). Lo pinta shaders/metal.gdshader.
+@export var metalico: float = 0.0
 @export var fecha: String = ""          # "12/07/2026 20:31"
 @export var cab_nivel: int = 1
 @export var cab_piso: int = 1
@@ -104,6 +111,7 @@ const VERSION_ACTUAL := 2
 # como las armas), asi que basta su RUTA: igual que los consumibles.
 @export var pico: String = ""
 @export var hoz: String = ""
+@export var hacha: String = ""
 
 # --- Donde estabas ---
 @export var en_mazmorra: bool = false

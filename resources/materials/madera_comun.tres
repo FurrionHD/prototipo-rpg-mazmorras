@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"madera_comun"
+nombre = "Madera común"
+descripcion = "De las enredaderas gordas que trepan por los muros buscando una luz que aquí no hay. Seca deprisa y aguanta lo justo: para un mango sirve, y para poco más."
+familia = 0
+tipo = 6
+tier = 1
+exigencia = 30.0
+peso_base = 1.2
+valor_base = 16
+color = Color(0.42, 0.34, 0.22, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

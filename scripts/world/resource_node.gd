@@ -1,7 +1,8 @@
 # ============================================================
 #  resource_node.gd
-#  Lo que se RECOLECTA en el mapa: una VETA (pegada a la pared de una sala) o una PLANTA
-#  (en un pasillo). Se interactua con F, abre su minijuego y suelta el material.
+#  Lo que se RECOLECTA en el mapa: una VETA (pegada a la pared de una sala), una PLANTA
+#  (en un pasillo) o una ENREDADERA de la que sacar MADERA (trepando la pared del pasillo).
+#  Se interactua con F, abre su minijuego y suelta el material.
 #
 #  NO tiene colision a proposito: no quiero que una planta te tape un pasillo de 3 celdas
 #  ni que una veta te empuje contra la pared. Estorbar no es interesante; decidir si te
@@ -18,7 +19,8 @@
 
 extends Node2D
 
-enum Tipo { VETA, PLANTA }
+# MADERA va la ULTIMA: dungeon_floor pasa el tipo como numero (0 veta, 1 planta, 2 madera).
+enum Tipo { VETA, PLANTA, MADERA }
 
 var tipo: int = Tipo.VETA
 # OJO con el nombre: NO puede llamarse 'material'. Esto es un Node2D, y CanvasItem ya tiene
@@ -39,6 +41,9 @@ func _ready() -> void:
 func es_veta() -> bool:
 	return tipo == Tipo.VETA
 
+func es_madera() -> bool:
+	return tipo == Tipo.MADERA
+
 
 # Lo llama el jugador al pulsar F (ver player._try_interact).
 func interactuar() -> void:
@@ -46,6 +51,8 @@ func interactuar() -> void:
 		return
 	if es_veta():
 		Game.start_mineria(self)
+	elif es_madera():
+		Game.start_talado(self)
 	else:
 		Game.start_herboristeria(self)
 
@@ -68,6 +75,11 @@ func _crear_aspecto() -> void:
 		# La veta es un bulto en la roca: ancha y baja.
 		_rect.size = Vector2(26, 18)
 		_rect.position = Vector2(-13, -9)
+	elif es_madera():
+		# La enredadera TREPA por el muro: muy alta y muy estrecha. Se distingue de la planta
+		# de un vistazo, que es lo unico que le pido a un placeholder.
+		_rect.size = Vector2(10, 34)
+		_rect.position = Vector2(-5, -26)
 	else:
 		# La planta es un manojo: estrecha y alta.
 		_rect.size = Vector2(14, 22)

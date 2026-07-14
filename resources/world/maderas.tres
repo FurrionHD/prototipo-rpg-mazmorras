@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="MaterialTable" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/material_table.gd" id="1_tabla"]
+[ext_resource type="Script" path="res://scripts/world/material_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" path="res://resources/materials/madera_comun.tres" id="3_comun"]
+[ext_resource type="Resource" path="res://resources/materials/madera_dura.tres" id="4_dura"]
+[ext_resource type="Resource" path="res://resources/materials/madera_negra.tres" id="5_negra"]
+
+[sub_resource type="Resource" id="E_comun"]
+script = ExtResource("2_entrada")
+material = ExtResource("3_comun")
+peso = 70.0
+
+[sub_resource type="Resource" id="E_dura"]
+script = ExtResource("2_entrada")
+material = ExtResource("4_dura")
+peso = 30.0
+
+[sub_resource type="Resource" id="E_negra"]
+script = ExtResource("2_entrada")
+material = ExtResource("5_negra")
+peso = 12.0
+
+[resource]
+script = ExtResource("1_tabla")
+nombre = "Maderas"
+entradas = [SubResource("E_comun"), SubResource("E_dura"), SubResource("E_negra")]
+metadata/_custom_type_script = "res://scripts/world/material_table.gd"

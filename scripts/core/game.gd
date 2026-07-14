@@ -65,6 +65,10 @@ const GAIN_DESTREZA_MINIJUEGO := 0.9  # extraccion del cristal (era 2.2, cuando 
 const GAIN_DESTREZA_PLANTA := 1.1     # herboristeria (hoz)
 # FUERZA: la mineria es la primera fuente de Fuerza que no es pegarse con algo.
 const GAIN_FUERZA_MINERIA := 0.9
+# AGILIDAD: el talado. Talar NO va de fuerza bruta (si fuese Fuerza, entre la mina y la madera
+# la Fuerza se dispararia y las demas se quedarian atras): va de COMPAS, o sea de Agilidad. Y
+# de paso le da a la Agilidad una fuente fuera del combate, que le faltaba.
+const GAIN_AGILIDAD_TALA := 1.0
 # Fuentes de COMBATE para las stats que se farmean mal (bases altas: son eventos
 # raros, no ocurren cada turno como el ataque):
 const GAIN_AGILIDAD_ESQUIVAR := 0.6   # esquivar un golpe entrena Agilidad (adios correr en circulos)
@@ -149,6 +153,19 @@ const HERB_PIVOTE := 1.5
 const HERB_SLOPE := 0.65
 const HERB_RETO_MAX := 8.0              # mismo tope que la extraccion: las dos son Destreza
 
+# TALADO (hacha, Agilidad). Aqui no hay punteria: hay COMPAS. La Agilidad ensancha la ventana
+# del hachazo y frena el tempo; el resto lo pones tu no perdiendo el ritmo (ver talado.gd).
+const TALA_AGILIDAD_FLOOR := 20.0
+const TALA_BASE_VENTANA := 0.20         # ancho de la ventana a dificultad 1
+const TALA_BASE_TEMPO := 0.55           # vueltas/seg a dificultad 1
+# TECHO del tempo: por el mismo motivo que en los otros dos (una ventana que cruza la banda
+# tres veces por segundo no es dificil, es ilegible). Y ojo, que los aciertos ACELERAN encima.
+const TALA_TEMPO_MAX := 1.2
+const TALA_HACHAZOS_BASE := 4.0         # hachazos limpios necesarios a dificultad 1
+const TALA_PIVOTE := 1.5
+const TALA_SLOPE := 0.65
+const TALA_RETO_MAX := 5.0              # tope FISICO (la Agilidad es fisica, como la Fuerza)
+
 # Dificultad del ultimo minijuego de extraccion (para la ganancia de Destreza).
 var _last_extraction_zone: float = 0.13
 var _last_extraction_hits: int = 3
@@ -162,6 +179,7 @@ var _combat_scene: PackedScene = preload("res://scenes/ui/combat.tscn")
 var _extraction_script: GDScript = preload("res://scripts/ui/extraction.gd")
 var _mining_script: GDScript = preload("res://scripts/ui/mining.gd")
 var _harvest_script: GDScript = preload("res://scripts/ui/harvest.gd")
+var _talado_script: GDScript = preload("res://scripts/ui/talado.gd")
 var _drop_pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
 var _active_enemy: Node = null     # enemigo del combate en curso
 var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
@@ -276,10 +294,12 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 
 	tool_hit_reduction = 0
 	tool_destreza_bonus = 0
-	# Bajas a la mazmorra con un pico y una hoz de serie: recolectar no es una habilidad
-	# que haya que desbloquear, es lo que hace cualquiera que entre ahi a buscarse la vida.
+	# Bajas a la mazmorra con un pico, una hoz y un hacha de serie: recolectar no es una
+	# habilidad que haya que desbloquear, es lo que hace cualquiera que entre ahi a buscarse
+	# la vida.
 	equipped_pico = PICO_BASICO as ToolData
 	equipped_hoz = HOZ_BASICA as ToolData
+	equipped_hacha = HACHA_BASICA as ToolData
 
 	current_floor = 1
 	pos_cargada = Vector2.INF
@@ -359,6 +379,7 @@ func exportar_partida() -> SaveData:
 	# armas): basta con guardar su ruta, igual que las pociones.
 	d.pico = pico().resource_path
 	d.hoz = hoz().resource_path
+	d.hacha = hacha().resource_path
 
 	d.en_mazmorra = en_mazmorra
 	d.current_floor = current_floor
@@ -436,6 +457,8 @@ func importar_partida(d: SaveData) -> void:
 	tool_destreza_bonus = d.tool_destreza_bonus
 	equipped_pico = _cargar_tool(d.pico, PICO_BASICO)
 	equipped_hoz = _cargar_tool(d.hoz, HOZ_BASICA)
+	# Las partidas de antes de la madera no tienen hacha guardada: _cargar_tool cae al respaldo.
+	equipped_hacha = _cargar_tool(d.hacha, HACHA_BASICA)
 
 	current_floor = d.current_floor
 	memoria_pisos = d.memoria_pisos.duplicate(true)
@@ -793,21 +816,26 @@ func _ready() -> void:
 var tool_hit_reduction: int = 0    # reduce pulsaciones necesarias
 var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
 
-# --- HERRAMIENTAS DE RECOLECCION: pico (vetas) y hoz (plantas) ---
+# --- HERRAMIENTAS DE RECOLECCION: pico (vetas), hoz (plantas) y hacha (madera) ---
 # Slots APARTE: no ocupan mano, no pesan y no entran en el combate. Una herramienta mejor
 # no sube tu stat, solo hace el minijuego menos hostil (ver ToolData). Se arranca con las
 # basicas; la tienda vendera mejores.
 const PICO_BASICO := preload("res://resources/tools/pico_basico.tres")
 const HOZ_BASICA := preload("res://resources/tools/hoz_basica.tres")
+const HACHA_BASICA := preload("res://resources/tools/hacha_basica.tres")
 
 var equipped_pico: ToolData = null
 var equipped_hoz: ToolData = null
+var equipped_hacha: ToolData = null
 
 func pico() -> ToolData:
 	return equipped_pico if equipped_pico != null else (PICO_BASICO as ToolData)
 
 func hoz() -> ToolData:
 	return equipped_hoz if equipped_hoz != null else (HOZ_BASICA as ToolData)
+
+func hacha() -> ToolData:
+	return equipped_hacha if equipped_hacha != null else (HACHA_BASICA as ToolData)
 
 # --- Equipamiento: loadout de DOS manos (arma principal + secundaria) ---
 # La secundaria puede ser otra WeaponData (dual-wield), un ShieldData o null.
@@ -3121,6 +3149,50 @@ func _on_herboristeria_finished(item: MaterialItem, nodo) -> void:
 		print("La planta queda hecha jirones: no sirve.")
 	ganar("destreza", curva_reto(_last_reco_reto, HERB_PIVOTE, HERB_SLOPE, HERB_RETO_MAX),
 		GAIN_DESTREZA_PLANTA)
+
+
+# --- TALADO ---
+func start_talado(nodo) -> void:
+	if _active_layer != null or nodo == null or nodo.material_data == null:
+		return
+	var m: MaterialData = nodo.material_data
+	var a: ToolData = hacha()
+
+	var d: float = _exigencia_material(m) / (float(player_agilidad) + TALA_AGILIDAD_FLOOR)
+
+	# La Agilidad ensancha la ventana del hachazo y frena el tempo. El hacha ayuda encima.
+	var ancho: float = clampf(TALA_BASE_VENTANA / d, 0.05, 0.40) + a.compas
+	ancho = clampf(ancho, 0.05, 0.50)
+	var tempo: float = TALA_BASE_TEMPO \
+		* clampf(d, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX) \
+		+ 0.05 * float(current_floor - 1)
+	tempo = minf(tempo, TALA_TEMPO_MAX)
+	var hachazos: int = clampi(roundi(TALA_HACHAZOS_BASE * d), 3, 9) - a.hachazos_menos
+	hachazos = maxi(3, hachazos)
+
+	_last_reco_reto = d
+	print("[reco] talado %s · piso %d · Agilidad %d · exigencia %.0f -> reto %.2f  (ventana %.3f, tempo %.2f, hachazos %d)" % [
+		m.nombre, current_floor, player_agilidad, _exigencia_material(m), d, ancho, tempo, hachazos])
+	var ex: Control = _talado_script.new()
+	ex.process_mode = Node.PROCESS_MODE_ALWAYS
+	ex.setup(m, hachazos, ancho, tempo)
+	ex.talado_finished.connect(_on_talado_finished.bind(nodo))
+	_abrir_pantalla(ex)
+
+
+func _on_talado_finished(item: MaterialItem, nodo) -> void:
+	_cerrar_recoleccion(nodo)
+	if item == null:
+		return
+	if not item.se_pierde():
+		materiales.append(item)
+		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
+	else:
+		print("El tronco se raja en astillas: no sacas nada.")
+	# Como en la mineria: la Agilidad se entrena aunque la pieza salga rota. Lo que pierdes al
+	# hacerlo mal es el botin, no el aprendizaje.
+	ganar("agilidad", curva_reto(_last_reco_reto, TALA_PIVOTE, TALA_SLOPE, TALA_RETO_MAX),
+		GAIN_AGILIDAD_TALA, RETO_MAX_FISICO)
 
 
 # Dificultad del ultimo minijuego de recoleccion (para la ganancia de stat al terminar).

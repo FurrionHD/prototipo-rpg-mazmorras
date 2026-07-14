@@ -45,9 +45,16 @@ func _init() -> void:
 		 "res://resources/materials/adamante.tres"],
 		Game.MINERIA_FUERZA_FLOOR)
 
+	_curva_material("MADERAS  (Agilidad, suelo %d)" % int(Game.TALA_AGILIDAD_FLOOR),
+		["res://resources/materials/madera_comun.tres",
+		 "res://resources/materials/madera_dura.tres",
+		 "res://resources/materials/madera_negra.tres"],
+		Game.TALA_AGILIDAD_FLOOR)
+
 	print("\n=========== QUE SALE EN CADA PISO ===========")
 	_reparto("PLANTAS", "res://resources/world/plantas.tres")
 	_reparto("VETAS", "res://resources/world/vetas.tres")
+	_reparto("MADERAS", "res://resources/world/maderas.tres")
 	quit()
 
 

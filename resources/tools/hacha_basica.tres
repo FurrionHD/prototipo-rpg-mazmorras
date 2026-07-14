@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ToolData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/tool_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+tipo = 2
+nombre = "Hacha desafilada"
+descripcion = "Pesa más de lo que corta. Aquí no vale la fuerza: hay que encontrarle el compás al tronco y no perderlo."
+tier = 1
+valor_base = 40
+compas = 0.0
+hachazos_menos = 0
+metadata/_custom_type_script = "res://scripts/items/tool_data.gd"

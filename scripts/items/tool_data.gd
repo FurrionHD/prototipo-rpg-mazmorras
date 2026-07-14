@@ -1,20 +1,23 @@
 # ============================================================
 #  tool_data.gd
-#  HERRAMIENTA de recoleccion: el PICO (minerales) y la HOZ (plantas). Un .tres por
-#  herramienta; la tienda vendra a vender las buenas.
+#  HERRAMIENTA de recoleccion: el PICO (minerales), la HOZ (plantas) y el HACHA (madera).
+#  Un .tres por herramienta; la tienda vendra a vender las buenas.
 #
 #  NO son armas: no ocupan mano, no pesan y no entran en el loadout de combate. Viven en
-#  sus propios slots (Game.equipped_pico / equipped_hoz). Una herramienta mejor NO sube la
-#  stat: solo hace el minijuego MENOS hostil. Quien pica bien sigue siendo la Fuerza; quien
-#  corta fino sigue siendo la Destreza. Asi el equipo ayuda pero no sustituye al personaje.
+#  sus propios slots (Game.equipped_pico / equipped_hoz / equipped_hacha). Una herramienta
+#  mejor NO sube la stat: solo hace el minijuego MENOS hostil. Quien pica bien sigue siendo
+#  la Fuerza; quien corta fino, la Destreza; quien lleva el compas, la Agilidad. Asi el equipo
+#  ayuda pero no sustituye al personaje.
 #
-#  Cada tipo usa SUS campos (los del otro se ignoran): son dos minijuegos distintos.
+#  Cada tipo usa SUS campos (los del otro se ignoran): son tres minijuegos distintos.
+#
+#  HACHA va el ULTIMO a proposito: el enum se guarda como numero en los .tres.
 # ============================================================
 
 extends Resource
 class_name ToolData
 
-enum Tipo { PICO, HOZ }
+enum Tipo { PICO, HOZ, HACHA }
 
 @export var tipo: Tipo = Tipo.PICO
 @export var nombre: String = "Herramienta"
@@ -36,14 +39,33 @@ enum Tipo { PICO, HOZ }
 # Tallos que te ahorras cortar.
 @export var cortes_menos: int = 0
 
+# --- HACHA (minijuego de talado) ---
+# Ensancha la VENTANA del compas: un hacha bien pesada perdona mas el desfase.
+@export var compas: float = 0.0
+# Hachazos que te ahorras para tumbar el tronco.
+@export var hachazos_menos: int = 0
+
 
 func es_pico() -> bool:
 	return tipo == Tipo.PICO
 
+func es_hoz() -> bool:
+	return tipo == Tipo.HOZ
+
+func es_hacha() -> bool:
+	return tipo == Tipo.HACHA
+
+
+func tipo_texto() -> String:
+	match tipo:
+		Tipo.PICO: return "Pico"
+		Tipo.HOZ: return "Hoz"
+		_: return "Hacha"
+
 
 # Los numeros van aqui, nunca en la descripcion.
 func resumen() -> String:
-	var partes: PackedStringArray = ["%s T%d" % ["Pico" if es_pico() else "Hoz", tier]]
+	var partes: PackedStringArray = ["%s T%d" % [tipo_texto(), tier]]
 	if es_pico():
 		if ventana_bonus > 0.0:
 			partes.append("+%d%% de margen al golpear" % roundi(ventana_bonus * 100.0))
@@ -51,11 +73,16 @@ func resumen() -> String:
 			partes.append("carga %.2f más lenta (más control)" % control)
 		if golpes_menos > 0:
 			partes.append("-%d golpes" % golpes_menos)
-	else:
+	elif es_hoz():
 		if filo > 0.0:
 			partes.append("+%d%% de corte limpio" % roundi(filo * 100.0))
 		if cortes_menos > 0:
 			partes.append("-%d tallos" % cortes_menos)
+	else:
+		if compas > 0.0:
+			partes.append("+%d%% de ventana en el compás" % roundi(compas * 100.0))
+		if hachazos_menos > 0:
+			partes.append("-%d hachazos" % hachazos_menos)
 	if partes.size() == 1:
 		partes.append("sin mejoras: la herramienta de siempre")
 	return "  ·  ".join(partes)

@@ -43,6 +43,9 @@ class_name DungeonFloor
 # pagas de paso. Los .tres van como valor por defecto para no tener que tocar la escena.
 @export var tabla_vetas: MaterialTable = preload("res://resources/world/vetas.tres")
 @export var tabla_plantas: MaterialTable = preload("res://resources/world/plantas.tres")
+# Las ENREDADERAS (madera) trepan por la pared del PASILLO: se reparten como las plantas, y
+# _ocupada ya impide que nazcan las dos en la misma celda.
+@export var tabla_maderas: MaterialTable = preload("res://resources/world/maderas.tres")
 # Cuantas celdas de pasillo por planta, y cuantas plantas aguanta un pasillo.
 @export var celdas_por_planta: int = 18
 @export var max_plantas_pasillo: int = 3
@@ -53,6 +56,7 @@ class_name DungeonFloor
 # (donde caen), esto es CUANTAS hay. En el PISO 1. Ver escalar_con_el_piso().
 @export var max_vetas_piso: int = 5
 @export var max_plantas_piso: int = 5
+@export var max_madera_piso: int = 5
 
 # --- RITMO de los partos (segundos). Franja ANCHA y LENTA a proposito: ver spawn_zone.gd ---
 @export var intervalo_min: float = 25.0
@@ -408,27 +412,33 @@ func _colocar_recolectables() -> void:
 	rng.seed = _semilla_del_piso() + 1013
 	_ocupada.clear()   # el piso se rehace: las celdas ocupadas del piso viejo no valen
 
-	var plantas: int = _colocar_plantas(rng)
+	var plantas: int = _colocar_en_pasillos(rng, tabla_plantas, max_plantas_piso, 1)
+	var maderas: int = _colocar_en_pasillos(rng, tabla_maderas, max_madera_piso, 2)
 	var vetas: int = _colocar_vetas(rng)
-	print("[mazmorra] recolectables: ", vetas, " vetas y ", plantas, " plantas",
-		" (", _agotados.size(), " ya picadas)")
+	print("[mazmorra] recolectables: ", vetas, " vetas, ", plantas, " plantas y ",
+		maderas, " enredaderas (", _agotados.size(), " ya recolectadas)")
 	if tabla_vetas != null:
 		print("[mazmorra] vetas del piso: ", tabla_vetas.resumen(Game.current_floor))
 	if tabla_plantas != null:
 		print("[mazmorra] plantas del piso: ", tabla_plantas.resumen(Game.current_floor))
+	if tabla_maderas != null:
+		print("[mazmorra] maderas del piso: ", tabla_maderas.resumen(Game.current_floor))
 
 
-# PLANTAS: en los PASILLOS. Es el botin del transito: las pisas yendo a cualquier parte.
-# El TOPE del piso manda sobre el reparto: se van llenando pasillos hasta agotarlo.
+# PLANTAS y ENREDADERAS: en los PASILLOS. Es el botin del transito: los pisas yendo a
+# cualquier parte. El TOPE del piso manda sobre el reparto: se van llenando pasillos hasta
+# agotarlo. Las dos cosas se reparten igual (y _ocupada impide que caigan en la misma celda),
+# asi que comparten funcion: lo unico que cambia es la tabla, el tope y el tipo de nodo.
 #
-# OJO: lo que cuenta contra el tope son los SITIOS (los huecos que el piso tiene para una
-# planta), no las plantas que acaban naciendo. Si contara solo las nacidas, cada planta que
-# ya recolectaste liberaria su cupo y brotaria OTRA en el siguiente hueco: volver a un piso
-# lo repoblaria de plantas nuevas y recolectar no serviria de nada.
-func _colocar_plantas(rng: RandomNumberGenerator) -> int:
-	if tabla_plantas == null:
+# OJO: lo que cuenta contra el tope son los SITIOS (los huecos que el piso tiene), no los
+# nodos que acaban naciendo. Si contara solo los nacidos, cada planta que ya recolectaste
+# liberaria su cupo y brotaria OTRA en el siguiente hueco: volver a un piso lo repoblaria de
+# plantas nuevas y recolectar no serviria de nada.
+func _colocar_en_pasillos(rng: RandomNumberGenerator, tabla: MaterialTable,
+		tope_base: int, tipo: int) -> int:
+	if tabla == null:
 		return 0
-	var tope: int = escalar_con_el_piso(max_plantas_piso)
+	var tope: int = escalar_con_el_piso(tope_base)
 	var sitios: int = 0
 	var puestas: int = 0
 	for i in range(gen.zonas.size()):
@@ -445,7 +455,7 @@ func _colocar_plantas(rng: RandomNumberGenerator) -> int:
 			if c == Vector2i.MAX:
 				break
 			sitios += 1
-			if _crear_recolectable(1, c, tabla_plantas, rng):
+			if _crear_recolectable(tipo, c, tabla, rng):
 				puestas += 1
 	return puestas
 
@@ -497,7 +507,7 @@ func _colocar_vetas(rng: RandomNumberGenerator) -> int:
 	return puestas
 
 
-# Instancia un recolectable (tipo 0 = veta, 1 = planta). Devuelve false si esa celda ya la
+# Instancia un recolectable (tipo 0 = veta, 1 = planta, 2 = madera). Devuelve false si esa celda ya la
 # picaste (entonces no nace: una veta agotada no reaparece entera al volver al piso) o si la
 # tabla no tiene nada para esta profundidad.
 func _crear_recolectable(tipo: int, celda: Vector2i, tabla: MaterialTable,
