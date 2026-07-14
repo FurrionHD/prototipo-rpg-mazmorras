@@ -16,14 +16,17 @@
 #      de Herreria.
 #   4) MEJORAR - eliges una pieza de tu baul, un NUCLEO y una categoria. Cada nucleo cubre un
 #      tramo de mejoras y dentro de el cada una cuesta un nucleo mas; al saltar al nucleo
-#      siguiente la cuenta vuelve a empezar.
+#      siguiente la cuenta vuelve a empezar. Ademas del nucleo, gasta MATERIAL del tier de la
+#      pieza (el nucleo es el permiso, pero la pieza hay que rehacerla).
+#   5) DESHACER - la pieza vuelve a la fragua y recuperas la MITAD de lo que costo hacerla,
+#      nucleos incluidos. La unica salida del equipo que no querias era venderlo.
 #
 #  Toda la MATH vive en Game/Forge; aqui solo se pinta y se derivan los numeros de los campos.
 # ============================================================
 
 extends CanvasLayer
 
-const TABS := ["Fundir", "Chapas", "Hebillas", "Forjar", "Mejorar"]
+const TABS := ["Fundir", "Chapas", "Hebillas", "Forjar", "Mejorar", "Deshacer"]
 # Los tres refinados de metal comparten pantalla (_build_refinar): solo cambian de que salen,
 # en que se convierten y cuantos hacen falta.
 enum Refinado { LINGOTE, CHAPA, HEBILLAS }
@@ -183,6 +186,7 @@ func _rebuild() -> void:
 		2: _build_refinar(Refinado.HEBILLAS)   # lingote -> hebillas (mochilas)
 		3: _build_forjar()
 		4: _build_mejorar()
+		5: _build_deshacer()                   # equipo -> material (recuperas la mitad)
 
 
 func _decir(txt: String, ok: bool = true) -> void:
@@ -725,7 +729,12 @@ func _build_mejorar() -> void:
 	_title(_header, "MEJORAR")
 	_note(_header, "Cada mejora sube el número base de la pieza (daño o defensa) y, además, lo suyo propio. El NÚCLEO manda: uno de slime no te lleva más allá de +3 por muchos huecos que tenga la pieza.")
 	_header.add_child(HSeparator.new())
+	_grid_detail(_labels_del_baul(), _preview_mejorar)
 
+
+# La cuadricula del baul (armas + armaduras). La comparten MEJORAR y FUNDIR: las dos trabajan
+# sobre lo mismo, una pieza que ya tienes.
+func _labels_del_baul() -> Array:
 	_stacks = []
 	for w in Game.owned_weapons:
 		_stacks.append({"modelo": w})
@@ -736,7 +745,67 @@ func _build_mejorar() -> void:
 		var item: Resource = s["modelo"]
 		labels.append("%s%s\nT%d %s" % [str(item.get("nombre")), Game.item_plus(item),
 			int(Game.meta_de(item)["tier"]), Upgrades.rareza_nombre(int(Game.meta_de(item)["rareza"]))])
-	_grid_detail(labels, _preview_mejorar)
+	return labels
+
+
+# ============================================================
+#  Pestaña DESHACER (equipo -> material). No se llama "Fundir" porque esa ya es la primera
+#  pestaña (mineral -> lingote) y dos cosas distintas con el mismo nombre confunden.
+# ============================================================
+
+func _build_deshacer() -> void:
+	_title(_header, "DESHACER UNA PIEZA")
+	_note(_header, "A la fragua otra vez: recuperas la mitad de lo que costó hacerla, núcleos incluidos. Lo que llevas puesto no se deshace: quítatelo primero.")
+	_header.add_child(HSeparator.new())
+	_grid_detail(_labels_del_baul(), _preview_deshacer)
+
+
+func _preview_deshacer(vb: VBoxContainer) -> void:
+	var item: Resource = _stacks[_sel]["modelo"]
+	_title(vb, Game.item_display_name(item))
+
+	if Game.item_equipado(item):
+		_note(vb, "La llevas puesta. Quítatela en el menú de personaje [C] y vuelve.")
+		return
+
+	var d: Dictionary = Game.fundir_devuelve(item)
+	_row(vb, "Mejoras", "+%d" % Game.mejoras_actuales(item))
+	vb.add_child(HSeparator.new())
+
+	var t := Label.new()
+	t.text = "Recuperas"
+	t.add_theme_color_override("font_color", AMBAR)
+	vb.add_child(t)
+
+	var algo: bool = false
+	for clave in [["metal", "metal_uds"], ["fibra", "fibra_uds"]]:
+		var m: MaterialData = d[clave[0]]
+		var uds: int = int(d[clave[1]])
+		if m != null and uds > 0:
+			_row(vb, m.nombre, "%d uds" % uds)
+			algo = true
+	var nucleos: Dictionary = d["nucleos"]
+	for n in nucleos:
+		_row(vb, (n as MaterialData).nombre, "%d" % int(nucleos[n]))
+		algo = true
+	if not algo:
+		_note(vb, "De esta no sale nada aprovechable.")
+
+	_note(vb, "Vuelve como material NORMAL: lo que sale de una pieza deshecha es chatarra reaprovechable, no material de primera. Y solo la mitad: la otra mitad se queda en el suelo de la fragua.")
+
+	vb.add_child(HSeparator.new())
+	_boton(vb, "Deshacer", _on_deshacer, Game.puede_fundir(item))
+
+
+func _on_deshacer() -> void:
+	var item: Resource = _stacks[_sel]["modelo"]
+	var nombre: String = Game.item_display_name(item)
+	if Game.fundir_item(item):
+		_sel = 0   # la pieza ya no existe: la cuadricula se rehace desde el principio
+		_decir("Deshaces %s. El material está en tu baúl." % nombre)
+	else:
+		_decir("Esa pieza no se puede deshacer.", false)
+	_rebuild()
 
 
 func _preview_mejorar(vb: VBoxContainer) -> void:

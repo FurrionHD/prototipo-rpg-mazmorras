@@ -263,3 +263,59 @@ static func nucleo_vale(nucleo: MaterialData, item: Resource) -> bool:
 			return item is ArmorData
 		_:
 			return true   # CUALQUIERA
+
+
+# --- FUNDIR EQUIPO: deshacer una pieza y recuperar la mitad ---
+# Hasta ahora la unica salida para el equipo que no querias era VENDERLO. Fundirlo le da una
+# segunda vida al material: recuperas la MITAD de lo que costaria fabricar esa pieza, y si
+# estaba mejorada, tambien la mitad de los nucleos que se comio.
+#
+# El calculo se DERIVA de la receta (coste + material_para_mejora + nucleos_para_mejora), no de
+# lo que metiste de verdad. Es a proposito: asi funciona igual con una pieza comprada en la
+# tienda y con una partida guardada de antes de que esto existiera, sin tocar el formato del
+# save. Lo que pierdes en fidelidad lo ganas en que no hay ningun caso raro.
+const RECUPERACION := 0.5
+
+# Unidades de metal y de fibra que devuelve fundir `base` con `mejoras` mejoras encima.
+static func fundir_material(base: Resource, mejoras: int) -> Dictionary:
+	var c: Dictionary = coste(base)
+	var metal: int = int(c["metal"])
+	var fibra: int = int(c["fibra"])
+	# Lo que se le fue metiendo en cada mejora cuenta: una pieza +5 lleva mucho material dentro.
+	for k in range(maxi(0, mejoras)):
+		var m: Dictionary = material_para_mejora(k)
+		metal += int(m["metal"])
+		fibra += int(m["fibra"])
+	return {
+		"metal": int(floor(float(metal) * RECUPERACION)),
+		"fibra": int(floor(float(fibra) * RECUPERACION)),
+		"usa_chapa": bool(c["usa_chapa"]),
+	}
+
+
+# Los NUCLEOS que devuelve fundir una pieza que llego a +`mejoras`. Se reconstruye la escalera:
+# para cada nivel se mira que nucleo tocaba (el de su banda) y cuanto costaba, y se devuelve la
+# mitad. `escalera` son los nucleos ordenados por banda, y los pone Game (que es quien sabe si
+# la pieza es un arma o una armadura). Devuelve {MaterialData: cuantos}.
+static func fundir_nucleos(escalera: Array, mejoras: int) -> Dictionary:
+	var gastados: Dictionary = {}
+	for k in range(maxi(0, mejoras)):
+		var n: MaterialData = _nucleo_de_nivel(escalera, k)
+		if n == null:
+			continue
+		gastados[n] = int(gastados.get(n, 0)) + nucleos_para_mejora(k, n)
+	var out: Dictionary = {}
+	for n in gastados:
+		var devuelve: int = int(floor(float(gastados[n]) * RECUPERACION))
+		if devuelve > 0:
+			out[n] = devuelve
+	return out
+
+
+# El nucleo que tocaba para pasar de +k a +(k+1): el de la banda que cubre ese nivel.
+static func _nucleo_de_nivel(escalera: Array, k: int) -> MaterialData:
+	for n in escalera:
+		var m: MaterialData = n as MaterialData
+		if m != null and k >= m.mejora_min and k < m.mejora_max:
+			return m
+	return null

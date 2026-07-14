@@ -2206,6 +2206,31 @@ func nucleos_para(item: Resource) -> Array:
 	return vistos
 
 
+# TODOS los nucleos que existen. nucleos_para() solo mira los que TIENES, y para FUNDIR hace
+# falta la escalera entera: hay que saber que nucleo se comio cada mejora aunque ya no te quede
+# ninguno de ese tipo.
+const _NUCLEOS: Array = [
+	"res://resources/materials/nucleo_slime.tres",
+	"res://resources/materials/nucleo_rata.tres",
+	"res://resources/materials/nucleo_venenoso.tres",
+	"res://resources/materials/nucleo_rey_rata.tres",
+	"res://resources/materials/nucleo_fuego.tres",
+	"res://resources/materials/nucleo_jabali.tres",
+	"res://resources/materials/nucleo_rey_slime.tres",
+]
+
+# La escalera de nucleos de ESTA pieza (arma o armadura), ordenada por la banda que cubre cada
+# uno. Es lo que le pasa el fundido a Forge para reconstruir lo que costo subirla.
+func escalera_nucleos(item: Resource) -> Array:
+	var out: Array = []
+	for ruta in _NUCLEOS:
+		var n: MaterialData = load(ruta) as MaterialData
+		if n != null and Forge.nucleo_vale(n, item):
+			out.append(n)
+	out.sort_custom(func(a: MaterialData, b: MaterialData): return a.mejora_min < b.mejora_min)
+	return out
+
+
 # --- FORJAR ---
 # Unidades que aporta una seleccion {calidad: cantidad}: dice si LLEGAS al coste.
 func uds_seleccion(dict: Dictionary) -> int:
@@ -2465,6 +2490,91 @@ func mejorar_item(item: Resource, cat: String, nucleo: MaterialData) -> bool:
 		int(c["fibra"]), (mats["fibra"] as MaterialData).nombre,
 		Upgrades.cat_nombre(cat), int(mj[cat])])
 	return true
+
+# ============================================================
+#  FUNDIR EQUIPO: deshacer una pieza y recuperar la mitad del material
+#  Hasta ahora la unica salida para el equipo que no querias era venderlo. Fundirlo le da una
+#  segunda vida al material, nucleos incluidos si la habias mejorado. La math vive en Forge.
+# ============================================================
+
+# ¿La llevas puesta? No se funde lo que tienes encima: primero lo dejas.
+func item_equipado(item: Resource) -> bool:
+	if item == null:
+		return false
+	for eq in [equipped_main, equipped_off, equipped_casco, equipped_pecho,
+			equipped_manos, equipped_pantalones, equipped_botas, equipped_mochila]:
+		if eq == item:
+			return true
+	return false
+
+
+func puede_fundir(item: Resource) -> bool:
+	if item == null or item_equipado(item):
+		return false
+	return owned_weapons.has(item) or owned_armor.has(item)
+
+
+# Lo que SACARIAS de fundirla, sin fundirla (la UI pinta esto antes de que le des al boton).
+# {"metal": MaterialData|null, "metal_uds": n, "fibra": ..., "fibra_uds": n, "nucleos": {mat: n}}
+func fundir_devuelve(item: Resource) -> Dictionary:
+	var mejoras: int = mejoras_actuales(item)
+	var mat: Dictionary = Forge.fundir_material(item, mejoras)
+	var mats: Dictionary = materiales_mejora(item)   # el metal y la fibra de SU tier
+	return {
+		"metal": mats["metal"],
+		"metal_uds": int(mat["metal"]),
+		"fibra": mats["fibra"],
+		"fibra_uds": int(mat["fibra"]),
+		"nucleos": Forge.fundir_nucleos(escalera_nucleos(item), mejoras),
+	}
+
+
+# Funde la pieza: se va del baul y el material vuelve al hogar. Devuelve false si no se podia.
+func fundir_item(item: Resource) -> bool:
+	if not puede_fundir(item):
+		return false
+	var d: Dictionary = fundir_devuelve(item)
+
+	owned_weapons.erase(item)
+	owned_armor.erase(item)
+	item_meta.erase(item)
+
+	_devolver_unidades(d["metal"], int(d["metal_uds"]))
+	_devolver_unidades(d["fibra"], int(d["fibra_uds"]))
+	var nucleos: Dictionary = d["nucleos"]
+	for n in nucleos:
+		for _k in range(int(nucleos[n])):
+			almacen_materiales.append(MaterialItem.crear(n, MaterialItem.Calidad.NORMAL))
+
+	print("[herrero] Fundes %s -> %d uds de %s, %d uds de %s, %d núcleo(s)" % [
+		item_display_name(item), int(d["metal_uds"]),
+		(d["metal"] as MaterialData).nombre if d["metal"] != null else "nada",
+		int(d["fibra_uds"]),
+		(d["fibra"] as MaterialData).nombre if d["fibra"] != null else "nada",
+		_total_nucleos(nucleos)])
+	return true
+
+
+func _total_nucleos(nucleos: Dictionary) -> int:
+	var n: int = 0
+	for k in nucleos:
+		n += int(nucleos[k])
+	return n
+
+
+# Mete `uds` unidades de un material en el baul, en el MENOR numero de piezas posible: piezas
+# normales (2 uds) y, si sobra una unidad suelta, una dañada. No se devuelven intactas: lo que
+# sale de una pieza fundida es chatarra reaprovechable, no material de primera.
+func _devolver_unidades(mat: MaterialData, uds: int) -> void:
+	if mat == null or uds <= 0:
+		return
+	var normales: int = uds / 2
+	for _k in range(normales):
+		almacen_materiales.append(MaterialItem.crear(mat, MaterialItem.Calidad.NORMAL))
+	if uds % 2 == 1:
+		almacen_materiales.append(MaterialItem.crear(mat, MaterialItem.Calidad.DANADO))
+	descubrir(mat)
+
 
 # Quita n nucleos del hogar, los PEORES primero (dañado antes que intacto): un nucleo es un
 # permiso, no un ingrediente de calidad, asi que no tiene sentido quemar los buenos.

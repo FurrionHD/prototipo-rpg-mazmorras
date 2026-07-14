@@ -57,7 +57,47 @@ func _init() -> void:
 	_reparto("MADERAS", "res://resources/world/maderas.tres")
 
 	_forjable()
+	_fundido()
 	quit()
+
+
+# FUNDIR: lo que cuesta hacer una pieza contra lo que devuelve deshacerla, y el AVISO que deje
+# escrito en el plan: si el material que sale vale mas que el precio de compra en la tienda,
+# comprar-y-fundir es una imprenta de dinero.
+func _fundido() -> void:
+	print("\n=========== FUNDIR EQUIPO (mitad de lo que costo) ===========")
+	var piezas: Array[String] = [
+		"res://resources/weapons/daga.tres",
+		"res://resources/weapons/espada_larga.tres",
+		"res://resources/weapons/martillo_grande.tres",
+		"res://resources/armor/cuero_pecho.tres",
+	]
+	for ruta in piezas:
+		var base: Resource = load(ruta)
+		if base == null:
+			continue
+		var c: Dictionary = Forge.coste(base)
+		print("\n  %s  (precio %d)" % [str(base.get("nombre")), int(base.get("valor_base"))])
+		print("    forjar: %d uds de metal + %d de fibra" % [int(c["metal"]), int(c["fibra"])])
+		for mejoras in [0, 3, 7]:
+			var f: Dictionary = Forge.fundir_material(base, mejoras)
+			var esc: Array = ARMADURA if base is ArmorData else ARMA
+			var nuc: Dictionary = Forge.fundir_nucleos(_cargar(esc), mejoras)
+			var txt: String = ""
+			for n in nuc:
+				txt += "%d x %s  " % [int(nuc[n]), (n as MaterialData).nombre]
+			print("    fundir +%d -> %d metal + %d fibra   %s" % [
+				mejoras, int(f["metal"]), int(f["fibra"]), txt if txt != "" else "(sin núcleos)"])
+
+
+func _cargar(rutas: Array) -> Array:
+	var out: Array = []
+	for r in rutas:
+		var m: MaterialData = load(r) as MaterialData
+		if m != null:
+			out.append(m)
+	out.sort_custom(func(a: MaterialData, b: MaterialData): return a.mejora_min < b.mejora_min)
+	return out
 
 
 # QUE se puede forjar con cada metal. Lo que se comprueba aqui es el FRENO: la armadura T2/T3
