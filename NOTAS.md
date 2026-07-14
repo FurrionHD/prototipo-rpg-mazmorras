@@ -720,6 +720,20 @@ Plan en `~/.claude/plans/vale-jefazo-hay-que-quizzical-crane.md`. Cuatro cosas d
 - Regla para el futuro: los menús que hacen lo mismo comparten helper; nada de copiar la ficha o el
   aviso en cada uno.
 
+### Forja: mango de madera + agarre de cuero (y el bastón, casi todo madera) 🔧 A PROBAR
+- El coste de forja pasó de "metal + 1 fibra" a una **lista de ingredientes** (`Game.ingredientes_forja`),
+  fuente única de la que tiran `forja_valida`/`score_forja`/`forjar`/la UI/`fundir` (2 o 3 materiales,
+  mismo bucle, sin casos especiales). Mezclas en `Forge` (`MIX_ARMA`/`MIX_ARMA_MAGICA`/`MIX_ESCUDO`):
+  - Arma normal = lingote (hoja) + madera (mango) + poco cuero (agarre).
+  - Arma mágica (bastón/varita) = **casi toda madera** + algo de metal (contera) + cuero. Bastón T1: madera 6, metal 2.
+  - Escudo = metal + cuero (correas). Armadura = chapa + cuero (igual).
+- Madera del mango = del **tier del metal**; cuero del agarre = **cuero base, sin tier** (forrar un mango
+  lo hace cualquier piel → las armas suben de tier sin problema). La armadura mantiene su cuero
+  estructural por tier (T2/T3 sigue bloqueada). Fundir devuelve los mismos materiales, a la mitad.
+- El botón **Auto** de la forja coge lo **mejor** primero (en la forja la calidad sube la rareza).
+  Las **mejoras** siguen gastando lo **peor** (`_consumir_unidades`): ahí la calidad no afecta.
+- Números PROVISIONALES → Excel.
+
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
   defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.
