@@ -732,14 +732,18 @@ func _build_mejorar() -> void:
 	_grid_detail(_labels_del_baul(), _preview_mejorar)
 
 
-# La cuadricula del baul (armas + armaduras). La comparten MEJORAR y FUNDIR: las dos trabajan
-# sobre lo mismo, una pieza que ya tienes.
-func _labels_del_baul() -> Array:
+# La cuadricula del baul (armas + armaduras). La comparten MEJORAR y DESHACER, pero no enseñan
+# lo mismo: MEJORAR SI lista lo que llevas puesto (mejorar el arma que tienes en la mano la
+# mejora de verdad, sin desequiparla), y DESHACER no (no vas a fundir lo que llevas encima, y
+# enseñar una fila que no puedes tocar es peor que no enseñarla).
+func _labels_del_baul(sin_equipado: bool = false) -> Array:
 	_stacks = []
 	for w in Game.owned_weapons:
-		_stacks.append({"modelo": w})
+		if not (sin_equipado and Game.item_equipado(w)):
+			_stacks.append({"modelo": w})
 	for a in Game.owned_armor:
-		_stacks.append({"modelo": a})
+		if not (sin_equipado and Game.item_equipado(a)):
+			_stacks.append({"modelo": a})
 	var labels: Array = []
 	for s in _stacks:
 		var item: Resource = s["modelo"]
@@ -755,18 +759,14 @@ func _labels_del_baul() -> Array:
 
 func _build_deshacer() -> void:
 	_title(_header, "DESHACER UNA PIEZA")
-	_note(_header, "A la fragua otra vez: recuperas la mitad de lo que costó hacerla, núcleos incluidos. Lo que llevas puesto no se deshace: quítatelo primero.")
+	_note(_header, "A la fragua otra vez: recuperas la mitad de lo que costó hacerla, núcleos incluidos. Lo que llevas puesto ni sale aquí: quítatelo primero [C].")
 	_header.add_child(HSeparator.new())
-	_grid_detail(_labels_del_baul(), _preview_deshacer)
+	_grid_detail(_labels_del_baul(true), _preview_deshacer)
 
 
 func _preview_deshacer(vb: VBoxContainer) -> void:
 	var item: Resource = _stacks[_sel]["modelo"]
 	_title(vb, Game.item_display_name(item))
-
-	if Game.item_equipado(item):
-		_note(vb, "La llevas puesta. Quítatela en el menú de personaje [C] y vuelve.")
-		return
 
 	var d: Dictionary = Game.fundir_devuelve(item)
 	_row(vb, "Mejoras", "+%d" % Game.mejoras_actuales(item))

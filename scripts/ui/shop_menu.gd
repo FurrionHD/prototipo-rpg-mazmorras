@@ -389,12 +389,16 @@ func _on_vender_todos() -> void:
 # --- Vender EQUIPO (con derecho a recompra) ---
 
 func _build_vender_equipo() -> void:
-	_note(_header, "Lo que le vendas al tendero se queda en su mostrador: puedes recomprarlo (pestaña Recomprar) por lo mismo que te pagó, hasta que se le acumulen más de %d trastos. Lo que llevas puesto no se vende: desequípalo antes [C]." % Game.RECOMPRA_MAX)
+	_note(_header, "Lo que le vendas al tendero se queda en su mostrador: puedes recomprarlo (pestaña Recomprar) por lo mismo que te pagó, hasta que se le acumulen más de %d trastos. Lo que llevas puesto ni sale aquí: desequípalo antes [C]." % Game.RECOMPRA_MAX)
+	# Lo EQUIPADO no se lista. Antes salia y el aviso te decia que no se podia vender: enseñar
+	# una fila que no puedes tocar es peor que no enseñarla.
 	_stacks = []
 	for w in Game.owned_weapons:
-		_stacks.append({"modelo": w, "cantidad": 1})
+		if not Game.item_equipado(w):
+			_stacks.append({"modelo": w, "cantidad": 1})
 	for a in Game.owned_armor:
-		_stacks.append({"modelo": a, "cantidad": 1})
+		if not Game.item_equipado(a):
+			_stacks.append({"modelo": a, "cantidad": 1})
 	var labels: Array = []
 	for s in _stacks:
 		var item: Resource = s["modelo"]
