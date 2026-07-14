@@ -732,6 +732,9 @@ Plan en `~/.claude/plans/vale-jefazo-hay-que-quizzical-crane.md`. Cuatro cosas d
   estructural por tier (T2/T3 sigue bloqueada). Fundir devuelve los mismos materiales, a la mitad.
 - El botón **Auto** de la forja coge lo **mejor** primero (en la forja la calidad sube la rareza).
   Las **mejoras** siguen gastando lo **peor** (`_consumir_unidades`): ahí la calidad no afecta.
+- **Recorte determinista**: lo que sobra de gastar de más vuelve al Hogar como material **dañado**
+  (1 ud sobrante = 1 dañado), sin tirada. Murió el mecanismo probabilístico y su clase entera
+  (`crafting.gd`/`Crafting`, `Forge.prob_devolver`, `MEZCLA_ACTIVA`). `Game._tirar_devolucion` lo hace.
 - Números PROVISIONALES → Excel.
 
 ### Planificado a futuro (Epics creados, sin empezar)
