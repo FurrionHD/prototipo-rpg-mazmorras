@@ -737,6 +737,18 @@ Plan en `~/.claude/plans/vale-jefazo-hay-que-quizzical-crane.md`. Cuatro cosas d
   (`crafting.gd`/`Crafting`, `Forge.prob_devolver`, `MEZCLA_ACTIVA`). `Game._tirar_devolucion` lo hace.
 - Números PROVISIONALES → Excel.
 
+### Rebalance de habilidades: caras, CD alto y que viaja entre combates 🔧 A PROBAR
+Eran spammeables (sobre todo las pesadas de 2 manos: cabían ~3 seguidas y el CD se reiniciaba cada combate).
+- **Coste** muy arriba, sobre todo 2 manos: nukes **65-70** EN (con la barra ~100-130 tiras uno y a
+  reconstruir), medias/setups 40-52. El **dual casi como una pesada** (Ráfaga 64, Puñalada 62…): mete
+  más golpes, paga por ello.
+- **Básicos regeneran 12 → 28**: pegar básico es la recarga real (ritmo habilidad → básicos → habilidad).
+- **CD +2 a todo el daño**: fillers 1→3 (Fintas/Doble tajo/Bastonazo dejan de spammearse), estándar 2→4,
+  nukes 3→5. Foco arcano y En guardia (utilidad) sin CD.
+- **El CD viaja entre combates** (`Game.ability_cooldowns_persist`): baja 1 por combate que empiezas +
+  por turno dentro. Runtime, se pone a cero en partida nueva (no va al save; los CD son efímeros).
+- Números PROVISIONALES → Excel.
+
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
   defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.
