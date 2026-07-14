@@ -671,6 +671,43 @@ Herramienta: `scripts/core/econ_test.gd` (headless, imprime las curvas para el E
   nada al forjar. `HERB_VEL_MAX` estaba declarado como techo y **nunca se aplicaba**.
 - Números PROVISIONALES → Excel. Falta playtest de verdad.
 
+### Rareza que se nota, crafteo base gratis, respawn por tiempo y mapa 🔧 A PROBAR
+Plan en `~/.claude/plans/vale-jefazo-hay-que-quizzical-crane.md`. Cuatro cosas del playtest.
+
+- **La RAREZA por fin se nota** (`upgrades.gd`). Antes iba de común 1.00 a obra maestra 1.15 y
+  solo tocaba el raw del arma y la DEF: una daga obra maestra daba el MISMO crítico que una común,
+  y una mejora rendía igual en las dos. Ahora:
+  - Curva **1.00 → 1.55**.
+  - Multiplica TODAS las stats de combate: cada una = `(base_arma + aporte_mejoras) × rareza`.
+    `weapon_mods` las devuelve resueltas (claves nuevas `crit`/`evasion`/`aturdir`/`bloqueo`);
+    `_hand_from`/`loadout_mods` dejan de leer los campos crudos del `.tres`.
+  - Las MEJORAS rinden más en rarezas altas: sus TOPES (rapidez, evasión, resist.crit, potencia,
+    eficiencia, celeridad, regen, resist.estados) escalan con la rareza (`Upgrades.cap_rareza`).
+    El clamp agregado de armadura usa la mayor rareza equipada.
+  - Armadura: evasión / resist.crit / resist.estados escalan con rareza; reducción y velocidad NO
+    (son de tipo). **NO toca el `motion_value`** del arma ni la velocidad base por tamaño.
+  - Cuidado cazado: el crítico de las contundentes es NEGATIVO a propósito. `mejor_con_rareza()`
+    sube lo positivo y **suaviza lo negativo hacia cero** (una maza obra maestra no critica PEOR
+    que una común). Verificado en `econ_test.gd` (sección "LA RAREZA SE NOTA").
+  - **Fix de display**: la evasión de la daga/estoque no se veía en ningún sitio (sí funcionaba).
+    Ahora la ficha del arma muestra "Evasión" y las stats del personaje "Prob. esquiva".
+- **Crafteo T1 de serie** (`metales_forja_conocidos`): el cobre (T1) se enseña siempre; solo
+  hierro/acero (T2/T3) se descubren al traerlos. Aprender la forja base no debe pedir picar antes.
+- **Respawn de recursos por TIEMPO** (adiós al farmeo hacker de saltar de piso para resetear):
+  - `Game.tiempo_mazmorra` (reloj de expedición, solo corre jugando; el árbol se pausa en combate).
+    Persiste en el save. No se trampea cerrando el juego ni tocando la hora del PC.
+  - **`Game.mazmorra_persistente[piso] = {agotados, zonas_vistas}`**, SEPARADO de `memoria_pisos`
+    a propósito: la bandera `recordado` es `memoria_pisos.has(piso)` y si dejara ahí el piso,
+    dejaría de poblarse de bichos. `olvidar_mazmorra()` NO lo toca (dura entre expediciones).
+  - `agotados` pasa de `{celda: true}` a `{celda: tiempo}`. Un nodo reaparece `RESPAWN_SEGUNDOS`
+    (~600s de juego) después de picarlo, cada uno por su cuenta. Densidad **5 → 8** por tipo.
+  - Tecla dev **N**: +10 min al reloj (probar respawn sin esperar).
+- **MAPA con la tecla M** (`scripts/ui/map_menu.gd`): niebla por sala/pasillo (`zonas_vistas`, se
+  marca en el `_process` del piso al pisar cada zona; persiste). Dibuja lo explorado con sus nodos:
+  vivos con el color del material, agotados apagados con los minutos que faltan, y el jugador. Solo
+  en la mazmorra. M añadida al panel F1.
+- Números PROVISIONALES → Excel (curva de rareza, RESPAWN_SEGUNDOS, densidad 8).
+
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
   defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.
