@@ -5,14 +5,14 @@
 [ext_resource type="Resource" path="res://resources/consumables/pocion_mana_menor_2.tres" id="3"]
 [ext_resource type="Resource" path="res://resources/consumables/pocion_mana_menor_1.tres" id="3b"]
 [ext_resource type="Resource" path="res://resources/materials/baba_fuego.tres" id="4"]
-[ext_resource type="Resource" path="res://resources/materials/hierba_palida.tres" id="5"]
+[ext_resource type="Resource" path="res://resources/materials/sanguinaria.tres" id="5"]
 
 [sub_resource type="Resource" id="I_baba"]
 script = ExtResource("2")
 material = ExtResource("4")
 unidades = 6
 
-[sub_resource type="Resource" id="I_hierba"]
+[sub_resource type="Resource" id="I_planta"]
 script = ExtResource("2")
 material = ExtResource("5")
 unidades = 6
@@ -21,5 +21,5 @@ unidades = 6
 script = ExtResource("1")
 resultado = ExtResource("3")
 pocion_base = ExtResource("3b")
-ingredientes = [SubResource("I_baba"), SubResource("I_hierba")]
+ingredientes = [SubResource("I_baba"), SubResource("I_planta")]
 metadata/_custom_type_script = "res://scripts/items/recipe_data.gd"

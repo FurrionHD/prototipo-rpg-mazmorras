@@ -52,7 +52,7 @@ class_name DungeonFloor
 # TOPE por piso. Es lo que de verdad manda: los numeros de arriba son la forma del reparto
 # (donde caen), esto es CUANTAS hay. En el PISO 1. Ver escalar_con_el_piso().
 @export var max_vetas_piso: int = 5
-@export var max_plantas_piso: int = 10
+@export var max_plantas_piso: int = 5
 
 # --- RITMO de los partos (segundos). Franja ANCHA y LENTA a proposito: ver spawn_zone.gd ---
 @export var intervalo_min: float = 25.0

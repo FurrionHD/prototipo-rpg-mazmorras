@@ -44,7 +44,21 @@ func _init() -> void:
 		 "res://resources/materials/hierro.tres",
 		 "res://resources/materials/adamante.tres"],
 		Game.MINERIA_FUERZA_FLOOR)
+
+	print("\n=========== QUE SALE EN CADA PISO ===========")
+	_reparto("PLANTAS", "res://resources/world/plantas.tres")
+	_reparto("VETAS", "res://resources/world/vetas.tres")
 	quit()
+
+
+# El reparto REAL de la tabla piso a piso (lo deriva de los pesos, no se escribe a mano).
+func _reparto(titulo: String, ruta: String) -> void:
+	var tabla: MaterialTable = load(ruta) as MaterialTable
+	if tabla == null:
+		return
+	print("\n--- %s ---" % titulo)
+	for piso in [1, 2, 3, 4, 6, 11]:
+		print("  piso %-2d : %s" % [piso, tabla.resumen(piso)])
 
 
 func _curva_nucleos(titulo: String, rutas: Array[String]) -> void:
