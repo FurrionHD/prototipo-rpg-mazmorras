@@ -84,8 +84,10 @@ var _metal_idx: int = 0            # cual de Game.metales_forja()
 # --- FORJAR ---
 var _armor_idx: int = 0            # juego de armadura (submenu de la subpestaña Armaduras)
 var _lingote_idx: int = 0          # metal elegido (indice en lingotes o chapas, misma lista)
-var _sel_metal: Dictionary = {}    # {calidad: cantidad}
-var _sel_fibra: Dictionary = {}
+# Una seleccion {calidad: cantidad} por INGREDIENTE (metal, madera, cuero...), en paralelo a
+# Game.ingredientes_forja. Antes eran dos dicts sueltos (metal + fibra); ahora las armas llevan
+# tres materiales, asi que va en lista y se trata todo con un bucle.
+var _sel_forja: Array = []
 
 # --- MEJORAR ---
 var _nucleo_idx: int = 0
@@ -144,8 +146,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _limpiar_seleccion() -> void:
-	_sel_metal = {}
-	_sel_fibra = {}
+	_sel_forja = []   # se redimensiona en _preview_forjar segun cuantos ingredientes tenga la pieza
 
 
 func _on_tab(i: int) -> void:
@@ -499,16 +500,27 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	_lingote_idx = clampi(_lingote_idx, 0, metales.size() - 1)
 	var metal: MaterialData = metales[_lingote_idx]
 
-	# La FIBRA que acompaña al metal: cuero si es armadura, madera (el mango) si es arma. Tiene
-	# que ser de la altura del metal, y si no existe a esa altura la pieza NO se forja.
-	var fibra: MaterialData = Game.fibra_de_forja(base, metal)
+	# INGREDIENTES de esta pieza con este metal (metal + madera + cuero...). Fuente unica: la usa
+	# la math y esta UI. Si algun material es null, no existe a la altura del metal -> no forjable.
+	var ings: Array = Game.ingredientes_forja(base, metal)
+	var falta_algo: bool = false
+	var nombres_ing: PackedStringArray = []
+	for ing in ings:
+		if ing["material"] == null:
+			falta_algo = true
+			nombres_ing.append("(nada a la altura de este metal)")
+		else:
+			nombres_ing.append((ing["material"] as MaterialData).nombre)
+	# Redimensionar la seleccion a los ingredientes de esta pieza (una {} por ingrediente).
+	if _sel_forja.size() != ings.size():
+		_sel_forja = []
+		for _i in ings.size():
+			_sel_forja.append({})
 
 	_title(vb, str(base.get("nombre")))
 	if base is ArmorData:
 		_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int((base as ArmorData).slot), 0, 4)])
-	_row(vb, "Lleva", "%s + %s" % [
-		"chapas" if usa_chapa else "lingotes",
-		fibra.nombre if fibra != null else "(nada a la altura de este metal)"])
+	_row(vb, "Lleva", ", ".join(nombres_ing))
 
 	# --- Metal: fija el TIER (y empuja la rareza) ---
 	vb.add_child(HSeparator.new())
@@ -536,21 +548,21 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 		fila.add_child(b)
 	vb.add_child(fila)
 
-	# Sin fibra a la altura del metal no hay nada que enseñar: se corta aqui y se explica.
-	if fibra == null:
+	# Si a este metal le falta algun material a su altura, no hay nada que forjar: se corta y explica.
+	if falta_algo:
 		vb.add_child(HSeparator.new())
 		_note(vb, "No hay con qué rematar una pieza de este metal. Una coraza de %s pide un cuero de su altura, y el único que se conoce es el de rata: sirve para el cobre y para nada más. Hasta que no aparezca una bestia con mejor piel, este metal solo vale para ARMAS." % _metal_corto(metal).to_lower())
 		return
 
-	# --- Contadores de material ---
+	# --- Contadores de material: uno por INGREDIENTE ---
 	vb.add_child(HSeparator.new())
-	_contadores(vb, metal, _sel_metal, int(coste["metal"]))
-	_contadores(vb, fibra, _sel_fibra, int(coste["fibra"]))
+	for i in ings.size():
+		_contadores(vb, ings[i]["material"], _sel_forja[i], int(ings[i]["uds"]))
 	_note(vb, "Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la pieza: mejora la RAREZA que te va a tocar.")
 
 	# --- Tabla de rareza EN VIVO, con el score REAL (material + metal + herrería) ---
 	vb.add_child(HSeparator.new())
-	var score: float = Game.score_forja(base, metal, _sel_metal, _sel_fibra)
+	var score: float = Game.score_forja(base, metal, _sel_forja)
 	var t := Label.new()
 	t.text = "Rareza que puede salir"
 	t.add_theme_color_override("font_color", AMBAR)
@@ -573,7 +585,7 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	var acc := HBoxContainer.new()
 	acc.add_theme_constant_override("separation", 8)
 	var auto := Button.new()
-	auto.text = "Auto (peor primero)"
+	auto.text = "Auto (mejor primero)"
 	auto.pressed.connect(_on_auto)
 	acc.add_child(auto)
 	var limpiar := Button.new()
@@ -582,7 +594,7 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	acc.add_child(limpiar)
 	vb.add_child(acc)
 
-	var ok: bool = Game.forja_valida(base, metal, _sel_metal, _sel_fibra)
+	var ok: bool = Game.forja_valida(base, metal, _sel_forja)
 	_boton(vb, "Forjar" if ok else "Faltan materiales", _on_forjar, ok)
 
 	vb.add_child(HSeparator.new())
@@ -669,28 +681,31 @@ func _mat_delta(sel: Dictionary, mat: MaterialData, cal: int, delta: int) -> voi
 
 func _on_lingote(i: int) -> void:
 	_lingote_idx = i
-	_sel_metal = {}   # otro metal, otro montón
+	_limpiar_seleccion()   # otro metal, otras maderas/cueros: la seleccion se rehace
 	_rebuild()
 
 
-# Rellena con lo PEOR primero: gastar los dañados antes que los buenos. Si quieres rareza, lo
-# limpias y metes los buenos a mano.
+# Rellena con lo MEJOR primero. En la FORJA la calidad del material sube la rareza, asi que el
+# atajo "Auto" mete tus mejores piezas para maximizar la tirada. (En las MEJORAS es al reves: la
+# calidad no importa, y Game gasta lo peor para no malgastar el material bueno.)
 func _on_auto() -> void:
 	var base: Resource = _stacks[_sel]["modelo"]
-	var coste: Dictionary = Forge.coste(base)
 	var metal: MaterialData = Game.metal_de_forja(base, _lingote_idx)
-	_sel_metal = _auto_sel(metal, int(coste["metal"]))
-	var fibra: MaterialData = Game.fibra_de_forja(base, metal)
-	_sel_fibra = {} if fibra == null else _auto_sel(fibra, int(coste["fibra"]))
+	if metal == null:
+		return
+	var ings: Array = Game.ingredientes_forja(base, metal)
+	_sel_forja = []
+	for ing in ings:
+		var mat: MaterialData = ing["material"]
+		_sel_forja.append({} if mat == null else _auto_sel(mat, int(ing["uds"])))
 	_rebuild()
 
 
 func _auto_sel(mat: MaterialData, necesita: int) -> Dictionary:
 	var sel: Dictionary = {}
 	var restante: int = necesita
-	var peor_primero: Array = CALIDADES.duplicate()
-	peor_primero.reverse()
-	for cal in peor_primero:
+	# CALIDADES ya va de MEJOR a peor (puro, intacto, normal, dañado): mejor primero.
+	for cal in CALIDADES:
 		if restante <= 0:
 			break
 		var disp: int = Game.items_calidad_en_hogar(mat, int(cal))
@@ -712,7 +727,7 @@ func _on_limpiar() -> void:
 func _on_forjar() -> void:
 	var base: Resource = _stacks[_sel]["modelo"]
 	var metal: MaterialData = Game.metal_de_forja(base, _lingote_idx)
-	var item: Resource = Game.forjar(base, metal, _sel_metal, _sel_fibra)
+	var item: Resource = Game.forjar(base, metal, _sel_forja)
 	if item != null:
 		_decir("Forjas %s. Está en tu baúl: equípalo en el menú de personaje [C]." % Game.item_display_name(item))
 	else:
@@ -778,12 +793,9 @@ func _preview_deshacer(vb: VBoxContainer) -> void:
 	vb.add_child(t)
 
 	var algo: bool = false
-	for clave in [["metal", "metal_uds"], ["fibra", "fibra_uds"]]:
-		var m: MaterialData = d[clave[0]]
-		var uds: int = int(d[clave[1]])
-		if m != null and uds > 0:
-			_row(vb, m.nombre, "%d uds" % uds)
-			algo = true
+	for m in (d["materiales"] as Array):
+		_row(vb, (m["material"] as MaterialData).nombre, "%d uds" % int(m["uds"]))
+		algo = true
 	var nucleos: Dictionary = d["nucleos"]
 	for n in nucleos:
 		_row(vb, (n as MaterialData).nombre, "%d" % int(nucleos[n]))

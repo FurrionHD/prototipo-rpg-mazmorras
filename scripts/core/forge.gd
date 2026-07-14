@@ -107,17 +107,24 @@ const HERRERIA_POR_PIEZA := 1.0
 # precio de tienda. Lo caro cuesta mas material. Se paga en UNIDADES (un refinado puro rinde
 # por 4, uno dañado por 1), asi que refinar bien te ahorra material.
 #
-# Dos ramas, y en esto se nota que una armadura es mas trabajo que un arma. Las dos llevan
-# metal + una FIBRA, pero no es la misma fibra:
-#   ARMA     = LINGOTE (se golpea directo) + MADERA para el mango.
-#   ARMADURA = CHAPA (un paso mas de refinado) + CUERO, en la proporcion de su tipo. La de
-#              cuero es casi toda piel; la ligera de metal lleva MAS cuero que metal; la
-#              pesada, al reves; las placas son casi todo chapa.
+# Cada pieza lleva METAL + hasta dos fibras (MADERA para el mango, CUERO para el recubrimiento
+# o la estructura), en la proporcion de su tipo:
+#   ARMA normal = LINGOTE (la hoja) + MADERA (el mango) + un poco de CUERO (recubres el mango
+#                 para que sea comodo de empuñar).
+#   ARMA MAGICA (baston/varita) = casi toda MADERA + un poco de metal (la contera) + cuero del
+#                 mango. Un baston de mas hierro que madera no tenia ningun sentido.
+#   ESCUDO      = METAL + CUERO (las correas), sin mango de madera.
+#   ARMADURA    = CHAPA + CUERO, en la proporcion de su tipo (la de cuero es casi toda piel; la
+#                 ligera de metal lleva mas cuero que metal; las placas, casi todo chapa).
 const MONEDAS_POR_UNIDAD := 90.0
 const METAL_MIN := 2
 
-# Multiplicadores sobre las "unidades base" (precio / MONEDAS_POR_UNIDAD): [metal, fibra].
-const MIX_ARMA := [1.0, 0.35]
+# Multiplicadores sobre las "unidades base" (precio / MONEDAS_POR_UNIDAD).
+# Armas: [metal, madera, cuero]. El cuero del mango es un pelin en todas.
+const MIX_ARMA := [1.0, 0.35, 0.15]           # la hoja manda; mango de madera; agarre de cuero
+const MIX_ARMA_MAGICA := [0.25, 1.0, 0.15]    # baston/varita: casi toda madera, algo de contera
+const MIX_ESCUDO := [1.0, 0.0, 0.4]           # metal + correas de cuero, sin mango
+# Armaduras: [metal, cuero] (sin madera).
 const MIX_ARMADURA := {
 	ArmorData.Tipo.CUERO: [0.25, 2.0],             # hebillas y poco mas; todo piel
 	ArmorData.Tipo.HIERRO: [0.7, 1.2],             # ligera: mas cuero que metal
@@ -125,22 +132,31 @@ const MIX_ARMADURA := {
 	ArmorData.Tipo.PLACAS: [1.5, 0.25],            # casi todo chapa
 }
 
-# Coste de forjar `base`, en UNIDADES: {"metal": n, "fibra": n, "usa_chapa": bool}.
-# 'usa_chapa' dice de que rama tira el metal (chapa = armadura, lingote = arma) y, con el, cual
-# es la fibra: el cuero de la armadura o la madera del mango. QUE material concreto es lo decide
-# Game.fibra_de_forja, que ademas lo exige del tier del metal.
+# Coste de forjar `base`, en UNIDADES: {"metal": n, "madera": n, "cuero": n, "usa_chapa": bool}.
+# 'usa_chapa' dice de que rama tira el metal (chapa = armadura, lingote = arma/escudo/varita).
+# QUE material concreto es cada fibra (y su tier) lo decide Game.ingredientes_forja.
 static func coste(base: Resource) -> Dictionary:
 	if base == null:
-		return {"metal": 0, "fibra": 0, "usa_chapa": false}
+		return {"metal": 0, "madera": 0, "cuero": 0, "usa_chapa": false}
 	var uds: float = float(base.get("valor_base")) / MONEDAS_POR_UNIDAD
-	var mix: Array = MIX_ARMA
+	var m_metal: float = 1.0
+	var m_madera: float = 0.0
+	var m_cuero: float = 0.0
 	var usa_chapa: bool = false
 	if base is ArmorData:
 		usa_chapa = true
-		mix = MIX_ARMADURA.get(int((base as ArmorData).tipo), MIX_ARMA)
+		var mix: Array = MIX_ARMADURA.get(int((base as ArmorData).tipo), [1.0, 1.0])
+		m_metal = mix[0]; m_cuero = mix[1]
+	elif base is ShieldData:
+		m_metal = MIX_ESCUDO[0]; m_madera = MIX_ESCUDO[1]; m_cuero = MIX_ESCUDO[2]
+	elif base is WandData or (base is WeaponData and (base as WeaponData).es_magica):
+		m_metal = MIX_ARMA_MAGICA[0]; m_madera = MIX_ARMA_MAGICA[1]; m_cuero = MIX_ARMA_MAGICA[2]
+	else:
+		m_metal = MIX_ARMA[0]; m_madera = MIX_ARMA[1]; m_cuero = MIX_ARMA[2]
 	return {
-		"metal": maxi(METAL_MIN, int(round(uds * float(mix[0])))),
-		"fibra": maxi(1, int(round(uds * float(mix[1])))),
+		"metal": maxi(METAL_MIN, int(round(uds * m_metal))),
+		"madera": (maxi(1, int(round(uds * m_madera))) if m_madera > 0.0 else 0),
+		"cuero": (maxi(1, int(round(uds * m_cuero))) if m_cuero > 0.0 else 0),
 		"usa_chapa": usa_chapa,
 	}
 
@@ -276,20 +292,26 @@ static func nucleo_vale(nucleo: MaterialData, item: Resource) -> bool:
 # save. Lo que pierdes en fidelidad lo ganas en que no hay ningun caso raro.
 const RECUPERACION := 0.5
 
-# Unidades de metal y de fibra que devuelve fundir `base` con `mejoras` mejoras encima.
+# Unidades de metal / madera / cuero que devuelve fundir `base` con `mejoras` mejoras encima.
+# El material de cada MEJORA (metal + su fibra estructural: madera si es arma, cuero si es
+# armadura) tambien cuenta: una pieza +5 lleva mucho material dentro.
 static func fundir_material(base: Resource, mejoras: int) -> Dictionary:
 	var c: Dictionary = coste(base)
 	var metal: int = int(c["metal"])
-	var fibra: int = int(c["fibra"])
-	# Lo que se le fue metiendo en cada mejora cuenta: una pieza +5 lleva mucho material dentro.
+	var madera: int = int(c["madera"])
+	var cuero: int = int(c["cuero"])
+	var es_arma: bool = not (base is ArmorData)
 	for k in range(maxi(0, mejoras)):
 		var m: Dictionary = material_para_mejora(k)
 		metal += int(m["metal"])
-		fibra += int(m["fibra"])
+		if es_arma:
+			madera += int(m["fibra"])
+		else:
+			cuero += int(m["fibra"])
 	return {
 		"metal": int(floor(float(metal) * RECUPERACION)),
-		"fibra": int(floor(float(fibra) * RECUPERACION)),
-		"usa_chapa": bool(c["usa_chapa"]),
+		"madera": int(floor(float(madera) * RECUPERACION)),
+		"cuero": int(floor(float(cuero) * RECUPERACION)),
 	}
 
 
