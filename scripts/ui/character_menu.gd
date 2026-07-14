@@ -273,6 +273,12 @@ func _build_stats_page() -> void:
 	_row(_content, "Prob. crítico", _fmt_pct(crit_p))
 	_row(_content, "Daño crítico", "×%.2f (+%d%%)" % [
 		StatsMath.CRIT_MULT, roundi((StatsMath.CRIT_MULT - 1.0) * 100.0)])
+	# Esquiva contra el mismo espejo: tu Agilidad vs tu Destreza, menos el penal (escudos) y mas
+	# el bonus de esquiva (daga/estoque + armaduras ligeras). Con bonus, el tope sube (EVADE_MAX_BUFF).
+	var evade_cap: float = StatsMath.EVADE_MAX_BUFF if c.evasion_bonus > 0.0 else StatsMath.EVADE_MAX
+	var evade_p: float = clampf(StatsMath.evade_chance(float(c.abilities.agilidad),
+		float(c.abilities.destreza)) - c.evasion_penal + c.evasion_bonus, 0.0, evade_cap)
+	_row(_content, "Prob. esquiva", _fmt_pct(evade_p))
 	_content.add_child(HSeparator.new())
 	_row(_content, "Vida máx.", "%.1f" % c.max_hp)
 	_row(_content, "Defensa", "%.1f" % c.def_value())
@@ -533,14 +539,20 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 	_row(vb, "  Motion value", "×%.2f" % w.motion_value)
 	_row(vb, "  Velocidad", _con_mejoras("×%.2f",
 		w.velocidad_mult * float(base["vel_mult"]), w.velocidad_mult * float(mods["vel_mult"])))
-	var crit: float = w.crit_bonus + float(mods["crit_add"])
+	# crit/aturdir/evasion ya vienen RESUELTOS de weapon_mods (base × rareza + mejoras). El
+	# "base" (sin mejoras) es el mismo item con la lista de mejoras vacia -> lo que ponen las
+	# mejoras se ve entre parentesis.
+	var crit: float = float(mods["crit"])
 	if crit != 0.0:
-		_row(vb, "  Crítico", _con_mejoras_pct(w.crit_bonus, crit))
+		_row(vb, "  Crítico", _con_mejoras_pct(float(base["crit"]), crit))
 	if float(mods["precision"]) > 0.0:
 		_row(vb, "  Precisión", "+%s" % _fmt_pct(float(mods["precision"])))
-	var aturdir: float = w.aturdir_base + float(mods["aturdir_add"])
+	var evasion: float = float(mods["evasion"])
+	if evasion > 0.0:
+		_row(vb, "  Evasión", "+%s" % _fmt_pct(evasion))
+	var aturdir: float = float(mods["aturdir"])
 	if aturdir > 0.0:
-		_row(vb, "  Aturdir", _con_mejoras_pct(w.aturdir_base, aturdir))
+		_row(vb, "  Aturdir", _con_mejoras_pct(float(base["aturdir"]), aturdir))
 	if w.es_magica:
 		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras)
 		var mgb: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, {})

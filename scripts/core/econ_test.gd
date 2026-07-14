@@ -58,7 +58,43 @@ func _init() -> void:
 
 	_forjable()
 	_fundido()
+	_rareza()
 	quit()
+
+
+# RAREZA: la obra maestra tiene que ganar en TODO (raw, crit, evasion, aturdir, bloqueo, vel) y
+# cada mejora tiene que rendir mas. Se prueba contra Upgrades (class_name, estatico).
+func _rareza() -> void:
+	print("\n=========== LA RAREZA SE NOTA (comun vs obra maestra) ===========")
+	var daga: WeaponData = load("res://resources/weapons/daga.tres") as WeaponData
+	var maza: WeaponData = load("res://resources/weapons/martillo_grande.tres") as WeaponData
+	for arma in [daga, maza]:
+		print("\n  --- %s (base: crit %.2f, evasion %.2f, aturdir %.2f, bloqueo %.2f) ---" % [
+			arma.nombre, arma.crit_bonus, arma.evasion_bonus, arma.aturdir_base, arma.bloqueo])
+		# COMUN sin mejoras, COMUN a tope de mejoras, OBRA MAESTRA a tope. tmult=1 (tier 1).
+		var full_comun: Dictionary = _mejoras_full(Upgrades.RAREZA_SLOTS[0])
+		var full_om: Dictionary = _mejoras_full(Upgrades.RAREZA_SLOTS[6])
+		_fila_arma("Comun +0        ", arma, 0, {})
+		_fila_arma("Comun +max      ", arma, 0, full_comun)
+		_fila_arma("Obra maestra +0 ", arma, 6, {})
+		_fila_arma("Obra maestra max", arma, 6, full_om)
+
+
+# Reparte 'huecos' mejoras entre Agudeza, Precision, Peso y Rapidez (para ver todos los efectos).
+func _mejoras_full(huecos: int) -> Dictionary:
+	var cats: Array = [Upgrades.AGUDEZA, Upgrades.PRECISION, Upgrades.PESO, Upgrades.RAPIDEZ]
+	var out: Dictionary = {}
+	for i in range(huecos):
+		var c: String = cats[i % cats.size()]
+		out[c] = int(out.get(c, 0)) + 1
+	return out
+
+
+func _fila_arma(etq: String, w: WeaponData, rareza: int, mejoras: Dictionary) -> void:
+	var m: Dictionary = Upgrades.weapon_mods(w, 1.0, rareza, mejoras)
+	print("    %s  raw %5.2f  crit %+.3f  evasion %+.3f  aturdir %.3f  bloqueo %.2f  vel ×%.3f" % [
+		etq, float(m["raw"]), float(m["crit"]), float(m["evasion"]),
+		float(m["aturdir"]), float(m["bloqueo"]), float(m["vel_mult"])])
 
 
 # FUNDIR: lo que cuesta hacer una pieza contra lo que devuelve deshacerla, y el AVISO que deje

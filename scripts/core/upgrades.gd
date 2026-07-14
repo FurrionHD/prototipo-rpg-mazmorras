@@ -20,8 +20,12 @@ class_name Upgrades
 
 enum Rareza { COMUN, POCO_COMUN, RARO, EPICO, LEGENDARIO, MITICO, OBRA_MAESTRA }
 
-# COMUN = 1.00 (regresion exacta: rareza comun + 0 mejoras = como antes).
-const RAREZA_MULT := [1.00, 1.02, 1.04, 1.06, 1.09, 1.12, 1.15]
+# COMUN = 1.00 (regresion exacta: rareza comun + 0 mejoras = como antes). La obra maestra a
+# 1.55 se NOTA: antes iba a 1.15 (un +15% de risa) y ademas solo tocaba el raw/DEF. Ahora la
+# rareza multiplica TODAS las stats de combate (crit, evasion, aturdir, bloqueo, el bonus de
+# rapidez) y ademas hace que cada mejora rinda mas (sube los topes). Lo unico que NO toca es el
+# motion_value del arma (su equilibrio) ni la reduccion/velocidad de tipo de la armadura.
+const RAREZA_MULT := [1.00, 1.08, 1.16, 1.25, 1.35, 1.45, 1.55]
 const RAREZA_SLOTS := [3, 4, 5, 6, 8, 10, 12]
 const RAREZA_NOMBRE := ["Comun", "Poco comun", "Raro", "Epico", "Legendario", "Mitico", "Obra maestra"]
 
@@ -122,6 +126,19 @@ static func dim_sum(step: float, k: int) -> float:
 		return 0.0
 	return step * (1.0 - pow(DECAY, float(k))) / (1.0 - DECAY)
 
+# El TOPE de una mejora sube con la rareza: si no, una obra maestra muy mejorada choca contra
+# el mismo techo que una comun y toda su ventaja se evapora justo donde mas inviertes.
+static func cap_rareza(cap: float, rareza: int) -> float:
+	return cap * rareza_mult(rareza)
+
+# Mejora un valor con la rareza SIEMPRE hacia lo bueno. Para casi todo (raw, evasion, aturdir)
+# "bueno" es mas grande, asi que se multiplica. Pero el CRITICO de las contundentes es negativo
+# a proposito (una maza no critica): multiplicar ×rareza lo hundiria mas, y una maza obra
+# maestra saldria PEOR de critico que una comun. Con esto, lo positivo sube y lo negativo se
+# SUAVIZA hacia cero: la obra maestra nunca es peor en nada.
+static func mejor_con_rareza(val: float, rmult: float) -> float:
+	return val * rmult if val >= 0.0 else val / rmult
+
 static func _count(mejoras: Dictionary, cat: String) -> int:
 	return int(mejoras.get(cat, 0))
 
@@ -175,33 +192,47 @@ static func armor_categories(a: ArmorData) -> Array:
 
 
 # Agregados de un ARMA (por mano). tmult = tier_mult(tier) ya calculado.
+#
+# La RAREZA multiplica TODO lo que hace mejor a un arma, no solo el raw: cada stat sale como
+# (base_del_arma + aporte_de_mejoras) × rareza. Antes el crit/evasion/aturdir/bloqueo se cogian
+# en crudo del .tres y la rareza no los rozaba, asi que una daga obra maestra daba el MISMO
+# critico que una comun. Lo unico que la rareza NO toca es el motion_value (el equilibrio del
+# arma) ni la velocidad base por TAMAÑO (w.velocidad_mult): esos no son "calidad".
+#
+# 'crit'/'evasion'/'aturdir'/'bloqueo' salen ya RESUELTOS (base incluida): _hand_from y
+# loadout_mods los toman de aqui en vez de leer los campos del .tres a pelo.
 static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
+	var rmult := rareza_mult(rareza)
 	# Arma MAGICA (baston): la potencia magica va aparte (magic_mods). Aqui solo lo
 	# FISICO del golpe: base × rareza + Agudeza (raw), y Peso (aturdir) si contundente.
 	# El resto de mejoras magicas NO tocan el daño fisico.
 	if w != null and w.es_magica:
-		var raw_mag := w.ataque_base * rareza_mult(rareza) \
+		var raw_mag := w.ataque_base * rmult \
 			* (1.0 + dim_sum(AGUDEZA_STEP, _count(mejoras, AGUDEZA))) * tmult
 		var aturdir_mag := 0.0
 		if int(w.dano_tipo) == 1:  # CONTUNDENTE
-			aturdir_mag = dim_sum(PESO_STEP, _count(mejoras, PESO))
-		return {"raw": raw_mag, "crit_add": 0.0, "precision": 0.0,
-			"aturdir_add": aturdir_mag, "vel_mult": 1.0}
+			aturdir_mag = (w.aturdir_base + dim_sum(PESO_STEP, _count(mejoras, PESO))) * rmult
+		return {"raw": raw_mag, "crit": mejor_con_rareza(w.crit_bonus, rmult), "precision": 0.0,
+			"aturdir": aturdir_mag, "evasion": w.evasion_bonus * rmult,
+			"bloqueo": w.bloqueo * rmult, "vel_mult": 1.0}
 	var n := total_mejoras(mejoras)
 	# +10% de la base por CADA mejora (universal) + extra de Agudeza (decreciente, tambien en %
 	# de la base). Todo sobre la base × rareza, y el conjunto × tier.
 	var subida := UPGRADE_PCT * float(n) + dim_sum(AGUDEZA_STEP, _count(mejoras, AGUDEZA))
-	var raw := w.ataque_base * rareza_mult(rareza) * (1.0 + subida) * tmult
+	var raw := w.ataque_base * rmult * (1.0 + subida) * tmult
 	var kp := _count(mejoras, PRECISION)
 	var aturdir := 0.0
 	if int(w.dano_tipo) == 1:  # solo contundentes
-		aturdir = dim_sum(PESO_STEP, _count(mejoras, PESO))
-	var rapidez := minf(RAPIDEZ_CAP, dim_sum(RAPIDEZ_STEP, _count(mejoras, RAPIDEZ)))
+		aturdir = (w.aturdir_base + dim_sum(PESO_STEP, _count(mejoras, PESO))) * rmult
+	# El bonus de rapidez y su TOPE escalan con la rareza; la velocidad base por tamaño no.
+	var rapidez := minf(cap_rareza(RAPIDEZ_CAP, rareza), dim_sum(RAPIDEZ_STEP, _count(mejoras, RAPIDEZ)) * rmult)
 	return {
 		"raw": raw,
-		"crit_add": dim_sum(PRECISION_CRIT_STEP, kp),
-		"precision": dim_sum(PRECISION_HIT_STEP, kp),
-		"aturdir_add": aturdir,
+		"crit": mejor_con_rareza(w.crit_bonus + dim_sum(PRECISION_CRIT_STEP, kp), rmult),
+		"precision": dim_sum(PRECISION_HIT_STEP, kp) * rmult,
+		"aturdir": aturdir,
+		"evasion": w.evasion_bonus * rmult,
+		"bloqueo": w.bloqueo * rmult,
 		"vel_mult": 1.0 + rapidez,
 	}
 
@@ -217,13 +248,14 @@ static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dict
 	var n := total_mejoras(mejoras)
 	# magic_amp = base×rareza + flat universal por CADA mejora + extra de Potencia (decreciente, tope).
 	# El TIER lo multiplica todo por el mismo factor de daño que una melee (magic_tier_ratio).
-	var potencia := minf(POTENCIA_CAP, dim_sum(POTENCIA_STEP, _count(mejoras, POTENCIA)))
+	# Los topes de las mejoras magicas tambien suben con la rareza (como en armas/armaduras).
+	var potencia := minf(cap_rareza(POTENCIA_CAP, rareza), dim_sum(POTENCIA_STEP, _count(mejoras, POTENCIA)))
 	var amp := (base_amp * rareza_mult(rareza) + MAGIC_AMP_FLAT * float(n) + potencia) * magic_tier_ratio(tmult)
 	return {
 		"magic_amp": amp,
-		"mana_reduccion": minf(EFICIENCIA_CAP, dim_sum(EFICIENCIA_STEP, _count(mejoras, EFICIENCIA))),
-		"cast_vel_add": minf(CELERIDAD_CAP, dim_sum(CELERIDAD_STEP, _count(mejoras, CELERIDAD))),
-		"regen_mult": 1.0 + minf(REGENERACION_CAP, dim_sum(REGENERACION_STEP, _count(mejoras, REGENERACION))),
+		"mana_reduccion": minf(cap_rareza(EFICIENCIA_CAP, rareza), dim_sum(EFICIENCIA_STEP, _count(mejoras, EFICIENCIA))),
+		"cast_vel_add": minf(cap_rareza(CELERIDAD_CAP, rareza), dim_sum(CELERIDAD_STEP, _count(mejoras, CELERIDAD))),
+		"regen_mult": 1.0 + minf(cap_rareza(REGENERACION_CAP, rareza), dim_sum(REGENERACION_STEP, _count(mejoras, REGENERACION))),
 	}
 
 
@@ -235,16 +267,19 @@ static func armor_piece_mods(a: ArmorData, tmult: float, rareza: int, mejoras: D
 	# Mismo modelo que el arma: la mejora sube un % de la DEF de ESTA pieza, no un flat. Asi un
 	# peto de cuero (base 0.25) y una coraza de placas (base 1.1) suben lo mismo EN PROPORCION,
 	# en vez de que dos mejoras tripliquen el cuero y apenas se noten en las placas.
+	var rmult := rareza_mult(rareza)
 	var subida := UPGRADE_PCT * float(n) + dim_sum(DUREZA_STEP, _count(mejoras, DUREZA))
-	var deff := a.defensa_base * a.motion_def * rareza_mult(rareza) * (1.0 + subida) * tmult
+	var deff := a.defensa_base * a.motion_def * rmult * (1.0 + subida) * tmult
+	# La rareza tambien empuja la evasion / resist. criticos / resist. estados (como en las armas).
+	# La reduccion y la velocidad de la pieza NO: son de tipo/tamaño, no de calidad.
 	var evasion := 0.0
 	var crit_resist := 0.0
 	if int(a.tipo) <= 1:
-		evasion = dim_sum(EVASION_STEP, _count(mejoras, EVASION))
+		evasion = dim_sum(EVASION_STEP, _count(mejoras, EVASION)) * rmult
 	else:
-		crit_resist = dim_sum(RESIST_CRIT_STEP, _count(mejoras, RESIST_CRIT))
+		crit_resist = dim_sum(RESIST_CRIT_STEP, _count(mejoras, RESIST_CRIT)) * rmult
 	# Resistencia a ESTADOS alterados (KAN-58): disponible en TODA armadura.
-	var resist_estados := dim_sum(RESISTENCIA_STEP, _count(mejoras, RESISTENCIA))
+	var resist_estados := dim_sum(RESISTENCIA_STEP, _count(mejoras, RESISTENCIA)) * rmult
 	return {
 		"def": deff,
 		"reduccion": a.reduccion,
