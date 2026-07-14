@@ -708,6 +708,18 @@ Plan en `~/.claude/plans/vale-jefazo-hay-que-quizzical-crane.md`. Cuatro cosas d
   en la mazmorra. M añadida al panel F1.
 - Números PROVISIONALES → Excel (curva de rareza, RESPAWN_SEGUNDOS, densidad 8).
 
+### Consistencia de menús: ficha de arma y feedback de crafteo unificados 🔧 A PROBAR
+- **Ficha de arma en UN solo sitio**: `MenuScaffold.filas_arma(w, tier, rareza, mejoras)` devuelve
+  `[[etiqueta, valor]...]` desde `Upgrades.weapon_mods` (la math del combate). La usan tienda,
+  pack inicial e inventario; añadir una stat se hace ahí y punto. El menú de personaje mantiene su
+  ficha "rica" (desglose base+mejora). Antes había 3 copias y al meter la evasión solo se actualizó
+  una: la tienda salía con `<null>`, el inventario sin evasión e ignorando las mejoras.
+- **Los tres menús de crafteo dan feedback igual**: forja/peletero/botánica usan la línea de aviso
+  del scaffold (`m["aviso"]` + `MenuScaffold.decir`). La botánica no la capturaba; ahora dice
+  "Fabricas N × …". `Game.craftear_con` devuelve el total fabricado (era bool).
+- Regla para el futuro: los menús que hacen lo mismo comparten helper; nada de copiar la ficha o el
+  aviso en cada uno.
+
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
   defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.
