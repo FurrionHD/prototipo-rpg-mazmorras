@@ -17,6 +17,7 @@ const DEBUG_KEYS := [
 	["J", "Cambiar armadura (categoría)"],
 	["P", "Tirar 200 veces la tabla de spawns y contar (consola)"],
 	["B", "Forzar un brote en la zona más cercana"],
+	["N", "+10 min al reloj de mazmorra (probar respawn de recursos)"],
 	["DEBUG", "Botón abajo-izq: panel (stats, enemigo, armas,"],
 	["", "armadura, piso, MUÑECO DPS/pegador, mejoras)"],
 	["Spawner", "En la sandbox: clic izq coloca enemigo / der quita"],
@@ -31,6 +32,7 @@ const CONTROLS := [
 	["ESC", "Pausa: guardar / guardar y salir"],
 	["I", "Inventario"],
 	["C", "Menú de personaje (stats / armas / armadura)"],
+	["M", "Mapa del piso (zonas exploradas + nodos de recolección)"],
 ]
 
 var _root: Control = null       # backdrop + panel; se muestra/oculta como un todo
