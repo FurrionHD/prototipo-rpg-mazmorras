@@ -614,6 +614,63 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`). **Castear tamb
 - Visión futura (no ahora): repertorio amplio desbloqueable, equipar/ordenar hasta 4 habilidades.
   "Imbuir veneno" → objeto futuro (viales), no habilidad.
 
+### Rebalance de economía: núcleos, recolección, madera y fundido 🔧 A PROBAR
+Plan en `~/.claude/plans/vale-jefazo-hay-que-quizzical-crane.md`. Salió todo del playtest.
+Herramienta: `scripts/core/econ_test.gd` (headless, imprime las curvas para el Excel):
+`godot --headless --script scripts/core/econ_test.gd`.
+
+- **Coste de núcleos: reinicio por escalón.** Era acumulativo GLOBAL (`mejoras+1`), y como el
+  núcleo marca el techo, al llegar al +3 te forzaba a cambiar de núcleo Y te cobraba 4 del nuevo.
+  Llegar al +7 pedía **13 núcleos de slime de fuego** (bicho 1/50, drop 5%). Ahora cada núcleo
+  cubre una BANDA (`MaterialData.mejora_min`..`mejora_max`) y dentro de ella la cuenta empieza en
+  1: slime 1/2/3 (+1..+3), venenoso 1/2 (+4,+5), fuego 1/2 (+6,+7). **13 → 3.**
+- **Drops:** núcleos 5% → **10%**, babas 25% → **30%**, cuero de rata 30% → **40%**. El rey rata
+  estaba a 0.35/0.05 siendo un BOSS (el rey slime a 1.0/1.0): olvido, ahora 1.0/1.0.
+- **Mochila** 3/4/6 → **3/3/6**.
+- **Minijuegos, dos problemas.** (1) La dificultad capaba la VELOCIDAD por abajo a 0.6-0.7, así
+  que cuanto mejor eras más LENTO iba el marcador. Suelo común `RECOLECCION_VEL_RETO_MIN = 1.0`:
+  la velocidad base es el mínimo. (2) Las exigencias eran de 25-70 **cuando al piso 5 rondas los
+  300 de stat** → reto ~0.2, el minijuego no existía. Se anclan a la curva (**~0.8 × stat esperada
+  en su piso**, stat ≈ 60×piso): hierba 40, raíz 140, sanguinaria 230; cobre 30, hierro 350,
+  acero 650; maderas 30/350/650. `RECOLECCION_PISO_FACTOR` 1.08 → 1.10.
+  Si mañana cambia la curva de stats, las exigencias se **recalculan desde ella**, no se parchean.
+- **Plantas por piso** (usaban la misma en todos lados y las dos pociones mejoradas pedían hierba):
+  base → hierba (p1), **+1 → raíz amarga (p2)**, **+2 → sanguinaria (p4, NUEVA)**. La hierba sigue
+  saliendo en todos los pisos: es la de la poción base y no quiero obligarte a subir. Densidad 10 → **5**.
+- **MADERA** (`MaterialData.Tipo.MADERA`, al final del enum: se guarda como número). Enredaderas en
+  la pared de los PASILLOS, 5 por piso. Tres tiers en espejo con los minerales: común p1, dura p6,
+  negra p11. Es el **MANGO** del arma (antes llevaba empuñadura de cuero, que no tenía sentido).
+- **Minijuego de TALADO** (`scripts/ui/talado.gd`) con **HACHA** y **AGILIDAD** — NO Fuerza: entre
+  picar y talar la Fuerza se dispararía, y la Agilidad no tenía ninguna fuente fuera del combate.
+  Va de **COMPÁS**: el tronco es un punto FIJO y lo que se mueve es la VENTANA, que da vueltas.
+  Cada vuelta pide un hachazo; dentro = limpio y el ritmo ACELERA, fuera (o dejarla pasar) = pierdes
+  el compás, +1 astilla y la ventana **ENCOGE**. 3 astillas = tronco rajado. Bola de nieve.
+- **ADAMANTE → ACERO** (cobre → hierro → acero). El adamante suena a fin del juego, no a piso 11:
+  se reserva para un tier ~10. Y los tiers se van al FONDO: hierro p3 → **p6**, acero → **p11**
+  (tenías T2 a los diez minutos y estaba roto).
+- **La fibra tiene que estar a la altura del metal** (`Forge.cuero_vale_para` / `madera_vale_para`):
+  - ARMA = lingote + madera de su tier → **SÍ** sube de tier (la madera tiene 3, y la dura sale en
+    el p6, justo donde el hierro).
+  - ARMADURA = chapa + cuero de su tier → el único cuero que existe es el de rata (T1), así que la
+    **armadura T2/T3 queda SIN FORJAR**. Es a propósito: son las piezas que estaban rotas. La regla
+    ya estaba escrita y apagada en `forge.gd`; se desbloqueará sola el día que un bicho hondo suelte
+    una piel mejor. (Cierra la memoria `pieles-por-tier-pendiente`.)
+- **Mejorar cuesta núcleos Y material**: el núcleo es el permiso, pero la pieza hay que rehacerla
+  (metal + su fibra, del tier de la pieza, subiendo con el nivel). Sin selector de calidades: la
+  rareza ya está echada, así que meter material bueno no daría nada. Gasta la morralla.
+- **La forja ya no spoilea**: listaba los tres metales desde el minuto uno. Ahora un metal aparece
+  cuando te traes algo de él (`Game.materiales_vistos`, persistido; las partidas viejas lo
+  reconstruyen de lo que tengan en el baúl).
+- **DESHACER equipo** (pestaña nueva del herrero): recuperas la **mitad** de lo que costó hacerlo,
+  núcleos incluidos. Se DERIVA de la receta, no de lo que metiste: así funciona igual con equipo
+  comprado y con partidas viejas, sin tocar el save. Vuelve como material NORMAL (chatarra
+  reaprovechable, no material de primera). Comprobado que **no** es una imprenta de dinero: una daga
+  cuesta 350 y fundirla devuelve un lingote normal (~63).
+- **Bugs cazados de paso:** `_uds_calidad()` daba **0 unidades al material PURO** (el premio de la
+  Metalurgia alta) mientras `unidades_crafteo()` le daba 4 → el mejor material del juego no valía
+  nada al forjar. `HERB_VEL_MAX` estaba declarado como techo y **nunca se aplicaba**.
+- Números PROVISIONALES → Excel. Falta playtest de verdad.
+
 ### Planificado a futuro (Epics creados, sin empezar)
 - **KAN-51** Combate avanzado: críticos (Destreza), evasión (Agilidad),
   defender/bloqueo, sistema de acciones, magia+maná (.tres), habilidades, estados.

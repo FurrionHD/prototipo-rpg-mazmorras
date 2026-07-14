@@ -2534,9 +2534,16 @@ func fundir_item(item: Resource) -> bool:
 	if not puede_fundir(item):
 		return false
 	var d: Dictionary = fundir_devuelve(item)
+	# El nombre, ANTES de borrar la meta: item_display_name la lee para el tier y la rareza, y
+	# sin ella la pieza que acabas de deshacer sale en el log como una comun T1 cualquiera.
+	var nombre: String = item_display_name(item)
 
-	owned_weapons.erase(item)
-	owned_armor.erase(item)
+	# Cada array esta TIPADO (owned_armor es Array[ArmorData]), asi que pasarle un arma a erase()
+	# no es un no-op: revienta con un error de TypedArray. Se borra del que le toca.
+	if item is ArmorData:
+		owned_armor.erase(item)
+	else:
+		owned_weapons.erase(item)
 	item_meta.erase(item)
 
 	_devolver_unidades(d["metal"], int(d["metal_uds"]))
@@ -2547,7 +2554,7 @@ func fundir_item(item: Resource) -> bool:
 			almacen_materiales.append(MaterialItem.crear(n, MaterialItem.Calidad.NORMAL))
 
 	print("[herrero] Fundes %s -> %d uds de %s, %d uds de %s, %d núcleo(s)" % [
-		item_display_name(item), int(d["metal_uds"]),
+		nombre, int(d["metal_uds"]),
 		(d["metal"] as MaterialData).nombre if d["metal"] != null else "nada",
 		int(d["fibra_uds"]),
 		(d["fibra"] as MaterialData).nombre if d["fibra"] != null else "nada",
