@@ -36,5 +36,8 @@ func interact_with_player() -> void:
 		# Y la mazmorra se repuebla: lo que dejaste en los pisos la expedicion anterior ya no
 		# esta. Si se recordara entre expediciones, los pisos se vaciarian para siempre.
 		Game.olvidar_mazmorra()
+	else:
+		# Volviendo a CASA: se pone al dia la libreta del mapa con lo explorado (ver Game).
+		Game.capturar_mapa()
 	print("[Puerta] Viajando a: %s" % _destination)
 	get_tree().change_scene_to_file(_destination)

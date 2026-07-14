@@ -25,6 +25,9 @@ func interact_with_player() -> void:
 	# Salir al pueblo TERMINA la expedicion, igual que salir por la boca de la mazmorra: la
 	# proxima vez que entres, los pisos estan repoblados. Lo que NO se pierde es el hito del
 	# boss (Game.bosses_derrotados), que vive en la partida y no en la memoria de la mazmorra.
+	# La libreta del mapa se pone al dia ANTES de tocar current_floor: captura el piso del boss
+	# en el que estas, no el 1 al que vas a saltar.
+	Game.capturar_mapa()
 	Game.current_floor = 1
 	Game.olvidar_mazmorra()
 	print("[salida] Vuelves al pueblo desde el piso del boss.")

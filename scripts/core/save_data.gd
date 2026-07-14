@@ -133,6 +133,8 @@ const VERSION_ACTUAL := 2
 # sello de tiempo para el respawn) y las zonas exploradas (niebla del mapa). Las partidas
 # viejas los rellenan a vacio/0, asi que NO hace falta subir VERSION_ACTUAL.
 @export var mazmorra_persistente: Dictionary = {}
+# La LIBRETA del mapa (piso -> snapshot congelado). Solo se pone al dia al volver a casa.
+@export var mapa_snapshot: Dictionary = {}
 @export var tiempo_mazmorra: float = 0.0
 
 

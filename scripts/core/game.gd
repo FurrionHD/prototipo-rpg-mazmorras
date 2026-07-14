@@ -231,6 +231,33 @@ func persistente_piso(piso: int) -> Dictionary:
 	return mazmorra_persistente[piso]
 
 
+# MAPA = una LIBRETA que solo se pone al dia al VOLVER A CASA (piso -> snapshot congelado). Es a
+# proposito: nada de GPS en vivo. Mientras estas abajo el mapa enseña lo que sabias la ultima vez
+# que subiste; lo que exploras esta expedicion no aparece hasta que vuelves al pueblo.
+#   { "zonas": {idx:true}, "vivos": [{cell, color}], "agotados": {cell:tiempo} }
+# zonas_vistas SIGUE acumulandose en vivo por debajo (invisible), pero solo se copia AQUI al
+# volver a casa. La geometria (que celdas tiene cada zona) sale de la semilla al dibujar.
+var mapa_snapshot: Dictionary = {}
+
+# Copia el estado actual del piso vivo a la libreta. La llaman las salidas al pueblo (door.gd,
+# dungeon_exit.gd) ANTES de irse: en ese momento el DungeonFloor aun esta vivo.
+func capturar_mapa() -> void:
+	if get_tree().get_first_node_in_group("dungeon_floor") == null:
+		return
+	var persist: Dictionary = persistente_piso(current_floor)
+	var vivos: Array = []
+	for nodo in get_tree().get_nodes_in_group("recolectable"):
+		if is_instance_valid(nodo) and nodo.material_data != null:
+			vivos.append({"cell": nodo.celda, "color": nodo.material_data.color})
+	mapa_snapshot[current_floor] = {
+		"zonas": (persist["zonas_vistas"] as Dictionary).duplicate(),
+		"vivos": vivos,
+		"agotados": (persist["agotados"] as Dictionary).duplicate(),
+	}
+	print("[mapa] libreta al dia: piso ", current_floor, " (", vivos.size(), " nodos, ",
+		(mapa_snapshot[current_floor]["zonas"] as Dictionary).size(), " zonas)")
+
+
 # ============================================================
 #  GUARDAR / CARGAR PARTIDA  (el fichero lo escribe Perfil; aqui se arma el SaveData)
 # ============================================================
@@ -333,6 +360,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	# Partida nueva SI reinicia lo persistente y el reloj (olvidar_mazmorra no los toca porque
 	# tienen que durar entre expediciones; una partida nueva es otra cosa).
 	mazmorra_persistente.clear()
+	mapa_snapshot.clear()
 	tiempo_mazmorra = 0.0
 	print("[partida] mundo nuevo. Semilla: ", semilla_mundo)
 
@@ -418,6 +446,7 @@ func exportar_partida() -> SaveData:
 		d.pos_jugador = (player as Node2D).global_position
 	d.memoria_pisos = memoria_pisos.duplicate(true)
 	d.mazmorra_persistente = mazmorra_persistente.duplicate(true)
+	d.mapa_snapshot = mapa_snapshot.duplicate(true)
 	d.tiempo_mazmorra = tiempo_mazmorra
 
 	# Cabecera (lo que se ve en la lista de ranuras).
@@ -505,6 +534,7 @@ func importar_partida(d: SaveData) -> void:
 	current_floor = d.current_floor
 	memoria_pisos = d.memoria_pisos.duplicate(true)
 	mazmorra_persistente = d.mazmorra_persistente.duplicate(true)
+	mapa_snapshot = d.mapa_snapshot.duplicate(true)
 	tiempo_mazmorra = d.tiempo_mazmorra
 	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
 

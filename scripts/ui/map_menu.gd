@@ -1,15 +1,13 @@
 # ============================================================
 #  map_menu.gd  (CanvasLayer creada por codigo desde el jugador)
-#  MAPA del piso (tecla M). Solo dibuja lo que has EXPLORADO: cada sala/pasillo por el que
-#  has pasado queda visto para siempre (Game.mazmorra_persistente[piso]["zonas_vistas"]), y
-#  con el, sus nodos de recoleccion.
+#  MAPA del piso (tecla M). Es una LIBRETA que solo se pone al dia al VOLVER A CASA: nada de
+#  GPS en vivo. Mientras estas abajo enseña lo que sabias la ultima vez que subiste al pueblo;
+#  lo que exploras esta expedicion no aparece hasta que vuelves (Game.capturar_mapa, la llaman
+#  las salidas al pueblo). Por eso tampoco pinta TU posicion: no es un radar, es un plano.
 #
-#  Los nodos VIVOS (los que hay ahora mismo en el piso) salen con el color de su material.
-#  Los AGOTADOS (picados, esperando su respawn) salen apagados con los segundos que les faltan
-#  para volver. Asi el mapa sirve para planear la ruta, que es para lo que se pidio.
-#
-#  No re-deriva el piso: lee la geometria del DungeonFloor vivo (grupo "dungeon_floor") y los
-#  nodos del grupo "recolectable". Todo por codigo, como el resto de menus.
+#  Dibuja el snapshot congelado (Game.mapa_snapshot[piso]): las zonas cartografiadas, los nodos
+#  que estaban vivos (con el color de su material) y los agotados (apagados, con la cuenta atras
+#  hasta su respawn). La geometria (celdas de cada zona) sale de la semilla del piso vivo.
 # ============================================================
 
 extends CanvasLayer
@@ -17,7 +15,6 @@ extends CanvasLayer
 const MARGEN := 60.0        # px de borde alrededor del mapa
 const COLOR_FONDO := Color(0.04, 0.04, 0.06, 0.94)
 const COLOR_SUELO := Color(0.24, 0.24, 0.30)      # zona explorada
-const COLOR_JUGADOR := Color(0.35, 0.85, 1.0)
 
 var _root: Control = null
 var _lienzo: Control = null
@@ -87,8 +84,18 @@ func _dibujar() -> void:
 	var gen = _gen()
 	if gen == null:
 		return
-	var vistas: Dictionary = Game.persistente_piso(Game.current_floor)["zonas_vistas"]
-	var agotados: Dictionary = Game.persistente_piso(Game.current_floor)["agotados"]
+	# La LIBRETA (congelada al ultimo regreso a casa), NO el estado en vivo: lo que exploras esta
+	# expedicion no aparece hasta que vuelves al pueblo. La geometria (celdas de cada zona) sale
+	# de la semilla del piso vivo, que es la misma de siempre.
+	var snap: Dictionary = Game.mapa_snapshot.get(Game.current_floor, {})
+	if snap.is_empty():
+		var f0: Font = ThemeDB.fallback_font
+		_lienzo.draw_string(f0, Vector2(MARGEN, 90.0),
+			"Aún no has cartografiado este piso. Explóralo y vuelve a casa.",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.7, 0.7, 0.75))
+		return
+	var vistas: Dictionary = snap["zonas"]
+	var agotados: Dictionary = snap["agotados"]
 
 	# Escala: que el mapa entero quepa en la pantalla con margen, manteniendo proporcion.
 	var area := get_viewport().get_visible_rect().size - Vector2(MARGEN, MARGEN) * 2.0
@@ -96,7 +103,7 @@ func _dibujar() -> void:
 	var offset := Vector2(MARGEN, MARGEN) \
 		+ (area - Vector2(gen.ancho, gen.alto) * celda_px) * 0.5
 
-	# 1) SUELO de las zonas exploradas (la niebla es no dibujar el resto).
+	# 1) SUELO de las zonas cartografiadas (la niebla es no dibujar el resto).
 	for i in range(gen.zonas.size()):
 		if not vistas.has(i):
 			continue
@@ -104,33 +111,21 @@ func _dibujar() -> void:
 			var p: Vector2 = offset + Vector2(c) * celda_px
 			_lienzo.draw_rect(Rect2(p, Vector2(celda_px, celda_px)), COLOR_SUELO)
 
-	# 2) NODOS VIVOS (los que hay ahora), solo en zonas exploradas: color del material.
-	for nodo in get_tree().get_nodes_in_group("recolectable"):
-		if not is_instance_valid(nodo) or nodo.material_data == null:
-			continue
-		if not vistas.has(gen.zona_en(nodo.celda)):
-			continue
-		_punto(offset, celda_px, nodo.celda, nodo.material_data.color, 0.42)
+	# 2) NODOS que estaban VIVOS al cartografiar: color del material (congelado en la libreta).
+	for n in (snap["vivos"] as Array):
+		_punto(offset, celda_px, n["cell"], n["color"], 0.42)
 
-	# 3) NODOS AGOTADOS (picados, esperando respawn): apagados + cuenta atras.
+	# 3) NODOS AGOTADOS al cartografiar: apagados + cuenta atras hasta el respawn.
 	var font: Font = ThemeDB.fallback_font
 	for celda in agotados:
-		if not vistas.has(gen.zona_en(celda)):
-			continue
 		var falta: float = RESPAWN() - (Game.tiempo_mazmorra - float(agotados[celda]))
 		if falta <= 0.0:
-			continue   # ya le toca volver; nacera al recargar el piso
+			continue   # ya le toca volver
 		var p: Vector2 = offset + (Vector2(celda) + Vector2(0.5, 0.5)) * celda_px
 		_lienzo.draw_circle(p, celda_px * 0.30, Color(0.4, 0.4, 0.42, 0.7))
 		_lienzo.draw_string(font, p + Vector2(celda_px * 0.4, -celda_px * 0.4),
 			"%dm" % int(ceil(falta / 60.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
 			Color(0.7, 0.7, 0.75))
-
-	# 4) JUGADOR.
-	var player := get_tree().get_first_node_in_group("player")
-	if player is Node2D:
-		var celda_j := Vector2i(((player as Node2D).global_position / DungeonGenerator.CELDA).floor())
-		_punto(offset, celda_px, celda_j, COLOR_JUGADOR, 0.6)
 
 
 func _punto(offset: Vector2, celda_px: float, celda: Vector2i, color: Color, radio_frac: float) -> void:
