@@ -11,8 +11,8 @@ prob = 0.6
 [resource]
 script = ExtResource("1")
 nombre = "Bastonazo"
-coste_energia = 16.0
-cooldown = 1
+coste_energia = 24
+cooldown = 3
 golpes_min = 1
 golpes_max = 1
 dano_mult = 1.6

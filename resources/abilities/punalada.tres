@@ -17,9 +17,9 @@ solo_crit = true
 [resource]
 script = ExtResource("1")
 nombre = "Puñalada certera"
-coste_energia = 30.0
-coste_energia_dual = 46.0
-cooldown = 2
+coste_energia = 44
+coste_energia_dual = 62
+cooldown = 4
 golpes_min = 1
 golpes_max = 1
 golpes_dual_min = 2

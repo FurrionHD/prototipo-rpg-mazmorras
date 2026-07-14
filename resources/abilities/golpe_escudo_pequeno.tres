@@ -11,8 +11,8 @@ prob = 0.2
 [resource]
 script = ExtResource("1")
 nombre = "Golpe de escudo"
-coste_energia = 24.0
-cooldown = 2
+coste_energia = 34
+cooldown = 4
 golpes_min = 1
 golpes_max = 1
 dano_mult = 0.8

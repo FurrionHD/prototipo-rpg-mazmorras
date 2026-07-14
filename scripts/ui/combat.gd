@@ -41,7 +41,11 @@ const ATB_STUN_MAX := 0.60   # retraso parcial maximo
 # Energia de combate (KAN-57): Defender y HABILIDADES gastan; el ataque basico regenera.
 # Asi no puedes turtlear: hay que pegar para poder defender/soltar habilidades. PROVISIONAL.
 const DEFEND_ENERGY_COST := 15.0
-const ATTACK_ENERGY_REGEN := 12.0
+# El basico REGENERA energia: es la "recarga" entre habilidades. Subido de 12 a 28 (KAN-57
+# rebalance): las habilidades ahora gastan mucho mas, asi que pegar basico tiene que devolver
+# energia de verdad -> el ritmo es habilidad -> un par de basicos para recargar -> habilidad,
+# en vez de spamear habilidades. PROVISIONAL -> Excel.
+const ATTACK_ENERGY_REGEN := 28.0
 
 @onready var _enemy_name: Label = $VBox/EnemyName
 @onready var _enemy_hp: ProgressBar = $VBox/EnemyHP

@@ -11,8 +11,8 @@ prob = 0.7
 [resource]
 script = ExtResource("1")
 nombre = "Tajo desarmante"
-coste_energia = 30.0
-cooldown = 3
+coste_energia = 44
+cooldown = 5
 golpes_min = 1
 golpes_max = 1
 dano_mult = 1.3

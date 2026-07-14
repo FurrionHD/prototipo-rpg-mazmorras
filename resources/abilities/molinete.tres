@@ -11,8 +11,8 @@ prob = 0.5
 [resource]
 script = ExtResource("1")
 nombre = "Molinete"
-coste_energia = 32.0
-cooldown = 2
+coste_energia = 48
+cooldown = 4
 golpes_min = 2
 golpes_max = 2
 dano_mult = 0.7

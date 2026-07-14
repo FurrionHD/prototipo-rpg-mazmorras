@@ -217,6 +217,13 @@ var mazmorra_persistente: Dictionary = {}
 # juego (se congela) ni tocando el reloj del PC (no mira la hora real). Persiste en el save.
 var tiempo_mazmorra: float = 0.0
 
+# COOLDOWNS de habilidades que VIAJAN entre combates (KAN-57 rebalance): un nuke usado en una
+# pelea sigue en cooldown en la siguiente, no se resetea al empezar cada combate. { AbilityData:
+# turnos_restantes }. Baja 1 por cada combate que EMPIEZAS (ademas de por turno dentro). Se pone
+# a cero en partida nueva; es estado de runtime, no va al save (los CD son cortos y efimeros).
+var ability_cooldowns_persist: Dictionary = {}
+var _active_player_c = null   # el Combatant del jugador en el combate en curso (para leer sus CD al salir)
+
 
 func olvidar_mazmorra() -> void:
 	memoria_pisos.clear()
@@ -370,6 +377,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	mazmorra_persistente.clear()
 	mapa_snapshot.clear()
 	tiempo_mazmorra = 0.0
+	ability_cooldowns_persist.clear()
 	print("[partida] mundo nuevo. Semilla: ", semilla_mundo)
 
 
@@ -3285,6 +3293,19 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 		player_c.max_energy = float(pnode.max_stamina)
 		player_c.current_energy = clampf(float(pnode.current_stamina), 0.0, float(pnode.max_stamina))
 
+	# COOLDOWNS que viajan entre combates: bajan 1 por ENTRAR a este combate (ademas de por turno
+	# dentro), y se cargan en el combatiente para que un nuke usado en la pelea anterior siga
+	# cociendo. Sin esto, el Combatant nace con los CD a cero cada combate y podias repetir el
+	# mazazo en cada pelea.
+	var cd_carry: Dictionary = {}
+	for ab in ability_cooldowns_persist:
+		var left: int = int(ability_cooldowns_persist[ab]) - 1
+		if left > 0:
+			cd_carry[ab] = left
+	ability_cooldowns_persist = cd_carry
+	player_c.ability_cooldowns = cd_carry.duplicate()
+	_active_player_c = player_c
+
 	var combat := _combat_scene.instantiate()
 	# PROCESS_MODE_ALWAYS = el combate sigue funcionando aunque el arbol este en pausa.
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -3702,6 +3723,11 @@ func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left
 		var pnode := get_tree().get_first_node_in_group("player")
 		if pnode != null and "current_stamina" in pnode:
 			pnode.current_stamina = clampf(player_energy_left, 0.0, float(pnode.max_stamina))
+
+	# Los COOLDOWNS que queden al terminar viajan al siguiente combate (ver start_combat).
+	if _active_player_c != null:
+		ability_cooldowns_persist = (_active_player_c.ability_cooldowns as Dictionary).duplicate()
+		_active_player_c = null
 
 	# Si ganaste, el enemigo NO desaparece: queda como cadaver para poder
 	# extraerle el cristal (minijuego, Fase 5).

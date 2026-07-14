@@ -11,8 +11,8 @@ prob = 0.55
 [resource]
 script = ExtResource("1")
 nombre = "Golpe sísmico"
-coste_energia = 38.0
-cooldown = 3
+coste_energia = 70
+cooldown = 5
 golpes_min = 1
 golpes_max = 1
 dano_mult = 1.5
