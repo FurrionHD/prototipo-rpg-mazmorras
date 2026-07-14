@@ -2056,15 +2056,22 @@ func material_visto(mat: MaterialData) -> bool:
 	return mat != null and materiales_vistos.has(String(mat.id))
 
 
-# Los metales que el herrero te va a ENSEÑAR: los que conoces por alguna de sus cuatro formas
-# (mineral, lingote, chapa o hebillas). Los menus tiran de esta, no de metales_forja().
+# Los metales que el herrero te va a ENSEÑAR. El TIER 1 (cobre) SIEMPRE se enseña, lo hayas
+# visto o no: es donde el jugador aprende a forjar, y pedirle que pique primero para descubrir
+# ni el crafteo base es pura friccion. El T2/T3 si se descubren (ya sabes como va la forja;
+# ahora aprende el material nuevo). Un metal entra si es T1 o si has traido alguna de sus cuatro
+# formas (mineral, lingote, chapa o hebillas). Los menus tiran de esta, no de metales_forja().
 func metales_forja_conocidos() -> Array:
 	var out: Array = []
 	for fila in metales_forja():
-		for clave in ["mineral", "lingote", "chapa", "hebillas"]:
-			if material_visto(fila[clave] as MaterialData):
-				out.append(fila)
-				break
+		var conocido: bool = int((fila["mineral"] as MaterialData).tier) == 1
+		if not conocido:
+			for clave in ["mineral", "lingote", "chapa", "hebillas"]:
+				if material_visto(fila[clave] as MaterialData):
+					conocido = true
+					break
+		if conocido:
+			out.append(fila)
 	return out
 
 # Las tres formas, ya filtradas por lo que conoces. Son las que pinta el menu del herrero (la
