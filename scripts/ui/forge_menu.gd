@@ -633,8 +633,7 @@ func _contadores(vb: VBoxContainer, mat: MaterialData, sel: Dictionary, necesita
 			txt += "; el resto se queda en el Hogar"
 		var sobra: int = gastadas - necesita
 		if sobra > 0:
-			txt += ".  Sobran %d uds del recorte: %d%% de recuperar una pieza" % [
-				sobra, roundi(Forge.prob_devolver(sobra, Game.herreria_activa()) * 100.0)]
+			txt += ".  Sobran %d uds del recorte: vuelven al Hogar como %d dañado(s)" % [sobra, sobra]
 		_note(vb, txt + ".")
 
 	var hubo: bool = false

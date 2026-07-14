@@ -10,7 +10,7 @@
 #  cambio, SI mezcla: la calidad media tira su RAREZA, que es lo unico que la diferencia (no
 #  lleva mejoras). El TIER lo ponen las hebillas.
 #
-#  La math vive en Game/Forge/Crafting; aqui solo se pinta.
+#  La math vive en Game/Forge; aqui solo se pinta.
 # ============================================================
 
 extends CanvasLayer
@@ -317,8 +317,7 @@ func _contadores(mat: MaterialData, sel: Dictionary, necesita: int) -> void:
 		if uds > gastadas:
 			partes.append("se gastan %d uds y el resto se queda en el Hogar" % gastadas)
 		if sobra > 0:
-			partes.append("sobran %d uds del recorte: %d%% de recuperar una pieza" % [
-				sobra, roundi(Crafting.prob_devolver(sobra, Game.peleteria_activa()) * 100.0)])
+			partes.append("sobran %d uds del recorte: vuelven como %d dañado(s)" % [sobra, sobra])
 		if not partes.is_empty():
 			_note("   " + "; ".join(partes) + ".")
 

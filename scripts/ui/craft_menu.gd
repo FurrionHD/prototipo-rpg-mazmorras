@@ -295,8 +295,7 @@ func _aviso_recorte(r: RecipeData, gasto: Array) -> void:
 				ing.material.nombre.to_lower(), gastadas])
 		var sobra: int = gastadas - necesita
 		if sobra > 0:
-			partes.append("sobran %d uds del recorte: %d%% de recuperar una pieza" % [
-				sobra, roundi(Crafting.prob_devolver(sobra, Game.MEZCLA_ACTIVA) * 100.0)])
+			partes.append("sobran %d uds del recorte: vuelven como %d dañado(s)" % [sobra, sobra])
 		if not partes.is_empty():
 			var l := Label.new()
 			l.text = "  " + "; ".join(partes) + "."

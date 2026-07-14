@@ -88,7 +88,6 @@ static func bonus_metal(lingote: MaterialData) -> float:
 # GOLPE MAESTRO: probabilidad de que la Herreria saque la pieza UN TIER por encima del que da
 # el metal. Es el equivalente al "subir de categoria" que la Metalurgia hace con los lingotes:
 # cada oficio tiene su forma de regalarte un escalon.
-# (El AHORRO de material ya tiene su enganche en bonus_ahorro, abajo.)
 static func prob_tier_extra(_herreria_exp: float) -> float:
 	return 0.0
 
@@ -161,11 +160,8 @@ static func coste(base: Resource) -> Dictionary:
 	}
 
 
-# APROVECHAMIENTO del recorte: no es cosa de la forja, es de TODO lo que se fabrica (la
-# boticaria se topa con lo mismo), asi que vive en crafting.gd. Aqui solo se le pasa el bonus
-# de la HERRERIA, que es el oficio que le toca a la forja.
-static func prob_devolver(unidades_de_sobra: int, herreria_exp: float = 0.0) -> float:
-	return Crafting.prob_devolver(unidades_de_sobra, Crafting.bonus_ahorro(herreria_exp))
+# El APROVECHAMIENTO del recorte ya no es una tirada: lo que sobra vuelve directo como material
+# dañado (ver Game._tirar_devolucion). Se acabo la probabilidad, y con ella la clase Crafting.
 
 
 # --- TIER: lo fija el metal del lingote (su 'tier' de MaterialData) ---
