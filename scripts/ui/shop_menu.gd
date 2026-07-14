@@ -615,10 +615,25 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		_row(vb, "Defensa base", "%.2f" % (a.defensa_base * a.motion_def))
 		_row(vb, "Reducción", "%.0f%%" % (a.reduccion * 100.0))
 		_row(vb, "Velocidad", "×%.2f" % a.velocidad_mult)
+	elif base is WeaponData:
+		_stats_arma_base(vb, base as WeaponData)
+	elif base is ShieldData:
+		var sh := base as ShieldData
+		_row(vb, "Tipo", "Escudo (mano secundaria)")
+		_row(vb, "Bloqueo", "+%.2f" % sh.bloqueo)
+		_row(vb, "Velocidad", "×%.2f" % sh.velocidad_mult)
+	elif base is WandData:
+		var wd := base as WandData
+		_row(vb, "Tipo", "Varita (mano secundaria, magia)")
+		_row(vb, "Amplif. magia", "×%.2f" % wd.magic_amp)
+		_row(vb, "Vel. casteo", "×%.2f" % wd.cast_vel_mult)
 	else:
 		_row(vb, "Tipo", _tipo_equipo(base))
-	if str(base.get("descripcion")) != "":
-		_note(vb, str(base.get("descripcion")))
+	# OJO: WeaponData no tiene campo 'descripcion', asi que base.get() devuelve null y str(null)
+	# pintaba un "<null>" de nota. Se comprueba que no sea null ANTES de convertir a texto.
+	var desc: Variant = base.get("descripcion")
+	if desc != null and str(desc) != "":
+		_note(vb, str(desc))
 
 	vb.add_child(HSeparator.new())
 	if base is ConsumableData:
@@ -629,6 +644,14 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		_boton(vb, "Comprar", _on_comprar_equipo, llego)
 	if not llego:
 		_note(vb, "No te llega. Baja a por más cristales.")
+
+
+# Ficha de un arma del CATALOGO (tier 1, calidad comun: lo que vende el tendero y lo que da el
+# pack). Tira de la ficha COMPARTIDA (MenuScaffold.filas_arma), la misma del inventario y el menu
+# de personaje: una sola fuente, y añadir una stat se hace en un solo sitio.
+func _stats_arma_base(vb: VBoxContainer, w: WeaponData) -> void:
+	for fila in MenuScaffold.filas_arma(w, 1, Upgrades.Rareza.COMUN, {}):
+		_row(vb, fila[0], fila[1])
 
 
 func _tipo_equipo(base: Resource) -> String:
@@ -713,12 +736,7 @@ func _build_pack() -> void:
 func _preview_pack(vb: VBoxContainer) -> void:
 	var base: WeaponData = _stacks[_sel]["modelo"]
 	_title(vb, base.nombre)
-	_row(vb, "Tipo", _tipo_equipo(base))
-	_row(vb, "Ataque base", "%.1f" % base.ataque_base)
-	_row(vb, "Motion value", "×%.2f" % base.motion_value)
-	_row(vb, "Velocidad", "×%.2f" % base.velocidad_mult)
-	if base.crit_bonus != 0.0:
-		_row(vb, "Crítico", "%+.0f%%" % (base.crit_bonus * 100.0))
+	_stats_arma_base(vb, base)   # misma ficha completa que la tienda (crit, evasion, aturdir...)
 	_row(vb, "Valor", "%d monedas (gratis para ti)" % Game.precio_compra(base))
 	vb.add_child(HSeparator.new())
 	_boton(vb, "Reclamar el pack con esta arma", _on_reclamar_pack)

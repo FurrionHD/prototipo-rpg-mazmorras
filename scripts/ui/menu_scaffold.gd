@@ -229,6 +229,42 @@ static func pestanas(vb: VBoxContainer, nombres: Array, activa: int, pulsado: Ca
 	vb.add_child(fila_tabs)
 
 
+# ============================================================
+#  FICHA DE ARMA compartida
+#  Una SOLA fuente de verdad para las stats de un arma. La tienda, el pack, el inventario y el
+#  menu de personaje la pintaban cada uno por su cuenta, y al añadir una stat (la evasion) habia
+#  que acordarse de tocar los cuatro sitios -> siempre se olvidaba uno. Ahora sale de aqui:
+#  devuelve pares [etiqueta, valor] y cada menu los pinta con su propio _row. Todo se deriva de
+#  Upgrades.weapon_mods, la misma math que usa el combate, asi que lo que ves es lo que tienes.
+# ============================================================
+const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "Mandoble",
+	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
+
+static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionary) -> Array:
+	var m: Dictionary = Upgrades.weapon_mods(w, Game.tier_mult(tier), rareza, mejoras)
+	var filas: Array = [
+		["Tipo", WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)]
+			+ ("  ·  magia" if w.es_magica else "")],
+		["Manejo", "Dos manos" if w.dos_manos else "Una mano"],
+		["Ataque", "%.1f" % float(m["raw"])],
+		["Motion value", "×%.2f" % w.motion_value],
+		["Velocidad", "×%.2f" % (w.velocidad_mult * float(m["vel_mult"]))],
+	]
+	if float(m["crit"]) != 0.0:
+		filas.append(["Crítico", "%+.0f%%" % (float(m["crit"]) * 100.0)])
+	if float(m["precision"]) > 0.0:
+		filas.append(["Precisión", "+%.0f%%" % (float(m["precision"]) * 100.0)])
+	if float(m["evasion"]) > 0.0:
+		filas.append(["Evasión", "+%.0f%%" % (float(m["evasion"]) * 100.0)])
+	if float(m["aturdir"]) > 0.0:
+		filas.append(["Aturdir", "%.0f%%" % (float(m["aturdir"]) * 100.0)])
+	if float(m["bloqueo"]) > 0.0:
+		filas.append(["Bloqueo", "+%.2f" % float(m["bloqueo"])])
+	if w.es_magica:
+		filas.append(["Amplif. magia", "×%.2f" % w.magic_amp])
+	return filas
+
+
 # Cuadricula de botones para la columna de la LISTA (2 columnas de 150).
 static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Callable) -> void:
 	var grid := GridContainer.new()

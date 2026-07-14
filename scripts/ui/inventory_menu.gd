@@ -407,16 +407,13 @@ func _preview_arma(vb: VBoxContainer) -> void:
 	if item is WeaponData:
 		var w := item as WeaponData
 		_title(vb, Game.item_display_name(w) + ("   [equipada]" if equipada else ""))
-		_row(vb, "Tipo", WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)]
-			+ ("  (magia)" if w.es_magica else ""))
-		_row(vb, "Manejo", "Dos manos" if w.dos_manos else "Una mano")
-		_row(vb, "Ataque base", "%.1f" % w.ataque_base)
-		_row(vb, "Motion value", "×%.2f" % w.motion_value)
-		_row(vb, "Velocidad", "×%.2f" % w.velocidad_mult)
-		if w.crit_bonus != 0.0:
-			_row(vb, "Crítico", "%+.0f%%" % (w.crit_bonus * 100.0))
-		if w.es_magica:
-			_row(vb, "Amplif. magia", "×%.2f" % w.magic_amp)
+		# Ficha COMPARTIDA (MenuScaffold.filas_arma): las mismas stats resueltas que ve la tienda
+		# y el menu de personaje, con el tier/rareza/mejoras REALES de esta pieza (antes se
+		# enseñaban los valores base a secas, ignorando las mejoras y sin la evasion).
+		var meta: Dictionary = Game.meta_de(w)
+		for fila in MenuScaffold.filas_arma(w, int(meta["tier"]), int(meta["rareza"]), meta["mejoras"]):
+			_row(vb, fila[0], fila[1])
+		_row(vb, "Tier / rareza", "T%d · %s" % [int(meta["tier"]), Upgrades.rareza_nombre(int(meta["rareza"]))])
 	elif item is ShieldData:
 		var s := item as ShieldData
 		_title(vb, Game.item_display_name(s) + ("   [equipado]" if equipada else ""))
