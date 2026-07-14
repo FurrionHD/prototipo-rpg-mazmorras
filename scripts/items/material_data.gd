@@ -49,6 +49,15 @@ enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
 # escribe aqui a mano, se lee de alli (ver mejora_tope).
 # 0 = este material no mejora nada (todos los CORRIENTES).
 @export var mejora_max: int = 0
+# Y desde DONDE empieza su liga: el nivel de mejora a partir del cual este nucleo es el que
+# toca. Junto con mejora_max delimita su BANDA (el de slime cubre el +1..+3, el venenoso el
+# +4..+5, el de fuego el +6..+7). El coste en nucleos se cuenta DENTRO de la banda: al saltar
+# al nucleo siguiente vuelve a empezar en 1.
+#
+# Sin esto el coste era acumulativo global (mejoras+1), y como el nucleo tambien marca el
+# techo, al llegar al +3 te obligaba a cambiar de nucleo Y te cobraba 4 del nuevo de golpe:
+# llegar al +7 pedia 13 nucleos de slime de fuego, un bicho 1/50. Nadie iba a llegar nunca.
+@export var mejora_min: int = 0
 @export var uso_mejora: UsoMejora = UsoMejora.CUALQUIERA
 
 # Placeholder visual (el arte va al final): color del nodo en el mapa y del item del suelo.

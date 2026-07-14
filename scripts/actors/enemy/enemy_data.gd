@@ -87,13 +87,17 @@ class_name EnemyData
 # Un bicho puede dejar los dos, uno o ninguno. Si un campo esta vacio, ese bicho no lo suelta.
 #
 # El material corriente NO es un premio raro: es lo que sale de descuartizar un bicho, y las
-# pociones se comen muchisimo. Que caiga 1 de cada 4 es lo que hace que la boticaria tenga
-# sentido. El NUCLEO si es raro (1 de cada 20): es lo que sube el equipo, y ahi la escasez
+# pociones se comen muchisimo. Que caiga 3 de cada 10 es lo que hace que la boticaria tenga
+# sentido. El NUCLEO si es raro (1 de cada 10): es lo que sube el equipo, y ahi la escasez
 # ES el sistema de progresion.
+#
+# El nucleo estaba al 5%, y con el coste de mejora acumulado que habia, subir un arma al +7
+# pedia 13 nucleos de un bicho que sale 1 de cada 50: una cuenta que no terminaba nunca. El
+# coste ya se arreglo (Forge.nucleos_para_mejora), y esto es la otra mitad del arreglo.
 @export var drop_material: MaterialData = null
-@export var drop_chance: float = 0.25   # 1 de cada 4 (en pruebas se fuerza 100%)
+@export var drop_chance: float = 0.30   # 3 de cada 10 (en pruebas se fuerza 100%)
 @export var nucleo: MaterialData = null
-@export var nucleo_chance: float = 0.05   # 1 de cada 20
+@export var nucleo_chance: float = 0.10   # 1 de cada 10
 
 # --- ESTADOS ALTERADOS que aplica AL GOLPEAR (KAN-58 Fase 3) ---
 # Lista de StatusApplication (cada una con su prob). Un enemigo puede aplicar VARIOS:

@@ -205,11 +205,20 @@ static func tirar_rareza(score: float) -> int:
 
 
 # --- MEJORAR con NUCLEOS ---
-# Subir de +k a +(k+1) cuesta (k+1) nucleos: la primera mejora es barata y la septima duele.
-# El nucleo manda dos cosas mas (ya en MaterialData): a QUE sirve (uso_mejora ARMA/ARMADURA)
-# y hasta donde deja llegar (mejora_max: el de slime se queda en +3, el de fuego llega a +7).
-static func nucleos_para_mejora(mejoras_actuales: int) -> int:
-	return maxi(1, mejoras_actuales + 1)
+# El coste sube DENTRO de la banda de cada nucleo y se REINICIA al saltar al siguiente. Cada
+# nucleo cubre un tramo de niveles (mejora_min..mejora_max en MaterialData), y dentro de el la
+# cuenta va 1, 2, 3...: la primera mejora de ese nucleo es barata y la ultima duele.
+#
+#   slime/rata (0..3)      -> +1 = 1,  +2 = 2,  +3 = 3
+#   venenoso/rey rata (3..5) -> +4 = 1,  +5 = 2
+#   fuego/jabali (5..7)    -> +6 = 1,  +7 = 2
+#   rey slime (7..9)       -> +8 = 1,  +9 = 2
+#
+# Antes la cuenta era acumulativa GLOBAL (mejoras+1), asi que el nucleo nuevo entraba cobrando
+# 4, 6, 8... de una tacada. Llegar al +7 pedia 13 nucleos de slime de fuego. Ver mejora_min.
+static func nucleos_para_mejora(mejoras_actuales: int, nucleo: MaterialData = null) -> int:
+	var desde: int = 0 if nucleo == null else maxi(0, nucleo.mejora_min)
+	return maxi(1, mejoras_actuales + 1 - desde)
 
 
 static func nucleo_vale(nucleo: MaterialData, item: Resource) -> bool:

@@ -15,6 +15,7 @@ peso_base = 0.4
 valor_base = 70
 color = Color(0.7, 0.6, 0.5, 1)
 mejora_max = 3
+mejora_min = 0
 uso_mejora = 2
 piso_min = 1
 piso_max = 0

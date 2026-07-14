@@ -724,7 +724,7 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 
 	var actuales: int = Game.mejoras_actuales(item)
 	var tope: int = Game.tope_mejoras(item, nucleo)
-	var cuesta: int = Forge.nucleos_para_mejora(actuales)
+	var cuesta: int = Forge.nucleos_para_mejora(actuales, nucleo)
 	_row(vb, "Mejoras", "+%d  (tope con este núcleo: +%d)" % [actuales, tope])
 	_row(vb, "Huecos por rareza", str(Upgrades.rareza_slots(int(Game.meta_de(item)["rareza"]))))
 
@@ -747,7 +747,7 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 		fila.add_child(b)
 	vb.add_child(fila)
 	_row(vb, "Cuesta", "%d × %s  (tienes %d)" % [cuesta, nucleo.nombre, Game.nucleos_en_hogar(nucleo)])
-	_note(vb, "La siguiente mejora siempre cuesta un núcleo más que la anterior.")
+	_note(vb, "Cada núcleo cubre un tramo de mejoras, y dentro de él cada mejora cuesta un núcleo más que la anterior. Al cambiar a un núcleo mejor, la cuenta vuelve a empezar en uno.")
 
 	vb.add_child(HSeparator.new())
 	var cats: Array = _categorias(item)

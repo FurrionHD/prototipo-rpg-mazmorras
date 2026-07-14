@@ -84,7 +84,7 @@ const MAGIA_COSTE_REF := 4.0   # coste de referencia (Chispa) para el factor de 
 const EXTRACTION_REQ_FACTOR := 0.25
 const EXTRACTION_BASE_ZONE := 0.16      # tamaño de zona a dificultad 1
 const EXTRACTION_DESTREZA_FLOOR := 20.0 # skill base minimo (bajo: el novato SI sufre)
-const EXTRACTION_BASE_MARKER := 0.55    # velocidad del marcador a dificultad 1
+const EXTRACTION_BASE_MARKER := 0.75    # velocidad del marcador a dificultad 1
 # TECHO de la velocidad del marcador (recorridos de la barra por segundo).
 #
 # Es el minijuego mas VIEJO y el unico que no tenia tope: la dificultad lo aceleraba, el piso
@@ -93,7 +93,17 @@ const EXTRACTION_BASE_MARKER := 0.55    # velocidad del marcador a dificultad 1
 # velocidades el marcador salta decenas de pixeles por frame y se ve BORROSO por muchos FPS
 # que haya (a 144 estables seguia sin verse nitido). Lo dificil tiene que ser acertar en una
 # zona ESTRECHA, no perseguir con la vista algo que ya no se puede seguir.
-const EXTRACTION_MARKER_MAX := 1.1
+const EXTRACTION_MARKER_MAX := 1.3
+
+# SUELO del reto A EFECTOS DE VELOCIDAD, comun a los tres minijuegos. La dificultad relativa
+# tambien ensancha o estrecha la ventana, y ahi si tiene sentido que baje de 1 (si eres muy
+# superior al material, aciertas mas facil). Pero dejarla bajar por debajo de 1 en la VELOCIDAD
+# era un error: hacia que el marcador de un veterano fuese al 60-70% de su velocidad base, o
+# sea que cuanto mejor eras, mas LENTO y mas aburrido se volvia el minijuego. Justo al reves de
+# lo que tiene que pasar. Con el suelo a 1.0, la velocidad base es el MINIMO: lo que la pericia
+# te regala es la ventana, no el tedio.
+const RECOLECCION_VEL_RETO_MIN := 1.0
+const RECOLECCION_VEL_RETO_MAX := 2.5
 # Pivote para la GANANCIA de Destreza: solo aprendes de verdad si la extraccion
 # fue dura PARA TI. Por debajo de este reto la ganancia cae en picado (curva ^2);
 # por encima se mantiene. Sube el pivote para castigar mas las extracciones
@@ -110,13 +120,14 @@ const EXTRACTION_DESTREZA_RETO_MAX := 8.0
 # Misma idea que la extraccion (dificultad RELATIVA: lo que exige el material contra la
 # stat que lo trabaja), pero cada actividad mira SU stat: la veta pide FUERZA, la planta
 # pide DESTREZA. La profundidad endurece el material (roca mas apretada, tallos mas secos).
-const RECOLECCION_PISO_FACTOR := 1.08   # exigencia x1.08 por piso
+const RECOLECCION_PISO_FACTOR := 1.10   # exigencia x1.10 por piso
 
 # MINERIA (pico, Fuerza). La Fuerza ensancha la franja optima Y la baja: un brazo fuerte
 # rompe la veta sin tener que cargar el pico hasta arriba.
 const MINERIA_FUERZA_FLOOR := 20.0      # suelo de skill (el novato SI sufre)
 const MINERIA_BASE_VENTANA := 0.22      # ancho de la franja optima a dificultad 1
 const MINERIA_BASE_CARGA := 1.0         # velocidad de la barra de carga a dificultad 1
+const MINERIA_CARGA_MIN := 0.8          # suelo duro: por debajo de esto cargar es esperar
 # TECHO de la barra de carga: por encima de esto la barra deja de ser un reto y pasa a ser un
 # borron (ver EXTRACTION_MARKER_MAX, que es donde se noto el problema).
 const MINERIA_CARGA_MAX := 2.2
@@ -130,7 +141,7 @@ const MINERIA_RETO_MAX := 5.0           # tope FISICO (como el resto de la Fuerz
 const HERB_DESTREZA_FLOOR := 20.0
 const HERB_BASE_NUCLEO := 0.06          # semiancho del corte limpio a dificultad 1
 const HERB_BORDE_MULT := 2.2            # el borde (corte sucio) es este multiplo del nucleo
-const HERB_BASE_VEL := 0.7              # pasadas/seg a dificultad 1
+const HERB_BASE_VEL := 0.9              # pasadas/seg a dificultad 1
 # TECHO de la pasada (mismo motivo que MINERIA_CARGA_MAX): lo que hace dificil un tallo es que
 # el NUCLEO sea fino, no que el marcador sea imposible de seguir con la vista.
 const HERB_VEL_MAX := 1.6
@@ -191,12 +202,43 @@ var semilla_mundo: int = 0
 var pos_cargada: Vector2 = Vector2.INF
 
 
-# Empieza una partida DE CERO (menu -> Nueva partida). Mundo nuevo y personaje a estrenar.
-func nueva_partida() -> void:
+# --- IDENTIDAD del personaje (la elige el jugador al crear la partida, ver main_menu.gd) ---
+# Van en el SaveData: cada ranura es un personaje distinto, no una preferencia del perfil.
+const NOMBRE_POR_DEFECTO := "Aventurero"
+var player_nombre: String = NOMBRE_POR_DEFECTO
+var player_color: Color = Color(1, 1, 1)   # tiñe su cuerpo por el mapa (player.tscn)
+var player_metalico: float = 0.0           # acabado metalico del cuerpo (shaders/metal.gdshader)
+
+const SHADER_METAL: Shader = preload("res://shaders/metal.gdshader")
+
+# Material del CUERPO del personaje con el acabado que toque. Lo usan el jugador del mapa
+# (player.gd) y la muestra de la pantalla de creacion (main_menu.gd), asi que lo que ves al
+# elegir es exactamente lo que luego te llevas. El COLOR no va aqui: lo pone el nodo.
+# metalico <= 0 -> null (mate: sin shader, como antes de que existiera esto).
+func material_cuerpo(metalico: float = -1.0) -> ShaderMaterial:
+	var m: float = player_metalico if metalico < 0.0 else metalico
+	if m <= 0.0:
+		return null
+	var mat := ShaderMaterial.new()
+	mat.shader = SHADER_METAL
+	mat.set_shader_parameter("metal", clampf(m, 0.0, 1.0))
+	return mat
+
+
+# Empieza una partida DE CERO (menu -> Nueva partida). Mundo nuevo y personaje a estrenar,
+# con el nombre, el color y el acabado que haya elegido en la pantalla de creacion.
+func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1, 1, 1),
+		metalico_: float = 0.0) -> void:
 	randomize()
 	semilla_mundo = randi()
 	if semilla_mundo == 0:
 		semilla_mundo = 1   # 0 = "sin semilla"; nunca puede ser el valor bueno
+
+	player_nombre = nombre_.strip_edges()
+	if player_nombre == "":
+		player_nombre = NOMBRE_POR_DEFECTO   # sin nombre te llamas Aventurero, no ""
+	player_color = color_
+	player_metalico = clampf(metalico_, 0.0, 1.0)
 
 	player_level = 1
 	ability_internal = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
@@ -263,6 +305,9 @@ func exportar_partida() -> SaveData:
 	var player := get_tree().get_first_node_in_group("player")
 
 	d.semilla_mundo = semilla_mundo
+	d.nombre = player_nombre     # identidad: la eligio al crear la partida
+	d.color = player_color
+	d.metalico = player_metalico
 	d.ability_internal = ability_internal.duplicate()
 	d.player_level = player_level
 	d.player_current_hp = player_hp()
@@ -332,6 +377,9 @@ func exportar_partida() -> SaveData:
 
 func importar_partida(d: SaveData) -> void:
 	semilla_mundo = d.semilla_mundo
+	player_nombre = d.nombre if d.nombre.strip_edges() != "" else NOMBRE_POR_DEFECTO
+	player_color = d.color
+	player_metalico = d.metalico
 
 	ability_internal = d.ability_internal.duplicate()
 	player_level = d.player_level
@@ -1113,20 +1161,10 @@ func arrastrar_regen_mana(total: float) -> void:
 	print("[objeto] Arrastras %.1f de maná pendiente al salir del combate (%.1f/s)" % [
 		total, CARRY_HEAL_RATE])
 
-# Maná que recuperarías en UN TURNO de combate con tu loadout actual (base por Magia +
-# bonus de arma mágica, igual que combat.gd). Lo usa la regen pasiva fuera de combate.
-func mana_regen_por_turno() -> float:
-	var bonus: float = float(loadout_mods().get("mp_regen_bonus", 0.0))
-	return StatsMath.mp_regen(float(player_magia)) + bonus
-
-# Regen PASIVA de maná FUERA de combate: rellena "lo de un turno" pero POR SEGUNDO (lento;
-# un pool grande tarda mas). Si quieres ir rapido, bebes una poción. player_current_mp = -1
-# significa "lleno", asi que no toca nada. En COMBATE la regen es por turno (combat.gd).
-func tick_mana_regen(delta: float) -> void:
-	var maxmp: float = player_max_mp()
-	if maxmp <= 0.0 or player_current_mp < 0.0 or player_current_mp >= maxmp:
-		return
-	player_current_mp = minf(maxmp, player_current_mp + mana_regen_por_turno() * delta)
+# NO hay regen PASIVA de maná por el mapa (antes: "lo de un turno" por segundo). Se quito a
+# proposito: el jugador se plantaba quieto mirando la barra, y eso no es una decision, es una
+# espera. El maná se recupera JUGANDO — pegando y ganando combates (ver combat.gd) —, bebiendo
+# pociones de maná (tick_mana_pocion) o descansando en el altar del pueblo.
 
 # Tiquea la cura fuera de combate (la llama player.gd cada frame). Sube player_current_hp
 # sin pasarse del maximo, gastando player_heal_left.
@@ -1145,7 +1183,8 @@ func tick_heal(delta: float) -> void:
 		player_heal_rate = 0.0
 
 # Tiquea el MANÁ de poción fuera de combate (la llama player.gd). Sube player_current_mp
-# gastando player_mana_heal_left. Va ADEMAS de la regen pasiva (tick_mana_regen).
+# gastando player_mana_heal_left. Es la UNICA via de recuperar maná fuera de combate (ya no
+# hay regen pasiva), junto al altar del pueblo.
 func tick_mana_pocion(delta: float) -> void:
 	if player_mana_heal_left <= 0.0:
 		return
@@ -1244,7 +1283,7 @@ func crear_player_combatant() -> Combatant:
 	a.destreza = player_destreza
 	a.agilidad = player_agilidad
 	a.magia = player_magia
-	var c := Combatant.new("Heroe", player_level, a,
+	var c := Combatant.new(player_nombre, player_level, a,
 		player_base_hp, player_base_attack, player_base_defense, player_base_speed)
 	c.base_magic = player_base_magic
 	if player_current_hp < 0.0:
@@ -2174,7 +2213,7 @@ func _tirar_devolucion(mat: MaterialData, gasto: Dictionary, necesita: int, bonu
 # mochila de otra, asi que aqui la tirada importa mas que en ningun sitio.
 const MOCHILA_BASE := "res://resources/backpacks/mochila_basica.tres"
 # Coste, en unidades (mismas que el resto del crafteo: puro 4 / intacto 3 / normal 2 / dañado 1).
-const MOCHILA_COSTE := {"hebillas": 3, "correa": 4, "cuero": 6}
+const MOCHILA_COSTE := {"hebillas": 3, "correa": 3, "cuero": 6}
 
 func mochila_base() -> BackpackData:
 	return load(MOCHILA_BASE) as BackpackData
@@ -2245,7 +2284,7 @@ func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
 		return false
 	if mejoras_actuales(item) >= tope_mejoras(item, nucleo):
 		return false
-	return nucleos_en_hogar(nucleo) >= Forge.nucleos_para_mejora(mejoras_actuales(item))
+	return nucleos_en_hogar(nucleo) >= Forge.nucleos_para_mejora(mejoras_actuales(item), nucleo)
 
 # Mete UNA mejora de la categoria `cat` en la pieza, gastando nucleos. La meta va POR OBJETO
 # (item_meta), y equip_meta apunta al MISMO dict: mejorar el arma que llevas puesta la mejora
@@ -2253,7 +2292,7 @@ func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
 func mejorar_item(item: Resource, cat: String, nucleo: MaterialData) -> bool:
 	if not puede_mejorar(item, nucleo):
 		return false
-	var cuesta: int = Forge.nucleos_para_mejora(mejoras_actuales(item))
+	var cuesta: int = Forge.nucleos_para_mejora(mejoras_actuales(item), nucleo)
 	_consumir_nucleos(nucleo, cuesta)
 	var mj: Dictionary = meta_de(item)["mejoras"]
 	mj[cat] = int(mj.get(cat, 0)) + 1
@@ -2640,8 +2679,20 @@ func debug_set_abilities(f: int, r: int, d: int, a: int, m: int) -> void:
 
 
 # Teclas de DESARROLLO (temporales): U actualizar estado, H cura, R respawn.
-func _input(event: InputEvent) -> void:
+#
+# OJO, va en _unhandled_key_input Y NO EN _input A PROPOSITO: _input corre ANTES que la GUI,
+# asi que estas teclas se comian lo que escribias en cualquier campo de texto (el nombre de la
+# creacion de personaje: la R recargaba la escena, la T te mandaba al sandbox...). Un control
+# con el foco (LineEdit) CONSUME las teclas, y lo "unhandled" solo recibe las que nadie ha
+# consumido: asi se escribe tranquilo y las teclas de dev siguen funcionando por el mapa.
+# No lo devuelvas a _input.
+func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	# En el MENU todavia no hay partida: aqui una T (sandbox) o una R (recargar) no llevan a
+	# ningun sitio bueno, porque no hay personaje que meter en el mundo.
+	var esc: Node = get_tree().current_scene
+	if esc != null and esc.scene_file_path.ends_with("main_menu.tscn"):
 		return
 	match (event as InputEventKey).keycode:
 		KEY_U:
@@ -2857,11 +2908,15 @@ func start_extraction(corpse: Node) -> void:
 	# Guardamos la dificultad para la ganancia de Destreza al terminar.
 	_last_extraction_zone = zone_ratio
 	_last_extraction_hits = required_hits
-	# Marcador: mas rapido cuanto mas DIFICIL (y mas profundo el piso), pero con TECHO.
-	var marker_speed: float = EXTRACTION_BASE_MARKER * clampf(difficulty, 0.6, 2.5) \
+	# Marcador: mas rapido cuanto mas DIFICIL (y mas profundo el piso), con TECHO y con SUELO
+	# (ver RECOLECCION_VEL_RETO_MIN: ser bueno no puede hacer que el marcador vaya mas lento).
+	var marker_speed: float = EXTRACTION_BASE_MARKER \
+		* clampf(difficulty, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX) \
 		+ float(current_floor - 1) * 0.08
 	marker_speed = minf(marker_speed, EXTRACTION_MARKER_MAX)
 	var speed_step: float = 0.15
+	print("[reco] extraccion cat %d · piso %d · Destreza %d -> reto %.2f  (zona %.3f, marcador %.2f, pulsaciones %d)" % [
+		categoria, current_floor, player_destreza, difficulty, zone_ratio, marker_speed, required_hits])
 
 	var ex: Control = _extraction_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -2990,15 +3045,18 @@ func start_mineria(nodo) -> void:
 	var ancho: float = clampf(MINERIA_BASE_VENTANA / d, 0.06, 0.45) + p.ventana_bonus
 	ancho = clampf(ancho, 0.06, 0.60)
 	var ini: float = clampf(0.45 * d, 0.15, 1.0 - ancho - 0.05)
-	var carga: float = MINERIA_BASE_CARGA * clampf(d, 0.7, 2.5) \
+	var carga: float = MINERIA_BASE_CARGA \
+		* clampf(d, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX) \
 		+ 0.06 * float(current_floor - 1) - p.control
 	# El techo se aplica AL FINAL, con el piso y el pico ya dentro: si se aplicara antes, la
 	# profundidad volveria a colarse por encima de el.
-	carga = clampf(carga, 0.35, MINERIA_CARGA_MAX)
+	carga = clampf(carga, MINERIA_CARGA_MIN, MINERIA_CARGA_MAX)
 	var golpes: int = clampi(roundi(MINERIA_GOLPES_BASE * d), 2, 8) - p.golpes_menos
 	golpes = maxi(2, golpes)
 
 	_last_reco_reto = d
+	print("[reco] mineria %s · piso %d · Fuerza %d · exigencia %.0f -> reto %.2f  (franja %.3f, carga %.2f, golpes %d)" % [
+		m.nombre, current_floor, player_fuerza, _exigencia_material(m), d, ancho, carga, golpes])
 	var ex: Control = _mining_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
 	ex.setup(m, golpes, ini, ancho, carga)
@@ -3032,11 +3090,19 @@ func start_herboristeria(nodo) -> void:
 
 	var nucleo: float = clampf(HERB_BASE_NUCLEO / d, 0.015, 0.14) + h.filo
 	var borde: float = nucleo * HERB_BORDE_MULT
-	var vel: float = HERB_BASE_VEL * clampf(d, 0.7, 2.5) + 0.05 * float(current_floor - 1)
+	# El techo (HERB_VEL_MAX) estaba declarado pero NO se aplicaba: la pasada podia dispararse
+	# con el piso y volverse imposible de seguir con la vista, que es justo lo que el techo
+	# existia para evitar. Ahora se aplica, y con el suelo comun al otro lado.
+	var vel: float = HERB_BASE_VEL \
+		* clampf(d, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX) \
+		+ 0.05 * float(current_floor - 1)
+	vel = minf(vel, HERB_VEL_MAX)
 	var cortes: int = clampi(2 + floori(d), 2, 5) - h.cortes_menos
 	cortes = maxi(2, cortes)
 
 	_last_reco_reto = d
+	print("[reco] herboristeria %s · piso %d · Destreza %d · exigencia %.0f -> reto %.2f  (nucleo %.3f, vel %.2f, cortes %d)" % [
+		m.nombre, current_floor, player_destreza, _exigencia_material(m), d, nucleo, vel, cortes])
 	var ex: Control = _harvest_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
 	ex.setup(m, cortes, nucleo, borde, vel)
