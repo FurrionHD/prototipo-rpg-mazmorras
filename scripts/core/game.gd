@@ -2850,10 +2850,13 @@ func _score_calidad(cal: int) -> float:
 #
 # Solo se gasta lo NECESARIO: si metes de mas, el sobrante se queda en el baul, y lo que sobra
 # del ultimo trozo puede volver (mismo trato que en la forja; ver crafting.gd).
-func craftear_con(receta: RecipeData, seleccion: Array) -> bool:
+# Devuelve el TOTAL de pociones fabricadas (contando los dobles); 0 = no se pudo. Antes devolvia
+# bool; el menu lo usa con un 'if' y en GDScript if 0 = falso, if N>0 = verdadero, asi que sigue
+# valiendo, pero ahora la botanica puede decir CUANTAS salieron (como la forja dice que forja).
+func craftear_con(receta: RecipeData, seleccion: Array) -> int:
 	var n: int = pociones_de_seleccion(receta, seleccion)
 	if n < 1:
-		return false
+		return 0
 	# Lo que se gasta DE VERDAD, por ingrediente. La prob. de doble se calcula con esto y no con
 	# lo elegido: un dañado que ni se llega a usar no tiene por que bajarte la media.
 	var gasto: Array = gasto_crafteo(receta, seleccion)
@@ -2875,7 +2878,7 @@ func craftear_con(receta: RecipeData, seleccion: Array) -> bool:
 	mezcla_exp += MEZCLA_EXP_POR_POCION * float(total)
 	print("[boticaria] Fabricas ", n, " poción(es) -> ", total, " x ", receta.resultado.nombre,
 		"  (prob. doble ", roundi(prob * 100.0), "% por poción)  ·  Mezcla ", snappedf(mezcla_exp, 0.1))
-	return true
+	return total
 
 
 # Quita del baul `cantidad` items de cada (material, calidad) de la seleccion.

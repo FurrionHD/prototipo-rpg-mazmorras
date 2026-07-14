@@ -14,6 +14,9 @@ var _root: Control = null
 var _header: VBoxContainer = null    # cabecera FIJA
 var _list: VBoxContainer = null      # botones de receta (izquierda), con su scroll
 var _detail: VBoxContainer = null    # detalle de la receta seleccionada (derecha), con el suyo
+var _aviso_lbl: Label = null         # linea de aviso (lo fabricado), como forja/peletero
+var _aviso: String = ""
+var _aviso_ok: bool = true
 var _recetas: Array = []
 var _sel: int = 0
 # SELECCION de materiales de la receta actual: Array paralelo a receta.ingredientes; cada
@@ -39,6 +42,7 @@ func _ready() -> void:
 	_header = m["header"]
 	_list = m["lista"]
 	_detail = m["content"]
+	_aviso_lbl = m["aviso"]   # el scaffold ya la crea; la forja y el peletero tambien la usan
 
 
 func abrir() -> void:
@@ -47,6 +51,7 @@ func abrir() -> void:
 		return
 	_recetas = Game.recetas_boticaria()
 	_sel = 0
+	_aviso = ""
 	_reset_seleccion()
 	_root.visible = true
 	Game.inventory_open = true   # congela al jugador
@@ -84,6 +89,7 @@ func _rebuild() -> void:
 			c.queue_free()
 	MenuScaffold.titulo(_header, "RECETAS")
 	_header.add_child(HSeparator.new())
+	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 	if _recetas.is_empty():
 		var l := Label.new()
 		l.text = "(no hay recetas)"
@@ -109,8 +115,14 @@ func _rebuild() -> void:
 
 func _pick(i: int) -> void:
 	_sel = i
+	_aviso = ""            # cambiar de receta borra el aviso de la anterior (como la forja)
 	_reset_seleccion()   # otra receta = empezar de cero la eleccion de materiales
 	_rebuild()
+
+
+func _decir(txt: String, ok: bool = true) -> void:
+	_aviso = txt
+	_aviso_ok = ok
 
 
 # ¿Hay material EN PRINCIPIO para esta receta? (para el ✓ de la lista, sin mirar la
@@ -358,6 +370,13 @@ func _on_limpiar() -> void:
 
 
 func _on_fabricar() -> void:
-	if Game.craftear_con(_recetas[_sel], _seleccion):
+	var receta: RecipeData = _recetas[_sel]
+	# El nombre ANTES de fabricar/resetear (la seleccion se limpia despues).
+	var nombre: String = receta.resultado.nombre if receta.resultado != null else "poción"
+	var total: int = Game.craftear_con(receta, _seleccion)
+	if total > 0:
+		_decir("Fabricas %d × %s. Está en tu bolsa." % [total, nombre])
 		_reset_seleccion()   # los materiales cambiaron: empezar limpio
-		_rebuild()
+	else:
+		_decir("No te llega el material.", false)
+	_rebuild()
