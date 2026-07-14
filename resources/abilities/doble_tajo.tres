@@ -5,9 +5,9 @@
 [resource]
 script = ExtResource("1")
 nombre = "Doble tajo"
-coste_energia = 34
-coste_energia_dual = 50
-cooldown = 3
+coste_energia = 42
+coste_energia_dual = 60
+cooldown = 4
 golpes_min = 2
 golpes_max = 2
 golpes_dual_min = 3

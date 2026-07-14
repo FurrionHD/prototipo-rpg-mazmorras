@@ -12,7 +12,7 @@ mult = 0.7
 [resource]
 script = ExtResource("1")
 nombre = "Hendedura"
-coste_energia = 50
+coste_energia = 54
 cooldown = 4
 golpes_min = 1
 golpes_max = 1

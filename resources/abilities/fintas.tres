@@ -5,9 +5,9 @@
 [resource]
 script = ExtResource("1")
 nombre = "Fintas"
-coste_energia = 32
-coste_energia_dual = 48
-cooldown = 3
+coste_energia = 40
+coste_energia_dual = 58
+cooldown = 4
 golpes_min = 2
 golpes_max = 2
 golpes_dual_min = 3
