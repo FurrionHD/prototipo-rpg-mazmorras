@@ -202,9 +202,33 @@ var current_floor: int = 1
 # pisos se irian vaciando para siempre y no se podria volver a farmear.
 var memoria_pisos: Dictionary = {}
 
+# ESTADO PERSISTENTE de la mazmorra (piso -> {agotados, zonas_vistas}). A diferencia de
+# memoria_pisos, esto SOBREVIVE a volver al pueblo: es lo que hace que picar un nodo no se
+# resetee al salir y reentrar (era un farmeo hacker: entrabas, picabas, salias, todo nuevo).
+#   - agotados: { celda: tiempo_mazmorra en que se pico }. El nodo reaparece cuando pasa su
+#     RESPAWN (ver dungeon_floor). Antes era { celda: true } y se borraba con la expedicion.
+#   - zonas_vistas: { zona_idx: true }. La niebla del mapa (tecla M).
+# Va SEPARADO de memoria_pisos A PROPOSITO: la bandera 'recordado' del piso es
+# memoria_pisos.has(piso), y si dejara aqui la entrada del piso, dejaria de POBLARSE de bichos.
+var mazmorra_persistente: Dictionary = {}
+
+# Reloj de EXPEDICION: solo corre mientras juegas (el arbol se pausa en combate, asi que no
+# cuenta el tiempo de los turnos). Lo tiquea DungeonFloor. No se puede trampear cerrando el
+# juego (se congela) ni tocando el reloj del PC (no mira la hora real). Persiste en el save.
+var tiempo_mazmorra: float = 0.0
+
 
 func olvidar_mazmorra() -> void:
 	memoria_pisos.clear()
+	# mazmorra_persistente NO se toca: los nodos agotados y las zonas vistas duran mas que una
+	# expedicion (esa es justo la gracia). El reloj tampoco se reinicia.
+
+
+# El estado persistente del piso (agotados + zonas_vistas), creandolo vacio si no existe.
+func persistente_piso(piso: int) -> Dictionary:
+	if not mazmorra_persistente.has(piso):
+		mazmorra_persistente[piso] = {"agotados": {}, "zonas_vistas": {}}
+	return mazmorra_persistente[piso]
 
 
 # ============================================================
@@ -306,6 +330,10 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	current_floor = 1
 	pos_cargada = Vector2.INF
 	olvidar_mazmorra()
+	# Partida nueva SI reinicia lo persistente y el reloj (olvidar_mazmorra no los toca porque
+	# tienen que durar entre expediciones; una partida nueva es otra cosa).
+	mazmorra_persistente.clear()
+	tiempo_mazmorra = 0.0
 	print("[partida] mundo nuevo. Semilla: ", semilla_mundo)
 
 
@@ -389,6 +417,8 @@ func exportar_partida() -> SaveData:
 	if player is Node2D:
 		d.pos_jugador = (player as Node2D).global_position
 	d.memoria_pisos = memoria_pisos.duplicate(true)
+	d.mazmorra_persistente = mazmorra_persistente.duplicate(true)
+	d.tiempo_mazmorra = tiempo_mazmorra
 
 	# Cabecera (lo que se ve en la lista de ranuras).
 	d.fecha = Time.get_datetime_string_from_system(false, true)
@@ -474,6 +504,8 @@ func importar_partida(d: SaveData) -> void:
 
 	current_floor = d.current_floor
 	memoria_pisos = d.memoria_pisos.duplicate(true)
+	mazmorra_persistente = d.mazmorra_persistente.duplicate(true)
+	tiempo_mazmorra = d.tiempo_mazmorra
 	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
 
 	# Curas a medias y estados de la sesion anterior: fuera.
@@ -3042,6 +3074,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_dev_test_spawns()
 		KEY_B:
 			_dev_brote()
+		KEY_N:
+			# Salta el reloj 10 min de juego: para probar el respawn de recursos sin esperar.
+			tiempo_mazmorra += 600.0
+			print("[dev] +10 min de reloj de mazmorra (total %.0fs). Recarga el piso (R) para ver el respawn." % tiempo_mazmorra)
 
 
 # --- PRUEBAS del sistema de spawns ---

@@ -128,6 +128,13 @@ const VERSION_ACTUAL := 2
 # antes de guardar; si no, guardarias vacio el piso que estas pisando).
 @export var memoria_pisos: Dictionary = {}
 
+# Estado PERSISTENTE de la mazmorra (piso -> {agotados, zonas_vistas}) y el reloj de expedicion.
+# A diferencia de memoria_pisos, duran mas que una expedicion: los nodos agotados (con su
+# sello de tiempo para el respawn) y las zonas exploradas (niebla del mapa). Las partidas
+# viejas los rellenan a vacio/0, asi que NO hace falta subir VERSION_ACTUAL.
+@export var mazmorra_persistente: Dictionary = {}
+@export var tiempo_mazmorra: float = 0.0
+
 
 # Resumen de una linea para la lista de ranuras.
 func resumen() -> String:

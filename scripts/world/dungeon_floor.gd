@@ -54,9 +54,15 @@ class_name DungeonFloor
 @export var vetas_max_sala: int = 2
 # TOPE por piso. Es lo que de verdad manda: los numeros de arriba son la forma del reparto
 # (donde caen), esto es CUANTAS hay. En el PISO 1. Ver escalar_con_el_piso().
-@export var max_vetas_piso: int = 5
-@export var max_plantas_piso: int = 5
-@export var max_madera_piso: int = 5
+# Densidad subida a 8 (era 5): con el respawn por tiempo ya no es farmeo infinito (picar uno no
+# hace aparecer otro; el que picas tarda RESPAWN_SEGUNDOS de juego en volver), asi que puede
+# haber mas nodos a la vista sin romper la economia.
+@export var max_vetas_piso: int = 8
+@export var max_plantas_piso: int = 8
+@export var max_madera_piso: int = 8
+
+# Tiempo de JUEGO que tarda un nodo picado en reaparecer (~10 min). PROVISIONAL -> Excel.
+const RESPAWN_SEGUNDOS := 600.0
 
 # --- RITMO de los partos (segundos). Franja ANCHA y LENTA a proposito: ver spawn_zone.gd ---
 @export var intervalo_min: float = 25.0
@@ -204,9 +210,10 @@ func _construir(por_la_bajada: bool = false) -> void:
 	gen.generar(ancho_celdas, alto_celdas, _semilla_del_piso(),
 		max_salas, sala_min, sala_max, ancho_pasillo)
 
-	# Lo que ya picaste en este piso (si lo habias pisado antes en esta expedicion).
-	var mem: Dictionary = Game.memoria_pisos.get(_piso_construido, {})
-	_agotados = (mem.get("agotados", {}) as Dictionary).duplicate()
+	# Lo que ya picaste en este piso, con el SELLO de tiempo de cuando lo picaste (para el
+	# respawn). Vive en mazmorra_persistente, que sobrevive a volver al pueblo: por eso picar un
+	# nodo y salir/entrar ya no lo resetea. { celda: tiempo_mazmorra en que se pico }.
+	_agotados = (Game.persistente_piso(_piso_construido)["agotados"] as Dictionary).duplicate()
 
 	_construir_geometria()
 	_colocar_actores(por_la_bajada)
@@ -507,17 +514,24 @@ func _colocar_vetas(rng: RandomNumberGenerator) -> int:
 	return puestas
 
 
-# Instancia un recolectable (tipo 0 = veta, 1 = planta, 2 = madera). Devuelve false si esa celda ya la
-# picaste (entonces no nace: una veta agotada no reaparece entera al volver al piso) o si la
-# tabla no tiene nada para esta profundidad.
+# Instancia un recolectable (tipo 0 = veta, 1 = planta, 2 = madera). Devuelve false si esa celda
+# esta agotada y AUN NO le toca reaparecer (respawn por tiempo), o si la tabla no tiene nada
+# para esta profundidad.
 func _crear_recolectable(tipo: int, celda: Vector2i, tabla: MaterialTable,
 		rng: RandomNumberGenerator) -> bool:
 	# La tirada del material se hace SIEMPRE, incluso si la celda esta agotada: si no, saltarse
 	# una veta picada desplazaria la secuencia del RNG y cambiaria el material de TODAS las
 	# demas al volver al piso.
 	var m: MaterialData = tabla.elegir(Game.current_floor, rng)
-	if m == null or _agotados.has(celda):
+	if m == null:
 		return false
+	# ¿Agotada? Reaparece cuando han pasado RESPAWN_SEGUNDOS de JUEGO desde que la picaste. Si ya
+	# le toca, se limpia el sello y nace como nueva; si no, no nace todavia.
+	if _agotados.has(celda):
+		if Game.tiempo_mazmorra - float(_agotados[celda]) < RESPAWN_SEGUNDOS:
+			return false
+		_agotados.erase(celda)
+		(Game.persistente_piso(_piso_construido)["agotados"] as Dictionary).erase(celda)
 	var nodo = _reco_script.new()   # sin tipar: asi GDScript deja escribirle lo suyo
 	nodo.tipo = tipo
 	nodo.material_data = m
@@ -555,9 +569,12 @@ func _celda_junto_a_pared(celdas: Array, rng: RandomNumberGenerator) -> Vector2i
 var _ocupada: Dictionary = {}
 
 
-# Lo llama Game al terminar un minijuego de recoleccion: esa celda ya esta explotada.
+# Lo llama Game al terminar un minijuego de recoleccion: esa celda queda explotada, con el
+# SELLO del tiempo actual. A partir de ahi cuenta RESPAWN_SEGUNDOS para reaparecer. Se guarda en
+# mazmorra_persistente (sobrevive a volver al pueblo) Y en la copia local del piso vivo.
 func marcar_agotado(celda: Vector2i) -> void:
-	_agotados[celda] = true
+	_agotados[celda] = Game.tiempo_mazmorra
+	(Game.persistente_piso(_piso_construido)["agotados"] as Dictionary)[celda] = Game.tiempo_mazmorra
 
 
 func _sala_mas_lejana(desde: Rect2i) -> Rect2i:
@@ -747,14 +764,13 @@ func _guardar_estado() -> void:
 		if is_instance_valid(p) and p.item != null:
 			suelo.append({"item": p.item, "pos": p.global_position})
 
-	# 'agotados': las celdas que ya has picado. No se guardan los recolectables enteros porque
-	# donde estan y de que son sale de la semilla; lo unico que la semilla no puede saber es
-	# lo que TU has hecho. Asi esto no crece con el tamaño del mapa.
-	Game.memoria_pisos[_piso_construido] = {
-		"enemigos": enemigos, "suelo": suelo, "agotados": _agotados.duplicate()}
+	# Los recolectables agotados YA NO van aqui: viven en Game.mazmorra_persistente (con su sello
+	# de tiempo para el respawn), que marcar_agotado escribe en el momento de picar y que
+	# sobrevive a la expedicion. memoria_pisos solo guarda lo de scope de expedicion: bichos y
+	# cosas del suelo. Ninguno de los dos guarda la FORMA del piso: sale de la semilla.
+	Game.memoria_pisos[_piso_construido] = {"enemigos": enemigos, "suelo": suelo}
 	print("[mazmorra] guardado el piso ", _piso_construido, ": ", enemigos.size(),
-		" bichos (vivos+cadaveres), ", suelo.size(), " cosas por el suelo, ",
-		_agotados.size(), " recolectables picados")
+		" bichos (vivos+cadaveres), ", suelo.size(), " cosas por el suelo")
 
 
 func _restaurar_estado() -> void:
@@ -878,6 +894,11 @@ func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0)
 # simularlos) y se les vuelve a encender al acercarte. Los cadaveres ya vienen con la IA
 # apagada de fabrica (morir()), asi que ni los tocamos.
 func _process(delta: float) -> void:
+	# El reloj de expedicion corre SIEMPRE que juegas (el arbol se pausa en combate/menus, asi
+	# que este _process no corre entonces: cuenta solo tiempo de exploracion). Es la base del
+	# respawn de recursos y de la cuenta atras del mapa.
+	Game.tiempo_mazmorra += delta
+
 	_t_barrido -= delta
 	if _t_barrido > 0.0:
 		return
@@ -887,6 +908,14 @@ func _process(delta: float) -> void:
 	if not (player is Node2D):
 		return
 	var pj: Vector2 = (player as Node2D).global_position
+
+	# NIEBLA del mapa: la zona que pisas queda vista para siempre (persiste en el save).
+	if gen != null:
+		var celda: Vector2i = Vector2i((pj / DungeonGenerator.CELDA).floor())
+		var z: int = gen.zona_en(celda)
+		if z >= 0:
+			(Game.persistente_piso(_piso_construido)["zonas_vistas"] as Dictionary)[z] = true
+
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e) or not (e is Node2D):
 			continue
