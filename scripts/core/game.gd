@@ -2323,6 +2323,7 @@ var herreria_exp: float = 0.0
 var habilidad_metalurgia: bool = false
 var habilidad_peleteria: bool = false
 var habilidad_herreria: bool = false
+var habilidad_mezcla: bool = false   # Mezcla (boticaria): sube la prob. de doble poción. Ver mezcla_activa().
 
 # Exp EFECTIVA: 0 mientras la habilidad no este desbloqueada (el progreso sigue guardandose).
 func metalurgia_activa() -> float:
@@ -2333,6 +2334,9 @@ func peleteria_activa() -> float:
 
 func herreria_activa() -> float:
 	return herreria_exp if habilidad_herreria else 0.0
+
+func mezcla_activa() -> float:
+	return mezcla_exp if habilidad_mezcla else 0.0
 
 # Cada metal, su cadena: el TIER se conserva de la veta a la hebilla.
 #   mineral -> lingote -> chapa (armaduras) / hebillas (mochilas)
@@ -3157,7 +3161,9 @@ func prob_doble_desde_seleccion(receta: RecipeData, seleccion: Array) -> float:
 			suma_uds += u
 	if suma_uds <= 0.0:
 		return 0.0
-	return MAX_PROB_DOBLE * (suma_score / suma_uds)
+	# MEZCLA (habilidad de desarrollo de la boticaria): suma un bonus por su rango a la prob. de
+	# doble poción (misma curva exp->bonus que la Herrería). Sin la habilidad, mezcla_activa() = 0.
+	return clampf(MAX_PROB_DOBLE * (suma_score / suma_uds) + Forge.bonus_herreria(mezcla_activa()), 0.0, 1.0)
 
 
 # Puntuacion de calidad 0..1 para el bonus de doble (intacto 1, normal 0.5, dañado 0).
