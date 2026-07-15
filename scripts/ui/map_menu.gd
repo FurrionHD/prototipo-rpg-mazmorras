@@ -1,13 +1,12 @@
 # ============================================================
 #  map_menu.gd  (CanvasLayer creada por codigo desde el jugador)
-#  MAPA del piso (tecla M). Es una LIBRETA que solo se pone al dia al VOLVER A CASA: nada de
-#  GPS en vivo. Mientras estas abajo enseña lo que sabias la ultima vez que subiste al pueblo;
-#  lo que exploras esta expedicion no aparece hasta que vuelves (Game.capturar_mapa, la llaman
-#  las salidas al pueblo). Por eso tampoco pinta TU posicion: no es un radar, es un plano.
+#  MAPA (tecla M). Es una LIBRETA autonoma: dibuja el snapshot congelado
+#  (Game.mapa_snapshot[piso]) que se pone al dia al ABANDONAR cada piso. Nada de GPS en vivo
+#  (no pinta TU posicion): es un plano de lo ya recorrido. Como la libreta hornea la geometria,
+#  el mapa se puede abrir TAMBIEN en el pueblo y HOJEAR otros pisos ya explorados (◀ ▶).
 #
-#  Dibuja el snapshot congelado (Game.mapa_snapshot[piso]): las zonas cartografiadas, los nodos
-#  que estaban vivos (con el color de su material) y los agotados (apagados, con la cuenta atras
-#  hasta su respawn). La geometria (celdas de cada zona) sale de la semilla del piso vivo.
+#  Solo aparecen los pisos REALMENTE explorados (los que tienen snapshot). Al morir, lo
+#  cartografiado esa expedicion se pierde (ver Game.revertir_mapa_expedicion).
 # ============================================================
 
 extends CanvasLayer
@@ -18,6 +17,8 @@ const COLOR_SUELO := Color(0.24, 0.24, 0.30)      # zona explorada
 
 var _root: Control = null
 var _lienzo: Control = null
+var _titulo: Label = null
+var _piso_viendo: int = 1   # piso cuyo mapa se esta MIRANDO (independiente de Game.current_floor)
 
 
 func _ready() -> void:
@@ -37,11 +38,10 @@ func _ready() -> void:
 	_lienzo.draw.connect(_dibujar)
 	_root.add_child(_lienzo)
 
-	var titulo := Label.new()
-	titulo.text = "MAPA  ·  [M] para cerrar"
-	titulo.add_theme_font_size_override("font_size", 18)
-	titulo.position = Vector2(MARGEN, 20.0)
-	_root.add_child(titulo)
+	_titulo = Label.new()
+	_titulo.add_theme_font_size_override("font_size", 18)
+	_titulo.position = Vector2(MARGEN, 20.0)
+	_root.add_child(_titulo)
 
 
 func _input(event: InputEvent) -> void:
@@ -50,23 +50,36 @@ func _input(event: InputEvent) -> void:
 	var code: int = (event as InputEventKey).keycode
 	if code == KEY_M:
 		_toggle()
-	elif code == KEY_ESCAPE and _root.visible:
+	elif not _root.visible:
+		return
+	elif code == KEY_ESCAPE:
 		_cerrar()
+	elif code == KEY_LEFT or code == KEY_A:
+		_cambiar_viendo(-1)
+	elif code == KEY_RIGHT or code == KEY_D:
+		_cambiar_viendo(1)
 
 
 func _toggle() -> void:
 	if _root.visible:
 		_cerrar()
 		return
-	# El mapa es de la MAZMORRA: sin un piso vivo (estas en el pueblo) no hay nada que enseñar.
-	# Tampoco sobre un combate/extraccion ni con el DEBUG abierto.
+	# No sobre un combate/extraccion ni con el DEBUG abierto. Ya NO exige piso vivo: se abre
+	# tambien en el pueblo (la libreta es autonoma, no necesita el DungeonFloor delante).
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
-	if get_tree().get_first_node_in_group("dungeon_floor") == null:
-		return
+	# Empieza mirando el piso actual si tiene mapa; si no (p.ej. en el pueblo), el mas profundo
+	# ya cartografiado.
+	var pisos: Array = _pisos_disponibles()
+	if Game.mapa_snapshot.has(Game.current_floor):
+		_piso_viendo = Game.current_floor
+	elif not pisos.is_empty():
+		_piso_viendo = pisos[-1]
+	else:
+		_piso_viendo = Game.current_floor
 	_root.visible = true
 	Game.inventory_open = true   # congela al jugador mientras miras el mapa
-	_lienzo.queue_redraw()
+	_refrescar()
 
 
 func _cerrar() -> void:
@@ -74,42 +87,59 @@ func _cerrar() -> void:
 	Game.inventory_open = false
 
 
-# El DungeonGenerator del piso vivo (tiene la geometria: zonas, celdas, tamaño).
-func _gen():
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	return piso.gen if piso != null else null
+# Pisos con mapa (los REALMENTE explorados), ordenados. Es la lista por la que se hojea.
+func _pisos_disponibles() -> Array:
+	var out: Array = Game.mapa_snapshot.keys()
+	out.sort()
+	return out
+
+
+# Salta al piso cartografiado anterior/siguiente (dir = -1/+1). Solo entre los explorados.
+func _cambiar_viendo(dir: int) -> void:
+	var pisos: Array = _pisos_disponibles()
+	var idx: int = pisos.find(_piso_viendo)
+	if idx == -1:
+		if pisos.is_empty():
+			return
+		_piso_viendo = pisos[0]
+	else:
+		var nuevo: int = clampi(idx + dir, 0, pisos.size() - 1)
+		_piso_viendo = pisos[nuevo]
+	_refrescar()
+
+
+func _refrescar() -> void:
+	var pisos: Array = _pisos_disponibles()
+	var hay_mas: bool = pisos.size() > 1
+	var flechas: String = "   ◀ ▶ pisos" if hay_mas else ""
+	_titulo.text = "MAPA · Piso %d%s   ·  [M] cerrar" % [_piso_viendo, flechas]
+	_lienzo.queue_redraw()
 
 
 func _dibujar() -> void:
-	var gen = _gen()
-	if gen == null:
-		return
-	# La LIBRETA (congelada al ultimo regreso a casa), NO el estado en vivo: lo que exploras esta
-	# expedicion no aparece hasta que vuelves al pueblo. La geometria (celdas de cada zona) sale
-	# de la semilla del piso vivo, que es la misma de siempre.
-	var snap: Dictionary = Game.mapa_snapshot.get(Game.current_floor, {})
-	if snap.is_empty():
+	var snap: Dictionary = Game.mapa_snapshot.get(_piso_viendo, {})
+	# Sin snapshot, o uno viejo sin la geometria horneada (saves anteriores): nada que dibujar.
+	if snap.is_empty() or not snap.has("suelo"):
 		var f0: Font = ThemeDB.fallback_font
 		_lienzo.draw_string(f0, Vector2(MARGEN, 90.0),
-			"Aún no has cartografiado este piso. Explóralo y vuelve a casa.",
+			"Aún no has cartografiado este piso. Explóralo y sal con vida.",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.7, 0.7, 0.75))
 		return
-	var vistas: Dictionary = snap["zonas"]
+
+	var ancho: int = int(snap["ancho"])
+	var alto: int = int(snap["alto"])
 	var agotados: Dictionary = snap["agotados"]
 
 	# Escala: que el mapa entero quepa en la pantalla con margen, manteniendo proporcion.
 	var area := get_viewport().get_visible_rect().size - Vector2(MARGEN, MARGEN) * 2.0
-	var celda_px: float = minf(area.x / float(gen.ancho), area.y / float(gen.alto))
+	var celda_px: float = minf(area.x / float(ancho), area.y / float(alto))
 	var offset := Vector2(MARGEN, MARGEN) \
-		+ (area - Vector2(gen.ancho, gen.alto) * celda_px) * 0.5
+		+ (area - Vector2(ancho, alto) * celda_px) * 0.5
 
-	# 1) SUELO de las zonas cartografiadas (la niebla es no dibujar el resto).
-	for i in range(gen.zonas.size()):
-		if not vistas.has(i):
-			continue
-		for c in (gen.zonas[i]["celdas"] as Array):
-			var p: Vector2 = offset + Vector2(c) * celda_px
-			_lienzo.draw_rect(Rect2(p, Vector2(celda_px, celda_px)), COLOR_SUELO)
+	# 1) SUELO de las zonas cartografiadas (horneado en la libreta; la niebla es no dibujar el resto).
+	for c in (snap["suelo"] as Array):
+		var p: Vector2 = offset + Vector2(c) * celda_px
+		_lienzo.draw_rect(Rect2(p, Vector2(celda_px, celda_px)), COLOR_SUELO)
 
 	# 2) NODOS que estaban VIVOS al cartografiar: color del material (congelado en la libreta).
 	for n in (snap["vivos"] as Array):
@@ -133,7 +163,7 @@ func _punto(offset: Vector2, celda_px: float, celda: Vector2i, color: Color, rad
 	_lienzo.draw_circle(p, celda_px * radio_frac, color)
 
 
-# El respawn vive en DungeonFloor; se lee de alli para no duplicar la constante.
+# El respawn vive en DungeonFloor; se lee de alli si hay piso vivo (en el pueblo, la reserva).
 func RESPAWN() -> float:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	return piso.RESPAWN_SEGUNDOS if piso != null else 600.0

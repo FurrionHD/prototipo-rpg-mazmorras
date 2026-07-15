@@ -76,6 +76,8 @@ func _bajar(piso: int) -> void:
 	# piso empiezas.
 	Game.current_floor = maxi(1, piso)
 	Game.olvidar_mazmorra()
+	# Baseline del mapa: lo que cartografies esta expedicion se pierde si mueres.
+	Game.iniciar_expedicion_mapa()
 	Game.inventory_open = false
 	print("[mazmorra] Entras directamente al piso %d." % Game.current_floor)
 	get_tree().change_scene_to_file(DUNGEON)

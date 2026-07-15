@@ -36,6 +36,8 @@ func interact_with_player() -> void:
 		# Y la mazmorra se repuebla: lo que dejaste en los pisos la expedicion anterior ya no
 		# esta. Si se recordara entre expediciones, los pisos se vaciarian para siempre.
 		Game.olvidar_mazmorra()
+		# Baseline del mapa: lo que cartografies esta expedicion se pierde si mueres.
+		Game.iniciar_expedicion_mapa()
 	else:
 		# Volviendo a CASA: se pone al dia la libreta del mapa con lo explorado (ver Game).
 		Game.capturar_mapa()

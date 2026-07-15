@@ -87,7 +87,7 @@ const MAGIA_COSTE_REF := 4.0   # coste de referencia (Chispa) para el factor de 
 # dificultad hace la zona mas pequeña Y el marcador mas rapido.
 const EXTRACTION_REQ_FACTOR := 0.25
 const EXTRACTION_BASE_ZONE := 0.16      # tamaño de zona a dificultad 1
-const EXTRACTION_DESTREZA_FLOOR := 20.0 # skill base minimo (bajo: el novato SI sufre)
+const EXTRACTION_DESTREZA_FLOOR := 30.0 # suelo de skill (subido de 20 al aplicar RECOLECCION_STAT_PESO: mantiene la dificultad del novato)
 const EXTRACTION_BASE_MARKER := 0.75    # velocidad del marcador a dificultad 1
 # TECHO de la velocidad del marcador (recorridos de la barra por segundo).
 #
@@ -108,6 +108,13 @@ const EXTRACTION_MARKER_MAX := 1.3
 # te regala es la ventana, no el tedio.
 const RECOLECCION_VEL_RETO_MIN := 1.0
 const RECOLECCION_VEL_RETO_MAX := 2.5
+# PESO de la stat en la DIFICULTAD de la recoleccion (los 4 minijuegos: dificultad =
+# exigencia / (stat × PESO + suelo)). Antes la stat entraba 1:1 y la recoleccion se volvia
+# trivial en cuanto subias un poco -> "se facilita demasiado rapido". Con un peso < 1, mejorar
+# la stat sigue ayudando pero MUCHO mas despacio (tardas en notarlo). Los suelos se subieron a
+# la par (20 -> 30) para que el NOVATO conserve su dificultad de arranque; lo que cambia es la
+# PENDIENTE de mejora, no el punto de partida. PROVISIONAL (afinar con pruebas/Excel).
+const RECOLECCION_STAT_PESO := 0.5
 # Pivote para la GANANCIA de Destreza: solo aprendes de verdad si la extraccion
 # fue dura PARA TI. Por debajo de este reto la ganancia cae en picado (curva ^2);
 # por encima se mantiene. Sube el pivote para castigar mas las extracciones
@@ -128,7 +135,7 @@ const RECOLECCION_PISO_FACTOR := 1.10   # exigencia x1.10 por piso
 
 # MINERIA (pico, Fuerza). La Fuerza ensancha la franja optima Y la baja: un brazo fuerte
 # rompe la veta sin tener que cargar el pico hasta arriba.
-const MINERIA_FUERZA_FLOOR := 20.0      # suelo de skill (el novato SI sufre)
+const MINERIA_FUERZA_FLOOR := 30.0      # suelo de skill (subido de 20 al aplicar RECOLECCION_STAT_PESO)
 const MINERIA_BASE_VENTANA := 0.22      # ancho de la franja optima a dificultad 1
 const MINERIA_BASE_CARGA := 1.0         # velocidad de la barra de carga a dificultad 1
 const MINERIA_CARGA_MIN := 0.8          # suelo duro: por debajo de esto cargar es esperar
@@ -142,7 +149,7 @@ const MINERIA_RETO_MAX := 5.0           # tope FISICO (como el resto de la Fuerz
 
 # HERBORISTERIA (hoz, Destreza). El nucleo del corte limpio es FINO: aqui no se machaca,
 # se acierta. La Destreza lo ensancha y frena la pasada.
-const HERB_DESTREZA_FLOOR := 20.0
+const HERB_DESTREZA_FLOOR := 30.0       # suelo de skill (subido de 20 al aplicar RECOLECCION_STAT_PESO)
 const HERB_BASE_NUCLEO := 0.06          # semiancho del corte limpio a dificultad 1
 const HERB_BORDE_MULT := 2.2            # el borde (corte sucio) es este multiplo del nucleo
 const HERB_BASE_VEL := 0.9              # pasadas/seg a dificultad 1
@@ -155,7 +162,7 @@ const HERB_RETO_MAX := 8.0              # mismo tope que la extraccion: las dos 
 
 # TALADO (hacha, Agilidad). Aqui no hay punteria: hay COMPAS. La Agilidad ensancha la ventana
 # del hachazo y frena el tempo; el resto lo pones tu no perdiendo el ritmo (ver talado.gd).
-const TALA_AGILIDAD_FLOOR := 20.0
+const TALA_AGILIDAD_FLOOR := 30.0       # suelo de skill (subido de 20 al aplicar RECOLECCION_STAT_PESO)
 const TALA_BASE_VENTANA := 0.20         # ancho de la ventana a dificultad 1
 const TALA_BASE_TEMPO := 0.55           # vueltas/seg a dificultad 1
 # TECHO del tempo: por el mismo motivo que en los otros dos (una ventana que cruza la banda
@@ -238,39 +245,75 @@ func persistente_piso(piso: int) -> Dictionary:
 	return mazmorra_persistente[piso]
 
 
-# MAPA = una LIBRETA que solo se pone al dia al VOLVER A CASA (piso -> snapshot congelado). Es a
-# proposito: nada de GPS en vivo. Mientras estas abajo el mapa enseña lo que sabias la ultima vez
-# que subiste; lo que exploras esta expedicion no aparece hasta que vuelves al pueblo.
-#   { "zonas": {idx:true}, "vivos": [{cell, color}], "agotados": {cell:tiempo} }
-# zonas_vistas SIGUE acumulandose en vivo por debajo (invisible), pero solo se copia AQUI al
-# volver a casa. La geometria (que celdas tiene cada zona) sale de la semilla al dibujar.
+# MAPA = una LIBRETA (piso -> snapshot congelado) que se pone al dia al ABANDONAR un piso (bajar,
+# subir o salir al pueblo). Es a proposito: nada de GPS en vivo. La libreta es AUTONOMA: hornea la
+# geometria (las celdas de suelo exploradas), asi el mapa se puede mirar EN EL PUEBLO o de OTRO
+# piso, sin el piso vivo delante. Solo aparecen en la libreta los pisos REALMENTE explorados.
+#   { "ancho", "alto", "suelo":[cell...], "vivos":[{cell,color}...], "agotados":{cell:tiempo} }
+# zonas_vistas SIGUE acumulandose en vivo por debajo (la niebla en vivo); aqui se hornea al salir.
 var mapa_snapshot: Dictionary = {}
 
-# Copia el estado actual del piso vivo a la libreta. La llaman las salidas al pueblo (door.gd,
-# dungeon_exit.gd) ANTES de irse: en ese momento el DungeonFloor aun esta vivo.
+# BASELINE del mapa al EMPEZAR la expedicion (para revertir al MORIR): lo cartografiado durante una
+# expedicion que acaba en muerte se PIERDE. Ver iniciar_expedicion_mapa() y morir_jugador().
+var _mapa_baseline: Dictionary = {}
+var _vistas_baseline: Dictionary = {}
+
+# Copia la geometria + estado explorado del piso vivo a la libreta. La llaman las salidas del piso
+# (al bajar/subir en _cambiar_piso, y las salidas al pueblo door.gd/dungeon_exit.gd) ANTES de
+# irse: en ese momento el DungeonFloor aun esta vivo y current_floor es el piso que abandonas.
 func capturar_mapa() -> void:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso == null or piso.gen == null:
 		return
+	var gen = piso.gen
 	var persist: Dictionary = persistente_piso(current_floor)
 	var vistas: Dictionary = persist["zonas_vistas"]
+	if vistas.is_empty():
+		return   # nada explorado en este piso: no se cartografia (no aparece en el selector de pisos)
+	# SUELO: todas las celdas de las zonas EXPLORADAS. Se hornea la geometria en la libreta (antes se
+	# leia del piso vivo al dibujar; asi el mapa funciona tambien en el pueblo o mirando otro piso).
+	var suelo: Array = []
+	for i in range(gen.zonas.size()):
+		if not vistas.has(i):
+			continue
+		for c in (gen.zonas[i]["celdas"] as Array):
+			suelo.append(c)
 	# SOLO los nodos de las zonas que has EXPLORADO. Si no, el mapa marca vetas y plantas en
-	# salas por las que no has pasado (te chiva materiales que no has descubierto): eran TODOS
-	# los del piso, deterministas por la semilla, los pises o no.
+	# salas por las que no has pasado (te chiva materiales que no has descubierto).
 	var vivos: Array = []
 	for nodo in get_tree().get_nodes_in_group("recolectable"):
 		if not is_instance_valid(nodo) or nodo.material_data == null:
 			continue
-		if not vistas.has(piso.gen.zona_en(nodo.celda)):
+		if not vistas.has(gen.zona_en(nodo.celda)):
 			continue
 		vivos.append({"cell": nodo.celda, "color": nodo.material_data.color})
 	mapa_snapshot[current_floor] = {
-		"zonas": (vistas as Dictionary).duplicate(),
+		"ancho": gen.ancho, "alto": gen.alto,
+		"suelo": suelo,
 		"vivos": vivos,
 		"agotados": (persist["agotados"] as Dictionary).duplicate(),
 	}
 	print("[mapa] libreta al dia: piso ", current_floor, " (", vivos.size(), " nodos, ",
-		(mapa_snapshot[current_floor]["zonas"] as Dictionary).size(), " zonas)")
+		suelo.size(), " celdas)")
+
+
+# Al EMPEZAR una expedicion desde el pueblo: guarda un baseline de la cartografia COMMITEADA (lo
+# que sobrevive) para poder revertir si mueres. Lo que cartografies a partir de aqui se pierde al
+# morir. La llaman door.gd (entrar) y floor_select_menu (saltar por un atajo).
+func iniciar_expedicion_mapa() -> void:
+	_mapa_baseline = mapa_snapshot.duplicate(true)
+	_vistas_baseline = {}
+	for p in mazmorra_persistente:
+		_vistas_baseline[p] = (mazmorra_persistente[p]["zonas_vistas"] as Dictionary).duplicate()
+
+
+# Revierte la cartografia al baseline de inicio de expedicion (al MORIR): lo explorado esta
+# expedicion se pierde. NO toca 'agotados' (el anti-farmeo de nodos dura mas que la expedicion).
+func revertir_mapa_expedicion() -> void:
+	mapa_snapshot = _mapa_baseline.duplicate(true)
+	for p in mazmorra_persistente:
+		var vb: Dictionary = _vistas_baseline.get(p, {})
+		mazmorra_persistente[p]["zonas_vistas"] = (vb as Dictionary).duplicate()
 
 
 # ============================================================
@@ -613,6 +656,8 @@ func morir_jugador() -> void:
 	# Expedicion nueva: vuelves al piso 1 y la mazmorra se olvida de lo que dejaste.
 	current_floor = 1
 	olvidar_mazmorra()
+	# Y PIERDES lo que cartografiaste esta expedicion: el mapa vuelve al baseline de cuando entraste.
+	revertir_mapa_expedicion()
 
 	mensaje_muerte = "Has caído en la mazmorra. Te rescatan, pero el botín se queda abajo: pierdes %d cristal%s y %d material%s." % [
 		perdidos_c, "" if perdidos_c == 1 else "es",
@@ -757,6 +802,10 @@ func _cambiar_piso(nuevo: int, por_la_bajada: bool) -> void:
 	if piso == null or not piso.has_method("regenerar"):
 		push_warning("[mazmorra] no hay piso que regenerar (¿escalera fuera de la mazmorra?)")
 		return
+	# Cartografia el piso que ABANDONAS antes de cambiar de piso: current_floor y el gen vivo aun
+	# son los viejos aqui. Sin esto, la libreta solo se actualizaba al volver al pueblo (piso 1) y
+	# el mapa salia "sin cartografiar" del piso 2 en adelante.
+	capturar_mapa()
 	current_floor = maxi(1, nuevo)
 	var band: Vector2 = enemy_ability_sum_band(current_floor)
 	print("[mazmorra] piso ", current_floor,
@@ -1259,6 +1308,11 @@ func _pocion_menor_util(es_vida: bool) -> ConsumableData:
 # Ritmo (vida/seg) al que se cura por el mapa la Regeneración ARRASTRADA de un combate
 # (no cae de golpe, coherente con el HoT de las pociones). PROVISIONAL.
 const CARRY_HEAL_RATE := 6.0
+
+# Turnos en los que se reparte, al ENTRAR en combate, la cura de poción que quedaba pendiente
+# fuera de combate (player_heal_left). Simétrico al arrastre de salida: una poción bebida en el
+# mapa sigue curando dentro (como Regeneración) en vez de perderse al pausarse el goteo. PROVISIONAL.
+const POCION_ARRASTRE_TURNOS := 3
 
 # Arrastra a la cura FUERA de combate la Regeneración que quedaba pendiente al terminar el
 # combate (la llama combat.gd si el jugador sobrevive). Asi una poción a medias no se pierde.
@@ -3263,6 +3317,22 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 
 	_active_enemy = enemy_node
 	var player_c := crear_player_combatant()
+
+	# CURA DE POCIÓN pendiente del MAPA: si bebiste una poción fuera de combate y aún te quedaba
+	# cura por gotear (player_heal_left) al entrar, NO se pierde con la pausa del árbol: se
+	# convierte en Regeneración dentro del combate (repartida en turnos) y se consume el pendiente.
+	# Simétrico a arrastrar_regen (que lleva la regen de combate de vuelta al mapa).
+	if player_heal_left > 0.0:
+		player_c.apply_status(StatusEffects.Id.REGENERACION, POCION_ARRASTRE_TURNOS,
+			player_heal_left / float(POCION_ARRASTRE_TURNOS))
+		player_heal_left = 0.0
+		player_heal_rate = 0.0
+	if player_mana_heal_left > 0.0:
+		player_c.apply_status(StatusEffects.Id.REGEN_MANA, POCION_ARRASTRE_TURNOS,
+			player_mana_heal_left / float(POCION_ARRASTRE_TURNOS))
+		player_mana_heal_left = 0.0
+		player_mana_heal_rate = 0.0
+
 	var t: float = 0.5
 	if "current_t" in enemy_node:
 		t = enemy_node.current_t
@@ -3346,7 +3416,7 @@ func start_extraction(corpse: Node) -> void:
 
 	# Dificultad RELATIVA: exigencia del enemigo (su fuerza total) / tu DESTREZA
 	# (solo Destreza, con suelo). ~1 = a la par; >1 mas dificil.
-	var difficulty: float = req / (float(eff_destreza) + EXTRACTION_DESTREZA_FLOOR)
+	var difficulty: float = req / (float(eff_destreza) * RECOLECCION_STAT_PESO + EXTRACTION_DESTREZA_FLOOR)
 	var zone_ratio: float = clampf(EXTRACTION_BASE_ZONE / difficulty, 0.05, 0.35)
 
 	# Pulsaciones: base del enemigo, ajustadas por la DIFICULTAD:
@@ -3494,7 +3564,7 @@ func start_mineria(nodo) -> void:
 	var p: ToolData = pico()
 
 	# Dificultad RELATIVA: lo dura que es la veta contra tu FUERZA (con suelo). ~1 = a la par.
-	var d: float = _exigencia_material(m) / (float(player_fuerza) + MINERIA_FUERZA_FLOOR)
+	var d: float = _exigencia_material(m) / (float(player_fuerza) * RECOLECCION_STAT_PESO + MINERIA_FUERZA_FLOOR)
 
 	# La Fuerza ensancha la franja optima Y la baja (no necesitas cargar tanto el pico).
 	var ancho: float = clampf(MINERIA_BASE_VENTANA / d, 0.06, 0.45) + p.ventana_bonus
@@ -3542,7 +3612,7 @@ func start_herboristeria(nodo) -> void:
 	var m: MaterialData = nodo.material_data
 	var h: ToolData = hoz()
 
-	var d: float = _exigencia_material(m) / (float(player_destreza) + HERB_DESTREZA_FLOOR)
+	var d: float = _exigencia_material(m) / (float(player_destreza) * RECOLECCION_STAT_PESO + HERB_DESTREZA_FLOOR)
 
 	var nucleo: float = clampf(HERB_BASE_NUCLEO / d, 0.015, 0.14) + h.filo
 	var borde: float = nucleo * HERB_BORDE_MULT
@@ -3587,7 +3657,7 @@ func start_talado(nodo) -> void:
 	var m: MaterialData = nodo.material_data
 	var a: ToolData = hacha()
 
-	var d: float = _exigencia_material(m) / (float(player_agilidad) + TALA_AGILIDAD_FLOOR)
+	var d: float = _exigencia_material(m) / (float(player_agilidad) * RECOLECCION_STAT_PESO + TALA_AGILIDAD_FLOOR)
 
 	# La Agilidad ensancha la ventana del hachazo y frena el tempo. El hacha ayuda encima.
 	var ancho: float = clampf(TALA_BASE_VENTANA / d, 0.05, 0.40) + a.compas
@@ -3697,7 +3767,7 @@ func dev_curva_recoleccion(pisos: Array = [1, 3, 5, 8, 13]) -> void:
 				var es_veta: bool = m.es_veta()
 				var stat: float = float(player_fuerza if es_veta else player_destreza)
 				var suelo: float = MINERIA_FUERZA_FLOOR if es_veta else HERB_DESTREZA_FLOOR
-				var d: float = _exigencia_material(m) / (stat + suelo)
+				var d: float = _exigencia_material(m) / (stat * RECOLECCION_STAT_PESO + suelo)
 				var dif: float = curva_reto(d,
 					MINERIA_PIVOTE if es_veta else HERB_PIVOTE,
 					MINERIA_SLOPE if es_veta else HERB_SLOPE,
