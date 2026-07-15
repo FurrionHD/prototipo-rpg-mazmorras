@@ -103,6 +103,43 @@ static func max_hp_value(ab: Abilities, _level: int, base_hp: float) -> float:
 	return base_hp + ab.resistencia * HP_FROM_RES
 
 
+# ============================================================
+#  FORMULAS DEL JUGADOR (MULTIPLICATIVAS) — SUBIR DE NIVEL
+#  Aqui la habilidad MULTIPLICA su base, igual que la Fuerza hace con el ataque. Es lo que hace
+#  que SUBIR DE NIVEL valga: al ascender se BAKEAN las bases (ver Game.subir_nivel), y como el
+#  punto multiplica una base mayor, un punto de nivel 4 rinde mucho mas que uno de nivel 1. Con
+#  las aditivas de arriba eso NO pasaba: +0.15 de vida por Resistencia daba igual tu base.
+#
+#  Los ENEMIGOS siguen usando las aditivas (por ahora): esto es solo del jugador (ver
+#  Combatant.stats_multiplicativas).
+#
+#  DIVISORES: elegidos para que a NIVEL 1 (con la base de partida) den EXACTAMENTE los mismos
+#  numeros que las aditivas -> cero rebalance al empezar. Sale de base*(stat/DIV) == stat*coef,
+#  o sea DIV = base_inicial / coef. Ademas ya no usan el _coef por nivel: el crecimiento por
+#  nivel lo aporta la base bakeada (si no, se contaria dos veces).
+# ============================================================
+const RES_HP_DIV := 333.33    # 50 (base_hp)      / 0.15  (HP_FROM_RES)
+const RES_DEF_DIV := 250.0    # 5  (base_defense) / 0.02  (DEF_COEF_BASE)
+const AGI_SPD_DIV := 250.0    # 5  (base_speed)   / 0.02  (SPD_COEF_BASE)
+const MAG_DEF_DIV := 250.0    # 5  (base_magic)   / 0.02  (MAG_COEF_BASE)
+const MAG_MP_DIV := 606.06    # 20 (BASE_MP)      / 0.033 (MP_FROM_MAGIA)
+
+static func max_hp_jugador(ab: Abilities, base_hp: float) -> float:
+	return base_hp * (1.0 + ab.resistencia / RES_HP_DIV)
+
+static func defense_jugador(ab: Abilities, base_defense: float) -> float:
+	return base_defense * (1.0 + ab.resistencia / RES_DEF_DIV)
+
+static func speed_jugador(ab: Abilities, base_speed: float) -> float:
+	return base_speed * (1.0 + ab.agilidad / AGI_SPD_DIV)
+
+static func magic_jugador(ab: Abilities, base_magic: float) -> float:
+	return base_magic * (1.0 + ab.magia / MAG_DEF_DIV)
+
+static func max_mp_jugador(ab: Abilities, base_mp: float) -> float:
+	return base_mp * (1.0 + ab.magia / MAG_MP_DIV)
+
+
 # Daño = ataque mitigado por la defensa (rendimientos decrecientes).
 #   daño = ataque × K / (K + defensa)
 # Devuelve FLOAT (con decimales) para NO perder precision: asi mejoras pequeñas
@@ -318,7 +355,8 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 	# lo que aporte su Magia. Antes se pasaba 0.0 a pelo, y como ademas ningun enemigo tenia
 	# Magia, la defensa magica era CERO: los hechizos entraban a raw limpio mientras los
 	# golpes fisicos si se mitigaban. Por eso la magia parecia rota (lo estaba).
-	var magic_def := magic_value(defender.abilities, defender.level, defender.base_magic)
+	var magic_def := magic_jugador(defender.abilities, defender.base_magic) if defender.stats_multiplicativas \
+		else magic_value(defender.abilities, defender.level, defender.base_magic)
 	var dmg := damage(magic_atk, magic_def)
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 	# Multiplicador ELEMENTAL segun la resistencia/debilidad del objetivo (KAN-58).

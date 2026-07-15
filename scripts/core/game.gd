@@ -1395,7 +1395,7 @@ func tiene_hechizos() -> bool:
 func player_max_mp() -> float:
 	var a := Abilities.new()
 	a.magia = player_magia
-	return StatsMath.max_mp_value(a, player_level, player_base_mp)
+	return StatsMath.max_mp_jugador(a, player_base_mp)   # misma formula que en combate (jugador = multiplicativa)
 
 # Vida MAXIMA del jugador con sus stats actuales (para la barra de HP fuera de combate
 # y el tope de la cura). Mismo calculo que crear_player_combatant.
@@ -1406,7 +1406,7 @@ func player_max_hp() -> float:
 	a.destreza = player_destreza
 	a.agilidad = player_agilidad
 	a.magia = player_magia
-	return StatsMath.max_hp_value(a, player_level, player_base_hp)
+	return StatsMath.max_hp_jugador(a, player_base_hp)   # misma formula que en combate (jugador = multiplicativa)
 
 # Vida ACTUAL concreta (player_current_hp puede ser -1 = "llena"). La usan las barras.
 func player_hp() -> float:
@@ -1693,7 +1693,12 @@ func crear_player_combatant() -> Combatant:
 	# Bakeos de nivel: crítico plano (Destreza), factor de daño mágico y maná base (Magia).
 	c.crit_flat = player_base_crit
 	c.magia_base_factor = player_base_magia_factor
-	c.max_mp = StatsMath.max_mp_value(a, player_level, player_base_mp)
+	# El JUGADOR usa las formulas MULTIPLICATIVAS (la stat multiplica su base): es lo que hace que
+	# el bakeo de subir de nivel se note (un punto nuevo multiplica una base mayor). Vida y maná se
+	# recalculan aqui porque el Combatant los computo en su _init con las aditivas.
+	c.stats_multiplicativas = true
+	c.max_hp = StatsMath.max_hp_jugador(a, player_base_hp)
+	c.max_mp = StatsMath.max_mp_jugador(a, player_base_mp)
 	if player_current_hp < 0.0:
 		player_current_hp = float(c.max_hp)  # primera vez: vida llena
 	c.current_hp = clampf(player_current_hp, 0.0, float(c.max_hp))
@@ -3560,16 +3565,18 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	a.magia = player_magia
 	# BAKEAR ×(1+NIVEL_SPIKE): el efecto de tus basicas se congela en la base del nivel nuevo.
 	var spike: float = 1.0 + NIVEL_SPIKE
+	# Se bakea con las MISMAS formulas multiplicativas que usa el jugador en combate (*_jugador),
+	# asi lo que se congela es exactamente el poder que tenias.
 	player_base_attack = player_base_attack * StatsMath.fuerza_factor(float(a.fuerza)) * spike
-	player_base_hp = StatsMath.max_hp_value(a, player_level, player_base_hp) * spike
-	player_base_defense = StatsMath.defense_value(a, player_level, player_base_defense) * spike
-	player_base_speed = StatsMath.speed_value(a, player_level, player_base_speed) * spike
-	player_base_magic = StatsMath.magic_value(a, player_level, player_base_magic) * spike
+	player_base_hp = StatsMath.max_hp_jugador(a, player_base_hp) * spike
+	player_base_defense = StatsMath.defense_jugador(a, player_base_defense) * spike
+	player_base_speed = StatsMath.speed_jugador(a, player_base_speed) * spike
+	player_base_magic = StatsMath.magic_jugador(a, player_base_magic) * spike
 	# MAGIA (daño de hechizo + maná) y DESTREZA (crítico) no tenían campo base: se bakean aparte.
 	# El factor de daño mágico congela el magia_factor de esta Magia (tu Magia nueva multiplica
 	# encima). El maná base sube. El crítico plano suma una parte de tu Destreza (contest, sin base).
 	player_base_magia_factor = player_base_magia_factor * StatsMath.magia_factor(float(a.magia)) * spike
-	player_base_mp = StatsMath.max_mp_value(a, player_level, player_base_mp) * spike
+	player_base_mp = StatsMath.max_mp_jugador(a, player_base_mp) * spike
 	player_base_crit += (float(a.destreza) / 999.0) * CRIT_BAKE_MAX * spike
 	# Resetear el VISIBLE sin borrar el total oculto: la marca del nivel sube al total actual.
 	for s in ["fuerza", "resistencia", "destreza", "agilidad", "magia"]:

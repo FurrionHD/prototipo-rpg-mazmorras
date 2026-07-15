@@ -68,6 +68,10 @@ var crit_flat: float = 0.0
 # Multiplicador de daño MAGICO bakeado al subir de nivel (congela el magia_factor de tu Magia de
 # niveles anteriores; tu Magia actual multiplica encima). 1.0 = neutro (enemigos).
 var magia_base_factor: float = 1.0
+# SUBIR DE NIVEL: true SOLO en el jugador. Hace que vida/defensa/velocidad/def. magica/maná
+# MULTIPLIQUEN su base (StatsMath.*_jugador) en vez de sumarse, para que el bakeo de nivel haga
+# que cada punto nuevo rinda mas. Los enemigos lo dejan en false (formulas aditivas de siempre).
+var stats_multiplicativas: bool = false
 var crit_dmg: float = 0.0        # se suma al MULTIPLICADOR de daño critico (StatsMath.CRIT_MULT).
                                  # Sale del arma (base × rareza + Precision). Los enemigos no
                                  # llevan arma-con-rareza: se quedan en el ×1.5 base.
@@ -330,13 +334,21 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 # spd() lleva la velocidad del arma (mas/menos turnos).
 func atk() -> float:
 	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(abilities.fuerza) * motion_value * status_atk_mult()
-func def_value() -> float: return StatsMath.defense_value(abilities, level, base_defense + extra_defense) * status_def_mult()
+func def_value() -> float:
+	var base: float = base_defense + extra_defense
+	var d: float = StatsMath.defense_jugador(abilities, base) if stats_multiplicativas \
+		else StatsMath.defense_value(abilities, level, base)
+	return d * status_def_mult()
 func spd() -> float:
 	if dummy_speed_override >= 0.0:
 		return dummy_speed_override   # modo prueba: velocidad estandar fija
-	return StatsMath.speed_value(abilities, level, base_speed) * velocidad_mult * status_spd_mult() * _guardia_spd()
+	return _spd_base() * velocidad_mult * status_spd_mult() * _guardia_spd()
 # Velocidad al CASTEAR (KAN-95): igual que spd() pero con la velocidad de casteo.
-func cast_spd() -> float: return StatsMath.speed_value(abilities, level, base_speed) * cast_velocidad_mult * status_spd_mult() * _guardia_spd()
+func cast_spd() -> float: return _spd_base() * cast_velocidad_mult * status_spd_mult() * _guardia_spd()
+# Velocidad "cruda" segun la Agilidad (multiplicativa en el jugador, aditiva en los enemigos).
+func _spd_base() -> float:
+	return StatsMath.speed_jugador(abilities, base_speed) if stats_multiplicativas \
+		else StatsMath.speed_value(abilities, level, base_speed)
 
 # Penalizacion de velocidad de la postura de guardia (1.0 = sin postura).
 func _guardia_spd() -> float: return guardia_spd_mult if en_guardia else 1.0
