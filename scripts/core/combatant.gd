@@ -441,6 +441,11 @@ func ability_manos(ab) -> int:
 func current_hand_name() -> String:
 	return hands[_hand_idx]["nombre"] if hands.size() > 0 else ""
 
+# Slot ("main"/"off") del arma con la que golpeas AHORA (para desgastar la durabilidad correcta).
+# "" si no hay manos o la mano no trae slot (enemigos: no se les desgasta nada).
+func current_hand_slot() -> String:
+	return hands[_hand_idx].get("slot", "") if hands.size() > 0 else ""
+
 
 # ============================================================
 #  ESTADOS ALTERADOS (KAN-58) — motor

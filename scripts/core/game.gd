@@ -1044,13 +1044,13 @@ var equipped_botas: ArmorData = null
 # compartido). keyed por slot: "main","off","casco","pecho","manos","pantalones",
 # "botas". mejoras = {categoria: nº}. Ver upgrades.gd. ---
 var equip_meta: Dictionary = {
-	"main": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
-	"off": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
-	"casco": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
-	"pecho": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
-	"manos": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
-	"pantalones": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
-	"botas": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}},
+	"main": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
+	"off": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
+	"casco": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
+	"pecho": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
+	"manos": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
+	"pantalones": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
+	"botas": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
 }
 
 # --- Estado POR OBJETO POSEIDO (baul): el mismo dict que acaba en equip_meta al
@@ -1067,7 +1067,7 @@ func meta_de(item: Resource) -> Dictionary:
 	return item_meta[item]
 
 func _meta_por_defecto() -> Dictionary:
-	return {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}}
+	return {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0}
 
 
 func _meta(slot: String) -> Dictionary:
@@ -1078,6 +1078,132 @@ func equip_rareza(slot: String) -> int:
 	return int(equip_meta[slot]["rareza"])
 func equip_mejoras(slot: String) -> Dictionary:
 	return equip_meta[slot]["mejoras"]
+
+# ============================================================
+#  DURABILIDAD / MANTENIMIENTO
+#  El equipo se gasta al usarlo (arma por golpe dado, armadura por golpe recibido), penaliza
+#  en combate segun lo gastado (con TOPE) y se ROMPE al llegar a 0 (penalizacion en acantilado).
+#  Se repara pagando en el Herrero. La durabilidad vive en la meta por instancia (fraccion
+#  0..1, 1.0 = llena), asi persiste sola y la comparten el item equipado y su copia del baul.
+#  Guardamos FRACCION (no puntos): la mejora de Durabilidad sube el MAXIMO y hace que cada
+#  golpe reste MENOS fraccion (dura mas), sin que reparar por % cueste mas por tener mas maximo.
+# ============================================================
+const DURABILIDAD_MAX_BASE := 100.0    # puntos de aguante de un item T1 sin mejoras de durabilidad
+const DURABILIDAD_POR_TIER := 40.0     # cada tier por encima de T1 suma esto al maximo (t2 dura mas)
+const DURABILIDAD_POR_MEJORA := 30.0   # cada mejora de Durabilidad suma esto al maximo
+const DESGASTE_ARMA := 0.4             # puntos que pierde el arma por golpe DADO (sobre el max)
+const DESGASTE_ARMOR := 0.8            # puntos que pierde CADA pieza por golpe RECIBIDO
+const PENAL_MAX := 0.25                # tope de penalizacion mientras esta gastada (no rota)
+const PENAL_ROTO := 0.75               # penalizacion al estar ROTA (acantilado): rinde el 25%
+# Precio de reparar = coste_full × (% roto). coste_full sube SUAVE con tier y nº de mejoras
+# (casi lineal, NO exponencial). Reparar por fraccion hace que mas maximo NO encarezca.
+const REPARA_BASE := 15.0
+const REPARA_K_TIER := 0.5
+const REPARA_K_MEJ := 0.12
+
+# Maximo de durabilidad (en puntos) de un slot equipado. Sube con el TIER (una pieza de tier
+# alto aguanta mas de base) y con las mejoras de Durabilidad. Mas maximo = dura mas y cada golpe
+# resta menos fraccion; NO encarece reparar (el precio es por % roto).
+func max_durabilidad(slot: String) -> float:
+	var tier: int = equip_tier(slot)
+	var n: int = int((equip_mejoras(slot) as Dictionary).get(Upgrades.DURABILIDAD, 0))
+	return DURABILIDAD_MAX_BASE + float(maxi(tier, 1) - 1) * DURABILIDAD_POR_TIER + float(n) * DURABILIDAD_POR_MEJORA
+
+# Fraccion de durabilidad de un slot (1.0 llena, 0.0 rota). Retrocompat: sin la clave = llena.
+func durabilidad_slot(slot: String) -> float:
+	return clampf(float((equip_meta[slot] as Dictionary).get("durabilidad", 1.0)), 0.0, 1.0)
+
+# Multiplicador de rendimiento por desgaste (daño del arma / proteccion de la pieza).
+# Gastada: rampa lineal con TOPE PENAL_MAX. Rota (frac<=0): acantilado a 1-PENAL_ROTO.
+func durabilidad_mult(frac: float) -> float:
+	if frac <= 0.0:
+		return 1.0 - PENAL_ROTO
+	return 1.0 - PENAL_MAX * (1.0 - clampf(frac, 0.0, 1.0))
+
+# Resta desgaste a un slot (arma/pieza), en fraccion = puntos/max. No baja de 0 (roto).
+func _desgastar_slot(slot: String, puntos: float) -> void:
+	if not equip_meta.has(slot):
+		return
+	var maxd: float = max_durabilidad(slot)
+	if maxd <= 0.0:
+		return
+	var frac: float = durabilidad_slot(slot) - puntos / maxd
+	equip_meta[slot]["durabilidad"] = clampf(frac, 0.0, 1.0)
+
+# Desgasta el ARMA de la mano indicada ("main"/"off") por un golpe dado. Los puños (sin arma)
+# no se gastan (no hay pieza equipada de verdad).
+func desgastar_arma(slot: String) -> void:
+	if slot == "main" and equipped_main == null:
+		return
+	if slot == "off" and not (equipped_off is WeaponData):
+		return
+	_desgastar_slot(slot, DESGASTE_ARMA)
+
+# Desgasta TODAS las piezas de armadura equipadas por un golpe recibido (un poco cada una).
+func desgastar_armadura() -> void:
+	for slot in ["casco", "pecho", "manos", "pantalones", "botas"]:
+		if _pieza_equipada(slot) != null:
+			_desgastar_slot(slot, DESGASTE_ARMOR)
+
+func _pieza_equipada(slot: String) -> ArmorData:
+	match slot:
+		"casco": return equipped_casco
+		"pecho": return equipped_pecho
+		"manos": return equipped_manos
+		"pantalones": return equipped_pantalones
+		"botas": return equipped_botas
+	return null
+
+# Precio de reparar un slot al 100%: coste_full × fraccion rota (0 si esta llena).
+func precio_reparar(slot: String) -> int:
+	var frac: float = durabilidad_slot(slot)
+	if frac >= 1.0:
+		return 0
+	var tier: int = equip_tier(slot)
+	var n: int = Upgrades.total_mejoras(equip_mejoras(slot))
+	var coste_full: float = REPARA_BASE * (1.0 + float(tier) * REPARA_K_TIER) * (1.0 + float(n) * REPARA_K_MEJ)
+	return maxi(1, int(round(coste_full * (1.0 - frac))))
+
+# Repara un slot al 100% cobrando su precio. false si ya esta lleno o no puedes pagar.
+func reparar_slot(slot: String) -> bool:
+	var precio: int = precio_reparar(slot)
+	if precio <= 0:
+		return false
+	if not gastar(precio):
+		return false
+	equip_meta[slot]["durabilidad"] = 1.0
+	return true
+
+# Slots reparables (equipados y dañados). El puño (main vacio) no cuenta.
+func _slots_reparables() -> Array:
+	var out: Array = []
+	for slot in ["main", "off", "casco", "pecho", "manos", "pantalones", "botas"]:
+		if _slot_es_equipo(slot) and precio_reparar(slot) > 0:
+			out.append(slot)
+	return out
+
+# True si el slot tiene una pieza reparable equipada (arma/armadura de verdad, no puños/escudo/varita).
+func _slot_es_equipo(slot: String) -> bool:
+	match slot:
+		"main": return equipped_main != null
+		"off": return equipped_off is WeaponData
+		_: return _pieza_equipada(slot) != null
+
+# Coste total de reparar todo el equipo dañado.
+func precio_reparar_todo() -> int:
+	var total: int = 0
+	for slot in _slots_reparables():
+		total += precio_reparar(slot)
+	return total
+
+# Repara TODO el equipo dañado si puedes pagar la suma. Devuelve lo gastado (0 si no llega/nada).
+func reparar_todo() -> int:
+	var total: int = precio_reparar_todo()
+	if total <= 0 or not gastar(total):
+		return 0
+	for slot in _slots_reparables():
+		equip_meta[slot]["durabilidad"] = 1.0
+	return total
 
 # --- Setters (los usa el panel de debug / futura tienda) ---
 func set_equip_tier(slot: String, t: int) -> void:
@@ -1634,10 +1760,14 @@ func loadout_mods() -> Dictionary:
 func _hand_from(w: WeaponData, slot: String) -> Dictionary:
 	var wm := Upgrades.weapon_mods(w, tier_mult(equip_tier(slot)),
 		equip_rareza(slot), equip_mejoras(slot))
+	# DURABILIDAD: un arma gastada pega menos (con tope), y rota se va a los suelos. Solo toca
+	# el raw (su daño); no altera motion_value/crit/identidad. Los puños (main null) no se gastan.
+	var dur_mult: float = durabilidad_mult(durabilidad_slot(slot)) if w != null else 1.0
 	return {
 		"nombre": w.nombre,
+		"slot": slot,   # para saber que arma desgastar al golpear (main/off)
 		"motion_value": w.motion_value,
-		"ataque_arma": wm["raw"],
+		"ataque_arma": float(wm["raw"]) * dur_mult,
 		"crit_bonus": float(wm["crit"]),
 		"precision": wm["precision"],
 		"dano_tipo": int(w.dano_tipo),
@@ -1730,8 +1860,11 @@ func armor_mods() -> Dictionary:
 		rareza_max = maxi(rareza_max, equip_rareza(slot))
 		var pm := Upgrades.armor_piece_mods(pieza, tier_mult(equip_tier(slot)),
 			equip_rareza(slot), equip_mejoras(slot))
-		def_bonus += float(pm["def"])                        # DEF (tier×rareza×mejoras), sin techo
-		reduction += cob * float(pm["reduccion"])            # media ponderada (cobertura suma 1.0)
+		# DURABILIDAD: una pieza gastada protege menos (con tope), y rota se va a los suelos.
+		# Solo toca lo defensivo (DEF y reduccion), no la esquiva/velocidad/identidad.
+		var dur_mult: float = durabilidad_mult(durabilidad_slot(slot))
+		def_bonus += float(pm["def"]) * dur_mult             # DEF (tier×rareza×mejoras), sin techo
+		reduction += cob * float(pm["reduccion"]) * dur_mult # media ponderada (cobertura suma 1.0)
 		vel_delta += cob * (float(pm["vel_mult"]) - 1.0)     # velocidad ponderada
 		evasion += float(pm["evasion"])
 		crit_resist += float(pm["crit_resist"])

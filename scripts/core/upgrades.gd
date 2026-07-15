@@ -10,9 +10,9 @@
 #   - Cada MEJORA sube el numero base (raw de arma / DEF de armadura) un +0.3 FIJO
 #     (x tier), elijas la categoria que elijas. ENCIMA, la categoria da un extra
 #     DECRECIENTE (dim_sum). En un arma, por tanto, CADA mejora sube el daño raw.
-#   - Categorias DISTINTAS por tipo, con GATING por clase de armadura. Las que
-#     dependen de sistemas que aun no existen quedan RESERVADAS (efecto 0):
-#     Durabilidad (mantenimiento). La Resistencia a estados ya esta ACTIVA (KAN-58).
+#   - Categorias DISTINTAS por tipo, con GATING por clase de armadura. Durabilidad
+#     (mantenimiento) y Resistencia a estados ya estan ACTIVAS. La Durabilidad no da un
+#     stat de combate: sube el MAXIMO de durabilidad del item (ver Game.max_durabilidad).
 # ============================================================
 
 extends RefCounted
@@ -58,14 +58,14 @@ const EVASION := "evasion"
 const RESIST_CRIT := "resist_crit"
 const RESISTENCIA := "resistencia"    # -prob. de estados alterados (KAN-58, activa)
 # Generica (arma y armadura):
-const DURABILIDAD := "durabilidad"    # RESERVADA (mantenimiento)
+const DURABILIDAD := "durabilidad"    # ACTIVA: sube el maximo de durabilidad (mantenimiento)
 
 # Nombres legibles para la UI.
 const CAT_NOMBRE := {
 	"agudeza": "Agudeza", "precision": "Precision", "peso": "Peso", "rapidez": "Rapidez",
 	"potencia": "Potencia", "eficiencia": "Eficiencia", "celeridad": "Celeridad", "regeneracion": "Regeneracion",
 	"dureza": "Dureza", "evasion": "Evasion", "resist_crit": "Resist. criticos",
-	"resistencia": "Resistencia (estados)", "durabilidad": "Durabilidad (reservada)",
+	"resistencia": "Resistencia (estados)", "durabilidad": "Durabilidad",
 }
 
 # --- Steps de cada categoria (extra DECRECIENTE por punto) ---
@@ -148,6 +148,12 @@ static func total_mejoras(mejoras: Dictionary) -> int:
 		n += int(mejoras[k])
 	return n
 
+# Mejoras que cuentan para el +10% universal de raw/DEF: TODAS menos Durabilidad. La Durabilidad
+# es mantenimiento (sube el maximo de aguante, no el daño/defensa), asi que no debe buffear los
+# numeros de combate por la puerta de atras. Sigue ocupando hueco y contando para venta/reparacion.
+static func mejoras_combate(mejoras: Dictionary) -> int:
+	return total_mejoras(mejoras) - _count(mejoras, DURABILIDAD)
+
 
 # Categorias VALIDAS de un arma (para el gating y la UI). Peso solo si contundente.
 # Las armas MAGICAS (baston) usan las categorias magicas, NO las fisicas.
@@ -165,7 +171,7 @@ static func weapon_categories(w: WeaponData) -> Array:
 	if w != null and int(w.dano_tipo) == 1:  # CONTUNDENTE
 		cats.append(PESO)
 	cats.append(RAPIDEZ)
-	cats.append(DURABILIDAD)  # reservada
+	cats.append(DURABILIDAD)  # sube el maximo de durabilidad
 	return cats
 
 # Categorias magicas base (potencia + gestion de maná). El baston añade encima
@@ -187,7 +193,7 @@ static func armor_categories(a: ArmorData) -> Array:
 		else:
 			cats.append(RESIST_CRIT)
 	cats.append(RESISTENCIA)   # resist. estados (activa, KAN-58)
-	cats.append(DURABILIDAD)   # reservada
+	cats.append(DURABILIDAD)   # sube el maximo de durabilidad
 	return cats
 
 
@@ -215,7 +221,7 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 		return {"raw": raw_mag, "crit": mejor_con_rareza(w.crit_bonus, rmult), "precision": 0.0,
 			"aturdir": aturdir_mag, "evasion": w.evasion_bonus * rmult,
 			"bloqueo": w.bloqueo * rmult, "vel_mult": 1.0}
-	var n := total_mejoras(mejoras)
+	var n := mejoras_combate(mejoras)   # la Durabilidad no cuenta para el +10% de daño
 	# +10% de la base por CADA mejora (universal) + extra de Agudeza (decreciente, tambien en %
 	# de la base). Todo sobre la base × rareza, y el conjunto × tier.
 	var subida := UPGRADE_PCT * float(n) + dim_sum(AGUDEZA_STEP, _count(mejoras, AGUDEZA))
@@ -245,7 +251,7 @@ static func magic_tier_ratio(tmult: float) -> float:
 	return pow(tmult, MAGIC_TIER_POWER)
 
 static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
-	var n := total_mejoras(mejoras)
+	var n := mejoras_combate(mejoras)   # la Durabilidad no cuenta para el +flat de magic_amp
 	# magic_amp = base×rareza + flat universal por CADA mejora + extra de Potencia (decreciente, tope).
 	# El TIER lo multiplica todo por el mismo factor de daño que una melee (magic_tier_ratio).
 	# Los topes de las mejoras magicas tambien suben con la rareza (como en armas/armaduras).
@@ -263,7 +269,7 @@ static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dict
 # velocidad de la pieza salen de la base (el tier/rareza/mejoras solo tocan DEF,
 # evasion y resist. criticos). game.gd combina las 5 piezas por cobertura.
 static func armor_piece_mods(a: ArmorData, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
-	var n := total_mejoras(mejoras)
+	var n := mejoras_combate(mejoras)   # la Durabilidad no cuenta para el +10% de DEF
 	# Mismo modelo que el arma: la mejora sube un % de la DEF de ESTA pieza, no un flat. Asi un
 	# peto de cuero (base 0.25) y una coraza de placas (base 1.1) suben lo mismo EN PROPORCION,
 	# en vez de que dos mejoras tripliquen el cuero y apenas se noten en las placas.

@@ -1328,6 +1328,9 @@ func _accion_atacar() -> void:
 			txt += "  🔷 +%.1f MP." % mp
 		_set_log(txt)
 	_gastar_imbue()   # blandir el arma gasta un uso, acierte o falle
+	# DURABILIDAD: blandir el arma la desgasta (acierte o falle: has dado el golpe). Los puños
+	# (main vacio) no se gastan (lo filtra Game.desgastar_arma).
+	Game.desgastar_arma(_player.current_hand_slot())
 	# El ataque basico REGENERA energia (KAN-57): te "cargas" pegando.
 	_player.regen_energy(ATTACK_ENERGY_REGEN)
 	_update_hp()
@@ -1447,6 +1450,7 @@ func _enemy_turn() -> void:
 
 	var dmg: float = result.damage * _enemy.dummy_dmg_out_mult   # Saco = 0 (no pega)
 	_player.take_damage(dmg)
+	Game.desgastar_armadura()   # DURABILIDAD: encajar un golpe gasta un poco todas las piezas
 	if _dps_on:
 		_dmg_taken_total += dmg
 		_dmg_taken_hits += 1
@@ -1530,6 +1534,7 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 			else:
 				var dmg: float = result.damage * ab.dano_mult * _enemy.dummy_dmg_out_mult
 				_player.take_damage(dmg)
+				Game.desgastar_armadura()   # DURABILIDAD: cada golpe encajado gasta las piezas
 				total += dmg
 				conecto += 1
 				var et := "golpe %d: %s %.2f" % [i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
