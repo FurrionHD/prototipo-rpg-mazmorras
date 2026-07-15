@@ -262,16 +262,18 @@ static func magic_tier_ratio(tmult: float) -> float:
 
 static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
 	var n := mejoras_combate(mejoras)   # la Durabilidad no cuenta para el +flat de magic_amp
+	var rmult := rareza_mult(rareza)
 	# magic_amp = base×rareza + flat universal por CADA mejora + extra de Potencia (decreciente, tope).
 	# El TIER lo multiplica todo por el mismo factor de daño que una melee (magic_tier_ratio).
-	# Los topes de las mejoras magicas tambien suben con la rareza (como en armas/armaduras).
-	var potencia := minf(cap_rareza(POTENCIA_CAP, rareza), dim_sum(POTENCIA_STEP, _count(mejoras, POTENCIA)))
-	var amp := (base_amp * rareza_mult(rareza) + MAGIC_AMP_FLAT * float(n) + potencia) * magic_tier_ratio(tmult)
+	# El APORTE de cada mejora magica va × rareza (como en armas/armaduras: antes eran las UNICAS
+	# que no escalaban con la rareza, solo les subia el tope). El tope tambien sube con la rareza.
+	var potencia := minf(cap_rareza(POTENCIA_CAP, rareza), dim_sum(POTENCIA_STEP, _count(mejoras, POTENCIA)) * rmult)
+	var amp := (base_amp * rmult + MAGIC_AMP_FLAT * float(n) + potencia) * magic_tier_ratio(tmult)
 	return {
 		"magic_amp": amp,
-		"mana_reduccion": minf(cap_rareza(EFICIENCIA_CAP, rareza), dim_sum(EFICIENCIA_STEP, _count(mejoras, EFICIENCIA))),
-		"cast_vel_add": minf(cap_rareza(CELERIDAD_CAP, rareza), dim_sum(CELERIDAD_STEP, _count(mejoras, CELERIDAD))),
-		"regen_mult": 1.0 + minf(cap_rareza(REGENERACION_CAP, rareza), dim_sum(REGENERACION_STEP, _count(mejoras, REGENERACION))),
+		"mana_reduccion": minf(cap_rareza(EFICIENCIA_CAP, rareza), dim_sum(EFICIENCIA_STEP, _count(mejoras, EFICIENCIA)) * rmult),
+		"cast_vel_add": minf(cap_rareza(CELERIDAD_CAP, rareza), dim_sum(CELERIDAD_STEP, _count(mejoras, CELERIDAD)) * rmult),
+		"regen_mult": 1.0 + minf(cap_rareza(REGENERACION_CAP, rareza), dim_sum(REGENERACION_STEP, _count(mejoras, REGENERACION)) * rmult),
 	}
 
 
