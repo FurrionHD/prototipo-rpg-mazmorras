@@ -692,7 +692,7 @@ func roll_on_hit(target: Combatant) -> Array:
 		var p: float = a.prob * (1.0 - target.status_resist)
 		if randf() >= p:
 			continue
-		var mag: float = StatusEffects.app_magnitude(a, atk())   # sangrado escala con MI ataque
+		var mag: float = StatusEffects.app_magnitude(a, atk(), motion_value)   # sangrado escala con MI ataque (mv invertido)
 		target.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
 		aplicados.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
 	return aplicados

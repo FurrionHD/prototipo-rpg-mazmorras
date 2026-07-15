@@ -1262,7 +1262,7 @@ func _tirar_efectos_habilidad(ab: AbilityData, fue_critico: bool = false) -> Arr
 		if a.solo_crit and not fue_critico:
 			continue   # efecto reservado al critico (p.ej. 2o sangrado de la Punalada)
 		if randf() < a.prob * (1.0 - _enemy.status_resist):
-			var mag: float = StatusEffects.app_magnitude(a, _player.atk())
+			var mag: float = StatusEffects.app_magnitude(a, _player.atk(), _player.motion_value)
 			_enemy.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
 			out.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
 	return out
@@ -1301,8 +1301,10 @@ func _accion_atacar() -> void:
 		var txt: String
 		if result.crit:
 			txt = "¡CRITICO! %s golpea con %s por %.2f de daño. 💥" % [_player.nombre, con_arma, result.damage]
-			# Excelia: clavar un critico entrena Agilidad (encontraste el hueco).
-			Game.ganar("agilidad", Game.reto(_poder_enemigo()), Game.GAIN_AGILIDAD_CRITICO,
+			# Excelia: clavar un critico entrena Agilidad (encontraste el hueco). Escala con el
+			# PESO del arma (motion_value): un arma pesada critea poco, asi que cuando SI lo clava
+			# entrena mas Agilidad; una ligera critea a menudo y aporta menos por golpe.
+			Game.ganar("agilidad", Game.reto(_poder_enemigo()) * arma_factor, Game.GAIN_AGILIDAD_CRITICO,
 				Game.RETO_MAX_FISICO)
 		else:
 			txt = "%s golpea con %s por %.2f de daño." % [_player.nombre, con_arma, result.damage]
@@ -1594,7 +1596,7 @@ func _enemy_tirar_efectos(ab: AbilityData) -> Array:
 		var p: float = a.prob * (1.0 - _player.status_resist) if al_jugador else a.prob
 		if randf() >= p:
 			continue
-		var mag: float = StatusEffects.app_magnitude(a, _enemy.atk())
+		var mag: float = StatusEffects.app_magnitude(a, _enemy.atk(), _enemy.motion_value)
 		# Aplica los stacks de uno en uno (los independientes/merge suben stack por llamada).
 		for _s in maxi(1, a.stacks):
 			objetivo.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
@@ -1889,7 +1891,7 @@ func _dev_veneno() -> void:
 
 func _dev_sangrado() -> void:
 	var ap: Combatant = _dev_aplicador()
-	var mag: float = StatusEffects.sangrado_magnitude(ap.atk())
+	var mag: float = StatusEffects.sangrado_magnitude(ap.atk(), ap.motion_value)
 	_dev_target().apply_status(StatusEffects.Id.SANGRADO, -1, mag)
 	_update_hp()
 	_set_log("[dev] Sangrado +1 stack (%.1f/stack · escala con %s) a %s." % [

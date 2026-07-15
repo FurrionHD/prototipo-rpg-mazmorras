@@ -48,18 +48,26 @@ const SANGRADO_FRACCION_ATK := 0.30
 const SANGRADO_TURNS := 3
 const SANGRADO_MAX_STACKS := 5
 
-static func sangrado_magnitude(applier_atk: float) -> float:
-	return applier_atk * SANGRADO_FRACCION_ATK
+# El sangrado premia las armas RAPIDAS (muchos cortes), no las pesadas: usa el motion_value
+# A LA INVERSA. atk() ya HORNEA el motion_value del arma (una GS pega ~1.55x), lo que inflaba
+# su sangrado de forma desproporcionada. Dividimos DOS veces por el motion_value: una para
+# quitar ese peso ya horneado (queda neutral) y otra para INVERTIRLO, de modo que una daga
+# (mv bajo) sangra mas y un mandoble (mv alto) sangra menos. Sigue escalando con Fuerza y
+# ataque base (un cortador fuerte abre mas herida): solo se invierte el PESO del arma.
+static func sangrado_magnitude(applier_atk: float, motion_value: float = 1.0) -> float:
+	var mv: float = maxf(motion_value, 0.1)
+	return applier_atk * SANGRADO_FRACCION_ATK / (mv * mv)
 
 # Magnitud EFECTIVA de un StatusApplication segun el aplicador. Si trae magnitud fija
-# (>=0) se usa esa; si es Sangrado sin magnitud, escala con el ataque del aplicador;
-# si no, -1 (que apply_status traduce al dot_default del catalogo).
-static func app_magnitude(app, applier_atk: float) -> float:
+# (>=0) se usa esa; si es Sangrado sin magnitud, escala con el ataque del aplicador
+# (con el motion_value del arma invertido, ver sangrado_magnitude); si no, -1 (que
+# apply_status traduce al dot_default del catalogo).
+static func app_magnitude(app, applier_atk: float, motion_value: float = 1.0) -> float:
 	var m: float = float(app.magnitud)
 	if m >= 0.0:
 		return m
 	if int(app.estado) == Id.SANGRADO:
-		return sangrado_magnitude(applier_atk)
+		return sangrado_magnitude(applier_atk, motion_value)
 	return -1.0
 
 # Catalogo. Cada entrada trae solo los campos que usa (el resto = neutro por defecto,
