@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Guardián del Rango"
+color = Color(0.85, 0.75, 0.2, 1)
+escala_visual = 2.2
+fuerza = 45
+resistencia = 45
+destreza = 35
+agilidad = 35
+magia = 30
+franja_low = 1.0
+franja_high = 1.0
+base_hp = 160.0
+base_attack = 7.0
+base_defense = 5.0
+base_magic = 4.0
+base_speed = 4.2
+move_speed_min = 30.0
+move_speed_max = 50.0
+chase_speed_mult = 2.2
+crystal_category_min = 5
+crystal_category_max = 5
+extraction_hits = 4
+drop_chance = 0.0
+nucleo_chance = 0.0
+prob_habilidad = 0.0
+otorga_nivel = true
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

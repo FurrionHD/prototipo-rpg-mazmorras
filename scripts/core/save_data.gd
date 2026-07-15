@@ -54,6 +54,17 @@ const VERSION_ACTUAL := 2
 # Game.actualizar_estado()). Guardar solo las visibles perderia el progreso a medio cocer.
 @export var ability_internal: Dictionary = {}
 @export var player_level: int = 1
+# SUBIR DE NIVEL: marca del nivel (el visible = interno - esto), stats base BAKEADAS al ascender
+# (antes eran vars fijas, ahora crecen al subir de nivel), habilidades de desarrollo elegidas y el
+# disparador. @export con default: no invalida partidas viejas (empiezan a nivel 1 con base fija).
+@export var ability_base_nivel: Dictionary = {}
+@export var player_base_hp: float = 50.0
+@export var player_base_attack: float = 5.0
+@export var player_base_defense: float = 5.0
+@export var player_base_magic: float = 5.0
+@export var player_base_speed: float = 5.0
+@export var desarrollos_elegidos: Array = []
+@export var trigger_nivel_derrotado: bool = false
 @export var player_current_hp: float = -1.0
 @export var player_current_mp: float = -1.0
 @export var stamina: float = -1.0

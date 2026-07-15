@@ -37,12 +37,26 @@ var player_current_mp: float = -1.0
 # el interno; dificultad relativa (enemigo/accion facil = sube poco).
 var ability_internal: Dictionary = {
 	"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+# SUBIR DE NIVEL (estilo DanMachi): al subir NO se borra ability_internal (el total acumulado se
+# queda OCULTO de fondo y sigue alimentando recoleccion/reto). Lo que se resetea es el VISIBLE:
+# ability_base_nivel guarda el valor de ability_internal en el ultimo subir-de-nivel, y el rango
+# VISIBLE de este nivel = ability_internal - ability_base_nivel (vuelve a I al subir). El poder de
+# combate se conserva porque el efecto de tus basicas se BAKEA en las stats base (ver subir_nivel).
+var ability_base_nivel: Dictionary = {
+	"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
 # Rendimientos decrecientes RELATIVOS AL TOPE: subes bien casi todo el camino
 # y frena cerca de 999, pero con un SUELO para que nunca sea imposible.
 # factor = max(FLOOR, (1 - interno/999)^POWER).
 const ABILITY_CAP := 999.0
 const DIMINISH_POWER := 0.8        # <1 = curva mas suave (aguanta mas arriba)
 const DIMINISH_FLOOR := 0.15       # suelo: cerca de 999 sigues subiendo (lento, no 0)
+
+# --- SUBIR DE NIVEL ---
+const NIVEL_SPIKE := 0.10          # +10% al bakear las stats en la base (para que el salto se note)
+const RANGO_C_MIN := 600           # rango C (Abilities.rank_letter: 600-699 = C). Umbral para poder subir.
+# Estado de la subida de nivel (persistidos, ver save_data):
+var trigger_nivel_derrotado: bool = false   # ¿venciste al enemigo que la dispara? (flag como los bosses)
+var desarrollos_elegidos: Array = []         # ids de habilidades de desarrollo elegidas (una por nivel)
 const RETO_MAX := 8.0              # tope de dificultad relativa (enemigo muy superior = mas ganancia)
 # Tope de reto SOLO para las stats FISICAS (Fuerza/Resistencia/Agilidad): mas
 # bajo que el de Destreza (8) para que no se disparen contra enemigos superiores.
@@ -382,6 +396,18 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 
 	player_level = 1
 	ability_internal = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+	# Estado de subida de nivel a cero (por si venias de otra partida en la misma sesion).
+	ability_base_nivel = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+	player_base_hp = 50.0
+	player_base_attack = 5.0
+	player_base_defense = 5.0
+	player_base_magic = 5.0
+	player_base_speed = 5.0
+	desarrollos_elegidos.clear()
+	trigger_nivel_derrotado = false
+	habilidad_metalurgia = false
+	habilidad_peleteria = false
+	habilidad_herreria = false
 	actualizar_estado()
 	player_current_hp = -1.0
 	player_current_mp = -1.0
@@ -460,6 +486,14 @@ func exportar_partida() -> SaveData:
 	d.metalico = player_metalico
 	d.ability_internal = ability_internal.duplicate()
 	d.player_level = player_level
+	d.ability_base_nivel = ability_base_nivel.duplicate()
+	d.player_base_hp = player_base_hp
+	d.player_base_attack = player_base_attack
+	d.player_base_defense = player_base_defense
+	d.player_base_magic = player_base_magic
+	d.player_base_speed = player_base_speed
+	d.desarrollos_elegidos = desarrollos_elegidos.duplicate()
+	d.trigger_nivel_derrotado = trigger_nivel_derrotado
 	d.player_current_hp = player_hp()
 	d.player_current_mp = player_current_mp
 	d.stamina = float(player.current_stamina) if player != null and "current_stamina" in player else -1.0
@@ -538,6 +572,21 @@ func importar_partida(d: SaveData) -> void:
 
 	ability_internal = d.ability_internal.duplicate()
 	player_level = d.player_level
+	ability_base_nivel = d.ability_base_nivel.duplicate() if d.ability_base_nivel else {
+		"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+	player_base_hp = d.player_base_hp
+	player_base_attack = d.player_base_attack
+	player_base_defense = d.player_base_defense
+	player_base_magic = d.player_base_magic
+	player_base_speed = d.player_base_speed
+	desarrollos_elegidos = d.desarrollos_elegidos.duplicate()
+	trigger_nivel_derrotado = d.trigger_nivel_derrotado
+	# Re-encender los interruptores de OFICIO segun los desarrollos elegidos (no se guardan aparte).
+	for _id in desarrollos_elegidos:
+		match str(_id):
+			"metalurgia": habilidad_metalurgia = true
+			"peleteria": habilidad_peleteria = true
+			"herreria": habilidad_herreria = true
 	actualizar_estado()   # las stats VISIBLES se derivan de las internas, no se guardan aparte
 	player_current_hp = d.player_current_hp
 	player_current_mp = d.player_current_mp
@@ -3276,13 +3325,15 @@ func ganar(abil: String, reto_val: float, base: float, max_reto: float = RETO_MA
 	var interno: float = ability_internal[abil]
 	var factor: float = maxf(DIMINISH_FLOOR,
 		pow(clampf(1.0 - interno / ABILITY_CAP, 0.0, 1.0), DIMINISH_POWER))
-	var gain: float = base * clampf(reto_val, 0.0, max_reto) * factor
+	var gain: float = base * clampf(reto_val, 0.0, max_reto) * factor * desarrollo_gain_mult(abil)
 	ability_internal[abil] = interno + gain
 
 # Poder del jugador (suma de visibles) con un suelo para no dividir por 0.
 func poder_jugador_eff() -> float:
-	var suma: float = float(player_fuerza + player_resistencia + player_destreza
-		+ player_agilidad + player_magia)
+	# Usa el TOTAL acumulado (oculto), no el visible de este nivel: asi al subir de nivel un enemigo
+	# de piso bajo sigue dando reto ~0 (tu poder real no baja), sin exploit de farmear piso 1.
+	var suma: float = float(stat_total("fuerza") + stat_total("resistencia") + stat_total("destreza")
+		+ stat_total("agilidad") + stat_total("magia"))
 	return maxf(suma, PODER_JUGADOR_SUELO)
 
 # Dificultad relativa: enemigo/accion facil respecto a ti = poco.
@@ -3305,15 +3356,138 @@ func curva_reto(reto_bruto: float, pivote: float, slope: float, tope: float) -> 
 		d = pivote + (reto_bruto - pivote) * slope
 	return clampf(d, 0.0, tope)
 
-# "Actualizar estado" (hogar / tu dios): aplica lo INTERNO a lo VISIBLE.
+# "Actualizar estado" (altar / tu dios): aplica lo INTERNO a lo VISIBLE. El VISIBLE es el progreso
+# de ESTE nivel = interno - base_nivel (tras subir de nivel arranca en 0/rango I aunque el total
+# oculto siga alto). Recoleccion y reto NO usan esto: usan el total (ver stat_total()).
 func actualizar_estado() -> void:
-	player_fuerza = floori(ability_internal["fuerza"])
-	player_resistencia = floori(ability_internal["resistencia"])
-	player_destreza = floori(ability_internal["destreza"])
-	player_agilidad = floori(ability_internal["agilidad"])
-	player_magia = floori(ability_internal["magia"])
-	print("=== ESTADO ACTUALIZADO ===  F:", player_fuerza, " R:", player_resistencia,
-		" D:", player_destreza, " A:", player_agilidad, " M:", player_magia)
+	player_fuerza = _visible_nivel("fuerza")
+	player_resistencia = _visible_nivel("resistencia")
+	player_destreza = _visible_nivel("destreza")
+	player_agilidad = _visible_nivel("agilidad")
+	player_magia = _visible_nivel("magia")
+	print("=== ESTADO ACTUALIZADO (Nv ", player_level, ") ===  F:", player_fuerza,
+		" R:", player_resistencia, " D:", player_destreza, " A:", player_agilidad, " M:", player_magia)
+
+# Progreso VISIBLE de este nivel para una habilidad (interno - base del nivel, minimo 0).
+func _visible_nivel(s: String) -> int:
+	return maxi(0, floori(float(ability_internal[s]) - float(ability_base_nivel[s])))
+
+# TOTAL acumulado (oculto) de una habilidad. Es lo que usan recoleccion y reto: no se resetea al
+# subir de nivel, asi la recoleccion sigue facil y un enemigo de piso bajo da reto ~0 (no exploit).
+func stat_total(s: String) -> int:
+	return floori(float(ability_internal[s]))
+
+
+# ============================================================
+#  SUBIR DE NIVEL (estilo DanMachi)
+#  Al subir: se BAKEA el efecto derivado de tus basicas visibles en las stats base (×1.10) y el
+#  VISIBLE se resetea a 0 (rango I) SIN borrar el total oculto. Asi el poder de combate se conserva
+#  (base grande) y ademas cada punto nuevo pega mas (multiplica sobre esa base). Recoleccion/reto
+#  usan el total oculto (stat_total), asi no se rompen.
+# ============================================================
+
+# ¿Puedes subir de nivel? Haber vencido al enemigo disparador Y tener rango C (600) en alguna
+# habilidad (por el TOTAL). El orden no importa: si lo venciste antes de tener el rango, cuenta.
+func puede_subir_nivel() -> bool:
+	if not trigger_nivel_derrotado:
+		return false
+	for s in ["fuerza", "resistencia", "destreza", "agilidad", "magia"]:
+		if stat_total(s) >= RANGO_C_MIN:
+			return true
+	return false
+
+# Sube de nivel: consolida, bakea las stats derivadas en la base (×1.10), resetea el visible,
+# sube el nivel y aplica la habilidad de desarrollo elegida. desarrollo_id es OBLIGATORIO.
+func subir_nivel(desarrollo_id: String) -> bool:
+	if not puede_subir_nivel():
+		return false
+	actualizar_estado()   # consolida lo pendiente en el visible antes de bakear
+	# Abilities con las basicas VISIBLES actuales, para derivar las stats intrinsecas.
+	var a := Abilities.new()
+	a.fuerza = player_fuerza
+	a.resistencia = player_resistencia
+	a.destreza = player_destreza
+	a.agilidad = player_agilidad
+	a.magia = player_magia
+	# BAKEAR ×(1+NIVEL_SPIKE): el efecto de tus basicas se congela en la base del nivel nuevo.
+	var spike: float = 1.0 + NIVEL_SPIKE
+	player_base_attack = player_base_attack * StatsMath.fuerza_factor(float(a.fuerza)) * spike
+	player_base_hp = StatsMath.max_hp_value(a, player_level, player_base_hp) * spike
+	player_base_defense = StatsMath.defense_value(a, player_level, player_base_defense) * spike
+	player_base_speed = StatsMath.speed_value(a, player_level, player_base_speed) * spike
+	player_base_magic = StatsMath.magic_value(a, player_level, player_base_magic) * spike
+	# NOTA (gap conocido, 1ª version): Destreza->critico es un contest relativo (se recupera al
+	# regrindearlo) y el daño de hechizo (magia_factor) y el MP no tienen campo base -> se
+	# regrindean. Se puede bakear un player_base_mp/multiplicador aparte mas adelante.
+	# Resetear el VISIBLE sin borrar el total oculto: la marca del nivel sube al total actual.
+	for s in ["fuerza", "resistencia", "destreza", "agilidad", "magia"]:
+		ability_base_nivel[s] = ability_internal[s]
+	player_fuerza = 0; player_resistencia = 0; player_destreza = 0; player_agilidad = 0; player_magia = 0
+	player_level += 1
+	trigger_nivel_derrotado = false   # la subida consume el disparador (hay que volver a vencerlo)
+	aplicar_desarrollo(desarrollo_id)
+	player_current_hp = -1.0; player_current_mp = -1.0   # despiertas a tope tras el ascenso
+	print("[nivel] ¡Subes a nivel ", player_level, "! Base -> atk %.1f def %.1f hp %.1f spd %.1f mag %.1f" % [
+		player_base_attack, player_base_defense, player_base_hp, player_base_speed, player_base_magic])
+	Perfil.guardar_actual()
+	return true
+
+
+# --- HABILIDADES DE DESARROLLO (eliges 1 al subir de nivel) ---
+# Catalogo (1ª version): 3 OFICIOS (encienden los interruptores ya sembrados: mejoran la calidad
+# al craftear) + 3 perks de COMBATE (aceleran el entreno de una stat, para rutas distintas).
+const DESARROLLOS: Array = [
+	{"id": "metalurgia", "nombre": "Metalurgia", "tipo": "oficio",
+		"desc": "Al refinar metal, tira por subir un escalón la calidad."},
+	{"id": "peleteria", "nombre": "Peletería", "tipo": "oficio",
+		"desc": "Al curtir piel, tira por subir un escalón la calidad."},
+	{"id": "herreria", "nombre": "Herrería", "tipo": "oficio",
+		"desc": "Al forjar, empuja la tirada de rareza a tu favor."},
+	{"id": "cazador", "nombre": "Cazador", "tipo": "combate",
+		"desc": "Entrenas Fuerza un 30% más rápido."},
+	{"id": "reflejos", "nombre": "Reflejos", "tipo": "combate",
+		"desc": "Entrenas Agilidad un 30% más rápido."},
+	{"id": "erudito", "nombre": "Erudito", "tipo": "combate",
+		"desc": "Entrenas Magia un 30% más rápido."},
+]
+const DESARROLLO_GAIN_BONUS := 0.30   # +30% de ganancia para el perk de esa stat
+
+# Ficha del catalogo por id ({} si no existe).
+func desarrollo_por_id(id: String) -> Dictionary:
+	for d in DESARROLLOS:
+		if d["id"] == id:
+			return d
+	return {}
+
+# Los que AUN puedes elegir (no repetibles).
+func desarrollos_disponibles() -> Array:
+	var out: Array = []
+	for d in DESARROLLOS:
+		if not desarrollos_elegidos.has(d["id"]):
+			out.append(d)
+	return out
+
+# Aplica la habilidad de desarrollo elegida. Los oficios encienden su interruptor; los perks de
+# combate se consultan en vivo (ver desarrollo_gain_mult) via desarrollos_elegidos.
+func aplicar_desarrollo(id: String) -> void:
+	if id == "" or desarrollos_elegidos.has(id):
+		return
+	desarrollos_elegidos.append(id)
+	match id:
+		"metalurgia": habilidad_metalurgia = true
+		"peleteria": habilidad_peleteria = true
+		"herreria": habilidad_herreria = true
+	print("[desarrollo] Adquieres: ", desarrollo_por_id(id).get("nombre", id))
+
+# Multiplicador de ganancia de excelia por los perks de combate elegidos (1.0 si ninguno aplica).
+func desarrollo_gain_mult(abil: String) -> float:
+	if abil == "fuerza" and desarrollos_elegidos.has("cazador"):
+		return 1.0 + DESARROLLO_GAIN_BONUS
+	if abil == "agilidad" and desarrollos_elegidos.has("reflejos"):
+		return 1.0 + DESARROLLO_GAIN_BONUS
+	if abil == "magia" and desarrollos_elegidos.has("erudito"):
+		return 1.0 + DESARROLLO_GAIN_BONUS
+	return 1.0
 
 
 # DEBUG: fija a mano las 5 habilidades (interno + visible) y cura al 100% para el
@@ -3567,7 +3741,8 @@ func start_extraction(corpse: Node) -> void:
 	if corpse.has_method("poder_normalizado"):
 		t = corpse.poder_normalizado()
 	var categoria: int = data.roll_crystal_category(t)
-	var eff_destreza: int = player_destreza + tool_destreza_bonus
+	# Destreza TOTAL (acumulada, oculta): recolectar no se endurece al subir de nivel (el visible cae a 0).
+	var eff_destreza: int = stat_total("destreza") + tool_destreza_bonus
 
 	# Exigencia por TIER del cristal (no por enemigo ni por piso): un t4 cuesta lo mismo lo saques
 	# donde lo saques. Tabla EXTRACTION_REQ_POR_TIER indexada por categoria (reserva al ultimo).
@@ -3723,7 +3898,7 @@ func start_mineria(nodo) -> void:
 	var p: ToolData = pico()
 
 	# Dificultad RELATIVA: lo dura que es la veta contra tu FUERZA (con suelo). ~1 = a la par.
-	var d: float = _exigencia_material(m) / (float(player_fuerza) * RECOLECCION_STAT_PESO + MINERIA_FUERZA_FLOOR)
+	var d: float = _exigencia_material(m) / (float(stat_total("fuerza")) * RECOLECCION_STAT_PESO + MINERIA_FUERZA_FLOOR)
 
 	# La Fuerza ensancha la franja optima Y la baja (no necesitas cargar tanto el pico).
 	var ancho: float = clampf(MINERIA_BASE_VENTANA / d, 0.06, 0.45) + p.ventana_bonus
@@ -3771,7 +3946,7 @@ func start_herboristeria(nodo) -> void:
 	var m: MaterialData = nodo.material_data
 	var h: ToolData = hoz()
 
-	var d: float = _exigencia_material(m) / (float(player_destreza) * RECOLECCION_STAT_PESO + HERB_DESTREZA_FLOOR)
+	var d: float = _exigencia_material(m) / (float(stat_total("destreza")) * RECOLECCION_STAT_PESO + HERB_DESTREZA_FLOOR)
 
 	var nucleo: float = clampf(HERB_BASE_NUCLEO / d, 0.015, 0.14) + h.filo
 	var borde: float = nucleo * HERB_BORDE_MULT
@@ -3818,7 +3993,7 @@ func start_talado(nodo) -> void:
 	var m: MaterialData = nodo.material_data
 	var a: ToolData = hacha()
 
-	var d: float = _exigencia_material(m) / (float(player_agilidad) * RECOLECCION_STAT_PESO + TALA_AGILIDAD_FLOOR)
+	var d: float = _exigencia_material(m) / (float(stat_total("agilidad")) * RECOLECCION_STAT_PESO + TALA_AGILIDAD_FLOOR)
 
 	# La Agilidad ensancha la ventana del hachazo y frena el tempo. El hacha ayuda encima.
 	var ancho: float = clampf(TALA_BASE_VENTANA / d, 0.05, 0.40) + a.compas
@@ -3926,7 +4101,7 @@ func dev_curva_recoleccion(pisos: Array = [1, 3, 5, 8, 13]) -> void:
 			for e in tabla.disponibles(int(p)):
 				var m: MaterialData = (e as MaterialEntry).material
 				var es_veta: bool = m.es_veta()
-				var stat: float = float(player_fuerza if es_veta else player_destreza)
+				var stat: float = float(stat_total("fuerza") if es_veta else stat_total("destreza"))
 				var suelo: float = MINERIA_FUERZA_FLOOR if es_veta else HERB_DESTREZA_FLOOR
 				var d: float = _exigencia_material(m) / (stat * RECOLECCION_STAT_PESO + suelo)
 				var dif: float = curva_reto(d,
@@ -3962,8 +4137,14 @@ func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left
 
 	# Si ganaste, el enemigo NO desaparece: queda como cadaver para poder
 	# extraerle el cristal (minijuego, Fase 5).
-	if player_won and is_instance_valid(_active_enemy) and _active_enemy.has_method("morir"):
-		_active_enemy.morir()
+	if player_won and is_instance_valid(_active_enemy):
+		# ¿Era el "guardián del rango"? Vencerlo marca el disparador de subir de nivel (persistente).
+		if "data" in _active_enemy and _active_enemy.data != null and _active_enemy.data.otorga_nivel:
+			if not trigger_nivel_derrotado:
+				trigger_nivel_derrotado = true
+				print("[nivel] Has vencido al guardián del rango: puedes ascender si tienes rango C.")
+		if _active_enemy.has_method("morir"):
+			_active_enemy.morir()
 	_active_enemy = null
 
 	# Quitamos la capa del combate (con la pantalla dentro).

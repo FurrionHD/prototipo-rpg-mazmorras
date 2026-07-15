@@ -129,6 +129,11 @@ class_name EnemyData
 @export var habilidades: Array = []
 @export_range(0.0, 1.0) var prob_habilidad: float = 0.5
 
+# --- SUBIR DE NIVEL ---
+# Si es true, VENCER a este enemigo marca el disparador para poder subir de nivel (junto con
+# tener rango C en alguna habilidad, ver Game.puede_subir_nivel). Es el "guardián del rango".
+@export var otorga_nivel: bool = false
+
 
 # Suma total de los PESOS (para normalizar la distribucion).
 func peso_total() -> float:
