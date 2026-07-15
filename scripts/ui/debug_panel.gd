@@ -113,6 +113,8 @@ func _ready() -> void:
 
 	_build_stats(vb)
 	_sep(vb)
+	_build_desarrollo(vb)
+	_sep(vb)
 	_build_enemy(vb)
 	_sep(vb)
 	_build_forja(vb)
@@ -136,6 +138,42 @@ func _header(vb: VBoxContainer, txt: String) -> void:
 
 func _sep(vb: VBoxContainer) -> void:
 	vb.add_child(HSeparator.new())
+
+
+func _build_desarrollo(vb: VBoxContainer) -> void:
+	_header(vb, "SUBIR DE NIVEL (Nv %d)" % Game.player_level)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	vb.add_child(row)
+
+	var b_trig := Button.new()
+	b_trig.text = "Marcar guardián vencido"
+	b_trig.pressed.connect(func():
+		Game.trigger_nivel_derrotado = true
+		print("[debug] Disparador de nivel marcado."))
+	row.add_child(b_trig)
+
+	var b_c := Button.new()
+	b_c.text = "Fuerza a rango C (600)"
+	b_c.pressed.connect(func():
+		Game.debug_set_abilities(600, Game.player_resistencia, Game.player_destreza,
+			Game.player_agilidad, Game.player_magia)
+		print("[debug] Fuerza fijada a 600 (rango C)."))
+	row.add_child(b_c)
+
+	var b_up := Button.new()
+	b_up.text = "Forzar subida (elegir desarrollo)"
+	b_up.pressed.connect(func():
+		if not Game.puede_subir_nivel():
+			Game.trigger_nivel_derrotado = true
+			if Game.stat_total("fuerza") < Game.RANGO_C_MIN:
+				Game.debug_set_abilities(600, Game.player_resistencia, Game.player_destreza,
+					Game.player_agilidad, Game.player_magia)
+		_toggle()   # cierra el panel de debug
+		var menu: Node = get_tree().get_first_node_in_group("desarrollo_menu")
+		if menu != null and menu.has_method("abrir"):
+			menu.abrir())
+	vb.add_child(b_up)
 
 
 func _build_stats(vb: VBoxContainer) -> void:

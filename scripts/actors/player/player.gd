@@ -80,6 +80,8 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/floor_select_menu.gd").new())  # elegir piso (puerta de la mazmorra)
 	add_child(preload("res://scripts/ui/character_menu.gd").new())  # menu de personaje (C)
 	add_child(preload("res://scripts/ui/map_menu.gd").new())        # mapa del piso (M)
+	add_child(preload("res://scripts/ui/altar_menu.gd").new())      # menu del altar (F sobre el altar)
+	add_child(preload("res://scripts/ui/desarrollo_menu.gd").new()) # selector de desarrollo (subir de nivel)
 	add_child(preload("res://scripts/ui/debug_panel.gd").new())  # panel de debug (cualquier sala)
 	add_child(preload("res://scripts/ui/spawner.gd").new())      # spawner de enemigos (dev/test)
 	add_child(preload("res://scripts/ui/keys_help.gd").new())    # ayuda de teclas en pantalla (F1)
