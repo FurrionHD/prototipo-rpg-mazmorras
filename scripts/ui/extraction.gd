@@ -13,7 +13,7 @@ extends Control
 
 signal extraction_finished(cristal: Cristal)
 
-enum { RUNNING, FINISHED }
+enum { READY, RUNNING, FINISHED }
 
 var _categoria: int = 1
 var _presses: int = 3          # pulsaciones TOTALES (aciertes o falles)
@@ -33,9 +33,9 @@ var _misses: int = 0
 var _marker: float = 0.0
 var _marker_dir: float = 1.0
 var _zone_start: float = 0.0
-var _state: int = RUNNING
+var _state: int = READY   # empieza en espera: no arranca hasta que pulsas ESPACIO
 var _result: Cristal = null
-var _press_was: bool = false
+var _press_was: bool = true   # true al abrir: exige una pulsacion NUEVA para empezar (no la de abrir)
 
 
 func setup(categoria: int, presses: int, zone_ratio: float,
@@ -61,6 +61,13 @@ func _process(delta: float) -> void:
 		if edge:
 			extraction_finished.emit(_result)
 			queue_free()
+		return
+
+	# En espera: el marcador no se mueve hasta que pulsas ESPACIO para empezar.
+	if _state == READY:
+		if edge:
+			_state = RUNNING
+		queue_redraw()
 		return
 
 	_marker += _marker_dir * _marker_speed * delta
@@ -138,7 +145,11 @@ func _draw() -> void:
 	draw_string(font, Vector2(bar_x, bar_y - 64.0),
 		"Extracción de cristal (categoría %d)" % _categoria,
 		HORIZONTAL_ALIGNMENT_CENTER, bar_w, 22)
-	if _state == RUNNING:
+	if _state == READY:
+		draw_string(font, Vector2(bar_x, bar_y - 30.0),
+			"Pulsa ESPACIO para empezar",
+			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 18)
+	elif _state == RUNNING:
 		draw_string(font, Vector2(bar_x, bar_y - 30.0),
 			"Pulsación %d/%d   Fallos: %d   ·  pulsa ESPACIO" % [_done + 1, _presses, _misses],
 			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 18)

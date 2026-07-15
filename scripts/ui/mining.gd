@@ -22,7 +22,7 @@ extends Control
 
 signal mineria_finished(item: MaterialItem)
 
-enum { RUNNING, FINISHED }
+enum { READY, RUNNING, FINISHED }
 
 var _material: MaterialData = null
 var _golpes_necesarios: int = 3
@@ -37,7 +37,7 @@ var _progreso: float = 0.0
 var _grietas: int = 0
 var _golpes: int = 0
 var _ultimo: String = ""       # texto del ultimo golpe (para el HUD)
-var _state: int = RUNNING
+var _state: int = READY        # empieza en espera: no arranca hasta pulsar ESPACIO
 var _result: MaterialItem = null
 var _press_was: bool = false
 
@@ -72,6 +72,16 @@ func _process(delta: float) -> void:
 			mineria_finished.emit(_result)
 			queue_free()
 		_press_was = pressed
+		return
+
+	# En espera: arranca al SOLTAR el primer ESPACIO (pulsar-y-soltar). Empezar al soltar evita
+	# que el toque de arranque cuente como un golpe flojo por accidente (la mineria carga MIENTRAS
+	# pulsas). Tras arrancar, ya cargas normal con la siguiente pulsacion.
+	if _state == READY:
+		if _press_was and not pressed:
+			_state = RUNNING
+		_press_was = pressed
+		queue_redraw()
 		return
 
 	if pressed:
@@ -179,7 +189,11 @@ func _draw() -> void:
 
 	draw_string(font, Vector2(px - 60.0, bar_y - 70.0), "Picando: %s" % nombre,
 		HORIZONTAL_ALIGNMENT_CENTER, pw + 120.0, 22)
-	if _state == RUNNING:
+	if _state == READY:
+		draw_string(font, Vector2(px - 60.0, bar_y - 44.0),
+			"Pulsa ESPACIO para empezar",
+			HORIZONTAL_ALIGNMENT_CENTER, pw + 120.0, 16)
+	elif _state == RUNNING:
 		draw_string(font, Vector2(px - 60.0, bar_y - 44.0),
 			"MANTÉN ESPACIO para cargar y SUÉLTALO en la franja",
 			HORIZONTAL_ALIGNMENT_CENTER, pw + 120.0, 16)

@@ -19,7 +19,7 @@ extends Control
 
 signal recoleccion_finished(item: MaterialItem)
 
-enum { RUNNING, FINISHED }
+enum { READY, RUNNING, FINISHED }
 
 var _material: MaterialData = null
 var _cortes: int = 3
@@ -32,9 +32,9 @@ var _destrozo: int = 0
 var _marker: float = 0.0
 var _linea: float = 0.5     # donde esta el corte en esta pasada
 var _ultimo: String = ""
-var _state: int = RUNNING
+var _state: int = READY   # empieza en espera: no arranca hasta pulsar ESPACIO
 var _result: MaterialItem = null
-var _press_was: bool = false
+var _press_was: bool = true   # true al abrir: exige una pulsacion NUEVA para empezar
 
 # Cuanto se acelera la planta por cada tallo que destrozas (se pone nerviosa).
 const AGITACION := 1.15
@@ -64,6 +64,13 @@ func _process(delta: float) -> void:
 		if edge:
 			recoleccion_finished.emit(_result)
 			queue_free()
+		return
+
+	# En espera: el marcador no empieza a pasar hasta que pulsas ESPACIO.
+	if _state == READY:
+		if edge:
+			_state = RUNNING
+		queue_redraw()
 		return
 
 	_marker += _vel * delta
@@ -161,7 +168,11 @@ func _draw() -> void:
 
 	draw_string(font, Vector2(bar_x, bar_y - 76.0), "Recolectando: %s" % nombre,
 		HORIZONTAL_ALIGNMENT_CENTER, bar_w, 22)
-	if _state == RUNNING:
+	if _state == READY:
+		draw_string(font, Vector2(bar_x, bar_y - 50.0),
+			"Pulsa ESPACIO para empezar",
+			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16)
+	elif _state == RUNNING:
 		draw_string(font, Vector2(bar_x, bar_y - 50.0),
 			"Tallo %d/%d   ·   ESPACIO justo en la línea (una sola pasada)" % [
 				_corte_actual + 1, _cortes],

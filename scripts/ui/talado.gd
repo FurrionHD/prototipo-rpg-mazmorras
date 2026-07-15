@@ -22,7 +22,7 @@ extends Control
 
 signal talado_finished(item: MaterialItem)
 
-enum { RUNNING, FINISHED }
+enum { READY, RUNNING, FINISHED }
 
 # Donde esta el tronco en la banda. Fijo y en el centro: el reto es el ritmo, no adivinar
 # donde hay que pegar.
@@ -46,9 +46,9 @@ var _progreso: int = 0
 var _astillas: int = 0
 var _tiempo_resuelto: bool = false   # ¿ya has dado (o fallado) el hachazo de esta vuelta?
 var _ultimo: String = ""
-var _state: int = RUNNING
+var _state: int = READY   # empieza en espera: no arranca hasta pulsar ESPACIO
 var _result: MaterialItem = null
-var _press_was: bool = false
+var _press_was: bool = true   # true al abrir: exige una pulsacion NUEVA para empezar
 
 
 func setup(material: MaterialData, hachazos: int, ancho: float, vel: float) -> void:
@@ -72,6 +72,13 @@ func _process(delta: float) -> void:
 		if edge:
 			talado_finished.emit(_result)
 			queue_free()
+		return
+
+	# En espera: la ventana no empieza a dar vueltas hasta que pulsas ESPACIO.
+	if _state == READY:
+		if edge:
+			_state = RUNNING
+		queue_redraw()
 		return
 
 	_pos += _vel * delta
@@ -163,7 +170,11 @@ func _draw() -> void:
 
 	draw_string(font, Vector2(bar_x, bar_y - 76.0), "Talando: %s" % nombre,
 		HORIZONTAL_ALIGNMENT_CENTER, bar_w, 22)
-	if _state == RUNNING:
+	if _state == READY:
+		draw_string(font, Vector2(bar_x, bar_y - 50.0),
+			"Pulsa ESPACIO para empezar",
+			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16)
+	elif _state == RUNNING:
 		draw_string(font, Vector2(bar_x, bar_y - 50.0),
 			"ESPACIO cuando la franja pase por el tronco  ·  un hachazo por pasada",
 			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16)
