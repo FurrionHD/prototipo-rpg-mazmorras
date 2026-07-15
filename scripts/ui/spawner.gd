@@ -17,7 +17,7 @@ const ENEMY_TYPES := [
 	["Slime", "res://scenes/actors/enemy/slime.tres"],
 	["Slime venenoso", "res://scenes/actors/enemy/slime_veneno.tres"],
 	["Slime de fuego", "res://scenes/actors/enemy/slime_fuego.tres"],
-	["Guardián del Rango", "res://scenes/actors/enemy/guardian_rango.tres"],  # dispara subir de nivel
+	["Minotauro (guardián Nv2)", "res://scenes/actors/enemy/guardian_rango.tres"],  # dispara subir de nivel
 ]
 
 var _enemy_scene: PackedScene = preload("res://scenes/actors/enemy/enemy.tscn")

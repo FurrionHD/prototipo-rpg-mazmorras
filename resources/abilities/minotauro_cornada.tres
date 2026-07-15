@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_stun"]
+script = ExtResource("2")
+estado = 7
+prob = 0.55
+
+[resource]
+script = ExtResource("1")
+nombre = "Cornada"
+descripcion = "Baja la testuz y embiste con los cuernos por delante. Si te engancha, sales despedido y tardas en recomponerte."
+coste_energia = 0.0
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.9
+efectos = [SubResource("SA_stun")]
+efectos_por_golpe = false
+cooldown = 4

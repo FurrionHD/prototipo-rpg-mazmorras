@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_furia"]
+script = ExtResource("2")
+estado = 6
+prob = 1.0
+en_objetivo = false
+
+[sub_resource type="Resource" id="SA_retraso"]
+script = ExtResource("2")
+estado = 7
+prob = 0.7
+en_objetivo = true
+
+[resource]
+script = ExtResource("1")
+nombre = "Bramido embravecido"
+descripcion = "Echa la cabeza atrás y suelta un bramido que retumba en la sala. Se pone hecho una furia (pega más fuerte) y a ti se te encoge el cuerpo: te achantas y pierdes el tiempo, como si te hubieran mazado."
+coste_energia = 0.0
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.0
+efectos = [SubResource("SA_furia"), SubResource("SA_retraso")]
+cooldown = 5
