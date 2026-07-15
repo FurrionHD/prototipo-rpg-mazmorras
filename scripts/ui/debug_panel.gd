@@ -35,6 +35,7 @@ var _enemy_buttons: Array = []
 var _dummy_buttons: Array = []   # [boton, modo] del modo prueba (Off/Saco/Pegador)
 var _dummy_hp_edit: LineEdit = null
 var _floor_edit: LineEdit = null
+var _desarrollo_list: VBoxContainer = null   # contadores ocultos de los desarrollos
 # FORJA
 var _forja_cat_opt: OptionButton = null
 var _forja_item_opt: OptionButton = null
@@ -174,6 +175,56 @@ func _build_desarrollo(vb: VBoxContainer) -> void:
 		if menu != null and menu.has_method("abrir"):
 			menu.abrir())
 	vb.add_child(b_up)
+
+	# --- Contadores OCULTOS de los desarrollos ---
+	# Este es el UNICO sitio del juego donde se ven. En la forja/peleteria/boticaria no se pintan
+	# a proposito: el jugador se gana la habilidad sin saber que la esta ganando.
+	_sep(vb)
+	_header(vb, "Contadores ocultos (no se ven en el juego)")
+	_desarrollo_list = VBoxContainer.new()
+	vb.add_child(_desarrollo_list)
+
+	var b_fill := Button.new()
+	b_fill.text = "Rellenar contadores (desbloquear todo)"
+	b_fill.pressed.connect(func():
+		for d in Game.DESARROLLOS:
+			if str(d.get("req", "")) != "exp":
+				continue
+			Game.set(str(d["contador"]), float(d["umbral"]))
+		print("[debug] Contadores de desarrollo al umbral: todo desbloqueado.")
+		_sync_desarrollo())
+	vb.add_child(b_fill)
+
+
+# Pinta cada desarrollo con su contador y su umbral. Se refresca al abrir el panel.
+func _sync_desarrollo() -> void:
+	if _desarrollo_list == null:
+		return
+	for c in _desarrollo_list.get_children():
+		c.queue_free()
+	for d in Game.DESARROLLOS:
+		var p: Dictionary = Game.desarrollo_progreso(d)
+		var estado: String
+		var col: Color
+		if Game.desarrollos_elegidos.has(d["id"]):
+			estado = "ELEGIDO"
+			col = Color(0.6, 0.8, 0.6)
+		elif bool(p["cumplido"]):
+			estado = "disponible"
+			col = Color(1.0, 0.85, 0.4)
+		else:
+			estado = "bloqueado"
+			col = Color(0.6, 0.6, 0.6)
+		var detalle: String
+		if str(d.get("req", "")) == "exp":
+			detalle = "%s %s / %s" % [str(p["contador"]),
+				str(snappedf(float(p["valor"]), 0.1)), str(snappedf(float(p["umbral"]), 0.1))]
+		else:
+			detalle = "req: %s" % str(d.get("req", "-"))
+		var l := Label.new()
+		l.text = "  %-22s %-34s %s" % [str(d["nombre"]), detalle, estado]
+		l.add_theme_color_override("font_color", col)
+		_desarrollo_list.add_child(l)
 
 
 func _build_stats(vb: VBoxContainer) -> void:
@@ -714,6 +765,7 @@ func _sync_from_game() -> void:
 	_sync_spells()
 	_floor_edit.text = str(Game.current_floor)
 	_rebuild_mejoras()
+	_sync_desarrollo()
 
 func _sync_spells() -> void:
 	for path in _spell_checks:

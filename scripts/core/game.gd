@@ -429,6 +429,10 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	metalurgia_exp = 0.0
 	peleteria_exp = 0.0
 	herreria_exp = 0.0
+	esquivas_exp = 0.0
+	hechizos_exp = 0.0
+	recitado_exp = 0.0
+	dano_recibido_exp = 0.0
 	pack_inicial_reclamado = false
 	bosses_derrotados.clear()
 	recompra.clear()
@@ -518,6 +522,10 @@ func exportar_partida() -> SaveData:
 	d.metalurgia_exp = metalurgia_exp
 	d.peleteria_exp = peleteria_exp
 	d.herreria_exp = herreria_exp
+	d.esquivas_exp = esquivas_exp
+	d.hechizos_exp = hechizos_exp
+	d.recitado_exp = recitado_exp
+	d.dano_recibido_exp = dano_recibido_exp
 	d.pack_inicial = pack_inicial_reclamado
 	d.bosses_derrotados = bosses_derrotados.duplicate()
 
@@ -615,6 +623,10 @@ func importar_partida(d: SaveData) -> void:
 	metalurgia_exp = d.metalurgia_exp
 	peleteria_exp = d.peleteria_exp
 	herreria_exp = d.herreria_exp
+	esquivas_exp = d.esquivas_exp
+	hechizos_exp = d.hechizos_exp
+	recitado_exp = d.recitado_exp
+	dano_recibido_exp = d.dano_recibido_exp
 	pack_inicial_reclamado = d.pack_inicial
 	bosses_derrotados = d.bosses_derrotados.duplicate()
 	# El historial de recompra es de SESION: cargar partida no te devuelve el mostrador del
@@ -1762,6 +1774,16 @@ func _aplicar_loadout(c: Combatant) -> void:
 	c.mana_reduccion = float(m["mana_reduccion"])
 	c.cast_velocidad_mult = float(m["cast_velocidad_mult"]) * float(am["velocidad_mult"])
 
+	# PERKS de combate (habilidades de desarrollo). Van los ULTIMOS, encima de lo que dan el equipo
+	# y la armadura: son tuyos, no del loadout, asi que no dependen de lo que lleves puesto. Se leen
+	# en vivo de desarrollos_elegidos (no hay interruptor que guardar).
+	if desarrollos_elegidos.has("reflejos"):
+		c.evasion_penal -= REFLEJOS_EVASION   # la esquiva va como PENAL: negativo = esquivas mas
+	if desarrollos_elegidos.has("erudito"):
+		c.magic_amp *= 1.0 + ERUDITO_MAGIA
+	if desarrollos_elegidos.has("encantamiento_rapido"):
+		c.cast_velocidad_mult *= 1.0 + ENCANT_RAPIDO
+
 
 # Combina la mano principal + la secundaria en los modificadores finales de
 # combate. La secundaria aporta VELOCIDAD (dual) o BLOQUEO/penalizacion (escudo).
@@ -2320,6 +2342,35 @@ func reclamar_pack_inicial(base_arma: Resource) -> bool:
 var metalurgia_exp: float = 0.0
 var peleteria_exp: float = 0.0
 var herreria_exp: float = 0.0
+
+# Los contadores ocultos de los perks de COMBATE. Misma idea que los de oficio: suben SOLOS
+# haciendo lo suyo, y son lo que decide si el perk te sale al subir de nivel (ver DESARROLLOS y
+# _req_cumplido). A diferencia de los de oficio, estos no encienden ningun interruptor: el perk
+# se consulta en vivo desde desarrollos_elegidos. El CAZADOR no tiene contador (solo sale en el
+# primer ascenso). No se enseñan en ninguna UI: solo en el panel de debug.
+var esquivas_exp: float = 0.0        # Reflejos: cada ataque que esquivas
+var hechizos_exp: float = 0.0        # Erudito: cada hechizo que lanzas
+var recitado_exp: float = 0.0        # Encantamiento rapido: cada frase de recitado acertada
+var dano_recibido_exp: float = 0.0   # Autorregeneracion: el daño que encajas (acumula el daño)
+
+# Lo que sube cada contador por cada cosa que haces. Los tres primeros van por VECES (1 por
+# esquiva/hechizo/frase); el de la autorregeneracion va por DAÑO, asi que su umbral esta en otra
+# escala. PROVISIONAL -> Excel. Combat.gd llama a estos, no toca los campos a pelo.
+const ESQUIVA_POR_ESQUIVAR := 1.0
+const HECHIZO_POR_LANZAR := 1.0
+const RECITADO_POR_FRASE := 1.0
+
+func contar_esquiva() -> void:
+	esquivas_exp += ESQUIVA_POR_ESQUIVAR
+
+func contar_hechizo() -> void:
+	hechizos_exp += HECHIZO_POR_LANZAR
+
+func contar_frase_recitada() -> void:
+	recitado_exp += RECITADO_POR_FRASE
+
+func contar_dano_recibido(dmg: float) -> void:
+	dano_recibido_exp += maxf(0.0, dmg)
 # Interruptores (los pondra a true el sistema de habilidades de desarrollo cuando exista).
 # Con esto en false, el oficio solo ACUMULA.
 var habilidad_metalurgia: bool = false
@@ -3509,27 +3560,58 @@ func subir_nivel(desarrollo_id: String) -> bool:
 
 
 # --- HABILIDADES DE DESARROLLO (eliges 1 al subir de nivel) ---
-# Catalogo (1ª version): 3 OFICIOS (encienden los interruptores ya sembrados: mejoran la calidad
-# al craftear) + 3 perks de COMBATE (aceleran el entreno de una stat, para rutas distintas).
+# Catalogo: 4 OFICIOS (encienden los interruptores ya sembrados: mejoran lo que crafteas) + 5
+# perks de COMBATE, cada uno con un efecto DISTINTO (antes eran tres veces el mismo +30%).
+#
+# Ninguno sale "porque si": cada uno tiene un REQUISITO (`req`) y hay que habertelo ganado
+# HACIENDO lo suyo. El progreso vive en un contador OCULTO (mezcla_exp, esquivas_exp...) que sube
+# solo y que no se enseña en ninguna UI: el que lleve mil lingotes fundidos ya se ha ganado la
+# Metalurgia sin saberlo, y el dia que suba de nivel le aparecera. Ver _req_cumplido.
+#   "exp"            -> el contador `contador` tiene que llegar a `umbral`.
+#   "primer_ascenso" -> solo en la PRIMERA subida (nivel 1 -> 2), y nunca mas.
+#
+# UMBRALES: PROVISIONALES -> Excel. Los de oficio van en "veces" (cada refinado/forja/poción suma
+# 1.0; ver Forge.OFICIO_POR_REFINADO / HERRERIA_POR_PIEZA / MEZCLA_EXP_POR_POCION). Los de combate
+# tambien, salvo autorregeneracion, que va en DAÑO ENCAJADO y por eso su numero es tan grande.
 const DESARROLLOS: Array = [
 	{"id": "metalurgia", "nombre": "Metalurgia", "tipo": "oficio",
-		"desc": "Al refinar metal, tira por subir un escalón la calidad."},
+		"desc": "Al refinar metal, tira por subir un escalón la calidad.",
+		"req": "exp", "contador": "metalurgia_exp", "umbral": 20.0},
 	{"id": "peleteria", "nombre": "Peletería", "tipo": "oficio",
-		"desc": "Al curtir piel, tira por subir un escalón la calidad."},
+		"desc": "Al curtir piel, tira por subir un escalón la calidad.",
+		"req": "exp", "contador": "peleteria_exp", "umbral": 20.0},
 	{"id": "herreria", "nombre": "Herrería", "tipo": "oficio",
-		"desc": "Al forjar, empuja la tirada de rareza a tu favor."},
+		"desc": "Al forjar, empuja la tirada de rareza a tu favor.",
+		"req": "exp", "contador": "herreria_exp", "umbral": 5.0},
 	{"id": "mezcla", "nombre": "Mezcla", "tipo": "oficio",
-		"desc": "Al fabricar pociones, tira por doblarlas y por subirlas de escalón."},
+		"desc": "Al fabricar pociones, tira por doblarlas y por subirlas de escalón.",
+		"req": "exp", "contador": "mezcla_exp", "umbral": 20.0},
+	# El CAZADOR es el raro: no se entrena, solo se te concede en el PRIMER ascenso. Si eliges
+	# otra cosa (o aplazas y subes mas tarde), lo pierdes para siempre.
 	{"id": "cazador", "nombre": "Cazador", "tipo": "combate",
-		"desc": "Entrenas Fuerza un 30% más rápido."},
+		"desc": "Todo lo que entrenas cunde un poco más.",
+		"req": "primer_ascenso"},
 	{"id": "reflejos", "nombre": "Reflejos", "tipo": "combate",
-		"desc": "Entrenas Agilidad un 30% más rápido."},
+		"desc": "Esquivas mejor en combate.",
+		"req": "exp", "contador": "esquivas_exp", "umbral": 30.0},
 	{"id": "erudito", "nombre": "Erudito", "tipo": "combate",
-		"desc": "Entrenas Magia un 30% más rápido."},
+		"desc": "Tus hechizos pegan más fuerte.",
+		"req": "exp", "contador": "hechizos_exp", "umbral": 30.0},
+	{"id": "encantamiento_rapido", "nombre": "Encantamiento rápido", "tipo": "combate",
+		"desc": "Recitas los conjuros más rápido.",
+		"req": "exp", "contador": "recitado_exp", "umbral": 40.0},
 	{"id": "autorregeneracion", "nombre": "Autorregeneración", "tipo": "combate",
-		"desc": "Recuperas algo de vida al principio de cada turno."},
+		"desc": "Recuperas algo de vida al principio de cada turno.",
+		"req": "exp", "contador": "dano_recibido_exp", "umbral": 500.0},
 ]
-const DESARROLLO_GAIN_BONUS := 0.30   # +30% de ganancia para el perk de esa stat
+
+# CAZADOR: +% a TODA la excelia que ganas (no a una stat suelta). Es el unico perk que toca el
+# entreno, y por eso es flojo en numero pero se aplica a todo. Los otros tres se aplican en
+# _aplicar_loadout: hacen cosas DISTINTAS en vez de ser el mismo +% con tres nombres.
+const CAZADOR_GAIN_BONUS := 0.05
+const REFLEJOS_EVASION := 0.05    # Reflejos: +esquiva (baja el evasion_penal)
+const ERUDITO_MAGIA := 0.10       # Erudito: +% al amplificador de daño magico
+const ENCANT_RAPIDO := 0.15       # Encantamiento rapido: +% de velocidad de casteo
 
 # Ficha del catalogo por id ({} si no existe).
 func desarrollo_por_id(id: String) -> Dictionary:
@@ -3538,13 +3620,41 @@ func desarrollo_por_id(id: String) -> Dictionary:
 			return d
 	return {}
 
-# Los que AUN puedes elegir (no repetibles).
+# Los que AUN puedes elegir: ni repetidos ni sin ganartelos (ver _req_cumplido).
 func desarrollos_disponibles() -> Array:
 	var out: Array = []
 	for d in DESARROLLOS:
-		if not desarrollos_elegidos.has(d["id"]):
+		if not desarrollos_elegidos.has(d["id"]) and _req_cumplido(d):
 			out.append(d)
 	return out
+
+# ¿Te has ganado este desarrollo? Es lo que decide si te APARECE al subir de nivel. El chequeo va
+# aqui y no en el catalogo porque los `const Array` de GDScript no admiten lambdas: la ficha se
+# queda declarativa ({"req": ..., "contador": ..., "umbral": ...}) y el match vive en un sitio.
+func _req_cumplido(d: Dictionary) -> bool:
+	match str(d.get("req", "")):
+		"exp":
+			# El contador se lee por NOMBRE (son propiedades del autoload): asi añadir un
+			# desarrollo nuevo es una linea en el catalogo y nada mas.
+			return float(get(str(d.get("contador", "")))) >= float(d.get("umbral", 0.0))
+		"primer_ascenso":
+			return player_level == 1
+		_:
+			return true   # sin requisito escrito -> siempre disponible
+
+# Lo que te FALTA para ganarte un desarrollo: {"contador", "umbral", "valor", "cumplido"}. Solo lo
+# usa el panel de DEBUG: en el juego estos numeros no se enseñan nunca (son ocultos a proposito).
+func desarrollo_progreso(d: Dictionary) -> Dictionary:
+	var req: String = str(d.get("req", ""))
+	if req != "exp":
+		return {"contador": req, "umbral": 0.0, "valor": 0.0, "cumplido": _req_cumplido(d)}
+	var cont: String = str(d.get("contador", ""))
+	return {
+		"contador": cont,
+		"umbral": float(d.get("umbral", 0.0)),
+		"valor": float(get(cont)),
+		"cumplido": _req_cumplido(d),
+	}
 
 # Aplica la habilidad de desarrollo elegida. Los oficios encienden su interruptor; los perks de
 # combate se consultan en vivo (ver desarrollo_gain_mult) via desarrollos_elegidos.
@@ -3560,13 +3670,11 @@ func aplicar_desarrollo(id: String) -> void:
 	print("[desarrollo] Adquieres: ", desarrollo_por_id(id).get("nombre", id))
 
 # Multiplicador de ganancia de excelia por los perks de combate elegidos (1.0 si ninguno aplica).
-func desarrollo_gain_mult(abil: String) -> float:
-	if abil == "fuerza" and desarrollos_elegidos.has("cazador"):
-		return 1.0 + DESARROLLO_GAIN_BONUS
-	if abil == "agilidad" and desarrollos_elegidos.has("reflejos"):
-		return 1.0 + DESARROLLO_GAIN_BONUS
-	if abil == "magia" and desarrollos_elegidos.has("erudito"):
-		return 1.0 + DESARROLLO_GAIN_BONUS
+# Hoy solo el CAZADOR toca el entreno, y toca el de TODAS las habilidades por igual: el `abil` se
+# queda por si algun perk futuro vuelve a mirar la stat concreta.
+func desarrollo_gain_mult(_abil: String) -> float:
+	if desarrollos_elegidos.has("cazador"):
+		return 1.0 + CAZADOR_GAIN_BONUS
 	return 1.0
 
 

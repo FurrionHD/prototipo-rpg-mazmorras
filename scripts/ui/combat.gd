@@ -754,6 +754,7 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		# La Magia NO se entrena por frase (solo al LANZAR, en _disparar_hechizo), para
 		# que la ganancia sea predecible y no se cuente doble.
 		_cast_index += 1
+		Game.contar_frase_recitada()   # contador oculto de Encantamiento rapido
 		if _cast_index < _cast_spell.longitud():
 			_set_log("✓ Frase correcta. Continua el proximo turno...")
 		else:
@@ -803,6 +804,7 @@ func _disparar_hechizo() -> void:
 	# gastado (hechizos caros = mas potentes = entrenan mas) x reto del enemigo.
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF
 	Game.ganar("magia", Game.reto(_poder_enemigo()), Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO)
+	Game.contar_hechizo()   # contador oculto de Erudito
 	print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
 		_player.nombre, spell.nombre, dano, _player.abilities.magia, _enemy.nombre,
 		StatsMath.magic_value(_enemy.abilities, _enemy.level, _enemy.base_magic)])
@@ -1451,6 +1453,7 @@ func _enemy_turn() -> void:
 		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos).
 		Game.ganar("agilidad", Game.reto(_poder_enemigo()), Game.GAIN_AGILIDAD_ESQUIVAR,
 			Game.RETO_MAX_FISICO)
+		Game.contar_esquiva()   # contador oculto de Reflejos
 		# CONTRAATAQUE (estoque, KAN-57): en guardia, cada golpe esquivado lo devuelves.
 		if _player.en_guardia:
 			var msg_ev := _contraatacar()
@@ -1469,6 +1472,7 @@ func _enemy_turn() -> void:
 	var dmg: float = result.damage * _enemy.dummy_dmg_out_mult   # Saco = 0 (no pega)
 	_player.take_damage(dmg)
 	Game.desgastar_armadura()   # DURABILIDAD: encajar un golpe gasta un poco todas las piezas
+	Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
 	if _dps_on:
 		_dmg_taken_total += dmg
 		_dmg_taken_hits += 1
@@ -1545,6 +1549,7 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 			var result := StatsMath.resolve_attack(_enemy, _player, defendiendo)
 			if result.evaded:
 				print("        golpe %d: esquivado 💨" % [i + 1])
+				Game.contar_esquiva()   # contador oculto de Reflejos
 				if _player.en_guardia and contra_txt == "":
 					contra_txt = _contraatacar()
 					if not _enemy.is_alive():
@@ -1553,6 +1558,7 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 				var dmg: float = result.damage * ab.dano_mult * _enemy.dummy_dmg_out_mult
 				_player.take_damage(dmg)
 				Game.desgastar_armadura()   # DURABILIDAD: cada golpe encajado gasta las piezas
+				Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
 				total += dmg
 				conecto += 1
 				var et := "golpe %d: %s %.2f" % [i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
