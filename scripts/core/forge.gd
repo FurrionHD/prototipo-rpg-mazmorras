@@ -65,6 +65,16 @@ const METALURGIA_K := 30.0     # exp para llegar a ~63% del tope
 static func prob_subir_calidad(metalurgia_exp: float) -> float:
 	return METALURGIA_MAX * _curva(metalurgia_exp, METALURGIA_K)
 
+# METALURGIA / PELETERIA: probabilidad de RECUPERAR una pieza del material que acabas de gastar.
+# El oficio no es solo hacerlo mejor, tambien es desperdiciar menos: el que sabe fundir saca el
+# lingote con menos mineral. Devuelve como mucho 1 de las `por_uno` piezas que come el refinado,
+# asi que ni con el oficio a tope el refinado sale gratis. Misma curva asintotica que el resto.
+const DEVOLVER_MAX := 0.30   # tope de la probabilidad de recuperar una pieza
+const DEVOLVER_K := 30.0     # exp para llegar a ~63% del tope
+
+static func prob_devolver_material(oficio_exp: float) -> float:
+	return DEVOLVER_MAX * _curva(oficio_exp, DEVOLVER_K)
+
 # MEZCLA (boticaria): probabilidad de que la poción salga del SIGUIENTE escalon de su cadena de
 # recetas (vida base -> vida +1 -> vida +2). Es la hermana de prob_subir_calidad: cada oficio
 # regala un escalon de lo suyo. Mas baja que la Metalurgia a proposito: una poción de mas nivel

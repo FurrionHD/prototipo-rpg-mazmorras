@@ -2533,17 +2533,22 @@ func refinados_posibles(origen: MaterialData, cal: int, por_uno: int) -> int:
 
 # Refina `veces` piezas: consume `por_uno` items de `origen` (todos de la calidad `cal`) y
 # devuelve `destino` de esa MISMA calidad... salvo que la habilidad del oficio tire a tu favor
-# y la suba un escalon (y con oficio de sobra, un intacto puede salir PURO). `oficio` dice cual
-# de los contadores sube ("metalurgia" o "peleteria"). Devuelve cuantas refino.
+# y la suba un escalon (y con oficio de sobra, un intacto puede salir PURO). El oficio ademas
+# tira por RECUPERAR una de las piezas gastadas (desperdicias menos cuanto mejor sabes).
+# `oficio` dice cual de los contadores sube ("metalurgia" o "peleteria"). Devuelve cuantas refino.
 func refinar(origen: MaterialData, destino: MaterialData, cal: int, veces: int, por_uno: int, oficio: String) -> int:
 	if origen == null or destino == null or veces <= 0:
 		return 0
 	var n: int = mini(veces, refinados_posibles(origen, cal, por_uno))
 	if n <= 0:
 		return 0
-	var prob: float = Forge.prob_subir_calidad(
-		peleteria_activa() if oficio == "peleteria" else metalurgia_activa())
+	var exp_oficio: float = peleteria_activa() if oficio == "peleteria" else metalurgia_activa()
+	var prob: float = Forge.prob_subir_calidad(exp_oficio)
+	# El oficio tambien DESPERDICIA menos: tira por devolverte una de las piezas que se comio el
+	# refinado, en su misma calidad (ver Forge.prob_devolver_material).
+	var prob_dev: float = Forge.prob_devolver_material(exp_oficio)
 	var subidos: int = 0
+	var devueltos: int = 0
 	for _k in range(n):
 		_consumir_items_calidad(origen, cal, por_uno)
 		var cal_final: int = cal
@@ -2553,12 +2558,15 @@ func refinar(origen: MaterialData, destino: MaterialData, cal: int, veces: int, 
 				subidos += 1
 		almacen_materiales.append(MaterialItem.crear(destino, cal_final))
 		descubrir(destino)
+		if randf() < prob_dev:
+			almacen_materiales.append(MaterialItem.crear(origen, cal))
+			devueltos += 1
 		if oficio == "peleteria":
 			peleteria_exp += Forge.OFICIO_POR_REFINADO
 		else:
 			metalurgia_exp += Forge.OFICIO_POR_REFINADO
-	print("[oficio] %d x %s -> %d x %s  (%d salieron mejor de lo que entraron)" % [
-		n * por_uno, origen.nombre, n, destino.nombre, subidos])
+	print("[oficio] %d x %s -> %d x %s  (%d salieron mejor de lo que entraron; %d x %s recuperados)" % [
+		n * por_uno, origen.nombre, n, destino.nombre, subidos, devueltos, origen.nombre])
 	return n
 
 # Atajos para los tres refinados (cada uno sabe su coste y su oficio).
