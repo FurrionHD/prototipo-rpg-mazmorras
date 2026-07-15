@@ -235,7 +235,7 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	var evade_cap := EVADE_MAX_BUFF if evasion_extra > 0.0 else EVADE_MAX
 	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal - attacker.precision + evasion_extra, 0.0, evade_cap)
 	# RESIST. CRITICOS del defensor (armadura pesada) baja el crit del atacante.
-	var crit_p := 0.0 if defending else clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus - defender.crit_resist, 0.0, 1.0)
+	var crit_p := 0.0 if defending else clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus + attacker.crit_flat - defender.crit_resist, 0.0, 1.0)
 	# El aturdir depende de aturdir_base (ya viene promediado del loadout: en dual,
 	# una maza en la secundaria aporta aunque la principal sea de corte). El debuff de
 	# RAYO del defensor (KAN-58) MULTIPLICA esa probabilidad (x1.5, estilo MH), antes del cap.
@@ -313,7 +313,7 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 		elem_override: int = -1, dano_frac: float = 1.0) -> Dictionary:
 	var elem: int = elem_override if elem_override >= 0 else spell.elemento
 	var raw := spell.dano_base * dano_frac
-	var magic_atk := raw * magia_factor(float(attacker.abilities.magia)) * attacker.magic_amp
+	var magic_atk := raw * magia_factor(float(attacker.abilities.magia)) * attacker.magic_amp * attacker.magia_base_factor
 	# Defensa MAGICA del objetivo, espejo exacto de la fisica: una BASE propia del bicho +
 	# lo que aporte su Magia. Antes se pasaba 0.0 a pelo, y como ademas ningun enemigo tenia
 	# Magia, la defensa magica era CERO: los hechizos entraban a raw limpio mientras los

@@ -62,6 +62,12 @@ var cast_velocidad_mult: float = 1.0
 var ataque_arma: float = 0.0     # RAW que aporta el arma (se suma al raw del jugador)
 var motion_value: float = 1.0    # % del raw por golpe (arma). 1.0 = neutro
 var crit_bonus: float = 0.0      # se suma a la prob. de critico
+# Critico PLANO del jugador acumulado al SUBIR DE NIVEL (bakeo de la Destreza, que es un contest y
+# no tiene base propia). Se suma a la prob. de critico. Los enemigos lo dejan en 0.
+var crit_flat: float = 0.0
+# Multiplicador de daño MAGICO bakeado al subir de nivel (congela el magia_factor de tu Magia de
+# niveles anteriores; tu Magia actual multiplica encima). 1.0 = neutro (enemigos).
+var magia_base_factor: float = 1.0
 var crit_dmg: float = 0.0        # se suma al MULTIPLICADOR de daño critico (StatsMath.CRIT_MULT).
                                  # Sale del arma (base × rareza + Precision). Los enemigos no
                                  # llevan arma-con-rareza: se quedan en el ×1.5 base.

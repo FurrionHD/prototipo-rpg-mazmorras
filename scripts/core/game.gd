@@ -25,6 +25,12 @@ var player_base_defense: float = 5.0
 # desnudo ante la magia como lo estaban ellos. Ver StatsMath.resolve_spell.
 var player_base_magic: float = 5.0
 var player_base_speed: float = 5.0
+# Bases que crecen al SUBIR DE NIVEL (bakeo de Magia y Destreza, que no escalaban con la base):
+# player_base_mp = maná base (arranca en StatsMath.BASE_MP 20); player_base_magia_factor = factor
+# de daño mágico congelado (1.0 neutro); player_base_crit = crítico plano acumulado (Destreza).
+var player_base_mp: float = 20.0
+var player_base_magia_factor: float = 1.0
+var player_base_crit: float = 0.0
 # Vida actual (persiste entre combates). -1 = aun no inicializada (= llena).
 var player_current_hp: float = -1.0
 # Mana actual (persiste entre combates, como la vida). -1 = lleno. Se rellena en
@@ -54,6 +60,7 @@ const DIMINISH_FLOOR := 0.15       # suelo: cerca de 999 sigues subiendo (lento,
 # --- SUBIR DE NIVEL ---
 const NIVEL_SPIKE := 0.10          # +10% al bakear las stats en la base (para que el salto se note)
 const RANGO_C_MIN := 600           # rango C (Abilities.rank_letter: 600-699 = C). Umbral para poder subir.
+const CRIT_BAKE_MAX := 0.08        # crítico plano que aporta al subir una Destreza MAXIMA (999). PROVISIONAL.
 # Estado de la subida de nivel (persistidos, ver save_data):
 var trigger_nivel_derrotado: bool = false   # ¿venciste al enemigo que la dispara? (flag como los bosses)
 var desarrollos_elegidos: Array = []         # ids de habilidades de desarrollo elegidas (una por nivel)
@@ -403,6 +410,9 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	player_base_defense = 5.0
 	player_base_magic = 5.0
 	player_base_speed = 5.0
+	player_base_mp = 20.0
+	player_base_magia_factor = 1.0
+	player_base_crit = 0.0
 	desarrollos_elegidos.clear()
 	trigger_nivel_derrotado = false
 	habilidad_metalurgia = false
@@ -492,6 +502,9 @@ func exportar_partida() -> SaveData:
 	d.player_base_defense = player_base_defense
 	d.player_base_magic = player_base_magic
 	d.player_base_speed = player_base_speed
+	d.player_base_mp = player_base_mp
+	d.player_base_magia_factor = player_base_magia_factor
+	d.player_base_crit = player_base_crit
 	d.desarrollos_elegidos = desarrollos_elegidos.duplicate()
 	d.trigger_nivel_derrotado = trigger_nivel_derrotado
 	d.player_current_hp = player_hp()
@@ -579,6 +592,9 @@ func importar_partida(d: SaveData) -> void:
 	player_base_defense = d.player_base_defense
 	player_base_magic = d.player_base_magic
 	player_base_speed = d.player_base_speed
+	player_base_mp = d.player_base_mp
+	player_base_magia_factor = d.player_base_magia_factor
+	player_base_crit = d.player_base_crit
 	desarrollos_elegidos = d.desarrollos_elegidos.duplicate()
 	trigger_nivel_derrotado = d.trigger_nivel_derrotado
 	# Re-encender los interruptores de OFICIO segun los desarrollos elegidos (no se guardan aparte).
@@ -1363,7 +1379,7 @@ func tiene_hechizos() -> bool:
 func player_max_mp() -> float:
 	var a := Abilities.new()
 	a.magia = player_magia
-	return StatsMath.max_mp_value(a, player_level)
+	return StatsMath.max_mp_value(a, player_level, player_base_mp)
 
 # Vida MAXIMA del jugador con sus stats actuales (para la barra de HP fuera de combate
 # y el tope de la cura). Mismo calculo que crear_player_combatant.
@@ -1658,6 +1674,10 @@ func crear_player_combatant() -> Combatant:
 	var c := Combatant.new(player_nombre, player_level, a,
 		player_base_hp, player_base_attack, player_base_defense, player_base_speed)
 	c.base_magic = player_base_magic
+	# Bakeos de nivel: crítico plano (Destreza), factor de daño mágico y maná base (Magia).
+	c.crit_flat = player_base_crit
+	c.magia_base_factor = player_base_magia_factor
+	c.max_mp = StatsMath.max_mp_value(a, player_level, player_base_mp)
 	if player_current_hp < 0.0:
 		player_current_hp = float(c.max_hp)  # primera vez: vida llena
 	c.current_hp = clampf(player_current_hp, 0.0, float(c.max_hp))
@@ -3416,9 +3436,12 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	player_base_defense = StatsMath.defense_value(a, player_level, player_base_defense) * spike
 	player_base_speed = StatsMath.speed_value(a, player_level, player_base_speed) * spike
 	player_base_magic = StatsMath.magic_value(a, player_level, player_base_magic) * spike
-	# NOTA (gap conocido, 1ª version): Destreza->critico es un contest relativo (se recupera al
-	# regrindearlo) y el daño de hechizo (magia_factor) y el MP no tienen campo base -> se
-	# regrindean. Se puede bakear un player_base_mp/multiplicador aparte mas adelante.
+	# MAGIA (daño de hechizo + maná) y DESTREZA (crítico) no tenían campo base: se bakean aparte.
+	# El factor de daño mágico congela el magia_factor de esta Magia (tu Magia nueva multiplica
+	# encima). El maná base sube. El crítico plano suma una parte de tu Destreza (contest, sin base).
+	player_base_magia_factor = player_base_magia_factor * StatsMath.magia_factor(float(a.magia)) * spike
+	player_base_mp = StatsMath.max_mp_value(a, player_level, player_base_mp) * spike
+	player_base_crit += (float(a.destreza) / 999.0) * CRIT_BAKE_MAX * spike
 	# Resetear el VISIBLE sin borrar el total oculto: la marca del nivel sube al total actual.
 	for s in ["fuerza", "resistencia", "destreza", "agilidad", "magia"]:
 		ability_base_nivel[s] = ability_internal[s]
