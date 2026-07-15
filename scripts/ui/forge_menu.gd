@@ -7,8 +7,8 @@
 #   1) FUNDIR  - mineral en bruto -> LINGOTES.
 #   2) CHAPAS  - lingotes -> CHAPAS (lo que pide la armadura; el arma se golpea del lingote).
 #      Las dos refinan igual: NO se mezclan calidades (N piezas de la MISMA calidad dan una de
-#      esa calidad) y suben el contador de Metalurgia, que algun dia dara la habilidad de
-#      subirlo un escalon (hasta el PURO).
+#      esa calidad) y suben el contador de Metalurgia, que es lo que desbloquea la habilidad de
+#      subirlo un escalon (hasta el PURO). El contador es OCULTO: no se pinta en el menu.
 #   3) FORJAR  - eliges la pieza, el METAL (lingote para armas, chapa para armaduras: fija el
 #      TIER) y cuanto metes de cada calidad, mas la FIBRA que la remata: MADERA si es un arma
 #      (el mango) y CUERO si es una armadura, siempre de la altura del metal. Aqui SI se mezcla.
@@ -372,9 +372,8 @@ func _build_refinar(que: int) -> void:
 	if not alguno:
 		_note(_content, "Ningún %s todavía." % destino.nombre.to_lower())
 
-	_content.add_child(HSeparator.new())
-	_estado_oficio(_content, "Metalurgia", Game.metalurgia_exp, Game.habilidad_metalurgia,
-		"tirará por sacar el metal un escalón por encima de lo que metas (y con oficio de sobra, un intacto puede salir PURO).")
+	_estado_oficio(_content, "Metalurgia", Game.habilidad_metalurgia,
+		"Tira por sacar el metal un escalón por encima de lo que metas (y con oficio de sobra, un intacto puede salir PURO).")
 
 
 # --- Los tres refinados de metal, en tablas (la pantalla es la misma) ---
@@ -432,12 +431,17 @@ func _on_refinar(que: int, cal: int, veces: int) -> void:
 	_rebuild()
 
 
-# Estado de una habilidad de oficio: hoy solo acumula.
-func _estado_oficio(vb: VBoxContainer, nombre: String, exp_val: float, activa: bool, que_hara: String) -> void:
-	_row(vb, nombre, "%s de oficio%s" % [
-		str(snappedf(exp_val, 0.1)), "" if activa else "   (habilidad aún bloqueada)"])
+# Linea de sabor del oficio, SIN numeros. El contador es OCULTO por diseño (es lo que decide si
+# la habilidad te sale al subir de nivel), asi que aqui no se enseña ni el progreso ni el rango:
+# solo, si ya la tienes, QUE hace. Bloqueada -> ni una palabra, ni el separador: el jugador no
+# tiene que saber que la Metalurgia existe hasta que le aparezca en el altar.
+# Los numeros se miran desde el panel de debug.
+func _estado_oficio(vb: VBoxContainer, nombre: String, activa: bool, que_hace: String) -> void:
 	if not activa:
-		_note(vb, "El progreso se guarda desde ya: %s" % que_hara)
+		return
+	vb.add_child(HSeparator.new())
+	_row(vb, nombre, "activa")
+	_note(vb, que_hace)
 
 
 # ============================================================
@@ -570,11 +574,14 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	t.add_theme_color_override("font_color", AMBAR)
 	vb.add_child(t)
 	# La calidad que cuenta es la de lo que se GASTA (el sobrante no entra en la media).
+	# El empujon de la HERRERIA entra en el 'score' (y por tanto en las probabilidades de abajo,
+	# que son las de verdad), pero NO se desglosa: el rango del oficio es oculto y ponerlo aqui
+	# como un "+X%" lo cantaba. Sigue restandose de 'bonos' para que el % de calidad del material
+	# sea el del material y no se coma el de la herreria.
 	var bonos: float = Forge.bonus_metal(metal) + Forge.bonus_herreria(Game.herreria_activa())
-	_note(vb, "Calidad del material %d%%  +  metal %+d%%  +  herrería %+d%%" % [
+	_note(vb, "Calidad del material %d%%  +  metal %+d%%" % [
 		roundi((score - bonos) * 100.0),
-		roundi(Forge.bonus_metal(metal) * 100.0),
-		roundi(Forge.bonus_herreria(Game.herreria_activa()) * 100.0)])
+		roundi(Forge.bonus_metal(metal) * 100.0)])
 	var probs: Array = Forge.probs_rareza(score)
 	for i in probs.size():
 		var p: float = float(probs[i])
@@ -599,9 +606,8 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	var ok: bool = Game.forja_valida(base, metal, _sel_forja)
 	_boton(vb, "Forjar" if ok else "Faltan materiales", _on_forjar, ok)
 
-	vb.add_child(HSeparator.new())
-	_estado_oficio(vb, "Herrería", Game.herreria_exp, Game.habilidad_herreria,
-		"empujará la tirada de rareza a tu favor, como si el metal fuera mejor de lo que es.")
+	_estado_oficio(vb, "Herrería", Game.habilidad_herreria,
+		"Empuja la tirada de rareza a tu favor, como si el metal fuera mejor de lo que es.")
 
 
 # Fila "material: −  n  +" por cada calidad que tengas en el baul.

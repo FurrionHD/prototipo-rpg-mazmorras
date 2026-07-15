@@ -177,7 +177,6 @@ func _build_refinar(correas: bool) -> void:
 	if not alguno:
 		_note("Ningún %s todavía." % destino.nombre.to_lower())
 
-	_content.add_child(HSeparator.new())
 	_estado_peleteria()
 
 
@@ -261,7 +260,6 @@ func _build_mochilas() -> void:
 	b_hacer.pressed.connect(_on_coser)
 	_content.add_child(b_hacer)
 
-	_content.add_child(HSeparator.new())
 	_estado_peleteria()
 
 
@@ -363,12 +361,15 @@ func _mat_delta(sel: Dictionary, mat: MaterialData, cal: int, delta: int) -> voi
 	_rebuild()
 
 
+# Linea de sabor del oficio, SIN numeros (misma regla que en la forja, ver Forge_menu._estado_oficio):
+# el contador es OCULTO porque es lo que decide si la habilidad te sale al subir de nivel. Bloqueada
+# -> no se pinta nada, ni el separador. Los numeros, en el panel de debug.
 func _estado_peleteria() -> void:
-	_row("Peletería", "%s de oficio%s" % [
-		str(snappedf(Game.peleteria_exp, 0.1)),
-		"" if Game.habilidad_peleteria else "   (habilidad aún bloqueada)"])
 	if not Game.habilidad_peleteria:
-		_note("El progreso se guarda desde ya: cuando se desbloquee, tirará por sacar el cuero un escalón por encima de la piel que metas.")
+		return
+	_content.add_child(HSeparator.new())
+	_row("Peletería", "activa")
+	_note("Tira por sacar el cuero un escalón por encima de la piel que metas.")
 
 
 func _decir(txt: String, ok: bool = true) -> void:
