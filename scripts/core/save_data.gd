@@ -155,8 +155,13 @@ const VERSION_ACTUAL := 2
 # sello de tiempo para el respawn) y las zonas exploradas (niebla del mapa). Las partidas
 # viejas los rellenan a vacio/0, asi que NO hace falta subir VERSION_ACTUAL.
 @export var mazmorra_persistente: Dictionary = {}
-# La LIBRETA del mapa (piso -> snapshot congelado). Solo se pone al dia al volver a casa.
+# La LIBRETA PERMANENTE del mapa (piso -> snapshot congelado). Solo se comete al volver a casa vivo.
 @export var mapa_snapshot: Dictionary = {}
+# Estado de la EXPEDICION en curso: el snapshot de TRABAJO (cartografia sin cometer) y el baseline
+# de la niebla, para que guardar+recargar a media bajada no cometa ni pierda mapa por error. Con
+# default {} no invalida partidas viejas (arrancan sin expedicion pendiente), asi que no sube VERSION.
+@export var mapa_trabajo: Dictionary = {}
+@export var vistas_baseline: Dictionary = {}
 @export var tiempo_mazmorra: float = 0.0
 
 

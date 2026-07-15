@@ -289,14 +289,38 @@ func persistente_piso(piso: int) -> Dictionary:
 # zonas_vistas SIGUE acumulandose en vivo por debajo (la niebla en vivo); aqui se hornea al salir.
 var mapa_snapshot: Dictionary = {}
 
-# BASELINE del mapa al EMPEZAR la expedicion (para revertir al MORIR): lo cartografiado durante una
-# expedicion que acaba en muerte se PIERDE. Ver iniciar_expedicion_mapa() y morir_jugador().
-var _mapa_baseline: Dictionary = {}
+# SNAPSHOT DE TRABAJO: lo cartografiado en la EXPEDICION en curso. capturar_mapa() escribe AQUI
+# (no en el permanente); solo se COMETE a mapa_snapshot al volver al pueblo CON VIDA (ver
+# comprometer_mapa). Morir lo descarta -> lo de la bajada se pierde SIN tocar el permanente. Se
+# persiste para que guardar/recargar a media expedicion no cometa ni pierda nada por error.
+var mapa_trabajo: Dictionary = {}
+
+# BASELINE de la NIEBLA (zonas_vistas) al empezar la expedicion, para revertirla al MORIR:
+# zonas_vistas persiste entre expediciones (alimenta la captura), asi que al morir hay que
+# devolverla a como estaba al entrar. El MAPA no necesita baseline: el permanente no se toca a
+# media expedicion (solo se comete al pueblo). Ver iniciar_expedicion_mapa() y morir_jugador().
 var _vistas_baseline: Dictionary = {}
 
-# Copia la geometria + estado explorado del piso vivo a la libreta. La llaman las salidas del piso
-# (al bajar/subir en _cambiar_piso, y las salidas al pueblo door.gd/dungeon_exit.gd) ANTES de
-# irse: en ese momento el DungeonFloor aun esta vivo y current_floor es el piso que abandonas.
+# El mapa a DIBUJAR de un piso: el de trabajo si esta bajada lo ha tocado, si no el permanente.
+# Como zonas_vistas es persistente, la captura de trabajo rebakea el piso ENTERO explorado, asi
+# que trabajo[piso] ya incluye lo comprometido: basta con que tape al permanente para ese piso.
+func mapa_de(piso: int) -> Dictionary:
+	return mapa_trabajo.get(piso, mapa_snapshot.get(piso, {}))
+
+# Pisos con cartografia (permanente o de esta bajada), ordenados. Los hojea el mapa (tecla M).
+func pisos_cartografiados() -> Array:
+	var claves: Dictionary = {}
+	for p in mapa_snapshot:
+		claves[p] = true
+	for p in mapa_trabajo:
+		claves[p] = true
+	var out: Array = claves.keys()
+	out.sort()
+	return out
+
+# Copia la geometria + estado explorado del piso vivo al snapshot de TRABAJO. La llaman las salidas
+# del piso (al bajar/subir en _cambiar_piso, y las salidas al pueblo door.gd/dungeon_exit.gd) ANTES
+# de irse: en ese momento el DungeonFloor aun esta vivo y current_floor es el piso que abandonas.
 func capturar_mapa() -> void:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso == null or piso.gen == null:
@@ -323,30 +347,40 @@ func capturar_mapa() -> void:
 		if not vistas.has(gen.zona_en(nodo.celda)):
 			continue
 		vivos.append({"cell": nodo.celda, "color": nodo.material_data.color})
-	mapa_snapshot[current_floor] = {
+	mapa_trabajo[current_floor] = {
 		"ancho": gen.ancho, "alto": gen.alto,
 		"suelo": suelo,
 		"vivos": vivos,
 		"agotados": (persist["agotados"] as Dictionary).duplicate(),
 	}
-	print("[mapa] libreta al dia: piso ", current_floor, " (", vivos.size(), " nodos, ",
+	print("[mapa] trabajo al dia: piso ", current_floor, " (", vivos.size(), " nodos, ",
 		suelo.size(), " celdas)")
 
 
-# Al EMPEZAR una expedicion desde el pueblo: guarda un baseline de la cartografia COMMITEADA (lo
-# que sobrevive) para poder revertir si mueres. Lo que cartografies a partir de aqui se pierde al
-# morir. La llaman door.gd (entrar) y floor_select_menu (saltar por un atajo).
+# Al EMPEZAR una expedicion desde el pueblo: estrena el snapshot de TRABAJO (vacio) y guarda el
+# baseline de la NIEBLA para poder revertirla si mueres. Lo que cartografies a partir de aqui va al
+# trabajo y solo se comete al volver vivo. La llaman door.gd (entrar) y floor_select_menu (atajo).
 func iniciar_expedicion_mapa() -> void:
-	_mapa_baseline = mapa_snapshot.duplicate(true)
+	mapa_trabajo.clear()
 	_vistas_baseline = {}
 	for p in mazmorra_persistente:
 		_vistas_baseline[p] = (mazmorra_persistente[p]["zonas_vistas"] as Dictionary).duplicate()
 
 
-# Revierte la cartografia al baseline de inicio de expedicion (al MORIR): lo explorado esta
-# expedicion se pierde. NO toca 'agotados' (el anti-farmeo de nodos dura mas que la expedicion).
+# COMETE el snapshot de trabajo al permanente (al volver al pueblo CON VIDA). Cada piso tocado esta
+# bajada sobrescribe su entrada en el permanente: como la captura rebakea el piso ENTERO explorado
+# (zonas_vistas es persistente), no se pierde nada de lo ya comprometido. Luego vacia el trabajo.
+func comprometer_mapa() -> void:
+	for p in mapa_trabajo:
+		mapa_snapshot[p] = mapa_trabajo[p]
+	mapa_trabajo.clear()
+
+
+# Descarta lo cartografiado esta expedicion (al MORIR): tira el snapshot de trabajo (el permanente
+# ni se toca, no habia nada comprometido de esta bajada) y devuelve la niebla al baseline de inicio.
+# NO toca 'agotados' (el anti-farmeo de nodos dura mas que la expedicion).
 func revertir_mapa_expedicion() -> void:
-	mapa_snapshot = _mapa_baseline.duplicate(true)
+	mapa_trabajo.clear()
 	for p in mazmorra_persistente:
 		var vb: Dictionary = _vistas_baseline.get(p, {})
 		mazmorra_persistente[p]["zonas_vistas"] = (vb as Dictionary).duplicate()
@@ -475,6 +509,8 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	# tienen que durar entre expediciones; una partida nueva es otra cosa).
 	mazmorra_persistente.clear()
 	mapa_snapshot.clear()
+	mapa_trabajo.clear()
+	_vistas_baseline.clear()
 	tiempo_mazmorra = 0.0
 	ability_cooldowns_persist.clear()
 	print("[partida] mundo nuevo. Semilla: ", semilla_mundo)
@@ -577,6 +613,10 @@ func exportar_partida() -> SaveData:
 	d.memoria_pisos = memoria_pisos.duplicate(true)
 	d.mazmorra_persistente = mazmorra_persistente.duplicate(true)
 	d.mapa_snapshot = mapa_snapshot.duplicate(true)
+	# Estado de la EXPEDICION en curso (para no cometer ni perder mapa por un guardar+recargar a
+	# media bajada): el snapshot de trabajo y el baseline de la niebla.
+	d.mapa_trabajo = mapa_trabajo.duplicate(true)
+	d.vistas_baseline = _vistas_baseline.duplicate(true)
 	d.tiempo_mazmorra = tiempo_mazmorra
 
 	# Cabecera (lo que se ve en la lista de ranuras).
@@ -688,6 +728,8 @@ func importar_partida(d: SaveData) -> void:
 	memoria_pisos = d.memoria_pisos.duplicate(true)
 	mazmorra_persistente = d.mazmorra_persistente.duplicate(true)
 	mapa_snapshot = d.mapa_snapshot.duplicate(true)
+	mapa_trabajo = d.mapa_trabajo.duplicate(true)
+	_vistas_baseline = d.vistas_baseline.duplicate(true)
 	tiempo_mazmorra = d.tiempo_mazmorra
 	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
 

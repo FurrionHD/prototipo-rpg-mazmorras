@@ -39,7 +39,9 @@ func interact_with_player() -> void:
 		# Baseline del mapa: lo que cartografies esta expedicion se pierde si mueres.
 		Game.iniciar_expedicion_mapa()
 	else:
-		# Volviendo a CASA: se pone al dia la libreta del mapa con lo explorado (ver Game).
+		# Volviendo a CASA CON VIDA: se captura el piso actual y se COMETE al permanente todo lo
+		# cartografiado esta expedicion (ver Game). Es el unico momento en que el mapa se consolida.
 		Game.capturar_mapa()
+		Game.comprometer_mapa()
 	print("[Puerta] Viajando a: %s" % _destination)
 	get_tree().change_scene_to_file(_destination)
