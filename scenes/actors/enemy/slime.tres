@@ -19,4 +19,6 @@ drop_material = ExtResource("6_baba")
 nucleo = ExtResource("7_nuc")
 al_golpear = [SubResource("SA_peg")]
 habilidades = [ExtResource("3_plc"), ExtResource("4_dbe"), ExtResource("5_rev")]
+crystal_category_min = 1
+crystal_category_weights = PackedFloat32Array(0.8, 0.2)
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

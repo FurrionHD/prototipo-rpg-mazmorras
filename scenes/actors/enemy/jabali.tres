@@ -35,6 +35,7 @@ move_speed_max = 65.0
 chase_speed_mult = 3.0
 crystal_category_min = 2
 crystal_category_max = 4
+crystal_category_weights = PackedFloat32Array(0.30, 0.45, 0.25)
 extraction_hits = 4
 extraction_req_destreza = 75
 drop_material = ExtResource("3_cuero")

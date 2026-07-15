@@ -71,6 +71,11 @@ class_name EnemyData
 # minijuego de extraccion. El slime, p.ej., da categoria 3-5.
 @export var crystal_category_min: int = 1
 @export var crystal_category_max: int = 3
+# PESOS explicitos por categoria, empezando en crystal_category_min (indice 0 = min, 1 = min+1...).
+# Si esta vacio se usa la binomial de siempre (crystal_category_min/max ponderado por 't'). Si
+# tiene valores, define la distribucion EXACTA de tiers de este bicho (no hace falta que sumen 1).
+# Ej. slime normal min=1 weights=(0.8,0.2) -> 80% t1, 20% t2 (nunca t3).
+@export var crystal_category_weights: PackedFloat32Array = PackedFloat32Array()
 
 # --- Extraccion (minijuego, Fase 5) ---
 # Pulsaciones base necesarias (slime 3; enemigos avanzados 4-5).
@@ -198,10 +203,21 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	return c
 
 
-# Tira la CATEGORIA del cristal PONDERADA por "t" (0..1 = poder del bicho).
-# Metodo "sube de categoria con probabilidad t": t bajo -> categorias bajas;
-# t alto -> categorias altas (y las altas salen menos = ponderado natural).
+# Tira la CATEGORIA del cristal. Si hay PESOS explicitos (crystal_category_weights), sortea con
+# ellos (distribucion fija de este bicho, empezando en crystal_category_min). Si no, cae a la
+# binomial ponderada por "t": t bajo -> categorias bajas; t alto -> altas (las altas salen menos).
 func roll_crystal_category(t: float) -> int:
+	if not crystal_category_weights.is_empty():
+		var total: float = 0.0
+		for w in crystal_category_weights:
+			total += maxf(0.0, w)
+		if total > 0.0:
+			var r: float = randf() * total
+			for i in range(crystal_category_weights.size()):
+				r -= maxf(0.0, crystal_category_weights[i])
+				if r < 0.0:
+					return crystal_category_min + i
+		return crystal_category_min + crystal_category_weights.size() - 1
 	var cat := crystal_category_min
 	for _i in range(crystal_category_max - crystal_category_min):
 		if randf() < t:

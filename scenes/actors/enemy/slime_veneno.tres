@@ -34,4 +34,6 @@ nucleo = ExtResource("7_nuc")
 al_golpear = [SubResource("SA_peg"), SubResource("SA_ven")]
 habilidades = [ExtResource("3_plc"), ExtResource("4_dbe"), ExtResource("5_esc")]
 prob_habilidad = 0.5
+crystal_category_min = 1
+crystal_category_weights = PackedFloat32Array(0.4, 0.5, 0.1)
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
