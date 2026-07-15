@@ -71,7 +71,7 @@ func _toggle() -> void:
 	# Empieza mirando el piso actual si tiene mapa; si no (p.ej. en el pueblo), el mas profundo
 	# ya cartografiado.
 	var pisos: Array = _pisos_disponibles()
-	if not Game.mapa_de(Game.current_floor).is_empty():
+	if Game.mapa_snapshot.has(Game.current_floor):
 		_piso_viendo = Game.current_floor
 	elif not pisos.is_empty():
 		_piso_viendo = pisos[-1]
@@ -87,10 +87,14 @@ func _cerrar() -> void:
 	Game.inventory_open = false
 
 
-# Pisos con mapa (los REALMENTE explorados: permanente o de esta bajada), ordenados. Es la lista
-# por la que se hojea.
+# Pisos con mapa (SOLO los comprometidos: lo que has traido vivo al pueblo), ordenados. Es la
+# lista por la que se hojea. La cartografia de la bajada en curso (mapa_trabajo) NO se pinta hasta
+# que se comete al volver al pueblo con vida: el mapa refleja lo que has puesto a salvo, no lo que
+# estas viendo ahora mismo.
 func _pisos_disponibles() -> Array:
-	return Game.pisos_cartografiados()
+	var out: Array = Game.mapa_snapshot.keys()
+	out.sort()
+	return out
 
 
 # Salta al piso cartografiado anterior/siguiente (dir = -1/+1). Solo entre los explorados.
@@ -116,7 +120,7 @@ func _refrescar() -> void:
 
 
 func _dibujar() -> void:
-	var snap: Dictionary = Game.mapa_de(_piso_viendo)
+	var snap: Dictionary = Game.mapa_snapshot.get(_piso_viendo, {})
 	# Sin snapshot, o uno viejo sin la geometria horneada (saves anteriores): nada que dibujar.
 	if snap.is_empty() or not snap.has("suelo"):
 		var f0: Font = ThemeDB.fallback_font

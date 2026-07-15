@@ -301,22 +301,9 @@ var mapa_trabajo: Dictionary = {}
 # media expedicion (solo se comete al pueblo). Ver iniciar_expedicion_mapa() y morir_jugador().
 var _vistas_baseline: Dictionary = {}
 
-# El mapa a DIBUJAR de un piso: el de trabajo si esta bajada lo ha tocado, si no el permanente.
-# Como zonas_vistas es persistente, la captura de trabajo rebakea el piso ENTERO explorado, asi
-# que trabajo[piso] ya incluye lo comprometido: basta con que tape al permanente para ese piso.
-func mapa_de(piso: int) -> Dictionary:
-	return mapa_trabajo.get(piso, mapa_snapshot.get(piso, {}))
-
-# Pisos con cartografia (permanente o de esta bajada), ordenados. Los hojea el mapa (tecla M).
-func pisos_cartografiados() -> Array:
-	var claves: Dictionary = {}
-	for p in mapa_snapshot:
-		claves[p] = true
-	for p in mapa_trabajo:
-		claves[p] = true
-	var out: Array = claves.keys()
-	out.sort()
-	return out
+# NOTA: el mapa (tecla M) dibuja SOLO mapa_snapshot (lo comprometido). mapa_trabajo es un buffer
+# invisible que acumula la bajada en curso y solo se hace visible al cometerse (comprometer_mapa)
+# al volver al pueblo con vida. Asi bajar/subir de piso NO pinta nada nuevo en el mapa.
 
 # Copia la geometria + estado explorado del piso vivo al snapshot de TRABAJO. La llaman las salidas
 # del piso (al bajar/subir en _cambiar_piso, y las salidas al pueblo door.gd/dungeon_exit.gd) ANTES
