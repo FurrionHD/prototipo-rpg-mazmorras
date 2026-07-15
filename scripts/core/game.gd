@@ -1092,13 +1092,18 @@ func equip_mejoras(slot: String) -> Dictionary:
 #  Guardamos FRACCION (no puntos): la mejora de Durabilidad sube el MAXIMO y hace que cada
 #  golpe reste MENOS fraccion (dura mas), sin que reparar por % cueste mas por tener mas maximo.
 # ============================================================
-# El MAXIMO sale de tres cosas (ver max_durabilidad): base + tier + mejoras de Durabilidad, y el
-# conjunto × RAREZA (rareza_mult ×1.00 comun ... ×1.55 obra maestra).
-const DURABILIDAD_MAX_BASE := 100.0    # puntos de aguante de un item T1 comun sin mejoras de durabilidad
-const DURABILIDAD_POR_TIER := 40.0     # cada tier por encima de T1 suma esto al maximo (t2 dura mas)
-const DURABILIDAD_POR_MEJORA := 30.0   # cada mejora de Durabilidad suma esto al maximo
-const DESGASTE_ARMA := 0.4             # puntos que pierde el arma por golpe DADO (sobre el max)
-const DESGASTE_ARMOR := 0.8            # puntos que pierde CADA pieza por golpe RECIBIDO
+# El MAXIMO se monta TODO por PORCENTAJES sobre una base pequeña (ver max_durabilidad):
+#   base × (tier) × (mejoras de Durabilidad) × (rareza)
+# Por porcentajes A PROPOSITO: con bonos FLAT, un +30 se notaba cada vez menos segun crecia la
+# base (sobre 100 es +30%, sobre una t2 de 140 ya solo +21%). Multiplicando, una mejora de
+# Durabilidad rinde SIEMPRE lo mismo (+30%) la metas en una t1 comun o en una t3 obra maestra.
+const DURABILIDAD_BASE := 10.0         # puntos de aguante de un item T1 COMUN sin mejoras
+const DURABILIDAD_TIER_PCT := 0.40     # +40% de aguante por cada tier por encima de T1
+const DURABILIDAD_MEJORA_PCT := 0.30   # +30% de aguante por cada mejora de Durabilidad
+# Desgaste en PUNTOS (se convierte a fraccion dividiendo por el maximo, asi mas maximo = dura
+# mas). A escala de la base de 10: un arma T1 comun aguanta 10/0.04 = 250 golpes (~2-3 expediciones).
+const DESGASTE_ARMA := 0.04            # puntos que pierde el arma por golpe DADO
+const DESGASTE_ARMOR := 0.08           # puntos que pierde CADA pieza por golpe RECIBIDO
 const PENAL_MAX := 0.25                # tope de penalizacion mientras esta gastada (no rota)
 const PENAL_ROTO := 0.75               # penalizacion al estar ROTA (acantilado): rinde el 25%
 # Precio de reparar = coste_full × (% roto). coste_full sube SUAVE con tier y nº de mejoras
@@ -1108,16 +1113,17 @@ const REPARA_K_TIER := 0.5
 const REPARA_K_MEJ := 0.12
 
 # Maximo de durabilidad (en puntos) de un slot equipado (arma o pieza de armadura, mismo modelo).
-# Sube con el TIER (una pieza de tier alto aguanta mas de base), con las mejoras de Durabilidad y
-# con la RAREZA, que multiplica el conjunto igual que hace con todo lo demas (una obra maestra
-# esta MEJOR hecha: aguanta mas). Mas maximo = dura mas y cada golpe resta menos fraccion; NO
-# encarece reparar (el precio es por % roto), asi que la rareza ademas abarata el mantenimiento.
+# TODO multiplicativo: el TIER, las mejoras de Durabilidad y la RAREZA son porcentajes sobre la
+# base, asi cada uno rinde lo mismo en proporcion sin importar lo alto que este ya el maximo.
+# Mas maximo = dura mas y cada golpe resta menos fraccion; NO encarece reparar (el precio es por
+# % roto), asi que tier/rareza ademas abaratan el mantenimiento (reparas menos veces).
 func max_durabilidad(slot: String) -> float:
-	var tier: int = equip_tier(slot)
+	var tier: int = maxi(equip_tier(slot), 1)
 	var n: int = int((equip_mejoras(slot) as Dictionary).get(Upgrades.DURABILIDAD, 0))
-	var base: float = DURABILIDAD_MAX_BASE + float(maxi(tier, 1) - 1) * DURABILIDAD_POR_TIER \
-		+ float(n) * DURABILIDAD_POR_MEJORA
-	return base * Upgrades.rareza_mult(equip_rareza(slot))
+	return DURABILIDAD_BASE \
+		* (1.0 + float(tier - 1) * DURABILIDAD_TIER_PCT) \
+		* (1.0 + float(n) * DURABILIDAD_MEJORA_PCT) \
+		* Upgrades.rareza_mult(equip_rareza(slot))
 
 # Fraccion de durabilidad de un slot (1.0 llena, 0.0 rota). Retrocompat: sin la clave = llena.
 func durabilidad_slot(slot: String) -> float:

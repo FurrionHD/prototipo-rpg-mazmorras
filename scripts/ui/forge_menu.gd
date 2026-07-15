@@ -849,7 +849,11 @@ func _build_reparar() -> void:
 		var slot: String = s[0]
 		var frac: float = Game.durabilidad_slot(slot)
 		var precio: int = Game.precio_reparar(slot)
-		var estado: String = "ROTO" if frac <= 0.0 else "%d%%" % int(round(frac * 100.0))
+		var maxd: float = Game.max_durabilidad(slot)
+		# % (lo que manda para el precio) y, entre parentesis, los PUNTOS: el maximo sube con
+		# tier/rareza/mejoras, asi se ve de un vistazo cuanto aguanta esta pieza en concreto.
+		var estado: String = "ROTO  (0 / %.1f)" % maxd if frac <= 0.0 \
+			else "%d%%  (%.1f / %.1f)" % [int(round(frac * 100.0)), frac * maxd, maxd]
 		_row(_header, "%s · %s" % [s[1], str(item.get("nombre"))], estado)
 		if precio > 0:
 			_boton(_header, "Reparar  ·  %d monedas" % precio, _on_reparar_slot.bind(slot), Game.puede_pagar(precio))
