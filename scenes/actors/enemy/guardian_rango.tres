@@ -1,15 +1,9 @@
 [gd_resource type="Resource" script_class="EnemyData" format=3]
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
 [ext_resource type="Resource" path="res://resources/abilities/minotauro_cornada.tres" id="3_cor"]
 [ext_resource type="Resource" path="res://resources/abilities/minotauro_pisoton.tres" id="4_pis"]
 [ext_resource type="Resource" path="res://resources/abilities/minotauro_bramido.tres" id="5_bra"]
-
-[sub_resource type="Resource" id="SA_peg"]
-script = ExtResource("2_sa")
-estado = 7
-prob = 0.35
 
 [resource]
 script = ExtResource("1_g8nro")
@@ -36,7 +30,6 @@ crystal_category_max = 5
 extraction_hits = 4
 drop_chance = 0.0
 nucleo_chance = 0.0
-al_golpear = [SubResource("SA_peg")]
 habilidades = [ExtResource("3_cor"), ExtResource("4_pis"), ExtResource("5_bra")]
 prob_habilidad = 0.5
 nivel_que_otorga = 2
