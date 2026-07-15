@@ -1092,7 +1092,9 @@ func equip_mejoras(slot: String) -> Dictionary:
 #  Guardamos FRACCION (no puntos): la mejora de Durabilidad sube el MAXIMO y hace que cada
 #  golpe reste MENOS fraccion (dura mas), sin que reparar por % cueste mas por tener mas maximo.
 # ============================================================
-const DURABILIDAD_MAX_BASE := 100.0    # puntos de aguante de un item T1 sin mejoras de durabilidad
+# El MAXIMO sale de tres cosas (ver max_durabilidad): base + tier + mejoras de Durabilidad, y el
+# conjunto × RAREZA (rareza_mult ×1.00 comun ... ×1.55 obra maestra).
+const DURABILIDAD_MAX_BASE := 100.0    # puntos de aguante de un item T1 comun sin mejoras de durabilidad
 const DURABILIDAD_POR_TIER := 40.0     # cada tier por encima de T1 suma esto al maximo (t2 dura mas)
 const DURABILIDAD_POR_MEJORA := 30.0   # cada mejora de Durabilidad suma esto al maximo
 const DESGASTE_ARMA := 0.4             # puntos que pierde el arma por golpe DADO (sobre el max)
@@ -1105,13 +1107,17 @@ const REPARA_BASE := 15.0
 const REPARA_K_TIER := 0.5
 const REPARA_K_MEJ := 0.12
 
-# Maximo de durabilidad (en puntos) de un slot equipado. Sube con el TIER (una pieza de tier
-# alto aguanta mas de base) y con las mejoras de Durabilidad. Mas maximo = dura mas y cada golpe
-# resta menos fraccion; NO encarece reparar (el precio es por % roto).
+# Maximo de durabilidad (en puntos) de un slot equipado (arma o pieza de armadura, mismo modelo).
+# Sube con el TIER (una pieza de tier alto aguanta mas de base), con las mejoras de Durabilidad y
+# con la RAREZA, que multiplica el conjunto igual que hace con todo lo demas (una obra maestra
+# esta MEJOR hecha: aguanta mas). Mas maximo = dura mas y cada golpe resta menos fraccion; NO
+# encarece reparar (el precio es por % roto), asi que la rareza ademas abarata el mantenimiento.
 func max_durabilidad(slot: String) -> float:
 	var tier: int = equip_tier(slot)
 	var n: int = int((equip_mejoras(slot) as Dictionary).get(Upgrades.DURABILIDAD, 0))
-	return DURABILIDAD_MAX_BASE + float(maxi(tier, 1) - 1) * DURABILIDAD_POR_TIER + float(n) * DURABILIDAD_POR_MEJORA
+	var base: float = DURABILIDAD_MAX_BASE + float(maxi(tier, 1) - 1) * DURABILIDAD_POR_TIER \
+		+ float(n) * DURABILIDAD_POR_MEJORA
+	return base * Upgrades.rareza_mult(equip_rareza(slot))
 
 # Fraccion de durabilidad de un slot (1.0 llena, 0.0 rota). Retrocompat: sin la clave = llena.
 func durabilidad_slot(slot: String) -> float:
