@@ -149,8 +149,8 @@ func _build_desarrollo(vb: VBoxContainer) -> void:
 	var b_trig := Button.new()
 	b_trig.text = "Marcar guardián vencido"
 	b_trig.pressed.connect(func():
-		Game.trigger_nivel_derrotado = true
-		print("[debug] Disparador de nivel marcado."))
+		Game.guardianes_vencidos[Game.player_level + 1] = true
+		print("[debug] Guardián del nivel ", Game.player_level + 1, " marcado como vencido."))
 	row.add_child(b_trig)
 
 	var b_c := Button.new()
@@ -165,7 +165,7 @@ func _build_desarrollo(vb: VBoxContainer) -> void:
 	b_up.text = "Forzar subida (elegir desarrollo)"
 	b_up.pressed.connect(func():
 		if not Game.puede_subir_nivel():
-			Game.trigger_nivel_derrotado = true
+			Game.guardianes_vencidos[Game.player_level + 1] = true
 			if Game.stat_total("fuerza") < Game.RANGO_C_MIN:
 				Game.debug_set_abilities(600, Game.player_resistencia, Game.player_destreza,
 					Game.player_agilidad, Game.player_magia)

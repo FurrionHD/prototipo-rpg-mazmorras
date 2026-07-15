@@ -28,5 +28,5 @@ extraction_hits = 4
 drop_chance = 0.0
 nucleo_chance = 0.0
 prob_habilidad = 0.0
-otorga_nivel = true
+nivel_que_otorga = 2
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

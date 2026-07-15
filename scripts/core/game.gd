@@ -62,7 +62,9 @@ const NIVEL_SPIKE := 0.10          # +10% al bakear las stats en la base (para q
 const RANGO_C_MIN := 600           # rango C (Abilities.rank_letter: 600-699 = C). Umbral para poder subir.
 const CRIT_BAKE_MAX := 0.08        # crítico plano que aporta al subir una Destreza MAXIMA (999). PROVISIONAL.
 # Estado de la subida de nivel (persistidos, ver save_data):
-var trigger_nivel_derrotado: bool = false   # ¿venciste al enemigo que la dispara? (flag como los bosses)
+# Cada NIVEL tiene su propio "guardián del rango": vencerlo desbloquea SU nivel. guardianes_vencidos
+# = { nivel_objetivo: true }. Para subir a N hace falta haber vencido al guardián de N (+ rango).
+var guardianes_vencidos: Dictionary = {}
 var desarrollos_elegidos: Array = []         # ids de habilidades de desarrollo elegidas (una por nivel)
 const RETO_MAX := 8.0              # tope de dificultad relativa (enemigo muy superior = mas ganancia)
 # Tope de reto SOLO para las stats FISICAS (Fuerza/Resistencia/Agilidad): mas
@@ -414,7 +416,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	player_base_magia_factor = 1.0
 	player_base_crit = 0.0
 	desarrollos_elegidos.clear()
-	trigger_nivel_derrotado = false
+	guardianes_vencidos = {}
 	habilidad_metalurgia = false
 	habilidad_peleteria = false
 	habilidad_herreria = false
@@ -506,7 +508,7 @@ func exportar_partida() -> SaveData:
 	d.player_base_magia_factor = player_base_magia_factor
 	d.player_base_crit = player_base_crit
 	d.desarrollos_elegidos = desarrollos_elegidos.duplicate()
-	d.trigger_nivel_derrotado = trigger_nivel_derrotado
+	d.guardianes_vencidos = guardianes_vencidos.duplicate()
 	d.player_current_hp = player_hp()
 	d.player_current_mp = player_current_mp
 	d.stamina = float(player.current_stamina) if player != null and "current_stamina" in player else -1.0
@@ -596,7 +598,7 @@ func importar_partida(d: SaveData) -> void:
 	player_base_magia_factor = d.player_base_magia_factor
 	player_base_crit = d.player_base_crit
 	desarrollos_elegidos = d.desarrollos_elegidos.duplicate()
-	trigger_nivel_derrotado = d.trigger_nivel_derrotado
+	guardianes_vencidos = d.guardianes_vencidos.duplicate()
 	# Re-encender los interruptores de OFICIO segun los desarrollos elegidos (no se guardan aparte).
 	for _id in desarrollos_elegidos:
 		match str(_id):
@@ -3409,8 +3411,8 @@ func stat_total(s: String) -> int:
 # ¿Puedes subir de nivel? Haber vencido al enemigo disparador Y tener rango C (600) en alguna
 # habilidad (por el TOTAL). El orden no importa: si lo venciste antes de tener el rango, cuenta.
 func puede_subir_nivel() -> bool:
-	if not trigger_nivel_derrotado:
-		return false
+	if not guardianes_vencidos.get(player_level + 1, false):
+		return false   # aún no has vencido al guardián de tu SIGUIENTE nivel
 	for s in ["fuerza", "resistencia", "destreza", "agilidad", "magia"]:
 		if stat_total(s) >= RANGO_C_MIN:
 			return true
@@ -3447,7 +3449,6 @@ func subir_nivel(desarrollo_id: String) -> bool:
 		ability_base_nivel[s] = ability_internal[s]
 	player_fuerza = 0; player_resistencia = 0; player_destreza = 0; player_agilidad = 0; player_magia = 0
 	player_level += 1
-	trigger_nivel_derrotado = false   # la subida consume el disparador (hay que volver a vencerlo)
 	aplicar_desarrollo(desarrollo_id)
 	player_current_hp = -1.0; player_current_mp = -1.0   # despiertas a tope tras el ascenso
 	print("[nivel] ¡Subes a nivel ", player_level, "! Base -> atk %.1f def %.1f hp %.1f spd %.1f mag %.1f" % [
@@ -4161,11 +4162,11 @@ func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left
 	# Si ganaste, el enemigo NO desaparece: queda como cadaver para poder
 	# extraerle el cristal (minijuego, Fase 5).
 	if player_won and is_instance_valid(_active_enemy):
-		# ¿Era el "guardián del rango"? Vencerlo marca el disparador de subir de nivel (persistente).
-		if "data" in _active_enemy and _active_enemy.data != null and _active_enemy.data.otorga_nivel:
-			if not trigger_nivel_derrotado:
-				trigger_nivel_derrotado = true
-				print("[nivel] Has vencido al guardián del rango: puedes ascender si tienes rango C.")
+		# ¿Era un "guardián del rango"? Vencerlo desbloquea SU nivel objetivo (persistente).
+		if "data" in _active_enemy and _active_enemy.data != null and _active_enemy.data.nivel_que_otorga > 0:
+			var nv: int = _active_enemy.data.nivel_que_otorga
+			guardianes_vencidos[nv] = true
+			print("[nivel] Vencido el guardián del nivel ", nv, ": podrás ascender si tienes rango C.")
 		if _active_enemy.has_method("morir"):
 			_active_enemy.morir()
 	_active_enemy = null

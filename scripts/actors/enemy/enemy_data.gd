@@ -130,9 +130,9 @@ class_name EnemyData
 @export_range(0.0, 1.0) var prob_habilidad: float = 0.5
 
 # --- SUBIR DE NIVEL ---
-# Si es true, VENCER a este enemigo marca el disparador para poder subir de nivel (junto con
-# tener rango C en alguna habilidad, ver Game.puede_subir_nivel). Es el "guardián del rango".
-@export var otorga_nivel: bool = false
+# Si es > 0, este enemigo es el "guardián del rango" de ESE nivel: vencerlo desbloquea poder subir
+# a ese nivel (junto con tener rango C en alguna habilidad, ver Game.puede_subir_nivel). 0 = no lo es.
+@export var nivel_que_otorga: int = 0
 
 
 # Suma total de los PESOS (para normalizar la distribucion).

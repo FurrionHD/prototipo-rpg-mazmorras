@@ -92,7 +92,7 @@ func _rebuild() -> void:
 		b_lvl.custom_minimum_size = Vector2(0, 40)
 		b_lvl.pressed.connect(_subir)
 		_content.add_child(b_lvl)
-	elif Game.trigger_nivel_derrotado:
+	elif Game.guardianes_vencidos.get(Game.player_level + 1, false):
 		MenuScaffold.nota(_content, "Venciste al guardián del rango, pero aún te falta llegar a rango C en alguna habilidad para ascender.")
 
 	# Antes→después del ultimo "Actualizar" (o el reset de la subida).
