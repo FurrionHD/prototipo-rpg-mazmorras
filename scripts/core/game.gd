@@ -82,10 +82,15 @@ const GAIN_RESISTENCIA_BLOQUEO := 0.3 # bloquear con Defender entrena Resistenci
 const GAIN_MAGIA_CAST := 0.4
 const MAGIA_COSTE_REF := 4.0   # coste de referencia (Chispa) para el factor de mana
 # --- Dificultad de la extraccion ---
-# Exigencia del enemigo = suma_habilidades x FACTOR. Dificultad relativa =
-# exigencia / (tu Destreza + SUELO). ~1 = a la par; >1 mas dificil. La
-# dificultad hace la zona mas pequeña Y el marcador mas rapido.
-const EXTRACTION_REQ_FACTOR := 0.25
+# La exigencia sale del TIER (categoria) del cristal, NO del enemigo ni del piso: un cristal de
+# tier alto es dificil de sacar lo consigas donde lo consigas. Dificultad relativa =
+# exigencia_del_tier / (tu Destreza x PESO + SUELO). ~1 = a la par (comodo, sacas intacto); >1
+# mas dificil (zona mas pequeña + mas pulsaciones + marcador mas rapido).
+#
+# EXTRACTION_REQ_POR_TIER[tier] = exigencia de ese tier. Curva elegida por el usuario: suave en
+# t1-t3, empinada en t4+. La Destreza a la que cada tier queda "al punto" (dificultad 1.0) es
+# (req - SUELO) / PESO: t1~0, t2~60, t3~120, t4~260, t5~340, t6~420. Indice 0 = reserva. PROVISIONAL.
+const EXTRACTION_REQ_POR_TIER: Array = [30.0, 30.0, 60.0, 90.0, 160.0, 200.0, 240.0]
 const EXTRACTION_BASE_ZONE := 0.16      # tamaño de zona a dificultad 1
 const EXTRACTION_DESTREZA_FLOOR := 30.0 # suelo de skill (subido de 20 al aplicar RECOLECCION_STAT_PESO: mantiene la dificultad del novato)
 const EXTRACTION_BASE_MARKER := 0.75    # velocidad del marcador a dificultad 1
@@ -3413,12 +3418,13 @@ func start_extraction(corpse: Node) -> void:
 	var categoria: int = data.roll_crystal_category(t)
 	var eff_destreza: int = player_destreza + tool_destreza_bonus
 
-	# Exigencia del monstruo: sale de su SUMA de habilidades (segun su 't' = poder_normalizado).
-	var enemy_suma: float = float(data.suma_habilidades(t))
-	var req: float = maxf(1.0, enemy_suma * EXTRACTION_REQ_FACTOR)
+	# Exigencia por TIER del cristal (no por enemigo ni por piso): un t4 cuesta lo mismo lo saques
+	# donde lo saques. Tabla EXTRACTION_REQ_POR_TIER indexada por categoria (reserva al ultimo).
+	var tier_idx: int = clampi(categoria, 1, EXTRACTION_REQ_POR_TIER.size() - 1)
+	var req: float = maxf(1.0, float(EXTRACTION_REQ_POR_TIER[tier_idx]))
 
-	# Dificultad RELATIVA: exigencia del enemigo (su fuerza total) / tu DESTREZA
-	# (solo Destreza, con suelo). ~1 = a la par; >1 mas dificil.
+	# Dificultad RELATIVA: exigencia del tier / tu DESTREZA (solo Destreza, con peso y suelo).
+	# ~1 = a la par; >1 mas dificil. Subir Destreza sigue facilitando los tiers altos.
 	var difficulty: float = req / (float(eff_destreza) * RECOLECCION_STAT_PESO + EXTRACTION_DESTREZA_FLOOR)
 	var zone_ratio: float = clampf(EXTRACTION_BASE_ZONE / difficulty, 0.05, 0.35)
 
@@ -3436,15 +3442,14 @@ func start_extraction(corpse: Node) -> void:
 	# Guardamos la dificultad para la ganancia de Destreza al terminar.
 	_last_extraction_zone = zone_ratio
 	_last_extraction_hits = required_hits
-	# Marcador: mas rapido cuanto mas DIFICIL (y mas profundo el piso), con TECHO y con SUELO
-	# (ver RECOLECCION_VEL_RETO_MIN: ser bueno no puede hacer que el marcador vaya mas lento).
+	# Marcador: mas rapido cuanto mas DIFICIL (ahora la dificultad la pone el TIER, no el piso),
+	# con TECHO y con SUELO (ver RECOLECCION_VEL_RETO_MIN: ser bueno no puede frenar el marcador).
 	var marker_speed: float = EXTRACTION_BASE_MARKER \
-		* clampf(difficulty, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX) \
-		+ float(current_floor - 1) * 0.08
+		* clampf(difficulty, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX)
 	marker_speed = minf(marker_speed, EXTRACTION_MARKER_MAX)
 	var speed_step: float = 0.15
-	print("[reco] extraccion cat %d · piso %d · Destreza %d -> reto %.2f  (zona %.3f, marcador %.2f, pulsaciones %d)" % [
-		categoria, current_floor, player_destreza, difficulty, zone_ratio, marker_speed, required_hits])
+	print("[reco] extraccion tier %d (req %.0f) · Destreza %d -> reto %.2f  (zona %.3f, marcador %.2f, pulsaciones %d)" % [
+		categoria, req, player_destreza, difficulty, zone_ratio, marker_speed, required_hits])
 
 	var ex: Control = _extraction_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
