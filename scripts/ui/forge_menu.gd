@@ -26,7 +26,8 @@
 
 extends CanvasLayer
 
-const TABS := ["Fundir", "Chapas", "Hebillas", "Forjar", "Mejorar", "Deshacer"]
+const TABS := ["Fundir", "Chapas", "Hebillas", "Forjar", "Mejorar", "Deshacer", "Reparar"]
+const TAB_REPARAR := 6
 # Los tres refinados de metal comparten pantalla (_build_refinar): solo cambian de que salen,
 # en que se convierten y cuantos hacen falta.
 enum Refinado { LINGOTE, CHAPA, HEBILLAS }
@@ -177,8 +178,8 @@ func _rebuild() -> void:
 			c.queue_free()
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
-	# Los refinados (Fundir / Chapas / Hebillas) no tienen cuadricula: ancho entero para ellos.
-	_scroll_lista.visible = _tab >= 3
+	# Los refinados (Fundir / Chapas / Hebillas) y REPARAR no tienen cuadricula: ancho entero.
+	_scroll_lista.visible = _tab >= 3 and _tab != TAB_REPARAR
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 
 	match _tab:
@@ -188,6 +189,7 @@ func _rebuild() -> void:
 		3: _build_forjar()
 		4: _build_mejorar()
 		5: _build_deshacer()                   # equipo -> material (recuperas la mitad)
+		6: _build_reparar()                    # mantenimiento: pagar por reparar el desgaste
 
 
 func _decir(txt: String, ok: bool = true) -> void:
@@ -816,6 +818,68 @@ func _on_deshacer() -> void:
 		_decir("Deshaces %s. El material está en tu baúl." % nombre)
 	else:
 		_decir("Esa pieza no se puede deshacer.", false)
+	_rebuild()
+
+
+# ============================================================
+#  Pestaña REPARAR (mantenimiento): el equipo se desgasta al usarlo y se paga por dejarlo a punto.
+#  El precio sube con el % roto (y un poco con tier / nº de mejoras). Ver Game.precio_reparar.
+# ============================================================
+
+func _build_reparar() -> void:
+	_title(_header, "REPARAR EQUIPO")
+	_note(_header, "El equipo se desgasta al usarlo: gastado pega/protege menos, y ROTO se va a los suelos. El precio depende de lo roto que esté; el tier y las mejoras lo suben un poco. La mejora de Durabilidad hace que aguante más (y no encarece reparar).")
+	_header.add_child(HSeparator.new())
+
+	var slots := [
+		["main", "Arma principal", Game.equipped_main],
+		["off", "Secundaria", Game.equipped_off if Game.equipped_off is WeaponData else null],
+		["casco", "Casco", Game.equipped_casco],
+		["pecho", "Pecho", Game.equipped_pecho],
+		["manos", "Manos", Game.equipped_manos],
+		["pantalones", "Pantalones", Game.equipped_pantalones],
+		["botas", "Botas", Game.equipped_botas],
+	]
+	var algo: bool = false
+	for s in slots:
+		var item = s[2]
+		if item == null:
+			continue
+		algo = true
+		var slot: String = s[0]
+		var frac: float = Game.durabilidad_slot(slot)
+		var precio: int = Game.precio_reparar(slot)
+		var estado: String = "ROTO" if frac <= 0.0 else "%d%%" % int(round(frac * 100.0))
+		_row(_header, "%s · %s" % [s[1], str(item.get("nombre"))], estado)
+		if precio > 0:
+			_boton(_header, "Reparar  ·  %d monedas" % precio, _on_reparar_slot.bind(slot), Game.puede_pagar(precio))
+	if not algo:
+		_note(_header, "No llevas nada equipado que reparar.")
+		return
+
+	_header.add_child(HSeparator.new())
+	var total: int = Game.precio_reparar_todo()
+	if total > 0:
+		_boton(_header, "REPARAR TODO  ·  %d monedas" % total, _on_reparar_todo, Game.puede_pagar(total))
+	else:
+		_note(_header, "Todo tu equipo está a punto.")
+	_row(_header, "Tu dinero", "%d monedas" % Game.money)
+
+
+func _on_reparar_slot(slot: String) -> void:
+	if Game.reparar_slot(slot):
+		_decir("Reparada. Como nueva.")
+	else:
+		_decir("No te llega para repararla.", false)
+	_rebuild()
+
+
+func _on_reparar_todo() -> void:
+	var gastado: int = Game.reparar_todo()
+	if gastado > 0:
+		_decir("Equipo reparado por %d monedas." % gastado)
+	else:
+		_decir("No te llega para repararlo todo.", false)
 	_rebuild()
 
 
