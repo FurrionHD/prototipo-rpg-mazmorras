@@ -3703,17 +3703,32 @@ func desarrollo_gain_mult(_abil: String) -> float:
 	return 1.0
 
 
-# DEBUG: fija a mano las 5 habilidades (interno + visible) y cura al 100% para el
+# DEBUG: fija a mano las 5 habilidades VISIBLES (las de este nivel) y cura al 100% para el
 # proximo combate. Lo usa el editor de stats del panel de debug.
+#
+# Ojo con el modelo: lo que se guarda es el INTERNO (el total acumulado), y lo visible se deriva
+# restandole ability_base_nivel. Asi que para que se vea `f` hay que escribir base_nivel + f, NO
+# `f` a pelo: eso solo funcionaba en el nivel 1 (base_nivel = 0). Del nivel 2 en adelante metia
+# un interno POR DEBAJO de la base del nivel, y _visible_nivel lo cortaba a 0 (de ahi que las
+# stats "volvieran a cero"); encima se cargaba el total acumulado, que es lo que alimenta la
+# recoleccion y el reto.
 func debug_set_abilities(f: int, r: int, d: int, a: int, m: int) -> void:
-	ability_internal["fuerza"] = float(clampi(f, 0, 999))
-	ability_internal["resistencia"] = float(clampi(r, 0, 999))
-	ability_internal["destreza"] = float(clampi(d, 0, 999))
-	ability_internal["agilidad"] = float(clampi(a, 0, 999))
-	ability_internal["magia"] = float(clampi(m, 0, 999))
+	_debug_set_visible("fuerza", f)
+	_debug_set_visible("resistencia", r)
+	_debug_set_visible("destreza", d)
+	_debug_set_visible("agilidad", a)
+	_debug_set_visible("magia", m)
 	actualizar_estado()          # sincroniza lo visible con lo interno
 	player_current_hp = -1.0     # vida llena en el proximo combate
 	player_current_mp = -1.0     # mana lleno en el proximo combate
+
+# Deja el VISIBLE de `s` en `valor` moviendo el interno. El interno resultante puede pasar de
+# ABILITY_CAP si ya llevas mucha base acumulada: es una herramienta de debug y manda lo que pides
+# ver; ganar() lo aguanta (su factor tiene suelo, DIMINISH_FLOOR).
+func _debug_set_visible(s: String, valor: int) -> void:
+	if not ability_internal.has(s):
+		return
+	ability_internal[s] = float(ability_base_nivel[s]) + float(clampi(valor, 0, 999))
 
 
 # Teclas de DESARROLLO (temporales): U actualizar estado, H cura, R respawn.
