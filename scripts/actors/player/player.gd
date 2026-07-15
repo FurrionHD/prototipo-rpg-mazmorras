@@ -231,11 +231,13 @@ func _physics_process(delta: float) -> void:
 	_drink_was = drink
 
 
-# Aguante maximo segun las stats ACTUALES (Resistencia y Agilidad).
+# Aguante maximo segun la Resistencia y la Agilidad. Usa el TOTAL acumulado (oculto), NO el
+# visible: el visible vuelve a 0 al SUBIR DE NIVEL, y con el visible el aguante maximo se
+# desplomaba a base_stamina en cada ascenso. Mismo criterio que la recoleccion y el reto.
 func _calc_max_aguante() -> float:
 	return base_stamina \
-		+ Game.player_resistencia * stamina_per_resistencia \
-		+ Game.player_agilidad * stamina_per_agilidad
+		+ Game.stat_total("resistencia") * stamina_per_resistencia \
+		+ Game.stat_total("agilidad") * stamina_per_agilidad
 
 # Recalcula el aguante maximo por si las stats cambiaron (panel DEBUG, tecla U, subida en
 # el hogar...). Si la barra estaba llena, la mantiene llena; si no, respeta lo que quede.

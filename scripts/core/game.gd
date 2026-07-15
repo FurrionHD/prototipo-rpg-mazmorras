@@ -1662,7 +1662,7 @@ func equipar_mochila(m: BackpackData) -> void:
 # una suma a pelo: la Fuerza multiplica el contenedor entero, mochila incluida.
 func capacidad_con_mochila(m: BackpackData) -> float:
 	var contenedor: float = base_capacity + capacidad_mochila(m)
-	var mult: float = 1.0 + clampf(player_fuerza / 999.0, 0.0, 1.0) * fuerza_capacity_bonus_max
+	var mult: float = 1.0 + clampf(stat_total("fuerza") / 999.0, 0.0, 1.0) * fuerza_capacity_bonus_max
 	return contenedor * mult
 # La Fuerza MULTIPLICA la capacidad del contenedor (zurron+mochila) hasta un
 # maximo (a Fuerza 999 = +50%). Asi no puedes llevar de todo con un zurron.
@@ -2005,7 +2005,9 @@ func armor_speed_mult() -> float:
 # --- Peso / capacidad ---
 func capacidad_carga() -> float:
 	var contenedor: float = base_capacity + extra_capacity
-	var mult: float = 1.0 + clampf(player_fuerza / 999.0, 0.0, 1.0) * fuerza_capacity_bonus_max
+	# Fuerza TOTAL (oculta), no la visible: si no, al subir de nivel perderias capacidad de carga
+	# (el visible vuelve a 0). Mismo criterio que el aguante, la recoleccion y el reto.
+	var mult: float = 1.0 + clampf(stat_total("fuerza") / 999.0, 0.0, 1.0) * fuerza_capacity_bonus_max
 	return contenedor * mult
 
 func peso_actual() -> float:
