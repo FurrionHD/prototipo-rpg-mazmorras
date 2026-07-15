@@ -154,8 +154,11 @@ const HERB_BASE_NUCLEO := 0.06          # semiancho del corte limpio a dificulta
 const HERB_BORDE_MULT := 2.2            # el borde (corte sucio) es este multiplo del nucleo
 const HERB_BASE_VEL := 0.9              # pasadas/seg a dificultad 1
 # TECHO de la pasada (mismo motivo que MINERIA_CARGA_MAX): lo que hace dificil un tallo es que
-# el NUCLEO sea fino, no que el marcador sea imposible de seguir con la vista.
-const HERB_VEL_MAX := 1.6
+# el NUCLEO sea fino, no que el marcador sea imposible de seguir con la vista. Bajado de 1.6:
+# con Destreza insuficiente para un material de tier alto la pasada se disparaba y, al ser UNA
+# pasada por tallo sin repesca, era literalmente inacertable. Ahora se compensa con mas cortes
+# (ver start_herboristeria): el reto se mantiene, pero cada pasada se puede seguir. PROVISIONAL.
+const HERB_VEL_MAX := 1.1
 const HERB_PIVOTE := 1.5
 const HERB_SLOPE := 0.65
 const HERB_RETO_MAX := 8.0              # mismo tope que la extraccion: las dos son Destreza
@@ -3623,7 +3626,9 @@ func start_herboristeria(nodo) -> void:
 		* clampf(d, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX) \
 		+ 0.05 * float(current_floor - 1)
 	vel = minf(vel, HERB_VEL_MAX)
-	var cortes: int = clampi(2 + floori(d), 2, 5) - h.cortes_menos
+	# Mas cortes (tope 8, antes 5) para compensar el techo de velocidad mas bajo (HERB_VEL_MAX):
+	# un material exigente pide mas tallos seguibles en vez de una sola pasada imposible.
+	var cortes: int = clampi(2 + floori(d), 2, 8) - h.cortes_menos
 	cortes = maxi(2, cortes)
 
 	_last_reco_reto = d
