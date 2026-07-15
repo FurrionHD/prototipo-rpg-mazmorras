@@ -87,11 +87,11 @@ const MAGIA_COSTE_REF := 4.0   # coste de referencia (Chispa) para el factor de 
 # exigencia_del_tier / (tu Destreza x PESO + SUELO). ~1 = a la par (comodo, sacas intacto); >1
 # mas dificil (zona mas pequeña + mas pulsaciones + marcador mas rapido).
 #
-# EXTRACTION_REQ_POR_TIER[tier] = exigencia de ese tier. Curva EXIGENTE elegida por el usuario:
-# los tiers medios ya piden bastante y el techo es t6 = 420 de Destreza. La Destreza a la que cada
-# tier queda "al punto" (dificultad 1.0) es (req - SUELO) / PESO: t1~10, t2~90, t3~200, t4~300,
-# t5~370, t6~420. Indice 0 = reserva. PROVISIONAL.
-const EXTRACTION_REQ_POR_TIER: Array = [35.0, 35.0, 75.0, 130.0, 180.0, 215.0, 240.0]
+# EXTRACTION_REQ_POR_TIER[tier] = exigencia de ese tier. Curva elegida por el usuario: suave abajo
+# (t1-t3) y subiendo parejo hasta el techo t6 = 420 de Destreza. La Destreza a la que cada tier
+# queda "al punto" (dificultad 1.0) es (req - SUELO) / PESO: t1~10, t2~60, t3~120, t4~220, t5~320,
+# t6~420. Indice 0 = reserva. PROVISIONAL.
+const EXTRACTION_REQ_POR_TIER: Array = [35.0, 35.0, 60.0, 90.0, 140.0, 190.0, 240.0]
 const EXTRACTION_BASE_ZONE := 0.16      # tamaño de zona a dificultad 1
 const EXTRACTION_DESTREZA_FLOOR := 30.0 # suelo de skill (subido de 20 al aplicar RECOLECCION_STAT_PESO: mantiene la dificultad del novato)
 const EXTRACTION_BASE_MARKER := 0.75    # velocidad del marcador a dificultad 1
