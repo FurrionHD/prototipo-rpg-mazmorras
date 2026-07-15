@@ -72,6 +72,13 @@ const CAT_NOMBRE := {
 const AGUDEZA_STEP := 0.05        # +raw, en % de la base del arma (decreciente)
 const PRECISION_CRIT_STEP := 0.02 # +prob. critico
 const PRECISION_HIT_STEP := 0.02  # +acierto (baja evasion rival)
+# DAÑO critico (KAN-52). Se SUMA al multiplicador base (StatsMath.CRIT_MULT ×1.5) y lo escala la
+# RAREZA, como todo lo que hace mejor a un arma. De momento la base es IGUAL para todas: lo que
+# diferencia a un arma es su PROBABILIDAD de critico (crit_bonus), no lo fuerte que pega al
+# critear; el daño critico lo pones TU con rareza + mejoras de Precision. Asi Precision deja de
+# ser "la mejora del %" y pasa a ser la mejora de critico ENTERA (prob + acierto + daño).
+const CRIT_DMG_BASE := 0.25          # todas las armas parten de ×1.75 de critico (comun, sin mejoras)
+const PRECISION_CRITDMG_STEP := 0.06 # +daño critico por punto de Precision (decreciente)
 const PESO_STEP := 0.03           # +aturdir/stun (solo contundentes)
 const RAPIDEZ_STEP := 0.03        # +velocidad arma
 const RAPIDEZ_CAP := 0.08         # tope del bonus de rapidez
@@ -219,6 +226,7 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 		if int(w.dano_tipo) == 1:  # CONTUNDENTE
 			aturdir_mag = (w.aturdir_base + dim_sum(PESO_STEP, _count(mejoras, PESO))) * rmult
 		return {"raw": raw_mag, "crit": mejor_con_rareza(w.crit_bonus, rmult), "precision": 0.0,
+			"crit_dmg": CRIT_DMG_BASE * rmult,
 			"aturdir": aturdir_mag, "evasion": w.evasion_bonus * rmult,
 			"bloqueo": w.bloqueo * rmult, "vel_mult": 1.0}
 	var n := mejoras_combate(mejoras)   # la Durabilidad no cuenta para el +10% de daño
@@ -236,6 +244,8 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 		"raw": raw,
 		"crit": mejor_con_rareza(w.crit_bonus + dim_sum(PRECISION_CRIT_STEP, kp), rmult),
 		"precision": dim_sum(PRECISION_HIT_STEP, kp) * rmult,
+		# DAÑO critico: base comun a todas + lo que aporte Precision, todo × rareza (como el resto).
+		"crit_dmg": (CRIT_DMG_BASE + dim_sum(PRECISION_CRITDMG_STEP, kp)) * rmult,
 		"aturdir": aturdir,
 		"evasion": w.evasion_bonus * rmult,
 		"bloqueo": w.bloqueo * rmult,

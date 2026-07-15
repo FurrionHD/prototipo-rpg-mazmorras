@@ -62,6 +62,9 @@ var cast_velocidad_mult: float = 1.0
 var ataque_arma: float = 0.0     # RAW que aporta el arma (se suma al raw del jugador)
 var motion_value: float = 1.0    # % del raw por golpe (arma). 1.0 = neutro
 var crit_bonus: float = 0.0      # se suma a la prob. de critico
+var crit_dmg: float = 0.0        # se suma al MULTIPLICADOR de daño critico (StatsMath.CRIT_MULT).
+                                 # Sale del arma (base × rareza + Precision). Los enemigos no
+                                 # llevan arma-con-rareza: se quedan en el ×1.5 base.
 var precision: float = 0.0       # ACIERTO (mejora Precision): baja la evasion del rival
 var dano_tipo: int = 0           # 0 CORTE, 1 CONTUNDENTE (WeaponData.DanoTipo)
 var aturdir_base: float = 0.0    # prob. base de aturdir/retrasar (contundentes)
@@ -412,6 +415,7 @@ func _apply_hand(i: int) -> void:
 	motion_value = h["motion_value"]
 	ataque_arma = h["ataque_arma"]
 	crit_bonus = h["crit_bonus"]
+	crit_dmg = h.get("crit_dmg", 0.0)
 	precision = h.get("precision", 0.0)
 	dano_tipo = h["dano_tipo"]
 	aturdir_base = h["aturdir_base"]

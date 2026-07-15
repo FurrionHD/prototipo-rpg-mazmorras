@@ -1773,6 +1773,7 @@ func _hand_from(w: WeaponData, slot: String) -> Dictionary:
 		"motion_value": w.motion_value,
 		"ataque_arma": float(wm["raw"]) * dur_mult,
 		"crit_bonus": float(wm["crit"]),
+		"crit_dmg": float(wm["crit_dmg"]),
 		"precision": wm["precision"],
 		"dano_tipo": int(w.dano_tipo),
 		"aturdir_base": float(wm["aturdir"]),

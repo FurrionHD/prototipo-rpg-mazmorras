@@ -271,8 +271,10 @@ func _build_stats_page() -> void:
 	var crit_p: float = clampf(StatsMath.crit_chance(float(c.abilities.destreza),
 		float(c.abilities.agilidad)) + _crit_bonus_promedio(c), 0.0, 1.0)
 	_row(_content, "Prob. crítico", _fmt_pct(crit_p))
+	# Daño critico REAL: base + el crit_dmg del arma (base × rareza + Precision), no la constante.
+	var crit_mult: float = StatsMath.CRIT_MULT + c.crit_dmg
 	_row(_content, "Daño crítico", "×%.2f (+%d%%)" % [
-		StatsMath.CRIT_MULT, roundi((StatsMath.CRIT_MULT - 1.0) * 100.0)])
+		crit_mult, roundi((crit_mult - 1.0) * 100.0)])
 	# Esquiva contra el mismo espejo: tu Agilidad vs tu Destreza, menos el penal (escudos) y mas
 	# el bonus de esquiva (daga/estoque + armaduras ligeras). Con bonus, el tope sube (EVADE_MAX_BUFF).
 	var evade_cap: float = StatsMath.EVADE_MAX_BUFF if c.evasion_bonus > 0.0 else StatsMath.EVADE_MAX

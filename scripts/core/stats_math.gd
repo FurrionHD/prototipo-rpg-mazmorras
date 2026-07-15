@@ -133,7 +133,11 @@ const CRIT_PARITY := 0.10   # prob. de critico con Destreza = Agilidad rival
 const CRIT_SPREAD := 0.35   # cuanto sube/baja por ventaja de habilidad
 const CRIT_MIN := 0.02
 const CRIT_MAX := 0.40      # tope: un enemigo bestial nunca te critea mas de esto
-const CRIT_MULT := 1.5      # multiplicador de daño critico (fijo por ahora; TODO KAN-52: escalar con Destreza)
+# Multiplicador BASE de daño critico. Encima se suma el crit_dmg del ATACANTE (KAN-52), que sale
+# del arma: base comun × RAREZA + mejoras de Precision (ver Upgrades.CRIT_DMG_BASE). Un arma comun
+# sin mejoras deja el critico en ×1.75; una obra maestra muy afinada se acerca al ×2.3. Los
+# enemigos no llevan arma con rareza -> critean al ×1.5 pelado.
+const CRIT_MULT := 1.5
 
 const EVADE_PARITY := 0.05
 const EVADE_SPREAD := 0.30
@@ -251,11 +255,12 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# Variacion aleatoria por golpe (±DAMAGE_VARIANCE), estilo Terraria.
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 
-	# 3) Critico (Defender lo ANULA).
+	# 3) Critico (Defender lo ANULA). El multiplicador = base + el crit_dmg del arma del atacante
+	# (base × rareza + Precision). Sin arma con rareza (enemigos) se queda en el CRIT_MULT pelado.
 	var is_crit := false
 	if crit_p > 0.0 and randf() < crit_p:
 		is_crit = true
-		dmg *= CRIT_MULT
+		dmg *= CRIT_MULT + attacker.crit_dmg
 
 	# 3.5) Armadura: reduccion porcentual SIEMPRE activa (afecta tambien al critico).
 	dmg *= (1.0 - clampf(defender.armor_reduction, 0.0, ARMOR_REDUCTION_MAX))

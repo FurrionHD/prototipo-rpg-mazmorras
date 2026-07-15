@@ -252,6 +252,9 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 	]
 	if float(m["crit"]) != 0.0:
 		filas.append(["Crítico", "%+.0f%%" % (float(m["crit"]) * 100.0)])
+	# Daño critico: el multiplicador REAL de esta arma (base + su crit_dmg, que ya lleva rareza y
+	# Precision dentro). Se enseña siempre: toda arma critica por algo, y es lo que sube Precision.
+	filas.append(["Daño crítico", "×%.2f" % (StatsMath.CRIT_MULT + float(m["crit_dmg"]))])
 	if float(m["precision"]) > 0.0:
 		filas.append(["Precisión", "+%.0f%%" % (float(m["precision"]) * 100.0)])
 	if float(m["evasion"]) > 0.0:
