@@ -50,13 +50,20 @@ const SANGRADO_MAX_STACKS := 5
 
 # El sangrado premia las armas RAPIDAS (muchos cortes), no las pesadas: usa el motion_value
 # A LA INVERSA. atk() ya HORNEA el motion_value del arma (una GS pega ~1.55x), lo que inflaba
-# su sangrado de forma desproporcionada. Dividimos DOS veces por el motion_value: una para
-# quitar ese peso ya horneado (queda neutral) y otra para INVERTIRLO, de modo que una daga
-# (mv bajo) sangra mas y un mandoble (mv alto) sangra menos. Sigue escalando con Fuerza y
-# ataque base (un cortador fuerte abre mas herida): solo se invierte el PESO del arma.
+# su sangrado de forma desproporcionada. Dividimos por mv^(1+EXP): el primer mv quita el peso
+# ya horneado (queda neutro) y el EXP restante lo INVIERTE, de modo que una daga (mv bajo)
+# sangra mas y un mandoble (mv alto) sangra menos. Sigue escalando con Fuerza y ataque base
+# (un cortador fuerte abre mas herida): solo se invierte el PESO del arma.
+#
+# SANGRADO_MV_EXP = cuanto se invierte (la inversion completa era demasiado bestia):
+#   0.0 -> neutro (el sangrado no depende del arma)
+#   0.5 -> inversion SUAVE por raiz: la daga sangra ~1.5x el mandoble  <- actual
+#   1.0 -> inversion COMPLETA: la daga sangra ~2.4x el mandoble
+const SANGRADO_MV_EXP := 0.5
+
 static func sangrado_magnitude(applier_atk: float, motion_value: float = 1.0) -> float:
 	var mv: float = maxf(motion_value, 0.1)
-	return applier_atk * SANGRADO_FRACCION_ATK / (mv * mv)
+	return applier_atk * SANGRADO_FRACCION_ATK / pow(mv, 1.0 + SANGRADO_MV_EXP)
 
 # Magnitud EFECTIVA de un StatusApplication segun el aplicador. Si trae magnitud fija
 # (>=0) se usa esa; si es Sangrado sin magnitud, escala con el ataque del aplicador
