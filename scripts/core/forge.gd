@@ -65,6 +65,17 @@ const METALURGIA_K := 30.0     # exp para llegar a ~63% del tope
 static func prob_subir_calidad(metalurgia_exp: float) -> float:
 	return METALURGIA_MAX * _curva(metalurgia_exp, METALURGIA_K)
 
+# MEZCLA (boticaria): probabilidad de que la poción salga del SIGUIENTE escalon de su cadena de
+# recetas (vida base -> vida +1 -> vida +2). Es la hermana de prob_subir_calidad: cada oficio
+# regala un escalon de lo suyo. Mas baja que la Metalurgia a proposito: una poción de mas nivel
+# vale bastante mas que un lingote un pelin mejor, y ademas la Mezcla YA da la doble poción.
+# La que ya es la tope de su cadena no sube (ver Game.pocion_siguiente).
+const MEZCLA_SUBIR_MAX := 0.15   # tope de la probabilidad de subir de escalon
+const MEZCLA_SUBIR_K := 30.0     # exp para llegar a ~63% del tope
+
+static func prob_subir_pocion(mezcla_exp: float) -> float:
+	return MEZCLA_SUBIR_MAX * _curva(mezcla_exp, MEZCLA_SUBIR_K)
+
 # HERRERIA: empuja el score de calidad (0..1) con el que se tira la rareza. Con la herreria
 # a tope, un material normal tira como si fuera bastante mejor... pero sin llegar a lo que
 # da el material perfecto: la habilidad ayuda, no sustituye al buen metal.

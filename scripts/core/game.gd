@@ -420,6 +420,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	habilidad_metalurgia = false
 	habilidad_peleteria = false
 	habilidad_herreria = false
+	habilidad_mezcla = false
 	actualizar_estado()
 	player_current_hp = -1.0
 	player_current_mp = -1.0
@@ -605,6 +606,7 @@ func importar_partida(d: SaveData) -> void:
 			"metalurgia": habilidad_metalurgia = true
 			"peleteria": habilidad_peleteria = true
 			"herreria": habilidad_herreria = true
+			"mezcla": habilidad_mezcla = true
 	actualizar_estado()   # las stats VISIBLES se derivan de las internas, no se guardan aparte
 	player_current_hp = d.player_current_hp
 	player_current_mp = d.player_current_mp
@@ -3166,6 +3168,20 @@ func prob_doble_desde_seleccion(receta: RecipeData, seleccion: Array) -> float:
 	return clampf(MAX_PROB_DOBLE * (suma_score / suma_uds) + Forge.bonus_herreria(mezcla_activa()), 0.0, 1.0)
 
 
+# La poción del SIGUIENTE escalon de la cadena de esta receta (lo que puede regalarte la Mezcla),
+# o null si ya es la tope. NO hace falta ningun dato nuevo en los .tres: la cadena ya esta escrita
+# en las propias recetas de MEJORA (la que consume esta poción como 'pocion_base' es, por
+# definicion, la que da el escalon de arriba). Ver RecipeData.es_mejora().
+func pocion_siguiente(receta: RecipeData) -> ConsumableData:
+	if receta == null or receta.resultado == null:
+		return null
+	for r in recetas_boticaria():
+		var rec: RecipeData = r as RecipeData
+		if rec != null and rec.pocion_base == receta.resultado:
+			return rec.resultado
+	return null
+
+
 # Puntuacion de calidad 0..1 para el bonus de doble (intacto 1, normal 0.5, dañado 0).
 func _score_calidad(cal: int) -> float:
 	match cal:
@@ -3191,23 +3207,44 @@ func craftear_con(receta: RecipeData, seleccion: Array) -> int:
 	# lo elegido: un dañado que ni se llega a usar no tiene por que bajarte la media.
 	var gasto: Array = gasto_crafteo(receta, seleccion)
 	var prob: float = prob_doble_desde_seleccion(receta, gasto)
+	# MEZCLA: cada poción tira TAMBIEN por salir del escalon de arriba. Sin la habilidad,
+	# mezcla_activa() = 0 -> prob 0, y el tally se queda todo en receta.resultado (como antes).
+	var prob_subir: float = Forge.prob_subir_pocion(mezcla_activa())
+	var mejor: ConsumableData = pocion_siguiente(receta)
+	# Que sale de la tanda: {ConsumableData: cuantas}. Ya no es un solo add_consumable, porque
+	# una misma tanda puede escupir dos pociones DISTINTAS (la normal y la que subio de escalon).
+	var salida: Dictionary = {}
 	var total: int = 0
+	var subidas: int = 0
 	for _k in range(n):
 		if receta.es_mejora():
 			gastar_consumible(receta.pocion_base)
-		total += 2 if randf() < prob else 1
+		# El doble se tira por UNIDAD fabricada; la subida, por cada poción que sale de ella.
+		var cuantas: int = 2 if randf() < prob else 1
+		for _p in range(cuantas):
+			var sale: ConsumableData = receta.resultado
+			if mejor != null and randf() < prob_subir:
+				sale = mejor
+				subidas += 1
+			salida[sale] = int(salida.get(sale, 0)) + 1
+			total += 1
 	for i in receta.ingredientes.size():
 		var ing = receta.ingredientes[i]
 		if ing == null or ing.material == null:
 			continue
 		_consumir_seleccion_material(ing.material, gasto[i])
 		_tirar_devolucion(ing.material, gasto[i], n * ing.unidades)
-	add_consumable(receta.resultado, total)
+	for cons in salida:
+		add_consumable(cons as ConsumableData, int(salida[cons]))
 	# MEZCLA: crear pociones (no comprarlas) alimenta el parametro oculto. Cuenta por poción
 	# fabricada (incluidas las que salen dobles): mezclar mas = mas experiencia de Mezcla.
 	mezcla_exp += MEZCLA_EXP_POR_POCION * float(total)
-	print("[boticaria] Fabricas ", n, " poción(es) -> ", total, " x ", receta.resultado.nombre,
-		"  (prob. doble ", roundi(prob * 100.0), "% por poción)  ·  Mezcla ", snappedf(mezcla_exp, 0.1))
+	var detalle: PackedStringArray = []
+	for cons in salida:
+		detalle.append("%d x %s" % [int(salida[cons]), (cons as ConsumableData).nombre])
+	print("[boticaria] Fabricas ", n, " poción(es) -> ", ", ".join(detalle),
+		"  (prob. doble ", roundi(prob * 100.0), "% por poción; subir de escalón ",
+		roundi(prob_subir * 100.0), "% -> ", subidas, " subida(s))  ·  Mezcla ", snappedf(mezcla_exp, 0.1))
 	return total
 
 
@@ -3473,6 +3510,8 @@ const DESARROLLOS: Array = [
 		"desc": "Al curtir piel, tira por subir un escalón la calidad."},
 	{"id": "herreria", "nombre": "Herrería", "tipo": "oficio",
 		"desc": "Al forjar, empuja la tirada de rareza a tu favor."},
+	{"id": "mezcla", "nombre": "Mezcla", "tipo": "oficio",
+		"desc": "Al fabricar pociones, tira por doblarlas y por subirlas de escalón."},
 	{"id": "cazador", "nombre": "Cazador", "tipo": "combate",
 		"desc": "Entrenas Fuerza un 30% más rápido."},
 	{"id": "reflejos", "nombre": "Reflejos", "tipo": "combate",
@@ -3507,6 +3546,7 @@ func aplicar_desarrollo(id: String) -> void:
 		"metalurgia": habilidad_metalurgia = true
 		"peleteria": habilidad_peleteria = true
 		"herreria": habilidad_herreria = true
+		"mezcla": habilidad_mezcla = true
 	print("[desarrollo] Adquieres: ", desarrollo_por_id(id).get("nombre", id))
 
 # Multiplicador de ganancia de excelia por los perks de combate elegidos (1.0 si ninguno aplica).
