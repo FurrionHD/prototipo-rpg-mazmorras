@@ -279,6 +279,14 @@ func _build_stats_page() -> void:
 	var evade_p: float = clampf(StatsMath.evade_chance(float(c.abilities.agilidad),
 		float(c.abilities.destreza)) - c.evasion_penal + c.evasion_bonus, 0.0, evade_cap)
 	_row(_content, "Prob. esquiva", _fmt_pct(evade_p))
+	# Desglose del EQUIPO: la esquiva de daga/estoque/armadura ligera va en evasion_penal (negativo
+	# = bonus); un escudo la resta (penal positivo). Sin esta línea el aporte del equipo quedaba
+	# invisible (se fundía en el total y, con Agilidad alta, el tope lo escondía). + suma, − estorba.
+	var esquiva_equipo: float = -c.evasion_penal
+	if absf(esquiva_equipo) > 0.001:
+		_row(_content, "   · del equipo", "%+.0f%%" % (esquiva_equipo * 100.0))
+	if c.evasion_bonus > 0.001:
+		_row(_content, "   · postura/buff", "+%.0f%%" % (c.evasion_bonus * 100.0))
 	_content.add_child(HSeparator.new())
 	_row(_content, "Vida máx.", "%.1f" % c.max_hp)
 	_row(_content, "Defensa", "%.1f" % c.def_value())
@@ -292,11 +300,45 @@ func _build_stats_page() -> void:
 
 
 func _build_habilidades_page() -> void:
+	# Combatant real para DERIVAR el aporte de cada stat (nada hardcodeado). Guardamos/
+	# restauramos los sentinels de HP/MP: crear_player_combatant() concreta el -1 (= "lleno").
+	var hp_was: float = Game.player_current_hp
+	var mp_was: float = Game.player_current_mp
+	var c: Combatant = Game.crear_player_combatant()
+	Game.player_current_hp = hp_was
+	Game.player_current_mp = mp_was
+	var lvl: int = Game.player_level
+
+	# FUERZA -> multiplicador de ataque físico.
 	_row(_content, "Fuerza", str(Game.player_fuerza))
+	_note(_content, "Multiplica el daño físico (base + arma). Ahora: ×%.2f al ataque." % [
+		StatsMath.fuerza_factor(float(Game.player_fuerza))])
+
+	# RESISTENCIA -> vida y defensa.
 	_row(_content, "Resistencia", str(Game.player_resistencia))
+	var hp_de_res: float = float(Game.player_resistencia) * StatsMath.HP_FROM_RES
+	var def_de_res: float = float(Game.player_resistencia) * StatsMath._coef(
+		StatsMath.DEF_COEF_BASE, StatsMath.DEF_COEF_GROWTH, lvl)
+	_note(_content, "Aguante: sube vida máxima y defensa. Ahora: +%.1f vida y +%.1f defensa." % [
+		hp_de_res, def_de_res])
+
+	# DESTREZA -> crítico (y afina la recolección).
 	_row(_content, "Destreza", str(Game.player_destreza))
+	var crit_espejo: float = StatsMath.crit_chance(float(Game.player_destreza), float(Game.player_agilidad))
+	_note(_content, "Precisión: probabilidad de crítico (y mano firme al recolectar). Ahora: ~%s de crít contra un rival igual de ágil." % [
+		_fmt_pct(crit_espejo)])
+
+	# AGILIDAD -> esquiva y velocidad.
 	_row(_content, "Agilidad", str(Game.player_agilidad))
+	var evade_espejo: float = StatsMath.evade_chance(float(Game.player_agilidad), float(Game.player_destreza))
+	_note(_content, "Reflejos: esquiva y velocidad de turno. Ahora: ~%s de esquiva y %.1f de velocidad." % [
+		_fmt_pct(evade_espejo), c.spd()])
+
+	# MAGIA -> daño mágico y maná.
 	_row(_content, "Magia", str(Game.player_magia))
+	_note(_content, "Poder arcano: multiplica el daño de los hechizos y da maná. Ahora: ×%.2f a los hechizos y %.1f de maná máx." % [
+		StatsMath.magia_factor(float(Game.player_magia)), c.max_mp])
+
 	_note(_content, "Las 5 habilidades (0–999). Suben con el uso y se aplican en el hogar.")
 
 
