@@ -38,6 +38,11 @@ const N_OPCIONES_TEST := 4
 const ATB_STUN_MIN := 0.30   # retraso parcial minimo (fraccion de barra)
 const ATB_STUN_MAX := 0.60   # retraso parcial maximo
 
+# AUTORREGENERACION (habilidad de desarrollo): vida que recuperas al empezar tu turno, en % de
+# tu vida MAXIMA. En % y no plano a proposito: si fuera plano, se volveria irrelevante en cuanto
+# la vida escale. PROVISIONAL -> Excel. Ver _begin_player_turn.
+const AUTORREGEN_PCT := 0.04
+
 # Energia de combate (KAN-57): Defender y HABILIDADES gastan; el ataque basico regenera.
 # Asi no puedes turtlear: hay que pegar para poder defender/soltar habilidades. PROVISIONAL.
 const DEFEND_ENERGY_COST := 15.0
@@ -509,6 +514,16 @@ func _begin_player_turn() -> void:
 		_set_log("%s cae por el daño de sus estados. ☠" % _player.nombre)
 		_end(false)   # el DoT (veneno...) puede matarte
 		return
+	# AUTORREGENERACION (habilidad de desarrollo): cura un % de tu vida MAXIMA al empezar tu
+	# turno. Va DESPUES del DoT (el veneno te pega igual, esto solo lo compensa un poco) pero
+	# ANTES del corte por aturdido: es pasiva, y un turno perdido no la apaga.
+	if Game.desarrollos_elegidos.has("autorregeneracion"):
+		var antes: float = _player.current_hp
+		_player.heal(_player.max_hp * AUTORREGEN_PCT)
+		var curado: float = _player.current_hp - antes
+		if curado > 0.0:
+			_set_log("%s se regenera (+%.1f). ♻" % [_player.nombre, curado])
+			_update_hp()
 	if ev.stunned:
 		_set_log("%s está aturdido y pierde el turno. 💫" % _player.nombre)
 		_pausa_lectura()

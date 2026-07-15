@@ -3518,6 +3518,8 @@ const DESARROLLOS: Array = [
 		"desc": "Entrenas Agilidad un 30% más rápido."},
 	{"id": "erudito", "nombre": "Erudito", "tipo": "combate",
 		"desc": "Entrenas Magia un 30% más rápido."},
+	{"id": "autorregeneracion", "nombre": "Autorregeneración", "tipo": "combate",
+		"desc": "Recuperas algo de vida al principio de cada turno."},
 ]
 const DESARROLLO_GAIN_BONUS := 0.30   # +30% de ganancia para el perk de esa stat
 
