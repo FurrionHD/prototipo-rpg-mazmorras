@@ -24,8 +24,8 @@ const MAGIA_DIV := 250.0
 # Multiplicador GLOBAL del daño de todos los hechizos (rebalance de magia: los hechizos pegaban
 # muy poco, "una decima parte de la vida" y encima con dos turnos de casteo). Centralizado en
 # resolve_spell para no tocar cada .tres; el backfire NO lo usa (escala con dano_base directo).
-# PROVISIONAL: revisar en pisos altos que el ×2 no dispare el daño (memoria ajuste-curvas-holistico).
-const SPELL_DAMAGE_MULT := 2.0
+# PROVISIONAL: ×2 se noto excesivo en pruebas -> ×1.5. Revisar en pisos altos (ajuste-curvas-holistico).
+const SPELL_DAMAGE_MULT := 1.5
 
 # MANA: maximo = BASE_MP + Magia × MP_FROM_MAGIA. Numeros PROVISIONALES -> Excel.
 const BASE_MP := 20.0
