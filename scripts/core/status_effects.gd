@@ -55,11 +55,14 @@ const SANGRADO_MAX_STACKS := 5
 # sangra mas y un mandoble (mv alto) sangra menos. Sigue escalando con Fuerza y ataque base
 # (un cortador fuerte abre mas herida): solo se invierte el PESO del arma.
 #
-# SANGRADO_MV_EXP = cuanto se invierte (la inversion completa era demasiado bestia):
+# SANGRADO_MV_EXP = cuanto se invierte (la inversion completa era demasiado bestia). La ventaja
+# de la ligera sobre la pesada sale de (mv_pesada/mv_ligera)^EXP; con daga 0.65 vs mandoble 1.55
+# eso es 2.385^EXP:
 #   0.0 -> neutro (el sangrado no depende del arma)
-#   0.5 -> inversion SUAVE por raiz: la daga sangra ~1.5x el mandoble  <- actual
+#   0.3 -> la daga sangra ~1.30x el mandoble  <- actual
+#   0.5 -> la daga sangra ~1.55x el mandoble
 #   1.0 -> inversion COMPLETA: la daga sangra ~2.4x el mandoble
-const SANGRADO_MV_EXP := 0.5
+const SANGRADO_MV_EXP := 0.3
 
 static func sangrado_magnitude(applier_atk: float, motion_value: float = 1.0) -> float:
 	var mv: float = maxf(motion_value, 0.1)
