@@ -3538,6 +3538,16 @@ func poder_jugador_eff() -> float:
 func reto(poder_enemigo: float) -> float:
 	return clampf(poder_enemigo / poder_jugador_eff(), 0.0, RETO_MAX)
 
+# Reto RELATIVO A UNA STAT concreta (no al poder TOTAL): deja subir una habilidad rezagada aunque
+# el resto ya sean altas. Lo usa la MAGIA: el grimorio se compra tarde (2200), cuando ya tienes
+# cuerpo, asi que con el reto por poder total la magia arrancaba a 0 y nunca despegaba. Con esto,
+# una magia baja entrena rapido hasta ponerse a la altura del piso que farmeas y se frena sola
+# despues (para subir mas hacen falta pisos mas profundos: mismo techo por piso que cualquier stat,
+# no es exploit). Usa el TOTAL oculto (stat_total), como reto(), para no re-farmear tras subir nivel.
+func reto_stat(poder_enemigo: float, stat: String) -> float:
+	var s: float = float(stat_total(stat))
+	return clampf(poder_enemigo / maxf(s, PODER_JUGADOR_SUELO), 0.0, RETO_MAX)
+
 
 # FORMA DE LA CURVA de aprendizaje de los MINIJUEGOS (extraccion, mineria, herboristeria).
 # La comparten las tres para que compararlas sea honesto: si una diera mas por la forma de

@@ -21,6 +21,12 @@ const FUERZA_DIV := 250.0
 # magia_factor = 1 + Magia / MAGIA_DIV. A 250 de Magia un hechizo pega el DOBLE.
 const MAGIA_DIV := 250.0
 
+# Multiplicador GLOBAL del daño de todos los hechizos (rebalance de magia: los hechizos pegaban
+# muy poco, "una decima parte de la vida" y encima con dos turnos de casteo). Centralizado en
+# resolve_spell para no tocar cada .tres; el backfire NO lo usa (escala con dano_base directo).
+# PROVISIONAL: revisar en pisos altos que el ×2 no dispare el daño (memoria ajuste-curvas-holistico).
+const SPELL_DAMAGE_MULT := 2.0
+
 # MANA: maximo = BASE_MP + Magia × MP_FROM_MAGIA. Numeros PROVISIONALES -> Excel.
 const BASE_MP := 20.0
 const MP_FROM_MAGIA := 0.033   # magia 999 -> +33 (max = 20 + 33 = 53)
@@ -350,7 +356,7 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 		elem_override: int = -1, dano_frac: float = 1.0) -> Dictionary:
 	var elem: int = elem_override if elem_override >= 0 else spell.elemento
 	var raw := spell.dano_base * dano_frac
-	var magic_atk := raw * magia_factor(float(attacker.abilities.magia)) * attacker.magic_amp * attacker.magia_base_factor
+	var magic_atk := raw * magia_factor(float(attacker.abilities.magia)) * attacker.magic_amp * attacker.magia_base_factor * SPELL_DAMAGE_MULT
 	# Defensa MAGICA del objetivo, espejo exacto de la fisica: una BASE propia del bicho +
 	# lo que aporte su Magia. Antes se pasaba 0.0 a pelo, y como ademas ningun enemigo tenia
 	# Magia, la defensa magica era CERO: los hechizos entraban a raw limpio mientras los

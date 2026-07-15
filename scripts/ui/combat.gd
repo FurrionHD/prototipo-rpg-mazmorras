@@ -803,7 +803,9 @@ func _disparar_hechizo() -> void:
 	# Excelia (formula dedicada de Magia): entrena al LANZAR, escalado por el mana
 	# gastado (hechizos caros = mas potentes = entrenan mas) x reto del enemigo.
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF
-	Game.ganar("magia", Game.reto(_poder_enemigo()), Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO)
+	# Reto por-stat (contra TU magia, no tu poder total): asi un cuerpo fuerte con magia baja SI
+	# entrena la magia contra bichos de su piso, en vez de quedarse clavado a 0 (ver Game.reto_stat).
+	Game.ganar("magia", Game.reto_stat(_poder_enemigo(), "magia"), Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO)
 	Game.contar_hechizo()   # contador oculto de Erudito
 	print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
 		_player.nombre, spell.nombre, dano, _player.abilities.magia, _enemy.nombre,
