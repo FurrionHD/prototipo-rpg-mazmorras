@@ -9,8 +9,10 @@
 #     que el lingote salga MEJOR que el mineral es la habilidad METALURGIA, que tira por
 #     subirlo un escalon (dañado -> normal -> intacto).
 #   - FORJAR: lingotes + cuero. Aqui SI se mezclan calidades: el metal del lingote fija el
-#     TIER y la calidad MEDIA de lo que metes tira la RAREZA. La habilidad HERRERIA empuja
-#     esa tirada a tu favor (como si el material fuera algo mejor de lo que es).
+#     TIER y la calidad MEDIA de lo que metes tira la RAREZA. La habilidad HERRERIA hace DOS
+#     cosas: empuja esa tirada a tu favor (como si el material fuera algo mejor de lo que es)
+#     y tira por devolverte parte del material. La rareza PRISTINA, en cambio, no sale de la
+#     habilidad: sale del material PURO (ver PESOS_PURO).
 #   - MEJORAR: cada +1 cuesta un nucleo mas que el anterior, y el nucleo marca el techo.
 #
 #  Las dos habilidades suben SOLAS con el oficio (como la Mezcla de la boticaria) y su curva
@@ -95,6 +97,16 @@ const HERRERIA_K := 30.0
 static func bonus_herreria(herreria_exp: float) -> float:
 	return HERRERIA_BONUS_MAX * _curva(herreria_exp, HERRERIA_K)
 
+# HERRERIA (2ª mitad): ademas de empujar la rareza, el herrero curtido DESPERDICIA menos y te
+# devuelve parte de lo que metes. Es lo mismo que hacen la Metalurgia y la Peleteria al refinar
+# (prob_devolver_material): el oficio no es solo hacerlo mejor, tambien es aprovechar el material.
+# Se tira UNA vez por ingrediente y devuelve UNA pieza, asi que forjar nunca sale gratis.
+const HERRERIA_DEV_MAX := 0.30
+const HERRERIA_DEV_K := 30.0
+
+static func prob_devolver_forja(herreria_exp: float) -> float:
+	return HERRERIA_DEV_MAX * _curva(herreria_exp, HERRERIA_DEV_K)
+
 # El METAL tambien empuja la rareza: forjar con acero no solo sube el tier, ademas hace
 # mas probables las rarezas buenas. Un tocho de metal noble ya viene medio hecho.
 const BONUS_POR_TIER_METAL := 0.10   # T1 +0, T2 +0.10, T3 +0.20 al score
@@ -103,6 +115,23 @@ static func bonus_metal(lingote: MaterialData) -> float:
 	if lingote == null:
 		return 0.0
 	return BONUS_POR_TIER_METAL * float(maxi(1, lingote.tier) - 1)
+
+
+# El SCORE final con el que se tira la rareza, juntando las tres fuentes con SU jerarquia:
+#   score_material -> 0 (dañado) .. 1 (intacto), y solo el PURO pasa de 1.
+#   bonus_oficio   -> Herreria (o Peleteria en la mochila).
+#   bonus_metal    -> el tier del lingote/chapa.
+#
+# La regla: pasar de 1.0 (el techo del material RECOLECTADO) es lo que abre la puerta al
+# PRISTINO, y ahi solo llegan el material PURO y el OFICIO. El metal noble ayuda, pero por si
+# solo NO fabrica un pristino: su empujon se queda en ese techo. Si no, un acero T3 con material
+# intacto sacaba pristinos sin haber tocado la Metalurgia ni la Herreria, y toda la cadena de
+# oficio (fundir puro -> forjar) se quedaba sin sentido.
+# Efecto lateral asumido: si ya vas por encima de 1.0 (llevas puro), el metal no suma mas; a esas
+# alturas el material ya es mejor que el metal.
+static func score_final(score_material: float, bonus_oficio: float, bonus_metal_val: float) -> float:
+	var sin_metal: float = score_material + bonus_oficio
+	return maxf(sin_metal, minf(sin_metal + bonus_metal_val, 1.0))
 
 
 # --- RESERVADO (aun sin efecto; el enganche esta, los numeros no) ---
@@ -193,18 +222,27 @@ static func tier_de_metal(lingote: MaterialData) -> int:
 # --- RAREZA: tabla de pesos que se DEFORMA con la calidad media del material ---
 # Tres tablas ancla (pesos, no porcentajes: se normalizan). El score de calidad (0 = todo
 # dañado, 0.5 = todo normal, 1 = todo intacto, + el empujon de la Herreria) INTERPOLA.
-#   [Comun, Poco comun, Raro, Epico, Legendario, Mitico, Obra maestra]
+#   [Comun, Poco comun, Raro, Epico, Legendario, Mitico, Obra maestra, Pristino]
 # Con todo INTACTO: comun y poco comun a CERO, la moda es Epico (45%), por debajo Raro (25%)
 # y despues Legendario (20%); mitico 7.5% y obra maestra 2.5%. Que Raro sea MENOS probable
 # que Epico teniendo material perfecto es a proposito: el buen metal no te da "algo decente",
 # te da algo bueno.
-const PESOS_DANADO: Array[float]  = [70.0, 25.0,  5.0,  0.0,  0.0, 0.0, 0.0]
-const PESOS_NORMAL: Array[float]  = [25.0, 35.0, 25.0, 12.0,  3.0, 0.0, 0.0]
-const PESOS_INTACTO: Array[float] = [ 0.0,  0.0, 25.0, 45.0, 20.0, 7.5, 2.5]
+#
+# El PRISTINO esta a 0 en las TRES primeras anclas: solo la cuarta (el PURO) le da peso. Para
+# asomarse a el hay que pasar de 1.0, y a eso solo llegan el material PURO y el OFICIO (la
+# Herreria); el metal noble por si solo no (ver score_final). O sea: el pristino es del que se
+# curra la cadena de oficio, por una via o por la otra.
+# Ojo: pesos_rareza itera sobre el tamaño de estas tablas, asi que las cuatro tienen que medir
+# lo mismo que RAREZA_NOMBRE.
+const PESOS_DANADO: Array[float]  = [70.0, 25.0,  5.0,  0.0,  0.0, 0.0, 0.0, 0.0]
+const PESOS_NORMAL: Array[float]  = [25.0, 35.0, 25.0, 12.0,  3.0, 0.0, 0.0, 0.0]
+const PESOS_INTACTO: Array[float] = [ 0.0,  0.0, 25.0, 45.0, 20.0, 7.5, 2.5, 0.0]
 # Cuarta ancla: LINGOTE PURO (score 1.5), que solo sale fundiendo con Metalurgia alta. Es el
-# unico sitio del que sale la obra maestra con cierta frecuencia: fuera tambien el Raro, la
-# moda se va a Legendario y la OM sube a 8%. El techo del oficio, no del botin.
-const PESOS_PURO: Array[float]    = [ 0.0,  0.0,  0.0, 25.0, 42.0, 25.0, 8.0]
+# unico sitio del que salen la obra maestra y el PRISTINO: fuera tambien el Raro, la moda se va
+# a Legendario, la OM sube al 12% y el pristino asoma al 6%. El techo del oficio, no del botin.
+# Como el score interpola INTACTO -> PURO, la probabilidad de pristino sube SOLA con la
+# proporcion de material puro que metas: no hace falta ninguna tirada aparte.
+const PESOS_PURO: Array[float]    = [ 0.0,  0.0,  0.0, 20.0, 38.0, 24.0, 12.0, 6.0]
 const SCORE_PURO := 1.5
 
 static func pesos_rareza(score: float) -> Array:

@@ -18,16 +18,24 @@
 extends RefCounted
 class_name Upgrades
 
-enum Rareza { COMUN, POCO_COMUN, RARO, EPICO, LEGENDARIO, MITICO, OBRA_MAESTRA }
+# PRISTINO va el ULTIMO y es el techo. Aqui el orden del enum SI es el de calidad (a diferencia
+# de MaterialItem.Calidad), asi que basta con añadirlo al final: los indices ya guardados en las
+# partidas y los .tres no se mueven.
+enum Rareza { COMUN, POCO_COMUN, RARO, EPICO, LEGENDARIO, MITICO, OBRA_MAESTRA, PRISTINO }
 
 # COMUN = 1.00 (regresion exacta: rareza comun + 0 mejoras = como antes). La obra maestra a
 # 1.55 se NOTA: antes iba a 1.15 (un +15% de risa) y ademas solo tocaba el raw/DEF. Ahora la
 # rareza multiplica TODAS las stats de combate (crit, evasion, aturdir, bloqueo, el bonus de
 # rapidez) y ademas hace que cada mejora rinda mas (sube los topes). Lo unico que NO toca es el
 # motion_value del arma (su equilibrio) ni la reduccion/velocidad de tipo de la armadura.
-const RAREZA_MULT := [1.00, 1.08, 1.16, 1.25, 1.35, 1.45, 1.55]
-const RAREZA_SLOTS := [3, 4, 5, 6, 8, 10, 12]
-const RAREZA_NOMBRE := ["Comun", "Poco comun", "Raro", "Epico", "Legendario", "Mitico", "Obra maestra"]
+#
+# El PRISTINO se sale de la escala a proposito (x1.75 y 15 huecos, contra x1.55 y 12): es el
+# techo del OFICIO, no del botin. No se puede sacar con material recolectado por bueno que sea
+# (ver Forge.PESOS_*): hay que forjar con lingotes PUROS, que solo salen de fundir con la
+# Metalurgia alta. Es la punta de una cadena entera de oficio, y por eso se nota.
+const RAREZA_MULT := [1.00, 1.08, 1.16, 1.25, 1.35, 1.45, 1.55, 1.75]
+const RAREZA_SLOTS := [3, 4, 5, 6, 8, 10, 12, 15]
+const RAREZA_NOMBRE := ["Comun", "Poco comun", "Raro", "Epico", "Legendario", "Mitico", "Obra maestra", "Pristino"]
 
 # Lo que sube el numero PRIMARIO (raw del arma / DEF de la armadura) por CADA mejora. Es un
 # PORCENTAJE de la base del PROPIO objeto, no un flat.
@@ -109,7 +117,7 @@ const REGENERACION_CAP := 0.40
 # sus huecos de mejora, no por su base. Pero la MOCHILA no tiene mejoras, asi que su rareza es
 # lo UNICO que la diferencia -> necesita su propia tabla, y una que se note: de comun a obra
 # maestra hay un +50% de carga (no el +15% de risa del combate).
-const RAREZA_CAPACIDAD := [1.00, 1.07, 1.15, 1.23, 1.32, 1.41, 1.50]
+const RAREZA_CAPACIDAD := [1.00, 1.07, 1.15, 1.23, 1.32, 1.41, 1.50, 1.65]
 
 static func rareza_mult_capacidad(r: int) -> float:
 	return RAREZA_CAPACIDAD[clampi(r, 0, RAREZA_CAPACIDAD.size() - 1)]

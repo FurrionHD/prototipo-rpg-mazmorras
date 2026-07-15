@@ -48,8 +48,9 @@ enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
 # --- SOLO para la familia NUCLEO: hasta donde deja subir el equipo ---
 # El nucleo no es "un material mas caro": es el PERMISO para seguir mejorando. Un nucleo
 # de slime te deja llegar a +3; uno de un bicho hondo, mucho mas lejos. El techo real del
-# sistema es el de la rareza mas alta (Upgrades.RAREZA_SLOTS, obra maestra = 12): no se
-# escribe aqui a mano, se lee de alli (ver mejora_tope).
+# sistema es el de la rareza mas alta (Upgrades.RAREZA_SLOTS, hoy el pristino = 15): no se
+# escribe aqui a mano, se lee de alli (ver mejora_tope), asi que sube solo si aparece una
+# rareza nueva por encima.
 # 0 = este material no mejora nada (todos los CORRIENTES).
 @export var mejora_max: int = 0
 # Y desde DONDE empieza su liga: el nivel de mejora a partir del cual este nucleo es el que

@@ -573,15 +573,19 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	t.text = "Rareza que puede salir"
 	t.add_theme_color_override("font_color", AMBAR)
 	vb.add_child(t)
-	# La calidad que cuenta es la de lo que se GASTA (el sobrante no entra en la media).
+	# La calidad que cuenta es la de lo que se GASTA (el sobrante no entra en la media). Sale de
+	# Game y NO de restarle los bonos al score: score_final ya no es una suma (el metal se capa en
+	# el techo del material recolectado), asi que restar daria un numero falso.
 	# El empujon de la HERRERIA entra en el 'score' (y por tanto en las probabilidades de abajo,
 	# que son las de verdad), pero NO se desglosa: el rango del oficio es oculto y ponerlo aqui
-	# como un "+X%" lo cantaba. Sigue restandose de 'bonos' para que el % de calidad del material
-	# sea el del material y no se coma el de la herreria.
-	var bonos: float = Forge.bonus_metal(metal) + Forge.bonus_herreria(Game.herreria_activa())
+	# como un "+X%" lo cantaba.
+	var material: float = Game.score_material_forja(base, metal, _sel_forja)
+	# Lo que aporta el metal DE VERDAD: la diferencia entre tirar con el y sin el. Si ya vas por
+	# encima del techo (llevas material puro), el metal no suma y aqui se ve un +0%.
+	var herr: float = Forge.bonus_herreria(Game.herreria_activa())
+	var met_ef: float = score - Forge.score_final(material, herr, 0.0)
 	_note(vb, "Calidad del material %d%%  +  metal %+d%%" % [
-		roundi((score - bonos) * 100.0),
-		roundi(Forge.bonus_metal(metal) * 100.0)])
+		roundi(material * 100.0), roundi(met_ef * 100.0)])
 	var probs: Array = Forge.probs_rareza(score)
 	for i in probs.size():
 		var p: float = float(probs[i])

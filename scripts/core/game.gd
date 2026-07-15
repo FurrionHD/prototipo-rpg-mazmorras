@@ -2730,13 +2730,19 @@ func score_seleccion(dicts: Array) -> float:
 # hecho). La UI pinta ESTE, no el otro: lo que ves es lo que se tira. `selecciones` va en paralelo
 # a ingredientes_forja(base, metal).
 func score_forja(base: Resource, metal: MaterialData, selecciones: Array) -> float:
+	return Forge.score_final(score_material_forja(base, metal, selecciones),
+		Forge.bonus_herreria(herreria_activa()), Forge.bonus_metal(metal))
+
+
+# El score SOLO del material que se va a gastar (sin oficio ni metal), 0..1.5. Lo pinta el menu:
+# hay que sacarlo de aqui y no restandoselo al score final, porque score_final ya no es una suma
+# (el metal se capa en el techo del recolectado).
+func score_material_forja(base: Resource, metal: MaterialData, selecciones: Array) -> float:
 	var ings: Array = ingredientes_forja(base, metal)
 	var recortadas: Array = []
 	for i in mini(ings.size(), selecciones.size()):
 		recortadas.append(recortar_seleccion(selecciones[i], int(ings[i]["uds"])))
-	return score_seleccion(recortadas) \
-		+ Forge.bonus_herreria(herreria_activa()) \
-		+ Forge.bonus_metal(metal)
+	return score_seleccion(recortadas)
 
 
 # Lo que se va a GASTAR de verdad de una seleccion que cubre `necesita` unidades. Si te pasas,
@@ -2808,7 +2814,11 @@ func forjar(base: Resource, metal: MaterialData, selecciones: Array) -> Resource
 	var ings: Array = ingredientes_forja(base, metal)
 	var tier: int = Forge.tier_de_metal(metal)
 	var rareza: int = Forge.tirar_rareza(score_forja(base, metal, selecciones))
+	# La HERRERIA hace dos cosas: empuja la rareza (ya va dentro de score_forja) y tira por
+	# devolverte material de cada ingrediente.
+	var prob_dev: float = Forge.prob_devolver_forja(herreria_activa())
 	var nombres: PackedStringArray = []
+	var devueltos: int = 0
 	for i in ings.size():
 		var mat: MaterialData = ings[i]["material"]
 		var uds: int = int(ings[i]["uds"])
@@ -2816,13 +2826,29 @@ func forjar(base: Resource, metal: MaterialData, selecciones: Array) -> Resource
 		_consumir_seleccion_material(mat, gasto)
 		# Aprovechamiento: lo que sobra del ultimo trozo puede volver al baul (ver Forge).
 		_tirar_devolucion(mat, gasto, uds)
+		# Y encima, la Herreria puede rescatar una pieza entera de lo que se ha gastado. Se
+		# devuelve la PEOR de las calidades que metiste: el recorte ya te guardo las buenas.
+		var peor: int = _peor_calidad_de(gasto)
+		if peor >= 0 and randf() < prob_dev:
+			almacen_materiales.append(MaterialItem.crear(mat, peor))
+			devueltos += 1
 		nombres.append(mat.nombre)
 	var item: Resource = crear_item(base, tier, rareza, {})
 	herreria_exp += Forge.HERRERIA_POR_PIEZA
-	print("[herrero] Forjas %s con %s -> T%d %s.  Herreria %s" % [
+	print("[herrero] Forjas %s con %s -> T%d %s.  (%d pieza(s) recuperadas)  Herreria %s" % [
 		str(base.get("nombre")), ", ".join(nombres), tier,
-		Upgrades.rareza_nombre(rareza), snappedf(herreria_exp, 0.1)])
+		Upgrades.rareza_nombre(rareza), devueltos, snappedf(herreria_exp, 0.1)])
 	return item
+
+
+# La PEOR calidad de una seleccion {calidad: cantidad}, o -1 si esta vacia. Mismo orden que usa
+# recortar_seleccion (dañado < normal < intacto < puro): el enum no vale para comparar.
+func _peor_calidad_de(dict: Dictionary) -> int:
+	for cal in [MaterialItem.Calidad.DANADO, MaterialItem.Calidad.NORMAL,
+			MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.PURO]:
+		if int(dict.get(cal, 0)) > 0:
+			return int(cal)
+	return -1
 
 
 # Tira por devolver al baul UNA pieza del material, segun las unidades que hayan SOBRADO del
@@ -2854,9 +2880,8 @@ func mochila_base() -> BackpackData:
 	return load(MOCHILA_BASE) as BackpackData
 
 func score_mochila(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dictionary, sel_cue: Dictionary) -> float:
-	return score_seleccion([sel_heb, sel_cor, sel_cue]) \
-		+ Forge.bonus_herreria(peleteria_activa()) \
-		+ Forge.bonus_metal(hebillas)
+	return Forge.score_final(score_seleccion([sel_heb, sel_cor, sel_cue]),
+		Forge.bonus_herreria(peleteria_activa()), Forge.bonus_metal(hebillas))
 
 func mochila_valida(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dictionary, sel_cue: Dictionary) -> bool:
 	if hebillas == null:
