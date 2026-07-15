@@ -1303,8 +1303,11 @@ func _accion_atacar() -> void:
 			txt = "¡CRITICO! %s golpea con %s por %.2f de daño. 💥" % [_player.nombre, con_arma, result.damage]
 			# Excelia: clavar un critico entrena Agilidad (encontraste el hueco). Escala con el
 			# PESO del arma (motion_value): un arma pesada critea poco, asi que cuando SI lo clava
-			# entrena mas Agilidad; una ligera critea a menudo y aporta menos por golpe.
-			Game.ganar("agilidad", Game.reto(_poder_enemigo()) * arma_factor, Game.GAIN_AGILIDAD_CRITICO,
+			# entrena mas Agilidad; una ligera critea a menudo y aporta menos por golpe. El factor
+			# va CAPADO (ver GAIN_AGILIDAD_CRIT_MV_MAX): ahora que las pesadas critean de verdad,
+			# sin tope entrenarian Agilidad de mas.
+			var agi_factor: float = minf(arma_factor, Game.GAIN_AGILIDAD_CRIT_MV_MAX)
+			Game.ganar("agilidad", Game.reto(_poder_enemigo()) * agi_factor, Game.GAIN_AGILIDAD_CRITICO,
 				Game.RETO_MAX_FISICO)
 		else:
 			txt = "%s golpea con %s por %.2f de daño." % [_player.nombre, con_arma, result.damage]

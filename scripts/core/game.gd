@@ -73,6 +73,10 @@ const GAIN_AGILIDAD_TALA := 1.0
 # raros, no ocurren cada turno como el ataque):
 const GAIN_AGILIDAD_ESQUIVAR := 0.6   # esquivar un golpe entrena Agilidad (adios correr en circulos)
 const GAIN_AGILIDAD_CRITICO := 0.3    # clavar un critico entrena Agilidad (encontrar el hueco)
+# TOPE del factor de PESO (motion_value) que escala esa ganancia. Al darle critico propio a las
+# pesadas (hacha 0.05, mandoble 0.025) critean ~25% mas que antes, y sin tope la Agilidad que
+# entrenan se disparaba. El tope les recorta ~20-25% por golpe y NO toca a las ligeras (MV < 1.2).
+const GAIN_AGILIDAD_CRIT_MV_MAX := 1.2
 const GAIN_RESISTENCIA_BLOQUEO := 0.3 # bloquear con Defender entrena Resistencia extra (KAN-81); moderado para no sobre-premiar el escudo
 # Magia (KAN-56): entrena SOLO al LANZAR el hechizo (no por frase, para que sea
 # predecible). Formula dedicada = GAIN_MAGIA_CAST × mana_factor × reto(enemigo),
