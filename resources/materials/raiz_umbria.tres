@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"raiz_umbria"
+nombre = "Raíz umbría"
+descripcion = "Una raíz negra y retorcida que se hunde en la roca más de lo que debería. Cuesta arrancarla entera, y quien lo consigue tiene entre las manos el mejor reactivo de los pisos hondos."
+familia = 0
+tipo = 1
+tier = 2
+exigencia = 480.0
+peso_base = 1.1
+valor_base = 90
+color = Color(0.3, 0.25, 0.35, 1)
+piso_min = 9
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

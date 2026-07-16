@@ -15,6 +15,7 @@ var sube: bool = false   # false = baja un piso; true = sube uno
 
 func _ready() -> void:
 	add_to_group("interactable")
+	add_to_group("escalera")   # para que la libreta (Game.capturar_mapa) las cartografie
 	_crear_aspecto()
 
 

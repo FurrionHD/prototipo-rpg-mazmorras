@@ -2,20 +2,20 @@
 
 [ext_resource type="Script" path="res://scripts/items/recipe_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/recipe_ingrediente.gd" id="2"]
-[ext_resource type="Resource" path="res://resources/consumables/pocion_media_2.tres" id="3"]
-[ext_resource type="Resource" path="res://resources/consumables/pocion_media_1.tres" id="3b"]
-[ext_resource type="Resource" path="res://resources/materials/baba_profunda.tres" id="4"]
+[ext_resource type="Resource" path="res://resources/consumables/pocion_mana_media_3.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/consumables/pocion_mana_media_2.tres" id="3b"]
+[ext_resource type="Resource" path="res://resources/materials/baba_rey_slime.tres" id="4"]
 [ext_resource type="Resource" path="res://resources/materials/raiz_umbria.tres" id="5"]
 
 [sub_resource type="Resource" id="I_baba"]
 script = ExtResource("2")
 material = ExtResource("4")
-unidades = 4
+unidades = 6
 
 [sub_resource type="Resource" id="I_icor"]
 script = ExtResource("2")
 material = ExtResource("5")
-unidades = 2
+unidades = 6
 
 [resource]
 script = ExtResource("1")

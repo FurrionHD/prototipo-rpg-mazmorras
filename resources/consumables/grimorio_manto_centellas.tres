@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/spells/manto_centellas.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Grimorio: Manto de centellas"
+cura_total = 0.0
+cura_pct = 0.0
+mana_total = 0.0
+mana_pct = 0.0
+turnos = 1
+segundos = 1.0
+spell = ExtResource("2")
+valor_base = 7300
+descripcion = "Un tomo con las paginas separadas, que crepitan al pasarlas. Estudialo y aprenderas Manto de centellas."

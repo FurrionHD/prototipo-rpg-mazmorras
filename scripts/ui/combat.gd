@@ -517,9 +517,10 @@ func _begin_player_turn() -> void:
 	# AUTORREGENERACION (habilidad de desarrollo): cura un % de tu vida MAXIMA al empezar tu
 	# turno. Va DESPUES del DoT (el veneno te pega igual, esto solo lo compensa un poco) pero
 	# ANTES del corte por aturdido: es pasiva, y un turno perdido no la apaga.
-	if Game.desarrollos_elegidos.has("autorregeneracion"):
+	var autoreg: float = Game.factor_desarrollo("autorregeneracion")   # 0 si no lo tienes; escala con el rango
+	if autoreg > 0.0:
 		var antes: float = _player.current_hp
-		_player.heal(_player.max_hp * AUTORREGEN_PCT)
+		_player.heal(_player.max_hp * AUTORREGEN_PCT * autoreg)
 		var curado: float = _player.current_hp - antes
 		if curado > 0.0:
 			_set_log("%s se regenera (+%.1f). ♻" % [_player.nombre, curado])
@@ -886,6 +887,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		var mult: float = float(res.get("mult_elem", 1.0))
 		ultimo_mult = mult
 		objetivo.take_damage(dmg)
+		Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
 		total += dmg
 		trail.append("%s%.1f%s" % [Elementos.icono(elem), dmg, _mult_sufijo(mult)])
 		print("[magia] %s golpe %d/%d %s: %.2f (x%.2f)" % [
@@ -1134,6 +1136,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 				total_imbue += float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe
 				mult_imbue = float(result.get("mult_imbue", 1.0))
 				_enemy.take_damage(dmg)
+				Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
 				mana_ganado_golpes += _ganar_mana_golpe()   # cada golpe que conecta repone maná
 				if float(result.get("dmg_imbue", 0.0)) > 0.0:
 					_gastar_amplificadores(_enemy, _player.imbue_elemento)
@@ -1313,6 +1316,7 @@ func _accion_atacar() -> void:
 		_set_log("%s esquiva tu ataque (%s). 💨" % [_enemy.nombre, con_arma])
 	else:
 		_enemy.take_damage(result.damage)
+		Game.contar_dano_infligido(result.damage)   # contador oculto de Cazador
 		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).
 		if float(result.get("dmg_imbue", 0.0)) > 0.0:
 			_gastar_amplificadores(_enemy, _player.imbue_elemento)
@@ -1645,6 +1649,7 @@ func _contraatacar() -> String:
 		return "%s esquiva y contraataca, pero %s lo esquiva. 💨" % [_player.nombre, _enemy.nombre]
 	var dmg: float = result.damage * _player.guardia_contra_mult
 	_enemy.take_damage(dmg)
+	Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
 	_dps_add("Contraataque", dmg)
 	_ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
 	# Excelia: el contraataque golpea, entrena Fuerza como un ataque normal.

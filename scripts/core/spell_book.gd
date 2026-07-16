@@ -26,8 +26,10 @@ const REPOSITORIO: Array[String] = [
 	"Fuego interior, despierta",
 	"Que mi piel sea ascua",
 	"Soy la hoguera, y la hoguera no arde",
-	# Rayo (descarga / tormenta / filo_fulgurante / manto_centellas)
+	# Rayo (descarga / rayo / tormenta / filo_fulgurante / manto_centellas)
 	"Centella, salta ya",
+	"Relampago, parte el aire",
+	"Que el cielo descargue su furia",
 	"Fulgor, desciende del cielo",
 	"Truenos, romped el silencio",
 	"El viento aullara conmigo",

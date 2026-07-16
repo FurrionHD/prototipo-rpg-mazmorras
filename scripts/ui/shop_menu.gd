@@ -11,7 +11,7 @@
 #   3) TIENDA       - armas/escudos/varita/bastón a T1 comun, pociones y grimorios.
 #   4) PACK INICIAL - una vez por partida: un arma gratis (ni bastón ni varita) + 3 pociones.
 #
-#  Toda la MATH vive en Game (precio_compra / vender_item / comprar_equipo / recomprar...);
+#  Toda la MATH vive en Game (precio_compra_tier / vender_item / comprar_equipo_tier / recomprar...);
 #  aqui solo se pinta.
 # ============================================================
 
@@ -19,7 +19,7 @@ extends CanvasLayer
 
 # Recomprar va DEBAJO de Tienda (y solo aparece si le has vendido algo al tendero); el pack
 # inicial desaparece al reclamarlo. Un menu vacio no merece su boton.
-const TABS := ["Vender", "Tienda", "Recomprar", "Pack inicial"]
+const TABS := ["Vender", "Tienda", "Tienda T2", "Recomprar", "Pack inicial"]
 const SUBS_VENDER := ["Bolsa", "Hogar", "Equipo", "Consumibles"]
 # El grimorio es un consumible en el inventario, pero en el mostrador va aparte: buscar un
 # libro de 2200 entre las pociones es incomodo.
@@ -62,11 +62,40 @@ const CAT_POCIONES: Array[String] = [
 	"res://resources/consumables/pocion_mana_menor.tres",
 	"res://resources/consumables/pocion_mana_menor_1.tres",
 	"res://resources/consumables/pocion_mana_menor_2.tres",
+	"res://resources/consumables/piedra_retorno.tres",
 ]
 const CAT_GRIMORIOS: Array[String] = [
 	"res://resources/consumables/grimorio_descarga.tres",
 	"res://resources/consumables/grimorio_brasa.tres",
 	"res://resources/consumables/grimorio_rocio.tres",
+]
+
+# --- Catalogo del mostrador T2 (el que abre el Rey Slime) ---
+# El EQUIPO no tiene lista propia: son las mismas plantillas, que se venden a T2 (el tier no vive en
+# el .tres, lo pone la compra). Los consumibles y los grimorios SI son recursos distintos.
+const CAT_POCIONES_T2: Array[String] = [
+	"res://resources/consumables/pocion_media.tres",
+	"res://resources/consumables/pocion_media_1.tres",
+	"res://resources/consumables/pocion_media_2.tres",
+	"res://resources/consumables/pocion_mana_media.tres",
+	"res://resources/consumables/pocion_mana_media_1.tres",
+	"res://resources/consumables/pocion_mana_media_2.tres",
+	"res://resources/consumables/piedra_retorno_t2.tres",
+]
+# Los de 2 frases: ataque medio de los tres elementos, potenciacion, debuff e imbuiciones. Los de 1
+# frase se quedan en el mostrador T1; los de 3 (Tormenta) no se venden.
+const CAT_GRIMORIOS_T2: Array[String] = [
+	"res://resources/consumables/grimorio_chorro_agua.tres",
+	"res://resources/consumables/grimorio_bola_fuego.tres",
+	"res://resources/consumables/grimorio_rayo.tres",
+	"res://resources/consumables/grimorio_fortaleza.tres",
+	"res://resources/consumables/grimorio_debilidad.tres",
+	"res://resources/consumables/grimorio_filo_ardiente.tres",
+	"res://resources/consumables/grimorio_filo_fulgurante.tres",
+	"res://resources/consumables/grimorio_filo_torrente.tres",
+	"res://resources/consumables/grimorio_manto_brasas.tres",
+	"res://resources/consumables/grimorio_manto_centellas.tres",
+	"res://resources/consumables/grimorio_manto_marea.tres",
 ]
 # Armaduras: los 4 tipos x los 5 slots, en orden de cobertura (Game.ARMOR_SLOT_ORDEN).
 const ARMOR_TIPOS: Array[String] = ["cuero", "hierro", "hierro_completo", "placas"]
@@ -83,6 +112,9 @@ var _tab_buttons: Array = []
 var _tab: int = 0
 var _sub: int = 0                    # subpestaña de VENDER (Bolsa / Hogar / Equipo)
 var _sel: int = 0                    # seleccion dentro de la cuadricula actual
+# TIER del mostrador que se esta pintando (1 = el de siempre, 2 = el del Rey Slime). Lo fija
+# _build_tienda y lo leen la ficha y el boton de comprar, que no reciben parametros.
+var _tienda_tier: int = 1
 var _stacks: Array = []              # lo que hay pintado en la cuadricula actual
 var _aviso: String = ""              # mensaje de la ultima accion (compra fallida, etc.)
 var _aviso_ok: bool = true
@@ -166,9 +198,10 @@ func _rebuild() -> void:
 	for zona in [_header, _lista, _content]:
 		for c in zona.get_children():
 			c.queue_free()
-	# Pestañas que solo existen cuando tienen algo dentro: el mostrador de recompra (2) y el
-	# pack inicial (3), que es de usar y tirar.
-	var visible_tab := {2: not Game.recompra.is_empty(), 3: not Game.pack_inicial_reclamado}
+	# Pestañas que solo existen cuando tienen algo dentro: el mostrador T2 (2), que lo abre el Rey
+	# Slime, el de recompra (3) y el pack inicial (4), que es de usar y tirar.
+	var visible_tab := {2: Game.tienda_t2_abierta(), 3: not Game.recompra.is_empty(),
+		4: not Game.pack_inicial_reclamado}
 	if not bool(visible_tab.get(_tab, true)):
 		_tab = 0
 	for i in _tab_buttons.size():
@@ -180,9 +213,10 @@ func _rebuild() -> void:
 
 	match _tab:
 		0: _build_vender()
-		1: _build_tienda()
-		2: _build_recomprar()
-		3: _build_pack()
+		1: _build_tienda(1)
+		2: _build_tienda(2)
+		3: _build_recomprar()
+		4: _build_pack()
 
 
 func _decir(txt: String, ok: bool = true) -> void:
@@ -542,9 +576,17 @@ func _on_recomprar() -> void:
 #  Pestaña TIENDA (comprar)
 # ============================================================
 
-func _build_tienda() -> void:
-	_title(_header, "A LA VENTA")
-	_note(_header, "Todo lo de aquí sale a tier 1 y calidad común: el tendero no forja, revende. Lo bueno tendrás que fabricártelo tú.")
+# Pinta el mostrador de un TIER. Es el mismo mostrador para los dos: cambian el catalogo de
+# consumibles/grimorios y el precio, no la estructura. Parametrizado en vez de duplicado para que
+# añadir una subpestaña siga siendo un solo sitio.
+func _build_tienda(tier: int) -> void:
+	_tienda_tier = tier
+	if tier >= 2:
+		_title(_header, "A LA VENTA · T2")
+		_note(_header, "El género que el tendero solo saca desde que corrió la voz del Rey Slime. Sale a tier 2 y calidad común, y se paga como lo que es: cosa de los pisos hondos.")
+	else:
+		_title(_header, "A LA VENTA")
+		_note(_header, "Todo lo de aquí sale a tier 1 y calidad común: el tendero no forja, revende. Lo bueno tendrás que fabricártelo tú.")
 	_subpestanas(SUBS_TIENDA)
 
 	var rutas: Array = []
@@ -559,10 +601,10 @@ func _build_tienda() -> void:
 			rutas = CAT_MOCHILAS
 			_note(_header, "Lo único que sube tu capacidad de carga. Esta es la básica y la única que se compra hecha: las buenas (mejor tier y rareza, más carga) las cose el Peletero.")
 		3:
-			rutas = CAT_POCIONES
+			rutas = CAT_POCIONES_T2 if tier >= 2 else CAT_POCIONES
 			_note(_header, "Comprarlas sale caro: si puedes, fabrícalas en la Boticaria con lo que traigas de la mazmorra.")
 		4:
-			rutas = CAT_GRIMORIOS
+			rutas = CAT_GRIMORIOS_T2 if tier >= 2 else CAT_GRIMORIOS
 			_note(_header, "Un libro por hechizo. Se estudia desde Consumibles, en el inventario [I]. Caben %d hechizos a la vez." % Game.MAX_HECHIZOS)
 
 	_stacks = []
@@ -573,8 +615,17 @@ func _build_tienda() -> void:
 	var labels: Array = []
 	for s in _stacks:
 		var base: Resource = s["modelo"]
-		labels.append("%s\n%d monedas" % [str(base.get("nombre")), Game.precio_compra(base)])
+		labels.append("%s\n%d monedas" % [str(base.get("nombre")), _precio_de(base)])
 	_grid_detail(labels, _preview_tienda)
+
+
+# Precio de lo que hay en el mostrador que se esta pintando. Al EQUIPO le pone el recargo del tier
+# (el tier no vive en el .tres); a pociones y grimorios NO, porque el T2 ya son recursos aparte con
+# su propio valor_base y multiplicarlos otra vez los cobraria dos veces.
+func _precio_de(base: Resource) -> int:
+	if base is ConsumableData:
+		return Game.precio_compra(base)
+	return Game.precio_compra_tier(base, _tienda_tier)
 
 
 # Las 20 piezas de armadura: por TIPO (de la mas ligera a la mas pesada) y, dentro de cada
@@ -589,7 +640,7 @@ func _rutas_armaduras() -> Array:
 
 func _preview_tienda(vb: VBoxContainer) -> void:
 	var base: Resource = _stacks[_sel]["modelo"]
-	var precio: int = Game.precio_compra(base)
+	var precio: int = _precio_de(base)
 	var llego: bool = Game.puede_pagar(precio)
 	_title(vb, str(base.get("nombre")))
 	_row(vb, "Precio", "%d monedas" % precio)
@@ -606,26 +657,36 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 			_row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(c, 0)))
 	elif base is BackpackData:
 		var mo := base as BackpackData
-		_row(vb, "Capacidad", "+%.0f de carga" % mo.capacidad)
+		# La carga de la mochila sale de una TABLA por tier (15/25/40), no de tier_mult.
+		_row(vb, "Capacidad", "+%.0f de carga" % (mo.capacidad * Game.mochila_tier_factor(_tienda_tier)))
 		_row(vb, "Llevas ahora", "%d" % roundi(Game.capacidad_carga()))
 	elif base is ArmorData:
 		var a := base as ArmorData
+		# La DEF sale de la MISMA funcion que usa el combate: lo que ves es lo que te pones. La
+		# reduccion y la velocidad NO escalan con el tier (son de tipo/tamaño), por eso van crudas.
+		var pm := Upgrades.armor_piece_mods(a, Game.tier_mult(_tienda_tier), Upgrades.Rareza.COMUN, {})
 		_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
 		_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, 3)])
-		_row(vb, "Defensa base", "%.2f" % (a.defensa_base * a.motion_def))
+		_row(vb, "Defensa", "%.2f" % float(pm["def"]))
 		_row(vb, "Reducción", "%.0f%%" % (a.reduccion * 100.0))
 		_row(vb, "Velocidad", "×%.2f" % a.velocidad_mult)
 	elif base is WeaponData:
-		_stats_arma_base(vb, base as WeaponData)
+		_stats_arma_base(vb, base as WeaponData, _tienda_tier)
 	elif base is ShieldData:
 		var sh := base as ShieldData
 		_row(vb, "Tipo", "Escudo (mano secundaria)")
+		# CRUDO a proposito: hoy el combate lee sh.bloqueo tal cual, sin tier ni rareza (a
+		# diferencia del arma en la secundaria). Enseñar aqui un bloqueo escalado seria MENTIR.
+		# Cuando se haga el rework del escudo, esto pasa por Upgrades como los demas.
 		_row(vb, "Bloqueo", "+%.2f" % sh.bloqueo)
 		_row(vb, "Velocidad", "×%.2f" % sh.velocidad_mult)
+		if _tienda_tier >= 2:
+			_note(vb, "Aviso: el escudo aún no aprovecha el tier. Este rinde igual que el de la tienda normal; lo que cambia es lo que cuesta.")
 	elif base is WandData:
 		var wd := base as WandData
+		var mm := Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(_tienda_tier), Upgrades.Rareza.COMUN, {})
 		_row(vb, "Tipo", "Varita (mano secundaria, magia)")
-		_row(vb, "Amplif. magia", "×%.2f" % wd.magic_amp)
+		_row(vb, "Amplif. magia", "×%.2f" % float(mm["magic_amp"]))
 		_row(vb, "Vel. casteo", "×%.2f" % wd.cast_vel_mult)
 	else:
 		_row(vb, "Tipo", _tipo_equipo(base))
@@ -646,11 +707,12 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		_note(vb, "No te llega. Baja a por más cristales.")
 
 
-# Ficha de un arma del CATALOGO (tier 1, calidad comun: lo que vende el tendero y lo que da el
-# pack). Tira de la ficha COMPARTIDA (MenuScaffold.filas_arma), la misma del inventario y el menu
-# de personaje: una sola fuente, y añadir una stat se hace en un solo sitio.
-func _stats_arma_base(vb: VBoxContainer, w: WeaponData) -> void:
-	for fila in MenuScaffold.filas_arma(w, 1, Upgrades.Rareza.COMUN, {}):
+# Ficha de un arma del CATALOGO, al tier con el que se vende y calidad comun (la rareza no se
+# compra: sale de la forja). Tira de la ficha COMPARTIDA (MenuScaffold.filas_arma), la misma del
+# inventario y el menu de personaje: una sola fuente, y añadir una stat se hace en un solo sitio.
+# El tier por DEFECTO es 1 porque el pack inicial tambien la usa y siempre regala a T1.
+func _stats_arma_base(vb: VBoxContainer, w: WeaponData, tier: int = 1) -> void:
+	for fila in MenuScaffold.filas_arma(w, tier, Upgrades.Rareza.COMUN, {}):
 		_row(vb, fila[0], fila[1])
 
 
@@ -668,7 +730,7 @@ func _tipo_equipo(base: Resource) -> String:
 
 func _on_comprar_equipo() -> void:
 	var base: Resource = _stacks[_sel]["modelo"]
-	var item: Resource = Game.comprar_equipo(base)
+	var item: Resource = Game.comprar_equipo_tier(base, _tienda_tier)
 	if item != null:
 		_decir("Compras %s. Está en tu baúl: equípalo en el menú de personaje [C]." % Game.item_display_name(item))
 	else:

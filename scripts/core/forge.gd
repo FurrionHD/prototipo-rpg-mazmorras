@@ -46,7 +46,8 @@ const CUERO_POR_CORREA := 2
 #
 # ARMA -> lingote + MADERA (el mango). Las armas SI suben de tier, porque la madera si tiene
 # tres tiers y sale de la misma profundidad que el metal (madera dura y hierro, los dos en el
-# piso 6). Un arma buena pide bajar; una armadura buena, ademas, pide un bicho que aun no existe.
+# piso 7 y con la misma exigencia). Un arma buena pide bajar; una armadura buena, ademas, pide
+# un bicho que aun no existe.
 static func cuero_vale_para(cuero: MaterialData, metal: MaterialData) -> bool:
 	return _acompana_a(cuero, metal)
 
@@ -64,8 +65,10 @@ static func _acompana_a(mat: MaterialData, metal: MaterialData) -> bool:
 const METALURGIA_MAX := 0.35   # tope de la probabilidad de subir de categoria
 const METALURGIA_K := 30.0     # exp para llegar a ~63% del tope
 
-static func prob_subir_calidad(metalurgia_exp: float) -> float:
-	return METALURGIA_MAX * _curva(metalurgia_exp, METALURGIA_K)
+# El input `factor` es el FACTOR DE RANGO del oficio (0..1; ver Game.factor_desarrollo): 0 = no
+# tienes el desarrollo, 1 = rango S. El bonus escala LINEAL con el rango (antes era una curva por exp).
+static func prob_subir_calidad(factor: float) -> float:
+	return METALURGIA_MAX * clampf(factor, 0.0, 1.0)
 
 # METALURGIA / PELETERIA: probabilidad de RECUPERAR una pieza del material que acabas de gastar.
 # El oficio no es solo hacerlo mejor, tambien es desperdiciar menos: el que sabe fundir saca el
@@ -74,8 +77,8 @@ static func prob_subir_calidad(metalurgia_exp: float) -> float:
 const DEVOLVER_MAX := 0.30   # tope de la probabilidad de recuperar una pieza
 const DEVOLVER_K := 30.0     # exp para llegar a ~63% del tope
 
-static func prob_devolver_material(oficio_exp: float) -> float:
-	return DEVOLVER_MAX * _curva(oficio_exp, DEVOLVER_K)
+static func prob_devolver_material(factor: float) -> float:
+	return DEVOLVER_MAX * clampf(factor, 0.0, 1.0)
 
 # MEZCLA (boticaria): probabilidad de que la poción salga del SIGUIENTE escalon de su cadena de
 # recetas (vida base -> vida +1 -> vida +2). Es la hermana de prob_subir_calidad: cada oficio
@@ -85,8 +88,8 @@ static func prob_devolver_material(oficio_exp: float) -> float:
 const MEZCLA_SUBIR_MAX := 0.15   # tope de la probabilidad de subir de escalon
 const MEZCLA_SUBIR_K := 30.0     # exp para llegar a ~63% del tope
 
-static func prob_subir_pocion(mezcla_exp: float) -> float:
-	return MEZCLA_SUBIR_MAX * _curva(mezcla_exp, MEZCLA_SUBIR_K)
+static func prob_subir_pocion(factor: float) -> float:
+	return MEZCLA_SUBIR_MAX * clampf(factor, 0.0, 1.0)
 
 # HERRERIA: empuja el score de calidad (0..1) con el que se tira la rareza. Con la herreria
 # a tope, un material normal tira como si fuera bastante mejor... pero sin llegar a lo que
@@ -94,8 +97,8 @@ static func prob_subir_pocion(mezcla_exp: float) -> float:
 const HERRERIA_BONUS_MAX := 0.15
 const HERRERIA_K := 30.0
 
-static func bonus_herreria(herreria_exp: float) -> float:
-	return HERRERIA_BONUS_MAX * _curva(herreria_exp, HERRERIA_K)
+static func bonus_herreria(factor: float) -> float:
+	return HERRERIA_BONUS_MAX * clampf(factor, 0.0, 1.0)
 
 # HERRERIA (2ª mitad): ademas de empujar la rareza, el herrero curtido DESPERDICIA menos y te
 # devuelve parte de lo que metes. Es lo mismo que hacen la Metalurgia y la Peleteria al refinar
@@ -104,8 +107,8 @@ static func bonus_herreria(herreria_exp: float) -> float:
 const HERRERIA_DEV_MAX := 0.30
 const HERRERIA_DEV_K := 30.0
 
-static func prob_devolver_forja(herreria_exp: float) -> float:
-	return HERRERIA_DEV_MAX * _curva(herreria_exp, HERRERIA_DEV_K)
+static func prob_devolver_forja(factor: float) -> float:
+	return HERRERIA_DEV_MAX * clampf(factor, 0.0, 1.0)
 
 # El METAL tambien empuja la rareza: forjar con acero no solo sube el tier, ademas hace
 # mas probables las rarezas buenas. Un tocho de metal noble ya viene medio hecho.

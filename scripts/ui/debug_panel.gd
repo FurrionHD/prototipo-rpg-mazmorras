@@ -204,10 +204,11 @@ func _sync_desarrollo() -> void:
 		c.queue_free()
 	for d in Game.DESARROLLOS:
 		var p: Dictionary = Game.desarrollo_progreso(d)
+		var rango: int = int(p["rango"])
 		var estado: String
 		var col: Color
-		if Game.desarrollos_elegidos.has(d["id"]):
-			estado = "ELEGIDO"
+		if rango >= 1:
+			estado = "rango %s (%d/10)" % [str(p["letra"]), rango]
 			col = Color(0.6, 0.8, 0.6)
 		elif bool(p["cumplido"]):
 			estado = "disponible"
@@ -215,12 +216,9 @@ func _sync_desarrollo() -> void:
 		else:
 			estado = "bloqueado"
 			col = Color(0.6, 0.6, 0.6)
-		var detalle: String
-		if str(d.get("req", "")) == "exp":
-			detalle = "%s %s / %s" % [str(p["contador"]),
-				str(snappedf(float(p["valor"]), 0.1)), str(snappedf(float(p["umbral"]), 0.1))]
-		else:
-			detalle = "req: %s" % str(d.get("req", "-"))
+		# valor / umbral del SIGUIENTE rango (o el desbloqueo si aun no lo tienes).
+		var detalle: String = "%s %s / %s" % [str(p["contador"]),
+			str(snappedf(float(p["valor"]), 0.1)), str(snappedf(float(p["umbral"]), 0.1))]
 		var l := Label.new()
 		l.text = "  %-22s %-34s %s" % [str(d["nombre"]), detalle, estado]
 		l.add_theme_color_override("font_color", col)

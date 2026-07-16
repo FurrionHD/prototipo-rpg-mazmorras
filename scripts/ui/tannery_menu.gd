@@ -365,7 +365,7 @@ func _mat_delta(sel: Dictionary, mat: MaterialData, cal: int, delta: int) -> voi
 # el contador es OCULTO porque es lo que decide si la habilidad te sale al subir de nivel. Bloqueada
 # -> no se pinta nada, ni el separador. Los numeros, en el panel de debug.
 func _estado_peleteria() -> void:
-	if not Game.habilidad_peleteria:
+	if not Game.tiene_desarrollo("peleteria"):
 		return
 	_content.add_child(HSeparator.new())
 	_row("Peletería", "activa")

@@ -4,12 +4,12 @@
 
 [resource]
 script = ExtResource("1")
-nombre = "Poción de maná menor"
+nombre = "Poción de maná media"
 cura_total = 0.0
 cura_pct = 0.0
-mana_total = 8.0
-mana_pct = 0.10
+mana_total = 25.0
+mana_pct = 0.12
 turnos = 3
 segundos = 6.0
-descripcion = "Restaura 8 + 10% de tu maná máximo, repartido en el tiempo. Sostén de casteo: la regen pasiva es un goteo, esto es el empujón."
-valor_base = 250
+descripcion = "Restaura 25 + 12% de tu maná máximo, repartido en el tiempo. La primera de segunda ley: la baba profunda concentra maná de otra manera."
+valor_base = 900

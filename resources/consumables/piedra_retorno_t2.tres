@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Piedra de retorno honda"
+cura_total = 0.0
+cura_pct = 0.0
+mana_total = 0.0
+mana_pct = 0.0
+turnos = 1
+segundos = 1.0
+vuelve_al_pueblo = true
+piso_max_vuelta = 12
+valor_base = 4000
+descripcion = "La misma piedra, pero con la muesca rellena de algo que no es metal y no se deja rayar. Grita mas fuerte: la oyen desde donde la otra ya solo pesa en el bolsillo."

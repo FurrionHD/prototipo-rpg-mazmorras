@@ -4,12 +4,12 @@
 
 [resource]
 script = ExtResource("1")
-nombre = "Poción de maná menor +1"
+nombre = "Poción de maná media +1"
 cura_total = 0.0
 cura_pct = 0.0
-mana_total = 13.0
-mana_pct = 0.10
+mana_total = 34.0
+mana_pct = 0.12
 turnos = 4
 segundos = 8.0
-descripcion = "Restaura 13 + 10% de tu maná máximo, repartido en el tiempo. El siguiente escalón de maná: más total pero más turnos."
-valor_base = 550
+descripcion = "Restaura 34 + 12% de tu maná máximo, repartido en el tiempo. Un paso más en la segunda ley: más maná, un turno más de sostener."
+valor_base = 1300

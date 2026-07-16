@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_electrizado"]
+script = ExtResource("2")
+estado = 8
+prob = 0.35
+
+[resource]
+script = ExtResource("1")
+nombre = "Rayo"
+tipo = 0
+elemento = 3
+frases = Array[String](["Relampago, parte el aire", "Que el cielo descargue su furia"])
+coste_mana = 8
+dano_base = 25.0
+efectos = [SubResource("SA_electrizado")]
+descripcion = "Hechizo medio de rayo. Dos frases: mas dano a cambio de un turno extra recitando. Cae en un solo golpe seco, al reves que la Descarga, y deja electrizado mas facil."

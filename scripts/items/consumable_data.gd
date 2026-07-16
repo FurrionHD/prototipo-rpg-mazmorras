@@ -38,12 +38,23 @@ class_name ConsumableData
 # se gasta. Un grimorio no cura ni da maná: sus campos de poción se quedan a 0.
 @export var spell: SpellData = null
 
+# VUELTA AL PUEBLO: si esta marcado, este "consumible" no se bebe ni se estudia: te teletransporta
+# al pueblo desde dentro de la mazmorra (Game.usar_consumible -> volver_al_pueblo_con_objeto), como
+# si cruzaras la puerta del piso del boss. Su ALCANCE es por pisos: solo funciona en el piso
+# `piso_max_vuelta` o por debajo; mas hondo no te saca (y no se gasta). Es el eje de tier de este
+# objeto: la version de la tienda T1 llega al 6, la de la T2 al 12.
+@export var vuelve_al_pueblo: bool = false
+@export var piso_max_vuelta: int = 6
+
 # PRECIO base de la tienda. Las de maná valen ~2.5 veces lo que las de vida equivalentes, y
 # los grimorios son el gasto gordo del principio.
 @export var valor_base: int = 100
 
 func es_grimorio() -> bool:
 	return spell != null
+
+func es_vuelta_pueblo() -> bool:
+	return vuelve_al_pueblo
 
 # ¿Esta poción cura VIDA? ¿da MANÁ? (para el menu y el uso).
 func cura_hp() -> bool: return cura_total > 0.0 or cura_pct > 0.0
@@ -66,7 +77,11 @@ func mana_por_segundo(max_mp: float) -> float:
 	return mana_efectivo(max_mp) / maxf(0.1, segundos)
 
 # Resumen corto del efecto para menus/HUD, p.ej. "cura 27" / "maná 10" / "cura 27 + maná 10".
+# El alcance de la vuelta sale del CAMPO, nunca de la descripcion: si cambias piso_max_vuelta en el
+# .tres, el texto se entera solo.
 func resumen(max_hp: float, max_mp: float) -> String:
+	if es_vuelta_pueblo():
+		return "vuelve al pueblo (hasta el piso %d)" % piso_max_vuelta
 	var p: Array = []
 	if cura_hp():
 		p.append("cura %.0f" % cura_efectiva(max_hp))

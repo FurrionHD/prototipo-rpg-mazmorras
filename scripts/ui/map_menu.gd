@@ -14,6 +14,10 @@ extends CanvasLayer
 const MARGEN := 60.0        # px de borde alrededor del mapa
 const COLOR_FONDO := Color(0.04, 0.04, 0.06, 0.94)
 const COLOR_SUELO := Color(0.24, 0.24, 0.30)      # zona explorada
+# Los MISMOS colores que tienen las escaleras dentro de la mazmorra (stairs.gd): lo que ves en el
+# plano y lo que ves en el suelo se reconocen a la primera.
+const COLOR_SUBE := Color(0.55, 0.8, 0.35)
+const COLOR_BAJA := Color(0.1, 0.7, 0.85)
 
 var _root: Control = null
 var _lienzo: Control = null
@@ -159,6 +163,16 @@ func _dibujar() -> void:
 		_lienzo.draw_string(font, p + Vector2(celda_px * 0.4, -celda_px * 0.4),
 			"%dm" % int(ceil(falta / 60.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
 			Color(0.7, 0.7, 0.75))
+
+	# 4) ESCALERAS: los dos puntos por los que de verdad te orientas. Van las ULTIMAS para que no las
+	# tape ningun nodo ni su cuenta atras. Con .get(): los mapas de saves viejos no tienen la clave.
+	for esc in (snap.get("escaleras", []) as Array):
+		var sube: bool = bool(esc["sube"])
+		var col: Color = COLOR_SUBE if sube else COLOR_BAJA
+		var q: Vector2 = offset + Vector2(esc["cell"]) * celda_px
+		_lienzo.draw_rect(Rect2(q, Vector2(celda_px, celda_px)), col)
+		_lienzo.draw_string(font, q + Vector2(celda_px * 1.2, celda_px * 0.9),
+			"SUBIR" if sube else "BAJAR", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
 
 
 func _punto(offset: Vector2, celda_px: float, celda: Vector2i, color: Color, radio_frac: float) -> void:

@@ -75,6 +75,9 @@ func _bajar(piso: int) -> void:
 	# Igual que entrar por la boca (door.gd): expedicion NUEVA. Lo unico distinto es por que
 	# piso empiezas.
 	Game.current_floor = maxi(1, piso)
+	# Al piso 1 se entra por la BOCA (ahi esta la puerta al pueblo). A un piso de boss se entra por
+	# SU salida al pueblo, que esta en el fondo: apareces junto a ella y a la bajada.
+	Game.entrada_por_atajo = Game.current_floor > 1
 	Game.olvidar_mazmorra()
 	# Baseline del mapa: lo que cartografies esta expedicion se pierde si mueres.
 	Game.iniciar_expedicion_mapa()

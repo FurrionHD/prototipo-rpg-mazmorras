@@ -65,7 +65,7 @@ const CRIT_BAKE_MAX := 0.08        # crítico plano que aporta al subir una Dest
 # Cada NIVEL tiene su propio "guardián del rango": vencerlo desbloquea SU nivel. guardianes_vencidos
 # = { nivel_objetivo: true }. Para subir a N hace falta haber vencido al guardián de N (+ rango).
 var guardianes_vencidos: Dictionary = {}
-var desarrollos_elegidos: Array = []         # ids de habilidades de desarrollo elegidas (una por nivel)
+var desarrollos_rango: Dictionary = {}       # {id: rango 1..10} de las habilidades de desarrollo (ver DESARROLLOS)
 const RETO_MAX := 8.0              # tope de dificultad relativa (enemigo muy superior = mas ganancia)
 # Tope de reto SOLO para las stats FISICAS (Fuerza/Resistencia/Agilidad): mas
 # bajo que el de Destreza (8) para que no se disparen contra enemigos superiores.
@@ -339,14 +339,26 @@ func capturar_mapa() -> void:
 		if not vistas.has(gen.zona_en(nodo.celda)):
 			continue
 		vivos.append({"cell": nodo.celda, "color": nodo.material_data.color})
+	# ESCALERAS de la libreta. Misma regla de niebla que los nodos: solo las de zonas EXPLORADAS
+	# (si no, el mapa te chiva donde esta la bajada de un piso que no has recorrido). No guardan su
+	# celda: se plantan por pixeles, asi que se convierte aqui (centro_px es la ida; esto la vuelta).
+	var escaleras: Array = []
+	for nodo in get_tree().get_nodes_in_group("escalera"):
+		if not is_instance_valid(nodo):
+			continue
+		var celda := Vector2i((nodo.global_position / float(DungeonGenerator.CELDA)).floor())
+		if not vistas.has(gen.zona_en(celda)):
+			continue
+		escaleras.append({"cell": celda, "sube": bool(nodo.sube)})
 	mapa_trabajo[current_floor] = {
 		"ancho": gen.ancho, "alto": gen.alto,
 		"suelo": suelo,
 		"vivos": vivos,
+		"escaleras": escaleras,
 		"agotados": (persist["agotados"] as Dictionary).duplicate(),
 	}
 	print("[mapa] trabajo al dia: piso ", current_floor, " (", vivos.size(), " nodos, ",
-		suelo.size(), " celdas)")
+		escaleras.size(), " escaleras, ", suelo.size(), " celdas)")
 
 
 # Al EMPEZAR una expedicion desde el pueblo: estrena el snapshot de TRABAJO (vacio) y guarda el
@@ -389,6 +401,13 @@ var semilla_mundo: int = 0
 # Al CARGAR una partida hecha dentro de la mazmorra: donde hay que plantar al jugador. El
 # DungeonFloor lo lee al construir el piso en vez de mandarte a la entrada.
 var pos_cargada: Vector2 = Vector2.INF
+
+# Entras por el ATAJO del selector de pisos (no por la boca de la mazmorra). El acceso directo a un
+# piso de boss ES su puerta al pueblo, que esta en el FONDO: apareces ahi, junto a la bajada, no en
+# la boca. Si te dejara en la boca tendrias que cruzar el piso entero, que es justo lo que el
+# premio del boss te ahorra. De UN SOLO USO: lo consume DungeonFloor._colocar_actores al construir
+# el piso, y por eso NO se guarda en la partida (no es estado, es un recado).
+var entrada_por_atajo: bool = false
 
 
 # --- IDENTIDAD del personaje (la elige el jugador al crear la partida, ver main_menu.gd) ---
@@ -441,7 +460,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	player_base_mp = 20.0
 	player_base_magia_factor = 1.0
 	player_base_crit = 0.0
-	desarrollos_elegidos.clear()
+	desarrollos_rango.clear()
 	guardianes_vencidos = {}
 	habilidad_metalurgia = false
 	habilidad_peleteria = false
@@ -459,6 +478,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	hechizos_exp = 0.0
 	recitado_exp = 0.0
 	dano_recibido_exp = 0.0
+	dano_infligido_exp = 0.0
 	pack_inicial_reclamado = false
 	bosses_derrotados.clear()
 	recompra.clear()
@@ -540,7 +560,7 @@ func exportar_partida() -> SaveData:
 	d.player_base_mp = player_base_mp
 	d.player_base_magia_factor = player_base_magia_factor
 	d.player_base_crit = player_base_crit
-	d.desarrollos_elegidos = desarrollos_elegidos.duplicate()
+	d.desarrollos_rango = desarrollos_rango.duplicate()
 	d.guardianes_vencidos = guardianes_vencidos.duplicate()
 	d.player_current_hp = player_hp()
 	d.player_current_mp = player_current_mp
@@ -554,6 +574,7 @@ func exportar_partida() -> SaveData:
 	d.hechizos_exp = hechizos_exp
 	d.recitado_exp = recitado_exp
 	d.dano_recibido_exp = dano_recibido_exp
+	d.dano_infligido_exp = dano_infligido_exp
 	d.pack_inicial = pack_inicial_reclamado
 	d.bosses_derrotados = bosses_derrotados.duplicate()
 
@@ -638,16 +659,9 @@ func importar_partida(d: SaveData) -> void:
 	player_base_mp = d.player_base_mp
 	player_base_magia_factor = d.player_base_magia_factor
 	player_base_crit = d.player_base_crit
-	desarrollos_elegidos = d.desarrollos_elegidos.duplicate()
+	desarrollos_rango = d.desarrollos_rango.duplicate()
 	guardianes_vencidos = d.guardianes_vencidos.duplicate()
-	# Re-encender los interruptores de OFICIO segun los desarrollos elegidos (no se guardan aparte).
-	for _id in desarrollos_elegidos:
-		match str(_id):
-			"metalurgia": habilidad_metalurgia = true
-			"peleteria": habilidad_peleteria = true
-			"herreria": habilidad_herreria = true
-			"mezcla": habilidad_mezcla = true
-	actualizar_estado()   # las stats VISIBLES se derivan de las internas, no se guardan aparte
+	# Los efectos de los desarrollos se leen del RANGO en vivo (no hay interruptores que re-encender).
 	player_current_hp = d.player_current_hp
 	player_current_mp = d.player_current_mp
 	money = d.money
@@ -659,6 +673,8 @@ func importar_partida(d: SaveData) -> void:
 	hechizos_exp = d.hechizos_exp
 	recitado_exp = d.recitado_exp
 	dano_recibido_exp = d.dano_recibido_exp
+	dano_infligido_exp = d.dano_infligido_exp
+	actualizar_estado()   # deriva las stats VISIBLES de las internas (y sube rangos si el contador ya da)
 	pack_inicial_reclamado = d.pack_inicial
 	bosses_derrotados = d.bosses_derrotados.duplicate()
 	# El historial de recompra es de SESION: cargar partida no te devuelve el mostrador del
@@ -1482,13 +1498,51 @@ func gastar_consumible(c: ConsumableData) -> bool:
 	return true
 
 # USAR un consumible del inventario (lo que hace el boton "Usar"): una poción se BEBE, un
-# grimorio se ESTUDIA. Punto unico para que la UI no tenga que saber cual es cual.
+# grimorio se ESTUDIA y una piedra de retorno te SACA al pueblo. Punto unico para que la UI no
+# tenga que saber cual es cual.
 func usar_consumible(c: ConsumableData) -> bool:
 	if c == null:
 		return false
+	if c.es_vuelta_pueblo():
+		return volver_al_pueblo_con_objeto(c)
 	if c.es_grimorio():
 		return aprender_de_grimorio(c)
 	return beber_pocion_fuera(c)
+
+
+# VOLVER AL PUEBLO con un objeto (piedra de retorno): la comodidad que antes solo daba la puerta
+# del piso del boss (dungeon_exit.gd), ahora comprada en la tienda. Solo DENTRO de la mazmorra y
+# solo hasta el piso de alcance del objeto: mas hondo no te saca. Si no vale, NO se gasta (un
+# objeto caro no se quema por un clic tonto, igual que el grimorio).
+func volver_al_pueblo_con_objeto(c: ConsumableData) -> bool:
+	if c == null or not c.es_vuelta_pueblo():
+		return false
+	# En combate/extraccion no: escaparse de una pelea con un clic seria un exploit. Hoy el
+	# inventario ya no abre con un layer activo, pero esto no depende de que eso siga asi.
+	if _active_layer != null:
+		print("[retorno] No en mitad de un combate.")
+		return false
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null:
+		print("[retorno] Ya estas en el pueblo.")
+		return false
+	if current_floor > c.piso_max_vuelta:
+		print("[retorno] %s no llega tan hondo: alcanza hasta el piso %d y estas en el %d." % [
+			c.nombre, c.piso_max_vuelta, current_floor])
+		return false
+	if not gastar_consumible(c):
+		return false
+	var desde: int = current_floor
+	# Misma secuencia que la puerta del piso del boss (dungeon_exit.interact_with_player): vuelves
+	# VIVO, asi que lo cartografiado esta bajada SE COMETE al mapa permanente.
+	capturar_mapa()          # antes de tocar current_floor: captura el piso que abandonas
+	comprometer_mapa()
+	current_floor = 1
+	olvidar_mazmorra()
+	inventory_open = false   # lo usas DESDE el inventario: sin esto llegas al pueblo congelado
+	print("[retorno] Usas %s y vuelves al pueblo desde el piso %d." % [c.nombre, desde])
+	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
+	return true
 
 # Estudia un grimorio: aprendes su hechizo y el libro se gasta. Si ya te lo sabias o tienes
 # la cabeza llena (MAX_HECHIZOS), NO se gasta: un libro caro no se quema por un clic tonto.
@@ -1819,13 +1873,10 @@ func _aplicar_loadout(c: Combatant) -> void:
 
 	# PERKS de combate (habilidades de desarrollo). Van los ULTIMOS, encima de lo que dan el equipo
 	# y la armadura: son tuyos, no del loadout, asi que no dependen de lo que lleves puesto. Se leen
-	# en vivo de desarrollos_elegidos (no hay interruptor que guardar).
-	if desarrollos_elegidos.has("reflejos"):
-		c.evasion_penal -= REFLEJOS_EVASION   # la esquiva va como PENAL: negativo = esquivas mas
-	if desarrollos_elegidos.has("erudito"):
-		c.magic_amp *= 1.0 + ERUDITO_MAGIA
-	if desarrollos_elegidos.has("encantamiento_rapido"):
-		c.cast_velocidad_mult *= 1.0 + ENCANT_RAPIDO
+	# en vivo del RANGO de cada desarrollo (factor 0 = no lo tienes; escala hasta rango S).
+	c.evasion_penal -= REFLEJOS_EVASION * factor_desarrollo("reflejos")   # esquiva como PENAL: negativo = esquivas mas
+	c.magic_amp *= 1.0 + ERUDITO_MAGIA * factor_desarrollo("erudito")
+	c.cast_velocidad_mult *= 1.0 + ENCANT_RAPIDO * factor_desarrollo("encantamiento_rapido")
 
 
 # Combina la mano principal + la secundaria en los modificadores finales de
@@ -2164,12 +2215,37 @@ func gastar(precio: int) -> bool:
 	money -= precio
 	return true
 
-# Precio de COMPRA de una plantilla (arma/escudo/varita/armadura/poción/grimorio). Es el
-# precio a T1/Comun, que es lo unico que el tendero vende: lo bueno sale de la forja.
+# Precio de COMPRA de una plantilla (arma/escudo/varita/armadura/poción/grimorio) a T1/Comun.
 func precio_compra(base: Resource) -> int:
 	if base == null:
 		return 0
 	return maxi(0, int(base.get("valor_base")))
+
+# Recargo del mostrador T2 (el que se abre al matar al Rey Slime): todo cuesta esto por su precio
+# T1. Sale de la capacidad adquisitiva de los pisos 7-12 (cristales de categoria 8-9 = 256-324
+# frente a los 100-144 de la zona T1) y encaja con la escala que ya usan las pociones (la "media"
+# vale 3.8x la "menor").
+#
+# OJO: es una constante APARTE de TIER_GROWTH (2.2) A PROPOSITO, aunque las dos hablen de "T2".
+# TIER_GROWTH es cuanto SUBE LA POTENCIA por tier; esto es cuanto COBRA EL TENDERO. Estan
+# desacopladas para que el equipo T2 de tienda cueste (x3.3) mas de lo que rinde (x2.2): la tienda
+# es la via comoda y cara, la forja sigue siendo la barata. No las unifiques.
+const T2_PRECIO_MULT := 3.3
+
+# El mostrador T2 lo abre el REY SLIME (piso 6): hasta que no cae, ni se enseña. El hito ya vive en
+# `bosses_derrotados`, que se guarda y se carga con la partida, asi que esto NO necesita ningun flag
+# nuevo en SaveData: preguntarlo aqui es suficiente y no se puede desincronizar.
+const PISO_TIENDA_T2 := 6
+
+func tienda_t2_abierta() -> bool:
+	return boss_derrotado(PISO_TIENDA_T2)
+
+# Precio de compra de una plantilla al TIER en el que la vende ese mostrador.
+func precio_compra_tier(base: Resource, tier: int) -> int:
+	var p: int = precio_compra(base)
+	if tier <= 1:
+		return p
+	return maxi(0, int(round(float(p) * T2_PRECIO_MULT)))
 
 # Lo que el tendero PAGA por tu equipo usado: una fraccion del precio de tienda. Ese mismo
 # importe es el que costara RECOMPRARLO (no hay margen: el tendero te lo guarda, no te lo
@@ -2311,12 +2387,14 @@ func recomprar(idx: int) -> bool:
 
 
 # --- COMPRAR ---
-# Compra una pieza de equipo: sale del taller a T1/Comun/sin mejoras, con identidad propia.
-func comprar_equipo(base: Resource) -> Resource:
-	var precio: int = precio_compra(base)
+# Compra una pieza de equipo en el mostrador de un TIER concreto (el de siempre vende a T1; el que
+# abre el Rey Slime, a T2). Sale con identidad propia, sin mejoras y siempre COMUN: la rareza no se
+# compra, sale de la forja.
+func comprar_equipo_tier(base: Resource, tier: int) -> Resource:
+	var precio: int = precio_compra_tier(base, tier)
 	if not gastar(precio):
 		return null
-	var item: Resource = crear_item(base, 1, Upgrades.Rareza.COMUN, {})
+	var item: Resource = crear_item(base, tier, Upgrades.Rareza.COMUN, {})
 	print("[tienda] Compras %s por %d. Dinero: %d" % [item_display_name(item), precio, money])
 	return item
 
@@ -2397,6 +2475,7 @@ var esquivas_exp: float = 0.0        # Reflejos: cada ataque que esquivas
 var hechizos_exp: float = 0.0        # Erudito: cada hechizo que lanzas
 var recitado_exp: float = 0.0        # Encantamiento rapido: cada frase de recitado acertada
 var dano_recibido_exp: float = 0.0   # Autorregeneracion: el daño que encajas (acumula el daño)
+var dano_infligido_exp: float = 0.0  # Cazador: el daño que HACES (acumula el daño; solo nivel 1)
 
 # Lo que sube cada contador por cada cosa que haces. Los tres primeros van por VECES (1 por
 # esquiva/hechizo/frase); el de la autorregeneracion va por DAÑO, asi que su umbral esta en otra
@@ -2416,6 +2495,9 @@ func contar_frase_recitada() -> void:
 
 func contar_dano_recibido(dmg: float) -> void:
 	dano_recibido_exp += maxf(0.0, dmg)
+
+func contar_dano_infligido(dmg: float) -> void:
+	dano_infligido_exp += maxf(0.0, dmg)
 # Interruptores (los pondra a true el sistema de habilidades de desarrollo cuando exista).
 # Con esto en false, el oficio solo ACUMULA.
 var habilidad_metalurgia: bool = false
@@ -2423,18 +2505,19 @@ var habilidad_peleteria: bool = false
 var habilidad_herreria: bool = false
 var habilidad_mezcla: bool = false   # Mezcla (boticaria): sube la prob. de doble poción. Ver mezcla_activa().
 
-# Exp EFECTIVA: 0 mientras la habilidad no este desbloqueada (el progreso sigue guardandose).
+# FACTOR de rango del oficio (0..1): 0 si no lo tienes, 0.2 en rango I, 1.0 en rango S. Es lo que
+# escala el bonus (ver Forge.bonus_herreria y cía, que ahora hacen MAX × factor).
 func metalurgia_activa() -> float:
-	return metalurgia_exp if habilidad_metalurgia else 0.0
+	return factor_desarrollo("metalurgia")
 
 func peleteria_activa() -> float:
-	return peleteria_exp if habilidad_peleteria else 0.0
+	return factor_desarrollo("peleteria")
 
 func herreria_activa() -> float:
-	return herreria_exp if habilidad_herreria else 0.0
+	return factor_desarrollo("herreria")
 
 func mezcla_activa() -> float:
-	return mezcla_exp if habilidad_mezcla else 0.0
+	return factor_desarrollo("mezcla")
 
 # Cada metal, su cadena: el TIER se conserva de la veta a la hebilla.
 #   mineral -> lingote -> chapa (armaduras) / hebillas (mochilas)
@@ -2684,9 +2767,9 @@ func refinar(origen: MaterialData, destino: MaterialData, cal: int, veces: int, 
 			almacen_materiales.append(MaterialItem.crear(origen, cal))
 			devueltos += 1
 		if oficio == "peleteria":
-			peleteria_exp += Forge.OFICIO_POR_REFINADO
+			peleteria_exp += _puntos_oficio("peleteria", origen.tier)
 		else:
-			metalurgia_exp += Forge.OFICIO_POR_REFINADO
+			metalurgia_exp += _puntos_oficio("metalurgia", origen.tier)
 	print("[oficio] %d x %s -> %d x %s  (%d salieron mejor de lo que entraron; %d x %s recuperados)" % [
 		n * por_uno, origen.nombre, n, destino.nombre, subidos, devueltos, origen.nombre])
 	return n
@@ -2919,7 +3002,7 @@ func forjar(base: Resource, metal: MaterialData, selecciones: Array) -> Resource
 			devueltos += 1
 		nombres.append(mat.nombre)
 	var item: Resource = crear_item(base, tier, rareza, {})
-	herreria_exp += Forge.HERRERIA_POR_PIEZA
+	herreria_exp += _puntos_oficio("herreria", tier)
 	print("[herrero] Forjas %s con %s -> T%d %s.  (%d pieza(s) recuperadas)  Herreria %s" % [
 		str(base.get("nombre")), ", ".join(nombres), tier,
 		Upgrades.rareza_nombre(rareza), devueltos, snappedf(herreria_exp, 0.1)])
@@ -2993,7 +3076,7 @@ func fabricar_mochila(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dict
 	_tirar_devolucion(correa(), g_cor, int(MOCHILA_COSTE["correa"]))
 	_tirar_devolucion(cuero_forja(), g_cue, int(MOCHILA_COSTE["cuero"]))
 	var m: Resource = crear_item(mochila_base(), tier, rareza, {})
-	peleteria_exp += Forge.HERRERIA_POR_PIEZA
+	peleteria_exp += _puntos_oficio("peleteria", tier)
 	print("[peletero] Coses una mochila con %s -> T%d %s (+%.0f de carga).  Peleteria %s" % [
 		hebillas.nombre, tier, Upgrades.rareza_nombre(rareza),
 		capacidad_mochila(m as BackpackData), snappedf(peleteria_exp, 0.1)])
@@ -3406,8 +3489,13 @@ func craftear_con(receta: RecipeData, seleccion: Array) -> int:
 	for cons in salida:
 		add_consumable(cons as ConsumableData, int(salida[cons]))
 	# MEZCLA: crear pociones (no comprarlas) alimenta el parametro oculto. Cuenta por poción
-	# fabricada (incluidas las que salen dobles): mezclar mas = mas experiencia de Mezcla.
-	mezcla_exp += MEZCLA_EXP_POR_POCION * float(total)
+	# fabricada (incluidas las que salen dobles). El tier de la poción = el mayor tier de sus
+	# ingredientes (una T2 usa baba profunda/rey slime = tier 2), y da mas puntos si ya tienes Mezcla.
+	var pocion_tier: int = 1
+	for ing in receta.ingredientes:
+		if ing != null and ing.material != null:
+			pocion_tier = maxi(pocion_tier, int(ing.material.tier))
+	mezcla_exp += _puntos_oficio("mezcla", pocion_tier) * MEZCLA_EXP_POR_POCION * float(total)
 	var detalle: PackedStringArray = []
 	for cons in salida:
 		detalle.append("%d x %s" % [int(salida[cons]), (cons as ConsumableData).nombre])
@@ -3470,6 +3558,11 @@ const _RECIPE_PATHS: Array[String] = [
 	"res://resources/recipes/pocion_mana_base.tres",
 	"res://resources/recipes/pocion_mana_1.tres",
 	"res://resources/recipes/pocion_mana_2.tres",
+	"res://resources/recipes/pocion_mana_3.tres",
+	"res://resources/recipes/pocion_mana_t2_base.tres",
+	"res://resources/recipes/pocion_mana_t2_1.tres",
+	"res://resources/recipes/pocion_mana_t2_2.tres",
+	"res://resources/recipes/pocion_mana_t2_3.tres",
 ]
 
 func recetas_boticaria() -> Array:
@@ -3614,6 +3707,8 @@ func actualizar_estado() -> void:
 	player_destreza = _visible_nivel("destreza")
 	player_agilidad = _visible_nivel("agilidad")
 	player_magia = _visible_nivel("magia")
+	_subir_rangos_desarrollo()   # los desarrollos elegidos suben de rango si su contador ya llega
+
 	print("=== ESTADO ACTUALIZADO (Nv ", player_level, ") ===  F:", player_fuerza,
 		" R:", player_resistencia, " D:", player_destreza, " A:", player_agilidad, " M:", player_magia)
 
@@ -3679,6 +3774,9 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	player_fuerza = 0; player_resistencia = 0; player_destreza = 0; player_agilidad = 0; player_magia = 0
 	player_level += 1
 	aplicar_desarrollo(desarrollo_id)
+	# RESET selectivo: los contadores de los desarrollos que NO tienes vuelven a 0 (hay que ganarse
+	# cada desbloqueo dentro de un nivel). Los YA elegidos NO se resetean (acumulan para subir de rango).
+	_reset_contadores_no_elegidos()
 	player_current_hp = -1.0; player_current_mp = -1.0   # despiertas a tope tras el ascenso
 	print("[nivel] ¡Subes a nivel ", player_level, "! Base -> atk %.1f def %.1f hp %.1f spd %.1f mag %.1f" % [
 		player_base_attack, player_base_defense, player_base_hp, player_base_speed, player_base_magic])
@@ -3700,37 +3798,80 @@ func subir_nivel(desarrollo_id: String) -> bool:
 # UMBRALES: PROVISIONALES -> Excel. Los de oficio van en "veces" (cada refinado/forja/poción suma
 # 1.0; ver Forge.OFICIO_POR_REFINADO / HERRERIA_POR_PIEZA / MEZCLA_EXP_POR_POCION). Los de combate
 # tambien, salvo autorregeneracion, que va en DAÑO ENCAJADO y por eso su numero es tan grande.
+# UMBRAL = requisito del RANGO I (primer desbloqueo). Los rangos siguientes piden base × 2.5^(rango-1)
+# (ver req_de_rango). solo_nivel_1 = solo se puede DESBLOQUEAR a nivel 1 (Cazador/Autorregen: sus
+# contadores van por DAÑO y a nivel 2+ se llenan solos, así que su base dejaría de significar nada).
 const DESARROLLOS: Array = [
 	{"id": "metalurgia", "nombre": "Metalurgia", "tipo": "oficio",
 		"desc": "Al refinar metal, tira por subir un escalón la calidad.",
-		"req": "exp", "contador": "metalurgia_exp", "umbral": 20.0},
+		"req": "exp", "contador": "metalurgia_exp", "umbral": 150.0},
 	{"id": "peleteria", "nombre": "Peletería", "tipo": "oficio",
 		"desc": "Al curtir piel, tira por subir un escalón la calidad.",
-		"req": "exp", "contador": "peleteria_exp", "umbral": 20.0},
+		"req": "exp", "contador": "peleteria_exp", "umbral": 100.0},
 	{"id": "herreria", "nombre": "Herrería", "tipo": "oficio",
 		"desc": "Al forjar, empuja la tirada de rareza a tu favor.",
-		"req": "exp", "contador": "herreria_exp", "umbral": 5.0},
+		"req": "exp", "contador": "herreria_exp", "umbral": 60.0},
 	{"id": "mezcla", "nombre": "Mezcla", "tipo": "oficio",
 		"desc": "Al fabricar pociones, tira por doblarlas y por subirlas de escalón.",
-		"req": "exp", "contador": "mezcla_exp", "umbral": 20.0},
-	# El CAZADOR es el raro: no se entrena, solo se te concede en el PRIMER ascenso. Si eliges
-	# otra cosa (o aplazas y subes mas tarde), lo pierdes para siempre.
-	{"id": "cazador", "nombre": "Cazador", "tipo": "combate",
+		"req": "exp", "contador": "mezcla_exp", "umbral": 500.0},
+	# CAZADOR y AUTORREGEN: solo se DESBLOQUEAN a nivel 1 (solo_nivel_1). Su contador va por DAÑO
+	# (hecho / encajado); una vez tuyos, suben de rango con el daño acumulado como los demas.
+	{"id": "cazador", "nombre": "Cazador", "tipo": "combate", "solo_nivel_1": true,
 		"desc": "Todo lo que entrenas cunde un poco más.",
-		"req": "primer_ascenso"},
+		"req": "exp", "contador": "dano_infligido_exp", "umbral": 24000.0},
 	{"id": "reflejos", "nombre": "Reflejos", "tipo": "combate",
 		"desc": "Esquivas mejor en combate.",
-		"req": "exp", "contador": "esquivas_exp", "umbral": 30.0},
+		"req": "exp", "contador": "esquivas_exp", "umbral": 300.0},
 	{"id": "erudito", "nombre": "Erudito", "tipo": "combate",
 		"desc": "Tus hechizos pegan más fuerte.",
-		"req": "exp", "contador": "hechizos_exp", "umbral": 30.0},
+		"req": "exp", "contador": "hechizos_exp", "umbral": 300.0},
 	{"id": "encantamiento_rapido", "nombre": "Encantamiento rápido", "tipo": "combate",
 		"desc": "Recitas los conjuros más rápido.",
-		"req": "exp", "contador": "recitado_exp", "umbral": 40.0},
-	{"id": "autorregeneracion", "nombre": "Autorregeneración", "tipo": "combate",
+		"req": "exp", "contador": "recitado_exp", "umbral": 450.0},
+	{"id": "autorregeneracion", "nombre": "Autorregeneración", "tipo": "combate", "solo_nivel_1": true,
 		"desc": "Recuperas algo de vida al principio de cada turno.",
-		"req": "exp", "contador": "dano_recibido_exp", "umbral": 500.0},
+		"req": "exp", "contador": "dano_recibido_exp", "umbral": 12000.0},
 ]
+
+# --- RANGOS de los desarrollos (I..S, 10). SISTEMA PROPIO, nada que ver con el de las stats (0-999).
+const RANGO_MULT := 2.5              # cada rango pide × esto sobre el anterior (base × 2.5^(rango-1))
+const RANGO_MAX := 10                # I..S
+const LETRAS_RANGO := ["I", "H", "G", "F", "E", "D", "C", "B", "A", "S"]
+# Puntos que suma un material/pieza segun su TIER, SOLO cuando ya tienes el desarrollo (para subir de
+# rango). T1=1, T2=1.5, T3=2.25. Para DESBLOQUEAR (rango I) siempre suma 1 (ver los incrementos).
+func tier_puntos(tier: int) -> float:
+	return pow(1.5, float(maxi(1, tier) - 1))
+
+# Puntos que suma UNA acción de oficio a su contador: 1 para DESBLOQUEAR (si aún no tienes el
+# desarrollo, cualquier tier da 1), o tier_puntos(tier) una vez lo tienes (para subir de rango).
+func _puntos_oficio(id: String, tier: int) -> float:
+	return tier_puntos(tier) if tiene_desarrollo(id) else 1.0
+
+# Requisito (valor del contador) para alcanzar `rango` de un desarrollo de base `umbral`.
+func req_de_rango(umbral: float, rango: int) -> float:
+	return umbral * pow(RANGO_MULT, float(maxi(1, rango) - 1))
+
+# Rango actual de un desarrollo (0 = no adquirido) y helpers.
+func desarrollo_rango(id: String) -> int:
+	return int(desarrollos_rango.get(id, 0))
+
+func tiene_desarrollo(id: String) -> bool:
+	return desarrollos_rango.has(id)
+
+# Letra I..S de un rango 1..10 ("" si 0).
+func letra_rango(rango: int) -> String:
+	if rango < 1 or rango > RANGO_MAX:
+		return ""
+	return LETRAS_RANGO[rango - 1]
+
+# Factor 0..1 del efecto segun el rango: rango I = 0.2 del maximo, rango S = 1.0. 0 si no adquirido.
+func factor_rango(rango: int) -> float:
+	if rango < 1:
+		return 0.0
+	return 0.2 + 0.8 * float(mini(rango, RANGO_MAX) - 1) / float(RANGO_MAX - 1)
+
+func factor_desarrollo(id: String) -> float:
+	return factor_rango(desarrollo_rango(id))
 
 # CAZADOR: +% a TODA la excelia que ganas (no a una stat suelta). Es el unico perk que toca el
 # entreno, y por eso es flojo en numero pero se aplica a todo. Los otros tres se aplican en
@@ -3747,62 +3888,77 @@ func desarrollo_por_id(id: String) -> Dictionary:
 			return d
 	return {}
 
-# Los que AUN puedes elegir: ni repetidos ni sin ganartelos (ver _req_cumplido).
+# Los que AUN puedes DESBLOQUEAR (rango I): no los tienes ya y su contador llega a la base. Se
+# ofrecen al SUBIR DE NIVEL. solo_nivel_1 (cazador/autorregen) exige estar en el nivel 1.
 func desarrollos_disponibles() -> Array:
 	var out: Array = []
 	for d in DESARROLLOS:
-		if not desarrollos_elegidos.has(d["id"]) and _req_cumplido(d):
+		if not tiene_desarrollo(str(d["id"])) and _req_cumplido(d):
 			out.append(d)
 	return out
 
-# ¿Te has ganado este desarrollo? Es lo que decide si te APARECE al subir de nivel. El chequeo va
-# aqui y no en el catalogo porque los `const Array` de GDScript no admiten lambdas: la ficha se
-# queda declarativa ({"req": ..., "contador": ..., "umbral": ...}) y el match vive en un sitio.
+# ¿Te has ganado el DESBLOQUEO (rango I) de este desarrollo? El contador llega a la base y, si es
+# solo_nivel_1, estas en el nivel 1. El progreso vive en un contador OCULTO (ver DESARROLLOS).
 func _req_cumplido(d: Dictionary) -> bool:
-	match str(d.get("req", "")):
-		"exp":
-			# El contador se lee por NOMBRE (son propiedades del autoload): asi añadir un
-			# desarrollo nuevo es una linea en el catalogo y nada mas.
-			return float(get(str(d.get("contador", "")))) >= float(d.get("umbral", 0.0))
-		"primer_ascenso":
-			return player_level == 1
-		_:
-			return true   # sin requisito escrito -> siempre disponible
+	if bool(d.get("solo_nivel_1", false)) and player_level != 1:
+		return false
+	return float(get(str(d.get("contador", "")))) >= float(d.get("umbral", 0.0))
 
-# Lo que te FALTA para ganarte un desarrollo: {"contador", "umbral", "valor", "cumplido"}. Solo lo
-# usa el panel de DEBUG: en el juego estos numeros no se enseñan nunca (son ocultos a proposito).
+# RANK-UP automatico: sube el rango de cada desarrollo YA elegido mientras su contador cruce el
+# umbral del rango siguiente (base × 2.5^(rango-1)). Lo llama actualizar_estado: no hay que subir de
+# nivel para subir de rango. El contador de un desarrollo elegido NO se resetea (ver subir_nivel).
+func _subir_rangos_desarrollo() -> void:
+	for id in desarrollos_rango.keys():
+		var d: Dictionary = desarrollo_por_id(str(id))
+		if d.is_empty():
+			continue
+		var umbral: float = float(d.get("umbral", 0.0))
+		var cont: float = float(get(str(d.get("contador", ""))))
+		var rango: int = int(desarrollos_rango[id])
+		var nuevo: int = rango
+		while nuevo < RANGO_MAX and cont >= req_de_rango(umbral, nuevo + 1):
+			nuevo += 1
+		if nuevo != rango:
+			desarrollos_rango[id] = nuevo
+			print("[desarrollo] %s sube a rango %s" % [d.get("nombre", id), letra_rango(nuevo)])
+
+# Progreso hacia el SIGUIENTE rango (o el desbloqueo si no lo tienes). Solo lo usa el panel de DEBUG.
 func desarrollo_progreso(d: Dictionary) -> Dictionary:
-	var req: String = str(d.get("req", ""))
-	if req != "exp":
-		return {"contador": req, "umbral": 0.0, "valor": 0.0, "cumplido": _req_cumplido(d)}
 	var cont: String = str(d.get("contador", ""))
+	var umbral: float = float(d.get("umbral", 0.0))
+	var rango: int = desarrollo_rango(str(d.get("id", "")))
+	var objetivo: float = umbral if rango < 1 else req_de_rango(umbral, rango + 1)
 	return {
 		"contador": cont,
-		"umbral": float(d.get("umbral", 0.0)),
+		"umbral": objetivo,
 		"valor": float(get(cont)),
-		"cumplido": _req_cumplido(d),
+		"rango": rango,
+		"letra": letra_rango(rango),
+		"cumplido": rango < RANGO_MAX and float(get(cont)) >= objetivo,
 	}
 
-# Aplica la habilidad de desarrollo elegida. Los oficios encienden su interruptor; los perks de
-# combate se consultan en vivo (ver desarrollo_gain_mult) via desarrollos_elegidos.
+# Desbloquea un desarrollo al subir de nivel: lo pone a rango I. El rank-up posterior es automatico
+# (ver _subir_rangos_desarrollo). Los efectos se leen del RANGO en vivo (no hay interruptores).
 func aplicar_desarrollo(id: String) -> void:
-	if id == "" or desarrollos_elegidos.has(id):
+	if id == "" or tiene_desarrollo(id):
 		return
-	desarrollos_elegidos.append(id)
-	match id:
-		"metalurgia": habilidad_metalurgia = true
-		"peleteria": habilidad_peleteria = true
-		"herreria": habilidad_herreria = true
-		"mezcla": habilidad_mezcla = true
-	print("[desarrollo] Adquieres: ", desarrollo_por_id(id).get("nombre", id))
+	desarrollos_rango[id] = 1
+	_subir_rangos_desarrollo()   # por si el contador ya da para varios rangos de golpe
+	print("[desarrollo] Adquieres: ", desarrollo_por_id(id).get("nombre", id), " (rango ", letra_rango(desarrollo_rango(id)), ")")
 
-# Multiplicador de ganancia de excelia por los perks de combate elegidos (1.0 si ninguno aplica).
-# Hoy solo el CAZADOR toca el entreno, y toca el de TODAS las habilidades por igual: el `abil` se
-# queda por si algun perk futuro vuelve a mirar la stat concreta.
+# Multiplicador de ganancia de excelia por el CAZADOR (escala con su rango; 1.0 si no lo tienes).
 func desarrollo_gain_mult(_abil: String) -> float:
-	if desarrollos_elegidos.has("cazador"):
-		return 1.0 + CAZADOR_GAIN_BONUS
-	return 1.0
+	return 1.0 + CAZADOR_GAIN_BONUS * factor_desarrollo("cazador")
+
+# Pone a 0 el contador de cada desarrollo que NO tienes (lo llama subir_nivel). Los ya elegidos
+# conservan su contador (acumulativo → siguen subiendo de rango).
+func _reset_contadores_no_elegidos() -> void:
+	for d in DESARROLLOS:
+		if tiene_desarrollo(str(d["id"])):
+			continue
+		var cont: String = str(d.get("contador", ""))
+		if cont != "":
+			set(cont, 0.0)
 
 
 # DEBUG: fija a mano las 5 habilidades VISIBLES (las de este nivel) y cura al 100% para el

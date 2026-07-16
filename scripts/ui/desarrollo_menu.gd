@@ -53,17 +53,24 @@ func _rebuild() -> void:
 
 	var disp: Array = Game.desarrollos_disponibles()
 	if disp.is_empty():
-		MenuScaffold.nota(_content, "Ya has aprendido todas las habilidades de desarrollo disponibles.")
-		return
+		MenuScaffold.nota(_content, "No tienes ninguna habilidad de desarrollo lista para APRENDER (los contadores ocultos aún no llegan). Las que ya tengas siguen subiendo de rango solas. Puedes ascender igual.")
+	else:
+		for d in disp:
+			var b := Button.new()
+			var etiqueta_tipo: String = "Oficio" if d["tipo"] == "oficio" else "Combate"
+			b.text = "%s  ·  %s\n%s" % [d["nombre"], etiqueta_tipo, d["desc"]]
+			b.custom_minimum_size = Vector2(0, 50)
+			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			b.pressed.connect(_elegir.bind(str(d["id"])))
+			_content.add_child(b)
 
-	for d in disp:
-		var b := Button.new()
-		var etiqueta_tipo: String = "Oficio" if d["tipo"] == "oficio" else "Combate"
-		b.text = "%s  ·  %s\n%s" % [d["nombre"], etiqueta_tipo, d["desc"]]
-		b.custom_minimum_size = Vector2(0, 50)
-		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		b.pressed.connect(_elegir.bind(str(d["id"])))
-		_content.add_child(b)
+	# Siempre se puede ascender sin aprender nada nuevo (no te quedas atascado si nada está listo).
+	_content.add_child(HSeparator.new())
+	var saltar := Button.new()
+	saltar.text = "Ascender sin habilidad nueva"
+	saltar.custom_minimum_size = Vector2(0, 40)
+	saltar.pressed.connect(_elegir.bind(""))
+	_content.add_child(saltar)
 
 
 func _elegir(id: String) -> void:

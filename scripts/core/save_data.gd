@@ -66,7 +66,7 @@ const VERSION_ACTUAL := 2
 @export var player_base_mp: float = 20.0
 @export var player_base_magia_factor: float = 1.0
 @export var player_base_crit: float = 0.0
-@export var desarrollos_elegidos: Array = []
+@export var desarrollos_rango: Dictionary = {}   # {id: rango 1..10} de las habilidades de desarrollo
 @export var guardianes_vencidos: Dictionary = {}
 @export var player_current_hp: float = -1.0
 @export var player_current_mp: float = -1.0
@@ -89,6 +89,7 @@ const VERSION_ACTUAL := 2
 @export var hechizos_exp: float = 0.0        # Erudito
 @export var recitado_exp: float = 0.0        # Encantamiento rapido
 @export var dano_recibido_exp: float = 0.0   # Autorregeneracion
+@export var dano_infligido_exp: float = 0.0  # Cazador (daño hecho; solo nivel 1)
 # PACK INICIAL de la tienda (arma gratis + pociones): una sola vez por partida. Un @export
 # nuevo con valor por defecto NO invalida las partidas viejas (Godot rellena el default), asi
 # que esto no toca VERSION_ACTUAL: una partida de antes de la tienda arranca sin reclamar.

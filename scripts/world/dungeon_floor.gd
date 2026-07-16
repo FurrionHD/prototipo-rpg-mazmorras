@@ -306,8 +306,14 @@ func _colocar_actores(por_la_bajada: bool = false) -> void:
 	#  - Si CARGAS una partida hecha dentro de la mazmorra: en el sitio EXACTO donde guardaste.
 	#  - Si vienes de abajo (has SUBIDO): por la escalera del fondo, no en la boca del piso.
 	#    Subir no puede ser un atajo a la salida: hay que rehacer el camino.
+	#  - Si entras por el ATAJO a un piso de boss: por SU puerta al pueblo, que esta en el fondo.
+	#    Ese es el premio del jefe; dejarte en la boca te obligaria a cruzar el piso otra vez.
 	#  - Si no: en la boca del piso.
-	var destino: Vector2 = fondo if por_la_bajada else centro
+	# El recado del atajo se consume SIEMPRE (aunque mande pos_cargada): es de un solo uso y no
+	# puede quedarse encendido para el siguiente piso que se construya.
+	var por_atajo: bool = Game.entrada_por_atajo
+	Game.entrada_por_atajo = false
+	var destino: Vector2 = fondo if (por_la_bajada or por_atajo) else centro
 	if Game.pos_cargada != Vector2.INF:
 		destino = Game.pos_cargada
 		Game.pos_cargada = Vector2.INF   # de un solo uso: solo al cargar la partida
@@ -384,8 +390,23 @@ func _colocar_boss() -> void:
 	var sala: Rect2i = _sala_central()
 	if sala.size == Vector2i.ZERO:
 		return
+	# La ZONA se marca AQUI MISMO (sincrono): _crear_zonas la lee justo despues para NO poblar la
+	# sala del boss. Diferir esto le pondria escolta al jefe.
 	_sala_boss = gen.zona_en(sala.get_center())   # su zona NO parira bichos (ver _crear_zonas)
-	var e = crear_enemigo(data, gen.centro_px(sala.get_center()), 0.0, 1.0)  # t = 1.0: el techo
+	# El BICHO, en cambio, DIFERIDO, por lo mismo que poblar()/_colocar_recolectables:
+	# crear_enemigo cuelga al enemigo de Main (get_parent()), y si el piso se construye desde
+	# _ready (entrar por el ATAJO, o cargar una partida en este piso) Main aun esta montando sus
+	# hijos y Godot RECHAZA el add_child: el boss se creaba y no entraba en la escena. Bajando por
+	# la escalera nunca se noto, porque regenerar() corre con todo montado.
+	call_deferred("_parir_boss", data, gen.centro_px(sala.get_center()), _piso_construido)
+
+
+# El parto del boss, ya con el arbol montado. Lleva el piso al que pertenece: si entre el diferido y
+# esta llamada el piso ha cambiado, este jefe ya no es de aqui y no se planta.
+func _parir_boss(data: EnemyData, pos: Vector2, piso: int) -> void:
+	if piso != _piso_construido:
+		return
+	var e = crear_enemigo(data, pos, 0.0, 1.0)  # t = 1.0: el techo
 	if e != null:
 		e.es_boss = true
 

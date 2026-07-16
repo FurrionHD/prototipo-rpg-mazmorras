@@ -372,7 +372,7 @@ func _build_refinar(que: int) -> void:
 	if not alguno:
 		_note(_content, "Ningún %s todavía." % destino.nombre.to_lower())
 
-	_estado_oficio(_content, "Metalurgia", Game.habilidad_metalurgia,
+	_estado_oficio(_content, "Metalurgia", Game.tiene_desarrollo("metalurgia"),
 		"Tira por sacar el metal un escalón por encima de lo que metas (y con oficio de sobra, un intacto puede salir PURO).")
 
 
@@ -610,7 +610,7 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	var ok: bool = Game.forja_valida(base, metal, _sel_forja)
 	_boton(vb, "Forjar" if ok else "Faltan materiales", _on_forjar, ok)
 
-	_estado_oficio(vb, "Herrería", Game.habilidad_herreria,
+	_estado_oficio(vb, "Herrería", Game.tiene_desarrollo("herreria"),
 		"Empuja la tirada de rareza a tu favor, como si el metal fuera mejor de lo que es.")
 
 
