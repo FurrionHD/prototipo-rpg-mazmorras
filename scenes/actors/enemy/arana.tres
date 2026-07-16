@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/abilities/arana_telarana.tres" id="3_fre"]
+[ext_resource type="Resource" path="res://resources/abilities/arana_mordisco_ponzonoso.tres" id="4_yug"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_reforzado.tres" id="5_cue"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_arana.tres" id="6_nuc"]
+
+[sub_resource type="Resource" id="SA_peg"]
+script = ExtResource("2_sa")
+estado = 9
+prob = 0.55
+
+[sub_resource type="Resource" id="SA_ven"]
+script = ExtResource("2_sa")
+estado = 0
+prob = 0.45
+cap = 2
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Araña de las simas"
+color = Color(0.3, 0.25, 0.4, 1)
+escala_visual = 1.5
+fuerza = 40
+resistencia = 30
+destreza = 35
+agilidad = 45
+magia = 15
+base_hp = 52.0
+base_attack = 4.6
+base_defense = 3.2
+base_speed = 5.0
+resist_elemental = {
+1: 1.5
+}
+crystal_category_min = 5
+crystal_category_max = 7
+crystal_category_weights = PackedFloat32Array(0.5, 0.35, 0.15)
+drop_material = ExtResource("5_cue")
+nucleo = ExtResource("6_nuc")
+al_golpear = [SubResource("SA_peg"), SubResource("SA_ven")]
+habilidades = [ExtResource("3_fre"), ExtResource("4_yug")]
+prob_habilidad = 0.5
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

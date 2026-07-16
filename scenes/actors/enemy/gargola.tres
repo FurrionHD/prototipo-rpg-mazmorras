@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/abilities/gargola_picado.tres" id="3_pis"]
+[ext_resource type="Resource" path="res://resources/abilities/gargola_mirada.tres" id="4_cor"]
+[ext_resource type="Resource" path="res://resources/materials/esquirla_basalto.tres" id="5_esq"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_gargola.tres" id="6_nuc"]
+
+[sub_resource type="Resource" id="SA_lento"]
+script = ExtResource("2_sa")
+estado = 3
+prob = 0.45
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Gárgola"
+color = Color(0.4, 0.42, 0.45, 1)
+escala_visual = 1.85
+fuerza = 55
+resistencia = 45
+destreza = 30
+agilidad = 20
+magia = 15
+base_hp = 70.0
+base_attack = 5.6
+base_defense = 4.5
+base_speed = 3.8
+resist_aturdir = 0.7
+resist_elemental = {
+3: 0.5
+}
+crystal_category_min = 8
+crystal_category_max = 9
+crystal_category_weights = PackedFloat32Array(0.6, 0.4)
+drop_material = ExtResource("5_esq")
+nucleo = ExtResource("6_nuc")
+al_golpear = [SubResource("SA_lento")]
+habilidades = [ExtResource("3_pis"), ExtResource("4_cor")]
+prob_habilidad = 0.5
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

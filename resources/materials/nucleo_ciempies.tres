@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nucleo_ciempies"
+nombre = "Núcleo de ciempiés"
+descripcion = "Late a espasmos, como si aún corriera. El acero que lo lleva no perdona: muerde una y otra vez sin darte respiro."
+familia = 1
+tipo = 4
+tier = 3
+exigencia = 0.0
+peso_base = 0.7
+valor_base = 400
+color = Color(0.6, 0.15, 0.12, 1)
+mejora_max = 5
+mejora_min = 3
+uso_mejora = 1
+tier_equipo = 2
+piso_min = 8
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

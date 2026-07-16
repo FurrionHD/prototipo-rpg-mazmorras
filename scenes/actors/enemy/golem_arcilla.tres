@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/abilities/golem_machaca.tres" id="3_pis"]
+[ext_resource type="Resource" path="res://resources/abilities/golem_endurecerse.tres" id="4_cor"]
+[ext_resource type="Resource" path="res://resources/materials/runa_arcilla.tres" id="5_run"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_golem.tres" id="6_nuc"]
+
+[sub_resource type="Resource" id="SA_lento"]
+script = ExtResource("2_sa")
+estado = 3
+prob = 0.4
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Gólem de arcilla"
+color = Color(0.6, 0.45, 0.3, 1)
+escala_visual = 1.9
+fuerza = 45
+resistencia = 60
+destreza = 15
+agilidad = 10
+magia = 20
+base_hp = 72.0
+base_attack = 4.8
+base_defense = 5.5
+base_speed = 3.0
+resist_aturdir = 0.6
+resist_elemental = {
+3: 0.5
+}
+crystal_category_min = 6
+crystal_category_max = 8
+crystal_category_weights = PackedFloat32Array(0.5, 0.35, 0.15)
+drop_material = ExtResource("5_run")
+nucleo = ExtResource("6_nuc")
+al_golpear = [SubResource("SA_lento")]
+habilidades = [ExtResource("3_pis"), ExtResource("4_cor")]
+prob_habilidad = 0.5
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

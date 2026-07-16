@@ -125,6 +125,11 @@ class_name EnemyData
 @export var elemento_intensidad: float = 1.0
 @export var resist_elemental: Dictionary = {}
 @export var inmune_estados: Array = []
+# RASGOS de resistencia (0..1). resist_aturdir: aguante al aturdir/retraso de las contundentes
+# (los de piedra apenas se inmutan con el martillo). status_resist: resistencia GENERAL a que le
+# prendan estados negativos (veneno, sangrado, debuffs). 0 = normal, 1 = casi inmune.
+@export_range(0.0, 1.0) var resist_aturdir: float = 0.0
+@export_range(0.0, 1.0) var status_resist: float = 0.0
 
 # --- HABILIDADES del enemigo (Array[AbilityData]) ---
 # Tecnicas que puede lanzar en combate ademas del ataque basico (multi-golpe, estados,
@@ -207,6 +212,9 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	c.elemento_intensidad = elemento_intensidad
 	c.resist_elemental = resist_elemental
 	c.inmune_estados = inmune_estados
+	# Rasgos de resistencia (piedra = aguanta stuns; alien = aguanta debuffs).
+	c.stun_resist = resist_aturdir
+	c.status_resist = status_resist
 	# Sus GOLPES van de su elemento (el slime de fuego pega fuego). Ojo: un bicho que resista
 	# fuego por un override (minotauro peludo) tiene elemento NINGUNO -> sus golpes NO son de fuego.
 	c.elemento_ataque = elemento

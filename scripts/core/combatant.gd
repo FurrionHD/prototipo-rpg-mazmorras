@@ -153,6 +153,12 @@ var prob_habilidad: float = 0.5
 # te apliquen un estado negativo. La aporta la mejora Resistencia de la armadura (KAN-58).
 var status_resist: float = 0.0
 
+# Resistencia al ATURDIR/RETRASO (0..1): baja la probabilidad de que un arma contundente
+# (martillo/maza) te aturda o te retrase el turno. 1 = casi inmune. Es un RASGO del bicho
+# (los de piedra: gólems, gárgolas, colosos, aguantan el mazazo sin descomponerse). Ver
+# stun_taken_mult() y EnemyData.resist_aturdir.
+var stun_resist: float = 0.0
+
 # --- SISTEMA ELEMENTAL (KAN-58) ---
 # Afinidad propia; su perfil por defecto (Elementos.PERFIL_DEFECTO) define que resiste/le
 # duele. resist_elemental = override arbitrario (Elemento -> mult), gana a la tabla (un
@@ -700,7 +706,7 @@ func status_spd_mult() -> float:
 # Multiplicador de la prob. de aturdir que RECIBE este combatiente. Lo SUBE el estado RAYO
 # (x1.5) y lo BAJA la afinidad de Rayo (cuerpo imbuido: resistente al aturdimiento, no inmune).
 func stun_taken_mult() -> float:
-	var m: float = Elementos.stun_taken_por_afinidad(elemento)
+	var m: float = (1.0 - clampf(stun_resist, 0.0, 1.0)) * Elementos.stun_taken_por_afinidad(elemento)
 	for e in statuses:
 		m *= e.stun_prob_mult()
 	return m

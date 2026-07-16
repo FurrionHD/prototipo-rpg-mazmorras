@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nucleo_coloso"
+nombre = "Núcleo de coloso"
+descripcion = "Un bloque denso arrancado del pecho de algo que caminaba como una torre. Pesa lo suyo, y la armadura que lo acepta aguanta lo que aguantaba él."
+familia = 1
+tipo = 4
+tier = 5
+exigencia = 0.0
+peso_base = 1.2
+valor_base = 700
+color = Color(0.45, 0.45, 0.5, 1)
+mejora_max = 9
+mejora_min = 7
+uso_mejora = 2
+tier_equipo = 2
+piso_min = 10
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

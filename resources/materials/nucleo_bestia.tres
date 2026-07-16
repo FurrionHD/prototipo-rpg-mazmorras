@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nucleo_bestia"
+nombre = "Núcleo de bestia"
+descripcion = "Un corazón pequeño y correoso que costó encontrar entre tanto músculo. Late fuerte todavía, y esa terquedad pasa a la pieza que lo lleva."
+familia = 1
+tipo = 4
+tier = 4
+exigencia = 0.0
+peso_base = 0.9
+valor_base = 550
+color = Color(0.5, 0.3, 0.25, 1)
+mejora_max = 7
+mejora_min = 5
+uso_mejora = 2
+tier_equipo = 2
+piso_min = 9
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

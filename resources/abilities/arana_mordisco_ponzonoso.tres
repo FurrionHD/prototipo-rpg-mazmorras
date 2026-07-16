@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ven"]
+script = ExtResource("2")
+estado = 0
+prob = 0.7
+cap = 2
+
+[resource]
+script = ExtResource("1")
+nombre = "Mordisco ponzoñoso"
+descripcion = "Clava los quelíceros varias veces buscando carne blanda. Cada picadura mete más veneno del que tu cuerpo sabe aguantar."
+coste_energia = 0.0
+golpes_min = 2
+golpes_max = 3
+dano_mult = 1.0
+efectos = [SubResource("SA_ven")]
+efectos_por_golpe = true
+cooldown = 3

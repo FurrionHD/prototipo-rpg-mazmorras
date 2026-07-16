@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_lento"]
+script = ExtResource("2")
+estado = 3
+prob = 0.8
+
+[sub_resource type="Resource" id="SA_vuln"]
+script = ExtResource("2")
+estado = 5
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Mirada pétrea"
+descripcion = "Fija en ti sus ojos vacíos y por un momento sientes la piel tirante, como si empezara a endurecerse. Te mueves peor y encajas peor."
+coste_energia = 0.0
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.0
+efectos = [SubResource("SA_lento"), SubResource("SA_vuln")]
+cooldown = 5

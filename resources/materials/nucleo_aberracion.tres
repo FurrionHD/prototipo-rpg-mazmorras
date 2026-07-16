@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nucleo_aberracion"
+nombre = "Núcleo de aberración"
+descripcion = "No tiene una forma que puedas nombrar y cambia si lo miras mucho. Pero en un arma, esa cosa muerde más hondo de lo que debería."
+familia = 1
+tipo = 4
+tier = 4
+exigencia = 0.0
+peso_base = 0.8
+valor_base = 550
+color = Color(0.45, 0.2, 0.5, 1)
+mejora_max = 7
+mejora_min = 5
+uso_mejora = 1
+tier_equipo = 2
+piso_min = 9
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

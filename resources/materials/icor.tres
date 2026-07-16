@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"icor"
+nombre = "Icor"
+descripcion = "Un fluido iridiscente que no se seca ni se pudre. Los coleccionistas del pueblo pagan bien por un frasco, y la boticaria lo guarda para lo más fuerte que sabe hacer."
+familia = 0
+tipo = 0
+tier = 3
+exigencia = 0.0
+peso_base = 0.5
+valor_base = 320
+color = Color(0.6, 0.5, 0.8, 1)
+piso_min = 9
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

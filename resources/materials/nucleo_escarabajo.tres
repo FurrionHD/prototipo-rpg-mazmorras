@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nucleo_escarabajo"
+nombre = "Núcleo de escarabajo"
+descripcion = "Duro como un guijarro y con un brillo metálico. Cosido bajo la coraza, la pieza encaja los golpes como el caparazón encajaba el pisotón."
+familia = 1
+tipo = 4
+tier = 2
+exigencia = 0.0
+peso_base = 0.7
+valor_base = 250
+color = Color(0.35, 0.4, 0.28, 1)
+mejora_max = 3
+mejora_min = 0
+uso_mejora = 2
+tier_equipo = 2
+piso_min = 7
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

@@ -5,14 +5,14 @@
 [ext_resource type="Resource" path="res://resources/consumables/pocion_media_3.tres" id="3"]
 [ext_resource type="Resource" path="res://resources/consumables/pocion_media_2.tres" id="3b"]
 [ext_resource type="Resource" path="res://resources/materials/baba_rey_slime.tres" id="4"]
-[ext_resource type="Resource" path="res://resources/materials/baba_abisal.tres" id="5"]
+[ext_resource type="Resource" path="res://resources/materials/icor.tres" id="5"]
 
 [sub_resource type="Resource" id="I_baba"]
 script = ExtResource("2")
 material = ExtResource("4")
-unidades = 5
+unidades = 3
 
-[sub_resource type="Resource" id="I_baba2"]
+[sub_resource type="Resource" id="I_icor"]
 script = ExtResource("2")
 material = ExtResource("5")
 unidades = 3
@@ -21,5 +21,5 @@ unidades = 3
 script = ExtResource("1")
 resultado = ExtResource("3")
 pocion_base = ExtResource("3b")
-ingredientes = [SubResource("I_baba"), SubResource("I_baba2")]
+ingredientes = [SubResource("I_baba"), SubResource("I_icor")]
 metadata/_custom_type_script = "res://scripts/items/recipe_data.gd"

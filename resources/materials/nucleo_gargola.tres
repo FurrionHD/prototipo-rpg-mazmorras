@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nucleo_gargola"
+nombre = "Núcleo de gárgola"
+descripcion = "Piedra que pesa como el hierro y guarda el frío de la altura. En la hoja adecuada, cada golpe cae como si lo tirara una cornisa."
+familia = 1
+tipo = 4
+tier = 5
+exigencia = 0.0
+peso_base = 1.0
+valor_base = 700
+color = Color(0.4, 0.42, 0.45, 1)
+mejora_max = 9
+mejora_min = 7
+uso_mejora = 1
+tier_equipo = 2
+piso_min = 10
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

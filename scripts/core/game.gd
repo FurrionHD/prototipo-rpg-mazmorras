@@ -2455,6 +2455,14 @@ const _FORJA_METALES: Array = [
 const _CUERO_CRUDO := "res://resources/materials/cuero_simple.tres"
 const _CUERO_CURTIDO := "res://resources/materials/cuero_curtido.tres"
 const _CORREA := "res://resources/materials/correa_cuero.tres"
+# CUEROS de forja por TIER (la fibra que acompaña a la CHAPA en la armadura, como la madera al
+# lingote en el arma). T1 = cuero curtido (sale del peletero); T2 = cuero reforzado (viene ya
+# curtido de los bichos hondos). Sin cuero a la altura del metal, la armadura de ese tier NO se
+# forja (freno a proposito, ver fibra_de_forja). T3 se añadira cuando toque.
+const _CUEROS: Array = [
+	"res://resources/materials/cuero_curtido.tres",     # T1
+	"res://resources/materials/cuero_reforzado.tres",   # T2
+]
 # Las MADERAS, por tier. Son el MANGO del arma, y van indexadas igual que _FORJA_METALES: el
 # mango tiene que estar a la altura del metal (ver Forge.madera_vale_para).
 const _MADERAS: Array = [
@@ -2500,9 +2508,28 @@ func chapas_forja() -> Array:
 func cuero_crudo() -> MaterialData:
 	return load(_CUERO_CRUDO) as MaterialData
 
-# El cuero que pide la FORJA es el curtido: el crudo se queda en el peletero.
+# El cuero que pide la FORJA es el curtido: el crudo se queda en el peletero. (T1, para el peletero
+# y el recubrimiento de mango; la fibra de ARMADURA por tier la da cuero_de_tier.)
 func cuero_forja() -> MaterialData:
 	return load(_CUERO_CURTIDO) as MaterialData
+
+# Los CUEROS de forja que existen (curtidos, por tier). Espejo de maderas_forja.
+func cueros_forja() -> Array:
+	var out: Array = []
+	for ruta in _CUEROS:
+		var c: Resource = load(ruta)
+		if c != null:
+			out.append(c)
+	return out
+
+# El cuero de un TIER dado (la fibra de la armadura de ese metal). null si no existe a esa altura:
+# ese null es el FRENO (una armadura de acero T3 no se forja hasta que haya cuero T3). Espejo de
+# madera_de_tier.
+func cuero_de_tier(tier: int) -> MaterialData:
+	for c in cueros_forja():
+		if int((c as MaterialData).tier) == tier:
+			return c as MaterialData
+	return null
 
 # --- LO QUE YA HAS VISTO (id -> true) ---
 # El menu del herrero listaba los tres metales desde el minuto uno. Eso es abrumador y ademas
@@ -2592,9 +2619,9 @@ func ingredientes_forja(base: Resource, metal: MaterialData) -> Array:
 	if int(c["cuero"]) > 0:
 		var cue: MaterialData
 		if base is ArmorData:
-			cue = cuero_forja() if Forge.cuero_vale_para(cuero_forja(), metal) else null
+			cue = cuero_de_tier(Forge.tier_de_metal(metal))   # cuero a la altura del metal (null = no forjable)
 		else:
-			cue = cuero_forja()   # recubrimiento del mango / correas: cuero base
+			cue = cuero_de_tier(1)   # recubrimiento del mango / correas: cuero base (T1)
 		out.append({"material": cue, "uds": int(c["cuero"])})
 	return out
 
@@ -2612,8 +2639,7 @@ func fibra_de_forja(base: Resource, metal: MaterialData) -> MaterialData:
 		return null
 	var tier: int = Forge.tier_de_metal(metal)
 	if base is ArmorData:
-		var cuero: MaterialData = cuero_forja()
-		return cuero if Forge.cuero_vale_para(cuero, metal) else null
+		return cuero_de_tier(tier)   # cuero del tier del metal; null = no hay a esa altura (freno)
 	var maderas: Array = maderas_forja()
 	for m in maderas:
 		if (m as MaterialData).tier == tier:
@@ -2740,6 +2766,17 @@ const _NUCLEOS: Array = [
 	"res://resources/materials/nucleo_slime_abisal.tres",
 	"res://resources/materials/nucleo_trent.tres",
 	"res://resources/materials/nucleo_rey_slime.tres",
+	# T2 armas
+	"res://resources/materials/nucleo_arana.tres",
+	"res://resources/materials/nucleo_ciempies.tres",
+	"res://resources/materials/nucleo_aberracion.tres",
+	"res://resources/materials/nucleo_gargola.tres",
+	# T2 armadura
+	"res://resources/materials/nucleo_escarabajo.tres",
+	"res://resources/materials/nucleo_golem.tres",
+	"res://resources/materials/nucleo_bestia.tres",
+	"res://resources/materials/nucleo_coloso.tres",
+	# T2 techo global
 	"res://resources/materials/nucleo_minotauro.tres",
 ]
 

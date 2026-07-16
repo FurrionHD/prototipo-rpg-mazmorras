@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"veneno_insecto"
+nombre = "Veneno de insecto"
+descripcion = "Una gota ámbar que sigue quemando el cristal del frasco. En manos torpes es una desgracia; en las de la boticaria, el salto de una poción a la siguiente."
+familia = 0
+tipo = 0
+tier = 2
+exigencia = 0.0
+peso_base = 0.4
+valor_base = 130
+color = Color(0.7, 0.6, 0.1, 1)
+piso_min = 8
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

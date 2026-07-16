@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/abilities/escarabajo_rodar.tres" id="3_pis"]
+[ext_resource type="Resource" path="res://resources/abilities/escarabajo_caparazon.tres" id="4_emb"]
+[ext_resource type="Resource" path="res://resources/materials/quitina.tres" id="5_qui"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_escarabajo.tres" id="6_nuc"]
+
+[sub_resource type="Resource" id="SA_peg"]
+script = ExtResource("2_sa")
+estado = 9
+prob = 0.5
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Escarabajo de hierro"
+color = Color(0.3, 0.4, 0.28, 1)
+escala_visual = 1.5
+fuerza = 35
+resistencia = 55
+destreza = 20
+agilidad = 15
+magia = 15
+base_hp = 65.0
+base_attack = 4.2
+base_defense = 5.0
+base_speed = 3.5
+resist_aturdir = 0.5
+resist_elemental = {
+1: 1.25
+}
+crystal_category_min = 5
+crystal_category_max = 7
+crystal_category_weights = PackedFloat32Array(0.5, 0.35, 0.15)
+drop_material = ExtResource("5_qui")
+nucleo = ExtResource("6_nuc")
+al_golpear = [SubResource("SA_peg")]
+habilidades = [ExtResource("3_pis"), ExtResource("4_emb")]
+prob_habilidad = 0.5
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

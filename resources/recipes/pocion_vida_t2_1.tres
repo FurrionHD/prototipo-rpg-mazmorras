@@ -4,22 +4,22 @@
 [ext_resource type="Script" path="res://scripts/items/recipe_ingrediente.gd" id="2"]
 [ext_resource type="Resource" path="res://resources/consumables/pocion_media_1.tres" id="3"]
 [ext_resource type="Resource" path="res://resources/consumables/pocion_media.tres" id="3b"]
-[ext_resource type="Resource" path="res://resources/materials/baba_rey_slime.tres" id="4"]
-[ext_resource type="Resource" path="res://resources/materials/sanguinaria.tres" id="5"]
+[ext_resource type="Resource" path="res://resources/materials/baba_profunda.tres" id="4"]
+[ext_resource type="Resource" path="res://resources/materials/veneno_insecto.tres" id="5"]
 
 [sub_resource type="Resource" id="I_baba"]
 script = ExtResource("2")
 material = ExtResource("4")
 unidades = 3
 
-[sub_resource type="Resource" id="I_planta"]
+[sub_resource type="Resource" id="I_ven"]
 script = ExtResource("2")
 material = ExtResource("5")
-unidades = 3
+unidades = 2
 
 [resource]
 script = ExtResource("1")
 resultado = ExtResource("3")
 pocion_base = ExtResource("3b")
-ingredientes = [SubResource("I_baba"), SubResource("I_planta")]
+ingredientes = [SubResource("I_baba"), SubResource("I_ven")]
 metadata/_custom_type_script = "res://scripts/items/recipe_data.gd"

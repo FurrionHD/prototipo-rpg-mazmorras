@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_peg"]
+script = ExtResource("2")
+estado = 9
+prob = 0.9
+stacks = 2
+
+[sub_resource type="Resource" id="SA_lento"]
+script = ExtResource("2")
+estado = 3
+prob = 0.7
+
+[resource]
+script = ExtResource("1")
+nombre = "Telaraña"
+descripcion = "Te lanza una red pegajosa que apenas duele pero te deja los pies clavados al suelo. Mientras forcejeas, ella toma posición."
+coste_energia = 0.0
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.6
+efectos = [SubResource("SA_peg"), SubResource("SA_lento")]
+efectos_por_golpe = false
+cooldown = 4

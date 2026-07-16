@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"esquirla_basalto"
+nombre = "Esquirla de basalto"
+descripcion = "Un fragmento negro y afilado del cuerpo de la gárgola, frío como la piedra de la que salió. Pulido, es una pieza de coleccionista que se vende cara."
+familia = 0
+tipo = 2
+tier = 3
+exigencia = 0.0
+peso_base = 1.4
+valor_base = 280
+color = Color(0.22, 0.22, 0.26, 1)
+piso_min = 10
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

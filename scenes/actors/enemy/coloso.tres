@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/abilities/coloso_pisoton.tres" id="3_pis"]
+[ext_resource type="Resource" path="res://resources/abilities/coloso_muralla.tres" id="4_emb"]
+[ext_resource type="Resource" path="res://resources/materials/placa_antigua.tres" id="5_pla"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_coloso.tres" id="6_nuc"]
+
+[sub_resource type="Resource" id="SA_lento"]
+script = ExtResource("2_sa")
+estado = 3
+prob = 0.5
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Coloso"
+color = Color(0.45, 0.45, 0.5, 1)
+escala_visual = 2.2
+fuerza = 50
+resistencia = 65
+destreza = 15
+agilidad = 8
+magia = 20
+base_hp = 90.0
+base_attack = 5.2
+base_defense = 6.5
+base_speed = 2.8
+resist_aturdir = 0.85
+status_resist = 0.3
+resist_elemental = {
+3: 0.5
+}
+crystal_category_min = 8
+crystal_category_max = 9
+crystal_category_weights = PackedFloat32Array(0.6, 0.4)
+drop_material = ExtResource("5_pla")
+nucleo = ExtResource("6_nuc")
+al_golpear = [SubResource("SA_lento")]
+habilidades = [ExtResource("3_pis"), ExtResource("4_emb")]
+prob_habilidad = 0.5
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

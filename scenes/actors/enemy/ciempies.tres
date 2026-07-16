@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/abilities/ciempies_oleada.tres" id="3_fre"]
+[ext_resource type="Resource" path="res://resources/abilities/ciempies_enrosque.tres" id="4_mor"]
+[ext_resource type="Resource" path="res://resources/materials/veneno_insecto.tres" id="5_ven"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_ciempies.tres" id="6_nuc"]
+
+[sub_resource type="Resource" id="SA_ven"]
+script = ExtResource("2_sa")
+estado = 0
+prob = 0.6
+cap = 2
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Ciempiés carmesí"
+color = Color(0.6, 0.15, 0.12, 1)
+escala_visual = 1.55
+fuerza = 45
+resistencia = 30
+destreza = 35
+agilidad = 40
+magia = 10
+base_hp = 55.0
+base_attack = 4.4
+base_defense = 3.4
+base_speed = 5.2
+resist_elemental = {
+1: 1.5
+}
+crystal_category_min = 6
+crystal_category_max = 8
+crystal_category_weights = PackedFloat32Array(0.4, 0.4, 0.2)
+inmune_estados = [0]
+drop_material = ExtResource("5_ven")
+nucleo = ExtResource("6_nuc")
+al_golpear = [SubResource("SA_ven")]
+habilidades = [ExtResource("3_fre"), ExtResource("4_mor")]
+prob_habilidad = 0.55
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Picado"
+descripcion = "Extiende las alas de piedra, se eleva un instante y se deja caer sobre ti como una losa. El momento que pasa arriba es tu única ventana para pararla."
+coste_energia = 0.0
+golpes_min = 1
+golpes_max = 1
+dano_mult = 2.1
+carga_turnos = 1
+cooldown = 4

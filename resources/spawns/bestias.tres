@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="SpawnTable" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
+[ext_resource type="Script" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/aberracion.tres" id="3_aber"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/bestia_acorazada.tres" id="4_best"]
+
+[sub_resource type="Resource" id="E_aber"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("3_aber")
+peso = 55.0
+piso_min = 8
+piso_max = 12
+
+[sub_resource type="Resource" id="E_best"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("4_best")
+peso = 45.0
+piso_min = 8
+piso_max = 0
+
+[resource]
+script = ExtResource("1_tabla")
+nombre = "Bestias"
+entradas = [SubResource("E_aber"), SubResource("E_best")]
+metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"

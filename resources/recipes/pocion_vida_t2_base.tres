@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/items/recipe_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/recipe_ingrediente.gd" id="2"]
 [ext_resource type="Resource" path="res://resources/consumables/pocion_media.tres" id="3"]
-[ext_resource type="Resource" path="res://resources/materials/baba_rey_slime.tres" id="4"]
+[ext_resource type="Resource" path="res://resources/materials/baba_profunda.tres" id="4"]
 [ext_resource type="Resource" path="res://resources/materials/hierba_palida.tres" id="5"]
 
 [sub_resource type="Resource" id="I_baba"]

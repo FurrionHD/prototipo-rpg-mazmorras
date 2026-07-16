@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="SpawnTable" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
+[ext_resource type="Script" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/arana.tres" id="3_arana"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/escarabajo.tres" id="4_escara"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/ciempies.tres" id="5_ciem"]
+
+[sub_resource type="Resource" id="E_arana"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("3_arana")
+peso = 50.0
+piso_min = 7
+piso_max = 10
+
+[sub_resource type="Resource" id="E_escara"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("4_escara")
+peso = 45.0
+piso_min = 7
+piso_max = 10
+
+[sub_resource type="Resource" id="E_ciem"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("5_ciem")
+peso = 30.0
+piso_min = 7
+piso_max = 11
+
+[resource]
+script = ExtResource("1_tabla")
+nombre = "Arácnidos"
+entradas = [SubResource("E_arana"), SubResource("E_escara"), SubResource("E_ciem")]
+metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"
