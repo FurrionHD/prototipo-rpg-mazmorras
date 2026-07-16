@@ -416,6 +416,12 @@ func revertir_mapa_expedicion() -> void:
 # Cada partida nueva estrena la suya, asi que dos ranuras tienen mazmorras distintas.
 var semilla_mundo: int = 0
 
+# ¿Hay una partida en marcha? La semilla es el testigo: nueva_partida() se asegura de que NUNCA
+# valga 0, asi que un 0 solo puede significar que nadie ha creado ni cargado nada. Lo pregunta la
+# mazmorra para no montarse sin personaje si alguien lanza su escena a pelo desde el editor.
+func hay_partida() -> bool:
+	return semilla_mundo != 0
+
 # Al CARGAR una partida hecha dentro de la mazmorra: donde hay que plantar al jugador. El
 # DungeonFloor lo lee al construir el piso en vez de mandarte a la entrada.
 var pos_cargada: Vector2 = Vector2.INF
@@ -435,26 +441,96 @@ var player_nombre: String = NOMBRE_POR_DEFECTO
 var player_color: Color = Color(1, 1, 1)   # tiñe su cuerpo por el mapa (player.tscn)
 var player_metalico: float = 0.0           # acabado metalico del cuerpo (shaders/metal.gdshader)
 
+# IMAGEN propia del cuerpo, guardada como los BYTES de un PNG (vacio = sin imagen, cuerpo de
+# color plano). Se guardan los bytes y NO la ruta al fichero del jugador a proposito: una ruta se
+# rompe en cuanto mueve, renombra o borra el original, y la partida se quedaria sin cara. Asi el
+# .tres de la ranura es autonomo: se puede copiar de PC y sigue entero, y Perfil.borrar no tiene
+# que ir a limpiar ficheros sueltos por ahi. Entra ya encogida (ver png_de_imagen).
+var player_imagen_png: PackedByteArray = PackedByteArray()
+# Cuanto TIÑE el color por encima de la imagen (0 = imagen limpia, 1 = solo color). Sin imagen da
+# igual: la base ya es el color.
+var player_color_alpha: float = 1.0
+
+# La imagen ya montada como textura. Se cachea porque decodificar el PNG en cada material_cuerpo()
+# seria absurdo; lo invalida set_imagen_cuerpo.
+var _tex_cuerpo: ImageTexture = null
+
+# El cuerpo son 32 px en pantalla: guardar el fotardo de 4000x4000 del movil solo engordaria el
+# save (el .tres es TEXTO, asi que los bytes van en base64 y abultan ~1/3 mas).
+const IMAGEN_CUERPO_MAX := 128
+
 const SHADER_METAL: Shader = preload("res://shaders/metal.gdshader")
 
-# Material del CUERPO del personaje con el acabado que toque. Lo usan el jugador del mapa
+func set_imagen_cuerpo(png: PackedByteArray) -> void:
+	player_imagen_png = png
+	_tex_cuerpo = null   # la cache ya no vale
+
+func tiene_imagen_cuerpo() -> bool:
+	return not player_imagen_png.is_empty()
+
+# Una textura a partir de unos bytes PNG. La usa tambien la MUESTRA del creador, que tiene que
+# enseñar una imagen que todavia no esta guardada en ninguna partida. null si el PNG no se lee.
+static func textura_de_png(png: PackedByteArray) -> Texture2D:
+	if png.is_empty():
+		return null
+	var img := Image.new()
+	if img.load_png_from_buffer(png) != OK:
+		return null
+	return ImageTexture.create_from_image(img)
+
+# La textura del cuerpo, o null si no hay imagen (o si el PNG guardado esta corrupto: mejor un
+# cuerpo de color plano que una partida que no arranca).
+func textura_cuerpo() -> Texture2D:
+	if player_imagen_png.is_empty():
+		return null
+	if _tex_cuerpo == null:
+		_tex_cuerpo = textura_de_png(player_imagen_png)
+		if _tex_cuerpo == null:
+			push_warning("[personaje] la imagen guardada no se puede leer: cuerpo de color plano")
+	return _tex_cuerpo
+
+# Lee una imagen del disco del jugador (PNG/JPG/WEBP), la encoge a IMAGEN_CUERPO_MAX conservando
+# la proporcion y devuelve su PNG. Vacio = no se pudo leer. Se reencoda a PNG SIEMPRE aunque
+# entre un JPG: asi lo guardado es un unico formato y load_png_from_buffer no tiene sorpresas.
+static func png_de_imagen(ruta: String) -> PackedByteArray:
+	var img: Image = Image.load_from_file(ruta)
+	if img == null or img.is_empty():
+		return PackedByteArray()
+	var lado: int = maxi(img.get_width(), img.get_height())
+	if lado > IMAGEN_CUERPO_MAX:
+		var f: float = float(IMAGEN_CUERPO_MAX) / float(lado)
+		img.resize(maxi(1, int(img.get_width() * f)), maxi(1, int(img.get_height() * f)),
+			Image.INTERPOLATE_LANCZOS)
+	return img.save_png_to_buffer()
+
+# Material del CUERPO del personaje con el aspecto que toque. Lo usan el jugador del mapa
 # (player.gd) y la muestra de la pantalla de creacion (main_menu.gd), asi que lo que ves al
 # elegir es exactamente lo que luego te llevas. El COLOR no va aqui: lo pone el nodo.
-# metalico <= 0 -> null (mate: sin shader, como antes de que existiera esto).
-func material_cuerpo(metalico: float = -1.0) -> ShaderMaterial:
+#
+# Los tres argumentos son para la MUESTRA del creador, que enseña lo que estas toqueteando y aun
+# no esta guardado. Sin ellos (los defaults) usa lo de la partida.
+# Mate y sin imagen -> null: ni shader ni nada, el ColorRect ya pinta el color el solo.
+func material_cuerpo(metalico: float = -1.0, imagen: Texture2D = null, tinte: float = -1.0) -> ShaderMaterial:
 	var m: float = player_metalico if metalico < 0.0 else metalico
-	if m <= 0.0:
+	var tex: Texture2D = textura_cuerpo() if imagen == null else imagen
+	var a: float = player_color_alpha if tinte < 0.0 else tinte
+	if m <= 0.0 and tex == null:
 		return null
 	var mat := ShaderMaterial.new()
 	mat.shader = SHADER_METAL
 	mat.set_shader_parameter("metal", clampf(m, 0.0, 1.0))
+	mat.set_shader_parameter("tiene_imagen", tex != null)
+	mat.set_shader_parameter("color_alpha", clampf(a, 0.0, 1.0))
+	if tex != null:
+		mat.set_shader_parameter("imagen", tex)
 	return mat
 
 
 # Empieza una partida DE CERO (menu -> Nueva partida). Mundo nuevo y personaje a estrenar,
-# con el nombre, el color y el acabado que haya elegido en la pantalla de creacion.
+# con el nombre, el color, el acabado y la imagen que haya elegido en la pantalla de creacion.
 func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1, 1, 1),
-		metalico_: float = 0.0) -> void:
+		metalico_: float = 0.0, imagen_png_: PackedByteArray = PackedByteArray(),
+		color_alpha_: float = 1.0) -> void:
 	randomize()
 	semilla_mundo = randi()
 	if semilla_mundo == 0:
@@ -465,6 +541,8 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 		player_nombre = NOMBRE_POR_DEFECTO   # sin nombre te llamas Aventurero, no ""
 	player_color = color_
 	player_metalico = clampf(metalico_, 0.0, 1.0)
+	player_color_alpha = clampf(color_alpha_, 0.0, 1.0)
+	set_imagen_cuerpo(imagen_png_)
 
 	player_level = 1
 	ability_internal = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
@@ -567,6 +645,8 @@ func exportar_partida() -> SaveData:
 	d.nombre = player_nombre     # identidad: la eligio al crear la partida
 	d.color = player_color
 	d.metalico = player_metalico
+	d.imagen = player_imagen_png
+	d.color_alpha = player_color_alpha
 	d.ability_internal = ability_internal.duplicate()
 	d.player_level = player_level
 	d.ability_base_nivel = ability_base_nivel.duplicate()
@@ -664,6 +744,8 @@ func importar_partida(d: SaveData) -> void:
 	player_nombre = d.nombre if d.nombre.strip_edges() != "" else NOMBRE_POR_DEFECTO
 	player_color = d.color
 	player_metalico = d.metalico
+	player_color_alpha = d.color_alpha
+	set_imagen_cuerpo(d.imagen)   # por el setter: hay que tirar la textura cacheada de la anterior
 
 	ability_internal = d.ability_internal.duplicate()
 	player_level = d.player_level

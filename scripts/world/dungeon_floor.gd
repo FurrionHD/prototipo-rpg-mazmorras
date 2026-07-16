@@ -170,7 +170,21 @@ const BARRIDO_CADA := 0.5
 func _ready() -> void:
 	add_to_group("dungeon_floor")  # asi Game.bajar_piso nos encuentra
 	z_index = -1                   # el piso se dibuja por detras del jugador y de los bichos
+
+	# SIN PARTIDA no hay mazmorra que construir. Pasa al ejecutar ESTA escena a pelo desde el
+	# editor (F6 / "ejecutar escena actual" con main.tscn abierta): te saltas el menu, no se crea
+	# ni se carga nada, y acababas dentro de una mazmorra sin personaje y con el mundo sin semilla.
+	# El juego de verdad (F5) arranca en main_menu y nunca pasa por aqui sin partida.
+	if not Game.hay_partida():
+		push_warning("[mazmorra] no hay partida cargada: al menu principal")
+		call_deferred("_al_menu_principal")   # diferido: no se cambia de escena desde un _ready
+		return
+
 	_construir()
+
+
+func _al_menu_principal() -> void:
+	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 
 # Vuelve a trazar el piso ENTERO (lo llama Game.bajar_piso). Sin recargar la escena: el

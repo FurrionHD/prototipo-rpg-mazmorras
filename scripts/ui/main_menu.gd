@@ -13,11 +13,21 @@ extends Control
 const PUEBLO := "res://scenes/levels/town.tscn"
 const MAZMORRA := "res://scenes/levels/main.tscn"
 
+const AMBAR := Color(0.95, 0.72, 0.36)
+const ROJO := Color(0.9, 0.5, 0.5)
+
 var _lista: VBoxContainer = null
 var _aviso: Label = null
 
 # Ranura pendiente de confirmar sobrescritura (0 = nada pendiente).
 var _confirmar_nueva: int = 0
+
+# IMAGEN elegida en la pantalla de creacion (vacia = ninguna). Son VARIABLES MIEMBRO y no locales
+# de _crear_personaje porque las lambdas de GDScript capturan los locales POR VALOR: una lambda
+# que capturase el PackedByteArray se quedaria con la foto del momento en que se creo y no veria
+# la imagen que eliges despues.
+var _crear_png: PackedByteArray = PackedByteArray()
+var _crear_tex: Texture2D = null
 
 
 func _ready() -> void:
@@ -40,7 +50,7 @@ func _ready() -> void:
 	tit.text = "JUEGUITO DEL DAWNSI"   # provisional, hasta que tenga nombre de verdad
 	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tit.add_theme_font_size_override("font_size", 34)
-	tit.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	tit.add_theme_color_override("font_color", AMBAR)
 	vb.add_child(tit)
 
 	_aviso = Label.new()
@@ -119,11 +129,19 @@ func _nueva(slot: int) -> void:
 
 
 # ============================================================
-#  CREACION DE PERSONAJE: nombre + color, antes de empezar la partida
-#  Los dos van al SaveData de ESA ranura (no al perfil): cada partida es un personaje
-#  distinto. Interfaz placeholder por codigo, como el resto; el arte va al final.
+#  CREACION DE PERSONAJE: nombre + aspecto, antes de empezar la partida
+#  El aspecto son cuatro cosas, y las cuatro van al SaveData de ESA ranura (no al perfil): cada
+#  partida es un personaje distinto.
+#    - COLOR:   el cuerpo, si no pones imagen.
+#    - IMAGEN:  opcional, tuya, del disco. Se guarda DENTRO de la partida (ver Game.png_de_imagen).
+#    - TINTE:   cuanto se ve el color por encima de esa imagen. Sin imagen no pinta nada.
+#    - METAL:   el brillo, que va SIEMPRE lo ultimo: barniza tambien tu imagen.
+#  Interfaz placeholder por codigo, como el resto; el arte va al final.
 # ------------------------------------------------------------
 func _crear_personaje(slot: int) -> void:
+	_crear_png = PackedByteArray()   # cada visita a la pantalla empieza sin imagen
+	_crear_tex = null
+
 	var capa := PanelContainer.new()
 	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(capa)
@@ -148,7 +166,7 @@ func _crear_personaje(slot: int) -> void:
 	tit.text = "NUEVO PERSONAJE  ·  ranura %d" % slot
 	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tit.add_theme_font_size_override("font_size", 24)
-	tit.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	tit.add_theme_color_override("font_color", AMBAR)
 	vb.add_child(tit)
 
 	var cols := HBoxContainer.new()
@@ -175,7 +193,7 @@ func _crear_personaje(slot: int) -> void:
 	izq.add_child(lbl2)
 
 	# Muestra: mismo nodo (ColorRect) y mismo material que el cuerpo de verdad, asi que lo que
-	# ves aqui es EXACTAMENTE lo que te llevas al mapa, brillo incluido.
+	# ves aqui es EXACTAMENTE lo que te llevas al mapa, imagen y brillo incluidos.
 	var muestra := ColorRect.new()
 	muestra.custom_minimum_size = Vector2(280, 140)
 	muestra.color = COLOR_INICIAL
@@ -193,8 +211,85 @@ func _crear_personaje(slot: int) -> void:
 	metal.step = 0.05
 	metal.value = 0.0        # de serie, mate: el brillo es una eleccion, no el defecto
 	metal.custom_minimum_size = Vector2(280, 0)
-	metal.value_changed.connect(func(v: float): muestra.material = Game.material_cuerpo(v))
 	izq.add_child(metal)
+
+	# TINTE: cuanto se ve el color POR ENCIMA de la imagen. Solo tiene sentido con imagen (sin
+	# ella, el cuerpo YA es el color), asi que se enseña apagado hasta que pongas una.
+	var lbl_tinte := Label.new()
+	lbl_tinte.text = "Color sobre la imagen"
+	izq.add_child(lbl_tinte)
+
+	var tinte := HSlider.new()
+	tinte.min_value = 0.0
+	tinte.max_value = 1.0
+	tinte.step = 0.05
+	tinte.value = 0.0        # con imagen puesta, de serie se ve TU imagen limpia
+	tinte.custom_minimum_size = Vector2(280, 0)
+	tinte.editable = false   # sin imagen no hay nada que teñir
+	izq.add_child(tinte)
+
+	# Repinta la muestra con lo que haya AHORA en los tres mandos. _crear_tex es variable miembro
+	# justamente para que esto vea la imagen nueva (ver el comentario de su declaracion).
+	var refrescar := func() -> void:
+		muestra.material = Game.material_cuerpo(metal.value, _crear_tex, tinte.value)
+		tinte.editable = _crear_tex != null
+		lbl_tinte.modulate = Color(1, 1, 1) if _crear_tex != null else Color(1, 1, 1, 0.4)
+
+	metal.value_changed.connect(func(_v: float): refrescar.call())
+	tinte.value_changed.connect(func(_v: float): refrescar.call())
+
+	# --- IMAGEN propia ---
+	var fila_img := HBoxContainer.new()
+	fila_img.add_theme_constant_override("separation", 8)
+	izq.add_child(fila_img)
+
+	var poner := Button.new()
+	poner.text = "Poner una imagen..."
+	fila_img.add_child(poner)
+
+	var quitar := Button.new()
+	quitar.text = "Quitar"
+	quitar.disabled = true
+	fila_img.add_child(quitar)
+
+	var aviso_img := Label.new()
+	aviso_img.add_theme_font_size_override("font_size", 11)
+	aviso_img.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+	aviso_img.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	aviso_img.custom_minimum_size = Vector2(280, 0)
+	aviso_img.text = "Opcional. Se guarda dentro de la partida (encogida), así que puedes mover o borrar el archivo original."
+	izq.add_child(aviso_img)
+
+	quitar.pressed.connect(func():
+		_crear_png = PackedByteArray()
+		_crear_tex = null
+		quitar.disabled = true
+		tinte.value = 0.0
+		aviso_img.text = "Sin imagen: tu cuerpo es el color de al lado."
+		refrescar.call())
+
+	poner.pressed.connect(func():
+		var fd := FileDialog.new()
+		fd.access = FileDialog.ACCESS_FILESYSTEM   # el disco del jugador, no res://
+		fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+		fd.filters = PackedStringArray(["*.png,*.jpg,*.jpeg,*.webp,*.bmp ; Imágenes"])
+		fd.use_native_dialog = true
+		fd.title = "Elige la imagen de tu personaje"
+		capa.add_child(fd)
+		# El dialogo es de usar y tirar: sin esto se irian apilando uno por cada clic en el boton.
+		fd.canceled.connect(fd.queue_free)
+		fd.file_selected.connect(func(ruta: String):
+			fd.queue_free()
+			var png: PackedByteArray = Game.png_de_imagen(ruta)
+			if png.is_empty():
+				aviso_img.text = "Esa imagen no se ha podido leer. Prueba con un PNG o un JPG."
+				return
+			_crear_png = png
+			_crear_tex = Game.textura_de_png(png)
+			quitar.disabled = false
+			aviso_img.text = "Imagen puesta. Súbele «Color sobre la imagen» si quieres teñirla."
+			refrescar.call())
+		fd.popup_centered_ratio(0.7))
 
 	# --- Columna derecha: el selector con las barras R/G/B ---
 	var der := VBoxContainer.new()
@@ -227,7 +322,7 @@ func _crear_personaje(slot: int) -> void:
 
 	var empezar := Button.new()
 	empezar.text = "Empezar la aventura"
-	empezar.pressed.connect(func(): _empezar(slot, nombre.text, picker.color, metal.value))
+	empezar.pressed.connect(func(): _empezar(slot, nombre.text, picker.color, metal.value, tinte.value))
 	botones.add_child(empezar)
 
 	var cancelar := Button.new()
@@ -242,15 +337,107 @@ func _crear_personaje(slot: int) -> void:
 const COLOR_INICIAL := Color(0.45, 0.72, 1.0)
 
 
-func _empezar(slot: int, nombre: String, color: Color, metalico: float) -> void:
-	Game.nueva_partida(nombre, color, metalico)   # el nombre vacio lo resuelve Game (NOMBRE_POR_DEFECTO)
+func _empezar(slot: int, nombre: String, color: Color, metalico: float, tinte: float) -> void:
+	# el nombre vacio lo resuelve Game (NOMBRE_POR_DEFECTO)
+	Game.nueva_partida(nombre, color, metalico, _crear_png, tinte)
 	Perfil.ranura_actual = slot
-	Perfil.guardar(slot)   # la ranura queda ocupada desde el minuto uno, ya con nombre y color
+	Perfil.guardar(slot)   # la ranura queda ocupada desde el minuto uno, ya con nombre y aspecto
 	get_tree().change_scene_to_file(PUEBLO)
 
 
+# ============================================================
+#  BORRAR una ranura: hay que ESCRIBIR el nombre del personaje
+#  Antes se borraba con un solo clic, sin preguntar nada: el progreso de una partida entera se
+#  iba por un dedazo. Se pide el NOMBRE y no un "¿seguro? [Sí]" a proposito: un "sí" se pulsa
+#  por inercia, pero para teclear el nombre hay que leer cual estas borrando.
+# ------------------------------------------------------------
 func _borrar(slot: int) -> void:
+	var datos: SaveData = Perfil.cabecera(slot)
+	if datos == null:
+		# Ranura ilegible (p.ej. de una version vieja del save): no hay nombre que pedir, y
+		# tampoco hay progreso jugable que proteger.
+		Perfil.borrar(slot)
+		_aviso.text = "Ranura %d borrada." % slot
+		_confirmar_nueva = 0
+		_pintar()
+		return
+
+	var capa := PanelContainer.new()
+	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(capa)
+
+	var fondo := ColorRect.new()
+	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fondo.color = Color(0.04, 0.04, 0.06, 0.96)
+	capa.add_child(fondo)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	capa.add_child(center)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	center.add_child(vb)
+
+	var tit := Label.new()
+	tit.text = "BORRAR LA RANURA %d" % slot
+	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tit.add_theme_font_size_override("font_size", 24)
+	tit.add_theme_color_override("font_color", ROJO)
+	vb.add_child(tit)
+
+	# Que veas lo que te llevas por delante (nivel, dinero, donde estabas), no solo el numero.
+	var resumen := Label.new()
+	resumen.text = datos.resumen()
+	resumen.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(resumen)
+
+	var av := Label.new()
+	av.text = "Esto no tiene vuelta atrás."
+	av.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	av.add_theme_color_override("font_color", ROJO)
+	vb.add_child(av)
+
+	var pide := Label.new()
+	pide.text = "Escribe «%s» para confirmar:" % datos.nombre
+	pide.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(pide)
+
+	var campo := LineEdit.new()
+	campo.custom_minimum_size = Vector2(320, 0)
+	vb.add_child(campo)
+
+	var botones := HBoxContainer.new()
+	botones.add_theme_constant_override("separation", 8)
+	botones.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_child(botones)
+
+	var borrar := Button.new()
+	borrar.text = "Borrar para siempre"
+	borrar.disabled = true   # hasta que el nombre coincida no se puede ni pulsar
+	botones.add_child(borrar)
+
+	var cancelar := Button.new()
+	cancelar.text = "Cancelar"
+	cancelar.pressed.connect(func(): capa.queue_free())
+	botones.add_child(cancelar)
+
+	var nombre_ok := func(t: String) -> bool:
+		return t.strip_edges().to_lower() == datos.nombre.strip_edges().to_lower()
+
+	campo.text_changed.connect(func(t: String): borrar.disabled = not nombre_ok.call(t))
+	# Enter tambien vale, pero SOLO si el nombre esta bien: si no, no hace nada.
+	campo.text_submitted.connect(func(t: String):
+		if nombre_ok.call(t):
+			_hacer_borrado(slot, capa))
+	borrar.pressed.connect(func(): _hacer_borrado(slot, capa))
+
+	campo.grab_focus()
+
+
+func _hacer_borrado(slot: int, capa: Control) -> void:
 	Perfil.borrar(slot)
+	capa.queue_free()
 	_aviso.text = "Ranura %d borrada." % slot
 	_confirmar_nueva = 0
 	_pintar()

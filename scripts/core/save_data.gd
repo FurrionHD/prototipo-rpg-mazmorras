@@ -38,6 +38,13 @@ const VERSION_ACTUAL := 2
 @export var color: Color = Color(1, 1, 1)
 # Acabado METALICO del cuerpo (0 = mate, 1 = pulido). Lo pinta shaders/metal.gdshader.
 @export var metalico: float = 0.0
+# IMAGEN del cuerpo: los BYTES de un PNG ya encogido (vacio = sin imagen, cuerpo de color plano).
+# Van los bytes y no la ruta al fichero original a proposito: asi la ranura es AUTONOMA y no se
+# queda sin cara porque el jugador moviera la foto de sitio. Ver Game.png_de_imagen.
+@export var imagen: PackedByteArray = PackedByteArray()
+# Cuanto tiñe el color por encima de esa imagen (0 = imagen limpia, 1 = solo color). Sin imagen
+# no pinta nada. Default 1 = como se comportaba antes de que existieran las imagenes.
+@export var color_alpha: float = 1.0
 @export var fecha: String = ""          # "12/07/2026 20:31"
 @export var cab_nivel: int = 1
 @export var cab_piso: int = 1
