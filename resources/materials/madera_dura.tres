@@ -14,6 +14,6 @@ exigencia = 350.0
 peso_base = 1.6
 valor_base = 48
 color = Color(0.3, 0.24, 0.16, 1)
-piso_min = 6
+piso_min = 7
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"

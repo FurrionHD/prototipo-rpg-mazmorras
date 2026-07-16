@@ -5,6 +5,7 @@
 [ext_resource type="Resource" path="res://resources/spawns/slimes.tres" id="3_slimes"]
 [ext_resource type="Resource" path="res://resources/spawns/ratas.tres" id="4_ratas"]
 [ext_resource type="Resource" path="res://scenes/actors/enemy/jabali.tres" id="5_jabali"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/trent.tres" id="6_trent"]
 
 [sub_resource type="Resource" id="F_slimes"]
 script = ExtResource("2_entrada")
@@ -27,8 +28,15 @@ peso = 5.0
 piso_min = 3
 piso_max = 0
 
+[sub_resource type="Resource" id="E_trent"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("6_trent")
+peso = 5.0
+piso_min = 4
+piso_max = 0
+
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Piso común"
-entradas = [SubResource("F_slimes"), SubResource("F_ratas"), SubResource("E_jabali")]
+entradas = [SubResource("F_slimes"), SubResource("F_ratas"), SubResource("E_jabali"), SubResource("E_trent")]
 metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"

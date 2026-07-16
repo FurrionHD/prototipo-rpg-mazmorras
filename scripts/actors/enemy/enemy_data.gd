@@ -101,6 +101,11 @@ class_name EnemyData
 # coste ya se arreglo (Forge.nucleos_para_mejora), y esto es la otra mitad del arreglo.
 @export var drop_material: MaterialData = null
 @export var drop_chance: float = 0.30   # 3 de cada 10 (en pruebas se fuerza 100%)
+# CANTIDAD de drop_material que suelta (una tirada uniforme entre min y max) cuando la tirada de
+# drop_chance pasa. Los bichos normales sueltan 1; un jefe puede soltar varias piezas (el
+# minotauro deja 2-3 de cuero). Ambos a 1 = comportamiento de siempre.
+@export var drop_cantidad_min: int = 1
+@export var drop_cantidad_max: int = 1
 @export var nucleo: MaterialData = null
 @export var nucleo_chance: float = 0.10   # 1 de cada 10
 

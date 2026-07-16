@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Poción media +3"
+cura_total = 200.0
+cura_pct = 0.12
+turnos = 5
+segundos = 10.0
+descripcion = "Cura 200 + 12% de tu vida máxima, repartido en el tiempo. El techo de la segunda ley: una expedición entera en un frasco, si sabes sostener los 5 turnos."
+valor_base = 980

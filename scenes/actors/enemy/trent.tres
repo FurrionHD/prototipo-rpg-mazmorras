@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_escupitajo_toxico.tres" id="3_esc"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_placaje_corrosivo.tres" id="4_plc"]
+[ext_resource type="Resource" path="res://resources/materials/raiz_amarga.tres" id="5_raiz"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_trent.tres" id="6_nuc"]
+
+[sub_resource type="Resource" id="SA_ven"]
+script = ExtResource("2_sa")
+estado = 0
+prob = 0.6
+cap = 2
+
+[sub_resource type="Resource" id="SA_peg"]
+script = ExtResource("2_sa")
+estado = 9
+prob = 0.4
+
+[resource]
+script = ExtResource("1_g8nro")
+enemy_name = "Trent"
+color = Color(0.35, 0.5, 0.25, 1)
+escala_visual = 1.8
+fuerza = 35
+resistencia = 55
+destreza = 15
+agilidad = 10
+magia = 20
+base_hp = 62.0
+base_attack = 4.2
+base_defense = 4.5
+base_speed = 3.5
+inmune_estados = [0]
+drop_material = ExtResource("5_raiz")
+nucleo = ExtResource("6_nuc")
+al_golpear = [SubResource("SA_ven"), SubResource("SA_peg")]
+habilidades = [ExtResource("3_esc"), ExtResource("4_plc")]
+prob_habilidad = 0.5
+crystal_category_min = 4
+crystal_category_max = 5
+crystal_category_weights = PackedFloat32Array(0.6, 0.4)
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

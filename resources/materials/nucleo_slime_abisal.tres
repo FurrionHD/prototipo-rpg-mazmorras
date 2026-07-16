@@ -4,20 +4,20 @@
 
 [resource]
 script = ExtResource("1")
-id = &"nucleo_fuego"
-nombre = "Núcleo de fuego"
-descripcion = "Quema si lo sostienes sin guante y no se enfría nunca. Los pocos que saben meterlo en un arma no vuelven a soltar esa arma."
+id = &"nucleo_slime_abisal"
+nombre = "Núcleo de slime abisal"
+descripcion = "Late en un azul tan hondo que parece negro. El último grumo antes de que un slime deje de ser un slime; el filo que lo lleva dentro no se mella."
 familia = 1
 tipo = 4
-tier = 3
+tier = 4
 exigencia = 0.0
 peso_base = 0.7
-valor_base = 340
-color = Color(1.0, 0.4, 0.1, 1)
-mejora_max = 7
-mejora_min = 5
+valor_base = 500
+color = Color(0.2, 0.35, 0.7, 1)
+mejora_max = 9
+mejora_min = 7
 uso_mejora = 1
 tier_equipo = 1
-piso_min = 2
+piso_min = 5
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"

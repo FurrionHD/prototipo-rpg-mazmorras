@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Poción media +1"
+cura_total = 120.0
+cura_pct = 0.12
+turnos = 4
+segundos = 8.0
+descripcion = "Cura 120 + 12% de tu vida máxima, repartido en el tiempo. Un paso más en la segunda ley: más cura, un turno más de sostener."
+valor_base = 520

@@ -324,8 +324,13 @@ static func material_para_mejora(mejoras_actuales: int) -> Dictionary:
 	}
 
 
-static func nucleo_vale(nucleo: MaterialData, item: Resource) -> bool:
+# item_tier = tier de la INSTANCIA del equipo (vive en su meta, no en el .tres base). -1 = no
+# comprobar tier (compatibilidad). El gate por tier solo muerde si el nucleo declara tier_equipo > 0.
+static func nucleo_vale(nucleo: MaterialData, item: Resource, item_tier: int = -1) -> bool:
 	if nucleo == null or item == null or int(nucleo.familia) != MaterialData.Familia.NUCLEO:
+		return false
+	# Gate por TIER: un nucleo de T1 no mejora equipo T2 (ni al reves). tier_equipo 0 = comodin.
+	if item_tier >= 0 and nucleo.tier_equipo > 0 and nucleo.tier_equipo != item_tier:
 		return false
 	match int(nucleo.uso_mejora):
 		MaterialData.UsoMejora.ARMA:

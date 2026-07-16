@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"baba_rey_slime"
+nombre = "Baba de rey slime"
+descripcion = "Densa y tibia, sigue moviéndose despacio en el frasco. La boticaria dice que con esto se hace la primera poción que de verdad merece el nombre."
+familia = 0
+tipo = 0
+tier = 2
+exigencia = 0.0
+peso_base = 1.0
+valor_base = 120
+color = Color(0.4, 0.75, 0.95, 1)
+piso_min = 6
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

@@ -4,6 +4,8 @@
 [ext_resource type="Resource" path="res://resources/abilities/minotauro_cornada.tres" id="3_cor"]
 [ext_resource type="Resource" path="res://resources/abilities/minotauro_pisoton.tres" id="4_pis"]
 [ext_resource type="Resource" path="res://resources/abilities/minotauro_bramido.tres" id="5_bra"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_t3.tres" id="6_cuero"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_minotauro.tres" id="7_nuc"]
 
 [resource]
 script = ExtResource("1_g8nro")
@@ -25,11 +27,16 @@ base_speed = 4.0
 move_speed_min = 32.0
 move_speed_max = 52.0
 chase_speed_mult = 2.3
-crystal_category_min = 5
-crystal_category_max = 5
-extraction_hits = 4
-drop_chance = 0.0
-nucleo_chance = 0.0
+crystal_category_min = 10
+crystal_category_max = 10
+extraction_hits = 5
+extraction_req_destreza = 90
+drop_material = ExtResource("6_cuero")
+drop_chance = 1.0
+drop_cantidad_min = 2
+drop_cantidad_max = 3
+nucleo = ExtResource("7_nuc")
+nucleo_chance = 1.0
 habilidades = [ExtResource("3_cor"), ExtResource("4_pis"), ExtResource("5_bra")]
 prob_habilidad = 0.5
 nivel_que_otorga = 2

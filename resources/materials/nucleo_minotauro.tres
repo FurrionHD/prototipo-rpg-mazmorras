@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nucleo_minotauro"
+nombre = "Núcleo de minotauro"
+descripcion = "Un corazón de músculo y piedra que aún golpea contra tu palma. Lo que guardaba el piso lo guarda ahora tu equipo: acero y placas de segunda ley se rinden a él."
+familia = 1
+tipo = 4
+tier = 5
+exigencia = 0.0
+peso_base = 1.3
+valor_base = 900
+color = Color(0.55, 0.34, 0.2, 1)
+mejora_max = 12
+mejora_min = 0
+uso_mejora = 0
+tier_equipo = 2
+piso_min = 12
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

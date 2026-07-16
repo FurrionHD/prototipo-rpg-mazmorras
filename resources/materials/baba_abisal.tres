@@ -4,16 +4,16 @@
 
 [resource]
 script = ExtResource("1")
-id = &"hierro"
-nombre = "Hierro en bruto"
-descripcion = "Duro y hosco. Hay que saber dónde golpear: quien lo trata a lo bruto se lleva a casa un puñado de esquirlas."
+id = &"baba_abisal"
+nombre = "Baba abisal"
+descripcion = "De un azul oscuro que casi no refleja la luz. Concentrada como está, un dedal cunde por tres de la corriente."
 familia = 0
-tipo = 2
+tipo = 0
 tier = 2
-exigencia = 350.0
-peso_base = 3.0
-valor_base = 40
-color = Color(0.62, 0.65, 0.72, 1)
-piso_min = 7
+exigencia = 0.0
+peso_base = 0.7
+valor_base = 140
+color = Color(0.2, 0.35, 0.7, 1)
+piso_min = 5
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"

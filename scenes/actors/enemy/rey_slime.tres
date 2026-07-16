@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
-[ext_resource type="Resource" path="res://resources/materials/baba_slime.tres" id="3_baba"]
+[ext_resource type="Resource" path="res://resources/materials/baba_rey_slime.tres" id="3_baba"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_rey_slime.tres" id="4_nuc"]
 [ext_resource type="Resource" path="res://resources/abilities/rey_slime_aplastamiento.tres" id="5_apl"]
 [ext_resource type="Resource" path="res://resources/abilities/rey_slime_escision.tres" id="6_esc"]

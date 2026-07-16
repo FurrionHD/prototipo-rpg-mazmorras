@@ -64,6 +64,11 @@ enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
 @export var mejora_min: int = 0
 @export var uso_mejora: UsoMejora = UsoMejora.CUALQUIERA
 
+# TIER de equipo al que sirve este nucleo. Cada tier de arma/armadura tiene su propia escalera de
+# nucleos: un nucleo de T1 (slime, rata...) NO mejora una pieza T2, y al reves. 0 = comodin (sin
+# gate por tier, retrocompatible). Ver Forge.nucleo_vale.
+@export var tier_equipo: int = 0
+
 # Placeholder visual (el arte va al final): color del nodo en el mapa y del item del suelo.
 @export var color: Color = Color(0.7, 0.7, 0.75)
 
@@ -131,7 +136,10 @@ func resumen() -> String:
 	if es_veta() or es_planta() or es_madera():
 		partes.append("exigencia %d" % roundi(exigencia))
 	if mejora_equipo():
-		partes.append("mejora hasta +%d · %s" % [mejora_tope(), uso_mejora_texto()])
+		var uso: String = uso_mejora_texto()
+		if tier_equipo > 0:
+			uso = "%s T%d" % [uso, tier_equipo]
+		partes.append("mejora hasta +%d · %s" % [mejora_tope(), uso])
 	var pisos: String = "piso %d+" % piso_min if piso_max <= 0 else "pisos %d-%d" % [piso_min, piso_max]
 	partes.append(pisos)
 	return "  ·  ".join(partes)

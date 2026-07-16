@@ -118,7 +118,12 @@ const MAGIA_COSTE_REF := 4.0   # coste de referencia (Chispa) para el factor de 
 # (t1-t3) y subiendo parejo hasta el techo t6 = 420 de Destreza. La Destreza a la que cada tier
 # queda "al punto" (dificultad 1.0) es (req - SUELO) / PESO: t1~10, t2~60, t3~120, t4~220, t5~320,
 # t6~420. Indice 0 = reserva. PROVISIONAL.
-const EXTRACTION_REQ_POR_TIER: Array = [35.0, 35.0, 60.0, 90.0, 140.0, 190.0, 240.0]
+# Categorias 7-10 (t2/t3 profundo y jefes: el minotauro es cat 10) siguen la misma pendiente;
+# PROVISIONALES hasta que exista la escalera de enemigos de pisos 7-12. Por ENCIMA de la tabla la
+# exigencia se EXTRAPOLA con EXTRACTION_REQ_STEP (ver _extraction_req): escala a cualquier categoria
+# sin tener que escribir cientos de entradas a mano.
+const EXTRACTION_REQ_POR_TIER: Array = [35.0, 35.0, 70.0, 130.0, 220.0, 320.0, 420.0, 520.0, 620.0, 720.0, 820.0]
+const EXTRACTION_REQ_STEP := 100.0   # exigencia extra por cada categoria por encima de la tabla
 const EXTRACTION_BASE_ZONE := 0.16      # tamaño de zona a dificultad 1
 const EXTRACTION_DESTREZA_FLOOR := 30.0 # suelo de skill (subido de 20 al aplicar RECOLECCION_STAT_PESO: mantiene la dificultad del novato)
 const EXTRACTION_BASE_MARKER := 0.75    # velocidad del marcador a dificultad 1
@@ -861,8 +866,12 @@ func enemy_ability_sum_band(floor: int) -> Vector2:
 #  borra en cada expedicion) sino en la PARTIDA.
 # ============================================================
 
-# {piso: EnemyData} — que boss guarda cada piso. El unico por ahora: el Rey Slime, en el 5.
-const BOSSES := {5: "res://scenes/actors/enemy/rey_slime.tres"}
+# {piso: EnemyData} — que boss guarda cada piso. Rey Slime en el 6 (techo de T1), Minotauro en el
+# 12 (techo/global de T2 y guardián que desbloquea el Nv2).
+const BOSSES := {
+	6: "res://scenes/actors/enemy/rey_slime.tres",
+	12: "res://scenes/actors/enemy/guardian_rango.tres",
+}
 
 # {piso: true} de los bosses YA derrotados alguna vez en esta partida. Se guarda en SaveData.
 var bosses_derrotados: Dictionary = {}
@@ -2711,7 +2720,7 @@ func nucleos_para(item: Resource) -> Array:
 	for it in almacen_materiales:
 		if it == null or it.data == null:
 			continue
-		if not Forge.nucleo_vale(it.data, item):
+		if not Forge.nucleo_vale(it.data, item, int(meta_de(item)["tier"])):
 			continue
 		if not vistos.has(it.data):
 			vistos.append(it.data)
@@ -2728,7 +2737,10 @@ const _NUCLEOS: Array = [
 	"res://resources/materials/nucleo_rey_rata.tres",
 	"res://resources/materials/nucleo_fuego.tres",
 	"res://resources/materials/nucleo_jabali.tres",
+	"res://resources/materials/nucleo_slime_abisal.tres",
+	"res://resources/materials/nucleo_trent.tres",
 	"res://resources/materials/nucleo_rey_slime.tres",
+	"res://resources/materials/nucleo_minotauro.tres",
 ]
 
 # La escalera de nucleos de ESTA pieza (arma o armadura), ordenada por la banda que cubre cada
@@ -2737,7 +2749,7 @@ func escalera_nucleos(item: Resource) -> Array:
 	var out: Array = []
 	for ruta in _NUCLEOS:
 		var n: MaterialData = load(ruta) as MaterialData
-		if n != null and Forge.nucleo_vale(n, item):
+		if n != null and Forge.nucleo_vale(n, item, int(meta_de(item)["tier"])):
 			out.append(n)
 	out.sort_custom(func(a: MaterialData, b: MaterialData): return a.mejora_min < b.mejora_min)
 	return out
@@ -2991,7 +3003,7 @@ func materiales_mejora(item: Resource) -> Dictionary:
 
 
 func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
-	if item == null or not Forge.nucleo_vale(nucleo, item):
+	if item == null or not Forge.nucleo_vale(nucleo, item, int(meta_de(item)["tier"])):
 		return false
 	if mejoras_actuales(item) >= tope_mejoras(item, nucleo):
 		return false
@@ -3413,6 +3425,11 @@ const _RECIPE_PATHS: Array[String] = [
 	"res://resources/recipes/pocion_vida_base.tres",
 	"res://resources/recipes/pocion_vida_1.tres",
 	"res://resources/recipes/pocion_vida_2.tres",
+	"res://resources/recipes/pocion_vida_3.tres",
+	"res://resources/recipes/pocion_vida_t2_base.tres",
+	"res://resources/recipes/pocion_vida_t2_1.tres",
+	"res://resources/recipes/pocion_vida_t2_2.tres",
+	"res://resources/recipes/pocion_vida_t2_3.tres",
 	"res://resources/recipes/pocion_mana_base.tres",
 	"res://resources/recipes/pocion_mana_1.tres",
 	"res://resources/recipes/pocion_mana_2.tres",
@@ -4004,6 +4021,17 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 	esconder_mundo(true)      # ...y deja de PINTARLA: la pantalla de combate la tapa entera
 
 
+# Exigencia de extraccion de una CATEGORIA de cristal. Dentro de la tabla, el valor afinado a mano;
+# por ENCIMA de la tabla se extrapola con pendiente fija (EXTRACTION_REQ_STEP), asi escala a
+# cualquier categoria (10, 50, 100...) sin escribir cientos de entradas.
+func _extraction_req(categoria: int) -> float:
+	var cat: int = maxi(1, categoria)
+	var ultimo: int = EXTRACTION_REQ_POR_TIER.size() - 1
+	if cat <= ultimo:
+		return float(EXTRACTION_REQ_POR_TIER[cat])
+	return float(EXTRACTION_REQ_POR_TIER[ultimo]) + EXTRACTION_REQ_STEP * float(cat - ultimo)
+
+
 # Abre el minijuego de extraccion sobre el cuerpo de un enemigo.
 func start_extraction(corpse: Node) -> void:
 	if _active_layer != null or corpse == null:
@@ -4021,9 +4049,8 @@ func start_extraction(corpse: Node) -> void:
 	var eff_destreza: int = stat_total("destreza") + tool_destreza_bonus
 
 	# Exigencia por TIER del cristal (no por enemigo ni por piso): un t4 cuesta lo mismo lo saques
-	# donde lo saques. Tabla EXTRACTION_REQ_POR_TIER indexada por categoria (reserva al ultimo).
-	var tier_idx: int = clampi(categoria, 1, EXTRACTION_REQ_POR_TIER.size() - 1)
-	var req: float = maxf(1.0, float(EXTRACTION_REQ_POR_TIER[tier_idx]))
+	# donde lo saques. La tabla cubre las categorias bajas y por encima se extrapola (ver _extraction_req).
+	var req: float = maxf(1.0, _extraction_req(categoria))
 
 	# Dificultad RELATIVA: exigencia del tier / tu DESTREZA (solo Destreza, con peso y suelo).
 	# ~1 = a la par; >1 mas dificil. Subir Destreza sigue facilitando los tiers altos.
@@ -4117,7 +4144,9 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 
 	var chance: float = 1.0 if dev_force_drop else data.drop_chance
 	if data.drop_material != null and randf() < chance:
-		caidos.append(MaterialItem.crear(data.drop_material, calidad))
+		var cuantos: int = randi_range(maxi(1, data.drop_cantidad_min), maxi(1, data.drop_cantidad_max))
+		for _i in range(cuantos):
+			caidos.append(MaterialItem.crear(data.drop_material, calidad))
 
 	var chance_n: float = 1.0 if dev_force_drop else data.nucleo_chance
 	if data.nucleo != null and randf() < chance_n:

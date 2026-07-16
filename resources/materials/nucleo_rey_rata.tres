@@ -17,6 +17,7 @@ color = Color(0.6, 0.5, 0.35, 1)
 mejora_max = 5
 mejora_min = 3
 uso_mejora = 2
+tier_equipo = 1
 piso_min = 2
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"
