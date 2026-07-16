@@ -18,6 +18,7 @@ const TOWN := "res://scenes/levels/town.tscn"
 
 func _ready() -> void:
 	add_to_group("interactable")
+	add_to_group("salida_pueblo")   # para que la libreta (Game.capturar_mapa) la cartografie
 	_crear_aspecto()
 
 

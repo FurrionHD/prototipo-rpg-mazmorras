@@ -14,10 +14,11 @@ extends CanvasLayer
 const MARGEN := 60.0        # px de borde alrededor del mapa
 const COLOR_FONDO := Color(0.04, 0.04, 0.06, 0.94)
 const COLOR_SUELO := Color(0.24, 0.24, 0.30)      # zona explorada
-# Los MISMOS colores que tienen las escaleras dentro de la mazmorra (stairs.gd): lo que ves en el
-# plano y lo que ves en el suelo se reconocen a la primera.
+# Los MISMOS colores que tienen dentro de la mazmorra las escaleras (stairs.gd) y las salidas al
+# pueblo (dungeon_exit.gd): lo que ves en el plano y lo que ves en el suelo se reconocen a la primera.
 const COLOR_SUBE := Color(0.55, 0.8, 0.35)
 const COLOR_BAJA := Color(0.1, 0.7, 0.85)
+const COLOR_PUEBLO := Color(0.9, 0.72, 0.3)
 
 var _root: Control = null
 var _lienzo: Control = null
@@ -164,15 +165,24 @@ func _dibujar() -> void:
 			"%dm" % int(ceil(falta / 60.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
 			Color(0.7, 0.7, 0.75))
 
-	# 4) ESCALERAS: los dos puntos por los que de verdad te orientas. Van las ULTIMAS para que no las
-	# tape ningun nodo ni su cuenta atras. Con .get(): los mapas de saves viejos no tienen la clave.
+	# 4) ESCALERAS y SALIDAS: los puntos por los que de verdad te orientas. Van los ULTIMOS para que
+	# no los tape ningun nodo ni su cuenta atras. Con .get(): los mapas de saves viejos no tienen
+	# estas claves (se rellenan solas la proxima vez que cartografies el piso).
 	for esc in (snap.get("escaleras", []) as Array):
 		var sube: bool = bool(esc["sube"])
-		var col: Color = COLOR_SUBE if sube else COLOR_BAJA
-		var q: Vector2 = offset + Vector2(esc["cell"]) * celda_px
-		_lienzo.draw_rect(Rect2(q, Vector2(celda_px, celda_px)), col)
-		_lienzo.draw_string(font, q + Vector2(celda_px * 1.2, celda_px * 0.9),
-			"SUBIR" if sube else "BAJAR", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
+		_hito(offset, celda_px, font, esc["cell"],
+			COLOR_SUBE if sube else COLOR_BAJA, "SUBIR" if sube else "BAJAR")
+	for celda_salida in (snap.get("salidas", []) as Array):
+		_hito(offset, celda_px, font, celda_salida, COLOR_PUEBLO, "PUEBLO")
+
+
+# Un HITO del plano (escalera o salida): su celda pintada del color que tiene en el suelo, con el
+# rotulo al lado. Una sola funcion para los tres: si cambia el aspecto, cambia para todos.
+func _hito(offset: Vector2, celda_px: float, font: Font, celda: Vector2i, color: Color, txt: String) -> void:
+	var q: Vector2 = offset + Vector2(celda) * celda_px
+	_lienzo.draw_rect(Rect2(q, Vector2(celda_px, celda_px)), color)
+	_lienzo.draw_string(font, q + Vector2(celda_px * 1.2, celda_px * 0.9), txt,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
 
 
 func _punto(offset: Vector2, celda_px: float, celda: Vector2i, color: Color, radio_frac: float) -> void:

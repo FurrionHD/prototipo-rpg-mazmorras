@@ -10,6 +10,11 @@ var _destination: String = ""
 
 func _ready() -> void:
 	add_to_group("interactable")
+	# En la mazmorra esta puerta ES la vuelta al pueblo del piso 1, asi que va a la libreta como
+	# tal (Game.capturar_mapa). En el pueblo tambien entra al grupo, pero alli no hay mapa que
+	# capturar. En los pisos 2+ se aparta a la quinta puñeta (ver DungeonFloor._colocar_actores):
+	# su celda cae fuera del mapa, la libreta la descarta sola y no hace falta comprobarlo aqui.
+	add_to_group("salida_pueblo")
 	_detectar_destino()
 
 

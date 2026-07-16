@@ -87,9 +87,10 @@ const RESPAWN_SEGUNDOS := 600.0
 # a reventar: la mazmorra se nota habitada, y aun queda hueco para que las paredes paran.
 @export_range(0.0, 1.0) var poblacion_inicial: float = 0.6
 
-# La SALA DE ENTRADA (donde apareces) nace LIMPIA: nada de abrir la puerta y encontrarte
-# tres esperandote. Sus paredes siguen pariendo con el tiempo, asi que no es un refugio
-# eterno: es un respiro para orientarte y decidir por donde sales.
+# La sala DONDE APARECES nace LIMPIA: nada de abrir la puerta y encontrarte tres esperandote.
+# Sus paredes siguen pariendo con el tiempo, asi que no es un refugio eterno: es un respiro para
+# orientarte y decidir por donde sales. OJO: es la sala en la que aterrizas DE VERDAD, que no
+# siempre es la boca del piso (por el atajo o subiendo apareces en el fondo); ver _zona_aterrizaje.
 @export var entrada_despejada: bool = true
 
 # --- Distancias (px) ---
@@ -143,6 +144,10 @@ var _salida_pos: Vector2 = Vector2.INF
 var _salidas_puestas: bool = false
 # Zona (sala) que ocupa el boss: no pare bichos. Nadie le hace de escolta.
 var _sala_boss: int = -1
+# Zona en la que ATERRIZA el jugador al construirse el piso. La fija _colocar_actores (que es
+# quien decide donde apareces) y la lee _crear_zonas para no poblarla. NO se puede dar por hecho
+# que sea la boca: por el atajo, o subiendo, apareces en el FONDO.
+var _zona_aterrizaje: int = -1
 
 var _geo: Node2D = null      # toda la geometria del piso (se tira entera al regenerar)
 var _zonas: Node2D = null    # todas las SpawnZone
@@ -206,6 +211,7 @@ func _construir(por_la_bajada: bool = false) -> void:
 	_salida_pos = Vector2.INF
 	_salidas_puestas = false
 	_sala_boss = -1
+	_zona_aterrizaje = -1
 	gen = DungeonGenerator.new()
 	gen.generar(ancho_celdas, alto_celdas, _semilla_del_piso(),
 		max_salas, sala_min, sala_max, ancho_pasillo)
@@ -317,6 +323,11 @@ func _colocar_actores(por_la_bajada: bool = false) -> void:
 	if Game.pos_cargada != Vector2.INF:
 		destino = Game.pos_cargada
 		Game.pos_cargada = Vector2.INF   # de un solo uso: solo al cargar la partida
+
+	# La zona en la que caes, sea cual sea el camino por el que has llegado (boca, fondo o el sitio
+	# exacto de una partida cargada): _crear_zonas la lee para NO poblarla. Se saca del destino YA
+	# resuelto y no de gen.salas[0], que solo acertaba cuando entrabas por la boca.
+	_zona_aterrizaje = gen.zona_en(Vector2i((destino / float(DungeonGenerator.CELDA)).floor()))
 
 	var player := get_tree().get_first_node_in_group("player")
 	if player != null and player.has_method("recolocar"):
@@ -624,10 +635,9 @@ func _crear_zonas() -> void:
 	# tal y como lo dejaste (mismos bichos, mismos sitios, mismos cadaveres).
 	var recordado: bool = Game.memoria_pisos.has(_piso_construido)
 
-	# Zona de la sala donde apareces: se crea igual (sus paredes paren), pero no se puebla.
-	var zona_entrada: int = -1
-	if entrada_despejada and not gen.salas.is_empty():
-		zona_entrada = gen.zona_en(gen.salas[0].get_center())
+	# Zona de la sala donde apareces: se crea igual (sus paredes paren), pero no se puebla. Sale de
+	# _colocar_actores, que corre justo antes y es quien sabe donde has caido.
+	var zona_entrada: int = _zona_aterrizaje if entrada_despejada else -1
 
 	for i in range(gen.zonas.size()):
 		var z: Dictionary = gen.zonas[i]

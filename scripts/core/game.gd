@@ -339,26 +339,44 @@ func capturar_mapa() -> void:
 		if not vistas.has(gen.zona_en(nodo.celda)):
 			continue
 		vivos.append({"cell": nodo.celda, "color": nodo.material_data.color})
-	# ESCALERAS de la libreta. Misma regla de niebla que los nodos: solo las de zonas EXPLORADAS
-	# (si no, el mapa te chiva donde esta la bajada de un piso que no has recorrido). No guardan su
-	# celda: se plantan por pixeles, asi que se convierte aqui (centro_px es la ida; esto la vuelta).
+	# ESCALERAS y SALIDAS al pueblo. Misma regla de niebla que los nodos: solo las de zonas
+	# EXPLORADAS (si no, el mapa te chiva donde esta la bajada de un piso que no has recorrido).
+	# Ninguna guarda su celda: se plantan por pixeles, asi que se convierte aqui (centro_px es la
+	# ida; _celda_de es la vuelta).
 	var escaleras: Array = []
 	for nodo in get_tree().get_nodes_in_group("escalera"):
 		if not is_instance_valid(nodo):
 			continue
-		var celda := Vector2i((nodo.global_position / float(DungeonGenerator.CELDA)).floor())
+		var celda: Vector2i = _celda_de(nodo.global_position)
 		if not vistas.has(gen.zona_en(celda)):
 			continue
 		escaleras.append({"cell": celda, "sube": bool(nodo.sube)})
+	# La vuelta al pueblo son DOS nodos distintos: la puerta de la boca en el piso 1 (door.gd) y la
+	# que abre el boss en su piso (dungeon_exit.gd). Para el plano son lo mismo: por ahi se sale.
+	# En los pisos 2+ la puerta esta apartada fuera del mapa -> zona_en da -1 y se cae sola aqui.
+	var salidas: Array = []
+	for nodo in get_tree().get_nodes_in_group("salida_pueblo"):
+		if not is_instance_valid(nodo) or not (nodo is Node2D):
+			continue
+		var celda: Vector2i = _celda_de((nodo as Node2D).global_position)
+		if not vistas.has(gen.zona_en(celda)):
+			continue
+		salidas.append(celda)
 	mapa_trabajo[current_floor] = {
 		"ancho": gen.ancho, "alto": gen.alto,
 		"suelo": suelo,
 		"vivos": vivos,
 		"escaleras": escaleras,
+		"salidas": salidas,
 		"agotados": (persist["agotados"] as Dictionary).duplicate(),
 	}
 	print("[mapa] trabajo al dia: piso ", current_floor, " (", vivos.size(), " nodos, ",
-		escaleras.size(), " escaleras, ", suelo.size(), " celdas)")
+		escaleras.size(), " escaleras, ", salidas.size(), " salidas, ", suelo.size(), " celdas)")
+
+
+# De pixeles del mundo a celda del mapa: la vuelta de DungeonGenerator.centro_px.
+func _celda_de(pos: Vector2) -> Vector2i:
+	return Vector2i((pos / float(DungeonGenerator.CELDA)).floor())
 
 
 # Al EMPEZAR una expedicion desde el pueblo: estrena el snapshot de TRABAJO (vacio) y guarda el
