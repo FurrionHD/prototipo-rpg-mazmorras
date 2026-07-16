@@ -89,6 +89,34 @@ func borrar(slot: int) -> void:
 		DirAccess.remove_absolute(ruta(slot))
 
 
+# Reescribe SOLO el ASPECTO de una ranura (el boton "Editar" del menu). Toca el .tres a pelo y NO
+# pasa por Game a proposito, aunque cargar-cambiar-guardar parezca lo natural: `exportar_partida()`
+# lee el ARBOL VIVO (busca el nodo de la mazmorra y el del jugador para sacar en_mazmorra, la
+# posicion y el aguante), y desde el menu no hay ni lo uno ni lo otro. Guardar desde aqui marcaria
+# la partida como "en el pueblo", sin posicion y con el aguante a -1: cambiarte el color te
+# teletransportaria fuera del piso 9 y te quedarias sin la bajada hecha.
+#
+# Asi solo se mueven estos cinco campos y el resto del fichero se queda EXACTAMENTE como estaba.
+func editar_aspecto(slot: int, nombre: String, color: Color, metalico: float,
+		imagen: PackedByteArray, color_alpha: float) -> bool:
+	var datos: SaveData = cabecera(slot)
+	if datos == null:
+		push_warning("[perfil] no se puede editar la ranura %d" % slot)
+		return false
+	var n: String = nombre.strip_edges()
+	datos.nombre = n if n != "" else Game.NOMBRE_POR_DEFECTO   # sin nombre no te quedas
+	datos.color = color
+	datos.metalico = clampf(metalico, 0.0, 1.0)
+	datos.imagen = imagen
+	datos.color_alpha = clampf(color_alpha, 0.0, 1.0)
+	var err: int = ResourceSaver.save(datos, ruta(slot))
+	if err != OK:
+		push_warning("[perfil] no se pudo editar la ranura %d (error %d)" % [slot, err])
+		return false
+	print("[perfil] aspecto de la ranura ", slot, " actualizado: ", datos.nombre)
+	return true
+
+
 # Guarda en la ranura en la que se esta jugando. Lo usan el menu de ESC y la MUERTE (que
 # guarda sola: morir es definitivo y no se puede deshacer recargando).
 func guardar_actual() -> bool:

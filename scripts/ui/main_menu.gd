@@ -96,6 +96,12 @@ func _pintar() -> void:
 		fila.add_child(jugar)
 
 		if datos != null:
+			# Editar: cambiarte el color o ponerte una imagen sin empezar de cero.
+			var editar := Button.new()
+			editar.text = "Editar"
+			editar.pressed.connect(_crear_personaje.bind(slot, true))
+			fila.add_child(editar)
+
 			var nueva := Button.new()
 			nueva.text = "Nueva"
 			nueva.pressed.connect(_nueva.bind(slot))
@@ -129,7 +135,11 @@ func _nueva(slot: int) -> void:
 
 
 # ============================================================
-#  CREACION DE PERSONAJE: nombre + aspecto, antes de empezar la partida
+#  PERSONAJE: nombre + aspecto. La MISMA pantalla hace dos cosas segun 'editando':
+#    - CREAR  (Nueva partida): al aceptar arranca una partida de cero.
+#    - EDITAR (boton Editar):  al aceptar solo reescribe el aspecto de esa ranura y vuelve al
+#      menu. NO toca el progreso: ver Perfil.editar_aspecto, que explica por que no se puede
+#      guardar por la via normal desde aqui.
 #  El aspecto son cuatro cosas, y las cuatro van al SaveData de ESA ranura (no al perfil): cada
 #  partida es un personaje distinto.
 #    - COLOR:   el cuerpo, si no pones imagen.
@@ -138,9 +148,13 @@ func _nueva(slot: int) -> void:
 #    - METAL:   el brillo, que va SIEMPRE lo ultimo: barniza tambien tu imagen.
 #  Interfaz placeholder por codigo, como el resto; el arte va al final.
 # ------------------------------------------------------------
-func _crear_personaje(slot: int) -> void:
-	_crear_png = PackedByteArray()   # cada visita a la pantalla empieza sin imagen
-	_crear_tex = null
+func _crear_personaje(slot: int, editando: bool = false) -> void:
+	# Editando se arranca con lo que ya tenias; creando, en blanco.
+	var previo: SaveData = Perfil.cabecera(slot) if editando else null
+	if previo == null:
+		editando = false   # si la ranura no se puede leer, esto es una creacion y punto
+	_crear_png = previo.imagen if previo != null else PackedByteArray()
+	_crear_tex = Game.textura_de_png(_crear_png)
 
 	var capa := PanelContainer.new()
 	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -163,11 +177,19 @@ func _crear_personaje(slot: int) -> void:
 	center.add_child(vb)
 
 	var tit := Label.new()
-	tit.text = "NUEVO PERSONAJE  ·  ranura %d" % slot
+	tit.text = ("EDITAR PERSONAJE  ·  ranura %d" if editando else "NUEVO PERSONAJE  ·  ranura %d") % slot
 	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tit.add_theme_font_size_override("font_size", 24)
 	tit.add_theme_color_override("font_color", AMBAR)
 	vb.add_child(tit)
+
+	if editando:
+		var sub := Label.new()
+		sub.text = "Solo cambia cómo te ves. Tu progreso no se toca."
+		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sub.add_theme_font_size_override("font_size", 12)
+		sub.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+		vb.add_child(sub)
 
 	var cols := HBoxContainer.new()
 	cols.add_theme_constant_override("separation", 24)
@@ -186,6 +208,8 @@ func _crear_personaje(slot: int) -> void:
 	nombre.placeholder_text = Game.NOMBRE_POR_DEFECTO   # si lo dejas vacio, te llamas asi
 	nombre.max_length = 16
 	nombre.custom_minimum_size = Vector2(280, 0)
+	if previo != null:
+		nombre.text = previo.nombre
 	izq.add_child(nombre)
 
 	var lbl2 := Label.new()
@@ -196,7 +220,7 @@ func _crear_personaje(slot: int) -> void:
 	# ves aqui es EXACTAMENTE lo que te llevas al mapa, imagen y brillo incluidos.
 	var muestra := ColorRect.new()
 	muestra.custom_minimum_size = Vector2(280, 140)
-	muestra.color = COLOR_INICIAL
+	muestra.color = previo.color if previo != null else COLOR_INICIAL
 	izq.add_child(muestra)
 
 	# ACABADO METALICO: de mate (0) a pulido (1). El brillo se ve moverse en la muestra
@@ -209,7 +233,7 @@ func _crear_personaje(slot: int) -> void:
 	metal.min_value = 0.0
 	metal.max_value = 1.0
 	metal.step = 0.05
-	metal.value = 0.0        # de serie, mate: el brillo es una eleccion, no el defecto
+	metal.value = previo.metalico if previo != null else 0.0   # de serie mate: el brillo se elige
 	metal.custom_minimum_size = Vector2(280, 0)
 	izq.add_child(metal)
 
@@ -223,9 +247,9 @@ func _crear_personaje(slot: int) -> void:
 	tinte.min_value = 0.0
 	tinte.max_value = 1.0
 	tinte.step = 0.05
-	tinte.value = 0.0        # con imagen puesta, de serie se ve TU imagen limpia
+	tinte.value = previo.color_alpha if previo != null else 0.0   # con imagen, de serie se ve limpia
 	tinte.custom_minimum_size = Vector2(280, 0)
-	tinte.editable = false   # sin imagen no hay nada que teñir
+	tinte.editable = _crear_tex != null   # sin imagen no hay nada que teñir
 	izq.add_child(tinte)
 
 	# Repinta la muestra con lo que haya AHORA en los tres mandos. _crear_tex es variable miembro
@@ -249,7 +273,7 @@ func _crear_personaje(slot: int) -> void:
 
 	var quitar := Button.new()
 	quitar.text = "Quitar"
-	quitar.disabled = true
+	quitar.disabled = _crear_tex == null   # editando puede que YA traigas imagen
 	fila_img.add_child(quitar)
 
 	var aviso_img := Label.new()
@@ -257,7 +281,8 @@ func _crear_personaje(slot: int) -> void:
 	aviso_img.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
 	aviso_img.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	aviso_img.custom_minimum_size = Vector2(280, 0)
-	aviso_img.text = "Opcional. Se guarda dentro de la partida (encogida), así que puedes mover o borrar el archivo original."
+	aviso_img.text = ("Ya tienes imagen. Puedes cambiarla o quitarla." if _crear_tex != null
+		else "Opcional. Se guarda dentro de la partida (encogida), así que puedes mover o borrar el archivo original.")
 	izq.add_child(aviso_img)
 
 	quitar.pressed.connect(func():
@@ -311,7 +336,7 @@ func _crear_personaje(slot: int) -> void:
 	picker.hex_visible = false                 # fuera el campo Hex
 	picker.presets_visible = false             # fuera las paletas / "Swatches"
 	picker.can_add_swatches = false
-	picker.color = COLOR_INICIAL
+	picker.color = previo.color if previo != null else COLOR_INICIAL
 	picker.color_changed.connect(func(c: Color): muestra.color = c)
 	der.add_child(picker)
 
@@ -321,8 +346,13 @@ func _crear_personaje(slot: int) -> void:
 	vb.add_child(botones)
 
 	var empezar := Button.new()
-	empezar.text = "Empezar la aventura"
-	empezar.pressed.connect(func(): _empezar(slot, nombre.text, picker.color, metal.value, tinte.value))
+	empezar.text = "Guardar cambios" if editando else "Empezar la aventura"
+	if editando:
+		empezar.pressed.connect(func():
+			_guardar_aspecto(slot, nombre.text, picker.color, metal.value, tinte.value)
+			capa.queue_free())
+	else:
+		empezar.pressed.connect(func(): _empezar(slot, nombre.text, picker.color, metal.value, tinte.value))
 	botones.add_child(empezar)
 
 	var cancelar := Button.new()
@@ -330,11 +360,26 @@ func _crear_personaje(slot: int) -> void:
 	cancelar.pressed.connect(func(): capa.queue_free())
 	botones.add_child(cancelar)
 
+	# Una pasada al montar: es lo que pone el material en la muestra. Sin esto, EDITANDO abririas la
+	# pantalla sin tu imagen ni tu brillo hasta que tocaras un mando.
+	refrescar.call()
+
 	nombre.grab_focus()
 
 
 # Color de salida de la creacion (uno cualquiera, ya lo cambiara).
 const COLOR_INICIAL := Color(0.45, 0.72, 1.0)
+
+
+# EDITAR: solo el aspecto de esa ranura, y de vuelta al menu. El progreso ni se toca (Perfil
+# reescribe los cinco campos del .tres a mano; ver alli por que no se puede guardar por la via
+# normal desde el menu).
+func _guardar_aspecto(slot: int, nombre: String, color: Color, metalico: float, tinte: float) -> void:
+	if Perfil.editar_aspecto(slot, nombre, color, metalico, _crear_png, tinte):
+		_aviso.text = "Ranura %d: aspecto actualizado." % slot
+	else:
+		_aviso.text = "No se pudo editar la ranura %d." % slot
+	_pintar()   # el nombre sale en la fila de la ranura: hay que repintarla
 
 
 func _empezar(slot: int, nombre: String, color: Color, metalico: float, tinte: float) -> void:
