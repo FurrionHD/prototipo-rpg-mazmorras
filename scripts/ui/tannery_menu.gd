@@ -45,6 +45,7 @@ var _sel_cue: Dictionary = {}
 
 func _ready() -> void:
 	layer = 91
+	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("tannery_menu")
 
 	var m: Dictionary = MenuScaffold.construir(self, "PELETERO",
@@ -74,13 +75,13 @@ func abrir() -> void:
 	_aviso = ""
 	_limpiar()
 	_root.visible = true
-	Game.inventory_open = true
+	Game.abrir_menu()   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
 
 
 func _cerrar() -> void:
 	_root.visible = false
-	Game.inventory_open = false
+	Game.cerrar_menu()
 
 
 func _input(event: InputEvent) -> void:

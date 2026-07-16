@@ -20,6 +20,7 @@ var _content: VBoxContainer = null
 
 func _ready() -> void:
 	layer = 93   # por encima del resto de menus del pueblo
+	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("floor_menu")
 
 	var m: Dictionary = MenuScaffold.construir(self, "BAJAR A LA MAZMORRA",
@@ -34,13 +35,13 @@ func abrir() -> void:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
 	_root.visible = true
-	Game.inventory_open = true
+	Game.abrir_menu()   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
 
 
 func _cerrar() -> void:
 	_root.visible = false
-	Game.inventory_open = false
+	Game.cerrar_menu()
 
 
 func _input(event: InputEvent) -> void:
@@ -81,6 +82,6 @@ func _bajar(piso: int) -> void:
 	Game.olvidar_mazmorra()
 	# Baseline del mapa: lo que cartografies esta expedicion se pierde si mueres.
 	Game.iniciar_expedicion_mapa()
-	Game.inventory_open = false
+	Game.cerrar_menu()
 	print("[mazmorra] Entras directamente al piso %d." % Game.current_floor)
 	get_tree().change_scene_to_file(DUNGEON)

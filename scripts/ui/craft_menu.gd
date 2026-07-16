@@ -31,6 +31,7 @@ const AMBAR := Color(0.95, 0.72, 0.36)
 
 func _ready() -> void:
 	layer = 91
+	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("craft_menu")
 
 	# Misma forma que el resto de menus: cabecera fija, lista con su scroll (las recetas) y
@@ -54,7 +55,7 @@ func abrir() -> void:
 	_aviso = ""
 	_reset_seleccion()
 	_root.visible = true
-	Game.inventory_open = true   # congela al jugador
+	Game.abrir_menu()   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
 
 
@@ -71,7 +72,7 @@ func _reset_seleccion() -> void:
 
 func _cerrar() -> void:
 	_root.visible = false
-	Game.inventory_open = false
+	Game.cerrar_menu()
 
 
 func _input(event: InputEvent) -> void:

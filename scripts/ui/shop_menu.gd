@@ -127,6 +127,7 @@ var _pending_base: Resource = null    # consumible que se va a comprar (espera a
 
 func _ready() -> void:
 	layer = 91
+	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("shop_menu")
 
 	var m: Dictionary = MenuScaffold.construir(self, "TIENDA", "", _cerrar, true)
@@ -157,14 +158,14 @@ func abrir() -> void:
 	_sel = 0
 	_aviso = ""
 	_root.visible = true
-	Game.inventory_open = true   # congela al jugador
+	Game.abrir_menu()   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
 
 
 func _cerrar() -> void:
 	_cerrar_modal()
 	_root.visible = false
-	Game.inventory_open = false
+	Game.cerrar_menu()
 
 
 func _input(event: InputEvent) -> void:

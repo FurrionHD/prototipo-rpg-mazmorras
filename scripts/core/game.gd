@@ -762,7 +762,7 @@ func importar_partida(d: SaveData) -> void:
 	# Curas a medias y estados de la sesion anterior: fuera.
 	player_heal_left = 0.0
 	player_mana_heal_left = 0.0
-	inventory_open = false
+	cerrar_menu()   # sin menus abiertos Y con el arbol despausado: la escena nueva tiene que correr
 	debug_panel_open = false
 	_stamina_cargada = d.stamina
 
@@ -979,9 +979,31 @@ func _cambiar_piso(nuevo: int, por_la_bajada: bool) -> void:
 		" | franja de habilidades ", roundi(band.x), "-", roundi(band.y))
 	piso.regenerar(por_la_bajada)
 
-# True mientras el panel de inventario esta abierto: el jugador no se mueve ni
-# interactua (pero el enemigo sigue y puede emboscarte).
+# True mientras hay un MENU abierto: lo leen los que necesitan saberlo sin mirar el arbol (el
+# jugador, el menu de personaje, el overlay de FPS).
 var inventory_open: bool = false
+
+# --- ABRIR / CERRAR un menu ---
+# Un menu abierto PARA EL MUNDO ENTERO, no solo a ti. Antes solo se congelaba al jugador
+# (inventory_open, que unicamente lee player._physics_process) y la IA de los bichos seguia a lo
+# suyo: abrir la mochila era invitar a que te emboscaran. De paso, el reloj de expedicion deja de
+# correr mientras hurgas, que es justo lo que el comentario de DungeonFloor._process lleva todo
+# este tiempo prometiendo.
+#
+# El precio, asumido: con el arbol parado NO tiquean las pociones ni se recupera el aguante. Mejor
+# asi: quedarse en la mochila para regenerar gratis era una cheesada.
+#
+# OJO: quien llame a esto DEBE llevar process_mode = PROCESS_MODE_ALWAYS en su _ready, o con el
+# arbol parado su _input no corre y el menu se queda colgado sin poder cerrarse.
+func abrir_menu() -> void:
+	inventory_open = true
+	get_tree().paused = true
+
+func cerrar_menu() -> void:
+	inventory_open = false
+	# Si hay una pantalla modal (combate/extraccion), el arbol sigue pausado: esa pausa es SUYA, no
+	# la del menu, y despausarla aqui descongelaria la mazmorra por detras del combate.
+	get_tree().paused = hay_pantalla_abierta()
 
 # --- BOLSA: lo que llevas ENCIMA de la expedicion. Es lo unico que PESA (peso_actual).
 # Los cristales solo salen de la bolsa vendiendolos en la tienda; los materiales se pueden
@@ -1557,7 +1579,7 @@ func volver_al_pueblo_con_objeto(c: ConsumableData) -> bool:
 	comprometer_mapa()
 	current_floor = 1
 	olvidar_mazmorra()
-	inventory_open = false   # lo usas DESDE el inventario: sin esto llegas al pueblo congelado
+	cerrar_menu()   # lo usas DESDE el inventario: sin esto llegas al pueblo congelado y en pausa
 	print("[retorno] Usas %s y vuelves al pueblo desde el piso %d." % [c.nombre, desde])
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
 	return true

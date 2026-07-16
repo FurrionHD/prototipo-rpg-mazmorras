@@ -9,8 +9,9 @@
 #    4) ARMAS       - armas/escudos/varitas de tu baul. Solo consulta (equipar: menu C).
 #    5) ARMADURAS   - piezas de armadura de tu baul. Solo consulta.
 #
-#  NO pausa el juego (a diferencia del menu de personaje): congela al jugador via
-#  Game.inventory_open, pero los enemigos siguen y pueden emboscarte. UI por codigo.
+#  PAUSA el juego mientras esta abierto (Game.abrir_menu / cerrar_menu), como el menu de
+#  personaje: antes solo se congelaba al jugador y los bichos seguian a lo suyo, asi que abrir la
+#  bolsa era invitar a que te emboscaran. UI por codigo.
 # ============================================================
 
 extends CanvasLayer
@@ -38,6 +39,7 @@ var _stacks: Array = []             # stacks visibles de la pestaña actual
 
 func _ready() -> void:
 	layer = 91   # encima del HUD, debajo del menu de personaje (92) y del combate (100)
+	process_mode = Node.PROCESS_MODE_ALWAYS   # abrirlo para el arbol: hay que seguir respondiendo
 
 	var m: Dictionary = MenuScaffold.construir(self, "INVENTARIO", "", _cerrar, true)
 	_root = m["root"]
@@ -86,7 +88,10 @@ func _cerrar() -> void:
 
 func _set_open(open: bool) -> void:
 	_root.visible = open
-	Game.inventory_open = open   # congela al jugador (los enemigos siguen)
+	if open:
+		Game.abrir_menu()    # para el mundo entero: nada de que te embosquen con la bolsa abierta
+	else:
+		Game.cerrar_menu()
 	if not open:
 		_cerrar_modal()
 		return

@@ -28,6 +28,7 @@ var _piso_viendo: int = 1   # piso cuyo mapa se esta MIRANDO (independiente de G
 
 func _ready() -> void:
 	layer = 92   # como el menu de personaje: por encima del HUD
+	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.visible = false
@@ -83,13 +84,13 @@ func _toggle() -> void:
 	else:
 		_piso_viendo = Game.current_floor
 	_root.visible = true
-	Game.inventory_open = true   # congela al jugador mientras miras el mapa
+	Game.abrir_menu()   # para el mundo entero mientras el menu esta abierto
 	_refrescar()
 
 
 func _cerrar() -> void:
 	_root.visible = false
-	Game.inventory_open = false
+	Game.cerrar_menu()
 
 
 # Pisos con mapa (SOLO los comprometidos: lo que has traido vivo al pueblo), ordenados. Es la

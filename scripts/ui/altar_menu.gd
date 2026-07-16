@@ -20,6 +20,7 @@ var _aviso: String = ""
 
 func _ready() -> void:
 	layer = 93
+	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("altar_menu")
 	var m: Dictionary = MenuScaffold.construir(self, "ALTAR",
 		"Descansa: consolidas tu estado, curas vida y maná, y reinicias los cooldowns.", _cerrar)
@@ -34,13 +35,13 @@ func abrir() -> void:
 	_ultimo_delta = []
 	_aviso = ""
 	_root.visible = true
-	Game.inventory_open = true
+	Game.abrir_menu()   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
 
 
 func _cerrar() -> void:
 	_root.visible = false
-	Game.inventory_open = false
+	Game.cerrar_menu()
 
 
 func _input(event: InputEvent) -> void:

@@ -21,11 +21,11 @@ var _peso_lbl: Label = null     # numero de peso encima del cuadrado
 func _ready() -> void:
 	layer = 5  # por encima de la mazmorra, por debajo del combate (100)
 
-	# Un HUD recien creado SIEMPRE arranca con el inventario cerrado. Reiniciamos
-	# el flag global por si veniamos de una escena con el inventario abierto (p.ej.
-	# pulsar R para recargar teniendolo abierto): si no, el jugador nuevo se
-	# quedaria congelado creyendo que el inventario sigue abierto.
-	Game.inventory_open = false
+	# Un HUD recien creado SIEMPRE arranca sin menus. Reiniciamos el estado global por si veniamos
+	# de una escena con uno abierto (p.ej. pulsar R para recargar teniendolo abierto): si no, el
+	# jugador nuevo se quedaria congelado creyendo que el menu sigue abierto. Ahora ademas hay que
+	# DESPAUSAR el arbol, o la escena nueva nace muerta; cerrar_menu respeta el combate en curso.
+	Game.cerrar_menu()
 
 	# Ayudas de tecla, debajo de las barras de aguante/vida/mana del jugador. En DOS filas (en
 	# una sola ya no cabian) y dentro de un panel negro semitransparente: el texto blanco sobre
