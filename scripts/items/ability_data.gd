@@ -25,6 +25,15 @@ class_name AbilityData
 @export var golpes_dual_min: int = 0
 @export var golpes_dual_max: int = 0
 
+# ESCALA DE GOLPES POR MULTITUD (flurries 1H): golpes EXTRA por cada enemigo vivo ADICIONAL al
+# primero. Es la respuesta multi-target de las armas de una mano: en grupo meten MÁS tajos (que
+# la redirección al matar reparte solos entre los enemigos). Las dagas escalan más que el resto
+# (más rápidas): Ráfaga 1.15/enemigo, Fintas/Doble tajo 0.70. El dual mete aún más (variante
+# propia; 0 = usa el valor base). Todo redondeado hacia abajo y con tope (que no se dispare).
+@export var golpes_extra_por_enemigo: float = 0.0
+@export var golpes_extra_por_enemigo_dual: float = 0.0
+@export var golpes_extra_max: int = 4
+
 # Daño por impacto respecto a un ataque normal (1.0 = como un básico; <1 = flurry).
 @export var dano_mult: float = 1.0
 
@@ -34,6 +43,34 @@ class_name AbilityData
 @export var dual_golpe_mult: float = 0.5
 # Tipo de daño forzado: -1 = el del arma; 0 CORTE, 1 CONTUNDENTE (golpe de escudo).
 @export var dano_tipo_override: int = -1
+
+# ============================================================
+#  ÁREA / MULTI-OBJETIVO (habilidades melee). Dos modos distintos:
+#   SPLASH  -> el PRINCIPAL recibe todos los golpes al 100%; cada SECUNDARIO los recibe
+#              x area_secundario. El TOTAL CRECE con cada enemigo tocado (martillazo/cleave
+#              que reparte de más). Golpe sísmico/Onda: 100/50 a toda la fila; Hendedura: 100/60
+#              a como mucho 2 (area_max=2).
+#   BARRIDO -> TODOS los objetivos reciben TODOS los golpes, pero cada golpe se multiplica por
+#              area_falloff^(n-1), con n = enemigos VIVOS alcanzados EN ESE golpe (se recalcula
+#              golpe a golpe). Así "cada objetivo extra baja el daño por golpe" y, si uno cae,
+#              n baja y los golpes que quedan pegan más fuerte al que sobrevive (Molinete).
+# Ambos limitados por area_max (tope de enemigos, incluido el principal; 99 = toda la fila viva).
+enum AreaModo { NINGUNO, SPLASH, BARRIDO }
+@export var area_modo: int = AreaModo.NINGUNO
+@export var area_max: int = 99            # tope de enemigos alcanzados (incl. principal)
+@export var area_secundario: float = 0.5  # SPLASH: fracción de daño a cada secundario
+@export var area_falloff: float = 0.7     # BARRIDO: cada golpe x falloff^(n-1)
+
+# REDIRECCIÓN AL MATAR (flurries a un solo objetivo, area_modo NINGUNO): si el objetivo cae y
+# aún quedan golpes, en vez de perderlos saltan al siguiente enemigo VIVO y siguen pegando ahí.
+# Es la identidad multi-target de las armas de una mano/dagas: nunca desperdician overkill y
+# esparcen sus estados (sangrado, aturdido...) al rematar. Solo tiene efecto en multi-golpe.
+@export var redirige_al_morir: bool = false
+
+# ¿Golpea en área? (modo distinto de NINGUNO). Atajo para la UI y el core de combate.
+func es_area() -> bool:
+	return area_modo != AreaModo.NINGUNO
+
 
 # Estados que aplica al enemigo (Array[StatusApplication], con su prob).
 @export var efectos: Array = []
@@ -104,11 +141,21 @@ class_name AbilityData
 @export var contra_mult: float = 1.0
 
 
-# Nº de impactos (aleatorio dentro del rango; dual usa su rango si lo tiene).
-func num_golpes(manos: int) -> int:
+# Nº de impactos (aleatorio dentro del rango; dual usa su rango si lo tiene). 'enemigos' = nº de
+# rivales VIVOS: si la habilidad escala por multitud (golpes_extra_por_enemigo), suma golpes
+# extra por cada enemigo adicional al primero, con tope (golpes_extra_max).
+func num_golpes(manos: int, enemigos: int = 1) -> int:
+	var base: int
 	if manos >= 2 and golpes_dual_max > 0:
-		return randi_range(maxi(1, golpes_dual_min), maxi(golpes_dual_min, golpes_dual_max))
-	return randi_range(maxi(1, golpes_min), maxi(golpes_min, golpes_max))
+		base = randi_range(maxi(1, golpes_dual_min), maxi(golpes_dual_min, golpes_dual_max))
+	else:
+		base = randi_range(maxi(1, golpes_min), maxi(golpes_min, golpes_max))
+	var por: float = golpes_extra_por_enemigo
+	if manos >= 2 and golpes_extra_por_enemigo_dual > 0.0:
+		por = golpes_extra_por_enemigo_dual
+	if por > 0.0 and enemigos > 1:
+		base += mini(golpes_extra_max, int(floor(por * float(enemigos - 1))))
+	return base
 
 # Multiplicador del golpe 'i' (0-indexado) segun el loadout. Los primeros golpes_max (el
 # tope del rango a UNA mano) van al 100%; los que vengan detras son los que pone la segunda
@@ -134,6 +181,18 @@ func _num(x: float) -> String:
 		s = s.substr(0, s.length() - 1)
 	return s
 
+# Texto del ÁREA para el resumen (derivado de los campos). "" si no golpea en área.
+func _area_txt() -> String:
+	match area_modo:
+		AreaModo.SPLASH:
+			var alcance: String = "toda la fila" if area_max >= 99 else "%d enemigos" % area_max
+			return "área: %d%% a %s" % [roundi(area_secundario * 100.0), alcance]
+		AreaModo.BARRIDO:
+			var alcance2: String = "toda la fila" if area_max >= 99 else "hasta %d" % area_max
+			return "barrido: %s, −%d%% por objetivo" % [alcance2, roundi((1.0 - area_falloff) * 100.0)]
+	return ""
+
+
 # Rango de golpes como texto ("1", "2", "1-2") para el 'manos' dado.
 func _golpes_txt(manos: int) -> String:
 	var lo: int = golpes_min
@@ -156,6 +215,19 @@ func resumen(manos: int = 1) -> String:
 		# DUAL: los golpes que pone la segunda arma pegan a la mitad (dual_golpe_mult).
 		if manos >= 2 and golpes_dual_max > golpes_max:
 			p.append("del %dº en adelante al %d%%" % [golpes_max + 1, roundi(dual_golpe_mult * 100.0)])
+		# ÁREA: cómo reparte a los demás enemigos (derivado de los campos, nunca a mano).
+		var at: String = _area_txt()
+		if at != "":
+			p.append(at)
+		# REDIRECCIÓN: solo se anuncia si de verdad puede sobrar algún golpe (multi-golpe).
+		elif redirige_al_morir and maxi(golpes_max, golpes_dual_max) > 1:
+			p.append("si mata, sigue a otro")
+		# ESCALA POR MULTITUD: más golpes cuantos más enemigos (derivado del campo).
+		var por: float = golpes_extra_por_enemigo
+		if manos >= 2 and golpes_extra_por_enemigo_dual > 0.0:
+			por = golpes_extra_por_enemigo_dual
+		if por > 0.0:
+			p.append("+%s golpe/enemigo" % _num(por))
 	var c: float = coste(manos)
 	if c > 0.0:
 		p.append("%.0f EN" % c)

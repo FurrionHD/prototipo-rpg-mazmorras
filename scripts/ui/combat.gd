@@ -1579,6 +1579,101 @@ func _accion_habilidad() -> void:
 	_ocultar_log()   # el submenu ocupa el sitio del historial
 
 
+# Los OBJETIVOS de una habilidad de ÁREA: el principal SIEMPRE el primero, y detrás sus
+# vecinos VIVOS más cercanos (alternando izquierda/derecha) hasta llenar area_max. Reusa la
+# misma geometría que el salpicón de los hechizos: los cadáveres no cuentan ni desplazan la
+# numeración (ver _adyacentes_vivos). area_max >= nº de vivos -> toca a todos.
+func _objetivos_hab(ab: AbilityData, principal: Combatant) -> Array[Combatant]:
+	var out: Array[Combatant] = [principal]
+	if not ab.es_area() or ab.area_max <= 1:
+		return out
+	var centro: int = _enemies.find(principal)
+	if centro < 0:
+		return out
+	# Punteros que se alejan del centro a cada lado; cogemos el primer vivo de cada tanda.
+	var izq: int = centro - 1
+	var der: int = centro + 1
+	while out.size() < ab.area_max:
+		var anadido := false
+		# Izquierda: primer vivo hacia el borde.
+		while izq >= 0:
+			if _enemies[izq].is_alive():
+				out.append(_enemies[izq]); izq -= 1; anadido = true
+				break
+			izq -= 1
+		if out.size() >= ab.area_max:
+			break
+		# Derecha: primer vivo hacia el borde.
+		while der < _enemies.size():
+			if _enemies[der].is_alive():
+				out.append(_enemies[der]); der += 1; anadido = true
+				break
+			der += 1
+		if not anadido:
+			break   # no quedan vivos a ningún lado
+	return out
+
+
+# El enemigo VIVO más cercano a 'muerto' (para redirigir los golpes que sobran de una flurry
+# cuando el objetivo cae). Primero mira a los lados; si no, el primero vivo que haya. null si no
+# queda nadie.
+func _siguiente_vivo(muerto: Combatant) -> Combatant:
+	var centro: int = _enemies.find(muerto)
+	if centro >= 0:
+		for paso in [-1, 1]:
+			var i: int = centro + paso
+			while i >= 0 and i < _enemies.size():
+				if _enemies[i].is_alive():
+					return _enemies[i]
+				i += paso
+	var vivos: Array[Combatant] = _vivos()
+	return vivos[0] if not vivos.is_empty() else null
+
+
+# Resuelve UN golpe de habilidad sobre 'objetivo' con 'escala' extra (área: salpicón o falloff
+# del barrido; 1.0 = golpe pleno). Aplica daño, imbuición, maná por golpe y —si la habilidad es
+# efectos_por_golpe— sus estados. Devuelve un dict con lo necesario para acumular y loguear.
+# 'etq' etiqueta el objetivo en el log cuando hay varios ("" en single-target).
+func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: int,
+		escala: float, etq: String) -> Dictionary:
+	var r := {"dmg": 0.0, "imbue": 0.0, "mult_imbue": 1.0, "crit": false, "evaded": false,
+		"mana": 0.0, "conecto": false, "estados": [], "linea": ""}
+	var result := StatsMath.resolve_attack(_player, objetivo, false)
+	var m_golpe: float = ab.mult_golpe(i, manos)
+	if result.evaded:
+		r.evaded = true
+		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
+		return r
+	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala
+	r.dmg = dmg
+	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
+	r.mult_imbue = float(result.get("mult_imbue", 1.0))
+	objetivo.take_damage(dmg)
+	Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
+	r.mana = _ganar_mana_golpe()       # cada golpe que conecta repone maná
+	if float(result.get("dmg_imbue", 0.0)) > 0.0:
+		_gastar_amplificadores(objetivo, _player.imbue_elemento)
+	r.conecto = true
+	r.crit = result.crit
+	var esc_txt: String = "" if is_equal_approx(escala, 1.0) else " [%d%%]" % roundi(escala * 100.0)
+	r.linea = "golpe %d%s%s%s: %s %.2f%s" % [i + 1, etq,
+		("" if m_golpe >= 1.0 else " [2ª mano %d%%]" % roundi(m_golpe * 100.0)), esc_txt,
+		("CRITICO 💥" if result.crit else "acierta"), dmg,
+		_imbue_dmg_txt(result, ab.dano_mult * m_golpe * escala)]
+	# IMBUICION: cada golpe que acierta tira su estado (multi-golpe = más tiradas).
+	if ab.efectos_por_golpe and objetivo.is_alive():
+		var ap: Array = _tirar_efectos_habilidad(ab, objetivo, result.crit)
+		r.estados = ap
+		if not ap.is_empty():
+			r.linea += "  -> " + ", ".join(ap)
+	if objetivo.is_alive():
+		var imb_h: String = _player.roll_imbue(objetivo)
+		if imb_h != "":
+			r.estados.append(imb_h)
+			r.linea += "  ⚡ " + imb_h
+	return r
+
+
 func _usar_habilidad(ab: AbilityData) -> void:
 	# OBJETIVO capturado UNA vez, al principio de la accion. No se vuelve a preguntar por el
 	# dentro del bucle de golpes a proposito: si el objetivo cae al tercer tajo de una habilidad
@@ -1616,59 +1711,80 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	var mult_imbue: float = 1.0
 	var golpes: int = 0
 	var estados_log: Array = []
+	var tocados: Array = [obj]      # todos los enemigos alcanzados: se rematan AL FINAL, de una vez
 	# GOLPES de daño (rango aleatorio; cada tajo con su ESQUIVA y CRITICO propios). Si
 	# efectos_por_golpe, cada tajo que acierta tira los efectos (sangrado 40%/hit).
 	# Las de UTILIDAD PURA (dano_mult 0, p.ej. Canalizar) NO golpean.
 	if ab.dano_mult > 0.0:
-		golpes = ab.num_golpes(manos)
+		golpes = ab.num_golpes(manos, _vivos().size())   # flurries: más golpes cuantos más enemigos
 		var conecto: int = 0
 		var hubo_critico: bool = false   # para los efectos NO por golpe (tirada al final)
 		var mana_ganado_golpes: float = 0.0
-		_player.set_active_hand(idxs[0])   # empieza con el arma que aporta la habilidad
+		# Objetivos del ÁREA (el principal siempre el primero). En single-target = [obj].
+		var objetivos: Array[Combatant] = _objetivos_hab(ab, obj)
+		tocados = []
 		for i in golpes:
-			var result := StatsMath.resolve_attack(_player, obj, false)
-			var linea := ""
-			# DUAL: los golpes que pone la SEGUNDA arma valen la mitad (AbilityData.mult_golpe).
-			var m_golpe: float = ab.mult_golpe(i, manos)
-			if result.evaded:
-				linea = "golpe %d: esquivado 💨" % [i + 1]
-			else:
-				var dmg: float = result.damage * ab.dano_mult * m_golpe
-				total += dmg
-				total_imbue += float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe
-				mult_imbue = float(result.get("mult_imbue", 1.0))
-				obj.take_damage(dmg)
-				Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
-				mana_ganado_golpes += _ganar_mana_golpe()   # cada golpe que conecta repone maná
-				if float(result.get("dmg_imbue", 0.0)) > 0.0:
-					_gastar_amplificadores(obj, _player.imbue_elemento)
-				conecto += 1
-				if result.crit:
+			# La mano activa alterna con el dual (daga+daga); con una sola arma, siempre la misma.
+			_player.set_active_hand(idxs[i % idxs.size()])
+			var golpe_res: Array = []   # resultados de ESTE golpe (varios si es área)
+			match ab.area_modo:
+				AbilityData.AreaModo.SPLASH:
+					# Principal al 100%, cada secundario x area_secundario. El total CRECE.
+					for t in objetivos:
+						if not t.is_alive():
+							continue
+						var esc: float = 1.0 if t == obj else ab.area_secundario
+						var etq: String = "" if t == obj else " (%s)" % t.nombre
+						golpe_res.append(_resolver_golpe_hab(ab, t, i, manos, esc, etq))
+						if t not in tocados: tocados.append(t)
+				AbilityData.AreaModo.BARRIDO:
+					# Todos reciben el golpe, pero x falloff^(n-1) con n = vivos alcanzados EN ESTE
+					# golpe (se recalcula): si uno cae, n baja y el resto pega más fuerte.
+					var vivos_alc: Array = objetivos.filter(func(c): return c.is_alive())
+					var n: int = vivos_alc.size()
+					var esc_b: float = pow(ab.area_falloff, maxi(0, n - 1))
+					for t in vivos_alc:
+						var etq2: String = "" if t == obj else " (%s)" % t.nombre
+						golpe_res.append(_resolver_golpe_hab(ab, t, i, manos, esc_b, etq2))
+						if t not in tocados: tocados.append(t)
+				_:
+					# SIN área. Un objetivo; si cae y la habilidad REDIRIGE, salta al siguiente vivo.
+					var actual: Combatant = obj
+					if not actual.is_alive() and ab.redirige_al_morir:
+						actual = _siguiente_vivo(actual)
+					if actual == null or not actual.is_alive():
+						break   # nadie a quien pegar: los golpes que quedan se pierden
+					golpe_res.append(_resolver_golpe_hab(ab, actual, i, manos, 1.0,
+						"" if actual == obj else " (%s)" % actual.nombre))
+					if actual not in tocados: tocados.append(actual)
+			# Acumular y loguear los golpes resueltos, en orden.
+			for r in golpe_res:
+				total += r.dmg
+				total_imbue += r.imbue
+				if r.dmg > 0.0:
+					mult_imbue = r.mult_imbue
+				if r.conecto:
+					conecto += 1
+				if r.crit:
 					hubo_critico = true
-				linea = "golpe %d%s: %s %.2f%s" % [i + 1,
-					("" if m_golpe >= 1.0 else " [2ª mano %d%%]" % roundi(m_golpe * 100.0)),
-					("CRITICO 💥" if result.crit else "acierta"), dmg,
-					_imbue_dmg_txt(result, ab.dano_mult * m_golpe)]
-				if ab.efectos_por_golpe and obj.is_alive():
-					var ap: Array = _tirar_efectos_habilidad(ab, obj, result.crit)
-					estados_log += ap
-					if not ap.is_empty():
-						linea += "  -> " + ", ".join(ap)
-				# IMBUICION: cada golpe que acierta tira su estado (un arma multi-golpe = mas tiradas).
-				if obj.is_alive():
-					var imb_h: String = _player.roll_imbue(obj)
-					if imb_h != "":
-						estados_log.append(imb_h)
-						linea += "  ⚡ " + imb_h
-			print("        " + linea)
-			# Siguiente golpe: si es dual (2 armas la aportan) alterna; si no, sigue con la misma.
-			_player.set_active_hand(idxs[(i + 1) % idxs.size()])
-			if not obj.is_alive():
+				mana_ganado_golpes += r.mana
+				estados_log += r.estados
+				print("        " + r.linea)
+			# Fin de la habilidad si, sin área ni redirección, el objetivo ya cayó (los que
+			# sobran no saltan solos). En área/barrido seguimos: aún puede quedar gente viva.
+			if ab.area_modo == AbilityData.AreaModo.NINGUNO and not ab.redirige_al_morir \
+					and not obj.is_alive():
 				break
-		# Efectos NO por golpe: UNA tirada al final si conecto algo (golpe de escudo -> stun).
-		if not ab.efectos_por_golpe and conecto > 0 and obj.is_alive():
-			estados_log += _tirar_efectos_habilidad(ab, obj, hubo_critico)
-		# Excelia: como el ataque, entrena Fuerza (por impacto medio).
+			# Si no queda NADIE vivo entre los objetivos, no hay a quién seguir pegando.
+			if _vivos().is_empty():
+				break
+		# Efectos NO por golpe: UNA tirada al final por cada objetivo VIVO que conectó (golpe de
+		# escudo -> stun; Onda -> aturde+ralentiza a todos los tocados).
+		if not ab.efectos_por_golpe and conecto > 0:
+			for t in tocados:
+				if t.is_alive():
+					estados_log += _tirar_efectos_habilidad(ab, t, hubo_critico)
+		# Excelia: como el ataque, entrena Fuerza (por impacto medio, contra el principal).
 		Game.ganar("fuerza", Game.reto(_poder_enemigo(obj)) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
 			Game.RETO_MAX_FISICO)
 		print("        total: %.2f de daño en %d golpe%s%s | EN -%.0f -> %.1f/%.1f%s" % [

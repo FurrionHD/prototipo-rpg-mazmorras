@@ -25,6 +25,7 @@ golpes_max = 1
 golpes_dual_min = 2
 golpes_dual_max = 2
 dano_mult = 1.6
+redirige_al_morir = true
 efectos = [SubResource("SA_sang"), SubResource("SA_sang_crit")]
 efectos_por_golpe = true
 descripcion = "Un único tajo profundo y comprometido con sangrado garantizado; si clavas un crítico, abres una segunda herida. Todo o nada: si te esquivan pierdes el golpe entero."

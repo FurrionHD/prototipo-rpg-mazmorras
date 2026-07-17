@@ -1,25 +1,25 @@
-Arma;Habilidad;Golpes 1m;Golpes dual;Dano x;EN 1m;EN dual;CD;Efectos (prob . nivel . dur);Notas
-Daga;Rafaga;2;3-4;0.7;32;48;2;Sangrado 40% . 0.30xatk . 3t;por golpe
-Daga;Punalada certera;1;2;1.6;30;46;2;Sangrado 100% . 0.30xatk . 3t;por golpe; +50% 2o Sangrado si critico
-Estoque;Estocada penetrante;1;2;1.6;26;40;2;Vulnerable 70% . -25% . 3t;por golpe
-Estoque;Fintas;2;3;0.9;20;30;1;-;DPS puro (critico alto)
-Espada corta;Tajo quebrantador;1;2;1.4;32;48;3;Vulnerable 75% . -20% . 3t;por golpe
-Espada corta;Doble tajo;2;3;0.9;22;32;1;-;combo fiable
-Espada larga;Tajo pesado;1;-;1.9;34;-;3;-;dano puro
-Espada larga;Tajo desarmante;1;-;1.3;30;-;3;Debil 70% . -20% . 3t;
-Espada larga;Guardia rota;2;-;1.2;38;-;3;Aturdido 45% . 1t;requiere escudo; guardia 1t
-Escudo;Golpe de escudo (peq);1;-;0.8;24;-;2;Aturdido 20% . 1t;guardia 1t; contundente
-Escudo;Golpe de escudo (normal);1;-;1.0;30;-;2;Aturdido 30% . 1t;guardia 1t
-Escudo;Golpe de escudo (grande);1;-;1.3;38;-;2;Aturdido 45% . 1t;guardia 1t
-Maza pequena;Golpe demoledor;1;2;1.4;28;42;2;Aturdido 45% . 1t;por golpe
-Maza pequena;Rompepiernas;1;2;1.25;26;40;2;Lento 80% . -25% . 3t;por golpe
-Maza pequena;Aplastamiento;2;-;1.15;36;-;3;Aturdido 55% . 1t + Vulnerable 60% . -20% . 3t;requiere escudo; guardia 1t
-Mandobles;Tajo devastador;1;-;2.3;36;-;3;-;nuke maximo
-Mandobles;Molinete;2;-;1.2;32;-;2;Sangrado 50% . 0.30xatk . 3t;por golpe
-Hacha grande;Hendedura;1;-;1.6;32;-;2;Vulnerable 80% . -30% . 3t;
-Hacha grande;Hachazo brutal;1;-;2.1;36;-;3;-;dano puro
-Martillo grande;Golpe sismico;1;-;2.0;38;-;3;Aturdido 55% . 1t;
-Martillo grande;Onda expansiva;1;-;1.3;32;-;2;Aturdido 50% . 1t + Lento 70% . -25% . 3t;
-Baston;Canalizar;-;-;-;toda EN;-;2;-;utilidad: 1 mana / 12.5 EN
-Baston;Bastonazo;1;-;1.6;16;-;1;Lento 60% . -25% . 3t;
-Varita;Canalizar;-;-;-;toda EN;-;2;-;utilidad: 1 mana / 18 EN
+Arma;Habilidad;Golpes 1m;Golpes dual;Dano x;EN 1m;EN dual;CD;Efectos (prob . nivel . dur);Multi-objetivo;Notas
+Daga;Rafaga;2;3-4;0.7;44;64;4;Sangrado 40% . 0.30xatk . 3t;+1.15 golpe/enemigo (dual 1.6, tope +4); redirige al matar;por golpe; la flurry que mas escala en grupo
+Daga;Punalada certera;1;2;1.6;44;62;4;Sangrado 100% . 0.30xatk . 3t;redirige al matar;por golpe; +50% 2o Sangrado si critico; golpe grande, no escala
+Estoque;Estocada penetrante;1;2;1.6;26;40;2;Vulnerable 70% . -25% . 3t;-;por golpe
+Estoque;Fintas;2;3;0.9;40;58;4;-;+0.70 golpe/enemigo; redirige al matar;DPS puro (critico alto)
+Espada corta;Tajo quebrantador;1;2;1.4;32;48;3;Vulnerable 75% . -20% . 3t;-;por golpe
+Espada corta;Doble tajo;2;3;0.9;42;60;4;-;+0.70 golpe/enemigo; redirige al matar;combo fiable
+Espada larga;Tajo pesado;1;-;1.9;34;-;3;-;-;dano puro
+Espada larga;Tajo desarmante;1;-;1.3;30;-;3;Debil 70% . -20% . 3t;-;
+Espada larga;Guardia rota;2;-;0.75;52;-;5;Aturdido 45% . 1t;redirige al matar;requiere escudo; guardia 1t
+Escudo;Golpe de escudo (peq);1;-;0.8;24;-;2;Aturdido 20% . 1t;-;guardia 1t; contundente
+Escudo;Golpe de escudo (normal);1;-;1.0;30;-;2;Aturdido 30% . 1t;-;guardia 1t
+Escudo;Golpe de escudo (grande);1;-;1.3;38;-;2;Aturdido 45% . 1t;-;guardia 1t
+Maza pequena;Golpe demoledor;1;2;1.4;42;60;4;Aturdido 45% . 1t;AREA (SPLASH) 100/50 a 2 enemigos; redirige;por golpe; area en vez de mas golpes
+Maza pequena;Rompepiernas;1;2;1.25;40;58;4;Lento 80% . -25% . 3t;redirige al matar;por golpe
+Maza pequena;Aplastamiento;2;-;0.75;52;-;5;Aturdido 55% . 1t + Vulnerable 60% . -20% . 3t;redirige al matar;requiere escudo; guardia 1t
+Mandobles;Tajo devastador;1;-;2.3;36;-;3;-;-;nuke maximo
+Mandobles;Molinete;2;-;0.7;56;-;4;Sangrado 50% . 0.30xatk . 3t;BARRIDO toda la fila, -30% por objetivo (n recalculado por golpe);por golpe
+Hacha grande;Hendedura;1;-;1.35;54;-;4;Vulnerable 80% . -30% . 3t;AREA (SPLASH) 100/60 a 2 enemigos;abridor
+Hacha grande;Hachazo brutal;1;-;2.1;36;-;3;-;-;dano puro
+Martillo grande;Golpe sismico;1;-;1.5;70;-;5;Aturdido 55% . 1t;AREA (SPLASH) 100/50 a toda la fila; estados a todos los tocados;firma
+Martillo grande;Onda expansiva;1;-;1.3;52;-;4;Aturdido 50% . 1t + Lento 70% . -25% . 3t;AREA (SPLASH) 100/50 a toda la fila; estados a todos;control de area
+Baston;Canalizar;-;-;-;toda EN;-;2;-;-;utilidad: 1 mana / 12.5 EN
+Baston;Bastonazo;1;-;1.6;16;-;1;Lento 60% . -25% . 3t;-;
+Varita;Canalizar;-;-;-;toda EN;-;2;-;-;utilidad: 1 mana / 18 EN

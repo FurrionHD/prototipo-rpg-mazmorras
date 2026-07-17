@@ -21,6 +21,7 @@ cooldown = 5
 golpes_min = 2
 golpes_max = 2
 dano_mult = 0.75
+redirige_al_morir = true
 efectos = [SubResource("SA_stun"), SubResource("SA_vuln")]
 efectos_por_golpe = false
 bloqueo_turnos = 1
