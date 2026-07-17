@@ -1231,6 +1231,11 @@ var debug_enemy_override: Dictionary = {}
 # estandar (cadencia regular) y el jugador es invulnerable (tests largos sin morir).
 var debug_dummy_mode: int = 0
 var debug_dummy_hp: float = 500.0
+# GRUPO de muñecos: por defecto el modo prueba es 1v1 (el DPS/turno se mide contra UNA cadencia).
+# Con esto ON, el saco/pegador SI recluta vecinos (hasta MAX_COMBATIENTES) y TODOS se vuelven
+# muñecos: es la unica forma de ver un hechizo de AREA/dispersion repartiendo en el sandbox. El
+# DPS/turno deja de ser exacto (varias cadencias enemigas), a cambio de poder probar multiobjetivo.
+var debug_dummy_group: bool = false
 # True mientras el panel de debug esta abierto: congela al jugador (para poder
 # escribir en los campos sin que WASD lo muevan). Lo consulta player.gd.
 var debug_panel_open: bool = false
@@ -4387,21 +4392,23 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 			ec.current_hp = clampf(n.hp_restante, 1.0, ec.max_hp)
 		enemy_cs.append(ec)
 
-	# MODO PRUEBA (dev): convierte al enemigo en muñeco de DPS o pegador de armadura. Solo al
-	# [0]: el modo prueba es 1v1 siempre (lo garantiza enemy.gd no reclutando vecinos), porque
-	# el DPS/turno se mide contra UNA cadencia enemiga.
+	# MODO PRUEBA (dev): convierte al enemigo en muñeco de DPS o pegador de armadura. Normalmente
+	# solo al [0]: el modo prueba es 1v1 (lo garantiza enemy.gd no reclutando vecinos), porque el
+	# DPS/turno se mide contra UNA cadencia enemiga. Con debug_dummy_group los vecinos SI entran y
+	# TODOS se vuelven muñecos: es la unica forma de probar hechizos de AREA/dispersion en el saco.
 	if debug_dummy_mode > 0:
-		var enemy_c: Combatant = enemy_cs[0]
-		enemy_c.es_dummy = true
-		enemy_c.max_hp = debug_dummy_hp
-		enemy_c.current_hp = debug_dummy_hp
-		enemy_c.dummy_speed_override = player_c.spd()   # velocidad estandar (cadencia ~1:1)
+		var dummies: Array = enemy_cs if debug_dummy_group else [enemy_cs[0]]
+		for enemy_c in dummies:
+			enemy_c.es_dummy = true
+			enemy_c.max_hp = debug_dummy_hp
+			enemy_c.current_hp = debug_dummy_hp
+			enemy_c.dummy_speed_override = player_c.spd()   # velocidad estandar (cadencia ~1:1)
+			if debug_dummy_mode == 1:            # Saco: DPS limpio (sin defensa ni esquiva, no pega)
+				enemy_c.dummy_dmg_out_mult = 0.0
+				enemy_c.abilities.resistencia = 0
+				enemy_c.abilities.agilidad = 0
+			# debug_dummy_mode == 2 (Pegador): conserva sus stats y te pega (mult 1.0).
 		player_c.invulnerable = true                    # no mueres durante la prueba
-		if debug_dummy_mode == 1:            # Saco: DPS limpio (sin defensa ni esquiva, no pega)
-			enemy_c.dummy_dmg_out_mult = 0.0
-			enemy_c.abilities.resistencia = 0
-			enemy_c.abilities.agilidad = 0
-		# debug_dummy_mode == 2 (Pegador): conserva sus stats y te pega (mult 1.0).
 
 	# ¿El jugador entra agotado? (sus 2 primeras acciones seran mas lentas)
 	var player_exhausted := false

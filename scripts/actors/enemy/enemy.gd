@@ -475,9 +475,10 @@ func asignar_zona(puntos: Array, hogar: Vector2) -> void:
 # que lo que entra al combate es exactamente lo que la linea te avisaba de que iba a entrar.
 func vecinos() -> Array:
 	var out: Array = [self]
-	# Las pruebas de DPS/armadura son 1v1 SIEMPRE: el DPS se mide por turno enemigo, y con
-	# cuatro muñecos pegando saldria dividido entre cuatro sin que nada avisara del error.
-	if Game.debug_dummy_mode > 0:
+	# Las pruebas de DPS/armadura son 1v1 por defecto: el DPS se mide por turno enemigo, y con
+	# cuatro muñecos pegando saldria dividido entre cuatro sin que nada avisara del error. Con
+	# debug_dummy_group ON se permiten refuerzos aposta (para probar hechizos de area/dispersion).
+	if Game.debug_dummy_mode > 0 and not Game.debug_dummy_group:
 		return out
 	var cand: Array = []
 	for n in get_tree().get_nodes_in_group("enemy"):

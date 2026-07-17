@@ -34,6 +34,7 @@ var _enemy_edits: Dictionary = {}   # habilidades del enemigo, una LineEdit por 
 var _enemy_buttons: Array = []
 var _dummy_buttons: Array = []   # [boton, modo] del modo prueba (Off/Saco/Pegador)
 var _dummy_hp_edit: LineEdit = null
+var _dummy_group_check: CheckBox = null
 var _floor_edit: LineEdit = null
 var _desarrollo_list: VBoxContainer = null   # contadores ocultos de los desarrollos
 # FORJA
@@ -326,6 +327,11 @@ func _build_enemy(vb: VBoxContainer) -> void:
 	hap.text = "Aplicar"
 	hap.pressed.connect(_apply_dummy_hp)
 	hrow.add_child(hap)
+	# GRUPO: permite refuerzos en el saco/pegador (varios muñecos) para probar hechizos de area.
+	_dummy_group_check = CheckBox.new()
+	_dummy_group_check.text = "Grupo (varios muñecos, para probar área)"
+	_dummy_group_check.toggled.connect(func(p): Game.debug_dummy_group = p)
+	vb.add_child(_dummy_group_check)
 
 
 # ============================================================
@@ -797,3 +803,5 @@ func _sync_dummy() -> void:
 		(pair[0] as Button).button_pressed = (pair[1] == Game.debug_dummy_mode)
 	if _dummy_hp_edit != null:
 		_dummy_hp_edit.text = str(int(Game.debug_dummy_hp))
+	if _dummy_group_check != null:
+		_dummy_group_check.set_pressed_no_signal(Game.debug_dummy_group)
