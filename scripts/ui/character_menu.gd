@@ -600,7 +600,7 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 	if w.es_magica:
 		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras)
 		var mgb: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, {})
-		_magic_stats(vb, mg, mgb, w.mp_regen_bonus, w.cast_vel_mult)
+		_magic_stats(vb, mg, mgb, w.mp_regen_turno, w.cast_vel_mult)
 	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)])
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
 	# En QUE se gastaron, en su propia linea: con 12 huecos (obra maestra) la lista no cabe
@@ -642,8 +642,13 @@ func _shield_stats(vb: VBoxContainer, sh: ShieldData, tier: int, rareza: int, me
 func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base: float, cast_base: float) -> void:
 	_row(vb, "  Amplif. magia", _con_mejoras("×%.2f",
 		float(mgb["magic_amp"]), float(mg["magic_amp"])))
-	_row(vb, "  Regen maná", _con_mejoras("+%.2f/turno",
-		regen_base * float(mgb["regen_mult"]), regen_base * float(mg["regen_mult"])))
+	# Regen PLANO por turno. El "base" ya lleva el tier y la rareza de ESTE item; el parentesis es
+	# lo que ponen las mejoras. La nota dice lo que significa el numero, que es lo que se pregunta
+	# el jugador: un hechizo corto cuesta 6 y tarda 2 turnos en salir.
+	var regen_b: float = regen_base * float(mgb["regen_mult"])
+	var regen_t: float = regen_base * float(mg["regen_mult"])
+	_row(vb, "  Regen maná", _con_mejoras("%.2f", regen_b, regen_t) + " /turno")
+	_note(vb, "    Gotea también mientras recitas: un conjuro corto tarda 2 turnos, así que se paga %.2f de su maná él solo." % (regen_t * 2.0))
 	_row(vb, "  Vel. casteo", _con_mejoras("×%.2f",
 		cast_base + float(mgb["cast_vel_add"]), cast_base + float(mg["cast_vel_add"])))
 	if float(mg["mana_reduccion"]) > 0.0:
@@ -694,7 +699,7 @@ func _off_stats(vb: VBoxContainer, item: Resource) -> void:
 		var tm: float = Game.tier_mult(tier)
 		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, tm, rareza, mejoras)
 		var mgb: Dictionary = Upgrades.magic_mods(wd.magic_amp, tm, rareza, {})
-		_magic_stats(vb, mg, mgb, wd.mp_regen_bonus, wd.cast_vel_mult)
+		_magic_stats(vb, mg, mgb, wd.mp_regen_turno, wd.cast_vel_mult)
 	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)])
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
 	# En QUE se gastaron, en su propia linea: con 12 huecos (obra maestra) la lista no cabe

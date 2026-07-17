@@ -31,24 +31,37 @@ const SPELL_DAMAGE_MULT := 1.5
 const BASE_MP := 20.0
 const MP_FROM_MAGIA := 0.033   # magia 999 -> +33 (max = 20 + 33 = 53)
 # REGEN DE MANÁ: ya NO hay goteo por "estar ahi" (ni por turno de combate ni parado en el
-# mapa: eso era esperar, no jugar). El maná se recupera JUGANDO — pegando y ganando — y el
-# unico goteo por turno que queda lo pone el ARMA MAGICA (Combatant.mp_regen_bonus, mejora
-# Regeneración), que asi pasa de marginal a ser la firma del baston/varita.
+# mapa: eso era esperar, no jugar). El maná se recupera JUGANDO — pegando y matando — y el
+# goteo por turno lo pone SOLO el ARMA MAGICA (Combatant.mp_regen_turno): sin baston ni varita
+# no regeneras por turno, punto.
 #
-# MANÁ AL PEGAR: cada golpe de arma que ACIERTA (basico o golpe de habilidad) devuelve este
-# % del maná MAXIMO. Porcentual a proposito: escala solo con la Magia y nunca hay que
-# retunearlo. Un basico ~1 MP con un pool de 23; un Molinete de 2 golpes, el doble.
-const MP_POR_GOLPE_PCT := 0.04
-# MANÁ AL GANAR el combate: % del maná maximo (el nucleo del enemigo se disuelve en ti).
-const MP_VICTORIA_PCT := 0.25
+# TODO ESTO VA EN NUMEROS PLANOS, NO EN % DEL MAXIMO, y el motivo es el que ordena el sistema:
+# un hechizo cuesta un numero FIJO (Brasa 6, Tormenta 14). Lo que compite contra un coste fijo
+# tiene que medirse contra el, no contra tu deposito. Un 4% del maximo por golpe parecia mas
+# "elegante", pero crecia con la Magia mientras los hechizos seguian costando 6: con Magia 0 un
+# golpe pagaba el 13% de una Brasa y con Magia 900 el 33%, o sea que el maná se aflojaba solo
+# segun subias de nivel hasta dejar de importar. En plano, un golpe paga siempre lo mismo.
+#
+# MP_BASE es el pellizco "de pelear", sin arma magica de por medio. Se usa en DOS sitios: lo que
+# devuelve un golpe que acierta, y la base de lo que suelta un enemigo al morir (ver mp_por_kill).
+const MP_BASE := 0.2
+# MANÁ POR ENEMIGO MATADO: 1.5 × (MP_BASE + el regen por turno de tu arma magica). Antes era un
+# 25% del maximo POR COMBATE, y ahi habia dos problemas: el sabor mentia (matar a 4 daba lo mismo
+# que matar a 1, cuando lo que se disuelve en ti es el NUCLEO de cada bicho) y sobre todo salias
+# LLENO de cualquier pelea, asi que el maná no limitaba nada y la pocion de maná no servia para
+# nada. Ahora escala con los bichos (premia el corro, que es donde brilla la magia de area) y con
+# tu arma magica: el que va a maná es el que lleva baston. El x1.5 esta medido: con x2.5 el mejor
+# baston posible sacaba el 107% de su deposito de un corro de cuatro, o sea vuelta a empezar.
+const MP_KILL_MULT := 1.5
 
-# Maná que devuelve UN golpe de arma que acierta, para un maná maximo dado.
-static func mp_por_golpe(max_mp: float) -> float:
-	return max_mp * MP_POR_GOLPE_PCT
+# Maná que devuelve UN golpe de arma que acierta.
+static func mp_por_golpe() -> float:
+	return MP_BASE
 
-# Maná que devuelve GANAR un combate.
-static func mp_por_victoria(max_mp: float) -> float:
-	return max_mp * MP_VICTORIA_PCT
+# Maná que sueltan los enemigos al caer. 'regen_turno' = el goteo por turno de tu arma magica
+# (0 si no llevas): el baston no solo te gotea, tambien hace que los nucleos te cundan mas.
+static func mp_por_kill(regen_turno: float, enemigos: int = 1) -> float:
+	return MP_KILL_MULT * (MP_BASE + maxf(regen_turno, 0.0)) * float(maxi(enemigos, 0))
 
 # Resto de stats: siguen el modelo "base + habilidad × coef" (coef crece con el
 # nivel). Numeros bajos a proposito: 999 no debe dar 999 de golpe.

@@ -16,8 +16,10 @@ class_name WandData
 
 # Potencia magica (multiplica el daño de hechizos). Media (menos que el bastón).
 @export var magic_amp: float = 1.4
-# Regen de maná por turno que aporta (poca).
-@export var mp_regen_bonus: float = 0.15
+# Regen de maná por turno, PLANO (ver WeaponData.mp_regen_turno). Un 66% del baston: menos, pero
+# no mucho menos — la varita deja una mano libre para un arma y el baston se come las dos, asi
+# que dos tercios del goteo por la mitad del compromiso es el trato.
+@export var mp_regen_turno: float = 0.33
 # VELOCIDAD DE CASTEO: mientras casteas, la barra ATB usa esta velocidad. Se llama igual que
 # en WeaponData (cast_vel_mult) y NO 'velocidad_mult': la varita no se blande, no tiene
 # velocidad fisica, y tener el mismo nombre para dos cosas distintas se prestaba a liarla.

@@ -119,6 +119,20 @@ const CELERIDAD_STEP := 0.03      # +velocidad de casteo
 const CELERIDAD_CAP := 0.10
 const REGENERACION_STEP := 0.08   # +% sobre el regen de maná del arma
 const REGENERACION_CAP := 0.40
+# TIER del REGEN de maná: curva PROPIA y mas empinada que la del daño magico (MAGIC_TIER_POWER
+# 0.14). Calibrada para que CADA tier sea exactamente +38% (2.2^0.408 = 1.38): t2 ×1.38, t3
+# ×1.90, t4 ×2.63... y asi para siempre.
+#
+# MULTIPLICATIVA y SIN TECHO a proposito. Se probo acotarla (que el bonus tendiera a un maximo)
+# para que un T20 no se disparase, y era un error de bulto: el tier de este juego YA es
+# multiplicativo (tier_mult = 2.2^(tier-1), o sea que un T20 lleva x2.2 millones), asi que el dia
+# que existan T20 los hechizos costaran otra cosa y los depositos seran otros. Un techo fijo hoy
+# seria basura entonces. El regen tiene que poder escalar con lo que escale el mundo.
+#
+# Lo que SI esta medido es que con esto el tope de HOY no se pasa: una magia corta pide 3.0 de
+# maná/turno para encadenarse sin parar, y el mejor baston posible (T3 pristino con los 12 huecos
+# en Regeneración) se queda en 2.83. Nadie castea gratis, o sea que la pocion siempre hace falta.
+const REGEN_TIER_POWER := 0.408
 
 
 # La rareza de COMBATE apenas mueve los numeros (x1.00 a x1.15): un arma legendaria lo es por
@@ -275,13 +289,18 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 		"vel_mult": 1.0 + rapidez,
 	}
 
-# Agregados MAGICOS de un arma de mago (baston o varita), por slot. Las mejoras
-# magicas NO usan tier (para no disparar el multiplicador): magic_amp sale de la
-# base × rareza + un flat por mejora; el resto son porcentajes con tope.
-#   base_amp = magic_amp base del item (baston 1.8 / varita 1.4).
+# Agregados MAGICOS de un arma de mago (baston o varita), por slot.
+#   base_amp = magic_amp base del item (baston 1.7 / varita 1.4).
+# El TIER entra en dos sitios y con DOS curvas distintas: el magic_amp con una muy suave
+# (magic_tier_ratio) y el regen de maná con una mas empinada (regen_tier_ratio). La Eficiencia
+# y la Celeridad son porcentajes con tope y no lo llevan: son topes de balance.
 # Factor por el que el TIER escala el magic_amp (curva suave, muy por debajo del melee).
 static func magic_tier_ratio(tmult: float) -> float:
 	return pow(tmult, MAGIC_TIER_POWER)
+
+# Lo mismo para el REGEN de maná, con su curva propia (mas empinada). Ver REGEN_TIER_POWER.
+static func regen_tier_ratio(tmult: float) -> float:
+	return pow(tmult, REGEN_TIER_POWER)
 
 static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
 	var n := mejoras_combate(mejoras)   # la Durabilidad no cuenta para el +flat de magic_amp
@@ -296,7 +315,14 @@ static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dict
 		"magic_amp": amp,
 		"mana_reduccion": minf(cap_rareza(EFICIENCIA_CAP, rareza), dim_sum(EFICIENCIA_STEP, _count(mejoras, EFICIENCIA)) * rmult),
 		"cast_vel_add": minf(cap_rareza(CELERIDAD_CAP, rareza), dim_sum(CELERIDAD_STEP, _count(mejoras, CELERIDAD)) * rmult),
-		"regen_mult": 1.0 + minf(cap_rareza(REGENERACION_CAP, rareza), dim_sum(REGENERACION_STEP, _count(mejoras, REGENERACION)) * rmult),
+		# REGEN de maná: multiplicador COMPLETO del regen base del arma, no solo el de la mejora.
+		# Lleva rareza y TIER (curva propia) como el magic_amp, porque antes no llevaba ninguno de
+		# los dos: un baston T3 legendario regeneraba exactamente lo mismo que uno T1 comun, y sin
+		# mejoras de Regeneracion esto valia 1.0 clavado. La potencia era el UNICO atributo magico
+		# al que el tier y la rareza tocaban.
+		"regen_mult": rmult * regen_tier_ratio(tmult)
+			* (1.0 + minf(cap_rareza(REGENERACION_CAP, rareza),
+				dim_sum(REGENERACION_STEP, _count(mejoras, REGENERACION)) * rmult)),
 	}
 
 

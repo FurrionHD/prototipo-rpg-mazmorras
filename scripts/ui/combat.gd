@@ -34,7 +34,7 @@ const FLEE_EXHAUSTED_MULT := 0.6
 
 # Magia (KAN-56): nº de opciones del test de recitado (a/b/c/d). El maná se recupera
 # PEGANDO (_ganar_mana_golpe) y GANANDO el combate (_end): ya no hay goteo por turno,
-# salvo el que aporte el arma magica (mp_regen_bonus).
+# salvo el que aporte el arma magica (mp_regen_turno).
 const N_OPCIONES_TEST := 4
 
 # Aturdir/retrasar (armas contundentes). Golpe NORMAL que aturde = retraso PARCIAL de
@@ -792,8 +792,8 @@ func _begin_player_turn() -> void:
 	# Regen de maná POR TURNO: ya solo la del ARMA MAGICA (mejora Regeneración, KAN-95). La
 	# base por Magia se quito: el maná se gana PEGANDO (_ganar_mana_golpe) y GANANDO, no por
 	# dejar pasar turnos. Sin arma mágica, este turno no repone nada.
-	if _player.mp_regen_bonus > 0.0:
-		_player.regen_mana(_player.mp_regen_bonus)
+	if _player.mp_regen_turno > 0.0:
+		_player.regen_mana(_player.mp_regen_turno)
 	_update_hp()
 	# Si estas casteando un hechizo, el turno va al recitado / disparo, NO a las
 	# acciones normales (por diseño no puedes hacer otra cosa mientras cantas).
@@ -1650,14 +1650,16 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 
 
 # MANÁ AL PEGAR: cada golpe de arma que ACIERTA (basico, golpe de habilidad o contraataque)
-# devuelve un pellizco de maná (% del maximo, ver StatsMath.MP_POR_GOLPE_PCT). Es la fuente
-# principal de maná del juego: recuperarlo es CONSECUENCIA de pelear, no de esperar plantado.
+# devuelve un pellizco PLANO de maná (StatsMath.MP_BASE). Recuperarlo es CONSECUENCIA de pelear,
+# no de esperar plantado. Es un pellizco pequeño a proposito: el maná de verdad lo dan el arma
+# magica (goteo por turno) y los nucleos de los que matas, que tambien escalan con ella. Sin
+# baston ni varita se puede castear, pero a cuentagotas.
 # Devuelve lo ganado (0 si el jugador no tiene maná: un guerrero puro).
 func _ganar_mana_golpe() -> float:
 	if _player.max_mp <= 0.0 or _player.current_mp >= _player.max_mp:
 		return 0.0
 	var antes: float = _player.current_mp
-	_player.regen_mana(StatsMath.mp_por_golpe(_player.max_mp))
+	_player.regen_mana(StatsMath.mp_por_golpe())
 	return _player.current_mp - antes
 
 
@@ -2156,17 +2158,20 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	_continue_button.disabled = false
 	_continue_button.text = "Continuar"
 	if player_won:
-		# MANÁ AL GANAR: el nucleo del enemigo se disuelve en ti. Es la otra mitad del modelo
-		# (la primera es el maná por golpe): recuperar magia sale de PELEAR, no de esperar.
-		# Huir no lo da: hay que rematar. Va antes de combat_finished, que arrastra el maná.
+		# MANÁ AL MATAR: el nucleo de CADA enemigo se disuelve en ti, asi que va POR BICHO caido
+		# (si ganaste, han caido todos: _enemies los guarda a todos, vivos y muertos) y escala con
+		# tu ARMA MAGICA, que es la que sabe sacarle jugo al nucleo. Es la otra mitad del modelo
+		# (la primera es el maná por golpe): recuperar magia sale de PELEAR, no de esperar. Huir
+		# no lo da: hay que rematar. Va antes de combat_finished, que arrastra el maná.
 		var mp_vic: float = 0.0
 		if _player.is_alive() and _player.max_mp > 0.0 and _player.current_mp < _player.max_mp:
 			var antes: float = _player.current_mp
-			_player.regen_mana(StatsMath.mp_por_victoria(_player.max_mp))
+			_player.regen_mana(StatsMath.mp_por_kill(_player.mp_regen_turno, _enemies.size()))
 			mp_vic = _player.current_mp - antes
 			_update_hp()
-			print("[combate] maná por victoria: +%.2f -> %.2f/%.2f" % [
-				mp_vic, _player.current_mp, _player.max_mp])
+			print("[combate] maná de los nucleos: +%.2f (%d enemigo%s, regen del arma %.2f) -> %.2f/%.2f" % [
+				mp_vic, _enemies.size(), "" if _enemies.size() == 1 else "s",
+				_player.mp_regen_turno, _player.current_mp, _player.max_mp])
 		var caidos: String = _enemies[0].nombre if _enemies.size() == 1 \
 			else "%d enemigos" % _enemies.size()
 		_set_log("¡GANASTE el combate contra " + caidos + "! 🎉"

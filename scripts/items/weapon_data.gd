@@ -69,11 +69,19 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 
 # --- MAGIA (KAN-95): armas de mago (bastón) ---
 # es_magica marca las armas que potencian hechizos. magic_amp MULTIPLICA el daño
-# de los hechizos (1.0 = neutro; bastón alto). mp_regen_bonus SUMA al regen de maná
-# por turno de combate. La varita (WandData) lleva estos mismos campos en la off.
+# de los hechizos (1.0 = neutro; bastón alto). La varita (WandData) lleva estos mismos
+# campos en la off.
 @export var es_magica: bool = false
 @export var magic_amp: float = 1.0
-@export var mp_regen_bonus: float = 0.0
+# REGEN de maná por turno de combate, en maná PLANO (no en % del maximo). Plano porque un
+# hechizo cuesta un numero FIJO (Brasa 6): el regen compite contra ESE numero, no contra tu
+# deposito, asi que 0.5/turno paga el mismo trozo de una Brasa con Magia 0 que con Magia 900.
+# Lo escalan el TIER y la RAREZA (ver Upgrades.magic_mods), que antes no lo tocaban: un baston
+# T3 legendario regeneraba exactamente lo mismo que uno de madera.
+# Referencia para tunearlo: una corta cuesta 6 y tarda 2 turnos = 3 de maná/turno para
+# encadenarlas. El baston T1 comun paga ~1/6 de eso, y ni el mejor baston posible llega a
+# pagarlo entero (si lo pagara, la pocion de maná sobraria).
+@export var mp_regen_turno: float = 0.0
 # Velocidad de CASTEO (multiplica la barra mientras recitas). Es un campo APARTE de
 # velocidad_mult a proposito: esa es lo rapido que BLANDES el arma, y no tiene por que ser
 # lo rapido que recitas con ella. Solo cuenta si es_magica (a las demas se les ignora: sin

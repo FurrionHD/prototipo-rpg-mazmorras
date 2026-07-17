@@ -2041,7 +2041,7 @@ func _aplicar_loadout(c: Combatant) -> void:
 	# Magia del equipo (KAN-95): amplificador, regen extra, eficiencia y velocidad de
 	# casteo (la armadura frena también el casteo, como el ataque).
 	c.magic_amp = float(m["magic_amp"])
-	c.mp_regen_bonus = float(m["mp_regen_bonus"])
+	c.mp_regen_turno = float(m["mp_regen_turno"])
 	c.mana_reduccion = float(m["mana_reduccion"])
 	c.cast_velocidad_mult = float(m["cast_velocidad_mult"]) * float(am["velocidad_mult"])
 
@@ -2113,7 +2113,7 @@ func loadout_mods() -> Dictionary:
 	# El baston (main.es_magica) y/o la varita (off = WandData) aportan estos mods.
 	# La varita no añade mano de ataque (bloqueo/evasion ~0) -> se ignora en lo fisico.
 	var magic_amp := 1.0
-	var mp_regen_bonus := 0.0
+	var mp_regen_turno := 0.0
 	var mana_reduccion := 0.0
 	var cast_vel_add := 0.0
 	# Recitar un encantamiento no se hace con el arma: por defecto va a velocidad NORMAL (1.0).
@@ -2124,19 +2124,19 @@ func loadout_mods() -> Dictionary:
 		cast_base = main.cast_vel_mult
 		var mm := Upgrades.magic_mods(main.magic_amp, tier_mult(equip_tier("main")), equip_rareza("main"), equip_mejoras("main"))
 		magic_amp *= float(mm["magic_amp"])
-		mp_regen_bonus += main.mp_regen_bonus * float(mm["regen_mult"])
+		mp_regen_turno += main.mp_regen_turno * float(mm["regen_mult"])
 		mana_reduccion += float(mm["mana_reduccion"])
 		cast_vel_add += float(mm["cast_vel_add"])
 	if equipped_off is WandData:
 		var wand: WandData = equipped_off
 		var mo := Upgrades.magic_mods(wand.magic_amp, tier_mult(equip_tier("off")), equip_rareza("off"), equip_mejoras("off"))
 		magic_amp *= float(mo["magic_amp"])
-		mp_regen_bonus += wand.mp_regen_bonus * float(mo["regen_mult"])
+		mp_regen_turno += wand.mp_regen_turno * float(mo["regen_mult"])
 		mana_reduccion += float(mo["mana_reduccion"])
 		cast_vel_add += float(mo["cast_vel_add"])
 		cast_base = wand.cast_vel_mult   # al castear, la barra usa la velocidad de la varita
 	m["magic_amp"] = magic_amp
-	m["mp_regen_bonus"] = mp_regen_bonus
+	m["mp_regen_turno"] = mp_regen_turno
 	m["mana_reduccion"] = minf(0.25, mana_reduccion)
 	m["cast_velocidad_mult"] = cast_base * (1.0 + cast_vel_add)
 	return m

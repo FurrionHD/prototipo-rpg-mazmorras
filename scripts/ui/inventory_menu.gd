@@ -432,7 +432,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		var wd := item as WandData
 		_title(vb, Game.item_display_name(wd) + ("   [equipada]" if equipada else ""))
 		_row(vb, "Amplif. magia", "×%.2f" % wd.magic_amp)
-		_row(vb, "Regen maná", "+%.2f/turno" % wd.mp_regen_bonus)
+		_row(vb, "Regen maná", "+%.2f/turno" % wd.mp_regen_turno)
 		_row(vb, "Vel. casteo", "×%.2f" % wd.cast_vel_mult)
 
 

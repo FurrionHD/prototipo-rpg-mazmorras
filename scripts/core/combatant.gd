@@ -46,8 +46,10 @@ var spells: Array = []
 var abilities_combate: Array = []
 # Amplificador de daño magico del arma (bastones/varitas, KAN-95). Neutro por defecto.
 var magic_amp: float = 1.0
-# Regen de maná EXTRA por turno que aporta el arma magica (KAN-95).
-var mp_regen_bonus: float = 0.0
+# Maná por turno que aporta el arma magica (KAN-95), PLANO y ya resuelto (base del arma ×
+# tier × rareza × mejoras). 0 = sin arma magica: no regeneras por turno, y ademas los nucleos
+# de los enemigos te cunden lo minimo (ver StatsMath.mp_por_kill).
+var mp_regen_turno: float = 0.0
 # Reduccion PORCENTUAL del coste de maná (mejora Eficiencia, KAN-95). 0 = sin descuento.
 var mana_reduccion: float = 0.0
 # Velocidad de CASTEO: al lanzar hechizos la barra ATB usa esta (la varita del mago
