@@ -9,7 +9,6 @@ nombre = "Escudo grande"
 tamano = 2
 defensa_base = 5.0
 bloqueo = 0.2
-bloqueo_max = 0.4
 resist_estados_base = 0.08
 velocidad_mult = 0.82
 evasion_penal = 0.08

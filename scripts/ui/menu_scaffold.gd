@@ -281,7 +281,7 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 		# Lo primero es la DEFENSA: es el numero que crece con tier, rareza y mejoras, o sea lo que
 		# distingue a este escudo de otro igual peor. Y solo cuenta al Defender: hay que decirlo.
 		["Defensa al bloquear", "+%.1f" % float(m["def"])],
-		["Bloqueo", "%.0f%%  (tope %.0f%%)" % [float(m["bloqueo"]) * 100.0, sh.bloqueo_max * 100.0]],
+		["Bloqueo", "%.0f%%" % (float(m["bloqueo"]) * 100.0)],
 	]
 	if float(m["resist_estados"]) > 0.0:
 		filas.append(["Resist. estados", "+%.0f%%" % (float(m["resist_estados"]) * 100.0)])

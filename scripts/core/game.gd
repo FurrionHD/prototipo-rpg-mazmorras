@@ -2264,7 +2264,11 @@ func armor_mods() -> Dictionary:
 	reduction = clampf(reduction, 0.0, StatsMath.ARMOR_REDUCTION_MAX)
 	evasion = clampf(evasion, 0.0, Upgrades.cap_rareza(Upgrades.EVASION_CAP, rareza_max))
 	crit_resist = clampf(crit_resist, 0.0, Upgrades.cap_rareza(Upgrades.RESIST_CRIT_CAP, rareza_max))
-	resist_estados = clampf(resist_estados, 0.0, Upgrades.cap_rareza(Upgrades.RESISTENCIA_CAP, rareza_max))
+	# La resist. a ESTADOS es la excepcion: su techo es de BALANCE (como el de la reduccion), no de
+	# calidad. Lo pone crear_player_combatant sobre la SUMA de armadura + escudo, y crudo, para que
+	# armadura a tope + escudo a tope no te vuelvan inmune al veneno. Escalarlo aqui con la rareza
+	# era humo: el tope crudo de alla (0.50) siempre es mas bajo, asi que este nunca llegaba a morder.
+	resist_estados = clampf(resist_estados, 0.0, Upgrades.RESISTENCIA_CAP)
 	return {"def_bonus": def_bonus, "reduction": reduction, "velocidad_mult": 1.0 + vel_delta,
 		"evasion_bonus": evasion, "crit_resist": crit_resist, "resist_estados": resist_estados}
 

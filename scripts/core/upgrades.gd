@@ -66,7 +66,7 @@ const EVASION := "evasion"
 const RESIST_CRIT := "resist_crit"
 const RESISTENCIA := "resistencia"    # -prob. de estados alterados (KAN-58, activa)
 # Escudos:
-const REFUERZO := "refuerzo"          # +bloqueo, hasta el bloqueo_max del escudo
+const REFUERZO := "refuerzo"          # +bloqueo del escudo (la unica via para subirlo)
 # Generica (arma y armadura):
 const DURABILIDAD := "durabilidad"    # ACTIVA: sube el maximo de durabilidad (mantenimiento)
 
@@ -100,10 +100,11 @@ const RESIST_CRIT_STEP := 0.02    # -crit rival (pesadas)
 const RESIST_CRIT_CAP := 0.25     # tope de resistencia a criticos
 const RESISTENCIA_STEP := 0.03    # -prob. de que te apliquen un estado alterado (KAN-58)
 const RESISTENCIA_CAP := 0.50     # tope de resistencia a estados (por armadura, sumando piezas)
-# ESCUDOS. El Refuerzo es la unica via para llegar al bloqueo_max del escudo (el tier no lo toca:
-# ver la cabecera de shield_data.gd). Con este step, un escudo grande (0.20 -> tope 0.40) necesita
-# ~8 puntos de Refuerzo en comun, y la mitad si es de rareza alta (el aporte va x rareza).
-const REFUERZO_STEP := 0.05       # +bloqueo por punto (decreciente, y capado por el escudo)
+# ESCUDOS. El Refuerzo es la unica via para subir el bloqueo (ni el tier ni la rareza lo tocan:
+# ver shield_mods). No tiene tope propio: el dim_sum asintota en STEP/(1-DECAY) = +0.25, asi que
+# el bloqueo va de su base de tamaño (0.10/0.15/0.20) a 0.35/0.40/0.45 como mucho. Con el 0.30 de
+# base al Defender eso son 0.65/0.70/0.75, siempre por debajo del 80% de StatsMath.DEFEND_TAKEN_MIN.
+const REFUERZO_STEP := 0.05       # +bloqueo por punto (decreciente, sin tope: lo capa la asintota)
 # Armas MAGICAS (KAN-95). Todos PROVISIONALES -> Excel.
 const MAGIC_AMP_FLAT := 0.02      # +magic_amp por CADA mejora (primario del arma magica)
 const POTENCIA_STEP := 0.05       # +magic_amp de la categoria Potencia (extra, decreciente)
@@ -344,6 +345,14 @@ static func armor_piece_mods(a: ArmorData, tmult: float, rareza: int, mejoras: D
 # tier, un T3 lo saturaria y volveriamos al punto de partida: todos los escudos iguales, ahora en
 # el cap. La defensa va por la mitigacion K/(K+DEF), que no tiene techo: ahi el tier se nota
 # siempre y no rompe nada.
+#
+# Y por lo MISMO el bloqueo tampoco lleva RAREZA. Antes la llevaba solo en el APORTE del Refuerzo
+# (dim_sum × rareza) mientras el techo salia crudo del .tres, y eso dejaba a la rareza haciendo
+# una sola cosa en la stat insignia del escudo: SATURAR ANTES. Un escudo grande comun aprovechaba
+# ~8 puntos de Refuerzo y uno pristino ~3, para acabar los dos clavados en el mismo 40%: la
+# rareza te quitaba margen y no te subia el techo. Era justo lo que cap_rareza existe para evitar.
+# Ahora el bloqueo es del TAMAÑO + Refuerzo, como la velocidad y la esquiva: la rareza y el tier
+# se notan en la DEF (sin techo) y en los HUECOS de mejora, que es donde caben.
 static func shield_mods(sh: ShieldData, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
 	var n := mejoras_combate(mejoras)   # la Durabilidad no cuenta para el +10% de DEF
 	var rmult := rareza_mult(rareza)
@@ -351,8 +360,12 @@ static func shield_mods(sh: ShieldData, tmult: float, rareza: int, mejoras: Dict
 	return {
 		# Lo que hace bueno a un escudo. Solo cuenta al Defender (ver Combatant.defend_defense).
 		"def": sh.defensa_base * rmult * (1.0 + subida) * tmult,
-		# Del tamaño + Refuerzo, capado por la propia pieza. Sin tier a proposito.
-		"bloqueo": minf(sh.bloqueo_max, sh.bloqueo + dim_sum(REFUERZO_STEP, _count(mejoras, REFUERZO)) * rmult),
+		# Del TAMAÑO + Refuerzo, sin tier ni rareza (arriba el porque). Y sin tope propio: el
+		# dim_sum ya asintota solo en STEP/(1-DECAY) = +0.25, asi que el escudo grande se planta
+		# en 0.45 (0.75 con el 0.30 de base) y nunca llega a morder el 80% global. Un tope duro
+		# ademas convertia el Refuerzo en un acantilado: subia y de golpe cada punto valia CERO.
+		# Asi cada punto SIEMPRE suma algo, cada vez menos, como en el resto del juego.
+		"bloqueo": sh.bloqueo + dim_sum(REFUERZO_STEP, _count(mejoras, REFUERZO)),
 		"vel_mult": sh.velocidad_mult,        # del tamaño: crudo a proposito
 		"evasion_penal": sh.evasion_penal,    # del tamaño: crudo a proposito
 		"resist_estados": (sh.resist_estados_base + dim_sum(RESISTENCIA_STEP, _count(mejoras, RESISTENCIA))) * rmult,

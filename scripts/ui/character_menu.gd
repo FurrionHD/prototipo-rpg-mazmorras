@@ -609,6 +609,34 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 		_note(vb, "    " + _lista_mejoras(mejoras))
 
 
+# La ficha del ESCUDO, hermana de _weapon_stats: mismos numeros REALES (Upgrades.shield_mods,
+# la math del combate) y el mismo desglose "base + (lo que ponen las mejoras) = total". Antes
+# tiraba de MenuScaffold.filas_escudo, que da el numero pelado: veias "Bloqueo 15%" y no habia
+# forma de saber que 5 de esos puntos los ponia el Refuerzo que acababas de forjar. El arma si
+# lo desglosaba, asi que mejorar un escudo era el unico sitio donde no veias lo que comprabas.
+func _shield_stats(vb: VBoxContainer, sh: ShieldData, tier: int, rareza: int, mejoras: Dictionary) -> void:
+	var tmult: float = Game.tier_mult(tier)
+	var mods: Dictionary = Upgrades.shield_mods(sh, tmult, rareza, mejoras)
+	# El BASE de ESTE escudo: el mismo, con su tier y su rareza, pero sin mejoras.
+	var base: Dictionary = Upgrades.shield_mods(sh, tmult, rareza, {})
+
+	var tamanos: Array = MenuScaffold.SHIELD_TAMANO_LABELS
+	_row(vb, "  Tipo", "Escudo %s  ·  mano secundaria"
+		% String(tamanos[clampi(int(sh.tamano), 0, tamanos.size() - 1)]).to_lower())
+	# Lo primero, la DEFENSA: es lo que crece con tier, rareza y mejoras. Y solo cuenta al Defender.
+	_row(vb, "  Defensa al bloquear", _con_mejoras("%.1f", float(base["def"]), float(mods["def"])))
+	# El bloqueo NO lleva tier ni rareza (es del tamaño): lo unico que lo sube es el Refuerzo, y
+	# eso es justo lo que enseña el parentesis.
+	_row(vb, "  Bloqueo", _con_mejoras_pct(float(base["bloqueo"]), float(mods["bloqueo"])))
+	if float(mods["resist_estados"]) > 0.0:
+		_row(vb, "  Resist. estados",
+			_con_mejoras_pct(float(base["resist_estados"]), float(mods["resist_estados"])))
+	# Velocidad y penalizacion de esquiva salen del TAMAÑO y no las toca nada: sin desglose,
+	# porque no hay nada que desglosar (ver shield_mods).
+	_row(vb, "  Velocidad", "×%.2f" % float(mods["vel_mult"]))
+	_row(vb, "  Penal. esquiva", "-%s" % _fmt_pct(float(mods["evasion_penal"])))
+
+
 # Las lineas magicas (baston y varita comparten math: Upgrades.magic_mods). 'mg' = con mejoras,
 # 'mgb' = el mismo item SIN ellas (su base con tier y rareza).
 func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base: float, cast_base: float) -> void:
@@ -660,8 +688,7 @@ func _off_stats(vb: VBoxContainer, item: Resource) -> void:
 	var rareza: int = int(m["rareza"])
 	var mejoras: Dictionary = m["mejoras"]
 	if item is ShieldData:
-		for f in MenuScaffold.filas_escudo(item as ShieldData, tier, rareza, mejoras):
-			_row(vb, "  " + str(f[0]), str(f[1]))
+		_shield_stats(vb, item as ShieldData, tier, rareza, mejoras)
 	elif item is WandData:
 		var wd := item as WandData
 		var tm: float = Game.tier_mult(tier)
