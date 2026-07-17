@@ -67,6 +67,13 @@ class_name AbilityData
 # enemigos de momento (el jugador no tiene cargas). 0 = ataque instantaneo normal.
 @export var carga_turnos: int = 0
 
+# INVOCACION (Rey Slime, jefe piso 6): habilidad que mete slimes VIVOS en el combate en curso.
+# invoca_cantidad > 0 la marca como "de invocacion" (como dano_mult marca las de daño); es de pura
+# utilidad (dano_mult = 0). invoca_pool = EnemyData entre los que elige al azar cada slime que saca.
+# Suele ir telegrafiada (carga_turnos) para dar contrajuego. Ver combat.gd._invocar_slime.
+@export var invoca_pool: Array = []      # Array[EnemyData]; vacio = no invoca nada
+@export var invoca_cantidad: int = 0     # cuantos slimes por lanzamiento (el Rey saca 2)
+
 # COOLDOWN (KAN-57): turnos que debes ESPERAR para volver a usarla. 0 = sin cooldown
 # (usable cada turno). N = tras usarla, no vuelve a estar disponible hasta N turnos
 # tuyos despues. El estado (turnos restantes) vive en el Combatant, no aqui (recurso
@@ -152,6 +159,8 @@ func resumen(manos: int = 1) -> String:
 	var c: float = coste(manos)
 	if c > 0.0:
 		p.append("%.0f EN" % c)
+	if invoca_cantidad > 0:
+		p.append("invoca %d" % invoca_cantidad)
 	if carga_turnos > 0:
 		p.append("carga %dt" % carga_turnos)
 	if cooldown > 0:

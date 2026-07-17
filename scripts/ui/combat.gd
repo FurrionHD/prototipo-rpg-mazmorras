@@ -148,6 +148,11 @@ var _player: Combatant
 var _enemies: Array[Combatant] = []
 var _target_idx: int = 0
 var _gauge: Dictionary = {}   # SOLO vivos: al morir uno se le hace erase (sale del orden de turnos)
+# INVOCADOS (Rey Slime): indices de _enemies que son slimes INVOCADOS a mitad de combate. No tienen
+# nodo en la mazmorra (existen solo en la pelea), asi que al cerrar se reportan SIEMPRE como muertos
+# (ver _on_continue_pressed): reusar el hueco de un cadaver no debe reanimar al nodo original, y un
+# invocado nunca deja rastro en el mapa. Tambien se descuentan del maná-al-matar (ver _end).
+var _slots_invocados: Dictionary = {}
 
 # Tope de enemigos en una pelea. Lo aplica enemy.gd al reclutar vecinos (MAX_COMBATIENTES);
 # aqui sirve de contrato para la UI (bloques y numeracion).
@@ -568,6 +573,54 @@ func _apagar_bloque(e: Combatant) -> void:
 	b["chips"].visible = false
 
 
+# INVOCACION (Rey Slime, Parte B): mete un slime VIVO en la pelea en curso. Prefiere REUTILIZAR el
+# hueco de un cadaver (mantiene el tope de 4 y la numeracion estable, sin apilar bloques); si no hay
+# cadaver y queda sitio, añade uno al final. Devuelve false si no hay hueco (sequito lleno).
+# El slime nace flojo (t bajo): su papel es ser ESCUDO del Rey (reduccion de daño), no matarte.
+func _invocar_slime(data: EnemyData) -> bool:
+	if data == null:
+		return false
+	var idx: int = -1
+	for i in _enemies.size():
+		if not _enemies[i].is_alive():
+			idx = i   # hueco de cadaver: se reutiliza
+			break
+	if idx < 0 and _enemies.size() >= MAX_ENEMIGOS:
+		return false   # ni cadaver ni sitio: no cabe
+	var c: Combatant = data.crear_combatant(0.2)
+	if idx >= 0:
+		_enemies[idx] = c            # reemplaza al cadaver en su slot
+		_revivir_bloque(idx, c)
+	else:
+		idx = _enemies.size()        # append: slot nuevo al final
+		_enemies.append(c)
+		var b: Dictionary = _crear_bloque(c, idx + 1, idx)
+		_bloques.append(b)
+		_bloques_box.add_child(b["panel"])
+	# Estructuras por-combatiente (mismas que puebla el arranque): ATB, marcador y roster del escudo.
+	_gauge[c] = 0.0                  # entra con la barra a cero (no regala una accion inmediata)
+	if _timeline != null:
+		_timeline.anadir(c, c.color_visual, null, str(idx + 1))
+	c.battle_enemies = _enemies      # referencia compartida: cuenta para el escudo del Rey
+	_slots_invocados[idx] = true
+	print("[invocacion] entra %s en el slot %d (vivos: %d)" % [c.nombre, idx + 1, _vivos().size()])
+	return true
+
+
+# Vuelve a ENCENDER el bloque de un slot que reutiliza una invocacion: deshace _apagar_bloque y
+# reajusta la barra al maximo del nuevo combatiente (el bloque nacio con el max del cadaver anterior).
+# El nombre y la vida los refresca _update_hp solo (lee _enemies[i]).
+func _revivir_bloque(i: int, c: Combatant) -> void:
+	if i < 0 or i >= _bloques.size():
+		return
+	var b: Dictionary = _bloques[i]
+	b["panel"].modulate = Color(1, 1, 1)
+	b["panel"].mouse_filter = Control.MOUSE_FILTER_STOP
+	b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
+	b["chips"].visible = true
+	b["hp"].max_value = c.max_hp
+
+
 # Crea las barras de ENERGIA (amarilla) y MANA (azul) del jugador, justo debajo de su barra de
 # vida, DENTRO de su bloque. Solo una vez.
 func _crear_barras_jugador() -> void:
@@ -933,7 +986,10 @@ func _on_continue_pressed() -> void:
 	var muertos: Array = []
 	var hp_left: Array = []
 	for i in _enemies.size():
-		if not _enemies[i].is_alive():
+		# Los INVOCADOS (Rey Slime) van SIEMPRE como muertos: no tienen nodo en la mazmorra, asi que
+		# no dejan cadaver que reanimar. Ademas, si el slot reutiliza el hueco de un enemigo real que
+		# cayo, forzarlo a muerto evita que Game reanime al original (con la vida del invocado) al huir.
+		if not _enemies[i].is_alive() or _slots_invocados.has(i):
 			muertos.append(i)
 		hp_left.append(_enemies[i].current_hp)
 	combat_finished.emit(_player_won, _player.current_hp, _player.current_mp,
@@ -1836,12 +1892,22 @@ func _enemy_turn(e: Combatant) -> void:
 		_enemy_use_ability(e, cargada)
 		return
 
+	# INVOCACION (Rey Slime): tiene PRIORIDAD sobre todo lo demas. Si el Rey trae una habilidad de
+	# invocacion lista y hay sitio para meter slimes, la lanza SIEMPRE (telegrafiada). Va antes del
+	# roll normal para que "siempre que la tenga sin cd" se cumpla, y el gate evita malgastarla con
+	# el sequito ya lleno.
+	if not _dps_on:
+		var inv: AbilityData = _invocacion_lista(e)
+		if inv != null:
+			_enemy_begin_charge(e, inv)   # carga_turnos > 0 -> se anuncia; aturdirlo la interrumpe
+			return
+
 	# Decision: usar una HABILIDAD (si tiene alguna lista y sale la tirada) o atacar normal.
 	# En modo muñeco (Saco/Pegador) NO usa habilidades: mantiene limpias las pruebas de DPS/armadura.
 	var listas: Array = []
 	if not _dps_on:
 		for ab in e.habilidades:
-			if e.ability_ready(ab):
+			if e.ability_ready(ab) and ab.invoca_cantidad <= 0:   # la invocacion ya se decidio arriba
 				listas.append(ab)
 	if not listas.is_empty() and randf() < e.prob_habilidad:
 		var elegida: AbilityData = listas[randi() % listas.size()]
@@ -1929,6 +1995,30 @@ func _enemy_turn(e: Combatant) -> void:
 # Empieza a cargar un ataque telegrafiado: no pega este turno, lo anuncia. El cooldown
 # arranca YA (para que no reintente cargar en cuanto dispare). Aturdirlo mientras carga
 # lo cancela (ver _enemy_turn). Te da tus turnos para defender/curarte/reventarlo.
+# Devuelve la habilidad de INVOCACION lista de 'e' (Rey Slime) si toca lanzarla, o null. "Toca" =
+# la tiene fuera de cooldown Y hay sitio para meter slimes (sequito no lleno). El Rey la prioriza.
+func _invocacion_lista(e: Combatant) -> AbilityData:
+	for ab in e.habilidades:
+		if ab.invoca_cantidad > 0 and e.ability_ready(ab) and _hay_sitio_para_invocar(e):
+			return ab
+	return null
+
+
+# ¿Cabe invocar mas slimes al lado de 'e'? False si el escudo ya esta al tope (MAX_ENEMIGOS-1 = 3
+# slimes vivos aparte del Rey) o si no hay hueco (ni cadaver reutilizable ni sitio para uno nuevo).
+func _hay_sitio_para_invocar(e: Combatant) -> bool:
+	var escolta_viva: int = 0
+	var hay_hueco: bool = _enemies.size() < MAX_ENEMIGOS
+	for c in _enemies:
+		if c == e:
+			continue
+		if not c.is_alive():
+			hay_hueco = true   # cadaver: se puede reutilizar su slot
+		elif c.es_slime:
+			escolta_viva += 1
+	return escolta_viva < MAX_ENEMIGOS - 1 and hay_hueco
+
+
 func _enemy_begin_charge(e: Combatant, ab: AbilityData) -> void:
 	e.charging = ab
 	e.charge_left = ab.carga_turnos
@@ -1991,6 +2081,18 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData) -> void:
 		# Habilidad de puro estado (sin daño): tira sus efectos directamente.
 		estados_log += _enemy_tirar_efectos(e, ab)
 
+	# INVOCACION (Rey Slime): saca hasta invoca_cantidad slimes al azar del pool. Para si se queda
+	# sin hueco (sequito lleno / tope de 4). Va aparte del daño/estados: una habilidad podria pegar
+	# Y invocar, aunque la del Rey es de pura invocacion (dano_mult 0).
+	var invocados: int = 0
+	if ab.invoca_cantidad > 0 and not ab.invoca_pool.is_empty():
+		for _k in range(ab.invoca_cantidad):
+			var pick: EnemyData = ab.invoca_pool[randi() % ab.invoca_pool.size()]
+			if not _invocar_slime(pick):
+				break   # no cabe ninguno mas
+			invocados += 1
+		_update_hp()   # refresca los bloques revividos/nuevos (nombre + barra)
+
 	# Excelia: recibir el golpe entrena Resistencia (como en el ataque basico), modulada
 	# por el daño total encajado.
 	if total > 0.0:
@@ -2006,6 +2108,8 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData) -> void:
 	if not estados_log.is_empty():
 		# Neutro: las entradas ya dicen "(a sí mismo)" cuando el estado es un buff propio.
 		msg += "  Aplica: %s." % ", ".join(estados_log)
+	if invocados > 0:
+		msg += "  ¡Brotan %d slime%s a su lado! 🟢" % [invocados, "" if invocados == 1 else "s"]
 	if contra_txt != "":
 		msg += "  " + contra_txt
 	_set_log(msg)
@@ -2184,13 +2288,16 @@ func _end(player_won: bool, fled: bool = false) -> void:
 		# (la primera es el maná por golpe): recuperar magia sale de PELEAR, no de esperar. Huir
 		# no lo da: hay que rematar. Va antes de combat_finished, que arrastra el maná.
 		var mp_vic: float = 0.0
-		if _player.is_alive() and _player.max_mp > 0.0 and _player.current_mp < _player.max_mp:
+		# Solo cuentan los enemigos con NUCLEO real (los del mundo): los slimes INVOCADOS por el Rey
+		# no dan maná, o el Rey seria un grifo infinito de maná para un mago (invoca -> matas -> maná).
+		var kills_reales: int = _enemies.size() - _slots_invocados.size()
+		if _player.is_alive() and _player.max_mp > 0.0 and _player.current_mp < _player.max_mp and kills_reales > 0:
 			var antes: float = _player.current_mp
-			_player.regen_mana(StatsMath.mp_por_kill(_player.mp_regen_turno, _enemies.size()))
+			_player.regen_mana(StatsMath.mp_por_kill(_player.mp_regen_turno, kills_reales))
 			mp_vic = _player.current_mp - antes
 			_update_hp()
 			print("[combate] maná de los nucleos: +%.2f (%d enemigo%s, regen del arma %.2f) -> %.2f/%.2f" % [
-				mp_vic, _enemies.size(), "" if _enemies.size() == 1 else "s",
+				mp_vic, kills_reales, "" if kills_reales == 1 else "s",
 				_player.mp_regen_turno, _player.current_mp, _player.max_mp])
 		var caidos: String = _enemies[0].nombre if _enemies.size() == 1 \
 			else "%d enemigos" % _enemies.size()

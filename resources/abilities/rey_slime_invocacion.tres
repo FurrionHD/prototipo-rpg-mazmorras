@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/slime.tres" id="2_slime"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_veneno.tres" id="3_veneno"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_fuego.tres" id="4_fuego"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_abisal.tres" id="5_abisal"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Brote"
+descripcion = "Su masa se agita y borbotea: de él se desprenden pedazos que cobran vida propia y se ponen delante."
+coste_energia = 0.0
+dano_mult = 0.0
+invoca_pool = [ExtResource("2_slime"), ExtResource("3_veneno"), ExtResource("4_fuego"), ExtResource("5_abisal")]
+invoca_cantidad = 2
+carga_turnos = 1
+cooldown = 4

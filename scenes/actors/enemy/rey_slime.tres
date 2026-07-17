@@ -7,6 +7,7 @@
 [ext_resource type="Resource" path="res://resources/abilities/rey_slime_aplastamiento.tres" id="5_apl"]
 [ext_resource type="Resource" path="res://resources/abilities/rey_slime_escision.tres" id="6_esc"]
 [ext_resource type="Resource" path="res://resources/abilities/rey_slime_marea.tres" id="7_mar"]
+[ext_resource type="Resource" path="res://resources/abilities/rey_slime_invocacion.tres" id="8_inv"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
@@ -45,6 +46,6 @@ drop_chance = 1.0
 nucleo = ExtResource("4_nuc")
 nucleo_chance = 1.0
 al_golpear = [SubResource("SA_peg")]
-habilidades = [ExtResource("5_apl"), ExtResource("6_esc"), ExtResource("7_mar")]
+habilidades = [ExtResource("5_apl"), ExtResource("6_esc"), ExtResource("7_mar"), ExtResource("8_inv")]
 prob_habilidad = 0.7
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
