@@ -6,15 +6,18 @@
 [sub_resource type="Resource" id="SA_mojado"]
 script = ExtResource("2")
 estado = 12
-prob = 0.35
+prob = 0.45
 
 [resource]
 script = ExtResource("1")
-nombre = "Chorro de agua"
+nombre = "Torrente"
 tipo = 0
 elemento = 2
-frases = Array[String](["Que la corriente me responda", "Rompete contra mi enemigo"])
-coste_mana = 8
-dano_base = 18.0
+frases = Array[String](["Que el rio rompa su cauce", "Arrasa cuanto se te ponga delante"])
+coste_mana = 11
+dano_base = 13.0
+alcance = 2
+dano_objetivo = 1.0
+dano_salpicon = 1.0
 efectos = [SubResource("SA_mojado")]
-descripcion = "Una lanza de presión que revienta contra el enemigo y lo deja empapado. Devastador contra criaturas de fuego."
+descripcion = "Hechizo medio de agua. Una avenida que rompe sobre TODA la fila: a diferencia del rocio, esta si duele, y empapa a casi todos de una pasada. Deja el terreno listo para que el fuego arda peor y el rayo conduzca mejor."

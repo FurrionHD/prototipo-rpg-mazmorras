@@ -11,11 +11,16 @@ magnitud = 8.0
 
 [resource]
 script = ExtResource("1")
-nombre = "Bola de Fuego"
+nombre = "Andanada ígnea"
 tipo = 0
 elemento = 1
-frases = Array[String](["Que la llama primigenia despierte", "Ceniza y brasa, obedeced"])
-coste_mana = 8
-dano_base = 19.5
+hits = 4
+frases = Array[String](["Alzo la mano y el cielo se prende", "Caed, brasas, sin clemencia"])
+coste_mana = 11
+dano_base = 14.0
+alcance = 1
+dano_objetivo = 1.5
+dano_salpicon = 0.75
+dispersa = true
 efectos = [SubResource("SA_quema")]
-descripcion = "Hechizo medio de fuego. Dos frases: mas dano a cambio de un turno extra recitando. Quema mas facil."
+descripcion = "Hechizo medio de fuego. No una bola, sino una salva: varias caen a la vez donde les da la gana y cada una revienta en llamas, lamiendo a los que tenga al lado. Cuanto mas apretado venga el grupo, mas arde."

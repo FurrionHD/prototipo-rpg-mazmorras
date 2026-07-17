@@ -85,6 +85,16 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 # cuando hay pocos enemigos. Asi la ficha dice la verdad con 1 y con 4.
 @export var rebote_estados: bool = false
 
+# --- DISPERSION: los GOLPES caen repartidos a enemigos VIVOS al AZAR ---
+# Distinto de los rebotes: aqui cada uno de los 'hits' es un lanzamiento de pleno derecho.
+# Cada golpe elige un vivo al azar (recalculado por golpe, nunca un cadaver) y aplica ahi el
+# ALCANCE del hechizo: si 'alcance' salpica, cada golpe ademas lame a los adyacentes de SU
+# punto de impacto. A diferencia de los rebotes, SI tira los estados (una tormenta moja y una
+# andanada quema). En 1v1 todo cae sobre el unico enemigo, asi que no pierde daño single.
+#   Tormenta: hits=20, alcance=OBJETIVO -> 20 impactos sueltos repartidos.
+#   Andanada: hits=4,  alcance=ADYACENTES -> 4 bolas al azar que salpican 150/75 donde caen.
+@export var dispersa: bool = false
+
 # --- IMBUICION: el hechizo no pega, TIÑE tus golpes de arma con su 'elemento' ---
 # imbue_tipo: 0 = no es imbuicion | 1 = ARMA (solo ofensiva) | 2 = CUERPO (ademas te da la
 # AFINIDAD del elemento: resistencias, debilidades e inmunidades; casteo mas largo).
@@ -142,7 +152,7 @@ func salpica() -> bool:
 # ¿Toca a mas de un enemigo? Lo que decide si el combate usa la ruta multi-objetivo (y su
 # log compacto) o la de siempre.
 func es_multiobjetivo() -> bool:
-	return salpica() or rebotes_n() > 0
+	return salpica() or rebotes_n() > 0 or dispersa
 
 
 # Peso (0..1) de un elemento en el reparto. Sin reparto: 1.0 para el elemento del hechizo.
@@ -238,6 +248,13 @@ func rebotes_texto() -> String:
 		rebotes_n(), "" if rebotes_n() == 1 else "s", roundi(dano_rebote * 100.0)]
 
 
+# DISPERSION en texto ("4 golpes dispersos al azar"). "" si no dispersa.
+func dispersa_texto() -> String:
+	if not dispersa:
+		return ""
+	return "%d golpes dispersos al azar" % golpes()
+
+
 func es_imbuicion() -> bool:
 	return imbue_tipo > 0
 
@@ -269,6 +286,8 @@ func resumen() -> String:
 			p.append(alcance_texto())
 		if rebotes_n() > 0:
 			p.append(rebotes_texto())
+		if dispersa:
+			p.append(dispersa_texto())
 	if es_imbuicion():
 		p.append("imbuye el %s de %s" % [imbue_texto(), Elementos.nombre(elemento)])
 		p.append("+%d%% de daño" % roundi(imbue_pct * 100.0))

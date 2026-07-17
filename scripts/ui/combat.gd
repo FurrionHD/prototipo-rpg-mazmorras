@@ -1142,10 +1142,17 @@ func _disparar_hechizo() -> void:
 		# consume UNA vez y multiplica TODOS los golpes (los del area y los de los rebotes).
 		var foco: float = _player.consumir_foco()
 		# 1) AREA: el principal y a quien salpique, cada uno con su multiplicador.
+		#    DISPERSA (Tormenta, Andanada): los golpes no van al objetivo fijo, sino repartidos
+		#    a vivos al azar; cada bola aplica ahi el alcance del hechizo. Ver _resolver_dispersa.
 		var res_area: Array = []
-		for t in _objetivos_area(spell, obj):
-			res_area.append(_resolver_golpes_hechizo(spell, t.c, foco, float(t.escala)))
-			tocados.append(t.c)
+		if spell.dispersa:
+			res_area = _resolver_dispersa(spell, foco)
+			for r in res_area:
+				tocados.append(r.c)
+		else:
+			for t in _objetivos_area(spell, obj):
+				res_area.append(_resolver_golpes_hechizo(spell, t.c, foco, float(t.escala)))
+				tocados.append(t.c)
 		# 2) REBOTES: DESPUES del area, cada uno a un vivo al azar. _vivos() se recalcula en
 		# CADA rebote, asi que la cadena nunca cae sobre un cadaver (ni sobre el que acaba de
 		# tumbar el rebote anterior).
@@ -1279,6 +1286,57 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		"c": objetivo, "dano": total, "mult": ultimo_mult,
 		"golpes": trail.size(), "trail": trail, "estados": aplicados,
 	}
+
+
+# DISPERSION (Tormenta, Andanada ignea): cada uno de los 'hits' es una BOLA que cae en un vivo
+# al AZAR y aplica ahi el ALCANCE del hechizo (solo el objetivo, o + los adyacentes si salpica).
+# Se recalculan los vivos POR BOLA, asi ninguna cae sobre un cadaver. Al reves que los rebotes,
+# SI tira estados. Agrega POR objetivo y devuelve el array con la forma que consume _log_hechizo
+# (una entrada {c, dano, mult, golpes, trail, estados} por enemigo tocado).
+# En 1v1 todas las bolas caen sobre el unico enemigo: no pierde nada de su daño single-target.
+func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
+	var n: int = spell.golpes()
+	var acc: Dictionary = {}     # Combatant -> {c, dano, mult, golpes, trail, estados}
+	var anun: Dictionary = {}    # Combatant -> estados ya anunciados (no repetir en el log)
+	var orden: Array = []        # orden de aparicion, para un log estable
+	for i in n:
+		var vivos: Array[Combatant] = _vivos()
+		if vivos.is_empty():
+			break   # no queda nadie: los golpes que faltaban se pierden
+		var principal: Combatant = vivos.pick_random()
+		# Cada bola aplica el alcance del hechizo en SU punto de impacto (150/75 en la Andanada;
+		# solo el objetivo en la Tormenta). El dano_base se reparte entre las N bolas: escala/N.
+		for t in _objetivos_area(spell, principal):
+			var obj: Combatant = t.c
+			if not obj.is_alive():
+				continue
+			var elem: int = spell.elemento_de_golpe()
+			var res: Dictionary = StatsMath.resolve_spell(_player, obj, spell, elem, float(t.escala) / float(n))
+			var dmg: float = float(res.damage) * foco
+			var mult: float = float(res.get("mult_elem", 1.0))
+			obj.take_damage(dmg)
+			Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
+			if not acc.has(obj):
+				acc[obj] = {"c": obj, "dano": 0.0, "mult": 1.0, "golpes": 0, "trail": [], "estados": []}
+				anun[obj] = {}
+				orden.append(obj)
+			var a: Dictionary = acc[obj]
+			a.dano = float(a.dano) + dmg
+			a.mult = mult
+			a.golpes = int(a.golpes) + 1
+			a.trail.append("%s%.1f%s" % [Elementos.icono(elem), dmg, _mult_sufijo(mult)])
+			print("[magia] %s bola %d/%d %s sobre %s: %.2f (x%.2f)" % [
+				spell.nombre, i + 1, n, Elementos.nombre(elem), obj.nombre, dmg, mult])
+			# La lluvia que moja amplifica (x1.5) los rayos que caigan DETRAS: el golpe gasta lo
+			# que lo amplificaba, igual que en la ruta normal.
+			_gastar_amplificadores(obj, elem)
+			# Estados de ESTE golpe (solo los de su elemento). Multi-objetivo: el log lo pliega
+			# _log_hechizo de una sentada, aqui solo se acumulan los que ENTRAN.
+			_aplicar_estado_hechizo(spell, obj, elem, false, anun[obj], true, a.estados)
+	var out: Array = []
+	for obj in orden:
+		out.append(acc[obj])
+	return out
 
 
 # CUENTA en el log un hechizo ya resuelto y devuelve el daño TOTAL.
