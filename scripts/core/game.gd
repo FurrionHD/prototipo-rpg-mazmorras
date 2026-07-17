@@ -10,8 +10,9 @@ extends Node
 
 # --- Stats del jugador (de momento fijas aqui; luego vendran de su .tres) ---
 var player_level: int = 1
-# Habilidades VISIBLES (las que usa el combate/capacidad). Empiezan a 0 y solo
-# se actualizan al "volver al hogar" (tecla U -> actualizar_estado()).
+# Habilidades VISIBLES (las que usa el combate/capacidad). Empiezan a 0 y solo se actualizan al
+# DESCANSAR en el altar (actualizar_estado()). Se DERIVAN de ability_consolidado, no del interno:
+# lo ganado desde el ultimo descanso esta pendiente hasta que vuelvas.
 var player_fuerza: int = 0
 var player_resistencia: int = 0
 var player_destreza: int = 0
@@ -42,6 +43,12 @@ var player_current_mp: float = -1.0
 # sincroniza al "actualizar estado" (hogar). Rendimientos decrecientes segun
 # el interno; dificultad relativa (enemigo/accion facil = sube poco).
 var ability_internal: Dictionary = {
+	"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+# Lo CONSOLIDADO: el valor que tenia ability_internal en el ultimo "actualizar estado" del altar.
+# Lo VISIBLE se deriva de aqui (no del interno), asi que la excelia ganada desde entonces esta
+# PENDIENTE: existe (cuenta para stat_total: reto y recoleccion) pero todavia no te la has puesto.
+# Descansar en el altar es lo unico que la pasa de un sitio al otro. Ver actualizar_estado().
+var ability_consolidado: Dictionary = {
 	"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
 # SUBIR DE NIVEL (estilo DanMachi): al subir NO se borra ability_internal (el total acumulado se
 # queda OCULTO de fondo y sigue alimentando recoleccion/reto). Lo que se resetea es el VISIBLE:
@@ -445,7 +452,7 @@ var player_metalico: float = 0.0           # acabado metalico del cuerpo (shader
 # color plano). Se guardan los bytes y NO la ruta al fichero del jugador a proposito: una ruta se
 # rompe en cuanto mueve, renombra o borra el original, y la partida se quedaria sin cara. Asi el
 # .tres de la ranura es autonomo: se puede copiar de PC y sigue entero, y Perfil.borrar no tiene
-# que ir a limpiar ficheros sueltos por ahi. Entra ya encogida (ver png_de_imagen).
+# que ir a limpiar ficheros sueltos por ahi. Entra ya encogida y CUADRADA (ver png_cuadrado).
 var player_imagen_png: PackedByteArray = PackedByteArray()
 # Cuanto TIÑE el color por encima de la imagen (0 = imagen limpia, 1 = solo color). Sin imagen da
 # igual: la base ya es el color.
@@ -457,7 +464,15 @@ var _tex_cuerpo: ImageTexture = null
 
 # El cuerpo son 32 px en pantalla: guardar el fotardo de 4000x4000 del movil solo engordaria el
 # save (el .tres es TEXTO, asi que los bytes van en base64 y abultan ~1/3 mas).
+#
+# CUADRADO a proposito: el cuerpo del mapa es un ColorRect de 32x32 y el shader estira la imagen
+# al rect via UV. Guardando ya un cuadrado, la proporcion no se toca en ningun sitio y lo que se
+# ve en el editor es literalmente lo que se ve en el mapa. Lo que se recorta lo elige el jugador.
 const IMAGEN_CUERPO_MAX := 128
+# La FUENTE que se edita en el creador se queda mas grande que el resultado: al ampliar (zoom) se
+# recorta un trozo pequeño del original, y si la fuente fuera ya de 128 ese trozo se veria a
+# bloques. Esta imagen no se guarda: solo vive mientras la pantalla del editor esta abierta.
+const IMAGEN_FUENTE_MAX := 512
 
 const SHADER_METAL: Shader = preload("res://shaders/metal.gdshader")
 
@@ -489,18 +504,43 @@ func textura_cuerpo() -> Texture2D:
 			push_warning("[personaje] la imagen guardada no se puede leer: cuerpo de color plano")
 	return _tex_cuerpo
 
-# Lee una imagen del disco del jugador (PNG/JPG/WEBP), la encoge a IMAGEN_CUERPO_MAX conservando
-# la proporcion y devuelve su PNG. Vacio = no se pudo leer. Se reencoda a PNG SIEMPRE aunque
-# entre un JPG: asi lo guardado es un unico formato y load_png_from_buffer no tiene sorpresas.
-static func png_de_imagen(ruta: String) -> PackedByteArray:
+# Lee una imagen del disco del jugador (PNG/JPG/WEBP) y la encoge a IMAGEN_FUENTE_MAX conservando
+# la proporcion. null = no se pudo leer. NO recorta: esto es la FUENTE que el jugador encuadra en
+# el editor; el recorte lo hace png_cuadrado con el zoom y el centro que él elija.
+static func imagen_de_archivo(ruta: String) -> Image:
 	var img: Image = Image.load_from_file(ruta)
 	if img == null or img.is_empty():
-		return PackedByteArray()
+		return null
 	var lado: int = maxi(img.get_width(), img.get_height())
-	if lado > IMAGEN_CUERPO_MAX:
-		var f: float = float(IMAGEN_CUERPO_MAX) / float(lado)
+	if lado > IMAGEN_FUENTE_MAX:
+		var f: float = float(IMAGEN_FUENTE_MAX) / float(lado)
 		img.resize(maxi(1, int(img.get_width() * f)), maxi(1, int(img.get_height() * f)),
 			Image.INTERPOLATE_LANCZOS)
+	return img
+
+# Recorta un CUADRADO de src y devuelve el PNG final de IMAGEN_CUERPO_MAX x IMAGEN_CUERPO_MAX.
+# Vacio si src no vale. zoom >= 1 (1 = el cuadrado mas grande que quepa; 2 = la mitad de lado, o
+# sea el doble de cerca). centro va normalizado (0..1) sobre la imagen: (0.5, 0.5) = centrada.
+#
+# El rect se CLAMPEA para que no se salga: asi arrastrar hasta el borde para la imagen en seco en
+# vez de meter una franja transparente (o de petar get_region con un rect invalido).
+#
+# Es la MISMA funcion que alimenta la muestra del editor y el guardado, y eso es a proposito: si
+# el preview se pintara por otra via, cualquier dia dejarian de coincidir.
+#
+# Se reencoda a PNG SIEMPRE aunque entre un JPG: asi lo guardado es un unico formato y
+# load_png_from_buffer no tiene sorpresas.
+static func png_cuadrado(src: Image, zoom: float = 1.0, centro: Vector2 = Vector2(0.5, 0.5)) -> PackedByteArray:
+	if src == null or src.is_empty():
+		return PackedByteArray()
+	var w: int = src.get_width()
+	var h: int = src.get_height()
+	var lado: int = maxi(1, int(float(mini(w, h)) / maxf(1.0, zoom)))
+	# El centro se mueve solo por el margen que deja el recorte (de ahi el clamp del origen).
+	var x: int = clampi(int(centro.x * float(w)) - lado / 2, 0, maxi(0, w - lado))
+	var y: int = clampi(int(centro.y * float(h)) - lado / 2, 0, maxi(0, h - lado))
+	var img: Image = src.get_region(Rect2i(x, y, lado, lado))
+	img.resize(IMAGEN_CUERPO_MAX, IMAGEN_CUERPO_MAX, Image.INTERPOLATE_LANCZOS)
 	return img.save_png_to_buffer()
 
 # Material del CUERPO del personaje con el aspecto que toque. Lo usan el jugador del mapa
@@ -546,6 +586,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 
 	player_level = 1
 	ability_internal = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+	ability_consolidado = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
 	# Estado de subida de nivel a cero (por si venias de otra partida en la misma sesion).
 	ability_base_nivel = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
 	player_base_hp = 50.0
@@ -648,6 +689,7 @@ func exportar_partida() -> SaveData:
 	d.imagen = player_imagen_png
 	d.color_alpha = player_color_alpha
 	d.ability_internal = ability_internal.duplicate()
+	d.ability_consolidado = ability_consolidado.duplicate()
 	d.player_level = player_level
 	d.ability_base_nivel = ability_base_nivel.duplicate()
 	d.player_base_hp = player_base_hp
@@ -748,6 +790,9 @@ func importar_partida(d: SaveData) -> void:
 	set_imagen_cuerpo(d.imagen)   # por el setter: hay que tirar la textura cacheada de la anterior
 
 	ability_internal = d.ability_internal.duplicate()
+	# VACIO = partida guardada antes de que existiera el campo: se iguala al interno, o sea, se
+	# carga con todo consolidado, que es exactamente como se comportaba. No pierde nada.
+	ability_consolidado = d.ability_consolidado.duplicate() if d.ability_consolidado else ability_internal.duplicate()
 	player_level = d.player_level
 	ability_base_nivel = d.ability_base_nivel.duplicate() if d.ability_base_nivel else {
 		"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
@@ -774,7 +819,10 @@ func importar_partida(d: SaveData) -> void:
 	recitado_exp = d.recitado_exp
 	dano_recibido_exp = d.dano_recibido_exp
 	dano_infligido_exp = d.dano_infligido_exp
-	actualizar_estado()   # deriva las stats VISIBLES de las internas (y sube rangos si el contador ya da)
+	# DERIVAR y no actualizar_estado(): cargar la partida NO es descansar. Si esto consolidara,
+	# guardar y volver a entrar seria un altar gratis desde cualquier sitio (y era justo lo que
+	# pasaba: al llegar al altar ya tenias los numeros nuevos puestos y el boton no sumaba nada).
+	_derivar_visible()
 	pack_inicial_reclamado = d.pack_inicial
 	bosses_derrotados = d.bosses_derrotados.duplicate()
 	# El historial de recompra es de SESION: cargar partida no te devuelve el mostrador del
@@ -1975,6 +2023,7 @@ func _aplicar_loadout(c: Combatant) -> void:
 	c.set_hands(m["hands"])
 	c.defend_block = m["defend_block"]
 	c.evasion_penal = m["evasion_penal"]
+	c.defend_defense = m["defend_defense"]   # la del escudo: solo cuenta el turno que Defiendes
 
 	# Armadura: DEF plana aditiva + % de reduccion (media ponderada, acotada) +
 	# velocidad + esquiva (Evasion) + resist. criticos (ResistCrit).
@@ -1983,7 +2032,10 @@ func _aplicar_loadout(c: Combatant) -> void:
 	c.armor_reduction = am["reduction"]
 	c.velocidad_mult = float(m["velocidad_mult"]) * float(am["velocidad_mult"])
 	c.crit_resist = float(am["crit_resist"])
-	c.status_resist = float(am["resist_estados"])  # resist. a estados (mejora Resistencia, KAN-58)
+	# Resist. a estados: la de la armadura (mejora Resistencia, KAN-58) MAS la del escudo, con el
+	# mismo tope global (si no, armadura a tope + escudo a tope te haria inmune al veneno).
+	c.status_resist = minf(Upgrades.RESISTENCIA_CAP,
+		float(am["resist_estados"]) + float(m["resist_estados"]))
 	# La esquiva de armadura BAJA el evasion_penal (negativo = bonus de esquiva).
 	c.evasion_penal = float(m["evasion_penal"]) - float(am["evasion_bonus"])
 	# Magia del equipo (KAN-95): amplificador, regen extra, eficiencia y velocidad de
@@ -2014,6 +2066,10 @@ func loadout_mods() -> Dictionary:
 	var m := {
 		"velocidad_mult": main.velocidad_mult,
 		"defend_block": DEFEND_BLOCK_BASE,
+		# DEFENSA del escudo: solo la del escudo, y solo al Defender (ver Combatant.defend_defense).
+		# 0 = sin escudo (un arma no te tapa).
+		"defend_defense": 0.0,
+		"resist_estados": 0.0,
 		# El arma principal define lo escurridizo que eres (daga = +esquiva). Un
 		# evasion_penal NEGATIVO = bonus de esquiva (los escudos suman penal, encima).
 		"evasion_penal": -float(main_wm["evasion"]),
@@ -2024,9 +2080,15 @@ func loadout_mods() -> Dictionary:
 		m["defend_block"] += float(main_wm["bloqueo"])
 	elif equipped_off is ShieldData:
 		var sh: ShieldData = equipped_off
-		m["velocidad_mult"] *= sh.velocidad_mult   # el escudo te frena algo
-		m["defend_block"] += sh.bloqueo            # pero bloquea mucho
-		m["evasion_penal"] += sh.evasion_penal
+		# Por Upgrades, como las otras dos ramas: aqui se leian los campos crudos del .tres y por
+		# eso el tier y la rareza del escudo no hacian NADA (mientras la tienda te cobraba el tier).
+		var sh_m := Upgrades.shield_mods(sh, tier_mult(equip_tier("off")),
+			equip_rareza("off"), equip_mejoras("off"))
+		m["velocidad_mult"] *= float(sh_m["vel_mult"])   # el escudo te frena algo
+		m["defend_block"] += float(sh_m["bloqueo"])      # pero bloquea mucho
+		m["evasion_penal"] += float(sh_m["evasion_penal"])
+		m["defend_defense"] = float(sh_m["def"])         # lo que de verdad distingue a un escudo
+		m["resist_estados"] = float(sh_m["resist_estados"])
 	elif equipped_off is WeaponData:
 		var off: WeaponData = equipped_off
 		# Base: la velocidad de la PRINCIPAL con el bonus fijo de dual (decreciente
@@ -2831,20 +2893,28 @@ func ingredientes_forja(base: Resource, metal: MaterialData) -> Array:
 	return out
 
 
-# La FIBRA que acompaña al metal en esta pieza: MADERA si es un arma (el mango) y CUERO si es
-# una armadura. Y tiene que ser de la ALTURA del metal: una espada de acero no lleva el palo que
-# se cae de la pared del primer piso.
+# La FIBRA que acompaña al metal en esta pieza: MADERA si es un arma (el mango), CUERO si es una
+# armadura (estructural) y CUERO BASE si es un escudo (las correas). Tiene que ser de la ALTURA
+# del metal salvo donde es un recubrimiento: una espada de acero no lleva el palo que se cae de la
+# pared del primer piso, pero unas correas las hace cualquier piel.
 #
 # Devuelve null cuando no existe fibra a esa altura, y eso NO es un error: es el freno. Hoy el
 # unico cuero que hay es el de rata (T1), asi que una armadura de hierro o de acero devuelve null
 # y no se puede forjar. Es a proposito (ver Forge.cuero_vale_para). Las armas si suben, porque la
 # madera si tiene los tres tiers.
+#
+# Tiene que decir LO MISMO que ingredientes_forja, que es de donde sale el coste de forjar: si no,
+# mejorar una pieza te pide un material con el que no se fabrico. Es lo que pasaba con el ESCUDO:
+# como no es ArmorData caia en la rama de las armas y pedia MADERA, cuando MIX_ESCUDO es metal +
+# cuero y no lleva madera ninguna. No se notaba solo porque el escudo no admitia mejoras.
 func fibra_de_forja(base: Resource, metal: MaterialData) -> MaterialData:
 	if base == null or metal == null:
 		return null
 	var tier: int = Forge.tier_de_metal(metal)
 	if base is ArmorData:
 		return cuero_de_tier(tier)   # cuero del tier del metal; null = no hay a esa altura (freno)
+	if base is ShieldData:
+		return cuero_de_tier(1)      # correas: recubrimiento, cuero base sin tier (como al forjarlo)
 	var maderas: Array = maderas_forja()
 	for m in maderas:
 		if (m as MaterialData).tier == tier:
@@ -3820,10 +3890,22 @@ func curva_reto(reto_bruto: float, pivote: float, slope: float, tope: float) -> 
 		d = pivote + (reto_bruto - pivote) * slope
 	return clampf(d, 0.0, tope)
 
-# "Actualizar estado" (altar / tu dios): aplica lo INTERNO a lo VISIBLE. El VISIBLE es el progreso
-# de ESTE nivel = interno - base_nivel (tras subir de nivel arranca en 0/rango I aunque el total
-# oculto siga alto). Recoleccion y reto NO usan esto: usan el total (ver stat_total()).
+# "Actualizar estado" (altar / tu dios): CONSOLIDA lo interno y lo aplica a lo VISIBLE. El VISIBLE
+# es el progreso de ESTE nivel = consolidado - base_nivel (tras subir de nivel arranca en 0/rango I
+# aunque el total oculto siga alto). Recoleccion y reto NO usan esto: usan el total (stat_total()).
+#
+# Consolidar es lo que HACE el altar, y por eso vive en su propia funcion aparte de derivar: cargar
+# la partida tiene que derivar (poner las player_* a partir de lo que ya estaba consolidado) SIN
+# consolidar, o descansar seria gratis con solo guardar y volver a entrar.
 func actualizar_estado() -> void:
+	for s in ability_internal:
+		ability_consolidado[s] = ability_internal[s]
+	_derivar_visible()
+	print("=== ESTADO ACTUALIZADO (Nv ", player_level, ") ===  F:", player_fuerza,
+		" R:", player_resistencia, " D:", player_destreza, " A:", player_agilidad, " M:", player_magia)
+
+# Pone las player_* a partir de lo CONSOLIDADO. No consolida nada: es solo la lectura.
+func _derivar_visible() -> void:
 	player_fuerza = _visible_nivel("fuerza")
 	player_resistencia = _visible_nivel("resistencia")
 	player_destreza = _visible_nivel("destreza")
@@ -3831,12 +3913,11 @@ func actualizar_estado() -> void:
 	player_magia = _visible_nivel("magia")
 	_subir_rangos_desarrollo()   # los desarrollos elegidos suben de rango si su contador ya llega
 
-	print("=== ESTADO ACTUALIZADO (Nv ", player_level, ") ===  F:", player_fuerza,
-		" R:", player_resistencia, " D:", player_destreza, " A:", player_agilidad, " M:", player_magia)
-
-# Progreso VISIBLE de este nivel para una habilidad (interno - base del nivel, minimo 0).
+# Progreso VISIBLE de este nivel para una habilidad (consolidado - base del nivel, minimo 0).
+# Lee lo CONSOLIDADO y no el interno a proposito: la excelia ganada desde el ultimo altar esta
+# pendiente hasta que descanses.
 func _visible_nivel(s: String) -> int:
-	return maxi(0, floori(float(ability_internal[s]) - float(ability_base_nivel[s])))
+	return maxi(0, floori(float(ability_consolidado[s]) - float(ability_base_nivel[s])))
 
 # TOTAL acumulado (oculto) de una habilidad. Es lo que usan recoleccion y reto: no se resetea al
 # subir de nivel, asi la recoleccion sigue facil y un enemigo de piso bajo da reto ~0 (no exploit).

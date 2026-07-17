@@ -660,10 +660,8 @@ func _off_stats(vb: VBoxContainer, item: Resource) -> void:
 	var rareza: int = int(m["rareza"])
 	var mejoras: Dictionary = m["mejoras"]
 	if item is ShieldData:
-		var s := item as ShieldData
-		_row(vb, "  Bloqueo", "+%s" % _fmt_pct(s.bloqueo))
-		_row(vb, "  Velocidad", "×%.2f" % s.velocidad_mult)
-		_row(vb, "  Penal. esquiva", "-%s" % _fmt_pct(s.evasion_penal))
+		for f in MenuScaffold.filas_escudo(item as ShieldData, tier, rareza, mejoras):
+			_row(vb, "  " + str(f[0]), str(f[1]))
 	elif item is WandData:
 		var wd := item as WandData
 		var tm: float = Game.tier_mult(tier)

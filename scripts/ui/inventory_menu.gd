@@ -422,9 +422,12 @@ func _preview_arma(vb: VBoxContainer) -> void:
 	elif item is ShieldData:
 		var s := item as ShieldData
 		_title(vb, Game.item_display_name(s) + ("   [equipado]" if equipada else ""))
-		_row(vb, "Bloqueo", "+%.0f%%" % (s.bloqueo * 100.0))
-		_row(vb, "Velocidad", "×%.2f" % s.velocidad_mult)
-		_row(vb, "Penal. esquiva", "-%.0f%%" % (s.evasion_penal * 100.0))
+		# Ficha COMPARTIDA, igual que el arma de arriba: antes se pintaba el .tres crudo y un T3
+		# pristino enseñaba (y rendia) exactamente lo mismo que uno comun.
+		var meta_s: Dictionary = Game.meta_de(s)
+		for fila in MenuScaffold.filas_escudo(s, int(meta_s["tier"]), int(meta_s["rareza"]), meta_s["mejoras"]):
+			_row(vb, fila[0], fila[1])
+		_row(vb, "Tier / rareza", "T%d · %s" % [int(meta_s["tier"]), Upgrades.rareza_nombre(int(meta_s["rareza"]))])
 	elif item is WandData:
 		var wd := item as WandData
 		_title(vb, Game.item_display_name(wd) + ("   [equipada]" if equipada else ""))

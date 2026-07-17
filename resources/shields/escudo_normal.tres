@@ -7,7 +7,10 @@
 script = ExtResource("1")
 nombre = "Escudo normal"
 tamano = 1
-bloqueo = 0.35
+defensa_base = 3.5
+bloqueo = 0.15
+bloqueo_max = 0.3
+resist_estados_base = 0.05
 velocidad_mult = 0.88
 evasion_penal = 0.055
 habilidades = [ExtResource("2")]

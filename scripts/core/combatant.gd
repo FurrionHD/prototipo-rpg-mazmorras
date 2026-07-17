@@ -82,6 +82,11 @@ var aturdir_base: float = 0.0    # prob. base de aturdir/retrasar (contundentes)
 var velocidad_mult: float = 1.0  # multiplica la velocidad de combate (turnos)
 var defend_block: float = 0.3    # reduccion al Defender (base sin secundaria)
 var evasion_penal: float = 0.0   # baja la esquiva propia (escudos)
+# DEFENSA extra que solo cuenta el turno que eliges DEFENDER: la del escudo. No es armadura (esa
+# va en extra_defense y protege siempre): un escudo solo para lo que le pones delante. Es lo que
+# escala con el tier y la rareza del escudo, porque va por la mitigacion normal K/(K+DEF) y no
+# tiene techo (a diferencia de defend_block). Ver Upgrades.shield_mods y StatsMath.resolve_attack.
+var defend_defense: float = 0.0
 
 # --- POSTURA DE CONTRAATAQUE del estoque ("En guardia", KAN-57). Flag TRANSITORIO que dura
 # hasta tu proxima accion (como _player_defending, lo limpia el combate). Lleva sus propios

@@ -985,12 +985,14 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 	_boton(vb, txt, _on_mejorar, puede)
 
 
-# Categorias que admite la pieza (Upgrades ya sabe cuales, por tipo de arma/armadura).
+# Categorias que admite la pieza (Upgrades ya sabe cuales, por tipo de arma/armadura/escudo).
 func _categorias(item: Resource) -> Array:
 	if item is ArmorData:
 		return Upgrades.armor_categories(item as ArmorData)
 	if item is WandData:
 		return Upgrades.wand_categories()
+	if item is ShieldData:
+		return Upgrades.shield_categories()
 	if item is WeaponData:
 		return Upgrades.weapon_categories(item as WeaponData)
 	return []

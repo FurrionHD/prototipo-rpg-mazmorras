@@ -356,18 +356,21 @@ static func nucleo_vale(nucleo: MaterialData, item: Resource, item_tier: int = -
 const RECUPERACION := 0.5
 
 # Unidades de metal / madera / cuero que devuelve fundir `base` con `mejoras` mejoras encima.
-# El material de cada MEJORA (metal + su fibra estructural: madera si es arma, cuero si es
-# armadura) tambien cuenta: una pieza +5 lleva mucho material dentro.
+# El material de cada MEJORA (metal + su fibra: madera si es arma, cuero si es armadura o escudo)
+# tambien cuenta: una pieza +5 lleva mucho material dentro.
 static func fundir_material(base: Resource, mejoras: int) -> Dictionary:
 	var c: Dictionary = coste(base)
 	var metal: int = int(c["metal"])
 	var madera: int = int(c["madera"])
 	var cuero: int = int(c["cuero"])
-	var es_arma: bool = not (base is ArmorData)
+	# La fibra sale de la RECETA de la pieza y no de su clase: si lleva madera, la fibra es el
+	# mango; si no, es cuero. Antes esto era `not (base is ArmorData)` = "es un arma", y el ESCUDO
+	# se colaba por ahi: fundirlo devolvia MADERA, que no lleva (MIX_ESCUDO es metal + cuero).
+	var fibra_es_madera: bool = madera > 0
 	for k in range(maxi(0, mejoras)):
 		var m: Dictionary = material_para_mejora(k)
 		metal += int(m["metal"])
-		if es_arma:
+		if fibra_es_madera:
 			madera += int(m["fibra"])
 		else:
 			cuero += int(m["fibra"])

@@ -674,15 +674,12 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 	elif base is WeaponData:
 		_stats_arma_base(vb, base as WeaponData, _tienda_tier)
 	elif base is ShieldData:
-		var sh := base as ShieldData
-		_row(vb, "Tipo", "Escudo (mano secundaria)")
-		# CRUDO a proposito: hoy el combate lee sh.bloqueo tal cual, sin tier ni rareza (a
-		# diferencia del arma en la secundaria). Enseñar aqui un bloqueo escalado seria MENTIR.
-		# Cuando se haga el rework del escudo, esto pasa por Upgrades como los demas.
-		_row(vb, "Bloqueo", "+%.2f" % sh.bloqueo)
-		_row(vb, "Velocidad", "×%.2f" % sh.velocidad_mult)
-		if _tienda_tier >= 2:
-			_note(vb, "Aviso: el escudo aún no aprovecha el tier. Este rinde igual que el de la tienda normal; lo que cambia es lo que cuesta.")
+		# Por la MISMA funcion que usa el combate, como la armadura de aqui arriba: lo que ves es lo
+		# que te llevas. Lo que sube con el tier es la DEFENSA; el bloqueo es del tamaño y solo lo
+		# mueven las mejoras (ver la cabecera de shield_data.gd), asi que un T2 no bloquea mas: para
+		# lo que sirve es para aguantar mas cuando bloqueas.
+		for fila in MenuScaffold.filas_escudo(base as ShieldData, _tienda_tier, Upgrades.Rareza.COMUN, {}):
+			_row(vb, fila[0], fila[1])
 	elif base is WandData:
 		var wd := base as WandData
 		var mm := Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(_tienda_tier), Upgrades.Rareza.COMUN, {})

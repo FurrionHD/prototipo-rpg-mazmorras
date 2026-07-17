@@ -29,6 +29,13 @@ var _confirmar_nueva: int = 0
 var _crear_png: PackedByteArray = PackedByteArray()
 var _crear_tex: Texture2D = null
 
+# ENCUADRE: la imagen tal cual entro del disco (sin recortar) mas el zoom y el centro que ha
+# elegido el jugador. De aqui sale _crear_png en cada toque (Game.png_cuadrado). La fuente NO se
+# guarda en la partida: solo vive mientras esta abierta esta pantalla.
+var _crear_img_src: Image = null
+var _crear_zoom: float = 1.0
+var _crear_centro: Vector2 = Vector2(0.5, 0.5)
+
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -143,7 +150,8 @@ func _nueva(slot: int) -> void:
 #  El aspecto son cuatro cosas, y las cuatro van al SaveData de ESA ranura (no al perfil): cada
 #  partida es un personaje distinto.
 #    - COLOR:   el cuerpo, si no pones imagen.
-#    - IMAGEN:  opcional, tuya, del disco. Se guarda DENTRO de la partida (ver Game.png_de_imagen).
+#    - IMAGEN:  opcional, tuya, del disco. La encuadras en un CUADRADO (zoom + arrastre) y se
+#      guarda ya recortada DENTRO de la partida (ver Game.png_cuadrado).
 #    - TINTE:   cuanto se ve el color por encima de esa imagen. Sin imagen no pinta nada.
 #    - METAL:   el brillo, que va SIEMPRE lo ultimo: barniza tambien tu imagen.
 #  Interfaz placeholder por codigo, como el resto; el arte va al final.
@@ -155,6 +163,12 @@ func _crear_personaje(slot: int, editando: bool = false) -> void:
 		editando = false   # si la ranura no se puede leer, esto es una creacion y punto
 	_crear_png = previo.imagen if previo != null else PackedByteArray()
 	_crear_tex = Game.textura_de_png(_crear_png)
+	# EDITANDO con imagen: lo guardado ya es un cuadrado, asi que entra de fuente tal cual (zoom 1,
+	# centrada). Se puede reencuadrar, pero sobre lo ya recortado: la foto original no viaja en la
+	# partida (solo sus 128x128), y no vamos a pedirle al jugador que la busque otra vez.
+	_crear_img_src = _imagen_de_png(_crear_png)
+	_crear_zoom = 1.0
+	_crear_centro = Vector2(0.5, 0.5)
 
 	var capa := PanelContainer.new()
 	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -195,7 +209,7 @@ func _crear_personaje(slot: int, editando: bool = false) -> void:
 	cols.add_theme_constant_override("separation", 24)
 	vb.add_child(cols)
 
-	# --- Columna izquierda: nombre + muestra del color ---
+	# --- Columna izquierda: nombre + muestra + la imagen y su encuadre ---
 	var izq := VBoxContainer.new()
 	izq.add_theme_constant_override("separation", 8)
 	cols.add_child(izq)
@@ -218,105 +232,40 @@ func _crear_personaje(slot: int, editando: bool = false) -> void:
 
 	# Muestra: mismo nodo (ColorRect) y mismo material que el cuerpo de verdad, asi que lo que
 	# ves aqui es EXACTAMENTE lo que te llevas al mapa, imagen y brillo incluidos.
+	#
+	# CUADRADA porque el cuerpo del mapa lo es (ColorRect de 32x32) y el shader estira la imagen al
+	# rect por UV: con la muestra a 2:1 de antes, aqui veias la foto aplastada y en el mapa no, que
+	# es justo lo contrario de lo que promete el parrafo de arriba.
+	#
+	# OJO con el SHRINK_CENTER: un Control dentro de un VBoxContainer se estira a lo ANCHO de la
+	# columna (280 px, que los fija el LineEdit), y custom_minimum_size solo pone un minimo -> sin
+	# esto la muestra sale de 280x180, o sea rectangular otra vez por mucho que pidas un cuadrado.
 	var muestra := ColorRect.new()
-	muestra.custom_minimum_size = Vector2(280, 140)
+	muestra.custom_minimum_size = Vector2(180, 180)
+	muestra.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	muestra.color = previo.color if previo != null else COLOR_INICIAL
 	izq.add_child(muestra)
 
-	# ACABADO METALICO: de mate (0) a pulido (1). El brillo se ve moverse en la muestra
-	# mientras lo subes, que es la unica forma de elegirlo con criterio.
-	var lbl_met := Label.new()
-	lbl_met.text = "Brillo metálico"
-	izq.add_child(lbl_met)
+	# ENCUADRE: cuanto se acerca el recorte. Mover se hace ARRASTRANDO sobre la muestra (el aviso de
+	# abajo lo dice): dos sliders mas de X/Y en una pantalla que ya va justa de alto seria peor, y
+	# arrastrar la propia imagen es lo que espera cualquiera.
+	var lbl_zoom := Label.new()
+	lbl_zoom.text = "Acercar la imagen"
+	izq.add_child(lbl_zoom)
 
-	var metal := HSlider.new()
-	metal.min_value = 0.0
-	metal.max_value = 1.0
-	metal.step = 0.05
-	metal.value = previo.metalico if previo != null else 0.0   # de serie mate: el brillo se elige
-	metal.custom_minimum_size = Vector2(280, 0)
-	izq.add_child(metal)
+	var zoom := HSlider.new()
+	zoom.min_value = 1.0    # 1 = el cuadrado mas grande que quepa en la foto
+	zoom.max_value = 3.0
+	zoom.step = 0.05
+	zoom.value = 1.0
+	zoom.custom_minimum_size = Vector2(280, 0)
+	zoom.editable = _crear_img_src != null   # sin imagen no hay nada que encuadrar
+	izq.add_child(zoom)
 
-	# TINTE: cuanto se ve el color POR ENCIMA de la imagen. Solo tiene sentido con imagen (sin
-	# ella, el cuerpo YA es el color), asi que se enseña apagado hasta que pongas una.
-	var lbl_tinte := Label.new()
-	lbl_tinte.text = "Color sobre la imagen"
-	izq.add_child(lbl_tinte)
-
-	var tinte := HSlider.new()
-	tinte.min_value = 0.0
-	tinte.max_value = 1.0
-	tinte.step = 0.05
-	tinte.value = previo.color_alpha if previo != null else 0.0   # con imagen, de serie se ve limpia
-	tinte.custom_minimum_size = Vector2(280, 0)
-	tinte.editable = _crear_tex != null   # sin imagen no hay nada que teñir
-	izq.add_child(tinte)
-
-	# Repinta la muestra con lo que haya AHORA en los tres mandos. _crear_tex es variable miembro
-	# justamente para que esto vea la imagen nueva (ver el comentario de su declaracion).
-	var refrescar := func() -> void:
-		muestra.material = Game.material_cuerpo(metal.value, _crear_tex, tinte.value)
-		tinte.editable = _crear_tex != null
-		lbl_tinte.modulate = Color(1, 1, 1) if _crear_tex != null else Color(1, 1, 1, 0.4)
-
-	metal.value_changed.connect(func(_v: float): refrescar.call())
-	tinte.value_changed.connect(func(_v: float): refrescar.call())
-
-	# --- IMAGEN propia ---
-	var fila_img := HBoxContainer.new()
-	fila_img.add_theme_constant_override("separation", 8)
-	izq.add_child(fila_img)
-
-	var poner := Button.new()
-	poner.text = "Poner una imagen..."
-	fila_img.add_child(poner)
-
-	var quitar := Button.new()
-	quitar.text = "Quitar"
-	quitar.disabled = _crear_tex == null   # editando puede que YA traigas imagen
-	fila_img.add_child(quitar)
-
-	var aviso_img := Label.new()
-	aviso_img.add_theme_font_size_override("font_size", 11)
-	aviso_img.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
-	aviso_img.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	aviso_img.custom_minimum_size = Vector2(280, 0)
-	aviso_img.text = ("Ya tienes imagen. Puedes cambiarla o quitarla." if _crear_tex != null
-		else "Opcional. Se guarda dentro de la partida (encogida), así que puedes mover o borrar el archivo original.")
-	izq.add_child(aviso_img)
-
-	quitar.pressed.connect(func():
-		_crear_png = PackedByteArray()
-		_crear_tex = null
-		quitar.disabled = true
-		tinte.value = 0.0
-		aviso_img.text = "Sin imagen: tu cuerpo es el color de al lado."
-		refrescar.call())
-
-	poner.pressed.connect(func():
-		var fd := FileDialog.new()
-		fd.access = FileDialog.ACCESS_FILESYSTEM   # el disco del jugador, no res://
-		fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-		fd.filters = PackedStringArray(["*.png,*.jpg,*.jpeg,*.webp,*.bmp ; Imágenes"])
-		fd.use_native_dialog = true
-		fd.title = "Elige la imagen de tu personaje"
-		capa.add_child(fd)
-		# El dialogo es de usar y tirar: sin esto se irian apilando uno por cada clic en el boton.
-		fd.canceled.connect(fd.queue_free)
-		fd.file_selected.connect(func(ruta: String):
-			fd.queue_free()
-			var png: PackedByteArray = Game.png_de_imagen(ruta)
-			if png.is_empty():
-				aviso_img.text = "Esa imagen no se ha podido leer. Prueba con un PNG o un JPG."
-				return
-			_crear_png = png
-			_crear_tex = Game.textura_de_png(png)
-			quitar.disabled = false
-			aviso_img.text = "Imagen puesta. Súbele «Color sobre la imagen» si quieres teñirla."
-			refrescar.call())
-		fd.popup_centered_ratio(0.7))
-
-	# --- Columna derecha: el selector con las barras R/G/B ---
+	# --- Columna derecha: el selector de color y los dos mandos de acabado ---
+	# El brillo y el tinte van AQUI y no debajo de la muestra porque la columna izquierda (nombre +
+	# muestra cuadrada + encuadre + botones) se salia por abajo de la pantalla, y a la derecha
+	# sobraba hueco bajo el selector. Ademas los dos tiñen/barnizan el color: su sitio es este.
 	var der := VBoxContainer.new()
 	der.add_theme_constant_override("separation", 8)
 	cols.add_child(der)
@@ -337,8 +286,135 @@ func _crear_personaje(slot: int, editando: bool = false) -> void:
 	picker.presets_visible = false             # fuera las paletas / "Swatches"
 	picker.can_add_swatches = false
 	picker.color = previo.color if previo != null else COLOR_INICIAL
-	picker.color_changed.connect(func(c: Color): muestra.color = c)
 	der.add_child(picker)
+
+	# ACABADO METALICO: de mate (0) a pulido (1). El brillo se ve moverse en la muestra
+	# mientras lo subes, que es la unica forma de elegirlo con criterio.
+	var lbl_met := Label.new()
+	lbl_met.text = "Brillo metálico"
+	der.add_child(lbl_met)
+
+	var metal := HSlider.new()
+	metal.min_value = 0.0
+	metal.max_value = 1.0
+	metal.step = 0.05
+	metal.value = previo.metalico if previo != null else 0.0   # de serie mate: el brillo se elige
+	metal.custom_minimum_size = Vector2(280, 0)
+	der.add_child(metal)
+
+	# TINTE: cuanto se ve el color POR ENCIMA de la imagen. Solo tiene sentido con imagen (sin
+	# ella, el cuerpo YA es el color), asi que se enseña apagado hasta que pongas una.
+	var lbl_tinte := Label.new()
+	lbl_tinte.text = "Color sobre la imagen"
+	der.add_child(lbl_tinte)
+
+	var tinte := HSlider.new()
+	tinte.min_value = 0.0
+	tinte.max_value = 1.0
+	tinte.step = 0.05
+	tinte.value = previo.color_alpha if previo != null else 0.0   # con imagen, de serie se ve limpia
+	tinte.custom_minimum_size = Vector2(280, 0)
+	tinte.editable = _crear_tex != null   # sin imagen no hay nada que teñir
+	der.add_child(tinte)
+
+	# Repinta la muestra con lo que haya AHORA en los mandos. _crear_tex es variable miembro
+	# justamente para que esto vea la imagen nueva (ver el comentario de su declaracion).
+	#
+	# El RECORTE se rehace aqui, en cada toque: la muestra enseña el _crear_png que se va a guardar,
+	# no una aproximacion suya. Es un recorte de 128 px, no cuesta nada, y a cambio no existe la
+	# posibilidad de que el preview y lo guardado se separen.
+	var refrescar := func() -> void:
+		if _crear_img_src != null:
+			_crear_png = Game.png_cuadrado(_crear_img_src, _crear_zoom, _crear_centro)
+			_crear_tex = Game.textura_de_png(_crear_png)
+		muestra.material = Game.material_cuerpo(metal.value, _crear_tex, tinte.value)
+		tinte.editable = _crear_tex != null
+		zoom.editable = _crear_img_src != null
+		lbl_tinte.modulate = Color(1, 1, 1) if _crear_tex != null else Color(1, 1, 1, 0.4)
+		lbl_zoom.modulate = Color(1, 1, 1) if _crear_img_src != null else Color(1, 1, 1, 0.4)
+
+	metal.value_changed.connect(func(_v: float): refrescar.call())
+	tinte.value_changed.connect(func(_v: float): refrescar.call())
+	picker.color_changed.connect(func(c: Color): muestra.color = c)
+	zoom.value_changed.connect(func(v: float):
+		_crear_zoom = v
+		refrescar.call())
+
+	# MOVER el encuadre arrastrando. El desplazamiento va en fraccion de la imagen: se divide por
+	# el zoom porque cuanto mas cerca estas, menos original abarca la muestra (y el mismo gesto
+	# tiene que mover menos foto, o al ampliar se iria de las manos). El signo es negativo porque
+	# arrastras la IMAGEN, no la ventana: llevar el raton a la derecha trae lo de la izquierda.
+	# Game.png_cuadrado ya clampea el rect; el clamp de aqui es para que el centro no se escape a
+	# valores absurdos y luego haya que arrastrar de vuelta en seco.
+	muestra.gui_input.connect(func(event: InputEvent):
+		if _crear_img_src == null:
+			return
+		if event is InputEventMouseMotion and (event as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT:
+			var rel: Vector2 = (event as InputEventMouseMotion).relative / muestra.size / _crear_zoom
+			_crear_centro = Vector2(clampf(_crear_centro.x - rel.x, 0.0, 1.0),
+				clampf(_crear_centro.y - rel.y, 0.0, 1.0))
+			refrescar.call())
+
+	# --- IMAGEN propia ---
+	var fila_img := HBoxContainer.new()
+	fila_img.add_theme_constant_override("separation", 8)
+	izq.add_child(fila_img)
+
+	var poner := Button.new()
+	poner.text = "Poner una imagen..."
+	fila_img.add_child(poner)
+
+	var quitar := Button.new()
+	quitar.text = "Quitar"
+	quitar.disabled = _crear_tex == null   # editando puede que YA traigas imagen
+	fila_img.add_child(quitar)
+
+	var aviso_img := Label.new()
+	aviso_img.add_theme_font_size_override("font_size", 11)
+	aviso_img.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+	aviso_img.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	aviso_img.custom_minimum_size = Vector2(280, 0)
+	aviso_img.text = ("Ya tienes imagen. Ajústala con «Acercar» y arrastrando la muestra." if _crear_tex != null
+		else "Opcional. Se guarda dentro de la partida (encogida), así que puedes mover o borrar el archivo original.")
+	izq.add_child(aviso_img)
+
+	quitar.pressed.connect(func():
+		_crear_png = PackedByteArray()
+		_crear_tex = null
+		_crear_img_src = null
+		quitar.disabled = true
+		tinte.value = 0.0
+		zoom.value = 1.0        # deja el encuadre listo para la siguiente imagen
+		_crear_zoom = 1.0
+		_crear_centro = Vector2(0.5, 0.5)
+		aviso_img.text = "Sin imagen: tu cuerpo es el color de al lado."
+		refrescar.call())
+
+	poner.pressed.connect(func():
+		var fd := FileDialog.new()
+		fd.access = FileDialog.ACCESS_FILESYSTEM   # el disco del jugador, no res://
+		fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+		fd.filters = PackedStringArray(["*.png,*.jpg,*.jpeg,*.webp,*.bmp ; Imágenes"])
+		fd.use_native_dialog = true
+		fd.title = "Elige la imagen de tu personaje"
+		capa.add_child(fd)
+		# El dialogo es de usar y tirar: sin esto se irian apilando uno por cada clic en el boton.
+		fd.canceled.connect(fd.queue_free)
+		fd.file_selected.connect(func(ruta: String):
+			fd.queue_free()
+			var src: Image = Game.imagen_de_archivo(ruta)
+			if src == null:
+				aviso_img.text = "Esa imagen no se ha podido leer. Prueba con un PNG o un JPG."
+				return
+			# Entra centrada y del todo: el recorte de partida es el cuadrado mas grande que quepa.
+			_crear_img_src = src
+			_crear_zoom = 1.0
+			_crear_centro = Vector2(0.5, 0.5)
+			zoom.set_value_no_signal(1.0)   # sin señal: ya refrescamos abajo, no hace falta dos veces
+			quitar.disabled = false
+			aviso_img.text = "Imagen puesta. Ajusta el encuadre con «Acercar» y arrastrando la muestra."
+			refrescar.call())
+		fd.popup_centered_ratio(0.7))
 
 	var botones := HBoxContainer.new()
 	botones.add_theme_constant_override("separation", 8)
@@ -369,6 +445,18 @@ func _crear_personaje(slot: int, editando: bool = false) -> void:
 
 # Color de salida de la creacion (uno cualquiera, ya lo cambiara).
 const COLOR_INICIAL := Color(0.45, 0.72, 1.0)
+
+
+# Los bytes de un PNG guardado, de vuelta a Image para poder reencuadrarlo. null si no hay imagen
+# o si el PNG no se lee (una ranura con la imagen corrupta se edita igual, sin foto: que no se
+# pueda tocar el aspecto seria peor que perder la imagen).
+func _imagen_de_png(png: PackedByteArray) -> Image:
+	if png.is_empty():
+		return null
+	var img := Image.new()
+	if img.load_png_from_buffer(png) != OK:
+		return null
+	return img
 
 
 # EDITAR: solo el aspecto de esa ranura, y de vuelta al menu. El progreso ni se toca (Perfil

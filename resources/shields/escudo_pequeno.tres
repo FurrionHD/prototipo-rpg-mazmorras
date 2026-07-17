@@ -7,7 +7,10 @@
 script = ExtResource("1")
 nombre = "Escudo pequeño"
 tamano = 0
-bloqueo = 0.25
+defensa_base = 2.0
+bloqueo = 0.1
+bloqueo_max = 0.2
+resist_estados_base = 0.03
 velocidad_mult = 0.95
 evasion_penal = 0.03
 habilidades = [ExtResource("2")]

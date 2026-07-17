@@ -268,6 +268,28 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 	return filas
 
 
+const SHIELD_TAMANO_LABELS := ["Pequeño", "Normal", "Grande"]
+
+# La ficha del ESCUDO, por la misma via que la del arma (Upgrades -> la math del combate). Estaba
+# copiada a pelo en el menu de personaje, el inventario y la tienda, y las tres leian el .tres
+# CRUDO: enseñaban el mismo bloqueo para un T1 comun que para un T3 pristino. Ahora sale de aqui.
+static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictionary) -> Array:
+	var m: Dictionary = Upgrades.shield_mods(sh, Game.tier_mult(tier), rareza, mejoras)
+	var filas: Array = [
+		["Tipo", "Escudo %s  ·  mano secundaria"
+			% SHIELD_TAMANO_LABELS[clampi(int(sh.tamano), 0, SHIELD_TAMANO_LABELS.size() - 1)].to_lower()],
+		# Lo primero es la DEFENSA: es el numero que crece con tier, rareza y mejoras, o sea lo que
+		# distingue a este escudo de otro igual peor. Y solo cuenta al Defender: hay que decirlo.
+		["Defensa al bloquear", "+%.1f" % float(m["def"])],
+		["Bloqueo", "%.0f%%  (tope %.0f%%)" % [float(m["bloqueo"]) * 100.0, sh.bloqueo_max * 100.0]],
+	]
+	if float(m["resist_estados"]) > 0.0:
+		filas.append(["Resist. estados", "+%.0f%%" % (float(m["resist_estados"]) * 100.0)])
+	filas.append(["Velocidad", "×%.2f" % float(m["vel_mult"])])
+	filas.append(["Penal. esquiva", "-%.0f%%" % (float(m["evasion_penal"]) * 100.0)])
+	return filas
+
+
 # Cuadricula de botones para la columna de la LISTA (2 columnas de 150).
 static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Callable) -> void:
 	var grid := GridContainer.new()

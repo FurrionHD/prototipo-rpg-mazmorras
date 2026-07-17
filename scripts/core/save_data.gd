@@ -38,9 +38,9 @@ const VERSION_ACTUAL := 2
 @export var color: Color = Color(1, 1, 1)
 # Acabado METALICO del cuerpo (0 = mate, 1 = pulido). Lo pinta shaders/metal.gdshader.
 @export var metalico: float = 0.0
-# IMAGEN del cuerpo: los BYTES de un PNG ya encogido (vacio = sin imagen, cuerpo de color plano).
-# Van los bytes y no la ruta al fichero original a proposito: asi la ranura es AUTONOMA y no se
-# queda sin cara porque el jugador moviera la foto de sitio. Ver Game.png_de_imagen.
+# IMAGEN del cuerpo: los BYTES de un PNG ya encogido y CUADRADO (vacio = sin imagen, cuerpo de
+# color plano). Van los bytes y no la ruta al fichero original a proposito: asi la ranura es
+# AUTONOMA y no se queda sin cara porque el jugador moviera la foto de sitio. Ver Game.png_cuadrado.
 @export var imagen: PackedByteArray = PackedByteArray()
 # Cuanto tiñe el color por encima de esa imagen (0 = imagen limpia, 1 = solo color). Sin imagen
 # no pinta nada. Default 1 = como se comportaba antes de que existieran las imagenes.
@@ -60,6 +60,17 @@ const VERSION_ACTUAL := 2
 # ability_internal es la FUENTE DE VERDAD de las stats (las player_* se derivan de ella con
 # Game.actualizar_estado()). Guardar solo las visibles perderia el progreso a medio cocer.
 @export var ability_internal: Dictionary = {}
+# Lo que YA esta CONSOLIDADO: el interno en el momento del ultimo descanso. Las player_* se
+# derivan de ESTO, no del interno, asi que lo ganado desde el ultimo altar queda pendiente.
+#
+# Sin este campo el modelo no se sostenia entre sesiones: como el .tres solo guardaba el interno,
+# al cargar no habia forma de saber que parte ya estaba consolidada y importar_partida tenia que
+# llamar a actualizar_estado() -> cargar la partida te consolidaba GRATIS todo lo pendiente y el
+# altar dejaba de ser el unico sitio donde se descansa.
+#
+# VACIO = partida vieja (guardada antes de que esto existiera): Game lo iguala al interno, que es
+# exactamente como se comportaban. Nadie pierde progreso al actualizar.
+@export var ability_consolidado: Dictionary = {}
 @export var player_level: int = 1
 # SUBIR DE NIVEL: marca del nivel (el visible = interno - esto), stats base BAKEADAS al ascender
 # (antes eran vars fijas, ahora crecen al subir de nivel), habilidades de desarrollo elegidas y el

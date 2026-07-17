@@ -430,7 +430,7 @@ func _on_forja_rareza(r: int) -> void:
 	_rebuild_forja()
 
 
-# Categorias de mejora validas para la plantilla elegida (el escudo no admite).
+# Categorias de mejora validas para la plantilla elegida.
 func _forja_categorias(base: Resource) -> Array:
 	if base is WeaponData:
 		return Upgrades.weapon_categories(base as WeaponData)
@@ -438,6 +438,8 @@ func _forja_categorias(base: Resource) -> Array:
 		return Upgrades.wand_categories()
 	if base is ArmorData:
 		return Upgrades.armor_categories(base as ArmorData)
+	if base is ShieldData:
+		return Upgrades.shield_categories()
 	return []
 
 

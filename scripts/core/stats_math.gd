@@ -294,7 +294,10 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 			"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p}
 
 	# 2) Daño base (raw×motion_value en atk()) mitigado por la defensa. FLOAT.
-	var dmg := damage(attacker.atk(), defender.def_value())
+	# Si esta DEFENDIENDO, su escudo suma su defensa aqui (defend_defense): un escudo solo protege
+	# de lo que paras con el, asi que no puede ir en def_value() como la armadura.
+	var def_val := defender.def_value() + (defender.defend_defense if defending else 0.0)
+	var dmg := damage(attacker.atk(), def_val)
 	# Variacion aleatoria por golpe (±DAMAGE_VARIANCE), estilo Terraria.
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 
