@@ -16,6 +16,9 @@ prob = 0.7
 [resource]
 script = ExtResource("1_g8nro")
 enemy_name = "Rey Slime"
+es_slime = true
+sequito_reduccion_por_slime = 0.1
+sequito_reduccion_max = 0.3
 color = Color(0.35, 0.7, 0.95, 1)
 escala_visual = 2.6
 fuerza = 48

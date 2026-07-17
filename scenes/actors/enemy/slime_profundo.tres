@@ -14,6 +14,7 @@ prob = 0.5
 [resource]
 script = ExtResource("1_g8nro")
 enemy_name = "Slime profundo"
+es_slime = true
 color = Color(0.3, 0.4, 0.5, 1)
 escala_visual = 1.5
 fuerza = 42

@@ -192,6 +192,10 @@ func setup(player_c: Combatant, enemy_cs: Array, enemy_initiated: bool,
 		player_exhausted: bool = false, player_overload_factor: float = 1.0) -> void:
 	_player = player_c
 	_enemies.assign(enemy_cs)
+	# El escudo del Rey Slime cuenta slimes vivos del roster: cada enemigo necesita ver a los
+	# demas. Les paso la MISMA lista (vivos y muertos); is_alive() filtra en el instante del golpe.
+	for e in _enemies:
+		e.battle_enemies = _enemies
 	_enemy_initiated = enemy_initiated
 	_player_exhausted_start = player_exhausted
 	_player_overload_factor = player_overload_factor

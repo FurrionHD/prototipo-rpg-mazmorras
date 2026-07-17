@@ -15,6 +15,10 @@ class_name EnemyData
 # TAMAÑO en el mapa (fuera de combate): multiplica el cuerpo y su colision. 1.0 = normal
 # (32x32). Los ELITES (slimes elementales) van mas grandes para que se les vea venir.
 @export var escala_visual: float = 1.0
+# FAMILIA slime: marca a toda la estirpe (normal, elementales, profundo, abisal y el propio Rey).
+# Lo usa la mecanica de sequito del Rey Slime: cada slime VIVO que le acompañe en combate le da
+# reduccion de daño. Aqui es solo la etiqueta; la reduccion la configuran los campos de abajo.
+@export var es_slime: bool = false
 
 # --- Combate: nivel + PESOS de distribucion de habilidades ---
 # Estos ya NO son valores absolutos: son los PESOS con los que se reparte la SUMA de
@@ -151,6 +155,15 @@ func color_visual(t: float) -> Color:
 # a ese nivel (junto con tener rango C en alguna habilidad, ver Game.puede_subir_nivel). 0 = no lo es.
 @export var nivel_que_otorga: int = 0
 
+# --- SEQUITO (mecanica del Rey Slime, jefe del piso 6) ---
+# Por cada slime VIVO que acompañe a ESTE enemigo en el combate, reduce el daño DIRECTO que
+# recibe (magia y golpes; el DoT de veneno/quemadura pega limpio). Acumulativo hasta el tope.
+# 0 = sin mecanica (todos los bichos salvo el Rey). El Rey pone 0.10 por slime, tope 0.30
+# (3 secuaces × 10%). Se recalcula en cada golpe segun los slimes vivos en ese instante, asi
+# que matar al sequito baja el escudo al momento. Ver Combatant._reduccion_sequito.
+@export_range(0.0, 1.0) var sequito_reduccion_por_slime: float = 0.0
+@export_range(0.0, 1.0) var sequito_reduccion_max: float = 0.0
+
 
 # Suma total de los PESOS (para normalizar la distribucion).
 func peso_total() -> float:
@@ -222,6 +235,10 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	# Rasgos de resistencia (piedra = aguanta stuns; alien = aguanta debuffs).
 	c.stun_resist = resist_aturdir
 	c.status_resist = status_resist
+	# Sequito (Rey Slime): etiqueta de familia + config de la reduccion de daño por acompañantes.
+	c.es_slime = es_slime
+	c.sequito_reduccion_por_slime = sequito_reduccion_por_slime
+	c.sequito_reduccion_max = sequito_reduccion_max
 	# Sus GOLPES van de su elemento (el slime de fuego pega fuego). Ojo: un bicho que resista
 	# fuego por un override (minotauro peludo) tiene elemento NINGUNO -> sus golpes NO son de fuego.
 	c.elemento_ataque = elemento

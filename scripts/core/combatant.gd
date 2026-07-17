@@ -191,6 +191,28 @@ var inmune_estados: Array = []
 # de teñir el golpe entero — si no, contra un enemigo resistente se le partiria el daño base.
 var elemento_ataque: int = Elementos.Elemento.NINGUNO
 
+# --- SEQUITO (mecanica del Rey Slime, jefe del piso 6) ---
+# es_slime: etiqueta de familia (lo cuenta el escudo del Rey). sequito_reduccion_* : config del
+# escudo (0 = sin mecanica, solo el Rey los pone). battle_enemies: referencia al roster ENTERO de
+# la pelea (vivos y muertos), que inyecta combat.gd en setup para poder contar slimes vivos en el
+# instante del golpe. Sin roster (fuera de combate / tests) la reduccion es 0.
+var es_slime: bool = false
+var sequito_reduccion_por_slime: float = 0.0
+var sequito_reduccion_max: float = 0.0
+var battle_enemies: Array = []
+
+# Reduccion de daño DIRECTO por el sequito: por cada OTRO slime vivo del roster, un escalon, hasta
+# el tope. 0 para todos salvo el Rey (que trae sequito_reduccion_por_slime > 0). Se recalcula aqui
+# cada vez, asi que refleja los slimes vivos AHORA (matar al sequito baja el escudo al momento).
+func _reduccion_sequito() -> float:
+	if sequito_reduccion_por_slime <= 0.0:
+		return 0.0
+	var n: int = 0
+	for e in battle_enemies:
+		if e != self and e.es_slime and e.is_alive():
+			n += 1
+	return minf(sequito_reduccion_max, float(n) * sequito_reduccion_por_slime)
+
 # --- IMBUICION (buff por combate, como foco_cargas) ---
 # Añade una PORCION de daño elemental a tus golpes de arma: daño × (1 + imbue_pct × mult_elem).
 # Es porcentual a proposito: escala sola con Fuerza/arma/mejoras/criticos y nunca hay que
@@ -383,9 +405,14 @@ func salir_de_guardia() -> void:
 func is_alive() -> bool:
 	return current_hp > 0.0
 
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, es_dot: bool = false) -> void:
 	if invulnerable:
 		return   # modo prueba: no pierde vida (el daño recibido se loguea igual)
+	# Escudo del sequito (Rey Slime): solo tapa el daño DIRECTO (magia/golpes). El DoT (veneno,
+	# quemadura) pega limpio -> los estados son la via para saltarse el escudo. Cero para todos
+	# salvo el Rey con slimes vivos al lado.
+	if not es_dot:
+		amount *= (1.0 - _reduccion_sequito())
 	current_hp = maxf(0.0, current_hp - amount)
 
 # Cura vida SIN pasarse del maximo (pociones / Regeneración). No revive (si estas a 0
@@ -655,7 +682,7 @@ func tick_statuses() -> Dictionary:
 			kept.append(e)
 	statuses = kept
 	if total_dmg > 0.0:
-		take_damage(total_dmg)
+		take_damage(total_dmg, true)   # DoT: NO lo tapa el escudo del sequito (pega limpio)
 	if total_heal > 0.0:
 		heal(total_heal)
 	if total_mana > 0.0:
