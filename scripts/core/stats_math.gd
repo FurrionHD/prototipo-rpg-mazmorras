@@ -17,9 +17,18 @@ class_name StatsMath
 # Se aplica IGUAL a jugador y enemigos (usan la misma Combatant.atk()).
 const FUERZA_DIV := 250.0
 
-# MAGIA: igual que la Fuerza, la Magia MULTIPLICA el raw del hechizo (dano_base).
-# magia_factor = 1 + Magia / MAGIA_DIV. A 250 de Magia un hechizo pega el DOBLE.
-const MAGIA_DIV := 250.0
+# MAGIA: la Magia MULTIPLICA el raw del hechizo (dano_base), pero con RENDIMIENTOS DECRECIENTES:
+# sube rapido al principio y se aplana. Antes era lineal (1 + Magia/250), o sea ×5.0 a Magia 999,
+# y a stat maxeada el mago se disparaba (mataba jefes en 3 hechizos con Magia ~900). Ahora el techo
+# es ×MAGIA_FACTOR_MAX (×3.5 a 999) y el maxeo se aplana SIN tocar el mid-game: a Magia 250 sigue
+# pegando el DOBLE (×2.0), el punto de referencia de siempre. La Fuerza sigue lineal a proposito:
+# el guerrero mete su progresion en el arma (tier), el mago la reparte entre la stat y el arma.
+const MAGIA_CAP := 999.0         # tope de la stat (como el resto)
+const MAGIA_FACTOR_MAX := 3.5    # factor de daño a Magia = cap
+# Exponente de la curva (<1 = decreciente). Calibrado para que a Magia 250 el factor sea 2.0:
+# ln((2.0-1)/(3.5-1)) / ln(250/999) = 0.661. Si tocas MAGIA_FACTOR_MAX, recalcula este para
+# mantener el ancla del ×2 a 250 (o mueve el ancla a proposito).
+const MAGIA_FACTOR_EXP := 0.661
 
 # Multiplicador GLOBAL del daño de todos los hechizos (rebalance de magia: los hechizos pegaban
 # muy poco, "una decima parte de la vida" y encima con dos turnos de casteo). Centralizado en
@@ -109,7 +118,7 @@ static func fuerza_factor(fuerza: float) -> float:
 # MAGIA: multiplica el dano_base del hechizo (paralelo a fuerza_factor). El
 # magic_amp del arma (bastones/varitas, KAN-95) se aplica aparte en resolve_spell.
 static func magia_factor(magia: float) -> float:
-	return 1.0 + magia / MAGIA_DIV
+	return 1.0 + (MAGIA_FACTOR_MAX - 1.0) * pow(clampf(magia, 0.0, MAGIA_CAP) / MAGIA_CAP, MAGIA_FACTOR_EXP)
 
 # Mana maximo segun la Magia (+ una base). FLOAT: asi las subidas pequeñas de Magia
 # (y otras mejoras) se NOTAN en el maximo (se muestra con decimales).
