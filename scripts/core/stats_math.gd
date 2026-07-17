@@ -50,13 +50,15 @@ const MP_BASE := 0.2
 # (matar a 4 daba lo mismo que matar a 1, cuando lo que se disuelve en ti es el NUCLEO de cada
 # bicho) y sobre todo salias LLENO de cualquier pelea, asi que el maná no limitaba nada.
 #
-# El multiplicador POR BICHO baja cuanto mas grande es el corro: 1 bicho ×3.0, 2 ×2.5, 3 ×2.0,
-# 4 (o mas) ×1.5. Asi el corro sigue dando mas maná EN TOTAL (premia la magia de area), pero un
-# duelo 1v1 no te deja tirado: si gastaste un hechizo por un solo enemigo, ese unico nucleo te
-# cunde el triple y no malgastas el maná del casteo. El x1.5 del corro grande esta medido: con
-# x2.5 el mejor baston posible sacaba el 107% de su deposito de cuatro, o sea vuelta a empezar.
-const MP_KILL_MULT_BASE := 3.5   # el mult por bicho es MP_KILL_MULT_BASE - 0.5×n_enemigos...
-const MP_KILL_MULT_MIN := 1.5    # ...con suelo aqui (un corro de 4+ ya no baja mas)
+# El multiplicador POR BICHO baja cuanto mas grande es el corro: 1 bicho ×2.0, 2 ×1.75, 3 ×1.5,
+# 4 (o mas) ×1.25. Asi el corro sigue dando mas maná EN TOTAL (premia la magia de area), pero un
+# duelo 1v1 no te deja tirado: si gastaste un hechizo por un solo enemigo, ese nucleo te cunde el
+# doble y no malgastas el maná del casteo. Se bajo de la tanda original (3.0/2.5/2.0/1.5) porque
+# con la extraccion no es raro pillar un baston epico/legendario pronto, y su regen alto multiplica
+# esto: con la curva vieja un baston asi salia LLENO de casi cualquier pelea.
+const MP_KILL_MULT_BASE := 2.25  # el mult por bicho es MP_KILL_MULT_BASE - STEP×n_enemigos...
+const MP_KILL_MULT_STEP := 0.25  # ...bajando esto por cada bicho del corro...
+const MP_KILL_MULT_MIN := 1.25   # ...con suelo aqui (un corro de 4+ ya no baja mas)
 
 # Maná que devuelve UN golpe de arma que acierta.
 static func mp_por_golpe() -> float:
@@ -64,7 +66,7 @@ static func mp_por_golpe() -> float:
 
 # Multiplicador de maná POR BICHO segun cuantos habia en la pelea (decae con el tamaño del corro).
 static func mp_kill_mult(enemigos: int) -> float:
-	return maxf(MP_KILL_MULT_MIN, MP_KILL_MULT_BASE - 0.5 * float(enemigos))
+	return maxf(MP_KILL_MULT_MIN, MP_KILL_MULT_BASE - MP_KILL_MULT_STEP * float(enemigos))
 
 # Maná que sueltan los enemigos al caer. 'regen_turno' = el goteo por turno de tu arma magica
 # (0 si no llevas): el baston no solo te gotea, tambien hace que los nucleos te cundan mas.
