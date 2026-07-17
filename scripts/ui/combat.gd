@@ -1289,11 +1289,14 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 
 
 # DISPERSION (Tormenta, Andanada ignea): cada uno de los 'hits' es una BOLA que cae en un vivo
-# al AZAR y aplica ahi el ALCANCE del hechizo (solo el objetivo, o + los adyacentes si salpica).
-# Se recalculan los vivos POR BOLA, asi ninguna cae sobre un cadaver. Al reves que los rebotes,
-# SI tira estados. Agrega POR objetivo y devuelve el array con la forma que consume _log_hechizo
-# (una entrada {c, dano, mult, golpes, trail, estados} por enemigo tocado).
-# En 1v1 todas las bolas caen sobre el unico enemigo: no pierde nada de su daño single-target.
+# al AZAR. Se recalculan los vivos POR BOLA, asi ninguna cae sobre un cadaver. Al reves que los
+# rebotes, SI tira estados. Agrega POR objetivo y devuelve el array con la forma que consume
+# _log_hechizo (una entrada {c, dano, mult, golpes, trail, estados} por enemigo tocado).
+#
+# SALPICON por elemento: cada bola tira UN elemento (la bola entera es esa gota o ese rayo). Solo
+# las del ELEMENTO DE IDENTIDAD del hechizo (spell.elemento) salpican a los adyacentes: en la
+# Tormenta el rayo arquea a los lados y la lluvia cae suelta; en la Andanada todo es fuego = todo
+# salpica. En 1v1 no hay adyacentes, asi que el salpicon no cambia nada: solo mejora el multi.
 func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 	var n: int = spell.golpes()
 	var acc: Dictionary = {}     # Combatant -> {c, dano, mult, golpes, trail, estados}
@@ -1304,13 +1307,18 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 		if vivos.is_empty():
 			break   # no queda nadie: los golpes que faltaban se pierden
 		var principal: Combatant = vivos.pick_random()
-		# Cada bola aplica el alcance del hechizo en SU punto de impacto (150/75 en la Andanada;
-		# solo el objetivo en la Tormenta). El dano_base se reparte entre las N bolas: escala/N.
-		for t in _objetivos_area(spell, principal):
+		var elem: int = spell.elemento_de_golpe()   # UN elemento para toda la bola
+		# ¿Esta bola salpica? Solo los golpes del elemento de identidad, y solo si hay salpicon.
+		var objetivos: Array
+		if spell.salpica() and elem == spell.elemento:
+			objetivos = _objetivos_area(spell, principal)
+		else:
+			objetivos = [{"c": principal, "escala": spell.dano_objetivo}]
+		# El dano_base se reparte entre las N bolas: escala/N.
+		for t in objetivos:
 			var obj: Combatant = t.c
 			if not obj.is_alive():
 				continue
-			var elem: int = spell.elemento_de_golpe()
 			var res: Dictionary = StatsMath.resolve_spell(_player, obj, spell, elem, float(t.escala) / float(n))
 			var dmg: float = float(res.damage) * foco
 			var mult: float = float(res.get("mult_elem", 1.0))

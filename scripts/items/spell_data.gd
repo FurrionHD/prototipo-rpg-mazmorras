@@ -283,7 +283,13 @@ func resumen() -> String:
 		p.append(d)
 		# Alcance y rebotes: los textos salen de los multiplicadores, no escritos a mano.
 		if salpica():
-			p.append(alcance_texto())
+			# En un disperso con mezcla, solo el elemento de identidad salpica: no mentir diciendo
+			# "X% a los adyacentes" como si salpicaran todos los golpes.
+			if dispersa and not elemento_mix.is_empty():
+				p.append("los golpes de %s salpican %d%% a los adyacentes" % [
+					Elementos.nombre(elemento), roundi(dano_salpicon * 100.0)])
+			else:
+				p.append(alcance_texto())
 		if rebotes_n() > 0:
 			p.append(rebotes_texto())
 		if dispersa:
