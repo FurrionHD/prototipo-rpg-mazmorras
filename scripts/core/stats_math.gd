@@ -45,23 +45,31 @@ const MP_FROM_MAGIA := 0.033   # magia 999 -> +33 (max = 20 + 33 = 53)
 # MP_BASE es el pellizco "de pelear", sin arma magica de por medio. Se usa en DOS sitios: lo que
 # devuelve un golpe que acierta, y la base de lo que suelta un enemigo al morir (ver mp_por_kill).
 const MP_BASE := 0.2
-# MANÁ POR ENEMIGO MATADO: 1.5 × (MP_BASE + el regen por turno de tu arma magica). Antes era un
-# 25% del maximo POR COMBATE, y ahi habia dos problemas: el sabor mentia (matar a 4 daba lo mismo
-# que matar a 1, cuando lo que se disuelve en ti es el NUCLEO de cada bicho) y sobre todo salias
-# LLENO de cualquier pelea, asi que el maná no limitaba nada y la pocion de maná no servia para
-# nada. Ahora escala con los bichos (premia el corro, que es donde brilla la magia de area) y con
-# tu arma magica: el que va a maná es el que lleva baston. El x1.5 esta medido: con x2.5 el mejor
-# baston posible sacaba el 107% de su deposito de un corro de cuatro, o sea vuelta a empezar.
-const MP_KILL_MULT := 1.5
+# MANÁ POR ENEMIGO MATADO: mult(n) × (MP_BASE + el regen por turno de tu arma magica), por CADA
+# bicho. Antes era un 25% del maximo POR COMBATE, y ahi habia dos problemas: el sabor mentia
+# (matar a 4 daba lo mismo que matar a 1, cuando lo que se disuelve en ti es el NUCLEO de cada
+# bicho) y sobre todo salias LLENO de cualquier pelea, asi que el maná no limitaba nada.
+#
+# El multiplicador POR BICHO baja cuanto mas grande es el corro: 1 bicho ×3.0, 2 ×2.5, 3 ×2.0,
+# 4 (o mas) ×1.5. Asi el corro sigue dando mas maná EN TOTAL (premia la magia de area), pero un
+# duelo 1v1 no te deja tirado: si gastaste un hechizo por un solo enemigo, ese unico nucleo te
+# cunde el triple y no malgastas el maná del casteo. El x1.5 del corro grande esta medido: con
+# x2.5 el mejor baston posible sacaba el 107% de su deposito de cuatro, o sea vuelta a empezar.
+const MP_KILL_MULT_BASE := 3.5   # el mult por bicho es MP_KILL_MULT_BASE - 0.5×n_enemigos...
+const MP_KILL_MULT_MIN := 1.5    # ...con suelo aqui (un corro de 4+ ya no baja mas)
 
 # Maná que devuelve UN golpe de arma que acierta.
 static func mp_por_golpe() -> float:
 	return MP_BASE
 
+# Multiplicador de maná POR BICHO segun cuantos habia en la pelea (decae con el tamaño del corro).
+static func mp_kill_mult(enemigos: int) -> float:
+	return maxf(MP_KILL_MULT_MIN, MP_KILL_MULT_BASE - 0.5 * float(enemigos))
+
 # Maná que sueltan los enemigos al caer. 'regen_turno' = el goteo por turno de tu arma magica
 # (0 si no llevas): el baston no solo te gotea, tambien hace que los nucleos te cundan mas.
 static func mp_por_kill(regen_turno: float, enemigos: int = 1) -> float:
-	return MP_KILL_MULT * (MP_BASE + maxf(regen_turno, 0.0)) * float(maxi(enemigos, 0))
+	return mp_kill_mult(enemigos) * (MP_BASE + maxf(regen_turno, 0.0)) * float(maxi(enemigos, 0))
 
 # Resto de stats: siguen el modelo "base + habilidad × coef" (coef crece con el
 # nivel). Numeros bajos a proposito: 999 no debe dar 999 de golpe.
