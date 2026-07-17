@@ -15,6 +15,6 @@ tipo = 0
 elemento = 3
 frases = Array[String](["Relampago, parte el aire", "Que el cielo descargue su furia"])
 coste_mana = 8
-dano_base = 25.0
+dano_base = 18.8
 efectos = [SubResource("SA_electrizado")]
 descripcion = "Hechizo medio de rayo. Dos frases: mas dano a cambio de un turno extra recitando. Cae en un solo golpe seco, al reves que la Descarga, y deja electrizado mas facil."

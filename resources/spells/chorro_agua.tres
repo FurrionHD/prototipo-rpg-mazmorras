@@ -15,6 +15,6 @@ tipo = 0
 elemento = 2
 frases = Array[String](["Que la corriente me responda", "Rompete contra mi enemigo"])
 coste_mana = 8
-dano_base = 24.0
+dano_base = 18.0
 efectos = [SubResource("SA_mojado")]
 descripcion = "Una lanza de presión que revienta contra el enemigo y lo deja empapado. Devastador contra criaturas de fuego."

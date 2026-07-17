@@ -109,10 +109,26 @@ const REFUERZO_STEP := 0.05       # +bloqueo por punto (decreciente, sin tope: l
 const MAGIC_AMP_FLAT := 0.02      # +magic_amp por CADA mejora (primario del arma magica)
 const POTENCIA_STEP := 0.05       # +magic_amp de la categoria Potencia (extra, decreciente)
 const POTENCIA_CAP := 0.25        # tope del bonus de Potencia
-# TIER de las armas magicas: escala el magic_amp de forma MUCHO mas suave que el melee
-# (subir de tier en magia no debe valer tanto como en fisico). Curva = tmult^POWER con
-# un exponente bajo: t1 ×1.00, t2 ×1.12, t3 ×1.25. PROVISIONAL -> Excel.
-const MAGIC_TIER_POWER := 0.14
+# TIER de las armas magicas: escala el magic_amp = tmult^POWER. Calibrado para que cada tier sea
+# ×1.90 (2.2^0.8141), contra el ×2.20 CLAVADO de una melee (weapon_mods usa el tmult entero).
+#
+# Estaba en 0.14 = solo ×1.12 por tier, con el argumento de que "subir de tier en magia no debe
+# valer tanto como en fisico" (el magic_amp multiplica un daño que ya compone con tu Magia). El
+# argumento tenia sentido pero el numero mataba al mago: MEDIDO por turno (una Brasa tarda 2
+# turnos en salir, un espadazo 1), con stat 500 y el mismo muñeco, un mago hacia el 42% del daño
+# de un guerrero YA EN T3, que es el tier tope de hoy. Y a T20, el 0.0004%. Un ×1.12 contra un
+# ×2.20 compone en contra en cada tier: (1.12/2.2)^19 ≈ 0.
+#
+# El ×1.90 y no el ×2.20 NO es un capricho: el mago escala por DOS sitios (su arma y las magias
+# nuevas, que iran costando mas maná y pegando mas) y el guerrero solo por UNO (el arma). La regla
+# es que entre los dos sumen lo que el guerrero saca de uno:
+#
+#     baston (×1.90/tier) × magias (×1.16/tier) = ×2.20   <- el ritmo del guerrero
+#
+# O sea que CADA generacion de magias tiene que pegar un ~16% mas que la anterior. Si pegan menos,
+# el mago se hunde despacio; si pegan mas, se dispara. Es lo que hay que respetar al meter magias
+# nuevas, y es la mitad del sistema que todavia no existe.
+const MAGIC_TIER_POWER := 0.8141
 const EFICIENCIA_STEP := 0.05     # -% coste de maná (dim_sum asintota a 0.25 -> hay que invertir MUCHO)
 const EFICIENCIA_CAP := 0.25
 const CELERIDAD_STEP := 0.03      # +velocidad de casteo

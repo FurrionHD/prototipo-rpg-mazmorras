@@ -33,6 +33,6 @@ elemento_mix = {
 hits = 20
 frases = Array[String](["Fulgor, desciende del cielo", "Truenos, romped el silencio", "El viento aullara conmigo"])
 coste_mana = 14
-dano_base = 33.0
+dano_base = 24.8
 efectos = [SubResource("SA_mojado"), SubResource("SA_electrizado"), SubResource("SA_stun")]
 descripcion = "Se abre el cielo. Cae la lluvia a cantaros y, entre ella, los rayos buscan lo que ya esta empapado."
