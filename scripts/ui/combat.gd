@@ -13,7 +13,7 @@
 #    Combat (Control)  <- este script
 #    └── VBox (VBoxContainer, pantalla completa)
 #        ├── _bloques_box (HBox)  <- los N enemigos, EN FILA y con ANCHO_BLOQUE fijo
-#        ├── bloque del jugador   <- a lo ancho (no compite por sitio con nadie)
+#        ├── _aliados_box (HBox)  <- los tuyos (hoy solo tu; luego, companeros KAN-62)
 #        ├── Log (Label)
 #        ├── AttackButton (Button)   <- reutilizado como "Continuar" al terminar
 #        └── barra de acciones + submenus (magia / habilidades / objetos)
@@ -65,14 +65,24 @@ const ATTACK_ENERGY_REGEN := 28.0
 
 # La COLUMNA del combate ($VBox de la escena, a pantalla completa).
 var _col: VBoxContainer = null
-# Fila con los bloques de los ENEMIGOS: van uno AL LADO DEL OTRO, no apilados.
+# Fila de los ENEMIGOS: van uno AL LADO DEL OTRO, no apilados.
 var _bloques_box: HBoxContainer = null
+# Fila de los TUYOS: hoy solo tu bloque, pero es una fila y no un bloque suelto porque manda el
+# mismo criterio que la de enfrente. Cuando haya companeros de equipo (KAN-62) se añaden aqui
+# al lado, sin tocar el layout.
+var _aliados_box: HBoxContainer = null
 
-# ANCHO FIJO del bloque de un enemigo. Es la clave del combate en grupo: si la barra de vida se
-# estirase (como hacia en el 1v1, ocupando el ancho entero), cuatro enemigos serian cuatro
-# franjas apiladas y la pelea se leeria como una lista. Con un ancho fijo caben los cuatro EN
-# FILA, y esa fila es la que numera la barra de accion: el nº2 de abajo es el 2º empezando por
-# la izquierda. 260 x 4 + separacion = 1064, y el viewport base son 1152: entra con holgura.
+# ANCHO FIJO de un bloque de combatiente, tuyo o del enemigo. Es la clave del combate en grupo:
+# si la barra de vida se estirase (como hacia en el 1v1, ocupando el ancho entero), cuatro
+# enemigos serian cuatro franjas apiladas y la pelea se leeria como una lista. Con un ancho fijo
+# caben los cuatro EN FILA, y esa fila es la que numera la barra de accion: el nº2 de abajo es
+# el 2º empezando por la izquierda. 260 x 4 + separacion = 1064, y el viewport base son 1152:
+# entra con holgura.
+#
+# Tu bloque mide LO MISMO que uno enemigo, aunque hoy este solo y le sobre sitio a los lados: es
+# un combatiente como los demas, y en cuanto haya companeros seran varios repartiendose la fila.
+# Que ya tenga su tamaño definitivo evita que el dia que entre el primer aliado se recoloque
+# todo de golpe.
 const ANCHO_BLOQUE := 260.0
 # Alto RESERVADO para los estados: dos filas de chips. Se reserva SIEMPRE, haya estados o no,
 # para que entrar o salir uno no mueva de sitio la barra de vida ni nada de lo que hay debajo.
@@ -343,18 +353,19 @@ func _setup_ui() -> void:
 		var b: Dictionary = _crear_bloque(_enemies[i], i + 1, i)
 		_bloques.append(b)
 		_bloques_box.add_child(b["panel"])
-	# Separador para que tu bloque no se confunda con la fila de enemigos. IGNORE: un Control es
-	# STOP por defecto y esta franja se comeria los clics que caigan en ella.
+	# Separador para que tu fila no se confunda con la de enfrente. IGNORE: un Control es STOP
+	# por defecto y esta franja se comeria los clics que caigan en ella.
 	var sep := Control.new()
-	sep.custom_minimum_size = Vector2(0, 10)
+	sep.custom_minimum_size = Vector2(0, 12)
 	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_col.add_child(sep)
 	_col.move_child(sep, 1)
-	# El bloque del JUGADOR se construye igual (numero 0 = sin numerar, sin clic, sin borde),
-	# pero va en la COLUMNA y a lo ancho: es el tuyo, no compite por sitio con nadie.
+	# Tu fila. El bloque del JUGADOR se construye igual que uno enemigo (numero 0 = sin numerar,
+	# sin clic y sin borde: a ti no hace falta apuntarte). Los companeros (KAN-62) entraran aqui.
+	_aliados_box = _crear_fila_bloques()
+	_col.move_child(_aliados_box, 2)
 	_bloque_player = _crear_bloque(_player, 0, -1)
-	_col.add_child(_bloque_player["panel"])
-	_col.move_child(_bloque_player["panel"], 2)
+	_aliados_box.add_child(_bloque_player["panel"])
 	_player_hp = _bloque_player["hp"]
 	_player_hp_lbl = _bloque_player["hp_lbl"]
 	_crear_barras_jugador()
@@ -379,10 +390,8 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 	# de la barra: una ProgressBar es STOP por defecto y ocupa media caja).
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP if numero > 0 else Control.MOUSE_FILTER_IGNORE
 	panel.add_theme_stylebox_override("panel", _sb_bloque(false))
-	# ANCHO FIJO en los enemigos: es lo que les permite ir en fila. El del jugador no lo lleva:
-	# va en la columna y se estira a lo ancho, como siempre.
-	if numero > 0:
-		panel.custom_minimum_size = Vector2(ANCHO_BLOQUE, 0)
+	# Mismo ancho para todos, tuyo o enemigo: es lo que les permite ir en fila.
+	panel.custom_minimum_size = Vector2(ANCHO_BLOQUE, 0)
 
 	var margen := MarginContainer.new()
 	margen.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -2285,11 +2294,17 @@ func _anadir_fondo() -> void:
 func _montar_columna() -> void:
 	_col = $VBox
 	_col.mouse_filter = Control.MOUSE_FILTER_PASS
-	_bloques_box = HBoxContainer.new()
-	_bloques_box.add_theme_constant_override("separation", 8)
-	# Centrada: con 1 o 2 enemigos la fila queda en medio de la pantalla en vez de pegada a la
-	# izquierda con un hueco raro al lado.
-	_bloques_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	_bloques_box.mouse_filter = Control.MOUSE_FILTER_PASS
-	_col.add_child(_bloques_box)
+	# Dos filas simetricas, ellos arriba y los tuyos debajo. Centradas: con 1 o 2 bloques la fila
+	# queda en medio de la pantalla en vez de pegada a la izquierda con un hueco raro al lado.
+	_bloques_box = _crear_fila_bloques()
 	_col.move_child(_bloques_box, 0)
+
+
+# Una fila de bloques de combatiente (enemigos o tuyos), colgada de la columna.
+func _crear_fila_bloques() -> HBoxContainer:
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 8)
+	fila.alignment = BoxContainer.ALIGNMENT_CENTER
+	fila.mouse_filter = Control.MOUSE_FILTER_PASS
+	_col.add_child(fila)
+	return fila
