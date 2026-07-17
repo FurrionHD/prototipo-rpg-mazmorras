@@ -221,6 +221,45 @@ func _vivos() -> Array[Combatant]:
 	return out
 
 
+# Los VECINOS de 'principal' a los que salpica un hechizo de area: el primer enemigo VIVO a su
+# izquierda y el primero a su derecha (maximo 2, haya los cadaveres que haya en medio).
+# Los muertos NO se comen el salpicon: siguen en _enemies para que la numeracion no baile bajo
+# tu dedo (ver el comentario de _enemies), que es cosa de la UI, no la geometria de la pelea.
+# Si el hueco muerto absorbiera el golpe, el hechizo iria a MENOS segun avanza el combate, y
+# encima sin decirtelo. Es la misma regla que ya sigue _objetivo(): nada se lanza al vacio.
+func _adyacentes_vivos(principal: Combatant) -> Array[Combatant]:
+	var out: Array[Combatant] = []
+	var centro: int = _enemies.find(principal)
+	if centro < 0:
+		return out
+	for paso in [-1, 1]:
+		var i: int = centro + paso
+		while i >= 0 and i < _enemies.size():
+			if _enemies[i].is_alive():
+				out.append(_enemies[i])
+				break
+			i += paso
+	return out
+
+
+# A quien alcanza la fase de AREA, con el multiplicador de daño de cada uno ya puesto:
+# [{c: Combatant, escala: float}]. El principal va SIEMPRE el primero (el log lo cuenta asi).
+func _objetivos_area(spell: SpellData, principal: Combatant) -> Array:
+	var out: Array = [{"c": principal, "escala": spell.dano_objetivo}]
+	if not spell.salpica():
+		return out
+	var vecinos: Array[Combatant] = []
+	match spell.alcance:
+		SpellData.Alcance.ADYACENTES:
+			vecinos = _adyacentes_vivos(principal)
+		SpellData.Alcance.TODOS:
+			vecinos = _vivos()
+	for c in vecinos:
+		if c != principal:
+			out.append({"c": c, "escala": spell.dano_salpicon})
+	return out
+
+
 func _ready() -> void:
 	# Forzamos que esta pantalla ocupe toda la ventana, aunque se abra como
 	# overlay encima de la mazmorra (si no, sale descentrada/pequeña).
@@ -1014,19 +1053,37 @@ func _disparar_hechizo() -> void:
 	if _state != State.WAITING_PLAYER:
 		return
 	var spell := _cast_spell
-	# Objetivo capturado una vez, como en el resto de acciones (ver _usar_habilidad). Por ahora
-	# la magia sigue siendo MONO-objetivo: pega al que tengas seleccionado. El rework de magia
-	# multi-objetivo entra por aqui y por _resolver_golpes_hechizo, que ya toma el objetivo.
+	# Objetivo PRINCIPAL, capturado una vez, como en el resto de acciones (ver _usar_habilidad).
+	# El area y los rebotes salen de el; y el sigue siendo el que cuenta para la Excelia y el DPS.
 	var obj: Combatant = _objetivo()
+	# Todos los enemigos tocados (area + rebotes): hay que rematarlos AL FINAL, de una vez.
+	var tocados: Array = []
 	# DAÑO solo para hechizos de ATAQUE (los de BUFF/DEBUFF no pegan, solo aplican estado).
 	var dano: float = 0.0
 	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
 		# Foco arcano (Canalización): gasta 1 carga y amplifica el daño del hechizo. Solo
 		# los OFENSIVOS gastan carga; el largo la gasta AL DISPARAR (respeta el canto). Se
-		# consume UNA vez y multiplica TODOS los golpes.
+		# consume UNA vez y multiplica TODOS los golpes (los del area y los de los rebotes).
 		var foco: float = _player.consumir_foco()
-		dano = _resolver_golpes_hechizo(spell, obj, foco)
-		_dps_add("Hechizo: %s" % spell.nombre, dano)
+		# 1) AREA: el principal y a quien salpique, cada uno con su multiplicador.
+		var res_area: Array = []
+		for t in _objetivos_area(spell, obj):
+			res_area.append(_resolver_golpes_hechizo(spell, t.c, foco, float(t.escala)))
+			tocados.append(t.c)
+		# 2) REBOTES: DESPUES del area, cada uno a un vivo al azar. _vivos() se recalcula en
+		# CADA rebote, asi que la cadena nunca cae sobre un cadaver (ni sobre el que acaba de
+		# tumbar el rebote anterior).
+		var res_reb: Array = []
+		for i in spell.rebotes_n():
+			var vivos: Array[Combatant] = _vivos()
+			if vivos.is_empty():
+				break   # no queda nadie a quien saltar: la cadena se apaga
+			var victima: Combatant = vivos.pick_random()
+			res_reb.append(_resolver_golpes_hechizo(spell, victima, foco, spell.dano_rebote,
+				spell.rebote_estados))
+			tocados.append(victima)
+		dano = _log_hechizo(spell, res_area, res_reb, foco)
+		_dps_add("Hechizo: %s" % spell.nombre, dano)   # una entrada por lanzamiento, agregada
 	else:
 		_set_log("✨ %s lanza %s." % [_player.nombre, spell.nombre])
 		# Los estados de un hechizo sin daño (buff/debuff) se aplican aqui: no hay golpes que
@@ -1049,7 +1106,9 @@ func _disparar_hechizo() -> void:
 	_limpiar_casteo()
 	_update_hp()
 	_fin_de_eleccion()
-	_tras_accion_jugador(obj)
+	# Un hechizo de area puede tumbar a varios de golpe: hay que rematarlos a TODOS. El
+	# principal va en la lista aunque el hechizo no sea de area (es el primero del area).
+	_tras_accion_jugador_varios(tocados if not tocados.is_empty() else [obj])
 
 
 # IMBUICION (KAN-58): tiñe tus golpes de arma con el elemento del hechizo.
@@ -1094,20 +1153,29 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 	_set_log(msg)
 
 
-# Resuelve TODOS los golpes de un hechizo de ATAQUE. Devuelve el daño total.
+# Resuelve TODOS los golpes de un hechizo de ATAQUE contra UN objetivo. NO escribe en el log:
+# devuelve lo ocurrido y ya lo cuenta _log_hechizo, que es quien ve el hechizo entero (con
+# area y rebotes, una linea por golpe no cabria ni de lejos en el log).
 # Cada golpe elige SU elemento (aleatorio si el hechizo trae reparto), pega, y tira SUS
 # estados. El orden es el que hace bonito el multi-elemento: los estados de un golpe se
 # aplican DESPUES de su daño, asi que un golpe nunca se amplifica a si mismo... pero la
 # lluvia que moja SI amplifica (x1.5) los rayos que caigan DETRAS.
-# 'objetivo' es un parametro (y no _enemy directamente) porque es el gancho de los ataques
-# que rebotaran entre varios enemigos cuando el combate deje de ser 1v1.
-func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float) -> float:
+#   escala       -> multiplicador de daño de ESTE objetivo (1.5 al principal de Brasa, 0.75 al
+#                   salpicon...). Modula 'frac', y como resolve_spell es LINEAL en el ataque,
+#                   escalar aqui es exactamente lo mismo que escalar el dano_base solo para el.
+#   tira_estados -> false en los rebotes (ver SpellData.rebote_estados).
+# Devuelve {c, dano, mult, golpes, trail, estados}.
+func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float,
+		escala: float = 1.0, tira_estados: bool = true) -> Dictionary:
 	var n: int = spell.golpes()
-	var frac: float = 1.0 / float(n)
+	var frac: float = escala / float(n)
 	var multi: bool = n > 1
 	var total: float = 0.0
 	var trail: Array = []
-	var anunciados: Dictionary = {}   # estados ya contados en el log (si no, 20 lineas iguales)
+	# Estados ya contados en el log, FRESCO por objetivo: si se compartiera entre los enemigos
+	# del area, solo se anunciaria el estado del primero y los demas entrarian en silencio.
+	var anunciados: Dictionary = {}
+	var aplicados: Array = []   # estados que ENTRAN, para que el log los pliegue en una linea
 	var ultimo_mult: float = 1.0
 	for i in n:
 		if not objetivo.is_alive():
@@ -1121,22 +1189,70 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
 		total += dmg
 		trail.append("%s%.1f%s" % [Elementos.icono(elem), dmg, _mult_sufijo(mult)])
-		print("[magia] %s golpe %d/%d %s: %.2f (x%.2f)" % [
-			spell.nombre, i + 1, n, Elementos.nombre(elem), dmg, mult])
+		print("[magia] %s golpe %d/%d %s sobre %s: %.2f (x%.2f)" % [
+			spell.nombre, i + 1, n, Elementos.nombre(elem), objetivo.nombre, dmg, mult])
 		# Este golpe GASTA lo que lo amplificaba (el rayo evapora el Mojado): el x1.5 se cobra
 		# una vez y hay que volver a mojar. Va DESPUES del daño (este golpe si lo cobra).
 		_gastar_amplificadores(objetivo, elem)
 		# Estados de ESTE golpe (solo los que pidan su elemento). Van DESPUES de su daño.
-		_aplicar_estado_hechizo(spell, objetivo, elem, not multi, anunciados)
+		if tira_estados:
+			# En multi-objetivo el log lo escribe _log_hechizo de una sentada: aqui callamos.
+			_aplicar_estado_hechizo(spell, objetivo, elem, not multi, anunciados,
+				spell.es_multiobjetivo(), aplicados)
+	return {
+		"c": objetivo, "dano": total, "mult": ultimo_mult,
+		"golpes": trail.size(), "trail": trail, "estados": aplicados,
+	}
+
+
+# CUENTA en el log un hechizo ya resuelto y devuelve el daño TOTAL.
+#   res_area -> resultados de la fase de area (el principal SIEMPRE el primero).
+#   res_reb  -> resultados de los rebotes, en orden.
+# El log solo guarda LOG_MAX lineas, y una Descarga sobre 4 enemigos son 18 impactos: en
+# multi-objetivo se cuenta UNA LINEA POR FASE (area / rebotes / estados / total), nunca una
+# por golpe. El rastro golpe a golpe se ve en la consola.
+func _log_hechizo(spell: SpellData, res_area: Array, res_reb: Array, foco: float) -> float:
+	var total: float = 0.0
+	for r in res_area + res_reb:
+		total += float(r.dano)
 	var foco_txt: String = "  🔮Foco arcano +%d%% (quedan %d)" % [
 		roundi(Combatant.FOCO_BONUS * 100.0), _player.foco_cargas] if foco > 1.0 else ""
-	if multi:
-		_set_log("🌩 %s descarga %d golpes sobre %s: %s" % [
-			spell.nombre, trail.size(), objetivo.nombre, " · ".join(trail)])
-		_set_log("… %.2f de daño en total.%s" % [total, foco_txt])
-	else:
-		_set_log("🔥 %s impacta a %s por %.2f de daño.%s%s" % [
-			spell.nombre, objetivo.nombre, total, _elem_txt(ultimo_mult), foco_txt])
+
+	# MONO-OBJETIVO: el formato de siempre, intacto (Tormenta, Bola de Fuego...).
+	if not spell.es_multiobjetivo():
+		var r0: Dictionary = res_area[0]
+		if spell.es_multigolpe():
+			_set_log("🌩 %s descarga %d golpes sobre %s: %s" % [
+				spell.nombre, int(r0.golpes), r0.c.nombre, " · ".join(r0.trail)])
+			_set_log("… %.2f de daño en total.%s" % [total, foco_txt])
+		else:
+			_set_log("🔥 %s impacta a %s por %.2f de daño.%s%s" % [
+				spell.nombre, r0.c.nombre, total, _elem_txt(float(r0.mult)), foco_txt])
+		return total
+
+	# MULTI-OBJETIVO: "Nombre (daño)" por enemigo, en una linea.
+	var partes: Array = []
+	for r in res_area:
+		partes.append("%s (%.1f%s)" % [r.c.nombre, float(r.dano), _mult_sufijo(float(r.mult))])
+	_set_log("%s %s alcanza a %s" % [Elementos.icono(spell.elemento), spell.nombre, ", ".join(partes)])
+	if not res_reb.is_empty():
+		var reb: Array = []
+		for r in res_reb:
+			# Los repetidos se listan tal cual: que se vea cuando la cadena insiste en el mismo.
+			reb.append("%s (%.1f%s)" % [r.c.nombre, float(r.dano), _mult_sufijo(float(r.mult))])
+		_set_log("↯ Rebota ×%d: %s" % [reb.size(), ", ".join(reb)])
+	# Estados PLEGADOS: una linea por estado con todos los que lo cogieron, no una por enemigo.
+	var por_estado: Dictionary = {}
+	for r in res_area + res_reb:
+		for id in r.estados:
+			if not por_estado.has(id):
+				por_estado[id] = []
+			if not por_estado[id].has(r.c.nombre):
+				por_estado[id].append(r.c.nombre)
+	for id in por_estado:
+		_set_log("✨ %s: %s" % [
+			String(StatusEffects.def(int(id)).get("nombre", "?")), ", ".join(por_estado[id])])
+	_set_log("… %.2f de daño en total.%s" % [total, foco_txt])
 	return total
 
 
@@ -1203,8 +1319,12 @@ func _gastar_imbue() -> void:
 #   verboso    -> false en multi-golpe: 20 tiradas fallidas serian 20 lineas de log. Los
 #                 fallos se ven igual en la consola; en el log solo se anuncia lo que ENTRA.
 #   anunciados -> estados ya nombrados en el log (no repetir "recibe Mojado" en cada golpe).
+#   silencioso -> no toca el log NADA (ni inmunidades ni resistencias: van a la consola). Lo
+#                 usa el multi-objetivo, donde el log lo escribe _log_hechizo de una sentada.
+#   aplicados  -> se rellena con los estados que ENTRAN, para que el llamador los pliegue.
 func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null,
-		elem_golpe: int = -1, verboso: bool = true, anunciados: Dictionary = {}) -> void:
+		elem_golpe: int = -1, verboso: bool = true, anunciados: Dictionary = {},
+		silencioso: bool = false, aplicados: Array = []) -> void:
 	var enemigo: Combatant = objetivo_ataque if objetivo_ataque != null else _objetivo()
 	for a in spell.efectos:
 		if a.estado < 0:
@@ -1219,7 +1339,9 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 		if objetivo.es_inmune(a.estado):   # incluye la inmunidad derivada de su AFINIDAD elemental
 			if not anunciados.has(a.estado):
 				anunciados[a.estado] = true
-				_set_log("… %s es INMUNE a %s." % [objetivo.nombre, nom])
+				if not silencioso:
+					_set_log("… %s es INMUNE a %s." % [objetivo.nombre, nom])
+				print("[estado] %s es INMUNE a %s" % [objetivo.nombre, nom])
 			continue
 		if al_enemigo:
 			# La resistencia a estados del objetivo baja la probabilidad efectiva.
@@ -1230,14 +1352,16 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 				# con un golpe de rayo no serviria de nada para aturdir con los siguientes.
 				p = clampf(p * objetivo.stun_taken_mult(), 0.0, StatsMath.ATURDIR_MAX)
 			if randf() >= p:
-				if verboso:   # en multi-golpe callamos los fallos: serian 20 lineas de ruido
+				if verboso and not silencioso:   # en multi-golpe callamos los fallos: serian 20 lineas de ruido
 					_set_log("… pero %s resiste el %s. (%.0f%%)" % [objetivo.nombre, nom, p * 100.0])
-					print("[estado] %s RESISTE %s del hechizo (prob %.0f%%)" % [objetivo.nombre, nom, p * 100.0])
+				print("[estado] %s RESISTE %s del hechizo (prob %.0f%%)" % [objetivo.nombre, nom, p * 100.0])
 				continue
 		objetivo.apply_status(a.estado, a.turns, a.magnitud, 1, false, a.cap)
+		if not aplicados.has(int(a.estado)):
+			aplicados.append(int(a.estado))
 		print("[estado] %s recibe %s del hechizo %s (prob %.0f%%)" % [
 			objetivo.nombre, nom, spell.nombre, spell.efecto_prob(a) * 100.0])
-		if not anunciados.has(a.estado):
+		if not anunciados.has(a.estado) and not silencioso:
 			anunciados[a.estado] = true
 			_set_log("✨ %s: %s recibe %s." % [spell.nombre, objetivo.nombre, nom])
 
@@ -2002,8 +2126,20 @@ func _reseleccionar() -> void:
 # acabado. Existe para que atacar, usar habilidad y lanzar hechizo no repitan (y desincronicen)
 # la misma secuencia de "¿ha muerto? ¿queda alguno? ¿sigo?".
 func _tras_accion_jugador(obj: Combatant) -> void:
-	if obj != null and not obj.is_alive():
-		_morir_enemigo(obj)
+	_tras_accion_jugador_varios([obj])
+
+
+# Lo mismo, pero para una accion que ha tocado a VARIOS enemigos (un hechizo de area puede
+# tumbar a los 4 de golpe). El remate va SIEMPRE aqui, al final, y nunca en mitad de la
+# resolucion: _morir_enemigo mueve _target_idx (_reseleccionar) y te desplazaria el objetivo
+# bajo los pies con los golpes a medias. Los cadaveres sin rematar tampoco estorban: _vivos()
+# y el salpicon miran is_alive() (los PG), no si la muerte ya esta procesada.
+func _tras_accion_jugador_varios(objs: Array) -> void:
+	var vistos: Dictionary = {}   # el mismo enemigo puede venir por el area Y por un rebote
+	for o in objs:
+		if o != null and not o.is_alive() and not vistos.has(o):
+			vistos[o] = true
+			_morir_enemigo(o)
 	if _vivos().is_empty():
 		_end(true)
 	else:

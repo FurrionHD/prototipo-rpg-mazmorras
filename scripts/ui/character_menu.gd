@@ -1007,6 +1007,18 @@ func _ficha_hechizo(vb: VBoxContainer, s: SpellData) -> void:
 
 	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
 		_row(vb, "  Daño base", "%.0f" % s.dano_base)
+		# Con multiplicadores, el "daño base" a secas se queda corto: Brasa pega un 150% y la
+		# ficha estaria diciendo la mitad de la verdad. Las cifras salen de multiplicar, no
+		# escritas a mano: si tocas el .tres, esto se mueve solo.
+		if s.es_multiobjetivo():
+			_row(vb, "  Al objetivo", "%.0f" % (s.dano_base * s.dano_objetivo))
+			if s.salpica():
+				_row(vb, "  Alcance", s.alcance_texto())
+				_row(vb, "  Salpicón", "%.0f a cada uno" % (s.dano_base * s.dano_salpicon))
+			if s.rebotes_n() > 0:
+				_row(vb, "  Rebotes", s.rebotes_texto())
+				_row(vb, "", "%.0f por rebote" % (s.dano_base * s.dano_rebote))
+				_note(vb, "Los rebotes caen en un enemigo vivo al azar: pueden repetir y no puedes dirigirlos.")
 		_note(vb, "El daño real escala con tu Magia y con el arma mágica que lleves.")
 
 	# IMBUICION: lo que le hace a tus golpes de arma.

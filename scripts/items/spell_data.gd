@@ -21,6 +21,13 @@ class_name SpellData
 
 enum TipoEfecto { ATAQUE, BUFF, DEBUFF }
 
+# ALCANCE del hechizo: a cuantos enemigos llega el AREA.
+#   OBJETIVO   = solo al que tengas seleccionado (lo de siempre).
+#   ADYACENTES = al seleccionado y a los de su izquierda y derecha. Con 4 enemigos uno se
+#                salva: es la contrapartida de que la magia de area sea la reina del grupo.
+#   TODOS      = a todos los vivos.
+enum Alcance { OBJETIVO, ADYACENTES, TODOS }
+
 @export var nombre: String = "Hechizo"
 @export var tipo: TipoEfecto = TipoEfecto.ATAQUE
 
@@ -53,6 +60,30 @@ enum TipoEfecto { ATAQUE, BUFF, DEBUFF }
 # golpes usan 'elemento'. Tormenta: { AGUA: 0.7, RAYO: 0.3 } -> llueve mucho y cae algun
 # rayo, en orden ALEATORIO. Los pesos no hace falta que sumen 1 (se normalizan solos).
 @export var elemento_mix: Dictionary = {}
+
+# --- MULTI-OBJETIVO: AREA y REBOTES ---
+# Eje DISTINTO al de 'hits': los golpes son POR OBJETIVO. Un hechizo de area con hits=3 le
+# mete sus 3 golpes a CADA enemigo que alcanza, y cada golpe sigue tirando su elemento del
+# reparto. Los dos ejes se multiplican y no se estorban.
+#
+# El daño de cada objetivo es dano_base x su MULTIPLICADOR: el principal cobra
+# 'dano_objetivo' y el salpicon 'dano_salpicon'. Estan separados para que un mismo alcance
+# valga para "150% / 75%" (Brasa) y para "80% a todos" (Rocio).
+@export var alcance: Alcance = Alcance.OBJETIVO
+@export var dano_objetivo: float = 1.0
+@export var dano_salpicon: float = 0.0
+
+# REBOTES: impactos EXTRA, despues del area, cada uno a un enemigo VIVO al AZAR. Pueden
+# repetir objetivo y pueden caer en el principal: en 1v1 rebotan todos sobre el unico
+# enemigo. No se pueden dirigir, y esa es su gracia y su limite.
+@export var rebotes: int = 0
+@export var dano_rebote: float = 0.0
+# ¿Los rebotes tiran los ESTADOS del hechizo? NO por defecto, y a proposito: un rebote es la
+# misma descarga arqueando, no un lanzamiento nuevo. Si tirasen estados, en 1v1 los rebotes
+# caerian todos sobre el mismo bicho y multiplicarian las tiradas (3 golpes al 30% = 66%
+# pasarian a ser 12 tiradas = 99%), o sea que prob_total() de la ficha MENTIRIA... y solo
+# cuando hay pocos enemigos. Asi la ficha dice la verdad con 1 y con 4.
+@export var rebote_estados: bool = false
 
 # --- IMBUICION: el hechizo no pega, TIÑE tus golpes de arma con su 'elemento' ---
 # imbue_tipo: 0 = no es imbuicion | 1 = ARMA (solo ofensiva) | 2 = CUERPO (ademas te da la
@@ -96,6 +127,22 @@ func golpes() -> int:
 
 func es_multigolpe() -> bool:
 	return golpes() > 1
+
+
+# Nº de REBOTES real (nunca negativo).
+func rebotes_n() -> int:
+	return maxi(rebotes, 0)
+
+
+# ¿Salpica a alguien mas que al objetivo? (un alcance de area con multiplicador a 0 no salpica).
+func salpica() -> bool:
+	return alcance != Alcance.OBJETIVO and dano_salpicon > 0.0
+
+
+# ¿Toca a mas de un enemigo? Lo que decide si el combate usa la ruta multi-objetivo (y su
+# log compacto) o la de siempre.
+func es_multiobjetivo() -> bool:
+	return salpica() or rebotes_n() > 0
 
 
 # Peso (0..1) de un elemento en el reparto. Sin reparto: 1.0 para el elemento del hechizo.
@@ -165,6 +212,32 @@ func longitud_texto() -> String:
 	return "%d frases" % longitud()
 
 
+# ALCANCE en texto, DERIVADO de los multiplicadores ("150% al objetivo · 75% a los
+# adyacentes"). "" si el hechizo no salpica.
+func alcance_texto() -> String:
+	if not salpica():
+		return ""
+	var obj: int = roundi(dano_objetivo * 100.0)
+	var sal: int = roundi(dano_salpicon * 100.0)
+	match alcance:
+		Alcance.ADYACENTES:
+			return "%d%% al objetivo · %d%% a los adyacentes" % [obj, sal]
+		Alcance.TODOS:
+			# Reparto plano (Rocio): decirlo de una vez en vez de repetir el mismo numero.
+			if is_equal_approx(dano_objetivo, dano_salpicon):
+				return "%d%% a todos los enemigos" % obj
+			return "%d%% al objetivo · %d%% al resto" % [obj, sal]
+	return ""
+
+
+# REBOTES en texto ("3 rebotes de 50% al azar"). "" si no rebota.
+func rebotes_texto() -> String:
+	if rebotes_n() <= 0:
+		return ""
+	return "%d rebote%s de %d%% al azar" % [
+		rebotes_n(), "" if rebotes_n() == 1 else "s", roundi(dano_rebote * 100.0)]
+
+
 func es_imbuicion() -> bool:
 	return imbue_tipo > 0
 
@@ -191,6 +264,11 @@ func resumen() -> String:
 		elif elemento != Elementos.Elemento.NINGUNO:
 			d += " de %s" % Elementos.nombre(elemento)
 		p.append(d)
+		# Alcance y rebotes: los textos salen de los multiplicadores, no escritos a mano.
+		if salpica():
+			p.append(alcance_texto())
+		if rebotes_n() > 0:
+			p.append(rebotes_texto())
 	if es_imbuicion():
 		p.append("imbuye el %s de %s" % [imbue_texto(), Elementos.nombre(elemento)])
 		p.append("+%d%% de daño" % roundi(imbue_pct * 100.0))
