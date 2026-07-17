@@ -27,15 +27,15 @@ nombre = "Tormenta"
 tipo = 0
 elemento = 3
 elemento_mix = {
-2: 0.7,
-3: 0.3
+2: 0.6,
+3: 0.4
 }
 hits = 20
 frases = Array[String](["Fulgor, desciende del cielo", "Truenos, romped el silencio", "El viento aullara conmigo"])
 coste_mana = 15
-dano_base = 38.0
+dano_base = 46.0
 alcance = 1
-dano_salpicon = 0.5
+dano_salpicon = 1.0
 dispersa = true
 efectos = [SubResource("SA_mojado"), SubResource("SA_electrizado"), SubResource("SA_stun")]
 descripcion = "Se abre el cielo. La lluvia cae a cantaros sobre TODOS y, entre ella, los rayos saltan sin rumbo buscando lo que ya esta empapado. Nadie elige donde cae cada gota ni cada trueno."
