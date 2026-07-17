@@ -38,6 +38,13 @@ class_name EnemyData
 @export_range(0.0, 1.0) var franja_low: float = 0.0
 @export_range(0.0, 1.0) var franja_high: float = 0.6
 
+
+# Color REAL con el que se pinta este bicho: su color base aclarado segun su 't' (los mas
+# fuertes de su franja salen mas claros). Lo usan el cuerpo del mapa (enemy.gd) y la UI de
+# combate (marcador de la barra de accion), asi el bicho de la barra ES el de la mazmorra.
+func color_visual(t: float) -> Color:
+	return color.lerp(Color.WHITE, t * 0.45)
+
 # --- Combate: STATS BASE PROPIAS de este enemigo (absolutas, no multiplicadores) ---
 # Cada bicho declara las suyas: un minotauro pone 120/9/12/3 y se entiende de un vistazo.
 # Los valores por defecto son el baremo del enemigo comun (el slime normal).
@@ -218,6 +225,9 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	# Sus GOLPES van de su elemento (el slime de fuego pega fuego). Ojo: un bicho que resista
 	# fuego por un override (minotauro peludo) tiene elemento NINGUNO -> sus golpes NO son de fuego.
 	c.elemento_ataque = elemento
+	# Con que color se le ve: viaja en el Combatant porque la UI de combate solo recibe
+	# Combatants (no el EnemyData), y necesita pintar su marcador en la barra de accion.
+	c.color_visual = color_visual(t)
 	return c
 
 

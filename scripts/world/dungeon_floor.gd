@@ -644,6 +644,10 @@ func _crear_zonas() -> void:
 	_zonas = Node2D.new()
 	_zonas.name = "Zonas"
 	add_child(_zonas)
+	# DIFERIDO, por lo mismo que poblar() y los recolectables: la capa cuelga del PADRE, y el
+	# padre esta aun montando sus hijos mientras corre este _ready -> Godot rechaza el add_child
+	# sin rechistar y la capa se queda fuera de la escena (lineas que nunca se pintan).
+	call_deferred("_crear_capa_vinculos")
 
 	# ¿Este piso ya lo habias pisado en esta expedicion? Entonces NO se puebla: se RESTAURA
 	# tal y como lo dejaste (mismos bichos, mismos sitios, mismos cadaveres).
@@ -911,6 +915,21 @@ func _reciclar_lejano() -> bool:
 		return false
 	lejano.queue_free()
 	return true
+
+
+# Capa que pinta las LINEAS entre enemigos cercanos (los que entrarian juntos al combate).
+# Cuelga del PADRE del piso, igual que los propios bichos (ver crear_enemigo): el piso tiene
+# z_index -1 y una capa colgada de el quedaria pintada por debajo del suelo.
+func _crear_capa_vinculos() -> void:
+	var mundo: Node = get_parent()
+	if mundo == null:
+		mundo = self
+	if mundo.has_node("Vinculos"):
+		return   # ya la puso un piso anterior de esta expedicion
+	var capa := Node2D.new()
+	capa.name = "Vinculos"
+	capa.set_script(preload("res://scripts/world/enemy_links.gd"))
+	mundo.add_child(capa)
 
 
 # Instancia un enemigo. Mismo patron que el spawner de dev (scripts/ui/spawner.gd): el

@@ -236,7 +236,7 @@ var _mining_script: GDScript = preload("res://scripts/ui/mining.gd")
 var _harvest_script: GDScript = preload("res://scripts/ui/harvest.gd")
 var _talado_script: GDScript = preload("res://scripts/ui/talado.gd")
 var _drop_pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
-var _active_enemy: Node = null     # enemigo del combate en curso
+var _active_enemies: Array[Node] = []   # enemigos del combate en curso (1..4, en orden de setup)
 var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
 
 
@@ -4333,11 +4333,24 @@ func _dev_print_armor() -> void:
 
 
 # Abre el combate contra un enemigo de la mazmorra.
-func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool) -> void:
-	if _active_enemy != null or enemy_data == null:
+# 'enemy_nodes' viene ORDENADO por enemy.gd: el [0] es el bicho que disparo el combate y detras
+# sus vecinos, de mas cerca a mas lejos. Ese orden manda: es la numeracion que vera el jugador y
+# el indice con el que vuelven los muertos en combat_finished.
+# No se pasa un EnemyData suelto: con varios bichos no hay "el" EnemyData, y cada nodo ya lleva
+# el suyo (.data) y su tirada (.current_t).
+func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
+	if not _active_enemies.is_empty() or enemy_nodes.is_empty():
 		return  # ya hay un combate o faltan datos
 
-	_active_enemy = enemy_node
+	# Se filtran aqui los que no traigan EnemyData: abajo se les pide crear_combatant() y sin
+	# data reventaria a media construccion, con medio combate ya montado.
+	_active_enemies.clear()
+	for n in enemy_nodes:
+		if is_instance_valid(n) and "data" in n and n.data != null:
+			_active_enemies.append(n)
+	if _active_enemies.is_empty():
+		return
+
 	var player_c := crear_player_combatant()
 
 	# CURA DE POCIÓN pendiente del MAPA: si bebiste una poción fuera de combate y aún te quedaba
@@ -4355,13 +4368,25 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 		player_mana_heal_left = 0.0
 		player_mana_heal_rate = 0.0
 
-	var t: float = 0.5
-	if "current_t" in enemy_node:
-		t = enemy_node.current_t
-	var enemy_c := enemy_data.crear_combatant(t)
+	# Un Combatant por nodo, en el mismo orden.
+	var enemy_cs: Array[Combatant] = []
+	for n in _active_enemies:
+		var t: float = 0.5
+		if "current_t" in n:
+			t = n.current_t
+		var ec: Combatant = n.data.crear_combatant(t)
+		# VIDA ARRASTRADA: si huiste de este bicho, sigue con las heridas que le dejaste. El
+		# Combatant nace siempre a tope (crear_combatant), asi que la vida guardada se aplica
+		# aqui encima. hp_restante < 0 = intacto (nunca ha peleado o ya se curo).
+		if "hp_restante" in n and n.hp_restante >= 0.0:
+			ec.current_hp = clampf(n.hp_restante, 1.0, ec.max_hp)
+		enemy_cs.append(ec)
 
-	# MODO PRUEBA (dev): convierte al enemigo en muñeco de DPS o pegador de armadura.
+	# MODO PRUEBA (dev): convierte al enemigo en muñeco de DPS o pegador de armadura. Solo al
+	# [0]: el modo prueba es 1v1 siempre (lo garantiza enemy.gd no reclutando vecinos), porque
+	# el DPS/turno se mide contra UNA cadencia enemiga.
 	if debug_dummy_mode > 0:
+		var enemy_c: Combatant = enemy_cs[0]
 		enemy_c.es_dummy = true
 		enemy_c.max_hp = debug_dummy_hp
 		enemy_c.current_hp = debug_dummy_hp
@@ -4401,7 +4426,7 @@ func start_combat(enemy_node: Node, enemy_data: EnemyData, enemy_initiated: bool
 	var combat := _combat_scene.instantiate()
 	# PROCESS_MODE_ALWAYS = el combate sigue funcionando aunque el arbol este en pausa.
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
-	combat.setup(player_c, enemy_c, enemy_initiated, player_exhausted, overload_speed_factor())
+	combat.setup(player_c, enemy_cs, enemy_initiated, player_exhausted, overload_speed_factor())
 	combat.combat_finished.connect(_on_combat_finished)
 
 	# Lo metemos en una CanvasLayer: asi NO le afecta la camara 2D de la
@@ -4817,7 +4842,7 @@ func dev_curva_recoleccion(pisos: Array = [1, 3, 5, 8, 13]) -> void:
 
 
 func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float = -1.0,
-		player_energy_left: float = -1.0) -> void:
+		player_energy_left: float = -1.0, muertos: Array = [], enemy_hp_left: Array = []) -> void:
 	get_tree().paused = false
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
@@ -4836,17 +4861,33 @@ func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left
 		ability_cooldowns_persist = (_active_player_c.ability_cooldowns as Dictionary).duplicate()
 		_active_player_c = null
 
-	# Si ganaste, el enemigo NO desaparece: queda como cadaver para poder
-	# extraerle el cristal (minijuego, Fase 5).
-	if player_won and is_instance_valid(_active_enemy):
+	# Los que CAYERON no desaparecen: quedan como cadaver para poder extraerles el cristal
+	# (minijuego, Fase 5). El criterio son los 'muertos' que manda el combate, NO player_won:
+	# si huyes tras llevarte a dos de cuatro por delante, esos dos estan muertos igual y su
+	# cadaver te lo has ganado. Mirando player_won se perderian.
+	for i in muertos:
+		var n: Node = _active_enemies[i] if i < _active_enemies.size() else null
+		if not is_instance_valid(n):
+			continue
 		# ¿Era un "guardián del rango"? Vencerlo desbloquea SU nivel objetivo (persistente).
-		if "data" in _active_enemy and _active_enemy.data != null and _active_enemy.data.nivel_que_otorga > 0:
-			var nv: int = _active_enemy.data.nivel_que_otorga
+		if "data" in n and n.data != null and n.data.nivel_que_otorga > 0:
+			var nv: int = n.data.nivel_que_otorga
 			guardianes_vencidos[nv] = true
 			print("[nivel] Vencido el guardián del nivel ", nv, ": podrás ascender si tienes rango C.")
-		if _active_enemy.has_method("morir"):
-			_active_enemy.morir()
-	_active_enemy = null
+		if n.has_method("morir"):
+			n.morir()
+
+	# Los SUPERVIVIENTES (huiste, o te mataron y aun no lo saben): se quedan quietos unos
+	# segundos para darte la ventana de escape, y CONSERVAN las heridas que les hiciste.
+	for i in _active_enemies.size():
+		if muertos.has(i):
+			continue
+		var n: Node = _active_enemies[i]
+		if not is_instance_valid(n) or not n.has_method("reanudar_tras_combate"):
+			continue
+		var hp: float = float(enemy_hp_left[i]) if i < enemy_hp_left.size() else -1.0
+		n.reanudar_tras_combate(hp)
+	_active_enemies.clear()
 
 	# Quitamos la capa del combate (con la pantalla dentro).
 	if is_instance_valid(_active_layer):

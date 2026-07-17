@@ -1,17 +1,22 @@
 # ============================================================
 #  combat.gd
-#  Pantalla de combate por turnos INTERACTIVA.
-#  Recibe los combatientes reales (jugador y enemigo) desde Game via setup().
-#  Si se abre sola (F6), usa combatientes de PRUEBA.
-#  Orden de turnos ATB (barra que se llena a ritmo de la velocidad); en tu
-#  turno se pausa y esperas a pulsar "Atacar"; el enemigo actua solo.
+#  Pantalla de combate por turnos INTERACTIVA (N enemigos contra ti, hasta MAX_ENEMIGOS).
+#  Recibe los combatientes reales (jugador y enemigos) desde Game via setup().
+#  Si se abre sola (F6), usa combatientes de PRUEBA (tres slimes: sirve para probar el grupo).
+#  Orden de turnos ATB (cada uno llena su barra a ritmo de su velocidad); en tu
+#  turno se pausa y esperas a elegir accion; los enemigos actuan solos.
 #
-#  Estructura de nodos esperada (combat.tscn):
+#  La escena solo trae el esqueleto: TODO lo demas se genera por codigo (convencion del
+#  proyecto), incluidos los BLOQUES de combatiente (nombre + estados + barra de vida), que
+#  no pueden ser nodos fijos porque su numero depende de cuantos bichos entren.
+#
 #    Combat (Control)  <- este script
-#    └── VBox (VBoxContainer)
-#        ├── EnemyName (Label)   ├── EnemyHP (ProgressBar)
-#        ├── PlayerName (Label)  ├── PlayerHP (ProgressBar)
-#        ├── Log (Label)         └── AttackButton (Button)
+#    └── VBox (VBoxContainer, pantalla completa)
+#        ├── _bloques_box (HBox)  <- los N enemigos, EN FILA y con ANCHO_BLOQUE fijo
+#        ├── bloque del jugador   <- a lo ancho (no compite por sitio con nadie)
+#        ├── Log (Label)
+#        ├── AttackButton (Button)   <- reutilizado como "Continuar" al terminar
+#        └── barra de acciones + submenus (magia / habilidades / objetos)
 # ============================================================
 
 extends Control
@@ -52,15 +57,23 @@ const DEFEND_ENERGY_COST := 15.0
 # en vez de spamear habilidades. PROVISIONAL -> Excel.
 const ATTACK_ENERGY_REGEN := 28.0
 
-@onready var _enemy_name: Label = $VBox/EnemyName
-@onready var _enemy_hp: ProgressBar = $VBox/EnemyHP
-@onready var _player_name: Label = $VBox/PlayerName
-@onready var _player_hp: ProgressBar = $VBox/PlayerHP
 @onready var _log: Label = $VBox/Log
 # La escena trae un unico boton (AttackButton). Ahora las 4 acciones se crean por
 # codigo (barra de acciones, KAN-55) y ESE boton se reutiliza como "Continuar" al
 # terminar el combate.
 @onready var _continue_button: Button = $VBox/AttackButton
+
+# La COLUMNA del combate ($VBox de la escena, a pantalla completa).
+var _col: VBoxContainer = null
+# Fila con los bloques de los ENEMIGOS: van uno AL LADO DEL OTRO, no apilados.
+var _bloques_box: HBoxContainer = null
+
+# ANCHO FIJO del bloque de un enemigo. Es la clave del combate en grupo: si la barra de vida se
+# estirase (como hacia en el 1v1, ocupando el ancho entero), cuatro enemigos serian cuatro
+# franjas apiladas y la pelea se leeria como una lista. Con un ancho fijo caben los cuatro EN
+# FILA, y esa fila es la que numera la barra de accion: el nº2 de abajo es el 2º empezando por
+# la izquierda. 260 x 4 + separacion = 1064, y el viewport base son 1152: entra con holgura.
+const ANCHO_BLOQUE := 260.0
 
 # Sistema de ACCIONES (KAN-55): barra con Atacar / Magia / Defender / Huir. Se
 # genera por codigo (convencion: UI por codigo por ahora) y es de datos, asi
@@ -74,15 +87,16 @@ var _objeto_box: VBoxContainer = null    # submenu de objetos/pociones (KAN-57)
 var _player_en_bar: ProgressBar = null
 var _player_mp_bar: ProgressBar = null
 
-# Filas de ESTADOS (una por combatiente): un "chip" con tooltip por estado activo. Antes los
-# estados iban como texto DENTRO de la etiqueta del nombre, y un Label no se puede señalar
-# por trozos: veias "☠x2·3t" y no habia forma de saber que hacia eso ni cuanto.
-var _enemy_chips: HBoxContainer = null
-var _player_chips: HBoxContainer = null
+# BLOQUES de combatiente. Uno por enemigo (mismo orden e indice que _enemies) y uno para el
+# jugador. Cada bloque es un Dictionary {panel, nombre, chips, hp, hp_lbl, vbox} — ver
+# _crear_bloque. Los chips llevan tooltip por estado activo: antes los estados iban como texto
+# DENTRO de la etiqueta del nombre, y un Label no se puede señalar por trozos (veias "☠x2·3t"
+# sin forma de saber que hacia eso ni cuanto).
+var _bloques: Array[Dictionary] = []   # indice = indice en _enemies
+var _bloque_player: Dictionary = {}
 
-# Numeros DENTRO de cada barra (como las del mapa): la etiqueta de arriba se queda solo
-# con el nombre, el nivel y los estados.
-var _enemy_hp_lbl: Label = null
+# Numeros DENTRO de las barras del jugador (como las del mapa).
+var _player_hp: ProgressBar = null
 var _player_hp_lbl: Label = null
 var _player_en_lbl: Label = null
 var _player_mp_lbl: Label = null
@@ -102,11 +116,27 @@ var _timeline: Control = null
 # Se emite al cerrar el combate (lo escucha Game para reanudar la mazmorra).
 # player_mp_left persiste el mana gastado (KAN-56); player_energy_left persiste la
 # energia = stamina de exploracion (KAN-57).
-signal combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float, player_energy_left: float)
+# 'muertos' = INDICES (en la lista que paso setup()) de los enemigos que han caido, y 'hp_left'
+# la vida que le queda a cada uno, tambien por indice. Van indices y no Combatants para no
+# filtrar objetos de combate a Game, que solo necesita saber a que NODO matar o dejar herido.
+# OJO: los muertos son la unica fuente de verdad, y NO se deducen de player_won: si huyes tras
+# matar a dos de cuatro, esos dos estan muertos igual y tienen que dejar su cadaver.
+signal combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float,
+	player_energy_left: float, muertos: Array, enemy_hp_left: Array)
 
 var _player: Combatant
-var _enemy: Combatant
-var _gauge: Dictionary = {}
+# ENEMIGOS de la pelea (1..MAX_ENEMIGOS). Guarda a los VIVOS Y A LOS MUERTOS, y en orden FIJO:
+# ese orden es la numeracion que ve el jugador (bloque nº1 arriba = marcador "1" en la barra de
+# accion). Por eso un muerto no se saca de aqui: si la lista se compactara, al caer el nº2 el
+# nº3 pasaria a ser el 2 y se te movaria el objetivo bajo el dedo en mitad del combate.
+# Quien SI se filtra es _gauge (orden de turnos) y _vivos().
+var _enemies: Array[Combatant] = []
+var _target_idx: int = 0
+var _gauge: Dictionary = {}   # SOLO vivos: al morir uno se le hace erase (sale del orden de turnos)
+
+# Tope de enemigos en una pelea. Lo aplica enemy.gd al reclutar vecinos (MAX_COMBATIENTES);
+# aqui sirve de contrato para la UI (bloques y numeracion).
+const MAX_ENEMIGOS := 4
 
 enum State { ADVANCING, WAITING_PLAYER, PAUSED, FINISHED }
 var _state: State = State.ADVANCING
@@ -135,22 +165,45 @@ var _slow_actions_left: int = 0            # acciones lentas que quedan
 var _player_overload_factor: float = 1.0   # <1 si entro sobrecargado (lento todo el combate)
 var _player_defending: bool = false        # true si elegiste Defender (dura hasta tu proximo turno)
 
-# ATAQUE DE CARGA del enemigo: habilidad que se esta "cargando" (telegrafiada) y turnos que le
-# quedan para dispararse. null = no esta cargando. Aturdir al enemigo mientras carga la cancela.
-var _enemy_charging: AbilityData = null
-var _enemy_charge_left: int = 0
+# El ATAQUE DE CARGA del enemigo (habilidad telegrafiada) ya no vive aqui: es estado POR
+# COMBATIENTE (Combatant.charging / charge_left), porque con varios bichos cada uno carga lo
+# suyo por su cuenta.
 
 
 # Lo llama Game ANTES de añadir esta escena al arbol.
-func setup(player_c: Combatant, enemy_c: Combatant, enemy_initiated: bool,
+# 'enemy_cs' viene ORDENADO: el [0] es el bicho que disparo el combate (el que tocaste o el que
+# te emboscó) y detras sus vecinos. Ese orden es la numeracion que vera el jugador.
+func setup(player_c: Combatant, enemy_cs: Array, enemy_initiated: bool,
 		player_exhausted: bool = false, player_overload_factor: float = 1.0) -> void:
 	_player = player_c
-	_enemy = enemy_c
+	_enemies.assign(enemy_cs)
 	_enemy_initiated = enemy_initiated
 	_player_exhausted_start = player_exhausted
 	_player_overload_factor = player_overload_factor
 	_injected = true
-	_dps_on = enemy_c != null and enemy_c.es_dummy
+	# El modo muñeco (Saco/Pegador) siempre es 1v1: lo garantiza enemy.gd al no reclutar
+	# vecinos con debug_dummy_mode activo (las medidas de DPS/turno se irian al traste).
+	_dps_on = not _enemies.is_empty() and _enemies[0].es_dummy
+
+
+# El OBJETIVO de tus acciones: el enemigo que tienes seleccionado. Si el indice apunta a un
+# muerto (o a nada), cae al primer vivo, para que una accion nunca se lance al vacio.
+func _objetivo() -> Combatant:
+	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx].is_alive():
+		return _enemies[_target_idx]
+	for e in _enemies:
+		if e.is_alive():
+			return e
+	return _enemies[0] if not _enemies.is_empty() else null
+
+
+# Los que siguen en pie. Es la lista que manda en el orden de turnos y en la victoria.
+func _vivos() -> Array[Combatant]:
+	var out: Array[Combatant] = []
+	for e in _enemies:
+		if e.is_alive():
+			out.append(e)
+	return out
 
 
 func _ready() -> void:
@@ -159,23 +212,40 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	_anadir_fondo()  # fondo opaco para tapar la mazmorra detras
+	_montar_columna()  # el combate pasa a una columna de ancho fijo, centrada
 
 	if not _injected:
-		# Combatientes de PRUEBA (para abrir combat.tscn directamente con F6).
+		# Combatientes de PRUEBA (para abrir combat.tscn directamente con F6). Se montan TRES
+		# slimes de distinta velocidad: asi F6 sirve para probar el combate en grupo (turnos,
+		# numeracion, seleccion por clic) sin tener que buscar un corro en la mazmorra.
 		var pab := Abilities.new()
 		pab.fuerza = 120; pab.resistencia = 90; pab.destreza = 60; pab.agilidad = 110; pab.magia = 20
 		_player = Combatant.new("Heroe", 1, pab, 50, 5, 5, 5)
-		var eab := Abilities.new()
-		eab.fuerza = 80; eab.resistencia = 70; eab.destreza = 30; eab.agilidad = 60; eab.magia = 0
-		_enemy = Combatant.new("Slime", 1, eab, 40, 4, 5, 4)
+		var colores: Array[Color] = [Color(0.9, 0.3, 0.3), Color(0.4, 0.8, 0.4), Color(0.5, 0.5, 0.95)]
+		for i in 3:
+			var eab := Abilities.new()
+			eab.fuerza = 80; eab.resistencia = 70; eab.destreza = 30
+			eab.agilidad = 40 + i * 30   # velocidades distintas: se ve el orden de turnos moverse
+			eab.magia = 0
+			var e := Combatant.new("Slime %d" % (i + 1), 1, eab, 40, 4, 5, 4)
+			e.color_visual = colores[i]
+			_enemies.append(e)
 		# Energia de prueba (F6): el jugador entra con la barra llena.
 		_player.max_energy = 100.0
 		_player.current_energy = 100.0
 
-	_gauge = {_player: 0.0, _enemy: 0.0}
-	# Iniciativa: quien empezo el combate arranca con media barra.
+	_gauge = {_player: 0.0}
+	# Los vecinos NO arrancan con la barra a cero pelado, sino con un pellizco al azar. No es
+	# balance, es LECTURA: sin esto, cuatro bichos identicos avanzan pegados y la barra de accion
+	# es un marcador con tres escondidos detras; ademas actuarian siempre en fila india.
+	for e in _enemies:
+		_gauge[e] = randf_range(0.0, INICIATIVA_VENTAJA * 0.25)
+	# Iniciativa: SOLO el bicho que disparo el combate (_enemies[0]) se lleva la media barra.
+	# Los vecinos acuden a la pelea, no te han emboscado: darsela a los cuatro serian cuatro
+	# acciones enemigas gratis antes de tu primer turno, o sea muerte sin jugar.
 	if _enemy_initiated:
-		_gauge[_enemy] = INICIATIVA_VENTAJA
+		if not _enemies.is_empty():
+			_gauge[_enemies[0]] = INICIATIVA_VENTAJA
 	elif _injected:
 		_gauge[_player] = INICIATIVA_VENTAJA
 
@@ -190,21 +260,28 @@ func _ready() -> void:
 	_setup_ui()
 	_crear_timeline()
 	_crear_estados_dev()  # herramienta de test de estados (KAN-58 Fase 1)
+	var primero: Combatant = _enemies[0] if not _enemies.is_empty() else null
 	var intro: String
 	if _enemy_initiated:
-		intro = "¡" + _enemy.nombre + " te sorprende! Tiene la iniciativa."
+		intro = "¡" + primero.nombre + " te sorprende! Tiene la iniciativa."
 	elif _injected:
 		intro = "¡Ataque por la espalda! Tienes la iniciativa. 🗡️"
 	else:
-		intro = "¡Empieza el combate contra " + _enemy.nombre + "!"
+		intro = "¡Empieza el combate contra " + primero.nombre + "!"
+	# Que no te pillen contando bloques: si acuden mas, se dice.
+	if _enemies.size() > 1:
+		intro += "  ¡Le acompañan %d más! ⚔️" % (_enemies.size() - 1)
 	if _player_exhausted_start:
 		intro += "  (Agotado: tus primeras acciones son más lentas)"
 	_set_log(intro)
 
 	# Marca de INICIO en consola (para separar combates al montar los Excel).
 	var quien: String = "enemigo" if _enemy_initiated else "jugador"
-	print("[combate] ===== INICIO vs %s (Nv.%d) HP %.2f | %s HP %.2f%s | iniciativa: %s =====" % [
-		_enemy.nombre, _enemy.level, _enemy.max_hp, _player.nombre, _player.max_hp,
+	var rivales: PackedStringArray = []
+	for e in _enemies:
+		rivales.append("%s (Nv.%d) HP %.2f" % [e.nombre, e.level, e.max_hp])
+	print("[combate] ===== INICIO vs %s | %s HP %.2f%s | iniciativa: %s =====" % [
+		" + ".join(rivales), _player.nombre, _player.max_hp,
 		("" if _player.max_mp <= 0.0 else " MP %.2f" % _player.max_mp), quien])
 
 
@@ -213,9 +290,9 @@ func _crear_acciones() -> void:
 	# Espaciador: baja un pelin los botones de accion para que no queden pegados al log.
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 8)
-	$VBox.add_child(spacer)
+	_col.add_child(spacer)
 	_actions_box = HBoxContainer.new()
-	$VBox.add_child(_actions_box)
+	_col.add_child(_actions_box)
 	var defs := [
 		[Action.ATTACK, "Atacar"],
 		[Action.HABILIDAD, "Habilidad"],
@@ -233,15 +310,15 @@ func _crear_acciones() -> void:
 		_action_buttons[id] = b
 	# Cajas de magia (KAN-56): submenu de hechizos y caja del recitado/disparo.
 	_spell_box = VBoxContainer.new()
-	$VBox.add_child(_spell_box)
+	_col.add_child(_spell_box)
 	_cast_box = VBoxContainer.new()
-	$VBox.add_child(_cast_box)
+	_col.add_child(_cast_box)
 	# Submenu de habilidades (KAN-57).
 	_ability_box = VBoxContainer.new()
-	$VBox.add_child(_ability_box)
+	_col.add_child(_ability_box)
 	# Submenu de objetos/pociones (KAN-57).
 	_objeto_box = VBoxContainer.new()
-	$VBox.add_child(_objeto_box)
+	_col.add_child(_objeto_box)
 	_ocultar_cajas()
 
 
@@ -255,19 +332,28 @@ func _ocultar_cajas() -> void:
 
 
 func _setup_ui() -> void:
-	_player_hp.max_value = _player.max_hp
-	_enemy_hp.max_value = _enemy.max_hp
-	_player_hp.show_percentage = false
-	_enemy_hp.show_percentage = false
-	# Barras de VIDA gordas y con el numero DENTRO, como las del mapa (ver player.gd).
-	_enemy_hp.custom_minimum_size = Vector2(0, 24)
-	_enemy_hp.self_modulate = Color(1.0, 0.4, 0.4)
-	_enemy_hp_lbl = _crear_label_barra(_enemy_hp, 13)
-	_player_hp.custom_minimum_size = Vector2(0, 24)
-	_player_hp.self_modulate = Color(1.0, 0.4, 0.4)
-	_player_hp_lbl = _crear_label_barra(_player_hp, 13)
-	_crear_filas_estados()
+	# Un bloque por enemigo, EN FILA y en el orden de _enemies -> ese orden es la numeracion que
+	# se ve (el 1º empezando por la izquierda = marcador "1" en la barra de accion).
+	for i in _enemies.size():
+		var b: Dictionary = _crear_bloque(_enemies[i], i + 1, i)
+		_bloques.append(b)
+		_bloques_box.add_child(b["panel"])
+	# Separador para que tu bloque no se confunda con la fila de enemigos. IGNORE: un Control es
+	# STOP por defecto y esta franja se comeria los clics que caigan en ella.
+	var sep := Control.new()
+	sep.custom_minimum_size = Vector2(0, 10)
+	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_col.add_child(sep)
+	_col.move_child(sep, 1)
+	# El bloque del JUGADOR se construye igual (numero 0 = sin numerar, sin clic, sin borde),
+	# pero va en la COLUMNA y a lo ancho: es el tuyo, no compite por sitio con nadie.
+	_bloque_player = _crear_bloque(_player, 0, -1)
+	_col.add_child(_bloque_player["panel"])
+	_col.move_child(_bloque_player["panel"], 2)
+	_player_hp = _bloque_player["hp"]
+	_player_hp_lbl = _bloque_player["hp_lbl"]
 	_crear_barras_jugador()
+	_seleccionar(0)
 	# El log siempre muestra LOG_MAX lineas (ver _set_log), asi que ocupa un alto FIJO y
 	# los botones no se mueven. clip_text evita que una linea larga se derrame a la dcha.
 	_log.clip_text = true
@@ -276,12 +362,144 @@ func _setup_ui() -> void:
 	_ocultar_cajas()
 
 
-# Crea las barras de ENERGIA (amarilla) y MANA (azul) del jugador, justo debajo de la
-# barra de vida. Por codigo (la escena solo trae las de vida). Solo una vez.
+# BLOQUE de un combatiente: la unidad que se ve, se señala y se clica. Junta en una caja su
+# numero, su nombre, sus estados y su barra de vida, y esa caja ENTERA es la que se rodea con
+# el borde blanco al seleccionarlo (por eso es un PanelContainer y no un apaño de Labels).
+#   numero > 0 -> enemigo numerado y clicable;  numero <= 0 -> el jugador (ni numero ni clic).
+#   idx = indice en _enemies (-1 para el jugador).
+# Devuelve {panel, vbox, nombre, chips, hp, hp_lbl}.
+func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
+	var panel := PanelContainer.new()
+	# El panel es quien recibe el clic; sus hijos van en PASS para no comerselo (ver _crear_bloque
+	# de la barra: una ProgressBar es STOP por defecto y ocupa media caja).
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP if numero > 0 else Control.MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel", _sb_bloque(false))
+	# ANCHO FIJO en los enemigos: es lo que les permite ir en fila. El del jugador no lo lleva:
+	# va en la columna y se estira a lo ancho, como siempre.
+	if numero > 0:
+		panel.custom_minimum_size = Vector2(ANCHO_BLOQUE, 0)
+
+	var margen := MarginContainer.new()
+	margen.mouse_filter = Control.MOUSE_FILTER_PASS
+	for lado in ["left", "right", "top", "bottom"]:
+		margen.add_theme_constant_override("margin_" + lado, 6)
+	panel.add_child(margen)
+
+	var vb := VBoxContainer.new()
+	vb.mouse_filter = Control.MOUSE_FILTER_PASS
+	margen.add_child(vb)
+
+	# Fila del nombre: [nº] nombre.
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 6)
+	fila.mouse_filter = Control.MOUSE_FILTER_PASS
+	vb.add_child(fila)
+
+	if numero > 0:
+		var num := Label.new()
+		num.text = "%d." % numero
+		num.add_theme_color_override("font_color", Color(0.75, 0.75, 0.8))
+		num.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fila.add_child(num)
+
+	var nombre := Label.new()
+	nombre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# clip_text hace DOS cosas, y la segunda es la que importa aqui: ademas de recortar, pone el
+	# ancho MINIMO del Label a 0. Sin eso, un bicho con nombre largo ("Slime venenoso (Nv.1)")
+	# exigiria mas de ANCHO_BLOQUE, el bloque creceria (custom_minimum_size es un MINIMO, no un
+	# tope) y la fila de enemigos dejaria de tener columnas iguales.
+	nombre.clip_text = true
+	nombre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fila.add_child(nombre)
+
+	# Los chips van en su PROPIA linea, con la altura SIEMPRE reservada (aunque no haya ninguno):
+	# asi entrar o salir un estado no mueve nada de sitio. Antes iban al lado del nombre porque
+	# la UI era una columna a lo ancho y sobraba sitio horizontal; en un bloque de 270 px ya no
+	# caben al lado, y apretarlos ahi recortaria el nombre.
+	#
+	# El envoltorio es un Control PELADO a proposito: un Container propagaria el tamaño minimo de
+	# los chips hacia arriba y 3-4 estados volverian a ensanchar el bloque. Un Control normal no
+	# agrega el minimo de sus hijos, asi que el ancho queda blindado y lo que sobre se recorta.
+	var chips_wrap := Control.new()
+	chips_wrap.custom_minimum_size = Vector2(0, 22)
+	chips_wrap.clip_contents = true
+	chips_wrap.mouse_filter = Control.MOUSE_FILTER_PASS
+	vb.add_child(chips_wrap)
+
+	var chips := HBoxContainer.new()
+	chips.add_theme_constant_override("separation", 4)
+	chips.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	chips.mouse_filter = Control.MOUSE_FILTER_PASS
+	chips_wrap.add_child(chips)
+
+	# Barra de VIDA gorda y con el numero DENTRO, como las del mapa (ver player.gd).
+	var hp := ProgressBar.new()
+	hp.max_value = c.max_hp
+	hp.show_percentage = false
+	hp.custom_minimum_size = Vector2(0, 24)
+	hp.self_modulate = Color(1.0, 0.4, 0.4)
+	# PASS y no el STOP por defecto: la barra ocupa media caja, y en STOP se tragaria el clic
+	# de seleccion en toda esa mitad.
+	hp.mouse_filter = Control.MOUSE_FILTER_PASS
+	vb.add_child(hp)
+	var hp_lbl: Label = _crear_label_barra(hp, 13)
+
+	if numero > 0:
+		panel.gui_input.connect(_on_bloque_gui_input.bind(idx))
+
+	return {"panel": panel, "vbox": vb, "nombre": nombre, "chips": chips,
+		"hp": hp, "hp_lbl": hp_lbl, "idx": idx}
+
+
+# Estilo del bloque: seleccionado = borde blanco alrededor de todo, normal = borde transparente.
+# El GROSOR es el mismo en los dos a proposito, y lo que cambia es el COLOR: si el borde
+# apareciera y desapareciera, el bloque cambiaria de tamaño y la columna daria un brinco cada
+# vez que cambias de objetivo.
+func _sb_bloque(sel: bool) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(1, 1, 1, 0.05) if sel else Color(0, 0, 0, 0)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(1, 1, 1, 0.95) if sel else Color(0, 0, 0, 0)
+	sb.set_corner_radius_all(4)
+	return sb
+
+
+# Clic en un bloque enemigo = pasa a ser tu objetivo.
+func _on_bloque_gui_input(ev: InputEvent, idx: int) -> void:
+	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+		_seleccionar(idx)
+
+
+# Elige a quien van tus acciones. Ignora a los muertos (a un cadaver no se le apunta).
+func _seleccionar(idx: int) -> void:
+	if idx < 0 or idx >= _enemies.size() or not _enemies[idx].is_alive():
+		return
+	_target_idx = idx
+	for i in _bloques.size():
+		var vivo: bool = _enemies[i].is_alive()
+		_bloques[i]["panel"].add_theme_stylebox_override("panel", _sb_bloque(vivo and i == idx))
+
+
+# Apaga el bloque de un enemigo que ha caido: gris, barra a 0 y sin clic. NO se libera el nodo
+# a proposito -> si desapareciera, la columna se recolocaria de golpe en mitad del combate y la
+# numeracion bailaria. El muerto se queda en su sitio, con su numero, apagado.
+func _apagar_bloque(e: Combatant) -> void:
+	var i: int = _enemies.find(e)
+	if i < 0 or i >= _bloques.size():
+		return
+	var b: Dictionary = _bloques[i]
+	b["panel"].modulate = Color(0.4, 0.4, 0.4)
+	b["panel"].mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
+	b["chips"].visible = false
+
+
+# Crea las barras de ENERGIA (amarilla) y MANA (azul) del jugador, justo debajo de su barra de
+# vida, DENTRO de su bloque. Solo una vez.
 func _crear_barras_jugador() -> void:
 	if _player_en_bar != null:
 		return
-	var idx: int = _player_hp.get_index()
+	var vb: VBoxContainer = _bloque_player["vbox"]
 	# OJO: self_modulate y no modulate. modulate tiñe TAMBIEN a los hijos, y estas barras
 	# llevan dentro el Label con el numero: se pintaria de amarillo/azul y no se leeria.
 	if _player.max_energy > 0.0:
@@ -290,20 +508,18 @@ func _crear_barras_jugador() -> void:
 		_player_en_bar.max_value = _player.max_energy
 		_player_en_bar.custom_minimum_size = Vector2(0, 16)
 		_player_en_bar.self_modulate = Color(0.95, 0.85, 0.3)   # energia = amarillo
-		$VBox.add_child(_player_en_bar)
+		_player_en_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vb.add_child(_player_en_bar)
 		_player_en_lbl = _crear_label_barra(_player_en_bar, 11)
-		idx += 1
-		$VBox.move_child(_player_en_bar, idx)
 	if _player.max_mp > 0.0:
 		_player_mp_bar = ProgressBar.new()
 		_player_mp_bar.show_percentage = false
 		_player_mp_bar.max_value = _player.max_mp
 		_player_mp_bar.custom_minimum_size = Vector2(0, 16)
 		_player_mp_bar.self_modulate = Color(0.4, 0.6, 1.0)     # mana = azul
-		$VBox.add_child(_player_mp_bar)
+		_player_mp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vb.add_child(_player_mp_bar)
 		_player_mp_lbl = _crear_label_barra(_player_mp_bar, 11)
-		idx += 1
-		$VBox.move_child(_player_mp_bar, idx)
 
 
 # Label centrado que cubre toda la barra, para pintar el numero DENTRO. Con borde oscuro
@@ -323,8 +539,20 @@ func _crear_label_barra(bar: ProgressBar, tam: int) -> Label:
 
 
 func _update_hp() -> void:
+	# Un bloque por enemigo. Los muertos se siguen refrescando (su barra a 0): su bloque no
+	# desaparece, se queda apagado en su sitio.
+	for i in _bloques.size():
+		var e: Combatant = _enemies[i]
+		var b: Dictionary = _bloques[i]
+		b["hp"].value = e.current_hp
+		b["hp_lbl"].text = "%.2f / %.2f" % [e.current_hp, e.max_hp]
+		# La etiqueta se queda SOLO con el nombre y el nivel; los estados van en su fila de
+		# chips, porque ahi cada uno se puede señalar y explicarse solo.
+		b["nombre"].text = "%s  (Nv.%d)" % [e.nombre, e.level]
+		if e.is_alive():
+			_refrescar_chips(e, b["chips"], i)
+
 	_player_hp.value = _player.current_hp
-	_enemy_hp.value = _enemy.current_hp
 	if _player_en_bar != null:
 		_player_en_bar.value = _player.current_energy
 	if _player_mp_bar != null:
@@ -332,61 +560,22 @@ func _update_hp() -> void:
 
 	# Los NUMEROS van dentro de su barra (vida, energia y mana), no amontonados en la
 	# etiqueta del nombre: cada cifra al lado de la barra a la que pertenece.
-	if _enemy_hp_lbl != null:
-		_enemy_hp_lbl.text = "%.2f / %.2f" % [_enemy.current_hp, _enemy.max_hp]
 	if _player_hp_lbl != null:
 		_player_hp_lbl.text = "%.2f / %.2f" % [_player.current_hp, _player.max_hp]
 	if _player_en_lbl != null:
 		_player_en_lbl.text = "EN  %.1f / %.1f" % [_player.current_energy, _player.max_energy]
 	if _player_mp_lbl != null:
 		_player_mp_lbl.text = "MP  %.2f / %.2f" % [_player.current_mp, _player.max_mp]
-
-	# La etiqueta se queda SOLO con el nombre y el nivel; los estados van debajo, en su fila
-	# de chips, porque ahi cada uno se puede señalar y explicarse solo.
-	_enemy_name.text = "%s  (Nv.%d)" % [_enemy.nombre, _enemy.level]
-	_player_name.text = "%s  (Nv.%d)" % [_player.nombre, _player.level]
-	_refrescar_chips(_enemy, _enemy_chips)
-	_refrescar_chips(_player, _player_chips)
-
-
-# Una fila de chips por combatiente, justo debajo de su nombre.
-func _crear_filas_estados() -> void:
-	if _enemy_chips != null:
-		return
-	_enemy_chips = _crear_fila_chips(_enemy_name)
-	_player_chips = _crear_fila_chips(_player_name)
-
-
-# Los chips van A LA DERECHA del nombre, en su MISMA linea. Antes iban en una fila propia
-# debajo, y eso movia toda la columna hacia abajo cada vez que a alguien le entraba (o se le
-# iba) un estado: el menu entero bailaba en mitad del combate.
-#
-# Para meterlos al lado hay que envolver la etiqueta del nombre en una fila: se saca el Label
-# de la columna, se mete en un HBox en su MISMO sitio, y los chips se añaden detras.
-func _crear_fila_chips(nombre: Label) -> HBoxContainer:
-	var col: VBoxContainer = $VBox
-	var pos: int = nombre.get_index()
-
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 8)
-	col.add_child(fila)
-	col.move_child(fila, pos)
-
-	col.remove_child(nombre)
-	fila.add_child(nombre)
-
-	var box := HBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fila.add_child(box)
-	return box
+	_bloque_player["nombre"].text = "%s  (Nv.%d)" % [_player.nombre, _player.level]
+	_refrescar_chips(_player, _bloque_player["chips"], -1)
 
 
 # Reconstruye los chips de un combatiente: uno por estado ACTIVO (mas la imbuicion, que no es
 # un estado -vive en sus propios campos- pero se sufre igual y hay que poder consultarla).
 # Se rehace entero en cada refresco: son 0-5 botones y asi no hay que llevar la cuenta de
 # cuales han expirado.
-func _refrescar_chips(c: Combatant, box: HBoxContainer) -> void:
+# 'idx' = indice del enemigo dueño de los chips (-1 = jugador): los chips tambien seleccionan.
+func _refrescar_chips(c: Combatant, box: HBoxContainer, idx: int) -> void:
 	if box == null:
 		return
 	for hijo in box.get_children():
@@ -394,21 +583,29 @@ func _refrescar_chips(c: Combatant, box: HBoxContainer) -> void:
 
 	var imb: String = c.imbue_etiqueta()
 	if imb != "":
-		_chip(box, imb, c.imbue_resumen())
+		_chip(box, imb, c.imbue_resumen(), idx)
 	for e in c.statuses:
-		_chip(box, e.etiqueta(), e.resumen())
+		_chip(box, e.etiqueta(), e.resumen(), idx)
 	box.visible = box.get_child_count() > 0
 
 
 # Un chip: el icono+numeros de siempre (etiqueta()), y al pasar el raton por encima, la ficha
 # entera (resumen()). TooltipButton porque el tooltip por defecto de Godot no parte lineas.
-func _chip(box: HBoxContainer, texto: String, tooltip: String) -> void:
+# 'idx' = enemigo al que pertenece (-1 = jugador).
+#
+# El chip SI se come el clic (un tooltip necesita recibir el raton, asi que no puede ir en
+# IGNORE como los demas hijos del bloque). En vez de pelearse con eso, se le hace bueno: el
+# chip tambien selecciona. Asi el bloque no tiene zonas muertas -> pinches donde pinches
+# dentro del borde, apuntas a ese bicho.
+func _chip(box: HBoxContainer, texto: String, tooltip: String, idx: int = -1) -> void:
 	var b := TooltipButton.new()
 	b.text = texto
 	b.tooltip_text = tooltip
 	b.flat = true                      # es una etiqueta que se puede señalar, no un boton
 	b.focus_mode = Control.FOCUS_NONE  # que no robe el foco al tabular por las acciones
 	b.add_theme_font_size_override("font_size", 13)
+	if idx >= 0:
+		b.pressed.connect(_seleccionar.bind(idx))
 	box.add_child(b)
 
 
@@ -487,15 +684,22 @@ func _process(delta: float) -> void:
 	# mago hibrido la cambia respecto al arma principal); si no, la velocidad normal.
 	var pspeed: float = _player.cast_spd() if _cast_spell != null else _player.spd()
 	_gauge[_player] += pspeed * delta * player_rate
-	_gauge[_enemy] += _enemy.spd() * delta * SPEED_SCALE
+	for e in _vivos():
+		_gauge[e] += e.spd() * delta * SPEED_SCALE
 
-	if _gauge[_player] >= UMBRAL or _gauge[_enemy] >= UMBRAL:
-		if _gauge[_player] >= _gauge[_enemy]:
-			_gauge[_player] -= UMBRAL
+	# Actua el que tenga la barra MAS llena por encima del umbral. Arrancar en el jugador y
+	# comparar con > estricto le da los empates, que es exactamente lo que hacia el
+	# "if _gauge[_player] >= _gauge[_enemy]" del 1v1: asi el desempate no cambia de manos.
+	var mejor: Combatant = _player
+	for e in _vivos():
+		if _gauge[e] > _gauge[mejor]:
+			mejor = e
+	if _gauge[mejor] >= UMBRAL:
+		_gauge[mejor] -= UMBRAL
+		if mejor == _player:
 			_begin_player_turn()
 		else:
-			_gauge[_enemy] -= UMBRAL
-			_enemy_turn()
+			_enemy_turn(mejor)
 
 
 func _begin_player_turn() -> void:
@@ -650,7 +854,16 @@ func _on_continue_pressed() -> void:
 	if _player.is_alive():
 		Game.arrastrar_regen(_player.regen_pendiente())
 		Game.arrastrar_regen_mana(_player.regen_mana_pendiente())
-	combat_finished.emit(_player_won, _player.current_hp, _player.current_mp, _player.current_energy)
+	# Quien cayo y con cuanta vida se queda cada superviviente (huir no los cura: te vuelves a
+	# encontrar al mismo bicho herido que dejaste).
+	var muertos: Array = []
+	var hp_left: Array = []
+	for i in _enemies.size():
+		if not _enemies[i].is_alive():
+			muertos.append(i)
+		hp_left.append(_enemies[i].current_hp)
+	combat_finished.emit(_player_won, _player.current_hp, _player.current_mp,
+		_player.current_energy, muertos, hp_left)
 	# Si lo abrio Game, el cierra la capa; si es prueba (F6), nos cerramos solos.
 	if not _injected:
 		queue_free()
@@ -784,6 +997,10 @@ func _disparar_hechizo() -> void:
 	if _state != State.WAITING_PLAYER:
 		return
 	var spell := _cast_spell
+	# Objetivo capturado una vez, como en el resto de acciones (ver _usar_habilidad). Por ahora
+	# la magia sigue siendo MONO-objetivo: pega al que tengas seleccionado. El rework de magia
+	# multi-objetivo entra por aqui y por _resolver_golpes_hechizo, que ya toma el objetivo.
+	var obj: Combatant = _objetivo()
 	# DAÑO solo para hechizos de ATAQUE (los de BUFF/DEBUFF no pegan, solo aplican estado).
 	var dano: float = 0.0
 	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
@@ -791,7 +1008,7 @@ func _disparar_hechizo() -> void:
 		# los OFENSIVOS gastan carga; el largo la gasta AL DISPARAR (respeta el canto). Se
 		# consume UNA vez y multiplica TODOS los golpes.
 		var foco: float = _player.consumir_foco()
-		dano = _resolver_golpes_hechizo(spell, _enemy, foco)
+		dano = _resolver_golpes_hechizo(spell, obj, foco)
 		_dps_add("Hechizo: %s" % spell.nombre, dano)
 	else:
 		_set_log("✨ %s lanza %s." % [_player.nombre, spell.nombre])
@@ -806,19 +1023,16 @@ func _disparar_hechizo() -> void:
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF
 	# Reto por-stat (contra TU magia, no tu poder total): asi un cuerpo fuerte con magia baja SI
 	# entrena la magia contra bichos de su piso, en vez de quedarse clavado a 0 (ver Game.reto_stat).
-	Game.ganar("magia", Game.reto_stat(_poder_enemigo(), "magia"), Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO)
+	Game.ganar("magia", Game.reto_stat(_poder_enemigo(obj), "magia"), Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO)
 	Game.contar_hechizo()   # contador oculto de Erudito
 	print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
-		_player.nombre, spell.nombre, dano, _player.abilities.magia, _enemy.nombre,
-		StatsMath.magic_value(_enemy.abilities, _enemy.level, _enemy.base_magic)])
+		_player.nombre, spell.nombre, dano, _player.abilities.magia, obj.nombre,
+		StatsMath.magic_value(obj.abilities, obj.level, obj.base_magic)])
 	_player.regen_energy(ATTACK_ENERGY_REGEN)   # lanzar es un turno basico: regenera energia (KAN-57)
 	_limpiar_casteo()
 	_update_hp()
 	_fin_de_eleccion()
-	if not _enemy.is_alive():
-		_end(true)
-	else:
-		_state = State.ADVANCING
+	_tras_accion_jugador(obj)
 
 
 # IMBUICION (KAN-58): tiñe tus golpes de arma con el elemento del hechizo.
@@ -974,7 +1188,7 @@ func _gastar_imbue() -> void:
 #   anunciados -> estados ya nombrados en el log (no repetir "recibe Mojado" en cada golpe).
 func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null,
 		elem_golpe: int = -1, verboso: bool = true, anunciados: Dictionary = {}) -> void:
-	var enemigo: Combatant = objetivo_ataque if objetivo_ataque != null else _enemy
+	var enemigo: Combatant = objetivo_ataque if objetivo_ataque != null else _objetivo()
 	for a in spell.efectos:
 		if a.estado < 0:
 			continue
@@ -1083,6 +1297,11 @@ func _accion_habilidad() -> void:
 
 
 func _usar_habilidad(ab: AbilityData) -> void:
+	# OBJETIVO capturado UNA vez, al principio de la accion. No se vuelve a preguntar por el
+	# dentro del bucle de golpes a proposito: si el objetivo cae al tercer tajo de una habilidad
+	# de cinco, los dos que quedan tienen que caer en el vacio, no saltar solos al siguiente
+	# enemigo. Una accion = un objetivo, el que elegiste al lanzarla.
+	var obj: Combatant = _objetivo()
 	# Manos que aportan ESTA habilidad (dual solo si son 2: daga+daga, no daga+estoque).
 	var idxs: Array = _player.ability_hand_indices(ab)
 	var manos: int = maxi(1, idxs.size())
@@ -1124,7 +1343,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		var mana_ganado_golpes: float = 0.0
 		_player.set_active_hand(idxs[0])   # empieza con el arma que aporta la habilidad
 		for i in golpes:
-			var result := StatsMath.resolve_attack(_player, _enemy, false)
+			var result := StatsMath.resolve_attack(_player, obj, false)
 			var linea := ""
 			# DUAL: los golpes que pone la SEGUNDA arma valen la mitad (AbilityData.mult_golpe).
 			var m_golpe: float = ab.mult_golpe(i, manos)
@@ -1135,11 +1354,11 @@ func _usar_habilidad(ab: AbilityData) -> void:
 				total += dmg
 				total_imbue += float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe
 				mult_imbue = float(result.get("mult_imbue", 1.0))
-				_enemy.take_damage(dmg)
+				obj.take_damage(dmg)
 				Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
 				mana_ganado_golpes += _ganar_mana_golpe()   # cada golpe que conecta repone maná
 				if float(result.get("dmg_imbue", 0.0)) > 0.0:
-					_gastar_amplificadores(_enemy, _player.imbue_elemento)
+					_gastar_amplificadores(obj, _player.imbue_elemento)
 				conecto += 1
 				if result.crit:
 					hubo_critico = true
@@ -1147,27 +1366,27 @@ func _usar_habilidad(ab: AbilityData) -> void:
 					("" if m_golpe >= 1.0 else " [2ª mano %d%%]" % roundi(m_golpe * 100.0)),
 					("CRITICO 💥" if result.crit else "acierta"), dmg,
 					_imbue_dmg_txt(result, ab.dano_mult * m_golpe)]
-				if ab.efectos_por_golpe and _enemy.is_alive():
-					var ap: Array = _tirar_efectos_habilidad(ab, result.crit)
+				if ab.efectos_por_golpe and obj.is_alive():
+					var ap: Array = _tirar_efectos_habilidad(ab, obj, result.crit)
 					estados_log += ap
 					if not ap.is_empty():
 						linea += "  -> " + ", ".join(ap)
 				# IMBUICION: cada golpe que acierta tira su estado (un arma multi-golpe = mas tiradas).
-				if _enemy.is_alive():
-					var imb_h: String = _player.roll_imbue(_enemy)
+				if obj.is_alive():
+					var imb_h: String = _player.roll_imbue(obj)
 					if imb_h != "":
 						estados_log.append(imb_h)
 						linea += "  ⚡ " + imb_h
 			print("        " + linea)
 			# Siguiente golpe: si es dual (2 armas la aportan) alterna; si no, sigue con la misma.
 			_player.set_active_hand(idxs[(i + 1) % idxs.size()])
-			if not _enemy.is_alive():
+			if not obj.is_alive():
 				break
 		# Efectos NO por golpe: UNA tirada al final si conecto algo (golpe de escudo -> stun).
-		if not ab.efectos_por_golpe and conecto > 0 and _enemy.is_alive():
-			estados_log += _tirar_efectos_habilidad(ab, hubo_critico)
+		if not ab.efectos_por_golpe and conecto > 0 and obj.is_alive():
+			estados_log += _tirar_efectos_habilidad(ab, obj, hubo_critico)
 		# Excelia: como el ataque, entrena Fuerza (por impacto medio).
-		Game.ganar("fuerza", Game.reto(_poder_enemigo()) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
+		Game.ganar("fuerza", Game.reto(_poder_enemigo(obj)) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
 			Game.RETO_MAX_FISICO)
 		print("        total: %.2f de daño en %d golpe%s%s | EN -%.0f -> %.1f/%.1f%s" % [
 			total, golpes, "" if golpes == 1 else "s",
@@ -1217,10 +1436,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	_set_log(msg)
 	_update_hp()
 	_fin_de_eleccion()
-	if not _enemy.is_alive():
-		_end(true)
-	else:
-		_state = State.ADVANCING
+	_tras_accion_jugador(obj)
 
 
 # ============================================================
@@ -1274,18 +1490,20 @@ func _usar_objeto(cons: ConsumableData) -> void:
 	_state = State.ADVANCING
 
 
-# Tira los efectos de una habilidad sobre el enemigo (cada uno con su prob y la
-# resistencia a estados del rival). Devuelve los NOMBRES de los que prenden.
-func _tirar_efectos_habilidad(ab: AbilityData, fue_critico: bool = false) -> Array:
+# Tira los efectos de una habilidad sobre 'objetivo' (cada uno con su prob y la resistencia a
+# estados del rival). El objetivo va por PARAMETRO, y es el que capturo la accion al lanzarse:
+# asi los estados caen sobre el mismo bicho que esta recibiendo los golpes.
+# Devuelve los NOMBRES de los que prenden.
+func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico: bool = false) -> Array:
 	var out: Array = []
 	for a in ab.efectos:
 		if a.estado < 0:
 			continue
 		if a.solo_crit and not fue_critico:
 			continue   # efecto reservado al critico (p.ej. 2o sangrado de la Punalada)
-		if randf() < a.prob * (1.0 - _enemy.status_resist):
+		if randf() < a.prob * (1.0 - objetivo.status_resist):
 			var mag: float = StatusEffects.app_magnitude(a, _player.atk(), _player.motion_value)
-			_enemy.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
+			objetivo.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
 			out.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
 	return out
 
@@ -1303,23 +1521,25 @@ func _ganar_mana_golpe() -> float:
 
 
 func _accion_atacar() -> void:
+	# Objetivo capturado una vez (ver _usar_habilidad): el golpe va a quien elegiste.
+	var obj: Combatant = _objetivo()
 	# Los enemigos no defienden (de momento): defending = false.
-	var result := StatsMath.resolve_attack(_player, _enemy, false)
-	_debug_ataque(_player, _enemy, result)
+	var result := StatsMath.resolve_attack(_player, obj, false)
+	_debug_ataque(_player, obj, result)
 	# Excelia: atacar sube Fuerza aunque el enemigo esquive (has practicado el
 	# golpe). arma_factor = motion_value de la MANO ACTIVA (KAN-82); tope fisico (5).
 	var arma_factor: float = _player.motion_value
-	Game.ganar("fuerza", Game.reto(_poder_enemigo()) * arma_factor, Game.GAIN_FUERZA_ATAQUE,
+	Game.ganar("fuerza", Game.reto(_poder_enemigo(obj)) * arma_factor, Game.GAIN_FUERZA_ATAQUE,
 		Game.RETO_MAX_FISICO)
 	var con_arma: String = _player.current_hand_name()
 	if result.evaded:
-		_set_log("%s esquiva tu ataque (%s). 💨" % [_enemy.nombre, con_arma])
+		_set_log("%s esquiva tu ataque (%s). 💨" % [obj.nombre, con_arma])
 	else:
-		_enemy.take_damage(result.damage)
+		obj.take_damage(result.damage)
 		Game.contar_dano_infligido(result.damage)   # contador oculto de Cazador
 		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).
 		if float(result.get("dmg_imbue", 0.0)) > 0.0:
-			_gastar_amplificadores(_enemy, _player.imbue_elemento)
+			_gastar_amplificadores(obj, _player.imbue_elemento)
 		_dps_add("Básico (%s)" % con_arma, result.damage)
 		var txt: String
 		if result.crit:
@@ -1330,7 +1550,7 @@ func _accion_atacar() -> void:
 			# va CAPADO (ver GAIN_AGILIDAD_CRIT_MV_MAX): ahora que las pesadas critean de verdad,
 			# sin tope entrenarian Agilidad de mas.
 			var agi_factor: float = minf(arma_factor, Game.GAIN_AGILIDAD_CRIT_MV_MAX)
-			Game.ganar("agilidad", Game.reto(_poder_enemigo()) * agi_factor, Game.GAIN_AGILIDAD_CRITICO,
+			Game.ganar("agilidad", Game.reto(_poder_enemigo(obj)) * agi_factor, Game.GAIN_AGILIDAD_CRITICO,
 				Game.RETO_MAX_FISICO)
 		else:
 			txt = "%s golpea con %s por %.2f de daño." % [_player.nombre, con_arma, result.damage]
@@ -1340,12 +1560,12 @@ func _accion_atacar() -> void:
 		# Aturdir/retrasar (arma contundente): el enemigo pierde tempo (barra ATB).
 		# Retraso parcial normal; si el golpe fue CRITICO, aturdimiento completo.
 		if result.aturde:
-			txt += _aplicar_aturdir(_enemy, result.crit)
+			txt += _aplicar_aturdir(obj, result.crit)
 		# Estados "al golpear" del jugador (arma; futuro: sangrado de cortantes).
-		for nom in _player.roll_on_hit(_enemy):
+		for nom in _player.roll_on_hit(obj):
 			txt += "  Le infliges %s." % nom
 		# IMBUICION (KAN-58): el elemento de tus golpes puede prender su estado.
-		var imb: String = _player.roll_imbue(_enemy)
+		var imb: String = _player.roll_imbue(obj)
 		if imb != "":
 			txt += "  ⚡ Le infliges %s." % imb
 		# El golpe que conecta REPONE maná (no los que fallan: hay que acertar).
@@ -1362,11 +1582,7 @@ func _accion_atacar() -> void:
 	_update_hp()
 	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
 	_fin_de_eleccion()
-
-	if not _enemy.is_alive():
-		_end(true)
-	else:
-		_state = State.ADVANCING
+	_tras_accion_jugador(obj)
 
 
 # Accion Defender (KAN-54): mitiga el proximo daño y anula criticos en tu contra
@@ -1380,12 +1596,26 @@ func _accion_defender() -> void:
 	_state = State.ADVANCING
 
 
+# El enemigo VIVO mas rapido: el que decide si te escapas. Null si no queda ninguno.
+func _mas_rapido() -> Combatant:
+	var best: Combatant = null
+	for e in _vivos():
+		if best == null or e.abilities.agilidad > best.abilities.agilidad:
+			best = e
+	return best
+
+
 # Accion Huir (KAN-55): intento de escapar. Probabilidad = CONTEST de Agilidad
 # (tu Agilidad vs la del enemigo); entrar agotado la reduce. Si funciona, sales
-# del combate SIN loot y el enemigo sigue vivo; si fallas, pierdes el turno.
+# del combate SIN loot y los enemigos siguen vivos; si fallas, pierdes el turno.
+#
+# Con varios enemigos se mide contra el MAS RAPIDO de los que siguen en pie, no contra una
+# media: de un grupo escapas tanto como te deje el que mejor te alcanza. Promediar haria que
+# sumarle tres slimes lentos a un lobo veloz te FACILITARA huir, que es absurdo.
 func _accion_huir() -> void:
+	var perseguidor: Combatant = _mas_rapido()
 	var chance := StatsMath.flee_chance(
-		float(_player.abilities.agilidad), float(_enemy.abilities.agilidad))
+		float(_player.abilities.agilidad), float(perseguidor.abilities.agilidad))
 	if _slow_actions_left > 0:
 		chance *= FLEE_EXHAUSTED_MULT
 	var ok := randf() < chance
@@ -1393,89 +1623,102 @@ func _accion_huir() -> void:
 	if ok:
 		_end(false, true)  # huida: no ganas, pero tampoco es derrota
 	else:
+		# Se nombra al mas rapido: es quien explica el numero que acabas de ver.
 		_set_log("%s intenta huir pero %s se lo impide. (%.0f%%)" % [
-			_player.nombre, _enemy.nombre, chance * 100.0])
+			_player.nombre, perseguidor.nombre, chance * 100.0])
 		_state = State.ADVANCING
 
 
-func _enemy_turn() -> void:
+# Turno de UN enemigo. 'e' es el que ACTUA (no "el enemigo" a secas): con varios en la
+# pelea, cada uno gasta su barra, tiene sus cooldowns y carga lo suyo por separado.
+func _enemy_turn(e: Combatant) -> void:
 	if _dps_on:
 		_turnos_enemigo += 1
-	_enemy.tick_cooldowns()   # habilidades del enemigo (KAN-58): baja 1 turno los cooldowns
+	e.tick_cooldowns()   # habilidades del enemigo (KAN-58): baja 1 turno los cooldowns
 	# Estados alterados (KAN-58): tick al inicio del turno del enemigo.
-	var ev: Dictionary = _enemy.tick_statuses()
-	_log_tick(_enemy, ev)
+	var ev: Dictionary = e.tick_statuses()
+	_log_tick(e, ev)
 	_dps_add("DoT (estados)", float(ev.get("damage", 0.0)))   # sangrado/veneno/quemadura que le pusiste
 	_update_hp()
-	if not _enemy.is_alive():
-		_set_log("%s cae por el daño de sus estados. ☠" % _enemy.nombre)
-		_end(true)   # el DoT remata al enemigo
+	if not e.is_alive():
+		_set_log("%s cae por el daño de sus estados. ☠" % e.nombre)
+		_morir_enemigo(e)   # el DoT lo remata: cae EL, no acaba el combate
+		if _vivos().is_empty():
+			_end(true)
+		else:
+			_pausa_lectura()
 		return
 	if ev.stunned:
 		# Aturdir a un enemigo que se estaba CARGANDO cancela su ataque (interrupcion).
-		if _enemy_charging != null:
-			var interrumpida: String = _enemy_charging.nombre
-			_enemy_charging = null
-			_enemy_charge_left = 0
-			print("[habilidad enemigo] %s ATURDIDO: se le INTERRUMPE %s" % [_enemy.nombre, interrumpida])
-			_set_log("%s está aturdido: se le interrumpe %s. 💫" % [_enemy.nombre, interrumpida])
+		if e.charging != null:
+			var interrumpida: String = e.charging.nombre
+			e.charging = null
+			e.charge_left = 0
+			print("[habilidad enemigo] %s ATURDIDO: se le INTERRUMPE %s" % [e.nombre, interrumpida])
+			_set_log("%s está aturdido: se le interrumpe %s. 💫" % [e.nombre, interrumpida])
 		else:
-			_set_log("%s está aturdido y pierde el turno. 💫" % _enemy.nombre)
+			_set_log("%s está aturdido y pierde el turno. 💫" % e.nombre)
 		_pausa_lectura()   # ya se le resto la barra ATB en _process; pierde la accion
 		return
 
 	# ATAQUE DE CARGA en curso: consume un turno cargando; al llegar a 0, se dispara.
-	if _enemy_charging != null:
-		_enemy_charge_left -= 1
-		if _enemy_charge_left > 0:
-			_set_log("%s sigue cargando %s... ⚡ (prepárate)" % [_enemy.nombre, _enemy_charging.nombre])
+	if e.charging != null:
+		e.charge_left -= 1
+		if e.charge_left > 0:
+			_set_log("%s sigue cargando %s... ⚡ (prepárate)" % [e.nombre, e.charging.nombre])
 			_pausa_lectura()
 			return
-		var cargada: AbilityData = _enemy_charging
-		_enemy_charging = null
-		_enemy_use_ability(cargada)
+		var cargada: AbilityData = e.charging
+		e.charging = null
+		_enemy_use_ability(e, cargada)
 		return
 
 	# Decision: usar una HABILIDAD (si tiene alguna lista y sale la tirada) o atacar normal.
 	# En modo muñeco (Saco/Pegador) NO usa habilidades: mantiene limpias las pruebas de DPS/armadura.
 	var listas: Array = []
 	if not _dps_on:
-		for ab in _enemy.habilidades:
-			if _enemy.ability_ready(ab):
+		for ab in e.habilidades:
+			if e.ability_ready(ab):
 				listas.append(ab)
-	if not listas.is_empty() and randf() < _enemy.prob_habilidad:
+	if not listas.is_empty() and randf() < e.prob_habilidad:
 		var elegida: AbilityData = listas[randi() % listas.size()]
 		if elegida.carga_turnos > 0:
-			_enemy_begin_charge(elegida)
+			_enemy_begin_charge(e, elegida)
 		else:
-			_enemy_use_ability(elegida)
+			_enemy_use_ability(e, elegida)
 		return
 
 	# La postura de guardia del estoque reduce el daño como el Defender (rama defending).
 	var defendiendo: bool = _player_defending or _player.en_guardia
-	var result := StatsMath.resolve_attack(_enemy, _player, defendiendo)
-	_debug_ataque(_enemy, _player, result, defendiendo)
+	var result := StatsMath.resolve_attack(e, _player, defendiendo)
+	_debug_ataque(e, _player, result, defendiendo)
 	if result.evaded:
 		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos).
-		Game.ganar("agilidad", Game.reto(_poder_enemigo()), Game.GAIN_AGILIDAD_ESQUIVAR,
+		Game.ganar("agilidad", Game.reto(_poder_enemigo(e)), Game.GAIN_AGILIDAD_ESQUIVAR,
 			Game.RETO_MAX_FISICO)
 		Game.contar_esquiva()   # contador oculto de Reflejos
 		# CONTRAATAQUE (estoque, KAN-57): en guardia, cada golpe esquivado lo devuelves.
+		# Se lo devuelves A QUIEN TE HA ATACADO, no a tu objetivo seleccionado.
 		if _player.en_guardia:
-			var msg_ev := _contraatacar()
+			var msg_ev := _contraatacar(e)
 			_update_hp()
-			if not _enemy.is_alive():
-				_end(true)
+			if not e.is_alive():
+				_morir_enemigo(e)
+				_set_log(msg_ev)
+				if _vivos().is_empty():
+					_end(true)
+				else:
+					_pausa_lectura()
 				return
 			_set_log(msg_ev)
 			_pausa_lectura()
 			return
-		_set_log("%s esquiva el ataque de %s. 💨" % [_player.nombre, _enemy.nombre])
+		_set_log("%s esquiva el ataque de %s. 💨" % [_player.nombre, e.nombre])
 		_update_hp()
 		_pausa_lectura()
 		return
 
-	var dmg: float = result.damage * _enemy.dummy_dmg_out_mult   # Saco = 0 (no pega)
+	var dmg: float = result.damage * e.dummy_dmg_out_mult   # Saco = 0 (no pega)
 	_player.take_damage(dmg)
 	Game.desgastar_armadura()   # DURABILIDAD: encajar un golpe gasta un poco todas las piezas
 	Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
@@ -1486,29 +1729,29 @@ func _enemy_turn() -> void:
 	# ataque), modulada por el DAÑO recibido (golpe gordo entrena mas). Asi
 	# tambien sube bien al principio, cuando el enemigo es un gran reto.
 	var dmg_mult: float = clampf(dmg / maxf(1.0, float(_player.max_hp) * 0.1), 0.5, 2.0)
-	Game.ganar("resistencia", Game.reto(_poder_enemigo()) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
+	Game.ganar("resistencia", Game.reto(_poder_enemigo(e)) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
 		Game.RETO_MAX_FISICO)
 	# Excelia: si BLOQUEAS (Defender), entrenas Resistencia EXTRA segun cuanto
 	# bloquees (escudo grande entrena mas). Formaliza KAN-81 y premia el escudo.
 	if _player_defending:
-		Game.ganar("resistencia", Game.reto(_poder_enemigo()) * _player.defend_block,
+		Game.ganar("resistencia", Game.reto(_poder_enemigo(e)) * _player.defend_block,
 			Game.GAIN_RESISTENCIA_BLOQUEO, Game.RETO_MAX_FISICO)
 	var msg: String
 	if result.crit:
-		msg = "%s te CLAVA un critico: %.2f de daño! 💥" % [_enemy.nombre, dmg]
+		msg = "%s te CLAVA un critico: %.2f de daño! 💥" % [e.nombre, dmg]
 	else:
-		msg = "%s te ataca por %.2f de daño." % [_enemy.nombre, dmg]
+		msg = "%s te ataca por %.2f de daño." % [e.nombre, dmg]
 	if _player_defending:
 		msg += " (defendido 🛡️)"
 	# Aturdir/retrasar del enemigo (si algun dia lleva arma contundente).
 	if result.aturde:
 		msg += _aplicar_aturdir(_player, result.crit)
 	# Estados "al golpear" del enemigo (pegajoso/veneno de slimes, KAN-58 Fase 3).
-	for nom in _enemy.roll_on_hit(_player):
+	for nom in e.roll_on_hit(_player):
 		msg += "  Te inflige %s." % nom
 	_set_log(msg)
 	_update_hp()
-	_enemy.advance_hand()  # (sin efecto ahora; los enemigos aun no llevan 2 armas)
+	e.advance_hand()  # (sin efecto ahora; los enemigos aun no llevan 2 armas)
 
 	if not _player.is_alive():
 		_end(false)
@@ -1523,21 +1766,21 @@ func _enemy_turn() -> void:
 # Empieza a cargar un ataque telegrafiado: no pega este turno, lo anuncia. El cooldown
 # arranca YA (para que no reintente cargar en cuanto dispare). Aturdirlo mientras carga
 # lo cancela (ver _enemy_turn). Te da tus turnos para defender/curarte/reventarlo.
-func _enemy_begin_charge(ab: AbilityData) -> void:
-	_enemy_charging = ab
-	_enemy_charge_left = ab.carga_turnos
-	_enemy.start_cooldown(ab)
+func _enemy_begin_charge(e: Combatant, ab: AbilityData) -> void:
+	e.charging = ab
+	e.charge_left = ab.carga_turnos
+	e.start_cooldown(ab)
 	print("[habilidad enemigo] %s empieza a cargar %s (%d turno%s)" % [
-		_enemy.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
-	_set_log("⚡ %s se prepara para %s. ¡Prepárate! (aturdirlo lo interrumpe)" % [_enemy.nombre, ab.nombre])
+		e.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
+	_set_log("⚡ %s se prepara para %s. ¡Prepárate! (aturdirlo lo interrumpe)" % [e.nombre, ab.nombre])
 	_pausa_lectura()
 
 
 # Ejecuta una habilidad del enemigo: multi-golpe con dano_mult + sus estados (StatusApplication).
 # Espejo compacto de _usar_habilidad del jugador (sin energia/dual/excelia de ataque).
-func _enemy_use_ability(ab: AbilityData) -> void:
-	_enemy.start_cooldown(ab)   # instantaneas: cooldown al usar (las cargadas ya lo arrancaron)
-	print("[habilidad enemigo] %s usa %s" % [_enemy.nombre, ab.nombre])
+func _enemy_use_ability(e: Combatant, ab: AbilityData) -> void:
+	e.start_cooldown(ab)   # instantaneas: cooldown al usar (las cargadas ya lo arrancaron)
+	print("[habilidad enemigo] %s usa %s" % [e.nombre, ab.nombre])
 	var defendiendo: bool = _player_defending or _player.en_guardia
 	var total: float = 0.0
 	var golpes: int = 0
@@ -1552,16 +1795,16 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
 		for i in golpes:
-			var result := StatsMath.resolve_attack(_enemy, _player, defendiendo)
+			var result := StatsMath.resolve_attack(e, _player, defendiendo)
 			if result.evaded:
 				print("        golpe %d: esquivado 💨" % [i + 1])
 				Game.contar_esquiva()   # contador oculto de Reflejos
 				if _player.en_guardia and contra_txt == "":
-					contra_txt = _contraatacar()
-					if not _enemy.is_alive():
+					contra_txt = _contraatacar(e)
+					if not e.is_alive():
 						break
 			else:
-				var dmg: float = result.damage * ab.dano_mult * _enemy.dummy_dmg_out_mult
+				var dmg: float = result.damage * ab.dano_mult * e.dummy_dmg_out_mult
 				_player.take_damage(dmg)
 				Game.desgastar_armadura()   # DURABILIDAD: cada golpe encajado gasta las piezas
 				Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
@@ -1569,7 +1812,7 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 				conecto += 1
 				var et := "golpe %d: %s %.2f" % [i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
 				if ab.efectos_por_golpe:
-					var ap: Array = _enemy_tirar_efectos(ab)
+					var ap: Array = _enemy_tirar_efectos(e, ab)
 					estados_log += ap
 					if not ap.is_empty():
 						et += "  -> " + ", ".join(ap)
@@ -1578,21 +1821,21 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 				break
 		# Efectos NO por golpe: solo si el enemigo sigue vivo (un contraataque puede haberlo
 		# matado a mitad de su propia habilidad: un muerto no te envenena).
-		if not ab.efectos_por_golpe and conecto > 0 and _player.is_alive() and _enemy.is_alive():
-			estados_log += _enemy_tirar_efectos(ab)
+		if not ab.efectos_por_golpe and conecto > 0 and _player.is_alive() and e.is_alive():
+			estados_log += _enemy_tirar_efectos(e, ab)
 		print("        total: %.2f de daño en %d golpe%s" % [total, golpes, "" if golpes == 1 else "s"])
 	else:
 		# Habilidad de puro estado (sin daño): tira sus efectos directamente.
-		estados_log += _enemy_tirar_efectos(ab)
+		estados_log += _enemy_tirar_efectos(e, ab)
 
 	# Excelia: recibir el golpe entrena Resistencia (como en el ataque basico), modulada
 	# por el daño total encajado.
 	if total > 0.0:
 		var dmg_mult: float = clampf(total / maxf(1.0, float(_player.max_hp) * 0.1), 0.5, 2.0)
-		Game.ganar("resistencia", Game.reto(_poder_enemigo()) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
+		Game.ganar("resistencia", Game.reto(_poder_enemigo(e)) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
 			Game.RETO_MAX_FISICO)
 
-	var msg: String = "%s usa %s" % [_enemy.nombre, ab.nombre]
+	var msg: String = "%s usa %s" % [e.nombre, ab.nombre]
 	if total > 0.0:
 		msg += ": %.2f de daño (%d golpe%s)." % [total, golpes, "" if golpes == 1 else "s"]
 	else:
@@ -1605,25 +1848,33 @@ func _enemy_use_ability(ab: AbilityData) -> void:
 	_set_log(msg)
 	_update_hp()
 
-	if not _enemy.is_alive():
-		_end(true)    # el contraataque de la postura lo ha matado en mitad de su habilidad
+	if not e.is_alive():
+		# El contraataque de la postura lo ha matado en mitad de su propia habilidad: cae EL,
+		# el combate solo acaba si era el ultimo que quedaba en pie.
+		_morir_enemigo(e)
+		if _vivos().is_empty():
+			_end(true)
+		else:
+			_pausa_lectura()
 	elif not _player.is_alive():
 		_end(false)
 	else:
 		_pausa_lectura()
 
 
-# Tira los estados (StatusApplication) de una habilidad del enemigo. Respeta 'en_objetivo':
+# Tira los estados (StatusApplication) de una habilidad del enemigo 'e'. Respeta 'en_objetivo':
 #   true  = al JUGADOR (debuff/DoT; tu resistencia a estados baja la probabilidad).
 #   false = A SI MISMO (buff, p.ej. Fortaleza del slime de fuego): siempre prende.
+# "A si mismo" es el ENEMIGO QUE LANZA, de ahi que 'e' venga por parametro: con varios bichos,
+# leer un campo global haria que un slime se buffease a otro slime.
 # N stacks por tirada (a.stacks). Devuelve los nombres aplicados para el log.
-func _enemy_tirar_efectos(ab: AbilityData) -> Array:
+func _enemy_tirar_efectos(e: Combatant, ab: AbilityData) -> Array:
 	var out: Array = []
 	for a in ab.efectos:
 		if a.estado < 0:
 			continue
 		var al_jugador: bool = a.en_objetivo
-		var objetivo: Combatant = _player if al_jugador else _enemy
+		var objetivo: Combatant = _player if al_jugador else e
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		if objetivo.es_inmune(a.estado):   # incluye la inmunidad derivada de su AFINIDAD elemental
 			continue   # apply_status ya lo avisaria, pero asi no ensucia el log de aplicados
@@ -1631,7 +1882,7 @@ func _enemy_tirar_efectos(ab: AbilityData) -> Array:
 		var p: float = a.prob * (1.0 - _player.status_resist) if al_jugador else a.prob
 		if randf() >= p:
 			continue
-		var mag: float = StatusEffects.app_magnitude(a, _enemy.atk(), _enemy.motion_value)
+		var mag: float = StatusEffects.app_magnitude(a, e.atk(), e.motion_value)
 		# Aplica los stacks de uno en uno (los independientes/merge suben stack por llamada).
 		for _s in maxi(1, a.stacks):
 			objetivo.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
@@ -1641,19 +1892,22 @@ func _enemy_tirar_efectos(ab: AbilityData) -> Array:
 
 # CONTRAATAQUE del estoque (KAN-57): al esquivar en guardia, devuelves el golpe con el arma
 # principal (el estoque). Aplica el daño al enemigo y devuelve el texto para el log.
-func _contraatacar() -> String:
+# 'atacante' es QUIEN TE HA GOLPEADO, y no tu objetivo seleccionado: el riposte responde al
+# que se te ha echado encima. Si pegase a tu objetivo, con varios enemigos estarias hiriendo
+# a uno que no te ha tocado, y a la vez dejando ileso al que si.
+func _contraatacar(atacante: Combatant) -> String:
 	_player.set_active_hand(0)   # el estoque va en la mano principal
-	var result := StatsMath.resolve_attack(_player, _enemy, false)
-	_debug_ataque(_player, _enemy, result, false)
+	var result := StatsMath.resolve_attack(_player, atacante, false)
+	_debug_ataque(_player, atacante, result, false)
 	if result.evaded:
-		return "%s esquiva y contraataca, pero %s lo esquiva. 💨" % [_player.nombre, _enemy.nombre]
+		return "%s esquiva y contraataca, pero %s lo esquiva. 💨" % [_player.nombre, atacante.nombre]
 	var dmg: float = result.damage * _player.guardia_contra_mult
-	_enemy.take_damage(dmg)
+	atacante.take_damage(dmg)
 	Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
 	_dps_add("Contraataque", dmg)
 	_ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
 	# Excelia: el contraataque golpea, entrena Fuerza como un ataque normal.
-	Game.ganar("fuerza", Game.reto(_poder_enemigo()) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
+	Game.ganar("fuerza", Game.reto(_poder_enemigo(atacante)) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
 		Game.RETO_MAX_FISICO)
 	var extra := "un CRITICO 💥 " if result.crit else ""
 	return "%s esquiva y CONTRAATACA con el estoque: %s%.2f de daño! 🤺" % [_player.nombre, extra, dmg]
@@ -1685,7 +1939,8 @@ func _dps_resumen() -> void:
 		return
 	var tj: int = maxi(1, _turnos_jugador)
 	var te: int = maxi(1, _turnos_enemigo)
-	print("[dps] ===== RESUMEN DE PRUEBA vs %s =====" % _enemy.nombre)
+	# El modo prueba siempre es 1v1 (ver setup): el muñeco es _enemies[0].
+	print("[dps] ===== RESUMEN DE PRUEBA vs %s =====" % _enemies[0].nombre)
 	print("[dps] INFLIGIDO: %.2f total | %d turnos tuyos, %d del enemigo | DPS %.2f/tuyo · %.2f/enemigo" % [
 		_dmg_dealt_total, _turnos_jugador, _turnos_enemigo, _dmg_dealt_total / tj, _dmg_dealt_total / te])
 	var fuentes: Array = _dmg_dealt.keys()
@@ -1696,6 +1951,46 @@ func _dps_resumen() -> void:
 	if _dmg_taken_hits > 0:
 		print("[dps] RECIBIDO: %.2f total en %d golpes | media %.2f/golpe (mitigacion de tu armadura)" % [
 			_dmg_taken_total, _dmg_taken_hits, _dmg_taken_total / float(_dmg_taken_hits)])
+
+
+# CAE UN ENEMIGO. Ojo: esto NO termina el combate (de eso se encargan quienes llaman, mirando
+# si quedan vivos). Lo saca del orden de turnos y de la barra de accion, apaga su bloque y, si
+# era tu objetivo, te pasa a otro para que la proxima accion no se lance al vacio.
+func _morir_enemigo(e: Combatant) -> void:
+	if e == null:
+		return
+	_gauge.erase(e)   # fuera del orden de turnos: ya no acumula barra ni puede actuar
+	if _timeline != null:
+		_timeline.quitar(e)
+	_apagar_bloque(e)
+	print("[combate] %s cae (quedan %d en pie)" % [e.nombre, _vivos().size()])
+	# Si el que ha caido era tu objetivo, salta al siguiente vivo. _objetivo() ya lo haria
+	# solo, pero hay que mover _target_idx para que el borde blanco se pinte donde toca.
+	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx] == e:
+		_reseleccionar()
+
+
+# Pasa el objetivo al siguiente enemigo VIVO (buscando hacia abajo y dando la vuelta desde el
+# actual: el de al lado es el candidato mas natural). Si no queda ninguno da igual: el
+# llamador esta a punto de terminar el combate.
+func _reseleccionar() -> void:
+	for i in _enemies.size():
+		var idx: int = (_target_idx + 1 + i) % _enemies.size()
+		if _enemies[idx].is_alive():
+			_seleccionar(idx)
+			return
+
+
+# Cierre COMUN de una accion tuya contra 'obj': lo remata si ha caido y decide si esto se ha
+# acabado. Existe para que atacar, usar habilidad y lanzar hechizo no repitan (y desincronicen)
+# la misma secuencia de "¿ha muerto? ¿queda alguno? ¿sigo?".
+func _tras_accion_jugador(obj: Combatant) -> void:
+	if obj != null and not obj.is_alive():
+		_morir_enemigo(obj)
+	if _vivos().is_empty():
+		_end(true)
+	else:
+		_state = State.ADVANCING
 
 
 func _end(player_won: bool, fled: bool = false) -> void:
@@ -1719,18 +2014,26 @@ func _end(player_won: bool, fled: bool = false) -> void:
 			_update_hp()
 			print("[combate] maná por victoria: +%.2f -> %.2f/%.2f" % [
 				mp_vic, _player.current_mp, _player.max_mp])
-		_set_log("¡GANASTE el combate contra " + _enemy.nombre + "! 🎉"
+		var caidos: String = _enemies[0].nombre if _enemies.size() == 1 \
+			else "%d enemigos" % _enemies.size()
+		_set_log("¡GANASTE el combate contra " + caidos + "! 🎉"
 			+ ("" if mp_vic <= 0.0 else "  🔷 +%.1f MP." % mp_vic))
 	elif fled:
-		_set_log("Has escapado de " + _enemy.nombre + ". 🏃")
+		# Al huir se dice a cuantos dejas atras: si te llevaste a alguno por delante, cuenta.
+		var quedan: int = _vivos().size()
+		_set_log("Has escapado. 🏃  (Dejas atrás %d enemigo%s en pie)" % [
+			quedan, "" if quedan == 1 else "s"])
 	else:
 		_set_log("Has caido en combate... 💀")
 
 	# Marca de FIN en consola (cierra el bloque del combate para los Excel).
 	var desenlace: String = ("huye %s" % _player.nombre) if fled else \
-		("gana %s" % (_player.nombre if player_won else _enemy.nombre))
-	print("[combate] ===== FIN: %s | %s HP %.2f | %s HP %.2f =====" % [
-		desenlace, _player.nombre, _player.current_hp, _enemy.nombre, _enemy.current_hp])
+		("gana %s" % (_player.nombre if player_won else "los enemigos"))
+	var estado_rivales: PackedStringArray = []
+	for e in _enemies:
+		estado_rivales.append("%s HP %.2f%s" % [e.nombre, e.current_hp, "" if e.is_alive() else " ☠"])
+	print("[combate] ===== FIN: %s | %s HP %.2f | %s =====" % [
+		desenlace, _player.nombre, _player.current_hp, " | ".join(estado_rivales)])
 
 
 # Log-HISTORIAL: cada evento se apila como una linea nueva y se muestran las
@@ -1765,7 +2068,11 @@ func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:
 	var f: float = randf_range(ATB_STUN_MIN, ATB_STUN_MAX)
 	# Sin recorte a 0: si la barra ya estaba baja, el retraso debe notarse igual
 	# (recortar a 0 lo dejaba igual que si no hubiera aturdido nada).
-	_gauge[objetivo] -= UMBRAL * f
+	# El has() NO es defensivo de adorno: a un muerto se le ha hecho erase de _gauge, y tocar
+	# una clave que no existe la CREARIA -> volveria al orden de turnos y su marcador
+	# reaparecia en la barra de accion. Un mazazo al cadaver no lo devuelve a la pelea.
+	if _gauge.has(objetivo):
+		_gauge[objetivo] -= UMBRAL * f
 	return "  ¡Retrasado! 💫"
 
 
@@ -1795,11 +2102,14 @@ func _debug_ataque(atacante: Combatant, defensor: Combatant, r: Dictionary, bloq
 		atacante.atk(), r.damage, imb, outcome])
 
 
-# Poder del enemigo (suma de sus habilidades) para la dificultad relativa.
-func _poder_enemigo() -> float:
-	if _enemy == null or _enemy.abilities == null:
+# Poder de UN enemigo (suma de sus habilidades) para la dificultad relativa de la excelia.
+# El enemigo va por PARAMETRO y no leyendo un campo: con varios a la vez, "el enemigo" no es
+# uno solo, y quien entrena la stat es el bicho CONCRETO con el que acabas de medirte (al que
+# has pegado, o el que te ha pegado a ti). Sin esto, entrenarias con el reto del que no era.
+func _poder_enemigo(c: Combatant) -> float:
+	if c == null or c.abilities == null:
 		return 0.0
-	var a: Abilities = _enemy.abilities
+	var a: Abilities = c.abilities
 	return float(a.fuerza + a.resistencia + a.destreza + a.agilidad + a.magia)
 
 
@@ -1816,11 +2126,22 @@ func _crear_timeline() -> void:
 	# Solo dibuja -> IGNORE (que no robe clics a lo que quede por encima).
 	_timeline.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_timeline)
+	# Tu marcador lleva el aspecto de TU cubo: el mismo color, la misma imagen y el mismo metal
+	# que en el mapa (material_cuerpo() puede devolver null, y es correcto: un cuerpo mate sin
+	# imagen se pinta solo con su color). Sin texto: ya te reconoces por la pinta.
+	_timeline.anadir(_player, Game.player_color, Game.material_cuerpo(), "")
+	# Cada enemigo con su color del mapa y su NUMERO, el mismo que lleva su bloque arriba.
+	for i in _enemies.size():
+		_timeline.anadir(_enemies[i], _enemies[i].color_visual, null, str(i + 1))
 
 
 func _update_timeline() -> void:
-	if _timeline != null:
-		_timeline.set_ratios(_gauge.get(_player, 0.0) / UMBRAL, _gauge.get(_enemy, 0.0) / UMBRAL)
+	if _timeline == null:
+		return
+	var ratios: Dictionary = {}
+	for c in _gauge:
+		ratios[c] = _gauge[c] / UMBRAL
+	_timeline.set_ratios(ratios)
 
 
 # ============================================================
@@ -1872,12 +2193,14 @@ func _crear_estados_dev() -> void:
 	title.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 	vb.add_child(title)
 
+	# "Enemigo" = el que tengas SELECCIONADO. Asi el panel hereda gratis la seleccion por clic
+	# y no hace falta un segundo selector de 4 entradas aqui dentro.
 	var tgt := CheckButton.new()
-	tgt.text = "Objetivo: Enemigo"
+	tgt.text = "Objetivo: Enemigo sel."
 	tgt.button_pressed = true
 	tgt.toggled.connect(func(on: bool):
 		_dev_target_enemy = on
-		tgt.text = "Objetivo: Enemigo" if on else "Objetivo: Jugador")
+		tgt.text = "Objetivo: Enemigo sel." if on else "Objetivo: Jugador")
 	vb.add_child(tgt)
 
 	var flow := HFlowContainer.new()
@@ -1908,11 +2231,11 @@ func _crear_estados_dev() -> void:
 
 
 func _dev_target() -> Combatant:
-	return _enemy if _dev_target_enemy else _player
+	return _objetivo() if _dev_target_enemy else _player
 
 # Aplicador para estados que escalan con quien los lanza: el bando CONTRARIO al objetivo.
 func _dev_aplicador() -> Combatant:
-	return _player if _dev_target_enemy else _enemy
+	return _player if _dev_target_enemy else _objetivo()
 
 func _dev_aplicar_estado(id: int) -> void:
 	_dev_target().apply_status(id)
@@ -1946,3 +2269,19 @@ func _anadir_fondo() -> void:
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE  # que no robe los clics al boton
 	add_child(bg)
 	move_child(bg, 0)  # al fondo (los hermanos siguientes se dibujan encima)
+
+
+# Prepara la columna: la fila de enemigos va arriba del todo, antes del log y de los botones.
+# La columna sigue ocupando la pantalla ENTERA (como siempre): lo que tiene ancho fijo son los
+# BLOQUES de enemigo, no el escenario.
+func _montar_columna() -> void:
+	_col = $VBox
+	_col.mouse_filter = Control.MOUSE_FILTER_PASS
+	_bloques_box = HBoxContainer.new()
+	_bloques_box.add_theme_constant_override("separation", 8)
+	# Centrada: con 1 o 2 enemigos la fila queda en medio de la pantalla en vez de pegada a la
+	# izquierda con un hueco raro al lado.
+	_bloques_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	_bloques_box.mouse_filter = Control.MOUSE_FILTER_PASS
+	_col.add_child(_bloques_box)
+	_col.move_child(_bloques_box, 0)

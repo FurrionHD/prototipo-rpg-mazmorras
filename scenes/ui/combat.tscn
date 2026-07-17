@@ -19,18 +19,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="EnemyName" type="Label" parent="VBox" unique_id=1080475183]
-layout_mode = 2
-
-[node name="EnemyHP" type="ProgressBar" parent="VBox" unique_id=1624741158]
-layout_mode = 2
-
-[node name="PlayerName" type="Label" parent="VBox" unique_id=1258537354]
-layout_mode = 2
-
-[node name="PlayerHP" type="ProgressBar" parent="VBox" unique_id=1357759220]
-layout_mode = 2
-
 [node name="Log" type="Label" parent="VBox" unique_id=855215507]
 layout_mode = 2
 

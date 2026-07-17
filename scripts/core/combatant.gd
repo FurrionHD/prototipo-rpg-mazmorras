@@ -171,6 +171,12 @@ var stun_resist: float = 0.0
 # que este combatiente NO puede recibir (slime de fuego: inmune a Quemadura). Los rellena
 # EnemyData; el jugador los deja neutros por ahora.
 var elemento: int = Elementos.Elemento.NINGUNO
+# COLOR con el que se ve este combatiente en el mapa. Lo rellena EnemyData.crear_combatant()
+# con su color_visual(t). Es dato de PRESENTACION, no de combate: existe aqui porque la
+# pantalla de combate solo recibe Combatants, y necesita pintar el marcador de la barra de
+# accion con el mismo color que tiene el bicho en la mazmorra. El JUGADOR no lo usa (su
+# aspecto sale de Game.player_color / Game.material_cuerpo()).
+var color_visual: Color = Color(0.9, 0.35, 0.3)
 # FRANJA de la afinidad: 1.0 = PURO (una criatura hecha del elemento: ×0.5 / ×1.5), menos =
 # mas suave. Un cuerpo imbuido va a INTENSIDAD_IMBUIDO (0.4 -> ×0.8 / ×1.2): no es lo mismo
 # SER de fuego que haberte echado un manto por encima. No afecta a inmunidades (son binarias).
@@ -401,6 +407,13 @@ func has_energy(amount: float) -> bool:
 # Turnos restantes por AbilityData. Se decrementa al inicio de cada turno (tick_cooldowns);
 # es estado POR COMBATE (un Combatant nuevo por combate -> arranca vacio).
 var ability_cooldowns: Dictionary = {}
+
+# --- ATAQUE DE CARGA (habilidad telegrafiada en curso) ---
+# Vive AQUI y no en combat.gd porque con varios enemigos a la vez cada uno carga lo suyo por
+# su cuenta: es estado POR COMBATIENTE, igual que los cooldowns o el foco. Aturdirlo mientras
+# carga se la cancela. null = no esta cargando.
+var charging: AbilityData = null
+var charge_left: int = 0
 
 # Turnos que le quedan a una habilidad para volver a estar disponible (0 = lista).
 func ability_cd_left(ab) -> int:

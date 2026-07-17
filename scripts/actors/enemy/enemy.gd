@@ -55,6 +55,22 @@ var zona_puntos: Array = []
 # --- Persecucion / combate ---
 @export var lose_range: float = 220.0         # si te alejas mas, te pierde
 
+# --- COMBATE EN GRUPO ---
+# Radio alrededor de un bicho dentro del cual sus vecinos entran CON EL a la pelea. Es tambien
+# el radio con el que se pintan las lineas del mapa: lo que ves unido es lo que te va a caer
+# encima, ni mas ni menos. Separarlos (atrayendo a uno) rompe el vinculo y peleas 1v1.
+const RADIO_REFUERZO := 160.0
+# Tope de bichos en una pelea (el tocado + 3). Mas de cuatro barras no caben en pantalla y la
+# pelea deja de poder leerse.
+const MAX_COMBATIENTES := 4
+# Segundos que los supervivientes se quedan quietos al acabar el combate: la ventana para huir.
+const CONGELADO_TRAS_COMBATE := 3.0
+
+# VIDA con la que quedo de un combate anterior (huiste y lo dejaste herido). -1 = intacto.
+# Vive en el NODO y no en el EnemyData (que es un recurso COMPARTIDO por todos los slimes:
+# guardarla ahi heriria a toda la especie de golpe).
+var hp_restante: float = -1.0
+
 # Ataque del enemigo: distancia "optima" desde la que ataca y aviso previo.
 @export var attack_range: float = 44.0
 @export var attack_windup: float = 0.15       # segundos de aviso antes de atacar
@@ -109,7 +125,7 @@ func _ready() -> void:
 
 	if data != null:
 		# Color base + tinte por 't' (los mas fuertes de su franja salen mas claros).
-		_color_rect.color = data.color.lerp(Color.WHITE, current_t * 0.45)
+		_color_rect.color = data.color_visual(current_t)
 		_aplicar_escala(data.escala_visual)   # los elites se ven mas grandes en el mapa
 		current_move_speed = randf_range(data.move_speed_min, data.move_speed_max)
 		var band: Vector2 = data.sum_band()
@@ -453,13 +469,61 @@ func asignar_zona(puntos: Array, hogar: Vector2) -> void:
 	_pick_wander_target()
 
 
+# VECINOS que entran contigo a la pelea: yo + hasta MAX_COMBATIENTES-1 de los que tenga cerca,
+# los MAS CERCANOS A MI (no al jugador): los que estaban en mi corro acuden, los del fondo de la
+# sala ni se enteran. Es la misma regla que dibuja las lineas del mapa (ver enemy_links.gd), asi
+# que lo que entra al combate es exactamente lo que la linea te avisaba de que iba a entrar.
+func vecinos() -> Array:
+	var out: Array = [self]
+	# Las pruebas de DPS/armadura son 1v1 SIEMPRE: el DPS se mide por turno enemigo, y con
+	# cuatro muñecos pegando saldria dividido entre cuatro sin que nada avisara del error.
+	if Game.debug_dummy_mode > 0:
+		return out
+	var cand: Array = []
+	for n in get_tree().get_nodes_in_group("enemy"):
+		# Filtrar a los que YA estan en un combate es imprescindible: si no, un bicho que se
+		# quedo enganchado de una pelea anterior volveria a entrar en esta.
+		if n == self or not is_instance_valid(n) or n._combat_triggered:
+			continue
+		var d: float = global_position.distance_to(n.global_position)
+		if d <= RADIO_REFUERZO:
+			cand.append([d, n])
+	cand.sort_custom(func(a, b): return a[0] < b[0])
+	for i in mini(MAX_COMBATIENTES - 1, cand.size()):
+		out.append(cand[i][1])
+	return out
+
+
 func _start_combat(enemy_initiated: bool) -> void:
 	if _combat_triggered:
 		return
-	_combat_triggered = true
-	velocity = Vector2.ZERO
+	var grupo: Array = vecinos()
+	# Se congela al GRUPO ENTERO, no solo a mi: los vecinos entran a la pelea, asi que no pueden
+	# seguir merodeando (ni disparar su propio combate) por el mapa mientras tanto.
+	for n in grupo:
+		n._combat_triggered = true
+		n.velocity = Vector2.ZERO
+		n._cancelar_aviso()
 	combat_started.emit(data, enemy_initiated)
-	Game.start_combat(self, data, enemy_initiated)
+	Game.start_combat(grupo, enemy_initiated)
+
+
+# Vuelve a la vida normal tras un combate del que NO moriste (huiste, o te mato otro).
+# Se queda quieto CONGELADO_TRAS_COMBATE segundos: es la ventana para escapar de verdad, si no
+# huir no serviria de nada (te alcanzaria al instante y volveria a empezar la pelea).
+# 'hp' son las heridas que le dejaste: se guardan y se le aplican en el proximo combate.
+func reanudar_tras_combate(hp: float = -1.0) -> void:
+	if _dead:
+		return
+	hp_restante = hp
+	await get_tree().create_timer(CONGELADO_TRAS_COMBATE).timeout
+	if not is_instance_valid(self) or _dead:
+		return
+	# Sale en WANDER (no persiguiendote): la ventana de escape no serviria si al acabar te
+	# tuviera ya localizado. Si sigues cerca y te ve u oye, volvera a por ti por su cuenta.
+	_combat_triggered = false
+	_state = State.WANDER
+	_pick_wander_target()
 
 
 # --- Visual: cono de vision + linea de direccion ---
