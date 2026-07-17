@@ -74,6 +74,11 @@ var _bloques_box: HBoxContainer = null
 # FILA, y esa fila es la que numera la barra de accion: el nº2 de abajo es el 2º empezando por
 # la izquierda. 260 x 4 + separacion = 1064, y el viewport base son 1152: entra con holgura.
 const ANCHO_BLOQUE := 260.0
+# Alto RESERVADO para los estados: dos filas de chips. Se reserva SIEMPRE, haya estados o no,
+# para que entrar o salir uno no mueva de sitio la barra de vida ni nada de lo que hay debajo.
+# Dos filas y no una porque en un bloque de 260 px solo caben ~3 chips por fila, y un bicho
+# bien castigado (veneno + quemadura + pegajoso + imbuicion) pasa de eso con facilidad.
+const ALTO_CHIPS := 56.0
 
 # Sistema de ACCIONES (KAN-55): barra con Atacar / Magia / Defender / Huir. Se
 # genera por codigo (convencion: UI por codigo por ahora) y es de datos, asi
@@ -412,22 +417,25 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 	nombre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	fila.add_child(nombre)
 
-	# Los chips van en su PROPIA linea, con la altura SIEMPRE reservada (aunque no haya ninguno):
-	# asi entrar o salir un estado no mueve nada de sitio. Antes iban al lado del nombre porque
-	# la UI era una columna a lo ancho y sobraba sitio horizontal; en un bloque de 270 px ya no
-	# caben al lado, y apretarlos ahi recortaria el nombre.
+	# Los chips van en su PROPIA zona, bajo el nombre, con el alto SIEMPRE reservado (aunque no
+	# haya ninguno): asi entrar o salir un estado no mueve nada de sitio. Antes iban al lado del
+	# nombre porque la UI era una columna a lo ancho y sobraba sitio horizontal; en un bloque de
+	# 260 px ya no caben al lado, y apretarlos ahi recortaria el nombre.
 	#
 	# El envoltorio es un Control PELADO a proposito: un Container propagaria el tamaño minimo de
-	# los chips hacia arriba y 3-4 estados volverian a ensanchar el bloque. Un Control normal no
-	# agrega el minimo de sus hijos, asi que el ancho queda blindado y lo que sobre se recorta.
+	# los chips hacia arriba y 3-4 estados volverian a ensanchar el bloque, rompiendo el ancho
+	# fijo. Un Control normal no agrega el minimo de sus hijos, asi que el ancho queda blindado.
 	var chips_wrap := Control.new()
-	chips_wrap.custom_minimum_size = Vector2(0, 22)
-	chips_wrap.clip_contents = true
+	chips_wrap.custom_minimum_size = Vector2(0, ALTO_CHIPS)
+	chips_wrap.clip_contents = true   # lo que no entre en las dos filas se recorta, no desborda
 	chips_wrap.mouse_filter = Control.MOUSE_FILTER_PASS
 	vb.add_child(chips_wrap)
 
-	var chips := HBoxContainer.new()
-	chips.add_theme_constant_override("separation", 4)
+	# HFlow y no HBox: reparte los chips en varias filas EL SOLO cuando no caben a lo ancho. Con
+	# un HBox se saldrian en linea recta y el clip_contents se los comeria.
+	var chips := HFlowContainer.new()
+	chips.add_theme_constant_override("h_separation", 4)
+	chips.add_theme_constant_override("v_separation", 4)
 	chips.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	chips.mouse_filter = Control.MOUSE_FILTER_PASS
 	chips_wrap.add_child(chips)
@@ -575,7 +583,7 @@ func _update_hp() -> void:
 # Se rehace entero en cada refresco: son 0-5 botones y asi no hay que llevar la cuenta de
 # cuales han expirado.
 # 'idx' = indice del enemigo dueño de los chips (-1 = jugador): los chips tambien seleccionan.
-func _refrescar_chips(c: Combatant, box: HBoxContainer, idx: int) -> void:
+func _refrescar_chips(c: Combatant, box: Container, idx: int) -> void:
 	if box == null:
 		return
 	for hijo in box.get_children():
@@ -597,7 +605,7 @@ func _refrescar_chips(c: Combatant, box: HBoxContainer, idx: int) -> void:
 # IGNORE como los demas hijos del bloque). En vez de pelearse con eso, se le hace bueno: el
 # chip tambien selecciona. Asi el bloque no tiene zonas muertas -> pinches donde pinches
 # dentro del borde, apuntas a ese bicho.
-func _chip(box: HBoxContainer, texto: String, tooltip: String, idx: int = -1) -> void:
+func _chip(box: Container, texto: String, tooltip: String, idx: int = -1) -> void:
 	var b := TooltipButton.new()
 	b.text = texto
 	b.tooltip_text = tooltip
