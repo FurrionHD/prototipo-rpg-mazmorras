@@ -376,13 +376,27 @@ func _crear_acciones() -> void:
 	_ocultar_cajas()
 
 
-# Oculta las tres cajas del turno del jugador (acciones / submenu magia / recitado).
+# Oculta las cajas del turno del jugador (acciones / submenu magia / recitado / habilidades /
+# objetos). Y por defecto DEVUELVE el historial: ocultar las cajas = volver al estado "mirando el
+# log". Los submenus que quieran ocupar el sitio del log (magia, frases, habilidades, objetos) se
+# encargan de ocultarlo DESPUES con _ocultar_log(), asi el log solo desaparece mientras eliges y
+# vuelve solo al acabar el turno (todos los cierres pasan por aqui: _fin_de_eleccion, etc.).
 func _ocultar_cajas() -> void:
 	if _actions_box != null: _actions_box.visible = false
 	if _spell_box != null: _spell_box.visible = false
 	if _cast_box != null: _cast_box.visible = false
 	if _ability_box != null: _ability_box.visible = false
 	if _objeto_box != null: _objeto_box.visible = false
+	if _log != null: _log.visible = true
+
+
+# El submenu abierto OCUPA el sitio del historial: se oculta el log (6 lineas de alto fijo) y el
+# VBox sube el submenu al hueco. Lo llaman magia/frases/habilidades/objetos justo tras mostrarse.
+# La barra de ACCIONES no lo llama: con ella el historial sigue visible (arriba) y los botones
+# debajo, que es lo que el jugador quiere ver al empezar el turno.
+func _ocultar_log() -> void:
+	if _log != null:
+		_log.visible = false
 
 
 func _setup_ui() -> void:
@@ -966,7 +980,7 @@ func _accion_magia() -> void:
 	volver.pressed.connect(_mostrar_acciones)
 	_spell_box.add_child(volver)
 	_spell_box.visible = true
-	_set_log("Elige un hechizo para recitar.")
+	_ocultar_log()   # el submenu ocupa el sitio del historial
 
 
 # Coste de maná EFECTIVO tras la mejora Eficiencia del equipo (KAN-95). FLOAT (sin
@@ -1004,6 +1018,7 @@ func _mostrar_test(idx: int) -> void:
 	_cast_box.visible = true
 	_set_log("🔮 %s — recita la frase %d/%d:" % [
 		_cast_spell.nombre, idx + 1, _cast_spell.longitud()])
+	_ocultar_log()   # las frases ocupan el sitio del historial
 
 
 # Frases de los OTROS hechizos equipados (para nutrir los distractores del test).
@@ -1047,6 +1062,7 @@ func _mostrar_disparo() -> void:
 	_cast_box.add_child(b)
 	_cast_box.visible = true
 	_set_log("El conjuro está listo. ¡Lánzalo!")
+	_ocultar_log()   # el boton de disparo ocupa el sitio del historial
 
 
 func _disparar_hechizo() -> void:
@@ -1434,7 +1450,7 @@ func _accion_habilidad() -> void:
 	volver.pressed.connect(_mostrar_acciones)
 	_ability_box.add_child(volver)
 	_ability_box.visible = true
-	_set_log("Elige una habilidad. (EN = energía)")
+	_ocultar_log()   # el submenu ocupa el sitio del historial
 
 
 func _usar_habilidad(ab: AbilityData) -> void:
@@ -1604,7 +1620,7 @@ func _accion_objeto() -> void:
 	volver.pressed.connect(_mostrar_acciones)
 	_objeto_box.add_child(volver)
 	_objeto_box.visible = true
-	_set_log("Elige un objeto. Beber una poción GASTA tu turno (luego aguanta mientras cura).")
+	_ocultar_log()   # el submenu ocupa el sitio del historial
 
 
 # Bebe una poción: aplica Regeneración de vida y/o maná (por turno) y GASTA el turno. No
