@@ -49,6 +49,21 @@ func _ready() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 
+	# Numero de version, discreto en la esquina inferior derecha (sale de Game.VERSION, no
+	# escrito a mano, para que no se desincronice con el resto del juego).
+	var ver := Label.new()
+	ver.text = "v%s" % Game.VERSION
+	ver.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	ver.offset_left = -110.0
+	ver.offset_top = -28.0
+	ver.offset_right = -10.0
+	ver.offset_bottom = -8.0
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	ver.add_theme_font_size_override("font_size", 13)
+	ver.add_theme_color_override("font_color", Color(0.5, 0.5, 0.55))
+	ver.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(ver)
+
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 12)
 	center.add_child(vb)
