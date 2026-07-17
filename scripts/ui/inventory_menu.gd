@@ -431,9 +431,18 @@ func _preview_arma(vb: VBoxContainer) -> void:
 	elif item is WandData:
 		var wd := item as WandData
 		_title(vb, Game.item_display_name(wd) + ("   [equipada]" if equipada else ""))
-		_row(vb, "Amplif. magia", "×%.2f" % wd.magic_amp)
-		_row(vb, "Regen maná", "+%.2f/turno" % wd.mp_regen_turno)
-		_row(vb, "Vel. casteo", "×%.2f" % wd.cast_vel_mult)
+		# Por su math (Upgrades.magic_mods) con el tier/rareza/mejoras REALES de esta varita, como
+		# el baston y el resto de equipo: antes se pintaba el .tres crudo (una varita T3 pristina
+		# amplificaba y regeneraba lo mismo que una comun).
+		var meta_w: Dictionary = Game.meta_de(wd)
+		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(int(meta_w["tier"])),
+			int(meta_w["rareza"]), meta_w["mejoras"])
+		_row(vb, "Amplif. magia", "×%.2f" % float(mg["magic_amp"]))
+		_row(vb, "Regen maná", "%.2f/turno" % (wd.mp_regen_turno * float(mg["regen_mult"])))
+		_row(vb, "Vel. casteo", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
+		if float(mg["mana_reduccion"]) > 0.0:
+			_row(vb, "Coste de maná", "-%.0f%%" % (float(mg["mana_reduccion"]) * 100.0))
+		_row(vb, "Tier / rareza", "T%d · %s" % [int(meta_w["tier"]), Upgrades.rareza_nombre(int(meta_w["rareza"]))])
 
 
 # ============================================================

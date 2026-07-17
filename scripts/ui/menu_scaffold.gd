@@ -264,7 +264,15 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 	if float(m["bloqueo"]) > 0.0:
 		filas.append(["Bloqueo", "+%.2f" % float(m["bloqueo"])])
 	if w.es_magica:
-		filas.append(["Amplif. magia", "×%.2f" % w.magic_amp])
+		# Lo MAGICO tambien pasa por su math (Upgrades.magic_mods): antes se pintaba el magic_amp
+		# CRUDO del .tres (1.70) y se callaban regen/coste/casteo, asi que el inventario enseñaba
+		# un baston T3 legendario como uno de madera. Ahora sale lo REAL, igual que el menu C.
+		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, Game.tier_mult(tier), rareza, mejoras)
+		filas.append(["Amplif. magia", "×%.2f" % float(mg["magic_amp"])])
+		filas.append(["Regen maná", "%.2f/turno" % (w.mp_regen_turno * float(mg["regen_mult"]))])
+		filas.append(["Vel. casteo", "×%.2f" % (w.cast_vel_mult + float(mg["cast_vel_add"]))])
+		if float(mg["mana_reduccion"]) > 0.0:
+			filas.append(["Coste de maná", "-%.0f%%" % (float(mg["mana_reduccion"]) * 100.0)])
 	return filas
 
 
