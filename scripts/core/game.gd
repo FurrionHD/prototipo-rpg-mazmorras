@@ -10,8 +10,11 @@ extends Node
 
 # VERSION del juego (SemVer, 0.x = pre-release). Se muestra en el menu principal y se guarda en
 # project.godot (application/config/version). Subir aqui al meter una tanda de cambios:
-# 0.7.0 -> multi-target melee (area/barrido/redireccion); 0.7.1 -> companeros de equipo (party).
-const VERSION := "0.7.0"
+# 0.7.0 -> multi-target melee (area/barrido/redireccion);
+# 0.7.1 -> carpintero (tablones + armas magicas), familias de enemigo + pasivas RNG, pisos sin tope,
+#          nucleos en bandas de 3 hasta +15 con coste por pieza, refinado con stepper editable.
+# (companeros de equipo/party: para una version futura).
+const VERSION := "0.7.1"
 
 # --- Stats del jugador (de momento fijas aqui; luego vendran de su .tres) ---
 var player_level: int = 1
