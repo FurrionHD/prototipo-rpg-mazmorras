@@ -120,24 +120,30 @@ const RESPAWN_SEGUNDOS := 300.0
 # ------------------------------------------------------------
 const FLOOR_GROWTH := 1.10
 
-# El MAPA crece con la profundidad: su AREA sube ~AREA_GROWTH por piso (un 7%, medio de 5-10%).
-# Como el area = ancho*alto, cada lado se escala por sqrt del factor de area. El nº de salas sube
-# con el area entera (si no, un mapa mas grande con las mismas salas queda vacio de pasillos).
-# CRECIMIENTO_TOPE capa el exponente: sin tope, abajo del todo el piso seria ingobernable y la
-# generacion se dispararia. PROVISIONAL -> Excel.
-const AREA_GROWTH := 1.07
-const CRECIMIENTO_TOPE := 14
+# El MAPA crece con la profundidad, pero SIN TOPE y con el aumento DECRECIENTE: cada piso hondo
+# crece un poco más, cada vez menos, sin pararse nunca. El % de crecimiento de un piso arranca en
+# AREA_STEP_MAX (~7%) y decae hacia AREA_STEP_MIN (un suelo que NUNCA se cruza), así que el mapa
+# siempre gana algo aunque bajes mil pisos. El AREA acumulada es el producto de esos pasos; cada
+# lado se escala por su raiz, y el nº de salas por el area entera (si no, un mapa mayor con las
+# mismas salas queda vacio de pasillos). PROVISIONAL -> Excel.
+const AREA_STEP_MAX := 0.07    # crecimiento del primer piso que se baja (~7%)
+const AREA_STEP_MIN := 0.015   # suelo: nunca se crece MENOS que esto por piso (nunca se para)
+const AREA_STEP_DECAY := 0.88  # cuanto se acerca el paso al suelo cada piso (0..1: mas alto = decae mas lento)
 
 func escalar_con_el_piso(base: int) -> int:
 	return maxi(1, roundi(float(base) * pow(FLOOR_GROWTH, float(Game.current_floor - 1))))
 
-# Pisos que cuentan para el crecimiento (0 en el piso 1, capado en CRECIMIENTO_TOPE).
-func _pasos_crecimiento() -> int:
-	return clampi(_piso_construido - 1, 0, CRECIMIENTO_TOPE)
+# El % de crecimiento del piso `n` (n = pisos bajados desde el 1, empezando en 1): arranca en
+# AREA_STEP_MAX y decae exponencialmente hacia AREA_STEP_MIN, sin bajar de él.
+func _paso_area(n: int) -> float:
+	return AREA_STEP_MIN + (AREA_STEP_MAX - AREA_STEP_MIN) * pow(AREA_STEP_DECAY, float(n - 1))
 
-# Factor de AREA de este piso, y el LINEAL (raiz) para escalar cada lado.
+# Factor de AREA acumulado de este piso (producto de los pasos de cada piso bajado), y el LINEAL.
 func _factor_area_piso() -> float:
-	return pow(AREA_GROWTH, float(_pasos_crecimiento()))
+	var factor: float = 1.0
+	for i in range(1, maxi(1, _piso_construido)):   # un paso por cada piso bajado desde el 1
+		factor *= 1.0 + _paso_area(i)
+	return factor
 
 func _factor_lineal_piso() -> float:
 	return sqrt(_factor_area_piso())
