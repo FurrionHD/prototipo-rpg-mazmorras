@@ -630,11 +630,15 @@ func _on_add_materiales() -> void:
 		var d: MaterialData = load(ruta) as MaterialData
 		if d == null:
 			continue
+		# DESCUBRIR el material (marcarlo como visto): es lo que desbloquea su tier en los menús de
+		# oficio (metales_forja_conocidos / maderas_conocidas) y la categoría de medianas de la
+		# boticaria. Meterlo solo en el baúl NO bastaba: por eso el T2/T3 no aparecía al sembrarlo.
+		Game.descubrir(d)
 		for cal in cals:
 			for _i in range(n):
 				Game.almacen_materiales.append(MaterialItem.crear(d, cal))
 				total += 1
-	print("[dev] Baúl: +", total, " materiales. Total en casa: ", Game.almacen_materiales.size())
+	print("[dev] Baúl: +", total, " materiales (y descubiertos). Total en casa: ", Game.almacen_materiales.size())
 
 
 # --- Escaneo + categorizacion de TODOS los materiales (para el desplegable) ---
