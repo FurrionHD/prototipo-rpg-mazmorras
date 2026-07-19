@@ -595,8 +595,17 @@ func _poblar_materiales(cat_idx: int) -> void:
 	for i in rutas.size():
 		var d: MaterialData = load(rutas[i]) as MaterialData
 		if d != null:
-			_mat_material_opt.add_item("%s  ·  T%d" % [d.nombre, d.tier], i + 1)
+			_mat_material_opt.add_item(_etiqueta_material(d), i + 1)
 	_mat_material_opt.select(0)
+
+
+# Etiqueta de un material en el desplegable. Para los NUCLEOS no vale enseñar su `tier` (el grado del
+# material, 1..5: sube valor/peso), que confunde: lo util es a qué equipo sirven (tier_equipo) y hasta
+# qué + suben. Para el resto (minerales, maderas...) el tier SÍ es el del equipo, y va bien.
+func _etiqueta_material(d: MaterialData) -> String:
+	if d.mejora_equipo():
+		return "%s  ·  equipo T%d  ·  +%d..+%d" % [d.nombre, d.tier_equipo, d.mejora_min, d.mejora_tope()]
+	return "%s  ·  T%d" % [d.nombre, d.tier]
 
 
 func _on_mat_cat_changed(idx: int) -> void:
