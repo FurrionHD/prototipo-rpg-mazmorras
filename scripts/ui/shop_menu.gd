@@ -55,13 +55,11 @@ const CAT_SECUNDARIAS: Array[String] = [
 const CAT_MOCHILAS: Array[String] = [
 	"res://resources/backpacks/mochila_basica.tres",
 ]
+# Solo las pociones BASE. Las +1/+2 no se venden: si las quieres, te las mejora la boticaria (te
+# compras la normal y te apañas).
 const CAT_POCIONES: Array[String] = [
 	"res://resources/consumables/pocion_menor.tres",
-	"res://resources/consumables/pocion_menor_1.tres",
-	"res://resources/consumables/pocion_menor_2.tres",
 	"res://resources/consumables/pocion_mana_menor.tres",
-	"res://resources/consumables/pocion_mana_menor_1.tres",
-	"res://resources/consumables/pocion_mana_menor_2.tres",
 	"res://resources/consumables/piedra_retorno.tres",
 ]
 const CAT_GRIMORIOS: Array[String] = [
@@ -75,11 +73,7 @@ const CAT_GRIMORIOS: Array[String] = [
 # el .tres, lo pone la compra). Los consumibles y los grimorios SI son recursos distintos.
 const CAT_POCIONES_T2: Array[String] = [
 	"res://resources/consumables/pocion_media.tres",
-	"res://resources/consumables/pocion_media_1.tres",
-	"res://resources/consumables/pocion_media_2.tres",
 	"res://resources/consumables/pocion_mana_media.tres",
-	"res://resources/consumables/pocion_mana_media_1.tres",
-	"res://resources/consumables/pocion_mana_media_2.tres",
 	"res://resources/consumables/piedra_retorno_t2.tres",
 ]
 # Los de 2 frases: ataque medio de los tres elementos, potenciacion, debuff e imbuiciones. Los de 1

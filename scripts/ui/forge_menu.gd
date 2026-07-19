@@ -45,12 +45,6 @@ const TABS_CON_GRID := ["forjar", "mejorar", "deshacer"]
 # Los tres refinados de metal comparten pantalla (_build_refinar): solo cambian de que salen,
 # en que se convierten y cuantos hacen falta.
 enum Refinado { LINGOTE, CHAPA, HEBILLAS }
-# Las maderas por tier (la cuadricula del selector de ASERRAR), en el mismo orden que Game._MADERAS.
-const MADERAS_RUTAS: Array[String] = [
-	"res://resources/materials/madera_comun.tres",
-	"res://resources/materials/madera_dura.tres",
-	"res://resources/materials/madera_negra.tres",
-]
 const SUBS_FORJA := ["Armas", "Secundarias", "Armaduras"]
 # Dentro de Armaduras, un submenu por juego (si no, son 20 piezas de golpe en la cuadricula).
 const ARMOR_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
@@ -487,18 +481,15 @@ func _estado_oficio(vb: VBoxContainer, nombre: String, activa: bool, que_hace: S
 # ============================================================
 
 func _build_aserrar() -> void:
-	var maderas: Array = []
-	for ruta in MADERAS_RUTAS:
-		var mm: MaterialData = load(ruta) as MaterialData
-		if mm != null:
-			maderas.append(mm)
+	# Solo las maderas que CONOCES (T1 siempre; T2/T3 al descubrirlas), como el metal del herrero.
+	var maderas: Array = Game.maderas_conocidas()
 
 	_title(_header, "ASERRAR TABLONES")
 	_note(_header, "%d maderas de la MISMA calidad = 1 tablón de esa calidad. El tablón es el mango del arma; la madera cruda ya no va directa a la forja. No se mezclan calidades: solo la Carpintería puede regalarte un escalón." % Forge.MADERA_POR_TABLON)
 	_header.add_child(HSeparator.new())
 
 	if maderas.is_empty():
-		_note(_content, "(no hay maderas definidas)")
+		_note(_content, "No conoces ninguna madera todavía. Tala árboles y enredaderas en la mazmorra y vuelve.")
 		return
 	_madera_idx = clampi(_madera_idx, 0, maderas.size() - 1)
 	var origen: MaterialData = maderas[_madera_idx]
@@ -580,11 +571,7 @@ func _on_madera(i: int) -> void:
 
 
 func _on_aserrar(cal: int, veces: int) -> void:
-	var maderas: Array = []
-	for ruta in MADERAS_RUTAS:
-		var mm: MaterialData = load(ruta) as MaterialData
-		if mm != null:
-			maderas.append(mm)
+	var maderas: Array = Game.maderas_conocidas()
 	if maderas.is_empty():
 		return
 	_madera_idx = clampi(_madera_idx, 0, maderas.size() - 1)

@@ -2905,6 +2905,18 @@ func madera_de_tier(tier: int) -> MaterialData:
 	return null
 
 
+# Las maderas que el carpintero te ENSEÑA. Como el metal (ver metales_forja_conocidos): la T1
+# (madera comun) SIEMPRE se enseña; la T2/T3 solo cuando has traido alguna (material_visto). Asi el
+# menu del carpintero no canta las maderas que aun no has descubierto.
+func maderas_conocidas() -> Array:
+	var out: Array = []
+	for m in maderas_forja():
+		var md: MaterialData = m as MaterialData
+		if int(md.tier) == 1 or material_visto(md):
+			out.append(md)
+	return out
+
+
 func tablones_forja() -> Array:
 	var out: Array = []
 	for ruta in _TABLONES:
