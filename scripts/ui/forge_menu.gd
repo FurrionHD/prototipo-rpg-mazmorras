@@ -26,11 +26,31 @@
 
 extends CanvasLayer
 
-const TABS := ["Fundir", "Chapas", "Hebillas", "Forjar", "Mejorar", "Deshacer", "Reparar"]
-const TAB_REPARAR := 6
+# Este mismo menu vale para el HERRERO y para el CARPINTERO: cambia el juego de pestañas (`_tabs`)
+# y algun texto, pero la maquinaria (forjar, refinar, la cuadricula) es la misma. El modo se fija
+# ANTES de add_child (ver player.gd), asi _ready ya sabe cual es.
+@export var modo: String = "herrero"   # "herrero" | "carpintero"
+
+# Las pestañas van por ID (no por indice fijo): asi cada oficio enseña las suyas sin romper el
+# dispatch. La etiqueta visible sale de TAB_LABEL.
+const TAB_LABEL := {
+	"fundir": "Fundir", "chapas": "Chapas", "hebillas": "Hebillas", "tablones": "Tablones",
+	"forjar": "Forjar", "mejorar": "Mejorar", "deshacer": "Deshacer", "reparar": "Reparar",
+}
+const TABS_HERRERO := ["fundir", "chapas", "hebillas", "forjar", "mejorar", "deshacer", "reparar"]
+# El carpintero solo asierra tablones y forja armas magicas (bastones/varitas).
+const TABS_CARPINTERO := ["tablones", "forjar"]
+# Las pestañas con CUADRICULA de piezas (las demas ocupan el ancho entero).
+const TABS_CON_GRID := ["forjar", "mejorar", "deshacer"]
 # Los tres refinados de metal comparten pantalla (_build_refinar): solo cambian de que salen,
 # en que se convierten y cuantos hacen falta.
 enum Refinado { LINGOTE, CHAPA, HEBILLAS }
+# Las maderas por tier (la cuadricula del selector de ASERRAR), en el mismo orden que Game._MADERAS.
+const MADERAS_RUTAS: Array[String] = [
+	"res://resources/materials/madera_comun.tres",
+	"res://resources/materials/madera_dura.tres",
+	"res://resources/materials/madera_negra.tres",
+]
 const SUBS_FORJA := ["Armas", "Secundarias", "Armaduras"]
 # Dentro de Armaduras, un submenu por juego (si no, son 20 piezas de golpe en la cuadricula).
 const ARMOR_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
@@ -81,6 +101,8 @@ var _aviso_ok: bool = true
 
 # --- FUNDIR / CHAPAS ---
 var _metal_idx: int = 0            # cual de Game.metales_forja()
+# --- TABLONES (carpintero) ---
+var _madera_idx: int = 0           # cual de las maderas (T1/T2/T3)
 
 # --- FORJAR ---
 var _armor_idx: int = 0            # juego de armadura (submenu de la subpestaña Armaduras)
@@ -95,14 +117,23 @@ var _nucleo_idx: int = 0
 var _cat_idx: int = 0
 
 
+func _es_carpintero() -> bool:
+	return modo == "carpintero"
+
+# Las pestañas de ESTE oficio, por id.
+func _tabs() -> Array:
+	return TABS_CARPINTERO if _es_carpintero() else TABS_HERRERO
+
+
 func _ready() -> void:
 	layer = 91
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
-	add_to_group("forge_menu")
+	add_to_group("forge_menu" if not _es_carpintero() else "carpinteria_menu")
 
-	var m: Dictionary = MenuScaffold.construir(self, "HERRERO",
-		"Primero se funde el metal, después se golpea. Todo sale de lo que tengas guardado en el Hogar.",
-		_cerrar)
+	var titulo: String = "CARPINTERO" if _es_carpintero() else "HERRERO"
+	var subtitulo: String = "Se asierra la madera en tablones y se forjan los bastones. Todo sale de lo que tengas guardado en el Hogar." if _es_carpintero() \
+		else "Primero se funde el metal, después se golpea. Todo sale de lo que tengas guardado en el Hogar."
+	var m: Dictionary = MenuScaffold.construir(self, titulo, subtitulo, _cerrar)
 	_root = m["root"]
 	_header = m["header"]
 	_lista = m["lista"]
@@ -110,9 +141,10 @@ func _ready() -> void:
 	_content = m["content"]
 	_aviso_lbl = m["aviso"]
 
-	for i in TABS.size():
+	var ids: Array = _tabs()
+	for i in ids.size():
 		var b := Button.new()
-		b.text = TABS[i]
+		b.text = str(TAB_LABEL[ids[i]])
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(0, 34)
 		b.pressed.connect(_on_tab.bind(i))
@@ -179,18 +211,22 @@ func _rebuild() -> void:
 			c.queue_free()
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
-	# Los refinados (Fundir / Chapas / Hebillas) y REPARAR no tienen cuadricula: ancho entero.
-	_scroll_lista.visible = _tab >= 3 and _tab != TAB_REPARAR
+	var ids: Array = _tabs()
+	_tab = clampi(_tab, 0, ids.size() - 1)
+	var id: String = str(ids[_tab])
+	# Solo forjar/mejorar/deshacer tienen cuadricula de piezas; el resto ocupa el ancho entero.
+	_scroll_lista.visible = id in TABS_CON_GRID
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 
-	match _tab:
-		0: _build_refinar(Refinado.LINGOTE)    # mineral -> lingote
-		1: _build_refinar(Refinado.CHAPA)      # lingote -> chapa (armaduras)
-		2: _build_refinar(Refinado.HEBILLAS)   # lingote -> hebillas (mochilas)
-		3: _build_forjar()
-		4: _build_mejorar()
-		5: _build_deshacer()                   # equipo -> material (recuperas la mitad)
-		6: _build_reparar()                    # mantenimiento: pagar por reparar el desgaste
+	match id:
+		"fundir": _build_refinar(Refinado.LINGOTE)    # mineral -> lingote
+		"chapas": _build_refinar(Refinado.CHAPA)      # lingote -> chapa (armaduras)
+		"hebillas": _build_refinar(Refinado.HEBILLAS) # lingote -> hebillas (mochilas)
+		"tablones": _build_aserrar()                  # madera -> tablon (carpintero)
+		"forjar": _build_forjar()
+		"mejorar": _build_mejorar()
+		"deshacer": _build_deshacer()                 # equipo -> material (recuperas la mitad)
+		"reparar": _build_reparar()                   # mantenimiento: pagar por reparar el desgaste
 
 
 func _decir(txt: String, ok: bool = true) -> void:
@@ -446,21 +482,150 @@ func _estado_oficio(vb: VBoxContainer, nombre: String, activa: bool, que_hace: S
 
 
 # ============================================================
+#  Pestaña TABLONES (carpintero): madera cruda -> tablon. Misma operacion que fundir/curtir
+#  (refinar), pero con maderas y con el oficio de Carpinteria.
+# ============================================================
+
+func _build_aserrar() -> void:
+	var maderas: Array = []
+	for ruta in MADERAS_RUTAS:
+		var mm: MaterialData = load(ruta) as MaterialData
+		if mm != null:
+			maderas.append(mm)
+
+	_title(_header, "ASERRAR TABLONES")
+	_note(_header, "%d maderas de la MISMA calidad = 1 tablón de esa calidad. El tablón es el mango del arma; la madera cruda ya no va directa a la forja. No se mezclan calidades: solo la Carpintería puede regalarte un escalón." % Forge.MADERA_POR_TABLON)
+	_header.add_child(HSeparator.new())
+
+	if maderas.is_empty():
+		_note(_content, "(no hay maderas definidas)")
+		return
+	_madera_idx = clampi(_madera_idx, 0, maderas.size() - 1)
+	var origen: MaterialData = maderas[_madera_idx]
+	var destino: MaterialData = Game.tablon_de(origen)
+	var por_uno: int = Forge.MADERA_POR_TABLON
+
+	# Selector de tier de madera.
+	var fila := GridContainer.new()
+	fila.columns = 2
+	fila.add_theme_constant_override("h_separation", 6)
+	fila.add_theme_constant_override("v_separation", 6)
+	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for i in maderas.size():
+		var mm: MaterialData = maderas[i]
+		var b := Button.new()
+		b.text = "%s  (T%d)" % [mm.nombre, mm.tier]
+		b.toggle_mode = true
+		b.clip_text = true
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.button_pressed = (i == _madera_idx)
+		b.custom_minimum_size = Vector2(0, 32)
+		b.pressed.connect(_on_madera.bind(i))
+		fila.add_child(b)
+	_content.add_child(fila)
+	_content.add_child(HSeparator.new())
+
+	if destino == null:
+		_note(_content, "Esta madera no tiene tablón definido.")
+		return
+	_row(_content, "Sale", "%s  ·  Tier %d" % [destino.nombre, destino.tier])
+
+	var hubo: bool = false
+	for cal in CALIDADES:
+		var tengo: int = Game.items_calidad_en_hogar(origen, int(cal))
+		if tengo <= 0:
+			continue
+		hubo = true
+		var salen: int = Game.refinados_posibles(origen, int(cal), por_uno)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		var l := Label.new()
+		l.text = "%s:  %d  →  %d" % [_cal_txt(int(cal)), tengo, salen]
+		l.custom_minimum_size = Vector2(240, 0)
+		l.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92) if salen > 0 else GRIS)
+		row.add_child(l)
+		var b1 := Button.new()
+		b1.text = "Hacer 1"
+		b1.disabled = salen < 1
+		b1.pressed.connect(_on_aserrar.bind(int(cal), 1))
+		row.add_child(b1)
+		var bt := Button.new()
+		bt.text = "Hacer todo (%d)" % salen
+		bt.disabled = salen < 1
+		bt.pressed.connect(_on_aserrar.bind(int(cal), salen))
+		row.add_child(bt)
+		_content.add_child(row)
+	if not hubo:
+		_note(_content, "No tienes %s en el Hogar. Tala árboles y enredaderas en la mazmorra y guárdalo al volver." % origen.nombre.to_lower())
+
+	_content.add_child(HSeparator.new())
+	_title(_content, "En el almacén")
+	var alguno: bool = false
+	for cal in CALIDADES:
+		var n: int = Game.items_calidad_en_hogar(destino, int(cal))
+		if n > 0:
+			alguno = true
+			_row(_content, "%s (%s)" % [destino.nombre, _cal_txt(int(cal))],
+				"%d  ·  %d unidades de forja" % [n, n * _uds(int(cal))])
+	if not alguno:
+		_note(_content, "Ningún %s todavía." % destino.nombre.to_lower())
+
+	_estado_oficio(_content, "Carpintería", Game.tiene_desarrollo("carpinteria"),
+		"Al aserrar, tira por sacar el tablón un escalón por encima de la madera que metas.")
+
+
+func _on_madera(i: int) -> void:
+	_madera_idx = i
+	_rebuild()
+
+
+func _on_aserrar(cal: int, veces: int) -> void:
+	var maderas: Array = []
+	for ruta in MADERAS_RUTAS:
+		var mm: MaterialData = load(ruta) as MaterialData
+		if mm != null:
+			maderas.append(mm)
+	if maderas.is_empty():
+		return
+	_madera_idx = clampi(_madera_idx, 0, maderas.size() - 1)
+	var origen: MaterialData = maderas[_madera_idx]
+	var n: int = Game.aserrar(origen, cal, veces)
+	if n > 0:
+		_decir("Sacas %d x %s de calidad %s." % [n, Game.tablon_de(origen).nombre.to_lower(), _cal_txt(cal).to_lower()])
+	else:
+		_decir("No te llega el material.", false)
+	_rebuild()
+
+
+# ============================================================
 #  Pestaña FORJAR
 # ============================================================
 
-func _build_forjar() -> void:
-	_title(_header, "FORJAR")
-	_subpestanas(SUBS_FORJA)
+# ¿Esta pieza es un arma MAGICA (baston/varita)? Las forja el CARPINTERO; el herrero, el resto.
+func _es_magica(base: Resource) -> bool:
+	return base is WandData or (base is WeaponData and (base as WeaponData).es_magica)
 
+
+func _build_forjar() -> void:
 	var rutas: Array = []
-	match _sub:
-		0: rutas = CAT_ARMAS
-		1: rutas = CAT_SECUNDARIAS
-		2:
-			# Submenu por JUEGO de armadura: las 20 piezas de golpe no se leen.
-			_juegos_armadura()
-			rutas = _rutas_armaduras(ARMOR_TIPOS[_armor_idx])
+	if _es_carpintero():
+		# El carpintero solo forja armas magicas: sin subpestañas, una lista pelada.
+		_title(_header, "FORJAR BASTONES Y VARITAS")
+		_header.add_child(HSeparator.new())
+		for ruta in CAT_ARMAS + CAT_SECUNDARIAS:
+			var b: Resource = load(ruta)
+			if b != null and _es_magica(b):
+				rutas.append(ruta)
+	else:
+		_title(_header, "FORJAR")
+		_subpestanas(SUBS_FORJA)
+		match _sub:
+			0: rutas = _sin_magicas(CAT_ARMAS)          # las magicas se forjan en el carpintero
+			1: rutas = _sin_magicas(CAT_SECUNDARIAS)
+			2:
+				# Submenu por JUEGO de armadura: las 20 piezas de golpe no se leen.
+				_juegos_armadura()
+				rutas = _rutas_armaduras(ARMOR_TIPOS[_armor_idx])
 
 	_stacks = []
 	for ruta in rutas:
@@ -471,6 +636,16 @@ func _build_forjar() -> void:
 	for s in _stacks:
 		labels.append(str((s["modelo"] as Resource).get("nombre")))
 	_grid_detail(labels, _preview_forjar)
+
+
+# Quita de una lista de rutas las que sean armas magicas (van al carpintero, no al herrero).
+func _sin_magicas(rutas: Array) -> Array:
+	var out: Array = []
+	for ruta in rutas:
+		var b: Resource = load(ruta)
+		if b != null and not _es_magica(b):
+			out.append(ruta)
+	return out
 
 
 # Fila de botones con los cuatro juegos de armadura (tambien en la cabecera fija).
@@ -583,7 +758,9 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	var material: float = Game.score_material_forja(base, metal, _sel_forja)
 	# Lo que aporta el metal DE VERDAD: la diferencia entre tirar con el y sin el. Si ya vas por
 	# encima del techo (llevas material puro), el metal no suma y aqui se ve un +0%.
-	var herr: float = Forge.bonus_herreria(Game.herreria_activa())
+	# El empujon de oficio es Carpinteria en las armas magicas, Herreria en el resto.
+	var oficio_factor: float = Game.carpinteria_activa() if _es_magica(base) else Game.herreria_activa()
+	var herr: float = Forge.bonus_herreria(oficio_factor)
 	var met_ef: float = score - Forge.score_final(material, herr, 0.0)
 	_note(vb, "Calidad del material %d%%  +  metal %+d%%" % [
 		roundi(material * 100.0), roundi(met_ef * 100.0)])
@@ -611,8 +788,12 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	var ok: bool = Game.forja_valida(base, metal, _sel_forja)
 	_boton(vb, "Forjar" if ok else "Faltan materiales", _on_forjar, ok)
 
-	_estado_oficio(vb, "Herrería", Game.tiene_desarrollo("herreria"),
-		"Empuja la tirada de rareza a tu favor, como si el metal fuera mejor de lo que es.")
+	if _es_magica(base):
+		_estado_oficio(vb, "Carpintería", Game.tiene_desarrollo("carpinteria"),
+			"Empuja la tirada de rareza del arma mágica a tu favor, como si la madera fuera mejor de lo que es.")
+	else:
+		_estado_oficio(vb, "Herrería", Game.tiene_desarrollo("herreria"),
+			"Empuja la tirada de rareza a tu favor, como si el metal fuera mejor de lo que es.")
 
 
 # Fila "material: −  n  +" por cada calidad que tengas en el baul.

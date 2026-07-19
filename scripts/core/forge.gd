@@ -28,6 +28,7 @@ class_name Forge
 # unico que puede subirte un escalon es la habilidad del oficio.
 const MINERAL_POR_LINGOTE := 2
 const LINGOTE_POR_CHAPA := 1     # un lingote batido da una chapa (mismo metal, misma calidad)
+const MADERA_POR_TABLON := 3     # tres maderas aserradas dan un tablon (mismo tier, misma calidad)
 const CUERO_POR_CURTIDO := 2
 # Piezas de la MOCHILA. Las hebillas salen caras en metal (3 lingotes por juego): son un puñado
 # de herrajes pequeños, pero hay que hacerlos de uno en uno.

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"tablon_negro"
+nombre = "Tablón negro"
+descripcion = "La sierra chirría y humea antes de morderlo. Ya escuadrado sigue pesando como el metal, pero no hay mango que sostenga mejor lo que se forja abajo del todo."
+familia = 0
+tipo = 7
+tier = 3
+exigencia = 0.0
+peso_base = 2.0
+valor_base = 275
+color = Color(0.19, 0.16, 0.17, 1)
+piso_min = 13
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

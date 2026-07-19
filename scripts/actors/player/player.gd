@@ -76,6 +76,9 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/craft_menu.gd").new())      # boticaria (F sobre el NPC)
 	add_child(preload("res://scripts/ui/shop_menu.gd").new())       # tienda (F sobre el tendero)
 	add_child(preload("res://scripts/ui/forge_menu.gd").new())      # herrero (F sobre el NPC)
+	var _carpinteria_menu := preload("res://scripts/ui/forge_menu.gd").new()  # carpintero: mismo menu, modo distinto
+	_carpinteria_menu.modo = "carpintero"                          # fijar ANTES de add_child: _ready ya lo lee
+	add_child(_carpinteria_menu)                                   # carpintero (F sobre el NPC)
 	add_child(preload("res://scripts/ui/tannery_menu.gd").new())    # peletero (F sobre el NPC)
 	add_child(preload("res://scripts/ui/floor_select_menu.gd").new())  # elegir piso (puerta de la mazmorra)
 	add_child(preload("res://scripts/ui/character_menu.gd").new())  # menu de personaje (C)

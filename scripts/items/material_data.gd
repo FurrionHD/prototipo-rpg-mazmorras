@@ -20,9 +20,10 @@ enum Familia { CORRIENTE, NUCLEO }
 # meter uno en medio le cambiaria el tipo a todos los materiales que ya existen. Cualquier tipo
 # nuevo va SIEMPRE al final.
 #   LINGOTE no se recolecta: sale de FUNDIR mineral en el herrero.
-#   MADERA se saca con el HACHA de los arboles y las enredaderas de los pasillos, y es el
-#   MANGO de las armas (antes se les ponia una empuñadura de cuero, que no tenia mucho sentido).
-enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA }
+#   MADERA se saca con el HACHA de los arboles y las enredaderas de los pasillos.
+#   TABLON no se recolecta: sale de ASERRAR madera en el carpintero, y es el MANGO de las armas
+#   (la madera cruda ya no va directa a la forja; asi no sobra tanta).
+enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA, TABLON }
 # A QUE se le puede meter este nucleo. Los del slime van al ARMA; el de la rata, a la
 # ARMADURA. CUALQUIERA = comodin (no lo usa ningun nucleo hoy, pero el campo lo admite).
 enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
@@ -95,6 +96,7 @@ func tipo_texto() -> String:
 		Tipo.CUERO: return "Cuero"
 		Tipo.LINGOTE: return "Lingote"
 		Tipo.MADERA: return "Madera"
+		Tipo.TABLON: return "Tablón"
 		_: return "Núcleo"
 
 
