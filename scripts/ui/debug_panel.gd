@@ -48,9 +48,11 @@ var _forja_nombre: Label = null
 # HECHIZOS (KAN-56)
 var _spell_checks: Dictionary = {}       # path .tres -> CheckBox
 # MATERIALES (baul del Hogar, para probar la boticaria)
+var _mat_cat_opt: OptionButton = null
 var _mat_material_opt: OptionButton = null
 var _mat_calidad_opt: OptionButton = null
 var _mat_cantidad_spin: SpinBox = null
+var _mat_cats: Array = []   # [{nombre:String, rutas:Array}] (Todos + una por categoria)
 # MEJORAS
 var _mej_slot_opt: OptionButton = null
 var _mej_info: Label = null
@@ -523,32 +525,45 @@ func _build_objetos(vb: VBoxContainer) -> void:
 		vb.add_child(b)
 
 
-# MATERIALES: mete materiales de crafteo en el baul del Hogar (para probar la boticaria sin
-# farmear). Eliges material (o Todos), calidad (o Todas) y cantidad, y le das a Añadir.
+# MATERIALES: mete materiales de crafteo en el baul del Hogar (para probar todo sin farmear).
+# Cascada estilo forja: eliges CATEGORIA (Núcleos arma/armadura, Minerales, Maderas, Cueros...) ->
+# MATERIAL de esa categoria (o Todos), calidad y cantidad, y Añadir. La lista se saca ESCANEANDO la
+# carpeta de materiales, asi que NUNCA se queda corta: cualquier .tres nuevo sale solo.
 func _build_materiales(vb: VBoxContainer) -> void:
 	_header(vb, "MATERIALES (baúl del Hogar)")
+	_mat_cats = _categorias_materiales()
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	vb.add_child(row)
 
+	# Categoria.
+	_mat_cat_opt = OptionButton.new()
+	_mat_cat_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for i in _mat_cats.size():
+		_mat_cat_opt.add_item("%s (%d)" % [_mat_cats[i]["nombre"], (_mat_cats[i]["rutas"] as Array).size()], i)
+	_mat_cat_opt.select(0)
+	_mat_cat_opt.item_selected.connect(_on_mat_cat_changed)
+	row.add_child(_mat_cat_opt)
+
+	# Material (se rellena segun la categoria).
 	_mat_material_opt = OptionButton.new()
 	_mat_material_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_mat_material_opt.add_item("Todos", 0)   # id 0 = todos; id i+1 = material i
-	for i in Game._dev_materiales.size():
-		var d: MaterialData = load(Game._dev_materiales[i])
-		if d != null:
-			_mat_material_opt.add_item(d.nombre, i + 1)
-	_mat_material_opt.select(0)
 	row.add_child(_mat_material_opt)
+	_poblar_materiales(0)
 
+	var row1b := HBoxContainer.new()
+	row1b.add_theme_constant_override("separation", 6)
+	vb.add_child(row1b)
 	_mat_calidad_opt = OptionButton.new()
-	_mat_calidad_opt.add_item("Todas", 0)    # id 0 = todas; id 1/2/3 = intacto/normal/dañado
+	_mat_calidad_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mat_calidad_opt.add_item("Todas (I/N/D)", 0)   # id 0 = las tres recolectables
 	_mat_calidad_opt.add_item("Intacto", 1)
 	_mat_calidad_opt.add_item("Normal", 2)
 	_mat_calidad_opt.add_item("Dañado", 3)
+	_mat_calidad_opt.add_item("Puro", 4)
 	_mat_calidad_opt.select(0)
-	row.add_child(_mat_calidad_opt)
+	row1b.add_child(_mat_calidad_opt)
 
 	var row2 := HBoxContainer.new()
 	row2.add_theme_constant_override("separation", 6)
@@ -569,32 +584,118 @@ func _build_materiales(vb: VBoxContainer) -> void:
 	row2.add_child(add)
 
 
+# Rellena el desplegable de material con los de la categoria `cat_idx`: item 0 = "Todos de la
+# categoría"; id i+1 = la ruta i de esa categoria.
+func _poblar_materiales(cat_idx: int) -> void:
+	_mat_material_opt.clear()
+	_mat_material_opt.add_item("Todos de la categoría", 0)
+	if cat_idx < 0 or cat_idx >= _mat_cats.size():
+		return
+	var rutas: Array = _mat_cats[cat_idx]["rutas"]
+	for i in rutas.size():
+		var d: MaterialData = load(rutas[i]) as MaterialData
+		if d != null:
+			_mat_material_opt.add_item("%s  ·  T%d" % [d.nombre, d.tier], i + 1)
+	_mat_material_opt.select(0)
+
+
+func _on_mat_cat_changed(idx: int) -> void:
+	_poblar_materiales(idx)
+
+
 func _on_add_materiales() -> void:
 	var n: int = int(_mat_cantidad_spin.value)
-	# Materiales: id 0 = todos.
+	var cat_idx: int = _mat_cat_opt.get_selected_id()
+	if cat_idx < 0 or cat_idx >= _mat_cats.size():
+		return
+	var rutas_cat: Array = _mat_cats[cat_idx]["rutas"]
+	# Material: id 0 = todos los de la categoria; id i+1 = la ruta i.
 	var rutas: Array = []
 	var mid: int = _mat_material_opt.get_selected_id()
 	if mid == 0:
-		rutas = Game._dev_materiales.duplicate()
-	else:
-		rutas = [Game._dev_materiales[mid - 1]]
-	# Calidades: id 0 = todas; si no, id-1 = enum (intacto 0 / normal 1 / dañado 2).
+		rutas = rutas_cat.duplicate()
+	elif mid - 1 < rutas_cat.size():
+		rutas = [rutas_cat[mid - 1]]
+	# Calidades: id 0 = las tres recolectables; si no, mapear al enum.
 	var cals: Array = []
 	var cid: int = _mat_calidad_opt.get_selected_id()
-	if cid == 0:
-		cals = [MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
-	else:
-		cals = [cid - 1]
+	match cid:
+		0: cals = [MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
+		1: cals = [MaterialItem.Calidad.INTACTO]
+		2: cals = [MaterialItem.Calidad.NORMAL]
+		3: cals = [MaterialItem.Calidad.DANADO]
+		4: cals = [MaterialItem.Calidad.PURO]
 	var total: int = 0
 	for ruta in rutas:
-		var d: MaterialData = load(ruta)
+		var d: MaterialData = load(ruta) as MaterialData
 		if d == null:
 			continue
 		for cal in cals:
 			for _i in range(n):
 				Game.almacen_materiales.append(MaterialItem.crear(d, cal))
 				total += 1
-	print("[dev] Baúl: +", total, " materiales de crafteo. Total en casa: ", Game.almacen_materiales.size())
+	print("[dev] Baúl: +", total, " materiales. Total en casa: ", Game.almacen_materiales.size())
+
+
+# --- Escaneo + categorizacion de TODOS los materiales (para el desplegable) ---
+# Escanea res://resources/materials/*.tres. Al ser una herramienta de DEV se lee la carpeta en
+# caliente: cualquier material nuevo aparece sin tocar nada.
+func _escanear_materiales() -> Array:
+	var rutas: Array = []
+	var carpeta := "res://resources/materials"
+	for f in DirAccess.get_files_at(carpeta):
+		if f.ends_with(".tres"):
+			rutas.append(carpeta.path_join(f))
+	rutas.sort()
+	return rutas
+
+
+# Categoria a la que va un material (por su tipo; los nucleos se parten por a qué sirven).
+func _categoria_de(d: MaterialData) -> String:
+	match int(d.tipo):
+		MaterialData.Tipo.MINERAL: return "Minerales"
+		MaterialData.Tipo.MADERA: return "Maderas"
+		MaterialData.Tipo.TABLON: return "Tablones"
+		MaterialData.Tipo.LINGOTE: return "Refinados (metal)"
+		MaterialData.Tipo.CUERO: return "Cueros"
+		MaterialData.Tipo.BABA: return "Babas y fluidos"
+		MaterialData.Tipo.PLANTA: return "Plantas y hierbas"
+		MaterialData.Tipo.NUCLEO:
+			match int(d.uso_mejora):
+				MaterialData.UsoMejora.ARMA: return "Núcleos (arma)"
+				MaterialData.UsoMejora.ARMADURA: return "Núcleos (armadura)"
+				_: return "Núcleos (comodín)"
+		_: return "Otros"
+
+
+# Devuelve [{nombre, rutas}] : "Todos" primero y luego una entrada por categoria (en orden fijo,
+# saltando las vacias). Cada categoria ordena sus materiales por tier y nombre.
+func _categorias_materiales() -> Array:
+	var todas: Array = _escanear_materiales()
+	var por_cat: Dictionary = {}
+	for ruta in todas:
+		var d: MaterialData = load(ruta) as MaterialData
+		if d == null:
+			continue
+		var cat: String = _categoria_de(d)
+		if not por_cat.has(cat):
+			por_cat[cat] = []
+		(por_cat[cat] as Array).append(ruta)
+	var orden: Array = ["Minerales", "Maderas", "Tablones", "Refinados (metal)", "Cueros",
+		"Babas y fluidos", "Plantas y hierbas", "Núcleos (arma)", "Núcleos (armadura)",
+		"Núcleos (comodín)", "Otros"]
+	var out: Array = [{"nombre": "Todos", "rutas": todas}]
+	for cat in orden:
+		if por_cat.has(cat):
+			var rutas: Array = por_cat[cat]
+			rutas.sort_custom(func(a, b):
+				var da: MaterialData = load(a)
+				var db: MaterialData = load(b)
+				if int(da.tier) != int(db.tier):
+					return int(da.tier) < int(db.tier)
+				return da.nombre < db.nombre)
+			out.append({"nombre": cat, "rutas": rutas})
+	return out
 
 
 # HECHIZOS (KAN-56): equipar/quitar hechizos (multi-seleccion con checkboxes). El
