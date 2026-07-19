@@ -3415,7 +3415,7 @@ func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
 		return false
 	if mejoras_actuales(item) >= tope_mejoras(item, nucleo):
 		return false
-	if nucleos_en_hogar(nucleo) < Forge.nucleos_para_mejora(mejoras_actuales(item), nucleo):
+	if nucleos_en_hogar(nucleo) < Forge.nucleos_para_mejora(mejoras_actuales(item), nucleo, item):
 		return false
 	# Y el material de refuerzo (ver materiales_mejora).
 	var mats: Dictionary = materiales_mejora(item)
@@ -3432,7 +3432,7 @@ func mejorar_item(item: Resource, cat: String, nucleo: MaterialData) -> bool:
 	if not puede_mejorar(item, nucleo):
 		return false
 	var nivel: int = mejoras_actuales(item)
-	var cuesta: int = Forge.nucleos_para_mejora(nivel, nucleo)
+	var cuesta: int = Forge.nucleos_para_mejora(nivel, nucleo, item)
 	var mats: Dictionary = materiales_mejora(item)
 	var c: Dictionary = Forge.material_para_mejora(nivel)
 	_consumir_nucleos(nucleo, cuesta)

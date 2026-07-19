@@ -296,18 +296,24 @@ static func tirar_rareza(score: float) -> int:
 # --- MEJORAR con NUCLEOS ---
 # El coste sube DENTRO de la banda de cada nucleo y se REINICIA al saltar al siguiente. Cada
 # nucleo cubre un tramo de niveles (mejora_min..mejora_max en MaterialData), y dentro de el la
-# cuenta va 1, 2, 3...: la primera mejora de ese nucleo es barata y la ultima duele.
-#
-#   slime/rata (0..3)      -> +1 = 1,  +2 = 2,  +3 = 3
-#   venenoso/rey rata (3..5) -> +4 = 1,  +5 = 2
-#   fuego/jabali (5..7)    -> +6 = 1,  +7 = 2
-#   rey slime (7..9)       -> +8 = 1,  +9 = 2
+# cuenta BASE va 1, 2, 3: la primera mejora de ese nucleo es barata y la ultima duele. Pero el coste
+# final depende de la PIEZA (`item`):
+#   - ARMADURA: PLANO a 1 por mejora. Son CINCO piezas; pedir 6 nucleos por pieza y banda seria
+#     infumable (6x5 = 30 por banda). A 1, subir el juego entero cuesta lo razonable.
+#   - ARMA a UNA mano / escudo / varita: la base 1, 2, 3 (6 por banda).
+#   - ARMA a DOS MANOS (pesada): el DOBLE, 2, 4, 6. Llevas UNA sola arma pesada, asi que iguala el
+#     coste de subir DOS armas ligeras (dual).
 #
 # Antes la cuenta era acumulativa GLOBAL (mejoras+1), asi que el nucleo nuevo entraba cobrando
 # 4, 6, 8... de una tacada. Llegar al +7 pedia 13 nucleos de slime de fuego. Ver mejora_min.
-static func nucleos_para_mejora(mejoras_actuales: int, nucleo: MaterialData = null) -> int:
+static func nucleos_para_mejora(mejoras_actuales: int, nucleo: MaterialData = null, item: Resource = null) -> int:
 	var desde: int = 0 if nucleo == null else maxi(0, nucleo.mejora_min)
-	return maxi(1, mejoras_actuales + 1 - desde)
+	var base: int = maxi(1, mejoras_actuales + 1 - desde)
+	if item is ArmorData:
+		return 1
+	if item is WeaponData and (item as WeaponData).dos_manos:
+		return base * 2
+	return base
 
 
 # Y ademas del nucleo, MATERIAL: el nucleo es el permiso, pero la pieza hay que rehacerla. Se

@@ -1041,7 +1041,7 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 
 	var actuales: int = Game.mejoras_actuales(item)
 	var tope: int = Game.tope_mejoras(item, nucleo)
-	var cuesta: int = Forge.nucleos_para_mejora(actuales, nucleo)
+	var cuesta: int = Forge.nucleos_para_mejora(actuales, nucleo, item)
 	_row(vb, "Mejoras", "+%d  (tope con este núcleo: +%d)" % [actuales, tope])
 	_row(vb, "Huecos por rareza", str(Upgrades.rareza_slots(int(Game.meta_de(item)["rareza"]))))
 
