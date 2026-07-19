@@ -4431,8 +4431,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_T:
 			print("[dev] Arena de pruebas (sandbox): escenario vacio + spawner")
 			get_tree().change_scene_to_file("res://scenes/levels/sandbox.tscn")
-		KEY_J:
-			_dev_cycle_armor()
 		KEY_P:
 			_dev_test_spawns()
 		KEY_B:
