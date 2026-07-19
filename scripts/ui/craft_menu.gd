@@ -19,6 +19,10 @@ var _aviso: String = ""
 var _aviso_ok: bool = true
 var _recetas: Array = []
 var _sel: int = 0
+# Submenu en dos niveles: TIER (1 menores, 2 medianas) y TIPO (0 vida, 1 maná). Las medianas solo
+# aparecen cuando has conseguido algún material para hacerlas (Game.medianas_desbloqueadas).
+var _tier: int = 1
+var _tipo: int = 0
 # SELECCION de materiales de la receta actual: Array paralelo a receta.ingredientes; cada
 # entrada un {calidad: cantidad}. Es lo que el jugador elige a mano con los contadores. Se
 # resetea al cambiar de receta, NO en cada _rebuild (si no, borraria lo que va poniendo).
@@ -50,13 +54,31 @@ func abrir() -> void:
 	# No abrir sobre un combate/extraccion ni con el panel DEBUG abierto.
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
-	_recetas = Game.recetas_boticaria()
+	_tier = 1
+	_tipo = 0
 	_sel = 0
 	_aviso = ""
+	_recompute_recetas()
 	_reset_seleccion()
 	_root.visible = true
 	Game.abrir_menu()   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
+
+
+# Rellena _recetas con las del TIER y TIPO elegidos. Vida = las que curan HP; Maná = las que dan
+# maná. Si las medianas no están desbloqueadas, cae a menores (por si acaso).
+func _recompute_recetas() -> void:
+	if _tier >= 2 and not Game.medianas_desbloqueadas():
+		_tier = 1
+	_recetas = []
+	for r in Game.recetas_boticaria_tier(_tier):
+		var res: ConsumableData = (r as RecipeData).resultado
+		if res == null:
+			continue
+		var encaja: bool = res.cura_hp() if _tipo == 0 else res.da_mana()
+		if encaja:
+			_recetas.append(r)
+	_sel = clampi(_sel, 0, maxi(0, _recetas.size() - 1))
 
 
 # Vacia la seleccion y la dimensiona a los ingredientes de la receta actual (una entrada
@@ -88,12 +110,21 @@ func _rebuild() -> void:
 	for zona in [_header, _list, _detail]:
 		for c in zona.get_children():
 			c.queue_free()
-	MenuScaffold.titulo(_header, "RECETAS")
+	_recompute_recetas()
+
+	# Submenu de dos filas: TIER (Menores / Medianas) y TIPO (Vida / Maná). Las medianas solo
+	# salen si ya has conseguido algún material para hacerlas.
+	var tier_labels: Array = ["Menores"]
+	if Game.medianas_desbloqueadas():
+		tier_labels.append("Medianas")
+	MenuScaffold.pestanas(_header, tier_labels, _tier - 1, _on_tier)
+	MenuScaffold.pestanas(_header, ["Vida", "Maná"], _tipo, _on_tipo)
 	_header.add_child(HSeparator.new())
+
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 	if _recetas.is_empty():
 		var l := Label.new()
-		l.text = "(no hay recetas)"
+		l.text = "(no hay recetas aquí todavía)"
 		_detail.add_child(l)
 		return
 	_sel = clampi(_sel, 0, _recetas.size() - 1)
@@ -118,6 +149,24 @@ func _pick(i: int) -> void:
 	_sel = i
 	_aviso = ""            # cambiar de receta borra el aviso de la anterior (como la forja)
 	_reset_seleccion()   # otra receta = empezar de cero la eleccion de materiales
+	_rebuild()
+
+
+func _on_tier(i: int) -> void:
+	_tier = i + 1
+	_sel = 0
+	_aviso = ""
+	_recompute_recetas()
+	_reset_seleccion()
+	_rebuild()
+
+
+func _on_tipo(i: int) -> void:
+	_tipo = i
+	_sel = 0
+	_aviso = ""
+	_recompute_recetas()
+	_reset_seleccion()
 	_rebuild()
 
 

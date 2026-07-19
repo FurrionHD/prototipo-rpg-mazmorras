@@ -12,8 +12,6 @@ const DEBUG_KEYS := [
 	["H", "Curar vida y maná al 100%"],
 	["R", "Respawn (recargar la sala)"],
 	["T", "Arena de pruebas (sandbox vacío + spawner)"],
-	["K", "Cambiar arma principal"],
-	["L", "Cambiar mano secundaria (arma/escudo/varita)"],
 	["J", "Cambiar armadura (categoría)"],
 	["P", "Tirar 200 veces la tabla de spawns y contar (consola)"],
 	["B", "Forzar un brote en la zona más cercana"],

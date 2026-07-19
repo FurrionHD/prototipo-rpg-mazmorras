@@ -3833,33 +3833,54 @@ func seleccion_auto_peor(receta: RecipeData) -> Array:
 	return sel
 
 
-# Lista de todas las recetas de la boticaria (para el menu). Orden: vida y luego maná.
-const _RECIPE_PATHS: Array[String] = [
+# Recetas de la boticaria, partidas por TIER: MENORES (T1) y MEDIANAS (T2). El menu las agrupa en
+# submenus (tier -> tipo vida/maná). Dentro de cada tier, primero vida y luego maná.
+const _RECIPE_PATHS_MENORES: Array[String] = [
 	"res://resources/recipes/pocion_vida_base.tres",
 	"res://resources/recipes/pocion_vida_1.tres",
 	"res://resources/recipes/pocion_vida_2.tres",
 	"res://resources/recipes/pocion_vida_3.tres",
-	"res://resources/recipes/pocion_vida_t2_base.tres",
-	"res://resources/recipes/pocion_vida_t2_1.tres",
-	"res://resources/recipes/pocion_vida_t2_2.tres",
-	"res://resources/recipes/pocion_vida_t2_3.tres",
 	"res://resources/recipes/pocion_mana_base.tres",
 	"res://resources/recipes/pocion_mana_1.tres",
 	"res://resources/recipes/pocion_mana_2.tres",
 	"res://resources/recipes/pocion_mana_3.tres",
+]
+const _RECIPE_PATHS_MEDIANAS: Array[String] = [
+	"res://resources/recipes/pocion_vida_t2_base.tres",
+	"res://resources/recipes/pocion_vida_t2_1.tres",
+	"res://resources/recipes/pocion_vida_t2_2.tres",
+	"res://resources/recipes/pocion_vida_t2_3.tres",
 	"res://resources/recipes/pocion_mana_t2_base.tres",
 	"res://resources/recipes/pocion_mana_t2_1.tres",
 	"res://resources/recipes/pocion_mana_t2_2.tres",
 	"res://resources/recipes/pocion_mana_t2_3.tres",
 ]
 
-func recetas_boticaria() -> Array:
+func _cargar_recetas(rutas: Array) -> Array:
 	var out: Array = []
-	for ruta in _RECIPE_PATHS:
+	for ruta in rutas:
 		var r: Resource = load(ruta)
 		if r != null:
 			out.append(r)
 	return out
+
+# Todas las recetas (compatibilidad): menores + medianas.
+func recetas_boticaria() -> Array:
+	return _cargar_recetas(_RECIPE_PATHS_MENORES) + _cargar_recetas(_RECIPE_PATHS_MEDIANAS)
+
+# Las recetas de un TIER (1 = menores, 2 = medianas). Es lo que pinta el submenu.
+func recetas_boticaria_tier(tier: int) -> Array:
+	return _cargar_recetas(_RECIPE_PATHS_MEDIANAS if tier >= 2 else _RECIPE_PATHS_MENORES)
+
+# ¿Se puede ver ya la categoria MEDIANAS (T2)? Se desbloquea al CONSEGUIR (haber visto) alguno de
+# los materiales que piden sus recetas (baba profunda, moho de las simas...). Hasta entonces, ni
+# aparece la pestaña: no tiene sentido enseñar recetas que no puedes ni empezar.
+func medianas_desbloqueadas() -> bool:
+	for r in _cargar_recetas(_RECIPE_PATHS_MEDIANAS):
+		for ing in (r as RecipeData).ingredientes:
+			if ing != null and ing.material != null and material_visto(ing.material as MaterialData):
+				return true
+	return false
 
 
 # ============================================================
@@ -4410,10 +4431,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_T:
 			print("[dev] Arena de pruebas (sandbox): escenario vacio + spawner")
 			get_tree().change_scene_to_file("res://scenes/levels/sandbox.tscn")
-		KEY_K:
-			_dev_cycle_weapon()
-		KEY_L:
-			_dev_cycle_off()
 		KEY_J:
 			_dev_cycle_armor()
 		KEY_P:
