@@ -136,6 +136,30 @@ func _build_refinar(correas: bool) -> void:
 		MenuScaffold.nota(_header, "%d pieles de la MISMA calidad = 1 cuero curtido de esa calidad. No se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón." % por_uno)
 	_header.add_child(HSeparator.new())
 
+	# Fila-selector de tier, igual que el herrero (Fundir) y el carpintero (Tablones): un botón por
+	# cada cuero de esta categoria, mostrado SIEMPRE (aunque tengas 0), con su tier. Hoy el cuero es
+	# de un solo tier, asi que la fila tiene un boton; si aparecen mas, crece sola. Da la consistencia
+	# visual que faltaba (antes esto iba directo a las filas de calidad y se veia distinto).
+	var origenes: Array = [origen]
+	var fila := GridContainer.new()
+	fila.columns = 2
+	fila.add_theme_constant_override("h_separation", 6)
+	fila.add_theme_constant_override("v_separation", 6)
+	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for o in origenes:
+		var mat: MaterialData = o as MaterialData
+		var b := Button.new()
+		b.text = "%s  (T%d)" % [mat.nombre, mat.tier]
+		b.toggle_mode = true
+		b.clip_text = true
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.button_pressed = (mat == origen)
+		b.custom_minimum_size = Vector2(0, 32)
+		fila.add_child(b)
+	_content.add_child(fila)
+	_content.add_child(HSeparator.new())
+	_row("Sale", "%s  ·  Tier %d" % [destino.nombre, destino.tier])
+
 	var hubo: bool = false
 	for cal in CALIDADES:
 		var tengo: int = Game.items_calidad_en_hogar(origen, int(cal))
