@@ -61,8 +61,8 @@ class_name DungeonFloor
 @export var max_plantas_piso: int = 8
 @export var max_madera_piso: int = 8
 
-# Tiempo de JUEGO que tarda un nodo picado en reaparecer (~10 min). PROVISIONAL -> Excel.
-const RESPAWN_SEGUNDOS := 600.0
+# Tiempo de JUEGO que tarda un nodo picado en reaparecer (~5 min). PROVISIONAL -> Excel.
+const RESPAWN_SEGUNDOS := 300.0
 
 # --- RITMO de los partos (segundos). Franja ANCHA y LENTA a proposito: ver spawn_zone.gd ---
 @export var intervalo_min: float = 25.0

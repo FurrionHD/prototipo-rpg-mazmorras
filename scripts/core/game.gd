@@ -187,7 +187,7 @@ const RECOLECCION_PISO_FACTOR := 1.10   # exigencia x1.10 por piso
 # rompe la veta sin tener que cargar el pico hasta arriba.
 const MINERIA_FUERZA_FLOOR := 30.0      # suelo de skill (subido de 20 al aplicar RECOLECCION_STAT_PESO)
 const MINERIA_BASE_VENTANA := 0.22      # ancho de la franja optima a dificultad 1
-const MINERIA_BASE_CARGA := 1.0         # velocidad de la barra de carga a dificultad 1
+const MINERIA_BASE_CARGA := 1.15        # velocidad de la barra de carga a dificultad 1 (subida: no dar tanto margen para clavar la banda a stat baja)
 const MINERIA_CARGA_MIN := 0.8          # suelo duro: por debajo de esto cargar es esperar
 # TECHO de la barra de carga: por encima de esto la barra deja de ser un reto y pasa a ser un
 # borron (ver EXTRACTION_MARKER_MAX, que es donde se noto el problema).
@@ -216,8 +216,8 @@ const HERB_RETO_MAX := 8.0              # mismo tope que la extraccion: las dos 
 # TALADO (hacha, Agilidad). Aqui no hay punteria: hay COMPAS. La Agilidad ensancha la ventana
 # del hachazo y frena el tempo; el resto lo pones tu no perdiendo el ritmo (ver talado.gd).
 const TALA_AGILIDAD_FLOOR := 30.0       # suelo de skill (subido de 20 al aplicar RECOLECCION_STAT_PESO)
-const TALA_BASE_VENTANA := 0.20         # ancho de la ventana a dificultad 1
-const TALA_BASE_TEMPO := 0.55           # vueltas/seg a dificultad 1
+const TALA_BASE_VENTANA := 0.14         # ancho de la ventana a dificultad 1 (bajado de 0.20: a stat baja era demasiado ancha)
+const TALA_BASE_TEMPO := 0.75           # vueltas/seg a dificultad 1 (subido de 0.55: el barrido base era muy lento)
 # TECHO del tempo: por el mismo motivo que en los otros dos (una ventana que cruza la banda
 # tres veces por segundo no es dificil, es ilegible). Y ojo, que los aciertos ACELERAN encima.
 const TALA_TEMPO_MAX := 1.2
@@ -4644,7 +4644,7 @@ func start_mineria(nodo) -> void:
 	var d: float = _exigencia_material(m) / (float(stat_total("fuerza")) * RECOLECCION_STAT_PESO + MINERIA_FUERZA_FLOOR)
 
 	# La Fuerza ensancha la franja optima Y la baja (no necesitas cargar tanto el pico).
-	var ancho: float = clampf(MINERIA_BASE_VENTANA / d, 0.06, 0.45) + p.ventana_bonus
+	var ancho: float = clampf(MINERIA_BASE_VENTANA / d, 0.06, 0.30) + p.ventana_bonus
 	ancho = clampf(ancho, 0.06, 0.60)
 	var ini: float = clampf(0.45 * d, 0.15, 1.0 - ancho - 0.05)
 	var carga: float = MINERIA_BASE_CARGA \
@@ -4739,14 +4739,14 @@ func start_talado(nodo) -> void:
 	var d: float = _exigencia_material(m) / (float(stat_total("agilidad")) * RECOLECCION_STAT_PESO + TALA_AGILIDAD_FLOOR)
 
 	# La Agilidad ensancha la ventana del hachazo y frena el tempo. El hacha ayuda encima.
-	var ancho: float = clampf(TALA_BASE_VENTANA / d, 0.05, 0.40) + a.compas
+	var ancho: float = clampf(TALA_BASE_VENTANA / d, 0.05, 0.26) + a.compas
 	ancho = clampf(ancho, 0.05, 0.50)
 	var tempo: float = TALA_BASE_TEMPO \
 		* clampf(d, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX) \
 		+ 0.05 * float(current_floor - 1)
 	tempo = minf(tempo, TALA_TEMPO_MAX)
-	var hachazos: int = clampi(roundi(TALA_HACHAZOS_BASE * d), 3, 9) - a.hachazos_menos
-	hachazos = maxi(3, hachazos)
+	var hachazos: int = clampi(roundi(TALA_HACHAZOS_BASE * d), 4, 9) - a.hachazos_menos
+	hachazos = maxi(4, hachazos)
 
 	_last_reco_reto = d
 	print("[reco] talado %s · piso %d · Agilidad %d · exigencia %.0f -> reto %.2f  (ventana %.3f, tempo %.2f, hachazos %d)" % [

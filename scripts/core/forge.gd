@@ -26,7 +26,7 @@ class_name Forge
 # Cuantos items del material EN BRUTO hacen falta para uno REFINADO. Son ITEMS, no unidades:
 # aqui la calidad no rinde mas, tiene que ser la MISMA (tres dañados NO dan un normal). Lo
 # unico que puede subirte un escalon es la habilidad del oficio.
-const MINERAL_POR_LINGOTE := 3
+const MINERAL_POR_LINGOTE := 2
 const LINGOTE_POR_CHAPA := 1     # un lingote batido da una chapa (mismo metal, misma calidad)
 const CUERO_POR_CURTIDO := 2
 # Piezas de la MOCHILA. Las hebillas salen caras en metal (3 lingotes por juego): son un puñado
