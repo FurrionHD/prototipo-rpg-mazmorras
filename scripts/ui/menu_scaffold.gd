@@ -314,3 +314,78 @@ static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Call
 		b.pressed.connect(pulsado.bind(i))
 		grid.add_child(b)
 	vb.add_child(grid)
+
+
+# Stepper editable: −  [ n ]  +  con el numero ESCRIBIBLE (no solo con los botones). −/+ y escribir +
+# Enter (o salir del campo) actualizan el numero, CAPADO a [minv, maxv]. Si `on_set` es valido, se
+# llama con el nuevo valor en cada cambio (para guardar en la seleccion y rebuildear: OJO, que ese
+# on_set NO rebuildee si el valor no cambia, o focus_exited durante el rebuild se realimenta).
+# Si maxv <= minv no hay nada que elegir: todo va disabled (gris). DEVUELVE el LineEdit, para los
+# casos (refinar) que leen la cantidad en el momento de pulsar "Crear" en vez de guardarla.
+static func stepper(parent: Node, valor: int, minv: int, maxv: int, on_set: Callable = Callable()) -> LineEdit:
+	var vacio: bool = maxv <= minv
+	var v: int = clampi(valor, minv, maxv) if not vacio else minv
+	var caja := HBoxContainer.new()
+	caja.add_theme_constant_override("separation", 4)
+
+	var campo := LineEdit.new()
+	var menos := Button.new()
+	var mas := Button.new()
+
+	var aplicar := func(nuevo: int) -> void:
+		var c: int = clampi(nuevo, minv, maxv)
+		campo.text = str(c)
+		menos.disabled = vacio or c <= minv
+		mas.disabled = vacio or c >= maxv
+		if on_set.is_valid():
+			on_set.call(c)
+
+	menos.text = "−"
+	menos.custom_minimum_size = Vector2(30, 0)
+	menos.disabled = vacio or v <= minv
+	menos.focus_mode = Control.FOCUS_NONE
+	menos.pressed.connect(func() -> void: aplicar.call(int(campo.text) - 1))
+	caja.add_child(menos)
+
+	campo.text = str(v)
+	campo.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	campo.custom_minimum_size = Vector2(46, 0)
+	campo.editable = not vacio
+	campo.select_all_on_focus = true
+	campo.max_length = 6
+	campo.text_submitted.connect(func(t: String) -> void: aplicar.call(int(t)))
+	campo.focus_exited.connect(func() -> void: aplicar.call(int(campo.text)))
+	caja.add_child(campo)
+
+	mas.text = "+"
+	mas.custom_minimum_size = Vector2(30, 0)
+	mas.disabled = vacio or v >= maxv
+	mas.focus_mode = Control.FOCUS_NONE
+	mas.pressed.connect(func() -> void: aplicar.call(int(campo.text) + 1))
+	caja.add_child(mas)
+
+	parent.add_child(caja)
+	return campo
+
+
+# Fila de un refinado: etiqueta + stepper editable + boton "Crear". `salen` = maximo que puedes hacer
+# (0 = en gris, no se puede). Al pulsar Crear se lee la cantidad del stepper y se llama a `crear(n)`.
+# Reemplaza el viejo "Hacer 1 / Hacer todo": ahora eliges cuantos (escribiendo o con −/+) y creas.
+static func fila_refino(parent: Node, etiqueta: String, salen: int, crear: Callable) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var l := Label.new()
+	l.text = etiqueta
+	l.custom_minimum_size = Vector2(240, 0)
+	l.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92) if salen > 0 else Color(0.6, 0.63, 0.7))
+	row.add_child(l)
+	var campo: LineEdit = stepper(row, 1 if salen >= 1 else 0, 0, salen)
+	var b := Button.new()
+	b.text = "Crear"
+	b.disabled = salen < 1
+	b.pressed.connect(func() -> void:
+		var n: int = clampi(int(campo.text), 1, salen)
+		if n >= 1:
+			crear.call(n))
+	row.add_child(b)
+	parent.add_child(row)

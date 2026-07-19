@@ -258,27 +258,16 @@ func _build_detail(r: RecipeData) -> void:
 			if disp <= 0:
 				continue   # no tienes de esta calidad: no la muestres
 			var cur: int = int((_seleccion[i] as Dictionary).get(cal, 0))
+			var ii: int = i
+			var ci: int = int(cal)
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 6)
 			var lab := Label.new()
 			lab.text = "   %s (x%d)" % [cal_nom.get(cal, "?"), disp]
 			lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(lab)
-			var minus := Button.new()
-			minus.text = "−"
-			minus.custom_minimum_size = Vector2(30, 0)
-			minus.pressed.connect(_mat_delta.bind(i, cal, -1))
-			row.add_child(minus)
-			var cnt := Label.new()
-			cnt.text = str(cur)
-			cnt.custom_minimum_size = Vector2(26, 0)
-			cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			row.add_child(cnt)
-			var plus := Button.new()
-			plus.text = "+"
-			plus.custom_minimum_size = Vector2(30, 0)
-			plus.pressed.connect(_mat_delta.bind(i, cal, 1))
-			row.add_child(plus)
+			# Stepper editable: −/+ o escribir la cantidad directamente (capada a lo que tienes).
+			MenuScaffold.stepper(row, cur, 0, disp, func(n: int) -> void: _set_sel(ii, ci, n))
 			_detail.add_child(row)
 
 	var uds := Label.new()
@@ -393,14 +382,20 @@ func _uds(cal: int) -> int:
 	return MaterialItem.crear(null, cal).unidades_crafteo()
 
 
-# Sube/baja el contador de (ingrediente i, calidad cal), acotado a lo que tienes en el baul.
-func _mat_delta(i: int, cal: int, delta: int) -> void:
+# Fija (absoluto) el contador de (ingrediente i, calidad cal) a `n`, acotado a lo que tienes en el
+# baul. Lo llama el stepper editable. NO rebuildea si el valor no cambia (evita que focus_exited del
+# LineEdit, al liberarse en el rebuild, se realimente).
+func _set_sel(i: int, cal: int, n: int) -> void:
+	if i < 0 or i >= _seleccion.size():
+		return
 	var ing = _recetas[_sel].ingredientes[i]
 	if ing == null or ing.material == null:
 		return
 	var disp: int = Game.items_calidad_en_hogar(ing.material, int(cal))
 	var d: Dictionary = _seleccion[i]
-	var nuevo: int = clampi(int(d.get(cal, 0)) + delta, 0, disp)
+	var nuevo: int = clampi(n, 0, disp)
+	if nuevo == int(d.get(cal, 0)):
+		return
 	if nuevo <= 0:
 		d.erase(cal)
 	else:

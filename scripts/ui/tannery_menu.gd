@@ -160,32 +160,17 @@ func _build_refinar(correas: bool) -> void:
 	_content.add_child(HSeparator.new())
 	_row("Sale", "%s  ·  Tier %d" % [destino.nombre, destino.tier])
 
-	var hubo: bool = false
+	var tengo_algo: bool = false
 	for cal in CALIDADES:
 		var tengo: int = Game.items_calidad_en_hogar(origen, int(cal))
-		if tengo <= 0:
+		if int(cal) == MaterialItem.Calidad.PURO and tengo <= 0:
 			continue
-		hubo = true
+		tengo_algo = tengo_algo or tengo > 0
 		var salen: int = Game.refinados_posibles(origen, int(cal), por_uno)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		var l := Label.new()
-		l.text = "%s:  %d  →  %d" % [_cal_txt(int(cal)), tengo, salen]
-		l.custom_minimum_size = Vector2(240, 0)
-		l.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92) if salen > 0 else GRIS)
-		row.add_child(l)
-		var b1 := Button.new()
-		b1.text = "Hacer 1"
-		b1.disabled = salen < 1
-		b1.pressed.connect(_on_refinar.bind(correas, int(cal), 1))
-		row.add_child(b1)
-		var bt := Button.new()
-		bt.text = "Hacer todo (%d)" % salen
-		bt.disabled = salen < 1
-		bt.pressed.connect(_on_refinar.bind(correas, int(cal), salen))
-		row.add_child(bt)
-		_content.add_child(row)
-	if not hubo:
+		var c: int = int(cal)
+		MenuScaffold.fila_refino(_content, "%s  ·  tienes %d  (máx %d)" % [_cal_txt(c), tengo, salen],
+			salen, func(n: int) -> void: _on_refinar(correas, c, n))
+	if not tengo_algo:
 		if correas:
 			_note("No tienes cuero curtido. Cúrtelo primero en la pestaña Curtir.")
 		else:
@@ -350,35 +335,26 @@ func _contadores(mat: MaterialData, sel: Dictionary, necesita: int) -> void:
 		if disp <= 0:
 			continue
 		hubo = true
+		var cur: int = int(sel.get(cal, 0))
+		var ci: int = int(cal)
 		var r := HBoxContainer.new()
 		r.add_theme_constant_override("separation", 6)
 		var lab := Label.new()
-		lab.text = "   %s  (tienes %d)" % [_cal_txt(int(cal)), disp]
+		lab.text = "   %s  (tienes %d)" % [_cal_txt(ci), disp]
 		lab.custom_minimum_size = Vector2(190, 0)
 		r.add_child(lab)
-		var minus := Button.new()
-		minus.text = "−"
-		minus.custom_minimum_size = Vector2(30, 0)
-		minus.pressed.connect(_mat_delta.bind(sel, mat, int(cal), -1))
-		r.add_child(minus)
-		var cnt := Label.new()
-		cnt.text = str(int(sel.get(cal, 0)))
-		cnt.custom_minimum_size = Vector2(26, 0)
-		cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		r.add_child(cnt)
-		var plus := Button.new()
-		plus.text = "+"
-		plus.custom_minimum_size = Vector2(30, 0)
-		plus.pressed.connect(_mat_delta.bind(sel, mat, int(cal), 1))
-		r.add_child(plus)
+		MenuScaffold.stepper(r, cur, 0, disp, func(n: int) -> void: _set_sel_mat(sel, ci, disp, n))
 		_content.add_child(r)
 	if not hubo:
 		_note("   No tienes %s en el Hogar." % mat.nombre.to_lower())
 
 
-func _mat_delta(sel: Dictionary, mat: MaterialData, cal: int, delta: int) -> void:
-	var disp: int = Game.items_calidad_en_hogar(mat, cal)
-	var nuevo: int = clampi(int(sel.get(cal, 0)) + delta, 0, disp)
+# Fija (absoluto) la cantidad elegida de `cal` en `sel`, acotada a `disp`. Lo llama el stepper
+# editable. No rebuildea si no cambia (evita el bucle de focus_exited al liberar el LineEdit).
+func _set_sel_mat(sel: Dictionary, cal: int, disp: int, n: int) -> void:
+	var nuevo: int = clampi(n, 0, disp)
+	if nuevo == int(sel.get(cal, 0)):
+		return
 	if nuevo <= 0:
 		sel.erase(cal)
 	else:
