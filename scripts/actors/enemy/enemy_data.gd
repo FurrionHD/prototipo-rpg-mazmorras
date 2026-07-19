@@ -9,6 +9,13 @@
 extends Resource
 class_name EnemyData
 
+# FAMILIA del bicho: la usan las pasivas "slayer" (mas daño a su familia, menos daño de ella). Es
+# una etiqueta APARTE de es_slime (que solo la lee el sequito del Rey). NINGUNA = sin familia (no le
+# afecta ningun slayer). BESTIA/HUMANOIDE existen pero aun no tienen slayer (reservadas a futuro).
+# Nuevos valores van SIEMPRE al final (los .tres guardan el enum como numero).
+enum Familia { NINGUNA, SLIME, ROEDOR, INSECTO, PIEDRA, BESTIA, HUMANOIDE }
+@export var familia: Familia = Familia.NINGUNA
+
 # --- Identidad ---
 @export var enemy_name: String = "Slime"
 @export var color: Color = Color(1.0, 0.2, 0.2)  # color del placeholder
@@ -235,6 +242,8 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	# Rasgos de resistencia (piedra = aguanta stuns; alien = aguanta debuffs).
 	c.stun_resist = resist_aturdir
 	c.status_resist = status_resist
+	# Familia del bicho (para las pasivas slayer del jugador).
+	c.familia = int(familia)
 	# Sequito (Rey Slime): etiqueta de familia + config de la reduccion de daño por acompañantes.
 	c.es_slime = es_slime
 	c.sequito_reduccion_por_slime = sequito_reduccion_por_slime

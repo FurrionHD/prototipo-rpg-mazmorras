@@ -15,6 +15,7 @@ cap = 2
 
 [resource]
 script = ExtResource("1_g8nro")
+familia = 3
 enemy_name = "Ciempiés carmesí"
 color = Color(0.6, 0.15, 0.12, 1)
 escala_visual = 1.55

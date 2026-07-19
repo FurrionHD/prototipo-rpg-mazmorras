@@ -15,6 +15,7 @@ prob = 0.2
 
 [resource]
 script = ExtResource("1_g8nro")
+familia = 5
 enemy_name = "Jabalí"
 color = Color(0.35, 0.26, 0.22, 1)
 escala_visual = 1.7

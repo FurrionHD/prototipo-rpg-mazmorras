@@ -16,6 +16,7 @@ prob = 0.7
 
 [resource]
 script = ExtResource("1_g8nro")
+familia = 1
 enemy_name = "Rey Slime"
 es_slime = true
 sequito_reduccion_por_slime = 0.1

@@ -15,6 +15,7 @@ prob = 0.35
 
 [resource]
 script = ExtResource("1_g8nro")
+familia = 2
 enemy_name = "Rey rata"
 color = Color(0.62, 0.5, 0.3, 1)
 escala_visual = 1.2

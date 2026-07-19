@@ -14,6 +14,7 @@ prob = 0.4
 
 [resource]
 script = ExtResource("1_g8nro")
+familia = 4
 enemy_name = "Gólem de arcilla"
 color = Color(0.6, 0.45, 0.3, 1)
 escala_visual = 1.9

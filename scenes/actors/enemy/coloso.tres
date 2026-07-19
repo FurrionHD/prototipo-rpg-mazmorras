@@ -14,6 +14,7 @@ prob = 0.5
 
 [resource]
 script = ExtResource("1_g8nro")
+familia = 4
 enemy_name = "Coloso"
 color = Color(0.45, 0.45, 0.5, 1)
 escala_visual = 2.2

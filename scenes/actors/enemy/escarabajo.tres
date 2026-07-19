@@ -14,6 +14,7 @@ prob = 0.5
 
 [resource]
 script = ExtResource("1_g8nro")
+familia = 3
 enemy_name = "Escarabajo de hierro"
 color = Color(0.3, 0.4, 0.28, 1)
 escala_visual = 1.5

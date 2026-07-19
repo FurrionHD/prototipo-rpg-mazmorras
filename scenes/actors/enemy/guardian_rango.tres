@@ -9,6 +9,7 @@
 
 [resource]
 script = ExtResource("1_g8nro")
+familia = 6
 enemy_name = "Minotauro"
 color = Color(0.55, 0.34, 0.2, 1)
 escala_visual = 2.4

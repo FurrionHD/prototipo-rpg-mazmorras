@@ -15,6 +15,7 @@ prob = 0.5
 
 [resource]
 script = ExtResource("1_g8nro")
+familia = 1
 es_slime = true
 drop_material = ExtResource("6_baba")
 nucleo = ExtResource("7_nuc")

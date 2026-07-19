@@ -201,6 +201,23 @@ var sequito_reduccion_por_slime: float = 0.0
 var sequito_reduccion_max: float = 0.0
 var battle_enemies: Array = []
 
+# --- PASIVAS SLAYER (del jugador) ---
+# familia: a que familia pertenece ESTE combatiente (EnemyData.Familia; 0 = NINGUNA). Los slayer del
+# jugador leen la del defensor (para pegar mas) y la del atacante (para encajar menos).
+# mult_vs_familia / mult_from_familia: {familia: mult} que sella Game en el Combatant del JUGADOR por
+# cada slayer que tenga (los enemigos los dejan vacios -> 1.0, sin efecto). Ver resolve_attack.
+var familia: int = 0
+var mult_vs_familia: Dictionary = {}
+var mult_from_familia: Dictionary = {}
+
+# Multiplicador de daño del jugador CONTRA un objetivo de familia `fam` (1.0 si no hay slayer).
+func mult_vs(fam: int) -> float:
+	return float(mult_vs_familia.get(fam, 1.0))
+
+# Multiplicador de daño que ESTE combatiente encaja de un atacante de familia `fam` (1.0 por defecto).
+func mult_from(fam: int) -> float:
+	return float(mult_from_familia.get(fam, 1.0))
+
 # Reduccion de daño DIRECTO por el sequito: por cada OTRO slime vivo del roster, un escalon, hasta
 # el tope. 0 para todos salvo el Rey (que trae sequito_reduccion_por_slime > 0). Se recalcula aqui
 # cada vez, asi que refleja los slimes vivos AHORA (matar al sequito baja el escudo al momento).

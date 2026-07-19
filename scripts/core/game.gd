@@ -78,6 +78,7 @@ const CRIT_BAKE_MAX := 0.08        # crítico plano que aporta al subir una Dest
 # = { nivel_objetivo: true }. Para subir a N hace falta haber vencido al guardián de N (+ rango).
 var guardianes_vencidos: Dictionary = {}
 var desarrollos_rango: Dictionary = {}       # {id: rango 1..10} de las habilidades de desarrollo (ver DESARROLLOS)
+var pasivas_rng: Dictionary = {}             # {id: true} pasivas RNG binarias conseguidas (ver PASIVAS_RNG)
 const RETO_MAX := 8.0              # tope de dificultad relativa (enemigo muy superior = mas ganancia)
 # Tope de reto SOLO para las stats FISICAS (Fuerza/Resistencia/Agilidad): mas
 # bajo que el de Destreza (8) para que no se disparen contra enemigos superiores.
@@ -603,6 +604,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	player_base_magia_factor = 1.0
 	player_base_crit = 0.0
 	desarrollos_rango.clear()
+	pasivas_rng.clear()
 	guardianes_vencidos = {}
 	habilidad_metalurgia = false
 	habilidad_peleteria = false
@@ -706,6 +708,7 @@ func exportar_partida() -> SaveData:
 	d.player_base_magia_factor = player_base_magia_factor
 	d.player_base_crit = player_base_crit
 	d.desarrollos_rango = desarrollos_rango.duplicate()
+	d.pasivas_rng = pasivas_rng.duplicate()
 	d.guardianes_vencidos = guardianes_vencidos.duplicate()
 	d.player_current_hp = player_hp()
 	d.player_current_mp = player_current_mp
@@ -810,6 +813,7 @@ func importar_partida(d: SaveData) -> void:
 	player_base_magia_factor = d.player_base_magia_factor
 	player_base_crit = d.player_base_crit
 	desarrollos_rango = d.desarrollos_rango.duplicate()
+	pasivas_rng = (d.pasivas_rng as Dictionary).duplicate() if d.pasivas_rng != null else {}
 	guardianes_vencidos = d.guardianes_vencidos.duplicate()
 	# Los efectos de los desarrollos se leen del RANGO en vivo (no hay interruptores que re-encender).
 	player_current_hp = d.player_current_hp
@@ -1983,6 +1987,7 @@ func crear_player_combatant() -> Combatant:
 	c.spells = equipped_spells
 
 	_aplicar_loadout(c)
+	_aplicar_pasivas_slayer(c)   # multiplicadores de daño por familia (pasivas RNG)
 	return c
 
 
@@ -4066,6 +4071,96 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	return true
 
 
+# ============================================================
+#  PASIVAS RNG (binarias): recompensas ULTRA-raras que caen haciendo cosas. La tienes o no la
+#  tienes (sin rangos, a diferencia de los desarrollos). Prob 1/500.000 por accion: casi nadie las
+#  ve, y como hay muchas, no se acaban consiguiendo todas. Se guardan en pasivas_rng (save_data).
+#    - SLAYER de familia: +25% de daño a esa familia de bichos, -10% del que te hacen. Rueda al
+#      matar un bicho de la familia (ver EnemyData.Familia).
+#    - RECOLECCION: +1 al botin de esa recoleccion. Rueda al terminar el minijuego.
+#  BESTIA y HUMANOIDE existen como familia pero aun no tienen slayer (reservadas a futuro).
+# ============================================================
+const PASIVA_PROB := 0.000002   # 1 entre 500.000
+
+const PASIVAS_RNG: Array = [
+	# Slayer (familia = EnemyData.Familia). dmg_vs = daño que HACES; dmg_from = daño que ENCAJAS.
+	{"id": "slayer_slime", "nombre": "Cazador de slimes", "tipo": "slayer", "familia": 1,
+		"dmg_vs": 1.25, "dmg_from": 0.90,
+		"desc": "Haces un 25% más de daño a los slimes y encajas un 10% menos del suyo."},
+	{"id": "slayer_roedor", "nombre": "Cazador de alimañas", "tipo": "slayer", "familia": 2,
+		"dmg_vs": 1.25, "dmg_from": 0.90,
+		"desc": "Haces un 25% más de daño a los roedores y encajas un 10% menos del suyo."},
+	{"id": "slayer_insecto", "nombre": "Exterminador", "tipo": "slayer", "familia": 3,
+		"dmg_vs": 1.25, "dmg_from": 0.90,
+		"desc": "Haces un 25% más de daño a los insectos y encajas un 10% menos del suyo."},
+	{"id": "slayer_piedra", "nombre": "Rompepiedras", "tipo": "slayer", "familia": 4,
+		"dmg_vs": 1.25, "dmg_from": 0.90,
+		"desc": "Haces un 25% más de daño a las criaturas de piedra y encajas un 10% menos del suyo."},
+	# Recoleccion (reco = qué minijuego). Cada una da +1 pieza al botin de LO SUYO.
+	{"id": "reco_mineria", "nombre": "Buen ojo para el mineral", "tipo": "reco", "reco": "mineria",
+		"desc": "Sacas una pieza de más cada vez que picas una veta."},
+	{"id": "reco_herboristeria", "nombre": "Mano de herbolario", "tipo": "reco", "reco": "herboristeria",
+		"desc": "Recoges una planta de más cada vez que cosechas."},
+	{"id": "reco_talado", "nombre": "Leñador nato", "tipo": "reco", "reco": "talado",
+		"desc": "Sacas una madera de más cada vez que talas."},
+	{"id": "reco_extraccion", "nombre": "Pulso de joyero", "tipo": "reco", "reco": "extraccion",
+		"desc": "Extraes un cristal de más de cada cadáver."},
+]
+
+func tiene_pasiva(id: String) -> bool:
+	return bool(pasivas_rng.get(id, false))
+
+func pasiva_por_id(id: String) -> Dictionary:
+	for p in PASIVAS_RNG:
+		if str(p["id"]) == id:
+			return p
+	return {}
+
+# Tira por CONCEDER la pasiva `id` (si no la tienes ya). true = te ha tocado. Ultra-raro (PASIVA_PROB).
+func rodar_pasiva(id: String) -> bool:
+	if tiene_pasiva(id):
+		return false
+	if randf() >= PASIVA_PROB:
+		return false
+	pasivas_rng[id] = true
+	var d: Dictionary = pasiva_por_id(id)
+	print("[pasiva] ¡Consigues la pasiva RNG '%s'!" % str(d.get("nombre", id)))
+	var tree: SceneTree = get_tree() if is_inside_tree() else null
+	var hud: Node = tree.get_first_node_in_group("hud") if tree != null else null
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast("¡Pasiva conseguida!  %s\n%s" % [str(d.get("nombre", id)), str(d.get("desc", ""))])
+	return true
+
+# Al matar un bicho de familia `fam`, tira por su slayer (si esa familia tiene uno).
+func rodar_slayer_por_familia(fam: int) -> void:
+	if fam <= 0:
+		return
+	for p in PASIVAS_RNG:
+		if str(p.get("tipo", "")) == "slayer" and int(p.get("familia", 0)) == fam:
+			rodar_pasiva(str(p["id"]))
+			return
+
+# Pasiva de una RECOLECCION: tira por conseguirla y, si ya la tienes, mete UNA pieza extra igual a
+# la recogida en la bolsa. Lo llaman las finales de mineria/herboristeria/talado/extraccion.
+func _botin_extra_reco(pasiva_id: String, data: MaterialData, calidad: int) -> void:
+	rodar_pasiva(pasiva_id)
+	if tiene_pasiva(pasiva_id) and data != null:
+		materiales.append(MaterialItem.crear(data, calidad))
+		print("[pasiva] +1 %s por '%s'." % [data.nombre, str(pasiva_por_id(pasiva_id).get("nombre", pasiva_id))])
+
+# Sella en el Combatant del JUGADOR los multiplicadores de daño de sus slayer (vs/from familia).
+# Los enemigos NO llaman a esto: sus dicts quedan vacios (mult 1.0). Ver Combatant.mult_vs/from.
+func _aplicar_pasivas_slayer(c: Combatant) -> void:
+	c.mult_vs_familia = {}
+	c.mult_from_familia = {}
+	for p in PASIVAS_RNG:
+		if str(p.get("tipo", "")) != "slayer" or not tiene_pasiva(str(p["id"])):
+			continue
+		var fam: int = int(p["familia"])
+		c.mult_vs_familia[fam] = float(p["dmg_vs"])
+		c.mult_from_familia[fam] = float(p["dmg_from"])
+
+
 # --- HABILIDADES DE DESARROLLO (eliges 1 al subir de nivel) ---
 # Catalogo: 4 OFICIOS (encienden los interruptores ya sembrados: mejoran lo que crafteas) + 5
 # perks de COMBATE, cada uno con un efecto DISTINTO (antes eran tres veces el mismo +30%).
@@ -4617,6 +4712,14 @@ func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 
 	if cristal != null and not cristal.se_pierde():
 		crystals.append(cristal)
+		# Pasiva RNG de extraccion: tira por conseguirla y, si la tienes, un cristal extra igual.
+		rodar_pasiva("reco_extraccion")
+		if tiene_pasiva("reco_extraccion"):
+			var extra := Cristal.new()
+			extra.categoria = cristal.categoria
+			extra.calidad = cristal.calidad
+			crystals.append(extra)
+			print("[pasiva] +1 cristal por 'Pulso de joyero'.")
 		print("Obtienes cristal categoria ", cristal.categoria,
 			" (", cristal.calidad_texto(), "). Total: ", crystals.size())
 		# Destreza: subes mas cuanto mas dificil era el minijuego PARA TI (zona
@@ -4740,6 +4843,7 @@ func _on_mineria_finished(item: MaterialItem, nodo) -> void:
 	if not item.se_pierde():
 		materiales.append(item)
 		descubrir(item.data)
+		_botin_extra_reco("reco_mineria", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
 		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
 	else:
 		print("La veta se deshace en escombro: no sacas nada.")
@@ -4789,6 +4893,7 @@ func _on_herboristeria_finished(item: MaterialItem, nodo) -> void:
 	if not item.se_pierde():
 		materiales.append(item)
 		descubrir(item.data)
+		_botin_extra_reco("reco_herboristeria", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
 		print("Recoges ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
 	else:
 		print("La planta queda hecha jirones: no sirve.")
@@ -4832,6 +4937,7 @@ func _on_talado_finished(item: MaterialItem, nodo) -> void:
 	if not item.se_pierde():
 		materiales.append(item)
 		descubrir(item.data)
+		_botin_extra_reco("reco_talado", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
 		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
 	else:
 		print("El tronco se raja en astillas: no sacas nada.")

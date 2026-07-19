@@ -85,6 +85,7 @@ const VERSION_ACTUAL := 2
 @export var player_base_magia_factor: float = 1.0
 @export var player_base_crit: float = 0.0
 @export var desarrollos_rango: Dictionary = {}   # {id: rango 1..10} de las habilidades de desarrollo
+@export var pasivas_rng: Dictionary = {}         # {id: true} de las pasivas RNG conseguidas (binarias)
 @export var guardianes_vencidos: Dictionary = {}
 @export var player_current_hp: float = -1.0
 @export var player_current_mp: float = -1.0

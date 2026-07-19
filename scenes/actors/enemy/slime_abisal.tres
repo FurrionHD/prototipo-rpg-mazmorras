@@ -15,6 +15,7 @@ prob = 0.5
 
 [resource]
 script = ExtResource("1_g8nro")
+familia = 1
 enemy_name = "Slime abisal"
 es_slime = true
 color = Color(0.2, 0.35, 0.7, 1)

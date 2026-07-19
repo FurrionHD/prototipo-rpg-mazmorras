@@ -20,6 +20,7 @@ var _peso_lbl: Label = null     # numero de peso encima del cuadrado
 
 func _ready() -> void:
 	layer = 5  # por encima de la mazmorra, por debajo del combate (100)
+	add_to_group("hud")   # para que Game le pida toasts (pasivas RNG, etc.)
 
 	# Un HUD recien creado SIEMPRE arranca sin menus. Reiniciamos el estado global por si veniamos
 	# de una escena con uno abierto (p.ej. pulsar R para recargar teniendolo abierto): si no, el
@@ -112,6 +113,29 @@ func _avisar_muerte() -> void:
 	# Se queda un rato y se desvanece: no es un menu, es una noticia.
 	var t := create_tween()
 	t.tween_interval(6.0)
+	t.tween_property(aviso, "modulate:a", 0.0, 1.5)
+	t.tween_callback(aviso.queue_free)
+
+
+# TOAST no bloqueante (el juego NO se para): un cartel dorado que aparece arriba y se desvanece.
+# Lo usa Game para avisar de cosas raras (una pasiva RNG que acabas de conseguir). Se le puede
+# llamar desde cualquier parte via el grupo "hud".
+func mostrar_toast(texto: String) -> void:
+	var aviso := Label.new()
+	aviso.text = texto
+	aviso.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	aviso.offset_top = 130
+	aviso.offset_left = -420
+	aviso.offset_right = 420
+	aviso.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	aviso.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	aviso.add_theme_font_size_override("font_size", 18)
+	aviso.add_theme_color_override("font_color", Color(0.98, 0.82, 0.35))
+	aviso.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	aviso.add_theme_constant_override("outline_size", 5)
+	add_child(aviso)
+	var t := create_tween()
+	t.tween_interval(5.0)
 	t.tween_property(aviso, "modulate:a", 0.0, 1.5)
 	t.tween_callback(aviso.queue_free)
 

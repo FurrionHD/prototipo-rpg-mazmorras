@@ -20,6 +20,7 @@ cap = 2
 
 [resource]
 script = ExtResource("1_g8nro")
+familia = 3
 enemy_name = "Araña de las simas"
 color = Color(0.3, 0.25, 0.4, 1)
 escala_visual = 1.5

@@ -343,6 +343,11 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# 3.5) Armadura: reduccion porcentual SIEMPRE activa (afecta tambien al critico).
 	dmg *= (1.0 - clampf(defender.armor_reduction, 0.0, ARMOR_REDUCTION_MAX))
 
+	# 3.6) PASIVAS SLAYER (del jugador): +daño a una familia, −daño de ella. Los dicts van vacios en
+	# los enemigos (mult 1.0), asi que esto solo tiene efecto cuando el jugador tiene el slayer.
+	dmg *= attacker.mult_vs(defender.familia)     # el jugador pega mas a esa familia
+	dmg *= defender.mult_from(attacker.familia)   # y encaja menos de ella
+
 	# 4) Defensa activa: reduce el daño segun el bloqueo del loadout del defensor.
 	if defending:
 		dmg *= clampf(1.0 - defender.defend_block, DEFEND_TAKEN_MIN, DEFEND_TAKEN_MAX)

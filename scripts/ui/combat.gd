@@ -986,11 +986,15 @@ func _on_continue_pressed() -> void:
 	var muertos: Array = []
 	var hp_left: Array = []
 	for i in _enemies.size():
+		var e_muerto: bool = not _enemies[i].is_alive()
 		# Los INVOCADOS (Rey Slime) van SIEMPRE como muertos: no tienen nodo en la mazmorra, asi que
 		# no dejan cadaver que reanimar. Ademas, si el slot reutiliza el hueco de un enemigo real que
 		# cayo, forzarlo a muerto evita que Game reanime al original (con la vida del invocado) al huir.
-		if not _enemies[i].is_alive() or _slots_invocados.has(i):
+		if e_muerto or _slots_invocados.has(i):
 			muertos.append(i)
+		# Pasiva RNG slayer: cada bicho ABATIDO de verdad tira por su slayer de familia (ultra-raro).
+		if e_muerto:
+			Game.rodar_slayer_por_familia(int(_enemies[i].familia))
 		hp_left.append(_enemies[i].current_hp)
 	combat_finished.emit(_player_won, _player.current_hp, _player.current_mp,
 		_player.current_energy, muertos, hp_left)
