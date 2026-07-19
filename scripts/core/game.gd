@@ -3722,12 +3722,17 @@ func pocion_siguiente(receta: RecipeData) -> ConsumableData:
 	return null
 
 
-# Puntuacion de calidad 0..1 para el bonus de doble (intacto 1, normal 0.5, dañado 0).
+# Puntuacion de calidad del material para las tiradas que dependen de él (RAREZA al forjar y DOBLE
+# en la boticaria). MISMA escala que MaterialItem.score_calidad, y tiene que seguir siéndolo: aquí
+# se OLVIDABA el PURO y devolvia 0, asi que forjar/mezclar con material puro (el mejor del juego, el
+# que saca la Metalurgia alta) no subia la rareza NADA. El PURO se sale del 0..1 a proposito: es lo
+# que deja pasar del techo del material recolectado.
 func _score_calidad(cal: int) -> float:
 	match cal:
+		MaterialItem.Calidad.PURO: return 1.5
 		MaterialItem.Calidad.INTACTO: return 1.0
 		MaterialItem.Calidad.NORMAL: return 0.5
-		_: return 0.0
+		_: return 0.0   # DAÑADO / ROTO
 
 
 # Fabrica CUANTAS pociones cubra la seleccion (pociones_de_seleccion) y, si es mejora, gasta una
