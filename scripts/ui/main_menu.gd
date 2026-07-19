@@ -69,7 +69,7 @@ func _ready() -> void:
 	center.add_child(vb)
 
 	var tit := Label.new()
-	tit.text = "JUEGUITO DEL DAWNSI"   # provisional, hasta que tenga nombre de verdad
+	tit.text = "DUNGEON ORATORIA"
 	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tit.add_theme_font_size_override("font_size", 34)
 	tit.add_theme_color_override("font_color", AMBAR)

@@ -10,9 +10,13 @@ config_version=5
 
 [application]
 
-config/name="Jueguito del Dawnsi"
+config/name="Dungeon Oratoria"
 config/version="0.7.0"
 run/main_scene="res://scenes/ui/main_menu.tscn"
+; Carpeta de guardado FIJA (user://), desacoplada del nombre visible: asi cambiar config/name
+; NO mueve las partidas nunca mas. En Windows resuelve a %APPDATA%\DungeonOratoria\.
+config/use_custom_user_dir=true
+config/custom_user_dir_name="DungeonOratoria"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
