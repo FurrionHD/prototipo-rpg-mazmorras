@@ -2986,11 +2986,9 @@ func fibra_de_forja(base: Resource, metal: MaterialData) -> MaterialData:
 		return cuero_de_tier(tier)   # cuero del tier del metal; null = no hay a esa altura (freno)
 	if base is ShieldData:
 		return cuero_de_tier(1)      # correas: recubrimiento, cuero base sin tier (como al forjarlo)
-	var maderas: Array = maderas_forja()
-	for m in maderas:
-		if (m as MaterialData).tier == tier:
-			return m as MaterialData
-	return null
+	# El MANGO del arma es un TABLON (madera aserrada), IGUAL que al forjarla: la madera cruda ya no
+	# va directa a la pieza, ni al hacerla ni al reforzarla. Del mismo tier que el metal.
+	return tablon_de_tier(tier)
 
 
 # --- REFINAR (una sola operacion para fundir, batir y curtir) ---
