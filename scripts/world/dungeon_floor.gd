@@ -120,8 +120,27 @@ const RESPAWN_SEGUNDOS := 300.0
 # ------------------------------------------------------------
 const FLOOR_GROWTH := 1.10
 
+# El MAPA crece con la profundidad: su AREA sube ~AREA_GROWTH por piso (un 7%, medio de 5-10%).
+# Como el area = ancho*alto, cada lado se escala por sqrt del factor de area. El nº de salas sube
+# con el area entera (si no, un mapa mas grande con las mismas salas queda vacio de pasillos).
+# CRECIMIENTO_TOPE capa el exponente: sin tope, abajo del todo el piso seria ingobernable y la
+# generacion se dispararia. PROVISIONAL -> Excel.
+const AREA_GROWTH := 1.07
+const CRECIMIENTO_TOPE := 14
+
 func escalar_con_el_piso(base: int) -> int:
 	return maxi(1, roundi(float(base) * pow(FLOOR_GROWTH, float(Game.current_floor - 1))))
+
+# Pisos que cuentan para el crecimiento (0 en el piso 1, capado en CRECIMIENTO_TOPE).
+func _pasos_crecimiento() -> int:
+	return clampi(_piso_construido - 1, 0, CRECIMIENTO_TOPE)
+
+# Factor de AREA de este piso, y el LINEAL (raiz) para escalar cada lado.
+func _factor_area_piso() -> float:
+	return pow(AREA_GROWTH, float(_pasos_crecimiento()))
+
+func _factor_lineal_piso() -> float:
+	return sqrt(_factor_area_piso())
 
 # Vivos que aguanta ESTE piso (el @export es el del piso 1).
 func max_vivos() -> int:
@@ -227,8 +246,16 @@ func _construir(por_la_bajada: bool = false) -> void:
 	_sala_boss = -1
 	_zona_aterrizaje = -1
 	gen = DungeonGenerator.new()
-	gen.generar(ancho_celdas, alto_celdas, _semilla_del_piso(),
-		max_salas, sala_min, sala_max, ancho_pasillo)
+	# El tamaño del @export es el del piso 1; abajo el mapa crece (ver AREA_GROWTH).
+	var fl: float = _factor_lineal_piso()
+	var w: int = roundi(float(ancho_celdas) * fl)
+	var h: int = roundi(float(alto_celdas) * fl)
+	var salas: int = roundi(float(max_salas) * _factor_area_piso())
+	if _piso_construido > 1:
+		print("[mazmorra] piso %d: %dx%d celdas · %d salas (x%.2f area)" % [
+			_piso_construido, w, h, salas, _factor_area_piso()])
+	gen.generar(w, h, _semilla_del_piso(),
+		salas, sala_min, sala_max, ancho_pasillo)
 
 	# Lo que ya picaste en este piso, con el SELLO de tiempo de cuando lo picaste (para el
 	# respawn). Vive en mazmorra_persistente, que sobrevive a volver al pueblo: por eso picar un
