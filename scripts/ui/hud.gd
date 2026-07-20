@@ -181,7 +181,9 @@ func _fondo_negro() -> StyleBoxFlat:
 
 func _process(_delta: float) -> void:
 	# Ayudas de tecla (el resto de datos viven en las barras / cuadrado de peso / menus).
-	_counts.text = "[I] Inventario   [C] Personaje   [Q] Curación óptima\n[F1] Ayuda   [F3] FPS   [Esc] Pausa"
+	# El [F] va AQUI y no repetido en el cartel de cada edificio: la tecla es siempre la misma, asi
+	# que ponerla nueve veces por el pueblo era ruido. Va la primera por ser la que mas se usa.
+	_counts.text = "[F] Interactuar   [I] Inventario   [C] Personaje   [Q] Curación óptima\n[F1] Ayuda   [F3] FPS   [Esc] Pausa"
 
 	# Piso arriba a la derecha, y el dinero debajo.
 	_floor_lbl.text = "Piso: %d" % Game.current_floor
