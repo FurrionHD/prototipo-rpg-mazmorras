@@ -71,13 +71,17 @@ func refrescar() -> void:
 	_colocar()
 
 
-# El rastro arranca lleno de la posicion actual: si empezara vacio, los companeros apareceran
-# amontonados en el origen del mapa hasta que anduvieras lo suyo.
+# El rastro arranca ya EXTENDIDO hacia arriba desde donde estas, en vez de lleno de tu posicion
+# a secas. Dos motivos:
+#   - vacio, los companeros apareceran amontonados en el origen del mapa;
+#   - todo en tu MISMO punto, aparecen exactamente DEBAJO de ti (y con z_index -1, invisibles)
+#     hasta que andes lo suficiente, que da la sensacion de que no te sigue nadie.
+# Sembrandolo como una linea, nacen ya colocados en fila detras y se ven desde el primer frame.
 func _sembrar_rastro() -> void:
 	_rastro = PackedVector2Array()
 	var p: Vector2 = _pos_lider()
 	for i in RASTRO_MAX:
-		_rastro.append(p)
+		_rastro.append(p + Vector2(0, -PASO * float(i)))
 
 
 func _pos_lider() -> Vector2:

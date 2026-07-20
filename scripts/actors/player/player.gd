@@ -340,8 +340,17 @@ func _comprobar_grupo() -> void:
 # Las barras de los COMPANEROS, debajo de las tuyas: mas finas y sin numeros gordos, porque son
 # informacion de apoyo (¿aguanta el de atras?), no lo que estas mirando todo el rato. Cada una
 # lleva delante el cuadradito de su color, que es como los distingues en el mapa.
-const ALTO_FILA_COMP := 22.0     # lo que ocupa la fila de un companero
-const Y_BARRAS_COMP := 68.0      # justo debajo de las tres barras del lider (12..62)
+# Van a la DERECHA, bajo el panel de piso/monedas, y no debajo de tus barras: la esquina de la
+# izquierda ya la ocupan tus tres barras Y la caja de ayudas de teclas (hud.gd, en 8,64), asi que
+# ahi se pisaban. A la derecha hay sitio de sobra y ademas quedan agrupadas con el resto de
+# informacion de estado.
+#
+# Se anclan a la esquina TOP_RIGHT en vez de ponerles una x fija: asi siguen pegadas al borde
+# aunque cambie la resolucion, igual que hace el panel de piso/monedas.
+const ALTO_FILA_COMP := 26.0     # lo que ocupa la fila de un companero
+const Y_BARRAS_COMP := 64.0      # justo debajo del panel de piso + monedas
+const ANCHO_FILA_COMP := 200.0   # lo que mide la fila entera (nombre encima de la barra)
+const MARGEN_DER := 12.0
 
 func _rehacer_barras_companeros() -> void:
 	for fila in _barras_comp:
@@ -353,22 +362,36 @@ func _rehacer_barras_companeros() -> void:
 	for i in comps.size():
 		var pj: PersonajeData = comps[i]
 		var raiz := Control.new()
-		raiz.position = Vector2(12, Y_BARRAS_COMP + ALTO_FILA_COMP * float(i))
+		raiz.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		raiz.position = Vector2(-(ANCHO_FILA_COMP + MARGEN_DER),
+			Y_BARRAS_COMP + ALTO_FILA_COMP * float(i))
+		raiz.size = Vector2(ANCHO_FILA_COMP, ALTO_FILA_COMP)
 		raiz.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_barras_layer.add_child(raiz)
 
+		# El NOMBRE va encima de la barra (no al lado): a la derecha el ancho es el que es, y
+		# poniendolo detras habria que recortar la barra a la mitad para que cupiera.
+		var nombre := Label.new()
+		nombre.text = pj.nombre
+		nombre.position = Vector2(18, -3)
+		nombre.add_theme_font_size_override("font_size", 10)
+		nombre.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		nombre.add_theme_constant_override("outline_size", 3)
+		nombre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		raiz.add_child(nombre)
+
 		var punto := ColorRect.new()
 		punto.size = Vector2(12, 12)
-		punto.position = Vector2(0, 2)
+		punto.position = Vector2(0, 6)
 		punto.color = pj.color
 		punto.material = Game.material_de(pj)
 		raiz.add_child(punto)
 
 		var hp := ProgressBar.new()
 		hp.show_percentage = false
-		hp.custom_minimum_size = Vector2(120, 12)
-		hp.size = Vector2(120, 12)
-		hp.position = Vector2(16, 2)
+		hp.custom_minimum_size = Vector2(126, 11)
+		hp.size = Vector2(126, 11)
+		hp.position = Vector2(18, 11)
 		hp.self_modulate = Color(1.0, 0.4, 0.4)
 		raiz.add_child(hp)
 		var hp_lbl: Label = _crear_label_barra(hp, 9)
@@ -379,20 +402,11 @@ func _rehacer_barras_companeros() -> void:
 		if Game.player_max_mp(pj) > 0.0 and not pj.equipped_spells.is_empty():
 			mp = ProgressBar.new()
 			mp.show_percentage = false
-			mp.custom_minimum_size = Vector2(56, 6)
-			mp.size = Vector2(56, 6)
-			mp.position = Vector2(140, 5)
+			mp.custom_minimum_size = Vector2(48, 7)
+			mp.size = Vector2(48, 7)
+			mp.position = Vector2(148, 13)
 			mp.self_modulate = Color(0.4, 0.6, 1.0)
 			raiz.add_child(mp)
-
-		var nombre := Label.new()
-		nombre.text = pj.nombre
-		nombre.position = Vector2(202, -2)
-		nombre.add_theme_font_size_override("font_size", 10)
-		nombre.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-		nombre.add_theme_constant_override("outline_size", 3)
-		nombre.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		raiz.add_child(nombre)
 
 		_barras_comp.append({"pj": pj, "raiz": raiz, "hp": hp, "hp_lbl": hp_lbl, "mp": mp})
 
