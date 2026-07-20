@@ -72,17 +72,44 @@ func refrescar() -> void:
 			_cuerpos[i].pintar(comps[i])
 
 
-# El rastro arranca ya EXTENDIDO hacia arriba desde donde estas, en vez de lleno de tu posicion
-# a secas. Dos motivos:
-#   - vacio, los companeros apareceran amontonados en el origen del mapa;
-#   - todo en tu MISMO punto, aparecen exactamente DEBAJO de ti (y con z_index -1, invisibles)
-#     hasta que andes lo suficiente, que da la sensacion de que no te sigue nadie.
-# Sembrandolo como una linea, nacen ya colocados en fila detras y se ven desde el primer frame.
+# El rastro arranca EXTENDIDO desde donde estas, para que nazcan ya en fila detras de ti y se vean
+# desde el primer frame (amontonados en tu mismo punto, y con z_index -1, serian invisibles hasta
+# que anduvieras: parece que no te sigue nadie).
+#
+# Pero la direccion ya NO es "hacia arriba" a ciegas. Con cuerpos fantasma daba igual; ahora son
+# cuerpos con colision, y sembrar hacia la roca los planta DENTRO de la piedra, de donde no pueden
+# salir: bajabas al piso y te habias quedado solo. Asi que se prueban los cuatro lados y se coge
+# el primero que este despejado de verdad (un rayo contra la capa de la roca). Si no hay ninguno
+# -naces en un hueco de tu tamaño-, se amontonan en tu punto, que es pisable siempre porque estas
+# tu de pie en el; ya se desplegaran al andar.
+const CAPA_ROCA := 1
+
+
 func _sembrar_rastro() -> void:
-	_rastro = PackedVector2Array()
 	var p: Vector2 = _pos_lider()
+	var largo: float = SEPARACION * float(maxi(1, Game.PARTY_MAX - 1)) + LADO
+	var dir: Vector2 = Vector2.ZERO
+	for candidata in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+		if _despejado(p, p + candidata * largo):
+			dir = candidata
+			break
+	_rastro = PackedVector2Array()
 	for i in RASTRO_MAX:
-		_rastro.append(p + Vector2(0, -PASO * float(i)))
+		_rastro.append(p + dir * (PASO * float(i)))
+
+
+# ¿Se llega del punto a al b sin roca de por medio? Mismo criterio que el cono de vision del
+# enemigo (ver enemy._linea_de_vision_libre): un rayo contra la capa de los muros.
+func _despejado(a: Vector2, b: Vector2) -> bool:
+	var mundo: World2D = get_world_2d()
+	if mundo == null:
+		return false
+	var query := PhysicsRayQueryParameters2D.create(a, b, CAPA_ROCA)
+	# El propio jugador comparte capa con la roca: sin excluirlo, el rayo choca contigo al salir.
+	var padre := get_parent()
+	if padre is CollisionObject2D:
+		query.exclude = [(padre as CollisionObject2D).get_rid()]
+	return mundo.direct_space_state.intersect_ray(query).is_empty()
 
 
 func _pos_lider() -> Vector2:

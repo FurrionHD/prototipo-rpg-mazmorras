@@ -683,6 +683,12 @@ func _try_interact() -> void:
 func recolocar(pos: Vector2) -> void:
 	global_position = pos
 	_last_pos = pos
+	# EL SEQUITO VIENE CONTIGO. Esto no es un detalle: los companeros son cuerpos con colision, y
+	# el rastro que traian apunta al sitio del que acabas de salir. Sin rehacerlo aqui se quedaban
+	# plantados donde nace el jugador en la escena -que en la mazmorra es roca maciza-, sin poder
+	# salir de la piedra ni volver a la fila: bajabas al piso y te encontrabas solo.
+	if _sequito != null and _sequito.has_method("teletransportar"):
+		_sequito.teletransportar()
 	# La camara va suavizada: sin esto, al plantarte en el piso nuevo se vendria detras
 	# haciendo una panoramica de media mazmorra en vez de estar YA donde estas.
 	var cam: Camera2D = get_node_or_null("Camera2D")

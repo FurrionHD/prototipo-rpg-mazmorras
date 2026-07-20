@@ -26,6 +26,9 @@ const LADO := 32.0
 # engancharse en una esquina, o al cambiar de lider. Por encima de correr (204 px/s) para que
 # recupere el hueco, pero acotado: sin tope, un salto del rastro lo dispararia de golpe.
 const VEL_MAX := 320.0
+# A partir de cuanto se le da por encallado y se le teletransporta a su sitio (ver seguir()). Tres
+# cuerpos de margen: mas que cualquier rodeo honesto por una esquina, menos que "se ha perdido".
+const RESCATE := 96.0
 
 # A quien pinta este cuerpo. Lo lee el enemigo (para el nombre en el log) y el rastro para saber
 # si tiene que repintarlo.
@@ -74,6 +77,14 @@ func pintar(nuevo: PersonajeData) -> void:
 # es una pared (que es justo para lo que esta el cuerpo).
 func seguir(destino: Vector2, delta: float) -> void:
 	var falta: Vector2 = destino - global_position
+	# RESCATE: si se ha quedado MUY atras, se le planta en su punto y a seguir. Pasa cuando un
+	# cuerpo se enrieda en una esquina o acaba dentro de la roca (un teletransporte raro, un
+	# combate que lo dejo descolocado). El punto del rastro es pisable por definicion -lo acabas
+	# de pisar tu-, asi que el rescate nunca lo mete en una pared. Sin esto, un companero
+	# encallado se quedaba atras PARA SIEMPRE: el destino se aleja y el no puede alcanzarlo.
+	if falta.length() > RESCATE:
+		plantar(destino)
+		return
 	if delta <= 0.0 or falta.length() < 0.5:
 		velocity = Vector2.ZERO
 		return
