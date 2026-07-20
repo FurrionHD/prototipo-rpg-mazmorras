@@ -14,8 +14,13 @@
 #
 #  COLISION: capa 4 ("aliados"), mascara 1 (solo la roca). Mismo criterio que enemy.gd: si los
 #  cuerpos chocaran entre si, dos que se solapan se des-penetran a empujones y acaban saliendo
-#  disparados a traves de una pared. Tampoco chocan contigo, o retroceder sobre tu propia fila
-#  seria pelearte con tres cuerpos.
+#  disparados a traves de una pared. El grupo se atraviesa entre si Y te atraviesa a ti: eso no es
+#  una concesion, es lo que evita que os bloqueeis unos a otros en un pasillo.
+#
+#  OJO con el jugador: esta en la capa 1, LA MISMA QUE LA ROCA (ver enemy.gd, que se topa con lo
+#  mismo al tirar sus rayos de vision). Asi que la mascara "solo roca" te incluye a ti de propina,
+#  y hay que excluirte a mano con una excepcion de colision, o el que va detras se pasa el rato
+#  empujando al que llevas delante.
 # ============================================================
 
 extends CharacterBody2D
@@ -48,6 +53,11 @@ func _ready() -> void:
 	z_as_relative = false
 	z_index = 0
 	add_to_group("aliado")
+
+	# El cuerpo del jugador comparte capa con la roca: se le excluye para poder atravesarlo.
+	var lider: Node = get_tree().get_first_node_in_group("player")
+	if lider is CollisionObject2D:
+		add_collision_exception_with(lider)
 
 	_cuerpo = ColorRect.new()
 	_cuerpo.offset_left = -LADO * 0.5
