@@ -103,6 +103,10 @@ const VERSION_ACTUAL := 2
 # player_* SON las del lider), y al cargar el grupo vuelve en el mismo orden.
 @export var plantilla: Array = []
 @export var equipo: Array = []
+# En que HUECO del equipo estaba el que iba en cabeza (0 = el primero). El lider no va en `equipo`
+# (va en los campos planos), asi que sin esto, al cargar, la cabeza volveria siempre al hueco 1 y
+# se perderia quien iba en cada posicion. Default 0: las partidas viejas cargan con el lider primero.
+@export var lider_pos: int = 0
 @export var player_current_hp: float = -1.0
 @export var player_current_mp: float = -1.0
 @export var stamina: float = -1.0

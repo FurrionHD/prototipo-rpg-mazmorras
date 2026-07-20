@@ -55,27 +55,18 @@ var _sequito: Node2D = null
 # Quien esta llevando este cuerpo ahora mismo. Se guarda para saber a QUIEN devolverle el aguante
 # cuando cambias de lider: cada personaje lleva el suyo, y el que se va atras no puede perderlo.
 var _pj_actual: PersonajeData = null
-# La CAPA de las barras (la crea _crear_barra_aguante): aqui cuelgan tambien las de los
-# companeros, para que todas vivan en el mismo sitio y se ordenen solas.
+# La CAPA de las barras (la crea _crear_capa_barras): aqui cuelgan todas las columnas.
 var _barras_layer: CanvasLayer = null
-# Una fila por companero: {"pj", "raiz", "hp", "hp_lbl", "mp"}. Se rehacen cuando cambia el grupo.
-var _barras_comp: Array = []
+# UNA columna por miembro del grupo, en su ORDEN FIJO de party (no reordenadas por quien manda):
+# {"pj", "raiz", "corona", "nombre", "punto", "hp", "hp_lbl", "en", "en_lbl", "mp", "mp_lbl"}. Se
+# rehacen cuando cambia el grupo. La columna del lider lleva una coronita; las teclas 1/2/3 solo
+# mueven la corona (y el cuerpo del mapa), las columnas no se tocan.
+var _barras: Array = []
 # Copia del equipo tal y como se pinto la ultima vez. Sirve para darse cuenta de que ha cambiado
 # (has contratado a alguien, o lo has movido en el Hogar) sin que nadie tenga que avisar: los
 # menus son muchos y cualquiera que se olvidara de llamar dejaria el sequito o las barras a medias.
 var _grupo_visto: Array = []
 
-# Barras de estado (se crean por codigo, ver _crear_barra_aguante): aguante + vida + mana.
-var _stamina_bar: ProgressBar = null
-var _hp_bar: ProgressBar = null
-var _mp_bar: ProgressBar = null
-# Numeros superpuestos DENTRO de cada barra (energia/vida/mana).
-var _stamina_lbl: Label = null
-var _hp_lbl: Label = null
-var _mp_lbl: Label = null
-# Tu nombre y tu color, encima de tus barras. Cambian al cambiar de lider (teclas 1/2/3).
-var _nombre_lider: Label = null
-var _punto_lider: ColorRect = null
 var _drink_was: bool = false   # antirebote de la tecla Q (beber pocion)
 # Antirebote de las teclas 1/2/3 (cambiar de lider), una por posicion del equipo. La 0 no se usa:
 # la tecla 1 es "el que ya va en cabeza" y no hace nada, pero se deja el hueco para que el indice
@@ -92,7 +83,7 @@ const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
 
 
 func _ready() -> void:
-	_stamina_bar = _crear_barra_aguante()
+	_crear_capa_barras()
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD (barras, peso, piso, ayudas)
 	add_child(preload("res://scripts/ui/inventory_menu.gd").new())  # inventario (I)
 	add_child(preload("res://scripts/ui/craft_menu.gd").new())      # boticaria (F sobre el NPC)
@@ -116,11 +107,28 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/pause_menu.gd").new())   # menu de pausa (ESC): guardar / salir
 	_last_pos = global_position
 
+	# El aguante VIAJA en la ficha del lider (pj.stamina), igual que el de los companeros: por eso
+	# cambiar de piso o de escena ya no rellena la barra (sigues como estabas). -1 = a tope (partida
+	# nueva). _refrescar_barras lo mantiene sincronizado en la ficha frame a frame.
+	#
+	# Va ANTES de refrescar_grupo() a proposito: ese refresca las barras, y refrescar las barras
+	# VUELCA current_stamina en la ficha del lider. Si se hiciera primero, volcaria el 100 por
+	# defecto de la variable y machacaria justo el aguante que veniamos a recuperar.
+	_pj_actual = Game.lider()
+	max_stamina = _calc_max_aguante()
+	current_stamina = _aguante_de(_pj_actual)
+	_exhausted = bool(_pj_actual.get_meta("sin_fuelle", false))
+
+	# ASPECTO del personaje: el color y el acabado que eligio al crear la partida (van en el
+	# SaveData). El cuerpo es un ColorRect mientras no haya arte; el brillo metalico lo pinta
+	# un shader por encima de ese color (null = mate).
+	_pintar_cuerpo()
+
 	# EL SEQUITO: los companeros van detras por un rastro (ver party_trail.gd). Se crea siempre,
 	# aunque hoy vayas solo: si no hay companeros no pinta nada y no cuesta nada.
 	_sequito = preload("res://scripts/actors/player/party_trail.gd").new()
 	add_child(_sequito)
-	refrescar_grupo()   # sequito y barras de los companeros, ya en el primer frame
+	refrescar_grupo()   # sequito y barras del grupo, ya en el primer frame
 
 	# Si llegamos a esta escena con F/Q ya pulsadas (p. ej. justo despues de viajar
 	# por una puerta), las marcamos como "ya pulsadas" para NO dispararlas de nuevo
@@ -129,23 +137,6 @@ func _ready() -> void:
 	_interact_was = Input.is_key_pressed(KEY_F)
 	_attack_was = Input.is_key_pressed(KEY_SPACE)
 	_drink_was = Input.is_key_pressed(KEY_Q)
-
-	# ASPECTO del personaje: el color y el acabado que eligio al crear la partida (van en el
-	# SaveData). El cuerpo es un ColorRect mientras no haya arte; el brillo metalico lo pinta
-	# un shader por encima de ese color (null = mate).
-	_pj_actual = Game.lider()
-	_pintar_cuerpo()
-
-	# Aguante maximo segun las stats del jugador (Resistencia y Agilidad).
-	max_stamina = _calc_max_aguante()
-	current_stamina = max_stamina
-	# Si venimos de CARGAR una partida, se respeta el aguante que tenias (no te regalamos la
-	# barra llena por haber guardado y salido). -1 = no hay partida cargada: a tope.
-	var guardado: float = Game.stamina_cargada()
-	if guardado >= 0.0:
-		current_stamina = clampf(guardado, 0.0, max_stamina)
-	_stamina_bar.max_value = max_stamina
-	_stamina_bar.value = current_stamina
 
 	# Recuperacion segun el nivel (fija, no depende de stats).
 	_regen_actual = stamina_regen + stamina_regen_per_level * (Game.player_level - 1)
@@ -165,8 +156,7 @@ func _physics_process(delta: float) -> void:
 		_tick_aguante_companeros(delta, false)   # el tiempo pasa para todos, no solo para ti
 		if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
 			_exhausted = false
-		_actualizar_barra_aguante()
-		_refrescar_barras_vida()
+		_refrescar_barras()
 		return
 
 	var direction: Vector2 = Input.get_vector(
@@ -209,8 +199,7 @@ func _physics_process(delta: float) -> void:
 			_exhausted = false
 	_tick_aguante_companeros(delta, running)
 
-	_actualizar_barra_aguante()
-	_refrescar_barras_vida()
+	_refrescar_barras()
 
 	# Sobrecarga (loot): cuanto mas peso en la mochila, mas lento (gradual).
 	speed *= Game.overload_speed_factor()
@@ -272,9 +261,10 @@ func _physics_process(delta: float) -> void:
 	# 1/2/3: quien va EN CABEZA. Cambia el cuerpo que mueves, su aguante y su velocidad, y en
 	# combate sera el suyo el combatiente que entra. Es la jugada tactica de fuera de combate:
 	# entrar tu primero, o mandar delante al que aguanta.
-	for i in [1, 2]:
-		var tecla: int = KEY_1 + i
-		var pulsada: bool = Input.is_key_pressed(tecla)
+	# Ahora cada hueco es fijo, asi que la tecla 1 (hueco 0) tambien sirve: pone en cabeza al
+	# primero. cambiar_lider no hace nada si ya es el lider.
+	for i in range(mini(Game.party.size(), _lider_was.size())):
+		var pulsada: bool = Input.is_key_pressed(KEY_1 + i)
 		if pulsada and not _lider_was[i]:
 			if Game.cambiar_lider(i):
 				refrescar_lider()
@@ -345,7 +335,6 @@ func _actualizar_max_aguante() -> void:
 	var estaba_llena: bool = current_stamina >= max_stamina - 0.01
 	max_stamina = nuevo
 	current_stamina = max_stamina if estaba_llena else minf(current_stamina, max_stamina)
-	_stamina_bar.max_value = max_stamina
 
 
 # ============================================================
@@ -363,13 +352,9 @@ func refrescar_lider() -> void:
 	_pj_actual = Game.lider()
 	# Y el del nuevo: -1 = nunca ha corrido (companero recien contratado) -> entra descansado.
 	max_stamina = _calc_max_aguante()
-	current_stamina = max_stamina if _pj_actual.stamina < 0.0 else clampf(_pj_actual.stamina, 0.0, max_stamina)
-	# El cansancio viaja CON la persona: si el que sacas de atras venia agotado, sigue agotado.
-	# Si no, cambiar de lider seria un boton de "resetear el aguante" y correr saldria gratis.
+	current_stamina = _aguante_de(_pj_actual)
+	# El cansancio viaja CON la persona: si el que pones delante venia agotado, sigue agotado.
 	_exhausted = bool(_pj_actual.get_meta("sin_fuelle", false))
-	_stamina_bar.max_value = max_stamina
-	_stamina_bar.value = current_stamina
-	_actualizar_barra_aguante()
 	refrescar_grupo()
 
 
@@ -380,15 +365,10 @@ func refrescar_grupo() -> void:
 	_grupo_visto = Game.party.duplicate()
 	_pj_actual = Game.lider()
 	_pintar_cuerpo()
-	# Tu nombre y tu color: cambian cuando mandas delante a otro.
-	if _nombre_lider != null:
-		_nombre_lider.text = _pj_actual.nombre
-		_punto_lider.color = _pj_actual.color
-		_punto_lider.material = Game.material_de(_pj_actual)
 	if _sequito != null and _sequito.has_method("refrescar"):
 		_sequito.refrescar()
-	_rehacer_barras_companeros()
-	_refrescar_barras_vida()
+	_rehacer_barras()
+	_refrescar_barras()
 	# La MOCHILA del HUD va detras de la ultima columna de barras: si el grupo crece o mengua,
 	# tiene que apartarse. Se le avisa aqui en vez de que ella lo mire cada frame.
 	var hud: Node = get_tree().get_first_node_in_group("hud")
@@ -452,23 +432,25 @@ static func x_columna(i: int) -> float:
 	return X_COL_BARRAS + float(i) * (ANCHO_COL + SEP_COL)
 
 
-func _rehacer_barras_companeros() -> void:
-	for fila in _barras_comp:
+# Rehace TODAS las columnas de barras: una por miembro del grupo, en su ORDEN FIJO de party (el
+# hueco 0 es siempre el primero del equipo, no "el lider"). La columna del que va en cabeza lleva
+# una coronita en el nombre. Se llama al cambiar el grupo o el lider (refrescar_grupo).
+func _rehacer_barras() -> void:
+	for fila in _barras:
 		(fila["raiz"] as Node).queue_free()
-	_barras_comp.clear()
+	_barras.clear()
 	if _barras_layer == null:
 		return
-	var comps: Array[PersonajeData] = Game.companeros()
-	for i in comps.size():
-		var pj: PersonajeData = comps[i]
+	var lider: PersonajeData = Game.lider()
+	for i in Game.party.size():
+		var pj: PersonajeData = Game.party[i]
 		var raiz := Control.new()
-		# +1 porque la columna 0 es la tuya.
-		raiz.position = Vector2(x_columna(i + 1), 0.0)
+		raiz.position = Vector2(x_columna(i), 0.0)
 		raiz.size = Vector2(ANCHO_COL, Y_MP + ALTO_MP)
 		raiz.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_barras_layer.add_child(raiz)
 
-		# Nombre y color, encima de sus barras: es lo unico que distingue una columna de otra.
+		# El cuadradito de color y el nombre encima, lo unico que distingue una columna de otra.
 		var punto := ColorRect.new()
 		punto.size = Vector2(9, 9)
 		punto.position = Vector2(0, Y_NOMBRE + 1.0)
@@ -476,8 +458,10 @@ func _rehacer_barras_companeros() -> void:
 		punto.material = Game.material_de(pj)
 		raiz.add_child(punto)
 
+		# La CORONA va aparte del nombre (mismo Label lleva el emoji + el texto): asi al cambiar de
+		# lider solo hay que reescribir el text, sin recrear la columna.
 		var nombre := Label.new()
-		nombre.text = pj.nombre
+		nombre.text = ("👑 " if pj == lider else "") + pj.nombre
 		nombre.position = Vector2(12, Y_NOMBRE - 4.0)
 		nombre.add_theme_font_size_override("font_size", 10)
 		nombre.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
@@ -485,20 +469,20 @@ func _rehacer_barras_companeros() -> void:
 		nombre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		raiz.add_child(nombre)
 
-		# Las tres, calcadas de las tuyas.
-		var hp: ProgressBar = _barra_comp(raiz, Y_HP, ALTO_HP, Color(1.0, 0.4, 0.4))
+		# Las tres barras, iguales para todos (vida, aguante, mana).
+		var hp: ProgressBar = _barra_col(raiz, Y_HP, ALTO_HP, Color(1.0, 0.4, 0.4))
 		var hp_lbl: Label = _crear_label_barra(hp)
-		var en: ProgressBar = _barra_comp(raiz, Y_EN, ALTO_EN, Color(0.4, 1.0, 0.5))
+		var en: ProgressBar = _barra_col(raiz, Y_EN, ALTO_EN, Color(0.4, 1.0, 0.5))
 		var en_lbl: Label = _crear_label_barra(en)
-		var mp: ProgressBar = _barra_comp(raiz, Y_MP, ALTO_MP, Color(0.4, 0.6, 1.0))
+		var mp: ProgressBar = _barra_col(raiz, Y_MP, ALTO_MP, Color(0.4, 0.6, 1.0))
 		var mp_lbl: Label = _crear_label_barra(mp)
 
-		_barras_comp.append({"pj": pj, "raiz": raiz, "hp": hp, "hp_lbl": hp_lbl,
+		_barras.append({"pj": pj, "raiz": raiz, "nombre": nombre, "hp": hp, "hp_lbl": hp_lbl,
 			"en": en, "en_lbl": en_lbl, "mp": mp, "mp_lbl": mp_lbl})
 
 
-# Una barra de la fila de un companero (mismo ancho para las tres, solo cambian el alto y el color).
-func _barra_comp(raiz: Control, y: float, alto: float, color: Color) -> ProgressBar:
+# Una barra de una columna (mismo ancho para las tres, solo cambian el alto y el color).
+func _barra_col(raiz: Control, y: float, alto: float, color: Color) -> ProgressBar:
 	var b := ProgressBar.new()
 	b.show_percentage = false
 	b.custom_minimum_size = Vector2(ANCHO_COL, alto)
@@ -681,62 +665,14 @@ func _mas_cercano_en_grupo(grupo: String, skip_extracted: bool) -> Node:
 	return nearest
 
 
-# Crea las barritas de estado en pantalla (arriba a la izquierda): AGUANTE (verde),
-# VIDA (roja) y MANA (azul), apiladas. Van en su propia CanvasLayer para que no las
-# mueva la camara. Devuelve la de aguante (las de vida/mana quedan en _hp_bar/_mp_bar).
-func _crear_barra_aguante() -> ProgressBar:
+# Crea la CAPA donde viven las columnas de barras (arriba a la izquierda). Va en su propia
+# CanvasLayer para que no la mueva la camara. Las columnas las monta _rehacer_barras (una por
+# personaje) cuando el grupo ya esta listo.
+func _crear_capa_barras() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
 	add_child(layer)
 	_barras_layer = layer
-
-	# TU columna es la primera, y se monta con las MISMAS medidas que las de los companeros
-	# (ver el bloque de constantes): antes iba con numeros sueltos y por eso no encajaban.
-	var x: float = x_columna(0)
-
-	# Tu NOMBRE y tu color encima, igual que ellos: sin esto el unico sin nombre eras tu, que es
-	# justo la columna que mas se mira.
-	_punto_lider = ColorRect.new()
-	_punto_lider.size = Vector2(9, 9)
-	_punto_lider.position = Vector2(x, Y_NOMBRE + 3.0)
-	layer.add_child(_punto_lider)
-
-	_nombre_lider = Label.new()
-	_nombre_lider.position = Vector2(x + 12.0, Y_NOMBRE - 2.0)
-	_nombre_lider.add_theme_font_size_override("font_size", 10)
-	_nombre_lider.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	_nombre_lider.add_theme_constant_override("outline_size", 3)
-	_nombre_lider.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(_nombre_lider)
-
-	# VIDA (roja) ARRIBA y mas GORDA: es la barra mas importante.
-	# Usamos self_modulate para tintar SOLO el relleno, no el numero (hijo) superpuesto.
-	_hp_bar = ProgressBar.new()
-	_hp_bar.show_percentage = false
-	_hp_bar.custom_minimum_size = Vector2(ANCHO_COL, ALTO_HP)
-	_hp_bar.position = Vector2(x, Y_HP)
-	_hp_bar.self_modulate = Color(1.0, 0.4, 0.4)
-	layer.add_child(_hp_bar)
-	_hp_lbl = _crear_label_barra(_hp_bar)
-
-	# AGUANTE (verde) debajo de la vida.
-	var bar := ProgressBar.new()
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(ANCHO_COL, ALTO_EN)
-	bar.position = Vector2(x, Y_EN)
-	bar.self_modulate = Color(0.4, 1.0, 0.5)
-	layer.add_child(bar)
-	_stamina_lbl = _crear_label_barra(bar)
-
-	# MANA (azul) debajo del aguante.
-	_mp_bar = ProgressBar.new()
-	_mp_bar.show_percentage = false
-	_mp_bar.custom_minimum_size = Vector2(ANCHO_COL, ALTO_MP)
-	_mp_bar.position = Vector2(x, Y_MP)
-	_mp_bar.self_modulate = Color(0.4, 0.6, 1.0)
-	layer.add_child(_mp_bar)
-	_mp_lbl = _crear_label_barra(_mp_bar)
-	return bar
 
 
 # Crea un Label centrado que cubre toda la barra, para pintar el numero DENTRO.
@@ -755,58 +691,38 @@ func _crear_label_barra(bar: ProgressBar, tam: int = 11) -> Label:
 	return l
 
 
-# Actualiza la barra de aguante: valor, tinte (verde normal / rojizo agotado) y numero.
-func _actualizar_barra_aguante() -> void:
-	_stamina_bar.value = current_stamina
-	# Pista visual: el relleno se pone rojizo mientras estas agotado.
-	_stamina_bar.self_modulate = Color(1.0, 0.4, 0.4) if _exhausted else Color(0.4, 1.0, 0.5)
-	if _stamina_lbl != null:
-		_stamina_lbl.text = "%.0f/%.0f" % [current_stamina, max_stamina]
-
-
-# Refresca las barras de VIDA y MANA con el estado persistente de Game (valen tanto
-# con el inventario abierto como explorando; la vida sube con la cura de pociones).
-func _refrescar_barras_vida() -> void:
-	if _hp_bar != null:
-		var maxhp: float = Game.player_max_hp()
-		var hp: float = Game.player_hp()
-		_hp_bar.max_value = maxhp
-		_hp_bar.value = hp
-		if _hp_lbl != null:
-			_hp_lbl.text = "%.1f/%.1f" % [hp, maxhp]
-	if _mp_bar != null:
-		var maxmp: float = Game.player_max_mp()
-		var curmp: float = Game.player_current_mp if Game.player_current_mp >= 0.0 else maxmp
-		_mp_bar.max_value = maxf(1.0, maxmp)
-		_mp_bar.value = curmp
-		if _mp_lbl != null:
-			_mp_lbl.text = "%.2f/%.2f" % [curmp, maxmp]
-	# Y las de los companeros que van detras: vida, aguante y mana, como las tuyas.
-	for fila in _barras_comp:
+# Refresca TODAS las columnas (vida, aguante y mana de cada miembro del grupo). Se llama cada
+# frame. Sirve tanto explorando como con el inventario abierto (la vida sube con la cura de
+# pociones, el aguante se recupera con el tiempo...).
+func _refrescar_barras() -> void:
+	# El aguante y el cansancio del LIDER viven en las variables vivas (current_stamina/_exhausted)
+	# porque los usa el movimiento; aqui se vuelcan a SU ficha para que (a) su columna se pinte con
+	# el mismo codigo que las demas y (b) el valor persista al cambiar de piso o de escena.
+	if _pj_actual != null:
+		_pj_actual.stamina = current_stamina
+		_pj_actual.set_meta("sin_fuelle", _exhausted)
+	for fila in _barras:
 		var pj: PersonajeData = fila["pj"]
 		var maxhp_c: float = Game.player_max_hp(pj)
 		var hp_c: float = Game.player_hp(pj)
 		(fila["hp"] as ProgressBar).max_value = maxf(1.0, maxhp_c)
 		(fila["hp"] as ProgressBar).value = hp_c
-		if fila["hp_lbl"] != null:
-			(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c]
+		(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c]
 		var en_bar: ProgressBar = fila["en"]
 		var maxen_c: float = _calc_max_aguante(pj)
 		var en_c: float = _aguante_de(pj)
 		en_bar.max_value = maxf(1.0, maxen_c)
 		en_bar.value = en_c
-		# Mismo codigo de color que tu barra: rojiza cuando se ha quedado sin fuelle.
+		# Rojiza cuando ese se ha quedado sin fuelle (el lider por _exhausted, via el meta de arriba).
 		en_bar.self_modulate = Color(1.0, 0.4, 0.4) if bool(pj.get_meta("sin_fuelle", false)) \
 			else Color(0.4, 1.0, 0.5)
-		if fila["en_lbl"] != null:
-			(fila["en_lbl"] as Label).text = "%.0f/%.0f" % [en_c, maxen_c]
+		(fila["en_lbl"] as Label).text = "%.0f/%.0f" % [en_c, maxen_c]
 		var mp_bar: ProgressBar = fila["mp"]
 		var maxmp_c: float = Game.player_max_mp(pj)
 		var mp_c: float = Game.player_mp(pj)
 		mp_bar.max_value = maxf(1.0, maxmp_c)
 		mp_bar.value = mp_c
-		if fila["mp_lbl"] != null:
-			(fila["mp_lbl"] as Label).text = "%.2f/%.2f" % [mp_c, maxmp_c]
+		(fila["mp_lbl"] as Label).text = "%.2f/%.2f" % [mp_c, maxmp_c]
 
 
 # Bebe la PRIMERA poción del inventario (tecla Q, fuera de combate). Arranca la

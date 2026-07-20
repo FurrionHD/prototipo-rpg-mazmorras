@@ -208,7 +208,8 @@ func _selector_personaje() -> void:
 		return
 	var labels: Array = []
 	for i in Game.party.size():
-		labels.append("%d. %s" % [i + 1, Game.party[i].nombre])
+		var corona: String = "👑 " if Game.party[i] == Game.lider() else ""
+		labels.append("%d. %s%s" % [i + 1, corona, Game.party[i].nombre])
 	MenuScaffold.cuadricula(_content, labels, _pj_sel, _pick_personaje,
 		Game.PARTY_MAX, Vector2(150, 32))
 	_content.add_child(HSeparator.new())

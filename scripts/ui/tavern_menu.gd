@@ -131,11 +131,10 @@ func _ficha_lista(pj: PersonajeData) -> void:
 	fila.add_child(l)
 
 	var estado := Label.new()
-	var idx: int = Game.party.find(pj)
-	if idx == 0:
+	if pj == Game.lider():
 		estado.text = "  (en cabeza)"
 		estado.add_theme_color_override("font_color", AMBAR)
-	elif idx > 0:
+	elif Game.party.has(pj):
 		estado.text = "  (en el equipo)"
 		estado.add_theme_color_override("font_color", VERDE)
 	else:

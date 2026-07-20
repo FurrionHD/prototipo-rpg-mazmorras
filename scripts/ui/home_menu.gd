@@ -108,8 +108,9 @@ func _build_equipo() -> void:
 	MenuScaffold.titulo(_lista, "El equipo (%d de %d)" % [Game.party.size(), Game.PARTY_MAX], 14)
 	for i in Game.party.size():
 		_fila_equipo(i)
-	MenuScaffold.nota(_lista, "El primero va EN CABEZA: es el cuerpo que mueves por el mapa, el "
-		+ "que recolecta y el que gasta aguante. También se cambia con las teclas 1/2/3.")
+	MenuScaffold.nota(_lista, "El de la 👑 va EN CABEZA: es el cuerpo que mueves por el mapa, el "
+		+ "que recolecta y el que gasta aguante. Cada uno tiene su hueco fijo (su número); cambiar "
+		+ "de cabeza con «Al frente» o las teclas 1/2/3 no los mueve de sitio.")
 
 	MenuScaffold.titulo(_content, "En casa (%d)" % Game.en_el_banquillo().size(), 14)
 	var banquillo: Array = Game.en_el_banquillo()
@@ -127,27 +128,28 @@ func _fila_equipo(i: int) -> void:
 
 	fila.add_child(_punto(pj))
 
+	var es_lider: bool = pj == Game.lider()
 	var l := Label.new()
-	l.text = "%d. %s  ·  Nv.%d" % [i + 1, pj.nombre, pj.level]
+	# El numero es el de la tecla que lo pone en cabeza (1/2/3), y es FIJO: cada uno tiene su hueco.
+	l.text = "%d. %s%s  ·  Nv.%d" % [i + 1, "👑 " if es_lider else "", pj.nombre, pj.level]
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if i == 0:
+	if es_lider:
 		l.add_theme_color_override("font_color", AMBAR)
 	fila.add_child(l)
 
-	# Subir: el de la posicion i pasa a ir delante del i-1. Con i == 1 esto es exactamente
-	# "ponlo en cabeza", que es lo mismo que hace la tecla 2.
-	var arriba := Button.new()
-	arriba.text = "▲"
-	arriba.custom_minimum_size = Vector2(30, 0)
-	arriba.disabled = i == 0
-	arriba.tooltip_text = "Adelantarlo una posición"
-	arriba.pressed.connect(func():
-		var tmp: PersonajeData = Game.party[i - 1]
-		Game.party[i - 1] = Game.party[i]
-		Game.party[i] = tmp
-		_avisar_cambio_lider()
-		_rebuild())
-	fila.add_child(arriba)
+	# Ponerlo EN CABEZA. Ya no reordena el equipo (las posiciones son fijas): solo mueve la corona,
+	# lo mismo que hace su tecla. Deshabilitado si ya va delante.
+	var frente := Button.new()
+	frente.text = "👑 Al frente"
+	frente.disabled = es_lider
+	frente.tooltip_text = "Ponlo en cabeza (tecla %d). El cuerpo que mueves pasa a ser el suyo." % (i + 1)
+	frente.pressed.connect(func():
+		if Game.cambiar_lider(i):
+			_aviso = "%s va en cabeza." % pj.nombre
+			_aviso_ok = true
+			_avisar_cambio_lider()
+			_rebuild())
+	fila.add_child(frente)
 
 	var fuera := Button.new()
 	fuera.text = "A casa"

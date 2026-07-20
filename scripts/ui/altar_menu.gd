@@ -95,7 +95,8 @@ func _rebuild_tabs() -> void:
 		return
 	for i in Game.party.size():
 		var b := Button.new()
-		b.text = "%d. %s" % [i + 1, Game.party[i].nombre]
+		var corona: String = "👑 " if Game.party[i] == Game.lider() else ""
+		b.text = "%d. %s%s" % [i + 1, corona, Game.party[i].nombre]
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(0, 34)
 		b.pressed.connect(_on_tab.bind(i))
