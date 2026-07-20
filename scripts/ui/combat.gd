@@ -1184,7 +1184,7 @@ func _disparar_hechizo() -> void:
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF
 	# Reto por-stat (contra TU magia, no tu poder total): asi un cuerpo fuerte con magia baja SI
 	# entrena la magia contra bichos de su piso, en vez de quedarse clavado a 0 (ver Game.reto_stat).
-	Game.ganar("magia", Game.reto_stat(_poder_enemigo(obj), "magia"), Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO)
+	Game.ganar("magia", Game.reto_stat(_poder_enemigo(obj), "magia", obj.level), Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO)
 	Game.contar_hechizo()   # contador oculto de Erudito
 	print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
 		_player.nombre, spell.nombre, dano, _player.abilities.magia, obj.nombre,
@@ -1789,7 +1789,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 				if t.is_alive():
 					estados_log += _tirar_efectos_habilidad(ab, t, hubo_critico)
 		# Excelia: como el ataque, entrena Fuerza (por impacto medio, contra el principal).
-		Game.ganar("fuerza", Game.reto(_poder_enemigo(obj)) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
+		Game.ganar("fuerza", _reto(obj) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
 			Game.RETO_MAX_FISICO)
 		print("        total: %.2f de daño en %d golpe%s%s | EN -%.0f -> %.1f/%.1f%s" % [
 			total, golpes, "" if golpes == 1 else "s",
@@ -1934,7 +1934,7 @@ func _accion_atacar() -> void:
 	# Excelia: atacar sube Fuerza aunque el enemigo esquive (has practicado el
 	# golpe). arma_factor = motion_value de la MANO ACTIVA (KAN-82); tope fisico (5).
 	var arma_factor: float = _player.motion_value
-	Game.ganar("fuerza", Game.reto(_poder_enemigo(obj)) * arma_factor, Game.GAIN_FUERZA_ATAQUE,
+	Game.ganar("fuerza", _reto(obj) * arma_factor, Game.GAIN_FUERZA_ATAQUE,
 		Game.RETO_MAX_FISICO)
 	var con_arma: String = _player.current_hand_name()
 	if result.evaded:
@@ -1955,7 +1955,7 @@ func _accion_atacar() -> void:
 			# va CAPADO (ver GAIN_AGILIDAD_CRIT_MV_MAX): ahora que las pesadas critean de verdad,
 			# sin tope entrenarian Agilidad de mas.
 			var agi_factor: float = minf(arma_factor, Game.GAIN_AGILIDAD_CRIT_MV_MAX)
-			Game.ganar("agilidad", Game.reto(_poder_enemigo(obj)) * agi_factor, Game.GAIN_AGILIDAD_CRITICO,
+			Game.ganar("agilidad", _reto(obj) * agi_factor, Game.GAIN_AGILIDAD_CRITICO,
 				Game.RETO_MAX_FISICO)
 		else:
 			txt = "%s golpea con %s por %.2f de daño." % [_player.nombre, con_arma, result.damage]
@@ -2109,7 +2109,7 @@ func _enemy_turn(e: Combatant) -> void:
 	_debug_ataque(e, _player, result, defendiendo)
 	if result.evaded:
 		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos).
-		Game.ganar("agilidad", Game.reto(_poder_enemigo(e)), Game.GAIN_AGILIDAD_ESQUIVAR,
+		Game.ganar("agilidad", _reto(e), Game.GAIN_AGILIDAD_ESQUIVAR,
 			Game.RETO_MAX_FISICO)
 		Game.contar_esquiva()   # contador oculto de Reflejos
 		# CONTRAATAQUE (estoque, KAN-57): en guardia, cada golpe esquivado lo devuelves.
@@ -2144,12 +2144,12 @@ func _enemy_turn(e: Combatant) -> void:
 	# ataque), modulada por el DAÑO recibido (golpe gordo entrena mas). Asi
 	# tambien sube bien al principio, cuando el enemigo es un gran reto.
 	var dmg_mult: float = clampf(dmg / maxf(1.0, float(_player.max_hp) * 0.1), 0.5, 2.0)
-	Game.ganar("resistencia", Game.reto(_poder_enemigo(e)) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
+	Game.ganar("resistencia", _reto(e) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
 		Game.RETO_MAX_FISICO)
 	# Excelia: si BLOQUEAS (Defender), entrenas Resistencia EXTRA segun cuanto
 	# bloquees (escudo grande entrena mas). Formaliza KAN-81 y premia el escudo.
 	if _player_defending:
-		Game.ganar("resistencia", Game.reto(_poder_enemigo(e)) * _player.defend_block,
+		Game.ganar("resistencia", _reto(e) * _player.defend_block,
 			Game.GAIN_RESISTENCIA_BLOQUEO, Game.RETO_MAX_FISICO)
 	var msg: String
 	if result.crit:
@@ -2283,7 +2283,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData) -> void:
 	# por el daño total encajado.
 	if total > 0.0:
 		var dmg_mult: float = clampf(total / maxf(1.0, float(_player.max_hp) * 0.1), 0.5, 2.0)
-		Game.ganar("resistencia", Game.reto(_poder_enemigo(e)) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
+		Game.ganar("resistencia", _reto(e) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
 			Game.RETO_MAX_FISICO)
 
 	var msg: String = "%s usa %s" % [e.nombre, ab.nombre]
@@ -2360,7 +2360,7 @@ func _contraatacar(atacante: Combatant) -> String:
 	_dps_add("Contraataque", dmg)
 	_ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
 	# Excelia: el contraataque golpea, entrena Fuerza como un ataque normal.
-	Game.ganar("fuerza", Game.reto(_poder_enemigo(atacante)) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
+	Game.ganar("fuerza", _reto(atacante) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
 		Game.RETO_MAX_FISICO)
 	var extra := "un CRITICO 💥 " if result.crit else ""
 	return "%s esquiva y CONTRAATACA con el estoque: %s%.2f de daño! 🤺" % [_player.nombre, extra, dmg]
@@ -2582,6 +2582,15 @@ func _poder_enemigo(c: Combatant) -> float:
 		return 0.0
 	var a: Abilities = c.abilities
 	return float(a.fuerza + a.resistencia + a.destreza + a.agilidad + a.magia)
+
+
+# Dificultad relativa contra ESTE bicho. Pasa su NIVEL (el tier del contenido, de EnemyData.level)
+# ademas de su poder: Game.reto() lo necesita para saber contra que medirte (tu progreso de este
+# nivel si el bicho es de tu nivel o superior, tu acumulado de por vida si es de uno anterior).
+func _reto(c: Combatant) -> float:
+	if c == null:
+		return 0.0
+	return Game.reto(_poder_enemigo(c), c.level)
 
 
 # Crea la linea de orden de turnos (banda horizontal en la zona media).

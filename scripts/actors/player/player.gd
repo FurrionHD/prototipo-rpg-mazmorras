@@ -209,8 +209,8 @@ func _physics_process(delta: float) -> void:
 			_dist_run += moved
 			while _dist_run >= _DIST_TICK:
 				_dist_run -= _DIST_TICK
-				Game.ganar("agilidad", Game.reto(_poder_enemigo_nodo(enemigo)), Game.GAIN_AGILIDAD_CORRER,
-					Game.RETO_MAX_FISICO)
+				Game.ganar("agilidad", Game.reto(_poder_enemigo_nodo(enemigo), _nivel_enemigo_nodo(enemigo)),
+					Game.GAIN_AGILIDAD_CORRER, Game.RETO_MAX_FISICO)
 
 	# DOS teclas, y no una: ATACAR y TOCAR COSAS son intenciones distintas y no se pueden
 	# confundir. Con una sola tecla, ir a extraer un cristal con un bicho cerca podia
@@ -282,6 +282,14 @@ func _poder_enemigo_nodo(e: Node) -> float:
 	if "current_t" in e:
 		t = e.current_t
 	return float(e.data.suma_habilidades(t))
+
+
+# NIVEL (tier de contenido) de un enemigo del mapa. Game.reto() lo necesita para saber contra que
+# medirte: el progreso de tu nivel actual, o el acumulado de por vida si el bicho es de uno anterior.
+func _nivel_enemigo_nodo(e: Node) -> int:
+	if e == null or not is_instance_valid(e) or e.data == null:
+		return 1
+	return e.data.level
 
 
 # Busca un enemigo VIVO justo enfrente y muy cerca; si lo hay, inicia el combate

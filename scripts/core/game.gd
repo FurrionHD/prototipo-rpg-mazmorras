@@ -59,15 +59,36 @@ var ability_internal: Dictionary = {
 var ability_consolidado: Dictionary = {
 	"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
 # SUBIR DE NIVEL (estilo DanMachi): al subir NO se borra ability_internal (el total acumulado se
-# queda OCULTO de fondo y sigue alimentando recoleccion/reto). Lo que se resetea es el VISIBLE:
-# ability_base_nivel guarda el valor de ability_internal en el ultimo subir-de-nivel, y el rango
-# VISIBLE de este nivel = ability_internal - ability_base_nivel (vuelve a I al subir). El poder de
-# combate se conserva porque el efecto de tus basicas se BAKEA en las stats base (ver subir_nivel).
+# queda OCULTO de fondo, y ademas se INFLA un NIVEL_SPIKE; sigue alimentando recoleccion y el reto
+# contra contenido viejo). Lo que se resetea es el VISIBLE: ability_base_nivel guarda el valor de
+# ability_internal en el ultimo subir-de-nivel, y el rango VISIBLE de este nivel =
+# ability_internal - ability_base_nivel (vuelve a I al subir). El poder de combate se conserva
+# porque el efecto de tus basicas se BAKEA en las stats base (ver subir_nivel).
+#
+# Esa resta (interno - base_nivel) es la unidad de medida de TODO lo que va por nivel: el rango que
+# ves, la curva de rendimientos decrecientes de ganar(), y el denominador del reto contra contenido
+# de tu nivel (poder_jugador_nivel). Cada nivel es su propia arena y arranca en cero.
 var ability_base_nivel: Dictionary = {
 	"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
-# Rendimientos decrecientes RELATIVOS AL TOPE: subes bien casi todo el camino
-# y frena cerca de 999, pero con un SUELO para que nunca sea imposible.
-# factor = max(FLOOR, (1 - interno/999)^POWER).
+# Rendimientos decrecientes RELATIVOS AL TOPE, medidos SOBRE EL PROGRESO DE ESTE NIVEL
+# (interno - base_nivel), NO sobre el total de por vida:
+#   factor = max(FLOOR, (1 - progreso_del_nivel/999)^POWER)
+#
+# CADA NIVEL ES SU PROPIA ARENA. Al ascender el rango VISIBLE vuelve a I, asi que la curva de
+# aprendizaje tiene que volver a empezar con el: si midiera el total de por vida, arrancarias el
+# nivel 2 viendo rango I pero ganando ya al 48% de ritmo (interno 600), camino del suelo del 15%.
+# La barra diria "empiezas de cero" y la formula diria "estas casi tope".
+#
+# Y NO, esto no regala excelia con bichos viejos: quien decide si algo es un reto es reto(), que
+# contra contenido de niveles ANTERIORES divide por el acumulado oculto (ver mas abajo). Son dos
+# frenos SEPARADOS a proposito y se multiplican:
+#   - el factor dice "cuanto me queda por aprender de esta habilidad EN ESTE NIVEL"
+#   - el reto dice   "esto es un reto para mi poder REAL"
+# Un slime de piso 1 a nivel 2 sale a ~125 golpes por punto de Fuerza aunque el factor sea 1.0.
+#
+# La escala sigue siendo 999 (ABILITY_CAP) porque es la misma que usan las letras de rango I-S:
+# el tramo 0->600 (el que juegas cada nivel) recorre factor 1.00 -> 0.48, y exprimir un nivel mas
+# alla de C sigue decayendo hasta DIMINISH_FLOOR.
 const ABILITY_CAP := 999.0
 const DIMINISH_POWER := 0.8        # <1 = curva mas suave (aguanta mas arriba)
 const DIMINISH_FLOOR := 0.15       # suelo: cerca de 999 sigues subiendo (lento, no 0)
@@ -192,11 +213,11 @@ const EXTRACTION_DESTREZA_RETO_MAX := 8.0
 # hierro -> templado -> negro), asi que el factor pasaba a contar lo mismo DOS VECES.
 #
 # Y se le iba de las manos: al piso 12 multiplicaba por 2.85 y al 13 por 3.14, con lo que el acero
-# pedia una Fuerza de ~2500. Ojo con la lectura facil de ese numero: 999 (ABILITY_CAP) NO es un
-# muro, es una asintota — DIMINISH_FLOOR deja seguir subiendo al 15% del ritmo. Y subir de nivel
-# tampoco lo arregla: resetea la habilidad VISIBLE, pero la recoleccion mira el TOTAL OCULTO
-# (stat_total), que no se resetea nunca. Asi que 2500 no era "imposible", era peor: era farmear
-# eternamente al 15% de ritmo para poder picar la veta de tu propio piso.
+# pedia una Fuerza de ~2500. Ojo con la lectura facil de ese numero: 999 (ABILITY_CAP) es el tope
+# del RANGO VISIBLE de un nivel, NO del total de por vida — el total (stat_total), que es lo que
+# mira la recoleccion, no se resetea nunca y encima crece un NIVEL_SPIKE extra en cada ascenso, asi
+# que pasar de 999 acumulado es normal. Aun asi 2500 no era "imposible", era peor: como la ganancia
+# la frena la curva de ESE nivel, era farmear eternamente para picar la veta de tu propio piso.
 #
 # Si algun dia vuelve a hacer falta, la pregunta correcta es "¿le falta un sub-tier a este tramo?"
 # antes que subir esto.
@@ -4161,35 +4182,63 @@ func overload_speed_factor() -> float:
 # Suma una ganancia al INTERNO de una habilidad, con rendimientos decrecientes.
 # max_reto = tope del reto para ESTA ganancia. Por defecto RETO_MAX (8, el de
 # Destreza); las stats fisicas pasan RETO_MAX_FISICO (5) para no dispararse.
+#
+# El factor decreciente mira el PROGRESO DE ESTE NIVEL (interno - base_nivel), no el total de por
+# vida: cada nivel vuelve a empezar su curva de aprendizaje igual que vuelve a empezar el rango
+# visible. Ver el bloque de ABILITY_CAP arriba para el porque completo. Lo que SE SUMA sigue siendo
+# el interno de por vida: esa es la fuente de verdad (la leen reto(), stat_total() y la recoleccion).
 func ganar(abil: String, reto_val: float, base: float, max_reto: float = RETO_MAX) -> void:
 	if not ability_internal.has(abil):
 		return
 	var interno: float = ability_internal[abil]
+	var del_nivel: float = maxf(0.0, interno - float(ability_base_nivel[abil]))
 	var factor: float = maxf(DIMINISH_FLOOR,
-		pow(clampf(1.0 - interno / ABILITY_CAP, 0.0, 1.0), DIMINISH_POWER))
+		pow(clampf(1.0 - del_nivel / ABILITY_CAP, 0.0, 1.0), DIMINISH_POWER))
 	var gain: float = base * clampf(reto_val, 0.0, max_reto) * factor * desarrollo_gain_mult(abil)
 	ability_internal[abil] = interno + gain
 
-# Poder del jugador (suma de visibles) con un suelo para no dividir por 0.
+# Poder del jugador DE POR VIDA (suma de los totales ocultos) con un suelo para no dividir por 0.
+# Es el baremo contra el contenido de niveles ANTERIORES: no se resetea al ascender y ademas crece
+# un NIVEL_SPIKE extra en cada ascenso (ver subir_nivel), asi que lo viejo se hunde mas con cada
+# nivel que subes. Sin exploit de farmear piso 1.
 func poder_jugador_eff() -> float:
-	# Usa el TOTAL acumulado (oculto), no el visible de este nivel: asi al subir de nivel un enemigo
-	# de piso bajo sigue dando reto ~0 (tu poder real no baja), sin exploit de farmear piso 1.
 	var suma: float = float(stat_total("fuerza") + stat_total("resistencia") + stat_total("destreza")
 		+ stat_total("agilidad") + stat_total("magia"))
 	return maxf(suma, PODER_JUGADOR_SUELO)
 
+# Poder del jugador EN ESTE NIVEL: suma del progreso desde el ultimo ascenso. Es el baremo contra el
+# contenido de TU nivel o superior — cada nivel es su propia arena y arranca en cero, asi que recien
+# ascendido el contenido nuevo te mide como a un novato (y te entrena como a uno).
+func poder_jugador_nivel() -> float:
+	var suma: float = 0.0
+	for s in ability_internal:
+		suma += maxf(0.0, float(ability_internal[s]) - float(ability_base_nivel[s]))
+	return maxf(suma, PODER_JUGADOR_SUELO)
+
 # Dificultad relativa: enemigo/accion facil respecto a ti = poco.
-func reto(poder_enemigo: float) -> float:
-	return clampf(poder_enemigo / poder_jugador_eff(), 0.0, RETO_MAX)
+#
+# El DENOMINADOR depende del TIER del bicho (EnemyData.level, que ya existia y viaja al Combatant;
+# hoy todos los enemigos son de nivel 1):
+#   - nivel_enemigo >= tu nivel -> te mides por lo que llevas andado EN ESTE NIVEL.
+#   - nivel_enemigo <  tu nivel -> te mides por el acumulado de por vida, que es enorme: el
+#     contenido que ya superaste deja de entrenarte, y cada ascenso lo hunde un poco mas.
+#
+# A NIVEL 1 los dos denominadores son IDENTICOS por construccion (ability_base_nivel vale 0), asi
+# que esto no rebalancea nada de la partida actual: solo despierta al ascender.
+func reto(poder_enemigo: float, nivel_enemigo: int = 1) -> float:
+	var denom: float = poder_jugador_nivel() if nivel_enemigo >= player_level else poder_jugador_eff()
+	return clampf(poder_enemigo / denom, 0.0, RETO_MAX)
 
 # Reto RELATIVO A UNA STAT concreta (no al poder TOTAL): deja subir una habilidad rezagada aunque
 # el resto ya sean altas. Lo usa la MAGIA: el grimorio se compra tarde (2200), cuando ya tienes
 # cuerpo, asi que con el reto por poder total la magia arrancaba a 0 y nunca despegaba. Con esto,
 # una magia baja entrena rapido hasta ponerse a la altura del piso que farmeas y se frena sola
 # despues (para subir mas hacen falta pisos mas profundos: mismo techo por piso que cualquier stat,
-# no es exploit). Usa el TOTAL oculto (stat_total), como reto(), para no re-farmear tras subir nivel.
-func reto_stat(poder_enemigo: float, stat: String) -> float:
+# no es exploit). Mismo criterio de denominador que reto(), pero con la stat suelta.
+func reto_stat(poder_enemigo: float, stat: String, nivel_enemigo: int = 1) -> float:
 	var s: float = float(stat_total(stat))
+	if nivel_enemigo >= player_level:
+		s = maxf(0.0, float(ability_internal[stat]) - float(ability_base_nivel[stat]))
 	return clampf(poder_enemigo / maxf(s, PODER_JUGADOR_SUELO), 0.0, RETO_MAX)
 
 
@@ -4290,7 +4339,24 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	player_base_mp = StatsMath.max_mp_jugador(a, player_base_mp) * spike
 	player_base_crit += (float(a.destreza) / 999.0) * CRIT_BAKE_MAX * spike
 	# Resetear el VISIBLE sin borrar el total oculto: la marca del nivel sube al total actual.
+	#
+	# Y antes de marcarla, INFLAR el total oculto por el mismo spike (x1.10). Ese total ya no toca
+	# ataque ni vida —se acaban de congelar arriba en las bases—, asi que subirlo no te hace pegar
+	# mas: solo alimenta la RECOLECCION (su dificultad es exigencia/(stat_total x PESO + suelo)) y el
+	# denominador del contenido VIEJO. O sea que hace dos cosas buenas de una: tu oficio se nota
+	# mejorado por haber ascendido, y los bichos de niveles anteriores se hunden un escalon mas.
+	#
+	# Al aplicarse en CADA ascenso se compone solo (x1.10 al Nv2, x1.21 al Nv3...) encima del
+	# crecimiento normal del acumulado: ese es el nerfeo escalable del contenido viejo, y por eso NO
+	# hace falta ninguna constante aparte que lo replique.
+	#
+	# SIN clamp a 999 a proposito: 999 es el tope del RANGO VISIBLE, no del total de por vida.
+	#
+	# El consolidado se sincroniza tambien porque _visible_nivel() calcula consolidado - base_nivel:
+	# si se quedara sin inflar, esa resta saldria negativa hasta la siguiente visita al altar.
 	for s in ["fuerza", "resistencia", "destreza", "agilidad", "magia"]:
+		ability_internal[s] = float(ability_internal[s]) * spike
+		ability_consolidado[s] = ability_internal[s]
 		ability_base_nivel[s] = ability_internal[s]
 	player_fuerza = 0; player_resistencia = 0; player_destreza = 0; player_agilidad = 0; player_magia = 0
 	player_level += 1
