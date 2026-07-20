@@ -31,12 +31,14 @@ func elegir(piso: int, rng: RandomNumberGenerator = null) -> MaterialData:
 	var pool: Array = disponibles(piso)
 	if pool.is_empty():
 		return null
+	# peso_en(piso), no peso: es lo que deja que un sub-tier asome raro y se vuelva dominante al
+	# bajar, en vez de aparecer de golpe (ver MaterialEntry).
 	var total: float = 0.0
 	for e in pool:
-		total += e.peso
+		total += e.peso_en(piso)
 	var tirada: float = (rng.randf() if rng != null else randf()) * total
 	for e in pool:
-		tirada -= e.peso
+		tirada -= e.peso_en(piso)
 		if tirada <= 0.0:
 			return e.material
 	return (pool.back() as MaterialEntry).material
@@ -49,8 +51,8 @@ func resumen(piso: int) -> String:
 		return "nada que recolectar en este piso"
 	var total: float = 0.0
 	for e in pool:
-		total += e.peso
+		total += e.peso_en(piso)
 	var partes: PackedStringArray = []
 	for e in pool:
-		partes.append("%s %s%%" % [e.etiqueta(), snappedf(100.0 * e.peso / total, 0.1)])
+		partes.append("%s %s%%" % [e.etiqueta(), snappedf(100.0 * e.peso_en(piso) / total, 0.1)])
 	return ", ".join(partes)

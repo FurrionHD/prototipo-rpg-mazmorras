@@ -545,7 +545,7 @@ func _colocar_en_pasillos(rng: RandomNumberGenerator, tabla: MaterialTable,
 			if c == Vector2i.MAX:
 				break
 			sitios += 1
-			if _crear_recolectable(tipo, c, tabla, rng):
+			if _crear_recolectable(tipo, c):
 				puestas += 1
 	return puestas
 
@@ -592,7 +592,7 @@ func _colocar_vetas(rng: RandomNumberGenerator) -> int:
 			if c == Vector2i.MAX:
 				break
 			sitios += 1
-			if _crear_recolectable(0, c, tabla_vetas, rng):
+			if _crear_recolectable(0, c):
 				puestas += 1
 	return puestas
 
@@ -600,26 +600,47 @@ func _colocar_vetas(rng: RandomNumberGenerator) -> int:
 # Instancia un recolectable (tipo 0 = veta, 1 = planta, 2 = madera). Devuelve false si esa celda
 # esta agotada y AUN NO le toca reaparecer (respawn por tiempo), o si la tabla no tiene nada
 # para esta profundidad.
-func _crear_recolectable(tipo: int, celda: Vector2i, tabla: MaterialTable,
-		rng: RandomNumberGenerator) -> bool:
-	# La tirada del material se hace SIEMPRE, incluso si la celda esta agotada: si no, saltarse
-	# una veta picada desplazaria la secuencia del RNG y cambiaria el material de TODAS las
-	# demas al volver al piso.
-	var m: MaterialData = tabla.elegir(Game.current_floor, rng)
-	if m == null:
-		return false
+func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
 	# El SITIO queda apuntado nazca o no el nodo: es lo que permite que una celda picada vuelva a
-	# brotar EN VIVO mas tarde (_repoblar_agotados) con el material que le tocaba, sin regenerar
-	# el piso entero ni volver a tirar el RNG (que cambiaria el material de todas las demas).
-	_sitios[celda] = {"tipo": tipo, "material": m}
+	# brotar EN VIVO mas tarde (_repoblar_agotados). Se guarda la TABLA, no el material ya elegido,
+	# porque el material se vuelve a tirar en cada respawn (ver _material_del_sitio).
+	_sitios[celda] = {"tipo": tipo}
 	# ¿Agotada? Reaparece cuando han pasado RESPAWN_SEGUNDOS de JUEGO desde que la picaste. Si ya
 	# le toca, se limpia el sello y nace como nueva; si no, no nace todavia.
 	if _agotados.has(celda):
 		if Game.tiempo_mazmorra - float(_agotados[celda]) < Game.RESPAWN_SEGUNDOS:
 			return false
 		_olvidar_agotado(celda)
+	var m: MaterialData = _material_del_sitio(celda)
+	if m == null:
+		return false
 	_instanciar_nodo(tipo, celda, m, false)
 	return true
+
+
+# QUE material sale en esta celda, AHORA. Se tira cada vez, no se guarda.
+#
+# Antes el material era DETERMINISTA (salia de la semilla del piso), asi que una veta que te toco
+# de cobre veteado lo seria para siempre, en todas las bajadas. Con los sub-tiers eso convierte la
+# mezcla del piso en una loteria de una sola tirada: si tu piso 4 salio con mal reparto, te lo
+# comes toda la partida. Ahora cada vez que un nodo nace o REAPARECE se vuelve a tirar contra la
+# tabla del piso, asi que la proporcion de §rampa se cumple a la larga en cada celda.
+#
+# Lo que sigue saliendo de la semilla es DONDE hay sitios de recoleccion (la forma del piso), que
+# es lo que de verdad tiene que ser reproducible.
+func _material_del_sitio(celda: Vector2i) -> MaterialData:
+	var tabla: MaterialTable = _tabla_de_tipo(int((_sitios.get(celda, {}) as Dictionary).get("tipo", -1)))
+	if tabla == null:
+		return null
+	return tabla.elegir(Game.current_floor)   # sin rng = tirada de verdad
+
+
+func _tabla_de_tipo(tipo: int) -> MaterialTable:
+	match tipo:
+		0: return tabla_vetas
+		1: return tabla_plantas
+		2: return tabla_maderas
+	return null
 
 
 # Planta el nodo en el mundo. Separado de _crear_recolectable porque lo llaman DOS sitios: la
@@ -650,7 +671,8 @@ func _olvidar_agotado(celda: Vector2i) -> void:
 # RESPAWN EN VIVO. Antes un nodo picado solo volvia al RECONSTRUIR el piso (cambiar de piso o
 # salir al pueblo): plantado en el mismo sitio podias esperar media hora y no brotaba nada. Ahora
 # se repasan los sellos cada RESPAWN_CHECK_CADA segundos y el que ha cumplido su tiempo brota
-# donde estaba, con el material que le tocaba (guardado en _sitios).
+# donde estaba, con el material RE-TIRADO (ver _material_del_sitio): la veta que picaste no tiene
+# por que volver siendo lo mismo.
 func _repoblar_agotados(delta: float) -> void:
 	_t_respawn -= delta
 	if _t_respawn > 0.0:
@@ -666,7 +688,10 @@ func _repoblar_agotados(delta: float) -> void:
 		var sitio: Dictionary = _sitios.get(celda, {})
 		if sitio.is_empty():
 			continue   # sello de una partida vieja, sin sitio apuntado: se limpia y ya brotara al regenerar
-		_instanciar_nodo(int(sitio["tipo"]), celda, sitio["material"], true)
+		var m: MaterialData = _material_del_sitio(celda)
+		if m == null:
+			continue   # la tabla no tiene nada para esta profundidad: la celda se queda vacia
+		_instanciar_nodo(int(sitio["tipo"]), celda, m, true)
 
 
 # Una celda de la zona que TOQUE pared (las vetas salen de la roca, y una planta en mitad
