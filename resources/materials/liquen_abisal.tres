@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"liquen_abisal"
+nombre = "Liquen abisal"
+descripcion = "Crece pegado a la roca en placas que laten despacio, como si respirara. Se despega de una pieza o no se despega: partirlo lo echa a perder, y por eso casi nadie baja a por él dos veces."
+familia = 0
+tipo = 1
+tier = 2
+exigencia = 600.0
+peso_base = 1.3
+valor_base = 150
+mejora_min = 9
+mejora_max = 15
+color = Color(0.26, 0.32, 0.34, 1)
+piso_min = 10
+piso_max = 12
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

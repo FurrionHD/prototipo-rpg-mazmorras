@@ -5,7 +5,7 @@
 [ext_resource type="Resource" path="res://resources/consumables/pocion_media_2.tres" id="3"]
 [ext_resource type="Resource" path="res://resources/consumables/pocion_media_1.tres" id="3b"]
 [ext_resource type="Resource" path="res://resources/materials/baba_profunda.tres" id="4"]
-[ext_resource type="Resource" path="res://resources/materials/raiz_umbria.tres" id="5"]
+[ext_resource type="Resource" path="res://resources/materials/liquen_abisal.tres" id="5"]
 
 [sub_resource type="Resource" id="I_baba"]
 script = ExtResource("2")
