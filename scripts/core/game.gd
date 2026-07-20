@@ -4605,8 +4605,9 @@ func _visible_nivel(s: String, pj: PersonajeData = null) -> int:
 
 # TOTAL acumulado (oculto) de una habilidad. Es lo que usan recoleccion y reto: no se resetea al
 # subir de nivel, asi la recoleccion sigue facil y un enemigo de piso bajo da reto ~0 (no exploit).
-func stat_total(s: String) -> int:
-	return floori(float(ability_internal[s]))
+func stat_total(s: String, pj: PersonajeData = null) -> int:
+	var p: PersonajeData = pj if pj != null else lider()
+	return floori(float(p.ability_internal[s]))
 
 
 # ============================================================

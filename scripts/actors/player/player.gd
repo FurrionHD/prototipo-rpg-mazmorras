@@ -159,6 +159,7 @@ func _physics_process(delta: float) -> void:
 	if Game.inventory_open or Game.debug_panel_open:
 		velocity = Vector2.ZERO
 		current_stamina = minf(max_stamina, current_stamina + _regen_actual * delta)
+		_tick_aguante_companeros(delta, false)   # el tiempo pasa para todos, no solo para ti
 		if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
 			_exhausted = false
 		_actualizar_barra_aguante()
@@ -174,8 +175,9 @@ func _physics_process(delta: float) -> void:
 	# Modo segun teclas (Ctrl = sigilo tiene prioridad sobre Shift = correr).
 	# Si estamos AGOTADOS, no se puede correr (hasta recuperar la mitad).
 	var sneaking: bool = Input.is_key_pressed(KEY_CTRL)
+	# El grupo va al paso del MAS CANSADO: basta con que uno este sin fuelle para que nadie corra.
 	var running: bool = Input.is_key_pressed(KEY_SHIFT) and not sneaking \
-		and moving and not _exhausted
+		and moving and not _alguien_agotado()
 
 	var speed: float = walk_speed
 	if _exhausted:
@@ -191,7 +193,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		movement_mode = 1
 
-	# Aguante: baja al correr, se recupera en cualquier otro caso.
+	# Aguante: baja al correr, se recupera en cualquier otro caso. Los companeros pagan lo mismo.
 	if running:
 		current_stamina -= run_drain * delta
 		if current_stamina <= 0.0:
@@ -202,6 +204,7 @@ func _physics_process(delta: float) -> void:
 		# Salimos de agotado al recuperar la mitad del aguante.
 		if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
 			_exhausted = false
+	_tick_aguante_companeros(delta, running)
 
 	_actualizar_barra_aguante()
 	_refrescar_barras_vida()
@@ -278,10 +281,57 @@ func _physics_process(delta: float) -> void:
 # Aguante maximo segun la Resistencia y la Agilidad. Usa el TOTAL acumulado (oculto), NO el
 # visible: el visible vuelve a 0 al SUBIR DE NIVEL, y con el visible el aguante maximo se
 # desplomaba a base_stamina en cada ascenso. Mismo criterio que la recoleccion y el reto.
-func _calc_max_aguante() -> float:
+func _calc_max_aguante(pj: PersonajeData = null) -> float:
 	return base_stamina \
-		+ Game.stat_total("resistencia") * stamina_per_resistencia \
-		+ Game.stat_total("agilidad") * stamina_per_agilidad
+		+ Game.stat_total("resistencia", pj) * stamina_per_resistencia \
+		+ Game.stat_total("agilidad", pj) * stamina_per_agilidad
+
+
+# El aguante ACTUAL de un companero, concretando el -1 (= "nunca ha corrido" -> lleno).
+func _aguante_de(pj: PersonajeData) -> float:
+	var maxi_: float = _calc_max_aguante(pj)
+	return maxi_ if pj.stamina < 0.0 else clampf(pj.stamina, 0.0, maxi_)
+
+
+# ============================================================
+#  AGUANTE DEL GRUPO
+#  Correr lo pagan TODOS: el grupo corre junto, asi que el aguante baja en las tres barras a la
+#  vez. Y el grupo va al paso del MAS CANSADO: si CUALQUIERA se agota, nadie corre hasta que se
+#  recupere (ver _alguien_agotado). Eso hace que la Resistencia de todo el mundo importe y que
+#  meter en el equipo a uno que no aguanta tenga un coste de verdad.
+#
+#  Este aguante es la MISMA barra que la energia con la que entras al combate (el que llega
+#  agotado actua lento las primeras acciones). Correr antes de pelear se paga: es la decision.
+# ============================================================
+
+# Gasta o repone aguante a los COMPANEROS (el del lider lo lleva current_stamina, aparte, porque
+# es el que pinta la barra grande y el que ya existia).
+func _tick_aguante_companeros(delta: float, corriendo: bool) -> void:
+	for pj in Game.companeros():
+		var maxi_: float = _calc_max_aguante(pj)
+		var actual: float = _aguante_de(pj)
+		if corriendo:
+			actual = maxf(0.0, actual - run_drain * delta)
+		else:
+			actual = minf(maxi_, actual + _regen_actual * delta)
+		pj.stamina = actual
+
+
+# True si ALGUIEN del equipo (tu incluido) esta sin fuelle. Un companero se considera agotado por
+# debajo del mismo umbral de recuperacion que tu: se queda tirado hasta recuperar la mitad, o si
+# no bastaria con soltar Shift un instante para volver a correr con el a cero.
+func _alguien_agotado() -> bool:
+	if _exhausted:
+		return true
+	for pj in Game.companeros():
+		var maxi_: float = _calc_max_aguante(pj)
+		if _aguante_de(pj) <= 0.0:
+			pj.set_meta("sin_fuelle", true)
+		elif _aguante_de(pj) >= maxi_ * exhausted_recover_ratio:
+			pj.set_meta("sin_fuelle", false)
+		if bool(pj.get_meta("sin_fuelle", false)):
+			return true
+	return false
 
 # Recalcula el aguante maximo por si las stats cambiaron (panel DEBUG, tecla U, subida en
 # el hogar...). Si la barra estaba llena, la mantiene llena; si no, respeta lo que quede.
@@ -302,14 +352,18 @@ func _actualizar_max_aguante() -> void:
 #  AGUANTE, que es de cada persona: el que se va atras se lleva el suyo tal y como lo dejo.
 # ============================================================
 func refrescar_lider() -> void:
-	# El aguante del que hasta ahora iba delante, a su ficha.
+	# El aguante del que hasta ahora iba delante se queda en SU ficha, incluido si estaba sin
+	# fuelle: mandarlo atras no lo descansa.
 	if _pj_actual != null:
 		_pj_actual.stamina = current_stamina
+		_pj_actual.set_meta("sin_fuelle", _exhausted)
 	_pj_actual = Game.lider()
 	# Y el del nuevo: -1 = nunca ha corrido (companero recien contratado) -> entra descansado.
 	max_stamina = _calc_max_aguante()
 	current_stamina = max_stamina if _pj_actual.stamina < 0.0 else clampf(_pj_actual.stamina, 0.0, max_stamina)
-	_exhausted = false   # el que llega de atras viene fresco; el cansancio se lo lleva el otro
+	# El cansancio viaja CON la persona: si el que sacas de atras venia agotado, sigue agotado.
+	# Si no, cambiar de lider seria un boton de "resetear el aguante" y correr saldria gratis.
+	_exhausted = bool(_pj_actual.get_meta("sin_fuelle", false))
 	_stamina_bar.max_value = max_stamina
 	_stamina_bar.value = current_stamina
 	_actualizar_barra_aguante()
@@ -347,10 +401,15 @@ func _comprobar_grupo() -> void:
 #
 # Se anclan a la esquina TOP_RIGHT en vez de ponerles una x fija: asi siguen pegadas al borde
 # aunque cambie la resolucion, igual que hace el panel de piso/monedas.
-const ALTO_FILA_COMP := 26.0     # lo que ocupa la fila de un companero
+# Cada companero lleva las MISMAS tres barras que tu (vida, aguante y mana), en el mismo orden y
+# con los mismos colores: si arriba a la izquierda la verde es el aguante, aqui tambien. Van mas
+# finas porque son informacion de apoyo, no lo que miras a cada segundo.
+const ALTO_FILA_COMP := 46.0     # nombre + las tres barras
 const Y_BARRAS_COMP := 64.0      # justo debajo del panel de piso + monedas
-const ANCHO_FILA_COMP := 200.0   # lo que mide la fila entera (nombre encima de la barra)
+const ANCHO_FILA_COMP := 200.0   # lo que mide la fila entera (nombre encima de las barras)
 const MARGEN_DER := 12.0
+const ANCHO_BARRA_COMP := 126.0
+const X_BARRA_COMP := 18.0       # deja hueco al cuadradito de color
 
 func _rehacer_barras_companeros() -> void:
 	for fila in _barras_comp:
@@ -369,11 +428,11 @@ func _rehacer_barras_companeros() -> void:
 		raiz.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_barras_layer.add_child(raiz)
 
-		# El NOMBRE va encima de la barra (no al lado): a la derecha el ancho es el que es, y
-		# poniendolo detras habria que recortar la barra a la mitad para que cupiera.
+		# El NOMBRE va encima de las barras (no al lado): a la derecha el ancho es el que es, y
+		# poniendolo detras habria que recortarlas a la mitad para que cupiera.
 		var nombre := Label.new()
 		nombre.text = pj.nombre
-		nombre.position = Vector2(18, -3)
+		nombre.position = Vector2(X_BARRA_COMP, -4)
 		nombre.add_theme_font_size_override("font_size", 10)
 		nombre.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 		nombre.add_theme_constant_override("outline_size", 3)
@@ -382,33 +441,34 @@ func _rehacer_barras_companeros() -> void:
 
 		var punto := ColorRect.new()
 		punto.size = Vector2(12, 12)
-		punto.position = Vector2(0, 6)
+		punto.position = Vector2(0, 12)
 		punto.color = pj.color
 		punto.material = Game.material_de(pj)
 		raiz.add_child(punto)
 
-		var hp := ProgressBar.new()
-		hp.show_percentage = false
-		hp.custom_minimum_size = Vector2(126, 11)
-		hp.size = Vector2(126, 11)
-		hp.position = Vector2(18, 11)
-		hp.self_modulate = Color(1.0, 0.4, 0.4)
-		raiz.add_child(hp)
-		var hp_lbl: Label = _crear_label_barra(hp, 9)
-
+		var hp: ProgressBar = _barra_comp(raiz, 11.0, 11.0, Color(1.0, 0.4, 0.4))
+		var hp_lbl: Label = _crear_label_barra(hp, 8)
+		var en: ProgressBar = _barra_comp(raiz, 23.0, 8.0, Color(0.4, 1.0, 0.5))
 		# El mana solo se pinta si ESE companero tiene algo que gastar: un espadachin sin magia
 		# no necesita una barra azul a cero ocupando sitio.
 		var mp: ProgressBar = null
 		if Game.player_max_mp(pj) > 0.0 and not pj.equipped_spells.is_empty():
-			mp = ProgressBar.new()
-			mp.show_percentage = false
-			mp.custom_minimum_size = Vector2(48, 7)
-			mp.size = Vector2(48, 7)
-			mp.position = Vector2(148, 13)
-			mp.self_modulate = Color(0.4, 0.6, 1.0)
-			raiz.add_child(mp)
+			mp = _barra_comp(raiz, 33.0, 8.0, Color(0.4, 0.6, 1.0))
 
-		_barras_comp.append({"pj": pj, "raiz": raiz, "hp": hp, "hp_lbl": hp_lbl, "mp": mp})
+		_barras_comp.append({"pj": pj, "raiz": raiz, "hp": hp, "hp_lbl": hp_lbl,
+			"en": en, "mp": mp})
+
+
+# Una barra de la fila de un companero (mismo ancho para las tres, solo cambian el alto y el color).
+func _barra_comp(raiz: Control, y: float, alto: float, color: Color) -> ProgressBar:
+	var b := ProgressBar.new()
+	b.show_percentage = false
+	b.custom_minimum_size = Vector2(ANCHO_BARRA_COMP, alto)
+	b.size = Vector2(ANCHO_BARRA_COMP, alto)
+	b.position = Vector2(X_BARRA_COMP, y)
+	b.self_modulate = color
+	raiz.add_child(b)
+	return b
 
 
 # El cuerpo es un ColorRect mientras no haya arte; el brillo metalico y la imagen los pinta un
@@ -664,7 +724,7 @@ func _refrescar_barras_vida() -> void:
 		_mp_bar.value = curmp
 		if _mp_lbl != null:
 			_mp_lbl.text = "%.2f/%.2f" % [curmp, maxmp]
-	# Y las de los companeros que van detras.
+	# Y las de los companeros que van detras: vida, aguante y mana, como las tuyas.
 	for fila in _barras_comp:
 		var pj: PersonajeData = fila["pj"]
 		var maxhp_c: float = Game.player_max_hp(pj)
@@ -673,6 +733,13 @@ func _refrescar_barras_vida() -> void:
 		(fila["hp"] as ProgressBar).value = hp_c
 		if fila["hp_lbl"] != null:
 			(fila["hp_lbl"] as Label).text = "%.0f/%.0f" % [hp_c, maxhp_c]
+		var en_bar: ProgressBar = fila["en"]
+		var maxen_c: float = _calc_max_aguante(pj)
+		en_bar.max_value = maxf(1.0, maxen_c)
+		en_bar.value = _aguante_de(pj)
+		# Mismo codigo de color que tu barra: rojiza cuando se ha quedado sin fuelle.
+		en_bar.self_modulate = Color(1.0, 0.4, 0.4) if bool(pj.get_meta("sin_fuelle", false)) \
+			else Color(0.4, 1.0, 0.5)
 		if fila["mp"] != null:
 			var maxmp_c: float = Game.player_max_mp(pj)
 			(fila["mp"] as ProgressBar).max_value = maxf(1.0, maxmp_c)
