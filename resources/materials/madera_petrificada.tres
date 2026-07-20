@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"madera_petrificada"
+nombre = "Madera petrificada"
+descripcion = "A medio camino de ser piedra. Todavia se trabaja como madera, pero ya no arde y ya no se pudre. Lo que la mazmorra no se ha llevado, se lo ha quedado."
+familia = 0
+tipo = 6
+tier = 2
+exigencia = 600.0
+peso_base = 2.1
+valor_base = 138
+mejora_min = 9
+mejora_max = 15
+color = Color(0.28, 0.22, 0.2, 1)
+piso_min = 10
+piso_max = 12
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

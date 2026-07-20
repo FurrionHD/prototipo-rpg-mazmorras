@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"cobre_profundo"
+nombre = "Cobre profundo"
+descripcion = "Cobre apretado por el peso de la piedra hasta perder el brillo. Sale casi negro y se aclara al frotarlo. Los ultimos pisos antes del rey lo dan a puñados, si puedes con el."
+familia = 0
+tipo = 2
+tier = 1
+exigencia = 300.0
+peso_base = 2.4
+valor_base = 44
+mejora_min = 9
+mejora_max = 15
+color = Color(0.6, 0.36, 0.3, 1)
+piso_min = 4
+piso_max = 6
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

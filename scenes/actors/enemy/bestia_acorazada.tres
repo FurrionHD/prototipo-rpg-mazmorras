@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
 [ext_resource type="Resource" path="res://resources/abilities/bestia_carga.tres" id="3_cor"]
 [ext_resource type="Resource" path="res://resources/abilities/bestia_zarpazo.tres" id="4_emb"]
-[ext_resource type="Resource" path="res://resources/materials/cuero_reforzado.tres" id="5_cue"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_endurecido.tres" id="5_cue"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_bestia.tres" id="6_nuc"]
 
 [sub_resource type="Resource" id="SA_san"]

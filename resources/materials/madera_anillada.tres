@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"madera_anillada"
+nombre = "Madera anillada"
+descripcion = "Crecio a tirones, un anillo por cada temporada que la mazmorra la dejo en paz. Los anillos apretados son los años malos, y son los que la hacen dura."
+familia = 0
+tipo = 6
+tier = 1
+exigencia = 300.0
+peso_base = 1.6
+valor_base = 47
+mejora_min = 9
+mejora_max = 15
+color = Color(0.36, 0.29, 0.2, 1)
+piso_min = 4
+piso_max = 6
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

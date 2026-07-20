@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"hierro_negro"
+nombre = "Hierro negro"
+descripcion = "Casi no parece hierro. Oscuro, denso, con un tacto aceitoso que no se va. Los mineros viejos dicen que no se pica: se convence."
+familia = 0
+tipo = 2
+tier = 2
+exigencia = 600.0
+peso_base = 3.4
+valor_base = 103
+mejora_min = 9
+mejora_max = 15
+color = Color(0.36, 0.39, 0.46, 1)
+piso_min = 10
+piso_max = 12
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

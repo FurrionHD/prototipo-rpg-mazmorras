@@ -115,10 +115,29 @@ static func prob_devolver_forja(factor: float) -> float:
 # mas probables las rarezas buenas. Un tocho de metal noble ya viene medio hecho.
 const BONUS_POR_TIER_METAL := 0.10   # T1 +0, T2 +0.10, T3 +0.20 al score
 
+# Y el SUB-TIER empuja un poco tambien, dentro de su tier. Sin esto habia una trampa: forjar con
+# cobre profundo daba EXACTAMENTE lo mismo que con cobre en bruto (los tres cobres comparten tier),
+# asi que el jugador gastaba el material caro sin notar nada y sin que el juego se lo dijera.
+# Es la mitad que el salto de tier a proposito: subir de tier tiene que seguir siendo el salto
+# gordo, y el sub-tier el escaloncito. El techo de score_final sigue mandando, asi que esto
+# tampoco fabrica pristinos por si solo.
+const BONUS_POR_BANDA_METAL := 0.05   # banda base +0, +1 -> +0.05, +2 -> +0.10
+
 static func bonus_metal(lingote: MaterialData) -> float:
 	if lingote == null:
 		return 0.0
-	return BONUS_POR_TIER_METAL * float(maxi(1, lingote.tier) - 1)
+	var por_tier: float = BONUS_POR_TIER_METAL * float(maxi(1, lingote.tier) - 1)
+	return por_tier + BONUS_POR_BANDA_METAL * float(banda_de(lingote))
+
+
+# La BANDA de un material de refuerzo: 0 = base, 1 = +1, 2 = +2. Sale de mejora_min, que es donde
+# vive la banda (ver MaterialData.cubre_mejora). Sin banda declarada -> 0.
+static func banda_de(mat: MaterialData) -> int:
+	if mat == null or mat.mejora_max <= 0:
+		return 0
+	if mat.mejora_min >= 9:
+		return 2
+	return 1 if mat.mejora_min >= 3 else 0
 
 
 # El SCORE final con el que se tira la rareza, juntando las tres fuentes con SU jerarquia:

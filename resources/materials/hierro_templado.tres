@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"hierro_templado"
+nombre = "Hierro templado"
+descripcion = "Hierro que ya nacio a medio templar, cocido por el calor que sube de las simas. Suena distinto al picarlo: mas seco, mas corto."
+familia = 0
+tipo = 2
+tier = 2
+exigencia = 470.0
+peso_base = 3.2
+valor_base = 65
+mejora_min = 3
+mejora_max = 9
+color = Color(0.52, 0.56, 0.64, 1)
+piso_min = 8
+piso_max = 12
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

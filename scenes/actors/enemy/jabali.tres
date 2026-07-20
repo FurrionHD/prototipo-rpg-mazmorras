@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
-[ext_resource type="Resource" path="res://resources/materials/cuero_simple.tres" id="3_cuero"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_brunido.tres" id="3_cuero"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_jabali.tres" id="4_nuc"]
 [ext_resource type="Resource" path="res://resources/abilities/jabali_embestida.tres" id="5_emb"]
 [ext_resource type="Resource" path="res://resources/abilities/jabali_pisoton.tres" id="6_pis"]

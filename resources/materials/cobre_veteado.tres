@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"cobre_veteado"
+nombre = "Cobre veteado"
+descripcion = "El mismo cobre, pero cruzado de vetas mas claras que lo recorren como nervios. Cuesta mas sacarlo entero: la veta manda por donde se parte, y no siempre coincide con donde golpeas."
+familia = 0
+tipo = 2
+tier = 1
+exigencia = 150.0
+peso_base = 2.2
+valor_base = 28
+mejora_min = 3
+mejora_max = 9
+color = Color(0.7, 0.42, 0.3, 1)
+piso_min = 2
+piso_max = 6
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

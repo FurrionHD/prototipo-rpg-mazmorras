@@ -184,8 +184,23 @@ const EXTRACTION_DESTREZA_RETO_MAX := 8.0
 # --- RECOLECCION: dificultad de los dos minijuegos ---
 # Misma idea que la extraccion (dificultad RELATIVA: lo que exige el material contra la
 # stat que lo trabaja), pero cada actividad mira SU stat: la veta pide FUERZA, la planta
-# pide DESTREZA. La profundidad endurece el material (roca mas apretada, tallos mas secos).
-const RECOLECCION_PISO_FACTOR := 1.10   # exigencia x1.10 por piso
+# pide DESTREZA.
+#
+# APAGADO (era 1.10, o sea +10% COMPUESTO por piso). Existia porque solo habia TRES minerales
+# para quince pisos: sin el, picar en el piso 12 era igual de facil que en el 1. Con los
+# sub-tiers el propio material ya codifica la profundidad (cobre -> veteado -> profundo ->
+# hierro -> templado -> negro), asi que el factor pasaba a contar lo mismo DOS VECES.
+#
+# Y se le iba de las manos: al piso 12 multiplicaba por 2.85 y al 13 por 3.14, con lo que el acero
+# pedia una Fuerza de ~2500. Ojo con la lectura facil de ese numero: 999 (ABILITY_CAP) NO es un
+# muro, es una asintota — DIMINISH_FLOOR deja seguir subiendo al 15% del ritmo. Y subir de nivel
+# tampoco lo arregla: resetea la habilidad VISIBLE, pero la recoleccion mira el TOTAL OCULTO
+# (stat_total), que no se resetea nunca. Asi que 2500 no era "imposible", era peor: era farmear
+# eternamente al 15% de ritmo para poder picar la veta de tu propio piso.
+#
+# Si algun dia vuelve a hacer falta, la pregunta correcta es "¿le falta un sub-tier a este tramo?"
+# antes que subir esto.
+const RECOLECCION_PISO_FACTOR := 1.0
 
 # MINERIA (pico, Fuerza). La Fuerza ensancha la franja optima Y la baja: un brazo fuerte
 # rompe la veta sin tener que cargar el pico hasta arriba.
@@ -2798,44 +2813,93 @@ func mezcla_activa() -> float:
 
 # Cada metal, su cadena: el TIER se conserva de la veta a la hebilla.
 #   mineral -> lingote -> chapa (armaduras) / hebillas (mochilas)
+#
+# Cada TIER tiene ahora tres SUB-TIERS, y el sub-tier dice hasta que +N puedes llevar la pieza
+# (via mejora_min/mejora_max del MaterialData; ver Game._material_de). Ya no vale con el tier para
+# encontrar la fila: hacen falta los dos ejes. La lista sigue siendo plana a proposito — quien
+# busca, busca por (tier, banda), no por posicion.
+#   T1 cobre:  en bruto (+0..3) · veteado (+3..9) · profundo (+9..15)
+#   T2 hierro: en bruto (+0..3) · templado (+3..9) · negro (+9..15)
+#   T3 acero:  SIN sub-tiers todavia (sin banda = sirve para cualquier nivel).
 const _FORJA_METALES: Array = [
 	["res://resources/materials/cobre.tres",
 		"res://resources/materials/lingote_cobre.tres",
 		"res://resources/materials/chapa_cobre.tres",
-		"res://resources/materials/hebillas_cobre.tres"],        # T1
+		"res://resources/materials/hebillas_cobre.tres"],                    # T1 base
+	["res://resources/materials/cobre_veteado.tres",
+		"res://resources/materials/lingote_cobre_veteado.tres",
+		"res://resources/materials/chapa_cobre_veteado.tres",
+		"res://resources/materials/hebillas_cobre_veteado.tres"],            # T1 +1
+	["res://resources/materials/cobre_profundo.tres",
+		"res://resources/materials/lingote_cobre_profundo.tres",
+		"res://resources/materials/chapa_cobre_profundo.tres",
+		"res://resources/materials/hebillas_cobre_profundo.tres"],           # T1 +2
 	["res://resources/materials/hierro.tres",
 		"res://resources/materials/lingote_hierro.tres",
 		"res://resources/materials/chapa_hierro.tres",
-		"res://resources/materials/hebillas_hierro.tres"],       # T2
+		"res://resources/materials/hebillas_hierro.tres"],                   # T2 base
+	["res://resources/materials/hierro_templado.tres",
+		"res://resources/materials/lingote_hierro_templado.tres",
+		"res://resources/materials/chapa_hierro_templado.tres",
+		"res://resources/materials/hebillas_hierro_templado.tres"],          # T2 +1
+	["res://resources/materials/hierro_negro.tres",
+		"res://resources/materials/lingote_hierro_negro.tres",
+		"res://resources/materials/chapa_hierro_negro.tres",
+		"res://resources/materials/hebillas_hierro_negro.tres"],             # T2 +2
 	["res://resources/materials/acero.tres",
 		"res://resources/materials/lingote_acero.tres",
 		"res://resources/materials/chapa_acero.tres",
-		"res://resources/materials/hebillas_acero.tres"],     # T3
+		"res://resources/materials/hebillas_acero.tres"],                    # T3
 ]
 const _CUERO_CRUDO := "res://resources/materials/cuero_simple.tres"
 const _CUERO_CURTIDO := "res://resources/materials/cuero_curtido.tres"
+# Las PIELES que se curten, en el mismo orden que _CUEROS (su curtido). Cada bicho suelta la suya:
+# rata / rey rata / jabali en el T1, y araña / bestia acorazada / (el de los pisos hondos) en el T2.
+const _CUEROS_CRUDOS: Array = [
+	"res://resources/materials/cuero_simple.tres",       # T1 base  <- rata
+	"res://resources/materials/cuero_curado.tres",       # T1 +1    <- rey rata
+	"res://resources/materials/cuero_brunido.tres",      # T1 +2    <- jabali
+	"res://resources/materials/cuero_reforzado.tres",    # T2 base  <- araña
+	"res://resources/materials/cuero_endurecido.tres",   # T2 +1    <- bestia acorazada
+	"res://resources/materials/cuero_placado.tres",      # T2 +2    <- bicho de los pisos hondos
+]
 const _CORREA := "res://resources/materials/correa_cuero.tres"
 # CUEROS de forja por TIER (la fibra que acompaña a la CHAPA en la armadura, como la madera al
 # lingote en el arma). T1 = cuero curtido (sale del peletero); T2 = cuero reforzado (viene ya
 # curtido de los bichos hondos). Sin cuero a la altura del metal, la armadura de ese tier NO se
 # forja (freno a proposito, ver fibra_de_forja). T3 se añadira cuando toque.
+# Ahora TODOS pasan por el peletero, tambien los de T2: antes el cuero reforzado entraba directo
+# a la forja (venia "ya curtido" del bicho), y eso dejaba a la Peleteria sin nada que hacer de los
+# pisos 7 en adelante, justo cuando el oficio deberia estar en su mejor momento.
 const _CUEROS: Array = [
-	"res://resources/materials/cuero_curtido.tres",     # T1
-	"res://resources/materials/cuero_reforzado.tres",   # T2
+	"res://resources/materials/cuero_curtido.tres",         # T1 base
+	"res://resources/materials/curtido_curado.tres",        # T1 +1
+	"res://resources/materials/curtido_brunido.tres",       # T1 +2
+	"res://resources/materials/curtido_reforzado.tres",     # T2 base
+	"res://resources/materials/curtido_endurecido.tres",    # T2 +1
+	"res://resources/materials/curtido_placado.tres",       # T2 +2
 ]
 # Las MADERAS, por tier. Son el MANGO del arma, y van indexadas igual que _FORJA_METALES: el
 # mango tiene que estar a la altura del metal (ver Forge.madera_vale_para).
 const _MADERAS: Array = [
-	"res://resources/materials/madera_comun.tres",   # T1
-	"res://resources/materials/madera_dura.tres",    # T2
-	"res://resources/materials/madera_negra.tres",   # T3
+	"res://resources/materials/madera_comun.tres",         # T1 base
+	"res://resources/materials/madera_de_veta.tres",       # T1 +1
+	"res://resources/materials/madera_anillada.tres",      # T1 +2
+	"res://resources/materials/madera_dura.tres",          # T2 base
+	"res://resources/materials/madera_ferrea.tres",        # T2 +1
+	"res://resources/materials/madera_petrificada.tres",   # T2 +2
+	"res://resources/materials/madera_negra.tres",         # T3
 ]
 # Los TABLONES, por tier, indexados igual que _MADERAS: la madera CRUDA se recolecta y se asierra
 # (carpintero) en el tablon del MISMO tier, que es lo que va de verdad al mango del arma.
 const _TABLONES: Array = [
-	"res://resources/materials/tablon_comun.tres",   # T1
-	"res://resources/materials/tablon_duro.tres",    # T2
-	"res://resources/materials/tablon_negro.tres",   # T3
+	"res://resources/materials/tablon_comun.tres",          # T1 base
+	"res://resources/materials/tablon_de_veta.tres",        # T1 +1
+	"res://resources/materials/tablon_anillada.tres",       # T1 +2
+	"res://resources/materials/tablon_duro.tres",           # T2 base
+	"res://resources/materials/tablon_ferrea.tres",         # T2 +1
+	"res://resources/materials/tablon_petrificada.tres",    # T2 +2
+	"res://resources/materials/tablon_negro.tres",          # T3
 ]
 
 # {mineral, lingote, chapa, hebillas} de cada metal (para los menus del herrero).
@@ -2874,6 +2938,35 @@ func chapas_forja() -> Array:
 
 func cuero_crudo() -> MaterialData:
 	return load(_CUERO_CRUDO) as MaterialData
+
+# Todas las pieles curtibles.
+func cueros_crudos() -> Array:
+	var out: Array = []
+	for ruta in _CUEROS_CRUDOS:
+		var c: Resource = load(ruta)
+		if c != null:
+			out.append(c)
+	return out
+
+# Las pieles que el peletero te ENSEÑA. Misma regla que el metal y la madera: la T1 de la banda
+# base siempre, el resto solo cuando has traido alguna.
+func cueros_crudos_conocidos() -> Array:
+	var out: Array = []
+	for c in cueros_crudos():
+		var md: MaterialData = c as MaterialData
+		if (int(md.tier) == 1 and int(md.mejora_min) == 0) or material_visto(md):
+			out.append(md)
+	return out
+
+# El curtido que sale de esta piel: mismo tier Y misma banda. Espejo de tablon_de.
+func curtido_de(crudo: MaterialData) -> MaterialData:
+	if crudo == null:
+		return null
+	for c in cueros_forja():
+		var md: MaterialData = c as MaterialData
+		if md != null and int(md.tier) == int(crudo.tier) and int(md.mejora_min) == int(crudo.mejora_min):
+			return md
+	return null
 
 # El cuero que pide la FORJA es el curtido: el crudo se queda en el peletero. (T1, para el peletero
 # y el recubrimiento de mango; la fibra de ARMADURA por tier la da cuero_de_tier.)
@@ -2938,7 +3031,11 @@ func material_visto(mat: MaterialData) -> bool:
 func metales_forja_conocidos() -> Array:
 	var out: Array = []
 	for fila in metales_forja():
-		var conocido: bool = int((fila["mineral"] as MaterialData).tier) == 1
+		var min_mat: MaterialData = fila["mineral"] as MaterialData
+		# Regalado solo el T1 de la BANDA BASE (el cobre en bruto). Los sub-tiers se descubren como
+		# el T2 y el T3: enseñar de entrada los tres cobres seria chivar la progresion entera del
+		# tier antes de que el jugador haya picado nada.
+		var conocido: bool = int(min_mat.tier) == 1 and int(min_mat.mejora_min) == 0
 		if not conocido:
 			for clave in ["mineral", "lingote", "chapa", "hebillas"]:
 				if material_visto(fila[clave] as MaterialData):
@@ -2989,7 +3086,8 @@ func maderas_conocidas() -> Array:
 	var out: Array = []
 	for m in maderas_forja():
 		var md: MaterialData = m as MaterialData
-		if int(md.tier) == 1 or material_visto(md):
+		# Misma regla que el metal: regalada solo la T1 de la banda base; los sub-tiers se descubren.
+		if (int(md.tier) == 1 and int(md.mejora_min) == 0) or material_visto(md):
 			out.append(md)
 	return out
 
@@ -3133,8 +3231,11 @@ func fundir(mineral: MaterialData, cal: int, veces: int) -> int:
 func batir_chapa(lingote: MaterialData, cal: int, veces: int) -> int:
 	return refinar(lingote, chapa_de(lingote), cal, veces, Forge.LINGOTE_POR_CHAPA, "metalurgia")
 
-func curtir(cal: int, veces: int) -> int:
-	return refinar(cuero_crudo(), cuero_forja(), cal, veces, Forge.CUERO_POR_CURTIDO, "peleteria")
+# `crudo` = que piel se curte. null = la base (T1), que es como se llamaba antes de que hubiera
+# sub-tiers de cuero.
+func curtir(cal: int, veces: int, crudo: MaterialData = null) -> int:
+	var origen: MaterialData = crudo if crudo != null else cuero_crudo()
+	return refinar(origen, curtido_de(origen), cal, veces, Forge.CUERO_POR_CURTIDO, "peleteria")
 
 # Aserrar: N maderas -> 1 tablon (mismo tier, misma calidad). Oficio del CARPINTERO.
 func aserrar(madera: MaterialData, cal: int, veces: int) -> int:

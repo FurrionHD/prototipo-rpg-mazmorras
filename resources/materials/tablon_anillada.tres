@@ -4,18 +4,18 @@
 
 [resource]
 script = ExtResource("1")
-id = &"tablon_comun"
-nombre = "Tablón común"
-descripcion = "Madera aserrada a escuadra y dejada secar. Ya no es un palo arrancado de la pared: tiene caras planas y una veta que sabes por dónde va a ceder."
+id = &"tablon_anillada"
+nombre = "Tablón anillado"
+descripcion = "Aserrada a escuadra y puesta a secar. Deja de ser un palo arrancado del muro y pasa a tener caras planas y una veta que sabes por donde va a ceder."
 familia = 0
 tipo = 7
 tier = 1
 exigencia = 0.0
-peso_base = 1.1
-valor_base = 40
-mejora_min = 0
-mejora_max = 3
-color = Color(0.5, 0.4, 0.26, 1)
+peso_base = 1.5
+valor_base = 118
+mejora_min = 9
+mejora_max = 15
+color = Color(0.44, 0.35, 0.24, 1)
 piso_min = 1
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"

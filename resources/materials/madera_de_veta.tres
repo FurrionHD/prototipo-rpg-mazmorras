@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"madera_de_veta"
+nombre = "Madera de veta"
+descripcion = "Enredadera vieja, con la fibra corrida en lineas largas y limpias. Se raja por donde quiere ella, no por donde quieres tu."
+familia = 0
+tipo = 6
+tier = 1
+exigencia = 150.0
+peso_base = 1.4
+valor_base = 27
+mejora_min = 3
+mejora_max = 9
+color = Color(0.46, 0.36, 0.22, 1)
+piso_min = 2
+piso_max = 6
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

@@ -36,6 +36,11 @@ var _aviso_ok: bool = true
 
 var _tab: int = 0
 
+# --- CURTIR ---
+# Cual de las pieles conocidas se esta curtiendo (indice en Game.cueros_crudos_conocidos()).
+# Antes solo habia una y no habia nada que elegir; con los sub-tiers hay hasta seis.
+var _cue_idx: int = 0
+
 # --- MOCHILAS ---
 var _heb_idx: int = 0                # metal de las hebillas (fija el tier)
 var _sel_heb: Dictionary = {}
@@ -125,9 +130,17 @@ func _rebuild() -> void:
 # ============================================================
 
 func _build_refinar(correas: bool) -> void:
-	var origen: MaterialData = Game.cuero_forja() if correas else Game.cuero_crudo()
-	var destino: MaterialData = Game.correa() if correas else Game.cuero_forja()
+	# CURTIR: se elige QUE piel (hay una por sub-tier). CORREAS: siempre del curtido base, que es
+	# el que hace de tela para las mochilas.
+	var pieles: Array = Game.cueros_crudos_conocidos()
+	_cue_idx = clampi(_cue_idx, 0, maxi(0, pieles.size() - 1))
+	var piel: MaterialData = pieles[_cue_idx] if not pieles.is_empty() else Game.cuero_crudo()
+
+	var origen: MaterialData = Game.cuero_forja() if correas else piel
+	var destino: MaterialData = Game.correa() if correas else Game.curtido_de(piel)
 	var por_uno: int = Forge.CUERO_POR_CORREA if correas else Forge.CUERO_POR_CURTIDO
+	if destino == null:
+		destino = Game.cuero_forja()
 
 	MenuScaffold.titulo(_header, "HACER CORREAS" if correas else "CURTIR")
 	if correas:
@@ -136,18 +149,17 @@ func _build_refinar(correas: bool) -> void:
 		MenuScaffold.nota(_header, "%d pieles de la MISMA calidad = 1 cuero curtido de esa calidad. No se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón." % por_uno)
 	_header.add_child(HSeparator.new())
 
-	# Fila-selector de tier, igual que el herrero (Fundir) y el carpintero (Tablones): un botón por
-	# cada cuero de esta categoria, mostrado SIEMPRE (aunque tengas 0), con su tier. Hoy el cuero es
-	# de un solo tier, asi que la fila tiene un boton; si aparecen mas, crece sola. Da la consistencia
-	# visual que faltaba (antes esto iba directo a las filas de calidad y se veia distinto).
-	var origenes: Array = [origen]
+	# Fila-selector, igual que el herrero (Fundir) y el carpintero (Tablones): un boton por cada
+	# piel CONOCIDA, mostrada SIEMPRE (aunque tengas 0). En Correas hay una sola opcion (el curtido
+	# base es la tela de la mochila), asi que la fila queda de un boton y no se puede pulsar.
+	var origenes: Array = [origen] if correas else pieles
 	var fila := GridContainer.new()
 	fila.columns = 2
 	fila.add_theme_constant_override("h_separation", 6)
 	fila.add_theme_constant_override("v_separation", 6)
 	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for o in origenes:
-		var mat: MaterialData = o as MaterialData
+	for i in origenes.size():
+		var mat: MaterialData = origenes[i] as MaterialData
 		var b := Button.new()
 		b.text = "%s  (T%d)" % [mat.nombre, mat.tier]
 		b.toggle_mode = true
@@ -155,6 +167,8 @@ func _build_refinar(correas: bool) -> void:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.button_pressed = (mat == origen)
 		b.custom_minimum_size = Vector2(0, 32)
+		if not correas:
+			b.pressed.connect(_on_piel.bind(i))
 		fila.add_child(b)
 	_content.add_child(fila)
 	_content.add_child(HSeparator.new())
@@ -190,8 +204,15 @@ func _build_refinar(correas: bool) -> void:
 	_estado_peleteria()
 
 
+func _on_piel(i: int) -> void:
+	_cue_idx = i
+	_rebuild()
+
+
 func _on_refinar(correas: bool, cal: int, veces: int) -> void:
-	var n: int = Game.hacer_correa(cal, veces) if correas else Game.curtir(cal, veces)
+	var pieles: Array = Game.cueros_crudos_conocidos()
+	var piel: MaterialData = pieles[_cue_idx] if _cue_idx < pieles.size() else null
+	var n: int = Game.hacer_correa(cal, veces) if correas else Game.curtir(cal, veces, piel)
 	if n > 0:
 		_decir("Sacas %d %s de calidad %s." % [n, "correa(s)" if correas else "cuero(s)",
 			_cal_txt(cal).to_lower()])

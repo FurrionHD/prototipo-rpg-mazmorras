@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"tablon_petrificada"
+nombre = "Tablón petrificado"
+descripcion = "Aserrada a escuadra y puesta a secar. Deja de ser un palo arrancado del muro y pasa a tener caras planas y una veta que sabes por donde va a ceder."
+familia = 0
+tipo = 7
+tier = 2
+exigencia = 0.0
+peso_base = 2.0
+valor_base = 329
+mejora_min = 9
+mejora_max = 15
+color = Color(0.34, 0.27, 0.23, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

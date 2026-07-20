@@ -4,18 +4,18 @@
 
 [resource]
 script = ExtResource("1")
-id = &"cuero_curtido"
-nombre = "Cuero curtido"
-descripcion = "Piel raspada, tratada y puesta a secar hasta que deja de ser un despojo y empieza a ser ropa."
+id = &"cuero_placado"
+nombre = "Cuero placado"
+descripcion = "Lleva placas oseas nacidas dentro de la propia piel. No se cose: se remacha, como si fuera media armadura de serie."
 familia = 0
-tipo = 5
-tier = 1
+tipo = 3
+tier = 2
 exigencia = 0.0
-peso_base = 0.8
-valor_base = 45
-mejora_min = 0
-mejora_max = 3
-color = Color(0.55, 0.38, 0.25, 1)
+peso_base = 3.2
+valor_base = 376
+mejora_min = 9
+mejora_max = 15
+color = Color(0.32, 0.26, 0.26, 1)
 piso_min = 1
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"
