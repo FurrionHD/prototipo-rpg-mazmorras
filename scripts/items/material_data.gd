@@ -116,6 +116,20 @@ func es_madera() -> bool:
 func mejora_equipo() -> bool:
 	return familia == Familia.NUCLEO and mejora_max > 0
 
+
+# ¿Este material cubre el nivel de mejora `n`? (n = mejoras que YA tiene la pieza; llevarla al
+# n+1 es lo que se esta pagando.) La banda es SEMIABIERTA [mejora_min, mejora_max), igual que la
+# de los nucleos (ver Forge._nucleo_de_nivel): asi dos bandas contiguas 0..3 y 3..9 no se solapan
+# en el 3.
+#
+# mejora_max <= 0 = SIN BANDA: sirve para cualquier nivel. Es el valor por defecto, y es lo que
+# tienen hoy todos los materiales de refuerzo (metal, madera, cuero), que aun no estan divididos
+# en sub-tiers. Mientras siga asi, el gate no filtra nada y el crafteo se comporta como siempre.
+func cubre_mejora(n: int) -> bool:
+	if mejora_max <= 0:
+		return true
+	return n >= mejora_min and n < mejora_max
+
 # Tope de mejora EFECTIVO: el campo, pero nunca por encima del maximo real del sistema
 # (la rareza mas alta de Upgrades). Asi un .tres no puede prometer un +20 que no existe.
 func mejora_tope() -> int:

@@ -2889,14 +2889,30 @@ func cueros_forja() -> Array:
 			out.append(c)
 	return out
 
+# --- BUSCAR EL MATERIAL DE REFUERZO QUE TOCA ---
+# Un material de refuerzo (metal, madera, cuero) se identifica por DOS ejes:
+#   - TIER: la gama del equipo (cobre T1 / hierro T2 / acero T3). Es lo de siempre.
+#   - BANDA de mejora: hasta que +N sirve, via MaterialData.mejora_min/mejora_max. Es el eje NUEVO
+#     (sub-tiers), y hoy todavia no lo usa ningun material: todos van sin banda y valen para todo.
+#
+# `nivel` = mejoras que YA tiene la pieza (llevarla a nivel+1 es lo que se paga). -1 = no filtrar
+# por banda, que es lo que quiere la FORJA: el sub-tier gatea MEJORAR, no fabricar la pieza.
+func _material_de(lista: Array, tier: int, nivel: int) -> MaterialData:
+	for m in lista:
+		var md: MaterialData = m as MaterialData
+		if md == null or int(md.tier) != tier:
+			continue
+		if nivel >= 0 and not md.cubre_mejora(nivel):
+			continue
+		return md
+	return null
+
+
 # El cuero de un TIER dado (la fibra de la armadura de ese metal). null si no existe a esa altura:
 # ese null es el FRENO (una armadura de acero T3 no se forja hasta que haya cuero T3). Espejo de
 # madera_de_tier.
-func cuero_de_tier(tier: int) -> MaterialData:
-	for c in cueros_forja():
-		if int((c as MaterialData).tier) == tier:
-			return c as MaterialData
-	return null
+func cuero_de_tier(tier: int, nivel: int = -1) -> MaterialData:
+	return _material_de(cueros_forja(), tier, nivel)
 
 # --- LO QUE YA HAS VISTO (id -> true) ---
 # El menu del herrero listaba los tres metales desde el minuto uno. Eso es abrumador y ademas
@@ -2962,11 +2978,8 @@ func maderas_forja() -> Array:
 			out.append(m)
 	return out
 
-func madera_de_tier(tier: int) -> MaterialData:
-	for m in maderas_forja():
-		if int((m as MaterialData).tier) == tier:
-			return m as MaterialData
-	return null
+func madera_de_tier(tier: int, nivel: int = -1) -> MaterialData:
+	return _material_de(maderas_forja(), tier, nivel)
 
 
 # Las maderas que el carpintero te ENSEÑA. Como el metal (ver metales_forja_conocidos): la T1
@@ -2989,17 +3002,21 @@ func tablones_forja() -> Array:
 			out.append(m)
 	return out
 
-func tablon_de_tier(tier: int) -> MaterialData:
-	for m in tablones_forja():
-		if int((m as MaterialData).tier) == tier:
-			return m as MaterialData
-	return null
+func tablon_de_tier(tier: int, nivel: int = -1) -> MaterialData:
+	return _material_de(tablones_forja(), tier, nivel)
 
-# El tablon que sale de aserrar esta madera (mismo tier).
+# El tablon que sale de aserrar esta madera: mismo tier Y misma banda. Lo de la banda importa
+# cuando haya sub-tiers: aserrar una madera +1 tiene que dar el tablon +1, no el base. Se empareja
+# por mejora_min porque es lo que define donde empieza la banda; mientras nadie tenga banda
+# (mejora_min = 0 en todos), esto es exactamente el comportamiento de siempre.
 func tablon_de(madera: MaterialData) -> MaterialData:
 	if madera == null:
 		return null
-	return tablon_de_tier(int(madera.tier))
+	for m in tablones_forja():
+		var md: MaterialData = m as MaterialData
+		if md != null and int(md.tier) == int(madera.tier) and int(md.mejora_min) == int(madera.mejora_min):
+			return md
+	return null
 
 
 # Los INGREDIENTES de forjar `base` con `metal`: una lista [{material, uds}]. Es la fuente unica
@@ -3042,17 +3059,23 @@ func ingredientes_forja(base: Resource, metal: MaterialData) -> Array:
 # mejorar una pieza te pide un material con el que no se fabrico. Es lo que pasaba con el ESCUDO:
 # como no es ArmorData caia en la rama de las armas y pedia MADERA, cuando MIX_ESCUDO es metal +
 # cuero y no lleva madera ninguna. No se notaba solo porque el escudo no admitia mejoras.
-func fibra_de_forja(base: Resource, metal: MaterialData) -> MaterialData:
+#
+# `nivel` = mejoras que ya tiene la pieza. -1 (por defecto) = FORJAR, sin filtro de banda. Con un
+# nivel >= 0 se pide ademas la fibra de la banda que cubre ese nivel: es lo que hace que subir del
+# +3 al +4 exija el sub-tier siguiente y no valga el material del principio.
+func fibra_de_forja(base: Resource, metal: MaterialData, nivel: int = -1) -> MaterialData:
 	if base == null or metal == null:
 		return null
 	var tier: int = Forge.tier_de_metal(metal)
 	if base is ArmorData:
-		return cuero_de_tier(tier)   # cuero del tier del metal; null = no hay a esa altura (freno)
+		return cuero_de_tier(tier, nivel)   # cuero del tier del metal; null = no hay a esa altura (freno)
 	if base is ShieldData:
-		return cuero_de_tier(1)      # correas: recubrimiento, cuero base sin tier (como al forjarlo)
+		# Correas: recubrimiento, cuero base sin tier (como al forjarlo). Tampoco tiene banda: forrar
+		# un agarre no se vuelve mas dificil porque el escudo este mas mejorado.
+		return cuero_de_tier(1)
 	# El MANGO del arma es un TABLON (madera aserrada), IGUAL que al forjarla: la madera cruda ya no
 	# va directa a la pieza, ni al hacerla ni al reforzarla. Del mismo tier que el metal.
-	return tablon_de_tier(tier)
+	return tablon_de_tier(tier, nivel)
 
 
 # --- REFINAR (una sola operacion para fundir, batir y curtir) ---
@@ -3463,13 +3486,15 @@ func materiales_mejora(item: Resource) -> Dictionary:
 	if item == null:
 		return {"metal": null, "fibra": null}
 	var tier: int = int(meta_de(item)["tier"])
+	# AQUI es donde muerde el gate de banda (sub-tiers): mejorar pide el material de la banda que
+	# cubre el nivel actual, no el mismo del principio. Forjar la pieza NO lo pide (ver
+	# ingredientes_forja): el sub-tier es un peaje para SUBIRLA, no para fabricarla.
+	var nivel: int = mejoras_actuales(item)
 	var metales: Array = chapas_forja() if item is ArmorData else lingotes_forja()
-	var metal: MaterialData = null
-	for m in metales:
-		if (m as MaterialData).tier == tier:
-			metal = m as MaterialData
-			break
-	return {"metal": metal, "fibra": fibra_de_forja(item, metal)}
+	var metal: MaterialData = _material_de(metales, tier, nivel)
+	# La fibra se busca con el metal de la MISMA banda; si no hay metal a esa altura tampoco hay
+	# pieza que mejorar, y el null se propaga solo (puede_mejorar lo corta).
+	return {"metal": metal, "fibra": fibra_de_forja(item, metal, nivel)}
 
 
 func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
