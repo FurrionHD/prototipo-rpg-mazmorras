@@ -10,8 +10,13 @@
 #  reclutamiento no pueden separarse, o el aviso pasaria a mentir.
 #
 #  Leerla es la decision tactica: ¿entro al corro de tres, o me llevo a uno lejos (con ruido o
-#  dejandome ver) y lo peleo solo? Como no hay alerta grupal, separarlos rompe la linea de
-#  verdad.
+#  dejandome ver) y lo peleo solo? Separarlos rompe la linea DE VERDAD: no hay alerta a gritos que
+#  te devuelva al que acabas de apartar.
+#
+#  Los bichos ahora se BUSCAN entre ellos y forman corros del tamaño que pide tu grupo (ver las
+#  manadas en enemy.gd), asi que estas lineas se ven crecer solas mientras merodean. Eso no rompe
+#  la promesa, la hace mas util: se juntan A LA VISTA y antes de la pelea, asi que lo que lees en
+#  el mapa sigue siendo exactamente lo que te va a caer encima si tocas a uno.
 #
 #  Cuelga del PADRE del piso, junto a los enemigos (dungeon_floor.crear_enemigo): el piso
 #  tiene z_index -1, y una capa colgada de el se pintaria por debajo del suelo.

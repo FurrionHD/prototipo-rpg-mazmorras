@@ -82,6 +82,16 @@ var _t_respawn: float = RESPAWN_CHECK_CADA
 @export var celdas_por_bicho: int = 40
 @export var max_vivos_sala: int = 3
 @export var max_vivos_pasillo: int = 1
+# El aforo por zona TAMBIEN se escala con la profundidad (misma FLOOR_GROWTH que el tope del piso):
+# si solo creciera el tope global, un piso hondo seria el mismo mapa con mas salas de tres, y lo que
+# se quiere es que ABAJO TE ENCUENTRES CORROS MAS GORDOS. Con topes duros, eso si:
+#   - la sala se queda en 4 = MAX_COMBATIENTES (Enemy). Mas de cuatro no caben en una pelea, asi
+#     que el quinto solo serviria para mirar; el sitio para crecer es el numero de salas, no el
+#     tamaño del corro.
+#   - el pasillo, en 2: un pasillo es un sitio de paso, y peleas a cuatro en un tubo de tres
+#     celdas de ancho son sitiadas sin escapatoria.
+const TOPE_SALA := 4
+const TOPE_PASILLO := 2
 
 # Que fraccion del aforo de cada zona ya esta poblada AL ENTRAR al piso. Una mazmorra
 # tiene bichos deambulando cuando llegas; los partos son el goteo que viene despues. A 0
@@ -804,9 +814,14 @@ func _crear_zonas() -> void:
 		zona.partos = partos
 		zona.intervalo_min = intervalo_min
 		zona.intervalo_max = intervalo_max
-		# Aforo por AREA: una sala grande sostiene mas bichos que un pasillo.
+		# Aforo por AREA: una sala grande sostiene mas bichos que un pasillo. Y el TECHO de ese
+		# aforo crece con la profundidad (misma FLOOR_GROWTH que el tope del piso): abajo las salas
+		# aguantan corros mas gordos, hasta el tope duro (TOPE_SALA = lo que cabe en una pelea).
 		var tope: int = maxi(1, celdas.size() / celdas_por_bicho)
-		zona.max_vivos = mini(tope, max_vivos_sala if es_sala else max_vivos_pasillo)
+		var techo_base: int = max_vivos_sala if es_sala else max_vivos_pasillo
+		var techo_duro: int = TOPE_SALA if es_sala else TOPE_PASILLO
+		var techo: int = mini(techo_duro, escalar_con_el_piso(techo_base))
+		zona.max_vivos = mini(tope, techo)
 		# Que deambulen por SU zona y no se vayan a la de al lado.
 		var rect: Rect2i = z["rect"]
 		var lado: float = float(mini(rect.size.x, rect.size.y)) * float(DungeonGenerator.CELDA)

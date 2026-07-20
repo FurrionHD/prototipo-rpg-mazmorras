@@ -187,6 +187,11 @@ func _physics_process(delta: float) -> void:
 		State.CHASE: _chase(delta)
 		State.RETURN: _return()
 
+	# El empujon de separacion se suma a lo que sea que estuviera haciendo (merodear, ir a por su
+	# manada o perseguirte): vale para todo, y en la persecucion es lo que evita que los cuatro
+	# lleguen apilados en el mismo pixel encima de ti.
+	velocity += _separacion() * current_move_speed * SEPARACION_FUERZA
+
 	move_and_slide()
 
 	# La direccion de mirada = hacia donde nos movemos (si nos movemos).
@@ -318,8 +323,8 @@ func _excluir_del_rayo() -> Array[RID]:
 
 
 func _wander(delta: float) -> void:
-	# En pausa: quieto, contando.
-	if _wander_timer > 0.0:
+	# En pausa: quieto, contando. Al que va de mudanza NO se le hace esperar: se pone en marcha.
+	if _wander_timer > 0.0 and not _migrando:
 		_wander_timer -= delta
 		velocity = Vector2.ZERO
 		return
@@ -332,7 +337,10 @@ func _wander(delta: float) -> void:
 		velocity = Vector2.ZERO
 		return
 
-	velocity = to_t.normalized() * current_move_speed
+	# De mudanza anda con un pelin mas de intencion (no de paseo), pero sin llegar al esprint de
+	# perseguirte: no es a ti a quien va, solo se cambia de sala.
+	var vel: float = current_move_speed * (MIGRAR_VEL_MULT if _migrando else 1.0)
+	velocity = to_t.normalized() * vel
 
 
 func _chase(delta: float) -> void:
@@ -491,9 +499,183 @@ func _return() -> void:
 		velocity = to_home.normalized() * current_move_speed
 
 
-# Elige el siguiente destino: una celda pisable AL AZAR de su zona (sala/pasillo). Sin
-# zona asignada, el modo viejo: un punto al azar en un circulo alrededor de su sitio.
+# ============================================================
+#  MANADAS
+#  La mazmorra sabe con cuanta gente has bajado y se organiza en consecuencia: cada bicho quiere
+#  una compañia (manada_objetivo) que se tira de una tabla segun el tamaño de TU equipo. Bajas
+#  solo y te encuentras bichos sueltos o en pareja; bajas con tres y te encuentras corros de tres
+#  y de cuatro. Es lo que hace que el combate en grupo sea LA norma y no una casualidad.
+#
+#  El tope es 4 y no es un numero al azar: es MAX_COMBATIENTES, lo que cabe en una pelea. Un corro
+#  de cinco tendria a uno mirando desde fuera, y encima ensuciaria las lineas del mapa (que
+#  prometen justo lo que va a entrar).
+#
+#  Cuenta como "manada" lo que este dentro de RADIO_REFUERZO, la MISMA constante con la que
+#  vecinos() recluta al empezar el combate. Tiene que ser la misma o la promesa se rompe: lo que
+#  el bicho considera su grupo y lo que se te echa encima son la misma cosa.
+# ============================================================
+
+# Reparto del tamaño de manada que quiere un bicho, segun cuantos bajasteis. Los pesos son de
+# PLAYTEST -> Excel. Indice = tamaño de tu equipo (1..3).
+const MANADA_POR_GRUPO := {
+	1: [[1, 40], [2, 45], [3, 15]],
+	2: [[2, 45], [3, 40], [4, 15]],
+	3: [[2, 20], [3, 40], [4, 40]],
+}
+# Hasta donde se mueve un bicho para juntarse con otro corro. Acotado a proposito: sin tope
+# cruzarian el piso entero y las salas del fondo se quedarian desiertas.
+const RADIO_MIGRACION := 420.0
+# Lo que anda de mas mientras se muda a la sala del corro: va con intencion, no de paseo, pero ni
+# de lejos al esprint de perseguirte (no es a ti a quien va).
+const MIGRAR_VEL_MULT := 1.25
+
+# ============================================================
+#  SEPARACION: los cuerpos no se meten unos dentro de otros
+#  Los bichos no colisionan entre si a proposito (dos que se solapan se des-penetran a empujones y
+#  acaban cruzando una pared, ver _ready), pero sin colision Y con las manadas tirando de ellos al
+#  mismo punto, acababan apilados: cuatro bichos donde se ve uno.
+#  La solucion es un empujon SUAVE, no una colision: si te pegas demasiado a otro, te separas un
+#  poco. No bloquea a nadie, no puede atascar a nadie contra la roca, y el corro se ve como cuatro
+#  bichos juntos en vez de como un pegote.
+# ============================================================
+const SEPARACION_MIN := 46.0   # a partir de aqui se apartan (el cuerpo mide 32)
+const SEPARACION_FUERZA := 1.2  # cuanto pesa el empujon frente a su velocidad normal (>1: gana al acercarse)
+
+# Cuanta compañia quiere, y con que tamaño de equipo se tiro (para re-tirarlo si cambias de
+# grupo en mitad del piso, que se puede: el Hogar y las teclas 1/2/3 estan siempre a mano).
+var manada_objetivo: int = 1
+var _manada_tirada_con: int = -1
+# True mientras se muda a la sala de un corro (no de paseo por su sala).
+var _migrando: bool = false
+
+
+# Empujon (vector normalizado, o casi) que lo aparta de los bichos que tenga ENCIMA. Cuanto mas
+# pegado, mas fuerte empuja; a partir de SEPARACION_MIN, cero. Ver el bloque de arriba.
+func _separacion() -> Vector2:
+	var out: Vector2 = Vector2.ZERO
+	for n in get_tree().get_nodes_in_group("enemy"):
+		if n == self or not is_instance_valid(n):
+			continue
+		var d: Vector2 = global_position - (n as Node2D).global_position
+		var dist: float = d.length()
+		if dist >= SEPARACION_MIN:
+			continue
+		if dist < 0.01:
+			# Exactamente encima (han nacido en el mismo punto): se aparta hacia donde sea, o la
+			# division de abajo seria entre cero y se quedarian pegados para siempre.
+			var a: float = randf() * TAU
+			out += Vector2(cos(a), sin(a))
+			continue
+		out += (d / dist) * (1.0 - dist / SEPARACION_MIN)
+	return out.limit_length(1.0)
+
+
+# Los vecinos vivos que tiene a mano AHORA, sin contarse el: los que estan dentro de
+# RADIO_REFUERZO, que es EXACTAMENTE lo que dibuja la linea del mapa y lo que entra al combate. Es
+# lo que usa para saber si aun le falta compañia y tiene que mudarse a otra sala.
+func _companeros_de_manada() -> Array:
+	var out: Array = []
+	for n in get_tree().get_nodes_in_group("enemy"):
+		if n == self or not is_instance_valid(n) or n.esta_muerto() or n._combat_triggered:
+			continue
+		if global_position.distance_to(n.global_position) <= RADIO_REFUERZO:
+			out.append(n)
+	return out
+
+
+# Tira (o re-tira) cuanta compañia quiere este bicho. Se re-tira solo si ha cambiado el tamaño de
+# tu equipo: si se tirase cada dos por tres, todos acabarian en la media y no habria variedad.
+func _actualizar_manada_objetivo() -> void:
+	var grupo: int = clampi(Game.party.size(), 1, 3)
+	if grupo == _manada_tirada_con:
+		return
+	_manada_tirada_con = grupo
+	var tabla: Array = MANADA_POR_GRUPO[grupo]
+	var total: int = 0
+	for fila in tabla:
+		total += int(fila[1])
+	var tirada: int = randi() % maxi(1, total)
+	for fila in tabla:
+		tirada -= int(fila[1])
+		if tirada < 0:
+			manada_objetivo = int(fila[0])
+			return
+	manada_objetivo = int(tabla[0][0])
+
+
+# El corro INCOMPLETO mas cercano al que podria unirse: un bicho que tambien busca compañia, a
+# tiro de RADIO_MIGRACION y con la roca de por medio. Lo de la linea de vision no es un adorno:
+# sin ella tirarian en linea recta contra un muro y se quedarian empujandolo (y el anti-atasco los
+# mandaria de vuelta a casa en bucle). Yendo solo a lo que se VE, el camino existe siempre.
+func _corro_al_que_unirse():
+	var mejor = null
+	var best: float = INF
+	for n in get_tree().get_nodes_in_group("enemy"):
+		if n == self or not is_instance_valid(n) or n.esta_muerto() or n._combat_triggered:
+			continue
+		var d: float = global_position.distance_to(n.global_position)
+		if d > RADIO_MIGRACION or d >= best:
+			continue
+		# No se le mete en un corro que ya esta lleno (ni en uno mas grande de lo que el quiere).
+		var suyos: int = n._companeros_de_manada().size() + 1
+		if suyos >= mini(manada_objetivo, MAX_COMBATIENTES):
+			continue
+		if not _linea_de_vision_libre(n.global_position):
+			continue
+		best = d
+		mejor = n
+	return mejor
+
+
+# Se muda al corro de 'otro': adopta SU zona (por donde merodear y a donde volver). Asi el
+# merodeo, el anti-atasco y el guardado del piso siguen funcionando sin ningun caso especial:
+# a partir de ahora es un bicho mas de esa sala.
+func unirse_a(otro) -> void:
+	if otro == null or not is_instance_valid(otro):
+		return
+	zona_puntos = otro.zona_puntos
+	_home = otro._home
+	zona_idx = otro.zona_idx
+
+
+# La celda PISABLE de su zona mas cercana a un punto. El punto del corro se calcula como el centro
+# de la manada mas un pellizco, y ese resultado puede caer perfectamente dentro de la roca: sin
+# esto, el bicho tiraria contra un muro y el anti-atasco lo mandaria de vuelta a casa, deshaciendo
+# el corro que acababa de formar. Sin zona asignada (spawner de dev) se devuelve el punto tal cual.
+func _celda_pisable_cerca(p: Vector2) -> Vector2:
+	if zona_puntos.is_empty():
+		return p
+	var mejor: Vector2 = p
+	var best: float = INF
+	for c in zona_puntos:
+		var d: float = p.distance_squared_to(c)
+		if d < best:
+			best = d
+			mejor = c
+	return mejor
+
+
+# Elige el siguiente destino. La idea es simple a proposito: no hay imanes ni orbitas que hagan
+# que se muevan raro. Solo dos casos:
+#   1) Le falta compañia -> se MUDA a la sala del corro incompleto mas cercano que vea, y punto.
+#      Una vez alli, merodea normal (caso 2): el corro se forma porque COMPARTEN sala, no porque
+#      se persigan. Compartir una sala pequeña ya los deja dentro del radio de la linea del mapa.
+#   2) Merodeo normal -> una celda pisable al azar de su zona. Sin zona asignada (spawner de dev,
+#      arena), un punto al azar alrededor de su sitio.
 func _pick_wander_target() -> void:
+	_actualizar_manada_objetivo()
+	_migrando = false
+
+	if _companeros_de_manada().size() + 1 < manada_objetivo:
+		var destino = _corro_al_que_unirse()
+		if destino != null:
+			unirse_a(destino)   # adopta SU sala; a partir de aqui es un bicho mas de esa zona
+			# Entra a la sala por su celda pisable mas cercana al corro. No apunta al bicho (que se
+			# mueve): apunta a un sitio FIJO de la sala nueva, y de ahi ya merodea normal.
+			_wander_target = _celda_pisable_cerca(destino.global_position)
+			_migrando = true
+			return
+
 	if not zona_puntos.is_empty():
 		_wander_target = zona_puntos[randi() % zona_puntos.size()]
 		return
