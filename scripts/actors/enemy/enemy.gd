@@ -525,9 +525,9 @@ const MANADA_POR_GRUPO := {
 # Hasta donde se mueve un bicho para juntarse con otro corro. Acotado a proposito: sin tope
 # cruzarian el piso entero y las salas del fondo se quedarian desiertas.
 const RADIO_MIGRACION := 420.0
-# Lo que anda de mas mientras se muda a la sala del corro: va con intencion, no de paseo, pero ni
-# de lejos al esprint de perseguirte (no es a ti a quien va).
-const MIGRAR_VEL_MULT := 1.25
+# Mudarse a otra sala se hace a la velocidad de MERODEO de siempre (1.0): no es una urgencia, es un
+# bicho que se cambia de sitio. Correr para juntarse se veia raro (de que huye, si no te ha visto).
+const MIGRAR_VEL_MULT := 1.0
 
 # ============================================================
 #  SEPARACION: los cuerpos no se meten unos dentro de otros
