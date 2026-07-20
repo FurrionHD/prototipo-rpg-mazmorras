@@ -307,18 +307,24 @@ const GAIN_FUERZA_ATAQUE := 0.15
 const GAIN_FUERZA_PESO := 0.0    # DESACTIVADA por ahora (rediseñar sin romper escalado)
 const GAIN_AGILIDAD_CORRER := 0.12
 const GAIN_RESISTENCIA_GOLPE := 0.23
-# DESTREZA: ya NO se entrena en un solo sitio. La extraccion del cristal la comparte ahora
-# con la herboristeria, asi que el total (2.0) se reparte entre las dos y ninguna sube sola
-# la curva entera. La planta pesa un pelin mas POR PIEZA porque es mas escasa y menos
-# perdonable (una sola pasada por tallo); el cristal cae de cada bicho que matas.
-const GAIN_DESTREZA_MINIJUEGO := 0.9  # extraccion del cristal (era 2.2, cuando era la unica fuente)
-const GAIN_DESTREZA_PLANTA := 1.1     # herboristeria (hoz)
+# SUBIDA DE PRUEBA (20/07): la RECOLECCION rendia demasiado poca stat por pieza — un material base
+# daba ~0.6, y farmear se hacia largo. Se multiplica x2.5 la ganancia de los TRES minijuegos de
+# recoleccion (mineria, herboristeria, talado), SIN tocar su dificultad (curva_reto y las formulas
+# de reto se quedan igual): el minijuego cuesta lo mismo, solo paga mas. La extraccion del cristal
+# sube solo x1.5, porque cae de CADA bicho que matas y a x2.5 dispararia la Destreza sobre todo lo
+# demas. Numeros a revisar en el playtest -> Excel.
+#
+# DESTREZA: se entrena en DOS sitios (extraccion del cristal + herboristeria). La planta pesa mas
+# POR PIEZA porque es mas escasa y menos perdonable (una pasada por tallo); el cristal cae de cada
+# bicho, por eso su multiplicador es el mas bajo.
+const GAIN_DESTREZA_MINIJUEGO := 1.35  # extraccion del cristal (0.9 x1.5)
+const GAIN_DESTREZA_PLANTA := 2.75     # herboristeria, hoz (1.1 x2.5)
 # FUERZA: la mineria es la primera fuente de Fuerza que no es pegarse con algo.
-const GAIN_FUERZA_MINERIA := 0.9
+const GAIN_FUERZA_MINERIA := 2.25      # (0.9 x2.5)
 # AGILIDAD: el talado. Talar NO va de fuerza bruta (si fuese Fuerza, entre la mina y la madera
 # la Fuerza se dispararia y las demas se quedarian atras): va de COMPAS, o sea de Agilidad. Y
 # de paso le da a la Agilidad una fuente fuera del combate, que le faltaba.
-const GAIN_AGILIDAD_TALA := 1.0
+const GAIN_AGILIDAD_TALA := 2.5        # (1.0 x2.5)
 # Fuentes de COMBATE para las stats que se farmean mal (bases altas: son eventos
 # raros, no ocurren cada turno como el ataque):
 const GAIN_AGILIDAD_ESQUIVAR := 0.6   # esquivar un golpe entrena Agilidad (adios correr en circulos)
