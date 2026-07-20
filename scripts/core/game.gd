@@ -46,7 +46,14 @@ const PARTY_MAX := 3
 var plantilla: Array[PersonajeData] = []
 var party: Array[PersonajeData] = []
 
-# El que va EN CABEZA. Es el "jugador" de toda la vida.
+# QUIEN va EN CABEZA, como INDICE dentro de party (no como la posicion 0). Antes el lider ERA
+# party[0] y cambiar de lider REORDENABA el array; eso hacia que las barras y las teclas 1/2/3
+# bailasen de sitio. Ahora la posicion de cada uno es FIJA (el orden en que entraron al equipo) y
+# el lider es solo un puntero: la tecla 2 SIEMPRE es el segundo del equipo, y cambiar de lider solo
+# mueve este indice (y la coronita del HUD), sin tocar el orden.
+var lider_idx: int = 0
+
+# El que va EN CABEZA. Es el "jugador" de toda la vida (todas las Game.player_* delegan en el).
 func lider() -> PersonajeData:
 	if party.is_empty():
 		# Red de seguridad: nunca se juega sin nadie. Si la plantilla tiene gente, sale el primero
@@ -55,13 +62,15 @@ func lider() -> PersonajeData:
 		if not plantilla.has(pj):
 			plantilla.append(pj)
 		party.append(pj)
-	return party[0]
+	return party[clampi(lider_idx, 0, party.size() - 1)]
 
-# Los COMPANEROS (todos menos el lider), en orden.
+# Los COMPANEROS: todos menos el lider, en su ORDEN FIJO de party (no reordenados por quien manda).
 func companeros() -> Array[PersonajeData]:
 	var out: Array[PersonajeData] = []
-	for i in range(1, party.size()):
-		out.append(party[i])
+	var li: int = clampi(lider_idx, 0, party.size() - 1)
+	for i in party.size():
+		if i != li:
+			out.append(party[i])
 	return out
 
 # Los de la plantilla que HOY no bajan (el banquillo del gestor de equipo del Hogar).
@@ -72,15 +81,14 @@ func en_el_banquillo() -> Array[PersonajeData]:
 			out.append(pj)
 	return out
 
-# Intercambia quien va en cabeza con el de la posicion i. Devuelve true si algo cambio.
+# Pone en cabeza al del hueco i (0 = el primero del equipo). Ya NO reordena: solo mueve el puntero,
+# asi que las barras y las posiciones no se tocan. Devuelve true si de verdad cambio el lider.
 # Quien llama (player.gd) se encarga de repintar el cuerpo y refrescar el aguante.
 func cambiar_lider(i: int) -> bool:
-	if i <= 0 or i >= party.size():
+	if i < 0 or i >= party.size() or i == lider_idx:
 		return false
-	var tmp: PersonajeData = party[0]
-	party[0] = party[i]
-	party[i] = tmp
-	print("[grupo] ahora va en cabeza %s" % party[0].nombre)
+	lider_idx = i
+	print("[grupo] ahora va en cabeza %s (hueco %d)" % [party[i].nombre, i + 1])
 	return true
 
 
@@ -107,7 +115,14 @@ func meter_en_equipo(pj: PersonajeData) -> bool:
 func sacar_del_equipo(pj: PersonajeData) -> bool:
 	if pj == null or not party.has(pj) or party.size() <= 1:
 		return false
+	var idx: int = party.find(pj)
 	party.erase(pj)
+	# Mantener el puntero del lider apuntando a la persona correcta tras quitar un hueco: si el que
+	# se va estaba ANTES del lider, todo se corre uno; si era el lider mismo, la cabeza pasa al que
+	# ocupe ahora ese hueco (clamp). Sin esto, sacar a alguien podia dejar al lider descuadrado.
+	if idx < lider_idx:
+		lider_idx -= 1
+	lider_idx = clampi(lider_idx, 0, party.size() - 1)
 	return true
 
 
@@ -826,6 +841,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	var yo := PersonajeData.new()
 	plantilla = [yo]
 	party = [yo]
+	lider_idx = 0
 	randomize()
 	semilla_mundo = randi()
 	if semilla_mundo == 0:
@@ -967,7 +983,11 @@ func exportar_partida() -> SaveData:
 	for pj in plantilla:
 		if pj != lider():
 			d.plantilla.append(pj)
+	# El equipo que baja, SIN el lider (va en los campos planos) y en su orden fijo. lider_pos guarda
+	# en que hueco del equipo estaba la cabeza, para reconstruir el orden EXACTO al cargar (si no,
+	# el lider siempre volveria al hueco 1 y se perderia quien iba donde).
 	d.equipo = companeros()
+	d.lider_pos = clampi(lider_idx, 0, maxi(0, party.size() - 1))
 	d.player_current_hp = player_hp()
 	d.player_current_mp = player_current_mp
 	d.stamina = float(player.current_stamina) if player != null and "current_stamina" in player else -1.0
@@ -1054,6 +1074,7 @@ func importar_partida(d: SaveData) -> void:
 	var yo := PersonajeData.new()
 	plantilla = [yo]
 	party = [yo]
+	lider_idx = 0
 	semilla_mundo = d.semilla_mundo
 	player_nombre = d.nombre if d.nombre.strip_edges() != "" else NOMBRE_POR_DEFECTO
 	player_color = d.color
@@ -1178,17 +1199,27 @@ func importar_partida(d: SaveData) -> void:
 	tiempo_mazmorra = d.tiempo_mazmorra
 	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
 
-	# La PLANTILLA (todos los contratados) y, de entre ellos, el EQUIPO que baja hoy, detras del
-	# lider y en el orden en que se guardaron. Una partida de antes del grupo trae las dos listas
-	# vacias: te quedas solo, como estabas.
+	# La PLANTILLA (todos los contratados) y, de entre ellos, el EQUIPO que baja hoy. El equipo se
+	# reconstruye con los companeros en su orden guardado y el LIDER (yo, ya en party[0]) insertado
+	# en su hueco (lider_pos), para que las posiciones fijas y las teclas 1/2/3 vuelvan igual que las
+	# dejaste. Una partida de antes del grupo trae las listas vacias: te quedas solo, como estabas.
 	for pj in d.plantilla:
 		if pj is PersonajeData and not plantilla.has(pj):
 			plantilla.append(pj as PersonajeData)
+	# Rearmar party = companeros (en orden, sin el lider) + el lider metido en su hueco. yo ya esta
+	# en party[0]: se vacia y se rellena con los companeros, cuidando dejar sitio para el lider.
+	party.clear()
 	for pj in d.equipo:
-		if pj is PersonajeData and party.size() < PARTY_MAX and not party.has(pj):
+		if pj is PersonajeData and not party.has(pj) and party.size() < PARTY_MAX - 1:
 			party.append(pj as PersonajeData)
 			if not plantilla.has(pj):
 				plantilla.append(pj as PersonajeData)   # por si el .tres viniera descuadrado
+	var pos: int = clampi(d.lider_pos, 0, party.size())
+	party.insert(pos, yo)
+	lider_idx = pos
+	# El aguante del lider viaja en SU ficha (como el de los companeros), no en una variable aparte:
+	# asi cambiar de piso o de escena no le rellena la barra. Aqui se le clava el guardado.
+	yo.stamina = d.stamina
 
 	# Curas a medias y estados de la sesion anterior: fuera.
 	player_heal_left = 0.0
@@ -1592,8 +1623,14 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if inventory_open:
 		return
-	if get_tree().get_first_node_in_group("dungeon_floor") == null:
-		return   # en el pueblo el reloj no corre: la mazmorra no te espera con la cuenta atras
+	# Corre en la mazmorra Y en el pueblo: la cuenta atras del respawn baja aunque subas a vender,
+	# asi que puedes ir a la tienda y al volver el nodo ya ha reaparecido. Lo unico que lo para es
+	# un menu abierto (arriba) y no tener partida delante (menu principal / creacion).
+	# OJO: los nodos no BROTAN en el pueblo (el chequeo vive en DungeonFloor, que no existe ahi);
+	# solo corre el reloj, y al reentrar a la mazmorra el que ya cumplio su tiempo aparece. Da igual:
+	# los nodos no se ven desde el pueblo de todas formas.
+	if get_tree().get_first_node_in_group("dungeon_floor") == null and not en_pueblo():
+		return
 	tiempo_mazmorra += delta
 
 
