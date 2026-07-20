@@ -731,6 +731,17 @@ func sitio_de(celda: Vector2i) -> Dictionary:
 	return _sitios.get(celda, {})
 
 
+# Un material REPRESENTATIVO de lo que brota en esa celda, para pintar en el mapa una celda
+# AGOTADA (que aun no tiene nodo vivo del que sacar el color). null si ahi no hay sitio. Se tira
+# de la tabla como en un respawn: el color puede variar entre capturas, pero para una marca del
+# plano da igual, y evita que capturar_mapa pete leyendo un "material" que el sitio no guarda
+# (el sitio solo apunta el tipo, porque el material se re-tira en cada brote; ver _sitios).
+func material_de_sitio(celda: Vector2i) -> MaterialData:
+	if not _sitios.has(celda):
+		return null
+	return _material_del_sitio(celda)
+
+
 # Lo llama Game al terminar un minijuego de recoleccion: esa celda queda explotada, con el
 # SELLO del tiempo actual. A partir de ahi cuenta RESPAWN_SEGUNDOS para reaparecer. Se guarda en
 # mazmorra_persistente (sobrevive a volver al pueblo) Y en la copia local del piso vivo.

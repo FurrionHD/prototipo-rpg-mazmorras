@@ -580,10 +580,14 @@ func capturar_mapa() -> void:
 		if not vistas.has(gen.zona_en(celda)):
 			continue
 		var e: Dictionary = {"t": float(persist["agotados"][celda])}
+		# El sitio guarda solo el TIPO (el material se re-tira en cada brote), asi que el color se
+		# pide aparte. Antes esto leia sitio["material"], una clave que el sitio NUNCA tuvo: petaba
+		# al salir de la mazmorra con un nodo picado en una zona ya explorada.
 		var sitio: Dictionary = piso.sitio_de(celda)
-		if not sitio.is_empty() and sitio["material"] != null:
-			e["color"] = (sitio["material"] as MaterialData).color
-			e["tipo"] = int(sitio["tipo"])
+		var mat: MaterialData = piso.material_de_sitio(celda)
+		if mat != null:
+			e["color"] = mat.color
+			e["tipo"] = int(sitio.get("tipo", -1))
 		agotados_snap[celda] = e
 	# ESCALERAS y SALIDAS al pueblo. Misma regla de niebla que los nodos: solo las de zonas
 	# EXPLORADAS (si no, el mapa te chiva donde esta la bajada de un piso que no has recorrido).
