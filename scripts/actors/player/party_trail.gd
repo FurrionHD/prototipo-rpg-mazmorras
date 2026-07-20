@@ -89,7 +89,9 @@ func _pos_lider() -> Vector2:
 	return (padre as Node2D).global_position if padre is Node2D else Vector2.ZERO
 
 
-func _process(_delta: float) -> void:
+# Va en _physics_process y no en _process porque el jugador se mueve con move_and_slide, que es
+# fisica: leyendo su posicion en el frame de dibujo se lee a destiempo y el sequito tiembla.
+func _physics_process(_delta: float) -> void:
 	if _cuerpos.is_empty():
 		return
 	var p: Vector2 = _pos_lider()
@@ -99,15 +101,52 @@ func _process(_delta: float) -> void:
 		_rastro.insert(0, p)
 		if _rastro.size() > RASTRO_MAX:
 			_rastro.resize(RASTRO_MAX)
-		_colocar()
+	# Colocar SIEMPRE, no solo al añadir un punto: el rastro avanza a saltos de PASO, pero tu te
+	# mueves de forma continua, y si los companeros solo se recolocaran al añadir punto irian a
+	# tirones. Lo caro no es esto (dos interpolaciones), era el temblor.
+	_colocar()
 
 
+# Coloca a cada companero a una distancia FIJA por detras de ti, medida A LO LARGO del rastro.
+#
+# Antes esto cogia el punto numero N del array (idx = SEPARACION/PASO) y ahi estaba el temblor:
+# al insertar un punto nuevo, TODOS los indices se corren uno, asi que el punto N pasaba a ser
+# otro y el companero daba un salto de hasta PASO pixeles hacia atras. Como se insertaba un punto
+# cada PASO pixeles recorridos, el salto se repetia sin parar: vibracion pura.
+#
+# Ahora se recorre el rastro sumando distancias reales hasta llegar a la que toca y se INTERPOLA
+# entre los dos puntos que la rodean. El resultado no depende de donde caigan los puntos del
+# array, asi que insertar uno nuevo no mueve a nadie: la posicion es continua.
 func _colocar() -> void:
 	for i in _cuerpos.size():
 		# i+1 companeros detras: el primero a SEPARACION, el segundo al doble...
-		var idx: int = int(round(SEPARACION * float(i + 1) / PASO))
-		var pos: Vector2 = _rastro[mini(idx, _rastro.size() - 1)] if not _rastro.is_empty() else _pos_lider()
-		_cuerpos[i].global_position = pos - Vector2(LADO, LADO) * 0.5
+		var objetivo: float = SEPARACION * float(i + 1)
+		_cuerpos[i].global_position = _punto_a_distancia(objetivo) - Vector2(LADO, LADO) * 0.5
+
+
+# El punto que esta a 'dist' pixeles por detras de ti, recorriendo el camino tramo a tramo.
+# Si el rastro se acaba antes (recien sembrado), devuelve el ultimo que haya.
+#
+# El recorrido arranca en tu posicion VIVA, no en _rastro[0], y eso importa: el rastro solo gana
+# un punto cada PASO pixeles, asi que su cabeza se queda vieja entre insercion e insercion. Si se
+# midiera desde ella, el camino no crece mientras tanto y los companeros se quedan clavados... para
+# pegar un tiron de PASO pixeles justo al insertar el punto siguiente. Metiendo tu posicion actual
+# como primer tramo, el camino crece de forma continua y ellos avanzan a tu mismo ritmo.
+func _punto_a_distancia(dist: float) -> Vector2:
+	if _rastro.is_empty():
+		return _pos_lider()
+	var recorrido: float = 0.0
+	var a: Vector2 = _pos_lider()
+	for i in _rastro.size():
+		var b: Vector2 = _rastro[i]
+		var tramo: float = a.distance_to(b)
+		if tramo > 0.0:
+			if recorrido + tramo >= dist:
+				# El objetivo cae DENTRO de este tramo: se interpola por donde toque.
+				return a.lerp(b, (dist - recorrido) / tramo)
+			recorrido += tramo
+		a = b
+	return a
 
 
 # Al cambiar de piso (o al teletransportarte) el rastro viejo no vale: sin esto, los companeros
