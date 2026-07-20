@@ -538,8 +538,11 @@ const MIGRAR_VEL_MULT := 1.25
 #  poco. No bloquea a nadie, no puede atascar a nadie contra la roca, y el corro se ve como cuatro
 #  bichos juntos en vez de como un pegote.
 # ============================================================
-const SEPARACION_MIN := 46.0   # a partir de aqui se apartan (el cuerpo mide 32)
-const SEPARACION_FUERZA := 1.2  # cuanto pesa el empujon frente a su velocidad normal (>1: gana al acercarse)
+const SEPARACION_MIN := 40.0   # a partir de aqui se apartan (el cuerpo mide 32)
+# Cuanto pesa el empujon. SUAVE a proposito: los enemigos no son tangibles entre si (no colisionan),
+# asi que un solape puntual no molesta; esto solo evita que un corro entero quede clavado en un
+# unico pixel. Fuerte, se ponia a orbitar el punto en vez de merodear la sala.
+const SEPARACION_FUERZA := 0.6
 
 # Cuanta compañia quiere, y con que tamaño de equipo se tiro (para re-tirarlo si cambias de
 # grupo en mitad del piso, que se puede: el Hogar y las teclas 1/2/3 estan siempre a mano).
@@ -603,16 +606,24 @@ func _actualizar_manada_objetivo() -> void:
 	manada_objetivo = int(tabla[0][0])
 
 
-# El corro INCOMPLETO mas cercano al que podria unirse: un bicho que tambien busca compañia, a
-# tiro de RADIO_MIGRACION y con la roca de por medio. Lo de la linea de vision no es un adorno:
-# sin ella tirarian en linea recta contra un muro y se quedarian empujandolo (y el anti-atasco los
-# mandaria de vuelta a casa en bucle). Yendo solo a lo que se VE, el camino existe siempre.
+# El corro incompleto mas cercano al que podria MUDARSE, o null si no hay ninguno que le convenga.
+# Reglas, y cada una arregla un bug concreto:
+#   - A tiro de RADIO_MIGRACION y con LINEA DE VISION libre: si no, tiraria en recta contra un muro
+#     y el anti-atasco lo mandaria de vuelta a casa en bucle. Yendo solo a lo que VE, el camino
+#     existe siempre.
+#   - NO cuenta a los que ya tiene al lado (dentro de RADIO_REFUERZO): esos ya son su manada. Sin
+#     esto, dos bichos que quieren un corro de 3 y solo se tienen el uno al otro se apuntaban
+#     MUTUAMENTE para siempre y acababan orbitando pegados en un punto en vez de merodear la sala.
+#   - Solo a corros que aun tienen sitio (no llenos, no mas grandes de lo que el quiere).
 func _corro_al_que_unirse():
+	var ya_conmigo: Array = _companeros_de_manada()   # los que ya cuentan como mi corro
 	var mejor = null
 	var best: float = INF
 	for n in get_tree().get_nodes_in_group("enemy"):
 		if n == self or not is_instance_valid(n) or n.esta_muerto() or n._combat_triggered:
 			continue
+		if ya_conmigo.has(n):
+			continue   # ya lo tengo al lado: no hay a donde mudarse
 		var d: float = global_position.distance_to(n.global_position)
 		if d > RADIO_MIGRACION or d >= best:
 			continue
