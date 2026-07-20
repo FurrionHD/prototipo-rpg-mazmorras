@@ -43,8 +43,8 @@ var _pintados: Array[PersonajeData] = []
 
 func _ready() -> void:
 	top_level = true   # coordenadas de mundo: el rastro es absoluto
-	# Detras del lider: el jugador es quien manda visualmente.
-	z_index = -1
+	# Este nodo NO pinta nada (solo lleva la cuenta del rastro), y su z_index tampoco manda ya: los
+	# cuerpos se pintan con z ABSOLUTO, a la altura del jugador y de los bichos (ver companion.gd).
 	_sembrar_rastro()
 	refrescar()
 

@@ -41,7 +41,12 @@ func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	collision_layer = 4   # capa "aliados"
 	collision_mask = 1    # solo el mundo (paredes)
-	z_index = -1          # por detras del lider: visualmente manda quien llevas
+	# Z ABSOLUTO, y a la altura del jugador y de los bichos. Es la unica forma de que se vean: el
+	# z_index normal es RELATIVO al del padre, y el sequito cuelga de un nodo que ya iba a -1, asi
+	# que un -1 suyo los mandaba a -2... justo por DEBAJO del suelo de la mazmorra, que se pinta a
+	# -1 (ver dungeon_floor). En el pueblo no hay suelo pintado y por eso alli si se veian.
+	z_as_relative = false
+	z_index = 0
 	add_to_group("aliado")
 
 	_cuerpo = ColorRect.new()
