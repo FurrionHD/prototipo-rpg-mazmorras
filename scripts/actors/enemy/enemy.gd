@@ -82,7 +82,10 @@ var _state: State = State.WANDER
 
 var _home: Vector2 = Vector2.ZERO
 var _facing: Vector2 = Vector2.RIGHT  # hacia donde mira (su cono)
-var _player: Node2D = null
+# A QUIEN persigue. Ya no es "el jugador": es un miembro cualquiera del grupo (el lider o un
+# companero, todos en el grupo "aliado"). El que va rezagado es tan cazable como el que llevas
+# delante, asi que descolgarse tiene consecuencias.
+var _objetivo: Node2D = null
 
 var _wander_target: Vector2 = Vector2.ZERO
 var _wander_timer: float = 0.0
@@ -116,7 +119,7 @@ func _ready() -> void:
 
 	add_to_group("enemy")  # para que el jugador lo encuentre al atacar
 	_home = global_position
-	_player = get_tree().get_first_node_in_group("player")
+	_objetivo = _aliado_mas_cercano()
 
 	# Posicion de ESTE bicho dentro de su franja (uniforme = variedad). La progresion
 	# por piso la lleva la propia franja (EnemyData.sum_band), no un multiplicador.
@@ -170,11 +173,12 @@ func _physics_process(delta: float) -> void:
 	if _combat_triggered or data == null:
 		return
 
-	# Aseguramos referencia al jugador.
-	if _player == null or not is_instance_valid(_player):
-		_player = get_tree().get_first_node_in_group("player")
+	# Aseguramos que hay a quien mirar. Persiguiendo NO se cambia de presa (o bastaria con que el
+	# grupo se cruzara para que el bicho se quedara bailando entre dos objetivos).
+	if _objetivo == null or not is_instance_valid(_objetivo):
+		_objetivo = _aliado_mas_cercano()
 
-	# Si no estamos ya persiguiendo, miramos si lo vemos u oimos.
+	# Si no estamos ya persiguiendo, miramos si vemos u oimos a alguno.
 	if _state != State.CHASE:
 		_try_detect()
 
@@ -207,14 +211,23 @@ func _physics_process(delta: float) -> void:
 
 
 
-# Comprueba si VE (cono) u OYE (ruido) al jugador. Si si, pasa a perseguir.
+# Comprueba si VE (cono) u OYE (ruido) a ALGUIEN del grupo. Si si, va a por EL que lo delato (no
+# a por el lider): cada miembro se delata por su cuenta, con su propio ruido y su propia posicion.
+# Por eso mandar al que va en cabeza por un lado no protege al que se queda detras a la vista.
 func _try_detect() -> void:
-	if _player == null or not is_instance_valid(_player):
-		return
-	var to_p: Vector2 = _player.global_position - global_position
+	for aliado in _aliados():
+		if _detecta_a(aliado):
+			_objetivo = aliado
+			_state = State.CHASE
+			return
+
+
+# ¿Ve u oye a ESTE? Si lo pilla, deja ya el _facing girado hacia el.
+func _detecta_a(quien: Node2D) -> bool:
+	var to_p: Vector2 = quien.global_position - global_position
 	var dist: float = to_p.length()
 	if dist < 0.01:
-		return
+		return false
 	var dir: Vector2 = to_p / dist
 
 	# Vision: alcance + angulo del cono. Los dos chequeos BARATOS van primero; el raycast
@@ -226,13 +239,13 @@ func _try_detect() -> void:
 	# Solo hace falta saberlo si estas en el cono o dentro del alcance del oido; si no, ni se
 	# tira el rayo (un piso con 20 bichos son 20 rayos por frame como mucho).
 	var player_speed: float = 0.0
-	if "velocity" in _player:
-		player_speed = (_player.velocity as Vector2).length()
+	if "velocity" in quien:
+		player_speed = (quien.velocity as Vector2).length()
 	var hear_radius: float = minf(player_speed * hearing_factor, hearing_max)
 
 	var tapado: bool = false
 	if en_cono or dist <= hear_radius:
-		tapado = not _linea_de_vision_libre(_player.global_position)
+		tapado = not _linea_de_vision_libre(quien.global_position)
 
 	# La VISTA no atraviesa la roca. Punto.
 	var seen: bool = en_cono and not tapado
@@ -246,8 +259,32 @@ func _try_detect() -> void:
 	var heard: bool = dist <= hear_radius
 
 	if seen or heard:
-		_state = State.CHASE
-		_facing = dir  # se gira hacia ti
+		_facing = dir  # se gira hacia el
+		return true
+	return false
+
+
+# Todo el grupo (lider + companeros), que es a quien puede cazar. Filtra invalidos de un frame
+# suelto: el sequito se rehace cuando cambias de equipo o de piso.
+func _aliados() -> Array[Node2D]:
+	var out: Array[Node2D] = []
+	for n in get_tree().get_nodes_in_group("aliado"):
+		if is_instance_valid(n) and n is Node2D:
+			out.append(n as Node2D)
+	return out
+
+
+# El miembro del grupo que tiene mas a mano. Es a quien va por defecto (al nacer, o si pierde de
+# vista al que perseguia).
+func _aliado_mas_cercano() -> Node2D:
+	var best: Node2D = null
+	var mejor_d: float = INF
+	for n in _aliados():
+		var d: float = global_position.distance_to(n.global_position)
+		if d < mejor_d:
+			mejor_d = d
+			best = n
+	return best
 
 
 # Cuanto se amortigua el oido cuando hay roca de por medio.
@@ -268,12 +305,15 @@ func _linea_de_vision_libre(punto: Vector2) -> bool:
 	return espacio.intersect_ray(query).is_empty()
 
 
-# Cuerpos que un rayo de vision NUNCA debe considerar un obstaculo: el jugador (comparte capa
-# con la roca) y uno mismo.
+# Cuerpos que un rayo de vision NUNCA debe considerar un obstaculo: TODO el grupo (el jugador
+# comparte capa con la roca, y los companeros tienen su propio cuerpo) y uno mismo. Sin esto se
+# taparian unos a otros: el que va delante le haria de escudo al de detras contra el cono que lo
+# esta mirando.
 func _excluir_del_rayo() -> Array[RID]:
 	var out: Array[RID] = [get_rid()]
-	if _player != null and is_instance_valid(_player) and _player is CollisionObject2D:
-		out.append((_player as CollisionObject2D).get_rid())
+	for n in _aliados():
+		if n is CollisionObject2D:
+			out.append((n as CollisionObject2D).get_rid())
 	return out
 
 
@@ -296,10 +336,10 @@ func _wander(delta: float) -> void:
 
 
 func _chase(delta: float) -> void:
-	if _player == null or not is_instance_valid(_player):
+	if _objetivo == null or not is_instance_valid(_objetivo):
 		_state = State.RETURN
 		return
-	var to_p: Vector2 = _player.global_position - global_position
+	var to_p: Vector2 = _objetivo.global_position - global_position
 	var dist: float = to_p.length()
 
 	if dist > lose_range:
@@ -309,9 +349,9 @@ func _chase(delta: float) -> void:
 		return
 
 	if dist > 0.01:
-		_facing = to_p / dist  # mira al jugador
+		_facing = to_p / dist  # mira a su presa
 
-	if hueco_hasta(_player) <= margen_ataque():
+	if hueco_hasta(_objetivo) <= margen_ataque():
 		# A distancia de ataque: se para y hace el AVISO antes de golpear.
 		# Si el jugador esta agotado, ataca al instante (aviso = 0).
 		velocity = Vector2.ZERO
@@ -368,9 +408,11 @@ func _cancelar_aviso() -> void:
 	_winding = false
 
 
+# El aguante es de GRUPO (correr lo pagan todos, ver player.gd), asi que se pregunta al cuerpo
+# que llevas: si el grupo va sin fuelle, el bicho golpea sin avisar, persiga a quien persiga.
 func _player_exhausted() -> bool:
-	return is_instance_valid(_player) and _player.has_method("is_exhausted") \
-		and _player.is_exhausted()
+	var p: Node = get_tree().get_first_node_in_group("player")
+	return p != null and is_instance_valid(p) and p.has_method("is_exhausted") and p.is_exhausted()
 
 
 # Recoloca el bicho y fija AHI su "hogar" (el punto al que deambula/regresa). Lo

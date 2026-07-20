@@ -2,11 +2,15 @@
 #  party_trail.gd
 #  EL SEQUITO: los companeros que van detras de ti por el mapa.
 #
-#  No tienen IA ni fisica: van por un RASTRO. Se apuntan las posiciones por las que pasa el que
-#  va en cabeza y cada companero se coloca en el punto por el que pasaste hace X pixeles. Es la
+#  No tienen IA: van por un RASTRO. Se apuntan las posiciones por las que pasa el que va en
+#  cabeza y cada companero camina hacia el punto por el que pasaste hace X pixeles. Es la
 #  solucion de siempre para los seguidores (Pokemon, Chrono Trigger, Lost Vikings) y da justo lo
-#  que se quiere aqui: van en fila india, no se cuelan por las paredes (porque pisan donde ya
-#  pisaste tu) y no hay que resolver nada de pathfinding ni de empujones entre cuerpos.
+#  que se quiere aqui: van en fila india por sitio pisable (porque pisan donde ya pisaste tu) y
+#  no hay que resolver nada de pathfinding.
+#
+#  Los cuerpos SI son fisicos (companion.gd, CharacterBody2D): chocan con la roca y estan en el
+#  grupo "aliado", asi que un bicho puede ir a por ellos y empezar el combate. Este nodo no los
+#  teletransporta: les dice a que punto ir y ellos se mueven con move_and_slide.
 #
 #  Se pintan con el MISMO ColorRect + shader que el cuerpo del lider (Game.material_de), asi que
 #  cada uno se ve con SU color, SU brillo y SU imagen: los distingues de un vistazo.
@@ -28,8 +32,10 @@ const RASTRO_MAX := 256
 
 const LADO := 32.0   # el cuerpo mide lo mismo que el del jugador (player.tscn)
 
+const CompanionScript := preload("res://scripts/actors/player/companion.gd")
+
 var _rastro: PackedVector2Array = PackedVector2Array()
-var _cuerpos: Array[ColorRect] = []
+var _cuerpos: Array[CharacterBody2D] = []
 # A quien esta pintando cada cuerpo. Se guarda para no rehacer el material en cada frame: solo
 # se repinta cuando de verdad cambia la gente (contratar, cambiar de lider, gestor de equipo).
 var _pintados: Array[PersonajeData] = []
@@ -51,24 +57,19 @@ func refrescar() -> void:
 	while _cuerpos.size() > comps.size():
 		_cuerpos.pop_back().queue_free()
 		_pintados.pop_back()
-	# Faltan cuerpos (alguien nuevo baja contigo): se crean.
+	# Faltan cuerpos (alguien nuevo baja contigo): se crean YA colocados en su hueco del rastro
+	# (si nacieran en el origen, cruzarian el mapa entero corriendo hasta su sitio).
 	while _cuerpos.size() < comps.size():
-		var r := ColorRect.new()
-		r.size = Vector2(LADO, LADO)
-		# El nodo se posiciona por su ESQUINA, y el rastro son centros: se compensa aqui una vez
-		# en vez de restar medio cuerpo en cada frame.
-		r.pivot_offset = Vector2(LADO * 0.5, LADO * 0.5)
-		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(r)
-		_cuerpos.append(r)
+		var c: CharacterBody2D = CompanionScript.new()
+		add_child(c)
+		c.plantar(_punto_a_distancia(SEPARACION * float(_cuerpos.size() + 1)))
+		_cuerpos.append(c)
 		_pintados.append(null)
 	# Y el aspecto de cada uno, solo si ha cambiado de dueño.
 	for i in comps.size():
 		if _pintados[i] != comps[i]:
 			_pintados[i] = comps[i]
-			_cuerpos[i].color = comps[i].color
-			_cuerpos[i].material = Game.material_de(comps[i])
-	_colocar()
+			_cuerpos[i].pintar(comps[i])
 
 
 # El rastro arranca ya EXTENDIDO hacia arriba desde donde estas, en vez de lleno de tu posicion
@@ -91,7 +92,7 @@ func _pos_lider() -> Vector2:
 
 # Va en _physics_process y no en _process porque el jugador se mueve con move_and_slide, que es
 # fisica: leyendo su posicion en el frame de dibujo se lee a destiempo y el sequito tiembla.
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if _cuerpos.is_empty():
 		return
 	var p: Vector2 = _pos_lider()
@@ -104,10 +105,12 @@ func _physics_process(_delta: float) -> void:
 	# Colocar SIEMPRE, no solo al añadir un punto: el rastro avanza a saltos de PASO, pero tu te
 	# mueves de forma continua, y si los companeros solo se recolocaran al añadir punto irian a
 	# tirones. Lo caro no es esto (dos interpolaciones), era el temblor.
-	_colocar()
+	_colocar(delta)
 
 
-# Coloca a cada companero a una distancia FIJA por detras de ti, medida A LO LARGO del rastro.
+# Manda a cada companero al punto que le toca: a una distancia FIJA por detras de ti, medida A LO
+# LARGO del rastro. El punto es un DESTINO, no una posicion: el cuerpo va andando (con su colision)
+# y si hay una esquina de por medio, se despega de la fila hasta rodearla.
 #
 # Antes esto cogia el punto numero N del array (idx = SEPARACION/PASO) y ahi estaba el temblor:
 # al insertar un punto nuevo, TODOS los indices se corren uno, asi que el punto N pasaba a ser
@@ -117,11 +120,17 @@ func _physics_process(_delta: float) -> void:
 # Ahora se recorre el rastro sumando distancias reales hasta llegar a la que toca y se INTERPOLA
 # entre los dos puntos que la rodean. El resultado no depende de donde caigan los puntos del
 # array, asi que insertar uno nuevo no mueve a nadie: la posicion es continua.
-func _colocar() -> void:
+func _colocar(delta: float) -> void:
 	for i in _cuerpos.size():
 		# i+1 companeros detras: el primero a SEPARACION, el segundo al doble...
-		var objetivo: float = SEPARACION * float(i + 1)
-		_cuerpos[i].global_position = _punto_a_distancia(objetivo) - Vector2(LADO, LADO) * 0.5
+		_cuerpos[i].seguir(_punto_a_distancia(SEPARACION * float(i + 1)), delta)
+
+
+# Colocacion DURA de toda la fila sobre el rastro (teletransporte, cambio de piso, cambio de
+# lider): aqui no se anda, se aparece.
+func _plantar_en_rastro() -> void:
+	for i in _cuerpos.size():
+		_cuerpos[i].plantar(_punto_a_distancia(SEPARACION * float(i + 1)))
 
 
 # El punto que esta a 'dist' pixeles por detras de ti, recorriendo el camino tramo a tramo.
@@ -153,4 +162,64 @@ func _punto_a_distancia(dist: float) -> Vector2:
 # cruzarian el mapa nuevo en linea recta desde donde estaban en el anterior.
 func teletransportar() -> void:
 	_sembrar_rastro()
-	_colocar()
+	_plantar_en_rastro()
+
+
+# ============================================================
+#  CAMBIO DE LIDER (teclas 1/2/3)
+#  El cuerpo que TU mueves es uno solo: cambiar de lider lo planta donde estaba el elegido. Para
+#  que eso no se lea como un pestañeo, los demas tienen que quedarse EXACTAMENTE donde estaban y
+#  empezar a seguir al nuevo desde ahi (el ex-lider incluido, que hereda el sitio que dejas).
+#  Estas dos funciones son las dos mitades de esa maniobra; las usa player.refrescar_lider().
+# ============================================================
+
+# Donde esta ahora mismo cada companero: {PersonajeData: posicion}. Se pide ANTES de cambiar nada.
+func posiciones() -> Dictionary:
+	var out: Dictionary = {}
+	for i in _cuerpos.size():
+		if i < _pintados.size() and _pintados[i] != null:
+			out[_pintados[i]] = _cuerpos[i].global_position
+	return out
+
+
+# Recoloca la fila tras el cambio de lider. A cada companero se le devuelve la posicion que ya
+# tenia ('previas') y el rastro se resiembra como la POLILINEA que los une, EN SU ORDEN DE HUECO
+# (el de party, no el de cercania): los huecos son fijos, y tender el rastro por cercania hacia
+# que el hueco 1 recibiera el punto del que estaba mas cerca del lider aunque fuera el hueco 2 ->
+# la fila se cruzaba y el que se quedaba atras salia disparado hacia delante.
+#
+# Nadie da un salto (cada cuerpo se planta donde ya estaba) y desde ahi caminan hasta su sitio en
+# la formacion: eso es "empiezan a seguir al nuevo desde donde estaban".
+func reordenar(previas: Dictionary) -> void:
+	refrescar()   # los cuerpos ya son los de AHORA (el ex-lider tiene el suyo, el nuevo ya no)
+	var lider_pos: Vector2 = _pos_lider()
+	# A quien no le conozcamos posicion (acaba de entrar al equipo) se le manda al sitio del lider:
+	# nace pegado a el y se descuelga andando, en vez de aparecer en el origen del mapa.
+	var puntos: Array = []
+	for i in _cuerpos.size():
+		var pj: PersonajeData = _pintados[i] if i < _pintados.size() else null
+		var p: Vector2 = previas[pj] if pj != null and previas.has(pj) else lider_pos
+		_cuerpos[i].plantar(p)
+		puntos.append(p)
+	# El rastro: del lider a cada companero, hueco a hueco.
+	_rastro = PackedVector2Array()
+	var anterior: Vector2 = lider_pos
+	for p in puntos:
+		_tender_rastro(anterior, p)
+		anterior = p
+	# Y detras del ultimo, mas rastro en linea recta: si el array se quedara corto, el que va en
+	# la cola se agolparia sobre el de delante en cuanto empieces a andar.
+	_tender_rastro(anterior, anterior + (anterior - lider_pos).normalized() * SEPARACION)
+	while _rastro.size() < RASTRO_MAX:
+		_rastro.append(_rastro[_rastro.size() - 1] if not _rastro.is_empty() else lider_pos)
+
+
+# Añade al rastro el tramo a->b picado en pasos de PASO (el rastro se mide por distancia real
+# recorrida, asi que un tramo largo tiene que llevar sus puntos intermedios).
+func _tender_rastro(a: Vector2, b: Vector2) -> void:
+	var largo: float = a.distance_to(b)
+	var n: int = maxi(1, ceili(largo / PASO))
+	for i in range(1, n + 1):
+		if _rastro.size() >= RASTRO_MAX:
+			return
+		_rastro.append(a.lerp(b, float(i) / float(n)))

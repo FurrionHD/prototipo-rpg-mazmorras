@@ -1,0 +1,87 @@
+# ============================================================
+#  companion.gd
+#  EL CUERPO de un companero de equipo en el mapa.
+#
+#  Antes los companeros eran ColorRects sueltos que el rastro teletransportaba (ver
+#  party_trail.gd). Servia para verlos, pero para el mundo NO EXISTIAN: atravesaban la roca y
+#  ningun bicho podia ir a por ellos. Ahora son CharacterBody2D de verdad, asi que:
+#    - chocan con las paredes (no se cuelan por la piedra al doblar una esquina),
+#    - estan en el grupo "aliado", que es la lista de objetivos que mira el enemigo.
+#
+#  Lo que NO cambia es COMO se mueven: no tienen IA ni pathfinding, siguen el rastro que deja el
+#  que va en cabeza (party_trail les dice a que punto ir en cada frame). El cuerpo solo aporta la
+#  colision: el camino ya es pisable por construccion, porque lo pisaste tu antes.
+#
+#  COLISION: capa 4 ("aliados"), mascara 1 (solo la roca). Mismo criterio que enemy.gd: si los
+#  cuerpos chocaran entre si, dos que se solapan se des-penetran a empujones y acaban saliendo
+#  disparados a traves de una pared. Tampoco chocan contigo, o retroceder sobre tu propia fila
+#  seria pelearte con tres cuerpos.
+# ============================================================
+
+extends CharacterBody2D
+
+const LADO := 32.0
+# Tope de velocidad al perseguir su punto del rastro. Normalmente va exactamente al ritmo del
+# lider (el punto se mueve con el), asi que esto solo actua cuando se ha quedado atras: tras
+# engancharse en una esquina, o al cambiar de lider. Por encima de correr (204 px/s) para que
+# recupere el hueco, pero acotado: sin tope, un salto del rastro lo dispararia de golpe.
+const VEL_MAX := 320.0
+
+# A quien pinta este cuerpo. Lo lee el enemigo (para el nombre en el log) y el rastro para saber
+# si tiene que repintarlo.
+var pj: PersonajeData = null
+
+var _cuerpo: ColorRect = null
+
+
+func _ready() -> void:
+	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
+	collision_layer = 4   # capa "aliados"
+	collision_mask = 1    # solo el mundo (paredes)
+	z_index = -1          # por detras del lider: visualmente manda quien llevas
+	add_to_group("aliado")
+
+	_cuerpo = ColorRect.new()
+	_cuerpo.offset_left = -LADO * 0.5
+	_cuerpo.offset_top = -LADO * 0.5
+	_cuerpo.offset_right = LADO * 0.5
+	_cuerpo.offset_bottom = LADO * 0.5
+	_cuerpo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_cuerpo)
+
+	var col := CollisionShape2D.new()
+	var forma := RectangleShape2D.new()
+	forma.size = Vector2(LADO, LADO)
+	col.shape = forma
+	add_child(col)
+
+	if pj != null:
+		pintar(pj)
+
+
+# El aspecto de su dueño: su color, su brillo y su imagen (el mismo shader que el lider, ver
+# Game.material_de). Es lo que te permite distinguirlos de un vistazo.
+func pintar(nuevo: PersonajeData) -> void:
+	pj = nuevo
+	if _cuerpo == null or pj == null:
+		return
+	_cuerpo.color = pj.color
+	_cuerpo.material = Game.material_de(pj)
+
+
+# Avanza hacia el punto del rastro que le toca. La velocidad es "lo que falta / delta": asi
+# aterriza EXACTAMENTE en su punto y la fila no se deforma, y la unica cosa que puede impedirlo
+# es una pared (que es justo para lo que esta el cuerpo).
+func seguir(destino: Vector2, delta: float) -> void:
+	var falta: Vector2 = destino - global_position
+	if delta <= 0.0 or falta.length() < 0.5:
+		velocity = Vector2.ZERO
+		return
+	velocity = (falta / delta).limit_length(VEL_MAX)
+	move_and_slide()
+
+
+# Colocacion DURA (cambio de piso, cambio de lider): aqui no se anda, se aparece.
+func plantar(pos: Vector2) -> void:
+	global_position = pos
+	velocity = Vector2.ZERO

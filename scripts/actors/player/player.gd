@@ -83,6 +83,10 @@ const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
 
 
 func _ready() -> void:
+	# "aliado" = la lista de objetivos que mira el enemigo. El lider entra en ella igual que los
+	# companeros (companion.gd), asi que el bicho no tiene que distinguir quien lleva la corona:
+	# va a por el que tenga mas a mano.
+	add_to_group("aliado")
 	_crear_capa_barras()
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD (barras, peso, piso, ayudas)
 	add_child(preload("res://scripts/ui/inventory_menu.gd").new())  # inventario (I)
@@ -342,20 +346,48 @@ func _actualizar_max_aguante() -> void:
 #  El cuerpo del mapa es UNO solo: al cambiar de lider no se cambia de nodo, se le cambia la
 #  CARA y las stats de las que tira. Lo unico que hay que tener cuidado de no perder es el
 #  AGUANTE, que es de cada persona: el que se va atras se lleva el suyo tal y como lo dejo.
+#
+#  Y NADIE SE MUEVE DE SITIO. Antes el elegido "aparecia" en cabeza (te lo plantaba delante) y se
+#  leia como si la fila se reordenara sola: una interaccion forzada. Ahora el cuerpo que llevas se
+#  planta DONDE ESTABA EL ELEGIDO, el que deja la cabeza hereda el sitio que tenias tu, y los
+#  demas se quedan clavados donde estaban y empiezan a seguir al nuevo desde ahi.
+#
+#  El viaje lo cuenta la CAMARA: va suavizada (position_smoothing en player.tscn), asi que al NO
+#  llamar a reset_smoothing() -al reves que recolocar()- se desplaza sola hasta el nuevo cuerpo.
+#  Ese paneo es toda la explicacion que necesita el cambio: la camara te lleva hasta el que has
+#  elegido, en vez de traertelo a ti.
 # ============================================================
 func refrescar_lider() -> void:
+	var nuevo: PersonajeData = Game.lider()
+	# Donde esta cada uno JUSTO ANTES de tocar nada: los companeros por su cuerpo del sequito, y
+	# el que hasta ahora iba en cabeza, aqui mismo.
+	var previas: Dictionary = {}
+	if _sequito != null and _sequito.has_method("posiciones"):
+		previas = _sequito.posiciones()
+	if _pj_actual != null:
+		previas[_pj_actual] = global_position
+	# El cuerpo que mueves se va a donde estaba el elegido (la camara hace el viaje detras).
+	if previas.has(nuevo):
+		global_position = previas[nuevo]
+		# Cambiar de lider NO es andar: si no se resincroniza, el salto contaria como distancia
+		# recorrida y regalaria excelia de Fuerza/Agilidad.
+		_last_pos = global_position
+
 	# El aguante del que hasta ahora iba delante se queda en SU ficha, incluido si estaba sin
 	# fuelle: mandarlo atras no lo descansa.
 	if _pj_actual != null:
 		_pj_actual.stamina = current_stamina
 		_pj_actual.set_meta("sin_fuelle", _exhausted)
-	_pj_actual = Game.lider()
+	_pj_actual = nuevo
 	# Y el del nuevo: -1 = nunca ha corrido (companero recien contratado) -> entra descansado.
 	max_stamina = _calc_max_aguante()
 	current_stamina = _aguante_de(_pj_actual)
 	# El cansancio viaja CON la persona: si el que pones delante venia agotado, sigue agotado.
 	_exhausted = bool(_pj_actual.get_meta("sin_fuelle", false))
 	refrescar_grupo()
+	# Y la fila, tal y como estaba: cada cuerpo en su sitio y el rastro tendido entre ellos.
+	if _sequito != null and _sequito.has_method("reordenar"):
+		_sequito.reordenar(previas)
 
 
 # Repinta TODO lo que depende de quien va en el grupo: el cuerpo del lider, el sequito que va
