@@ -15,7 +15,7 @@
 [node name="Town" type="Node2D"]
 
 [node name="Player" parent="." instance=ExtResource("1_72ix8")]
-position = Vector2(460, 460)
+position = Vector2(900, 500)
 
 [node name="Walls" type="Node2D" parent="."]
 
@@ -48,17 +48,17 @@ color = Color(0.784314, 0.627451, 0.00392157, 1)
 
 [node name="Label" type="Label" parent="Altar/Sprite"]
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -8.0
-offset_right = 20.0
-offset_bottom = 8.0
-text = "ALTAR
-[F]"
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = 2.0
+offset_right = 70.0
+offset_bottom = 24.0
+grow_horizontal = 2
+text = "ALTAR  [F]"
 horizontal_alignment = 1
-vertical_alignment = 1
+vertical_alignment = 0
 
 [node name="Shop" type="Node2D" parent="."]
 position = Vector2(560, 380)
@@ -73,17 +73,17 @@ color = Color(0, 0.6, 0.8, 1)
 
 [node name="Label" type="Label" parent="Shop/Sprite"]
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -8.0
-offset_right = 20.0
-offset_bottom = 8.0
-text = "TIENDA
-[F]"
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = 2.0
+offset_right = 70.0
+offset_bottom = 24.0
+grow_horizontal = 2
+text = "TIENDA  [F]"
 horizontal_alignment = 1
-vertical_alignment = 1
+vertical_alignment = 0
 
 [node name="Hogar" type="Node2D" parent="."]
 position = Vector2(220, 380)
@@ -98,17 +98,17 @@ color = Color(0.35, 0.25, 0.55, 1)
 
 [node name="Label" type="Label" parent="Hogar/Sprite"]
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -8.0
-offset_right = 20.0
-offset_bottom = 8.0
-text = "HOGAR
-[F]"
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = 2.0
+offset_right = 70.0
+offset_bottom = 24.0
+grow_horizontal = 2
+text = "HOGAR  [F]"
 horizontal_alignment = 1
-vertical_alignment = 1
+vertical_alignment = 0
 
 [node name="Boticaria" type="Node2D" parent="."]
 position = Vector2(220, 570)
@@ -123,17 +123,17 @@ color = Color(0.3, 0.55, 0.35, 1)
 
 [node name="Label" type="Label" parent="Boticaria/Sprite"]
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -8.0
-offset_right = 20.0
-offset_bottom = 8.0
-text = "BOTICARIA
-[F]"
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = 2.0
+offset_right = 70.0
+offset_bottom = 24.0
+grow_horizontal = 2
+text = "BOTICARIA  [F]"
 horizontal_alignment = 1
-vertical_alignment = 1
+vertical_alignment = 0
 
 [node name="Herrero" type="Node2D" parent="."]
 position = Vector2(900, 180)
@@ -148,17 +148,17 @@ color = Color(0.45, 0.42, 0.5, 1)
 
 [node name="Label" type="Label" parent="Herrero/Sprite"]
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -8.0
-offset_right = 20.0
-offset_bottom = 8.0
-text = "HERRERO
-[F]"
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = 2.0
+offset_right = 70.0
+offset_bottom = 24.0
+grow_horizontal = 2
+text = "HERRERO  [F]"
 horizontal_alignment = 1
-vertical_alignment = 1
+vertical_alignment = 0
 
 [node name="Peletero" type="Node2D" parent="."]
 position = Vector2(900, 380)
@@ -173,17 +173,17 @@ color = Color(0.55, 0.38, 0.25, 1)
 
 [node name="Label" type="Label" parent="Peletero/Sprite"]
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -8.0
-offset_right = 20.0
-offset_bottom = 8.0
-text = "PELETERO
-[F]"
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = 2.0
+offset_right = 70.0
+offset_bottom = 24.0
+grow_horizontal = 2
+text = "PELETERO  [F]"
 horizontal_alignment = 1
-vertical_alignment = 1
+vertical_alignment = 0
 
 [node name="Carpintero" type="Node2D" parent="."]
 position = Vector2(560, 180)
@@ -198,17 +198,17 @@ color = Color(0.6, 0.45, 0.28, 1)
 
 [node name="Label" type="Label" parent="Carpintero/Sprite"]
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -8.0
-offset_right = 20.0
-offset_bottom = 8.0
-text = "CARPINTERO
-[F]"
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = 2.0
+offset_right = 70.0
+offset_bottom = 24.0
+grow_horizontal = 2
+text = "CARPINTERO  [F]"
 horizontal_alignment = 1
-vertical_alignment = 1
+vertical_alignment = 0
 
 [node name="Door" type="Node2D" parent="."]
 position = Vector2(900, 570)
@@ -223,17 +223,17 @@ color = Color(0.5, 0.2, 0.1, 1)
 
 [node name="Label" type="Label" parent="Door/Sprite"]
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -8.0
-offset_right = 20.0
-offset_bottom = 8.0
-text = "→ MAZMORRA
-[F]"
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = 2.0
+offset_right = 70.0
+offset_bottom = 24.0
+grow_horizontal = 2
+text = "→ MAZMORRA  [F]"
 horizontal_alignment = 1
-vertical_alignment = 1
+vertical_alignment = 0
 
 [node name="Taberna" type="Node2D" parent="."]
 position = Vector2(560, 570)
@@ -248,14 +248,14 @@ color = Color(0.72, 0.35, 0.18, 1)
 
 [node name="Label" type="Label" parent="Taberna/Sprite"]
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -30.0
-offset_top = -8.0
-offset_right = 30.0
-offset_bottom = 8.0
-text = "TABERNA
-[F]"
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = 2.0
+offset_right = 70.0
+offset_bottom = 24.0
+grow_horizontal = 2
+text = "TABERNA  [F]"
 horizontal_alignment = 1
-vertical_alignment = 1
+vertical_alignment = 0
