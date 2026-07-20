@@ -3045,25 +3045,33 @@ func metales_forja_conocidos() -> Array:
 			out.append(fila)
 	return out
 
-# Las tres formas, ya filtradas por lo que conoces. Son las que pinta el menu del herrero (la
-# math sigue usando las listas COMPLETAS: buscar el lingote de un tier no depende de si lo has
-# visto). OJO: los indices de la UI van contra ESTAS, asi que metal_de_forja tira de aqui.
+# Las tres formas con las que se FABRICA una pieza nueva (forjar un arma, batir una armadura,
+# coser una mochila). Filtradas por lo que conoces Y por la BANDA BASE.
+#
+# Lo de la banda es la regla de diseño: los sub-tiers son para MEJORAR, no para fabricar. Un
+# lingote de cobre profundo no hace una espada distinta — hace la misma espada T1, porque el tier
+# es el mismo. Dejarlo en la lista solo servia para que el jugador quemase el material caro sin
+# ganar nada. Asi que fabricar pide siempre la banda base, y el material hondo se guarda para lo
+# unico que hace de verdad: llevar la pieza mas alla del +3.
+#
+# OJO: esto es solo la FABRICACION. Fundir, batir, aserrar y curtir siguen aceptandolos todos
+# (ver metales_forja_conocidos), que si no no habria manera de refinar el material bueno.
+# La math sigue usando las listas COMPLETAS: buscar el lingote de una banda no depende de si lo
+# has visto. Los indices de la UI van contra ESTAS, asi que metal_de_forja tira de aqui.
 func lingotes_conocidos() -> Array:
-	var out: Array = []
-	for m in metales_forja_conocidos():
-		out.append(m["lingote"])
-	return out
+	return _formas_base("lingote")
 
 func chapas_conocidas() -> Array:
-	var out: Array = []
-	for m in metales_forja_conocidos():
-		out.append(m["chapa"])
-	return out
+	return _formas_base("chapa")
 
 func hebillas_conocidas() -> Array:
+	return _formas_base("hebillas")
+
+func _formas_base(clave: String) -> Array:
 	var out: Array = []
 	for m in metales_forja_conocidos():
-		out.append(m["hebillas"])
+		if int((m["mineral"] as MaterialData).mejora_min) == 0:   # banda base
+			out.append(m[clave])
 	return out
 
 
