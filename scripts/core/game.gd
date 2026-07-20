@@ -16,48 +16,214 @@ extends Node
 # (companeros de equipo/party: para una version futura).
 const VERSION := "0.7.1"
 
-# --- Stats del jugador (de momento fijas aqui; luego vendran de su .tres) ---
-var player_level: int = 1
+# ============================================================
+#  EL GRUPO (party)
+#  El juego ya no tiene "un jugador": tiene un GRUPO de hasta PARTY_MAX personas, y la de la
+#  posicion 0 es la que va EN CABEZA (la que mueves por el mapa, la que mina, la que gasta
+#  aguante). Con las teclas 1/2/3 se cambia quien va delante.
+#
+#  Todo lo que era de "el jugador" (stats, equipo, hechizos, perks) vive ahora en un
+#  PersonajeData por cabeza. Para no reescribir las 5000 lineas que ya usaban player_fuerza,
+#  equipped_main y compania, esos nombres SIGUEN AQUI pero convertidos en PROPIEDADES que leen
+#  y escriben en el LIDER. Es decir: el codigo viejo sigue funcionando palabra por palabra, y
+#  ademas pasa a operar sobre quien lleves delante, que es justo lo que queremos (mina el que
+#  va en cabeza, corre con SU agilidad, y su Excelia es la que sube).
+#
+#  Lo que es del GRUPO (dinero, baul, materiales, oficios, mapa) NO se muda: se queda tal cual
+#  mas abajo en este mismo fichero.
+#
+#  Hay DOS listas y no una, y es a proposito:
+#    - PLANTILLA: TODA la gente que tienes. No tiene tope. Nadie se despide nunca: a quien
+#      contratas se queda para siempre, con su progreso, aunque hoy no lo bajes a la mazmorra.
+#    - PARTY: los (como mucho PARTY_MAX) que BAJAN CONTIGO. Es una seleccion de la plantilla,
+#      y se cambia en el Hogar. Asi se pueden tener varios equipos montados (uno de pelea, otro
+#      de recoleccion) sin perder a nadie por el camino.
+#  Los dos arrays guardan los MISMOS objetos: meter a alguien en el party no lo copia.
+# ============================================================
+const PARTY_MAX := 3
+# Arrancan con una persona para que nadie tenga que comprobar si el array esta vacio: una partida
+# siempre eres al menos tu. nueva_partida()/importar_partida() las reemplazan.
+var plantilla: Array[PersonajeData] = []
+var party: Array[PersonajeData] = []
+
+# El que va EN CABEZA. Es el "jugador" de toda la vida.
+func lider() -> PersonajeData:
+	if party.is_empty():
+		# Red de seguridad: nunca se juega sin nadie. Si la plantilla tiene gente, sale el primero
+		# (te quedaste sin equipo montado); si no hay nadie, se estrena un personaje.
+		var pj: PersonajeData = plantilla[0] if not plantilla.is_empty() else PersonajeData.new()
+		if not plantilla.has(pj):
+			plantilla.append(pj)
+		party.append(pj)
+	return party[0]
+
+# Los COMPANEROS (todos menos el lider), en orden.
+func companeros() -> Array[PersonajeData]:
+	var out: Array[PersonajeData] = []
+	for i in range(1, party.size()):
+		out.append(party[i])
+	return out
+
+# Los de la plantilla que HOY no bajan (el banquillo del gestor de equipo del Hogar).
+func en_el_banquillo() -> Array[PersonajeData]:
+	var out: Array[PersonajeData] = []
+	for pj in plantilla:
+		if not party.has(pj):
+			out.append(pj)
+	return out
+
+# Intercambia quien va en cabeza con el de la posicion i. Devuelve true si algo cambio.
+# Quien llama (player.gd) se encarga de repintar el cuerpo y refrescar el aguante.
+func cambiar_lider(i: int) -> bool:
+	if i <= 0 or i >= party.size():
+		return false
+	var tmp: PersonajeData = party[0]
+	party[0] = party[i]
+	party[i] = tmp
+	print("[grupo] ahora va en cabeza %s" % party[0].nombre)
+	return true
+
+
+# --- Gestion de la plantilla (taberna y Hogar) ---
+
+# Alguien NUEVO. Entra en la plantilla y, si hay hueco, tambien al equipo que baja hoy.
+func fichar(pj: PersonajeData) -> void:
+	if pj == null or plantilla.has(pj):
+		return
+	plantilla.append(pj)
+	if party.size() < PARTY_MAX:
+		party.append(pj)
+	print("[grupo] ficha %s (plantilla %d, equipo %d)" % [pj.nombre, plantilla.size(), party.size()])
+
+# Mete a alguien de la plantilla en el equipo que baja. false si no hay sitio o ya estaba.
+func meter_en_equipo(pj: PersonajeData) -> bool:
+	if pj == null or party.has(pj) or not plantilla.has(pj) or party.size() >= PARTY_MAX:
+		return false
+	party.append(pj)
+	return true
+
+# Lo saca del equipo al banquillo (sigue en la plantilla: aqui NO se despide a nadie). El equipo
+# nunca se queda vacio: alguien tiene que llevar el cuerpo que se mueve por el mapa.
+func sacar_del_equipo(pj: PersonajeData) -> bool:
+	if pj == null or not party.has(pj) or party.size() <= 1:
+		return false
+	party.erase(pj)
+	return true
+
+
+# --- TABERNA: contratar ---
+# PAGO UNICO: sueltas el dinero una vez y es tuyo para siempre. No hay cuota ni mantenimiento
+# porque el grupo YA se paga solo por otro lado: reparar tres armaduras cuesta el triple que una,
+# y hay que armar a tres desde cero. Meter encima una cuota por bajada seria cobrar dos veces.
+#
+# El precio DOBLA con cada persona que ya tengas en la plantilla. El primero es un gasto que un
+# novato puede plantearse; el tercero es una decision seria. Y como llegan A CERO y desnudos, lo
+# que pagas no es potencia: es la PLAZA (un cuerpo mas al que entrenar y equipar).
+const PRECIO_FICHAR_BASE := 800
+const PRECIO_FICHAR_MULT := 2.0
+
+# Lo que cuesta el siguiente. La plantilla te incluye a ti, asi que el primer companero ya sale
+# al doble de la base: es el que convierte la partida en un grupo.
+func precio_fichar() -> int:
+	return int(round(PRECIO_FICHAR_BASE * pow(PRECIO_FICHAR_MULT, maxi(0, plantilla.size() - 1))))
+
+# Contrata a alguien recien creado en la taberna. Llega A CERO: nivel 1, las cinco habilidades a
+# 0 y sin nada equipado, igual que empezaste tu. Lo que valga saldra de bajarlo a la mazmorra.
+# (En el futuro podra haber fichajes especiales que lleguen ya con nivel, stats o desarrollos
+# propios; por eso esto solo construye el personaje y no asume que siempre sea un novato.)
+# Devuelve el PersonajeData fichado, o null si no llega el dinero.
+func fichar_en_taberna(nombre_: String, color_: Color, metalico_: float,
+		png_: PackedByteArray, tinte_: float) -> PersonajeData:
+	var precio: int = precio_fichar()
+	if not gastar(precio):
+		return null
+	var pj := PersonajeData.new()
+	pj.nombre = nombre_.strip_edges() if nombre_.strip_edges() != "" else NOMBRE_POR_DEFECTO
+	pj.color = color_
+	pj.metalico = clampf(metalico_, 0.0, 1.0)
+	pj.color_alpha = clampf(tinte_, 0.0, 1.0)
+	pj.set_imagen(png_)
+	fichar(pj)
+	print("[taberna] %s se une al grupo por %d monedas." % [pj.nombre, precio])
+	return pj
+
+
+# --- Stats del que va EN CABEZA (delegan en lider(); ver el bloque de arriba) ---
+var player_level: int:
+	get: return lider().level
+	set(v): lider().level = v
 # Habilidades VISIBLES (las que usa el combate/capacidad). Empiezan a 0 y solo se actualizan al
 # DESCANSAR en el altar (actualizar_estado()). Se DERIVAN de ability_consolidado, no del interno:
 # lo ganado desde el ultimo descanso esta pendiente hasta que vuelvas.
-var player_fuerza: int = 0
-var player_resistencia: int = 0
-var player_destreza: int = 0
-var player_agilidad: int = 0
-var player_magia: int = 0
-var player_base_hp: float = 50.0
-var player_base_attack: float = 5.0
-var player_base_defense: float = 5.0
+var player_fuerza: int:
+	get: return lider().fuerza
+	set(v): lider().fuerza = v
+var player_resistencia: int:
+	get: return lider().resistencia
+	set(v): lider().resistencia = v
+var player_destreza: int:
+	get: return lider().destreza
+	set(v): lider().destreza = v
+var player_agilidad: int:
+	get: return lider().agilidad
+	set(v): lider().agilidad = v
+var player_magia: int:
+	get: return lider().magia
+	set(v): lider().magia = v
+var player_base_hp: float:
+	get: return lider().base_hp
+	set(v): lider().base_hp = v
+var player_base_attack: float:
+	get: return lider().base_attack
+	set(v): lider().base_attack = v
+var player_base_defense: float:
+	get: return lider().base_defense
+	set(v): lider().base_defense = v
 # Defensa MAGICA base del jugador (espejo de la fisica). Hoy no la usa nadie porque los
 # enemigos aun no lanzan hechizos, pero el dia que lo hagan no queremos que el jugador este
 # desnudo ante la magia como lo estaban ellos. Ver StatsMath.resolve_spell.
-var player_base_magic: float = 5.0
-var player_base_speed: float = 5.0
+var player_base_magic: float:
+	get: return lider().base_magic
+	set(v): lider().base_magic = v
+var player_base_speed: float:
+	get: return lider().base_speed
+	set(v): lider().base_speed = v
 # Bases que crecen al SUBIR DE NIVEL (bakeo de Magia y Destreza, que no escalaban con la base):
 # player_base_mp = maná base (arranca en StatsMath.BASE_MP 20); player_base_magia_factor = factor
 # de daño mágico congelado (1.0 neutro); player_base_crit = crítico plano acumulado (Destreza).
-var player_base_mp: float = 20.0
-var player_base_magia_factor: float = 1.0
-var player_base_crit: float = 0.0
+var player_base_mp: float:
+	get: return lider().base_mp
+	set(v): lider().base_mp = v
+var player_base_magia_factor: float:
+	get: return lider().base_magia_factor
+	set(v): lider().base_magia_factor = v
+var player_base_crit: float:
+	get: return lider().base_crit
+	set(v): lider().base_crit = v
 # Vida actual (persiste entre combates). -1 = aun no inicializada (= llena).
-var player_current_hp: float = -1.0
+var player_current_hp: float:
+	get: return lider().current_hp
+	set(v): lider().current_hp = v
 # Mana actual (persiste entre combates, como la vida). -1 = lleno. Se rellena en
 # el altar (descansar) y regenera muy poco por turno en combate (KAN-56).
-var player_current_mp: float = -1.0
+var player_current_mp: float:
+	get: return lider().current_mp
+	set(v): lider().current_mp = v
 
 # --- Subida de habilidades (Excelia estilo DanMachi) ---
 # Valor INTERNO (float) que sube con el uso. Lo visible (player_*) solo se
 # sincroniza al "actualizar estado" (hogar). Rendimientos decrecientes segun
 # el interno; dificultad relativa (enemigo/accion facil = sube poco).
-var ability_internal: Dictionary = {
-	"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+var ability_internal: Dictionary:
+	get: return lider().ability_internal
+	set(v): lider().ability_internal = v
 # Lo CONSOLIDADO: el valor que tenia ability_internal en el ultimo "actualizar estado" del altar.
 # Lo VISIBLE se deriva de aqui (no del interno), asi que la excelia ganada desde entonces esta
 # PENDIENTE: existe (cuenta para stat_total: reto y recoleccion) pero todavia no te la has puesto.
 # Descansar en el altar es lo unico que la pasa de un sitio al otro. Ver actualizar_estado().
-var ability_consolidado: Dictionary = {
-	"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+var ability_consolidado: Dictionary:
+	get: return lider().ability_consolidado
+	set(v): lider().ability_consolidado = v
 # SUBIR DE NIVEL (estilo DanMachi): al subir NO se borra ability_internal (el total acumulado se
 # queda OCULTO de fondo, y ademas se INFLA un NIVEL_SPIKE; sigue alimentando recoleccion y el reto
 # contra contenido viejo). Lo que se resetea es el VISIBLE: ability_base_nivel guarda el valor de
@@ -68,8 +234,9 @@ var ability_consolidado: Dictionary = {
 # Esa resta (interno - base_nivel) es la unidad de medida de TODO lo que va por nivel: el rango que
 # ves, la curva de rendimientos decrecientes de ganar(), y el denominador del reto contra contenido
 # de tu nivel (poder_jugador_nivel). Cada nivel es su propia arena y arranca en cero.
-var ability_base_nivel: Dictionary = {
-	"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+var ability_base_nivel: Dictionary:
+	get: return lider().ability_base_nivel
+	set(v): lider().ability_base_nivel = v
 # Rendimientos decrecientes RELATIVOS AL TOPE, medidos SOBRE EL PROGRESO DE ESTE NIVEL
 # (interno - base_nivel), NO sobre el total de por vida:
 #   factor = max(FLOOR, (1 - progreso_del_nivel/999)^POWER)
@@ -100,9 +267,17 @@ const CRIT_BAKE_MAX := 0.08        # crítico plano que aporta al subir una Dest
 # Estado de la subida de nivel (persistidos, ver save_data):
 # Cada NIVEL tiene su propio "guardián del rango": vencerlo desbloquea SU nivel. guardianes_vencidos
 # = { nivel_objetivo: true }. Para subir a N hace falta haber vencido al guardián de N (+ rango).
-var guardianes_vencidos: Dictionary = {}
-var desarrollos_rango: Dictionary = {}       # {id: rango 1..10} de las habilidades de desarrollo (ver DESARROLLOS)
-var pasivas_rng: Dictionary = {}             # {id: true} pasivas RNG binarias conseguidas (ver PASIVAS_RNG)
+var guardianes_vencidos: Dictionary:
+	get: return lider().guardianes_vencidos
+	set(v): lider().guardianes_vencidos = v
+# {id: rango 1..10} de las habilidades de desarrollo (ver DESARROLLOS)
+var desarrollos_rango: Dictionary:
+	get: return lider().desarrollos_rango
+	set(v): lider().desarrollos_rango = v
+# {id: true} pasivas RNG binarias conseguidas (ver PASIVAS_RNG)
+var pasivas_rng: Dictionary:
+	get: return lider().pasivas_rng
+	set(v): lider().pasivas_rng = v
 const RETO_MAX := 8.0              # tope de dificultad relativa (enemigo muy superior = mas ganancia)
 # Tope de reto SOLO para las stats FISICAS (Fuerza/Resistencia/Agilidad): mas
 # bajo que el de Destreza (8) para que no se disparen contra enemigos superiores.
@@ -508,23 +683,29 @@ var entrada_por_atajo: bool = false
 # --- IDENTIDAD del personaje (la elige el jugador al crear la partida, ver main_menu.gd) ---
 # Van en el SaveData: cada ranura es un personaje distinto, no una preferencia del perfil.
 const NOMBRE_POR_DEFECTO := "Aventurero"
-var player_nombre: String = NOMBRE_POR_DEFECTO
-var player_color: Color = Color(1, 1, 1)   # tiñe su cuerpo por el mapa (player.tscn)
-var player_metalico: float = 0.0           # acabado metalico del cuerpo (shaders/metal.gdshader)
+var player_nombre: String:
+	get: return lider().nombre
+	set(v): lider().nombre = v
+var player_color: Color:                   # tiñe su cuerpo por el mapa (player.tscn)
+	get: return lider().color
+	set(v): lider().color = v
+var player_metalico: float:                # acabado metalico del cuerpo (shaders/metal.gdshader)
+	get: return lider().metalico
+	set(v): lider().metalico = v
 
 # IMAGEN propia del cuerpo, guardada como los BYTES de un PNG (vacio = sin imagen, cuerpo de
 # color plano). Se guardan los bytes y NO la ruta al fichero del jugador a proposito: una ruta se
 # rompe en cuanto mueve, renombra o borra el original, y la partida se quedaria sin cara. Asi el
 # .tres de la ranura es autonomo: se puede copiar de PC y sigue entero, y Perfil.borrar no tiene
 # que ir a limpiar ficheros sueltos por ahi. Entra ya encogida y CUADRADA (ver png_cuadrado).
-var player_imagen_png: PackedByteArray = PackedByteArray()
+var player_imagen_png: PackedByteArray:
+	get: return lider().imagen
+	set(v): lider().set_imagen(v)
 # Cuanto TIÑE el color por encima de la imagen (0 = imagen limpia, 1 = solo color). Sin imagen da
 # igual: la base ya es el color.
-var player_color_alpha: float = 1.0
-
-# La imagen ya montada como textura. Se cachea porque decodificar el PNG en cada material_cuerpo()
-# seria absurdo; lo invalida set_imagen_cuerpo.
-var _tex_cuerpo: ImageTexture = null
+var player_color_alpha: float:
+	get: return lider().color_alpha
+	set(v): lider().color_alpha = v
 
 # El cuerpo son 32 px en pantalla: guardar el fotardo de 4000x4000 del movil solo engordaria el
 # save (el .tres es TEXTO, asi que los bytes van en base64 y abultan ~1/3 mas).
@@ -541,8 +722,7 @@ const IMAGEN_FUENTE_MAX := 512
 const SHADER_METAL: Shader = preload("res://shaders/metal.gdshader")
 
 func set_imagen_cuerpo(png: PackedByteArray) -> void:
-	player_imagen_png = png
-	_tex_cuerpo = null   # la cache ya no vale
+	lider().set_imagen(png)   # invalida su cache de textura
 
 func tiene_imagen_cuerpo() -> bool:
 	return not player_imagen_png.is_empty()
@@ -560,13 +740,7 @@ static func textura_de_png(png: PackedByteArray) -> Texture2D:
 # La textura del cuerpo, o null si no hay imagen (o si el PNG guardado esta corrupto: mejor un
 # cuerpo de color plano que una partida que no arranca).
 func textura_cuerpo() -> Texture2D:
-	if player_imagen_png.is_empty():
-		return null
-	if _tex_cuerpo == null:
-		_tex_cuerpo = textura_de_png(player_imagen_png)
-		if _tex_cuerpo == null:
-			push_warning("[personaje] la imagen guardada no se puede leer: cuerpo de color plano")
-	return _tex_cuerpo
+	return lider().textura()
 
 # Lee una imagen del disco del jugador (PNG/JPG/WEBP) y la encoge a IMAGEN_FUENTE_MAX conservando
 # la proporcion. null = no se pudo leer. NO recorta: esto es la FUENTE que el jugador encuadra en
@@ -630,11 +804,24 @@ func material_cuerpo(metalico: float = -1.0, imagen: Texture2D = null, tinte: fl
 	return mat
 
 
+# El material del cuerpo de UN personaje cualquiera del grupo (lo usa el sequito que te sigue
+# por el mapa: cada companero se pinta con SU acabado y SU imagen, no con los del lider).
+func material_de(pj: PersonajeData) -> ShaderMaterial:
+	if pj == null:
+		return material_cuerpo()
+	return material_cuerpo(pj.metalico, pj.textura(), pj.color_alpha)
+
+
 # Empieza una partida DE CERO (menu -> Nueva partida). Mundo nuevo y personaje a estrenar,
 # con el nombre, el color, el acabado y la imagen que haya elegido en la pantalla de creacion.
 func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1, 1, 1),
 		metalico_: float = 0.0, imagen_png_: PackedByteArray = PackedByteArray(),
 		color_alpha_: float = 1.0) -> void:
+	# Empiezas SOLO: una plantilla de una persona, a estrenar (los companeros se contratan en la
+	# taberna). Va lo primero porque todo lo que viene despues escribe en el lider.
+	var yo := PersonajeData.new()
+	plantilla = [yo]
+	party = [yo]
 	randomize()
 	semilla_mundo = randi()
 	if semilla_mundo == 0:
@@ -768,6 +955,15 @@ func exportar_partida() -> SaveData:
 	d.desarrollos_rango = desarrollos_rango.duplicate()
 	d.pasivas_rng = pasivas_rng.duplicate()
 	d.guardianes_vencidos = guardianes_vencidos.duplicate()
+	# El GRUPO, sin el lider (ese ya va en los campos planos de aqui arriba; ver el comentario de
+	# SaveData.plantilla). Van SIN duplicar: son Resources y Godot los incrusta enteros en el .tres,
+	# conservando tanto la identidad entre las dos listas como la de las armas que llevan puestas
+	# con las del baul.
+	d.plantilla = []
+	for pj in plantilla:
+		if pj != lider():
+			d.plantilla.append(pj)
+	d.equipo = companeros()
 	d.player_current_hp = player_hp()
 	d.player_current_mp = player_current_mp
 	d.stamina = float(player.current_stamina) if player != null and "current_stamina" in player else -1.0
@@ -848,6 +1044,12 @@ func exportar_partida() -> SaveData:
 
 
 func importar_partida(d: SaveData) -> void:
+	# GRUPO a estrenar: un lider vacio en el que van cayendo los campos planos de la partida (que
+	# es lo que hace todo el cuerpo de esta funcion, via las propiedades que delegan en el). Si no
+	# se reemplaza aqui, se cargaria encima del personaje de la partida ANTERIOR de esta sesion.
+	var yo := PersonajeData.new()
+	plantilla = [yo]
+	party = [yo]
 	semilla_mundo = d.semilla_mundo
 	player_nombre = d.nombre if d.nombre.strip_edges() != "" else NOMBRE_POR_DEFECTO
 	player_color = d.color
@@ -971,6 +1173,18 @@ func importar_partida(d: SaveData) -> void:
 	_vistas_baseline = d.vistas_baseline.duplicate(true)
 	tiempo_mazmorra = d.tiempo_mazmorra
 	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
+
+	# La PLANTILLA (todos los contratados) y, de entre ellos, el EQUIPO que baja hoy, detras del
+	# lider y en el orden en que se guardaron. Una partida de antes del grupo trae las dos listas
+	# vacias: te quedas solo, como estabas.
+	for pj in d.plantilla:
+		if pj is PersonajeData and not plantilla.has(pj):
+			plantilla.append(pj as PersonajeData)
+	for pj in d.equipo:
+		if pj is PersonajeData and party.size() < PARTY_MAX and not party.has(pj):
+			party.append(pj as PersonajeData)
+			if not plantilla.has(pj):
+				plantilla.append(pj as PersonajeData)   # por si el .tres viniera descuadrado
 
 	# Curas a medias y estados de la sesion anterior: fuera.
 	player_heal_left = 0.0
@@ -1416,15 +1630,24 @@ func hacha() -> ToolData:
 # ni se forja, ni se mejora, ni sale en el baul. Solo lo usa arma_main() como respaldo.
 const PUNOS_BASE := preload("res://resources/weapons/punos.tres")
 
-var equipped_main: WeaponData = null   # null = manos vacias (puños)
-var equipped_off: Resource = null   # WeaponData | ShieldData | null
+var equipped_main: WeaponData:      # null = manos vacias (puños)
+	get: return lider().equipped_main as WeaponData
+	set(v): lider().equipped_main = v
+var equipped_off: Resource:         # WeaponData | ShieldData | null
+	get: return lider().equipped_off
+	set(v): lider().equipped_off = v
 
 
 # El arma con la que peleas DE VERDAD: la equipada, o los puños si no llevas nada. Punto
 # unico por el que pasa todo el combate, para que "sin arma" no sea un caso especial en
 # cada formula. Ojo: para saber si llevas algo EQUIPADO, mira equipped_main, no esto.
-func arma_main() -> WeaponData:
-	return equipped_main if equipped_main != null else (PUNOS_BASE as WeaponData)
+#
+# El parametro `pj` (null = el que va en cabeza) es el patron que siguen TODAS las funciones de
+# equipo desde que hay grupo: el codigo de siempre las llama sin argumentos y sigue hablando del
+# lider, y el menu de personaje les pasa el companero al que le estas mirando la ficha.
+func arma_main(pj: PersonajeData = null) -> WeaponData:
+	var p: PersonajeData = pj if pj != null else lider()
+	return p.equipped_main as WeaponData if p.equipped_main != null else (PUNOS_BASE as WeaponData)
 # Dual-wield: llevar arma en la secundaria acelera el ataque (mas turnos). La
 # velocidad final tiene DOS componentes (ver loadout_mods):
 #  1) Un bonus fijo por llevar dos armas, DECRECIENTE segun lo rapida que ya sea
@@ -1455,24 +1678,28 @@ func tier_mult(tier: int) -> float:
 # --- Armadura: loadout de 5 piezas (ArmorData o null en cada slot) ---
 # Cada pieza aporta DEF plana (aditiva) + % de reduccion (se PROMEDIA) + peso.
 # Ver armor_mods(). Interfaz por codigo/DEV keys de momento (tecla J cicla sets).
-var equipped_casco: ArmorData = null
-var equipped_pecho: ArmorData = null
-var equipped_manos: ArmorData = null
-var equipped_pantalones: ArmorData = null
-var equipped_botas: ArmorData = null
+var equipped_casco: ArmorData:
+	get: return lider().equipped_casco as ArmorData
+	set(v): lider().equipped_casco = v
+var equipped_pecho: ArmorData:
+	get: return lider().equipped_pecho as ArmorData
+	set(v): lider().equipped_pecho = v
+var equipped_manos: ArmorData:
+	get: return lider().equipped_manos as ArmorData
+	set(v): lider().equipped_manos = v
+var equipped_pantalones: ArmorData:
+	get: return lider().equipped_pantalones as ArmorData
+	set(v): lider().equipped_pantalones = v
+var equipped_botas: ArmorData:
+	get: return lider().equipped_botas as ArmorData
+	set(v): lider().equipped_botas = v
 
 # --- Estado POR ITEM equipado: tier + rareza + mejoras (no van en el .tres
 # compartido). keyed por slot: "main","off","casco","pecho","manos","pantalones",
 # "botas". mejoras = {categoria: nº}. Ver upgrades.gd. ---
-var equip_meta: Dictionary = {
-	"main": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
-	"off": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
-	"casco": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
-	"pecho": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
-	"manos": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
-	"pantalones": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
-	"botas": {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0},
-}
+var equip_meta: Dictionary:
+	get: return lider().equip_meta
+	set(v): lider().equip_meta = v
 
 # --- Estado POR OBJETO POSEIDO (baul): el mismo dict que acaba en equip_meta al
 # equiparlo, POR REFERENCIA. Asi mejorar el item equipado mejora el item del baul,
@@ -1491,14 +1718,17 @@ func _meta_por_defecto() -> Dictionary:
 	return {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0}
 
 
-func _meta(slot: String) -> Dictionary:
-	return equip_meta[slot]
-func equip_tier(slot: String) -> int:
-	return int(equip_meta[slot]["tier"])
-func equip_rareza(slot: String) -> int:
-	return int(equip_meta[slot]["rareza"])
-func equip_mejoras(slot: String) -> Dictionary:
-	return equip_meta[slot]["mejoras"]
+func _meta(slot: String, pj: PersonajeData = null) -> Dictionary:
+	var p: PersonajeData = pj if pj != null else lider()
+	if not p.equip_meta.has(slot):
+		p.equip_meta[slot] = _meta_por_defecto()   # personaje recien contratado / slot nuevo
+	return p.equip_meta[slot]
+func equip_tier(slot: String, pj: PersonajeData = null) -> int:
+	return int(_meta(slot, pj)["tier"])
+func equip_rareza(slot: String, pj: PersonajeData = null) -> int:
+	return int(_meta(slot, pj)["rareza"])
+func equip_mejoras(slot: String, pj: PersonajeData = null) -> Dictionary:
+	return _meta(slot, pj)["mejoras"]
 
 # ============================================================
 #  DURABILIDAD / MANTENIMIENTO
@@ -1534,17 +1764,17 @@ const REPARA_K_MEJ := 0.12
 # base, asi cada uno rinde lo mismo en proporcion sin importar lo alto que este ya el maximo.
 # Mas maximo = dura mas y cada golpe resta menos fraccion; NO encarece reparar (el precio es por
 # % roto), asi que tier/rareza ademas abaratan el mantenimiento (reparas menos veces).
-func max_durabilidad(slot: String) -> float:
-	var tier: int = maxi(equip_tier(slot), 1)
-	var n: int = int((equip_mejoras(slot) as Dictionary).get(Upgrades.DURABILIDAD, 0))
+func max_durabilidad(slot: String, pj: PersonajeData = null) -> float:
+	var tier: int = maxi(equip_tier(slot, pj), 1)
+	var n: int = int((equip_mejoras(slot, pj) as Dictionary).get(Upgrades.DURABILIDAD, 0))
 	return DURABILIDAD_BASE \
 		* (1.0 + float(tier - 1) * DURABILIDAD_TIER_PCT) \
 		* (1.0 + float(n) * DURABILIDAD_MEJORA_PCT) \
-		* Upgrades.rareza_mult(equip_rareza(slot))
+		* Upgrades.rareza_mult(equip_rareza(slot, pj))
 
 # Fraccion de durabilidad de un slot (1.0 llena, 0.0 rota). Retrocompat: sin la clave = llena.
-func durabilidad_slot(slot: String) -> float:
-	return clampf(float((equip_meta[slot] as Dictionary).get("durabilidad", 1.0)), 0.0, 1.0)
+func durabilidad_slot(slot: String, pj: PersonajeData = null) -> float:
+	return clampf(float(_meta(slot, pj).get("durabilidad", 1.0)), 0.0, 1.0)
 
 # Multiplicador de rendimiento por desgaste (daño del arma / proteccion de la pieza).
 # Gastada: rampa lineal con TOPE PENAL_MAX. Rota (frac<=0): acantilado a 1-PENAL_ROTO.
@@ -1578,13 +1808,14 @@ func desgastar_armadura() -> void:
 		if _pieza_equipada(slot) != null:
 			_desgastar_slot(slot, DESGASTE_ARMOR)
 
-func _pieza_equipada(slot: String) -> ArmorData:
+func _pieza_equipada(slot: String, pj: PersonajeData = null) -> ArmorData:
+	var p: PersonajeData = pj if pj != null else lider()
 	match slot:
-		"casco": return equipped_casco
-		"pecho": return equipped_pecho
-		"manos": return equipped_manos
-		"pantalones": return equipped_pantalones
-		"botas": return equipped_botas
+		"casco": return p.equipped_casco as ArmorData
+		"pecho": return p.equipped_pecho as ArmorData
+		"manos": return p.equipped_manos as ArmorData
+		"pantalones": return p.equipped_pantalones as ArmorData
+		"botas": return p.equipped_botas as ArmorData
 	return null
 
 # Precio de reparar un slot al 100%: coste_full × fraccion rota (0 si esta llena).
@@ -1705,7 +1936,9 @@ var _dev_off_idx: int = 0
 # --- HECHIZOS equipados (KAN-56) ---
 # Array[SpellData]. VACIO por defecto: no todos los personajes tienen magia. Se
 # equipan desde el panel de debug (la obtencion aleatoria se vera mas adelante).
-var equipped_spells: Array = []
+var equipped_spells: Array:
+	get: return lider().equipped_spells
+	set(v): lider().equipped_spells = v
 # Lista para el panel de debug (equipar/quitar). Rutas de los .tres de hechizos.
 var _dev_spells: Array[String] = [
 	"res://resources/spells/descarga.tres",
@@ -1725,29 +1958,38 @@ var _dev_spells: Array[String] = [
 	"res://resources/spells/debilidad.tres",
 ]
 
-func tiene_hechizos() -> bool:
-	return equipped_spells.size() > 0
+func tiene_hechizos(pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	return p.equipped_spells.size() > 0
 
 # Mana maximo del jugador segun su Magia (para el HUD; en combate lo lleva el Combatant).
-func player_max_mp() -> float:
+func player_max_mp(pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
 	var a := Abilities.new()
-	a.magia = player_magia
-	return StatsMath.max_mp_jugador(a, player_base_mp)   # misma formula que en combate (jugador = multiplicativa)
+	a.magia = p.magia
+	return StatsMath.max_mp_jugador(a, p.base_mp)   # misma formula que en combate (jugador = multiplicativa)
 
-# Vida MAXIMA del jugador con sus stats actuales (para la barra de HP fuera de combate
+# Vida MAXIMA de un personaje con sus stats actuales (para la barra de HP fuera de combate
 # y el tope de la cura). Mismo calculo que crear_player_combatant.
-func player_max_hp() -> float:
+func player_max_hp(pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
 	var a := Abilities.new()
-	a.fuerza = player_fuerza
-	a.resistencia = player_resistencia
-	a.destreza = player_destreza
-	a.agilidad = player_agilidad
-	a.magia = player_magia
-	return StatsMath.max_hp_jugador(a, player_base_hp)   # misma formula que en combate (jugador = multiplicativa)
+	a.fuerza = p.fuerza
+	a.resistencia = p.resistencia
+	a.destreza = p.destreza
+	a.agilidad = p.agilidad
+	a.magia = p.magia
+	return StatsMath.max_hp_jugador(a, p.base_hp)   # misma formula que en combate (jugador = multiplicativa)
 
-# Vida ACTUAL concreta (player_current_hp puede ser -1 = "llena"). La usan las barras.
-func player_hp() -> float:
-	return player_current_hp if player_current_hp >= 0.0 else player_max_hp()
+# Vida ACTUAL concreta (current_hp puede ser -1 = "llena"). La usan las barras.
+func player_hp(pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
+	return p.current_hp if p.current_hp >= 0.0 else player_max_hp(p)
+
+# Mana ACTUAL concreto (hermano de player_hp).
+func player_mp(pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
+	return p.current_mp if p.current_mp >= 0.0 else player_max_mp(p)
 
 # True si la escena actual es el PUEBLO (donde se puede cambiar de equipo). Lo consulta
 # el menu de personaje para habilitar/bloquear los cambios de armas/armadura.
@@ -1987,14 +2229,16 @@ func hechizos_llenos() -> bool:
 	return equipped_spells.size() >= MAX_HECHIZOS
 
 # Aprende un hechizo. false si ya lo sabias o si tienes la cabeza llena (MAX_HECHIZOS).
-func equipar_hechizo(spell: SpellData) -> bool:
-	if spell == null or equipped_spells.has(spell) or hechizos_llenos():
+func equipar_hechizo(spell: SpellData, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	if spell == null or p.equipped_spells.has(spell) or p.equipped_spells.size() >= MAX_HECHIZOS:
 		return false
-	equipped_spells.append(spell)
+	p.equipped_spells.append(spell)
 	return true
 
-func quitar_hechizo(spell: SpellData) -> void:
-	equipped_spells.erase(spell)
+func quitar_hechizo(spell: SpellData, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	p.equipped_spells.erase(spell)
 
 # --- Peso / capacidad de carga ---
 # De serie llevas un ZURRON pequeño (base_capacity). La Fuerza sube la capacidad.
@@ -2007,7 +2251,9 @@ var extra_capacity: float = 0.0
 # La UNICA cosa que sube la capacidad de carga. La basica suma +25 sobre los 25 del zurron;
 # el TIER y la RAREZA la escalan. No se mejora con nucleos: los nucleos son para matar y
 # aguantar, no para llevar mas trastos.
-var equipped_mochila: BackpackData = null
+var equipped_mochila: BackpackData:
+	get: return lider().equipped_mochila as BackpackData
+	set(v): lider().equipped_mochila = v
 
 # Cuanto suma ESTA mochila, con su tier y su rareza. El TIER es el eje gordo (bajar a por metal
 # mejor tiene que notarse), y el salto se ACELERA: sobre la basica de +25, un T2 da +42 y un T3
@@ -2031,8 +2277,12 @@ func capacidad_mochila(m: BackpackData = null) -> float:
 	return mo.capacidad * mochila_tier_factor(int(meta["tier"])) \
 		* Upgrades.rareza_mult_capacidad(int(meta["rareza"]))
 
-func equipar_mochila(m: BackpackData) -> void:
-	equipped_mochila = m
+func equipar_mochila(m: BackpackData, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	_quitar_a_los_demas(m, p)
+	p.equipped_mochila = m
+	# La capacidad de carga es del GRUPO (la bolsa es una), asi que la marca la mochila del que va
+	# en cabeza: es el que carga con el saco.
 	extra_capacity = capacidad_mochila()
 
 # Lo que llevarias CON esta mochila puesta (para comparar en el menu antes de equiparla). No es
@@ -2056,38 +2306,40 @@ var overload_max_penalty: float = 0.8  # penalizacion maxima (0.8 = -80% velocid
 const SIN_ARMADURA_VEL_MULT := 1.08
 
 
-# Crea el Combatant del jugador con sus stats actuales (manteniendo la vida).
-func crear_player_combatant() -> Combatant:
+# Crea el Combatant de UN personaje del grupo con sus stats actuales (manteniendo la vida).
+# Sin argumento = el que va en cabeza, que es el que pelea mientras el combate sea 1vN.
+func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
+	var p: PersonajeData = pj if pj != null else lider()
 	var a := Abilities.new()
-	a.fuerza = player_fuerza
-	a.resistencia = player_resistencia
-	a.destreza = player_destreza
-	a.agilidad = player_agilidad
-	a.magia = player_magia
-	var c := Combatant.new(player_nombre, player_level, a,
-		player_base_hp, player_base_attack, player_base_defense, player_base_speed)
-	c.base_magic = player_base_magic
+	a.fuerza = p.fuerza
+	a.resistencia = p.resistencia
+	a.destreza = p.destreza
+	a.agilidad = p.agilidad
+	a.magia = p.magia
+	var c := Combatant.new(p.nombre, p.level, a,
+		p.base_hp, p.base_attack, p.base_defense, p.base_speed)
+	c.base_magic = p.base_magic
 	# Bakeos de nivel: crítico plano (Destreza), factor de daño mágico y maná base (Magia).
-	c.crit_flat = player_base_crit
-	c.magia_base_factor = player_base_magia_factor
+	c.crit_flat = p.base_crit
+	c.magia_base_factor = p.base_magia_factor
 	# El JUGADOR usa las formulas MULTIPLICATIVAS (la stat multiplica su base): es lo que hace que
 	# el bakeo de subir de nivel se note (un punto nuevo multiplica una base mayor). Vida y maná se
 	# recalculan aqui porque el Combatant los computo en su _init con las aditivas.
 	c.stats_multiplicativas = true
-	c.max_hp = StatsMath.max_hp_jugador(a, player_base_hp)
-	c.max_mp = StatsMath.max_mp_jugador(a, player_base_mp)
-	if player_current_hp < 0.0:
-		player_current_hp = float(c.max_hp)  # primera vez: vida llena
-	c.current_hp = clampf(player_current_hp, 0.0, float(c.max_hp))
+	c.max_hp = StatsMath.max_hp_jugador(a, p.base_hp)
+	c.max_mp = StatsMath.max_mp_jugador(a, p.base_mp)
+	if p.current_hp < 0.0:
+		p.current_hp = float(c.max_hp)  # primera vez: vida llena
+	c.current_hp = clampf(p.current_hp, 0.0, float(c.max_hp))
 
 	# Mana y hechizos (KAN-56). El mana persiste como la vida (-1 = lleno).
-	if player_current_mp < 0.0:
-		player_current_mp = float(c.max_mp)
-	c.current_mp = clampf(player_current_mp, 0.0, float(c.max_mp))
-	c.spells = equipped_spells
+	if p.current_mp < 0.0:
+		p.current_mp = float(c.max_mp)
+	c.current_mp = clampf(p.current_mp, 0.0, float(c.max_mp))
+	c.spells = p.equipped_spells
 
-	_aplicar_loadout(c)
-	_aplicar_pasivas_slayer(c)   # multiplicadores de daño por familia (pasivas RNG)
+	_aplicar_loadout(c, p)
+	_aplicar_pasivas_slayer(c, p)   # multiplicadores de daño por familia (pasivas RNG)
 	return c
 
 
@@ -2096,14 +2348,15 @@ func crear_player_combatant() -> Combatant:
 # magia del equipo. Se usa al CREAR el combatiente y tambien para REAPLICAR el loadout
 # en caliente cuando cambias de arma DURANTE el combate (dev, teclas K/L). No toca
 # vida/mana/energia ni las stats base, solo lo que depende del equipo.
-func _aplicar_loadout(c: Combatant) -> void:
+func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
 	# Habilidades del loadout (KAN-57): las de la mano principal + las de la
 	# secundaria/escudo (sin duplicar; en dual de la misma arma aparece una vez).
 	var abils: Array = []
-	var tiene_escudo: bool = equipped_off is ShieldData
+	var tiene_escudo: bool = p.equipped_off is ShieldData
 	# Mano secundaria LIBRE = vacia o con varita (WandData no pesa ni estorba el movimiento).
-	var off_libre: bool = equipped_off == null or equipped_off is WandData
-	for it in [equipped_main, equipped_off]:
+	var off_libre: bool = p.equipped_off == null or p.equipped_off is WandData
+	for it in [p.equipped_main, p.equipped_off]:
 		if (it is WeaponData or it is ShieldData or it is WandData) and not it.habilidades.is_empty():
 			for ab in it.habilidades:
 				if ab == null or abils.has(ab):
@@ -2124,9 +2377,9 @@ func _aplicar_loadout(c: Combatant) -> void:
 	var ability_hands: Dictionary = {}
 	for ab in abils:
 		var idxs: Array = []
-		if equipped_main is WeaponData and (equipped_main as WeaponData).habilidades.has(ab):
+		if p.equipped_main is WeaponData and (p.equipped_main as WeaponData).habilidades.has(ab):
 			idxs.append(0)
-		if equipped_off is WeaponData and (equipped_off as WeaponData).habilidades.has(ab):
+		if p.equipped_off is WeaponData and (p.equipped_off as WeaponData).habilidades.has(ab):
 			idxs.append(1)
 		if idxs.is_empty():
 			idxs.append(0)
@@ -2135,7 +2388,7 @@ func _aplicar_loadout(c: Combatant) -> void:
 
 	# Aplicar los modificadores del loadout. Las MANOS (1 o 2) se alternan por
 	# golpe en combate; set_hands activa la primera. El resto son del loadout entero.
-	var m := loadout_mods()
+	var m := loadout_mods(p)
 	c.set_hands(m["hands"])
 	c.defend_block = m["defend_block"]
 	c.evasion_penal = m["evasion_penal"]
@@ -2143,7 +2396,7 @@ func _aplicar_loadout(c: Combatant) -> void:
 
 	# Armadura: DEF plana aditiva + % de reduccion (media ponderada, acotada) +
 	# velocidad + esquiva (Evasion) + resist. criticos (ResistCrit).
-	var am := armor_mods()
+	var am := armor_mods(p)
 	c.extra_defense = am["def_bonus"]
 	c.armor_reduction = am["reduction"]
 	c.velocidad_mult = float(m["velocidad_mult"]) * float(am["velocidad_mult"])
@@ -2164,20 +2417,21 @@ func _aplicar_loadout(c: Combatant) -> void:
 	# PERKS de combate (habilidades de desarrollo). Van los ULTIMOS, encima de lo que dan el equipo
 	# y la armadura: son tuyos, no del loadout, asi que no dependen de lo que lleves puesto. Se leen
 	# en vivo del RANGO de cada desarrollo (factor 0 = no lo tienes; escala hasta rango S).
-	c.evasion_penal -= REFLEJOS_EVASION * factor_desarrollo("reflejos")   # esquiva como PENAL: negativo = esquivas mas
-	c.magic_amp *= 1.0 + ERUDITO_MAGIA * factor_desarrollo("erudito")
-	c.cast_velocidad_mult *= 1.0 + ENCANT_RAPIDO * factor_desarrollo("encantamiento_rapido")
+	c.evasion_penal -= REFLEJOS_EVASION * factor_desarrollo("reflejos", p)   # esquiva como PENAL: negativo = esquivas mas
+	c.magic_amp *= 1.0 + ERUDITO_MAGIA * factor_desarrollo("erudito", p)
+	c.cast_velocidad_mult *= 1.0 + ENCANT_RAPIDO * factor_desarrollo("encantamiento_rapido", p)
 
 
 # Combina la mano principal + la secundaria en los modificadores finales de
 # combate. La secundaria aporta VELOCIDAD (dual) o BLOQUEO/penalizacion (escudo).
-func loadout_mods() -> Dictionary:
-	var main: WeaponData = arma_main()   # sin arma equipada -> los puños
+func loadout_mods(pj: PersonajeData = null) -> Dictionary:
+	var p: PersonajeData = pj if pj != null else lider()
+	var main: WeaponData = arma_main(p)   # sin arma equipada -> los puños
 	# Mods del arma principal ya RESUELTOS (base × rareza + mejoras): de aqui salen la evasion y
 	# el bloqueo escalados por rareza, en vez de los campos crudos del .tres. Antes la rareza no
 	# tocaba la esquiva ni el bloqueo (una daga obra maestra esquivaba igual que una comun).
-	var main_wm := Upgrades.weapon_mods(main, tier_mult(equip_tier("main")),
-		equip_rareza("main"), equip_mejoras("main"))
+	var main_wm := Upgrades.weapon_mods(main, tier_mult(equip_tier("main", p)),
+		equip_rareza("main", p), equip_mejoras("main", p))
 	# Mods COMPARTIDOS (del loadout entero) + lista de MANOS (armas que alternan).
 	var m := {
 		"velocidad_mult": main.velocidad_mult,
@@ -2189,24 +2443,24 @@ func loadout_mods() -> Dictionary:
 		# El arma principal define lo escurridizo que eres (daga = +esquiva). Un
 		# evasion_penal NEGATIVO = bonus de esquiva (los escudos suman penal, encima).
 		"evasion_penal": -float(main_wm["evasion"]),
-		"hands": [_hand_from(main, "main")],   # mano principal siempre
+		"hands": [_hand_from(main, "main", p)],   # mano principal siempre
 	}
 	if main.dos_manos:
 		# Arma grande a dos manos: sin secundaria, pero bloquea decente por su tamaño.
 		m["defend_block"] += float(main_wm["bloqueo"])
-	elif equipped_off is ShieldData:
-		var sh: ShieldData = equipped_off
+	elif p.equipped_off is ShieldData:
+		var sh: ShieldData = p.equipped_off
 		# Por Upgrades, como las otras dos ramas: aqui se leian los campos crudos del .tres y por
 		# eso el tier y la rareza del escudo no hacian NADA (mientras la tienda te cobraba el tier).
-		var sh_m := Upgrades.shield_mods(sh, tier_mult(equip_tier("off")),
-			equip_rareza("off"), equip_mejoras("off"))
+		var sh_m := Upgrades.shield_mods(sh, tier_mult(equip_tier("off", p)),
+			equip_rareza("off", p), equip_mejoras("off", p))
 		m["velocidad_mult"] *= float(sh_m["vel_mult"])   # el escudo te frena algo
 		m["defend_block"] += float(sh_m["bloqueo"])      # pero bloquea mucho
 		m["evasion_penal"] += float(sh_m["evasion_penal"])
 		m["defend_defense"] = float(sh_m["def"])         # lo que de verdad distingue a un escudo
 		m["resist_estados"] = float(sh_m["resist_estados"])
-	elif equipped_off is WeaponData:
-		var off: WeaponData = equipped_off
+	elif p.equipped_off is WeaponData:
+		var off: WeaponData = p.equipped_off
 		# Base: la velocidad de la PRINCIPAL con el bonus fijo de dual (decreciente
 		# si la principal ya es rapida) + lo que aporte de mas la SECUNDARIA sobre
 		# la linea base (una maza de secundaria no resta ni suma; una daga si suma).
@@ -2215,12 +2469,12 @@ func loadout_mods() -> Dictionary:
 		var off_extra := maxf(0.0, off.velocidad_mult - ONE_HAND_VEL_MIN) * OFF_HAND_SPEED_WEIGHT
 		m["velocidad_mult"] = main.velocidad_mult * (1.0 + dual_bonus) + off_extra
 		# El bloqueo de la secundaria tambien escala con SU rareza (mods de su slot).
-		var off_wm := Upgrades.weapon_mods(off, tier_mult(equip_tier("off")),
-			equip_rareza("off"), equip_mejoras("off"))
+		var off_wm := Upgrades.weapon_mods(off, tier_mult(equip_tier("off", p)),
+			equip_rareza("off", p), equip_mejoras("off", p))
 		m["defend_block"] += float(off_wm["bloqueo"])   # bloqueo mediocre con arma
 		# Dual: la secundaria es la 2ª mano -> se alterna con la principal golpe a
 		# golpe. Cada arma conserva su MV/crit/aturdir propios (no se promedian).
-		(m["hands"] as Array).append(_hand_from(off, "off"))
+		(m["hands"] as Array).append(_hand_from(off, "off", p))
 	# else: mano secundaria vacia -> una sola mano (la principal).
 	# RAPIDEZ (mejora del arma principal): multiplica la velocidad final (capada).
 	m["velocidad_mult"] = float(m["velocidad_mult"]) * float(main_wm["vel_mult"])
@@ -2238,14 +2492,14 @@ func loadout_mods() -> Dictionary:
 	var cast_base := 1.0
 	if main.es_magica:
 		cast_base = main.cast_vel_mult
-		var mm := Upgrades.magic_mods(main.magic_amp, tier_mult(equip_tier("main")), equip_rareza("main"), equip_mejoras("main"))
+		var mm := Upgrades.magic_mods(main.magic_amp, tier_mult(equip_tier("main", p)), equip_rareza("main", p), equip_mejoras("main", p))
 		magic_amp *= float(mm["magic_amp"])
 		mp_regen_turno += main.mp_regen_turno * float(mm["regen_mult"])
 		mana_reduccion += float(mm["mana_reduccion"])
 		cast_vel_add += float(mm["cast_vel_add"])
-	if equipped_off is WandData:
-		var wand: WandData = equipped_off
-		var mo := Upgrades.magic_mods(wand.magic_amp, tier_mult(equip_tier("off")), equip_rareza("off"), equip_mejoras("off"))
+	if p.equipped_off is WandData:
+		var wand: WandData = p.equipped_off
+		var mo := Upgrades.magic_mods(wand.magic_amp, tier_mult(equip_tier("off", p)), equip_rareza("off", p), equip_mejoras("off", p))
 		magic_amp *= float(mo["magic_amp"])
 		mp_regen_turno += wand.mp_regen_turno * float(mo["regen_mult"])
 		mana_reduccion += float(mo["mana_reduccion"])
@@ -2262,12 +2516,12 @@ func loadout_mods() -> Dictionary:
 # RESUELTO de Upgrades.weapon_mods (base × rareza + mejoras × tier del slot): el crit y el
 # aturdir ya llevan dentro el campo base del arma, no se le suman aparte (antes se cogian en
 # crudo del .tres y la rareza no los tocaba -> obra maestra daba el mismo critico que comun).
-func _hand_from(w: WeaponData, slot: String) -> Dictionary:
-	var wm := Upgrades.weapon_mods(w, tier_mult(equip_tier(slot)),
-		equip_rareza(slot), equip_mejoras(slot))
+func _hand_from(w: WeaponData, slot: String, pj: PersonajeData = null) -> Dictionary:
+	var wm := Upgrades.weapon_mods(w, tier_mult(equip_tier(slot, pj)),
+		equip_rareza(slot, pj), equip_mejoras(slot, pj))
 	# DURABILIDAD: un arma gastada pega menos (con tope), y rota se va a los suelos. Solo toca
 	# el raw (su daño); no altera motion_value/crit/identidad. Los puños (main null) no se gastan.
-	var dur_mult: float = durabilidad_mult(durabilidad_slot(slot)) if w != null else 1.0
+	var dur_mult: float = durabilidad_mult(durabilidad_slot(slot, pj)) if w != null else 1.0
 	return {
 		"nombre": w.nombre,
 		"slot": slot,   # para saber que arma desgastar al golpear (main/off)
@@ -2312,25 +2566,49 @@ func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
 # Equipa un arma en la mano principal; null = DESEQUIPAR (manos vacias, peleas a puños).
 # Revalida la secundaria: si la nueva principal no la admite (2 manos, solo-ligera, o manos
 # vacias con un arma en la off), la quita.
-func equipar_arma(w: WeaponData) -> void:
-	equipped_main = w
-	equip_meta["main"] = meta_de(w)   # null -> meta por defecto: el puño no se mejora
-	if not _secundaria_valida(w, equipped_off):
-		equipped_off = null
-		equip_meta["off"] = _meta_por_defecto()
+func equipar_arma(w: WeaponData, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	_quitar_a_los_demas(w, p)
+	p.equipped_main = w
+	p.equip_meta["main"] = meta_de(w)   # null -> meta por defecto: el puño no se mejora
+	if not _secundaria_valida(w, p.equipped_off):
+		p.equipped_off = null
+		p.equip_meta["off"] = _meta_por_defecto()
 
 # Equipa la mano secundaria (arma dual o escudo); null = vacia.
-func equipar_secundaria(item: Resource) -> bool:
-	if not _secundaria_valida(equipped_main, item):
+func equipar_secundaria(item: Resource, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	if not _secundaria_valida(p.equipped_main as WeaponData, item):
 		return false
-	equipped_off = item
-	equip_meta["off"] = meta_de(item)
+	_quitar_a_los_demas(item, p)
+	p.equipped_off = item
+	p.equip_meta["off"] = meta_de(item)
 	return true
 
 # Equipa una pieza de armadura en su slot ("casco", "pecho", ...); null = vacio.
-func equipar_armadura(slot: String, pieza: ArmorData) -> void:
-	set("equipped_" + slot, pieza)
-	equip_meta[slot] = meta_de(pieza)
+func equipar_armadura(slot: String, pieza: ArmorData, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	_quitar_a_los_demas(pieza, p)
+	p.set("equipped_" + slot, pieza)
+	p.equip_meta[slot] = meta_de(pieza)
+
+
+# UN objeto, UNA persona. El baul es comun a todo el grupo, asi que al ponerle a alguien una
+# espada hay que quitarsela a quien la llevara antes: si no, dos personajes irian con LA MISMA
+# instancia y compartirian mejoras, durabilidad y desgaste (pegar con una gastaria la de la otra).
+# Se le quita al otro en silencio, que es lo que espera cualquiera al mover una pieza de sitio.
+func _quitar_a_los_demas(item: Resource, dueno: PersonajeData) -> void:
+	if item == null:
+		return
+	for otro in plantilla:
+		if otro == dueno:
+			continue
+		for slot in ["main", "off", "casco", "pecho", "manos", "pantalones", "botas", "mochila"]:
+			if otro.get("equipped_" + slot) == item:
+				otro.set("equipped_" + slot, null)
+				if otro.equip_meta.has(slot):
+					otro.equip_meta[slot] = _meta_por_defecto()
+				print("[equipo] %s le cede %s a %s" % [otro.nombre, item_display_name(item), dueno.nombre])
 
 
 # Recorre los 5 slots de armadura y combina:
@@ -2340,7 +2618,8 @@ func equipar_armadura(slot: String, pieza: ArmorData) -> void:
 #  - velocidad_mult: velocidad combinada por cobertura (como las armas). Un slot
 #    VACIO aporta el bonus de "sin armadura" (ir ligero); set completo de una
 #    categoria = su velocidad; mezclar interpola. Afecta a combate Y mapa.
-func armor_mods() -> Dictionary:
+func armor_mods(pj: PersonajeData = null) -> Dictionary:
+	var p: PersonajeData = pj if pj != null else lider()
 	var def_bonus := 0.0
 	var reduction := 0.0
 	var vel_delta := 0.0     # suma ponderada de (velocidad_mult - 1)
@@ -2349,11 +2628,11 @@ func armor_mods() -> Dictionary:
 	var resist_estados := 0.0  # resist. a estados alterados (mejora Resistencia, KAN-58)
 	var rareza_max := 0        # la mejor rareza entre las piezas: escala los topes agregados
 	var slots := [
-		[equipped_casco, COBERTURA_CASCO, "casco"],
-		[equipped_pecho, COBERTURA_PECHO, "pecho"],
-		[equipped_manos, COBERTURA_MANOS, "manos"],
-		[equipped_pantalones, COBERTURA_PANTALONES, "pantalones"],
-		[equipped_botas, COBERTURA_BOTAS, "botas"],
+		[p.equipped_casco, COBERTURA_CASCO, "casco"],
+		[p.equipped_pecho, COBERTURA_PECHO, "pecho"],
+		[p.equipped_manos, COBERTURA_MANOS, "manos"],
+		[p.equipped_pantalones, COBERTURA_PANTALONES, "pantalones"],
+		[p.equipped_botas, COBERTURA_BOTAS, "botas"],
 	]
 	for s in slots:
 		var pieza: ArmorData = s[0]
@@ -2363,12 +2642,12 @@ func armor_mods() -> Dictionary:
 			vel_delta += cob * (SIN_ARMADURA_VEL_MULT - 1.0)
 			continue
 		var slot: String = s[2]
-		rareza_max = maxi(rareza_max, equip_rareza(slot))
-		var pm := Upgrades.armor_piece_mods(pieza, tier_mult(equip_tier(slot)),
-			equip_rareza(slot), equip_mejoras(slot))
+		rareza_max = maxi(rareza_max, equip_rareza(slot, p))
+		var pm := Upgrades.armor_piece_mods(pieza, tier_mult(equip_tier(slot, p)),
+			equip_rareza(slot, p), equip_mejoras(slot, p))
 		# DURABILIDAD: una pieza gastada protege menos (con tope), y rota se va a los suelos.
 		# Solo toca lo defensivo (DEF y reduccion), no la esquiva/velocidad/identidad.
-		var dur_mult: float = durabilidad_mult(durabilidad_slot(slot))
+		var dur_mult: float = durabilidad_mult(durabilidad_slot(slot, p))
 		def_bonus += float(pm["def"]) * dur_mult             # DEF (tier×rareza×mejoras), sin techo
 		reduction += cob * float(pm["reduccion"]) * dur_mult # media ponderada (cobertura suma 1.0)
 		vel_delta += cob * (float(pm["vel_mult"]) - 1.0)     # velocidad ponderada
@@ -2391,8 +2670,8 @@ func armor_mods() -> Dictionary:
 
 # Multiplicador de velocidad de la armadura (para el movimiento en mapa; en combate
 # ya va dentro de Combatant.velocidad_mult). 1.0 = neutro.
-func armor_speed_mult() -> float:
-	return float(armor_mods()["velocidad_mult"])
+func armor_speed_mult(pj: PersonajeData = null) -> float:
+	return float(armor_mods(pj)["velocidad_mult"])
 
 
 # --- Peso / capacidad ---
@@ -2779,11 +3058,22 @@ var carpinteria_exp: float = 0.0
 # _req_cumplido). A diferencia de los de oficio, estos no encienden ningun interruptor: el perk
 # se consulta en vivo desde desarrollos_elegidos. El CAZADOR no tiene contador (solo sale en el
 # primer ascenso). No se enseñan en ninguna UI: solo en el panel de debug.
-var esquivas_exp: float = 0.0        # Reflejos: cada ataque que esquivas
-var hechizos_exp: float = 0.0        # Erudito: cada hechizo que lanzas
-var recitado_exp: float = 0.0        # Encantamiento rapido: cada frase de recitado acertada
-var dano_recibido_exp: float = 0.0   # Autorregeneracion: el daño que encajas (acumula el daño)
-var dano_infligido_exp: float = 0.0  # Cazador: el daño que HACES (acumula el daño; solo nivel 1)
+# Son del PERSONAJE (cada uno se gana los suyos peleando), asi que delegan en el lider.
+var esquivas_exp: float:             # Reflejos: cada ataque que esquivas
+	get: return lider().esquivas_exp
+	set(v): lider().esquivas_exp = v
+var hechizos_exp: float:             # Erudito: cada hechizo que lanzas
+	get: return lider().hechizos_exp
+	set(v): lider().hechizos_exp = v
+var recitado_exp: float:             # Encantamiento rapido: cada frase de recitado acertada
+	get: return lider().recitado_exp
+	set(v): lider().recitado_exp = v
+var dano_recibido_exp: float:        # Autorregeneracion: el daño que encajas (acumula el daño)
+	get: return lider().dano_recibido_exp
+	set(v): lider().dano_recibido_exp = v
+var dano_infligido_exp: float:       # Cazador: el daño que HACES (acumula el daño; solo nivel 1)
+	get: return lider().dano_infligido_exp
+	set(v): lider().dano_infligido_exp = v
 
 # Lo que sube cada contador por cada cosa que haces. Los tres primeros van por VECES (1 por
 # esquiva/hechizo/frase); el de la autorregeneracion va por DAÑO, asi que su umbral esta en otra
@@ -4177,6 +4467,23 @@ func overload_speed_factor() -> float:
 	return 1.0 - penalty
 
 
+# Cuanto acelera el andar la AGILIDAD del que va en cabeza. El grupo se mueve al paso del que
+# lleva delante, asi que cambiar de lider (teclas 1/2/3) tambien se nota fuera del combate:
+# mandar delante al agil es ir mas rapido, y al tanque acorazado es ir mas lento (eso ya lo hace
+# armor_speed_mult por su lado).
+#
+# Va sobre el TOTAL acumulado (oculto) y no sobre el visible, por lo mismo que el aguante: el
+# visible vuelve a 0 al subir de nivel y te quedarias mas lento por ascender.
+#
+# El tope es DISCRETO a proposito (+20% con la Agilidad al maximo). Andar por el mapa no es una
+# stat de combate: si diera el doble de velocidad, subir Agilidad dejaria de ser una decision y
+# pasaria a ser obligatorio para no perder el tiempo en los pasillos.
+const AGILIDAD_VEL_MAX := 0.20
+
+func agilidad_speed_mult() -> float:
+	return 1.0 + clampf(float(stat_total("agilidad")) / ABILITY_CAP, 0.0, 1.0) * AGILIDAD_VEL_MAX
+
+
 # --- Subida de habilidades ---
 
 # Suma una ganancia al INTERNO de una habilidad, con rendimientos decrecientes.
@@ -4264,27 +4571,37 @@ func curva_reto(reto_bruto: float, pivote: float, slope: float, tope: float) -> 
 # Consolidar es lo que HACE el altar, y por eso vive en su propia funcion aparte de derivar: cargar
 # la partida tiene que derivar (poner las player_* a partir de lo que ya estaba consolidado) SIN
 # consolidar, o descansar seria gratis con solo guardar y volver a entrar.
-func actualizar_estado() -> void:
-	for s in ability_internal:
-		ability_consolidado[s] = ability_internal[s]
-	_derivar_visible()
-	print("=== ESTADO ACTUALIZADO (Nv ", player_level, ") ===  F:", player_fuerza,
-		" R:", player_resistencia, " D:", player_destreza, " A:", player_agilidad, " M:", player_magia)
+func actualizar_estado(pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	for s in p.ability_internal:
+		p.ability_consolidado[s] = p.ability_internal[s]
+	_derivar_visible(p)
+	print("=== ESTADO ACTUALIZADO: ", p.nombre, " (Nv ", p.level, ") ===  F:", p.fuerza,
+		" R:", p.resistencia, " D:", p.destreza, " A:", p.agilidad, " M:", p.magia)
 
-# Pone las player_* a partir de lo CONSOLIDADO. No consolida nada: es solo la lectura.
-func _derivar_visible() -> void:
-	player_fuerza = _visible_nivel("fuerza")
-	player_resistencia = _visible_nivel("resistencia")
-	player_destreza = _visible_nivel("destreza")
-	player_agilidad = _visible_nivel("agilidad")
-	player_magia = _visible_nivel("magia")
-	_subir_rangos_desarrollo()   # los desarrollos elegidos suben de rango si su contador ya llega
+# DESCANSAR de verdad: en el altar consolida TODO EL GRUPO, no solo al que va delante. Los tres
+# bajan y los tres se cansan, asi que los tres descansan: si solo consolidara el lider, tendrias
+# que ir cambiando de cabeza y volver a pulsar para no dejarte a nadie la excelia colgando.
+func actualizar_estado_grupo() -> void:
+	for pj in party:
+		actualizar_estado(pj)
+
+# Pone las stats visibles a partir de lo CONSOLIDADO. No consolida nada: es solo la lectura.
+func _derivar_visible(pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	p.fuerza = _visible_nivel("fuerza", p)
+	p.resistencia = _visible_nivel("resistencia", p)
+	p.destreza = _visible_nivel("destreza", p)
+	p.agilidad = _visible_nivel("agilidad", p)
+	p.magia = _visible_nivel("magia", p)
+	_subir_rangos_desarrollo(p)   # los desarrollos elegidos suben de rango si su contador ya llega
 
 # Progreso VISIBLE de este nivel para una habilidad (consolidado - base del nivel, minimo 0).
 # Lee lo CONSOLIDADO y no el interno a proposito: la excelia ganada desde el ultimo altar esta
 # pendiente hasta que descanses.
-func _visible_nivel(s: String) -> int:
-	return maxi(0, floori(float(ability_consolidado[s]) - float(ability_base_nivel[s])))
+func _visible_nivel(s: String, pj: PersonajeData = null) -> int:
+	var p: PersonajeData = pj if pj != null else lider()
+	return maxi(0, floori(float(p.ability_consolidado[s]) - float(p.ability_base_nivel[s])))
 
 # TOTAL acumulado (oculto) de una habilidad. Es lo que usan recoleccion y reto: no se resetea al
 # subir de nivel, asi la recoleccion sigue facil y un enemigo de piso bajo da reto ~0 (no exploit).
@@ -4407,8 +4724,9 @@ const PASIVAS_RNG: Array = [
 		"desc": "Extraes un cristal de más de cada cadáver."},
 ]
 
-func tiene_pasiva(id: String) -> bool:
-	return bool(pasivas_rng.get(id, false))
+func tiene_pasiva(id: String, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	return bool(p.pasivas_rng.get(id, false))
 
 func pasiva_por_id(id: String) -> Dictionary:
 	for p in PASIVAS_RNG:
@@ -4450,11 +4768,11 @@ func _botin_extra_reco(pasiva_id: String, data: MaterialData, calidad: int) -> v
 
 # Sella en el Combatant del JUGADOR los multiplicadores de daño de sus slayer (vs/from familia).
 # Los enemigos NO llaman a esto: sus dicts quedan vacios (mult 1.0). Ver Combatant.mult_vs/from.
-func _aplicar_pasivas_slayer(c: Combatant) -> void:
+func _aplicar_pasivas_slayer(c: Combatant, pj: PersonajeData = null) -> void:
 	c.mult_vs_familia = {}
 	c.mult_from_familia = {}
 	for p in PASIVAS_RNG:
-		if str(p.get("tipo", "")) != "slayer" or not tiene_pasiva(str(p["id"])):
+		if str(p.get("tipo", "")) != "slayer" or not tiene_pasiva(str(p["id"]), pj):
 			continue
 		var fam: int = int(p["familia"])
 		c.mult_vs_familia[fam] = float(p["dmg_vs"])
@@ -4532,8 +4850,9 @@ func req_de_rango(umbral: float, rango: int) -> float:
 	return umbral * pow(RANGO_MULT, float(maxi(1, rango) - 1))
 
 # Rango actual de un desarrollo (0 = no adquirido) y helpers.
-func desarrollo_rango(id: String) -> int:
-	return int(desarrollos_rango.get(id, 0))
+func desarrollo_rango(id: String, pj: PersonajeData = null) -> int:
+	var p: PersonajeData = pj if pj != null else lider()
+	return int(p.desarrollos_rango.get(id, 0))
 
 func tiene_desarrollo(id: String) -> bool:
 	return desarrollos_rango.has(id)
@@ -4550,8 +4869,8 @@ func factor_rango(rango: int) -> float:
 		return 0.0
 	return 0.2 + 0.8 * float(mini(rango, RANGO_MAX) - 1) / float(RANGO_MAX - 1)
 
-func factor_desarrollo(id: String) -> float:
-	return factor_rango(desarrollo_rango(id))
+func factor_desarrollo(id: String, pj: PersonajeData = null) -> float:
+	return factor_rango(desarrollo_rango(id, pj))
 
 # CAZADOR: +% a TODA la excelia que ganas (no a una stat suelta). Es el unico perk que toca el
 # entreno, y por eso es flojo en numero pero se aplica a todo. Los otros tres se aplican en
@@ -4587,19 +4906,23 @@ func _req_cumplido(d: Dictionary) -> bool:
 # RANK-UP automatico: sube el rango de cada desarrollo YA elegido mientras su contador cruce el
 # umbral del rango siguiente (base × 2.5^(rango-1)). Lo llama actualizar_estado: no hay que subir de
 # nivel para subir de rango. El contador de un desarrollo elegido NO se resetea (ver subir_nivel).
-func _subir_rangos_desarrollo() -> void:
-	for id in desarrollos_rango.keys():
+func _subir_rangos_desarrollo(pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	for id in p.desarrollos_rango.keys():
 		var d: Dictionary = desarrollo_por_id(str(id))
 		if d.is_empty():
 			continue
 		var umbral: float = float(d.get("umbral", 0.0))
-		var cont: float = float(get(str(d.get("contador", ""))))
-		var rango: int = int(desarrollos_rango[id])
+		# El contador de un perk de COMBATE es de la persona (esta en su PersonajeData); el de un
+		# OFICIO es del grupo y vive aqui, en Game. Se busca primero en la ficha y si no, aqui.
+		var nombre_cont: String = str(d.get("contador", ""))
+		var cont: float = float(p.get(nombre_cont)) if nombre_cont in p else float(get(nombre_cont))
+		var rango: int = int(p.desarrollos_rango[id])
 		var nuevo: int = rango
 		while nuevo < RANGO_MAX and cont >= req_de_rango(umbral, nuevo + 1):
 			nuevo += 1
 		if nuevo != rango:
-			desarrollos_rango[id] = nuevo
+			p.desarrollos_rango[id] = nuevo
 			print("[desarrollo] %s sube a rango %s" % [d.get("nombre", id), letra_rango(nuevo)])
 
 # Progreso hacia el SIGUIENTE rango (o el desbloqueo si no lo tienes). Solo lo usa el panel de DEBUG.

@@ -13,7 +13,7 @@ func interact_with_player() -> void:
 		menu.abrir()
 	else:
 		# Reserva: si por lo que sea no hay menu, comportamiento antiguo (consolidar + curar).
-		Game.actualizar_estado()
+		Game.actualizar_estado_grupo()
 		Game.player_current_hp = -1
 		Game.player_current_mp = -1
 		Game.ability_cooldowns_persist.clear()

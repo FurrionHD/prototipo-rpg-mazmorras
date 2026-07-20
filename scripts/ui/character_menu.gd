@@ -30,6 +30,11 @@ var _tab_buttons: Array = []              # botones de pestaña (izquierda)
 
 var _tab_box: VBoxContainer = null        # contenedor de los botones de pestaña
 var _tab: int = 0                         # 0 personaje, 1 armas, 2 armadura, 3 hechizos
+# A QUIEN del equipo le estas mirando la ficha (indice en Game.party). 0 = el que va en cabeza.
+# Con companeros, este menu deja de ser "tu ficha" y pasa a ser la de cualquiera de los tuyos:
+# la fila de botones de arriba elige, y todo lo que se pinta debajo sale de _pj().
+var _pj_sel: int = 0
+var _titulo_lbl: Label = null              # el nombre del personaje, arriba a la izquierda
 var _spell_sel: int = 0                   # hechizo seleccionado en la pestaña Hechizos
 var _char_page: int = 0                   # 0 stats, 1 habilidades
 var _arma_change: String = ""             # "" | "main" | "off"
@@ -69,11 +74,13 @@ func _ready() -> void:
 	side.add_theme_constant_override("separation", 6)
 	hb.add_child(side)
 
-	var titulo := Label.new()
-	titulo.text = "PERSONAJE"
-	titulo.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
-	titulo.add_theme_font_size_override("font_size", 18)
-	side.add_child(titulo)
+	# El titulo es el NOMBRE de quien estas mirando, no la palabra "PERSONAJE": con un grupo,
+	# saber de quien es la ficha que tienes delante importa mas que saber que es una ficha.
+	_titulo_lbl = Label.new()
+	_titulo_lbl.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	_titulo_lbl.add_theme_font_size_override("font_size", 18)
+	_titulo_lbl.clip_text = true
+	side.add_child(_titulo_lbl)
 	side.add_child(HSeparator.new())
 
 	# Las pestañas se reconstruyen al ABRIR el menu (_rebuild_tabs): la de Hechizos solo
@@ -106,6 +113,14 @@ func _ready() -> void:
 	scroll.add_child(_content)
 
 
+# El personaje cuya ficha se esta viendo. Con el equipo vacio (imposible en la practica) cae al
+# lider, que Game garantiza que existe siempre.
+func _pj() -> PersonajeData:
+	if _pj_sel < 0 or _pj_sel >= Game.party.size():
+		_pj_sel = 0
+	return Game.party[_pj_sel] if not Game.party.is_empty() else Game.lider()
+
+
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
@@ -134,6 +149,7 @@ func _set_open(open: bool) -> void:
 	get_tree().paused = open
 	if open:
 		_tab = 0
+		_pj_sel = 0   # se abre siempre por el que va en cabeza
 		_char_page = 0
 		_arma_change = ""
 		_armor_slot_sel = ""
@@ -148,7 +164,7 @@ func _rebuild_tabs() -> void:
 		c.queue_free()
 	_tab_buttons.clear()
 	var nombres: Array = ["Personaje", "Armas", "Armadura"]
-	if Game.tiene_hechizos():
+	if Game.tiene_hechizos(_pj()):
 		nombres.append("Hechizos")
 	for i in nombres.size():
 		var b := Button.new()
@@ -172,11 +188,161 @@ func _rebuild() -> void:
 		c.queue_free()
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
+	if _titulo_lbl != null:
+		_titulo_lbl.text = _pj().nombre.to_upper()
+	_selector_personaje()
 	match _tab:
 		0: _build_personaje()
 		1: _build_armas()
 		2: _build_armadura()
 		3: _build_hechizos()
+
+
+# La fila de arriba para elegir DE QUIEN es la ficha, con el mismo aspecto que los selectores de
+# los oficios. Con una sola persona no se pinta: seria un boton solo que no elige nada.
+#
+# El numero delante del nombre es el MISMO que la tecla que lo pone en cabeza (1/2/3), para que
+# las dos cosas se lean igual: el 2 de aqui es el 2 de alla.
+func _selector_personaje() -> void:
+	if Game.party.size() <= 1:
+		return
+	var labels: Array = []
+	for i in Game.party.size():
+		labels.append("%d. %s" % [i + 1, Game.party[i].nombre])
+	MenuScaffold.cuadricula(_content, labels, _pj_sel, _pick_personaje,
+		Game.PARTY_MAX, Vector2(150, 32))
+	_content.add_child(HSeparator.new())
+
+
+func _pick_personaje(i: int) -> void:
+	if i == _pj_sel:
+		return
+	_pj_sel = i
+	# Cambiar de persona invalida lo que estuvieras haciendo con la anterior (a medio elegir un
+	# arma, con un slot de armadura abierto...): esas selecciones son de SU catalogo, no del nuevo.
+	_arma_change = ""
+	_armor_slot_sel = ""
+	_spell_sel = 0
+	_char_page = 0
+	_rebuild_tabs()   # la pestaña de Hechizos depende de si ESTE sabe alguno
+	if _tab >= _tab_buttons.size():
+		_tab = 0
+	_rebuild()
+
+
+# ============================================================
+#  ¿QUIEN LLEVA ESTO?
+#  El baul es COMUN a todo el grupo, asi que la misma espada aparece en el catalogo de los tres.
+#  Equiparsela a uno se la quita al otro (Game._quitar_a_los_demas): es lo que se quiere, pero
+#  tiene que VERSE antes de pulsar, o le dejas a alguien en pelotas sin enterarte.
+# ============================================================
+
+# El companero que lleva PUESTO este objeto, o null si no lo lleva nadie mas. Nunca devuelve al
+# personaje que estas mirando: que lo lleve el no es un conflicto, es el estado normal.
+func _quien_lleva(item: Resource) -> PersonajeData:
+	if item == null:
+		return null
+	for otro in Game.plantilla:
+		if otro == _pj():
+			continue
+		for slot in ["main", "off", "casco", "pecho", "manos", "pantalones", "botas", "mochila"]:
+			if otro.get("equipped_" + slot) == item:
+				return otro
+	return null
+
+
+# El nombre del item para la cuadricula, con una marca de quien lo lleva. El candado dice de un
+# vistazo "esto se lo estas quitando a alguien" sin tener que leer el nombre entero.
+func _etiqueta_con_dueno(item: Resource, base: String) -> String:
+	var otro: PersonajeData = _quien_lleva(item)
+	return base if otro == null else "%s\n🔒 %s" % [base, otro.nombre]
+
+
+# Linea de aviso en la FICHA del objeto (arriba del todo, en rojo): quien lo lleva puesto. Va en
+# la ficha ademas de en la cuadricula porque la cuadricula solo tiene sitio para el candado, y
+# aqui es donde el jugador se para a mirar antes de pulsar Equipar.
+func _aviso_dueno(vb: VBoxContainer, item: Resource) -> void:
+	var otro: PersonajeData = _quien_lleva(item)
+	if otro == null:
+		return
+	var l := Label.new()
+	l.text = "🔒 Lo lleva puesto %s. Si lo equipas, se lo quitas." % otro.nombre
+	l.add_theme_color_override("font_color", Color(0.9, 0.5, 0.5))
+	l.add_theme_font_size_override("font_size", 12)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(l)
+
+
+# Modal de "esto lo lleva puesto Fulano, ¿se lo quito?". Es un si/no y no un aviso pasivo a
+# proposito: desnudar a un companero por un clic de mas es justo el error que hay que evitar, y
+# al volver a la mazmorra ya no hay forma de deshacerlo.
+func _confirmar_robo(item: Resource, al_aceptar: Callable) -> void:
+	var otro: PersonajeData = _quien_lleva(item)
+	if otro == null:
+		al_aceptar.call()   # no lo lleva nadie: no hay nada que preguntar
+		return
+
+	var capa := Control.new()
+	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	capa.process_mode = Node.PROCESS_MODE_ALWAYS
+	_root.add_child(capa)
+
+	var fondo := ColorRect.new()
+	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fondo.color = Color(0.03, 0.03, 0.05, 0.85)
+	fondo.mouse_filter = Control.MOUSE_FILTER_STOP
+	capa.add_child(fondo)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	capa.add_child(center)
+
+	var panel := PanelContainer.new()
+	center.add_child(panel)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	vb.custom_minimum_size = Vector2(420, 0)
+	panel.add_child(vb)
+
+	var t := Label.new()
+	t.text = "Lo lleva puesto %s" % otro.nombre
+	t.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	t.add_theme_font_size_override("font_size", 18)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(t)
+
+	var d := Label.new()
+	d.text = "%s se lo quitará a %s, que se quedará con ese hueco vacío." % [
+		_pj().nombre, otro.nombre]
+	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	d.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+	d.add_theme_font_size_override("font_size", 12)
+	vb.add_child(d)
+
+	var it := Label.new()
+	it.text = Game.item_display_name(item)
+	it.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(it)
+
+	var botones := HBoxContainer.new()
+	botones.add_theme_constant_override("separation", 8)
+	botones.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_child(botones)
+
+	var si := Button.new()
+	si.text = "Sí, quitárselo"
+	si.custom_minimum_size = Vector2(0, 36)
+	si.pressed.connect(func():
+		capa.queue_free()
+		al_aceptar.call())
+	botones.add_child(si)
+
+	var no := Button.new()
+	no.text = "Cancelar"
+	no.custom_minimum_size = Vector2(0, 36)
+	no.pressed.connect(capa.queue_free)
+	botones.add_child(no)
 
 
 # ============================================================
@@ -230,8 +396,8 @@ func _build_personaje() -> void:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 10)
 	var t := Label.new()
-	t.text = "PERSONAJE  (Nv. %d)   —   %s" % [
-		Game.player_level, "Estadísticas" if _char_page == 0 else "Habilidades"]
+	t.text = "%s  (Nv. %d)   —   %s" % [_pj().nombre,
+		_pj().level, "Estadísticas" if _char_page == 0 else "Habilidades"]
 	t.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
 	t.add_theme_font_size_override("font_size", 16)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -260,11 +426,11 @@ func _flip_char_page() -> void:
 func _build_stats_page() -> void:
 	# crear_player_combatant() concreta el -1 (= "lleno") de vida/maná. Como aquí solo
 	# LEEMOS stats, guardamos y restauramos el sentinel para no mutar el estado persistente.
-	var hp_was: float = Game.player_current_hp
-	var mp_was: float = Game.player_current_mp
-	var c: Combatant = Game.crear_player_combatant()
-	Game.player_current_hp = hp_was
-	Game.player_current_mp = mp_was
+	var hp_was: float = _pj().current_hp
+	var mp_was: float = _pj().current_mp
+	var c: Combatant = Game.crear_player_combatant(_pj())
+	_pj().current_hp = hp_was
+	_pj().current_mp = mp_was
 	_row(_content, "Ataque total", "%.1f" % _ataque_total(c))
 	_row(_content, "Velocidad", "%.1f" % c.spd())
 	# Critico contra un enemigo ESPEJO (tus mismas stats): tu Destreza vs tu Agilidad.
@@ -304,42 +470,42 @@ func _build_stats_page() -> void:
 func _build_habilidades_page() -> void:
 	# Combatant real para DERIVAR el aporte de cada stat (nada hardcodeado). Guardamos/
 	# restauramos los sentinels de HP/MP: crear_player_combatant() concreta el -1 (= "lleno").
-	var hp_was: float = Game.player_current_hp
-	var mp_was: float = Game.player_current_mp
-	var c: Combatant = Game.crear_player_combatant()
-	Game.player_current_hp = hp_was
-	Game.player_current_mp = mp_was
-	var lvl: int = Game.player_level
+	var hp_was: float = _pj().current_hp
+	var mp_was: float = _pj().current_mp
+	var c: Combatant = Game.crear_player_combatant(_pj())
+	_pj().current_hp = hp_was
+	_pj().current_mp = mp_was
+	var lvl: int = _pj().level
 
 	# FUERZA -> multiplicador de ataque físico.
-	_row(_content, "Fuerza", str(Game.player_fuerza))
+	_row(_content, "Fuerza", str(_pj().fuerza))
 	_note(_content, "Multiplica el daño físico (base + arma). Ahora: ×%.2f al ataque." % [
-		StatsMath.fuerza_factor(float(Game.player_fuerza))])
+		StatsMath.fuerza_factor(float(_pj().fuerza))])
 
 	# RESISTENCIA -> vida y defensa.
-	_row(_content, "Resistencia", str(Game.player_resistencia))
-	var hp_de_res: float = float(Game.player_resistencia) * StatsMath.HP_FROM_RES
-	var def_de_res: float = float(Game.player_resistencia) * StatsMath._coef(
+	_row(_content, "Resistencia", str(_pj().resistencia))
+	var hp_de_res: float = float(_pj().resistencia) * StatsMath.HP_FROM_RES
+	var def_de_res: float = float(_pj().resistencia) * StatsMath._coef(
 		StatsMath.DEF_COEF_BASE, StatsMath.DEF_COEF_GROWTH, lvl)
 	_note(_content, "Aguante: sube vida máxima y defensa. Ahora: +%.1f vida y +%.1f defensa." % [
 		hp_de_res, def_de_res])
 
 	# DESTREZA -> crítico (y afina la recolección).
-	_row(_content, "Destreza", str(Game.player_destreza))
-	var crit_espejo: float = StatsMath.crit_chance(float(Game.player_destreza), float(Game.player_agilidad))
+	_row(_content, "Destreza", str(_pj().destreza))
+	var crit_espejo: float = StatsMath.crit_chance(float(_pj().destreza), float(_pj().agilidad))
 	_note(_content, "Precisión: probabilidad de crítico (y mano firme al recolectar). Ahora: ~%s de crít contra un rival igual de ágil." % [
 		_fmt_pct(crit_espejo)])
 
 	# AGILIDAD -> esquiva y velocidad.
-	_row(_content, "Agilidad", str(Game.player_agilidad))
-	var evade_espejo: float = StatsMath.evade_chance(float(Game.player_agilidad), float(Game.player_destreza))
+	_row(_content, "Agilidad", str(_pj().agilidad))
+	var evade_espejo: float = StatsMath.evade_chance(float(_pj().agilidad), float(_pj().destreza))
 	_note(_content, "Reflejos: esquiva y velocidad de turno. Ahora: ~%s de esquiva y %.1f de velocidad." % [
 		_fmt_pct(evade_espejo), c.spd()])
 
 	# MAGIA -> daño mágico y maná.
-	_row(_content, "Magia", str(Game.player_magia))
+	_row(_content, "Magia", str(_pj().magia))
 	_note(_content, "Poder arcano: multiplica el daño de los hechizos y da maná. Ahora: ×%.2f a los hechizos y %.1f de maná máx." % [
-		StatsMath.magia_factor(float(Game.player_magia)), c.max_mp])
+		StatsMath.magia_factor(float(_pj().magia)), c.max_mp])
 
 	_note(_content, "Las 5 habilidades (0–999). Suben con el uso y se aplican en el hogar.")
 
@@ -375,20 +541,20 @@ func _build_armas() -> void:
 
 	# --- Principal ---
 	_content.add_child(HSeparator.new())
-	_bloque_arma("Principal", _main_nombre(Game.equipped_main), pueblo, _abrir_cambio.bind("main"))
-	if Game.equipped_main == null:
+	_bloque_arma("Principal", _main_nombre(_pj().equipped_main), pueblo, _abrir_cambio.bind("main"))
+	if _pj().equipped_main == null:
 		_note(_content, "Sin arma: peleas a puños (poco daño, pero rápido y sin peso).")
-	_weapon_stats(_content, Game.equipped_main)
+	_weapon_stats(_content, _pj().equipped_main)
 
 	# --- Secundaria ---
 	_content.add_child(HSeparator.new())
-	var dos_manos: bool = Game.arma_main().dos_manos and Game.equipped_main != null
-	_bloque_arma("Secundaria", _off_nombre(Game.equipped_off), pueblo and not dos_manos,
+	var dos_manos: bool = Game.arma_main(_pj()).dos_manos and _pj().equipped_main != null
+	_bloque_arma("Secundaria", _off_nombre(_pj().equipped_off), pueblo and not dos_manos,
 		_abrir_cambio.bind("off"))
 	if dos_manos:
 		_note(_content, "El arma principal es a dos manos: no admite secundaria.")
 	else:
-		_off_stats(_content, Game.equipped_off)
+		_off_stats(_content, _pj().equipped_off)
 
 
 # Cabecera de un bloque de arma: nombre + boton Cambiar (si procede).
@@ -468,11 +634,11 @@ func _build_armas_cambiar() -> void:
 	for i in catalogo.size():
 		var item: Resource = catalogo[i]
 		if es_main:
-			labels.append(_main_nombre(item))
+			labels.append(_etiqueta_con_dueno(item, _main_nombre(item)))
 		else:
-			labels.append(_off_nombre(item))
+			labels.append(_etiqueta_con_dueno(item, _off_nombre(item)))
 			# Deshabilita las secundarias incompatibles con la principal actual.
-			if not Game._secundaria_valida(Game.equipped_main, item):
+			if not Game._secundaria_valida(_pj().equipped_main, item):
 				disabled.append(i)
 
 	# Si el candidato es JUSTO lo que ya llevas puesto, el boton no equipa: DESEQUIPA. Asi
@@ -489,7 +655,7 @@ func _arma_cand_equipada() -> bool:
 	var cat: Array = _catalogo_main() if es_main else _catalogo_off()
 	if _arma_cand >= cat.size():
 		return false
-	return cat[_arma_cand] == (Game.equipped_main if es_main else Game.equipped_off)
+	return cat[_arma_cand] == (_pj().equipped_main if es_main else _pj().equipped_off)
 
 
 func _pick_arma(i: int) -> void:
@@ -503,16 +669,19 @@ func _cancelar_arma() -> void:
 # Equipar el candidato... o DESEQUIPAR, si el candidato es lo que ya llevas puesto.
 func _equipar_arma() -> void:
 	var quitar: bool = _arma_cand_equipada()
-	if _arma_change == "main":
-		var cat: Array = _catalogo_main()
-		if _arma_cand < cat.size():
-			Game.equipar_arma(null if quitar else cat[_arma_cand])
-	else:
-		var cat_off: Array = _catalogo_off()
-		if _arma_cand < cat_off.size():
-			Game.equipar_secundaria(null if quitar else cat_off[_arma_cand])
-	_arma_change = ""
-	_rebuild()
+	var es_main: bool = _arma_change == "main"
+	var cat: Array = _catalogo_main() if es_main else _catalogo_off()
+	if _arma_cand >= cat.size():
+		return
+	var item: Resource = null if quitar else cat[_arma_cand]
+	# Si la lleva otro, se pregunta antes: el modal llama a esto solo si dices que si.
+	_confirmar_robo(item, func():
+		if es_main:
+			Game.equipar_arma(item as WeaponData, _pj())
+		else:
+			Game.equipar_secundaria(item, _pj())
+		_arma_change = ""
+		_rebuild())
 
 
 # Construye el panel de stats del candidato de arma (derecha de la cuadricula).
@@ -523,8 +692,9 @@ func _preview_arma(vb: VBoxContainer) -> void:
 			return
 		var w: WeaponData = cat[_arma_cand]
 		_title(vb, _main_nombre(w))
+		_aviso_dueno(vb, w)
 		_weapon_stats(vb, w)
-		if w == Game.equipped_main:
+		if w == _pj().equipped_main:
 			_note(vb, "Ya la llevas puesta: al desequiparla pelearás a puños.")
 	else:
 		var cat_off: Array = _catalogo_off()
@@ -532,26 +702,27 @@ func _preview_arma(vb: VBoxContainer) -> void:
 			return
 		var item: Resource = cat_off[_arma_cand]
 		_title(vb, _off_nombre(item))
+		_aviso_dueno(vb, item)
 		_off_stats(vb, item)
-		if item != null and item == Game.equipped_off:
+		if item != null and item == _pj().equipped_off:
 			_note(vb, "Ya la llevas puesta: al desequiparla te quedas con la mano libre.")
-		elif item != null and item == Game.equipped_main:
+		elif item != null and item == _pj().equipped_main:
 			_note(vb, "Ya la llevas en la mano principal: necesitas otra igual para el dual.")
-		elif item != null and not Game._secundaria_valida(Game.equipped_main, item):
+		elif item != null and not Game._secundaria_valida(_pj().equipped_main, item):
 			_note(vb, "No compatible con el arma principal actual.")
 
 
 func _index_of_main() -> int:
 	var cat: Array = _catalogo_main()
 	for i in cat.size():
-		if cat[i] == Game.equipped_main:
+		if cat[i] == _pj().equipped_main:
 			return i
 	return 0
 
 
 func _off_current_index(list: Array) -> int:
 	for i in list.size():
-		if list[i] == Game.equipped_off:
+		if list[i] == _pj().equipped_off:
 			return i
 	return 0
 
@@ -816,7 +987,7 @@ func _build_armadura_slot(slot: String) -> void:
 	var cat: Array = _catalogo_armor(slot)
 	var labels: Array = []
 	for p in cat:
-		labels.append(Game.item_display_name(p))
+		labels.append(_etiqueta_con_dueno(p, Game.item_display_name(p)))
 	if cat.is_empty():
 		_note(_content, "No tienes piezas de este slot en el baúl.")
 		return
@@ -844,13 +1015,16 @@ func _pick_armor(i: int) -> void:
 func _equipar_armor() -> void:
 	var slot: String = _armor_slot_sel
 	var cat: Array = _catalogo_armor(slot)
-	if _armor_cand < cat.size():
-		var elegido = null if _armor_cand_equipada() else cat[_armor_cand]
+	if _armor_cand >= cat.size():
+		return
+	var elegido: Resource = null if _armor_cand_equipada() else cat[_armor_cand]
+	# Si la pieza la lleva otro, se pregunta antes (mismo criterio que con las armas).
+	_confirmar_robo(elegido, func():
 		if slot == "mochila":
-			Game.equipar_mochila(elegido)
+			Game.equipar_mochila(elegido as BackpackData, _pj())
 		else:
-			Game.equipar_armadura(slot, elegido)
-	_rebuild()   # se queda en el slot; la recien equipada queda marcada
+			Game.equipar_armadura(slot, elegido as ArmorData, _pj())
+		_rebuild())   # se queda en el slot; la recien equipada queda marcada
 
 
 # Panel de stats de la pieza candidata (derecha de la cuadricula).
@@ -864,6 +1038,7 @@ func _preview_armor(vb: VBoxContainer) -> void:
 		return
 	var a: ArmorData = cat[_armor_cand]
 	_title(vb, Game.item_display_name(a))
+	_aviso_dueno(vb, a)
 	if a == Game.get("equipped_" + slot):
 		_note(vb, "Ya la llevas puesta: al quitarla vas ligero (+velocidad, 0 defensa).")
 	_armor_stats(vb, a)
@@ -877,7 +1052,8 @@ func _mochila_stats(vb: VBoxContainer, m: BackpackData) -> void:
 		return
 	var meta: Dictionary = Game.meta_de(m)
 	_title(vb, Game.item_display_name(m))
-	if m == Game.equipped_mochila:
+	_aviso_dueno(vb, m)
+	if m == _pj().equipped_mochila:
 		_note(vb, "Ya la llevas puesta: al quitarla te quedas con el zurrón de serie.")
 	_row(vb, "  Capacidad", "+%.0f de carga" % Game.capacidad_mochila(m))
 	_row(vb, "  Tier / rareza", "T%d · %s" % [
@@ -986,7 +1162,7 @@ func _build_hechizos() -> void:
 	_note(_content, "Se lanzan RECITANDO su encantamiento: una frase por turno. Si fallas una, el hechizo se te vuelve en contra.")
 	_content.add_child(HSeparator.new())
 
-	var spells: Array = Game.equipped_spells
+	var spells: Array = _pj().equipped_spells
 	if spells.is_empty():
 		_note(_content, "No conoces ningún hechizo.")
 		return

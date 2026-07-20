@@ -50,6 +50,21 @@ var _facing: Vector2 = Vector2.DOWN
 var _interact_was: bool = false
 var _attack_was: bool = false   # antirrebote de ESPACIO (atacar)
 
+# El SEQUITO (los companeros que te siguen por el mapa). Ver party_trail.gd.
+var _sequito: Node2D = null
+# Quien esta llevando este cuerpo ahora mismo. Se guarda para saber a QUIEN devolverle el aguante
+# cuando cambias de lider: cada personaje lleva el suyo, y el que se va atras no puede perderlo.
+var _pj_actual: PersonajeData = null
+# La CAPA de las barras (la crea _crear_barra_aguante): aqui cuelgan tambien las de los
+# companeros, para que todas vivan en el mismo sitio y se ordenen solas.
+var _barras_layer: CanvasLayer = null
+# Una fila por companero: {"pj", "raiz", "hp", "hp_lbl", "mp"}. Se rehacen cuando cambia el grupo.
+var _barras_comp: Array = []
+# Copia del equipo tal y como se pinto la ultima vez. Sirve para darse cuenta de que ha cambiado
+# (has contratado a alguien, o lo has movido en el Hogar) sin que nadie tenga que avisar: los
+# menus son muchos y cualquiera que se olvidara de llamar dejaria el sequito o las barras a medias.
+var _grupo_visto: Array = []
+
 # Barras de estado (se crean por codigo, ver _crear_barra_aguante): aguante + vida + mana.
 var _stamina_bar: ProgressBar = null
 var _hp_bar: ProgressBar = null
@@ -59,6 +74,10 @@ var _stamina_lbl: Label = null
 var _hp_lbl: Label = null
 var _mp_lbl: Label = null
 var _drink_was: bool = false   # antirebote de la tecla Q (beber pocion)
+# Antirebote de las teclas 1/2/3 (cambiar de lider), una por posicion del equipo. La 0 no se usa:
+# la tecla 1 es "el que ya va en cabeza" y no hace nada, pero se deja el hueco para que el indice
+# del array sea el mismo que el de Game.party y no haya que restar 1 en ningun sitio.
+var _lider_was: Array[bool] = [false, false, false]
 
 # Excelia (subida de habilidades por uso): distancia recorrida para Fuerza
 # (cargando en sobrecarga) y Agilidad (corriendo cerca de un enemigo).
@@ -80,6 +99,8 @@ func _ready() -> void:
 	_carpinteria_menu.modo = "carpintero"                          # fijar ANTES de add_child: _ready ya lo lee
 	add_child(_carpinteria_menu)                                   # carpintero (F sobre el NPC)
 	add_child(preload("res://scripts/ui/tannery_menu.gd").new())    # peletero (F sobre el NPC)
+	add_child(preload("res://scripts/ui/tavern_menu.gd").new())     # taberna: contratar (F sobre el NPC)
+	add_child(preload("res://scripts/ui/home_menu.gd").new())       # hogar: equipo + almacen (F sobre el NPC)
 	add_child(preload("res://scripts/ui/floor_select_menu.gd").new())  # elegir piso (puerta de la mazmorra)
 	add_child(preload("res://scripts/ui/character_menu.gd").new())  # menu de personaje (C)
 	add_child(preload("res://scripts/ui/map_menu.gd").new())        # mapa del piso (M)
@@ -92,6 +113,12 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/pause_menu.gd").new())   # menu de pausa (ESC): guardar / salir
 	_last_pos = global_position
 
+	# EL SEQUITO: los companeros van detras por un rastro (ver party_trail.gd). Se crea siempre,
+	# aunque hoy vayas solo: si no hay companeros no pinta nada y no cuesta nada.
+	_sequito = preload("res://scripts/actors/player/party_trail.gd").new()
+	add_child(_sequito)
+	refrescar_grupo()   # sequito y barras de los companeros, ya en el primer frame
+
 	# Si llegamos a esta escena con F/Q ya pulsadas (p. ej. justo despues de viajar
 	# por una puerta), las marcamos como "ya pulsadas" para NO dispararlas de nuevo
 	# hasta que el jugador las suelte y las vuelva a pulsar. Esto evita el rebote
@@ -103,10 +130,8 @@ func _ready() -> void:
 	# ASPECTO del personaje: el color y el acabado que eligio al crear la partida (van en el
 	# SaveData). El cuerpo es un ColorRect mientras no haya arte; el brillo metalico lo pinta
 	# un shader por encima de ese color (null = mate).
-	var cuerpo := get_node_or_null("ColorRect") as ColorRect
-	if cuerpo != null:
-		cuerpo.color = Game.player_color
-		cuerpo.material = Game.material_cuerpo()
+	_pj_actual = Game.lider()
+	_pintar_cuerpo()
 
 	# Aguante maximo segun las stats del jugador (Resistencia y Agilidad).
 	max_stamina = _calc_max_aguante()
@@ -127,6 +152,7 @@ func _physics_process(delta: float) -> void:
 	# Con el inventario abierto: no te mueves ni interactuas (F/ataque). El
 	# enemigo sigue su IA aparte, asi que puede emboscarte igualmente. Pero el
 	# TIEMPO pasa, asi que el aguante se sigue recuperando.
+	_comprobar_grupo()            # ¿ha entrado o salido alguien del equipo? (taberna, Hogar, 1/2/3)
 	Game.tick_heal(delta)         # cura de pociones (fuera de combate) corre siempre que pasa el tiempo
 	Game.tick_mana_pocion(delta)  # maná de pociones de maná (fuera de combate)
 	_actualizar_max_aguante()     # el maximo escala con Resistencia/Agilidad (refresca si cambian las stats)
@@ -185,6 +211,9 @@ func _physics_process(delta: float) -> void:
 	# Armadura: la categoria modula la velocidad de movimiento (placas te frenan,
 	# ir ligero/sin armadura te acelera un pelin). Igual que en el ATB de combate.
 	speed *= Game.armor_speed_mult()
+	# La AGILIDAD del que va en cabeza: el grupo anda al paso del que lleva delante. Es lo que
+	# hace que cambiar de lider con 1/2/3 se note tambien fuera del combate.
+	speed *= Game.agilidad_speed_mult()
 
 	velocity = direction * speed
 	move_and_slide()
@@ -234,6 +263,17 @@ func _physics_process(delta: float) -> void:
 		_beber_pocion()
 	_drink_was = drink
 
+	# 1/2/3: quien va EN CABEZA. Cambia el cuerpo que mueves, su aguante y su velocidad, y en
+	# combate sera el suyo el combatiente que entra. Es la jugada tactica de fuera de combate:
+	# entrar tu primero, o mandar delante al que aguanta.
+	for i in [1, 2]:
+		var tecla: int = KEY_1 + i
+		var pulsada: bool = Input.is_key_pressed(tecla)
+		if pulsada and not _lider_was[i]:
+			if Game.cambiar_lider(i):
+				refrescar_lider()
+		_lider_was[i] = pulsada
+
 
 # Aguante maximo segun la Resistencia y la Agilidad. Usa el TOTAL acumulado (oculto), NO el
 # visible: el visible vuelve a 0 al SUBIR DE NIVEL, y con el visible el aguante maximo se
@@ -253,6 +293,118 @@ func _actualizar_max_aguante() -> void:
 	max_stamina = nuevo
 	current_stamina = max_stamina if estaba_llena else minf(current_stamina, max_stamina)
 	_stamina_bar.max_value = max_stamina
+
+
+# ============================================================
+#  CAMBIAR DE LIDER (teclas 1/2/3, o el gestor de equipo del Hogar)
+#  El cuerpo del mapa es UNO solo: al cambiar de lider no se cambia de nodo, se le cambia la
+#  CARA y las stats de las que tira. Lo unico que hay que tener cuidado de no perder es el
+#  AGUANTE, que es de cada persona: el que se va atras se lleva el suyo tal y como lo dejo.
+# ============================================================
+func refrescar_lider() -> void:
+	# El aguante del que hasta ahora iba delante, a su ficha.
+	if _pj_actual != null:
+		_pj_actual.stamina = current_stamina
+	_pj_actual = Game.lider()
+	# Y el del nuevo: -1 = nunca ha corrido (companero recien contratado) -> entra descansado.
+	max_stamina = _calc_max_aguante()
+	current_stamina = max_stamina if _pj_actual.stamina < 0.0 else clampf(_pj_actual.stamina, 0.0, max_stamina)
+	_exhausted = false   # el que llega de atras viene fresco; el cansancio se lo lleva el otro
+	_stamina_bar.max_value = max_stamina
+	_stamina_bar.value = current_stamina
+	_actualizar_barra_aguante()
+	refrescar_grupo()
+
+
+# Repinta TODO lo que depende de quien va en el grupo: el cuerpo del lider, el sequito que va
+# detras y las barras de vida de los companeros. No toca el aguante (de eso se encarga
+# refrescar_lider), asi que se puede llamar todas las veces que haga falta.
+func refrescar_grupo() -> void:
+	_grupo_visto = Game.party.duplicate()
+	_pj_actual = Game.lider()
+	_pintar_cuerpo()
+	if _sequito != null and _sequito.has_method("refrescar"):
+		_sequito.refrescar()
+	_rehacer_barras_companeros()
+	_refrescar_barras_vida()
+
+
+# Si el grupo ha cambiado desde el ultimo repintado, repintar. Se mira cada frame porque cambiar
+# de gente pasa desde sitios muy distintos (taberna, Hogar, teclas 1/2/3) y comparar dos arrays
+# cortos no cuesta nada; asi ninguno tiene que acordarse de avisar.
+func _comprobar_grupo() -> void:
+	if _grupo_visto != Game.party:
+		refrescar_grupo()
+
+
+# Las barras de los COMPANEROS, debajo de las tuyas: mas finas y sin numeros gordos, porque son
+# informacion de apoyo (¿aguanta el de atras?), no lo que estas mirando todo el rato. Cada una
+# lleva delante el cuadradito de su color, que es como los distingues en el mapa.
+const ALTO_FILA_COMP := 22.0     # lo que ocupa la fila de un companero
+const Y_BARRAS_COMP := 68.0      # justo debajo de las tres barras del lider (12..62)
+
+func _rehacer_barras_companeros() -> void:
+	for fila in _barras_comp:
+		(fila["raiz"] as Node).queue_free()
+	_barras_comp.clear()
+	if _barras_layer == null:
+		return
+	var comps: Array[PersonajeData] = Game.companeros()
+	for i in comps.size():
+		var pj: PersonajeData = comps[i]
+		var raiz := Control.new()
+		raiz.position = Vector2(12, Y_BARRAS_COMP + ALTO_FILA_COMP * float(i))
+		raiz.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_barras_layer.add_child(raiz)
+
+		var punto := ColorRect.new()
+		punto.size = Vector2(12, 12)
+		punto.position = Vector2(0, 2)
+		punto.color = pj.color
+		punto.material = Game.material_de(pj)
+		raiz.add_child(punto)
+
+		var hp := ProgressBar.new()
+		hp.show_percentage = false
+		hp.custom_minimum_size = Vector2(120, 12)
+		hp.size = Vector2(120, 12)
+		hp.position = Vector2(16, 2)
+		hp.self_modulate = Color(1.0, 0.4, 0.4)
+		raiz.add_child(hp)
+		var hp_lbl: Label = _crear_label_barra(hp, 9)
+
+		# El mana solo se pinta si ESE companero tiene algo que gastar: un espadachin sin magia
+		# no necesita una barra azul a cero ocupando sitio.
+		var mp: ProgressBar = null
+		if Game.player_max_mp(pj) > 0.0 and not pj.equipped_spells.is_empty():
+			mp = ProgressBar.new()
+			mp.show_percentage = false
+			mp.custom_minimum_size = Vector2(56, 6)
+			mp.size = Vector2(56, 6)
+			mp.position = Vector2(140, 5)
+			mp.self_modulate = Color(0.4, 0.6, 1.0)
+			raiz.add_child(mp)
+
+		var nombre := Label.new()
+		nombre.text = pj.nombre
+		nombre.position = Vector2(202, -2)
+		nombre.add_theme_font_size_override("font_size", 10)
+		nombre.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		nombre.add_theme_constant_override("outline_size", 3)
+		nombre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		raiz.add_child(nombre)
+
+		_barras_comp.append({"pj": pj, "raiz": raiz, "hp": hp, "hp_lbl": hp_lbl, "mp": mp})
+
+
+# El cuerpo es un ColorRect mientras no haya arte; el brillo metalico y la imagen los pinta un
+# shader por encima de ese color (null = mate y sin imagen).
+func _pintar_cuerpo() -> void:
+	var cuerpo := get_node_or_null("ColorRect") as ColorRect
+	if cuerpo == null:
+		return
+	cuerpo.color = Game.player_color
+	cuerpo.material = Game.material_cuerpo()
 
 
 # True si estamos agotados (lo consulta el enemigo para atacar al instante).
@@ -424,6 +576,7 @@ func _crear_barra_aguante() -> ProgressBar:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
 	add_child(layer)
+	_barras_layer = layer
 
 	# VIDA (roja) ARRIBA y mas GORDA: es la barra mas importante.
 	# Usamos self_modulate para tintar SOLO el relleno, no el numero (hijo) superpuesto.
@@ -457,12 +610,12 @@ func _crear_barra_aguante() -> ProgressBar:
 
 # Crea un Label centrado que cubre toda la barra, para pintar el numero DENTRO.
 # Con outline oscuro para leerse sobre cualquier color de relleno.
-func _crear_label_barra(bar: ProgressBar) -> Label:
+func _crear_label_barra(bar: ProgressBar, tam: int = 11) -> Label:
 	var l := Label.new()
 	l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", 11)
+	l.add_theme_font_size_override("font_size", tam)
 	l.add_theme_color_override("font_color", Color.WHITE)
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	l.add_theme_constant_override("outline_size", 4)
@@ -497,6 +650,19 @@ func _refrescar_barras_vida() -> void:
 		_mp_bar.value = curmp
 		if _mp_lbl != null:
 			_mp_lbl.text = "%.2f/%.2f" % [curmp, maxmp]
+	# Y las de los companeros que van detras.
+	for fila in _barras_comp:
+		var pj: PersonajeData = fila["pj"]
+		var maxhp_c: float = Game.player_max_hp(pj)
+		var hp_c: float = Game.player_hp(pj)
+		(fila["hp"] as ProgressBar).max_value = maxf(1.0, maxhp_c)
+		(fila["hp"] as ProgressBar).value = hp_c
+		if fila["hp_lbl"] != null:
+			(fila["hp_lbl"] as Label).text = "%.0f/%.0f" % [hp_c, maxhp_c]
+		if fila["mp"] != null:
+			var maxmp_c: float = Game.player_max_mp(pj)
+			(fila["mp"] as ProgressBar).max_value = maxf(1.0, maxmp_c)
+			(fila["mp"] as ProgressBar).value = Game.player_mp(pj)
 
 
 # Bebe la PRIMERA poción del inventario (tecla Q, fuera de combate). Arranca la

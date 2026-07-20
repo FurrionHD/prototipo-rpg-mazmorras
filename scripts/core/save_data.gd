@@ -87,6 +87,22 @@ const VERSION_ACTUAL := 2
 @export var desarrollos_rango: Dictionary = {}   # {id: rango 1..10} de las habilidades de desarrollo
 @export var pasivas_rng: Dictionary = {}         # {id: true} de las pasivas RNG conseguidas (binarias)
 @export var guardianes_vencidos: Dictionary = {}
+# --- EL GRUPO ---
+# plantilla = TODA la gente que has contratado en la taberna; equipo = los que BAJAN contigo
+# (como mucho Game.PARTY_MAX). Los dos guardan PersonajeData, y `equipo` guarda las MISMAS
+# instancias que estan en `plantilla`: Godot conserva la identidad dentro de un .tres, igual que
+# hace con el arma equipada y su copia del baul, asi que al cargar siguen siendo los mismos.
+#
+# En las dos listas falta el que va EN CABEZA: ese sigue siendo el "jugador" de toda la vida y se
+# guarda en los campos planos de arriba (nombre, ability_internal, equipped_main...). Asi las
+# partidas de antes del grupo cargan tal cual, sin migracion ni cambio de VERSION_ACTUAL: traen
+# estas listas vacias, que es exactamente "vas solo".
+#
+# Ojo a la simetria: si te cambias a llevar delante a un companero (teclas 1/2/3), es EL quien
+# acaba en los campos planos y tu en estas listas. Es coherente con como funciona Game (las
+# player_* SON las del lider), y al cargar el grupo vuelve en el mismo orden.
+@export var plantilla: Array = []
+@export var equipo: Array = []
 @export var player_current_hp: float = -1.0
 @export var player_current_mp: float = -1.0
 @export var stamina: float = -1.0

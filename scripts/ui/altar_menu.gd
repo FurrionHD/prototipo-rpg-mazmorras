@@ -117,14 +117,18 @@ func _actualizar() -> void:
 	var antes: Dictionary = {}
 	for s in STATS:
 		antes[s] = int(Game.get("player_" + s))
-	Game.actualizar_estado()
-	Game.player_current_hp = -1.0
-	Game.player_current_mp = -1.0
+	# TODO EL GRUPO descansa, no solo el que va delante: los tres bajan y los tres se cansan.
+	Game.actualizar_estado_grupo()
+	for pj in Game.party:
+		pj.current_hp = -1.0   # -1 = "a tope" (se concreta al crear el combatiente)
+		pj.current_mp = -1.0
+		pj.stamina = -1.0      # el aguante tambien: descansar es descansar
 	Game.ability_cooldowns_persist.clear()
 	_ultimo_delta = []
 	for s in STATS:
 		_ultimo_delta.append([NOMBRES[s], antes[s], int(Game.get("player_" + s))])
-	_aviso = "Estado consolidado. Vida, maná y cooldowns a tope."
+	_aviso = ("Estado consolidado. Vida, maná y cooldowns a tope." if Game.party.size() == 1
+		else "Descansa todo el grupo (%d). Vida, maná y cooldowns a tope." % Game.party.size())
 	_rebuild()
 
 
