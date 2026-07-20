@@ -34,11 +34,6 @@ const VEL_MAX := 320.0
 # A partir de cuanto se le da por encallado y se le teletransporta a su sitio (ver seguir()). Tres
 # cuerpos de margen: mas que cualquier rodeo honesto por una esquina, menos que "se ha perdido".
 const RESCATE := 96.0
-# A partir de que hueco se apartan entre ellos, y cuanto se desvia el destino para conseguirlo.
-# 30 px con cuerpos de 32: se rozan, pero no se tapan. El empujo es corto a proposito: la fila la
-# manda el rastro, esto solo evita que dos ocupen el mismo sitio.
-const SEPARACION_MIN := 30.0
-const SEPARACION_EMPUJE := 26.0
 
 # A quien pinta este cuerpo. Lo lee el enemigo (para el nombre en el log) y el rastro para saber
 # si tiene que repintarlo.
@@ -96,12 +91,10 @@ func pintar(nuevo: PersonajeData) -> void:
 # aterriza EXACTAMENTE en su punto y la fila no se deforma, y la unica cosa que puede impedirlo
 # es una pared (que es justo para lo que esta el cuerpo).
 func seguir(destino: Vector2, delta: float) -> void:
-	# Un empujon suave para no meterse dentro de otro companero. Hace falta porque el rastro mide
-	# la distancia A LO LARGO DEL CAMINO: si das media vuelta o giras cerrado, el camino se dobla
-	# sobre si mismo y dos huecos que estan a 34 y a 68 px DE RECORRIDO acaban en el mismo palmo de
-	# suelo. Se veian tres cuadrados apilados como uno.
-	destino += _separacion() * SEPARACION_EMPUJE
-
+	# Los companeros se ATRAVIESAN entre si (y al lider): el grupo entero es intangible por dentro, a
+	# proposito, para no bloquearse en un pasillo. Si al pararte el rastro se colapsa y se solapan un
+	# rato, no pasa nada: son un grupo, no tres cuerpos que tienen que hacer sitio. Por eso aqui NO
+	# hay separacion: cada uno va a su punto del rastro y punto.
 	var falta: Vector2 = destino - global_position
 	# RESCATE: si se ha quedado MUY atras, se le planta en su punto y a seguir. Pasa cuando un
 	# cuerpo se enrieda en una esquina o acaba dentro de la roca (un teletransporte raro, un
@@ -116,25 +109,6 @@ func seguir(destino: Vector2, delta: float) -> void:
 		return
 	velocity = (falta / delta).limit_length(VEL_MAX)
 	move_and_slide()
-
-
-# Hacia donde tiene que apartarse para no solaparse con otro companero (vector normalizado, o
-# casi). Solo mira a los OTROS COMPANEROS: al lider se le atraviesa a proposito (ver la cabecera),
-# y empujarse con el desharia la fila cada vez que te paras.
-func _separacion() -> Vector2:
-	var out: Vector2 = Vector2.ZERO
-	for n in get_tree().get_nodes_in_group("aliado"):
-		if n == self or not is_instance_valid(n) or not ("pj" in n):
-			continue
-		var d: Vector2 = global_position - (n as Node2D).global_position
-		var dist: float = d.length()
-		if dist >= SEPARACION_MIN:
-			continue
-		if dist < 0.01:
-			out += Vector2.RIGHT.rotated(randf() * TAU)
-			continue
-		out += (d / dist) * (1.0 - dist / SEPARACION_MIN)
-	return out.limit_length(1.0)
 
 
 # Colocacion DURA (cambio de piso, cambio de lider): aqui no se anda, se aparece.
