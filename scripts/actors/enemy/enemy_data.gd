@@ -125,7 +125,10 @@ func color_visual(t: float) -> Color:
 @export var drop_cantidad_min: int = 1
 @export var drop_cantidad_max: int = 1
 @export var nucleo: MaterialData = null
-@export var nucleo_chance: float = 0.10   # 1 de cada 10
+# Subido del 10% al 15% tras medir la curva: con el 10% y el nerf por profundidad, subir una
+# pieza de armadura de +3 a +5 pedia ~70 muertes, y el set entero ~350. El nucleo tiene que ser
+# escaso (es EL sistema de progresion), pero escaso no es lo mismo que interminable.
+@export var nucleo_chance: float = 0.15   # ~1 de cada 7
 
 # --- DROP por PROFUNDIDAD ---
 # Un bicho soltaba lo mismo en su primer piso que en el ultimo, asi que bajar a por SU material
@@ -138,9 +141,13 @@ func color_visual(t: float) -> Color:
 @export var drop_piso_debut: int = 1   # primer piso donde aparece
 @export var drop_piso_pleno: int = 1   # desde aqui el drop es el 100%
 
-# Cuanto del drop conserva un bicho en su piso de debut. La palanca para suavizar el arranque
-# (el 5% de nucleo de la rata del piso 1 sale de aqui): subirlo antes que parchear bichos sueltos.
-const DROP_PISO_FACTOR_MIN := 0.5
+# Cuanto del drop conserva un bicho en su piso de debut. OJO con lo que ESTA palanca hace y lo
+# que no: solo mueve los pisos SUPERFICIALES de cada bicho (en su piso pleno el factor ya es 1.0,
+# la toques o no). Para aflojar la economia entera hay que ir al nucleo_chance, no aqui.
+# Al 0.6, el nucleo de la banda inicial queda al 9% en el piso 1: casi el 10% plano de antes, que
+# es lo que se quiere. El incentivo a bajar no sale de racanear el nucleo de principiante, sale
+# de QUE nucleo suelta cada bicho (la banda de mejora que cubre).
+const DROP_PISO_FACTOR_MIN := 0.6
 
 # Multiplicador de AMBAS chances (material y nucleo) por la profundidad. Interpola igual que
 # _target_sum: mismo patron, para no tener dos maneras distintas de escalar con el piso.
