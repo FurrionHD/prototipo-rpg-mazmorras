@@ -1,12 +1,12 @@
-[gd_resource type="Resource" script_class="EnemyData" format=3]
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://cpbpkifi4jfsr"]
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2_sa"]
 [ext_resource type="Resource" path="res://resources/materials/cuero_curado.tres" id="3_cuero"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_rey_rata.tres" id="4_nuc"]
-[ext_resource type="Resource" path="res://resources/abilities/rey_rata_dentellada_real.tres" id="5_den"]
-[ext_resource type="Resource" path="res://resources/abilities/rey_rata_chillido.tres" id="6_chi"]
-[ext_resource type="Resource" path="res://resources/abilities/rey_rata_yugular.tres" id="7_yug"]
+[ext_resource type="Resource" uid="uid://by7yjfetfon1w" path="res://resources/abilities/rey_rata_dentellada_real.tres" id="5_den"]
+[ext_resource type="Resource" uid="uid://bdp75q647wbkt" path="res://resources/abilities/rey_rata_chillido.tres" id="6_chi"]
+[ext_resource type="Resource" uid="uid://chytal5j21ku5" path="res://resources/abilities/rey_rata_yugular.tres" id="7_yug"]
 
 [sub_resource type="Resource" id="SA_sang"]
 script = ExtResource("2_sa")
@@ -34,15 +34,10 @@ base_speed = 6.0
 move_speed_min = 50.0
 move_speed_max = 80.0
 chase_speed_mult = 2.6
-crystal_category_min = 1
-crystal_category_max = 3
 crystal_category_weights = PackedFloat32Array(0.2, 0.5, 0.3)
-extraction_hits = 3
-extraction_req_destreza = 60
 drop_material = ExtResource("3_cuero")
 drop_chance = 0.4
 nucleo = ExtResource("4_nuc")
-nucleo_chance = 0.15
 drop_piso_debut = 2
 drop_piso_pleno = 5
 al_golpear = [SubResource("SA_sang")]

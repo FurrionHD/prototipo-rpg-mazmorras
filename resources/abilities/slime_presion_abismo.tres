@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="AbilityData" format=3]
+[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://dt2pvptlufvtf"]
 
-[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
 
 [sub_resource type="Resource" id="SA_vuln"]
 script = ExtResource("2")
@@ -13,10 +13,7 @@ script = ExtResource("1")
 nombre = "Presión del abismo"
 descripcion = "Se comprime y descarga toda la presión de la profundidad en un solo embate. Mientras se hincha puedes aturdirlo para cortarlo; si conecta, tu guardia se resiente y todo lo demás te entra más hondo."
 coste_energia = 0.0
-golpes_min = 1
-golpes_max = 1
 dano_mult = 2.0
-carga_turnos = 1
 efectos = [SubResource("SA_vuln")]
-efectos_por_golpe = false
+carga_turnos = 1
 cooldown = 5

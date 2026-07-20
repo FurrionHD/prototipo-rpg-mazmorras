@@ -1,11 +1,11 @@
-[gd_resource type="Resource" script_class="EnemyData" format=3]
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://c5e28jiv5xp5a"]
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2_sa"]
 [ext_resource type="Resource" path="res://resources/materials/cuero_placado.tres" id="3_cue"]
-[ext_resource type="Resource" path="res://resources/abilities/bestia_zarpazo.tres" id="4_zar"]
-[ext_resource type="Resource" path="res://resources/abilities/jabali_embestida.tres" id="5_emb"]
-[ext_resource type="Resource" path="res://resources/abilities/rata_mordisco_sangrante.tres" id="6_mor"]
+[ext_resource type="Resource" uid="uid://b7g0bfocs3wcx" path="res://resources/abilities/bestia_zarpazo.tres" id="4_zar"]
+[ext_resource type="Resource" uid="uid://ddjhoceoado8m" path="res://resources/abilities/jabali_embestida.tres" id="5_emb"]
+[ext_resource type="Resource" uid="uid://cvhrdy3iynfby" path="res://resources/abilities/rata_mordisco_sangrante.tres" id="6_mor"]
 
 [sub_resource type="Resource" id="SA_san"]
 script = ExtResource("2_sa")
@@ -32,7 +32,6 @@ base_speed = 5.5
 move_speed_min = 45.0
 move_speed_max = 75.0
 chase_speed_mult = 3.2
-resist_aturdir = 0.15
 crystal_category_min = 8
 crystal_category_max = 10
 crystal_category_weights = PackedFloat32Array(0.4, 0.4, 0.2)
@@ -43,6 +42,7 @@ drop_chance = 0.4
 drop_piso_debut = 10
 drop_piso_pleno = 12
 al_golpear = [SubResource("SA_san")]
+resist_aturdir = 0.15
 habilidades = [ExtResource("4_zar"), ExtResource("5_emb"), ExtResource("6_mor")]
 prob_habilidad = 0.6
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

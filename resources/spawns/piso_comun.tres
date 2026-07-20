@@ -1,28 +1,26 @@
-[gd_resource type="Resource" script_class="SpawnTable" format=3]
+[gd_resource type="Resource" script_class="SpawnTable" format=3 uid="uid://bo56i2vunwrp8"]
 
-[ext_resource type="Script" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
-[ext_resource type="Script" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
-[ext_resource type="Resource" path="res://resources/spawns/slimes.tres" id="3_slimes"]
-[ext_resource type="Resource" path="res://resources/spawns/ratas.tres" id="4_ratas"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/jabali.tres" id="5_jabali"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/trent.tres" id="6_trent"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_profundo.tres" id="7_slimep"]
-[ext_resource type="Resource" path="res://resources/spawns/aracnidos.tres" id="8_aracn"]
-[ext_resource type="Resource" path="res://resources/spawns/constructos.tres" id="9_const"]
-[ext_resource type="Resource" path="res://resources/spawns/bestias.tres" id="10_best"]
+[ext_resource type="Script" uid="uid://cf6tilfbph4mq" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
+[ext_resource type="Script" uid="uid://js2s473s3ult" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" uid="uid://cc1e7606us5ed" path="res://resources/spawns/slimes.tres" id="3_slimes"]
+[ext_resource type="Resource" uid="uid://cejvjbi2kwp4b" path="res://resources/spawns/ratas.tres" id="4_ratas"]
+[ext_resource type="Resource" uid="uid://mdo8ycqj6c0g" path="res://scenes/actors/enemy/jabali.tres" id="5_jabali"]
+[ext_resource type="Resource" uid="uid://dmqtpt17gcbfw" path="res://scenes/actors/enemy/trent.tres" id="6_trent"]
+[ext_resource type="Resource" uid="uid://bwhel80e4ydds" path="res://scenes/actors/enemy/slime_profundo.tres" id="7_slimep"]
+[ext_resource type="Resource" uid="uid://bt2rlm7msmiqd" path="res://resources/spawns/aracnidos.tres" id="8_aracn"]
+[ext_resource type="Resource" uid="uid://djoktaq34w4xi" path="res://resources/spawns/constructos.tres" id="9_const"]
+[ext_resource type="Resource" uid="uid://dkc34hp48jed0" path="res://resources/spawns/bestias.tres" id="10_best"]
 
 [sub_resource type="Resource" id="F_slimes"]
 script = ExtResource("2_entrada")
 tabla = ExtResource("3_slimes")
 peso = 65.0
-piso_min = 1
 piso_max = 6
 
 [sub_resource type="Resource" id="F_ratas"]
 script = ExtResource("2_entrada")
 tabla = ExtResource("4_ratas")
 peso = 30.0
-piso_min = 1
 piso_max = 6
 
 [sub_resource type="Resource" id="E_jabali"]
@@ -51,24 +49,21 @@ script = ExtResource("2_entrada")
 tabla = ExtResource("8_aracn")
 peso = 45.0
 piso_min = 7
-piso_max = 0
 
 [sub_resource type="Resource" id="F_const"]
 script = ExtResource("2_entrada")
 tabla = ExtResource("9_const")
 peso = 38.0
 piso_min = 7
-piso_max = 0
 
 [sub_resource type="Resource" id="F_best"]
 script = ExtResource("2_entrada")
 tabla = ExtResource("10_best")
 peso = 40.0
 piso_min = 8
-piso_max = 0
 
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Piso común"
-entradas = [SubResource("F_slimes"), SubResource("F_ratas"), SubResource("E_jabali"), SubResource("E_trent"), SubResource("E_slimep"), SubResource("F_aracn"), SubResource("F_const"), SubResource("F_best")]
+entradas = Array[ExtResource("2_entrada")]([SubResource("F_slimes"), SubResource("F_ratas"), SubResource("E_jabali"), SubResource("E_trent"), SubResource("E_slimep"), SubResource("F_aracn"), SubResource("F_const"), SubResource("F_best")])
 metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"

@@ -1,9 +1,9 @@
-[gd_resource type="Resource" script_class="EnemyData" format=3]
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://bry84xrmydhbf"]
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2_sa"]
 [ext_resource type="Resource" path="res://resources/abilities/golem_machaca.tres" id="3_pis"]
-[ext_resource type="Resource" path="res://resources/abilities/golem_endurecerse.tres" id="4_cor"]
+[ext_resource type="Resource" uid="uid://bgaxxxmmunb0g" path="res://resources/abilities/golem_endurecerse.tres" id="4_cor"]
 [ext_resource type="Resource" path="res://resources/materials/runa_arcilla.tres" id="5_run"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_golem.tres" id="6_nuc"]
 
@@ -27,10 +27,6 @@ base_hp = 72.0
 base_attack = 4.8
 base_defense = 5.5
 base_speed = 3.0
-resist_aturdir = 0.6
-resist_elemental = {
-3: 0.5
-}
 crystal_category_min = 6
 crystal_category_max = 8
 crystal_category_weights = PackedFloat32Array(0.5, 0.35, 0.15)
@@ -39,6 +35,9 @@ nucleo = ExtResource("6_nuc")
 drop_piso_debut = 7
 drop_piso_pleno = 10
 al_golpear = [SubResource("SA_lento")]
+resist_elemental = {
+3: 0.5
+}
+resist_aturdir = 0.6
 habilidades = [ExtResource("3_pis"), ExtResource("4_cor")]
-prob_habilidad = 0.5
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

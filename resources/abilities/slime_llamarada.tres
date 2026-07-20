@@ -1,21 +1,17 @@
-[gd_resource type="Resource" script_class="AbilityData" format=3]
+[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://cyepc5r5qo04f"]
 
-[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
 
 [sub_resource type="Resource" id="SA_quema"]
 script = ExtResource("2")
 estado = 2
-prob = 1.0
 
 [resource]
 script = ExtResource("1")
-coste_energia = 0.0
 nombre = "Llamarada"
-cooldown = 3
-golpes_min = 1
-golpes_max = 1
+descripcion = "El slime escupe una lengua de fuego que te prende sin fallar."
+coste_energia = 0.0
 dano_mult = 1.3
 efectos = [SubResource("SA_quema")]
-efectos_por_golpe = false
-descripcion = "El slime escupe una lengua de fuego que te prende sin fallar."
+cooldown = 3

@@ -1,42 +1,37 @@
-[gd_resource type="Resource" script_class="SpawnTable" format=3]
+[gd_resource type="Resource" script_class="SpawnTable" format=3 uid="uid://cc1e7606us5ed"]
 
-[ext_resource type="Script" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
-[ext_resource type="Script" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/slime.tres" id="3_slime"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_veneno.tres" id="4_veneno"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_fuego.tres" id="5_fuego"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_abisal.tres" id="6_abisal"]
+[ext_resource type="Script" uid="uid://cf6tilfbph4mq" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
+[ext_resource type="Script" uid="uid://js2s473s3ult" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" uid="uid://8o4mu6dxwacj" path="res://scenes/actors/enemy/slime.tres" id="3_slime"]
+[ext_resource type="Resource" uid="uid://dyhfae82jnhif" path="res://scenes/actors/enemy/slime_veneno.tres" id="4_veneno"]
+[ext_resource type="Resource" uid="uid://c2wnkkijjmqnl" path="res://scenes/actors/enemy/slime_fuego.tres" id="5_fuego"]
+[ext_resource type="Resource" uid="uid://b1bh1prkrmwiv" path="res://scenes/actors/enemy/slime_abisal.tres" id="6_abisal"]
 
 [sub_resource type="Resource" id="E_slime"]
 script = ExtResource("2_entrada")
 enemy_data = ExtResource("3_slime")
 peso = 76.9
-piso_min = 1
 piso_max = 4
 
 [sub_resource type="Resource" id="E_veneno"]
 script = ExtResource("2_entrada")
 enemy_data = ExtResource("4_veneno")
 peso = 15.4
-piso_min = 1
-piso_max = 0
 
 [sub_resource type="Resource" id="E_fuego"]
 script = ExtResource("2_entrada")
 enemy_data = ExtResource("5_fuego")
 peso = 7.7
 piso_min = 2
-piso_max = 0
 
 [sub_resource type="Resource" id="E_abisal"]
 script = ExtResource("2_entrada")
 enemy_data = ExtResource("6_abisal")
 peso = 5.0
 piso_min = 5
-piso_max = 0
 
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Slimes"
-entradas = [SubResource("E_slime"), SubResource("E_veneno"), SubResource("E_fuego"), SubResource("E_abisal")]
+entradas = Array[ExtResource("2_entrada")]([SubResource("E_slime"), SubResource("E_veneno"), SubResource("E_fuego"), SubResource("E_abisal")])
 metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"

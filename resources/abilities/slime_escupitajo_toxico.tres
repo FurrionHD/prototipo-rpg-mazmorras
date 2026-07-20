@@ -1,22 +1,18 @@
-[gd_resource type="Resource" script_class="AbilityData" format=3]
+[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://bl2ak6wjc0tn7"]
 
-[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
 
 [sub_resource type="Resource" id="SA_ven2"]
 script = ExtResource("2")
 estado = 0
-prob = 1.0
 cap = 1
 
 [resource]
 script = ExtResource("1")
-coste_energia = 0.0
 nombre = "Escupitajo tóxico"
-cooldown = 3
-golpes_min = 1
-golpes_max = 1
+descripcion = "El slime te escupe una bilis corrosiva directa a la cara: el veneno prende sin fallar."
+coste_energia = 0.0
 dano_mult = 1.2
 efectos = [SubResource("SA_ven2")]
-efectos_por_golpe = false
-descripcion = "El slime te escupe una bilis corrosiva directa a la cara: el veneno prende sin fallar."
+cooldown = 3

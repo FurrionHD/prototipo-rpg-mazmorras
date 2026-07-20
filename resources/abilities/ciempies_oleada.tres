@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="AbilityData" format=3]
+[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://b3gjr7uv644j1"]
 
-[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
 
 [sub_resource type="Resource" id="SA_ven"]
 script = ExtResource("2")

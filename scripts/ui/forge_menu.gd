@@ -94,7 +94,11 @@ var _aviso: String = ""
 var _aviso_ok: bool = true
 
 # --- FUNDIR / CHAPAS ---
-var _metal_idx: int = 0            # cual de Game.metales_forja()
+var _metal_idx: int = 0            # cual de Game.metales_forja() (se DERIVA de los dos de abajo)
+# Selector en dos niveles: primero la gama (T1/T2/T3), luego el sub-tier dentro de ella.
+var _metal_tier: int = 0
+var _metal_sub: int = 0
+var _madera_tier: int = 0
 # --- TABLONES (carpintero) ---
 var _madera_idx: int = 0           # cual de las maderas (T1/T2/T3)
 
@@ -326,33 +330,23 @@ func _build_refinar(que: int) -> void:
 		_title(_header, _titulo_refinado(que))
 		_note(_header, "No traes ningún metal. Baja a la mazmorra y pica una veta: el herrero no puede fundir lo que no tiene.")
 		return
-	_metal_idx = clampi(_metal_idx, 0, metales.size() - 1)
 	var de_lingote: bool = que != Refinado.LINGOTE   # chapas y hebillas parten del lingote
-	var origen: MaterialData = metales[_metal_idx]["lingote" if de_lingote else "mineral"]
-	var destino: MaterialData = metales[_metal_idx][_clave_destino(que)]
+	var clave: String = "lingote" if de_lingote else "mineral"
 	var por_uno: int = _por_uno(que)
 
 	_title(_header, _titulo_refinado(que))
 	_note(_header, _nota_refinado(que, por_uno))
 	_header.add_child(HSeparator.new())
 
-	var fila := GridContainer.new()
-	fila.columns = 2
-	fila.add_theme_constant_override("h_separation", 6)
-	fila.add_theme_constant_override("v_separation", 6)
-	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for i in metales.size():
-		var m: MaterialData = metales[i]["lingote" if de_lingote else "mineral"]
-		var b := Button.new()
-		b.text = "%s  (T%d)" % [m.nombre, m.tier]
-		b.toggle_mode = true
-		b.clip_text = true
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.button_pressed = (i == _metal_idx)
-		b.custom_minimum_size = Vector2(0, 32)
-		b.pressed.connect(_on_metal.bind(i))
-		fila.add_child(b)
-	_content.add_child(fila)
+	# Selector en DOS niveles (Metal T1/T2/T3 -> cual de esa gama). Ver
+	# MenuScaffold.selector_material. Se le pasa la columna que toque (mineral para fundir,
+	# lingote para batir) y luego se resuelve de vuelta a QUE FILA de la cadena es.
+	var origen: MaterialData = MenuScaffold.selector_material(_content, _columna(metales, clave),
+		"Metal", _metal_tier, _metal_sub, _on_metal_tier, _on_metal)
+	if origen == null:
+		return
+	_metal_idx = _fila_de(metales, clave, origen)
+	var destino: MaterialData = metales[_metal_idx][_clave_destino(que)]
 	_content.add_child(HSeparator.new())
 
 	_row(_content, "Sale", "%s  ·  Tier %d" % [destino.nombre, destino.tier])
@@ -423,17 +417,56 @@ func _nota_refinado(que: int, por_uno: int) -> String:
 			return "%d minerales de la MISMA calidad = 1 lingote de esa calidad. No se mezclan: juntando dañados no sale un normal. Solo la Metalurgia puede regalarte un escalón." % por_uno
 
 
-func _on_metal(i: int) -> void:
-	_metal_idx = i
+func _on_metal_tier(i: int) -> void:
+	_metal_tier = i
+	_metal_sub = 0   # al cambiar de gama se vuelve a la base: la de abajo ya no existe
 	_rebuild()
+
+
+func _on_metal(i: int) -> void:
+	_metal_sub = i
+	_rebuild()
+
+
+# Una COLUMNA de la cadena de metales (los minerales, o los lingotes...). El selector trabaja con
+# MaterialData sueltos; la cadena son filas.
+func _columna(metales: Array, clave: String) -> Array:
+	var out: Array = []
+	for m in metales:
+		out.append(m[clave])
+	return out
+
+
+# La vuelta: de un MaterialData a la FILA de la cadena a la que pertenece.
+func _fila_de(metales: Array, clave: String, mat: MaterialData) -> int:
+	for i in metales.size():
+		if metales[i][clave] == mat:
+			return i
+	return 0
+
+
+# El metal elegido ahora mismo, resolviendo los dos niveles.
+func _metal_elegido(clave: String) -> MaterialData:
+	var metales: Array = Game.metales_forja_conocidos()
+	if metales.is_empty():
+		return null
+	var col: Array = _columna(metales, clave)
+	var tiers: Array = MenuScaffold.tiers_de(col)
+	if tiers.is_empty():
+		return null
+	var subs: Array = MenuScaffold.del_tier(col, int(tiers[clampi(_metal_tier, 0, tiers.size() - 1)]))
+	if subs.is_empty():
+		return null
+	return subs[clampi(_metal_sub, 0, subs.size() - 1)] as MaterialData
 
 
 func _on_refinar(que: int, cal: int, veces: int) -> void:
 	var metales: Array = Game.metales_forja_conocidos()
-	if metales.is_empty():
+	var clave: String = "mineral" if que == Refinado.LINGOTE else "lingote"
+	var origen: MaterialData = _metal_elegido(clave)
+	if origen == null:
 		return
-	_metal_idx = clampi(_metal_idx, 0, metales.size() - 1)
-	var origen: MaterialData = metales[_metal_idx]["mineral" if que == Refinado.LINGOTE else "lingote"]
+	_metal_idx = _fila_de(metales, clave, origen)
 	var n: int = 0
 	match que:
 		Refinado.CHAPA: n = Game.batir_chapa(origen, cal, veces)
@@ -477,29 +510,16 @@ func _build_aserrar() -> void:
 	if maderas.is_empty():
 		_note(_content, "No conoces ninguna madera todavía. Tala árboles y enredaderas en la mazmorra y vuelve.")
 		return
-	_madera_idx = clampi(_madera_idx, 0, maderas.size() - 1)
-	var origen: MaterialData = maderas[_madera_idx]
+
+	# Selector en DOS niveles: arriba la gama (Madera T1/T2/T3), abajo cual de esa gama. Ver
+	# MenuScaffold.selector_material: con los sub-tiers, una fila plana repetia el tier en cada
+	# boton y se hacia ilegible.
+	var origen: MaterialData = MenuScaffold.selector_material(_content, maderas, "Madera",
+		_madera_tier, _madera_idx, _on_madera_tier, _on_madera)
+	if origen == null:
+		return
 	var destino: MaterialData = Game.tablon_de(origen)
 	var por_uno: int = Forge.MADERA_POR_TABLON
-
-	# Selector de tier de madera.
-	var fila := GridContainer.new()
-	fila.columns = 2
-	fila.add_theme_constant_override("h_separation", 6)
-	fila.add_theme_constant_override("v_separation", 6)
-	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for i in maderas.size():
-		var mm: MaterialData = maderas[i]
-		var b := Button.new()
-		b.text = "%s  (T%d)" % [mm.nombre, mm.tier]
-		b.toggle_mode = true
-		b.clip_text = true
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.button_pressed = (i == _madera_idx)
-		b.custom_minimum_size = Vector2(0, 32)
-		b.pressed.connect(_on_madera.bind(i))
-		fila.add_child(b)
-	_content.add_child(fila)
 	_content.add_child(HSeparator.new())
 
 	if destino == null:
@@ -536,17 +556,34 @@ func _build_aserrar() -> void:
 		"Al aserrar, tira por sacar el tablón un escalón por encima de la madera que metas.")
 
 
+func _on_madera_tier(i: int) -> void:
+	_madera_tier = i
+	_madera_idx = 0   # al cambiar de gama se vuelve a la base: la de abajo ya no existe
+	_rebuild()
+
+
 func _on_madera(i: int) -> void:
 	_madera_idx = i
 	_rebuild()
 
 
-func _on_aserrar(cal: int, veces: int) -> void:
+# La madera elegida ahora mismo, resolviendo los dos niveles. null si no conoces ninguna.
+func _madera_elegida() -> MaterialData:
 	var maderas: Array = Game.maderas_conocidas()
-	if maderas.is_empty():
+	var tiers: Array = MenuScaffold.tiers_de(maderas)
+	if tiers.is_empty():
+		return null
+	var subs: Array = MenuScaffold.del_tier(maderas,
+		int(tiers[clampi(_madera_tier, 0, tiers.size() - 1)]))
+	if subs.is_empty():
+		return null
+	return subs[clampi(_madera_idx, 0, subs.size() - 1)] as MaterialData
+
+
+func _on_aserrar(cal: int, veces: int) -> void:
+	var origen: MaterialData = _madera_elegida()
+	if origen == null:
 		return
-	_madera_idx = clampi(_madera_idx, 0, maderas.size() - 1)
-	var origen: MaterialData = maderas[_madera_idx]
 	var n: int = Game.aserrar(origen, cal, veces)
 	if n > 0:
 		_decir("Sacas %d x %s de calidad %s." % [n, Game.tablon_de(origen).nombre.to_lower(), _cal_txt(cal).to_lower()])

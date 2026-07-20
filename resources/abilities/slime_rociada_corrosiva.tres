@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="AbilityData" format=3]
+[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://bhdc7thawj436"]
 
-[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
 
 [sub_resource type="Resource" id="SA_ven"]
 script = ExtResource("2")
@@ -12,17 +12,15 @@ cap = 1
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2")
 estado = 9
-prob = 1.0
-stacks = 1
 
 [resource]
 script = ExtResource("1")
-coste_energia = 0.0
 nombre = "Rociada corrosiva"
-cooldown = 3
+descripcion = "Sacude su cuerpo y te rocía de baba ácida. Cada salpicón te deja pringado y puede envenenarte."
+coste_energia = 0.0
 golpes_min = 2
 golpes_max = 2
 dano_mult = 0.75
 efectos = [SubResource("SA_ven"), SubResource("SA_peg")]
 efectos_por_golpe = true
-descripcion = "Sacude su cuerpo y te rocía de baba ácida. Cada salpicón te deja pringado y puede envenenarte."
+cooldown = 3

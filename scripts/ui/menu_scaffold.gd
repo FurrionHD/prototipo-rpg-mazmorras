@@ -298,22 +298,98 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 	return filas
 
 
-# Cuadricula de botones para la columna de la LISTA (2 columnas de 150).
-static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Callable) -> void:
+# Cuadricula de botones. Por defecto 2 columnas de 150x44 (la columna de la LISTA de items, que
+# lleva nombres largos). Los selectores de material pasan mas columnas y botones mas bajos: sus
+# etiquetas son cortas y con 2 por fila la lista se iba a lo alto sin necesidad.
+static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Callable,
+		columnas: int = 2, tam: Vector2 = Vector2(150, 44)) -> void:
 	var grid := GridContainer.new()
-	grid.columns = 2
+	grid.columns = maxi(1, columnas)
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for i in labels.size():
 		var b := Button.new()
 		b.text = str(labels[i])
 		b.toggle_mode = true
 		b.button_pressed = (i == sel)
 		b.clip_text = true
-		b.custom_minimum_size = Vector2(150, 44)
+		b.custom_minimum_size = tam
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(pulsado.bind(i))
 		grid.add_child(b)
 	vb.add_child(grid)
+
+
+# ------------------------------------------------------------
+#  SELECTOR DE MATERIAL EN DOS NIVELES (tier -> sub-tier)
+#  Lo usan los tres oficios que refinan: herrero (fundir/chapas/hebillas), carpintero (aserrar)
+#  y peletero (curtir). Va aqui y no en cada menu porque son tres sitios con la MISMA lista y el
+#  mismo problema.
+#
+#  Con los sub-tiers, una fila plana se iba a siete botones repitiendo el tier en cada uno
+#  ("Madera comun (T1)", "Madera de veta (T1)", "Madera anillada (T1)", "Madera dura (T2)"...):
+#  ilegible, y encima escondia que el tier es el eje gordo y el sub-tier el pequeño. En dos
+#  niveles cada fila responde a UNA pregunta: primero de que gama, luego cual de ella.
+#
+#  La fila de arriba lleva el tier ("Madera T1"); la de abajo ya NO lo repite, que para eso
+#  acabas de elegirlo.
+# ------------------------------------------------------------
+
+# 4 por fila: las etiquetas ya no repiten el tier, asi que son cortas y caben. Con 2 por fila la
+# lista se iba a lo alto sin necesidad y empujaba fuera las filas de calidad, que es lo que de
+# verdad vienes a pulsar.
+const COLUMNAS_SELECTOR := 4
+const TAM_SELECTOR := Vector2(120, 32)
+
+
+# Los tiers presentes en una lista de MaterialData, ordenados. Es lo que pinta la fila de arriba.
+static func tiers_de(mats: Array) -> Array:
+	var vistos: Dictionary = {}
+	for m in mats:
+		if m != null:
+			vistos[int((m as MaterialData).tier)] = true
+	var out: Array = vistos.keys()
+	out.sort()
+	return out
+
+
+# Los materiales de UN tier, ordenados por banda (base primero). Es la fila de abajo.
+static func del_tier(mats: Array, tier: int) -> Array:
+	var out: Array = []
+	for m in mats:
+		if m != null and int((m as MaterialData).tier) == tier:
+			out.append(m)
+	out.sort_custom(func(a, b): return int(a.mejora_min) < int(b.mejora_min))
+	return out
+
+
+# Pinta las DOS filas y devuelve el material elegido (null si la lista viene vacia).
+# `nombre_gama` = como se llama la familia en la fila de arriba ("Madera", "Metal", "Piel").
+# `tier_sel` / `sub_sel` = lo que hay elegido ahora; `on_tier` / `on_sub` reciben el indice nuevo.
+static func selector_material(vb: VBoxContainer, mats: Array, nombre_gama: String,
+		tier_sel: int, sub_sel: int, on_tier: Callable, on_sub: Callable) -> MaterialData:
+	if mats.is_empty():
+		return null
+	var tiers: Array = tiers_de(mats)
+	var t: int = int(tiers[clampi(tier_sel, 0, tiers.size() - 1)])
+
+	var etiquetas_tier: Array = []
+	for x in tiers:
+		etiquetas_tier.append("%s  T%d" % [nombre_gama, int(x)])
+	cuadricula(vb, etiquetas_tier, clampi(tier_sel, 0, tiers.size() - 1), on_tier,
+		COLUMNAS_SELECTOR, TAM_SELECTOR)
+
+	# La fila de abajo solo se pinta si ese tier tiene MAS DE UNO: con un solo sub-tier (hoy el
+	# acero, o cualquier tier que aun no se haya desdoblado) una fila de un boton solo estorba.
+	var subs: Array = del_tier(mats, t)
+	if subs.size() > 1:
+		var etiquetas_sub: Array = []
+		for m in subs:
+			etiquetas_sub.append((m as MaterialData).nombre)
+		cuadricula(vb, etiquetas_sub, clampi(sub_sel, 0, subs.size() - 1), on_sub,
+			COLUMNAS_SELECTOR, TAM_SELECTOR)
+	return subs[clampi(sub_sel, 0, subs.size() - 1)] as MaterialData
 
 
 # Stepper editable: −  [ n ]  +  con el numero ESCRIBIBLE (no solo con los botones). −/+ y escribir +

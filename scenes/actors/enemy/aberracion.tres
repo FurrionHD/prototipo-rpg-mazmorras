@@ -1,8 +1,8 @@
-[gd_resource type="Resource" script_class="EnemyData" format=3]
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://m45wpievm08w"]
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
-[ext_resource type="Resource" path="res://resources/abilities/aberracion_alarido.tres" id="3_emb"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" uid="uid://cinl3hodynir6" path="res://resources/abilities/aberracion_alarido.tres" id="3_emb"]
 [ext_resource type="Resource" path="res://resources/abilities/aberracion_latigazo.tres" id="4_chi"]
 [ext_resource type="Resource" path="res://resources/materials/icor.tres" id="5_ico"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_aberracion.tres" id="6_nuc"]
@@ -26,7 +26,6 @@ base_hp = 62.0
 base_attack = 5.2
 base_defense = 3.8
 base_speed = 4.2
-status_resist = 0.4
 crystal_category_min = 7
 crystal_category_max = 9
 crystal_category_weights = PackedFloat32Array(0.4, 0.4, 0.2)
@@ -35,6 +34,6 @@ nucleo = ExtResource("6_nuc")
 drop_piso_debut = 8
 drop_piso_pleno = 11
 al_golpear = [SubResource("SA_deb")]
+status_resist = 0.4
 habilidades = [ExtResource("3_emb"), ExtResource("4_chi")]
-prob_habilidad = 0.5
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

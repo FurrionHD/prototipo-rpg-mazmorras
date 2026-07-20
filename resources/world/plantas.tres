@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="MaterialTable" format=3]
+[gd_resource type="Resource" script_class="MaterialTable" format=3 uid="uid://nk2387623bse"]
 
-[ext_resource type="Script" path="res://scripts/world/material_table.gd" id="1_tabla"]
-[ext_resource type="Script" path="res://scripts/world/material_entry.gd" id="2_entrada"]
+[ext_resource type="Script" uid="uid://cu560afpbuxtm" path="res://scripts/world/material_table.gd" id="1_tabla"]
+[ext_resource type="Script" uid="uid://5341cfr77rmh" path="res://scripts/world/material_entry.gd" id="2_entrada"]
 [ext_resource type="Resource" path="res://resources/materials/hierba_palida.tres" id="3_hierba"]
 [ext_resource type="Resource" path="res://resources/materials/raiz_amarga.tres" id="4_raiz"]
 [ext_resource type="Resource" path="res://resources/materials/sanguinaria.tres" id="5_sangre"]
@@ -36,5 +36,5 @@ peso = 20.0
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Plantas"
-entradas = [SubResource("E_hierba"), SubResource("E_raiz"), SubResource("E_sangre"), SubResource("E_moho"), SubResource("E_umbria")]
+entradas = Array[ExtResource("2_entrada")]([SubResource("E_hierba"), SubResource("E_raiz"), SubResource("E_sangre"), SubResource("E_moho"), SubResource("E_umbria")])
 metadata/_custom_type_script = "res://scripts/world/material_table.gd"

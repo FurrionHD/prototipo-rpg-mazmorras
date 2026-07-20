@@ -1,22 +1,18 @@
-[gd_resource type="Resource" script_class="AbilityData" format=3]
+[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://dscpkdvxyaxhp"]
 
-[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
 
 [sub_resource type="Resource" id="SA_fort"]
 script = ExtResource("2")
 estado = 6
-prob = 1.0
 en_objetivo = false
 
 [resource]
 script = ExtResource("1")
-coste_energia = 0.0
 nombre = "Ignición"
-cooldown = 4
-golpes_min = 1
-golpes_max = 1
+descripcion = "El slime aviva su núcleo hasta ponerse incandescente: no golpea, pero a partir de ahora pega mucho más fuerte."
+coste_energia = 0.0
 dano_mult = 0.0
 efectos = [SubResource("SA_fort")]
-efectos_por_golpe = false
-descripcion = "El slime aviva su núcleo hasta ponerse incandescente: no golpea, pero a partir de ahora pega mucho más fuerte."
+cooldown = 4

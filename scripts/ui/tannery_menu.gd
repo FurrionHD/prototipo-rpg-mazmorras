@@ -39,6 +39,7 @@ var _tab: int = 0
 # --- CURTIR ---
 # Cual de las pieles conocidas se esta curtiendo (indice en Game.cueros_crudos_conocidos()).
 # Antes solo habia una y no habia nada que elegir; con los sub-tiers hay hasta seis.
+var _cue_tier: int = 0
 var _cue_idx: int = 0
 
 # --- MOCHILAS ---
@@ -133,8 +134,9 @@ func _build_refinar(correas: bool) -> void:
 	# CURTIR: se elige QUE piel (hay una por sub-tier). CORREAS: siempre del curtido base, que es
 	# el que hace de tela para las mochilas.
 	var pieles: Array = Game.cueros_crudos_conocidos()
-	_cue_idx = clampi(_cue_idx, 0, maxi(0, pieles.size() - 1))
-	var piel: MaterialData = pieles[_cue_idx] if not pieles.is_empty() else Game.cuero_crudo()
+	var piel: MaterialData = _piel_elegida()
+	if piel == null:
+		piel = Game.cuero_crudo()
 
 	var origen: MaterialData = Game.cuero_forja() if correas else piel
 	var destino: MaterialData = Game.correa() if correas else Game.curtido_de(piel)
@@ -149,29 +151,16 @@ func _build_refinar(correas: bool) -> void:
 		MenuScaffold.nota(_header, "%d pieles de la MISMA calidad = 1 cuero curtido de esa calidad. No se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón." % por_uno)
 	_header.add_child(HSeparator.new())
 
-	# Fila-selector, igual que el herrero (Fundir) y el carpintero (Tablones): un boton por cada
-	# piel CONOCIDA, mostrada SIEMPRE (aunque tengas 0). En Correas hay una sola opcion (el curtido
-	# base es la tela de la mochila), asi que la fila queda de un boton y no se puede pulsar.
-	var origenes: Array = [origen] if correas else pieles
-	var fila := GridContainer.new()
-	fila.columns = 2
-	fila.add_theme_constant_override("h_separation", 6)
-	fila.add_theme_constant_override("v_separation", 6)
-	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for i in origenes.size():
-		var mat: MaterialData = origenes[i] as MaterialData
-		var b := Button.new()
-		b.text = "%s  (T%d)" % [mat.nombre, mat.tier]
-		b.toggle_mode = true
-		b.clip_text = true
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.button_pressed = (mat == origen)
-		b.custom_minimum_size = Vector2(0, 32)
-		if not correas:
-			b.pressed.connect(_on_piel.bind(i))
-		fila.add_child(b)
-	_content.add_child(fila)
-	_content.add_child(HSeparator.new())
+	# Selector en DOS niveles, igual que el herrero y el carpintero (ver
+	# MenuScaffold.selector_material). En CORREAS no hay nada que elegir: la tela de la mochila es
+	# siempre el curtido base, asi que ni se pinta.
+	if not correas:
+		var elegida: MaterialData = MenuScaffold.selector_material(_content, pieles, "Piel",
+			_cue_tier, _cue_idx, _on_piel_tier, _on_piel)
+		if elegida != null:
+			origen = elegida
+			destino = Game.curtido_de(elegida)
+		_content.add_child(HSeparator.new())
 	_row("Sale", "%s  ·  Tier %d" % [destino.nombre, destino.tier])
 
 	var tengo_algo: bool = false
@@ -204,15 +193,31 @@ func _build_refinar(correas: bool) -> void:
 	_estado_peleteria()
 
 
+func _on_piel_tier(i: int) -> void:
+	_cue_tier = i
+	_cue_idx = 0   # al cambiar de gama se vuelve a la base
+	_rebuild()
+
+
 func _on_piel(i: int) -> void:
 	_cue_idx = i
 	_rebuild()
 
 
-func _on_refinar(correas: bool, cal: int, veces: int) -> void:
+# La piel elegida ahora mismo, resolviendo los dos niveles del selector.
+func _piel_elegida() -> MaterialData:
 	var pieles: Array = Game.cueros_crudos_conocidos()
-	var piel: MaterialData = pieles[_cue_idx] if _cue_idx < pieles.size() else null
-	var n: int = Game.hacer_correa(cal, veces) if correas else Game.curtir(cal, veces, piel)
+	var tiers: Array = MenuScaffold.tiers_de(pieles)
+	if tiers.is_empty():
+		return null
+	var subs: Array = MenuScaffold.del_tier(pieles, int(tiers[clampi(_cue_tier, 0, tiers.size() - 1)]))
+	if subs.is_empty():
+		return null
+	return subs[clampi(_cue_idx, 0, subs.size() - 1)] as MaterialData
+
+
+func _on_refinar(correas: bool, cal: int, veces: int) -> void:
+	var n: int = Game.hacer_correa(cal, veces) if correas else Game.curtir(cal, veces, _piel_elegida())
 	if n > 0:
 		_decir("Sacas %d %s de calidad %s." % [n, "correa(s)" if correas else "cuero(s)",
 			_cal_txt(cal).to_lower()])

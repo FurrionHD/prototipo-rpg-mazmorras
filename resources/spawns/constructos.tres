@@ -1,10 +1,10 @@
-[gd_resource type="Resource" script_class="SpawnTable" format=3]
+[gd_resource type="Resource" script_class="SpawnTable" format=3 uid="uid://djoktaq34w4xi"]
 
-[ext_resource type="Script" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
-[ext_resource type="Script" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/golem_arcilla.tres" id="3_golem"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/gargola.tres" id="4_garg"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/coloso.tres" id="5_colo"]
+[ext_resource type="Script" uid="uid://cf6tilfbph4mq" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
+[ext_resource type="Script" uid="uid://js2s473s3ult" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" uid="uid://bry84xrmydhbf" path="res://scenes/actors/enemy/golem_arcilla.tres" id="3_golem"]
+[ext_resource type="Resource" uid="uid://b0ypqhnwcpnd3" path="res://scenes/actors/enemy/gargola.tres" id="4_garg"]
+[ext_resource type="Resource" uid="uid://cnx0bs3dnh61c" path="res://scenes/actors/enemy/coloso.tres" id="5_colo"]
 
 [sub_resource type="Resource" id="E_golem"]
 script = ExtResource("2_entrada")
@@ -18,17 +18,15 @@ script = ExtResource("2_entrada")
 enemy_data = ExtResource("4_garg")
 peso = 15.0
 piso_min = 10
-piso_max = 0
 
 [sub_resource type="Resource" id="E_colo"]
 script = ExtResource("2_entrada")
 enemy_data = ExtResource("5_colo")
 peso = 15.0
 piso_min = 10
-piso_max = 0
 
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Constructos"
-entradas = [SubResource("E_golem"), SubResource("E_garg"), SubResource("E_colo")]
+entradas = Array[ExtResource("2_entrada")]([SubResource("E_golem"), SubResource("E_garg"), SubResource("E_colo")])
 metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"

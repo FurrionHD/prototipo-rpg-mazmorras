@@ -1,10 +1,10 @@
-[gd_resource type="Resource" script_class="SpawnTable" format=3]
+[gd_resource type="Resource" script_class="SpawnTable" format=3 uid="uid://bt2rlm7msmiqd"]
 
-[ext_resource type="Script" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
-[ext_resource type="Script" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/arana.tres" id="3_arana"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/escarabajo.tres" id="4_escara"]
-[ext_resource type="Resource" path="res://scenes/actors/enemy/ciempies.tres" id="5_ciem"]
+[ext_resource type="Script" uid="uid://cf6tilfbph4mq" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
+[ext_resource type="Script" uid="uid://js2s473s3ult" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" uid="uid://b4elqyvf1lubc" path="res://scenes/actors/enemy/arana.tres" id="3_arana"]
+[ext_resource type="Resource" uid="uid://bbp7160yj720b" path="res://scenes/actors/enemy/escarabajo.tres" id="4_escara"]
+[ext_resource type="Resource" uid="uid://bmxnj2tu4anc7" path="res://scenes/actors/enemy/ciempies.tres" id="5_ciem"]
 
 [sub_resource type="Resource" id="E_arana"]
 script = ExtResource("2_entrada")
@@ -30,5 +30,5 @@ piso_max = 11
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Arácnidos"
-entradas = [SubResource("E_arana"), SubResource("E_escara"), SubResource("E_ciem")]
+entradas = Array[ExtResource("2_entrada")]([SubResource("E_arana"), SubResource("E_escara"), SubResource("E_ciem")])
 metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"

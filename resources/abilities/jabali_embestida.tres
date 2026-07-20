@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="AbilityData" format=3]
+[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://ddjhoceoado8m"]
 
-[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
 
 [sub_resource type="Resource" id="SA_stun"]
 script = ExtResource("2")
@@ -13,8 +13,6 @@ script = ExtResource("1")
 nombre = "Embestida"
 descripcion = "Baja la cabeza, escarba una vez y se te viene encima. No hay finta que valga: o te apartas, o te llevas doscientos kilos en el pecho."
 coste_energia = 0.0
-golpes_min = 1
-golpes_max = 1
 dano_mult = 1.75
 efectos = [SubResource("SA_stun")]
 cooldown = 3

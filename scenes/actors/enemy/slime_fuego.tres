@@ -1,11 +1,11 @@
-[gd_resource type="Resource" script_class="EnemyData" format=3]
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://c2wnkkijjmqnl"]
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
-[ext_resource type="Resource" path="res://resources/abilities/slime_llamarada.tres" id="3_lla"]
-[ext_resource type="Resource" path="res://resources/abilities/slime_salpicadura_ardiente.tres" id="4_sal"]
-[ext_resource type="Resource" path="res://resources/abilities/slime_combustion.tres" id="5_com"]
-[ext_resource type="Resource" path="res://resources/abilities/slime_ignicion.tres" id="6_ign"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2_sa"]
+[ext_resource type="Resource" uid="uid://cyepc5r5qo04f" path="res://resources/abilities/slime_llamarada.tres" id="3_lla"]
+[ext_resource type="Resource" uid="uid://c5uonil861pyw" path="res://resources/abilities/slime_salpicadura_ardiente.tres" id="4_sal"]
+[ext_resource type="Resource" uid="uid://bx31ttm7w7x2f" path="res://resources/abilities/slime_combustion.tres" id="5_com"]
+[ext_resource type="Resource" uid="uid://dscpkdvxyaxhp" path="res://resources/abilities/slime_ignicion.tres" id="6_ign"]
 [ext_resource type="Resource" path="res://resources/materials/baba_fuego.tres" id="7_baba"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_fuego.tres" id="8_nuc"]
 
@@ -23,22 +23,20 @@ prob = 0.35
 script = ExtResource("1_g8nro")
 familia = 1
 enemy_name = "Slime de fuego"
-es_slime = true
-color = Color(1.0, 0.5, 0.12, 1)
+color = Color(1, 0.5, 0.12, 1)
 escala_visual = 1.6
+es_slime = true
 base_hp = 46.0
 base_attack = 4.0
-base_defense = 3.0
 crystal_category_min = 2
 crystal_category_max = 4
 crystal_category_weights = PackedFloat32Array(0.4, 0.5, 0.1)
-base_speed = 4.0
-elemento = 1
 drop_material = ExtResource("7_baba")
 nucleo = ExtResource("8_nuc")
 drop_piso_debut = 2
 drop_piso_pleno = 5
 al_golpear = [SubResource("SA_peg"), SubResource("SA_quema")]
+elemento = 1
 habilidades = [ExtResource("3_lla"), ExtResource("4_sal"), ExtResource("5_com"), ExtResource("6_ign")]
 prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

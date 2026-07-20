@@ -2,7 +2,7 @@
 
 [ext_resource type="PackedScene" uid="uid://bgndhyu01suwv" path="res://scenes/actors/player/player.tscn" id="1_72ix8"]
 [ext_resource type="Script" uid="uid://06pqjtcbudsx" path="res://scripts/town/door.gd" id="4_l2q5x"]
-[ext_resource type="Script" path="res://scripts/world/dungeon_floor.gd" id="5_floor"]
+[ext_resource type="Script" uid="uid://diqkf3hwi054k" path="res://scripts/world/dungeon_floor.gd" id="5_floor"]
 [ext_resource type="Resource" path="res://resources/spawns/piso_comun.tres" id="6_tabla"]
 
 [node name="Main" type="Node2D" unique_id=731661649]
@@ -15,7 +15,7 @@ puerta_pueblo = NodePath("../DoorTown")
 [node name="Player" parent="." unique_id=283709743 instance=ExtResource("1_72ix8")]
 position = Vector2(157, 142)
 
-[node name="DoorTown" type="Node2D" parent="." unique_id=-1]
+[node name="DoorTown" type="Node2D" parent="." unique_id=915440084]
 position = Vector2(157, 119)
 script = ExtResource("4_l2q5x")
 

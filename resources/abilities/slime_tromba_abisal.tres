@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="AbilityData" format=3]
+[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://bdh60lkfxku80"]
 
-[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
 
 [sub_resource type="Resource" id="SA_lento"]
 script = ExtResource("2")
@@ -21,7 +21,5 @@ descripcion = "Se descuelga sobre ti como una columna de agua negra. No pega fue
 coste_energia = 0.0
 golpes_min = 2
 golpes_max = 3
-dano_mult = 1.0
 efectos = [SubResource("SA_lento"), SubResource("SA_peg")]
-efectos_por_golpe = false
 cooldown = 4
