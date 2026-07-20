@@ -53,14 +53,17 @@ var dist_min_jugador: float = 64.0
 # se ve como un pegote unico y no como varios enemigos.
 var separacion_min: float = 48.0
 
-# --- BROTE MASIVO (KAN, futuro): APAGADO ---
-# Cuando se encienda: de vez en cuando una pared no pare uno, sino varios de golpe, con
-# un aviso mas largo y un temblor mas fuerte. Hoy no se activa porque aun no tiene
-# proposito (y sin balancear, 10 bichos = 10 combates encadenados = masacre).
-var brotes_activos: bool = false
-var prob_brote: float = 0.01    # ~1 de cada 100 partos
-var brote_min: int = 2
-var brote_max: int = 3
+# --- BROTE MASIVO ---
+# De vez en cuando una pared no pare uno, sino un TRAMO GORDO de golpe: revienta un cacho de muro y
+# salen varios EMBISTIENDO. El disparador de verdad es el medidor de alboroto (Game); esto es la
+# pizca de azar que queda encima, para que ir siempre en sigilo no te haga inmune.
+var brotes_activos: bool = true
+var prob_brote: float = 0.01    # ~1 de cada 100 partos (brote espontaneo; el gordo lo trae el alboroto)
+
+# Tamaño del brote = tu grupo + 1, con tope MAX_COMBATIENTES (lo que cabe en una pelea): vas solo,
+# salen 2; con tres, salen 4. Siempre te superan por uno, nunca es una masacre imposible.
+func brote_tamano() -> int:
+	return mini(Enemy.MAX_COMBATIENTES, Game.party.size() + 1)
 
 # Enemigos vivos que ha parido ESTA zona. Sin tipar el elemento: los enemigos exponen
 # metodos propios (esta_muerto) que un Array[Node] no dejaria llamar.
@@ -70,10 +73,14 @@ var _espera: float = 0.0
 # Parto en curso (la pared ya esta avisando). El FX tambien va sin tipar (ver 'piso').
 var _fx = null
 var _fx_t: float = 0.0
-var _fx_suelo: Vector2 = Vector2.ZERO
-var _fx_cantidad: int = 1
+# Los puntos de suelo donde van a caer los bichos (uno por celda del tramo). En un parto normal es
+# uno solo; en un brote, varios (el tramo de pared que ha reventado).
+var _fx_suelos: Array = []
+# ¿El parto en curso es un BROTE? Si lo es, los bichos salen EMBISTIENDO, no a merodear.
+var _fx_brote: bool = false
 
 const _FX_SCRIPT := preload("res://scripts/world/wall_birth_fx.gd")
+const Enemy := preload("res://scripts/actors/enemy/enemy.gd")
 
 
 func _ready() -> void:
@@ -137,57 +144,100 @@ func _intentar_parto() -> void:
 	if sitio.is_empty():
 		return            # todas las celdas estan pegadas al jugador: esperamos
 
-	var cantidad: int = 1
 	var brote: bool = brotes_activos and randf() < prob_brote
-	if brote:
-		cantidad = randi_range(brote_min, brote_max)
+	var cantidad: int = brote_tamano() if brote else 1
 	engendrar(sitio, cantidad, brote)
 
 
 # Arranca un parto en una celda concreta. Publico para poder forzarlo (brote de prueba
 # desde una tecla de dev).
+# Un parto NORMAL abre una celda y pare uno. Un BROTE abre un TRAMO GORDO de pared (varias celdas
+# contiguas) y pare uno por celda, todos EMBISTIENDO: ese es el momento de "esto se ha torcido".
 func engendrar(sitio: Dictionary, cantidad: int, brote: bool = false) -> void:
 	if _fx != null or piso == null:
 		return
 	var lado: float = float(DungeonGenerator.CELDA)
+	# Las celdas que se abren: una sola, o un tramo de pared del tamaño del brote.
+	var celdas: Array = [sitio]
+	if brote and cantidad > 1:
+		celdas = _tramo_de_pared(sitio, cantidad)
+	# Los centros (en mundo) de cada celda de ROCA, para el aviso; y de cada celda de SUELO, para
+	# donde caen los bichos.
+	var paredes_px: Array = []
+	_fx_suelos = []
+	for c in celdas:
+		paredes_px.append(piso.gen.centro_px(c["pared"]))
+		_fx_suelos.append(piso.gen.centro_px(c["suelo"]))
+
 	_fx = _FX_SCRIPT.new()   # el script extiende Node2D: sale ya siendo un Node2D
-	_fx.position = piso.gen.centro_px(sitio["pared"])
+	_fx.position = paredes_px[0]
 	add_child(_fx)
 	# El brote avisa mas y tiembla mas: es la unica pista de que viene algo gordo.
 	var dur: float = aviso_dur * (2.2 if brote else 1.0)
 	var amp: float = aviso_amp * (3.0 if brote else 1.0)
 	var col: Color = Color(1.0, 0.35, 0.15) if brote else Color(0.85, 0.35, 0.30)
-	_fx.iniciar(lado, dur, amp, col)
+	_fx.iniciar_tramo(lado, dur, amp, col, paredes_px)
 
 	_fx_t = dur
-	_fx_suelo = piso.gen.centro_px(sitio["suelo"])
-	_fx_cantidad = maxi(1, cantidad)
+	_fx_brote = brote
 
 
-# Se acabo el aviso: la pared se abre y salen los bichos.
+# El TRAMO de pared que revienta un brote: a partir de una celda de parto, se extiende por las
+# celdas de parto CONTIGUAS (pegadas de lado) hasta juntar 'n'. Es un cacho conexo de muro, no
+# celdas sueltas por la sala. Si la pared no da para tanto (una esquina), se para donde pueda: el
+# brote sale igual, solo que mas apretado.
+func _tramo_de_pared(inicio: Dictionary, n: int) -> Array:
+	var por_pared: Dictionary = {}   # Vector2i de roca -> su parto {pared, suelo}
+	for p in partos:
+		por_pared[p["pared"]] = p
+	var out: Array = [inicio]
+	var usados: Dictionary = {inicio["pared"]: true}
+	var frontera: Array = [inicio["pared"]]
+	while out.size() < n and not frontera.is_empty():
+		var actual: Vector2i = frontera.pop_front()
+		for d in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+			var vec: Vector2i = actual + d
+			if por_pared.has(vec) and not usados.has(vec):
+				usados[vec] = true
+				out.append(por_pared[vec])
+				frontera.append(vec)
+				if out.size() >= n:
+					break
+	return out
+
+
+# Se acabo el aviso: la pared se abre y salen los bichos, uno por celda del tramo.
 func _abrir_pared() -> void:
 	if _fx != null:
 		_fx.queue_free()
 		_fx = null
 
-	for i in range(_fx_cantidad):
-		# Con varios, se abren un poco en abanico para no nacer uno encima de otro.
-		var pos: Vector2 = _fx_suelo
-		if i > 0:
-			var ang: float = randf() * TAU
-			pos += Vector2(cos(ang), sin(ang)) * randf_range(16.0, 40.0)
-		if _nacer(pos) == null:
-			break
+	var nacidos: int = 0
+	for suelo in _fx_suelos:
+		# El brote se SALTA el aforo de la sala (max_vivos): es un evento, no el goteo normal. El
+		# tope del PISO si se respeta (lo mira _nacer via piso.hay_sitio), que es el que cuida el
+		# rendimiento. Un parto normal si obedece el aforo.
+		var e = _nacer(suelo, true, _fx_brote)
+		if e == null:
+			break            # tope del piso: no cabe ninguno mas
+		nacidos += 1
+		# En un brote NO se merodea: se sale directo a por el grupo.
+		if _fx_brote and e.has_method("nacer_embistiendo"):
+			e.nacer_embistiendo()
 
-	print("[parto] zona ", zona_idx, " (", tipo, ") -> ", _fx_cantidad,
+	var etiqueta: String = "BROTE" if _fx_brote else "parto"
+	print("[", etiqueta, "] zona ", zona_idx, " (", tipo, ") -> ", nacidos,
 		" | vivos en la zona ", _vivos.size(), "/", max_vivos)
+	_fx_brote = false
 
 
 # Crea UN bicho en 'pos' y lo suelta a merodear POR SU ZONA (no en un circulo alrededor
 # del sitio donde nacio, que es lo que los dejaba pegados a la pared que los pario).
 # Devuelve null si no cabe (tope de la zona, tope del piso o tabla vacia).
-func _nacer(pos: Vector2, reciclar: bool = true):
-	if _vivos.size() >= max_vivos or piso == null or not piso.hay_sitio(reciclar):
+func _nacer(pos: Vector2, reciclar: bool = true, saltar_aforo: bool = false):
+	if piso == null or not piso.hay_sitio(reciclar):
+		return null
+	if not saltar_aforo and _vivos.size() >= max_vivos:
 		return null
 	var data: EnemyData = piso.elegir_enemigo()
 	if data == null:
@@ -258,10 +308,11 @@ func _ocupado(p: Vector2) -> bool:
 	return false
 
 
-# Fuerza un parto YA (tecla de dev). n <= 0 = brote del tamaño configurado.
-func forzar_parto(n: int = 1) -> void:
-	var sitio: Dictionary = _elegir_celda()
-	if sitio.is_empty():
-		return
-	var brote: bool = n > 1
-	engendrar(sitio, maxi(1, n), brote)
+# Provoca un BROTE en una celda de parto CONCRETA (la elige el piso: la que te pilla a la vista).
+# Lo llama el piso, tanto desde la tecla de dev como desde el medidor de alboroto. El tamaño es el
+# de siempre (tu grupo + 1). Devuelve false si ya hay un parto en curso en esta zona.
+func brotar_en(sitio: Dictionary) -> bool:
+	if _fx != null or sitio.is_empty():
+		return false
+	engendrar(sitio, brote_tamano(), true)
+	return true

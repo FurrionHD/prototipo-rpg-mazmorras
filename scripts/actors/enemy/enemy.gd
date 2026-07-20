@@ -441,6 +441,15 @@ func atacado_por_jugador() -> void:
 	_start_combat(false)
 
 
+# Nace de un BROTE: en vez de ponerse a merodear, sale directo A POR TI. Es lo que convierte el
+# brote en un susto de verdad: revienta un cacho de pared y te caen encima cuatro a la vez. El
+# primero que te alcance recluta a los que salieron con el (vecinos()) y la pelea es en grupo.
+func nacer_embistiendo() -> void:
+	_objetivo = _aliado_mas_cercano()
+	if _objetivo != null:
+		_state = State.CHASE
+
+
 # True si este bicho es el BOSS de su piso (lo pone DungeonFloor al colocarlo). Un boss no lo
 # recicla el spawner y, al morir, abre el piso: bajada, salida al pueblo y atajo desde el
 # pueblo (ver Game.marcar_boss_derrotado).

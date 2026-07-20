@@ -517,6 +517,66 @@ var tiempo_mazmorra: float = 0.0
 # donde no hay piso vivo del que leerlo. PROVISIONAL -> Excel.
 const RESPAWN_SEGUNDOS := 300.0
 
+# ============================================================
+#  MEDIDOR DE ALBOROTO (dispara los BROTES de pared)
+#  La mazmorra te "oye". Todo lo ruidoso -correr, pelear, picar- llena un medidor oculto; ir en
+#  sigilo o parado lo baja. Cuando se llena, revienta un cacho de pared cerca de ti y salen varios
+#  bichos EMBISTIENDO (ver DungeonFloor.provocar_brote). Es una MECANICA, no un dado: puedes
+#  provocarlo (armar escandalo para forzar la pelea gorda) o esquivarlo (ir de puntillas).
+#
+#  Es estado de EXPEDICION: no va al save, se reinicia al morir o volver al pueblo. Los numeros son
+#  de PLAYTEST -> Excel. Solo corre en la mazmorra (en el pueblo no hay paredes que paran).
+# ============================================================
+var alboroto: float = 0.0
+const ALBOROTO_MAX := 100.0
+const ALBOROTO_CORRER := 6.0        # por segundo corriendo
+const ALBOROTO_SIGILO := -3.0       # por segundo en sigilo o parado (baja)
+const ALBOROTO_ANDAR := 0.0         # andar normal no suma ni resta
+const ALBOROTO_COMBATE := 25.0      # terminar un combate
+const ALBOROTO_KILL := 5.0          # por cada bicho abatido
+const ALBOROTO_RECOLECTAR := 12.0   # picar / talar / recolectar (al cerrar el minijuego)
+# Tras un brote, el medidor no puede volver a dispararse en este tiempo (evita encadenarlos).
+const ALBOROTO_ENFRIAMIENTO := 60.0
+var _alboroto_enfriando: float = 0.0
+
+
+# El movimiento del jugador llama a esto cada frame con su modo (0 sigilo, 1 andar, 2 correr).
+# Sube o baja el medidor segun el ruido y, si se llena, dispara el brote.
+func tick_alboroto(delta: float, movement_mode: int) -> void:
+	if en_pueblo():
+		return
+	if _alboroto_enfriando > 0.0:
+		_alboroto_enfriando -= delta
+	var ritmo: float = ALBOROTO_ANDAR
+	if movement_mode == 2:
+		ritmo = ALBOROTO_CORRER
+	elif movement_mode == 0:
+		ritmo = ALBOROTO_SIGILO
+	sumar_alboroto(ritmo * delta)
+
+
+# Suma (o resta) ruido al medidor y dispara el brote si se llena. Publico: lo llaman el combate y
+# los minijuegos, no solo el movimiento.
+func sumar_alboroto(cuanto: float) -> void:
+	if en_pueblo():
+		return
+	alboroto = clampf(alboroto + cuanto, 0.0, ALBOROTO_MAX)
+	if alboroto >= ALBOROTO_MAX and _alboroto_enfriando <= 0.0:
+		_disparar_brote_por_alboroto()
+
+
+func _disparar_brote_por_alboroto() -> void:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null or not piso.has_method("provocar_brote"):
+		return
+	# Solo se gasta el medidor si el brote SALE (puede fallar si no tienes una pared a la vista):
+	# asi el escandalo no se desperdicia en mitad de una sala abierta, salta en cuanto te arrimes.
+	if piso.provocar_brote():
+		alboroto = 0.0
+		_alboroto_enfriando = ALBOROTO_ENFRIAMIENTO
+		print("[alboroto] ¡el jaleo ha llamado a algo! Brote disparado.")
+
+
 # COOLDOWNS de habilidades que VIAJAN entre combates (KAN-57 rebalance): un nuke usado en una
 # pelea sigue en cooldown en la siguiente, no se resetea al empezar cada combate. { AbilityData:
 # turnos_restantes }. Baja 1 por cada combate que EMPIEZAS (ademas de por turno dentro). Se pone
@@ -540,6 +600,10 @@ func pj_de_combatant(c) -> PersonajeData:
 
 func olvidar_mazmorra() -> void:
 	memoria_pisos.clear()
+	# El alboroto es de esta expedicion: al volver al pueblo (o morir) se reinicia, no arrastras el
+	# jaleo de la bajada anterior a la siguiente.
+	alboroto = 0.0
+	_alboroto_enfriando = 0.0
 	# mazmorra_persistente NO se toca: los nodos agotados y las zonas vistas duran mas que una
 	# expedicion (esa es justo la gracia). El reloj tampoco se reinicia.
 
@@ -5707,6 +5771,9 @@ func _cerrar_recoleccion(nodo) -> void:
 			piso.marcar_agotado(nodo.celda)
 		if nodo.has_method("agotar"):
 			nodo.agotar()
+		# ALBOROTO: picar y talar suenan. Menos que pelear, pero un rato dando golpes a una veta
+		# tambien te delata y ayuda a cebar un brote.
+		sumar_alboroto(ALBOROTO_RECOLECTAR)
 	if is_instance_valid(_active_layer):
 		_active_layer.queue_free()
 	_active_layer = null
@@ -5848,6 +5915,10 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		var hp: float = float(enemy_hp_left[i]) if i < enemy_hp_left.size() else -1.0
 		n.reanudar_tras_combate(hp)
 	_active_enemies.clear()
+
+	# ALBOROTO: una pelea mete ruido, y mas cuanto mas grande. El fragor llama a la pared: pelear
+	# es la forma mas directa de provocar un brote (y de que se te acumule si encadenas combates).
+	sumar_alboroto(ALBOROTO_COMBATE + ALBOROTO_KILL * float(muertos.size()))
 
 	# Quitamos la capa del combate (con la pantalla dentro).
 	if is_instance_valid(_active_layer):

@@ -1146,28 +1146,52 @@ func test_proporciones(tiradas: int = 200) -> void:
 	print("[dev] esperado -> ", spawn_table.resumen(Game.current_floor))
 
 
-# Fuerza un brote en la zona que tengas mas cerca. Los brotes estan APAGADOS en juego
-# (aun no tienen proposito y sin balancear son una masacre): esto es para poder verlos.
-func dev_brote_cercano() -> void:
+# A que distancia del jugador puede reventar la pared de un brote. Ni encima (no naces dentro de
+# el) ni tan lejos que no lo veas: un brote que no ves no es un susto, es poblacion de mas.
+const BROTE_VISTA_MIN := 120.0
+const BROTE_VISTA_MAX := 460.0
+
+
+# Provoca un BROTE en la mejor pared a la vista del jugador. Lo usa la tecla de dev (B) y, cuando
+# se llene, el medidor de alboroto.
+#
+# No basta con la celda mas cercana: puede ser un saliente suelto de roca que solo pare uno, y el
+# brote se queda en nada. Se busca la mas cercana (dentro del rango de vista) que ademas de para un
+# TRAMO GORDO -al menos el tamaño del brote-; si ninguna llega, la que mas de. Asi la pared que
+# revienta siempre suelta el grupo entero, no un bicho triste.
+func provocar_brote() -> bool:
 	var player := get_tree().get_first_node_in_group("player")
 	if not (player is Node2D) or _zonas == null:
-		return
+		return false
 	var pj: Vector2 = (player as Node2D).global_position
 
-	var mejor = null
-	var best: float = INF
+	var mejor_zona = null
+	var mejor_celda: Dictionary = {}
+	var mejor_score: float = -1.0
 	for hijo in _zonas.get_children():
-		var zona = hijo   # sin tipar: asi GDScript deja llamar a lo suyo (partos, brote_min...)
-		if zona.partos.is_empty():
-			continue
-		# Distancia a la celda de parto mas cercana de esa zona.
+		var zona = hijo   # sin tipar: asi GDScript deja llamar a lo suyo (partos, brotar_en...)
+		var objetivo: int = zona.brote_tamano()
 		for p in zona.partos:
 			var d: float = pj.distance_to(gen.centro_px(p["suelo"]))
-			if d < best:
-				best = d
-				mejor = zona
-	if mejor == null:
-		return
-	var n: int = randi_range(mejor.brote_min, mejor.brote_max)
-	print("[dev] BROTE forzado en la zona ", mejor.zona_idx, " -> ", n, " bichos")
-	mejor.forzar_parto(n)
+			if d < BROTE_VISTA_MIN or d > BROTE_VISTA_MAX:
+				continue
+			# Score: prima el tramo (que quepa el brote entero) y, a igualdad, la cercania. El
+			# tramo se capa al objetivo -mas celdas no dan mas bichos- y la distancia va como un
+			# desempate pequeño (negativo: mas cerca, mejor).
+			var tramo: int = mini(objetivo, zona._tramo_de_pared(p, objetivo).size())
+			var score: float = float(tramo) * 1000.0 - d
+			if score > mejor_score:
+				mejor_score = score
+				mejor_zona = zona
+				mejor_celda = p
+	if mejor_zona == null:
+		print("[brote] no hay pared a la vista para reventar (acercate a un muro)")
+		return false
+	print("[brote] revienta la pared de la zona ", mejor_zona.zona_idx,
+		" a ", roundi(pj.distance_to(gen.centro_px(mejor_celda["suelo"]))), " px")
+	return mejor_zona.brotar_en(mejor_celda)
+
+
+# Alias de la tecla de dev (B): mismo brote, nombre viejo por si algo lo llama.
+func dev_brote_cercano() -> void:
+	provocar_brote()

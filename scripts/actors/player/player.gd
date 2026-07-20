@@ -217,6 +217,10 @@ func _physics_process(delta: float) -> void:
 	velocity = direction * speed
 	move_and_slide()
 
+	# ALBOROTO: la mazmorra te oye. Correr mete ruido (llena el medidor de los brotes), ir en
+	# sigilo lo baja. El modo ya esta calculado arriba (0 sigilo, 1 andar, 2 correr).
+	Game.tick_alboroto(delta, movement_mode)
+
 	# --- Excelia: subida de habilidades por uso (interno; se aplica en el hogar) ---
 	var moved: float = global_position.distance_to(_last_pos)
 	_last_pos = global_position
