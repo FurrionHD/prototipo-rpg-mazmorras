@@ -276,10 +276,14 @@ var memoria_pisos: Dictionary = {}
 # memoria_pisos.has(piso), y si dejara aqui la entrada del piso, dejaria de POBLARSE de bichos.
 var mazmorra_persistente: Dictionary = {}
 
-# Reloj de EXPEDICION: solo corre mientras juegas (el arbol se pausa en combate, asi que no
-# cuenta el tiempo de los turnos). Lo tiquea DungeonFloor. No se puede trampear cerrando el
-# juego (se congela) ni tocando el reloj del PC (no mira la hora real). Persiste en el save.
+# Reloj de EXPEDICION: corre mientras estas dentro de la mazmorra, INCLUIDO el tiempo de combate
+# y extraccion. Solo lo para un menu abierto. Lo tiquea Game._process (ver mas abajo).
 var tiempo_mazmorra: float = 0.0
+
+# Tiempo de JUEGO que tarda un nodo de recoleccion picado en reaparecer (~5 min). Vive AQUI y no
+# en DungeonFloor porque el mapa (tecla M) tambien lo necesita, y el mapa se abre en el PUEBLO,
+# donde no hay piso vivo del que leerlo. PROVISIONAL -> Excel.
+const RESPAWN_SEGUNDOS := 300.0
 
 # COOLDOWNS de habilidades que VIAJAN entre combates (KAN-57 rebalance): un nuke usado en una
 # pelea sigue en cooldown en la siguiente, no se resetea al empezar cada combate. { AbilityData:
@@ -354,7 +358,22 @@ func capturar_mapa() -> void:
 			continue
 		if not vistas.has(gen.zona_en(nodo.celda)):
 			continue
-		vivos.append({"cell": nodo.celda, "color": nodo.material_data.color})
+		# El 'tipo' es lo que le deja al mapa dibujar una marca distinta por veta/planta/madera.
+		vivos.append({"cell": nodo.celda, "color": nodo.material_data.color, "tipo": nodo.tipo})
+	# AGOTADOS: no basta con el sello de tiempo. Cuando a una celda le vence el respawn, el mapa
+	# tiene que poder pintarla como nodo VIVO — pero el nodo no existia al cartografiar, asi que
+	# no esta en 'vivos'. Sin color ni tipo la celda se quedaba sin dibujar de ninguna forma:
+	# material listo para picar que no aparecia en el plano. Se los sacamos al piso vivo.
+	var agotados_snap: Dictionary = {}
+	for celda in (persist["agotados"] as Dictionary):
+		if not vistas.has(gen.zona_en(celda)):
+			continue
+		var e: Dictionary = {"t": float(persist["agotados"][celda])}
+		var sitio: Dictionary = piso.sitio_de(celda)
+		if not sitio.is_empty() and sitio["material"] != null:
+			e["color"] = (sitio["material"] as MaterialData).color
+			e["tipo"] = int(sitio["tipo"])
+		agotados_snap[celda] = e
 	# ESCALERAS y SALIDAS al pueblo. Misma regla de niebla que los nodos: solo las de zonas
 	# EXPLORADAS (si no, el mapa te chiva donde esta la bajada de un piso que no has recorrido).
 	# Ninguna guarda su celda: se plantan por pixeles, asi que se convierte aqui (centro_px es la
@@ -384,7 +403,7 @@ func capturar_mapa() -> void:
 		"vivos": vivos,
 		"escaleras": escaleras,
 		"salidas": salidas,
-		"agotados": (persist["agotados"] as Dictionary).duplicate(),
+		"agotados": agotados_snap,
 	}
 	print("[mapa] trabajo al dia: piso ", current_floor, " (", vivos.size(), " nodos, ",
 		escaleras.size(), " escaleras, ", salidas.size(), " salidas, ", suelo.size(), " celdas)")
@@ -866,6 +885,22 @@ func importar_partida(d: SaveData) -> void:
 	for i in range(mini(d.meta_items.size(), d.meta_datos.size())):
 		item_meta[d.meta_items[i]] = (d.meta_datos[i] as Dictionary).duplicate(true)
 
+	# MIGRACION de la capacidad base de las mochilas. crear_item() hace base.duplicate(), asi que
+	# cada mochila fabricada lleva su 'capacidad' CONGELADA dentro y se serializa asi al save: sin
+	# esto, las mochilas de una partida vieja se quedarian con el valor con el que nacieron por
+	# mucho que subamos el del .tres. Se les re-clava el de fabrica (el tier y la rareza siguen
+	# saliendo de item_meta, que no se toca).
+	var mo_base: BackpackData = mochila_base()
+	if mo_base != null:
+		for m in owned_mochilas:
+			if m is BackpackData:
+				(m as BackpackData).capacidad = mo_base.capacidad
+		# La equipada deberia ser una de owned_mochilas (Godot conserva la identidad al cargar),
+		# pero si alguna vez no lo fuera se quedaria con la capacidad vieja justo en la unica
+		# mochila que se nota. Un renglon mas y deja de importar.
+		if equipped_mochila != null:
+			equipped_mochila.capacidad = mo_base.capacidad
+
 	# Ya con la meta rearmada: la capacidad de la mochila sale de su tier y su rareza.
 	extra_capacity = capacidad_mochila()
 
@@ -930,9 +965,11 @@ func stamina_cargada() -> float:
 
 
 # --- MUERTE ---
-# Que fraccion de la BOLSA se queda en la mazmorra al caer. Alto a proposito: es lo que hace
-# que "¿subo a vender o bajo un piso mas?" sea una decision y no un tramite.
-const MUERTE_PERDIDA := 0.8
+# Que fraccion de la BOLSA se queda en la mazmorra al caer. Sigue siendo alto: es lo que hace que
+# "¿subo a vender o bajo un piso mas?" sea una decision y no un tramite. Bajado del 0.8 al 0.7
+# tras el playtest: perder cuatro de cada cinco cosas borraba la expedicion entera y desanimaba a
+# bajar, que es justo lo contrario de lo que tiene que provocar.
+const MUERTE_PERDIDA := 0.7
 
 # Aviso pendiente de enseñar al aparecer en el pueblo (el jugador acaba de pulsar
 # "Continuar" para salir del combate: nada que se pinte en esa pantalla lo va a leer).
@@ -943,7 +980,7 @@ var mensaje_muerte: String = ""
 var _muriendo: bool = false
 
 
-# Has caido en la mazmorra: pierdes el 80% de lo que llevabas encima, despiertas en el pueblo
+# Has caido en la mazmorra: pierdes MUERTE_PERDIDA de lo que llevabas encima, despiertas en el pueblo
 # curado y la expedicion se acaba (la mazmorra se repuebla). El DINERO, el EQUIPO y lo que ya
 # tuvieras guardado en el Hogar no se tocan: el castigo es el botin de ESTA bajada.
 func morir_jugador() -> void:
@@ -978,8 +1015,8 @@ func morir_jugador() -> void:
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
 
 
-# Descarta el 80% de una lista de la bolsa: la CANTIDAD es fija (round(n * 0.8), asi es
-# predecible y se puede contar), pero CUALES se pierden es al azar. Devuelve cuantos cayeron.
+# Descarta MUERTE_PERDIDA de una lista de la bolsa: la CANTIDAD es fija (round(n * la fraccion),
+# asi es predecible y se puede contar), pero CUALES se pierden es al azar. Devuelve cuantos cayeron.
 func _perder_de(lista: Array) -> int:
 	var n: int = lista.size()
 	if n == 0:
@@ -1260,6 +1297,11 @@ var ayuda_mostrada: bool = false
 
 
 func _ready() -> void:
+	# El reloj de expedicion (ver _process) tiene que seguir corriendo con el arbol PARADO: el
+	# combate y la extraccion pausan el arbol, y ese tiempo SI cuenta. Sin esto, un autoload
+	# hereda "pausable" y se congelaria igual que el resto.
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
 	# Contador de FPS / frame time (F3). Vive AQUI y no en el HUD porque el HUD lo crea el
 	# jugador y desaparece en los menus, y porque tiene que verse por encima del combate y de
 	# los minijuegos, que es justo donde hay que medir.
@@ -1283,6 +1325,23 @@ func _ready() -> void:
 			c.categoria = randi_range(1, 3)
 			c.calidad = Cristal.Calidad.INTACTO
 			crystals.append(c)
+
+
+# RELOJ DE EXPEDICION. Corre mientras estas DENTRO de la mazmorra, y cuenta tambien el tiempo de
+# los COMBATES y las EXTRACCIONES (son juego, no pausa). Lo unico que lo para es un MENU abierto
+# (inventario, mapa, forja...): ahi el jugador no esta jugando, y dejarlo correr convertiria
+# "abrir el inventario y esperar" en una forma de farmear respawns.
+#   - Vivia en DungeonFloor._process, que se congela con el arbol: por eso 5 min de reloj eran
+#     casi 10 de reloj de pared (todo el rato de pelea no contaba).
+#   - No se puede trampear cerrando el juego (se congela) ni tocando el reloj del PC (no mira la
+#     hora real). Persiste en el save.
+func _process(delta: float) -> void:
+	if inventory_open:
+		return
+	if get_tree().get_first_node_in_group("dungeon_floor") == null:
+		return   # en el pueblo el reloj no corre: la mazmorra no te espera con la cuenta atras
+	tiempo_mazmorra += delta
+
 
 # Bonus del CUCHILLO de extraccion (el cristal del cadaver). Placeholder hasta tener
 # sistema de equipo: la herramienta rellenara estos valores. OJO: esto es la extraccion,
@@ -1909,17 +1968,19 @@ var base_capacity: float = 25.0        # zurron de serie
 var extra_capacity: float = 0.0
 
 # --- MOCHILA (slot propio; no es equipo de combate) ---
-# La UNICA cosa que sube la capacidad de carga. La basica suma +15 sobre los 25 del zurron;
+# La UNICA cosa que sube la capacidad de carga. La basica suma +25 sobre los 25 del zurron;
 # el TIER y la RAREZA la escalan. No se mejora con nucleos: los nucleos son para matar y
 # aguantar, no para llevar mas trastos.
 var equipped_mochila: BackpackData = null
 
 # Cuanto suma ESTA mochila, con su tier y su rareza. El TIER es el eje gordo (bajar a por metal
-# mejor tiene que notarse), y el salto se ACELERA: sobre la basica de +15, un T2 da +25 y un T3
-# +40. Es una tabla y no una formula a proposito: los saltos son una decision de diseño (15/25/40),
+# mejor tiene que notarse), y el salto se ACELERA: sobre la basica de +25, un T2 da +42 y un T3
+# +67. Es una tabla y no una formula a proposito: los saltos son una decision de diseño (25/42/67),
 # no el resultado de una curva que haya que adivinar. Nada de tier_mult del combate, que es
 # geometrico y dispararia la carga.
-const MOCHILA_CAPACIDAD_TIER := [15.0, 25.0, 40.0]
+# El PRIMER valor tiene que ser el mismo que la 'capacidad' de mochila_basica.tres: de ahi salen
+# los factores de tier (T1 = x1 por definicion), y si se descuadran, todas las mochilas mienten.
+const MOCHILA_CAPACIDAD_TIER := [25.0, 42.0, 67.0]
 
 # Factor del tier respecto a la mochila base: sale de la tabla de arriba, nunca a mano.
 func mochila_tier_factor(tier: int) -> float:
@@ -4783,13 +4844,18 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 	var data: EnemyData = corpse.data
 	var caidos: Array[MaterialItem] = []
 
-	var chance: float = 1.0 if dev_force_drop else data.drop_chance
+	# Factor por PROFUNDIDAD: el mismo bicho rinde menos en los pisos donde acaba de aparecer y
+	# llega al 100% mas abajo. Es lo que hace que bajar a por SU material compense. Afecta a las
+	# dos tiradas por igual, y los jefes salen a 1.0 solos (ver EnemyData.drop_factor_piso).
+	var f_piso: float = data.drop_factor_piso(current_floor)
+
+	var chance: float = 1.0 if dev_force_drop else data.drop_chance * f_piso
 	if data.drop_material != null and randf() < chance:
 		var cuantos: int = randi_range(maxi(1, data.drop_cantidad_min), maxi(1, data.drop_cantidad_max))
 		for _i in range(cuantos):
 			caidos.append(MaterialItem.crear(data.drop_material, calidad))
 
-	var chance_n: float = 1.0 if dev_force_drop else data.nucleo_chance
+	var chance_n: float = 1.0 if dev_force_drop else data.nucleo_chance * f_piso
 	if data.nucleo != null and randf() < chance_n:
 		caidos.append(MaterialItem.crear(data.nucleo, calidad))
 
@@ -5062,6 +5128,42 @@ func dev_curva_recoleccion(pisos: Array = [1, 3, 5, 8, 13]) -> void:
 					"FUE" if es_veta else "DES", dif * base]
 		print(linea)
 	current_floor = piso_real
+
+
+# ============================================================
+#  DEV: la curva de DROPS por profundidad, sin farmear 200 bichos.
+#  Imprime, para cada enemigo, la probabilidad EFECTIVA de material y de nucleo en cada piso en
+#  el que aparece (ya con el factor de EnemyData.drop_factor_piso aplicado). Es la forma de ver
+#  la curva entera de un vistazo y pegarla en el Excel; contar drops a mano con tiradas del 10%
+#  no distingue un balance malo de una mala racha.
+#  Las probabilidades son POR CADAVER EXTRAIDO: si no haces la extraccion, no cae nada.
+# ============================================================
+func dev_curva_drops(pisos: Array = [1, 2, 3, 4, 6, 8, 10, 12]) -> void:
+	var dir := "res://scenes/actors/enemy/"
+	var nombres: PackedStringArray = DirAccess.get_files_at(dir)
+	nombres.sort()
+	print("[dev] curva de drops (%% por cadaver EXTRAIDO; '-' = no aparece en ese piso)")
+	var cab: String = "%-20s |" % "enemigo"
+	for p in pisos:
+		cab += " piso %-2d  |" % int(p)
+	print(cab)
+	for f in nombres:
+		if not f.ends_with(".tres"):
+			continue
+		var data: EnemyData = load(dir + f) as EnemyData
+		if data == null or (data.drop_material == null and data.nucleo == null):
+			continue
+		var linea: String = "%-20s |" % f.get_basename()
+		for p in pisos:
+			var piso: int = int(p)
+			if piso < data.drop_piso_debut:
+				linea += "    -    |"
+				continue
+			var fp: float = data.drop_factor_piso(piso)
+			var mat: float = (data.drop_chance if data.drop_material != null else 0.0) * fp
+			var nuc: float = (data.nucleo_chance if data.nucleo != null else 0.0) * fp
+			linea += " %3.0f/%-3.0f |" % [mat * 100.0, nuc * 100.0]
+		print(linea, "   (mat/nucleo, debut ", data.drop_piso_debut, " pleno ", data.drop_piso_pleno, ")")
 
 
 func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float = -1.0,

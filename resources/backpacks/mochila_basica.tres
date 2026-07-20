@@ -5,6 +5,6 @@
 [resource]
 script = ExtResource("1")
 nombre = "Mochila"
-capacidad = 15.0
+capacidad = 25.0
 valor_base = 400
 descripcion = "Un fardo de cuero con tirantes y hebillas. No es gran cosa, pero la diferencia entre volver con el botín y dejarlo tirado en un pasillo suele ser esto."

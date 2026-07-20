@@ -28,6 +28,9 @@ var tipo: int = Tipo.VETA
 var material_data: MaterialData = null
 var celda: Vector2i = Vector2i.ZERO
 var agotado: bool = false
+# Nace con un fundido de entrada en vez de aparecer de golpe. Lo pone DungeonFloor cuando el nodo
+# viene del RESPAWN en vivo (puede brotar delante de tus narices); al generar el piso, no.
+var brotando: bool = false
 
 var _rect: ColorRect = null
 var _lbl: Label = null
@@ -36,6 +39,10 @@ var _lbl: Label = null
 func _ready() -> void:
 	add_to_group("recolectable")
 	_crear_aspecto()
+	# Espejo de agotar(): el que vuelve por respawn entra con el mismo fundido con el que se fue.
+	if brotando:
+		modulate.a = 0.0
+		create_tween().tween_property(self, "modulate:a", 1.0, 0.45)
 
 
 func es_veta() -> bool:

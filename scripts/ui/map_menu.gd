@@ -11,6 +11,10 @@
 
 extends CanvasLayer
 
+# Solo por el enum Tipo (VETA/PLANTA/MADERA) con el que se elige la forma de cada marca.
+# resource_node.gd no tiene class_name, asi que hay que precargar el script para llegar a el.
+const ResourceNode := preload("res://scripts/world/resource_node.gd")
+
 const MARGEN := 60.0        # px de borde alrededor del mapa
 const COLOR_FONDO := Color(0.04, 0.04, 0.06, 0.94)
 const COLOR_SUELO := Color(0.24, 0.24, 0.30)      # zona explorada
@@ -152,14 +156,22 @@ func _dibujar() -> void:
 
 	# 2) NODOS que estaban VIVOS al cartografiar: color del material (congelado en la libreta).
 	for n in (snap["vivos"] as Array):
-		_punto(offset, celda_px, n["cell"], n["color"], 0.42)
+		_marca(offset, celda_px, n["cell"], n["color"], int(n.get("tipo", -1)), 0.42)
 
-	# 3) NODOS AGOTADOS al cartografiar: apagados + cuenta atras hasta el respawn.
+	# 3) NODOS AGOTADOS al cartografiar: apagados + cuenta atras hasta el respawn. Y cuando la
+	# cuenta atras VENCE se pintan como VIVOS: el respawn corre en tiempo real, asi que a esa hora
+	# el nodo ya ha brotado de verdad aunque la libreta se congelara con el agotado. Antes aqui
+	# habia un 'continue' y la celda desaparecia del plano: material listo que no salia marcado.
 	var font: Font = ThemeDB.fallback_font
 	for celda in agotados:
-		var falta: float = RESPAWN() - (Game.tiempo_mazmorra - float(agotados[celda]))
+		var e = agotados[celda]
+		# Saves viejos guardaban solo el sello (float); los nuevos, un dict con color y tipo.
+		var sello: float = float(e["t"]) if e is Dictionary else float(e)
+		var falta: float = Game.RESPAWN_SEGUNDOS - (Game.tiempo_mazmorra - sello)
 		if falta <= 0.0:
-			continue   # ya le toca volver
+			if e is Dictionary and e.has("color"):
+				_marca(offset, celda_px, celda, e["color"], int(e.get("tipo", -1)), 0.42)
+			continue
 		var p: Vector2 = offset + (Vector2(celda) + Vector2(0.5, 0.5)) * celda_px
 		_lienzo.draw_circle(p, celda_px * 0.30, Color(0.4, 0.4, 0.42, 0.7))
 		_lienzo.draw_string(font, p + Vector2(celda_px * 0.4, -celda_px * 0.4),
@@ -186,12 +198,22 @@ func _hito(offset: Vector2, celda_px: float, font: Font, celda: Vector2i, color:
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
 
 
-func _punto(offset: Vector2, celda_px: float, celda: Vector2i, color: Color, radio_frac: float) -> void:
+# La marca de un nodo de recoleccion. El COLOR sigue siendo el del material (como antes), pero
+# ahora la FORMA dice de que tipo es, que es lo que no se podia leer de un vistazo: tres circulos
+# de colores parecidos no te dicen cual era la veta. Formas con primitivas y no glifos de fuente
+# a proposito: ThemeDB.fallback_font no garantiza ningun simbolo bonito.
+#   VETA = rombo (un bulto en la roca) · PLANTA = circulo (el manojo) · MADERA = cuadrado (tocon)
+# tipo -1 = snapshot viejo sin el dato: circulo, como se dibujaba antes.
+func _marca(offset: Vector2, celda_px: float, celda: Vector2i, color: Color, tipo: int,
+		radio_frac: float) -> void:
 	var p: Vector2 = offset + (Vector2(celda) + Vector2(0.5, 0.5)) * celda_px
-	_lienzo.draw_circle(p, celda_px * radio_frac, color)
-
-
-# El respawn vive en DungeonFloor; se lee de alli si hay piso vivo (en el pueblo, la reserva).
-func RESPAWN() -> float:
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	return piso.RESPAWN_SEGUNDOS if piso != null else 600.0
+	var r: float = celda_px * radio_frac
+	match tipo:
+		ResourceNode.Tipo.VETA:
+			_lienzo.draw_colored_polygon(PackedVector2Array([
+				p + Vector2(0, -r), p + Vector2(r, 0), p + Vector2(0, r), p + Vector2(-r, 0),
+			]), color)
+		ResourceNode.Tipo.MADERA:
+			_lienzo.draw_rect(Rect2(p - Vector2(r, r) * 0.8, Vector2(r, r) * 1.6), color)
+		_:
+			_lienzo.draw_circle(p, r, color)

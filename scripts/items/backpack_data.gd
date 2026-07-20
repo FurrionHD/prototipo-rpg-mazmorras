@@ -18,8 +18,11 @@ class_name BackpackData
 @export var nombre: String = "Mochila"
 @export_multiline var descripcion: String = ""
 
-# Carga que SUMA al zurron de serie (Game.base_capacity = 25). La basica: +15.
-@export var capacidad: float = 15.0
+# Carga que SUMA al zurron de serie (Game.base_capacity = 25). La basica: +25.
+# OJO: este default lo PISA el .tres (resources/backpacks/mochila_basica.tres). Si lo cambias
+# aqui, cambialo tambien alli o no servira de nada. Y ademas debe cuadrar con el primer valor de
+# Game.MOCHILA_CAPACIDAD_TIER, que es el que da los factores de tier.
+@export var capacidad: float = 25.0
 
 # PRECIO de tienda (ver WeaponData.valor_base).
 @export var valor_base: int = 400

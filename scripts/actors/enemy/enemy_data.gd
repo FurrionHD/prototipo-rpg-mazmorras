@@ -127,6 +127,29 @@ func color_visual(t: float) -> Color:
 @export var nucleo: MaterialData = null
 @export var nucleo_chance: float = 0.10   # 1 de cada 10
 
+# --- DROP por PROFUNDIDAD ---
+# Un bicho soltaba lo mismo en su primer piso que en el ultimo, asi que bajar a por SU material
+# no compensaba: farmeabas ratas en el piso 1, donde no te matan, y nunca tenias motivo para
+# hundirte. Ahora el drop arranca NERFEADO en el piso donde el bicho debuta y sube hasta el 100%
+# en 'drop_piso_pleno'. El pleno va a proposito 1-2 pisos POR DEBAJO del techo de spawn: asi
+# queda un tramo en el que ya rinde entero y todavia aparece, en vez de llegar al maximo justo
+# cuando deja de salir.
+# Los JEFES se libran solos: con debut == pleno el factor sale 1.0 sin ningun caso especial.
+@export var drop_piso_debut: int = 1   # primer piso donde aparece
+@export var drop_piso_pleno: int = 1   # desde aqui el drop es el 100%
+
+# Cuanto del drop conserva un bicho en su piso de debut. La palanca para suavizar el arranque
+# (el 5% de nucleo de la rata del piso 1 sale de aqui): subirlo antes que parchear bichos sueltos.
+const DROP_PISO_FACTOR_MIN := 0.5
+
+# Multiplicador de AMBAS chances (material y nucleo) por la profundidad. Interpola igual que
+# _target_sum: mismo patron, para no tener dos maneras distintas de escalar con el piso.
+func drop_factor_piso(piso: int) -> float:
+	if drop_piso_pleno <= drop_piso_debut:
+		return 1.0
+	var t: float = float(piso - drop_piso_debut) / float(drop_piso_pleno - drop_piso_debut)
+	return lerpf(DROP_PISO_FACTOR_MIN, 1.0, clampf(t, 0.0, 1.0))
+
 # --- ESTADOS ALTERADOS que aplica AL GOLPEAR (KAN-58 Fase 3) ---
 # Lista de StatusApplication (cada una con su prob). Un enemigo puede aplicar VARIOS:
 # p.ej. el slime venenoso mete Pegajoso Y Veneno. Ver status_application.gd.

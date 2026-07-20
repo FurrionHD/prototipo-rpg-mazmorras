@@ -61,8 +61,10 @@ class_name DungeonFloor
 @export var max_plantas_piso: int = 8
 @export var max_madera_piso: int = 8
 
-# Tiempo de JUEGO que tarda un nodo picado en reaparecer (~5 min). PROVISIONAL -> Excel.
-const RESPAWN_SEGUNDOS := 300.0
+# Cada cuanto se mira si a algun nodo picado le toca ya reaparecer. No hace falta afinar mas:
+# el respawn son minutos, y barrer el diccionario de agotados cada frame seria tirar CPU.
+const RESPAWN_CHECK_CADA := 2.0
+var _t_respawn: float = RESPAWN_CHECK_CADA
 
 # --- RITMO de los partos (segundos). Franja ANCHA y LENTA a proposito: ver spawn_zone.gd ---
 @export var intervalo_min: float = 25.0
@@ -496,7 +498,9 @@ func _colocar_recolectables() -> void:
 	# cambia el TRAZADO del piso (que ya esta hecho y no se toca).
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _semilla_del_piso() + 1013
-	_ocupada.clear()   # el piso se rehace: las celdas ocupadas del piso viejo no valen
+	# El piso se rehace: ni las celdas ocupadas ni los sitios del piso viejo valen.
+	_ocupada.clear()
+	_sitios.clear()
 
 	var plantas: int = _colocar_en_pasillos(rng, tabla_plantas, max_plantas_piso, 1)
 	var maderas: int = _colocar_en_pasillos(rng, tabla_maderas, max_madera_piso, 2)
@@ -604,17 +608,29 @@ func _crear_recolectable(tipo: int, celda: Vector2i, tabla: MaterialTable,
 	var m: MaterialData = tabla.elegir(Game.current_floor, rng)
 	if m == null:
 		return false
+	# El SITIO queda apuntado nazca o no el nodo: es lo que permite que una celda picada vuelva a
+	# brotar EN VIVO mas tarde (_repoblar_agotados) con el material que le tocaba, sin regenerar
+	# el piso entero ni volver a tirar el RNG (que cambiaria el material de todas las demas).
+	_sitios[celda] = {"tipo": tipo, "material": m}
 	# ¿Agotada? Reaparece cuando han pasado RESPAWN_SEGUNDOS de JUEGO desde que la picaste. Si ya
 	# le toca, se limpia el sello y nace como nueva; si no, no nace todavia.
 	if _agotados.has(celda):
-		if Game.tiempo_mazmorra - float(_agotados[celda]) < RESPAWN_SEGUNDOS:
+		if Game.tiempo_mazmorra - float(_agotados[celda]) < Game.RESPAWN_SEGUNDOS:
 			return false
-		_agotados.erase(celda)
-		(Game.persistente_piso(_piso_construido)["agotados"] as Dictionary).erase(celda)
+		_olvidar_agotado(celda)
+	_instanciar_nodo(tipo, celda, m, false)
+	return true
+
+
+# Planta el nodo en el mundo. Separado de _crear_recolectable porque lo llaman DOS sitios: la
+# generacion del piso y el respawn en vivo. 'brotando' = aparece con un fundido (si naciera de
+# golpe delante del jugador cantaria mucho); al generar el piso no hace falta.
+func _instanciar_nodo(tipo: int, celda: Vector2i, m: MaterialData, brotando: bool) -> void:
 	var nodo = _reco_script.new()   # sin tipar: asi GDScript deja escribirle lo suyo
 	nodo.tipo = tipo
 	nodo.material_data = m
 	nodo.celda = celda
+	nodo.brotando = brotando
 	# Cuelgan del PADRE del piso (junto al jugador), no del piso: si no, heredan su z_index
 	# de -1 y se dibujan por debajo del suelo.
 	var mundo: Node = get_parent()
@@ -622,7 +638,35 @@ func _crear_recolectable(tipo: int, celda: Vector2i, tabla: MaterialTable,
 		mundo = self
 	mundo.add_child(nodo)
 	nodo.global_position = gen.centro_px(celda)
-	return true
+
+
+# Borra el sello de una celda agotada, en la copia local Y en la persistente (que sobrevive a
+# volver al pueblo). Siempre van juntas: separarlas es como se dejan sellos huerfanos.
+func _olvidar_agotado(celda: Vector2i) -> void:
+	_agotados.erase(celda)
+	(Game.persistente_piso(_piso_construido)["agotados"] as Dictionary).erase(celda)
+
+
+# RESPAWN EN VIVO. Antes un nodo picado solo volvia al RECONSTRUIR el piso (cambiar de piso o
+# salir al pueblo): plantado en el mismo sitio podias esperar media hora y no brotaba nada. Ahora
+# se repasan los sellos cada RESPAWN_CHECK_CADA segundos y el que ha cumplido su tiempo brota
+# donde estaba, con el material que le tocaba (guardado en _sitios).
+func _repoblar_agotados(delta: float) -> void:
+	_t_respawn -= delta
+	if _t_respawn > 0.0:
+		return
+	_t_respawn = RESPAWN_CHECK_CADA
+	if _agotados.is_empty() or gen == null:
+		return
+	# Sobre una copia de las claves: _olvidar_agotado toca el diccionario que estamos recorriendo.
+	for celda in _agotados.keys():
+		if Game.tiempo_mazmorra - float(_agotados[celda]) < Game.RESPAWN_SEGUNDOS:
+			continue
+		_olvidar_agotado(celda)
+		var sitio: Dictionary = _sitios.get(celda, {})
+		if sitio.is_empty():
+			continue   # sello de una partida vieja, sin sitio apuntado: se limpia y ya brotara al regenerar
+		_instanciar_nodo(int(sitio["tipo"]), celda, sitio["material"], true)
 
 
 # Una celda de la zona que TOQUE pared (las vetas salen de la roca, y una planta en mitad
@@ -644,8 +688,22 @@ func _celda_junto_a_pared(celdas: Array, rng: RandomNumberGenerator) -> Vector2i
 	return Vector2i.MAX
 
 
-# Celdas que ya tienen algo puesto (para no apilar dos vetas en el mismo sitio).
+# Celdas que ya tienen algo puesto (para no apilar dos vetas en el mismo sitio). NO se libera al
+# picar: la celda sigue siendo "de" ese nodo, que es lo que hace que el respawn la devuelva ahi.
 var _ocupada: Dictionary = {}
+
+# SITIOS de recoleccion del piso: { celda: {"tipo": int, "material": MaterialData} }. Se llena al
+# generar, con TODOS los huecos planificados (haya nodo vivo o no). Es la memoria que necesita el
+# respawn en vivo para saber que brota en cada celda sin regenerar el piso. Es de RUNTIME: se
+# rehace sola al construir el piso, asi que no va al save.
+var _sitios: Dictionary = {}
+
+
+# Que material y de que tipo brota en esa celda, o {} si ahi no hay sitio de recoleccion. Lo usa
+# Game.capturar_mapa para que el plano sepa dibujar una celda AGOTADA cuando le venza el respawn:
+# sin esto, el mapa se queda sin saber de que color pintarla y la celda desaparece del plano.
+func sitio_de(celda: Vector2i) -> Dictionary:
+	return _sitios.get(celda, {})
 
 
 # Lo llama Game al terminar un minijuego de recoleccion: esa celda queda explotada, con el
@@ -991,10 +1049,9 @@ func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0)
 # simularlos) y se les vuelve a encender al acercarte. Los cadaveres ya vienen con la IA
 # apagada de fabrica (morir()), asi que ni los tocamos.
 func _process(delta: float) -> void:
-	# El reloj de expedicion corre SIEMPRE que juegas (el arbol se pausa en combate/menus, asi
-	# que este _process no corre entonces: cuenta solo tiempo de exploracion). Es la base del
-	# respawn de recursos y de la cuenta atras del mapa.
-	Game.tiempo_mazmorra += delta
+	# El reloj de expedicion (Game.tiempo_mazmorra) lo lleva Game._process: tiene que contar
+	# tambien el tiempo de combate, y este _process se congela con el arbol.
+	_repoblar_agotados(delta)
 
 	_t_barrido -= delta
 	if _t_barrido > 0.0:
