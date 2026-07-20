@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
 [ext_resource type="Resource" path="res://scenes/actors/enemy/aberracion.tres" id="3_aber"]
 [ext_resource type="Resource" path="res://scenes/actors/enemy/bestia_acorazada.tres" id="4_best"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/acechador.tres" id="5_acech"]
 
 [sub_resource type="Resource" id="E_aber"]
 script = ExtResource("2_entrada")
@@ -19,8 +20,15 @@ peso = 45.0
 piso_min = 8
 piso_max = 0
 
+[sub_resource type="Resource" id="E_acech"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("5_acech")
+peso = 35.0
+piso_min = 10
+piso_max = 0
+
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Bestias"
-entradas = [SubResource("E_aber"), SubResource("E_best")]
+entradas = [SubResource("E_aber"), SubResource("E_best"), SubResource("E_acech")]
 metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"
