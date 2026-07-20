@@ -381,6 +381,11 @@ func refrescar_grupo() -> void:
 		_sequito.refrescar()
 	_rehacer_barras_companeros()
 	_refrescar_barras_vida()
+	# La MOCHILA del HUD va detras de la ultima columna de barras: si el grupo crece o mengua,
+	# tiene que apartarse. Se le avisa aqui en vez de que ella lo mire cada frame.
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("recolocar"):
+		hud.recolocar()
 
 
 # Si el grupo ha cambiado desde el ultimo repintado, repintar. Se mira cada frame porque cambiar
@@ -401,15 +406,37 @@ func _comprobar_grupo() -> void:
 #
 # Se anclan a la esquina TOP_RIGHT en vez de ponerles una x fija: asi siguen pegadas al borde
 # aunque cambie la resolucion, igual que hace el panel de piso/monedas.
-# Cada companero lleva las MISMAS tres barras que tu (vida, aguante y mana), en el mismo orden y
-# con los mismos colores: si arriba a la izquierda la verde es el aguante, aqui tambien. Van mas
-# finas porque son informacion de apoyo, no lo que miras a cada segundo.
-const ALTO_FILA_COMP := 46.0     # nombre + las tres barras
-const Y_BARRAS_COMP := 64.0      # justo debajo del panel de piso + monedas
-const ANCHO_FILA_COMP := 200.0   # lo que mide la fila entera (nombre encima de las barras)
-const MARGEN_DER := 12.0
-const ANCHO_BARRA_COMP := 126.0
-const X_BARRA_COMP := 18.0       # deja hueco al cuadradito de color
+# ============================================================
+#  LAS BARRAS DEL GRUPO
+#  Cada personaje es una COLUMNA de tres barras (vida, aguante, mana), y las columnas van una al
+#  lado de la otra: tu la primera, y los companeros a tu derecha en el orden en que te siguen.
+#
+#  Las de los companeros son IGUALES que las tuyas (mismo alto, mismo ancho, mismos colores y el
+#  mismo orden): son las barras de una persona, y hacerlas distintas obligaria a traducir a cada
+#  vistazo. Van SIEMPRE las tres aunque hoy no tenga hechizos, por lo mismo.
+#
+#  El cuadrado del PESO (la mochila) lo pinta hud.gd y se coloca DESPUES de la ultima columna,
+#  asi que se aparta solo segun el tamaño del grupo. Por eso estas medidas son constantes
+#  publicas: el HUD las lee para saber donde acaba la fila (ver hud.recolocar).
+# ============================================================
+const X_COL_BARRAS := 12.0    # donde empieza tu columna (misma sangria que siempre)
+const ANCHO_COL := 180.0      # lo que mide una columna: el ancho de tus barras de toda la vida
+const SEP_COL := 8.0          # aire entre una columna y la siguiente
+const Y_NOMBRE := 0.0         # el nombre del companero, encima de sus barras
+# Los tres huecos de una columna, calcados de las tuyas (ver _crear_barra_aguante).
+const Y_HP := 12.0
+const ALTO_HP := 18.0
+const Y_EN := 34.0
+const ALTO_EN := 12.0
+const Y_MP := 50.0
+const ALTO_MP := 12.0
+
+
+# La x donde arranca la columna del personaje i (0 = tu). La usa tambien el HUD para saber donde
+# poner la mochila, que va detras de la ultima.
+static func x_columna(i: int) -> float:
+	return X_COL_BARRAS + float(i) * (ANCHO_COL + SEP_COL)
+
 
 func _rehacer_barras_companeros() -> void:
 	for fila in _barras_comp:
@@ -421,51 +448,48 @@ func _rehacer_barras_companeros() -> void:
 	for i in comps.size():
 		var pj: PersonajeData = comps[i]
 		var raiz := Control.new()
-		raiz.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-		raiz.position = Vector2(-(ANCHO_FILA_COMP + MARGEN_DER),
-			Y_BARRAS_COMP + ALTO_FILA_COMP * float(i))
-		raiz.size = Vector2(ANCHO_FILA_COMP, ALTO_FILA_COMP)
+		# +1 porque la columna 0 es la tuya.
+		raiz.position = Vector2(x_columna(i + 1), 0.0)
+		raiz.size = Vector2(ANCHO_COL, Y_MP + ALTO_MP)
 		raiz.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_barras_layer.add_child(raiz)
 
-		# El NOMBRE va encima de las barras (no al lado): a la derecha el ancho es el que es, y
-		# poniendolo detras habria que recortarlas a la mitad para que cupiera.
+		# Nombre y color, encima de sus barras: es lo unico que distingue una columna de otra.
+		var punto := ColorRect.new()
+		punto.size = Vector2(9, 9)
+		punto.position = Vector2(0, Y_NOMBRE + 1.0)
+		punto.color = pj.color
+		punto.material = Game.material_de(pj)
+		raiz.add_child(punto)
+
 		var nombre := Label.new()
 		nombre.text = pj.nombre
-		nombre.position = Vector2(X_BARRA_COMP, -4)
+		nombre.position = Vector2(12, Y_NOMBRE - 4.0)
 		nombre.add_theme_font_size_override("font_size", 10)
 		nombre.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 		nombre.add_theme_constant_override("outline_size", 3)
 		nombre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		raiz.add_child(nombre)
 
-		var punto := ColorRect.new()
-		punto.size = Vector2(12, 12)
-		punto.position = Vector2(0, 12)
-		punto.color = pj.color
-		punto.material = Game.material_de(pj)
-		raiz.add_child(punto)
-
-		var hp: ProgressBar = _barra_comp(raiz, 11.0, 11.0, Color(1.0, 0.4, 0.4))
-		var hp_lbl: Label = _crear_label_barra(hp, 8)
-		var en: ProgressBar = _barra_comp(raiz, 23.0, 8.0, Color(0.4, 1.0, 0.5))
-		# El mana solo se pinta si ESE companero tiene algo que gastar: un espadachin sin magia
-		# no necesita una barra azul a cero ocupando sitio.
-		var mp: ProgressBar = null
-		if Game.player_max_mp(pj) > 0.0 and not pj.equipped_spells.is_empty():
-			mp = _barra_comp(raiz, 33.0, 8.0, Color(0.4, 0.6, 1.0))
+		# Las tres, calcadas de las tuyas.
+		var hp: ProgressBar = _barra_comp(raiz, Y_HP, ALTO_HP, Color(1.0, 0.4, 0.4))
+		var hp_lbl: Label = _crear_label_barra(hp)
+		var en: ProgressBar = _barra_comp(raiz, Y_EN, ALTO_EN, Color(0.4, 1.0, 0.5))
+		var en_lbl: Label = _crear_label_barra(en)
+		var mp: ProgressBar = _barra_comp(raiz, Y_MP, ALTO_MP, Color(0.4, 0.6, 1.0))
+		var mp_lbl: Label = _crear_label_barra(mp)
 
 		_barras_comp.append({"pj": pj, "raiz": raiz, "hp": hp, "hp_lbl": hp_lbl,
-			"en": en, "mp": mp})
+			"en": en, "en_lbl": en_lbl, "mp": mp, "mp_lbl": mp_lbl})
 
 
 # Una barra de la fila de un companero (mismo ancho para las tres, solo cambian el alto y el color).
 func _barra_comp(raiz: Control, y: float, alto: float, color: Color) -> ProgressBar:
 	var b := ProgressBar.new()
 	b.show_percentage = false
-	b.custom_minimum_size = Vector2(ANCHO_BARRA_COMP, alto)
-	b.size = Vector2(ANCHO_BARRA_COMP, alto)
-	b.position = Vector2(X_BARRA_COMP, y)
+	b.custom_minimum_size = Vector2(ANCHO_COL, alto)
+	b.size = Vector2(ANCHO_COL, alto)
+	b.position = Vector2(0, y)
 	b.self_modulate = color
 	raiz.add_child(b)
 	return b
@@ -732,18 +756,24 @@ func _refrescar_barras_vida() -> void:
 		(fila["hp"] as ProgressBar).max_value = maxf(1.0, maxhp_c)
 		(fila["hp"] as ProgressBar).value = hp_c
 		if fila["hp_lbl"] != null:
-			(fila["hp_lbl"] as Label).text = "%.0f/%.0f" % [hp_c, maxhp_c]
+			(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c]
 		var en_bar: ProgressBar = fila["en"]
 		var maxen_c: float = _calc_max_aguante(pj)
+		var en_c: float = _aguante_de(pj)
 		en_bar.max_value = maxf(1.0, maxen_c)
-		en_bar.value = _aguante_de(pj)
+		en_bar.value = en_c
 		# Mismo codigo de color que tu barra: rojiza cuando se ha quedado sin fuelle.
 		en_bar.self_modulate = Color(1.0, 0.4, 0.4) if bool(pj.get_meta("sin_fuelle", false)) \
 			else Color(0.4, 1.0, 0.5)
-		if fila["mp"] != null:
-			var maxmp_c: float = Game.player_max_mp(pj)
-			(fila["mp"] as ProgressBar).max_value = maxf(1.0, maxmp_c)
-			(fila["mp"] as ProgressBar).value = Game.player_mp(pj)
+		if fila["en_lbl"] != null:
+			(fila["en_lbl"] as Label).text = "%.0f/%.0f" % [en_c, maxen_c]
+		var mp_bar: ProgressBar = fila["mp"]
+		var maxmp_c: float = Game.player_max_mp(pj)
+		var mp_c: float = Game.player_mp(pj)
+		mp_bar.max_value = maxf(1.0, maxmp_c)
+		mp_bar.value = mp_c
+		if fila["mp_lbl"] != null:
+			(fila["mp_lbl"] as Label).text = "%.2f/%.2f" % [mp_c, maxmp_c]
 
 
 # Bebe la PRIMERA poción del inventario (tecla Q, fuera de combate). Arranca la

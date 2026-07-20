@@ -16,6 +16,9 @@ var _floor_lbl: Label = null    # "Piso: N" en la esquina superior derecha
 var _money_lbl: Label = null    # monedas, debajo del piso
 var _peso_box: ColorRect = null # cuadrado (placeholder de bolsa) a la derecha de las barras
 var _peso_lbl: Label = null     # numero de peso encima del cuadrado
+# La caja de ayudas de teclas. Va debajo de las barras y no se mueve, pero se guarda por si algun
+# dia hay que recolocarla como al cuadrado del peso.
+var _caja_ayudas: PanelContainer = null
 
 
 func _ready() -> void:
@@ -31,8 +34,9 @@ func _ready() -> void:
 	# Ayudas de tecla, debajo de las barras de aguante/vida/mana del jugador. En DOS filas (en
 	# una sola ya no cabian) y dentro de un panel negro semitransparente: el texto blanco sobre
 	# una pared clara no habia quien lo leyera.
-	var caja := PanelContainer.new()
-	caja.position = Vector2(8, 64)
+	_caja_ayudas = PanelContainer.new()
+	_caja_ayudas.position = Vector2(8, 64)
+	var caja := _caja_ayudas
 	caja.add_theme_stylebox_override("panel", _fondo_negro())
 	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(caja)
@@ -87,7 +91,24 @@ func _ready() -> void:
 	_peso_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_peso_box.add_child(_peso_lbl)
 
+	recolocar()
 	_avisar_muerte()
+
+
+# Aparta el cuadrado del PESO para dejar sitio a las columnas de barras del grupo: la tuya y una
+# por companero (las pinta player.gd, ver alli x_columna). Con esto la mochila queda SIEMPRE justo
+# detras de la ultima columna, contrates a quien contrates.
+#
+# Las medidas se leen de player.gd para no tener el layout escrito en dos sitios y que se separen
+# el dia que una columna cambie de ancho.
+func recolocar() -> void:
+	if _peso_box == null:
+		return
+	var jugador: Node = get_tree().get_first_node_in_group("player")
+	var x: float = 200.0   # sin grupo: justo detras de tus barras, como estaba
+	if jugador != null:
+		x = jugador.x_columna(Game.party.size()) + 4.0
+	_peso_box.position = Vector2(x, 16)
 
 
 # Si vienes de MORIR, el aviso se enseña AQUI (ya en el pueblo) y no en la pantalla de
