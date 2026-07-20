@@ -73,6 +73,9 @@ var _mp_bar: ProgressBar = null
 var _stamina_lbl: Label = null
 var _hp_lbl: Label = null
 var _mp_lbl: Label = null
+# Tu nombre y tu color, encima de tus barras. Cambian al cambiar de lider (teclas 1/2/3).
+var _nombre_lider: Label = null
+var _punto_lider: ColorRect = null
 var _drink_was: bool = false   # antirebote de la tecla Q (beber pocion)
 # Antirebote de las teclas 1/2/3 (cambiar de lider), una por posicion del equipo. La 0 no se usa:
 # la tecla 1 es "el que ya va en cabeza" y no hace nada, pero se deja el hueco para que el indice
@@ -377,6 +380,11 @@ func refrescar_grupo() -> void:
 	_grupo_visto = Game.party.duplicate()
 	_pj_actual = Game.lider()
 	_pintar_cuerpo()
+	# Tu nombre y tu color: cambian cuando mandas delante a otro.
+	if _nombre_lider != null:
+		_nombre_lider.text = _pj_actual.nombre
+		_punto_lider.color = _pj_actual.color
+		_punto_lider.material = Game.material_de(_pj_actual)
 	if _sequito != null and _sequito.has_method("refrescar"):
 		_sequito.refrescar()
 	_rehacer_barras_companeros()
@@ -422,14 +430,20 @@ func _comprobar_grupo() -> void:
 const X_COL_BARRAS := 12.0    # donde empieza tu columna (misma sangria que siempre)
 const ANCHO_COL := 180.0      # lo que mide una columna: el ancho de tus barras de toda la vida
 const SEP_COL := 8.0          # aire entre una columna y la siguiente
-const Y_NOMBRE := 0.0         # el nombre del companero, encima de sus barras
-# Los tres huecos de una columna, calcados de las tuyas (ver _crear_barra_aguante).
-const Y_HP := 12.0
+# El NOMBRE va encima de las tres barras, y por eso todo el bloque baja: con las barras pegadas
+# al borde de arriba (y=12, como estaban cuando no habia grupo) el nombre se salia de la pantalla.
+const Y_NOMBRE := 4.0
+const ALTO_NOMBRE := 14.0
+# Los tres huecos de una columna. TODOS los personajes usan estos, tu incluido: asi las columnas
+# quedan alineadas al pixel y no hay dos sitios que puedan descuadrarse.
+const Y_HP := Y_NOMBRE + ALTO_NOMBRE
 const ALTO_HP := 18.0
-const Y_EN := 34.0
+const Y_EN := Y_HP + ALTO_HP + 4.0
 const ALTO_EN := 12.0
-const Y_MP := 50.0
+const Y_MP := Y_EN + ALTO_EN + 4.0
 const ALTO_MP := 12.0
+# Donde acaba la fila entera. Lo lee hud.gd para colocar debajo la caja de ayudas de teclas.
+const ALTO_BLOQUE := Y_MP + ALTO_MP
 
 
 # La x donde arranca la columna del personaje i (0 = tu). La usa tambien el HUD para saber donde
@@ -676,12 +690,31 @@ func _crear_barra_aguante() -> ProgressBar:
 	add_child(layer)
 	_barras_layer = layer
 
+	# TU columna es la primera, y se monta con las MISMAS medidas que las de los companeros
+	# (ver el bloque de constantes): antes iba con numeros sueltos y por eso no encajaban.
+	var x: float = x_columna(0)
+
+	# Tu NOMBRE y tu color encima, igual que ellos: sin esto el unico sin nombre eras tu, que es
+	# justo la columna que mas se mira.
+	_punto_lider = ColorRect.new()
+	_punto_lider.size = Vector2(9, 9)
+	_punto_lider.position = Vector2(x, Y_NOMBRE + 3.0)
+	layer.add_child(_punto_lider)
+
+	_nombre_lider = Label.new()
+	_nombre_lider.position = Vector2(x + 12.0, Y_NOMBRE - 2.0)
+	_nombre_lider.add_theme_font_size_override("font_size", 10)
+	_nombre_lider.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_nombre_lider.add_theme_constant_override("outline_size", 3)
+	_nombre_lider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_nombre_lider)
+
 	# VIDA (roja) ARRIBA y mas GORDA: es la barra mas importante.
 	# Usamos self_modulate para tintar SOLO el relleno, no el numero (hijo) superpuesto.
 	_hp_bar = ProgressBar.new()
 	_hp_bar.show_percentage = false
-	_hp_bar.custom_minimum_size = Vector2(180, 18)
-	_hp_bar.position = Vector2(12, 12)
+	_hp_bar.custom_minimum_size = Vector2(ANCHO_COL, ALTO_HP)
+	_hp_bar.position = Vector2(x, Y_HP)
 	_hp_bar.self_modulate = Color(1.0, 0.4, 0.4)
 	layer.add_child(_hp_bar)
 	_hp_lbl = _crear_label_barra(_hp_bar)
@@ -689,8 +722,8 @@ func _crear_barra_aguante() -> ProgressBar:
 	# AGUANTE (verde) debajo de la vida.
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(180, 12)
-	bar.position = Vector2(12, 34)
+	bar.custom_minimum_size = Vector2(ANCHO_COL, ALTO_EN)
+	bar.position = Vector2(x, Y_EN)
 	bar.self_modulate = Color(0.4, 1.0, 0.5)
 	layer.add_child(bar)
 	_stamina_lbl = _crear_label_barra(bar)
@@ -698,8 +731,8 @@ func _crear_barra_aguante() -> ProgressBar:
 	# MANA (azul) debajo del aguante.
 	_mp_bar = ProgressBar.new()
 	_mp_bar.show_percentage = false
-	_mp_bar.custom_minimum_size = Vector2(180, 12)
-	_mp_bar.position = Vector2(12, 50)
+	_mp_bar.custom_minimum_size = Vector2(ANCHO_COL, ALTO_MP)
+	_mp_bar.position = Vector2(x, Y_MP)
 	_mp_bar.self_modulate = Color(0.4, 0.6, 1.0)
 	layer.add_child(_mp_bar)
 	_mp_lbl = _crear_label_barra(_mp_bar)

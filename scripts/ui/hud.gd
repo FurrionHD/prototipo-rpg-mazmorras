@@ -35,7 +35,6 @@ func _ready() -> void:
 	# una sola ya no cabian) y dentro de un panel negro semitransparente: el texto blanco sobre
 	# una pared clara no habia quien lo leyera.
 	_caja_ayudas = PanelContainer.new()
-	_caja_ayudas.position = Vector2(8, 64)
 	var caja := _caja_ayudas
 	caja.add_theme_stylebox_override("panel", _fondo_negro())
 	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -102,13 +101,19 @@ func _ready() -> void:
 # Las medidas se leen de player.gd para no tener el layout escrito en dos sitios y que se separen
 # el dia que una columna cambie de ancho.
 func recolocar() -> void:
-	if _peso_box == null:
-		return
 	var jugador: Node = get_tree().get_first_node_in_group("player")
-	var x: float = 200.0   # sin grupo: justo detras de tus barras, como estaba
-	if jugador != null:
-		x = jugador.x_columna(Game.party.size()) + 4.0
-	_peso_box.position = Vector2(x, 16)
+	if _peso_box != null:
+		var x: float = 200.0   # sin jugador (no deberia pasar): donde estaba de siempre
+		if jugador != null:
+			x = jugador.x_columna(Game.party.size()) + 4.0
+		_peso_box.position = Vector2(x, jugador.Y_HP if jugador != null else 16.0)
+	# Y la caja de ayudas, justo debajo del bloque de barras. Va aqui y no con una y fija porque
+	# el bloque crecio al meterle el nombre encima: con la 64 de antes se solapaban.
+	if _caja_ayudas != null:
+		var y: float = 64.0
+		if jugador != null:
+			y = float(jugador.ALTO_BLOQUE) + 6.0
+		_caja_ayudas.position = Vector2(8, y)
 
 
 # Si vienes de MORIR, el aviso se enseña AQUI (ya en el pueblo) y no en la pantalla de
