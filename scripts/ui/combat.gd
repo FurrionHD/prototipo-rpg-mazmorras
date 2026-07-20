@@ -1,10 +1,22 @@
 # ============================================================
 #  combat.gd
-#  Pantalla de combate por turnos INTERACTIVA (N enemigos contra ti, hasta MAX_ENEMIGOS).
-#  Recibe los combatientes reales (jugador y enemigos) desde Game via setup().
-#  Si se abre sola (F6), usa combatientes de PRUEBA (tres slimes: sirve para probar el grupo).
-#  Orden de turnos ATB (cada uno llena su barra a ritmo de su velocidad); en tu
-#  turno se pausa y esperas a elegir accion; los enemigos actuan solos.
+#  Pantalla de combate por turnos INTERACTIVA (N enemigos contra TU GRUPO, hasta MAX_ENEMIGOS
+#  por bando). Recibe los combatientes reales (los tuyos y los enemigos) desde Game via setup().
+#  Si se abre sola (F6), usa combatientes de PRUEBA (tres aliados y tres slimes).
+#  Orden de turnos ATB (cada uno llena su barra a ritmo de su velocidad); cuando le toca a uno de
+#  los tuyos se pausa y esperas a elegir SU accion; los enemigos actuan solos.
+#
+#  COMBATE EN GRUPO: bajan contigo hasta PARTY_MAX personas y pelean TODAS. Cada una tiene su
+#  barra ATB, su equipo, sus habilidades y sus hechizos, y las controlas tu (ninguna actua sola).
+#  La pieza que lo hace posible sin reescribir la pantalla entera es que `_player` dejo de ser
+#  "el jugador" para ser EL ALIADO QUE ACTUA AHORA: todo el codigo de acciones, magia,
+#  habilidades y objetos sigue leyendo `_player` y opera sobre quien tenga el turno.
+#  Lo que era estado global del jugador (defendiendo, conjuro a medias, acciones lentas) es ahora
+#  UNO POR ALIADO; se guarda en diccionarios y se lee con las mismas variables de siempre gracias
+#  a que son propiedades con get/set (ver mas abajo).
+#
+#  Fuera de alcance por ahora: apuntar un hechizo o una pocion a OTRO aliado (curar al de al
+#  lado). Hoy las curas y los objetos son sobre uno mismo, y los ataques van al enemigo marcado.
 #
 #  La escena solo trae el esqueleto: TODO lo demas se genera por codigo (convencion del
 #  proyecto), incluidos los BLOQUES de combatiente (nombre + estados + barra de vida), que
@@ -13,7 +25,7 @@
 #    Combat (Control)  <- este script
 #    └── VBox (VBoxContainer, pantalla completa)
 #        ├── _bloques_box (HBox)  <- los N enemigos, EN FILA y con ANCHO_BLOQUE fijo
-#        ├── _aliados_box (HBox)  <- los tuyos (hoy solo tu; luego, companeros KAN-62)
+#        ├── _aliados_box (HBox)  <- los tuyos, en el mismo formato y con el mismo ancho
 #        ├── Log (Label)
 #        ├── AttackButton (Button)   <- reutilizado como "Continuar" al terminar
 #        └── barra de acciones + submenus (magia / habilidades / objetos)
@@ -67,9 +79,8 @@ const ATTACK_ENERGY_REGEN := 28.0
 var _col: VBoxContainer = null
 # Fila de los ENEMIGOS: van uno AL LADO DEL OTRO, no apilados.
 var _bloques_box: HBoxContainer = null
-# Fila de los TUYOS: hoy solo tu bloque, pero es una fila y no un bloque suelto porque manda el
-# mismo criterio que la de enfrente. Cuando haya companeros de equipo (KAN-62) se añaden aqui
-# al lado, sin tocar el layout.
+# Fila de los TUYOS: un bloque por miembro del grupo, con el mismo formato y el mismo ancho que
+# los de enfrente. Son combatientes como los demas.
 var _aliados_box: HBoxContainer = null
 
 # ANCHO FIJO de un bloque de combatiente, tuyo o del enemigo. Es la clave del combate en grupo:
@@ -98,47 +109,40 @@ var _actions_box: HBoxContainer = null
 var _action_buttons: Dictionary = {}   # Action(int) -> Button
 var _ability_box: VBoxContainer = null   # submenu de habilidades (KAN-57)
 var _objeto_box: VBoxContainer = null    # submenu de objetos/pociones (KAN-57)
-# Barras extra del jugador (creadas por codigo): energia y mana bajo la de vida.
-var _player_en_bar: ProgressBar = null
-var _player_mp_bar: ProgressBar = null
 
-# BLOQUES de combatiente. Uno por enemigo (mismo orden e indice que _enemies) y uno para el
-# jugador. Cada bloque es un Dictionary {panel, nombre, chips, hp, hp_lbl, vbox} — ver
-# _crear_bloque. Los chips llevan tooltip por estado activo: antes los estados iban como texto
-# DENTRO de la etiqueta del nombre, y un Label no se puede señalar por trozos (veias "☠x2·3t"
-# sin forma de saber que hacia eso ni cuanto).
+# BLOQUES de combatiente. Uno por enemigo (mismo orden e indice que _enemies) y uno por aliado
+# (mismo orden e indice que _aliados). Cada bloque es un Dictionary {panel, nombre, chips, hp,
+# hp_lbl, vbox} — ver _crear_bloque. Los chips llevan tooltip por estado activo: antes los estados
+# iban como texto DENTRO de la etiqueta del nombre, y un Label no se puede señalar por trozos
+# (veias "☠x2·3t" sin forma de saber que hacia eso ni cuanto).
 var _bloques: Array[Dictionary] = []   # indice = indice en _enemies
-var _bloque_player: Dictionary = {}
-
-# Numeros DENTRO de las barras del jugador (como las del mapa).
-var _player_hp: ProgressBar = null
-var _player_hp_lbl: Label = null
-var _player_en_lbl: Label = null
-var _player_mp_lbl: Label = null
+var _bloques_aliados: Array[Dictionary] = []   # indice = indice en _aliados
 
 # --- Casteo de hechizos (KAN-56) ---
 # Submenu de hechizos (al pulsar Magia) y caja dinamica del recitado/disparo.
 var _spell_box: VBoxContainer = null
 var _cast_box: VBoxContainer = null
-# Conjuro EN CURSO: hechizo elegido + cuantas frases llevas recitadas OK. Persiste
-# entre turnos (recitas una por turno). null = no estas casteando.
-var _cast_spell: SpellData = null
-var _cast_index: int = 0
 
 # Linea de ORDEN DE TURNOS (estilo Epic Seven), creada por codigo.
 var _timeline: Control = null
 
 # Se emite al cerrar el combate (lo escucha Game para reanudar la mazmorra).
-# player_mp_left persiste el mana gastado (KAN-56); player_energy_left persiste la
-# energia = stamina de exploracion (KAN-57).
-# 'muertos' = INDICES (en la lista que paso setup()) de los enemigos que han caido, y 'hp_left'
+# Los tres primeros arrays van POR ALIADO, en el mismo orden en que llegaron a setup(): la vida,
+# el maná (KAN-56) y la energia = stamina de exploracion (KAN-57) con los que sale cada uno.
+# 'muertos' = INDICES (en la lista que paso setup()) de los enemigos que han caido, y 'enemy_hp_left'
 # la vida que le queda a cada uno, tambien por indice. Van indices y no Combatants para no
 # filtrar objetos de combate a Game, que solo necesita saber a que NODO matar o dejar herido.
 # OJO: los muertos son la unica fuente de verdad, y NO se deducen de player_won: si huyes tras
 # matar a dos de cuatro, esos dos estan muertos igual y tienen que dejar su cadaver.
-signal combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float,
-	player_energy_left: float, muertos: Array, enemy_hp_left: Array)
+signal combat_finished(player_won: bool, hp_left: Array, mp_left: Array,
+	energy_left: Array, muertos: Array, enemy_hp_left: Array)
 
+# TU GRUPO. Orden FIJO (el que mando Game: el lider primero y detras los companeros), igual que
+# _enemies: es el orden de los bloques y el indice con el que vuelve todo en combat_finished.
+# Los KO se quedan en la lista con su bloque apagado; quien se filtra es _gauge y _aliados_vivos().
+var _aliados: Array[Combatant] = []
+# EL ALIADO QUE ACTUA AHORA. Se llama _player porque ES el jugador desde el punto de vista de
+# todas las acciones: cuando eliges Atacar, atacas con el que tiene el turno.
 var _player: Combatant
 # ENEMIGOS de la pelea (1..MAX_ENEMIGOS). Guarda a los VIVOS Y A LOS MUERTOS, y en orden FIJO:
 # ese orden es la numeracion que ve el jugador (bloque nº1 arriba = marcador "1" en la barra de
@@ -180,10 +184,51 @@ var _dmg_taken_hits: int = 0
 var _turnos_jugador: int = 0
 var _turnos_enemigo: int = 0
 
-var _player_exhausted_start: bool = false  # entro agotado
-var _slow_actions_left: int = 0            # acciones lentas que quedan
-var _player_overload_factor: float = 1.0   # <1 si entro sobrecargado (lento todo el combate)
-var _player_defending: bool = false        # true si elegiste Defender (dura hasta tu proximo turno)
+var _player_overload_factor: float = 1.0   # <1 si el grupo entro sobrecargado (lento todo el combate)
+
+# ============================================================
+#  ESTADO POR ALIADO
+#  Defender, el conjuro a medias y las acciones lentas por agotamiento son de CADA UNO: si fueran
+#  globales, defender con la guerrera protegeria tambien a la maga, y recitar con una te dejaria
+#  el recitado colgado de la otra.
+#
+#  Se guardan en diccionarios (Combatant -> valor), pero se leen y se escriben con las MISMAS
+#  variables de siempre, que son propiedades enganchadas al aliado que tiene el turno. Por eso las
+#  ~2700 lineas de acciones, magia y habilidades no se han tocado: siguen diciendo
+#  `_cast_spell = x` y cada una escribe en la ficha de quien esta jugando.
+#  Cuando hace falta el valor de OTRO (el enemigo pega a quien no tiene el turno), se consulta el
+#  diccionario directamente: _defendiendo.get(victima, false).
+# ============================================================
+var _defendiendo: Dictionary = {}   # Combatant -> bool (dura hasta SU proximo turno)
+var _casteos: Dictionary = {}       # Combatant -> {"spell": SpellData, "idx": int}
+var _lentas: Dictionary = {}        # Combatant -> acciones lentas que le quedan por agotamiento
+
+# true si elegiste Defender con el que tiene el turno (dura hasta su proxima accion)
+var _player_defending: bool:
+	get: return bool(_defendiendo.get(_player, false))
+	set(v): _defendiendo[_player] = v
+
+# Conjuro EN CURSO del que actua: hechizo elegido + cuantas frases lleva recitadas OK. Persiste
+# entre turnos (recita una por turno). null = no esta casteando.
+var _cast_spell: SpellData:
+	get: return (_casteos[_player]["spell"] as SpellData) if _casteos.has(_player) else null
+	set(v):
+		if v == null:
+			_casteos.erase(_player)
+		else:
+			_casteos[_player] = {"spell": v, "idx": int(_cast_index)}
+
+var _cast_index: int:
+	get: return int(_casteos[_player]["idx"]) if _casteos.has(_player) else 0
+	set(v):
+		if _casteos.has(_player):
+			_casteos[_player]["idx"] = v
+
+# Acciones lentas que le quedan al que actua (entro agotado -> sus primeras acciones van a medio
+# ritmo). Ver EXHAUSTED_SLOW_ACTIONS.
+var _slow_actions_left: int:
+	get: return int(_lentas.get(_player, 0))
+	set(v): _lentas[_player] = v
 
 # El ATAQUE DE CARGA del enemigo (habilidad telegrafiada) ya no vive aqui: es estado POR
 # COMBATIENTE (Combatant.charging / charge_left), porque con varios bichos cada uno carga lo
@@ -193,16 +238,23 @@ var _player_defending: bool = false        # true si elegiste Defender (dura has
 # Lo llama Game ANTES de añadir esta escena al arbol.
 # 'enemy_cs' viene ORDENADO: el [0] es el bicho que disparo el combate (el que tocaste o el que
 # te emboscó) y detras sus vecinos. Ese orden es la numeracion que vera el jugador.
-func setup(player_c: Combatant, enemy_cs: Array, enemy_initiated: bool,
-		player_exhausted: bool = false, player_overload_factor: float = 1.0) -> void:
-	_player = player_c
+# 'player_cs' viene con el LIDER el primero y detras los companeros en su orden de equipo. Ese
+# orden es el de los bloques y el de los arrays que devuelve combat_finished.
+# 'exhausted' es un bool POR ALIADO (el que baje sin fuelle empieza lento; ver _lentas).
+func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
+		exhausted: Array = [], player_overload_factor: float = 1.0) -> void:
+	_aliados.assign(player_cs)
+	_player = _aliados[0] if not _aliados.is_empty() else null
 	_enemies.assign(enemy_cs)
 	# El escudo del Rey Slime cuenta slimes vivos del roster: cada enemigo necesita ver a los
 	# demas. Les paso la MISMA lista (vivos y muertos); is_alive() filtra en el instante del golpe.
 	for e in _enemies:
 		e.battle_enemies = _enemies
 	_enemy_initiated = enemy_initiated
-	_player_exhausted_start = player_exhausted
+	# Las acciones lentas se apuntan YA, una ficha por aliado: quien llego agotado las arrastra.
+	for i in _aliados.size():
+		if i < exhausted.size() and bool(exhausted[i]):
+			_lentas[_aliados[i]] = EXHAUSTED_SLOW_ACTIONS
 	_player_overload_factor = player_overload_factor
 	_injected = true
 	# El modo muñeco (Saco/Pegador) siempre es 1v1: lo garantiza enemy.gd al no reclutar
@@ -228,6 +280,25 @@ func _vivos() -> Array[Combatant]:
 		if e.is_alive():
 			out.append(e)
 	return out
+
+
+# Los TUYOS que siguen en pie. Manda en el orden de turnos y en la derrota: se pierde cuando cae
+# el ultimo, no cuando cae el que llevabas delante.
+func _aliados_vivos() -> Array[Combatant]:
+	var out: Array[Combatant] = []
+	for c in _aliados:
+		if c.is_alive():
+			out.append(c)
+	return out
+
+
+# A QUIEN pega el enemigo: uno cualquiera de los tuyos que siga en pie, al azar. Uniforme y sin
+# aggro a proposito: hoy no hay forma de provocar ni de proteger a nadie, asi que cualquier regla
+# fija (siempre al lider, siempre al mas debil) seria una que el jugador no puede tocar. El dia
+# que haya roles (tanque) sera aqui donde se note.
+func _elegir_objetivo_enemigo() -> Combatant:
+	var vivos: Array[Combatant] = _aliados_vivos()
+	return vivos[randi() % vivos.size()] if not vivos.is_empty() else null
 
 
 # Los VECINOS de 'principal' a los que salpica un hechizo de area: el primer enemigo VIVO a su
@@ -279,11 +350,18 @@ func _ready() -> void:
 
 	if not _injected:
 		# Combatientes de PRUEBA (para abrir combat.tscn directamente con F6). Se montan TRES
-		# slimes de distinta velocidad: asi F6 sirve para probar el combate en grupo (turnos,
-		# numeracion, seleccion por clic) sin tener que buscar un corro en la mazmorra.
-		var pab := Abilities.new()
-		pab.fuerza = 120; pab.resistencia = 90; pab.destreza = 60; pab.agilidad = 110; pab.magia = 20
-		_player = Combatant.new("Heroe", 1, pab, 50, 5, 5, 5)
+		# aliados y TRES slimes de distinta velocidad: asi F6 sirve para probar el combate en grupo
+		# (turnos de cada uno, numeracion, seleccion por clic) sin bajar a la mazmorra.
+		for j in 3:
+			var pab := Abilities.new()
+			pab.fuerza = 120; pab.resistencia = 90; pab.destreza = 60
+			pab.agilidad = 110 - j * 25   # velocidades distintas: los turnos se alternan
+			pab.magia = 20
+			var aliado := Combatant.new(["Heroe", "Bibi", "Coco"][j], 1, pab, 50, 5, 5, 5)
+			aliado.max_energy = 100.0
+			aliado.current_energy = 100.0
+			_aliados.append(aliado)
+		_player = _aliados[0]
 		var colores: Array[Color] = [Color(0.9, 0.3, 0.3), Color(0.4, 0.8, 0.4), Color(0.5, 0.5, 0.95)]
 		for i in 3:
 			var eab := Abilities.new()
@@ -293,28 +371,26 @@ func _ready() -> void:
 			var e := Combatant.new("Slime %d" % (i + 1), 1, eab, 40, 4, 5, 4)
 			e.color_visual = colores[i]
 			_enemies.append(e)
-		# Energia de prueba (F6): el jugador entra con la barra llena.
-		_player.max_energy = 100.0
-		_player.current_energy = 100.0
 
-	_gauge = {_player: 0.0}
-	# Los vecinos NO arrancan con la barra a cero pelado, sino con un pellizco al azar. No es
-	# balance, es LECTURA: sin esto, cuatro bichos identicos avanzan pegados y la barra de accion
-	# es un marcador con tres escondidos detras; ademas actuarian siempre en fila india.
+	# La barra de TODOS: los tuyos y los de enfrente, en la misma linea de salida. Nadie arranca a
+	# cero pelado, sino con un pellizco al azar. No es balance, es LECTURA: sin esto, cuatro bichos
+	# identicos avanzan pegados y la barra de accion es un marcador con tres escondidos detras;
+	# ademas actuarian siempre en fila india. Con los aliados pasa igual entre ellos.
+	_gauge = {}
+	for c in _aliados:
+		_gauge[c] = randf_range(0.0, INICIATIVA_VENTAJA * 0.25)
 	for e in _enemies:
 		_gauge[e] = randf_range(0.0, INICIATIVA_VENTAJA * 0.25)
 	# Iniciativa: SOLO el bicho que disparo el combate (_enemies[0]) se lleva la media barra.
 	# Los vecinos acuden a la pelea, no te han emboscado: darsela a los cuatro serian cuatro
 	# acciones enemigas gratis antes de tu primer turno, o sea muerte sin jugar.
+	# Y del lado de aca, solo el LIDER (_aliados[0]): es el que ha dado el espadazo, los demas
+	# vienen detras.
 	if _enemy_initiated:
 		if not _enemies.is_empty():
 			_gauge[_enemies[0]] = INICIATIVA_VENTAJA
 	elif _injected:
-		_gauge[_player] = INICIATIVA_VENTAJA
-
-	# Si entro agotado, sus primeras acciones iran mas lentas.
-	if _player_exhausted_start:
-		_slow_actions_left = EXHAUSTED_SLOW_ACTIONS
+		_gauge[_aliados[0]] = INICIATIVA_VENTAJA
 
 	_continue_button.text = "Continuar"
 	_continue_button.visible = false
@@ -334,8 +410,11 @@ func _ready() -> void:
 	# Que no te pillen contando bloques: si acuden mas, se dice.
 	if _enemies.size() > 1:
 		intro += "  ¡Le acompañan %d más! ⚔️" % (_enemies.size() - 1)
-	if _player_exhausted_start:
-		intro += "  (Agotado: tus primeras acciones son más lentas)"
+	if not _lentas.is_empty():
+		var cansados: PackedStringArray = []
+		for c in _lentas:
+			cansados.append(c.nombre)
+		intro += "  (Agotados: %s empiezan más lentos)" % ", ".join(cansados)
 	_set_log(intro)
 
 	# Marca de INICIO en consola (para separar combates al montar los Excel).
@@ -343,9 +422,12 @@ func _ready() -> void:
 	var rivales: PackedStringArray = []
 	for e in _enemies:
 		rivales.append("%s (Nv.%d) HP %.2f" % [e.nombre, e.level, e.max_hp])
-	print("[combate] ===== INICIO vs %s | %s HP %.2f%s | iniciativa: %s =====" % [
-		" + ".join(rivales), _player.nombre, _player.max_hp,
-		("" if _player.max_mp <= 0.0 else " MP %.2f" % _player.max_mp), quien])
+	var mios: PackedStringArray = []
+	for c in _aliados:
+		mios.append("%s HP %.2f%s" % [c.nombre, c.max_hp,
+			("" if c.max_mp <= 0.0 else " MP %.2f" % c.max_mp)])
+	print("[combate] ===== INICIO vs %s | %s | iniciativa: %s =====" % [
+		" + ".join(rivales), " + ".join(mios), quien])
 
 
 # Crea la barra de acciones (KAN-55): Atacar / Magia / Defender / Huir, de datos.
@@ -422,15 +504,16 @@ func _setup_ui() -> void:
 	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_col.add_child(sep)
 	_col.move_child(sep, 1)
-	# Tu fila. El bloque del JUGADOR se construye igual que uno enemigo (numero 0 = sin numerar,
-	# sin clic y sin borde: a ti no hace falta apuntarte). Los companeros (KAN-62) entraran aqui.
+	# TU FILA: un bloque por miembro del grupo, construidos igual que los enemigos (numero 0 = sin
+	# numerar y sin clic: a los tuyos no hace falta apuntarles). Cada uno lleva sus tres barras
+	# (vida, energia y maná), porque cada uno gasta las suyas.
 	_aliados_box = _crear_fila_bloques()
 	_col.move_child(_aliados_box, 2)
-	_bloque_player = _crear_bloque(_player, 0, -1)
-	_aliados_box.add_child(_bloque_player["panel"])
-	_player_hp = _bloque_player["hp"]
-	_player_hp_lbl = _bloque_player["hp_lbl"]
-	_crear_barras_jugador()
+	for i in _aliados.size():
+		var ba: Dictionary = _crear_bloque(_aliados[i], 0, -1)
+		_crear_barras_aliado(ba, _aliados[i])
+		_bloques_aliados.append(ba)
+		_aliados_box.add_child(ba["panel"])
 	_seleccionar(0)
 	# El log siempre muestra LOG_MAX lineas (ver _set_log), asi que ocupa un alto FIJO y
 	# los botones no se mueven. clip_text evita que una linea larga se derrame a la dcha.
@@ -573,6 +656,33 @@ func _apagar_bloque(e: Combatant) -> void:
 	b["chips"].visible = false
 
 
+# UN ALIADO CAE (KO). No es una derrota: sale del orden de turnos, se le apaga el bloque y la
+# pelea sigue con los que queden. Se pierde solo cuando cae el ULTIMO (lo mira quien llama).
+# Sus estados y lo que tuviera a medias (Defender, un conjuro recitandose) se van con el: el que
+# vuelva a levantarse no reanuda el hechizo por el que iba.
+func _caer_aliado(c: Combatant) -> void:
+	if c == null:
+		return
+	_gauge.erase(c)
+	_defendiendo.erase(c)
+	_casteos.erase(c)
+	c.statuses.clear()
+	var i: int = _aliados.find(c)
+	if i >= 0 and i < _bloques_aliados.size():
+		var b: Dictionary = _bloques_aliados[i]
+		b["panel"].modulate = Color(0.4, 0.4, 0.4)
+		b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
+		b["chips"].visible = false
+	_set_log("%s cae derrotado. 💀" % c.nombre)
+	# El que actuaba era el: el puntero pasa a alguien en pie, o las acciones (y el log de "tu
+	# turno") se quedarian colgadas de un KO.
+	if _player == c:
+		var vivos: Array[Combatant] = _aliados_vivos()
+		if not vivos.is_empty():
+			_player = vivos[0]
+	_update_hp()
+
+
 # INVOCACION (Rey Slime, Parte B): mete un slime VIVO en la pelea en curso. Prefiere REUTILIZAR el
 # hueco de un cadaver (mantiene el tope de 4 y la numeracion estable, sin apilar bloques); si no hay
 # cadaver y queda sitio, añade uno al final. Devuelve false si no hay hueco (sequito lleno).
@@ -621,32 +731,33 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 	b["hp"].max_value = c.max_hp
 
 
-# Crea las barras de ENERGIA (amarilla) y MANA (azul) del jugador, justo debajo de su barra de
-# vida, DENTRO de su bloque. Solo una vez.
-func _crear_barras_jugador() -> void:
-	if _player_en_bar != null:
-		return
-	var vb: VBoxContainer = _bloque_player["vbox"]
+# Crea las barras de ENERGIA (amarilla) y MANA (azul) de UN aliado, justo debajo de su barra de
+# vida, dentro de su bloque, y las guarda en el propio bloque. Cada aliado tiene las suyas: la
+# energia y el maná se gastan por persona, asi que no puede haber "la barra del jugador".
+func _crear_barras_aliado(bloque: Dictionary, c: Combatant) -> void:
+	var vb: VBoxContainer = bloque["vbox"]
 	# OJO: self_modulate y no modulate. modulate tiñe TAMBIEN a los hijos, y estas barras
 	# llevan dentro el Label con el numero: se pintaria de amarillo/azul y no se leeria.
-	if _player.max_energy > 0.0:
-		_player_en_bar = ProgressBar.new()
-		_player_en_bar.show_percentage = false
-		_player_en_bar.max_value = _player.max_energy
-		_player_en_bar.custom_minimum_size = Vector2(0, 16)
-		_player_en_bar.self_modulate = Color(0.95, 0.85, 0.3)   # energia = amarillo
-		_player_en_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		vb.add_child(_player_en_bar)
-		_player_en_lbl = _crear_label_barra(_player_en_bar, 11)
-	if _player.max_mp > 0.0:
-		_player_mp_bar = ProgressBar.new()
-		_player_mp_bar.show_percentage = false
-		_player_mp_bar.max_value = _player.max_mp
-		_player_mp_bar.custom_minimum_size = Vector2(0, 16)
-		_player_mp_bar.self_modulate = Color(0.4, 0.6, 1.0)     # mana = azul
-		_player_mp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		vb.add_child(_player_mp_bar)
-		_player_mp_lbl = _crear_label_barra(_player_mp_bar, 11)
+	if c.max_energy > 0.0:
+		var en := ProgressBar.new()
+		en.show_percentage = false
+		en.max_value = c.max_energy
+		en.custom_minimum_size = Vector2(0, 16)
+		en.self_modulate = Color(0.95, 0.85, 0.3)   # energia = amarillo
+		en.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vb.add_child(en)
+		bloque["en"] = en
+		bloque["en_lbl"] = _crear_label_barra(en, 11)
+	if c.max_mp > 0.0:
+		var mp := ProgressBar.new()
+		mp.show_percentage = false
+		mp.max_value = c.max_mp
+		mp.custom_minimum_size = Vector2(0, 16)
+		mp.self_modulate = Color(0.4, 0.6, 1.0)     # mana = azul
+		mp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vb.add_child(mp)
+		bloque["mp"] = mp
+		bloque["mp_lbl"] = _crear_label_barra(mp, 11)
 
 
 # Label centrado que cubre toda la barra, para pintar el numero DENTRO. Con borde oscuro
@@ -679,22 +790,26 @@ func _update_hp() -> void:
 		if e.is_alive():
 			_refrescar_chips(e, b["chips"], i)
 
-	_player_hp.value = _player.current_hp
-	if _player_en_bar != null:
-		_player_en_bar.value = _player.current_energy
-	if _player_mp_bar != null:
-		_player_mp_bar.value = _player.current_mp
-
-	# Los NUMEROS van dentro de su barra (vida, energia y mana), no amontonados en la
-	# etiqueta del nombre: cada cifra al lado de la barra a la que pertenece.
-	if _player_hp_lbl != null:
-		_player_hp_lbl.text = "%.2f / %.2f" % [_player.current_hp, _player.max_hp]
-	if _player_en_lbl != null:
-		_player_en_lbl.text = "EN  %.1f / %.1f" % [_player.current_energy, _player.max_energy]
-	if _player_mp_lbl != null:
-		_player_mp_lbl.text = "MP  %.2f / %.2f" % [_player.current_mp, _player.max_mp]
-	_bloque_player["nombre"].text = "%s  (Nv.%d)" % [_player.nombre, _player.level]
-	_refrescar_chips(_player, _bloque_player["chips"], -1)
+	# Y un bloque por aliado, con SUS tres barras. Los KO se siguen refrescando (barra a 0) igual
+	# que los cadaveres de enfrente: su bloque se queda apagado en su sitio, no desaparece.
+	# Los NUMEROS van dentro de su barra (vida, energia y mana), no amontonados en la etiqueta del
+	# nombre: cada cifra al lado de la barra a la que pertenece.
+	for i in _bloques_aliados.size():
+		var c: Combatant = _aliados[i]
+		var b: Dictionary = _bloques_aliados[i]
+		b["hp"].value = c.current_hp
+		b["hp_lbl"].text = "%.2f / %.2f" % [c.current_hp, c.max_hp]
+		if b.has("en"):
+			b["en"].value = c.current_energy
+			b["en_lbl"].text = "EN  %.1f / %.1f" % [c.current_energy, c.max_energy]
+		if b.has("mp"):
+			b["mp"].value = c.current_mp
+			b["mp_lbl"].text = "MP  %.2f / %.2f" % [c.current_mp, c.max_mp]
+		# La coronita marca a QUIEN LE TOCA: con tres bloques iguales hace falta saber de un
+		# vistazo de quien es la accion que estas eligiendo.
+		b["nombre"].text = "%s%s  (Nv.%d)" % [("▶ " if c == _player else ""), c.nombre, c.level]
+		if c.is_alive():
+			_refrescar_chips(c, b["chips"], -1)
 
 
 # Reconstruye los chips de un combatiente: uno por estado ACTIVO (mas la imbuicion, que no es
@@ -801,29 +916,36 @@ func _process(delta: float) -> void:
 	if _state != State.ADVANCING:
 		return
 
-	# Si estamos en una accion lenta por agotamiento, el jugador llena su
-	# barra a mitad de ritmo.
-	var player_rate: float = SPEED_SCALE
-	if _slow_actions_left > 0:
-		player_rate *= EXHAUSTED_RATE
-	player_rate *= _player_overload_factor
-	# Al CASTEAR (KAN-95) la barra se llena a la velocidad de casteo (la varita del
-	# mago hibrido la cambia respecto al arma principal); si no, la velocidad normal.
-	var pspeed: float = _player.cast_spd() if _cast_spell != null else _player.spd()
-	_gauge[_player] += pspeed * delta * player_rate
+	# CADA aliado llena SU barra con SU velocidad: el grupo no actua a la vez, se van alternando
+	# segun quien sea mas rapido (por eso meter a alguien agil cambia el ritmo de la pelea).
+	# Al CASTEAR (KAN-95) se llena a la velocidad de casteo (la varita del mago hibrido la cambia
+	# respecto al arma principal); si no, la velocidad normal. Y quien entro agotado va a medio
+	# ritmo sus primeras acciones.
+	for c in _aliados_vivos():
+		var rate: float = SPEED_SCALE * _player_overload_factor
+		if int(_lentas.get(c, 0)) > 0:
+			rate *= EXHAUSTED_RATE
+		var cspeed: float = c.cast_spd() if _casteos.has(c) else c.spd()
+		_gauge[c] += cspeed * delta * rate
 	for e in _vivos():
 		_gauge[e] += e.spd() * delta * SPEED_SCALE
 
-	# Actua el que tenga la barra MAS llena por encima del umbral. Arrancar en el jugador y
-	# comparar con > estricto le da los empates, que es exactamente lo que hacia el
-	# "if _gauge[_player] >= _gauge[_enemy]" del 1v1: asi el desempate no cambia de manos.
-	var mejor: Combatant = _player
+	# Actua el que tenga la barra MAS llena por encima del umbral. Se arranca por los TUYOS y se
+	# compara con > estricto, asi los empates caen de tu lado (es lo mismo que hacia el
+	# "if _gauge[_player] >= _gauge[_enemy]" del 1v1: el desempate no cambia de manos).
+	var mejor: Combatant = null
+	for c in _aliados_vivos():
+		if mejor == null or _gauge[c] > _gauge[mejor]:
+			mejor = c
+	if mejor == null:
+		return   # no queda nadie de los tuyos: el combate ya se esta cerrando
 	for e in _vivos():
 		if _gauge[e] > _gauge[mejor]:
 			mejor = e
 	if _gauge[mejor] >= UMBRAL:
 		_gauge[mejor] -= UMBRAL
-		if mejor == _player:
+		if _aliados.has(mejor):
+			_player = mejor   # a partir de aqui, "el jugador" es este
 			_begin_player_turn()
 		else:
 			_enemy_turn(mejor)
@@ -843,12 +965,17 @@ func _begin_player_turn() -> void:
 	_update_hp()
 	if not _player.is_alive():
 		_set_log("%s cae por el daño de sus estados. ☠" % _player.nombre)
-		_end(false)   # el DoT (veneno...) puede matarte
+		_caer_aliado(_player)   # el DoT (veneno...) puede tumbarlo
+		if _aliados_vivos().is_empty():
+			_end(false)
+		else:
+			_pausa_lectura()
 		return
 	# AUTORREGENERACION (habilidad de desarrollo): cura un % de tu vida MAXIMA al empezar tu
 	# turno. Va DESPUES del DoT (el veneno te pega igual, esto solo lo compensa un poco) pero
-	# ANTES del corte por aturdido: es pasiva, y un turno perdido no la apaga.
-	var autoreg: float = Game.factor_desarrollo("autorregeneracion")   # 0 si no lo tienes; escala con el rango
+	# ANTES del corte por aturdido: es pasiva, y un turno perdido no la apaga. El rango es el de
+	# SU ficha: cada uno tiene sus desarrollos.
+	var autoreg: float = Game.factor_desarrollo("autorregeneracion", Game.pj_de_combatant(_player))
 	if autoreg > 0.0:
 		var antes: float = _player.current_hp
 		_player.heal(_player.max_hp * AUTORREGEN_PCT * autoreg)
@@ -895,7 +1022,9 @@ func _mostrar_acciones() -> void:
 	_ocultar_cajas()
 	_actions_box.visible = true
 	_refresh_actions()
-	_set_log("¡Tu turno! Elige una acción.")
+	# Se nombra a QUIEN le toca: con tres bloques iguales, "tu turno" no dice de quien es la
+	# accion que estas eligiendo (su bloque tambien lo marca con ▶).
+	_set_log("¡Turno de %s! Elige una acción." % _player.nombre)
 
 
 # Que hace cada accion. El coste de Defender NO se escribe a mano: sale de la constante.
@@ -977,10 +1106,13 @@ func _on_continue_pressed() -> void:
 	if _state != State.FINISHED:
 		return
 	# Si sobrevives, la cura/maná de poción que quedaba a medias se arrastra a fuera de
-	# combate (no se malgasta). Si moriste, no hay nada que arrastrar. (KAN-57)
-	if _player.is_alive():
-		Game.arrastrar_regen(_player.regen_pendiente())
-		Game.arrastrar_regen_mana(_player.regen_mana_pendiente())
+	# combate (no se malgasta). Si caiste, no hay nada que arrastrar. (KAN-57)
+	# Solo la del LIDER (_aliados[0]... o el primero en pie): el goteo de fuera de combate lo
+	# lleva Game para "el jugador", y hoy no hay una cola por persona.
+	for c in _aliados_vivos():
+		Game.arrastrar_regen(c.regen_pendiente())
+		Game.arrastrar_regen_mana(c.regen_mana_pendiente())
+		break
 	# Quien cayo y con cuanta vida se queda cada superviviente (huir no los cura: te vuelves a
 	# encontrar al mismo bicho herido que dejaste).
 	var muertos: Array = []
@@ -996,8 +1128,15 @@ func _on_continue_pressed() -> void:
 		if e_muerto:
 			Game.rodar_slayer_por_familia(int(_enemies[i].familia))
 		hp_left.append(_enemies[i].current_hp)
-	combat_finished.emit(_player_won, _player.current_hp, _player.current_mp,
-		_player.current_energy, muertos, hp_left)
+	# Como sale cada uno de los tuyos, por indice (el mismo orden que llego a setup()).
+	var mi_hp: Array = []
+	var mi_mp: Array = []
+	var mi_en: Array = []
+	for c in _aliados:
+		mi_hp.append(c.current_hp)
+		mi_mp.append(c.current_mp)
+		mi_en.append(c.current_energy)
+	combat_finished.emit(_player_won, mi_hp, mi_mp, mi_en, muertos, hp_left)
 	# Si lo abrio Game, el cierra la capa; si es prueba (F6), nos cerramos solos.
 	if not _injected:
 		queue_free()
@@ -1184,7 +1323,9 @@ func _disparar_hechizo() -> void:
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF
 	# Reto por-stat (contra TU magia, no tu poder total): asi un cuerpo fuerte con magia baja SI
 	# entrena la magia contra bichos de su piso, en vez de quedarse clavado a 0 (ver Game.reto_stat).
-	Game.ganar("magia", Game.reto_stat(_poder_enemigo(obj), "magia", obj.level), Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO)
+	var pj_lanza: PersonajeData = Game.pj_de_combatant(_player)   # entrena EL QUE LANZA
+	Game.ganar("magia", Game.reto_stat(_poder_enemigo(obj), "magia", obj.level, pj_lanza),
+		Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO, pj_lanza)
 	Game.contar_hechizo()   # contador oculto de Erudito
 	print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
 		_player.nombre, spell.nombre, dano, _player.abilities.magia, obj.nombre,
@@ -1520,15 +1661,18 @@ func _backfire() -> void:
 	_player.take_damage(dmg)
 	print("[magia] BACKFIRE %s | frase %d/%d | dano propio:%.2f" % [
 		spell.nombre, _cast_index + 1, spell.longitud(), dmg])
-	_set_log("💥 Recitas mal el conjuro y se descontrola: %.2f de daño. El hechizo se pierde." % dmg)
+	_set_log("💥 %s recita mal el conjuro y se descontrola: %.2f de daño. El hechizo se pierde."
+		% [_player.nombre, dmg])
 	_player.regen_energy(ATTACK_ENERGY_REGEN)   # aun fallando, es un turno sin gasto de energia (KAN-57)
 	_limpiar_casteo()
 	_update_hp()
 	_fin_de_eleccion()
 	if not _player.is_alive():
-		_end(false)
-	else:
-		_state = State.ADVANCING
+		_caer_aliado(_player)   # el conjuro descontrolado puede tumbar al que lo recitaba
+		if _aliados_vivos().is_empty():
+			_end(false)
+			return
+	_state = State.ADVANCING
 
 
 func _limpiar_casteo() -> void:
@@ -1789,8 +1933,9 @@ func _usar_habilidad(ab: AbilityData) -> void:
 				if t.is_alive():
 					estados_log += _tirar_efectos_habilidad(ab, t, hubo_critico)
 		# Excelia: como el ataque, entrena Fuerza (por impacto medio, contra el principal).
-		Game.ganar("fuerza", _reto(obj) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
-			Game.RETO_MAX_FISICO)
+		var pj_hab: PersonajeData = Game.pj_de_combatant(_player)
+		Game.ganar("fuerza", _reto(obj, pj_hab) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
+			Game.RETO_MAX_FISICO, pj_hab)
 		print("        total: %.2f de daño en %d golpe%s%s | EN -%.0f -> %.1f/%.1f%s" % [
 			total, golpes, "" if golpes == 1 else "s",
 			_desglose_imbue(total, total_imbue, mult_imbue),
@@ -1934,8 +2079,9 @@ func _accion_atacar() -> void:
 	# Excelia: atacar sube Fuerza aunque el enemigo esquive (has practicado el
 	# golpe). arma_factor = motion_value de la MANO ACTIVA (KAN-82); tope fisico (5).
 	var arma_factor: float = _player.motion_value
-	Game.ganar("fuerza", _reto(obj) * arma_factor, Game.GAIN_FUERZA_ATAQUE,
-		Game.RETO_MAX_FISICO)
+	var pj_atacante: PersonajeData = Game.pj_de_combatant(_player)
+	Game.ganar("fuerza", _reto(obj, pj_atacante) * arma_factor, Game.GAIN_FUERZA_ATAQUE,
+		Game.RETO_MAX_FISICO, pj_atacante)
 	var con_arma: String = _player.current_hand_name()
 	if result.evaded:
 		_set_log("%s esquiva tu ataque (%s). 💨" % [obj.nombre, con_arma])
@@ -1955,8 +2101,8 @@ func _accion_atacar() -> void:
 			# va CAPADO (ver GAIN_AGILIDAD_CRIT_MV_MAX): ahora que las pesadas critean de verdad,
 			# sin tope entrenarian Agilidad de mas.
 			var agi_factor: float = minf(arma_factor, Game.GAIN_AGILIDAD_CRIT_MV_MAX)
-			Game.ganar("agilidad", _reto(obj) * agi_factor, Game.GAIN_AGILIDAD_CRITICO,
-				Game.RETO_MAX_FISICO)
+			Game.ganar("agilidad", _reto(obj, pj_atacante) * agi_factor, Game.GAIN_AGILIDAD_CRITICO,
+				Game.RETO_MAX_FISICO, pj_atacante)
 		else:
 			txt = "%s golpea con %s por %.2f de daño." % [_player.nombre, con_arma, result.damage]
 		# Cuanto de ese daño lo ha puesto la IMBUICION, y si el objetivo era debil/resistente
@@ -1981,7 +2127,7 @@ func _accion_atacar() -> void:
 	_gastar_imbue()   # blandir el arma gasta un uso, acierte o falle
 	# DURABILIDAD: blandir el arma la desgasta (acierte o falle: has dado el golpe). Los puños
 	# (main vacio) no se gastan (lo filtra Game.desgastar_arma).
-	Game.desgastar_arma(_player.current_hand_slot())
+	Game.desgastar_arma(_player.current_hand_slot(), pj_atacante)
 	# El ataque basico REGENERA energia (KAN-57): te "cargas" pegando.
 	_player.regen_energy(ATTACK_ENERGY_REGEN)
 	_update_hp()
@@ -2095,27 +2241,34 @@ func _enemy_turn(e: Combatant) -> void:
 		for ab in e.habilidades:
 			if e.ability_ready(ab) and ab.invoca_cantidad <= 0:   # la invocacion ya se decidio arriba
 				listas.append(ab)
+	# A QUIEN va: uno de los tuyos que siga en pie (ver _elegir_objetivo_enemigo). Se decide AQUI,
+	# en el momento de pegar, y no al empezar el turno: entre medias puede haber caido alguien.
+	var obj: Combatant = _elegir_objetivo_enemigo()
+	if obj == null:
+		return
 	if not listas.is_empty() and randf() < e.prob_habilidad:
 		var elegida: AbilityData = listas[randi() % listas.size()]
 		if elegida.carga_turnos > 0:
 			_enemy_begin_charge(e, elegida)
 		else:
-			_enemy_use_ability(e, elegida)
+			_enemy_use_ability(e, elegida, obj)
 		return
 
+	var pj_obj: PersonajeData = Game.pj_de_combatant(obj)   # a quien se le apunta la excelia
 	# La postura de guardia del estoque reduce el daño como el Defender (rama defending).
-	var defendiendo: bool = _player_defending or _player.en_guardia
-	var result := StatsMath.resolve_attack(e, _player, defendiendo)
-	_debug_ataque(e, _player, result, defendiendo)
+	var defendiendo: bool = bool(_defendiendo.get(obj, false)) or obj.en_guardia
+	var result := StatsMath.resolve_attack(e, obj, defendiendo)
+	_debug_ataque(e, obj, result, defendiendo)
 	if result.evaded:
-		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos).
+		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos). La entrena
+		# EL QUE ESQUIVA, no el que llevas delante.
 		Game.ganar("agilidad", _reto(e), Game.GAIN_AGILIDAD_ESQUIVAR,
-			Game.RETO_MAX_FISICO)
+			Game.RETO_MAX_FISICO, pj_obj)
 		Game.contar_esquiva()   # contador oculto de Reflejos
 		# CONTRAATAQUE (estoque, KAN-57): en guardia, cada golpe esquivado lo devuelves.
 		# Se lo devuelves A QUIEN TE HA ATACADO, no a tu objetivo seleccionado.
-		if _player.en_guardia:
-			var msg_ev := _contraatacar(e)
+		if obj.en_guardia:
+			var msg_ev := _contraatacar(e, obj)
 			_update_hp()
 			if not e.is_alive():
 				_morir_enemigo(e)
@@ -2128,14 +2281,14 @@ func _enemy_turn(e: Combatant) -> void:
 			_set_log(msg_ev)
 			_pausa_lectura()
 			return
-		_set_log("%s esquiva el ataque de %s. 💨" % [_player.nombre, e.nombre])
+		_set_log("%s esquiva el ataque de %s. 💨" % [obj.nombre, e.nombre])
 		_update_hp()
 		_pausa_lectura()
 		return
 
 	var dmg: float = result.damage * e.dummy_dmg_out_mult   # Saco = 0 (no pega)
-	_player.take_damage(dmg)
-	Game.desgastar_armadura()   # DURABILIDAD: encajar un golpe gasta un poco todas las piezas
+	obj.take_damage(dmg)
+	Game.desgastar_armadura(pj_obj)   # DURABILIDAD: encajar un golpe gasta un poco SU armadura
 	Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
 	if _dps_on:
 		_dmg_taken_total += dmg
@@ -2143,35 +2296,37 @@ func _enemy_turn(e: Combatant) -> void:
 	# Excelia: la Resistencia sube por la PELIGROSIDAD del enemigo (como el
 	# ataque), modulada por el DAÑO recibido (golpe gordo entrena mas). Asi
 	# tambien sube bien al principio, cuando el enemigo es un gran reto.
-	var dmg_mult: float = clampf(dmg / maxf(1.0, float(_player.max_hp) * 0.1), 0.5, 2.0)
+	var dmg_mult: float = clampf(dmg / maxf(1.0, float(obj.max_hp) * 0.1), 0.5, 2.0)
 	Game.ganar("resistencia", _reto(e) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
-		Game.RETO_MAX_FISICO)
+		Game.RETO_MAX_FISICO, pj_obj)
 	# Excelia: si BLOQUEAS (Defender), entrenas Resistencia EXTRA segun cuanto
 	# bloquees (escudo grande entrena mas). Formaliza KAN-81 y premia el escudo.
-	if _player_defending:
-		Game.ganar("resistencia", _reto(e) * _player.defend_block,
-			Game.GAIN_RESISTENCIA_BLOQUEO, Game.RETO_MAX_FISICO)
+	if bool(_defendiendo.get(obj, false)):
+		Game.ganar("resistencia", _reto(e) * obj.defend_block,
+			Game.GAIN_RESISTENCIA_BLOQUEO, Game.RETO_MAX_FISICO, pj_obj)
 	var msg: String
 	if result.crit:
-		msg = "%s te CLAVA un critico: %.2f de daño! 💥" % [e.nombre, dmg]
+		msg = "%s CLAVA un critico a %s: %.2f de daño! 💥" % [e.nombre, obj.nombre, dmg]
 	else:
-		msg = "%s te ataca por %.2f de daño." % [e.nombre, dmg]
-	if _player_defending:
+		msg = "%s ataca a %s por %.2f de daño." % [e.nombre, obj.nombre, dmg]
+	if bool(_defendiendo.get(obj, false)):
 		msg += " (defendido 🛡️)"
 	# Aturdir/retrasar del enemigo (si algun dia lleva arma contundente).
 	if result.aturde:
-		msg += _aplicar_aturdir(_player, result.crit)
+		msg += _aplicar_aturdir(obj, result.crit)
 	# Estados "al golpear" del enemigo (pegajoso/veneno de slimes, KAN-58 Fase 3).
-	for nom in e.roll_on_hit(_player):
-		msg += "  Te inflige %s." % nom
+	for nom in e.roll_on_hit(obj):
+		msg += "  Le inflige %s." % nom
 	_set_log(msg)
 	_update_hp()
 	e.advance_hand()  # (sin efecto ahora; los enemigos aun no llevan 2 armas)
 
-	if not _player.is_alive():
-		_end(false)
-	else:
-		_pausa_lectura()
+	if not obj.is_alive():
+		_caer_aliado(obj)
+		if _aliados_vivos().is_empty():
+			_end(false)
+			return
+	_pausa_lectura()
 
 
 # ============================================================
@@ -2217,10 +2372,17 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData) -> void:
 
 # Ejecuta una habilidad del enemigo: multi-golpe con dano_mult + sus estados (StatusApplication).
 # Espejo compacto de _usar_habilidad del jugador (sin energia/dual/excelia de ataque).
-func _enemy_use_ability(e: Combatant, ab: AbilityData) -> void:
+# 'victima' = el aliado que se la come. Viene por parametro (no se lee de un global) porque con
+# varios de los tuyos en pie cada accion enemiga elige a quien va, y una habilidad CARGADA se
+# resuelve turnos despues de anunciarse: para entonces su presa puede haber cambiado.
+func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null) -> void:
+	var obj: Combatant = victima if victima != null and victima.is_alive() else _elegir_objetivo_enemigo()
+	if obj == null:
+		return
+	var pj_obj: PersonajeData = Game.pj_de_combatant(obj)
 	e.start_cooldown(ab)   # instantaneas: cooldown al usar (las cargadas ya lo arrancaron)
-	print("[habilidad enemigo] %s usa %s" % [e.nombre, ab.nombre])
-	var defendiendo: bool = _player_defending or _player.en_guardia
+	print("[habilidad enemigo] %s usa %s contra %s" % [e.nombre, ab.nombre, obj.nombre])
+	var defendiendo: bool = bool(_defendiendo.get(obj, false)) or obj.en_guardia
 	var total: float = 0.0
 	var golpes: int = 0
 	var conecto: int = 0
@@ -2234,38 +2396,38 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData) -> void:
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
 		for i in golpes:
-			var result := StatsMath.resolve_attack(e, _player, defendiendo)
+			var result := StatsMath.resolve_attack(e, obj, defendiendo)
 			if result.evaded:
 				print("        golpe %d: esquivado 💨" % [i + 1])
 				Game.contar_esquiva()   # contador oculto de Reflejos
-				if _player.en_guardia and contra_txt == "":
-					contra_txt = _contraatacar(e)
+				if obj.en_guardia and contra_txt == "":
+					contra_txt = _contraatacar(e, obj)
 					if not e.is_alive():
 						break
 			else:
 				var dmg: float = result.damage * ab.dano_mult * e.dummy_dmg_out_mult
-				_player.take_damage(dmg)
-				Game.desgastar_armadura()   # DURABILIDAD: cada golpe encajado gasta las piezas
+				obj.take_damage(dmg)
+				Game.desgastar_armadura(pj_obj)   # DURABILIDAD: cada golpe encajado gasta las piezas
 				Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
 				total += dmg
 				conecto += 1
 				var et := "golpe %d: %s %.2f" % [i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
 				if ab.efectos_por_golpe:
-					var ap: Array = _enemy_tirar_efectos(e, ab)
+					var ap: Array = _enemy_tirar_efectos(e, ab, obj)
 					estados_log += ap
 					if not ap.is_empty():
 						et += "  -> " + ", ".join(ap)
 				print("        " + et)
-			if not _player.is_alive():
+			if not obj.is_alive():
 				break
 		# Efectos NO por golpe: solo si el enemigo sigue vivo (un contraataque puede haberlo
 		# matado a mitad de su propia habilidad: un muerto no te envenena).
-		if not ab.efectos_por_golpe and conecto > 0 and _player.is_alive() and e.is_alive():
-			estados_log += _enemy_tirar_efectos(e, ab)
+		if not ab.efectos_por_golpe and conecto > 0 and obj.is_alive() and e.is_alive():
+			estados_log += _enemy_tirar_efectos(e, ab, obj)
 		print("        total: %.2f de daño en %d golpe%s" % [total, golpes, "" if golpes == 1 else "s"])
 	else:
 		# Habilidad de puro estado (sin daño): tira sus efectos directamente.
-		estados_log += _enemy_tirar_efectos(e, ab)
+		estados_log += _enemy_tirar_efectos(e, ab, obj)
 
 	# INVOCACION (Rey Slime): saca hasta invoca_cantidad slimes al azar del pool. Para si se queda
 	# sin hueco (sequito lleno / tope de 4). Va aparte del daño/estados: una habilidad podria pegar
@@ -2282,11 +2444,11 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData) -> void:
 	# Excelia: recibir el golpe entrena Resistencia (como en el ataque basico), modulada
 	# por el daño total encajado.
 	if total > 0.0:
-		var dmg_mult: float = clampf(total / maxf(1.0, float(_player.max_hp) * 0.1), 0.5, 2.0)
+		var dmg_mult: float = clampf(total / maxf(1.0, float(obj.max_hp) * 0.1), 0.5, 2.0)
 		Game.ganar("resistencia", _reto(e) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
-			Game.RETO_MAX_FISICO)
+			Game.RETO_MAX_FISICO, pj_obj)
 
-	var msg: String = "%s usa %s" % [e.nombre, ab.nombre]
+	var msg: String = "%s usa %s contra %s" % [e.nombre, ab.nombre, obj.nombre]
 	if total > 0.0:
 		msg += ": %.2f de daño (%d golpe%s)." % [total, golpes, "" if golpes == 1 else "s"]
 	else:
@@ -2309,10 +2471,13 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData) -> void:
 			_end(true)
 		else:
 			_pausa_lectura()
-	elif not _player.is_alive():
-		_end(false)
-	else:
-		_pausa_lectura()
+		return
+	if not obj.is_alive():
+		_caer_aliado(obj)
+		if _aliados_vivos().is_empty():
+			_end(false)
+			return
+	_pausa_lectura()
 
 
 # Tira los estados (StatusApplication) de una habilidad del enemigo 'e'. Respeta 'en_objetivo':
@@ -2321,18 +2486,18 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData) -> void:
 # "A si mismo" es el ENEMIGO QUE LANZA, de ahi que 'e' venga por parametro: con varios bichos,
 # leer un campo global haria que un slime se buffease a otro slime.
 # N stacks por tirada (a.stacks). Devuelve los nombres aplicados para el log.
-func _enemy_tirar_efectos(e: Combatant, ab: AbilityData) -> Array:
+func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant) -> Array:
 	var out: Array = []
 	for a in ab.efectos:
 		if a.estado < 0:
 			continue
 		var al_jugador: bool = a.en_objetivo
-		var objetivo: Combatant = _player if al_jugador else e
+		var objetivo: Combatant = victima if al_jugador else e
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		if objetivo.es_inmune(a.estado):   # incluye la inmunidad derivada de su AFINIDAD elemental
 			continue   # apply_status ya lo avisaria, pero asi no ensucia el log de aplicados
 		# Solo los estados que te LANZAN a ti se resisten; los buffs propios siempre prenden.
-		var p: float = a.prob * (1.0 - _player.status_resist) if al_jugador else a.prob
+		var p: float = a.prob * (1.0 - victima.status_resist) if al_jugador else a.prob
 		if randf() >= p:
 			continue
 		var mag: float = StatusEffects.app_magnitude(a, e.atk(), e.motion_value)
@@ -2348,22 +2513,25 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData) -> Array:
 # 'atacante' es QUIEN TE HA GOLPEADO, y no tu objetivo seleccionado: el riposte responde al
 # que se te ha echado encima. Si pegase a tu objetivo, con varios enemigos estarias hiriendo
 # a uno que no te ha tocado, y a la vez dejando ileso al que si.
-func _contraatacar(atacante: Combatant) -> String:
-	_player.set_active_hand(0)   # el estoque va en la mano principal
-	var result := StatsMath.resolve_attack(_player, atacante, false)
-	_debug_ataque(_player, atacante, result, false)
+# 'quien' es EL QUE ESTABA EN GUARDIA (el que ha esquivado), no necesariamente el que tiene el
+# turno: el enemigo pega a cualquiera de los tuyos y el riposte es de quien encaja el golpe.
+func _contraatacar(atacante: Combatant, quien: Combatant) -> String:
+	quien.set_active_hand(0)   # el estoque va en la mano principal
+	var result := StatsMath.resolve_attack(quien, atacante, false)
+	_debug_ataque(quien, atacante, result, false)
 	if result.evaded:
-		return "%s esquiva y contraataca, pero %s lo esquiva. 💨" % [_player.nombre, atacante.nombre]
-	var dmg: float = result.damage * _player.guardia_contra_mult
+		return "%s esquiva y contraataca, pero %s lo esquiva. 💨" % [quien.nombre, atacante.nombre]
+	var dmg: float = result.damage * quien.guardia_contra_mult
 	atacante.take_damage(dmg)
 	Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
 	_dps_add("Contraataque", dmg)
 	_ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
 	# Excelia: el contraataque golpea, entrena Fuerza como un ataque normal.
-	Game.ganar("fuerza", _reto(atacante) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
-		Game.RETO_MAX_FISICO)
+	var pj_contra: PersonajeData = Game.pj_de_combatant(quien)
+	Game.ganar("fuerza", _reto(atacante, pj_contra) * quien.motion_value, Game.GAIN_FUERZA_ATAQUE,
+		Game.RETO_MAX_FISICO, pj_contra)
 	var extra := "un CRITICO 💥 " if result.crit else ""
-	return "%s esquiva y CONTRAATACA con el estoque: %s%.2f de daño! 🤺" % [_player.nombre, extra, dmg]
+	return "%s esquiva y CONTRAATACA con el estoque: %s%.2f de daño! 🤺" % [quien.nombre, extra, dmg]
 
 
 # Congela el ATB una fraccion de segundo tras la accion del enemigo, para poder
@@ -2463,6 +2631,7 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	_player_won = player_won
 	_state = State.FINISHED
 	_limpiar_casteo()
+	_casteos.clear()   # y los conjuros a medias de los demas: la pelea ha terminado para todos
 	_ocultar_cajas()
 	_continue_button.visible = true
 	_continue_button.disabled = false
@@ -2477,14 +2646,19 @@ func _end(player_won: bool, fled: bool = false) -> void:
 		# Solo cuentan los enemigos con NUCLEO real (los del mundo): los slimes INVOCADOS por el Rey
 		# no dan maná, o el Rey seria un grifo infinito de maná para un mago (invoca -> matas -> maná).
 		var kills_reales: int = _enemies.size() - _slots_invocados.size()
-		if _player.is_alive() and _player.max_mp > 0.0 and _player.current_mp < _player.max_mp and kills_reales > 0:
-			var antes: float = _player.current_mp
-			_player.regen_mana(StatsMath.mp_por_kill(_player.mp_regen_turno, kills_reales))
-			mp_vic = _player.current_mp - antes
+		# Lo absorbe CADA UNO de los que siguen en pie, con su propia arma magica: el nucleo se
+		# disuelve en el grupo, no solo en el que llevabas delante. Al que cayo no le llega nada.
+		for c in _aliados_vivos():
+			if c.max_mp <= 0.0 or c.current_mp >= c.max_mp or kills_reales <= 0:
+				continue
+			var antes: float = c.current_mp
+			c.regen_mana(StatsMath.mp_por_kill(c.mp_regen_turno, kills_reales))
+			mp_vic += c.current_mp - antes
+			print("[combate] maná de los nucleos para %s: +%.2f (%d enemigo%s, regen del arma %.2f) -> %.2f/%.2f" % [
+				c.nombre, c.current_mp - antes, kills_reales, "" if kills_reales == 1 else "s",
+				c.mp_regen_turno, c.current_mp, c.max_mp])
+		if mp_vic > 0.0:
 			_update_hp()
-			print("[combate] maná de los nucleos: +%.2f (%d enemigo%s, regen del arma %.2f) -> %.2f/%.2f" % [
-				mp_vic, kills_reales, "" if kills_reales == 1 else "s",
-				_player.mp_regen_turno, _player.current_mp, _player.max_mp])
 		var caidos: String = _enemies[0].nombre if _enemies.size() == 1 \
 			else "%d enemigos" % _enemies.size()
 		_set_log("¡GANASTE el combate contra " + caidos + "! 🎉"
@@ -2492,19 +2666,22 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	elif fled:
 		# Al huir se dice a cuantos dejas atras: si te llevaste a alguno por delante, cuenta.
 		var quedan: int = _vivos().size()
-		_set_log("Has escapado. 🏃  (Dejas atrás %d enemigo%s en pie)" % [
+		_set_log("Habéis escapado. 🏃  (Dejáis atrás %d enemigo%s en pie)" % [
 			quedan, "" if quedan == 1 else "s"])
 	else:
-		_set_log("Has caido en combate... 💀")
+		_set_log("Todo el grupo ha caído en combate... 💀")
 
 	# Marca de FIN en consola (cierra el bloque del combate para los Excel).
-	var desenlace: String = ("huye %s" % _player.nombre) if fled else \
-		("gana %s" % (_player.nombre if player_won else "los enemigos"))
+	var desenlace: String = "huye el grupo" if fled else \
+		("gana el grupo" if player_won else "ganan los enemigos")
 	var estado_rivales: PackedStringArray = []
 	for e in _enemies:
 		estado_rivales.append("%s HP %.2f%s" % [e.nombre, e.current_hp, "" if e.is_alive() else " ☠"])
-	print("[combate] ===== FIN: %s | %s HP %.2f | %s =====" % [
-		desenlace, _player.nombre, _player.current_hp, " | ".join(estado_rivales)])
+	var estado_mios: PackedStringArray = []
+	for c in _aliados:
+		estado_mios.append("%s HP %.2f%s" % [c.nombre, c.current_hp, "" if c.is_alive() else " 💀"])
+	print("[combate] ===== FIN: %s | %s | %s =====" % [
+		desenlace, " | ".join(estado_mios), " | ".join(estado_rivales)])
 
 
 # Log-HISTORIAL: cada evento se apila como una linea nueva y se muestran las
@@ -2587,10 +2764,13 @@ func _poder_enemigo(c: Combatant) -> float:
 # Dificultad relativa contra ESTE bicho. Pasa su NIVEL (el tier del contenido, de EnemyData.level)
 # ademas de su poder: Game.reto() lo necesita para saber contra que medirte (tu progreso de este
 # nivel si el bicho es de tu nivel o superior, tu acumulado de por vida si es de uno anterior).
-func _reto(c: Combatant) -> float:
+# 'pj' = contra QUIEN se mide el reto (null = el lider). Cada aliado tiene su propio poder
+# acumulado, asi que el mismo slime es un reto distinto para la veterana que para el novato: al
+# que va flojo le entrena mas, que es justo lo que hace que un companero nuevo se ponga al dia.
+func _reto(c: Combatant, pj: PersonajeData = null) -> float:
 	if c == null:
 		return 0.0
-	return Game.reto(_poder_enemigo(c), c.level)
+	return Game.reto(_poder_enemigo(c), c.level, pj)
 
 
 # Crea la linea de orden de turnos (banda horizontal en la zona media).
@@ -2606,10 +2786,16 @@ func _crear_timeline() -> void:
 	# Solo dibuja -> IGNORE (que no robe clics a lo que quede por encima).
 	_timeline.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_timeline)
-	# Tu marcador lleva el aspecto de TU cubo: el mismo color, la misma imagen y el mismo metal
-	# que en el mapa (material_cuerpo() puede devolver null, y es correcto: un cuerpo mate sin
-	# imagen se pinta solo con su color). Sin texto: ya te reconoces por la pinta.
-	_timeline.anadir(_player, Game.player_color, Game.material_cuerpo(), "")
+	# Un marcador por cada uno de los tuyos, con el aspecto de SU cubo: el mismo color, la misma
+	# imagen y el mismo metal que en el mapa (material_de() puede devolver null, y es correcto: un
+	# cuerpo mate sin imagen se pinta solo con su color). Sin texto: se reconocen por la pinta,
+	# que es la misma con la que los llevas por la mazmorra.
+	for c in _aliados:
+		var pj: PersonajeData = Game.pj_de_combatant(c)
+		if pj != null:
+			_timeline.anadir(c, pj.color, Game.material_de(pj), "")
+		else:
+			_timeline.anadir(c, Color(0.9, 0.9, 0.9), null, "")   # prueba (F6): sin ficha detras
 	# Cada enemigo con su color del mapa y su NUMERO, el mismo que lleva su bloque arriba.
 	for i in _enemies.size():
 		_timeline.anadir(_enemies[i], _enemies[i].color_visual, null, str(i + 1))

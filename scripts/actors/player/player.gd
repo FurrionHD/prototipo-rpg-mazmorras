@@ -540,6 +540,29 @@ func is_exhausted() -> bool:
 	return _exhausted
 
 
+# El aguante de UN miembro del grupo: (actual, maximo). Lo pide Game al montar el combate, porque
+# esa barra es la ENERGIA con la que cada uno entra a pelear (KAN-57). El del que va en cabeza no
+# esta en su ficha sino en las variables vivas (las usa el movimiento), de ahi el caso aparte.
+# Vuelca a las variables vivas el aguante que la FICHA del lider trae ahora mismo. Lo llama Game
+# al salir del combate: alli la energia se gasta y se regenera por persona, y se guarda en las
+# fichas; sin esto, el cuerpo del mapa seguiria con el aguante que tenia al entrar y se comeria
+# todo lo que paso en la pelea.
+func recargar_aguante_lider() -> void:
+	_pj_actual = Game.lider()
+	max_stamina = _calc_max_aguante()
+	current_stamina = _aguante_de(_pj_actual)
+	_exhausted = bool(_pj_actual.get_meta("sin_fuelle", false))
+
+
+# El aguante de UN miembro del grupo: (actual, maximo). Lo pide Game al montar el combate, porque
+# esa barra es la ENERGIA con la que cada uno entra a pelear (KAN-57). El del que va en cabeza no
+# esta en su ficha sino en las variables vivas (las usa el movimiento), de ahi el caso aparte.
+func aguante_de_grupo(pj: PersonajeData) -> Vector2:
+	if pj == _pj_actual:
+		return Vector2(current_stamina, max_stamina)
+	return Vector2(_aguante_de(pj), _calc_max_aguante(pj))
+
+
 # Enemigo vivo mas cercano dentro del rango (para la Agilidad al correr).
 func _enemigo_cercano_agilidad() -> Node:
 	var best: float = INF

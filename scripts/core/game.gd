@@ -521,8 +521,21 @@ const RESPAWN_SEGUNDOS := 300.0
 # pelea sigue en cooldown en la siguiente, no se resetea al empezar cada combate. { AbilityData:
 # turnos_restantes }. Baja 1 por cada combate que EMPIEZAS (ademas de por turno dentro). Se pone
 # a cero en partida nueva; es estado de runtime, no va al save (los CD son cortos y efimeros).
+# Es POR PERSONA ({PersonajeData: {AbilityData: turnos}}): cada uno gasta sus propias habilidades,
+# y un nuke que soltó la guerrera no puede dejar en cooldown el de la maga.
 var ability_cooldowns_persist: Dictionary = {}
-var _active_player_c = null   # el Combatant del jugador en el combate en curso (para leer sus CD al salir)
+# Los Combatant del GRUPO en el combate en curso, y la ficha de cada uno, en el MISMO orden en que
+# se le pasaron a la pantalla de combate. Sirven para dos cosas: leer sus cooldowns al salir y
+# traducir Combatant -> PersonajeData mientras se pelea (excelia y desgaste de cada uno).
+var _active_player_cs: Array = []
+var _active_player_pjs: Array = []
+
+
+# De quien es este combatiente. null si no es de los tuyos (un enemigo) o si el combate se abrio
+# suelto para probar (F6), que no tiene fichas detras.
+func pj_de_combatant(c) -> PersonajeData:
+	var i: int = _active_player_cs.find(c)
+	return _active_player_pjs[i] if i >= 0 and i < _active_player_pjs.size() else null
 
 
 func olvidar_mazmorra() -> void:
@@ -1279,9 +1292,13 @@ func morir_jugador() -> void:
 	var perdidos_c: int = _perder_de(crystals)
 	var perdidos_d: int = _perder_de(materiales)
 
-	# Despiertas entero: ya has pagado con el botin, no hace falta ademas un paseo al altar.
-	player_current_hp = -1   # -1 = "a tope" (se rellena al vuelo)
-	player_current_mp = -1
+	# Despertais ENTEROS, todo el grupo: ya habeis pagado con el botin, no hace falta ademas un
+	# paseo al altar con tres fichas a 1 de vida.
+	for pj in party:
+		pj.current_hp = -1   # -1 = "a tope" (se rellena al vuelo)
+		pj.current_mp = -1
+		pj.stamina = -1
+		pj.set_meta("sin_fuelle", false)
 	player_heal_left = 0.0
 	player_mana_heal_left = 0.0
 
@@ -1831,29 +1848,33 @@ func durabilidad_mult(frac: float) -> float:
 	return 1.0 - PENAL_MAX * (1.0 - clampf(frac, 0.0, 1.0))
 
 # Resta desgaste a un slot (arma/pieza), en fraccion = puntos/max. No baja de 0 (roto).
-func _desgastar_slot(slot: String, puntos: float) -> void:
-	if not equip_meta.has(slot):
+# 'pj' = de quien es el equipo (null = el lider): en el combate en grupo cada uno gasta LO SUYO,
+# y quien encaja el golpe no siempre es el que llevas delante.
+func _desgastar_slot(slot: String, puntos: float, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	if not p.equip_meta.has(slot):
 		return
-	var maxd: float = max_durabilidad(slot)
+	var maxd: float = max_durabilidad(slot, p)
 	if maxd <= 0.0:
 		return
-	var frac: float = durabilidad_slot(slot) - puntos / maxd
-	equip_meta[slot]["durabilidad"] = clampf(frac, 0.0, 1.0)
+	var frac: float = durabilidad_slot(slot, p) - puntos / maxd
+	p.equip_meta[slot]["durabilidad"] = clampf(frac, 0.0, 1.0)
 
 # Desgasta el ARMA de la mano indicada ("main"/"off") por un golpe dado. Los puños (sin arma)
 # no se gastan (no hay pieza equipada de verdad).
-func desgastar_arma(slot: String) -> void:
-	if slot == "main" and equipped_main == null:
+func desgastar_arma(slot: String, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	if slot == "main" and p.equipped_main == null:
 		return
-	if slot == "off" and not (equipped_off is WeaponData):
+	if slot == "off" and not (p.equipped_off is WeaponData):
 		return
-	_desgastar_slot(slot, DESGASTE_ARMA)
+	_desgastar_slot(slot, DESGASTE_ARMA, p)
 
 # Desgasta TODAS las piezas de armadura equipadas por un golpe recibido (un poco cada una).
-func desgastar_armadura() -> void:
+func desgastar_armadura(pj: PersonajeData = null) -> void:
 	for slot in ["casco", "pecho", "manos", "pantalones", "botas"]:
-		if _pieza_equipada(slot) != null:
-			_desgastar_slot(slot, DESGASTE_ARMOR)
+		if _pieza_equipada(slot, pj) != null:
+			_desgastar_slot(slot, DESGASTE_ARMOR, pj)
 
 func _pieza_equipada(slot: String, pj: PersonajeData = null) -> ArmorData:
 	var p: PersonajeData = pj if pj != null else lider()
@@ -4541,32 +4562,39 @@ func agilidad_speed_mult() -> float:
 # vida: cada nivel vuelve a empezar su curva de aprendizaje igual que vuelve a empezar el rango
 # visible. Ver el bloque de ABILITY_CAP arriba para el porque completo. Lo que SE SUMA sigue siendo
 # el interno de por vida: esa es la fuente de verdad (la leen reto(), stat_total() y la recoleccion).
-func ganar(abil: String, reto_val: float, base: float, max_reto: float = RETO_MAX) -> void:
-	if not ability_internal.has(abil):
+# 'pj' = QUIEN entrena (null = el lider). En el combate en grupo cada uno entrena LO SUYO: el que
+# pega sube su Fuerza y el que encaja el golpe su Resistencia, aunque no sea el que llevas delante.
+# Sin el parametro, todo lo que hicieran los companeros engordaria la ficha del lider.
+func ganar(abil: String, reto_val: float, base: float, max_reto: float = RETO_MAX,
+		pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	if not p.ability_internal.has(abil):
 		return
-	var interno: float = ability_internal[abil]
-	var del_nivel: float = maxf(0.0, interno - float(ability_base_nivel[abil]))
+	var interno: float = p.ability_internal[abil]
+	var del_nivel: float = maxf(0.0, interno - float(p.ability_base_nivel[abil]))
 	var factor: float = maxf(DIMINISH_FLOOR,
 		pow(clampf(1.0 - del_nivel / ABILITY_CAP, 0.0, 1.0), DIMINISH_POWER))
-	var gain: float = base * clampf(reto_val, 0.0, max_reto) * factor * desarrollo_gain_mult(abil)
-	ability_internal[abil] = interno + gain
+	var gain: float = base * clampf(reto_val, 0.0, max_reto) * factor * desarrollo_gain_mult(abil, p)
+	p.ability_internal[abil] = interno + gain
 
 # Poder del jugador DE POR VIDA (suma de los totales ocultos) con un suelo para no dividir por 0.
 # Es el baremo contra el contenido de niveles ANTERIORES: no se resetea al ascender y ademas crece
 # un NIVEL_SPIKE extra en cada ascenso (ver subir_nivel), asi que lo viejo se hunde mas con cada
 # nivel que subes. Sin exploit de farmear piso 1.
-func poder_jugador_eff() -> float:
-	var suma: float = float(stat_total("fuerza") + stat_total("resistencia") + stat_total("destreza")
-		+ stat_total("agilidad") + stat_total("magia"))
+func poder_jugador_eff(pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
+	var suma: float = float(stat_total("fuerza", p) + stat_total("resistencia", p)
+		+ stat_total("destreza", p) + stat_total("agilidad", p) + stat_total("magia", p))
 	return maxf(suma, PODER_JUGADOR_SUELO)
 
 # Poder del jugador EN ESTE NIVEL: suma del progreso desde el ultimo ascenso. Es el baremo contra el
 # contenido de TU nivel o superior — cada nivel es su propia arena y arranca en cero, asi que recien
 # ascendido el contenido nuevo te mide como a un novato (y te entrena como a uno).
-func poder_jugador_nivel() -> float:
+func poder_jugador_nivel(pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
 	var suma: float = 0.0
-	for s in ability_internal:
-		suma += maxf(0.0, float(ability_internal[s]) - float(ability_base_nivel[s]))
+	for s in p.ability_internal:
+		suma += maxf(0.0, float(p.ability_internal[s]) - float(p.ability_base_nivel[s]))
 	return maxf(suma, PODER_JUGADOR_SUELO)
 
 # Dificultad relativa: enemigo/accion facil respecto a ti = poco.
@@ -4579,8 +4607,9 @@ func poder_jugador_nivel() -> float:
 #
 # A NIVEL 1 los dos denominadores son IDENTICOS por construccion (ability_base_nivel vale 0), asi
 # que esto no rebalancea nada de la partida actual: solo despierta al ascender.
-func reto(poder_enemigo: float, nivel_enemigo: int = 1) -> float:
-	var denom: float = poder_jugador_nivel() if nivel_enemigo >= player_level else poder_jugador_eff()
+func reto(poder_enemigo: float, nivel_enemigo: int = 1, pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
+	var denom: float = poder_jugador_nivel(p) if nivel_enemigo >= p.level else poder_jugador_eff(p)
 	return clampf(poder_enemigo / denom, 0.0, RETO_MAX)
 
 # Reto RELATIVO A UNA STAT concreta (no al poder TOTAL): deja subir una habilidad rezagada aunque
@@ -4589,10 +4618,12 @@ func reto(poder_enemigo: float, nivel_enemigo: int = 1) -> float:
 # una magia baja entrena rapido hasta ponerse a la altura del piso que farmeas y se frena sola
 # despues (para subir mas hacen falta pisos mas profundos: mismo techo por piso que cualquier stat,
 # no es exploit). Mismo criterio de denominador que reto(), pero con la stat suelta.
-func reto_stat(poder_enemigo: float, stat: String, nivel_enemigo: int = 1) -> float:
-	var s: float = float(stat_total(stat))
-	if nivel_enemigo >= player_level:
-		s = maxf(0.0, float(ability_internal[stat]) - float(ability_base_nivel[stat]))
+func reto_stat(poder_enemigo: float, stat: String, nivel_enemigo: int = 1,
+		pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
+	var s: float = float(stat_total(stat, p))
+	if nivel_enemigo >= p.level:
+		s = maxf(0.0, float(p.ability_internal[stat]) - float(p.ability_base_nivel[stat]))
 	return clampf(poder_enemigo / maxf(s, PODER_JUGADOR_SUELO), 0.0, RETO_MAX)
 
 
@@ -4998,8 +5029,8 @@ func aplicar_desarrollo(id: String) -> void:
 	print("[desarrollo] Adquieres: ", desarrollo_por_id(id).get("nombre", id), " (rango ", letra_rango(desarrollo_rango(id)), ")")
 
 # Multiplicador de ganancia de excelia por el CAZADOR (escala con su rango; 1.0 si no lo tienes).
-func desarrollo_gain_mult(_abil: String) -> float:
-	return 1.0 + CAZADOR_GAIN_BONUS * factor_desarrollo("cazador")
+func desarrollo_gain_mult(_abil: String, pj: PersonajeData = null) -> float:
+	return 1.0 + CAZADOR_GAIN_BONUS * factor_desarrollo("cazador", pj)
 
 # Pone a 0 el contador de cada desarrollo que NO tienes (lo llama subir_nivel). Los ya elegidos
 # conservan su contador (acumulativo → siguen subiendo de rango).
@@ -5193,12 +5224,23 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 	if _active_enemies.is_empty():
 		return
 
-	var player_c := crear_player_combatant()
+	# EL GRUPO ENTERO baja a la pelea: un Combatant por miembro del equipo, con el LIDER el primero
+	# (es el que ha dado el espadazo, y el que se lleva la iniciativa si atacaste tu).
+	var pjs: Array = [lider()]
+	for comp in companeros():
+		pjs.append(comp)
+	var player_cs: Array = []
+	for pj in pjs:
+		player_cs.append(crear_player_combatant(pj))
+	_active_player_pjs = pjs
+	_active_player_cs = player_cs
+	var player_c: Combatant = player_cs[0]   # el lider: quien arrastra las pociones del mapa
 
 	# CURA DE POCIÓN pendiente del MAPA: si bebiste una poción fuera de combate y aún te quedaba
 	# cura por gotear (player_heal_left) al entrar, NO se pierde con la pausa del árbol: se
 	# convierte en Regeneración dentro del combate (repartida en turnos) y se consume el pendiente.
 	# Simétrico a arrastrar_regen (que lleva la regen de combate de vuelta al mapa).
+	# Va al LIDER: la poción te la bebiste tú, no el grupo.
 	if player_heal_left > 0.0:
 		player_c.apply_status(StatusEffects.Id.REGENERACION, POCION_ARRASTRE_TURNOS,
 			player_heal_left / float(POCION_ARRASTRE_TURNOS))
@@ -5242,35 +5284,38 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 			# debug_dummy_mode == 2 (Pegador): conserva sus stats y te pega (mult 1.0).
 		player_c.invulnerable = true                    # no mueres durante la prueba
 
-	# ¿El jugador entra agotado? (sus 2 primeras acciones seran mas lentas)
-	var player_exhausted := false
+	# ENERGIA de combate (KAN-57) = la stamina de exploracion con la que ENTRA CADA UNO (correr por
+	# la mazmorra lo pagan todos, ver player.gd), y quien llegue sin fuelle empieza lento. El
+	# aguante del que va en cabeza vive en el nodo del jugador; el de los demas, en su ficha.
 	var pnode := get_tree().get_first_node_in_group("player")
-	if pnode != null and pnode.has_method("is_exhausted"):
-		player_exhausted = pnode.is_exhausted()
-
-	# ENERGIA de combate (KAN-57) = la stamina de exploracion con la que ENTRAS. Solo
-	# el jugador la usa (habilidades/Defender gastan, basico regenera). Al salir vuelve.
-	if pnode != null and "current_stamina" in pnode and "max_stamina" in pnode:
-		player_c.max_energy = float(pnode.max_stamina)
-		player_c.current_energy = clampf(float(pnode.current_stamina), 0.0, float(pnode.max_stamina))
+	var exhausted: Array = []
+	for i in pjs.size():
+		var pj_i: PersonajeData = pjs[i]
+		var c_i: Combatant = player_cs[i]
+		if pnode != null and pnode.has_method("aguante_de_grupo"):
+			var ag: Vector2 = pnode.aguante_de_grupo(pj_i)
+			c_i.max_energy = ag.y
+			c_i.current_energy = clampf(ag.x, 0.0, ag.y)
+		exhausted.append(bool(pj_i.get_meta("sin_fuelle", false)))
 
 	# COOLDOWNS que viajan entre combates: bajan 1 por ENTRAR a este combate (ademas de por turno
 	# dentro), y se cargan en el combatiente para que un nuke usado en la pelea anterior siga
 	# cociendo. Sin esto, el Combatant nace con los CD a cero cada combate y podias repetir el
-	# mazazo en cada pelea.
-	var cd_carry: Dictionary = {}
-	for ab in ability_cooldowns_persist:
-		var left: int = int(ability_cooldowns_persist[ab]) - 1
-		if left > 0:
-			cd_carry[ab] = left
-	ability_cooldowns_persist = cd_carry
-	player_c.ability_cooldowns = cd_carry.duplicate()
-	_active_player_c = player_c
+	# mazazo en cada pelea. Van POR PERSONA: son SUS habilidades.
+	for i in pjs.size():
+		var cd_carry: Dictionary = {}
+		var suyos: Dictionary = ability_cooldowns_persist.get(pjs[i], {})
+		for ab in suyos:
+			var left: int = int(suyos[ab]) - 1
+			if left > 0:
+				cd_carry[ab] = left
+		ability_cooldowns_persist[pjs[i]] = cd_carry
+		player_cs[i].ability_cooldowns = cd_carry.duplicate()
 
 	var combat := _combat_scene.instantiate()
 	# PROCESS_MODE_ALWAYS = el combate sigue funcionando aunque el arbol este en pausa.
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
-	combat.setup(player_c, enemy_cs, enemy_initiated, player_exhausted, overload_speed_factor())
+	combat.setup(player_cs, enemy_cs, enemy_initiated, exhausted, overload_speed_factor())
 	combat.combat_finished.connect(_on_combat_finished)
 
 	# Lo metemos en una CanvasLayer: asi NO le afecta la camara 2D de la
@@ -5737,25 +5782,44 @@ func dev_curva_drops(pisos: Array = [1, 2, 3, 4, 6, 8, 10, 12]) -> void:
 		print(linea, "   (mat/nucleo, debut ", data.drop_piso_debut, " pleno ", data.drop_piso_pleno, ")")
 
 
-func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left: float = -1.0,
-		player_energy_left: float = -1.0, muertos: Array = [], enemy_hp_left: Array = []) -> void:
+# Los tres primeros arrays vienen POR ALIADO, en el orden en que se le pasaron a la pantalla
+# (el lider el primero): con quE vida, maná y energia sale cada uno.
+func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array = [],
+		energy_left: Array = [], muertos: Array = [], enemy_hp_left: Array = []) -> void:
 	get_tree().paused = false
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
-	player_current_hp = player_hp_left
-	if player_mp_left >= 0.0:
-		player_current_mp = player_mp_left  # el mana gastado persiste al salir
 
-	# La energia gastada/regenerada en combate persiste en la STAMINA de exploracion.
-	if player_energy_left >= 0.0:
-		var pnode := get_tree().get_first_node_in_group("player")
-		if pnode != null and "current_stamina" in pnode:
-			pnode.current_stamina = clampf(player_energy_left, 0.0, float(pnode.max_stamina))
+	# Como sale CADA UNO. El que cayo (0 de vida) se levanta con 1: queda KO, no muerto. Perderlo
+	# para siempre no encaja con que a nadie se le despide, y dejarlo a 0 lo dejaria tumbado sin
+	# forma de curarlo (las pociones no reviven). Con 1 punto sales del paso: hay que curarlo antes
+	# de la siguiente pelea o vuelve a caer al primer golpe.
+	var todos_caidos: bool = not _active_player_pjs.is_empty()
+	for i in _active_player_pjs.size():
+		var pj: PersonajeData = _active_player_pjs[i]
+		var hp: float = float(hp_left[i]) if i < hp_left.size() else -1.0
+		if hp > 0.0:
+			todos_caidos = false
+		pj.current_hp = maxf(1.0, hp)
+		if i < mp_left.size() and float(mp_left[i]) >= 0.0:
+			pj.current_mp = float(mp_left[i])   # el mana gastado persiste al salir
+		# La energia gastada/regenerada en combate persiste en la STAMINA de exploracion.
+		if i < energy_left.size() and float(energy_left[i]) >= 0.0:
+			pj.stamina = float(energy_left[i])
+			pj.set_meta("sin_fuelle", false)
+	# El cuerpo del mapa lleva SU propio aguante en variables vivas: hay que recargarselo de la
+	# ficha, o el del lider volveria al valor con el que entro al combate.
+	var pnode := get_tree().get_first_node_in_group("player")
+	if pnode != null and pnode.has_method("recargar_aguante_lider"):
+		pnode.recargar_aguante_lider()
 
 	# Los COOLDOWNS que queden al terminar viajan al siguiente combate (ver start_combat).
-	if _active_player_c != null:
-		ability_cooldowns_persist = (_active_player_c.ability_cooldowns as Dictionary).duplicate()
-		_active_player_c = null
+	for i in _active_player_pjs.size():
+		if i < _active_player_cs.size():
+			ability_cooldowns_persist[_active_player_pjs[i]] = \
+				(_active_player_cs[i].ability_cooldowns as Dictionary).duplicate()
+	_active_player_cs = []
+	_active_player_pjs = []
 
 	# Los que CAYERON no desaparecen: quedan como cadaver para poder extraerles el cristal
 	# (minijuego, Fase 5). El criterio son los 'muertos' que manda el combate, NO player_won:
@@ -5790,8 +5854,9 @@ func _on_combat_finished(player_won: bool, player_hp_left: float, player_mp_left
 		_active_layer.queue_free()
 	_active_layer = null
 
-	# ¿MUERTO? Se mira la VIDA, no player_won: al HUIR tambien llega player_won = false
+	# ¿DERROTA? Se mira la VIDA, no player_won: al HUIR tambien llega player_won = false
 	# (combat._end(false, true)), y huir es una decision legitima que ya pagas perdiendo el
 	# combate. Castigar la huida como la muerte seria un error muy facil de colar aqui.
-	if player_hp_left <= 0.0:
+	# Y se pierde solo si cayo TODO EL GRUPO: mientras quede alguien en pie, la expedicion sigue.
+	if todos_caidos:
 		morir_jugador()
