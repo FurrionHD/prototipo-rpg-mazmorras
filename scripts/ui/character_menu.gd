@@ -526,11 +526,15 @@ func _bloque_magia(c: Combatant) -> void:
 	# PODER MAGICO: lo que multiplica el daño base de un hechizo, igual que "Ataque total" es el raw
 	# antes de que cada golpe le aplique su motion value. El daño final de una Brasa es su dano_base
 	# por ESTE numero (y luego lo mitiga la defensa magica del bicho).
-	var poder: float = StatsMath.magia_factor(float(c.abilities.magia)) \
-		* c.magic_amp * c.magia_base_factor * StatsMath.SPELL_DAMAGE_MULT
-	_row(_content, "Poder mágico", "×%.2f" % poder)
+	# Se desglosa en sus DOS mitades (tu Magia y el arma) y se enseñan LAS DOS, nunca una sola: el
+	# total ya lleva el arma dentro, y con una sola linea debajo no hay forma de saber si el numero
+	# de arriba la incluye o si hay que multiplicarla aparte. Viendo 1.81 y 1.70 se comprueba solo.
+	var por_magia: float = StatsMath.magia_factor(float(c.abilities.magia)) \
+		* c.magia_base_factor * StatsMath.SPELL_DAMAGE_MULT
+	_row(_content, "Poder mágico", "×%.2f" % (por_magia * amp))
 	if absf(amp - 1.0) > 0.001:
-		_row(_content, "   · del arma", "×%.2f" % amp)
+		_row(_content, "   · tu Magia", "×%.2f" % por_magia)
+		_row(_content, "   · el arma", "×%.2f" % amp)
 	# Defensa MAGICA: la que te protege de los hechizos. No es la Defensa de arriba (esa es fisica),
 	# y hasta ahora no salia en ningun sitio pese a ser la mitad de lo que te mantiene vivo.
 	_row(_content, "Defensa mágica", "%.1f" % StatsMath.magic_jugador(c.abilities, c.base_magic))
@@ -543,7 +547,8 @@ func _bloque_magia(c: Combatant) -> void:
 	if float(lm["mana_reduccion"]) > 0.0:
 		_row(_content, "Coste de maná", "-%.0f%%" % (float(lm["mana_reduccion"]) * 100.0))
 	_note(_content, "El poder mágico multiplica el daño BASE del hechizo (como el Ataque total al "
-		+ "golpe físico); luego lo frena la defensa mágica del que lo recibe.")
+		+ "golpe físico); luego lo frena la defensa mágica del que lo recibe. Las dos líneas de "
+		+ "debajo son los factores que ya lleva dentro: se multiplican entre sí, no se suman.")
 
 
 func _ataque_total(c: Combatant) -> float:
