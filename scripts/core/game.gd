@@ -4835,25 +4835,36 @@ const AGILIDAD_VEL_PENAL := 0.20  # suelo del castigo (Agilidad 0 frente a esper
 const AGI_ESPERADA_F1 := 30.0     # lo que se da por hecho en el piso 1
 const AGI_ESPERADA_STEP := 57.0   # ~660 al piso 12, el ultimo antes de la franja T3
 
-# ...pero la recta sola se queda corta al cambiar de nivel. Cada guardian de nivel (el del piso 12
-# desbloquea el Nv2, el del 24 el Nv3) te da un ascenso, y ascender INFLA tus stats internas un
+# ...mas un ESCALON al cambiar de nivel. Cada guardian de nivel (el del piso 12 desbloquea el Nv2,
+# el del 24 el Nv3, el del 36 el Nv4) te da un ascenso, y ascender INFLA tus stats internas un
 # NIVEL_SPIKE (ver subir_nivel): si el liston no lo acusara, el primer piso de cada franja seria de
-# golpe mas facil que el anterior. Asi que se infla por el MISMO spike, tantas veces como ascensos
-# lleves. Se reutiliza NIVEL_SPIKE a proposito: si algun dia se toca, esto se mueve solo.
+# golpe mas facil que el anterior. Se reutiliza NIVEL_SPIKE a proposito: si algun dia se toca, esto
+# se mueve solo.
 #
-# El corte cae DESPUES del guardian, no en su piso: el 12 va con x1.00 (todavia no lo has matado) y
-# el 13 con x1.10; el 24 sigue con x1.10 y el 25 salta a x1.21. Eso hace que el primer piso de cada
-# franja pegue un salto extra (+128 en el 13) y el resto siga a su ritmo (+63).
+# El escalon se SUMA una vez y la pendiente vuelve a AGI_ESPERADA_STEP. NO se multiplica la recta
+# entera por 1.10^ascensos: eso encarecia tambien la pendiente (57 -> 63 -> 69 por piso) y el liston
+# se despegaba del jugador piso a piso, cuando lo unico que hay que compensar es el salto puntual
+# del ascenso. El corte cae DESPUES del guardian: el 12 va sin escalon (aun no lo has matado) y el
+# 13 ya lo lleva; el 24 tampoco y el 25 si.
 const PISOS_POR_NIVEL := 12
 
 func _ascensos_del_piso(piso: int) -> int:
 	return (maxi(1, piso) - 1) / PISOS_POR_NIVEL
 
-# El liston del BONUS es "ir esto por encima de lo esperado", NO una recta propia. Con su propia
-# pendiente pedia ~1500 de Agilidad al piso 12, que es de otro planeta: la Agilidad solo sube
-# corriendo cerca de bichos y nadie la entrena en exclusiva. Como delta, la punta es ir un par de
-# pisos por delante en Agilidad — se gana entrenando y se pierde si dejas de hacerlo al bajar.
-const AGI_ALTO_DELTA := 150.0
+# Los dos DELTAS: cuantos PUNTOS de Agilidad por encima del liston hay que ir para el +50%, y
+# cuantos por debajo para comerse el -20% entero. Son distancias en puntos, no porcentajes, asi que
+# valen igual en el piso 1 que en el 36.
+#
+# Deltas DISTINTOS a proposito: el castigo esta cerca (150) y el premio lejos (250). Asi cada punto
+# de Agilidad que subes cunde — te aleja del castigo antes de acercarte al premio — y la velocidad
+# maxima cuesta de verdad. Con los dos a 150 el tope se tocaba demasiado facil.
+#
+# El liston alto NO es una recta propia: con su propia pendiente pedia ~1500 de Agilidad al piso 12,
+# que es de otro planeta (la Agilidad solo sube corriendo cerca de bichos y nadie la entrena en
+# exclusiva). Como delta sobre lo esperado, la punta es ir unos pisos por delante: se gana
+# entrenando y se pierde si dejas de hacerlo al bajar.
+const AGI_ALTO_DELTA := 250.0    # +250 sobre lo esperado = +50%
+const AGI_PENAL_DELTA := 150.0   # -150 por debajo = -20%
 
 # 'piso' < 0 = el actual. current_floor vuelve a 1 al salir al pueblo, asi que alli se usa el
 # liston del piso 1 sin tener que mirar en que escena estamos.
@@ -4861,22 +4872,27 @@ func agilidad_alto_piso(piso: int = -1) -> float:
 	return agilidad_esperada_piso(piso) + AGI_ALTO_DELTA
 
 func agilidad_esperada_piso(piso: int = -1) -> float:
-	var f: int = current_floor if piso < 0 else piso
-	var lineal: float = AGI_ESPERADA_F1 + AGI_ESPERADA_STEP * float(maxi(1, f) - 1)
-	return lineal * pow(1.0 + NIVEL_SPIKE, float(_ascensos_del_piso(f)))
+	var f: int = maxi(1, current_floor if piso < 0 else piso)
+	# Un escalon por cada guardian de nivel ya superado: el NIVEL_SPIKE de lo que pedia el liston
+	# EN EL PISO DE ESE GUARDIAN. Se acumulan (el del 24 se calcula ya con el del 12 encima), pero
+	# entre escalon y escalon la recta sube su AGI_ESPERADA_STEP de siempre.
+	var extra: float = 0.0
+	for i in _ascensos_del_piso(f):
+		var pg: int = (i + 1) * PISOS_POR_NIVEL   # piso donde estaba ese guardian
+		extra += NIVEL_SPIKE * (AGI_ESPERADA_F1 + AGI_ESPERADA_STEP * float(pg - 1) + extra)
+	return AGI_ESPERADA_F1 + AGI_ESPERADA_STEP * float(f - 1) + extra
 
 # 'pj' = de QUIEN sale el paso (null = el lider, que es quien manda cuando el grupo va entero). Si
 # alguien va sin fuelle, player.gd pasa a ESE: el que se arrastra impone su ritmo, no el de cabeza.
 func agilidad_speed_mult(pj: PersonajeData = null, piso: int = -1) -> float:
 	var agi: float = float(stat_total("agilidad", pj))
 	var esperada: float = agilidad_esperada_piso(piso)
-	# El bonus cuenta solo lo que PASA de lo esperado: cumplir el liston es x1.00 y superarlo por
-	# AGI_ALTO_DELTA es x1.50, en el piso 1 igual que en el 25. Midiendolo contra el liston alto
-	# entero (agi/alto) pasaba algo absurdo: como lo esperado crece y el delta es plano, en el piso
-	# 25 ir justo en lo esperado ya daba x1.46 de los x1.50 posibles, o sea que esforzarse en
-	# Agilidad dejaba de tener premio en cuanto bajabas un poco.
+	# Todo se mide en PUNTOS de distancia al liston, nunca en porcentaje: 150 por encima es el
+	# +50%, 150 por debajo es el -20%, y da igual el piso en el que estes. En porcentaje pasaba lo
+	# de siempre con los numeros grandes — faltarte 272 puntos en el piso 36 costaba lo mismo que
+	# faltarte 34 en el piso 6 (un -2%), asi que ir cada vez mas justo no se notaba en nada.
 	var bonus: float = AGILIDAD_VEL_MAX * clampf((agi - esperada) / AGI_ALTO_DELTA, 0.0, 1.0)
-	var penal: float = AGILIDAD_VEL_PENAL * (1.0 - clampf(agi / maxf(1.0, esperada), 0.0, 1.0))
+	var penal: float = AGILIDAD_VEL_PENAL * clampf((esperada - agi) / AGI_PENAL_DELTA, 0.0, 1.0)
 	return 1.0 + bonus - penal
 
 
