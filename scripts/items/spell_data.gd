@@ -354,11 +354,13 @@ func _texto_ataque(ref: float) -> String:
 			# suelta. Decir "cada uno salpica" daba a entender que salpicaban los 20 golpes cuando
 			# solo lo hacen los ~6 de Rayo.
 			if not elemento_mix.is_empty():
-				s += "; los golpes de %s salpican además otro %s a los %s" % [
+				# Aqui el verbo se queda: es lo que distingue a los golpes que salpican de los que
+				# no, y sin el la frase no dice que la lluvia cae suelta.
+				s += "; los golpes de %s salpican un %s a los %s" % [
 					Elementos.nombre(elemento), _pct(dano_salpicon / n, ref), _vecinos_texto()]
 			else:
-				s += " y salpica además otro %s a los %s" % [
-					_pct(dano_salpicon / n, ref), _vecinos_texto()]
+				# Salpican todos, asi que no hace falta verbo: mismo giro que los no dispersos.
+				s += " y un %s a los %s" % [_pct(dano_salpicon / n, ref), _vecinos_texto()]
 		return s + "."
 
 	# Los 'hits' REPARTEN el daño entre golpes (ver combat._resolver_golpes_hechizo: frac =
