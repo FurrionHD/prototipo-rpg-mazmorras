@@ -1163,7 +1163,9 @@ func _accion_magia() -> void:
 		# Tooltip: datos DERIVADOS de los campos (resumen) + el sabor de la descripcion.
 		# Igual que las habilidades (ver _accion_habilidad): la magia lo tenia todo escrito
 		# en SpellData.resumen() y no lo enseñaba nadie.
-		b.tooltip_text = spell.descripcion_mecanica()
+		# Con el daño REAL entre parentesis: en combate es justo lo que decide si este hechizo
+		# remata al bicho que tienes delante o no.
+		b.tooltip_text = spell.descripcion_mecanica(spell.dano_mostrado() * Game.poder_magico())
 		if spell.descripcion != "":
 			b.tooltip_text += "\n\n" + spell.descripcion
 		# El motivo del bloqueo va DELANTE del resumen, no en su lugar: si no te llega el

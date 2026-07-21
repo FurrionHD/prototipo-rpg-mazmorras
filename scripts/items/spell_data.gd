@@ -275,18 +275,26 @@ func dano_mostrado() -> float:
 
 
 # ============================================================
-#  DESCRIPCION MECANICA: lo que hace el hechizo, EN PROSA
-#  La ficha era una tabla de filas sueltas ("Al objetivo 9 / Alcance 100%·50% / Salpicon 5 a cada
+#  DESCRIPCION MECANICA: lo que hace el hechizo, en FICHA TECNICA
+#  Antes era una tabla de filas sueltas ("Al objetivo 9 / Alcance 100%·50% / Salpicon 5 a cada
 #  uno / Rebotes 3 de 55%") que no decia lo que hace el hechizo: soltaba cinco datos y que los
-#  recompusieras tu. Esto los cose en una frase que se lee de corrido, estilo Honkai/Genshin.
+#  recompusieras tu.
+#
+#  El registro es SECO y por LINEAS, estilo ficha de habilidad de Honkai: una linea por cosa que
+#  pasa (como llega, cuanto pega, que estados deja), los datos de contexto entre parentesis y sin
+#  florituras. Nada de prosa corrida: esto se consulta a mitad de un combate, no se lee.
 #
 #  Los PORCENTAJES son del daño del hechizo (el numero que la ficha enseña justo encima, ya con el
 #  poder magico de quien lo lee), que es el papel que en Honkai hace "of Sparxie's ATK".
 #
-#  Sale TODO de los campos, como el resto de textos de este fichero: si tocas un .tres, la frase se
+#  Sale TODO de los campos, como el resto de textos de este fichero: si tocas un .tres, la ficha se
 #  mueve sola. La 'descripcion' sigue siendo solo SABOR y no repite ni una cifra.
 # ============================================================
-func descripcion_mecanica() -> String:
+#  'ref' = el daño al 100% de QUIEN lo lee (dano_mostrado × su poder magico). Con el, cada
+#  porcentaje lleva al lado el numero real entre parentesis: "un 150% (44)". Un % solo dice la
+#  proporcion; el numero dice si el hechizo mata algo. A 0 (sin personaje delante) se enseñan
+#  solo los porcentajes.
+func descripcion_mecanica(ref: float = 0.0) -> String:
 	if es_imbuicion():
 		return _texto_imbuicion()
 	if tipo != TipoEfecto.ATAQUE or dano_base <= 0.0:
@@ -294,22 +302,23 @@ func descripcion_mecanica() -> String:
 		# area que "alcance" a nadie).
 		return _texto_estados("al objetivo")
 
-	var partes: Array = []
-	partes.append(_texto_ataque())
+	var lineas: Array = []
+	lineas.append(_texto_ataque(ref))
 	var mezcla: String = _texto_mezcla()
 	if mezcla != "":
-		partes.append(mezcla)
-	var reb: String = _texto_rebotes()
+		lineas.append(mezcla)
+	var reb: String = _texto_rebotes(ref)
 	if reb != "":
-		partes.append(reb)
+		lineas.append(reb)
 	var est: String = _texto_estados("a cada enemigo alcanzado" if es_multiobjetivo() else "al objetivo")
 	if est != "":
-		partes.append(est)
-	return " ".join(partes)
+		lineas.append(est)
+	# UNA LINEA POR COSA: en un parrafo corrido hay que releer para encontrar el dato que buscas.
+	return "\n".join(lineas)
 
 
 # La frase del DAÑO: como se reparte y a quien llega.
-func _texto_ataque() -> String:
+func _texto_ataque(ref: float) -> String:
 	var de_elem: String = "" if elemento == Elementos.Elemento.NINGUNO else " de %s" % Elementos.nombre(elemento)
 	# Con reparto de elementos no se puede decir "de Rayo" a secas: lo aclara _texto_mezcla().
 	if not elemento_mix.is_empty():
@@ -328,26 +337,28 @@ func _texto_ataque() -> String:
 	# sus 20 golpes hace un 5%, no un 100%.
 	if dispersa:
 		var n: float = float(golpes())
+		# Linea 1: COMO llega (cuantos golpes y de que son). El reparto de elementos va en un
+		# parentesis AQUI y no en una frase suelta al final: con mezcla, el salpicon depende de que
+		# elemento sea cada golpe, asi que hay que haber dicho antes cuales hay.
 		var s: String = "Descarga %d golpes%s que caen en enemigos al azar" % [golpes(), de_elem]
-		# El reparto de elementos va AQUI y no en una frase suelta al final: con mezcla, el salpicon
-		# depende de que elemento sea cada golpe, asi que hay que haber dicho antes cuales hay.
 		if not elemento_mix.is_empty():
 			var partes: Array = []
 			for e in elemento_mix:
-				partes.append("un %s de %s" % [_pct(peso_elemento(int(e))), Elementos.nombre(int(e))])
-			s += ": %s" % _y(partes)
-		s += ". Cada uno inflige un %s del daño donde cae" % _pct(dano_objetivo / n)
+				partes.append("%s de %s" % [_pct(peso_elemento(int(e))), Elementos.nombre(int(e))])
+			s += " (%s)" % ", ".join(partes)
+		# Linea 2: CUANTO pega cada uno, y quien salpica.
+		s += ".\nCada uno inflige un %s del daño al objetivo alcanzado" % _pct(dano_objetivo / n, ref)
 		if salpica():
 			# SOLO salpican los golpes del elemento de IDENTIDAD (combat._resolver_dispersa exige
 			# elem == spell.elemento): en la Tormenta el rayo arquea a los lados y la lluvia cae
 			# suelta. Decir "cada uno salpica" daba a entender que salpicaban los 20 golpes cuando
 			# solo lo hacen los ~6 de Rayo.
 			if not elemento_mix.is_empty():
-				s += ", y los de %s salpican además otro %s a los %s de ese punto" % [
-					Elementos.nombre(elemento), _pct(dano_salpicon / n), _vecinos_texto()]
+				s += "; los golpes de %s salpican además otro %s a los %s" % [
+					Elementos.nombre(elemento), _pct(dano_salpicon / n, ref), _vecinos_texto()]
 			else:
-				s += " y salpica otro %s a los %s de ese punto" % [
-					_pct(dano_salpicon / n), _vecinos_texto()]
+				s += " y salpica además otro %s a los %s" % [
+					_pct(dano_salpicon / n, ref), _vecinos_texto()]
 		return s + "."
 
 	# Los 'hits' REPARTEN el daño entre golpes (ver combat._resolver_golpes_hechizo: frac =
@@ -356,14 +367,14 @@ func _texto_ataque() -> String:
 	# Quemadura (prob_total). Por eso va al FINAL y como coletilla: metido en medio de la frase
 	# ("igual al 150% del daño, repartido en 3 golpes, y un 75%...") partia en dos la unica parte
 	# que importa -a quien llega y cuanto- y encima sonaba a que pegaba tres veces mas.
-	var reparto: String = "" if not es_multigolpe() else ", en %d impactos" % golpes()
+	var reparto: String = "" if not es_multigolpe() else " (repartido en %d impactos)" % golpes()
 
 	if alcance == Alcance.TODOS and salpica() and is_equal_approx(dano_objetivo, dano_salpicon):
 		# Reparto plano (Rocio): a todos lo mismo, sin distinguir objetivo y resto.
-		return "Inflige daño%s igual al %d%% del daño a todos los enemigos%s." % [de_elem, obj, reparto]
-	var base: String = "Inflige daño%s igual al %d%% del daño al enemigo señalado" % [de_elem, obj]
+		return "Inflige daño%s: un %s a todos los enemigos%s." % [de_elem, _pct(dano_objetivo, ref), reparto]
+	var base: String = "Inflige daño%s: un %s al objetivo señalado" % [de_elem, _pct(dano_objetivo, ref)]
 	if salpica():
-		base += " y un %d%% a los %s" % [sal, _vecinos_texto()]
+		base += " y un %s a los %s" % [_pct(dano_salpicon, ref), _vecinos_texto()]
 	return base + reparto + "."
 
 
@@ -384,12 +395,11 @@ func _texto_mezcla() -> String:
 	return "De esos golpes, %s." % _y(partes)
 
 
-func _texto_rebotes() -> String:
+func _texto_rebotes(ref: float) -> String:
 	if rebotes_n() <= 0:
 		return ""
-	return ("Después salta %s más, cada salto a un enemigo vivo al azar por el %d%% del "
-		+ "daño (puede repetir objetivo).") % [
-		"una vez" if rebotes_n() == 1 else "%d veces" % rebotes_n(), roundi(dano_rebote * 100.0)]
+	return "Después salta %d %s más a enemigos al azar, un %s por salto (puede repetir objetivo)." % [
+		rebotes_n(), "vez" if rebotes_n() == 1 else "veces", _pct(dano_rebote, ref)]
 
 
 # Los estados que aplica, con la probabilidad ACUMULADA de todo el hechizo (prob_total), que es la
@@ -422,23 +432,31 @@ func _texto_estados(a_quien: String) -> String:
 # Los FILOS y MANTOS no pegan: tiñen tus golpes. Frase propia.
 func _texto_imbuicion() -> String:
 	var que: String = "tu cuerpo" if imbue_tipo == 2 else "tu arma"
-	var s: String = "Envuelve %s en %s durante %d ataque%s: tus golpes infligen un %d%% de daño de %s extra" % [
-		que, Elementos.nombre(elemento), imbue_usos, "" if imbue_usos == 1 else "s",
-		roundi(imbue_pct * 100.0), Elementos.nombre(elemento)]
+	var elem: String = Elementos.nombre(elemento)
+	# Mismo registro por LINEAS que los de ataque: como llega / que hace / que deja.
+	var lineas: Array = ["Envuelve %s en %s durante %d ataque%s." % [
+		que, elem, imbue_usos, "" if imbue_usos == 1 else "s"]]
+	# El % de la imbuicion es de TU daño de golpe (tu Fuerza y tu arma), no del daño del hechizo,
+	# asi que aqui no se puede poner un numero entre parentesis: la referencia es otra.
+	var linea: String = "Tus golpes infligen un %s de daño de %s extra" % [_pct(imbue_pct), elem]
 	if imbue_estado >= 0 and imbue_prob > 0.0:
-		s += " y pueden dejar %s (%d%%)" % [
-			String(StatusEffects.def(imbue_estado).get("nombre", "?")), roundi(imbue_prob * 100.0)]
-	s += "."
+		linea += " y pueden dejar %s (%s)" % [
+			String(StatusEffects.def(imbue_estado).get("nombre", "?")), _pct(imbue_prob)]
+	lineas.append(linea + ".")
 	if imbue_tipo == 2:
-		s += " Además te da la afinidad del elemento: resistes lo que él resiste y te duele lo que le duele."
-	return s
+		lineas.append("Además te da la afinidad del elemento: resistes lo que él resiste y te duele lo que le duele.")
+	return "\n".join(lineas)
 
 
 # Una fraccion en porcentaje, con UN decimal solo si hace falta: "5%", "37.5%", "18.8%". Redondear
 # a entero se comia justo lo que distingue a una bola de otra cuando el hechizo tiene muchas.
-func _pct(f: float) -> String:
+#
+# Con 'ref' (el daño al 100% de quien lo lee) añade el numero REAL entre parentesis: "37.5% (19)".
+# El porcentaje dice la proporcion, pero el que te dice si el hechizo mata algo es el numero.
+func _pct(f: float, ref: float = 0.0) -> String:
 	var v: float = f * 100.0
-	return "%d%%" % roundi(v) if is_equal_approx(v, roundf(v)) else "%.1f%%" % v
+	var txt: String = "%d%%" % roundi(v) if is_equal_approx(v, roundf(v)) else "%.1f%%" % v
+	return txt if ref <= 0.0 else "%s (%.0f)" % [txt, f * ref]
 
 
 # Une una lista en lenguaje natural: "a", "a y b", "a, b y c".

@@ -1303,13 +1303,14 @@ func _ficha_hechizo(vb: VBoxContainer, s: SpellData) -> void:
 	# porcentajes de la frase de abajo (el papel que en Honkai hace el ATK del personaje), y NO el
 	# daño total que reparte el hechizo. Con un "Daño" a secas se lee como el total y no cuadra:
 	# la Andanada pone 43 y luego dice 150% + 75%, que suman bastante mas.
+	var ref: float = s.dano_mostrado() * Game.poder_magico(_pj())
 	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
-		_row(vb, "  Daño (100%)", "%.0f" % (s.dano_mostrado() * Game.poder_magico(_pj())))
+		_row(vb, "  Daño (100%)", "%.0f" % ref)
 
-	# QUE HACE, en una frase. Los porcentajes son de ese daño de arriba. Sustituye a la tabla de
-	# filas sueltas (Al objetivo / Alcance / Salpicón / Rebotes / Aplica), que daba los datos pero
-	# no contaba nunca lo que pasa al lanzarlo.
-	var mecanica: String = s.descripcion_mecanica()
+	# QUE HACE. Los porcentajes son de ese daño de arriba, y llevan al lado el numero real entre
+	# parentesis. Sustituye a la tabla de filas sueltas (Al objetivo / Alcance / Salpicón / Rebotes
+	# / Aplica), que daba los datos pero no contaba nunca lo que pasa al lanzarlo.
+	var mecanica: String = s.descripcion_mecanica(ref)
 	if mecanica != "":
 		vb.add_child(HSeparator.new())
 		var l := Label.new()
