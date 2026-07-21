@@ -4835,6 +4835,20 @@ const AGILIDAD_VEL_PENAL := 0.20  # suelo del castigo (Agilidad 0 frente a esper
 const AGI_ESPERADA_F1 := 30.0     # lo que se da por hecho en el piso 1
 const AGI_ESPERADA_STEP := 57.0   # ~660 al piso 12, el ultimo antes de la franja T3
 
+# ...pero la recta sola se queda corta al cambiar de nivel. Cada guardian de nivel (el del piso 12
+# desbloquea el Nv2, el del 24 el Nv3) te da un ascenso, y ascender INFLA tus stats internas un
+# NIVEL_SPIKE (ver subir_nivel): si el liston no lo acusara, el primer piso de cada franja seria de
+# golpe mas facil que el anterior. Asi que se infla por el MISMO spike, tantas veces como ascensos
+# lleves. Se reutiliza NIVEL_SPIKE a proposito: si algun dia se toca, esto se mueve solo.
+#
+# El corte cae DESPUES del guardian, no en su piso: el 12 va con x1.00 (todavia no lo has matado) y
+# el 13 con x1.10; el 24 sigue con x1.10 y el 25 salta a x1.21. Eso hace que el primer piso de cada
+# franja pegue un salto extra (+128 en el 13) y el resto siga a su ritmo (+63).
+const PISOS_POR_NIVEL := 12
+
+func _ascensos_del_piso(piso: int) -> int:
+	return (maxi(1, piso) - 1) / PISOS_POR_NIVEL
+
 # El liston del BONUS es "ir esto por encima de lo esperado", NO una recta propia. Con su propia
 # pendiente pedia ~1500 de Agilidad al piso 12, que es de otro planeta: la Agilidad solo sube
 # corriendo cerca de bichos y nadie la entrena en exclusiva. Como delta, la punta es ir un par de
@@ -4848,15 +4862,21 @@ func agilidad_alto_piso(piso: int = -1) -> float:
 
 func agilidad_esperada_piso(piso: int = -1) -> float:
 	var f: int = current_floor if piso < 0 else piso
-	return AGI_ESPERADA_F1 + AGI_ESPERADA_STEP * float(maxi(1, f) - 1)
+	var lineal: float = AGI_ESPERADA_F1 + AGI_ESPERADA_STEP * float(maxi(1, f) - 1)
+	return lineal * pow(1.0 + NIVEL_SPIKE, float(_ascensos_del_piso(f)))
 
 # 'pj' = de QUIEN sale el paso (null = el lider, que es quien manda cuando el grupo va entero). Si
 # alguien va sin fuelle, player.gd pasa a ESE: el que se arrastra impone su ritmo, no el de cabeza.
 func agilidad_speed_mult(pj: PersonajeData = null, piso: int = -1) -> float:
 	var agi: float = float(stat_total("agilidad", pj))
-	var bonus: float = AGILIDAD_VEL_MAX * clampf(agi / maxf(1.0, agilidad_alto_piso(piso)), 0.0, 1.0)
-	var penal: float = AGILIDAD_VEL_PENAL \
-		* (1.0 - clampf(agi / maxf(1.0, agilidad_esperada_piso(piso)), 0.0, 1.0))
+	var esperada: float = agilidad_esperada_piso(piso)
+	# El bonus cuenta solo lo que PASA de lo esperado: cumplir el liston es x1.00 y superarlo por
+	# AGI_ALTO_DELTA es x1.50, en el piso 1 igual que en el 25. Midiendolo contra el liston alto
+	# entero (agi/alto) pasaba algo absurdo: como lo esperado crece y el delta es plano, en el piso
+	# 25 ir justo en lo esperado ya daba x1.46 de los x1.50 posibles, o sea que esforzarse en
+	# Agilidad dejaba de tener premio en cuanto bajabas un poco.
+	var bonus: float = AGILIDAD_VEL_MAX * clampf((agi - esperada) / AGI_ALTO_DELTA, 0.0, 1.0)
+	var penal: float = AGILIDAD_VEL_PENAL * (1.0 - clampf(agi / maxf(1.0, esperada), 0.0, 1.0))
 	return 1.0 + bonus - penal
 
 
