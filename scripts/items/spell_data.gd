@@ -328,17 +328,20 @@ func _texto_ataque() -> String:
 		return s + "."
 
 	# Los 'hits' REPARTEN el daño entre golpes (ver combat._resolver_golpes_hechizo: frac =
-	# escala/n), no lo multiplican. Decir "N golpes del 150%" seria mentir por triplicado.
-	var reparto: String = "" if not es_multigolpe() else ", repartido en %d golpes" % golpes()
+	# escala/n), no lo multiplican: 3 golpes de Brasa hacen lo MISMO que uno solo. Lo unico que
+	# cambian de verdad es que dan 3 tiradas de estado en vez de una... y eso ya va dentro del % de
+	# Quemadura (prob_total). Por eso va al FINAL y como coletilla: metido en medio de la frase
+	# ("igual al 150% del daño, repartido en 3 golpes, y un 75%...") partia en dos la unica parte
+	# que importa -a quien llega y cuanto- y encima sonaba a que pegaba tres veces mas.
+	var reparto: String = "" if not es_multigolpe() else ", en %d impactos" % golpes()
 
 	if alcance == Alcance.TODOS and salpica() and is_equal_approx(dano_objetivo, dano_salpicon):
 		# Reparto plano (Rocio): a todos lo mismo, sin distinguir objetivo y resto.
 		return "Inflige daño%s igual al %d%% del daño a todos los enemigos%s." % [de_elem, obj, reparto]
-	var base: String = "Inflige daño%s igual al %d%% del daño al enemigo señalado%s" % [
-		de_elem, obj, reparto]
+	var base: String = "Inflige daño%s igual al %d%% del daño al enemigo señalado" % [de_elem, obj]
 	if salpica():
-		base += ", y un %d%% a los %s" % [sal, _vecinos_texto()]
-	return base + "."
+		base += " y un %d%% a los %s" % [sal, _vecinos_texto()]
+	return base + reparto + "."
 
 
 # A quien llega el salpicon, en palabras.
