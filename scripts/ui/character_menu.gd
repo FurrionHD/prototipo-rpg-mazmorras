@@ -455,6 +455,7 @@ func _build_stats_page() -> void:
 	_row(_content, "Defensa", "%.1f" % c.def_value())
 	if c.max_mp > 0.0:
 		_row(_content, "Maná máx.", "%.2f" % c.max_mp)
+	_bloque_magia(c)
 	# OJO con esta nota: el critico es un CONTEST (tu Destreza contra la Agilidad del que recibe
 	# el golpe). Como aqui no hay enemigo, se enseña contra un espejo de ti mismo, y por eso TU
 	# Agilidad sale en la cuenta... haciendo de la del rival. Tu Agilidad NO te baja el critico:
@@ -507,6 +508,44 @@ func _build_habilidades_page() -> void:
 
 # Ataque TOTAL (raw): (base + arma) × factor_fuerza × estados, SIN el motion_value
 # (ese se aplica por golpe). c ya tiene activa la mano principal (0) tras crearlo.
+# La mitad MAGICA de la ficha, espejo de la fisica de arriba. Faltaba entera: podias ir con el
+# baston en la mano y la ficha solo te hablaba de "Ataque total" (que con un baston es ridiculo,
+# porque su motion value es 0.4), sin decir ni una palabra de lo que de verdad haces con el.
+#
+# Se pinta si el personaje TIENE algo magico que enseñar (arma magica o hechizos). Sin nada de eso
+# serian cinco filas de ceros en la ficha de un guerrero.
+func _bloque_magia(c: Combatant) -> void:
+	var lm: Dictionary = Game.loadout_mods(_pj())
+	var amp: float = float(lm["magic_amp"])
+	var tiene_arma: bool = absf(amp - 1.0) > 0.001 or float(lm["mp_regen_turno"]) > 0.0
+	if not tiene_arma and _pj().equipped_spells.is_empty():
+		return
+
+	_content.add_child(HSeparator.new())
+	_title(_content, "Magia")
+	# PODER MAGICO: lo que multiplica el daño base de un hechizo, igual que "Ataque total" es el raw
+	# antes de que cada golpe le aplique su motion value. El daño final de una Brasa es su dano_base
+	# por ESTE numero (y luego lo mitiga la defensa magica del bicho).
+	var poder: float = StatsMath.magia_factor(float(c.abilities.magia)) \
+		* c.magic_amp * c.magia_base_factor * StatsMath.SPELL_DAMAGE_MULT
+	_row(_content, "Poder mágico", "×%.2f" % poder)
+	if absf(amp - 1.0) > 0.001:
+		_row(_content, "   · del arma", "×%.2f" % amp)
+	# Defensa MAGICA: la que te protege de los hechizos. No es la Defensa de arriba (esa es fisica),
+	# y hasta ahora no salia en ningun sitio pese a ser la mitad de lo que te mantiene vivo.
+	_row(_content, "Defensa mágica", "%.1f" % StatsMath.magic_jugador(c.abilities, c.base_magic))
+	if c.mp_regen_turno > 0.0:
+		_row(_content, "Regen maná", "%.2f/turno" % c.mp_regen_turno)
+	# Velocidad de CASTEO: lo rapido que recitas, que no es lo rapido que blandes (un baston recita
+	# mas rapido de lo que pega). Solo si difiere de la velocidad normal, o seria una fila repetida.
+	if absf(c.cast_spd() - c.spd()) > 0.05:
+		_row(_content, "Vel. recitado", "%.1f" % c.cast_spd())
+	if float(lm["mana_reduccion"]) > 0.0:
+		_row(_content, "Coste de maná", "-%.0f%%" % (float(lm["mana_reduccion"]) * 100.0))
+	_note(_content, "El poder mágico multiplica el daño BASE del hechizo (como el Ataque total al "
+		+ "golpe físico); luego lo frena la defensa mágica del que lo recibe.")
+
+
 func _ataque_total(c: Combatant) -> float:
 	return (c.base_attack + c.ataque_arma) * StatsMath.fuerza_factor(float(c.abilities.fuerza)) * c.status_atk_mult()
 
