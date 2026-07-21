@@ -1113,8 +1113,8 @@ func _on_continue_pressed() -> void:
 		var pj_c: PersonajeData = Game.pj_de_combatant(c)
 		if pj_c == null:
 			continue   # combatiente de prueba (F6): no tiene ficha a la que arrastrar nada
-		Game.arrastrar_regen(c.regen_pendiente(), pj_c)
-		Game.arrastrar_regen_mana(c.regen_mana_pendiente(), pj_c)
+		Game.arrastrar_regen(c.regen_pendiente(), pj_c, c.regen_turnos_pendientes())
+		Game.arrastrar_regen_mana(c.regen_mana_pendiente(), pj_c, c.regen_mana_turnos_pendientes())
 	# Quien cayo y con cuanta vida se queda cada superviviente (huir no los cura: te vuelves a
 	# encontrar al mismo bicho herido que dejaste).
 	var muertos: Array = []

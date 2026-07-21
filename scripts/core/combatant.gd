@@ -741,6 +741,23 @@ func regen_mana_pendiente() -> float:
 			total += e.mana_amount() * float(maxi(0, e.turns))
 	return total
 
+# TURNOS que le quedan a la Regeneración mas larga (el de mana, en el hermano). Al salir del
+# combate la cura pendiente se lleva SUS turnos al mapa, para que si vuelves a entrar siga
+# entrando al mismo ritmo por turno en vez de comprimirse. Ver Game._turnos_de_cola.
+func regen_turnos_pendientes() -> int:
+	var t: int = 0
+	for e in statuses:
+		if e.is_heal():
+			t = maxi(t, maxi(0, e.turns))
+	return t
+
+func regen_mana_turnos_pendientes() -> int:
+	var t: int = 0
+	for e in statuses:
+		if e.is_mana_heal():
+			t = maxi(t, maxi(0, e.turns))
+	return t
+
 
 # --- Consultas / agregadores ---
 func has_status(id: int) -> bool:

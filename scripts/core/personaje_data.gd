@@ -67,6 +67,12 @@ var heal_left: float = 0.0        # vida que queda por curar
 var heal_rate: float = 0.0        # vida/seg a la que cae
 var mana_heal_left: float = 0.0   # lo mismo para el maná
 var mana_heal_rate: float = 0.0
+# TURNOS de combate que le quedarian a esa cola. Los turnos de las pociones se SUMAN (dos de 3
+# turnos = 6) y se van gastando a la vez que la cura: si has goteado el 20%, quedan el 80% de los
+# turnos. Es lo que hace que entrar en combate con pociones a medias no las comprima en un
+# curaton: la cola entra al MISMO ritmo por turno al que iba (ver Game._arrastre_a_combate).
+var heal_turnos: float = 0.0
+var mana_heal_turnos: float = 0.0
 
 # --- Perks ---
 @export var guardianes_vencidos: Dictionary = {}

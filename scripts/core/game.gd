@@ -1635,8 +1635,10 @@ func limpiar_curas_pendientes() -> void:
 	for pj in party:
 		pj.heal_left = 0.0
 		pj.heal_rate = 0.0
+		pj.heal_turnos = 0.0
 		pj.mana_heal_left = 0.0
 		pj.mana_heal_rate = 0.0
+		pj.mana_heal_turnos = 0.0
 
 # Dinero (obtenido por vender cristales en la tienda).
 var money: int = 0
@@ -2290,11 +2292,13 @@ func beber_pocion_fuera(c: ConsumableData, pj: PersonajeData = null) -> bool:
 		var total: float = c.cura_efectiva(maxhp)
 		p.heal_left += total
 		p.heal_rate = maxf(p.heal_rate, c.cura_por_segundo(maxhp))
+		p.heal_turnos += float(c.turnos)   # los turnos se SUMAN: dos de 3 turnos = 6
 		partes.append("+%.0f vida" % total)
 	if c.da_mana():
 		var total_mp: float = c.mana_efectivo(maxmp)
 		p.mana_heal_left += total_mp
 		p.mana_heal_rate = maxf(p.mana_heal_rate, c.mana_por_segundo(maxmp))
+		p.mana_heal_turnos += float(c.turnos)
 		partes.append("+%.0f maná" % total_mp)
 	print("[objeto] %s bebe %s: %s en el tiempo" % [p.nombre, c.nombre, ", ".join(partes)])
 	return true
@@ -2346,30 +2350,44 @@ func _pocion_menor_util(es_vida: bool, pj: PersonajeData = null) -> ConsumableDa
 # (no cae de golpe, coherente con el HoT de las pociones). PROVISIONAL.
 const CARRY_HEAL_RATE := 6.0
 
-# Turnos en los que se reparte, al ENTRAR en combate, la cura de poción que quedaba pendiente
-# fuera de combate (player_heal_left). Simétrico al arrastre de salida: una poción bebida en el
-# mapa sigue curando dentro (como Regeneración) en vez de perderse al pausarse el goteo. PROVISIONAL.
+# RESPALDO: en cuantos turnos se reparte una cola de la que no sabemos los turnos (una partida
+# vieja, o cura llegada por una via que no lleva la cuenta). Lo normal es NO usarlo: la cola sabe
+# sus turnos (PersonajeData.heal_turnos) y se arrastra con ellos. PROVISIONAL.
 const POCION_ARRASTRE_TURNOS := 3
+
+# En cuantos TURNOS entra al combate una cola de cura pendiente. Los turnos de las pociones se
+# suman y se gastan con la cura, asi que esto es "lo que le quedaba": dos pociones de 3 turnos con
+# el 80% sin gotear entran en 5 turnos (0.8 x 6), no en 3. Antes eran 3 FIJOS, y eso convertia
+# beber fuera y entrar en un curaton al doble de ritmo que beber dentro: prebeber salia gratis y
+# ademas mejor, justo lo contrario de lo que se busca (beber en combate te cuesta el turno).
+func _turnos_de_cola(turnos_pendientes: float) -> int:
+	if turnos_pendientes <= 0.0:
+		return POCION_ARRASTRE_TURNOS
+	return maxi(1, roundi(turnos_pendientes))
 
 # Arrastra a la cura FUERA de combate la Regeneración que le quedaba pendiente a 'pj' (null = el
 # lider) al terminar el combate (la llama combat.gd por cada superviviente). Asi una poción a
 # medias no se pierde, y la de cada uno vuelve a SU cola.
-func arrastrar_regen(total: float, pj: PersonajeData = null) -> void:
+# 'turnos' = los que le quedaban a la Regeneración dentro (Combatant.regen_turnos_pendientes).
+# Viajan con la cura para que, si vuelves a entrar en combate, la cola no se recomprima.
+func arrastrar_regen(total: float, pj: PersonajeData = null, turnos: int = 0) -> void:
 	if total <= 0.0:
 		return
 	var p: PersonajeData = pj if pj != null else lider()
 	p.heal_left += total
 	p.heal_rate = maxf(p.heal_rate, CARRY_HEAL_RATE)
+	p.heal_turnos += float(turnos if turnos > 0 else POCION_ARRASTRE_TURNOS)
 	print("[objeto] %s arrastra %.1f de cura pendiente al salir del combate (%.1f/s)" % [
 		p.nombre, total, CARRY_HEAL_RATE])
 
 # Igual que arrastrar_regen pero para el MANÁ pendiente de una poción de maná (KAN-56/57).
-func arrastrar_regen_mana(total: float, pj: PersonajeData = null) -> void:
+func arrastrar_regen_mana(total: float, pj: PersonajeData = null, turnos: int = 0) -> void:
 	if total <= 0.0:
 		return
 	var p: PersonajeData = pj if pj != null else lider()
 	p.mana_heal_left += total
 	p.mana_heal_rate = maxf(p.mana_heal_rate, CARRY_HEAL_RATE)
+	p.mana_heal_turnos += float(turnos if turnos > 0 else POCION_ARRASTRE_TURNOS)
 	print("[objeto] %s arrastra %.1f de maná pendiente al salir del combate (%.1f/s)" % [
 		p.nombre, total, CARRY_HEAL_RATE])
 
@@ -2390,10 +2408,15 @@ func tick_heal(delta: float) -> void:
 		var sube: float = minf(p.heal_rate * delta, p.heal_left)
 		sube = minf(sube, maxhp - p.current_hp)   # no pasar del maximo
 		p.current_hp = minf(maxhp, p.current_hp + sube)
+		var antes: float = p.heal_left
 		p.heal_left -= maxf(0.0, sube)
+		# Los turnos pendientes bajan en la MISMA proporcion que la cura: goteado el 20%, quedan
+		# el 80% de los turnos. Asi el ritmo por turno de la cola no cambia al gotear.
+		p.heal_turnos *= (p.heal_left / antes) if antes > 0.0 else 0.0
 		if p.current_hp >= maxhp - 0.01 or p.heal_left <= 0.01:
 			p.heal_left = 0.0
 			p.heal_rate = 0.0
+			p.heal_turnos = 0.0
 
 # Tiquea el MANÁ de poción fuera de combate de todo el grupo (la llama player.gd). Es la UNICA
 # via de recuperar maná fuera de combate (ya no hay regen pasiva), junto al altar del pueblo.
@@ -2407,10 +2430,13 @@ func tick_mana_pocion(delta: float) -> void:
 		var sube: float = minf(p.mana_heal_rate * delta, p.mana_heal_left)
 		sube = minf(sube, maxmp - p.current_mp)
 		p.current_mp = minf(maxmp, p.current_mp + sube)
+		var antes: float = p.mana_heal_left
 		p.mana_heal_left -= maxf(0.0, sube)
+		p.mana_heal_turnos *= (p.mana_heal_left / antes) if antes > 0.0 else 0.0
 		if p.current_mp >= maxmp - 0.01 or p.mana_heal_left <= 0.01:
 			p.mana_heal_left = 0.0
 			p.mana_heal_rate = 0.0
+			p.mana_heal_turnos = 0.0
 
 # Cuantos hechizos caben en la cabeza a la vez. Aprender no es gratis: al llegar al tope hay
 # que OLVIDAR uno para meter otro (el objeto que devuelve un hechizo a su libro vendra luego,
@@ -5438,15 +5464,19 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 		var pj_c: PersonajeData = pjs[i]
 		var c_i: Combatant = player_cs[i]
 		if pj_c.heal_left > 0.0:
-			c_i.apply_status(StatusEffects.Id.REGENERACION, POCION_ARRASTRE_TURNOS,
-				pj_c.heal_left / float(POCION_ARRASTRE_TURNOS))
+			var t: int = _turnos_de_cola(pj_c.heal_turnos)
+			c_i.apply_status(StatusEffects.Id.REGENERACION, t, pj_c.heal_left / float(t))
+			print("[objeto] %s entra con %.1f de cura pendiente: %.1f/turno x %d turnos" % [
+				pj_c.nombre, pj_c.heal_left, pj_c.heal_left / float(t), t])
 			pj_c.heal_left = 0.0
 			pj_c.heal_rate = 0.0
+			pj_c.heal_turnos = 0.0
 		if pj_c.mana_heal_left > 0.0:
-			c_i.apply_status(StatusEffects.Id.REGEN_MANA, POCION_ARRASTRE_TURNOS,
-				pj_c.mana_heal_left / float(POCION_ARRASTRE_TURNOS))
+			var tm: int = _turnos_de_cola(pj_c.mana_heal_turnos)
+			c_i.apply_status(StatusEffects.Id.REGEN_MANA, tm, pj_c.mana_heal_left / float(tm))
 			pj_c.mana_heal_left = 0.0
 			pj_c.mana_heal_rate = 0.0
+			pj_c.mana_heal_turnos = 0.0
 
 	# Un Combatant por nodo, en el mismo orden.
 	var enemy_cs: Array[Combatant] = []
