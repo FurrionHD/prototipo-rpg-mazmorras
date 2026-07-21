@@ -1299,8 +1299,12 @@ func _ficha_hechizo(vb: VBoxContainer, s: SpellData) -> void:
 	# varita que lleve). Es el numero que va a salir en el combate, no una cifra de catalogo: antes
 	# se enseñaba el daño pelado del .tres con una coletilla de "esto luego escala", y tocaba
 	# multiplicar de cabeza para saber si el hechizo servia de algo.
+	# La etiqueta lleva el "(100%)" porque este numero es la REFERENCIA de la que salen todos los
+	# porcentajes de la frase de abajo (el papel que en Honkai hace el ATK del personaje), y NO el
+	# daño total que reparte el hechizo. Con un "Daño" a secas se lee como el total y no cuadra:
+	# la Andanada pone 43 y luego dice 150% + 75%, que suman bastante mas.
 	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
-		_row(vb, "  Daño", "%.0f" % (s.dano_mostrado() * Game.poder_magico(_pj())))
+		_row(vb, "  Daño (100%)", "%.0f" % (s.dano_mostrado() * Game.poder_magico(_pj())))
 
 	# QUE HACE, en una frase. Los porcentajes son de ese daño de arriba. Sustituye a la tabla de
 	# filas sueltas (Al objetivo / Alcance / Salpicón / Rebotes / Aplica), que daba los datos pero

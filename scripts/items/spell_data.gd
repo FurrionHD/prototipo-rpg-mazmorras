@@ -320,11 +320,17 @@ func _texto_ataque() -> String:
 	# DISPERSO: los golpes caen solos, no eliges donde (Tormenta, Andanada). Se REPARTEN el daño
 	# entre todos (combat._resolver_dispersa divide por n, igual que el multigolpe normal): decir
 	# "cada uno por el 100%" seria prometer veinte veces el daño que hace.
+	#
+	# El SALPICON tambien se reparte (la misma linea divide escala/n, y 'escala' ahi es
+	# dano_salpicon), asi que el % es el TOTAL del salpicon, no lo que suelta cada bola. Decir
+	# "cada impacto salpica un 75%" multiplicaba por cuatro el salpicon de la Andanada y por VEINTE
+	# el de la Tormenta.
 	if dispersa:
-		var s: String = "Descarga %d golpes%s que caen en enemigos al azar y se reparten el %d%% del daño" % [
+		var s: String = "Descarga %d golpes%s que caen en enemigos al azar y se reparten entre todos el %d%% del daño" % [
 			golpes(), de_elem, obj]
 		if salpica():
-			s += ", y cada impacto salpica un %d%% a los %s" % [sal, _vecinos_texto()]
+			s += ", salpicando otro %d%% (también repartido) a los %s de cada impacto" % [
+				sal, _vecinos_texto()]
 		return s + "."
 
 	# Los 'hits' REPARTEN el daño entre golpes (ver combat._resolver_golpes_hechizo: frac =
