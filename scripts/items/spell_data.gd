@@ -328,10 +328,26 @@ func _texto_ataque() -> String:
 	# sus 20 golpes hace un 5%, no un 100%.
 	if dispersa:
 		var n: float = float(golpes())
-		var s: String = "Descarga %d golpes%s que caen en enemigos al azar. Cada uno inflige un %s del daño donde cae" % [
-			golpes(), de_elem, _pct(dano_objetivo / n)]
+		var s: String = "Descarga %d golpes%s que caen en enemigos al azar" % [golpes(), de_elem]
+		# El reparto de elementos va AQUI y no en una frase suelta al final: con mezcla, el salpicon
+		# depende de que elemento sea cada golpe, asi que hay que haber dicho antes cuales hay.
+		if not elemento_mix.is_empty():
+			var partes: Array = []
+			for e in elemento_mix:
+				partes.append("un %s de %s" % [_pct(peso_elemento(int(e))), Elementos.nombre(int(e))])
+			s += ": %s" % _y(partes)
+		s += ". Cada uno inflige un %s del daño donde cae" % _pct(dano_objetivo / n)
 		if salpica():
-			s += " y salpica otro %s a los %s de ese punto" % [_pct(dano_salpicon / n), _vecinos_texto()]
+			# SOLO salpican los golpes del elemento de IDENTIDAD (combat._resolver_dispersa exige
+			# elem == spell.elemento): en la Tormenta el rayo arquea a los lados y la lluvia cae
+			# suelta. Decir "cada uno salpica" daba a entender que salpicaban los 20 golpes cuando
+			# solo lo hacen los ~6 de Rayo.
+			if not elemento_mix.is_empty():
+				s += ", y los de %s salpican además otro %s a los %s de ese punto" % [
+					Elementos.nombre(elemento), _pct(dano_salpicon / n), _vecinos_texto()]
+			else:
+				s += " y salpica otro %s a los %s de ese punto" % [
+					_pct(dano_salpicon / n), _vecinos_texto()]
 		return s + "."
 
 	# Los 'hits' REPARTEN el daño entre golpes (ver combat._resolver_golpes_hechizo: frac =
@@ -356,14 +372,16 @@ func _vecinos_texto() -> String:
 	return "adyacentes" if alcance == Alcance.ADYACENTES else "demás enemigos"
 
 
-# El reparto de elementos entre los golpes ("70% de los golpes son de Agua y 30% de Rayo").
+# El reparto de elementos entre los golpes ("De esos golpes, un 70% de Agua y otro 30% de Rayo").
+# Solo para los NO dispersos: en un disperso el reparto va dentro de la primera frase, porque de el
+# depende cuales salpican (ver _texto_ataque).
 func _texto_mezcla() -> String:
-	if elemento_mix.is_empty():
+	if elemento_mix.is_empty() or dispersa:
 		return ""
 	var partes: Array = []
 	for e in elemento_mix:
-		partes.append("%d%% de %s" % [roundi(peso_elemento(int(e)) * 100.0), Elementos.nombre(int(e))])
-	return "De esos golpes, un %s." % " y otro ".join(partes)
+		partes.append("un %s de %s" % [_pct(peso_elemento(int(e))), Elementos.nombre(int(e))])
+	return "De esos golpes, %s." % _y(partes)
 
 
 func _texto_rebotes() -> String:
