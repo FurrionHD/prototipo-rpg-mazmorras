@@ -981,8 +981,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	owned_weapons.clear()
 	owned_armor.clear()
 	owned_mochilas.clear()
-	equipped_mochila = null
-	extra_capacity = 0.0
+	mochila_equipo = null
 	consumables.clear()
 	equipped_spells.clear()
 	item_meta.clear()
@@ -1093,7 +1092,7 @@ func exportar_partida() -> SaveData:
 	d.owned_weapons = owned_weapons.duplicate()
 	d.owned_armor = owned_armor.duplicate()
 	d.owned_mochilas = owned_mochilas.duplicate()
-	d.equipped_mochila = equipped_mochila
+	d.equipped_mochila = mochila_equipo   # del grupo; el campo del save siempre fue de nivel raiz
 
 	d.equipped_main = equipped_main
 	d.equipped_off = equipped_off
@@ -1221,9 +1220,11 @@ func importar_partida(d: SaveData) -> void:
 	equipped_pantalones = d.equipped_pantalones
 	equipped_botas = d.equipped_botas
 	equip_meta = d.equip_meta.duplicate(true)
-	equipped_mochila = d.equipped_mochila as BackpackData
-	# extra_capacity se REDERIVA de la mochila (mas abajo, cuando item_meta ya este rearmada:
-	# la capacidad depende del tier/rareza, que viven ahi).
+	# La mochila del GRUPO. En los saves de antes este campo llevaba la del lider, que era la que
+	# marcaba la capacidad, asi que una partida vieja carga con la mochila correcta y sin migracion.
+	# El equipped_mochila que quedara dentro de los PersonajeData guardados lo ignora Godot solo (el
+	# @export ya no existe).
+	mochila_equipo = d.equipped_mochila as BackpackData
 
 	# Rearmamos item_meta con los MISMOS objetos que hay en el baul/equipo: Godot ha
 	# conservado la identidad, asi que la espada equipada y la del baul siguen siendo una.
@@ -1244,11 +1245,8 @@ func importar_partida(d: SaveData) -> void:
 		# La equipada deberia ser una de owned_mochilas (Godot conserva la identidad al cargar),
 		# pero si alguna vez no lo fuera se quedaria con la capacidad vieja justo en la unica
 		# mochila que se nota. Un renglon mas y deja de importar.
-		if equipped_mochila != null:
-			equipped_mochila.capacidad = mo_base.capacidad
-
-	# Ya con la meta rearmada: la capacidad de la mochila sale de su tier y su rareza.
-	extra_capacity = capacidad_mochila()
+		if mochila_equipo != null:
+			mochila_equipo.capacidad = mo_base.capacidad
 
 	consumables.clear()
 	for ruta in d.consumibles:
@@ -1758,6 +1756,10 @@ func hacha() -> ToolData:
 # ni se forja, ni se mejora, ni sale en el baul. Solo lo usa arma_main() como respaldo.
 const PUNOS_BASE := preload("res://resources/weapons/punos.tres")
 
+# Los 7 slots de equipo de UNA persona, en el orden en que se recorren. La MOCHILA no esta: es del
+# GRUPO (ver mochila_equipo), no de nadie.
+const EQUIP_SLOTS := ["main", "off", "casco", "pecho", "manos", "pantalones", "botas"]
+
 var equipped_main: WeaponData:      # null = manos vacias (puños)
 	get: return lider().equipped_main as WeaponData
 	set(v): lider().equipped_main = v
@@ -1785,11 +1787,23 @@ func arma_main(pj: PersonajeData = null) -> WeaponData:
 #     linea base (ONE_HAND_VEL_MIN): una daga de secundaria aporta velocidad de
 #     verdad; una maza (vel base, ONE_HAND_VEL_MIN) no aporta nada extra, ni
 #     tampoco resta - solo dejar de restar/promediar ya evita que te frene.
-const DUAL_BONUS_SLOW := 0.30      # bonus (1) cuando la principal = ONE_HAND_VEL_MIN
-const DUAL_BONUS_FAST := 0.10      # bonus (1) cuando la principal = ONE_HAND_VEL_MAX
+#
+# La rampa entera se BAJO (0.30/0.10/0.5 -> 0.20/0.05/0.35) porque el dual se comia a las armas a
+# dos manos: doble espada corta rendia 1.20 de MV×velocidad y un mandoble 1.04, o sea el mismo daño
+# pegando el triple de veces. Y un turno vale MAS que su daño: son mas criticos, mas aturdires y mas
+# veces que puedes usar una habilidad o una pocion, y eso el MV×velocidad no lo mide. Asi que el dual
+# tiene que quedar POR DEBAJO de las 2 manos en daño bruto (~1.00-1.11 contra ~1.16), no empatado.
+const DUAL_BONUS_SLOW := 0.20      # bonus (1) cuando la principal = ONE_HAND_VEL_MIN
+const DUAL_BONUS_FAST := 0.05      # bonus (1) cuando la principal = ONE_HAND_VEL_MAX
 const ONE_HAND_VEL_MIN := 1.0      # velocidad_mult del arma a 1 mano mas lenta (maza/espada larga)
 const ONE_HAND_VEL_MAX := 1.35     # velocidad_mult del arma a 1 mano mas rapida (daga)
-const OFF_HAND_SPEED_WEIGHT := 0.5 # cuanto de la velocidad "extra" de la secundaria se suma (2)
+const OFF_HAND_SPEED_WEIGHT := 0.35 # cuanto de la velocidad "extra" de la secundaria se suma (2)
+# Cuanto cuenta la mejora de RAPIDEZ de la mano SECUNDARIA. La de la principal cuenta ENTERA; esta,
+# la mitad. Es una mano, no un adorno: antes se ignoraba del todo (se leia el velocidad_mult crudo
+# del .tres para el punto (2) y el vel_mult resuelto solo se cogia de la principal), asi que mejorar
+# en Rapidez el arma de la izquierda era tirar el dinero... mientras la ficha te pintaba el numero
+# mejorado en las dos manos.
+const OFF_HAND_RAPIDEZ_PESO := 0.5
 # Bloqueo base al Defender (sin secundaria); la secundaria/escudo suma encima.
 const DEFEND_BLOCK_BASE := 0.30
 
@@ -1951,54 +1965,58 @@ func _pieza_equipada(slot: String, pj: PersonajeData = null) -> ArmorData:
 	return null
 
 # Precio de reparar un slot al 100%: coste_full × fraccion rota (0 si esta llena).
-func precio_reparar(slot: String) -> int:
-	var frac: float = durabilidad_slot(slot)
+func precio_reparar(slot: String, pj: PersonajeData = null) -> int:
+	var frac: float = durabilidad_slot(slot, pj)
 	if frac >= 1.0:
 		return 0
-	var tier: int = equip_tier(slot)
-	var n: int = Upgrades.total_mejoras(equip_mejoras(slot))
+	var tier: int = equip_tier(slot, pj)
+	var n: int = Upgrades.total_mejoras(equip_mejoras(slot, pj))
 	var coste_full: float = REPARA_BASE * (1.0 + float(tier) * REPARA_K_TIER) * (1.0 + float(n) * REPARA_K_MEJ)
 	return maxi(1, int(round(coste_full * (1.0 - frac))))
 
 # Repara un slot al 100% cobrando su precio. false si ya esta lleno o no puedes pagar.
-func reparar_slot(slot: String) -> bool:
-	var precio: int = precio_reparar(slot)
+func reparar_slot(slot: String, pj: PersonajeData = null) -> bool:
+	var precio: int = precio_reparar(slot, pj)
 	if precio <= 0:
 		return false
 	if not gastar(precio):
 		return false
-	equip_meta[slot]["durabilidad"] = 1.0
+	_meta(slot, pj)["durabilidad"] = 1.0
 	return true
 
 # Slots reparables (equipados y dañados). El puño (main vacio) no cuenta.
-func _slots_reparables() -> Array:
+func _slots_reparables(pj: PersonajeData = null) -> Array:
 	var out: Array = []
-	for slot in ["main", "off", "casco", "pecho", "manos", "pantalones", "botas"]:
-		if _slot_es_equipo(slot) and precio_reparar(slot) > 0:
+	for slot in EQUIP_SLOTS:
+		if _slot_es_equipo(slot, pj) and precio_reparar(slot, pj) > 0:
 			out.append(slot)
 	return out
 
 # True si el slot tiene una pieza reparable equipada (arma/armadura de verdad, no puños/escudo/varita).
-func _slot_es_equipo(slot: String) -> bool:
+func _slot_es_equipo(slot: String, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
 	match slot:
-		"main": return equipped_main != null
-		"off": return equipped_off is WeaponData
-		_: return _pieza_equipada(slot) != null
+		"main": return p.equipped_main != null
+		"off": return p.equipped_off is WeaponData
+		_: return _pieza_equipada(slot, p) != null
 
-# Coste total de reparar todo el equipo dañado.
-func precio_reparar_todo() -> int:
+# Coste total de reparar todo el equipo dañado. Sin argumento, el del GRUPO ENTERO: el herrero
+# repara lo de los tres de una tacada, que es lo que espera cualquiera al pulsar "REPARAR TODO".
+func precio_reparar_todo(pj: PersonajeData = null) -> int:
 	var total: int = 0
-	for slot in _slots_reparables():
-		total += precio_reparar(slot)
+	for p in ([pj] if pj != null else party):
+		for slot in _slots_reparables(p):
+			total += precio_reparar(slot, p)
 	return total
 
 # Repara TODO el equipo dañado si puedes pagar la suma. Devuelve lo gastado (0 si no llega/nada).
-func reparar_todo() -> int:
-	var total: int = precio_reparar_todo()
+func reparar_todo(pj: PersonajeData = null) -> int:
+	var total: int = precio_reparar_todo(pj)
 	if total <= 0 or not gastar(total):
 		return 0
-	for slot in _slots_reparables():
-		equip_meta[slot]["durabilidad"] = 1.0
+	for p in ([pj] if pj != null else party):
+		for slot in _slots_reparables(p):
+			_meta(slot, p)["durabilidad"] = 1.0
 	return total
 
 # --- Setters (los usa el panel de debug / futura tienda) ---
@@ -2375,17 +2393,18 @@ func quitar_hechizo(spell: SpellData, pj: PersonajeData = null) -> void:
 # --- Peso / capacidad de carga ---
 # De serie llevas un ZURRON pequeño (base_capacity). La Fuerza sube la capacidad.
 var base_capacity: float = 25.0        # zurron de serie
-# Lo que suma la MOCHILA (y, algun dia, un compañero de apoyo). Ya NO es un placeholder: lo
-# rellena la mochila equipada (ver capacidad_mochila).
-var extra_capacity: float = 0.0
 
-# --- MOCHILA (slot propio; no es equipo de combate) ---
+# --- MOCHILA (del GRUPO; no es equipo de combate ni de nadie en particular) ---
 # La UNICA cosa que sube la capacidad de carga. La basica suma +25 sobre los 25 del zurron;
 # el TIER y la RAREZA la escalan. No se mejora con nucleos: los nucleos son para matar y
 # aguantar, no para llevar mas trastos.
-var equipped_mochila: BackpackData:
-	get: return lider().equipped_mochila as BackpackData
-	set(v): lider().equipped_mochila = v
+#
+# Es del GRUPO y no de un personaje porque la BOLSA es una sola: el peso (crystals, materiales) ya
+# se lleva en comun, asi que una mochila por cabeza no significaba nada y solo descuadraba la carga.
+# Antes vivia en PersonajeData y la capacidad la marcaba la del LIDER, con lo que cambiar de cabeza
+# con las teclas 1/2/3 te cambiaba la capacidad (y encima se quedaba pegada a la del lider anterior,
+# porque era una cache que solo se recalculaba al equipar).
+var mochila_equipo: BackpackData = null
 
 # Cuanto suma ESTA mochila, con su tier y su rareza. El TIER es el eje gordo (bajar a por metal
 # mejor tiene que notarse), y el salto se ACELERA: sobre la basica de +25, un T2 da +42 y un T3
@@ -2402,27 +2421,22 @@ func mochila_tier_factor(tier: int) -> float:
 	return float(MOCHILA_CAPACIDAD_TIER[t - 1]) / float(MOCHILA_CAPACIDAD_TIER[0])
 
 func capacidad_mochila(m: BackpackData = null) -> float:
-	var mo: BackpackData = m if m != null else equipped_mochila
+	var mo: BackpackData = m if m != null else mochila_equipo
 	if mo == null:
 		return 0.0
 	var meta: Dictionary = meta_de(mo)
 	return mo.capacidad * mochila_tier_factor(int(meta["tier"])) \
 		* Upgrades.rareza_mult_capacidad(int(meta["rareza"]))
 
-func equipar_mochila(m: BackpackData, pj: PersonajeData = null) -> void:
-	var p: PersonajeData = pj if pj != null else lider()
-	_quitar_a_los_demas(m, p)
-	p.equipped_mochila = m
-	# La capacidad de carga es del GRUPO (la bolsa es una), asi que la marca la mochila del que va
-	# en cabeza: es el que carga con el saco.
-	extra_capacity = capacidad_mochila()
+# Equipar la mochila del grupo (null = quitarla y quedarse con el zurron de serie). Sin dueño: no
+# hay que quitarsela a nadie porque no es de nadie.
+func equipar_mochila(m: BackpackData) -> void:
+	mochila_equipo = m
 
 # Lo que llevarias CON esta mochila puesta (para comparar en el menu antes de equiparla). No es
 # una suma a pelo: la Fuerza multiplica el contenedor entero, mochila incluida.
 func capacidad_con_mochila(m: BackpackData) -> float:
-	var contenedor: float = base_capacity + capacidad_mochila(m)
-	var mult: float = 1.0 + clampf(stat_total("fuerza") / 999.0, 0.0, 1.0) * fuerza_capacity_bonus_max
-	return contenedor * mult
+	return _capacidad_con(base_capacity + capacidad_mochila(m))
 # La Fuerza MULTIPLICA la capacidad del contenedor (zurron+mochila) hasta un
 # maximo (a Fuerza 999 = +50%). Asi no puedes llevar de todo con un zurron.
 var fuerza_capacity_bonus_max: float = 0.5  # +50% a Fuerza maxima
@@ -2577,6 +2591,8 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		"evasion_penal": -float(main_wm["evasion"]),
 		"hands": [_hand_from(main, "main", p)],   # mano principal siempre
 	}
+	# Lo que aporta la mejora de RAPIDEZ de la mano secundaria (1.0 = nada / sin arma en la off).
+	var off_rapidez: float = 1.0
 	if main.dos_manos:
 		# Arma grande a dos manos: sin secundaria, pero bloquea decente por su tamaño.
 		m["defend_block"] += float(main_wm["bloqueo"])
@@ -2593,23 +2609,29 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		m["resist_estados"] = float(sh_m["resist_estados"])
 	elif p.equipped_off is WeaponData:
 		var off: WeaponData = p.equipped_off
+		# Mods de la secundaria ya resueltos: de aqui salen su bloqueo y su RAPIDEZ (mas abajo).
+		var off_wm := Upgrades.weapon_mods(off, tier_mult(equip_tier("off", p)),
+			equip_rareza("off", p), equip_mejoras("off", p))
 		# Base: la velocidad de la PRINCIPAL con el bonus fijo de dual (decreciente
 		# si la principal ya es rapida) + lo que aporte de mas la SECUNDARIA sobre
 		# la linea base (una maza de secundaria no resta ni suma; una daga si suma).
+		# Ese extra va con el velocidad_mult CRUDO a proposito: es la velocidad por TAMAÑO del arma
+		# (daga 1.35 / maza 1.00), que es cosa del tipo. Lo que aporte su MEJORA de Rapidez se aplica
+		# aparte, al final, para que la de la principal y la de la off no pesen lo mismo.
 		var frac := clampf((main.velocidad_mult - ONE_HAND_VEL_MIN) / (ONE_HAND_VEL_MAX - ONE_HAND_VEL_MIN), 0.0, 1.0)
 		var dual_bonus := lerpf(DUAL_BONUS_SLOW, DUAL_BONUS_FAST, frac)
 		var off_extra := maxf(0.0, off.velocidad_mult - ONE_HAND_VEL_MIN) * OFF_HAND_SPEED_WEIGHT
 		m["velocidad_mult"] = main.velocidad_mult * (1.0 + dual_bonus) + off_extra
-		# El bloqueo de la secundaria tambien escala con SU rareza (mods de su slot).
-		var off_wm := Upgrades.weapon_mods(off, tier_mult(equip_tier("off", p)),
-			equip_rareza("off", p), equip_mejoras("off", p))
+		# RAPIDEZ de la secundaria, a mitad de peso (ver OFF_HAND_RAPIDEZ_PESO). Se guarda para
+		# aplicarlo abajo junto con el de la principal.
+		off_rapidez = 1.0 + (float(off_wm["vel_mult"]) - 1.0) * OFF_HAND_RAPIDEZ_PESO
 		m["defend_block"] += float(off_wm["bloqueo"])   # bloqueo mediocre con arma
 		# Dual: la secundaria es la 2ª mano -> se alterna con la principal golpe a
 		# golpe. Cada arma conserva su MV/crit/aturdir propios (no se promedian).
 		(m["hands"] as Array).append(_hand_from(off, "off", p))
 	# else: mano secundaria vacia -> una sola mano (la principal).
-	# RAPIDEZ (mejora del arma principal): multiplica la velocidad final (capada).
-	m["velocidad_mult"] = float(m["velocidad_mult"]) * float(main_wm["vel_mult"])
+	# RAPIDEZ: la de la principal cuenta entera; la de la secundaria, la mitad (y antes, nada).
+	m["velocidad_mult"] = float(m["velocidad_mult"]) * float(main_wm["vel_mult"]) * off_rapidez
 
 	# --- MAGIA (KAN-95): magic_amp, regen de maná, eficiencia y velocidad de CASTEO ---
 	# El baston (main.es_magica) y/o la varita (off = WandData) aportan estos mods.
@@ -2735,7 +2757,7 @@ func _quitar_a_los_demas(item: Resource, dueno: PersonajeData) -> void:
 	for otro in plantilla:
 		if otro == dueno:
 			continue
-		for slot in ["main", "off", "casco", "pecho", "manos", "pantalones", "botas", "mochila"]:
+		for slot in EQUIP_SLOTS:
 			if otro.get("equipped_" + slot) == item:
 				otro.set("equipped_" + slot, null)
 				if otro.equip_meta.has(slot):
@@ -2807,12 +2829,31 @@ func armor_speed_mult(pj: PersonajeData = null) -> float:
 
 
 # --- Peso / capacidad ---
+# Cuanto MAS carga el grupo por cada acompañante. Son manos de mas para repartirse los sacos, no un
+# zurron entero por cabeza: bajar de tres tiene que dar algo, pero si cada uno sumara su contenedor
+# la carga se iria al triple y el peso dejaria de significar nada.
+const CARGA_POR_ACOMPANANTE := 0.15
+
+# La capacidad de un contenedor (zurron + mochila) para el GRUPO que baja hoy.
+# La Fuerza que lo multiplica es la MEDIA del equipo, no la del que va en cabeza: asi el numero no
+# BAILA al cambiar de lider con las teclas 1/2/3 (que es lo que pasaba antes, y encima con una cache
+# que ni se recalculaba). Media y no SUMA a proposito: sumando, tres personajes a 333 ya tocarian el
+# tope de 999 y a partir de ahi subir Fuerza no daria ni un kilo mas.
+func _capacidad_con(contenedor: float) -> float:
+	var suma: float = 0.0
+	var n: int = 0
+	for pj in party:
+		# Fuerza TOTAL (oculta), no la visible: si no, al subir de nivel perderias capacidad de carga
+		# (el visible vuelve a 0). Mismo criterio que el aguante, la recoleccion y el reto.
+		suma += float(stat_total("fuerza", pj))
+		n += 1
+	var media: float = suma / float(maxi(1, n))
+	var mult: float = 1.0 + clampf(media / 999.0, 0.0, 1.0) * fuerza_capacity_bonus_max
+	var manos: float = 1.0 + CARGA_POR_ACOMPANANTE * float(maxi(0, n - 1))
+	return contenedor * mult * manos
+
 func capacidad_carga() -> float:
-	var contenedor: float = base_capacity + extra_capacity
-	# Fuerza TOTAL (oculta), no la visible: si no, al subir de nivel perderias capacidad de carga
-	# (el visible vuelve a 0). Mismo criterio que el aguante, la recoleccion y el reto.
-	var mult: float = 1.0 + clampf(stat_total("fuerza") / 999.0, 0.0, 1.0) * fuerza_capacity_bonus_max
-	return contenedor * mult
+	return _capacidad_con(base_capacity + capacidad_mochila())
 
 func peso_actual() -> float:
 	var w: float = 0.0
@@ -4092,15 +4133,45 @@ func mejorar_item(item: Resource, cat: String, nucleo: MaterialData) -> bool:
 #  segunda vida al material, nucleos incluidos si la habias mejorado. La math vive en Forge.
 # ============================================================
 
-# ¿La llevas puesta? No se funde lo que tienes encima: primero lo dejas.
+# ¿Lo lleva puesto ALGUIEN? No se funde ni se vende lo que alguien tiene encima: primero se lo quita.
+# Mira a la PLANTILLA entera, no solo al lider: el baul es comun, y hasta que hubo grupo esto solo
+# preguntaba por el que iba en cabeza, asi que la armadura que llevaba puesta un compañero salia como
+# libre en la tienda y en el herrero. Se la vendias y seguia peleando con ella.
 func item_equipado(item: Resource) -> bool:
+	return item != null and (item == mochila_equipo or quien_lleva(item) != null)
+
+
+# Le quita TODO lo que lleva puesto y lo devuelve al baul comun (donde ya estaba: el equipo son
+# referencias, no copias). Devuelve cuantas piezas se le han quitado.
+#
+# Hace falta porque guardar a alguien en el Hogar NO le desequipa (lo suyo sigue siendo suyo, que es
+# lo que se quiere: al volver a bajarlo sigue vestido). Pero entonces su equipo se queda bloqueado
+# para el resto -no se vende, no se funde, no se le pone a otro sin robarselo- y no habia forma de
+# recuperarlo sin volver a meterlo en el equipo.
+func desequipar_todo(pj: PersonajeData) -> int:
+	if pj == null:
+		return 0
+	var n: int = 0
+	for slot in EQUIP_SLOTS:
+		if pj.get("equipped_" + slot) != null:
+			pj.set("equipped_" + slot, null)
+			pj.equip_meta[slot] = _meta_por_defecto()
+			n += 1
+	if n > 0:
+		print("[equipo] %s deja %d pieza%s en el baul" % [pj.nombre, n, "" if n == 1 else "s"])
+	return n
+
+
+# QUIEN lo lleva puesto (null = nadie). Lo usan los avisos de la UI para poder decir el nombre en vez
+# de un "esta equipado" a secas, que con un grupo no dice nada.
+func quien_lleva(item: Resource) -> PersonajeData:
 	if item == null:
-		return false
-	for eq in [equipped_main, equipped_off, equipped_casco, equipped_pecho,
-			equipped_manos, equipped_pantalones, equipped_botas, equipped_mochila]:
-		if eq == item:
-			return true
-	return false
+		return null
+	for pj in plantilla:
+		for slot in EQUIP_SLOTS:
+			if pj.get("equipped_" + slot) == item:
+				return pj
+	return null
 
 
 func puede_fundir(item: Resource) -> bool:

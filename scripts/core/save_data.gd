@@ -143,7 +143,10 @@ const VERSION_ACTUAL := 2
 @export var almacen_materiales: Array = []  # MaterialItem guardados en el Hogar
 @export var owned_weapons: Array = []       # baul (instancias propias, con su identidad)
 @export var owned_armor: Array = []
-# MOCHILAS: van aparte del equipo de combate (tienen su propio slot y solo suben la carga).
+# MOCHILAS: van aparte del equipo de combate (solo suben la carga). La equipada es del GRUPO
+# (Game.mochila_equipo) y por eso este campo esta aqui arriba y no dentro de cada personaje. Cuando
+# la mochila era de una persona, aqui se guardaba la del LIDER (que era la que marcaba la
+# capacidad), asi que las partidas viejas cargan en el sitio correcto sin migracion.
 @export var owned_mochilas: Array = []
 @export var equipped_mochila: Resource = null
 

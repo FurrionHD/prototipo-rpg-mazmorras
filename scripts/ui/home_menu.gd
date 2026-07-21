@@ -190,6 +190,31 @@ func _fila_banquillo(pj: PersonajeData) -> void:
 			_rebuild())
 	fila.add_child(dentro)
 
+	# Quedarse en casa NO le desequipa: lo suyo sigue siendo suyo y al volver a bajar sigue vestido.
+	# Pero entonces su espada no se puede vender ni fundir ni ponersela a otro sin robarsela, asi que
+	# hace falta una forma de reclamarla sin tener que meterlo otra vez en el equipo.
+	var lleva: int = _piezas_puestas(pj)
+	var quitar := Button.new()
+	quitar.text = "Recoger su equipo"
+	quitar.disabled = lleva == 0
+	quitar.tooltip_text = "Le quita lo que lleve puesto y lo devuelve al baúl, para dárselo a otro, " \
+		+ "venderlo o fundirlo." if lleva > 0 else "No lleva nada puesto."
+	quitar.pressed.connect(func():
+		var n: int = Game.desequipar_todo(pj)
+		_aviso = "%s deja %d pieza%s en el baúl." % [pj.nombre, n, "" if n == 1 else "s"]
+		_aviso_ok = true
+		_rebuild())
+	fila.add_child(quitar)
+
+
+# Cuantas piezas lleva puestas (para no ofrecer "recoger" a quien va desnudo).
+func _piezas_puestas(pj: PersonajeData) -> int:
+	var n: int = 0
+	for slot in Game.EQUIP_SLOTS:
+		if pj.get("equipped_" + slot) != null:
+			n += 1
+	return n
+
 
 # El cuerpo del personaje, del tamaño de un icono: mismo color y mismo material que por el mapa.
 func _punto(pj: PersonajeData) -> ColorRect:

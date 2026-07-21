@@ -15,12 +15,13 @@
 
 extends CanvasLayer
 
-# La MOCHILA va aqui aunque no sea armadura: no ocupa mano, no pesa y no da defensa, pero se
-# equipa igual y este es el sitio donde el jugador la va a buscar.
-const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas", "mochila"]
+# Solo ARMADURA. La mochila estuvo aqui de prestado (se equipa parecido y era donde se iba a
+# buscar), pero es del GRUPO y no de un personaje: verla en una ficha personal, al lado de cinco
+# slots que si son de esa persona, hacia creer que cada uno llevaba la suya. Se mudo al inventario [I].
+const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas"]
 const ARMOR_SLOT_LABELS := {
 	"casco": "Casco", "pecho": "Pecho", "manos": "Manos",
-	"pantalones": "Pantalones", "botas": "Botas", "mochila": "Mochila"}
+	"pantalones": "Pantalones", "botas": "Botas"}
 const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "Mandoble",
 	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
 
@@ -241,15 +242,8 @@ func _pick_personaje(i: int) -> void:
 # El companero que lleva PUESTO este objeto, o null si no lo lleva nadie mas. Nunca devuelve al
 # personaje que estas mirando: que lo lleve el no es un conflicto, es el estado normal.
 func _quien_lleva(item: Resource) -> PersonajeData:
-	if item == null:
-		return null
-	for otro in Game.plantilla:
-		if otro == _pj():
-			continue
-		for slot in ["main", "off", "casco", "pecho", "manos", "pantalones", "botas", "mochila"]:
-			if otro.get("equipped_" + slot) == item:
-				return otro
-	return null
+	var otro: PersonajeData = Game.quien_lleva(item)
+	return null if otro == _pj() else otro
 
 
 # El nombre del item para la cuadricula, con una marca de quien lo lleva. El candado dice de un
@@ -557,6 +551,18 @@ func _build_armas() -> void:
 	else:
 		_off_stats(_content, _pj().equipped_off)
 
+	# --- El conjunto ---
+	# La velocidad REAL con la que peleas, que no es la de ninguna de las dos armas por separado:
+	# lleva dentro el bonus de ir a dual, lo que aporta la secundaria por su tamaño y las mejoras de
+	# Rapidez de las dos manos (la de la izquierda, a mitad). Sin esta linea el jugador ve dos fichas
+	# con dos numeros y ninguno es el que manda.
+	_content.add_child(HSeparator.new())
+	var lm: Dictionary = Game.loadout_mods(_pj())
+	_row(_content, "Velocidad del conjunto", "×%.2f" % float(lm["velocidad_mult"]))
+	if _pj().equipped_off is WeaponData:
+		_note(_content, "Vas a dos armas: se alternan golpe a golpe, cada una con su daño y su "
+			+ "crítico. La mejora de Rapidez de la secundaria cuenta la mitad que la de la principal.")
+
 
 # Cabecera de un bloque de arma: nombre + boton Cambiar (si procede).
 func _bloque_arma(rol: String, nombre: String, permite_cambio: bool, on_cambiar: Callable) -> void:
@@ -603,10 +609,6 @@ func _catalogo_off() -> Array:
 # DESEQUIPA la que llevas puesta (el boton cambia solo).
 func _catalogo_armor(slot: String) -> Array:
 	var r: Array = []
-	if slot == "mochila":
-		for m in Game.owned_mochilas:
-			r.append(m)
-		return r
 	for p in Game.owned_armor_de_slot(slot):
 		r.append(p)
 	return r
@@ -905,7 +907,7 @@ func _build_armadura_lista() -> void:
 		_note(_content, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
 	_content.add_child(HSeparator.new())
 	for slot in ARMOR_SLOTS:
-		var pieza = Game.get("equipped_" + slot)
+		var pieza = _pj().get("equipped_" + slot)
 		var nombre: String = "(sin pieza)"
 		if pieza is ArmorData or pieza is BackpackData:
 			nombre = Game.item_display_name(pieza)
@@ -942,7 +944,7 @@ func _ciclar_slot(dir: int) -> void:
 # Deja _armor_cand en la pieza equipada del slot (o en la primera del baul si no llevas
 # ninguna), para que la cuadricula abra siempre con stats a la vista.
 func _preseleccionar_equipada(slot: String) -> void:
-	var pieza = Game.get("equipped_" + slot)
+	var pieza = _pj().get("equipped_" + slot)
 	_armor_cand = 0
 	var cat: Array = _catalogo_armor(slot)
 	for i in cat.size():
@@ -1005,7 +1007,7 @@ func _armor_cand_equipada() -> bool:
 	var cat: Array = _catalogo_armor(_armor_slot_sel)
 	if _armor_cand >= cat.size():
 		return false
-	return cat[_armor_cand] == Game.get("equipped_" + _armor_slot_sel)
+	return cat[_armor_cand] == _pj().get("equipped_" + _armor_slot_sel)
 
 
 func _pick_armor(i: int) -> void:
@@ -1021,10 +1023,7 @@ func _equipar_armor() -> void:
 	var elegido: Resource = null if _armor_cand_equipada() else cat[_armor_cand]
 	# Si la pieza la lleva otro, se pregunta antes (mismo criterio que con las armas).
 	_confirmar_robo(elegido, func():
-		if slot == "mochila":
-			Game.equipar_mochila(elegido as BackpackData, _pj())
-		else:
-			Game.equipar_armadura(slot, elegido as ArmorData, _pj())
+		Game.equipar_armadura(slot, elegido as ArmorData, _pj())
 		_rebuild())   # se queda en el slot; la recien equipada queda marcada
 
 
@@ -1034,35 +1033,12 @@ func _preview_armor(vb: VBoxContainer) -> void:
 	var cat: Array = _catalogo_armor(slot)
 	if _armor_cand >= cat.size() or cat[_armor_cand] == null:
 		return
-	if slot == "mochila":
-		_mochila_stats(vb, cat[_armor_cand] as BackpackData)
-		return
 	var a: ArmorData = cat[_armor_cand]
 	_title(vb, Game.item_display_name(a))
 	_aviso_dueno(vb, a)
-	if a == Game.get("equipped_" + slot):
+	if a == _pj().get("equipped_" + slot):
 		_note(vb, "Ya la llevas puesta: al quitarla vas ligero (+velocidad, 0 defensa).")
 	_armor_stats(vb, a)
-
-
-# Ficha de una MOCHILA: lo unico que hace es subir la carga, asi que se enseña lo que SUMA y lo
-# que llevarias con ella puesta (la Fuerza multiplica el conjunto, asi que el numero final no es
-# una suma a pelo).
-func _mochila_stats(vb: VBoxContainer, m: BackpackData) -> void:
-	if m == null:
-		return
-	var meta: Dictionary = Game.meta_de(m)
-	_title(vb, Game.item_display_name(m))
-	_aviso_dueno(vb, m)
-	if m == _pj().equipped_mochila:
-		_note(vb, "Ya la llevas puesta: al quitarla te quedas con el zurrón de serie.")
-	_row(vb, "  Capacidad", "+%.0f de carga" % Game.capacidad_mochila(m))
-	_row(vb, "  Tier / rareza", "T%d · %s" % [
-		int(meta["tier"]), Upgrades.rareza_nombre(int(meta["rareza"]))])
-	_row(vb, "  Llevarías", "%.0f  (ahora: %.0f)" % [
-		Game.capacidad_con_mochila(m), Game.capacidad_carga()])
-	if m.descripcion != "":
-		_note(vb, m.descripcion)
 
 
 # Ficha de una pieza de armadura. Como en las armas: los numeros son los REALES (con su tier,

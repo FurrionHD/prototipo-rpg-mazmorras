@@ -16,7 +16,7 @@
 
 extends CanvasLayer
 
-const TABS := ["Bolsa", "Consumibles", "Materiales", "Armas", "Armaduras"]
+const TABS := ["Bolsa", "Mochila", "Consumibles", "Materiales", "Armas", "Armaduras"]
 const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "Mandoble",
 	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
 const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
@@ -115,10 +115,11 @@ func _rebuild() -> void:
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	match _tab:
 		0: _build_bolsa()
-		1: _build_consumibles()
-		2: _build_materiales()
-		3: _build_armas()
-		4: _build_armaduras()
+		1: _build_mochila()
+		2: _build_consumibles()
+		3: _build_materiales()
+		4: _build_armas()
+		5: _build_armaduras()
 
 
 # ============================================================
@@ -298,6 +299,65 @@ func _confirmar_soltar(cant: int) -> void:
 
 
 # ============================================================
+#  Pestaña MOCHILA
+#  La mochila es del EQUIPO, no de un personaje: la bolsa que llena tambien es una sola. Por eso
+#  vive aqui, al lado del peso que modifica, y no en la ficha de nadie (estaba en la pestaña
+#  Armadura del menu [C], entre cinco slots que si son personales, y eso hacia pensar que cada uno
+#  llevaba la suya y que el peso se contaba por cabeza).
+# ============================================================
+
+func _build_mochila() -> void:
+	_title(_header, "MOCHILA  (del equipo)")
+	var m: BackpackData = Game.mochila_equipo
+	_note(_header, "Una sola para todo el grupo: es lo único que sube la capacidad de carga. "
+		+ "Llevas puesta: %s" % (Game.item_display_name(m) if m != null else "ninguna (solo el zurrón de serie)"))
+	var cab := Label.new()
+	cab.text = "Peso: %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
+	cab.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92))
+	_header.add_child(cab)
+	if not Game.en_pueblo():
+		_note(_header, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
+	_header.add_child(HSeparator.new())
+
+	_stacks = []
+	for mo in Game.owned_mochilas:
+		_stacks.append({"modelo": mo, "cantidad": 1})
+	var labels: Array = []
+	for s in _stacks:
+		var mo: BackpackData = s["modelo"]
+		labels.append(Game.item_display_name(mo) + ("\n(puesta)" if mo == Game.mochila_equipo else ""))
+	_grid_detail(labels, _preview_mochila)
+
+
+# Ficha de una MOCHILA: lo unico que hace es subir la carga, asi que se enseña lo que SUMA y lo que
+# llevarias con ella puesta (la Fuerza del grupo multiplica el conjunto, asi que el numero final no
+# es una suma a pelo).
+func _preview_mochila(vb: VBoxContainer) -> void:
+	var m: BackpackData = _stacks[_sel]["modelo"]
+	var puesta: bool = m == Game.mochila_equipo
+	var meta: Dictionary = Game.meta_de(m)
+	_title(vb, Game.item_display_name(m) + ("   [puesta]" if puesta else ""))
+	_row(vb, "Capacidad", "+%.0f de carga" % Game.capacidad_mochila(m))
+	_row(vb, "Tier / rareza", "T%d · %s" % [
+		int(meta["tier"]), Upgrades.rareza_nombre(int(meta["rareza"]))])
+	_row(vb, "Llevaríais", "%.0f  (ahora: %.0f)" % [
+		Game.capacidad_con_mochila(m), Game.capacidad_carga()])
+	if m.descripcion != "":
+		_note(vb, m.descripcion)
+
+	vb.add_child(HSeparator.new())
+	var b := Button.new()
+	b.text = "Quitar" if puesta else "Equipar"
+	b.disabled = not Game.en_pueblo()
+	b.pressed.connect(func():
+		Game.equipar_mochila(null if puesta else m)
+		_rebuild())
+	vb.add_child(b)
+	if puesta:
+		_note(vb, "Al quitarla os quedáis con el zurrón de serie (25 de carga).")
+
+
+# ============================================================
 #  Pestaña CONSUMIBLES
 # ============================================================
 
@@ -406,12 +466,20 @@ func _nombre_equipo(item: Resource) -> String:
 	return "?"
 
 
+# "Lo lleva Fulano", o "" si no lo lleva nadie. Con grupo, un [equipada] a secas no vale: la misma
+# espada puede estar puesta en cualquiera de los tuyos, y mirando solo al lider (que es lo que se
+# hacia) la de un compañero salia como si estuviera en el baul, suelta.
+func _marca_dueno(item: Resource) -> String:
+	var dueno: PersonajeData = Game.quien_lleva(item)
+	return "" if dueno == null else "   [la lleva %s]" % dueno.nombre
+
+
 func _preview_arma(vb: VBoxContainer) -> void:
 	var item: Resource = _stacks[_sel]["modelo"]
-	var equipada: bool = item == Game.equipped_main or item == Game.equipped_off
+	var equipada: String = _marca_dueno(item)
 	if item is WeaponData:
 		var w := item as WeaponData
-		_title(vb, Game.item_display_name(w) + ("   [equipada]" if equipada else ""))
+		_title(vb, Game.item_display_name(w) + equipada)
 		# Ficha COMPARTIDA (MenuScaffold.filas_arma): las mismas stats resueltas que ve la tienda
 		# y el menu de personaje, con el tier/rareza/mejoras REALES de esta pieza (antes se
 		# enseñaban los valores base a secas, ignorando las mejoras y sin la evasion).
@@ -421,7 +489,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		_row(vb, "Tier / rareza", "T%d · %s" % [int(meta["tier"]), Upgrades.rareza_nombre(int(meta["rareza"]))])
 	elif item is ShieldData:
 		var s := item as ShieldData
-		_title(vb, Game.item_display_name(s) + ("   [equipado]" if equipada else ""))
+		_title(vb, Game.item_display_name(s) + equipada)
 		# Ficha COMPARTIDA, igual que el arma de arriba: antes se pintaba el .tres crudo y un T3
 		# pristino enseñaba (y rendia) exactamente lo mismo que uno comun.
 		var meta_s: Dictionary = Game.meta_de(s)
@@ -430,7 +498,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		_row(vb, "Tier / rareza", "T%d · %s" % [int(meta_s["tier"]), Upgrades.rareza_nombre(int(meta_s["rareza"]))])
 	elif item is WandData:
 		var wd := item as WandData
-		_title(vb, Game.item_display_name(wd) + ("   [equipada]" if equipada else ""))
+		_title(vb, Game.item_display_name(wd) + equipada)
 		# Por su math (Upgrades.magic_mods) con el tier/rareza/mejoras REALES de esta varita, como
 		# el baston y el resto de equipo: antes se pintaba el .tres crudo (una varita T3 pristina
 		# amplificaba y regeneraba lo mismo que una comun).
@@ -465,8 +533,7 @@ func _build_armaduras() -> void:
 
 func _preview_armadura(vb: VBoxContainer) -> void:
 	var a: ArmorData = _stacks[_sel]["modelo"]
-	var equipada: bool = Game.get("equipped_" + Game.ARMOR_SLOT_ORDEN[clampi(int(a.slot), 0, 4)]) == a
-	_title(vb, Game.item_display_name(a) + ("   [equipada]" if equipada else ""))
+	_title(vb, Game.item_display_name(a) + _marca_dueno(a))
 	_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
 	_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, 3)])
 	_row(vb, "Defensa base", "%.2f" % (a.defensa_base * a.motion_def))

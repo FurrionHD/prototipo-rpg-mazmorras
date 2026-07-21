@@ -10,8 +10,9 @@
 #  cabeza, para que las 5000 lineas de Game y los menus que ya las usaban sigan valiendo.
 #
 #  Lo que NO esta aqui es lo del GRUPO, que se comparte y por tanto se queda en Game: el
-#  dinero, el baul (owned_weapons/armor/mochilas), los materiales, los cristales, los
-#  consumibles, las herramientas de recoleccion, los contadores de OFICIO, item_meta y el mapa.
+#  dinero, el baul (owned_weapons/armor/mochilas), la MOCHILA equipada, los materiales, los
+#  cristales, los consumibles, las herramientas de recoleccion, los contadores de OFICIO,
+#  item_meta y el mapa.
 #  El baul es comun a proposito: asi un companero se pone tu espada vieja sin duplicar nada.
 #
 #  Es un Resource porque asi lo serializa Godot dentro del SaveData, con la misma ventaja que
@@ -77,7 +78,7 @@ class_name PersonajeData
 @export var equipped_manos: Resource = null
 @export var equipped_pantalones: Resource = null
 @export var equipped_botas: Resource = null
-@export var equipped_mochila: Resource = null
+# (La MOCHILA no esta aqui: es del GRUPO, como la bolsa. Vive en Game.mochila_equipo.)
 @export var equipped_spells: Array = []
 # tier + rareza + mejoras + durabilidad de lo que lleva PUESTO, por slot. Los dicts son los
 # MISMOS objetos que Game.item_meta[item] (por referencia): mejorar lo equipado mejora lo del baul.

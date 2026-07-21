@@ -1009,34 +1009,34 @@ func _build_reparar() -> void:
 	_note(_header, "El equipo se desgasta al usarlo: gastado pega/protege menos, y ROTO se va a los suelos. El precio depende de lo roto que esté; el tier y las mejoras lo suben un poco. La mejora de Durabilidad hace que aguante más (y no encarece reparar).")
 	_header.add_child(HSeparator.new())
 
-	var slots := [
-		["main", "Arma principal", Game.equipped_main],
-		["off", "Secundaria", Game.equipped_off if Game.equipped_off is WeaponData else null],
-		["casco", "Casco", Game.equipped_casco],
-		["pecho", "Pecho", Game.equipped_pecho],
-		["manos", "Manos", Game.equipped_manos],
-		["pantalones", "Pantalones", Game.equipped_pantalones],
-		["botas", "Botas", Game.equipped_botas],
-	]
+	# TODO el grupo, no solo el que va en cabeza: cada uno lleva SU equipo y todos se desgastan
+	# peleando. Con el nombre delante para saber de quien es cada pieza.
+	const NOMBRES := {"main": "Arma principal", "off": "Secundaria", "casco": "Casco",
+		"pecho": "Pecho", "manos": "Manos", "pantalones": "Pantalones", "botas": "Botas"}
 	var algo: bool = false
-	for s in slots:
-		var item = s[2]
-		if item == null:
-			continue
-		algo = true
-		var slot: String = s[0]
-		var frac: float = Game.durabilidad_slot(slot)
-		var precio: int = Game.precio_reparar(slot)
-		var maxd: float = Game.max_durabilidad(slot)
-		# % (lo que manda para el precio) y, entre parentesis, los PUNTOS: el maximo sube con
-		# tier/rareza/mejoras, asi se ve de un vistazo cuanto aguanta esta pieza en concreto.
-		var estado: String = "ROTO  (0 / %.1f)" % maxd if frac <= 0.0 \
-			else "%d%%  (%.1f / %.1f)" % [int(round(frac * 100.0)), frac * maxd, maxd]
-		_row(_header, "%s · %s" % [s[1], str(item.get("nombre"))], estado)
-		if precio > 0:
-			_boton(_header, "Reparar  ·  %d monedas" % precio, _on_reparar_slot.bind(slot), Game.puede_pagar(precio))
+	for pj in Game.party:
+		var suyo: bool = false
+		for slot in Game.EQUIP_SLOTS:
+			var item = pj.get("equipped_" + slot)
+			if item == null or (slot == "off" and not (item is WeaponData)):
+				continue   # la off puede llevar escudo/varita: eso no se repara aqui
+			if not suyo:
+				suyo = true
+				algo = true
+				_title(_header, pj.nombre)
+			var frac: float = Game.durabilidad_slot(slot, pj)
+			var precio: int = Game.precio_reparar(slot, pj)
+			var maxd: float = Game.max_durabilidad(slot, pj)
+			# % (lo que manda para el precio) y, entre parentesis, los PUNTOS: el maximo sube con
+			# tier/rareza/mejoras, asi se ve de un vistazo cuanto aguanta esta pieza en concreto.
+			var estado: String = "ROTO  (0 / %.1f)" % maxd if frac <= 0.0 \
+				else "%d%%  (%.1f / %.1f)" % [int(round(frac * 100.0)), frac * maxd, maxd]
+			_row(_header, "%s · %s" % [NOMBRES[slot], str(item.get("nombre"))], estado)
+			if precio > 0:
+				_boton(_header, "Reparar  ·  %d monedas" % precio,
+					_on_reparar_slot.bind(slot, pj), Game.puede_pagar(precio))
 	if not algo:
-		_note(_header, "No llevas nada equipado que reparar.")
+		_note(_header, "Nadie del grupo lleva nada equipado que reparar.")
 		return
 
 	_header.add_child(HSeparator.new())
@@ -1044,12 +1044,12 @@ func _build_reparar() -> void:
 	if total > 0:
 		_boton(_header, "REPARAR TODO  ·  %d monedas" % total, _on_reparar_todo, Game.puede_pagar(total))
 	else:
-		_note(_header, "Todo tu equipo está a punto.")
+		_note(_header, "El equipo del grupo está a punto.")
 	_row(_header, "Tu dinero", "%d monedas" % Game.money)
 
 
-func _on_reparar_slot(slot: String) -> void:
-	if Game.reparar_slot(slot):
+func _on_reparar_slot(slot: String, pj: PersonajeData) -> void:
+	if Game.reparar_slot(slot, pj):
 		_decir("Reparada. Como nueva.")
 	else:
 		_decir("No te llega para repararla.", false)

@@ -436,25 +436,20 @@ func _build_vender_equipo() -> void:
 	_grid_detail(labels, _preview_venta_equipo)
 
 
-func _equipado(item: Resource) -> bool:
-	if item == Game.equipped_main or item == Game.equipped_off:
-		return true
-	for slot in Game.ARMOR_SLOT_ORDEN:
-		if Game.get("equipped_" + slot) == item:
-			return true
-	return false
-
-
 func _preview_venta_equipo(vb: VBoxContainer) -> void:
 	var item: Resource = _stacks[_sel]["modelo"]
-	var puesto: bool = _equipado(item)
-	_title(vb, Game.item_display_name(item) + ("   [equipado]" if puesto else ""))
+	# Quien lo lleva, del GRUPO entero (Game.quien_lleva). Antes esto solo miraba al lider y por eso
+	# lo que llevaba puesto un compañero salia como libre y se podia vender... sin quitarselo.
+	var dueno: PersonajeData = Game.quien_lleva(item)
+	var puesto: bool = dueno != null
+	_title(vb, Game.item_display_name(item) + ("   [lo lleva %s]" % dueno.nombre if puesto else ""))
 	_row(vb, "Precio de tienda", "%d (a T1 común)" % Game.precio_compra(item))
 	_row(vb, "Te pagan", "%d monedas" % Game.precio_venta_equipo(item))
 	vb.add_child(HSeparator.new())
 	_boton(vb, "Vender", _on_vender_equipo, not puesto)
 	if puesto:
-		_note(vb, "Lo llevas puesto. Desequípalo en el menú de personaje [C] antes de venderlo.")
+		_note(vb, "Lo lleva puesto %s. Desequípaselo en el menú de personaje [C] antes de venderlo."
+			% dueno.nombre)
 
 
 func _on_vender_equipo() -> void:
