@@ -2501,14 +2501,25 @@ func mochila_tier_factor(tier: int) -> float:
 # maximo teorico de 1998.
 # El TECHO no cambia por tier (siempre +50%): lo que compras es DONDE saturas, no cuanto.
 #
-# LA REGLA para los tiers que vengan (DOS tiers de mochila por NIVEL de jugador):
-#     saturacion(nivel N) = 700 * (N - 1) + 999
-# Los 700 son con lo que se sube de nivel de verdad (el requisito es RANGO_C_MIN = 600, pero nadie
-# asciende justo al tocarlo) y el 999 final es exprimir el nivel en el que estas. O sea:
-#     Nv.1 -> 999   (T1, T2)   <- las de los pisos de nivel 1
-#     Nv.2 -> 1700  (T3, T4)   <- 700 + 999, redondeado
-#     Nv.3 -> 2400  (T5, T6)   <- 700 + 700 + 999
-#     Nv.4 -> 3100  (T7, T8)
+# LA REGLA para los tiers que vengan (DOS tiers de mochila por NIVEL de jugador). OJO: NO es
+# lineal, porque subir de nivel INFLA el acumulado oculto un NIVEL_SPIKE (x1.10) y eso se COMPONE
+# (ver subir_nivel). El interno con el que empiezas cada nivel y lo que llegas a tener:
+#     B(1) = 0                          sat(N) = B(N) + 999   <- exprimir el nivel entero
+#     B(N+1) = (B(N) + subida) * 1.10   subida = con cuanto asciendes de verdad
+#
+# Y 'subida' NO es RANGO_C_MIN (600): ese es solo el requisito para PODER subir. Renta mas
+# acumular antes de ascender, asi que la gente sube con bastante mas. Los dos extremos:
+#     sube pronto (~700)          sube exprimido (999)
+#     Nv.1 ->  999                Nv.1 ->  999
+#     Nv.2 -> 1769                Nv.2 -> 2098
+#     Nv.3 -> 2616                Nv.3 -> 3307
+#     Nv.4 -> 3548                Nv.4 -> 4636
+#
+# La tabla se queda A PROPOSITO por DEBAJO de esa horquilla (Nv.2 -> 1700 y no 1769-2098): asi al
+# final de cada nivel siempre sobra algo de Fuerza que no da carga, y eso es lo que empuja a
+# comprar la mochila del tier siguiente. Si se igualara al maximo, la mochila nueva no se
+# necesitaria nunca. Para los tiers futuros, mismo criterio: un pelin por debajo de B(N) + 999.
+#
 # Al añadir un tier hay que alargar ESTA tabla Y MOCHILA_CAPACIDAD_TIER a la vez: si una es mas
 # corta que la otra, el clampi sujeta el indice y la mochila nueva se comporta como la ultima que
 # exista (no peta, pero miente).
