@@ -4805,23 +4805,59 @@ func overload_speed_factor() -> float:
 	return 1.0 - penalty
 
 
-# Cuanto acelera el andar la AGILIDAD del que va en cabeza. El grupo se mueve al paso del que
-# lleva delante, asi que cambiar de lider (teclas 1/2/3) tambien se nota fuera del combate:
+# Cuanto acelera (o frena) el andar la AGILIDAD del que va en cabeza. El grupo se mueve al paso del
+# que lleva delante, asi que cambiar de lider (teclas 1/2/3) tambien se nota fuera del combate:
 # mandar delante al agil es ir mas rapido, y al tanque acorazado es ir mas lento (eso ya lo hace
 # armor_speed_mult por su lado).
 #
-# Va sobre el TOTAL acumulado (oculto) y no sobre el visible, por lo mismo que el aguante: el
-# visible vuelve a 0 al subir de nivel y te quedarias mas lento por ascender.
+# Va sobre el TOTAL acumulado (oculto) y no sobre el visible, por lo mismo que el aguante y la
+# carga: el visible vuelve a 0 al subir de nivel y te quedarias mas lento por ascender.
 #
-# El tope es DISCRETO a proposito (+20% con la Agilidad al maximo). Andar por el mapa no es una
-# stat de combate: si diera el doble de velocidad, subir Agilidad dejaria de ser una decision y
-# pasaria a ser obligatorio para no perder el tiempo en los pasillos.
-const AGILIDAD_VEL_MAX := 0.20
+# CADA PISO PIDE MAS. Antes esto era un +20% fijo medido contra 999, o sea que se corria igual en el
+# piso 1 que en el 20 y bajar salia gratis. Ahora la profundidad mueve DOS listones:
+#
+#   mult = 1.00 + AGILIDAD_VEL_MAX  * min(agi / alto(piso), 1)          <- el BONUS
+#               - AGILIDAD_VEL_PENAL * (1 - min(agi / esperada(piso), 1)) <- la PENALIZACION
+#
+# Las dos curvas son INDEPENDIENTES a proposito. Si compartieran escala (un solo liston donde abajo
+# es -20% y arriba +50%), con Agilidad 0 estarias penalizado hasta en el piso 1, y ahi todavia no
+# has tenido ocasion de entrenar nada. Separadas, 'esperada' es lo que se da por hecho que llevas a
+# ese piso (30 en el primero: se consigue corriendo un rato) y 'alto' es la meta que da la punta.
+#
+# El multiplicador queda entre x0.80 y x1.50. Corriendo eso es 176 - 330 px/s, y los que persiguen
+# van a 117-240: por debajo del liston te cazan, cumpliendolo no te alcanza ninguno. Ese es el
+# punto — la Agilidad decide si puedes huir, y para quien la ignore esta el sigilo (Ctrl).
+const AGILIDAD_VEL_MAX := 0.50    # techo del bonus (Agilidad >= alto(piso))
+const AGILIDAD_VEL_PENAL := 0.20  # suelo del castigo (Agilidad 0 frente a esperada(piso))
+
+# El liston ESPERADO, lineal por piso como la franja de habilidades de los enemigos
+# (enemy_ability_sum_band): constantes nombradas, no una curva que haya que adivinar.
+const AGI_ESPERADA_F1 := 30.0     # lo que se da por hecho en el piso 1
+const AGI_ESPERADA_STEP := 57.0   # ~660 al piso 12, el ultimo antes de la franja T3
+
+# El liston del BONUS es "ir esto por encima de lo esperado", NO una recta propia. Con su propia
+# pendiente pedia ~1500 de Agilidad al piso 12, que es de otro planeta: la Agilidad solo sube
+# corriendo cerca de bichos y nadie la entrena en exclusiva. Como delta, la punta es ir un par de
+# pisos por delante en Agilidad — se gana entrenando y se pierde si dejas de hacerlo al bajar.
+const AGI_ALTO_DELTA := 150.0
+
+# 'piso' < 0 = el actual. current_floor vuelve a 1 al salir al pueblo, asi que alli se usa el
+# liston del piso 1 sin tener que mirar en que escena estamos.
+func agilidad_alto_piso(piso: int = -1) -> float:
+	return agilidad_esperada_piso(piso) + AGI_ALTO_DELTA
+
+func agilidad_esperada_piso(piso: int = -1) -> float:
+	var f: int = current_floor if piso < 0 else piso
+	return AGI_ESPERADA_F1 + AGI_ESPERADA_STEP * float(maxi(1, f) - 1)
 
 # 'pj' = de QUIEN sale el paso (null = el lider, que es quien manda cuando el grupo va entero). Si
 # alguien va sin fuelle, player.gd pasa a ESE: el que se arrastra impone su ritmo, no el de cabeza.
-func agilidad_speed_mult(pj: PersonajeData = null) -> float:
-	return 1.0 + clampf(float(stat_total("agilidad", pj)) / ABILITY_CAP, 0.0, 1.0) * AGILIDAD_VEL_MAX
+func agilidad_speed_mult(pj: PersonajeData = null, piso: int = -1) -> float:
+	var agi: float = float(stat_total("agilidad", pj))
+	var bonus: float = AGILIDAD_VEL_MAX * clampf(agi / maxf(1.0, agilidad_alto_piso(piso)), 0.0, 1.0)
+	var penal: float = AGILIDAD_VEL_PENAL \
+		* (1.0 - clampf(agi / maxf(1.0, agilidad_esperada_piso(piso)), 0.0, 1.0))
+	return 1.0 + bonus - penal
 
 
 # --- Subida de habilidades ---

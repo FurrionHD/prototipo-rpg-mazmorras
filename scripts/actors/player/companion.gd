@@ -28,9 +28,11 @@ extends CharacterBody2D
 const LADO := 32.0
 # Tope de velocidad al perseguir su punto del rastro. Normalmente va exactamente al ritmo del
 # lider (el punto se mueve con el), asi que esto solo actua cuando se ha quedado atras: tras
-# engancharse en una esquina, o al cambiar de lider. Por encima de correr (204 px/s) para que
-# recupere el hueco, pero acotado: sin tope, un salto del rastro lo dispararia de golpe.
-const VEL_MAX := 320.0
+# engancharse en una esquina, o al cambiar de lider. Por encima de la velocidad MAXIMA del lider
+# para que recupere el hueco, pero acotado: sin tope, un salto del rastro lo dispararia de golpe.
+# Subido de 320 al ampliar el bonus de Agilidad (AGILIDAD_VEL_MAX): con el liston del piso cumplido
+# el lider corre a ~330, y un tope por debajo de eso dejaba al companero descolgado en los pasillos.
+const VEL_MAX := 380.0
 # A partir de cuanto se le da por encallado y se le teletransporta a su sitio (ver seguir()). Tres
 # cuerpos de margen: mas que cualquier rodeo honesto por una esquina, menos que "se ha perdido".
 const RESCATE := 96.0
