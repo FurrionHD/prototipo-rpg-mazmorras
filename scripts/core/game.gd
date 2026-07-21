@@ -4818,8 +4818,10 @@ func overload_speed_factor() -> float:
 # pasaria a ser obligatorio para no perder el tiempo en los pasillos.
 const AGILIDAD_VEL_MAX := 0.20
 
-func agilidad_speed_mult() -> float:
-	return 1.0 + clampf(float(stat_total("agilidad")) / ABILITY_CAP, 0.0, 1.0) * AGILIDAD_VEL_MAX
+# 'pj' = de QUIEN sale el paso (null = el lider, que es quien manda cuando el grupo va entero). Si
+# alguien va sin fuelle, player.gd pasa a ESE: el que se arrastra impone su ritmo, no el de cabeza.
+func agilidad_speed_mult(pj: PersonajeData = null) -> float:
+	return 1.0 + clampf(float(stat_total("agilidad", pj)) / ABILITY_CAP, 0.0, 1.0) * AGILIDAD_VEL_MAX
 
 
 # --- Subida de habilidades ---

@@ -172,13 +172,16 @@ func _physics_process(delta: float) -> void:
 	# Modo segun teclas (Ctrl = sigilo tiene prioridad sobre Shift = correr).
 	# Si estamos AGOTADOS, no se puede correr (hasta recuperar la mitad).
 	var sneaking: bool = Input.is_key_pressed(KEY_CTRL)
-	# El grupo va al paso del MAS CANSADO: basta con que uno este sin fuelle para que nadie corra.
+	# El grupo va al paso del MAS CANSADO: basta con que UNO este sin fuelle para que el grupo entero
+	# se arrastre, sea el lider o un companero. Antes, si el agotado era un companero, solo se perdia
+	# el correr (seguias andando normal) y el que no podia mas te seguia el paso como si nada.
+	var agotado: PersonajeData = _pj_agotado()
 	var running: bool = Input.is_key_pressed(KEY_SHIFT) and not sneaking \
-		and moving and not _alguien_agotado()
+		and moving and agotado == null
 
 	var speed: float = walk_speed
-	if _exhausted:
-		# Agotado: te arrastras a velocidad de sigilo, corras o no.
+	if agotado != null:
+		# Alguien sin fuelle: el grupo se arrastra a velocidad de sigilo, corras o no.
 		speed = walk_speed * sneak_multiplier
 		movement_mode = 0
 	elif sneaking:
@@ -210,9 +213,10 @@ func _physics_process(delta: float) -> void:
 	# Armadura: la categoria modula la velocidad de movimiento (placas te frenan,
 	# ir ligero/sin armadura te acelera un pelin). Igual que en el ATB de combate.
 	speed *= Game.armor_speed_mult()
-	# La AGILIDAD del que va en cabeza: el grupo anda al paso del que lleva delante. Es lo que
-	# hace que cambiar de lider con 1/2/3 se note tambien fuera del combate.
-	speed *= Game.agilidad_speed_mult()
+	# La AGILIDAD del que marca el paso: normalmente el que va en cabeza (por eso cambiar de lider
+	# con 1/2/3 se nota tambien fuera del combate), pero si alguien va sin fuelle manda EL, que es
+	# quien se arrastra. Con dos agotados, el de menos Agilidad (ver _pj_agotado).
+	speed *= Game.agilidad_speed_mult(agotado)
 
 	velocity = direction * speed
 	move_and_slide()
@@ -298,7 +302,7 @@ func _aguante_de(pj: PersonajeData) -> float:
 #  AGUANTE DEL GRUPO
 #  Correr lo pagan TODOS: el grupo corre junto, asi que el aguante baja en las tres barras a la
 #  vez. Y el grupo va al paso del MAS CANSADO: si CUALQUIERA se agota, nadie corre hasta que se
-#  recupere (ver _alguien_agotado). Eso hace que la Resistencia de todo el mundo importe y que
+#  recupere (ver _pj_agotado). Eso hace que la Resistencia de todo el mundo importe y que
 #  meter en el equipo a uno que no aguanta tenga un coste de verdad.
 #
 #  Este aguante es la MISMA barra que la energia con la que entras al combate (el que llega
@@ -318,21 +322,32 @@ func _tick_aguante_companeros(delta: float, corriendo: bool) -> void:
 		pj.stamina = actual
 
 
-# True si ALGUIEN del equipo (tu incluido) esta sin fuelle. Un companero se considera agotado por
-# debajo del mismo umbral de recuperacion que tu: se queda tirado hasta recuperar la mitad, o si
-# no bastaria con soltar Shift un instante para volver a correr con el a cero.
-func _alguien_agotado() -> bool:
+# QUIEN del equipo (tu incluido) esta sin fuelle y MAS frena al grupo; null si nadie lo esta. Un
+# companero se considera agotado por debajo del mismo umbral de recuperacion que tu: se queda tirado
+# hasta recuperar la mitad, o si no bastaria con soltar Shift un instante para volver a correr con
+# el a cero.
+# Devuelve al agotado de MENOS Agilidad porque el grupo va al paso del mas lento: si se arrastran
+# dos, manda el peor. Y devuelve la FICHA (no un bool) porque el que frena decide tambien CUANTO se
+# frena el grupo: su Agilidad es la que multiplica la velocidad (ver _physics_process).
+func _pj_agotado() -> PersonajeData:
+	var peor: PersonajeData = null
+	var peor_agi: int = 0
 	if _exhausted:
-		return true
+		peor = _pj_actual
+		peor_agi = Game.stat_total("agilidad", _pj_actual)
 	for pj in Game.companeros():
 		var maxi_: float = _calc_max_aguante(pj)
 		if _aguante_de(pj) <= 0.0:
 			pj.set_meta("sin_fuelle", true)
 		elif _aguante_de(pj) >= maxi_ * exhausted_recover_ratio:
 			pj.set_meta("sin_fuelle", false)
-		if bool(pj.get_meta("sin_fuelle", false)):
-			return true
-	return false
+		if not bool(pj.get_meta("sin_fuelle", false)):
+			continue
+		var agi: int = Game.stat_total("agilidad", pj)
+		if peor == null or agi < peor_agi:
+			peor = pj
+			peor_agi = agi
+	return peor
 
 # Recalcula el aguante maximo por si las stats cambiaron (panel DEBUG, tecla U, subida en
 # el hogar...). Si la barra estaba llena, la mantiene llena; si no, respeta lo que quede.
