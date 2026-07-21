@@ -2,11 +2,14 @@
 #  consumable_data.gd
 #  RECURSO con los DATOS de un OBJETO consumible (poción). Se guarda como .tres.
 #  Las pociones CURAN POR EL TIEMPO (heal-over-time), no de golpe:
-#   - En COMBATE: aplican el estado Regeneración, que cura `cura_total` repartido
-#     en `turnos` (cura_total/turnos por turno). Beber GASTA tu turno, asi que
-#     premia aguantar/defender mientras la cura tiquea (KAN-57).
-#   - FUERA de combate: curan `cura_total` repartido en `segundos` de tiempo real
-#     (ver Game.beber_pocion_fuera / Game.tick_heal).
+#   - En COMBATE: `cura_total` repartido en `turnos`. El PRIMER trozo cae en el mismo turno en
+#     que la usas (los estados tiquean al inicio del turno, asi que si no, no veias nada subir
+#     hasta tu turno siguiente) y el resto va como estado Regeneración en los turnos que queden.
+#     Usarla GASTA tu turno, asi que premia aguantar/defender mientras tiquea (KAN-57). Y se le
+#     puede dar a OTRO del grupo: eliges a quien en el submenu de Objeto.
+#   - FUERA de combate: curan `cura_total` repartido en `segundos` de tiempo real, sobre la
+#     persona a la que se la des (ver Game.beber_pocion_fuera / Game.tick_heal). La cola de
+#     goteo vive en su ficha (PersonajeData.heal_left), asi que cambiar de lider no se la roba.
 #  Inventario: Game.consumables (ConsumableData -> cantidad). Se consiguen por ahora
 #  desde el panel de debug (boton "OBJETOS").
 # ============================================================

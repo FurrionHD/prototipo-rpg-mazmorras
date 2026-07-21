@@ -1302,9 +1302,8 @@ func importar_partida(d: SaveData) -> void:
 	# asi cambiar de piso o de escena no le rellena la barra. Aqui se le clava el guardado.
 	yo.stamina = d.stamina
 
-	# Curas a medias y estados de la sesion anterior: fuera.
-	player_heal_left = 0.0
-	player_mana_heal_left = 0.0
+	# Curas a medias y estados de la sesion anterior: fuera (de TODO el grupo).
+	limpiar_curas_pendientes()
 	cerrar_menu()   # sin menus abiertos Y con el arbol despausado: la escena nueva tiene que correr
 	debug_panel_open = false
 	_stamina_cargada = d.stamina
@@ -1361,8 +1360,7 @@ func morir_jugador() -> void:
 		pj.current_mp = -1
 		pj.stamina = -1
 		pj.set_meta("sin_fuelle", false)
-	player_heal_left = 0.0
-	player_mana_heal_left = 0.0
+	limpiar_curas_pendientes()
 
 	# Expedicion nueva: vuelves al piso 1 y la mazmorra se olvida de lo que dejaste.
 	current_floor = 1
@@ -1614,11 +1612,31 @@ var _dev_materiales: Array[String] = [
 ]
 # CURA FUERA DE COMBATE (heal-over-time por tiempo real). player.gd la tiquea cada
 # frame con tick_heal(). player_heal_left = vida que queda por curar; _rate = vida/seg.
-var player_heal_left: float = 0.0
-var player_heal_rate: float = 0.0
-# Igual pero para el MANÁ (pociones de maná fuera de combate). Se suma a la regen pasiva.
-var player_mana_heal_left: float = 0.0
-var player_mana_heal_rate: float = 0.0
+# La cola es de CADA PERSONAJE (PersonajeData.heal_left...): estas cuatro son la vista del
+# LIDER, como el resto de player_*. Antes eran variables sueltas del autoload y cambiar de
+# lider le robaba la poción al que se la habia bebido.
+var player_heal_left: float:
+	get: return lider().heal_left
+	set(v): lider().heal_left = v
+var player_heal_rate: float:
+	get: return lider().heal_rate
+	set(v): lider().heal_rate = v
+# Igual pero para el MANÁ (pociones de maná fuera de combate).
+var player_mana_heal_left: float:
+	get: return lider().mana_heal_left
+	set(v): lider().mana_heal_left = v
+var player_mana_heal_rate: float:
+	get: return lider().mana_heal_rate
+	set(v): lider().mana_heal_rate = v
+
+# Borra las curas a medias de TODO el grupo (cargar partida, morir): nadie arrastra el goteo
+# de la sesion/expedicion anterior.
+func limpiar_curas_pendientes() -> void:
+	for pj in party:
+		pj.heal_left = 0.0
+		pj.heal_rate = 0.0
+		pj.mana_heal_left = 0.0
+		pj.mana_heal_rate = 0.0
 
 # Dinero (obtenido por vender cristales en la tienda).
 var money: int = 0
@@ -2175,14 +2193,16 @@ func gastar_consumible(c: ConsumableData) -> bool:
 # USAR un consumible del inventario (lo que hace el boton "Usar"): una poción se BEBE, un
 # grimorio se ESTUDIA y una piedra de retorno te SACA al pueblo. Punto unico para que la UI no
 # tenga que saber cual es cual.
-func usar_consumible(c: ConsumableData) -> bool:
+# 'pj' = a QUIEN se le da (null = el lider). Una poción se le puede dar a cualquiera del grupo;
+# un grimorio lo estudia ese mismo personaje; la piedra de retorno saca a todos igual.
+func usar_consumible(c: ConsumableData, pj: PersonajeData = null) -> bool:
 	if c == null:
 		return false
 	if c.es_vuelta_pueblo():
 		return volver_al_pueblo_con_objeto(c)
 	if c.es_grimorio():
-		return aprender_de_grimorio(c)
-	return beber_pocion_fuera(c)
+		return aprender_de_grimorio(c, pj)
+	return beber_pocion_fuera(c, pj)
 
 
 # VOLVER AL PUEBLO con un objeto (piedra de retorno): la comodidad que antes solo daba la puerta
@@ -2221,74 +2241,88 @@ func volver_al_pueblo_con_objeto(c: ConsumableData) -> bool:
 
 # Estudia un grimorio: aprendes su hechizo y el libro se gasta. Si ya te lo sabias o tienes
 # la cabeza llena (MAX_HECHIZOS), NO se gasta: un libro caro no se quema por un clic tonto.
-func aprender_de_grimorio(c: ConsumableData) -> bool:
+func aprender_de_grimorio(c: ConsumableData, pj: PersonajeData = null) -> bool:
 	if c == null or not c.es_grimorio():
 		return false
-	if equipped_spells.has(c.spell):
-		print("[grimorio] Ya te sabes %s: no abres el libro." % c.spell.nombre)
+	var p: PersonajeData = pj if pj != null else lider()
+	if p.equipped_spells.has(c.spell):
+		print("[grimorio] %s ya se sabe %s: no abre el libro." % [p.nombre, c.spell.nombre])
 		return false
-	if hechizos_llenos():
-		print("[grimorio] No te caben mas de %d hechizos: olvida uno antes." % MAX_HECHIZOS)
+	if p.equipped_spells.size() >= MAX_HECHIZOS:
+		print("[grimorio] A %s no le caben mas de %d hechizos: que olvide uno antes." % [
+			p.nombre, MAX_HECHIZOS])
 		return false
 	if not gastar_consumible(c):
 		return false
-	equipar_hechizo(c.spell)
-	print("[grimorio] Estudias %s y aprendes %s (%d/%d hechizos)." % [
-		c.nombre, c.spell.nombre, equipped_spells.size(), MAX_HECHIZOS])
+	equipar_hechizo(c.spell, p)
+	print("[grimorio] %s estudia %s y aprende %s (%d/%d hechizos)." % [
+		p.nombre, c.nombre, c.spell.nombre, p.equipped_spells.size(), MAX_HECHIZOS])
 	return true
 
-# BEBER una poción FUERA de combate: arranca la cura/maná-por-tiempo (heal-over-time). No
-# hace nada si su efecto no sirve (vida llena en una de vida, maná lleno en una de maná).
-# Devuelve true si bebiste.
-func beber_pocion_fuera(c: ConsumableData) -> bool:
+# BEBER una poción FUERA de combate: arranca la cura/maná-por-tiempo (heal-over-time) de QUIEN
+# se la bebe ('pj', null = el lider). La cola vive en su ficha, asi que cambiar de lider a mitad
+# del goteo no se la lleva a otro. No hace nada si su efecto no sirve (vida llena en una de
+# vida, maná lleno en una de maná). Devuelve true si bebio.
+func beber_pocion_fuera(c: ConsumableData, pj: PersonajeData = null) -> bool:
 	if c == null:
 		return false
-	var maxhp: float = player_max_hp()
-	var maxmp: float = player_max_mp()
-	if player_current_hp < 0.0:
-		player_current_hp = maxhp   # concreta la vida "llena"
-	if player_current_mp < 0.0:
-		player_current_mp = maxmp   # concreta el maná "lleno"
-	# ¿Sirve de algo? (cura y no estas a tope de vida, o da maná y no estas a tope de maná)
-	var util_hp: bool = c.cura_hp() and (player_current_hp < maxhp - 0.01 or player_heal_left > 0.0)
-	var util_mp: bool = c.da_mana() and (player_current_mp < maxmp - 0.01 or player_mana_heal_left > 0.0)
+	var p: PersonajeData = pj if pj != null else lider()
+	var maxhp: float = player_max_hp(p)
+	var maxmp: float = player_max_mp(p)
+	if p.current_hp < 0.0:
+		p.current_hp = maxhp   # concreta la vida "llena"
+	if p.current_mp < 0.0:
+		p.current_mp = maxmp   # concreta el maná "lleno"
+	# ¿Sirve de algo? (cura y no esta a tope de vida, o da maná y no esta a tope de maná)
+	var util_hp: bool = c.cura_hp() and (p.current_hp < maxhp - 0.01 or p.heal_left > 0.0)
+	var util_mp: bool = c.da_mana() and (p.current_mp < maxmp - 0.01 or p.mana_heal_left > 0.0)
 	if not util_hp and not util_mp:
-		print("[objeto] No hace falta: no bebes la ", c.nombre)
+		print("[objeto] A %s no le hace falta: no bebe la %s" % [p.nombre, c.nombre])
 		return false
 	if not gastar_consumible(c):
 		return false
 	var partes: Array = []
 	if c.cura_hp():
 		var total: float = c.cura_efectiva(maxhp)
-		player_heal_left += total
-		player_heal_rate = maxf(player_heal_rate, c.cura_por_segundo(maxhp))
+		p.heal_left += total
+		p.heal_rate = maxf(p.heal_rate, c.cura_por_segundo(maxhp))
 		partes.append("+%.0f vida" % total)
 	if c.da_mana():
 		var total_mp: float = c.mana_efectivo(maxmp)
-		player_mana_heal_left += total_mp
-		player_mana_heal_rate = maxf(player_mana_heal_rate, c.mana_por_segundo(maxmp))
+		p.mana_heal_left += total_mp
+		p.mana_heal_rate = maxf(p.mana_heal_rate, c.mana_por_segundo(maxmp))
 		partes.append("+%.0f maná" % total_mp)
-	print("[objeto] Bebes %s: %s en el tiempo" % [c.nombre, ", ".join(partes)])
+	print("[objeto] %s bebe %s: %s en el tiempo" % [p.nombre, c.nombre, ", ".join(partes)])
 	return true
 
-# RECUPERACIÓN ÓPTIMA (fuera de combate): bebe automaticamente lo que menos desperdicie —
-# la poción de VIDA de menor efecto que sirva (si te falta vida) y/o la de MANÁ de menor
-# efecto (si te falta maná). Presiona otra vez para seguir rellenando. Devuelve true si bebio.
+# RECUPERACIÓN ÓPTIMA (fuera de combate): atiende a TODO EL GRUPO de una pulsada, no solo al que
+# va en cabeza (a nadie le apetece cambiar de lider tres veces para curar al equipo). A cada
+# miembro al que le falte algo se le da la poción de VIDA de menor efecto que tengas y/o la de
+# MANÁ de menor efecto: la que menos desperdicia. A quien no le falte nada no se le gasta nada.
+# Pulsa otra vez para seguir rellenando. Devuelve true si bebio alguien.
 func beber_optima() -> bool:
-	var bebio: bool = false
-	var pv: ConsumableData = _pocion_menor_util(true)
-	if pv != null and beber_pocion_fuera(pv):
-		bebio = true
-	var pm: ConsumableData = _pocion_menor_util(false)
-	if pm != null and beber_pocion_fuera(pm):
-		bebio = true
-	if not bebio:
+	var atendidos: Array = []
+	for p in party:
+		var bebio_pj: bool = false
+		var pv: ConsumableData = _pocion_menor_util(true, p)
+		if pv != null and beber_pocion_fuera(pv, p):
+			bebio_pj = true
+		var pm: ConsumableData = _pocion_menor_util(false, p)
+		if pm != null and beber_pocion_fuera(pm, p):
+			bebio_pj = true
+		if bebio_pj:
+			atendidos.append(p.nombre)
+	if atendidos.is_empty():
 		print("[objeto] Recuperación óptima: nada que recuperar o sin pociones útiles.")
-	return bebio
+		return false
+	print("[objeto] Recuperación óptima: %s" % ", ".join(atendidos))
+	return true
 
 # La poción de VIDA (es_vida=true) o de MANÁ (false) de MENOR efecto que tengas en stock
-# (menos desperdicio); null si no tienes de ese tipo.
-func _pocion_menor_util(es_vida: bool) -> ConsumableData:
+# (menos desperdicio); null si no tienes de ese tipo. El efecto se mide contra los maximos de
+# 'pj' (null = el lider): la misma poción desperdicia distinto segun a quien se la des.
+func _pocion_menor_util(es_vida: bool, pj: PersonajeData = null) -> ConsumableData:
+	var p: PersonajeData = pj if pj != null else lider()
 	var mejor: ConsumableData = null
 	var mejor_val: float = INF
 	for c in consumables.keys():
@@ -2298,7 +2332,7 @@ func _pocion_menor_util(es_vida: bool) -> ConsumableData:
 			continue
 		if not es_vida and not c.da_mana():
 			continue
-		var val: float = c.cura_efectiva(player_max_hp()) if es_vida else c.mana_efectivo(player_max_mp())
+		var val: float = c.cura_efectiva(player_max_hp(p)) if es_vida else c.mana_efectivo(player_max_mp(p))
 		if val < mejor_val:
 			mejor_val = val
 			mejor = c
@@ -2313,62 +2347,66 @@ const CARRY_HEAL_RATE := 6.0
 # mapa sigue curando dentro (como Regeneración) en vez de perderse al pausarse el goteo. PROVISIONAL.
 const POCION_ARRASTRE_TURNOS := 3
 
-# Arrastra a la cura FUERA de combate la Regeneración que quedaba pendiente al terminar el
-# combate (la llama combat.gd si el jugador sobrevive). Asi una poción a medias no se pierde.
-func arrastrar_regen(total: float) -> void:
+# Arrastra a la cura FUERA de combate la Regeneración que le quedaba pendiente a 'pj' (null = el
+# lider) al terminar el combate (la llama combat.gd por cada superviviente). Asi una poción a
+# medias no se pierde, y la de cada uno vuelve a SU cola.
+func arrastrar_regen(total: float, pj: PersonajeData = null) -> void:
 	if total <= 0.0:
 		return
-	player_heal_left += total
-	player_heal_rate = maxf(player_heal_rate, CARRY_HEAL_RATE)
-	print("[objeto] Arrastras %.1f de cura pendiente al salir del combate (%.1f/s)" % [
-		total, CARRY_HEAL_RATE])
+	var p: PersonajeData = pj if pj != null else lider()
+	p.heal_left += total
+	p.heal_rate = maxf(p.heal_rate, CARRY_HEAL_RATE)
+	print("[objeto] %s arrastra %.1f de cura pendiente al salir del combate (%.1f/s)" % [
+		p.nombre, total, CARRY_HEAL_RATE])
 
 # Igual que arrastrar_regen pero para el MANÁ pendiente de una poción de maná (KAN-56/57).
-func arrastrar_regen_mana(total: float) -> void:
+func arrastrar_regen_mana(total: float, pj: PersonajeData = null) -> void:
 	if total <= 0.0:
 		return
-	player_mana_heal_left += total
-	player_mana_heal_rate = maxf(player_mana_heal_rate, CARRY_HEAL_RATE)
-	print("[objeto] Arrastras %.1f de maná pendiente al salir del combate (%.1f/s)" % [
-		total, CARRY_HEAL_RATE])
+	var p: PersonajeData = pj if pj != null else lider()
+	p.mana_heal_left += total
+	p.mana_heal_rate = maxf(p.mana_heal_rate, CARRY_HEAL_RATE)
+	print("[objeto] %s arrastra %.1f de maná pendiente al salir del combate (%.1f/s)" % [
+		p.nombre, total, CARRY_HEAL_RATE])
 
 # NO hay regen PASIVA de maná por el mapa (antes: "lo de un turno" por segundo). Se quito a
 # proposito: el jugador se plantaba quieto mirando la barra, y eso no es una decision, es una
 # espera. El maná se recupera JUGANDO — pegando y ganando combates (ver combat.gd) —, bebiendo
 # pociones de maná (tick_mana_pocion) o descansando en el altar del pueblo.
 
-# Tiquea la cura fuera de combate (la llama player.gd cada frame). Sube player_current_hp
-# sin pasarse del maximo, gastando player_heal_left.
+# Tiquea la cura fuera de combate de TODO EL GRUPO (la llama player.gd cada frame). Cada uno
+# gasta SU cola contra SU maximo: el que se bebio la poción se cura aunque no vaya en cabeza.
 func tick_heal(delta: float) -> void:
-	if player_heal_left <= 0.0:
-		return
-	var maxhp: float = player_max_hp()
-	if player_current_hp < 0.0:
-		player_current_hp = maxhp
-	var sube: float = minf(player_heal_rate * delta, player_heal_left)
-	sube = minf(sube, maxhp - player_current_hp)   # no pasar del maximo
-	player_current_hp = minf(maxhp, player_current_hp + sube)
-	player_heal_left -= maxf(0.0, sube)
-	if player_current_hp >= maxhp - 0.01 or player_heal_left <= 0.01:
-		player_heal_left = 0.0
-		player_heal_rate = 0.0
+	for p in party:
+		if p.heal_left <= 0.0:
+			continue
+		var maxhp: float = player_max_hp(p)
+		if p.current_hp < 0.0:
+			p.current_hp = maxhp
+		var sube: float = minf(p.heal_rate * delta, p.heal_left)
+		sube = minf(sube, maxhp - p.current_hp)   # no pasar del maximo
+		p.current_hp = minf(maxhp, p.current_hp + sube)
+		p.heal_left -= maxf(0.0, sube)
+		if p.current_hp >= maxhp - 0.01 or p.heal_left <= 0.01:
+			p.heal_left = 0.0
+			p.heal_rate = 0.0
 
-# Tiquea el MANÁ de poción fuera de combate (la llama player.gd). Sube player_current_mp
-# gastando player_mana_heal_left. Es la UNICA via de recuperar maná fuera de combate (ya no
-# hay regen pasiva), junto al altar del pueblo.
+# Tiquea el MANÁ de poción fuera de combate de todo el grupo (la llama player.gd). Es la UNICA
+# via de recuperar maná fuera de combate (ya no hay regen pasiva), junto al altar del pueblo.
 func tick_mana_pocion(delta: float) -> void:
-	if player_mana_heal_left <= 0.0:
-		return
-	var maxmp: float = player_max_mp()
-	if player_current_mp < 0.0:
-		player_current_mp = maxmp
-	var sube: float = minf(player_mana_heal_rate * delta, player_mana_heal_left)
-	sube = minf(sube, maxmp - player_current_mp)
-	player_current_mp = minf(maxmp, player_current_mp + sube)
-	player_mana_heal_left -= maxf(0.0, sube)
-	if player_current_mp >= maxmp - 0.01 or player_mana_heal_left <= 0.01:
-		player_mana_heal_left = 0.0
-		player_mana_heal_rate = 0.0
+	for p in party:
+		if p.mana_heal_left <= 0.0:
+			continue
+		var maxmp: float = player_max_mp(p)
+		if p.current_mp < 0.0:
+			p.current_mp = maxmp
+		var sube: float = minf(p.mana_heal_rate * delta, p.mana_heal_left)
+		sube = minf(sube, maxmp - p.current_mp)
+		p.current_mp = minf(maxmp, p.current_mp + sube)
+		p.mana_heal_left -= maxf(0.0, sube)
+		if p.current_mp >= maxmp - 0.01 or p.mana_heal_left <= 0.01:
+			p.mana_heal_left = 0.0
+			p.mana_heal_rate = 0.0
 
 # Cuantos hechizos caben en la cabeza a la vez. Aprender no es gratis: al llegar al tope hay
 # que OLVIDAR uno para meter otro (el objeto que devuelve un hechizo a su libro vendra luego,
@@ -5385,23 +5423,26 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 		player_cs.append(crear_player_combatant(pj))
 	_active_player_pjs = pjs
 	_active_player_cs = player_cs
-	var player_c: Combatant = player_cs[0]   # el lider: quien arrastra las pociones del mapa
+	var player_c: Combatant = player_cs[0]   # el lider (el modo prueba de dev se calibra con el)
 
-	# CURA DE POCIÓN pendiente del MAPA: si bebiste una poción fuera de combate y aún te quedaba
-	# cura por gotear (player_heal_left) al entrar, NO se pierde con la pausa del árbol: se
-	# convierte en Regeneración dentro del combate (repartida en turnos) y se consume el pendiente.
+	# CURA DE POCIÓN pendiente del MAPA: si alguien bebio una poción fuera de combate y aún le
+	# quedaba cura por gotear al entrar, NO se pierde con la pausa del árbol: se convierte en
+	# Regeneración dentro del combate (repartida en turnos) y se consume el pendiente.
 	# Simétrico a arrastrar_regen (que lleva la regen de combate de vuelta al mapa).
-	# Va al LIDER: la poción te la bebiste tú, no el grupo.
-	if player_heal_left > 0.0:
-		player_c.apply_status(StatusEffects.Id.REGENERACION, POCION_ARRASTRE_TURNOS,
-			player_heal_left / float(POCION_ARRASTRE_TURNOS))
-		player_heal_left = 0.0
-		player_heal_rate = 0.0
-	if player_mana_heal_left > 0.0:
-		player_c.apply_status(StatusEffects.Id.REGEN_MANA, POCION_ARRASTRE_TURNOS,
-			player_mana_heal_left / float(POCION_ARRASTRE_TURNOS))
-		player_mana_heal_left = 0.0
-		player_mana_heal_rate = 0.0
+	# CADA UNO arrastra la suya: la poción se la bebio una persona, no el grupo.
+	for i in pjs.size():
+		var pj_c: PersonajeData = pjs[i]
+		var c_i: Combatant = player_cs[i]
+		if pj_c.heal_left > 0.0:
+			c_i.apply_status(StatusEffects.Id.REGENERACION, POCION_ARRASTRE_TURNOS,
+				pj_c.heal_left / float(POCION_ARRASTRE_TURNOS))
+			pj_c.heal_left = 0.0
+			pj_c.heal_rate = 0.0
+		if pj_c.mana_heal_left > 0.0:
+			c_i.apply_status(StatusEffects.Id.REGEN_MANA, POCION_ARRASTRE_TURNOS,
+				pj_c.mana_heal_left / float(POCION_ARRASTRE_TURNOS))
+			pj_c.mana_heal_left = 0.0
+			pj_c.mana_heal_rate = 0.0
 
 	# Un Combatant por nodo, en el mismo orden.
 	var enemy_cs: Array[Combatant] = []

@@ -15,8 +15,9 @@
 #  UNO POR ALIADO; se guarda en diccionarios y se lee con las mismas variables de siempre gracias
 #  a que son propiedades con get/set (ver mas abajo).
 #
-#  Fuera de alcance por ahora: apuntar un hechizo o una pocion a OTRO aliado (curar al de al
-#  lado). Hoy las curas y los objetos son sobre uno mismo, y los ataques van al enemigo marcado.
+#  Las POCIONES ya se pueden apuntar a otro aliado (submenu Objeto -> pocion -> a quien): el que
+#  la usa gasta SU turno, pero la cura va a quien elijas. Fuera de alcance por ahora: apuntar un
+#  HECHIZO a un aliado; los ataques siguen yendo al enemigo marcado.
 #
 #  La escena solo trae el esqueleto: TODO lo demas se genera por codigo (convencion del
 #  proyecto), incluidos los BLOQUES de combatiente (nombre + estados + barra de vida), que
@@ -1039,7 +1040,7 @@ func _ayuda_accion(id: int) -> String:
 		Action.DEFEND:
 			return "Te cubres: encajas mucho menos daño en el próximo golpe y entrenas Resistencia. Cuesta %.0f de energía." % DEFEND_ENERGY_COST
 		Action.OBJETO:
-			return "Bebes una poción. Cura poco a poco, no de golpe: te toca aguantar mientras hace efecto."
+			return "Una poción, para ti o para quien elijas del grupo. Empieza a curar en este mismo turno, pero el resto llega poco a poco: te toca aguantar mientras hace efecto."
 		Action.FLEE:
 			return "Abandonas el combate. Te llevas lo que ya tengas, pero el enemigo sigue vivo."
 	return ""
@@ -1107,12 +1108,13 @@ func _on_continue_pressed() -> void:
 		return
 	# Si sobrevives, la cura/maná de poción que quedaba a medias se arrastra a fuera de
 	# combate (no se malgasta). Si caiste, no hay nada que arrastrar. (KAN-57)
-	# Solo la del LIDER (_aliados[0]... o el primero en pie): el goteo de fuera de combate lo
-	# lleva Game para "el jugador", y hoy no hay una cola por persona.
+	# CADA superviviente arrastra la SUYA a su ficha: la cola de goteo del mapa es por persona.
 	for c in _aliados_vivos():
-		Game.arrastrar_regen(c.regen_pendiente())
-		Game.arrastrar_regen_mana(c.regen_mana_pendiente())
-		break
+		var pj_c: PersonajeData = Game.pj_de_combatant(c)
+		if pj_c == null:
+			continue   # combatiente de prueba (F6): no tiene ficha a la que arrastrar nada
+		Game.arrastrar_regen(c.regen_pendiente(), pj_c)
+		Game.arrastrar_regen_mana(c.regen_mana_pendiente(), pj_c)
 	# Quien cayo y con cuanta vida se queda cada superviviente (huir no los cura: te vuelves a
 	# encontrar al mismo bicho herido que dejaste).
 	var muertos: Array = []
@@ -2006,7 +2008,7 @@ func _accion_objeto() -> void:
 		b.text = "%s  x%d  (%s en %d turnos)" % [
 			cons.nombre, n, cons.resumen(_player.max_hp, _player.max_mp), cons.turnos]
 		b.tooltip_text = cons.descripcion
-		b.pressed.connect(_usar_objeto.bind(cons))
+		b.pressed.connect(_elegir_objetivo_objeto.bind(cons))
 		_objeto_box.add_child(b)
 	var volver := Button.new()
 	volver.text = "◄ Volver"
@@ -2016,25 +2018,64 @@ func _accion_objeto() -> void:
 	_ocultar_log()   # el submenu ocupa el sitio del historial
 
 
-# Bebe una poción: aplica Regeneración de vida y/o maná (por turno) y GASTA el turno. No
-# cuesta energia. Una poción puede curar vida, dar maná, o las dos (mixta).
-func _usar_objeto(cons: ConsumableData) -> void:
-	if _state != State.WAITING_PLAYER or not Game.gastar_consumible(cons):
+# Segundo paso del submenu: A QUIEN se la das. Una poción no tiene por que ser para ti — el que
+# la bebe gasta SU turno, pero la cura puede ir al tanque que esta a punto de caer. Con un solo
+# aliado en pie no se pregunta nada: va directo a el.
+func _elegir_objetivo_objeto(cons: ConsumableData) -> void:
+	var vivos: Array[Combatant] = _aliados_vivos()
+	if vivos.size() <= 1:
+		_usar_objeto(cons, _player)
 		return
+	for c in _objeto_box.get_children():
+		c.queue_free()
+	for al in vivos:
+		var b := TooltipButton.new()
+		var partes: Array = ["%.0f/%.0f ♥" % [al.current_hp, al.max_hp]]
+		if cons.da_mana():
+			partes.append("%.0f/%.0f 🔷" % [al.current_mp, al.max_mp])
+		b.text = "%s  (%s)" % [al.nombre, "  ".join(partes)]
+		b.tooltip_text = "%s le da %s a %s." % [_player.nombre, cons.nombre, al.nombre]
+		b.pressed.connect(_usar_objeto.bind(cons, al))
+		_objeto_box.add_child(b)
+	var volver := Button.new()
+	volver.text = "◄ Volver"
+	volver.pressed.connect(_accion_objeto)
+	_objeto_box.add_child(volver)
+	_objeto_box.visible = true
+
+
+# Bebe una poción y se la da a 'objetivo': cura vida y/o maná YA, en este mismo turno, y deja el
+# resto como Regeneración en los turnos que le queden. El primer tique es inmediato a proposito:
+# los estados tiquean al INICIO del turno, asi que antes te bebias una poción y no veias subir
+# nada hasta tu turno siguiente — justo cuando ya te habian rematado. El TOTAL no cambia: una
+# poción de 3 turnos cura 1/3 ahora y 2/3 en tus 2 turnos siguientes.
+# GASTA el turno del que la bebe (_player) y no cuesta energia.
+func _usar_objeto(cons: ConsumableData, objetivo: Combatant) -> void:
+	if _state != State.WAITING_PLAYER or objetivo == null or not objetivo.is_alive():
+		return
+	if not Game.gastar_consumible(cons):
+		return
+	var restantes: int = maxi(0, cons.turnos - 1)   # el primer turno se cobra AL INSTANTE
 	var partes: Array = []
 	if cons.cura_hp():
-		var por_turno: float = cons.cura_por_turno(_player.max_hp)
-		var total: float = cons.cura_efectiva(_player.max_hp)
-		_player.apply_status(StatusEffects.Id.REGENERACION, cons.turnos, por_turno)
-		partes.append("✚ %.0f de vida" % total)
+		var por_turno: float = cons.cura_por_turno(objetivo.max_hp)
+		var total: float = cons.cura_efectiva(objetivo.max_hp)
+		objetivo.heal(por_turno)
+		if restantes > 0:
+			objetivo.apply_status(StatusEffects.Id.REGENERACION, restantes, por_turno)
+		partes.append("✚ %.0f de vida (%.0f ya)" % [total, por_turno])
 	if cons.da_mana():
-		var mana_turno: float = cons.mana_por_turno(_player.max_mp)
-		var mana_total: float = cons.mana_efectivo(_player.max_mp)
-		_player.apply_status(StatusEffects.Id.REGEN_MANA, cons.turnos, mana_turno)
-		partes.append("🔷 %.0f de maná" % mana_total)
-	print("[objeto] %s bebe %s (x%d turnos)" % [_player.nombre, cons.nombre, cons.turnos])
-	_set_log("%s bebe %s. %s, repartido en %d turnos." % [
-		_player.nombre, cons.nombre, " y ".join(partes), cons.turnos])
+		var mana_turno: float = cons.mana_por_turno(objetivo.max_mp)
+		var mana_total: float = cons.mana_efectivo(objetivo.max_mp)
+		objetivo.regen_mana(mana_turno)
+		if restantes > 0:
+			objetivo.apply_status(StatusEffects.Id.REGEN_MANA, restantes, mana_turno)
+		partes.append("🔷 %.0f de maná (%.0f ya)" % [mana_total, mana_turno])
+	print("[objeto] %s le da %s a %s (x%d turnos)" % [
+		_player.nombre, cons.nombre, objetivo.nombre, cons.turnos])
+	var quien: String = ("%s se bebe %s" % [_player.nombre, cons.nombre] if objetivo == _player
+		else "%s le da %s a %s" % [_player.nombre, cons.nombre, objetivo.nombre])
+	_set_log("%s. %s, repartido en %d turnos." % [quien, " y ".join(partes), cons.turnos])
 	_update_hp()
 	_fin_de_eleccion()
 	_state = State.ADVANCING

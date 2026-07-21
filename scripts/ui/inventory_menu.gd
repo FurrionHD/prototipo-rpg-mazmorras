@@ -363,7 +363,7 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 
 func _build_consumibles() -> void:
 	_title(_header, "CONSUMIBLES")
-	_note(_header, "Selecciona una poción y pulsa Usar. Cura por el tiempo (no de golpe).")
+	_note(_header, "Selecciona una poción y elige a quién se la das. Cura por el tiempo (no de golpe).")
 	_header.add_child(HSeparator.new())
 
 	_stacks = []
@@ -397,11 +397,27 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		_note(vb, cons.descripcion)
 
 	vb.add_child(HSeparator.new())
-	var usar := Button.new()
-	usar.text = "Estudiar" if cons.es_grimorio() else "Usar"
-	usar.disabled = cons.es_grimorio() and (sabido or Game.hechizos_llenos())
-	usar.pressed.connect(_on_usar.bind(cons))
-	vb.add_child(usar)
+	# Una poción se le puede dar a CUALQUIERA del grupo, no solo al que va en cabeza: con varios
+	# en el equipo sale un boton por persona (con su vida/maná, para ver quien la necesita). Con
+	# uno solo, el boton "Usar" de siempre. Grimorios y piedras: como estaban (van al lider).
+	var por_persona: bool = (cons.cura_hp() or cons.da_mana()) and Game.party.size() > 1
+	if por_persona:
+		_note(vb, "¿A quién se la das?")
+		for pj in Game.party:
+			var b := Button.new()
+			var partes: Array = ["%.0f/%.0f ♥" % [Game.player_hp(pj), Game.player_max_hp(pj)]]
+			if cons.da_mana():
+				partes.append("%.0f/%.0f 🔷" % [Game.player_mp(pj), Game.player_max_mp(pj)])
+			var corona: String = "👑 " if pj == Game.lider() else ""
+			b.text = "%s%s  (%s)" % [corona, pj.nombre, "  ".join(partes)]
+			b.pressed.connect(_on_usar.bind(cons, pj))
+			vb.add_child(b)
+	else:
+		var usar := Button.new()
+		usar.text = "Estudiar" if cons.es_grimorio() else "Usar"
+		usar.disabled = cons.es_grimorio() and (sabido or Game.hechizos_llenos())
+		usar.pressed.connect(_on_usar.bind(cons))
+		vb.add_child(usar)
 	if cons.es_grimorio():
 		if sabido:
 			_note(vb, "Ya te sabes este hechizo: el libro no te dice nada nuevo.")
@@ -409,8 +425,8 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 			_note(vb, "No te caben más de %d hechizos a la vez: tendrás que olvidar uno antes." % Game.MAX_HECHIZOS)
 
 
-func _on_usar(cons: ConsumableData) -> void:
-	Game.usar_consumible(cons)   # poción -> se bebe; grimorio -> se estudia
+func _on_usar(cons: ConsumableData, pj: PersonajeData = null) -> void:
+	Game.usar_consumible(cons, pj)   # poción -> se la bebe 'pj'; grimorio -> se estudia
 	_rebuild()
 
 

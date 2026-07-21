@@ -59,6 +59,15 @@ class_name PersonajeData
 @export var current_mp: float = -1.0
 @export var stamina: float = -1.0   # aguante de exploracion: cada uno lleva el suyo
 
+# CURA DE POCIÓN pendiente FUERA de combate (heal-over-time por tiempo real). Es de la PERSONA,
+# no del que va en cabeza: si le das una poción a uno y luego cambias de lider, la cura sigue
+# cayendo sobre QUIEN se la bebio. Game.tick_heal/tick_mana_pocion tiquean estas colas cada frame.
+# NO son @export a proposito: una poción a medias no se guarda en la partida (igual que antes).
+var heal_left: float = 0.0        # vida que queda por curar
+var heal_rate: float = 0.0        # vida/seg a la que cae
+var mana_heal_left: float = 0.0   # lo mismo para el maná
+var mana_heal_rate: float = 0.0
+
 # --- Perks ---
 @export var guardianes_vencidos: Dictionary = {}
 @export var desarrollos_rango: Dictionary = {}
