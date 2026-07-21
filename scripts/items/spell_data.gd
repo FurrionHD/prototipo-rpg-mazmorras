@@ -40,6 +40,7 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 
 # RAW del hechizo: se escala con la Magia del lanzador (magia_factor) y con el
 # magic_amp del arma (bastones/varitas, futuro KAN-95). PROVISIONAL -> Excel.
+# OJO: este NO es el numero que hay que enseñar en pantalla; para eso esta dano_mostrado().
 @export var dano_base: float = 10.0
 
 # ELEMENTO del hechizo (Elementos.Elemento): decide la resistencia/debilidad del objetivo.
@@ -262,6 +263,17 @@ func imbue_texto() -> String:
 	return "cuerpo" if imbue_tipo == 2 else "arma"
 
 
+# El daño que se ENSEÑA, que no es el campo crudo: lleva dentro el multiplicador GLOBAL de la
+# magia (StatsMath.SPELL_DAMAGE_MULT), que se aplica a todos los hechizos de todo el mundo en
+# resolve_spell. Es del HECHIZO, no de quien lo lanza, asi que su sitio es este.
+#
+# Estuvo un tiempo colandose en el "Poder magico" de la ficha de personaje, y ahi mentia dos veces:
+# hacia creer que tenias un +50% arcano de la nada (un tio sin magia leia ×1.50) y ademas dejaba la
+# ficha del hechizo diciendo 10 cuando el bicho recibia 15. Aqui cuadra: daño del hechizo × tu poder.
+func dano_mostrado() -> float:
+	return dano_base * StatsMath.SPELL_DAMAGE_MULT
+
+
 # RESUMEN mecanico GENERADO desde los campos (nunca hardcodeado en la descripcion, que
 # queda para el SABOR). Lo usa el menu de personaje. Ver tambien AbilityData.resumen().
 func resumen() -> String:
@@ -269,7 +281,7 @@ func resumen() -> String:
 	p.append("%s (%d frase%s)" % [longitud_texto(), longitud(), "" if longitud() == 1 else "s"])
 	p.append("%d maná" % coste_mana)
 	if tipo == TipoEfecto.ATAQUE and dano_base > 0.0:
-		var d: String = "%.0f de daño" % dano_base
+		var d: String = "%.0f de daño" % dano_mostrado()
 		if es_multigolpe():
 			d += " en %d golpes" % golpes()
 		if not elemento_mix.is_empty():

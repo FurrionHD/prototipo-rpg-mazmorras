@@ -476,43 +476,69 @@ func _build_habilidades_page() -> void:
 	var c: Combatant = Game.crear_player_combatant(_pj())
 	_pj().current_hp = hp_was
 	_pj().current_mp = mp_was
-	var lvl: int = _pj().level
 
-	# FUERZA -> multiplicador de ataque físico.
+	# Cada "Ahora:" dice lo que aporta ESA habilidad, no el total de la stat (que es lo que se
+	# enseñaba en velocidad y maná: el numero no se movia al mirar una habilidad u otra) y no un
+	# multiplicador abstracto (que es lo que se enseñaba en Fuerza: un "×1.01" no dice si eso son
+	# dos puntos de daño o veinte). Los numeros salen por DIFERENCIA; ver _sin_habilidad().
+	var ab: Abilities = c.abilities
+
+	# FUERZA -> ataque fisico. Como fuerza_factor(0) == 1, lo que aporta es todo lo que el ataque
+	# total tiene por encima del raw pelado (base + arma).
 	_row(_content, "Fuerza", str(_pj().fuerza))
-	_note(_content, "Multiplica el daño físico (base + arma). Ahora: ×%.2f al ataque." % [
-		StatsMath.fuerza_factor(float(_pj().fuerza))])
+	var atk_sin: float = (c.base_attack + c.ataque_arma) * c.status_atk_mult()
+	_note(_content, "Multiplica el daño físico (base + arma), así que cuanto mejor sea el arma más "
+		+ "vale cada punto. Ahora: +%.1f de ataque." % (_ataque_total(c) - atk_sin))
 
 	# RESISTENCIA -> vida y defensa.
 	_row(_content, "Resistencia", str(_pj().resistencia))
-	var hp_de_res: float = float(_pj().resistencia) * StatsMath.HP_FROM_RES
-	var def_de_res: float = float(_pj().resistencia) * StatsMath._coef(
-		StatsMath.DEF_COEF_BASE, StatsMath.DEF_COEF_GROWTH, lvl)
+	var ab_sin_res: Abilities = _sin_habilidad(ab, "resistencia")
+	var hp_de_res: float = c.max_hp - StatsMath.max_hp_jugador(ab_sin_res, _pj().base_hp)
+	var def_base: float = c.base_defense + c.extra_defense
+	var def_de_res: float = (StatsMath.defense_jugador(ab, def_base)
+		- StatsMath.defense_jugador(ab_sin_res, def_base)) * c.status_def_mult()
 	_note(_content, "Aguante: sube vida máxima y defensa. Ahora: +%.1f vida y +%.1f defensa." % [
 		hp_de_res, def_de_res])
 
-	# DESTREZA -> crítico (y afina la recolección).
+	# DESTREZA -> critico (y afina la recoleccion). El critico es un DUELO: tu Destreza contra la
+	# AGILIDAD del que recibe el golpe. Por eso se enseña contra un maniqui con tus mismas stats (no
+	# hay enemigo delante), y por eso hay que decir de QUIEN es cada stat: la frase de antes hablaba
+	# de "un rival igual de ágil" dentro de la linea de Destreza y parecia que la Destreza tuviera
+	# algo que ver con ser agil.
 	_row(_content, "Destreza", str(_pj().destreza))
 	var crit_espejo: float = StatsMath.crit_chance(float(_pj().destreza), float(_pj().agilidad))
-	_note(_content, "Precisión: probabilidad de crítico (y mano firme al recolectar). Ahora: ~%s de crít contra un rival igual de ágil." % [
-		_fmt_pct(crit_espejo)])
+	_note(_content, "Precisión: tu Destreza pelea contra la Agilidad del rival para critear (y te "
+		+ "da mano firme al recolectar). Contra un maniquí con tus mismas stats: ~%s de crítico."
+		% _fmt_pct(crit_espejo))
 
-	# AGILIDAD -> esquiva y velocidad.
+	# AGILIDAD -> esquiva (el duelo espejo del critico) y velocidad de turno.
 	_row(_content, "Agilidad", str(_pj().agilidad))
 	var evade_espejo: float = StatsMath.evade_chance(float(_pj().agilidad), float(_pj().destreza))
-	_note(_content, "Reflejos: esquiva y velocidad de turno. Ahora: ~%s de esquiva y %.1f de velocidad." % [
-		_fmt_pct(evade_espejo), c.spd()])
+	# Lo que aporta a la VELOCIDAD, no la velocidad total. Todo lo que multiplica detras de
+	# _spd_base() (arma, armadura, estados, guardia) es comun a las dos ramas, asi que basta la
+	# proporcion entre la velocidad cruda con y sin Agilidad.
+	var spd_con: float = StatsMath.speed_jugador(ab, c.base_speed)
+	var spd_sin: float = StatsMath.speed_jugador(_sin_habilidad(ab, "agilidad"), c.base_speed)
+	var vel_de_agi: float = c.spd() * (1.0 - (spd_sin / spd_con if spd_con > 0.0 else 1.0))
+	_note(_content, "Reflejos: tu Agilidad esquiva la Destreza del rival y marca tu velocidad de "
+		+ "turno. Contra el mismo maniquí: ~%s de esquiva. Y ahora: +%.1f de velocidad."
+		% [_fmt_pct(evade_espejo), vel_de_agi])
 
-	# MAGIA -> daño mágico y maná.
+	# MAGIA -> daño de hechizos, maná y defensa magica (las tres cosas, que la ultima acaba de salir
+	# a la ficha de Estadisticas y tambien sale de aqui).
 	_row(_content, "Magia", str(_pj().magia))
-	_note(_content, "Poder arcano: multiplica el daño de los hechizos y da maná. Ahora: ×%.2f a los hechizos y %.1f de maná máx." % [
-		StatsMath.magia_factor(float(_pj().magia)), c.max_mp])
+	var ab_sin_mag: Abilities = _sin_habilidad(ab, "magia")
+	var mp_de_mag: float = c.max_mp - StatsMath.max_mp_jugador(ab_sin_mag, _pj().base_mp)
+	var mdef_de_mag: float = StatsMath.magic_jugador(ab, c.base_magic) \
+		- StatsMath.magic_jugador(ab_sin_mag, c.base_magic)
+	_note(_content, "Poder arcano: multiplica el daño de los hechizos, y sube el maná y la defensa "
+		+ "mágica. Ahora: ×%.2f a los hechizos, +%.1f de maná y +%.1f de defensa mágica." % [
+		StatsMath.magia_factor(float(_pj().magia)), mp_de_mag, mdef_de_mag])
 
-	_note(_content, "Las 5 habilidades (0–999). Suben con el uso y se aplican en el hogar.")
+	_note(_content, "Las 5 habilidades (0–999). Suben con el uso y se aplican en el hogar. Cada "
+		+ "«Ahora» es lo que te está dando ESA habilidad, no tu total.")
 
 
-# Ataque TOTAL (raw): (base + arma) × factor_fuerza × estados, SIN el motion_value
-# (ese se aplica por golpe). c ya tiene activa la mano principal (0) tras crearlo.
 # La mitad MAGICA de la ficha, espejo de la fisica de arriba. Faltaba entera: podias ir con el
 # baston en la mano y la ficha solo te hablaba de "Ataque total" (que con un baston es ridiculo,
 # porque su motion value es 0.4), sin decir ni una palabra de lo que de verdad haces con el.
@@ -526,14 +552,19 @@ func _bloque_magia(c: Combatant) -> void:
 	var amp: float = float(lm["magic_amp"])
 	_content.add_child(HSeparator.new())
 	_title(_content, "Magia")
-	# PODER MAGICO: lo que multiplica el daño base de un hechizo, igual que "Ataque total" es el raw
-	# antes de que cada golpe le aplique su motion value. El daño final de una Brasa es su dano_base
-	# por ESTE numero (y luego lo mitiga la defensa magica del bicho).
+	# PODER MAGICO: lo que multiplica el daño del hechizo (el que sale en SU ficha), igual que
+	# "Ataque total" es el raw antes de que cada golpe le aplique su motion value.
+	#
+	# Es TUYO y solo tuyo: aqui NO entra StatsMath.SPELL_DAMAGE_MULT, que es un multiplicador global
+	# de todos los hechizos de todo el mundo y por tanto no dice nada de este personaje. Cuando
+	# entraba, un tio sin una gota de magia leia "×1.50" y parecia que tuviera un +50% arcano de la
+	# nada. Ahora ese factor va donde vive, en el daño que enseña el hechizo (SpellData.dano_mostrado),
+	# y un personaje pelado lee ×1.00, que es la verdad.
+	#
 	# Se desglosa en sus DOS mitades (tu Magia y el arma) y se enseñan LAS DOS, nunca una sola: el
 	# total ya lleva el arma dentro, y con una sola linea debajo no hay forma de saber si el numero
-	# de arriba la incluye o si hay que multiplicarla aparte. Viendo 1.81 y 1.70 se comprueba solo.
-	var por_magia: float = StatsMath.magia_factor(float(c.abilities.magia)) \
-		* c.magia_base_factor * StatsMath.SPELL_DAMAGE_MULT
+	# de arriba la incluye o si hay que multiplicarla aparte. Viendo 1.21 y 1.70 se comprueba solo.
+	var por_magia: float = StatsMath.magia_factor(float(c.abilities.magia)) * c.magia_base_factor
 	_row(_content, "Poder mágico", "×%.2f" % (por_magia * amp))
 	if absf(amp - 1.0) > 0.001:
 		_row(_content, "   · tu Magia", "×%.2f" % por_magia)
@@ -551,16 +582,38 @@ func _bloque_magia(c: Combatant) -> void:
 		_row(_content, "Coste de maná", "-%.0f%%" % (float(lm["mana_reduccion"]) * 100.0))
 	# La coletilla del desglose solo si el desglose SE HA PINTADO (sin arma mágica no hay dos
 	# líneas debajo a las que referirse, y la nota hablaba de unas filas que no existían).
-	var nota: String = "El poder mágico multiplica el daño BASE del hechizo (como el Ataque total " \
-		+ "al golpe físico); luego lo frena la defensa mágica del que lo recibe."
+	var nota: String = "El poder mágico multiplica el daño que pone en la ficha del hechizo (como " \
+		+ "el Ataque total al golpe físico); luego lo frena la defensa mágica del que lo recibe."
 	if absf(amp - 1.0) > 0.001:
 		nota += " Las dos líneas de debajo son los factores que ya lleva dentro: se multiplican " \
 			+ "entre sí, no se suman."
 	_note(_content, nota)
 
 
+# Ataque TOTAL (raw): (base + arma) × factor_fuerza × estados, SIN el motion_value
+# (ese se aplica por golpe). c ya tiene activa la mano principal (0) tras crearlo.
 func _ataque_total(c: Combatant) -> float:
 	return (c.base_attack + c.ataque_arma) * StatsMath.fuerza_factor(float(c.abilities.fuerza)) * c.status_atk_mult()
+
+
+# COPIA de las habilidades con UNA puesta a cero. Sirve para medir lo que aporta esa habilidad por
+# DIFERENCIA: "lo que tienes" menos "lo que tendrias sin ella".
+#
+# Se hace asi y no reescribiendo cada formula en la ficha porque reescribirlas es justo de donde
+# venia el desfase: la pagina de habilidades calculaba los aportes con las formulas ADITIVAS (las de
+# los enemigos: HP_FROM_RES, _coef por nivel) mientras el jugador usa las MULTIPLICATIVAS
+# (StatsMath.*_jugador). Coinciden a nivel 1 con las bases de inicio -y por eso colaba-, pero en
+# cuanto el bakeo de subir de nivel infla las bases, cada punto vale mas de lo que decia la ficha.
+# Por diferencia da igual cual sea la formula: siempre sale la de verdad.
+func _sin_habilidad(ab: Abilities, cual: String) -> Abilities:
+	var z := Abilities.new()
+	z.fuerza = ab.fuerza
+	z.resistencia = ab.resistencia
+	z.destreza = ab.destreza
+	z.agilidad = ab.agilidad
+	z.magia = ab.magia
+	z.set(cual, 0)
+	return z
 
 # Media del crit_bonus del arma sobre las manos (afinidad).
 func _crit_bonus_promedio(c: Combatant) -> float:
@@ -1243,18 +1296,21 @@ func _ficha_hechizo(vb: VBoxContainer, s: SpellData) -> void:
 		_row(vb, "  Elemento", Elementos.nombre(s.elemento))
 
 	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
-		_row(vb, "  Daño base", "%.0f" % s.dano_base)
+		# dano_mostrado(), no el campo crudo: lleva dentro el multiplicador global de la magia.
+		# Con el crudo, la ficha decia 10 y el bicho se comia 15.
+		var dm: float = s.dano_mostrado()
+		_row(vb, "  Daño base", "%.0f" % dm)
 		# Con multiplicadores, el "daño base" a secas se queda corto: Brasa pega un 150% y la
 		# ficha estaria diciendo la mitad de la verdad. Las cifras salen de multiplicar, no
 		# escritas a mano: si tocas el .tres, esto se mueve solo.
 		if s.es_multiobjetivo():
-			_row(vb, "  Al objetivo", "%.0f" % (s.dano_base * s.dano_objetivo))
+			_row(vb, "  Al objetivo", "%.0f" % (dm * s.dano_objetivo))
 			if s.salpica():
 				_row(vb, "  Alcance", s.alcance_texto())
-				_row(vb, "  Salpicón", "%.0f a cada uno" % (s.dano_base * s.dano_salpicon))
+				_row(vb, "  Salpicón", "%.0f a cada uno" % (dm * s.dano_salpicon))
 			if s.rebotes_n() > 0:
 				_row(vb, "  Rebotes", s.rebotes_texto())
-				_row(vb, "", "%.0f por rebote" % (s.dano_base * s.dano_rebote))
+				_row(vb, "", "%.0f por rebote" % (dm * s.dano_rebote))
 				_note(vb, "Los rebotes caen en un enemigo vivo al azar: pueden repetir y no puedes dirigirlos.")
 		_note(vb, "El daño real escala con tu Magia y con el arma mágica que lleves.")
 
