@@ -93,6 +93,19 @@ const PRECISION_CRITDMG_STEP := 0.06 # +daño critico por punto de Precision (de
 const PESO_STEP := 0.03           # +aturdir/stun (solo contundentes)
 const RAPIDEZ_STEP := 0.03        # +velocidad arma
 const RAPIDEZ_CAP := 0.08         # tope del bonus de rapidez
+# La Rapidez suma velocidad PLANA, no un porcentaje: un +8% le rinde MAS a un arma lenta que a una
+# rapida. Con un porcentaje pasaba lo contrario de lo que parece: el mismo +8% le daba +0.108 de
+# velocidad a una daga (1.35) y solo +0.054 a un martillo (0.68), o sea que la mejora de velocidad
+# aceleraba el doble justo al arma que ya era el doble de rapida. Aliñar un martillo tiene que ser
+# lo que lo saque de lento, no un redondeo.
+#
+# Se hace escalando el bonus por REF/velocidad_del_arma, con lo que el arma acaba en
+#   vel × (1 + r × REF/vel) = vel + r × REF
+# es decir, los mismos PUNTOS de velocidad para todas. En % eso es +11.8% al martillo y +5.9% a la
+# daga, que es exactamente el reparto que se quiere.
+const RAPIDEZ_VEL_REF := 1.0      # velocidad de referencia (la espada larga / la maza: el arma "normal")
+const RAPIDEZ_ESCALA_MIN := 0.6   # topes por si algun dia entra un arma exageradamente lenta o rapida
+const RAPIDEZ_ESCALA_MAX := 1.8
 const DUREZA_STEP := 0.05         # +DEF, en % de la base de la pieza (decreciente)
 const EVASION_STEP := 0.02        # +esquiva (ligeras/medias)
 const EVASION_CAP := 0.20         # tope del bonus de esquiva de armadura
@@ -291,8 +304,10 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 	var aturdir := 0.0
 	if int(w.dano_tipo) == 1:  # solo contundentes
 		aturdir = (w.aturdir_base + dim_sum(PESO_STEP, _count(mejoras, PESO))) * rmult
-	# El bonus de rapidez y su TOPE escalan con la rareza; la velocidad base por tamaño no.
-	var rapidez := minf(cap_rareza(RAPIDEZ_CAP, rareza), dim_sum(RAPIDEZ_STEP, _count(mejoras, RAPIDEZ)) * rmult)
+	# El bonus de rapidez y su TOPE escalan con la rareza; la velocidad base por tamaño no. Y el
+	# bonus se reparte en PUNTOS de velocidad, no en %: ver rapidez_escala().
+	var rapidez := minf(cap_rareza(RAPIDEZ_CAP, rareza), dim_sum(RAPIDEZ_STEP, _count(mejoras, RAPIDEZ)) * rmult) \
+		* rapidez_escala(w.velocidad_mult)
 	return {
 		"raw": raw,
 		"crit": mejor_con_rareza(w.crit_bonus + dim_sum(PRECISION_CRIT_STEP, kp), rmult),
@@ -304,6 +319,16 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 		"bloqueo": w.bloqueo * rmult,
 		"vel_mult": 1.0 + rapidez,
 	}
+
+# Cuanto le rinde la mejora de RAPIDEZ a un arma segun lo rapida que YA sea: mas a las lentas,
+# menos a las rapidas. Ver el bloque de RAPIDEZ_VEL_REF: el efecto neto es que el bonus se cobra en
+# PUNTOS de velocidad y no en porcentaje. Con velocidad 0 (no deberia existir) devuelve el tope, que
+# es lo unico sensato sin dividir por cero.
+static func rapidez_escala(vel_arma: float) -> float:
+	if vel_arma <= 0.0:
+		return RAPIDEZ_ESCALA_MAX
+	return clampf(RAPIDEZ_VEL_REF / vel_arma, RAPIDEZ_ESCALA_MIN, RAPIDEZ_ESCALA_MAX)
+
 
 # Agregados MAGICOS de un arma de mago (baston o varita), por slot.
 #   base_amp = magic_amp base del item (baston 1.7 / varita 1.4).
