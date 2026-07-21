@@ -453,6 +453,11 @@ func _build_stats_page() -> void:
 	_content.add_child(HSeparator.new())
 	_row(_content, "Vida máx.", "%.1f" % c.max_hp)
 	_row(_content, "Defensa", "%.1f" % c.def_value())
+	# La defensa MAGICA va aqui, con la fisica y la vida, y para TODO el mundo: no es una stat de
+	# mago, es lo que te protege cuando el que lanza el hechizo es el otro. Estuvo un rato colgando
+	# del bloque de Magia y por tanto invisible justo para quien mas le importa: el que no lleva
+	# arma magica y no se entera de por que un hechizo le arrea mas o menos.
+	_row(_content, "Defensa mágica", "%.1f" % StatsMath.magic_jugador(c.abilities, c.base_magic))
 	if c.max_mp > 0.0:
 		_row(_content, "Maná máx.", "%.2f" % c.max_mp)
 	_bloque_magia(c)
@@ -512,15 +517,13 @@ func _build_habilidades_page() -> void:
 # baston en la mano y la ficha solo te hablaba de "Ataque total" (que con un baston es ridiculo,
 # porque su motion value es 0.4), sin decir ni una palabra de lo que de verdad haces con el.
 #
-# Se pinta si el personaje TIENE algo magico que enseñar (arma magica o hechizos). Sin nada de eso
-# serian cinco filas de ceros en la ficha de un guerrero.
+# Se pinta SIEMPRE, tambien sin arma magica. Al principio se ocultaba a quien no llevara baston,
+# pero eso es mirarlo al reves: los hechizos se aprenden de los libros, no del arma, asi que
+# cualquiera puede lanzarlos y a cualquiera le interesa saber con que fuerza. Y las filas que salen
+# a cero no son ruido, son la respuesta: "no regeneras mana porque no llevas arma magica".
 func _bloque_magia(c: Combatant) -> void:
 	var lm: Dictionary = Game.loadout_mods(_pj())
 	var amp: float = float(lm["magic_amp"])
-	var tiene_arma: bool = absf(amp - 1.0) > 0.001 or float(lm["mp_regen_turno"]) > 0.0
-	if not tiene_arma and _pj().equipped_spells.is_empty():
-		return
-
 	_content.add_child(HSeparator.new())
 	_title(_content, "Magia")
 	# PODER MAGICO: lo que multiplica el daño base de un hechizo, igual que "Ataque total" es el raw
@@ -535,20 +538,25 @@ func _bloque_magia(c: Combatant) -> void:
 	if absf(amp - 1.0) > 0.001:
 		_row(_content, "   · tu Magia", "×%.2f" % por_magia)
 		_row(_content, "   · el arma", "×%.2f" % amp)
-	# Defensa MAGICA: la que te protege de los hechizos. No es la Defensa de arriba (esa es fisica),
-	# y hasta ahora no salia en ningun sitio pese a ser la mitad de lo que te mantiene vivo.
-	_row(_content, "Defensa mágica", "%.1f" % StatsMath.magic_jugador(c.abilities, c.base_magic))
-	if c.mp_regen_turno > 0.0:
-		_row(_content, "Regen maná", "%.2f/turno" % c.mp_regen_turno)
+	# (La defensa MAGICA no esta aqui: va arriba con la fisica y la vida, que es donde se buscan
+	# las defensas y donde la ve tambien el que no lleva arma magica.)
+	# El regen a 0 se enseña igual: es la unica forma de enterarse de que el mana solo se recupera
+	# con arma magica o con pociones (la economia de mana es PLANA y sin regen no se sostiene).
+	_row(_content, "Regen maná", "%.2f/turno" % c.mp_regen_turno)
 	# Velocidad de CASTEO: lo rapido que recitas, que no es lo rapido que blandes (un baston recita
-	# mas rapido de lo que pega). Solo si difiere de la velocidad normal, o seria una fila repetida.
-	if absf(c.cast_spd() - c.spd()) > 0.05:
-		_row(_content, "Vel. recitado", "%.1f" % c.cast_spd())
+	# mas rapido de lo que pega). Se enseña siempre, aunque coincida con la normal: si no, el mago
+	# no puede comparar su recitado con el de un compañero que no lleve baston.
+	_row(_content, "Vel. recitado", "%.1f" % c.cast_spd())
 	if float(lm["mana_reduccion"]) > 0.0:
 		_row(_content, "Coste de maná", "-%.0f%%" % (float(lm["mana_reduccion"]) * 100.0))
-	_note(_content, "El poder mágico multiplica el daño BASE del hechizo (como el Ataque total al "
-		+ "golpe físico); luego lo frena la defensa mágica del que lo recibe. Las dos líneas de "
-		+ "debajo son los factores que ya lleva dentro: se multiplican entre sí, no se suman.")
+	# La coletilla del desglose solo si el desglose SE HA PINTADO (sin arma mágica no hay dos
+	# líneas debajo a las que referirse, y la nota hablaba de unas filas que no existían).
+	var nota: String = "El poder mágico multiplica el daño BASE del hechizo (como el Ataque total " \
+		+ "al golpe físico); luego lo frena la defensa mágica del que lo recibe."
+	if absf(amp - 1.0) > 0.001:
+		nota += " Las dos líneas de debajo son los factores que ya lleva dentro: se multiplican " \
+			+ "entre sí, no se suman."
+	_note(_content, nota)
 
 
 func _ataque_total(c: Combatant) -> float:
