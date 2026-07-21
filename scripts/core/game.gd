@@ -2273,11 +2273,15 @@ func beber_pocion_fuera(c: ConsumableData, pj: PersonajeData = null) -> bool:
 		p.current_hp = maxhp   # concreta la vida "llena"
 	if p.current_mp < 0.0:
 		p.current_mp = maxmp   # concreta el maná "lleno"
-	# ¿Sirve de algo? (cura y no esta a tope de vida, o da maná y no esta a tope de maná)
-	var util_hp: bool = c.cura_hp() and (p.current_hp < maxhp - 0.01 or p.heal_left > 0.0)
-	var util_mp: bool = c.da_mana() and (p.current_mp < maxmp - 0.01 or p.mana_heal_left > 0.0)
+	# ¿Sirve de algo? La cura que YA VIENE DE CAMINO (heal_left) cuenta como vida: si el goteo
+	# pendiente ya te va a llenar, otra poción no aporta nada y no se gasta. Sin esto, machacar
+	# la tecla de recuperación óptima repartia otra ronda entera al grupo mientras la anterior
+	# seguia cayendo (el goteo tarda sus segundos), y eso son pociones a la basura.
+	var util_hp: bool = c.cura_hp() and (p.current_hp + p.heal_left < maxhp - 0.01)
+	var util_mp: bool = c.da_mana() and (p.current_mp + p.mana_heal_left < maxmp - 0.01)
 	if not util_hp and not util_mp:
-		print("[objeto] A %s no le hace falta: no bebe la %s" % [p.nombre, c.nombre])
+		print("[objeto] A %s no le hace falta (o ya tiene cura en camino): no bebe la %s" % [
+			p.nombre, c.nombre])
 		return false
 	if not gastar_consumible(c):
 		return false
