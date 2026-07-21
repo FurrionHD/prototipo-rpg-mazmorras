@@ -317,20 +317,21 @@ func _texto_ataque() -> String:
 	var obj: int = roundi(dano_objetivo * 100.0)
 	var sal: int = roundi(dano_salpicon * 100.0)
 
-	# DISPERSO: los golpes caen solos, no eliges donde (Tormenta, Andanada). Se REPARTEN el daño
-	# entre todos (combat._resolver_dispersa divide por n, igual que el multigolpe normal): decir
-	# "cada uno por el 100%" seria prometer veinte veces el daño que hace.
+	# DISPERSO: las bolas caen solas, no eliges donde (Tormenta, Andanada). Aqui los numeros van POR
+	# BOLA y no en totales, al reves que en los demas hechizos, porque en un disperso el total no
+	# significa nada: depende de cuantos enemigos haya y de donde caiga cada una. Lo unico que se
+	# puede prometer de verdad es lo que suelta CADA bola donde cae.
 	#
-	# El SALPICON tambien se reparte (la misma linea divide escala/n, y 'escala' ahi es
-	# dano_salpicon), asi que el % es el TOTAL del salpicon, no lo que suelta cada bola. Decir
-	# "cada impacto salpica un 75%" multiplicaba por cuatro el salpicon de la Andanada y por VEINTE
-	# el de la Tormenta.
+	# Ademas, en totales la frase se leia como el doble de lo que pega: "se reparten el 100% ...
+	# salpicando otro 100%" son 200% sumados a ojo, y la Tormenta parecia hacer 284 cuando su
+	# referencia son 142. El motor divide escala/n (combat._resolver_dispersa), asi que cada uno de
+	# sus 20 golpes hace un 5%, no un 100%.
 	if dispersa:
-		var s: String = "Descarga %d golpes%s que caen en enemigos al azar y se reparten entre todos el %d%% del daño" % [
-			golpes(), de_elem, obj]
+		var n: float = float(golpes())
+		var s: String = "Descarga %d golpes%s que caen en enemigos al azar. Cada uno inflige un %s del daño donde cae" % [
+			golpes(), de_elem, _pct(dano_objetivo / n)]
 		if salpica():
-			s += ", salpicando otro %d%% (también repartido) a los %s de cada impacto" % [
-				sal, _vecinos_texto()]
+			s += " y salpica otro %s a los %s de ese punto" % [_pct(dano_salpicon / n), _vecinos_texto()]
 		return s + "."
 
 	# Los 'hits' REPARTEN el daño entre golpes (ver combat._resolver_golpes_hechizo: frac =
@@ -413,6 +414,13 @@ func _texto_imbuicion() -> String:
 	if imbue_tipo == 2:
 		s += " Además te da la afinidad del elemento: resistes lo que él resiste y te duele lo que le duele."
 	return s
+
+
+# Una fraccion en porcentaje, con UN decimal solo si hace falta: "5%", "37.5%", "18.8%". Redondear
+# a entero se comia justo lo que distingue a una bola de otra cuando el hechizo tiene muchas.
+func _pct(f: float) -> String:
+	var v: float = f * 100.0
+	return "%d%%" % roundi(v) if is_equal_approx(v, roundf(v)) else "%.1f%%" % v
 
 
 # Une una lista en lenguaje natural: "a", "a y b", "a, b y c".
