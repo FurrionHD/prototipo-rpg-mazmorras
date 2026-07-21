@@ -2488,6 +2488,31 @@ func mochila_tier_factor(tier: int) -> float:
 	var t: int = clampi(tier, 1, MOCHILA_CAPACIDAD_TIER.size())
 	return float(MOCHILA_CAPACIDAD_TIER[t - 1]) / float(MOCHILA_CAPACIDAD_TIER[0])
 
+# HASTA QUE FUERZA te premia cada mochila. El multiplicador de Fuerza tiene un tope duro (+50%,
+# fuerza_capacity_bonus_max) y esta tabla dice a que Fuerza MEDIA se toca ese tope: pasado ese
+# punto, ser mas fuerte no te hace cargar mas.
+#
+# Es del TIER DE LA MOCHILA y no un 999 global a proposito. Con el 999 fijo, un guerrero llegaba
+# al tope antes del nivel 3 (el interno acumula el nivel 1: ~1200 de Fuerza) y a partir de ahi
+# toda la Fuerza que ganase no le daba ni un gramo mas de carga — pero tampoco queremos que
+# escale infinito. Asi que el limite se COMPRA: una mochila mejor vuelve a poner tu Fuerza a
+# contar. T1 y T2 son las de los pisos de nivel 1 y saturan en 999; la T3 (pisos 13+) aguanta
+# hasta 1700, que es un nivel 2 bien jugado (subes con ~700 y acumulas otros 999) sin llegar al
+# maximo teorico de 1998.
+# El TECHO no cambia por tier (siempre +50%): lo que compras es DONDE saturas, no cuanto.
+const MOCHILA_FUERZA_SATURACION := [999.0, 999.0, 1700.0]
+
+# Sin mochila (zurron pelado) saturas como una T1: el zurron no es una mejora.
+const SATURACION_SIN_MOCHILA := 999.0
+
+# La Fuerza a la que satura la mochila que lleva HOY el grupo.
+func mochila_fuerza_saturacion(m: BackpackData = null) -> float:
+	var mo: BackpackData = m if m != null else mochila_equipo
+	if mo == null:
+		return SATURACION_SIN_MOCHILA
+	var t: int = clampi(int(meta_de(mo)["tier"]), 1, MOCHILA_FUERZA_SATURACION.size())
+	return float(MOCHILA_FUERZA_SATURACION[t - 1])
+
 func capacidad_mochila(m: BackpackData = null) -> float:
 	var mo: BackpackData = m if m != null else mochila_equipo
 	if mo == null:
@@ -2504,7 +2529,7 @@ func equipar_mochila(m: BackpackData) -> void:
 # Lo que llevarias CON esta mochila puesta (para comparar en el menu antes de equiparla). No es
 # una suma a pelo: la Fuerza multiplica el contenedor entero, mochila incluida.
 func capacidad_con_mochila(m: BackpackData) -> float:
-	return _capacidad_con(base_capacity + capacidad_mochila(m))
+	return _capacidad_con(base_capacity + capacidad_mochila(m), mochila_fuerza_saturacion(m))
 # La Fuerza MULTIPLICA la capacidad del contenedor (zurron+mochila) hasta un
 # maximo (a Fuerza 999 = +50%). Asi no puedes llevar de todo con un zurron.
 var fuerza_capacity_bonus_max: float = 0.5  # +50% a Fuerza maxima
@@ -2923,7 +2948,10 @@ const CARGA_POR_ACOMPANANTE := 0.15
 # BAILA al cambiar de lider con las teclas 1/2/3 (que es lo que pasaba antes, y encima con una cache
 # que ni se recalculaba). Media y no SUMA a proposito: sumando, tres personajes a 333 ya tocarian el
 # tope de 999 y a partir de ahi subir Fuerza no daria ni un kilo mas.
-func _capacidad_con(contenedor: float) -> float:
+# 'saturacion' = la Fuerza media a la que se toca el tope del multiplicador. La pone la MOCHILA
+# (ver MOCHILA_FUERZA_SATURACION), asi que el mismo grupo con la misma Fuerza rinde distinto segun
+# lo que lleve a la espalda.
+func _capacidad_con(contenedor: float, saturacion: float) -> float:
 	var suma: float = 0.0
 	var n: int = 0
 	for pj in party:
@@ -2932,12 +2960,12 @@ func _capacidad_con(contenedor: float) -> float:
 		suma += float(stat_total("fuerza", pj))
 		n += 1
 	var media: float = suma / float(maxi(1, n))
-	var mult: float = 1.0 + clampf(media / 999.0, 0.0, 1.0) * fuerza_capacity_bonus_max
+	var mult: float = 1.0 + clampf(media / maxf(1.0, saturacion), 0.0, 1.0) * fuerza_capacity_bonus_max
 	var manos: float = 1.0 + CARGA_POR_ACOMPANANTE * float(maxi(0, n - 1))
 	return contenedor * mult * manos
 
 func capacidad_carga() -> float:
-	return _capacidad_con(base_capacity + capacidad_mochila())
+	return _capacidad_con(base_capacity + capacidad_mochila(), mochila_fuerza_saturacion())
 
 func peso_actual() -> float:
 	var w: float = 0.0
