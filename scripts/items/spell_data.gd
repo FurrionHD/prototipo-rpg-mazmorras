@@ -274,8 +274,150 @@ func dano_mostrado() -> float:
 	return dano_base * StatsMath.SPELL_DAMAGE_MULT
 
 
+# ============================================================
+#  DESCRIPCION MECANICA: lo que hace el hechizo, EN PROSA
+#  La ficha era una tabla de filas sueltas ("Al objetivo 9 / Alcance 100%·50% / Salpicon 5 a cada
+#  uno / Rebotes 3 de 55%") que no decia lo que hace el hechizo: soltaba cinco datos y que los
+#  recompusieras tu. Esto los cose en una frase que se lee de corrido, estilo Honkai/Genshin.
+#
+#  Los PORCENTAJES son del daño del hechizo (el numero que la ficha enseña justo encima, ya con el
+#  poder magico de quien lo lee), que es el papel que en Honkai hace "of Sparxie's ATK".
+#
+#  Sale TODO de los campos, como el resto de textos de este fichero: si tocas un .tres, la frase se
+#  mueve sola. La 'descripcion' sigue siendo solo SABOR y no repite ni una cifra.
+# ============================================================
+func descripcion_mecanica() -> String:
+	if es_imbuicion():
+		return _texto_imbuicion()
+	if tipo != TipoEfecto.ATAQUE or dano_base <= 0.0:
+		# BUFF/DEBUFF sin daño: solo tienen sus estados que contar, y van a UN objetivo (no hay
+		# area que "alcance" a nadie).
+		return _texto_estados("al objetivo")
+
+	var partes: Array = []
+	partes.append(_texto_ataque())
+	var mezcla: String = _texto_mezcla()
+	if mezcla != "":
+		partes.append(mezcla)
+	var reb: String = _texto_rebotes()
+	if reb != "":
+		partes.append(reb)
+	var est: String = _texto_estados("a cada enemigo alcanzado" if es_multiobjetivo() else "al objetivo")
+	if est != "":
+		partes.append(est)
+	return " ".join(partes)
+
+
+# La frase del DAÑO: como se reparte y a quien llega.
+func _texto_ataque() -> String:
+	var de_elem: String = "" if elemento == Elementos.Elemento.NINGUNO else " de %s" % Elementos.nombre(elemento)
+	# Con reparto de elementos no se puede decir "de Rayo" a secas: lo aclara _texto_mezcla().
+	if not elemento_mix.is_empty():
+		de_elem = ""
+	var obj: int = roundi(dano_objetivo * 100.0)
+	var sal: int = roundi(dano_salpicon * 100.0)
+
+	# DISPERSO: los golpes caen solos, no eliges donde (Tormenta, Andanada). Se REPARTEN el daño
+	# entre todos (combat._resolver_dispersa divide por n, igual que el multigolpe normal): decir
+	# "cada uno por el 100%" seria prometer veinte veces el daño que hace.
+	if dispersa:
+		var s: String = "Descarga %d golpes%s que caen en enemigos al azar y se reparten el %d%% del daño" % [
+			golpes(), de_elem, obj]
+		if salpica():
+			s += ", y cada impacto salpica un %d%% a los %s" % [sal, _vecinos_texto()]
+		return s + "."
+
+	# Los 'hits' REPARTEN el daño entre golpes (ver combat._resolver_golpes_hechizo: frac =
+	# escala/n), no lo multiplican. Decir "N golpes del 150%" seria mentir por triplicado.
+	var reparto: String = "" if not es_multigolpe() else ", repartido en %d golpes" % golpes()
+
+	if alcance == Alcance.TODOS and salpica() and is_equal_approx(dano_objetivo, dano_salpicon):
+		# Reparto plano (Rocio): a todos lo mismo, sin distinguir objetivo y resto.
+		return "Inflige daño%s igual al %d%% del daño a todos los enemigos%s." % [de_elem, obj, reparto]
+	var base: String = "Inflige daño%s igual al %d%% del daño al enemigo señalado%s" % [
+		de_elem, obj, reparto]
+	if salpica():
+		base += ", y un %d%% a los %s" % [sal, _vecinos_texto()]
+	return base + "."
+
+
+# A quien llega el salpicon, en palabras.
+func _vecinos_texto() -> String:
+	return "adyacentes" if alcance == Alcance.ADYACENTES else "demás enemigos"
+
+
+# El reparto de elementos entre los golpes ("70% de los golpes son de Agua y 30% de Rayo").
+func _texto_mezcla() -> String:
+	if elemento_mix.is_empty():
+		return ""
+	var partes: Array = []
+	for e in elemento_mix:
+		partes.append("%d%% de %s" % [roundi(peso_elemento(int(e)) * 100.0), Elementos.nombre(int(e))])
+	return "De esos golpes, un %s." % " y otro ".join(partes)
+
+
+func _texto_rebotes() -> String:
+	if rebotes_n() <= 0:
+		return ""
+	return ("Después salta %s más, cada salto a un enemigo vivo al azar por el %d%% del "
+		+ "daño (puede repetir objetivo).") % [
+		"una vez" if rebotes_n() == 1 else "%d veces" % rebotes_n(), roundi(dano_rebote * 100.0)]
+
+
+# Los estados que aplica, con la probabilidad ACUMULADA de todo el hechizo (prob_total), que es la
+# unica que significa algo cuando hay 20 golpes.
+#
+# La forma es "Aplica X (n%) <a quien>" y no "puede quedar X" porque los nombres de los estados
+# mezclan sustantivos y adjetivos (Quemadura, Mojado, Electrizado, Debil): "puede quedar Quemadura"
+# no hay por donde cogerlo, y "Aplica Quemadura" y "Aplica Mojado" valen los dos.
+func _texto_estados(a_quien: String) -> String:
+	var propios: Array = []
+	var a_ti: Array = []
+	for a in efectos:
+		if a == null or int(a.estado) < 0:
+			continue
+		var txt: String = "%s (%d%%)" % [
+			String(StatusEffects.def(int(a.estado)).get("nombre", "?")),
+			roundi(prob_total(a) * 100.0)]
+		if a.en_objetivo:
+			propios.append(txt)
+		else:
+			a_ti.append(txt)
+	var out: Array = []
+	if not propios.is_empty():
+		out.append("Aplica %s %s." % [_y(propios), a_quien])
+	if not a_ti.is_empty():
+		out.append("Te aplica %s." % _y(a_ti))
+	return " ".join(out)
+
+
+# Los FILOS y MANTOS no pegan: tiñen tus golpes. Frase propia.
+func _texto_imbuicion() -> String:
+	var que: String = "tu cuerpo" if imbue_tipo == 2 else "tu arma"
+	var s: String = "Envuelve %s en %s durante %d ataque%s: tus golpes infligen un %d%% de daño de %s extra" % [
+		que, Elementos.nombre(elemento), imbue_usos, "" if imbue_usos == 1 else "s",
+		roundi(imbue_pct * 100.0), Elementos.nombre(elemento)]
+	if imbue_estado >= 0 and imbue_prob > 0.0:
+		s += " y pueden dejar %s (%d%%)" % [
+			String(StatusEffects.def(imbue_estado).get("nombre", "?")), roundi(imbue_prob * 100.0)]
+	s += "."
+	if imbue_tipo == 2:
+		s += " Además te da la afinidad del elemento: resistes lo que él resiste y te duele lo que le duele."
+	return s
+
+
+# Une una lista en lenguaje natural: "a", "a y b", "a, b y c".
+func _y(lista: Array) -> String:
+	if lista.size() <= 1:
+		return "" if lista.is_empty() else String(lista[0])
+	var ultimo: String = String(lista[lista.size() - 1])
+	var resto: Array = lista.slice(0, lista.size() - 1)
+	return "%s y %s" % [", ".join(resto), ultimo]
+
+
 # RESUMEN mecanico GENERADO desde los campos (nunca hardcodeado en la descripcion, que
-# queda para el SABOR). Lo usa el menu de personaje. Ver tambien AbilityData.resumen().
+# queda para el SABOR). Version COMPACTA de una linea (campos separados por ·), para lista
+# apretadas; la version en prosa que se lee es descripcion_mecanica().
 func resumen() -> String:
 	var p: Array = []
 	p.append("%s (%d frase%s)" % [longitud_texto(), longitud(), "" if longitud() == 1 else "s"])

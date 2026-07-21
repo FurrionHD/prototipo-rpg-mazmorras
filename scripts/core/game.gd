@@ -2666,6 +2666,22 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 	return m
 
 
+# PODER MAGICO de un personaje: lo que MULTIPLICA el daño de un hechizo, igual que fuerza_factor
+# multiplica el raw de un golpe. = su Magia × el bakeo de nivel × la amplificacion del arma
+# (baston en la main y/o varita en la off). 1.0 = ni Magia ni arma magica.
+#
+# NO incluye StatsMath.SPELL_DAMAGE_MULT: ese es un multiplicador GLOBAL de todos los hechizos de
+# todo el mundo, no dice nada de ESTE personaje, y vive en SpellData.dano_mostrado(). Mezclarlos
+# hacia que un tio sin magia leyera "poder ×1.50" en su ficha.
+#
+# Vive aqui (y no en el menu, que es donde nacio) porque lo necesitan DOS pantallas: la ficha de
+# Estadisticas y la de cada hechizo. Con la cuenta duplicada, tarde o temprano dirian cosas distintas.
+func poder_magico(pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
+	return StatsMath.magia_factor(float(p.magia)) * p.base_magia_factor \
+		* float(loadout_mods(p)["magic_amp"])
+
+
 # Extrae los datos POR MANO de un arma (lo que cambia golpe a golpe en dual). Todo sale ya
 # RESUELTO de Upgrades.weapon_mods (base × rareza + mejoras × tier del slot): el crit y el
 # aturdir ya llevan dentro el campo base del arma, no se le suman aparte (antes se cogian en

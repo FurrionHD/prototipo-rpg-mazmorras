@@ -113,7 +113,7 @@ static var _defs: Dictionary = {
 		"descripcion": "Baba que se agarra a todo. Una capa se nota poco; cuatro te dejan luchando dentro de un tarro.",
 	},
 	Id.DEBIL: {   # debuff de ataque
-		"id": Id.DEBIL, "nombre": "Debil", "icono": "💢", "color": Color(0.7, 0.4, 0.9),
+		"id": Id.DEBIL, "nombre": "Débil", "icono": "💢", "color": Color(0.7, 0.4, 0.9),
 		"turns": 3, "atk_mult": 0.80,
 		"descripcion": "El golpe sale, pero sale sin nadie detrás.",
 	},

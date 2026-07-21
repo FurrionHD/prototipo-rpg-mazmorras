@@ -565,7 +565,7 @@ func _bloque_magia(c: Combatant) -> void:
 	# total ya lleva el arma dentro, y con una sola linea debajo no hay forma de saber si el numero
 	# de arriba la incluye o si hay que multiplicarla aparte. Viendo 1.21 y 1.70 se comprueba solo.
 	var por_magia: float = StatsMath.magia_factor(float(c.abilities.magia)) * c.magia_base_factor
-	_row(_content, "Poder mágico", "×%.2f" % (por_magia * amp))
+	_row(_content, "Poder mágico", "×%.2f" % Game.poder_magico(_pj()))
 	if absf(amp - 1.0) > 0.001:
 		_row(_content, "   · tu Magia", "×%.2f" % por_magia)
 		_row(_content, "   · el arma", "×%.2f" % amp)
@@ -1295,54 +1295,32 @@ func _ficha_hechizo(vb: VBoxContainer, s: SpellData) -> void:
 	if s.elemento != Elementos.Elemento.NINGUNO:
 		_row(vb, "  Elemento", Elementos.nombre(s.elemento))
 
+	# DAÑO: el de ESTE personaje, ya multiplicado por su poder magico (su Magia + el bastón o la
+	# varita que lleve). Es el numero que va a salir en el combate, no una cifra de catalogo: antes
+	# se enseñaba el daño pelado del .tres con una coletilla de "esto luego escala", y tocaba
+	# multiplicar de cabeza para saber si el hechizo servia de algo.
 	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
-		# dano_mostrado(), no el campo crudo: lleva dentro el multiplicador global de la magia.
-		# Con el crudo, la ficha decia 10 y el bicho se comia 15.
-		var dm: float = s.dano_mostrado()
-		_row(vb, "  Daño base", "%.0f" % dm)
-		# Con multiplicadores, el "daño base" a secas se queda corto: Brasa pega un 150% y la
-		# ficha estaria diciendo la mitad de la verdad. Las cifras salen de multiplicar, no
-		# escritas a mano: si tocas el .tres, esto se mueve solo.
-		if s.es_multiobjetivo():
-			_row(vb, "  Al objetivo", "%.0f" % (dm * s.dano_objetivo))
-			if s.salpica():
-				_row(vb, "  Alcance", s.alcance_texto())
-				_row(vb, "  Salpicón", "%.0f a cada uno" % (dm * s.dano_salpicon))
-			if s.rebotes_n() > 0:
-				_row(vb, "  Rebotes", s.rebotes_texto())
-				_row(vb, "", "%.0f por rebote" % (dm * s.dano_rebote))
-				_note(vb, "Los rebotes caen en un enemigo vivo al azar: pueden repetir y no puedes dirigirlos.")
-		_note(vb, "El daño real escala con tu Magia y con el arma mágica que lleves.")
+		_row(vb, "  Daño", "%.0f" % (s.dano_mostrado() * Game.poder_magico(_pj())))
 
-	# IMBUICION: lo que le hace a tus golpes de arma.
-	if s.es_imbuicion():
+	# QUE HACE, en una frase. Los porcentajes son de ese daño de arriba. Sustituye a la tabla de
+	# filas sueltas (Al objetivo / Alcance / Salpicón / Rebotes / Aplica), que daba los datos pero
+	# no contaba nunca lo que pasa al lanzarlo.
+	var mecanica: String = s.descripcion_mecanica()
+	if mecanica != "":
 		vb.add_child(HSeparator.new())
-		_row(vb, "  Imbuye", "tu %s de %s" % [s.imbue_texto(), Elementos.nombre(s.elemento)])
-		_row(vb, "  Daño extra", "+%d%% de %s en tus golpes" % [
-			roundi(s.imbue_pct * 100.0), Elementos.nombre(s.elemento)])
-		if s.imbue_estado >= 0 and s.imbue_prob > 0.0:
-			_row(vb, "  Al golpear", "%d%% de %s" % [roundi(s.imbue_prob * 100.0),
-				String(StatusEffects.def(s.imbue_estado).get("nombre", "?"))])
-			_note(vb, "Esa probabilidad sube contra enemigos más débiles que tu Magia y baja contra los más fuertes.")
-		_row(vb, "  Duración", "%d ataque%s" % [s.imbue_usos, "" if s.imbue_usos == 1 else "s"])
-		if s.imbue_tipo == 2:
-			_afinidad_hechizo(vb, s)
-
-	# Estados que aplica el propio hechizo al lanzarlo.
-	var lineas: Array = []
-	for a in s.efectos:
-		if a == null or int(a.estado) < 0:
-			continue
-		var quien: String = "al enemigo" if a.en_objetivo else "a ti"
-		lineas.append("%s  %d%% (%s)" % [
-			String(StatusEffects.def(int(a.estado)).get("nombre", "?")),
-			roundi(s.efecto_prob(a) * 100.0), quien])
-	if not lineas.is_empty():
-		vb.add_child(HSeparator.new())
-		_row(vb, "  Aplica", lineas[0])
-		for i in range(1, lineas.size()):
-			_row(vb, "", lineas[i])
-		_note(vb, "La probabilidad ya incluye el bonus por la longitud del encantamiento.")
+		var l := Label.new()
+		l.text = mecanica
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size = Vector2(420, 0)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vb.add_child(l)
+	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
+		_note(vb, "El daño es el tuyo, con tu Magia y el arma que llevas ahora; luego lo frena la "
+			+ "defensa mágica del que lo recibe.")
+	# La AFINIDAD de un imbue de cuerpo sigue en tabla: son varios elementos con su multiplicador
+	# cada uno, y eso es una lista de verdad, no una frase.
+	if s.es_imbuicion() and s.imbue_tipo == 2:
+		_afinidad_hechizo(vb, s)
 
 	# EL ENCANTAMIENTO: las frases que hay que recitar, en orden.
 	vb.add_child(HSeparator.new())
