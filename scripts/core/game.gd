@@ -2500,6 +2500,18 @@ func mochila_tier_factor(tier: int) -> float:
 # hasta 1700, que es un nivel 2 bien jugado (subes con ~700 y acumulas otros 999) sin llegar al
 # maximo teorico de 1998.
 # El TECHO no cambia por tier (siempre +50%): lo que compras es DONDE saturas, no cuanto.
+#
+# LA REGLA para los tiers que vengan (DOS tiers de mochila por NIVEL de jugador):
+#     saturacion(nivel N) = 700 * (N - 1) + 999
+# Los 700 son con lo que se sube de nivel de verdad (el requisito es RANGO_C_MIN = 600, pero nadie
+# asciende justo al tocarlo) y el 999 final es exprimir el nivel en el que estas. O sea:
+#     Nv.1 -> 999   (T1, T2)   <- las de los pisos de nivel 1
+#     Nv.2 -> 1700  (T3, T4)   <- 700 + 999, redondeado
+#     Nv.3 -> 2400  (T5, T6)   <- 700 + 700 + 999
+#     Nv.4 -> 3100  (T7, T8)
+# Al añadir un tier hay que alargar ESTA tabla Y MOCHILA_CAPACIDAD_TIER a la vez: si una es mas
+# corta que la otra, el clampi sujeta el indice y la mochila nueva se comporta como la ultima que
+# exista (no peta, pero miente).
 const MOCHILA_FUERZA_SATURACION := [999.0, 999.0, 1700.0]
 
 # Sin mochila (zurron pelado) saturas como una T1: el zurron no es una mejora.
