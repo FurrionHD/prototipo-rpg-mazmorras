@@ -371,8 +371,10 @@ func _texto_ataque(ref: float) -> String:
 
 	if alcance == Alcance.TODOS and salpica() and is_equal_approx(dano_objetivo, dano_salpicon):
 		# Reparto plano (Rocio): a todos lo mismo, sin distinguir objetivo y resto.
-		return "Inflige daño%s: un %s a todos los enemigos%s." % [de_elem, _pct(dano_objetivo, ref), reparto]
-	var base: String = "Inflige daño%s: un %s al objetivo señalado" % [de_elem, _pct(dano_objetivo, ref)]
+		return "Inflige daño%s igual al %s del daño a todos los enemigos%s." % [
+			de_elem, _pct(dano_objetivo, ref), reparto]
+	var base: String = "Inflige daño%s igual al %s del daño al objetivo seleccionado" % [
+		de_elem, _pct(dano_objetivo, ref)]
 	if salpica():
 		base += " y un %s a los %s" % [_pct(dano_salpicon, ref), _vecinos_texto()]
 	return base + reparto + "."
