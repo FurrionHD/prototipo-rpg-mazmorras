@@ -8,13 +8,13 @@
 
 extends Node
 
-# VERSION del juego (SemVer, 0.x = pre-release). Se muestra en el menu principal y se guarda en
-# project.godot (application/config/version). Subir aqui al meter una tanda de cambios:
-# 0.7.0 -> multi-target melee (area/barrido/redireccion);
-# 0.7.1 -> carpintero (tablones + armas magicas), familias de enemigo + pasivas RNG, pisos sin tope,
-#          nucleos en bandas de 3 hasta +15 con coste por pieza, refinado con stepper editable.
-# (companeros de equipo/party: para una version futura).
-const VERSION := "0.7.1"
+# VERSION del juego (SemVer, 0.x = pre-release). Se muestra en el menu principal.
+#
+# SALE DE project.godot (application/config/version): esa es la UNICA fuente. Antes esto era una
+# constante escrita a mano AL LADO del ajuste del proyecto, o sea el mismo numero en dos sitios; al
+# subir a 0.8.0 se cambio solo el project.godot y el menu siguio enseñando 0.7.1 durante un dia.
+# Para subir de version se toca SOLO project.godot (Proyecto > Ajustes > Aplicacion > Config).
+var VERSION: String = ProjectSettings.get_setting("application/config/version", "0.0.0")
 
 # ============================================================
 #  EL GRUPO (party)
