@@ -82,9 +82,9 @@ var _t_respawn: float = RESPAWN_CHECK_CADA
 @export var celdas_por_bicho: int = 40
 @export var max_vivos_sala: int = 3
 @export var max_vivos_pasillo: int = 1
-# El aforo por zona TAMBIEN se escala con la profundidad (misma FLOOR_GROWTH que el tope del piso):
-# si solo creciera el tope global, un piso hondo seria el mismo mapa con mas salas de tres, y lo que
-# se quiere es que ABAJO TE ENCUENTRES CORROS MAS GORDOS. Con topes duros, eso si:
+# El aforo por zona TAMBIEN se escala con la profundidad (AFORO_ZONA_GROWTH, su propia rampa): si
+# solo creciera el numero de bichos del piso, un piso hondo seria el mismo mapa con mas salas de
+# tres, y lo que se quiere es que ABAJO TE ENCUENTRES CORROS MAS GORDOS. Con topes duros, eso si:
 #   - la sala se queda en 5 = MAX_COMBATIENTES (Enemy). Mas de cinco no caben en una pelea, asi
 #     que el sexto solo serviria para mirar; el sitio para crecer es el numero de salas, no el
 #     tamaño del corro. OJO: el aforo es cuantos DEAMBULAN, no cuantos te saltan: eso lo modula la
@@ -124,14 +124,18 @@ const TOPE_PASILLO := 2
 
 # ------------------------------------------------------------
 #  DENSIDAD POR PISO
-#  Los pisos van a ir CRECIENDO al bajar (~+10% por piso; el trazado aun esta por hacer).
-#  Si los topes fueran numeros fijos, un piso el doble de grande tendria la MITAD de
-#  densidad: la misma mazmorra se iria vaciando cuanto mas hondo, que es justo lo contrario
-#  de lo que tiene que pasar. Asi que TODO lo que se reparte por el piso (bichos, vetas,
-#  plantas) se declara para el PISO 1 y se escala con esta misma constante. El dia que el
-#  generador crezca de verdad, la densidad ya esta atada a ella y no hay que retocar nada.
+#  Si los topes fueran numeros fijos, un piso el doble de grande tendria la MITAD de densidad: la
+#  mazmorra se iria vaciando cuanto mas hondo, que es lo contrario de lo que tiene que pasar. Asi
+#  que TODO lo que se reparte por el piso (bichos, vetas, plantas) se declara para el PISO 1 y se
+#  escala con el AREA REAL del piso (ver escalar_con_el_piso -> _factor_area_piso).
+#
+#  OJO, que esto se torcio una vez: antes se escalaba con una constante propia del 10% compuesto,
+#  escrita cuando el plan era que el mapa TAMBIEN creciera un 10% por piso. Luego el area se
+#  implemento con pasos DECRECIENTES (7% -> 1.5%) y las dos curvas se separaron: los bichos crecian
+#  mucho mas rapido que el sitio donde meterlos y sobre el piso 18-20 el piso quedaba saturado (todas
+#  las salas al tope). Atandolo al area, la densidad es constante POR CONSTRUCCION y da igual como
+#  se toque la curva del mapa mañana.
 # ------------------------------------------------------------
-const FLOOR_GROWTH := 1.10
 
 # El MAPA crece con la profundidad, pero SIN TOPE y con el aumento DECRECIENTE: cada piso hondo
 # crece un poco más, cada vez menos, sin pararse nunca. El % de crecimiento de un piso arranca en
@@ -143,8 +147,20 @@ const AREA_STEP_MAX := 0.07    # crecimiento del primer piso que se baja (~7%)
 const AREA_STEP_MIN := 0.015   # suelo: nunca se crece MENOS que esto por piso (nunca se para)
 const AREA_STEP_DECAY := 0.88  # cuanto se acerca el paso al suelo cada piso (0..1: mas alto = decae mas lento)
 
+# CUANTOS hay de algo repartido por el piso (bichos, vetas, plantas), a partir de su numero del
+# PISO 1. Sigue al AREA del piso, asi que la densidad no cambia por bajar: un piso el doble de
+# grande trae el doble de cosas, ni mas ni menos.
 func escalar_con_el_piso(base: int) -> int:
-	return maxi(1, roundi(float(base) * pow(FLOOR_GROWTH, float(Game.current_floor - 1))))
+	return maxi(1, roundi(float(base) * _factor_area_piso()))
+
+
+# Rampa del AFORO POR ZONA (cuantos caben en UNA sala/pasillo). Va aparte de escalar_con_el_piso a
+# proposito: aquella reparte CANTIDAD por el mapa y por eso sigue al area; esta engorda el CORRO de
+# una sala, que es otra promesa de diseño ("abajo te encuentras corros mas gordos") y que ya tiene
+# freno propio en TOPE_SALA / TOPE_PASILLO. Por eso puede subir rapido sin desmadrarse.
+const AFORO_ZONA_GROWTH := 1.10
+func _aforo_zona(base: int) -> int:
+	return maxi(1, roundi(float(base) * pow(AFORO_ZONA_GROWTH, float(maxi(1, _piso_construido) - 1))))
 
 # El % de crecimiento del piso `n` (n = pisos bajados desde el 1, empezando en 1): arranca en
 # AREA_STEP_MAX y decae exponencialmente hacia AREA_STEP_MIN, sin bajar de él.
@@ -816,12 +832,12 @@ func _crear_zonas() -> void:
 		zona.intervalo_min = intervalo_min
 		zona.intervalo_max = intervalo_max
 		# Aforo por AREA: una sala grande sostiene mas bichos que un pasillo. Y el TECHO de ese
-		# aforo crece con la profundidad (misma FLOOR_GROWTH que el tope del piso): abajo las salas
+		# aforo crece con la profundidad (AFORO_ZONA_GROWTH, su propia rampa): abajo las salas
 		# aguantan corros mas gordos, hasta el tope duro (TOPE_SALA = lo que cabe en una pelea).
 		var tope: int = maxi(1, celdas.size() / celdas_por_bicho)
 		var techo_base: int = max_vivos_sala if es_sala else max_vivos_pasillo
 		var techo_duro: int = TOPE_SALA if es_sala else TOPE_PASILLO
-		var techo: int = mini(techo_duro, escalar_con_el_piso(techo_base))
+		var techo: int = mini(techo_duro, _aforo_zona(techo_base))
 		zona.max_vivos = mini(tope, techo)
 		# Que deambulen por SU zona y no se vayan a la de al lado.
 		var rect: Rect2i = z["rect"]
