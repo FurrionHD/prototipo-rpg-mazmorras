@@ -3,7 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://bgndhyu01suwv" path="res://scenes/actors/player/player.tscn" id="1_72ix8"]
 [ext_resource type="Script" uid="uid://06pqjtcbudsx" path="res://scripts/town/door.gd" id="4_l2q5x"]
 [ext_resource type="Script" uid="uid://diqkf3hwi054k" path="res://scripts/world/dungeon_floor.gd" id="5_floor"]
-[ext_resource type="Resource" path="res://resources/spawns/piso_comun.tres" id="6_tabla"]
+[ext_resource type="Resource" uid="uid://bo56i2vunwrp8" path="res://resources/spawns/piso_comun.tres" id="6_tabla"]
 
 [node name="Main" type="Node2D" unique_id=731661649]
 

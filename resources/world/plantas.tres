@@ -14,13 +14,11 @@ script = ExtResource("2_entrada")
 material = ExtResource("3_hierba")
 peso = 100.0
 peso_pleno = 8.0
-piso_debut = 1
 piso_pleno = 6
 
 [sub_resource type="Resource" id="E_raiz"]
 script = ExtResource("2_entrada")
 material = ExtResource("4_raiz")
-peso = 10.0
 peso_pleno = 48.0
 piso_debut = 2
 piso_pleno = 4
@@ -44,7 +42,6 @@ piso_pleno = 12
 [sub_resource type="Resource" id="E_umbria"]
 script = ExtResource("2_entrada")
 material = ExtResource("7_umbria")
-peso = 10.0
 peso_pleno = 48.0
 piso_debut = 8
 piso_pleno = 10
