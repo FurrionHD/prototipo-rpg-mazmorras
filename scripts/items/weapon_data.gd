@@ -50,7 +50,10 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 @export var velocidad_mult: float = 1.0   # por TAMAÑO; se aplica MULTIPLICATIVO a la velocidad
 @export var crit_bonus: float = 0.0       # se SUMA a la prob. de critico (≈ "afinidad" de MH)
 @export var evasion_bonus: float = 0.0    # +esquiva propia (armas agiles: daga). Se aplica de la mano principal
-@export var bloqueo: float = 0.0          # aporte al Defender si va en la mano secundaria
+# Aporte al Defender si el arma es a DOS MANOS (main) o va en la mano SECUNDARIA (dual). A PROPOSITO
+# por debajo del bloqueo del escudo mas pequeno (0.10): un ESCUDO siempre bloquea mas que cualquier
+# arma. El 2 manos es ofensivo, casi no bloquea. Ver Game.loadout_mods y ShieldData.bloqueo.
+@export var bloqueo: float = 0.0
 
 # --- Tipo de daño / aturdir (contundentes) ---
 @export var dano_tipo: DanoTipo = DanoTipo.CONTUNDENTE
