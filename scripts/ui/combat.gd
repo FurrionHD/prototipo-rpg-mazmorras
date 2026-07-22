@@ -1639,6 +1639,37 @@ func _log_hechizo(spell: SpellData, res_area: Array, res_reb: Array, foco: float
 	return total
 
 
+# Desglose de una habilidad MULTI-GOLPE en dos lineas, COMPARTIDO por tus habilidades y las del
+# enemigo (el problema -"6 golpes, 0 de daño" no dice nada- y la solucion son los mismos).
+#   titulo    -> lo que va antes de los golpes en la linea 1 ("Rafaga → 2. Slime", "2. Rata usa Frenesi").
+#   rastro    -> [{t: token, c: Combatant}] en orden de golpe; token = "4.21" / "falla" / "💥9.80".
+#   tocados   -> objetivos alcanzados (para el reparto y para saber si es multi-objetivo).
+#   sin_dar   -> linea 2 a devolver si no conecto NINGUN golpe (el llamante la redacta: "le has"/"te ha").
+#   sufijo    -> extra que se pega al final de la linea de daño (desglose de imbuicion del jugador; "" en el enemigo).
+# Emite la LINEA 1 (el rastro) y DEVUELVE la LINEA 2, que el llamante remata con sus extras
+# (estados, guardia, mana...) antes de mandarla al log. _etq() numera enemigos y deja pelados a los
+# aliados, asi que la misma funcion etiqueta bien en los dos sentidos.
+func _log_desglose(titulo: String, rastro: Array, tocados: Array, dano_por_obj: Dictionary,
+		total: float, sin_dar: String, sufijo: String = "") -> String:
+	var multi: bool = tocados.size() > 1
+	var aciertos: int = 0
+	var toks: Array = []
+	for g in rastro:
+		if String(g["t"]) != "falla":
+			aciertos += 1
+		toks.append("%s (%s)" % [g["t"], _etq(g["c"])] if multi else String(g["t"]))
+	if not toks.is_empty():
+		_set_log("⚔ %s:  %s" % [titulo, " · ".join(toks)])
+	if total <= 0.0:
+		return sin_dar
+	if multi:
+		var partes: Array = []
+		for c in tocados:
+			partes.append("%s (%.2f)" % [_etq(c), float(dano_por_obj.get(c, 0.0))])
+		return "… %.2f de daño: %s%s" % [total, ", ".join(partes), sufijo]
+	return "… %.2f de daño (%d de %d golpes).%s" % [total, aciertos, rastro.size(), sufijo]
+
+
 # Un golpe de 'elem' gasta los estados que lo amplificaban (Rayo sobre Mojado). Solo se
 # anuncia en la consola: en el log del combate seria una linea por golpe.
 func _gastar_amplificadores(objetivo: Combatant, elem: int) -> void:
@@ -2083,29 +2114,11 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	# que el log solo tiene LOG_MAX.
 	var msg: String
 	if ab.dano_mult > 0.0:
-		var multi: bool = tocados.size() > 1
-		var aciertos: int = 0
-		var toks: Array = []
-		for g in rastro:
-			if String(g["t"]) != "falla":
-				aciertos += 1
-			toks.append("%s (%s)" % [g["t"], _etq(g["c"])] if multi else String(g["t"]))
-		if not toks.is_empty():
-			_set_log("⚔ %s:  %s" % [
-				ab.nombre if multi else "%s → %s" % [ab.nombre, _etq(obj)], " · ".join(toks)])
-		# Linea 2: el reparto. Si no conecto ninguno se dice con todas las letras.
-		if total <= 0.0:
-			msg = "… no le has dado con ninguno de los %d golpe%s." % [
-				rastro.size(), "" if rastro.size() == 1 else "s"]
-		elif multi:
-			var partes: Array = []
-			for c in tocados:
-				partes.append("%s (%.2f)" % [_etq(c), float(dano_por_obj.get(c, 0.0))])
-			msg = "… %.2f de daño: %s%s" % [total, ", ".join(partes),
-				_desglose_imbue(total, total_imbue, mult_imbue)]
-		else:
-			msg = "… %.2f de daño (%d de %d golpes).%s" % [total, aciertos, rastro.size(),
-				_desglose_imbue(total, total_imbue, mult_imbue)]
+		var titulo: String = ab.nombre if tocados.size() > 1 else "%s → %s" % [ab.nombre, _etq(obj)]
+		var sin_dar: String = "… no le has dado con ninguno de los %d golpe%s." % [
+			rastro.size(), "" if rastro.size() == 1 else "s"]
+		msg = _log_desglose(titulo, rastro, tocados, dano_por_obj, total, sin_dar,
+			_desglose_imbue(total, total_imbue, mult_imbue))
 	else:
 		msg = "%s usa %s." % [_player.nombre, ab.nombre]
 	if mana_ganado > 0.0:
@@ -2573,6 +2586,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	# Quien encajo la habilidad EN GUARDIA: se dice en el log (si no, con multi-golpe parece que
 	# defender no sirvio de nada, cuando en realidad ha tapado todos los golpes).
 	var defendieron: Array[Combatant] = []
+	# Desglose para el log (como en tus habilidades): rastro golpe a golpe y reparto por aliado.
+	var rastro: Array = []
+	var dano_por_obj: Dictionary = {}
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
 		if ab.es_area():
@@ -2586,6 +2602,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				var sub := _enemy_resolver_golpes(e, ab, t, golpes, esc, contra_txt == "",
 					es_princ or ab.area_efectos_secundarios, esc_prob)
 				total += float(sub["total"]); estados_log += sub["estados"]
+				rastro += sub["rastro"]; dano_por_obj[t] = float(dano_por_obj.get(t, 0.0)) + float(sub["total"])
 				if not tocados.has(t): tocados.append(t)
 				if bool(sub["defendio"]) and not defendieron.has(t): defendieron.append(t)
 				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
@@ -2601,6 +2618,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				if t == null: break
 				var sub := _enemy_resolver_golpes(e, ab, t, 1, 1.0, contra_txt == "", true)
 				total += float(sub["total"]); estados_log += sub["estados"]
+				rastro += sub["rastro"]; dano_por_obj[t] = float(dano_por_obj.get(t, 0.0)) + float(sub["total"])
 				if not tocados.has(t): tocados.append(t)
 				if bool(sub["defendio"]) and not defendieron.has(t): defendieron.append(t)
 				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
@@ -2609,6 +2627,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			# SINGLE (de siempre): todos los golpes al mismo objetivo.
 			var sub := _enemy_resolver_golpes(e, ab, obj, golpes, 1.0, true, true)
 			total = float(sub["total"]); estados_log = sub["estados"]; contra_txt = String(sub["contra"])
+			rastro = sub["rastro"]; dano_por_obj[obj] = float(sub["total"])
 			tocados.append(obj)
 			if bool(sub["defendio"]): defendieron.append(obj)
 		print("        total: %.2f de daño en %d golpe%s (%d objetivo%s)" % [
@@ -2641,15 +2660,20 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			invocados += 1
 		_update_hp()   # refresca los bloques revividos/nuevos (nombre + barra)
 
-	var msg: String = "%s usa %s" % [_etq(e), ab.nombre]
-	if tocados.size() > 1:
-		msg += " y alcanza a %d de los tuyos" % tocados.size()
+	# Mensaje: con daño va el DESGLOSE de dos lineas (mismo helper que tus habilidades: rastro golpe
+	# a golpe + reparto por aliado); de puro estado, la cabecera simple (no hay golpes que contar).
+	var msg: String
+	if ab.dano_mult > 0.0:
+		var titulo: String = "%s usa %s" % [_etq(e), ab.nombre]
+		if tocados.size() <= 1:
+			titulo += " → %s" % _etq(obj)
+		var sin_dar: String = "… no te ha dado con ninguno de los %d golpe%s." % [
+			rastro.size(), "" if rastro.size() == 1 else "s"]
+		msg = _log_desglose(titulo, rastro, tocados, dano_por_obj, total, sin_dar)
 	else:
-		msg += " contra %s" % obj.nombre
-	if total > 0.0:
-		msg += ": %.2f de daño (%d golpe%s)." % [total, golpes, "" if golpes == 1 else "s"]
-	else:
-		msg += "."
+		msg = "%s usa %s" % [_etq(e), ab.nombre]
+		msg += " y alcanza a %d de los tuyos." % tocados.size() if tocados.size() > 1 \
+			else " contra %s." % _etq(obj)
 	if not defendieron.is_empty():
 		# La guardia tapa TODOS los golpes del turno; si no se dice, con una habilidad multi-golpe
 		# parece que defender no ha servido de nada.
@@ -2701,11 +2725,13 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	var conecto: int = 0
 	var estados: Array = []
 	var contra: String = ""
+	var rastro: Array = []   # un token por golpe para el desglose del log (mismo formato que el jugador)
 	for i in n_golpes:
 		var result := StatsMath.resolve_attack(e, t, defendiendo)
 		if result.evaded:
 			print("        [%s] golpe %d: esquivado 💨" % [t.nombre, i + 1])
 			Game.contar_esquiva()   # contador oculto de Reflejos
+			rastro.append({"t": "falla", "c": t})
 			if t.en_guardia and permitir_contra and contra == "":
 				contra = _contraatacar(e, t)
 				if not e.is_alive():
@@ -2717,6 +2743,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
 			total += dmg
 			conecto += 1
+			rastro.append({"t": "💥%.2f" % dmg if result.crit else "%.2f" % dmg, "c": t})
 			var et := "[%s] golpe %d: %s %.2f" % [t.nombre, i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
 			if ab.efectos_por_golpe and aplicar_efectos:
 				var ap: Array = _enemy_tirar_efectos(e, ab, t, escala, "objetivo", escala_prob)
@@ -2738,7 +2765,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	# 'defendio' sube al log: la guardia dura TODO el turno y tapa todos los golpes, pero si no se
 	# dice, con una habilidad multi-golpe parece que el escudo no ha hecho nada.
 	return {"total": total, "conecto": conecto, "estados": estados, "contra": contra,
-		"defendio": defendiendo}
+		"defendio": defendiendo, "rastro": rastro}
 
 
 # Tira los estados (StatusApplication) de una habilidad del enemigo 'e'. Respeta 'en_objetivo':
