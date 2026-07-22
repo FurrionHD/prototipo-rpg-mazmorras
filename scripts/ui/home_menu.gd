@@ -163,6 +163,8 @@ func _fila_equipo(i: int) -> void:
 			_rebuild())
 	fila.add_child(fuera)
 
+	fila.add_child(_boton_aspecto(pj))
+
 
 func _fila_banquillo(pj: PersonajeData) -> void:
 	var fila := HBoxContainer.new()
@@ -205,6 +207,41 @@ func _fila_banquillo(pj: PersonajeData) -> void:
 		_aviso_ok = true
 		_rebuild())
 	fila.add_child(quitar)
+
+	fila.add_child(_boton_aspecto(pj))
+
+
+# Editar la CARA de cualquiera de los tuyos, esten en el equipo o en el banquillo. Antes solo el
+# personaje de la ranura se podia retocar (desde el menu principal) y los companeros se quedaban
+# con el aspecto del dia que los contrataste para siempre.
+func _boton_aspecto(pj: PersonajeData) -> Button:
+	var b := Button.new()
+	b.text = "Aspecto"
+	b.tooltip_text = "Cambia su cara, su color y su brillo. Ni su progreso ni su equipo se tocan."
+	b.pressed.connect(func(): _editar_aspecto(pj))
+	return b
+
+
+func _editar_aspecto(pj: PersonajeData) -> void:
+	CreadorPersonaje.abrir(self, "ASPECTO  ·  %s" % pj.nombre,
+		"Solo cambia cómo se ve. Su progreso y su equipo no se tocan.",
+		"Guardar cambios",
+		{"nombre": pj.nombre, "color": pj.color, "metalico": pj.metalico,
+			"color_alpha": pj.color_alpha, "imagen": pj.imagen},
+		func(nombre: String, color: Color, metalico: float, tinte: float, png: PackedByteArray):
+			var limpio: String = nombre.strip_edges()
+			pj.nombre = limpio if limpio != "" else pj.nombre
+			pj.color = color
+			pj.metalico = clampf(metalico, 0.0, 1.0)
+			pj.color_alpha = clampf(tinte, 0.0, 1.0)
+			pj.set_imagen(png)
+			# Repintar el cuerpo y el sequito: si no, el cambio no se ve hasta cambiar de escena.
+			var jugador: Node = get_tree().get_first_node_in_group("player")
+			if jugador != null and jugador.has_method("refrescar_grupo"):
+				jugador.refrescar_grupo()
+			_aviso = "%s cambia de aspecto." % pj.nombre
+			_aviso_ok = true
+			_rebuild())
 
 
 # Cuantas piezas lleva puestas (para no ofrecer "recoger" a quien va desnudo).
