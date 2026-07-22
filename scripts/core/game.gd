@@ -304,8 +304,13 @@ const RETO_MAX_FISICO := 5.0
 const PODER_JUGADOR_SUELO := 40.0
 # Ganancias base por fuente (ajustables).
 const GAIN_FUERZA_ATAQUE := 0.15
-const GAIN_FUERZA_PESO := 0.0    # DESACTIVADA por ahora (rediseñar sin romper escalado)
-const GAIN_AGILIDAD_CORRER := 0.12
+# AGILIDAD por HUIR: no es "correr cerca de un bicho" (eso se farmeaba dandole vueltas alrededor),
+# es ABRIR HUECO con uno que te esta persiguiendo. Solo paga el hueco NUEVO, o sea lo que supera la
+# mayor distancia que has llegado a sacarle en esa misma persecucion (ver player.gd, marca de agua).
+# Por eso el valor es mas alto que el viejo 0.12: ya no es un goteo continuo mientras haya un bicho
+# al lado, sino un pago acotado por fuga (de la distancia de ataque a lose_range hay ~176 px).
+# PROVISIONAL -> Excel/playtest.
+const GAIN_AGILIDAD_HUIDA := 0.25
 const GAIN_RESISTENCIA_GOLPE := 0.23
 # SUBIDA DE PRUEBA (20/07): la RECOLECCION rendia demasiado poca stat por pieza — un material base
 # daba ~0.6, y farmear se hacia largo. Se multiplica x2.5 la ganancia de los TRES minijuegos de

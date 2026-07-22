@@ -145,8 +145,8 @@ resources/     datos como .tres (items, enemigos, dificultad)
 ### Fase 6 — Inventario + HUD + Excelia ✅ COMPLETADA
 - [x] Inventario visual: panel con [I], muestra habilidades (visible/interno), cristales, drops, peso, valor estimado.
 - [x] Excelia (subida de habilidades por uso): interno (float) vs visible (int).
-- [x] Fuerza: cargar peso en sobrecarga. Resistencia: recibir daño×peligrosidad.
-  Agilidad: correr cerca de enemigos. Destreza: minijuego de extracción.
+- [x] Resistencia: recibir daño×peligrosidad. Destreza: minijuego de extracción.
+  Agilidad: **huir** de un enemigo que te persigue (ver abajo). Fuerza-por-peso: descartada.
 - [x] Peso y capacidad: zurron 25px + bonus Fuerza (+50% a 999), sobrecarga gradual >80%.
 - [x] Actualizar estado (tecla U → hogar después): aplica interno a visible.
 - [x] Enemigos: variación de poder se estrecha a mayor nivel; suma capada a 999/habilidad.
@@ -177,7 +177,20 @@ Curva de subida de habilidades afinada en TODOS los tramos (novato↔experto × 
 - [x] **Fixes:** rebote de puertas al mantener F (jugador ignora teclas ya pulsadas al
   aparecer); inventario congelado tras recargar con [I] abierto (HUD resetea el flag);
   tienda con desglose por cristal y constante `PRECIO_AZAR`.
-- Pendiente: KAN-84 rediseñar Fuerza-por-peso (sigue desactivada, `GAIN_FUERZA_PESO=0`).
+- **Fuerza-por-peso: DESCARTADA** (KAN-84 se puede cerrar). Llevaba desactivada con
+  `GAIN_FUERZA_PESO=0` y se ha borrado el código muerto en vez de rediseñarla.
+
+### Excelia de Agilidad: HUIR de verdad
+Antes se pagaba por *correr cerca* de un enemigo, y eso se farmeaba dándole vueltas alrededor.
+Ahora se paga por **abrir hueco con uno que te persigue a TI** (`enemy.persigue_a`), con una
+**marca de agua**: solo cobra lo que supera la mayor distancia que le has sacado en esa misma
+persecución (`player._tick_huida`).
+- Correr en círculos → la distancia nunca bate el récord → no paga.
+- Yo-yo (dejarse alcanzar y volver a huir) → el tramo ya cobrado no se repite.
+- Hay que ir **corriendo**; y el récord se olvida en teletransportes y al cambiar de líder
+  (`_reset_huida`), que si no regalarían el hueco de golpe.
+- Techo natural: al pasar del `lose_range` del bicho te pierde y la persecución acaba.
+- `GAIN_AGILIDAD_HUIDA = 0.25` por cada `_HUIDA_TICK = 55` px de hueco nuevo. PROVISIONAL.
 
 ### Combate avanzado — parte 1: críticos/evasión/defender (KAN-52/53/54) ✅
 - [x] **Crítico** (KAN-52) y **evasión** (KAN-53) por CONTEST relativo (`stats_math._contest`):

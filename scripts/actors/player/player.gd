@@ -73,12 +73,16 @@ var _drink_was: bool = false   # antirebote de la tecla Q (beber pocion)
 # del array sea el mismo que el de Game.party y no haya que restar 1 en ningun sitio.
 var _lider_was: Array[bool] = [false, false, false]
 
-# Excelia (subida de habilidades por uso): distancia recorrida para Fuerza
-# (cargando en sobrecarga) y Agilidad (corriendo cerca de un enemigo).
-var _last_pos: Vector2 = Vector2.ZERO
-var _dist_overload: float = 0.0
-var _dist_run: float = 0.0
-const _DIST_TICK := 110.0       # px recorridos por cada "tick" de ganancia
+# Excelia de AGILIDAD: HUIR de un enemigo que te persigue (ver _tick_huida).
+#   _huida_perseguidor = el bicho que nos persigue AHORA (null = no estamos huyendo).
+#   _huida_record      = la mayor distancia que le hemos sacado en ESTA persecucion (marca de
+#                        agua). Solo se cobra lo que la supera: es lo que impide farmear dandole
+#                        vueltas alrededor o dejandose alcanzar para volver a huir (yo-yo).
+#   _huida_acum        = hueco nuevo acumulado, pendiente de convertirse en ticks.
+var _huida_perseguidor: Node2D = null
+var _huida_record: float = 0.0
+var _huida_acum: float = 0.0
+const _HUIDA_TICK := 55.0       # px de hueco NUEVO por cada "tick" de ganancia
 const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
 
 # Radio de PELIGRO: correr solo cuesta aguante si hay un bicho a menos de esto. Correr por el
@@ -114,7 +118,6 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/material_spawner.gd").new())  # spawner de vetas/plantas (dev/test)
 	add_child(preload("res://scripts/ui/keys_help.gd").new())    # ayuda de teclas en pantalla (F1)
 	add_child(preload("res://scripts/ui/pause_menu.gd").new())   # menu de pausa (ESC): guardar / salir
-	_last_pos = global_position
 
 	# El aguante VIAJA en la ficha del lider (pj.stamina), igual que el de los companeros: por eso
 	# cambiar de piso o de escena ya no rellena la barra (sigues como estabas). -1 = a tope (partida
@@ -244,28 +247,8 @@ func _physics_process(delta: float) -> void:
 	Game.tick_alboroto(delta, movement_mode)
 
 	# --- Excelia: subida de habilidades por uso (interno; se aplica en el hogar) ---
-	var moved: float = global_position.distance_to(_last_pos)
-	_last_pos = global_position
-
-	# Fuerza: cargar peso EN SOBRECARGA, solo mientras te MUEVES (no pasivo).
-	if moved > 0.0 and Game.esta_sobrecargado():
-		_dist_overload += moved
-		while _dist_overload >= _DIST_TICK:
-			_dist_overload -= _DIST_TICK
-			var over: float = Game.ratio_carga() - Game.overload_threshold
-			Game.ganar("fuerza", clampf(over * 5.0, 0.0, Game.RETO_MAX_FISICO), Game.GAIN_FUERZA_PESO,
-				Game.RETO_MAX_FISICO)
-
-	# Agilidad: CORRER cerca de un enemigo (correr sin enemigos no sirve). Reusa el barrido de
-	# arriba; su radio es el SUYO (_AGILIDAD_RANGE), mas corto que el del aguante.
-	if moved > 0.0 and movement_mode == 2:
-		var enemigo: Node = enemigo_cerca if dist_enemigo <= _AGILIDAD_RANGE else null
-		if enemigo != null:
-			_dist_run += moved
-			while _dist_run >= _DIST_TICK:
-				_dist_run -= _DIST_TICK
-				Game.ganar("agilidad", Game.reto(_poder_enemigo_nodo(enemigo), _nivel_enemigo_nodo(enemigo)),
-					Game.GAIN_AGILIDAD_CORRER, Game.RETO_MAX_FISICO)
+	# Agilidad: HUIR de verdad. Ver _tick_huida.
+	_tick_huida()
 
 	# DOS teclas, y no una: ATACAR y TOCAR COSAS son intenciones distintas y no se pueden
 	# confundir. Con una sola tecla, ir a extraer un cristal con un bicho cerca podia
@@ -407,9 +390,9 @@ func refrescar_lider() -> void:
 	# El cuerpo que mueves se va a donde estaba el elegido (la camara hace el viaje detras).
 	if previas.has(nuevo):
 		global_position = previas[nuevo]
-		# Cambiar de lider NO es andar: si no se resincroniza, el salto contaria como distancia
-		# recorrida y regalaria excelia de Fuerza/Agilidad.
-		_last_pos = global_position
+		# Cambiar de lider NO es huir: el cuerpo salta al sitio del que iba delante, y sin esto ese
+		# salto contaria como hueco abierto al perseguidor y regalaria excelia de Agilidad.
+		_reset_huida()
 
 	# El aguante del que hasta ahora iba delante se queda en SU ficha, incluido si estaba sin
 	# fuelle: mandarlo atras no lo descansa.
@@ -601,6 +584,73 @@ func aguante_de_grupo(pj: PersonajeData) -> Vector2:
 	return Vector2(_aguante_de(pj), _calc_max_aguante(pj))
 
 
+# ============================================================
+#  EXCELIA DE AGILIDAD: HUIR
+#  Huir no es "correr con un bicho al lado": es ABRIR HUECO con uno que te esta persiguiendo a TI.
+#  La diferencia importa, porque lo primero se farmea trivialmente dandole vueltas alrededor.
+#
+#  La regla es una MARCA DE AGUA: se guarda la mayor distancia que le has sacado al perseguidor en
+#  esta misma persecucion y solo se cobra lo que la SUPERA. De ahi salen las dos garantias:
+#   - Dar vueltas en circulo: la distancia oscila pero nunca bate el record -> no paga nada.
+#   - Yo-yo (dejarse alcanzar y volver a huir): el tramo ya cobrado no se vuelve a pagar, porque
+#     el record NO se reinicia mientras el mismo bicho te siga persiguiendo.
+#  El techo lo pone el propio bicho: al pasar de su lose_range te pierde y la persecucion acaba.
+#
+#  Y hay que estar CORRIENDO: huir andando no es huir. Eso ademas lo cose con el aguante, que se
+#  gasta justo cuando tienes a alguien dentro de _PELIGRO_RANGE.
+# ============================================================
+
+func _tick_huida() -> void:
+	# ¿Nos sigue persiguiendo el mismo? (O(1): no hace falta barrer el grupo entero.)
+	if _huida_perseguidor != null and (not is_instance_valid(_huida_perseguidor) \
+			or not _huida_perseguidor.persigue_a(self)):
+		_reset_huida()
+
+	# Sin perseguidor, buscamos uno nuevo, pero solo si estamos corriendo (es cuando puede pagar).
+	if _huida_perseguidor == null:
+		if movement_mode != 2:
+			return
+		var nuevo: Node2D = _perseguidor()
+		if nuevo == null:
+			return
+		_huida_perseguidor = nuevo
+		# El record arranca en la distancia ACTUAL: lo que ya tenias de ventaja no se te paga.
+		_huida_record = global_position.distance_to(nuevo.global_position)
+		_huida_acum = 0.0
+		return
+
+	# Solo se cobra corriendo, y solo el hueco que bate el record.
+	if movement_mode != 2:
+		return
+	var d: float = global_position.distance_to(_huida_perseguidor.global_position)
+	if d <= _huida_record:
+		return
+	_huida_acum += d - _huida_record
+	_huida_record = d
+	while _huida_acum >= _HUIDA_TICK:
+		_huida_acum -= _HUIDA_TICK
+		Game.ganar("agilidad",
+			Game.reto(_poder_enemigo_nodo(_huida_perseguidor), _nivel_enemigo_nodo(_huida_perseguidor)),
+			Game.GAIN_AGILIDAD_HUIDA, Game.RETO_MAX_FISICO)
+
+
+# Olvida la persecucion en curso. Se llama al perderla y, MUY importante, en los teletransportes:
+# un salto de posicion (cambiar de lider, bajar de piso) dispararia el hueco de golpe y regalaria
+# excelia por algo que no has corrido.
+func _reset_huida() -> void:
+	_huida_perseguidor = null
+	_huida_record = 0.0
+	_huida_acum = 0.0
+
+
+# El enemigo que me persigue a MI (no al companero de al lado). null si ninguno.
+func _perseguidor() -> Node2D:
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(e) and e.has_method("persigue_a") and e.persigue_a(self):
+			return e as Node2D
+	return null
+
+
 # Enemigo VIVO mas cercano y a que distancia esta: [Node, float]. Sin nadie cerca devuelve
 # [null, INF]. Se barre UNA vez por frame y el resultado lo comparten los dos radios que lo
 # necesitan (el aguante con _PELIGRO_RANGE y la Excelia de Agilidad con _AGILIDAD_RANGE), que
@@ -721,11 +771,11 @@ func _try_interact() -> void:
 
 
 # Recoloca al jugador (lo usa el generador del piso para plantarte en la sala de
-# entrada, que cambia con cada mapa). Reinicia la referencia de distancia: un
-# teletransporte NO es distancia recorrida y no debe contar como excelia.
+# entrada, que cambia con cada mapa). Olvida la persecucion en curso: un
+# teletransporte NO es huir y no debe contar como excelia.
 func recolocar(pos: Vector2) -> void:
 	global_position = pos
-	_last_pos = pos
+	_reset_huida()
 	# EL SEQUITO VIENE CONTIGO. Esto no es un detalle: los companeros son cuerpos con colision, y
 	# el rastro que traian apunta al sitio del que acabas de salir. Sin rehacerlo aqui se quedaban
 	# plantados donde nace el jugador en la escena -que en la mazmorra es roca maciza-, sin poder

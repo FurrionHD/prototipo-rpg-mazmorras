@@ -375,6 +375,14 @@ func _chase(delta: float) -> void:
 		_cancelar_aviso()
 
 
+# ¿Estoy persiguiendo a ESTE de ahi? Lo pregunta el jugador para saber si esta HUYENDO de verdad
+# (la excelia de Agilidad, ver player._tick_huida): perseguir a su companero no le vale, tiene que
+# ser a el. Tras un combate salgo en WANDER (ver _congelar_tras_combate), asi que la ventana de
+# escape no cuenta como persecucion y no se puede farmear.
+func persigue_a(quien: Node) -> bool:
+	return _state == State.CHASE and _objetivo == quien
+
+
 # Velocidad de persecucion = la suya de merodeo x lo que declare su .tres.
 func _chase_speed() -> float:
 	var mult: float = data.chase_speed_mult if data != null else 1.0
