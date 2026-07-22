@@ -904,8 +904,8 @@ func _refrescar_chips(c: Combatant, box: Container, idx: int) -> void:
 	# Va en los chips como todo lo demas, asi que sirve igual para ti y para un companero.
 	if c.provocar_turnos > 0:
 		_chip(box, "🎯 %dt" % c.provocar_turnos,
-			"PROVOCANDO: %d turno%s.\nLos enemigos pesan x%d tu nombre al elegir a quien pegar.\nNo es forzado: solo inclina la balanza." % [
-				c.provocar_turnos, "" if c.provocar_turnos == 1 else "s", int(PROVOCA_PESO)], idx)
+			"Provocación (%d turno%s)\nLos enemigos centran su atención en ti: te atacan más." % [
+				c.provocar_turnos, "" if c.provocar_turnos == 1 else "s"], idx)
 	var imb: String = c.imbue_etiqueta()
 	if imb != "":
 		_chip(box, imb, c.imbue_resumen(), idx)
@@ -2564,6 +2564,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	var contra_txt: String = ""
 	# Aliados que han recibido ALGO (para procesar caidas al final, sean uno o varios).
 	var tocados: Array[Combatant] = []
+	# Quien encajo la habilidad EN GUARDIA: se dice en el log (si no, con multi-golpe parece que
+	# defender no sirvio de nada, cuando en realidad ha tapado todos los golpes).
+	var defendieron: Array[Combatant] = []
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
 		if ab.es_area():
@@ -2578,6 +2581,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 					es_princ or ab.area_efectos_secundarios, esc_prob)
 				total += float(sub["total"]); estados_log += sub["estados"]
 				if not tocados.has(t): tocados.append(t)
+				if bool(sub["defendio"]) and not defendieron.has(t): defendieron.append(t)
 				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
 				if not e.is_alive(): break
 		elif ab.reparto_por_golpe:
@@ -2588,6 +2592,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				var sub := _enemy_resolver_golpes(e, ab, t, 1, 1.0, contra_txt == "", true)
 				total += float(sub["total"]); estados_log += sub["estados"]
 				if not tocados.has(t): tocados.append(t)
+				if bool(sub["defendio"]) and not defendieron.has(t): defendieron.append(t)
 				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
 				if not e.is_alive(): break
 		else:
@@ -2595,6 +2600,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			var sub := _enemy_resolver_golpes(e, ab, obj, golpes, 1.0, true, true)
 			total = float(sub["total"]); estados_log = sub["estados"]; contra_txt = String(sub["contra"])
 			tocados.append(obj)
+			if bool(sub["defendio"]): defendieron.append(obj)
 		print("        total: %.2f de daño en %d golpe%s (%d objetivo%s)" % [
 			total, golpes, "" if golpes == 1 else "s", tocados.size(), "" if tocados.size() == 1 else "s"])
 	else:
@@ -2634,6 +2640,14 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		msg += ": %.2f de daño (%d golpe%s)." % [total, golpes, "" if golpes == 1 else "s"]
 	else:
 		msg += "."
+	if not defendieron.is_empty():
+		# La guardia tapa TODOS los golpes del turno; si no se dice, con una habilidad multi-golpe
+		# parece que defender no ha servido de nada.
+		var nombres_def: Array = []
+		for c in defendieron:
+			nombres_def.append(c.nombre)
+		msg += "  🛡️ %s aguanta%s en guardia (menos daño)." % [
+			", ".join(nombres_def), "" if defendieron.size() == 1 else "n"]
 	if not estados_log.is_empty():
 		# Neutro: las entradas ya dicen "(a sí mismo)" cuando el estado es un buff propio.
 		msg += "  Aplica: %s." % ", ".join(estados_log)
@@ -2711,7 +2725,10 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 		var dmg_mult: float = clampf(total / maxf(1.0, float(t.max_hp) * 0.1), 0.5, 2.0)
 		Game.ganar("resistencia", _reto(e) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
 			Game.RETO_MAX_FISICO, pj_t)
-	return {"total": total, "conecto": conecto, "estados": estados, "contra": contra}
+	# 'defendio' sube al log: la guardia dura TODO el turno y tapa todos los golpes, pero si no se
+	# dice, con una habilidad multi-golpe parece que el escudo no ha hecho nada.
+	return {"total": total, "conecto": conecto, "estados": estados, "contra": contra,
+		"defendio": defendiendo}
 
 
 # Tira los estados (StatusApplication) de una habilidad del enemigo 'e'. Respeta 'en_objetivo':

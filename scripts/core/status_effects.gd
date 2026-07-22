@@ -278,46 +278,41 @@ class Instance extends RefCounted:
 	# campos de esta instancia y de su definicion: la 'descripcion' del catalogo es solo
 	# SABOR y no repite ni una cifra (si lo hiciera, se quedaria vieja al tocar el balance).
 	func resumen() -> String:
+		# Cabecera: icono, nombre y lo que le queda, todo en una linea. Debajo, QUE TE HACE en
+		# frases cortas. Nada de parentesis explicando la mecanica por dentro: el tooltip se lee
+		# de un vistazo en mitad de un turno, no es documentacion.
 		var lineas: PackedStringArray = []
-		lineas.append("%s  %s" % [str(d.get("icono", "?")), str(d.get("nombre", "?"))])
+		lineas.append("%s  %s  ·  %d turno%s" % [
+			str(d.get("icono", "?")), str(d.get("nombre", "?")), turns, "" if turns == 1 else "s"])
 
 		# Que te HACE, con la magnitud REAL de esta instancia (stacks ya dentro).
 		if dot_damage() > 0.0:
-			lineas.append("Te hace %.1f de daño al empezar cada uno de tus turnos." % dot_damage())
+			lineas.append("Te hace %.1f de daño cada turno." % dot_damage())
 		if heal_amount() > 0.0:
-			lineas.append("Te cura %.1f de vida al empezar cada uno de tus turnos." % heal_amount())
+			lineas.append("Te cura %.1f de vida cada turno." % heal_amount())
 		if mana_amount() > 0.0:
-			lineas.append("Te devuelve %.1f de maná al empezar cada uno de tus turnos." % mana_amount())
-		for par in [["atk_mult", "ataque"], ["def_mult", "defensa"], ["spd_mult", "velocidad"]]:
+			lineas.append("Te devuelve %.1f de maná cada turno." % mana_amount())
+		for par in [["atk_mult", "Haces"], ["def_mult", "Aguantas"], ["spd_mult", "Te mueves"]]:
 			if not d.has(par[0]):
 				continue
 			var m: float = atk_mult() if par[0] == "atk_mult" else \
 				(def_mult() if par[0] == "def_mult" else spd_mult())
-			lineas.append("%s: %+d%% (ahora mismo, con los stacks que llevas)" % [
-				str(par[1]).capitalize(), roundi((m - 1.0) * 100.0)])
+			var pct: int = roundi((m - 1.0) * 100.0)
+			lineas.append("%s un %d%% %s." % [
+				str(par[1]), absi(pct), "más" if pct > 0 else "menos"])
 		if is_stun():
 			lineas.append("Pierdes el turno.")
 		if stun_prob_mult() != 1.0:
-			lineas.append("Te aturden %+d%% más fácil." % roundi((stun_prob_mult() - 1.0) * 100.0))
+			lineas.append("Te aturden más fácil.")
 		for id_inm in (d.get("inmune", []) as Array):
-			lineas.append("Mientras dure, eres inmune a: %s." % str(StatusEffects.def(id_inm).get("nombre", "?")))
+			lineas.append("No te puede afectar: %s." % str(StatusEffects.def(id_inm).get("nombre", "?")))
 
-		# Stacks y como apila (solo si apila de verdad: si no, es ruido).
+		# Stacks: solo el contador, si de verdad apila. El COMO apila es cocina interna.
 		var maxs: int = int(d.get("max_stacks", 1))
 		if maxs > 1:
-			var modo: String = str(d.get("stack_mode", "none"))
-			var como: String = ""
-			if modo == "merge":
-				como = "cada stack multiplica el efecto" if float(d.get("dot_stack_mult", 1.0)) > 1.0 \
-					else "los stacks comparten duración"
-			elif modo == "independent":
-				como = "cada stack dura por su cuenta"
-			lineas.append("Stacks: %d de %d%s." % [stacks, maxs, "" if como == "" else "  (%s)" % como])
+			lineas.append("Acumulado %d de %d." % [stacks, maxs])
 
-		lineas.append("Le quedan %d turno%s." % [turns, "" if turns == 1 else "s"])
-
-		var desc: String = str(d.get("descripcion", ""))
-		if desc != "":
-			lineas.append("")
-			lineas.append(desc)
+		# La frase de SABOR ('descripcion' del catalogo) NO se pinta aqui: en mitad de un turno lo
+		# que hace falta es saber que te esta pasando, no leerse un parrafo. Se queda en el catalogo
+		# para donde tenga sentido (ficha/bestiario), que es donde se lee con calma.
 		return "\n".join(lineas)
