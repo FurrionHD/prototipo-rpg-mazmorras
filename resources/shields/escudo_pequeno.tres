@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/items/shield_data.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/abilities/golpe_escudo_pequeno.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/abilities/provocacion.tres" id="3"]
 
 [resource]
 script = ExtResource("1")
@@ -12,5 +13,5 @@ bloqueo = 0.1
 resist_estados_base = 0.03
 velocidad_mult = 0.95
 evasion_penal = 0.03
-habilidades = [ExtResource("2")]
+habilidades = [ExtResource("2"), ExtResource("3")]
 valor_base = 300

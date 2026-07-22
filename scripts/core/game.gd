@@ -2711,6 +2711,10 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	c.defend_block = m["defend_block"]
 	c.evasion_penal = m["evasion_penal"]
 	c.defend_defense = m["defend_defense"]   # la del escudo: solo cuenta el turno que Defiendes
+	# AGGRO PASIVO: llevar ESCUDO ya te hace mas apetecible como objetivo, sin gastar turno (el que
+	# va tapado y plantado delante se come mas golpes). defend_defense > 0 <=> hay escudo en la off.
+	# La Provocacion multiplica esto durante unos turnos. Ver combat.gd._elegir_objetivo_enemigo.
+	c.aggro_base = Combatant.AGGRO_ESCUDO if float(m["defend_defense"]) > 0.0 else 1.0
 
 	# Armadura: DEF plana aditiva + % de reduccion (media ponderada, acotada) +
 	# velocidad + esquiva (Evasion) + resist. criticos (ResistCrit).

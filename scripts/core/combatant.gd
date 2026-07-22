@@ -103,6 +103,18 @@ var guardia_contra_mult: float = 1.0    # daño del riposte al esquivar (vs un b
 # (EVADE_MAX 0.35 -> EVADE_MAX_BUFF 0.65) en StatsMath.resolve_attack.
 var evasion_bonus: float = 0.0
 
+# --- AGGRO / PROVOCACION (rol de tanque) ---
+# Peso PASIVO al sortear a quien pega el enemigo (1.0 = uno mas del monton). Llevar ESCUDO lo sube
+# SIN gastar turno: el que va tapado y plantado delante se come mas golpes de forma natural. Lo pone
+# Game al montar el combatiente (ver crear_player_combatant). Los enemigos se quedan en 1.0.
+var aggro_base: float = 1.0
+const AGGRO_ESCUDO := 2.0   # llevar escudo = el doble de probable que te elijan a ti
+
+# Turnos que le quedan a ESTE combatiente PROVOCANDO. Mientras > 0, MULTIPLICA su aggro (ver
+# combat.gd.PROVOCA_PESO y _elegir_objetivo_enemigo). Estado POR COMBATE (un Combatant nuevo por
+# combate -> arranca a 0). Lo pone la habilidad de escudo; baja 1 por turno suyo.
+var provocar_turnos: int = 0
+
 # --- FOCO ARCANO (Canalización reworkeada, KAN-56/57) ---
 # Cargas que amplifican tus HECHIZOS: cada hechizo OFENSIVO que lanzas gasta 1 y pega
 # +FOCO_BONUS. No expiran por turnos (aguantan el canto largo); se resetean por combate.

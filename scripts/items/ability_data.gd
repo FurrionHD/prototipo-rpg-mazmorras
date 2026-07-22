@@ -144,6 +144,12 @@ func es_area() -> bool:
 # que trae "En guardia" (postura de contraataque de duelo). Game la filtra en el loadout.
 @export var requiere_off_libre: bool = false
 
+# PROVOCACION (taunt de escudo): N > 0 = al usarla, quien la lanza queda PROVOCANDO N turnos suyos.
+# Mientras dure, los enemigos TIENDEN a pegarle mas a el (pesa mas en su sorteo de objetivo), pero
+# NO todos los golpes van a el: solo inclina la balanza. De pura utilidad (dano_mult = 0). El estado
+# (turnos restantes) vive en el Combatant (recurso compartido). Ver combat.gd._elegir_objetivo_enemigo.
+@export var provoca_turnos: int = 0
+
 # --- POSTURA DE CONTRAATAQUE (estoque, "En guardia"): dura hasta tu proxima accion, como
 # el Defender. Bajas tu velocidad a cambio de mas reduccion de daño (rama defending) y mas
 # evasion; cada golpe que ESQUIVAS lo devuelves (riposte). Marca dano_mult = 0 (utilitaria). ---
@@ -260,6 +266,8 @@ func resumen(manos: int = 1) -> String:
 		p.append("+%.0f MP" % mana_gain)
 	if bloqueo_turnos > 0:
 		p.append("guardia %dt" % bloqueo_turnos)
+	if provoca_turnos > 0:
+		p.append("provoca %dt" % provoca_turnos)
 	for a in efectos:
 		var et: String = _efecto_txt(a)
 		if et != "":

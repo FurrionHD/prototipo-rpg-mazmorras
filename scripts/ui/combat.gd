@@ -70,6 +70,11 @@ const DEFEND_ENERGY_COST := 15.0
 # en vez de spamear habilidades. PROVISIONAL -> Excel.
 const ATTACK_ENERGY_REGEN := 28.0
 
+# PROVOCACION (taunt de escudo): cuanto MAS pesa un aliado que provoca al sortear el objetivo del
+# enemigo, frente a los que no (peso 1.0). x4 => con 1 provocador entre 4, ~57% de los golpes van a
+# el; el resto se reparte. No es forzado: solo inclina la balanza. PROVISIONAL -> playtest.
+const PROVOCA_PESO := 4.0
+
 @onready var _log: Label = $VBox/Log
 # La escena trae un unico boton (AttackButton). Ahora las 4 acciones se crean por
 # codigo (barra de acciones, KAN-55) y ESE boton se reutiliza como "Continuar" al
@@ -294,13 +299,29 @@ func _aliados_vivos() -> Array[Combatant]:
 	return out
 
 
-# A QUIEN pega el enemigo: uno cualquiera de los tuyos que siga en pie, al azar. Uniforme y sin
-# aggro a proposito: hoy no hay forma de provocar ni de proteger a nadie, asi que cualquier regla
-# fija (siempre al lider, siempre al mas debil) seria una que el jugador no puede tocar. El dia
-# que haya roles (tanque) sera aqui donde se note.
+# A QUIEN pega el enemigo: uno de los tuyos que siga en pie, sorteado por PESO. Dos capas, y ninguna
+# FUERZA nada (solo inclinan la balanza; el mago nunca esta a salvo del todo):
+#   1) PASIVO: llevar ESCUDO pesa AGGRO_ESCUDO (x2). El que va tapado atrae golpes sin hacer nada.
+#   2) PROVOCAR: la habilidad de escudo multiplica por PROVOCA_PESO (x4) durante unos turnos.
+# Un tanque con escudo pasa de ~40% de los golpes (en un grupo de 4) a ~73% mientras provoca.
 func _elegir_objetivo_enemigo() -> Combatant:
 	var vivos: Array[Combatant] = _aliados_vivos()
-	return vivos[randi() % vivos.size()] if not vivos.is_empty() else null
+	if vivos.is_empty():
+		return null
+	var pesos: Array[float] = []
+	var total: float = 0.0
+	for c in vivos:
+		# Peso = el PASIVO (x2 si lleva escudo) x el de PROVOCAR (x4 mientras dure). Un tanque
+		# quieto ya atrae ~el doble; provocando, se lleva la mayoria de los golpes unos turnos.
+		var w: float = c.aggro_base * (PROVOCA_PESO if c.provocar_turnos > 0 else 1.0)
+		pesos.append(w)
+		total += w
+	var r: float = randf() * total
+	for i in vivos.size():
+		r -= pesos[i]
+		if r < 0.0:
+			return vivos[i]
+	return vivos[vivos.size() - 1]
 
 
 # Los VECINOS de 'principal' a los que salpica un hechizo de area: el primer enemigo VIVO a su
@@ -995,6 +1016,10 @@ func _begin_player_turn() -> void:
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
 	_player.salir_de_guardia() # la postura de contraataque tambien dura hasta tu proxima accion
 	_player.tick_cooldowns()   # habilidades (KAN-57): baja 1 turno los cooldowns activos
+	# Provocacion (escudo): dura N turnos SUYOS. Baja 1 al empezar su turno (entre medias, los
+	# enemigos ya la han "sentido" al elegir objetivo). Al llegar a 0 deja de atraer golpes.
+	if _player.provocar_turnos > 0:
+		_player.provocar_turnos -= 1
 	# La IMBUICION ya NO baja aqui: dura ATAQUES, no turnos. Ver _gastar_imbue().
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
 	var ev: Dictionary = _player.tick_statuses()
@@ -2001,6 +2026,9 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	# Foco arcano (Canalización): concede cargas que amplifican tus proximos hechizos.
 	if ab.foco_cargas > 0:
 		_player.foco_cargas += ab.foco_cargas
+		# Provocacion (escudo): pasas a atraer los golpes N turnos (ver _elegir_objetivo_enemigo).
+		if ab.provoca_turnos > 0:
+			_player.provocar_turnos = ab.provoca_turnos
 	# Mensaje al jugador.
 	var msg: String
 	if ab.dano_mult > 0.0:
@@ -2021,6 +2049,8 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	if ab.foco_cargas > 0:
 		msg += "  🔮 Foco arcano: %d cargas (+%d%% daño a tus próximos hechizos)." % [
 			_player.foco_cargas, roundi(Combatant.FOCO_BONUS * 100.0)]
+		if ab.provoca_turnos > 0:
+			msg += "  🎯 Provoca %d turnos: los enemigos van más a por %s." % [ab.provoca_turnos, _player.nombre]
 	_set_log(msg)
 	_update_hp()
 	_fin_de_eleccion()

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Provocación"
+coste_energia = 20
+cooldown = 3
+dano_mult = 0.0
+provoca_turnos = 3
+requiere_escudo = true
+descripcion = "Golpeas el escudo y ruges: durante unos turnos los enemigos tienden a descargar su furia sobre ti en vez de sobre los tuyos. No los obliga, solo llama su atención."
