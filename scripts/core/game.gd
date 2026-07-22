@@ -307,10 +307,13 @@ const GAIN_FUERZA_ATAQUE := 0.15
 # AGILIDAD por HUIR: no es "correr cerca de un bicho" (eso se farmeaba dandole vueltas alrededor),
 # es ABRIR HUECO con uno que te esta persiguiendo. Solo paga el hueco NUEVO, o sea lo que supera la
 # mayor distancia que has llegado a sacarle en esa misma persecucion (ver player.gd, marca de agua).
-# Por eso el valor es mas alto que el viejo 0.12: ya no es un goteo continuo mientras haya un bicho
-# al lado, sino un pago acotado por fuga (de la distancia de ataque a lose_range hay ~176 px).
+# Es un pago acotado por fuga (de la distancia de ataque a lose_range hay ~176 px), no un goteo
+# continuo mientras haya un bicho al lado.
+# BAJADO x10 (0.25 -> 0.025) tras PLAYTEST: se disparaba muchisimo. Corriendo un rato sin hacer casi
+# nada subia ~20 puntos de Agilidad, o sea que huir rendia mas que pelear. Se cobra por tick de hueco
+# nuevo Y para CADA miembro del grupo, asi que la base tiene que ser pequeña.
 # PROVISIONAL -> Excel/playtest.
-const GAIN_AGILIDAD_HUIDA := 0.25
+const GAIN_AGILIDAD_HUIDA := 0.025
 # Y lo que CUESTA la fuga multiplica lo que enseña: dejar atras a un bicho lento siendo un rayo no
 # entrena nada, y despegarse de uno que te pisa los talones entrena mucho. Se mide con la velocidad
 # de persecucion contra la TUYA REAL, con el peso y la armadura DENTRO a proposito: ir cargado te
