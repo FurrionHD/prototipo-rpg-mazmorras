@@ -4872,13 +4872,17 @@ func overload_speed_factor() -> float:
 # ese piso (30 en el primero: se consigue corriendo un rato) y 'alto' es la meta que da la punta.
 #
 # El multiplicador queda entre x0.80 y x1.30. Corriendo eso es 136 - 221 px/s, y los que persiguen
-# van a 56-200: por debajo del liston te cazan, cumpliendolo no te alcanza ninguno. Ese es el
+# van a 56-220: por debajo del liston te cazan, cumpliendolo no te alcanza ninguno. Ese es el
 # punto — la Agilidad decide si puedes huir, y para quien la ignore esta el sigilo (Ctrl).
 #
 # El techo del bonus bajo de +50% a +30% (y walk_speed de 120 a 100) porque la banda de arriba se
 # habia desbocado: a 306-330 px/s no habia bicho que te rozara y huir era gratis, asi que la
-# dificultad de la fuga (huida_dificultad_mult) se quedaba siempre en su suelo. Se toco a la vez el
-# techo del acechador (240 -> 200, era el unico que se salia) para conservar la regla de arriba.
+# dificultad de la fuga (huida_dificultad_mult) se quedaba siempre en su suelo.
+#
+# EXCEPCION DELIBERADA: el ACECHADOR (176-220). Contra su tirada alta el margen es de 1 px/s, o sea
+# que aunque cumplas el liston no lo sueltas corriendo en ningun tiempo util. Es a proposito: es el
+# bicho que TIENE que ponerte en apuros, y la respuesta a el no es correr mas, es el sigilo (Ctrl)
+# o pelear. Si algun dia se quiere que vuelva a ser esquivable, su move_speed_max es el mando.
 const AGILIDAD_VEL_MAX := 0.30    # techo del bonus (Agilidad >= alto(piso))
 const AGILIDAD_VEL_PENAL := 0.20  # suelo del castigo (Agilidad 0 frente a esperada(piso))
 

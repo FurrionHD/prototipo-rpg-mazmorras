@@ -13,7 +13,7 @@ extends CharacterBody2D
 # Velocidad base (andar) y multiplicadores de los otros modos.
 # Bajada de 120 a 100 junto con el techo del bonus de Agilidad (Game.AGILIDAD_VEL_MAX, de +50% a
 # +30%): la banda de correr era 163-306 px/s y se habia quedado muy ancha por arriba, con lo que
-# huir de casi todo salia gratis. Ahora es 136-221 contra perseguidores de 56-200: la fuga se
+# huir de casi todo salia gratis. Ahora es 136-221 contra perseguidores de 56-220: la fuga se
 # aprieta por los dos lados y la dificultad de huir (Game.huida_dificultad_mult) se nota.
 @export var walk_speed: float = 100.0
 @export var sneak_multiplier: float = 0.45  # sigilo: ~45 px/s
