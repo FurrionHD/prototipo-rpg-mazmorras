@@ -289,6 +289,17 @@ func _vivos() -> Array[Combatant]:
 	return out
 
 
+# ETIQUETA de un combatiente para el LOG: "2. Slime" en los enemigos (el MISMO numero que lleva su
+# bloque, ver _crear_bloque) y el nombre pelado en los tuyos. Con tres slimes delante, "Slime usa
+# Aplastamiento" no dice cual de los tres: el numero es lo unico que lo ata a la tarjeta que ves.
+# El numero es cosa de la UI (es la posicion en _enemies), por eso vive aqui y no en Combatant.
+func _etq(c: Combatant) -> String:
+	if c == null:
+		return "?"
+	var i: int = _enemies.find(c)
+	return "%d. %s" % [i + 1, c.nombre] if i >= 0 else c.nombre
+
+
 # Los TUYOS que siguen en pie. Manda en el orden de turnos y en la derrota: se pierde cuando cae
 # el ultimo, no cuando cae el que llevabas delante.
 func _aliados_vivos() -> Array[Combatant]:
@@ -881,6 +892,14 @@ func _refrescar_chips(c: Combatant, box: Container, idx: int) -> void:
 	for hijo in box.get_children():
 		hijo.queue_free()
 
+	# ATAQUE CARGADO (telegrafiado): el aviso del log se lo lleva el turno siguiente, asi que sin
+	# esto no hay forma de saber CUAL de los tres bichos te esta preparando el pepino. Va como chip
+	# (y no como texto suelto) para heredar el tooltip y el clic-para-apuntar, y para no ensanchar
+	# el bloque: la zona de chips tiene alto fijo.
+	if c.charging != null:
+		_chip(box, "⚡ %s" % c.charging.nombre,
+			"CARGANDO: %s\nSe dispara en %d turno%s.\nAturdirlo lo interrumpe." % [
+				c.charging.nombre, c.charge_left, "" if c.charge_left == 1 else "s"], idx)
 	var imb: String = c.imbue_etiqueta()
 	if imb != "":
 		_chip(box, imb, c.imbue_resumen(), idx)
@@ -1575,23 +1594,23 @@ func _log_hechizo(spell: SpellData, res_area: Array, res_reb: Array, foco: float
 		var r0: Dictionary = res_area[0]
 		if spell.es_multigolpe():
 			_set_log("🌩 %s descarga %d golpes sobre %s: %s" % [
-				spell.nombre, int(r0.golpes), r0.c.nombre, " · ".join(r0.trail)])
+				spell.nombre, int(r0.golpes), _etq(r0.c), " · ".join(r0.trail)])
 			_set_log("… %.2f de daño en total.%s" % [total, foco_txt])
 		else:
 			_set_log("🔥 %s impacta a %s por %.2f de daño.%s%s" % [
-				spell.nombre, r0.c.nombre, total, _elem_txt(float(r0.mult)), foco_txt])
+				spell.nombre, _etq(r0.c), total, _elem_txt(float(r0.mult)), foco_txt])
 		return total
 
 	# MULTI-OBJETIVO: "Nombre (daño)" por enemigo, en una linea.
 	var partes: Array = []
 	for r in res_area:
-		partes.append("%s (%.1f%s)" % [r.c.nombre, float(r.dano), _mult_sufijo(float(r.mult))])
+		partes.append("%s (%.1f%s)" % [_etq(r.c), float(r.dano), _mult_sufijo(float(r.mult))])
 	_set_log("%s %s alcanza a %s" % [Elementos.icono(spell.elemento), spell.nombre, ", ".join(partes)])
 	if not res_reb.is_empty():
 		var reb: Array = []
 		for r in res_reb:
 			# Los repetidos se listan tal cual: que se vea cuando la cadena insiste en el mismo.
-			reb.append("%s (%.1f%s)" % [r.c.nombre, float(r.dano), _mult_sufijo(float(r.mult))])
+			reb.append("%s (%.1f%s)" % [_etq(r.c), float(r.dano), _mult_sufijo(float(r.mult))])
 		_set_log("↯ Rebota ×%d: %s" % [reb.size(), ", ".join(reb)])
 	# Estados PLEGADOS: una linea por estado con todos los que lo cogieron, no una por enemigo.
 	var por_estado: Dictionary = {}
@@ -1599,8 +1618,8 @@ func _log_hechizo(spell: SpellData, res_area: Array, res_reb: Array, foco: float
 		for id in r.estados:
 			if not por_estado.has(id):
 				por_estado[id] = []
-			if not por_estado[id].has(r.c.nombre):
-				por_estado[id].append(r.c.nombre)
+			if not por_estado[id].has(_etq(r.c)):
+				por_estado[id].append(_etq(r.c))
 	for id in por_estado:
 		_set_log("✨ %s: %s" % [
 			String(StatusEffects.def(int(id)).get("nombre", "?")), ", ".join(por_estado[id])])
@@ -1615,7 +1634,7 @@ func _gastar_amplificadores(objetivo: Combatant, elem: int) -> void:
 		return
 	for nom in objetivo.consumir_amplificadores(elem):
 		print("[estado] el golpe de %s GASTA el %s de %s (el x1.5 no se repite)" % [
-			Elementos.nombre(elem), nom, objetivo.nombre])
+			Elementos.nombre(elem), nom, _etq(objetivo)])
 
 
 # Feedback elemental de UN golpe, compacto, para el rastro del log ("⚡4.1×1.5").
@@ -1692,7 +1711,7 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 			if not anunciados.has(a.estado):
 				anunciados[a.estado] = true
 				if not silencioso:
-					_set_log("… %s es INMUNE a %s." % [objetivo.nombre, nom])
+					_set_log("… %s es INMUNE a %s." % [_etq(objetivo), nom])
 				print("[estado] %s es INMUNE a %s" % [objetivo.nombre, nom])
 			continue
 		if al_enemigo:
@@ -1705,17 +1724,17 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 				p = clampf(p * objetivo.stun_taken_mult(), 0.0, StatsMath.ATURDIR_MAX)
 			if randf() >= p:
 				if verboso and not silencioso:   # en multi-golpe callamos los fallos: serian 20 lineas de ruido
-					_set_log("… pero %s resiste el %s. (%.0f%%)" % [objetivo.nombre, nom, p * 100.0])
+					_set_log("… pero %s resiste el %s. (%.0f%%)" % [_etq(objetivo), nom, p * 100.0])
 				print("[estado] %s RESISTE %s del hechizo (prob %.0f%%)" % [objetivo.nombre, nom, p * 100.0])
 				continue
 		objetivo.apply_status(a.estado, a.turns, a.magnitud, 1, false, a.cap)
 		if not aplicados.has(int(a.estado)):
 			aplicados.append(int(a.estado))
 		print("[estado] %s recibe %s del hechizo %s (prob %.0f%%)" % [
-			objetivo.nombre, nom, spell.nombre, spell.efecto_prob(a) * 100.0])
+			_etq(objetivo), nom, spell.nombre, spell.efecto_prob(a) * 100.0])
 		if not anunciados.has(a.estado) and not silencioso:
 			anunciados[a.estado] = true
-			_set_log("✨ %s: %s recibe %s." % [spell.nombre, objetivo.nombre, nom])
+			_set_log("✨ %s: %s recibe %s." % [spell.nombre, _etq(objetivo), nom])
 
 
 # Fallar una frase: el conjuro se descontrola. Daño propio (mayor cuanto mas
@@ -1849,8 +1868,10 @@ func _siguiente_vivo(muerto: Combatant) -> Combatant:
 # 'etq' etiqueta el objetivo en el log cuando hay varios ("" en single-target).
 func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: int,
 		escala: float, etq: String) -> Dictionary:
-	var r := {"dmg": 0.0, "imbue": 0.0, "mult_imbue": 1.0, "crit": false, "evaded": false,
-		"mana": 0.0, "conecto": false, "estados": [], "linea": ""}
+	# 'c' = a QUIEN fue este golpe. Lo necesita el log para decir el reparto por enemigo (mismo
+	# campo que usan los resultados de hechizo, ver _log_hechizo).
+	var r := {"c": objetivo, "dmg": 0.0, "imbue": 0.0, "mult_imbue": 1.0, "crit": false,
+		"evaded": false, "mana": 0.0, "conecto": false, "estados": [], "linea": ""}
 	var result := StatsMath.resolve_attack(_player, objetivo, false)
 	var m_golpe: float = ab.mult_golpe(i, manos)
 	if result.evaded:
@@ -1925,6 +1946,11 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	var golpes: int = 0
 	var estados_log: Array = []
 	var tocados: Array = [obj]      # todos los enemigos alcanzados: se rematan AL FINAL, de una vez
+	# LOG: el RASTRO (un token por golpe, en orden: "4.21" / "falla" / "💥9.80") y el REPARTO
+	# (Combatant -> daño acumulado). Antes el desglose golpe a golpe solo iba a la consola y en
+	# pantalla salia un "0 de daño (2 golpes)" que no explicaba nada.
+	var rastro: Array = []
+	var dano_por_obj: Dictionary = {}
 	# GOLPES de daño (rango aleatorio; cada tajo con su ESQUIVA y CRITICO propios). Si
 	# efectos_por_golpe, cada tajo que acierta tira los efectos (sangrado 40%/hit).
 	# Las de UTILIDAD PURA (dano_mult 0, p.ej. Canalizar) NO golpean.
@@ -1982,6 +2008,12 @@ func _usar_habilidad(ab: AbilityData) -> void:
 					hubo_critico = true
 				mana_ganado_golpes += r.mana
 				estados_log += r.estados
+				# Token de ESTE golpe para el rastro del log (con su objetivo: si la habilidad toca a
+				# varios, al final se le pega la etiqueta de a quien fue), y su daño a la cuenta
+				# del objetivo para el reparto.
+				rastro.append({"t": "falla" if r.evaded
+					else ("💥%.2f" % r.dmg if r.crit else "%.2f" % r.dmg), "c": r.c})
+				dano_por_obj[r.c] = float(dano_por_obj.get(r.c, 0.0)) + r.dmg
 				print("        " + r.linea)
 			# Fin de la habilidad si, sin área ni redirección, el objetivo ya cayó (los que
 			# sobran no saltan solos). En área/barrido seguimos: aún puede quedar gente viva.
@@ -2026,22 +2058,48 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	# Foco arcano (Canalización): concede cargas que amplifican tus proximos hechizos.
 	if ab.foco_cargas > 0:
 		_player.foco_cargas += ab.foco_cargas
-		# Provocacion (escudo): pasas a atraer los golpes N turnos (ver _elegir_objetivo_enemigo).
-		if ab.provoca_turnos > 0:
-			_player.provocar_turnos = ab.provoca_turnos
-	# Mensaje al jugador.
+	# Provocacion (escudo): pasas a atraer los golpes N turnos (ver _elegir_objetivo_enemigo).
+	# OJO: va al MISMO nivel que el Foco, no dentro. Estuvo anidada por error y, como la
+	# Provocacion no da cargas de Foco, no se aplicaba NUNCA.
+	if ab.provoca_turnos > 0:
+		_player.provocar_turnos = ab.provoca_turnos
+
+	# ---- Mensaje al jugador ----
+	# Con daño van DOS lineas: el RASTRO (que hizo cada golpe) y el REPARTO (cuanto se llevo cada
+	# uno y el total). Un "0 de daño (2 golpes)" no decia si habias fallado, esquivado o pegado a
+	# un muerto. Mismo criterio que los hechizos (ver _log_hechizo): nunca una linea por golpe,
+	# que el log solo tiene LOG_MAX.
 	var msg: String
 	if ab.dano_mult > 0.0:
-		# El desglose es del TOTAL de la habilidad (sumando lo elemental de todos sus golpes).
-		msg = "%s usa %s: %.2f de daño (%d golpe%s).%s" % [
-			_player.nombre, ab.nombre, total, golpes, "" if golpes == 1 else "s",
-			_desglose_imbue(total, total_imbue, mult_imbue)]
+		var multi: bool = tocados.size() > 1
+		var aciertos: int = 0
+		var toks: Array = []
+		for g in rastro:
+			if String(g["t"]) != "falla":
+				aciertos += 1
+			toks.append("%s (%s)" % [g["t"], _etq(g["c"])] if multi else String(g["t"]))
+		if not toks.is_empty():
+			_set_log("⚔ %s:  %s" % [
+				ab.nombre if multi else "%s → %s" % [ab.nombre, _etq(obj)], " · ".join(toks)])
+		# Linea 2: el reparto. Si no conecto ninguno se dice con todas las letras.
+		if total <= 0.0:
+			msg = "… no le has dado con ninguno de los %d golpe%s." % [
+				rastro.size(), "" if rastro.size() == 1 else "s"]
+		elif multi:
+			var partes: Array = []
+			for c in tocados:
+				partes.append("%s (%.2f)" % [_etq(c), float(dano_por_obj.get(c, 0.0))])
+			msg = "… %.2f de daño: %s%s" % [total, ", ".join(partes),
+				_desglose_imbue(total, total_imbue, mult_imbue)]
+		else:
+			msg = "… %.2f de daño (%d de %d golpes).%s" % [total, aciertos, rastro.size(),
+				_desglose_imbue(total, total_imbue, mult_imbue)]
 	else:
 		msg = "%s usa %s." % [_player.nombre, ab.nombre]
 	if mana_ganado > 0.0:
 		msg += "  +%.1f MP." % mana_ganado
 	if not estados_log.is_empty():
-		msg += "  Aplica: %s." % ", ".join(estados_log)
+		msg += "  ✨%s." % ", ".join(estados_log)
 	if ab.bloqueo_turnos > 0:
 		msg += "  🛡️ En guardia."
 	if ab.postura_contraataque:
@@ -2049,8 +2107,8 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	if ab.foco_cargas > 0:
 		msg += "  🔮 Foco arcano: %d cargas (+%d%% daño a tus próximos hechizos)." % [
 			_player.foco_cargas, roundi(Combatant.FOCO_BONUS * 100.0)]
-		if ab.provoca_turnos > 0:
-			msg += "  🎯 Provoca %d turnos: los enemigos van más a por %s." % [ab.provoca_turnos, _player.nombre]
+	if ab.provoca_turnos > 0:
+		msg += "  🎯 Provocas %d turnos: los enemigos irán más a por ti." % ab.provoca_turnos
 	_set_log(msg)
 	_update_hp()
 	_fin_de_eleccion()
@@ -2193,7 +2251,7 @@ func _accion_atacar() -> void:
 		Game.RETO_MAX_FISICO, pj_atacante)
 	var con_arma: String = _player.current_hand_name()
 	if result.evaded:
-		_set_log("%s esquiva tu ataque (%s). 💨" % [obj.nombre, con_arma])
+		_set_log("%s esquiva tu ataque (%s). 💨" % [_etq(obj), con_arma])
 	else:
 		obj.take_damage(result.damage)
 		Game.contar_dano_infligido(result.damage)   # contador oculto de Cazador
@@ -2302,7 +2360,7 @@ func _enemy_turn(e: Combatant) -> void:
 	_dps_add("DoT (estados)", float(ev.get("damage", 0.0)))   # sangrado/veneno/quemadura que le pusiste
 	_update_hp()
 	if not e.is_alive():
-		_set_log("%s cae por el daño de sus estados. ☠" % e.nombre)
+		_set_log("%s cae por el daño de sus estados. ☠" % _etq(e))
 		_morir_enemigo(e)   # el DoT lo remata: cae EL, no acaba el combate
 		if _vivos().is_empty():
 			_end(true)
@@ -2316,9 +2374,9 @@ func _enemy_turn(e: Combatant) -> void:
 			e.charging = null
 			e.charge_left = 0
 			print("[habilidad enemigo] %s ATURDIDO: se le INTERRUMPE %s" % [e.nombre, interrumpida])
-			_set_log("%s está aturdido: se le interrumpe %s. 💫" % [e.nombre, interrumpida])
+			_set_log("%s está aturdido: se le interrumpe %s. 💫" % [_etq(e), interrumpida])
 		else:
-			_set_log("%s está aturdido y pierde el turno. 💫" % e.nombre)
+			_set_log("%s está aturdido y pierde el turno. 💫" % _etq(e))
 		_pausa_lectura()   # ya se le resto la barra ATB en _process; pierde la accion
 		return
 
@@ -2326,7 +2384,7 @@ func _enemy_turn(e: Combatant) -> void:
 	if e.charging != null:
 		e.charge_left -= 1
 		if e.charge_left > 0:
-			_set_log("%s sigue cargando %s... ⚡ (prepárate)" % [e.nombre, e.charging.nombre])
+			_set_log("%s sigue cargando %s... ⚡ (prepárate)" % [_etq(e), e.charging.nombre])
 			_pausa_lectura()
 			return
 		var cargada: AbilityData = e.charging
@@ -2391,7 +2449,7 @@ func _enemy_turn(e: Combatant) -> void:
 			_set_log(msg_ev)
 			_pausa_lectura()
 			return
-		_set_log("%s esquiva el ataque de %s. 💨" % [obj.nombre, e.nombre])
+		_set_log("%s esquiva el ataque de %s. 💨" % [obj.nombre, _etq(e)])
 		_update_hp()
 		_pausa_lectura()
 		return
@@ -2416,9 +2474,9 @@ func _enemy_turn(e: Combatant) -> void:
 			Game.GAIN_RESISTENCIA_BLOQUEO, Game.RETO_MAX_FISICO, pj_obj)
 	var msg: String
 	if result.crit:
-		msg = "%s CLAVA un critico a %s: %.2f de daño! 💥" % [e.nombre, obj.nombre, dmg]
+		msg = "%s CLAVA un critico a %s: %.2f de daño! 💥" % [_etq(e), obj.nombre, dmg]
 	else:
-		msg = "%s ataca a %s por %.2f de daño." % [e.nombre, obj.nombre, dmg]
+		msg = "%s ataca a %s por %.2f de daño." % [_etq(e), obj.nombre, dmg]
 	if bool(_defendiendo.get(obj, false)):
 		msg += " (defendido 🛡️)"
 	# Aturdir/retrasar del enemigo (si algun dia lleva arma contundente).
@@ -2476,7 +2534,8 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData) -> void:
 	e.start_cooldown(ab)
 	print("[habilidad enemigo] %s empieza a cargar %s (%d turno%s)" % [
 		e.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
-	_set_log("⚡ %s se prepara para %s. ¡Prepárate! (aturdirlo lo interrumpe)" % [e.nombre, ab.nombre])
+	_set_log("⚡ %s se prepara para %s. ¡Prepárate! (aturdirlo lo interrumpe)" % [_etq(e), ab.nombre])
+	_update_hp()   # pinta YA el chip ⚡ en SU tarjeta (si no, no saldria hasta el proximo refresco)
 	_pausa_lectura()
 
 
@@ -2560,7 +2619,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			invocados += 1
 		_update_hp()   # refresca los bloques revividos/nuevos (nombre + barra)
 
-	var msg: String = "%s usa %s" % [e.nombre, ab.nombre]
+	var msg: String = "%s usa %s" % [_etq(e), ab.nombre]
 	if tocados.size() > 1:
 		msg += " y alcanza a %d de los tuyos" % tocados.size()
 	else:
