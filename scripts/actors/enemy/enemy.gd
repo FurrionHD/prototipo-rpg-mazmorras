@@ -81,9 +81,22 @@ var hp_restante: float = -1.0
 @export var attack_range: float = 44.0
 @export var attack_windup: float = 0.15       # segundos de aviso antes de atacar
 
+# ============================================================
+#  EMBESTIDA: como se ENTRA en combate
+#  Antes bastaba con estar a distancia de ataque el tiempo del aviso, y el aviso se CANCELABA en
+#  cuanto te salias del rango. Huyendo, entrabas y salias del margen varias veces por segundo, asi
+#  que el contador se reiniciaba sin parar y el bicho no llegaba a engancharte NUNCA.
+#  Ahora, en cuanto te pilla a tiro, se COMPROMETE: se planta, avisa, y se lanza en una EMBESTIDA
+#  en la direccion que tenias EN ESE MOMENTO. Si te alcanza, empieza el combate; si la esquivas,
+#  falla y tiene que volver a montarla. Asi huir es una habilidad y no un bug.
+# ============================================================
+const EMBESTIDA_VEL_MULT := 2.2    # x lo que corre persiguiendo: la carga es un aceleron
+const EMBESTIDA_DUR := 0.35        # segundos que dura la carga (lo que la hace esquivable)
+const EMBESTIDA_ESPERA := 0.6      # descanso tras fallar, antes de poder volver a cargar
+
 signal combat_started(enemy_data: EnemyData, enemy_initiated: bool)
 
-enum State { WANDER, CHASE, RETURN }
+enum State { WANDER, CHASE, RETURN, EMBESTIDA }
 var _state: State = State.WANDER
 
 var _home: Vector2 = Vector2.ZERO
@@ -98,6 +111,11 @@ var _wander_timer: float = 0.0
 var _stuck_time: float = 0.0   # cuanto lleva atascado contra una pared
 var _windup_timer: float = -1.0  # -1 = no esta preparando ataque
 var _winding: bool = false       # true mientras hace el aviso de ataque
+# EMBESTIDA: direccion COMPROMETIDA al acabar el aviso (no se recalcula: por eso se puede esquivar),
+# lo que le queda de carga, y el descanso tras fallar una.
+var _embiste_dir: Vector2 = Vector2.ZERO
+var _embiste_t: float = 0.0
+var _embiste_espera: float = 0.0
 var _combat_triggered: bool = false
 var current_move_speed: float = 40.0
 
@@ -114,14 +132,16 @@ var _vision_cone: Polygon2D = null
 func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 
-	# COLISION: el bicho choca SOLO con la roca (capa 1). Ni con otros bichos ni contigo.
-	# Cuando chocaban entre si, dos que se solapaban (al nacer juntos, o al converger sobre
-	# ti) se des-penetraban a empujones: se apilaban en columna y, con el empujon, alguno
-	# salia disparado ATRAVESANDO la pared como un proyectil. Sin colision entre ellos, ese
-	# problema no existe. Tocarte tampoco hace falta: el combate lo dispara la DISTANCIA
-	# (ver _chase), no el contacto fisico.
-	collision_layer = 2   # capa "enemigos": nadie la vigila, pero los deja identificados
-	collision_mask = 1    # solo el mundo (paredes)
+	# COLISION: el bicho choca con la roca (capa 1) y con los COMPANEROS (capa 4). NO con otros
+	# bichos: cuando chocaban entre si, dos que se solapaban (al nacer juntos, o al converger sobre
+	# ti) se des-penetraban a empujones, se apilaban en columna y alguno salia disparado ATRAVESANDO
+	# la pared como un proyectil.
+	# Los companeros SI le frenan (antes se los paseaba por encima como si no existieran): un
+	# companero plantado en un pasillo tapa de verdad. Es asimetrico a proposito -el companero NO
+	# choca con el bicho (su mascara es solo roca)-, asi que el grupo nunca se atasca a si mismo:
+	# el bicho se para contra el companero, pero el companero puede seguir andando.
+	collision_layer = 2      # capa "enemigos": nadie la vigila, pero los deja identificados
+	collision_mask = 1 | 4   # paredes + companeros
 
 	add_to_group("enemy")  # para que el jugador lo encuentre al atacar
 	_home = global_position
@@ -184,13 +204,14 @@ func _physics_process(delta: float) -> void:
 	if _objetivo == null or not is_instance_valid(_objetivo):
 		_objetivo = _aliado_mas_cercano()
 
-	# Si no estamos ya persiguiendo, miramos si vemos u oimos a alguno.
-	if _state != State.CHASE:
+	# Si no estamos ya persiguiendo (ni embistiendo), miramos si vemos u oimos a alguno.
+	if _state != State.CHASE and _state != State.EMBESTIDA:
 		_try_detect()
 
 	match _state:
 		State.WANDER: _wander(delta)
 		State.CHASE: _chase(delta)
+		State.EMBESTIDA: _embestida(delta)
 		State.RETURN: _return()
 
 	# El empujon de separacion se suma a lo que sea que estuviera haciendo (merodear, ir a por su
@@ -357,28 +378,100 @@ func _chase(delta: float) -> void:
 	var dist: float = to_p.length()
 
 	if dist > lose_range:
-		_state = State.RETURN  # te perdio, vuelve a su sitio
-		velocity = Vector2.ZERO
-		_cancelar_aviso()
-		return
+		# Antes de rendirse mira si le queda ALGUIEN del grupo cerca: el que perseguia se le ha ido,
+		# pero puede tener a un companero al lado. Rendirse teniendo a uno pegado era absurdo.
+		var otro: Node2D = _aliado_mas_cercano()
+		if otro != null and global_position.distance_to(otro.global_position) <= lose_range:
+			_objetivo = otro
+			to_p = _objetivo.global_position - global_position
+			dist = to_p.length()
+		else:
+			_state = State.RETURN  # te perdio, vuelve a su sitio
+			velocity = Vector2.ZERO
+			_cancelar_aviso()
+			return
 
 	if dist > 0.01:
 		_facing = to_p / dist  # mira a su presa
 
-	if hueco_hasta(_objetivo) <= margen_ataque():
-		# A distancia de ataque: se para y hace el AVISO antes de golpear.
-		# Si el jugador esta agotado, ataca al instante (aviso = 0).
+	# INTERCEPCION: se mira a TODO el grupo, no solo a la presa fijada. Antes solo contaba _objetivo,
+	# asi que un bicho que te habia fichado a TI se paseaba por encima de tus companeros sin
+	# engancharse: podias tener a uno pegado al morro y no pasaba nada hasta que te alcanzaba a ti.
+	# Ahora el que se cruza en su camino se lo come, que es para lo que sirve ir en grupo.
+	var presa: Node2D = _aliado_a_tiro()
+	if _embiste_espera > 0.0:
+		_embiste_espera -= delta   # descansando tras fallar una carga: persigue pero no monta otra
+	if presa != null and _embiste_espera <= 0.0:
+		# A tiro: se PLANTA y avisa. Ojo: a partir de aqui NO se cancela aunque te salgas del rango
+		# (eso es lo que hacia que huyendo no te enganchara nunca). El aviso va hasta el final y
+		# termina en EMBESTIDA. Si el grupo va agotado, carga sin avisar (aviso = 0).
 		velocity = Vector2.ZERO
 		if _windup_timer < 0.0:
 			_windup_timer = 0.0 if _player_exhausted() else attack_windup
 		_winding = true
+		_facing = (presa.global_position - global_position).normalized()
 		_windup_timer -= delta
 		if _windup_timer <= 0.0:
-			_start_combat(true)  # iniciativa del enemigo
+			_lanzar_embestida(presa)
+	elif _winding:
+		# Ya estaba comprometido con el aviso: lo termina aunque te hayas salido del rango.
+		velocity = Vector2.ZERO
+		_windup_timer -= delta
+		if _windup_timer <= 0.0:
+			_lanzar_embestida(_objetivo)
 	else:
 		# Aun lejos: a por ti. Perseguir NO va a la velocidad de merodear (ver chase_speed_mult).
 		velocity = to_p.normalized() * _chase_speed()
-		_cancelar_aviso()
+
+
+# El miembro del grupo que tiene A TIRO ahora mismo (dentro del margen de ataque), o null. Mira a
+# TODOS: cualquiera que se le ponga a huevo vale, no solo al que venia persiguiendo.
+func _aliado_a_tiro() -> Node2D:
+	var margen: float = margen_ataque()
+	var best: Node2D = null
+	var mejor: float = INF
+	for n in _aliados():
+		var h: float = hueco_hasta(n)
+		if h <= margen and h < mejor:
+			mejor = h
+			best = n
+	return best
+
+
+# Arranca la carga: FIJA la direccion hacia donde esta la presa AHORA y se lanza. No se corrige por
+# el camino a proposito: esa es justo la ventana para esquivarla.
+func _lanzar_embestida(hacia: Node2D) -> void:
+	_winding = false
+	_windup_timer = -1.0
+	var dir: Vector2 = _facing
+	if hacia != null and is_instance_valid(hacia):
+		var d: Vector2 = hacia.global_position - global_position
+		if d.length() > 0.01:
+			dir = d.normalized()
+	_embiste_dir = dir
+	_embiste_t = EMBESTIDA_DUR
+	_state = State.EMBESTIDA
+
+
+# La CARGA: corre recto en la direccion comprometida. Si toca a CUALQUIERA del grupo, empieza el
+# combate. Si se acaba (o se estampa contra la roca) sin tocar a nadie, ha fallado: descansa un poco
+# y vuelve a perseguir. Es lo que convierte "escapar" en algo que se juega y no en un parpadeo.
+func _embestida(delta: float) -> void:
+	velocity = _embiste_dir * _chase_speed() * EMBESTIDA_VEL_MULT
+	_embiste_t -= delta
+	# ¿Ha alcanzado a alguien? Contacto = cuerpos tocandose (hueco <= 0), no el margen de ataque:
+	# la carga tiene que CONECTAR, no basta con pasar cerca.
+	for n in _aliados():
+		if hueco_hasta(n) <= 0.0:
+			_objetivo = n
+			_start_combat(true)   # iniciativa del enemigo: te ha embestido
+			return
+	# Se estampo contra una pared: la carga muere ahi.
+	var choco: bool = get_slide_collision_count() > 0
+	if _embiste_t <= 0.0 or choco:
+		_embiste_espera = EMBESTIDA_ESPERA
+		_state = State.CHASE
+		velocity = Vector2.ZERO
 
 
 # ¿Estoy persiguiendo a ESTE de ahi? Lo pregunta el jugador para saber si esta HUYENDO de verdad
@@ -434,6 +527,8 @@ func margen_ataque() -> float:
 func _cancelar_aviso() -> void:
 	_windup_timer = -1.0
 	_winding = false
+	_embiste_t = 0.0
+	_embiste_espera = 0.0
 
 
 # El aguante es de GRUPO (correr lo pagan todos, ver player.gd), asi que se pregunta al cuerpo
