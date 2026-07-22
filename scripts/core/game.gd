@@ -1936,14 +1936,18 @@ const DURABILIDAD_BASE := 10.0         # puntos de aguante de un item T1 COMUN s
 const DURABILIDAD_TIER_PCT := 0.40     # +40% de aguante por cada tier por encima de T1
 const DURABILIDAD_MEJORA_PCT := 0.30   # +30% de aguante por cada mejora de Durabilidad
 # Desgaste en PUNTOS (se convierte a fraccion dividiendo por el maximo, asi mas maximo = dura
-# mas). A escala de la base de 10: un arma T1 comun aguanta 10/0.04 = 250 golpes (~2-3 expediciones).
-const DESGASTE_ARMA := 0.04            # puntos que pierde el arma por golpe DADO
-const DESGASTE_ARMOR := 0.08           # puntos que pierde CADA pieza por golpe RECIBIDO
+# mas). A escala de la base de 10: un arma T1 comun aguanta 10/0.08 = 125 golpes (~1 expedicion).
+# DUPLICADO (playtest): el equipo apenas se gastaba y reparar no llegaba a ser una decision.
+const DESGASTE_ARMA := 0.08            # puntos que pierde el arma por golpe DADO (era 0.04)
+const DESGASTE_ARMOR := 0.16           # puntos que pierde CADA pieza por golpe RECIBIDO (era 0.08)
 const PENAL_MAX := 0.25                # tope de penalizacion mientras esta gastada (no rota)
 const PENAL_ROTO := 0.75               # penalizacion al estar ROTA (acantilado): rinde el 25%
 # Precio de reparar = coste_full × (% roto). coste_full sube SUAVE con tier y nº de mejoras
 # (casi lineal, NO exponencial). Reparar por fraccion hace que mas maximo NO encarezca.
-const REPARA_BASE := 15.0
+# TRIPLICADO (playtest): reparar salia casi gratis. Se toca solo la BASE, que multiplica el coste
+# entero, para no deformar la curva por tier/mejoras. OJO: va junto al desgaste x2 de arriba, asi
+# que el mantenimiento por uso sale ~6x (reparas el doble de veces y cada vez cuesta el triple).
+const REPARA_BASE := 45.0              # era 15.0
 const REPARA_K_TIER := 0.5
 const REPARA_K_MEJ := 0.12
 
