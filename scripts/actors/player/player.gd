@@ -247,8 +247,9 @@ func _physics_process(delta: float) -> void:
 	Game.tick_alboroto(delta, movement_mode)
 
 	# --- Excelia: subida de habilidades por uso (interno; se aplica en el hogar) ---
-	# Agilidad: HUIR de verdad. Ver _tick_huida.
-	_tick_huida()
+	# Agilidad: HUIR de verdad. Ver _tick_huida. Le pasamos la velocidad REAL a la que corres
+	# (peso y armadura ya aplicados arriba): es lo que decide si la fuga fue comoda o agonica.
+	_tick_huida(speed)
 
 	# DOS teclas, y no una: ATACAR y TOCAR COSAS son intenciones distintas y no se pueden
 	# confundir. Con una sola tecla, ir a extraer un cristal con un bicho cerca podia
@@ -598,9 +599,16 @@ func aguante_de_grupo(pj: PersonajeData) -> Vector2:
 #
 #  Y hay que estar CORRIENDO: huir andando no es huir. Eso ademas lo cose con el aguante, que se
 #  gasta justo cuando tienes a alguien dentro de _PELIGRO_RANGE.
+#
+#  Lo que se cobra tiene DOS ejes que se multiplican, y no hay que confundirlos:
+#   - CONTRA QUE huyes: Game.reto(poder, nivel) del perseguidor (hasta x5). Un bicho de un nivel
+#     por debajo del tuyo te mide contra tu poder de por vida, o sea que no da casi nada: es lo
+#     que impide farmear el piso 1 cuando ya has ascendido.
+#   - CUANTO TE COSTO: Game.huida_dificultad_mult(vel_del_bicho, tu_velocidad_real). Dejar atras a
+#     un lento siendo un rayo no entrena; despegarte de uno que te pisa los talones, si.
 # ============================================================
 
-func _tick_huida() -> void:
+func _tick_huida(vel_propia: float) -> void:
 	# ¿Nos sigue persiguiendo el mismo? (O(1): no hace falta barrer el grupo entero.)
 	if _huida_perseguidor != null and (not is_instance_valid(_huida_perseguidor) \
 			or not _huida_perseguidor.persigue_a(self)):
@@ -627,11 +635,19 @@ func _tick_huida() -> void:
 		return
 	_huida_acum += d - _huida_record
 	_huida_record = d
+	if _huida_acum < _HUIDA_TICK:
+		return
+	# Lo que COSTO la fuga (velocidad del bicho contra la tuya real) multiplica la base; el reto por
+	# poder del enemigo va aparte y dice contra QUE huias. Son los dos ejes y se acumulan.
+	var vel_bicho: float = 0.0
+	if _huida_perseguidor.has_method("vel_persecucion"):
+		vel_bicho = _huida_perseguidor.vel_persecucion()
+	var base: float = Game.GAIN_AGILIDAD_HUIDA * Game.huida_dificultad_mult(vel_bicho, vel_propia)
+	var reto_val: float = Game.reto(_poder_enemigo_nodo(_huida_perseguidor),
+		_nivel_enemigo_nodo(_huida_perseguidor))
 	while _huida_acum >= _HUIDA_TICK:
 		_huida_acum -= _HUIDA_TICK
-		Game.ganar("agilidad",
-			Game.reto(_poder_enemigo_nodo(_huida_perseguidor), _nivel_enemigo_nodo(_huida_perseguidor)),
-			Game.GAIN_AGILIDAD_HUIDA, Game.RETO_MAX_FISICO)
+		Game.ganar("agilidad", reto_val, base, Game.RETO_MAX_FISICO)
 
 
 # Olvida la persecucion en curso. Se llama al perderla y, MUY importante, en los teletransportes:

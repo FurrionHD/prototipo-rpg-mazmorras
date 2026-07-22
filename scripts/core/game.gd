@@ -311,6 +311,25 @@ const GAIN_FUERZA_ATAQUE := 0.15
 # al lado, sino un pago acotado por fuga (de la distancia de ataque a lose_range hay ~176 px).
 # PROVISIONAL -> Excel/playtest.
 const GAIN_AGILIDAD_HUIDA := 0.25
+# Y lo que CUESTA la fuga multiplica lo que enseña: dejar atras a un bicho lento siendo un rayo no
+# entrena nada, y despegarse de uno que te pisa los talones entrena mucho. Se mide con la velocidad
+# de persecucion contra la TUYA REAL, con el peso y la armadura DENTRO a proposito: ir cargado te
+# hace mas lento y por tanto la fuga vale mas.
+#
+# No hace falta blindarlo contra el que se cargue aposta para farmear: si te pasas de peso el bicho
+# pasa a ser mas rapido que tu, el hueco no se abre y no cobras NADA (ver player._tick_huida, que
+# solo paga lo que bate el record). El exploit se castiga solo.
+#
+# Esto va ENCIMA del reto por poder del enemigo, que es otra cosa: aquel dice CONTRA QUE huyes
+# (un bicho del piso 13 multiplica hasta x5), y esto dice CUANTO TE COSTO.
+const HUIDA_DIF_FACTOR := 2.0   # ratio de velocidades -> multiplicador
+const HUIDA_DIF_MIN := 0.5      # fuga comoda: eres mucho mas rapido que el
+const HUIDA_DIF_MAX := 2.0      # fuga agonica: te pisa los talones
+
+func huida_dificultad_mult(vel_perseguidor: float, vel_propia: float) -> float:
+	if vel_propia <= 0.0:
+		return HUIDA_DIF_MAX
+	return clampf(vel_perseguidor / vel_propia * HUIDA_DIF_FACTOR, HUIDA_DIF_MIN, HUIDA_DIF_MAX)
 const GAIN_RESISTENCIA_GOLPE := 0.23
 # SUBIDA DE PRUEBA (20/07): la RECOLECCION rendia demasiado poca stat por pieza — un material base
 # daba ~0.6, y farmear se hacia largo. Se multiplica x2.5 la ganancia de los TRES minijuegos de

@@ -383,6 +383,12 @@ func persigue_a(quien: Node) -> bool:
 	return _state == State.CHASE and _objetivo == quien
 
 
+# A que velocidad persigue. Lo pregunta el jugador para saber lo que le CUESTA la fuga: huir de
+# algo que casi te alcanza entrena mas que dejar atras a un lento (Game.huida_dificultad_mult).
+func vel_persecucion() -> float:
+	return _chase_speed()
+
+
 # Velocidad de persecucion = la suya de merodeo x lo que declare su .tres.
 func _chase_speed() -> float:
 	var mult: float = data.chase_speed_mult if data != null else 1.0

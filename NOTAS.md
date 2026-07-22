@@ -192,6 +192,14 @@ persecución (`player._tick_huida`).
 - Techo natural: al pasar del `lose_range` del bicho te pierde y la persecución acaba.
 - `GAIN_AGILIDAD_HUIDA = 0.25` por cada `_HUIDA_TICK = 55` px de hueco nuevo. PROVISIONAL.
 
+**Lo que se cobra tiene DOS ejes que se multiplican:**
+1. **Contra qué huyes** — `Game.reto(poder, nivel)` del perseguidor, hasta ×5. Un bicho de nivel
+   inferior al tuyo te mide contra tu poder *de por vida*: da casi cero (anti-farmeo del piso 1).
+2. **Cuánto te costó** — `Game.huida_dificultad_mult(vel_bicho, tu_vel_real)` = ratio de
+   velocidades ×2, acotado a **×0.5 … ×2.0**. La velocidad tuya lleva **peso y armadura dentro a
+   propósito**: ir cargado te hace más lento y la fuga vale más. No hace falta blindarlo contra
+   el que se cargue aposta: si te pasas, el bicho es más rápido, el hueco no se abre y cobras 0.
+
 ### Combate avanzado — parte 1: críticos/evasión/defender (KAN-52/53/54) ✅
 - [x] **Crítico** (KAN-52) y **evasión** (KAN-53) por CONTEST relativo (`stats_math._contest`):
   crit = tu Destreza vs Agilidad enemiga; esquiva = tu Agilidad vs Destreza enemiga.
