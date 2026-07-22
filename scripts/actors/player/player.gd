@@ -251,9 +251,9 @@ func _physics_process(delta: float) -> void:
 	Game.tick_alboroto(delta, movement_mode)
 
 	# --- Excelia: subida de habilidades por uso (interno; se aplica en el hogar) ---
-	# Agilidad: HUIR de verdad. Ver _tick_huida. Le pasamos la velocidad REAL a la que corres
-	# (peso y armadura ya aplicados arriba): es lo que decide si la fuga fue comoda o agonica.
-	_tick_huida(speed)
+	# Agilidad: HUIR de verdad. Ver _tick_huida. No le pasamos la velocidad del grupo: cada
+	# personaje se mide con la SUYA (_vel_carrera_de), que es lo que de verdad le cuesta la fuga.
+	_tick_huida()
 
 	# DOS teclas, y no una: ATACAR y TOCAR COSAS son intenciones distintas y no se pueden
 	# confundir. Con una sola tecla, ir a extraer un cristal con un bicho cerca podia
@@ -615,7 +615,7 @@ func aguante_de_grupo(pj: PersonajeData) -> Vector2:
 #  pagan todos, asi que la Agilidad no puede quedarsela el que va en cabeza.
 # ============================================================
 
-func _tick_huida(vel_propia: float) -> void:
+func _tick_huida() -> void:
 	# ¿Nos sigue persiguiendo el mismo? (O(1): no hace falta barrer el grupo entero.)
 	if _huida_perseguidor != null and (not is_instance_valid(_huida_perseguidor) \
 			or not _huida_perseguidor.persigue_a(self)):
@@ -649,7 +649,6 @@ func _tick_huida(vel_propia: float) -> void:
 	var vel_bicho: float = 0.0
 	if _huida_perseguidor.has_method("vel_persecucion"):
 		vel_bicho = _huida_perseguidor.vel_persecucion()
-	var base: float = Game.GAIN_AGILIDAD_HUIDA * Game.huida_dificultad_mult(vel_bicho, vel_propia)
 	var poder: float = _poder_enemigo_nodo(_huida_perseguidor)
 	var nivel: int = _nivel_enemigo_nodo(_huida_perseguidor)
 	while _huida_acum >= _HUIDA_TICK:
@@ -657,10 +656,27 @@ func _tick_huida(vel_propia: float) -> void:
 		# Entrena el GRUPO ENTERO, no solo el lider: huir corre todo el mundo y el aguante lo pagan
 		# los tres (ver _tick_aguante_companeros), asi que seria absurdo que la Agilidad se la
 		# quedara el que va delante. Mismo criterio que el combate, que ya reparte por persona.
-		# El RETO se calcula para CADA UNO: al mas flojo el mismo bicho le exige mas y le enseña
-		# mas, que es justo como funciona el resto de la excelia.
+		#
+		# Y los DOS ejes se calculan para CADA UNO:
+		#   - el RETO, contra su propio poder: al mas flojo el mismo bicho le exige mas.
+		#   - la DIFICULTAD, contra SU velocidad maxima real y no la del grupo. El grupo va al paso
+		#     del lider, pero eso es prestado: al que va arrastrado esta misma fuga le habria
+		#     costado la vida yendo solo, y es lo que tiene que aprender. Si se midiera con la
+		#     velocidad del grupo, llevar de lider a un rayo le robaria el aprendizaje a los demas.
 		for pj in Game.party:
-			Game.ganar("agilidad", Game.reto(poder, nivel, pj), base, Game.RETO_MAX_FISICO, pj)
+			var base_pj: float = Game.GAIN_AGILIDAD_HUIDA \
+				* Game.huida_dificultad_mult(vel_bicho, _vel_carrera_de(pj))
+			Game.ganar("agilidad", Game.reto(poder, nivel, pj), base_pj, Game.RETO_MAX_FISICO, pj)
+
+
+# Velocidad de carrera que tendria ESTE personaje si fuera el que marca el paso. No es a la que se
+# mueve ahora (el grupo va al ritmo del lider): es SU tope real, con su Agilidad y su armadura. La
+# carga si es comun a todos, porque la mochila es una sola.
+func _vel_carrera_de(pj: PersonajeData) -> float:
+	return walk_speed * run_multiplier \
+		* Game.agilidad_speed_mult(pj) \
+		* Game.armor_speed_mult(pj) \
+		* Game.overload_speed_factor()
 
 
 # Olvida la persecucion en curso. Se llama al perderla y, MUY importante, en los teletransportes:
