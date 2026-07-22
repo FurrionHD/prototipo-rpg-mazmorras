@@ -75,7 +75,7 @@ var _drink_was: bool = false   # antirebote de la tecla Q (beber pocion)
 # Antirebote de las teclas 1/2/3 (cambiar de lider), una por posicion del equipo. La 0 no se usa:
 # la tecla 1 es "el que ya va en cabeza" y no hace nada, pero se deja el hueco para que el indice
 # del array sea el mismo que el de Game.party y no haya que restar 1 en ningun sitio.
-var _lider_was: Array[bool] = [false, false, false]
+var _lider_was: Array[bool] = [false, false, false, false]
 
 # Excelia de AGILIDAD: HUIR de un enemigo que te persigue (ver _tick_huida).
 #   _huida_perseguidor = el bicho que nos persigue AHORA (null = no estamos huyendo).

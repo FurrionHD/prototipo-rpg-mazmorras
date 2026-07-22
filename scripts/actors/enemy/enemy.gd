@@ -65,9 +65,10 @@ var zona_puntos: Array = []
 # el radio con el que se pintan las lineas del mapa: lo que ves unido es lo que te va a caer
 # encima, ni mas ni menos. Separarlos (atrayendo a uno) rompe el vinculo y peleas 1v1.
 const RADIO_REFUERZO := 160.0
-# Tope de bichos en una pelea (el tocado + 3). Mas de cuatro barras no caben en pantalla y la
-# pelea deja de poder leerse.
-const MAX_COMBATIENTES := 4
+# Tope de bichos en una pelea (el tocado + 4). Mas de cinco barras no caben en pantalla y la
+# pelea deja de poder leerse. Es el TECHO absoluto: cuantos se JUNTAN de verdad lo modula la
+# tendencia de manada (MANADA_POR_GRUPO), que escala con TU grupo; esto solo pone el limite duro.
+const MAX_COMBATIENTES := 5
 # Segundos que los supervivientes se quedan quietos al acabar el combate: la ventana para huir.
 const CONGELADO_TRAS_COMBATE := 3.0
 
@@ -531,12 +532,14 @@ func _return() -> void:
 #  MANADAS
 #  La mazmorra sabe con cuanta gente has bajado y se organiza en consecuencia: cada bicho quiere
 #  una compañia (manada_objetivo) que se tira de una tabla segun el tamaño de TU equipo. Bajas
-#  solo y te encuentras bichos sueltos o en pareja; bajas con tres y te encuentras corros de tres
-#  y de cuatro. Es lo que hace que el combate en grupo sea LA norma y no una casualidad.
+#  solo y te encuentras bichos sueltos o en pareja; bajas con cuatro y te encuentras corros de
+#  cuatro y de cinco. Es lo que hace que el combate en grupo sea LA norma y no una casualidad.
 #
-#  El tope es 4 y no es un numero al azar: es MAX_COMBATIENTES, lo que cabe en una pelea. Un corro
-#  de cinco tendria a uno mirando desde fuera, y encima ensuciaria las lineas del mapa (que
-#  prometen justo lo que va a entrar).
+#  El tope duro es 5 (MAX_COMBATIENTES, lo que cabe en una pelea): un corro de seis tendria a uno
+#  mirando desde fuera. Pero ese es solo el TECHO; cuantos se juntan DE VERDAD lo decide la tabla de
+#  abajo segun TU grupo. Yendo solo, manada_objetivo bajo => el bicho NO busca a otros y su corro se
+#  queda pequeño; NO se le junta media sala encima por el mero hecho de que quepan (esa es la clave:
+#  que un jugador solo no coma un corro de 5 forzado). Si de casualidad ya hay 5 pegados, entran 5.
 #
 #  Cuenta como "manada" lo que este dentro de RADIO_REFUERZO, la MISMA constante con la que
 #  vecinos() recluta al empezar el combate. Tiene que ser la misma o la promesa se rompe: lo que
@@ -544,11 +547,13 @@ func _return() -> void:
 # ============================================================
 
 # Reparto del tamaño de manada que quiere un bicho, segun cuantos bajasteis. Los pesos son de
-# PLAYTEST -> Excel. Indice = tamaño de tu equipo (1..3).
+# PLAYTEST -> Excel (PROVISIONALES). Indice = tamaño de tu equipo (1..4). La tendencia a juntarse
+# SUBE con tu grupo: solo => casi siempre 1-2 (el 3 raro, NUNCA forzado); cuatro => mayoria 4-5.
 const MANADA_POR_GRUPO := {
-	1: [[1, 40], [2, 45], [3, 15]],
-	2: [[2, 45], [3, 40], [4, 15]],
-	3: [[2, 20], [3, 40], [4, 40]],
+	1: [[1, 55], [2, 40], [3, 5]],
+	2: [[2, 50], [3, 35], [4, 15]],
+	3: [[3, 40], [4, 40], [5, 20]],
+	4: [[3, 20], [4, 40], [5, 40]],
 }
 # Hasta donde se mueve un bicho para juntarse con otro corro. Acotado a proposito: sin tope
 # cruzarian el piso entero y las salas del fondo se quedarian desiertas.
@@ -617,7 +622,7 @@ func _companeros_de_manada() -> Array:
 # Tira (o re-tira) cuanta compañia quiere este bicho. Se re-tira solo si ha cambiado el tamaño de
 # tu equipo: si se tirase cada dos por tres, todos acabarian en la media y no habria variedad.
 func _actualizar_manada_objetivo() -> void:
-	var grupo: int = clampi(Game.party.size(), 1, 3)
+	var grupo: int = clampi(Game.party.size(), 1, 4)
 	if grupo == _manada_tirada_con:
 		return
 	_manada_tirada_con = grupo

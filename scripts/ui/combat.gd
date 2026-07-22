@@ -85,17 +85,18 @@ var _bloques_box: HBoxContainer = null
 var _aliados_box: HBoxContainer = null
 
 # ANCHO FIJO de un bloque de combatiente, tuyo o del enemigo. Es la clave del combate en grupo:
-# si la barra de vida se estirase (como hacia en el 1v1, ocupando el ancho entero), cuatro
-# enemigos serian cuatro franjas apiladas y la pelea se leeria como una lista. Con un ancho fijo
-# caben los cuatro EN FILA, y esa fila es la que numera la barra de accion: el nº2 de abajo es
-# el 2º empezando por la izquierda. 260 x 4 + separacion = 1064, y el viewport base son 1152:
-# entra con holgura.
+# si la barra de vida se estirase (como hacia en el 1v1, ocupando el ancho entero), cinco
+# enemigos serian cinco franjas apiladas y la pelea se leeria como una lista. Con un ancho fijo
+# caben los cinco EN FILA, y esa fila es la que numera la barra de accion: el nº2 de abajo es
+# el 2º empezando por la izquierda. Tiene que caber el CASO PEOR: MAX_ENEMIGOS (5) bloques + sus
+# separaciones dentro del viewport base (1152). 216 x 5 + 8 x 4 = 1112 < 1152: entra con un pelin
+# de margen a cada lado (antes era 260, sizeado para 4, y con 5 se cortaba por los lados).
 #
 # Tu bloque mide LO MISMO que uno enemigo, aunque hoy este solo y le sobre sitio a los lados: es
 # un combatiente como los demas, y en cuanto haya companeros seran varios repartiendose la fila.
 # Que ya tenga su tamaño definitivo evita que el dia que entre el primer aliado se recoloque
 # todo de golpe.
-const ANCHO_BLOQUE := 260.0
+const ANCHO_BLOQUE := 216.0
 # Alto RESERVADO para los estados: dos filas de chips. Se reserva SIEMPRE, haya estados o no,
 # para que entrar o salir uno no mueva de sitio la barra de vida ni nada de lo que hay debajo.
 # Dos filas y no una porque en un bloque de 260 px solo caben ~3 chips por fila, y un bicho
@@ -161,7 +162,7 @@ var _slots_invocados: Dictionary = {}
 
 # Tope de enemigos en una pelea. Lo aplica enemy.gd al reclutar vecinos (MAX_COMBATIENTES);
 # aqui sirve de contrato para la UI (bloques y numeracion).
-const MAX_ENEMIGOS := 4
+const MAX_ENEMIGOS := 5
 
 enum State { ADVANCING, WAITING_PLAYER, PAUSED, FINISHED }
 var _state: State = State.ADVANCING

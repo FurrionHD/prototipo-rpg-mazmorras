@@ -40,7 +40,7 @@ var VERSION: String = ProjectSettings.get_setting("application/config/version", 
 #      de recoleccion) sin perder a nadie por el camino.
 #  Los dos arrays guardan los MISMOS objetos: meter a alguien en el party no lo copia.
 # ============================================================
-const PARTY_MAX := 3
+const PARTY_MAX := 4
 # Arrancan con una persona para que nadie tenga que comprobar si el array esta vacio: una partida
 # siempre eres al menos tu. nueva_partida()/importar_partida() las reemplazan.
 var plantilla: Array[PersonajeData] = []

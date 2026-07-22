@@ -85,12 +85,13 @@ var _t_respawn: float = RESPAWN_CHECK_CADA
 # El aforo por zona TAMBIEN se escala con la profundidad (misma FLOOR_GROWTH que el tope del piso):
 # si solo creciera el tope global, un piso hondo seria el mismo mapa con mas salas de tres, y lo que
 # se quiere es que ABAJO TE ENCUENTRES CORROS MAS GORDOS. Con topes duros, eso si:
-#   - la sala se queda en 4 = MAX_COMBATIENTES (Enemy). Mas de cuatro no caben en una pelea, asi
-#     que el quinto solo serviria para mirar; el sitio para crecer es el numero de salas, no el
-#     tamaño del corro.
-#   - el pasillo, en 2: un pasillo es un sitio de paso, y peleas a cuatro en un tubo de tres
+#   - la sala se queda en 5 = MAX_COMBATIENTES (Enemy). Mas de cinco no caben en una pelea, asi
+#     que el sexto solo serviria para mirar; el sitio para crecer es el numero de salas, no el
+#     tamaño del corro. OJO: el aforo es cuantos DEAMBULAN, no cuantos te saltan: eso lo modula la
+#     tendencia de manada (escala con tu grupo), asi que un jugador solo no se come 5 por tener sitio.
+#   - el pasillo, en 2: un pasillo es un sitio de paso, y peleas a cinco en un tubo de tres
 #     celdas de ancho son sitiadas sin escapatoria.
-const TOPE_SALA := 4
+const TOPE_SALA := 5
 const TOPE_PASILLO := 2
 
 # Que fraccion del aforo de cada zona ya esta poblada AL ENTRAR al piso. Una mazmorra
