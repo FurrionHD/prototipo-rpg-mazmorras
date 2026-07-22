@@ -30,9 +30,10 @@ const LADO := 32.0
 # lider (el punto se mueve con el), asi que esto solo actua cuando se ha quedado atras: tras
 # engancharse en una esquina, o al cambiar de lider. Por encima de la velocidad MAXIMA del lider
 # para que recupere el hueco, pero acotado: sin tope, un salto del rastro lo dispararia de golpe.
-# Subido de 320 al ampliar el bonus de Agilidad (AGILIDAD_VEL_MAX): con el liston del piso cumplido
-# el lider corre a ~330, y un tope por debajo de eso dejaba al companero descolgado en los pasillos.
-const VEL_MAX := 380.0
+# Se mueve con la velocidad MAXIMA del lider, ~15% por encima. Con walk_speed 100 y el bonus de
+# Agilidad en +30% (Game.AGILIDAD_VEL_MAX), el lider tope corre a ~230 (170 x 1.30 x 1.04 de
+# armadura ligera), asi que 265. Antes eran 380 porque el lider llegaba a ~330.
+const VEL_MAX := 265.0
 # A partir de cuanto se le da por encallado y se le teletransporta a su sitio (ver seguir()). Tres
 # cuerpos de margen: mas que cualquier rodeo honesto por una esquina, menos que "se ha perdido".
 const RESCATE := 96.0

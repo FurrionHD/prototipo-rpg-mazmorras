@@ -4871,10 +4871,15 @@ func overload_speed_factor() -> float:
 # has tenido ocasion de entrenar nada. Separadas, 'esperada' es lo que se da por hecho que llevas a
 # ese piso (30 en el primero: se consigue corriendo un rato) y 'alto' es la meta que da la punta.
 #
-# El multiplicador queda entre x0.80 y x1.50. Corriendo eso es 176 - 330 px/s, y los que persiguen
-# van a 117-240: por debajo del liston te cazan, cumpliendolo no te alcanza ninguno. Ese es el
+# El multiplicador queda entre x0.80 y x1.30. Corriendo eso es 136 - 221 px/s, y los que persiguen
+# van a 56-200: por debajo del liston te cazan, cumpliendolo no te alcanza ninguno. Ese es el
 # punto — la Agilidad decide si puedes huir, y para quien la ignore esta el sigilo (Ctrl).
-const AGILIDAD_VEL_MAX := 0.50    # techo del bonus (Agilidad >= alto(piso))
+#
+# El techo del bonus bajo de +50% a +30% (y walk_speed de 120 a 100) porque la banda de arriba se
+# habia desbocado: a 306-330 px/s no habia bicho que te rozara y huir era gratis, asi que la
+# dificultad de la fuga (huida_dificultad_mult) se quedaba siempre en su suelo. Se toco a la vez el
+# techo del acechador (240 -> 200, era el unico que se salia) para conservar la regla de arriba.
+const AGILIDAD_VEL_MAX := 0.30    # techo del bonus (Agilidad >= alto(piso))
 const AGILIDAD_VEL_PENAL := 0.20  # suelo del castigo (Agilidad 0 frente a esperada(piso))
 
 # El liston ESPERADO, lineal por piso como la franja de habilidades de los enemigos
@@ -4910,7 +4915,7 @@ func _ascensos_del_piso(piso: int) -> int:
 # que es de otro planeta (la Agilidad solo sube corriendo cerca de bichos y nadie la entrena en
 # exclusiva). Como delta sobre lo esperado, la punta es ir unos pisos por delante: se gana
 # entrenando y se pierde si dejas de hacerlo al bajar.
-const AGI_ALTO_DELTA := 250.0    # +250 sobre lo esperado = +50%
+const AGI_ALTO_DELTA := 250.0    # +250 sobre lo esperado = +30% (el techo, AGILIDAD_VEL_MAX)
 const AGI_PENAL_DELTA := 150.0   # -150 por debajo = -20%
 
 # 'piso' < 0 = el actual. current_floor vuelve a 1 al salir al pueblo, asi que alli se usa el
