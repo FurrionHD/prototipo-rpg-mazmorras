@@ -211,7 +211,10 @@ func _montar(titulo: String, subtitulo: String, texto_boton: String, previo: Dic
 		if _src != null:
 			_png = Game.png_cuadrado(_src, _zoom, _centro)
 			_tex = Game.textura_de_png(_png)
-		muestra.material = Game.material_cuerpo(metal.value, _tex, tinte.value)
+		# material_aspecto y NO material_cuerpo: aqui _tex null significa "este todavia no tiene
+		# imagen", y material_cuerpo lo interpretaria como "usa la del lider" — que es justo lo que
+		# hacia que al contratar a alguien nuevo la muestra saliera con la cara del anterior.
+		muestra.material = Game.material_aspecto(metal.value, _tex, tinte.value)
 		tinte.editable = _tex != null
 		zoom.editable = _src != null
 		lbl_tinte.modulate = Color(1, 1, 1) if _tex != null else Color(1, 1, 1, 0.4)

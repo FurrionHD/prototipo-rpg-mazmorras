@@ -919,16 +919,19 @@ static func png_cuadrado(src: Image, zoom: float = 1.0, centro: Vector2 = Vector
 # Aqui el null de `imagen` SIGUE queriendo decir "la del lider" (lo usan el cuerpo del jugador y
 # quien llama sin argumentos). Para pintar a UNO concreto esta material_de(), que no hereda nada.
 func material_cuerpo(metalico: float = -1.0, imagen: Texture2D = null, tinte: float = -1.0) -> ShaderMaterial:
-	return _material_shader(
+	return material_aspecto(
 		player_metalico if metalico < 0.0 else metalico,
 		textura_cuerpo() if imagen == null else imagen,
 		player_color_alpha if tinte < 0.0 else tinte)
 
 
-# Monta el material con los valores YA resueltos. Aqui un `tex` null significa "sin imagen" de
-# verdad, no "coge la de otro": esa era la ambiguedad que tenia material_cuerpo() y la que hacia
-# que los companeros heredasen la cara del lider.
-func _material_shader(metal: float, tex: Texture2D, alpha: float) -> ShaderMaterial:
+# Monta el material con los valores YA resueltos, SIN heredar nada de nadie. Aqui un `tex` null
+# significa "sin imagen" de verdad, no "coge la de otro": esa era la ambiguedad de material_cuerpo()
+# y la que hacia que los companeros (y la vista previa del creador) salieran con la cara del lider.
+#
+# Es PUBLICA a proposito: la necesita cualquiera que pinte a alguien que todavia NO es un
+# PersonajeData — el ejemplo es la muestra del creador, que pinta lo que estas montando ahora.
+func material_aspecto(metal: float, tex: Texture2D, alpha: float) -> ShaderMaterial:
 	if metal <= 0.0 and tex == null:
 		return null   # mate y sin imagen: no hace falta shader
 	var mat := ShaderMaterial.new()
@@ -949,7 +952,7 @@ func material_de(pj: PersonajeData) -> ShaderMaterial:
 	# Su imagen TAL CUAL, sin pasar por material_cuerpo(): alli un null quiere decir "usa la del
 	# lider", y por eso un companero SIN imagen propia salia con la cara del que va en cabeza.
 	# Aqui null significa lo que tiene que significar: no tiene imagen, va a color plano.
-	return _material_shader(pj.metalico, pj.textura(), pj.color_alpha)
+	return material_aspecto(pj.metalico, pj.textura(), pj.color_alpha)
 
 
 # Empieza una partida DE CERO (menu -> Nueva partida). Mundo nuevo y personaje a estrenar,
