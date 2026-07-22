@@ -22,4 +22,7 @@ golpes_min = 1
 golpes_max = 1
 dano_mult = 1.9
 efectos = [SubResource("SA_0"), SubResource("SA_1")]
+area_modo = 1
+area_max = 3
+area_secundario = 0.5
 cooldown = 4

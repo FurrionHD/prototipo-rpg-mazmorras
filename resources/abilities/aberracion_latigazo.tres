@@ -10,4 +10,5 @@ coste_energia = 0.0
 golpes_min = 2
 golpes_max = 3
 dano_mult = 1.1
+reparto_por_golpe = true
 cooldown = 3

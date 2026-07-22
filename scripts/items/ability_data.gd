@@ -60,6 +60,23 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 @export var area_max: int = 99            # tope de enemigos alcanzados (incl. principal)
 @export var area_secundario: float = 0.5  # SPLASH: fracción de daño a cada secundario
 @export var area_falloff: float = 0.7     # BARRIDO: cada golpe x falloff^(n-1)
+# ¿El AREA aplica también los ESTADOS de la habilidad a los secundarios (adyacentes)? (solo enemigos)
+# false = los estados se quedan en el principal, los lados solo encajan el DAÑO reducido (Aplastamiento:
+#         50% a los lados, pero el aturdir/pegajoso solo al de debajo).
+# true  = los lados también reciben los estados, con la MISMA prob y la magnitud escalada por
+#         area_secundario (Combustión: fuego de la mitad a los adyacentes con la misma probabilidad).
+@export var area_efectos_secundarios: bool = false
+# Multiplicador de la PROBABILIDAD de los estados en los SECUNDARIOS (adyacentes/fila), independiente
+# del daño. 1.0 = misma prob que el principal (Combustión: el fuego a los lados prende igual);
+# < 1.0 = menos probable a los lados (Pisotón sísmico: el lento pilla menos a los de al lado).
+@export var area_prob_secundario: float = 1.0
+
+# REPARTO POR GOLPE (solo ENEMIGOS, multi-golpe a un solo objetivo): cada golpe elige objetivo al
+# azar entre TU grupo vivo, en vez de descargarlos todos sobre el mismo. Con 2 golpes pueden caer
+# los dos al mismo aliado o uno a cada uno; con más, se reparten. Es distinto del área: no salpica
+# a los lados, cada golpe es un impacto pleno sobre quien le toque. No hace nada en las armas del
+# jugador (ahi los golpes ya se redirigen al matar). Ver combat.gd._enemy_use_ability.
+@export var reparto_por_golpe: bool = false
 
 # REDIRECCIÓN AL MATAR (flurries a un solo objetivo, area_modo NINGUNO): si el objetivo cae y
 # aún quedan golpes, en vez de perderlos saltan al siguiente enemigo VIVO y siguen pegando ahí.

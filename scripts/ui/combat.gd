@@ -342,6 +342,41 @@ func _objetivos_area(spell: SpellData, principal: Combatant) -> Array:
 	return out
 
 
+# ESPEJO de _adyacentes_vivos pero sobre TU GRUPO (_aliados): el primer aliado VIVO a la izquierda
+# de 'principal' y el primero a la derecha (maximo 2). Lo usa el AREA de las habilidades ENEMIGAS
+# (un slime que aplasta salpica a los aliados de al lado). Misma regla: los KO no comen el salpicon.
+func _adyacentes_aliados_vivos(principal: Combatant) -> Array[Combatant]:
+	var out: Array[Combatant] = []
+	var centro: int = _aliados.find(principal)
+	if centro < 0:
+		return out
+	for paso in [-1, 1]:
+		var i: int = centro + paso
+		while i >= 0 and i < _aliados.size():
+			if _aliados[i].is_alive():
+				out.append(_aliados[i])
+				break
+			i += paso
+	return out
+
+
+# A quien alcanza el AREA de una habilidad ENEMIGA sobre tu grupo, con su escala de daño ya puesta:
+# [{c, escala}]. El principal SIEMPRE el primero al 100%; los secundarios a area_secundario.
+# El ALCANCE lo decide area_max: >= 99 = TODA la fila (Pisotón, Chillido, Bramido); si no, solo los
+# ADYACENTES (Aplastamiento, Combustión, Carga). Por eso esas ultimas fijan area_max = 3.
+func _objetivos_area_aliados(ab: AbilityData, principal: Combatant) -> Array:
+	var out: Array = [{"c": principal, "escala": 1.0}]
+	var secundarios: Array[Combatant]
+	if ab.area_max >= 99:
+		secundarios = _aliados_vivos()
+	else:
+		secundarios = _adyacentes_aliados_vivos(principal)
+	for c in secundarios:
+		if c != principal:
+			out.append({"c": c, "escala": ab.area_secundario})
+	return out
+
+
 func _ready() -> void:
 	# Forzamos que esta pantalla ocupe toda la ventana, aunque se abra como
 	# overlay encima de la mazmorra (si no, sale descentrada/pequeña).
@@ -2424,55 +2459,64 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	var obj: Combatant = victima if victima != null and victima.is_alive() else _elegir_objetivo_enemigo()
 	if obj == null:
 		return
-	var pj_obj: PersonajeData = Game.pj_de_combatant(obj)
 	e.start_cooldown(ab)   # instantaneas: cooldown al usar (las cargadas ya lo arrancaron)
 	print("[habilidad enemigo] %s usa %s contra %s" % [e.nombre, ab.nombre, obj.nombre])
-	var defendiendo: bool = bool(_defendiendo.get(obj, false)) or obj.en_guardia
 	var total: float = 0.0
 	var golpes: int = 0
-	var conecto: int = 0
 	var estados_log: Array = []
-	# CONTRAATAQUE del estoque (postura "En guardia"): tambien responde a las HABILIDADES, no
-	# solo a los basicos. UNA vez por habilidad, aunque esquives varios de sus golpes: una
-	# accion del enemigo = como mucho una respuesta tuya (igual que con el basico). Si fuese
-	# por golpe, un Frenesí de dentelladas (5-6 golpes) con la esquiva de la postura te
-	# regalaria tres o cuatro estocadas en un turno.
+	# CONTRAATAQUE del estoque (postura "En guardia"): responde a las habilidades UNA vez (no por
+	# golpe). Con varios objetivos, el primero en guardia que esquive es quien contesta.
 	var contra_txt: String = ""
+	# Aliados que han recibido ALGO (para procesar caidas al final, sean uno o varios).
+	var tocados: Array[Combatant] = []
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
-		for i in golpes:
-			var result := StatsMath.resolve_attack(e, obj, defendiendo)
-			if result.evaded:
-				print("        golpe %d: esquivado 💨" % [i + 1])
-				Game.contar_esquiva()   # contador oculto de Reflejos
-				if obj.en_guardia and contra_txt == "":
-					contra_txt = _contraatacar(e, obj)
-					if not e.is_alive():
-						break
-			else:
-				var dmg: float = result.damage * ab.dano_mult * e.dummy_dmg_out_mult
-				obj.take_damage(dmg)
-				Game.desgastar_armadura(pj_obj)   # DURABILIDAD: cada golpe encajado gasta las piezas
-				Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
-				total += dmg
-				conecto += 1
-				var et := "golpe %d: %s %.2f" % [i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
-				if ab.efectos_por_golpe:
-					var ap: Array = _enemy_tirar_efectos(e, ab, obj)
-					estados_log += ap
-					if not ap.is_empty():
-						et += "  -> " + ", ".join(ap)
-				print("        " + et)
-			if not obj.is_alive():
-				break
-		# Efectos NO por golpe: solo si el enemigo sigue vivo (un contraataque puede haberlo
-		# matado a mitad de su propia habilidad: un muerto no te envenena).
-		if not ab.efectos_por_golpe and conecto > 0 and obj.is_alive() and e.is_alive():
-			estados_log += _enemy_tirar_efectos(e, ab, obj)
-		print("        total: %.2f de daño en %d golpe%s" % [total, golpes, "" if golpes == 1 else "s"])
+		if ab.es_area():
+			# AREA (SPLASH sobre tu grupo): el principal encaja los golpes al 100%; los adyacentes,
+			# a area_secundario. Los estados llegan a los lados solo si area_efectos_secundarios.
+			for o in _objetivos_area_aliados(ab, obj):
+				var t: Combatant = o["c"]
+				var esc: float = float(o["escala"])
+				var es_princ: bool = t == obj
+				var esc_prob: float = 1.0 if es_princ else ab.area_prob_secundario
+				var sub := _enemy_resolver_golpes(e, ab, t, golpes, esc, contra_txt == "",
+					es_princ or ab.area_efectos_secundarios, esc_prob)
+				total += float(sub["total"]); estados_log += sub["estados"]
+				if not tocados.has(t): tocados.append(t)
+				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
+				if not e.is_alive(): break
+		elif ab.reparto_por_golpe:
+			# REPARTO POR GOLPE: cada golpe elige un aliado vivo al azar (pueden repetir objetivo).
+			for _i in golpes:
+				var t: Combatant = _elegir_objetivo_enemigo()
+				if t == null: break
+				var sub := _enemy_resolver_golpes(e, ab, t, 1, 1.0, contra_txt == "", true)
+				total += float(sub["total"]); estados_log += sub["estados"]
+				if not tocados.has(t): tocados.append(t)
+				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
+				if not e.is_alive(): break
+		else:
+			# SINGLE (de siempre): todos los golpes al mismo objetivo.
+			var sub := _enemy_resolver_golpes(e, ab, obj, golpes, 1.0, true, true)
+			total = float(sub["total"]); estados_log = sub["estados"]; contra_txt = String(sub["contra"])
+			tocados.append(obj)
+		print("        total: %.2f de daño en %d golpe%s (%d objetivo%s)" % [
+			total, golpes, "" if golpes == 1 else "s", tocados.size(), "" if tocados.size() == 1 else "s"])
 	else:
-		# Habilidad de puro estado (sin daño): tira sus efectos directamente.
-		estados_log += _enemy_tirar_efectos(e, ab, obj)
+		# Habilidad de PURO ESTADO (sin daño): tira sus efectos a-objetivo. Si es de area (Bramido,
+		# Alarido), el debuff cae sobre TODA la fila alcanzada; si no, solo sobre el objetivo.
+		if ab.es_area():
+			for o in _objetivos_area_aliados(ab, obj):
+				var t: Combatant = o["c"]
+				estados_log += _enemy_tirar_efectos(e, ab, t, 1.0, "objetivo")
+				if not tocados.has(t): tocados.append(t)
+		else:
+			estados_log += _enemy_tirar_efectos(e, ab, obj, 1.0, "objetivo")
+			tocados.append(obj)
+
+	# BUFFS PROPIOS (en_objetivo=false: Furia del minotauro, Fortaleza...): UNA vez por uso, no por
+	# objetivo ni por golpe. Van aparte para que un area no los aplique varias veces.
+	estados_log += _enemy_tirar_efectos(e, ab, e, 1.0, "self")
 
 	# INVOCACION (Rey Slime): saca hasta invoca_cantidad slimes al azar del pool. Para si se queda
 	# sin hueco (sequito lleno / tope de 4). Va aparte del daño/estados: una habilidad podria pegar
@@ -2486,14 +2530,11 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			invocados += 1
 		_update_hp()   # refresca los bloques revividos/nuevos (nombre + barra)
 
-	# Excelia: recibir el golpe entrena Resistencia (como en el ataque basico), modulada
-	# por el daño total encajado.
-	if total > 0.0:
-		var dmg_mult: float = clampf(total / maxf(1.0, float(obj.max_hp) * 0.1), 0.5, 2.0)
-		Game.ganar("resistencia", _reto(e) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
-			Game.RETO_MAX_FISICO, pj_obj)
-
-	var msg: String = "%s usa %s contra %s" % [e.nombre, ab.nombre, obj.nombre]
+	var msg: String = "%s usa %s" % [e.nombre, ab.nombre]
+	if tocados.size() > 1:
+		msg += " y alcanza a %d de los tuyos" % tocados.size()
+	else:
+		msg += " contra %s" % obj.nombre
 	if total > 0.0:
 		msg += ": %.2f de daño (%d golpe%s)." % [total, golpes, "" if golpes == 1 else "s"]
 	else:
@@ -2517,12 +2558,65 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		else:
 			_pausa_lectura()
 		return
-	if not obj.is_alive():
-		_caer_aliado(obj)
-		if _aliados_vivos().is_empty():
-			_end(false)
-			return
+	# Caidas de TODOS los aliados tocados (el area puede tumbar a varios de golpe).
+	var alguno_cayo: bool = false
+	for t in tocados:
+		if not t.is_alive():
+			_caer_aliado(t)
+			alguno_cayo = true
+	if alguno_cayo and _aliados_vivos().is_empty():
+		_end(false)
+		return
 	_pausa_lectura()
+
+
+# Resuelve 'n_golpes' de la habilidad 'ab' del enemigo 'e' sobre UN aliado 't', con 'escala' de daño
+# (1.0 = pleno; area_secundario en los adyacentes). 'permitir_contra' deja que t (en guardia)
+# devuelva UN golpe. 'aplicar_efectos' decide si t recibe los estados (el principal siempre; los
+# adyacentes solo si la habilidad lo pide). Devuelve {total, conecto, estados, contra}.
+func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpes: int,
+		escala: float, permitir_contra: bool, aplicar_efectos: bool, escala_prob: float = 1.0) -> Dictionary:
+	var pj_t: PersonajeData = Game.pj_de_combatant(t)
+	var defendiendo: bool = bool(_defendiendo.get(t, false)) or t.en_guardia
+	var total: float = 0.0
+	var conecto: int = 0
+	var estados: Array = []
+	var contra: String = ""
+	for i in n_golpes:
+		var result := StatsMath.resolve_attack(e, t, defendiendo)
+		if result.evaded:
+			print("        [%s] golpe %d: esquivado 💨" % [t.nombre, i + 1])
+			Game.contar_esquiva()   # contador oculto de Reflejos
+			if t.en_guardia and permitir_contra and contra == "":
+				contra = _contraatacar(e, t)
+				if not e.is_alive():
+					break
+		else:
+			var dmg: float = result.damage * ab.dano_mult * escala * e.dummy_dmg_out_mult
+			t.take_damage(dmg)
+			Game.desgastar_armadura(pj_t)   # DURABILIDAD: cada golpe encajado gasta las piezas
+			Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
+			total += dmg
+			conecto += 1
+			var et := "[%s] golpe %d: %s %.2f" % [t.nombre, i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
+			if ab.efectos_por_golpe and aplicar_efectos:
+				var ap: Array = _enemy_tirar_efectos(e, ab, t, escala, "objetivo", escala_prob)
+				estados += ap
+				if not ap.is_empty():
+					et += "  -> " + ", ".join(ap)
+			print("        " + et)
+		if not t.is_alive():
+			break
+	# Efectos NO por golpe: una tirada si conecto algo y siguen vivos ambos (un contraataque puede
+	# haber matado al enemigo a mitad de su propia habilidad: un muerto no te envenena).
+	if aplicar_efectos and not ab.efectos_por_golpe and conecto > 0 and t.is_alive() and e.is_alive():
+		estados += _enemy_tirar_efectos(e, ab, t, escala, "objetivo", escala_prob)
+	# Excelia: encajar el golpe entrena la Resistencia de QUIEN lo encaja, modulada por el daño.
+	if total > 0.0:
+		var dmg_mult: float = clampf(total / maxf(1.0, float(t.max_hp) * 0.1), 0.5, 2.0)
+		Game.ganar("resistencia", _reto(e) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
+			Game.RETO_MAX_FISICO, pj_t)
+	return {"total": total, "conecto": conecto, "estados": estados, "contra": contra}
 
 
 # Tira los estados (StatusApplication) de una habilidad del enemigo 'e'. Respeta 'en_objetivo':
@@ -2531,21 +2625,32 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 # "A si mismo" es el ENEMIGO QUE LANZA, de ahi que 'e' venga por parametro: con varios bichos,
 # leer un campo global haria que un slime se buffease a otro slime.
 # N stacks por tirada (a.stacks). Devuelve los nombres aplicados para el log.
-func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant) -> Array:
+# filtro: "todos" = self + a-objetivo; "objetivo" = solo los que van a QUIEN encaja (debuff/DoT, se
+# aplican por objetivo del area); "self" = solo los buffs propios (en_objetivo=false), UNA vez por uso.
+func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, escala_mag: float = 1.0,
+		filtro: String = "todos", escala_prob: float = 1.0) -> Array:
 	var out: Array = []
 	for a in ab.efectos:
 		if a.estado < 0:
 			continue
 		var al_jugador: bool = a.en_objetivo
+		if filtro == "objetivo" and not al_jugador:
+			continue   # los buffs propios no se reparten por objetivo (se aplican una vez aparte)
+		if filtro == "self" and al_jugador:
+			continue   # aqui solo van los buffs a si mismo
 		var objetivo: Combatant = victima if al_jugador else e
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		if objetivo.es_inmune(a.estado):   # incluye la inmunidad derivada de su AFINIDAD elemental
 			continue   # apply_status ya lo avisaria, pero asi no ensucia el log de aplicados
 		# Solo los estados que te LANZAN a ti se resisten; los buffs propios siempre prenden.
-		var p: float = a.prob * (1.0 - victima.status_resist) if al_jugador else a.prob
+		# escala_prob < 1.0 en los SECUNDARIOS del area cuando la habilidad lo pide (el lento pilla
+		# menos a los lados). No toca a los buffs propios (siempre prenden).
+		var p: float = a.prob * (1.0 - victima.status_resist) * escala_prob if al_jugador else a.prob
 		if randf() >= p:
 			continue
-		var mag: float = StatusEffects.app_magnitude(a, e.atk(), e.motion_value)
+		# escala_mag < 1.0 en los SECUNDARIOS del area: el fuego/veneno que salpica a los lados es
+		# de la mitad (misma prob). 1.0 en el principal y en single/reparto.
+		var mag: float = StatusEffects.app_magnitude(a, e.atk(), e.motion_value) * escala_mag
 		# Aplica los stacks de uno en uno (los independientes/merge suben stack por llamada).
 		for _s in maxi(1, a.stacks):
 			objetivo.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)

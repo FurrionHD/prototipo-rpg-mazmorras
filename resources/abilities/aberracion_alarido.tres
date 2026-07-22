@@ -20,4 +20,6 @@ descripcion = "Abre algo que no es del todo una boca y suelta un chillido que no
 coste_energia = 0.0
 dano_mult = 0.0
 efectos = [SubResource("SA_deb"), SubResource("SA_vuln")]
+area_modo = 1
+area_max = 99
 cooldown = 5

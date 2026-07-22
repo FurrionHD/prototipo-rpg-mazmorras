@@ -18,4 +18,5 @@ golpes_max = 2
 dano_mult = 0.75
 efectos = [SubResource("SA_quema")]
 efectos_por_golpe = true
+reparto_por_golpe = true
 cooldown = 3

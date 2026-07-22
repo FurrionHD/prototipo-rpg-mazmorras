@@ -24,4 +24,6 @@ golpes_min = 1
 golpes_max = 1
 dano_mult = 0.0
 efectos = [SubResource("SA_furia"), SubResource("SA_retraso")]
+area_modo = 1
+area_max = 99
 cooldown = 5

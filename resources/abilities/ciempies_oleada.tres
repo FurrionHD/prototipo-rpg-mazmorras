@@ -19,4 +19,5 @@ golpes_max = 5
 dano_mult = 0.55
 efectos = [SubResource("SA_ven")]
 efectos_por_golpe = true
+reparto_por_golpe = true
 cooldown = 3

@@ -18,5 +18,6 @@ golpes_max = 6
 dano_mult = 0.5
 efectos = [SubResource("SA_sang")]
 efectos_por_golpe = true
+reparto_por_golpe = true
 carga_turnos = 1
 cooldown = 4
