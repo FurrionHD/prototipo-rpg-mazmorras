@@ -610,6 +610,9 @@ func aguante_de_grupo(pj: PersonajeData) -> Vector2:
 #     que impide farmear el piso 1 cuando ya has ascendido.
 #   - CUANTO TE COSTO: Game.huida_dificultad_mult(vel_del_bicho, tu_velocidad_real). Dejar atras a
 #     un lento siendo un rayo no entrena; despegarte de uno que te pisa los talones, si.
+#
+#  Y lo cobra el GRUPO ENTERO, cada uno con SU reto: corriendo va todo el mundo y el aguante lo
+#  pagan todos, asi que la Agilidad no puede quedarsela el que va en cabeza.
 # ============================================================
 
 func _tick_huida(vel_propia: float) -> void:
@@ -647,11 +650,17 @@ func _tick_huida(vel_propia: float) -> void:
 	if _huida_perseguidor.has_method("vel_persecucion"):
 		vel_bicho = _huida_perseguidor.vel_persecucion()
 	var base: float = Game.GAIN_AGILIDAD_HUIDA * Game.huida_dificultad_mult(vel_bicho, vel_propia)
-	var reto_val: float = Game.reto(_poder_enemigo_nodo(_huida_perseguidor),
-		_nivel_enemigo_nodo(_huida_perseguidor))
+	var poder: float = _poder_enemigo_nodo(_huida_perseguidor)
+	var nivel: int = _nivel_enemigo_nodo(_huida_perseguidor)
 	while _huida_acum >= _HUIDA_TICK:
 		_huida_acum -= _HUIDA_TICK
-		Game.ganar("agilidad", reto_val, base, Game.RETO_MAX_FISICO)
+		# Entrena el GRUPO ENTERO, no solo el lider: huir corre todo el mundo y el aguante lo pagan
+		# los tres (ver _tick_aguante_companeros), asi que seria absurdo que la Agilidad se la
+		# quedara el que va delante. Mismo criterio que el combate, que ya reparte por persona.
+		# El RETO se calcula para CADA UNO: al mas flojo el mismo bicho le exige mas y le enseña
+		# mas, que es justo como funciona el resto de la excelia.
+		for pj in Game.party:
+			Game.ganar("agilidad", Game.reto(poder, nivel, pj), base, Game.RETO_MAX_FISICO, pj)
 
 
 # Olvida la persecucion en curso. Se llama al perderla y, MUY importante, en los teletransportes:
