@@ -84,9 +84,15 @@ var _lider_was: Array[bool] = [false, false, false, false]
 #                        vueltas alrededor o dejandose alcanzar para volver a huir (yo-yo).
 #   _huida_acum        = hueco nuevo acumulado, pendiente de convertirse en ticks.
 var _huida_perseguidor: Node2D = null
+# A QUIEN persigue: tu o un companero. La distancia (y por tanto el hueco que se paga) se mide entre
+# el bicho y ESTE, no siempre desde el lider.
+var _huida_presa: Node2D = null
 var _huida_record: float = 0.0
 var _huida_acum: float = 0.0
-const _HUIDA_TICK := 55.0       # px de hueco NUEVO por cada "tick" de ganancia
+# Px de hueco NUEVO por cada "tick" de ganancia. Se probo a 35 y pagaba de sobra (4 ticks en una sola
+# fuga), asi que vuelve a 55: con lose_range en 300 la ventana ya da para 2-3 ticks por fuga, que es
+# el ritmo que se busca. Ver tambien Enemy.lose_range, que es lo que abre la ventana.
+const _HUIDA_TICK := 55.0
 const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
 
 # Radio de PELIGRO: correr solo cuesta aguante si hay un bicho a menos de esto. Correr por el
@@ -618,26 +624,31 @@ func aguante_de_grupo(pj: PersonajeData) -> Vector2:
 func _tick_huida() -> void:
 	# ¿Nos sigue persiguiendo el mismo? (O(1): no hace falta barrer el grupo entero.)
 	if _huida_perseguidor != null and (not is_instance_valid(_huida_perseguidor) \
-			or not _huida_perseguidor.persigue_a(self)):
+			or _huida_presa == null or not is_instance_valid(_huida_presa) \
+			or not _huida_perseguidor.persigue_a(_huida_presa)):
 		_reset_huida()
 
 	# Sin perseguidor, buscamos uno nuevo, pero solo si estamos corriendo (es cuando puede pagar).
 	if _huida_perseguidor == null:
 		if movement_mode != 2:
 			return
-		var nuevo: Node2D = _perseguidor()
+		var par: Array = _perseguidor()
+		var nuevo: Node2D = par[0]
 		if nuevo == null:
 			return
 		_huida_perseguidor = nuevo
+		_huida_presa = par[1]
 		# El record arranca en la distancia ACTUAL: lo que ya tenias de ventaja no se te paga.
-		_huida_record = global_position.distance_to(nuevo.global_position)
+		_huida_record = _dist_huida()
 		_huida_acum = 0.0
 		return
 
 	# Solo se cobra corriendo, y solo el hueco que bate el record.
 	if movement_mode != 2:
 		return
-	var d: float = global_position.distance_to(_huida_perseguidor.global_position)
+	var d: float = _dist_huida()
+	if d < 0.0:
+		return
 	if d <= _huida_record:
 		return
 	_huida_acum += d - _huida_record
@@ -684,16 +695,36 @@ func _vel_carrera_de(pj: PersonajeData) -> float:
 # excelia por algo que no has corrido.
 func _reset_huida() -> void:
 	_huida_perseguidor = null
+	_huida_presa = null
 	_huida_record = 0.0
 	_huida_acum = 0.0
 
 
-# El enemigo que me persigue a MI (no al companero de al lado). null si ninguno.
-func _perseguidor() -> Node2D:
+# El enemigo que persigue a ALGUIEN DEL GRUPO, y a quien persigue: [enemigo, presa]. [null, null] si
+# ninguno. Cuenta el grupo ENTERO y no solo el lider: la Excelia de la huida ya se reparte entre
+# todos (ver _tick_huida), asi que si el bicho va a por el que llevas detras estais huyendo igual.
+# Antes solo miraba persigue_a(self) y por eso huir de algo que perseguia a un companero no pagaba
+# NADA, aunque acabaras en combate con el.
+func _perseguidor() -> Array:
 	for e in get_tree().get_nodes_in_group("enemy"):
-		if is_instance_valid(e) and e.has_method("persigue_a") and e.persigue_a(self):
-			return e as Node2D
-	return null
+		if not (is_instance_valid(e) and e.has_method("persigue_a")):
+			continue
+		if e.persigue_a(self):
+			return [e as Node2D, self as Node2D]
+		for c in get_tree().get_nodes_in_group("aliado"):
+			if c != self and is_instance_valid(c) and c is Node2D and e.persigue_a(c):
+				return [e as Node2D, c as Node2D]
+	return [null, null]
+
+
+# La distancia que de verdad manda: la que hay entre el bicho y LA PRESA que persigue (que puede ser
+# un companero, no tu). Si midiera siempre desde el lider, correr tu mientras el bicho alcanza al de
+# atras contaria como "abrir hueco", que es justo lo contrario de lo que pasa.
+func _dist_huida() -> float:
+	if _huida_presa == null or not is_instance_valid(_huida_presa) \
+			or _huida_perseguidor == null or not is_instance_valid(_huida_perseguidor):
+		return -1.0
+	return _huida_presa.global_position.distance_to(_huida_perseguidor.global_position)
 
 
 # Enemigo VIVO mas cercano y a que distancia esta: [Node, float]. Sin nadie cerca devuelve
