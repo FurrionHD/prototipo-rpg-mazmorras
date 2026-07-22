@@ -58,7 +58,11 @@ var zona_puntos: Array = []
 @export var hearing_max: float = 130.0        # radio de oido maximo
 
 # --- Persecucion / combate ---
-@export var lose_range: float = 220.0         # si te alejas mas, te pierde
+# Si te alejas mas, te pierde. SUBIDO 220 -> 300: con 220 la persecucion moria tan pronto que la
+# fuga apenas daba para abrir hueco (te detecta a <=130 px, asi que quedaban ~90 px de margen). Mas
+# margen = persecuciones mas largas y una huida que se puede jugar (y que entrena, ver
+# player._tick_huida).
+@export var lose_range: float = 300.0
 
 # --- COMBATE EN GRUPO ---
 # Radio alrededor de un bicho dentro del cual sus vecinos entran CON EL a la pelea. Es tambien
