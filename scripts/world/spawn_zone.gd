@@ -216,8 +216,10 @@ func _abrir_pared() -> void:
 	for suelo in _fx_suelos:
 		# El brote se SALTA el aforo de la sala (max_vivos): es un evento, no el goteo normal. El
 		# tope del PISO si se respeta (lo mira _nacer via piso.hay_sitio), que es el que cuida el
-		# rendimiento. Un parto normal si obedece el aforo.
-		var e = _nacer(suelo, true, _fx_brote)
+		# rendimiento. Un parto normal si obedece el aforo. Ademas, en un brote se fuerza el
+		# reciclado (forzar = _fx_brote): si el piso esta lleno, borra a los mas lejanos para que el
+		# brote entre COMPLETO en vez de salir a medias.
+		var e = _nacer(suelo, true, _fx_brote, _fx_brote)
 		if e == null:
 			break            # tope del piso: no cabe ninguno mas
 		nacidos += 1
@@ -234,8 +236,8 @@ func _abrir_pared() -> void:
 # Crea UN bicho en 'pos' y lo suelta a merodear POR SU ZONA (no en un circulo alrededor
 # del sitio donde nacio, que es lo que los dejaba pegados a la pared que los pario).
 # Devuelve null si no cabe (tope de la zona, tope del piso o tabla vacia).
-func _nacer(pos: Vector2, reciclar: bool = true, saltar_aforo: bool = false):
-	if piso == null or not piso.hay_sitio(reciclar):
+func _nacer(pos: Vector2, reciclar: bool = true, saltar_aforo: bool = false, forzar: bool = false):
+	if piso == null or not piso.hay_sitio(reciclar, forzar):
 		return null
 	if not saltar_aforo and _vivos.size() >= max_vivos:
 		return null

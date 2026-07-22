@@ -1022,29 +1022,37 @@ func elegir_enemigo() -> EnemyData:
 # bichos dormidos en la otra punta y la sala donde estas TU esteril.
 # Al POBLAR el piso al entrar se llama con reciclar=false: si no, las ultimas zonas en
 # poblarse se pondrian a borrar los bichos de las primeras para hacerse sitio.
-func hay_sitio(reciclar: bool = true) -> bool:
+func hay_sitio(reciclar: bool = true, forzar: bool = false) -> bool:
 	if _vivos_en_el_piso() < max_vivos():
 		return true
-	return reciclar and _reciclar_lejano()
+	return reciclar and _reciclar_lejano(forzar)
 
 
 func _vivos_en_el_piso() -> int:
 	return get_tree().get_nodes_in_group("enemy").size()
 
 
-# Despawnea al enemigo vivo mas lejano al jugador, y SOLO si esta lejisimos (nunca se
-# borra algo que puedas estar viendo). Los CADAVERES no se tocan jamas: llevan tu loot
-# dentro y morir() ya los saca del grupo "enemy", asi que ni aparecen por aqui.
-func _reciclar_lejano() -> bool:
+# Despawnea al enemigo vivo mas lejano al jugador. Normal: SOLO si esta lejisimos (mas de
+# dist_reciclar), para no borrar algo que puedas estar viendo. FORZAR (brote masivo): borra al mas
+# lejano SEA CUAL SEA su distancia, para hacer aforo si o si -> un brote entra siempre completo, y
+# lo que se cae es lo que tienes mas lejos (lo menos molesto). Los CADAVERES no se tocan jamas:
+# llevan tu loot dentro y morir() ya los saca del grupo "enemy", asi que ni aparecen por aqui.
+func _reciclar_lejano(forzar: bool = false) -> bool:
 	var player := get_tree().get_first_node_in_group("player")
 	if not (player is Node2D):
 		return false
 	var pj: Vector2 = (player as Node2D).global_position
 
 	var lejano: Node = null
-	var best: float = dist_reciclar
+	# Forzando, el liston de distancia se cae: vale cualquiera (arranca en -1 para aceptar hasta el
+	# de distancia 0). Sin forzar, solo los que esten mas lejos que dist_reciclar.
+	var best: float = -1.0 if forzar else dist_reciclar
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e) or not (e is Node2D):
+			continue
+		# Ya marcado para borrar en este mismo frame (varios _nacer seguidos de un brote): no lo
+		# vuelvas a elegir o "reciclarias" al mismo una y otra vez sin liberar huecos nuevos.
+		if e.is_queued_for_deletion():
 			continue
 		# El BOSS no se recicla NUNCA: guarda su sala hasta que lo maten. Sin esto, alejarse lo
 		# suficiente lo borraria y el piso se quedaria cerrado para siempre.
