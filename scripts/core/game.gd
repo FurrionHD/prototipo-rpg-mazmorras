@@ -317,8 +317,10 @@ const GAIN_RESISTENCIA_GOLPE := 0.23
 # DESTREZA: se entrena en DOS sitios (extraccion del cristal + herboristeria). La planta pesa mas
 # POR PIEZA porque es mas escasa y menos perdonable (una pasada por tallo); el cristal cae de cada
 # bicho, por eso su multiplicador es el mas bajo.
-const GAIN_DESTREZA_MINIJUEGO := 1.35  # extraccion del cristal (0.9 x1.5)
-const GAIN_DESTREZA_PLANTA := 2.75     # herboristeria, hoz (1.1 x2.5)
+# Recortadas un 35% (x0.65): la Destreza subia mas que el resto de stats en el playtest, asi
+# que se baja la recompensa de sus DOS fuentes por igual (la dificultad del minijuego no se toca).
+const GAIN_DESTREZA_MINIJUEGO := 0.88  # extraccion del cristal (era 1.35, x0.65)
+const GAIN_DESTREZA_PLANTA := 1.79     # herboristeria, hoz (era 2.75, x0.65)
 # FUERZA: la mineria es la primera fuente de Fuerza que no es pegarse con algo.
 const GAIN_FUERZA_MINERIA := 2.25      # (0.9 x2.5)
 # AGILIDAD: el talado. Talar NO va de fuerza bruta (si fuese Fuerza, entre la mina y la madera
@@ -3920,6 +3922,22 @@ func nucleos_para(item: Resource) -> Array:
 	return vistos
 
 
+# El nucleo que TOCA para la proxima mejora de esta pieza: el unico cuya banda cubre el +N actual
+# (bandas contiguas y no solapadas, ver MaterialData.cubre_mejora). Lo devuelve AUNQUE no lo
+# tengas, para que la UI pueda decir cual te falta. null solo si la pieza ya esta al techo del
+# sistema o no hay escalera para su tier. Sustituye a la seleccion manual de nucleos.
+func nucleo_auto(item: Resource) -> MaterialData:
+	if item == null:
+		return null
+	var tier: int = int(meta_de(item)["tier"])
+	var nivel: int = mejoras_actuales(item)
+	for ruta in _NUCLEOS:
+		var n: MaterialData = load(ruta) as MaterialData
+		if n != null and Forge.nucleo_vale(n, item, tier) and n.cubre_mejora(nivel):
+			return n
+	return null
+
+
 # TODOS los nucleos que existen. nucleos_para() solo mira los que TIENES, y para FUNDIR hace
 # falta la escalera entera: hay que saber que nucleo se comio cada mejora aunque ya no te quede
 # ninguno de ese tipo.
@@ -4227,6 +4245,11 @@ func materiales_mejora(item: Resource) -> Dictionary:
 
 func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
 	if item == null or not Forge.nucleo_vale(nucleo, item, int(meta_de(item)["tier"])):
+		return false
+	# CANDADO de banda: cada nucleo solo vale para SU tramo de mejoras. nucleo_vale filtra por tier
+	# y arma/armadura, pero NO por banda, asi que sin esto un nucleo superior (fuego, +6..+9) podia
+	# financiar una mejora baja (+1) y encima barata. cubre_mejora corta ese abuso.
+	if not nucleo.cubre_mejora(mejoras_actuales(item)):
 		return false
 	if mejoras_actuales(item) >= tope_mejoras(item, nucleo):
 		return false
@@ -5783,6 +5806,8 @@ func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 			print("[pasiva] +1 cristal por 'Pulso de joyero'.")
 		print("Obtienes cristal categoria ", cristal.categoria,
 			" (", cristal.calidad_texto(), "). Total: ", crystals.size())
+		var cant_cristal: int = 2 if tiene_pasiva("reco_extraccion") else 1
+		_aviso_recogida("Cristal T%d" % cristal.categoria, cant_cristal)
 		# Destreza: subes mas cuanto mas dificil era el minijuego PARA TI (zona
 		# pequeña + mas pulsaciones = reto alto). El reto ya es relativo a tu
 		# Destreza, asi que un experto sacando de un bicho flojo tiene reto bajo.
@@ -5911,6 +5936,7 @@ func _on_mineria_finished(item: MaterialItem, nodo) -> void:
 		descubrir(item.data)
 		_botin_extra_reco("reco_mineria", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
 		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
+		_aviso_recogida(item.nombre())
 	else:
 		print("La veta se deshace en escombro: no sacas nada.")
 	# La FUERZA se entrena aunque la pieza salga rota: has picado igual. Lo que pierdes al
@@ -5961,6 +5987,7 @@ func _on_herboristeria_finished(item: MaterialItem, nodo) -> void:
 		descubrir(item.data)
 		_botin_extra_reco("reco_herboristeria", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
 		print("Recoges ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
+		_aviso_recogida(item.nombre())
 	else:
 		print("La planta queda hecha jirones: no sirve.")
 	ganar("destreza", curva_reto(_last_reco_reto, HERB_PIVOTE, HERB_SLOPE, HERB_RETO_MAX),
@@ -6005,6 +6032,7 @@ func _on_talado_finished(item: MaterialItem, nodo) -> void:
 		descubrir(item.data)
 		_botin_extra_reco("reco_talado", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
 		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
+		_aviso_recogida(item.nombre())
 	else:
 		print("El tronco se raja en astillas: no sacas nada.")
 	# Como en la mineria: la Agilidad se entrena aunque la pieza salga rota. Lo que pierdes al
@@ -6015,6 +6043,14 @@ func _on_talado_finished(item: MaterialItem, nodo) -> void:
 
 # Dificultad del ultimo minijuego de recoleccion (para la ganancia de stat al terminar).
 var _last_reco_reto: float = 1.0
+
+
+# Aviso de RECOGIDA a la izquierda (el feed de pildoras del HUD). No bloqueante; si no hay HUD en
+# escena (p.ej. en pruebas) no pasa nada. Mismo patron que los toasts de pasivas: via grupo "hud".
+func _aviso_recogida(nombre: String, cantidad: int = 1) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_recogida"):
+		hud.mostrar_recogida(nombre, cantidad)
 
 
 # Monta la pantalla de un minijuego encima del mapa y congela el mundo. Lo comparten la

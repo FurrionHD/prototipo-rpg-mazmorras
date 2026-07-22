@@ -111,7 +111,7 @@ var _lingote_idx: int = 0          # metal elegido (indice en lingotes o chapas,
 var _sel_forja: Array = []
 
 # --- MEJORAR ---
-var _nucleo_idx: int = 0
+# El nucleo ya no se elige a mano (lo pone Game.nucleo_auto por el +N); solo queda la categoria.
 var _cat_idx: int = 0
 
 
@@ -243,7 +243,7 @@ func _title(vb: VBoxContainer, txt: String) -> void:
 	l.add_theme_font_size_override("font_size", 16)
 	vb.add_child(l)
 
-func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
+func _row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Variant = null) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	var k := Label.new()
@@ -255,7 +255,30 @@ func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
 	v.text = valor
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if color_valor != null:
+		v.add_theme_color_override("font_color", color_valor)
 	row.add_child(v)
+	vb.add_child(row)
+
+# Fila de ATRIBUTO para el preview de mejora: etiqueta · valor actual · (+delta) en verde. El
+# delta sale vacio si la mejora seleccionada no toca ese stat. El valor va a la derecha del
+# nombre y el delta pegado, para que se lea "Ataque  42.0  (+4.2)".
+func _row_attr(vb: VBoxContainer, etiqueta: String, valor: String, delta: String) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var k := Label.new()
+	k.text = etiqueta
+	k.custom_minimum_size = Vector2(170, 0)
+	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
+	row.add_child(k)
+	var v := Label.new()
+	v.text = valor
+	row.add_child(v)
+	if delta != "":
+		var d := Label.new()
+		d.text = delta
+		d.add_theme_color_override("font_color", VERDE)
+		row.add_child(d)
 	vb.add_child(row)
 
 func _note(vb: VBoxContainer, txt: String) -> void:
@@ -1067,43 +1090,28 @@ func _on_reparar_todo() -> void:
 
 func _preview_mejorar(vb: VBoxContainer) -> void:
 	var item: Resource = _stacks[_sel]["modelo"]
-	var nucleos: Array = Game.nucleos_para(item)
 	_title(vb, Game.item_display_name(item))
 
-	if nucleos.is_empty():
-		_note(vb, "No tienes núcleos que sirvan para esto en el Hogar. Los sueltan los monstruos, y no siempre.")
-		return
-	_nucleo_idx = clampi(_nucleo_idx, 0, nucleos.size() - 1)
-	var nucleo: MaterialData = nucleos[_nucleo_idx]
-
+	var meta: Dictionary = Game.meta_de(item)
+	var rareza: int = int(meta["rareza"])
 	var actuales: int = Game.mejoras_actuales(item)
-	var tope: int = Game.tope_mejoras(item, nucleo)
-	var cuesta: int = Forge.nucleos_para_mejora(actuales, nucleo, item)
-	_row(vb, "Mejoras", "+%d  (tope con este núcleo: +%d)" % [actuales, tope])
-	_row(vb, "Huecos por rareza", str(Upgrades.rareza_slots(int(Game.meta_de(item)["rareza"]))))
+	var por_rareza: int = Upgrades.rareza_slots(rareza)
+	_row(vb, "Huecos por rareza", str(por_rareza))
 
-	vb.add_child(HSeparator.new())
-	# Los nucleos, tambien de dos en dos y repartiendose el ancho: sus nombres son largos.
-	var fila := GridContainer.new()
-	fila.columns = 2
-	fila.add_theme_constant_override("h_separation", 6)
-	fila.add_theme_constant_override("v_separation", 6)
-	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for i in nucleos.size():
-		var n: MaterialData = nucleos[i]
-		var b := Button.new()
-		b.text = "%s  ·  %d  (hasta +%d)" % [n.nombre, Game.nucleos_en_hogar(n), n.mejora_max]
-		b.toggle_mode = true
-		b.button_pressed = (i == _nucleo_idx)
-		b.clip_text = true
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.pressed.connect(_on_nucleo.bind(i))
-		fila.add_child(b)
-	vb.add_child(fila)
-	_row(vb, "Núcleos", "%d × %s  (tienes %d)" % [cuesta, nucleo.nombre, Game.nucleos_en_hogar(nucleo)])
+	# El nucleo YA NO se elige a mano: lo pone el sistema segun el +N (cada nucleo cubre su tramo).
+	# nucleo_auto devuelve el que TOCA aunque no lo tengas, para poder decir cual falta y en rojo.
+	var nucleo: MaterialData = Game.nucleo_auto(item)
+	var al_tope: bool = actuales >= por_rareza or nucleo == null
+	var cuesta: int = 0
+	if nucleo != null:
+		cuesta = Forge.nucleos_para_mejora(actuales, nucleo, item)
+		var tengo_n: int = Game.nucleos_en_hogar(nucleo)
+		_row(vb, "Núcleo", "%d × %s  (tienes %d)" % [cuesta, nucleo.nombre, tengo_n],
+			ROJO if tengo_n < cuesta else VERDE)
+	else:
+		_row(vb, "Núcleo", "— (la pieza ya está al máximo de su rareza)")
 
-	# Y el MATERIAL de refuerzo: el mismo con el que se forjo, del mismo tier. Sin selector de
-	# calidades a proposito (la rareza ya esta tirada: meter material bueno no daria nada).
+	# El MATERIAL de refuerzo: el mismo con el que se forjo, del mismo tier. En rojo si no llega.
 	var mats: Dictionary = Game.materiales_mejora(item)
 	var cmat: Dictionary = Forge.material_para_mejora(actuales)
 	for clave in ["metal", "fibra"]:
@@ -1113,8 +1121,9 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 			continue
 		var necesita: int = int(cmat[clave])
 		var tengo: int = Game.unidades_material_en_hogar(m)
-		_row(vb, m.nombre, "%d uds  (tienes %d)" % [necesita, tengo])
-	_note(vb, "Cada núcleo cubre un tramo de mejoras, y dentro de él cada mejora cuesta un núcleo más que la anterior; al cambiar a un núcleo mejor, la cuenta vuelve a empezar en uno. El núcleo es el permiso, pero la pieza hay que rehacerla: gasta también material de su tier, y del peor que tengas (la rareza ya está echada y no se toca).")
+		_row(vb, m.nombre, "%d uds  (tienes %d)" % [necesita, tengo],
+			ROJO if tengo < necesita else VERDE)
+	_note(vb, "El núcleo lo elige el sistema por el nivel de la pieza: cada uno cubre su tramo de mejoras y dentro de él cada mejora cuesta un núcleo más que la anterior. El núcleo es el permiso, pero la pieza hay que rehacerla: gasta también material de su tier, y del peor que tengas (la rareza ya está echada y no se toca).")
 
 	vb.add_child(HSeparator.new())
 	var cats: Array = _categorias(item)
@@ -1128,7 +1137,7 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var mj: Dictionary = Game.meta_de(item)["mejoras"]
+	var mj: Dictionary = meta["mejoras"]
 	for i in cats.size():
 		var cat: String = str(cats[i])
 		var b := Button.new()
@@ -1142,13 +1151,20 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 		grid.add_child(b)
 	vb.add_child(grid)
 
+	# ATRIBUTOS de la pieza, con en verde lo que sube la mejora de la categoria seleccionada. El
+	# delta se oculta si la pieza esta al tope (no hay mejora que previsualizar).
 	vb.add_child(HSeparator.new())
-	var puede: bool = Game.puede_mejorar(item, nucleo)
-	var txt: String = "Mejorar  (%d × %s)" % [cuesta, nucleo.nombre]
-	if actuales >= tope:
-		txt = "Al tope con este núcleo (+%d)" % tope
-	elif Game.nucleos_en_hogar(nucleo) < cuesta:
-		txt = "Te faltan núcleos (%d de %d)" % [Game.nucleos_en_hogar(nucleo), cuesta]
+	var cat_sel: String = str(cats[_cat_idx])
+	for f in MenuScaffold.filas_mejora(item, int(meta["tier"]), rareza, mj, cat_sel):
+		_row_attr(vb, str(f[0]), str(f[1]), "" if al_tope else str(f[2]))
+
+	vb.add_child(HSeparator.new())
+	var puede: bool = nucleo != null and Game.puede_mejorar(item, nucleo)
+	var txt: String = "Al máximo que permite la rareza (+%d)" % por_rareza
+	if not al_tope:
+		txt = "Mejorar  (%d × %s)" % [cuesta, nucleo.nombre]
+		if Game.nucleos_en_hogar(nucleo) < cuesta:
+			txt = "Te faltan núcleos (%d de %d)" % [Game.nucleos_en_hogar(nucleo), cuesta]
 	_boton(vb, txt, _on_mejorar, puede)
 
 
@@ -1165,11 +1181,6 @@ func _categorias(item: Resource) -> Array:
 	return []
 
 
-func _on_nucleo(i: int) -> void:
-	_nucleo_idx = i
-	_rebuild()
-
-
 func _on_cat(i: int) -> void:
 	_cat_idx = i
 	_rebuild()
@@ -1177,7 +1188,10 @@ func _on_cat(i: int) -> void:
 
 func _on_mejorar() -> void:
 	var item: Resource = _stacks[_sel]["modelo"]
-	var nucleo: MaterialData = Game.nucleos_para(item)[_nucleo_idx]
+	var nucleo: MaterialData = Game.nucleo_auto(item)
+	if nucleo == null:
+		_decir("No se pudo mejorar.", false)
+		return
 	var cats: Array = _categorias(item)
 	var cat: String = str(cats[clampi(_cat_idx, 0, cats.size() - 1)])
 	if Game.mejorar_item(item, cat, nucleo):

@@ -689,11 +689,13 @@ func _try_interact() -> void:
 			Game.descubrir(m.data)
 			print("Recoges: ", m.nombre(), " (", m.calidad_texto(), "). Total materiales: ",
 				Game.materiales.size())
+			Game._aviso_recogida(m.nombre())
 		elif item is Cristal:
 			var c := item as Cristal
 			Game.crystals.append(c)
 			print("Recoges: Cristal Cat ", c.categoria, " (", c.calidad_texto(),
 				"). Total cristales: ", Game.crystals.size())
+			Game._aviso_recogida("Cristal T%d" % c.categoria)
 
 
 # Recoloca al jugador (lo usa el generador del piso para plantarte en la sala de

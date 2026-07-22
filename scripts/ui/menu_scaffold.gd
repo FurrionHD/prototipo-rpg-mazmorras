@@ -298,6 +298,90 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 	return filas
 
 
+# Filas de ATRIBUTO para el PREVIEW de mejora (pestaña Mejorar del herrero): la MISMA math del
+# combate (Upgrades.*_mods) calculada dos veces —con las mejoras actuales y con la categoria `cat`
+# subida una vez— para enseñar el valor de ahora y, en verde, cuanto sube. Devuelve una lista de
+# [etiqueta, valor, delta]; delta = "" cuando ese stat no cambia con esa mejora. Solo se listan los
+# stats que una mejora PUEDE tocar (la reduccion/velocidad de tipo/tamaño no salen: son crudas).
+static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictionary, cat: String) -> Array:
+	var despues: Dictionary = mejoras.duplicate(true)
+	despues[cat] = int(despues.get(cat, 0)) + 1
+	var tm: float = Game.tier_mult(tier)
+	var filas: Array = []
+	if item is WeaponData:
+		var w := item as WeaponData
+		var a := Upgrades.weapon_mods(w, tm, rareza, mejoras)
+		var b := Upgrades.weapon_mods(w, tm, rareza, despues)
+		_attr(filas, "Ataque", "%.1f" % float(a["raw"]), _d(float(a["raw"]), float(b["raw"]), "+%.1f"))
+		_attr(filas, "Velocidad", "×%.2f" % (w.velocidad_mult * float(a["vel_mult"])),
+			_d(w.velocidad_mult * float(a["vel_mult"]), w.velocidad_mult * float(b["vel_mult"]), "+%.2f"))
+		if float(a["crit"]) != 0.0 or float(b["crit"]) != 0.0:
+			_attr(filas, "Crítico", "%+.0f%%" % (float(a["crit"]) * 100.0),
+				_d(float(a["crit"]) * 100.0, float(b["crit"]) * 100.0, "+%.0f%%"))
+		_attr(filas, "Daño crítico", "×%.2f" % (StatsMath.CRIT_MULT + float(a["crit_dmg"])),
+			_d(StatsMath.CRIT_MULT + float(a["crit_dmg"]), StatsMath.CRIT_MULT + float(b["crit_dmg"]), "+%.2f"))
+		if float(a["precision"]) > 0.0 or float(b["precision"]) > 0.0:
+			_attr(filas, "Precisión", "+%.0f%%" % (float(a["precision"]) * 100.0),
+				_d(float(a["precision"]) * 100.0, float(b["precision"]) * 100.0, "+%.0f%%"))
+		if float(a["aturdir"]) > 0.0 or float(b["aturdir"]) > 0.0:
+			_attr(filas, "Aturdir", "%.0f%%" % (float(a["aturdir"]) * 100.0),
+				_d(float(a["aturdir"]) * 100.0, float(b["aturdir"]) * 100.0, "+%.0f%%"))
+		if w.es_magica:
+			_filas_mejora_magia(filas, w.magic_amp, w.mp_regen_turno, w.cast_vel_mult, tm, rareza, mejoras, despues)
+	elif item is WandData:
+		var wd := item as WandData
+		_filas_mejora_magia(filas, wd.magic_amp, wd.mp_regen_turno, wd.cast_vel_mult, tm, rareza, mejoras, despues)
+	elif item is ShieldData:
+		var sh := item as ShieldData
+		var a := Upgrades.shield_mods(sh, tm, rareza, mejoras)
+		var b := Upgrades.shield_mods(sh, tm, rareza, despues)
+		_attr(filas, "Defensa al bloquear", "+%.1f" % float(a["def"]), _d(float(a["def"]), float(b["def"]), "+%.1f"))
+		_attr(filas, "Bloqueo", "%.0f%%" % (float(a["bloqueo"]) * 100.0),
+			_d(float(a["bloqueo"]) * 100.0, float(b["bloqueo"]) * 100.0, "+%.0f%%"))
+		if float(a["resist_estados"]) > 0.0 or float(b["resist_estados"]) > 0.0:
+			_attr(filas, "Resist. estados", "+%.0f%%" % (float(a["resist_estados"]) * 100.0),
+				_d(float(a["resist_estados"]) * 100.0, float(b["resist_estados"]) * 100.0, "+%.0f%%"))
+	elif item is ArmorData:
+		var ar := item as ArmorData
+		var a := Upgrades.armor_piece_mods(ar, tm, rareza, mejoras)
+		var b := Upgrades.armor_piece_mods(ar, tm, rareza, despues)
+		_attr(filas, "Defensa", "%.1f" % float(a["def"]), _d(float(a["def"]), float(b["def"]), "+%.1f"))
+		if float(a["evasion"]) > 0.0 or float(b["evasion"]) > 0.0:
+			_attr(filas, "Evasión", "+%.0f%%" % (float(a["evasion"]) * 100.0),
+				_d(float(a["evasion"]) * 100.0, float(b["evasion"]) * 100.0, "+%.0f%%"))
+		if float(a["crit_resist"]) > 0.0 or float(b["crit_resist"]) > 0.0:
+			_attr(filas, "Resist. crítico", "+%.0f%%" % (float(a["crit_resist"]) * 100.0),
+				_d(float(a["crit_resist"]) * 100.0, float(b["crit_resist"]) * 100.0, "+%.0f%%"))
+		if float(a["resist_estados"]) > 0.0 or float(b["resist_estados"]) > 0.0:
+			_attr(filas, "Resist. estados", "+%.0f%%" % (float(a["resist_estados"]) * 100.0),
+				_d(float(a["resist_estados"]) * 100.0, float(b["resist_estados"]) * 100.0, "+%.0f%%"))
+	return filas
+
+# La parte magica (baston y varita comparten): amplificacion, regen, casteo y coste de maná.
+static func _filas_mejora_magia(filas: Array, base_amp: float, mp_regen: float, cast_base: float,
+		tm: float, rareza: int, mejoras: Dictionary, despues: Dictionary) -> void:
+	var a := Upgrades.magic_mods(base_amp, tm, rareza, mejoras)
+	var b := Upgrades.magic_mods(base_amp, tm, rareza, despues)
+	_attr(filas, "Amplif. magia", "×%.2f" % float(a["magic_amp"]), _d(float(a["magic_amp"]), float(b["magic_amp"]), "+%.2f"))
+	_attr(filas, "Regen maná", "%.2f/turno" % (mp_regen * float(a["regen_mult"])),
+		_d(mp_regen * float(a["regen_mult"]), mp_regen * float(b["regen_mult"]), "+%.2f"))
+	_attr(filas, "Vel. casteo", "×%.2f" % (cast_base + float(a["cast_vel_add"])),
+		_d(cast_base + float(a["cast_vel_add"]), cast_base + float(b["cast_vel_add"]), "+%.2f"))
+	if float(a["mana_reduccion"]) > 0.0 or float(b["mana_reduccion"]) > 0.0:
+		_attr(filas, "Coste de maná", "-%.0f%%" % (float(a["mana_reduccion"]) * 100.0),
+			_d(float(a["mana_reduccion"]) * 100.0, float(b["mana_reduccion"]) * 100.0, "+%.0f%%"))
+
+static func _attr(filas: Array, etiqueta: String, valor: String, delta: String) -> void:
+	filas.append([etiqueta, valor, delta])
+
+# Delta formateado entre parentesis (o "" si no cambia). `fmt` lleva un unico marcador para el
+# numero de la DIFERENCIA (ej. "+%.1f"). El umbral evita pintar "(+0.00)" por ruido de redondeo.
+static func _d(antes: float, despues: float, fmt: String) -> String:
+	if absf(despues - antes) < 0.005:
+		return ""
+	return "(" + (fmt % (despues - antes)) + ")"
+
+
 # Cuadricula de botones. Por defecto 2 columnas de 150x44 (la columna de la LISTA de items, que
 # lleva nombres largos). Los selectores de material pasan mas columnas y botones mas bajos: sus
 # etiquetas son cortas y con 2 por fila la lista se iba a lo alto sin necesidad.

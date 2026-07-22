@@ -19,6 +19,10 @@ var _peso_lbl: Label = null     # numero de peso encima del cuadrado
 # La caja de ayudas de teclas. Va debajo de las barras y no se mueve, pero se guarda por si algun
 # dia hay que recolocarla como al cuadrado del peso.
 var _caja_ayudas: PanelContainer = null
+# Feed de RECOGIDA: la columna de pildoras a la izquierda ("Nombre ×N") estilo gacha. Cada aviso
+# aparece unos segundos y se desvanece solo; se apilan varios y se limita el numero a la vista.
+var _recogidas: VBoxContainer = null
+const RECOGIDAS_MAX := 5
 
 
 func _ready() -> void:
@@ -89,6 +93,14 @@ func _ready() -> void:
 	_peso_lbl.add_theme_constant_override("outline_size", 4)
 	_peso_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_peso_box.add_child(_peso_lbl)
+
+	# Feed de recogida, anclado a la izquierda a media altura (crece hacia abajo desde el centro).
+	_recogidas = VBoxContainer.new()
+	_recogidas.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
+	_recogidas.offset_left = 16
+	_recogidas.add_theme_constant_override("separation", 6)
+	_recogidas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_recogidas)
 
 	recolocar()
 	_avisar_muerte()
@@ -164,6 +176,65 @@ func mostrar_toast(texto: String) -> void:
 	t.tween_interval(5.0)
 	t.tween_property(aviso, "modulate:a", 0.0, 1.5)
 	t.tween_callback(aviso.queue_free)
+
+
+# Aviso de RECOGIDA (no bloqueante): una pildora a la izquierda con el material que acabas de
+# coger, estilo gacha. Se apila con los anteriores y se desvanece sola. La llama Game desde los
+# _on_*_finished y drop_pickup via el grupo "hud", igual que mostrar_toast.
+func mostrar_recogida(nombre: String, cantidad: int = 1) -> void:
+	if _recogidas == null:
+		return
+	# Si ya hay demasiadas a la vista, tira la mas antigua (la de arriba) para que no crezca sin fin.
+	while _recogidas.get_child_count() >= RECOGIDAS_MAX:
+		var vieja := _recogidas.get_child(0)
+		_recogidas.remove_child(vieja)
+		vieja.queue_free()
+
+	var pildora := PanelContainer.new()
+	pildora.add_theme_stylebox_override("panel", _fondo_pildora())
+	pildora.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var caja := HBoxContainer.new()
+	caja.add_theme_constant_override("separation", 8)
+	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pildora.add_child(caja)
+
+	# Placeholder de icono (el arte va al final del proyecto): un cuadradito.
+	var icono := ColorRect.new()
+	icono.custom_minimum_size = Vector2(18, 18)
+	icono.color = Color(0.55, 0.45, 0.75)
+	icono.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	caja.add_child(icono)
+
+	var l := Label.new()
+	l.text = nombre if cantidad <= 1 else "%s ×%d" % [nombre, cantidad]
+	l.add_theme_font_size_override("font_size", 14)
+	l.add_theme_color_override("font_color", Color(0.95, 0.93, 0.98))
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	l.add_theme_constant_override("outline_size", 3)
+	caja.add_child(l)
+
+	_recogidas.add_child(pildora)
+
+	# Unos segundos a la vista y se desvanece (como mostrar_toast / el aviso de muerte).
+	var t := create_tween()
+	t.tween_interval(2.5)
+	t.tween_property(pildora, "modulate:a", 0.0, 0.6)
+	t.tween_callback(pildora.queue_free)
+
+
+# Fondo de una pildora de recogida: oscuro semitransparente y redondeado, con un borde tenue.
+func _fondo_pildora() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.09, 0.12, 0.85)
+	sb.border_color = Color(0.87, 0.57, 0.26, 0.5)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 12
+	sb.content_margin_top = 5
+	sb.content_margin_bottom = 5
+	return sb
 
 
 # Panel negro semitransparente: lo que va SOBRE el mapa (teclas, piso, monedas) tiene que
