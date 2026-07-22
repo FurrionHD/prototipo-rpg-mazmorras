@@ -900,6 +900,12 @@ func _refrescar_chips(c: Combatant, box: Container, idx: int) -> void:
 		_chip(box, "⚡ %s" % c.charging.nombre,
 			"CARGANDO: %s\nSe dispara en %d turno%s.\nAturdirlo lo interrumpe." % [
 				c.charging.nombre, c.charge_left, "" if c.charge_left == 1 else "s"], idx)
+	# PROVOCANDO (taunt de escudo): sin esto no habia forma de saber si te quedaba taunt ni cuanto.
+	# Va en los chips como todo lo demas, asi que sirve igual para ti y para un companero.
+	if c.provocar_turnos > 0:
+		_chip(box, "🎯 %dt" % c.provocar_turnos,
+			"PROVOCANDO: %d turno%s.\nLos enemigos pesan x%d tu nombre al elegir a quien pegar.\nNo es forzado: solo inclina la balanza." % [
+				c.provocar_turnos, "" if c.provocar_turnos == 1 else "s", int(PROVOCA_PESO)], idx)
 	var imb: String = c.imbue_etiqueta()
 	if imb != "":
 		_chip(box, imb, c.imbue_resumen(), idx)
