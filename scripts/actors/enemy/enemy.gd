@@ -49,7 +49,12 @@ var zona_puntos: Array = []
 @export var vision_half_angle_deg: float = 50.0  # medio angulo del cono
 
 # --- Oido ---
-@export var hearing_factor: float = 0.55      # radio de oido = tu_velocidad * esto
+# Subido de 0.55 a 0.66 al bajar walk_speed de 120 a 100: el radio sale de tu VELOCIDAD, asi que
+# ralentizar al jugador lo volvia mas silencioso de rebote (correr pasaba de oirse a 112 a oirse a
+# 94) y eso era un buff de sigilo que nadie habia pedido. 0.55 / (100/120) = 0.66 deja el oido
+# EXACTAMENTE como estaba en los tres modos: sigilo 30, andar 66, correr 112 (y el tope sigue
+# saturando al esprintar con el liston cumplido, igual que antes).
+@export var hearing_factor: float = 0.66      # radio de oido = tu_velocidad * esto
 @export var hearing_max: float = 130.0        # radio de oido maximo
 
 # --- Persecucion / combate ---
