@@ -93,6 +93,12 @@ var hp_restante: float = -1.0
 const EMBESTIDA_VEL_MULT := 2.2    # x lo que corre persiguiendo: la carga es un aceleron
 const EMBESTIDA_DUR := 0.35        # segundos que dura la carga (lo que la hace esquivable)
 const EMBESTIDA_ESPERA := 0.6      # descanso tras fallar, antes de poder volver a cargar
+# Holgura para dar dos cuerpos por TOCANDOSE. NO puede ser 0: ahora el bicho COLISIONA con los
+# companeros, y al colisionar Godot deja un margen de seguridad, asi que los cuerpos jamas llegan a
+# solaparse (hueco se queda en ~0.08 y nunca baja de 0). Con 0 exacto, la carga se estampaba contra
+# el companero y no "conectaba" nunca: el bicho se quedaba empotrado repitiendo aviso -> embestida
+# -> fallo, sin entrar en combate.
+const CONTACTO := 2.0
 
 signal combat_started(enemy_data: EnemyData, enemy_initiated: bool)
 
@@ -203,6 +209,16 @@ func _physics_process(delta: float) -> void:
 	# grupo se cruzara para que el bicho se quedara bailando entre dos objetivos).
 	if _objetivo == null or not is_instance_valid(_objetivo):
 		_objetivo = _aliado_mas_cercano()
+
+	# TOCAR = COMBATE, en el estado que sea. Un bicho no puede estar empotrado contra ti (o contra un
+	# companero) y seguir a lo suyo. Va ANTES que todo lo demas y no depende de que te haya visto:
+	# cubre el caso de deambular y chocarse de morros en la oscuridad, que con la deteccion por vista
+	# y oido no se disparaba nunca (un companero parado no hace ruido y puede estar fuera del cono).
+	var pegado: Node2D = _aliado_en_contacto()
+	if pegado != null:
+		_objetivo = pegado
+		_start_combat(true)
+		return
 
 	# Si no estamos ya persiguiendo (ni embistiendo), miramos si vemos u oimos a alguno.
 	if _state != State.CHASE and _state != State.EMBESTIDA:
@@ -426,6 +442,13 @@ func _chase(delta: float) -> void:
 
 # El miembro del grupo que tiene A TIRO ahora mismo (dentro del margen de ataque), o null. Mira a
 # TODOS: cualquiera que se le ponga a huevo vale, no solo al que venia persiguiendo.
+func _aliado_en_contacto() -> Node2D:
+	for n in _aliados():
+		if hueco_hasta(n) <= CONTACTO:
+			return n
+	return null
+
+
 func _aliado_a_tiro() -> Node2D:
 	var margen: float = margen_ataque()
 	var best: Node2D = null
@@ -459,10 +482,11 @@ func _lanzar_embestida(hacia: Node2D) -> void:
 func _embestida(delta: float) -> void:
 	velocity = _embiste_dir * _chase_speed() * EMBESTIDA_VEL_MULT
 	_embiste_t -= delta
-	# ¿Ha alcanzado a alguien? Contacto = cuerpos tocandose (hueco <= 0), no el margen de ataque:
-	# la carga tiene que CONECTAR, no basta con pasar cerca.
+	# ¿Ha alcanzado a alguien? Contacto = cuerpos TOCANDOSE (con la holgura de CONTACTO, que los
+	# cuerpos que colisionan nunca llegan a solaparse), no el margen de ataque: la carga tiene que
+	# CONECTAR, no basta con pasar cerca.
 	for n in _aliados():
-		if hueco_hasta(n) <= 0.0:
+		if hueco_hasta(n) <= CONTACTO:
 			_objetivo = n
 			_start_combat(true)   # iniciativa del enemigo: te ha embestido
 			return
@@ -479,7 +503,10 @@ func _embestida(delta: float) -> void:
 # ser a el. Tras un combate salgo en WANDER (ver _congelar_tras_combate), asi que la ventana de
 # escape no cuenta como persecucion y no se puede farmear.
 func persigue_a(quien: Node) -> bool:
-	return _state == State.CHASE and _objetivo == quien
+	# EMBESTIDA cuenta como perseguir: es la MISMA persecucion, solo que en su fase de carga. Sin
+	# esto, el jugador daba por terminada la huida cada vez que el bicho embestia (varias veces por
+	# persecucion), se le reseteaba la marca de agua y la Agilidad no subia NADA huyendo.
+	return (_state == State.CHASE or _state == State.EMBESTIDA) and _objetivo == quien
 
 
 # A que velocidad persigue. Lo pregunta el jugador para saber lo que le CUESTA la fuga: huir de
