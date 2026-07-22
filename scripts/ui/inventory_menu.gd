@@ -133,7 +133,7 @@ func _title(vb: VBoxContainer, txt: String) -> void:
 	l.add_theme_font_size_override("font_size", 16)
 	vb.add_child(l)
 
-func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
+func _row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Variant = null) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	var k := Label.new()
@@ -143,6 +143,8 @@ func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
 	row.add_child(k)
 	var v := Label.new()
 	v.text = valor
+	if color_valor is Color:
+		v.add_theme_color_override("font_color", color_valor)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Sin esto una linea larga (p.ej. el resumen() del material) se sale del ancho y, como
 	# el scroll horizontal esta apagado, se recorta en el borde y arrastra a toda la columna.
@@ -503,6 +505,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		for fila in MenuScaffold.filas_arma(w, int(meta["tier"]), int(meta["rareza"]), meta["mejoras"]):
 			_row(vb, fila[0], fila[1])
 		_row(vb, "Tier / rareza", "T%d · %s" % [int(meta["tier"]), Upgrades.rareza_nombre(int(meta["rareza"]))])
+		_row(vb, "Durabilidad", Game.durabilidad_txt_item(w), Game.durabilidad_color(w))
 	elif item is ShieldData:
 		var s := item as ShieldData
 		_title(vb, Game.item_display_name(s) + equipada)
@@ -512,6 +515,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		for fila in MenuScaffold.filas_escudo(s, int(meta_s["tier"]), int(meta_s["rareza"]), meta_s["mejoras"]):
 			_row(vb, fila[0], fila[1])
 		_row(vb, "Tier / rareza", "T%d · %s" % [int(meta_s["tier"]), Upgrades.rareza_nombre(int(meta_s["rareza"]))])
+		_row(vb, "Durabilidad", Game.durabilidad_txt_item(s), Game.durabilidad_color(s))
 	elif item is WandData:
 		var wd := item as WandData
 		_title(vb, Game.item_display_name(wd) + equipada)
@@ -527,6 +531,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		if float(mg["mana_reduccion"]) > 0.0:
 			_row(vb, "Coste de maná", "-%.0f%%" % (float(mg["mana_reduccion"]) * 100.0))
 		_row(vb, "Tier / rareza", "T%d · %s" % [int(meta_w["tier"]), Upgrades.rareza_nombre(int(meta_w["rareza"]))])
+		_row(vb, "Durabilidad", Game.durabilidad_txt_item(wd), Game.durabilidad_color(wd))
 
 
 # ============================================================
@@ -555,6 +560,7 @@ func _preview_armadura(vb: VBoxContainer) -> void:
 	_row(vb, "Defensa base", "%.2f" % (a.defensa_base * a.motion_def))
 	_row(vb, "Reducción", "%.0f%%" % (a.reduccion * 100.0))
 	_row(vb, "Velocidad", "×%.2f" % a.velocidad_mult)
+	_row(vb, "Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
 
 
 # ============================================================

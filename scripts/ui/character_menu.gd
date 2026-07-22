@@ -351,7 +351,7 @@ func _title(vb: VBoxContainer, txt: String) -> void:
 	l.add_theme_font_size_override("font_size", 16)
 	vb.add_child(l)
 
-func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
+func _row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Variant = null) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	var k := Label.new()
@@ -361,6 +361,8 @@ func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
 	row.add_child(k)
 	var v := Label.new()
 	v.text = valor
+	if color_valor is Color:
+		v.add_theme_color_override("font_color", color_valor)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Sin esto, un valor largo (la lista de mejoras, el desglose del ataque) se sale por el
 	# borde derecho en vez de partirse en dos lineas.
@@ -882,6 +884,8 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 		_magic_stats(vb, mg, mgb, w.mp_regen_turno, w.cast_vel_mult)
 	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)])
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
+	# DESGASTE: gastada pega menos y ROTA se va a los suelos. Se repara en el herrero.
+	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(w), Game.durabilidad_color(w))
 	# En QUE se gastaron, en su propia linea: con 12 huecos (obra maestra) la lista no cabe
 	# nunca al lado del contador.
 	if not mejoras.is_empty():
@@ -981,6 +985,7 @@ func _off_stats(vb: VBoxContainer, item: Resource) -> void:
 		_magic_stats(vb, mg, mgb, wd.mp_regen_turno, wd.cast_vel_mult)
 	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)])
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
+	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
 	# En QUE se gastaron, en su propia linea: con 12 huecos (obra maestra) la lista no cabe
 	# nunca al lado del contador.
 	if not mejoras.is_empty():
@@ -1173,6 +1178,7 @@ func _armor_stats(vb: VBoxContainer, a: ArmorData) -> void:
 		_row(vb, "  Resist. estados", "+%s" % _fmt_pct(float(mods["resist_estados"])))
 	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)])
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
+	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
 	if not mejoras.is_empty():
 		_note(vb, "    " + _lista_mejoras(mejoras))
 

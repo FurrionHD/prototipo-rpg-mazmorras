@@ -1993,6 +1993,26 @@ func max_durabilidad(slot: String, pj: PersonajeData = null) -> float:
 func durabilidad_slot(slot: String, pj: PersonajeData = null) -> float:
 	return clampf(float(_meta(slot, pj).get("durabilidad", 1.0)), 0.0, 1.0)
 
+# Fraccion de durabilidad de un OBJETO (baul o equipado), de su propia meta. Para la UI.
+func durabilidad_item(item: Resource) -> float:
+	return clampf(float(meta_de(item).get("durabilidad", 1.0)), 0.0, 1.0)
+
+# Texto de durabilidad de un item para las fichas/inventario/herrero: "87%" o "ROTO".
+func durabilidad_txt_item(item: Resource) -> String:
+	if item == null:
+		return "—"
+	var frac: float = durabilidad_item(item)
+	return "ROTO" if frac <= 0.0 else "%d%%" % int(round(frac * 100.0))
+
+# Color para el texto de durabilidad segun lo gastada (verde llena -> ambar -> rojo casi rota).
+func durabilidad_color(item: Resource) -> Color:
+	var f: float = durabilidad_item(item)
+	if f <= 0.30:
+		return Color(0.90, 0.35, 0.30)   # rojo: casi rota / rota
+	if f <= 0.60:
+		return Color(0.95, 0.75, 0.30)   # ambar: gastada
+	return Color(0.55, 0.80, 0.55)       # verde: bien
+
 # Multiplicador de rendimiento por desgaste (daño del arma / proteccion de la pieza).
 # Gastada: rampa lineal con TOPE PENAL_MAX. Rota (frac<=0): acantilado a 1-PENAL_ROTO.
 func durabilidad_mult(frac: float) -> float:

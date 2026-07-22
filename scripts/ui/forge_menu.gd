@@ -987,6 +987,7 @@ func _preview_deshacer(vb: VBoxContainer) -> void:
 
 	var d: Dictionary = Game.fundir_devuelve(item)
 	_row(vb, "Mejoras", "+%d" % Game.mejoras_actuales(item))
+	_row(vb, "Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
 	vb.add_child(HSeparator.new())
 
 	var t := Label.new()
@@ -1097,6 +1098,9 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 	var actuales: int = Game.mejoras_actuales(item)
 	var por_rareza: int = Upgrades.rareza_slots(rareza)
 	_row(vb, "Huecos por rareza", str(por_rareza))
+	# El desgaste, a la vista: mejorar una pieza rota es tirar el nucleo (pega/protege a los suelos
+	# hasta que la repares). Se repara en la pestaña Reparar.
+	_row(vb, "Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
 
 	# El nucleo YA NO se elige a mano: lo pone el sistema segun el +N (cada nucleo cubre su tramo).
 	# nucleo_auto devuelve el que TOCA aunque no lo tengas, para poder decir cual falta y en rojo.
