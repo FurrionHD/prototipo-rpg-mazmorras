@@ -15,28 +15,28 @@
 [node name="Town" type="Node2D"]
 
 [node name="Player" parent="." instance=ExtResource("1_72ix8")]
-position = Vector2(900, 500)
+position = Vector2(450, 320)
 
 [node name="Walls" type="Node2D" parent="."]
 
 [node name="WallTop" parent="Walls" instance=ExtResource("2_2vj2h")]
-position = Vector2(560, 80)
-scale = Vector2(29, 1)
+position = Vector2(352, 80)
+scale = Vector2(17, 1)
 
 [node name="WallBottom" parent="Walls" instance=ExtResource("2_2vj2h")]
-position = Vector2(560, 640)
-scale = Vector2(29, 1)
+position = Vector2(352, 432)
+scale = Vector2(17, 1)
 
 [node name="WallLeft" parent="Walls" instance=ExtResource("2_2vj2h")]
-position = Vector2(96, 360)
-scale = Vector2(1, 18)
+position = Vector2(96, 256)
+scale = Vector2(1, 12)
 
 [node name="WallRight" parent="Walls" instance=ExtResource("2_2vj2h")]
-position = Vector2(1024, 360)
-scale = Vector2(1, 18)
+position = Vector2(608, 256)
+scale = Vector2(1, 12)
 
 [node name="Altar" type="Node2D" parent="."]
-position = Vector2(220, 180)
+position = Vector2(190, 150)
 script = ExtResource("3_y0acb")
 
 [node name="Sprite" type="ColorRect" parent="Altar"]
@@ -61,7 +61,7 @@ horizontal_alignment = 1
 vertical_alignment = 0
 
 [node name="Shop" type="Node2D" parent="."]
-position = Vector2(560, 380)
+position = Vector2(352, 256)
 script = ExtResource("4_l2q5x")
 
 [node name="Sprite" type="ColorRect" parent="Shop"]
@@ -86,7 +86,7 @@ horizontal_alignment = 1
 vertical_alignment = 0
 
 [node name="Hogar" type="Node2D" parent="."]
-position = Vector2(220, 380)
+position = Vector2(190, 256)
 script = ExtResource("6_hg1ar")
 
 [node name="Sprite" type="ColorRect" parent="Hogar"]
@@ -111,7 +111,7 @@ horizontal_alignment = 1
 vertical_alignment = 0
 
 [node name="Boticaria" type="Node2D" parent="."]
-position = Vector2(220, 570)
+position = Vector2(190, 362)
 script = ExtResource("7_botica")
 
 [node name="Sprite" type="ColorRect" parent="Boticaria"]
@@ -136,7 +136,7 @@ horizontal_alignment = 1
 vertical_alignment = 0
 
 [node name="Herrero" type="Node2D" parent="."]
-position = Vector2(900, 180)
+position = Vector2(514, 150)
 script = ExtResource("8_herrero")
 
 [node name="Sprite" type="ColorRect" parent="Herrero"]
@@ -161,7 +161,7 @@ horizontal_alignment = 1
 vertical_alignment = 0
 
 [node name="Peletero" type="Node2D" parent="."]
-position = Vector2(900, 380)
+position = Vector2(514, 256)
 script = ExtResource("9_pelet")
 
 [node name="Sprite" type="ColorRect" parent="Peletero"]
@@ -186,7 +186,7 @@ horizontal_alignment = 1
 vertical_alignment = 0
 
 [node name="Carpintero" type="Node2D" parent="."]
-position = Vector2(560, 180)
+position = Vector2(352, 150)
 script = ExtResource("10_carpin")
 
 [node name="Sprite" type="ColorRect" parent="Carpintero"]
@@ -211,7 +211,7 @@ horizontal_alignment = 1
 vertical_alignment = 0
 
 [node name="Door" type="Node2D" parent="."]
-position = Vector2(900, 570)
+position = Vector2(514, 362)
 script = ExtResource("5_a9z8k")
 
 [node name="Sprite" type="ColorRect" parent="Door"]
@@ -236,7 +236,7 @@ horizontal_alignment = 1
 vertical_alignment = 0
 
 [node name="Taberna" type="Node2D" parent="."]
-position = Vector2(560, 570)
+position = Vector2(352, 362)
 script = ExtResource("11_tabern")
 
 [node name="Sprite" type="ColorRect" parent="Taberna"]

@@ -81,6 +81,11 @@ var _dist_run: float = 0.0
 const _DIST_TICK := 110.0       # px recorridos por cada "tick" de ganancia
 const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
 
+# Radio de PELIGRO: correr solo cuesta aguante si hay un bicho a menos de esto. Correr por el
+# pueblo o por un pasillo vacio no tiene riesgo, asi que tampoco debe cansar. Va APARTE de
+# _AGILIDAD_RANGE a proposito: aquella es la regla de la Excelia y tiene su propia semantica.
+const _PELIGRO_RANGE := 300.0
+
 
 func _ready() -> void:
 	# "aliado" = la lista de objetivos que mira el enemigo. El lider entra en ella igual que los
@@ -193,8 +198,21 @@ func _physics_process(delta: float) -> void:
 	else:
 		movement_mode = 1
 
-	# Aguante: baja al correr, se recupera en cualquier otro caso. Los companeros pagan lo mismo.
+	# Enemigo mas cercano. Solo hace falta si corremos: es lo unico que mira los radios. Se calcula
+	# UNA vez y lo reaprovecha tambien la Excelia de Agilidad, mas abajo.
+	var enemigo_cerca: Node = null
+	var dist_enemigo: float = INF
 	if running:
+		var cercano: Array = _enemigo_mas_cercano()
+		enemigo_cerca = cercano[0]
+		dist_enemigo = float(cercano[1])
+
+	# Aguante: baja al correr, pero SOLO con un enemigo dentro del radio de peligro. Correr por el
+	# pueblo o por un pasillo vacio ya no cansa (y encima regenera). Ir a por un bicho sigue
+	# costando: cruzas los 300 px mucho antes de alcanzarlo, asi que "correr antes de pelear se
+	# paga" se mantiene. Los companeros pagan exactamente lo mismo (ver _tick_aguante_companeros).
+	var gastando: bool = running and dist_enemigo <= _PELIGRO_RANGE
+	if gastando:
 		current_stamina -= run_drain * delta
 		if current_stamina <= 0.0:
 			current_stamina = 0.0
@@ -204,7 +222,7 @@ func _physics_process(delta: float) -> void:
 		# Salimos de agotado al recuperar la mitad del aguante.
 		if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
 			_exhausted = false
-	_tick_aguante_companeros(delta, running)
+	_tick_aguante_companeros(delta, gastando)
 
 	_refrescar_barras()
 
@@ -238,9 +256,10 @@ func _physics_process(delta: float) -> void:
 			Game.ganar("fuerza", clampf(over * 5.0, 0.0, Game.RETO_MAX_FISICO), Game.GAIN_FUERZA_PESO,
 				Game.RETO_MAX_FISICO)
 
-	# Agilidad: CORRER cerca de un enemigo (correr sin enemigos no sirve).
+	# Agilidad: CORRER cerca de un enemigo (correr sin enemigos no sirve). Reusa el barrido de
+	# arriba; su radio es el SUYO (_AGILIDAD_RANGE), mas corto que el del aguante.
 	if moved > 0.0 and movement_mode == 2:
-		var enemigo: Node = _enemigo_cercano_agilidad()
+		var enemigo: Node = enemigo_cerca if dist_enemigo <= _AGILIDAD_RANGE else null
 		if enemigo != null:
 			_dist_run += moved
 			while _dist_run >= _DIST_TICK:
@@ -582,18 +601,21 @@ func aguante_de_grupo(pj: PersonajeData) -> Vector2:
 	return Vector2(_aguante_de(pj), _calc_max_aguante(pj))
 
 
-# Enemigo vivo mas cercano dentro del rango (para la Agilidad al correr).
-func _enemigo_cercano_agilidad() -> Node:
+# Enemigo VIVO mas cercano y a que distancia esta: [Node, float]. Sin nadie cerca devuelve
+# [null, INF]. Se barre UNA vez por frame y el resultado lo comparten los dos radios que lo
+# necesitan (el aguante con _PELIGRO_RANGE y la Excelia de Agilidad con _AGILIDAD_RANGE), que
+# antes hacian su propia pasada. Los cadaveres no cuentan: enemy.morir() los saca del grupo.
+func _enemigo_mas_cercano() -> Array:
 	var best: float = INF
 	var nearest: Node = null
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e):
 			continue
 		var d: float = global_position.distance_to(e.global_position)
-		if d <= _AGILIDAD_RANGE and d < best:
+		if d < best:
 			best = d
 			nearest = e
-	return nearest
+	return [nearest, best]
 
 
 # Poder de un enemigo (suma de habilidades segun su 't') para el "reto".
