@@ -2874,6 +2874,9 @@ func _hand_from(w: WeaponData, slot: String, pj: PersonajeData = null) -> Dictio
 		"precision": wm["precision"],
 		"dano_tipo": int(w.dano_tipo),
 		"aturdir_base": float(wm["aturdir"]),
+		# Energia que repone el basico con esta arma (0 = default global de combate). Las pesadas
+		# la suben (pegan menos veces). No la escala tier/rareza: es identidad del arma, no potencia.
+		"energia_regen": w.energia_ataque,
 	}
 
 

@@ -80,6 +80,7 @@ var crit_dmg: float = 0.0        # se suma al MULTIPLICADOR de daño critico (St
 var precision: float = 0.0       # ACIERTO (mejora Precision): baja la evasion del rival
 var dano_tipo: int = 0           # 0 CORTE, 1 CONTUNDENTE (WeaponData.DanoTipo)
 var aturdir_base: float = 0.0    # prob. base de aturdir/retrasar (contundentes)
+var energia_regen: float = 0.0   # energia que repone el basico con esta arma (0 = default global)
 # Estos NO cambian por mano (son del loadout entero):
 var velocidad_mult: float = 1.0  # multiplica la velocidad de combate (turnos)
 var defend_block: float = 0.3    # reduccion al Defender (base sin secundaria)
@@ -507,6 +508,7 @@ func _apply_hand(i: int) -> void:
 	precision = h.get("precision", 0.0)
 	dano_tipo = h["dano_tipo"]
 	aturdir_base = h["aturdir_base"]
+	energia_regen = h.get("energia_regen", 0.0)
 
 # Pasa a la siguiente mano (dual-wield: alterna principal <-> secundaria por golpe).
 # Con 1 mano no hace nada.

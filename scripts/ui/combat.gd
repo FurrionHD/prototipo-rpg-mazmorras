@@ -2172,8 +2172,9 @@ func _accion_atacar() -> void:
 	# DURABILIDAD: blandir el arma la desgasta (acierte o falle: has dado el golpe). Los puños
 	# (main vacio) no se gastan (lo filtra Game.desgastar_arma).
 	Game.desgastar_arma(_player.current_hand_slot(), pj_atacante)
-	# El ataque basico REGENERA energia (KAN-57): te "cargas" pegando.
-	_player.regen_energy(ATTACK_ENERGY_REGEN)
+	# El ataque basico REGENERA energia (KAN-57): te "cargas" pegando. Las armas PESADAS reponen mas
+	# por golpe (su energia_regen propia): pegan menos veces, asi que cada golpe carga mas.
+	_player.regen_energy(_player.energia_regen if _player.energia_regen > 0.0 else ATTACK_ENERGY_REGEN)
 	_update_hp()
 	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
 	_fin_de_eleccion()

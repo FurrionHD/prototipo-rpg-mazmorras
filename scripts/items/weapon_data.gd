@@ -56,8 +56,11 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 @export var dano_tipo: DanoTipo = DanoTipo.CONTUNDENTE
 @export var aturdir_base: float = 0.05    # 0 si CORTE; >0 = prob. base de aturdir/retrasar
 
-# --- Energia (FASE B) ---
-# + recupera energia con el ataque basico, − la gasta. (Aun sin usar.)
+# --- Energia (KAN-57) ---
+# Energia que REPONE el ataque basico con esta arma. 0 = usar el default global de combate
+# (ATTACK_ENERGY_REGEN). Se sube en las armas PESADAS (mandobles/hacha/martillo): pegan muchas
+# menos veces por su baja cadencia, asi que cada golpe carga mas para poder soltar habilidades a un
+# ritmo parecido al de las ligeras. Lo lee combat.gd en el golpe basico (via Combatant.energia_regen).
 @export var energia_ataque: float = 0.0
 
 # --- HABILIDADES (KAN-57): las que aporta ESTA arma al loadout (Array[AbilityData]) ---
