@@ -315,7 +315,7 @@ func _aliados_vivos() -> Array[Combatant]:
 #   1) PASIVO: llevar ESCUDO pesa AGGRO_ESCUDO (x2). El que va tapado atrae golpes sin hacer nada.
 #   2) PROVOCAR: la habilidad de escudo multiplica por PROVOCA_PESO (x4) durante unos turnos.
 # Un tanque con escudo pasa de ~40% de los golpes (en un grupo de 4) a ~73% mientras provoca.
-func _elegir_objetivo_enemigo() -> Combatant:
+func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 	var vivos: Array[Combatant] = _aliados_vivos()
 	if vivos.is_empty():
 		return null
@@ -325,6 +325,12 @@ func _elegir_objetivo_enemigo() -> Combatant:
 		# Peso = el PASIVO (x2 si lleva escudo) x el de PROVOCAR (x4 mientras dure). Un tanque
 		# quieto ya atrae ~el doble; provocando, se lleva la mayoria de los golpes unos turnos.
 		var w: float = c.aggro_base * (PROVOCA_PESO if c.provocar_turnos > 0 else 1.0)
+		# ATENUADO: para el reparto GOLPE A GOLPE de una habilidad multi-golpe. Ahi el sorteo se
+		# repite 5-6 veces seguidas, y con el peso entero el tanque se comia casi la tanda completa
+		# (~5 de 6). La raiz cuadrada lo suaviza SIN invertir el orden: sigue siendo el que mas come,
+		# pero los demas reciben lo suyo. En la eleccion de UN objetivo (turno normal) no se toca.
+		if atenuado:
+			w = sqrt(w)
 		pesos.append(w)
 		total += w
 	var r: float = randf() * total
@@ -2586,8 +2592,12 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				if not e.is_alive(): break
 		elif ab.reparto_por_golpe:
 			# REPARTO POR GOLPE: cada golpe elige un aliado vivo al azar (pueden repetir objetivo).
-			for _i in golpes:
-				var t: Combatant = _elegir_objetivo_enemigo()
+			# El PRIMER golpe es el principal y va con el peso ENTERO (el aggro y la provocacion
+			# mandan igual que en un turno normal: ~80% al que provoca). Los golpes ADICIONALES son
+			# metralla: van con el peso ATENUADO, asi que tienden al tanque pero solo un poco. Sin
+			# esto, el tanque se comia la tanda entera (~5 de 6) por acumulacion de tiradas.
+			for i in golpes:
+				var t: Combatant = _elegir_objetivo_enemigo(i > 0)
 				if t == null: break
 				var sub := _enemy_resolver_golpes(e, ab, t, 1, 1.0, contra_txt == "", true)
 				total += float(sub["total"]); estados_log += sub["estados"]
