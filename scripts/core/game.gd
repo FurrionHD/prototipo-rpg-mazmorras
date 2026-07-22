@@ -1942,13 +1942,23 @@ const DESGASTE_ARMA := 0.08            # puntos que pierde el arma por golpe DAD
 const DESGASTE_ARMOR := 0.16           # puntos que pierde CADA pieza por golpe RECIBIDO (era 0.08)
 const PENAL_MAX := 0.25                # tope de penalizacion mientras esta gastada (no rota)
 const PENAL_ROTO := 0.75               # penalizacion al estar ROTA (acantilado): rinde el 25%
-# Precio de reparar = coste_full × (% roto). coste_full sube SUAVE con tier y nº de mejoras
-# (casi lineal, NO exponencial). Reparar por fraccion hace que mas maximo NO encarezca.
-# TRIPLICADO (playtest): reparar salia casi gratis. Se toca solo la BASE, que multiplica el coste
-# entero, para no deformar la curva por tier/mejoras. OJO: va junto al desgaste x2 de arriba, asi
-# que el mantenimiento por uso sale ~6x (reparas el doble de veces y cada vez cuesta el triple).
-const REPARA_BASE := 45.0              # era 15.0
-const REPARA_K_TIER := 0.5
+# Precio de reparar = coste_full × (% roto). Reparar por fraccion hace que mas maximo NO encarezca.
+#
+# El TIER va GEOMETRICO, no lineal. Antes era (1 + tier × 0.5), o sea que reparar un T2 costaba
+# solo un x1.33 de un T1 (68 -> 90) mientras los ingresos de su zona se multiplicaban por ~7: en el
+# piso 7 reparar la pieza entera valia menos de medio cristal y el mantenimiento dejaba de existir.
+#
+# El 3.3 NO es a ojo: es la misma escala que T2_PRECIO_MULT, que el juego ya deriva de la capacidad
+# adquisitiva de los pisos 7-12 (cristales de categoria 8-9 = 256-324 frente a los 100-144 de la
+# zona T1). Reparar es un servicio que te cobra el herrero, asi que sigue la escala de lo que cobra
+# un tendero por tier y no la de la potencia (TIER_GROWTH 2.2). Con esto reparar cuesta ~1 cristal
+# de la zona en los tres tiers, que es la proporcion que el T1 ya tenia.
+#
+# Es constante APARTE de T2_PRECIO_MULT a proposito, por lo mismo que aquella lo es de TIER_GROWTH:
+# hablan de cosas distintas (una es el recargo del mostrador T2, esta el escalon por tier del
+# herrero) y unificarlas ata dos balances que hay que poder mover por separado.
+const REPARA_BASE := 67.5              # coste de reparar un T1 entero (era 45 x el factor lineal)
+const REPARA_TIER_MULT := 3.3          # x3.3 por cada tier: T1 68, T2 223, T3 735
 const REPARA_K_MEJ := 0.12
 
 # Maximo de durabilidad (en puntos) de un slot equipado (arma o pieza de armadura, mismo modelo).
@@ -2021,7 +2031,8 @@ func precio_reparar(slot: String, pj: PersonajeData = null) -> int:
 		return 0
 	var tier: int = equip_tier(slot, pj)
 	var n: int = Upgrades.total_mejoras(equip_mejoras(slot, pj))
-	var coste_full: float = REPARA_BASE * (1.0 + float(tier) * REPARA_K_TIER) * (1.0 + float(n) * REPARA_K_MEJ)
+	var coste_full: float = REPARA_BASE * pow(REPARA_TIER_MULT, float(maxi(tier, 1) - 1)) \
+		* (1.0 + float(n) * REPARA_K_MEJ)
 	return maxi(1, int(round(coste_full * (1.0 - frac))))
 
 # Repara un slot al 100% cobrando su precio. false si ya esta lleno o no puedes pagar.
