@@ -425,7 +425,7 @@ func refrescar_lider() -> void:
 	# el que hasta ahora iba en cabeza, aqui mismo.
 	var previas: Dictionary = {}
 	if _sequito != null and _sequito.has_method("posiciones"):
-		previas = _sequito.posiciones_red()
+		previas = _sequito.posiciones()   # Dictionary por PersonajeData; NO es posiciones_red()
 	if _pj_actual != null:
 		previas[_pj_actual] = global_position
 	# El cuerpo que mueves se va a donde estaba el elegido (la camara hace el viaje detras).
