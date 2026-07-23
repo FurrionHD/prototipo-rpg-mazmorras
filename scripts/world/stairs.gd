@@ -20,6 +20,11 @@ func _ready() -> void:
 
 
 func interact_with_player() -> void:
+	# MULTIJUGADOR: se baja y se sube JUNTOS. La escalera pide el cambio al host, que lo
+	# difunde a todos los que esten en la mazmorra (ver Net.solicitar_cambio_piso).
+	if Net.activo:
+		Net.solicitar_cambio_piso(Game.current_floor + (-1 if sube else 1))
+		return
 	if sube:
 		Game.subir_piso()
 	else:

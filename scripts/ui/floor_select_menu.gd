@@ -73,6 +73,13 @@ func _rebuild() -> void:
 
 
 func _bajar(piso: int) -> void:
+	# MULTIJUGADOR: los atajos por piso aun no existen en multi (la expedicion compartida
+	# siempre abre por el 1; ver Net.solicitar_entrar). door.gd ni abre este menu en sesion,
+	# pero por si acaso.
+	if Net.activo:
+		Game.cerrar_menu()
+		Net.solicitar_entrar()
+		return
 	# Igual que entrar por la boca (door.gd): expedicion NUEVA. Lo unico distinto es por que
 	# piso empiezas.
 	Game.current_floor = maxi(1, piso)

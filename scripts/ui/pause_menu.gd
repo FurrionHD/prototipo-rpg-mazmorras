@@ -117,10 +117,18 @@ func _abrir_multi() -> void:
 
 
 func _guardar() -> void:
+	# MULTIJUGADOR: guardar aun no (hito 6, guardado sincronizado). Estas jugando en el mundo
+	# del HOST: volcar este estado en TU save lo corromperia (piso ajeno, semilla ajena).
+	if Net.activo:
+		_aviso.text = "El guardado en multijugador llega mas adelante."
+		return
 	_aviso.text = "Partida guardada." if Perfil.guardar_actual() else "No se pudo guardar."
 
 
 func _guardar_y_salir() -> void:
+	if Net.activo:
+		_aviso.text = "El guardado en multijugador llega mas adelante."
+		return
 	if Perfil.guardar_actual():
 		_salir()
 	else:

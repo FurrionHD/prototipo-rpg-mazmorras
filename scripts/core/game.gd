@@ -670,6 +670,9 @@ func tick_alboroto(delta: float, movement_mode: int) -> void:
 # Suma (o resta) ruido al medidor y dispara el brote si se llena. Publico: lo llaman el combate y
 # los minijuegos, no solo el movimiento.
 func sumar_alboroto(cuanto: float) -> void:
+	# MULTIJUGADOR: sin enemigos no hay brotes que cebar; acumular alboroto solo desincroniza.
+	if Net.activo:
+		return
 	if en_pueblo():
 		return
 	alboroto = clampf(alboroto + cuanto, 0.0, ALBOROTO_MAX)
@@ -6342,11 +6345,16 @@ func _cerrar_recoleccion(nodo) -> void:
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()   # el minijuego se juega a ESPACIAZOS: que no ataque al salir
 	if is_instance_valid(nodo):
-		var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
-		if piso != null and piso.has_method("marcar_agotado"):
-			piso.marcar_agotado(nodo.celda)
-		if nodo.has_method("agotar"):
-			nodo.agotar()
+		# MULTIJUGADOR: el agotado pasa por el host, que suelta el lock de la veta y lo difunde
+		# a TODOS (Net._agotar_celda hace aqui mismo el marcar_agotado + agotar del nodo).
+		if Net.activo:
+			Net.notificar_agotado(nodo.celda)
+		else:
+			var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+			if piso != null and piso.has_method("marcar_agotado"):
+				piso.marcar_agotado(nodo.celda)
+			if nodo.has_method("agotar"):
+				nodo.agotar()
 		# ALBOROTO: picar y talar suenan. Menos que pelear, pero un rato dando golpes a una veta
 		# tambien te delata y ayuda a cebar un brote.
 		sumar_alboroto(ALBOROTO_RECOLECTAR)

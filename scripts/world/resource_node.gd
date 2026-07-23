@@ -56,6 +56,19 @@ func es_madera() -> bool:
 func interactuar() -> void:
 	if agotado or material_data == null:
 		return
+	# MULTIJUGADOR: la veta la trabaja UNO a la vez. Se le pide al host; si esta libre, el te
+	# abre el minijuego (abrir_minijuego via Net); si no, te llega el toast "esta ocupado".
+	if Net.activo:
+		Net.solicitar_veta(celda)
+		return
+	abrir_minijuego()
+
+
+# El minijuego que toque segun el tipo. Separado de interactuar() para que la concesion del
+# host (multi) pueda abrirlo sin repetir este despacho.
+func abrir_minijuego() -> void:
+	if agotado or material_data == null:
+		return
 	if es_veta():
 		Game.start_mineria(self)
 	elif es_madera():

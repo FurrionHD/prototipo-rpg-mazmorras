@@ -29,6 +29,14 @@ func interact_with_player() -> void:
 	# La libreta del mapa se consolida ANTES de tocar current_floor: captura el piso del boss en el
 	# que estas (no el 1 al que vas a saltar) y COMETE al permanente lo cartografiado esta bajada.
 	Game.capturar_mapa()
+	# MULTIJUGADOR: salir YO no termina la expedicion si queda gente dentro; se avisa al host
+	# y el decide (el ultimo en salir la cierra). Al mapa PERMANENTE solo comete el host (la
+	# mazmorra es de SU mundo; la libreta del cliente no se contamina). El viaje lo hace Net.
+	if Net.activo:
+		if Net.es_host:
+			Game.comprometer_mapa()
+		Net.viajar_al_pueblo()
+		return
 	Game.comprometer_mapa()
 	Game.current_floor = 1
 	Game.olvidar_mazmorra()

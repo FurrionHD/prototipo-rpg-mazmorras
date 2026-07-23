@@ -111,9 +111,13 @@ la misma instancia de arma.
   para pasárselo (`soltar_item` ya existe).
 - **Cadáver ocupado**: si uno está en el minijuego de extracción de un cuerpo, el otro recibe
   "ocupado" y no puede iniciar ESE cuerpo (el modal `EXTRACCION` pasa a ser por-cuerpo, no global).
-- **Acompañantes**: máximo **4 en total** en el grupo. Regla a fijar en implementación: **1
-  acompañante por jugador**, o **3 pero solo el 2º de la formación baja al combate**. (Pendiente
-  de elegir cuál.)
+- **Formación en combate multi (DECIDIDO)**: el combate tiene 4 huecos y se llena por **ORDEN DE
+  FORMACIÓN**, no por quién lidera en el mapa. Entra la **posición 1 de cada humano** presente;
+  los huecos sobrantes se rellenan con las **posiciones 2 por orden de entrada al combate** (el
+  que entró primero tiene prioridad): 2 humanos → pos 1+2 de cada uno; 3 → tres pos 1 + la pos 2
+  del que entró PRIMERO; 4 → solo las cuatro pos 1. Da igual con qué personaje anduvieras por el
+  mapa (1/2/3): al combate van los de ARRIBA de tu formación. Requisito acompañante: **reordenar
+  tus personajes desde el menú de personaje** (qué número ocupa cada uno).
 - **Altar**: cada jugador solo consolida/sube **su propio estado y el de SUS acompañantes**.
 - **Subir de nivel: el crédito del guardián es DEL PERSONAJE que lo mató peleando** (regla del
   usuario). Que el host mate a un boss NO da crédito a los personajes del invitado: para subir de
@@ -141,6 +145,18 @@ la misma instancia de arma.
 - **Guardado sincronizado**: el **host guarda por los dos**; un único `SaveData` autoritativo. Hoy
   es `ResourceSaver` de un fichero local por ranura (`scripts/core/profile.gd`); habrá que hacerlo
   autoritativo/sincronizado.
+- **Guardar en mazmorra CONGELA la expedición (decidido)**: guardar con gente dentro no la cierra,
+  la congela ENTERA en el save del host, incluidas las **posiciones de cada invitado por su
+  identidad**. Al retomar: el host aparece donde estaba (como en solitario) y el MISMO invitado,
+  al cruzar la puerta de la mazmorra, **se materializa donde lo dejó** (p. ej. al lado del boss),
+  no en la entrada. Un invitado distinto sin posición guardada entra por el piso 1. "El último en
+  salir cierra" aplica a sesiones vivas: salir andando = cerrar; guardar y apagar = congelar.
+- **La expedición congelada es de la MAZMORRA del host (decidido)**: si el host juega en solitario
+  sin entrar a la mazmorra, la congelada sobrevive. Si el host **entra en solitario**, eso abre
+  expedición NUEVA y la congelada se **descarta** (incluida la posición del invitado, que la
+  próxima vez entra por el piso 1). El invitado nunca pierde lo SUYO (personaje/bolsa/Excelia,
+  atado a su identidad): solo el sitio. Al implementar: **avisar antes de descartar** ("Hay una
+  expedición congelada con la posición de X. Entrar la descarta. ¿Seguro?").
 - **Mensajes de HUD locales**: los avisos que salen al recoger un objeto (y en general los
   toasts del HUD: recogida, subida de rango, etc.) deben mostrarse **solo al jugador que hizo la
   acción**, no a los dos. Hoy los dispara `hud.mostrar_recogida(...)` sobre el único HUD; en multi

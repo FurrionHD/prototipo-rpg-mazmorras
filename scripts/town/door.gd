@@ -27,13 +27,21 @@ func _detectar_destino() -> void:
 
 
 func interact_with_player() -> void:
-	# MULTIJUGADOR hito 1 (solo pueblo): con sesion de red no se viaja todavia. Un cambio de
-	# escena tiraria los avatares y la mazmorra aun no se replica. Se quita en el hito que
-	# toque mazmorra (ver docs/MULTIJUGADOR.md).
+	# MULTIJUGADOR (hito 3b): la expedicion es COMPARTIDA y la coordina Net. El primero que
+	# entra la abre (piso 1); el que llega despues se une al piso activo tal cual (sin resetear
+	# nada al que ya esta dentro); el ultimo que sale la cierra. Los atajos por piso quedan
+	# para mas adelante en multi.
 	if Net.activo:
-		var hud: Node = get_tree().get_first_node_in_group("hud")
-		if hud != null and hud.has_method("mostrar_toast"):
-			hud.mostrar_toast("La mazmorra aun no esta disponible en multijugador.")
+		if _destination == dungeon_path:
+			Net.solicitar_entrar()
+		else:
+			# Volver a casa con vida: se captura el mapa de la expedicion, pero al PERMANENTE
+			# solo lo comete el HOST — la mazmorra es de SU mundo; la libreta del save del
+			# cliente no debe llenarse de planos de un mundo ajeno.
+			Game.capturar_mapa()
+			if Net.es_host:
+				Game.comprometer_mapa()
+			Net.viajar_al_pueblo()
 		return
 	# Entrar a la mazmorra = EXPEDICION NUEVA: siempre se empieza por el piso 1. La
 	# profundidad vive en el autoload Game y no se reinicia sola, asi que al volver al

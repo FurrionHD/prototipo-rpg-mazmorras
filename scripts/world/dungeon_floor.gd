@@ -296,6 +296,10 @@ func _construir(por_la_bajada: bool = false) -> void:
 	# respawn). Vive en mazmorra_persistente, que sobrevive a volver al pueblo: por eso picar un
 	# nodo y salir/entrar ya no lo resetea. { celda: tiempo_mazmorra en que se pico }.
 	_agotados = (Game.persistente_piso(_piso_construido)["agotados"] as Dictionary).duplicate()
+	# MULTIJUGADOR: los sellos de MI save no pintan nada en el mundo del host. Se arranca en
+	# limpio; lo agotado en ESTA expedicion lo trae Net (celda_agotada_sesion) al construir.
+	if Net.activo:
+		_agotados = {}
 
 	_construir_geometria()
 	_colocar_actores(por_la_bajada)
@@ -320,6 +324,11 @@ func _construir(por_la_bajada: bool = false) -> void:
 # consecutivos salgan parecidos. Si no hubiera partida cargada, el @export hace de reserva.
 func _semilla_del_piso() -> int:
 	var base: int = Game.semilla_mundo if Game.semilla_mundo != 0 else semilla_base
+	# MULTIJUGADOR: se juega en el MUNDO DEL HOST. El cliente usa la semilla que le llego en el
+	# handshake (Net.semilla_host) y genera la MISMA mazmorra sin replicar geometria; su propia
+	# semilla (la de SU save) no se toca. En el host semilla_host vale 0: usa la suya.
+	if Net.activo and Net.semilla_host != 0:
+		base = Net.semilla_host
 	return base + Game.current_floor * 7919
 
 
@@ -468,6 +477,9 @@ func abrir_salidas() -> void:
 #  BOSS: guarda la sala central y bloquea la bajada hasta que cae (la primera vez).
 # ------------------------------------------------------------
 func _colocar_boss() -> void:
+	# MULTIJUGADOR: sin enemigos (tampoco el boss) hasta el combate multi (hito 5).
+	if Net.activo:
+		return
 	var data: EnemyData = Game.boss_del_piso(Game.current_floor)
 	if data == null:
 		return
@@ -632,6 +644,10 @@ func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
 	# brotar EN VIVO mas tarde (_repoblar_agotados). Se guarda la TABLA, no el material ya elegido,
 	# porque el material se vuelve a tirar en cada respawn (ver _material_del_sitio).
 	_sitios[celda] = {"tipo": tipo}
+	# MULTIJUGADOR: lo agotado en ESTA expedicion no vuelve a nacer al reconstruir el piso
+	# (p. ej. al bajar y volver a subir): el sello de sesion vive en Net, no en mi save.
+	if Net.activo and Net.celda_agotada_sesion(celda):
+		return false
 	# ¿Agotada? Reaparece cuando han pasado RESPAWN_SEGUNDOS de JUEGO desde que la picaste. Si ya
 	# le toca, se limpia el sello y nace como nueva; si no, no nace todavia.
 	if _agotados.has(celda):
@@ -692,6 +708,9 @@ func _instanciar_nodo(tipo: int, celda: Vector2i, m: MaterialData, brotando: boo
 # volver al pueblo). Siempre van juntas: separarlas es como se dejan sellos huerfanos.
 func _olvidar_agotado(celda: Vector2i) -> void:
 	_agotados.erase(celda)
+	# MULTIJUGADOR: como en marcar_agotado, la persistente de MI save no se toca en sesion.
+	if Net.activo:
+		return
 	(Game.persistente_piso(_piso_construido)["agotados"] as Dictionary).erase(celda)
 
 
@@ -701,6 +720,10 @@ func _olvidar_agotado(celda: Vector2i) -> void:
 # donde estaba, con el material RE-TIRADO (ver _material_del_sitio): la veta que picaste no tiene
 # por que volver siendo lo mismo.
 func _repoblar_agotados(delta: float) -> void:
+	# MULTIJUGADOR: sin respawn en vivo. Depende de tiempo_mazmorra, un reloj LOCAL que diverge
+	# entre maquinas: la veta reviviria en una y en la otra no. Lo agotado en sesion no vuelve.
+	if Net.activo:
+		return
 	_t_respawn -= delta
 	if _t_respawn > 0.0:
 		return
@@ -774,6 +797,10 @@ func material_de_sitio(celda: Vector2i) -> MaterialData:
 # mazmorra_persistente (sobrevive a volver al pueblo) Y en la copia local del piso vivo.
 func marcar_agotado(celda: Vector2i) -> void:
 	_agotados[celda] = Game.tiempo_mazmorra
+	# MULTIJUGADOR: NO se escribe en mazmorra_persistente (que va al SAVE). Estas jugando en el
+	# mundo del HOST: agotar una veta aqui no debe dejar sellos en el mundo PROPIO de tu save.
+	if Net.activo:
+		return
 	(Game.persistente_piso(_piso_construido)["agotados"] as Dictionary)[celda] = Game.tiempo_mazmorra
 
 
@@ -853,12 +880,15 @@ func _crear_zonas() -> void:
 		zona.hogar = _centro_pisable(pts)
 		_zonas.add_child(zona)
 
-	if not recordado:
+	# MULTIJUGADOR: ni poblacion inicial ni restauracion de la memoria local (recrearia bichos
+	# y cadaveres RANCIOS de expediciones viejas de ESTA maquina; en sesion los drops son de Net
+	# y bichos no hay). hay_sitio() ya corta, pero saltarselo ahorra el trabajo entero.
+	if not recordado and not Net.activo:
 		_poblar_el_piso(zona_entrada)
 
 	# DIFERIDO igual que poblar: durante _ready el nodo padre aun se esta montando y Godot
 	# rechaza los add_child (los bichos no llegarian a entrar en la escena).
-	if recordado:
+	if recordado and not Net.activo:
 		call_deferred("_restaurar_estado")
 	call_deferred("_log_poblacion", recordado)
 
@@ -1039,6 +1069,11 @@ func elegir_enemigo() -> EnemyData:
 # Al POBLAR el piso al entrar se llama con reciclar=false: si no, las ultimas zonas en
 # poblarse se pondrian a borrar los bichos de las primeras para hacerse sitio.
 func hay_sitio(reciclar: bool = true, forzar: bool = false) -> bool:
+	# MULTIJUGADOR (hito 3b): SIN enemigos mientras haya sesion. Este es el embudo por el que
+	# pasan la poblacion inicial, el goteo y los brotes (SpawnZone._nacer pregunta aqui antes de
+	# crear nada): cerrarlo apaga los tres. Los bichos vuelven con el combate multi (hito 5).
+	if Net.activo:
+		return false
 	if _vivos_en_el_piso() < max_vivos():
 		return true
 	return reciclar and _reciclar_lejano(forzar)

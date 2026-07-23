@@ -28,7 +28,27 @@ var activo := false
 var es_host := false
 
 var _codigo := ""                  # codigo de sala que hay que casar para entrar
-var _avatares: Dictionary = {}     # peer_id -> nodo RemotePlayer (el cuerpo del OTRO en mi mundo)
+
+# --- QUIEN es cada peer y DONDE esta (hito 3b) ---
+# _peers guarda los DATOS de cada peer (aspecto, lugar, ultima pos): sobrevive a cambios de
+# escena. _avatares guarda el NODO visual, que solo existe si el peer esta en MI MISMO LUGAR
+# ("pueblo" o "piso:N") y muere con la escena; se reconstruye desde _peers al viajar.
+var _peers: Dictionary = {}        # peer_id -> {"color","metal","nombre","lugar","pos"}
+var _avatares: Dictionary = {}     # peer_id -> nodo RemotePlayer (solo peers de mi lugar)
+var _mi_lugar := "pueblo"          # donde estoy YO: "pueblo" o "piso:N"
+
+# Semilla del mundo del HOST (solo la usa el cliente; en el host vale 0 = usa la suya).
+# NUNCA se escribe en Game.semilla_mundo del cliente: esa es de SU save.
+var semilla_host: int = 0
+
+# --- EXPEDICION compartida (hito 3b; el host es la autoridad) ---
+# El PRIMERO que entra la abre; el ULTIMO que sale la cierra (y se olvida, como en solitario).
+# Mientras quede alguien dentro, la mazmorra vive: puedes salir a vender y volver.
+var expedicion_abierta := false    # solo fiable en el host
+var piso_actual := 1               # piso activo de la sesion (solo fiable en el host)
+var _dentro: Dictionary = {}       # peer_id -> true: quienes estan en la mazmorra (host)
+var _vetas_ocupadas: Dictionary = {}  # celda -> peer_id que la trabaja (host)
+var _agotados_sesion: Dictionary = {} # celda -> true: vetas agotadas ESTA expedicion (todos)
 
 # --- OBJETOS DEL SUELO replicados (hito 2) ---
 # El HOST es la fuente de verdad: _suelo apunta cada drop vivo por id. Todos los peers (host
@@ -53,7 +73,17 @@ func _ready() -> void:
 
 # --- ARRANQUE (lo unico especifico de ENet) -------------------------------------------------
 
+# ¿Estoy en el pueblo? Las sesiones SOLO se abren/unen desde alli: montar una sesion con la
+# mitad de la gente ya metida en una mazmorra de otro mundo es un nido de estados imposibles.
+func _en_el_pueblo() -> bool:
+	var esc: Node = get_tree().current_scene
+	return esc != null and esc.scene_file_path.contains("town")
+
+
 func hostear(codigo: String, puerto: int = PUERTO) -> int:
+	if not _en_el_pueblo():
+		estado_cambiado.emit("Solo se puede abrir una sala desde el pueblo.")
+		return ERR_UNAVAILABLE
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(puerto, MAX_JUGADORES)
 	if err != OK:
@@ -69,6 +99,9 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 
 
 func unirse(ip: String, codigo: String, puerto: int = PUERTO) -> int:
+	if not _en_el_pueblo():
+		estado_cambiado.emit("Solo puedes unirte a una sala desde el pueblo.")
+		return ERR_UNAVAILABLE
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_client(ip, puerto)
 	if err != OK:
@@ -95,6 +128,14 @@ func desconectar() -> void:
 	# desconexion es anecdotico y asumido (ver docs/MULTIJUGADOR.md).
 	_suelo.clear()
 	_drops.clear()
+	_peers.clear()
+	_dentro.clear()
+	_vetas_ocupadas.clear()
+	_agotados_sesion.clear()
+	expedicion_abierta = false
+	piso_actual = 1
+	semilla_host = 0
+	_mi_lugar = "pueblo"
 	if multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer.close()
 		multiplayer.multiplayer_peer = null
@@ -116,9 +157,308 @@ func enviar_estado(pos: Vector2, facing: Vector2) -> void:
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func _recibir_estado(pos: Vector2, _facing: Vector2) -> void:
 	var emisor := multiplayer.get_remote_sender_id()
+	if _peers.has(emisor):
+		_peers[emisor]["pos"] = pos   # se recuerda: al reconstruir su avatar aparece donde iba
 	var a: Node = _avatares.get(emisor)
 	if a != null and is_instance_valid(a):
 		a.ir_a(pos)
+
+
+# --- LUGAR (hito 3b): "pueblo" o "piso:N" -----------------------------------------------------
+
+# Lo llamo YO al viajar (puerta, escaleras). Difunde mi lugar nuevo y reconstruye mi vista
+# (avatares y drops del lugar nuevo) cuando la escena nueva ya esta montada.
+func anunciar_lugar(lugar: String) -> void:
+	_mi_lugar = lugar
+	if activo:
+		_cambiar_lugar.rpc(lugar)
+		_reconstruir_vista()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _cambiar_lugar(lugar: String) -> void:
+	var emisor := multiplayer.get_remote_sender_id()
+	if not _peers.has(emisor):
+		return
+	_peers[emisor]["lugar"] = lugar
+	# ¿Ahora compartimos lugar? Su avatar aparece. ¿Ya no? Desaparece.
+	var a: Node = _avatares.get(emisor)
+	if lugar == _mi_lugar:
+		if a == null or not is_instance_valid(a):
+			_crear_avatar_nodo(emisor)
+	else:
+		if a != null and is_instance_valid(a):
+			a.queue_free()
+		_avatares.erase(emisor)
+
+
+# Tras viajar YO: la escena vieja murio (y con ella mis avatares/drops). Se espera a que la
+# nueva este montada y se reconstruye lo que toca ver aqui.
+func _reconstruir_vista() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	for id in _avatares.keys():
+		var a: Node = _avatares[id]
+		if is_instance_valid(a):
+			a.queue_free()
+	_avatares.clear()
+	for id in _peers:
+		if _peers[id]["lugar"] == _mi_lugar:
+			_crear_avatar_nodo(id)
+	for id in _drops.keys():
+		var n: Node = _drops[id]
+		if is_instance_valid(n):
+			n.queue_free()
+	_drops.clear()
+	if es_host:
+		for id in _suelo:
+			if _suelo[id]["lugar"] == _mi_lugar:
+				_spawn_drop(id, _suelo[id]["d"], _suelo[id]["pos"], _mi_lugar)
+	else:
+		_pedir_suelo.rpc_id(1, _mi_lugar)
+
+
+# Un cliente que acaba de viajar pide el suelo de su lugar nuevo.
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_suelo(lugar: String) -> void:
+	if not es_host:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	for id in _suelo:
+		if _suelo[id]["lugar"] == lugar:
+			_spawn_drop.rpc_id(quien, id, _suelo[id]["d"], _suelo[id]["pos"], lugar)
+
+
+# --- EXPEDICION compartida (hito 3b) ---------------------------------------------------------
+#
+# La puerta del pueblo, en multi, pasa por aqui. El PRIMERO que entra ABRE la expedicion (piso 1,
+# flujo normal); el que llega despues SE UNE al piso activo TAL CUAL esta (ni repuebla ni resetea
+# nada del que ya esta dentro: cada maquina tiene su copia del piso y lo compartido viaja por Net).
+# El ULTIMO que sale la cierra y se olvida, como en solitario.
+
+# La llama door.gd (rama multi) al interactuar con la puerta del pueblo.
+func solicitar_entrar() -> void:
+	if es_host:
+		_conceder_entrada(1)
+	else:
+		_pedir_entrar.rpc_id(1)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_entrar() -> void:
+	if not es_host:
+		return
+	_conceder_entrada(multiplayer.get_remote_sender_id())
+
+
+# Solo host: apunta al peer como "dentro" y le concede la entrada con el piso que toque.
+func _conceder_entrada(quien: int) -> void:
+	if not expedicion_abierta:
+		expedicion_abierta = true
+		piso_actual = 1
+	_dentro[quien] = true
+	if quien == 1:
+		_entrar_ok(piso_actual, _agotados_sesion.keys())
+	else:
+		_entrar_ok.rpc_id(quien, piso_actual, _agotados_sesion.keys())
+
+
+# Corre en QUIEN entra: hace el viaje completo. olvidar_mazmorra() limpia la memoria LOCAL de
+# expediciones viejas (imprescindible tambien para el que se une: si no, restauraria SUS bichos
+# rancios); los agotados de LA SESION llegan del host para que las vetas ya picadas no nazcan.
+@rpc("any_peer", "call_remote", "reliable")
+func _entrar_ok(piso: int, agotados: Array) -> void:
+	_agotados_sesion.clear()
+	for c in agotados:
+		_agotados_sesion[c] = true
+	Game.current_floor = piso
+	Game.olvidar_mazmorra()
+	Game.iniciar_expedicion_mapa()
+	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	anunciar_lugar("piso:%d" % piso)
+
+
+# La llama la puerta de vuelta / la salida del boss (rama multi), DESPUES de consolidar el mapa.
+func viajar_al_pueblo() -> void:
+	if es_host:
+		_registrar_salida(1)
+	else:
+		_pedir_salir.rpc_id(1)
+	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
+	anunciar_lugar("pueblo")
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_salir() -> void:
+	if not es_host:
+		return
+	_registrar_salida(multiplayer.get_remote_sender_id())
+
+
+func _registrar_salida(quien: int) -> void:
+	_liberar_vetas_de(quien)
+	_dentro.erase(quien)
+	if _dentro.is_empty() and expedicion_abierta:
+		_cerrar_expedicion()
+
+
+# Solo host: el ultimo salio. La expedicion se olvida: fuera drops de pisos y agotados de sesion.
+func _cerrar_expedicion() -> void:
+	expedicion_abierta = false
+	piso_actual = 1
+	_vetas_ocupadas.clear()
+	_agotados_sesion.clear()
+	_limpiar_agotados_sesion.rpc()
+	for id in _suelo.keys():
+		if str(_suelo[id]["lugar"]).begins_with("piso:"):
+			_suelo.erase(id)
+			_despawn_drop.rpc(id)
+			_despawn_drop(id)
+	estado_cambiado.emit("Expedicion terminada: la mazmorra se olvida.")
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _limpiar_agotados_sesion() -> void:
+	_agotados_sesion.clear()
+
+
+# --- ESCALERAS: bajar/subir JUNTOS ------------------------------------------------------------
+
+# La llama stairs.gd (rama multi). El host valida y TODOS los que esten en la mazmorra cambian.
+func solicitar_cambio_piso(nuevo: int) -> void:
+	if es_host:
+		_aplicar_cambio_piso(nuevo)
+	else:
+		_pedir_piso.rpc_id(1, nuevo)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_piso(nuevo: int) -> void:
+	if not es_host:
+		return
+	_aplicar_cambio_piso(nuevo)
+
+
+# Solo host: fija el piso de la sesion y lo difunde (a si mismo directo).
+func _aplicar_cambio_piso(nuevo: int) -> void:
+	if nuevo < 1 or not expedicion_abierta:
+		return
+	piso_actual = nuevo
+	_vetas_ocupadas.clear()   # los minijuegos abiertos se cierran con el piso; locks fuera
+	_cambiar_piso_todos.rpc(nuevo)
+	_cambiar_piso_todos(nuevo)
+
+
+# Corre en TODOS: solo reacciona quien este en la mazmorra. regenerar() reconstruye el piso en
+# esta maquina; la geometria sale igual en todas (misma semilla del host).
+@rpc("any_peer", "call_remote", "reliable")
+func _cambiar_piso_todos(nuevo: int) -> void:
+	if not _mi_lugar.begins_with("piso:"):
+		return
+	var bajando: bool = nuevo > Game.current_floor
+	Game._cambiar_piso(nuevo, bajando)
+	anunciar_lugar("piso:%d" % nuevo)
+
+
+# --- VETAS: una a la vez, con "esta ocupado" --------------------------------------------------
+
+# La llama resource_node.interactuar() (rama multi): pedir la veta antes de abrir el minijuego.
+func solicitar_veta(celda: Vector2i) -> void:
+	if es_host:
+		_resolver_veta(celda, 1)
+	else:
+		_pedir_veta.rpc_id(1, celda)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_veta(celda: Vector2i) -> void:
+	if not es_host:
+		return
+	_resolver_veta(celda, multiplayer.get_remote_sender_id())
+
+
+# Solo host: arbitra. Libre -> lock y concedida; ocupada -> "esta ocupado" (AQUI si hay mensaje,
+# regla del usuario; en los drops del suelo, silencio).
+func _resolver_veta(celda: Vector2i, quien: int) -> void:
+	if _agotados_sesion.has(celda):
+		return   # ya no existe: su nodo esta cayendo, no hay nada que decir
+	if _vetas_ocupadas.has(celda) and _vetas_ocupadas[celda] != quien:
+		if quien == 1:
+			_veta_ocupada()
+		else:
+			_veta_ocupada.rpc_id(quien)
+		return
+	_vetas_ocupadas[celda] = quien
+	if quien == 1:
+		_veta_concedida(celda)
+	else:
+		_veta_concedida.rpc_id(quien, celda)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _veta_concedida(celda: Vector2i) -> void:
+	for n in get_tree().get_nodes_in_group("recolectable"):
+		if is_instance_valid(n) and n.celda == celda:
+			n.abrir_minijuego()
+			return
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _veta_ocupada() -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast("Esta ocupado: tu companero ya lo esta trabajando.")
+
+
+# La llama Game._cerrar_recoleccion (rama multi) al terminar el minijuego de una celda.
+func notificar_agotado(celda: Vector2i) -> void:
+	if es_host:
+		_registrar_agotado(celda)
+	else:
+		_pedir_agotar.rpc_id(1, celda)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_agotar(celda: Vector2i) -> void:
+	if not es_host:
+		return
+	_registrar_agotado(celda)
+
+
+# Solo host: suelta el lock, sella la celda para la sesion y difunde el agotado a todos.
+func _registrar_agotado(celda: Vector2i) -> void:
+	_vetas_ocupadas.erase(celda)
+	_agotados_sesion[celda] = true
+	_agotar_celda.rpc(celda)
+	_agotar_celda(celda)
+
+
+# Corre en TODOS los que esten en la mazmorra: la veta de esa celda desaparece tambien aqui.
+@rpc("any_peer", "call_remote", "reliable")
+func _agotar_celda(celda: Vector2i) -> void:
+	_agotados_sesion[celda] = true
+	if not _mi_lugar.begins_with("piso:"):
+		return
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso != null and piso.has_method("marcar_agotado"):
+		piso.marcar_agotado(celda)
+	for n in get_tree().get_nodes_in_group("recolectable"):
+		if is_instance_valid(n) and n.celda == celda:
+			n.agotar()
+			return
+
+
+# ¿Esta celda ya se agoto en ESTA expedicion? Lo consulta dungeon_floor al construir el piso.
+func celda_agotada_sesion(celda: Vector2i) -> bool:
+	return _agotados_sesion.has(celda)
+
+
+# Solo host: suelta todos los locks de un peer que se va (salida o desconexion a mitad de
+# minijuego).
+func _liberar_vetas_de(quien: int) -> void:
+	for c in _vetas_ocupadas.keys():
+		if _vetas_ocupadas[c] == quien:
+			_vetas_ocupadas.erase(c)
 
 
 # --- OBJETOS DEL SUELO (hito 2): soltar y recoger con autoridad del host --------------------
@@ -158,30 +498,32 @@ func solicitar_soltar(item: Resource, pos: Vector2) -> void:
 	if d.is_empty():
 		return
 	if es_host:
-		_registrar_y_difundir(d, pos)
+		_registrar_y_difundir(d, pos, _mi_lugar)
 	else:
-		_pedir_soltar.rpc_id(1, d, pos)
+		_pedir_soltar.rpc_id(1, d, pos, _mi_lugar)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_soltar(d: Dictionary, pos: Vector2) -> void:
+func _pedir_soltar(d: Dictionary, pos: Vector2, lugar: String) -> void:
 	if not es_host:
 		return
-	_registrar_y_difundir(d, pos)
+	_registrar_y_difundir(d, pos, lugar)
 
 
 # Solo host: apunta el drop en el registro y lo difunde (a los peers por RPC, a si mismo directo).
-# La pos se guarda tambien: un peer que entre DESPUES tiene que ver lo que ya habia en el suelo.
-func _registrar_y_difundir(d: Dictionary, pos: Vector2) -> void:
+# Guarda pos y LUGAR: un peer que entre despues (o que viaje a ese lugar) tiene que verlo.
+func _registrar_y_difundir(d: Dictionary, pos: Vector2, lugar: String) -> void:
 	var id := _next_id
 	_next_id += 1
-	_suelo[id] = {"d": d, "pos": pos}
-	_spawn_drop.rpc(id, d, pos)
-	_spawn_drop(id, d, pos)
+	_suelo[id] = {"d": d, "pos": pos, "lugar": lugar}
+	_spawn_drop.rpc(id, d, pos, lugar)
+	_spawn_drop(id, d, pos, lugar)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _spawn_drop(id: int, d: Dictionary, pos: Vector2) -> void:
+func _spawn_drop(id: int, d: Dictionary, pos: Vector2, lugar: String) -> void:
+	if lugar != _mi_lugar:
+		return   # eso esta en OTRO sitio (otro piso, o el pueblo): aqui no se pinta
 	var item := _item_de_dict(d)
 	var mundo: Node = get_tree().current_scene
 	if item == null or mundo == null:
@@ -243,16 +585,17 @@ func _recoger_concedido(d: Dictionary) -> void:
 
 # --- HANDSHAKE + CONTRASEÑA ------------------------------------------------------------------
 
-# Cliente: nada mas conectar, se presenta al host (id 1) con el codigo y su aspecto.
+# Cliente: nada mas conectar, se presenta al host (id 1) con el codigo, su aspecto y su lugar.
 func _on_connected_to_server() -> void:
 	estado_cambiado.emit("Conectado. Validando codigo...")
-	_saludar.rpc_id(1, _codigo, Game.player_color, Game.player_metalico, Game.player_nombre)
+	_saludar.rpc_id(1, _codigo, Game.player_color, Game.player_metalico, Game.player_nombre,
+		_mi_lugar)
 
 
-# Corre EN EL HOST, llamado por el cliente. Valida el codigo y, si vale, se crean los avatares
-# mutuos; si no, se echa al que intenta colarse.
+# Corre EN EL HOST, llamado por el cliente. Valida el codigo y, si vale, se registran
+# mutuamente; si no, se echa al que intenta colarse.
 @rpc("any_peer", "call_remote", "reliable")
-func _saludar(codigo: String, color: Color, metal: float, nombre: String) -> void:
+func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar: String) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	if codigo != _codigo:
 		estado_cambiado.emit("Rechazado un intento con codigo incorrecto.")
@@ -264,21 +607,24 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String) -> voi
 		if multiplayer.multiplayer_peer != null:
 			multiplayer.disconnect_peer(quien)
 		return
-	# Codigo OK: el host crea el avatar del cliente y se presenta de vuelta para que el cliente
-	# cree el del host.
-	_crear_avatar(quien, color, metal, nombre)
+	# Codigo OK: registro mutuo. Viaja tambien la SEMILLA del mundo del host (para que el
+	# cliente genere la MISMA mazmorra sin replicar geometria) y el lugar de cada uno.
+	_registrar_peer(quien, color, metal, nombre, lugar)
 	estado_cambiado.emit("%s se ha unido." % nombre)
-	_presentarse.rpc_id(quien, Game.player_color, Game.player_metalico, Game.player_nombre)
-	# Y ponerle al dia el SUELO: lo que ya estaba soltado antes de que entrara.
+	_presentarse.rpc_id(quien, Game.player_color, Game.player_metalico, Game.player_nombre,
+		_mi_lugar, Game.semilla_mundo)
+	# Y ponerle al dia el SUELO de su lugar: lo que ya estaba soltado antes de que entrara.
 	for id in _suelo:
-		_spawn_drop.rpc_id(quien, id, _suelo[id]["d"], _suelo[id]["pos"])
+		if _suelo[id]["lugar"] == lugar:
+			_spawn_drop.rpc_id(quien, id, _suelo[id]["d"], _suelo[id]["pos"], lugar)
 
 
-# Corre en el CLIENTE, llamado por el host tras aceptarlo: crea el avatar del host (id 1).
+# Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.
 @rpc("any_peer", "call_remote", "reliable")
-func _presentarse(color: Color, metal: float, nombre: String) -> void:
+func _presentarse(color: Color, metal: float, nombre: String, lugar: String, semilla: int) -> void:
 	var quien := multiplayer.get_remote_sender_id()
-	_crear_avatar(quien, color, metal, nombre)
+	semilla_host = semilla
+	_registrar_peer(quien, color, metal, nombre, lugar)
 	estado_cambiado.emit("Conectado con %s." % nombre)
 
 
@@ -296,26 +642,48 @@ func _rechazado() -> void:
 
 # --- AVATARES -------------------------------------------------------------------------------
 
-func _crear_avatar(peer_id: int, color: Color, metal: float, nombre: String) -> void:
+# Registra los DATOS de un peer y, si comparte mi lugar, le monta el nodo visual.
+func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, lugar: String) -> void:
+	_peers[peer_id] = {"color": color, "metal": metal, "nombre": nombre,
+		"lugar": lugar, "pos": Vector2.INF}
+	if lugar == _mi_lugar:
+		_crear_avatar_nodo(peer_id)
+
+
+# Monta el nodo visual de un peer YA registrado (solo si compartimos lugar).
+func _crear_avatar_nodo(peer_id: int) -> void:
+	if not _peers.has(peer_id):
+		return
 	if _avatares.has(peer_id) and is_instance_valid(_avatares[peer_id]):
-		_avatares[peer_id].aplicar_aspecto(color, metal, nombre)
 		return
 	var mundo: Node = get_tree().current_scene
 	if mundo == null:
 		return
+	var p: Dictionary = _peers[peer_id]
 	var av: Node2D = _REMOTE_PLAYER.new()
 	mundo.add_child(av)
-	av.aplicar_aspecto(color, metal, nombre)
+	av.aplicar_aspecto(p["color"], p["metal"], p["nombre"])
+	if p["pos"] != Vector2.INF:
+		av.ir_a(p["pos"])   # aparece donde iba, no en el origen
 	_avatares[peer_id] = av
 
 
 func _on_peer_disconnected(id: int) -> void:
-	var conocido := _avatares.has(id)
+	var conocido := _peers.has(id)
 	var a: Node = _avatares.get(id)
 	if a != null and is_instance_valid(a):
 		a.queue_free()
 	_avatares.erase(id)
-	# Solo avisar de gente que llego a ENTRAR (con avatar): un intento rechazado por codigo
+	_peers.erase(id)
+	# Su marcha cuenta como salir de la mazmorra: libera sus vetas y, si era el ultimo
+	# dentro, la expedicion se cierra (solo decide el host).
+	if es_host:
+		_liberar_vetas_de(id)
+		if _dentro.has(id):
+			_dentro.erase(id)
+			if _dentro.is_empty():
+				_cerrar_expedicion()
+	# Solo avisar de gente que llego a ENTRAR (registrada): un intento rechazado por codigo
 	# tambien dispara esta señal y no es "un jugador que se va".
 	if conocido:
 		estado_cambiado.emit("Un jugador se ha ido.")
@@ -340,4 +708,11 @@ func _on_server_disconnected() -> void:
 		estado_cambiado.emit("No hay ninguna sala con ese codigo en esa IP.")
 	else:
 		estado_cambiado.emit("El host ha cerrado la partida.")
+	# Si me pilla DENTRO de la mazmorra, de vuelta al pueblo: ese piso era del MUNDO DEL HOST
+	# (su semilla); sin sesion no tiene sentido seguir alli.
+	var en_mazmorra := _mi_lugar.begins_with("piso:")
 	desconectar()
+	if en_mazmorra:
+		Game.current_floor = 1
+		Game.olvidar_mazmorra()
+		get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
