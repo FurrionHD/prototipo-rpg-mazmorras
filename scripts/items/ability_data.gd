@@ -41,6 +41,11 @@ class_name AbilityData
 # llevas dos armas (los que pasan del rango de UNA mano) pegan a este multiplicador. Asi
 # el dual vale ~1.5x la version a una mano, no 2x ni 3x (que era lo que la disparaba).
 @export var dual_golpe_mult: float = 0.5
+# MULTIPLICADOR EXPLICITO POR GOLPE (índice 0-based). Vacío = manda la regla del dual (arriba).
+# Lo usan las técnicas de ARMA + ESCUDO (Aplastamiento, Guardia rota): el 1er golpe es con el ARMA
+# (más daño) y el 2º con el ESCUDO (menos). Cada golpe se simula distinto sin dos armas de por
+# medio. Si el índice pasa del array, se repite el último valor.
+@export var mults_golpe: Array = []
 # Tipo de daño forzado: -1 = el del arma; 0 CORTE, 1 CONTUNDENTE (golpe de escudo).
 @export var dano_tipo_override: int = -1
 
@@ -184,9 +189,42 @@ func num_golpes(manos: int, enemigos: int = 1) -> int:
 # tope del rango a UNA mano) van al 100%; los que vengan detras son los que pone la segunda
 # arma, y valen dual_golpe_mult. Con 1 mano siempre 1.0.
 func mult_golpe(i: int, manos: int) -> float:
+	if not mults_golpe.is_empty():
+		return float(mults_golpe[mini(i, mults_golpe.size() - 1)])
 	if manos >= 2 and golpes_dual_max > 0 and i >= golpes_max:
 		return dual_golpe_mult
 	return 1.0
+
+# PLAN de golpes: para cada golpe (0..total-1) devuelve {hand, mult}. 'hand' = índice DENTRO de la
+# lista de manos que aporta la habilidad (0 = principal/arma, 1 = segunda mano); 'mult' = su
+# multiplicador de daño. INTERCALA las manos del dual (principal, segunda, principal, segunda...) en
+# vez de agrupar todos los flojos al final: el jugador ve "der izq der izq", no dos fuertes y luego
+# dos flojos. El NÚMERO de golpes de cada mano no cambia (mismo daño total), solo el orden. Para
+# arma+escudo (mults_golpe) va por índice con una sola mano; con una mano normal, todo al 100%.
+func plan_golpes(total: int, manos: int) -> Array:
+	var plan: Array = []
+	if not mults_golpe.is_empty():
+		for i in total:
+			plan.append({"hand": 0, "mult": float(mults_golpe[mini(i, mults_golpe.size() - 1)])})
+		return plan
+	if manos >= 2 and golpes_dual_max > 0:
+		var p: int = mini(golpes_max, total)   # golpes de mano PRINCIPAL (100%)
+		var s: int = total - p                 # los que pone la SEGUNDA mano (dual_golpe_mult)
+		var quiere_principal: bool = true      # se empieza por la principal
+		while plan.size() < total:
+			if quiere_principal and p > 0:
+				plan.append({"hand": 0, "mult": 1.0}); p -= 1
+			elif not quiere_principal and s > 0:
+				plan.append({"hand": 1, "mult": dual_golpe_mult}); s -= 1
+			elif p > 0:                          # se acabó una: se vacía la otra en orden
+				plan.append({"hand": 0, "mult": 1.0}); p -= 1
+			else:
+				plan.append({"hand": 1, "mult": dual_golpe_mult}); s -= 1
+			quiere_principal = not quiere_principal
+		return plan
+	for i in total:
+		plan.append({"hand": 0, "mult": 1.0})
+	return plan
 
 # Coste de energia segun el loadout (dual gasta mas si tiene coste propio).
 func coste(manos: int) -> float:
@@ -238,6 +276,12 @@ func resumen(manos: int = 1) -> String:
 		# DUAL: los golpes que pone la segunda arma pegan a la mitad (dual_golpe_mult).
 		if manos >= 2 and golpes_dual_max > golpes_max:
 			p.append("del %dº en adelante al %d%%" % [golpes_max + 1, roundi(dual_golpe_mult * 100.0)])
+		# ARMA+ESCUDO (mults_golpe): cada golpe con su parte (el 1º del arma, el 2º del escudo, menos).
+		elif not mults_golpe.is_empty():
+			var partes := PackedStringArray()
+			for m in mults_golpe:
+				partes.append("%d%%" % roundi(float(m) * 100.0))
+			p.append("%s: %s" % ["arma/escudo" if requiere_escudo else "por golpe", ", ".join(partes)])
 		# ÁREA: cómo reparte a los demás enemigos (derivado de los campos, nunca a mano).
 		var at: String = _area_txt()
 		if at != "":

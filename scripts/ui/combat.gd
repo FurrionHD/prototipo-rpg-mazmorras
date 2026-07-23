@@ -1910,13 +1910,13 @@ func _siguiente_vivo(muerto: Combatant) -> Combatant:
 # efectos_por_golpe— sus estados. Devuelve un dict con lo necesario para acumular y loguear.
 # 'etq' etiqueta el objetivo en el log cuando hay varios ("" en single-target).
 func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: int,
-		escala: float, etq: String) -> Dictionary:
+		escala: float, etq: String, m_golpe: float) -> Dictionary:
 	# 'c' = a QUIEN fue este golpe. Lo necesita el log para decir el reparto por enemigo (mismo
-	# campo que usan los resultados de hechizo, ver _log_hechizo).
+	# campo que usan los resultados de hechizo, ver _log_hechizo). 'm_golpe' = el multiplicador que
+	# le toca a ESTE golpe segun el plan (mano principal/segunda del dual, o arma/escudo).
 	var r := {"c": objetivo, "dmg": 0.0, "imbue": 0.0, "mult_imbue": 1.0, "crit": false,
 		"evaded": false, "mana": 0.0, "conecto": false, "estados": [], "linea": ""}
 	var result := StatsMath.resolve_attack(_player, objetivo, false)
-	var m_golpe: float = ab.mult_golpe(i, manos)
 	if result.evaded:
 		r.evaded = true
 		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
@@ -1933,8 +1933,13 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	r.conecto = true
 	r.crit = result.crit
 	var esc_txt: String = "" if is_equal_approx(escala, 1.0) else " [%d%%]" % roundi(escala * 100.0)
-	r.linea = "golpe %d%s%s%s: %s %.2f%s" % [i + 1, etq,
-		("" if m_golpe >= 1.0 else " [2ª mano %d%%]" % roundi(m_golpe * 100.0)), esc_txt,
+	# Etiqueta de "con qué se pega": arma+escudo distingue arma/escudo; el dual, la 2ª mano.
+	var mano_txt: String = ""
+	if ab.requiere_escudo and not ab.mults_golpe.is_empty():
+		mano_txt = " [arma]" if m_golpe >= 1.0 else " [escudo %d%%]" % roundi(m_golpe * 100.0)
+	elif m_golpe < 1.0:
+		mano_txt = " [2ª mano %d%%]" % roundi(m_golpe * 100.0)
+	r.linea = "golpe %d%s%s%s: %s %.2f%s" % [i + 1, etq, mano_txt, esc_txt,
 		("CRITICO 💥" if result.crit else "acierta"), dmg,
 		_imbue_dmg_txt(result, ab.dano_mult * m_golpe * escala)]
 	# IMBUICION: cada golpe que acierta tira su estado (multi-golpe = más tiradas).
@@ -1999,6 +2004,9 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	# Las de UTILIDAD PURA (dano_mult 0, p.ej. Canalizar) NO golpean.
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(manos, _vivos().size())   # flurries: más golpes cuantos más enemigos
+		# PLAN de golpes: mano y multiplicador de cada uno. Intercala las manos del dual (der, izq,
+		# der, izq) y, en arma+escudo, alterna arma (fuerte) / escudo (flojo). Ver ab.plan_golpes.
+		var plan: Array = ab.plan_golpes(golpes, manos)
 		var conecto: int = 0
 		var hubo_critico: bool = false   # para los efectos NO por golpe (tirada al final)
 		var mana_ganado_golpes: float = 0.0
@@ -2007,7 +2015,8 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		tocados = []
 		for i in golpes:
 			# La mano activa alterna con el dual (daga+daga); con una sola arma, siempre la misma.
-			_player.set_active_hand(idxs[i % idxs.size()])
+			var m_golpe: float = float(plan[i]["mult"])
+			_player.set_active_hand(idxs[mini(int(plan[i]["hand"]), idxs.size() - 1)])
 			var golpe_res: Array = []   # resultados de ESTE golpe (varios si es área)
 			match ab.area_modo:
 				AbilityData.AreaModo.SPLASH:
@@ -2017,7 +2026,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 							continue
 						var esc: float = 1.0 if t == obj else ab.area_secundario
 						var etq: String = "" if t == obj else " (%s)" % t.nombre
-						golpe_res.append(_resolver_golpe_hab(ab, t, i, manos, esc, etq))
+						golpe_res.append(_resolver_golpe_hab(ab, t, i, manos, esc, etq, m_golpe))
 						if t not in tocados: tocados.append(t)
 				AbilityData.AreaModo.BARRIDO:
 					# Todos reciben el golpe, pero x falloff^(n-1) con n = vivos alcanzados EN ESTE
@@ -2027,7 +2036,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 					var esc_b: float = pow(ab.area_falloff, maxi(0, n - 1))
 					for t in vivos_alc:
 						var etq2: String = "" if t == obj else " (%s)" % t.nombre
-						golpe_res.append(_resolver_golpe_hab(ab, t, i, manos, esc_b, etq2))
+						golpe_res.append(_resolver_golpe_hab(ab, t, i, manos, esc_b, etq2, m_golpe))
 						if t not in tocados: tocados.append(t)
 				_:
 					# SIN área. Un objetivo; si cae y la habilidad REDIRIGE, salta al siguiente vivo.
@@ -2037,7 +2046,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 					if actual == null or not actual.is_alive():
 						break   # nadie a quien pegar: los golpes que quedan se pierden
 					golpe_res.append(_resolver_golpe_hab(ab, actual, i, manos, 1.0,
-						"" if actual == obj else " (%s)" % actual.nombre))
+						"" if actual == obj else " (%s)" % actual.nombre, m_golpe))
 					if actual not in tocados: tocados.append(actual)
 			# Acumular y loguear los golpes resueltos, en orden.
 			for r in golpe_res:
