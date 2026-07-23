@@ -99,6 +99,9 @@ const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
 # pueblo o por un pasillo vacio no tiene riesgo, asi que tampoco debe cansar. Va APARTE de
 # _AGILIDAD_RANGE a proposito: aquella es la regla de la Excelia y tiene su propia semantica.
 const _PELIGRO_RANGE := 300.0
+# Máscara de colisión de las PAREDES (roca), la misma que usa el enemigo para su línea de visión
+# (Enemy.CAPA_ROCA). Con ella el rayo de _vision_libre solo choca con muros, no con bichos.
+const CAPA_ROCA := 1
 
 
 func _ready() -> void:
@@ -224,7 +227,15 @@ func _physics_process(delta: float) -> void:
 	# pueblo o por un pasillo vacio ya no cansa (y encima regenera). Ir a por un bicho sigue
 	# costando: cruzas los 300 px mucho antes de alcanzarlo, asi que "correr antes de pelear se
 	# paga" se mantiene. Los companeros pagan exactamente lo mismo (ver _tick_aguante_companeros).
-	var gastando: bool = running and dist_enemigo <= _PELIGRO_RANGE
+	var gastando: bool = false
+	if running:
+		# (A) Te persigue alguien (a ti o a un companero): pagas AUNQUE metas una pared de por medio.
+		# Huir es correr con uno pegado a los talones, y cortar la esquina no te libra del esfuerzo.
+		var persiguiendo: bool = _perseguidor()[0] != null
+		# (B) O un enemigo dentro del radio de peligro al que VES (sin pared en medio). Correr a la
+		# vista de un bicho cuesta; al otro lado de un muro que no te ve, correr es gratis.
+		var cerca_visible: bool = enemigo_cerca != null and dist_enemigo <= _PELIGRO_RANGE and _vision_libre((enemigo_cerca as Node2D).global_position)
+		gastando = persiguiendo or cerca_visible
 	if gastando:
 		current_stamina -= run_drain * delta
 		if current_stamina <= 0.0:
@@ -725,6 +736,28 @@ func _dist_huida() -> float:
 			or _huida_perseguidor == null or not is_instance_valid(_huida_perseguidor):
 		return -1.0
 	return _huida_presa.global_position.distance_to(_huida_perseguidor.global_position)
+
+
+# ¿Hay linea de vision LIBRE (sin pared) entre el jugador y 'punto'? Mismo patron que el enemigo
+# (Enemy._linea_de_vision_libre): un rayo con la mascara de la ROCA. Se excluye a todo el grupo
+# porque el jugador y los companeros COMPARTEN capa con la roca; sin excluirlos, el rayo chocaria
+# consigo mismo o con un aliado y creeria que hay pared donde no la hay.
+func _vision_libre(punto: Vector2) -> bool:
+	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	var query := PhysicsRayQueryParameters2D.create(global_position, punto, CAPA_ROCA)
+	query.exclude = _excluir_del_rayo()
+	return espacio.intersect_ray(query).is_empty()
+
+
+# Cuerpos que el rayo de vision NUNCA debe tomar por pared: todo el grupo (grupo "aliado" = lider
+# + companeros), que comparte capa con la roca. Los enemigos no estan en CAPA_ROCA, asi que el
+# rayo ya no los ve: solo detecta muros.
+func _excluir_del_rayo() -> Array[RID]:
+	var out: Array[RID] = []
+	for n in get_tree().get_nodes_in_group("aliado"):
+		if n is CollisionObject2D:
+			out.append((n as CollisionObject2D).get_rid())
+	return out
 
 
 # Enemigo VIVO mas cercano y a que distancia esta: [Node, float]. Sin nadie cerca devuelve
