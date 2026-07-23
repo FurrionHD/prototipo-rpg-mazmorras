@@ -63,6 +63,7 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 	_codigo = codigo
 	activo = true
 	es_host = true
+	Game._refrescar_pausa()   # regimen multi: los menus dejan de pausar el arbol
 	estado_cambiado.emit("Servidor abierto. Esperando a que se unan...")
 	return OK
 
@@ -77,6 +78,7 @@ func unirse(ip: String, codigo: String, puerto: int = PUERTO) -> int:
 	_codigo = codigo
 	activo = true
 	es_host = false
+	Game._refrescar_pausa()   # regimen multi: los menus dejan de pausar el arbol
 	estado_cambiado.emit("Conectando a %s..." % ip)
 	return OK
 
@@ -98,6 +100,8 @@ func desconectar() -> void:
 		multiplayer.multiplayer_peer = null
 	activo = false
 	es_host = false
+	# De vuelta al regimen de un jugador: si hay un menu abierto, el arbol vuelve a pausarse.
+	Game._refrescar_pausa()
 
 
 # --- POSICION (lo que hace que os veais moveros) --------------------------------------------

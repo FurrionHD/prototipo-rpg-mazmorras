@@ -176,13 +176,19 @@ func _physics_process(delta: float) -> void:
 	Game.tick_heal(delta)         # cura de pociones (fuera de combate) corre siempre que pasa el tiempo
 	Game.tick_mana_pocion(delta)  # maná de pociones de maná (fuera de combate)
 	_actualizar_max_aguante()     # el maximo escala con Resistencia/Agilidad (refresca si cambian las stats)
-	if Game.inventory_open or Game.debug_panel_open:
+	# hay_modal() cubre TODOS los menus de la pila (personaje, ayuda, pausa, panel multi...),
+	# no solo el inventario. En solitario esta rama casi no corria (la pausa congelaba el arbol
+	# entero); en MULTI el arbol sigue vivo con menus abiertos y esta rama es la que evita que
+	# camines o ataques mientras compras. Solo te corta A TI: tu companero sigue a lo suyo.
+	if Game.inventory_open or Game.debug_panel_open or Game.hay_modal():
 		velocity = Vector2.ZERO
 		current_stamina = minf(max_stamina, current_stamina + _regen_actual * delta)
 		_tick_aguante_companeros(delta, false)   # el tiempo pasa para todos, no solo para ti
 		if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
 			_exhausted = false
 		_refrescar_barras()
+		if Net.activo:
+			Net.enviar_estado(global_position, _facing)   # que el otro te vea QUIETO, no congelado
 		return
 
 	var direction: Vector2 = Input.get_vector(

@@ -84,7 +84,7 @@ la misma instancia de arma.
 
 | Modal | En multi | Motivo |
 |---|---|---|
-| `MENU`, `PERSONAJE`, `SISTEMA` | **Local** al jugador | Abrir el inventario/ficha/ayuda solo me pausa a mí (en la práctica, no congela el mundo del otro). |
+| `MENU`, `PERSONAJE`, `SISTEMA` | **Local** al jugador — **IMPLEMENTADO** | Con sesión activa `_refrescar_pausa()` no pausa el árbol; el `Player` corta su propio input consultando `Game.hay_modal()` (sigue emitiendo posición: el otro te ve quieto de pie). En solitario todo pausa como siempre. Nota asumida: en multi las pociones tiquean con el menú abierto. |
 | `COMBATE` | **No congela el mundo** | Mi pelea no puede parar al compañero ni a los spawns; se resuelve por-instancia. |
 | `EXTRACCION` | **No congela, y es por-cuerpo** | Si yo extraigo un cadáver, el otro recibe "ocupado" en ESE cuerpo, pero el mundo sigue. |
 | `RECOLECCION` | **No congela** | Igual que la extracción: minar/talar/cosechar es local a quien lo hace. |
@@ -111,6 +111,11 @@ la misma instancia de arma.
   hay hueco** (tope actual `MAX_COMBATIENTES = 5`). Si no hay hueco, **queda en cola**. Hoy NO
   existe cola: el control es por exclusión (`_combat_triggered`) + pausa global; habrá que crear
   una cola real.
+- **Combate con menú abierto (regla del usuario)**: como en multi el mundo no se para, un enemigo
+  puede embestirte mientras miras el inventario. Al entrar en combate se te **cierra el menú a la
+  fuerza PRIMERO** y luego arranca el combate — nunca pelear con un menú tapando la pantalla.
+  Exigirá una convención "ciérrate" por menú (los que usan `abrir_menu` no registran su nodo en la
+  pila, solo el token); se implementa junto al combate en multi, donde se puede probar.
 - **Ventaja de ATB / emboscada**: quien **INICIA** el combate arranca con su adelanto de
   iniciativa (emboscada). Quien se **une a una pelea ya empezada NO cuenta como emboscada y entra
   con 0 % de adelanto** — la pelea ya estaba en marcha. (Anclar contra el ATB actual en

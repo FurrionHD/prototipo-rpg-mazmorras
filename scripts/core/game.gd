@@ -583,11 +583,21 @@ func fijar_modal(tipo: int, fuente, activo: bool) -> void:
 	elif not activo and presente:
 		salir_modal(fuente)
 
-# HOY: cualquier modal en la pila = arbol pausado (igual que antes). MANANA (multi): este unico
-# metodo decidira pausa local vs no-pausa segun el tipo del modal. Es el unico sitio que escribe
-# get_tree().paused: asi la pila y el booleano nunca se descuadran.
+# ¿Hay algun modal abierto? Lo consulta el Player en multi: con un menu delante no se camina ni
+# se atacan cosas, aunque el arbol siga corriendo.
+func hay_modal() -> bool:
+	return not _modal_stack.is_empty()
+
+
+# El UNICO sitio que escribe get_tree().paused: asi la pila y el booleano nunca se descuadran.
+# EN SOLITARIO: cualquier modal = arbol pausado (como siempre, las pociones no tiquean en el
+# menu, etc.). EN MULTI (Net.activo): NADA pausa el arbol — tu menu es asunto TUYO y el mundo
+# compartido sigue vivo (ves a tu companero moverse mientras compras). Lo que no debes hacer tu
+# mientras tanto (moverte, atacar) lo corta el Player consultando hay_modal(), no la pausa.
+# Nota asumida: en multi las pociones/colas SI tiquean con el menu abierto — inherente a que el
+# tiempo no se pare. Net llama a esto al abrir/cerrar sesion para aplicar el regimen que toque.
 func _refrescar_pausa() -> void:
-	get_tree().paused = not _modal_stack.is_empty()
+	get_tree().paused = (not Net.activo) and (not _modal_stack.is_empty())
 
 # Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
 var current_floor: int = 1
