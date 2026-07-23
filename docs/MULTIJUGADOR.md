@@ -245,9 +245,45 @@ posiciones**.
   quiera, las escaleras dejan de arrastrar a todos, y la simulación se reparte por piso.
 - **5.3 — Todos pelean, con el mundo vivo (HECHO)**: se quita el tope temporal; pelea cualquiera,
   simule el piso o no, y la extracción y el botín son compartidos.
-- **5.4 — Dos humanos en UNA MISMA pelea**: formación por orden, cola de refuerzos, unirse a media
-  pelea, emboscada/ATB. (5.3 da peleas SIMULTÁNEAS pero separadas; esto es compartir una.)
+- **5.4 — Unirse a peleas en curso.** En tres pasos:
+  - **A (HECHO)**: los **enemigos se unen** a una pelea en marcha, y si está llena **esperan
+    pegados** y entran en cuanto muere uno.
+  - **B (HECHO)**: los enemigos **van a por todos**, no solo a por quien simula el piso.
+  - **C**: **dos humanos en UNA misma pelea** (5.3 da peleas simultáneas pero separadas).
 - **5.5 — Huir individual + pulido.**
+
+#### Unirse a una pelea en curso (5.4-A y 5.4-B)
+
+**Enemigos que se unen.** `_invocar_slime` ya sabía meter un enemigo en una pelea en marcha (lo usa
+el Rey Slime); se extrae su motor a `combat.anadir_enemigo()`. Diferencia clave: un refuerzo que
+llega andando **NO** lleva la marca de `_slots_invocados`, porque es un enemigo de verdad — cuenta
+como kill, da maná al morir y su cadáver es extraíble.
+
+**Cola**: si la pelea está al tope (`MAX_ENEMIGOS`), el bicho se queda **esperando pegado** y lo
+reintenta cada 0,4 s; al morir uno entra en su hueco. Matar no te alivia del todo: sabes que hay
+más esperando fuera. Si la pelea acaba sin que entrara, vuelve a su vida normal.
+
+⚠️ **La trampa del cruce por índice**: `combat._enemies` y `Game._active_enemies` se cruzan **por
+posición** (así vuelven los muertos al cerrar). Reutilizar el hueco de un cadáver **desplaza** a su
+nodo de la lista, y ese bicho no recibiría `morir()` ni `reanudar_tras_combate()` → congelado para
+siempre, el bug de las estatuas otra vez. `Game.unir_enemigo_al_combate()` mantiene las dos listas
+cuadradas y **mata en el momento** al nodo relevado.
+
+**Los enemigos van a por todos.** `remote_player` deja de ser un fantasma visual y pasa a ser un
+`CharacterBody2D` calcado de `companion.gd` (capa 4, máscara 1, cuerpo 32×32) dentro del grupo
+`"aliado"`. **Con `velocity`**, que no es cosmética: el **oído** del enemigo sale de
+`velocity.length()`, así que sin ella un jugador remoto sería completamente silencioso.
+
+Si el alcanzado es el cuerpo de otro jugador, **la pelea es suya**: el dueño del piso reserva el
+grupo (`_reservar_grupo`, compartido con la vía de "el jugador ataca") y se la **empuja con
+emboscada** — le han saltado encima. Si ese jugador ya estaba peleando, los bichos **se unen a su
+pelea**; el que no quepa se devuelve al dueño (`salir_de_pelea`) para que lo suelte.
+
+⚠️ **El culling medía solo contra el jugador local**, así que los bichos alrededor de tu compañero
+estaban dormidos y no lo perseguían nunca. Ahora se mide contra el **aliado más cercano**: quien
+simula el piso lo simula para todos. (La niebla del mapa sigue siendo solo tuya: es tu libreta.)
+Y ojo, `player._perseguidor` recorre `"aliado"` para la excelia de huida → **los remotos se
+excluyen** por la meta `peer_id`, o entrenarías Agilidad porque persiguen a otro.
 
 #### Cómo funciona el combate multi (5.3)
 
