@@ -168,6 +168,13 @@ var _slots_invocados: Dictionary = {}
 # Tope de enemigos en una pelea. Lo aplica enemy.gd al reclutar vecinos (MAX_COMBATIENTES);
 # aqui sirve de contrato para la UI (bloques y numeracion).
 const MAX_ENEMIGOS := 5
+# Tope de ALIADOS en pantalla (hito 5.4-C, peleas compartidas). 4 es el techo real por dos motivos
+# que coinciden: el cupo de personajes en sesion ya topa a 4 EN TOTAL (Net.cupo_party), y la fila
+# de bloques NO hace wrap -216 px cada uno en un viewport de 1152-, asi que un quinto se saldria.
+const MAX_ALIADOS := 4
+# Hay un aliado EN CAMINO (concedido por la red, todavia no dentro). Mientras este puesto, la
+# pelea no se da por perdida aunque caigan todos: ver derrota().
+var _espera_refuerzo := false
 
 enum State { ADVANCING, WAITING_PLAYER, PAUSED, FINISHED }
 var _state: State = State.ADVANCING
@@ -585,10 +592,7 @@ func _setup_ui() -> void:
 	_aliados_box = _crear_fila_bloques()
 	_col.move_child(_aliados_box, 2)
 	for i in _aliados.size():
-		var ba: Dictionary = _crear_bloque(_aliados[i], 0, -1)
-		_crear_barras_aliado(ba, _aliados[i])
-		_bloques_aliados.append(ba)
-		_aliados_box.add_child(ba["panel"])
+		_anadir_bloque_aliado(_aliados[i])
 	_seleccionar(0)
 	# El log siempre muestra LOG_MAX lineas (ver _set_log), asi que ocupa un alto FIJO y
 	# los botones no se mueven. clip_text evita que una linea larga se derrame a la dcha.
@@ -596,6 +600,56 @@ func _setup_ui() -> void:
 	_update_hp()
 	_continue_button.visible = false
 	_ocultar_cajas()
+
+
+# El bloque de UN aliado (su caja con nombre, estados y las tres barras), colgado de la fila. Se
+# saco del bucle de _setup_ui para poder añadir aliados a MITAD de pelea (hito 5.4-C): un
+# compañero que se une necesita exactamente esto y nada mas.
+func _anadir_bloque_aliado(c: Combatant) -> void:
+	var ba: Dictionary = _crear_bloque(c, 0, -1)
+	_crear_barras_aliado(ba, c)
+	_bloques_aliados.append(ba)
+	_aliados_box.add_child(ba["panel"])
+
+
+# UN ALIADO MAS en la pelea en curso (hito 5.4-C): entra el personaje de otro humano que se une.
+# Es el simetrico de anadir_enemigo, pero con una diferencia importante: SIEMPRE por el final
+# (append), nunca insertando ni reordenando. combat_finished devuelve los resultados POR INDICE y
+# Game los cruza posicionalmente con _active_player_pjs; mover a alguien de sitio le daria la vida
+# y el mana de otro.
+# Devuelve false si la pelea ya esta cerrandose o no cabe en pantalla.
+# ¿Se ha perdido la pelea? Estaba escrito a mano en CUATRO sitios distintos; se centraliza aqui
+# porque desde el hito 5.4 puede haber un refuerzo EN CAMINO (un compañero que se une, avisado por
+# la red pero que aun no ha entrado). Declarar la derrota en ese hueco cerraria la pelea justo
+# cuando llegaba el rescate, y encima el que llega se encontraria una pelea muerta.
+func derrota() -> bool:
+	if not _aliados_vivos().is_empty():
+		return false
+	return not _espera_refuerzo
+
+
+# Lo enciende quien vaya a meter un aliado (Net, al conceder la union) para que la pelea aguante
+# hasta que entre de verdad. Se apaga solo en anadir_aliado.
+func esperar_refuerzo(si: bool) -> void:
+	_espera_refuerzo = si
+
+
+func anadir_aliado(c: Combatant) -> bool:
+	if c == null or _state == State.FINISHED:
+		return false
+	if _aliados.size() >= MAX_ALIADOS:
+		return false
+	_aliados.append(c)
+	_espera_refuerzo = false   # ya ha llegado
+	_gauge[c] = 0.0          # entra con la barra a cero: unirse no regala un turno inmediato
+	_anadir_bloque_aliado(c)
+	if _timeline != null:
+		var pj: PersonajeData = Game.pj_de_combatant(c)
+		_timeline.anadir(c, pj.color if pj != null else c.color_visual,
+			Game.material_de(pj) if pj != null else null, "")
+	_update_hp()
+	_set_log("%s se une a la pelea." % c.nombre)
+	return true
 
 
 # BLOQUE de un combatiente: la unidad que se ve, se señala y se clica. Junta en una caja su
@@ -1083,7 +1137,7 @@ func _begin_player_turn() -> void:
 	if not _player.is_alive():
 		_set_log("%s cae por el daño de sus estados. ☠" % _player.nombre)
 		_caer_aliado(_player)   # el DoT (veneno...) puede tumbarlo
-		if _aliados_vivos().is_empty():
+		if derrota():
 			_end(false)
 		else:
 			_pausa_lectura()
@@ -1820,7 +1874,7 @@ func _backfire() -> void:
 	_fin_de_eleccion()
 	if not _player.is_alive():
 		_caer_aliado(_player)   # el conjuro descontrolado puede tumbar al que lo recitaba
-		if _aliados_vivos().is_empty():
+		if derrota():
 			_end(false)
 			return
 	_state = State.ADVANCING
@@ -2554,7 +2608,7 @@ func _enemy_turn(e: Combatant) -> void:
 
 	if not obj.is_alive():
 		_caer_aliado(obj)
-		if _aliados_vivos().is_empty():
+		if derrota():
 			_end(false)
 			return
 	_pausa_lectura()
@@ -2745,7 +2799,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		if not t.is_alive():
 			_caer_aliado(t)
 			alguno_cayo = true
-	if alguno_cayo and _aliados_vivos().is_empty():
+	if alguno_cayo and derrota():
 		_end(false)
 		return
 	_pausa_lectura()

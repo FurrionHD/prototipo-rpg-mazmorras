@@ -5984,6 +5984,35 @@ func matar_enemigo_de_combate(n) -> void:
 		n.morir()
 
 
+# Mete un PERSONAJE en el combate EN CURSO (hito 5.4-C): el compañero de otro humano que se une a
+# tu pelea. Devuelve false si no cabe o la pelea ya se cierra.
+#
+# Lo delicado son los DOS arrays paralelos: _active_player_cs (Combatants) y _active_player_pjs
+# (fichas). pj_de_combatant cruza el uno con el otro, y de el cuelgan la excelia, la regeneracion y
+# el volcado de HP/MP al cerrar. Si se añade a uno y no al otro, ese personaje pelea pero no gana
+# nada y sale de la pelea sin guardar su vida.
+func unir_aliado_al_combate(pj: PersonajeData) -> bool:
+	if not combate_activo() or pj == null or _active_player_pjs.has(pj):
+		return false
+	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
+		and _active_layer.get_child_count() > 0 else null
+	if combat == null or not combat.has_method("anadir_aliado"):
+		return false
+	var c: Combatant = crear_player_combatant(pj)
+	if c == null:
+		return false
+	# A los DOS arrays y en el mismo orden ANTES de avisar al combate: anadir_aliado ya consulta
+	# pj_de_combatant para pintar su color en el marcador de turnos.
+	_active_player_cs.append(c)
+	_active_player_pjs.append(pj)
+	if combat.anadir_aliado(c):
+		return true
+	# No cabia: deshacer para no dejar los arrays desparejados.
+	_active_player_cs.pop_back()
+	_active_player_pjs.pop_back()
+	return false
+
+
 # Mete un enemigo del mapa en el combate EN CURSO (hito 5.4): un bicho que te alcanza mientras
 # peleas se une en vez de rebotar. Devuelve false si no cabe -> el que llama lo pone en cola.
 # Mantiene el cruce por INDICE entre combat._enemies y _active_enemies, que es como vuelven los
