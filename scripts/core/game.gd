@@ -5969,7 +5969,10 @@ func combate_activo() -> bool:
 # cadaver. Extraido del cierre del combate porque ahora tambien se usa a MITAD de pelea: cuando un
 # refuerzo reutiliza el hueco de un cadaver (hito 5.4), el nodo al que desplaza ya esta muerto y hay
 # que procesarlo EN ESE MOMENTO, o se quedaria congelado para siempre sin morir ni reanudarse.
-func matar_enemigo_de_combate(n: Node) -> void:
+# OJO con el parametro SIN TIPAR: a esto le pueden llegar nodos YA LIBERADOS (un bicho reciclado o
+# desvanecido a mitad de pelea), y pasar una instancia liberada a un parametro TIPADO lanza error en
+# Godot 4. Misma trampa que en los diccionarios de red (ver la cabecera de net.gd).
+func matar_enemigo_de_combate(n) -> void:
 	if not is_instance_valid(n):
 		return
 	# ¿Era un "guardián del rango"? Vencerlo desbloquea SU nivel objetivo (persistente).
@@ -6688,7 +6691,8 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	# si huyes tras llevarte a dos de cuatro por delante, esos dos estan muertos igual y su
 	# cadaver te lo has ganado. Mirando player_won se perderian.
 	for i in muertos:
-		var n: Node = _active_enemies[i] if i < _active_enemies.size() else null
+		# Sin tipar: el nodo puede estar ya liberado (ver matar_enemigo_de_combate).
+		var n = _active_enemies[i] if i < _active_enemies.size() else null
 		matar_enemigo_de_combate(n)
 
 	# Los SUPERVIVIENTES (huiste, o te mataron y aun no lo saben): se quedan quietos unos
@@ -6696,7 +6700,7 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	for i in _active_enemies.size():
 		if muertos.has(i):
 			continue
-		var n: Node = _active_enemies[i]
+		var n = _active_enemies[i]   # sin tipar: puede estar liberado
 		if not is_instance_valid(n) or not n.has_method("reanudar_tras_combate"):
 			continue
 		var hp: float = float(enemy_hp_left[i]) if i < enemy_hp_left.size() else -1.0

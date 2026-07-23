@@ -37,10 +37,16 @@ var radio_extra: float = 0.0   # los elites son mas gordos: se descuenta al medi
 # estos campos se puede pasar TAL CUAL a start_combat como si fuera un enemigo real.
 var hp_restante: float = -1.0
 var es_boss: bool = false
-# Mismo nombre que en enemy.gd A PROPOSITO: al estar en el grupo "enemy", varios sistemas
-# (enemy_links, el culling del piso) preguntan por este campo. Duck-typing: si vas a entrar en el
-# grupo, cumple su contrato.
+# --- EL CONTRATO DEL GRUPO "enemy" -----------------------------------------------------------
+# Todo esto se llama igual que en enemy.gd A PROPOSITO. Al entrar en el grupo "enemy" hay que
+# cumplir su contrato ENTERO, porque varios sistemas recorren el grupo y leen estos campos a pelo:
+#   _combat_triggered -> enemy_links, el culling y vecinos() del piso
+#   zona_idx          -> dungeon_floor.enemigos_en_zona (aforo por sala)
+#   es_boss           -> el reciclador, para no borrar al jefe
+#   esta_muerto()     -> vecinos() y las manadas
+# Si falta alguno, el juego revienta con "Invalid access to property" en cuanto alguien lo mire.
 var _combat_triggered: bool = false    # se la reservo el dueño y la estoy peleando yo
+var zona_idx: int = -1                 # no soy de ninguna sala: la ocupacion la lleva el dueño
 
 
 func _ready() -> void:

@@ -1151,6 +1151,10 @@ func _reciclar_lejano(forzar: bool = false) -> bool:
 		# suficiente lo borraria y el piso se quedaria cerrado para siempre.
 		if e.get("es_boss"):
 			continue
+		# Los ESPEJOS tampoco: no son mios. Borrarlos aqui haria desaparecer de mi pantalla un bicho
+		# que sigue vivisimo en la maquina que simula el piso.
+		if e.has_meta("es_espejo"):
+			continue
 		var d: float = pj.distance_to((e as Node2D).global_position)
 		if d > best:
 			best = d

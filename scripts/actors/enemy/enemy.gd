@@ -606,6 +606,12 @@ func recolocar(pos: Vector2) -> void:
 func atacado_por_jugador() -> void:
 	if _dead:
 		return
+	# La pelea es de QUIEN ME ATACA, aunque yo viniera persiguiendo a otro. Sin esto, si venia
+	# detras del compañero (_objetivo = su avatar), el empuje del hito 5.4-B mandaba la pelea a EL
+	# y al que me ataco no se le abria nada: "no me deja pelear".
+	var yo: Node = get_tree().get_first_node_in_group("player")
+	if yo != null:
+		_objetivo = yo
 	_start_combat(false)
 
 
