@@ -27,6 +27,14 @@ func _detectar_destino() -> void:
 
 
 func interact_with_player() -> void:
+	# MULTIJUGADOR hito 1 (solo pueblo): con sesion de red no se viaja todavia. Un cambio de
+	# escena tiraria los avatares y la mazmorra aun no se replica. Se quita en el hito que
+	# toque mazmorra (ver docs/MULTIJUGADOR.md).
+	if Net.activo:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud != null and hud.has_method("mostrar_toast"):
+			hud.mostrar_toast("La mazmorra aun no esta disponible en multijugador.")
+		return
 	# Entrar a la mazmorra = EXPEDICION NUEVA: siempre se empieza por el piso 1. La
 	# profundidad vive en el autoload Game y no se reinicia sola, asi que al volver al
 	# pueblo y reentrar te quedabas en el ultimo piso al que habias bajado.

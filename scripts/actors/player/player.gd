@@ -131,6 +131,7 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/material_spawner.gd").new())  # spawner de vetas/plantas (dev/test)
 	add_child(preload("res://scripts/ui/keys_help.gd").new())    # ayuda de teclas en pantalla (F1)
 	add_child(preload("res://scripts/ui/pause_menu.gd").new())   # menu de pausa (ESC): guardar / salir
+	add_child(preload("res://scripts/ui/multiplayer_panel.gd").new())  # conexion LAN (desde el menu de pausa)
 
 	# El aguante VIAJA en la ficha del lider (pj.stamina), igual que el de los companeros: por eso
 	# cambiar de piso o de escena ya no rellena la barra (sigues como estabas). -1 = a tope (partida
@@ -305,6 +306,11 @@ func _physics_process(delta: float) -> void:
 			if Game.cambiar_lider(i):
 				refrescar_lider()
 		_lider_was[i] = pulsada
+
+	# MULTIJUGADOR (hito 1): si hay sesion de red, difunde donde estoy para que el otro me vea
+	# moverme. En un jugador (Net.activo == false) esto no hace nada.
+	if Net.activo:
+		Net.enviar_estado(global_position, _facing)
 
 
 # Aguante maximo segun la Resistencia y la Agilidad. Usa el TOTAL acumulado (oculto), NO el

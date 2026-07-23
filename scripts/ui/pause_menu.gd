@@ -68,6 +68,7 @@ func _ready() -> void:
 	vb.add_child(_aviso)
 
 	_boton(vb, "Reanudar", _cerrar)
+	_boton(vb, "Multijugador (LAN)", _abrir_multi)
 	_boton(vb, "Guardar", _guardar)
 	_boton(vb, "Guardar y salir al menú", _guardar_y_salir)
 	_boton(vb, "Salir SIN guardar", _salir_sin_guardar)
@@ -104,6 +105,17 @@ func _cerrar() -> void:
 	_set_open(false)
 
 
+# Abre el panel de conexion LAN (multiplayer_panel.gd, hermano nuestro colgado del jugador).
+# Cerramos la pausa primero: el panel trae su propio modal y su propio ESC.
+func _abrir_multi() -> void:
+	var panel: Node = get_tree().get_first_node_in_group("multiplayer_panel")
+	if panel == null:
+		_aviso.text = "No esta el panel de multijugador."
+		return
+	_set_open(false)
+	panel.abrir()
+
+
 func _guardar() -> void:
 	_aviso.text = "Partida guardada." if Perfil.guardar_actual() else "No se pudo guardar."
 
@@ -124,4 +136,7 @@ func _salir() -> void:
 	# pausa y no responde a nada. Vaciamos la pila entera: el singleton Game persiste entre
 	# escenas y no debe quedar ningun modal residual.
 	Game.limpiar_modales()
+	# Y si habia sesion de red, se cierra: el menu principal no es sitio para seguir conectado.
+	if Net.activo:
+		Net.desconectar()
 	get_tree().change_scene_to_file(MENU_PRINCIPAL)
