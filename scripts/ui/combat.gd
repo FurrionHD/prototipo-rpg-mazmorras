@@ -364,6 +364,22 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 	_update_hp()
 
 
+# El anfitrion ha cerrado la pelea: mi espejo se va con ella.
+func cerrar_espejo() -> void:
+	if not _espejo:
+		return
+	_state = State.FINISHED
+	combat_finished.emit(false, [], [], [], [], [])
+
+
+# Manda la foto a los espejos. Se llama tras cada cambio que se VE (un golpe, un turno nuevo, el
+# final). Es barata -solo numeros- pero no se manda cada frame: solo cuando algo cambia.
+func _difundir() -> void:
+	if _espejo or not Net.activo:
+		return
+	Net.difundir_instantanea(instantanea())
+
+
 func _volcar(lista: Array, valores: Array) -> void:
 	for i in mini(lista.size(), valores.size()):
 		var v: Array = valores[i]
@@ -1026,6 +1042,10 @@ func _crear_label_barra(bar: ProgressBar, tam: int) -> Label:
 
 
 func _update_hp() -> void:
+	# MULTI: repintar es exactamente "ha cambiado algo que se ve", asi que es el sitio natural para
+	# mandarles la foto a los espejos. NO se llama desde _process (solo tras cambios de verdad), asi
+	# que esto no inunda la red.
+	_difundir()
 	# Un bloque por enemigo. Los muertos se siguen refrescando (su barra a 0): su bloque no
 	# desaparece, se queda apagado en su sitio.
 	for i in _bloques.size():

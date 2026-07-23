@@ -73,6 +73,16 @@ var expedicion_abierta := false    # solo fiable en el host
 var _dueno_piso: Dictionary = {}   # piso:int -> peer_id que lo simula (SOLO host)
 var _soy_dueno := false            # ¿simulo YO el piso en el que estoy? (cada maquina)
 var _peleando := false             # ¿estoy en un combate ahora mismo? (se difunde: ver avisar_combate)
+
+# --- PELEAS COMPARTIDAS (hito 5.4-C) ---------------------------------------------------------
+# Una pelea EXISTE en la red: tiene id y una maquina que la EJECUTA (la de quien la abrio, porque
+# es la que tiene la pantalla delante; el dueño del piso puede estar en su propia pelea o en
+# ninguna). Los demas participantes la ven en ESPEJO y le mandan sus acciones.
+var _pelea_id: int = 0             # la pelea que ejecuto YO (0 = ninguna)
+var _pelea_participantes: Array = []  # peers que estan dentro de MI pelea (yo no me cuento)
+var _pelea_sigo: int = 0           # la pelea que estoy ESPEJANDO (0 = ninguna)
+var _pelea_anfitrion: int = 0      # que peer ejecuta la pelea que espejo
+var _pelea_next: int = 1           # contador de ids de pelea (por maquina; el id lleva el peer)
 # FOTO de los pisos sin nadie dentro: el piso se congela tal cual (bichos y cadaveres) y se
 # restaura al volver, como en solitario. Vive en la SESION (host), no en el save de nadie: asi las
 # dos maquinas no divergen y el save del cliente sigue sin tocarse.
@@ -261,6 +271,10 @@ func desconectar() -> void:
 	_fotos_piso.clear()
 	_soy_dueno = false
 	_peleando = false
+	_pelea_id = 0
+	_pelea_participantes.clear()
+	_pelea_sigo = 0
+	_pelea_anfitrion = 0
 	semilla_host = 0
 	tienda_t2_host = false
 	# Restaurar MI baul de materiales si lo habia guardado al entrar de cliente (no perder nada).
@@ -2144,6 +2158,119 @@ func _toast(texto: String) -> void:
 		hud.mostrar_toast(texto)
 	else:
 		print("[net] ", texto)
+
+
+# --- PELEAS COMPARTIDAS: unirse a la pelea de otro (hito 5.4-C) -------------------------------
+#
+# Quien abre una pelea la EJECUTA. Los demas se unen: reciben el roster, abren la pantalla en
+# ESPEJO y a partir de ahi les llegan instantaneas. Cuando le toca el turno a un personaje SUYO,
+# el anfitrion le pide la accion; el la elige en su pantalla y vuelve. Asi el ATB, los dados y la
+# resolucion pasan en UN solo sitio y no hay dos verdades.
+
+# La pantalla de combate que tengo delante (la mia o el espejo), o null.
+func _pantalla_combate() -> Node:
+	if not is_instance_valid(Game._active_layer) or Game._active_layer.get_child_count() == 0:
+		return null
+	return Game._active_layer.get_child(0)
+
+
+# Lo llama Game al abrir un combate en multi: esta pelea pasa a existir en la red.
+func registrar_pelea() -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	_pelea_id = multiplayer.get_unique_id() * 1000000 + _pelea_next
+	_pelea_next += 1
+	_pelea_participantes.clear()
+
+
+func cerrar_pelea() -> void:
+	if _pelea_id != 0:
+		for p in _pelea_participantes:
+			_fin_espejo.rpc_id(p)
+		_pelea_participantes.clear()
+		_pelea_id = 0
+	_pelea_sigo = 0
+	_pelea_anfitrion = 0
+
+
+# ¿Estoy espejando una pelea? (lo consulta el jugador para no dejarme accionar por mi cuenta)
+func espejando() -> bool:
+	return _pelea_sigo != 0
+
+
+# --- UNIRSE ---------------------------------------------------------------------------------
+
+# La llama el jugador al querer meterse en la pelea de un compañero que tiene al lado.
+func solicitar_unirse(anfitrion: int) -> void:
+	if not activo or anfitrion == 0 or Game.combate_activo() or espejando():
+		return
+	if anfitrion == multiplayer.get_unique_id():
+		return
+	_pedir_unirme.rpc_id(anfitrion)
+
+
+# Corre en EL ANFITRION: alguien quiere entrar en mi pelea.
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_unirme() -> void:
+	var quien := multiplayer.get_remote_sender_id()
+	var p: Node = _pantalla_combate()
+	if _pelea_id == 0 or p == null or not p.has_method("roster_para_espejo"):
+		_union_denegada.rpc_id(quien)
+		return
+	# Aguanta la pelea hasta que entre de verdad: si caen todos en ese hueco, no se cierra
+	# dejando al que venia de rescate con una pelea muerta.
+	if p.has_method("esperar_refuerzo"):
+		p.esperar_refuerzo(true)
+	if not _pelea_participantes.has(quien):
+		_pelea_participantes.append(quien)
+	_union_ok.rpc_id(quien, _pelea_id, p.roster_para_espejo())
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _union_denegada() -> void:
+	_toast("Esa pelea ya no está disponible.")
+
+
+# Corre en EL QUE SE UNE: abre su pantalla en espejo.
+@rpc("any_peer", "call_remote", "reliable")
+func _union_ok(id: int, roster: Dictionary) -> void:
+	if Game.combate_activo() or espejando():
+		return
+	if Game.abrir_combate_espejo(roster) == null:
+		return
+	_pelea_sigo = id
+	_pelea_anfitrion = multiplayer.get_remote_sender_id()
+
+
+# --- INSTANTANEAS (anfitrion -> espejos) -----------------------------------------------------
+
+# La llama el combate cada vez que cambia algo que se ve. Barata: solo numeros.
+func difundir_instantanea(snap: Dictionary) -> void:
+	if not activo or _pelea_id == 0 or _pelea_participantes.is_empty():
+		return
+	for p in _pelea_participantes:
+		_instantanea.rpc_id(p, snap)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _instantanea(snap: Dictionary) -> void:
+	if _pelea_sigo == 0:
+		return
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("aplicar_instantanea"):
+		p.aplicar_instantanea(snap)
+
+
+# El anfitrion cierra: los espejos se cierran con el.
+@rpc("any_peer", "call_remote", "reliable")
+func _fin_espejo() -> void:
+	if _pelea_sigo == 0:
+		return
+	_pelea_sigo = 0
+	_pelea_anfitrion = 0
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("cerrar_espejo"):
+		p.cerrar_espejo()
 
 
 # --- HANDSHAKE + CONTRASEÑA ------------------------------------------------------------------

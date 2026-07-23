@@ -6159,6 +6159,8 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
 	combat.setup(player_cs, enemy_cs, enemy_initiated, exhausted, overload_speed_factor())
 	combat.combat_finished.connect(_on_combat_finished)
+	# MULTI: esta pelea pasa a EXISTIR en la red, para que un compañero pueda unirse a ella.
+	Net.registrar_pelea()
 
 	_montar_pantalla_combate(combat)
 
@@ -6205,6 +6207,7 @@ func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en :=
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()
 	Net.avisar_combate(false)
+	Net.cerrar_pelea()
 	if is_instance_valid(_active_layer):
 		_active_layer.queue_free()
 	_active_layer = null
@@ -6709,6 +6712,7 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
 	Net.avisar_combate(false)
+	Net.cerrar_pelea()   # los espejos de los que se unieron se cierran con ella
 	# La HUIDA que entrena Agilidad mide el hueco que le abres a tu perseguidor. En multi el mundo
 	# sigue vivo mientras peleas, asi que al salir la distancia puede haber dado un salto enorme
 	# (el bicho se movio, o cambiaste de perseguidor) y el primer tick lo cobraria como si lo
