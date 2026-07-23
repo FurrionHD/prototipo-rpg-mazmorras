@@ -1224,6 +1224,11 @@ func _process(delta: float) -> void:
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e) or not (e is Node2D):
 			continue
+		# A los que estan EN una pelea no se les toca la fisica: encendersela aqui les devolveria
+		# la IA en mitad del combate. Hoy lo tapa el early-return de enemy._physics_process, pero
+		# eso es una dependencia fragil y sin la pausa global (multi) este barrido corre siempre.
+		if e.get("_combat_triggered"):
+			continue
 		var lejos: bool = pj.distance_to((e as Node2D).global_position) > dist_congelar
 		e.set_physics_process(not lejos)
 

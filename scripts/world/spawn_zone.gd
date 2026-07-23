@@ -48,6 +48,13 @@ var aviso_amp: float = 2.5
 # 64 = dos celdas. Puede nacerte al lado, pero no encima.
 var dist_min_jugador: float = 64.0
 
+# MULTIJUGADOR (hito 5.3): distancia minima MUCHO mayor alrededor de quien esta PELEANDO. En multi
+# el mundo no se para, asi que las paredes siguen pariendo mientras alguien esta en combate — y eso
+# se quiere (la mazmorra sigue viva). Lo que no se quiere es plantarle un bicho en las narices a
+# alguien metido en una pantalla donde no puede ni verlo venir. Asi que los partos se ALEJAN de el,
+# no se paran. Si aun asi le nace uno cerca, se une a su pelea (ver dungeon_floor).
+const DIST_MIN_PELEANDO := 260.0
+
 # --- Separacion minima entre bichos al nacer (px) ---
 # 48 = celda y media. Ya no se empujan entre ellos (no colisionan), pero nacer amontonados
 # se ve como un pegote unico y no como varios enemigos.
@@ -282,16 +289,34 @@ func _cerca_del_jugador(sitio: Dictionary) -> bool:
 	return suelo.distance_to((jugador as Node2D).global_position) <= RECICLA_CERCA
 
 
-# Una celda de parto al azar, descartando las que tengan al jugador encima. Devuelve {}
-# si no queda ninguna valida (estas plantado justo donde iba a nacer: te libras).
-func _elegir_celda() -> Dictionary:
+# TODOS los jugadores de este piso (el mio y los remotos en multi), con la distancia minima que
+# hay que respetarle a cada uno: la de siempre, o DIST_MIN_PELEANDO si esta en combate.
+func _puestos_a_respetar() -> Array:
+	var out: Array = []
 	var jugador := get_tree().get_first_node_in_group("player")
-	var pj: Vector2 = (jugador as Node2D).global_position if jugador is Node2D else Vector2.INF
+	if jugador is Node2D:
+		var d: float = DIST_MIN_PELEANDO if Game.combate_activo() else dist_min_jugador
+		out.append([(jugador as Node2D).global_position, d])
+	for r in Net.jugadores_remotos_aqui():
+		out.append([r["pos"], DIST_MIN_PELEANDO if r["peleando"] else dist_min_jugador])
+	return out
 
+
+# ¿'punto' respeta el espacio de todos los jugadores?
+func _libre_de_jugadores(punto: Vector2, puestos: Array) -> bool:
+	for p in puestos:
+		if punto.distance_to(p[0]) < float(p[1]):
+			return false
+	return true
+
+
+# Una celda de parto al azar, descartando las que tengan un jugador encima (y dando MUCHO mas aire
+# a quien este peleando). Devuelve {} si no queda ninguna valida: te libras de este parto.
+func _elegir_celda() -> Dictionary:
+	var puestos: Array = _puestos_a_respetar()
 	var validas: Array = []
 	for p in partos:
-		var suelo: Vector2 = piso.gen.centro_px(p["suelo"])
-		if pj == Vector2.INF or suelo.distance_to(pj) >= dist_min_jugador:
+		if _libre_de_jugadores(piso.gen.centro_px(p["suelo"]), puestos):
 			validas.append(p)
 	if validas.is_empty():
 		return {}
@@ -315,12 +340,11 @@ func poblar(n: int) -> void:
 func _punto_libre() -> Vector2:
 	if puntos.is_empty():
 		return Vector2.INF
-	var jugador := get_tree().get_first_node_in_group("player")
-	var pj: Vector2 = (jugador as Node2D).global_position if jugador is Node2D else Vector2.INF
+	var puestos: Array = _puestos_a_respetar()
 
 	var validos: Array = []
 	for p in puntos:
-		if pj != Vector2.INF and p.distance_to(pj) < dist_min_jugador:
+		if not _libre_de_jugadores(p, puestos):
 			continue
 		if _ocupado(p):
 			continue

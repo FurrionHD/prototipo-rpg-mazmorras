@@ -3469,10 +3469,13 @@ const T2_PRECIO_MULT := 3.3
 const PISO_TIENDA_T2 := 6
 
 func tienda_t2_abierta() -> bool:
-	# MULTIJUGADOR: el surtido lo manda el mundo del HOST. Un cliente usa el flag que le llego en
-	# el handshake; el host (y el modo un jugador) miran su propio progreso.
+	# MULTIJUGADOR: el surtido de partida lo manda el mundo del HOST (flag del handshake), PERO
+	# desde el hito 5.3 el jefe puede caer EN SESION y entonces se abre para todos (decision del
+	# usuario: el atajo y la tienda son de todos; lo que NO se comparte es el credito de nivel, que
+	# va por personaje en guardianes_vencidos). Net._boss_caido apunta el hito en cada maquina, asi
+	# que basta con mirar tambien el progreso propio.
 	if Net.activo and not Net.es_host:
-		return Net.tienda_t2_host
+		return Net.tienda_t2_host or boss_derrotado(PISO_TIENDA_T2)
 	return boss_derrotado(PISO_TIENDA_T2)
 
 # Precio de compra de una plantilla al TIER en el que la vende ese mostrador.
@@ -5954,6 +5957,14 @@ func _dev_print_armor() -> void:
 		"  vel armadura ×", snappedf(float(am["velocidad_mult"]), 0.01))
 
 
+# ¿Hay un combate en marcha en ESTA maquina? Solo cabe uno a la vez (_active_enemies, _active_layer
+# y _active_player_cs son singulares). Lo consulta el enemigo ANTES de congelar a su grupo: sin la
+# pausa global (multi) el mundo sigue vivo y otro bicho puede alcanzarte a mitad de pelea; si se
+# congelara sin que la pelea llegue a arrancar, se quedaria de estatua para siempre.
+func combate_activo() -> bool:
+	return not _active_enemies.is_empty()
+
+
 # Abre el combate contra un enemigo de la mazmorra.
 # 'enemy_nodes' viene ORDENADO por enemy.gd: el [0] es el bicho que disparo el combate y detras
 # sus vecinos, de mas cerca a mas lejos. Ese orden manda: es la numeracion que vera el jugador y
@@ -5961,11 +5972,6 @@ func _dev_print_armor() -> void:
 # No se pasa un EnemyData suelto: con varios bichos no hay "el" EnemyData, y cada nodo ya lleva
 # el suyo (.data) y su tirada (.current_t).
 func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
-	# HITO 5.1 (tope temporal): en multi todavia NO se pelea (el combate despausado y el throttle
-	# de spawns es 5.2). enemy._start_combat ya corta antes; esto es el cinturon de seguridad para
-	# cualquier otra via (ataque del jugador, dev). Se retira con el combate multi.
-	if Net.activo:
-		return
 	if not _active_enemies.is_empty() or enemy_nodes.is_empty():
 		return  # ya hay un combate o faltan datos
 
@@ -6090,6 +6096,10 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 
 	entrar_modal(Modal.COMBATE, layer)  # congela la mazmorra mientras luchas
 	esconder_mundo(true)                # ...y deja de PINTARLA: la pantalla de combate la tapa entera
+	# MULTI: que los demas sepan que estoy peleando. En multi el mundo NO se para, asi que las
+	# paredes seguirian pariendo: saberlo les sirve para no plantarme un bicho en las narices
+	# mientras estoy en una pantalla donde no puedo ni verlo (ver spawn_zone).
+	Net.avisar_combate(true)
 
 
 # Exigencia de extraccion de una CATEGORIA de cristal. Dentro de la tabla, el valor afinado a mano;
@@ -6571,6 +6581,14 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
+	Net.avisar_combate(false)
+	# La HUIDA que entrena Agilidad mide el hueco que le abres a tu perseguidor. En multi el mundo
+	# sigue vivo mientras peleas, asi que al salir la distancia puede haber dado un salto enorme
+	# (el bicho se movio, o cambiaste de perseguidor) y el primer tick lo cobraria como si lo
+	# hubieras abierto corriendo: excelia regalada. Se reinicia la marca, como al cambiar de lider.
+	var _pj_huida: Node = get_tree().get_first_node_in_group("player")
+	if _pj_huida != null and _pj_huida.has_method("reset_huida"):
+		_pj_huida.reset_huida()
 
 	# Como sale CADA UNO. El que cayo (0 de vida) se levanta con 1: queda KO, no muerto. Perderlo
 	# para siempre no encaja con que a nadie se le despide, y dejarlo a 0 lo dejaria tumbado sin

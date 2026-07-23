@@ -68,6 +68,7 @@ var expedicion_abierta := false    # solo fiable en el host
 # en un piso = ser su dueño; si coincidis, manda uno y el otro espeja.
 var _dueno_piso: Dictionary = {}   # piso:int -> peer_id que lo simula (SOLO host)
 var _soy_dueno := false            # ¿simulo YO el piso en el que estoy? (cada maquina)
+var _peleando := false             # ¿estoy en un combate ahora mismo? (se difunde: ver avisar_combate)
 # FOTO de los pisos sin nadie dentro: el piso se congela tal cual (bichos y cadaveres) y se
 # restaura al volver, como en solitario. Vive en la SESION (host), no en el save de nadie: asi las
 # dos maquinas no divergen y el save del cliente sigue sin tocarse.
@@ -248,6 +249,7 @@ func desconectar() -> void:
 	_dueno_piso.clear()
 	_fotos_piso.clear()
 	_soy_dueno = false
+	_peleando = false
 	semilla_host = 0
 	tienda_t2_host = false
 	# Restaurar MI baul de materiales si lo habia guardado al entrar de cliente (no perder nada).
@@ -284,6 +286,36 @@ func enviar_estado(pos: Vector2, facing: Vector2) -> void:
 	if not activo or multiplayer.multiplayer_peer == null:
 		return
 	_recibir_estado.rpc(pos, facing)
+
+
+# --- ¿QUIEN ESTA PELEANDO? (hito 5.3) --------------------------------------------------------
+# Lo difunde Game al abrir/cerrar un combate. Sirve para que las paredes NO te paran bichos en las
+# narices mientras estas en una pelea (no puedes ni verlo venir): ver spawn_zone._dist_min_de.
+func avisar_combate(peleando: bool) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	_peleando = peleando
+	_set_peleando.rpc(peleando)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_peleando(peleando: bool) -> void:
+	var emisor := multiplayer.get_remote_sender_id()
+	if _peers.has(emisor):
+		_peers[emisor]["peleando"] = peleando
+
+
+# Donde esta cada OTRO jugador de mi mismo lugar y si esta peleando. Lo consultan las zonas de
+# parto para no hacer nacer bichos encima de nadie (y menos aun encima de quien pelea).
+func jugadores_remotos_aqui() -> Array:
+	var out: Array = []
+	if not activo:
+		return out
+	for id in _peers:
+		var p: Dictionary = _peers[id]
+		if p.get("lugar", "") == _mi_lugar and p.get("pos", Vector2.INF) != Vector2.INF:
+			out.append({"pos": p["pos"], "peleando": bool(p.get("peleando", false))})
+	return out
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
@@ -796,6 +828,32 @@ func _agotar_celda(celda: Vector2i) -> void:
 # ¿Esta celda ya se agoto en ESTA expedicion? Lo consulta dungeon_floor al construir el piso.
 func celda_agotada_sesion(celda: Vector2i) -> bool:
 	return _agotados_sesion.has(celda)
+
+
+# --- BOSS CAIDO (hito 5.3) --------------------------------------------------------------------
+#
+# Lo llama enemy.morir() del jefe, en la maquina que simula ese piso. Decision del usuario: el
+# ATAJO y la TIENDA se abren para TODOS los de la sesion (lo habeis hecho juntos), pero el CREDITO
+# DE NIVEL es POR PERSONAJE y no se toca aqui: guardianes_vencidos solo lo apuntan los personajes
+# que estuvieron en ESA pelea (ver Game._on_combat_finished). Si no participaste, se te abre el
+# atajo pero no cuentas con haberlo matado.
+func avisar_boss_caido(piso: int) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	_boss_caido.rpc(piso)
+
+
+# Corre en TODOS: apunta el hito de mundo y, si estoy en ESE piso, abre sus salidas (la escalera
+# de bajada y la puerta al pueblo). Sin esto, el compañero que estaba en la sala del jefe nunca
+# veria aparecer la bajada.
+@rpc("any_peer", "call_remote", "reliable")
+func _boss_caido(piso: int) -> void:
+	Game.marcar_boss_derrotado(piso)
+	if mi_piso() != piso:
+		return
+	var f: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if f != null and f.has_method("abrir_salidas"):
+		f.abrir_salidas()
 
 
 # --- CUPO de personajes (max 4 en total en la sesion) ----------------------------------------
@@ -1427,6 +1485,45 @@ func _rel_spawn(id: int, lugar: String, pos: Vector2, color: Color, lado: float)
 			_spawn_enemigo.rpc_id(pid, id, lugar, pos, color, lado)
 
 
+# Lo llama enemy.morir() en la maquina que SIMULA el piso: el bicho pasa a cadaver y hay que
+# decirselo a los demas (el nodo NO se libera al morir, asi que _exit_tree/baja_enemigo no salta).
+func enemigo_muerto(nodo: Node) -> void:
+	if not activo or not _soy_dueno or multiplayer.multiplayer_peer == null:
+		return
+	if nodo == null or not nodo.has_meta("net_id"):
+		return
+	var id: int = nodo.get_meta("net_id")
+	if not _enemigos.has(id):
+		return
+	_enemigos[id]["muerto"] = true
+	var lugar: String = _enemigos[id]["lugar"]
+	if es_host:
+		_marcar_cadaver.rpc(id, lugar)
+	else:
+		_rel_cadaver.rpc_id(1, id, lugar)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _marcar_cadaver(id: int, lugar: String) -> void:
+	if lugar != _mi_lugar:
+		return
+	var n = _enem_nodos.get(id)
+	if n != null and is_instance_valid(n) and n.has_method("marcar_cadaver"):
+		n.marcar_cadaver()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_cadaver(id: int, lugar: String) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	if _mi_lugar == lugar and not _soy_dueno:
+		_marcar_cadaver(id, lugar)
+	for pid in _peers:
+		if pid != de and _peers[pid].get("lugar", "") == lugar:
+			_marcar_cadaver.rpc_id(pid, id, lugar)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _rel_despawn(id: int, lugar: String) -> void:
 	if not es_host:
@@ -1453,6 +1550,16 @@ func _rel_tick(lugar: String, lote: Array) -> void:
 
 # Le llega al dueño CLIENTE de un piso: alguien acaba de entrar ahi y necesita su lista de bichos.
 # La respuesta vuelve a pasar por el host, que la reenvia solo a ese peer.
+# El aspecto de AHORA MISMO, no el cacheado al nacer: un cadaver ya esta gris (enemy.morir pinta
+# su ColorRect), asi que el que llega tarde lo ve gris sin tocar la firma del alta.
+func _aspecto_actual(e: Dictionary) -> Array:
+	var nodo = e["nodo"]
+	if is_instance_valid(nodo) and nodo.has_method("aspecto_red"):
+		var a: Dictionary = nodo.aspecto_red()
+		return [a.get("color", e["color"]), a.get("lado", e["lado"])]
+	return [e["color"], e["lado"]]
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_roster(lugar: String, para: int) -> void:
 	if _mi_lugar != lugar or not _soy_dueno:
@@ -1460,8 +1567,9 @@ func _pedir_roster(lugar: String, para: int) -> void:
 	for id in _enemigos:
 		var e: Dictionary = _enemigos[id]
 		if is_instance_valid(e["nodo"]):
+			var asp: Array = _aspecto_actual(e)
 			_rel_spawn_a.rpc_id(1, para, id, lugar, (e["nodo"] as Node2D).global_position,
-				e["color"], e["lado"])
+				asp[0], asp[1])
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -1547,8 +1655,9 @@ func _pedir_enemigos(lugar: String) -> void:
 		for id in _enemigos:
 			var e: Dictionary = _enemigos[id]
 			if is_instance_valid(e["nodo"]):
+				var asp: Array = _aspecto_actual(e)
 				_spawn_enemigo.rpc_id(quien, id, lugar, (e["nodo"] as Node2D).global_position,
-					e["color"], e["lado"])
+					asp[0], asp[1])
 		return
 	var piso: int = int(lugar.substr(5)) if lugar.begins_with("piso:") else -1
 	var dueno: int = _dueno_piso.get(piso, 0)
@@ -1628,7 +1737,7 @@ func _rechazado() -> void:
 # Registra los DATOS de un peer y, si comparte mi lugar, le monta el nodo visual.
 func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, lugar: String) -> void:
 	_peers[peer_id] = {"color": color, "metal": metal, "nombre": nombre,
-		"lugar": lugar, "pos": Vector2.INF}
+		"lugar": lugar, "pos": Vector2.INF, "peleando": false}
 	if lugar == _mi_lugar:
 		_crear_avatar_nodo(peer_id)
 	# El HOST recuenta y difunde el numero de humanos (los clientes reajustan al recibirlo).

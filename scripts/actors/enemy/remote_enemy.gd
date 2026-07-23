@@ -22,6 +22,7 @@ const SALTO := 200.0      # salto grande = teletransporte, no cruzar el mapa des
 
 var _objetivo := Vector2.INF   # ultimo destino recibido; INF = aun no ha llegado ninguno
 var _cuerpo: ColorRect = null
+var muerto := false            # ya es cadaver (lo dice quien simula el piso)
 
 
 func _ready() -> void:
@@ -40,6 +41,14 @@ func configurar(color: Color, lado: float) -> void:
 	if _cuerpo != null:
 		_cuerpo.color = color
 		_redimensionar(lado)
+
+
+# Ha caido en la maquina que simula el piso: aqui pasa a verse como cadaver. Mismo gris apagado
+# que enemy.morir(), para que los dos jugadores vean lo mismo.
+func marcar_cadaver() -> void:
+	muerto = true
+	if _cuerpo != null:
+		_cuerpo.color = Color(0.4, 0.4, 0.4)
 
 
 func _redimensionar(lado: float) -> void:

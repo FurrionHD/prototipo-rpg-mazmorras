@@ -182,10 +182,16 @@ func _physics_process(delta: float) -> void:
 	# camines o ataques mientras compras. Solo te corta A TI: tu companero sigue a lo suyo.
 	if Game.inventory_open or Game.debug_panel_open or Game.hay_modal():
 		velocity = Vector2.ZERO
-		current_stamina = minf(max_stamina, current_stamina + _regen_actual * delta)
-		_tick_aguante_companeros(delta, false)   # el tiempo pasa para todos, no solo para ti
-		if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
-			_exhausted = false
+		# EN COMBATE NO se regenera aguante. La energia con la que entras a la pelea es la stamina
+		# de exploracion ("correr antes de pelear se paga", ver Game.start_combat): en un jugador
+		# esto se congelaba con el arbol, pero en multi el arbol sigue vivo y quedarse en una pelea
+		# larga te curaria el aguante gratis, incluido salir de _exhausted. Con un menu abierto si
+		# regenera, como siempre.
+		if not Game.hay_modal_de(Game.Modal.COMBATE):
+			current_stamina = minf(max_stamina, current_stamina + _regen_actual * delta)
+			_tick_aguante_companeros(delta, false)   # el tiempo pasa para todos, no solo para ti
+			if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
+				_exhausted = false
 		_refrescar_barras()
 		if Net.activo:
 			Net.enviar_estado(global_position, _facing)   # que el otro te vea QUIETO, no congelado
@@ -716,6 +722,12 @@ func _vel_carrera_de(pj: PersonajeData) -> float:
 # Olvida la persecucion en curso. Se llama al perderla y, MUY importante, en los teletransportes:
 # un salto de posicion (cambiar de lider, bajar de piso) dispararia el hueco de golpe y regalaria
 # excelia por algo que no has corrido.
+# Version publica: la llama Game al SALIR de un combate. En multi el mundo sigue vivo mientras
+# peleas, asi que la distancia al perseguidor puede haber dado un salto que no has corrido tu.
+func reset_huida() -> void:
+	_reset_huida()
+
+
 func _reset_huida() -> void:
 	_huida_perseguidor = null
 	_huida_presa = null

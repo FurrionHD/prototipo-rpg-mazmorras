@@ -616,6 +616,9 @@ func morir() -> void:
 		_facing_line.visible = false
 	remove_from_group("enemy")  # ya no es un enemigo activo
 	add_to_group("corpse")      # ahora es un cadaver interactuable
+	# MULTIJUGADOR: que los demas lo vean caer. Sin esto seguirian viendo un bicho VIVO donde ya
+	# solo hay un cadaver (el nodo no se libera al morir, asi que baja_enemigo no salta).
+	Net.enemigo_muerto(self)
 
 	# El boss cae: el piso se abre AHORA MISMO (sin salir ni volver a entrar).
 	if es_boss:
@@ -623,6 +626,9 @@ func morir() -> void:
 		var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 		if piso != null and piso.has_method("abrir_salidas"):
 			piso.abrir_salidas()
+		# MULTIJUGADOR: el atajo y la tienda se abren para TODA la sesion, y a quien este en este
+		# piso se le abren las salidas tambien (si no, no veria aparecer la bajada).
+		Net.avisar_boss_caido(Game.current_floor)
 
 
 func esta_muerto() -> bool:
@@ -917,11 +923,16 @@ func vecinos() -> Array:
 func _start_combat(enemy_initiated: bool) -> void:
 	if _combat_triggered:
 		return
-	# HITO 5.1 (tope temporal): en multi los enemigos se REPLICAN y se ven moverse, pero todavia
-	# no se pelea (el combate despausado + throttle de spawns es la sub-fase 5.2). Sin esto, el
-	# bicho se congelaria a si mismo (_combat_triggered) sin que arranque ninguna pelea. Se retira
-	# al implementar el combate multi.
-	if Net.activo:
+	# Solo monta peleas quien SIMULA este piso: los bichos espejados no tienen IA ni son autoridad
+	# de nada (ver Net y remote_enemy.gd).
+	if not Net.simulo_mi_piso():
+		return
+	# ANTES de congelar a nadie: si ya hay una pelea en marcha, esta no va a arrancar
+	# (Game.start_combat la rechaza). Congelar al grupo aqui y que luego se rechace los dejaba de
+	# ESTATUA PARA SIEMPRE -sin IA, ocupando aforo del piso y de la sala, sin dar loot ni cristal-
+	# porque el unico sitio que limpia _combat_triggered es el final de un combate que nunca hubo.
+	# En un jugador no se notaba: el arbol esta pausado y ningun otro bicho llega a tocarte.
+	if Game.combate_activo():
 		return
 	var grupo: Array = vecinos()
 	# Se congela al GRUPO ENTERO, no solo a mi: los vecinos entran a la pelea, asi que no pueden

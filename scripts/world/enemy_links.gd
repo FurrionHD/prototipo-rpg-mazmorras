@@ -47,6 +47,10 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	# Con la pantalla de combate delante el mundo ni se dibuja, asi que recalcular pares (O(n^2))
+	# es trabajo tirado. En un jugador el arbol esta pausado y esto ni corre; en multi si.
+	if Game.hay_modal_de(Game.Modal.COMBATE):
+		return
 	_t -= delta
 	if _t > 0.0:
 		return
