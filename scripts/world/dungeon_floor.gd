@@ -1048,6 +1048,29 @@ func _vivos_en_el_piso() -> int:
 	return get_tree().get_nodes_in_group("enemy").size()
 
 
+# Cuantos bichos VIVOS estan asignados AHORA a una zona (por su zona_idx), contando tanto los
+# que pario ella como los que se le han MUDADO (manadas). Es la ocupacion REAL de la sala: la
+# lista _vivos de la SpawnZone solo ve lo que ella misma pario, no los migrantes, asi que una
+# sala podia rebosar de bichos mudados sin que su aforo se enterara. Esta es la cuenta buena.
+func enemigos_en_zona(idx: int) -> int:
+	var n: int = 0
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(e) and int(e.zona_idx) == idx:
+			n += 1
+	return n
+
+
+# El aforo (max_vivos) de la SpawnZone de esa zona, o 0 si no hay zona con ese idx (pasillo sin
+# paredes, sala del boss...). Lo usa la manada para no mudarse a una sala ya llena.
+func aforo_de_zona(idx: int) -> int:
+	if _zonas == null:
+		return 0
+	for hijo in _zonas.get_children():
+		if hijo.zona_idx == idx:
+			return int(hijo.max_vivos)
+	return 0
+
+
 # Despawnea al enemigo vivo mas lejano al jugador. Normal: SOLO si esta lejisimos (mas de
 # dist_reciclar), para no borrar algo que puedas estar viendo. FORZAR (brote masivo): borra al mas
 # lejano SEA CUAL SEA su distancia, para hacer aforo si o si -> un brote entra siempre completo, y

@@ -676,10 +676,10 @@ func _return() -> void:
 # PLAYTEST -> Excel (PROVISIONALES). Indice = tamaño de tu equipo (1..4). La tendencia a juntarse
 # SUBE con tu grupo: solo => casi siempre 1-2 (el 3 raro, NUNCA forzado); cuatro => mayoria 4-5.
 const MANADA_POR_GRUPO := {
-	1: [[1, 55], [2, 40], [3, 5]],
-	2: [[2, 50], [3, 35], [4, 15]],
-	3: [[3, 40], [4, 40], [5, 20]],
-	4: [[3, 20], [4, 40], [5, 40]],
+	1: [[1, 60], [2, 35], [3, 5]],
+	2: [[1, 20], [2, 50], [3, 25], [4, 5]],
+	3: [[2, 30], [3, 40], [4, 25], [5, 5]],
+	4: [[2, 15], [3, 40], [4, 35], [5, 10]],
 }
 # Hasta donde se mueve un bicho para juntarse con otro corro. Acotado a proposito: sin tope
 # cruzarian el piso entero y las salas del fondo se quedarian desiertas.
@@ -776,6 +776,9 @@ func _actualizar_manada_objetivo() -> void:
 #   - Solo a corros que aun tienen sitio (no llenos, no mas grandes de lo que el quiere).
 func _corro_al_que_unirse():
 	var ya_conmigo: Array = _companeros_de_manada()   # los que ya cuentan como mi corro
+	# El piso lleva el aforo de cada sala: no me mudo a una que ya este llena (asi el tope por
+	# tamaño de sala se respeta tambien migrando, no solo pariendo). Sin piso (arena/dev) no filtra.
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	var mejor = null
 	var best: float = INF
 	for n in get_tree().get_nodes_in_group("enemy"):
@@ -790,6 +793,12 @@ func _corro_al_que_unirse():
 		var suyos: int = n._companeros_de_manada().size() + 1
 		if suyos >= mini(manada_objetivo, MAX_COMBATIENTES):
 			continue
+		# Ni en una SALA que ya este a tope de aforo (aunque el corro concreto tenga hueco): dos
+		# corros pequeños en la misma sala grande sumaban un amontonamiento igual de feo.
+		if piso != null and n.zona_idx >= 0:
+			var aforo: int = piso.aforo_de_zona(n.zona_idx)
+			if aforo > 0 and piso.enemigos_en_zona(n.zona_idx) >= aforo:
+				continue
 		if not _linea_de_vision_libre(n.global_position):
 			continue
 		best = d

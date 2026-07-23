@@ -69,6 +69,13 @@ const MP_KILL_MULT_BASE := 2.25  # el mult por bicho es MP_KILL_MULT_BASE - STEP
 const MP_KILL_MULT_STEP := 0.25  # ...bajando esto por cada bicho del corro...
 const MP_KILL_MULT_MIN := 1.25   # ...con suelo aqui (un corro de 4+ ya no baja mas)
 
+# RECORTE del regen de maná (playtest): un mago recien empezado tiraba magias sin fin sin gastar
+# una sola pocion. Se baja a la MITAD las DOS fuentes de regen de combate: el goteo por turno del
+# arma magica, y el maná que sueltan los bichos al morir (que se cobra al terminar el combate). El
+# maná por golpe basico (MP_BASE) NO se toca: es el pellizco de pelear a mano, ya minusculo.
+const MP_REGEN_TURNO_MULT := 0.5   # goteo por turno del arma magica EN combate
+const MP_KILL_MULT := 0.5          # maná por enemigo matado, AL terminar el combate
+
 # Maná que devuelve UN golpe de arma que acierta.
 static func mp_por_golpe() -> float:
 	return MP_BASE
@@ -80,7 +87,7 @@ static func mp_kill_mult(enemigos: int) -> float:
 # Maná que sueltan los enemigos al caer. 'regen_turno' = el goteo por turno de tu arma magica
 # (0 si no llevas): el baston no solo te gotea, tambien hace que los nucleos te cundan mas.
 static func mp_por_kill(regen_turno: float, enemigos: int = 1) -> float:
-	return mp_kill_mult(enemigos) * (MP_BASE + maxf(regen_turno, 0.0)) * float(maxi(enemigos, 0))
+	return MP_KILL_MULT * mp_kill_mult(enemigos) * (MP_BASE + maxf(regen_turno, 0.0)) * float(maxi(enemigos, 0))
 
 # Resto de stats: siguen el modelo "base + habilidad × coef" (coef crece con el
 # nivel). Numeros bajos a proposito: 999 no debe dar 999 de golpe.

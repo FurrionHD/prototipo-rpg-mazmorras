@@ -1084,7 +1084,7 @@ func _begin_player_turn() -> void:
 	# base por Magia se quito: el maná se gana PEGANDO (_ganar_mana_golpe) y GANANDO, no por
 	# dejar pasar turnos. Sin arma mágica, este turno no repone nada.
 	if _player.mp_regen_turno > 0.0:
-		_player.regen_mana(_player.mp_regen_turno)
+		_player.regen_mana(_player.mp_regen_turno * StatsMath.MP_REGEN_TURNO_MULT)
 	_update_hp()
 	# Si estas casteando un hechizo, el turno va al recitado / disparo, NO a las
 	# acciones normales (por diseño no puedes hacer otra cosa mientras cantas).

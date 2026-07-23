@@ -1098,9 +1098,8 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 	var actuales: int = Game.mejoras_actuales(item)
 	var por_rareza: int = Upgrades.rareza_slots(rareza)
 	_row(vb, "Huecos por rareza", str(por_rareza))
-	# El desgaste, a la vista: mejorar una pieza rota es tirar el nucleo (pega/protege a los suelos
-	# hasta que la repares). Se repara en la pestaña Reparar.
-	_row(vb, "Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
+	# La durabilidad numerica va MAS ABAJO, con los atributos: alli se ve el +N que le mete una
+	# mejora de Durabilidad (el % a secas no cambia al mejorar el maximo, solo suben los puntos).
 
 	# El nucleo YA NO se elige a mano: lo pone el sistema segun el +N (cada nucleo cubre su tramo).
 	# nucleo_auto devuelve el que TOCA aunque no lo tengas, para poder decir cual falta y en rojo.
@@ -1161,6 +1160,21 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 	var cat_sel: String = str(cats[_cat_idx])
 	for f in MenuScaffold.filas_mejora(item, int(meta["tier"]), rareza, mj, cat_sel):
 		_row_attr(vb, str(f[0]), str(f[1]), "" if al_tope else str(f[2]))
+
+	# DURABILIDAD numerica: puntos actuales / maximo (y el %). Una mejora de Durabilidad sube el
+	# MAXIMO (+30% por nivel), no el %, asi que aqui se enseña el +N de puntos que gana el tope
+	# cuando la categoria seleccionada es Durabilidad. Al tope no hay delta que previsualizar.
+	var maxd: float = Game.max_durabilidad_item(item)
+	var frac: float = Game.durabilidad_item(item)
+	var dur_val: String = "%d / %d pts  (%d%%)" % [
+		round(frac * maxd), round(maxd), round(frac * 100.0)]
+	var dur_delta: String = ""
+	if cat_sel == Upgrades.DURABILIDAD and not al_tope:
+		var n_dur: int = int((mj as Dictionary).get(Upgrades.DURABILIDAD, 0))
+		var nuevo_max: float = maxd / (1.0 + float(n_dur) * Game.DURABILIDAD_MEJORA_PCT) \
+			* (1.0 + float(n_dur + 1) * Game.DURABILIDAD_MEJORA_PCT)
+		dur_delta = "+%d pts máx" % round(nuevo_max - maxd)
+	_row_attr(vb, "Durabilidad", dur_val, dur_delta)
 
 	vb.add_child(HSeparator.new())
 	var puede: bool = nucleo != null and Game.puede_mejorar(item, nucleo)

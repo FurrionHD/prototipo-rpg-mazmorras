@@ -560,7 +560,7 @@ const RESPAWN_SEGUNDOS := 300.0
 #  de PLAYTEST -> Excel. Solo corre en la mazmorra (en el pueblo no hay paredes que paran).
 # ============================================================
 var alboroto: float = 0.0
-const ALBOROTO_MAX := 100.0
+const ALBOROTO_MAX := 150.0         # subido de 100: cuesta mas cebar un brote (correr ~25 s, no ~17)
 const ALBOROTO_CORRER := 6.0        # por segundo corriendo
 const ALBOROTO_SIGILO := -3.0       # por segundo en sigilo o parado (baja)
 const ALBOROTO_ANDAR := 0.0         # andar normal no suma ni resta
@@ -568,7 +568,7 @@ const ALBOROTO_COMBATE := 25.0      # terminar un combate
 const ALBOROTO_KILL := 5.0          # por cada bicho abatido
 const ALBOROTO_RECOLECTAR := 12.0   # picar / talar / recolectar (al cerrar el minijuego)
 # Tras un brote, el medidor no puede volver a dispararse en este tiempo (evita encadenarlos).
-const ALBOROTO_ENFRIAMIENTO := 60.0
+const ALBOROTO_ENFRIAMIENTO := 120.0   # subido de 60: el doble de respiro entre brotes
 var _alboroto_enfriando: float = 0.0
 
 
@@ -1345,6 +1345,9 @@ func importar_partida(d: SaveData) -> void:
 	var pos: int = clampi(d.lider_pos, 0, party.size())
 	party.insert(pos, yo)
 	lider_idx = pos
+	# Con el grupo ya montado y item_meta reconstruido, volver a atar equip_meta a item_meta: sin
+	# esto, reparar una pieza no se refleja en inventario/ficha tras cargar (dos copias divergentes).
+	_realinear_equip_meta()
 	# El aguante del lider viaja en SU ficha (como el de los companeros), no en una variable aparte:
 	# asi cambiar de piso o de escena no le rellena la barra. Aqui se le clava el guardado.
 	yo.stamina = d.stamina
@@ -1932,6 +1935,34 @@ func _meta(slot: String, pj: PersonajeData = null) -> Dictionary:
 	if not p.equip_meta.has(slot):
 		p.equip_meta[slot] = _meta_por_defecto()   # personaje recien contratado / slot nuevo
 	return p.equip_meta[slot]
+
+
+# El objeto equipado en un slot de un personaje (o null). Directo sobre el pj y no via las
+# propiedades equipped_*, que delegan en el LIDER: aqui hace falta el de cualquier miembro.
+func _item_equipado_de(slot: String, pj: PersonajeData) -> Resource:
+	if pj == null:
+		return null
+	match slot:
+		"main": return pj.equipped_main
+		"off":  return pj.equipped_off
+		_:      return pj.get("equipped_" + slot) as Resource
+
+
+# RE-ALIASA equip_meta con item_meta tras cargar la partida. Al equipar, equip_meta[slot] y
+# item_meta[objeto] son EL MISMO dict (ver equipar_arma/armadura), pero al cargar se reconstruyen
+# como copias profundas SEPARADAS: a partir de ahi divergen, y reparar/desgastar (que escriben en
+# equip_meta) no se veian en inventario/ficha (que leen item_meta). Aqui se re-apunta cada slot
+# equipado de CADA miembro del grupo al mismo dict de su objeto en item_meta, restaurando la
+# invariante que el resto del codigo da por hecha. item_meta es del baul compartido, asi que el
+# objeto que lleve cualquiera esta en el.
+func _realinear_equip_meta() -> void:
+	for pj in party:
+		if pj == null:
+			continue
+		for slot in EQUIP_SLOTS:
+			var item: Resource = _item_equipado_de(slot, pj)
+			if item != null and item_meta.has(item):
+				pj.equip_meta[slot] = item_meta[item]   # misma instancia: vuelven a ir a la par
 func equip_tier(slot: String, pj: PersonajeData = null) -> int:
 	return int(_meta(slot, pj)["tier"])
 func equip_rareza(slot: String, pj: PersonajeData = null) -> int:
@@ -1994,6 +2025,20 @@ func max_durabilidad(slot: String, pj: PersonajeData = null) -> float:
 		* (1.0 + float(tier - 1) * DURABILIDAD_TIER_PCT) \
 		* (1.0 + float(n) * DURABILIDAD_MEJORA_PCT) \
 		* Upgrades.rareza_mult(equip_rareza(slot, pj))
+
+# Maximo de durabilidad (en puntos) de un OBJETO del baul, de su propia meta. Espejo de
+# max_durabilidad(slot, pj) pero por objeto: sirve para el menu de Mejora, donde la pieza puede no
+# estar equipada y hay que enseñar cuanto sube el aguante una mejora de Durabilidad.
+func max_durabilidad_item(item: Resource) -> float:
+	if item == null:
+		return 0.0
+	var m: Dictionary = meta_de(item)
+	var tier: int = maxi(int(m.get("tier", 1)), 1)
+	var n: int = int((m.get("mejoras", {}) as Dictionary).get(Upgrades.DURABILIDAD, 0))
+	return DURABILIDAD_BASE \
+		* (1.0 + float(tier - 1) * DURABILIDAD_TIER_PCT) \
+		* (1.0 + float(n) * DURABILIDAD_MEJORA_PCT) \
+		* Upgrades.rareza_mult(int(m.get("rareza", 0)))
 
 # Fraccion de durabilidad de un slot (1.0 llena, 0.0 rota). Retrocompat: sin la clave = llena.
 func durabilidad_slot(slot: String, pj: PersonajeData = null) -> float:

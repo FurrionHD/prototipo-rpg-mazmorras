@@ -135,7 +135,9 @@ func _purgar() -> void:
 func _intentar_parto() -> void:
 	if partos.is_empty() or piso == null:
 		return
-	if _vivos.size() >= max_vivos:
+	# Ocupacion REAL de la sala (los que pario ella MAS los que se le han mudado por manada), no
+	# solo _vivos: si no, una sala llena de migrantes seguia pariendo por encima de su aforo.
+	if piso.enemigos_en_zona(zona_idx) >= max_vivos:
 		return            # la zona esta llena: calla hasta que mates a alguno
 	if not piso.hay_sitio():
 		return            # el piso entero esta al tope y no habia a quien reciclar
