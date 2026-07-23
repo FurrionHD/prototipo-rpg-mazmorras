@@ -1792,17 +1792,28 @@ func _pedir_enemigos(lugar: String) -> void:
 # con otro cliente.
 
 # La llama remote_enemy.atacado_por_jugador().
+#
+# OJO con el HOST que NO es dueño del piso (lo simula un cliente): es un caso REAL y se colaba.
+# Mandarse a si mismo un rpc_id(1, ...) revienta con "RPC on yourself is not allowed". Si soy el
+# host, el enrutado me lo hago en local pasandome como peticionario (yo soy el peer 1).
 func solicitar_pelea(id: int) -> void:
 	if not activo or _soy_dueno or multiplayer.multiplayer_peer == null:
 		return
-	_pedir_pelea.rpc_id(1, id, _mi_lugar)
+	if es_host:
+		_encaminar_pelea(id, _mi_lugar, 1)
+	else:
+		_pedir_pelea.rpc_id(1, id, _mi_lugar)
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_pelea(id: int, lugar: String) -> void:
 	if not es_host:
 		return
-	var quien := multiplayer.get_remote_sender_id()
+	_encaminar_pelea(id, lugar, multiplayer.get_remote_sender_id())
+
+
+# SOLO host: le pasa la peticion a quien simule ese piso (o la resuelve el mismo si es suyo).
+func _encaminar_pelea(id: int, lugar: String, quien: int) -> void:
 	if _mi_lugar == lugar and _soy_dueno:
 		_resolver_pelea(id, quien, lugar)
 		return
@@ -1869,8 +1880,12 @@ func empujar_pelea(nodo: Node, peer: int) -> void:
 
 
 # La respuesta vuelve al destinatario; si yo soy un dueño CLIENTE, pasa por el host.
+#
+# OJO: hay que comparar con MI id, no con 1. "quien == 1" significa "el peticionario es el host",
+# que solo soy YO si yo soy el host; en un dueño CLIENTE, tratarlo como propio se comia la
+# respuesta y el que ataco se quedaba sin pelea (sin error ninguno, que es lo traicionero).
 func _responder_pelea(quien: int, ids: Array, emboscada: bool) -> void:
-	if quien == 1:
+	if quien == multiplayer.get_unique_id():
 		_pelea_resuelta(ids, emboscada)
 	elif es_host:
 		_pelea_resuelta.rpc_id(quien, ids, emboscada)
@@ -1921,13 +1936,20 @@ func _pelea_resuelta(ids: Array, emboscada: bool = false) -> void:
 func resultado_bicho(id: int, ha_muerto: bool, hp: float) -> void:
 	if not activo or multiplayer.multiplayer_peer == null:
 		return
-	_pedir_resultado.rpc_id(1, id, ha_muerto, hp, _mi_lugar)
+	if es_host:
+		_encaminar_resultado(id, ha_muerto, hp, _mi_lugar)   # host no-dueño: sin RPC a mi mismo
+	else:
+		_pedir_resultado.rpc_id(1, id, ha_muerto, hp, _mi_lugar)
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) -> void:
 	if not es_host:
 		return
+	_encaminar_resultado(id, ha_muerto, hp, lugar)
+
+
+func _encaminar_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) -> void:
 	if _mi_lugar == lugar and _soy_dueno:
 		_aplicar_resultado(id, ha_muerto, hp)
 		return
@@ -1989,7 +2011,10 @@ func solicitar_extraccion(id: int) -> bool:
 			return false
 		_enem_ocupados[id] = multiplayer.get_unique_id()
 		return true
-	_pedir_extraccion.rpc_id(1, id, _mi_lugar)
+	if es_host:
+		_encaminar_extraccion(id, _mi_lugar, 1)   # host no-dueño: sin RPC a mi mismo
+	else:
+		_pedir_extraccion.rpc_id(1, id, _mi_lugar)
 	return false   # hay que esperar respuesta: la pantalla la abre _extraccion_concedida
 
 
@@ -1997,7 +2022,10 @@ func solicitar_extraccion(id: int) -> bool:
 func _pedir_extraccion(id: int, lugar: String) -> void:
 	if not es_host:
 		return
-	var quien := multiplayer.get_remote_sender_id()
+	_encaminar_extraccion(id, lugar, multiplayer.get_remote_sender_id())
+
+
+func _encaminar_extraccion(id: int, lugar: String, quien: int) -> void:
 	if _mi_lugar == lugar and _soy_dueno:
 		_resolver_extraccion(id, quien)
 		return
@@ -2023,8 +2051,9 @@ func _resolver_extraccion(id: int, quien: int) -> void:
 	_responder_extraccion(quien, id, libre)
 
 
+# Misma regla que _responder_pelea: comparar con MI id, no con 1.
 func _responder_extraccion(quien: int, id: int, ok: bool) -> void:
-	if quien == 1:
+	if quien == multiplayer.get_unique_id():
 		_extraccion_concedida(id, ok)
 	elif es_host:
 		_extraccion_concedida.rpc_id(quien, id, ok)
@@ -2062,6 +2091,8 @@ func notificar_extraido(id: int) -> void:
 		return
 	if _soy_dueno:
 		_consumir_cadaver(id)
+	elif es_host:
+		_encaminar_consumir(id, _mi_lugar)   # host no-dueño: sin RPC a mi mismo
 	else:
 		_pedir_consumir.rpc_id(1, id, _mi_lugar)
 
@@ -2070,6 +2101,10 @@ func notificar_extraido(id: int) -> void:
 func _pedir_consumir(id: int, lugar: String) -> void:
 	if not es_host:
 		return
+	_encaminar_consumir(id, lugar)
+
+
+func _encaminar_consumir(id: int, lugar: String) -> void:
 	if _mi_lugar == lugar and _soy_dueno:
 		_consumir_cadaver(id)
 		return
