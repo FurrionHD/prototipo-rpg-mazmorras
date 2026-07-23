@@ -20,6 +20,7 @@ extends Node
 const PUERTO := 24567
 const MAX_JUGADORES := 4
 const _REMOTE_PLAYER := preload("res://scripts/actors/player/remote_player.gd")
+const _DROP_PICKUP := preload("res://scripts/items/drop_pickup.gd")
 
 # ¿Hay una sesion de red en marcha? El resto del juego (player.gd) lo consulta para decidir si
 # emite su posicion. En un jugador es false y NADA cambia.
@@ -28,6 +29,14 @@ var es_host := false
 
 var _codigo := ""                  # codigo de sala que hay que casar para entrar
 var _avatares: Dictionary = {}     # peer_id -> nodo RemotePlayer (el cuerpo del OTRO en mi mundo)
+
+# --- OBJETOS DEL SUELO replicados (hito 2) ---
+# El HOST es la fuente de verdad: _suelo apunta cada drop vivo por id. Todos los peers (host
+# incluido) mantienen _drops con el NODO visual de cada id. Quien recoge se lo PIDE al host:
+# el primero en llegar se lo lleva y el resto ni se entera (el drop simplemente desaparece).
+var _suelo: Dictionary = {}        # id -> dict del item (solo lo llena el host)
+var _drops: Dictionary = {}        # id -> nodo drop_pickup (en todos los peers)
+var _next_id: int = 1              # contador de ids del host
 
 # El panel de conexion se suscribe para pintar "Conectado / Rechazado / Host caido...".
 signal estado_cambiado(texto: String)
@@ -78,6 +87,12 @@ func desconectar() -> void:
 		if is_instance_valid(a):
 			a.queue_free()
 	_avatares.clear()
+	# Los NODOS de los drops se quedan en el mundo como pickups locales normales (con
+	# Net.activo=false el net_id deja de importar y F los coge por la rama de siempre). Solo se
+	# vacian los registros. En el pueblo nada persiste, asi que el riesgo de duplicado tras una
+	# desconexion es anecdotico y asumido (ver docs/MULTIJUGADOR.md).
+	_suelo.clear()
+	_drops.clear()
 	if multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer.close()
 		multiplayer.multiplayer_peer = null
@@ -100,6 +115,126 @@ func _recibir_estado(pos: Vector2, _facing: Vector2) -> void:
 	var a: Node = _avatares.get(emisor)
 	if a != null and is_instance_valid(a):
 		a.ir_a(pos)
+
+
+# --- OBJETOS DEL SUELO (hito 2): soltar y recoger con autoridad del host --------------------
+
+# Item -> dict de red. Lo minimo para reconstruirlo en la otra maquina: el MaterialData es un
+# .tres del proyecto (viaja por ruta, igual que los consumibles en el guardado) y el Cristal
+# son dos enteros. Mismo criterio que save_data, pero desmontado.
+func _item_a_dict(item: Resource) -> Dictionary:
+	if item is MaterialItem:
+		var m := item as MaterialItem
+		return {"t": "mat", "ruta": m.data.resource_path, "calidad": int(m.calidad)}
+	if item is Cristal:
+		var c := item as Cristal
+		return {"t": "cri", "categoria": c.categoria, "calidad": int(c.calidad)}
+	return {}
+
+
+func _item_de_dict(d: Dictionary) -> Resource:
+	if d.get("t") == "mat":
+		var data: MaterialData = load(str(d["ruta"]))   # load() cachea: misma instancia que la bolsa
+		if data == null:
+			return null
+		return MaterialItem.crear(data, int(d["calidad"]))
+	if d.get("t") == "cri":
+		var c := Cristal.new()
+		c.categoria = int(d["categoria"])
+		c.calidad = int(d["calidad"])
+		return c
+	return null
+
+
+# La llama Game.soltar_item cuando hay sesion: en vez de plantar el pickup en local, se pide
+# al host (que asigna id y lo difunde a TODOS, tu incluido). El offset aleatorio ya viene
+# calculado en pos por quien suelta: asi ambas maquinas ven el drop en el MISMO sitio.
+func solicitar_soltar(item: Resource, pos: Vector2) -> void:
+	var d := _item_a_dict(item)
+	if d.is_empty():
+		return
+	if es_host:
+		_registrar_y_difundir(d, pos)
+	else:
+		_pedir_soltar.rpc_id(1, d, pos)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_soltar(d: Dictionary, pos: Vector2) -> void:
+	if not es_host:
+		return
+	_registrar_y_difundir(d, pos)
+
+
+# Solo host: apunta el drop en el registro y lo difunde (a los peers por RPC, a si mismo directo).
+# La pos se guarda tambien: un peer que entre DESPUES tiene que ver lo que ya habia en el suelo.
+func _registrar_y_difundir(d: Dictionary, pos: Vector2) -> void:
+	var id := _next_id
+	_next_id += 1
+	_suelo[id] = {"d": d, "pos": pos}
+	_spawn_drop.rpc(id, d, pos)
+	_spawn_drop(id, d, pos)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _spawn_drop(id: int, d: Dictionary, pos: Vector2) -> void:
+	var item := _item_de_dict(d)
+	var mundo: Node = get_tree().current_scene
+	if item == null or mundo == null:
+		return
+	var pickup: Node2D = _DROP_PICKUP.new()
+	pickup.setup(item)
+	pickup.set_meta("net_id", id)   # la clase no se toca: el id de red viaja como meta
+	mundo.add_child(pickup)
+	pickup.global_position = pos
+	_drops[id] = pickup
+
+
+# La llama player.gd al pulsar F sobre un drop CON net_id: se pide al host en vez de cogerlo.
+func solicitar_recoger(id: int) -> void:
+	if es_host:
+		_resolver_recogida(id, 1)
+	else:
+		_pedir_recoger.rpc_id(1, id)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_recoger(id: int) -> void:
+	if not es_host:
+		return
+	_resolver_recogida(id, multiplayer.get_remote_sender_id())
+
+
+# Solo host: arbitra la carrera. El PRIMERO que llega se lo lleva; a los demas ni agua (regla
+# del diseño: sin mensaje, el drop simplemente ya no esta — su nodo cae con _despawn_drop).
+func _resolver_recogida(id: int, ganador: int) -> void:
+	if not _suelo.has(id):
+		return   # llego tarde: silencio
+	var d: Dictionary = _suelo[id]["d"]
+	_suelo.erase(id)
+	_despawn_drop.rpc(id)
+	_despawn_drop(id)
+	if ganador == 1:
+		_recoger_concedido(d)          # el host se lo queda: sin viaje de red
+	else:
+		_recoger_concedido.rpc_id(ganador, d)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _despawn_drop(id: int) -> void:
+	var n: Node = _drops.get(id)
+	if n != null and is_instance_valid(n):
+		n.queue_free()
+	_drops.erase(id)
+
+
+# SOLO le llega al ganador: reconstruye el item y lo embolsa. Como esto corre unicamente en su
+# proceso, el aviso del HUD ("Recoges X") sale solo en SU pantalla.
+@rpc("any_peer", "call_remote", "reliable")
+func _recoger_concedido(d: Dictionary) -> void:
+	var item := _item_de_dict(d)
+	if item != null:
+		Game.embolsar(item)
 
 
 # --- HANDSHAKE + CONTRASEÑA ------------------------------------------------------------------
@@ -130,6 +265,9 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String) -> voi
 	_crear_avatar(quien, color, metal, nombre)
 	estado_cambiado.emit("%s se ha unido." % nombre)
 	_presentarse.rpc_id(quien, Game.player_color, Game.player_metalico, Game.player_nombre)
+	# Y ponerle al dia el SUELO: lo que ya estaba soltado antes de que entrara.
+	for id in _suelo:
+		_spawn_drop.rpc_id(quien, id, _suelo[id]["d"], _suelo[id]["pos"])
 
 
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: crea el avatar del host (id 1).

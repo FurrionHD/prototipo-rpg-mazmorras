@@ -869,20 +869,13 @@ func _try_interact() -> void:
 	# 4) Item del suelo para recoger (lo que solto el monstruo, o algo que tiraste tu).
 	var pickup: Node = _mas_cercano_en_grupo("pickup", false)
 	if pickup != null and pickup.has_method("recoger"):
-		var item: Resource = pickup.recoger()
-		if item is MaterialItem:
-			var m := item as MaterialItem
-			Game.materiales.append(m)
-			Game.descubrir(m.data)
-			print("Recoges: ", m.nombre(), " (", m.calidad_texto(), "). Total materiales: ",
-				Game.materiales.size())
-			Game._aviso_recogida(m.nombre(), 1, m.calidad_texto())
-		elif item is Cristal:
-			var c := item as Cristal
-			Game.crystals.append(c)
-			print("Recoges: Cristal Cat ", c.categoria, " (", c.calidad_texto(),
-				"). Total cristales: ", Game.crystals.size())
-			Game._aviso_recogida("Cristal T%d" % c.categoria, 1, c.calidad_texto())
+		# MULTIJUGADOR: un drop replicado (con net_id) no se coge a pelo: se le PIDE al host,
+		# que arbitra la carrera (el primero se lo lleva; a los demas, silencio). El item
+		# llegara por Net._recoger_concedido -> Game.embolsar si me lo dan.
+		if Net.activo and pickup.has_meta("net_id"):
+			Net.solicitar_recoger(pickup.get_meta("net_id"))
+			return
+		Game.embolsar(pickup.recoger())
 
 
 # Recoloca al jugador (lo usa el generador del piso para plantarte en la sala de

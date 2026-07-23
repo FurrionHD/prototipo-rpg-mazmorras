@@ -4984,16 +4984,43 @@ func soltar_item(modelo: Resource, cantidad: int) -> int:
 		var item: Resource = _sacar_de_bolsa(modelo)
 		if item == null:
 			break
-		var pickup: Node2D = _drop_pickup_script.new()
-		pickup.setup(item)
-		parent.add_child(pickup)
-		# Pequeño offset aleatorio para que no queden todos apilados en el mismo pixel.
-		pickup.global_position = pnode.global_position + Vector2(
+		# Pequeño offset aleatorio para que no queden todos apilados en el mismo pixel. Se
+		# calcula AQUI (quien suelta) tambien en multi: la posicion viaja ya resuelta y ambas
+		# maquinas ven el drop en el MISMO sitio.
+		var pos: Vector2 = pnode.global_position + Vector2(
 			randf_range(-18.0, 18.0), randf_range(-18.0, 18.0))
+		if Net.activo:
+			# MULTIJUGADOR: el suelo es del host. El drop lo planta Net en TODOS los mundos
+			# (el mio incluido) con su id de red; aqui solo se saca de la bolsa.
+			Net.solicitar_soltar(item, pos)
+		else:
+			var pickup: Node2D = _drop_pickup_script.new()
+			pickup.setup(item)
+			parent.add_child(pickup)
+			pickup.global_position = pos
 		soltados += 1
 	if soltados > 0:
 		print("[bolsa] Sueltas %d x %s al suelo" % [soltados, _nombre_item(modelo)])
 	return soltados
+
+
+# Mete un item recogido del suelo en la bolsa, con su descubrimiento, su log y su aviso del
+# HUD. Lo comparten la recogida local (player.gd, tecla F) y la concedida por red (Net): como
+# solo corre en el proceso de QUIEN recoge, el aviso sale solo en su pantalla.
+func embolsar(item: Resource) -> void:
+	if item is MaterialItem:
+		var m := item as MaterialItem
+		materiales.append(m)
+		descubrir(m.data)
+		print("Recoges: ", m.nombre(), " (", m.calidad_texto(), "). Total materiales: ",
+			materiales.size())
+		_aviso_recogida(m.nombre(), 1, m.calidad_texto())
+	elif item is Cristal:
+		var c := item as Cristal
+		crystals.append(c)
+		print("Recoges: Cristal Cat ", c.categoria, " (", c.calidad_texto(),
+			"). Total cristales: ", crystals.size())
+		_aviso_recogida("Cristal T%d" % c.categoria, 1, c.calidad_texto())
 
 
 # Saca de la bolsa UNA unidad equivalente al modelo (y la devuelve). null si no queda.
