@@ -115,6 +115,12 @@ la misma instancia de arma.
   acompañante por jugador**, o **3 pero solo el 2º de la formación baja al combate**. (Pendiente
   de elegir cuál.)
 - **Altar**: cada jugador solo consolida/sube **su propio estado y el de SUS acompañantes**.
+- **Subir de nivel: el crédito del guardián es DEL PERSONAJE que lo mató peleando** (regla del
+  usuario). Que el host mate a un boss NO da crédito a los personajes del invitado: para subir de
+  nivel, tu personaje tiene que haber participado en ESA pelea (los `guardianes_vencidos` viven en
+  cada `PersonajeData` y así se quedan). Distinción clave: el **surtido de tienda** se abre con el
+  progreso del MUNDO del host (la tienda es del pueblo), pero la **subida de nivel es del
+  personaje** (la Excelia es tuya).
 - **Combate — unirse y cola**: un compañero o un enemigo puede **unirse a una pelea EN CURSO si
   hay hueco** (tope actual `MAX_COMBATIENTES = 5`). Si no hay hueco, **queda en cola**. Hoy NO
   existe cola: el control es por exclusión (`_combat_triggered`) + pausa global; habrá que crear
