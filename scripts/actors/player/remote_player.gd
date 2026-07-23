@@ -67,12 +67,14 @@ func _ready() -> void:
 	add_child(_nombre)
 
 
-# Su cara: color plano + brillo metalico por el shader comun. (Su imagen PNG propia queda para
-# un hito posterior; con color y nombre ya os distinguis.)
-func aplicar_aspecto(color: Color, metal: float, nombre: String) -> void:
+# Su cara: color plano + brillo metalico + SU IMAGEN, con el mismo shader que usa el cuerpo del
+# jugador local (Game.material_aspecto), asi que se le ve igual que se ve a si mismo. El PNG llega
+# ya recortado a 128x128 en el handshake y se convierte a textura aqui.
+func aplicar_aspecto(color: Color, metal: float, nombre: String,
+		imagen: PackedByteArray = PackedByteArray()) -> void:
 	if _cuerpo != null:
 		_cuerpo.color = color
-		_cuerpo.material = Game.material_aspecto(metal, null, 1.0)
+		_cuerpo.material = Game.material_aspecto(metal, Game.textura_de_png(imagen), 1.0)
 	if _nombre != null:
 		_nombre.text = nombre
 
