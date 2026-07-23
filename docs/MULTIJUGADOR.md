@@ -100,8 +100,15 @@ la misma instancia de arma.
   armas/armaduras** compartido para pasarle equipo al compañero.
 - **Equipo y menús de mejorar/reparar: POR JUGADOR** — cada uno ve y toca solo sus objetos y los
   de SUS acompañantes. Punto de contacto: reparar/mejorar consumen materiales del baúl COMPARTIDO
-  del hogar (gastáis del mismo bote). Hoy ya se cumple "cada uno lo suyo" de facto porque nada del
-  pueblo está compartido aún (cada proceso corre su propio `Game`).
+  del hogar (gastáis del mismo bote).
+- **Bolsa y PESO de carga: POR JUGADOR (verificado)** — cada uno tiene su mochila equipada y su
+  bolsa (`Game.materiales`, nunca sincronizada por `Net`); el tope de carga sale de la Fuerza de
+  TU equipo, no de la del compañero. Inherente a que cada proceso corre su propio `Game`.
+- **Hogar compartido IMPLEMENTADO (hito 4)**: baúl de materiales compartido con **candado de
+  taller** (uno craftea a la vez; el otro ve "el taller está ocupado" — como las vetas); bote de
+  dinero común; cofre de armas/armaduras (submenús Armas/Armaduras) que serializa la meta por
+  instancia (tier/rareza/mejoras/durabilidad/capacidad); tienda con el surtido del host. Todo
+  host-autoritativo con espejo en los clientes y refresco por `Net.hogar_cambiado`.
 - **Surtido de la tienda: manda el mundo del HOST** (decidido). Si el host tiene la tienda T2
   abierta (Rey Slime muerto), ambos la ven y compran de ella, cada uno con su dinero; el progreso
   del invitado no cambia el surtido. Coherente con "el host es la autoridad del mundo". Se

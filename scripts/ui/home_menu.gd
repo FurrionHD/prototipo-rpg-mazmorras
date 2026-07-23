@@ -316,12 +316,29 @@ func _build_almacen() -> void:
 	b.text = "Guardar todo lo que traigo"
 	b.custom_minimum_size = Vector2(0, 36)
 	b.disabled = Game.materiales.is_empty()
-	b.pressed.connect(func():
+	b.pressed.connect(_on_guardar)
+	_content.add_child(b)
+
+
+func _on_guardar() -> void:
+	# MULTIJUGADOR: depositar toca el baul compartido -> coger el candado un momento, guardar y
+	# soltarlo. Si tu companero esta en el taller, "ocupado".
+	if Net.activo:
+		if not await Net.abrir_taller():
+			_aviso = "El hogar está ocupado (tu compañero está en el taller)."
+			_aviso_ok = false
+			_rebuild()
+			return
 		var n: int = Game.guardar_materiales_en_hogar()
+		Net.cerrar_taller()
 		_aviso = "Guardas %d materiales en casa." % n
 		_aviso_ok = true
-		_rebuild())
-	_content.add_child(b)
+		_rebuild()
+		return
+	var n: int = Game.guardar_materiales_en_hogar()
+	_aviso = "Guardas %d materiales en casa." % n
+	_aviso_ok = true
+	_rebuild()
 
 
 # ============================================================

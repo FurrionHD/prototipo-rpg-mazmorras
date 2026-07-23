@@ -89,6 +89,15 @@ var bote_dinero: int = 0
 var cofre_equipo: Array = []
 var _next_cofre_id: int = 1
 
+# --- BAUL de materiales COMPARTIDO (hito 4): con CANDADO de taller (uno craftea a la vez) ---
+# El baul "de verdad" es el del host (Game.almacen_materiales). Los clientes tienen un MIRROR
+# (solo para mostrar/validar). Para craftear/depositar hay que COGER el candado: mientras lo
+# tienes, el host te PRESTA el baul autoritativo en tu Game.almacen_materiales local y crafteas
+# con el codigo de siempre; al soltarlo, tu baul vuelve al host y se difunde a los mirrors. Solo
+# uno a la vez -> cero doble-gasto, cero refactor del crafteo. Igual que el "esta ocupado" de las vetas.
+var _taller_dueno: int = 0     # peer que tiene el candado (host lo arbitra); 0 = libre
+var _taller_resp: int = 0      # cliente: respuesta pendiente (0 esperando, 1 concedido, -1 ocupado)
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # la red sigue sondeando aunque un menu pause mi arbol
@@ -167,6 +176,8 @@ func desconectar() -> void:
 	bote_dinero = 0
 	cofre_equipo = []
 	_next_cofre_id = 1
+	_taller_dueno = 0
+	_taller_resp = 0
 	_mi_lugar = "pueblo"
 	_num_humanos = 1
 	if multiplayer.multiplayer_peer != null:
@@ -751,6 +762,114 @@ func _set_cofre(lista: Array) -> void:
 	hogar_cambiado.emit()
 
 
+# --- BAUL de materiales compartido + candado del taller (hito 4) ------------------------------
+
+func _almacen_dicts() -> Array:
+	var out: Array = []
+	for m in Game.almacen_materiales:
+		out.append(_item_a_dict(m))
+	return out
+
+
+func _cargar_almacen(arr: Array) -> void:
+	var lista: Array[MaterialItem] = []
+	for d in arr:
+		var it := _item_de_dict(d)
+		if it is MaterialItem:
+			lista.append(it)
+	Game.almacen_materiales = lista
+
+
+# La llama un menu de taller (herrero/carpintero/boticaria/peletero) al abrir, o una accion
+# suelta (depositar/vender del hogar) antes de tocar el baul. true = tienes el taller y tu
+# Game.almacen_materiales YA es el baul autoritativo; false = esta ocupado por tu companero.
+func abrir_taller() -> bool:
+	if not activo:
+		return true   # solitario: el baul es tuyo y punto
+	if es_host:
+		if _taller_dueno != 0 and _taller_dueno != 1:
+			return false
+		_taller_dueno = 1
+		return true
+	# Cliente: pedir al host y esperar respuesta.
+	_taller_resp = 0
+	_pedir_taller.rpc_id(1)
+	var t := 0.0
+	while _taller_resp == 0 and t < 5.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	return _taller_resp == 1
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_taller() -> void:
+	if not es_host:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	if _taller_dueno != 0 and _taller_dueno != quien:
+		_taller_no.rpc_id(quien)
+		return
+	_taller_dueno = quien
+	_taller_ok.rpc_id(quien, _almacen_dicts())   # le PRESTO el baul autoritativo
+
+
+@rpc("authority", "call_remote", "reliable")
+func _taller_ok(bag: Array) -> void:
+	_cargar_almacen(bag)   # mi Game.almacen_materiales pasa a ser el baul de verdad
+	_taller_resp = 1
+
+
+@rpc("authority", "call_remote", "reliable")
+func _taller_no() -> void:
+	_taller_resp = -1
+
+
+# La llama el menu al cerrar (o la accion suelta al terminar): devuelve el baul y suelta el candado.
+func cerrar_taller() -> void:
+	if not activo:
+		return
+	if es_host:
+		if _taller_dueno == 1:
+			_taller_dueno = 0
+			_difundir_almacen()   # mi baul (ya modificado) va a los mirrors
+	else:
+		_soltar_taller.rpc_id(1, _almacen_dicts())
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _soltar_taller(bag: Array) -> void:
+	if not es_host:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	if _taller_dueno != quien:
+		return
+	_cargar_almacen(bag)   # el host adopta el baul que devuelve el cliente
+	_taller_dueno = 0
+	_difundir_almacen()
+
+
+# ¿Tengo YO el candado del taller ahora mismo? (o estoy en solitario). Lo consulta Game antes de
+# tocar el baul compartido, como red de seguridad contra desincronizar desde una UI despistada.
+func tengo_taller() -> bool:
+	if not activo:
+		return true
+	return _taller_dueno == multiplayer.get_unique_id()
+
+
+func _difundir_almacen() -> void:
+	_set_almacen.rpc(_almacen_dicts())
+	hogar_cambiado.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _set_almacen(bag: Array) -> void:
+	# No piso mi baul si soy YO quien tiene el taller prestado (estoy crafteando con el).
+	if _taller_dueno == multiplayer.get_unique_id():
+		return
+	_cargar_almacen(bag)
+	hogar_cambiado.emit()
+
+
 # --- OBJETOS DEL SUELO (hito 2): soltar y recoger con autoridad del host --------------------
 
 # Item -> dict de red. Lo minimo para reconstruirlo en la otra maquina: el MaterialData es un
@@ -907,6 +1026,10 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 	for id in _suelo:
 		if _suelo[id]["lugar"] == lugar:
 			_spawn_drop.rpc_id(quien, id, _suelo[id]["d"], _suelo[id]["pos"], lugar)
+	# Estado compartido del hogar que ya existe: baul de materiales, bote y cofre.
+	_set_almacen.rpc_id(quien, _almacen_dicts())
+	_set_bote.rpc_id(quien, bote_dinero)
+	_set_cofre.rpc_id(quien, cofre_equipo)
 
 
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.
@@ -974,6 +1097,8 @@ func _on_peer_disconnected(id: int) -> void:
 	# dentro, la expedicion se cierra (solo decide el host).
 	if es_host:
 		_liberar_vetas_de(id)
+		if _taller_dueno == id:   # se fue con el taller cogido: se libera (su crafteo a medias se pierde)
+			_taller_dueno = 0
 		if _dentro.has(id):
 			_dentro.erase(id)
 			if _dentro.is_empty():

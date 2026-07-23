@@ -3378,6 +3378,10 @@ const ARMOR_SLOT_ORDEN := ["casco", "pecho", "manos", "pantalones", "botas"]
 # HOGAR: guarda en el baul los MATERIALES de la bolsa. Los CRISTALES no: esos hay que
 # venderlos en la tienda si o si. Devuelve cuantos materiales guardo.
 func guardar_materiales_en_hogar() -> int:
+	# MULTIJUGADOR: mover al baul compartido exige tener el candado del taller (la UI lo coge
+	# antes). Sin el, se bloquea para no desincronizar el baul del host.
+	if not Net.tengo_taller():
+		return 0
 	var n: int = materiales.size()
 	if n == 0:
 		return 0
@@ -3469,6 +3473,10 @@ func precio_venta_item(item: Resource) -> int:
 # HOGAR (desde_hogar). Devuelve lo cobrado.
 func vender_item(modelo: Resource, cantidad: int, desde_hogar: bool = false) -> int:
 	if modelo == null or cantidad <= 0:
+		return 0
+	# MULTIJUGADOR: vender del baul compartido exige tener el candado del taller (si no, se
+	# operaria sobre un mirror desfasado). Vender de la BOLSA (personal) va siempre.
+	if desde_hogar and not Net.tengo_taller():
 		return 0
 	var total: int = 0
 	var vendidos: int = 0

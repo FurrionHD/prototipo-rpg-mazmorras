@@ -77,6 +77,12 @@ func _ready() -> void:
 func abrir() -> void:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
+	# MULTIJUGADOR: candado del taller (uno a la vez). Ver forge_menu.abrir().
+	if Net.activo and not await Net.abrir_taller():
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud != null and hud.has_method("mostrar_toast"):
+			hud.mostrar_toast("El taller está ocupado: tu compañero está crafteando.")
+		return
 	_tab = 0
 	_aviso = ""
 	_limpiar()
@@ -88,6 +94,8 @@ func abrir() -> void:
 func _cerrar() -> void:
 	_root.visible = false
 	Game.cerrar_menu()
+	if Net.activo:
+		Net.cerrar_taller()
 
 
 func _input(event: InputEvent) -> void:

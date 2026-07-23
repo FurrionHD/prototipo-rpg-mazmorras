@@ -153,6 +153,11 @@ func _ready() -> void:
 func abrir() -> void:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
+	# MULTIJUGADOR: coger el CANDADO del taller (uno craftea a la vez). Si tu companero lo tiene,
+	# "ocupado". Con el candado, tu Game.almacen_materiales pasa a ser el baul compartido de verdad.
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		return
 	_tab = 0
 	_sub = 0
 	_sel = 0
@@ -163,9 +168,17 @@ func abrir() -> void:
 	_rebuild()
 
 
+func _ocupado() -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast("El taller está ocupado: tu compañero está crafteando.")
+
+
 func _cerrar() -> void:
 	_root.visible = false
 	Game.cerrar_menu()
+	if Net.activo:
+		Net.cerrar_taller()   # devuelve el baul al host y suelta el candado
 
 
 func _input(event: InputEvent) -> void:
