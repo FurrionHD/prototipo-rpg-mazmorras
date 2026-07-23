@@ -147,7 +147,9 @@ var _fui_rechazado := false
 @rpc("any_peer", "call_remote", "reliable")
 func _rechazado() -> void:
 	_fui_rechazado = true
-	estado_cambiado.emit("Codigo incorrecto: el host te ha rechazado.")
+	# En el idioma del jugador: no se distingue "la sala existe pero el codigo esta mal" de
+	# "no hay sala". Suena natural y de paso no confirma a un curioso que ahi hay una partida.
+	estado_cambiado.emit("No hay ninguna sala con ese codigo en esa IP.")
 
 
 # --- AVATARES -------------------------------------------------------------------------------
@@ -185,14 +187,15 @@ func _on_peer_connected(_id: int) -> void:
 
 
 func _on_connection_failed() -> void:
-	estado_cambiado.emit("No se pudo conectar al host.")
+	# IP mal escrita, host sin abrir, o no hay red: para el jugador es lo mismo.
+	estado_cambiado.emit("No se encontro ninguna partida en esa IP.")
 	desconectar()
 
 
 func _on_server_disconnected() -> void:
 	if _fui_rechazado:
 		_fui_rechazado = false
-		estado_cambiado.emit("Expulsado: el codigo de sala no era correcto.")
+		estado_cambiado.emit("No hay ninguna sala con ese codigo en esa IP.")
 	else:
 		estado_cambiado.emit("El host ha cerrado la partida.")
 	desconectar()
