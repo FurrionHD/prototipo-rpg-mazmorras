@@ -37,10 +37,14 @@ class_name AbilityData
 # Daño por impacto respecto a un ataque normal (1.0 = como un básico; <1 = flurry).
 @export var dano_mult: float = 1.0
 
-# Lo que aporta la SEGUNDA MANO vale la MITAD: los golpes EXTRA que solo existen porque
-# llevas dos armas (los que pasan del rango de UNA mano) pegan a este multiplicador. Asi
-# el dual vale ~1.5x la version a una mano, no 2x ni 3x (que era lo que la disparaba).
-@export var dual_golpe_mult: float = 0.5
+# Lo que aporta la SEGUNDA MANO pega ALGO MENOS: los golpes EXTRA que solo existen porque
+# llevas dos armas (los que pasan del rango de UNA mano) pegan a este multiplicador. A 0.6 el
+# dual vale ~1.6x la version a una mano (subido de 0.5/~1.5x: las ligeras/dual iban ~8% bajo el
+# techo y se les acerca un pelin sin PASARLO, que romperia el eje "dual < 2 manos en bruto").
+# PROVISIONAL: al tocarlo hay que RE-MEDIR la tabla de armas contra el techo, no fiarse (ver
+# memoria ajuste-curvas-holistico). Todas las armas que van a dual son ligeras, asi que sube el
+# grupo entero por igual y su balance INTERNO no cambia.
+@export var dual_golpe_mult: float = 0.6
 # MULTIPLICADOR EXPLICITO POR GOLPE (índice 0-based). Vacío = manda la regla del dual (arriba).
 # Lo usan las técnicas de ARMA + ESCUDO (Aplastamiento, Guardia rota): el 1er golpe es con el ARMA
 # (más daño) y el 2º con el ESCUDO (menos). Cada golpe se simula distinto sin dos armas de por
