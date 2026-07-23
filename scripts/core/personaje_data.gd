@@ -31,6 +31,11 @@ class_name PersonajeData
 # ROL con el que salio de la taberna ("guerrero" | "tanque" | "mago"). No cambia nada mecanico:
 # decide el kit inicial y el texto de la ficha. El jugador no tiene rol ("").
 @export var rol: String = ""
+# ¿Es EL personaje que creaste al empezar la partida? Solo uno lo lleva. Es intocable: nunca se
+# le puede sacar del equipo, y en multijugador el cupo de sesion siempre lo mantiene contigo
+# (deslizandose hacia arriba en la formacion si hace falta). Saves viejos: lo marca la migracion
+# de importar_partida.
+@export var es_original: bool = false
 
 # --- Progresion (ver los comentarios largos de game.gd: interno / consolidado / base_nivel) ---
 @export var level: int = 1

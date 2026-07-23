@@ -46,6 +46,15 @@ var semilla_host: int = 0
 # Mientras quede alguien dentro, la mazmorra vive: puedes salir a vender y volver.
 var expedicion_abierta := false    # solo fiable en el host
 var piso_actual := 1               # piso activo de la sesion (solo fiable en el host)
+
+# --- CUPO de personajes en sesion: maximo 4 EN TOTAL entre todos los humanos ---
+# 2 humanos -> principal + 1 acompanante cada uno; 3 -> host con 1 acompanante, invitados solos;
+# 4 -> todos solos. Los que sobran se van SOLOS al hogar y VUELVEN solos al irse gente o cerrar.
+var _apartados: Array = []         # PersonajeData que el cupo mando al hogar, en su orden
+# Cuantos HUMANOS hay en la sesion. Lo cuenta el HOST (es el unico que ve a todos: en la
+# topologia estrella de Godot los clientes no se ven entre si, solo al host) y lo DIFUNDE. Un
+# cliente jamas puede deducirlo de su _peers (que solo tiene al host).
+var _num_humanos := 1
 var _dentro: Dictionary = {}       # peer_id -> true: quienes estan en la mazmorra (host)
 var _vetas_ocupadas: Dictionary = {}  # celda -> peer_id que la trabaja (host)
 var _agotados_sesion: Dictionary = {} # celda -> true: vetas agotadas ESTA expedicion (todos)
@@ -136,6 +145,7 @@ func desconectar() -> void:
 	piso_actual = 1
 	semilla_host = 0
 	_mi_lugar = "pueblo"
+	_num_humanos = 1
 	if multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer.close()
 		multiplayer.multiplayer_peer = null
@@ -143,6 +153,9 @@ func desconectar() -> void:
 	es_host = false
 	# De vuelta al regimen de un jugador: si hay un menu abierto, el arbol vuelve a pausarse.
 	Game._refrescar_pausa()
+	# Fin de sesion: cupo = PARTY_MAX otra vez, asi que los apartados por el cupo vuelven todos.
+	_aplicar_cupo()
+	_apartados.clear()
 
 
 # --- POSICION (lo que hace que os veais moveros) --------------------------------------------
@@ -453,6 +466,87 @@ func celda_agotada_sesion(celda: Vector2i) -> bool:
 	return _agotados_sesion.has(celda)
 
 
+# --- CUPO de personajes (max 4 en total en la sesion) ----------------------------------------
+
+# Cuantos personajes puede llevar MI equipo ahora mismo. Sin sesion: el tope normal. La regla
+# del reparto (decidida por el usuario): con 3 humanos el acompanante extra es del HOST.
+func cupo_party() -> int:
+	if not activo:
+		return Game.PARTY_MAX
+	var n: int = _num_humanos   # lo mantiene y difunde el host (ver _sync_humanos)
+	if n <= 1:
+		return Game.PARTY_MAX
+	if n == 2:
+		return 2
+	if n == 3:
+		return 2 if es_host else 1
+	return 1
+
+
+# Solo HOST: recuenta los humanos, lo difunde a los clientes y reajusta su propio equipo.
+func _sync_humanos() -> void:
+	_num_humanos = _peers.size() + 1
+	_set_num_humanos.rpc(_num_humanos)
+	_aplicar_cupo()
+
+
+# Corre en los CLIENTES: el host dice cuantos humanos hay. Reajustan su equipo al cupo nuevo.
+@rpc("authority", "call_remote", "reliable")
+func _set_num_humanos(n: int) -> void:
+	_num_humanos = n
+	_aplicar_cupo()
+
+
+# Ajusta MI equipo al cupo. Cada maquina se ajusta sola (todas conocen n y su rol).
+#  - RECORTE: se quedan las primeras posiciones de la formacion, con la garantia del ORIGINAL
+#    (el personaje que creaste): si el cupo lo dejaria fuera, SE DESLIZA al ultimo hueco
+#    permitido desplazando al que iba ahi. Los apartados van al hogar (banquillo) EN ORDEN.
+#  - RESTAURACION: al bajar la gente (o cerrar sesion), los apartados vuelven en su orden.
+# Se recompone el array party entero (sacar_del_equipo no vale: rechaza al original y no
+# desliza posiciones), reapuntando lider_idx a la misma persona si sigue, o al original.
+func _aplicar_cupo() -> void:
+	var cupo := cupo_party()
+	var antes: int = Game.party.size()
+
+	# Restaurar primero (si hay hueco y gente esperando).
+	while Game.party.size() < cupo and not _apartados.is_empty():
+		var pj: PersonajeData = _apartados.pop_front()
+		if not Game.meter_en_equipo(pj):
+			break   # seguridad (no deberia pasar: estan en plantilla y hay hueco)
+
+	# Recortar si sobra gente.
+	if Game.party.size() > cupo:
+		var lider_pj: PersonajeData = Game.lider()
+		var orig: PersonajeData = Game.original()
+		var mantener: Array = []
+		for pj in Game.party:
+			if mantener.size() < cupo:
+				mantener.append(pj)
+		if Game.party.has(orig) and not mantener.has(orig):
+			mantener[cupo - 1] = orig   # el original se desliza al ultimo hueco permitido
+		for pj in Game.party:
+			if not mantener.has(pj):
+				_apartados.append(pj)
+		Game.party.assign(mantener)
+		var idx: int = Game.party.find(lider_pj)
+		Game.lider_idx = idx if idx >= 0 else maxi(0, Game.party.find(orig))
+
+	if Game.party.size() == antes:
+		return   # nada cambio: ni refresco ni toast
+
+	# El sequito/barras se refrescan solos (player._comprobar_grupo), pero el TRASPASO DE
+	# AGUANTE del cambio de lider no: hay que llamarlo, como hace el menu del Hogar.
+	var p: Node = get_tree().get_first_node_in_group("player")
+	if p != null and p.has_method("refrescar_lider"):
+		p.refrescar_lider()
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		if Game.party.size() < antes:
+			hud.mostrar_toast("Cupo de sesion: tus acompanantes esperan en el hogar.")
+		else:
+			hud.mostrar_toast("Tus acompanantes han vuelto al equipo.")
+
+
 # Solo host: suelta todos los locks de un peer que se va (salida o desconexion a mitad de
 # minijuego).
 func _liberar_vetas_de(quien: int) -> void:
@@ -648,6 +742,9 @@ func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, l
 		"lugar": lugar, "pos": Vector2.INF}
 	if lugar == _mi_lugar:
 		_crear_avatar_nodo(peer_id)
+	# El HOST recuenta y difunde el numero de humanos (los clientes reajustan al recibirlo).
+	if es_host:
+		_sync_humanos()
 
 
 # Monta el nodo visual de un peer YA registrado (solo si compartimos lugar).
@@ -687,6 +784,9 @@ func _on_peer_disconnected(id: int) -> void:
 	# tambien dispara esta señal y no es "un jugador que se va".
 	if conocido:
 		estado_cambiado.emit("Un jugador se ha ido.")
+		# Somos uno menos: el host recuenta y difunde; los apartados por cupo van volviendo.
+		if es_host:
+			_sync_humanos()
 
 
 # El resto de señales de multiplayer.

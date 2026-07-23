@@ -153,8 +153,10 @@ func _fila_equipo(i: int) -> void:
 
 	var fuera := Button.new()
 	fuera.text = "A casa"
-	fuera.disabled = Game.party.size() <= 1   # alguien tiene que llevar el cuerpo
-	fuera.tooltip_text = "Lo deja en el Hogar. No se despide a nadie: sigue en tu plantilla."
+	# Alguien tiene que llevar el cuerpo, y el ORIGINAL (el que creaste) es intocable: nunca sale.
+	fuera.disabled = Game.party.size() <= 1 or pj.es_original
+	fuera.tooltip_text = "Es tu personaje original: no se puede dejar en casa." if pj.es_original \
+		else "Lo deja en el Hogar. No se despide a nadie: sigue en tu plantilla."
 	fuera.pressed.connect(func():
 		if Game.sacar_del_equipo(pj):
 			_aviso = "%s se queda en casa." % pj.nombre
@@ -180,14 +182,16 @@ func _fila_banquillo(pj: PersonajeData) -> void:
 
 	var dentro := Button.new()
 	dentro.text = "Que baje"
-	dentro.disabled = Game.party.size() >= Game.PARTY_MAX
+	# En sesion multi el cupo puede ser menor que PARTY_MAX (Net.cupo_party; en solitario es 4).
+	var cupo: int = mini(Game.PARTY_MAX, Net.cupo_party())
+	dentro.disabled = Game.party.size() >= cupo
 	dentro.pressed.connect(func():
 		if Game.meter_en_equipo(pj):
 			_aviso = "%s se une al equipo." % pj.nombre
 			_aviso_ok = true
 			_rebuild()
 		else:
-			_aviso = "El equipo ya va lleno (%d)." % Game.PARTY_MAX
+			_aviso = "El equipo ya va lleno (%d)." % mini(Game.PARTY_MAX, Net.cupo_party())
 			_aviso_ok = false
 			_rebuild())
 	fila.add_child(dentro)

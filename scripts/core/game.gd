@@ -99,21 +99,33 @@ func fichar(pj: PersonajeData) -> void:
 	if pj == null or plantilla.has(pj):
 		return
 	plantilla.append(pj)
-	if party.size() < PARTY_MAX:
+	# En sesion multi el equipo tiene un CUPO menor que PARTY_MAX (Net.cupo_party; en solitario
+	# devuelve PARTY_MAX y no cambia nada): el fichado espera en el hogar si no cabe.
+	if party.size() < mini(PARTY_MAX, Net.cupo_party()):
 		party.append(pj)
 	print("[grupo] ficha %s (plantilla %d, equipo %d)" % [pj.nombre, plantilla.size(), party.size()])
 
 # Mete a alguien de la plantilla en el equipo que baja. false si no hay sitio o ya estaba.
 func meter_en_equipo(pj: PersonajeData) -> bool:
-	if pj == null or party.has(pj) or not plantilla.has(pj) or party.size() >= PARTY_MAX:
+	if pj == null or party.has(pj) or not plantilla.has(pj) \
+			or party.size() >= mini(PARTY_MAX, Net.cupo_party()):
 		return false
 	party.append(pj)
 	return true
 
+# EL personaje creado al empezar la partida (es_original). Fallback al lider por si un save
+# rarisimo no trajera marca: nunca devolver null.
+func original() -> PersonajeData:
+	for pj in plantilla:
+		if pj.es_original:
+			return pj
+	return lider()
+
 # Lo saca del equipo al banquillo (sigue en la plantilla: aqui NO se despide a nadie). El equipo
 # nunca se queda vacio: alguien tiene que llevar el cuerpo que se mueve por el mapa.
+# El ORIGINAL (el personaje que creaste) es intocable: el nunca se va al banquillo.
 func sacar_del_equipo(pj: PersonajeData) -> bool:
-	if pj == null or not party.has(pj) or party.size() <= 1:
+	if pj == null or not party.has(pj) or party.size() <= 1 or pj.es_original:
 		return false
 	var idx: int = party.find(pj)
 	party.erase(pj)
@@ -1052,6 +1064,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	# Empiezas SOLO: una plantilla de una persona, a estrenar (los companeros se contratan en la
 	# taberna). Va lo primero porque todo lo que viene despues escribe en el lider.
 	var yo := PersonajeData.new()
+	yo.es_original = true   # EL personaje de esta partida (el "yo" de los campos planos): intocable
 	plantilla = [yo]
 	party = [yo]
 	lider_idx = 0
@@ -1284,6 +1297,7 @@ func importar_partida(d: SaveData) -> void:
 	# es lo que hace todo el cuerpo de esta funcion, via las propiedades que delegan en el). Si no
 	# se reemplaza aqui, se cargaria encima del personaje de la partida ANTERIOR de esta sesion.
 	var yo := PersonajeData.new()
+	yo.es_original = true   # EL personaje de esta partida (el "yo" de los campos planos): intocable
 	plantilla = [yo]
 	party = [yo]
 	lider_idx = 0

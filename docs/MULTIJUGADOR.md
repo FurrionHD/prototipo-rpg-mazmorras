@@ -111,6 +111,14 @@ la misma instancia de arma.
   para pasárselo (`soltar_item` ya existe).
 - **Cadáver ocupado**: si uno está en el minijuego de extracción de un cuerpo, el otro recibe
   "ocupado" y no puede iniciar ESE cuerpo (el modal `EXTRACCION` pasa a ser por-cuerpo, no global).
+- **Cupo de personajes en sesión (IMPLEMENTADO)**: máximo **4 personajes EN TOTAL** entre todos
+  los humanos. 2 humanos → principal + 1 acompañante cada uno; 3 → host con 1 acompañante, el
+  resto solos; 4 → todos solos. Los acompañantes que sobran se van **solos al hogar** al entrar
+  gente y **vuelven solos** al irse gente o cerrar la sesión (`Net.cupo_party()` / `_aplicar_cupo`).
+- **Personaje ORIGINAL intocable (IMPLEMENTADO)**: el que creaste al empezar la partida
+  (`PersonajeData.es_original`) **nunca se saca del equipo** (ni en solitario) y en multi el cupo
+  **siempre lo mantiene contigo**: si por posición quedara fuera, se **desliza** al último hueco
+  permitido (pos 3 → 2 → 1). Los demás se apartan por orden desde abajo de la formación.
 - **Formación en combate multi (DECIDIDO)**: el combate tiene 4 huecos y se llena por **ORDEN DE
   FORMACIÓN**, no por quién lidera en el mapa. Entra la **posición 1 de cada humano** presente;
   los huecos sobrantes se rellenan con las **posiciones 2 por orden de entrada al combate** (el
