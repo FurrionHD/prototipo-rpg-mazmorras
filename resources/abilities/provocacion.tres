@@ -5,9 +5,10 @@
 [resource]
 script = ExtResource("1")
 nombre = "Provocación"
-coste_energia = 20
+coste_energia = 40
 cooldown = 3
 dano_mult = 0.0
 provoca_turnos = 3
+bloqueo_turnos = 1
 requiere_escudo = true
-descripcion = "Golpeas el escudo y ruges: durante unos turnos los enemigos tienden a descargar su furia sobre ti en vez de sobre los tuyos. No los obliga, solo llama su atención."
+descripcion = "Golpeas el escudo y ruges, y te cubres tras él: durante unos turnos los enemigos tienden a descargar su furia sobre ti en vez de sobre los tuyos. No los obliga, solo llama su atención, y quedas en guardia para encajarla."
