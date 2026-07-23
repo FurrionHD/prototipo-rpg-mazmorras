@@ -1703,7 +1703,7 @@ func _pedir_pelea(id: int, lugar: String) -> void:
 	if dueno != 0 and dueno != 1:
 		_pedir_pelea_dueno.rpc_id(dueno, id, lugar, quien)
 	else:
-		_responder_pelea(quien, [])   # nadie simula ese piso: no hay pelea que dar
+		_responder_pelea(quien, [], false)   # nadie simula ese piso: no hay pelea que dar
 
 
 # Le llega al dueño CLIENTE del piso (reenviada por el host).
@@ -1718,49 +1718,74 @@ func _pedir_pelea_dueno(id: int, lugar: String, para: int) -> void:
 # El grupo lo calcula vecinos(), el mismo que en solitario: es quien tiene los nodos reales y sabe
 # quien esta al lado, con el tope MAX_COMBATIENTES.
 func _resolver_pelea(id: int, quien: int, _lugar: String) -> void:
-	var ids: Array = []
 	var e: Dictionary = _enemigos.get(id, {})
 	var nodo = e.get("nodo") if not e.is_empty() else null
-	if nodo != null and is_instance_valid(nodo) and not _enem_ocupados.has(id) \
-			and not nodo.esta_muerto() and not nodo.get("_combat_triggered"):
-		for n in nodo.vecinos():
-			if not is_instance_valid(n) or not n.has_meta("net_id"):
-				continue
-			var nid: int = n.get_meta("net_id")
-			if _enem_ocupados.has(nid):
-				continue
-			_enem_ocupados[nid] = quien
-			n._combat_triggered = true      # congelado: ya esta en una pelea (la de otro)
-			n.velocity = Vector2.ZERO
-			n._cancelar_aviso()
-			ids.append(nid)
-	_responder_pelea(quien, ids)
+	_responder_pelea(quien, _reservar_grupo(nodo, id, quien), false)
 
 
-# La respuesta vuelve al peticionario; si yo soy un dueño CLIENTE, pasa por el host.
-func _responder_pelea(quien: int, ids: Array) -> void:
+# SOLO el dueño: reserva un bicho y a sus vecinos para la pelea de 'quien' y los congela. Devuelve
+# los net_id reservados (vacio = no habia nada que dar). Extraido para que lo usen las DOS vias:
+# la que pide el jugador al atacar, y la que EMPUJA el dueño cuando un bicho alcanza a alguien.
+func _reservar_grupo(nodo, id: int, quien: int) -> Array:
+	var ids: Array = []
+	if nodo == null or not is_instance_valid(nodo) or _enem_ocupados.has(id):
+		return ids
+	if nodo.esta_muerto() or nodo.get("_combat_triggered"):
+		return ids
+	for n in nodo.vecinos():
+		if not is_instance_valid(n) or not n.has_meta("net_id"):
+			continue
+		var nid: int = n.get_meta("net_id")
+		if _enem_ocupados.has(nid):
+			continue
+		_enem_ocupados[nid] = quien
+		n._combat_triggered = true      # congelado: ya esta en una pelea (la de otro)
+		n.velocity = Vector2.ZERO
+		n._cancelar_aviso()
+		ids.append(nid)
+	return ids
+
+
+# EMPUJE (hito 5.4): un bicho ha alcanzado el cuerpo de OTRO jugador. La pelea es SUYA, no mia
+# (yo solo simulo el piso). Se reserva el grupo y se le manda, CON emboscada: le han saltado
+# encima, no ha atacado el.
+func empujar_pelea(nodo: Node, peer: int) -> void:
+	if not activo or not _soy_dueno or multiplayer.multiplayer_peer == null:
+		return
+	if nodo == null or not nodo.has_meta("net_id"):
+		return
+	var id: int = nodo.get_meta("net_id")
+	var ids: Array = _reservar_grupo(nodo, id, peer)
+	if ids.is_empty():
+		return
+	_responder_pelea(peer, ids, true)
+
+
+# La respuesta vuelve al destinatario; si yo soy un dueño CLIENTE, pasa por el host.
+func _responder_pelea(quien: int, ids: Array, emboscada: bool) -> void:
 	if quien == 1:
-		_pelea_resuelta(ids)
+		_pelea_resuelta(ids, emboscada)
 	elif es_host:
-		_pelea_resuelta.rpc_id(quien, ids)
+		_pelea_resuelta.rpc_id(quien, ids, emboscada)
 	else:
-		_rel_respuesta_pelea.rpc_id(1, quien, ids)
+		_rel_respuesta_pelea.rpc_id(1, quien, ids, emboscada)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rel_respuesta_pelea(para: int, ids: Array) -> void:
+func _rel_respuesta_pelea(para: int, ids: Array, emboscada: bool) -> void:
 	if not es_host:
 		return
 	if para == 1:
-		_pelea_resuelta(ids)
+		_pelea_resuelta(ids, emboscada)
 	else:
-		_pelea_resuelta.rpc_id(para, ids)
+		_pelea_resuelta.rpc_id(para, ids, emboscada)
 
 
-# Corre en QUIEN PIDIO la pelea: monta el combate contra sus propios espejos. Se les puede pasar
-# tal cual a Game.start_combat porque exponen data/current_t/hp_restante y saben morir().
+# Corre en EL QUE PELEA: monta el combate contra sus propios espejos, o los METE en la pelea que ya
+# tenga abierta (hito 5.4). Se les puede pasar tal cual a Game.start_combat porque exponen
+# data/current_t/hp_restante y saben morir().
 @rpc("any_peer", "call_remote", "reliable")
-func _pelea_resuelta(ids: Array) -> void:
+func _pelea_resuelta(ids: Array, emboscada: bool = false) -> void:
 	if ids.is_empty():
 		_toast("Ese enemigo ya está peleando con otro.")
 		return
@@ -1772,8 +1797,15 @@ func _pelea_resuelta(ids: Array) -> void:
 			nodos.append(n)
 	if nodos.is_empty():
 		return
-	# Quien se une NO cuenta como emboscada: el que ataca lleva la iniciativa.
-	Game.start_combat(nodos, false)
+	# Ya estoy peleando: estos se UNEN a mi pelea en vez de abrir otra (una por maquina). El que no
+	# quepa se DEVUELVE al dueño: si no, se quedaria reservado y congelado para siempre.
+	if Game.combate_activo():
+		for n in nodos:
+			if not Game.unir_enemigo_al_combate(n):
+				n.salir_de_pelea()
+		return
+	# Emboscada solo si me han saltado encima; si ataque yo, la iniciativa es mia.
+	Game.start_combat(nodos, emboscada)
 
 
 # --- RESULTADO de una pelea jugada contra espejos ---------------------------------------------
@@ -2064,6 +2096,9 @@ func _crear_avatar_nodo(peer_id: int) -> void:
 	var p: Dictionary = _peers[peer_id]
 	var av: Node2D = _REMOTE_PLAYER.new()
 	mundo.add_child(av)
+	# De quien es este cuerpo: al alcanzarlo un bicho hay que mandarle la pelea a SU dueño. Va como
+	# meta, mismo patron que el net_id de bichos y drops.
+	av.set_meta("peer_id", peer_id)
 	av.aplicar_aspecto(p["color"], p["metal"], p["nombre"])
 	if p["pos"] != Vector2.INF:
 		av.ir_a(p["pos"])   # aparece donde iba, no en el origen

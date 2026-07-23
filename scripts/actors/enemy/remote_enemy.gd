@@ -102,6 +102,14 @@ func entrar_en_pelea() -> void:
 	_combat_triggered = true
 
 
+# Me reservaron para una pelea donde al final NO cabia. Se le devuelve al dueño para que lo suelte:
+# si no, se quedaria reservado y congelado para siempre (el bug de las estatuas, por red).
+func salir_de_pelea() -> void:
+	_combat_triggered = false
+	if has_meta("net_id"):
+		Net.resultado_bicho(get_meta("net_id"), false, -1.0)
+
+
 # Ya le han sacado el cristal: se desvanece aqui. El cuerpo DE VERDAD lo desvanece su dueño
 # (Net.notificar_extraido), y su baja acabara despawnando este espejo de todas formas.
 func desvanecer() -> void:

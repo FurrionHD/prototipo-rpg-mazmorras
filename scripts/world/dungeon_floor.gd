@@ -1219,12 +1219,21 @@ func _process(delta: float) -> void:
 		return
 	var pj: Vector2 = (player as Node2D).global_position
 
-	# NIEBLA del mapa: la zona que pisas queda vista para siempre (persiste en el save).
+	# NIEBLA del mapa: la zona que pisas queda vista para siempre (persiste en el save). Va con MI
+	# posicion a proposito: el mapa es mi libreta, no la de mi compañero.
 	if gen != null:
 		var celda: Vector2i = Vector2i((pj / DungeonGenerator.CELDA).floor())
 		var z: int = gen.zona_en(celda)
 		if z >= 0:
 			(Game.persistente_piso(_piso_construido)["zonas_vistas"] as Dictionary)[z] = true
+
+	# MULTIJUGADOR (hito 5.4): el congelado se mide contra el aliado MAS CERCANO, no solo contra mi.
+	# Yo simulo el piso para TODOS, asi que medir solo desde mi cuerpo dejaba dormidos a los bichos
+	# que rodean a mi compañero: no lo perseguirian ni podrian saltarle encima nunca.
+	var referencias: Array[Vector2] = [pj]
+	for a in get_tree().get_nodes_in_group("aliado"):
+		if is_instance_valid(a) and a is Node2D:
+			referencias.append((a as Node2D).global_position)
 
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e) or not (e is Node2D):
@@ -1238,7 +1247,12 @@ func _process(delta: float) -> void:
 		# eso es una dependencia fragil y sin la pausa global (multi) este barrido corre siempre.
 		if e.get("_combat_triggered"):
 			continue
-		var lejos: bool = pj.distance_to((e as Node2D).global_position) > dist_congelar
+		var pos_e: Vector2 = (e as Node2D).global_position
+		var lejos: bool = true
+		for r in referencias:
+			if r.distance_to(pos_e) <= dist_congelar:
+				lejos = false
+				break
 		e.set_physics_process(not lejos)
 
 

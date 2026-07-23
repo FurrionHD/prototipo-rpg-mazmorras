@@ -949,6 +949,13 @@ func _start_combat(enemy_initiated: bool) -> void:
 	# de nada (ver Net y remote_enemy.gd).
 	if not Net.simulo_mi_piso():
 		return
+	# He alcanzado el cuerpo de OTRO JUGADOR (hito 5.4): la pelea es SUYA, no mia — yo solo simulo
+	# el piso. Se le empuja con emboscada (le he saltado encima) y aqui no se abre nada.
+	if _objetivo != null and is_instance_valid(_objetivo) and _objetivo.has_meta("peer_id"):
+		# OJO: el congelado lo pone la RESERVA (Net._reservar_grupo), que ademas rechaza a los que
+		# ya lo tengan puesto. Marcarlo aqui antes haria que la reserva se rechazara a si misma.
+		Net.empujar_pelea(self, _objetivo.get_meta("peer_id"))
+		return
 	# Ya hay una pelea en marcha: en vez de rebotar, ME UNO a ella (hito 5.4). Si no cabe (tope de
 	# MAX_COMBATIENTES), me quedo ESPERANDO PEGADO y lo reintento: en cuanto muera uno, entro en su
 	# hueco. Ojo: NUNCA congelar al grupo antes de saber si la pelea arranca de verdad; hacerlo era

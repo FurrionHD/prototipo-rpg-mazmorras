@@ -747,7 +747,14 @@ func _perseguidor() -> Array:
 		if e.persigue_a(self):
 			return [e as Node2D, self as Node2D]
 		for c in get_tree().get_nodes_in_group("aliado"):
-			if c != self and is_instance_valid(c) and c is Node2D and e.persigue_a(c):
+			if c == self or not is_instance_valid(c) or not (c is Node2D):
+				continue
+			# MULTIJUGADOR: los cuerpos de OTROS JUGADORES estan en "aliado" (para que los bichos
+			# los persigan, hito 5.4), pero su huida es SUYA: si contaran aqui, entrenarias
+			# Agilidad porque a tu compañero lo persiguen. Solo cuentan tus acompañantes.
+			if c.has_meta("peer_id"):
+				continue
+			if e.persigue_a(c):
 				return [e as Node2D, c as Node2D]
 	return [null, null]
 
