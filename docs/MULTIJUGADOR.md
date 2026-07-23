@@ -3,10 +3,10 @@
 > Estado: **LAN jugable, en el hito 5 (combate)**. Hechos los hitos 1–4 (esqueleto andante,
 > recogida replicada, menús/mazmorra compartida, hogar compartido), la **fase 5.1** (enemigos
 > replicados) y la **5.2** (pisos independientes con autoridad por piso: cada uno anda por donde
-> quiera y ve los mismos bichos). **Todavía NO se pelea en multi**: hay un tope temporal que corta
-> el combate en sesión hasta la fase 5.3. Este documento congela las decisiones de diseño y
-> registra lo que falta. En **un jugador el juego funciona igual que siempre**: el tiempo se pausa
-> en los menús y en combate como hasta ahora.
+> quiera y ve los mismos bichos) y la **5.3** (se PELEA: cualquiera, simule el piso o no, con
+> peleas simultáneas, extracción y botín compartidos). Falta compartir UNA misma pelea entre dos
+> humanos (5.4) y el guardado sincronizado (hito 6). En **un jugador el juego funciona igual que
+> siempre**: el tiempo se pausa en los menús y en combate como hasta ahora.
 
 ## Por qué existe este documento
 
@@ -243,13 +243,56 @@ posiciones**.
   (`scripts/actors/enemy/remote_enemy.gd`). Sin combate todavía.
 - **5.2 — Pisos independientes y autoridad por piso (HECHO)**: cada uno anda por el piso que
   quiera, las escaleras dejan de arrastrar a todos, y la simulación se reparte por piso.
-- **5.3 — Combate con el mundo vivo**: quitar el tope temporal y throttlear `spawn_zone._process`
-  (hoy se congelaba gratis con la pausa global), para que la pelea de uno no pare a nadie.
-- **5.4 — El que no simula el piso pelea**: combate arbitrado por el dueño, con el turno del otro
-  conducido por RPC.
-- **5.5 — Dos humanos en UNA pelea**: formación por orden, cola de refuerzos, unirse a media
-  pelea, emboscada/ATB.
-- **5.6 — Huir individual + pulido.**
+- **5.3 — Todos pelean, con el mundo vivo (HECHO)**: se quita el tope temporal; pelea cualquiera,
+  simule el piso o no, y la extracción y el botín son compartidos.
+- **5.4 — Dos humanos en UNA MISMA pelea**: formación por orden, cola de refuerzos, unirse a media
+  pelea, emboscada/ATB. (5.3 da peleas SIMULTÁNEAS pero separadas; esto es compartir una.)
+- **5.5 — Huir individual + pulido.**
+
+#### Cómo funciona el combate multi (5.3)
+
+**Cada máquina juega SU pelea** (`_active_enemies` y compañía son singulares: una a la vez por
+máquina, que es justo "una por jugador"). Lo que se reparte es la autoridad:
+
+- **El espejo se volvió un enemigo de verdad**: el alta de red lleva la **ruta del `.tres`** del
+  `EnemyData` y su `t` (`load()` cachea → misma instancia que en la máquina que lo simula), así que
+  `remote_enemy` expone `data`/`current_t`/`hp_restante`/`es_boss` y entra en los grupos
+  `enemy`/`corpse`. Con eso **se le pasa tal cual a `Game.start_combat`**, que lee esos campos con
+  `in` y al cerrar llama `morir()`/`reanudar_tras_combate()`: **cero refactor de las 2700 líneas
+  del combate**.
+- **Reserva de pelea** (calcada del candado de vetas): al atacar un espejo se le pide la pelea a su
+  dueño, que arma el grupo con `vecinos()` (el de siempre, con su tope `MAX_COMBATIENTES`), lo
+  congela, lo apunta en `_enem_ocupados` y devuelve los ids. Al acabar se le devuelve el resultado
+  (muerto / HP restante) y él lo aplica sobre los nodos reales. Nadie puede robarte un bicho:
+  reservar pone `_combat_triggered` en el nodo real (así rebota hasta el propio dueño) y
+  `_enem_ocupados` corta entre clientes.
+- **Extracción**: mismo candado pero por cuerpo. Al terminar, el dueño consume el cadáver real y su
+  baja despawnea los espejos de todos, así que nadie puede extraerlo dos veces.
+- **Botín**: `Game._tirar_drop` era el único drop del juego que se plantaba en local saltándose
+  `Net`; ahora sale por `Net.solicitar_soltar` y el suelo es el mismo para todos.
+- Si alguien **se desconecta a media pelea**, el host difunde la baja y cada dueño suelta sus
+  reservas (`reanudar_tras_combate`): si no, esos bichos quedarían congelados para siempre.
+
+#### El mundo sigue vivo: lo que la pausa global tapaba
+
+Quitar la pausa destapó dependencias que en un jugador no se veían. La peor **corrompía estado**:
+`enemy._start_combat` marcaba `_combat_triggered` a todo el grupo **antes** de llamar a
+`Game.start_combat`, que puede rechazar si ya hay una pelea — y nadie revertía el flag. Quedaban
+**bichos estatua**: sin IA para siempre, ocupando aforo del piso y de la sala, sin dar loot ni
+cristal. Ahora se pregunta `Game.combate_activo()` **antes** de congelar a nadie.
+
+Además: el culling ya no re-enciende la física de los que están en combate; el aguante **no**
+regenera dentro del combate (invalidaba "correr antes de pelear se paga"); se llama a
+`reset_huida()` al salir (el mundo se movió mientras peleabas y el primer tick podía cobrar ese
+salto como hueco abierto → excelia de Agilidad regalada); y `enemy_links` no recalcula O(n²) bajo
+una pantalla que ni dibuja el mundo.
+
+**Spawns durante el combate (decisión del usuario)**: NO se congelan los relojes — la mazmorra
+sigue viva, que es la gracia del multi. Lo que se hace es **alejar los partos de quien está
+peleando** (`DIST_MIN_PELEANDO` = 260 px frente a los 64 de siempre), porque plantarle un bicho en
+las narices a alguien metido en una pantalla donde no puede verlo venir es injusto. De paso los
+partos ya respetan a **todos** los jugadores del piso, no solo al local
+(`Net.jugadores_remotos_aqui()` + `Net.avisar_combate()`).
 
 #### Dueño de piso: cómo se reparte la simulación (5.2)
 

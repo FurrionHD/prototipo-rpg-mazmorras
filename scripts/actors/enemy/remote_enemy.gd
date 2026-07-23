@@ -102,6 +102,15 @@ func entrar_en_pelea() -> void:
 	_combat_triggered = true
 
 
+# Ya le han sacado el cristal: se desvanece aqui. El cuerpo DE VERDAD lo desvanece su dueño
+# (Net.notificar_extraido), y su baja acabara despawnando este espejo de todas formas.
+func desvanecer() -> void:
+	remove_from_group("corpse")
+	var t := create_tween()
+	t.tween_property(self, "modulate:a", 0.0, 0.6)
+	t.tween_callback(queue_free)
+
+
 # Game._on_combat_finished llama a esto sobre los que CAYERON. Se pinta el cadaver aqui y se le
 # dice al dueño, que es quien lo mata de verdad (y quien lo difunde a los demas).
 func morir() -> void:

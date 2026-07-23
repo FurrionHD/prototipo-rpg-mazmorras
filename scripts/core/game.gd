@@ -6120,6 +6120,13 @@ func start_extraction(corpse: Node) -> void:
 	var data: EnemyData = corpse.data
 	if data == null:
 		return
+	# MULTIJUGADOR: un cuerpo, un extractor. Se pide el candado a quien simula el piso; si es de
+	# otro, avisa y no se abre nada. Cuando hay que esperar respuesta, la pantalla la abre despues
+	# Net._extraccion_concedida llamando aqui otra vez (ya con el permiso dado).
+	if Net.activo and corpse.has_meta("net_id") and not corpse.has_meta("permiso_extraccion"):
+		if not Net.solicitar_extraccion(corpse.get_meta("net_id")):
+			return
+		corpse.set_meta("permiso_extraccion", true)
 
 	# Categoria ponderada por el poder del bicho (t).
 	var t: float = 0.5
@@ -6185,6 +6192,11 @@ func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 	_bloquear_interaccion_jugador()
 	if is_instance_valid(corpse):
 		corpse.extracted = true  # ya no se puede volver a extraer
+		# MULTIJUGADOR: avisar a quien simula el piso para que consuma el cuerpo DE VERDAD y suelte
+		# el candado. Su baja despawnea los espejos de todos, asi que el cadaver desaparece para
+		# todo el mundo y nadie puede volver a extraerlo.
+		if Net.activo and corpse.has_meta("net_id"):
+			Net.notificar_extraido(corpse.get_meta("net_id"))
 		if corpse.has_method("desvanecer"):
 			corpse.desvanecer()  # el cuerpo se desvanece y desaparece
 	if is_instance_valid(_active_layer):
@@ -6260,10 +6272,17 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 	if parent == null or not is_instance_valid(parent):
 		return
 	for item in caidos:
-		var pickup: Node2D = _drop_pickup_script.new()
-		pickup.setup(item)
-		parent.add_child(pickup)
-		pickup.global_position = pos + Vector2(randf_range(-14.0, 14.0), randf_range(-14.0, 14.0))
+		var donde: Vector2 = pos + Vector2(randf_range(-14.0, 14.0), randf_range(-14.0, 14.0))
+		# MULTIJUGADOR: por la red, para que el suelo sea el MISMO para todos y lo arbitre el host
+		# (quien llega primero se lo lleva). Era el unico drop del juego que se plantaba en local
+		# saltandose Net: el compañero no llegaba a ver el botin siquiera. Misma via que soltar_item.
+		if Net.activo:
+			Net.solicitar_soltar(item, donde)
+		else:
+			var pickup: Node2D = _drop_pickup_script.new()
+			pickup.setup(item)
+			parent.add_child(pickup)
+			pickup.global_position = donde
 		print("El monstruo deja en el suelo: ", item.nombre(), " (", item.calidad_texto(), ")")
 
 

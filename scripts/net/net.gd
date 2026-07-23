@@ -1836,6 +1836,127 @@ func _soltar_reservas_de(quien: int) -> void:
 			nodo.reanudar_tras_combate(-1.0)   # vuelve a la vida normal, sin heridas nuevas
 
 
+# --- EXTRAER UN CADAVER (hito 5.3) ------------------------------------------------------------
+#
+# Mismo candado que las vetas, pero por CUERPO: dos no pueden sacarle el cristal al mismo cadaver.
+# Lo arbitra el dueño del piso, que es quien tiene el cuerpo de verdad. Devuelve true si puedo
+# empezar YA (soy el dueño y esta libre); si no, la respuesta llega por _extraccion_concedida.
+func solicitar_extraccion(id: int) -> bool:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return true
+	if _soy_dueno:
+		if _enem_ocupados.has(id):
+			_toast("Ese cuerpo lo está trabajando tu compañero.")
+			return false
+		_enem_ocupados[id] = multiplayer.get_unique_id()
+		return true
+	_pedir_extraccion.rpc_id(1, id, _mi_lugar)
+	return false   # hay que esperar respuesta: la pantalla la abre _extraccion_concedida
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_extraccion(id: int, lugar: String) -> void:
+	if not es_host:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	if _mi_lugar == lugar and _soy_dueno:
+		_resolver_extraccion(id, quien)
+		return
+	var dueno: int = _dueno_de(lugar)
+	if dueno != 0 and dueno != 1:
+		_pedir_extraccion_dueno.rpc_id(dueno, id, lugar, quien)
+	else:
+		_responder_extraccion(quien, id, false)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_extraccion_dueno(id: int, lugar: String, para: int) -> void:
+	if _mi_lugar != lugar or not _soy_dueno:
+		return
+	_resolver_extraccion(id, para)
+
+
+# SOLO el dueño: concede el cuerpo al primero que lo pida.
+func _resolver_extraccion(id: int, quien: int) -> void:
+	var libre: bool = not _enem_ocupados.has(id) and _enemigos.has(id)
+	if libre:
+		_enem_ocupados[id] = quien
+	_responder_extraccion(quien, id, libre)
+
+
+func _responder_extraccion(quien: int, id: int, ok: bool) -> void:
+	if quien == 1:
+		_extraccion_concedida(id, ok)
+	elif es_host:
+		_extraccion_concedida.rpc_id(quien, id, ok)
+	else:
+		_rel_resp_extraccion.rpc_id(1, quien, id, ok)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_resp_extraccion(para: int, id: int, ok: bool) -> void:
+	if not es_host:
+		return
+	if para == 1:
+		_extraccion_concedida(id, ok)
+	else:
+		_extraccion_concedida.rpc_id(para, id, ok)
+
+
+# Corre en QUIEN PIDIO extraer: si se la han dado, se abre el minijuego sobre SU cuerpo espejado.
+@rpc("any_peer", "call_remote", "reliable")
+func _extraccion_concedida(id: int, ok: bool) -> void:
+	if not ok:
+		_toast("Ese cuerpo lo está trabajando tu compañero.")
+		return
+	var n = _enem_nodos.get(id)
+	if n != null and is_instance_valid(n):
+		# La marca ANTES de reentrar, o start_extraction volveria a pedir permiso en bucle.
+		n.set_meta("permiso_extraccion", true)
+		Game.start_extraction(n)
+
+
+# La llama Game al TERMINAR de extraer: el cuerpo de verdad se desvanece en la maquina del dueño
+# (y su _exit_tree despawnea los espejos de todos). Suelta tambien el candado.
+func notificar_extraido(id: int) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	if _soy_dueno:
+		_consumir_cadaver(id)
+	else:
+		_pedir_consumir.rpc_id(1, id, _mi_lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_consumir(id: int, lugar: String) -> void:
+	if not es_host:
+		return
+	if _mi_lugar == lugar and _soy_dueno:
+		_consumir_cadaver(id)
+		return
+	var dueno: int = _dueno_de(lugar)
+	if dueno != 0 and dueno != 1:
+		_rel_consumir.rpc_id(dueno, id, lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_consumir(id: int, lugar: String) -> void:
+	if _mi_lugar != lugar or not _soy_dueno:
+		return
+	_consumir_cadaver(id)
+
+
+func _consumir_cadaver(id: int) -> void:
+	_enem_ocupados.erase(id)
+	var e: Dictionary = _enemigos.get(id, {})
+	var nodo = e.get("nodo") if not e.is_empty() else null
+	if nodo != null and is_instance_valid(nodo):
+		nodo.extracted = true
+		if nodo.has_method("desvanecer"):
+			nodo.desvanecer()   # al liberarse, _exit_tree -> baja_enemigo quita los espejos
+
+
+# Quien simula ese lugar (0 = nadie). Solo el host lo sabe.
 func _dueno_de(lugar: String) -> int:
 	if not lugar.begins_with("piso:"):
 		return 0
