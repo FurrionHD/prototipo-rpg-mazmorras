@@ -41,6 +41,11 @@ var _mi_lugar := "pueblo"          # donde estoy YO: "pueblo" o "piso:N"
 # NUNCA se escribe en Game.semilla_mundo del cliente: esa es de SU save.
 var semilla_host: int = 0
 
+# El surtido de la tienda manda el MUNDO DEL HOST: si el tiene la T2 abierta (Rey Slime muerto),
+# ambos la ven. Llega en el handshake; no cambia en sesion (los enemigos estan apagados en multi,
+# asi que el host no mata bosses mientras jugais).
+var tienda_t2_host: bool = false
+
 # --- EXPEDICION compartida (hito 3b; el host es la autoridad) ---
 # El PRIMERO que entra la abre; el ULTIMO que sale la cierra (y se olvida, como en solitario).
 # Mientras quede alguien dentro, la mazmorra vive: puedes salir a vender y volver.
@@ -69,6 +74,15 @@ var _next_id: int = 1              # contador de ids del host
 
 # El panel de conexion se suscribe para pintar "Conectado / Rechazado / Host caido...".
 signal estado_cambiado(texto: String)
+
+# Se emite cuando cambia CUALQUIER estado compartido del hogar (bote, cofre, baul de materiales):
+# los menus del pueblo abiertos se re-dibujan al oirlo (hoy la UI solo se refresca por accion
+# propia; en multi el OTRO puede cambiar el estado y hay que enterarse).
+signal hogar_cambiado()
+
+# --- BOTE de dinero del hogar (hito 4): dinero COMPARTIDO donde depositar para que el otro saque.
+# El dinero de bolsillo (Game.money) sigue siendo personal; esto es un bote aparte, host-autoritativo.
+var bote_dinero: int = 0
 
 
 func _ready() -> void:
@@ -144,6 +158,8 @@ func desconectar() -> void:
 	expedicion_abierta = false
 	piso_actual = 1
 	semilla_host = 0
+	tienda_t2_host = false
+	bote_dinero = 0
 	_mi_lugar = "pueblo"
 	_num_humanos = 1
 	if multiplayer.multiplayer_peer != null:
@@ -555,6 +571,90 @@ func _liberar_vetas_de(quien: int) -> void:
 			_vetas_ocupadas.erase(c)
 
 
+# --- BOTE de dinero del hogar (hito 4) -------------------------------------------------------
+#
+# El dinero de bolsillo es de cada uno; el BOTE es un fondo comun. Depositar: el que deposita
+# YA descuenta su money (local) y avisa al host de que sume al bote. Retirar: el host valida que
+# hay tanto en el bote, lo resta, y le dice al que pide que ingrese esa cantidad. Host-autoritativo.
+
+# La UI llama a estas dos. Devuelven false si la operacion local no procede (no tienes tanto).
+func depositar_bote(n: int) -> bool:
+	if n <= 0 or not activo:
+		return false
+	if not Game.gastar(n):   # el dinero sale de MI bolsillo ya
+		return false
+	if es_host:
+		bote_dinero += n
+		_difundir_bote()
+	else:
+		_pedir_depositar.rpc_id(1, n)
+	return true
+
+
+func retirar_bote(n: int) -> void:
+	if n <= 0 or not activo:
+		return
+	if es_host:
+		_resolver_retiro(n, 1)
+	else:
+		_pedir_retirar.rpc_id(1, n)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_depositar(n: int) -> void:
+	if not es_host or n <= 0:
+		return
+	bote_dinero += n
+	_difundir_bote()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_retirar(n: int) -> void:
+	if not es_host:
+		return
+	_resolver_retiro(n, multiplayer.get_remote_sender_id())
+
+
+# Solo host: hay tanto en el bote? -> se lo lleva quien lo pide; si no, aviso.
+func _resolver_retiro(n: int, quien: int) -> void:
+	if n <= 0 or bote_dinero < n:
+		if quien == 1:
+			_retiro_fallido()
+		else:
+			_retiro_fallido.rpc_id(quien)
+		return
+	bote_dinero -= n
+	_difundir_bote()
+	if quien == 1:
+		Game.ingresar(n)
+	else:
+		_retiro_ok.rpc_id(quien, n)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _retiro_ok(n: int) -> void:
+	Game.ingresar(n)   # el dinero entra en MI bolsillo
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _retiro_fallido() -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast("No hay tanto en el bote del hogar.")
+
+
+# Solo host: difunde el bote nuevo a todos (y a si mismo) para refrescar mirror + UI.
+func _difundir_bote() -> void:
+	_set_bote.rpc(bote_dinero)
+	hogar_cambiado.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _set_bote(v: int) -> void:
+	bote_dinero = v
+	hogar_cambiado.emit()
+
+
 # --- OBJETOS DEL SUELO (hito 2): soltar y recoger con autoridad del host --------------------
 
 # Item -> dict de red. Lo minimo para reconstruirlo en la otra maquina: el MaterialData es un
@@ -706,7 +806,7 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 	_registrar_peer(quien, color, metal, nombre, lugar)
 	estado_cambiado.emit("%s se ha unido." % nombre)
 	_presentarse.rpc_id(quien, Game.player_color, Game.player_metalico, Game.player_nombre,
-		_mi_lugar, Game.semilla_mundo)
+		_mi_lugar, Game.semilla_mundo, Game.tienda_t2_abierta())
 	# Y ponerle al dia el SUELO de su lugar: lo que ya estaba soltado antes de que entrara.
 	for id in _suelo:
 		if _suelo[id]["lugar"] == lugar:
@@ -715,9 +815,11 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.
 @rpc("any_peer", "call_remote", "reliable")
-func _presentarse(color: Color, metal: float, nombre: String, lugar: String, semilla: int) -> void:
+func _presentarse(color: Color, metal: float, nombre: String, lugar: String, semilla: int,
+		t2: bool) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	semilla_host = semilla
+	tienda_t2_host = t2
 	_registrar_peer(quien, color, metal, nombre, lugar)
 	estado_cambiado.emit("Conectado con %s." % nombre)
 

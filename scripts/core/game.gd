@@ -3365,6 +3365,10 @@ const T2_PRECIO_MULT := 3.3
 const PISO_TIENDA_T2 := 6
 
 func tienda_t2_abierta() -> bool:
+	# MULTIJUGADOR: el surtido lo manda el mundo del HOST. Un cliente usa el flag que le llego en
+	# el handshake; el host (y el modo un jugador) miran su propio progreso.
+	if Net.activo and not Net.es_host:
+		return Net.tienda_t2_host
 	return boss_derrotado(PISO_TIENDA_T2)
 
 # Precio de compra de una plantilla al TIER en el que la vende ese mostrador.

@@ -14,7 +14,9 @@
 
 extends CanvasLayer
 
+# Pestañas base (siempre) + las de sesion multi (bote y cofre compartidos), que solo salen con Net.
 const TABS := ["Equipo", "Almacén"]
+const TABS_MULTI := ["Bote", "Cofre"]
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
@@ -26,9 +28,11 @@ var _content: VBoxContainer = null
 var _lista: VBoxContainer = null
 var _aviso_lbl: Label = null
 var _tab_buttons: Array = []
+var _side: VBoxContainer = null
 var _aviso: String = ""
 var _aviso_ok: bool = true
 var _tab: int = 0
+var _cofre_sub: int = 0   # 0 = Armas, 1 = Armaduras (submenus del cofre)
 
 
 func _ready() -> void:
@@ -44,14 +48,35 @@ func _ready() -> void:
 	_content = m["content"]
 	_lista = m["lista"]
 	_aviso_lbl = m["aviso"]
+	_side = m["side"]
+	# Las pestañas se rehacen en cada _rebuild: en sesion multi aparecen Bote y Cofre.
+	if Net.has_signal("hogar_cambiado"):
+		Net.hogar_cambiado.connect(_on_hogar_cambiado)
 
-	for i in TABS.size():
+
+# El OTRO jugador cambio el estado compartido: si tengo el hogar abierto, me re-dibujo.
+func _on_hogar_cambiado() -> void:
+	if _root != null and _root.visible:
+		_rebuild()
+
+
+func _tabs() -> Array:
+	return TABS + (TABS_MULTI if Net.activo else [])
+
+
+func _rehacer_tabs() -> void:
+	for b in _tab_buttons:
+		(b as Button).queue_free()
+	_tab_buttons.clear()
+	var etiquetas: Array = _tabs()
+	_tab = clampi(_tab, 0, etiquetas.size() - 1)
+	for i in etiquetas.size():
 		var b := Button.new()
-		b.text = TABS[i]
+		b.text = etiquetas[i]
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(0, 34)
 		b.pressed.connect(_on_tab.bind(i))
-		(m["side"] as VBoxContainer).add_child(b)
+		_side.add_child(b)
 		_tab_buttons.append(b)
 
 
@@ -86,6 +111,7 @@ func _on_tab(i: int) -> void:
 
 
 func _rebuild() -> void:
+	_rehacer_tabs()
 	for zona in [_header, _content, _lista]:
 		for c in zona.get_children():
 			c.queue_free()
@@ -93,9 +119,11 @@ func _rebuild() -> void:
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 
-	match _tab:
-		0: _build_equipo()
-		1: _build_almacen()
+	match _tabs()[_tab]:
+		"Equipo": _build_equipo()
+		"Almacén": _build_almacen()
+		"Bote": _build_bote()
+		"Cofre": _build_cofre()
 
 
 # ============================================================
@@ -294,3 +322,51 @@ func _build_almacen() -> void:
 		_aviso_ok = true
 		_rebuild())
 	_content.add_child(b)
+
+
+# ============================================================
+#  BOTE del hogar (multi): dinero comun. Tu dinero de bolsillo sigue siendo tuyo.
+# ============================================================
+
+func _build_bote() -> void:
+	MenuScaffold.titulo(_header, "BOTE DEL HOGAR", 18)
+	MenuScaffold.fila(_content, "En el bote (común)", "%d monedas" % Net.bote_dinero)
+	MenuScaffold.fila(_content, "En tu bolsillo", "%d monedas" % Game.money)
+	MenuScaffold.nota(_content, "Un fondo común: deposita para que tu compañero pueda cogerlo. Tu "
+		+ "dinero de bolsillo es tuyo; esto es aparte.")
+
+	for cant in [10, 100, 1000]:
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 6)
+		_content.add_child(fila)
+		var lbl := Label.new()
+		lbl.text = "%d monedas" % cant
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fila.add_child(lbl)
+		var dep := Button.new()
+		dep.text = "Depositar"
+		dep.disabled = Game.money < cant
+		dep.pressed.connect(func():
+			if Net.depositar_bote(cant):
+				_aviso = "Depositas %d en el bote." % cant
+				_aviso_ok = true
+			_rebuild())
+		fila.add_child(dep)
+		var ret := Button.new()
+		ret.text = "Retirar"
+		ret.disabled = Net.bote_dinero < cant
+		ret.pressed.connect(func():
+			Net.retirar_bote(cant)
+			_aviso = "Retiras %d del bote." % cant
+			_aviso_ok = true
+			_rebuild())
+		fila.add_child(ret)
+
+
+# ============================================================
+#  COFRE del hogar (multi): armas y armaduras para traspasar. Ver paso 3.
+# ============================================================
+
+func _build_cofre() -> void:
+	MenuScaffold.titulo(_header, "COFRE COMPARTIDO", 18)
+	MenuScaffold.nota(_content, "Próximamente: mete un arma o armadura para que tu compañero la saque.")
