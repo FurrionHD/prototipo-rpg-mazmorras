@@ -2801,11 +2801,14 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# La esquiva de armadura BAJA el evasion_penal (negativo = bonus de esquiva).
 	c.evasion_penal = float(m["evasion_penal"]) - float(am["evasion_bonus"])
 	# Magia del equipo (KAN-95): amplificador, regen extra, eficiencia y velocidad de
-	# casteo (la armadura frena también el casteo, como el ataque).
+	# casteo. La armadura NO frena el RECITADO (a diferencia del ataque): recitas al mismo ritmo
+	# lleves lo que lleves puesto, como si fueras sin armadura. Solo el arma mágica (varita/bastón)
+	# cambia la velocidad de casteo, vía m["cast_velocidad_mult"]. Ojo: la penalización de armadura
+	# (am["velocidad_mult"]) SIGUE aplicando al ataque normal (c.velocidad_mult, arriba).
 	c.magic_amp = float(m["magic_amp"])
 	c.mp_regen_turno = float(m["mp_regen_turno"])
 	c.mana_reduccion = float(m["mana_reduccion"])
-	c.cast_velocidad_mult = float(m["cast_velocidad_mult"]) * float(am["velocidad_mult"])
+	c.cast_velocidad_mult = float(m["cast_velocidad_mult"])
 
 	# PERKS de combate (habilidades de desarrollo). Van los ULTIMOS, encima de lo que dan el equipo
 	# y la armadura: son tuyos, no del loadout, asi que no dependen de lo que lleves puesto. Se leen
