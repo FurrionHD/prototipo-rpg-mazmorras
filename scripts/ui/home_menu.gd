@@ -33,6 +33,7 @@ var _aviso: String = ""
 var _aviso_ok: bool = true
 var _tab: int = 0
 var _cofre_sub: int = 0   # 0 = Armas, 1 = Armaduras (submenus del cofre)
+var _bote_input: String = ""   # cantidad escrita en el bote (se conserva entre re-dibujos)
 
 
 func _ready() -> void:
@@ -352,32 +353,53 @@ func _build_bote() -> void:
 	MenuScaffold.nota(_content, "Un fondo común: deposita para que tu compañero pueda cogerlo. Tu "
 		+ "dinero de bolsillo es tuyo; esto es aparte.")
 
-	for cant in [10, 100, 1000]:
-		var fila := HBoxContainer.new()
-		fila.add_theme_constant_override("separation", 6)
-		_content.add_child(fila)
-		var lbl := Label.new()
-		lbl.text = "%d monedas" % cant
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		fila.add_child(lbl)
-		var dep := Button.new()
-		dep.text = "Depositar"
-		dep.disabled = Game.money < cant
-		dep.pressed.connect(func():
-			if Net.depositar_bote(cant):
-				_aviso = "Depositas %d en el bote." % cant
-				_aviso_ok = true
-			_rebuild())
-		fila.add_child(dep)
-		var ret := Button.new()
-		ret.text = "Retirar"
-		ret.disabled = Net.bote_dinero < cant
-		ret.pressed.connect(func():
-			Net.retirar_bote(cant)
-			_aviso = "Retiras %d del bote." % cant
-			_aviso_ok = true
-			_rebuild())
-		fila.add_child(ret)
+	# Cantidad escrita a mano; los dos botones siempre disponibles.
+	var caja := HBoxContainer.new()
+	caja.add_theme_constant_override("separation", 6)
+	_content.add_child(caja)
+
+	var etq := Label.new()
+	etq.text = "Cantidad:"
+	caja.add_child(etq)
+
+	var le := LineEdit.new()
+	le.text = _bote_input
+	le.placeholder_text = "0"
+	le.custom_minimum_size = Vector2(120, 0)
+	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	le.text_changed.connect(func(t: String): _bote_input = t)   # se conserva al re-dibujar
+	caja.add_child(le)
+
+	var dep := Button.new()
+	dep.text = "Depositar"
+	dep.pressed.connect(func():
+		var n: int = _cantidad_bote()
+		if n <= 0:
+			_aviso = "Escribe una cantidad."; _aviso_ok = false
+		elif Net.depositar_bote(n):
+			_aviso = "Depositas %d en el bote." % n; _aviso_ok = true
+		else:
+			_aviso = "No tienes tanto en el bolsillo."; _aviso_ok = false
+		_rebuild())
+	caja.add_child(dep)
+
+	var ret := Button.new()
+	ret.text = "Retirar"
+	ret.pressed.connect(func():
+		var n: int = _cantidad_bote()
+		if n <= 0:
+			_aviso = "Escribe una cantidad."; _aviso_ok = false
+		else:
+			Net.retirar_bote(n)   # el host valida que hay tanto (si no, avisa por toast)
+			_aviso = "Pides retirar %d del bote." % n; _aviso_ok = true
+		_rebuild())
+	caja.add_child(ret)
+
+
+# Lee la cantidad escrita como entero (0 si no es un numero valido).
+func _cantidad_bote() -> int:
+	var t: String = _bote_input.strip_edges()
+	return int(t) if t.is_valid_int() else 0
 
 
 # ============================================================
@@ -386,19 +408,24 @@ func _build_bote() -> void:
 
 func _build_cofre() -> void:
 	MenuScaffold.titulo(_header, "COFRE COMPARTIDO", 18)
-	# Dos submenus: Armas (armas + mochilas) y Armaduras.
+	# Tres submenus: Armas (armas + mochilas), Armaduras y Consumibles (pociones/grimorios).
+	const SUBS := ["Armas", "Armaduras", "Consumibles"]
 	var sub := HBoxContainer.new()
 	sub.add_theme_constant_override("separation", 8)
 	_header.add_child(sub)
-	for i in ["Armas", "Armaduras"].size():
+	for i in SUBS.size():
 		var b := Button.new()
-		b.text = ["Armas", "Armaduras"][i]
+		b.text = SUBS[i]
 		b.toggle_mode = true
 		b.button_pressed = (_cofre_sub == i)
 		b.pressed.connect(func():
 			_cofre_sub = i
 			_rebuild())
 		sub.add_child(b)
+
+	if _cofre_sub == 2:
+		_build_cofre_consumibles()
+		return
 
 	var es_armas: bool = _cofre_sub == 0
 
@@ -461,3 +488,58 @@ func _build_cofre() -> void:
 		fila.add_child(sacar)
 	if not hay:
 		MenuScaffold.nota(_content, "El cofre está vacío para este tipo.")
+
+
+# Submenu de Consumibles del cofre: pociones y grimorios (stackean). Depositar/sacar de 1 en 1.
+func _build_cofre_consumibles() -> void:
+	MenuScaffold.titulo(_lista, "Tuyos (para depositar)", 14)
+	var alguno := false
+	for c in Game.consumables:
+		var cant: int = int(Game.consumables[c])
+		if cant <= 0:
+			continue
+		alguno = true
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 6)
+		_lista.add_child(fila)
+		var l := Label.new()
+		l.text = "%s  x%d" % [str(c.get("nombre")), cant]
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fila.add_child(l)
+		var ruta: String = c.resource_path
+		var meter := Button.new()
+		meter.text = "Al cofre"
+		meter.pressed.connect(func():
+			Net.meter_consumible_cofre(ruta, 1)
+			_aviso = "Guardas 1 en el cofre."
+			_aviso_ok = true
+			_rebuild())
+		fila.add_child(meter)
+	if not alguno:
+		MenuScaffold.nota(_lista, "No llevas pociones ni grimorios.")
+
+	MenuScaffold.titulo(_content, "En el cofre", 14)
+	var hay := false
+	for ruta in Net.cofre_consumibles:
+		var cant: int = int(Net.cofre_consumibles[ruta])
+		if cant <= 0:
+			continue
+		hay = true
+		var c: Resource = load(ruta)
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 6)
+		_content.add_child(fila)
+		var l := Label.new()
+		l.text = "%s  x%d" % [str(c.get("nombre")) if c != null else ruta, cant]
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fila.add_child(l)
+		var sacar := Button.new()
+		sacar.text = "Sacar"
+		sacar.pressed.connect(func():
+			Net.sacar_consumible_cofre(ruta, 1)
+			_aviso = "Sacas 1 del cofre."
+			_aviso_ok = true
+			_rebuild())
+		fila.add_child(sacar)
+	if not hay:
+		MenuScaffold.nota(_content, "No hay consumibles en el cofre.")

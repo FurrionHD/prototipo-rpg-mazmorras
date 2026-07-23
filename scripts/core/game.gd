@@ -2399,6 +2399,20 @@ func add_consumable(c: ConsumableData, n: int = 1) -> void:
 		return
 	consumables[c] = int(consumables.get(c, 0)) + n
 
+# Quita hasta n unidades de un consumible; devuelve cuantas quito de verdad (para el cofre multi).
+func quitar_consumible(c: Resource, n: int) -> int:
+	if c == null:
+		return 0
+	var tengo: int = int(consumables.get(c, 0))
+	var quita: int = mini(tengo, maxi(0, n))
+	if quita <= 0:
+		return 0
+	if tengo - quita <= 0:
+		consumables.erase(c)
+	else:
+		consumables[c] = tengo - quita
+	return quita
+
 # Total de pociones en el inventario (para el contador del HUD).
 func consumibles_total() -> int:
 	var t: int = 0

@@ -88,6 +88,8 @@ var bote_dinero: int = 0
 # Cada entrada: {id, dict serializado (Game.serializar_equipo), clase, desc}. Clientes tienen mirror.
 var cofre_equipo: Array = []
 var _next_cofre_id: int = 1
+# Consumibles del cofre (pociones y grimorios): ruta -> cantidad. Stackean, por eso dict y no lista.
+var cofre_consumibles: Dictionary = {}
 
 # --- BAUL de materiales COMPARTIDO (hito 4): con CANDADO de taller (uno craftea a la vez) ---
 # El baul "de verdad" es el del host (Game.almacen_materiales). Los clientes tienen un MIRROR
@@ -175,6 +177,7 @@ func desconectar() -> void:
 	tienda_t2_host = false
 	bote_dinero = 0
 	cofre_equipo = []
+	cofre_consumibles = {}
 	_next_cofre_id = 1
 	_taller_dueno = 0
 	_taller_resp = 0
@@ -762,6 +765,79 @@ func _set_cofre(lista: Array) -> void:
 	hogar_cambiado.emit()
 
 
+# --- COFRE de CONSUMIBLES (pociones/grimorios): stackeable, ruta -> cantidad -----------------
+
+func meter_consumible_cofre(ruta: String, n: int) -> void:
+	if not activo:
+		return
+	var quita: int = Game.quitar_consumible(load(ruta), n)   # sale de MI inventario
+	if quita <= 0:
+		return
+	if es_host:
+		_apuntar_consumible(ruta, quita)
+	else:
+		_pedir_meter_consumible.rpc_id(1, ruta, quita)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_meter_consumible(ruta: String, n: int) -> void:
+	if es_host:
+		_apuntar_consumible(ruta, n)
+
+
+func _apuntar_consumible(ruta: String, n: int) -> void:
+	cofre_consumibles[ruta] = int(cofre_consumibles.get(ruta, 0)) + n
+	_difundir_cofre_consumibles()
+
+
+func sacar_consumible_cofre(ruta: String, n: int) -> void:
+	if not activo:
+		return
+	if es_host:
+		_resolver_saca_consumible(ruta, n, 1)
+	else:
+		_pedir_sacar_consumible.rpc_id(1, ruta, n)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_sacar_consumible(ruta: String, n: int) -> void:
+	if es_host:
+		_resolver_saca_consumible(ruta, n, multiplayer.get_remote_sender_id())
+
+
+func _resolver_saca_consumible(ruta: String, n: int, quien: int) -> void:
+	var hay: int = int(cofre_consumibles.get(ruta, 0))
+	var da: int = mini(hay, maxi(0, n))
+	if da <= 0:
+		return
+	if hay - da <= 0:
+		cofre_consumibles.erase(ruta)
+	else:
+		cofre_consumibles[ruta] = hay - da
+	_difundir_cofre_consumibles()
+	if quien == 1:
+		Game.add_consumable(load(ruta), da)
+	else:
+		_consumible_concedido.rpc_id(quien, ruta, da)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _consumible_concedido(ruta: String, n: int) -> void:
+	Game.add_consumable(load(ruta), n)
+	hogar_cambiado.emit()
+
+
+func _difundir_cofre_consumibles() -> void:
+	_set_cofre_consumibles.rpc(cofre_consumibles)
+	hogar_cambiado.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _set_cofre_consumibles(d: Dictionary) -> void:
+	cofre_consumibles = d
+	hogar_cambiado.emit()
+
+
 # --- BAUL de materiales compartido + candado del taller (hito 4) ------------------------------
 
 func _almacen_dicts() -> Array:
@@ -1030,6 +1106,7 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 	_set_almacen.rpc_id(quien, _almacen_dicts())
 	_set_bote.rpc_id(quien, bote_dinero)
 	_set_cofre.rpc_id(quien, cofre_equipo)
+	_set_cofre_consumibles.rpc_id(quien, cofre_consumibles)
 
 
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.
