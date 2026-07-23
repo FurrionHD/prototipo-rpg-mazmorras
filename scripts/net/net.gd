@@ -84,6 +84,11 @@ signal hogar_cambiado()
 # El dinero de bolsillo (Game.money) sigue siendo personal; esto es un bote aparte, host-autoritativo.
 var bote_dinero: int = 0
 
+# --- COFRE de armas/armaduras (hito 4): equipo COMPARTIDO para traspasar. Host-autoritativo.
+# Cada entrada: {id, dict serializado (Game.serializar_equipo), clase, desc}. Clientes tienen mirror.
+var cofre_equipo: Array = []
+var _next_cofre_id: int = 1
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # la red sigue sondeando aunque un menu pause mi arbol
@@ -160,6 +165,8 @@ func desconectar() -> void:
 	semilla_host = 0
 	tienda_t2_host = false
 	bote_dinero = 0
+	cofre_equipo = []
+	_next_cofre_id = 1
 	_mi_lugar = "pueblo"
 	_num_humanos = 1
 	if multiplayer.multiplayer_peer != null:
@@ -652,6 +659,95 @@ func _difundir_bote() -> void:
 @rpc("authority", "call_remote", "reliable")
 func _set_bote(v: int) -> void:
 	bote_dinero = v
+	hogar_cambiado.emit()
+
+
+# --- COFRE de armas/armaduras (hito 4) -------------------------------------------------------
+#
+# Meter: el que deposita saca la pieza de SU baul (local) y manda su serializacion; el host la
+# apunta en el cofre. Sacar: el host la quita del cofre y se la manda al que la pide, que la
+# reconstruye en su baul. Host-autoritativo: el cofre "de verdad" es el del host, los demas lo
+# reflejan.
+
+# La UI llama a esta con una pieza de owned_* NO equipada. false si no se puede serializar/sacar.
+func meter_en_cofre(item: Resource) -> bool:
+	if not activo:
+		return false
+	var d: Dictionary = Game.serializar_equipo(item)
+	if d.is_empty():
+		return false
+	if not Game.sacar_de_baul(item):   # se va de MI baul ya
+		return false
+	if es_host:
+		_apuntar_en_cofre(d)
+	else:
+		_pedir_meter_cofre.rpc_id(1, d)
+	return true
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_meter_cofre(d: Dictionary) -> void:
+	if not es_host:
+		return
+	_apuntar_en_cofre(d)
+
+
+func _apuntar_en_cofre(d: Dictionary) -> void:
+	cofre_equipo.append({"id": _next_cofre_id, "dict": d,
+		"clase": str(d.get("clase", "arma")), "desc": str(d.get("desc", "?"))})
+	_next_cofre_id += 1
+	_difundir_cofre()
+
+
+# La UI llama a esta con el id de una entrada del cofre. El host la concede al que la pide.
+func sacar_de_cofre(id: int) -> void:
+	if not activo:
+		return
+	if es_host:
+		_resolver_saca_cofre(id, 1)
+	else:
+		_pedir_sacar_cofre.rpc_id(1, id)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_sacar_cofre(id: int) -> void:
+	if not es_host:
+		return
+	_resolver_saca_cofre(id, multiplayer.get_remote_sender_id())
+
+
+# Solo host: el primero que la pide se la lleva; el resto, silencio (ya no esta).
+func _resolver_saca_cofre(id: int, quien: int) -> void:
+	var idx := -1
+	for i in cofre_equipo.size():
+		if int(cofre_equipo[i]["id"]) == id:
+			idx = i
+			break
+	if idx < 0:
+		return
+	var d: Dictionary = cofre_equipo[idx]["dict"]
+	cofre_equipo.remove_at(idx)
+	_difundir_cofre()
+	if quien == 1:
+		Game.deserializar_equipo(d)
+	else:
+		_cofre_concedido.rpc_id(quien, d)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _cofre_concedido(d: Dictionary) -> void:
+	Game.deserializar_equipo(d)   # se reconstruye en MI baul
+	hogar_cambiado.emit()
+
+
+func _difundir_cofre() -> void:
+	_set_cofre.rpc(cofre_equipo)
+	hogar_cambiado.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _set_cofre(lista: Array) -> void:
+	cofre_equipo = lista
 	hogar_cambiado.emit()
 
 

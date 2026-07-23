@@ -3269,6 +3269,9 @@ func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary) -> 
 		"tier": maxi(1, tier),
 		"rareza": clampi(rareza, 0, Upgrades.RAREZA_SLOTS.size() - 1),
 		"mejoras": mejoras.duplicate(),
+		# Ruta de la PLANTILLA base. La copia duplicada pierde su resource_path, asi que sin esto
+		# no habria forma de reconstruir la pieza en otra maquina (cofre compartido, multi).
+		"ruta_base": str(base.resource_path),
 	}
 	if copia is ArmorData:
 		add_owned_armor(copia as ArmorData)
@@ -3278,6 +3281,67 @@ func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary) -> 
 	else:
 		add_owned_weapon(copia)
 	return copia
+
+
+# --- COFRE COMPARTIDO (multi): serializar una pieza para mandarla por red y reconstruirla ---
+# No basta la ruta: la identidad de gameplay (tier/rareza/mejoras/durabilidad/capacidad) vive en
+# item_meta por instancia. Se empaqueta todo. {} si la pieza no tiene ruta_base (forjada antes de
+# guardar la ruta): esas no se pueden compartir.
+func serializar_equipo(item: Resource) -> Dictionary:
+	if item == null:
+		return {}
+	var m: Dictionary = meta_de(item)
+	var ruta: String = str(m.get("ruta_base", ""))
+	if ruta == "":
+		return {}
+	var clase: String = "armadura" if item is ArmorData else ("mochila" if item is BackpackData else "arma")
+	var cap: int = int(item.get("capacidad")) if item is BackpackData else 0
+	return {
+		"ruta": ruta,
+		"tier": int(m.get("tier", 1)),
+		"rareza": int(m.get("rareza", 0)),
+		"mejoras": (m.get("mejoras", {}) as Dictionary).duplicate(),
+		"durabilidad": float(m.get("durabilidad", 1.0)),
+		"capacidad": cap,
+		"clase": clase,
+		"desc": item_display_name(item),
+	}
+
+
+# Reconstruye una pieza serializada EN MI baul (owned_*), con su meta. null si la ruta ya no vale.
+func deserializar_equipo(d: Dictionary) -> Resource:
+	var base: Resource = load(str(d.get("ruta", "")))
+	if base == null:
+		return null
+	var item: Resource = crear_item(base, int(d.get("tier", 1)), int(d.get("rareza", 0)),
+		d.get("mejoras", {}))
+	if item == null:
+		return null
+	meta_de(item)["durabilidad"] = float(d.get("durabilidad", 1.0))
+	if item is BackpackData and int(d.get("capacidad", 0)) > 0:
+		item.set("capacidad", int(d["capacidad"]))
+	return item
+
+
+# Saca una pieza de MI baul (owned_*) y olvida su meta. La usa el cofre al depositar. false si la
+# lleva alguien puesta (no se deposita equipo en uso).
+func sacar_de_baul(item: Resource) -> bool:
+	if item == null or quien_lleva(item) != null:
+		return false
+	# OJO: Array.erase() devuelve void en GDScript; se comprueba la pertenencia ANTES.
+	var fuera := false
+	if item is ArmorData:
+		fuera = owned_armor.has(item)
+		owned_armor.erase(item)
+	elif item is BackpackData:
+		fuera = owned_mochilas.has(item)
+		owned_mochilas.erase(item)
+	else:
+		fuera = owned_weapons.has(item)
+		owned_weapons.erase(item)
+	if fuera:
+		item_meta.erase(item)
+	return fuera
 
 
 # Nombre para mostrar: "Espada corta +3  ·  T2 Epico". Como ahora puedes tener

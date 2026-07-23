@@ -369,4 +369,78 @@ func _build_bote() -> void:
 
 func _build_cofre() -> void:
 	MenuScaffold.titulo(_header, "COFRE COMPARTIDO", 18)
-	MenuScaffold.nota(_content, "Próximamente: mete un arma o armadura para que tu compañero la saque.")
+	# Dos submenus: Armas (armas + mochilas) y Armaduras.
+	var sub := HBoxContainer.new()
+	sub.add_theme_constant_override("separation", 8)
+	_header.add_child(sub)
+	for i in ["Armas", "Armaduras"].size():
+		var b := Button.new()
+		b.text = ["Armas", "Armaduras"][i]
+		b.toggle_mode = true
+		b.button_pressed = (_cofre_sub == i)
+		b.pressed.connect(func():
+			_cofre_sub = i
+			_rebuild())
+		sub.add_child(b)
+
+	var es_armas: bool = _cofre_sub == 0
+
+	# TUYAS (baul propio, sin equipar): se pueden depositar.
+	MenuScaffold.titulo(_lista, "Tuyas (para depositar)", 14)
+	var mias: Array = []
+	if es_armas:
+		mias = Game.owned_weapons + Game.owned_mochilas
+	else:
+		mias = Game.owned_armor
+	var alguna := false
+	for item in mias:
+		if Game.quien_lleva(item) != null:
+			continue   # equipada: no se deposita
+		alguna = true
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 6)
+		_lista.add_child(fila)
+		var l := Label.new()
+		l.text = Game.item_display_name(item)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fila.add_child(l)
+		var meter := Button.new()
+		meter.text = "Al cofre"
+		meter.pressed.connect(func():
+			if Net.meter_en_cofre(item):
+				_aviso = "Guardas %s en el cofre." % Game.item_display_name(item)
+				_aviso_ok = true
+			else:
+				_aviso = "Esa pieza no se puede compartir (o la llevas puesta)."
+				_aviso_ok = false
+			_rebuild())
+		fila.add_child(meter)
+	if not alguna:
+		MenuScaffold.nota(_lista, "No tienes piezas sueltas de este tipo para depositar.")
+
+	# EN EL COFRE (compartido): se pueden sacar.
+	MenuScaffold.titulo(_content, "En el cofre", 14)
+	var clases: Array = ["arma", "mochila"] if es_armas else ["armadura"]
+	var hay := false
+	for entrada in Net.cofre_equipo:
+		if not clases.has(str(entrada.get("clase", ""))):
+			continue
+		hay = true
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 6)
+		_content.add_child(fila)
+		var l := Label.new()
+		l.text = str(entrada.get("desc", "?"))
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fila.add_child(l)
+		var sacar := Button.new()
+		sacar.text = "Sacar"
+		var id: int = int(entrada.get("id", 0))
+		sacar.pressed.connect(func():
+			Net.sacar_de_cofre(id)
+			_aviso = "Sacas la pieza del cofre."
+			_aviso_ok = true
+			_rebuild())
+		fila.add_child(sacar)
+	if not hay:
+		MenuScaffold.nota(_content, "El cofre está vacío para este tipo.")
