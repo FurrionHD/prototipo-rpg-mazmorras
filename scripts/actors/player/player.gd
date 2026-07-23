@@ -194,7 +194,8 @@ func _physics_process(delta: float) -> void:
 				_exhausted = false
 		_refrescar_barras()
 		if Net.activo:
-			Net.enviar_estado(global_position, _facing)   # que el otro te vea QUIETO, no congelado
+			# Que el otro te vea QUIETO, no congelado. Con tu sequito: sus cuerpos tambien viajan.
+			Net.enviar_estado(global_position, _facing, _sequito.posiciones_red())
 		return
 
 	var direction: Vector2 = Input.get_vector(
@@ -322,7 +323,7 @@ func _physics_process(delta: float) -> void:
 	# MULTIJUGADOR (hito 1): si hay sesion de red, difunde donde estoy para que el otro me vea
 	# moverme. En un jugador (Net.activo == false) esto no hace nada.
 	if Net.activo:
-		Net.enviar_estado(global_position, _facing)
+		Net.enviar_estado(global_position, _facing, _sequito.posiciones_red())
 
 
 # Aguante maximo segun la Resistencia y la Agilidad. Usa el TOTAL acumulado (oculto), NO el
@@ -424,7 +425,7 @@ func refrescar_lider() -> void:
 	# el que hasta ahora iba en cabeza, aqui mismo.
 	var previas: Dictionary = {}
 	if _sequito != null and _sequito.has_method("posiciones"):
-		previas = _sequito.posiciones()
+		previas = _sequito.posiciones_red()
 	if _pj_actual != null:
 		previas[_pj_actual] = global_position
 	# El cuerpo que mueves se va a donde estaba el elegido (la camara hace el viaje detras).
@@ -460,6 +461,9 @@ func refrescar_grupo() -> void:
 	_pintar_cuerpo()
 	if _sequito != null and _sequito.has_method("refrescar"):
 		_sequito.refrescar()
+	# MULTIJUGADOR: ha cambiado mi equipo, asi que los demas necesitan la cara nueva de mi sequito
+	# (su posicion ya viaja en cada tick, pero el aspecto solo cuando cambia).
+	Net.anunciar_grupo()
 	_rehacer_barras()
 	_refrescar_barras()
 	# La MOCHILA del HUD va detras de la ultima columna de barras: si el grupo crece o mengua,

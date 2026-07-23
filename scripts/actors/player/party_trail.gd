@@ -49,6 +49,18 @@ func _ready() -> void:
 	refrescar()
 
 
+# MULTIJUGADOR: donde esta cada uno de mis acompañantes, para que los demas los vean en su mundo
+# (Net.enviar_estado). En el mismo ORDEN que Game.companeros(), que es como los espera el receptor.
+# OJO: no confundir con posiciones() (mas abajo), que devuelve un Dictionary por PersonajeData y la
+# usa el cambio de lider.
+func posiciones_red() -> Array:
+	var out: Array = []
+	for c in _cuerpos:
+		if is_instance_valid(c):
+			out.append(c.global_position)
+	return out
+
+
 # Rehace los cuerpos para la gente que haya AHORA en el equipo. Lo llama el jugador cuando cambia
 # el lider o vuelves de un menu donde has podido tocar el equipo.
 func refrescar() -> void:

@@ -40,8 +40,12 @@ var _codigo := ""                  # codigo de sala que hay que casar para entra
 # _peers guarda los DATOS de cada peer (aspecto, lugar, ultima pos): sobrevive a cambios de
 # escena. _avatares guarda el NODO visual, que solo existe si el peer esta en MI MISMO LUGAR
 # ("pueblo" o "piso:N") y muere con la escena; se reconstruye desde _peers al viajar.
-var _peers: Dictionary = {}        # peer_id -> {"color","metal","nombre","lugar","pos"}
+var _peers: Dictionary = {}        # peer_id -> {"color","metal","nombre","lugar","pos","comps"}
 var _avatares: Dictionary = {}     # peer_id -> nodo RemotePlayer (solo peers de mi lugar)
+# Sus ACOMPAÑANTES (hito 5.4): peer_id -> Array de cuerpos. Reusan remote_player.gd, que ya es un
+# cuerpo del grupo "aliado": asi los bichos tambien pueden perseguirlos y saltarles encima, y la
+# pelea se le empuja a su dueño por la meta peer_id, igual que con el cuerpo del jugador.
+var _avatares_comp: Dictionary = {}
 var _mi_lugar := "pueblo"          # donde estoy YO: "pueblo" o "piso:N"
 
 # Semilla del mundo del HOST (solo la usa el cliente; en el host vale 0 = usa la suya).
@@ -228,6 +232,9 @@ func desconectar() -> void:
 		if is_instance_valid(a):
 			a.queue_free()
 	_avatares.clear()
+	for id in _avatares_comp.keys():
+		_quitar_companeros(id)
+	_avatares_comp.clear()
 	# Los NODOS de los drops se quedan en el mundo como pickups locales normales (con
 	# Net.activo=false el net_id deja de importar y F los coge por la rama de siempre). Solo se
 	# vacian los registros. En el pueblo nada persiste, asi que el riesgo de duplicado tras una
@@ -286,10 +293,10 @@ func desconectar() -> void:
 # --- POSICION (lo que hace que os veais moveros) --------------------------------------------
 
 # La llama el Player LOCAL cada tick de fisica si Net.activo. Difunde su posicion a los demas.
-func enviar_estado(pos: Vector2, facing: Vector2) -> void:
+func enviar_estado(pos: Vector2, facing: Vector2, comps: Array = []) -> void:
 	if not activo or multiplayer.multiplayer_peer == null:
 		return
-	_recibir_estado.rpc(pos, facing)
+	_recibir_estado.rpc(pos, facing, comps)
 
 
 # --- ¿QUIEN ESTA PELEANDO? (hito 5.3) --------------------------------------------------------
@@ -323,13 +330,91 @@ func jugadores_remotos_aqui() -> Array:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _recibir_estado(pos: Vector2, _facing: Vector2) -> void:
+func _recibir_estado(pos: Vector2, _facing: Vector2, comps: Array = []) -> void:
 	var emisor := multiplayer.get_remote_sender_id()
 	if _peers.has(emisor):
 		_peers[emisor]["pos"] = pos   # se recuerda: al reconstruir su avatar aparece donde iba
 	var a = _avatares.get(emisor)   # SIN tipar: puede ser una instancia ya liberada (ver nota abajo)
 	if a != null and is_instance_valid(a):
 		a.ir_a(pos)
+	# Y sus acompañantes. Si aun no tengo tantos cuerpos como manda, se crean sobre la marcha (su
+	# aspecto llega aparte, por _set_grupo).
+	if not comps.is_empty():
+		_mover_companeros(emisor, comps)
+
+
+# Coloca (y crea si hacen falta) los cuerpos de los acompañantes de un peer.
+func _mover_companeros(peer_id: int, posiciones: Array) -> void:
+	if not _peers.has(peer_id) or _peers[peer_id].get("lugar", "") != _mi_lugar:
+		return
+	var lista: Array = _avatares_comp.get(peer_id, [])
+	while lista.size() < posiciones.size():
+		var c = _crear_cuerpo_companero(peer_id, lista.size())
+		if c == null:
+			break
+		lista.append(c)
+	_avatares_comp[peer_id] = lista
+	for i in mini(lista.size(), posiciones.size()):
+		if is_instance_valid(lista[i]):
+			lista[i].ir_a(posiciones[i])
+
+
+# Un cuerpo de acompañante de otro jugador. Reusa remote_player.gd (ya es un cuerpo del grupo
+# "aliado" con su interpolacion), asi que los bichos pueden perseguirlo y saltarle encima; la meta
+# peer_id dice a quien mandarle la pelea.
+func _crear_cuerpo_companero(peer_id: int, idx: int):
+	var mundo: Node = get_tree().current_scene
+	if mundo == null:
+		return null
+	var c: Node2D = _REMOTE_PLAYER.new()
+	mundo.add_child(c)
+	c.set_meta("peer_id", peer_id)
+	var comps: Array = _peers[peer_id].get("comps", [])
+	if idx < comps.size():
+		var d: Dictionary = comps[idx]
+		c.aplicar_aspecto(d.get("color", Color.WHITE), float(d.get("metal", 0.0)),
+			String(d.get("nombre", "")))
+	return c
+
+
+# --- ASPECTO DE MI GRUPO (hito 5.4) ----------------------------------------------------------
+# El color/brillo/nombre de MIS acompañantes. Va aparte de la posicion (que viaja 60 veces por
+# segundo) porque solo cambia cuando cambia el equipo. Se difunde al conectar y al tocar el grupo.
+func anunciar_grupo() -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	var datos: Array = []
+	for pj in Game.companeros():
+		datos.append({"color": pj.color, "metal": pj.metalico, "nombre": pj.nombre})
+	_set_grupo.rpc(datos)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_grupo(datos: Array) -> void:
+	var emisor := multiplayer.get_remote_sender_id()
+	if not _peers.has(emisor):
+		return
+	_peers[emisor]["comps"] = datos
+	# Si tenia cuerpos de mas (se dejo gente en casa), fuera; y a los que quedan, su cara nueva.
+	var lista: Array = _avatares_comp.get(emisor, [])
+	while lista.size() > datos.size():
+		var sobra = lista.pop_back()
+		if is_instance_valid(sobra):
+			sobra.queue_free()
+	for i in mini(lista.size(), datos.size()):
+		if is_instance_valid(lista[i]):
+			var d: Dictionary = datos[i]
+			lista[i].aplicar_aspecto(d.get("color", Color.WHITE), float(d.get("metal", 0.0)),
+				String(d.get("nombre", "")))
+	_avatares_comp[emisor] = lista
+
+
+# Tira los cuerpos de los acompañantes de un peer (cambio de lugar, se fue, fin de sesion).
+func _quitar_companeros(peer_id: int) -> void:
+	for c in _avatares_comp.get(peer_id, []):
+		if is_instance_valid(c):
+			c.queue_free()
+	_avatares_comp.erase(peer_id)
 
 
 # --- LUGAR (hito 3b): "pueblo" o "piso:N" -----------------------------------------------------
@@ -358,6 +443,7 @@ func _cambiar_lugar(lugar: String) -> void:
 		if a != null and is_instance_valid(a):
 			a.queue_free()
 		_avatares.erase(emisor)
+		_quitar_companeros(emisor)   # su sequito se va con el
 
 
 # Tras viajar YO: la escena vieja murio (y con ella mis avatares/drops). Se espera a que la
@@ -370,6 +456,8 @@ func _reconstruir_vista() -> void:
 		if is_instance_valid(a):
 			a.queue_free()
 	_avatares.clear()
+	for id in _avatares_comp.keys():
+		_quitar_companeros(id)   # sus acompañantes murieron con la escena vieja tambien
 	for id in _peers:
 		if _peers[id]["lugar"] == _mi_lugar:
 			_crear_avatar_nodo(id)
@@ -2094,9 +2182,12 @@ func _rechazado() -> void:
 # Registra los DATOS de un peer y, si comparte mi lugar, le monta el nodo visual.
 func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, lugar: String) -> void:
 	_peers[peer_id] = {"color": color, "metal": metal, "nombre": nombre,
-		"lugar": lugar, "pos": Vector2.INF, "peleando": false}
+		"lugar": lugar, "pos": Vector2.INF, "peleando": false, "comps": []}
 	if lugar == _mi_lugar:
 		_crear_avatar_nodo(peer_id)
+	# Acabamos de conocernos: le digo como es MI sequito (el suyo me llegara igual). Sin esto, los
+	# acompañantes del que ya estaba saldrian sin cara hasta que tocara su equipo.
+	anunciar_grupo()
 	# El HOST recuenta y difunde el numero de humanos (los clientes reajustan al recibirlo).
 	if es_host:
 		_sync_humanos()
@@ -2129,6 +2220,7 @@ func _on_peer_disconnected(id: int) -> void:
 	if a != null and is_instance_valid(a):
 		a.queue_free()
 	_avatares.erase(id)
+	_quitar_companeros(id)
 	_peers.erase(id)
 	# Su marcha cuenta como salir de la mazmorra: libera sus vetas y, si era el ultimo
 	# dentro, la expedicion se cierra (solo decide el host).
