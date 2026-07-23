@@ -18,5 +18,6 @@ crit_bonus = -0.01
 bloqueo = 0.08
 dano_tipo = 1
 aturdir_base = 0.12
+energia_ataque = 35.0
 habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("4")]
 valor_base = 360
