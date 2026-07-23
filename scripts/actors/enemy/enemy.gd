@@ -127,6 +127,12 @@ var _embiste_dir: Vector2 = Vector2.ZERO
 var _embiste_t: float = 0.0
 var _embiste_espera: float = 0.0
 var _combat_triggered: bool = false
+# ESPERANDO HUECO (hito 5.4): alcance a alguien que ya peleaba pero la pelea estaba llena. Me quedo
+# plantado al lado y lo reintento; en cuanto muera uno de los que pelean, entro en su hueco. Asi
+# matar no te alivia del todo: sabes que hay mas esperando fuera.
+var _esperando_hueco: bool = false
+var _t_reintento: float = 0.0
+const REINTENTO_HUECO := 0.4   # cada cuanto vuelvo a llamar a la puerta
 var current_move_speed: float = 40.0
 
 var _dead: bool = false       # true cuando es un cadaver (combate ganado)
@@ -208,6 +214,22 @@ func _aplicar_escala(escala: float) -> void:
 func _physics_process(delta: float) -> void:
 	if _combat_triggered or data == null:
 		return
+
+	# ESPERANDO HUECO en una pelea llena: quieto al lado, llamando a la puerta cada poco. Si la
+	# pelea termina sin que entrara, vuelvo a la vida normal (y como sigo pegado, el contacto de
+	# abajo abrira una pelea nueva).
+	if _esperando_hueco:
+		if not Game.combate_activo():
+			_esperando_hueco = false
+		else:
+			velocity = Vector2.ZERO
+			_t_reintento -= delta
+			if _t_reintento <= 0.0:
+				_t_reintento = REINTENTO_HUECO
+				if Game.unir_enemigo_al_combate(self):
+					_esperando_hueco = false
+					_combat_triggered = true
+			return
 
 	# Aseguramos que hay a quien mirar. Persiguiendo NO se cambia de presa (o bastaria con que el
 	# grupo se cruzara para que el bicho se quedara bailando entre dos objetivos).
@@ -927,12 +949,19 @@ func _start_combat(enemy_initiated: bool) -> void:
 	# de nada (ver Net y remote_enemy.gd).
 	if not Net.simulo_mi_piso():
 		return
-	# ANTES de congelar a nadie: si ya hay una pelea en marcha, esta no va a arrancar
-	# (Game.start_combat la rechaza). Congelar al grupo aqui y que luego se rechace los dejaba de
-	# ESTATUA PARA SIEMPRE -sin IA, ocupando aforo del piso y de la sala, sin dar loot ni cristal-
-	# porque el unico sitio que limpia _combat_triggered es el final de un combate que nunca hubo.
-	# En un jugador no se notaba: el arbol esta pausado y ningun otro bicho llega a tocarte.
+	# Ya hay una pelea en marcha: en vez de rebotar, ME UNO a ella (hito 5.4). Si no cabe (tope de
+	# MAX_COMBATIENTES), me quedo ESPERANDO PEGADO y lo reintento: en cuanto muera uno, entro en su
+	# hueco. Ojo: NUNCA congelar al grupo antes de saber si la pelea arranca de verdad; hacerlo era
+	# lo que dejaba bichos de ESTATUA para siempre (sin IA, ocupando aforo y sin dar loot).
 	if Game.combate_activo():
+		if Game.unir_enemigo_al_combate(self):
+			_combat_triggered = true   # ya estoy dentro; el fin del combate me libera
+			velocity = Vector2.ZERO
+			_cancelar_aviso()
+		else:
+			_esperando_hueco = true    # la pelea esta llena: espero al lado a que caiga alguien
+			velocity = Vector2.ZERO
+			_cancelar_aviso()
 		return
 	var grupo: Array = vecinos()
 	# Se congela al GRUPO ENTERO, no solo a mi: los vecinos entran a la pelea, asi que no pueden

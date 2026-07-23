@@ -758,24 +758,46 @@ func _caer_aliado(c: Combatant) -> void:
 	_update_hp()
 
 
-# INVOCACION (Rey Slime, Parte B): mete un slime VIVO en la pelea en curso. Prefiere REUTILIZAR el
-# hueco de un cadaver (mantiene el tope de 4 y la numeracion estable, sin apilar bloques); si no hay
-# cadaver y queda sitio, añade uno al final. Devuelve false si no hay hueco (sequito lleno).
+# INVOCACION (Rey Slime, Parte B): mete un slime VIVO en la pelea en curso.
 # El slime nace flojo (t bajo): su papel es ser ESCUDO del Rey (reduccion de daño), no matarte.
+# Va marcado como INVOCADO: no cuenta como kill ni da maná al matarlo (ver _slots_invocados).
 func _invocar_slime(data: EnemyData) -> bool:
 	if data == null:
 		return false
+	return _meter_enemigo(data.crear_combatant(0.2), true) >= 0
+
+
+# REFUERZO QUE LLEGA ANDANDO (hito 5.4): un bicho del mapa alcanza a alguien que ya esta peleando y
+# se mete en la pelea. A diferencia de un invocado, este es un enemigo DE VERDAD: cuenta como kill,
+# da maná al morir y su cadaver es extraible, asi que NO lleva la marca de invocado.
+# Devuelve el indice del slot, o -1 si no cabe (entonces el que llama lo pone en cola).
+func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0) -> int:
+	if data == null or _state == State.FINISHED:
+		return -1   # la pelea ya acabo (o se esta cerrando): que se quede fuera
+	var c: Combatant = data.crear_combatant(t)
+	# Vida arrastrada: si ya venia herido de otra pelea, entra con sus heridas (igual que el arranque).
+	if hp >= 0.0:
+		c.current_hp = clampf(hp, 1.0, c.max_hp)
+	return _meter_enemigo(c, false)
+
+
+# El motor comun de "un enemigo mas en la pelea en curso". Prefiere REUTILIZAR el hueco de un
+# cadaver (mantiene el tope y la numeracion estable, sin apilar bloques); si no hay cadaver y queda
+# sitio, añade uno al final. Devuelve el slot, o -1 si no cabe.
+func _meter_enemigo(c: Combatant, es_invocado: bool) -> int:
+	if c == null:
+		return -1
 	var idx: int = -1
 	for i in _enemies.size():
 		if not _enemies[i].is_alive():
 			idx = i   # hueco de cadaver: se reutiliza
 			break
 	if idx < 0 and _enemies.size() >= MAX_ENEMIGOS:
-		return false   # ni cadaver ni sitio: no cabe
-	var c: Combatant = data.crear_combatant(0.2)
+		return -1   # ni cadaver ni sitio: no cabe
 	if idx >= 0:
 		_enemies[idx] = c            # reemplaza al cadaver en su slot
 		_revivir_bloque(idx, c)
+		_slots_invocados.erase(idx)  # el slot se reestrena: hereda la marca del anterior si no
 	else:
 		idx = _enemies.size()        # append: slot nuevo al final
 		_enemies.append(c)
@@ -787,9 +809,11 @@ func _invocar_slime(data: EnemyData) -> bool:
 	if _timeline != null:
 		_timeline.anadir(c, c.color_visual, null, str(idx + 1))
 	c.battle_enemies = _enemies      # referencia compartida: cuenta para el escudo del Rey
-	_slots_invocados[idx] = true
-	print("[invocacion] entra %s en el slot %d (vivos: %d)" % [c.nombre, idx + 1, _vivos().size()])
-	return true
+	if es_invocado:
+		_slots_invocados[idx] = true
+	var etiqueta: String = "invocacion" if es_invocado else "refuerzo"
+	print("[%s] entra %s en el slot %d (vivos: %d)" % [etiqueta, c.nombre, idx + 1, _vivos().size()])
+	return idx
 
 
 # Vuelve a ENCENDER el bloque de un slot que reutiliza una invocacion: deshace _apagar_bloque y

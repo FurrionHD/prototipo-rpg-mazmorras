@@ -5965,6 +5965,49 @@ func combate_activo() -> bool:
 	return not _active_enemies.is_empty()
 
 
+# Mata a UN enemigo del combate: le apunta el credito de guardian (si lo era) y lo convierte en
+# cadaver. Extraido del cierre del combate porque ahora tambien se usa a MITAD de pelea: cuando un
+# refuerzo reutiliza el hueco de un cadaver (hito 5.4), el nodo al que desplaza ya esta muerto y hay
+# que procesarlo EN ESE MOMENTO, o se quedaria congelado para siempre sin morir ni reanudarse.
+func matar_enemigo_de_combate(n: Node) -> void:
+	if not is_instance_valid(n):
+		return
+	# ¿Era un "guardián del rango"? Vencerlo desbloquea SU nivel objetivo (persistente).
+	if "data" in n and n.data != null and n.data.nivel_que_otorga > 0:
+		var nv: int = n.data.nivel_que_otorga
+		guardianes_vencidos[nv] = true
+		print("[nivel] Vencido el guardián del nivel ", nv, ": podrás ascender si tienes rango C.")
+	if n.has_method("morir"):
+		n.morir()
+
+
+# Mete un enemigo del mapa en el combate EN CURSO (hito 5.4): un bicho que te alcanza mientras
+# peleas se une en vez de rebotar. Devuelve false si no cabe -> el que llama lo pone en cola.
+# Mantiene el cruce por INDICE entre combat._enemies y _active_enemies, que es como vuelven los
+# muertos al cerrar: si el refuerzo reutiliza el hueco de un cadaver, el nodo desplazado se mata
+# aqui mismo y el nuevo ocupa su puesto en la lista.
+func unir_enemigo_al_combate(nodo: Node) -> bool:
+	if not combate_activo() or not is_instance_valid(nodo):
+		return false
+	if not ("data" in nodo) or nodo.data == null or _active_enemies.has(nodo):
+		return false
+	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
+		and _active_layer.get_child_count() > 0 else null
+	if combat == null or not combat.has_method("anadir_enemigo"):
+		return false
+	var t: float = float(nodo.current_t) if "current_t" in nodo else 0.5
+	var hp: float = float(nodo.hp_restante) if "hp_restante" in nodo else -1.0
+	var slot: int = combat.anadir_enemigo(nodo.data, t, hp)
+	if slot < 0:
+		return false   # pelea llena: a la cola
+	if slot < _active_enemies.size():
+		matar_enemigo_de_combate(_active_enemies[slot])   # el cadaver al que releva
+		_active_enemies[slot] = nodo
+	else:
+		_active_enemies.append(nodo)
+	return true
+
+
 # Abre el combate contra un enemigo de la mazmorra.
 # 'enemy_nodes' viene ORDENADO por enemy.gd: el [0] es el bicho que disparo el combate y detras
 # sus vecinos, de mas cerca a mas lejos. Ese orden manda: es la numeracion que vera el jugador y
@@ -6646,15 +6689,7 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	# cadaver te lo has ganado. Mirando player_won se perderian.
 	for i in muertos:
 		var n: Node = _active_enemies[i] if i < _active_enemies.size() else null
-		if not is_instance_valid(n):
-			continue
-		# ¿Era un "guardián del rango"? Vencerlo desbloquea SU nivel objetivo (persistente).
-		if "data" in n and n.data != null and n.data.nivel_que_otorga > 0:
-			var nv: int = n.data.nivel_que_otorga
-			guardianes_vencidos[nv] = true
-			print("[nivel] Vencido el guardián del nivel ", nv, ": podrás ascender si tienes rango C.")
-		if n.has_method("morir"):
-			n.morir()
+		matar_enemigo_de_combate(n)
 
 	# Los SUPERVIVIENTES (huiste, o te mataron y aun no lo saben): se quedan quietos unos
 	# segundos para darte la ventana de escape, y CONSERVAN las heridas que les hiciste.
