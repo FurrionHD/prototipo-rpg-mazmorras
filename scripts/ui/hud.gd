@@ -181,7 +181,7 @@ func mostrar_toast(texto: String) -> void:
 # Aviso de RECOGIDA (no bloqueante): una pildora a la izquierda con el material que acabas de
 # coger, estilo gacha. Se apila con los anteriores y se desvanece sola. La llama Game desde los
 # _on_*_finished y drop_pickup via el grupo "hud", igual que mostrar_toast.
-func mostrar_recogida(nombre: String, cantidad: int = 1) -> void:
+func mostrar_recogida(nombre: String, cantidad: int = 1, calidad_txt: String = "") -> void:
 	if _recogidas == null:
 		return
 	# Si ya hay demasiadas a la vista, tira la mas antigua (la de arriba) para que no crezca sin fin.
@@ -214,6 +214,17 @@ func mostrar_recogida(nombre: String, cantidad: int = 1) -> void:
 	l.add_theme_constant_override("outline_size", 3)
 	caja.add_child(l)
 
+	# CALIDAD (intacto/normal/dañado/puro): lo que de verdad importa del botín. Va en su propia
+	# etiqueta, coloreada por calidad, para leerla de un vistazo sin confundirla con el nombre.
+	if calidad_txt != "":
+		var cal := Label.new()
+		cal.text = calidad_txt
+		cal.add_theme_font_size_override("font_size", 14)
+		cal.add_theme_color_override("font_color", _color_calidad(calidad_txt))
+		cal.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		cal.add_theme_constant_override("outline_size", 3)
+		caja.add_child(cal)
+
 	_recogidas.add_child(pildora)
 
 	# Unos segundos a la vista y se desvanece (como mostrar_toast / el aviso de muerte).
@@ -221,6 +232,17 @@ func mostrar_recogida(nombre: String, cantidad: int = 1) -> void:
 	t.tween_interval(2.5)
 	t.tween_property(pildora, "modulate:a", 0.0, 0.6)
 	t.tween_callback(pildora.queue_free)
+
+
+# Color del texto de calidad en la pildora. Por TEXTO (no por enum) porque material y cristal
+# comparten la escala pero son clases distintas; asi no hay que acoplar con ninguno de sus enums.
+func _color_calidad(txt: String) -> Color:
+	match txt:
+		"Puro":    return Color(0.98, 0.82, 0.35)   # dorado (el techo, solo lingotes bien fundidos)
+		"Intacto": return Color(0.55, 0.85, 0.55)   # verde: lo mejor que se recolecta
+		"Dañado":  return Color(0.90, 0.45, 0.40)   # rojo apagado: rinde poco
+		"Roto":    return Color(0.90, 0.45, 0.40)   # (no suele llegar: se pierde)
+		_:         return Color(0.78, 0.80, 0.85)   # Normal: gris neutro
 
 
 # Fondo de una pildora de recogida: oscuro semitransparente y redondeado, con un borde tenue.

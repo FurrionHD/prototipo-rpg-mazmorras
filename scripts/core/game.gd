@@ -519,6 +519,76 @@ var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
 func hay_pantalla_abierta() -> bool:
 	return _active_layer != null and is_instance_valid(_active_layer)
 
+
+# --- PILA MODAL: la UNICA duena de get_tree().paused -----------------------------------------
+#
+# Hoy TODO el que congela el mundo (menus, combate, extraccion, minijuegos) lo hacia con un
+# get_tree().paused = true disperso por medio codigo. Aqui se centraliza en una pila: quien
+# quiere congelar EMPUJA un modal (entrar_modal) y al cerrarse lo SACA (salir_modal); mientras
+# quede algo en la pila, el arbol esta pausado. En UN JUGADOR el comportamiento es IDENTICO al
+# de antes: cualquier modal = tiempo parado, como siempre.
+#
+# La ETIQUETA de tipo no cambia NADA hoy (todos pausan igual). Existe para el FUTURO
+# multijugador: sera el metadato con el que se decida que pausas siguen siendo locales de cada
+# jugador (MENU, PERSONAJE, SISTEMA) y cuales NO deben congelar el mundo compartido (COMBATE,
+# EXTRACCION, RECOLECCION). Hasta que exista la red, es solo una anotacion dormida.
+enum Modal { MENU, PERSONAJE, COMBATE, EXTRACCION, RECOLECCION, SISTEMA }
+
+# Fuente comun de todos los menus que pasan por abrir_menu/cerrar_menu (ver mas abajo).
+const MENU_TOKEN := "menu"
+
+var _modal_stack: Array = []   # cada item: {"tipo": Modal, "fuente": Object}
+
+func entrar_modal(tipo: int, fuente) -> void:
+	# fuente sin tipar a proposito: puede ser un CanvasLayer (combate/extraccion) o el token de
+	# texto MENU_TOKEN de los menus. Solo se usa como identidad para emparejar en salir_modal.
+	_modal_stack.append({"tipo": tipo, "fuente": fuente})
+	_refrescar_pausa()
+
+func salir_modal(fuente) -> void:
+	# Quita la entrada MAS RECIENTE de esa fuente. Como todos los modales pausan igual, lo que
+	# importa para la pausa es cuantos quedan, no cual: si por lo que sea la fuente no esta,
+	# no se toca nada (evita despausar de mas).
+	for i in range(_modal_stack.size() - 1, -1, -1):
+		# is_same (no ==): la pila mezcla tokens de texto (menus) y objetos (capas de combate);
+		# comparar String con Object via == LANZA error en GDScript. is_same da false sin petar.
+		if is_same(_modal_stack[i]["fuente"], fuente):
+			_modal_stack.remove_at(i)
+			break
+	_refrescar_pausa()
+
+func limpiar_modales() -> void:
+	# Vacia la pila de golpe. Se usa al cambiar de escena (salir al menu principal): el arbol se
+	# despausa y no queda ningun residuo en el singleton, que persiste entre escenas.
+	_modal_stack.clear()
+	_refrescar_pausa()
+
+func hay_modal_de(tipo: int) -> bool:
+	for m in _modal_stack:
+		if m["tipo"] == tipo:
+			return true
+	return false
+
+# Version IDEMPOTENTE para menus con _set_open(bool): garantiza que la fuente esta (activo=true)
+# o no esta (activo=false) en la pila, sin duplicar ni dejar residuos si se llama dos veces con
+# el mismo valor. Reproduce exactamente el viejo "get_tree().paused = abierto".
+func fijar_modal(tipo: int, fuente, activo: bool) -> void:
+	var presente := false
+	for m in _modal_stack:
+		if is_same(m["fuente"], fuente):
+			presente = true
+			break
+	if activo and not presente:
+		entrar_modal(tipo, fuente)
+	elif not activo and presente:
+		salir_modal(fuente)
+
+# HOY: cualquier modal en la pila = arbol pausado (igual que antes). MANANA (multi): este unico
+# metodo decidira pausa local vs no-pausa segun el tipo del modal. Es el unico sitio que escribe
+# get_tree().paused: asi la pila y el booleano nunca se descuadran.
+func _refrescar_pausa() -> void:
+	get_tree().paused = not _modal_stack.is_empty()
+
 # Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
 var current_floor: int = 1
 
@@ -1594,13 +1664,15 @@ var inventory_open: bool = false
 # arbol parado su _input no corre y el menu se queda colgado sin poder cerrarse.
 func abrir_menu() -> void:
 	inventory_open = true
-	get_tree().paused = true
+	# El menu empuja su modal en la pila. Fuente = "menu" (token comun): los menus se abren y
+	# cierran balanceados, y como todos pausan igual, no hace falta distinguir cual es cual.
+	entrar_modal(Modal.MENU, MENU_TOKEN)
 
 func cerrar_menu() -> void:
 	inventory_open = false
-	# Si hay una pantalla modal (combate/extraccion), el arbol sigue pausado: esa pausa es SUYA, no
-	# la del menu, y despausarla aqui descongelaria la mazmorra por detras del combate.
-	get_tree().paused = hay_pantalla_abierta()
+	# Saca SOLO el modal del menu. Si hay una pantalla modal por debajo (combate/extraccion), su
+	# entrada sigue en la pila y _refrescar_pausa mantiene el arbol pausado: esa pausa es SUYA.
+	salir_modal(MENU_TOKEN)
 
 # --- BOLSA: lo que llevas ENCIMA de la expedicion. Es lo unico que PESA (peso_actual).
 # Los cristales solo salen de la bolsa vendiendolos en la tienda; los materiales se pueden
@@ -5845,8 +5917,8 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 	layer.add_child(combat)
 	_active_layer = layer
 
-	get_tree().paused = true  # congela la mazmorra mientras luchas
-	esconder_mundo(true)      # ...y deja de PINTARLA: la pantalla de combate la tapa entera
+	entrar_modal(Modal.COMBATE, layer)  # congela la mazmorra mientras luchas
+	esconder_mundo(true)                # ...y deja de PINTARLA: la pantalla de combate la tapa entera
 
 
 # Exigencia de extraccion de una CATEGORIA de cristal. Dentro de la tabla, el valor afinado a mano;
@@ -5919,12 +5991,12 @@ func start_extraction(corpse: Node) -> void:
 	get_tree().root.add_child(layer)
 	layer.add_child(ex)
 	_active_layer = layer
-	get_tree().paused = true
+	entrar_modal(Modal.EXTRACCION, layer)
 	esconder_mundo(true)
 
 
 func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
-	get_tree().paused = false
+	salir_modal(_active_layer)
 	esconder_mundo(false)
 	# El minijuego se juega con ESPACIO, que ahora es TAMBIEN la tecla de atacar/interactuar:
 	# sin esto, la ultima pulsacion del minijuego te lanzaria contra el bicho que tengas al
@@ -5951,7 +6023,7 @@ func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
 		print("Obtienes cristal categoria ", cristal.categoria,
 			" (", cristal.calidad_texto(), "). Total: ", crystals.size())
 		var cant_cristal: int = 2 if tiene_pasiva("reco_extraccion") else 1
-		_aviso_recogida("Cristal T%d" % cristal.categoria, cant_cristal)
+		_aviso_recogida("Cristal T%d" % cristal.categoria, cant_cristal, cristal.calidad_texto())
 		# Destreza: subes mas cuanto mas dificil era el minijuego PARA TI (zona
 		# pequeña + mas pulsaciones = reto alto). El reto ya es relativo a tu
 		# Destreza, asi que un experto sacando de un bicho flojo tiene reto bajo.
@@ -6080,7 +6152,7 @@ func _on_mineria_finished(item: MaterialItem, nodo) -> void:
 		descubrir(item.data)
 		_botin_extra_reco("reco_mineria", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
 		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
-		_aviso_recogida(item.nombre())
+		_aviso_recogida(item.nombre(), 1, item.calidad_texto())
 	else:
 		print("La veta se deshace en escombro: no sacas nada.")
 	# La FUERZA se entrena aunque la pieza salga rota: has picado igual. Lo que pierdes al
@@ -6131,7 +6203,7 @@ func _on_herboristeria_finished(item: MaterialItem, nodo) -> void:
 		descubrir(item.data)
 		_botin_extra_reco("reco_herboristeria", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
 		print("Recoges ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
-		_aviso_recogida(item.nombre())
+		_aviso_recogida(item.nombre(), 1, item.calidad_texto())
 	else:
 		print("La planta queda hecha jirones: no sirve.")
 	ganar("destreza", curva_reto(_last_reco_reto, HERB_PIVOTE, HERB_SLOPE, HERB_RETO_MAX),
@@ -6176,7 +6248,7 @@ func _on_talado_finished(item: MaterialItem, nodo) -> void:
 		descubrir(item.data)
 		_botin_extra_reco("reco_talado", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
 		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
-		_aviso_recogida(item.nombre())
+		_aviso_recogida(item.nombre(), 1, item.calidad_texto())
 	else:
 		print("El tronco se raja en astillas: no sacas nada.")
 	# Como en la mineria: la Agilidad se entrena aunque la pieza salga rota. Lo que pierdes al
@@ -6191,10 +6263,10 @@ var _last_reco_reto: float = 1.0
 
 # Aviso de RECOGIDA a la izquierda (el feed de pildoras del HUD). No bloqueante; si no hay HUD en
 # escena (p.ej. en pruebas) no pasa nada. Mismo patron que los toasts de pasivas: via grupo "hud".
-func _aviso_recogida(nombre: String, cantidad: int = 1) -> void:
+func _aviso_recogida(nombre: String, cantidad: int = 1, calidad_txt: String = "") -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_recogida"):
-		hud.mostrar_recogida(nombre, cantidad)
+		hud.mostrar_recogida(nombre, cantidad, calidad_txt)
 
 
 # Monta la pantalla de un minijuego encima del mapa y congela el mundo. Lo comparten la
@@ -6206,7 +6278,7 @@ func _abrir_pantalla(pantalla: Control) -> void:
 	get_tree().root.add_child(layer)
 	layer.add_child(pantalla)
 	_active_layer = layer
-	get_tree().paused = true
+	entrar_modal(Modal.RECOLECCION, layer)
 	esconder_mundo(true)
 
 
@@ -6229,7 +6301,7 @@ func esconder_mundo(esconder: bool) -> void:
 # Cierra el minijuego y AGOTA el recolectable: la veta picada no vuelve a estar entera, ni
 # ahora ni cuando vuelvas al piso (su celda queda apuntada en la memoria del piso).
 func _cerrar_recoleccion(nodo) -> void:
-	get_tree().paused = false
+	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()   # el minijuego se juega a ESPACIAZOS: que no ataque al salir
 	if is_instance_valid(nodo):
@@ -6320,7 +6392,7 @@ func dev_curva_drops(pisos: Array = [1, 2, 3, 4, 6, 8, 10, 12]) -> void:
 # (el lider el primero): con quE vida, maná y energia sale cada uno.
 func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array = [],
 		energy_left: Array = [], muertos: Array = [], enemy_hp_left: Array = []) -> void:
-	get_tree().paused = false
+	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
 

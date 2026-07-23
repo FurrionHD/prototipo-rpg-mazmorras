@@ -160,4 +160,4 @@ func _cerrar() -> void:
 # Abre/cierra la ayuda. Mientras esta abierta, el juego queda PAUSADO.
 func _set_open(open: bool) -> void:
 	_root.visible = open
-	get_tree().paused = open
+	Game.fijar_modal(Game.Modal.SISTEMA, self, open)

@@ -95,7 +95,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _set_open(abierto: bool) -> void:
 	_root.visible = abierto
-	get_tree().paused = abierto
+	Game.fijar_modal(Game.Modal.SISTEMA, self, abierto)
 	if abierto:
 		_aviso.text = ""
 
@@ -121,6 +121,7 @@ func _salir_sin_guardar() -> void:
 
 func _salir() -> void:
 	# Despausar ANTES de cambiar de escena: si no, el menu principal nace con el arbol en
-	# pausa y no responde a nada.
-	get_tree().paused = false
+	# pausa y no responde a nada. Vaciamos la pila entera: el singleton Game persiste entre
+	# escenas y no debe quedar ningun modal residual.
+	Game.limpiar_modales()
 	get_tree().change_scene_to_file(MENU_PRINCIPAL)

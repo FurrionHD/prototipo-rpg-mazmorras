@@ -147,7 +147,7 @@ func _cerrar() -> void:
 
 func _set_open(open: bool) -> void:
 	_root.visible = open
-	get_tree().paused = open
+	Game.fijar_modal(Game.Modal.PERSONAJE, self, open)
 	if open:
 		_tab = 0
 		_pj_sel = 0   # se abre siempre por el que va en cabeza
