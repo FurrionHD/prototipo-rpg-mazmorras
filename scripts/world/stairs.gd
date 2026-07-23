@@ -20,10 +20,14 @@ func _ready() -> void:
 
 
 func interact_with_player() -> void:
-	# MULTIJUGADOR: se baja y se sube JUNTOS. La escalera pide el cambio al host, que lo
-	# difunde a todos los que esten en la mazmorra (ver Net.solicitar_cambio_piso).
+	# MULTIJUGADOR (hito 5.2): cada uno baja y sube POR SU CUENTA; el compañero se queda donde
+	# este. El viaje pasa por el host porque hay que repartir quien SIMULA cada piso: sueltas el
+	# que dejas (con su foto) y el host te dice si el nuevo lo simulas tu o solo lo espejas. El
+	# cambio de piso local lo hace Net._viaje_ok cuando llega la respuesta.
 	if Net.activo:
-		Net.solicitar_cambio_piso(Game.current_floor + (-1 if sube else 1))
+		if sube and Game.current_floor <= 1:
+			return   # en el piso 1 no hay escalera de subir: ahi esta la puerta al pueblo
+		Net.solicitar_piso(Game.current_floor + (-1 if sube else 1), not sube)
 		return
 	if sube:
 		Game.subir_piso()

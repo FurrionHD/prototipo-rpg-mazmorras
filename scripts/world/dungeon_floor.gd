@@ -477,9 +477,9 @@ func abrir_salidas() -> void:
 #  BOSS: guarda la sala central y bloquea la bajada hasta que cae (la primera vez).
 # ------------------------------------------------------------
 func _colocar_boss() -> void:
-	# MULTIJUGADOR (hito 5.1): el HOST simula los enemigos (boss incluido) y los replica; el
-	# CLIENTE no los coloca (solo los ve por Net). El combate en si llega en 5.2.
-	if Net.activo and not Net.es_host:
+	# MULTIJUGADOR (hito 5.2): el boss lo coloca el DUEÑO del piso, que es quien lo simula; el que
+	# solo espeja no lo coloca (lo ve por Net).
+	if not Net.simulo_mi_piso():
 		return
 	var data: EnemyData = Game.boss_del_piso(Game.current_floor)
 	if data == null:
@@ -881,10 +881,12 @@ func _crear_zonas() -> void:
 		zona.hogar = _centro_pisable(pts)
 		_zonas.add_child(zona)
 
-	# MULTIJUGADOR (hito 5.1): el HOST puebla/restaura como en solitario (y replica sus bichos por
-	# Net). El CLIENTE no puebla NADA en local (recrearia bichos rancios de expediciones viejas de
-	# ESTA maquina; en sesion los ve por Net). hay_sitio() ya corta, pero saltarselo ahorra trabajo.
-	var simulo_bichos: bool = not Net.activo or Net.es_host
+	# MULTIJUGADOR (hito 5.2): el DUEÑO del piso puebla/restaura como en solitario (y replica sus
+	# bichos por Net). Quien solo lo espeja no puebla NADA en local (recrearia bichos rancios de
+	# expediciones viejas de ESTA maquina). En sesion, la memoria que se restaura la siembra Net
+	# con la FOTO del piso (ver Net._viaje_ok), asi que 'recordado' ya sale bien.
+	# hay_sitio() ya corta, pero saltarselo ahorra el trabajo entero.
+	var simulo_bichos: bool = Net.simulo_mi_piso()
 	if not recordado and simulo_bichos:
 		_poblar_el_piso(zona_entrada)
 
@@ -976,6 +978,16 @@ func _centro_pisable(pts: Array) -> Vector2:
 # estas pisando VACIO en el fichero.
 func volcar_a_memoria() -> void:
 	_guardar_estado()
+
+
+# MULTIJUGADOR (hito 5.2): heredo la simulacion de ESTE piso, estando ya de pie en el (el dueño se
+# fue por una escalera). Los cuerpos espejados ya los ha quitado Net; aqui nacen los bichos DE
+# VERDAD en las mismas posiciones y con las mismas stats, reusando la restauracion de siempre.
+func adoptar_foto(mem: Dictionary) -> void:
+	if _piso_construido <= 0:
+		return
+	Game.memoria_pisos[_piso_construido] = mem
+	_restaurar_estado()
 
 
 func _guardar_estado() -> void:
@@ -1071,11 +1083,10 @@ func elegir_enemigo() -> EnemyData:
 # Al POBLAR el piso al entrar se llama con reciclar=false: si no, las ultimas zonas en
 # poblarse se pondrian a borrar los bichos de las primeras para hacerse sitio.
 func hay_sitio(reciclar: bool = true, forzar: bool = false) -> bool:
-	# MULTIJUGADOR (hito 5.1): este es el embudo por el que pasan la poblacion inicial, el goteo y
-	# los brotes (SpawnZone._nacer pregunta aqui antes de crear nada). El HOST simula y replica sus
-	# bichos; el CLIENTE no crea NINGUNO en local (los ve por Net). Antes (hito 3b) se cerraba para
-	# los dos porque no habia enemigos en multi.
-	if Net.activo and not Net.es_host:
+	# MULTIJUGADOR (hito 5.2): este es el embudo por el que pasan la poblacion inicial, el goteo y
+	# los brotes (SpawnZone._nacer pregunta aqui antes de crear nada). Solo crea bichos el DUEÑO
+	# del piso; el que solo lo espeja no crea ninguno en local (los ve por Net).
+	if not Net.simulo_mi_piso():
 		return false
 	if _vivos_en_el_piso() < max_vivos():
 		return true

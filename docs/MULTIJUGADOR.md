@@ -1,9 +1,10 @@
 # Arquitectura para un futuro multijugador
 
 > Estado: **LAN jugable, en el hito 5 (combate)**. Hechos los hitos 1–4 (esqueleto andante,
-> recogida replicada, menús/mazmorra compartida, hogar compartido) y la **fase 5.1** (enemigos
-> host-autoritativos replicados). **Todavía NO se pelea en multi**: hay un tope temporal que corta
-> el combate en sesión hasta la fase 5.2. Este documento congela las decisiones de diseño y
+> recogida replicada, menús/mazmorra compartida, hogar compartido), la **fase 5.1** (enemigos
+> replicados) y la **5.2** (pisos independientes con autoridad por piso: cada uno anda por donde
+> quiera y ve los mismos bichos). **Todavía NO se pelea en multi**: hay un tope temporal que corta
+> el combate en sesión hasta la fase 5.3. Este documento congela las decisiones de diseño y
 > registra lo que falta. En **un jugador el juego funciona igual que siempre**: el tiempo se pausa
 > en los menús y en combate como hasta ahora.
 
@@ -237,43 +238,78 @@ varios combates A LA VEZ, hasta uno por jugador** (yo peleo con un bicho mientra
 pelea con otro en otra sala u otro piso), y **todos vemos los mismos enemigos en las mismas
 posiciones**.
 
-- **5.1 — Enemigos replicados (HECHO)**: el host simula los enemigos (IA, spawns, aforo, boss: su
-  código de siempre) y los replica; los clientes los VEN moverse con cuerpos ligeros
+- **5.1 — Enemigos replicados (HECHO)**: quien simula un piso corre la IA/spawns de siempre y
+  replica sus bichos; los demás los VEN moverse con cuerpos ligeros
   (`scripts/actors/enemy/remote_enemy.gd`). Sin combate todavía.
-- **5.2 — Combate del host con el mundo vivo**: quitar el tope temporal, throttlear
-  `spawn_zone._process` (hoy se congelaba gratis con la pausa global) y que la pelea del host no
-  pare a nadie.
-- **5.3 — El cliente pelea**: combate host-autoritativo con el turno del cliente conducido por RPC.
-- **5.4 — Dos humanos en UNA pelea**: formación por orden, cola de refuerzos, unirse a media
+- **5.2 — Pisos independientes y autoridad por piso (HECHO)**: cada uno anda por el piso que
+  quiera, las escaleras dejan de arrastrar a todos, y la simulación se reparte por piso.
+- **5.3 — Combate con el mundo vivo**: quitar el tope temporal y throttlear `spawn_zone._process`
+  (hoy se congelaba gratis con la pausa global), para que la pelea de uno no pare a nadie.
+- **5.4 — El que no simula el piso pelea**: combate arbitrado por el dueño, con el turno del otro
+  conducido por RPC.
+- **5.5 — Dos humanos en UNA pelea**: formación por orden, cola de refuerzos, unirse a media
   pelea, emboscada/ATB.
-- **5.5 — Huir individual + pulido.**
+- **5.6 — Huir individual + pulido.**
 
-#### ⚠️ Límite conocido de 5.1: autoridad de UN SOLO piso
+#### Dueño de piso: cómo se reparte la simulación (5.2)
 
-El host solo simula **el piso en el que está** (su `current_scene` es un único `DungeonFloor`).
-Por eso hoy la replicación funciona para los clientes que estén en **ese mismo piso**; un cliente
-en otro piso no ve bichos, porque **nadie los simula allí**. Para cumplir del todo la visión
-("cada uno en el piso que quiera, con su propio combate") hará falta **autoridad por piso**: o el
-host simula en paralelo los pisos ocupados, o cada máquina se vuelve autoritativa de su piso. Es
-el primer problema a resolver del bloque 5.2–5.3. El canal ya viaja etiquetado por `lugar`
-("pueblo" / "piso:N"), así que extiende sin reescribirlo.
+**El problema:** una máquina solo puede simular UN piso. `Game.current_floor` es un escalar global,
+el grupo `dungeon_floor` es un singleton y los grupos `enemy`/`corpse`/`pickup` son **globales del
+árbol** (`_vivos_en_el_piso()` contaría los bichos de dos pisos, `_guardar_estado()` volcaría los
+del piso A dentro de `memoria_pisos[piso_B]`). Por eso se descartó "el host simula todos los pisos":
+habría exigido romper todo eso.
 
-#### Cómo funciona el canal de enemigos (5.1)
+**La solución:** cada piso tiene UN DUEÑO, que es quien lo simula y replica.
+- `_dueno_piso` (`piso -> peer_id`, solo host) y `_soy_dueno` (en cada máquina). Los gates de
+  `dungeon_floor` (`hay_sitio()`, `_colocar_boss()`, población/restauración) preguntan
+  **`Net.simulo_mi_piso()`**, que en solitario es siempre `true`.
+- **Estar solo en un piso = ser su dueño.** Si coincidís, manda uno y el otro espeja.
+- El reparto se decide **antes** de reconstruir el piso: el viaje pasa por el host
+  (`solicitar_piso` → `_conceder_piso` → `_viaje_ok`), que es justo quien necesita saberlo.
+- **Escaleras individuales**: te mueven solo a ti (antes, hito 3b, `_cambiar_piso_todos` arrastraba
+  a todos). Por la puerta del pueblo se entra **siempre al piso 1**; ya no hay "piso activo de la
+  sesión" (`piso_actual` desapareció): el piso de cada cual vive en `_peers[id]["lugar"]`.
 
-Mismo patrón que los drops del suelo (`_suelo`/`_drops`), en `scripts/net/net.gd`:
-- `_enemigos` (solo host): `id -> {nodo, lugar, color, lado}`. El id se asigna en
-  `registrar_enemigo()`, que llama **`dungeon_floor.crear_enemigo()`** — la fábrica ÚNICA por la
-  que pasan población inicial, goteo de partos, brotes, boss y restauración.
-- `_enem_nodos` (solo clientes): `id -> remote_enemy`.
-- Alta/baja fiables (`_spawn_enemigo` / `_despawn_enemigo`), posiciones a **~20 Hz** en lotes
-  `unreliable_ordered` filtrados **por el lugar de cada peer** (`_tick_enemigos`), y
-  `_pedir_enemigos` para el que llega tarde o cambia de piso (como `_pedir_suelo`).
-- La baja se dispara desde `enemy._exit_tree()`: cubre reciclado por aforo y desmontaje del piso.
-- **Gates host-aware** en `dungeon_floor.gd`: `hay_sitio()` (el embudo por el que pasan TODOS los
-  nacimientos), `_colocar_boss()` y población/restauración. El cliente **no crea ni un bicho en
-  local**: solo espeja.
-- **Nada nuevo que persistir**: el host guarda como siempre; el cliente nunca guarda enemigos, así
-  que no hay estado que se pierda al entrar/salir de sesión.
+#### Memoria de piso de SESIÓN: volver a un piso lo encuentra igual
+
+Como en un jugador: los mismos bichos y **cadáveres** (llevan tu cristal dentro).
+- Se reutiliza la maquinaria que ya existía: `_guardar_estado()` / `_restaurar_estado()` y
+  `crear_enemigo(data, pos, radio, t)`.
+- Al abandonar un piso, el dueño manda su **foto** al host. Si queda alguien allí, ese la hereda
+  (`_asumir_piso` → `dungeon_floor.adoptar_foto()`, traspaso fiel); si no queda nadie, el piso se
+  **congela** en `Net._fotos_piso` hasta que alguien vuelva.
+- La foto viaja con la **ruta del `.tres`** del `EnemyData` en vez del recurso (mismo truco que los
+  materiales del suelo, `_item_a_dict`); `load()` cachea, así que la comparación de identidad del
+  boss sigue valiendo. El `suelo` NO va en la foto: en sesión los drops los lleva Net.
+- Vive en la **sesión (host)**, no en el save de nadie → las dos máquinas no divergen y el save del
+  cliente sigue sin tocarse.
+
+#### El canal de enemigos, y por qué el host retransmite
+
+En `scripts/net/net.gd`, mismo patrón que los drops (`_suelo`/`_drops`):
+- `_enemigos` (el dueño): `id -> {nodo, lugar, color, lado}`. Se registra en
+  **`dungeon_floor.crear_enemigo()`**, la fábrica ÚNICA por la que pasan población inicial, goteo
+  de partos, brotes, boss y restauración. La baja va en `enemy._exit_tree()` (cubre reciclado por
+  aforo y desmontaje del piso).
+- `_enem_nodos` (el que espeja): `id -> remote_enemy`.
+- Alta/baja fiables, posiciones a **~20 Hz** en lotes `unreliable_ordered`, y `_pedir_enemigos`
+  para el que llega o cambia de piso.
+- **RETRANSMISIÓN**: en la topología estrella de Godot un cliente **no tiene socket con otro
+  cliente**, así que si el dueño es un cliente sus bichos van cliente → HOST → los demás
+  (`_rel_spawn` / `_rel_despawn` / `_rel_tick`, y `_pedir_roster` para pedirle la lista al dueño
+  cliente). Si el dueño es el host, difunde directo. En LAN el salto extra son ~1-2 ms, nada al
+  lado del tick de 20 Hz.
+- Los **ids llevan dentro quién los creó** (`unique_id * 1e6 + n`): con varios dueños simulando a
+  la vez, un contador suelto en cada máquina chocaría.
+- Al cambiar de dueño, los que sigan en ese piso **tiran sus espejos** (`_limpiar_espejo`): el
+  dueño nuevo recrea los bichos con ids nuevos y, sin esto, se verían por duplicado (se nota con
+  3-4 jugadores).
+- **Nada nuevo que persistir**: quien simula guarda como siempre; nadie guarda enemigos de otro.
+
+**Pendiente conocido para el combate:** `hp_restante` (bicho herido al huir) no está en el formato
+de `memoria_pisos`, y un cadáver espejado no es extraíble por quien no es el dueño (`remote_enemy`
+no entra en el grupo `corpse`). En una **desconexión brusca** no da tiempo a sacar la foto: quien
+herede ese piso lo recibe vacío y las paredes lo van repoblando.
 
 ---
 

@@ -57,7 +57,21 @@ var tienda_t2_host: bool = false
 # El PRIMERO que entra la abre; el ULTIMO que sale la cierra (y se olvida, como en solitario).
 # Mientras quede alguien dentro, la mazmorra vive: puedes salir a vender y volver.
 var expedicion_abierta := false    # solo fiable en el host
-var piso_actual := 1               # piso activo de la sesion (solo fiable en el host)
+
+# --- PISOS INDEPENDIENTES y DUEÑO DE PISO (hito 5.2) -----------------------------------------
+# Cada uno anda por el piso que quiera: el piso de cada cual vive en _peers[id]["lugar"]
+# ("piso:N"), NO en un escalar de sesion. Las escaleras te mueven solo a TI.
+#
+# Como cada maquina solo puede simular UN piso (el suyo: Game.current_floor, el grupo
+# "dungeon_floor" y los grupos enemy/corpse son globales del arbol), la simulacion se reparte:
+# cada piso tiene UN DUEÑO, que es quien corre la IA/spawns alli y replica sus bichos. Estar solo
+# en un piso = ser su dueño; si coincidis, manda uno y el otro espeja.
+var _dueno_piso: Dictionary = {}   # piso:int -> peer_id que lo simula (SOLO host)
+var _soy_dueno := false            # ¿simulo YO el piso en el que estoy? (cada maquina)
+# FOTO de los pisos sin nadie dentro: el piso se congela tal cual (bichos y cadaveres) y se
+# restaura al volver, como en solitario. Vive en la SESION (host), no en el save de nadie: asi las
+# dos maquinas no divergen y el save del cliente sigue sin tocarse.
+var _fotos_piso: Dictionary = {}   # piso:int -> {"enemigos": [...]} (SOLO host)
 
 # --- CUPO de personajes en sesion: maximo 4 EN TOTAL entre todos los humanos ---
 # 2 humanos -> principal + 1 acompanante cada uno; 3 -> host con 1 acompanante, invitados solos;
@@ -146,11 +160,11 @@ func _ready() -> void:
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 
 
-# El host difunde las posiciones de SUS enemigos a ~20 Hz (hito 5.1). En solitario, de cliente,
-# o sin nadie conectado, no hace nada. Va en _physics_process para leer las posiciones ya
-# resueltas por la fisica del bicho ese frame.
+# El DUEÑO de un piso difunde las posiciones de SUS enemigos a ~20 Hz (hito 5.1/5.2). En
+# solitario, o si solo espejo el piso, no hace nada. Va en _physics_process para leer las
+# posiciones ya resueltas por la fisica del bicho ese frame.
 func _physics_process(delta: float) -> void:
-	if not activo or not es_host or _enemigos.is_empty() or multiplayer.multiplayer_peer == null:
+	if not activo or not _soy_dueno or _enemigos.is_empty() or multiplayer.multiplayer_peer == null:
 		return
 	_enem_acum += delta
 	if _enem_acum < _ENEM_TICK:
@@ -231,7 +245,9 @@ func desconectar() -> void:
 	_vetas_ocupadas.clear()
 	_agotados_sesion.clear()
 	expedicion_abierta = false
-	piso_actual = 1
+	_dueno_piso.clear()
+	_fotos_piso.clear()
+	_soy_dueno = false
 	semilla_host = 0
 	tienda_t2_host = false
 	# Restaurar MI baul de materiales si lo habia guardado al entrar de cliente (no perder nada).
@@ -332,16 +348,22 @@ func _reconstruir_vista() -> void:
 				_spawn_drop(id, _suelo[id]["d"], _suelo[id]["pos"], _mi_lugar)
 	else:
 		_pedir_suelo.rpc_id(1, _mi_lugar)
-	# ENEMIGOS (hito 5.1): los cuerpos remotos murieron con la escena vieja. El host NO pinta
-	# remotos (los suyos son reales, y el piso nuevo ya los re-registra al poblarse); el cliente
-	# limpia y pide los del lugar nuevo.
+	# ENEMIGOS (hito 5.1/5.2): los cuerpos remotos murieron con la escena vieja. Si SIMULO este
+	# piso no hay nada que pedir (los mios son reales y el piso ya los crea al poblarse/restaurar);
+	# si solo lo espejo, pido la lista a quien lo simule. Al host no puede pedirsela a si mismo:
+	# mira quien es el dueño y se la pide directamente.
 	for id in _enem_nodos.keys():
 		var en = _enem_nodos[id]   # sin tipar: puede ser una instancia ya liberada (ver purga del tick)
 		if is_instance_valid(en):
 			en.queue_free()
 	_enem_nodos.clear()
-	if not es_host:
-		_pedir_enemigos.rpc_id(1, _mi_lugar)
+	if not _soy_dueno and _mi_lugar.begins_with("piso:"):
+		if es_host:
+			var dueno: int = _dueno_piso.get(mi_piso(), 0)
+			if dueno != 0 and dueno != 1:
+				_pedir_roster.rpc_id(dueno, _mi_lugar, 1)
+		else:
+			_pedir_enemigos.rpc_id(1, _mi_lugar)
 
 
 # Un cliente que acaba de viajar pide el suelo de su lugar nuevo.
@@ -377,28 +399,41 @@ func _pedir_entrar() -> void:
 	_conceder_entrada(multiplayer.get_remote_sender_id())
 
 
-# Solo host: apunta al peer como "dentro" y le concede la entrada con el piso que toque.
+# Solo host: apunta al peer como "dentro" y le concede la entrada. Por la puerta se entra SIEMPRE
+# por el piso 1 (como en solitario): ya no existe "el piso activo de la sesion", cada uno anda por
+# donde quiera. De paso se reparte quien simula el piso 1 y se le pasa su foto si estaba congelado.
 func _conceder_entrada(quien: int) -> void:
 	if not expedicion_abierta:
 		expedicion_abierta = true
-		piso_actual = 1
 	_dentro[quien] = true
+	var dueno: bool = _asignar_dueno(1, quien)
+	var mem: Dictionary = {}
+	if dueno:
+		mem = _fotos_piso.get(1, {})
+		_fotos_piso.erase(1)
 	if quien == 1:
-		_entrar_ok(piso_actual, _agotados_sesion.keys())
+		_entrar_ok(1, _agotados_sesion.keys(), dueno, mem)
 	else:
-		_entrar_ok.rpc_id(quien, piso_actual, _agotados_sesion.keys())
+		_entrar_ok.rpc_id(quien, 1, _agotados_sesion.keys(), dueno, mem)
 
 
 # Corre en QUIEN entra: hace el viaje completo. olvidar_mazmorra() limpia la memoria LOCAL de
 # expediciones viejas (imprescindible tambien para el que se une: si no, restauraria SUS bichos
 # rancios); los agotados de LA SESION llegan del host para que las vetas ya picadas no nazcan.
 @rpc("any_peer", "call_remote", "reliable")
-func _entrar_ok(piso: int, agotados: Array) -> void:
+func _entrar_ok(piso: int, agotados: Array, dueno: bool, mem: Dictionary) -> void:
 	_agotados_sesion.clear()
 	for c in agotados:
 		_agotados_sesion[c] = true
 	Game.current_floor = piso
 	Game.olvidar_mazmorra()
+	_olvidar_mis_enemigos()
+	# ¿Simulo yo este piso? Si si, y venia congelado, se siembra la memoria LOCAL con su foto para
+	# que _restaurar_estado lo levante igual que en solitario (va DESPUES de olvidar_mazmorra,
+	# que la vacia entera).
+	_soy_dueno = dueno
+	if dueno and not mem.is_empty():
+		Game.memoria_pisos[piso] = _mem_de_red(mem)
 	Game.iniciar_expedicion_mapa()
 	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
 	anunciar_lugar("piso:%d" % piso)
@@ -406,23 +441,29 @@ func _entrar_ok(piso: int, agotados: Array) -> void:
 
 # La llama la puerta de vuelta / la salida del boss (rama multi), DESPUES de consolidar el mapa.
 func viajar_al_pueblo() -> void:
+	# Me llevo la foto del piso que dejo (si lo simulaba yo) para que no se pierdan sus bichos:
+	# se la queda el host, o pasa al que siga dentro. Hay que sacarla ANTES de cambiar de escena.
+	var foto: Dictionary = _foto_de_mi_piso()
+	_soy_dueno = false
+	_olvidar_mis_enemigos()
 	if es_host:
-		_registrar_salida(1)
+		_registrar_salida(1, foto)
 	else:
-		_pedir_salir.rpc_id(1)
+		_pedir_salir.rpc_id(1, foto)
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
 	anunciar_lugar("pueblo")
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_salir() -> void:
+func _pedir_salir(foto: Dictionary) -> void:
 	if not es_host:
 		return
-	_registrar_salida(multiplayer.get_remote_sender_id())
+	_registrar_salida(multiplayer.get_remote_sender_id(), foto)
 
 
-func _registrar_salida(quien: int) -> void:
+func _registrar_salida(quien: int, foto: Dictionary = {}) -> void:
 	_liberar_vetas_de(quien)
+	_soltar_piso(quien, foto)
 	_dentro.erase(quien)
 	if _dentro.is_empty() and expedicion_abierta:
 		_cerrar_expedicion()
@@ -431,7 +472,10 @@ func _registrar_salida(quien: int) -> void:
 # Solo host: el ultimo salio. La expedicion se olvida: fuera drops de pisos y agotados de sesion.
 func _cerrar_expedicion() -> void:
 	expedicion_abierta = false
-	piso_actual = 1
+	# La mazmorra se olvida: ni dueños ni pisos congelados (la proxima expedicion nace limpia,
+	# como en solitario).
+	_dueno_piso.clear()
+	_fotos_piso.clear()
 	_vetas_ocupadas.clear()
 	_agotados_sesion.clear()
 	_limpiar_agotados_sesion.rpc()
@@ -448,42 +492,217 @@ func _limpiar_agotados_sesion() -> void:
 	_agotados_sesion.clear()
 
 
-# --- ESCALERAS: bajar/subir JUNTOS ------------------------------------------------------------
+# --- ESCALERAS: cada uno POR SU CUENTA (hito 5.2) ---------------------------------------------
+#
+# Bajar/subir te mueve solo a TI: el compañero se queda donde este. Antes (hito 3b) la escalera
+# arrastraba a todos, lo que hacia imposible que dos estuvieran en pisos distintos.
+#
+# El viaje pasa por el host porque hay que repartir la SIMULACION: al irte de un piso sueltas su
+# propiedad (y dejas la foto de como queda), y al llegar al nuevo el host te dice si lo simulas tu
+# o solo lo espejas. Se resuelve ANTES de reconstruir el piso, que es lo que necesita saberlo.
 
-# La llama stairs.gd (rama multi). El host valida y TODOS los que esten en la mazmorra cambian.
-func solicitar_cambio_piso(nuevo: int) -> void:
+# ¿En que piso estoy? -1 si estoy en el pueblo.
+func mi_piso() -> int:
+	if not _mi_lugar.begins_with("piso:"):
+		return -1
+	return int(_mi_lugar.substr(5))
+
+
+# ¿Simulo yo los bichos del piso donde estoy? En solitario SIEMPRE (no hay red que repartir).
+# Lo consultan los gates de dungeon_floor (hay_sitio, boss, poblacion).
+func simulo_mi_piso() -> bool:
+	return (not activo) or _soy_dueno
+
+
+# La llama stairs.gd (rama multi). 'bajando' es para aparecer en la boca del piso o junto a la
+# escalera, igual que en solitario.
+func solicitar_piso(nuevo: int, bajando: bool) -> void:
+	if nuevo < 1:
+		return
+	var foto: Dictionary = _foto_de_mi_piso()   # lo que dejo atras, si yo lo simulaba
 	if es_host:
-		_aplicar_cambio_piso(nuevo)
+		_conceder_piso(1, nuevo, bajando, foto)
 	else:
-		_pedir_piso.rpc_id(1, nuevo)
+		_pedir_viaje.rpc_id(1, nuevo, bajando, foto)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_piso(nuevo: int) -> void:
+func _pedir_viaje(nuevo: int, bajando: bool, foto: Dictionary) -> void:
 	if not es_host:
 		return
-	_aplicar_cambio_piso(nuevo)
+	_conceder_piso(multiplayer.get_remote_sender_id(), nuevo, bajando, foto)
 
 
-# Solo host: fija el piso de la sesion y lo difunde (a si mismo directo).
-func _aplicar_cambio_piso(nuevo: int) -> void:
-	if nuevo < 1 or not expedicion_abierta:
+# Solo host: arbitra el viaje de 'quien' al piso 'nuevo'. Suelta el piso viejo (con su foto) y
+# reparte el nuevo. Responde SIEMPRE, porque el viajero espera para reconstruir su piso.
+func _conceder_piso(quien: int, nuevo: int, bajando: bool, foto: Dictionary) -> void:
+	if not expedicion_abierta:
 		return
-	piso_actual = nuevo
-	_vetas_ocupadas.clear()   # los minijuegos abiertos se cierran con el piso; locks fuera
-	_cambiar_piso_todos.rpc(nuevo)
-	_cambiar_piso_todos(nuevo)
+	_soltar_piso(quien, foto)
+	var dueno_nuevo: bool = _asignar_dueno(nuevo, quien)
+	# Si voy a simularlo, me llevo la foto congelada de ese piso (bichos y cadaveres tal cual).
+	var mem: Dictionary = {}
+	if dueno_nuevo:
+		mem = _fotos_piso.get(nuevo, {})
+		_fotos_piso.erase(nuevo)   # ya no esta congelado: pasa a estar vivo en su dueño
+	if quien == 1:
+		_viaje_ok(nuevo, bajando, dueno_nuevo, mem)
+	else:
+		_viaje_ok.rpc_id(quien, nuevo, bajando, dueno_nuevo, mem)
 
 
-# Corre en TODOS: solo reacciona quien este en la mazmorra. regenerar() reconstruye el piso en
-# esta maquina; la geometria sale igual en todas (misma semilla del host).
+# Solo host: 'quien' deja de simular el piso que tuviera. Si queda gente alli, se le pasa el
+# relevo con la foto (traspaso fiel: mismos bichos, mismas posiciones). Si no queda nadie, el piso
+# se CONGELA en la foto de sesion hasta que alguien vuelva.
+func _soltar_piso(quien: int, foto: Dictionary) -> void:
+	var piso: int = -1
+	for p in _dueno_piso:
+		if _dueno_piso[p] == quien:
+			piso = p
+			break
+	if piso < 0:
+		return
+	_dueno_piso.erase(piso)
+	var heredero: int = _alguien_en(piso, quien)
+	if heredero == 0:
+		_fotos_piso[piso] = foto   # nadie mas: el piso queda congelado tal cual
+		return
+	_dueno_piso[piso] = heredero
+	# Los OTROS que sigan en ese piso tiran sus espejos: el dueño nuevo va a recrear los bichos con
+	# ids nuevos y, sin esto, los verian por duplicado (se nota con 3-4 jugadores).
+	var lugar := "piso:%d" % piso
+	for pid in _peers:
+		if pid != heredero and _peers[pid].get("lugar", "") == lugar:
+			_limpiar_espejo.rpc_id(pid)
+	if heredero != 1 and _mi_lugar == lugar:
+		_limpiar_espejo()
+	if heredero == 1:
+		_asumir_piso(piso, foto)
+	else:
+		_asumir_piso.rpc_id(heredero, piso, foto)
+
+
+# Solo host: nombra dueño de 'piso' a 'quien' si esta libre. Devuelve si le toca simularlo.
+func _asignar_dueno(piso: int, quien: int) -> bool:
+	var actual: int = _dueno_piso.get(piso, 0)
+	if actual == 0 or actual == quien or not _sigue_en(actual, piso):
+		_dueno_piso[piso] = quien
+		return true
+	return false
+
+
+# Solo host: un peer (distinto de 'salvo') que este en ese piso, o 0 si no hay nadie.
+func _alguien_en(piso: int, salvo: int) -> int:
+	var lugar := "piso:%d" % piso
+	if salvo != 1 and _mi_lugar == lugar:
+		return 1            # el host tambien cuenta como candidato
+	for id in _peers:
+		if id != salvo and _peers[id].get("lugar", "") == lugar:
+			return id
+	return 0
+
+
+# Solo host: ¿ese peer sigue realmente en ese piso? (dueño fantasma si se fue sin avisar).
+func _sigue_en(quien: int, piso: int) -> bool:
+	var lugar := "piso:%d" % piso
+	if quien == 1:
+		return _mi_lugar == lugar
+	return _peers.has(quien) and _peers[quien].get("lugar", "") == lugar
+
+
+# Corre en EL VIAJERO: ya se sabe si simula el piso nuevo, asi que se puede reconstruir.
 @rpc("any_peer", "call_remote", "reliable")
-func _cambiar_piso_todos(nuevo: int) -> void:
-	if not _mi_lugar.begins_with("piso:"):
-		return
-	var bajando: bool = nuevo > Game.current_floor
+func _viaje_ok(nuevo: int, bajando: bool, dueno: bool, mem: Dictionary) -> void:
+	_olvidar_mis_enemigos()   # los del piso que dejo mueren con su escena
+	_soy_dueno = dueno
+	# Sembrar la memoria LOCAL con la foto de sesion: asi _restaurar_estado (el mismo codigo que
+	# en solitario) reconstruye el piso tal cual quedo. Si no lo simulo, se limpia para que no
+	# resucite bichos mios rancios: los vere por red.
+	if dueno and not mem.is_empty():
+		Game.memoria_pisos[nuevo] = _mem_de_red(mem)
+	else:
+		Game.memoria_pisos.erase(nuevo)
 	Game._cambiar_piso(nuevo, bajando)
 	anunciar_lugar("piso:%d" % nuevo)
+
+
+# Corre en QUIEN HEREDA un piso donde ya esta de pie: sus cuerpos espejados se van y en su lugar
+# nacen los bichos de verdad, en las mismas posiciones y con las mismas stats.
+@rpc("any_peer", "call_remote", "reliable")
+func _asumir_piso(piso: int, mem: Dictionary) -> void:
+	if mi_piso() != piso:
+		return
+	_soy_dueno = true
+	for id in _enem_nodos.keys():
+		var n = _enem_nodos[id]
+		if is_instance_valid(n):
+			n.queue_free()
+	_enem_nodos.clear()
+	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if suelo != null and suelo.has_method("adoptar_foto"):
+		suelo.adoptar_foto(_mem_de_red(mem))
+
+
+# --- FOTO de un piso: el formato de Game.memoria_pisos, apto para la red -----------------------
+# Se manda la RUTA del EnemyData (.tres de disco) en vez del recurso, como ya se hace con los
+# materiales del suelo (ver _item_a_dict). load() cachea, asi que al rehidratar sale la MISMA
+# instancia y la comparacion de identidad del boss (dungeon_floor._restaurar_estado) sigue valiendo.
+# El "suelo" NO va: en sesion los drops los lleva Net (_suelo/_drops); meterlos aqui los duplicaria.
+func _foto_de_mi_piso() -> Dictionary:
+	if not activo or not _soy_dueno:
+		return {}
+	var piso := mi_piso()
+	if piso < 0:
+		return {}
+	var f: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if f != null and f.has_method("volcar_a_memoria"):
+		f.volcar_a_memoria()   # vuelca los bichos VIVOS de ahora mismo a Game.memoria_pisos
+	return _mem_a_red(Game.memoria_pisos.get(piso, {}))
+
+
+func _mem_a_red(mem: Dictionary) -> Dictionary:
+	var out: Array = []
+	for d in (mem.get("enemigos", []) as Array):
+		var data = d.get("data")
+		if data == null or String(data.resource_path).is_empty():
+			continue   # un EnemyData creado en runtime no se puede mandar por ruta
+		out.append({
+			"ruta": data.resource_path,
+			"pos": d["pos"], "t": d["t"], "zona": d["zona"], "muerto": d["muerto"],
+		})
+	return {"enemigos": out}
+
+
+# Dejo de simular el piso donde estaba: sus bichos mueren con la escena, asi que su registro se va
+# con ellos. Si no, las entradas rancias se quedan pegadas (y el dia que vuelva a ser dueño de algo
+# las difundiria). Se llama SIEMPRE antes de reconstruir/abandonar un piso, y despues de sacar la
+# foto: baja_enemigo no sirve aqui porque se cae por el guard de _soy_dueno.
+func _olvidar_mis_enemigos() -> void:
+	_enemigos.clear()
+
+
+# El dueño de un piso ha cambiado: los que sigan ahi tiran sus cuerpos espejados, porque el dueño
+# nuevo va a recrear los bichos con ids nuevos (si no, se verian por duplicado).
+@rpc("any_peer", "call_remote", "reliable")
+func _limpiar_espejo() -> void:
+	for id in _enem_nodos.keys():
+		var n = _enem_nodos[id]
+		if is_instance_valid(n):
+			n.queue_free()
+	_enem_nodos.clear()
+
+
+func _mem_de_red(mem: Dictionary) -> Dictionary:
+	var out: Array = []
+	for d in (mem.get("enemigos", []) as Array):
+		var data = load(str(d["ruta"]))
+		if data == null:
+			continue
+		out.append({
+			"data": data,
+			"pos": d["pos"], "t": d["t"], "zona": d["zona"], "muerto": d["muerto"],
+		})
+	return {"enemigos": out, "suelo": []}
 
 
 # --- VETAS: una a la vez, con "esta ocupado" --------------------------------------------------
@@ -1144,39 +1363,115 @@ func _recoger_concedido(d: Dictionary) -> void:
 		Game.embolsar(item)
 
 
-# --- ENEMIGOS replicados (hito 5.1) ----------------------------------------------------------
+# --- ENEMIGOS replicados (hito 5.1, repartidos por dueño en 5.2) -----------------------------
 #
-# El host lo llama al CREAR un bicho (dungeon_floor.crear_enemigo, ya con su posicion puesta):
-# le asigna id, lo apunta y lo difunde a los clientes de ese lugar. En solitario (o si soy
-# cliente) no hace NADA -> cero impacto en un jugador.
+# Lo llama el DUEÑO del piso al CREAR un bicho (dungeon_floor.crear_enemigo, ya con su posicion
+# puesta): le asigna id, lo apunta y lo difunde a los que esten en ese piso. En solitario, o si
+# solo espejo el piso, no hace NADA -> cero impacto en un jugador.
+#
+# RETRANSMISION: en la topologia estrella de Godot un cliente NO tiene socket con otro cliente, asi
+# que si el dueño es un cliente sus bichos van cliente -> HOST -> los demas. Si el dueño es el
+# host, difunde directo. (En LAN el salto extra son ~1-2 ms, nada al lado del tick de 20 Hz.)
 func registrar_enemigo(nodo: Node2D, lugar: String) -> void:
-	if not activo or not es_host or nodo == null or multiplayer.multiplayer_peer == null:
+	if not activo or not _soy_dueno or nodo == null or multiplayer.multiplayer_peer == null:
 		return
 	var asp: Dictionary = {}
 	if nodo.has_method("aspecto_red"):
 		asp = nodo.aspecto_red()
 	var color: Color = asp.get("color", Color.WHITE)
 	var lado: float = asp.get("lado", 32.0)
-	var id := _enem_next_id
+	# El id lleva DENTRO quien lo creo: con varios dueños simulando pisos a la vez, un contador
+	# suelto en cada maquina chocaria. Asi son unicos sin preguntarle nada a nadie.
+	var id := multiplayer.get_unique_id() * 1000000 + _enem_next_id
 	_enem_next_id += 1
 	nodo.set_meta("net_id", id)   # el id de red viaja como meta, sin tocar la clase enemy
 	_enemigos[id] = {"nodo": nodo, "lugar": lugar, "color": color, "lado": lado}
-	_spawn_enemigo.rpc(id, lugar, nodo.global_position, color, lado)
+	if es_host:
+		_spawn_enemigo.rpc(id, lugar, nodo.global_position, color, lado)
+	else:
+		_rel_spawn.rpc_id(1, id, lugar, nodo.global_position, color, lado)
 
 
-# El host lo llama cuando un bicho DESAPARECE del mundo (reciclado, piso desmontado): lo borra
-# del registro y avisa a los clientes para que quiten su cuerpo. Un cadaver NO llama a esto: la
-# muerte replicada es de una sub-fase posterior (con el combate).
+# Lo llama el dueño cuando un bicho DESAPARECE del mundo (reciclado, piso desmontado): lo borra
+# del registro y avisa para que quiten su cuerpo. Un cadaver NO llama a esto: la muerte replicada
+# es de una sub-fase posterior (con el combate).
 func baja_enemigo(nodo: Node) -> void:
-	if not activo or not es_host or multiplayer.multiplayer_peer == null:
+	if not activo or not _soy_dueno or multiplayer.multiplayer_peer == null:
 		return
 	if nodo == null or not nodo.has_meta("net_id"):
 		return
 	var id: int = nodo.get_meta("net_id")
 	if not _enemigos.has(id):
 		return
+	var lugar: String = _enemigos[id]["lugar"]
 	_enemigos.erase(id)
-	_despawn_enemigo.rpc(id)
+	if es_host:
+		_despawn_enemigo.rpc(id)
+	else:
+		_rel_despawn.rpc_id(1, id, lugar)
+
+
+# --- RETRANSMISION (solo host): lo que le manda un dueño CLIENTE se reparte a los de ese piso ---
+# Al emisor no se le devuelve (ya tiene el bicho de verdad), y el propio host lo pinta si esta
+# en ese piso sin ser su dueño.
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_spawn(id: int, lugar: String, pos: Vector2, color: Color, lado: float) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	if _mi_lugar == lugar and not _soy_dueno:
+		_spawn_enemigo(id, lugar, pos, color, lado)
+	for pid in _peers:
+		if pid != de and _peers[pid].get("lugar", "") == lugar:
+			_spawn_enemigo.rpc_id(pid, id, lugar, pos, color, lado)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_despawn(id: int, lugar: String) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	if _mi_lugar == lugar and not _soy_dueno:
+		_despawn_enemigo(id)
+	for pid in _peers:
+		if pid != de and _peers[pid].get("lugar", "") == lugar:
+			_despawn_enemigo.rpc_id(pid, id)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _rel_tick(lugar: String, lote: Array) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	if _mi_lugar == lugar and not _soy_dueno:
+		_tick_enemigos(lote)
+	for pid in _peers:
+		if pid != de and _peers[pid].get("lugar", "") == lugar:
+			_tick_enemigos.rpc_id(pid, lote)
+
+
+# Le llega al dueño CLIENTE de un piso: alguien acaba de entrar ahi y necesita su lista de bichos.
+# La respuesta vuelve a pasar por el host, que la reenvia solo a ese peer.
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_roster(lugar: String, para: int) -> void:
+	if _mi_lugar != lugar or not _soy_dueno:
+		return
+	for id in _enemigos:
+		var e: Dictionary = _enemigos[id]
+		if is_instance_valid(e["nodo"]):
+			_rel_spawn_a.rpc_id(1, para, id, lugar, (e["nodo"] as Node2D).global_position,
+				e["color"], e["lado"])
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_spawn_a(para: int, id: int, lugar: String, pos: Vector2, color: Color, lado: float) -> void:
+	if not es_host:
+		return
+	if para == 1:
+		_spawn_enemigo(id, lugar, pos, color, lado)
+	else:
+		_spawn_enemigo.rpc_id(para, id, lugar, pos, color, lado)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -1203,31 +1498,36 @@ func _despawn_enemigo(id: int) -> void:
 	_enem_nodos.erase(id)
 
 
-# Difusion de POSICIONES (host -> cada cliente, solo los bichos de SU lugar). Se llama desde
-# _physics_process a ~20 Hz. Un RPC por cliente con un lote [[id, pos], ...]: no fiable y
-# ordenado, como la posicion del jugador (perder un paquete no importa, el siguiente corrige).
+# Difusion de POSICIONES: la hace el DUEÑO del piso, a ~20 Hz desde _physics_process. Un lote
+# [[id, pos], ...] no fiable y ordenado, como la posicion del jugador (perder un paquete no
+# importa, el siguiente corrige). Todos mis bichos son de MI piso, asi que el lote es uno solo.
 func _difundir_posiciones_enemigos() -> void:
-	if _peers.is_empty():
-		return
 	# Purga de nodos muertos (reciclados sin pasar por baja, por si acaso). SIN tipar la variable:
 	# asignar una instancia YA LIBERADA a un `var: Node` lanza error en Godot 4; hay que leerla
 	# cruda y dejar que is_instance_valid la descarte.
 	for id in _enemigos.keys():
 		var nodo = _enemigos[id]["nodo"]
 		if not is_instance_valid(nodo):
+			var lug: String = _enemigos[id]["lugar"]
 			_enemigos.erase(id)
-			_despawn_enemigo.rpc(id)
-	for peer_id in _peers:
-		var lugar: String = _peers[peer_id].get("lugar", "")
-		var lote: Array = []
-		for id in _enemigos:
-			if _enemigos[id]["lugar"] == lugar:
-				lote.append([id, (_enemigos[id]["nodo"] as Node2D).global_position])
-		if not lote.is_empty():
-			_tick_enemigos.rpc_id(peer_id, lote)
+			if es_host:
+				_despawn_enemigo.rpc(id)
+			else:
+				_rel_despawn.rpc_id(1, id, lug)
+	if _enemigos.is_empty():
+		return
+	var lote: Array = []
+	for id in _enemigos:
+		lote.append([id, (_enemigos[id]["nodo"] as Node2D).global_position])
+	if es_host:
+		for peer_id in _peers:
+			if _peers[peer_id].get("lugar", "") == _mi_lugar:
+				_tick_enemigos.rpc_id(peer_id, lote)
+	else:
+		_rel_tick.rpc_id(1, _mi_lugar, lote)
 
 
-@rpc("authority", "call_remote", "unreliable_ordered")
+@rpc("any_peer", "call_remote", "unreliable_ordered")
 func _tick_enemigos(lote: Array) -> void:
 	for par in lote:
 		var n = _enem_nodos.get(par[0])
@@ -1235,17 +1535,25 @@ func _tick_enemigos(lote: Array) -> void:
 			n.ir_a(par[1])
 
 
-# Un cliente que acaba de viajar pide los enemigos de su lugar nuevo (late-join / cambio de piso).
+# Alguien que acaba de llegar a un piso pide sus enemigos (late-join / cambio de piso). Siempre se
+# le pregunta al HOST, que es quien sabe QUIEN simula ese piso: si es el, responde; si es un
+# cliente, le reenvia la peticion para que conteste el (via _pedir_roster).
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_enemigos(lugar: String) -> void:
 	if not es_host:
 		return
 	var quien := multiplayer.get_remote_sender_id()
-	for id in _enemigos:
-		var e: Dictionary = _enemigos[id]
-		if e["lugar"] == lugar and is_instance_valid(e["nodo"]):
-			_spawn_enemigo.rpc_id(quien, id, lugar, (e["nodo"] as Node2D).global_position,
-				e["color"], e["lado"])
+	if _mi_lugar == lugar and _soy_dueno:
+		for id in _enemigos:
+			var e: Dictionary = _enemigos[id]
+			if is_instance_valid(e["nodo"]):
+				_spawn_enemigo.rpc_id(quien, id, lugar, (e["nodo"] as Node2D).global_position,
+					e["color"], e["lado"])
+		return
+	var piso: int = int(lugar.substr(5)) if lugar.begins_with("piso:") else -1
+	var dueno: int = _dueno_piso.get(piso, 0)
+	if dueno != 0 and dueno != quien:
+		_pedir_roster.rpc_id(dueno, lugar, quien)
 
 
 # --- HANDSHAKE + CONTRASEÑA ------------------------------------------------------------------
@@ -1359,6 +1667,9 @@ func _on_peer_disconnected(id: int) -> void:
 		_liberar_vetas_de(id)
 		if _taller_dueno == id:   # se fue con el taller cogido: se libera (su crafteo a medias se pierde)
 			_taller_dueno = 0
+		# Si simulaba un piso, lo suelta SIN foto (se fue de golpe, no dio tiempo a sacarla): quien
+		# se quede lo hereda vacio y las paredes lo van repoblando. Es el precio de un corte brusco.
+		_soltar_piso(id, {})
 		if _dentro.has(id):
 			_dentro.erase(id)
 			if _dentro.is_empty():
