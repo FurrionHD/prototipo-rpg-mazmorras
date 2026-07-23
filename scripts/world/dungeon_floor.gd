@@ -1001,6 +1001,11 @@ func _guardar_estado() -> void:
 		for e in get_tree().get_nodes_in_group(grupo):
 			if not is_instance_valid(e) or e.data == null:
 				continue
+			# MULTIJUGADOR: los cuerpos ESPEJADOS (remote_enemy) tambien estan en estos grupos para
+			# poder pelearlos y extraerlos, pero NO son mios: meterlos en la foto del piso seria
+			# duplicar los bichos de quien lo simula. La foto la saca solo el dueño, con los suyos.
+			if e.has_meta("es_espejo"):
+				continue
 			enemigos.append({
 				"data": e.data,
 				"pos": e.global_position,
@@ -1223,6 +1228,10 @@ func _process(delta: float) -> void:
 
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e) or not (e is Node2D):
+			continue
+		# Los ESPEJOS no se tocan: no tienen IA que apagar (su _physics_process es la interpolacion
+		# que los hace moverse suaves), y apagarsela los dejaria dando tirones.
+		if e.has_meta("es_espejo"):
 			continue
 		# A los que estan EN una pelea no se les toca la fisica: encendersela aqui les devolveria
 		# la IA en mitad del combate. Hoy lo tapa el early-return de enemy._physics_process, pero

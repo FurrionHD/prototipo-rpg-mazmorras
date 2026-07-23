@@ -103,6 +103,9 @@ var _next_id: int = 1              # contador de ids del host
 # LIMITE de 5.1 (a resolver en la siguiente sub-fase): el host solo simula el piso en el que ESTA
 # (su current_scene). Un cliente en OTRO piso no ve bichos (nadie los simula alli todavia). El
 # etiquetado por lugar ya deja el canal listo para autoridad por-piso cuando toque.
+# Bichos RESERVADOS: quien los esta peleando. Lo lleva el DUEÑO del piso, que es quien arbitra.
+# Sin esto dos jugadores podrian coger el mismo bicho a la vez. Mismo espiritu que _vetas_ocupadas.
+var _enem_ocupados: Dictionary = {}   # net_id -> peer_id que lo pelea (SOLO el dueño del piso)
 var _enemigos: Dictionary = {}     # id -> {"nodo","lugar","color","lado"} (solo lo llena el host)
 var _enem_nodos: Dictionary = {}   # id -> nodo remote_enemy (en los CLIENTES)
 var _enem_next_id: int = 1         # contador de ids de enemigo del host
@@ -239,6 +242,7 @@ func desconectar() -> void:
 			e.queue_free()
 	_enem_nodos.clear()
 	_enemigos.clear()
+	_enem_ocupados.clear()
 	_enem_next_id = 1
 	_enem_acum = 0.0
 	_peers.clear()
@@ -711,6 +715,7 @@ func _mem_a_red(mem: Dictionary) -> Dictionary:
 # foto: baja_enemigo no sirve aqui porque se cae por el guard de _soy_dueno.
 func _olvidar_mis_enemigos() -> void:
 	_enemigos.clear()
+	_enem_ocupados.clear()   # las reservas eran de esos bichos: se van con ellos
 
 
 # El dueño de un piso ha cambiado: los que sigan ahi tiran sus cuerpos espejados, porque el dueño
@@ -1433,21 +1438,37 @@ func _recoger_concedido(d: Dictionary) -> void:
 func registrar_enemigo(nodo: Node2D, lugar: String) -> void:
 	if not activo or not _soy_dueno or nodo == null or multiplayer.multiplayer_peer == null:
 		return
-	var asp: Dictionary = {}
-	if nodo.has_method("aspecto_red"):
-		asp = nodo.aspecto_red()
-	var color: Color = asp.get("color", Color.WHITE)
-	var lado: float = asp.get("lado", 32.0)
 	# El id lleva DENTRO quien lo creo: con varios dueños simulando pisos a la vez, un contador
 	# suelto en cada maquina chocaria. Asi son unicos sin preguntarle nada a nadie.
 	var id := multiplayer.get_unique_id() * 1000000 + _enem_next_id
 	_enem_next_id += 1
 	nodo.set_meta("net_id", id)   # el id de red viaja como meta, sin tocar la clase enemy
-	_enemigos[id] = {"nodo": nodo, "lugar": lugar, "color": color, "lado": lado}
+	_enemigos[id] = {"nodo": nodo, "lugar": lugar}
+	var d: Dictionary = _datos_enemigo(nodo)
 	if es_host:
-		_spawn_enemigo.rpc(id, lugar, nodo.global_position, color, lado)
+		_spawn_enemigo.rpc(id, lugar, nodo.global_position, d)
 	else:
-		_rel_spawn.rpc_id(1, id, lugar, nodo.global_position, color, lado)
+		_rel_spawn.rpc_id(1, id, lugar, nodo.global_position, d)
+
+
+# TODO lo que el otro necesita para pintarlo Y para pelearlo/extraerlo: su aspecto (color y lado,
+# ya con el tinte de su 't') y sus DATOS (ruta del .tres + 't' + si ya es cadaver). Se lee del nodo
+# EN VIVO, asi que un cadaver sale gris y marcado sin tener que avisar aparte.
+func _datos_enemigo(nodo: Node) -> Dictionary:
+	var d := {"color": Color.WHITE, "lado": 32.0, "ruta": "", "t": 0.5, "muerto": false}
+	if nodo == null or not is_instance_valid(nodo):
+		return d
+	if nodo.has_method("aspecto_red"):
+		var a: Dictionary = nodo.aspecto_red()
+		d["color"] = a.get("color", d["color"])
+		d["lado"] = a.get("lado", d["lado"])
+	var ed = nodo.get("data")
+	if ed != null:
+		d["ruta"] = String(ed.resource_path)
+	d["t"] = float(nodo.get("current_t"))
+	if nodo.has_method("esta_muerto"):
+		d["muerto"] = bool(nodo.esta_muerto())
+	return d
 
 
 # Lo llama el dueño cuando un bicho DESAPARECE del mundo (reciclado, piso desmontado): lo borra
@@ -1474,15 +1495,15 @@ func baja_enemigo(nodo: Node) -> void:
 # en ese piso sin ser su dueño.
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rel_spawn(id: int, lugar: String, pos: Vector2, color: Color, lado: float) -> void:
+func _rel_spawn(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void:
 	if not es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
 	if _mi_lugar == lugar and not _soy_dueno:
-		_spawn_enemigo(id, lugar, pos, color, lado)
+		_spawn_enemigo(id, lugar, pos, d)
 	for pid in _peers:
 		if pid != de and _peers[pid].get("lugar", "") == lugar:
-			_spawn_enemigo.rpc_id(pid, id, lugar, pos, color, lado)
+			_spawn_enemigo.rpc_id(pid, id, lugar, pos, d)
 
 
 # Lo llama enemy.morir() en la maquina que SIMULA el piso: el bicho pasa a cadaver y hay que
@@ -1550,16 +1571,6 @@ func _rel_tick(lugar: String, lote: Array) -> void:
 
 # Le llega al dueño CLIENTE de un piso: alguien acaba de entrar ahi y necesita su lista de bichos.
 # La respuesta vuelve a pasar por el host, que la reenvia solo a ese peer.
-# El aspecto de AHORA MISMO, no el cacheado al nacer: un cadaver ya esta gris (enemy.morir pinta
-# su ColorRect), asi que el que llega tarde lo ve gris sin tocar la firma del alta.
-func _aspecto_actual(e: Dictionary) -> Array:
-	var nodo = e["nodo"]
-	if is_instance_valid(nodo) and nodo.has_method("aspecto_red"):
-		var a: Dictionary = nodo.aspecto_red()
-		return [a.get("color", e["color"]), a.get("lado", e["lado"])]
-	return [e["color"], e["lado"]]
-
-
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_roster(lugar: String, para: int) -> void:
 	if _mi_lugar != lugar or not _soy_dueno:
@@ -1567,23 +1578,22 @@ func _pedir_roster(lugar: String, para: int) -> void:
 	for id in _enemigos:
 		var e: Dictionary = _enemigos[id]
 		if is_instance_valid(e["nodo"]):
-			var asp: Array = _aspecto_actual(e)
 			_rel_spawn_a.rpc_id(1, para, id, lugar, (e["nodo"] as Node2D).global_position,
-				asp[0], asp[1])
+				_datos_enemigo(e["nodo"]))
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rel_spawn_a(para: int, id: int, lugar: String, pos: Vector2, color: Color, lado: float) -> void:
+func _rel_spawn_a(para: int, id: int, lugar: String, pos: Vector2, d: Dictionary) -> void:
 	if not es_host:
 		return
 	if para == 1:
-		_spawn_enemigo(id, lugar, pos, color, lado)
+		_spawn_enemigo(id, lugar, pos, d)
 	else:
-		_spawn_enemigo.rpc_id(para, id, lugar, pos, color, lado)
+		_spawn_enemigo.rpc_id(para, id, lugar, pos, d)
 
 
 @rpc("authority", "call_remote", "reliable")
-func _spawn_enemigo(id: int, lugar: String, pos: Vector2, color: Color, lado: float) -> void:
+func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void:
 	if lugar != _mi_lugar:
 		return   # eso esta en OTRO piso: aqui no se pinta
 	if _enem_nodos.has(id) and is_instance_valid(_enem_nodos[id]):
@@ -1594,7 +1604,9 @@ func _spawn_enemigo(id: int, lugar: String, pos: Vector2, color: Color, lado: fl
 	var cuerpo: Node2D = _REMOTE_ENEMY.new()
 	mundo.add_child(cuerpo)
 	cuerpo.global_position = pos
-	cuerpo.configurar(color, lado)
+	cuerpo.set_meta("net_id", id)   # para pedir pelea/extraccion por el
+	cuerpo.configurar(d.get("color", Color.WHITE), float(d.get("lado", 32.0)))
+	cuerpo.aplicar_datos(String(d.get("ruta", "")), float(d.get("t", 0.5)), bool(d.get("muerto", false)))
 	_enem_nodos[id] = cuerpo
 
 
@@ -1655,14 +1667,188 @@ func _pedir_enemigos(lugar: String) -> void:
 		for id in _enemigos:
 			var e: Dictionary = _enemigos[id]
 			if is_instance_valid(e["nodo"]):
-				var asp: Array = _aspecto_actual(e)
 				_spawn_enemigo.rpc_id(quien, id, lugar, (e["nodo"] as Node2D).global_position,
-					asp[0], asp[1])
+					_datos_enemigo(e["nodo"]))
 		return
 	var piso: int = int(lugar.substr(5)) if lugar.begins_with("piso:") else -1
 	var dueno: int = _dueno_piso.get(piso, 0)
 	if dueno != 0 and dueno != quien:
 		_pedir_roster.rpc_id(dueno, lugar, quien)
+
+
+# --- PELEAR CONTRA UN PISO QUE SIMULA OTRO (hito 5.3) -----------------------------------------
+#
+# El que NO simula el piso ve espejos. Al atacar uno, le PIDE la pelea a su dueño: el dueño reserva
+# el bicho y a sus vecinos (nadie mas puede cogerlos), los congela, y le devuelve la lista de ids.
+# El peticionario juega la pelea contra SUS espejos y al acabar devuelve el resultado, que el dueño
+# aplica sobre los bichos de verdad. Todo pasa por el host porque en estrella un cliente no habla
+# con otro cliente.
+
+# La llama remote_enemy.atacado_por_jugador().
+func solicitar_pelea(id: int) -> void:
+	if not activo or _soy_dueno or multiplayer.multiplayer_peer == null:
+		return
+	_pedir_pelea.rpc_id(1, id, _mi_lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_pelea(id: int, lugar: String) -> void:
+	if not es_host:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	if _mi_lugar == lugar and _soy_dueno:
+		_resolver_pelea(id, quien, lugar)
+		return
+	var dueno: int = _dueno_de(lugar)
+	if dueno != 0 and dueno != 1:
+		_pedir_pelea_dueno.rpc_id(dueno, id, lugar, quien)
+	else:
+		_responder_pelea(quien, [])   # nadie simula ese piso: no hay pelea que dar
+
+
+# Le llega al dueño CLIENTE del piso (reenviada por el host).
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_pelea_dueno(id: int, lugar: String, para: int) -> void:
+	if _mi_lugar != lugar or not _soy_dueno:
+		return
+	_resolver_pelea(id, para, lugar)
+
+
+# SOLO el dueño: arbitra. Reserva el bicho y sus vecinos y responde con sus ids (vacio = ocupado).
+# El grupo lo calcula vecinos(), el mismo que en solitario: es quien tiene los nodos reales y sabe
+# quien esta al lado, con el tope MAX_COMBATIENTES.
+func _resolver_pelea(id: int, quien: int, _lugar: String) -> void:
+	var ids: Array = []
+	var e: Dictionary = _enemigos.get(id, {})
+	var nodo = e.get("nodo") if not e.is_empty() else null
+	if nodo != null and is_instance_valid(nodo) and not _enem_ocupados.has(id) \
+			and not nodo.esta_muerto() and not nodo.get("_combat_triggered"):
+		for n in nodo.vecinos():
+			if not is_instance_valid(n) or not n.has_meta("net_id"):
+				continue
+			var nid: int = n.get_meta("net_id")
+			if _enem_ocupados.has(nid):
+				continue
+			_enem_ocupados[nid] = quien
+			n._combat_triggered = true      # congelado: ya esta en una pelea (la de otro)
+			n.velocity = Vector2.ZERO
+			n._cancelar_aviso()
+			ids.append(nid)
+	_responder_pelea(quien, ids)
+
+
+# La respuesta vuelve al peticionario; si yo soy un dueño CLIENTE, pasa por el host.
+func _responder_pelea(quien: int, ids: Array) -> void:
+	if quien == 1:
+		_pelea_resuelta(ids)
+	elif es_host:
+		_pelea_resuelta.rpc_id(quien, ids)
+	else:
+		_rel_respuesta_pelea.rpc_id(1, quien, ids)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_respuesta_pelea(para: int, ids: Array) -> void:
+	if not es_host:
+		return
+	if para == 1:
+		_pelea_resuelta(ids)
+	else:
+		_pelea_resuelta.rpc_id(para, ids)
+
+
+# Corre en QUIEN PIDIO la pelea: monta el combate contra sus propios espejos. Se les puede pasar
+# tal cual a Game.start_combat porque exponen data/current_t/hp_restante y saben morir().
+@rpc("any_peer", "call_remote", "reliable")
+func _pelea_resuelta(ids: Array) -> void:
+	if ids.is_empty():
+		_toast("Ese enemigo ya está peleando con otro.")
+		return
+	var nodos: Array = []
+	for i in ids:
+		var n = _enem_nodos.get(i)
+		if n != null and is_instance_valid(n):
+			n.entrar_en_pelea()
+			nodos.append(n)
+	if nodos.is_empty():
+		return
+	# Quien se une NO cuenta como emboscada: el que ataca lleva la iniciativa.
+	Game.start_combat(nodos, false)
+
+
+# --- RESULTADO de una pelea jugada contra espejos ---------------------------------------------
+
+# La llaman remote_enemy.morir() / .reanudar_tras_combate() al cerrarse el combate.
+func resultado_bicho(id: int, ha_muerto: bool, hp: float) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	_pedir_resultado.rpc_id(1, id, ha_muerto, hp, _mi_lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) -> void:
+	if not es_host:
+		return
+	if _mi_lugar == lugar and _soy_dueno:
+		_aplicar_resultado(id, ha_muerto, hp)
+		return
+	var dueno: int = _dueno_de(lugar)
+	if dueno != 0 and dueno != 1:
+		_rel_resultado.rpc_id(dueno, id, ha_muerto, hp, lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) -> void:
+	if _mi_lugar != lugar or not _soy_dueno:
+		return
+	_aplicar_resultado(id, ha_muerto, hp)
+
+
+# SOLO el dueño: lo que paso en la pelea de otro se aplica sobre el bicho DE VERDAD. morir() ya se
+# encarga de difundir el cadaver a todos (y de abrir las salidas si era el jefe).
+func _aplicar_resultado(id: int, ha_muerto: bool, hp: float) -> void:
+	_enem_ocupados.erase(id)
+	var e: Dictionary = _enemigos.get(id, {})
+	var nodo = e.get("nodo") if not e.is_empty() else null
+	if nodo == null or not is_instance_valid(nodo):
+		return
+	if ha_muerto:
+		nodo.morir()
+	else:
+		nodo.reanudar_tras_combate(hp)
+
+
+# Quien simula ese lugar (0 = nadie). Solo el host lo sabe.
+# Alguien se fue (o se le corto). Si tenia bichos RESERVADOS para su pelea, hay que soltarlos o se
+# quedan congelados para siempre: es el bug de las estatuas, pero por red. Lo difunde el host y lo
+# aplica cada dueño sobre los suyos.
+@rpc("any_peer", "call_remote", "reliable")
+func _soltar_reservas_de(quien: int) -> void:
+	if not _soy_dueno:
+		return
+	for id in _enem_ocupados.keys():
+		if _enem_ocupados[id] != quien:
+			continue
+		_enem_ocupados.erase(id)
+		var e: Dictionary = _enemigos.get(id, {})
+		var nodo = e.get("nodo") if not e.is_empty() else null
+		if nodo != null and is_instance_valid(nodo) and not nodo.esta_muerto():
+			nodo.reanudar_tras_combate(-1.0)   # vuelve a la vida normal, sin heridas nuevas
+
+
+func _dueno_de(lugar: String) -> int:
+	if not lugar.begins_with("piso:"):
+		return 0
+	return _dueno_piso.get(int(lugar.substr(5)), 0)
+
+
+# Aviso corto en MI pantalla (el HUD es local: los avisos no se replican).
+func _toast(texto: String) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast(texto)
+	else:
+		print("[net] ", texto)
 
 
 # --- HANDSHAKE + CONTRASEÑA ------------------------------------------------------------------
@@ -1779,6 +1965,10 @@ func _on_peer_disconnected(id: int) -> void:
 		# Si simulaba un piso, lo suelta SIN foto (se fue de golpe, no dio tiempo a sacarla): quien
 		# se quede lo hereda vacio y las paredes lo van repoblando. Es el precio de un corte brusco.
 		_soltar_piso(id, {})
+		# Y si se fue A MEDIA PELEA, los bichos que tenia reservados quedarian congelados para
+		# siempre. Que cada dueño suelte los suyos.
+		_soltar_reservas_de.rpc(id)
+		_soltar_reservas_de(id)
 		if _dentro.has(id):
 			_dentro.erase(id)
 			if _dentro.is_empty():
