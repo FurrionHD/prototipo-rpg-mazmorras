@@ -80,16 +80,30 @@ signal estado_cambiado(texto: String)
 # propia; en multi el OTRO puede cambiar el estado y hay que enterarse).
 signal hogar_cambiado()
 
-# --- BOTE de dinero del hogar (hito 4): dinero COMPARTIDO donde depositar para que el otro saque.
-# El dinero de bolsillo (Game.money) sigue siendo personal; esto es un bote aparte, host-autoritativo.
-var bote_dinero: int = 0
+# ¿Soy un CLIENTE en sesion? (uso el almacen del host via mirror). El host y el modo un jugador
+# usan Game.* directo.
+func _soy_cliente() -> bool:
+	return activo and not es_host
 
-# --- COFRE de armas/armaduras (hito 4): equipo COMPARTIDO para traspasar. Host-autoritativo.
-# Cada entrada: {id, dict serializado (Game.serializar_equipo), clase, desc}. Clientes tienen mirror.
-var cofre_equipo: Array = []
-var _next_cofre_id: int = 1
-# Consumibles del cofre (pociones y grimorios): ruta -> cantidad. Stackean, por eso dict y no lista.
-var cofre_consumibles: Dictionary = {}
+# Lo que la UI del hogar debe MOSTRAR: en solitario/host, lo de Game; de cliente, el mirror del host.
+func bote_visible() -> int:
+	return _bote_mirror if _soy_cliente() else Game.bote_dinero
+func cofre_visible() -> Array:
+	return _cofre_mirror if _soy_cliente() else Game.cofre_equipo
+func cofre_consumibles_visible() -> Dictionary:
+	return _cofre_consum_mirror if _soy_cliente() else Game.cofre_consumibles
+
+# --- ALMACEN del hogar (bote/cofre): viven en Game (PERSISTEN en la partida, solo y multi). En
+# solitario son tu almacen personal; en multi los del HOST son los compartidos. Aqui solo guardo
+# el MIRROR de lo del host para cuando soy CLIENTE (asi no piso mis propios Game.* : no se pierde
+# nada al entrar/salir de una sesion). Las lecturas de la UI pasan por *_visible().
+var _bote_mirror: int = 0
+var _cofre_mirror: Array = []
+var _cofre_consum_mirror: Dictionary = {}
+# Baul de MATERIALES: como el crafteo trabaja sobre Game.almacen_materiales, al ser cliente se
+# guarda aparte el mio y se restaura al desconectar (durante la sesion veo/uso el del host).
+var _almacen_solo: Array = []
+var _almacen_guardado := false
 
 # --- BAUL de materiales COMPARTIDO (hito 4): con CANDADO de taller (uno craftea a la vez) ---
 # El baul "de verdad" es el del host (Game.almacen_materiales). Los clientes tienen un MIRROR
@@ -175,10 +189,17 @@ func desconectar() -> void:
 	piso_actual = 1
 	semilla_host = 0
 	tienda_t2_host = false
-	bote_dinero = 0
-	cofre_equipo = []
-	cofre_consumibles = {}
-	_next_cofre_id = 1
+	# Restaurar MI baul de materiales si lo habia guardado al entrar de cliente (no perder nada).
+	if _almacen_guardado:
+		var lista: Array[MaterialItem] = []
+		for m in _almacen_solo:
+			lista.append(m)
+		Game.almacen_materiales = lista
+		_almacen_guardado = false
+		_almacen_solo = []
+	_bote_mirror = 0
+	_cofre_mirror = []
+	_cofre_consum_mirror = {}
 	_taller_dueno = 0
 	_taller_resp = 0
 	_mi_lugar = "pueblo"
@@ -598,34 +619,35 @@ func _liberar_vetas_de(quien: int) -> void:
 # YA descuenta su money (local) y avisa al host de que sume al bote. Retirar: el host valida que
 # hay tanto en el bote, lo resta, y le dice al que pide que ingrese esa cantidad. Host-autoritativo.
 
-# La UI llama a estas dos. Devuelven false si la operacion local no procede (no tienes tanto).
+# La UI llama a estas dos. El dinero de bolsillo (Game.money) sale/entra en LOCAL siempre; el
+# bote vive en Game (persiste) y en multi es el del host. Devuelve false si no tienes tanto.
 func depositar_bote(n: int) -> bool:
-	if n <= 0 or not activo:
+	if n <= 0:
 		return false
-	if not Game.gastar(n):   # el dinero sale de MI bolsillo ya
+	if not Game.gastar(n):   # el dinero sale de MI bolsillo ya (personal, local)
 		return false
-	if es_host:
-		bote_dinero += n
-		_difundir_bote()
-	else:
+	if _soy_cliente():
 		_pedir_depositar.rpc_id(1, n)
+	else:
+		Game.bote_dinero += n
+		_difundir_bote()
 	return true
 
 
 func retirar_bote(n: int) -> void:
-	if n <= 0 or not activo:
+	if n <= 0:
 		return
-	if es_host:
-		_resolver_retiro(n, 1)
-	else:
+	if _soy_cliente():
 		_pedir_retirar.rpc_id(1, n)
+	else:
+		_resolver_retiro(n, 1)
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_depositar(n: int) -> void:
 	if not es_host or n <= 0:
 		return
-	bote_dinero += n
+	Game.bote_dinero += n
 	_difundir_bote()
 
 
@@ -636,15 +658,16 @@ func _pedir_retirar(n: int) -> void:
 	_resolver_retiro(n, multiplayer.get_remote_sender_id())
 
 
-# Solo host: hay tanto en el bote? -> se lo lleva quien lo pide; si no, aviso.
+# Host o solitario: hay tanto en el bote? -> se lo lleva quien lo pide; si no, aviso. quien=1 =
+# yo mismo (host o solitario); otro id = un cliente.
 func _resolver_retiro(n: int, quien: int) -> void:
-	if n <= 0 or bote_dinero < n:
+	if n <= 0 or Game.bote_dinero < n:
 		if quien == 1:
 			_retiro_fallido()
 		else:
 			_retiro_fallido.rpc_id(quien)
 		return
-	bote_dinero -= n
+	Game.bote_dinero -= n
 	_difundir_bote()
 	if quien == 1:
 		Game.ingresar(n)
@@ -664,15 +687,16 @@ func _retiro_fallido() -> void:
 		hud.mostrar_toast("No hay tanto en el bote del hogar.")
 
 
-# Solo host: difunde el bote nuevo a todos (y a si mismo) para refrescar mirror + UI.
+# Difunde el bote a los clientes (solo si hay sesion) y refresca la UI.
 func _difundir_bote() -> void:
-	_set_bote.rpc(bote_dinero)
+	if activo:
+		_set_bote.rpc(Game.bote_dinero)
 	hogar_cambiado.emit()
 
 
 @rpc("authority", "call_remote", "reliable")
 func _set_bote(v: int) -> void:
-	bote_dinero = v
+	_bote_mirror = v   # cliente: reflejo del bote del host
 	hogar_cambiado.emit()
 
 
@@ -685,17 +709,15 @@ func _set_bote(v: int) -> void:
 
 # La UI llama a esta con una pieza de owned_* NO equipada. false si no se puede serializar/sacar.
 func meter_en_cofre(item: Resource) -> bool:
-	if not activo:
-		return false
 	var d: Dictionary = Game.serializar_equipo(item)
 	if d.is_empty():
 		return false
 	if not Game.sacar_de_baul(item):   # se va de MI baul ya
 		return false
-	if es_host:
-		_apuntar_en_cofre(d)
-	else:
+	if _soy_cliente():
 		_pedir_meter_cofre.rpc_id(1, d)
+	else:
+		_apuntar_en_cofre(d)
 	return true
 
 
@@ -706,21 +728,20 @@ func _pedir_meter_cofre(d: Dictionary) -> void:
 	_apuntar_en_cofre(d)
 
 
+# Host o solitario: apunta la pieza en el cofre (Game.cofre_equipo, que persiste).
 func _apuntar_en_cofre(d: Dictionary) -> void:
-	cofre_equipo.append({"id": _next_cofre_id, "dict": d,
+	Game.cofre_equipo.append({"id": Game._cofre_next_id, "dict": d,
 		"clase": str(d.get("clase", "arma")), "desc": str(d.get("desc", "?"))})
-	_next_cofre_id += 1
+	Game._cofre_next_id += 1
 	_difundir_cofre()
 
 
 # La UI llama a esta con el id de una entrada del cofre. El host la concede al que la pide.
 func sacar_de_cofre(id: int) -> void:
-	if not activo:
-		return
-	if es_host:
-		_resolver_saca_cofre(id, 1)
-	else:
+	if _soy_cliente():
 		_pedir_sacar_cofre.rpc_id(1, id)
+	else:
+		_resolver_saca_cofre(id, 1)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -730,17 +751,18 @@ func _pedir_sacar_cofre(id: int) -> void:
 	_resolver_saca_cofre(id, multiplayer.get_remote_sender_id())
 
 
-# Solo host: el primero que la pide se la lleva; el resto, silencio (ya no esta).
+# Host o solitario: el primero que la pide se la lleva; el resto, silencio (ya no esta). quien=1 =
+# yo mismo (host/solitario); otro id = un cliente al que hay que enviarsela.
 func _resolver_saca_cofre(id: int, quien: int) -> void:
 	var idx := -1
-	for i in cofre_equipo.size():
-		if int(cofre_equipo[i]["id"]) == id:
+	for i in Game.cofre_equipo.size():
+		if int(Game.cofre_equipo[i]["id"]) == id:
 			idx = i
 			break
 	if idx < 0:
 		return
-	var d: Dictionary = cofre_equipo[idx]["dict"]
-	cofre_equipo.remove_at(idx)
+	var d: Dictionary = Game.cofre_equipo[idx]["dict"]
+	Game.cofre_equipo.remove_at(idx)
 	_difundir_cofre()
 	if quien == 1:
 		Game.deserializar_equipo(d)
@@ -755,28 +777,27 @@ func _cofre_concedido(d: Dictionary) -> void:
 
 
 func _difundir_cofre() -> void:
-	_set_cofre.rpc(cofre_equipo)
+	if activo:
+		_set_cofre.rpc(Game.cofre_equipo)
 	hogar_cambiado.emit()
 
 
 @rpc("authority", "call_remote", "reliable")
 func _set_cofre(lista: Array) -> void:
-	cofre_equipo = lista
+	_cofre_mirror = lista   # cliente: reflejo del cofre del host
 	hogar_cambiado.emit()
 
 
 # --- COFRE de CONSUMIBLES (pociones/grimorios): stackeable, ruta -> cantidad -----------------
 
 func meter_consumible_cofre(ruta: String, n: int) -> void:
-	if not activo:
-		return
 	var quita: int = Game.quitar_consumible(load(ruta), n)   # sale de MI inventario
 	if quita <= 0:
 		return
-	if es_host:
-		_apuntar_consumible(ruta, quita)
-	else:
+	if _soy_cliente():
 		_pedir_meter_consumible.rpc_id(1, ruta, quita)
+	else:
+		_apuntar_consumible(ruta, quita)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -785,18 +806,17 @@ func _pedir_meter_consumible(ruta: String, n: int) -> void:
 		_apuntar_consumible(ruta, n)
 
 
+# Host o solitario: apunta en Game.cofre_consumibles (persiste).
 func _apuntar_consumible(ruta: String, n: int) -> void:
-	cofre_consumibles[ruta] = int(cofre_consumibles.get(ruta, 0)) + n
+	Game.cofre_consumibles[ruta] = int(Game.cofre_consumibles.get(ruta, 0)) + n
 	_difundir_cofre_consumibles()
 
 
 func sacar_consumible_cofre(ruta: String, n: int) -> void:
-	if not activo:
-		return
-	if es_host:
-		_resolver_saca_consumible(ruta, n, 1)
-	else:
+	if _soy_cliente():
 		_pedir_sacar_consumible.rpc_id(1, ruta, n)
+	else:
+		_resolver_saca_consumible(ruta, n, 1)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -806,14 +826,14 @@ func _pedir_sacar_consumible(ruta: String, n: int) -> void:
 
 
 func _resolver_saca_consumible(ruta: String, n: int, quien: int) -> void:
-	var hay: int = int(cofre_consumibles.get(ruta, 0))
+	var hay: int = int(Game.cofre_consumibles.get(ruta, 0))
 	var da: int = mini(hay, maxi(0, n))
 	if da <= 0:
 		return
 	if hay - da <= 0:
-		cofre_consumibles.erase(ruta)
+		Game.cofre_consumibles.erase(ruta)
 	else:
-		cofre_consumibles[ruta] = hay - da
+		Game.cofre_consumibles[ruta] = hay - da
 	_difundir_cofre_consumibles()
 	if quien == 1:
 		Game.add_consumable(load(ruta), da)
@@ -828,13 +848,14 @@ func _consumible_concedido(ruta: String, n: int) -> void:
 
 
 func _difundir_cofre_consumibles() -> void:
-	_set_cofre_consumibles.rpc(cofre_consumibles)
+	if activo:
+		_set_cofre_consumibles.rpc(Game.cofre_consumibles)
 	hogar_cambiado.emit()
 
 
 @rpc("authority", "call_remote", "reliable")
 func _set_cofre_consumibles(d: Dictionary) -> void:
-	cofre_consumibles = d
+	_cofre_consum_mirror = d   # cliente: reflejo del cofre del host
 	hogar_cambiado.emit()
 
 
@@ -1073,6 +1094,9 @@ func _recoger_concedido(d: Dictionary) -> void:
 # Cliente: nada mas conectar, se presenta al host (id 1) con el codigo, su aspecto y su lugar.
 func _on_connected_to_server() -> void:
 	estado_cambiado.emit("Conectado. Validando codigo...")
+	# Guardo MI baul de materiales antes de que el host me mande el suyo (lo recupero al salir).
+	_almacen_solo = Game.almacen_materiales.duplicate()
+	_almacen_guardado = true
 	_saludar.rpc_id(1, _codigo, Game.player_color, Game.player_metalico, Game.player_nombre,
 		_mi_lugar)
 
@@ -1102,11 +1126,11 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 	for id in _suelo:
 		if _suelo[id]["lugar"] == lugar:
 			_spawn_drop.rpc_id(quien, id, _suelo[id]["d"], _suelo[id]["pos"], lugar)
-	# Estado compartido del hogar que ya existe: baul de materiales, bote y cofre.
+	# Estado compartido del hogar (el del HOST): baul de materiales, bote y cofre.
 	_set_almacen.rpc_id(quien, _almacen_dicts())
-	_set_bote.rpc_id(quien, bote_dinero)
-	_set_cofre.rpc_id(quien, cofre_equipo)
-	_set_cofre_consumibles.rpc_id(quien, cofre_consumibles)
+	_set_bote.rpc_id(quien, Game.bote_dinero)
+	_set_cofre.rpc_id(quien, Game.cofre_equipo)
+	_set_cofre_consumibles.rpc_id(quien, Game.cofre_consumibles)
 
 
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.

@@ -141,6 +141,11 @@ const VERSION_ACTUAL := 2
 @export var crystals: Array = []            # Cristal (runtime -> se incrustan)
 @export var materiales: Array = []          # MaterialItem de la BOLSA (runtime)
 @export var almacen_materiales: Array = []  # MaterialItem guardados en el Hogar
+# ALMACEN del hogar (baul de equipo + hucha de dinero). Persisten SIEMPRE (solo y multi). Campos
+# nuevos con default vacio: los saves viejos cargan solos sin migracion ni subir la version.
+@export var bote_dinero: int = 0
+@export var cofre_equipo: Array = []        # entradas {id, dict, clase, desc} (equipo serializado)
+@export var cofre_consumibles: Dictionary = {}   # ruta -> cantidad
 @export var owned_weapons: Array = []       # baul (instancias propias, con su identidad)
 @export var owned_armor: Array = []
 # MOCHILAS: van aparte del equipo de combate (solo suben la carga). La equipada es del GRUPO

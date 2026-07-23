@@ -1121,6 +1121,10 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	crystals.clear()
 	materiales.clear()
 	almacen_materiales.clear()
+	bote_dinero = 0
+	cofre_equipo.clear()
+	cofre_consumibles.clear()
+	_cofre_next_id = 1
 	owned_weapons.clear()
 	owned_armor.clear()
 	owned_mochilas.clear()
@@ -1232,6 +1236,9 @@ func exportar_partida() -> SaveData:
 	d.crystals = crystals.duplicate()
 	d.materiales = materiales.duplicate()
 	d.almacen_materiales = almacen_materiales.duplicate()
+	d.bote_dinero = bote_dinero
+	d.cofre_equipo = cofre_equipo.duplicate(true)
+	d.cofre_consumibles = cofre_consumibles.duplicate(true)
 	d.owned_weapons = owned_weapons.duplicate()
 	d.owned_armor = owned_armor.duplicate()
 	d.owned_mochilas = owned_mochilas.duplicate()
@@ -1352,6 +1359,13 @@ func importar_partida(d: SaveData) -> void:
 	crystals.assign(d.crystals)
 	materiales.assign(d.materiales)
 	almacen_materiales.assign(d.almacen_materiales)
+	bote_dinero = d.bote_dinero
+	cofre_equipo = d.cofre_equipo.duplicate(true)
+	cofre_consumibles = d.cofre_consumibles.duplicate(true)
+	# El siguiente id del cofre, por encima del mayor guardado (evita colisiones al meter mas).
+	_cofre_next_id = 1
+	for e in cofre_equipo:
+		_cofre_next_id = maxi(_cofre_next_id, int(e.get("id", 0)) + 1)
 	owned_weapons.assign(d.owned_weapons)
 	owned_armor.assign(d.owned_armor)
 	owned_mochilas.assign(d.owned_mochilas)
@@ -1712,6 +1726,14 @@ var materiales: Array[MaterialItem] = []
 
 # --- BAUL DEL HOGAR: materiales ya guardados en casa. No pesan.
 var almacen_materiales: Array[MaterialItem] = []
+
+# --- ALMACEN del hogar: un BAUL de equipo/consumibles y una HUCHA de dinero. Persisten SIEMPRE
+# (se guardan en la partida). En un jugador son tu almacen personal; en multi pasan a ser los del
+# HOST (compartidos con el grupo). El movimiento en red lo orquesta Net (host-autoritativo).
+var bote_dinero: int = 0
+var cofre_equipo: Array = []            # entradas {id, dict serializado, clase, desc}
+var cofre_consumibles: Dictionary = {}  # ruta -> cantidad
+var _cofre_next_id: int = 1
 
 # --- BAUL DE EQUIPO: lo que POSEES (aunque no lo lleves puesto). De momento se llena
 # desde el panel de debug; en el futuro, comprando/crafteando. El menu de personaje solo

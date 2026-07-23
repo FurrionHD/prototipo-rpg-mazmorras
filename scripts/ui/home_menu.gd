@@ -14,9 +14,9 @@
 
 extends CanvasLayer
 
-# Pestañas base (siempre) + las de sesion multi (bote y cofre compartidos), que solo salen con Net.
-const TABS := ["Equipo", "Almacén"]
-const TABS_MULTI := ["Bote", "Cofre"]
+# Almacen del hogar. Bote y Cofre son tu almacen personal (persiste en la partida); en multi
+# pasan a ser los del host (compartidos). Siempre visibles.
+const TABS := ["Equipo", "Almacén", "Bote", "Cofre"]
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
@@ -62,7 +62,7 @@ func _on_hogar_cambiado() -> void:
 
 
 func _tabs() -> Array:
-	return TABS + (TABS_MULTI if Net.activo else [])
+	return TABS
 
 
 func _rehacer_tabs() -> void:
@@ -347,11 +347,12 @@ func _on_guardar() -> void:
 # ============================================================
 
 func _build_bote() -> void:
-	MenuScaffold.titulo(_header, "BOTE DEL HOGAR", 18)
-	MenuScaffold.fila(_content, "En el bote (común)", "%d monedas" % Net.bote_dinero)
+	MenuScaffold.titulo(_header, "HUCHA DEL HOGAR", 18)
+	MenuScaffold.fila(_content, "En la hucha", "%d monedas" % Net.bote_visible())
 	MenuScaffold.fila(_content, "En tu bolsillo", "%d monedas" % Game.money)
-	MenuScaffold.nota(_content, "Un fondo común: deposita para que tu compañero pueda cogerlo. Tu "
-		+ "dinero de bolsillo es tuyo; esto es aparte.")
+	var nota: String = "Guarda dinero en casa. " + ("En multijugador es común: deposita para que "
+		+ "tu compañero pueda cogerlo." if Net.activo else "Se guarda con tu partida.")
+	MenuScaffold.nota(_content, nota)
 
 	# Cantidad escrita a mano; los dos botones siempre disponibles.
 	var caja := HBoxContainer.new()
@@ -462,11 +463,11 @@ func _build_cofre() -> void:
 	if not alguna:
 		MenuScaffold.nota(_lista, "No tienes piezas sueltas de este tipo para depositar.")
 
-	# EN EL COFRE (compartido): se pueden sacar.
+	# EN EL COFRE: se pueden sacar.
 	MenuScaffold.titulo(_content, "En el cofre", 14)
 	var clases: Array = ["arma", "mochila"] if es_armas else ["armadura"]
 	var hay := false
-	for entrada in Net.cofre_equipo:
+	for entrada in Net.cofre_visible():
 		if not clases.has(str(entrada.get("clase", ""))):
 			continue
 		hay = true
@@ -520,8 +521,9 @@ func _build_cofre_consumibles() -> void:
 
 	MenuScaffold.titulo(_content, "En el cofre", 14)
 	var hay := false
-	for ruta in Net.cofre_consumibles:
-		var cant: int = int(Net.cofre_consumibles[ruta])
+	var consum: Dictionary = Net.cofre_consumibles_visible()
+	for ruta in consum:
+		var cant: int = int(consum[ruta])
 		if cant <= 0:
 			continue
 		hay = true
