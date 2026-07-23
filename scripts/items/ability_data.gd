@@ -67,7 +67,12 @@ class_name AbilityData
 enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 @export var area_modo: int = AreaModo.NINGUNO
 @export var area_max: int = 99            # tope de enemigos alcanzados (incl. principal)
-@export var area_secundario: float = 0.5  # SPLASH: fracción de daño a cada secundario
+@export var area_secundario: float = 0.5  # SPLASH: fracción de daño a cada secundario (con 2 enemigos)
+# SPLASH que se DILUYE con la multitud: el % de los secundarios BAJA esto por cada enemigo por
+# encima de 2 (más cuerpos que absorben la onda = menos toca a cada uno). 0 = fijo (area_secundario
+# siempre). Ej. 0.6 base con decay 0.10: 2 enemigos 60%, 3 → 50%, 4 → 40%, 5 → 30%. El principal
+# siempre al 100%. Ver secundario_para().
+@export var area_secundario_decay: float = 0.0
 @export var area_falloff: float = 0.7     # BARRIDO: cada golpe x falloff^(n-1)
 # ¿El AREA aplica también los ESTADOS de la habilidad a los secundarios (adyacentes)? (solo enemigos)
 # false = los estados se quedan en el principal, los lados solo encajan el DAÑO reducido (Aplastamiento:
@@ -96,6 +101,14 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # ¿Golpea en área? (modo distinto de NINGUNO). Atajo para la UI y el core de combate.
 func es_area() -> bool:
 	return area_modo != AreaModo.NINGUNO
+
+
+# Fracción de daño que recibe cada SECUNDARIO de un SPLASH según cuántos enemigos hay EN TOTAL
+# (incluido el principal). Sin decay es fija; con decay baja por cada enemigo por encima de 2, con
+# suelo en 0 (nunca daño negativo). El principal no pasa por aquí: siempre pega al 100%.
+func secundario_para(n_enemigos: int) -> float:
+	var extra: int = maxi(0, n_enemigos - 2)
+	return maxf(0.0, area_secundario - area_secundario_decay * float(extra))
 
 
 # Estados que aplica al enemigo (Array[StatusApplication], con su prob).
@@ -251,6 +264,9 @@ func _area_txt() -> String:
 	match area_modo:
 		AreaModo.SPLASH:
 			var alcance: String = "toda la fila" if area_max >= 99 else "%d enemigos" % area_max
+			if area_secundario_decay > 0.0:
+				return "área: %d%% a %s, −%d%% por enemigo de más" % [
+					roundi(area_secundario * 100.0), alcance, roundi(area_secundario_decay * 100.0)]
 			return "área: %d%% a %s" % [roundi(area_secundario * 100.0), alcance]
 		AreaModo.BARRIDO:
 			var alcance2: String = "toda la fila" if area_max >= 99 else "hasta %d" % area_max

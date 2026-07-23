@@ -2020,11 +2020,16 @@ func _usar_habilidad(ab: AbilityData) -> void:
 			var golpe_res: Array = []   # resultados de ESTE golpe (varios si es área)
 			match ab.area_modo:
 				AbilityData.AreaModo.SPLASH:
-					# Principal al 100%, cada secundario x area_secundario. El total CRECE.
+					# Principal al 100%, cada secundario x el % que toca (baja con la multitud si la
+					# habilidad tiene decay). El total CRECE con cada enemigo tocado.
+					var n_vivos_s: int = 0
+					for t in objetivos:
+						if t.is_alive(): n_vivos_s += 1
+					var esc_sec: float = ab.secundario_para(n_vivos_s)
 					for t in objetivos:
 						if not t.is_alive():
 							continue
-						var esc: float = 1.0 if t == obj else ab.area_secundario
+						var esc: float = 1.0 if t == obj else esc_sec
 						var etq: String = "" if t == obj else " (%s)" % t.nombre
 						golpe_res.append(_resolver_golpe_hab(ab, t, i, manos, esc, etq, m_golpe))
 						if t not in tocados: tocados.append(t)

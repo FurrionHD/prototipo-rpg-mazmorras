@@ -22,6 +22,7 @@ golpes_min = 1
 golpes_max = 1
 dano_mult = 1.6
 area_modo = 1
+area_max = 3
 area_secundario = 0.5
 efectos = [SubResource("SA_stun"), SubResource("SA_lento")]
 efectos_por_golpe = false
