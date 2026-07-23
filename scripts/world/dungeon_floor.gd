@@ -477,8 +477,9 @@ func abrir_salidas() -> void:
 #  BOSS: guarda la sala central y bloquea la bajada hasta que cae (la primera vez).
 # ------------------------------------------------------------
 func _colocar_boss() -> void:
-	# MULTIJUGADOR: sin enemigos (tampoco el boss) hasta el combate multi (hito 5).
-	if Net.activo:
+	# MULTIJUGADOR (hito 5.1): el HOST simula los enemigos (boss incluido) y los replica; el
+	# CLIENTE no los coloca (solo los ve por Net). El combate en si llega en 5.2.
+	if Net.activo and not Net.es_host:
 		return
 	var data: EnemyData = Game.boss_del_piso(Game.current_floor)
 	if data == null:
@@ -880,15 +881,16 @@ func _crear_zonas() -> void:
 		zona.hogar = _centro_pisable(pts)
 		_zonas.add_child(zona)
 
-	# MULTIJUGADOR: ni poblacion inicial ni restauracion de la memoria local (recrearia bichos
-	# y cadaveres RANCIOS de expediciones viejas de ESTA maquina; en sesion los drops son de Net
-	# y bichos no hay). hay_sitio() ya corta, pero saltarselo ahorra el trabajo entero.
-	if not recordado and not Net.activo:
+	# MULTIJUGADOR (hito 5.1): el HOST puebla/restaura como en solitario (y replica sus bichos por
+	# Net). El CLIENTE no puebla NADA en local (recrearia bichos rancios de expediciones viejas de
+	# ESTA maquina; en sesion los ve por Net). hay_sitio() ya corta, pero saltarselo ahorra trabajo.
+	var simulo_bichos: bool = not Net.activo or Net.es_host
+	if not recordado and simulo_bichos:
 		_poblar_el_piso(zona_entrada)
 
 	# DIFERIDO igual que poblar: durante _ready el nodo padre aun se esta montando y Godot
 	# rechaza los add_child (los bichos no llegarian a entrar en la escena).
-	if recordado and not Net.activo:
+	if recordado and simulo_bichos:
 		call_deferred("_restaurar_estado")
 	call_deferred("_log_poblacion", recordado)
 
@@ -1069,10 +1071,11 @@ func elegir_enemigo() -> EnemyData:
 # Al POBLAR el piso al entrar se llama con reciclar=false: si no, las ultimas zonas en
 # poblarse se pondrian a borrar los bichos de las primeras para hacerse sitio.
 func hay_sitio(reciclar: bool = true, forzar: bool = false) -> bool:
-	# MULTIJUGADOR (hito 3b): SIN enemigos mientras haya sesion. Este es el embudo por el que
-	# pasan la poblacion inicial, el goteo y los brotes (SpawnZone._nacer pregunta aqui antes de
-	# crear nada): cerrarlo apaga los tres. Los bichos vuelven con el combate multi (hito 5).
-	if Net.activo:
+	# MULTIJUGADOR (hito 5.1): este es el embudo por el que pasan la poblacion inicial, el goteo y
+	# los brotes (SpawnZone._nacer pregunta aqui antes de crear nada). El HOST simula y replica sus
+	# bichos; el CLIENTE no crea NINGUNO en local (los ve por Net). Antes (hito 3b) se cerraba para
+	# los dos porque no habia enemigos en multi.
+	if Net.activo and not Net.es_host:
 		return false
 	if _vivos_en_el_piso() < max_vivos():
 		return true
@@ -1176,6 +1179,9 @@ func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0)
 		mundo = self
 	mundo.add_child(e)
 	e.recolocar(pos)
+	# MULTIJUGADOR (hito 5.1): el host lo registra para replicarlo a los clientes de este piso
+	# (ya con su posicion puesta). En solitario / de cliente no hace nada.
+	Net.registrar_enemigo(e, "piso:%d" % _piso_construido)
 	return e
 
 

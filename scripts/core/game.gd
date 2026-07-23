@@ -5961,6 +5961,11 @@ func _dev_print_armor() -> void:
 # No se pasa un EnemyData suelto: con varios bichos no hay "el" EnemyData, y cada nodo ya lleva
 # el suyo (.data) y su tirada (.current_t).
 func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
+	# HITO 5.1 (tope temporal): en multi todavia NO se pelea (el combate despausado y el throttle
+	# de spawns es 5.2). enemy._start_combat ya corta antes; esto es el cinturon de seguridad para
+	# cualquier otra via (ataque del jugador, dev). Se retira con el combate multi.
+	if Net.activo:
+		return
 	if not _active_enemies.is_empty() or enemy_nodes.is_empty():
 		return  # ya hay un combate o faltan datos
 

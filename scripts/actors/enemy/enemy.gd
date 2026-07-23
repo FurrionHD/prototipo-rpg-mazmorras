@@ -629,6 +629,22 @@ func esta_muerto() -> bool:
 	return _dead
 
 
+# MULTIJUGADOR (hito 5.1): lo que el host manda al cliente para PINTAR este bicho igual sin
+# conocer EnemyData: su color (ya con el tinte de su 't') y el lado de su cuerpo (los elites son
+# mas grandes). Se lee del propio ColorRect, que es la verdad tras _aplicar_escala.
+func aspecto_red() -> Dictionary:
+	if _color_rect != null:
+		return {"color": _color_rect.color, "lado": _color_rect.offset_right - _color_rect.offset_left}
+	return {"color": Color.WHITE, "lado": 32.0}
+
+
+# MULTIJUGADOR (hito 5.1): al salir del arbol (reciclado por aforo, piso desmontado al viajar) el
+# host da de baja el bicho para que su cuerpo remoto desaparezca en los clientes. En solitario /
+# de cliente no hace nada (Net.baja_enemigo corta).
+func _exit_tree() -> void:
+	Net.baja_enemigo(self)
+
+
 # "t" (0..1): donde cae este bicho dentro de su franja (flojo..fuerte).
 # Lo usa la categoria del cristal (t alto = cristal de mejor categoria).
 func poder_normalizado() -> float:
@@ -900,6 +916,12 @@ func vecinos() -> Array:
 
 func _start_combat(enemy_initiated: bool) -> void:
 	if _combat_triggered:
+		return
+	# HITO 5.1 (tope temporal): en multi los enemigos se REPLICAN y se ven moverse, pero todavia
+	# no se pelea (el combate despausado + throttle de spawns es la sub-fase 5.2). Sin esto, el
+	# bicho se congelaria a si mismo (_combat_triggered) sin que arranque ninguna pelea. Se retira
+	# al implementar el combate multi.
+	if Net.activo:
 		return
 	var grupo: Array = vecinos()
 	# Se congela al GRUPO ENTERO, no solo a mi: los vecinos entran a la pelea, asi que no pueden

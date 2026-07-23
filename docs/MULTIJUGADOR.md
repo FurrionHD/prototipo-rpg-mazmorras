@@ -1,9 +1,11 @@
 # Arquitectura para un futuro multijugador
 
-> Estado: **preparación (Fase 0)**. El multijugador **NO está implementado**. Este documento
-> congela decisiones de diseño y deja registrado lo que falta por decidir, para poder abordarlo
-> más adelante sin arrepentirnos de la arquitectura. En **un jugador el juego funciona igual que
-> siempre**: el tiempo se pausa en los menús y en combate como hasta ahora.
+> Estado: **LAN jugable, en el hito 5 (combate)**. Hechos los hitos 1–4 (esqueleto andante,
+> recogida replicada, menús/mazmorra compartida, hogar compartido) y la **fase 5.1** (enemigos
+> host-autoritativos replicados). **Todavía NO se pelea en multi**: hay un tope temporal que corta
+> el combate en sesión hasta la fase 5.2. Este documento congela las decisiones de diseño y
+> registra lo que falta. En **un jugador el juego funciona igual que siempre**: el tiempo se pausa
+> en los menús y en combate como hasta ahora.
 
 ## Por qué existe este documento
 
@@ -85,7 +87,7 @@ la misma instancia de arma.
 | Modal | En multi | Motivo |
 |---|---|---|
 | `MENU`, `PERSONAJE`, `SISTEMA` | **Local** al jugador — **IMPLEMENTADO** | Con sesión activa `_refrescar_pausa()` no pausa el árbol; el `Player` corta su propio input consultando `Game.hay_modal()` (sigue emitiendo posición: el otro te ve quieto de pie). En solitario todo pausa como siempre. Nota asumida: en multi las pociones tiquean con el menú abierto. |
-| `COMBATE` | **No congela el mundo** | Mi pelea no puede parar al compañero ni a los spawns; se resuelve por-instancia. |
+| `COMBATE` | **No congela el mundo** (pendiente 5.2) | Mi pelea no puede parar al compañero ni a los spawns; se resuelve por-instancia. En multi el árbol ya no se pausa, pero **falta throttlear los relojes de spawn**, que hoy se congelaban gratis con la pausa global. |
 | `EXTRACCION` | **No congela, y es por-cuerpo** | Si yo extraigo un cadáver, el otro recibe "ocupado" en ESE cuerpo, pero el mundo sigue. |
 | `RECOLECCION` | **No congela** | Igual que la extracción: minar/talar/cosechar es local a quien lo hace. |
 
@@ -227,6 +229,51 @@ Orden pensado para **depurar barato** (el combate va al FINAL, es lo más delica
 5. **Combate**: despausar el mundo, cola de refuerzos, unirse a media pelea, regla de emboscada/
    ATB, barras por-personaje, y que cada jugador **solo pueda accionar SUS personajes en su turno**.
 6. **Guardado sincronizado** (host guarda por los dos) + persistencia del personaje del invitado.
+
+### Hito 5 troceado (el combate es demasiado grande para un solo paso)
+
+Visión del usuario para este hito: **cada jugador anda por el piso/sala que quiera y puede haber
+varios combates A LA VEZ, hasta uno por jugador** (yo peleo con un bicho mientras mi compañero
+pelea con otro en otra sala u otro piso), y **todos vemos los mismos enemigos en las mismas
+posiciones**.
+
+- **5.1 — Enemigos replicados (HECHO)**: el host simula los enemigos (IA, spawns, aforo, boss: su
+  código de siempre) y los replica; los clientes los VEN moverse con cuerpos ligeros
+  (`scripts/actors/enemy/remote_enemy.gd`). Sin combate todavía.
+- **5.2 — Combate del host con el mundo vivo**: quitar el tope temporal, throttlear
+  `spawn_zone._process` (hoy se congelaba gratis con la pausa global) y que la pelea del host no
+  pare a nadie.
+- **5.3 — El cliente pelea**: combate host-autoritativo con el turno del cliente conducido por RPC.
+- **5.4 — Dos humanos en UNA pelea**: formación por orden, cola de refuerzos, unirse a media
+  pelea, emboscada/ATB.
+- **5.5 — Huir individual + pulido.**
+
+#### ⚠️ Límite conocido de 5.1: autoridad de UN SOLO piso
+
+El host solo simula **el piso en el que está** (su `current_scene` es un único `DungeonFloor`).
+Por eso hoy la replicación funciona para los clientes que estén en **ese mismo piso**; un cliente
+en otro piso no ve bichos, porque **nadie los simula allí**. Para cumplir del todo la visión
+("cada uno en el piso que quiera, con su propio combate") hará falta **autoridad por piso**: o el
+host simula en paralelo los pisos ocupados, o cada máquina se vuelve autoritativa de su piso. Es
+el primer problema a resolver del bloque 5.2–5.3. El canal ya viaja etiquetado por `lugar`
+("pueblo" / "piso:N"), así que extiende sin reescribirlo.
+
+#### Cómo funciona el canal de enemigos (5.1)
+
+Mismo patrón que los drops del suelo (`_suelo`/`_drops`), en `scripts/net/net.gd`:
+- `_enemigos` (solo host): `id -> {nodo, lugar, color, lado}`. El id se asigna en
+  `registrar_enemigo()`, que llama **`dungeon_floor.crear_enemigo()`** — la fábrica ÚNICA por la
+  que pasan población inicial, goteo de partos, brotes, boss y restauración.
+- `_enem_nodos` (solo clientes): `id -> remote_enemy`.
+- Alta/baja fiables (`_spawn_enemigo` / `_despawn_enemigo`), posiciones a **~20 Hz** en lotes
+  `unreliable_ordered` filtrados **por el lugar de cada peer** (`_tick_enemigos`), y
+  `_pedir_enemigos` para el que llega tarde o cambia de piso (como `_pedir_suelo`).
+- La baja se dispara desde `enemy._exit_tree()`: cubre reciclado por aforo y desmontaje del piso.
+- **Gates host-aware** en `dungeon_floor.gd`: `hay_sitio()` (el embudo por el que pasan TODOS los
+  nacimientos), `_colocar_boss()` y población/restauración. El cliente **no crea ni un bicho en
+  local**: solo espeja.
+- **Nada nuevo que persistir**: el host guarda como siempre; el cliente nunca guarda enemigos, así
+  que no hay estado que se pierda al entrar/salir de sesión.
 
 ---
 

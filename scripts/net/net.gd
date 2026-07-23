@@ -9,6 +9,12 @@
 #  TODOS los RPC pasan por este singleton a proposito: como el autoload vive en la MISMA ruta
 #  (/root/Net) en el host y en el cliente, no hay que casar rutas de nodos del mundo.
 #
+#  TRAMPA DE GDSCRIPT (costo 471 errores en una prueba headless): los diccionarios de NODOS
+#  (_avatares, _drops, _enem_nodos) guardan referencias que pueden quedar LIBERADAS al cambiar de
+#  escena. Asignar una instancia ya liberada a una variable TIPADA (`var a: Node = _avatares[id]`)
+#  LANZA error en Godot 4. Hay que leerlas SIN TIPAR (`var a = ...`) y filtrar con
+#  is_instance_valid(). Todas las lecturas de esos tres diccionarios siguen esa regla.
+#
 #  TRANSPORTE AISLADO: lo unico especifico de ENet vive en hostear()/unirse() (crear el
 #  ENetMultiplayerPeer). Todo lo demas usa la API de alto nivel de Godot y es agnostico del
 #  transporte: portarlo a Steam el dia de manana = cambiar esas dos funciones por crear/unir un
@@ -20,6 +26,7 @@ extends Node
 const PUERTO := 24567
 const MAX_JUGADORES := 4
 const _REMOTE_PLAYER := preload("res://scripts/actors/player/remote_player.gd")
+const _REMOTE_ENEMY := preload("res://scripts/actors/enemy/remote_enemy.gd")
 const _DROP_PICKUP := preload("res://scripts/items/drop_pickup.gd")
 
 # ¿Hay una sesion de red en marcha? El resto del juego (player.gd) lo consulta para decidir si
@@ -71,6 +78,21 @@ var _agotados_sesion: Dictionary = {} # celda -> true: vetas agotadas ESTA exped
 var _suelo: Dictionary = {}        # id -> dict del item (solo lo llena el host)
 var _drops: Dictionary = {}        # id -> nodo drop_pickup (en todos los peers)
 var _next_id: int = 1              # contador de ids del host
+
+# --- ENEMIGOS replicados (hito 5.1) ----------------------------------------------------------
+# En multi los enemigos los SIMULA el host (IA, spawns, aforo: su codigo de siempre); los
+# clientes solo los VEN. El host es la fuente de verdad: _enemigos apunta cada bicho vivo por id,
+# con su NODO real (para leer su posicion en el tick), su LUGAR y su aspecto. Los clientes montan
+# un remote_enemy por id en _enem_nodos. Mismo patron que _suelo/_drops.
+#
+# LIMITE de 5.1 (a resolver en la siguiente sub-fase): el host solo simula el piso en el que ESTA
+# (su current_scene). Un cliente en OTRO piso no ve bichos (nadie los simula alli todavia). El
+# etiquetado por lugar ya deja el canal listo para autoridad por-piso cuando toque.
+var _enemigos: Dictionary = {}     # id -> {"nodo","lugar","color","lado"} (solo lo llena el host)
+var _enem_nodos: Dictionary = {}   # id -> nodo remote_enemy (en los CLIENTES)
+var _enem_next_id: int = 1         # contador de ids de enemigo del host
+const _ENEM_TICK := 1.0 / 20.0     # ritmo de difusion de posiciones (~20 Hz, suave y barato)
+var _enem_acum: float = 0.0
 
 # El panel de conexion se suscribe para pintar "Conectado / Rechazado / Host caido...".
 signal estado_cambiado(texto: String)
@@ -124,6 +146,19 @@ func _ready() -> void:
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 
 
+# El host difunde las posiciones de SUS enemigos a ~20 Hz (hito 5.1). En solitario, de cliente,
+# o sin nadie conectado, no hace nada. Va en _physics_process para leer las posiciones ya
+# resueltas por la fisica del bicho ese frame.
+func _physics_process(delta: float) -> void:
+	if not activo or not es_host or _enemigos.is_empty() or multiplayer.multiplayer_peer == null:
+		return
+	_enem_acum += delta
+	if _enem_acum < _ENEM_TICK:
+		return
+	_enem_acum = 0.0
+	_difundir_posiciones_enemigos()
+
+
 # --- ARRANQUE (lo unico especifico de ENet) -------------------------------------------------
 
 # ¿Estoy en el pueblo? Las sesiones SOLO se abren/unen desde alli: montar una sesion con la
@@ -171,7 +206,7 @@ func unirse(ip: String, codigo: String, puerto: int = PUERTO) -> int:
 
 func desconectar() -> void:
 	for id in _avatares.keys():
-		var a: Node = _avatares[id]
+		var a = _avatares[id]
 		if is_instance_valid(a):
 			a.queue_free()
 	_avatares.clear()
@@ -181,6 +216,16 @@ func desconectar() -> void:
 	# desconexion es anecdotico y asumido (ver docs/MULTIJUGADOR.md).
 	_suelo.clear()
 	_drops.clear()
+	# Enemigos: el host deja de simularlos por red; los cuerpos remotos del cliente se van (en el
+	# pueblo no hay bichos, y al desconectar el cliente vuelve a su mundo sin sesion).
+	for id in _enem_nodos.keys():
+		var e = _enem_nodos[id]
+		if is_instance_valid(e):
+			e.queue_free()
+	_enem_nodos.clear()
+	_enemigos.clear()
+	_enem_next_id = 1
+	_enem_acum = 0.0
 	_peers.clear()
 	_dentro.clear()
 	_vetas_ocupadas.clear()
@@ -230,7 +275,7 @@ func _recibir_estado(pos: Vector2, _facing: Vector2) -> void:
 	var emisor := multiplayer.get_remote_sender_id()
 	if _peers.has(emisor):
 		_peers[emisor]["pos"] = pos   # se recuerda: al reconstruir su avatar aparece donde iba
-	var a: Node = _avatares.get(emisor)
+	var a = _avatares.get(emisor)   # SIN tipar: puede ser una instancia ya liberada (ver nota abajo)
 	if a != null and is_instance_valid(a):
 		a.ir_a(pos)
 
@@ -253,7 +298,7 @@ func _cambiar_lugar(lugar: String) -> void:
 		return
 	_peers[emisor]["lugar"] = lugar
 	# ¿Ahora compartimos lugar? Su avatar aparece. ¿Ya no? Desaparece.
-	var a: Node = _avatares.get(emisor)
+	var a = _avatares.get(emisor)   # SIN tipar: puede ser una instancia ya liberada (ver nota abajo)
 	if lugar == _mi_lugar:
 		if a == null or not is_instance_valid(a):
 			_crear_avatar_nodo(emisor)
@@ -269,7 +314,7 @@ func _reconstruir_vista() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	for id in _avatares.keys():
-		var a: Node = _avatares[id]
+		var a = _avatares[id]
 		if is_instance_valid(a):
 			a.queue_free()
 	_avatares.clear()
@@ -277,7 +322,7 @@ func _reconstruir_vista() -> void:
 		if _peers[id]["lugar"] == _mi_lugar:
 			_crear_avatar_nodo(id)
 	for id in _drops.keys():
-		var n: Node = _drops[id]
+		var n = _drops[id]
 		if is_instance_valid(n):
 			n.queue_free()
 	_drops.clear()
@@ -287,6 +332,16 @@ func _reconstruir_vista() -> void:
 				_spawn_drop(id, _suelo[id]["d"], _suelo[id]["pos"], _mi_lugar)
 	else:
 		_pedir_suelo.rpc_id(1, _mi_lugar)
+	# ENEMIGOS (hito 5.1): los cuerpos remotos murieron con la escena vieja. El host NO pinta
+	# remotos (los suyos son reales, y el piso nuevo ya los re-registra al poblarse); el cliente
+	# limpia y pide los del lugar nuevo.
+	for id in _enem_nodos.keys():
+		var en = _enem_nodos[id]   # sin tipar: puede ser una instancia ya liberada (ver purga del tick)
+		if is_instance_valid(en):
+			en.queue_free()
+	_enem_nodos.clear()
+	if not es_host:
+		_pedir_enemigos.rpc_id(1, _mi_lugar)
 
 
 # Un cliente que acaba de viajar pide el suelo de su lugar nuevo.
@@ -1074,7 +1129,7 @@ func _resolver_recogida(id: int, ganador: int) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _despawn_drop(id: int) -> void:
-	var n: Node = _drops.get(id)
+	var n = _drops.get(id)
 	if n != null and is_instance_valid(n):
 		n.queue_free()
 	_drops.erase(id)
@@ -1087,6 +1142,110 @@ func _recoger_concedido(d: Dictionary) -> void:
 	var item := _item_de_dict(d)
 	if item != null:
 		Game.embolsar(item)
+
+
+# --- ENEMIGOS replicados (hito 5.1) ----------------------------------------------------------
+#
+# El host lo llama al CREAR un bicho (dungeon_floor.crear_enemigo, ya con su posicion puesta):
+# le asigna id, lo apunta y lo difunde a los clientes de ese lugar. En solitario (o si soy
+# cliente) no hace NADA -> cero impacto en un jugador.
+func registrar_enemigo(nodo: Node2D, lugar: String) -> void:
+	if not activo or not es_host or nodo == null or multiplayer.multiplayer_peer == null:
+		return
+	var asp: Dictionary = {}
+	if nodo.has_method("aspecto_red"):
+		asp = nodo.aspecto_red()
+	var color: Color = asp.get("color", Color.WHITE)
+	var lado: float = asp.get("lado", 32.0)
+	var id := _enem_next_id
+	_enem_next_id += 1
+	nodo.set_meta("net_id", id)   # el id de red viaja como meta, sin tocar la clase enemy
+	_enemigos[id] = {"nodo": nodo, "lugar": lugar, "color": color, "lado": lado}
+	_spawn_enemigo.rpc(id, lugar, nodo.global_position, color, lado)
+
+
+# El host lo llama cuando un bicho DESAPARECE del mundo (reciclado, piso desmontado): lo borra
+# del registro y avisa a los clientes para que quiten su cuerpo. Un cadaver NO llama a esto: la
+# muerte replicada es de una sub-fase posterior (con el combate).
+func baja_enemigo(nodo: Node) -> void:
+	if not activo or not es_host or multiplayer.multiplayer_peer == null:
+		return
+	if nodo == null or not nodo.has_meta("net_id"):
+		return
+	var id: int = nodo.get_meta("net_id")
+	if not _enemigos.has(id):
+		return
+	_enemigos.erase(id)
+	_despawn_enemigo.rpc(id)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _spawn_enemigo(id: int, lugar: String, pos: Vector2, color: Color, lado: float) -> void:
+	if lugar != _mi_lugar:
+		return   # eso esta en OTRO piso: aqui no se pinta
+	if _enem_nodos.has(id) and is_instance_valid(_enem_nodos[id]):
+		return   # ya lo tengo (llego dos veces: difusion + peticion de late-join)
+	var mundo: Node = get_tree().current_scene
+	if mundo == null:
+		return
+	var cuerpo: Node2D = _REMOTE_ENEMY.new()
+	mundo.add_child(cuerpo)
+	cuerpo.global_position = pos
+	cuerpo.configurar(color, lado)
+	_enem_nodos[id] = cuerpo
+
+
+@rpc("authority", "call_remote", "reliable")
+func _despawn_enemigo(id: int) -> void:
+	var n = _enem_nodos.get(id)
+	if n != null and is_instance_valid(n):
+		n.queue_free()
+	_enem_nodos.erase(id)
+
+
+# Difusion de POSICIONES (host -> cada cliente, solo los bichos de SU lugar). Se llama desde
+# _physics_process a ~20 Hz. Un RPC por cliente con un lote [[id, pos], ...]: no fiable y
+# ordenado, como la posicion del jugador (perder un paquete no importa, el siguiente corrige).
+func _difundir_posiciones_enemigos() -> void:
+	if _peers.is_empty():
+		return
+	# Purga de nodos muertos (reciclados sin pasar por baja, por si acaso). SIN tipar la variable:
+	# asignar una instancia YA LIBERADA a un `var: Node` lanza error en Godot 4; hay que leerla
+	# cruda y dejar que is_instance_valid la descarte.
+	for id in _enemigos.keys():
+		var nodo = _enemigos[id]["nodo"]
+		if not is_instance_valid(nodo):
+			_enemigos.erase(id)
+			_despawn_enemigo.rpc(id)
+	for peer_id in _peers:
+		var lugar: String = _peers[peer_id].get("lugar", "")
+		var lote: Array = []
+		for id in _enemigos:
+			if _enemigos[id]["lugar"] == lugar:
+				lote.append([id, (_enemigos[id]["nodo"] as Node2D).global_position])
+		if not lote.is_empty():
+			_tick_enemigos.rpc_id(peer_id, lote)
+
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func _tick_enemigos(lote: Array) -> void:
+	for par in lote:
+		var n = _enem_nodos.get(par[0])
+		if n != null and is_instance_valid(n):
+			n.ir_a(par[1])
+
+
+# Un cliente que acaba de viajar pide los enemigos de su lugar nuevo (late-join / cambio de piso).
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_enemigos(lugar: String) -> void:
+	if not es_host:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	for id in _enemigos:
+		var e: Dictionary = _enemigos[id]
+		if e["lugar"] == lugar and is_instance_valid(e["nodo"]):
+			_spawn_enemigo.rpc_id(quien, id, lugar, (e["nodo"] as Node2D).global_position,
+				e["color"], e["lado"])
 
 
 # --- HANDSHAKE + CONTRASEÑA ------------------------------------------------------------------
@@ -1189,7 +1348,7 @@ func _crear_avatar_nodo(peer_id: int) -> void:
 
 func _on_peer_disconnected(id: int) -> void:
 	var conocido := _peers.has(id)
-	var a: Node = _avatares.get(id)
+	var a = _avatares.get(id)
 	if a != null and is_instance_valid(a):
 		a.queue_free()
 	_avatares.erase(id)
