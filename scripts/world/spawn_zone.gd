@@ -53,6 +53,11 @@ var dist_min_jugador: float = 64.0
 # se ve como un pegote unico y no como varios enemigos.
 var separacion_min: float = 48.0
 
+# A que distancia del jugador un GOTEO normal cuenta como "cerca" (a la vista): si sale mas cerca
+# que esto y el piso esta lleno, fuerza el reciclado del mas lejano para nacer igual (como el
+# brote). Mismo orden que el RADIO_ACTIVO de enemy_links. Tunable.
+const RECICLA_CERCA := 700.0
+
 # --- BROTE MASIVO ---
 # De vez en cuando una pared no pare uno, sino un TRAMO GORDO de golpe: revienta un cacho de muro y
 # salen varios EMBISTIENDO. El disparador de verdad es el medidor de alboroto (Game); esto es la
@@ -78,6 +83,9 @@ var _fx_t: float = 0.0
 var _fx_suelos: Array = []
 # ¿El parto en curso es un BROTE? Si lo es, los bichos salen EMBISTIENDO, no a merodear.
 var _fx_brote: bool = false
+# ¿Este parto FUERZA el reciclado del mas lejano si el piso esta lleno? True en los brotes
+# (siempre) y en el goteo normal que sale CERCA del jugador (para que nazca en tus narices).
+var _fx_forzar: bool = false
 
 const _FX_SCRIPT := preload("res://scripts/world/wall_birth_fx.gd")
 const Enemy := preload("res://scripts/actors/enemy/enemy.gd")
@@ -139,23 +147,26 @@ func _intentar_parto() -> void:
 	# solo _vivos: si no, una sala llena de migrantes seguia pariendo por encima de su aforo.
 	if piso.enemigos_en_zona(zona_idx) >= max_vivos:
 		return            # la zona esta llena: calla hasta que mates a alguno
-	if not piso.hay_sitio():
-		return            # el piso entero esta al tope y no habia a quien reciclar
-
 	var sitio: Dictionary = _elegir_celda()
 	if sitio.is_empty():
 		return            # todas las celdas estan pegadas al jugador: esperamos
 
+	# CERCA del jugador (a la vista): si el piso esta lleno se recicla al mas lejano para que nazca
+	# en tus narices, igual que un brote. LEJOS (no lo ves): reciclado normal, con su liston.
+	var cerca: bool = _cerca_del_jugador(sitio)
+	if not piso.hay_sitio(true, cerca):
+		return            # el piso entero esta al tope y no habia a quien reciclar
+
 	var brote: bool = brotes_activos and randf() < prob_brote
 	var cantidad: int = brote_tamano() if brote else 1
-	engendrar(sitio, cantidad, brote)
+	engendrar(sitio, cantidad, brote, cerca)
 
 
 # Arranca un parto en una celda concreta. Publico para poder forzarlo (brote de prueba
 # desde una tecla de dev).
 # Un parto NORMAL abre una celda y pare uno. Un BROTE abre un TRAMO GORDO de pared (varias celdas
 # contiguas) y pare uno por celda, todos EMBISTIENDO: ese es el momento de "esto se ha torcido".
-func engendrar(sitio: Dictionary, cantidad: int, brote: bool = false) -> void:
+func engendrar(sitio: Dictionary, cantidad: int, brote: bool = false, forzar_reciclado: bool = false) -> void:
 	if _fx != null or piso == null:
 		return
 	var lado: float = float(DungeonGenerator.CELDA)
@@ -182,6 +193,8 @@ func engendrar(sitio: Dictionary, cantidad: int, brote: bool = false) -> void:
 
 	_fx_t = dur
 	_fx_brote = brote
+	# El brote fuerza siempre; el goteo, solo si sale cerca del jugador.
+	_fx_forzar = brote or forzar_reciclado
 
 
 # El TRAMO de pared que revienta un brote: a partir de una celda de parto, se extiende por las
@@ -219,9 +232,9 @@ func _abrir_pared() -> void:
 		# El brote se SALTA el aforo de la sala (max_vivos): es un evento, no el goteo normal. El
 		# tope del PISO si se respeta (lo mira _nacer via piso.hay_sitio), que es el que cuida el
 		# rendimiento. Un parto normal si obedece el aforo. Ademas, en un brote se fuerza el
-		# reciclado (forzar = _fx_brote): si el piso esta lleno, borra a los mas lejanos para que el
-		# brote entre COMPLETO en vez de salir a medias.
-		var e = _nacer(suelo, true, _fx_brote, _fx_brote)
+		# reciclado (forzar = _fx_forzar): si el piso esta lleno, borra al mas lejano para que el
+		# brote entre COMPLETO -o el goteo cercano nazca- en vez de quedarse sin sitio.
+		var e = _nacer(suelo, true, _fx_brote, _fx_forzar)
 		if e == null:
 			break            # tope del piso: no cabe ninguno mas
 		nacidos += 1
@@ -233,6 +246,7 @@ func _abrir_pared() -> void:
 	print("[", etiqueta, "] zona ", zona_idx, " (", tipo, ") -> ", nacidos,
 		" | vivos en la zona ", _vivos.size(), "/", max_vivos)
 	_fx_brote = false
+	_fx_forzar = false
 
 
 # Crea UN bicho en 'pos' y lo suelta a merodear POR SU ZONA (no en un circulo alrededor
@@ -254,6 +268,18 @@ func _nacer(pos: Vector2, reciclar: bool = true, saltar_aforo: bool = false, for
 		e.asignar_zona(puntos, hogar)
 	_vivos.append(e)
 	return e
+
+
+# ¿El parto de 'sitio' sale CERCA del jugador (a la vista)? Mide la celda de SUELO donde caeria el
+# bicho contra la posicion del jugador. Sin jugador en escena (pruebas) se considera que NO.
+func _cerca_del_jugador(sitio: Dictionary) -> bool:
+	if piso == null or sitio.is_empty():
+		return false
+	var jugador := get_tree().get_first_node_in_group("player")
+	if not (jugador is Node2D):
+		return false
+	var suelo: Vector2 = piso.gen.centro_px(sitio["suelo"])
+	return suelo.distance_to((jugador as Node2D).global_position) <= RECICLA_CERCA
 
 
 # Una celda de parto al azar, descartando las que tengan al jugador encima. Devuelve {}
