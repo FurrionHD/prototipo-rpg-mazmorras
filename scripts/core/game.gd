@@ -6160,6 +6160,12 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 	combat.setup(player_cs, enemy_cs, enemy_initiated, exhausted, overload_speed_factor())
 	combat.combat_finished.connect(_on_combat_finished)
 
+	_montar_pantalla_combate(combat)
+
+
+# Cuelga la pantalla de combate y deja el mundo en modo "estoy peleando". Se saco de start_combat
+# porque el ESPEJO (hito 5.4-C) monta exactamente lo mismo: misma capa, mismo modal, mismo aviso.
+func _montar_pantalla_combate(combat: Node) -> void:
 	# Lo metemos en una CanvasLayer: asi NO le afecta la camara 2D de la
 	# mazmorra (si no, la pantalla de combate sale descentrada).
 	var layer := CanvasLayer.new()
@@ -6175,6 +6181,33 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 	# paredes seguirian pariendo: saberlo les sirve para no plantarme un bicho en las narices
 	# mientras estoy en una pantalla donde no puedo ni verlo (ver spawn_zone).
 	Net.avisar_combate(true)
+
+
+# ABRE LA PANTALLA EN MODO ESPEJO (hito 5.4-C): me he unido a la pelea de otro. Aqui no se simula
+# nada; se pinta lo que llegue por instantaneas. Devuelve la pantalla, o null si ya habia una.
+func abrir_combate_espejo(roster: Dictionary) -> Node:
+	if _active_layer != null:
+		return null   # ya estoy en otra pantalla (una por maquina)
+	var combat := _combat_scene.instantiate()
+	combat.process_mode = Node.PROCESS_MODE_ALWAYS
+	combat.setup_espejo(roster)
+	combat.combat_finished.connect(_on_combate_espejo_cerrado)
+	_montar_pantalla_combate(combat)
+	return combat
+
+
+# El espejo se cierra: NO hay resultados que volcar (los personajes que peleaban de verdad los
+# lleva quien ejecuta la pelea, y sus vidas vuelven por el camino de siempre). Solo se recoge la
+# pantalla y se devuelve el mundo.
+func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en := [],
+		_muertos := [], _ehp := []) -> void:
+	salir_modal(_active_layer)
+	esconder_mundo(false)
+	_bloquear_interaccion_jugador()
+	Net.avisar_combate(false)
+	if is_instance_valid(_active_layer):
+		_active_layer.queue_free()
+	_active_layer = null
 
 
 # Exigencia de extraccion de una CATEGORIA de cristal. Dentro de la tabla, el valor afinado a mano;

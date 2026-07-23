@@ -176,6 +176,14 @@ const MAX_ALIADOS := 4
 # pelea no se da por perdida aunque caigan todos: ver derrota().
 var _espera_refuerzo := false
 
+# --- MODO ESPEJO (hito 5.4-C): peleas COMPARTIDAS -------------------------------------------
+# La pelea la EJECUTA una sola maquina (la de quien la abrio). Los demas participantes abren esta
+# misma pantalla en modo ESPEJO: no simulan nada -ni ATB, ni dados, ni resolucion- y se limitan a
+# pintar las instantaneas que les llegan. Es el mismo principio que remote_enemy con el mundo, pero
+# aplicado a una pelea entera, y es lo que permite reusar TODA la interfaz (bloques, barras, log,
+# marcador de turnos) sin tocarla.
+var _espejo := false
+
 enum State { ADVANCING, WAITING_PLAYER, PAUSED, FINISHED }
 var _state: State = State.ADVANCING
 
@@ -274,6 +282,94 @@ func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 	# El modo muñeco (Saco/Pegador) siempre es 1v1: lo garantiza enemy.gd al no reclutar
 	# vecinos con debug_dummy_mode activo (las medidas de DPS/turno se irian al traste).
 	_dps_on = not _enemies.is_empty() and _enemies[0].es_dummy
+
+
+# ARRANQUE EN ESPEJO (hito 5.4-C): monto la MISMA pantalla, pero sin simular. Los combatientes se
+# reconstruyen "de escaparate" a partir del roster que manda quien ejecuta la pelea: solo hace
+# falta lo que se PINTA (nombre, color y las tres barras). Es un Combatant normal con los campos
+# puestos a mano — no necesita stats de verdad porque aqui no se tira ni un dado.
+func setup_espejo(roster: Dictionary) -> void:
+	_espejo = true
+	_injected = true
+	_aliados.assign(_combatientes_de_escaparate(roster.get("aliados", [])))
+	_enemies.assign(_combatientes_de_escaparate(roster.get("enemigos", [])))
+	for e in _enemies:
+		e.battle_enemies = _enemies
+	_player = _aliados[0] if not _aliados.is_empty() else null
+	_dps_on = false
+
+
+func _combatientes_de_escaparate(datos: Array) -> Array:
+	var out: Array = []
+	for d in datos:
+		# Combatant exige stats en el constructor y se calcula la vida solo. Aqui da igual: es un
+		# maniqui de escaparate, asi que se crea con lo minimo y se le pisan los valores que SI se
+		# pintan. Ningun dado se tira contra el (eso pasa en la maquina que ejecuta la pelea).
+		var c := Combatant.new(String(d.get("nombre", "?")), 1, Abilities.new(), 1.0, 0.0, 0.0, 0.0)
+		c.max_hp = float(d.get("max_hp", 1.0))
+		c.current_hp = float(d.get("hp", c.max_hp))
+		c.max_mp = float(d.get("max_mp", 0.0))
+		c.current_mp = float(d.get("mp", 0.0))
+		c.max_energy = float(d.get("max_en", 0.0))
+		c.current_energy = float(d.get("en", 0.0))
+		c.color_visual = d.get("color", Color.WHITE)
+		out.append(c)
+	return out
+
+
+# Lo que hay que mandarle a un espejo para que MONTE la pantalla (una vez, al unirse).
+func roster_para_espejo() -> Dictionary:
+	return {"aliados": _fila_de_roster(_aliados), "enemigos": _fila_de_roster(_enemies)}
+
+
+func _fila_de_roster(lista: Array) -> Array:
+	var out: Array = []
+	for c in lista:
+		out.append({"nombre": c.nombre, "color": c.color_visual,
+			"max_hp": c.max_hp, "hp": c.current_hp,
+			"max_mp": c.max_mp, "mp": c.current_mp,
+			"max_en": c.max_energy, "en": c.current_energy})
+	return out
+
+
+# LA INSTANTANEA: lo que cambia turno a turno. Va del que ejecuta la pelea a los espejos. Solo
+# lleva numeros y de quien es el turno; el resto (barras, colores, orden) ya lo tienen montado.
+func instantanea() -> Dictionary:
+	return {"a": _valores(_aliados), "e": _valores(_enemies),
+		"turno": _aliados.find(_player), "log": _log.text, "fin": _state == State.FINISHED}
+
+
+func _valores(lista: Array) -> Array:
+	var out: Array = []
+	for c in lista:
+		out.append([c.current_hp, c.current_mp, c.current_energy])
+	return out
+
+
+# Corre en el ESPEJO: vuelca los numeros recibidos en sus combatientes de escaparate y repinta.
+func aplicar_instantanea(snap: Dictionary) -> void:
+	if not _espejo:
+		return
+	_volcar(_aliados, snap.get("a", []))
+	_volcar(_enemies, snap.get("e", []))
+	var t: int = int(snap.get("turno", -1))
+	if t >= 0 and t < _aliados.size():
+		_player = _aliados[t]
+	if snap.has("log"):
+		_log.text = String(snap["log"])
+	if bool(snap.get("fin", false)):
+		_state = State.FINISHED
+		_continue_button.visible = true
+		_ocultar_cajas()
+	_update_hp()
+
+
+func _volcar(lista: Array, valores: Array) -> void:
+	for i in mini(lista.size(), valores.size()):
+		var v: Array = valores[i]
+		lista[i].current_hp = float(v[0])
+		lista[i].current_mp = float(v[1])
+		lista[i].current_energy = float(v[2])
 
 
 # El OBJETIVO de tus acciones: el enemigo que tienes seleccionado. Si el indice apunta a un
@@ -1074,6 +1170,10 @@ func _dev_swap_weapon(main: bool) -> void:
 
 func _process(delta: float) -> void:
 	_update_timeline()  # refleja el orden de turnos siempre
+	# ESPEJO (hito 5.4-C): esta pantalla no SIMULA nada, solo pinta la pelea que lleva otra
+	# maquina. Ni ATB, ni turnos, ni resolucion: todo eso llega por instantaneas.
+	if _espejo:
+		return
 	# Pausa de lectura tras la accion del enemigo: cuenta atras y reanuda el ATB.
 	if _state == State.PAUSED:
 		_pause_left -= delta
