@@ -126,6 +126,16 @@ la misma instancia de arma.
   toasts del HUD: recogida, subida de rango, etc.) deben mostrarse **solo al jugador que hizo la
   acción**, no a los dos. Hoy los dispara `hud.mostrar_recogida(...)` sobre el único HUD; en multi
   cada cliente tiene su HUD y el aviso NO debe replicarse por RPC a todos.
+- **Mecánicas "vivas" del mapa son INDIVIDUALES por jugador**: la huida que entrena Agilidad
+  (`_tick_huida()` en `scripts/actors/player/player.gd`, con su estado `_huida_perseguidor`,
+  `_huida_record`, `_huida_acum`…), el sigilo/aguante ([[sigilo-aguante]]) y similares se calculan
+  por separado para cada humano. Encaja de forma natural si **cada jugador controla su propio nodo
+  `Player`** (ese estado ya vive en el nodo, no en el singleton) — punto a respetar al diseñar la
+  replicación.
+- **Huir del combate es INDIVIDUAL**: si yo huyo de una pelea, mi compañero (el otro jugador) que
+  esté en ese mismo combate **sigue luchando contra el enemigo** — no huimos los dos por que uno
+  huya. La huida saca del combate solo a quien la ejecuta; el combate continúa para el resto de
+  participantes (y para los enemigos que siguen en él).
 
 ---
 
