@@ -83,6 +83,9 @@ var _pelea_participantes: Array = []  # peers que estan dentro de MI pelea (yo n
 var _pelea_sigo: int = 0           # la pelea que estoy ESPEJANDO (0 = ninguna)
 var _pelea_anfitrion: int = 0      # que peer ejecuta la pelea que espejo
 var _pelea_next: int = 1           # contador de ids de pelea (por maquina; el id lleva el peer)
+# Los DOBLES de los personajes de otros que pelean en MI pantalla: peer_id -> PersonajeData. Al
+# cerrar, a cada uno se le devuelve lo que su doble vivio (vida, mana y excelia ganada).
+var _dobles: Dictionary = {}
 # FOTO de los pisos sin nadie dentro: el piso se congela tal cual (bichos y cadaveres) y se
 # restaura al volver, como en solitario. Vive en la SESION (host), no en el save de nadie: asi las
 # dos maquinas no divergen y el save del cliente sigue sin tocarse.
@@ -273,6 +276,7 @@ func desconectar() -> void:
 	_peleando = false
 	_pelea_id = 0
 	_pelea_participantes.clear()
+	_dobles.clear()
 	_pelea_sigo = 0
 	_pelea_anfitrion = 0
 	semilla_host = 0
@@ -2186,16 +2190,103 @@ func registrar_pelea() -> void:
 func cerrar_pelea() -> void:
 	if _pelea_id != 0:
 		for p in _pelea_participantes:
+			# A cada uno lo SUYO: lo que su doble ha vivido en mi pantalla (vida, mana y la excelia
+			# ganada) vuelve a su personaje de verdad. Va ANTES de cerrarle el espejo.
+			if _dobles.has(p):
+				_devolver_desgaste.rpc_id(p, desgaste_a_dict(_dobles[p]))
 			_fin_espejo.rpc_id(p)
 		_pelea_participantes.clear()
+		_dobles.clear()
 		_pelea_id = 0
 	_pelea_sigo = 0
 	_pelea_anfitrion = 0
 
 
+# Corre en EL DUEÑO del personaje: lo que su doble vivio se aplica a su ficha de verdad.
+@rpc("any_peer", "call_remote", "reliable")
+func _devolver_desgaste(d: Dictionary) -> void:
+	var pj: PersonajeData = Game.lider()
+	if pj != null:
+		aplicar_desgaste(pj, d)
+
+
 # ¿Estoy espejando una pelea? (lo consulta el jugador para no dejarme accionar por mi cuenta)
 func espejando() -> bool:
 	return _pelea_sigo != 0
+
+
+# --- LA FICHA DE UN PERSONAJE POR RED --------------------------------------------------------
+#
+# Para que el que se une PELEE de verdad, sus stats tienen que estar en la maquina que ejecuta la
+# pelea: alli es donde se tiran los dados. Se manda una copia de su ficha y el anfitrion monta con
+# ella un DOBLE (un PersonajeData igual pero suyo), sobre el que corre el combate de siempre. Al
+# acabar, del doble vuelven la vida, el mana y la excelia ganada, y se aplican al personaje REAL.
+#
+# El equipo se serializa con serializar_equipo, el mismo que ya usa el cofre del hogar: lleva la
+# ruta base y la meta por instancia (tier, rareza, mejoras, durabilidad).
+const _RANURAS := ["equipped_main", "equipped_off", "equipped_casco", "equipped_pecho",
+	"equipped_manos", "equipped_pantalones", "equipped_botas"]
+# Lo que se le devuelve al dueño cuando acaba la pelea: su desgaste y lo que ha aprendido.
+const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
+	"ability_internal", "ability_consolidado", "ability_base_nivel",
+	"fuerza", "resistencia", "destreza", "agilidad", "magia",
+	"guardianes_vencidos", "esquivas_exp", "hechizos_exp", "recitado_exp",
+	"dano_recibido_exp", "dano_infligido_exp"]
+
+
+func ficha_a_dict(pj: PersonajeData) -> Dictionary:
+	var d := {}
+	for campo in ["nombre", "color", "metalico", "imagen", "color_alpha", "level",
+			"ability_internal", "ability_consolidado", "ability_base_nivel",
+			"fuerza", "resistencia", "destreza", "agilidad", "magia",
+			"base_hp", "base_attack", "base_defense", "base_magic", "base_speed",
+			"base_mp", "base_magia_factor", "base_crit",
+			"current_hp", "current_mp", "stamina",
+			"desarrollos_rango", "pasivas_rng", "guardianes_vencidos",
+			"esquivas_exp", "hechizos_exp", "recitado_exp",
+			"dano_recibido_exp", "dano_infligido_exp"]:
+		d[campo] = pj.get(campo)
+	for r in _RANURAS:
+		d[r] = Game.serializar_equipo(pj.get(r))
+	var hechizos: Array = []
+	for s in pj.equipped_spells:
+		if s != null and not String(s.resource_path).is_empty():
+			hechizos.append(s.resource_path)
+	d["spells"] = hechizos
+	return d
+
+
+func ficha_de_dict(d: Dictionary) -> PersonajeData:
+	var pj := PersonajeData.new()
+	for campo in d:
+		if campo == "spells" or _RANURAS.has(campo):
+			continue
+		pj.set(campo, d[campo])
+	for r in _RANURAS:
+		var item: Resource = Game.deserializar_equipo(d.get(r, {}))
+		if item != null:
+			pj.set(r, item)
+	var hechizos: Array = []
+	for ruta in d.get("spells", []):
+		var s = load(String(ruta))
+		if s != null:
+			hechizos.append(s)
+	pj.equipped_spells = hechizos
+	return pj
+
+
+# Lo que el doble ha vivido en la pelea, para devolverselo a su dueño.
+func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
+	var d := {}
+	for campo in _VUELVE:
+		d[campo] = pj.get(campo)
+	return d
+
+
+func aplicar_desgaste(pj: PersonajeData, d: Dictionary) -> void:
+	for campo in _VUELVE:
+		if d.has(campo):
+			pj.set(campo, d[campo])
 
 
 # --- UNIRSE ---------------------------------------------------------------------------------
@@ -2206,12 +2297,13 @@ func solicitar_unirse(anfitrion: int) -> void:
 		return
 	if anfitrion == multiplayer.get_unique_id():
 		return
-	_pedir_unirme.rpc_id(anfitrion)
+	# Va MI ficha: sin ella el anfitrion no puede tirar los dados por mi personaje.
+	_pedir_unirme.rpc_id(anfitrion, ficha_a_dict(Game.lider()))
 
 
-# Corre en EL ANFITRION: alguien quiere entrar en mi pelea.
+# Corre en EL ANFITRION: alguien quiere entrar en mi pelea, con la ficha de su personaje.
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_unirme() -> void:
+func _pedir_unirme(ficha: Dictionary) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	var p: Node = _pantalla_combate()
 	if _pelea_id == 0 or p == null or not p.has_method("roster_para_espejo"):
@@ -2221,6 +2313,14 @@ func _pedir_unirme() -> void:
 	# dejando al que venia de rescate con una pelea muerta.
 	if p.has_method("esperar_refuerzo"):
 		p.esperar_refuerzo(true)
+	# El DOBLE de su personaje: pelea aqui con sus stats y su equipo.
+	var doble: PersonajeData = ficha_de_dict(ficha)
+	if not Game.unir_aliado_al_combate(doble):
+		if p.has_method("esperar_refuerzo"):
+			p.esperar_refuerzo(false)
+		_union_denegada.rpc_id(quien)
+		return
+	_dobles[quien] = doble        # de quien es cada doble, para devolverle lo suyo al acabar
 	if not _pelea_participantes.has(quien):
 		_pelea_participantes.append(quien)
 	_union_ok.rpc_id(quien, _pelea_id, p.roster_para_espejo())
