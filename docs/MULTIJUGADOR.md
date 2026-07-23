@@ -98,6 +98,14 @@ la misma instancia de arma.
 - **Inventario / bolsa**: separado por jugador.
 - **Almacén del hogar**: materiales de crafteo **compartidos** (ya existe). Se añade un **cofre de
   armas/armaduras** compartido para pasarle equipo al compañero.
+- **Equipo y menús de mejorar/reparar: POR JUGADOR** — cada uno ve y toca solo sus objetos y los
+  de SUS acompañantes. Punto de contacto: reparar/mejorar consumen materiales del baúl COMPARTIDO
+  del hogar (gastáis del mismo bote). Hoy ya se cumple "cada uno lo suyo" de facto porque nada del
+  pueblo está compartido aún (cada proceso corre su propio `Game`).
+- **Surtido de la tienda: manda el mundo del HOST** (decidido). Si el host tiene la tienda T2
+  abierta (Rey Slime muerto), ambos la ven y compran de ella, cada uno con su dinero; el progreso
+  del invitado no cambia el surtido. Coherente con "el host es la autoridad del mundo". Se
+  implementa en el hito 4.
 - **Minerales del suelo**: los recoge **quien llega primero** (exclusión, ya modelada por
   `drop_pickup`). Si yo lo cojo, el otro no puede — pero puedo **soltarlo desde el inventario**
   para pasárselo (`soltar_item` ya existe).
