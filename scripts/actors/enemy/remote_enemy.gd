@@ -37,6 +37,28 @@ var radio_extra: float = 0.0   # los elites son mas gordos: se descuenta al medi
 # estos campos se puede pasar TAL CUAL a start_combat como si fuera un enemigo real.
 var hp_restante: float = -1.0
 var es_boss: bool = false
+
+# --- CONO DE VISION Y DIRECCION (hito 5.4) ----------------------------------------------------
+# Mismos numeros y colores que enemy.gd: lo que ve el que simula el piso y lo que ve el que solo
+# lo espeja tiene que ser LO MISMO, o uno de los dos juega a ciegas.
+const SEGMENTOS_CONO := 14
+const CAPA_ROCA := 1
+const RECALCULO_ANGULO := 0.10
+const RECALCULO_DIST := 6.0
+const COLOR_CONO := Color(1.0, 1.0, 0.3, 0.12)
+const COLOR_CONO_AVISO := Color(1.0, 0.25, 0.1, 0.18)
+const COLOR_LINEA := Color(1.0, 1.0, 0.0)
+const COLOR_LINEA_AVISO := Color(1.0, 0.3, 0.1)
+
+var _cono: Polygon2D = null
+var _linea: Line2D = null
+var _vision: float = 130.0        # alcance del cono (llega en el alta)
+var _medio_angulo: float = 50.0   # apertura (llega en el alta)
+var _mira: float = 0.0            # ultimo angulo recibido
+var _avisando: bool = false       # esta telegrafiando el golpe
+var _cono_hecho := false
+var _cono_ang: float = 0.0
+var _cono_pos := Vector2.ZERO
 # --- EL CONTRATO DEL GRUPO "enemy" -----------------------------------------------------------
 # Todo esto se llama igual que en enemy.gd A PROPOSITO. Al entrar en el grupo "enemy" hay que
 # cumplir su contrato ENTERO, porque varios sistemas recorren el grupo y leen estos campos a pelo:
@@ -52,14 +74,30 @@ var zona_idx: int = -1                 # no soy de ninguna sala: la ocupacion la
 func _ready() -> void:
 	z_as_relative = false
 	z_index = 0   # a la altura del jugador y los bichos reales (ver companion.gd)
-	# Marca para que el piso NO me meta en su foto: estoy en los grupos enemy/corpse para poder
-	# pelearme y extraerme, pero el dueño del piso es quien guarda a los bichos de verdad.
+	# Marca para que el piso NO me meta en su foto y para que la IA de los bichos DE VERDAD me
+	# ignore (no soy compañero suyo, soy el dibujo de otra maquina). Estoy en los grupos
+	# enemy/corpse solo para que se me pueda atacar y extraer.
 	set_meta("es_espejo", true)
+
+	# Cono de vision (poligono translucido), por detras del cuerpo. MISMO aspecto que el bicho real
+	# (ver enemy._crear_indicadores): es la unica pista de por donde mira, y sin el no se puede
+	# jugar al sigilo.
+	_cono = Polygon2D.new()
+	_cono.color = COLOR_CONO
+	add_child(_cono)
 
 	_cuerpo = ColorRect.new()
 	_cuerpo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_cuerpo)
 	_redimensionar(32.0)
+
+	# Linea de direccion (hacia donde mira), delante del cuerpo.
+	_linea = Line2D.new()
+	_linea.add_point(Vector2.ZERO)
+	_linea.add_point(Vector2(26.0, 0.0))
+	_linea.width = 3.0
+	_linea.default_color = COLOR_LINEA
+	add_child(_linea)
 
 
 # Aspecto que ya calculo quien simula el piso: color base+tinte por 't' y lado del cuerpo (los
@@ -72,14 +110,67 @@ func configurar(color: Color, lado: float) -> void:
 
 
 # Los datos con los que se puede pelear/extraer. 'ruta' es el .tres del EnemyData.
-func aplicar_datos(ruta: String, t: float, ya_muerto: bool) -> void:
+func aplicar_datos(ruta: String, t: float, ya_muerto: bool, vision: float = 130.0,
+		medio_angulo: float = 50.0) -> void:
 	if not ruta.is_empty():
 		data = load(ruta) as EnemyData
 	current_t = t
+	_vision = vision
+	_medio_angulo = medio_angulo
 	if ya_muerto:
 		marcar_cadaver()
 	else:
 		add_to_group("enemy")
+
+
+# Hacia donde mira y si esta avisando el golpe. Llega en cada tick de posiciones.
+func aplicar_estado_visual(ang: float, avisando: bool) -> void:
+	_mira = ang
+	_avisando = avisando
+	if muerto:
+		return
+	if _linea != null:
+		_linea.rotation = ang
+		_linea.default_color = COLOR_LINEA_AVISO if avisando else COLOR_LINEA
+	if _cono != null:
+		_cono.color = COLOR_CONO_AVISO if avisando else COLOR_CONO
+		# Rehacer el cono cuesta 14 rayos: solo si ha girado o se ha movido lo suficiente.
+		if not _cono_hecho \
+				or absf(angle_difference(ang, _cono_ang)) > RECALCULO_ANGULO \
+				or global_position.distance_to(_cono_pos) > RECALCULO_DIST:
+			_redibujar_cono(ang)
+
+
+# Traza el cono rayo a rayo y corta cada uno donde encuentra roca, igual que el bicho real. La
+# geometria del piso es la MISMA en las dos maquinas (misma semilla), asi que el cono sale igual
+# sin mandar nada por la red. Los puntos van en LOCAL (el poligono es hijo y por eso no se rota).
+func _redibujar_cono(ang: float) -> void:
+	if _cono == null or not is_inside_tree():
+		return
+	_cono_hecho = true
+	_cono_ang = ang
+	_cono_pos = global_position
+	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	var half: float = deg_to_rad(_medio_angulo)
+	# Los aliados comparten capa con la roca: sin excluirlos, el cono se recortaria contra TI (te
+	# taparias a ti mismo del cono que te ve).
+	var fuera: Array[RID] = []
+	for n in get_tree().get_nodes_in_group("aliado"):
+		if n is CollisionObject2D:
+			fuera.append((n as CollisionObject2D).get_rid())
+
+	var pts: PackedVector2Array = [Vector2.ZERO]
+	for i in range(SEGMENTOS_CONO + 1):
+		var a: float = ang - half + (2.0 * half) * float(i) / float(SEGMENTOS_CONO)
+		var dir := Vector2(cos(a), sin(a))
+		var fin: Vector2 = global_position + dir * _vision
+		var query := PhysicsRayQueryParameters2D.create(global_position, fin, CAPA_ROCA)
+		query.exclude = fuera
+		var hit: Dictionary = espacio.intersect_ray(query)
+		if not hit.is_empty():
+			fin = hit["position"]
+		pts.append(fin - global_position)
+	_cono.polygon = pts
 
 
 # Lo mismo que enemy.poder_normalizado(): donde cae dentro de su franja. Lo pide la extraccion
@@ -90,6 +181,15 @@ func poder_normalizado() -> float:
 
 func esta_muerto() -> bool:
 	return muerto
+
+
+# Me quito de en medio. Salgo de los grupos AL INSTANTE y no en el queue_free, que no surte efecto
+# hasta el final del frame: si no, un enemigo de verdad recien creado (p. ej. al heredar el piso)
+# me encontraria todavia en el grupo "enemy" y me preguntaria cosas de su IA que yo no tengo.
+func retirar() -> void:
+	remove_from_group("enemy")
+	remove_from_group("corpse")
+	queue_free()
 
 
 # --- PELEAR CONTRA UN ESPEJO (hito 5.3) -------------------------------------------------------
@@ -130,7 +230,9 @@ func desvanecer() -> void:
 func morir() -> void:
 	_combat_triggered = false
 	marcar_cadaver()
-	if has_meta("net_id"):
+	# Si HEREDE el piso a media pelea, ya no hay dueño a quien contarselo: yo soy la autoridad
+	# ahora, asi que se queda como cadaver aqui y punto (sin esto se mandaria un resultado a nadie).
+	if has_meta("net_id") and not Net._soy_dueno:
 		Net.resultado_bicho(get_meta("net_id"), true, 0.0)
 
 
@@ -139,7 +241,7 @@ func morir() -> void:
 func reanudar_tras_combate(hp: float = -1.0) -> void:
 	_combat_triggered = false
 	hp_restante = hp
-	if has_meta("net_id"):
+	if has_meta("net_id") and not Net._soy_dueno:
 		Net.resultado_bicho(get_meta("net_id"), false, hp)
 
 
@@ -151,6 +253,11 @@ func marcar_cadaver() -> void:
 	muerto = true
 	if _cuerpo != null:
 		_cuerpo.color = Color(0.4, 0.4, 0.4)
+	# Un cadaver no ve ni avisa: fuera cono y linea (igual que enemy.morir).
+	if _cono != null:
+		_cono.visible = false
+	if _linea != null:
+		_linea.visible = false
 	remove_from_group("enemy")
 	add_to_group("corpse")   # ahora se le puede pulsar F para extraerle el cristal
 

@@ -239,7 +239,7 @@ func desconectar() -> void:
 	for id in _enem_nodos.keys():
 		var e = _enem_nodos[id]
 		if is_instance_valid(e):
-			e.queue_free()
+			e.retirar()
 	_enem_nodos.clear()
 	_enemigos.clear()
 	_enem_ocupados.clear()
@@ -391,7 +391,7 @@ func _reconstruir_vista() -> void:
 	for id in _enem_nodos.keys():
 		var en = _enem_nodos[id]   # sin tipar: puede ser una instancia ya liberada (ver purga del tick)
 		if is_instance_valid(en):
-			en.queue_free()
+			en.retirar()
 	_enem_nodos.clear()
 	if not _soy_dueno and _mi_lugar.begins_with("piso:"):
 		if es_host:
@@ -669,11 +669,7 @@ func _asumir_piso(piso: int, mem: Dictionary) -> void:
 	if mi_piso() != piso:
 		return
 	_soy_dueno = true
-	for id in _enem_nodos.keys():
-		var n = _enem_nodos[id]
-		if is_instance_valid(n):
-			n.queue_free()
-	_enem_nodos.clear()
+	_limpiar_espejo()   # respeta los que esté peleando (ver alli)
 	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if suelo != null and suelo.has_method("adoptar_foto"):
 		suelo.adoptar_foto(_mem_de_red(mem))
@@ -720,13 +716,22 @@ func _olvidar_mis_enemigos() -> void:
 
 # El dueño de un piso ha cambiado: los que sigan ahi tiran sus cuerpos espejados, porque el dueño
 # nuevo va a recrear los bichos con ids nuevos (si no, se verian por duplicado).
+#
+# MENOS los que estoy PELEANDO: el combate guarda esos nodos (Game._active_enemies) y borrarlos deja
+# la pelea con referencias muertas -> la pantalla se queda colgada y el jugador NO PUEDE MOVERSE.
+# Se quedan hasta que termine la pelea; al acabar, su resultado se resuelve en local (ver
+# remote_enemy.morir), porque para entonces el dueño al que habria que avisar ya no esta.
 @rpc("any_peer", "call_remote", "reliable")
 func _limpiar_espejo() -> void:
 	for id in _enem_nodos.keys():
 		var n = _enem_nodos[id]
-		if is_instance_valid(n):
-			n.queue_free()
-	_enem_nodos.clear()
+		if not is_instance_valid(n):
+			_enem_nodos.erase(id)
+			continue
+		if Game.combate_activo() and Game._active_enemies.has(n):
+			continue   # esta en mi pelea: no se toca
+		n.retirar()
+		_enem_nodos.erase(id)
 
 
 func _mem_de_red(mem: Dictionary) -> Dictionary:
@@ -1455,9 +1460,13 @@ func registrar_enemigo(nodo: Node2D, lugar: String) -> void:
 # ya con el tinte de su 't') y sus DATOS (ruta del .tres + 't' + si ya es cadaver). Se lee del nodo
 # EN VIVO, asi que un cadaver sale gris y marcado sin tener que avisar aparte.
 func _datos_enemigo(nodo: Node) -> Dictionary:
-	var d := {"color": Color.WHITE, "lado": 32.0, "ruta": "", "t": 0.5, "muerto": false}
+	var d := {"color": Color.WHITE, "lado": 32.0, "ruta": "", "t": 0.5, "muerto": false,
+		"vis": 130.0, "ang": 50.0}
 	if nodo == null or not is_instance_valid(nodo):
 		return d
+	# Alcance y apertura de su cono: van en el ALTA (una vez por bicho), no en el tick.
+	d["vis"] = float(nodo.get("vision_range"))
+	d["ang"] = float(nodo.get("vision_half_angle_deg"))
 	if nodo.has_method("aspecto_red"):
 		var a: Dictionary = nodo.aspecto_red()
 		d["color"] = a.get("color", d["color"])
@@ -1606,7 +1615,8 @@ func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void
 	cuerpo.global_position = pos
 	cuerpo.set_meta("net_id", id)   # para pedir pelea/extraccion por el
 	cuerpo.configurar(d.get("color", Color.WHITE), float(d.get("lado", 32.0)))
-	cuerpo.aplicar_datos(String(d.get("ruta", "")), float(d.get("t", 0.5)), bool(d.get("muerto", false)))
+	cuerpo.aplicar_datos(String(d.get("ruta", "")), float(d.get("t", 0.5)),
+		bool(d.get("muerto", false)), float(d.get("vis", 130.0)), float(d.get("ang", 50.0)))
 	_enem_nodos[id] = cuerpo
 
 
@@ -1614,7 +1624,7 @@ func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void
 func _despawn_enemigo(id: int) -> void:
 	var n = _enem_nodos.get(id)
 	if n != null and is_instance_valid(n):
-		n.queue_free()
+		n.retirar()
 	_enem_nodos.erase(id)
 
 
@@ -1636,9 +1646,14 @@ func _difundir_posiciones_enemigos() -> void:
 				_rel_despawn.rpc_id(1, id, lug)
 	if _enemigos.is_empty():
 		return
+	# Cada bicho manda [id, pos, angulo_de_mirada, avisando_el_golpe]. Los dos ultimos NO son
+	# adorno: con ellos el que solo lo ve espejado pinta su CONO DE VISION y su linea de direccion,
+	# que es lo unico que permite jugar al sigilo.
 	var lote: Array = []
 	for id in _enemigos:
-		lote.append([id, (_enemigos[id]["nodo"] as Node2D).global_position])
+		var nd = _enemigos[id]["nodo"]
+		var est: Array = nd.estado_visual_red() if nd.has_method("estado_visual_red") else [0.0, false]
+		lote.append([id, (nd as Node2D).global_position, est[0], est[1]])
 	if es_host:
 		for peer_id in _peers:
 			if _peers[peer_id].get("lugar", "") == _mi_lugar:
@@ -1651,8 +1666,11 @@ func _difundir_posiciones_enemigos() -> void:
 func _tick_enemigos(lote: Array) -> void:
 	for par in lote:
 		var n = _enem_nodos.get(par[0])
-		if n != null and is_instance_valid(n):
-			n.ir_a(par[1])
+		if n == null or not is_instance_valid(n):
+			continue
+		n.ir_a(par[1])
+		if par.size() >= 4:
+			n.aplicar_estado_visual(float(par[2]), bool(par[3]))
 
 
 # Alguien que acaba de llegar a un piso pide sus enemigos (late-join / cambio de piso). Siempre se

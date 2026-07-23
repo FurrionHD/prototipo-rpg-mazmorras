@@ -672,6 +672,13 @@ func aspecto_red() -> Dictionary:
 	return {"color": Color.WHITE, "lado": 32.0}
 
 
+# MULTIJUGADOR: hacia donde MIRO y si estoy avisando el golpe. Va en el tick de posiciones para que
+# el que solo me ve espejado pueda pintar mi cono de vision y mi linea de direccion: sin eso NO
+# PUEDE JUGAR AL SIGILO, que es medio juego (no sabe por donde miro ni cuando voy a atacar).
+func estado_visual_red() -> Array:
+	return [_facing.angle(), _winding]
+
+
 # MULTIJUGADOR (hito 5.1): al salir del arbol (reciclado por aforo, piso desmontado al viajar) el
 # host da de baja el bicho para que su cuerpo remoto desaparezca en los clientes. En solitario /
 # de cliente no hace nada (Net.baja_enemigo corta).
@@ -766,7 +773,10 @@ var _migrando: bool = false
 func _separacion() -> Vector2:
 	var out: Vector2 = Vector2.ZERO
 	for n in get_tree().get_nodes_in_group("enemy"):
-		if n == self or not is_instance_valid(n):
+		# Los ESPEJOS no cuentan para NADA de la IA (separacion, manadas, refuerzos): son el dibujo
+		# de la simulacion de otra maquina, no compañeros mios. Ademas no cumplen medio contrato del
+		# grupo, asi que preguntarles revienta (ver remote_enemy).
+		if n == self or not is_instance_valid(n) or n.has_meta("es_espejo"):
 			continue
 		var d: Vector2 = global_position - (n as Node2D).global_position
 		var dist: float = d.length()
@@ -788,7 +798,9 @@ func _separacion() -> Vector2:
 func _companeros_de_manada() -> Array:
 	var out: Array = []
 	for n in get_tree().get_nodes_in_group("enemy"):
-		if n == self or not is_instance_valid(n) or n.esta_muerto() or n._combat_triggered:
+		if n == self or not is_instance_valid(n) or n.has_meta("es_espejo"):
+			continue
+		if n.esta_muerto() or n._combat_triggered:
 			continue
 		if global_position.distance_to(n.global_position) <= RADIO_REFUERZO:
 			out.append(n)
@@ -832,7 +844,9 @@ func _corro_al_que_unirse():
 	var mejor = null
 	var best: float = INF
 	for n in get_tree().get_nodes_in_group("enemy"):
-		if n == self or not is_instance_valid(n) or n.esta_muerto() or n._combat_triggered:
+		if n == self or not is_instance_valid(n) or n.has_meta("es_espejo"):
+			continue
+		if n.esta_muerto() or n._combat_triggered:
 			continue
 		if ya_conmigo.has(n):
 			continue   # ya lo tengo al lado: no hay a donde mudarse
@@ -936,8 +950,11 @@ func vecinos() -> Array:
 	var cand: Array = []
 	for n in get_tree().get_nodes_in_group("enemy"):
 		# Filtrar a los que YA estan en un combate es imprescindible: si no, un bicho que se
-		# quedo enganchado de una pelea anterior volveria a entrar en esta.
-		if n == self or not is_instance_valid(n) or n._combat_triggered:
+		# quedo enganchado de una pelea anterior volveria a entrar en esta. Los ESPEJOS tampoco:
+		# no son mios, son el dibujo de lo que simula otra maquina.
+		if n == self or not is_instance_valid(n) or n.has_meta("es_espejo"):
+			continue
+		if n._combat_triggered:
 			continue
 		var d: float = global_position.distance_to(n.global_position)
 		if d <= RADIO_REFUERZO:
