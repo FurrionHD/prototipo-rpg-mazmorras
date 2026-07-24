@@ -611,6 +611,9 @@ func atacado_por_jugador() -> void:
 	if _combat_triggered:
 		if Net.activo and has_meta("net_id"):
 			Net.unirme_a_la_pelea_de(get_meta("net_id"))
+		else:
+			print("[unirse] le pego a un bicho ocupado pero NO tiene net_id (activo=",
+				Net.activo, ")")
 		return
 	# La pelea es de QUIEN ME ATACA, aunque yo viniera persiguiendo a otro. Sin esto, si venia
 	# detras del compañero (_objetivo = su avatar), el empuje del hito 5.4-B mandaba la pelea a EL

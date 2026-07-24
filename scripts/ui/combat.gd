@@ -383,6 +383,18 @@ func turno_mio(idx: int) -> void:
 	if not _espejo or idx < 0 or idx >= _aliados.size():
 		return
 	_player = _aliados[idx]
+	# El maniqui solo trae lo que se PINTA, asi que no tiene ni habilidades ni hechizos y los
+	# submenus salian vacios ("solo deja hacer basicos"). Se los pongo desde MI PROPIA ficha, que
+	# es la de este personaje: aqui solo sirven para ELEGIR — quien lo resuelve es el anfitrion.
+	# La vida, el mana y la energia NO se tocan: de esos manda su instantanea.
+	var real: Combatant = Game.crear_player_combatant(Game.lider())
+	if real != null:
+		_player.abilities_combate = real.abilities_combate
+		_player.spells = real.spells
+		_player.ability_cooldowns = real.ability_cooldowns
+		_player.magic_amp = real.magic_amp
+		_player.mana_reduccion = real.mana_reduccion
+		_player.motion_value = real.motion_value
 	_state = State.WAITING_PLAYER
 	_mostrar_acciones()
 
@@ -397,9 +409,33 @@ func aplicar_accion_remota(accion: Dictionary) -> void:
 	if obj >= 0 and obj < _enemies.size():
 		_target_idx = obj
 	match String(accion.get("tipo", "atacar")):
-		"defender": _accion_defender()
-		"huir": _accion_huir()
-		_: _accion_atacar()
+		"defender":
+			_accion_defender()
+		"huir":
+			_accion_huir()
+		"habilidad":
+			# Se busca en SU loadout (el doble lleva su mismo equipo): asi nadie puede colar una
+			# habilidad que su personaje no tiene.
+			var ruta: String = String(accion.get("ruta", ""))
+			var elegida: AbilityData = null
+			for ab in _player.abilities_combate:
+				if ab != null and String(ab.resource_path) == ruta:
+					elegida = ab
+					break
+			if elegida != null:
+				_usar_habilidad(elegida)
+			else:
+				_accion_atacar()   # ya no la tiene: no se pierde el turno
+		"objeto":
+			var cons = load(String(accion.get("ruta", "")))
+			var ia: int = int(accion.get("aliado", -1))
+			var al: Combatant = _aliados[ia] if ia >= 0 and ia < _aliados.size() else _player
+			if cons != null:
+				_usar_objeto(cons, al)
+			else:
+				_accion_atacar()
+		_:
+			_accion_atacar()
 
 
 # El anfitrion ha cerrado la pelea: mi espejo se va con ella.
@@ -1487,6 +1523,12 @@ func _on_continue_pressed() -> void:
 # ------------------------------------------------------------
 # Accion Magia: abre el submenu con los hechizos equipados y su coste de mana.
 func _accion_magia() -> void:
+	# PENDIENTE (multi): recitar un hechizo son VARIOS turnos con su minijuego de frases, asi que
+	# no basta con mandar una accion suelta como con las habilidades: hay que enrutar cada frase.
+	# Hasta que este, se avisa en vez de dejar una magia que se lanza a medias.
+	if _espejo:
+		_set_log("La magia todavía no se puede lanzar en la pelea de otro. Usa habilidades.")
+		return
 	_ocultar_cajas()
 	# Reconstruimos el submenu cada vez (el mana cambia -> disponibilidad).
 	for c in _spell_box.get_children():
@@ -2203,6 +2245,13 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 
 
 func _usar_habilidad(ab: AbilityData) -> void:
+	# En el espejo se elige, pero resuelve el anfitrion: le viaja QUE habilidad (por su ruta) y
+	# contra quien. El la busca en el loadout de mi personaje, que es el mismo que tiene el.
+	if _espejo and ab != null:
+		_ocultar_cajas()
+		_state = State.ADVANCING
+		Net.enviar_accion({"tipo": "habilidad", "ruta": ab.resource_path, "obj": _target_idx})
+		return
 	# OBJETIVO capturado UNA vez, al principio de la accion. No se vuelve a preguntar por el
 	# dentro del bucle de golpes a proposito: si el objetivo cae al tercer tajo de una habilidad
 	# de cinco, los dos que quedan tienen que caer en el vacio, no saltar solos al siguiente
@@ -2460,6 +2509,14 @@ func _elegir_objetivo_objeto(cons: ConsumableData) -> void:
 # poción de 3 turnos cura 1/3 ahora y 2/3 en tus 2 turnos siguientes.
 # GASTA el turno del que la bebe (_player) y no cuesta energia.
 func _usar_objeto(cons: ConsumableData, objetivo: Combatant) -> void:
+	# Igual que las habilidades: el espejo elige y el anfitrion resuelve. El objetivo viaja como
+	# INDICE dentro de los aliados, que es lo unico que significa lo mismo en las dos maquinas.
+	if _espejo and cons != null:
+		_ocultar_cajas()
+		_state = State.ADVANCING
+		Net.enviar_accion({"tipo": "objeto", "ruta": cons.resource_path,
+			"aliado": _aliados.find(objetivo)})
+		return
 	if _state != State.WAITING_PLAYER or objetivo == null or not objetivo.is_alive():
 		return
 	if not Game.gastar_consumible(cons):

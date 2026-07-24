@@ -6008,6 +6008,16 @@ func unir_aliado_al_combate(pj: PersonajeData) -> bool:
 	var c: Combatant = crear_player_combatant(pj)
 	if c == null:
 		return false
+	# ENERGIA DE COMBATE. No la calcula crear_player_combatant: se la inyecta start_combat leyendo
+	# el aguante del mapa. Un aliado que se une A MITAD no pasa por ahi, asi que entraba con la
+	# barra a CERO y sin poder usar habilidades ni Defender. aguante_de_grupo tira de la ficha para
+	# quien no es el lider, asi que sirve igual para el personaje de otro humano (su stamina viaja
+	# con la ficha).
+	var pnode := get_tree().get_first_node_in_group("player")
+	if pnode != null and pnode.has_method("aguante_de_grupo"):
+		var ag: Vector2 = pnode.aguante_de_grupo(pj)
+		c.max_energy = maxf(1.0, ag.y)
+		c.current_energy = clampf(ag.x if ag.x >= 0.0 else ag.y, 0.0, c.max_energy)
 	# A los DOS arrays y en el mismo orden ANTES de avisar al combate: anadir_aliado ya consulta
 	# pj_de_combatant para pintar su color en el marcador de turnos.
 	_active_player_cs.append(c)

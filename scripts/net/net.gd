@@ -2235,10 +2235,13 @@ func espejando() -> bool:
 # esa pelea es el DUEÑO del piso (lleva las reservas), asi que si no lo soy, se lo pregunto por la
 # via de siempre —solicitar_pelea ya devuelve el anfitrion al que unirse—.
 func unirme_a_la_pelea_de(id: int) -> void:
-	if not activo or Game.combate_activo() or espejando():
+	if not activo:
+		return
+	# Ya estoy en una pelea (la mia o espejando otra): una pantalla de combate por maquina.
+	if Game.combate_activo() or espejando():
 		return
 	if not _soy_dueno:
-		solicitar_pelea(id)
+		solicitar_pelea(id)   # el dueño del piso sabe de quien es esa pelea y me lo dira
 		return
 	var peer: int = int(_enem_ocupados.get(id, 0))
 	if peer != 0 and peer != multiplayer.get_unique_id():
@@ -2337,8 +2340,10 @@ func _pedir_unirme(ficha: Dictionary) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	var p: Node = _pantalla_combate()
 	if _pelea_id == 0 or p == null or not p.has_method("roster_para_espejo"):
+		print("[unirse] DENIEGO a ", quien, ": pelea_id=", _pelea_id, " pantalla=", p != null)
 		_union_denegada.rpc_id(quien)
 		return
+	print("[unirse] ", quien, " entra en mi pelea")
 	# Aguanta la pelea hasta que entre de verdad: si caen todos en ese hueco, no se cierra
 	# dejando al que venia de rescate con una pelea muerta.
 	if p.has_method("esperar_refuerzo"):
