@@ -572,6 +572,36 @@ En `scripts/net/net.gd`, mismo patrón que los drops (`_suelo`/`_drops`):
   3-4 jugadores).
 - **Nada nuevo que persistir**: quien simula guarda como siempre; nadie guarda enemigos de otro.
 
+#### El canal de JUGADOR: roster + retransmisión (por qué los clientes no se veían)
+
+Hermana de la de enemigos. En estrella un cliente **solo tiene socket con el host**, y de eso salen
+DOS problemas, no uno:
+
+1. **Roster.** Por su cuenta un cliente nunca sabe que existe otro cliente: su `_peers` solo tendría
+   al host, y todos los manejadores de jugador (`_set_aspecto`, `_set_grupo`, `_cambiar_lugar`,
+   `_recibir_estado`) tiran el mensaje en la puerta con `if not _peers.has(emisor)`. El **host hace
+   de presentador**: en `_saludar`, cuando entra alguien, le pasa la lista de los que ya estaban
+   (`_presentar_ajeno`, con su séquito incluido) y avisa a esos del nuevo; al irse, difunde
+   `_quitar_ajeno`. La limpieza visual de un peer vive en `_olvidar_peer`, común a la caída de
+   socket (`_on_peer_disconnected`) y al aviso de roster.
+2. **Transporte.** Los mensajes de jugador se retransmiten igual que los bichos: el cliente se lo
+   manda al host (`_rel_estado` / `_rel_aspecto` / `_rel_grupo` / `_rel_lugar` / `_rel_peleando`) y
+   el host lo reparte. El **emisor viaja DENTRO del mensaje** (no `get_remote_sender_id()`, que sería
+   el host al reenviar), igual que `_rel_spawn_a` lleva su `para`. El host se lo aplica también a sí
+   mismo si le toca y salta al emisor.
+
+Detalles que cuestan si no se saben:
+- Los mensajes **aspecto/grupo/lugar/combate** van a **TODOS** los peers a propósito (fiables,
+  baratos, raros): si se filtraran por lugar, quien no comparte piso no actualizaría su `_peers` y al
+  reencontrarse pintaría datos rancios. Solo la **posición** se filtra por lugar.
+- La **posición se estrangula a ~20 Hz** dentro de `Net.enviar_estado` (el player la llama a 60):
+  `remote_player` interpola entre paquetes, así que se ve igual y baja el tráfico también con 2.
+- En `_saludar`, `_presentarse` (el cliente registra al host) se manda **ANTES** de `_registrar_peer`
+  (que dispara el `anunciar_grupo` del host): al revés, el `_set_grupo` del host llegaría antes de
+  que el cliente lo tenga en `_peers` y su séquito no aparecería.
+- **Con 2 jugadores nada de esto se nota** (el host habla con el único cliente y basta): el bug de
+  "los clientes no se ven" solo sale con **tres o más**, y por eso la prueba necesita 3 procesos.
+
 #### Pulido del hito 5.5
 
 - **No se pelea con un menú tapando la pantalla.** En multi el mundo no se para, así que te pueden

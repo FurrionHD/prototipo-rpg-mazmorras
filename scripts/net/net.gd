@@ -314,13 +314,58 @@ func desconectar() -> void:
 	_apartados.clear()
 
 
-# --- POSICION (lo que hace que os veais moveros) --------------------------------------------
+# --- RETRANSMISION de los mensajes de JUGADOR (topologia estrella) ---------------------------
+# Mismo problema y misma cura que los ENEMIGOS (ver "El canal de enemigos" mas abajo): en estrella
+# un cliente no tiene socket con otro cliente, asi que un mensaje cliente->cliente se pierde SIN
+# error. La solucion: el cliente se lo manda al HOST y el host lo REPARTE. Y como el host reenvia
+# con rpc_id, el EMISOR original no se puede leer con get_remote_sender_id() (seria el host): viaja
+# DENTRO del mensaje. El host se lo aplica tambien a si mismo si le toca, y salta al emisor.
+#
+# Los mensajes "a todos" (aspecto, grupo, lugar, combate) son fiables, baratos y raros -> van a
+# TODOS los peers a proposito: si se filtraran por lugar, quien no comparte piso no actualizaria su
+# _peers y al reencontrarse pintaria datos rancios (el cuadrado blanco que se arreglo en 19f0aaa).
+# Solo la POSICION (60 Hz -> estrangulada a 20) se filtra por lugar.
 
-# La llama el Player LOCAL cada tick de fisica si Net.activo. Difunde su posicion a los demas.
+# El id de este peer, para meterlo como "emisor" cuando difundo yo directamente (host).
+func _mi_id() -> int:
+	return multiplayer.get_unique_id()
+
+
+# --- POSICION (lo que hace que os veais moveros) --------------------------------------------
+# ESTRANGULADA a ~20 Hz: el player la llama cada tick de fisica (60 Hz), pero mas no hace falta
+# —remote_player interpola con SUAVIZADO entre paquetes, igual que los bichos—, y al pasar por el
+# host se multiplicaria por el numero de destinos. Baja el trafico tambien con 2 jugadores.
+const _POS_TICK_MS := 50   # ~20 Hz, hermano de _ENEM_TICK (que va en segundos)
+var _pos_last_ms := 0
+
+# La llama el Player LOCAL cada tick de fisica si Net.activo. Difunde su posicion a los de MI lugar.
 func enviar_estado(pos: Vector2, facing: Vector2, comps: Array = []) -> void:
 	if not activo or multiplayer.multiplayer_peer == null:
 		return
-	_recibir_estado.rpc(pos, facing, comps)
+	var ahora := Time.get_ticks_msec()
+	if ahora - _pos_last_ms < _POS_TICK_MS:
+		return
+	_pos_last_ms = ahora
+	if es_host:
+		for pid in _peers:
+			if _peers[pid].get("lugar", "") == _mi_lugar:
+				_recibir_estado.rpc_id(pid, _mi_id(), pos, facing, comps)
+	else:
+		_rel_estado.rpc_id(1, pos, facing, comps)
+
+
+# Cliente -> host: reparte mi posicion a los de MI lugar (el host sabe donde esta cada cual).
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _rel_estado(pos: Vector2, facing: Vector2, comps: Array = []) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	var lugar: String = _peers.get(de, {}).get("lugar", "")
+	if _mi_lugar == lugar:
+		_recibir_estado(de, pos, facing, comps)
+	for pid in _peers:
+		if pid != de and _peers[pid].get("lugar", "") == lugar:
+			_recibir_estado.rpc_id(pid, de, pos, facing, comps)
 
 
 # --- ¿QUIEN ESTA PELEANDO? (hito 5.3) --------------------------------------------------------
@@ -330,14 +375,28 @@ func avisar_combate(peleando: bool) -> void:
 	if not activo or multiplayer.multiplayer_peer == null:
 		return
 	_peleando = peleando
-	_set_peleando.rpc(peleando)
+	if es_host:
+		for pid in _peers:
+			_set_peleando.rpc_id(pid, _mi_id(), peleando)
+	else:
+		_rel_peleando.rpc_id(1, peleando)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _set_peleando(peleando: bool) -> void:
-	var emisor := multiplayer.get_remote_sender_id()
+func _set_peleando(emisor: int, peleando: bool) -> void:
 	if _peers.has(emisor):
 		_peers[emisor]["peleando"] = peleando
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_peleando(peleando: bool) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	_set_peleando(de, peleando)
+	for pid in _peers:
+		if pid != de:
+			_set_peleando.rpc_id(pid, de, peleando)
 
 
 # Donde esta cada OTRO jugador de mi mismo lugar y si esta peleando. Lo consultan las zonas de
@@ -354,8 +413,7 @@ func jugadores_remotos_aqui() -> Array:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _recibir_estado(pos: Vector2, _facing: Vector2, comps: Array = []) -> void:
-	var emisor := multiplayer.get_remote_sender_id()
+func _recibir_estado(emisor: int, pos: Vector2, _facing: Vector2, comps: Array = []) -> void:
 	if _peers.has(emisor):
 		_peers[emisor]["pos"] = pos   # se recuerda: al reconstruir su avatar aparece donde iba
 	var a = _avatares.get(emisor)   # SIN tipar: puede ser una instancia ya liberada (ver nota abajo)
@@ -414,14 +472,21 @@ func _crear_cuerpo_companero(peer_id: int, idx: int):
 func anunciar_aspecto() -> void:
 	if not activo or multiplayer.multiplayer_peer == null:
 		return
-	_set_aspecto.rpc(Game.player_color, Game.player_metalico, Game.player_nombre,
-		Game.player_imagen_png, Game.player_color_alpha)
+	var c := Game.player_color
+	var m := Game.player_metalico
+	var n := Game.player_nombre
+	var img := Game.player_imagen_png
+	var al := Game.player_color_alpha
+	if es_host:
+		for pid in _peers:
+			_set_aspecto.rpc_id(pid, _mi_id(), c, m, n, img, al)
+	else:
+		_rel_aspecto.rpc_id(1, c, m, n, img, al)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _set_aspecto(color: Color, metal: float, nombre: String, imagen: PackedByteArray,
+func _set_aspecto(emisor: int, color: Color, metal: float, nombre: String, imagen: PackedByteArray,
 		alpha: float = 1.0) -> void:
-	var emisor := multiplayer.get_remote_sender_id()
 	if not _peers.has(emisor):
 		return
 	_peers[emisor]["color"] = color
@@ -435,6 +500,18 @@ func _set_aspecto(color: Color, metal: float, nombre: String, imagen: PackedByte
 		a.aplicar_aspecto(color, metal, nombre, imagen, alpha)
 
 
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_aspecto(color: Color, metal: float, nombre: String, imagen: PackedByteArray,
+		alpha: float = 1.0) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	_set_aspecto(de, color, metal, nombre, imagen, alpha)
+	for pid in _peers:
+		if pid != de:
+			_set_aspecto.rpc_id(pid, de, color, metal, nombre, imagen, alpha)
+
+
 # --- ASPECTO DE MI GRUPO (hito 5.4) ----------------------------------------------------------
 # El color/brillo/nombre de MIS acompañantes. Va aparte de la posicion (que viaja 60 veces por
 # segundo) porque solo cambia cuando cambia el equipo. Se difunde al conectar y al tocar el grupo.
@@ -445,12 +522,15 @@ func anunciar_grupo() -> void:
 	for pj in Game.companeros():
 		datos.append({"color": pj.color, "metal": pj.metalico, "nombre": pj.nombre,
 			"imagen": pj.imagen, "alpha": pj.color_alpha})
-	_set_grupo.rpc(datos)
+	if es_host:
+		for pid in _peers:
+			_set_grupo.rpc_id(pid, _mi_id(), datos)
+	else:
+		_rel_grupo.rpc_id(1, datos)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _set_grupo(datos: Array) -> void:
-	var emisor := multiplayer.get_remote_sender_id()
+func _set_grupo(emisor: int, datos: Array) -> void:
 	if not _peers.has(emisor):
 		return
 	_peers[emisor]["comps"] = datos
@@ -469,6 +549,17 @@ func _set_grupo(datos: Array) -> void:
 	_avatares_comp[emisor] = lista
 
 
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_grupo(datos: Array) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	_set_grupo(de, datos)
+	for pid in _peers:
+		if pid != de:
+			_set_grupo.rpc_id(pid, de, datos)
+
+
 # Tira los cuerpos de los acompañantes de un peer (cambio de lugar, se fue, fin de sesion).
 func _quitar_companeros(peer_id: int) -> void:
 	for c in _avatares_comp.get(peer_id, []):
@@ -484,13 +575,16 @@ func _quitar_companeros(peer_id: int) -> void:
 func anunciar_lugar(lugar: String) -> void:
 	_mi_lugar = lugar
 	if activo:
-		_cambiar_lugar.rpc(lugar)
+		if es_host:
+			for pid in _peers:
+				_cambiar_lugar.rpc_id(pid, _mi_id(), lugar)
+		else:
+			_rel_lugar.rpc_id(1, lugar)
 		_reconstruir_vista()
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _cambiar_lugar(lugar: String) -> void:
-	var emisor := multiplayer.get_remote_sender_id()
+func _cambiar_lugar(emisor: int, lugar: String) -> void:
 	if not _peers.has(emisor):
 		return
 	_peers[emisor]["lugar"] = lugar
@@ -504,6 +598,19 @@ func _cambiar_lugar(lugar: String) -> void:
 			a.queue_free()
 		_avatares.erase(emisor)
 		_quitar_companeros(emisor)   # su sequito se va con el
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_lugar(lugar: String) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	# Aplicar en el host PRIMERO (actualiza _peers[de]["lugar"]) y luego repartir a los demas: asi
+	# cualquier decision posterior por lugar ve ya el sitio nuevo.
+	_cambiar_lugar(de, lugar)
+	for pid in _peers:
+		if pid != de:
+			_cambiar_lugar.rpc_id(pid, de, lugar)
 
 
 # Tras viajar YO: la escena vieja murio (y con ella mis avatares/drops). Se espera a que la
@@ -2953,13 +3060,26 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 		if multiplayer.multiplayer_peer != null:
 			multiplayer.disconnect_peer(quien)
 		return
-	# Codigo OK: registro mutuo. Viaja tambien la SEMILLA del mundo del host (para que el
-	# cliente genere la MISMA mazmorra sin replicar geometria) y el lugar de cada uno.
-	_registrar_peer(quien, color, metal, nombre, lugar, imagen, alpha)
-	estado_cambiado.emit("%s se ha unido." % nombre)
+	# Codigo OK. Presentaciones cruzadas con los que YA estaban (roster): antes de registrar al
+	# nuevo, para no presentarselo a si mismo. Cada cliente que ya estaba se entera del nuevo, y al
+	# nuevo se le pasa la lista entera. Sin esto, dos clientes serian invisibles entre si.
+	for otro in _peers:
+		var p: Dictionary = _peers[otro]
+		# Al que ya estaba: aqui viene uno nuevo.
+		_presentar_ajeno.rpc_id(otro, quien, color, metal, nombre, lugar, imagen, alpha)
+		# Al nuevo: este otro ya estaba (con SUS datos, sequito incluido).
+		_presentar_ajeno.rpc_id(quien, otro, p["color"], p["metal"], p["nombre"], p["lugar"],
+			p.get("imagen", PackedByteArray()), float(p.get("alpha", 1.0)), p.get("comps", []))
+	# Presentarme al nuevo (registra al HOST en su _peers) ANTES de registrarle yo: _registrar_peer
+	# dispara mi anunciar_grupo(), y si su _set_grupo llegara antes que este _presentarse, el cliente
+	# aun no me tendria en _peers y lo tiraria en la puerta (mi sequito no le apareceria). Viaja la
+	# SEMILLA del mundo del host (para generar la MISMA mazmorra sin replicar geometria) y mi lugar.
 	_presentarse.rpc_id(quien, Game.player_color, Game.player_metalico, Game.player_nombre,
 		_mi_lugar, Game.semilla_mundo, Game.tienda_t2_abierta(), Game.player_imagen_png,
 		Game.player_color_alpha)
+	# Registro mutuo (en el host): apunta al nuevo y me re-anuncia el grupo a todos, el ya incluido.
+	_registrar_peer(quien, color, metal, nombre, lugar, imagen, alpha)
+	estado_cambiado.emit("%s se ha unido." % nombre)
 	# Y ponerle al dia el SUELO de su lugar: lo que ya estaba soltado antes de que entrara.
 	for id in _suelo:
 		if _suelo[id]["lugar"] == lugar:
@@ -2997,8 +3117,13 @@ func _rechazado() -> void:
 # --- AVATARES -------------------------------------------------------------------------------
 
 # Registra los DATOS de un peer y, si comparte mi lugar, le monta el nodo visual.
+#
+# 'avisar' (por defecto true) dispara los efectos de "acabamos de conocernos": re-anunciar MI
+# sequito y, en el host, recontar humanos. Se pone a FALSE cuando el host me PRESENTA a varios peers
+# ajenos de golpe (_presentar_ajeno): alli no quiero N difusiones de grupo en cascada ni tocar el
+# recuento (los ajenos no cambian cuantos humanos hay: eso lo lleva el host aparte).
 func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, lugar: String,
-		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0) -> void:
+		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0, avisar: bool = true) -> void:
 	# La IMAGEN del cuerpo viaja UNA VEZ, en el handshake: es un PNG ya recortado a 128x128
 	# (Game.IMAGEN_CUERPO_MAX), no la foto original. Se guarda por peer para poder repintar su
 	# cuerpo cada vez que se recrea (al cambiar de piso, por ejemplo) sin volver a pedirla.
@@ -3009,12 +3134,52 @@ func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, l
 		"imagen": imagen, "alpha": alpha}
 	if lugar == _mi_lugar:
 		_crear_avatar_nodo(peer_id)
-	# Acabamos de conocernos: le digo como es MI sequito (el suyo me llegara igual). Sin esto, los
-	# acompañantes del que ya estaba saldrian sin cara hasta que tocara su equipo.
-	anunciar_grupo()
-	# El HOST recuenta y difunde el numero de humanos (los clientes reajustan al recibirlo).
-	if es_host:
-		_sync_humanos()
+	if avisar:
+		# Acabamos de conocernos: le digo como es MI sequito (el suyo me llegara igual). Sin esto, los
+		# acompañantes del que ya estaba saldrian sin cara hasta que tocara su equipo.
+		anunciar_grupo()
+		# El HOST recuenta y difunde el numero de humanos (los clientes reajustan al recibirlo).
+		if es_host:
+			_sync_humanos()
+
+
+# --- ROSTER: que los CLIENTES se conozcan entre si (topologia estrella) ----------------------
+# En estrella un cliente solo tiene socket con el host: por su cuenta NUNCA sabe que existe otro
+# cliente, asi que su _peers solo tendria al host y todos los manejadores de jugador (_set_aspecto,
+# _set_grupo, _cambiar_lugar, _recibir_estado) tirarian los mensajes del otro en la puerta con
+# `if not _peers.has(emisor)`. El HOST, que si los ve a todos, hace de presentador: cuando entra
+# alguien, le pasa la lista de los que ya estaban y avisa a esos del nuevo. El peer va DENTRO del
+# mensaje porque get_remote_sender_id() aqui seria siempre el host.
+@rpc("authority", "call_remote", "reliable")
+func _presentar_ajeno(peer_id: int, color: Color, metal: float, nombre: String, lugar: String,
+		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0, comps: Array = []) -> void:
+	if peer_id == multiplayer.get_unique_id() or _peers.has(peer_id):
+		return   # yo mismo, o ya lo conozco (llego dos veces): idempotente
+	_registrar_peer(peer_id, color, metal, nombre, lugar, imagen, alpha, false)
+	# Su SEQUITO viaja en la misma presentacion (no solo el lider): si no, veria al lider del otro
+	# cliente pero sus acompañantes no naceran hasta que ese cliente vuelva a tocar su grupo. Basta
+	# con guardarlo: _mover_companeros crea los cuerpos con esta cara en cuanto lleguen sus posiciones.
+	if not comps.is_empty():
+		_peers[peer_id]["comps"] = comps
+
+
+# El host me dice que un peer ajeno se ha ido. Idempotente: con server_relay podria llegarme
+# ademas mi propia señal peer_disconnected, y no pasa nada por limpiar dos veces.
+@rpc("authority", "call_remote", "reliable")
+func _quitar_ajeno(peer_id: int) -> void:
+	_olvidar_peer(peer_id)
+
+
+# Limpia la parte VISUAL y el registro de un peer: su avatar, su sequito y su entrada en _peers.
+# El arbitraje del host (vetas, pisos, peleas) NO va aqui: eso se queda en _on_peer_disconnected,
+# que es lo unico que corre cuando de verdad se cae un socket. Esto lo llaman los dos caminos.
+func _olvidar_peer(peer_id: int) -> void:
+	var a = _avatares.get(peer_id)
+	if a != null and is_instance_valid(a):
+		a.queue_free()
+	_avatares.erase(peer_id)
+	_quitar_companeros(peer_id)
+	_peers.erase(peer_id)
 
 
 # Monta el nodo visual de un peer YA registrado (solo si compartimos lugar).
@@ -3041,15 +3206,14 @@ func _crear_avatar_nodo(peer_id: int) -> void:
 
 func _on_peer_disconnected(id: int) -> void:
 	var conocido := _peers.has(id)
-	var a = _avatares.get(id)
-	if a != null and is_instance_valid(a):
-		a.queue_free()
-	_avatares.erase(id)
-	_quitar_companeros(id)
-	_peers.erase(id)
+	_olvidar_peer(id)   # avatar, sequito y registro (la parte visual, comun con _quitar_ajeno)
 	# Su marcha cuenta como salir de la mazmorra: libera sus vetas y, si era el ultimo
 	# dentro, la expedicion se cierra (solo decide el host).
 	if es_host:
+		# Roster: avisar a los DEMAS clientes de que este se ha ido, para que borren su avatar (en
+		# estrella no se enteran por su cuenta). A quien se cayo no hay a quien mandarselo.
+		for otro in _peers:
+			_quitar_ajeno.rpc_id(otro, id)
 		_liberar_vetas_de(id)
 		if _taller_dueno == id:   # se fue con el taller cogido: se libera (su crafteo a medias se pierde)
 			_taller_dueno = 0
