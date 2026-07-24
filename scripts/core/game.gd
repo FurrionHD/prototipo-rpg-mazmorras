@@ -3345,15 +3345,86 @@ func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary) -> 
 	return copia
 
 
+# --- LA RUTA DE LA PLANTILLA de una pieza -----------------------------------------------------
+#
+# Un item es base.duplicate(), y la copia PIERDE su resource_path: por eso crear_item apunta la ruta
+# de su plantilla en meta["ruta_base"]. Pero eso se añadio con el cofre compartido (hito 4), asi que
+# TODO el equipo forjado o comprado antes se quedo sin ella — y sin ruta no se puede reconstruir en
+# otra maquina: el que se unia a una pelea entraba DESNUDO y peleaba con los puños.
+#
+# Se recupera atando la pieza a su plantilla por el NOMBRE (la copia conserva todos sus campos), y
+# se apunta en la meta: asi la pieza queda reparada para siempre (se guarda en el save) y no hay que
+# volver a buscarla.
+const _CARPETAS_PLANTILLAS := ["res://resources/weapons", "res://resources/shields",
+	"res://resources/wands", "res://resources/backpacks", "res://resources/armor"]
+var _indice_plantillas: Dictionary = {}   # "clase|nombre" -> ruta (perezoso, ver _plantillas)
+
+
+func _clave_plantilla(item: Resource) -> String:
+	if item == null:
+		return ""
+	var clase: String = "ArmorData" if item is ArmorData else \
+		("BackpackData" if item is BackpackData else "WeaponData")
+	return "%s|%s" % [clase, str(item.get("nombre"))]
+
+
+# Indice nombre -> ruta de TODAS las plantillas del disco. Se monta una vez y se cachea.
+# Se aceptan .tres y .res: al exportar con "convertir texto a binario" cambia la extension.
+func _plantillas() -> Dictionary:
+	if not _indice_plantillas.is_empty():
+		return _indice_plantillas
+	var repetidas: Dictionary = {}
+	for carpeta in _CARPETAS_PLANTILLAS:
+		var dir := DirAccess.open(carpeta)
+		if dir == null:
+			continue
+		for f in dir.get_files():
+			if not (f.ends_with(".tres") or f.ends_with(".res")):
+				continue
+			var res: Resource = load(carpeta + "/" + f)
+			if res == null:
+				continue
+			var clave: String = _clave_plantilla(res)
+			if clave.ends_with("|"):
+				continue   # sin nombre: no hay por donde atarla
+			if _indice_plantillas.has(clave):
+				repetidas[clave] = true   # dos plantillas con el mismo nombre: no adivinar
+				continue
+			_indice_plantillas[clave] = carpeta + "/" + f
+	for clave in repetidas:
+		_indice_plantillas.erase(clave)
+	print("[equipo] indice de plantillas: %d" % _indice_plantillas.size())
+	return _indice_plantillas
+
+
+# La ruta de la plantilla de 'item' ("" si no hay forma de saberla). REPARA la meta si la encuentra.
+func ruta_base_de(item: Resource) -> String:
+	if item == null:
+		return ""
+	var m: Dictionary = meta_de(item)
+	var ruta: String = str(m.get("ruta_base", ""))
+	if ruta != "":
+		return ruta
+	# ¿No es una copia? Entonces su propia ruta vale (piezas asignadas directas del .tres).
+	if str(item.resource_path) != "":
+		m["ruta_base"] = str(item.resource_path)
+		return str(item.resource_path)
+	ruta = str(_plantillas().get(_clave_plantilla(item), ""))
+	if ruta != "":
+		m["ruta_base"] = ruta   # reparada: se persiste en el proximo guardado
+		print("[equipo] recuperada la plantilla de '%s' -> %s" % [str(item.get("nombre")), ruta])
+	return ruta
+
+
 # --- COFRE COMPARTIDO (multi): serializar una pieza para mandarla por red y reconstruirla ---
 # No basta la ruta: la identidad de gameplay (tier/rareza/mejoras/durabilidad/capacidad) vive en
-# item_meta por instancia. Se empaqueta todo. {} si la pieza no tiene ruta_base (forjada antes de
-# guardar la ruta): esas no se pueden compartir.
+# item_meta por instancia. Se empaqueta todo. {} solo si NI SIQUIERA se puede averiguar de que
+# plantilla salio la pieza (ver ruta_base_de, que ademas repara las viejas).
 func serializar_equipo(item: Resource) -> Dictionary:
 	if item == null:
 		return {}
 	var m: Dictionary = meta_de(item)
-	var ruta: String = str(m.get("ruta_base", ""))
+	var ruta: String = ruta_base_de(item)
 	if ruta == "":
 		return {}
 	var clase: String = "armadura" if item is ArmorData else ("mochila" if item is BackpackData else "arma")

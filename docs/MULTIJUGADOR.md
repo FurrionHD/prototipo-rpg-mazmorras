@@ -339,6 +339,27 @@ Y un ruido que tapaba el log: `deserializar_equipo` hacía `load("")` por **cada
 cada ficha** que viaja por la red — decenas de `Resource file not found: res://` en rojo. Una
 ranura vacía es normal, no un error: ahora se corta antes.
 
+#### ⚠️ El EQUIPO tiene que viajar (o el que se une pelea con los puños)
+
+Un item es `base.duplicate()`, y **la copia pierde su `resource_path`**: por eso `crear_item` apunta
+la ruta de la plantilla en `meta["ruta_base"]`, que es lo único con lo que se puede reconstruir la
+pieza en otra máquina. Pero eso se añadió con el cofre compartido (hito 4), así que **todo el equipo
+anterior se quedó sin ella** — y sin ruta, `serializar_equipo` devolvía `{}`, el doble entraba
+**desnudo** y `crear_player_combatant` le ponía puños (sin arma no hay daño, ni habilidades de arma,
+ni crítico, ni la evasión de la armadura).
+
+`Game.ruta_base_de(item)` lo resuelve en un solo sitio: usa `ruta_base` si está, si no el
+`resource_path` (piezas no duplicadas), y si no **ata la pieza a su plantilla por el nombre**
+buscando en un índice de `resources/weapons|shields|wands|backpacks|armor` (se acepta `.tres` y
+`.res`, que al exportar a binario cambia la extensión). Al encontrarla **la escribe en la meta**:
+la pieza queda reparada y se persiste en el siguiente guardado. Best-effort: si no resuelve, se
+comporta como antes.
+
+⚠️ Y al montar el doble hay que **re-aliasar `equip_meta`** (`pj.equip_meta[slot] =
+Game.meta_de(item)`): la identidad de gameplay la lee `Game._meta(slot, pj)` de ahí, no del objeto,
+así que sin esto el doble llevaba el arma pero **con tier 1 y rareza común**. Es la misma invariante
+que restaura `_realinear_equip_meta` al cargar una partida.
+
 #### El TRASPASO de la pelea
 
 La pelea la **ejecuta una máquina**. Si esa se va, la pelea ya no se cierra para todos: **se

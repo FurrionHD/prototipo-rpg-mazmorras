@@ -2549,8 +2549,17 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 			"esquivas_exp", "hechizos_exp", "recitado_exp",
 			"dano_recibido_exp", "dano_infligido_exp"]:
 		d[campo] = pj.get(campo)
+	var sin_viajar: Array = []
 	for r in _RANURAS:
-		d[r] = Game.serializar_equipo(pj.get(r))
+		var pieza: Resource = pj.get(r)
+		d[r] = Game.serializar_equipo(pieza)
+		if pieza != null and (d[r] as Dictionary).is_empty():
+			sin_viajar.append(str(pieza.get("nombre")))
+	# Una pieza que no viaja NO es un detalle: el doble entra sin ella y pelea con los puños, que es
+	# un bug de balance silencioso. Se dice UNA vez por ficha, con nombres, en vez de callarlo.
+	if not sin_viajar.is_empty():
+		push_warning("[multi] %s viaja SIN: %s (no se pudo identificar su plantilla)" % [
+			pj.nombre, ", ".join(sin_viajar)])
 	var hechizos: Array = []
 	for s in pj.equipped_spells:
 		if s != null and not String(s.resource_path).is_empty():
@@ -2569,6 +2578,11 @@ func ficha_de_dict(d: Dictionary) -> PersonajeData:
 		var item: Resource = Game.deserializar_equipo(d.get(r, {}))
 		if item != null:
 			pj.set(r, item)
+			# Y su meta EQUIPADA apuntando al MISMO dict que la del objeto. Sin esto el doble
+			# llevaba el arma pero con tier 1 y rareza comun: la identidad la lee equip_meta[slot]
+			# (ver Game._meta), no el objeto. Es la misma invariante que restaura
+			# _realinear_equip_meta al cargar una partida.
+			pj.equip_meta[r.replace("equipped_", "")] = Game.meta_de(item)
 	var hechizos: Array = []
 	for ruta in d.get("spells", []):
 		var s = load(String(ruta))
