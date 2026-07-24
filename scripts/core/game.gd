@@ -6531,7 +6531,7 @@ func start_extraction(corpse: Node) -> void:
 
 	var ex: Control = _extraction_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
-	ex.setup(categoria, required_hits, zone_ratio, marker_speed, speed_step)
+	ex.setup(categoria, required_hits, zone_ratio, marker_speed, speed_step, corpse)
 	ex.extraction_finished.connect(_on_extraction_finished.bind(corpse))
 
 	var layer := CanvasLayer.new()
@@ -6544,7 +6544,10 @@ func start_extraction(corpse: Node) -> void:
 	esconder_mundo(true)
 
 
-func _on_extraction_finished(cristal: Cristal, corpse: Node) -> void:
+# 'corpse' SIN tipar a proposito: al salir del piso a media extraccion se libera con la escena, y
+# pasar una instancia liberada a un parametro TIPADO revienta en Godot 4 (la trampa de net.gd). Se
+# lee siempre con is_instance_valid() antes de tocarlo.
+func _on_extraction_finished(cristal: Cristal, corpse) -> void:
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	# El minijuego se juega con ESPACIO, que ahora es TAMBIEN la tecla de atacar/interactuar:

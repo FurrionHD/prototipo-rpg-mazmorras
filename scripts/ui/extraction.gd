@@ -36,15 +36,23 @@ var _zone_start: float = 0.0
 var _state: int = READY   # empieza en espera: no arranca hasta que pulsas ESPACIO
 var _result: Cristal = null
 var _press_was: bool = true   # true al abrir: exige una pulsacion NUEVA para empezar (no la de abrir)
+# El CADAVER del que extraigo. SIN tipar a proposito (misma trampa que net.gd): esta pantalla cuelga
+# de get_tree().root, asi que SOBREVIVE al cambio de escena, pero el cuerpo se libera con el piso
+# viejo. Si otro me saca del piso a media extraccion, hay que auto-cancelar (ver _process) o el
+# minijuego seguiria corriendo sobre una instancia liberada y reventaria al emitir su señal.
+var _corpse = null
+var _tiene_corpse := false   # ¿me pasaron cadaver? (distingue "no habia" de "lo liberaron")
 
 
 func setup(categoria: int, presses: int, zone_ratio: float,
-		marker_speed: float, speed_step: float) -> void:
+		marker_speed: float, speed_step: float, corpse = null) -> void:
 	_categoria = categoria
 	_presses = presses
 	_zone_ratio = zone_ratio
 	_marker_speed = marker_speed
 	_speed_step = speed_step
+	_corpse = corpse
+	_tiene_corpse = corpse != null
 
 
 func _ready() -> void:
@@ -53,6 +61,15 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	# AUTO-CANCELACION: si me han sacado del piso (el cadaver murio con la escena vieja), cierro sin
+	# premio. Emitir null hace que Game._on_extraction_finished no otorgue cristal y siga su cierre
+	# de siempre (salir_modal, esconder_mundo) — mismo camino que un fin normal, sin puntos sueltos.
+	if _tiene_corpse and not is_instance_valid(_corpse):
+		_tiene_corpse = false
+		extraction_finished.emit(null)
+		queue_free()
+		return
+
 	var pressed: bool = Input.is_key_pressed(KEY_SPACE)
 	var edge: bool = pressed and not _press_was
 	_press_was = pressed
