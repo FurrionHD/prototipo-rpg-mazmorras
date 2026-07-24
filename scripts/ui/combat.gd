@@ -355,8 +355,11 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 	# Su cara, para el marcador de turnos: se monta aqui una vez y se cachea por maniqui.
 	var png: PackedByteArray = d.get("imagen", PackedByteArray())
 	var metal: float = float(d.get("metal", 0.0))
+	# La opacidad del color sobre la imagen viaja en el roster: sin ella se fijaba a 1.0 y el color
+	# tapaba la cara. El material solo hace falta si hay imagen o brillo.
 	if not png.is_empty() or metal > 0.0:
-		_mat_espejo[c] = Game.material_aspecto(metal, Game.textura_de_png(png), 1.0)
+		_mat_espejo[c] = Game.material_aspecto(metal, Game.textura_de_png(png),
+			float(d.get("alpha", 1.0)))
 	return c
 
 
@@ -377,6 +380,9 @@ func _fila_de_roster(lista: Array) -> Array:
 		out.append({"nombre": c.nombre, "nivel": c.level,
 			"color": pj.color if pj != null else c.color_visual,
 			"metal": pj.metalico if pj != null else 0.0,
+			# La OPACIDAD del color sobre la imagen (color_alpha del shader). Sin ella el marcador
+			# de turnos del espejo pintaba el color plano tapando la cara.
+			"alpha": pj.color_alpha if pj != null else 1.0,
 			"imagen": pj.imagen if pj != null else PackedByteArray(),
 			"max_hp": c.max_hp, "hp": c.current_hp,
 			"max_mp": c.max_mp, "mp": c.current_mp,
@@ -1408,6 +1414,11 @@ func _meter_enemigo(c: Combatant, es_invocado: bool) -> int:
 	if es_invocado:
 		_slots_invocados[idx] = true
 	_alta_de_combatiente()   # que los espejos vean al recien llegado (roster nuevo, revision nueva)
+	# Rellena YA el bloque recien creado (nombre + barra): _crear_bloque lo deja en blanco y quien lo
+	# puebla es _update_hp. Sin esta llamada el refuerzo salia con el recuadro VACIO en la maquina
+	# que ejecuta la pelea hasta el siguiente golpe (el espejo si lo veia, porque aplicar_roster
+	# refresca). anadir_aliado ya lo hacia; aqui faltaba.
+	_update_hp()
 	var etiqueta: String = "invocacion" if es_invocado else "refuerzo"
 	print("[%s] entra %s en el slot %d (vivos: %d)" % [etiqueta, c.nombre, idx + 1, _vivos().size()])
 	return idx

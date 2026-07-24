@@ -372,7 +372,13 @@ func _mover_companeros(peer_id: int, posiciones: Array) -> void:
 	if not _peers.has(peer_id) or _peers[peer_id].get("lugar", "") != _mi_lugar:
 		return
 	var lista: Array = _avatares_comp.get(peer_id, [])
-	while lista.size() < posiciones.size():
+	# NO crear un cuerpo de acompañante hasta tener su ASPECTO. Las posiciones llegan a 60 Hz y el
+	# aspecto aparte (por _set_grupo, casi inmediato tras el handshake): crear el cuerpo antes lo
+	# hacia nacer como un CUADRADO BLANCO que no se arreglaba hasta cambiar de escena. Con esto el
+	# cuerpo aparece ya con su cara en cuanto llega el grupo (unos ms despues).
+	var con_aspecto: int = int(_peers[peer_id].get("comps", []).size())
+	var objetivo: int = mini(posiciones.size(), con_aspecto)
+	while lista.size() < objetivo:
 		var c = _crear_cuerpo_companero(peer_id, lista.size())
 		if c == null:
 			break
@@ -397,8 +403,36 @@ func _crear_cuerpo_companero(peer_id: int, idx: int):
 	if idx < comps.size():
 		var d: Dictionary = comps[idx]
 		c.aplicar_aspecto(d.get("color", Color.WHITE), float(d.get("metal", 0.0)),
-			String(d.get("nombre", "")), d.get("imagen", PackedByteArray()))
+			String(d.get("nombre", "")), d.get("imagen", PackedByteArray()),
+			float(d.get("alpha", 1.0)))
 	return c
+
+
+# Re-anuncia MI aspecto (el del LIDER) a todos. El del lider viaja en el handshake, pero si lo
+# cambias en el hogar hay que re-difundirlo o el compañero no lo ve hasta que cambies de escena
+# (que es cuando _reconstruir_vista recrea el avatar con los datos nuevos de _peers).
+func anunciar_aspecto() -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	_set_aspecto.rpc(Game.player_color, Game.player_metalico, Game.player_nombre,
+		Game.player_imagen_png, Game.player_color_alpha)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_aspecto(color: Color, metal: float, nombre: String, imagen: PackedByteArray,
+		alpha: float = 1.0) -> void:
+	var emisor := multiplayer.get_remote_sender_id()
+	if not _peers.has(emisor):
+		return
+	_peers[emisor]["color"] = color
+	_peers[emisor]["metal"] = metal
+	_peers[emisor]["nombre"] = nombre
+	_peers[emisor]["imagen"] = imagen
+	_peers[emisor]["alpha"] = alpha
+	# Repinta su avatar YA (si lo tengo delante): sin esto el cambio no se veria hasta reconstruir.
+	var a = _avatares.get(emisor)   # SIN tipar: puede estar liberado
+	if a != null and is_instance_valid(a) and a.has_method("aplicar_aspecto"):
+		a.aplicar_aspecto(color, metal, nombre, imagen, alpha)
 
 
 # --- ASPECTO DE MI GRUPO (hito 5.4) ----------------------------------------------------------
@@ -410,7 +444,7 @@ func anunciar_grupo() -> void:
 	var datos: Array = []
 	for pj in Game.companeros():
 		datos.append({"color": pj.color, "metal": pj.metalico, "nombre": pj.nombre,
-			"imagen": pj.imagen})
+			"imagen": pj.imagen, "alpha": pj.color_alpha})
 	_set_grupo.rpc(datos)
 
 
@@ -430,7 +464,8 @@ func _set_grupo(datos: Array) -> void:
 		if is_instance_valid(lista[i]):
 			var d: Dictionary = datos[i]
 			lista[i].aplicar_aspecto(d.get("color", Color.WHITE), float(d.get("metal", 0.0)),
-				String(d.get("nombre", "")), d.get("imagen", PackedByteArray()))
+				String(d.get("nombre", "")), d.get("imagen", PackedByteArray()),
+				float(d.get("alpha", 1.0)))
 	_avatares_comp[emisor] = lista
 
 
@@ -2899,14 +2934,14 @@ func _on_connected_to_server() -> void:
 	_almacen_solo = Game.almacen_materiales.duplicate()
 	_almacen_guardado = true
 	_saludar.rpc_id(1, _codigo, Game.player_color, Game.player_metalico, Game.player_nombre,
-		_mi_lugar, Game.player_imagen_png)
+		_mi_lugar, Game.player_imagen_png, Game.player_color_alpha)
 
 
 # Corre EN EL HOST, llamado por el cliente. Valida el codigo y, si vale, se registran
 # mutuamente; si no, se echa al que intenta colarse.
 @rpc("any_peer", "call_remote", "reliable")
 func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar: String,
-		imagen: PackedByteArray = PackedByteArray()) -> void:
+		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	if codigo != _codigo:
 		estado_cambiado.emit("Rechazado un intento con codigo incorrecto.")
@@ -2920,10 +2955,11 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 		return
 	# Codigo OK: registro mutuo. Viaja tambien la SEMILLA del mundo del host (para que el
 	# cliente genere la MISMA mazmorra sin replicar geometria) y el lugar de cada uno.
-	_registrar_peer(quien, color, metal, nombre, lugar, imagen)
+	_registrar_peer(quien, color, metal, nombre, lugar, imagen, alpha)
 	estado_cambiado.emit("%s se ha unido." % nombre)
 	_presentarse.rpc_id(quien, Game.player_color, Game.player_metalico, Game.player_nombre,
-		_mi_lugar, Game.semilla_mundo, Game.tienda_t2_abierta(), Game.player_imagen_png)
+		_mi_lugar, Game.semilla_mundo, Game.tienda_t2_abierta(), Game.player_imagen_png,
+		Game.player_color_alpha)
 	# Y ponerle al dia el SUELO de su lugar: lo que ya estaba soltado antes de que entrara.
 	for id in _suelo:
 		if _suelo[id]["lugar"] == lugar:
@@ -2938,11 +2974,11 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.
 @rpc("any_peer", "call_remote", "reliable")
 func _presentarse(color: Color, metal: float, nombre: String, lugar: String, semilla: int,
-		t2: bool, imagen: PackedByteArray = PackedByteArray()) -> void:
+		t2: bool, imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	semilla_host = semilla
 	tienda_t2_host = t2
-	_registrar_peer(quien, color, metal, nombre, lugar, imagen)
+	_registrar_peer(quien, color, metal, nombre, lugar, imagen, alpha)
 	estado_cambiado.emit("Conectado con %s." % nombre)
 
 
@@ -2962,13 +2998,15 @@ func _rechazado() -> void:
 
 # Registra los DATOS de un peer y, si comparte mi lugar, le monta el nodo visual.
 func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, lugar: String,
-		imagen: PackedByteArray = PackedByteArray()) -> void:
+		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0) -> void:
 	# La IMAGEN del cuerpo viaja UNA VEZ, en el handshake: es un PNG ya recortado a 128x128
 	# (Game.IMAGEN_CUERPO_MAX), no la foto original. Se guarda por peer para poder repintar su
 	# cuerpo cada vez que se recrea (al cambiar de piso, por ejemplo) sin volver a pedirla.
+	# El ALPHA es la opacidad del color SOBRE la imagen (color_alpha del shader): sin el, el color
+	# tapaba del todo la cara del compañero (se fijaba a 1.0).
 	_peers[peer_id] = {"color": color, "metal": metal, "nombre": nombre,
 		"lugar": lugar, "pos": Vector2.INF, "peleando": false, "comps": [],
-		"imagen": imagen}
+		"imagen": imagen, "alpha": alpha}
 	if lugar == _mi_lugar:
 		_crear_avatar_nodo(peer_id)
 	# Acabamos de conocernos: le digo como es MI sequito (el suyo me llegara igual). Sin esto, los
@@ -2994,7 +3032,8 @@ func _crear_avatar_nodo(peer_id: int) -> void:
 	# De quien es este cuerpo: al alcanzarlo un bicho hay que mandarle la pelea a SU dueño. Va como
 	# meta, mismo patron que el net_id de bichos y drops.
 	av.set_meta("peer_id", peer_id)
-	av.aplicar_aspecto(p["color"], p["metal"], p["nombre"], p.get("imagen", PackedByteArray()))
+	av.aplicar_aspecto(p["color"], p["metal"], p["nombre"], p.get("imagen", PackedByteArray()),
+		float(p.get("alpha", 1.0)))
 	if p["pos"] != Vector2.INF:
 		av.ir_a(p["pos"])   # aparece donde iba, no en el origen
 	_avatares[peer_id] = av

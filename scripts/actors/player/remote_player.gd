@@ -71,10 +71,15 @@ func _ready() -> void:
 # jugador local (Game.material_aspecto), asi que se le ve igual que se ve a si mismo. El PNG llega
 # ya recortado a 128x128 en el handshake y se convierte a textura aqui.
 func aplicar_aspecto(color: Color, metal: float, nombre: String,
-		imagen: PackedByteArray = PackedByteArray()) -> void:
+		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0) -> void:
 	if _cuerpo != null:
-		_cuerpo.color = color
-		_cuerpo.material = Game.material_aspecto(metal, Game.textura_de_png(imagen), 1.0)
+		# OPACO: el shader multiplica por COLOR.a, asi que un color con alpha < 1 (translucido)
+		# atenuaria el cuerpo entero. El color va SIEMPRE opaco; la opacidad SOBRE la imagen la
+		# lleva 'alpha' (color_alpha del shader), no el alpha del Color.
+		_cuerpo.color = Color(color.r, color.g, color.b, 1.0)
+		# 'alpha' es el color_alpha real del compañero (viaja en el handshake): sin el, el color
+		# tapaba del todo su cara — se fijaba a 1.0.
+		_cuerpo.material = Game.material_aspecto(metal, Game.textura_de_png(imagen), alpha)
 	if _nombre != null:
 		_nombre.text = nombre
 

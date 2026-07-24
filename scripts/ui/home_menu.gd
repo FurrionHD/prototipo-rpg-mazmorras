@@ -272,6 +272,11 @@ func _editar_aspecto(pj: PersonajeData) -> void:
 			var jugador: Node = get_tree().get_first_node_in_group("player")
 			if jugador != null and jugador.has_method("refrescar_grupo"):
 				jugador.refrescar_grupo()
+			# MULTI: y re-difundirlo, o el compañero no lo veria hasta cambiar de escena. Se anuncian
+			# los DOS (lider y sequito) porque el editado puede ser cualquiera; es barato.
+			if Net.activo:
+				Net.anunciar_aspecto()
+				Net.anunciar_grupo()
 			_aviso = "%s cambia de aspecto." % pj.nombre
 			_aviso_ok = true
 			_rebuild())
