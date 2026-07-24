@@ -573,6 +573,7 @@ func limpiar_modales() -> void:
 	# Vacia la pila de golpe. Se usa al cambiar de escena (salir al menu principal): el arbol se
 	# despausa y no queda ningun residuo en el singleton, que persiste entre escenas.
 	_modal_stack.clear()
+	_menus_abiertos.clear()   # sus nodos se van con la escena vieja
 	_refrescar_pausa()
 
 func hay_modal_de(tipo: int) -> bool:
@@ -1729,17 +1730,52 @@ var inventory_open: bool = false
 #
 # OJO: quien llame a esto DEBE llevar process_mode = PROCESS_MODE_ALWAYS en su _ready, o con el
 # arbol parado su _input no corre y el menu se queda colgado sin poder cerrarse.
-func abrir_menu() -> void:
+func abrir_menu(nodo: Node = null) -> void:
 	inventory_open = true
+	# QUIEN esta abierto, para poder cerrarlo a la fuerza si te embisten (ver cerrar_menus_abiertos).
+	# Es opcional a proposito: quien no lo pase se comporta como siempre.
+	# Pasandolo se vuelve ademas IDEMPOTENTE: abrir dos veces el mismo menu apilaba DOS modales y
+	# luego un solo cierre no despausaba el arbol (el juego se quedaba clavado).
+	if nodo != null:
+		if _menus_abiertos.has(nodo):
+			return
+		_menus_abiertos.append(nodo)
 	# El menu empuja su modal en la pila. Fuente = "menu" (token comun): los menus se abren y
 	# cierran balanceados, y como todos pausan igual, no hace falta distinguir cual es cual.
 	entrar_modal(Modal.MENU, MENU_TOKEN)
 
-func cerrar_menu() -> void:
+func cerrar_menu(nodo: Node = null) -> void:
 	inventory_open = false
+	if nodo != null:
+		if not _menus_abiertos.has(nodo):
+			return   # no estaba abierto: no sacar un modal que no es suyo
+		_menus_abiertos.erase(nodo)
 	# Saca SOLO el modal del menu. Si hay una pantalla modal por debajo (combate/extraccion), su
 	# entrada sigue en la pila y _refrescar_pausa mantiene el arbol pausado: esa pausa es SUYA.
 	salir_modal(MENU_TOKEN)
+
+
+# Menus que estan abiertos AHORA (los que se registran al abrirse). Ver cerrar_menus_abiertos.
+var _menus_abiertos: Array = []
+
+
+# CIERRA a la fuerza todo menu abierto. Regla del usuario para el multijugador: como el mundo NO
+# se para, un bicho puede embestirte mientras miras el inventario — y no se pelea con un menu
+# tapando la pantalla. Se llama ANTES de montar el combate, nunca despues.
+# Cada menu se cierra por SU propio camino (_cerrar / _set_open), asi deshace lo suyo (su modal
+# sale de la pila, su UI se oculta) sin que Game tenga que saber como esta hecho por dentro.
+func cerrar_menus_abiertos() -> void:
+	if _menus_abiertos.is_empty():
+		return
+	# Copia: cerrar un menu modifica la lista mientras se recorre.
+	for m in _menus_abiertos.duplicate():
+		if not is_instance_valid(m):
+			continue
+		if m.has_method("_cerrar"):
+			m._cerrar()
+		elif m.has_method("_set_open"):
+			m._set_open(false)
+	_menus_abiertos.clear()
 
 # --- BOLSA: lo que llevas ENCIMA de la expedicion. Es lo unico que PESA (peso_actual).
 # Los cristales solo salen de la bolsa vendiendolos en la tienda; los materiales se pueden
@@ -6194,6 +6230,9 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 	# apiladas, y el anfitrion esperando eternamente una accion suya.
 	if _active_layer != null:
 		return
+	# Y NUNCA se pelea con un menu tapando la pantalla: en multi el mundo no se para, asi que te
+	# pueden embestir mirando el inventario. Se cierra a la fuerza ANTES de montar nada.
+	cerrar_menus_abiertos()
 
 	# Se filtran aqui los que no traigan EnemyData: abajo se les pide crear_combatant() y sin
 	# data reventaria a media construccion, con medio combate ya montado.
@@ -6394,6 +6433,7 @@ func retomar_combate(estado: Dictionary) -> bool:
 func abrir_combate_espejo(roster: Dictionary) -> Node:
 	if _active_layer != null:
 		return null   # ya estoy en otra pantalla (una por maquina)
+	cerrar_menus_abiertos()   # tampoco se espeja una pelea con un menu delante
 	var combat := _combat_scene.instantiate()
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
 	combat.setup_espejo(roster)

@@ -1014,6 +1014,9 @@ func _guardar_estado() -> void:
 				"t": e.current_t,
 				"zona": e.zona_idx,
 				"muerto": grupo == "corpse",
+				# Las HERIDAS que le dejaste al huir. Sin esto, subir y bajar la escalera curaba
+				# del todo al bicho del que acababas de escapar a duras penas.
+				"hp": float(e.hp_restante) if "hp_restante" in e else -1.0,
 			})
 
 	var suelo: Array = []
@@ -1037,12 +1040,19 @@ func _restaurar_estado() -> void:
 
 	var data_boss: EnemyData = Game.boss_del_piso(_piso_construido)
 	for d in (mem.get("enemigos", []) as Array):
+		# zona < 0 = la foto no sabe de que sala era (la rehizo un espejo tras caerse su dueño,
+		# ver Net._foto_de_mis_espejos): se le busca la mas cercana, o la sala no lo contaria en su
+		# aforo y pariria bichos de mas encima de los que ya estan.
 		var zona = _zona(int(d["zona"]))
+		if zona == null and int(d["zona"]) < 0:
+			zona = _zona_mas_cercana(d["pos"])
 		var radio: float = zona.wander_radius if zona != null else 90.0
 		var e = crear_enemigo(d["data"], d["pos"], radio, float(d["t"]))
 		if e == null:
 			continue
 		e.zona_idx = int(d["zona"])
+		# Vuelve con las heridas que le dejaste (los saves viejos no lo traen -> -1 = intacto).
+		e.hp_restante = float(d.get("hp", -1.0))
 		# Que el boss siga siendo el boss al volver al piso: si no, se lo llevaria el reciclador
 		# y su muerte no abriria nada.
 		e.es_boss = data_boss != null and d["data"] == data_boss
@@ -1059,6 +1069,21 @@ func _restaurar_estado() -> void:
 			mundo = self
 		mundo.add_child(pickup)
 		pickup.global_position = d["pos"]
+
+
+# La zona cuyo centro cae mas cerca de 'pos' (null si no hay zonas). Solo para restaurar bichos de
+# una foto que no trae zona; el resto del codigo usa el indice, que es exacto.
+func _zona_mas_cercana(pos: Vector2):
+	if _zonas == null:
+		return null
+	var mejor = null
+	var mejor_d: float = INF
+	for hijo in _zonas.get_children():
+		var d: float = hijo.global_position.distance_squared_to(pos)
+		if d < mejor_d:
+			mejor_d = d
+			mejor = hijo
+	return mejor
 
 
 func _zona(idx: int):

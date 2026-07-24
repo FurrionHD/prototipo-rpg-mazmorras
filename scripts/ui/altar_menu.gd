@@ -58,14 +58,14 @@ func abrir() -> void:
 	_aviso = ("Descansas: vida, maná y aguante a tope." if Game.party.size() == 1
 		else "Descansa el grupo (%d): vida, maná y aguante a tope." % Game.party.size())
 	_root.visible = true
-	Game.abrir_menu()   # para el mundo entero mientras el menu esta abierto
+	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_rebuild_tabs()
 	_rebuild()
 
 
 func _cerrar() -> void:
 	_root.visible = false
-	Game.cerrar_menu()
+	Game.cerrar_menu(self)
 
 
 func _input(event: InputEvent) -> void:

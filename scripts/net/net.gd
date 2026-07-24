@@ -782,6 +782,12 @@ func _asumir_piso(piso: int, mem: Dictionary) -> void:
 	if mi_piso() != piso:
 		return
 	_soy_dueno = true
+	# CAIDA BRUSCA: al que se le corto la conexion no le dio tiempo a mandar la foto de su piso, y
+	# antes se heredaba PELADO (las paredes lo repoblaban de cero, delante de tus narices). Pero yo
+	# estaba alli VIENDO sus bichos: mis propios espejos son una foto casi fiel —tipo, posicion,
+	# tirada y heridas—. Se toma ANTES de tirarlos, que es justo lo siguiente que pasa.
+	if (mem.get("enemigos", []) as Array).is_empty():
+		mem = _foto_de_mis_espejos()
 	_limpiar_espejo()   # respeta los que esté peleando (ver alli)
 	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if suelo != null and suelo.has_method("adoptar_foto"):
@@ -805,6 +811,25 @@ func _foto_de_mi_piso() -> Dictionary:
 	return _mem_a_red(Game.memoria_pisos.get(piso, {}))
 
 
+# La foto del piso reconstruida a partir de MIS ESPEJOS. Solo se usa al heredar un piso cuyo dueño
+# se cayo de golpe (ver _asumir_piso). No sale la ZONA (un espejo no la sabe: la ocupacion de cada
+# sala la llevaba el dueño), asi que se deja en -1 y la resuelve por posicion el que restaura.
+func _foto_de_mis_espejos() -> Dictionary:
+	var out: Array = []
+	for id in _enem_nodos.keys():
+		var n = _enem_nodos[id]   # SIN tipar: puede estar liberado (ver cabecera)
+		if not is_instance_valid(n) or n.data == null:
+			continue
+		if String(n.data.resource_path).is_empty():
+			continue
+		out.append({"ruta": n.data.resource_path, "pos": n.global_position,
+			"t": n.current_t, "zona": -1, "muerto": n.esta_muerto(),
+			"hp": n.hp_restante})
+	if not out.is_empty():
+		print("[piso] heredo sin foto (se cayo el dueño): la rehago con %d espejos mios" % out.size())
+	return {"enemigos": out}
+
+
 func _mem_a_red(mem: Dictionary) -> Dictionary:
 	var out: Array = []
 	for d in (mem.get("enemigos", []) as Array):
@@ -814,6 +839,7 @@ func _mem_a_red(mem: Dictionary) -> Dictionary:
 		out.append({
 			"ruta": data.resource_path,
 			"pos": d["pos"], "t": d["t"], "zona": d["zona"], "muerto": d["muerto"],
+			"hp": d.get("hp", -1.0),   # las heridas viajan con el piso, como en solitario
 		})
 	return {"enemigos": out}
 
@@ -856,6 +882,7 @@ func _mem_de_red(mem: Dictionary) -> Dictionary:
 		out.append({
 			"data": data,
 			"pos": d["pos"], "t": d["t"], "zona": d["zona"], "muerto": d["muerto"],
+			"hp": d.get("hp", -1.0),
 		})
 	return {"enemigos": out, "suelo": []}
 

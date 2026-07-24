@@ -87,13 +87,13 @@ func abrir() -> void:
 	_tab = 0
 	_aviso = ""
 	_root.visible = true
-	Game.abrir_menu()
+	Game.abrir_menu(self)
 	_rebuild()
 
 
 func _cerrar() -> void:
 	_root.visible = false
-	Game.cerrar_menu()
+	Game.cerrar_menu(self)
 
 
 func _input(event: InputEvent) -> void:

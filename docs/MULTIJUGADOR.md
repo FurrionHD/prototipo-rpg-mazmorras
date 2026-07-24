@@ -407,7 +407,9 @@ siempre un turno suyo.
 `Game._on_combat_finished`). Es la que devuelve a cada humano lo que vivió su doble, y lo lee de la
 ficha del doble: llamándola antes —como estaba— se les mandaba la vida y el maná **con los que
 entraron**, y el que se unía salía de la pelea intacto.
-- **5.5 — Huir individual + pulido.**
+- **5.5 — Huir individual + pulido (HECHO)**: huida individual, traspaso de la pelea, cierre
+  forzoso de menús al entrar en combate, heridas que persisten en la memoria de piso y herencia de
+  un piso cuyo dueño se cayó de golpe (ver abajo).
 
 #### Unirse a una pelea en curso (5.4-A y 5.4-B)
 
@@ -542,10 +544,26 @@ En `scripts/net/net.gd`, mismo patrón que los drops (`_suelo`/`_drops`):
   3-4 jugadores).
 - **Nada nuevo que persistir**: quien simula guarda como siempre; nadie guarda enemigos de otro.
 
-**Pendiente conocido para el combate:** `hp_restante` (bicho herido al huir) no está en el formato
-de `memoria_pisos`, y un cadáver espejado no es extraíble por quien no es el dueño (`remote_enemy`
-no entra en el grupo `corpse`). En una **desconexión brusca** no da tiempo a sacar la foto: quien
-herede ese piso lo recibe vacío y las paredes lo van repoblando.
+#### Pulido del hito 5.5
+
+- **No se pelea con un menú tapando la pantalla.** En multi el mundo no se para, así que te pueden
+  embestir mirando el inventario. `Game.cerrar_menus_abiertos()` los cierra **antes** de montar el
+  combate (y también antes de abrir un espejo). Para saber *quién* está abierto, `abrir_menu` y
+  `cerrar_menu` reciben ahora el nodo del menú (`Game.abrir_menu(self)`); cada uno se cierra por su
+  propio `_cerrar()`/`_set_open(false)`, así deshace lo suyo sin que `Game` sepa cómo está hecho.
+  ⚠️ De paso arregla un borde que ya existía: abrir dos veces el mismo menú apilaba **dos** modales
+  y un solo cierre no despausaba el árbol. Pasando el nodo, abrir es **idempotente**.
+- **Las heridas persisten**: `hp_restante` ya viaja en `memoria_pisos` (y en la foto de red). Antes,
+  subir y bajar la escalera curaba del todo al bicho del que acababas de escapar a duras penas.
+- **Herencia de un piso cuyo dueño se CAYÓ**: en un corte brusco no da tiempo a mandar la foto, y el
+  piso se heredaba pelado (las paredes lo repoblaban delante de tus narices). Ahora, si la foto
+  llega vacía, quien lo hereda la **rehace con sus propios espejos** (`Net._foto_de_mis_espejos`),
+  que llevan tipo, posición, tirada y heridas. Lo único que un espejo no sabe es de qué **sala** era
+  cada bicho (`zona_idx = -1`), así que al restaurar se le asigna la más cercana por posición
+  (`dungeon_floor._zona_mas_cercana`) — si no, esa sala no los contaría en su aforo y pariría de más.
+
+**Lo que sigue pendiente:** que en un corte brusco la **pelea** se traspase (el traspaso lo manda
+quien se va, y ahí no da tiempo; exigiría ir mandando copias del estado por si acaso).
 
 ---
 

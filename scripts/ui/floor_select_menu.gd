@@ -35,13 +35,13 @@ func abrir() -> void:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
 	_root.visible = true
-	Game.abrir_menu()   # para el mundo entero mientras el menu esta abierto
+	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
 
 
 func _cerrar() -> void:
 	_root.visible = false
-	Game.cerrar_menu()
+	Game.cerrar_menu(self)
 
 
 func _input(event: InputEvent) -> void:
@@ -77,7 +77,7 @@ func _bajar(piso: int) -> void:
 	# siempre abre por el 1; ver Net.solicitar_entrar). door.gd ni abre este menu en sesion,
 	# pero por si acaso.
 	if Net.activo:
-		Game.cerrar_menu()
+		Game.cerrar_menu(self)
 		Net.solicitar_entrar()
 		return
 	# Igual que entrar por la boca (door.gd): expedicion NUEVA. Lo unico distinto es por que
@@ -89,6 +89,6 @@ func _bajar(piso: int) -> void:
 	Game.olvidar_mazmorra()
 	# Baseline del mapa: lo que cartografies esta expedicion se pierde si mueres.
 	Game.iniciar_expedicion_mapa()
-	Game.cerrar_menu()
+	Game.cerrar_menu(self)
 	print("[mazmorra] Entras directamente al piso %d." % Game.current_floor)
 	get_tree().change_scene_to_file(DUNGEON)

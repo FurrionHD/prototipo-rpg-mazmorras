@@ -89,9 +89,9 @@ func _cerrar() -> void:
 func _set_open(open: bool) -> void:
 	_root.visible = open
 	if open:
-		Game.abrir_menu()    # para el mundo entero: nada de que te embosquen con la bolsa abierta
+		Game.abrir_menu(self)    # para el mundo entero: nada de que te embosquen con la bolsa abierta
 	else:
-		Game.cerrar_menu()
+		Game.cerrar_menu(self)
 	if not open:
 		_cerrar_modal()
 		return

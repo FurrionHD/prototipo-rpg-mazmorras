@@ -26,13 +26,13 @@ func abrir() -> void:
 	if Game.debug_panel_open:
 		return
 	_root.visible = true
-	Game.abrir_menu()   # para el mundo entero mientras el menu esta abierto
+	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
 
 
 func _cerrar() -> void:
 	_root.visible = false
-	Game.cerrar_menu()
+	Game.cerrar_menu(self)
 
 
 func _input(event: InputEvent) -> void:
