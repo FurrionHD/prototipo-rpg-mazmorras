@@ -2310,6 +2310,120 @@ func registrar_pelea() -> void:
 	_pelea_participantes.clear()
 
 
+# --- TRASPASO DE LA PELEA ---------------------------------------------------------------------
+#
+# La pelea la ejecuta UNA maquina. Si esa se va (su jugador huye, o se le corta), la pelea no se
+# cierra: se le pasa a otro de los que estan dentro y sigue donde estaba. Es la misma pieza para
+# los dos casos, por eso se construye una vez.
+
+# El nodo que YO tengo para un net_id (publico: lo usa Game al recoger una pelea).
+func nodo_de_id(id: int):
+	return _nodo_de_id(id)
+
+
+# ¿A quien le puedo pasar la pelea? Al primero que este dentro (0 = a nadie).
+func heredero_de_pelea() -> int:
+	return int(_pelea_participantes[0]) if not _pelea_participantes.is_empty() else 0
+
+
+# La llama el combate cuando el que la ejecuta se va. Devuelve true si alguien la recoge.
+func traspasar_pelea(estado: Dictionary) -> bool:
+	var nuevo: int = heredero_de_pelea()
+	if not activo or _pelea_id == 0 or nuevo == 0 or multiplayer.multiplayer_peer == null:
+		return false
+	# Los DEMAS participantes (si los hay) pasan a espejar al nuevo: se los paso para que el los
+	# recoja el mismo, que es quien va a tener la pantalla.
+	var otros: Array = []
+	for p in _pelea_participantes:
+		if p != nuevo:
+			otros.append(p)
+	print("[traspaso] le paso la pelea a ", nuevo, " (y ", otros.size(), " espejo(s) mas)")
+	_recoge_la_pelea.rpc_id(nuevo, estado, otros)
+	# Yo ya no la llevo: ni participantes ni dobles (sus fichas viajan DENTRO del estado, asi que
+	# no hay que devolverles nada: siguen peleando alli).
+	_pelea_participantes.clear()
+	_dobles.clear()
+	_pelea_id = 0
+	return true
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _recoge_la_pelea(estado: Dictionary, otros: Array) -> void:
+	print("[traspaso] me llega la pelea: %d aliados, %d enemigos (sigo=%d)" % [
+		estado.get("aliados", []).size(), estado.get("enemigos", []).size(), _pelea_sigo])
+	if _pelea_sigo == 0:
+		return
+	# Fuera mi espejo ANTES de montar la pelea de verdad: solo cabe una pantalla por maquina.
+	_pelea_sigo = 0
+	_pelea_anfitrion = 0
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("cerrar_espejo"):
+		p.cerrar_espejo()
+	await get_tree().process_frame   # que se recoja la capa vieja antes de montar la nueva
+	_herederos_espejo = otros
+	if not Game.retomar_combate(estado):
+		print("[traspaso] no he podido recoger la pelea")
+		_herederos_espejo.clear()
+
+
+# Lo rellena _recoge_la_pelea y lo consume asumir_pelea: los que tienen que pasar a espejarme A MI.
+var _herederos_espejo: Array = []
+
+
+# La llama Game cuando ya tiene la pantalla montada: a partir de aqui la pelea es MIA.
+func asumir_pelea(dobles_por_peer: Dictionary, pantalla: Node) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	registrar_pelea()
+	for peer in dobles_por_peer:
+		_dobles[peer] = dobles_por_peer[peer]
+	# Los que ya estaban espejando siguen espejando, pero A MI.
+	for peer in _herederos_espejo:
+		if not _pelea_participantes.has(peer):
+			_pelea_participantes.append(peer)
+	_herederos_espejo.clear()
+	if pantalla != null and pantalla.has_method("roster_para_espejo"):
+		for peer in _pelea_participantes:
+			_cambio_de_anfitrion.rpc_id(peer, _pelea_id, pantalla.roster_para_espejo())
+	# Los bichos los peleo YO ahora: que el dueño del piso apunte las reservas a mi nombre, o al
+	# desconectarse el que se fue se los encontraria "libres" y los descongelaria en plena pelea.
+	var ids: Array = []
+	for id in _enem_nodos.keys():
+		ids.append(id)
+	if _soy_dueno:
+		for id in _enemigos.keys():
+			ids.append(id)
+	reasignar_reservas(ids)
+
+
+# SE ME HA CAIDO EL ANFITRION de la pelea que espejo. Aqui NO se puede traspasar: el traspaso lo
+# manda el que se va, y a este le han cortado sin darle tiempo. Lo que si se puede es no dejar la
+# pantalla colgada esperando turnos que no van a llegar: se cierra y vuelves al mapa. Lo que
+# vivieron tus personajes en esa pelea se pierde (sus dobles se fueron con el).
+func _anfitrion_perdido() -> void:
+	if _pelea_sigo == 0:
+		return
+	print("[traspaso] se ha caido el anfitrion de mi pelea: cierro el espejo")
+	_pelea_sigo = 0
+	_pelea_anfitrion = 0
+	_mis_en_pelea.clear()
+	_mis_huecos.clear()
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("cerrar_espejo"):
+		p.cerrar_espejo()
+	_toast("Tu compañero se ha desconectado: la pelea se ha deshecho.")
+
+
+# Corre en un ESPEJO de tercero: la pelea que sigo ha cambiado de manos.
+@rpc("any_peer", "call_remote", "reliable")
+func _cambio_de_anfitrion(id: int, roster: Dictionary) -> void:
+	_pelea_sigo = id
+	_pelea_anfitrion = multiplayer.get_remote_sender_id()
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("aplicar_roster"):
+		p.aplicar_roster(roster)
+
+
 # SE VA UNO SOLO (huida individual): la pelea SIGUE para los demas. Se le devuelve lo que vivieron
 # sus dobles y se le cierra su espejo, y deja de recibir instantaneas. Es cerrar_pelea, pero para
 # un participante en vez de para todos.
@@ -2845,6 +2959,18 @@ func _on_peer_disconnected(id: int) -> void:
 			_dentro.erase(id)
 			if _dentro.is_empty():
 				_cerrar_expedicion()
+	# ¿Se ha ido el que llevaba la pelea que yo estoy espejando? Mi pantalla se queda huerfana:
+	# sin el no llegan ni instantaneas ni turnos, y se quedaria colgada para siempre.
+	if id == _pelea_anfitrion:
+		_anfitrion_perdido()
+	# Si se ha ido alguien que estaba en MI pelea, sus personajes salen de ella (y sus reservas ya
+	# las suelta el host mas arriba). Si no, la pelea esperaria un turno que no va a llegar nunca.
+	if _pelea_id != 0 and _pelea_participantes.has(id):
+		_pelea_participantes.erase(id)
+		_dobles.erase(id)
+		var mia: Node = _pantalla_combate()
+		if mia != null and mia.has_method("sacar_a"):
+			mia.sacar_a(id)
 	# Solo avisar de gente que llego a ENTRAR (registrada): un intento rechazado por codigo
 	# tambien dispara esta señal y no es "un jugador que se va".
 	if conocido:

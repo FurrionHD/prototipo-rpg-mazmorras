@@ -479,6 +479,136 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 	_update_hp()
 
 
+# --- TRASPASO DE LA PELEA (hito 5.4-C) -------------------------------------------------------
+#
+# La pelea la EJECUTA una maquina. Si esa se va (su jugador huye, o se le corta la conexion) la
+# pelea NO se cierra: se TRASPASA a otro que este dentro y sigue donde estaba.
+#
+# La clave para que esto no sea un monstruo: casi todo el Combatant es DERIVADO (sale de la ficha
+# y del equipo, o del EnemyData), asi que el que la recoge lo RECONSTRUYE con el camino de siempre
+# —start_combat + unir_aliado_al_combate— y aqui solo viaja lo VOLATIL, lo que no se puede deducir:
+# vida, mana, aguante, estados, cargas, cooldowns, imbuicion, barras de ATB y conjuros a medias.
+
+# Lo que lleva un combatiente encima y no se puede reconstruir de su ficha.
+func _volatil(c: Combatant) -> Dictionary:
+	var estados: Array = []
+	for e in c.statuses:
+		estados.append([e.id(), e.turns, e.stacks, e.magnitude, e.mult_override, e.fresh])
+	var cds: Dictionary = {}
+	for ab in c.ability_cooldowns:
+		if ab != null and not String(ab.resource_path).is_empty():
+			cds[String(ab.resource_path)] = int(c.ability_cooldowns[ab])
+	return {"hp": c.current_hp, "mp": c.current_mp, "en": c.current_energy,
+		"provocar": c.provocar_turnos, "estados": estados, "cd": cds,
+		"carga": [String(c.charging.resource_path) if c.charging != null else "", c.charge_left],
+		"imbue": [c.imbue_elemento, c.imbue_pct, c.imbue_usos, c.imbue_cuerpo,
+			c.imbue_estado, c.imbue_prob]}
+
+
+func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
+	if c == null or v.is_empty():
+		return
+	c.current_hp = float(v.get("hp", c.current_hp))
+	c.current_mp = float(v.get("mp", c.current_mp))
+	c.current_energy = float(v.get("en", c.current_energy))
+	c.provocar_turnos = int(v.get("provocar", 0))
+	c.statuses.clear()
+	for e in v.get("estados", []):
+		var def: Dictionary = StatusEffects.def(int(e[0]))
+		if def.is_empty():
+			continue
+		var inst := StatusEffects.Instance.new(def, int(e[1]), int(e[2]))
+		inst.magnitude = float(e[3])
+		inst.mult_override = float(e[4])
+		inst.fresh = bool(e[5])
+		c.statuses.append(inst)
+	c.ability_cooldowns.clear()
+	for ruta in v.get("cd", {}):
+		var ab = load(String(ruta))
+		if ab != null:
+			c.ability_cooldowns[ab] = int(v["cd"][ruta])
+	var carga: Array = v.get("carga", ["", 0])
+	c.charging = load(String(carga[0])) if String(carga[0]) != "" else null
+	c.charge_left = int(carga[1])
+	var imb: Array = v.get("imbue", [])
+	if imb.size() >= 6:
+		c.imbue_elemento = int(imb[0])
+		c.imbue_pct = float(imb[1])
+		c.imbue_usos = int(imb[2])
+		c.imbue_cuerpo = bool(imb[3])
+		c.imbue_estado = int(imb[4])
+		c.imbue_prob = float(imb[5])
+
+
+# LA FOTO de la pelea para el que la recoge. 'nuevo' es su peer: sus personajes los pone EL de su
+# propio equipo (son suyos de verdad), asi que de esos solo viaja lo volatil, no la ficha.
+# Los personajes del que SE VA no van: se retira de la pelea, es justo lo que esta haciendo.
+func estado_para_traspaso(nuevo: int) -> Dictionary:
+	var als: Array = []
+	for c in _aliados:
+		var dueno: int = int(_dueno_aliado.get(c, 0))
+		if dueno == 0 or _huidos.has(c):
+			continue   # los mios (me voy) y los que ya habian huido no siguen en la pelea
+		var fila: Dictionary = {"dueno": dueno, "mio": dueno == nuevo, "vol": _volatil(c),
+			"gauge": float(_gauge.get(c, 0.0)), "lentas": int(_lentas.get(c, 0)),
+			"defendiendo": bool(_defendiendo.get(c, false)), "nombre": c.nombre}
+		if dueno != nuevo:
+			# De los TERCEROS hace falta la ficha entera: el que recoge tiene que montarles un
+			# doble, igual que hace hoy quien recibe a alguien que se une.
+			var pj: PersonajeData = Game.pj_de_combatant(c)
+			if pj != null:
+				Game.volcar_desgaste_en_ficha(pj)
+				fila["ficha"] = Net.ficha_a_dict(pj)
+		if _casteos.has(c):
+			fila["casteo"] = [String((_casteos[c]["spell"] as SpellData).resource_path),
+				int(_casteos[c]["idx"])]
+		als.append(fila)
+	var ens: Array = []
+	for i in _enemies.size():
+		var e: Combatant = _enemies[i]
+		var nodo = Game._active_enemies[i] if i < Game._active_enemies.size() else null
+		if not is_instance_valid(nodo) or not nodo.has_meta("net_id"):
+			continue   # sin net_id no hay forma de que el otro sepa de que bicho hablo
+		ens.append({"net_id": int(nodo.get_meta("net_id")), "vivo": e.is_alive(),
+			"invocado": _slots_invocados.has(i), "vol": _volatil(e),
+			"gauge": float(_gauge.get(e, 0.0))})
+	return {"aliados": als, "enemigos": ens, "log": _log.text}
+
+
+# Corre en EL QUE RECOGE la pelea, con la pantalla ya montada por el camino de siempre: le vuelca
+# encima lo volatil de la pelea vieja. 'cs' son los combatientes de esta pantalla en el MISMO orden
+# que estado.aliados; 'filas_e' las filas de los enemigos que SI han venido (los vivos), en el
+# orden en que se le pasaron a start_combat, o sea el de _enemies.
+func retomar(estado: Dictionary, cs: Array, filas_e: Array) -> void:
+	var als: Array = estado.get("aliados", [])
+	for i in mini(cs.size(), als.size()):
+		var c: Combatant = cs[i]
+		if c == null:
+			continue
+		var fila: Dictionary = als[i]
+		_aplicar_volatil(c, fila.get("vol", {}))
+		_gauge[c] = float(fila.get("gauge", 0.0))
+		if int(fila.get("lentas", 0)) > 0:
+			_lentas[c] = int(fila["lentas"])
+		if bool(fila.get("defendiendo", false)):
+			_defendiendo[c] = true
+		# Un conjuro A MEDIAS no se pierde por cambiar de maquina: se sigue por la frase que iba.
+		if fila.has("casteo"):
+			var sp = load(String(fila["casteo"][0]))
+			if sp != null:
+				_casteos[c] = {"spell": sp, "idx": int(fila["casteo"][1])}
+	for i in mini(_enemies.size(), filas_e.size()):
+		var e: Combatant = _enemies[i]
+		_aplicar_volatil(e, filas_e[i].get("vol", {}))
+		_gauge[e] = float(filas_e[i].get("gauge", 0.0))
+		if bool(filas_e[i].get("invocado", false)):
+			_slots_invocados[i] = true   # los invocados no dan kill ni maná: la marca viaja
+	_rev += 1
+	_set_log("Tomas el relevo de la pelea. " + String(estado.get("log", "")).split("\n")[-1])
+	_update_hp()
+	_update_timeline()
+
+
 # --- TURNOS COMPARTIDOS (hito 5.4-C) ---------------------------------------------------------
 
 # En que hueco de la fila esta un aliado (-1 si no esta). El indice es el idioma comun entre las dos
@@ -3012,12 +3142,37 @@ func _accion_huir() -> void:
 		if dueno != 0 and _huir_solo(dueno):
 			_state = State.ADVANCING
 			return
+		# Huyo YO, que soy quien EJECUTA la pelea: no se cierra para los demas, se TRASPASA al
+		# primero que quede dentro y sigue donde estaba.
+		if dueno == 0 and _traspasar():
+			return
 		_end(false, true)  # huida: no ganas, pero tampoco es derrota
 	else:
 		# Se nombra al mas rapido: es quien explica el numero que acabas de ver.
 		_set_log("%s intenta huir pero %s se lo impide. (%.0f%%)" % [
 			_player.nombre, perseguidor.nombre, chance * 100.0])
 		_state = State.ADVANCING
+
+
+# ME VOY YO, QUE LLEVO LA PELEA. En vez de cerrarla para todos, se la paso a otro que este dentro:
+# el se monta la pantalla de verdad y sigue desde donde estaba. Devuelve false si no hay a quien
+# pasarsela (entonces la pelea se cierra como siempre).
+func _traspasar() -> bool:
+	var nuevo: int = Net.heredero_de_pelea()
+	if nuevo == 0:
+		return false
+	# Los bichos VIVOS se van con la pelea: al cerrar la mia NO hay que reanudarlos (siguen
+	# peleando alli) ni devolverlos al mundo. Los muertos si, que sus cadaveres son de esta pelea.
+	var siguen: Array = []
+	for i in _enemies.size():
+		if _enemies[i].is_alive():
+			siguen.append(i)
+	if not Net.traspasar_pelea(estado_para_traspaso(nuevo)):
+		return false
+	Game.enemigos_traspasados = siguen
+	_set_log("Escapas y le dejas la pelea a tus compañeros. 🏃")
+	_end(false, true)
+	return true
 
 
 # SE VA UN JUGADOR (y con el TODOS sus personajes: hay una pantalla por maquina, el que huye huye
@@ -3042,6 +3197,26 @@ func _huir_solo(peer: int) -> bool:
 	Net.sacar_de_la_pelea(peer)   # le devuelve lo suyo y le cierra el espejo (a el solo)
 	_update_hp()
 	return true
+
+
+# SE HA CAIDO un jugador que estaba en mi pelea. Sus personajes salen de ella igual que si hubieran
+# huido: si no, la pelea se quedaria esperando eternamente un turno suyo que no va a llegar.
+func sacar_a(peer: int) -> void:
+	if _espejo or peer == 0 or _state == State.FINISHED:
+		return
+	for c in _aliados:
+		if int(_dueno_aliado.get(c, 0)) == peer:
+			_retirar_aliado(c)
+	if _aliados_vivos().is_empty():
+		_end(false, true)   # no queda nadie: la pelea se cierra
+		return
+	if _huidos.has(_player):
+		_player = _aliados_vivos()[0]
+		if _esperando_a == peer:
+			_esperando_a = 0
+			_state = State.ADVANCING   # el turno era suyo: que siga corriendo el ATB
+	_set_log("Tu compañero se ha desconectado y sus personajes dejan la pelea.")
+	_update_hp()
 
 
 # Aparta a un aliado de la pelea SIN matarlo: se va de los turnos y del marcador y su bloque queda

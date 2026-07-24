@@ -717,6 +717,10 @@ var ability_cooldowns_persist: Dictionary = {}
 var _active_player_cs: Array = []
 var _active_player_pjs: Array = []
 
+# Indices de _active_enemies que se han ido en un TRASPASO de pelea (hito 5.4-C): siguen peleando
+# en la pantalla de otro, asi que al cerrar la mia NO se les reanuda (ver _on_combat_finished).
+var enemigos_traspasados: Array = []
+
 
 # De quien es este combatiente. null si no es de los tuyos (un enemigo) o si el combate se abrio
 # suelto para probar (F6), que no tiene fichas detras.
@@ -6217,6 +6221,65 @@ func _montar_pantalla_combate(combat: Node) -> void:
 	Net.avisar_combate(true)
 
 
+# RECOJO UNA PELEA QUE ME TRASPASAN (hito 5.4-C): el que la ejecutaba se ha ido (huyo o se le
+# corto) y la pelea NO se cierra, sigue aqui. Devuelve true si se ha podido montar.
+#
+# No hay codigo nuevo de combate: se reconstruye por el camino de SIEMPRE (start_combat con los
+# bichos + unir_aliado_al_combate con los de otros humanos) y encima se le vuelca lo VOLATIL, que
+# es lo unico que no se puede deducir de las fichas (ver combat.estado_para_traspaso).
+func retomar_combate(estado: Dictionary) -> bool:
+	if combate_activo() or _active_layer != null:
+		return false
+	# Los bichos: los MIOS (reales si simulo el piso, espejos si no) resueltos por su net_id. Los
+	# que murieron en la pelea vieja NO vuelven: sus cadaveres los deja el que se va.
+	var nodos: Array = []
+	var filas_e: Array = []
+	for e in estado.get("enemigos", []):
+		if not bool(e.get("vivo", true)):
+			continue
+		var n = Net.nodo_de_id(int(e.get("net_id", 0)))
+		if not is_instance_valid(n):
+			continue
+		n.hp_restante = float(e["vol"].get("hp", -1.0))   # start_combat lo lee de aqui
+		if n.has_method("entrar_en_pelea"):
+			n.entrar_en_pelea()
+		nodos.append(n)
+		filas_e.append(e)
+	print("[traspaso] recojo la pelea con %d de %d bichos" % [
+		nodos.size(), estado.get("enemigos", []).size()])
+	if nodos.is_empty():
+		return false
+	start_combat(nodos, false)
+	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
+		and _active_layer.get_child_count() > 0 else null
+	if combat == null:
+		return false
+	# Los aliados: los MIOS ya los ha puesto start_combat con mi equipo (y en el mismo orden en que
+	# los ofreci al unirme); a los de otros humanos se les monta un doble, igual que al unirse.
+	var mios: int = 0
+	var cs: Array = []
+	var dobles_por_peer: Dictionary = {}
+	for fila in estado.get("aliados", []):
+		var c: Combatant = null
+		if bool(fila.get("mio", false)):
+			c = _active_player_cs[mios] if mios < _active_player_cs.size() else null
+			mios += 1
+		else:
+			var doble: PersonajeData = Net.ficha_de_dict(fila.get("ficha", {}))
+			if unir_aliado_al_combate(doble):
+				c = combatant_de_pj(doble)
+				var dp: int = int(fila.get("dueno", 0))
+				if not dobles_por_peer.has(dp):
+					dobles_por_peer[dp] = []
+				dobles_por_peer[dp].append(doble)
+				if c != null:
+					combat.marcar_dueno(c, dp)
+		cs.append(c)
+	combat.retomar(estado, cs, filas_e)
+	Net.asumir_pelea(dobles_por_peer, combat)
+	return true
+
+
 # ABRE LA PANTALLA EN MODO ESPEJO (hito 5.4-C): me he unido a la pelea de otro. Aqui no se simula
 # nada; se pinta lo que llegue por instantaneas. Devuelve la pantalla, o null si ya habia una.
 func abrir_combate_espejo(roster: Dictionary) -> Node:
@@ -6806,12 +6869,18 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	for i in _active_enemies.size():
 		if muertos.has(i):
 			continue
+		# ...salvo los que se han ido con un TRASPASO: esos siguen peleando en la pantalla de otro.
+		# Reanudarlos aqui los devolveria al mundo en mitad de esa pelea, con dos maquinas mandando
+		# sobre el mismo bicho.
+		if enemigos_traspasados.has(i):
+			continue
 		var n = _active_enemies[i]   # sin tipar: puede estar liberado
 		if not is_instance_valid(n) or not n.has_method("reanudar_tras_combate"):
 			continue
 		var hp: float = float(enemy_hp_left[i]) if i < enemy_hp_left.size() else -1.0
 		n.reanudar_tras_combate(hp)
 	_active_enemies.clear()
+	enemigos_traspasados = []   # la marca dura solo este cierre
 
 	# ALBOROTO: una pelea mete ruido, y mas cuanto mas grande. El fragor llama a la pared: pelear
 	# es la forma mas directa de provocar un brote (y de que se te acumule si encadenas combates).

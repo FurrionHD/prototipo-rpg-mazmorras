@@ -249,7 +249,9 @@ posiciones**.
   - **A (HECHO)**: los **enemigos se unen** a una pelea en marcha, y si está llena **esperan
     pegados** y entran en cuanto muere uno.
   - **B (HECHO)**: los enemigos **van a por todos**, no solo a por quien simula el piso.
-  - **C**: **dos humanos en UNA misma pelea** (5.3 da peleas simultáneas pero separadas).
+  - **C (HECHO)**: **dos humanos en UNA misma pelea** (5.3 da peleas simultáneas pero separadas),
+    con el espejo al día, el grupo entero del que se une, magia enrutada, huida individual y
+    traspaso de la pelea.
 
 #### El espejo deja de ser "solo números" (cierre de 5.4-C)
 
@@ -312,6 +314,39 @@ salían tres bugs con la misma raíz. Lo que se hizo:
   - ⚠️ A mitad de pelea la vida y el maná viven en el **Combatant**, no en la ficha (solo bajan al
     cerrar). Por eso el que huye pasa antes por `Game.volcar_desgaste_en_ficha()`, o se iría con la
     vida con la que entró.
+
+#### El TRASPASO de la pelea
+
+La pelea la **ejecuta una máquina**. Si esa se va, la pelea ya no se cierra para todos: **se
+traspasa** al primero que quede dentro y sigue donde estaba. Decisión del usuario, y es la misma
+pieza que hacía falta para la caída de conexión, así que se construye una vez.
+
+La clave para que esto no fuera un monstruo: **casi todo el `Combatant` es DERIVADO** (sale de la
+ficha y el equipo, o del `EnemyData`). Así que el que la recoge la **reconstruye por el camino de
+siempre** — `Game.start_combat` con los bichos + `unir_aliado_al_combate` con los de otros humanos —
+y por la red solo viaja lo **volátil**, que es lo único que no se puede deducir:
+
+- Por combatiente (`_volatil` / `_aplicar_volatil`): vida, maná, aguante, `provocar_turnos`,
+  **estados**, cooldowns, carga telegrafiada e imbuición. Un `StatusEffects.Instance` es su **id de
+  catálogo** + `turns/stacks/magnitude/mult_override/fresh`, así que serializarlo es barato y el
+  traspaso sale **fiel**: no se pierden debuffs.
+- De la pelea: barras de ATB, acciones lentas, guardias y **conjuros a medias** (`_casteos`), que se
+  reanudan por la frase por la que iban.
+- De los enemigos: su **`net_id`**, para que el que la recoge resuelva **sus** nodos con
+  `_nodo_de_id` (reales si simula el piso, espejos si no). Los que murieron NO viajan: sus
+  cadáveres los deja el que se va.
+
+⚠️ **Los bichos traspasados NO se reanudan al cerrar la pantalla vieja**
+(`Game.enemigos_traspasados`). Reanudarlos los devolvería al mundo en mitad de la pelea nueva, con
+dos máquinas mandando sobre el mismo bicho. Y el que la recoge **reasigna las reservas** a su
+nombre (`asumir_pelea` → `reasignar_reservas`).
+
+**Caída BRUSCA de quien ejecuta**: ahí no hay traspaso posible — lo manda el que se va, y a este le
+han cortado sin darle tiempo. Lo que sí se hace es no dejar la pantalla colgada esperando turnos que
+no llegarán: `_anfitrion_perdido()` cierra el espejo y te devuelve al mapa (lo que vivieron tus
+personajes en esa pelea se pierde, porque sus dobles se fueron con él). Al revés —**se cae uno que
+estaba en MI pelea**— sus personajes salen de ella (`combat.sacar_a`), o la pelea esperaría para
+siempre un turno suyo.
 
 ⚠️ **`Net.cerrar_pelea()` va DESPUÉS de volcar el resultado a las fichas** (en
 `Game._on_combat_finished`). Es la que devuelve a cada humano lo que vivió su doble, y lo lee de la
