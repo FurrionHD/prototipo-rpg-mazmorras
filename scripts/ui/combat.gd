@@ -187,6 +187,9 @@ var _espejo := false
 # le toca el turno a uno de estos, no se enseñan los botones aqui: se le pide la accion a su dueño,
 # que es quien tiene que decidir. Los mios no estan en este diccionario.
 var _dueno_aliado: Dictionary = {}
+# La cara de cada maniqui del espejo (Combatant -> ShaderMaterial), montada desde el PNG que viene
+# en el roster. Aqui no hay fichas locales de las que sacarla.
+var _mat_espejo: Dictionary = {}
 # Estoy parado esperando la accion de otro (el ATB no corre, ver _process y State.WAITING_PLAYER).
 var _esperando_a: int = 0
 
@@ -319,6 +322,11 @@ func _combatientes_de_escaparate(datos: Array) -> Array:
 		c.max_energy = float(d.get("max_en", 0.0))
 		c.current_energy = float(d.get("en", 0.0))
 		c.color_visual = d.get("color", Color.WHITE)
+		# Su cara, para el marcador de turnos: se monta aqui una vez y se cachea por maniqui.
+		var png: PackedByteArray = d.get("imagen", PackedByteArray())
+		var metal: float = float(d.get("metal", 0.0))
+		if not png.is_empty() or metal > 0.0:
+			_mat_espejo[c] = Game.material_aspecto(metal, Game.textura_de_png(png), 1.0)
 		out.append(c)
 	return out
 
@@ -331,7 +339,13 @@ func roster_para_espejo() -> Dictionary:
 func _fila_de_roster(lista: Array) -> Array:
 	var out: Array = []
 	for c in lista:
-		out.append({"nombre": c.nombre, "color": c.color_visual,
+		# El COLOR y la CARA salen de la ficha cuando la hay (los aliados): son los mismos con los
+		# que se les ve en el mapa. Los enemigos no tienen ficha y usan su color_visual.
+		var pj: PersonajeData = Game.pj_de_combatant(c)
+		out.append({"nombre": c.nombre,
+			"color": pj.color if pj != null else c.color_visual,
+			"metal": pj.metalico if pj != null else 0.0,
+			"imagen": pj.imagen if pj != null else PackedByteArray(),
 			"max_hp": c.max_hp, "hp": c.current_hp,
 			"max_mp": c.max_mp, "mp": c.current_mp,
 			"max_en": c.max_energy, "en": c.current_energy})
@@ -830,9 +844,7 @@ func anadir_aliado(c: Combatant) -> bool:
 	_gauge[c] = 0.0          # entra con la barra a cero: unirse no regala un turno inmediato
 	_anadir_bloque_aliado(c)
 	if _timeline != null:
-		var pj: PersonajeData = Game.pj_de_combatant(c)
-		_timeline.anadir(c, pj.color if pj != null else c.color_visual,
-			Game.material_de(pj) if pj != null else null, "")
+		_timeline.anadir(c, _color_de(c), _material_de(c), "")
 	_update_hp()
 	_set_log("%s se une a la pelea." % c.nombre)
 	return true
@@ -3407,6 +3419,25 @@ func _reto(c: Combatant, pj: PersonajeData = null) -> float:
 
 
 # Crea la linea de orden de turnos (banda horizontal en la zona media).
+# EL ASPECTO de un aliado en el marcador de turnos: su color y su cara, los mismos con los que lo
+# llevas por la mazmorra. Sale de su ficha si la tengo; si no la tengo -en el ESPEJO no hay fichas
+# locales-, del aspecto que vino en el roster. Sin esto, en el espejo TODOS salian de un gris casi
+# blanco (el caso de "prueba F6, sin ficha detras") y no se distinguia a nadie.
+func _color_de(c: Combatant) -> Color:
+	var pj: PersonajeData = Game.pj_de_combatant(c)
+	if pj != null:
+		return pj.color
+	return c.color_visual
+
+
+func _material_de(c: Combatant) -> ShaderMaterial:
+	var pj: PersonajeData = Game.pj_de_combatant(c)
+	if pj != null:
+		return Game.material_de(pj)
+	# En el espejo la cara viaja en el roster (bytes PNG) y se cachea en el propio maniqui.
+	return _mat_espejo.get(c, null)
+
+
 func _crear_timeline() -> void:
 	_timeline = preload("res://scripts/ui/turn_timeline.gd").new()
 	# Anclada ABAJO DEL TODO (full width, ultimos 80 px) para no pisar la zona de botones.
@@ -3424,11 +3455,7 @@ func _crear_timeline() -> void:
 	# cuerpo mate sin imagen se pinta solo con su color). Sin texto: se reconocen por la pinta,
 	# que es la misma con la que los llevas por la mazmorra.
 	for c in _aliados:
-		var pj: PersonajeData = Game.pj_de_combatant(c)
-		if pj != null:
-			_timeline.anadir(c, pj.color, Game.material_de(pj), "")
-		else:
-			_timeline.anadir(c, Color(0.9, 0.9, 0.9), null, "")   # prueba (F6): sin ficha detras
+		_timeline.anadir(c, _color_de(c), _material_de(c), "")
 	# Cada enemigo con su color del mapa y su NUMERO, el mismo que lleva su bloque arriba.
 	for i in _enemies.size():
 		_timeline.anadir(_enemies[i], _enemies[i].color_visual, null, str(i + 1))
