@@ -3397,16 +3397,29 @@ func _plantillas() -> Dictionary:
 	return _indice_plantillas
 
 
+# ¿Esa ruta apunta a una PLANTILLA de verdad? Tiene que ser un fichero propio del juego:
+#   - bajo res:// (una pieza guardada en user:// es de una PARTIDA, no una plantilla);
+#   - y SIN "::", que marca un SUB-RECURSO dentro de otro fichero.
+# Esta comprobacion es el corazon del arreglo: una pieza equipada que viene de un save es un
+# sub-recurso suyo, asi que Godot le pone resource_path = "user://saves/slot_N.tres::Resource_xxx".
+# Dar eso por bueno mandaba por la red la ruta DEL GUARDADO: al otro lado no cargaba nada, el doble
+# entraba sin arma y peleaba con los puños... sin un solo error por consola.
+func _ruta_plantilla_valida(r: String) -> bool:
+	return r != "" and r.begins_with("res://") and not r.contains("::")
+
+
 # La ruta de la plantilla de 'item' ("" si no hay forma de saberla). REPARA la meta si la encuentra.
 func ruta_base_de(item: Resource) -> String:
 	if item == null:
 		return ""
 	var m: Dictionary = meta_de(item)
 	var ruta: String = str(m.get("ruta_base", ""))
-	if ruta != "":
+	if _ruta_plantilla_valida(ruta):
 		return ruta
+	# Si la guardada NO es valida se ignora a proposito (y se sustituye abajo): una version anterior
+	# llego a grabar aqui rutas "user://...::..." y hay que limpiarlas.
 	# ¿No es una copia? Entonces su propia ruta vale (piezas asignadas directas del .tres).
-	if str(item.resource_path) != "":
+	if _ruta_plantilla_valida(str(item.resource_path)):
 		m["ruta_base"] = str(item.resource_path)
 		return str(item.resource_path)
 	ruta = str(_plantillas().get(_clave_plantilla(item), ""))
@@ -3452,6 +3465,10 @@ func deserializar_equipo(d: Dictionary) -> Resource:
 		return null
 	var base: Resource = load(ruta)
 	if base == null:
+		# Esto NO es normal: alguien mando una ruta que aqui no existe. Callarlo fue justo lo que
+		# tapo que viajara la ruta del guardado del otro (ver _ruta_plantilla_valida).
+		push_warning("[equipo] no se pudo reconstruir '%s': la ruta '%s' no carga" % [
+			str(d.get("desc", "?")), ruta])
 		return null
 	var item: Resource = crear_item(base, int(d.get("tier", 1)), int(d.get("rareza", 0)),
 		d.get("mejoras", {}))

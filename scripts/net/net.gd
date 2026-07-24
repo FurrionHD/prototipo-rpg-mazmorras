@@ -2553,7 +2553,10 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	for r in _RANURAS:
 		var pieza: Resource = pj.get(r)
 		d[r] = Game.serializar_equipo(pieza)
-		if pieza != null and (d[r] as Dictionary).is_empty():
+		# No basta con que el diccionario no este vacio: tiene que llevar una ruta USABLE. Una
+		# version anterior mandaba la ruta del propio guardado ("user://saves/...::Resource_x"), que
+		# al otro lado no carga — y como el dict no venia vacio, este aviso no saltaba.
+		if pieza != null and not Game._ruta_plantilla_valida(str((d[r] as Dictionary).get("ruta", ""))):
 			sin_viajar.append(str(pieza.get("nombre")))
 	# Una pieza que no viaja NO es un detalle: el doble entra sin ella y pelea con los puños, que es
 	# un bug de balance silencioso. Se dice UNA vez por ficha, con nombres, en vez de callarlo.

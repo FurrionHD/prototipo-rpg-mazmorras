@@ -355,6 +355,16 @@ buscando en un índice de `resources/weapons|shields|wands|backpacks|armor` (se 
 la pieza queda reparada y se persiste en el siguiente guardado. Best-effort: si no resuelve, se
 comporta como antes.
 
+⚠️⚠️ **`resource_path` de una pieza que viene de un SAVE es la ruta DEL SAVE.** Las piezas equipadas
+se guardan como **sub-recursos** del `.tres` de la partida (`equipped_main = SubResource(...)`), y a
+un sub-recurso Godot le pone `resource_path = "<fichero>::<id>"` — p. ej.
+`user://saves/slot_3.tres::Resource_pa760`. Un primer intento de arreglo daba eso por bueno ("si no
+es una copia, su propia ruta vale") y **mandaba por la red la ruta del guardado del otro**: allí no
+cargaba nada, el doble entraba sin arma y peleaba con los puños **sin un solo error por consola**
+(el aviso no saltaba porque el diccionario no venía vacío, y la búsqueda por nombre no llegaba a
+ejecutarse). Por eso `_ruta_plantilla_valida()` exige `res://` **y sin `"::"`**, y desconfía también
+de la `ruta_base` ya guardada.
+
 ⚠️ Y al montar el doble hay que **re-aliasar `equip_meta`** (`pj.equip_meta[slot] =
 Game.meta_de(item)`): la identidad de gameplay la lee `Game._meta(slot, pj)` de ahí, no del objeto,
 así que sin esto el doble llevaba el arma pero **con tier 1 y rareza común**. Es la misma invariante
