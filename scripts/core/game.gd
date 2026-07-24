@@ -732,6 +732,21 @@ func combatant_de_pj(pj: PersonajeData) -> Combatant:
 	return _active_player_cs[i] if i >= 0 and i < _active_player_cs.size() else null
 
 
+# Vuelca en la FICHA lo que su combatiente lleva vivido: vida, maná y aguante. Durante la pelea eso
+# vive en el Combatant y solo baja a la ficha AL CERRAR (_on_combat_finished); pero un humano que
+# HUYE se lleva las suyas a mitad, y sin esto se le devolverian con las que entro. Mismas reglas
+# que el cierre: el que cae se levanta con 1 (queda KO, no muerto).
+func volcar_desgaste_en_ficha(pj: PersonajeData) -> void:
+	var c: Combatant = combatant_de_pj(pj)
+	if c == null:
+		return
+	pj.current_hp = maxf(1.0, c.current_hp)
+	if c.max_mp > 0.0:
+		pj.current_mp = c.current_mp
+	if c.max_energy > 0.0:
+		pj.stamina = c.current_energy
+
+
 func olvidar_mazmorra() -> void:
 	memoria_pisos.clear()
 	# El alboroto es de esta expedicion: al volver al pueblo (o morir) se reinicia, no arrastras el

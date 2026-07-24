@@ -187,6 +187,11 @@ var _espejo := false
 # le toca el turno a uno de estos, no se enseñan los botones aqui: se le pide la accion a su dueño,
 # que es quien tiene que decidir. Los mios no estan en este diccionario.
 var _dueno_aliado: Dictionary = {}
+# Los que se HAN IDO por su propio pie (huida). No se sacan de _aliados -ese array se cruza por
+# INDICE con Game._active_player_pjs y combat_finished devuelve por posicion-, se apartan aqui: se
+# filtran en _aliados_vivos(), que es el embudo de a quien pegan, quien recibe area, cuando se
+# pierde y quien cobra el mana de la victoria.
+var _huidos: Dictionary = {}
 # La cara de cada maniqui del espejo (Combatant -> ShaderMaterial), montada desde el PNG que viene
 # en el roster. Aqui no hay fichas locales de las que sacarla.
 var _mat_espejo: Dictionary = {}
@@ -202,6 +207,9 @@ var _esperando_a: int = 0
 var _rev: int = 0
 # ESPEJO: ya he pedido el roster y estoy esperandolo (para no pedirlo en cada instantanea).
 var _rev_pedida := false
+# Cada cuanto se les manda a los espejos como van las barras de accion (20 Hz, ver _difundir_atb).
+const ATB_TICK := 0.05
+var _atb_acum := 0.0
 
 enum State { ADVANCING, WAITING_PLAYER, PAUSED, FINISHED }
 var _state: State = State.ADVANCING
@@ -585,6 +593,38 @@ func _difundir() -> void:
 	Net.difundir_instantanea(instantanea())
 
 
+# LA BARRA DE ACCION en los espejos. El ATB corre SOLO aqui, asi que alli los marcadores se
+# quedaban clavados donde nacieron: el que entraba segundo veia una barra muerta. No puede ir en la
+# instantanea (esa sale solo cuando cambia algo, y la barra iria a saltos), asi que va como las
+# POSICIONES de los enemigos: un tick propio a ~20 Hz, sin garantia de entrega —si se pierde uno,
+# el siguiente llega en 50 ms y nadie lo nota—.
+func _difundir_atb(delta: float) -> void:
+	if not Net.activo:
+		return
+	_atb_acum += delta
+	if _atb_acum < ATB_TICK:
+		return
+	_atb_acum = 0.0
+	var r: PackedFloat32Array = PackedFloat32Array()
+	for c in _aliados:
+		r.append(float(_gauge.get(c, 0.0)) / UMBRAL)
+	for e in _enemies:
+		r.append(float(_gauge.get(e, 0.0)) / UMBRAL)
+	Net.difundir_atb(r)
+
+
+# Corre en el ESPEJO: los avances que me manda el anfitrion, en el orden del roster (los mios
+# primero y detras los de enfrente). _update_timeline ya los pinta desde _gauge en cada frame.
+func aplicar_atb(ratios: PackedFloat32Array) -> void:
+	if not _espejo:
+		return
+	var n: int = _aliados.size()
+	for i in mini(n, ratios.size()):
+		_gauge[_aliados[i]] = float(ratios[i]) * UMBRAL
+	for i in mini(_enemies.size(), ratios.size() - n):
+		_gauge[_enemies[i]] = float(ratios[n + i]) * UMBRAL
+
+
 func _volcar(lista: Array, valores: Array) -> void:
 	for i in mini(lista.size(), valores.size()):
 		var v: Array = valores[i]
@@ -653,7 +693,7 @@ func _etq(c: Combatant) -> String:
 func _aliados_vivos() -> Array[Combatant]:
 	var out: Array[Combatant] = []
 	for c in _aliados:
-		if c.is_alive():
+		if c.is_alive() and not _huidos.has(c):
 			out.append(c)
 	return out
 
@@ -1469,6 +1509,7 @@ func _process(delta: float) -> void:
 	# maquina. Ni ATB, ni turnos, ni resolucion: todo eso llega por instantaneas.
 	if _espejo:
 		return
+	_difundir_atb(delta)
 	# Pausa de lectura tras la accion del enemigo: cuenta atras y reanuda el ATB.
 	if _state == State.PAUSED:
 		_pause_left -= delta
@@ -2964,12 +3005,62 @@ func _accion_huir() -> void:
 	var ok := randf() < chance
 	_fin_de_eleccion()
 	if ok:
+		# HUIR ES INDIVIDUAL (regla del usuario): si el que escapa es el personaje de OTRO humano,
+		# se va EL con los suyos y la pelea sigue para los que quedan. Solo se acaba para todos si
+		# con eso no queda nadie en pie.
+		var dueno: int = int(_dueno_aliado.get(_player, 0))
+		if dueno != 0 and _huir_solo(dueno):
+			_state = State.ADVANCING
+			return
 		_end(false, true)  # huida: no ganas, pero tampoco es derrota
 	else:
 		# Se nombra al mas rapido: es quien explica el numero que acabas de ver.
 		_set_log("%s intenta huir pero %s se lo impide. (%.0f%%)" % [
 			_player.nombre, perseguidor.nombre, chance * 100.0])
 		_state = State.ADVANCING
+
+
+# SE VA UN JUGADOR (y con el TODOS sus personajes: hay una pantalla por maquina, el que huye huye
+# entero). Devuelve false si con eso no queda nadie de pie -> entonces la pelea acaba para todos.
+func _huir_solo(peer: int) -> bool:
+	var suyos: Array = []
+	for c in _aliados:
+		if int(_dueno_aliado.get(c, 0)) == peer:
+			suyos.append(c)
+	if suyos.is_empty():
+		return false
+	for c in suyos:
+		_retirar_aliado(c)
+	if _aliados_vivos().is_empty():
+		return false   # no queda nadie: que se cierre como una huida normal
+	var quien: String = suyos[0].nombre if suyos.size() == 1 else "%s y los suyos" % suyos[0].nombre
+	_set_log("%s escapa de la pelea. 🏃  Los demás seguís peleando." % quien)
+	# El turno lo tenia el que se ha ido: pasa a alguien que siga en pie, o las acciones se
+	# quedarian colgadas de alguien que ya no esta.
+	if _huidos.has(_player):
+		_player = _aliados_vivos()[0]
+	Net.sacar_de_la_pelea(peer)   # le devuelve lo suyo y le cierra el espejo (a el solo)
+	_update_hp()
+	return true
+
+
+# Aparta a un aliado de la pelea SIN matarlo: se va de los turnos y del marcador y su bloque queda
+# en gris. Es _caer_aliado sin la derrota — y sin borrarlo de _aliados, que es intocable.
+func _retirar_aliado(c: Combatant) -> void:
+	if c == null or _huidos.has(c):
+		return
+	_huidos[c] = true
+	_gauge.erase(c)
+	_defendiendo.erase(c)
+	_casteos.erase(c)
+	if _timeline != null:
+		_timeline.quitar(c)
+	var i: int = _aliados.find(c)
+	if i >= 0 and i < _bloques_aliados.size():
+		var b: Dictionary = _bloques_aliados[i]
+		b["panel"].modulate = Color(0.4, 0.4, 0.4)
+		b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
+		b["chips"].visible = false
 
 
 # Turno de UN enemigo. 'e' es el que ACTUA (no "el enemigo" a secas): con varios en la

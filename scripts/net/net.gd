@@ -2310,6 +2310,25 @@ func registrar_pelea() -> void:
 	_pelea_participantes.clear()
 
 
+# SE VA UNO SOLO (huida individual): la pelea SIGUE para los demas. Se le devuelve lo que vivieron
+# sus dobles y se le cierra su espejo, y deja de recibir instantaneas. Es cerrar_pelea, pero para
+# un participante en vez de para todos.
+func sacar_de_la_pelea(peer: int) -> void:
+	if not activo or _pelea_id == 0 or peer == 0:
+		return
+	if _dobles.has(peer):
+		var lote: Array = []
+		for doble in _dobles[peer]:
+			# A mitad de pelea la vida y el mana viven en el COMBATIENTE: hay que bajarlos a la
+			# ficha antes de mandarlos, o se iria con los que entro.
+			Game.volcar_desgaste_en_ficha(doble)
+			lote.append(desgaste_a_dict(doble))
+		_devolver_desgaste.rpc_id(peer, lote)
+		_dobles.erase(peer)
+	_fin_espejo.rpc_id(peer)
+	_pelea_participantes.erase(peer)
+
+
 func cerrar_pelea() -> void:
 	if _pelea_id != 0:
 		for p in _pelea_participantes:
@@ -2540,6 +2559,26 @@ func difundir_instantanea(snap: Dictionary) -> void:
 		return
 	for p in _pelea_participantes:
 		_instantanea.rpc_id(p, snap)
+
+
+# LA BARRA DE ACCION. Va aparte de la instantanea y a ~20 Hz porque es lo unico que se mueve de
+# forma CONTINUA: metida en la instantanea (que solo sale cuando cambia algo) la barra del espejo
+# iria a saltos, y mandada como fiable seria trafico tonto. Mismo trato que las posiciones de los
+# enemigos: unreliable_ordered y a correr.
+func difundir_atb(ratios: PackedFloat32Array) -> void:
+	if not activo or _pelea_id == 0 or _pelea_participantes.is_empty():
+		return
+	for p in _pelea_participantes:
+		_atb.rpc_id(p, ratios)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _atb(ratios: PackedFloat32Array) -> void:
+	if _pelea_sigo == 0:
+		return
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("aplicar_atb"):
+		p.aplicar_atb(ratios)
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")

@@ -292,6 +292,27 @@ salían tres bugs con la misma raíz. Lo que se hizo:
 - **Los objetos los paga QUIEN los usa**: las bolsas son por jugador y no se sincronizan, así que
   el espejo gasta el consumible en local y el anfitrión resuelve el efecto sin cobrar.
 
+#### La barra de acción y la huida individual
+
+- **La barra de acción del espejo se movía sola... o más bien no se movía**. `_update_timeline()`
+  pinta desde `_gauge`, y el ATB corre SOLO en el anfitrión: en el espejo los marcadores se
+  quedaban clavados donde nacieron. No puede ir en la instantánea (esa sale solo cuando algo
+  cambia, y la barra iría a saltos), así que va como las **posiciones de los enemigos**: tick
+  propio a ~20 Hz (`ATB_TICK`, `_difundir_atb` → `Net.difundir_atb` → `aplicar_atb`),
+  `unreliable_ordered` — si se pierde uno, el siguiente llega en 50 ms.
+- **HUIR ES INDIVIDUAL** (regla del usuario, ahora implementada). Antes, huir llamaba a `_end` y
+  cerraba la pelea **para todos**. Ahora, si el que escapa es el personaje de otro humano, se
+  **retira** a él y a los suyos (`_huir_solo` / `_retirar_aliado`) y la pelea sigue.
+  - ⚠️ **No se sacan de `_aliados`**: ese array se cruza por índice con `Game._active_player_pjs` y
+    `combat_finished` devuelve por posición — moverlo le daría a uno la vida de otro. Se apartan en
+    `_huidos`, y el filtro va en **`_aliados_vivos()`**, que es el embudo de a quién pegan los
+    enemigos, quién recibe área, cuándo se pierde y quién cobra el maná de la victoria.
+  - `Net.sacar_de_la_pelea(peer)` le devuelve lo suyo y le cierra **su** espejo, y lo saca de
+    `_pelea_participantes`. Si con eso no queda nadie en pie, la pelea acaba como siempre.
+  - ⚠️ A mitad de pelea la vida y el maná viven en el **Combatant**, no en la ficha (solo bajan al
+    cerrar). Por eso el que huye pasa antes por `Game.volcar_desgaste_en_ficha()`, o se iría con la
+    vida con la que entró.
+
 ⚠️ **`Net.cerrar_pelea()` va DESPUÉS de volcar el resultado a las fichas** (en
 `Game._on_combat_finished`). Es la que devuelve a cada humano lo que vivió su doble, y lo lee de la
 ficha del doble: llamándola antes —como estaba— se les mandaba la vida y el maná **con los que
