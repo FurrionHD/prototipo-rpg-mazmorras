@@ -606,6 +606,12 @@ func recolocar(pos: Vector2) -> void:
 func atacado_por_jugador() -> void:
 	if _dead:
 		return
+	# Ya esta metido en una pelea. Antes esto era un callejon sin salida: le dabas y no pasaba
+	# NADA. Ahora es la via para ECHAR UNA MANO: se pide entrar en esa pelea (hito 5.4-C).
+	if _combat_triggered:
+		if Net.activo and has_meta("net_id"):
+			Net.unirme_a_la_pelea_de(get_meta("net_id"))
+		return
 	# La pelea es de QUIEN ME ATACA, aunque yo viniera persiguiendo a otro. Sin esto, si venia
 	# detras del compañero (_objetivo = su avatar), el empuje del hito 5.4-B mandaba la pelea a EL
 	# y al que me ataco no se le abria nada: "no me deja pelear".

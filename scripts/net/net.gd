@@ -2231,6 +2231,20 @@ func espejando() -> bool:
 	return _pelea_sigo != 0
 
 
+# Le he pegado a un bicho que YA esta en una pelea: quiero entrar a ayudar. Quien sabe de quien es
+# esa pelea es el DUEÑO del piso (lleva las reservas), asi que si no lo soy, se lo pregunto por la
+# via de siempre —solicitar_pelea ya devuelve el anfitrion al que unirse—.
+func unirme_a_la_pelea_de(id: int) -> void:
+	if not activo or Game.combate_activo() or espejando():
+		return
+	if not _soy_dueno:
+		solicitar_pelea(id)
+		return
+	var peer: int = int(_enem_ocupados.get(id, 0))
+	if peer != 0 and peer != multiplayer.get_unique_id():
+		solicitar_unirse(peer)
+
+
 # --- LA FICHA DE UN PERSONAJE POR RED --------------------------------------------------------
 #
 # Para que el que se une PELEE de verdad, sus stats tienen que estar en la maquina que ejecuta la
