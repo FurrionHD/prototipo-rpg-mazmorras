@@ -250,6 +250,52 @@ posiciones**.
     pegados** y entran en cuanto muere uno.
   - **B (HECHO)**: los enemigos **van a por todos**, no solo a por quien simula el piso.
   - **C**: **dos humanos en UNA misma pelea** (5.3 da peleas simultáneas pero separadas).
+
+#### El espejo deja de ser "solo números" (cierre de 5.4-C)
+
+El primer 5.4-C montaba el espejo UNA vez (`setup_espejo` con el roster del anfitrión) y a partir
+de ahí solo le mandaba **números** (`instantanea()`: hp/mp/energía + turno + log). Todo lo que
+cambiara la **composición** o el **estado** de la pelea después del montaje era invisible, y de ahí
+salían tres bugs con la misma raíz. Lo que se hizo:
+
+- **Los estados VIAJAN**. `_chips_de(c)` decide los chips (carga telegrafiada, provocación,
+  imbuición, `statuses`) y los devuelve como pares `[texto, tooltip]`; van dentro de `_valores()`
+  y el espejo los cachea en `_chips_espejo`. En el espejo los combatientes son maniquíes **sin
+  motor de estados**: la única forma de que vea los debuffs de los demás es recibirlos resueltos.
+  Un solo sitio decide y las dos pantallas pintan lo mismo.
+- **Las ALTAS no caben en la instantánea**: es solo números y además va `unreliable`. Un
+  combatiente nuevo (refuerzo, invocación del Rey Slime, compañero que se une) sube
+  `combat._rev` y difunde el **roster entero** por canal FIABLE (`Net.difundir_roster` →
+  `combat.aplicar_roster`). `aplicar_roster` **reconcilia por índice** en vez de reconstruir:
+  conserva selección, log y marcadores, y reestrena el hueco de un cadáver comparando el nombre.
+- **Autocuración**: la instantánea lleva `rev`; si al espejo no le cuadra, pide el roster una vez
+  (`Net.pedir_roster_pelea`). Así un alta perdida no deja la pantalla desincronizada para siempre.
+- **Muertos y KO** se apagan en el espejo (`_apagar_caidos`): allí no hay motor que lo haga.
+- **El que se une entra con SU GRUPO**: `solicitar_unirse` manda la formación entera y el
+  anfitrión mete dobles hasta llenar (`MAX_ALIADOS`). `_dobles[peer]` es un **Array**, y el
+  desgaste vuelve **por índice** (`_mis_en_pelea` / `_mis_huecos`): cruzarlo mal le daría al
+  acompañante la vida del líder.
+- **Nombres duplicados**: dos personajes con el mismo nombre eran indistinguibles; se numeran
+  (`Dasui`, `Dasui (2)`) sobre el **Combatant**, que es una copia de esa pelea — nunca sobre el
+  `PersonajeData`.
+- **Un enemigo entra por CUALQUIERA de los que están dentro**: si el alcanzado está espejando, sus
+  ids se reenvían al anfitrión (`_refuerzos_para_mi_pelea`), que resuelve sus propios nodos
+  (`_nodo_de_id`: reales si simula el piso, espejos si no), mete los que quepan y **devuelve** el
+  resto. Y **reasigna la reserva** a su nombre: si no, una desconexión del alcanzado
+  descongelaría (`_soltar_reservas_de`) bichos que se están peleando.
+- **MAGIA enrutada**. Recitar son varios turnos con su examen de frases, así que no basta una
+  acción suelta. La costura son `_mostrar_test` / `_mostrar_disparo`, por donde pasan tanto la
+  primera frase como las siguientes: si el que recita es de otro, el anfitrión **sortea las
+  opciones** y le pide la respuesta (`Net.pedir_frase` / `pedir_disparo`); el espejo pinta el mismo
+  examen y devuelve el TEXTO elegido. **Quien valida es el anfitrión**: la frase correcta no sale
+  de su máquina.
+- **Los objetos los paga QUIEN los usa**: las bolsas son por jugador y no se sincronizan, así que
+  el espejo gasta el consumible en local y el anfitrión resuelve el efecto sin cobrar.
+
+⚠️ **`Net.cerrar_pelea()` va DESPUÉS de volcar el resultado a las fichas** (en
+`Game._on_combat_finished`). Es la que devuelve a cada humano lo que vivió su doble, y lo lee de la
+ficha del doble: llamándola antes —como estaba— se les mandaba la vida y el maná **con los que
+entraron**, y el que se unía salía de la pelea intacto.
 - **5.5 — Huir individual + pulido.**
 
 #### Unirse a una pelea en curso (5.4-A y 5.4-B)

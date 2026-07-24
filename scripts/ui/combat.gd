@@ -190,8 +190,18 @@ var _dueno_aliado: Dictionary = {}
 # La cara de cada maniqui del espejo (Combatant -> ShaderMaterial), montada desde el PNG que viene
 # en el roster. Aqui no hay fichas locales de las que sacarla.
 var _mat_espejo: Dictionary = {}
+# Los ESTADOS de cada maniqui del espejo (Combatant -> [[texto, tooltip], ...]), tal cual los
+# calculo el anfitrion. En el espejo no hay motor de estados que consultar: los chips llegan ya
+# resueltos en la instantanea (ver _chips_de).
+var _chips_espejo: Dictionary = {}
 # Estoy parado esperando la accion de otro (el ATB no corre, ver _process y State.WAITING_PLAYER).
 var _esperando_a: int = 0
+# REVISION del roster: sube con cada ALTA de combatiente (un refuerzo enemigo, un aliado que se
+# une, una invocacion). Viaja en la instantanea para que un espejo sepa si se ha perdido un alta:
+# si la revision no le cuadra, pide el roster entero y se recompone (ver aplicar_roster).
+var _rev: int = 0
+# ESPEJO: ya he pedido el roster y estoy esperandolo (para no pedirlo en cada instantanea).
+var _rev_pedida := false
 
 enum State { ADVANCING, WAITING_PLAYER, PAUSED, FINISHED }
 var _state: State = State.ADVANCING
@@ -275,6 +285,9 @@ var _slow_actions_left: int:
 func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 		exhausted: Array = [], player_overload_factor: float = 1.0) -> void:
 	_aliados.assign(player_cs)
+	# Dos personajes con el mismo nombre se quedaban indistinguibles (en el log y en los bloques).
+	for c in _aliados:
+		_desambiguar(c)
 	_player = _aliados[0] if not _aliados.is_empty() else null
 	_enemies.assign(enemy_cs)
 	# El escudo del Rey Slime cuenta slimes vivos del roster: cada enemigo necesita ver a los
@@ -305,35 +318,46 @@ func setup_espejo(roster: Dictionary) -> void:
 	for e in _enemies:
 		e.battle_enemies = _enemies
 	_player = _aliados[0] if not _aliados.is_empty() else null
+	_rev = int(roster.get("rev", 0))
 	_dps_on = false
 
 
 func _combatientes_de_escaparate(datos: Array) -> Array:
 	var out: Array = []
 	for d in datos:
-		# Combatant exige stats en el constructor y se calcula la vida solo. Aqui da igual: es un
-		# maniqui de escaparate, asi que se crea con lo minimo y se le pisan los valores que SI se
-		# pintan. Ningun dado se tira contra el (eso pasa en la maquina que ejecuta la pelea).
-		var c := Combatant.new(String(d.get("nombre", "?")), 1, Abilities.new(), 1.0, 0.0, 0.0, 0.0)
-		c.max_hp = float(d.get("max_hp", 1.0))
-		c.current_hp = float(d.get("hp", c.max_hp))
-		c.max_mp = float(d.get("max_mp", 0.0))
-		c.current_mp = float(d.get("mp", 0.0))
-		c.max_energy = float(d.get("max_en", 0.0))
-		c.current_energy = float(d.get("en", 0.0))
-		c.color_visual = d.get("color", Color.WHITE)
-		# Su cara, para el marcador de turnos: se monta aqui una vez y se cachea por maniqui.
-		var png: PackedByteArray = d.get("imagen", PackedByteArray())
-		var metal: float = float(d.get("metal", 0.0))
-		if not png.is_empty() or metal > 0.0:
-			_mat_espejo[c] = Game.material_aspecto(metal, Game.textura_de_png(png), 1.0)
-		out.append(c)
+		out.append(_maniqui_de_fila(d))
 	return out
 
 
-# Lo que hay que mandarle a un espejo para que MONTE la pantalla (una vez, al unirse).
+# UN maniqui a partir de su fila del roster. Suelto porque tambien lo usa aplicar_roster: los
+# combatientes que se unen a MITAD de pelea llegan de uno en uno.
+func _maniqui_de_fila(d: Dictionary) -> Combatant:
+	# Combatant exige stats en el constructor y se calcula la vida solo. Aqui da igual: es un
+	# maniqui de escaparate, asi que se crea con lo minimo y se le pisan los valores que SI se
+	# pintan. Ningun dado se tira contra el (eso pasa en la maquina que ejecuta la pelea).
+	var c := Combatant.new(String(d.get("nombre", "?")), 1, Abilities.new(), 1.0, 0.0, 0.0, 0.0)
+	c.level = int(d.get("nivel", 1))
+	c.max_hp = float(d.get("max_hp", 1.0))
+	c.current_hp = float(d.get("hp", c.max_hp))
+	c.max_mp = float(d.get("max_mp", 0.0))
+	c.current_mp = float(d.get("mp", 0.0))
+	c.max_energy = float(d.get("max_en", 0.0))
+	c.current_energy = float(d.get("en", 0.0))
+	c.color_visual = d.get("color", Color.WHITE)
+	# Su cara, para el marcador de turnos: se monta aqui una vez y se cachea por maniqui.
+	var png: PackedByteArray = d.get("imagen", PackedByteArray())
+	var metal: float = float(d.get("metal", 0.0))
+	if not png.is_empty() or metal > 0.0:
+		_mat_espejo[c] = Game.material_aspecto(metal, Game.textura_de_png(png), 1.0)
+	return c
+
+
+# Lo que hay que mandarle a un espejo para que MONTE la pantalla (al unirse, y otra vez cada vez que
+# entra alguien nuevo en la pelea). Va con la REVISION: es lo que permite al espejo saber si se ha
+# perdido un alta (ver aplicar_instantanea).
 func roster_para_espejo() -> Dictionary:
-	return {"aliados": _fila_de_roster(_aliados), "enemigos": _fila_de_roster(_enemies)}
+	return {"aliados": _fila_de_roster(_aliados), "enemigos": _fila_de_roster(_enemies),
+		"rev": _rev}
 
 
 func _fila_de_roster(lista: Array) -> Array:
@@ -342,7 +366,7 @@ func _fila_de_roster(lista: Array) -> Array:
 		# El COLOR y la CARA salen de la ficha cuando la hay (los aliados): son los mismos con los
 		# que se les ve en el mapa. Los enemigos no tienen ficha y usan su color_visual.
 		var pj: PersonajeData = Game.pj_de_combatant(c)
-		out.append({"nombre": c.nombre,
+		out.append({"nombre": c.nombre, "nivel": c.level,
 			"color": pj.color if pj != null else c.color_visual,
 			"metal": pj.metalico if pj != null else 0.0,
 			"imagen": pj.imagen if pj != null else PackedByteArray(),
@@ -352,17 +376,71 @@ func _fila_de_roster(lista: Array) -> Array:
 	return out
 
 
+# ESPEJO: llega un roster nuevo porque ALGUIEN HA ENTRADO en la pelea (un refuerzo enemigo, una
+# invocacion, el compañero de otro humano). No se reconstruye la pantalla: se RECONCILIA fila por
+# fila, que es mucho mas barato y ademas conserva la seleccion, el log y los marcadores que ya
+# estaban. Dos casos por indice:
+#   - no tengo esa fila -> combatiente nuevo (bloque + marcador de turnos);
+#   - la tengo con OTRO nombre -> el anfitrion reutilizo el hueco de un cadaver (ver _meter_enemigo):
+#     se sustituye el maniqui y se reenciende su bloque.
+func aplicar_roster(roster: Dictionary) -> void:
+	if not _espejo:
+		return
+	_rev_pedida = false
+	_rev = int(roster.get("rev", _rev))
+	# Los aliados solo crecen por el final (nunca se reordenan ni se reutilizan huecos: el cruce por
+	# indice con las fichas de Game depende de ello), asi que basta con dar de alta los que faltan.
+	var mios: Array = roster.get("aliados", [])
+	for i in range(_aliados.size(), mios.size()):
+		var c: Combatant = _maniqui_de_fila(mios[i])
+		_aliados.append(c)
+		_gauge[c] = 0.0
+		_anadir_bloque_aliado(c)
+		if _timeline != null:
+			_timeline.anadir(c, _color_de(c), _material_de(c), "")
+	var filas: Array = roster.get("enemigos", [])
+	for i in filas.size():
+		var d: Dictionary = filas[i]
+		if i < _enemies.size() and String(d.get("nombre", "")) == _enemies[i].nombre:
+			continue   # el mismo de siempre: sus numeros ya los trae la instantanea
+		var c: Combatant = _maniqui_de_fila(d)
+		if i < _enemies.size():
+			# Hueco de cadaver reestrenado: fuera el viejo del marcador, y su bloque se reenciende.
+			if _timeline != null:
+				_timeline.quitar(_enemies[i])
+			_gauge.erase(_enemies[i])
+			_enemies[i] = c
+			_revivir_bloque(i, c)
+		else:
+			_enemies.append(c)
+			var b: Dictionary = _crear_bloque(c, i + 1, i)
+			_bloques.append(b)
+			_bloques_box.add_child(b["panel"])
+		_gauge[c] = 0.0
+		if _timeline != null:
+			_timeline.anadir(c, c.color_visual, null, str(i + 1))
+	# battle_enemies es una referencia COMPARTIDA (la usa el escudo del Rey Slime para contar
+	# slimes vivos): al cambiar la lista hay que repartirla otra vez.
+	for e in _enemies:
+		e.battle_enemies = _enemies
+	_update_hp()
+
+
 # LA INSTANTANEA: lo que cambia turno a turno. Va del que ejecuta la pelea a los espejos. Solo
 # lleva numeros y de quien es el turno; el resto (barras, colores, orden) ya lo tienen montado.
 func instantanea() -> Dictionary:
 	return {"a": _valores(_aliados), "e": _valores(_enemies),
-		"turno": _aliados.find(_player), "log": _log.text, "fin": _state == State.FINISHED}
+		"turno": _aliados.find(_player), "log": _log.text, "fin": _state == State.FINISHED,
+		"rev": _rev}
 
 
+# Lo que cambia de un combatiente entre instantaneas: sus tres barras y sus ESTADOS. Los estados van
+# como pares [texto, tooltip] ya resueltos (ver _chips_de): en el espejo no hay motor de estados, y
+# sin esto los debuffs de los demas eran invisibles alli.
 func _valores(lista: Array) -> Array:
 	var out: Array = []
 	for c in lista:
-		out.append([c.current_hp, c.current_mp, c.current_energy])
+		out.append([c.current_hp, c.current_mp, c.current_energy, _chips_de(c)])
 	return out
 
 
@@ -370,8 +448,17 @@ func _valores(lista: Array) -> Array:
 func aplicar_instantanea(snap: Dictionary) -> void:
 	if not _espejo:
 		return
+	# ¿Me he perdido un ALTA? (un refuerzo enemigo, un aliado que se unio, una invocacion). La
+	# instantanea solo trae numeros, asi que sin esto las filas de mas se descartaban EN SILENCIO
+	# -era el bug de "no veo los enemigos que se añaden"-. La revision lo delata y pido el roster
+	# entero UNA vez; mientras llega, los numeros que si cuadran se siguen pintando.
+	var rev: int = int(snap.get("rev", _rev))
+	if rev != _rev and not _rev_pedida:
+		_rev_pedida = true
+		Net.pedir_roster_pelea()
 	_volcar(_aliados, snap.get("a", []))
 	_volcar(_enemies, snap.get("e", []))
+	_apagar_caidos()
 	var t: int = int(snap.get("turno", -1))
 	if t >= 0 and t < _aliados.size():
 		_player = _aliados[t]
@@ -386,6 +473,12 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 
 # --- TURNOS COMPARTIDOS (hito 5.4-C) ---------------------------------------------------------
 
+# En que hueco de la fila esta un aliado (-1 si no esta). El indice es el idioma comun entre las dos
+# maquinas: por el se dice de quien es el turno y a quien apunta un objeto.
+func indice_de_aliado(c: Combatant) -> int:
+	return _aliados.find(c)
+
+
 # Apunta que ese aliado es de otro humano: cuando le toque, se le pedira a el la accion.
 func marcar_dueno(c: Combatant, peer: int) -> void:
 	if c != null and peer != 0:
@@ -398,10 +491,11 @@ func turno_mio(idx: int) -> void:
 		return
 	_player = _aliados[idx]
 	# El maniqui solo trae lo que se PINTA, asi que no tiene ni habilidades ni hechizos y los
-	# submenus salian vacios ("solo deja hacer basicos"). Se los pongo desde MI PROPIA ficha, que
-	# es la de este personaje: aqui solo sirven para ELEGIR — quien lo resuelve es el anfitrion.
-	# La vida, el mana y la energia NO se tocan: de esos manda su instantanea.
-	var real: Combatant = Game.crear_player_combatant(Game.lider())
+	# submenus salian vacios ("solo deja hacer basicos"). Se los pongo desde MI PROPIA ficha —la de
+	# ESTE hueco, que puede ser mi lider o un acompañante mio—: aqui solo sirven para ELEGIR, quien
+	# lo resuelve es el anfitrion. La vida, el mana y la energia NO se tocan: manda su instantanea.
+	var mio: PersonajeData = Net.mi_pj_en_pelea(idx)
+	var real: Combatant = Game.crear_player_combatant(mio) if mio != null else null
 	if real != null:
 		_player.abilities_combate = real.abilities_combate
 		_player.spells = real.spells
@@ -440,12 +534,35 @@ func aplicar_accion_remota(accion: Dictionary) -> void:
 				_usar_habilidad(elegida)
 			else:
 				_accion_atacar()   # ya no la tiene: no se pierde el turno
+		"magia":
+			# Empieza a recitar. El hechizo se busca en SU loadout (mismo criterio que las
+			# habilidades: nadie puede colar una magia que su personaje no lleva).
+			var ruta_s: String = String(accion.get("ruta", ""))
+			var hechizo: SpellData = null
+			for sp in _player.spells:
+				if sp != null and String(sp.resource_path) == ruta_s:
+					hechizo = sp
+					break
+			if hechizo != null:
+				_elegir_hechizo(hechizo)
+			else:
+				_accion_atacar()   # ya no lo lleva: no se pierde el turno
+		"frase":
+			# Ha respondido al examen de una frase. Quien dice si acerto soy YO: la frase correcta
+			# nunca sale de aqui, solo vuelve el texto que eligio.
+			if _cast_spell == null or _cast_index >= _cast_spell.longitud():
+				return
+			_responder_frase(String(accion.get("texto", "")), _cast_spell.frases[_cast_index])
+		"disparar":
+			if _cast_spell == null:
+				return
+			_disparar_hechizo()
 		"objeto":
 			var cons = load(String(accion.get("ruta", "")))
 			var ia: int = int(accion.get("aliado", -1))
 			var al: Combatant = _aliados[ia] if ia >= 0 and ia < _aliados.size() else _player
 			if cons != null:
-				_usar_objeto(cons, al)
+				_usar_objeto(cons, al, false)   # ya la pago el de su bolsa, aqui solo se resuelve
 			else:
 				_accion_atacar()
 		_:
@@ -474,6 +591,30 @@ func _volcar(lista: Array, valores: Array) -> void:
 		lista[i].current_hp = float(v[0])
 		lista[i].current_mp = float(v[1])
 		lista[i].current_energy = float(v[2])
+		if v.size() > 3:
+			_chips_espejo[lista[i]] = v[3]
+
+
+# ESPEJO: los que han caido en la instantanea se apagan aqui igual que en la pantalla que ejecuta.
+# Alli lo hacen _apagar_bloque y _caer_aliado desde el motor; aqui no hay motor, solo numeros, asi
+# que se mira quien esta a 0 y se le apaga el bloque y se le quita del marcador de turnos. Sin esto
+# el espejo dejaba cadaveres pintados como vivos.
+func _apagar_caidos() -> void:
+	for i in _bloques.size():
+		if i >= _enemies.size() or _enemies[i].is_alive():
+			continue
+		_apagar_bloque(_enemies[i])
+		if _timeline != null:
+			_timeline.quitar(_enemies[i])
+	for i in _bloques_aliados.size():
+		if i >= _aliados.size() or _aliados[i].is_alive():
+			continue
+		var b: Dictionary = _bloques_aliados[i]
+		b["panel"].modulate = Color(0.4, 0.4, 0.4)
+		b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
+		b["chips"].visible = false
+		if _timeline != null:
+			_timeline.quitar(_aliados[i])
 
 
 # El OBJETIVO de tus acciones: el enemigo que tienes seleccionado. Si el indice apunta a un
@@ -839,15 +980,48 @@ func anadir_aliado(c: Combatant) -> bool:
 		return false
 	if _aliados.size() >= MAX_ALIADOS:
 		return false
+	_desambiguar(c)
 	_aliados.append(c)
 	_espera_refuerzo = false   # ya ha llegado
 	_gauge[c] = 0.0          # entra con la barra a cero: unirse no regala un turno inmediato
 	_anadir_bloque_aliado(c)
 	if _timeline != null:
 		_timeline.anadir(c, _color_de(c), _material_de(c), "")
+	_alta_de_combatiente()
 	_update_hp()
 	_set_log("%s se une a la pelea." % c.nombre)
 	return true
+
+
+# Un combatiente MAS en la pelea. Sube la revision del roster y se lo manda a los espejos por canal
+# FIABLE: la instantanea es solo numeros y ademas va sin garantia, asi que un alta no puede viajar
+# en ella (era el bug de "los enemigos que se añaden no los ve el otro jugador").
+func _alta_de_combatiente() -> void:
+	_rev += 1
+	if _espejo or not Net.activo:
+		return
+	Net.difundir_roster(roster_para_espejo())
+
+
+# Dos personajes con el mismo nombre eran indistinguibles en la pelea (el log decia "Dasui ataca" y
+# habia dos Dasui). Se numeran del segundo en adelante. Se toca el nombre del COMBATIENTE, que es una
+# copia de esta pelea, nunca el del PersonajeData.
+func _desambiguar(c: Combatant) -> void:
+	if c == null:
+		return
+	var base: String = c.nombre
+	var n: int = 1
+	while _hay_aliado_llamado(c.nombre, c):
+		n += 1
+		c.nombre = "%s (%d)" % [base, n]
+
+
+# Sirve igual antes de meter a alguien en la lista y con el ya dentro: se ignora a si mismo.
+func _hay_aliado_llamado(nombre: String, salvo: Combatant) -> bool:
+	for a in _aliados:
+		if a != salvo and a.nombre == nombre:
+			return true
+	return false
 
 
 # BLOQUE de un combatiente: la unidad que se ve, se señala y se clica. Junta en una caja su
@@ -1063,6 +1237,7 @@ func _meter_enemigo(c: Combatant, es_invocado: bool) -> int:
 	c.battle_enemies = _enemies      # referencia compartida: cuenta para el escudo del Rey
 	if es_invocado:
 		_slots_invocados[idx] = true
+	_alta_de_combatiente()   # que los espejos vean al recien llegado (roster nuevo, revision nueva)
 	var etiqueta: String = "invocacion" if es_invocado else "refuerzo"
 	print("[%s] entra %s en el slot %d (vivos: %d)" % [etiqueta, c.nombre, idx + 1, _vivos().size()])
 	return idx
@@ -1177,27 +1352,41 @@ func _refrescar_chips(c: Combatant, box: Container, idx: int) -> void:
 		return
 	for hijo in box.get_children():
 		hijo.queue_free()
+	for par in _chips_de(c):
+		_chip(box, String(par[0]), String(par[1]), idx)
+	box.visible = box.get_child_count() > 0
 
+
+# QUE chips lleva un combatiente, como [[texto, tooltip], ...]. Separado de la pintura porque estos
+# mismos pares VIAJAN a los espejos dentro de la instantanea: alli los combatientes son maniquis sin
+# motor de estados, asi que la unica forma de que vean los debuffs de los demas es recibirlos ya
+# resueltos. Un solo sitio decide, y las dos pantallas pintan lo mismo.
+func _chips_de(c: Combatant) -> Array:
+	if c == null:
+		return []
+	if _espejo:
+		return _chips_espejo.get(c, [])
+	var out: Array = []
 	# ATAQUE CARGADO (telegrafiado): el aviso del log se lo lleva el turno siguiente, asi que sin
 	# esto no hay forma de saber CUAL de los tres bichos te esta preparando el pepino. Va como chip
 	# (y no como texto suelto) para heredar el tooltip y el clic-para-apuntar, y para no ensanchar
 	# el bloque: la zona de chips tiene alto fijo.
 	if c.charging != null:
-		_chip(box, "⚡ %s" % c.charging.nombre,
+		out.append(["⚡ %s" % c.charging.nombre,
 			"CARGANDO: %s\nSe dispara en %d turno%s.\nAturdirlo lo interrumpe." % [
-				c.charging.nombre, c.charge_left, "" if c.charge_left == 1 else "s"], idx)
+				c.charging.nombre, c.charge_left, "" if c.charge_left == 1 else "s"]])
 	# PROVOCANDO (taunt de escudo): sin esto no habia forma de saber si te quedaba taunt ni cuanto.
 	# Va en los chips como todo lo demas, asi que sirve igual para ti y para un companero.
 	if c.provocar_turnos > 0:
-		_chip(box, "🎯 %dt" % c.provocar_turnos,
+		out.append(["🎯 %dt" % c.provocar_turnos,
 			"Provocación (%d turno%s)\nLos enemigos centran su atención en ti: te atacan más." % [
-				c.provocar_turnos, "" if c.provocar_turnos == 1 else "s"], idx)
+				c.provocar_turnos, "" if c.provocar_turnos == 1 else "s"]])
 	var imb: String = c.imbue_etiqueta()
 	if imb != "":
-		_chip(box, imb, c.imbue_resumen(), idx)
+		out.append([imb, c.imbue_resumen()])
 	for e in c.statuses:
-		_chip(box, e.etiqueta(), e.resumen(), idx)
-	box.visible = box.get_child_count() > 0
+		out.append([e.etiqueta(), e.resumen()])
+	return out
 
 
 # Un chip: el icono+numeros de siempre (etiqueta()), y al pasar el raton por encima, la ficha
@@ -1535,12 +1724,6 @@ func _on_continue_pressed() -> void:
 # ------------------------------------------------------------
 # Accion Magia: abre el submenu con los hechizos equipados y su coste de mana.
 func _accion_magia() -> void:
-	# PENDIENTE (multi): recitar un hechizo son VARIOS turnos con su minijuego de frases, asi que
-	# no basta con mandar una accion suelta como con las habilidades: hay que enrutar cada frase.
-	# Hasta que este, se avisa en vez de dejar una magia que se lanza a medias.
-	if _espejo:
-		_set_log("La magia todavía no se puede lanzar en la pelea de otro. Usa habilidades.")
-		return
 	_ocultar_cajas()
 	# Reconstruimos el submenu cada vez (el mana cambia -> disponibilidad).
 	for c in _spell_box.get_children():
@@ -1591,6 +1774,13 @@ func _coste_efectivo(spell: SpellData) -> float:
 # Empiezas a castear: se descuenta el mana YA (si fallas lo pierdes) y recitas la
 # primera frase en este MISMO turno.
 func _elegir_hechizo(spell: SpellData) -> void:
+	# ESPEJO: aqui solo se ELIGE. El conjuro entero (mana, frases y disparo) lo lleva el anfitrion;
+	# lo que se enruta despues, turno a turno, son las frases (ver _mostrar_test).
+	if _espejo and spell != null:
+		_ocultar_cajas()
+		_state = State.ADVANCING
+		Net.enviar_accion({"tipo": "magia", "ruta": spell.resource_path})
+		return
 	var coste: float = _coste_efectivo(spell)
 	if not _player.has_mana(coste):
 		return
@@ -1603,11 +1793,29 @@ func _elegir_hechizo(spell: SpellData) -> void:
 
 # Muestra el test tipo examen para la frase idx del hechizo en curso.
 func _mostrar_test(idx: int) -> void:
+	var correcta: String = _cast_spell.frases[idx]
+	var opciones := SpellBook.opciones_test(correcta, _otras_frases_equipadas(), N_OPCIONES_TEST)
+	# MULTI: si el que recita es el personaje de OTRO, el examen se le pone a EL. Las opciones se
+	# sortean aqui (soy quien lleva la pelea) y el responde con el TEXTO que eligio; quien decide
+	# si acerto sigo siendo yo, asi que la validacion no se va de esta maquina.
+	var dueno: int = int(_dueno_aliado.get(_player, 0))
+	if dueno != 0:
+		_esperando_a = dueno
+		_ocultar_cajas()
+		_set_log("🔮 %s recita %s (%d/%d). Esperando..." % [
+			_player.nombre, _cast_spell.nombre, idx + 1, _cast_spell.longitud()])
+		Net.pedir_frase(dueno, idx, opciones, _cast_spell.nombre, _cast_spell.longitud())
+		return
+	_pintar_test(idx, opciones, _cast_spell.nombre, _cast_spell.longitud(), correcta)
+
+
+# Pinta el examen de UNA frase. Vale igual para la pantalla que lleva la pelea y para un espejo al
+# que se lo han pedido: la unica diferencia es que en el espejo no se sabe cual es la correcta (la
+# valida el anfitrion), asi que se le pasa "".
+func _pintar_test(idx: int, opciones: Array, nombre: String, largo: int, correcta: String) -> void:
 	_ocultar_cajas()
 	for c in _cast_box.get_children():
 		c.queue_free()
-	var correcta: String = _cast_spell.frases[idx]
-	var opciones := SpellBook.opciones_test(correcta, _otras_frases_equipadas(), N_OPCIONES_TEST)
 	var letras := ["a", "b", "c", "d", "e", "f"]
 	for i in opciones.size():
 		var b := Button.new()
@@ -1615,9 +1823,16 @@ func _mostrar_test(idx: int) -> void:
 		b.pressed.connect(_responder_frase.bind(String(opciones[i]), correcta))
 		_cast_box.add_child(b)
 	_cast_box.visible = true
-	_set_log("🔮 %s — recita la frase %d/%d:" % [
-		_cast_spell.nombre, idx + 1, _cast_spell.longitud()])
+	_set_log("🔮 %s — recita la frase %d/%d:" % [nombre, idx + 1, largo])
 	_ocultar_log()   # las frases ocupan el sitio del historial
+
+
+# ESPEJO: me toca recitar una frase de MI personaje. El examen lo ha sorteado el anfitrion.
+func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int) -> void:
+	if not _espejo:
+		return
+	_state = State.WAITING_PLAYER
+	_pintar_test(idx, opciones, nombre, largo, "")
 
 
 # Frases de los OTROS hechizos equipados (para nutrir los distractores del test).
@@ -1633,6 +1848,12 @@ func _otras_frases_equipadas() -> Array:
 # Responde una frase del test: acierto -> avanza; fallo -> backfire.
 func _responder_frase(elegida: String, correcta: String) -> void:
 	if _state != State.WAITING_PLAYER:
+		return
+	# ESPEJO: no se si he acertado (la frase correcta no viaja: la comprueba el anfitrion).
+	if _espejo:
+		_ocultar_cajas()
+		_state = State.ADVANCING
+		Net.enviar_accion({"tipo": "frase", "texto": elegida})
 		return
 	if elegida == correcta:
 		# La Magia NO se entrena por frase (solo al LANZAR, en _disparar_hechizo), para
@@ -1652,11 +1873,24 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 
 # Turno de DISPARO: un unico boton para lanzar el hechizo ya recitado.
 func _mostrar_disparo() -> void:
+	# MULTI: el conjuro es de otro -> el boton va en SU pantalla (y alli puede reapuntar antes de
+	# soltarlo, que para eso tiene los mismos bloques clicables).
+	var dueno: int = int(_dueno_aliado.get(_player, 0))
+	if dueno != 0:
+		_esperando_a = dueno
+		_ocultar_cajas()
+		_set_log("%s tiene el conjuro listo. Esperando..." % _player.nombre)
+		Net.pedir_disparo(dueno, _cast_spell.nombre)
+		return
+	_pintar_disparo(_cast_spell.nombre)
+
+
+func _pintar_disparo(nombre: String) -> void:
 	_ocultar_cajas()
 	for c in _cast_box.get_children():
 		c.queue_free()
 	var b := Button.new()
-	b.text = "🔥 ¡Lanzar %s!" % _cast_spell.nombre
+	b.text = "🔥 ¡Lanzar %s!" % nombre
 	b.pressed.connect(_disparar_hechizo)
 	_cast_box.add_child(b)
 	_cast_box.visible = true
@@ -1664,8 +1898,23 @@ func _mostrar_disparo() -> void:
 	_ocultar_log()   # el boton de disparo ocupa el sitio del historial
 
 
+# ESPEJO: mi conjuro esta listo, el boton de lanzarlo va aqui.
+func lanzar_conjuro(nombre: String) -> void:
+	if not _espejo:
+		return
+	_state = State.WAITING_PLAYER
+	_pintar_disparo(nombre)
+
+
 func _disparar_hechizo() -> void:
 	if _state != State.WAITING_PLAYER:
+		return
+	# ESPEJO: el objetivo viaja como indice; lo resuelve el anfitrion con el conjuro que ya tiene
+	# recitado en la ficha del doble.
+	if _espejo:
+		_ocultar_cajas()
+		_state = State.ADVANCING
+		Net.enviar_accion({"tipo": "disparar", "obj": _target_idx})
 		return
 	var spell := _cast_spell
 	# Objetivo PRINCIPAL, capturado una vez, como en el resto de acciones (ver _usar_habilidad).
@@ -2520,10 +2769,14 @@ func _elegir_objetivo_objeto(cons: ConsumableData) -> void:
 # nada hasta tu turno siguiente — justo cuando ya te habian rematado. El TOTAL no cambia: una
 # poción de 3 turnos cura 1/3 ahora y 2/3 en tus 2 turnos siguientes.
 # GASTA el turno del que la bebe (_player) y no cuesta energia.
-func _usar_objeto(cons: ConsumableData, objetivo: Combatant) -> void:
+func _usar_objeto(cons: ConsumableData, objetivo: Combatant, cobrar: bool = true) -> void:
 	# Igual que las habilidades: el espejo elige y el anfitrion resuelve. El objetivo viaja como
 	# INDICE dentro de los aliados, que es lo unico que significa lo mismo en las dos maquinas.
+	# La POCION la pone quien la usa, no el anfitrion: las bolsas son por jugador y nunca se
+	# sincronizan, asi que se gasta AQUI y el anfitrion resuelve el efecto sin cobrar nada.
 	if _espejo and cons != null:
+		if not Game.gastar_consumible(cons):
+			return
 		_ocultar_cajas()
 		_state = State.ADVANCING
 		Net.enviar_accion({"tipo": "objeto", "ruta": cons.resource_path,
@@ -2531,7 +2784,7 @@ func _usar_objeto(cons: ConsumableData, objetivo: Combatant) -> void:
 		return
 	if _state != State.WAITING_PLAYER or objetivo == null or not objetivo.is_alive():
 		return
-	if not Game.gastar_consumible(cons):
+	if cobrar and not Game.gastar_consumible(cons):
 		return
 	var restantes: int = maxi(0, cons.turnos - 1)   # el primer turno se cobra AL INSTANTE
 	var partes: Array = []

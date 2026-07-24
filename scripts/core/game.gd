@@ -6729,7 +6729,10 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
 	Net.avisar_combate(false)
-	Net.cerrar_pelea()   # los espejos de los que se unieron se cierran con ella
+	# OJO: Net.cerrar_pelea() NO va aqui. Es la que le devuelve a cada humano lo que vivio su
+	# doble, y lo lee de la ficha del doble... que todavia no se ha actualizado con el resultado
+	# (eso pasa unas lineas mas abajo, con hp_left/mp_left/energy_left). Llamandola aqui se les
+	# mandaba la vida y el mana con los que ENTRARON: el que se unia salia de la pelea intacto.
 	# La HUIDA que entrena Agilidad mide el hueco que le abres a tu perseguidor. En multi el mundo
 	# sigue vivo mientras peleas, asi que al salir la distancia puede haber dado un salto enorme
 	# (el bicho se movio, o cambiaste de perseguidor) y el primer tick lo cobraria como si lo
@@ -6766,6 +6769,11 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		if i < _active_player_cs.size():
 			ability_cooldowns_persist[_active_player_pjs[i]] = \
 				(_active_player_cs[i].ability_cooldowns as Dictionary).duplicate()
+
+	# AHORA si: las fichas (incluidas las de los DOBLES de otros humanos) ya llevan el resultado,
+	# asi que se le puede devolver a cada uno lo suyo y cerrarles el espejo.
+	Net.cerrar_pelea()
+
 	_active_player_cs = []
 	_active_player_pjs = []
 
