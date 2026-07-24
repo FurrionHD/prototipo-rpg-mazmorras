@@ -183,6 +183,12 @@ var _espera_refuerzo := false
 # aplicado a una pelea entera, y es lo que permite reusar TODA la interfaz (bloques, barras, log,
 # marcador de turnos) sin tocarla.
 var _espejo := false
+# De quien es cada aliado que NO es mio: Combatant -> peer_id. Solo lo llena el anfitrion. Cuando
+# le toca el turno a uno de estos, no se enseñan los botones aqui: se le pide la accion a su dueño,
+# que es quien tiene que decidir. Los mios no estan en este diccionario.
+var _dueno_aliado: Dictionary = {}
+# Estoy parado esperando la accion de otro (el ATB no corre, ver _process y State.WAITING_PLAYER).
+var _esperando_a: int = 0
 
 enum State { ADVANCING, WAITING_PLAYER, PAUSED, FINISHED }
 var _state: State = State.ADVANCING
@@ -362,6 +368,38 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 		_continue_button.visible = true
 		_ocultar_cajas()
 	_update_hp()
+
+
+# --- TURNOS COMPARTIDOS (hito 5.4-C) ---------------------------------------------------------
+
+# Apunta que ese aliado es de otro humano: cuando le toque, se le pedira a el la accion.
+func marcar_dueno(c: Combatant, peer: int) -> void:
+	if c != null and peer != 0:
+		_dueno_aliado[c] = peer
+
+
+# Corre en EL ESPEJO: me toca mover a mi personaje. Se enseña la barra de acciones de siempre.
+func turno_mio(idx: int) -> void:
+	if not _espejo or idx < 0 or idx >= _aliados.size():
+		return
+	_player = _aliados[idx]
+	_state = State.WAITING_PLAYER
+	_mostrar_acciones()
+
+
+# Corre en EL ANFITRION: ha llegado la accion que eligio el dueño. Se ejecuta como si la hubiera
+# pulsado aqui, reusando las mismas funciones (asi el combate es UNO, sin reglas paralelas).
+func aplicar_accion_remota(accion: Dictionary) -> void:
+	if _espejo or _state != State.WAITING_PLAYER or _esperando_a == 0:
+		return
+	_esperando_a = 0
+	var obj: int = int(accion.get("obj", -1))
+	if obj >= 0 and obj < _enemies.size():
+		_target_idx = obj
+	match String(accion.get("tipo", "atacar")):
+		"defender": _accion_defender()
+		"huir": _accion_huir()
+		_: _accion_atacar()
 
 
 # El anfitrion ha cerrado la pelea: mi espejo se va con ella.
@@ -1292,7 +1330,17 @@ func _begin_player_turn() -> void:
 		else:
 			_mostrar_disparo()
 	else:
-		_mostrar_acciones()
+		# MULTI (hito 5.4-C): si el que actua es el personaje de OTRO, los botones no van aqui: se
+		# le piden a su dueño y esta pantalla se queda esperando. El ATB no corre mientras tanto
+		# (estamos en WAITING_PLAYER), asi que nadie pierde turnos por pensar.
+		var dueno: int = int(_dueno_aliado.get(_player, 0))
+		if dueno != 0:
+			_esperando_a = dueno
+			_ocultar_cajas()
+			_set_log("Turno de %s. Esperando su acción..." % _player.nombre)
+			Net.pedir_accion(dueno, _aliados.find(_player))
+		else:
+			_mostrar_acciones()
 
 
 # Apila en el log los eventos del tick de estados: DoT sufrido (con iconos) y
@@ -2474,7 +2522,20 @@ func _ganar_mana_golpe() -> float:
 	return _player.current_mp - antes
 
 
+# En el ESPEJO las acciones no se resuelven aqui: se le mandan al anfitrion, que es quien lleva la
+# pelea. Devuelve true si ya se ha enviado (y por tanto hay que salir sin hacer nada mas).
+func _enviar_si_espejo(tipo: String) -> bool:
+	if not _espejo:
+		return false
+	_ocultar_cajas()
+	_state = State.ADVANCING
+	Net.enviar_accion({"tipo": tipo, "obj": _target_idx})
+	return true
+
+
 func _accion_atacar() -> void:
+	if _enviar_si_espejo("atacar"):
+		return
 	# Objetivo capturado una vez (ver _usar_habilidad): el golpe va a quien elegiste.
 	var obj: Combatant = _objetivo()
 	# Los enemigos no defienden (de momento): defending = false.
@@ -2544,6 +2605,8 @@ func _accion_atacar() -> void:
 # Accion Defender (KAN-54): mitiga el proximo daño y anula criticos en tu contra
 # hasta tu siguiente turno. Cuesta el turno (no atacas).
 func _accion_defender() -> void:
+	if _enviar_si_espejo("defender"):
+		return
 	_player.spend_energy(DEFEND_ENERGY_COST)   # Defender consume energia (KAN-57)
 	_player_defending = true
 	_set_log("%s se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)" % _player.nombre)
@@ -2569,6 +2632,8 @@ func _mas_rapido() -> Combatant:
 # media: de un grupo escapas tanto como te deje el que mejor te alcanza. Promediar haria que
 # sumarle tres slimes lentos a un lobo veloz te FACILITARA huir, que es absurdo.
 func _accion_huir() -> void:
+	if _enviar_si_espejo("huir"):
+		return
 	var perseguidor: Combatant = _mas_rapido()
 	var chance := StatsMath.flee_chance(
 		float(_player.abilities.agilidad), float(perseguidor.abilities.agilidad))

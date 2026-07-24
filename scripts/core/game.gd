@@ -725,6 +725,13 @@ func pj_de_combatant(c) -> PersonajeData:
 	return _active_player_pjs[i] if i >= 0 and i < _active_player_pjs.size() else null
 
 
+# El inverso: que combatiente de la pelea corresponde a esa ficha. Lo usa el multijugador para
+# saber cual de los que pelean es el personaje de otro humano (y pedirle a EL sus acciones).
+func combatant_de_pj(pj: PersonajeData) -> Combatant:
+	var i: int = _active_player_pjs.find(pj)
+	return _active_player_cs[i] if i >= 0 and i < _active_player_cs.size() else null
+
+
 func olvidar_mazmorra() -> void:
 	memoria_pisos.clear()
 	# El alboroto es de esta expedicion: al volver al pueblo (o morir) se reinicia, no arrastras el

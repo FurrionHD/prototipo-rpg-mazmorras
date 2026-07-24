@@ -1856,6 +1856,17 @@ func _pedir_pelea_dueno(id: int, lugar: String, para: int) -> void:
 func _resolver_pelea(id: int, quien: int, _lugar: String) -> void:
 	var e: Dictionary = _enemigos.get(id, {})
 	var nodo = e.get("nodo") if not e.is_empty() else null
+	# ¿Ese bicho YA lo esta peleando alguien? Entonces la respuesta no es "ocupado", es una
+	# INVITACION A UNIRSE a esa pelea (hito 5.4-C): es lo que espera el jugador cuando ve a su
+	# compañero peleando y va a echar una mano.
+	var anfitrion: int = int(_enem_ocupados.get(id, 0))
+	if anfitrion == 0 and nodo != null and is_instance_valid(nodo) and nodo.get("_combat_triggered"):
+		# Nadie lo tiene reservado pero esta congelado: lo estoy peleando YO (mis propias peleas no
+		# pasan por _enem_ocupados, las monta enemy._start_combat directamente).
+		anfitrion = multiplayer.get_unique_id()
+	if anfitrion != 0 and anfitrion != quien:
+		_responder_pelea(quien, [], false, anfitrion)
+		return
 	_responder_pelea(quien, _reservar_grupo(nodo, id, quien), false)
 
 
@@ -1902,32 +1913,37 @@ func empujar_pelea(nodo: Node, peer: int) -> void:
 # OJO: hay que comparar con MI id, no con 1. "quien == 1" significa "el peticionario es el host",
 # que solo soy YO si yo soy el host; en un dueño CLIENTE, tratarlo como propio se comia la
 # respuesta y el que ataco se quedaba sin pelea (sin error ninguno, que es lo traicionero).
-func _responder_pelea(quien: int, ids: Array, emboscada: bool) -> void:
+func _responder_pelea(quien: int, ids: Array, emboscada: bool, anfitrion: int = 0) -> void:
 	if quien == multiplayer.get_unique_id():
-		_pelea_resuelta(ids, emboscada)
+		_pelea_resuelta(ids, emboscada, anfitrion)
 	elif es_host:
-		_pelea_resuelta.rpc_id(quien, ids, emboscada)
+		_pelea_resuelta.rpc_id(quien, ids, emboscada, anfitrion)
 	else:
-		_rel_respuesta_pelea.rpc_id(1, quien, ids, emboscada)
+		_rel_respuesta_pelea.rpc_id(1, quien, ids, emboscada, anfitrion)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rel_respuesta_pelea(para: int, ids: Array, emboscada: bool) -> void:
+func _rel_respuesta_pelea(para: int, ids: Array, emboscada: bool, anfitrion: int = 0) -> void:
 	if not es_host:
 		return
 	if para == 1:
-		_pelea_resuelta(ids, emboscada)
+		_pelea_resuelta(ids, emboscada, anfitrion)
 	else:
-		_pelea_resuelta.rpc_id(para, ids, emboscada)
+		_pelea_resuelta.rpc_id(para, ids, emboscada, anfitrion)
 
 
 # Corre en EL QUE PELEA: monta el combate contra sus propios espejos, o los METE en la pelea que ya
 # tenga abierta (hito 5.4). Se les puede pasar tal cual a Game.start_combat porque exponen
 # data/current_t/hp_restante y saben morir().
 @rpc("any_peer", "call_remote", "reliable")
-func _pelea_resuelta(ids: Array, emboscada: bool = false) -> void:
+func _pelea_resuelta(ids: Array, emboscada: bool = false, anfitrion: int = 0) -> void:
 	if ids.is_empty():
-		_toast("Ese enemigo ya está peleando con otro.")
+		# Ese bicho ya lo pelea alguien: en vez de rebotar, ME UNO A SU PELEA. Es lo que espera el
+		# jugador al ver a su compañero peleando e ir a ayudarle.
+		if anfitrion != 0:
+			solicitar_unirse(anfitrion)
+		else:
+			_toast("Ese enemigo ya está peleando con otro.")
 		return
 	var nodos: Array = []
 	for i in ids:
@@ -2321,6 +2337,11 @@ func _pedir_unirme(ficha: Dictionary) -> void:
 		_union_denegada.rpc_id(quien)
 		return
 	_dobles[quien] = doble        # de quien es cada doble, para devolverle lo suyo al acabar
+	# Y que la pelea sepa que ese personaje lo mueve EL, no yo: cuando le toque el turno se le
+	# pediran a el los botones (ver combat._begin_player_turn).
+	var suyo: Combatant = Game.combatant_de_pj(doble)
+	if suyo != null and p.has_method("marcar_dueno"):
+		p.marcar_dueno(suyo, quien)
 	if not _pelea_participantes.has(quien):
 		_pelea_participantes.append(quien)
 	_union_ok.rpc_id(quien, _pelea_id, p.roster_para_espejo())
@@ -2359,6 +2380,41 @@ func _instantanea(snap: Dictionary) -> void:
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("aplicar_instantanea"):
 		p.aplicar_instantanea(snap)
+
+
+# --- TURNOS (anfitrion <-> dueño del personaje) ----------------------------------------------
+
+# El anfitrion pide la accion al dueño de ese personaje. Mientras, su pantalla espera: el ATB no
+# corre (State.WAITING_PLAYER), asi que nadie pierde turnos por pensar.
+func pedir_accion(peer: int, idx: int) -> void:
+	if not activo or peer == 0 or multiplayer.multiplayer_peer == null:
+		return
+	_tu_turno.rpc_id(peer, idx)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _tu_turno(idx: int) -> void:
+	if _pelea_sigo == 0:
+		return
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("turno_mio"):
+		p.turno_mio(idx)
+
+
+# El dueño manda lo que ha elegido.
+func enviar_accion(accion: Dictionary) -> void:
+	if not activo or _pelea_anfitrion == 0 or multiplayer.multiplayer_peer == null:
+		return
+	_accion_elegida.rpc_id(_pelea_anfitrion, accion)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _accion_elegida(accion: Dictionary) -> void:
+	if _pelea_id == 0:
+		return
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("aplicar_accion_remota"):
+		p.aplicar_accion_remota(accion)
 
 
 # El anfitrion cierra: los espejos se cierran con el.
