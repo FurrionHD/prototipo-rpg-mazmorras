@@ -370,6 +370,34 @@ Game.meta_de(item)`): la identidad de gameplay la lee `Game._meta(slot, pj)` de 
 así que sin esto el doble llevaba el arma pero **con tier 1 y rareza común**. Es la misma invariante
 que restaura `_realinear_equip_meta` al cargar una partida.
 
+#### ⚠️ Un turno remoto NO se puede quedar colgado
+
+El turno de un personaje de otro humano va por RPC: el anfitrion le pide la accion
+(`_pedir_a_remoto` → `Net.pedir_accion`/`pedir_frase`/`pedir_disparo`), se queda en
+`WAITING_PLAYER` con `_esperando_a` puesto, y el ATB **congelado**. Si ese ida y vuelta se pierde
+—su pantalla aun no estaba montada cuando llego el `_tu_turno`, o su respuesta llego en un estado
+que no cuadraba y `aplicar_accion_remota` la descartaba **en silencio**— la pelea se quedaba
+**muerta para todos**: nadie mas puede actuar porque el ATB espera a alguien que ya no va a
+contestar.
+
+Ahora el anfitrion **recuerda que le pidio** (`_peticion_pendiente`) y se lo **repite** cada
+`REENVIO_TURNO` (4 s) mientras siga esperando (`_heartbeat_remoto`). Tres detalles que lo hacen
+seguro:
+- **No molesta al que esta pensando**: `turno_mio` / `recitar_frase` / `lanzar_conjuro` ignoran la
+  repeticion si ese jugador YA tiene su eleccion delante. Resetearle los menus a media eleccion
+  seria peor que el bug.
+- **Rescata al que la perdio**: si ya habia contestado (o nunca vio su turno), su pantalla no esta
+  en `WAITING_PLAYER` y la repeticion le vuelve a dar el turno.
+- **No espera a un fantasma**: si el que tiene el turno ya no esta en la pelea, sus personajes
+  salen (`sacar_a`) y la pelea sigue.
+
+Y una accion remota descartada ya **se dice por consola** en vez de perderse muda.
+
+⚠️ Esto NO se reproduce en localhost: con latencia casi cero el ida y vuelta nunca falla. Se probo
+forzando el escenario (el que se une **se traga su turno** sin contestar) y comprobando que la
+repeticion lo rescata; y se recorrieron las **4 topologias** (dueño del piso host/cliente × abre la
+pelea el dueño o el que espeja) sin encontrar el fallo de forma natural.
+
 #### El TRASPASO de la pelea
 
 La pelea la **ejecuta una máquina**. Si esa se va, la pelea ya no se cierra para todos: **se

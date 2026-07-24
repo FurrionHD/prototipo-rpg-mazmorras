@@ -6167,6 +6167,12 @@ func unir_aliado_al_combate(pj: PersonajeData) -> bool:
 	var c: Combatant = crear_player_combatant(pj)
 	if c == null:
 		return false
+	# TRAMPA para el bug de "pelea con PUÑOS llevando arma": si la ficha trae arma pero el
+	# combatiente sale con las manos vacias, algo se perdio por el camino y hay que saberlo AQUI,
+	# no descubrirlo en mitad de la pelea por el log de un golpe.
+	if pj.equipped_main != null and c.current_hand_name() == "Puños":
+		push_warning("[multi] %s entra con PUÑOS y su ficha lleva '%s' (ruta_base='%s')" % [
+			pj.nombre, str(pj.equipped_main.get("nombre")), ruta_base_de(pj.equipped_main)])
 	# ENERGIA DE COMBATE. No la calcula crear_player_combatant: se la inyecta start_combat leyendo
 	# el aguante del mapa. Un aliado que se une A MITAD no pasa por ahi, asi que entraba con la
 	# barra a CERO y sin poder usar habilidades ni Defender. aguante_de_grupo tira de la ficha para

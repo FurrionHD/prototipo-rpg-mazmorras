@@ -201,6 +201,15 @@ var _mat_espejo: Dictionary = {}
 var _chips_espejo: Dictionary = {}
 # Estoy parado esperando la accion de otro (el ATB no corre, ver _process y State.WAITING_PLAYER).
 var _esperando_a: int = 0
+# LO ULTIMO QUE LE PEDI a ese remoto, para poder REENVIARSELO si no contesta. Un turno remoto que
+# se pierde por el camino (su _tu_turno no llego porque su pantalla aun no estaba montada, o su
+# respuesta se descarto) dejaba la pelea COLGADA PARA SIEMPRE: nadie mas puede actuar porque el ATB
+# esta congelado esperandole. Con el reenvio, el turno se recupera solo.
+var _peticion_pendiente: Dictionary = {}
+var _espera_acum: float = 0.0
+# Cada cuanto se le repite la peticion a un remoto que no contesta. Generoso a proposito: un humano
+# tarda en decidir, y el reenvio NO le molesta (ver turno_mio, que lo ignora si ya esta eligiendo).
+const REENVIO_TURNO := 4.0
 # REVISION del roster: sube con cada ALTA de combatiente (un refuerzo enemigo, un aliado que se
 # une, una invocacion). Viaja en la instantanea para que un espejo sepa si se ha perdido un alta:
 # si la revision no le cuadra, pide el roster entero y se recompone (ver aplicar_roster).
@@ -633,6 +642,11 @@ func marcar_dueno(c: Combatant, peer: int) -> void:
 func turno_mio(idx: int) -> void:
 	if not _espejo or idx < 0 or idx >= _aliados.size():
 		return
+	# REPETICION del anfitrion (ver _heartbeat_remoto): si YA estoy eligiendo para este mismo
+	# personaje, no se toca nada — resetear los menus a media eleccion seria peor que el bug. Si en
+	# cambio ya habia contestado (o nunca me llego el turno), esto lo recupera.
+	if _state == State.WAITING_PLAYER and _player == _aliados[idx]:
+		return
 	_player = _aliados[idx]
 	# El maniqui solo trae lo que se PINTA, asi que no tiene ni habilidades ni hechizos y los
 	# submenus salian vacios ("solo deja hacer basicos"). Se los pongo desde MI PROPIA ficha —la de
@@ -651,12 +665,71 @@ func turno_mio(idx: int) -> void:
 	_mostrar_acciones()
 
 
+# LE PIDO ALGO A UN REMOTO (su turno, una frase, el disparo) y me quedo esperando. Se recuerda QUE
+# le pedi para poder REPETIRSELO si no contesta: ver _heartbeat_remoto. Un turno remoto perdido
+# congelaba la pelea entera para todos.
+func _pedir_a_remoto(dueno: int, pet: Dictionary) -> void:
+	_esperando_a = dueno
+	_peticion_pendiente = pet
+	_espera_acum = 0.0
+	_enviar_peticion()
+
+
+func _enviar_peticion() -> void:
+	if _esperando_a == 0 or _peticion_pendiente.is_empty():
+		return
+	var pet: Dictionary = _peticion_pendiente
+	match String(pet.get("tipo", "")):
+		"accion":
+			Net.pedir_accion(_esperando_a, int(pet.get("idx", 0)))
+		"frase":
+			Net.pedir_frase(_esperando_a, int(pet.get("idx", 0)), pet.get("opciones", []),
+				String(pet.get("nombre", "")), int(pet.get("largo", 1)))
+		"disparo":
+			Net.pedir_disparo(_esperando_a, String(pet.get("nombre", "")))
+
+
+# Deja de esperar (llego su respuesta, o se fue).
+func _fin_de_espera() -> void:
+	_esperando_a = 0
+	_peticion_pendiente = {}
+	_espera_acum = 0.0
+
+
+# HEARTBEAT: mientras espero a un remoto, le repito la peticion cada REENVIO_TURNO. Si su pantalla
+# no llego a mostrarle el turno (o su respuesta se perdio), esto lo despierta; y si ya esta
+# eligiendo, el reenvio se ignora al otro lado y no le molesta. Sin esto, cualquier mensaje perdido
+# dejaba la pelea muerta: el ATB esta congelado esperando a alguien que no va a contestar.
+func _heartbeat_remoto(delta: float) -> void:
+	if _esperando_a == 0 or _state != State.WAITING_PLAYER or _peticion_pendiente.is_empty():
+		_espera_acum = 0.0
+		return
+	_espera_acum += delta
+	if _espera_acum < REENVIO_TURNO:
+		return
+	_espera_acum = 0.0
+	# ¿Sigue en la pelea? Si se fue, sus personajes salen y la pelea continua (no se espera a un
+	# fantasma). Si sigue, se le repite lo que le pedi.
+	if not Net.esta_en_mi_pelea(_esperando_a):
+		var quien: int = _esperando_a
+		_fin_de_espera()
+		sacar_a(quien)
+		return
+	print("[combate] repito la peticion a %d (%s): no ha contestado en %.0f s" % [
+		_esperando_a, String(_peticion_pendiente.get("tipo", "?")), REENVIO_TURNO])
+	_enviar_peticion()
+
+
 # Corre en EL ANFITRION: ha llegado la accion que eligio el dueño. Se ejecuta como si la hubiera
 # pulsado aqui, reusando las mismas funciones (asi el combate es UNO, sin reglas paralelas).
 func aplicar_accion_remota(accion: Dictionary) -> void:
 	if _espejo or _state != State.WAITING_PLAYER or _esperando_a == 0:
+		# Descartarla EN SILENCIO era lo que dejaba el turno colgado sin dejar rastro. Ahora se dice,
+		# y el heartbeat volvera a pedirsela si de verdad seguimos esperando.
+		print("[combate] accion remota IGNORADA (%s): espejo=%s estado=%d esperando_a=%d" % [
+			String(accion.get("tipo", "?")), str(_espejo), _state, _esperando_a])
 		return
-	_esperando_a = 0
+	_fin_de_espera()
 	var obj: int = int(accion.get("obj", -1))
 	if obj >= 0 and obj < _enemies.size():
 		_target_idx = obj
@@ -1651,6 +1724,7 @@ func _process(delta: float) -> void:
 	if _espejo:
 		return
 	_difundir_atb(delta)
+	_heartbeat_remoto(delta)   # que un turno de otro no pueda quedarse colgado para siempre
 	# Pausa de lectura tras la accion del enemigo: cuenta atras y reanuda el ATB.
 	if _state == State.PAUSED:
 		_pause_left -= delta
@@ -1759,10 +1833,9 @@ func _begin_player_turn() -> void:
 			sacar_a(dueno)
 			return
 		if dueno != 0:
-			_esperando_a = dueno
 			_ocultar_cajas()
 			_set_log("Turno de %s. Esperando su acción..." % _player.nombre)
-			Net.pedir_accion(dueno, _aliados.find(_player))
+			_pedir_a_remoto(dueno, {"tipo": "accion", "idx": _aliados.find(_player)})
 		else:
 			_mostrar_acciones()
 
@@ -1987,11 +2060,11 @@ func _mostrar_test(idx: int) -> void:
 	# si acerto sigo siendo yo, asi que la validacion no se va de esta maquina.
 	var dueno: int = int(_dueno_aliado.get(_player, 0))
 	if dueno != 0:
-		_esperando_a = dueno
 		_ocultar_cajas()
 		_set_log("🔮 %s recita %s (%d/%d). Esperando..." % [
 			_player.nombre, _cast_spell.nombre, idx + 1, _cast_spell.longitud()])
-		Net.pedir_frase(dueno, idx, opciones, _cast_spell.nombre, _cast_spell.longitud())
+		_pedir_a_remoto(dueno, {"tipo": "frase", "idx": idx, "opciones": opciones,
+			"nombre": _cast_spell.nombre, "largo": _cast_spell.longitud()})
 		return
 	_pintar_test(idx, opciones, _cast_spell.nombre, _cast_spell.longitud(), correcta)
 
@@ -2017,6 +2090,9 @@ func _pintar_test(idx: int, opciones: Array, nombre: String, largo: int, correct
 # ESPEJO: me toca recitar una frase de MI personaje. El examen lo ha sorteado el anfitrion.
 func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int) -> void:
 	if not _espejo:
+		return
+	# Repeticion del anfitrion: si ya tengo el examen delante, no se re-sortea (ver turno_mio).
+	if _state == State.WAITING_PLAYER and _cast_box != null and _cast_box.visible:
 		return
 	_state = State.WAITING_PLAYER
 	_pintar_test(idx, opciones, nombre, largo, "")
@@ -2064,10 +2140,9 @@ func _mostrar_disparo() -> void:
 	# soltarlo, que para eso tiene los mismos bloques clicables).
 	var dueno: int = int(_dueno_aliado.get(_player, 0))
 	if dueno != 0:
-		_esperando_a = dueno
 		_ocultar_cajas()
 		_set_log("%s tiene el conjuro listo. Esperando..." % _player.nombre)
-		Net.pedir_disparo(dueno, _cast_spell.nombre)
+		_pedir_a_remoto(dueno, {"tipo": "disparo", "nombre": _cast_spell.nombre})
 		return
 	_pintar_disparo(_cast_spell.nombre)
 
@@ -2089,6 +2164,8 @@ func _pintar_disparo(nombre: String) -> void:
 func lanzar_conjuro(nombre: String) -> void:
 	if not _espejo:
 		return
+	if _state == State.WAITING_PLAYER and _cast_box != null and _cast_box.visible:
+		return   # repeticion del anfitrion: ya tengo el boton delante
 	_state = State.WAITING_PLAYER
 	_pintar_disparo(nombre)
 
@@ -3231,7 +3308,7 @@ func sacar_a(peer: int) -> void:
 		# la pelea se queda esperando eternamente una accion que no va a llegar.
 		_player = _aliados_vivos()[0]
 		if _esperando_a == peer:
-			_esperando_a = 0
+			_fin_de_espera()
 		_state = State.ADVANCING
 	_set_log("Tu compañero se ha desconectado y sus personajes dejan la pelea.")
 	_update_hp()
