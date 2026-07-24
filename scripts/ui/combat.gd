@@ -219,6 +219,12 @@ var _rev_pedida := false
 # Cada cuanto se les manda a los espejos como van las barras de accion (20 Hz, ver _difundir_atb).
 const ATB_TICK := 0.05
 var _atb_acum := 0.0
+# ESPEJO: la barra llega a 20 Hz, pero se pinta a 60. Si _gauge se escribiera de golpe con cada
+# paquete (como se hacia antes), la barra iba a ESCALONES —el que entra despues la veia a saltos—.
+# Ahora el paquete solo fija el OBJETIVO y _process acerca _gauge a el cada frame, igual que
+# remote_player interpola su posicion (mismo lerp exponencial y una SUAVIZADO analoga).
+var _gauge_objetivo: Dictionary = {}
+const SUAVIZADO_ATB := 14.0
 
 enum State { ADVANCING, WAITING_PLAYER, PAUSED, FINISHED }
 var _state: State = State.ADVANCING
@@ -829,9 +835,28 @@ func aplicar_atb(ratios: PackedFloat32Array) -> void:
 		return
 	var n: int = _aliados.size()
 	for i in mini(n, ratios.size()):
-		_gauge[_aliados[i]] = float(ratios[i]) * UMBRAL
+		_fijar_objetivo_atb(_aliados[i], float(ratios[i]) * UMBRAL)
 	for i in mini(_enemies.size(), ratios.size() - n):
-		_gauge[_enemies[i]] = float(ratios[n + i]) * UMBRAL
+		_fijar_objetivo_atb(_enemies[i], float(ratios[n + i]) * UMBRAL)
+
+
+# Guarda el destino de la barra de un combatiente. El primer valor se pone TAL CUAL (que la barra
+# aparezca ya donde va, sin subir desde 0 al entrar); a partir de ahi _interpolar_atb_espejo la
+# acerca suave. Mismo espiritu que remote_player.ir_a con su primer paquete.
+func _fijar_objetivo_atb(c, valor: float) -> void:
+	_gauge_objetivo[c] = valor
+	if not _gauge.has(c):
+		_gauge[c] = valor
+
+
+# ESPEJO: acerca cada barra a su objetivo, un lerp exponencial por frame (tapa el hueco entre los
+# paquetes de 20 Hz). Corre en _process ANTES de pintar la linea de tiempo.
+func _interpolar_atb_espejo(delta: float) -> void:
+	if delta <= 0.0:
+		return
+	var t: float = 1.0 - exp(-SUAVIZADO_ATB * delta)
+	for c in _gauge_objetivo:
+		_gauge[c] = lerpf(float(_gauge.get(c, 0.0)), float(_gauge_objetivo[c]), t)
 
 
 func _volcar(lista: Array, valores: Array) -> void:
@@ -1718,6 +1743,10 @@ func _dev_swap_weapon(main: bool) -> void:
 
 
 func _process(delta: float) -> void:
+	# ESPEJO: acercar las barras a su objetivo ANTES de pintar, para que la linea de tiempo salga
+	# suave y no a escalones de 20 Hz.
+	if _espejo:
+		_interpolar_atb_espejo(delta)
 	_update_timeline()  # refleja el orden de turnos siempre
 	# ESPEJO (hito 5.4-C): esta pantalla no SIMULA nada, solo pinta la pelea que lleva otra
 	# maquina. Ni ATB, ni turnos, ni resolucion: todo eso llega por instantaneas.
