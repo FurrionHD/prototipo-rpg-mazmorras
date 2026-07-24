@@ -5596,6 +5596,15 @@ func stat_total(s: String, pj: PersonajeData = null) -> int:
 	var p: PersonajeData = pj if pj != null else lider()
 	return floori(float(p.ability_internal[s]))
 
+# CONSOLIDADO de una habilidad: lo que quedo fijado en el ULTIMO altar. A diferencia de
+# stat_total (el interno oculto, que crece con cada golpe), esto solo cambia al descansar. Y a
+# diferencia del VISIBLE (consolidado - base_nivel, que cae a 0 al subir de nivel), NO se resetea:
+# por eso sirve para magnitudes que deben crecer solo al consolidar pero sin desplomarse al ascender
+# —hoy, el aguante maximo (ver player._calc_max_aguante)—.
+func stat_consolidado(s: String, pj: PersonajeData = null) -> int:
+	var p: PersonajeData = pj if pj != null else lider()
+	return floori(float(p.ability_consolidado[s]))
+
 
 # ============================================================
 #  SUBIR DE NIVEL (estilo DanMachi)

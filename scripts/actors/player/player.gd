@@ -326,13 +326,15 @@ func _physics_process(delta: float) -> void:
 		Net.enviar_estado(global_position, _facing, _sequito.posiciones_red())
 
 
-# Aguante maximo segun la Resistencia y la Agilidad. Usa el TOTAL acumulado (oculto), NO el
-# visible: el visible vuelve a 0 al SUBIR DE NIVEL, y con el visible el aguante maximo se
-# desplomaba a base_stamina en cada ascenso. Mismo criterio que la recoleccion y el reto.
+# Aguante maximo segun la Resistencia y la Agilidad. Usa lo CONSOLIDADO (lo del ultimo altar), no
+# el total oculto: ese crece con CADA golpe (Game.ganar escribe en ability_internal), asi que el
+# aguante maximo subia en vivo mientras el resto de stats esperaba al altar —una incoherencia que
+# se veia jugando—. El consolidado tampoco se desploma al subir de nivel (a diferencia del visible),
+# asi que crece solo al descansar sin caer a base_stamina en cada ascenso. Ver Game.stat_consolidado.
 func _calc_max_aguante(pj: PersonajeData = null) -> float:
 	return base_stamina \
-		+ Game.stat_total("resistencia", pj) * stamina_per_resistencia \
-		+ Game.stat_total("agilidad", pj) * stamina_per_agilidad
+		+ Game.stat_consolidado("resistencia", pj) * stamina_per_resistencia \
+		+ Game.stat_consolidado("agilidad", pj) * stamina_per_agilidad
 
 
 # El aguante ACTUAL de un companero, concretando el -1 (= "nunca ha corrido" -> lleno).
