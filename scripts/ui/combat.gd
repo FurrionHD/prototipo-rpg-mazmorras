@@ -1742,6 +1742,11 @@ func _begin_player_turn() -> void:
 		# le piden a su dueño y esta pantalla se queda esperando. El ATB no corre mientras tanto
 		# (estamos en WAITING_PLAYER), asi que nadie pierde turnos por pensar.
 		var dueno: int = int(_dueno_aliado.get(_player, 0))
+		if dueno != 0 and not Net.esta_en_mi_pelea(dueno):
+			# Ya no esta en la pelea (se fue, o su pantalla dejo de espejarme): pedirle la accion
+			# seria esperar para siempre. Sus personajes salen y la pelea sigue.
+			sacar_a(dueno)
+			return
 		if dueno != 0:
 			_esperando_a = dueno
 			_ocultar_cajas()
@@ -3211,10 +3216,12 @@ func sacar_a(peer: int) -> void:
 		_end(false, true)   # no queda nadie: la pelea se cierra
 		return
 	if _huidos.has(_player):
+		# El turno lo tenia el que ya no esta: pasa a alguien en pie y que siga corriendo el ATB, o
+		# la pelea se queda esperando eternamente una accion que no va a llegar.
 		_player = _aliados_vivos()[0]
 		if _esperando_a == peer:
 			_esperando_a = 0
-			_state = State.ADVANCING   # el turno era suyo: que siga corriendo el ATB
+		_state = State.ADVANCING
 	_set_log("Tu compañero se ha desconectado y sus personajes dejan la pelea.")
 	_update_hp()
 

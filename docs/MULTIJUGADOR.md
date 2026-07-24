@@ -315,6 +315,30 @@ salían tres bugs con la misma raíz. Lo que se hizo:
     cerrar). Por eso el que huye pasa antes por `Game.volcar_desgaste_en_ficha()`, o se iría con la
     vida con la que entró.
 
+#### ⚠️ UNA PANTALLA POR MÁQUINA (el cuelgue del playtest)
+
+`Game.combate_activo()` es `not _active_enemies.is_empty()`, y **en un ESPEJO eso es `false`**: los
+bichos los lleva la máquina que ejecuta la pelea. Como los guardias de "¿le abro una pelea?"
+preguntaban por ahí, a alguien que estaba espejando **se le montaba OTRA pelea local encima**: se
+le robaba la pantalla, y el anfitrión se quedaba **esperando para siempre** un turno suyo que ya
+nunca iba a llegar (en la captura: una ventana peleando sola contra un Slime, y la otra parada en
+"Turno de X. Esperando su acción...").
+
+- `Game.hay_pelea_en_pantalla()` (`_active_layer != null`) es el predicado correcto para eso, y lo
+  usan `enemy.gd` (espera de hueco) y `spawn_zone` (los partos también se alejan del que espeja:
+  tampoco ve venir al que le nace al lado).
+- `Game.start_combat` **rechaza** si ya hay una capa montada. Invariante duro, sin excepciones.
+- Y al que le alcanza un bicho mientras espeja, ese bicho **se une a la pelea que está peleando**
+  (`Net.refuerzo_a_mi_pelea`, que reserva el grupo y lo reenvía a su anfitrión) en vez de abrirle
+  una nueva.
+- Red de seguridad por si algo se cuela: antes de pedirle el turno a alguien se comprueba que
+  **siga en la pelea** (`Net.esta_en_mi_pelea`); si no, sus personajes salen (`sacar_a`) y la pelea
+  continúa en vez de colgarse.
+
+Y un ruido que tapaba el log: `deserializar_equipo` hacía `load("")` por **cada ranura vacía de
+cada ficha** que viaja por la red — decenas de `Resource file not found: res://` en rojo. Una
+ranura vacía es normal, no un error: ahora se corta antes.
+
 #### El TRASPASO de la pelea
 
 La pelea la **ejecuta una máquina**. Si esa se va, la pelea ya no se cierra para todos: **se

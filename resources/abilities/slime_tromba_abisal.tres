@@ -21,6 +21,6 @@ descripcion = "Se descuelga sobre ti como una columna de agua negra. No pega fue
 coste_energia = 0.0
 golpes_min = 2
 golpes_max = 3
-efectos = [SubResource("SA_lento"), SubResource("SA_peg")]
 reparto_por_golpe = true
+efectos = [SubResource("SA_lento"), SubResource("SA_peg")]
 cooldown = 4

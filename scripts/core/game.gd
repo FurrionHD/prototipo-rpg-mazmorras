@@ -3372,7 +3372,14 @@ func serializar_equipo(item: Resource) -> Dictionary:
 
 # Reconstruye una pieza serializada EN MI baul (owned_*), con su meta. null si la ruta ya no vale.
 func deserializar_equipo(d: Dictionary) -> Resource:
-	var base: Resource = load(str(d.get("ruta", "")))
+	# Ranura VACIA: serializar_equipo devuelve {} para lo que no existe (y para lo que no tiene
+	# ruta_base), asi que aqui llegan diccionarios sin ruta de forma normal — no es un error. Sin
+	# este corte, load("") escupe un "Resource file not found: res://" por cada ranura vacia de cada
+	# ficha que viaja por la red, y en una pelea compartida eso son decenas de lineas rojas.
+	var ruta: String = str(d.get("ruta", ""))
+	if ruta == "":
+		return null
+	var base: Resource = load(ruta)
 	if base == null:
 		return null
 	var item: Resource = crear_item(base, int(d.get("tier", 1)), int(d.get("rareza", 0)),
@@ -5991,6 +5998,15 @@ func combate_activo() -> bool:
 	return not _active_enemies.is_empty()
 
 
+# ¿Tengo una pantalla de combate delante? Es distinto de combate_activo(): un ESPEJO (la pelea de
+# otro humano) no tiene _active_enemies —los bichos los lleva la maquina que la ejecuta— pero estas
+# igual de metido en una pelea. Preguntar por combate_activo() para "¿le abro una pelea?" dejaba
+# que a alguien que estaba espejando le montaran OTRA pelea local encima: se le robaba la pantalla y
+# el anfitrion se quedaba esperando para siempre un turno suyo que ya no iba a llegar.
+func hay_pelea_en_pantalla() -> bool:
+	return _active_layer != null
+
+
 # Mata a UN enemigo del combate: le apunta el credito de guardian (si lo era) y lo convierte en
 # cadaver. Extraido del cierre del combate porque ahora tambien se usa a MITAD de pelea: cuando un
 # refuerzo reutiliza el hueco de un cadaver (hito 5.4), el nodo al que desplaza ya esta muerto y hay
@@ -6085,6 +6101,11 @@ func unir_enemigo_al_combate(nodo: Node) -> bool:
 func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 	if not _active_enemies.is_empty() or enemy_nodes.is_empty():
 		return  # ya hay un combate o faltan datos
+	# UNA PANTALLA POR MAQUINA, sin excepciones. Sin esto, alguien que estuviera espejando la pelea
+	# de otro (donde _active_enemies esta vacio) podia recibir OTRA pelea encima: dos pantallas
+	# apiladas, y el anfitrion esperando eternamente una accion suya.
+	if _active_layer != null:
+		return
 
 	# Se filtran aqui los que no traigan EnemyData: abajo se les pide crear_combatant() y sin
 	# data reventaria a media construccion, con medio combate ya montado.

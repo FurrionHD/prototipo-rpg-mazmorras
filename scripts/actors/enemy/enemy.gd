@@ -219,7 +219,9 @@ func _physics_process(delta: float) -> void:
 	# pelea termina sin que entrara, vuelvo a la vida normal (y como sigo pegado, el contacto de
 	# abajo abrira una pelea nueva).
 	if _esperando_hueco:
-		if not Game.combate_activo():
+		# Vale igual si la pelea es MIA o la esta espejando el jugador: mientras haya pantalla
+		# delante, sigo llamando a la puerta.
+		if not Game.hay_pelea_en_pantalla():
 			_esperando_hueco = false
 		else:
 			velocity = Vector2.ZERO
@@ -1001,6 +1003,16 @@ func _start_combat(enemy_initiated: bool) -> void:
 			_esperando_hueco = true    # la pelea esta llena: espero al lado a que caiga alguien
 			velocity = Vector2.ZERO
 			_cancelar_aviso()
+		return
+	# Al que ESPEJA la pelea de otro no se le abre una pelea nueva (le robaria la pantalla y dejaria
+	# al anfitrion esperando su turno para siempre): me uno a LA SUYA, que es donde esta peleando.
+	if Net.espejando():
+		if Net.refuerzo_a_mi_pelea(self):
+			_combat_triggered = true
+		else:
+			_esperando_hueco = true    # no cabia: espero pegado como en cualquier pelea llena
+		velocity = Vector2.ZERO
+		_cancelar_aviso()
 		return
 	var grupo: Array = vecinos()
 	# Se congela al GRUPO ENTERO, no solo a mi: los vecinos entran a la pelea, asi que no pueden

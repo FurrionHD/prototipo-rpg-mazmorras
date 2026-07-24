@@ -2316,12 +2316,34 @@ func registrar_pelea() -> void:
 # cierra: se le pasa a otro de los que estan dentro y sigue donde estaba. Es la misma pieza para
 # los dos casos, por eso se construye una vez.
 
+# UN BICHO MIO me alcanza mientras estoy ESPEJANDO la pelea de otro. No se me abre una pelea nueva
+# (me robaria la pantalla y dejaria al anfitrion esperando mi turno): se mete en la que estoy
+# peleando. Solo pasa cuando YO simulo el piso; si no, el bicho es un espejo y su camino ya pasa por
+# el dueño (empujar_pelea -> _pelea_resuelta, que tambien reenvia).
+# Devuelve false si no hay a quien mandarselo (entonces el que llama lo deja esperando pegado).
+func refuerzo_a_mi_pelea(nodo: Node) -> bool:
+	if not activo or not espejando() or _pelea_anfitrion == 0:
+		return false
+	if nodo == null or not nodo.has_meta("net_id"):
+		return false
+	var ids: Array = _reservar_grupo(nodo, int(nodo.get_meta("net_id")), _pelea_anfitrion)
+	if ids.is_empty():
+		return false
+	_refuerzos_para_mi_pelea.rpc_id(_pelea_anfitrion, ids)
+	return true
+
+
 # El nodo que YO tengo para un net_id (publico: lo usa Game al recoger una pelea).
 func nodo_de_id(id: int):
 	return _nodo_de_id(id)
 
 
 # ¿A quien le puedo pasar la pelea? Al primero que este dentro (0 = a nadie).
+# ¿Ese peer sigue dentro de la pelea que ejecuto yo? Si no, no tiene sentido pedirle su turno.
+func esta_en_mi_pelea(peer: int) -> bool:
+	return _pelea_participantes.has(peer)
+
+
 func heredero_de_pelea() -> int:
 	return int(_pelea_participantes[0]) if not _pelea_participantes.is_empty() else 0
 
