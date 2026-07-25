@@ -38,6 +38,12 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("craft_menu")
 
+	# MULTI: refresco en vivo cuando el compañero toca el baul o su reserva (ver forge_menu).
+	if Net.has_signal("hogar_cambiado"):
+		Net.hogar_cambiado.connect(_on_cambio_externo)
+	if Net.has_signal("reservas_cambiadas"):
+		Net.reservas_cambiadas.connect(_on_cambio_externo)
+
 	# Misma forma que el resto de menus: cabecera fija, lista con su scroll (las recetas) y
 	# detalle con el suyo (los contadores de material, que se hacen largos).
 	var m: Dictionary = MenuScaffold.construir(self, "BOTICARIA",
@@ -54,12 +60,8 @@ func abrir() -> void:
 	# No abrir sobre un combate/extraccion ni con el panel DEBUG abierto.
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
-	# MULTIJUGADOR: candado del taller (uno a la vez). Ver forge_menu.abrir().
-	if Net.activo and not await Net.abrir_taller():
-		var hud: Node = get_tree().get_first_node_in_group("hud")
-		if hud != null and hud.has_method("mostrar_toast"):
-			hud.mostrar_toast("El taller está ocupado: tu compañero está crafteando.")
-		return
+	# MULTI: ya no se coge el candado al abrir (los dos a la vez); se coge solo al fabricar, y lo
+	# seleccionado se RESERVA para el otro. Ver forge_menu.
 	_tier = 1
 	_tipo = 0
 	_sel = 0
@@ -102,7 +104,18 @@ func _cerrar() -> void:
 	_root.visible = false
 	Game.cerrar_menu(self)
 	if Net.activo:
-		Net.cerrar_taller()
+		Net.liberar_mis_reservas()
+
+
+func _on_cambio_externo() -> void:
+	if _root != null and _root.visible:
+		_rebuild()
+
+
+func _ocupado() -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast("Un momento: tu compañero está creando algo justo ahora.")
 
 
 func _input(event: InputEvent) -> void:
@@ -131,6 +144,8 @@ func _rebuild() -> void:
 
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 	if _recetas.is_empty():
+		if Net.activo:
+			Net.reservar({})   # sin receta no reservo nada
 		var l := Label.new()
 		l.text = "(no hay recetas aquí todavía)"
 		_detail.add_child(l)
@@ -193,7 +208,7 @@ func _hay_material_para(r: RecipeData) -> bool:
 	for ing in r.ingredientes:
 		if ing == null or ing.material == null:
 			continue
-		if Game.unidades_material_en_hogar(ing.material) < ing.unidades:
+		if Game.disponible_unidades_material_en_hogar(ing.material) < ing.unidades:
 			return false
 	return true
 
@@ -220,6 +235,8 @@ func _build_detail(r: RecipeData) -> void:
 
 	if _seleccion.size() != r.ingredientes.size():
 		_reset_seleccion()
+	# MULTI: capar mi seleccion a lo disponible y publicarla como reserva (el otro la ve apartada).
+	_capar_y_publicar(r)
 
 	_detail.add_child(HSeparator.new())
 	var cab := Label.new()
@@ -262,7 +279,7 @@ func _build_detail(r: RecipeData) -> void:
 		_detail.add_child(head)
 
 		for cal in cals:
-			var disp: int = Game.items_calidad_en_hogar(ing.material, int(cal))
+			var disp: int = Game.disponible_calidad_en_hogar(ing.material, int(cal))   # resta lo reservado por el otro
 			if disp <= 0:
 				continue   # no tienes de esta calidad: no la muestres
 			var cur: int = int((_seleccion[i] as Dictionary).get(cal, 0))
@@ -399,7 +416,7 @@ func _set_sel(i: int, cal: int, n: int) -> void:
 	var ing = _recetas[_sel].ingredientes[i]
 	if ing == null or ing.material == null:
 		return
-	var disp: int = Game.items_calidad_en_hogar(ing.material, int(cal))
+	var disp: int = Game.disponible_calidad_en_hogar(ing.material, int(cal))
 	var d: Dictionary = _seleccion[i]
 	var nuevo: int = clampi(n, 0, disp)
 	if nuevo == int(d.get(cal, 0)):
@@ -425,10 +442,39 @@ func _on_fabricar() -> void:
 	var receta: RecipeData = _recetas[_sel]
 	# El nombre ANTES de fabricar/resetear (la seleccion se limpia despues).
 	var nombre: String = receta.resultado.nombre if receta.resultado != null else "poción"
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		_rebuild()
+		return
 	var total: int = Game.craftear_con(receta, _seleccion)
+	if Net.activo:
+		Net.cerrar_taller()
+		Net.liberar_mis_reservas()   # consumido: suelto la reserva
 	if total > 0:
 		_decir("Fabricas %d × %s. Está en tu bolsa." % [total, nombre])
 		_reset_seleccion()   # los materiales cambiaron: empezar limpio
 	else:
 		_decir("No te llega el material.", false)
 	_rebuild()
+
+
+# MULTI: capa mi seleccion a lo disponible (por si el compañero reservó de lo mismo) y la publica
+# como reserva, aplanando _seleccion a {"mat_id|cal": count}.
+func _capar_y_publicar(r: RecipeData) -> void:
+	var claim: Dictionary = {}
+	for i in mini(r.ingredientes.size(), _seleccion.size()):
+		var ing = r.ingredientes[i]
+		if ing == null or ing.material == null:
+			continue
+		var sel: Dictionary = _seleccion[i]
+		for cal in sel.keys():
+			var disp: int = Game.disponible_calidad_en_hogar(ing.material, int(cal))
+			var n: int = clampi(int(sel[cal]), 0, disp)
+			if n <= 0:
+				sel.erase(cal)
+			else:
+				sel[cal] = n
+				var clave: String = "%s|%d" % [ing.material.id, int(cal)]
+				claim[clave] = int(claim.get(clave, 0)) + n
+	if Net.activo:
+		Net.reservar(claim)

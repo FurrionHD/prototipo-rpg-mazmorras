@@ -128,6 +128,13 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("forge_menu" if not _es_carpintero() else "carpinteria_menu")
 
+	# MULTI: si el compañero deposita, craftea o reserva material, hay que redibujar para que el
+	# "disponible" cambie en vivo (los dos estamos en la profesion a la vez).
+	if Net.has_signal("hogar_cambiado"):
+		Net.hogar_cambiado.connect(_on_cambio_externo)
+	if Net.has_signal("reservas_cambiadas"):
+		Net.reservas_cambiadas.connect(_on_cambio_externo)
+
 	var titulo: String = "CARPINTERO" if _es_carpintero() else "HERRERO"
 	var subtitulo: String = "Se asierra la madera en tablones y se forjan los bastones. Todo sale de lo que tengas guardado en el Hogar." if _es_carpintero() \
 		else "Primero se funde el metal, después se golpea. Todo sale de lo que tengas guardado en el Hogar."
@@ -153,11 +160,9 @@ func _ready() -> void:
 func abrir() -> void:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
-	# MULTIJUGADOR: coger el CANDADO del taller (uno craftea a la vez). Si tu companero lo tiene,
-	# "ocupado". Con el candado, tu Game.almacen_materiales pasa a ser el baul compartido de verdad.
-	if Net.activo and not await Net.abrir_taller():
-		_ocupado()
-		return
+	# MULTI: ya NO se coge el candado al abrir -> los dos podeis estar en la profesion a la vez. El
+	# candado se coge solo el instante de crear (ver _crear_con_taller), y mientras tanto lo que
+	# seleccionas se RESERVA para que el otro lo vea apartado (ver _capar_y_publicar_seleccion).
 	_tab = 0
 	_sub = 0
 	_sel = 0
@@ -171,14 +176,35 @@ func abrir() -> void:
 func _ocupado() -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("El taller está ocupado: tu compañero está crafteando.")
+		hud.mostrar_toast("Un momento: tu compañero está creando algo justo ahora.")
 
 
 func _cerrar() -> void:
 	_root.visible = false
 	Game.cerrar_menu(self)
 	if Net.activo:
-		Net.cerrar_taller()   # devuelve el baul al host y suelta el candado
+		Net.liberar_mis_reservas()   # suelto lo que tenia seleccionado: vuelve al pool del otro
+
+
+# MULTI: el compañero tocó el baul o su reserva -> redibujo para que el disponible cambie en vivo.
+func _on_cambio_externo() -> void:
+	if _root != null and _root.visible:
+		_rebuild()
+
+
+# Coge el candado, ejecuta la accion de crafteo y lo suelta. Devuelve false si el compañero lo tiene
+# justo en ese instante (crear es casi instantaneo, asi que el choque es rarisimo). En solitario no
+# hay candado. La reserva se PUBLICA aparte (mientras seleccionas); esto es solo el consumo.
+func _crear_con_taller(accion: Callable) -> bool:
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		return false
+	accion.call()
+	if Net.activo:
+		Net.cerrar_taller()
+	return true
+
+
 
 
 func _input(event: InputEvent) -> void:
@@ -228,6 +254,10 @@ func _rebuild() -> void:
 	# Solo forjar/mejorar/deshacer tienen cuadricula de piezas; el resto ocupa el ancho entero.
 	_scroll_lista.visible = id in TABS_CON_GRID
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
+	# Fuera de la forja no reservo nada (refinar/mejorar/deshacer son accion instantanea): suelto lo
+	# que hubiera reservado. En la forja lo publica _capar_y_publicar_seleccion con la seleccion actual.
+	if Net.activo and id != "forjar":
+		Net.reservar({})
 
 	match id:
 		"fundir": _build_refinar(Refinado.LINGOTE)    # mineral -> lingote
@@ -392,11 +422,12 @@ func _build_refinar(que: int) -> void:
 	# oficio). Cada fila trae su stepper editable + "Crear".
 	var tengo_algo: bool = false
 	for cal in CALIDADES:
-		var tengo: int = Game.items_calidad_en_hogar(origen, int(cal))
+		# DISPONIBLE (resta lo que el compañero tiene reservado): lo que puedo seleccionar de verdad.
+		var tengo: int = Game.disponible_calidad_en_hogar(origen, int(cal))
 		if int(cal) == MaterialItem.Calidad.PURO and tengo <= 0:
 			continue
 		tengo_algo = tengo_algo or tengo > 0
-		var salen: int = Game.refinados_posibles(origen, int(cal), por_uno)
+		var salen: int = tengo / maxi(1, por_uno)
 		var c: int = int(cal)
 		MenuScaffold.fila_refino(_content, "%s  ·  tienes %d  (máx %d)" % [_cal_txt(c), tengo, salen],
 			salen, func(n: int) -> void: _on_refinar(que, c, n))
@@ -503,11 +534,18 @@ func _on_refinar(que: int, cal: int, veces: int) -> void:
 	if origen == null:
 		return
 	_metal_idx = _fila_de(metales, clave, origen)
+	# MULTI: coger el candado solo este instante (los dos podeis estar en la profesion a la vez).
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		_rebuild()
+		return
 	var n: int = 0
 	match que:
 		Refinado.CHAPA: n = Game.batir_chapa(origen, cal, veces)
 		Refinado.HEBILLAS: n = Game.hacer_hebillas(origen, cal, veces)
 		_: n = Game.fundir(origen, cal, veces)
+	if Net.activo:
+		Net.cerrar_taller()
 	if n > 0:
 		_decir("Sacas %d x %s de calidad %s." % [n,
 			metales[_metal_idx][_clave_destino(que)].nombre.to_lower(),
@@ -565,11 +603,11 @@ func _build_aserrar() -> void:
 
 	var tengo_algo: bool = false
 	for cal in CALIDADES:
-		var tengo: int = Game.items_calidad_en_hogar(origen, int(cal))
+		var tengo: int = Game.disponible_calidad_en_hogar(origen, int(cal))
 		if int(cal) == MaterialItem.Calidad.PURO and tengo <= 0:
 			continue
 		tengo_algo = tengo_algo or tengo > 0
-		var salen: int = Game.refinados_posibles(origen, int(cal), por_uno)
+		var salen: int = tengo / maxi(1, por_uno)
 		var c: int = int(cal)
 		MenuScaffold.fila_refino(_content, "%s  ·  tienes %d  (máx %d)" % [_cal_txt(c), tengo, salen],
 			salen, func(n: int) -> void: _on_aserrar(c, n))
@@ -620,7 +658,13 @@ func _on_aserrar(cal: int, veces: int) -> void:
 	var origen: MaterialData = _madera_elegida()
 	if origen == null:
 		return
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		_rebuild()
+		return
 	var n: int = Game.aserrar(origen, cal, veces)
+	if Net.activo:
+		Net.cerrar_taller()
 	if n > 0:
 		_decir("Sacas %d x %s de calidad %s." % [n, Game.tablon_de(origen).nombre.to_lower(), _cal_txt(cal).to_lower()])
 	else:
@@ -729,6 +773,9 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 		_sel_forja = []
 		for _i in ings.size():
 			_sel_forja.append({})
+	# MULTI: capar mi seleccion a lo DISPONIBLE (por si el compañero reservó de lo mismo mientras yo
+	# lo tenia elegido) y PUBLICARLA como reserva, para que el otro la vea apartada en vivo.
+	_capar_y_publicar_seleccion(ings)
 
 	_title(vb, str(base.get("nombre")))
 	if base is ArmorData:
@@ -748,7 +795,7 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for i in metales.size():
 		var m: MaterialData = metales[i]
-		var tengo: int = Game.unidades_material_en_hogar(m)
+		var tengo: int = Game.disponible_unidades_material_en_hogar(m)
 		var b := Button.new()
 		b.text = "%s T%d · %d uds" % [_metal_corto(m), m.tier, tengo]
 		b.tooltip_text = m.nombre
@@ -827,6 +874,29 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 			"Empuja la tirada de rareza a tu favor, como si el metal fuera mejor de lo que es.")
 
 
+# MULTI: capa mi seleccion de forja a lo DISPONIBLE (por si el compañero reservó de lo mismo) y la
+# publica como reserva. Aplana _sel_forja a {"mat_id|cal": count}. En solitario el capado no quita
+# nada (disponible == lo que hay) y publicar no hace nada.
+func _capar_y_publicar_seleccion(ings: Array) -> void:
+	var claim: Dictionary = {}
+	for i in mini(ings.size(), _sel_forja.size()):
+		var mat: MaterialData = ings[i]["material"]
+		if mat == null:
+			continue
+		var sel: Dictionary = _sel_forja[i]
+		for cal in sel.keys():
+			var disp: int = Game.disponible_calidad_en_hogar(mat, int(cal))
+			var n: int = clampi(int(sel[cal]), 0, disp)
+			if n <= 0:
+				sel.erase(cal)
+			else:
+				sel[cal] = n
+				var clave: String = "%s|%d" % [mat.id, int(cal)]
+				claim[clave] = int(claim.get(clave, 0)) + n
+	if Net.activo:
+		Net.reservar(claim)
+
+
 # Fila "material: −  n  +" por cada calidad que tengas en el baul.
 func _contadores(vb: VBoxContainer, mat: MaterialData, sel: Dictionary, necesita: int) -> void:
 	var uds: int = Game.uds_seleccion(sel)
@@ -863,7 +933,8 @@ func _contadores(vb: VBoxContainer, mat: MaterialData, sel: Dictionary, necesita
 
 	var hubo: bool = false
 	for cal in CALIDADES:
-		var disp: int = Game.items_calidad_en_hogar(mat, int(cal))
+		# DISPONIBLE (resta lo reservado por el otro): el tope del stepper de cada calidad.
+		var disp: int = Game.disponible_calidad_en_hogar(mat, int(cal))
 		if disp <= 0:
 			continue
 		hubo = true
@@ -942,7 +1013,14 @@ func _on_limpiar() -> void:
 func _on_forjar() -> void:
 	var base: Resource = _stacks[_sel]["modelo"]
 	var metal: MaterialData = Game.metal_de_forja(base, _lingote_idx)
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		_rebuild()
+		return
 	var item: Resource = Game.forjar(base, metal, _sel_forja)
+	if Net.activo:
+		Net.cerrar_taller()
+		Net.liberar_mis_reservas()   # ya consumido: suelto la reserva ya
 	if item != null:
 		_decir("Forjas %s. Está en tu baúl: equípalo en el menú de personaje [C]." % Game.item_display_name(item))
 	else:
@@ -1028,7 +1106,14 @@ func _preview_deshacer(vb: VBoxContainer) -> void:
 func _on_deshacer() -> void:
 	var item: Resource = _stacks[_sel]["modelo"]
 	var nombre: String = Game.item_display_name(item)
-	if Game.fundir_item(item):
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		_rebuild()
+		return
+	var ok: bool = Game.fundir_item(item)
+	if Net.activo:
+		Net.cerrar_taller()
+	if ok:
 		_sel = 0   # la pieza ya no existe: la cuadricula se rehace desde el principio
 		_decir("Deshaces %s. El material está en tu baúl." % nombre)
 	else:
@@ -1136,7 +1221,7 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 			_row(vb, "Material", "no existe a este tier: esta pieza no se puede reforzar")
 			continue
 		var necesita: int = int(cmat[clave])
-		var tengo: int = Game.unidades_material_en_hogar(m)
+		var tengo: int = Game.disponible_unidades_material_en_hogar(m)   # resta lo reservado por el otro
 		_row(vb, m.nombre, "%d uds  (tienes %d)" % [necesita, tengo],
 			ROJO if tengo < necesita else VERDE)
 	_note(vb, "El núcleo lo elige el sistema por el nivel de la pieza: cada uno cubre su tramo de mejoras y dentro de él cada mejora cuesta un núcleo más que la anterior. El núcleo es el permiso, pero la pieza hay que rehacerla: gasta también material de su tier, y del peor que tengas (la rareza ya está echada y no se toca).")
@@ -1225,7 +1310,14 @@ func _on_mejorar() -> void:
 		return
 	var cats: Array = _categorias(item)
 	var cat: String = str(cats[clampi(_cat_idx, 0, cats.size() - 1)])
-	if Game.mejorar_item(item, cat, nucleo):
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		_rebuild()
+		return
+	var ok: bool = Game.mejorar_item(item, cat, nucleo)
+	if Net.activo:
+		Net.cerrar_taller()
+	if ok:
 		_decir("%s ahora es %s." % [Upgrades.cat_nombre(cat), Game.item_display_name(item)])
 	else:
 		_decir("No se pudo mejorar.", false)

@@ -175,6 +175,23 @@ var _almacen_guardado := false
 var _taller_dueno: int = 0     # peer que tiene el candado (host lo arbitra); 0 = libre
 var _taller_resp: int = 0      # cliente: respuesta pendiente (0 esperando, 1 concedido, -1 ocupado)
 
+# --- RESERVA de materiales EN VIVO (profesiones concurrentes) --------------------------------
+# Los dos entran a la vez en el herrero/peletero/boticaria. Mientras uno tiene material SELECCIONADO
+# en un crafteo (la forja), esas unidades se APARTAN del pool del otro: cada peer publica su
+# seleccion en curso y el host la difunde. Todos pintan "disponible = baul - reservado_por_otros" y
+# capan sus selecciones a eso, asi el consumo (que solo gasta lo seleccionado, y va serializado por
+# el candado por-accion) respeta lo reservado sin tocar el codigo de crafteo. Es coordinacion VISUAL;
+# la garantia DURA contra doble-gasto es el candado (como el "ocupado" de las vetas). El host valida
+# cada reserva contra baul - reservas_de_otros, asi que suma(reservas) <= baul siempre.
+var _reservas: Dictionary = {}   # peer_id -> {"mat_id|calidad": count}
+# Lo ULTIMO que publiqué yo. Sirve para NO reenviar la misma reserva (los menus la re-publican en
+# cada rebuild, y el rebuild lo dispara reservas_cambiadas: sin esto seria un bucle).
+var _mi_reserva_local: Dictionary = {}
+
+# Se emite cuando cambia CUALQUIER reserva: los menus de profesion abiertos se redibujan para que el
+# "disponible" del otro baje/suba en vivo.
+signal reservas_cambiadas()
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # la red sigue sondeando aunque un menu pause mi arbol
@@ -300,6 +317,8 @@ func desconectar() -> void:
 	_cofre_consum_mirror = {}
 	_taller_dueno = 0
 	_taller_resp = 0
+	_reservas.clear()
+	_mi_reserva_local.clear()
 	_mi_lugar = "pueblo"
 	_num_humanos = 1
 	if multiplayer.multiplayer_peer != null:
@@ -1595,6 +1614,108 @@ func _set_almacen(bag: Array) -> void:
 		return
 	_cargar_almacen(bag)
 	hogar_cambiado.emit()
+
+
+# --- RESERVA de materiales EN VIVO (profesiones concurrentes) --------------------------------
+
+# Cuantas unidades de (mat_id, calidad) tiene reservadas OTRA gente ahora mismo (no cuento las mias:
+# las mias ya estan reflejadas en mi propia seleccion). Lo consulta la UI: disponible = baul - esto.
+func reservado_por_otros(mat_id: String, calidad: int) -> int:
+	if not activo:
+		return 0
+	var yo := multiplayer.get_unique_id()
+	var clave := "%s|%d" % [mat_id, calidad]
+	var total := 0
+	for peer in _reservas:
+		if peer != yo:
+			total += int((_reservas[peer] as Dictionary).get(clave, 0))
+	return total
+
+
+# Publica MI seleccion en curso como reserva. 'claim' = {"mat_id|calidad": count}. En el host se
+# aplica en local; en el cliente se le pide al host. En solitario no hace nada. Si no ha CAMBIADO
+# respecto a lo ultimo que publiqué, no reenvia nada (los menus llaman esto en cada rebuild, y el
+# rebuild lo dispara reservas_cambiadas: sin la deduplicacion seria un bucle).
+func reservar(claim: Dictionary) -> void:
+	if not activo:
+		return
+	if _misma_reserva(claim, _mi_reserva_local):
+		return
+	_mi_reserva_local = claim.duplicate()
+	if es_host:
+		_aplicar_reserva(multiplayer.get_unique_id(), claim)
+	else:
+		pedir_reserva.rpc_id(1, claim)
+
+
+func _misma_reserva(a: Dictionary, b: Dictionary) -> bool:
+	if a.size() != b.size():
+		return false
+	for k in a:
+		if int(b.get(k, -1)) != int(a[k]):
+			return false
+	return true
+
+
+# Suelto todo lo que tenia reservado (al cerrar el menu o tras craftear).
+func liberar_mis_reservas() -> void:
+	reservar({})
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func pedir_reserva(claim: Dictionary) -> void:
+	if not es_host:
+		return
+	_aplicar_reserva(multiplayer.get_remote_sender_id(), claim)
+
+
+# Solo host: guarda la reserva de 'quien' CAPADA a lo que de verdad queda libre (baul menos lo que
+# reservan los demas), y difunde el mapa entero. El capado mantiene la invariante suma(reservas)<=baul.
+func _aplicar_reserva(quien: int, claim: Dictionary) -> void:
+	var limpio: Dictionary = {}
+	for clave in claim:
+		var pide := int(claim[clave])
+		if pide <= 0:
+			continue
+		var libre := _en_baul(String(clave)) - _reservado_por_otros_host(quien, String(clave))
+		var dado := clampi(pide, 0, maxi(0, libre))
+		if dado > 0:
+			limpio[clave] = dado
+	if limpio.is_empty():
+		_reservas.erase(quien)
+	else:
+		_reservas[quien] = limpio
+	_set_reservas.rpc(_reservas)
+	reservas_cambiadas.emit()
+
+
+# Solo host: cuantas de 'clave' hay en el baul autoritativo (Game.almacen_materiales).
+func _en_baul(clave: String) -> int:
+	var partes := clave.split("|")
+	if partes.size() != 2:
+		return 0
+	var mat_id := partes[0]
+	var cal := int(partes[1])
+	var n := 0
+	for m in Game.almacen_materiales:
+		if m != null and m.data != null and String(m.data.id) == mat_id and int(m.calidad) == cal:
+			n += 1
+	return n
+
+
+# Solo host: lo reservado por todos MENOS 'salvo', para 'clave' (usado al capar).
+func _reservado_por_otros_host(salvo: int, clave: String) -> int:
+	var total := 0
+	for peer in _reservas:
+		if peer != salvo:
+			total += int((_reservas[peer] as Dictionary).get(clave, 0))
+	return total
+
+
+@rpc("authority", "call_remote", "reliable")
+func _set_reservas(todas: Dictionary) -> void:
+	_reservas = todas.duplicate(true)
+	reservas_cambiadas.emit()
 
 
 # --- OBJETOS DEL SUELO (hito 2): soltar y recoger con autoridad del host --------------------
@@ -3254,6 +3375,10 @@ func _on_peer_disconnected(id: int) -> void:
 		_liberar_vetas_de(id)
 		if _taller_dueno == id:   # se fue con el taller cogido: se libera (su crafteo a medias se pierde)
 			_taller_dueno = 0
+		if _reservas.has(id):   # se fue con material reservado: lo suelta para que el otro lo vea libre
+			_reservas.erase(id)
+			_set_reservas.rpc(_reservas)
+			reservas_cambiadas.emit()
 		# Si simulaba un piso, lo suelta SIN foto (se fue de golpe, no dio tiempo a sacarla): quien
 		# se quede lo hereda vacio y las paredes lo van repoblando. Es el precio de un corte brusco.
 		_soltar_piso(id, {})

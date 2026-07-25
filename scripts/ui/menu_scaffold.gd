@@ -539,7 +539,8 @@ static func fila_refino(parent: Node, etiqueta: String, salen: int, crear: Calla
 	l.custom_minimum_size = Vector2(240, 0)
 	l.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92) if salen > 0 else Color(0.6, 0.63, 0.7))
 	row.add_child(l)
-	var campo: LineEdit = stepper(row, 1 if salen >= 1 else 0, 0, salen)
+	# Arranca en 0 (no en 1): nada "reservado" solo por abrir. Fijas la cantidad y luego Crear.
+	var campo: LineEdit = stepper(row, 0, 0, salen)
 	var b := Button.new()
 	b.text = "Crear"
 	b.disabled = salen < 1

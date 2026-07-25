@@ -54,6 +54,12 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("tannery_menu")
 
+	# MULTI: refresco en vivo cuando el compañero toca el baul o su reserva (ver forge_menu).
+	if Net.has_signal("hogar_cambiado"):
+		Net.hogar_cambiado.connect(_on_cambio_externo)
+	if Net.has_signal("reservas_cambiadas"):
+		Net.reservas_cambiadas.connect(_on_cambio_externo)
+
 	var m: Dictionary = MenuScaffold.construir(self, "PELETERO",
 		"Curte las pieles que traigas de la mazmorra. Sin cuero curtido no hay armadura que valga... ni mochila que te deje cargar con el botín.",
 		_cerrar)
@@ -77,12 +83,8 @@ func _ready() -> void:
 func abrir() -> void:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
-	# MULTIJUGADOR: candado del taller (uno a la vez). Ver forge_menu.abrir().
-	if Net.activo and not await Net.abrir_taller():
-		var hud: Node = get_tree().get_first_node_in_group("hud")
-		if hud != null and hud.has_method("mostrar_toast"):
-			hud.mostrar_toast("El taller está ocupado: tu compañero está crafteando.")
-		return
+	# MULTI: ya no se coge el candado al abrir (los dos a la vez). Se coge solo al crear, y lo
+	# seleccionado en Mochilas se RESERVA para el otro. Ver forge_menu.
 	_tab = 0
 	_aviso = ""
 	_limpiar()
@@ -95,7 +97,18 @@ func _cerrar() -> void:
 	_root.visible = false
 	Game.cerrar_menu(self)
 	if Net.activo:
-		Net.cerrar_taller()
+		Net.liberar_mis_reservas()
+
+
+func _on_cambio_externo() -> void:
+	if _root != null and _root.visible:
+		_rebuild()
+
+
+func _ocupado() -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast("Un momento: tu compañero está creando algo justo ahora.")
 
 
 func _input(event: InputEvent) -> void:
@@ -127,6 +140,9 @@ func _rebuild() -> void:
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
+	# Solo la pestaña MOCHILAS reserva (seleccion persistente); curtir/correas son instantaneas.
+	if Net.activo and _tab != 2:
+		Net.reservar({})
 
 	match _tab:
 		0: _build_refinar(false)   # piel -> cuero curtido
@@ -173,11 +189,11 @@ func _build_refinar(correas: bool) -> void:
 
 	var tengo_algo: bool = false
 	for cal in CALIDADES:
-		var tengo: int = Game.items_calidad_en_hogar(origen, int(cal))
+		var tengo: int = Game.disponible_calidad_en_hogar(origen, int(cal))   # resta lo reservado por el otro
 		if int(cal) == MaterialItem.Calidad.PURO and tengo <= 0:
 			continue
 		tengo_algo = tengo_algo or tengo > 0
-		var salen: int = Game.refinados_posibles(origen, int(cal), por_uno)
+		var salen: int = tengo / maxi(1, por_uno)
 		var c: int = int(cal)
 		MenuScaffold.fila_refino(_content, "%s  ·  tienes %d  (máx %d)" % [_cal_txt(c), tengo, salen],
 			salen, func(n: int) -> void: _on_refinar(correas, c, n))
@@ -225,7 +241,13 @@ func _piel_elegida() -> MaterialData:
 
 
 func _on_refinar(correas: bool, cal: int, veces: int) -> void:
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		_rebuild()
+		return
 	var n: int = Game.hacer_correa(cal, veces) if correas else Game.curtir(cal, veces, _piel_elegida())
+	if Net.activo:
+		Net.cerrar_taller()
 	if n > 0:
 		_decir("Sacas %d %s de calidad %s." % [n, "correa(s)" if correas else "cuero(s)",
 			_cal_txt(cal).to_lower()])
@@ -260,7 +282,7 @@ func _build_mochilas() -> void:
 	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for i in hebillas.size():
 		var h: MaterialData = hebillas[i]
-		var tengo: int = Game.unidades_material_en_hogar(h)
+		var tengo: int = Game.disponible_unidades_material_en_hogar(h)
 		var b := Button.new()
 		b.text = "%s (T%d) · %d uds" % [h.nombre, h.tier, tengo]
 		b.toggle_mode = true
@@ -277,6 +299,17 @@ func _build_mochilas() -> void:
 
 	# --- Contadores de los tres materiales ---
 	_content.add_child(HSeparator.new())
+	# MULTI: capar cada seleccion a lo disponible (por si el compañero reservó de lo mismo).
+	_capar(heb, _sel_heb)
+	_capar(Game.correa(), _sel_cor)
+	_capar(Game.cuero_forja(), _sel_cue)
+	# ... y publicar las tres como MI reserva, para que el otro las vea apartadas en vivo.
+	if Net.activo:
+		var claim: Dictionary = {}
+		_sumar_claim(claim, heb, _sel_heb)
+		_sumar_claim(claim, Game.correa(), _sel_cor)
+		_sumar_claim(claim, Game.cuero_forja(), _sel_cue)
+		Net.reservar(claim)
 	_contadores(heb, _sel_heb, int(coste["hebillas"]))
 	_contadores(Game.correa(), _sel_cor, int(coste["correa"]))
 	_contadores(Game.cuero_forja(), _sel_cue, int(coste["cuero"]))
@@ -324,7 +357,14 @@ func _on_coser() -> void:
 	if hebillas.is_empty():
 		return
 	var heb: MaterialData = hebillas[clampi(_heb_idx, 0, hebillas.size() - 1)]
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		_rebuild()
+		return
 	var m: Resource = Game.fabricar_mochila(heb, _sel_heb, _sel_cor, _sel_cue)
+	if Net.activo:
+		Net.cerrar_taller()
+		Net.liberar_mis_reservas()   # consumido: suelto la reserva
 	if m != null:
 		_decir("Coses %s: +%.0f de carga. Equípala en el menú de personaje [C]." % [
 			Game.item_display_name(m), Game.capacidad_mochila(m as BackpackData)])
@@ -332,6 +372,30 @@ func _on_coser() -> void:
 		_decir("Te faltan materiales.", false)
 	_limpiar()
 	_rebuild()
+
+
+# MULTI: capa una seleccion {cal: count} a lo DISPONIBLE de 'mat' (resta lo reservado por el otro).
+func _capar(mat: MaterialData, sel: Dictionary) -> void:
+	if mat == null:
+		return
+	for cal in sel.keys():
+		var disp: int = Game.disponible_calidad_en_hogar(mat, int(cal))
+		var n: int = clampi(int(sel[cal]), 0, disp)
+		if n <= 0:
+			sel.erase(cal)
+		else:
+			sel[cal] = n
+
+
+# Suma una seleccion {cal: count} de 'mat' al claim {"mat_id|cal": count}.
+func _sumar_claim(claim: Dictionary, mat: MaterialData, sel: Dictionary) -> void:
+	if mat == null:
+		return
+	for cal in sel:
+		var n: int = int(sel[cal])
+		if n > 0:
+			var clave: String = "%s|%d" % [mat.id, int(cal)]
+			claim[clave] = int(claim.get(clave, 0)) + n
 
 
 # Fila "material: −  n  +" por cada calidad que tengas en el baul (igual que en el herrero).
@@ -365,7 +429,7 @@ func _contadores(mat: MaterialData, sel: Dictionary, necesita: int) -> void:
 
 	var hubo: bool = false
 	for cal in CALIDADES:
-		var disp: int = Game.items_calidad_en_hogar(mat, int(cal))
+		var disp: int = Game.disponible_calidad_en_hogar(mat, int(cal))   # resta lo reservado por el otro
 		if disp <= 0:
 			continue
 		hubo = true

@@ -108,10 +108,25 @@ la misma instancia de arma.
   bolsa (`Game.materiales`, nunca sincronizada por `Net`); el tope de carga sale de la Fuerza de
   TU equipo, no de la del compañero. Inherente a que cada proceso corre su propio `Game`.
 - **Hogar compartido IMPLEMENTADO (hito 4)**: baúl de materiales compartido con **candado de
-  taller** (uno craftea a la vez; el otro ve "el taller está ocupado" — como las vetas); bote de
-  dinero común; cofre de armas/armaduras (submenús Armas/Armaduras) que serializa la meta por
-  instancia (tier/rareza/mejoras/durabilidad/capacidad); tienda con el surtido del host. Todo
-  host-autoritativo con espejo en los clientes y refresco por `Net.hogar_cambiado`.
+  taller** (el host presta su baúl autoritativo al que crea); bote de dinero común; cofre de
+  armas/armaduras (submenús Armas/Armaduras) que serializa la meta por instancia
+  (tier/rareza/mejoras/durabilidad/capacidad); tienda con el surtido del host. Todo host-autoritativo
+  con espejo en los clientes y refresco por `Net.hogar_cambiado`.
+- **PROFESIONES CONCURRENTES con reserva en vivo (mejora del hito 4)**: los dos entran a la vez en
+  herrero/carpintero/peletero/boticaria (ya NO se coge el candado al abrir, solo el instante de
+  crear — como `home_menu` al depositar). Al seleccionar material en un crafteo con selección
+  persistente (la **forja**, las **mochilas**, las **pociones**), esas unidades se **reservan**: cada
+  peer publica su selección (`Net.reservar` → `_reservas` en el host → `_set_reservas` a todos), y
+  todos pintan **`disponible = baúl − reservado_por_otros`** (`Game.disponible_calidad_en_hogar` /
+  `disponible_unidades_material_en_hogar`) y capan sus steppers a eso. Cancelar/cerrar/caerse suelta
+  la reserva; crear la consume. La reserva es **coordinación de UI** (advisoria, como el "ocupado" de
+  las vetas); la garantía DURA contra doble-gasto es el **candado por-acción**, que reutiliza TODO el
+  código de crafteo (que mezcla materiales compartidos con efectos personales: exp de oficio, ítem a
+  tu baúl, tu mejora). El host valida cada reserva contra `baúl − reservas_de_otros`, así
+  `suma(reservas) ≤ baúl` siempre. Refinar/mejorar/deshacer son acción instantánea: no reservan, pero
+  respetan lo del otro porque su stepper capa a `disponible`. Los spinners de refinar arrancan en 0.
+  Para evitar el bucle (rebuild ← `reservas_cambiadas` → republicar), `Net.reservar` dedupe contra
+  `_mi_reserva_local`.
 - **Surtido de la tienda: manda el mundo del HOST** (decidido). Si el host tiene la tienda T2
   abierta (Rey Slime muerto), ambos la ven y compran de ella, cada uno con su dinero; el progreso
   del invitado no cambia el surtido. Coherente con "el host es la autoridad del mundo". Se

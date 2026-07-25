@@ -5044,6 +5044,28 @@ func items_calidad_en_hogar(mat: MaterialData, cal: int) -> int:
 	return n
 
 
+# DISPONIBLE para MI: lo que hay en el baul menos lo que otros humanos tienen RESERVADO ahora mismo
+# (profesiones concurrentes, ver Net.reservado_por_otros). Es lo que la UI enseña y el tope de los
+# steppers; el consumo real sigue viendo el baul entero bajo el candado. En solitario == items_*.
+func disponible_calidad_en_hogar(mat: MaterialData, cal: int) -> int:
+	if mat == null:
+		return 0
+	return maxi(0, items_calidad_en_hogar(mat, cal) - Net.reservado_por_otros(str(mat.id), int(cal)))
+
+
+# Gemelo en UNIDADES DE FORJA (puro 4 / intacto 3...): resta lo reservado por otros calidad a calidad.
+func disponible_unidades_material_en_hogar(mat: MaterialData) -> int:
+	if mat == null:
+		return 0
+	var total: int = 0
+	for cal in [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
+			MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]:
+		var libres: int = disponible_calidad_en_hogar(mat, int(cal))
+		if libres > 0:
+			total += libres * MaterialItem.crear(null, int(cal)).unidades_crafteo()
+	return total
+
+
 # Unidades que aporta un item segun su calidad (puro 4 / intacto 3 / normal 2 / dañado 1).
 # Es la MISMA tabla que MaterialItem.unidades_crafteo(), y tiene que seguir siendolo: aqui se
 # olvidaba el PURO y devolvia 0, asi que un lingote puro (el que saca la Metalurgia alta, el
