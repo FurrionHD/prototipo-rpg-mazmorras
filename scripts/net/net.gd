@@ -1537,6 +1537,11 @@ func _pedir_taller() -> void:
 @rpc("authority", "call_remote", "reliable")
 func _taller_ok(bag: Array) -> void:
 	_cargar_almacen(bag)   # mi Game.almacen_materiales pasa a ser el baul de verdad
+	# Marco que el candado es MIO: _taller_dueno hace de "¿lo tengo yo?" local (lo lee tengo_taller,
+	# que gatea depositar/vender/craftear del baul compartido) Y de escudo contra que un _set_almacen
+	# me pise el baul a media edicion. Sin esto, en el cliente se quedaba en 0 y tengo_taller devolvia
+	# false aunque tuviera el baul prestado: guardar materiales decia "0" y no depositaba nada.
+	_taller_dueno = multiplayer.get_unique_id()
 	_taller_resp = 1
 
 
@@ -1555,6 +1560,7 @@ func cerrar_taller() -> void:
 			_difundir_almacen()   # mi baul (ya modificado) va a los mirrors
 	else:
 		_soltar_taller.rpc_id(1, _almacen_dicts())
+		_taller_dueno = 0   # ya lo solte: dejo de "tenerlo" y el _set_almacen del host vuelve a valer
 
 
 @rpc("any_peer", "call_remote", "reliable")
