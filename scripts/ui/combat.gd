@@ -457,10 +457,22 @@ func aplicar_roster(roster: Dictionary) -> void:
 
 # LA INSTANTANEA: lo que cambia turno a turno. Va del que ejecuta la pelea a los espejos. Solo
 # lleva numeros y de quien es el turno; el resto (barras, colores, orden) ya lo tienen montado.
+# Solo las ultimas lineas del log viajan al espejo. El log ENTERO crecia sin tope y una pelea larga
+# hacia que la instantanea pasara de la MTU (1392): ENet la descartaba y el espejo se quedaba
+# congelado sin ver el combate. El espejo solo enseña las lineas recientes de todas formas.
+const _LOG_COLA_ESPEJO := 12
+
 func instantanea() -> Dictionary:
 	return {"a": _valores(_aliados), "e": _valores(_enemies),
-		"turno": _aliados.find(_player), "log": _log.text, "fin": _state == State.FINISHED,
+		"turno": _aliados.find(_player), "log": _cola_log(), "fin": _state == State.FINISHED,
 		"rev": _rev}
+
+
+func _cola_log() -> String:
+	var lineas: PackedStringArray = _log.text.split("\n")
+	if lineas.size() <= _LOG_COLA_ESPEJO:
+		return _log.text
+	return "\n".join(lineas.slice(lineas.size() - _LOG_COLA_ESPEJO))
 
 
 # Lo que cambia de un combatiente entre instantaneas: sus tres barras y sus ESTADOS. Los estados van

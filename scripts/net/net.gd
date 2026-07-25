@@ -2877,7 +2877,10 @@ func mi_pj_en_pelea(idx: int) -> PersonajeData:
 
 # --- INSTANTANEAS (anfitrion -> espejos) -----------------------------------------------------
 
-# La llama el combate cada vez que cambia algo que se ve. Barata: solo numeros.
+# La llama el combate cada vez que cambia algo que se ve. Va FIABLE: sale solo cuando cambia algo
+# (no por frame), asi que garantizar la entrega es barato y evita que se pierda un avance o el "fin".
+# Antes iba unreliable y una pelea larga la hacia pasar de la MTU -> se descartaba y el espejo se
+# congelaba (el log ya va recortado a la cola, ver combat.instantanea). La barra de ATB sigue aparte.
 func difundir_instantanea(snap: Dictionary) -> void:
 	if not activo or _pelea_id == 0 or _pelea_participantes.is_empty():
 		return
@@ -2905,7 +2908,7 @@ func _atb(ratios: PackedFloat32Array) -> void:
 		p.aplicar_atb(ratios)
 
 
-@rpc("any_peer", "call_remote", "unreliable_ordered")
+@rpc("any_peer", "call_remote", "reliable")
 func _instantanea(snap: Dictionary) -> void:
 	if _pelea_sigo == 0:
 		return
