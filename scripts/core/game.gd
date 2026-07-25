@@ -3399,6 +3399,35 @@ func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary,
 # volver a buscarla.
 const _CARPETAS_PLANTILLAS := ["res://resources/weapons", "res://resources/shields",
 	"res://resources/wands", "res://resources/backpacks", "res://resources/armor"]
+
+# MANIFIESTO de plantillas: la lista EXPLICITA de todas las piezas base del juego. Es la fuente de
+# verdad en el .exe EXPORTADO, donde DirAccess NO enumera los recursos del .pck (devolvia "indice: 0"
+# y por eso el arma de un compañero no viajaba y peleaba con los puños). load() por ruta SI funciona
+# en el .pck, asi que basta con tener las rutas. En el EDITOR se contrasta con un escaneo real y se
+# avisa si el manifiesto se ha quedado corto (al añadir una plantilla nueva hay que apuntarla aqui).
+const _MANIFIESTO_PLANTILLAS := [
+	"res://resources/weapons/baston.tres", "res://resources/weapons/daga.tres",
+	"res://resources/weapons/espada_corta.tres", "res://resources/weapons/espada_larga.tres",
+	"res://resources/weapons/estoque.tres", "res://resources/weapons/hacha_grande.tres",
+	"res://resources/weapons/mandobles.tres", "res://resources/weapons/martillo_grande.tres",
+	"res://resources/weapons/maza_peq.tres", "res://resources/weapons/punos.tres",
+	"res://resources/shields/escudo_grande.tres", "res://resources/shields/escudo_normal.tres",
+	"res://resources/shields/escudo_pequeno.tres",
+	"res://resources/wands/varita.tres",
+	"res://resources/backpacks/mochila_basica.tres",
+	"res://resources/armor/cuero_botas.tres", "res://resources/armor/cuero_casco.tres",
+	"res://resources/armor/cuero_manos.tres", "res://resources/armor/cuero_pantalones.tres",
+	"res://resources/armor/cuero_pecho.tres",
+	"res://resources/armor/hierro_botas.tres", "res://resources/armor/hierro_casco.tres",
+	"res://resources/armor/hierro_manos.tres", "res://resources/armor/hierro_pantalones.tres",
+	"res://resources/armor/hierro_pecho.tres",
+	"res://resources/armor/hierro_completo_botas.tres", "res://resources/armor/hierro_completo_casco.tres",
+	"res://resources/armor/hierro_completo_manos.tres", "res://resources/armor/hierro_completo_pantalones.tres",
+	"res://resources/armor/hierro_completo_pecho.tres",
+	"res://resources/armor/placas_botas.tres", "res://resources/armor/placas_casco.tres",
+	"res://resources/armor/placas_manos.tres", "res://resources/armor/placas_pantalones.tres",
+	"res://resources/armor/placas_pecho.tres",
+]
 var _indice_plantillas: Dictionary = {}   # "clase|nombre" -> ruta (perezoso, ver _plantillas)
 
 
@@ -3410,12 +3439,45 @@ func _clave_plantilla(item: Resource) -> String:
 	return "%s|%s" % [clase, str(item.get("nombre"))]
 
 
-# Indice nombre -> ruta de TODAS las plantillas del disco. Se monta una vez y se cachea.
-# Se aceptan .tres y .res: al exportar con "convertir texto a binario" cambia la extension.
+# Indice nombre -> ruta de TODAS las plantillas. Se monta una vez desde el MANIFIESTO (funciona en el
+# .exe; ver arriba) y se cachea. En el editor, ademas, se contrasta con un escaneo real para cazar
+# plantillas nuevas sin apuntar.
 func _plantillas() -> Dictionary:
 	if not _indice_plantillas.is_empty():
 		return _indice_plantillas
+	_indice_plantillas = _indexar_rutas(_MANIFIESTO_PLANTILLAS)
+	print("[equipo] indice de plantillas: %d" % _indice_plantillas.size())
+	if OS.has_feature("editor"):
+		_avisar_manifiesto_corto()
+	return _indice_plantillas
+
+
+# Construye el indice "clase|nombre" -> ruta cargando cada ruta de la lista. Los nombres repetidos se
+# descartan (dos plantillas con el mismo nombre: no hay forma de adivinar cual). .tres o .res (al
+# exportar "convertir texto a binario" cambia la extension).
+func _indexar_rutas(rutas: Array) -> Dictionary:
+	var out: Dictionary = {}
 	var repetidas: Dictionary = {}
+	for ruta in rutas:
+		var res: Resource = load(ruta)
+		if res == null:
+			continue
+		var clave: String = _clave_plantilla(res)
+		if clave.ends_with("|"):
+			continue   # sin nombre: no hay por donde atarla
+		if out.has(clave):
+			repetidas[clave] = true
+			continue
+		out[clave] = ruta
+	for clave in repetidas:
+		out.erase(clave)
+	return out
+
+
+# SOLO EDITOR: compara el manifiesto con un escaneo real de las carpetas y avisa de las plantillas
+# que existen pero no estan en la lista (habria que apuntarlas, o en el .exe no viajarian).
+func _avisar_manifiesto_corto() -> void:
+	var faltan: Array = []
 	for carpeta in _CARPETAS_PLANTILLAS:
 		var dir := DirAccess.open(carpeta)
 		if dir == null:
@@ -3423,20 +3485,11 @@ func _plantillas() -> Dictionary:
 		for f in dir.get_files():
 			if not (f.ends_with(".tres") or f.ends_with(".res")):
 				continue
-			var res: Resource = load(carpeta + "/" + f)
-			if res == null:
-				continue
-			var clave: String = _clave_plantilla(res)
-			if clave.ends_with("|"):
-				continue   # sin nombre: no hay por donde atarla
-			if _indice_plantillas.has(clave):
-				repetidas[clave] = true   # dos plantillas con el mismo nombre: no adivinar
-				continue
-			_indice_plantillas[clave] = carpeta + "/" + f
-	for clave in repetidas:
-		_indice_plantillas.erase(clave)
-	print("[equipo] indice de plantillas: %d" % _indice_plantillas.size())
-	return _indice_plantillas
+			var ruta: String = carpeta + "/" + f
+			if not _MANIFIESTO_PLANTILLAS.has(ruta):
+				faltan.append(ruta)
+	if not faltan.is_empty():
+		push_warning("[equipo] plantillas SIN apuntar en _MANIFIESTO_PLANTILLAS (no viajaran en el .exe): %s" % ", ".join(faltan))
 
 
 # ¿Esa ruta apunta a una PLANTILLA de verdad? Tiene que ser un fichero propio del juego:
