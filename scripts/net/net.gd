@@ -2634,9 +2634,16 @@ func sacar_de_la_pelea(peer: int) -> void:
 	_pelea_participantes.erase(peer)
 
 
-func cerrar_pelea() -> void:
+# 'derrotados' = peers cuyo grupo ENTERO cayo: en vez de devolverles el desgaste y cerrarles el
+# espejo, se les manda al pueblo con la penalizacion (_moriste corre morir_jugador en SU maquina).
+func cerrar_pelea(derrotados: Array = []) -> void:
 	if _pelea_id != 0:
 		for p in _pelea_participantes:
+			if derrotados.has(p):
+				# Su grupo murio: al pueblo. morir_jugador ya le reinicia las fichas, asi que NO se
+				# le devuelve desgaste; _moriste tambien le cierra el espejo.
+				_moriste.rpc_id(p)
+				continue
 			# A cada uno lo SUYO: lo que sus dobles han vivido en mi pantalla (vida, mana y la
 			# excelia ganada) vuelve a sus personajes de verdad. Va ANTES de cerrarle el espejo.
 			if _dobles.has(p):
@@ -2652,6 +2659,22 @@ func cerrar_pelea() -> void:
 	_pelea_anfitrion = 0
 	_mis_en_pelea.clear()
 	_mis_huecos.clear()
+
+
+# Corre en EL QUE SE UNIO y cuyo grupo cayo entero: vuelve al pueblo con la penalizacion, igual que
+# morir en solitario (decision del usuario: en multi los jugadores mueren de verdad, no se quedan a
+# 1 de vida). Primero cierra su espejo (recoge la capa y despausa) y luego morir_jugador cambia de
+# escena al pueblo. Sus personajes viven en SU maquina, asi que la muerte se resuelve aqui.
+@rpc("any_peer", "call_remote", "reliable")
+func _moriste() -> void:
+	_pelea_sigo = 0
+	_pelea_anfitrion = 0
+	_mis_en_pelea.clear()
+	_mis_huecos.clear()
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("cerrar_espejo"):
+		p.cerrar_espejo()   # -> Game._on_combate_espejo_cerrado: recoge la capa y el modal
+	Game.morir_jugador()
 
 
 # Corre en EL DUEÑO de los personajes: lo que vivio cada doble se aplica a su ficha de verdad. El

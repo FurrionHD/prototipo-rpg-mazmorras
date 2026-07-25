@@ -623,6 +623,35 @@ Detalles que cuestan si no se saben:
 **Lo que sigue pendiente:** que en un corte brusco la **pelea** se traspase (el traspaso lo manda
 quien se va, y ahí no da tiempo; exigiría ir mandando copias del estado por si acaso).
 
+#### Pulido del playtest a TRES (combate compartido y ficha por red)
+
+- **La instantánea del combate va FIABLE.** Llevaba `"log": _log.text` ENTERO, que crece turno a
+  turno; una pelea larga la hacía pasar de la **MTU (1392)** y, al ir `unreliable`, ENet la
+  **descartaba** → el espejo se quedaba congelado y el turno del que se unía no volvía nunca. Ahora
+  `_instantanea` es `reliable` y `combat.instantanea()` manda solo la **cola** del log
+  (`_LOG_COLA_ESPEJO` líneas). La barra de ATB sigue aparte, `unreliable_ordered` a 20 Hz.
+- **El doble de otro humano NO se registra en tu baúl.** `ficha_de_dict` reconstruye su equipo con
+  `deserializar_equipo(d, false)` → `crear_item(..., registrar=false)`: sin el flag, cada vez que un
+  compañero se unía a tu pelea su arma se colaba en tu `owned_weapons` (el bug de las 6 hachas). El
+  cofre compartido sigue con `registrar=true` (ahí sí va a tu baúl).
+- **El sobrepeso es POR COMBATIENTE.** Era un factor global (`_player_overload_factor`) con el peso
+  del anfitrión, y ralentizaba a todos. Ahora `Combatant.overload_factor` (default 1.0): `start_combat`
+  lo pone a los propios = `overload_speed_factor()`, y la ficha del que se une lleva el suyo
+  (`ficha_a_dict` → `unir_aliado_al_combate(pj, overload)`). El bucle de ATB multiplica por
+  `c.overload_factor`.
+- **La derrota es POR HUMANO.** `combat_finished` emite un array `duenos` (de qué humano es cada
+  aliado, 0 = anfitrión). En `_on_combat_finished` se agrupa por dueño con la vida REAL (antes de
+  subirla a 1): mi grupo entero caído → `morir_jugador()` local; cada peer con su grupo entero caído
+  → `Net.cerrar_pelea(peers_derrotados)` le manda un **`_moriste`** (cierra su espejo y corre
+  `morir_jugador` en SU máquina) en vez del desgaste. Los **acompañantes** que caen mientras su dueño
+  sigue en pie se quedan a 1 de vida (KO), como en solitario. Antes solo volvía al pueblo el anfitrión.
+- **El "puños llevando arma", resuelto.** El índice de plantillas (`_plantillas`) escaneaba `res://`
+  con `DirAccess`, que en el **.exe exportado devuelve 0** (no enumera el `.pck`): sin índice, la
+  reparación por nombre de `ruta_base_de` fallaba y el arma no viajaba. Ahora se construye desde un
+  **`_MANIFIESTO_PLANTILLAS`** (lista explícita de rutas; `load()` sí funciona en el `.pck`). En el
+  editor se contrasta con un escaneo real y avisa si el manifiesto se quedó corto (al añadir una
+  plantilla nueva, apuntarla ahí).
+
 ---
 
 ## Roadmap por fases (futuro, no ahora)

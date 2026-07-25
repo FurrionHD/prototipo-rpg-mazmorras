@@ -142,7 +142,7 @@ var _timeline: Control = null
 # OJO: los muertos son la unica fuente de verdad, y NO se deducen de player_won: si huyes tras
 # matar a dos de cuatro, esos dos estan muertos igual y tienen que dejar su cadaver.
 signal combat_finished(player_won: bool, hp_left: Array, mp_left: Array,
-	energy_left: Array, muertos: Array, enemy_hp_left: Array)
+	energy_left: Array, muertos: Array, enemy_hp_left: Array, duenos: Array)
 
 # TU GRUPO. Orden FIJO (el que mando Game: el lider primero y detras los companeros), igual que
 # _enemies: es el orden de los bloques y el indice con el que vuelve todo en combat_finished.
@@ -811,7 +811,7 @@ func cerrar_espejo() -> void:
 	if not _espejo:
 		return
 	_state = State.FINISHED
-	combat_finished.emit(false, [], [], [], [], [])
+	combat_finished.emit(false, [], [], [], [], [], [])
 
 
 # Manda la foto a los espejos. Se llama tras cada cambio que se VE (un golpe, un turno nuevo, el
@@ -2014,11 +2014,15 @@ func _on_continue_pressed() -> void:
 	var mi_hp: Array = []
 	var mi_mp: Array = []
 	var mi_en: Array = []
+	# De qué HUMANO es cada aliado (0 = el anfitrion), paralelo a mi_hp. Con esto Game reparte la
+	# muerte POR HUMANO: cada uno cuyo grupo entero cayo vuelve al pueblo con su castigo.
+	var mi_duenos: Array = []
 	for c in _aliados:
 		mi_hp.append(c.current_hp)
 		mi_mp.append(c.current_mp)
 		mi_en.append(c.current_energy)
-	combat_finished.emit(_player_won, mi_hp, mi_mp, mi_en, muertos, hp_left)
+		mi_duenos.append(int(_dueno_aliado.get(c, 0)))
+	combat_finished.emit(_player_won, mi_hp, mi_mp, mi_en, muertos, hp_left, mi_duenos)
 	# Si lo abrio Game, el cierra la capa; si es prueba (F6), nos cerramos solos.
 	if not _injected:
 		queue_free()

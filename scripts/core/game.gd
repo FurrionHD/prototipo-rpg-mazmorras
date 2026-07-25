@@ -6524,7 +6524,7 @@ func abrir_combate_espejo(roster: Dictionary) -> Node:
 # lleva quien ejecuta la pelea, y sus vidas vuelven por el camino de siempre). Solo se recoge la
 # pantalla y se devuelve el mundo.
 func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en := [],
-		_muertos := [], _ehp := []) -> void:
+		_muertos := [], _ehp := [], _duenos := []) -> void:
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()
@@ -7032,7 +7032,8 @@ func dev_curva_drops(pisos: Array = [1, 2, 3, 4, 6, 8, 10, 12]) -> void:
 # Los tres primeros arrays vienen POR ALIADO, en el orden en que se le pasaron a la pantalla
 # (el lider el primero): con quE vida, maná y energia sale cada uno.
 func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array = [],
-		energy_left: Array = [], muertos: Array = [], enemy_hp_left: Array = []) -> void:
+		energy_left: Array = [], muertos: Array = [], enemy_hp_left: Array = [],
+		duenos: Array = []) -> void:
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
@@ -7053,12 +7054,20 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	# para siempre no encaja con que a nadie se le despide, y dejarlo a 0 lo dejaria tumbado sin
 	# forma de curarlo (las pociones no reviven). Con 1 punto sales del paso: hay que curarlo antes
 	# de la siguiente pelea o vuelve a caer al primer golpe.
-	var todos_caidos: bool = not _active_player_pjs.is_empty()
+	#
+	# DERROTA POR HUMANO (multi): 'duenos[i]' dice de que humano es cada aliado (0 = anfitrion). Un
+	# humano esta derrotado cuando TODOS sus combatientes cayeron; entonces vuelve al pueblo con la
+	# penalizacion (el anfitrion aqui mismo, los demas por _moriste). Se mira la vida REAL, ANTES de
+	# levantarla a 1. En solitario todos son dueño 0, asi que equivale al viejo "cayo todo el grupo".
+	var vivo_por_dueno: Dictionary = {}   # dueno -> tiene al menos uno en pie
+	var existe_dueno: Dictionary = {}     # dueno -> participo en la pelea
 	for i in _active_player_pjs.size():
 		var pj: PersonajeData = _active_player_pjs[i]
 		var hp: float = float(hp_left[i]) if i < hp_left.size() else -1.0
+		var dn: int = int(duenos[i]) if i < duenos.size() else 0
+		existe_dueno[dn] = true
 		if hp > 0.0:
-			todos_caidos = false
+			vivo_por_dueno[dn] = true
 		pj.current_hp = maxf(1.0, hp)
 		if i < mp_left.size() and float(mp_left[i]) >= 0.0:
 			pj.current_mp = float(mp_left[i])   # el mana gastado persiste al salir
@@ -7066,6 +7075,12 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		if i < energy_left.size() and float(energy_left[i]) >= 0.0:
 			pj.stamina = float(energy_left[i])
 			pj.set_meta("sin_fuelle", false)
+	# ¿Cayo mi propio grupo (dueño 0)? Y ¿que PEERS cayeron enteros? (para mandarlos al pueblo).
+	var anfitrion_derrotado: bool = existe_dueno.has(0) and not vivo_por_dueno.has(0)
+	var peers_derrotados: Array = []
+	for dn in existe_dueno:
+		if dn != 0 and not vivo_por_dueno.has(dn):
+			peers_derrotados.append(dn)
 	# El cuerpo del mapa lleva SU propio aguante en variables vivas: hay que recargarselo de la
 	# ficha, o el del lider volveria al valor con el que entro al combate.
 	var pnode := get_tree().get_first_node_in_group("player")
@@ -7079,8 +7094,9 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 				(_active_player_cs[i].ability_cooldowns as Dictionary).duplicate()
 
 	# AHORA si: las fichas (incluidas las de los DOBLES de otros humanos) ya llevan el resultado,
-	# asi que se le puede devolver a cada uno lo suyo y cerrarles el espejo.
-	Net.cerrar_pelea()
+	# asi que se le puede devolver a cada uno lo suyo y cerrarles el espejo. A los peers DERROTADOS
+	# (todo su grupo cayo) se les manda al pueblo en vez de devolverles el desgaste (ver _moriste).
+	Net.cerrar_pelea(peers_derrotados)
 
 	_active_player_cs = []
 	_active_player_pjs = []
@@ -7121,9 +7137,10 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		_active_layer.queue_free()
 	_active_layer = null
 
-	# ¿DERROTA? Se mira la VIDA, no player_won: al HUIR tambien llega player_won = false
+	# ¿DERROTA MIA? Se mira la VIDA, no player_won: al HUIR tambien llega player_won = false
 	# (combat._end(false, true)), y huir es una decision legitima que ya pagas perdiendo el
 	# combate. Castigar la huida como la muerte seria un error muy facil de colar aqui.
-	# Y se pierde solo si cayo TODO EL GRUPO: mientras quede alguien en pie, la expedicion sigue.
-	if todos_caidos:
+	# Solo cuento MI grupo (dueño 0): en multi, el grupo de cada humano decide SU derrota por
+	# separado (los demas ya recibieron _moriste arriba). En solitario, mi grupo es el unico.
+	if anfitrion_derrotado:
 		morir_jugador()
