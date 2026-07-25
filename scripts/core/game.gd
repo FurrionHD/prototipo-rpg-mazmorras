@@ -6227,7 +6227,7 @@ func matar_enemigo_de_combate(n) -> void:
 # (fichas). pj_de_combatant cruza el uno con el otro, y de el cuelgan la excelia, la regeneracion y
 # el volcado de HP/MP al cerrar. Si se añade a uno y no al otro, ese personaje pelea pero no gana
 # nada y sale de la pelea sin guardar su vida.
-func unir_aliado_al_combate(pj: PersonajeData) -> bool:
+func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
 	if not combate_activo() or pj == null or _active_player_pjs.has(pj):
 		return false
 	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
@@ -6237,6 +6237,8 @@ func unir_aliado_al_combate(pj: PersonajeData) -> bool:
 	var c: Combatant = crear_player_combatant(pj)
 	if c == null:
 		return false
+	# Su SOBREPESO (el del humano al que pertenece este doble): va lento EL, no todo el grupo.
+	c.overload_factor = overload
 	# TRAMPA para el bug de "pelea con PUÑOS llevando arma": si la ficha trae arma pero el
 	# combatiente sale con las manos vacias, algo se perdio por el camino y hay que saberlo AQUI,
 	# no descubrirlo en mitad de la pelea por el log de un golpe.
@@ -6490,7 +6492,7 @@ func retomar_combate(estado: Dictionary) -> bool:
 			mios += 1
 		else:
 			var doble: PersonajeData = Net.ficha_de_dict(fila.get("ficha", {}))
-			if unir_aliado_al_combate(doble):
+			if unir_aliado_al_combate(doble, float((fila.get("ficha", {}) as Dictionary).get("overload", 1.0))):
 				c = combatant_de_pj(doble)
 				var dp: int = int(fila.get("dueno", 0))
 				if not dobles_por_peer.has(dp):

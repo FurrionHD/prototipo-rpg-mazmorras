@@ -248,7 +248,6 @@ var _dmg_taken_hits: int = 0
 var _turnos_jugador: int = 0
 var _turnos_enemigo: int = 0
 
-var _player_overload_factor: float = 1.0   # <1 si el grupo entro sobrecargado (lento todo el combate)
 
 # ============================================================
 #  ESTADO POR ALIADO
@@ -307,6 +306,10 @@ var _slow_actions_left: int:
 # 'exhausted' es un bool POR ALIADO (el que baje sin fuelle empieza lento; ver _lentas).
 func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 		exhausted: Array = [], player_overload_factor: float = 1.0) -> void:
+	# El sobrepeso es POR COMBATIENTE (ver Combatant.overload_factor): estos son los del anfitrion,
+	# asi que todos llevan SU factor. Los dobles de otros humanos traen el suyo (unir_aliado_al_combate).
+	for c in player_cs:
+		c.overload_factor = player_overload_factor
 	_aliados.assign(player_cs)
 	# Dos personajes con el mismo nombre se quedaban indistinguibles (en el log y en los bloques).
 	for c in _aliados:
@@ -322,7 +325,6 @@ func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 	for i in _aliados.size():
 		if i < exhausted.size() and bool(exhausted[i]):
 			_lentas[_aliados[i]] = EXHAUSTED_SLOW_ACTIONS
-	_player_overload_factor = player_overload_factor
 	_injected = true
 	# El modo muñeco (Saco/Pegador) siempre es 1v1: lo garantiza enemy.gd al no reclutar
 	# vecinos con debug_dummy_mode activo (las medidas de DPS/turno se irian al traste).
@@ -1781,7 +1783,9 @@ func _process(delta: float) -> void:
 	# respecto al arma principal); si no, la velocidad normal. Y quien entro agotado va a medio
 	# ritmo sus primeras acciones.
 	for c in _aliados_vivos():
-		var rate: float = SPEED_SCALE * _player_overload_factor
+		# El SOBREPESO es de cada uno (ver Combatant.overload_factor): en multi, el que va cargado va
+		# lento EL, no todo el grupo.
+		var rate: float = SPEED_SCALE * c.overload_factor
 		if int(_lentas.get(c, 0)) > 0:
 			rate *= EXHAUSTED_RATE
 		var cspeed: float = c.cast_spd() if _casteos.has(c) else c.spd()

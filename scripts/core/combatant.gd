@@ -83,6 +83,10 @@ var aturdir_base: float = 0.0    # prob. base de aturdir/retrasar (contundentes)
 var energia_regen: float = 0.0   # energia que repone el basico con esta arma (0 = default global)
 # Estos NO cambian por mano (son del loadout entero):
 var velocidad_mult: float = 1.0  # multiplica la velocidad de combate (turnos)
+# Penalizacion por SOBREPESO del loadout (1.0 = sin sobrepeso, <1 mas lento). Es POR HUMANO: la
+# comparten los combatientes de un mismo jugador, y en multi cada humano trae la suya (no la del
+# anfitrion). La aplica el bucle de ATB de combat.gd. Ver Game.overload_speed_factor().
+var overload_factor: float = 1.0
 var defend_block: float = 0.3    # reduccion al Defender (base sin secundaria)
 var evasion_penal: float = 0.0   # baja la esquiva propia (escudos)
 # DEFENSA extra que solo cuenta el turno que eliges DEFENDER: la del escudo. No es armadura (esa

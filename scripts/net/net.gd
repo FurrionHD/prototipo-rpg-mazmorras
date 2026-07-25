@@ -2737,6 +2737,9 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 		if s != null and not String(s.resource_path).is_empty():
 			hechizos.append(s.resource_path)
 	d["spells"] = hechizos
+	# SOBREPESO del que se une: viaja para que su doble vaya lento EL solo, no todo el grupo del
+	# anfitrion. Es del loadout del HUMANO (su mochila), asi que va una vez por ficha con el mismo valor.
+	d["overload"] = Game.overload_speed_factor()
 	return d
 
 
@@ -2826,7 +2829,7 @@ func _pedir_unirme(fichas: Array) -> void:
 	var idxs: Array = []
 	for f in fichas:
 		var doble: PersonajeData = ficha_de_dict(f)
-		if not Game.unir_aliado_al_combate(doble):
+		if not Game.unir_aliado_al_combate(doble, float(f.get("overload", 1.0))):
 			break   # la pelea esta llena: los que falten se quedan fuera
 		dobles.append(doble)
 		# Y que la pelea sepa que ese personaje lo mueve EL, no yo: cuando le toque el turno se le
