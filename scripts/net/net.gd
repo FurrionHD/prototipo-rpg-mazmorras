@@ -2747,7 +2747,9 @@ func ficha_de_dict(d: Dictionary) -> PersonajeData:
 			continue
 		pj.set(campo, d[campo])
 	for r in _RANURAS:
-		var item: Resource = Game.deserializar_equipo(d.get(r, {}))
+		# registrar=false: es el arma/armadura del DOBLE de otro humano, no es mia. Sin esto se
+		# colaba en mi baul una copia por cada vez que se unia a mi pelea (el bug de las 6 hachas).
+		var item: Resource = Game.deserializar_equipo(d.get(r, {}), false)
 		if item != null:
 			pj.set(r, item)
 			# Y su meta EQUIPADA apuntando al MISMO dict que la del objeto. Sin esto el doble

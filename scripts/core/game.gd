@@ -3359,7 +3359,11 @@ func add_owned_armor(pieza: ArmorData) -> void:
 # 'base' es el .tres compartido (plantilla). Se duplica para que cada copia tenga
 # su propia identidad: asi puedes tener dos espadas cortas distintas, y llevar una
 # en cada mano. Devuelve la instancia creada, ya metida en el baul.
-func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary) -> Resource:
+# 'registrar' (por defecto true) mete la pieza en TU baul (owned_*). Se pone a FALSE para el DOBLE
+# de otro humano en una pelea de red: ese arma no es tuya, y registrarla te llenaba el inventario de
+# copias del compañero (una por cada vez que se unia a tu pelea). Ver ficha_de_dict.
+func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary,
+		registrar: bool = true) -> Resource:
 	if base == null:
 		return null
 	var copia: Resource = base.duplicate()
@@ -3371,6 +3375,8 @@ func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary) -> 
 		# no habria forma de reconstruir la pieza en otra maquina (cofre compartido, multi).
 		"ruta_base": str(base.resource_path),
 	}
+	if not registrar:
+		return copia
 	if copia is ArmorData:
 		add_owned_armor(copia as ArmorData)
 	elif copia is BackpackData:
@@ -3490,8 +3496,10 @@ func serializar_equipo(item: Resource) -> Dictionary:
 	}
 
 
-# Reconstruye una pieza serializada EN MI baul (owned_*), con su meta. null si la ruta ya no vale.
-func deserializar_equipo(d: Dictionary) -> Resource:
+# Reconstruye una pieza serializada, con su meta. null si la ruta ya no vale. 'registrar' (por
+# defecto true) la mete en TU baul (cofre compartido); FALSE para el doble de otro humano en una
+# pelea de red, que no es tuyo (ver crear_item y ficha_de_dict).
+func deserializar_equipo(d: Dictionary, registrar: bool = true) -> Resource:
 	# Ranura VACIA: serializar_equipo devuelve {} para lo que no existe (y para lo que no tiene
 	# ruta_base), asi que aqui llegan diccionarios sin ruta de forma normal — no es un error. Sin
 	# este corte, load("") escupe un "Resource file not found: res://" por cada ranura vacia de cada
@@ -3507,7 +3515,7 @@ func deserializar_equipo(d: Dictionary) -> Resource:
 			str(d.get("desc", "?")), ruta])
 		return null
 	var item: Resource = crear_item(base, int(d.get("tier", 1)), int(d.get("rareza", 0)),
-		d.get("mejoras", {}))
+		d.get("mejoras", {}), registrar)
 	if item == null:
 		return null
 	meta_de(item)["durabilidad"] = float(d.get("durabilidad", 1.0))
