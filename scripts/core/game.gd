@@ -606,6 +606,22 @@ func hay_modal() -> bool:
 	return not _modal_stack.is_empty()
 
 
+# ¿El jugador esta ESCRIBIENDO en un campo de texto ahora mismo? Lo consulta todo el que escucha
+# teclas de LETRA (las de dev, y las que abren menus): mientras escribes, una tecla es una letra y no
+# un atajo. Escribir "Rodrigo" en el nombre de un compañero no puede recargar la escena (R) ni
+# mandarte al sandbox (T) ni abrirte el mapa (M).
+#
+# La primera linea de defensa es escuchar en _unhandled_key_input (un LineEdit con el foco consume las
+# teclas imprimibles y alli no llegan). Esto es el CINTURON explicito encima: deja la intencion escrita
+# en el codigo en vez de depender de un detalle de despacho del motor.
+func escribiendo() -> bool:
+	var vp: Viewport = get_viewport()
+	if vp == null:
+		return false
+	var foco: Control = vp.gui_get_focus_owner()
+	return foco is LineEdit or foco is TextEdit
+
+
 # El UNICO sitio que escribe get_tree().paused: asi la pila y el booleano nunca se descuadran.
 # EN SOLITARIO: cualquier modal = arbol pausado (como siempre, las pociones no tiquean en el
 # menu, etc.). EN MULTI (Net.activo): NADA pausa el arbol — tu menu es asunto TUYO y el mundo
@@ -6193,12 +6209,18 @@ func _debug_set_visible(s: String, valor: int) -> void:
 #
 # OJO, va en _unhandled_key_input Y NO EN _input A PROPOSITO: _input corre ANTES que la GUI,
 # asi que estas teclas se comian lo que escribias en cualquier campo de texto (el nombre de la
-# creacion de personaje: la R recargaba la escena, la T te mandaba al sandbox...). Un control
-# con el foco (LineEdit) CONSUME las teclas, y lo "unhandled" solo recibe las que nadie ha
-# consumido: asi se escribe tranquilo y las teclas de dev siguen funcionando por el mapa.
+# creacion de personaje: la R recargaba la escena, la T te mandaba al sandbox...).
 # No lo devuelvas a _input.
+#
+# Un control con el foco (LineEdit) CONSUME las teclas imprimibles, y lo "unhandled" solo recibe las
+# que nadie ha consumido: asi se escribe tranquilo y las teclas de dev siguen funcionando por el mapa.
+# La consulta a escribiendo() es un CINTURON explicito encima de eso: deja la intencion escrita y no
+# hace que el comportamiento dependa de un orden de despacho del motor que es facil de romper sin
+# darse cuenta (p.ej. si algun dia una de estas teclas deja de ser una letra imprimible).
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if escribiendo():
 		return
 	# En el MENU todavia no hay partida: aqui una T (sandbox) o una R (recargar) no llevan a
 	# ningun sitio bueno, porque no hay personaje que meter en el mundo.

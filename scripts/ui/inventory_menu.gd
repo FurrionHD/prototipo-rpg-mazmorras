@@ -58,24 +58,42 @@ func _ready() -> void:
 		_tab_buttons.append(b)
 
 
+# ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
+# menu de PAUSA (que escucha ahi) no llega a ver la tecla y no se abre por detras al cerrar la bolsa.
 func _input(event: InputEvent) -> void:
+	if not _root.visible:
+		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
-	var code: int = (event as InputEventKey).keycode
-	if code == KEY_I:
+	if (event as InputEventKey).keycode != KEY_ESCAPE:
+		return
+	if _modal != null:
+		_cerrar_modal()   # primero el modal de dentro (cantidad), luego la bolsa
+	else:
+		_cerrar()
+	get_viewport().set_input_as_handled()
+
+
+# La I va en _unhandled_key_input y NO en _input, por lo mismo que las teclas de dev (ver la cabecera
+# de Game._unhandled_key_input): un LineEdit con el foco CONSUME la tecla y aqui no llega, asi que
+# escribir ya no abre la bolsa por encima. Game.escribiendo() es el cinturon explicito encima de eso.
+# No lo devuelvas a _input.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if Game.escribiendo():
+		return   # con el foco en un campo de texto, una tecla es una LETRA y no un atajo
+	if (event as InputEventKey).keycode == KEY_I:
 		_toggle()
-	elif code == KEY_ESCAPE and _root.visible:
-		if _modal != null:
-			_cerrar_modal()
-		else:
-			_cerrar()
 
 
 func _toggle() -> void:
 	if not _root.visible:
-		# No abrir sobre un combate/extraccion ni con el panel DEBUG abierto.
-		# (Con el menu de personaje abierto el arbol esta en pausa: este _input ni corre.)
-		if Game._active_layer != null or Game.debug_panel_open:
+		# No abrir sobre un combate/extraccion, ni con el panel DEBUG, ni encima de OTRO MENU. Lo del
+		# otro menu antes lo tapaba la pausa del arbol ("con el menu de personaje abierto esto ni
+		# corre"), pero en MULTI nada pausa: la bolsa se abria encima de la tienda. hay_modal() cubre
+		# la pila entera.
+		if Game._active_layer != null or Game.debug_panel_open or Game.hay_modal():
 			return
 		_set_open(true)
 	else:

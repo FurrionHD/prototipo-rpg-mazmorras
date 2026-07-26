@@ -87,8 +87,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if (event as InputEventKey).keycode != KEY_ESCAPE:
 		return
-	# Si hay un combate o una extraccion abiertos, ESC no hace nada: ahi no se guarda.
-	if Game.hay_pantalla_abierta() and not _root.visible:
+	# ESC dentro de OTRO menu lo CIERRA y no abre esto. La primera linea de defensa es que cada menu
+	# consume la ESC en su _input (que corre antes que este _unhandled_input), asi que normalmente aqui
+	# no llega nada; hay_modal() es el cinturon por si algun menu se olvida de consumirla. Y con un
+	# combate o una extraccion delante, ESC no hace nada: ahi no se guarda.
+	if not _root.visible and (Game.hay_pantalla_abierta() or Game.hay_modal()):
 		return
 	_set_open(not _root.visible)
 	get_viewport().set_input_as_handled()

@@ -55,16 +55,34 @@ func _ready() -> void:
 	_root.add_child(_titulo)
 
 
+# ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
+# menu de PAUSA (que escucha ahi) no llega a ver la tecla y no se abre por detras al cerrar el mapa.
 func _input(event: InputEvent) -> void:
+	if not _root.visible:
+		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
+	if (event as InputEventKey).keycode != KEY_ESCAPE:
+		return
+	_cerrar()
+	get_viewport().set_input_as_handled()
+
+
+# Las teclas de LETRA van en _unhandled_key_input y NO en _input, por lo mismo que las teclas de dev
+# (ver la cabecera de Game._unhandled_key_input): _input corre ANTES que la GUI y se comia lo que
+# escribias, mientras que un LineEdit con el foco CONSUME la tecla y aqui no llega. Asi escribir en un
+# campo de texto (el nombre al reclutar, la cantidad del bote) ya no abre el mapa por encima.
+# Game.escribiendo() es el cinturon explicito encima de eso. No lo devuelvas a _input.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if Game.escribiendo():
+		return   # con el foco en un campo de texto, una tecla es una LETRA y no un atajo
 	var code: int = (event as InputEventKey).keycode
 	if code == KEY_M:
 		_toggle()
 	elif not _root.visible:
 		return
-	elif code == KEY_ESCAPE:
-		_cerrar()
 	elif code == KEY_LEFT or code == KEY_A:
 		_cambiar_viendo(-1)
 	elif code == KEY_RIGHT or code == KEY_D:
@@ -75,9 +93,11 @@ func _toggle() -> void:
 	if _root.visible:
 		_cerrar()
 		return
-	# No sobre un combate/extraccion ni con el DEBUG abierto. Ya NO exige piso vivo: se abre
-	# tambien en el pueblo (la libreta es autonoma, no necesita el DungeonFloor delante).
-	if Game._active_layer != null or Game.debug_panel_open:
+	# No sobre un combate/extraccion, ni con el DEBUG abierto, ni encima de OTRO MENU. Lo ultimo era
+	# hay que decirlo: en solitario lo tapaba la pausa del arbol, pero en MULTI nada pausa y el mapa se
+	# abria encima de la tienda o de la taberna. hay_modal() cubre la pila entera de menus.
+	# Ya NO exige piso vivo: se abre tambien en el pueblo (la libreta es autonoma).
+	if Game._active_layer != null or Game.debug_panel_open or Game.hay_modal():
 		return
 	# Empieza mirando el piso actual si tiene mapa; si no (p.ej. en el pueblo), el mas profundo
 	# ya cartografiado.

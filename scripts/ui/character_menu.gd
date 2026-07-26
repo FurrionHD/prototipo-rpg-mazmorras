@@ -122,19 +122,38 @@ func _pj() -> PersonajeData:
 	return Game.party[_pj_sel] if not Game.party.is_empty() else Game.lider()
 
 
+# ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
+# menu de PAUSA (que escucha ahi) no llega a ver la tecla y no se abre por detras al cerrar la ficha.
 func _input(event: InputEvent) -> void:
+	if not _root.visible:
+		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
-	var code: int = (event as InputEventKey).keycode
-	if code == KEY_C:
+	if (event as InputEventKey).keycode != KEY_ESCAPE:
+		return
+	_cerrar()
+	get_viewport().set_input_as_handled()
+
+
+# La C va en _unhandled_key_input y NO en _input, por lo mismo que las teclas de dev (ver la cabecera
+# de Game._unhandled_key_input): un LineEdit con el foco CONSUME la tecla y aqui no llega, asi que
+# escribir el nombre al reclutar ya no abre la ficha por encima. Game.escribiendo() es el cinturon
+# explicito encima de eso. No lo devuelvas a _input.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if Game.escribiendo():
+		return   # con el foco en un campo de texto, una tecla es una LETRA y no un atajo
+	if (event as InputEventKey).keycode == KEY_C:
 		_toggle()
-	elif code == KEY_ESCAPE and _root.visible:
-		_cerrar()
 
 
 func _toggle() -> void:
 	if not _root.visible:
-		if Game._active_layer != null or Game.inventory_open or Game.debug_panel_open:
+		# hay_modal() en vez de solo inventory_open: cubre la pila ENTERA de menus (tienda, taberna,
+		# herrero, mapa...). En solitario lo tapaba la pausa del arbol; en MULTI nada pausa y la ficha
+		# se abria encima de cualquier menu.
+		if Game._active_layer != null or Game.debug_panel_open or Game.hay_modal():
 			return
 		_set_open(true)
 	else:
