@@ -776,6 +776,25 @@ estorban). Eran dos cosas del lado del que pega:
 Cuando había bichos a tiro pero ninguno admite pelea, ahora sale un toast en vez de silencio: el
 silencio era lo que hacía pensar "estaré mal colocado" y llevaba a recolocarse.
 
+#### Huir y VOLVER: la plaza del que se fue se quedaba pillada
+
+Huir es individual (el compañero sigue peleando), pero volver a entrar en esa misma pelea era
+imposible. `_retirar_aliado` marca al que huye en `_huidos` **pero NO lo saca de `_aliados`** — a
+propósito, porque ese array se cruza **por índice** con `Game._active_player_pjs` y `combat_finished`
+devuelve los resultados por posición. El problema era que `anadir_aliado` medía el aforo con
+`_aliados.size()`, o sea **contando a los que ya se habían ido**: con la pelea llena, huir dejaba tu
+plaza ocupada para siempre y no podías volver.
+
+- Aforo: `_aliados.size() - _huidos.size() >= MAX_ALIADOS`. Los huidos no ocupan plaza; el tope de 4
+  sigue valiendo igual para los que están.
+- La fila de bloques **no hace wrap** (216 px por bloque en 1152), así que el bloque del que huye
+  ahora se **oculta** (`visible = false`) además de apagarse: si se quedara ocupando sitio, el bloque
+  del que vuelve a entrar se saldría de la pantalla. Su entrada sigue en `_bloques_aliados` para no
+  romper la alineación por índice. Ojo: esto es SOLO para los huidos — un aliado **caído**
+  (`_caer_aliado`) se queda a la vista en gris, que sigue en la pelea.
+- El aviso de `_union_denegada` ahora lleva **motivo**: "la pelea está llena" y "esa pelea ya no está
+  disponible" son cosas distintas, y decir siempre la segunda mandaba a buscar un problema que no era.
+
 ⚠️ **El CONTRA no se aplica a través de la red.** `enemy._es_contra()` pregunta a
 `player.quiere_atacarme()`, y el avatar remoto de otro humano no tiene ese método (su intención vive
 en SU máquina), así que devuelve `false` sin romper nada. Si un bicho embiste al compañero, la

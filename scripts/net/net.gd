@@ -3144,7 +3144,7 @@ func _pedir_unirme(fichas: Array) -> void:
 	var p: Node = _pantalla_combate()
 	if _pelea_id == 0 or p == null or not p.has_method("roster_para_espejo") or fichas.is_empty():
 		print("[unirse] DENIEGO a ", quien, ": pelea_id=", _pelea_id, " pantalla=", p != null)
-		_union_denegada.rpc_id(quien)
+		_union_denegada.rpc_id(quien, "Esa pelea ya no está disponible.")
 		return
 	print("[unirse] ", quien, " entra en mi pelea con ", fichas.size(), " personaje(s)")
 	# Aguanta la pelea hasta que entre de verdad: si caen todos en ese hueco, no se cierra
@@ -3169,7 +3169,9 @@ func _pedir_unirme(fichas: Array) -> void:
 	if p.has_method("esperar_refuerzo"):
 		p.esperar_refuerzo(false)
 	if dobles.is_empty():
-		_union_denegada.rpc_id(quien)
+		# La pelea existe: lo que pasa es que NO CABE nadie mas. Decirlo tal cual; el mensaje de
+		# "ya no esta disponible" mandaba a buscar un problema que no era.
+		_union_denegada.rpc_id(quien, "La pelea está llena: no cabe nadie más.")
 		return
 	_dobles[quien] = dobles       # de quien es cada doble, para devolverle lo suyo al acabar
 	if not _pelea_participantes.has(quien):
@@ -3180,8 +3182,10 @@ func _pedir_unirme(fichas: Array) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _union_denegada() -> void:
-	_toast("Esa pelea ya no está disponible.")
+func _union_denegada(motivo: String = "Esa pelea ya no está disponible.") -> void:
+	# El motivo lo manda el anfitrion: "no existe" y "esta llena" son cosas distintas y el jugador
+	# necesita saber cual de las dos, o se pone a recolocarse pensando que apunta mal.
+	_toast(motivo)
 
 
 # Corre en EL QUE SE UNE: abre su pantalla en espejo.

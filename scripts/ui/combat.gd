@@ -1266,7 +1266,11 @@ func esperar_refuerzo(si: bool) -> void:
 func anadir_aliado(c: Combatant) -> bool:
 	if c == null or _state == State.FINISHED:
 		return false
-	if _aliados.size() >= MAX_ALIADOS:
+	# Los HUIDOS no ocupan plaza. _aliados NO se vacia al huir (ese array se cruza por INDICE con
+	# Game._active_player_pjs, ver _retirar_aliado), asi que contarlo a pelo dejaba las plazas de quien
+	# se fue pilladas PARA SIEMPRE: huias de una pelea llena y ya no podias volver a entrar nunca,
+	# aunque tu compañero siguiera dentro peleandola. Su hueco tiene que quedar libre.
+	if _aliados.size() - _huidos.size() >= MAX_ALIADOS:
 		return false
 	_desambiguar(c)
 	_aliados.append(c)
@@ -3380,6 +3384,11 @@ func _retirar_aliado(c: Combatant) -> void:
 		b["panel"].modulate = Color(0.4, 0.4, 0.4)
 		b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
 		b["chips"].visible = false
+		# Y se QUITA de la fila, no solo se apaga: la fila no hace wrap (216 px por bloque en un
+		# viewport de 1152), asi que si el que huyo sigue ocupando sitio, el bloque del que vuelve a
+		# entrar se saldria de la pantalla. Su entrada se queda en _bloques_aliados para no
+		# descuadrar los indices, que se cruzan con _aliados.
+		b["panel"].visible = false
 
 
 # Turno de UN enemigo. 'e' es el que ACTUA (no "el enemigo" a secas): con varios en la
