@@ -444,7 +444,9 @@ func _build_cofre() -> void:
 		mias = Game.owned_armor
 	var alguna := false
 	for item in mias:
-		if Game.quien_lleva(item) != null:
+		# item_equipado y NO quien_lleva: la MOCHILA no vive en un equipped_* (es del GRUPO), asi que
+		# quien_lleva no la ve y la que llevabas puesta salia aqui como suelta.
+		if Game.item_equipado(item):
 			continue   # equipada: no se deposita
 		alguna = true
 		var fila := HBoxContainer.new()

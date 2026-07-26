@@ -188,6 +188,9 @@ var _enemy_scene: PackedScene = preload("res://scenes/actors/enemy/enemy.tscn")
 var _zone_script: GDScript = preload("res://scripts/world/spawn_zone.gd")
 var _stairs_script: GDScript = preload("res://scripts/world/stairs.gd")
 var _exit_script: GDScript = preload("res://scripts/world/dungeon_exit.gd")
+# El aviso de la pared. Aqui hace falta para pintar los brotes REPLICADOS (ver pintar_aviso_pared);
+# los propios los monta SpawnZone con su propia copia del script.
+var _fx_pared_script: GDScript = preload("res://scripts/world/wall_birth_fx.gd")
 var _pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
 var _reco_script: GDScript = preload("res://scripts/world/resource_node.gd")
 
@@ -805,6 +808,13 @@ func marcar_agotado(celda: Vector2i) -> void:
 	(Game.persistente_piso(_piso_construido)["agotados"] as Dictionary)[celda] = Game.tiempo_mazmorra
 
 
+# Los nodos AGOTADOS de este piso VIVO (celda -> sello de tiempo). La libreta del mapa los lee de
+# aqui y no de Game.mazmorra_persistente, porque en sesion ese diccionario es del mundo PROPIO del
+# invitado (marcar_agotado no lo toca en multi): leerlo pintaba vetas de otro mundo en este mapa.
+func agotados_vivos() -> Dictionary:
+	return _agotados
+
+
 func _sala_mas_lejana(desde: Rect2i) -> Rect2i:
 	var mejor := Rect2i()
 	var best_d: float = -1.0
@@ -1248,13 +1258,15 @@ func _process(delta: float) -> void:
 		return
 	var pj: Vector2 = (player as Node2D).global_position
 
-	# NIEBLA del mapa: la zona que pisas queda vista para siempre (persiste en el save). Va con MI
-	# posicion a proposito: el mapa es mi libreta, no la de mi compañero.
+	# NIEBLA del mapa: la zona que pisas queda vista para siempre. Va con MI posicion a proposito: el
+	# mapa es mi libreta, no la de mi compañero. En sesion se apunta en la libreta del mundo del HOST y
+	# NO en mi save (vistas_de_piso decide donde); antes se colaba en mazmorra_persistente incluso en
+	# multi, y el save del invitado se iba llenando de niebla de un mundo ajeno.
 	if gen != null:
 		var celda: Vector2i = Vector2i((pj / DungeonGenerator.CELDA).floor())
 		var z: int = gen.zona_en(celda)
 		if z >= 0:
-			(Game.persistente_piso(_piso_construido)["zonas_vistas"] as Dictionary)[z] = true
+			Game.vistas_de_piso(_piso_construido)[z] = true
 
 	# MULTIJUGADOR (hito 5.4): el congelado se mide contra el aliado MAS CERCANO, no solo contra mi.
 	# Yo simulo el piso para TODOS, asi que medir solo desde mi cuerpo dejaba dormidos a los bichos
@@ -1352,3 +1364,20 @@ func provocar_brote() -> bool:
 # Alias de la tecla de dev (B): mismo brote, nombre viejo por si algo lo llama.
 func dev_brote_cercano() -> void:
 	provocar_brote()
+
+
+# MULTIJUGADOR: pinta el AVISO de un parto/brote que esta pariendo OTRA maquina. El que solo espeja el
+# piso no tiene zonas activas (SpawnZone muere en piso.hay_sitio, que corta si no eres el dueño), asi
+# que veia salir los bichos de la pared SIN el temblor de aviso: un susto gratis en vez de la decision
+# de quedarse o largarse, que es justo la mecanica. Solo es FX, sin autoridad ni estado: si se pierde
+# un paquete no pasa nada. Cuelga de _geo para morir con el piso, como todo lo demas de aqui.
+# Lo llama Net._pintar_brote; el nacimiento de los bichos sigue viniendo replicado por su via de siempre.
+func pintar_aviso_pared(paredes_px: Array, dur: float, amp: float, col: Color) -> void:
+	if paredes_px.is_empty() or _geo == null or not is_instance_valid(_geo):
+		return
+	var fx = _fx_pared_script.new()
+	fx.position = paredes_px[0]
+	_geo.add_child(fx)
+	fx.iniciar_tramo(float(DungeonGenerator.CELDA), dur, amp, col, paredes_px)
+	# El espejo no tiene reloj de parto: el aviso se borra solo cuando se cumple su duracion.
+	fx.borrarse_al_acabar(dur)

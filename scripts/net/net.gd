@@ -127,6 +127,16 @@ var _next_id: int = 1              # contador de ids del host
 # Bichos RESERVADOS: quien los esta peleando. Lo lleva el DUEÑO del piso, que es quien arbitra.
 # Sin esto dos jugadores podrian coger el mismo bicho a la vez. Mismo espiritu que _vetas_ocupadas.
 var _enem_ocupados: Dictionary = {}   # net_id -> peer_id que lo pelea (SOLO el dueño del piso)
+# Cuerpos que alguien esta EXTRAYENDO ahora mismo (net_id -> peer). El candado DURO sigue siendo
+# _enem_ocupados (compartido con las peleas); esto es SOLO el subconjunto de extracciones, y existe
+# para poder DIFUNDIRLO: sin el, con los dos jugadores juntos y dos cuerpos al lado los dos apuntaban
+# al MISMO (el mas cercano de cada uno) y el segundo se comia un "esta ocupado" creyendo que iba al
+# otro cuerpo. Ahora la F esquiva los cuerpos que trabaja otro (ver cuerpo_ocupado_por_otro).
+# En el DUEÑO del piso es autoritativo; en los demas es el reflejo que llega por _set_extrayendo.
+var _extrayendo: Dictionary = {}
+# ¿Tengo una peticion de extraccion EN VUELO? Sin esto, entre la F y la respuesta del dueño no habia
+# nada que lo marcara: una segunda F mandaba otra peticion y dejaba candados huerfanos por el camino.
+var _extraccion_pidiendo: bool = false
 var _enemigos: Dictionary = {}     # id -> {"nodo","lugar","color","lado"} (solo lo llena el host)
 var _enem_nodos: Dictionary = {}   # id -> nodo remote_enemy (en los CLIENTES)
 var _enem_next_id: int = 1         # contador de ids de enemigo del host
@@ -237,6 +247,7 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 	_codigo = codigo
 	activo = true
 	es_host = true
+	_sembrar_mapa_sesion()    # el mapa de la sesion arranca siendo el MIO: se juega en mi mundo
 	Game._refrescar_pausa()   # regimen multi: los menus dejan de pausar el arbol
 	estado_cambiado.emit("Servidor abierto. Esperando a que se unan...")
 	return OK
@@ -284,6 +295,8 @@ func desconectar() -> void:
 	_enem_nodos.clear()
 	_enemigos.clear()
 	_enem_ocupados.clear()
+	_extrayendo.clear()
+	_extraccion_pidiendo = false
 	_enem_next_id = 1
 	_enem_acum = 0.0
 	_peers.clear()
@@ -304,6 +317,10 @@ func desconectar() -> void:
 	_mis_huecos.clear()
 	semilla_host = 0
 	tienda_t2_host = false
+	# La libreta de la sesion era del mundo del HOST: se va con la sesion. Al invitado le vuelve la
+	# suya intacta (nunca se toco Game.mapa_snapshot ni su mazmorra_persistente).
+	_mapa_sesion.clear()
+	_vistas_sesion.clear()
 	# Restaurar MI baul de materiales si lo habia guardado al entrar de cliente (no perder nada).
 	if _almacen_guardado:
 		var lista: Array[MaterialItem] = []
@@ -429,6 +446,45 @@ func jugadores_remotos_aqui() -> Array:
 		if p.get("lugar", "") == _mi_lugar and p.get("pos", Vector2.INF) != Vector2.INF:
 			out.append({"pos": p["pos"], "peleando": bool(p.get("peleando", false))})
 	return out
+
+
+# --- AVISO DE PARED replicado (los brotes) ----------------------------------------------------
+#
+# Los partos los simula UN dueño por piso, asi que el AVISO (la pared que late y tiembla) solo se
+# montaba en su maquina: el compañero veia salir cuatro bichos de un muro liso, sin advertencia. El
+# aviso ES la mecanica (decides si te quedas o te largas), asi que se replica a quien este en mi piso.
+# Es puro FX: sin autoridad, sin estado y sin acuse. Si se pierde un paquete, se pierde un temblor.
+func anunciar_brote(paredes_px: Array, dur: float, amp: float, col: Color) -> void:
+	if not activo or multiplayer.multiplayer_peer == null or paredes_px.is_empty():
+		return
+	# Solo a los que estan EN MI PISO: el resto no tiene esa pared delante. El host hace de centralita
+	# porque en ENet los clientes no se hablan entre ellos.
+	if es_host:
+		for pid in _peers:
+			if (_peers[pid] as Dictionary).get("lugar", "") == _mi_lugar:
+				_pintar_brote.rpc_id(pid, paredes_px, dur, amp, col)
+		return
+	_rel_brote.rpc_id(1, paredes_px, dur, amp, col, _mi_lugar)
+
+
+# Solo host: reparte el aviso de un cliente entre los demas de ESE lugar (el emisor ya lo ve).
+@rpc("any_peer", "call_remote", "unreliable")
+func _rel_brote(paredes_px: Array, dur: float, amp: float, col: Color, lugar: String) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	if _mi_lugar == lugar:
+		_pintar_brote(paredes_px, dur, amp, col)   # yo tambien estoy ahi
+	for pid in _peers:
+		if pid != de and (_peers[pid] as Dictionary).get("lugar", "") == lugar:
+			_pintar_brote.rpc_id(pid, paredes_px, dur, amp, col)
+
+
+@rpc("any_peer", "call_remote", "unreliable")
+func _pintar_brote(paredes_px: Array, dur: float, amp: float, col: Color) -> void:
+	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
+	if piso != null and piso.has_method("pintar_aviso_pared"):
+		piso.pintar_aviso_pared(paredes_px, dur, amp, col)
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
@@ -1012,6 +1068,9 @@ func _mem_a_red(mem: Dictionary) -> Dictionary:
 func _olvidar_mis_enemigos() -> void:
 	_enemigos.clear()
 	_enem_ocupados.clear()   # las reservas eran de esos bichos: se van con ellos
+	if not _extrayendo.is_empty():
+		_extrayendo.clear()
+		_difundir_extrayendo()   # y nadie debe seguir viendo esos cuerpos como ocupados
 
 
 # El dueño de un piso ha cambiado: los que sigan ahi tiran sus cuerpos espejados, porque el dueño
@@ -2428,6 +2487,7 @@ func _soltar_reservas_de(quien: int) -> void:
 		if _enem_ocupados[id] != quien:
 			continue
 		_enem_ocupados.erase(id)
+		_borrar_extrayendo(id)   # si era un cuerpo a medio extraer, vuelve a estar libre
 		var e: Dictionary = _enemigos.get(id, {})
 		var nodo = e.get("nodo") if not e.is_empty() else null
 		if nodo != null and is_instance_valid(nodo) and not nodo.esta_muerto():
@@ -2442,12 +2502,23 @@ func _soltar_reservas_de(quien: int) -> void:
 func solicitar_extraccion(id: int) -> bool:
 	if not activo or multiplayer.multiplayer_peer == null:
 		return true
+	var yo: int = multiplayer.get_unique_id()
 	if _soy_dueno:
-		if _enem_ocupados.has(id):
+		# Idempotente: si el candado ya es MIO, se me vuelve a conceder. Antes cualquier re-peticion
+		# propia (una segunda F antes de que abriera la pantalla) se contestaba "lo trabaja tu
+		# compañero" siendo yo mismo.
+		if _enem_ocupados.has(id) and int(_enem_ocupados[id]) != yo:
 			_toast("Ese cuerpo lo está trabajando tu compañero.")
 			return false
-		_enem_ocupados[id] = multiplayer.get_unique_id()
+		_enem_ocupados[id] = yo
+		_apuntar_extrayendo(id, yo)
 		return true
+	# Una peticion a la vez: la respuesta tarda un viaje de ida y vuelta y en ese hueco una segunda F
+	# (o un paso que cambia cual es el cuerpo mas cercano) mandaba otra peticion y dejaba el candado
+	# del primer cuerpo puesto para siempre.
+	if _extraccion_pidiendo:
+		return false
+	_extraccion_pidiendo = true
 	if es_host:
 		_encaminar_extraccion(id, _mi_lugar, 1)   # host no-dueño: sin RPC a mi mismo
 	else:
@@ -2480,11 +2551,14 @@ func _pedir_extraccion_dueno(id: int, lugar: String, para: int) -> void:
 	_resolver_extraccion(id, para)
 
 
-# SOLO el dueño: concede el cuerpo al primero que lo pida.
+# SOLO el dueño: concede el cuerpo al primero que lo pida. Idempotente: si el candado YA es de quien
+# pregunta, se le vuelve a conceder (una re-peticion suya no es una colision).
 func _resolver_extraccion(id: int, quien: int) -> void:
-	var libre: bool = not _enem_ocupados.has(id) and _enemigos.has(id)
+	var mio_ya: bool = _enem_ocupados.has(id) and int(_enem_ocupados[id]) == quien
+	var libre: bool = _enemigos.has(id) and (mio_ya or not _enem_ocupados.has(id))
 	if libre:
 		_enem_ocupados[id] = quien
+		_apuntar_extrayendo(id, quien)
 	_responder_extraccion(quien, id, libre)
 
 
@@ -2511,14 +2585,21 @@ func _rel_resp_extraccion(para: int, id: int, ok: bool) -> void:
 # Corre en QUIEN PIDIO extraer: si se la han dado, se abre el minijuego sobre SU cuerpo espejado.
 @rpc("any_peer", "call_remote", "reliable")
 func _extraccion_concedida(id: int, ok: bool) -> void:
+	_extraccion_pidiendo = false   # la peticion ya no esta en vuelo, salga bien o mal
 	if not ok:
 		_toast("Ese cuerpo lo está trabajando tu compañero.")
 		return
 	var n = _enem_nodos.get(id)
-	if n != null and is_instance_valid(n):
-		# La marca ANTES de reentrar, o start_extraction volveria a pedir permiso en bucle.
-		n.set_meta("permiso_extraccion", true)
-		Game.start_extraction(n)
+	# Si el cuerpo ya no esta, o si mientras viajaba la respuesta se me ha puesto una pantalla delante
+	# (una pelea, otro minijuego), Game.start_extraction se iria de vacio y el candado se quedaria
+	# puesto PARA SIEMPRE: ese cuerpo diria "ocupado" el resto de la sesion aunque nadie lo trabajara.
+	# Era la razon de que el bug se "pegara" y reapareciera luego sin motivo. Se devuelve el candado.
+	if n == null or not is_instance_valid(n) or Game.hay_pelea_en_pantalla():
+		soltar_extraccion(id)
+		return
+	# La marca ANTES de reentrar, o start_extraction volveria a pedir permiso en bucle.
+	n.set_meta("permiso_extraccion", true)
+	Game.start_extraction(n)
 
 
 # La llama Game al TERMINAR de extraer: el cuerpo de verdad se desvanece en la maquina del dueño
@@ -2557,8 +2638,105 @@ func _rel_consumir(id: int, lugar: String) -> void:
 	_consumir_cadaver(id)
 
 
+# Suelto el cuerpo SIN haberlo extraido (me han quitado la pantalla, el cuerpo se fue con el piso
+# viejo, o el minijuego se auto-cancelo). Gemela de notificar_extraido pero sin desvanecer nada: solo
+# devuelve el candado, que si no se queda puesto para siempre.
+func soltar_extraccion(id: int) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	if _soy_dueno:
+		_liberar_cadaver(id)
+	elif es_host:
+		_encaminar_soltar_cuerpo(id, _mi_lugar)   # host no-dueño: sin RPC a mi mismo
+	else:
+		_pedir_soltar_cuerpo.rpc_id(1, id, _mi_lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_soltar_cuerpo(id: int, lugar: String) -> void:
+	if not es_host:
+		return
+	_encaminar_soltar_cuerpo(id, lugar)
+
+
+func _encaminar_soltar_cuerpo(id: int, lugar: String) -> void:
+	if _mi_lugar == lugar and _soy_dueno:
+		_liberar_cadaver(id)
+		return
+	var dueno: int = _dueno_de(lugar)
+	if dueno != 0 and dueno != 1:
+		_rel_soltar_cuerpo.rpc_id(dueno, id, lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_soltar_cuerpo(id: int, lugar: String) -> void:
+	if _mi_lugar != lugar or not _soy_dueno:
+		return
+	_liberar_cadaver(id)
+
+
+# SOLO el dueño: devuelve el candado de un cuerpo que sigue ahi, intacto y extraible.
+func _liberar_cadaver(id: int) -> void:
+	_enem_ocupados.erase(id)
+	_borrar_extrayendo(id)
+
+
+# --- Difusion de los cuerpos que se estan extrayendo -------------------------------------------
+#
+# La lleva el DUEÑO del piso y viaja por el HOST, porque en ENet los clientes no se hablan entre
+# ellos (mismo relevo que _rel_resp_extraccion).
+
+func _apuntar_extrayendo(id: int, quien: int) -> void:
+	if int(_extrayendo.get(id, 0)) == quien:
+		return
+	_extrayendo[id] = quien
+	_difundir_extrayendo()
+
+
+func _borrar_extrayendo(id: int) -> void:
+	if not _extrayendo.has(id):
+		return
+	_extrayendo.erase(id)
+	_difundir_extrayendo()
+
+
+func _difundir_extrayendo() -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	if es_host:
+		_set_extrayendo.rpc(_extrayendo)
+	else:
+		_rel_extrayendo.rpc_id(1, _extrayendo)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_extrayendo(d: Dictionary) -> void:
+	if not es_host:
+		return
+	_extrayendo = d.duplicate()   # el host tambien lo necesita para su propia F
+	_set_extrayendo.rpc(d)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_extrayendo(d: Dictionary) -> void:
+	if _soy_dueno:
+		return   # el mio es el autoritativo: no me lo pisa el eco del host
+	_extrayendo = d.duplicate()
+
+
+# ¿Ese cuerpo lo esta trabajando OTRO? Lo consulta player._mas_cercano_en_grupo para no apuntar a un
+# cuerpo que ya tiene dueño: asi dos jugadores juntos apuntan a cuerpos DISTINTOS en vez de pelearse
+# por el mas cercano y que uno se coma un aviso de "ocupado".
+func cuerpo_ocupado_por_otro(net_id: int) -> bool:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return false
+	var peer: int = int(_extrayendo.get(net_id, 0))
+	return peer != 0 and peer != multiplayer.get_unique_id()
+
+
 func _consumir_cadaver(id: int) -> void:
 	_enem_ocupados.erase(id)
+	_borrar_extrayendo(id)
 	var e: Dictionary = _enemigos.get(id, {})
 	var nodo = e.get("nodo") if not e.is_empty() else null
 	if nodo != null and is_instance_valid(nodo):
@@ -3190,6 +3368,235 @@ func _fin_espejo() -> void:
 		p.cerrar_espejo()
 
 
+# --- MAPA DE LA SESION (la libreta del mundo del HOST) ----------------------------------------
+#
+# Se juega en el mundo del HOST, asi que la libreta que hay que mirar es la de SU mundo. Antes el
+# mapa (tecla M) dibujaba Game.mapa_snapshot a pelo, que en el invitado es el de SU mundo (otra
+# semilla): abrias el mapa y veias una mazmorra que no era la que estabas pisando. Y la NIEBLA se
+# escribia en Game.mazmorra_persistente incluso en sesion, o sea que el save del invitado se iba
+# llenando de niebla de un mundo ajeno.
+#
+# Ahora hay UNA libreta de sesion, autoritativa en el host, y NADA de esto toca el save del invitado.
+#
+# REGLA DE REFRESCO (decision del usuario): la exploracion se comparte, pero cada uno actualiza su
+# copia SOLO CUANDO SUBE EL al pueblo. Si yo subo con una zona nueva, mi compañero no la ve hasta que
+# suba el. Por eso el host, al fusionar lo que le trae alguien, le devuelve la libreta entera SOLO A
+# EL: los demas se quedan con su copia vieja hasta que les toque. Al entrar en la sesion, el invitado
+# recoge de golpe lo que el host tenga descubierto.
+var _mapa_sesion: Dictionary = {}    # piso -> snapshot (mismo formato que Game.mapa_snapshot)
+var _vistas_sesion: Dictionary = {}  # piso -> {zona_idx: true}  (la niebla)
+
+
+# Solo host, al abrir sala: la libreta de la sesion empieza siendo la del mundo del host.
+func _sembrar_mapa_sesion() -> void:
+	_mapa_sesion = Game.mapa_snapshot.duplicate(true)
+	_vistas_sesion = {}
+	for p in Game.mazmorra_persistente:
+		var vistas: Dictionary = (Game.mazmorra_persistente[p] as Dictionary).get("zonas_vistas", {})
+		if not vistas.is_empty():
+			_vistas_sesion[p] = vistas.duplicate()
+
+
+# Lo que DIBUJA el mapa (lo lee Game.mapa_visible).
+func mapa_sesion() -> Dictionary:
+	return _mapa_sesion
+
+
+# La niebla de un piso, creandola vacia si no existe. Es la que se escribe EN VIVO al andar
+# (DungeonFloor) y la que lee la captura de la libreta (Game.capturar_mapa).
+func vistas_sesion(piso: int) -> Dictionary:
+	if not _vistas_sesion.has(piso):
+		_vistas_sesion[piso] = {}
+	return _vistas_sesion[piso]
+
+
+# Los pisos que tienen niebla en MI copia (para el baseline de la expedicion).
+func vistas_sesion_todas() -> Array:
+	return _vistas_sesion.keys()
+
+
+# Al MORIR: mi copia de la niebla vuelve a como estaba al bajar. Lo que ya estaba COMPROMETIDO en el
+# host no se pierde -- alli sigue, y me llega entero la proxima vez que suba al pueblo con vida.
+func revertir_vistas_sesion(baseline: Dictionary) -> void:
+	for p in _vistas_sesion.keys():
+		var vb: Dictionary = baseline.get(p, {})
+		_vistas_sesion[p] = vb.duplicate()
+
+
+# Lo llama Game.comprometer_mapa al SUBIR AL PUEBLO con vida: mando lo que he cartografiado esta
+# bajada y, de vuelta, recibo la libreta fusionada. El host fusiona y me la devuelve solo a mi.
+func comprometer_mapa_sesion(trabajo: Dictionary) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	if es_host:
+		_fusionar_mapa(trabajo, _vistas_sesion)
+		return
+	_pedir_fusion_mapa.rpc_id(1, trabajo, _vistas_sesion)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_fusion_mapa(trabajo: Dictionary, vistas: Dictionary) -> void:
+	if not es_host:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	_fusionar_mapa(trabajo, vistas)
+	# Solo A EL: los demas siguen con su copia vieja hasta que suban ellos.
+	_set_mapa_sesion.rpc_id(quien, _mapa_sesion, _vistas_sesion)
+
+
+# Solo host: mete en la libreta de la sesion lo que trae uno que acaba de subir al pueblo.
+func _fusionar_mapa(trabajo: Dictionary, vistas: Dictionary) -> void:
+	for p in vistas:
+		var mia: Dictionary = vistas_sesion(int(p))
+		for z in (vistas[p] as Dictionary):
+			mia[z] = true
+	for p in trabajo:
+		var piso: int = int(p)
+		if not _mapa_sesion.has(piso):
+			_mapa_sesion[piso] = (trabajo[p] as Dictionary).duplicate(true)
+			continue
+		_fundir_snap(_mapa_sesion[piso], trabajo[p] as Dictionary)
+
+
+# Fusiona DOS snapshots del mismo piso. Se puede porque los dos salen de la MISMA geometria (misma
+# semilla): lo que cambia es cuanto ha visto cada uno, asi que la union es exacta. Se hace campo a
+# campo y no reemplazando el snapshot entero, porque el que sube solo ha horneado SU niebla y
+# reemplazar borraria del plano las zonas que descubrio el otro.
+func _fundir_snap(base: Dictionary, nuevo: Dictionary) -> void:
+	base["ancho"] = nuevo.get("ancho", base.get("ancho", 0))
+	base["alto"] = nuevo.get("alto", base.get("alto", 0))
+	_unir_celdas(base, nuevo, "suelo")
+	_unir_por_celda(base, nuevo, "vivos")
+	_unir_por_celda(base, nuevo, "escaleras")
+	_unir_celdas(base, nuevo, "salidas")
+	# AGOTADOS: gana el sello mas NUEVO (es una cuenta atras de respawn; el ultimo picado es la verdad).
+	var ag: Dictionary = base.get("agotados", {})
+	for celda in (nuevo.get("agotados", {}) as Dictionary):
+		var e = (nuevo["agotados"] as Dictionary)[celda]
+		if not ag.has(celda) or _sello_de(e) >= _sello_de(ag[celda]):
+			ag[celda] = e
+	base["agotados"] = ag
+
+
+# Union de una lista de CELDAS sueltas (suelo, salidas), sin repetir.
+func _unir_celdas(base: Dictionary, nuevo: Dictionary, clave: String) -> void:
+	var vistas: Dictionary = {}
+	var out: Array = []
+	for lista in [base.get(clave, []), nuevo.get(clave, [])]:
+		for c in (lista as Array):
+			if not vistas.has(c):
+				vistas[c] = true
+				out.append(c)
+	base[clave] = out
+
+
+# Union de una lista de DICTS que llevan su celda en "cell" (vivos, escaleras): una entrada por celda.
+func _unir_por_celda(base: Dictionary, nuevo: Dictionary, clave: String) -> void:
+	var por_celda: Dictionary = {}
+	var out: Array = []
+	for lista in [base.get(clave, []), nuevo.get(clave, [])]:
+		for d in (lista as Array):
+			var c = (d as Dictionary).get("cell")
+			if not por_celda.has(c):
+				por_celda[c] = true
+				out.append(d)
+	base[clave] = out
+
+
+# El sello de tiempo de un 'agotado'. Los snapshots viejos guardaban solo el float; los nuevos, un
+# dict con color y tipo (misma tolerancia que map_menu._dibujar).
+func _sello_de(e) -> float:
+	return float((e as Dictionary)["t"]) if e is Dictionary else float(e)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _set_mapa_sesion(mapa: Dictionary, vistas: Dictionary) -> void:
+	_mapa_sesion = mapa.duplicate(true)
+	_vistas_sesion = vistas.duplicate(true)
+
+
+# --- GUARDADO PREVENTIVO: el host guarda por los dos -------------------------------------------
+#
+# El guardado sincronizado de verdad (hito 6: un save autoritativo, la expedicion congelada y la
+# posicion de cada invitado por identidad) es mucho mas grande y sigue pendiente. Esto es el
+# PREVENTIVO acordado con el usuario: cuando el host da a Guardar, el invitado tambien guarda -- en SU
+# ranura, en el PUEBLO de SU mundo, con el personaje tal y como esta en ese momento.
+#
+# Lo que se le guarda: objetos, nivel, excelia, oficios, pasivas... todo lo del PERSONAJE.
+# Lo que NO: el progreso del MUNDO (bosses, tienda T2, mapa, vetas agotadas, baul y cofres comunes),
+# porque eso es del mundo del HOST y en el suyo no lo ha hecho. De ahi el congelado de abajo.
+#
+# CONTRAPARTIDA (avisada): el invitado pierde el SITIO. Si estaba en el piso 8, al cargar sale en su
+# pueblo. Su personaje y su bolsa, intactos.
+
+# Lo que era MIO al entrar en la sesion, para devolverlo al save y no volcar el mundo del host.
+# Vacio = no estoy de invitado (o ya me fui).
+var _mundo_propio: Dictionary = {}
+
+
+# Solo cliente, al conectar: aparta los campos del mundo PROPIO antes de que el host mande el suyo.
+#
+# No es cosmetico: mientras tengo el candado del taller, Game.almacen_materiales ES EL BAUL DEL HOST
+# (ver _taller_ok). Guardar a pelo me metia en mi save los materiales de mi compañero.
+func _congelar_mi_mundo() -> void:
+	_mundo_propio = {
+		"almacen_materiales": Game.almacen_materiales.duplicate(),
+		"bote_dinero": Game.bote_dinero,
+		"cofre_equipo": Game.cofre_equipo.duplicate(true),
+		"cofre_consumibles": Game.cofre_consumibles.duplicate(true),
+		"mazmorra_persistente": Game.mazmorra_persistente.duplicate(true),
+		"mapa_snapshot": Game.mapa_snapshot.duplicate(true),
+		"mapa_trabajo": Game.mapa_trabajo.duplicate(true),
+		"bosses_derrotados": Game.bosses_derrotados.duplicate(),
+	}
+
+
+# ¿Estoy jugando de invitado en el mundo de otro? Lo consulta Game.exportar_partida_invitado.
+func mundo_propio_congelado() -> Dictionary:
+	return _mundo_propio
+
+
+# Solo host: guardar por los dos. Mi partida la guarda quien me llama (el menu de pausa); aqui se le
+# pide a cada invitado que guarde la suya. 'cerrando' = el host ha dado a "Guardar y SALIR": el
+# invitado, ademas de guardar, se vuelve A SU MUNDO con la partida ya guardada, en vez de comerse un
+# "el host ha cerrado la partida" a secas.
+func guardar_todos(cerrando: bool = false) -> void:
+	if not activo or not es_host or multiplayer.multiplayer_peer == null:
+		return
+	_guardar_ahora.rpc(cerrando)
+	if not cerrando:
+		return
+	# Un respiro antes de que el host corte: los RPC salen en el siguiente poll, y desconectar en el
+	# mismo frame tiraria el paquete sin enviarlo (misma trampa que _rechazado). Sin esto el invitado
+	# se quedaria sin guardar.
+	await get_tree().create_timer(0.3).timeout
+
+
+# Corre en el INVITADO: guarda en SU ranura, en el pueblo de SU mundo.
+@rpc("authority", "call_remote", "reliable")
+func _guardar_ahora(cerrando: bool = false) -> void:
+	# El guardado en si lo hace Game (es quien habla con Perfil): si net.gd llamara a Perfil se cerraria
+	# un ciclo net -> Perfil -> Game -> net y GDScript deja de inferir los tipos de Game.* aqui dentro.
+	var ok: bool = Game.guardar_partida_invitado()
+	if not cerrando:
+		_toast("El anfitrión ha guardado: tu personaje queda a salvo en tu pueblo." if ok
+			else "El anfitrión ha guardado, pero tu partida NO se pudo guardar.")
+		return
+	# El host cierra la sesion. Me vuelvo A MI MUNDO con lo que se acaba de guardar: se RECARGA de la
+	# ranura, que es la unica forma de garantizar que no me llevo nada del mundo del host (baul, mapa,
+	# bosses, el piso en el que estaba). Salgo de la sesion PRIMERO, o desconectar pisaria lo cargado
+	# restaurando el baul de antes.
+	desconectar()
+	if ok and Game.recargar_mi_partida():
+		estado_cambiado.emit("El anfitrión ha guardado y cerrado. Vuelves a tu mundo.")
+	else:
+		# No se pudo guardar/recargar: al menos no dejarle dentro de un piso del mundo del host.
+		Game.current_floor = 1
+		Game.olvidar_mazmorra()
+		estado_cambiado.emit("El anfitrión ha cerrado la partida.")
+	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
+
+
 # --- HANDSHAKE + CONTRASEÑA ------------------------------------------------------------------
 
 # Cliente: nada mas conectar, se presenta al host (id 1) con el codigo, su aspecto y su lugar.
@@ -3198,6 +3605,7 @@ func _on_connected_to_server() -> void:
 	# Guardo MI baul de materiales antes de que el host me mande el suyo (lo recupero al salir).
 	_almacen_solo = Game.almacen_materiales.duplicate()
 	_almacen_guardado = true
+	_congelar_mi_mundo()   # para poder GUARDAR sin volcar en mi save nada del mundo del host
 	_saludar.rpc_id(1, _codigo, Game.player_color, Game.player_metalico, Game.player_nombre,
 		_mi_lugar, Game.player_imagen_png, Game.player_color_alpha)
 
@@ -3247,6 +3655,8 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 	_set_bote.rpc_id(quien, Game.bote_dinero)
 	_set_cofre.rpc_id(quien, Game.cofre_equipo)
 	_set_cofre_consumibles.rpc_id(quien, Game.cofre_consumibles)
+	# Y la LIBRETA del mundo (mapa + niebla): al entrar en mi mundo recoge lo que yo tenga descubierto.
+	_set_mapa_sesion.rpc_id(quien, _mapa_sesion, _vistas_sesion)
 
 
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.

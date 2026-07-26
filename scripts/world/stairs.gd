@@ -27,7 +27,12 @@ func interact_with_player() -> void:
 	if Net.activo:
 		if sube and Game.current_floor <= 1:
 			return   # en el piso 1 no hay escalera de subir: ahi esta la puerta al pueblo
-		Net.solicitar_piso(Game.current_floor + (-1 if sube else 1), not sube)
+		# OJO con el segundo flag: 'por_la_bajada' NO significa "voy hacia abajo", significa "llego por
+		# la escalera de BAJADA del piso de abajo", o sea que HE SUBIDO (ver Game.subir_piso, que pasa
+		# true). Iba invertido: al bajar en multi aparecias en el FONDO del piso nuevo, pegado a su
+		# escalera de BAJAR, mientras la de SUBIR se plantaba en la boca al otro extremo del mapa. De
+		# ahi el "solo deja bajar y donde deberia estar la subida pone bajar".
+		Net.solicitar_piso(Game.current_floor + (-1 if sube else 1), sube)
 		return
 	if sube:
 		Game.subir_piso()

@@ -1014,6 +1014,18 @@ func _start_combat(enemy_initiated: bool) -> void:
 		velocity = Vector2.ZERO
 		_cancelar_aviso()
 		return
+	# Hay una PANTALLA delante que NO es una pelea: un minijuego de recoleccion (extraer un cristal,
+	# picar, recolectar, talar). Game.start_combat la rechaza en seco (`if _active_layer != null:
+	# return`), asi que seguir adelante congelaba al grupo entero SIN abrir pelea: se quedaban de
+	# estatua para siempre, sin IA, sin loot y ocupando aforo. Se espera pegado, igual que en una
+	# pelea llena: al cerrarse el minijuego se suelta _esperando_hueco y, como seguimos en contacto,
+	# _aliado_en_contacto vuelve a llamar aqui y la pelea se abre de verdad. En solitario no se veia
+	# porque el arbol esta en pausa con el minijuego delante y esto no llega a correr.
+	if Game.hay_pelea_en_pantalla():
+		_esperando_hueco = true
+		velocity = Vector2.ZERO
+		_cancelar_aviso()
+		return
 	var grupo: Array = vecinos()
 	# Se congela al GRUPO ENTERO, no solo a mi: los vecinos entran a la pelea, asi que no pueden
 	# seguir merodeando (ni disparar su propio combate) por el mapa mientras tanto.

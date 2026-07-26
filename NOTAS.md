@@ -47,6 +47,23 @@ Motor: **Godot 4.7** (GDScript), renderizador **GL Compatibility**.
   - Escena: `scenes/actors/player/player.tscn`
   - Script: `scripts/actors/player/player.gd`
 
+### Al SUBIR de versión hay que tocar TRES sitios
+
+La fuente de verdad es `project.godot` → `config/version` (de ahí la lee `Game.VERSION`), pero el
+export **no puede leer los ajustes del proyecto**, así que hay dos copias a mano en
+`export_presets.cfg`. Al cambiar de versión:
+
+1. `project.godot` → `config/version` ← **la fuente**
+2. `export_presets.cfg` → `export_path` (`build/Dungeon Oratoria X.Y.Z.zip`)
+3. `export_presets.cfg` → `application/file_version` y `application/product_version` (`X.Y.Z.0`)
+
+Los metadatos del export (`product_name`, `company_name`, `file_description`, `copyright`) están
+rellenos para que el `.exe` no salga anónimo: un binario grande y sin metadatos es justo el perfil
+que marcan las heurísticas de los antivirus. **Ojo: esto reduce falsos positivos pero NO quita el
+aviso de SmartScreen** — eso solo lo quita firmar el binario con un certificado (de pago) o acumular
+reputación de descargas. `application/icon` sigue vacío a propósito: necesita un `.ico` de verdad y
+solo hay `icon.svg` (va en el pase visual).
+
 ## Estructura de carpetas (objetivo)
 
 ```

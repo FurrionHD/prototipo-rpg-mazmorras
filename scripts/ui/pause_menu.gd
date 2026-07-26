@@ -116,23 +116,35 @@ func _abrir_multi() -> void:
 	panel.abrir()
 
 
+# MULTIJUGADOR (hito 6 preventivo): guarda el HOST, y guarda POR LOS DOS. El invitado esta jugando en
+# el mundo del host, asi que su partida no se puede volcar tal cual: Game.exportar_partida_invitado le
+# devuelve lo del mundo (baul, mapa, bosses) a como estaba al entrar y le deja en SU pueblo. Solo lo
+# dispara el host: dos saves autoritativos a la vez es justo el lio que el hito 6 viene a resolver.
 func _guardar() -> void:
-	# MULTIJUGADOR: guardar aun no (hito 6, guardado sincronizado). Estas jugando en el mundo
-	# del HOST: volcar este estado en TU save lo corromperia (piso ajeno, semilla ajena).
-	if Net.activo:
-		_aviso.text = "El guardado en multijugador llega mas adelante."
+	if Net.activo and not Net.es_host:
+		_aviso.text = "En multijugador guarda el anfitrion, por los dos."
 		return
-	_aviso.text = "Partida guardada." if Perfil.guardar_actual() else "No se pudo guardar."
+	var ok: bool = Perfil.guardar_actual()
+	if ok and Net.activo:
+		Net.guardar_todos()
+		_aviso.text = "Partida guardada (y tu compañero, a salvo en su pueblo)."
+		return
+	_aviso.text = "Partida guardada." if ok else "No se pudo guardar."
 
 
 func _guardar_y_salir() -> void:
-	if Net.activo:
-		_aviso.text = "El guardado en multijugador llega mas adelante."
+	if Net.activo and not Net.es_host:
+		_aviso.text = "En multijugador guarda el anfitrion, por los dos."
 		return
-	if Perfil.guardar_actual():
-		_salir()
-	else:
+	if not Perfil.guardar_actual():
 		_aviso.text = "No se pudo guardar (no se sale)."
+		return
+	# Cerrando la sesion: al invitado se le pide que guarde Y que se vuelva a su mundo con lo guardado
+	# (si no, se comeria un "el host ha cerrado" a secas). Se ESPERA a que el aviso salga de verdad:
+	# _salir() desconecta, y cortar en el mismo frame tiraria el paquete sin enviarlo.
+	if Net.activo:
+		await Net.guardar_todos(true)
+	_salir()
 
 
 func _salir_sin_guardar() -> void:

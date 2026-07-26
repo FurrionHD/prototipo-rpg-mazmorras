@@ -368,7 +368,10 @@ func _build_vender_bolsa() -> void:
 
 
 func _build_vender_hogar() -> void:
-	_note(_header, "Los materiales que tienes guardados en el Hogar. Piénsatelo: lo que vendas hoy te tocará farmearlo mañana para craftear.")
+	var aviso: String = "Los materiales que tienes guardados en el Hogar. Piénsatelo: lo que vendas hoy te tocará farmearlo mañana para craftear."
+	if Net.activo:
+		aviso += " El baúl es COMÚN: si tu compañero está en un taller, tendrás que esperar."
+	_note(_header, aviso)
 	_stacks = _agrupar(Game.almacen_materiales)
 	_grid_detail(_labels_stacks(_stacks), _preview_venta_bolsa)
 
@@ -401,7 +404,25 @@ func _on_vender_stack() -> void:
 
 func _confirmar_venta(cant: int) -> void:
 	if _pending_modelo != null:
-		var cobrado: int = Game.vender_item(_pending_modelo, cant, _sub == 1)
+		var del_hogar: bool = _sub == 1
+		# MULTIJUGADOR: el baul del hogar es COMPARTIDO, asi que vender de ahi exige el candado del
+		# taller igual que depositar o craftear (Game.vender_item lo comprueba y devuelve 0 sin el).
+		# Era el unico menu que tocaba el baul sin pedirlo: la venta desde el hogar no hacia NADA en
+		# multi. Vender de la BOLSA es personal y no pasa por aqui.
+		if del_hogar and Net.activo:
+			if not await Net.abrir_taller():
+				_decir("El hogar está ocupado: tu compañero está en el taller.", false)
+				_pending_modelo = null
+				_rebuild()
+				return
+			var cobrado_h: int = Game.vender_item(_pending_modelo, cant, true)
+			Net.cerrar_taller()   # devuelve el baul ya modificado y suelta el candado
+			_decir("Vendes %d x %s por %d monedas." % [
+				cant, _nombre_item(_pending_modelo).replace("\n", " "), cobrado_h])
+			_pending_modelo = null
+			_rebuild()
+			return
+		var cobrado: int = Game.vender_item(_pending_modelo, cant, del_hogar)
 		_decir("Vendes %d x %s por %d monedas." % [
 			cant, _nombre_item(_pending_modelo).replace("\n", " "), cobrado])
 		_pending_modelo = null

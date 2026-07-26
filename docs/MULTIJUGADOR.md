@@ -667,6 +667,93 @@ quien se va, y ahí no da tiempo; exigiría ir mandando copias del estado por si
   editor se contrasta con un escaneo real y avisa si el manifiesto se quedó corto (al añadir una
   plantilla nueva, apuntarla ahí).
 
+#### Ronda de bugs del playtest LAN (26/07/2026)
+
+Nueve incidencias de una sesión a dos. Seis eran de red; dos (el mapa y el guardado) obligaron a
+mover estado de sitio.
+
+- **⚠️ Un minijuego con un bicho encima dejaba ESTATUAS eternas.** `enemy._start_combat` miraba
+  `Game.combate_activo()` y `Net.espejando()`, y con una pantalla de recolección delante las dos son
+  `false`: congelaba al grupo (`_combat_triggered = true`) y llamaba a `Game.start_combat`, que
+  **aborta en seco** por `_active_layer != null`. Grupo sin IA, sin loot y ocupando aforo para
+  siempre. Ahora, si `Game.hay_pelea_en_pantalla()`, el bicho entra en `_esperando_hueco` (el mismo
+  camino que una pelea llena): al cerrarse el minijuego se suelta y el contacto abre la pelea de
+  verdad. **En solitario no se veía porque el árbol está en pausa** y ese `_physics_process` no corre.
+- **Las escaleras iban INVERTIDAS en multi.** `stairs.gd` mandaba `not sube` como `por_la_bajada`,
+  pero ese flag significa *"llego por la escalera de bajada del piso de abajo"* = **he subido** (ver
+  `Game.subir_piso`, que pasa `true`). Al bajar aparecías en el `fondo`, pegado a la escalera de
+  BAJAR del piso nuevo, con la de SUBIR al otro extremo: de ahí el *"solo deja bajar y donde debería
+  estar la subida pone bajar"*.
+- **Candados de cadáver huérfanos.** Tres agujeros: (1) `_extraccion_concedida` abría la pantalla con
+  `Game.start_extraction`, que **se va de vacío** si ya hay `_active_layer` → el candado se quedaba
+  puesto el resto de la sesión (por eso el bug "se pegaba"); (2) `_resolver_extraccion` no era
+  **idempotente**: re-pedir un cuerpo que YA era tuyo te contestaba "lo trabaja tu compañero"; (3) sin
+  candado de **petición en vuelo**, una segunda F mandaba otra petición. Ahora hay
+  `soltar_extraccion(id)` (gemela de `notificar_extraido`, sin desvanecer el cuerpo), la concesión es
+  idempotente y `_extraccion_pidiendo` corta la segunda petición. Además se **difunde** `_extrayendo`
+  (net_id → peer, con el relevo por el host) y `player._mas_cercano_en_grupo` **salta** los cuerpos
+  que trabaja otro: dos jugadores juntos apuntan a cuerpos DISTINTOS en vez de pelearse por el más
+  cercano.
+- **El aviso de pared no se replicaba: el brote era un susto gratis.** El `_fx` lo monta
+  `SpawnZone.engendrar`, y las zonas solo llegan ahí en el **dueño** del piso (el espejo muere en
+  `piso.hay_sitio`). El compañero veía salir cuatro bichos de un muro liso. Ahora
+  `Net.anunciar_brote` → `DungeonFloor.pintar_aviso_pared`, con `wall_birth_fx.borrarse_al_acabar`
+  (el espejo no tiene reloj de parto que lo quite). Es puro FX: `unreliable`, sin autoridad.
+- **La MOCHILA equipada se podía meter en el cofre.** Es del **GRUPO** (`Game.mochila_equipo`), no de
+  un `equipped_*`, así que `quien_lleva()` devuelve `null` para ella. El predicado bueno ya existía:
+  `item_equipado()`. Corregidos `home_menu._build_cofre` y **`Game.sacar_de_baul`** (esta última es la
+  red de seguridad real: `Net.meter_en_cofre` pasa por ahí).
+- **Vender del hogar no hacía nada en multi.** El baúl es compartido y `Game.vender_item(...,
+  desde_hogar)` exige el candado del taller... y `shop_menu` era el único menú que tocaba el baúl
+  **sin pedirlo**. Ahora coge/suelta el candado como `home_menu._on_guardar`.
+
+##### El MAPA pasa a ser de la SESIÓN (y deja de contaminar el save del invitado)
+
+`map_menu` dibujaba `Game.mapa_snapshot` a pelo, que en el invitado es el de **su** mundo (otra
+semilla): abría el mapa y veía una mazmorra que no estaba pisando. Y la **niebla** se escribía en
+`Game.mazmorra_persistente` **incluso en sesión** (al contrario que `marcar_agotado`, que sí tenía su
+guardia de red), o sea que su save se iba llenando de niebla de un mundo ajeno.
+
+- **Una libreta de sesión, autoritativa en el host**: `Net._mapa_sesion` (piso → snapshot) y
+  `Net._vistas_sesion` (piso → zonas). Se siembran de lo del host al abrir sala y se le mandan al
+  invitado en el handshake: **al entrar recoge lo que el host tenga descubierto** (decisión del
+  usuario).
+- Dos indirecciones finas en `Game` en vez de tocar `capturar_mapa` entero: **`mapa_visible()`** (lo
+  que dibuja la M) y **`vistas_de_piso(piso)`** (dónde se escribe la niebla). Los `agotados` de la
+  libreta pasan a salir del piso VIVO (`DungeonFloor.agotados_vivos()`) y no de
+  `mazmorra_persistente`, que en sesión es del mundo propio del invitado.
+- **REGLA DE REFRESCO**: la exploración se comparte, pero cada uno actualiza su copia **solo cuando
+  SUBE ÉL al pueblo**. `comprometer_mapa` manda `mapa_trabajo` al host, que fusiona y le devuelve la
+  libreta **solo a él**; los demás siguen con su copia vieja hasta que les toque. La fusión es campo a
+  campo (`_fundir_snap`: unión de `suelo`/`vivos`/`escaleras`/`salidas`, y en `agotados` gana el sello
+  más nuevo) porque **reemplazar borraría del plano lo que descubrió el otro**.
+- El save del invitado **no se toca nunca**. El del **host sí** se lleva la libreta entera: la de la
+  sesión ES la de su mundo, así que `exportar_partida` la vuelca en `mapa_snapshot` y devuelve la
+  niebla a `mazmorra_persistente`. Sin eso, guardar en sesión le borraba lo explorado jugando a dos.
+
+##### Guardado PREVENTIVO (no es el hito 6)
+
+El host da a Guardar → **guarda por los dos**. El invitado guarda en SU ranura, en el **pueblo de SU
+mundo**, con el personaje tal cual: nivel, excelia, oficios, pasivas, dinero, bolsa, equipo, grupo.
+El **progreso de MUNDO** (bosses, tienda T2, mapa, baúl y cofres comunes, bote) se **devuelve** a como
+estaba al conectar: es del mundo del host y en el suyo no lo ha hecho.
+
+- `Net._congelar_mi_mundo()` al conectar aparta esos campos. **No es cosmético**: mientras el invitado
+  tiene el candado del taller, `Game.almacen_materiales` **ES el baúl del host** (ver `_taller_ok`), y
+  guardar a pelo le metía en su save los materiales de su compañero.
+- `Game.exportar_partida_invitado()` los devuelve y fuerza el pueblo (`en_mazmorra = false`,
+  `current_floor = 1`, `memoria_pisos = {}`).
+- **"Guardar y salir"** también: el host guarda por los dos y sale al menú; al invitado se le manda
+  `_guardar_ahora(cerrando = true)` y **vuelve a SU mundo recargando la ranura que se acaba de
+  guardar** — la única forma de asegurar que no se lleva nada del mundo del host. Hay un
+  `await` de 0.3 s antes de cortar: los RPC salen en el siguiente poll y desconectar en el mismo frame
+  tiraría el paquete sin enviarlo (misma trampa que `_rechazado`).
+- **Contrapartida avisada**: el invitado **pierde el SITIO** (si estaba en el piso 8, sale en su
+  pueblo), no el personaje. Conservarlo es el hito 6 completo, ya diseñado más arriba.
+- ⚠️ `Perfil` se llama **desde `Game`** (`guardar_partida_invitado` / `recargar_mi_partida`) y no desde
+  `net.gd`: `net → Perfil → Game → net` cierra un ciclo y GDScript deja de inferir los tipos de
+  `Game.*` dentro de `net.gd` (revienta `anunciar_aspecto` con "cannot infer the type").
+
 ---
 
 ## Roadmap por fases (futuro, no ahora)

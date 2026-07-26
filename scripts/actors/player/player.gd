@@ -947,6 +947,12 @@ func _mas_cercano_en_grupo(grupo: String, skip_extracted: bool) -> Node:
 			continue
 		if skip_extracted and "extracted" in n and n.extracted:
 			continue
+		# MULTIJUGADOR: un cuerpo que ya esta trabajando tu compañero no es un objetivo valido. Sin
+		# esto, los dos juntos con dos cuerpos al lado apuntaban al MISMO (el mas cercano de cada uno)
+		# y el segundo se comia un "esta ocupado" creyendo que iba al otro cuerpo. Ahora se salta y la
+		# F cae en el siguiente, que es lo que el jugador creia estar haciendo.
+		if skip_extracted and n.has_meta("net_id") and Net.cuerpo_ocupado_por_otro(n.get_meta("net_id")):
+			continue
 		# Los cuerpos GRANDES (elites) te empujan mas lejos de su centro con su propia
 		# colision, asi que descontamos lo que sobresalen: la distancia se mide contra el
 		# BORDE del bicho, no su centro. Tamaño normal -> radio_extra 0 (nada cambia).

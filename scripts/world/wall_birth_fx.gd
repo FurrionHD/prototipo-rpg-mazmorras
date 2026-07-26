@@ -15,6 +15,8 @@ var _t: float = 0.0        # tiempo transcurrido
 var _amp: float = 2.5      # amplitud del temblor (px)
 var _origen: Vector2 = Vector2.ZERO
 var _color: Color = Color(0.85, 0.35, 0.30)
+# > 0 = me borro solo a los tantos segundos (solo los avisos REPLICADOS; ver borrarse_al_acabar).
+var _auto_borrar: float = 0.0
 
 
 # UN parto normal: una sola celda. lado = tamaño de celda; dur = aviso; amp = temblor.
@@ -43,10 +45,21 @@ func iniciar_tramo(lado: float, dur: float, amp: float, color: Color, paredes: A
 		_rects.append(r)
 
 
+# Que se borre solo al cumplirse el aviso. Lo usa el AVISO REPLICADO (ver
+# DungeonFloor.pintar_aviso_pared): el que solo espeja el piso no tiene reloj de parto que lo quite,
+# porque los bichos no nacen en su maquina. Los avisos propios NO usan esto: los borra SpawnZone al
+# abrir la pared, que es cuando de verdad se convierten en bichos.
+func borrarse_al_acabar(dur: float) -> void:
+	_auto_borrar = maxf(0.05, dur)
+
+
 func _process(delta: float) -> void:
 	if _rects.is_empty():
 		return
 	_t += delta
+	if _auto_borrar > 0.0 and _t >= _auto_borrar:
+		queue_free()
+		return
 	var p: float = clampf(_t / _dur, 0.0, 1.0)
 
 	# Late cada vez mas rapido segun se acerca el parto (de ~2 a ~9 latidos/s).

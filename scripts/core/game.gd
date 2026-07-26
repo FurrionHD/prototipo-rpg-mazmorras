@@ -509,6 +509,10 @@ const TALA_RETO_MAX := 5.0              # tope FISICO (la Agilidad es fisica, co
 # Dificultad del ultimo minijuego de extraccion (para la ganancia de Destreza).
 var _last_extraction_zone: float = 0.13
 var _last_extraction_hits: int = 3
+# MULTIJUGADOR: net_id del cuerpo que estoy extrayendo (0 = ninguno o partida en solitario). Hace
+# falta para DEVOLVER el candado si la extraccion se auto-cancela: en ese caso el nodo del cadaver ya
+# esta liberado y no se le puede preguntar su id (ver _on_extraction_finished).
+var _extraccion_net_id: int = 0
 
 # NOTA: las stats base de los enemigos ya NO son globales. Cada EnemyData declara las
 # SUYAS (base_hp/base_attack/base_defense/base_speed), porque un goblin y un minotauro no
@@ -762,6 +766,23 @@ func olvidar_mazmorra() -> void:
 	# expedicion (esa es justo la gracia). El reloj tampoco se reinicia.
 
 
+# La NIEBLA de un piso (zona_idx -> true): las zonas que ya has pisado. Es lo que escribe el piso
+# vivo al andar y lo que lee la captura de la libreta.
+#
+# MULTIJUGADOR: vive en la SESION, no en mazmorra_persistente. Estas en el mundo del HOST, asi que
+# apuntarla en tu save le metia niebla de un mundo ajeno (y el mapa del invitado dibujaba su propia
+# mazmorra, que es otra semilla). Mismo criterio que marcar_agotado, que ya tenia su guardia de red.
+func vistas_de_piso(piso: int) -> Dictionary:
+	if Net.activo:
+		return Net.vistas_sesion(piso)
+	return persistente_piso(piso)["zonas_vistas"]
+
+
+# Lo que DIBUJA el mapa (tecla M): en sesion, la libreta del mundo del host; en solitario, la tuya.
+func mapa_visible() -> Dictionary:
+	return Net.mapa_sesion() if Net.activo else mapa_snapshot
+
+
 # El estado persistente del piso (agotados + zonas_vistas), creandolo vacio si no existe.
 func persistente_piso(piso: int) -> Dictionary:
 	if not mazmorra_persistente.has(piso):
@@ -801,8 +822,12 @@ func capturar_mapa() -> void:
 	if piso == null or piso.gen == null:
 		return
 	var gen = piso.gen
-	var persist: Dictionary = persistente_piso(current_floor)
-	var vistas: Dictionary = persist["zonas_vistas"]
+	var vistas: Dictionary = vistas_de_piso(current_floor)
+	# Los AGOTADOS salen del piso VIVO y no de mazmorra_persistente: en sesion ese diccionario es del
+	# mundo PROPIO del invitado (marcar_agotado no lo toca en multi), asi que leerlo pintaba en el mapa
+	# del mundo del host las vetas picadas de otro mundo.
+	var agotados: Dictionary = piso.agotados_vivos() if piso.has_method("agotados_vivos") \
+		else (persistente_piso(current_floor)["agotados"] as Dictionary)
 	if vistas.is_empty():
 		return   # nada explorado en este piso: no se cartografia (no aparece en el selector de pisos)
 	# SUELO: todas las celdas de las zonas EXPLORADAS. Se hornea la geometria en la libreta (antes se
@@ -828,10 +853,10 @@ func capturar_mapa() -> void:
 	# no esta en 'vivos'. Sin color ni tipo la celda se quedaba sin dibujar de ninguna forma:
 	# material listo para picar que no aparecia en el plano. Se los sacamos al piso vivo.
 	var agotados_snap: Dictionary = {}
-	for celda in (persist["agotados"] as Dictionary):
+	for celda in agotados:
 		if not vistas.has(gen.zona_en(celda)):
 			continue
-		var e: Dictionary = {"t": float(persist["agotados"][celda])}
+		var e: Dictionary = {"t": float(agotados[celda])}
 		# El sitio guarda solo el TIPO (el material se re-tira en cada brote), asi que el color se
 		# pide aparte. Antes esto leia sitio["material"], una clave que el sitio NUNCA tuvo: petaba
 		# al salir de la mazmorra con un nodo picado en una zona ya explorada.
@@ -887,6 +912,13 @@ func _celda_de(pos: Vector2) -> Vector2i:
 func iniciar_expedicion_mapa() -> void:
 	mapa_trabajo.clear()
 	_vistas_baseline = {}
+	# MULTIJUGADOR: la niebla es de la SESION, no de mi save. Morir revierte MI copia de la libreta de
+	# sesion a como estaba al bajar (lo que ya estuviera comprometido en el host no se pierde: alli
+	# sigue, y me llega entero la proxima vez que suba al pueblo con vida).
+	if Net.activo:
+		for p in Net.vistas_sesion_todas():
+			_vistas_baseline[p] = (Net.vistas_sesion(int(p))).duplicate()
+		return
 	for p in mazmorra_persistente:
 		_vistas_baseline[p] = (mazmorra_persistente[p]["zonas_vistas"] as Dictionary).duplicate()
 
@@ -895,6 +927,14 @@ func iniciar_expedicion_mapa() -> void:
 # bajada sobrescribe su entrada en el permanente: como la captura rebakea el piso ENTERO explorado
 # (zonas_vistas es persistente), no se pierde nada de lo ya comprometido. Luego vacia el trabajo.
 func comprometer_mapa() -> void:
+	# MULTIJUGADOR: la libreta es del mundo del HOST, asi que no se comete en MI save (seria mapa de
+	# otra semilla): se le manda al host, que la fusiona y me devuelve la libreta entera de la sesion.
+	# Este es el UNICO momento en que mi copia se refresca -- y por eso lo que descubra mi compañero no
+	# me aparece cuando sube EL, sino cuando subo YO (decision del usuario).
+	if Net.activo:
+		Net.comprometer_mapa_sesion(mapa_trabajo)
+		mapa_trabajo.clear()
+		return
 	for p in mapa_trabajo:
 		mapa_snapshot[p] = mapa_trabajo[p]
 	mapa_trabajo.clear()
@@ -905,6 +945,9 @@ func comprometer_mapa() -> void:
 # NO toca 'agotados' (el anti-farmeo de nodos dura mas que la expedicion).
 func revertir_mapa_expedicion() -> void:
 	mapa_trabajo.clear()
+	if Net.activo:
+		Net.revertir_vistas_sesion(_vistas_baseline)
+		return
 	for p in mazmorra_persistente:
 		var vb: Dictionary = _vistas_baseline.get(p, {})
 		mazmorra_persistente[p]["zonas_vistas"] = (vb as Dictionary).duplicate()
@@ -1311,6 +1354,19 @@ func exportar_partida() -> SaveData:
 	d.memoria_pisos = memoria_pisos.duplicate(true)
 	d.mazmorra_persistente = mazmorra_persistente.duplicate(true)
 	d.mapa_snapshot = mapa_snapshot.duplicate(true)
+	# MULTIJUGADOR, HOST: la libreta de la sesion ES la de mi mundo (se juega en el mio), y durante la
+	# sesion el mapa y la niebla viven ahi y no en mis campos (ver mapa_visible / vistas_de_piso). Sin
+	# esto, guardar en sesion me dejaria el mapa como estaba antes de abrir la sala: perderia todo lo
+	# que hubiera explorado jugando con mi compañero. Al invitado NO le toca esto, que su mundo es otro
+	# (ver exportar_partida_invitado, que ademas devuelve estos campos a como estaban al conectar).
+	if Net.activo and Net.es_host:
+		d.mapa_snapshot = Net.mapa_sesion().duplicate(true)
+		for p in Net.vistas_sesion_todas():
+			var np: int = int(p)
+			if not d.mazmorra_persistente.has(np):
+				d.mazmorra_persistente[np] = {"agotados": {}, "zonas_vistas": {}}
+			(d.mazmorra_persistente[np]["zonas_vistas"] as Dictionary).merge(
+				Net.vistas_sesion(np), true)
 	# Estado de la EXPEDICION en curso (para no cometer ni perder mapa por un guardar+recargar a
 	# media bajada): el snapshot de trabajo y el baseline de la niebla.
 	d.mapa_trabajo = mapa_trabajo.duplicate(true)
@@ -1324,6 +1380,64 @@ func exportar_partida() -> SaveData:
 	d.cab_dinero = money
 	d.cab_lugar = ("Mazmorra · piso %d" % current_floor) if en_mazmorra else "Pueblo"
 	return d
+
+
+# La partida del INVITADO en multijugador (hito 6 preventivo: el host guarda por los dos).
+#
+# No se puede volcar exportar_partida() tal cual: durante la sesion se juega en el mundo del HOST, asi
+# que hay campos en Game que son SUYOS y no de mi partida. Se guarda lo del PERSONAJE (nivel, excelia,
+# oficios, pasivas, dinero, bolsa, equipo, hechizos, el grupo entero) y se DEVUELVEN a lo que eran al
+# entrar en la sesion los del MUNDO: baul y cofres comunes, bote, mapa, vetas agotadas y bosses. Eso
+# ultimo es decision del usuario: el progreso del mundo se queda en el mundo del host, porque en el
+# suyo no lo ha hecho.
+#
+# Y se fuerza el PUEBLO: el piso en el que estaba es del mundo del host (otra semilla) y cargar alli
+# seria cargar en una mazmorra que no existe en su partida. La contrapartida (avisada) es que pierde
+# el SITIO, no el personaje. Conservar el sitio es el hito 6 completo (ver docs/MULTIJUGADOR.md).
+func exportar_partida_invitado() -> SaveData:
+	var d: SaveData = exportar_partida()
+	var mio: Dictionary = Net.mundo_propio_congelado()
+	if mio.is_empty():
+		return d   # no estoy de invitado: nada que devolver
+
+	# --- Lo del MUNDO, de vuelta a como era al entrar en la sesion ---
+	var alm: Array[MaterialItem] = []
+	for m in (mio["almacen_materiales"] as Array):
+		alm.append(m)
+	d.almacen_materiales = alm
+	d.bote_dinero = int(mio["bote_dinero"])
+	d.cofre_equipo = (mio["cofre_equipo"] as Array).duplicate(true)
+	d.cofre_consumibles = (mio["cofre_consumibles"] as Dictionary).duplicate(true)
+	d.mazmorra_persistente = (mio["mazmorra_persistente"] as Dictionary).duplicate(true)
+	d.mapa_snapshot = (mio["mapa_snapshot"] as Dictionary).duplicate(true)
+	d.mapa_trabajo = (mio["mapa_trabajo"] as Dictionary).duplicate(true)
+	d.bosses_derrotados = (mio["bosses_derrotados"] as Dictionary).duplicate()
+	# vistas_baseline apunta a la niebla de la SESION (ver iniciar_expedicion_mapa): en mi save no
+	# significa nada. Se deja vacio; la proxima expedicion en mi mundo lo rehace al entrar.
+	d.vistas_baseline = {}
+
+	# --- PUEBLO forzado: mi expedicion era en la mazmorra del host ---
+	d.en_mazmorra = false
+	d.current_floor = 1
+	d.memoria_pisos = {}
+	d.pos_jugador = Vector2.ZERO
+	d.cab_piso = 1
+	d.cab_lugar = "Pueblo"
+	return d
+
+
+# Guarda MI partida de invitado en MI ranura. Vive aqui y no en Net porque es Game quien habla con
+# Perfil: llamar a Perfil desde net.gd cierra un ciclo net -> Perfil -> Game -> net y GDScript deja de
+# poder inferir los tipos de Game.* dentro de net.gd. Lo llama Net._guardar_ahora.
+func guardar_partida_invitado() -> bool:
+	return Perfil.guardar_actual_con(exportar_partida_invitado())
+
+
+# Recarga MI ranura tal y como esta en disco. La usa el invitado cuando el host guarda Y CIERRA: se
+# vuelve a su mundo leyendo lo que se acaba de guardar, que es la unica forma de asegurar que no se
+# lleva nada del mundo del host (baul, mapa, bosses, el piso en el que estaba).
+func recargar_mi_partida() -> bool:
+	return Perfil.cargar(Perfil.ranura_actual)
 
 
 func importar_partida(d: SaveData) -> void:
@@ -3580,7 +3694,10 @@ func deserializar_equipo(d: Dictionary, registrar: bool = true) -> Resource:
 # Saca una pieza de MI baul (owned_*) y olvida su meta. La usa el cofre al depositar. false si la
 # lleva alguien puesta (no se deposita equipo en uso).
 func sacar_de_baul(item: Resource) -> bool:
-	if item == null or quien_lleva(item) != null:
+	# item_equipado y NO quien_lleva: la MOCHILA es del GRUPO (mochila_equipo), no de un equipped_*,
+	# asi que quien_lleva devuelve null para ella y la mochila que llevabas puesta se podia meter en
+	# el cofre del hogar (via Net.meter_en_cofre, que pasa por aqui) sin quitartela.
+	if item == null or item_equipado(item):
 		return false
 	# OJO: Array.erase() devuelve void en GDScript; se comprueba la pertenencia ANTES.
 	var fuera := false
@@ -6627,6 +6744,9 @@ func start_extraction(corpse: Node) -> void:
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
 	ex.setup(categoria, required_hits, zone_ratio, marker_speed, speed_step, corpse)
 	ex.extraction_finished.connect(_on_extraction_finished.bind(corpse))
+	# MULTIJUGADOR: el net_id del cuerpo, para poder DEVOLVER el candado si la extraccion se cancela
+	# sola. Se guarda aqui porque en ese caso el nodo ya esta liberado cuando toca soltarlo.
+	_extraccion_net_id = int(corpse.get_meta("net_id")) if corpse.has_meta("net_id") else 0
 
 	var layer := CanvasLayer.new()
 	layer.layer = 100
@@ -6648,6 +6768,8 @@ func _on_extraction_finished(cristal: Cristal, corpse) -> void:
 	# sin esto, la ultima pulsacion del minijuego te lanzaria contra el bicho que tengas al
 	# lado nada mas volver al mapa.
 	_bloquear_interaccion_jugador()
+	var net_id: int = _extraccion_net_id
+	_extraccion_net_id = 0
 	if is_instance_valid(corpse):
 		corpse.extracted = true  # ya no se puede volver a extraer
 		# MULTIJUGADOR: avisar a quien simula el piso para que consuma el cuerpo DE VERDAD y suelte
@@ -6657,6 +6779,12 @@ func _on_extraction_finished(cristal: Cristal, corpse) -> void:
 			Net.notificar_extraido(corpse.get_meta("net_id"))
 		if corpse.has_method("desvanecer"):
 			corpse.desvanecer()  # el cuerpo se desvanece y desaparece
+	elif Net.activo and net_id != 0:
+		# MULTIJUGADOR: la extraccion se AUTO-CANCELO (el cuerpo se libero con el piso viejo porque
+		# alguien me saco de aqui; ver extraction.gd). El cuerpo NO se ha consumido, asi que hay que
+		# devolver el candado: si no, ese cuerpo se queda diciendo "lo trabaja tu compañero" para
+		# siempre. El net_id se guarda al abrir porque aqui el nodo ya no existe para preguntarselo.
+		Net.soltar_extraccion(net_id)
 	if is_instance_valid(_active_layer):
 		_active_layer.queue_free()
 	_active_layer = null

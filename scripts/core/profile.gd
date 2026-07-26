@@ -124,3 +124,20 @@ func guardar_actual() -> bool:
 		push_warning("[perfil] no hay ranura activa: no se guarda")
 		return false
 	return guardar(ranura_actual)
+
+
+# Igual que guardar_actual(), pero con un SaveData YA ARMADO en vez de pedirselo a Game. Lo usa el
+# guardado del INVITADO en multijugador (Game.exportar_partida_invitado): esa partida no se puede
+# volcar tal cual, porque durante la sesion se juega en el mundo del HOST y hay campos que son suyos.
+func guardar_actual_con(datos: SaveData) -> bool:
+	if ranura_actual <= 0:
+		push_warning("[perfil] no hay ranura activa: no se guarda")
+		return false
+	if datos == null:
+		return false
+	var err: int = ResourceSaver.save(datos, ruta(ranura_actual))
+	if err != OK:
+		push_warning("[perfil] no se pudo guardar la ranura %d (error %d)" % [ranura_actual, err])
+		return false
+	print("[perfil] partida guardada en la ranura ", ranura_actual, ": ", datos.resumen())
+	return true

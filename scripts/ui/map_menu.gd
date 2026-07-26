@@ -1,7 +1,8 @@
 # ============================================================
 #  map_menu.gd  (CanvasLayer creada por codigo desde el jugador)
 #  MAPA (tecla M). Es una LIBRETA autonoma: dibuja el snapshot congelado
-#  (Game.mapa_snapshot[piso]) que se pone al dia al ABANDONAR cada piso. Nada de GPS en vivo
+#  (Game.mapa_visible()[piso] -- tu libreta en solitario, la del mundo del HOST en sesion) que se
+#  pone al dia al ABANDONAR cada piso. Nada de GPS en vivo
 #  (no pinta TU posicion): es un plano de lo ya recorrido. Como la libreta hornea la geometria,
 #  el mapa se puede abrir TAMBIEN en el pueblo y HOJEAR otros pisos ya explorados (◀ ▶).
 #
@@ -81,7 +82,7 @@ func _toggle() -> void:
 	# Empieza mirando el piso actual si tiene mapa; si no (p.ej. en el pueblo), el mas profundo
 	# ya cartografiado.
 	var pisos: Array = _pisos_disponibles()
-	if Game.mapa_snapshot.has(Game.current_floor):
+	if Game.mapa_visible().has(Game.current_floor):
 		_piso_viendo = Game.current_floor
 	elif not pisos.is_empty():
 		_piso_viendo = pisos[-1]
@@ -102,7 +103,7 @@ func _cerrar() -> void:
 # que se comete al volver al pueblo con vida: el mapa refleja lo que has puesto a salvo, no lo que
 # estas viendo ahora mismo.
 func _pisos_disponibles() -> Array:
-	var out: Array = Game.mapa_snapshot.keys()
+	var out: Array = Game.mapa_visible().keys()
 	out.sort()
 	return out
 
@@ -130,7 +131,7 @@ func _refrescar() -> void:
 
 
 func _dibujar() -> void:
-	var snap: Dictionary = Game.mapa_snapshot.get(_piso_viendo, {})
+	var snap: Dictionary = Game.mapa_visible().get(_piso_viendo, {})
 	# Sin snapshot, o uno viejo sin la geometria horneada (saves anteriores): nada que dibujar.
 	if snap.is_empty() or not snap.has("suelo"):
 		var f0: Font = ThemeDB.fallback_font

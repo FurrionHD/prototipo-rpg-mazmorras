@@ -197,6 +197,10 @@ func engendrar(sitio: Dictionary, cantidad: int, brote: bool = false, forzar_rec
 	var amp: float = aviso_amp * (3.0 if brote else 1.0)
 	var col: Color = Color(1.0, 0.35, 0.15) if brote else Color(0.85, 0.35, 0.30)
 	_fx.iniciar_tramo(lado, dur, amp, col, paredes_px)
+	# MULTIJUGADOR: el que solo ESPEJA este piso no tiene zonas vivas (muere en piso.hay_sitio), asi que
+	# sin esto veia salir los bichos de una pared lisa, sin el temblor: el brote se le comia de golpe.
+	if Net.activo:
+		Net.anunciar_brote(paredes_px, dur, amp, col)
 
 	_fx_t = dur
 	_fx_brote = brote
