@@ -54,6 +54,20 @@ var _facing: Vector2 = Vector2.DOWN
 var _interact_was: bool = false
 var _attack_was: bool = false   # antirrebote de ESPACIO (atacar)
 
+# BUFFER DE ATAQUE: cuanto se recuerda un ESPACIO que no encontro a nadie a tiro.
+#
+# Sin esto, atacar era un flanco de UN SOLO FRAME: si pulsabas con el bicho todavia a 20 px, la
+# pulsacion se gastaba en balde y mantener el espacio no reintentaba nada (_attack_was se queda en
+# true) — habia que soltar y volver a pulsar. Con las EMBESTIDAS eso se volvio injugable: el bicho
+# cubre el ultimo tramo en un estallido de 0.35 s a x2.2, asi que el "pulso cuando le veo venir"
+# natural cae justo en la ventana que se tiraba a la basura, y para cuando podias repulsar ya te
+# habia embestido y la iniciativa (media barra de ATB) era suya.
+#
+# NO es un auto-ataque: son 0.25 s contados desde UNA pulsacion tuya, el patron de siempre de los
+# juegos de accion. Al caducar no pasa nada.
+const ATK_BUFFER := 0.25
+var _atk_buffer: float = 0.0
+
 # El SEQUITO (los companeros que te siguen por el mapa). Ver party_trail.gd.
 var _sequito: Node2D = null
 # Quien esta llevando este cuerpo ahora mismo. Se guarda para saber a QUIEN devolverle el aguante
@@ -182,6 +196,7 @@ func _physics_process(delta: float) -> void:
 	# camines o ataques mientras compras. Solo te corta A TI: tu companero sigue a lo suyo.
 	if Game.inventory_open or Game.debug_panel_open or Game.hay_modal():
 		velocity = Vector2.ZERO
+		_atk_buffer = 0.0   # el golpe pendiente no sobrevive a una pantalla: se pulso para OTRO momento
 		# EN COMBATE NO se regenera aguante. La energia con la que entras a la pelea es la stamina
 		# de exploracion ("correr antes de pelear se paga", ver Game.start_combat): en un jugador
 		# esto se congelaba con el arbol, pero en multi el arbol sigue vivo y quedarse en una pelea
@@ -292,9 +307,17 @@ func _physics_process(delta: float) -> void:
 	#   ESPACIO = atacar al enemigo que tengas ENFRENTE (entra en combate). Va en el pulgar,
 	#             que es lo comodo teniendo el WASD ocupado.
 	#   F       = interactuar: puerta, escalera, altar, tienda, cadaver, objeto del suelo.
+	# El ESPACIO no se tira si no habia nadie a tiro: se RECUERDA (ver ATK_BUFFER) y se reintenta cada
+	# frame mientras dure. Es lo que hace que "pulsar cuando le ves venir" funcione contra una embestida
+	# en vez de gastarse en balde a 20 px del bicho.
 	var atk: bool = Input.is_key_pressed(KEY_SPACE)
 	if atk and not _attack_was:
-		_try_attack()
+		if not _try_attack():
+			_atk_buffer = ATK_BUFFER
+	elif _atk_buffer > 0.0:
+		_atk_buffer -= delta
+		if _try_attack():
+			_atk_buffer = 0.0
 	_attack_was = atk
 
 	var inter: bool = Input.is_key_pressed(KEY_F)
@@ -836,6 +859,30 @@ func _nivel_enemigo_nodo(e: Node) -> int:
 # con NUESTRA iniciativa. Devuelve true si ataco (lo usa _try_interact para saber
 # si ya ha consumido la pulsacion de F).
 func _try_attack() -> bool:
+	var candidatos: Array = _enemigos_a_tiro()
+	for par in candidatos:
+		var e = par[1]
+		if not e.has_method("atacado_por_jugador"):
+			continue
+		# El resultado MANDA. Antes esto era `e.atacado_por_jugador(); return true`, o sea que la
+		# pulsacion se daba por gastada aunque el otro lado no hubiera hecho NADA (el caso tipico: un
+		# espejo que se niega). Y como se salia del bucle, ni se probaba el siguiente: por eso "entrar
+		# en una pelea ya empezada" obligaba a recolocarse y repulsar hasta acertar.
+		if bool(e.atacado_por_jugador()):
+			return true
+	# Habia bichos a tiro pero ninguno ha admitido la pelea: decirlo. Callarse era lo que dejaba al
+	# jugador pensando que estaba mal colocado.
+	if not candidatos.is_empty():
+		_avisar_no_puedo_entrar()
+	return false
+
+
+# Los enemigos a los que PODRIA pegar ahora mismo, ORDENADOS del mas cercano al mas lejano, como
+# [hueco, nodo]. El orden importa: antes se cogia el primero de get_nodes_in_group("enemy"), que va en
+# un orden arbitrario, asi que con 2-5 bichos apelotonados (o sea, en cualquier pelea) le pegabas al
+# que no querias.
+func _enemigos_a_tiro() -> Array:
+	var out: Array = []
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e):
 			continue
@@ -847,14 +894,34 @@ func _try_attack() -> bool:
 		# cuadrados de 32x32 tocandose POR LA ESQUINA tienen los centros a 45.2 px, o sea mas
 		# de attack_range (44) -> estabas pegado al slime y no podias pegarle. Con un elite
 		# (1.6x de tamaño) la esquina son ~59 px: era intocable en diagonal. Ver enemy.hueco_hasta().
-		if _hueco_hasta(e) > attack_range - 32.0:
+		var hueco: float = _hueco_hasta(e)
+		if hueco > attack_range - 32.0:
 			continue
 		# El CONO sigue mandando: atacar exige mirar al bicho, es una accion deliberada.
-		if absf(_facing.angle_to(to_e / dist)) <= deg_to_rad(attack_half_angle_deg):
-			if e.has_method("atacado_por_jugador"):
-				e.atacado_por_jugador()
-				return true
+		if absf(_facing.angle_to(to_e / dist)) > deg_to_rad(attack_half_angle_deg):
+			continue
+		out.append([hueco, e])
+	out.sort_custom(func(a, b): return a[0] < b[0])
+	return out
+
+
+# ¿Tengo la intencion de atacar a ESTE bicho ahora mismo? La pregunta el enemigo antes de abrirse la
+# pelea a su nombre: si yo tenia el espacio puesto y le estaba mirando, el CONTRA es mio y la
+# iniciativa (media barra de ATB) tambien, aunque su carga haya llegado antes en este frame.
+# Golpear una embestida es leer el telegrafiado, no ganar una carrera de frames.
+func quiere_atacarme(bicho: Node) -> bool:
+	if _atk_buffer <= 0.0 or bicho == null or not is_instance_valid(bicho):
+		return false
+	for par in _enemigos_a_tiro():
+		if par[1] == bicho:
+			return true
 	return false
+
+
+func _avisar_no_puedo_entrar() -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast("No puedes entrar en esa pelea ahora mismo.")
 
 
 # Hueco entre el cuerpo del jugador y el de 'otro' (0 = tocandose, de lado o de esquina).

@@ -754,6 +754,34 @@ estaba al conectar: es del mundo del host y en el suyo no lo ha hecho.
   `net.gd`: `net → Perfil → Game → net` cierra un ciclo y GDScript deja de inferir los tipos de
   `Game.*` dentro de `net.gd` (revienta `anunciar_aspecto` con "cannot infer the type").
 
+#### Unirse a una pelea empezada: el espejo era un callejón sin salida
+
+Del mismo playtest: entrar en la pelea del compañero obligaba a **recolocarse alrededor del bicho**
+dándole al espacio. No era la hitbox (jugador y bicho son 32×32 y `_hueco_hasta` mide borde a borde,
+así que pegado da 0; los cuerpos del compañero van en `collision_layer = 4` con `mask = 1` y no
+estorban). Eran dos cosas del lado del que pega:
+
+- **`remote_enemy.atacado_por_jugador` no sabía unirse.** Era
+  `if muerto or _combat_triggered or not has_meta("net_id"): return` — le faltaba la rama
+  `Net.unirme_a_la_pelea_de` que `enemy.gd` sí tiene. O sea: **si el piso lo simulaba tu compañero, no
+  había forma de entrar en su pelea pegándole a un bicho**, porque en tu máquina esos bichos son
+  espejos. La cadena de red (`solicitar_pelea` → `_resolver_pelea` → invitación → `solicitar_unirse`)
+  estaba entera desde el 5.4-C; lo que no llegaba era la pulsación.
+- **La pulsación se daba por gastada sin comprobarlo.** `atacado_por_jugador` no devolvía nada y
+  `player._try_attack` hacía `e.atacado_por_jugador(); return true`, así que un espejo que se salía de
+  vacío se comía el espacio Y cortaba el bucle. Ahora devuelve `bool` y `_try_attack` sigue con el
+  siguiente candidato; y los candidatos van **ordenados por cercanía** (antes era el orden arbitrario
+  del grupo, que con 2-5 bichos apelotonados apuntaba al equivocado).
+
+Cuando había bichos a tiro pero ninguno admite pelea, ahora sale un toast en vez de silencio: el
+silencio era lo que hacía pensar "estaré mal colocado" y llevaba a recolocarse.
+
+⚠️ **El CONTRA no se aplica a través de la red.** `enemy._es_contra()` pregunta a
+`player.quiere_atacarme()`, y el avatar remoto de otro humano no tiene ese método (su intención vive
+en SU máquina), así que devuelve `false` sin romper nada. Si un bicho embiste al compañero, la
+iniciativa es del bicho aunque él tuviera el golpe puesto. Para arreglarlo habría que replicar la
+intención de ataque, y no merece un canal nuevo por media barra de ATB — pero queda apuntado.
+
 ---
 
 ## Roadmap por fases (futuro, no ahora)

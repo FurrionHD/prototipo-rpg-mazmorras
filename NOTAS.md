@@ -775,6 +775,30 @@ Plan en `~/.claude/plans/vale-jefazo-hay-que-quizzical-crane.md`. Cuatro cosas d
   (`crafting.gd`/`Crafting`, `Forge.prob_devolver`, `MEZCLA_ACTIVA`). `Game._tirar_devolucion` lo hace.
 - Números PROVISIONALES → Excel.
 
+### Entrada en combate: buffer de ataque y el CONTRA 🔧 A PROBAR
+
+Del playtest: con las embestidas costaba entrar TÚ primero, y unirse a una pelea ya empezada obligaba
+a recolocarse dándole al espacio. Las dos cosas eran de RESPUESTA, no de balance (no se ha tocado
+`attack_range` 44, ni el cono 140°, ni los números de la embestida, ni `MAX_ALIADOS`).
+
+- **Buffer de ataque** (`player.ATK_BUFFER = 0.25`): atacar era un flanco de UN frame, así que pulsar
+  con el bicho a 20 px **tiraba la pulsación** y mantener el espacio no reintentaba nada — había que
+  soltar y repulsar. Con la embestida (0.35 s a ×2.2) eso es injugable. Ahora el espacio se recuerda
+  0.25 s y se reintenta cada frame. **No es auto-ataque**: caduca sola y solo se arma con una
+  pulsación tuya.
+- **El CONTRA gana la iniciativa** (decisión del usuario): quien inicia se lleva media barra de ATB
+  (`combat.INICIATIVA_VENTAJA = 50`), y eso se estaba decidiendo por **orden de frame**. Ahora
+  `enemy._es_contra()` pregunta a `player.quiere_atacarme()`: si tenías el golpe puesto **y** le
+  mirabas, la pelea se abre a tu nombre aunque su carga llegara antes. Golpear una embestida premia
+  leer el telegrafiado.
+- **`atacado_por_jugador()` devuelve bool.** No devolvía nada, así que `_try_attack` daba el espacio
+  por gastado aunque el otro lado no hiciera NADA, y encima salía del bucle sin probar el siguiente.
+- **Se apunta al MÁS CERCANO.** Se cogía el primero de `get_nodes_in_group("enemy")`, que va en orden
+  arbitrario: con 2-5 bichos apelotonados (o sea, en cualquier pelea) le pegabas al que no querías.
+- **El espejo ya sabe unirse.** `remote_enemy.atacado_por_jugador` era un callejón sin salida cuando
+  el bicho ya peleaba: le faltaba la rama `Net.unirme_a_la_pelea_de` que el bicho real sí tenía. Si el
+  piso lo simulaba tu compañero, no había forma de entrar en su pelea.
+
 ### Rebalance de habilidades: caras, CD alto y que viaja entre combates 🔧 A PROBAR
 Eran spammeables (sobre todo las pesadas de 2 manos: cabían ~3 seguidas y el CD se reiniciaba cada combate).
 - **Coste** muy arriba, sobre todo 2 manos: nukes **65-70** EN (con la barra ~100-130 tiras uno y a

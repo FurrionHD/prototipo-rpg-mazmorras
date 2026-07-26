@@ -197,10 +197,20 @@ func retirar() -> void:
 # la pelea a su dueño, que reserva el grupo entero (nadie mas puede cogerlo) y me contesta. La
 # pelea se juega AQUI, contra estos espejos, y al acabar se le devuelve el resultado para que la
 # aplique sobre los bichos reales. Mismo espiritu que el candado de las vetas.
-func atacado_por_jugador() -> void:
-	if muerto or _combat_triggered or not has_meta("net_id"):
-		return
+# Devuelve si la pulsacion ha SERVIDO de algo (ver enemy.atacado_por_jugador y player._try_attack):
+# antes no devolvia nada, asi que el jugador daba el espacio por gastado aunque aqui se saliera de
+# vacio — y con la salida de vacio de abajo eso era justo lo que pasaba al ir a ayudar al compañero.
+func atacado_por_jugador() -> bool:
+	if muerto or not has_meta("net_id"):
+		return false
+	# YA lo esta peleando alguien. Esto era un callejon sin salida: el bicho de verdad si tenia la via
+	# para ECHAR UNA MANO (enemy.gd) y el espejo se la habia quedado sin ella, asi que si el piso lo
+	# simulaba tu compañero no habia forma de entrar en su pelea pegandole a un bicho.
+	if _combat_triggered:
+		Net.unirme_a_la_pelea_de(get_meta("net_id"))
+		return true
 	Net.solicitar_pelea(get_meta("net_id"))
+	return true
 
 
 # Lo llama Net cuando el dueño concede la pelea: a partir de aqui soy un combatiente.

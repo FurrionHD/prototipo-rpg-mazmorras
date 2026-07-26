@@ -245,7 +245,7 @@ func _physics_process(delta: float) -> void:
 	var pegado: Node2D = _aliado_en_contacto()
 	if pegado != null:
 		_objetivo = pegado
-		_start_combat(true)
+		_start_combat(not _es_contra(pegado))
 		return
 
 	# Si no estamos ya persiguiendo (ni embistiendo), miramos si vemos u oimos a alguno.
@@ -477,6 +477,22 @@ func _aliado_en_contacto() -> Node2D:
 	return null
 
 
+# ¿La pelea que estoy a punto de abrir es en realidad un CONTRA suyo? Lo es si 'quien' tenia la
+# intencion de atacarme puesta (su buffer de ESPACIO) y me estaba mirando.
+#
+# Existe porque quien inicia se lleva media barra de ATB (combat.INICIATIVA_VENTAJA), y sin esto eso
+# se decidia por el ORDEN DE FRAME: si mi _physics_process corria antes que el suyo, la iniciativa era
+# mia aunque el hubiera pulsado a tiempo. Golpear una embestida tiene que premiar leer el
+# telegrafiado, no ganar una carrera invisible. Solo el jugador contesta a esto: un companero (NPC)
+# no tiene intencion propia y devuelve false por no tener el metodo.
+func _es_contra(quien: Node2D) -> bool:
+	if quien == null or not is_instance_valid(quien):
+		return false
+	if not quien.has_method("quiere_atacarme"):
+		return false
+	return bool(quien.quiere_atacarme(self))
+
+
 func _aliado_a_tiro() -> Node2D:
 	var margen: float = margen_ataque()
 	var best: Node2D = null
@@ -516,7 +532,9 @@ func _embestida(delta: float) -> void:
 	for n in _aliados():
 		if hueco_hasta(n) <= CONTACTO:
 			_objetivo = n
-			_start_combat(true)   # iniciativa del enemigo: te ha embestido
+			# Iniciativa del enemigo: te ha embestido... SALVO que tu ya tuvieras el golpe puesto y le
+			# estuvieras mirando. Entonces es un CONTRA y la media barra de ATB es tuya (ver _es_contra).
+			_start_combat(not _es_contra(n))
 			return
 	# Se estampo contra una pared: la carga muere ahi.
 	var choco: bool = get_slide_collision_count() > 0
@@ -605,18 +623,21 @@ func recolocar(pos: Vector2) -> void:
 
 
 # Lo llama el JUGADOR cuando te ataca de cerca: combate con su iniciativa.
-func atacado_por_jugador() -> void:
+# Devuelve si la pulsacion ha SERVIDO de algo: se ha abierto pelea, o se ha pedido entrar en una. El
+# jugador lo necesita para no dar por gastado el espacio cuando aqui no pasa nada (ver
+# player._try_attack): antes esto no devolvia nada y la pulsacion se perdia igual.
+func atacado_por_jugador() -> bool:
 	if _dead:
-		return
+		return false
 	# Ya esta metido en una pelea. Antes esto era un callejon sin salida: le dabas y no pasaba
 	# NADA. Ahora es la via para ECHAR UNA MANO: se pide entrar en esa pelea (hito 5.4-C).
 	if _combat_triggered:
 		if Net.activo and has_meta("net_id"):
 			Net.unirme_a_la_pelea_de(get_meta("net_id"))
-		else:
-			print("[unirse] le pego a un bicho ocupado pero NO tiene net_id (activo=",
-				Net.activo, ")")
-		return
+			return true
+		# En solitario no hay pelea de otro a la que unirse: la pulsacion NO cuenta, para que el
+		# jugador pueda probar con el siguiente bicho en vez de perderla aqui.
+		return false
 	# La pelea es de QUIEN ME ATACA, aunque yo viniera persiguiendo a otro. Sin esto, si venia
 	# detras del compañero (_objetivo = su avatar), el empuje del hito 5.4-B mandaba la pelea a EL
 	# y al que me ataco no se le abria nada: "no me deja pelear".
@@ -624,6 +645,7 @@ func atacado_por_jugador() -> void:
 	if yo != null:
 		_objetivo = yo
 	_start_combat(false)
+	return true
 
 
 # Nace de un BROTE: en vez de ponerse a merodear, sale directo A POR TI. Es lo que convierte el
