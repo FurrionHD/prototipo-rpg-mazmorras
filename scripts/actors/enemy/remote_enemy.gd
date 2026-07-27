@@ -69,6 +69,8 @@ var _cono_pos := Vector2.ZERO
 # Si falta alguno, el juego revienta con "Invalid access to property" en cuanto alguien lo mire.
 var _combat_triggered: bool = false    # se la reservo el dueño y la estoy peleando yo
 var zona_idx: int = -1                 # no soy de ninguna sala: la ocupacion la lleva el dueño
+# Rastro del elemento (null si no es elemental). Espejo de enemy._fx_elem.
+var _fx_elem: CPUParticles2D = null
 
 
 func _ready() -> void:
@@ -102,11 +104,28 @@ func _ready() -> void:
 
 # Aspecto que ya calculo quien simula el piso: color base+tinte por 't' y lado del cuerpo (los
 # elites son mas grandes). Asi se ve IGUAL en las dos maquinas sin tirar otra 't'.
-func configurar(color: Color, lado: float) -> void:
+#
+# El ELEMENTO llega como id (no como color) y el rastro se monta aqui con la misma paleta que el
+# host: ver enemy.aspecto_red. Sin esto el invitado no veia arder al slime de fuego.
+func configurar(color: Color, lado: float, elem: int = Elementos.Elemento.NINGUNO,
+		einten: float = 1.0) -> void:
 	if _cuerpo != null:
 		_cuerpo.color = color
 		_redimensionar(lado)
 	radio_extra = maxf(0.0, (lado - 32.0) * 0.5)
+	_pintar_elemento(elem, einten, lado)
+
+
+# Mismo rastro que el bicho real (ver enemy._crear_fx_elemental), con el alto atado al lado del
+# cuerpo para que un elite grande no lleve particulas de enano.
+func _pintar_elemento(elem: int, einten: float, lado: float) -> void:
+	if _fx_elem != null:
+		_fx_elem.queue_free()
+		_fx_elem = null
+	if not Elementos.tiene_color(elem):
+		return
+	_fx_elem = Particulas.ascendentes(self, Elementos.color(elem),
+		clampf(einten, 0.0, 1.0), maxf(8.0, lado))
 
 
 # Los datos con los que se puede pelear/extraer. 'ruta' es el .tres del EnemyData.

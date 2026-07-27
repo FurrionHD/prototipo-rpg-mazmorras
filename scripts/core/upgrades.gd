@@ -37,6 +37,28 @@ const RAREZA_MULT := [1.00, 1.08, 1.16, 1.25, 1.35, 1.45, 1.55, 1.75]
 const RAREZA_SLOTS := [3, 4, 5, 6, 8, 10, 12, 15]
 const RAREZA_NOMBRE := ["Comun", "Poco comun", "Raro", "Epico", "Legendario", "Mitico", "Obra maestra", "Pristino"]
 
+# COLOR de cada rareza, alineado 1:1 con RAREZA_NOMBRE. Tiñe el texto de rareza en los menus y
+# alimenta los destellos de la ficha del objeto (ver Particulas.destellos).
+#
+# Los cinco primeros son la escala de siempre (gris/verde/azul/morado/amarillo). Arriba de ahi
+# hacen falta tres tonos mas que se sigan leyendo como "por encima": naranja y rojo para el mitico
+# y la obra maestra, y el PRISTINO en blanco-cian.
+#
+# El pristino no lleva otro tono saturado a proposito: seria "un rojo distinto" y no se leeria
+# como el techo. En blanco-cian se lee como fuera de la escala, y ademas ya tiene tratamiento
+# propio -- el barrido especular de shaders/metal.gdshader es blanco, asi que el color del texto
+# y el brillo de la pieza dicen lo mismo.
+const RAREZA_COLOR := [
+	Color(0.70, 0.72, 0.76),   # Comun         gris
+	Color(0.55, 0.85, 0.55),   # Poco comun    verde
+	Color(0.40, 0.65, 1.00),   # Raro          azul
+	Color(0.70, 0.45, 0.95),   # Epico         morado
+	Color(0.98, 0.85, 0.30),   # Legendario    amarillo
+	Color(1.00, 0.55, 0.15),   # Mitico        naranja
+	Color(0.95, 0.30, 0.28),   # Obra maestra  rojo
+	Color(0.85, 1.00, 1.00),   # Pristino      blanco-cian
+]
+
 # Lo que sube el numero PRIMARIO (raw del arma / DEF de la armadura) por CADA mejora. Es un
 # PORCENTAJE de la base del PROPIO objeto, no un flat.
 #
@@ -187,6 +209,9 @@ static func rareza_slots(r: int) -> int:
 
 static func rareza_nombre(r: int) -> String:
 	return RAREZA_NOMBRE[clampi(r, 0, RAREZA_NOMBRE.size() - 1)]
+
+static func rareza_color(r: int) -> Color:
+	return RAREZA_COLOR[clampi(r, 0, RAREZA_COLOR.size() - 1)]
 
 static func cat_nombre(cat: String) -> String:
 	return CAT_NOMBRE.get(cat, cat)

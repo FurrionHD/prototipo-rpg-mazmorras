@@ -185,7 +185,11 @@ static func titulo(vb: VBoxContainer, txt: String, tam: int = 16) -> void:
 	vb.add_child(l)
 
 
-static func fila(vb: VBoxContainer, etiqueta: String, valor: String, ancho: int = 170) -> void:
+# `color_valor` (opcional) tiñe el VALOR. Se usa para el color de rareza (ver Upgrades.RAREZA_COLOR),
+# que es lo que hace que una tabla de rarezas se lea de un vistazo. Es Variant y no Color para poder
+# decir "sin tinte" con null, igual que los _row locales de inventory_menu y forge_menu.
+static func fila(vb: VBoxContainer, etiqueta: String, valor: String, ancho: int = 170,
+		color_valor: Variant = null) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	var k := Label.new()
@@ -195,6 +199,8 @@ static func fila(vb: VBoxContainer, etiqueta: String, valor: String, ancho: int 
 	row.add_child(k)
 	var v := Label.new()
 	v.text = valor
+	if color_valor is Color:
+		v.add_theme_color_override("font_color", color_valor)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(v)

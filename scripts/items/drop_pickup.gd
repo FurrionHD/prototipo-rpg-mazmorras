@@ -16,13 +16,39 @@ func setup(i: Resource) -> void:
 	item = i
 
 
+const LADO := 16.0
+
+
 func _ready() -> void:
 	add_to_group("pickup")
 	var rect := ColorRect.new()
-	rect.size = Vector2(16, 16)
-	rect.position = Vector2(-8, -8)  # centrado en el nodo
+	rect.size = Vector2(LADO, LADO)
+	rect.position = Vector2(-LADO * 0.5, -LADO * 0.5)  # centrado en el nodo
 	rect.color = _color_item()
 	add_child(rect)
+	_crear_destellos()
+
+
+# DESTELLOS del color de su rango (ver MaterialData.rango_color): asi un nucleo de trent tirado en
+# el suelo canta morado y no hay que acercarse a leer el nombre.
+#
+# MULTIJUGADOR: aqui no hay nada que sincronizar, y es a proposito. El drop viaja como
+# {ruta del material, calidad} (ver Net._item_a_dict) y CADA peer llama a este _ready(), asi que
+# los dos derivan el mismo color del mismo MaterialData. El color no va por el cable.
+#
+# Sirve igual para las DOS formas de acabar en el suelo: lo que suelta el bicho al morir y lo que
+# tiras tu desde el inventario (los dos pasan por aqui, con y sin sesion).
+func _crear_destellos() -> void:
+	if not (item is MaterialItem):
+		return   # los cristales tienen su propia escala (categoria/calidad), no la de rango
+	var data: MaterialData = (item as MaterialItem).data
+	if data == null:
+		return
+	var rango: int = data.rango_color()
+	# El gris (rango 0) tambien destella, pero flojito: si el cobre corriente centellea como un
+	# nucleo de boss, el lenguaje de color deja de decir nada.
+	var intensidad: float = 0.3 + 0.7 * (float(rango) / float(MaterialData.Rango.AMARILLO))
+	Particulas.destellos(self, data.color_rango(), Vector2(LADO, LADO), intensidad)
 
 
 # Color por tipo y calidad. Los cristales tiran a cian/violeta; los materiales llevan SU

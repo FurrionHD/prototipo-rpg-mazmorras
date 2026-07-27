@@ -27,6 +27,8 @@ const SALTO := 200.0
 var _objetivo := Vector2.INF   # ultimo destino recibido; INF = aun no ha llegado ninguno
 var _cuerpo: ColorRect = null
 var _nombre: Label = null
+# Rastro de SU imbuicion (null = no lleva ninguna). Ver aplicar_imbue.
+var _fx_imbue: CPUParticles2D = null
 
 
 func _ready() -> void:
@@ -82,6 +84,25 @@ func aplicar_aspecto(color: Color, metal: float, nombre: String,
 		_cuerpo.material = Game.material_aspecto(metal, Game.textura_de_png(imagen), alpha)
 	if _nombre != null:
 		_nombre.text = nombre
+
+
+# Su IMBUICION: el mismo rastro que se pinta a si mismo (ver player._pintar_imbue). Va por un canal
+# APARTE del aspecto y no dentro de el: el aspecto lleva el PNG del personaje y solo cambia cuando
+# te tocas la cara, mientras que la imbuicion se gasta en cada combate. Meterla ahi habria reenviado
+# la imagen entera cada vez que a alguien se le acaban las cargas.
+#
+# Solo viaja el ID del elemento: el color lo saca cada maquina de Elementos.COLOR, asi que la paleta
+# no se puede desincronizar.
+func aplicar_imbue(elem: int) -> void:
+	if not Elementos.tiene_color(elem):
+		if _fx_imbue != null:
+			_fx_imbue.queue_free()
+			_fx_imbue = null
+		return
+	if _fx_imbue == null:
+		_fx_imbue = Particulas.ascendentes(self, Elementos.color(elem), 1.0, LADO)
+	else:
+		Particulas.repintar(_fx_imbue, Elementos.color(elem))
 
 
 # Nuevo destino recibido de la red (lo llama Net al llegar cada paquete de posicion).

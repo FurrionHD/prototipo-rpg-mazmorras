@@ -564,6 +564,10 @@ func _crear_cuerpo_companero(peer_id: int, idx: int):
 		c.aplicar_aspecto(d.get("color", Color.WHITE), float(d.get("metal", 0.0)),
 			String(d.get("nombre", "")), d.get("imagen", PackedByteArray()),
 			float(d.get("alpha", 1.0)))
+	# Su imbuicion, de lo ultimo que anuncio. Sin esto un companero recreado (al viajar, o al
+	# entrar tu a la partida) nace sin rastro aunque su dueño lleve el manto puesto.
+	# +1 porque el hueco 0 del paquete es el LIDER (ver Net.anunciar_imbue).
+	c.aplicar_imbue(_imbue_en(_peers[peer_id].get("imbue", PackedInt32Array()), idx + 1))
 	return c
 
 
@@ -659,6 +663,73 @@ func _rel_grupo(datos: Array) -> void:
 	for pid in _peers:
 		if pid != de:
 			_set_grupo.rpc_id(pid, de, datos)
+
+
+# --- IMBUICIONES DE MI GRUPO -----------------------------------------------------------------
+# Canal PROPIO, y no un campo mas en anunciar_aspecto/anunciar_grupo, por una razon de peso: esos
+# dos llevan el PNG del personaje (128x128) y solo cambian cuando te tocas la cara, mientras que la
+# imbuicion se aplica y se gasta en CADA combate. Metida ahi, se habria reenviado la imagen entera
+# de todo el grupo cada vez que a alguien se le acababan las cargas.
+#
+# El paquete es un int por persona, en el orden [lider] + companeros() -- el MISMO que usa
+# anunciar_grupo, asi que el indice i+1 de aqui es el companero i de alli. Solo viaja el ID del
+# elemento: el color lo saca cada maquina de Elementos.COLOR y no puede desincronizarse.
+func anunciar_imbue() -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	var elems := _mis_imbues()
+	if es_host:
+		for pid in _peers:
+			_set_imbue.rpc_id(pid, _mi_id(), elems)
+	else:
+		_rel_imbue.rpc_id(1, elems)
+
+
+func _mis_imbues() -> PackedInt32Array:
+	var out := PackedInt32Array()
+	out.append(Game.lider().imbue_elemento())
+	for pj in Game.companeros():
+		out.append(pj.imbue_elemento())
+	return out
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_imbue(emisor: int, elems: PackedInt32Array) -> void:
+	if not _peers.has(emisor):
+		return
+	# Se guarda en _peers ADEMAS de repintar: quien entre despues (o vuelva a montar la vista al
+	# viajar) recrea los avatares desde aqui, y sin esto nacerian sin rastro.
+	_peers[emisor]["imbue"] = elems
+	_aplicar_imbue_a_avatares(emisor, elems)
+
+
+# Reparte el paquete entre el avatar del lider y los de sus companeros. Lo llaman el RPC y las dos
+# rutas de creacion de avatares (ver _crear_avatar_comp y _montar_avatar).
+func _aplicar_imbue_a_avatares(emisor: int, elems: PackedInt32Array) -> void:
+	var a = _avatares.get(emisor)   # SIN tipar: puede estar liberado
+	if a != null and is_instance_valid(a) and a.has_method("aplicar_imbue"):
+		a.aplicar_imbue(_imbue_en(elems, 0))
+	var lista: Array = _avatares_comp.get(emisor, [])
+	for i in lista.size():
+		if is_instance_valid(lista[i]) and lista[i].has_method("aplicar_imbue"):
+			lista[i].aplicar_imbue(_imbue_en(elems, i + 1))
+
+
+# Elemento en la posicion i, o NINGUNO si el paquete es mas corto (peer de una version anterior, o
+# grupo que ha crecido entre dos anuncios).
+func _imbue_en(elems: PackedInt32Array, i: int) -> int:
+	return int(elems[i]) if i >= 0 and i < elems.size() else Elementos.Elemento.NINGUNO
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_imbue(elems: PackedInt32Array) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	_set_imbue(de, elems)
+	for pid in _peers:
+		if pid != de:
+			_set_imbue.rpc_id(pid, de, elems)
 
 
 # Tira los cuerpos de los acompañantes de un peer (cambio de lugar, se fue, fin de sesion).
@@ -2167,7 +2238,8 @@ func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void
 	mundo.add_child(cuerpo)
 	cuerpo.global_position = pos
 	cuerpo.set_meta("net_id", id)   # para pedir pelea/extraccion por el
-	cuerpo.configurar(d.get("color", Color.WHITE), float(d.get("lado", 32.0)))
+	cuerpo.configurar(d.get("color", Color.WHITE), float(d.get("lado", 32.0)),
+		int(d.get("elem", Elementos.Elemento.NINGUNO)), float(d.get("einten", 1.0)))
 	cuerpo.aplicar_datos(String(d.get("ruta", "")), float(d.get("t", 0.5)),
 		bool(d.get("muerto", false)), float(d.get("vis", 130.0)), float(d.get("ang", 50.0)))
 	_enem_nodos[id] = cuerpo
@@ -3920,6 +3992,11 @@ func _crear_avatar_nodo(peer_id: int) -> void:
 	if p["pos"] != Vector2.INF:
 		av.ir_a(p["pos"])   # aparece donde iba, no en el origen
 	_avatares[peer_id] = av
+	# Su imbuicion, de lo ultimo que anuncio. Va DESPUES de guardar el avatar en _avatares porque
+	# _aplicar_imbue_a_avatares lo busca ahi. Sin esto, entrar a una partida en marcha te mostraba
+	# sin rastro a alguien que ya iba imbuido: el reparto en vivo (_set_imbue) solo alcanza a quien
+	# ya estaba escuchando.
+	_aplicar_imbue_a_avatares(peer_id, p.get("imbue", PackedInt32Array()))
 
 
 func _on_peer_disconnected(id: int) -> void:

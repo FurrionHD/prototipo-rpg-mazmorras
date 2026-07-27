@@ -85,6 +85,18 @@ var _barras: Array = []
 # menus son muchos y cualquiera que se olvidara de llamar dejaria el sequito o las barras a medias.
 var _grupo_visto: Array = []
 
+# Lado del cuerpo en px (el ColorRect de player.tscn va de -16 a 16). Lo usa el rastro de la
+# imbuicion para saber a que altura llegan los cuadraditos.
+const LADO_CUERPO := 32.0
+# Emisor del rastro de imbuicion del LIDER (null = no lleva ninguna).
+var _fx_imbue: CPUParticles2D = null
+# Los elementos imbuidos de TODO el grupo, en orden, tal y como estaban en el ultimo repintado. Es
+# la firma que _comprobar_grupo compara cada frame.
+#
+# Va el grupo entero y no solo el lider a proposito: puedes echarle el manto a UN COMPANERO sin
+# tocarte a ti, y mirando solo tu elemento ese rastro no aparecia hasta que cambiaba otra cosa.
+var _imbue_visto: Array = []
+
 var _drink_was: bool = false   # antirebote de la tecla Q (beber pocion)
 # Antirebote de las teclas 1/2/3 (cambiar de lider), una por posicion del equipo. La 0 no se usa:
 # la tecla 1 es "el que ya va en cabeza" y no hace nada, pero se deja el hueco para que el indice
@@ -506,6 +518,9 @@ func refrescar_grupo() -> void:
 	# Las dos son no-op sin sesion, y reparten a TODOS los peers (no asumen un solo invitado).
 	Net.anunciar_aspecto()
 	Net.anunciar_grupo()
+	# Y sus imbuiciones: al cambiar el equipo cambia QUIEN va en cada hueco, asi que el paquete de
+	# imbuiciones (que va por posicion) se queda desfasado si no se reemite aqui tambien.
+	Net.anunciar_imbue()
 	_rehacer_barras()
 	_refrescar_barras()
 	# La MOCHILA del HUD va detras de la ultima columna de barras: si el grupo crece o mengua,
@@ -518,9 +533,39 @@ func refrescar_grupo() -> void:
 # Si el grupo ha cambiado desde el ultimo repintado, repintar. Se mira cada frame porque cambiar
 # de gente pasa desde sitios muy distintos (taberna, Hogar, teclas 1/2/3) y comparar dos arrays
 # cortos no cuesta nada; asi ninguno tiene que acordarse de avisar.
+#
+# La IMBUICION va por el mismo camino y por el mismo motivo: sus cargas se gastan DENTRO del
+# combate, asi que al volver al mapa el elemento puede haber desaparecido sin que nadie de aqui se
+# haya enterado. Mirar un int del dict cada frame es gratis y evita tener que avisar desde combat.
 func _comprobar_grupo() -> void:
 	if _grupo_visto != Game.party:
 		refrescar_grupo()
+	elif _imbue_visto != _firma_imbue():
+		# Solo ha cambiado la imbuicion: NO vale llamar a refrescar_grupo, que re-difunde por red el
+		# aspecto entero (el PNG de 128x128 de cada uno). Las cargas se gastan en cada combate, asi
+		# que eso seria mandar las imagenes del grupo cada dos por tres.
+		refrescar_imbue()
+
+
+# Repinta SOLO los rastros de imbuicion: el tuyo y el de cada companero de la fila. Es el hermano
+# ligero de refrescar_grupo, para lo que cambia a menudo.
+func refrescar_imbue() -> void:
+	_pintar_imbue()
+	# refrescar_imbue y NO refrescar: aquella se salta a los companeros que no han cambiado de dueño,
+	# que es justo el caso de aqui (misma gente, otra imbuicion).
+	if _sequito != null and _sequito.has_method("refrescar_imbue"):
+		_sequito.refrescar_imbue()
+	# MULTIJUGADOR: canal propio y barato (un int por persona), no el aspecto completo.
+	Net.anunciar_imbue()
+
+
+# Los elementos imbuidos del grupo, en orden. El criterio de "que cuenta como imbuido" vive en la
+# ficha (PersonajeData.imbue_elemento), que es quien tiene el dict.
+func _firma_imbue() -> Array:
+	var out: Array = []
+	for pj in Game.party:
+		out.append(Elementos.Elemento.NINGUNO if pj == null else (pj as PersonajeData).imbue_elemento())
+	return out
 
 
 # Las barras de los COMPANEROS, debajo de las tuyas: mas finas y sin numeros gordos, porque son
@@ -640,6 +685,30 @@ func _pintar_cuerpo() -> void:
 		return
 	cuerpo.color = Game.player_color
 	cuerpo.material = Game.material_cuerpo()
+	_pintar_imbue()
+
+
+# RASTRO de la imbuicion: cuadraditos del color del elemento que suben y se quedan atras al andar.
+# Es informacion de juego, no adorno -- la imbuicion dura entre combates y se gasta por cargas, asi
+# que saber de un vistazo si la llevas puesta y de que elemento importa.
+#
+# El emisor se crea la primera vez y luego solo se repinta; si te quedas sin elemento se borra del
+# todo (dejarlo parado gastaria un nodo por cada personaje que alguna vez se imbuyo).
+func _pintar_imbue() -> void:
+	# La firma se apunta AQUI (no en refrescar_grupo) porque este es el punto por el que pasan todos
+	# los repintados del cuerpo, vengan de donde vengan.
+	_imbue_visto = _firma_imbue()
+	var pj: PersonajeData = Game.lider()
+	var elem: int = Elementos.Elemento.NINGUNO if pj == null else pj.imbue_elemento()
+	if not Elementos.tiene_color(elem):
+		if _fx_imbue != null:
+			_fx_imbue.queue_free()
+			_fx_imbue = null
+		return
+	if _fx_imbue == null:
+		_fx_imbue = Particulas.ascendentes(self, Elementos.color(elem), 1.0, LADO_CUERPO)
+	else:
+		Particulas.repintar(_fx_imbue, Elementos.color(elem))
 
 
 # True si estamos agotados (lo consulta el enemigo para atacar al instante).

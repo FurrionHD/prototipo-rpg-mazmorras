@@ -908,7 +908,8 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras)
 		var mgb: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, {})
 		_magic_stats(vb, mg, mgb, w.mp_regen_turno, w.cast_vel_mult)
-	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)])
+	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)],
+		Upgrades.rareza_color(rareza))
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
 	# DESGASTE: gastada pega menos y ROTA se va a los suelos. Se repara en el herrero.
 	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(w), Game.durabilidad_color(w))
@@ -1009,7 +1010,8 @@ func _off_stats(vb: VBoxContainer, item: Resource) -> void:
 		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, tm, rareza, mejoras)
 		var mgb: Dictionary = Upgrades.magic_mods(wd.magic_amp, tm, rareza, {})
 		_magic_stats(vb, mg, mgb, wd.mp_regen_turno, wd.cast_vel_mult)
-	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)])
+	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)],
+		Upgrades.rareza_color(rareza))
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
 	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
 	# En QUE se gastaron, en su propia linea: con 12 huecos (obra maestra) la lista no cabe
@@ -1202,7 +1204,8 @@ func _armor_stats(vb: VBoxContainer, a: ArmorData) -> void:
 		_row(vb, "  Resist. crítico", "+%s" % _fmt_pct(float(mods["crit_resist"])))
 	if float(mods["resist_estados"]) > 0.0:
 		_row(vb, "  Resist. estados", "+%s" % _fmt_pct(float(mods["resist_estados"])))
-	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)])
+	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)],
+		Upgrades.rareza_color(rareza))
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
 	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
 	if not mejoras.is_empty():

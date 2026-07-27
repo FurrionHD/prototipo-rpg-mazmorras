@@ -874,7 +874,8 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 		if p <= 0.0:
 			continue
 		_row(vb, Upgrades.rareza_nombre(i), "%s%%   (%d huecos de mejora)" % [
-			str(snappedf(p * 100.0, 0.1)), Upgrades.rareza_slots(i)])
+			str(snappedf(p * 100.0, 0.1)), Upgrades.rareza_slots(i)],
+			Upgrades.rareza_color(i))
 
 	vb.add_child(HSeparator.new())
 	var acc := HBoxContainer.new()

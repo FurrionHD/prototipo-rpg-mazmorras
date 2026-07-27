@@ -34,6 +34,7 @@ var brotando: bool = false
 
 var _rect: ColorRect = null
 var _lbl: Label = null
+var _fx: CPUParticles2D = null
 
 
 func _ready() -> void:
@@ -82,6 +83,8 @@ func abrir_minijuego() -> void:
 func agotar() -> void:
 	agotado = true
 	remove_from_group("recolectable")
+	# Antes del fundido: si no, la veta sigue soltando destellos mientras se desvanece.
+	Particulas.apagar(_fx)
 	var tw := create_tween()
 	tw.tween_property(self, "modulate:a", 0.0, 0.45)
 	tw.tween_callback(queue_free)
@@ -90,22 +93,49 @@ func agotar() -> void:
 func _crear_aspecto() -> void:
 	var color: Color = material_data.color if material_data != null else Color(0.7, 0.7, 0.7)
 
-	_rect = ColorRect.new()
+	var tam: Vector2
+	var esquina: Vector2
 	if es_veta():
 		# La veta es un bulto en la roca: ancha y baja.
-		_rect.size = Vector2(26, 18)
-		_rect.position = Vector2(-13, -9)
+		tam = Vector2(26, 18)
+		esquina = Vector2(-13, -9)
 	elif es_madera():
 		# La enredadera TREPA por el muro: muy alta y muy estrecha. Se distingue de la planta
 		# de un vistazo, que es lo unico que le pido a un placeholder.
-		_rect.size = Vector2(10, 34)
-		_rect.position = Vector2(-5, -26)
+		tam = Vector2(10, 34)
+		esquina = Vector2(-5, -26)
 	else:
 		# La planta es un manojo: estrecha y alta.
-		_rect.size = Vector2(14, 22)
-		_rect.position = Vector2(-7, -14)
+		tam = Vector2(14, 22)
+		esquina = Vector2(-7, -14)
+
+	_rect = ColorRect.new()
+	_rect.size = tam
+	_rect.position = esquina
 	_rect.color = color
 	add_child(_rect)
+
+	_crear_destellos(tam, esquina)
+
+
+# DESTELLOS del color de su RANGO. Ojo: el cuerpo lleva material_data.color (que dice QUE es: un
+# marron para el cuero, un cobrizo para el cobre) y el destello lleva color_rango() (que dice lo
+# BUENO que es). Son dos ejes distintos a proposito -- los tres cobres son marrones casi iguales,
+# y el destello es lo que los separa de un vistazo.
+#
+# Se le pasa el TAMAÑO real de la silueta, asi que la enredadera centellea a lo largo de sus 34px
+# en vez de en un cuadradito central. Y se coloca en el CENTRO del rect, que no es el origen del
+# nodo (la enredadera y la planta cuelgan hacia arriba).
+#
+# MULTIJUGADOR: nada que sincronizar. El invitado genera el mismo piso con Net.semilla_host, asi
+# que su veta trae el mismo material_data y deriva el mismo color por su cuenta.
+func _crear_destellos(tam: Vector2, esquina: Vector2) -> void:
+	if material_data == null:
+		return
+	var rango: int = material_data.rango_color()
+	var intensidad: float = 0.3 + 0.7 * (float(rango) / float(MaterialData.Rango.AMARILLO))
+	_fx = Particulas.destellos(self, material_data.color_rango(), tam, intensidad)
+	_fx.position = esquina + tam * 0.5
 
 	_lbl = Label.new()
 	_lbl.text = "[F]"

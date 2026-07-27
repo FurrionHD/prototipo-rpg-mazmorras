@@ -84,6 +84,14 @@ func refrescar() -> void:
 			_cuerpos[i].pintar(comps[i])
 
 
+# Solo los rastros de imbuicion de la fila. Hace falta APARTE de refrescar() porque aquella se salta
+# a quien no ha cambiado de dueño, y una imbuicion cambia con la misma gente en los mismos huecos.
+func refrescar_imbue() -> void:
+	for c in _cuerpos:
+		if is_instance_valid(c) and c.has_method("refrescar_imbue"):
+			c.refrescar_imbue()
+
+
 # El rastro arranca EXTENDIDO desde donde estas, para que nazcan ya en fila detras de ti y se vean
 # desde el primer frame (amontonados en tu mismo punto, y con z_index -1, serian invisibles hasta
 # que anduvieras: parece que no te sigue nadie).

@@ -88,6 +88,17 @@ var mana_heal_turnos: float = 0.0
 # Game.crear_player_combatant, que se lo pasa tal cual a Combatant.aplicar_imbue.
 var imbue: Dictionary = {}
 
+
+# El elemento de la imbuicion QUE SE VE, o NINGUNO. Vive aqui porque la pregunta es sobre esta
+# ficha, y la hacen dos sitios distintos (el cuerpo del lider en player.gd y cada companero en
+# companion.gd) que no se conocen entre si.
+#
+# Un imbue con 0 cargas NO cuenta: gastar la ultima es justo lo que hay que notar en pantalla.
+func imbue_elemento() -> int:
+	if imbue.is_empty() or int(imbue.get("usos", 0)) <= 0:
+		return Elementos.Elemento.NINGUNO
+	return int(imbue.get("elem", Elementos.Elemento.NINGUNO))
+
 # --- Perks ---
 @export var guardianes_vencidos: Dictionary = {}
 @export var desarrollos_rango: Dictionary = {}

@@ -141,6 +141,8 @@ var extracted: bool = false   # true cuando ya le has sacado el cristal
 # Indicadores visuales (creados por codigo).
 var _facing_line: Line2D = null
 var _vision_cone: Polygon2D = null
+# Rastro del elemento del bicho (null si no es elemental). Ver _crear_fx_elemental.
+var _fx_elem: CPUParticles2D = null
 
 @onready var _color_rect: ColorRect = $ColorRect
 
@@ -172,6 +174,10 @@ func _ready() -> void:
 		# Color base + tinte por 't' (los mas fuertes de su franja salen mas claros).
 		_color_rect.color = data.color_visual(current_t)
 		_aplicar_escala(data.escala_visual)   # los elites se ven mas grandes en el mapa
+		# Un bicho ELEMENTAL emana lo mismo que tu cuando te imbuyes de ese elemento: el slime de
+		# fuego echa los mismos cuadraditos naranjas que un Manto de Brasas. Es a proposito -- el
+		# mismo color quiere decir la misma cosa, la vengas tu de echar o la traiga el bicho puesta.
+		_crear_fx_elemental()
 		current_move_speed = randf_range(data.move_speed_min, data.move_speed_max)
 		var band: Vector2 = data.sum_band()
 		var ab: Abilities = data.crear_abilities(current_t)
@@ -190,6 +196,20 @@ func _ready() -> void:
 # descuenta esto al medir la distancia de interaccion (ver player._mas_cercano_en_grupo);
 # si no, no llegarias a extraerle el cristal. 0 = tamaño normal.
 var radio_extra: float = 0.0
+
+
+# El rastro del elemento del bicho. Va DESPUES de _aplicar_escala porque el alto de las particulas
+# se saca del tamaño real del cuerpo: un elite del doble de grande con particulas de enano se veria
+# raro. La 'intensidad' es su elemento_intensidad, asi que uno solo TOCADO por el elemento (0.5)
+# humea la mitad que uno hecho de fuego (1.0).
+#
+# El VENENO no entra aqui, y no es un olvido: no es un elemento sino un estado (ver elements.gd), y
+# el slime venenoso no tiene campo 'elemento'. Sale sin rastro a proposito.
+func _crear_fx_elemental() -> void:
+	if not Elementos.tiene_color(data.elemento):
+		return
+	_fx_elem = Particulas.ascendentes(self, Elementos.color(data.elemento),
+		clampf(data.elemento_intensidad, 0.0, 1.0), 32.0 * maxf(0.1, data.escala_visual))
 
 
 # Escala el cuerpo (ColorRect) y su colision. El cuerpo base es 32x32 centrado.
@@ -699,10 +719,21 @@ func esta_muerto() -> bool:
 # MULTIJUGADOR (hito 5.1): lo que el host manda al cliente para PINTAR este bicho igual sin
 # conocer EnemyData: su color (ya con el tinte de su 't') y el lado de su cuerpo (los elites son
 # mas grandes). Se lee del propio ColorRect, que es la verdad tras _aplicar_escala.
+#
+# Van tambien el ELEMENTO y su intensidad: sin ellos el invitado no ve arder al slime de fuego, y
+# ese bicho es 1/50 y te revienta -- no verlo venir es perder informacion de juego, no un adorno.
+# Aqui NO se manda el color del elemento, solo el id: el cliente lo saca de Elementos.COLOR igual
+# que el host, asi que la paleta no se puede desincronizar por el cable.
 func aspecto_red() -> Dictionary:
+	var elem: int = data.elemento if data != null else Elementos.Elemento.NINGUNO
+	var inten: float = data.elemento_intensidad if data != null else 1.0
 	if _color_rect != null:
-		return {"color": _color_rect.color, "lado": _color_rect.offset_right - _color_rect.offset_left}
-	return {"color": Color.WHITE, "lado": 32.0}
+		return {
+			"color": _color_rect.color,
+			"lado": _color_rect.offset_right - _color_rect.offset_left,
+			"elem": elem, "einten": inten,
+		}
+	return {"color": Color.WHITE, "lado": 32.0, "elem": elem, "einten": inten}
 
 
 # MULTIJUGADOR: hacia donde MIRO y si estoy avisando el golpe. Va en el tick de posiciones para que
@@ -728,6 +759,8 @@ func poder_normalizado() -> float:
 # Tras extraer el cristal: el cuerpo se desvanece (baja opacidad) y desaparece.
 func desvanecer() -> void:
 	remove_from_group("corpse")  # ya no interactuable
+	# Que deje de emanar antes del fundido: si no, sigue soltando cuadraditos mientras se va.
+	Particulas.apagar(_fx_elem)
 	var t := create_tween()
 	t.tween_property(self, "modulate:a", 0.0, 0.6)  # fundido a transparente
 	t.tween_callback(queue_free)

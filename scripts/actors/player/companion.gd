@@ -43,6 +43,8 @@ const RESCATE := 96.0
 var pj: PersonajeData = null
 
 var _cuerpo: ColorRect = null
+# Rastro de SU imbuicion (null = no lleva ninguna). Ver _pintar_imbue.
+var _fx_imbue: CPUParticles2D = null
 
 
 func _ready() -> void:
@@ -88,6 +90,28 @@ func pintar(nuevo: PersonajeData) -> void:
 		return
 	_cuerpo.color = pj.color
 	_cuerpo.material = Game.material_de(pj)
+	refrescar_imbue()
+
+
+# Cada companero lleva SU rastro, leido de SU ficha: los buffs se le echan a quien tu quieras, asi
+# que el de atras puede ir imbuido en fuego y tu en nada. Mismo criterio que el lider, porque los
+# dos preguntan a la ficha (PersonajeData.imbue_elemento).
+#
+# PUBLICA a proposito: pintar() solo se llama cuando el cuerpo cambia de dueño (ver
+# party_trail.refrescar), y la imbuicion cambia con la MISMA gente en la fila.
+func refrescar_imbue() -> void:
+	if pj == null:
+		return
+	var elem: int = pj.imbue_elemento()
+	if not Elementos.tiene_color(elem):
+		if _fx_imbue != null:
+			_fx_imbue.queue_free()
+			_fx_imbue = null
+		return
+	if _fx_imbue == null:
+		_fx_imbue = Particulas.ascendentes(self, Elementos.color(elem), 1.0, LADO)
+	else:
+		Particulas.repintar(_fx_imbue, Elementos.color(elem))
 
 
 # Avanza hacia el punto del rastro que le toca. La velocidad es "lo que falta / delta": asi

@@ -325,7 +325,8 @@ func _build_mochilas() -> void:
 		if p <= 0.0:
 			continue
 		_row(Upgrades.rareza_nombre(i), "%s%%   →  +%.0f de carga" % [
-			str(snappedf(p * 100.0, 0.1)), _carga_de(tier, i)])
+			str(snappedf(p * 100.0, 0.1)), _carga_de(tier, i)],
+			Upgrades.rareza_color(i))
 	_row("Llevas ahora", "%d de capacidad" % roundi(Game.capacidad_carga()))
 
 	_content.add_child(HSeparator.new())
@@ -485,8 +486,8 @@ func _cal_txt(cal: int) -> String:
 		_: return "Roto"
 
 
-func _row(etiqueta: String, valor: String) -> void:
-	MenuScaffold.fila(_content, etiqueta, valor, 200)
+func _row(etiqueta: String, valor: String, color_valor: Variant = null) -> void:
+	MenuScaffold.fila(_content, etiqueta, valor, 200, color_valor)
 
 
 func _note(txt: String) -> void:

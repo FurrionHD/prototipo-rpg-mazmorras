@@ -35,7 +35,8 @@ enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
 @export var familia: Familia = Familia.CORRIENTE
 @export var tipo: Tipo = Tipo.MINERAL
 
-# GRADO del material: sube el valor y el peso. Es el eje "de que profundidad viene esto".
+# GRADO del material: sube el VALOR (en curva, ver MaterialItem.valor_estimado). Es el eje "de que
+# profundidad viene esto". El PESO no lo toca: ese sale de peso_base y la calidad, y nada mas.
 @export var tier: int = 1
 
 # Lo que CUESTA sacarlo del sitio: dureza de la veta (mineral) o fragilidad del tallo
@@ -122,9 +123,10 @@ func mejora_equipo() -> bool:
 # de los nucleos (ver Forge._nucleo_de_nivel): asi dos bandas contiguas 0..3 y 3..9 no se solapan
 # en el 3.
 #
-# mejora_max <= 0 = SIN BANDA: sirve para cualquier nivel. Es el valor por defecto, y es lo que
-# tienen hoy todos los materiales de refuerzo (metal, madera, cuero), que aun no estan divididos
-# en sub-tiers. Mientras siga asi, el gate no filtra nada y el crafteo se comporta como siempre.
+# mejora_max <= 0 = SIN BANDA: sirve para cualquier nivel. Hoy lo tienen los materiales que son la
+# CIMA de su tier sin sub-tiers todavia (acero, madera negra, tablon negro) y los que no entran en
+# la forja (babas). El metal, la madera y el cuero de T1/T2 SI estan divididos en sub-tiers y
+# llevan su banda escrita, asi que ahi el gate si filtra.
 func cubre_mejora(n: int) -> bool:
 	if mejora_max <= 0:
 		return true
@@ -140,6 +142,118 @@ func uso_mejora_texto() -> String:
 		UsoMejora.ARMA: return "armas"
 		UsoMejora.ARMADURA: return "armaduras"
 		_: return "equipo"
+
+
+# ============================================================
+#  RANGO DE COLOR: cada material se mide por el eje de SU oficio
+# ============================================================
+#  El color de las particulas (veta en el mapa, drop en el suelo) dice lo bueno que es el material.
+#  No hay UNA escalera: la herreria mide en +N de mejora y la alqumia en fase de pocion, asi que
+#  forzar un eje unico mentiria sobre uno de los dos. Tres escalas, y el TECHO de cada una sale de
+#  cuantas cosas hay en ella:
+#
+#   A1  recolectado y forjado (mineral/lingote/chapa/hebillas/cuero/curtido/madera/tablon/PLANTA)
+#       -> 3 por tier, asi que 3 peldaños y TECHO AZUL. La banda (mejora_min) da el peldaño, y
+#          reinicia en cada tier: cobre gris/verde/azul y hierro gris/verde/azul.
+#   A2  nucleos -> sus bandas van de 3 en 3 y cubren el 0..15 entero: 5 peldaños, TECHO AMARILLO.
+#          El amarillo cae solo en los dos nucleos de BOSS (rey slime, minotauro) sin marcarlos.
+#   A3  babas -> son lo que define la fase de la pocion: 4 fases, 4 babas por linea, TECHO MORADO.
+#
+#  OJO con el error facil: la sanguinaria y el liquen abisal entran en el +3 de su pocion, pero son
+#  PLANTAS y su techo es AZUL. El morado del +3 lo pone la baba, no la planta.
+#
+#  Las dos escalas no se solapan en ningun material: las babas no tienen banda y las plantas no
+#  miran la receta, asi que no hay ninguna regla de prioridad que mantener.
+
+# Los 5 peldaños, en orden. Son los MISMOS que las 5 primeras rarezas de Upgrades (ver
+# color_rango): un verde tiene que significar lo mismo en una veta y en una espada.
+enum Rango { GRIS, VERDE, AZUL, MORADO, AMARILLO }
+
+# id de baba -> fase de pocion (0 = base ... 3 = +3). Se construye UNA vez desde las recetas, que
+# son la unica fuente de verdad. Ver _indice_fases().
+static var _fase_de_baba: Dictionary = {}
+static var _fases_listas: bool = false
+
+
+# El peldaño (0..4) de este material en la escala de su oficio.
+func rango_color() -> int:
+	if familia == Familia.NUCLEO:
+		# Bandas de 3 en 3 sobre el 0..15: 0..3 gris, 3..6 verde, 6..9 azul, 9..12 morado,
+		# 12..15 amarillo.
+		return clampi(mejora_min / 3, Rango.GRIS, Rango.AMARILLO)
+	if tipo == Tipo.BABA:
+		return clampi(_fase_pocion(), Rango.GRIS, Rango.MORADO)
+	# Sin banda = es la base de su tier (acero, madera negra...), no un material pobre. Gris, y
+	# cuando le pongan el veteado y el profundo la escalera se completa sola.
+	if mejora_max <= 0:
+		return Rango.GRIS
+	if mejora_min >= 9:
+		return Rango.AZUL
+	if mejora_min >= 3:
+		return Rango.VERDE
+	return Rango.GRIS
+
+
+# El color del peldaño. Se lee de Upgrades.RAREZA_COLOR en vez de tener tabla propia: sus 5
+# primeras rarezas son justo gris/verde/azul/morado/amarillo, asi que la escala de materiales es un
+# PREFIJO de la de rareza. Una sola paleta en todo el proyecto -> imposible que se desincronicen.
+func color_rango() -> Color:
+	return Upgrades.rareza_color(rango_color())
+
+
+# Fase de pocion mas alta a la que sirve esta baba (0 = base). -1 si no esta en ninguna receta.
+func _fase_pocion() -> int:
+	return int(_indice_fases().get(id, 0))
+
+
+# Recorre las recetas y saca la fase de cada baba. La fase NO se lee del nombre del archivo (el
+# "_3" es una convencion, no un dato): se deriva de la CADENA, que es lo que hace que la linea T3
+# se coloree sola el dia que la montes. RecipeData.pocion_base == null es la fase 0, y cada receta
+# de mejora es un escalon sobre la pocion que consume.
+static func _indice_fases() -> Dictionary:
+	if _fases_listas:
+		return _fase_de_baba
+	var recetas: Array = Game.recetas_boticaria()
+	if recetas.is_empty():
+		# Game aun no esta listo. NO se cachea: se reintenta a la siguiente.
+		return {}
+
+	# 1) Fase de cada POCION. Varias pasadas porque una mejora necesita que su pocion_base ya
+	#    tenga fase, y el orden de la lista no lo garantiza.
+	var fase_pocion: Dictionary = {}
+	for _pasada in range(recetas.size()):
+		var cambio := false
+		for r in recetas:
+			var rec := r as RecipeData
+			if rec == null or rec.resultado == null or fase_pocion.has(rec.resultado):
+				continue
+			if rec.pocion_base == null:
+				fase_pocion[rec.resultado] = 0
+				cambio = true
+			elif fase_pocion.has(rec.pocion_base):
+				fase_pocion[rec.resultado] = int(fase_pocion[rec.pocion_base]) + 1
+				cambio = true
+		if not cambio:
+			break
+
+	# 2) Cada baba se queda con la fase MAS ALTA a la que sirve. La rareza mide el techo, igual que
+	#    mejora_tope() en los nucleos.
+	for r in recetas:
+		var rec := r as RecipeData
+		if rec == null or not fase_pocion.has(rec.resultado):
+			continue
+		var fase: int = int(fase_pocion[rec.resultado])
+		for ing in rec.ingredientes:
+			if ing == null or ing.material == null:
+				continue
+			var mat := ing.material as MaterialData
+			if mat == null or mat.tipo != Tipo.BABA:
+				continue
+			if fase > int(_fase_de_baba.get(mat.id, -1)):
+				_fase_de_baba[mat.id] = fase
+
+	_fases_listas = true
+	return _fase_de_baba
 
 
 # Los NUMEROS visibles salen de aqui, no de la descripcion.

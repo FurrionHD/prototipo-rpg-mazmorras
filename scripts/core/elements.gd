@@ -29,6 +29,22 @@ const ICONO := {
 	Elemento.RAYO: "⚡",
 }
 
+# Color de cada elemento, para las PARTICULAS del cuerpo imbuido y del bicho elemental
+# (ver Particulas.ascendentes). Los tonos NO son inventados aqui: se copian del ESTADO que ese
+# mismo elemento provoca en StatusEffects.CATALOGO, para que no haya dos naranjas de fuego
+# distintos en pantalla.
+#   FUEGO -> el de QUEMADURA.
+#   AGUA  -> el de MOJADO.
+#   RAYO  -> AQUI SI se separa: el del estado (Electrizado) es azulado y se confundiria con el
+#            agua a simple vista, asi que el rayo tira a amarillo. Lo que se lee de un vistazo
+#            manda sobre la coherencia con el chip de estado.
+# NINGUNO no tiene color: sin elemento no hay particulas (ver color()).
+const COLOR := {
+	Elemento.FUEGO: Color(1.0, 0.5, 0.1),
+	Elemento.AGUA: Color(0.4, 0.7, 1.0),
+	Elemento.RAYO: Color(1.0, 0.95, 0.4),
+}
+
 # TABLA DE TIPOS por defecto: perfil de resistencia segun la AFINIDAD del defensor
 # (multiplicador que RECIBE de cada elemento). Lo que no aparezca = 1.0 (neutro).
 #   FUEGO: resiste Fuego (×0.5), débil a Agua (×1.5).
@@ -87,6 +103,17 @@ static func nombre(elem: int) -> String:
 # Icono de un elemento (para el log).
 static func icono(elem: int) -> String:
 	return String(ICONO.get(elem, "✨"))
+
+
+# ¿Este elemento se ve? NINGUNO (fisico) no pinta nada: un cuerpo sin imbuir no emana.
+static func tiene_color(elem: int) -> bool:
+	return COLOR.has(elem)
+
+
+# Color de un elemento para las particulas. Blanco si no lo tiene, pero lo normal es preguntar
+# antes con tiene_color() y no emitir en absoluto.
+static func color(elem: int) -> Color:
+	return COLOR.get(elem, Color.WHITE)
 
 
 # Estados a los que es inmune quien tenga esta afinidad ([] si NINGUNO).
