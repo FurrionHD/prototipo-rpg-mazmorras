@@ -1052,6 +1052,12 @@ func _labels_del_baul(sin_equipado: bool = false) -> Array:
 	for a in Game.owned_armor:
 		if not (sin_equipado and Game.item_equipado(a)):
 			_stacks.append({"modelo": a})
+	# Las MOCHILAS solo en DESHACER: no se mejoran (no tienen ranuras), asi que en la pestaña de
+	# mejorar no pintarian nada. Descoserlas devuelve hebillas, correa y cuero (ver fundir_devuelve).
+	if sin_equipado:
+		for mo in Game.owned_mochilas:
+			if not Game.item_equipado(mo):
+				_stacks.append({"modelo": mo})
 	var labels: Array = []
 	for s in _stacks:
 		var item: Resource = s["modelo"]
@@ -1077,8 +1083,13 @@ func _preview_deshacer(vb: VBoxContainer) -> void:
 	_title(vb, Game.item_display_name(item))
 
 	var d: Dictionary = Game.fundir_devuelve(item)
-	_row(vb, "Mejoras", "+%d" % Game.mejoras_actuales(item))
-	_row(vb, "Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
+	# Una mochila no se mejora ni se desgasta: enseñarle "+0" y una durabilidad seria ruido. Lo que
+	# importa de ella es lo que carga, que es lo que se pierde al descoserla.
+	if item is BackpackData:
+		_row(vb, "Capacidad", "+%.0f de carga" % Game.capacidad_mochila(item as BackpackData))
+	else:
+		_row(vb, "Mejoras", "+%d" % Game.mejoras_actuales(item))
+		_row(vb, "Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
 	vb.add_child(HSeparator.new())
 
 	var t := Label.new()

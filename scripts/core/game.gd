@@ -3967,16 +3967,20 @@ var recompra: Array = []
 func vender_equipo(item: Resource) -> int:
 	if item == null:
 		return 0
-	if item == equipped_main or item == equipped_off:
-		print("[tienda] No vendes lo que llevas puesto: desequipalo antes.")
+	# item_equipado es EL predicado bueno: mira a la plantilla ENTERA (no solo al lider) y conoce la
+	# mochila. Aqui habia una comprobacion propia -- equipped_main/off + los slots de armadura del
+	# lider -- que no sabia de mochilas, asi que se podia vender la que llevabas puesta, y tampoco
+	# veia lo que llevaba encima un compañero. Es el mismo predicado que usa puede_fundir.
+	if item_equipado(item):
+		print("[tienda] No vendes lo que lleva puesto alguien del grupo: quitaselo antes.")
 		return 0
-	for slot in ARMOR_SLOT_ORDEN:
-		if get("equipped_" + slot) == item:
-			print("[tienda] No vendes lo que llevas puesto: desequipalo antes.")
-			return 0
 	var precio: int = precio_venta_equipo(item)
+	# Cada array esta TIPADO, asi que erase() con el objeto equivocado revienta: cada clase al suyo.
+	# La mochila vive en owned_mochilas, y por no tener rama aqui no se podia vender.
 	if item is ArmorData:
 		owned_armor.erase(item)
+	elif item is BackpackData:
+		owned_mochilas.erase(item)
 	else:
 		owned_weapons.erase(item)
 	recompra.append({"item": item, "precio": precio})
@@ -3997,6 +4001,9 @@ func recomprar(idx: int) -> bool:
 	var item: Resource = e["item"]
 	if item is ArmorData:
 		add_owned_armor(item as ArmorData)
+	elif item is BackpackData:
+		if not owned_mochilas.has(item):
+			owned_mochilas.append(item)
 	else:
 		add_owned_weapon(item)
 	recompra.remove_at(idx)
@@ -5061,13 +5068,39 @@ func quien_lleva(item: Resource) -> PersonajeData:
 func puede_fundir(item: Resource) -> bool:
 	if item == null or item_equipado(item):
 		return false
-	return owned_weapons.has(item) or owned_armor.has(item)
+	# Se pregunta al array de SU clase. Los tres estan TIPADOS, y un .has() con un objeto que no
+	# hereda del tipo del array no devuelve false: escupe un error del motor por cada llamada.
+	if item is ArmorData:
+		return owned_armor.has(item)
+	if item is BackpackData:
+		return owned_mochilas.has(item)
+	return owned_weapons.has(item)
 
 
 # Lo que SACARIAS de fundirla, sin fundirla (la UI pinta esto antes de que le des al boton).
 # {"materiales": [{material, uds}...], "nucleos": {mat: n}}. Los materiales son los mismos con los
 # que se forja (metal del tier, madera del tier, cuero base), cada uno a la mitad.
 func fundir_devuelve(item: Resource) -> Dictionary:
+	# MOCHILA: no pasa por Forge.coste (que deduce la receta de la CLASE y a una mochila la tomaria
+	# por un arma, devolviendo metal que no lleva). Su receta es MOCHILA_COSTE, y se descose con la
+	# misma tasa de recuperacion que todo lo demas.
+	#
+	# Lo que sale son LINGOTES y CUERO, no las piezas intermedias: descoser una mochila te deja la
+	# materia prima, no un puñado de hebillas y correas sueltas que solo valen para volver a coser
+	# otra. Asi lo recuperado sirve para cualquier cosa. Las hebillas vuelven al lingote de su tier
+	# (materiales_mejora da el LINGOTE para todo lo que no es armadura) y la correa vuelve a cuero,
+	# que es de lo que esta hecha. Tampoco lleva nucleos: no se mejora, no hay escalera que rehacer.
+	if item is BackpackData:
+		var mats: Array = []
+		var lingote: MaterialData = materiales_mejora(item)["metal"]
+		var uds_metal: int = int(floor(float(MOCHILA_COSTE["hebillas"]) * Forge.RECUPERACION))
+		if lingote != null and uds_metal > 0:
+			mats.append({"material": lingote, "uds": uds_metal})
+		var uds_cuero: int = int(floor(
+			float(int(MOCHILA_COSTE["correa"]) + int(MOCHILA_COSTE["cuero"])) * Forge.RECUPERACION))
+		if uds_cuero > 0:
+			mats.append({"material": cuero_forja(), "uds": uds_cuero})
+		return {"materiales": mats, "nucleos": {}}
 	var mejoras: int = mejoras_actuales(item)
 	var f: Dictionary = Forge.fundir_material(item, mejoras)
 	var tier: int = int(meta_de(item)["tier"])
@@ -5100,6 +5133,8 @@ func fundir_item(item: Resource) -> bool:
 	# no es un no-op: revienta con un error de TypedArray. Se borra del que le toca.
 	if item is ArmorData:
 		owned_armor.erase(item)
+	elif item is BackpackData:
+		owned_mochilas.erase(item)
 	else:
 		owned_weapons.erase(item)
 	item_meta.erase(item)

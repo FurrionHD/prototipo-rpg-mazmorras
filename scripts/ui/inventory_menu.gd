@@ -405,10 +405,12 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 
 	var sabido: bool = false
 	if cons.es_grimorio():
-		sabido = Game.equipped_spells.has(cons.spell)
+		# Con grupo, el estado se mira contra el LIDER solo para la cabecera; abajo cada boton dice
+		# lo suyo, porque quien lo aprende lo eliges tu.
+		sabido = Game.lider().equipped_spells.has(cons.spell)
 		_row(vb, "Enseña", cons.spell.nombre)
 		_row(vb, "Coste", "%d de maná" % cons.spell.coste_mana)
-		_row(vb, "Hechizos", "%d / %d aprendidos" % [Game.equipped_spells.size(), Game.MAX_HECHIZOS])
+		_row(vb, "Hechizos", "%d / %d aprendidos" % [Game.lider().equipped_spells.size(), Game.MAX_HECHIZOS])
 	else:
 		_row(vb, "Efecto", cons.resumen(Game.player_max_hp(), Game.player_max_mp()))
 		_row(vb, "Duración", "%.0f s (fuera de combate)" % cons.segundos)
@@ -418,18 +420,32 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 
 	vb.add_child(HSeparator.new())
 	# Una poción se le puede dar a CUALQUIERA del grupo, no solo al que va en cabeza: con varios
-	# en el equipo sale un boton por persona (con su vida/maná, para ver quien la necesita). Con
-	# uno solo, el boton "Usar" de siempre. Grimorios y piedras: como estaban (van al lider).
-	var por_persona: bool = (cons.cura_hp() or cons.da_mana()) and Game.party.size() > 1
+	# en el equipo sale un boton por persona (con su vida/maná, para ver quien la necesita).
+	# Un GRIMORIO igual, y ademas es lo importante: el libro se GASTA al estudiarlo, asi que si iba
+	# siempre al lider y el que querias que lo aprendiera no era el lider, perdias el hechizo y el
+	# libro. Con uno solo en el grupo, el boton de siempre.
+	var por_persona: bool = (cons.cura_hp() or cons.da_mana() or cons.es_grimorio()) \
+		and Game.party.size() > 1
 	if por_persona:
-		_note(vb, "¿A quién se la das?")
+		_note(vb, "¿Quién lo estudia?" if cons.es_grimorio() else "¿A quién se la das?")
 		for pj in Game.party:
 			var b := Button.new()
-			var partes: Array = ["%.0f/%.0f ♥" % [Game.player_hp(pj), Game.player_max_hp(pj)]]
-			if cons.da_mana():
-				partes.append("%.0f/%.0f 🔷" % [Game.player_mp(pj), Game.player_max_mp(pj)])
 			var corona: String = "👑 " if pj == Game.lider() else ""
-			b.text = "%s%s  (%s)" % [corona, pj.nombre, "  ".join(partes)]
+			if cons.es_grimorio():
+				# Cada uno con SU cuenta de hechizos: uno puede tenerlo ya sabido y otro no, y uno
+				# puede tener el hueco lleno y otro libre. Se dice cual es el motivo en el boton.
+				var suyos: Array = pj.equipped_spells
+				var lo_sabe: bool = suyos.has(cons.spell)
+				var lleno: bool = suyos.size() >= Game.MAX_HECHIZOS
+				var estado: String = "ya lo sabe" if lo_sabe else (
+					"sin hueco" if lleno else "%d/%d hechizos" % [suyos.size(), Game.MAX_HECHIZOS])
+				b.text = "%s%s  (%s)" % [corona, pj.nombre, estado]
+				b.disabled = lo_sabe or lleno
+			else:
+				var partes: Array = ["%.0f/%.0f ♥" % [Game.player_hp(pj), Game.player_max_hp(pj)]]
+				if cons.da_mana():
+					partes.append("%.0f/%.0f 🔷" % [Game.player_mp(pj), Game.player_max_mp(pj)])
+				b.text = "%s%s  (%s)" % [corona, pj.nombre, "  ".join(partes)]
 			b.pressed.connect(_on_usar.bind(cons, pj))
 			vb.add_child(b)
 	else:
@@ -438,7 +454,7 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		usar.disabled = cons.es_grimorio() and (sabido or Game.hechizos_llenos())
 		usar.pressed.connect(_on_usar.bind(cons))
 		vb.add_child(usar)
-	if cons.es_grimorio():
+	if cons.es_grimorio() and not por_persona:
 		if sabido:
 			_note(vb, "Ya te sabes este hechizo: el libro no te dice nada nuevo.")
 		elif Game.hechizos_llenos():

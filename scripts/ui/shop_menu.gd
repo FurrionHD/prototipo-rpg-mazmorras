@@ -449,6 +449,11 @@ func _build_vender_equipo() -> void:
 	for a in Game.owned_armor:
 		if not Game.item_equipado(a):
 			_stacks.append({"modelo": a, "cantidad": 1})
+	# Las mochilas viven en su propio array y por eso no se podian vender: la tienda te las vendia
+	# pero no te las recompraba. item_equipado ya reconoce la que llevas puesta.
+	for mo in Game.owned_mochilas:
+		if not Game.item_equipado(mo):
+			_stacks.append({"modelo": mo, "cantidad": 1})
 	var labels: Array = []
 	for s in _stacks:
 		var item: Resource = s["modelo"]
@@ -662,7 +667,13 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		if c.es_grimorio():
 			_row(vb, "Enseña", c.spell.nombre)
 			_row(vb, "Coste del hechizo", "%d de maná" % c.spell.coste_mana)
-			_row(vb, "Hechizos", "%d / %d aprendidos" % [Game.equipped_spells.size(), Game.MAX_HECHIZOS])
+			# QUIEN de los tuyos tiene hueco, no la cuenta del lider a secas: el libro lo estudia
+			# quien tu elijas en el inventario, asi que lo util aqui es saber si le sirve a ALGUIEN.
+			var libres: Array = []
+			for pj in Game.party:
+				if not pj.equipped_spells.has(c.spell) and pj.equipped_spells.size() < Game.MAX_HECHIZOS:
+					libres.append("%s %d/%d" % [pj.nombre, pj.equipped_spells.size(), Game.MAX_HECHIZOS])
+			_row(vb, "Puede aprenderlo", ", ".join(libres) if not libres.is_empty() else "nadie del grupo")
 		else:
 			_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
 			_row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(c, 0)))
