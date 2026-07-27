@@ -404,7 +404,15 @@ const RESIS_TANQUE_K := 0.25      # al que la atrae (grupo de 4: +14% sin provoc
 # con tope de reto FISICO (5) y rendimientos decrecientes por la Magia interna.
 # mana_factor = coste_mana / MAGIA_COSTE_REF -> hechizos caros entrenan mas (ya
 # reflejan mas daño/potencia). Contra un slime: Chispa ~1.5, Bola ~3, Tormenta ~5.
-const GAIN_MAGIA_CAST := 0.4
+#
+# Recortado un 10% (era 0.4): en el playtest la Magia subia mas rapido que las demas stats.
+#
+# OJO al volver a tocarlo: la ganancia es GAIN x (coste_mana / MAGIA_COSTE_REF), asi que el COSTE
+# de los hechizos la mueve tambien. Bajarlos todos 1 ya la habia recortado por su cuenta entre un
+# 6% (Manto de centellas) y un 17% (Brasa), asi que el recorte TOTAL respecto a lo que se jugo no
+# es este 10%: va del 15% al 25% segun el hechizo, y muerde MAS en los baratos -- que es lo que se
+# queria, porque eran los que mas entrenaban por punto de maná gastado.
+const GAIN_MAGIA_CAST := 0.36
 # Cuanto mas mana dan las armas magicas de lo que dice su ficha. Sube a la vez el goteo por turno y
 # el mana por victoria (ver loadout_mods). Vive AQUI y no en los .tres porque las armas ya forjadas
 # son copias congeladas en la partida y no verian el cambio.
