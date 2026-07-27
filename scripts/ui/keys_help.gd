@@ -12,7 +12,7 @@ const DEBUG_KEYS := [
 	["H", "Curar vida y maná al 100%"],
 	["R", "Respawn (recargar la sala)"],
 	["T", "Arena de pruebas (sandbox vacío + spawner)"],
-	["P", "Tirar 200 veces la tabla de spawns y contar (consola)"],
+	["P", "FUERA del combate: tirar 200 veces la tabla de spawns y contar (consola)"],
 	["B", "Forzar un brote en la zona más cercana"],
 	["N", "+10 min al reloj de mazmorra (probar respawn de recursos)"],
 	["DEBUG", "Botón abajo-izq: panel (stats, enemigo, armas,"],
@@ -30,6 +30,8 @@ const CONTROLS := [
 	["I", "Inventario"],
 	["C", "Menú de personaje (stats / armas / armadura)"],
 	["M", "Mapa del piso (zonas exploradas + nodos de recolección)"],
+	["P", "EN COMBATE: desatascar. Escribe en el log qué está pasando e intenta"],
+	["", "reanudar el turno. Si el combate se queda parado, esta es la salida."],
 ]
 
 var _root: Control = null       # backdrop + panel; se muestra/oculta como un todo

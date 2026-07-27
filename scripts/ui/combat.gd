@@ -1749,11 +1749,15 @@ func _chip(box: Container, texto: String, tooltip: String, idx: int = -1) -> voi
 # PROCESS_MODE_ALWAYS, por eso reproducimos las teclas utiles sobre el combate en curso:
 #   H = curacion total (vida/mana/energia al 100%)
 #   K = cambiar arma principal   L = cambiar mano secundaria
+# Y una que NO es de desarrollo: P = desatascar (ver _desatascar), disponible en partida normal.
 func _input(event: InputEvent) -> void:
 	if _state == State.FINISHED:
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
+	# Se MARCA COMO CONSUMIDA la que atendemos aqui. Game escucha las suyas en _unhandled_key_input,
+	# que corre DESPUES de este _input: sin esto, en multi (donde el arbol no se pausa) una P dentro
+	# del combate disparaba ademas el test de spawns de Game, y una H la cura del mundo.
 	match (event as InputEventKey).keycode:
 		KEY_H:
 			_dev_heal_full()
@@ -1761,6 +1765,107 @@ func _input(event: InputEvent) -> void:
 			_dev_swap_weapon(true)
 		KEY_L:
 			_dev_swap_weapon(false)
+		KEY_P:
+			_desatascar()
+		_:
+			return
+	get_viewport().set_input_as_handled()
+
+
+# TECLA P: el combate se queda a veces sin pasar turno y no hay forma de saber por que. Esto
+# vuelca el estado ENTERO al log (y a la consola) y luego intenta reanudarlo. No es una tecla de
+# desarrollo: es la salida de emergencia del jugador, y el volcado es lo que nos dira que lo causa.
+# Tres pasos, en este orden: contar que pasa, intentar seguir, y solo si no hay manera, salir.
+func _desatascar() -> void:
+	var lineas: Array = _diagnostico()
+	for l in lineas:
+		print("[desatascar] " + l)
+	# El log de combate es de una linea: se pinta el resumen y el detalle queda en la consola.
+	_set_log("🔧 %s" % " · ".join(lineas))
+
+	# ESPEJO: esta pantalla no simula nada, solo pinta la pelea de otra maquina. Tocarle el estado
+	# no arregla nada (el atasco esta al otro lado) y ademas desincronizaria lo que se ve. Con el
+	# volcado basta: dice si el anfitrion esta esperando a alguien, que es lo que hay que saber.
+	if _espejo:
+		_set_log("🔧 La pelea la lleva otra máquina: que pulse P quien la tenga. %s" % " · ".join(lineas))
+		return
+
+	# --- Intento 1: soltar la espera de un turno remoto que no va a llegar.
+	if _state == State.WAITING_PLAYER and _esperando_a != 0:
+		if not Net.esta_en_mi_pelea(_esperando_a):
+			var quien: int = _esperando_a
+			_fin_de_espera()
+			sacar_a(quien)
+			_set_log("🔧 %d ya no está en la pelea: fuera. La pelea sigue." % quien)
+			return
+		# Sigue conectado: se le repite la peticion ya, sin esperar al heartbeat.
+		_espera_acum = 0.0
+		_enviar_peticion()
+		_set_log("🔧 Le repito la petición a %d. Si no contesta, vuelve a pulsar P." % _esperando_a)
+		return
+
+	# --- Intento 2: estado raro (esperando a nadie, o una pausa de lectura que no baja).
+	# Se devuelve el mando a quien le toque y se reanuda el ATB.
+	if _state != State.ADVANCING:
+		_fin_de_espera()
+		_pause_left = 0.0
+		if _player != null and _player.is_alive() and not _huidos.has(_player):
+			_state = State.WAITING_PLAYER
+			_mostrar_acciones()
+			_set_log("🔧 Turno devuelto a %s. Elige una acción." % _player.nombre)
+		else:
+			_state = State.ADVANCING
+			_set_log("🔧 Reanudado el contador de turnos.")
+		return
+
+	# --- Intento 3: dice que avanza pero nadie llega al umbral (barras a cero / todas paradas).
+	# Se empuja al que mas tenga hasta el umbral para forzar el siguiente turno.
+	var mejor: Combatant = null
+	for c in _aliados_vivos() + _vivos():
+		if mejor == null or _gauge.get(c, 0.0) > _gauge.get(mejor, 0.0):
+			mejor = c
+	if mejor != null:
+		_gauge[mejor] = UMBRAL
+		_set_log("🔧 Empujo el turno de %s." % mejor.nombre)
+		return
+
+	# --- Sin nadie a quien darle el turno: la pelea no se puede salvar. Salir como huida
+	# conserva la partida (el mundo vuelve, los bichos se sueltan) en vez de dejar el juego muerto.
+	_set_log("🔧 No queda nadie a quien darle el turno: salgo del combate.")
+	_end(false, true)
+
+
+# Todo lo que hace falta para entender un cuelgue, en lineas cortas.
+func _diagnostico() -> Array:
+	var nombres := ["ADVANCING", "WAITING_PLAYER", "PAUSED", "FINISHED"]
+	var out: Array = []
+	out.append("estado=%s" % (nombres[_state] if _state < nombres.size() else str(_state)))
+	out.append("espejo=%s" % ("SI" if _espejo else "no"))
+	if _state == State.PAUSED:
+		out.append("pausa_lectura=%.1fs" % _pause_left)
+	if _esperando_a != 0:
+		out.append("esperando a peer %d (%s) desde %.1fs, ¿sigue?=%s" % [
+			_esperando_a, String(_peticion_pendiente.get("tipo", "?")), _espera_acum,
+			"si" if Net.esta_en_mi_pelea(_esperando_a) else "NO"])
+	else:
+		out.append("no espero a nadie")
+	out.append("turno de=%s" % (_player.nombre if _player != null else "nadie"))
+	# Las barras: si todas estan lejos del umbral, el ATB esta parado; si alguna lo pasa y aun asi
+	# no actua, el atasco esta en la resolucion del turno, no en el contador.
+	var barras: Array = []
+	for c in _aliados_vivos():
+		barras.append("%s %.0f" % [c.nombre, _gauge.get(c, 0.0)])
+	for e in _vivos():
+		barras.append("%s %.0f" % [e.nombre, _gauge.get(e, 0.0)])
+	out.append("barras(/%d): %s" % [int(UMBRAL), ", ".join(barras)])
+	out.append("vivos: %d tuyos / %d bichos, huidos %d" % [
+		_aliados_vivos().size(), _vivos().size(), _huidos.size()])
+	# Un submenu abierto NO es un cuelgue: es que hay algo esperando a que elijas.
+	if _ability_box != null and _ability_box.visible:
+		out.append("OJO: menu de habilidades abierto (elige o pulsa atras)")
+	if _actions_box != null and not _actions_box.visible and _state == State.WAITING_PLAYER:
+		out.append("OJO: submenu abierto sin caja de acciones")
+	return out
 
 
 # [dev] Cura al jugador del combate a tope (vida + mana + energia) y refresca las barras.
@@ -3498,6 +3603,10 @@ func _enemy_turn(e: Combatant) -> void:
 	# en el momento de pegar, y no al empezar el turno: entre medias puede haber caido alguien.
 	var obj: Combatant = _elegir_objetivo_enemigo()
 	if obj == null:
+		# No queda nadie de los tuyos a quien pegar. Sale con _pausa_lectura (no con un return
+		# pelado): el enemigo YA perdio su barra en _process, asi que sin devolver el estado a
+		# ADVANCING la pelea se quedaba parada sin que nadie pasara turno.
+		_pausa_lectura()
 		return
 	if not listas.is_empty() and randf() < e.prob_habilidad:
 		var elegida: AbilityData = listas[randi() % listas.size()]
@@ -3635,6 +3744,7 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData) -> void:
 func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null) -> void:
 	var obj: Combatant = victima if victima != null and victima.is_alive() else _elegir_objetivo_enemigo()
 	if obj == null:
+		_pausa_lectura()   # mismo motivo que en _enemy_turn: su barra ya se gasto, hay que reanudar
 		return
 	e.start_cooldown(ab)   # instantaneas: cooldown al usar (las cargadas ya lo arrancaron)
 	print("[habilidad enemigo] %s usa %s contra %s" % [e.nombre, ab.nombre, obj.nombre])
