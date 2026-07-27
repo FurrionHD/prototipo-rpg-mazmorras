@@ -1383,6 +1383,7 @@ func exportar_partida() -> SaveData:
 	d.player_base_crit = player_base_crit
 	d.desarrollos_rango = desarrollos_rango.duplicate()
 	d.pasivas_rng = pasivas_rng.duplicate()
+	d.pasivas_pendientes = lider().pasivas_pendientes.duplicate()
 	d.guardianes_vencidos = guardianes_vencidos.duplicate()
 	# El GRUPO, sin el lider (ese ya va en los campos planos de aqui arriba; ver el comentario de
 	# SaveData.plantilla). Van SIN duplicar: son Resources y Godot los incrusta enteros en el .tres,
@@ -1596,6 +1597,8 @@ func importar_partida(d: SaveData) -> void:
 	player_base_crit = d.player_base_crit
 	desarrollos_rango = d.desarrollos_rango.duplicate()
 	pasivas_rng = (d.pasivas_rng as Dictionary).duplicate() if d.pasivas_rng != null else {}
+	lider().pasivas_pendientes = (d.pasivas_pendientes as Dictionary).duplicate() \
+		if d.pasivas_pendientes != null else {}
 	guardianes_vencidos = d.guardianes_vencidos.duplicate()
 	# Los efectos de los desarrollos se leen del RANGO en vivo (no hay interruptores que re-encender).
 	player_current_hp = d.player_current_hp
@@ -6025,13 +6028,33 @@ func curva_reto(reto_bruto: float, pivote: float, slope: float, tope: float) -> 
 # Consolidar es lo que HACE el altar, y por eso vive en su propia funcion aparte de derivar: cargar
 # la partida tiene que derivar (poner las player_* a partir de lo que ya estaba consolidado) SIN
 # consolidar, o descansar seria gratis con solo guardar y volver a entrar.
-func actualizar_estado(pj: PersonajeData = null) -> void:
+# Devuelve lo que ha SALIDO A LA LUZ al actualizar, para que el altar pueda cantarlo:
+#   {"pasivas": [dict de PASIVAS_RNG...], "desarrollos": [[nombre, rango_antes, rango_despues]...]}
+# Las dos cosas ya pasaban aqui dentro; lo unico nuevo es que se cuentan. Actualizar el estado es
+# EL momento en que te enteras de lo que ha cambiado en ti, asi que todo lo que cambia se lista.
+func actualizar_estado(pj: PersonajeData = null) -> Dictionary:
 	var p: PersonajeData = pj if pj != null else lider()
+	var rangos_antes: Dictionary = p.desarrollos_rango.duplicate()
 	for s in p.ability_internal:
 		p.ability_consolidado[s] = p.ability_internal[s]
-	_derivar_visible(p)
+	_derivar_visible(p)   # de paso sube el rango de los desarrollos cuyo contador ya llega
+	var pasivas: Array = consolidar_pasivas(p)
 	print("=== ESTADO ACTUALIZADO: ", p.nombre, " (Nv ", p.level, ") ===  F:", p.fuerza,
 		" R:", p.resistencia, " D:", p.destreza, " A:", p.agilidad, " M:", p.magia)
+	return {"pasivas": pasivas, "desarrollos": _desarrollos_subidos(p, rangos_antes)}
+
+
+# Que desarrollos han subido de rango en esta consolidacion. Va por el CATALOGO y no por las claves
+# del dict para que el orden sea siempre el mismo (el de DESARROLLOS), no el de insercion.
+func _desarrollos_subidos(p: PersonajeData, antes: Dictionary) -> Array:
+	var out: Array = []
+	for d in DESARROLLOS:
+		var id: String = str(d["id"])
+		var r_antes: int = int(antes.get(id, 0))
+		var r_hoy: int = int(p.desarrollos_rango.get(id, 0))
+		if r_hoy > r_antes:
+			out.append([str(d["nombre"]), r_antes, r_hoy])
+	return out
 
 # DESCANSAR de verdad: en el altar consolida TODO EL GRUPO, no solo al que va delante. Los tres
 # bajan y los tres se cansan, asi que los tres descansan: si solo consolidara el lider, tendrias
@@ -6192,26 +6215,55 @@ func tiene_pasiva(id: String, pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
 	return bool(p.pasivas_rng.get(id, false))
 
+# ¿Le ha tocado ya, pero aun no lo sabe? Solo lo consulta rodar_pasiva, para no volver a tirar por
+# algo que ya esta esperando en el altar. NO se enseña en ninguna UI: enseñarlo seria contarlo antes
+# de tiempo y cargarse el momento de la actualizacion de estado.
+func pasiva_pendiente(id: String, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	return bool(p.pasivas_pendientes.get(id, false))
+
 func pasiva_por_id(id: String) -> Dictionary:
 	for p in PASIVAS_RNG:
 		if str(p["id"]) == id:
 			return p
 	return {}
 
-# Tira por CONCEDER la pasiva `id` (si no la tienes ya). true = te ha tocado. Ultra-raro (PASIVA_PROB).
+# Tira por la pasiva `id` (si no la tienes ni la tienes pendiente). true = te ha tocado.
+# Ultra-raro (PASIVA_PROB).
+#
+# Que te toque NO te la da todavia: la deja PENDIENTE y en silencio. Una pasiva es un cambio en tu
+# estado, y tu estado no lo lees tu picando piedra -- se lee en el ALTAR, al actualizarlo, igual
+# que la excelia. Hasta entonces no hace efecto, no sale en la ficha y no hay aviso ninguno: la
+# gracia es encontrartela ahi. Ver consolidar_pasivas.
 func rodar_pasiva(id: String) -> bool:
-	if tiene_pasiva(id):
+	if tiene_pasiva(id) or pasiva_pendiente(id):
 		return false
 	if randf() >= PASIVA_PROB:
 		return false
-	pasivas_rng[id] = true
-	var d: Dictionary = pasiva_por_id(id)
-	print("[pasiva] ¡Consigues la pasiva RNG '%s'!" % str(d.get("nombre", id)))
-	var tree: SceneTree = get_tree() if is_inside_tree() else null
-	var hud: Node = tree.get_first_node_in_group("hud") if tree != null else null
-	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("¡Pasiva conseguida!  %s\n%s" % [str(d.get("nombre", id)), str(d.get("desc", ""))])
+	lider().pasivas_pendientes[id] = true
+	print("[pasiva] Tirada ganada: '%s' queda PENDIENTE hasta la proxima actualizacion de estado." % id)
 	return true
+
+
+# Pasa a REALES las pasivas que este personaje tenia pendientes. Devuelve la lista de las que se
+# han revelado (sus dicts de PASIVAS_RNG), en el orden del catalogo, para que el altar las cante.
+# Solo la llama actualizar_estado: no hay otra forma de enterarte de que tienes una.
+func consolidar_pasivas(pj: PersonajeData = null) -> Array:
+	var p: PersonajeData = pj if pj != null else lider()
+	if p.pasivas_pendientes.is_empty():
+		return []
+	var nuevas: Array = []
+	for d in PASIVAS_RNG:
+		var id: String = str(d["id"])
+		if not bool(p.pasivas_pendientes.get(id, false)):
+			continue
+		p.pasivas_pendientes.erase(id)
+		if bool(p.pasivas_rng.get(id, false)):
+			continue   # ya la tenia por otra via: no se anuncia dos veces
+		p.pasivas_rng[id] = true
+		nuevas.append(d)
+		print("[pasiva] ¡%s consigue la pasiva '%s'!" % [p.nombre, str(d.get("nombre", id))])
+	return nuevas
 
 # Al matar un bicho de familia `fam`, tira por su slayer (si esa familia tiene uno).
 func rodar_slayer_por_familia(fam: int) -> void:

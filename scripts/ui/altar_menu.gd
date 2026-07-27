@@ -28,6 +28,13 @@ var _pj_sel: int = 0                       # a quien le estas mirando la pestañ
 # Antes→despues del ultimo "Actualizar" POR PERSONAJE: {PersonajeData: [[nombre, antes, desp]...]}.
 # Por persona y no global para que cada pestaña enseñe SUS cambios y no los del ultimo que tocaste.
 var _deltas: Dictionary = {}
+# Lo que SALIO A LA LUZ en ese mismo "Actualizar", tambien por persona:
+#   _nuevas_pasivas[pj]  -> Array de dicts de Game.PASIVAS_RNG
+#   _subidas_des[pj]     -> Array de [nombre, rango_antes, rango_despues]
+# Actualizar el estado es el momento en que te enteras de lo que ha cambiado en ti: una pasiva que
+# te toco picando piedra hace tres dias se entera AQUI, no en el momento de la tirada.
+var _nuevas_pasivas: Dictionary = {}
+var _subidas_des: Dictionary = {}
 var _aviso: String = ""
 
 
@@ -48,6 +55,8 @@ func abrir() -> void:
 		return
 	_pj_sel = 0
 	_deltas = {}
+	_nuevas_pasivas = {}
+	_subidas_des = {}
 	# CURAR al interactuar: todo el grupo, sin pulsar nada. -1 = "a tope" (se concreta al crear el
 	# combatiente / al refrescar las barras). Los cooldowns tambien: descansar es descansar.
 	for pj in Game.party:
@@ -182,6 +191,36 @@ func _rebuild() -> void:
 					txt += "  (+%d)" % (desp - antes)
 			MenuScaffold.fila(_content, str(d[0]), txt)
 
+	_bloque_revelado(pj)
+
+
+# Lo que ha SALIDO A LA LUZ al actualizar el estado, debajo de los cambios de habilidad. Aqui es
+# donde te enteras de que tienes una pasiva: la tirada cayo hace tres dias picando una veta y no
+# hubo aviso ninguno (ver Game.rodar_pasiva), asi que este es literalmente el unico sitio del juego
+# donde aparece por primera vez. Por eso va con el nombre en amarillo y centelleando, como un
+# objeto legendario: es lo mas raro que te puede pasar en una partida (1 entre 500.000 por accion).
+func _bloque_revelado(pj: PersonajeData) -> void:
+	var pasivas: Array = _nuevas_pasivas.get(pj, [])
+	var subidas: Array = _subidas_des.get(pj, [])
+	if pasivas.is_empty() and subidas.is_empty():
+		return
+
+	if not pasivas.is_empty():
+		_content.add_child(HSeparator.new())
+		MenuScaffold.titulo(_content, "★ HABILIDAD PASIVA DESPERTADA", 15)
+		for p in pasivas:
+			# Amarillo legendario, el tope de la paleta comun (ver Upgrades.RAREZA_COLOR).
+			MenuScaffold.titulo_item(_content, str(p.get("nombre", "")), Upgrades.rareza_color(4), 1.0)
+			MenuScaffold.nota(_content, str(p.get("desc", "")))
+
+	if not subidas.is_empty():
+		_content.add_child(HSeparator.new())
+		MenuScaffold.titulo(_content, "Desarrollo:", 14)
+		for s in subidas:
+			MenuScaffold.fila(_content, str(s[0]), "%s → %s" % [
+				Game.letra_rango(int(s[1])) if int(s[1]) > 0 else "—",
+				Game.letra_rango(int(s[2]))])
+
 
 # Consolida SOLO a este personaje: pasa su excelia pendiente a visible. Ya NO cura (eso pasa al
 # abrir el altar, y a todo el grupo).
@@ -189,11 +228,15 @@ func _actualizar(pj: PersonajeData) -> void:
 	var antes: Dictionary = {}
 	for s in STATS:
 		antes[s] = int(pj.get(s))
-	Game.actualizar_estado(pj)
+	# Lo que devuelve es lo que ha salido a la luz al leer el estado: pasivas que te habian tocado
+	# sin saberlo y desarrollos que han subido de rango.
+	var revelado: Dictionary = Game.actualizar_estado(pj)
 	var d: Array = []
 	for s in STATS:
 		d.append([NOMBRES[s], antes[s], int(pj.get(s))])
 	_deltas[pj] = d
+	_nuevas_pasivas[pj] = revelado.get("pasivas", [])
+	_subidas_des[pj] = revelado.get("desarrollos", [])
 	_aviso = "%s consolida su estado." % pj.nombre
 	_rebuild()
 

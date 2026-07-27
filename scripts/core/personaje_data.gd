@@ -103,6 +103,11 @@ func imbue_elemento() -> int:
 @export var guardianes_vencidos: Dictionary = {}
 @export var desarrollos_rango: Dictionary = {}
 @export var pasivas_rng: Dictionary = {}
+# Pasivas que YA te han tocado pero que aun no sabes que tienes: la tirada cae mientras juegas y se
+# queda AQUI, callada y sin efecto, hasta que actualizas tu estado en el altar. Ahi se pasan a
+# pasivas_rng y se te enseñan (ver Game.consolidar_pasivas). Es la misma idea que la excelia
+# pendiente: lo que haces cuenta desde el minuto uno, pero no se lee hasta que alguien te lo lee.
+@export var pasivas_pendientes: Dictionary = {}
 # Contadores OCULTOS de los perks de COMBATE (los de OFICIO son del grupo y viven en Game).
 @export var esquivas_exp: float = 0.0
 @export var hechizos_exp: float = 0.0
@@ -137,6 +142,7 @@ func _init() -> void:
 	guardianes_vencidos = {}
 	desarrollos_rango = {}
 	pasivas_rng = {}
+	pasivas_pendientes = {}
 	equipped_spells = []
 	equip_meta = meta_vacia()
 

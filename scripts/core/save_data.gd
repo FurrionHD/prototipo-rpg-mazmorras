@@ -86,6 +86,9 @@ const VERSION_ACTUAL := 2
 @export var player_base_crit: float = 0.0
 @export var desarrollos_rango: Dictionary = {}   # {id: rango 1..10} de las habilidades de desarrollo
 @export var pasivas_rng: Dictionary = {}         # {id: true} de las pasivas RNG conseguidas (binarias)
+# Las que te han tocado pero aun no te han LEIDO en el altar (ver PersonajeData.pasivas_pendientes).
+# Se guardan: la tirada es de 1 entre 500.000 y perderla al cerrar el juego seria una crueldad.
+@export var pasivas_pendientes: Dictionary = {}
 @export var guardianes_vencidos: Dictionary = {}
 # --- EL GRUPO ---
 # plantilla = TODA la gente que has contratado en la taberna; equipo = los que BAJAN contigo

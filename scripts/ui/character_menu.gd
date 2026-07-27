@@ -30,7 +30,8 @@ var _content: VBoxContainer = null        # cuerpo (derecha) que se reconstruye
 var _tab_buttons: Array = []              # botones de pestaña (izquierda)
 
 var _tab_box: VBoxContainer = null        # contenedor de los botones de pestaña
-var _tab: int = 0                         # 0 personaje, 1 armas, 2 armadura, 3 hechizos
+var _tab: int = 0                         # indice dentro de _tab_nombres
+var _tab_nombres: Array = []              # los nombres de las pestañas que hay AHORA (ver _rebuild_tabs)
 # A QUIEN del equipo le estas mirando la ficha (indice en Game.party). 0 = el que va en cabeza.
 # Con companeros, este menu deja de ser "tu ficha" y pasa a ser la de cualquiera de los tuyos:
 # la fila de botones de arriba elige, y todo lo que se pinta debajo sale de _pj().
@@ -179,13 +180,22 @@ func _set_open(open: bool) -> void:
 
 
 # Reconstruye la barra de pestañas. "Hechizos" SOLO si el personaje conoce alguno.
+#
+# El reparto se hace por NOMBRE y no por indice (ver _rebuild): con una pestaña opcional en medio,
+# atarse a "el 3 es Hechizos" es pedir que el dia que se añada otra se pinte la que no toca.
 func _rebuild_tabs() -> void:
 	for c in _tab_box.get_children():
 		c.queue_free()
 	_tab_buttons.clear()
-	var nombres: Array = ["Personaje", "Armas", "Armadura"]
+	# "Desarrollo y pasivas" y no "Habilidades" a secas: en este juego las HABILIDADES ya son las
+	# cinco de DanMachi (la pagina del ⇄ dentro de Personaje). Dos pestañas con el mismo nombre y
+	# cosas distintas dentro es peor que un nombre largo.
+	var nombres: Array = ["Personaje", "Desarrollo y pasivas", "Armas", "Armadura"]
 	if Game.tiene_hechizos(_pj()):
 		nombres.append("Hechizos")
+	_tab_nombres = nombres
+	if _tab >= nombres.size():
+		_tab = 0
 	for i in nombres.size():
 		var b := Button.new()
 		b.text = str(nombres[i])
@@ -211,11 +221,13 @@ func _rebuild() -> void:
 	if _titulo_lbl != null:
 		_titulo_lbl.text = _pj().nombre.to_upper()
 	_selector_personaje()
-	match _tab:
-		0: _build_personaje()
-		1: _build_armas()
-		2: _build_armadura()
-		3: _build_hechizos()
+	var cual: String = str(_tab_nombres[_tab]) if _tab < _tab_nombres.size() else "Personaje"
+	match cual:
+		"Personaje": _build_personaje()
+		"Desarrollo y pasivas": _build_perks()
+		"Armas": _build_armas()
+		"Armadura": _build_armadura()
+		"Hechizos": _build_hechizos()
 
 
 # La fila de arriba para elegir DE QUIEN es la ficha, con el mismo aspecto que los selectores de
@@ -432,6 +444,48 @@ func _build_personaje() -> void:
 		_build_stats_page()
 	else:
 		_build_habilidades_page()
+
+
+# DESARROLLO Y PASIVAS: las dos capas de perks de este personaje, cada una con su regla.
+#
+#   - DESARROLLO: lo eliges tu al subir de nivel, y sube de rango (I..S) solo, con su contador
+#     oculto. Se listan TODOS los del catalogo, tengas el que tengas: saber que existe la Metalurgia
+#     es parte de decidir a que dedicas la vida. Lo que NO se enseña nunca es cuanto te falta para
+#     desbloquear uno (ver el comentario de Game.DESARROLLOS): el contador es secreto a proposito.
+#   - PASIVAS: no se eligen. Caen solas, rarisimo, y solo aparecen al actualizar el estado en el
+#     altar. Aqui se ven las que YA tienes; las pendientes no salen, que para eso son pendientes.
+func _build_perks() -> void:
+	var pj: PersonajeData = _pj()
+
+	MenuScaffold.titulo(_content, "HABILIDADES DE DESARROLLO", 16)
+	MenuScaffold.nota(_content, "Eliges una al subir de nivel. Suben de rango (I → S) haciendo lo suyo.")
+	_content.add_child(HSeparator.new())
+	var alguno := false
+	for d in Game.DESARROLLOS:
+		var rango: int = Game.desarrollo_rango(str(d["id"]), pj)
+		if rango <= 0:
+			continue
+		alguno = true
+		_row(_content, str(d["nombre"]), "rango %s" % Game.letra_rango(rango))
+		MenuScaffold.nota(_content, str(d["desc"]))
+	if not alguno:
+		MenuScaffold.nota(_content, "Ninguna todavía. Se elige una al subir de nivel, en el altar.")
+
+	_content.add_child(HSeparator.new())
+	MenuScaffold.titulo(_content, "HABILIDADES PASIVAS", 16)
+	MenuScaffold.nota(_content, "No se eligen: aparecen solas al actualizar tu estado en el altar.")
+	_content.add_child(HSeparator.new())
+	var alguna := false
+	for p in Game.PASIVAS_RNG:
+		if not Game.tiene_pasiva(str(p["id"]), pj):
+			continue
+		alguna = true
+		# Amarillo legendario y centelleando, igual que cuando aparecio en el altar: es lo mas raro
+		# que hay en el juego y tiene que seguir cantando cada vez que abres la ficha.
+		MenuScaffold.titulo_item(_content, str(p["nombre"]), Upgrades.rareza_color(4), 1.0, 15)
+		MenuScaffold.nota(_content, str(p["desc"]))
+	if not alguna:
+		MenuScaffold.nota(_content, "Ninguna. Caen por sí solas, muy de vez en cuando, haciendo lo que sea que las despierta.")
 
 
 func _flip_char_page() -> void:
