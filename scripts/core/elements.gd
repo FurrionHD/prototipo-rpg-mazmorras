@@ -108,6 +108,13 @@ static func mult_por_estados(elem: int, defender) -> float:
 	return m
 
 
+# El multiplicador PELADO del perfil de una afinidad, sin intensidad ni estados ni overrides:
+# solo "¿esta afinidad resiste (o sufre) este elemento?". Lo usa Combatant.resiste_por_afinidad
+# para decidir si a la imbuicion de cuerpo le toca pagar una carga.
+static func mult_afinidad_pura(afinidad: int, elem: int) -> float:
+	return float((PERFIL_DEFECTO.get(afinidad, {}) as Dictionary).get(elem, 1.0))
+
+
 # Multiplicador de daño que RECIBE 'defender' de un ataque de elemento 'elem'.
 # Prioridad: override propio del defensor > perfil por defecto de su afinidad > 1.0.
 # Encima MULTIPLICA la amplificacion de sus ESTADOS (Mojado -> +50% de Rayo).

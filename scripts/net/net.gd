@@ -3127,12 +3127,21 @@ func unirme_a_la_pelea_de(id: int) -> void:
 # ruta base y la meta por instancia (tier, rareza, mejoras, durabilidad).
 const _RANURAS := ["equipped_main", "equipped_off", "equipped_casco", "equipped_pecho",
 	"equipped_manos", "equipped_pantalones", "equipped_botas"]
+# Las COLAS de pocion a medias (cura y maná). Viajan en los dos sentidos: si te unes a la pelea de
+# otro con una pocion a medio gotear, el anfitrion tiene que convertirla en Regeneracion dentro de
+# la pelea, y lo que sobre tiene que volverte. Sin esto la pocion se perdia entera: entrabas sin
+# ella, tu cola seguia goteando al vacio fuera del combate y al salir te machacaban el HP con el
+# del doble, que nunca la vio.
+const _COLAS_POCION := ["heal_left", "heal_rate", "heal_turnos",
+	"mana_heal_left", "mana_heal_rate", "mana_heal_turnos"]
 # Lo que se le devuelve al dueño cuando acaba la pelea: su desgaste y lo que ha aprendido.
 const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
 	"ability_internal", "ability_consolidado", "ability_base_nivel",
 	"fuerza", "resistencia", "destreza", "agilidad", "magia",
 	"guardianes_vencidos", "esquivas_exp", "hechizos_exp", "recitado_exp",
-	"dano_recibido_exp", "dano_infligido_exp"]
+	"dano_recibido_exp", "dano_infligido_exp",
+	"heal_left", "heal_rate", "heal_turnos",
+	"mana_heal_left", "mana_heal_rate", "mana_heal_turnos"]
 
 
 func ficha_a_dict(pj: PersonajeData) -> Dictionary:
@@ -3146,6 +3155,9 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 			"desarrollos_rango", "pasivas_rng", "guardianes_vencidos",
 			"esquivas_exp", "hechizos_exp", "recitado_exp",
 			"dano_recibido_exp", "dano_infligido_exp"]:
+		d[campo] = pj.get(campo)
+	# Y su pocion a medias, para que el anfitrion pueda meterla en la pelea (ver _COLAS_POCION).
+	for campo in _COLAS_POCION:
 		d[campo] = pj.get(campo)
 	var sin_viajar: Array = []
 	for r in _RANURAS:

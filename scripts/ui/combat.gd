@@ -291,6 +291,22 @@ var _cast_index: int:
 		if _casteos.has(_player):
 			_casteos[_player]["idx"] = v
 
+# A QUIEN va el conjuro cuando es de los que caen sobre un aliado (Filos, Mantos, Fortaleza).
+# Vive en _casteos con el resto del conjuro porque el recitado dura 2-3 turnos y tiene que
+# sobrevivirlos (y al traspaso de anfitrion). Si el elegido cae mientras recitas, se cae al que
+# lanza: el conjuro no se pierde por eso.
+var _cast_aliado: Combatant:
+	get:
+		if not _casteos.has(_player):
+			return _player
+		var a = _casteos[_player].get("aliado")
+		if a == null or not (a as Combatant).is_alive() or _huidos.has(a):
+			return _player
+		return a
+	set(v):
+		if _casteos.has(_player):
+			_casteos[_player]["aliado"] = v
+
 # Acciones lentas que le quedan al que actua (entro agotado -> sus primeras acciones van a medio
 # ritmo). Ver EXHAUSTED_SLOW_ACTIONS.
 var _slow_actions_left: int:
@@ -598,6 +614,15 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 		c.imbue_cuerpo = bool(imb[3])
 		c.imbue_estado = int(imb[4])
 		c.imbue_prob = float(imb[5])
+		# Y la AFINIDAD, que es la mitad de un manto (resistencias, inmunidades, aturdimiento).
+		# Sin esto, quien llevara un Manto y sufriera un traspaso de anfitrion perdia todo el lado
+		# defensivo aunque el chip siguiera diciendo 🛡: solo le quedaba el bonus de daño.
+		if c.imbue_cuerpo and c.imbue_usos > 0:
+			c.elemento = c.imbue_elemento
+			c.elemento_intensidad = Elementos.INTENSIDAD_IMBUIDO
+		else:
+			c.elemento = Elementos.Elemento.NINGUNO
+			c.elemento_intensidad = Elementos.INTENSIDAD_PURA
 
 
 # LA FOTO de la pelea para el que la recoge. 'nuevo' es su peer: sus personajes los pone EL de su
@@ -620,8 +645,11 @@ func estado_para_traspaso(nuevo: int) -> Dictionary:
 				Game.volcar_desgaste_en_ficha(pj)
 				fila["ficha"] = Net.ficha_a_dict(pj)
 		if _casteos.has(c):
+			# El tercer campo es A QUIEN va (indice en _aliados; -1 = a si mismo): un conjuro de
+			# los que caen sobre un aliado dura 2-3 turnos y puede pillar el traspaso a medias.
+			var dest = _casteos[c].get("aliado")
 			fila["casteo"] = [String((_casteos[c]["spell"] as SpellData).resource_path),
-				int(_casteos[c]["idx"])]
+				int(_casteos[c]["idx"]), _aliados.find(dest) if dest != null else -1]
 		als.append(fila)
 	var ens: Array = []
 	for i in _enemies.size():
@@ -656,7 +684,10 @@ func retomar(estado: Dictionary, cs: Array, filas_e: Array) -> void:
 		if fila.has("casteo"):
 			var sp = load(String(fila["casteo"][0]))
 			if sp != null:
-				_casteos[c] = {"spell": sp, "idx": int(fila["casteo"][1])}
+				var cst: Array = fila["casteo"]
+				var idest: int = int(cst[2]) if cst.size() > 2 else -1
+				_casteos[c] = {"spell": sp, "idx": int(cst[1]),
+					"aliado": _aliados[idest] if idest >= 0 and idest < _aliados.size() else null}
 	for i in mini(_enemies.size(), filas_e.size()):
 		var e: Combatant = _enemies[i]
 		_aplicar_volatil(e, filas_e[i].get("vol", {}))
@@ -806,7 +837,10 @@ func aplicar_accion_remota(accion: Dictionary) -> void:
 					hechizo = sp
 					break
 			if hechizo != null:
-				_elegir_hechizo(hechizo)
+				# El destinatario viaja como indice en _aliados (igual que la pocion). -1 = a si mismo.
+				var ia_m: int = int(accion.get("aliado", -1))
+				var al_m: Combatant = _aliados[ia_m] if ia_m >= 0 and ia_m < _aliados.size() else null
+				_elegir_hechizo(hechizo, al_m)
 			else:
 				_accion_atacar()   # ya no lo lleva: no se pierde el turno
 		"frase":
@@ -2247,12 +2281,18 @@ func _accion_magia() -> void:
 		if not _player.has_mana(coste):
 			b.disabled = true
 			b.tooltip_text = "⛔ Maná insuficiente\n\n%s" % b.tooltip_text
-		elif spell.imbue_tipo == 1 and Game.equipped_main == null:
+		elif spell.imbue_tipo == 1 and _con_arma_vivos().is_empty():
 			# Imbuir el ARMA sin llevar arma no tiene sentido: no hay filo que teñir. Las de
 			# CUERPO si valen a manos vacias (te imbuyes tu, no el acero).
+			# Se mira a TODO el grupo, no a Game.equipped_main (el arma del LIDER): el filo se lo
+			# puedes echar a un compañero, asi que solo estorba si NADIE lleva arma.
 			b.disabled = true
-			b.tooltip_text = "⛔ No llevas arma que imbuir\n\n%s" % b.tooltip_text
-		b.pressed.connect(_elegir_hechizo.bind(spell))
+			b.tooltip_text = "⛔ Nadie del grupo lleva arma que imbuir\n\n%s" % b.tooltip_text
+		# Los que caen sobre un ALIADO preguntan antes a quien; el resto van directos al enemigo.
+		if _va_a_aliado(spell):
+			b.pressed.connect(_elegir_objetivo_aliado.bind(spell))
+		else:
+			b.pressed.connect(_elegir_hechizo.bind(spell))
 		_spell_box.add_child(b)
 	var volver := Button.new()
 	volver.text = "◄ Volver"
@@ -2260,6 +2300,48 @@ func _accion_magia() -> void:
 	_spell_box.add_child(volver)
 	_spell_box.visible = true
 	_ocultar_log()   # el submenu ocupa el sitio del historial
+
+
+# ¿Este hechizo cae sobre uno de LOS TUYOS? Los Filos y Mantos (imbuicion) y los BUFF puros
+# (Fortaleza). Los de ataque y los DEBUFF van al enemigo y no preguntan nada.
+func _va_a_aliado(spell: SpellData) -> bool:
+	return spell != null and (spell.imbue_tipo > 0 or spell.tipo == SpellData.TipoEfecto.BUFF)
+
+
+# Los tuyos en pie que llevan ARMA. Solo importa para los FILOS: un filo tiñe el acero, y a quien
+# va con las manos vacias no hay nada que teñirle.
+func _con_arma_vivos() -> Array[Combatant]:
+	var out: Array[Combatant] = []
+	for c in _aliados_vivos():
+		var pj: PersonajeData = Game.pj_de_combatant(c)
+		if pj != null and pj.equipped_main != null:
+			out.append(c)
+	return out
+
+
+# Segundo paso del submenu de magia: A QUIEN se lo echas. Mismo patron que las pociones
+# (_elegir_objetivo_objeto): con un solo candidato no se pregunta, va directo.
+func _elegir_objetivo_aliado(spell: SpellData) -> void:
+	var candidatos: Array[Combatant] = _con_arma_vivos() if spell.imbue_tipo == 1 else _aliados_vivos()
+	if candidatos.size() <= 1:
+		_elegir_hechizo(spell, candidatos[0] if not candidatos.is_empty() else _player)
+		return
+	for c in _spell_box.get_children():
+		c.queue_free()
+	for al in candidatos:
+		var b := TooltipButton.new()
+		var actual: String = al.imbue_etiqueta()
+		b.text = "%s%s" % [al.nombre, "   (%s)" % actual if actual != "" else ""]
+		b.tooltip_text = "%s le echa %s a %s.%s" % [_player.nombre, spell.nombre, al.nombre,
+			"\n\nOJO: ya lleva una imbuición puesta y la nueva la sustituye." if actual != "" else ""]
+		b.pressed.connect(_elegir_hechizo.bind(spell, al))
+		_spell_box.add_child(b)
+	var volver := Button.new()
+	volver.text = "◄ Volver"
+	volver.pressed.connect(_accion_magia)
+	_spell_box.add_child(volver)
+	_spell_box.visible = true
+	_ocultar_log()
 
 
 # Coste de maná EFECTIVO tras la mejora Eficiencia del equipo (KAN-95). FLOAT (sin
@@ -2275,18 +2357,22 @@ func _coste_efectivo(spell: SpellData) -> float:
 # Antes se cobraba aqui, antes de la primera frase, y eso te quitaba el mana por la cara cuando el
 # conjuro se caia por algo que no era culpa tuya: si mataban al ultimo enemigo mientras recitabas, o
 # si te tumbaban a ti, el mana se habia ido igual. Fallar SI sigue costandolo: eso si es tuyo.
-func _elegir_hechizo(spell: SpellData) -> void:
+# 'aliado' = a quien va, para los que caen sobre los tuyos (null = al que lanza).
+func _elegir_hechizo(spell: SpellData, aliado: Combatant = null) -> void:
 	# ESPEJO: aqui solo se ELIGE. El conjuro entero (mana, frases y disparo) lo lleva el anfitrion;
-	# lo que se enruta despues, turno a turno, son las frases (ver _mostrar_test).
+	# lo que se enruta despues, turno a turno, son las frases (ver _mostrar_test). El destinatario
+	# viaja como INDICE en _aliados, igual que ya hacia la pocion.
 	if _espejo and spell != null:
 		_ocultar_cajas()
 		_state = State.ADVANCING
-		Net.enviar_accion({"tipo": "magia", "ruta": spell.resource_path})
+		Net.enviar_accion({"tipo": "magia", "ruta": spell.resource_path,
+			"aliado": _aliados.find(aliado) if aliado != null else -1})
 		return
 	if not _player.has_mana(_coste_efectivo(spell)):
 		return
 	_cast_spell = spell
 	_cast_index = 0
+	_cast_aliado = aliado if aliado != null else _player
 	_mostrar_test(0)
 
 
@@ -2509,15 +2595,20 @@ func _disparar_hechizo() -> void:
 #             vuelves INMUNE a los estados de ese elemento (imbuido en agua no te queman).
 func _aplicar_imbuicion(spell: SpellData) -> void:
 	var cuerpo: bool = spell.imbue_tipo == 2
-	_player.aplicar_imbue(spell.elemento, spell.imbue_pct, spell.imbue_usos, cuerpo,
+	# Al DESTINATARIO elegido (ver _elegir_objetivo_aliado), que puede no ser el que lanza.
+	var quien: Combatant = _cast_aliado
+	quien.aplicar_imbue(spell.elemento, spell.imbue_pct, spell.imbue_usos, cuerpo,
 		spell.imbue_estado, spell.imbue_prob, spell.imbue_intensidad)
 	var elem: String = Elementos.nombre(spell.elemento)
-	var usos_txt: String = "%d ataque%s" % [spell.imbue_usos, "" if spell.imbue_usos == 1 else "s"]
-	print("[imbuicion] %s se imbuye %s de %s: +%d%% de daño %s durante %s" % [
-		_player.nombre, ("el CUERPO" if cuerpo else "el ARMA"), elem,
+	var usos_txt: String = "%d carga%s" % [spell.imbue_usos, "" if spell.imbue_usos == 1 else "s"]
+	print("[imbuicion] %s imbuye %s de %s a %s: +%d%% de daño %s durante %s" % [
+		_player.nombre, ("el CUERPO" if cuerpo else "el ARMA"), elem, quien.nombre,
 		roundi(spell.imbue_pct * 100.0), elem, usos_txt])
-	var msg: String = "✨ Imbuyes tu %s de %s: +%d%% de daño de %s (%s)." % [
+	var de_quien: String = "tu" if quien == _player else ("el %s de" % ("cuerpo" if cuerpo else "arma"))
+	var msg: String = ("✨ Imbuyes tu %s de %s: +%d%% de daño de %s (%s)." % [
 		("cuerpo" if cuerpo else "arma"), elem, roundi(spell.imbue_pct * 100.0), elem, usos_txt]
+		) if quien == _player else ("✨ Imbuyes %s %s de %s: +%d%% de daño de %s (%s)." % [
+		de_quien, quien.nombre, elem, roundi(spell.imbue_pct * 100.0), elem, usos_txt])
 	if cuerpo:
 		# Lo que ganas y lo que pierdes, DERIVADO del estado REAL del jugador (ya lleva la
 		# afinidad puesta con su FRANJA de intensidad). Nada hardcodeado: si tocas la tabla o
@@ -2525,7 +2616,7 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 		var resiste: Array = []
 		var debil: Array = []
 		for e in Elementos.PERFIL_DEFECTO.get(spell.elemento, {}):
-			var m: float = Elementos.mult_recibido(e, _player)
+			var m: float = Elementos.mult_recibido(e, quien)
 			# En positivo y sin restas mentales: "20% de resistencia" / "+20% de daño".
 			if m < 0.99:
 				resiste.append("%s (%d%%)" % [Elementos.nombre(e), roundi((1.0 - m) * 100.0)])
@@ -2815,7 +2906,9 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 		if elem_golpe >= 0 and int(a.elemento_req) >= 0 and int(a.elemento_req) != elem_golpe:
 			continue
 		var al_enemigo: bool = a.en_objetivo
-		var objetivo: Combatant = enemigo if al_enemigo else _player
+		# Los buffs (en_objetivo = false) van al ALIADO ELEGIDO, que por defecto es el que lanza:
+		# Fortaleza se la puedes echar al tanque, no solo a ti.
+		var objetivo: Combatant = enemigo if al_enemigo else _cast_aliado
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		# Inmunidad elemental: si el objetivo no puede recibir el estado, avisar y no tirar.
 		if objetivo.es_inmune(a.estado):   # incluye la inmunidad derivada de su AFINIDAD elemental
@@ -3606,11 +3699,20 @@ func _retirar_aliado(c: Combatant) -> void:
 		b["panel"].visible = false
 
 
+# Empieza una accion enemiga: se abre el cupo de gasto DEFENSIVO de las imbuiciones. Cada accion
+# puede costarle a los tuyos UNA carga como mucho, aunque les salve de un estado Y les recorte el
+# daño elemental a la vez, y aunque traiga cinco golpes. Ver Combatant.gastar_imbue_defensiva.
+func _abrir_turno_enemigo() -> void:
+	for c in _aliados:
+		c.imbue_def_gastada = false
+
+
 # Turno de UN enemigo. 'e' es el que ACTUA (no "el enemigo" a secas): con varios en la
 # pelea, cada uno gasta su barra, tiene sus cooldowns y carga lo suyo por separado.
 func _enemy_turn(e: Combatant) -> void:
 	if _dps_on:
 		_turnos_enemigo += 1
+	_abrir_turno_enemigo()
 	e.tick_cooldowns()   # habilidades del enemigo (KAN-58): baja 1 turno los cooldowns
 	# Estados alterados (KAN-58): tick al inicio del turno del enemigo.
 	var ev: Dictionary = e.tick_statuses()
@@ -3718,6 +3820,9 @@ func _enemy_turn(e: Combatant) -> void:
 
 	var dmg: float = result.damage * e.dummy_dmg_out_mult   # Saco = 0 (no pega)
 	obj.take_damage(dmg)
+	# El MANTO ha recortado el golpe por su elemento: se le cobra la carga (tope de una por accion).
+	if obj.resiste_por_afinidad(e.elemento_ataque):
+		obj.gastar_imbue_defensiva()
 	Game.desgastar_armadura(pj_obj)   # DURABILIDAD: encajar un golpe gasta un poco SU armadura
 	Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
 	if _dps_on:
@@ -3996,6 +4101,10 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 		else:
 			var dmg: float = result.damage * ab.dano_mult * escala * e.dummy_dmg_out_mult
 			t.take_damage(dmg)
+			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
+			# El tope por accion hace que una habilidad de cinco golpes cueste una, no cinco.
+			if t.resiste_por_afinidad(e.elemento_ataque):
+				t.gastar_imbue_defensiva()
 			Game.desgastar_armadura(pj_t)   # DURABILIDAD: cada golpe encajado gasta las piezas
 			Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
 			total += dmg
@@ -4048,12 +4157,27 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 		var objetivo: Combatant = victima if al_jugador else e
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		if objetivo.es_inmune(a.estado):   # incluye la inmunidad derivada de su AFINIDAD elemental
+			# Si lo que te ha librado es el MANTO, se le cobra una carga (no te queman, no te mojan,
+			# no te electrizan). Las otras vias de es_inmune no son suyas y no le gastan nada.
+			if al_jugador and objetivo.inmune_por_afinidad(a.estado):
+				objetivo.gastar_imbue_defensiva()
 			continue   # apply_status ya lo avisaria, pero asi no ensucia el log de aplicados
 		# Solo los estados que te LANZAN a ti se resisten; los buffs propios siempre prenden.
 		# escala_prob < 1.0 en los SECUNDARIOS del area cuando la habilidad lo pide (el lento pilla
 		# menos a los lados). No toca a los buffs propios (siempre prenden).
 		var p: float = a.prob * (1.0 - victima.status_resist) * escala_prob if al_jugador else a.prob
-		if randf() >= p:
+		# ATURDIR: escala igual que el de un golpe fisico o el de un hechizo (ver
+		# _aplicar_estado_hechizo). Faltaba SOLO aqui, que es justamente la unica via por la que los
+		# enemigos te aturden -- asi que ni la afinidad de Rayo ni stun_resist hacian nada en defensa.
+		var p_pelada: float = p   # la misma probabilidad SIN el descuento del manto
+		if al_jugador and a.estado == StatusEffects.Id.ATURDIDO:
+			p = clampf(p * victima.stun_taken_mult(), 0.0, StatsMath.ATURDIR_MAX)
+			p_pelada = clampf(p_pelada * victima.stun_taken_mult(false), 0.0, StatsMath.ATURDIR_MAX)
+		var tirada: float = randf()
+		if tirada >= p:
+			# ¿Te ha salvado el manto? Solo si esta tirada HABRIA entrado sin su descuento.
+			if al_jugador and tirada < p_pelada:
+				victima.gastar_imbue_defensiva()
 			continue
 		# escala_mag < 1.0 en los SECUNDARIOS del area: el fuego/veneno que salpica a los lados es
 		# de la mitad (misma prob). 1.0 en el principal y en single/reparto.

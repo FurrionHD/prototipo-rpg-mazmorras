@@ -79,6 +79,15 @@ var mana_heal_rate: float = 0.0
 var heal_turnos: float = 0.0
 var mana_heal_turnos: float = 0.0
 
+# IMBUICION puesta (Filos y Mantos). Vacio = ninguna. Vive AQUI y no en el Combatant porque dura
+# ENTRE combates: te echas el manto, sales de la pelea y sigues llevandolo puesto hasta que gastes
+# sus cargas. Como las colas de pocion, NO es @export: aguanta la sesion pero no el guardado --
+# volver a cargar la partida es empezar limpio.
+# Formato: {"elem": int, "pct": float, "usos": int, "cuerpo": bool, "estado": int, "prob": float,
+#           "intensidad": float}. Lo escribe Game.guardar_imbue_en_ficha y lo lee
+# Game.crear_player_combatant, que se lo pasa tal cual a Combatant.aplicar_imbue.
+var imbue: Dictionary = {}
+
 # --- Perks ---
 @export var guardianes_vencidos: Dictionary = {}
 @export var desarrollos_rango: Dictionary = {}

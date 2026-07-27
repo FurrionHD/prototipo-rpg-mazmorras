@@ -806,6 +806,64 @@ func volcar_desgaste_en_ficha(pj: PersonajeData) -> void:
 		pj.current_mp = c.current_mp
 	if c.max_energy > 0.0:
 		pj.stamina = c.current_energy
+	guardar_imbue_en_ficha(c, pj)
+
+
+# La IMBUICION que quede al salir de la pelea se queda en la ficha: dura ENTRE combates. Se llama
+# desde los dos caminos de salida -- el cierre normal (_on_combat_finished) y la huida individual
+# (volcar_desgaste_en_ficha) -- porque si solo estuviera en uno, escapar te la borraria.
+func guardar_imbue_en_ficha(c: Combatant, pj: PersonajeData) -> void:
+	if c == null or pj == null:
+		return
+	if c.imbue_elemento == Elementos.Elemento.NINGUNO or c.imbue_usos <= 0:
+		pj.imbue = {}
+		return
+	pj.imbue = {"elem": c.imbue_elemento, "pct": c.imbue_pct, "usos": c.imbue_usos,
+		"cuerpo": c.imbue_cuerpo, "estado": c.imbue_estado, "prob": c.imbue_prob,
+		"intensidad": c.elemento_intensidad}
+
+
+# Y la vuelta: se la devuelve al Combatant recien creado. Va por aplicar_imbue y no asignando los
+# campos a mano porque es quien fija 'elemento'/'elemento_intensidad' cuando es de CUERPO -- sin
+# eso volveria el bonus de daño pero NO las resistencias ni las inmunidades, que es medio manto.
+# La cola de POCION del mapa se convierte en Regeneracion dentro del combate (repartida en turnos)
+# y se consume el pendiente. Simetrico a arrastrar_regen, que la lleva de vuelta al mapa.
+# CADA UNO arrastra la suya: la poción se la bebio una persona, no el grupo.
+#
+# Vive aparte y NO dentro de start_combat porque hay DOS caminos de entrada a una pelea, y tenerlo
+# escrito solo en uno es lo que hacia que al que se UNE a mitad se le malgastara la poción: entraba
+# sin la Regeneración, y su cola seguia goteando al vacio en su propia maquina.
+func cola_pocion_a_estado(pj: PersonajeData, c: Combatant) -> void:
+	if pj == null or c == null:
+		return
+	if pj.heal_left > 0.0:
+		var t: int = _turnos_de_cola(pj.heal_turnos)
+		c.apply_status(StatusEffects.Id.REGENERACION, t, pj.heal_left / float(t))
+		print("[objeto] %s entra con %.1f de cura pendiente: %.1f/turno x %d turnos" % [
+			pj.nombre, pj.heal_left, pj.heal_left / float(t), t])
+		pj.heal_left = 0.0
+		pj.heal_rate = 0.0
+		pj.heal_turnos = 0.0
+	if pj.mana_heal_left > 0.0:
+		var tm: int = _turnos_de_cola(pj.mana_heal_turnos)
+		c.apply_status(StatusEffects.Id.REGEN_MANA, tm, pj.mana_heal_left / float(tm))
+		print("[objeto] %s entra con %.1f de maná pendiente: %.1f/turno x %d turnos" % [
+			pj.nombre, pj.mana_heal_left, pj.mana_heal_left / float(tm), tm])
+		pj.mana_heal_left = 0.0
+		pj.mana_heal_rate = 0.0
+		pj.mana_heal_turnos = 0.0
+
+
+func restaurar_imbue_de_ficha(c: Combatant, pj: PersonajeData) -> void:
+	if c == null or pj == null or pj.imbue.is_empty():
+		return
+	var d: Dictionary = pj.imbue
+	if int(d.get("usos", 0)) <= 0:
+		pj.imbue = {}
+		return
+	c.aplicar_imbue(int(d["elem"]), float(d["pct"]), int(d["usos"]), bool(d["cuerpo"]),
+		int(d.get("estado", -1)), float(d.get("prob", 0.0)),
+		float(d.get("intensidad", Elementos.INTENSIDAD_IMBUIDO)))
 
 
 func olvidar_mazmorra() -> void:
@@ -3107,6 +3165,10 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 
 	_aplicar_loadout(c, p)
 	_aplicar_pasivas_slayer(c, p)   # multiplicadores de daño por familia (pasivas RNG)
+	# La IMBUICION que traia puesta del combate anterior. Va aqui, en la fabrica del combatiente, y
+	# no en start_combat, porque asi la recuperan TAMBIEN los que se unen a mitad de pelea
+	# (unir_aliado_al_combate pasa por esta misma funcion).
+	restaurar_imbue_de_ficha(c, p)
 	return c
 
 
@@ -6517,6 +6579,10 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
 		var ag: Vector2 = pnode.aguante_de_grupo(pj)
 		c.max_energy = maxf(1.0, ag.y)
 		c.current_energy = clampf(ag.x if ag.x >= 0.0 else ag.y, 0.0, c.max_energy)
+	# Y su POCION a medias, por el mismo motivo que la energia: quien se une a mitad no pasa por
+	# start_combat, asi que entraba sin la Regeneracion y la cura se le quedaba goteando fuera de la
+	# pelea, al vacio. Es EL MISMO olvido que ya tenia la energia, dos lineas mas arriba.
+	cola_pocion_a_estado(pj, c)
 	# A los DOS arrays y en el mismo orden ANTES de avisar al combate: anadir_aliado ya consulta
 	# pj_de_combatant para pintar su color en el marcador de turnos.
 	_active_player_cs.append(c)
@@ -6609,22 +6675,7 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 	# Simétrico a arrastrar_regen (que lleva la regen de combate de vuelta al mapa).
 	# CADA UNO arrastra la suya: la poción se la bebio una persona, no el grupo.
 	for i in pjs.size():
-		var pj_c: PersonajeData = pjs[i]
-		var c_i: Combatant = player_cs[i]
-		if pj_c.heal_left > 0.0:
-			var t: int = _turnos_de_cola(pj_c.heal_turnos)
-			c_i.apply_status(StatusEffects.Id.REGENERACION, t, pj_c.heal_left / float(t))
-			print("[objeto] %s entra con %.1f de cura pendiente: %.1f/turno x %d turnos" % [
-				pj_c.nombre, pj_c.heal_left, pj_c.heal_left / float(t), t])
-			pj_c.heal_left = 0.0
-			pj_c.heal_rate = 0.0
-			pj_c.heal_turnos = 0.0
-		if pj_c.mana_heal_left > 0.0:
-			var tm: int = _turnos_de_cola(pj_c.mana_heal_turnos)
-			c_i.apply_status(StatusEffects.Id.REGEN_MANA, tm, pj_c.mana_heal_left / float(tm))
-			pj_c.mana_heal_left = 0.0
-			pj_c.mana_heal_rate = 0.0
-			pj_c.mana_heal_turnos = 0.0
+		cola_pocion_a_estado(pjs[i], player_cs[i])
 
 	# Un Combatant por nodo, en el mismo orden.
 	var enemy_cs: Array[Combatant] = []
@@ -7366,6 +7417,9 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		if i < energy_left.size() and float(energy_left[i]) >= 0.0:
 			pj.stamina = float(energy_left[i])
 			pj.set_meta("sin_fuelle", false)
+		# Y la IMBUICION con las cargas que le queden: el manto sigue puesto al salir de la pelea.
+		if i < _active_player_cs.size():
+			guardar_imbue_en_ficha(_active_player_cs[i], pj)
 	# ¿Cayo mi propio grupo (dueño 0)? Y ¿que PEERS cayeron enteros? (para mandarlos al pueblo).
 	var anfitrion_derrotado: bool = existe_dueno.has(0) and not vivo_por_dueno.has(0)
 	var peers_derrotados: Array = []

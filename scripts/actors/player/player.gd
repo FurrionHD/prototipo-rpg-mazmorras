@@ -187,8 +187,14 @@ func _physics_process(delta: float) -> void:
 	# enemigo sigue su IA aparte, asi que puede emboscarte igualmente. Pero el
 	# TIEMPO pasa, asi que el aguante se sigue recuperando.
 	_comprobar_grupo()            # ¿ha entrado o salido alguien del equipo? (taberna, Hogar, 1/2/3)
-	Game.tick_heal(delta)         # cura de pociones (fuera de combate) corre siempre que pasa el tiempo
-	Game.tick_mana_pocion(delta)  # maná de pociones de maná (fuera de combate)
+	# La cura/maná de poción gotea FUERA de combate. Con una pelea delante NO: dentro la cola ya se
+	# ha convertido en Regeneración por turnos, y dejarla goteando aqui la cobraria dos veces.
+	# En solitario esto no llegaba a correr (el árbol se pausa con el combate delante), pero en MULTI
+	# el árbol sigue vivo: al que espejaba la pelea de otro se le quemaba la poción al vacío mientras
+	# peleaba, y al salir le machacaban la vida con la del doble. Ahí se perdía entera.
+	if not Game.hay_modal_de(Game.Modal.COMBATE):
+		Game.tick_heal(delta)
+		Game.tick_mana_pocion(delta)
 	_actualizar_max_aguante()     # el maximo escala con Resistencia/Agilidad (refresca si cambian las stats)
 	# hay_modal() cubre TODOS los menus de la pila (personaje, ayuda, pausa, panel multi...),
 	# no solo el inventario. En solitario esta rama casi no corria (la pausa congelaba el arbol

@@ -263,6 +263,8 @@ var imbue_cuerpo: bool = false
 # (en igualdad de poder). La prob. real la escala un contest de tu Magia vs su Resistencia.
 var imbue_estado: int = -1
 var imbue_prob: float = 0.0
+# ¿Ya se ha cobrado la carga DEFENSIVA de esta accion enemiga? (ver gastar_imbue_defensiva)
+var imbue_def_gastada: bool = false
 
 
 # Un golpe de 'elem' GASTA los estados que lo amplificaban: el rayo evapora el Mojado al
@@ -294,6 +296,21 @@ func es_inmune(id: int) -> bool:
 	return false
 
 
+# ¿Es la AFINIDAD (y solo ella) la que te libra de este estado? Separado de es_inmune porque la
+# imbuicion de CUERPO se cobra una carga cuando te salva, y las otras dos vias (inmunidad a medida
+# del bicho, o un estado que lleves encima) no son suyas y no deben gastarle nada.
+func inmune_por_afinidad(id: int) -> bool:
+	return Elementos.inmunidades_de(elemento).has(id) and not inmune_estados.has(id)
+
+
+# ¿Mi AFINIDAD recorta el daño de este elemento? (el x0.8 del manto). Mira solo el perfil de la
+# afinidad, no resist_elemental ni los estados: es para saber si le toca pagar al manto.
+func resiste_por_afinidad(elem: int) -> bool:
+	if elemento == Elementos.Elemento.NINGUNO or elem == Elementos.Elemento.NINGUNO:
+		return false
+	return Elementos.mult_afinidad_pura(elemento, elem) < 1.0
+
+
 # Imbuye el arma (cuerpo = false) o el CUERPO (cuerpo = true) con un elemento.
 func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 		estado: int = -1, prob: float = 0.0,
@@ -304,11 +321,31 @@ func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 	imbue_cuerpo = cuerpo
 	imbue_estado = estado
 	imbue_prob = prob
+	imbue_def_gastada = false
+	# La afinidad ANTERIOR se limpia SIEMPRE, aunque la nueva sea de arma. Antes solo se tocaba
+	# cuando la nueva era de cuerpo, asi que ponerse un Filo encima de un Manto dejaba la afinidad
+	# del Manto pegada -- y al agotarse el Filo tampoco se limpiaba (imbue_cuerpo ya era false):
+	# resistencias e inmunidades gratis el resto del combate.
+	elemento = Elementos.Elemento.NINGUNO
+	elemento_intensidad = Elementos.INTENSIDAD_PURA
 	if cuerpo:
 		# Afinidad: resistencias/debilidades/inmunidades por la tabla, pero en la franja
 		# SUAVE del imbuido (no eres el elemento, te lo has puesto encima).
 		elemento = elem
 		elemento_intensidad = intensidad
+
+
+# GASTO DEFENSIVO de la imbuicion de CUERPO: se cobra una carga cuando la afinidad te ha servido de
+# algo (te libra de un estado, de un aturdimiento, o te recorta el daño de su elemento).
+#
+# Tope de UNA por accion enemiga: si el mismo ataque te salva de un estado Y te pega con el
+# elemento, se cobra una sola. La bandera la limpia el combate al empezar cada accion de enemigo
+# (ver _abrir_turno_enemigo), asi que todos los golpes de esa accion comparten carga.
+func gastar_imbue_defensiva() -> bool:
+	if not imbue_cuerpo or imbue_usos <= 0 or imbue_def_gastada:
+		return false
+	imbue_def_gastada = true
+	return consumir_imbue()
 
 
 # Etiqueta de la IMBUICION activa para el HUD ("" si no hay ninguna). DERIVADA de los campos:
@@ -804,8 +841,12 @@ func status_spd_mult() -> float:
 
 # Multiplicador de la prob. de aturdir que RECIBE este combatiente. Lo SUBE el estado RAYO
 # (x1.5) y lo BAJA la afinidad de Rayo (cuerpo imbuido: resistente al aturdimiento, no inmune).
-func stun_taken_mult() -> float:
-	var m: float = (1.0 - clampf(stun_resist, 0.0, 1.0)) * Elementos.stun_taken_por_afinidad(elemento)
+# 'con_afinidad' = false devuelve lo mismo SIN el descuento del manto: sirve para saber si ha sido
+# la afinidad la que te ha librado del aturdimiento (y cobrarle la carga solo entonces).
+func stun_taken_mult(con_afinidad: bool = true) -> float:
+	var m: float = 1.0 - clampf(stun_resist, 0.0, 1.0)
+	if con_afinidad:
+		m *= Elementos.stun_taken_por_afinidad(elemento)
 	for e in statuses:
 		m *= e.stun_prob_mult()
 	return m
