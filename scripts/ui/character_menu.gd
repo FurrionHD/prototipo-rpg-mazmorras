@@ -363,10 +363,13 @@ func _confirmar_robo(item: Resource, al_aceptar: Callable) -> void:
 #  Helpers de UI
 # ============================================================
 
-func _title(vb: VBoxContainer, txt: String) -> void:
+# AMBAR: el color de titulo de siempre, para lo que no tiene rareza.
+const AMBAR := Color(0.95, 0.72, 0.36)
+
+func _title(vb: VBoxContainer, txt: String, color: Color = AMBAR) -> void:
 	var l := Label.new()
 	l.text = txt
-	l.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	l.add_theme_color_override("font_color", color)
 	l.add_theme_font_size_override("font_size", 16)
 	vb.add_child(l)
 
@@ -1172,7 +1175,9 @@ func _preview_armor(vb: VBoxContainer) -> void:
 	if _armor_cand >= cat.size() or cat[_armor_cand] == null:
 		return
 	var a: ArmorData = cat[_armor_cand]
-	_title(vb, Game.item_display_name(a))
+	# El nombre lleva el color de su rareza, igual que en la ficha del inventario: es la misma
+	# pregunta ("que pieza es esta") hecha en otro menu.
+	_title(vb, Game.item_display_name(a), Upgrades.rareza_color(int(Game.meta_de(a)["rareza"])))
 	_aviso_dueno(vb, a)
 	if a == _pj().get("equipped_" + slot):
 		_note(vb, "Ya la llevas puesta: al quitarla vas ligero (+velocidad, 0 defensa).")

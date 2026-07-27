@@ -74,12 +74,16 @@ static func ascendentes(padre: Node, color: Color, intensidad := 1.0, alto := 24
 # DESTELLOS sobre un objeto. 'zona' es el TAMAÑO de la pieza (no la mitad): el destello puede
 # nacer en cualquier punto de ella, que es justo el "y aparece otro en otro lado".
 # Quien llama coloca el nodo (p.position) si la pieza no esta centrada en el origen.
-static func destellos(padre: Node, color: Color, zona: Vector2, intensidad := 1.0) -> CPUParticles2D:
+# 'mult_cantidad' multiplica SOLO el numero de destellos, sin tocar el brillo. Va aparte de
+# 'intensidad' justo por eso: en una zona ancha (el nombre de un objeto en su ficha) hacen falta mas
+# cuadraditos para que se note, pero NO mas brillantes.
+static func destellos(padre: Node, color: Color, zona: Vector2, intensidad := 1.0,
+		mult_cantidad := 1.0) -> CPUParticles2D:
 	var p := CPUParticles2D.new()
 	p.texture = textura()
 	# true = el destello pertenece al objeto y viaja con el (al reves que el rastro).
 	p.local_coords = true
-	p.amount = maxi(1, roundi(1.0 + 3.0 * intensidad))
+	p.amount = maxi(1, roundi((1.0 + 3.0 * intensidad) * maxf(0.1, mult_cantidad)))
 	# Un destello dura ~1s. Nada de parpadeos de 3 frames: a esa velocidad no se lee como un brillo,
 	# se lee como ruido y cansa la vista. La aleatoriedad se queda BAJA (0.25 -> entre 0.82 y 1.1s)
 	# porque con randomness alta la mitad de los cuadrados salian de 0.3s y volvia el nervio.

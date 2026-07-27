@@ -144,48 +144,56 @@ func _rebuild() -> void:
 #  Helpers de UI
 # ============================================================
 
-func _title(vb: VBoxContainer, txt: String) -> void:
+# AMBAR: el color de titulo de siempre, para lo que no tiene rareza (un stack de materiales, el
+# nombre de la pestaña...).
+const AMBAR := Color(0.95, 0.72, 0.36)
+
+# Devuelve el Label para poder colgarle cosas encima (ver _titulo_rareza).
+func _title(vb: VBoxContainer, txt: String, color: Color = AMBAR) -> Label:
 	var l := Label.new()
 	l.text = txt
-	l.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	l.add_theme_color_override("font_color", color)
 	l.add_theme_font_size_override("font_size", 16)
 	vb.add_child(l)
-
-# Alto de la banda de destellos de la ficha.
-const ALTO_BANDA := 20.0
+	return l
 
 
-# La fila "Tier / rareza" tintada + una BANDA DE DESTELLOS del color de la rareza debajo. Van juntas
-# porque son lo mismo dicho dos veces: el nombre del escalon y como se ve.
+# Titulo de una pieza de EQUIPO: su NOMBRE con el color de su rareza y los destellos centelleando
+# SOBRE el propio nombre. Es lo mismo dicho de tres maneras (el escalon escrito, el color y el
+# brillo) en el mismo sitio, que es donde miras primero.
 #
-# Las particulas van aqui (una ficha = UN objeto protagonista) y NO en la cuadricula de la
-# izquierda: alli hay 20-40 botones a la vez y serian ruido y coste por nada.
-func _fila_rareza(vb: VBoxContainer, meta: Dictionary) -> void:
-	var rareza: int = int(meta["rareza"])
-	_row(vb, "Tier / rareza", "T%d · %s" % [int(meta["tier"]), Upgrades.rareza_nombre(rareza)],
-		Upgrades.rareza_color(rareza))
-
-	var tira := Control.new()
-	tira.custom_minimum_size = Vector2(0, ALTO_BANDA)
-	tira.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tira.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vb.add_child(tira)
+# Los destellos son HIJOS del Label, no una banda debajo: los hijos de un CanvasItem se dibujan
+# DESPUES del padre, asi que caen por encima del texto. Y al ser hijos heredan su colocacion, que es
+# lo unico que hace que sigan al nombre cuando el contenedor lo mueve.
+#
+# Aqui NO va una fila "Tier / rareza": Game.item_display_name YA termina en "· T1 Obra maestra", asi
+# que esa fila repetia el titulo palabra por palabra.
+#
+# Las particulas van en la ficha (= UN objeto protagonista) y NO en la cuadricula de la izquierda:
+# alli hay 20-40 botones a la vez y serian ruido y coste por nada.
+func _titulo_rareza(vb: VBoxContainer, item: Resource, sufijo: String = "") -> void:
+	var rareza: int = int(Game.meta_de(item)["rareza"])
+	var lbl := _title(vb, Game.item_display_name(item) + sufijo, Upgrades.rareza_color(rareza))
 
 	# Un comun apenas centellea; un pristino centellea de verdad. Que la rareza se SIENTA y no solo
 	# se lea es medio efecto.
 	var ultima: float = float(Upgrades.RAREZA_COLOR.size() - 1)
-	var fx := Particulas.destellos(tira, Upgrades.rareza_color(rareza),
-		Vector2(MenuScaffold.ANCHO_LISTA, ALTO_BANDA), 0.25 + 0.75 * (float(rareza) / ultima))
+	# x2 de CANTIDAD (no de brillo): sobre un nombre entero, la cantidad de una veta se pierde.
+	var fx := Particulas.destellos(lbl, Upgrades.rareza_color(rareza),
+		Vector2(MenuScaffold.ANCHO_LISTA, 16.0), 0.25 + 0.75 * (float(rareza) / ultima), 2.0)
 	# OBLIGATORIO: abrir un menu PARA el arbol (Game.abrir_menu), asi que sin esto los destellos se
 	# quedarian congelados justo donde se supone que se miran.
 	fx.process_mode = Node.PROCESS_MODE_ALWAYS
 
-	# El ancho real de la tira no se sabe hasta que el contenedor la coloca, asi que la zona de
-	# emision se reajusta con el layout en vez de clavarse a un numero.
+	# El tamaño real del Label no se sabe hasta que el contenedor lo coloca, asi que la zona de
+	# emision se ajusta con el layout en vez de clavarse a un numero. Se recorta al ANCHO DEL TEXTO
+	# (no al del Label, que se estira a toda la columna): los destellos tienen que estar sobre el
+	# nombre, no flotando en el hueco vacio que queda a su derecha.
 	var ajustar := func() -> void:
-		fx.position = tira.size * 0.5
-		fx.emission_rect_extents = tira.size * 0.5
-	tira.resized.connect(ajustar)
+		var ancho: float = minf(lbl.size.x, lbl.get_minimum_size().x)
+		fx.position = Vector2(ancho * 0.5, lbl.size.y * 0.5)
+		fx.emission_rect_extents = Vector2(ancho * 0.5, lbl.size.y * 0.5)
+	lbl.resized.connect(ajustar)
 	ajustar.call()
 
 
@@ -394,9 +402,8 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 	var m: BackpackData = _stacks[_sel]["modelo"]
 	var puesta: bool = m == Game.mochila_equipo
 	var meta: Dictionary = Game.meta_de(m)
-	_title(vb, Game.item_display_name(m) + ("   [puesta]" if puesta else ""))
+	_titulo_rareza(vb, m, "   [puesta]" if puesta else "")
 	_row(vb, "Capacidad", "+%.0f de carga" % Game.capacidad_mochila(m))
-	_fila_rareza(vb, meta)
 	_row(vb, "Llevaríais", "%.0f  (ahora: %.0f)" % [
 		Game.capacidad_con_mochila(m), Game.capacidad_carga()])
 	if m.descripcion != "":
@@ -568,28 +575,26 @@ func _preview_arma(vb: VBoxContainer) -> void:
 	var equipada: String = _marca_dueno(item)
 	if item is WeaponData:
 		var w := item as WeaponData
-		_title(vb, Game.item_display_name(w) + equipada)
+		_titulo_rareza(vb, w, equipada)
 		# Ficha COMPARTIDA (MenuScaffold.filas_arma): las mismas stats resueltas que ve la tienda
 		# y el menu de personaje, con el tier/rareza/mejoras REALES de esta pieza (antes se
 		# enseñaban los valores base a secas, ignorando las mejoras y sin la evasion).
 		var meta: Dictionary = Game.meta_de(w)
 		for fila in MenuScaffold.filas_arma(w, int(meta["tier"]), int(meta["rareza"]), meta["mejoras"]):
 			_row(vb, fila[0], fila[1])
-		_fila_rareza(vb, meta)
 		_row(vb, "Durabilidad", Game.durabilidad_txt_item(w), Game.durabilidad_color(w))
 	elif item is ShieldData:
 		var s := item as ShieldData
-		_title(vb, Game.item_display_name(s) + equipada)
+		_titulo_rareza(vb, s, equipada)
 		# Ficha COMPARTIDA, igual que el arma de arriba: antes se pintaba el .tres crudo y un T3
 		# pristino enseñaba (y rendia) exactamente lo mismo que uno comun.
 		var meta_s: Dictionary = Game.meta_de(s)
 		for fila in MenuScaffold.filas_escudo(s, int(meta_s["tier"]), int(meta_s["rareza"]), meta_s["mejoras"]):
 			_row(vb, fila[0], fila[1])
-		_fila_rareza(vb, meta_s)
 		_row(vb, "Durabilidad", Game.durabilidad_txt_item(s), Game.durabilidad_color(s))
 	elif item is WandData:
 		var wd := item as WandData
-		_title(vb, Game.item_display_name(wd) + equipada)
+		_titulo_rareza(vb, wd, equipada)
 		# Por su math (Upgrades.magic_mods) con el tier/rareza/mejoras REALES de esta varita, como
 		# el baston y el resto de equipo: antes se pintaba el .tres crudo (una varita T3 pristina
 		# amplificaba y regeneraba lo mismo que una comun).
@@ -601,7 +606,6 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		_row(vb, "Vel. casteo", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
 		if float(mg["mana_reduccion"]) > 0.0:
 			_row(vb, "Coste de maná", "-%.0f%%" % (float(mg["mana_reduccion"]) * 100.0))
-		_fila_rareza(vb, meta_w)
 		_row(vb, "Durabilidad", Game.durabilidad_txt_item(wd), Game.durabilidad_color(wd))
 
 
@@ -625,13 +629,12 @@ func _build_armaduras() -> void:
 
 func _preview_armadura(vb: VBoxContainer) -> void:
 	var a: ArmorData = _stacks[_sel]["modelo"]
-	_title(vb, Game.item_display_name(a) + _marca_dueno(a))
+	_titulo_rareza(vb, a, _marca_dueno(a))
 	_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
 	_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, 3)])
 	_row(vb, "Defensa base", "%.2f" % (a.defensa_base * a.motion_def))
 	_row(vb, "Reducción", "%.0f%%" % (a.reduccion * 100.0))
 	_row(vb, "Velocidad", "×%.2f" % a.velocidad_mult)
-	_fila_rareza(vb, Game.meta_de(a))
 	_row(vb, "Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
 
 
