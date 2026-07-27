@@ -378,6 +378,27 @@ const GAIN_AGILIDAD_CRITICO := 0.3    # clavar un critico entrena Agilidad (enco
 # entrenan se disparaba. El tope les recorta ~20-25% por golpe y NO toca a las ligeras (MV < 1.2).
 const GAIN_AGILIDAD_CRIT_MV_MAX := 1.2
 const GAIN_RESISTENCIA_BLOQUEO := 0.3 # bloquear con Defender entrena Resistencia extra (KAN-81); moderado para no sobre-premiar el escudo
+# REPARTO DE LA RESISTENCIA EN GRUPO. El aggro (escudo x2, Provocar x4) desviaba casi todos los
+# golpes al tanque, y sin querer congelaba la Resistencia del grupo entero: los demas apenas
+# encajaban golpes, y el tanque los encajaba MUY reducidos. Asi que la ganancia por golpe se
+# multiplica segun lo lejos que este tu cuota REAL de aggro de tu cuota JUSTA (1 / nº de aliados):
+#   deficit = 1 - cuota/justa   (te pegan MENOS de lo que te tocaria: el mago)
+#   exceso  = 1 - justa/cuota   (te pegan MAS de lo que te tocaria: el del escudo)
+#   mult    = 1 + K * pow(desvio, RESIS_APORTE_EXP)
+# Ambos desvios estan normalizados a 0..1, asi que el bono esta acotado por su K y la curva queda
+# ANCLADA: sin escudo ni Provocar todos van a cuota justa, desvio 0, mult 1.0 (nada cambia).
+# K y el exponente estan calibrados para dar, en grupo de 4 con un escudero, +25% a los otros tres
+# sin provocar y +50% provocando (los dos numeros pedidos en el playtest). Al tanque se le da un
+# empujon MUCHO menor a proposito: ya entrena mas por FRECUENCIA (se come casi todos los golpes),
+# esto solo compensa que le lleguen mermados. Ver combat.gd._mult_resistencia_aggro.
+# SUELO de resistencia a estados de todo personaje, vaya como vaya vestido. Sin esto, ir sin
+# armadura (o con armadura sin la mejora Resistencia) significaba tragarse TODOS los estados que
+# te tirasen: cada veneno prendia, siempre, y no habia nada que jugarse. Un 15% no salva de nada
+# por si solo, solo abre la puerta a que a veces no te pegue. El tope sigue siendo RESISTENCIA_CAP.
+const RESIST_ESTADOS_BASE := 0.15
+const RESIS_APORTE_EXP := 0.6     # rendimientos decrecientes del desvio
+const RESIS_COMPENSA_K := 0.657   # al que esquiva la atencion (grupo de 4: +25% / +50%)
+const RESIS_TANQUE_K := 0.25      # al que la atrae (grupo de 4: +14% sin provocar, +19% provocando)
 # Magia (KAN-56): entrena SOLO al LANZAR el hechizo (no por frase, para que sea
 # predecible). Formula dedicada = GAIN_MAGIA_CAST × mana_factor × reto(enemigo),
 # con tope de reto FISICO (5) y rendimientos decrecientes por la Magia interna.
@@ -3121,10 +3142,12 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	c.armor_reduction = am["reduction"]
 	c.velocidad_mult = float(m["velocidad_mult"]) * float(am["velocidad_mult"])
 	c.crit_resist = float(am["crit_resist"])
-	# Resist. a estados: la de la armadura (mejora Resistencia, KAN-58) MAS la del escudo, con el
-	# mismo tope global (si no, armadura a tope + escudo a tope te haria inmune al veneno).
-	c.status_resist = minf(Upgrades.RESISTENCIA_CAP,
-		float(am["resist_estados"]) + float(m["resist_estados"]))
+	# Resist. a estados: un SUELO propio de la carne (RESIST_ESTADOS_BASE) mas la de la armadura
+	# (mejora Resistencia, KAN-58) mas la del escudo, todo bajo el mismo tope global.
+	# El suelo va aqui y NO en Combatant: es del jugador y sus companeros, no de los bichos (ellos
+	# tienen su EnemyData.status_resist, que es un rasgo de diseño de cada uno).
+	c.status_resist = minf(Upgrades.RESISTENCIA_CAP, RESIST_ESTADOS_BASE
+		+ float(am["resist_estados"]) + float(m["resist_estados"]))
 	# La esquiva de armadura BAJA el evasion_penal (negativo = bonus de esquiva).
 	c.evasion_penal = float(m["evasion_penal"]) - float(am["evasion_bonus"])
 	# Magia del equipo (KAN-95): amplificador, regen extra, eficiencia y velocidad de
@@ -6461,14 +6484,22 @@ func unir_enemigo_al_combate(nodo: Node) -> bool:
 # el indice con el que vuelven los muertos en combat_finished.
 # No se pasa un EnemyData suelto: con varios bichos no hay "el" EnemyData, y cada nodo ya lleva
 # el suyo (.data) y su tirada (.current_t).
-func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
+# DEVUELVE si la pelea se ha montado. Antes era void y rechazaba EN SILENCIO, y quien la pedia ya
+# habia congelado a los bichos (_combat_triggered) sin manera de enterarse de que no habia pelea:
+# se quedaban de estatua para siempre, "peleando" con nadie. Ahora el que llama tiene que mirar el
+# resultado y devolverlos si sale false. Ver enemy._start_combat y Net._pelea_resuelta.
+func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 	if not _active_enemies.is_empty() or enemy_nodes.is_empty():
-		return  # ya hay un combate o faltan datos
+		return false  # ya hay un combate o faltan datos
 	# UNA PANTALLA POR MAQUINA, sin excepciones. Sin esto, alguien que estuviera espejando la pelea
 	# de otro (donde _active_enemies esta vacio) podia recibir OTRA pelea encima: dos pantallas
 	# apiladas, y el anfitrion esperando eternamente una accion suya.
+	# Aqui cae tambien el caso del PLAYTEST: estas trabajando (mineria/tala/herboristeria/extraccion
+	# ponen _active_layer) y te alcanza un bicho. En multi el mundo NO se pausa, asi que pasa a
+	# menudo. No se le abre la pelea encima del minijuego: se le devuelve un false y quien lo pidio
+	# lo suelta para que siga rondando y vuelva a intentarlo.
 	if _active_layer != null:
-		return
+		return false
 	# Y NUNCA se pelea con un menu tapando la pantalla: en multi el mundo no se para, asi que te
 	# pueden embestir mirando el inventario. Se cierra a la fuerza ANTES de montar nada.
 	cerrar_menus_abiertos()
@@ -6480,7 +6511,7 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 		if is_instance_valid(n) and "data" in n and n.data != null:
 			_active_enemies.append(n)
 	if _active_enemies.is_empty():
-		return
+		return false
 
 	# EL GRUPO ENTERO baja a la pelea: un Combatant por miembro del equipo, con el LIDER el primero
 	# (es el que ha dado el espadazo, y el que se lleva la iniciativa si atacaste tu).
@@ -6586,6 +6617,7 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> void:
 	Net.registrar_pelea()
 
 	_montar_pantalla_combate(combat)
+	return true
 
 
 # Cuelga la pantalla de combate y deja el mundo en modo "estoy peleando". Se saco de start_combat
@@ -6636,10 +6668,19 @@ func retomar_combate(estado: Dictionary) -> bool:
 		nodos.size(), estado.get("enemigos", []).size()])
 	if nodos.is_empty():
 		return false
-	start_combat(nodos, false)
-	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
-		and _active_layer.get_child_count() > 0 else null
+	# Igual que en los otros dos llamantes: los nodos ya vienen congelados por entrar_en_pelea, asi
+	# que un rechazo de start_combat (o una pantalla que no llega a montarse) los dejaria de estatua.
+	# Si el traspaso no cuaja, se devuelven al dueño antes de rendirse.
+	var combat: Node = null
+	if start_combat(nodos, false):
+		combat = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
+			and _active_layer.get_child_count() > 0 else null
 	if combat == null:
+		var ids_vuelta: Array = []
+		for n in nodos:
+			if is_instance_valid(n) and n.has_meta("net_id"):
+				ids_vuelta.append(n.get_meta("net_id"))
+		Net.devolver_bichos(ids_vuelta)
 		return false
 	# Los aliados: los MIOS ya los ha puesto start_combat con mi equipo (y en el mismo orden en que
 	# los ofreci al unirme); a los de otros humanos se les monta un doble, igual que al unirse.

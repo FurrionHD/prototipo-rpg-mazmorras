@@ -474,6 +474,13 @@ func _build_stats_page() -> void:
 	_content.add_child(HSeparator.new())
 	_row(_content, "Vida máx.", "%.1f" % c.max_hp)
 	_row(_content, "Defensa", "%.1f" % c.def_value())
+	# Las tres defensas PORCENTUALES. Se calculaban desde siempre pero solo se veian pieza a pieza
+	# en el comparador de armadura, asi que era imposible saber cuanto llevabas EN TOTAL. Mismo
+	# wording que _armor_stats() para que la ficha y la pieza se lean igual.
+	_row(_content, "Reducción de daño", _fmt_pct(c.armor_reduction))
+	_row(_content, "Resist. estados", _fmt_pct(c.status_resist))
+	if c.crit_resist > 0.001:
+		_row(_content, "Resist. crítico", _fmt_pct(c.crit_resist))
 	# La defensa MAGICA va aqui, con la fisica y la vida, y para TODO el mundo: no es una stat de
 	# mago, es lo que te protege cuando el que lanza el hechizo es el otro. Estuvo un rato colgando
 	# del bloque de Magia y por tanto invisible justo para quien mas le importa: el que no lleva

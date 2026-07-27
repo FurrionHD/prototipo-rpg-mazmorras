@@ -33,7 +33,10 @@ enum Tamano { PEQUENO, NORMAL, GRANDE }  # GRANDE = escudos de tanque
 # % que reduce al Defender. Es la marca del TAMAÑO y no la toca ni el tier ni la rareza; el
 # Refuerzo suma encima (decreciente, +0.25 como mucho). Sin tope propio: ver Upgrades.shield_mods.
 @export var bloqueo: float = 0.10
-@export var resist_estados_base: float = 0.05  # aguantar detras del escudo tambien tapa del veneno
+# Aguantar detras del escudo tambien tapa del veneno. Sube de 0.05 a 0.12: el escudero es el que
+# se come los golpes (aggro x2, x4 provocando) y era justo el que mas estados acumulaba. Ahora que
+# RESISTENCIA_CAP es 1.0 no hay riesgo de que armadura + escudo den inmunidad por acumulacion.
+@export var resist_estados_base: float = 0.12
 @export var velocidad_mult: float = 0.95  # penaliza algo la velocidad de combate (<1). NO escala
 @export var evasion_penal: float = 0.03   # baja la esquiva (grande penaliza mas). NO escala
 

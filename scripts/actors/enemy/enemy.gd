@@ -1056,7 +1056,16 @@ func _start_combat(enemy_initiated: bool) -> void:
 		n.velocity = Vector2.ZERO
 		n._cancelar_aviso()
 	combat_started.emit(data, enemy_initiated)
-	Game.start_combat(grupo, enemy_initiated)
+	# RED DE SEGURIDAD: el grupo ya esta congelado, asi que si start_combat rechaza (aforo, nodos
+	# sin data, una carrera con otra pelea que se abrio en el mismo frame) hay que DESCONGELARLO.
+	# La guarda de hay_pelea_en_pantalla de arriba tapa el caso conocido, pero no los demas, y sin
+	# esto cualquier rechazo deja al grupo de estatua para siempre. Se les deja en _esperando_hueco,
+	# que se auto-recupera y reintenta la pelea sola en cuanto se despeje la pantalla.
+	if not Game.start_combat(grupo, enemy_initiated):
+		for n in grupo:
+			if is_instance_valid(n):
+				n._combat_triggered = false
+				n._esperando_hueco = true
 
 
 # Vuelve a la vida normal tras un combate del que NO moriste (huiste, o te mato otro).

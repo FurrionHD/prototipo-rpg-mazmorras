@@ -112,7 +112,12 @@ const EVASION_CAP := 0.20         # tope del bonus de esquiva de armadura
 const RESIST_CRIT_STEP := 0.02    # -crit rival (pesadas)
 const RESIST_CRIT_CAP := 0.25     # tope de resistencia a criticos
 const RESISTENCIA_STEP := 0.03    # -prob. de que te apliquen un estado alterado (KAN-58)
-const RESISTENCIA_CAP := 0.50     # tope de resistencia a estados (por armadura, sumando piezas)
+# Tope de resistencia a estados. Era 0.50 y se sube al 100%: el techo artificial dejaba la mejora
+# Resistencia muerta en cuanto juntabas armadura mejorada + escudo, y a partir de ahi subirla no
+# hacia nada. Quien la deja de mandar es el RESISTENCIA_STEP (0.03 por punto, decreciente), que ya
+# hace inalcanzable el 100% en la practica. Un 1.0 literal seria inmunidad, y para eso ya esta
+# Combatant.es_inmune(), que es la via explicita y deliberada.
+const RESISTENCIA_CAP := 1.0
 # ESCUDOS. El Refuerzo es la unica via para subir el bloqueo (ni el tier ni la rareza lo tocan:
 # ver shield_mods). No tiene tope propio: el dim_sum asintota en STEP/(1-DECAY) = +0.25, asi que
 # el bloqueo va de su base de tamaño (0.10/0.15/0.20) a 0.35/0.40/0.45 como mucho. Con el 0.30 de

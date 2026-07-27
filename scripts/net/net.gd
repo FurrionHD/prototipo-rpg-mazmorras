@@ -2320,6 +2320,9 @@ func _pelea_resuelta(ids: Array, emboscada: bool = false, anfitrion: int = 0) ->
 			n.entrar_en_pelea()
 			nodos.append(n)
 	if nodos.is_empty():
+		# Ya no tengo espejos de esos ids (culling, cambio de piso...), pero SIGUEN reservados y
+		# congelados en casa del dueño. Hay que soltarlos o se quedan de estatua.
+		_devolver_bichos(ids)
 		return
 	# Ya estoy peleando: estos se UNEN a mi pelea en vez de abrir otra (una por maquina). El que no
 	# quepa se DEVUELVE al dueño: si no, se quedaria reservado y congelado para siempre.
@@ -2329,7 +2332,12 @@ func _pelea_resuelta(ids: Array, emboscada: bool = false, anfitrion: int = 0) ->
 				n.salir_de_pelea()
 		return
 	# Emboscada solo si me han saltado encima; si ataque yo, la iniciativa es mia.
-	Game.start_combat(nodos, emboscada)
+	# HAY QUE MIRAR EL RESULTADO: si estoy TRABAJANDO (mineria/tala/herboristeria/extraccion) hay un
+	# _active_layer delante y start_combat rechaza la pelea. En multi el mundo no se pausa, asi que
+	# esto pasa a menudo. Antes se ignoraba el rechazo y los bichos se quedaban reservados y
+	# congelados para siempre, "peleando" con nadie: el bug de las estatuas del playtest.
+	if not Game.start_combat(nodos, emboscada):
+		_devolver_bichos(ids)
 
 
 # --- REFUERZOS QUE ALCANZAN A UN ESPEJO (hito 5.4-C) -----------------------------------------
@@ -2367,6 +2375,14 @@ func _nodo_de_id(id: int):
 		var e: Dictionary = _enemigos.get(id, {})
 		return e.get("nodo") if not e.is_empty() else null
 	return _enem_nodos.get(id)
+
+
+# Puerta publica: la usa Game.retomar_combate, que tambien puede quedarse con bichos congelados si
+# el traspaso no cuaja. Aguanta que no haya sesion (en solitario no hay nada que devolver).
+func devolver_bichos(ids: Array) -> void:
+	if not activo or ids.is_empty():
+		return
+	_devolver_bichos(ids)
 
 
 # Devolver bichos reservados que al final no entran en ninguna pelea (si no, se quedan congelados

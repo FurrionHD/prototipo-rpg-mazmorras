@@ -825,7 +825,11 @@ func roll_on_hit(target: Combatant) -> Array:
 		if randf() >= p:
 			continue
 		var mag: float = StatusEffects.app_magnitude(a, atk(), motion_value)   # sangrado escala con MI ataque (mv invertido)
-		target.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
+		# N stacks por tirada, igual que la rama de habilidades enemigas. Antes se aplicaba
+		# siempre 1 e ignoraba a.stacks: hoy ningun on_hit lo usa, pero el dia que se ponga
+		# tiene que hacer lo que dice el dato y no fallar en silencio.
+		for _s in maxi(1, a.stacks):
+			target.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
 		aplicados.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
 	return aplicados
 

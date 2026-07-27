@@ -958,9 +958,7 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 	var pesos: Array[float] = []
 	var total: float = 0.0
 	for c in vivos:
-		# Peso = el PASIVO (x2 si lleva escudo) x el de PROVOCAR (x4 mientras dure). Un tanque
-		# quieto ya atrae ~el doble; provocando, se lleva la mayoria de los golpes unos turnos.
-		var w: float = c.aggro_base * (PROVOCA_PESO if c.provocar_turnos > 0 else 1.0)
+		var w: float = _peso_aggro(c)
 		# ATENUADO: para el reparto GOLPE A GOLPE de una habilidad multi-golpe. Ahi el sorteo se
 		# repite 5-6 veces seguidas, y con el peso entero el tanque se comia casi la tanda completa
 		# (~5 de 6). La raiz cuadrada lo suaviza SIN invertir el orden: sigue siendo el que mas come,
@@ -975,6 +973,46 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 		if r < 0.0:
 			return vivos[i]
 	return vivos[vivos.size() - 1]
+
+
+# PESO DE AGGRO de un aliado: el PASIVO (x2 si lleva escudo) x el de PROVOCAR (x4 mientras dure).
+# Un tanque quieto ya atrae ~el doble; provocando, se lleva la mayoria de los golpes unos turnos.
+# Vive aparte porque lo leen DOS sitios: el sorteo de objetivo y el reparto de la excelia de
+# Resistencia (_mult_resistencia_aggro). Si cada uno tuviera su copia, se desincronizarian.
+func _peso_aggro(c: Combatant) -> float:
+	return c.aggro_base * (PROVOCA_PESO if c.provocar_turnos > 0 else 1.0)
+
+
+func _peso_aggro_total() -> float:
+	var total: float = 0.0
+	for c in _aliados_vivos():
+		total += _peso_aggro(c)
+	return total
+
+
+# CUANTA Resistencia entrena 'obj' por encajar un golpe, comparado con lo que entrenaria si el
+# aggro no existiera. Ver el bloque de constantes en game.gd (RESIS_COMPENSA_K y compania):
+#   - Al que el tanque protege le llegan pocos golpes -> se le compensa fuerte.
+#   - Al tanque le llegan muchos pero mermados -> se le compensa poco (ya gana por frecuencia).
+# Con un solo aliado vivo, o sin escudo ni Provocar, devuelve 1.0: nada cambia respecto a antes.
+func _mult_resistencia_aggro(obj: Combatant) -> float:
+	var vivos: Array[Combatant] = _aliados_vivos()
+	if vivos.size() < 2:
+		return 1.0
+	var total: float = _peso_aggro_total()
+	if total <= 0.0:
+		return 1.0
+	var cuota: float = _peso_aggro(obj) / total
+	var justa: float = 1.0 / float(vivos.size())
+	if cuota <= 0.0:
+		return 1.0
+	if cuota < justa:
+		# Le pegan MENOS de lo que le tocaria: el mago detras del escudo.
+		var deficit: float = clampf(1.0 - cuota / justa, 0.0, 1.0)
+		return 1.0 + Game.RESIS_COMPENSA_K * pow(deficit, Game.RESIS_APORTE_EXP)
+	# Le pegan MAS de lo que le tocaria: el que va tapado y plantado delante.
+	var exceso: float = clampf(1.0 - justa / cuota, 0.0, 1.0)
+	return 1.0 + Game.RESIS_TANQUE_K * pow(exceso, Game.RESIS_APORTE_EXP)
 
 
 # Los VECINOS de 'principal' a los que salpica un hechizo de area: el primer enemigo VIVO a su
@@ -3142,7 +3180,11 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			continue   # efecto reservado al critico (p.ej. 2o sangrado de la Punalada)
 		if randf() < a.prob * (1.0 - objetivo.status_resist):
 			var mag: float = StatusEffects.app_magnitude(a, _player.atk(), _player.motion_value)
-			objetivo.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
+			# N stacks por tirada, igual que la rama enemiga (_enemy_tirar_efectos). Antes se
+			# aplicaba siempre 1 e ignoraba a.stacks: hoy ninguna habilidad tuya lo usa, pero la
+			# primera que lo ponga tiene que funcionar sin tener que acordarse de esto.
+			for _s in maxi(1, a.stacks):
+				objetivo.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
 			out.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
 	return out
 
@@ -3508,13 +3550,16 @@ func _enemy_turn(e: Combatant) -> void:
 	# ataque), modulada por el DAÑO recibido (golpe gordo entrena mas). Asi
 	# tambien sube bien al principio, cuando el enemigo es un gran reto.
 	var dmg_mult: float = clampf(dmg / maxf(1.0, float(obj.max_hp) * 0.1), 0.5, 2.0)
-	Game.ganar("resistencia", _reto(e) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
+	# El reparto por AGGRO va en el 'base', NO en el reto_val: el reto_val lo capa RETO_MAX_FISICO
+	# dentro de ganar(), y con un enemigo duro el bono se lo comeria el techo sin dejar rastro.
+	var aggro_mult: float = _mult_resistencia_aggro(obj)
+	Game.ganar("resistencia", _reto(e) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE * aggro_mult,
 		Game.RETO_MAX_FISICO, pj_obj)
 	# Excelia: si BLOQUEAS (Defender), entrenas Resistencia EXTRA segun cuanto
 	# bloquees (escudo grande entrena mas). Formaliza KAN-81 y premia el escudo.
 	if bool(_defendiendo.get(obj, false)):
 		Game.ganar("resistencia", _reto(e) * obj.defend_block,
-			Game.GAIN_RESISTENCIA_BLOQUEO, Game.RETO_MAX_FISICO, pj_obj)
+			Game.GAIN_RESISTENCIA_BLOQUEO * aggro_mult, Game.RETO_MAX_FISICO, pj_obj)
 	var msg: String
 	if result.crit:
 		msg = "%s CLAVA un critico a %s: %.2f de daño! 💥" % [_etq(e), obj.nombre, dmg]
@@ -3631,16 +3676,32 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			# mandan igual que en un turno normal: ~80% al que provoca). Los golpes ADICIONALES son
 			# metralla: van con el peso ATENUADO, asi que tienden al tanque pero solo un poco. Sin
 			# esto, el tanque se comia la tanda entera (~5 de 6) por acumulacion de tiradas.
+			# OJO con 'aplicar_efectos': aqui hay UNA llamada a _enemy_resolver_golpes POR GOLPE, asi
+			# que su rama de "efectos NO por golpe" (la que debe tirarse una sola vez por habilidad)
+			# se disparaba una vez por golpe. Con el Doble Embate del slime (2 golpes x stacks 2)
+			# salian 4 stacks de Pegajoso de un solo ataque en vez de 2. Aqui solo se dejan pasar los
+			# efectos POR GOLPE; los de la habilidad se tiran una vez, fuera del bucle.
+			var principal: Combatant = null
+			var conecto_algo: int = 0
 			for i in golpes:
 				var t: Combatant = _elegir_objetivo_enemigo(i > 0)
 				if t == null: break
-				var sub := _enemy_resolver_golpes(e, ab, t, 1, 1.0, contra_txt == "", true)
+				if principal == null: principal = t
+				var sub := _enemy_resolver_golpes(e, ab, t, 1, 1.0, contra_txt == "",
+					ab.efectos_por_golpe)
 				total += float(sub["total"]); estados_log += sub["estados"]
+				conecto_algo += int(sub["conecto"])
 				rastro += sub["rastro"]; dano_por_obj[t] = float(dano_por_obj.get(t, 0.0)) + float(sub["total"])
 				if not tocados.has(t): tocados.append(t)
 				if bool(sub["defendio"]) and not defendieron.has(t): defendieron.append(t)
 				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
 				if not e.is_alive(): break
+			# Efectos de la HABILIDAD (no por golpe): una sola tirada, sobre el objetivo PRINCIPAL (el
+			# del primer golpe, el que eligio el aggro con peso entero). Mismas condiciones que dentro
+			# de _enemy_resolver_golpes: hay que haber conectado algo y seguir vivos los dos.
+			if not ab.efectos_por_golpe and conecto_algo > 0 and principal != null \
+					and principal.is_alive() and e.is_alive():
+				estados_log += _enemy_tirar_efectos(e, ab, principal, 1.0, "objetivo")
 		else:
 			# SINGLE (de siempre): todos los golpes al mismo objetivo.
 			var sub := _enemy_resolver_golpes(e, ab, obj, golpes, 1.0, true, true)
@@ -3778,7 +3839,8 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	# Excelia: encajar el golpe entrena la Resistencia de QUIEN lo encaja, modulada por el daño.
 	if total > 0.0:
 		var dmg_mult: float = clampf(total / maxf(1.0, float(t.max_hp) * 0.1), 0.5, 2.0)
-		Game.ganar("resistencia", _reto(e) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE,
+		Game.ganar("resistencia", _reto(e) * dmg_mult,
+			Game.GAIN_RESISTENCIA_GOLPE * _mult_resistencia_aggro(t),
 			Game.RETO_MAX_FISICO, pj_t)
 	# 'defendio' sube al log: la guardia dura TODO el turno y tapa todos los golpes, pero si no se
 	# dice, con una habilidad multi-golpe parece que el escudo no ha hecho nada.
