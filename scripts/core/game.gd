@@ -6200,16 +6200,36 @@ const PASIVAS_RNG: Array = [
 	{"id": "slayer_piedra", "nombre": "Rompepiedras", "tipo": "slayer", "familia": 4,
 		"dmg_vs": 1.25, "dmg_from": 0.90,
 		"desc": "Haces un 25% más de daño a las criaturas de piedra y recibes un 10% menos del suyo."},
-	# Recoleccion (reco = qué minijuego). Cada una da +1 pieza al botin de LO SUYO.
+	# Recoleccion (reco = qué minijuego). Cada una da +1 pieza al botin de LO SUYO. Las tres de
+	# MATERIAL llevan ademas "puro": ver PASIVA_RECO_PURO. La de extraccion no, y no es un olvido —
+	# un Cristal no tiene escalon PURO en su calidad (ver cristal.gd), asi que no hay a que subirlo.
 	{"id": "reco_mineria", "nombre": "Buen ojo para el mineral", "tipo": "reco", "reco": "mineria",
-		"desc": "Sacas una pieza de más cada vez que picas una veta."},
+		"puro": true, "desc": "Sacas una pieza de más cada vez que picas una veta."},
 	{"id": "reco_herboristeria", "nombre": "Mano de herbolario", "tipo": "reco", "reco": "herboristeria",
-		"desc": "Recoges una planta de más cada vez que cosechas."},
+		"puro": true, "desc": "Recoges una planta de más cada vez que cosechas."},
 	{"id": "reco_talado", "nombre": "Leñador nato", "tipo": "reco", "reco": "talado",
-		"desc": "Sacas una madera de más cada vez que talas."},
+		"puro": true, "desc": "Sacas una madera de más cada vez que talas."},
 	{"id": "reco_extraccion", "nombre": "Pulso de joyero", "tipo": "reco", "reco": "extraccion",
 		"desc": "Extraes un cristal de más de cada cadáver."},
 ]
+
+# La pieza EXTRA de una pasiva de recoleccion puede salir PURA, pero solo si la recogida ha salido
+# PERFECTA (INTACTO: cero grietas en la veta, cero fallos en la pasada). Es la segunda via a un
+# material puro que existe en el juego — la otra es fundir bien — y por tanto al escalon PRISTINO
+# del oficio, que hasta ahora solo abrian el metal bien fundido o la Herreria.
+#
+# Las dos condiciones son a proposito: la pasiva es 1 entre 500.000, pero una vez la tienes lo que
+# decide es tu mano. Recoger regular no da puros ni con la pasiva puesta.
+const PASIVA_RECO_PURO := 0.25
+
+# La descripcion de una pasiva, con lo que le añadan sus CAMPOS. El texto del catalogo es solo el
+# sabor; el porcentaje del puro sale de PASIVA_RECO_PURO, para que cambiar la constante cambie lo
+# que lee el jugador y no queden dos numeros distintos diciendo lo mismo.
+func pasiva_desc(d: Dictionary) -> String:
+	var t: String = str(d.get("desc", ""))
+	if bool(d.get("puro", false)):
+		t += " Si la recogida sale perfecta, esa pieza de más tiene un %d%% de salir PURA." % roundi(PASIVA_RECO_PURO * 100.0)
+	return t
 
 func tiene_pasiva(id: String, pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
@@ -6274,13 +6294,28 @@ func rodar_slayer_por_familia(fam: int) -> void:
 			rodar_pasiva(str(p["id"]))
 			return
 
-# Pasiva de una RECOLECCION: tira por conseguirla y, si ya la tienes, mete UNA pieza extra igual a
-# la recogida en la bolsa. Lo llaman las finales de mineria/herboristeria/talado/extraccion.
-func _botin_extra_reco(pasiva_id: String, data: MaterialData, calidad: int) -> void:
+# Pasiva de una RECOLECCION: tira por conseguirla y, si ya la tienes, mete UNA pieza extra en la
+# bolsa. Lo llaman las finales de mineria/herboristeria/talado.
+#
+# La extra sale con la MISMA calidad que la que acabas de recoger, salvo cuando la recogida ha sido
+# PERFECTA (INTACTO): ahi tira por PASIVA_RECO_PURO y puede salir PURA. Sube SOLO la extra y nunca
+# la original: la pieza que te has ganado con la mano es tuya tal cual, y lo que regala la pasiva se
+# ve aparte. Devuelve la calidad de la extra para que quien llama pueda cantarla.
+func _botin_extra_reco(pasiva_id: String, data: MaterialData, calidad: int) -> int:
 	rodar_pasiva(pasiva_id)
-	if tiene_pasiva(pasiva_id) and data != null:
-		materiales.append(MaterialItem.crear(data, calidad))
-		print("[pasiva] +1 %s por '%s'." % [data.nombre, str(pasiva_por_id(pasiva_id).get("nombre", pasiva_id))])
+	if not tiene_pasiva(pasiva_id) or data == null:
+		return -1
+	var d: Dictionary = pasiva_por_id(pasiva_id)
+	var cal: int = calidad
+	if bool(d.get("puro", false)) and calidad == int(MaterialItem.Calidad.INTACTO) \
+			and randf() < PASIVA_RECO_PURO:
+		cal = int(MaterialItem.Calidad.PURO)
+	materiales.append(MaterialItem.crear(data, cal as MaterialItem.Calidad))
+	if cal == int(MaterialItem.Calidad.PURO):
+		print("[pasiva] ¡%s sale PURO por '%s'!" % [data.nombre, str(d.get("nombre", pasiva_id))])
+	else:
+		print("[pasiva] +1 %s por '%s'." % [data.nombre, str(d.get("nombre", pasiva_id))])
+	return cal
 
 # Sella en el Combatant del JUGADOR los multiplicadores de daño de sus slayer (vs/from familia).
 # Los enemigos NO llaman a esto: sus dicts quedan vacios (mult 1.0). Ver Combatant.mult_vs/from.
@@ -7297,9 +7332,12 @@ func _on_mineria_finished(item: MaterialItem, nodo) -> void:
 	if not item.se_pierde():
 		materiales.append(item)
 		descubrir(item.data)
-		_botin_extra_reco("reco_mineria", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
+		# Pasiva RNG: +1 al botin, y esa pieza extra puede salir PURA si la recogida fue perfecta.
+		var cal_extra: int = _botin_extra_reco("reco_mineria", item.data, int(item.calidad))
 		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
 		_aviso_recogida(item.nombre(), 1, item.calidad_texto())
+		if cal_extra == int(MaterialItem.Calidad.PURO):
+			_aviso_recogida(item.nombre(), 1, "¡PURO!")
 	else:
 		print("La veta se deshace en escombro: no sacas nada.")
 	# La FUERZA se entrena aunque la pieza salga rota: has picado igual. Lo que pierdes al
@@ -7348,9 +7386,12 @@ func _on_herboristeria_finished(item: MaterialItem, nodo) -> void:
 	if not item.se_pierde():
 		materiales.append(item)
 		descubrir(item.data)
-		_botin_extra_reco("reco_herboristeria", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
+		# Pasiva RNG: +1 al botin, y esa pieza extra puede salir PURA si la recogida fue perfecta.
+		var cal_extra: int = _botin_extra_reco("reco_herboristeria", item.data, int(item.calidad))
 		print("Recoges ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
 		_aviso_recogida(item.nombre(), 1, item.calidad_texto())
+		if cal_extra == int(MaterialItem.Calidad.PURO):
+			_aviso_recogida(item.nombre(), 1, "¡PURO!")
 	else:
 		print("La planta queda hecha jirones: no sirve.")
 	ganar("destreza", curva_reto(_last_reco_reto, HERB_PIVOTE, HERB_SLOPE, HERB_RETO_MAX),
@@ -7393,9 +7434,12 @@ func _on_talado_finished(item: MaterialItem, nodo) -> void:
 	if not item.se_pierde():
 		materiales.append(item)
 		descubrir(item.data)
-		_botin_extra_reco("reco_talado", item.data, int(item.calidad))   # pasiva RNG: +1 al botin
+		# Pasiva RNG: +1 al botin, y esa pieza extra puede salir PURA si la recogida fue perfecta.
+		var cal_extra: int = _botin_extra_reco("reco_talado", item.data, int(item.calidad))
 		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
 		_aviso_recogida(item.nombre(), 1, item.calidad_texto())
+		if cal_extra == int(MaterialItem.Calidad.PURO):
+			_aviso_recogida(item.nombre(), 1, "¡PURO!")
 	else:
 		print("El tronco se raja en astillas: no sacas nada.")
 	# Como en la mineria: la Agilidad se entrena aunque la pieza salga rota. Lo que pierdes al

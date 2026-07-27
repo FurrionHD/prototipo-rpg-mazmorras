@@ -211,7 +211,7 @@ func _bloque_revelado(pj: PersonajeData) -> void:
 		for p in pasivas:
 			# Amarillo legendario, el tope de la paleta comun (ver Upgrades.RAREZA_COLOR).
 			MenuScaffold.titulo_item(_content, str(p.get("nombre", "")), Upgrades.rareza_color(4), 1.0)
-			MenuScaffold.nota(_content, str(p.get("desc", "")))
+			MenuScaffold.nota(_content, Game.pasiva_desc(p))
 
 	if not subidas.is_empty():
 		_content.add_child(HSeparator.new())

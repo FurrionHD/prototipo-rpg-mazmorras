@@ -483,7 +483,7 @@ func _build_perks() -> void:
 		# Amarillo legendario y centelleando, igual que cuando aparecio en el altar: es lo mas raro
 		# que hay en el juego y tiene que seguir cantando cada vez que abres la ficha.
 		MenuScaffold.titulo_item(_content, str(p["nombre"]), Upgrades.rareza_color(4), 1.0, 15)
-		MenuScaffold.nota(_content, str(p["desc"]))
+		MenuScaffold.nota(_content, Game.pasiva_desc(p))
 	if not alguna:
 		MenuScaffold.nota(_content, "Ninguna. Caen por sí solas, muy de vez en cuando, haciendo lo que sea que las despierta.")
 
