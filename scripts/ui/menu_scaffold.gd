@@ -204,13 +204,23 @@ static func titulo(vb: VBoxContainer, txt: String, tam: int = 16, color: Color =
 # pristino centellea de verdad. La dan Upgrades.rareza_intensidad y MaterialData.rango_intensidad,
 # cada una normalizada con su propio tope (8 rarezas frente a 5 rangos).
 #
-# Va en la FICHA de detalle (un objeto protagonista = un emisor) y NUNCA en una rejilla: alli hay
-# 20-40 botones a la vez. Las rejillas llevan color, pero no particulas (ver cuadricula).
+# Va donde hay UN objeto protagonista (una ficha, la pieza que llevas puesta) y NUNCA en una rejilla:
+# alli hay 20-40 botones a la vez. Las rejillas llevan color, pero no particulas (ver cuadricula).
 static func titulo_item(vb: VBoxContainer, txt: String, color: Color, intensidad: float = 1.0,
 		tam: int = 16) -> void:
-	var lbl := titulo(vb, txt, tam, color)
+	brillo_en(titulo(vb, txt, tam, color), color, intensidad)
+
+
+# Cuelga los destellos de UN LABEL cualquiera, ya creado. Separado de titulo_item porque el nombre de
+# un objeto no siempre es un titulo: en la hoja de equipo va dentro de una fila ("Principal: Baston
+# +3", "Casco: Casco de cuero") y ahi tambien tiene que brillar.
+#
+# El emisor es HIJO del Label a proposito: los hijos de un CanvasItem se dibujan DESPUES del padre,
+# asi que caen por encima del texto, y al ser hijos heredan su colocacion (siguen al nombre cuando el
+# contenedor lo mueve).
+static func brillo_en(lbl: Label, color: Color, intensidad: float = 1.0) -> CPUParticles2D:
 	# x2 de CANTIDAD (no de brillo): sobre un nombre entero, la cantidad de una veta se pierde.
-	var fx := Particulas.destellos(lbl, color, Vector2(ANCHO_LISTA, float(tam)), intensidad, 2.0)
+	var fx := Particulas.destellos(lbl, color, lbl.size, intensidad, 2.0)
 	# OBLIGATORIO: abrir un menu PARA el arbol (Game.abrir_menu), asi que sin esto los destellos se
 	# quedarian congelados justo donde se supone que se miran.
 	fx.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -225,6 +235,7 @@ static func titulo_item(vb: VBoxContainer, txt: String, color: Color, intensidad
 		fx.emission_rect_extents = Vector2(ancho * 0.5, lbl.size.y * 0.5)
 	lbl.resized.connect(ajustar)
 	ajustar.call()
+	return fx
 
 
 # `color_valor` (opcional) tiñe el VALOR. Se usa para el color de rareza (ver Upgrades.RAREZA_COLOR),

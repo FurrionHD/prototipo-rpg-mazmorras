@@ -722,6 +722,10 @@ func _bloque_arma(rol: String, nombre: String, permite_cambio: bool, on_cambiar:
 	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	n.add_theme_color_override("font_color", verde if item == null else Game.color_rareza_de(item))
 	head.add_child(n)
+	# Y sus destellos: el arma que LLEVAS PUESTA es un objeto protagonista, igual que el de una ficha.
+	# Con las manos vacias no hay nada que brille.
+	if item != null:
+		MenuScaffold.brillo_en(n, Game.color_rareza_de(item), Game.intensidad_rareza_de(item))
 
 	if permite_cambio:
 		var b := Button.new()
@@ -1075,9 +1079,13 @@ func _build_armadura_lista() -> void:
 		var l := Label.new()
 		l.text = nombre
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(l)
+		# Las cinco piezas que llevas puestas brillan cada una por su rareza. Son cinco emisores, no
+		# los 20-40 de una rejilla, y son justo las piezas de las que va esta pantalla.
+		# Un hueco vacio ("(sin pieza)") se queda sin color y sin brillo.
 		if pieza is ArmorData or pieza is BackpackData:
 			l.add_theme_color_override("font_color", Game.color_rareza_de(pieza))
-		row.add_child(l)
+			MenuScaffold.brillo_en(l, Game.color_rareza_de(pieza), Game.intensidad_rareza_de(pieza))
 		var ver := Button.new()
 		ver.text = "Ver ▶"
 		ver.pressed.connect(_abrir_slot.bind(slot))
