@@ -124,20 +124,27 @@ func _abrir_multi() -> void:
 # devuelve lo del mundo (baul, mapa, bosses) a como estaba al entrar y le deja en SU pueblo. Solo lo
 # dispara el host: dos saves autoritativos a la vez es justo el lio que el hito 6 viene a resolver.
 func _guardar() -> void:
+	# EL INVITADO TAMBIEN PUEDE. No guarda por su cuenta -- el mundo donde estais jugando es el del
+	# host y hay que volcarlo tambien -- asi que se lo PIDE, y el host hace lo mismo que si hubiera
+	# pulsado el boton el: se guarda, y de ahi salen los guardados de TODOS los invitados.
 	if Net.activo and not Net.es_host:
-		_aviso.text = "En multijugador guarda el anfitrion, por los dos."
+		Net.pedir_guardar_todos()
+		_aviso.text = "Guardando: se lo pides al anfitrión y quedáis todos a salvo."
 		return
 	var ok: bool = Perfil.guardar_actual()
 	if ok and Net.activo:
 		Net.guardar_todos()
-		_aviso.text = "Partida guardada (y tu compañero, a salvo en su pueblo)."
+		_aviso.text = "Partida guardada (y tus compañeros, a salvo en su pueblo)."
 		return
 	_aviso.text = "Partida guardada." if ok else "No se pudo guardar."
 
 
 func _guardar_y_salir() -> void:
+	# El invitado lo pide igual, pero con cerrando=true: el host guarda, cierra, y a cada invitado se
+	# le devuelve a su mundo con lo recien guardado (el camino de _guardar_ahora ya estaba escrito).
 	if Net.activo and not Net.es_host:
-		_aviso.text = "En multijugador guarda el anfitrion, por los dos."
+		Net.pedir_guardar_todos(true)
+		_aviso.text = "Guardando y cerrando: se lo pides al anfitrión."
 		return
 	if not Perfil.guardar_actual():
 		_aviso.text = "No se pudo guardar (no se sale)."

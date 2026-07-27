@@ -329,12 +329,29 @@ const MEJORA_METAL_BASE := 2
 const MEJORA_FIBRA_BASE := 1
 
 # Unidades de material que cuesta pasar de +k a +(k+1). PROVISIONAL -> Excel.
-static func material_para_mejora(mejoras_actuales: int) -> Dictionary:
+#
+# 'base' decide QUIEN manda de los dos. En una pieza normal manda el METAL (es la hoja, la placa),
+# y en un BASTON o una VARITA manda la MADERA, igual que al forjarlos (MIX_ARMA_MAGICA es
+# [0.25, 1.0, 0.15]: casi toda madera y un poco de contera). Antes esta funcion no miraba la pieza
+# y siempre pedia metal = fibra + 1, asi que mejorar un baston pedia mas hierro que madera --
+# exactamente lo contrario de con lo que se habia fabricado.
+static func material_para_mejora(mejoras_actuales: int, base: Resource = null) -> Dictionary:
 	var n: int = maxi(0, mejoras_actuales)
+	if es_arma_magica(base):
+		return {
+			"metal": MEJORA_FIBRA_BASE + n,   # la contera: lo menos
+			"fibra": MEJORA_METAL_BASE + n,   # el asta: lo que de verdad se rehace
+		}
 	return {
 		"metal": MEJORA_METAL_BASE + n,
 		"fibra": MEJORA_FIBRA_BASE + n,
 	}
+
+
+# El mismo criterio que usan Game._es_arma_magica y coste(): un baston (WeaponData con es_magica)
+# o una varita. Vive aqui ademas de en Game porque la math de la forja no debe depender del autoload.
+static func es_arma_magica(base: Resource) -> bool:
+	return base is WandData or (base is WeaponData and (base as WeaponData).es_magica)
 
 
 # item_tier = tier de la INSTANCIA del equipo (vive en su meta, no en el .tres base). -1 = no
@@ -378,7 +395,7 @@ static func fundir_material(base: Resource, mejoras: int) -> Dictionary:
 	# se colaba por ahi: fundirlo devolvia MADERA, que no lleva (MIX_ESCUDO es metal + cuero).
 	var fibra_es_madera: bool = madera > 0
 	for k in range(maxi(0, mejoras)):
-		var m: Dictionary = material_para_mejora(k)
+		var m: Dictionary = material_para_mejora(k, base)   # con la pieza: las magicas van al reves
 		metal += int(m["metal"])
 		if fibra_es_madera:
 			madera += int(m["fibra"])

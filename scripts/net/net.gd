@@ -351,6 +351,10 @@ func desconectar() -> void:
 		Game.almacen_materiales = lista
 		_almacen_guardado = false
 		_almacen_solo = []
+	# La foto de MI mundo al entrar de invitado (ver _congelar_mi_mundo) no sobrevive a la sesion:
+	# fuera de ella no hay nada que revertir, y dejarla puesta significaria que un guardado de
+	# invitado hecho por error volcaria el baul y el mapa de una sesion ya cerrada.
+	_mundo_propio = {}
 	_bote_mirror = 0
 	_cofre_mirror = []
 	_cofre_consum_mirror = {}
@@ -3664,6 +3668,8 @@ func mundo_propio_congelado() -> Dictionary:
 func guardar_todos(cerrando: bool = false) -> void:
 	if not activo or not es_host or multiplayer.multiplayer_peer == null:
 		return
+	# .rpc() sin rpc_id = a TODOS los peers. Con dos o tres invitados guardan todos, cada uno en su
+	# ranura: aqui no hay nada que asuma un solo invitado.
 	_guardar_ahora.rpc(cerrando)
 	if not cerrando:
 		return
@@ -3671,6 +3677,37 @@ func guardar_todos(cerrando: bool = false) -> void:
 	# mismo frame tiraria el paquete sin enviarlo (misma trampa que _rechazado). Sin esto el invitado
 	# se quedaria sin guardar.
 	await get_tree().create_timer(0.3).timeout
+
+
+# Lo llama el INVITADO desde el menu de pausa: guardar no es privilegio del host. El invitado no
+# puede guardar por su cuenta y ya (el host tiene que volcar SU mundo, que es donde estais jugando),
+# asi que se lo PIDE y el host hace exactamente lo mismo que si hubiera pulsado el boton el.
+func pedir_guardar_todos(cerrando: bool = false) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	if es_host:
+		return   # el host no se pide nada a si mismo: pause_menu ya llama a guardar_todos
+	_pedir_guardar.rpc_id(1, cerrando)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_guardar(cerrando: bool = false) -> void:
+	if not es_host:
+		return
+	# El guardado del host lo hace Game (es quien habla con Perfil: ver la nota de _guardar_ahora).
+	var ok: bool = Game.guardar_mi_partida()
+	var quien: int = multiplayer.get_remote_sender_id()
+	_aviso_guardado.rpc_id(quien, ok)
+	if ok:
+		# Y de aqui salen los guardados de TODOS los invitados, el que lo pidio incluido.
+		guardar_todos(cerrando)
+
+
+# Corre en el INVITADO que pidio guardar: si el host no pudo, que no se quede pensando que si.
+@rpc("authority", "call_remote", "reliable")
+func _aviso_guardado(ok: bool) -> void:
+	if not ok:
+		_toast("El anfitrión no ha podido guardar: tu partida tampoco se ha guardado.")
 
 
 # Corre en el INVITADO: guarda en SU ranura, en el pueblo de SU mundo.

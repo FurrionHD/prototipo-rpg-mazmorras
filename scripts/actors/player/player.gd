@@ -486,8 +486,19 @@ func refrescar_grupo() -> void:
 	_pintar_cuerpo()
 	if _sequito != null and _sequito.has_method("refrescar"):
 		_sequito.refrescar()
-	# MULTIJUGADOR: ha cambiado mi equipo, asi que los demas necesitan la cara nueva de mi sequito
-	# (su posicion ya viaja en cada tick, pero el aspecto solo cuando cambia).
+	# MULTIJUGADOR: ha cambiado mi equipo, asi que los demas necesitan las caras nuevas. Van las DOS
+	# mitades, y en este orden:
+	#
+	#  1) MI aspecto. Game.player_color/imagen/... son propiedades DELEGADAS al lider, asi que poner
+	#     a otro en cabeza cambia mi aspecto. Sin reemitirlo, el otro se quedaba con el del lider
+	#     anterior clavado en mi avatar principal -- y como ese mismo personaje aparecia ADEMAS
+	#     (bien) en mi sequito, veia dos cuerpos con la misma cara. No era un desfase: el avatar
+	#     principal se quedaba con el aspecto del saludo hasta que volvias a poner delante a ese.
+	#  2) EL SEQUITO. Va despues para que el avatar principal ya este repintado cuando cambien las
+	#     caras de detras: si no, hay un instante con dos iguales.
+	#
+	# Las dos son no-op sin sesion, y reparten a TODOS los peers (no asumen un solo invitado).
+	Net.anunciar_aspecto()
 	Net.anunciar_grupo()
 	_rehacer_barras()
 	_refrescar_barras()

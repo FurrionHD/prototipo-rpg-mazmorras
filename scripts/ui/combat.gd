@@ -192,6 +192,10 @@ var _dueno_aliado: Dictionary = {}
 # filtran en _aliados_vivos(), que es el embudo de a quien pegan, quien recibe area, cuando se
 # pierde y quien cobra el mana de la victoria.
 var _huidos: Dictionary = {}
+# Identidad de cada combatiente dentro de ESTA pelea (ver _uid_de). En el anfitrion se asigna sola;
+# en el espejo se copia del roster, para poder casar fila con maniqui sin depender del nombre.
+var _uid: Dictionary = {}
+var _uid_seq: int = 0
 # La cara de cada maniqui del espejo (Combatant -> ShaderMaterial), montada desde el PNG que viene
 # en el roster. Aqui no hay fichas locales de las que sacarla.
 var _mat_espejo: Dictionary = {}
@@ -354,6 +358,20 @@ func _combatientes_de_escaparate(datos: Array) -> Array:
 	return out
 
 
+# IDENTIDAD de un combatiente DENTRO de esta pelea. Hacia falta porque el espejo reconciliaba el
+# roster comparando el NOMBRE, y los enemigos no se desambiguan: un Slime que relevaba a un Slime
+# muerto -- el caso normal -- se tomaba por "el mismo de siempre" y su bloque no se reencendia
+# nunca. Se quedaba gris y sin poder seleccionarlo, para siempre.
+#
+# Va aqui y no en Combatant porque solo tiene sentido mientras dura la pelea. Como el relevo crea un
+# Combatant NUEVO, un hueco reestrenado recibe un uid distinto sin tener que contar reestrenos.
+func _uid_de(c: Combatant) -> int:
+	if not _uid.has(c):
+		_uid_seq += 1
+		_uid[c] = _uid_seq
+	return int(_uid[c])
+
+
 # UN maniqui a partir de su fila del roster. Suelto porque tambien lo usa aplicar_roster: los
 # combatientes que se unen a MITAD de pelea llegan de uno en uno.
 func _maniqui_de_fila(d: Dictionary) -> Combatant:
@@ -361,6 +379,10 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 	# maniqui de escaparate, asi que se crea con lo minimo y se le pisan los valores que SI se
 	# pintan. Ningun dado se tira contra el (eso pasa en la maquina que ejecuta la pelea).
 	var c := Combatant.new(String(d.get("nombre", "?")), 1, Abilities.new(), 1.0, 0.0, 0.0, 0.0)
+	# La identidad viene del anfitrion: es lo que deja reconocer un hueco reestrenado sin fiarse del
+	# nombre. El 0 de respaldo no casa con ningun uid real (empiezan en 1), asi que un roster viejo
+	# sin este campo hace que todo se trate como nuevo -- que es el lado seguro del error.
+	_uid[c] = int(d.get("uid", 0))
 	c.level = int(d.get("nivel", 1))
 	c.max_hp = float(d.get("max_hp", 1.0))
 	c.current_hp = float(d.get("hp", c.max_hp))
@@ -394,7 +416,7 @@ func _fila_de_roster(lista: Array) -> Array:
 		# El COLOR y la CARA salen de la ficha cuando la hay (los aliados): son los mismos con los
 		# que se les ve en el mapa. Los enemigos no tienen ficha y usan su color_visual.
 		var pj: PersonajeData = Game.pj_de_combatant(c)
-		out.append({"nombre": c.nombre, "nivel": c.level,
+		out.append({"nombre": c.nombre, "nivel": c.level, "uid": _uid_de(c),
 			"color": pj.color if pj != null else c.color_visual,
 			"metal": pj.metalico if pj != null else 0.0,
 			# La OPACIDAD del color sobre la imagen (color_alpha del shader). Sin ella el marcador
@@ -432,7 +454,10 @@ func aplicar_roster(roster: Dictionary) -> void:
 	var filas: Array = roster.get("enemigos", [])
 	for i in filas.size():
 		var d: Dictionary = filas[i]
-		if i < _enemies.size() and String(d.get("nombre", "")) == _enemies[i].nombre:
+		# Por UID, no por nombre: los enemigos no se desambiguan, asi que comparando el nombre un
+		# Slime que relevaba a un Slime muerto pasaba por "el mismo" y su bloque se quedaba apagado
+		# (gris y sin poder clicarlo) para el resto de la pelea.
+		if i < _enemies.size() and int(d.get("uid", 0)) == int(_uid.get(_enemies[i], -1)):
 			continue   # el mismo de siempre: sus numeros ya los trae la instantanea
 		var c: Combatant = _maniqui_de_fila(d)
 		if i < _enemies.size():
@@ -1710,6 +1735,22 @@ func _chips_de(c: Combatant) -> Array:
 		out.append(["⚡ %s" % c.charging.nombre,
 			"CARGANDO: %s\nSe dispara en %d turno%s.\nAturdirlo lo interrumpe." % [
 				c.charging.nombre, c.charge_left, "" if c.charge_left == 1 else "s"]])
+	# RECITANDO un hechizo. Hermano del chip de ataque cargado, y por el mismo motivo: un conjuro dura
+	# varios turnos y sin esto no habia forma de saber QUE esta recitando cada uno ni por donde va --
+	# ni de ti mismo cuando llevas grupo, ni del personaje del otro humano. Va aqui, en el sitio
+	# unico, asi que sale igual en tu pantalla y en la del que espeja la pelea.
+	if _casteos.has(c):
+		var sp: SpellData = _casteos[c]["spell"] as SpellData
+		if sp != null:
+			var i: int = int(_casteos[c]["idx"])
+			var total: int = sp.longitud()
+			if i >= total:
+				out.append(["🔮 %s ▶" % sp.nombre,
+					"%s: LISTO\nEl conjuro esta recitado entero: el proximo turno se lanza." % sp.nombre])
+			else:
+				out.append(["🔮 %s %d/%d" % [sp.nombre, i + 1, total],
+					("%s: recitando\nFrase %d de %d. Fallar una descontrola el conjuro"
+					+ " (daño propio) y te cuesta el maná igual.") % [sp.nombre, i + 1, total]])
 	# PROVOCANDO (taunt de escudo): sin esto no habia forma de saber si te quedaba taunt ni cuanto.
 	# Va en los chips como todo lo demas, asi que sirve igual para ti y para un companero.
 	if c.provocar_turnos > 0:
@@ -2227,8 +2268,13 @@ func _coste_efectivo(spell: SpellData) -> float:
 	return maxf(0.5, float(spell.coste_mana) * (1.0 - _player.mana_reduccion))
 
 
-# Empiezas a castear: se descuenta el mana YA (si fallas lo pierdes) y recitas la
+# Empiezas a castear: se COMPRUEBA que te llega el mana, pero NO se cobra todavia, y recitas la
 # primera frase en este MISMO turno.
+#
+# El cobro se hace al SOLTAR el hechizo (_disparar_hechizo) o al FALLAR una frase (_backfire).
+# Antes se cobraba aqui, antes de la primera frase, y eso te quitaba el mana por la cara cuando el
+# conjuro se caia por algo que no era culpa tuya: si mataban al ultimo enemigo mientras recitabas, o
+# si te tumbaban a ti, el mana se habia ido igual. Fallar SI sigue costandolo: eso si es tuyo.
 func _elegir_hechizo(spell: SpellData) -> void:
 	# ESPEJO: aqui solo se ELIGE. El conjuro entero (mana, frases y disparo) lo lleva el anfitrion;
 	# lo que se enruta despues, turno a turno, son las frases (ver _mostrar_test).
@@ -2237,11 +2283,8 @@ func _elegir_hechizo(spell: SpellData) -> void:
 		_state = State.ADVANCING
 		Net.enviar_accion({"tipo": "magia", "ruta": spell.resource_path})
 		return
-	var coste: float = _coste_efectivo(spell)
-	if not _player.has_mana(coste):
+	if not _player.has_mana(_coste_efectivo(spell)):
 		return
-	_player.spend_mana(coste)
-	_update_hp()
 	_cast_spell = spell
 	_cast_index = 0
 	_mostrar_test(0)
@@ -2324,6 +2367,9 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		else:
 			_set_log("✓ ¡Encantamiento completo! El proximo turno lo lanzas.")
 		_player.regen_energy(ATTACK_ENERGY_REGEN)   # recitar es un turno basico: regenera energia (KAN-57)
+		# Repinta el bloque: sin esto el chip del conjuro (ver _chips_de) se quedaba una frase
+		# atrasado, porque los chips solo se rehacen desde aqui.
+		_update_hp()
 		_fin_de_eleccion()
 		_state = State.ADVANCING
 	else:
@@ -2377,6 +2423,19 @@ func _disparar_hechizo() -> void:
 		Net.enviar_accion({"tipo": "disparar", "obj": _target_idx})
 		return
 	var spell := _cast_spell
+	# AQUI se paga el hechizo (ver _elegir_hechizo): al soltarlo, no al empezar a recitarlo. Se
+	# vuelve a comprobar porque entre la eleccion y este momento han pasado turnos y el mana puede
+	# haber bajado (otro conjuro, un drenaje futuro). Si no llega, el conjuro se disipa sin daño y
+	# sin cobrar: no se puede lanzar lo que no se puede pagar.
+	var coste: float = _coste_efectivo(spell)
+	if not _player.has_mana(coste):
+		_set_log("%s se queda sin maná y el conjuro se le deshace. 💨" % _player.nombre)
+		_limpiar_casteo()
+		_update_hp()
+		_fin_de_eleccion()
+		_tras_accion_jugador_varios([])
+		return
+	_player.spend_mana(coste)
 	# Objetivo PRINCIPAL, capturado una vez, como en el resto de acciones (ver _usar_habilidad).
 	# El area y los rebotes salen de el; y el sigue siendo el que cuenta para la Excelia y el DPS.
 	var obj: Combatant = _objetivo()
@@ -2789,10 +2848,13 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 			_set_log("✨ %s: %s recibe %s." % [spell.nombre, _etq(objetivo), nom])
 
 
-# Fallar una frase: el conjuro se descontrola. Daño propio (mayor cuanto mas
-# avanzado ibas), el mana ya gastado se pierde y el conjuro se interrumpe.
+# Fallar una frase: el conjuro se descontrola. Daño propio (mayor cuanto mas avanzado ibas), el
+# conjuro se interrumpe y AQUI se cobra el mana: el hechizo ya no se paga por adelantado (ver
+# _elegir_hechizo), pero equivocarse de frase sigue costandolo. Es lo unico que se pierde por tu
+# mano; que te lo tiren o que se acabe la pelea recitando ya no cobra nada.
 func _backfire() -> void:
 	var spell := _cast_spell
+	_player.spend_mana(_coste_efectivo(spell))
 	var dmg := StatsMath.backfire_damage(spell, _cast_index, spell.longitud())
 	_player.take_damage(dmg)
 	print("[magia] BACKFIRE %s | frase %d/%d | dano propio:%.2f" % [
@@ -3167,7 +3229,13 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	_set_log(msg)
 	_update_hp()
 	_fin_de_eleccion()
-	_tras_accion_jugador(obj)
+	# A TODOS los alcanzados, no solo al objetivo principal (misma regla que la magia de area).
+	# _tras_accion_jugador_varios es el UNICO camino que llama a _morir_enemigo, asi que rematando
+	# solo a 'obj' un enemigo que cayera como objetivo SECUNDARIO (area) o REDIRIGIDO no se apagaba
+	# nunca: se quedaba con el recuadro de vivo, los chips de sus estados congelados a la vista y su
+	# marca en la barra de turnos, pero sin poder atacarlo. Como todas las habilidades que alcanzan
+	# a secundarios llevan estado, parecia un bug "de los debuffs".
+	_tras_accion_jugador_varios(tocados if not tocados.is_empty() else [obj])
 
 
 # ============================================================

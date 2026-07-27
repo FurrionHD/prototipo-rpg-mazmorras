@@ -405,6 +405,10 @@ const RESIS_TANQUE_K := 0.25      # al que la atrae (grupo de 4: +14% sin provoc
 # mana_factor = coste_mana / MAGIA_COSTE_REF -> hechizos caros entrenan mas (ya
 # reflejan mas daño/potencia). Contra un slime: Chispa ~1.5, Bola ~3, Tormenta ~5.
 const GAIN_MAGIA_CAST := 0.4
+# Cuanto mas mana dan las armas magicas de lo que dice su ficha. Sube a la vez el goteo por turno y
+# el mana por victoria (ver loadout_mods). Vive AQUI y no en los .tres porque las armas ya forjadas
+# son copias congeladas en la partida y no verian el cambio.
+const MAGIA_REGEN_BONUS := 1.25
 const MAGIA_COSTE_REF := 4.0   # coste de referencia (Chispa) para el factor de mana
 # --- Dificultad de la extraccion ---
 # La exigencia sale del TIER (categoria) del cristal, NO del enemigo ni del piso: un cristal de
@@ -1473,6 +1477,19 @@ func guardar_partida_invitado() -> bool:
 	return Perfil.guardar_actual_con(exportar_partida_invitado())
 
 
+# Guarda MI partida, la que sea: la normal, o la de invitado si estoy jugando en el mundo de otro.
+# ES EL PUNTO UNICO que debe usar cualquier guardado que no sea el boton del menu de pausa.
+#
+# Sin esto habia dos autoguardados -- al MORIR y al SUBIR DE NIVEL -- que llamaban a
+# Perfil.guardar_actual() a pelo, o sea exportar_partida() entera. En un invitado eso volcaba en SU
+# ranura el baul, el mapa, los bosses y el PISO del mundo del HOST: justo lo que
+# exportar_partida_invitado existe para evitar.
+func guardar_mi_partida() -> bool:
+	if Net.activo and not Net.es_host:
+		return guardar_partida_invitado()
+	return Perfil.guardar_actual()
+
+
 # Recarga MI ranura tal y como esta en disco. La usa el invitado cuando el host guarda Y CIERRA: se
 # vuelve a su mundo leyendo lo que se acaba de guardar, que es la unica forma de asegurar que no se
 # lleva nada del mundo del host (baul, mapa, bosses, el piso en el que estaba).
@@ -1719,7 +1736,9 @@ func morir_jugador() -> void:
 	# La muerte se GUARDA SOLA: no vale morir y recargar la partida de hace un rato. Si se
 	# pudiera deshacer, el castigo por caer seria decorativo y la decision de "¿subo a vender
 	# o bajo un piso mas?" dejaria de tener peso.
-	Perfil.guardar_actual()
+	# Por guardar_mi_partida y no por Perfil a pelo: un INVITADO que muere en la mazmorra del host
+	# se guardaba con el baul, el mapa y el piso del host metidos en SU partida.
+	guardar_mi_partida()
 	_muriendo = false
 
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
@@ -3263,7 +3282,14 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		cast_vel_add += float(mo["cast_vel_add"])
 		cast_base = wand.cast_vel_mult   # al castear, la barra usa la velocidad de la varita
 	m["magic_amp"] = magic_amp
-	m["mp_regen_turno"] = mp_regen_turno
+	# El BONO va aqui, en la MECANICA, y no en el mp_regen_turno de baston.tres/varita.tres: los
+	# items son COPIAS (crear_item hace base.duplicate() y la copia se guarda en la partida), asi
+	# que tocar el .tres solo afectaria a los que se forjaran a partir de ahora. Puesto aqui vale
+	# tambien para el baston que ya llevas encima, porque esto se recalcula en cada
+	# crear_player_combatant.
+	# Un solo numero sube los DOS momentos en que el arma magica da mana: el goteo por turno en
+	# combate y el mana al ganarlo, porque StatsMath.mp_por_kill se calcula desde este mismo valor.
+	m["mp_regen_turno"] = mp_regen_turno * MAGIA_REGEN_BONUS
 	m["mana_reduccion"] = minf(0.25, mana_reduccion)
 	m["cast_velocidad_mult"] = cast_base * (1.0 + cast_vel_add)
 	return m
@@ -4990,7 +5016,7 @@ func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
 		return false
 	# Y el material de refuerzo (ver materiales_mejora).
 	var mats: Dictionary = materiales_mejora(item)
-	var c: Dictionary = Forge.material_para_mejora(mejoras_actuales(item))
+	var c: Dictionary = Forge.material_para_mejora(mejoras_actuales(item), item)
 	if mats["metal"] == null or mats["fibra"] == null:
 		return false
 	return unidades_material_en_hogar(mats["metal"]) >= int(c["metal"]) \
@@ -5005,7 +5031,7 @@ func mejorar_item(item: Resource, cat: String, nucleo: MaterialData) -> bool:
 	var nivel: int = mejoras_actuales(item)
 	var cuesta: int = Forge.nucleos_para_mejora(nivel, nucleo, item)
 	var mats: Dictionary = materiales_mejora(item)
-	var c: Dictionary = Forge.material_para_mejora(nivel)
+	var c: Dictionary = Forge.material_para_mejora(nivel, item)
 	_consumir_nucleos(nucleo, cuesta)
 	_consumir_unidades(mats["metal"], int(c["metal"]))
 	_consumir_unidades(mats["fibra"], int(c["fibra"]))
@@ -5958,7 +5984,7 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	player_current_hp = -1.0; player_current_mp = -1.0   # despiertas a tope tras el ascenso
 	print("[nivel] ¡Subes a nivel ", player_level, "! Base -> atk %.1f def %.1f hp %.1f spd %.1f mag %.1f" % [
 		player_base_attack, player_base_defense, player_base_hp, player_base_speed, player_base_magic])
-	Perfil.guardar_actual()
+	guardar_mi_partida()   # variante de invitado si toca (ver guardar_mi_partida)
 	return true
 
 

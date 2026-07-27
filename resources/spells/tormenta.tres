@@ -32,7 +32,7 @@ elemento_mix = {
 }
 hits = 20
 frases = Array[String](["Fulgor, desciende del cielo", "Truenos, romped el silencio", "El viento aullara conmigo"])
-coste_mana = 15
+coste_mana = 14
 dano_base = 46.0
 alcance = 1
 dano_salpicon = 1.0
