@@ -373,13 +373,39 @@ func _subpestanas(nombres: Array) -> void:
 
 # La cuadricula va a la columna de la LISTA y la ficha al panel de DETALLE: cada una con su
 # scroll, y la cabecera quieta arriba.
-func _grid_detail(labels: Array, preview: Callable) -> void:
+# 'tam' sube a tres lineas en Mejorar, que ademas del nombre y el tier dice quien la lleva puesta.
+func _grid_detail(labels: Array, preview: Callable, tam: Vector2 = Vector2(150, 44)) -> void:
 	if labels.is_empty():
 		_note(_content, "(nada por aquí)")
 		return
 	_sel = clampi(_sel, 0, labels.size() - 1)
-	MenuScaffold.cuadricula(_lista, labels, _sel, _pick)
+	MenuScaffold.cuadricula(_lista, labels, _sel, _pick, 2, tam)
 	preview.call(_content)
+
+
+# EN QUE SLOT va esta pieza. Hace falta porque owned_weapons es Array[Resource] y lleva dentro
+# armas, escudos y varitas mezclados: sin esto no se pueden separar por su sitio en el cuerpo.
+func _slot_de(item: Resource) -> String:
+	if item is ArmorData:
+		# ArmorData.Slot (CASCO..BOTAS) es 1:1 con Game.ARMOR_SLOT_ORDEN, en el mismo orden.
+		var i: int = int((item as ArmorData).slot)
+		return String(Game.ARMOR_SLOT_ORDEN[i]) if i >= 0 and i < Game.ARMOR_SLOT_ORDEN.size() else "pecho"
+	if item is BackpackData:
+		return "mochila"
+	if item is ShieldData or item is WandData:
+		return "off"
+	return "main"
+
+
+# Fila de subpestañas por SLOT. Son 7 (8 en Deshacer, con la mochila) y no caben en una fila de
+# MenuScaffold.pestanas, que es un HBox y no envuelve: se usa la cuadricula, que es un Grid y las
+# reparte en dos filas de cuatro sin que se salgan por el lado.
+func _subpestanas_slot(slots: Array) -> void:
+	var labels: Array = []
+	for s in slots:
+		labels.append("Arma" if s == "main" else ("Mochila" if s == "mochila" else SLOT_NOMBRES[s]))
+	MenuScaffold.cuadricula(_header, labels, _sub, _on_sub, 4, Vector2(0, 30))
+	_header.add_child(HSeparator.new())
 
 
 # ============================================================
@@ -1033,36 +1059,63 @@ func _on_forjar() -> void:
 #  Pestaña MEJORAR
 # ============================================================
 
+# Los slots que se ofrecen como subpestaña. Las MOCHILAS solo en DESHACER: no se mejoran (no
+# tienen ranuras), asi que en la pestaña de mejorar esa subpestaña saldria siempre vacia.
+func _slots_sub(con_mochila: bool) -> Array:
+	var out: Array = []
+	for s in Game.EQUIP_SLOTS:
+		out.append(s)
+	if con_mochila:
+		out.append("mochila")
+	return out
+
+
 func _build_mejorar() -> void:
 	_title(_header, "MEJORAR")
 	_note(_header, "Cada mejora sube el número base de la pieza (daño o defensa) y, además, lo suyo propio. El NÚCLEO manda: uno de slime no te lleva más allá de +3 por muchos huecos que tenga la pieza.")
-	_header.add_child(HSeparator.new())
-	_grid_detail(_labels_del_baul(), _preview_mejorar)
+	var slots: Array = _slots_sub(false)
+	_sub = clampi(_sub, 0, slots.size() - 1)
+	_subpestanas_slot(slots)
+	# Tres lineas (nombre, tier/rareza y QUIEN la lleva), asi que el boton necesita mas alto.
+	_grid_detail(_labels_del_baul(false, String(slots[_sub]), true), _preview_mejorar,
+		Vector2(150, 58))
 
 
 # La cuadricula del baul (armas + armaduras). La comparten MEJORAR y DESHACER, pero no enseñan
 # lo mismo: MEJORAR SI lista lo que llevas puesto (mejorar el arma que tienes en la mano la
 # mejora de verdad, sin desequiparla), y DESHACER no (no vas a fundir lo que llevas encima, y
 # enseñar una fila que no puedes tocar es peor que no enseñarla).
-func _labels_del_baul(sin_equipado: bool = false) -> Array:
+#
+# 'solo_slot' filtra por el sitio del cuerpo (la subpestaña activa); vacio = todo.
+# 'con_portador' añade quien la lleva puesta. Solo tiene sentido en MEJORAR: en DESHACER lo
+# equipado ni se lista, asi que ahi la respuesta seria siempre "nadie".
+func _labels_del_baul(sin_equipado: bool = false, solo_slot: String = "",
+		con_portador: bool = false) -> Array:
 	_stacks = []
+	var todo: Array = []
 	for w in Game.owned_weapons:
-		if not (sin_equipado and Game.item_equipado(w)):
-			_stacks.append({"modelo": w})
+		todo.append(w)
 	for a in Game.owned_armor:
-		if not (sin_equipado and Game.item_equipado(a)):
-			_stacks.append({"modelo": a})
-	# Las MOCHILAS solo en DESHACER: no se mejoran (no tienen ranuras), asi que en la pestaña de
-	# mejorar no pintarian nada. Descoserlas devuelve hebillas, correa y cuero (ver fundir_devuelve).
-	if sin_equipado:
-		for mo in Game.owned_mochilas:
-			if not Game.item_equipado(mo):
-				_stacks.append({"modelo": mo})
+		todo.append(a)
+	for mo in Game.owned_mochilas:
+		todo.append(mo)
+	for item in todo:
+		if sin_equipado and Game.item_equipado(item):
+			continue
+		if solo_slot != "" and _slot_de(item) != solo_slot:
+			continue
+		_stacks.append({"modelo": item})
 	var labels: Array = []
 	for s in _stacks:
 		var item: Resource = s["modelo"]
-		labels.append("%s%s\nT%d %s" % [str(item.get("nombre")), Game.item_plus(item),
-			int(Game.meta_de(item)["tier"]), Upgrades.rareza_nombre(int(Game.meta_de(item)["rareza"]))])
+		var linea: String = "%s%s\nT%d %s" % [str(item.get("nombre")), Game.item_plus(item),
+			int(Game.meta_de(item)["tier"]), Upgrades.rareza_nombre(int(Game.meta_de(item)["rareza"]))]
+		if con_portador:
+			# quien_lleva mira la PLANTILLA entera, no solo al lider: con grupo, saber de quien es
+			# cada pieza es justo lo que falta para no mejorar la del que no toca.
+			var duenno: PersonajeData = Game.quien_lleva(item)
+			linea += "\n%s" % (duenno.nombre if duenno != null else "en el baúl")
+		labels.append(linea)
 	return labels
 
 
@@ -1074,8 +1127,11 @@ func _labels_del_baul(sin_equipado: bool = false) -> Array:
 func _build_deshacer() -> void:
 	_title(_header, "DESHACER UNA PIEZA")
 	_note(_header, "A la fragua otra vez: recuperas la mitad de lo que costó hacerla, núcleos incluidos. Lo que llevas puesto ni sale aquí: quítatelo primero [C].")
-	_header.add_child(HSeparator.new())
-	_grid_detail(_labels_del_baul(true), _preview_deshacer)
+	var slots: Array = _slots_sub(true)
+	_sub = clampi(_sub, 0, slots.size() - 1)
+	_subpestanas_slot(slots)
+	# Sin portador: aqui lo equipado no se lista, asi que seria siempre "en el baúl".
+	_grid_detail(_labels_del_baul(true, String(slots[_sub])), _preview_deshacer)
 
 
 func _preview_deshacer(vb: VBoxContainer) -> void:
@@ -1137,48 +1193,106 @@ func _on_deshacer() -> void:
 #  El precio sube con el % roto (y un poco con tier / nº de mejoras). Ver Game.precio_reparar.
 # ============================================================
 
+const SLOT_NOMBRES := {"main": "Arma principal", "off": "Secundaria", "casco": "Casco",
+	"pecho": "Pecho", "manos": "Manos", "pantalones": "Pantalones", "botas": "Botas"}
+
+
+# UNA FILA de pieza: nombre a la izquierda, estado en su columna, y el boton SIEMPRE a la derecha.
+#
+# El boton se pinta este la pieza como este (a punto o hecha polvo) y con ancho FIJO. Antes era un
+# boton de ancho completo DEBAJO de la fila, y solo si habia algo que pagar: la lista se partia en
+# bloques y la columna bailaba segun que pieza estuviera rota. Manteniendo el hueco, el bloque no
+# cambia de forma y el ojo encuentra siempre el boton en el mismo sitio.
+func _fila_reparar(vb: VBoxContainer, etiqueta: String, estado: String, precio: int,
+		cb: Callable) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var k := Label.new()
+	k.text = etiqueta
+	k.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # se come el hueco sobrante
+	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
+	row.add_child(k)
+	# Ancho minimo para que la columna de numeros quede a plomo entre filas.
+	var v := Label.new()
+	v.text = estado
+	v.custom_minimum_size = Vector2(170, 0)
+	row.add_child(v)
+	var b := Button.new()
+	b.text = "Reparar · %d" % precio if precio > 0 else "A punto"
+	b.disabled = precio <= 0 or not Game.puede_pagar(precio)
+	b.custom_minimum_size = Vector2(150, 32)
+	b.clip_text = true
+	if precio > 0:
+		b.pressed.connect(cb)
+	row.add_child(b)
+	vb.add_child(row)
+
+
+# Las piezas de 'pj' que pasan por el herrero, en el orden de EQUIP_SLOTS.
+func _piezas_reparables(pj: PersonajeData) -> Array:
+	var out: Array = []
+	for slot in Game.EQUIP_SLOTS:
+		var item = pj.get("equipped_" + slot)
+		if item == null or (slot == "off" and not (item is WeaponData)):
+			continue   # la off puede llevar escudo/varita: eso no se repara aqui
+		out.append({"slot": slot, "item": item})
+	return out
+
+
 func _build_reparar() -> void:
 	_title(_header, "REPARAR EQUIPO")
 	_note(_header, "El equipo se desgasta al usarlo: gastado pega/protege menos, y ROTO se va a los suelos. El precio depende de lo roto que esté; el tier y las mejoras lo suben un poco. La mejora de Durabilidad hace que aguante más (y no encarece reparar).")
-	_header.add_child(HSeparator.new())
 
-	# TODO el grupo, no solo el que va en cabeza: cada uno lleva SU equipo y todos se desgastan
-	# peleando. Con el nombre delante para saber de quien es cada pieza.
-	const NOMBRES := {"main": "Arma principal", "off": "Secundaria", "casco": "Casco",
-		"pecho": "Pecho", "manos": "Manos", "pantalones": "Pantalones", "botas": "Botas"}
-	var algo: bool = false
-	for pj in Game.party:
-		var suyo: bool = false
-		for slot in Game.EQUIP_SLOTS:
-			var item = pj.get("equipped_" + slot)
-			if item == null or (slot == "off" and not (item is WeaponData)):
-				continue   # la off puede llevar escudo/varita: eso no se repara aqui
-			if not suyo:
-				suyo = true
-				algo = true
-				_title(_header, pj.nombre)
-			var frac: float = Game.durabilidad_slot(slot, pj)
-			var precio: int = Game.precio_reparar(slot, pj)
-			var maxd: float = Game.max_durabilidad(slot, pj)
-			# % (lo que manda para el precio) y, entre parentesis, los PUNTOS: el maximo sube con
-			# tier/rareza/mejoras, asi se ve de un vistazo cuanto aguanta esta pieza en concreto.
-			var estado: String = "ROTO  (0 / %.1f)" % maxd if frac <= 0.0 \
-				else "%d%%  (%.1f / %.1f)" % [int(round(frac * 100.0)), frac * maxd, maxd]
-			_row(_header, "%s · %s" % [NOMBRES[slot], str(item.get("nombre"))], estado)
-			if precio > 0:
-				_boton(_header, "Reparar  ·  %d monedas" % precio,
-					_on_reparar_slot.bind(slot, pj), Game.puede_pagar(precio))
-	if not algo:
-		_note(_header, "Nadie del grupo lleva nada equipado que reparar.")
-		return
-
-	_header.add_child(HSeparator.new())
+	# EL BOTON GLOBAL VA ARRIBA Y ANCLADO. Estaba al final de la lista, y como la lista se salia de
+	# la pantalla no habia manera de llegar a el. Mismo formato que el "Vender TODOS los cristales"
+	# de la tienda: un clic, sin modal, con el precio en el texto.
+	# Se queda SIEMPRE (apagado si no hay nada que hacer), igual que los botones de cada pieza: si
+	# apareciera y desapareciera, la cabecera daria un salto cada vez que reparas algo.
 	var total: int = Game.precio_reparar_todo()
-	if total > 0:
-		_boton(_header, "REPARAR TODO  ·  %d monedas" % total, _on_reparar_todo, Game.puede_pagar(total))
-	else:
-		_note(_header, "El equipo del grupo está a punto.")
+	_boton(_header, "REPARAR TODO EL GRUPO  ·  %d monedas" % total if total > 0
+		else "Todo el grupo está a punto", _on_reparar_todo, total > 0 and Game.puede_pagar(total))
 	_row(_header, "Tu dinero", "%d monedas" % Game.money)
+
+	if Game.party.is_empty():
+		return
+	# Una subpestaña por persona. El _sub se CLAMPA: si alguien sale del grupo con su pestaña
+	# abierta, el indice se quedaria fuera del array.
+	_sub = clampi(_sub, 0, Game.party.size() - 1)
+	if Game.party.size() > 1:
+		var labels: Array = []
+		for i in Game.party.size():
+			var corona: String = "👑 " if Game.party[i] == Game.lider() else ""
+			labels.append("%d. %s%s" % [i + 1, corona, Game.party[i].nombre])
+		_subpestanas(labels)
+	else:
+		_header.add_child(HSeparator.new())
+
+	# Y LA LISTA VA AL PANEL CON SCROLL, no a la cabecera. Meterla en _header era el bug: la
+	# cabecera del scaffold NUNCA scrollea, asi que con el grupo lleno lo de abajo no se veia.
+	var pj: PersonajeData = Game.party[_sub]
+	var piezas: Array = _piezas_reparables(pj)
+	if piezas.is_empty():
+		_note(_content, "%s no lleva nada equipado que se pueda reparar aquí." % pj.nombre)
+		return
+	for p in piezas:
+		var slot: String = String(p["slot"])
+		var item = p["item"]
+		var frac: float = Game.durabilidad_slot(slot, pj)
+		var maxd: float = Game.max_durabilidad(slot, pj)
+		# % (lo que manda para el precio) y, entre parentesis, los PUNTOS: el maximo sube con
+		# tier/rareza/mejoras, asi se ve de un vistazo cuanto aguanta esta pieza en concreto.
+		var estado: String = "ROTO  (0 / %.1f)" % maxd if frac <= 0.0 \
+			else "%d%%  (%.1f / %.1f)" % [int(round(frac * 100.0)), frac * maxd, maxd]
+		_fila_reparar(_content, "%s · %s" % [SLOT_NOMBRES[slot], str(item.get("nombre"))],
+			estado, Game.precio_reparar(slot, pj), _on_reparar_slot.bind(slot, pj))
+
+	_content.add_child(HSeparator.new())
+	# El "todo lo de esta persona". precio_reparar_todo/reparar_todo ya aceptan un pj y caen a la
+	# party entera si va null, asi que el de arriba y este son la misma funcion con y sin argumento.
+	var suyo: int = Game.precio_reparar_todo(pj)
+	_boton(_content, "Reparar todo lo de %s  ·  %d monedas" % [pj.nombre, suyo] if suyo > 0
+		else "%s está a punto" % pj.nombre,
+		_on_reparar_todo.bind(pj), suyo > 0 and Game.puede_pagar(suyo))
 
 
 func _on_reparar_slot(slot: String, pj: PersonajeData) -> void:
@@ -1189,10 +1303,11 @@ func _on_reparar_slot(slot: String, pj: PersonajeData) -> void:
 	_rebuild()
 
 
-func _on_reparar_todo() -> void:
-	var gastado: int = Game.reparar_todo()
+# Sin pj = el grupo entero (el boton de la cabecera); con pj = solo el suyo.
+func _on_reparar_todo(pj: PersonajeData = null) -> void:
+	var gastado: int = Game.reparar_todo(pj)
 	if gastado > 0:
-		_decir("Equipo reparado por %d monedas." % gastado)
+		_decir("%s reparado por %d monedas." % ["Equipo de " + pj.nombre if pj != null else "Equipo del grupo", gastado])
 	else:
 		_decir("No te llega para repararlo todo.", false)
 	_rebuild()
@@ -1201,6 +1316,11 @@ func _on_reparar_todo() -> void:
 func _preview_mejorar(vb: VBoxContainer) -> void:
 	var item: Resource = _stacks[_sel]["modelo"]
 	_title(vb, Game.item_display_name(item))
+
+	# Quien la lleva puesta, arriba del todo: si mejoras la pieza equivocada no hay vuelta atras
+	# (el material se gasta), asi que conviene verlo antes de tocar nada.
+	var duenno: PersonajeData = Game.quien_lleva(item)
+	_row(vb, "La lleva", duenno.nombre if duenno != null else "nadie (en el baúl)")
 
 	var meta: Dictionary = Game.meta_de(item)
 	var rareza: int = int(meta["rareza"])
