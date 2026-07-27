@@ -6210,7 +6210,7 @@ const PASIVAS_RNG: Array = [
 	{"id": "reco_talado", "nombre": "Leñador nato", "tipo": "reco", "reco": "talado",
 		"puro": true, "desc": "Sacas una madera de más cada vez que talas."},
 	{"id": "reco_extraccion", "nombre": "Pulso de joyero", "tipo": "reco", "reco": "extraccion",
-		"desc": "Extraes un cristal de más de cada cadáver."},
+		"joyero": true, "desc": "Extraes un cristal de más de cada cadáver."},
 ]
 
 # La pieza EXTRA de una pasiva de recoleccion puede salir PURA, pero solo si la recogida ha salido
@@ -6222,13 +6222,25 @@ const PASIVAS_RNG: Array = [
 # decide es tu mano. Recoger regular no da puros ni con la pasiva puesta.
 const PASIVA_RECO_PURO := 0.25
 
+# PULSO DE JOYERO ("joyero"), sobre lo que suelta el CUERPO al extraerle el cristal. Van SUMADOS a
+# la probabilidad del bicho, no multiplicados: el nucleo de un bicho corriente anda por el 5%, y un
+# ×1.05 sobre eso (un 5.25%) no lo notaria nadie. Sumando, ese mismo nucleo pasa al 10% -- el doble.
+# Por eso el numero del nucleo es la MITAD que el del material: sumar pesa mucho mas donde la
+# probabilidad de partida es pequeña, y con +10 en los dos el nucleo raro dejaba de ser raro.
+const PASIVA_JOYERO_DROP := 0.10     # material corriente (babas, pieles)
+const PASIVA_JOYERO_NUCLEO := 0.05   # nucleo
+
 # La descripcion de una pasiva, con lo que le añadan sus CAMPOS. El texto del catalogo es solo el
-# sabor; el porcentaje del puro sale de PASIVA_RECO_PURO, para que cambiar la constante cambie lo
-# que lee el jugador y no queden dos numeros distintos diciendo lo mismo.
+# sabor; los porcentajes salen de las constantes, para que cambiar una constante cambie lo que lee
+# el jugador y no queden dos numeros distintos diciendo lo mismo.
 func pasiva_desc(d: Dictionary) -> String:
 	var t: String = str(d.get("desc", ""))
 	if bool(d.get("puro", false)):
 		t += " Si la recogida sale perfecta, esa pieza de más tiene un %d%% de salir PURA." % roundi(PASIVA_RECO_PURO * 100.0)
+	if bool(d.get("joyero", false)):
+		t += " Sube un %d%% la probabilidad de que el cuerpo suelte su material y un %d%% la de su núcleo, y con una extracción perfecta cada pieza que suelte tiene un %d%% de salir PURA." % [
+			roundi(PASIVA_JOYERO_DROP * 100.0), roundi(PASIVA_JOYERO_NUCLEO * 100.0),
+			roundi(PASIVA_RECO_PURO * 100.0)]
 	return t
 
 func tiene_pasiva(id: String, pj: PersonajeData = null) -> bool:
@@ -7223,6 +7235,18 @@ func _on_extraction_finished(cristal: Cristal, corpse) -> void:
 #   - el NUCLEO: raro de verdad, va a mejorar el equipo.
 # Un bicho puede dejar los dos, uno, o ninguno. Aparecen en el SUELO (se recogen con F)
 # DESPUES de que el cuerpo se desvanezca.
+# Calidad de UNA pieza que suelta el cuerpo, con el Pulso de joyero puesto. Se tira POR PIEZA (una
+# piel puede salir pura y su nucleo no), y solo si la extraccion fue PERFECTA: la calidad del
+# material la hereda del cristal (ver _calidad_material_de_cristal), asi que INTACTO aqui significa
+# exactamente "sacaste el cristal sin una grieta".
+func _calidad_joyero(calidad: MaterialItem.Calidad, joyero: bool) -> MaterialItem.Calidad:
+	if not joyero or calidad != MaterialItem.Calidad.INTACTO:
+		return calidad
+	if randf() >= PASIVA_RECO_PURO:
+		return calidad
+	return MaterialItem.Calidad.PURO
+
+
 func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 	var data: EnemyData = corpse.data
 	var caidos: Array[MaterialItem] = []
@@ -7232,15 +7256,22 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 	# dos tiradas por igual, y los jefes salen a 1.0 solos (ver EnemyData.drop_factor_piso).
 	var f_piso: float = data.drop_factor_piso(current_floor)
 
-	var chance: float = 1.0 if dev_force_drop else data.drop_chance * f_piso
+	# PULSO DE JOYERO: sube las DOS probabilidades (ver PASIVA_JOYERO_*) y, si la extraccion salio
+	# perfecta, cada pieza que caiga puede salir PURA. El bonus se suma DESPUES del factor de piso:
+	# es tu pulso, no el bicho, asi que no se diluye por bajar a un piso donde ese bicho rinde poco.
+	var joyero: bool = tiene_pasiva("reco_extraccion")
+	var mas: float = PASIVA_JOYERO_DROP if joyero else 0.0
+	var mas_n: float = PASIVA_JOYERO_NUCLEO if joyero else 0.0
+
+	var chance: float = 1.0 if dev_force_drop else clampf(data.drop_chance * f_piso + mas, 0.0, 1.0)
 	if data.drop_material != null and randf() < chance:
 		var cuantos: int = randi_range(maxi(1, data.drop_cantidad_min), maxi(1, data.drop_cantidad_max))
 		for _i in range(cuantos):
-			caidos.append(MaterialItem.crear(data.drop_material, calidad))
+			caidos.append(MaterialItem.crear(data.drop_material, _calidad_joyero(calidad, joyero)))
 
-	var chance_n: float = 1.0 if dev_force_drop else data.nucleo_chance * f_piso
+	var chance_n: float = 1.0 if dev_force_drop else clampf(data.nucleo_chance * f_piso + mas_n, 0.0, 1.0)
 	if data.nucleo != null and randf() < chance_n:
-		caidos.append(MaterialItem.crear(data.nucleo, calidad))
+		caidos.append(MaterialItem.crear(data.nucleo, _calidad_joyero(calidad, joyero)))
 
 	if caidos.is_empty():
 		return
