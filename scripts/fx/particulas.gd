@@ -102,14 +102,17 @@ static func destellos(padre: Node, color: Color, zona: Vector2, intensidad := 1.
 	# true = el destello pertenece al objeto y viaja con el (al reves que el rastro).
 	p.local_coords = true
 	p.amount = maxi(3, roundi((3.0 + 4.0 * intensidad) * maxf(0.1, mult_cantidad)))
-	# Un destello dura ~1s. Nada de parpadeos de 3 frames: a esa velocidad no se lee como un brillo,
-	# se lee como ruido y cansa la vista. La aleatoriedad se queda BAJA (0.25 -> entre 0.82 y 1.1s)
-	# porque con randomness alta la mitad de los cuadrados salian de 0.3s y volvia el nervio.
+	# Un destello dura ~1.4s. Nada de parpadeos de 3 frames: a esa velocidad no se lee como un brillo,
+	# se lee como ruido y cansa la vista. La aleatoriedad se queda BAJA (0.25) porque con randomness
+	# alta la mitad de los cuadrados salian de 0.3s y volvia el nervio.
+	#
+	# La vida importa MAS de lo que parece: los tramos de la rampa (ver _rampa_destello) son
+	# porcentajes de ELLA, asi que con 1.1s la entrada duraba 0.4s y todavia se leia como un pop.
 	#
 	# OJO: 'amount' es el maximo de particulas VIVAS a la vez, asi que subir la vida no las multiplica
 	# -- baja el ritmo de nacimiento y deja el mismo numero en pantalla, cada una mas rato. Que es
 	# exactamente lo que se busca.
-	p.lifetime = 1.1
+	p.lifetime = 1.4
 	p.lifetime_randomness = 0.25
 	# 1.0 = cada destello va a su ritmo. A compas esto no parece un brillo, parece un indicador
 	# de UI parpadeando; el ritmo irregular es la mitad del efecto.
@@ -188,21 +191,26 @@ static func _realzar(color: Color) -> Color:
 	return c
 
 
-# Destello: APARECE, SE QUEDA un rato y desaparece. Es la diferencia con el rastro, que solo se va.
+# Destello: NACE DE LA NADA, sube, se queda a full UN INSTANTE y se desvanece. Es la diferencia con
+# el rastro, que solo se va.
 #
-# La MESETA (los dos puntos centrales con la misma alpha) es lo que lo hace parecer un cuadrado que
-# esta ahi y luego se apaga. Con un triangulo 0->1->0 el brillo nunca se para: sube y baja sin
-# descanso, y se lee como un latido en vez de como un destello.
+# El reparto del tiempo es lo unico que hace que esto se lea como un brillo y no como un cuadrado
+# que aparece y desaparece de golpe. La meseta es CORTA (el 20% de su vida): con la meseta larga que
+# habia antes -- entraba en el 20%, se mantenia hasta el 70% -- y el pico ya opaco, el destello se
+# pasaba media vida plano y las transiciones no se veian. Ahora se pasa el 80% del tiempo yendo o
+# viniendo, que es donde esta el efecto.
+#
+# Y la SALIDA es mas larga que la entrada (45% contra 35%), con un punto extra a media bajada para
+# que la cola no sea una recta: apagarse de golpe canta mucho mas que encenderse de golpe.
 static func _rampa_destello(color: Color, intensidad: float) -> Gradient:
-	# Practicamente opaco SIEMPRE. La escala de rango se cuenta en cuantos y como de grandes son
-	# (ver destellos), no en cuanto se transparentan: media opacidad sobre un cuerpo claro
-	# desaparece, y un destello que no se ve no dice nada de lo bueno que es el material.
+	# El PICO sigue siendo practicamente opaco, y eso no se toca: la escala de rango se cuenta en
+	# cuantos son y como de grandes (ver destellos), no en cuanto se transparentan. Media opacidad
+	# sobre un cuerpo claro desaparece, y un destello que no se ve no dice nada del material.
 	var a: float = clampf(0.85 + 0.15 * intensidad, 0.0, 1.0)
 	var transp := Color(color.r, color.g, color.b, 0.0)
 	var pleno := Color(color.r, color.g, color.b, a)
+	var cola := Color(color.r, color.g, color.b, a * 0.4)
 	var g := Gradient.new()
-	# Entra en el primer 20%, se mantiene hasta el 70%, y se va en el 30% restante (la salida mas
-	# lenta que la entrada: apagarse de golpe canta mucho mas que encenderse de golpe).
-	g.offsets = PackedFloat32Array([0.0, 0.2, 0.7, 1.0])
-	g.colors = PackedColorArray([transp, pleno, pleno, transp])
+	g.offsets = PackedFloat32Array([0.0, 0.35, 0.55, 0.78, 1.0])
+	g.colors = PackedColorArray([transp, pleno, pleno, cola, transp])
 	return g
