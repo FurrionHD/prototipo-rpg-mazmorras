@@ -312,29 +312,35 @@ func _build_mochilas() -> void:
 	var heb: MaterialData = hebillas[_heb_idx]
 	var coste: Dictionary = Game.MOCHILA_COSTE
 
-	# --- Metal de las hebillas: fija el TIER ---
-	var fila := GridContainer.new()
-	fila.columns = 2
-	fila.add_theme_constant_override("h_separation", 6)
-	fila.add_theme_constant_override("v_separation", 6)
-	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# --- El METAL, que es lo que fija el TIER de la mochila ---
+	# Va con la MISMA pinta que el resto de los selectores de material del juego (4 por fila y botones
+	# compactos, ver MenuScaffold.COLUMNAS_SELECTOR): esto era una rejilla a mano de 2 columnas que se
+	# estiraban a todo el ancho, con botones de medio metro para escribir tres palabras.
+	#
+	# Y las etiquetas van con el nombre CORTO del metal ("Cobre T1"), como en el herrero: en una fila
+	# de botones que dicen "Hebillas de cobre / Hebillas de hierro / Hebillas de acero", lo unico que
+	# NO estas eligiendo es la palabra que repiten -- y encima hacia que la rejilla pareciera la fila
+	# de ingredientes de abajo, repetida. Lo que eliges aqui es el metal; las hebillas son el
+	# ingrediente, y salen abajo con sus contadores.
+	MenuScaffold.titulo(_content, "Metal (fija el tier)", 13)
+	var etiquetas: Array = []
+	var apagados: Array = []
+	var pistas: Array = []
 	for i in hebillas.size():
 		var h: MaterialData = hebillas[i]
 		var tengo: int = Game.disponible_unidades_material_en_hogar(h)
-		var b := Button.new()
-		b.text = "%s (T%d) · %d uds" % [h.nombre, h.tier, tengo]
-		b.toggle_mode = true
-		b.clip_text = true
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.button_pressed = (i == _heb_idx)
-		b.disabled = tengo <= 0
-		b.pressed.connect(_on_hebillas.bind(i))
-		MenuScaffold.tintar(b, h.color_rango())   # mismo lenguaje de color que el resto de los menus
-		fila.add_child(b)
-	_content.add_child(fila)
+		etiquetas.append("%s T%d · %d uds" % [MenuScaffold.metal_corto(h), h.tier, tengo])
+		pistas.append("%s  ·  tienes %d unidades" % [h.nombre, tengo])
+		if tengo <= 0:
+			apagados.append(i)
+	MenuScaffold.cuadricula(_content, etiquetas, _heb_idx, _on_hebillas,
+		MenuScaffold.COLUMNAS_SELECTOR, MenuScaffold.TAM_SELECTOR,
+		MenuScaffold.colores_de(hebillas), apagados, pistas)
 
 	var tier: int = Forge.tier_de_metal(heb)
-	_row("Tier", "T%d  (por las hebillas de %s)" % [tier, heb.nombre.to_lower()])
+	# "por las %s" y no "por las hebillas de %s": el nombre YA empieza por "Hebillas de", asi que
+	# aquello escribia "por las hebillas de hebillas de hierro".
+	_row("Tier", "T%d  (por las %s)" % [tier, heb.nombre.to_lower()])
 
 	# La CORREA y el CUERO son los de ESE tier, no los de T1: las hebillas mandan y el resto de la
 	# cadena las sigue. Si a ese tier aun no le existe su correa (o su curtido), no hay mochila que

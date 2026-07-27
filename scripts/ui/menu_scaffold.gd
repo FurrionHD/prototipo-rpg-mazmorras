@@ -452,8 +452,12 @@ static func _d(antes: float, despues: float, fmt: String) -> String:
 #
 # Aqui NO van particulas, solo color: son 20-40 botones a la vez. Las particulas son de la ficha
 # (ver titulo_item).
+# `deshabilitados` = indices que se pintan apagados y no responden (no tienes material, la pieza no
+# encaja...). Va aqui para que las rejillas de los oficios no tengan que hacerse a mano solo por eso.
+# `tooltips` = texto largo por boton, para cuando la etiqueta va recortada al nombre corto.
 static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Callable,
-		columnas: int = 2, tam: Vector2 = Vector2(150, 44), colores: Array = []) -> void:
+		columnas: int = 2, tam: Vector2 = Vector2(150, 44), colores: Array = [],
+		deshabilitados: Array = [], tooltips: Array = []) -> void:
 	var grid := GridContainer.new()
 	grid.columns = maxi(1, columnas)
 	grid.add_theme_constant_override("h_separation", 6)
@@ -467,7 +471,12 @@ static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Call
 		b.clip_text = true
 		b.custom_minimum_size = tam
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.pressed.connect(pulsado.bind(i))
+		if i < tooltips.size() and str(tooltips[i]) != "":
+			b.tooltip_text = str(tooltips[i])
+		if deshabilitados.has(i):
+			b.disabled = true
+		else:
+			b.pressed.connect(pulsado.bind(i))
 		tintar(b, colores[i] if i < colores.size() else null)
 		grid.add_child(b)
 	vb.add_child(grid)
@@ -508,6 +517,19 @@ static func colores_de(stacks: Array) -> Array:
 		else:
 			out.append(color_de_item(s as Resource))
 	return out
+
+
+# El nombre CORTO de un material refinado, para las rejillas donde lo que eliges es el METAL y no la
+# pieza: "Lingote de cobre" -> "Cobre", "Hebillas de hierro" -> "Hierro".
+#
+# En una rejilla de tres botones que dicen "Hebillas de cobre / Hebillas de hierro / Hebillas de
+# acero", la palabra que repiten es la unica que NO estas eligiendo. Y en la pantalla de coser una
+# mochila era peor: hacia que la rejilla pareciera la fila de ingredientes repetida.
+static func metal_corto(m: MaterialData) -> String:
+	if m == null:
+		return "?"
+	var partes: PackedStringArray = m.nombre.split(" de ")
+	return (partes[partes.size() - 1] if partes.size() > 1 else m.nombre).capitalize()
 
 
 # Pone el color de texto de un boton en sus cuatro estados. Hace falta los cuatro porque el tema por

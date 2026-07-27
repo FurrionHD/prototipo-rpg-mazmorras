@@ -343,8 +343,7 @@ func _boton(vb: VBoxContainer, txt: String, cb: Callable, activo: bool = true) -
 # Solo el METAL, sin la forma: "Lingote de cobre" / "Chapa de cobre" -> "Cobre". En los
 # botones estrechos del panel de detalle lo que importa es cual de los tres metales es.
 func _metal_corto(m: MaterialData) -> String:
-	var partes: PackedStringArray = m.nombre.split(" de ")
-	return (partes[partes.size() - 1] if partes.size() > 1 else m.nombre).capitalize()
+	return MenuScaffold.metal_corto(m)
 
 
 # Texto de una calidad (el enum no esta ordenado: siempre pasar por aqui).
