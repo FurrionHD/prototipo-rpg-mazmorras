@@ -4288,11 +4288,11 @@ const _FORJA_METALES: Array = [
 	["res://resources/materials/cobre_veteado.tres",
 		"res://resources/materials/lingote_cobre_veteado.tres",
 		"res://resources/materials/chapa_cobre_veteado.tres",
-		"res://resources/materials/hebillas_cobre_veteado.tres"],            # T1 +1
+		"res://resources/materials/hebillas_cobre.tres"],            # T1 +1
 	["res://resources/materials/cobre_profundo.tres",
 		"res://resources/materials/lingote_cobre_profundo.tres",
 		"res://resources/materials/chapa_cobre_profundo.tres",
-		"res://resources/materials/hebillas_cobre_profundo.tres"],           # T1 +2
+		"res://resources/materials/hebillas_cobre.tres"],           # T1 +2
 	["res://resources/materials/hierro.tres",
 		"res://resources/materials/lingote_hierro.tres",
 		"res://resources/materials/chapa_hierro.tres",
@@ -4300,11 +4300,11 @@ const _FORJA_METALES: Array = [
 	["res://resources/materials/hierro_templado.tres",
 		"res://resources/materials/lingote_hierro_templado.tres",
 		"res://resources/materials/chapa_hierro_templado.tres",
-		"res://resources/materials/hebillas_hierro_templado.tres"],          # T2 +1
+		"res://resources/materials/hebillas_hierro.tres"],          # T2 +1
 	["res://resources/materials/hierro_negro.tres",
 		"res://resources/materials/lingote_hierro_negro.tres",
 		"res://resources/materials/chapa_hierro_negro.tres",
-		"res://resources/materials/hebillas_hierro_negro.tres"],             # T2 +2
+		"res://resources/materials/hebillas_hierro.tres"],             # T2 +2
 	["res://resources/materials/acero.tres",
 		"res://resources/materials/lingote_acero.tres",
 		"res://resources/materials/chapa_acero.tres",
@@ -4322,7 +4322,21 @@ const _CUEROS_CRUDOS: Array = [
 	"res://resources/materials/cuero_endurecido.tres",   # T2 +1    <- bestia acorazada
 	"res://resources/materials/cuero_placado.tres",      # T2 +2    <- bicho de los pisos hondos
 ]
-const _CORREA := "res://resources/materials/correa_cuero.tres"
+# Las CORREAS, por TIER, indexadas como _CUEROS: son los tirantes de la mochila, y cada tier se cose
+# con las suyas. Una correa sale del CURTIDO BASE de su mismo tier (ver correa_de_tier), asi que la
+# cadena entera de una mochila T2 es de T2: hebillas T2 + correa T2 + curtido base T2.
+#
+# Antes habia UNA sola correa y era T1, con lo que una mochila T2 se cosia con correa y cuero de T1 y
+# el tier lo ponia solo la hebilla. Eso hacia que subir de tier saliera casi gratis por dos de los
+# tres ingredientes.
+#
+# NO hay sub-tiers dentro de un tier a proposito: la mochila no tiene banda de mejora, asi que un
+# "+1" de correa no tendria donde notarse (mismo criterio que las hebillas). T3 entrara cuando exista
+# su curtido.
+const _CORREAS: Array = [
+	"res://resources/materials/correa_cuero.tres",        # T1  <- cuero curtido
+	"res://resources/materials/correa_reforzada.tres",    # T2  <- cuero reforzado y tratado
+]
 # CUEROS de forja por TIER (la fibra que acompaña a la CHAPA en la armadura, como la madera al
 # lingote en el arma). T1 = cuero curtido (sale del peletero); T2 = cuero reforzado (viene ya
 # curtido de los bichos hondos). Sin cuero a la altura del metal, la armadura de ese tier NO se
@@ -4373,15 +4387,46 @@ func metales_forja() -> Array:
 			out.append({"mineral": mineral, "lingote": lingote, "chapa": chapa, "hebillas": hebillas})
 	return out
 
+# Las HEBILLAS que existen: UNA por tier, la del metal BASE (cobre / hierro / acero).
+#
+# NO hay hebillas de sub-tier, y no es un olvido: la mochila no tiene banda de mejora, asi que el
+# sub-tier no tendria donde notarse -- fabricar_mochila solo mira Forge.tier_de_metal(hebillas), y
+# bonus_metal tambien va por tier. Unas hebillas de cobre veteado costaban mejor metal para dar
+# EXACTAMENTE el mismo resultado que las de cobre en bruto, asi que eran una trampa para el jugador.
 func hebillas_forja() -> Array:
 	var out: Array = []
+	var tiers_puestos: Dictionary = {}
 	for m in metales_forja():
-		out.append(m["hebillas"])
+		var h: MaterialData = m["hebillas"] as MaterialData
+		if h == null or tiers_puestos.has(int(h.tier)):
+			continue
+		tiers_puestos[int(h.tier)] = true
+		out.append(h)
 	return out
 
-# La CORREA: el otro ingrediente de la mochila, y lo que hace el peletero con el cuero curtido.
+# Las CORREAS que existen, por tier (espejo de cueros_forja).
+func correas_forja() -> Array:
+	var out: Array = []
+	for ruta in _CORREAS:
+		var c: Resource = load(ruta)
+		if c != null:
+			out.append(c)
+	return out
+
+
+# La correa de un TIER. null = no hay correa a esa altura, y entonces la mochila de ese tier NO se
+# cose: mismo freno que la armadura sin cuero a la altura del metal (ver fibra_de_forja).
+func correa_de_tier(tier: int) -> MaterialData:
+	for c in correas_forja():
+		if int((c as MaterialData).tier) == maxi(1, tier):
+			return c as MaterialData
+	return null
+
+
+# La correa de T1. Se deja para quien solo quiera "la correa de siempre"; lo que decide de verdad es
+# correa_de_tier, porque cada mochila pide la de SU tier.
 func correa() -> MaterialData:
-	return load(_CORREA) as MaterialData
+	return correa_de_tier(1)
 
 func lingotes_forja() -> Array:
 	var out: Array = []
@@ -4712,8 +4757,14 @@ func aserrar(madera: MaterialData, cal: int, veces: int) -> int:
 func hacer_hebillas(lingote: MaterialData, cal: int, veces: int) -> int:
 	return refinar(lingote, hebillas_de(lingote), cal, veces, Forge.LINGOTE_POR_HEBILLAS, "metalurgia")
 
-func hacer_correa(cal: int, veces: int) -> int:
-	return refinar(cuero_forja(), correa(), cal, veces, Forge.CUERO_POR_CORREA, "peleteria")
+# Cose correas del TIER pedido, gastando el curtido BASE de ese mismo tier. Sin correa (o sin curtido)
+# a esa altura no sale nada: es lo que hace que el T2 haya que ganarselo con cuero de T2.
+func hacer_correa(cal: int, veces: int, tier: int = 1) -> int:
+	var origen: MaterialData = cuero_de_tier(tier)
+	var destino: MaterialData = correa_de_tier(tier)
+	if origen == null or destino == null:
+		return 0
+	return refinar(origen, destino, cal, veces, Forge.CUERO_POR_CORREA, "peleteria")
 
 func hebillas_de(lingote: MaterialData) -> MaterialData:
 	return _mismo_metal(lingote, 1, 3)
@@ -5008,11 +5059,25 @@ func score_mochila(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Diction
 	return Forge.score_final(score_seleccion([sel_heb, sel_cor, sel_cue]),
 		Forge.bonus_herreria(peleteria_activa()), Forge.bonus_metal(hebillas))
 
+# La CORREA y el CUERO que pide una mochila salen del TIER de sus hebillas: la cadena entera de una
+# mochila T2 es de T2. Devuelven null si a ese tier todavia no le existe la pieza, y entonces esa
+# mochila no se puede coser (mismo freno que la armadura sin cuero a la altura del metal).
+func correa_de_mochila(hebillas: MaterialData) -> MaterialData:
+	return correa_de_tier(Forge.tier_de_metal(hebillas))
+
+func cuero_de_mochila(hebillas: MaterialData) -> MaterialData:
+	return cuero_de_tier(Forge.tier_de_metal(hebillas))
+
+
 func mochila_valida(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dictionary, sel_cue: Dictionary) -> bool:
 	if hebillas == null:
 		return false
-	if not _sel_disponible(hebillas, sel_heb) or not _sel_disponible(correa(), sel_cor) \
-			or not _sel_disponible(cuero_forja(), sel_cue):
+	var cor: MaterialData = correa_de_mochila(hebillas)
+	var cue: MaterialData = cuero_de_mochila(hebillas)
+	if cor == null or cue == null:
+		return false   # a ese tier aun no le existe su correa (o su curtido)
+	if not _sel_disponible(hebillas, sel_heb) or not _sel_disponible(cor, sel_cor) \
+			or not _sel_disponible(cue, sel_cue):
 		return false
 	return uds_seleccion(sel_heb) >= int(MOCHILA_COSTE["hebillas"]) \
 		and uds_seleccion(sel_cor) >= int(MOCHILA_COSTE["correa"]) \
@@ -5026,12 +5091,14 @@ func fabricar_mochila(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dict
 	var g_cue: Dictionary = recortar_seleccion(sel_cue, int(MOCHILA_COSTE["cuero"]))
 	var tier: int = Forge.tier_de_metal(hebillas)
 	var rareza: int = Forge.tirar_rareza(score_mochila(hebillas, sel_heb, sel_cor, sel_cue))
+	var cor: MaterialData = correa_de_mochila(hebillas)
+	var cue: MaterialData = cuero_de_mochila(hebillas)
 	_consumir_seleccion_material(hebillas, g_heb)
-	_consumir_seleccion_material(correa(), g_cor)
-	_consumir_seleccion_material(cuero_forja(), g_cue)
+	_consumir_seleccion_material(cor, g_cor)
+	_consumir_seleccion_material(cue, g_cue)
 	_tirar_devolucion(hebillas, g_heb, int(MOCHILA_COSTE["hebillas"]))
-	_tirar_devolucion(correa(), g_cor, int(MOCHILA_COSTE["correa"]))
-	_tirar_devolucion(cuero_forja(), g_cue, int(MOCHILA_COSTE["cuero"]))
+	_tirar_devolucion(cor, g_cor, int(MOCHILA_COSTE["correa"]))
+	_tirar_devolucion(cue, g_cue, int(MOCHILA_COSTE["cuero"]))
 	var m: Resource = crear_item(mochila_base(), tier, rareza, {})
 	peleteria_exp += _puntos_oficio("peleteria", tier)
 	print("[peletero] Coses una mochila con %s -> T%d %s (+%.0f de carga).  Peleteria %s" % [
@@ -5203,8 +5270,13 @@ func fundir_devuelve(item: Resource) -> Dictionary:
 			mats.append({"material": lingote, "uds": uds_metal})
 		var uds_cuero: int = int(floor(
 			float(int(MOCHILA_COSTE["correa"]) + int(MOCHILA_COSTE["cuero"])) * Forge.RECUPERACION))
-		if uds_cuero > 0:
-			mats.append({"material": cuero_forja(), "uds": uds_cuero})
+		# El cuero que sale es el de SU tier, no el de T1: una mochila T2 se cose con curtido de T2 y
+		# descoserla tiene que devolver eso mismo. Si ese tier no tiene curtido propio, cae al de T1.
+		var cue_dev: MaterialData = cuero_de_tier(int(meta_de(item)["tier"]))
+		if cue_dev == null:
+			cue_dev = cuero_forja()
+		if uds_cuero > 0 and cue_dev != null:
+			mats.append({"material": cue_dev, "uds": uds_cuero})
 		return {"materiales": mats, "nucleos": {}}
 	var mejoras: int = mejoras_actuales(item)
 	var f: Dictionary = Forge.fundir_material(item, mejoras)
@@ -5218,7 +5290,12 @@ func fundir_devuelve(item: Resource) -> Dictionary:
 		if mad != null:
 			materiales.append({"material": mad, "uds": int(f["madera"])})
 	if int(f["cuero"]) > 0:
-		materiales.append({"material": cuero_forja(), "uds": int(f["cuero"])})
+		# El curtido de SU tier, como el metal y la madera de arriba (antes salia siempre el de T1).
+		var cue: MaterialData = cuero_de_tier(tier)
+		if cue == null:
+			cue = cuero_forja()
+		if cue != null:
+			materiales.append({"material": cue, "uds": int(f["cuero"])})
 	return {
 		"materiales": materiales,
 		"nucleos": Forge.fundir_nucleos(escalera_nucleos(item), mejoras),

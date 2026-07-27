@@ -44,6 +44,9 @@ var _cue_idx: int = 0
 
 # --- MOCHILAS ---
 var _heb_idx: int = 0                # metal de las hebillas (fija el tier)
+# Tier de correa que se esta cosiendo en la pestaña CORREAS. Cada tier sale de SU curtido base,
+# asi que aqui si hay que elegir (antes solo existia la de T1 y no habia nada que elegir).
+var _cor_tier: int = 0
 var _sel_heb: Dictionary = {}
 var _sel_cor: Dictionary = {}
 var _sel_cue: Dictionary = {}
@@ -162,22 +165,44 @@ func _build_refinar(correas: bool) -> void:
 	if piel == null:
 		piel = Game.cuero_crudo()
 
-	var origen: MaterialData = Game.cuero_forja() if correas else piel
-	var destino: MaterialData = Game.correa() if correas else Game.curtido_de(piel)
+	# CORREAS: hay una por TIER, y cada una se cose con el curtido BASE de su mismo tier. Asi la
+	# cadena entera de una mochila T2 es de T2 (hebillas T2 + correa T2 + curtido T2) y subir de tier
+	# no sale gratis por dos de los tres ingredientes.
+	var correas_disp: Array = Game.correas_forja()
+	var cor_tier: int = 1
+	if correas and not correas_disp.is_empty():
+		var idx: int = clampi(_cor_tier, 0, correas_disp.size() - 1)
+		cor_tier = int((correas_disp[idx] as MaterialData).tier)
+
+	var origen: MaterialData = Game.cuero_de_tier(cor_tier) if correas else piel
+	var destino: MaterialData = Game.correa_de_tier(cor_tier) if correas else Game.curtido_de(piel)
 	var por_uno: int = Forge.CUERO_POR_CORREA if correas else Forge.CUERO_POR_CURTIDO
 	if destino == null:
 		destino = Game.cuero_forja()
+	if origen == null:
+		origen = Game.cuero_forja()
 
 	MenuScaffold.titulo(_header, "HACER CORREAS" if correas else "CURTIR")
 	if correas:
-		MenuScaffold.nota(_header, "%d cueros curtidos de la MISMA calidad = 1 correa. Son los tirantes de la mochila: sin ellas, un fardo de cuero es un fardo de cuero." % por_uno)
+		MenuScaffold.nota(_header, "%d de %s de la MISMA calidad = 1 correa de ese tier. Son los tirantes de la mochila: sin ellas, un fardo de cuero es un fardo de cuero. Cada tier de mochila pide la correa de SU tier." % [por_uno, origen.nombre.to_lower()])
 	else:
 		MenuScaffold.nota(_header, "%d pieles de la MISMA calidad = 1 cuero curtido de esa calidad. No se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón." % por_uno)
 	_header.add_child(HSeparator.new())
 
+	# CORREAS: una fila de botones con los tiers que existen. No se usa selector_material porque no hay
+	# sub-tiers que elegir dentro de un tier -- solo el tier.
+	if correas:
+		if correas_disp.size() > 1:
+			var etiquetas: Array = []
+			for c in correas_disp:
+				etiquetas.append("%s  T%d" % [(c as MaterialData).nombre, int((c as MaterialData).tier)])
+			MenuScaffold.cuadricula(_content, etiquetas, clampi(_cor_tier, 0, correas_disp.size() - 1),
+				_on_correa_tier, MenuScaffold.COLUMNAS_SELECTOR, MenuScaffold.TAM_SELECTOR,
+				MenuScaffold.colores_de(correas_disp))
+			_content.add_child(HSeparator.new())
+
 	# Selector en DOS niveles, igual que el herrero y el carpintero (ver
-	# MenuScaffold.selector_material). En CORREAS no hay nada que elegir: la tela de la mochila es
-	# siempre el curtido base, asi que ni se pinta.
+	# MenuScaffold.selector_material). Solo para CURTIR: ahi si hay una piel por sub-tier.
 	if not correas:
 		var elegida: MaterialData = MenuScaffold.selector_material(_content, pieles, "Piel",
 			_cue_tier, _cue_idx, _on_piel_tier, _on_piel)
@@ -199,7 +224,7 @@ func _build_refinar(correas: bool) -> void:
 			salen, func(n: int) -> void: _on_refinar(correas, c, n))
 	if not tengo_algo:
 		if correas:
-			_note("No tienes cuero curtido. Cúrtelo primero en la pestaña Curtir.")
+			_note("No tienes %s. Cúrtelo primero en la pestaña Curtir." % origen.nombre.to_lower())
 		else:
 			_note("No tienes pieles guardadas en el Hogar. Las sueltan los bichos con pelo; guárdalas al volver.")
 
@@ -215,6 +240,19 @@ func _build_refinar(correas: bool) -> void:
 		_note("Ningún %s todavía." % destino.nombre.to_lower())
 
 	_estado_peleteria()
+
+
+# Tier de la correa que se esta cosiendo ahora mismo en la pestaña CORREAS.
+func _tier_correa() -> int:
+	var lista: Array = Game.correas_forja()
+	if lista.is_empty():
+		return 1
+	return int((lista[clampi(_cor_tier, 0, lista.size() - 1)] as MaterialData).tier)
+
+
+func _on_correa_tier(i: int) -> void:
+	_cor_tier = i
+	_rebuild()
 
 
 func _on_piel_tier(i: int) -> void:
@@ -245,7 +283,7 @@ func _on_refinar(correas: bool, cal: int, veces: int) -> void:
 		_ocupado()
 		_rebuild()
 		return
-	var n: int = Game.hacer_correa(cal, veces) if correas else Game.curtir(cal, veces, _piel_elegida())
+	var n: int = Game.hacer_correa(cal, veces, _tier_correa()) if correas 		else Game.curtir(cal, veces, _piel_elegida())
 	if Net.activo:
 		Net.cerrar_taller()
 	if n > 0:
@@ -291,29 +329,38 @@ func _build_mochilas() -> void:
 		b.button_pressed = (i == _heb_idx)
 		b.disabled = tengo <= 0
 		b.pressed.connect(_on_hebillas.bind(i))
-		MenuScaffold.tintar(b, h.color_rango())   # sub-tier de la hebilla, mismo lenguaje que el resto
+		MenuScaffold.tintar(b, h.color_rango())   # mismo lenguaje de color que el resto de los menus
 		fila.add_child(b)
 	_content.add_child(fila)
 
 	var tier: int = Forge.tier_de_metal(heb)
 	_row("Tier", "T%d  (por las hebillas de %s)" % [tier, heb.nombre.to_lower()])
 
+	# La CORREA y el CUERO son los de ESE tier, no los de T1: las hebillas mandan y el resto de la
+	# cadena las sigue. Si a ese tier aun no le existe su correa (o su curtido), no hay mochila que
+	# coser y se dice en vez de dejarte pelear con contadores vacios.
+	var cor: MaterialData = Game.correa_de_mochila(heb)
+	var cue: MaterialData = Game.cuero_de_mochila(heb)
+	if cor == null or cue == null:
+		_note("Todavía no hay correas ni cuero a la altura del T%d: esa mochila no se puede coser aún." % tier)
+		return
+
 	# --- Contadores de los tres materiales ---
 	_content.add_child(HSeparator.new())
 	# MULTI: capar cada seleccion a lo disponible (por si el compañero reservó de lo mismo).
 	_capar(heb, _sel_heb)
-	_capar(Game.correa(), _sel_cor)
-	_capar(Game.cuero_forja(), _sel_cue)
+	_capar(cor, _sel_cor)
+	_capar(cue, _sel_cue)
 	# ... y publicar las tres como MI reserva, para que el otro las vea apartadas en vivo.
 	if Net.activo:
 		var claim: Dictionary = {}
 		_sumar_claim(claim, heb, _sel_heb)
-		_sumar_claim(claim, Game.correa(), _sel_cor)
-		_sumar_claim(claim, Game.cuero_forja(), _sel_cue)
+		_sumar_claim(claim, cor, _sel_cor)
+		_sumar_claim(claim, cue, _sel_cue)
 		Net.reservar(claim)
 	_contadores(heb, _sel_heb, int(coste["hebillas"]))
-	_contadores(Game.correa(), _sel_cor, int(coste["correa"]))
-	_contadores(Game.cuero_forja(), _sel_cue, int(coste["cuero"]))
+	_contadores(cor, _sel_cor, int(coste["correa"]))
+	_contadores(cue, _sel_cue, int(coste["cuero"]))
 	_note("Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la mochila: mejora la RAREZA, y con ella lo que te cabe dentro.")
 
 	# --- Rareza EN VIVO, y lo que daria cada una ---

@@ -429,6 +429,13 @@ func _build_refinar(que: int) -> void:
 	_note(_header, _nota_refinado(que, por_uno))
 	_header.add_child(HSeparator.new())
 
+	# HEBILLAS: solo el metal BASE de cada tier. La mochila no tiene banda de mejora, asi que su
+	# sub-tier no tendria donde notarse (fabricar_mochila solo mira el tier), y batir hebillas de cobre
+	# veteado seria gastar mejor metal para obtener exactamente lo mismo. Al quedar una sola opcion por
+	# tier, selector_material esconde su segunda fila el solo.
+	if que == Refinado.HEBILLAS:
+		metales = metales.filter(func(m): return int((m["mineral"] as MaterialData).mejora_min) == 0)
+
 	# Selector en DOS niveles (Metal T1/T2/T3 -> cual de esa gama). Ver
 	# MenuScaffold.selector_material. Se le pasa la columna que toque (mineral para fundir,
 	# lingote para batir) y luego se resuelve de vuelta a QUE FILA de la cadena es.
