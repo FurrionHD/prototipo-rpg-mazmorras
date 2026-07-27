@@ -435,6 +435,7 @@ const MAGIA_COSTE_REF := 4.0   # coste de referencia (Chispa) para el factor de 
 const EXTRACTION_REQ_POR_TIER: Array = [35.0, 35.0, 70.0, 130.0, 220.0, 320.0, 420.0, 520.0, 620.0, 720.0, 820.0]
 const EXTRACTION_REQ_STEP := 100.0   # exigencia extra por cada categoria por encima de la tabla
 const EXTRACTION_BASE_ZONE := 0.16      # tamaño de zona a dificultad 1
+const EXTRACTION_HITS_MIN := 2          # por bien que se te de, dos toques (uno seria "y listo")
 const EXTRACTION_DESTREZA_FLOOR := 30.0 # suelo de skill (subido de 20 al aplicar RECOLECCION_STAT_PESO: mantiene la dificultad del novato)
 const EXTRACTION_BASE_MARKER := 0.75    # velocidad del marcador a dificultad 1
 # TECHO de la velocidad del marcador (recorridos de la barra por segundo).
@@ -539,9 +540,17 @@ const TALA_PIVOTE := 1.5
 const TALA_SLOPE := 0.65
 const TALA_RETO_MAX := 5.0              # tope FISICO (la Agilidad es fisica, como la Fuerza)
 
-# Dificultad del ultimo minijuego de extraccion (para la ganancia de Destreza).
-var _last_extraction_zone: float = 0.13
-var _last_extraction_hits: int = 3
+# Dificultad CRUDA del ultimo minijuego de extraccion (para la ganancia de Destreza). Es el mismo
+# numero que _last_reco_reto en las otras tres profesiones: exigencia / (stat*peso + suelo).
+#
+# Antes se guardaban la ZONA y las PULSACIONES con que se abrio la pantalla y el reto se reconstruia
+# de ahi. Eso era medir el aprendizaje con la REGLA DE LA PRESENTACION, y la presentacion esta
+# topada por jugabilidad (la zona no pasa de 0.35 de la barra y las pulsaciones tienen minimo):
+# en cuanto superabas al bicho, los dos topes se activaban y el reto se CONGELABA en 0.139 para
+# siempre. Un cadaver de rata seguia enseñando lo mismo con Destreza 100 que con 2000, y ademas
+# daba igual el tier: los topes borraban la diferencia. Ahora se mide la dificultad de verdad y
+# baja hasta cero como las plantas, la mineria y la tala.
+var _last_extraction_reto: float = 1.0
 # MULTIJUGADOR: net_id del cuerpo que estoy extrayendo (0 = ninguno o partida en solitario). Hace
 # falta para DEVOLVER el candado si la extraccion se auto-cancela: en ese caso el nodo del cadaver ya
 # esta liberado y no se le puede preguntar su id (ver _on_extraction_finished).
@@ -7149,17 +7158,19 @@ func start_extraction(corpse: Node) -> void:
 	# Pulsaciones: base del enemigo, ajustadas por la DIFICULTAD:
 	#   dificil (enemigo muy superior) -> MAS pulsaciones (~2x = +1, ~3x = +2...);
 	#   facil (tu muy superior) -> MENOS. Y las herramientas restan.
-	# SIEMPRE minimo 3: una extraccion nunca es un "toque y listo".
+	# El minimo baja a DOS: superar a un bicho tiene que notarse en que lo despachas rapido, y con
+	# el suelo en tres, a un carnicero veterano una rata le costaba lo mismo que el primer dia. En
+	# uno no se queda a proposito: una extraccion no puede ser un "toque y listo".
 	var ajuste_hits: int = 0
 	if difficulty >= 1.0:
 		ajuste_hits = floori(difficulty) - 1
 	else:
 		ajuste_hits = -(floori(1.0 / difficulty) - 1)
-	var required_hits: int = maxi(3,
+	var required_hits: int = maxi(EXTRACTION_HITS_MIN,
 		data.extraction_hits + ajuste_hits - tool_hit_reduction)
-	# Guardamos la dificultad para la ganancia de Destreza al terminar.
-	_last_extraction_zone = zone_ratio
-	_last_extraction_hits = required_hits
+	# La dificultad CRUDA, que es la que enseña. Ni la zona ni las pulsaciones entran aqui: las dos
+	# estan topadas por jugabilidad y con ellas el aprendizaje se congelaba (ver _last_extraction_reto).
+	_last_extraction_reto = difficulty
 	# Marcador: mas rapido cuanto mas DIFICIL (ahora la dificultad la pone el TIER, no el piso),
 	# con TECHO y con SUELO (ver RECOLECCION_VEL_RETO_MIN: ser bueno no puede frenar el marcador).
 	var marker_speed: float = EXTRACTION_BASE_MARKER \
@@ -7232,14 +7243,12 @@ func _on_extraction_finished(cristal: Cristal, corpse) -> void:
 			" (", cristal.calidad_texto(), "). Total: ", crystals.size())
 		var cant_cristal: int = 2 if tiene_pasiva("reco_extraccion") else 1
 		_aviso_recogida("Cristal T%d" % cristal.categoria, cant_cristal, cristal.calidad_texto())
-		# Destreza: subes mas cuanto mas dificil era el minijuego PARA TI (zona
-		# pequeña + mas pulsaciones = reto alto). El reto ya es relativo a tu
-		# Destreza, asi que un experto sacando de un bicho flojo tiene reto bajo.
-		var reto_bruto: float = (EXTRACTION_BASE_ZONE / _last_extraction_zone) \
-			* (float(_last_extraction_hits) / 3.0)
-		var dificultad: float = curva_reto(reto_bruto, EXTRACTION_DESTREZA_PIVOTE,
-			EXTRACTION_DESTREZA_SLOPE, EXTRACTION_DESTREZA_RETO_MAX)
-		ganar("destreza", dificultad, GAIN_DESTREZA_MINIJUEGO)
+		# Destreza: subes mas cuanto mas dificil era el cuerpo PARA TI. Mismo trato exacto que las
+		# otras tres profesiones (ver _on_herboristeria_finished y sus hermanas): la dificultad
+		# cruda -> curva_reto -> ganar, con los mismos pivote/pendiente/tope. Asi un veterano
+		# destripando ratas deja de aprender, y un tier alto le sigue enseñando.
+		ganar("destreza", curva_reto(_last_extraction_reto, EXTRACTION_DESTREZA_PIVOTE,
+			EXTRACTION_DESTREZA_SLOPE, EXTRACTION_DESTREZA_RETO_MAX), GAIN_DESTREZA_MINIJUEGO)
 	else:
 		print("El cristal se rompio: lo has perdido.")
 
