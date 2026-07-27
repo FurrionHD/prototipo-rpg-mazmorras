@@ -322,14 +322,16 @@ func _build_mochilas() -> void:
 	# NO estas eligiendo es la palabra que repiten -- y encima hacia que la rejilla pareciera la fila
 	# de ingredientes de abajo, repetida. Lo que eliges aqui es el metal; las hebillas son el
 	# ingrediente, y salen abajo con sus contadores.
-	MenuScaffold.titulo(_content, "Metal (fija el tier)", 13)
+	MenuScaffold.titulo(_content, "Tier de la mochila (lo pone el metal de las hebillas)", 13)
 	var etiquetas: Array = []
 	var apagados: Array = []
 	var pistas: Array = []
 	for i in hebillas.size():
 		var h: MaterialData = hebillas[i]
 		var tengo: int = Game.disponible_unidades_material_en_hogar(h)
-		etiquetas.append("%s T%d · %d uds" % [MenuScaffold.metal_corto(h), h.tier, tengo])
+		etiquetas.append("T%d" % int(h.tier))
+		# El nombre y las existencias, a un hover. Aqui se ven ADEMAS abajo, en los contadores del
+		# ingrediente, asi que en el boton eran la tercera copia de lo mismo.
 		pistas.append("%s  ·  tienes %d unidades" % [h.nombre, tengo])
 		if tengo <= 0:
 			apagados.append(i)
@@ -337,10 +339,11 @@ func _build_mochilas() -> void:
 		MenuScaffold.COLUMNAS_SELECTOR, MenuScaffold.TAM_SELECTOR,
 		MenuScaffold.colores_de(hebillas), apagados, pistas)
 
+	# Aqui habia una fila "Tier: T2 (por las hebillas de hebillas de hierro)" -- con el nombre
+	# duplicado por un bug de texto, y encima repitiendo lo que ya dicen el boton pulsado (el tier) y
+	# el contador de abajo (que hebillas son). Fuera: lo que aporta el tier se ve en la tabla de
+	# "Rareza que puede salir", que ya da la carga de cada rareza a ESTE tier.
 	var tier: int = Forge.tier_de_metal(heb)
-	# "por las %s" y no "por las hebillas de %s": el nombre YA empieza por "Hebillas de", asi que
-	# aquello escribia "por las hebillas de hebillas de hierro".
-	_row("Tier", "T%d  (por las %s)" % [tier, heb.nombre.to_lower()])
 
 	# La CORREA y el CUERO son los de ESE tier, no los de T1: las hebillas mandan y el resto de la
 	# cadena las sigue. Si a ese tier aun no le existe su correa (o su curtido), no hay mochila que

@@ -813,34 +813,39 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 		_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int((base as ArmorData).slot), 0, 4)])
 	_row(vb, "Lleva", ", ".join(nombres_ing))
 
-	# --- Metal: fija el TIER (y empuja la rareza) ---
+	# --- El TIER de la pieza (lo pone el metal) ---
+	# Los botones dicen el TIER y NADA mas. Lo que eliges aqui es el tier: solo entra un metal por tier
+	# (lingotes_conocidos usa _formas_base), asi que el nombre del metal en cada boton era la palabra
+	# que menos pintaba -- y encima ya esta escrito arriba, en la fila "Lleva", que lista los
+	# ingredientes de verdad.
+	#
+	# Aqui habia ADEMAS una fila "Metal: Lingote de cobre -> Tier 1 (x1.00 al daño/defensa)" que
+	# repetia el nombre (ya en "Lleva") y el tier (ya en el boton pulsado). Fuera entera: el
+	# multiplicador se va al tooltip, que no gasta sitio, y donde de verdad se ve lo que aporta el tier
+	# es en la ficha de la pieza acabada.
+	#
+	# Y al quedar la etiqueta corta se caen los DOS por fila que habia: aquello era porque "Lingote de
+	# acero" no cabia en un panel estrecho, no una preferencia. Ahora van 4, como el resto de los
+	# selectores del juego (MenuScaffold.COLUMNAS_SELECTOR).
 	vb.add_child(HSeparator.new())
-	_row(vb, "Metal", "%s  →  Tier %d  (×%.2f al daño/defensa)" % [
-		metal.nombre, Forge.tier_de_metal(metal), Game.tier_mult(Forge.tier_de_metal(metal))])
-	# Botones cortos, de dos en dos y repartiendose el ancho: el panel de detalle es estrecho y
-	# con el nombre entero ("Lingote de acero") la fila se salia de la pantalla.
-	var fila := GridContainer.new()
-	fila.columns = 2
-	fila.add_theme_constant_override("h_separation", 6)
-	fila.add_theme_constant_override("v_separation", 6)
-	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var etiquetas: Array = []
+	var apagados: Array = []
+	var pistas: Array = []
 	for i in metales.size():
 		var m: MaterialData = metales[i]
 		var tengo: int = Game.disponible_unidades_material_en_hogar(m)
-		var b := Button.new()
-		b.text = "%s T%d · %d uds" % [_metal_corto(m), m.tier, tengo]
-		b.tooltip_text = m.nombre
-		b.toggle_mode = true
-		b.clip_text = true
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.button_pressed = (i == _lingote_idx)
-		b.disabled = tengo <= 0
-		b.pressed.connect(_on_lingote.bind(i))
-		# El rango del metal (gris/verde/azul por sub-tier): es lo que decide hasta que +N llega la
-		# pieza, y en texto los tres cobres se distinguen solo por el adjetivo.
-		MenuScaffold.tintar(b, m.color_rango())
-		fila.add_child(b)
-	vb.add_child(fila)
+		var t_m: int = Forge.tier_de_metal(m)
+		etiquetas.append("T%d" % t_m)
+		pistas.append("%s  ·  tienes %d unidades  ·  ×%.2f al daño/defensa" % [
+			m.nombre, tengo, Game.tier_mult(t_m)])
+		if tengo <= 0:
+			apagados.append(i)
+	# El tinte va por el RANGO del material. Hoy los tres son banda base, asi que salen los tres grises
+	# (o sea, igual que sin tinte): se deja puesto para que el dia que entre un sub-tier en esta lista
+	# ya diga lo que tiene que decir, sin acordarse de volver aqui.
+	MenuScaffold.cuadricula(vb, etiquetas, _lingote_idx, _on_lingote,
+		MenuScaffold.COLUMNAS_SELECTOR, MenuScaffold.TAM_SELECTOR,
+		MenuScaffold.colores_de(metales), apagados, pistas)
 
 	# Si a este metal le falta algun material a su altura, no hay nada que forjar: se corta y explica.
 	if falta_algo:
