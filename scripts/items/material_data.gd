@@ -201,6 +201,14 @@ func color_rango() -> Color:
 	return Upgrades.rareza_color(rango_color())
 
 
+# Lo ALTO que esta este material en su escala, 0..1. Alimenta el brillo de los destellos (el titulo de
+# su ficha y su nodo en el mapa): un cobre corriente da un parpadeo tenue y un nucleo de boss
+# centellea. Se normaliza con AMARILLO, el tope de las tres escalas de material, para que un verde de
+# mineral y un verde de baba brillen igual.
+func rango_intensidad() -> float:
+	return clampf(float(rango_color()) / float(Rango.AMARILLO), 0.0, 1.0)
+
+
 # Fase de pocion mas alta a la que sirve esta baba (0 = base). -1 si no esta en ninguna receta.
 func _fase_pocion() -> int:
 	return int(_indice_fases().get(id, 0))
@@ -270,6 +278,6 @@ func resumen() -> String:
 		if tier_equipo > 0:
 			uso = "%s T%d" % [uso, tier_equipo]
 		partes.append("mejora hasta +%d · %s" % [mejora_tope(), uso])
-	var pisos: String = "piso %d+" % piso_min if piso_max <= 0 else "pisos %d-%d" % [piso_min, piso_max]
-	partes.append(pisos)
+	# El PISO ya no sale aqui: en la ficha de un material que YA TIENES, saber de que profundidad
+	# venia no te sirve para nada. piso_min/piso_max siguen intactos -- los usa la generacion.
 	return "  ·  ".join(partes)

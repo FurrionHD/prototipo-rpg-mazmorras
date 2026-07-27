@@ -213,6 +213,14 @@ static func rareza_nombre(r: int) -> String:
 static func rareza_color(r: int) -> Color:
 	return RAREZA_COLOR[clampi(r, 0, RAREZA_COLOR.size() - 1)]
 
+# Lo ALTO que esta esta rareza en su escala, 0..1. Alimenta el brillo de los destellos del titulo
+# (ver MenuScaffold.titulo_item): un comun apenas centellea y un pristino centellea de verdad.
+# Se normaliza con el tope de ESTA escala (8 escalones) para que sea comparable con la de los
+# materiales (5), que tiene su propio MaterialData.rango_intensidad.
+static func rareza_intensidad(r: int) -> float:
+	var ultima: float = float(RAREZA_COLOR.size() - 1)
+	return clampf(float(r) / ultima, 0.0, 1.0)
+
 static func cat_nombre(cat: String) -> String:
 	return CAT_NOMBRE.get(cat, cat)
 

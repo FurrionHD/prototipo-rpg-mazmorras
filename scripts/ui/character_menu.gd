@@ -337,6 +337,7 @@ func _confirmar_robo(item: Resource, al_aceptar: Callable) -> void:
 	var it := Label.new()
 	it.text = Game.item_display_name(item)
 	it.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	it.add_theme_color_override("font_color", Game.color_rareza_de(item))
 	vb.add_child(it)
 
 	var botones := HBoxContainer.new()
@@ -367,11 +368,7 @@ func _confirmar_robo(item: Resource, al_aceptar: Callable) -> void:
 const AMBAR := Color(0.95, 0.72, 0.36)
 
 func _title(vb: VBoxContainer, txt: String, color: Color = AMBAR) -> void:
-	var l := Label.new()
-	l.text = txt
-	l.add_theme_color_override("font_color", color)
-	l.add_theme_font_size_override("font_size", 16)
-	vb.add_child(l)
+	MenuScaffold.titulo(vb, txt, 16, color)
 
 func _row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Variant = null) -> void:
 	var row := HBoxContainer.new()
@@ -672,7 +669,8 @@ func _build_armas() -> void:
 
 	# --- Principal ---
 	_content.add_child(HSeparator.new())
-	_bloque_arma("Principal", _main_nombre(_pj().equipped_main), pueblo, _abrir_cambio.bind("main"))
+	_bloque_arma("Principal", _main_nombre(_pj().equipped_main), pueblo, _abrir_cambio.bind("main"),
+		_pj().equipped_main)
 	if _pj().equipped_main == null:
 		_note(_content, "Sin arma: peleas a puños (poco daño, pero rápido y sin peso).")
 	_weapon_stats(_content, _pj().equipped_main)
@@ -681,7 +679,7 @@ func _build_armas() -> void:
 	_content.add_child(HSeparator.new())
 	var dos_manos: bool = Game.arma_main(_pj()).dos_manos and _pj().equipped_main != null
 	_bloque_arma("Secundaria", _off_nombre(_pj().equipped_off), pueblo and not dos_manos,
-		_abrir_cambio.bind("off"))
+		_abrir_cambio.bind("off"), _pj().equipped_off)
 	if dos_manos:
 		_note(_content, "El arma principal es a dos manos: no admite secundaria.")
 	else:
@@ -700,15 +698,31 @@ func _build_armas() -> void:
 			+ "crítico. La mejora de Rapidez de la secundaria cuenta la mitad que la de la principal.")
 
 
-# Cabecera de un bloque de arma: nombre + boton Cambiar (si procede).
-func _bloque_arma(rol: String, nombre: String, permite_cambio: bool, on_cambiar: Callable) -> void:
+# Cabecera de un bloque de arma: rol + nombre + boton Cambiar (si procede).
+#
+# El rol y el nombre van en DOS Labels y no en uno, aunque parezca una linea sola: el nombre lleva el
+# color de su RAREZA y la palabra "Principal:" no debe llevarlo (es una etiqueta, no una pieza). Con
+# un solo Label habria que elegir entre teñir las dos cosas o ninguna.
+#
+# `item` puede ser null (manos vacias / sin secundaria): entonces no hay rareza y el nombre se queda
+# en el verde de la etiqueta.
+func _bloque_arma(rol: String, nombre: String, permite_cambio: bool, on_cambiar: Callable,
+		item: Resource = null) -> void:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
+	var verde := Color(0.9, 0.95, 0.8)
+
 	var t := Label.new()
-	t.text = "%s:  %s" % [rol, nombre]
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t.add_theme_color_override("font_color", Color(0.9, 0.95, 0.8))
+	t.text = "%s:" % rol
+	t.add_theme_color_override("font_color", verde)
 	head.add_child(t)
+
+	var n := Label.new()
+	n.text = nombre
+	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	n.add_theme_color_override("font_color", verde if item == null else Game.color_rareza_de(item))
+	head.add_child(n)
+
 	if permite_cambio:
 		var b := Button.new()
 		b.text = "Cambiar"
@@ -785,7 +799,8 @@ func _build_armas_cambiar() -> void:
 	# "nada" en la rejilla: es el mismo boton, que se da la vuelta.
 	_build_cambiar_layout(labels, _arma_cand, disabled, _pick_arma,
 		_preview_arma, _equipar_arma, _cancelar_arma,
-		"Desequipar" if _arma_cand_equipada() else "Equipar")
+		"Desequipar" if _arma_cand_equipada() else "Equipar",
+		MenuScaffold.colores_de(catalogo))
 
 
 # True si el arma marcada ahora mismo es la que ya llevas en esa mano.
@@ -830,7 +845,8 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		if _arma_cand >= cat.size():
 			return
 		var w: WeaponData = cat[_arma_cand]
-		_title(vb, _main_nombre(w))
+		MenuScaffold.titulo_item(vb, _main_nombre(w), Game.color_rareza_de(w),
+			Game.intensidad_rareza_de(w))
 		_aviso_dueno(vb, w)
 		_weapon_stats(vb, w)
 		if w == _pj().equipped_main:
@@ -840,7 +856,8 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		if _arma_cand >= cat_off.size():
 			return
 		var item: Resource = cat_off[_arma_cand]
-		_title(vb, _off_nombre(item))
+		MenuScaffold.titulo_item(vb, _off_nombre(item), Game.color_rareza_de(item),
+			Game.intensidad_rareza_de(item))
 		_aviso_dueno(vb, item)
 		_off_stats(vb, item)
 		if item != null and item == _pj().equipped_off:
@@ -911,8 +928,6 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras)
 		var mgb: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, {})
 		_magic_stats(vb, mg, mgb, w.mp_regen_turno, w.cast_vel_mult)
-	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)],
-		Upgrades.rareza_color(rareza))
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
 	# DESGASTE: gastada pega menos y ROTA se va a los suelos. Se repara en el herrero.
 	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(w), Game.durabilidad_color(w))
@@ -1013,8 +1028,6 @@ func _off_stats(vb: VBoxContainer, item: Resource) -> void:
 		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, tm, rareza, mejoras)
 		var mgb: Dictionary = Upgrades.magic_mods(wd.magic_amp, tm, rareza, {})
 		_magic_stats(vb, mg, mgb, wd.mp_regen_turno, wd.cast_vel_mult)
-	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)],
-		Upgrades.rareza_color(rareza))
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
 	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
 	# En QUE se gastaron, en su propia linea: con 12 huecos (obra maestra) la lista no cabe
@@ -1054,9 +1067,16 @@ func _build_armadura_lista() -> void:
 			nombre = Game.item_display_name(pieza)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
+		# Slot y pieza en DOS Labels, por lo mismo que en _bloque_arma: el nombre lleva el color de su
+		# rareza y la palabra "Casco:" no, que es una etiqueta. Un hueco vacio se queda sin color.
+		var et := Label.new()
+		et.text = "%s:" % ARMOR_SLOT_LABELS[slot]
+		row.add_child(et)
 		var l := Label.new()
-		l.text = "%s:  %s" % [ARMOR_SLOT_LABELS[slot], nombre]
+		l.text = nombre
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if pieza is ArmorData or pieza is BackpackData:
+			l.add_theme_color_override("font_color", Game.color_rareza_de(pieza))
 		row.add_child(l)
 		var ver := Button.new()
 		ver.text = "Ver ▶"
@@ -1140,7 +1160,8 @@ func _build_armadura_slot(slot: String) -> void:
 	var disabled: Array = [_armor_cand] if not pueblo else []
 	_build_cambiar_layout(labels, _armor_cand, disabled, _pick_armor,
 		_preview_armor, _equipar_armor, _cerrar_slot,
-		"Desequipar" if _armor_cand_equipada() else "Equipar")
+		"Desequipar" if _armor_cand_equipada() else "Equipar",
+		MenuScaffold.colores_de(cat))
 
 
 # True si la pieza marcada ahora mismo es la que ya llevas puesta en ese slot.
@@ -1177,7 +1198,8 @@ func _preview_armor(vb: VBoxContainer) -> void:
 	var a: ArmorData = cat[_armor_cand]
 	# El nombre lleva el color de su rareza, igual que en la ficha del inventario: es la misma
 	# pregunta ("que pieza es esta") hecha en otro menu.
-	_title(vb, Game.item_display_name(a), Upgrades.rareza_color(int(Game.meta_de(a)["rareza"])))
+	MenuScaffold.titulo_item(vb, Game.item_display_name(a), Game.color_rareza_de(a),
+		Game.intensidad_rareza_de(a))
 	_aviso_dueno(vb, a)
 	if a == _pj().get("equipped_" + slot):
 		_note(vb, "Ya la llevas puesta: al quitarla vas ligero (+velocidad, 0 defensa).")
@@ -1209,8 +1231,6 @@ func _armor_stats(vb: VBoxContainer, a: ArmorData) -> void:
 		_row(vb, "  Resist. crítico", "+%s" % _fmt_pct(float(mods["crit_resist"])))
 	if float(mods["resist_estados"]) > 0.0:
 		_row(vb, "  Resist. estados", "+%s" % _fmt_pct(float(mods["resist_estados"])))
-	_row(vb, "  Tier / rareza", "T%d · %s" % [tier, Upgrades.rareza_nombre(rareza)],
-		Upgrades.rareza_color(rareza))
 	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
 	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
 	if not mejoras.is_empty():
@@ -1226,7 +1246,7 @@ func _armor_stats(vb: VBoxContainer, a: ArmorData) -> void:
 func _build_cambiar_layout(labels: Array, cand: int, disabled: Array,
 		on_pick: Callable, preview_builder: Callable,
 		on_equipar: Callable, on_cancel: Callable,
-		equipar_txt: String = "Equipar") -> void:
+		equipar_txt: String = "Equipar", colores: Array = []) -> void:
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 20)
 	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1248,6 +1268,7 @@ func _build_cambiar_layout(labels: Array, cand: int, disabled: Array,
 			b.disabled = true
 		else:
 			b.pressed.connect(on_pick.bind(i))
+		MenuScaffold.tintar(b, colores[i] if i < colores.size() else null)
 		grid.add_child(b)
 	hb.add_child(grid)
 

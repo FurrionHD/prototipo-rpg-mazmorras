@@ -150,12 +150,7 @@ const AMBAR := Color(0.95, 0.72, 0.36)
 
 # Devuelve el Label para poder colgarle cosas encima (ver _titulo_rareza).
 func _title(vb: VBoxContainer, txt: String, color: Color = AMBAR) -> Label:
-	var l := Label.new()
-	l.text = txt
-	l.add_theme_color_override("font_color", color)
-	l.add_theme_font_size_override("font_size", 16)
-	vb.add_child(l)
-	return l
+	return MenuScaffold.titulo(vb, txt, 16, color)
 
 
 # Titulo de una pieza de EQUIPO: su NOMBRE con el color de su rareza y los destellos centelleando
@@ -172,29 +167,19 @@ func _title(vb: VBoxContainer, txt: String, color: Color = AMBAR) -> Label:
 # Las particulas van en la ficha (= UN objeto protagonista) y NO en la cuadricula de la izquierda:
 # alli hay 20-40 botones a la vez y serian ruido y coste por nada.
 func _titulo_rareza(vb: VBoxContainer, item: Resource, sufijo: String = "") -> void:
-	var rareza: int = int(Game.meta_de(item)["rareza"])
-	var lbl := _title(vb, Game.item_display_name(item) + sufijo, Upgrades.rareza_color(rareza))
+	MenuScaffold.titulo_item(vb, Game.item_display_name(item) + sufijo,
+		Game.color_rareza_de(item), Game.intensidad_rareza_de(item))
 
-	# Un comun apenas centellea; un pristino centellea de verdad. Que la rareza se SIENTA y no solo
-	# se lea es medio efecto.
-	var ultima: float = float(Upgrades.RAREZA_COLOR.size() - 1)
-	# x2 de CANTIDAD (no de brillo): sobre un nombre entero, la cantidad de una veta se pierde.
-	var fx := Particulas.destellos(lbl, Upgrades.rareza_color(rareza),
-		Vector2(MenuScaffold.ANCHO_LISTA, 16.0), 0.25 + 0.75 * (float(rareza) / ultima), 2.0)
-	# OBLIGATORIO: abrir un menu PARA el arbol (Game.abrir_menu), asi que sin esto los destellos se
-	# quedarian congelados justo donde se supone que se miran.
-	fx.process_mode = Node.PROCESS_MODE_ALWAYS
 
-	# El tamaño real del Label no se sabe hasta que el contenedor lo coloca, asi que la zona de
-	# emision se ajusta con el layout en vez de clavarse a un numero. Se recorta al ANCHO DEL TEXTO
-	# (no al del Label, que se estira a toda la columna): los destellos tienen que estar sobre el
-	# nombre, no flotando en el hueco vacio que queda a su derecha.
-	var ajustar := func() -> void:
-		var ancho: float = minf(lbl.size.x, lbl.get_minimum_size().x)
-		fx.position = Vector2(ancho * 0.5, lbl.size.y * 0.5)
-		fx.emission_rect_extents = Vector2(ancho * 0.5, lbl.size.y * 0.5)
-	lbl.resized.connect(ajustar)
-	ajustar.call()
+# Lo mismo para un MATERIAL, con su color de RANGO en vez de rareza (ver MaterialData.rango_color):
+# gris/verde/azul para lo que se recolecta, hasta morado en las babas y amarillo en los nucleos.
+# Un cristal no entra: tiene su propia escala de categoria/calidad.
+func _titulo_material(vb: VBoxContainer, modelo: Resource, texto: String) -> void:
+	var data: MaterialData = (modelo as MaterialItem).data if modelo is MaterialItem else null
+	if data == null:
+		_title(vb, texto)
+		return
+	MenuScaffold.titulo_item(vb, texto, data.color_rango(), data.rango_intensidad())
 
 
 func _row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Variant = null) -> void:
@@ -235,7 +220,10 @@ func _grid_detail(labels: Array, preview: Callable) -> void:
 		_note(_content, "(vacío)")
 		return
 	_sel = clampi(_sel, 0, labels.size() - 1)
-	MenuScaffold.cuadricula(_lista, labels, _sel, _pick)
+	# Los colores salen de _stacks, la MISMA lista de la que salieron las etiquetas: asi no pueden
+	# desalinearse del nombre que acompañan (ver MenuScaffold.colores_de).
+	MenuScaffold.cuadricula(_lista, labels, _sel, _pick, 2, Vector2(150, 44),
+		MenuScaffold.colores_de(_stacks))
 	preview.call(_content)
 
 
@@ -321,7 +309,7 @@ func _preview_bolsa(vb: VBoxContainer) -> void:
 	var s: Dictionary = _stacks[_sel]
 	var modelo: Resource = s["modelo"]
 	var n: int = int(s["cantidad"])
-	_title(vb, _nombre_item(modelo).replace("\n", " "))
+	_titulo_material(vb, modelo, _nombre_item(modelo).replace("\n", " "))
 	_row(vb, "Cantidad", str(n))
 	if modelo is Cristal:
 		var c := modelo as Cristal
@@ -525,7 +513,7 @@ func _build_materiales() -> void:
 func _preview_material(vb: VBoxContainer) -> void:
 	var m: MaterialItem = _stacks[_sel]["modelo"]
 	var n: int = int(_stacks[_sel]["cantidad"])
-	_title(vb, m.nombre())
+	_titulo_material(vb, m, m.nombre())
 	_row(vb, "Cantidad", str(n))
 	if m.data != null:
 		_row(vb, "Material", m.data.resumen())

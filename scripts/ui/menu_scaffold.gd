@@ -177,12 +177,54 @@ static func decir(aviso: Label, txt: String, ok: bool = true) -> void:
 
 # --- Piezas sueltas que repiten los cinco menus ---
 
-static func titulo(vb: VBoxContainer, txt: String, tam: int = 16) -> void:
+# EL titulo de todos los menus. Devuelve el Label para poder colgarle cosas encima (ver titulo_item):
+# sin el retorno no habia forma de ponerle particulas desde fuera.
+#
+# OJO: esta es la UNICA implementacion. Habia CUATRO copias de esto (una por menu) y solo dos
+# aceptaban color, asi que el color de rareza se podia arreglar en un menu y seguir roto en los otros
+# tres -- que es exactamente lo que paso. Los _title locales delegan aqui; no volver a copiarlo.
+static func titulo(vb: VBoxContainer, txt: String, tam: int = 16, color: Color = AMBAR) -> Label:
 	var l := Label.new()
 	l.text = txt
-	l.add_theme_color_override("font_color", AMBAR)
+	l.add_theme_color_override("font_color", color)
 	l.add_theme_font_size_override("font_size", tam)
 	vb.add_child(l)
+	return l
+
+
+# Titulo de UN OBJETO: su nombre con el color de su escalon (rareza del equipo o rango del material)
+# y los destellos centelleando SOBRE el propio nombre. Es lo mismo dicho de tres maneras -- el
+# escalon escrito, el color y el brillo -- en el sitio donde miras primero.
+#
+# Los destellos son HIJOS del Label, no una banda aparte: los hijos de un CanvasItem se dibujan
+# DESPUES del padre, asi que caen por encima del texto, y al ser hijos heredan su colocacion (siguen
+# al nombre cuando el contenedor lo mueve).
+#
+# 'intensidad' (0..1) es lo alto que esta el escalon en SU escala: un comun apenas centellea y un
+# pristino centellea de verdad. La dan Upgrades.rareza_intensidad y MaterialData.rango_intensidad,
+# cada una normalizada con su propio tope (8 rarezas frente a 5 rangos).
+#
+# Va en la FICHA de detalle (un objeto protagonista = un emisor) y NUNCA en una rejilla: alli hay
+# 20-40 botones a la vez. Las rejillas llevan color, pero no particulas (ver cuadricula).
+static func titulo_item(vb: VBoxContainer, txt: String, color: Color, intensidad: float = 1.0,
+		tam: int = 16) -> void:
+	var lbl := titulo(vb, txt, tam, color)
+	# x2 de CANTIDAD (no de brillo): sobre un nombre entero, la cantidad de una veta se pierde.
+	var fx := Particulas.destellos(lbl, color, Vector2(ANCHO_LISTA, float(tam)), intensidad, 2.0)
+	# OBLIGATORIO: abrir un menu PARA el arbol (Game.abrir_menu), asi que sin esto los destellos se
+	# quedarian congelados justo donde se supone que se miran.
+	fx.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	# El tamaño real del Label no se sabe hasta que el contenedor lo coloca, asi que la zona de
+	# emision se ajusta con el layout en vez de clavarse a un numero. Se recorta al ANCHO DEL TEXTO
+	# (no al del Label, que se estira a toda la columna): los destellos tienen que estar sobre el
+	# nombre, no flotando en el hueco vacio que queda a su derecha.
+	var ajustar := func() -> void:
+		var ancho: float = minf(lbl.size.x, lbl.get_minimum_size().x)
+		fx.position = Vector2(ancho * 0.5, lbl.size.y * 0.5)
+		fx.emission_rect_extents = Vector2(ancho * 0.5, lbl.size.y * 0.5)
+	lbl.resized.connect(ajustar)
+	ajustar.call()
 
 
 # `color_valor` (opcional) tiñe el VALOR. Se usa para el color de rareza (ver Upgrades.RAREZA_COLOR),
@@ -391,8 +433,16 @@ static func _d(antes: float, despues: float, fmt: String) -> String:
 # Cuadricula de botones. Por defecto 2 columnas de 150x44 (la columna de la LISTA de items, que
 # lleva nombres largos). Los selectores de material pasan mas columnas y botones mas bajos: sus
 # etiquetas son cortas y con 2 por fila la lista se iba a lo alto sin necesidad.
+#
+# `colores` es OPCIONAL y va en paralelo a `labels`: si trae un Color en la posicion i, ese boton
+# escribe su texto con el. Es para el color de rareza / de rango del material, y aqui importa mas que
+# en la ficha: la rejilla es donde ELIGES la pieza, asi que el color tiene que llegar ANTES de pulsar
+# y no solo despues. Vacio (o con un no-Color) = como siempre.
+#
+# Aqui NO van particulas, solo color: son 20-40 botones a la vez. Las particulas son de la ficha
+# (ver titulo_item).
 static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Callable,
-		columnas: int = 2, tam: Vector2 = Vector2(150, 44)) -> void:
+		columnas: int = 2, tam: Vector2 = Vector2(150, 44), colores: Array = []) -> void:
 	var grid := GridContainer.new()
 	grid.columns = maxi(1, columnas)
 	grid.add_theme_constant_override("h_separation", 6)
@@ -407,8 +457,59 @@ static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Call
 		b.custom_minimum_size = tam
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(pulsado.bind(i))
+		tintar(b, colores[i] if i < colores.size() else null)
 		grid.add_child(b)
 	vb.add_child(grid)
+
+
+# El color que le toca a un item en una lista, o null si no tiene escala:
+#   equipo (arma/escudo/varita/armadura/mochila) -> su RAREZA
+#   material                                     -> su RANGO (banda / fase de pocion / nucleo)
+#   cristal, pocion, o nada                      -> null (el cristal tiene su propia escala de
+#                                                   categoria y calidad, que no es esta)
+# Las clases se miran una a una a proposito: Game.meta_de solo entiende de equipo, asi que
+# preguntarle por una pocion seria buscarse un problema.
+static func color_de_item(m: Resource) -> Variant:
+	if m == null:
+		return null
+	if m is MaterialItem:
+		var d: MaterialData = (m as MaterialItem).data
+		return d.color_rango() if d != null else null
+	if m is MaterialData:
+		return (m as MaterialData).color_rango()
+	if m is WeaponData or m is ShieldData or m is WandData or m is ArmorData or m is BackpackData:
+		return Game.color_rareza_de(m)
+	return null
+
+
+# Colores de una lista de stacks (`[{modelo: Resource, ...}, ...]`, que es como los guardan los tres
+# menus con rejilla) o de Resources a pelo.
+#
+# Se derivan de los STACKS y no se pasan a mano junto a las etiquetas a proposito: las etiquetas
+# salen de la misma lista y en el mismo orden, asi que asi es IMPOSIBLE que los colores se
+# desalineen de los nombres. Un array paralelo construido aparte se habria descolgado en cuanto
+# alguien filtrase una de las dos listas.
+static func colores_de(stacks: Array) -> Array:
+	var out: Array = []
+	for s in stacks:
+		if s is Dictionary:
+			out.append(color_de_item((s as Dictionary).get("modelo") as Resource))
+		else:
+			out.append(color_de_item(s as Resource))
+	return out
+
+
+# Pone el color de texto de un boton en sus cuatro estados. Hace falta los cuatro porque el tema por
+# defecto de Godot tiene un font_color propio para hover/pressed/disabled: sin ellos el color de
+# rareza se PERDIA al pasar el raton por encima o al quedarse el boton pulsado (y en estas rejillas el
+# seleccionado esta pulsado siempre, o sea que era justo el que no se veia).
+#
+# Acepta Variant para poder decir "sin tinte" con null, igual que fila().
+static func tintar(b: Button, color: Variant) -> void:
+	if not (color is Color):
+		return
+	for estado in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(estado, color)
 
 
 # ------------------------------------------------------------
@@ -474,11 +575,14 @@ static func selector_material(vb: VBoxContainer, mats: Array, nombre_gama: Strin
 	# acero, o cualquier tier que aun no se haya desdoblado) una fila de un boton solo estorba.
 	var subs: Array = del_tier(mats, t)
 	if subs.size() > 1:
+		# Esta es la rejilla que MAS gana con el color: elegir sub-tier es elegir hasta que +N vas a
+		# poder mejorar la pieza (ver MaterialData.cubre_mejora), y los tres cobres son marrones a 0.06
+		# de distancia. Con el rango pintado, gris/verde/azul se lee sin abrir nada.
 		var etiquetas_sub: Array = []
 		for m in subs:
 			etiquetas_sub.append((m as MaterialData).nombre)
 		cuadricula(vb, etiquetas_sub, clampi(sub_sel, 0, subs.size() - 1), on_sub,
-			COLUMNAS_SELECTOR, TAM_SELECTOR)
+			COLUMNAS_SELECTOR, TAM_SELECTOR, colores_de(subs))
 	return subs[clampi(sub_sel, 0, subs.size() - 1)] as MaterialData
 
 

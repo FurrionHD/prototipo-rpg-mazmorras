@@ -455,6 +455,7 @@ func _build_cofre() -> void:
 		var l := Label.new()
 		l.text = Game.item_display_name(item)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.add_theme_color_override("font_color", Game.color_rareza_de(item))
 		fila.add_child(l)
 		var meter := Button.new()
 		meter.text = "Al cofre"
@@ -484,6 +485,9 @@ func _build_cofre() -> void:
 		var l := Label.new()
 		l.text = str(entrada.get("desc", "?"))
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# La rareza viaja YA dentro de la entrada serializada (ver Game._item_a_dict del cofre), asi que
+		# aqui no hay que reconstruir la pieza para saber de que color va su nombre.
+		l.add_theme_color_override("font_color", Upgrades.rareza_color(int(entrada.get("rareza", 0))))
 		fila.add_child(l)
 		var sacar := Button.new()
 		sacar.text = "Sacar"

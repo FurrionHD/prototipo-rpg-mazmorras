@@ -279,12 +279,8 @@ func _decir(txt: String, ok: bool = true) -> void:
 #  Helpers de UI
 # ============================================================
 
-func _title(vb: VBoxContainer, txt: String) -> void:
-	var l := Label.new()
-	l.text = txt
-	l.add_theme_color_override("font_color", AMBAR)
-	l.add_theme_font_size_override("font_size", 16)
-	vb.add_child(l)
+func _title(vb: VBoxContainer, txt: String, color: Color = AMBAR) -> void:
+	MenuScaffold.titulo(vb, txt, 16, color)
 
 func _row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Variant = null) -> void:
 	var row := HBoxContainer.new()
@@ -379,7 +375,10 @@ func _grid_detail(labels: Array, preview: Callable, tam: Vector2 = Vector2(150, 
 		_note(_content, "(nada por aquí)")
 		return
 	_sel = clampi(_sel, 0, labels.size() - 1)
-	MenuScaffold.cuadricula(_lista, labels, _sel, _pick, 2, tam)
+	# Los colores salen de _stacks, la MISMA lista de la que salieron las etiquetas: asi no pueden
+	# desalinearse del nombre que acompañan (ver MenuScaffold.colores_de).
+	MenuScaffold.cuadricula(_lista, labels, _sel, _pick, 2, tam,
+		MenuScaffold.colores_de(_stacks))
 	preview.call(_content)
 
 
@@ -831,6 +830,9 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 		b.button_pressed = (i == _lingote_idx)
 		b.disabled = tengo <= 0
 		b.pressed.connect(_on_lingote.bind(i))
+		# El rango del metal (gris/verde/azul por sub-tier): es lo que decide hasta que +N llega la
+		# pieza, y en texto los tres cobres se distinguen solo por el adjetivo.
+		MenuScaffold.tintar(b, m.color_rango())
 		fila.add_child(b)
 	vb.add_child(fila)
 
@@ -1137,7 +1139,8 @@ func _build_deshacer() -> void:
 
 func _preview_deshacer(vb: VBoxContainer) -> void:
 	var item: Resource = _stacks[_sel]["modelo"]
-	_title(vb, Game.item_display_name(item))
+	MenuScaffold.titulo_item(vb, Game.item_display_name(item), Game.color_rareza_de(item),
+		Game.intensidad_rareza_de(item))
 
 	var d: Dictionary = Game.fundir_devuelve(item)
 	# Una mochila no se mejora ni se desgasta: enseñarle "+0" y una durabilidad seria ruido. Lo que
@@ -1316,7 +1319,8 @@ func _on_reparar_todo(pj: PersonajeData = null) -> void:
 
 func _preview_mejorar(vb: VBoxContainer) -> void:
 	var item: Resource = _stacks[_sel]["modelo"]
-	_title(vb, Game.item_display_name(item))
+	MenuScaffold.titulo_item(vb, Game.item_display_name(item), Game.color_rareza_de(item),
+		Game.intensidad_rareza_de(item))
 
 	# Quien la lleva puesta, arriba del todo: si mejoras la pieza equivocada no hay vuelta atras
 	# (el material se gasta), asi que conviene verlo antes de tocar nada.

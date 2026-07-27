@@ -132,9 +132,8 @@ func _crear_aspecto() -> void:
 func _crear_destellos(tam: Vector2, esquina: Vector2) -> void:
 	if material_data == null:
 		return
-	var rango: int = material_data.rango_color()
-	var intensidad: float = 0.3 + 0.7 * (float(rango) / float(MaterialData.Rango.AMARILLO))
-	_fx = Particulas.destellos(self, material_data.color_rango(), tam, intensidad)
+	_fx = Particulas.destellos(self, material_data.color_rango(), tam,
+		material_data.rango_intensidad())
 	_fx.position = esquina + tam * 0.5
 
 	_lbl = Label.new()

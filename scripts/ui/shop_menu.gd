@@ -223,12 +223,8 @@ func _decir(txt: String, ok: bool = true) -> void:
 #  Helpers de UI (mismos que el inventario)
 # ============================================================
 
-func _title(vb: VBoxContainer, txt: String) -> void:
-	var l := Label.new()
-	l.text = txt
-	l.add_theme_color_override("font_color", AMBAR)
-	l.add_theme_font_size_override("font_size", 16)
-	vb.add_child(l)
+func _title(vb: VBoxContainer, txt: String, color: Color = AMBAR) -> void:
+	MenuScaffold.titulo(vb, txt, 16, color)
 
 func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
 	var row := HBoxContainer.new()
@@ -264,7 +260,10 @@ func _grid_detail(labels: Array, preview: Callable) -> void:
 		_note(_content, "(nada por aquí)")
 		return
 	_sel = clampi(_sel, 0, labels.size() - 1)
-	MenuScaffold.cuadricula(_lista, labels, _sel, _pick)
+	# Los colores salen de _stacks, la MISMA lista de la que salieron las etiquetas: asi no pueden
+	# desalinearse del nombre que acompañan (ver MenuScaffold.colores_de).
+	MenuScaffold.cuadricula(_lista, labels, _sel, _pick, 2, Vector2(150, 44),
+		MenuScaffold.colores_de(_stacks))
 	preview.call(_content)
 
 
@@ -381,7 +380,14 @@ func _preview_venta_bolsa(vb: VBoxContainer) -> void:
 	var modelo: Resource = s["modelo"]
 	var n: int = int(s["cantidad"])
 	var precio: int = Game.precio_venta_item(modelo)
-	_title(vb, _nombre_item(modelo).replace("\n", " "))
+	# El material lleva su color de RANGO (gris/verde/azul...), no de rareza: ver
+	# MaterialData.rango_color. Un cristal no entra, que tiene su propia escala de categoria/calidad.
+	var md: MaterialData = (modelo as MaterialItem).data if modelo is MaterialItem else null
+	if md == null:
+		_title(vb, _nombre_item(modelo).replace("\n", " "))
+	else:
+		MenuScaffold.titulo_item(vb, _nombre_item(modelo).replace("\n", " "),
+			md.color_rango(), md.rango_intensidad())
 	_row(vb, "Cantidad", str(n))
 	if modelo is Cristal:
 		_row(vb, "Categoría", str((modelo as Cristal).categoria))
@@ -468,7 +474,9 @@ func _preview_venta_equipo(vb: VBoxContainer) -> void:
 	# lo que llevaba puesto un compañero salia como libre y se podia vender... sin quitarselo.
 	var dueno: PersonajeData = Game.quien_lleva(item)
 	var puesto: bool = dueno != null
-	_title(vb, Game.item_display_name(item) + ("   [lo lleva %s]" % dueno.nombre if puesto else ""))
+	MenuScaffold.titulo_item(vb,
+		Game.item_display_name(item) + ("   [lo lleva %s]" % dueno.nombre if puesto else ""),
+		Game.color_rareza_de(item), Game.intensidad_rareza_de(item))
 	_row(vb, "Precio de tienda", "%d (a T1 común)" % Game.precio_compra(item))
 	_row(vb, "Te pagan", "%d monedas" % Game.precio_venta_equipo(item))
 	vb.add_child(HSeparator.new())
@@ -568,7 +576,8 @@ func _preview_recompra(vb: VBoxContainer) -> void:
 	var item: Resource = s["modelo"]
 	var precio: int = int(s["precio"])
 	var llego: bool = Game.puede_pagar(precio)
-	_title(vb, Game.item_display_name(item))
+	MenuScaffold.titulo_item(vb, Game.item_display_name(item), Game.color_rareza_de(item),
+		Game.intensidad_rareza_de(item))
 	_row(vb, "Precio", "%d monedas" % precio)
 	_row(vb, "Tienes", "%d monedas" % Game.money)
 	vb.add_child(HSeparator.new())

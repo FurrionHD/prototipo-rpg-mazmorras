@@ -44,11 +44,9 @@ func _crear_destellos() -> void:
 	var data: MaterialData = (item as MaterialItem).data
 	if data == null:
 		return
-	var rango: int = data.rango_color()
 	# El gris (rango 0) tambien destella, pero flojito: si el cobre corriente centellea como un
-	# nucleo de boss, el lenguaje de color deja de decir nada.
-	var intensidad: float = 0.3 + 0.7 * (float(rango) / float(MaterialData.Rango.AMARILLO))
-	Particulas.destellos(self, data.color_rango(), Vector2(LADO, LADO), intensidad)
+	# nucleo de boss, el lenguaje de color deja de decir nada. Esa curva la lleva rango_intensidad.
+	Particulas.destellos(self, data.color_rango(), Vector2(LADO, LADO), data.rango_intensidad())
 
 
 # Color por tipo y calidad. Los cristales tiran a cian/violeta; los materiales llevan SU

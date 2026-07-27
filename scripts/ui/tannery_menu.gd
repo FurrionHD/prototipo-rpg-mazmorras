@@ -291,6 +291,7 @@ func _build_mochilas() -> void:
 		b.button_pressed = (i == _heb_idx)
 		b.disabled = tengo <= 0
 		b.pressed.connect(_on_hebillas.bind(i))
+		MenuScaffold.tintar(b, h.color_rango())   # sub-tier de la hebilla, mismo lenguaje que el resto
 		fila.add_child(b)
 	_content.add_child(fila)
 

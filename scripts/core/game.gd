@@ -3871,6 +3871,15 @@ func item_display_name(item: Resource) -> String:
 		txt += " +%d" % n
 	return "%s  ·  T%d %s" % [txt, int(m["tier"]), Upgrades.rareza_nombre(int(m["rareza"]))]
 
+# El COLOR de la rareza de una pieza, y lo alto que esta en la escala (para el brillo de los
+# destellos). Van aqui porque quien sabe la rareza de un item es meta_de, y los piden los SEIS menus
+# donde aparece una pieza: sin esto, cada uno repetiria int(Game.meta_de(item)["rareza"]) a mano.
+func color_rareza_de(item: Resource) -> Color:
+	return Upgrades.rareza_color(int(meta_de(item)["rareza"]))
+
+func intensidad_rareza_de(item: Resource) -> float:
+	return Upgrades.rareza_intensidad(int(meta_de(item)["rareza"]))
+
 # Piezas del baul que encajan en un slot concreto ("casco", "pecho", ...).
 func owned_armor_de_slot(slot: String) -> Array:
 	var idx: int = ARMOR_SLOT_ORDEN.find(slot)
