@@ -4877,6 +4877,23 @@ func escalera_nucleos(item: Resource) -> Array:
 	return out
 
 
+# La escalera de METALES de esta pieza: los de SU tier ordenados por banda (cobre, veteado,
+# profundo). Hermana de escalera_nucleos y para lo mismo: FUNDIR necesita saber en que banda caia
+# cada escalon de mejora para reconstruir lo que costo (ver Forge.fundir_material). El de mejorar
+# no la usa -- ahi basta con el material de la banda actual, que ya da materiales_mejora.
+func escalera_metal(item: Resource) -> Array:
+	if item == null:
+		return []
+	var tier: int = int(meta_de(item)["tier"])
+	var out: Array = []
+	for m in (chapas_forja() if item is ArmorData else lingotes_forja()):
+		var md: MaterialData = m as MaterialData
+		if md != null and int(md.tier) == tier:
+			out.append(md)
+	out.sort_custom(func(a: MaterialData, b: MaterialData): return a.mejora_min < b.mejora_min)
+	return out
+
+
 # --- FORJAR ---
 # Unidades que aporta una seleccion {calidad: cantidad}: dice si LLEGAS al coste.
 func uds_seleccion(dict: Dictionary) -> int:
@@ -5171,11 +5188,13 @@ func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
 		return false
 	if nucleos_en_hogar(nucleo) < Forge.nucleos_para_mejora(mejoras_actuales(item), nucleo, item):
 		return false
-	# Y el material de refuerzo (ver materiales_mejora).
+	# Y el material de refuerzo (ver materiales_mejora). Los materiales van A Forge, no solo salen de
+	# el: el coste se reparte dentro de la BANDA de ese material (sub-tier), y sin ellos no la sabe.
 	var mats: Dictionary = materiales_mejora(item)
-	var c: Dictionary = Forge.material_para_mejora(mejoras_actuales(item), item)
 	if mats["metal"] == null or mats["fibra"] == null:
 		return false
+	var c: Dictionary = Forge.material_para_mejora(mejoras_actuales(item), item,
+		mats["metal"], mats["fibra"])
 	return unidades_material_en_hogar(mats["metal"]) >= int(c["metal"]) \
 		and unidades_material_en_hogar(mats["fibra"]) >= int(c["fibra"])
 
@@ -5188,7 +5207,7 @@ func mejorar_item(item: Resource, cat: String, nucleo: MaterialData) -> bool:
 	var nivel: int = mejoras_actuales(item)
 	var cuesta: int = Forge.nucleos_para_mejora(nivel, nucleo, item)
 	var mats: Dictionary = materiales_mejora(item)
-	var c: Dictionary = Forge.material_para_mejora(nivel, item)
+	var c: Dictionary = Forge.material_para_mejora(nivel, item, mats["metal"], mats["fibra"])
 	_consumir_nucleos(nucleo, cuesta)
 	_consumir_unidades(mats["metal"], int(c["metal"]))
 	_consumir_unidades(mats["fibra"], int(c["fibra"]))
@@ -5290,7 +5309,9 @@ func fundir_devuelve(item: Resource) -> Dictionary:
 			mats.append({"material": cue_dev, "uds": uds_cuero})
 		return {"materiales": mats, "nucleos": {}}
 	var mejoras: int = mejoras_actuales(item)
-	var f: Dictionary = Forge.fundir_material(item, mejoras)
+	# La escalera de metales va DENTRO: el coste de cada mejora se reparte en la banda de su
+	# sub-tier, asi que sin ella fundir devolveria de mas en las bandas hondas (material infinito).
+	var f: Dictionary = Forge.fundir_material(item, mejoras, escalera_metal(item))
 	var tier: int = int(meta_de(item)["tier"])
 	var metal_mat: MaterialData = materiales_mejora(item)["metal"]   # el metal de SU tier
 	var materiales: Array = []

@@ -120,7 +120,7 @@ func mejora_equipo() -> bool:
 
 # ¿Este material cubre el nivel de mejora `n`? (n = mejoras que YA tiene la pieza; llevarla al
 # n+1 es lo que se esta pagando.) La banda es SEMIABIERTA [mejora_min, mejora_max), igual que la
-# de los nucleos (ver Forge._nucleo_de_nivel): asi dos bandas contiguas 0..3 y 3..9 no se solapan
+# de los nucleos (ver Forge._material_de_nivel): asi dos bandas contiguas 0..3 y 3..9 no se solapan
 # en el 3.
 #
 # mejora_max <= 0 = SIN BANDA: sirve para cualquier nivel. Hoy lo tienen los materiales que son la

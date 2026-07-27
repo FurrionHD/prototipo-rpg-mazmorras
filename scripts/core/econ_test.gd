@@ -1,13 +1,19 @@
 # ============================================================
 #  econ_test.gd  (TEMPORAL - para llevar la curva al Excel)
-#  Imprime, sin jugar, las dos curvas que se acaban de retocar:
+#  Imprime, sin jugar, las curvas de economia:
 #    1) lo que cuesta subir un arma / una armadura de +0 a su tope, nucleo a nucleo;
-#    2) la dificultad de los tres minijuegos contra la curva de stats esperada.
-#  Se corre en headless:
-#    godot --headless --script scripts/core/econ_test.gd
+#    2) lo que cuesta en MATERIAL de refuerzo, banda a banda;
+#    3) la dificultad de los tres minijuegos contra la curva de stats esperada.
+#  Se corre en headless, POR SU ESCENA:
+#    godot --headless --path . res://scenes/econ_test.tscn
+#
+#  OJO: era un `extends SceneTree` que se lanzaba con `--script`, y llevaba tiempo IMPRIMIENDO CEROS
+#  en silencio. Con `--script` no se registran los autoloads, y desde que MaterialData referencia a
+#  Game, su script no compila -> todos los load() de aqui devolvian null y las tablas salian vacias.
+#  Un Node dentro de una escena si los tiene, que es como corre battle_test.tscn desde siempre.
 # ============================================================
 
-extends SceneTree
+extends Node
 
 
 # La escalera de nucleos, en el orden en que te los vas encontrando.
@@ -24,14 +30,29 @@ const ARMADURA: Array[String] = [
 	"res://resources/materials/nucleo_rey_slime.tres",
 ]
 
+# La escalera de METAL y de FIBRA de un arma T1, banda a banda (cobre / veteado / profundo). Las
+# dos listas van EN EL MISMO ORDEN de bandas: la fibra de la banda i acompaña al metal de la banda i.
+const METAL_T1: Array[String] = [
+	"res://resources/materials/lingote_cobre.tres",
+	"res://resources/materials/lingote_cobre_veteado.tres",
+	"res://resources/materials/lingote_cobre_profundo.tres",
+]
+const FIBRA_T1: Array[String] = [
+	"res://resources/materials/tablon_comun.tres",
+	"res://resources/materials/tablon_de_veta.tres",
+	"res://resources/materials/tablon_anillada.tres",
+]
+
 # La curva que nos dio el usuario: al piso 5 rondas los 300 de stat.
 const STAT_POR_PISO := 60.0
 
 
-func _init() -> void:
+func _ready() -> void:
 	print("\n=========== COSTE DE MEJORA (nucleos por +1) ===========")
 	_curva_nucleos("ARMA", ARMA)
 	_curva_nucleos("ARMADURA", ARMADURA)
+	print("\n=========== COSTE DE MEJORA (material de refuerzo por +1) ===========")
+	_curva_mejora_material("ARMA T1 (cobre -> veteado -> profundo)", METAL_T1, FIBRA_T1)
 
 	print("\n=========== DIFICULTAD DE LOS MINIJUEGOS ===========")
 	print("(stat esperada = %d x piso; el reto sale de exigencia / (stat + suelo))" % int(STAT_POR_PISO))
@@ -59,7 +80,7 @@ func _init() -> void:
 	_forjable()
 	_fundido()
 	_rareza()
-	quit()
+	get_tree().quit()
 
 
 # RAREZA: la obra maestra tiene que ganar en TODO (raw, crit, evasion, aturdir, bloqueo, vel) y
@@ -198,6 +219,32 @@ func _curva_nucleos(titulo: String, rutas: Array[String]) -> void:
 	print("  TOTAL para llegar a +%d:" % nivel)
 	for k in total:
 		print("      %-22s x%d" % [k, total[k]])
+
+
+# La otra mitad del coste de mejorar: el MATERIAL de refuerzo. Esta curva NO existia -- solo estaba
+# la de nucleos -- y por eso paso desapercibido durante meses que el material no reiniciaba al
+# cambiar de sub-tier: el +4 entraba cobrando 5 uds y llegar al +15 pedia 135. Con esto impreso, un
+# desfase asi se ve de un vistazo: cada banda tiene que empezar en 2/1 y acabar en 4/3, dure 3
+# mejoras o dure 6.
+func _curva_mejora_material(titulo: String, metales: Array[String], fibras: Array[String]) -> void:
+	print("\n--- %s ---" % titulo)
+	var nivel: int = 0
+	var tot_metal: int = 0
+	var tot_fibra: int = 0
+	for i in metales.size():
+		var met: MaterialData = load(metales[i]) as MaterialData
+		var fib: MaterialData = load(fibras[i]) as MaterialData if i < fibras.size() else null
+		if met == null:
+			continue
+		while nivel < met.mejora_max:
+			var c: Dictionary = Forge.material_para_mejora(nivel, null, met, fib)
+			nivel += 1
+			tot_metal += int(c["metal"])
+			tot_fibra += int(c["fibra"])
+			print("  +%-2d <- %-24s %d uds  +  %-20s %d uds" % [
+				nivel, met.nombre, int(c["metal"]),
+				("(sin fibra)" if fib == null else fib.nombre), int(c["fibra"])])
+	print("  TOTAL para llegar a +%d:  %d de metal, %d de fibra" % [nivel, tot_metal, tot_fibra])
 
 
 func _curva_material(titulo: String, rutas: Array, suelo: float) -> void:

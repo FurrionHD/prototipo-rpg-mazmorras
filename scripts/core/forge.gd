@@ -327,24 +327,59 @@ static func nucleos_para_mejora(mejoras_actuales: int, nucleo: MaterialData = nu
 # Por eso el menu no te hace elegir calidades como en la forja: gasta lo peor que tengas.
 const MEJORA_METAL_BASE := 2
 const MEJORA_FIBRA_BASE := 1
+# Cuanto sube el coste DE PRINCIPIO A FIN de una banda: el primer escalon de un sub-tier cuesta la
+# base y el ultimo la base + esto. Es EL dial de esta curva; no hay ningun otro numero suelto.
+const MEJORA_PASO_BANDA := 2
+
+# La BANDA de mejoras que cubre un material: Vector2i(desde, ancho). Un material sin banda
+# (mejora_max <= 0) vale para todo, y ahi no hay reparto que hacer: se devuelve el tramo de 3 de
+# siempre. Hermana de _material_de_nivel, que hace la busqueda al reves (del nivel al material).
+static func banda_de(mat: MaterialData) -> Vector2i:
+	if mat == null or mat.mejora_max <= 0:
+		return Vector2i(0, 3)
+	return Vector2i(maxi(0, mat.mejora_min), maxi(1, mat.mejora_max - mat.mejora_min))
+
 
 # Unidades de material que cuesta pasar de +k a +(k+1). PROVISIONAL -> Excel.
+#
+# El coste se REINICIA en cada sub-tier y se REPARTE a lo ancho de su banda. Las dos cosas:
+#
+#   - Reinicia porque el material tambien cambia. Antes esto era `BASE + n` continuo sobre toda la
+#     escala (la funcion ni siquiera recibia el material, asi que no podia reiniciar), y el primer
+#     escalon de cobre veteado entraba cobrando 5 uds como si viniera de seguido. Es el mismo fallo
+#     que ya se arreglo en nucleos_para_mejora, que no se replico aqui.
+#   - Se reparte porque las bandas NO miden lo mismo: la primera cubre 3 mejoras y las otras dos
+#     cubren 6. Subiendo de uno en uno, el +9 acabaria costando 7 uds; repartiendo, el ultimo
+#     escalon de una banda cuesta lo mismo dure lo que dure (2->4 el metal, 1->3 la fibra), que es
+#     lo que la hace comparable con el +3.
+#
+# El sobrecoste de lo hondo lo pone el MATERIAL, que es mas raro y hay que bajar a por el, no la
+# cantidad. En una banda de 3 sale 2,3,4 y en una de 6 sale 2,2,3,3,4,4.
+#
+# La banda se saca del METAL (que siempre la trae en los datos) y vale para los dos costes; si no
+# la tuviera se mira la fibra. Importa porque el cuero del ESCUDO se pide SIN banda (ver
+# Game.cuero_de_tier con nivel 1) y no puede acabar con un reparto distinto al de su metal.
 #
 # 'base' decide QUIEN manda de los dos. En una pieza normal manda el METAL (es la hoja, la placa),
 # y en un BASTON o una VARITA manda la MADERA, igual que al forjarlos (MIX_ARMA_MAGICA es
 # [0.25, 1.0, 0.15]: casi toda madera y un poco de contera). Antes esta funcion no miraba la pieza
 # y siempre pedia metal = fibra + 1, asi que mejorar un baston pedia mas hierro que madera --
 # exactamente lo contrario de con lo que se habia fabricado.
-static func material_para_mejora(mejoras_actuales: int, base: Resource = null) -> Dictionary:
+static func material_para_mejora(mejoras_actuales: int, base: Resource = null,
+		metal: MaterialData = null, fibra: MaterialData = null) -> Dictionary:
 	var n: int = maxi(0, mejoras_actuales)
+	var banda: Vector2i = banda_de(metal) if metal != null else banda_de(fibra)
+	# Cuantos escalones llevas DENTRO de esta banda, repartidos sobre su ancho.
+	var dentro: int = clampi(n - banda.x, 0, maxi(0, banda.y - 1))
+	var sube: int = roundi(float(dentro) * float(MEJORA_PASO_BANDA) / float(maxi(1, banda.y - 1)))
 	if es_arma_magica(base):
 		return {
-			"metal": MEJORA_FIBRA_BASE + n,   # la contera: lo menos
-			"fibra": MEJORA_METAL_BASE + n,   # el asta: lo que de verdad se rehace
+			"metal": MEJORA_FIBRA_BASE + sube,   # la contera: lo menos
+			"fibra": MEJORA_METAL_BASE + sube,   # el asta: lo que de verdad se rehace
 		}
 	return {
-		"metal": MEJORA_METAL_BASE + n,
-		"fibra": MEJORA_FIBRA_BASE + n,
+		"metal": MEJORA_METAL_BASE + sube,
+		"fibra": MEJORA_FIBRA_BASE + sube,
 	}
 
 
@@ -385,7 +420,13 @@ const RECUPERACION := 0.5
 # Unidades de metal / madera / cuero que devuelve fundir `base` con `mejoras` mejoras encima.
 # El material de cada MEJORA (metal + su fibra: madera si es arma, cuero si es armadura o escudo)
 # tambien cuenta: una pieza +5 lleva mucho material dentro.
-static func fundir_material(base: Resource, mejoras: int) -> Dictionary:
+#
+# 'escalera' son los metales de SU tier ordenados por banda, y los pone Game (el unico que sabe si
+# la pieza es arma o armadura; mismo trato que fundir_nucleos, que recibe la de nucleos). Hace falta
+# porque desde que el coste se reinicia por sub-tier, reconstruir lo pagado exige saber en que banda
+# caia cada escalon. Sin ella se cae a la banda por defecto, y eso DEVUELVE DE MAS en las bandas
+# hondas: es decir, material infinito fundiendo y volviendo a mejorar.
+static func fundir_material(base: Resource, mejoras: int, escalera: Array = []) -> Dictionary:
 	var c: Dictionary = coste(base)
 	var metal: int = int(c["metal"])
 	var madera: int = int(c["madera"])
@@ -395,7 +436,8 @@ static func fundir_material(base: Resource, mejoras: int) -> Dictionary:
 	# se colaba por ahi: fundirlo devolvia MADERA, que no lleva (MIX_ESCUDO es metal + cuero).
 	var fibra_es_madera: bool = madera > 0
 	for k in range(maxi(0, mejoras)):
-		var m: Dictionary = material_para_mejora(k, base)   # con la pieza: las magicas van al reves
+		# El metal de la banda que cubria ESE escalon: es de donde sale su reparto.
+		var m: Dictionary = material_para_mejora(k, base, _material_de_nivel(escalera, k))
 		metal += int(m["metal"])
 		if fibra_es_madera:
 			madera += int(m["fibra"])
@@ -415,7 +457,7 @@ static func fundir_material(base: Resource, mejoras: int) -> Dictionary:
 static func fundir_nucleos(escalera: Array, mejoras: int) -> Dictionary:
 	var gastados: Dictionary = {}
 	for k in range(maxi(0, mejoras)):
-		var n: MaterialData = _nucleo_de_nivel(escalera, k)
+		var n: MaterialData = _material_de_nivel(escalera, k)
 		if n == null:
 			continue
 		gastados[n] = int(gastados.get(n, 0)) + nucleos_para_mejora(k, n)
@@ -428,7 +470,7 @@ static func fundir_nucleos(escalera: Array, mejoras: int) -> Dictionary:
 
 
 # El nucleo que tocaba para pasar de +k a +(k+1): el de la banda que cubre ese nivel.
-static func _nucleo_de_nivel(escalera: Array, k: int) -> MaterialData:
+static func _material_de_nivel(escalera: Array, k: int) -> MaterialData:
 	for n in escalera:
 		var m: MaterialData = n as MaterialData
 		if m != null and k >= m.mejora_min and k < m.mejora_max:

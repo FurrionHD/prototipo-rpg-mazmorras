@@ -1361,7 +1361,9 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 
 	# El MATERIAL de refuerzo: el mismo con el que se forjo, del mismo tier. En rojo si no llega.
 	var mats: Dictionary = Game.materiales_mejora(item)
-	var cmat: Dictionary = Forge.material_para_mejora(actuales, item)
+	# Con los materiales delante: el coste se reparte dentro de la banda de SU sub-tier, asi que
+	# sin pasarlos esta previsualizacion cobraria distinto de lo que cobra Game.mejorar_item.
+	var cmat: Dictionary = Forge.material_para_mejora(actuales, item, mats["metal"], mats["fibra"])
 	for clave in ["metal", "fibra"]:
 		var m: MaterialData = mats[clave]
 		if m == null:

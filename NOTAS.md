@@ -655,7 +655,9 @@ habilidades gastan** (ver memoria `energia-combate-habilidades`). **Castear tamb
 ### Rebalance de economía: núcleos, recolección, madera y fundido 🔧 A PROBAR
 Plan en `~/.claude/plans/vale-jefazo-hay-que-quizzical-crane.md`. Salió todo del playtest.
 Herramienta: `scripts/core/econ_test.gd` (headless, imprime las curvas para el Excel):
-`godot --headless --script scripts/core/econ_test.gd`.
+`godot --headless --path . res://scenes/econ_test.tscn`. (Antes se lanzaba con `--script`, y así
+llevaba tiempo imprimiendo tablas VACÍAS sin decirlo: sin autoloads, `MaterialData` no compila y
+todos los `load()` devuelven null. Va por escena, como `battle_test.tscn`.)
 
 - **Coste de núcleos: reinicio por escalón.** Era acumulativo GLOBAL (`mejoras+1`), y como el
   núcleo marca el techo, al llegar al +3 te forzaba a cambiar de núcleo Y te cobraba 4 del nuevo.
