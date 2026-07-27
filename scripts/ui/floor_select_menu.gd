@@ -73,12 +73,12 @@ func _rebuild() -> void:
 
 
 func _bajar(piso: int) -> void:
-	# MULTIJUGADOR: los atajos por piso aun no existen en multi (la expedicion compartida
-	# siempre abre por el 1; ver Net.solicitar_entrar). door.gd ni abre este menu en sesion,
-	# pero por si acaso.
+	# MULTIJUGADOR: mismo destino, pero el viaje lo concede el host (reparte quien simula el piso y
+	# devuelve su foto si estaba congelado). Todo lo de abajo lo hace _entrar_ok en su sitio:
+	# current_floor, entrada_por_atajo, olvidar_mazmorra y el cambio de escena.
 	if Net.activo:
 		Game.cerrar_menu(self)
-		Net.solicitar_entrar()
+		Net.solicitar_entrar(maxi(1, piso))
 		return
 	# Igual que entrar por la boca (door.gd): expedicion NUEVA. Lo unico distinto es por que
 	# piso empiezas.

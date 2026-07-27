@@ -43,8 +43,14 @@ static func textura() -> ImageTexture:
 
 
 # RASTRO ASCENDENTE para un cuerpo vivo. 'intensidad' (0..1) sube la cantidad y el brillo: un
-# bicho "tocado" por el elemento humea menos que uno hecho de fuego. 'alto' es a que altura llega,
-# y se escala con el tamaño del cuerpo (un elite grande no puede tener particulas de enano).
+# bicho "tocado" por el elemento humea menos que uno hecho de fuego. 'alto' es el LADO DEL CUERPO
+# (todos los que llaman pasan eso): de ahi salen a la vez el ancho de la boquilla y la altura a la
+# que llegan, para que un elite grande no lleve particulas de enano.
+#
+# La boquilla es MAS ANCHA QUE EL CUERPO a proposito (1.2 lados: se derrama un 10% por cada
+# costado) y esta BAJADA hacia los pies. Ceñida al centro se leia como una columnita de humo por
+# detras del bicho; desbordando por los lados y naciendo abajo se lee como algo que le arde por
+# todo el cuerpo, que es lo que tiene que decir un slime de fuego.
 static func ascendentes(padre: Node, color: Color, intensidad := 1.0, alto := 24.0) -> CPUParticles2D:
 	var p := CPUParticles2D.new()
 	p.texture = textura()
@@ -56,13 +62,20 @@ static func ascendentes(padre: Node, color: Color, intensidad := 1.0, alto := 24
 	p.lifetime_randomness = 0.35
 	p.randomness = 1.0
 	p.direction = Vector2.UP
-	p.spread = 16.0
+	# Algo mas abierto que antes: con la boquilla ancha, un abanico estrecho volvia a juntarlas
+	# todas en el centro segun subian y se perdia el ancho recien ganado.
+	p.spread = 24.0
 	p.gravity = Vector2.ZERO
-	p.initial_velocity_min = alto * 0.55
-	p.initial_velocity_max = alto
-	# Nacen repartidas por el ancho del cuerpo, no todas del mismo punto.
+	# Suben ~1.5 cuerpos (la vida es 1s, asi que la velocidad ES la altura en pixeles).
+	p.initial_velocity_min = alto * 0.85
+	p.initial_velocity_max = alto * 1.5
+	# Nacen repartidas por TODO el ancho del cuerpo y un poco por fuera, no todas del mismo punto.
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	p.emission_rect_extents = Vector2(alto * 0.3, alto * 0.16)
+	p.emission_rect_extents = Vector2(alto * 0.6, alto * 0.22)
+	# Y desde la MITAD DE ABAJO del cuerpo (el cuerpo esta centrado en el origen; +Y es hacia los
+	# pies). Asi la llama empieza en el suelo del bicho y le sube por encima, en vez de brotarle de
+	# la coronilla -- que es lo que cantaba en los cuerpos grandes.
+	p.position.y = alto * 0.2
 	p.scale_amount_min = 0.7
 	p.scale_amount_max = 1.3
 	p.scale_amount_curve = _curva()

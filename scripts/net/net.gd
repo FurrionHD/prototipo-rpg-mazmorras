@@ -57,6 +57,12 @@ var semilla_host: int = 0
 # asi que el host no mata bosses mientras jugais).
 var tienda_t2_host: bool = false
 
+# ATAJOS por piso del MUNDO DEL HOST (los jefes que el ha matado). Misma regla que la tienda T2:
+# estas en SU mundo, asi que sus accesos abiertos existen para todos. Llega en el handshake y se
+# UNE con los tuyos en Game.pisos_desbloqueados() -- lo que abras en sesion (ver _boss_caido) se
+# apunta ya en el Game de cada uno, asi que no hace falta re-difundir esta lista.
+var pisos_host: Array = []
+
 # --- EXPEDICION compartida (hito 3b; el host es la autoridad) ---
 # El PRIMERO que entra la abre; el ULTIMO que sale la cierra (y se olvida, como en solitario).
 # Mientras quede alguien dentro, la mazmorra vive: puedes salir a vender y volver.
@@ -339,6 +345,7 @@ func desconectar() -> void:
 	_mis_huecos.clear()
 	semilla_host = 0
 	tienda_t2_host = false
+	pisos_host.clear()
 	# La libreta de la sesion era del mundo del HOST: se va con la sesion. Al invitado le vuelve la
 	# suya intacta (nunca se toco Game.mapa_snapshot ni su mazmorra_persistente).
 	_mapa_sesion.clear()
@@ -847,39 +854,48 @@ func _pedir_suelo(lugar: String) -> void:
 # nada del que ya esta dentro: cada maquina tiene su copia del piso y lo compartido viaja por Net).
 # El ULTIMO que sale la cierra y se olvida, como en solitario.
 
-# La llama door.gd (rama multi) al interactuar con la puerta del pueblo.
-func solicitar_entrar() -> void:
+# La llama door.gd (rama multi) al interactuar con la puerta del pueblo, y el menu de atajos con
+# el piso elegido. Los ATAJOS si valen en multi: entrar por el piso 6 es lo mismo que entrar por el
+# 1, solo cambia por donde apareces. Lo unico que sigue siendo del host es CONCEDERLO (es quien
+# reparte los dueños de piso y guarda las fotos).
+func solicitar_entrar(piso: int = 1) -> void:
 	if es_host:
-		_conceder_entrada(1)
+		_conceder_entrada(1, piso)
 	else:
-		_pedir_entrar.rpc_id(1)
+		_pedir_entrar.rpc_id(1, piso)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_entrar() -> void:
+func _pedir_entrar(piso: int = 1) -> void:
 	if not es_host:
 		return
-	_conceder_entrada(multiplayer.get_remote_sender_id())
+	_conceder_entrada(multiplayer.get_remote_sender_id(), piso)
 
 
-# Solo host: apunta al peer como "dentro" y le concede la entrada. Por la puerta se entra SIEMPRE
-# por el piso 1 (como en solitario): ya no existe "el piso activo de la sesion", cada uno anda por
-# donde quiera. De paso se reparte quien simula el piso 1 y se le pasa su foto si estaba congelado.
-func _conceder_entrada(quien: int) -> void:
+# Solo host: apunta al peer como "dentro" y le concede la entrada por el piso que pide. No existe
+# "el piso activo de la sesion": cada uno anda por donde quiera, asi que entrar por un atajo solo
+# le mueve a EL. De paso se reparte quien simula ese piso y se le pasa su foto si estaba congelado.
+#
+# El piso pedido se CRIBA aqui: solo el 1 o un piso con jefe. Los atajos de cada cual son los suyos
+# (los del host viajan en el handshake, los tuyos estan en tu save), y el host no puede comprobar
+# los del invitado; lo que si puede es no dejar que un cliente pida el piso 500.
+func _conceder_entrada(quien: int, piso: int = 1) -> void:
+	if piso <= 1 or not Game.BOSSES.has(piso):
+		piso = 1
 	if not expedicion_abierta:
 		expedicion_abierta = true
 	_dentro[quien] = true
-	var dueno: bool = _asignar_dueno(1, quien)
+	var dueno: bool = _asignar_dueno(piso, quien)
 	var mem: Dictionary = {}
 	if dueno:
-		mem = _fotos_piso.get(1, {})
-		_fotos_piso.erase(1)
+		mem = _fotos_piso.get(piso, {})
+		_fotos_piso.erase(piso)
 	# Va el diccionario ENTERO, no solo las claves: el valor es el momento en que se pico, y sin el
 	# quien entra no sabria cuanto le queda a cada sitio para revivir.
 	if quien == 1:
-		_entrar_ok(1, _agotados_sesion, dueno, mem)
+		_entrar_ok(piso, _agotados_sesion, dueno, mem)
 	else:
-		_entrar_ok.rpc_id(quien, 1, _agotados_sesion, dueno, mem)
+		_entrar_ok.rpc_id(quien, piso, _agotados_sesion, dueno, mem)
 
 
 # Corre en QUIEN entra: hace el viaje completo. olvidar_mazmorra() limpia la memoria LOCAL de
@@ -897,6 +913,9 @@ func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary) -
 	_soy_dueno = dueno
 	if dueno and not mem.is_empty():
 		Game.memoria_pisos[piso] = _mem_de_red(mem)
+	# Por un ATAJO se aparece en la salida al pueblo de ESE piso (en el fondo), no en su boca:
+	# mismo recado que pone floor_select_menu en solitario (lo consume DungeonFloor al construirse).
+	Game.entrada_por_atajo = piso > 1
 	Game.iniciar_expedicion_mapa()
 	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
 	anunciar_lugar("piso:%d" % piso)
@@ -3864,7 +3883,7 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 	# SEMILLA del mundo del host (para generar la MISMA mazmorra sin replicar geometria) y mi lugar.
 	_presentarse.rpc_id(quien, Game.player_color, Game.player_metalico, Game.player_nombre,
 		_mi_lugar, Game.semilla_mundo, Game.tienda_t2_abierta(), Game.player_imagen_png,
-		Game.player_color_alpha)
+		Game.player_color_alpha, PackedInt32Array(Game.pisos_desbloqueados()))
 	# Registro mutuo (en el host): apunta al nuevo y me re-anuncia el grupo a todos, el ya incluido.
 	_registrar_peer(quien, color, metal, nombre, lugar, imagen, alpha)
 	estado_cambiado.emit("%s se ha unido." % nombre)
@@ -3884,10 +3903,12 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.
 @rpc("any_peer", "call_remote", "reliable")
 func _presentarse(color: Color, metal: float, nombre: String, lugar: String, semilla: int,
-		t2: bool, imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0) -> void:
+		t2: bool, imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0,
+		atajos: PackedInt32Array = PackedInt32Array()) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	semilla_host = semilla
 	tienda_t2_host = t2
+	pisos_host = Array(atajos)
 	_registrar_peer(quien, color, metal, nombre, lugar, imagen, alpha)
 	estado_cambiado.emit("Conectado con %s." % nombre)
 

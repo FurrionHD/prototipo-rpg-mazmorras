@@ -1905,11 +1905,19 @@ func marcar_boss_derrotado(piso: int) -> void:
 
 # Pisos a los que se puede SALTAR desde la entrada de la mazmorra: el 1 siempre, y cada piso
 # cuyo boss hayas matado (ese es el premio del boss: no volver a caminar lo ya caminado).
+#
+# EN SESION se UNEN los del mundo del HOST (Net.pisos_host, llegan en el handshake): juegas en su
+# mundo, asi que sus accesos abiertos estan ahi. Misma regla que la tienda T2, y hermana de
+# Net._boss_caido, que abre el atajo para todos los de la sesion cuando cae un jefe.
 func pisos_desbloqueados() -> Array:
 	var out: Array = [1]
 	for piso in BOSSES:
 		if boss_derrotado(piso) and not out.has(piso):
 			out.append(piso)
+	if Net.activo:
+		for piso in Net.pisos_host:
+			if not out.has(piso):
+				out.append(piso)
 	out.sort()
 	return out
 
@@ -6479,10 +6487,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			print("[dev] Vida y mana al 100%")
 		KEY_R:
 			print("[dev] Respawn: recargando la mazmorra")
-			get_tree().reload_current_scene()
+			_dev_cambiar_escena("")
 		KEY_T:
 			print("[dev] Arena de pruebas (sandbox): escenario vacio + spawner")
-			get_tree().change_scene_to_file("res://scenes/levels/sandbox.tscn")
+			_dev_cambiar_escena("res://scenes/levels/sandbox.tscn")
 		KEY_P:
 			_dev_test_spawns()
 		KEY_B:
@@ -6491,6 +6499,29 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			# Salta el reloj 10 min de juego: para probar el respawn de recursos sin esperar.
 			tiempo_mazmorra += 600.0
 			print("[dev] +10 min de reloj de mazmorra (total %.0fs). Recarga el piso (R) para ver el respawn." % tiempo_mazmorra)
+
+
+# Cambio de escena de las teclas de DEV (R recarga, T sandbox). Ruta vacia = recargar.
+#
+# Va por aqui y no a pelo por un motivo concreto: la PILA MODAL sobrevive al cambio de escena
+# (Game es autoload) pero los menus NO. Si pulsas T con un menu delante -- y la ayuda de teclas
+# (F1), que es justo donde pone que la T lleva al sandbox, es un modal como cualquier otro -- su
+# nodo muere con la escena vieja sin llamar nunca a su salir_modal, y su entrada se queda en la
+# pila PARA SIEMPRE. A partir de ahi:
+#   - en un jugador, el arbol se queda pausado;
+#   - en MULTI el arbol no se pausa, pero Player._physics_process consulta hay_modal() y te deja
+#     plantado: apareces en la arena y no puedes andar, sin ningun menu a la vista que cerrar.
+# Es exactamente el mismo saneamiento que ya se hacia al salir al menu principal.
+func _dev_cambiar_escena(ruta: String) -> void:
+	limpiar_modales()
+	if ruta.is_empty():
+		get_tree().reload_current_scene()
+		return
+	get_tree().change_scene_to_file(ruta)
+	# MULTI: la arena es un sitio APARTE (no la comparte nadie). Sin anunciarlo, para los demas
+	# sigues en el pueblo y tu vista se queda con los avatares de la escena que acabas de tirar.
+	if Net.activo:
+		Net.anunciar_lugar("sandbox")
 
 
 # --- PRUEBAS del sistema de spawns ---

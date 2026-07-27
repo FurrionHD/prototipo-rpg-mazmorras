@@ -28,11 +28,16 @@ func _detectar_destino() -> void:
 
 func interact_with_player() -> void:
 	# MULTIJUGADOR (hito 3b): la expedicion es COMPARTIDA y la coordina Net. El primero que
-	# entra la abre (piso 1); el que llega despues se une al piso activo tal cual (sin resetear
-	# nada al que ya esta dentro); el ultimo que sale la cierra. Los atajos por piso quedan
-	# para mas adelante en multi.
+	# entra la abre; el que llega despues se une sin resetear nada al que ya esta dentro; el ultimo
+	# que sale la cierra. Los ATAJOS tambien valen aqui: el menu es el mismo que en solitario y la
+	# lista ya incluye los del mundo del host (ver Game.pisos_desbloqueados). Lo que cambia es quien
+	# ejecuta el viaje: Net.solicitar_entrar(piso), que es el que reparte los dueños de piso.
 	if Net.activo:
 		if _destination == dungeon_path:
+			var menu_net: Node = get_tree().get_first_node_in_group("floor_menu")
+			if Game.pisos_desbloqueados().size() > 1 and menu_net != null and menu_net.has_method("abrir"):
+				menu_net.abrir()
+				return
 			Net.solicitar_entrar()
 		else:
 			# Volver a casa con vida: se captura el mapa y se COMETE, lo seas o no host. El gate
