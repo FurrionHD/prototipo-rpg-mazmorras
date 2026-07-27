@@ -35,12 +35,13 @@ func interact_with_player() -> void:
 		if _destination == dungeon_path:
 			Net.solicitar_entrar()
 		else:
-			# Volver a casa con vida: se captura el mapa de la expedicion, pero al PERMANENTE
-			# solo lo comete el HOST — la mazmorra es de SU mundo; la libreta del save del
-			# cliente no debe llenarse de planos de un mundo ajeno.
+			# Volver a casa con vida: se captura el mapa y se COMETE, lo seas o no host. El gate
+			# "solo el host" que habia aqui sobraba: comprometer_mapa ya distingue por dentro y en
+			# sesion NO escribe en tu save, se lo manda al host para que lo fusione y te devuelva la
+			# libreta entera. Con el gate, el invitado no subia nunca lo suyo NI recibia lo del host,
+			# asi que su mapa solo cambiaba al reconectar.
 			Game.capturar_mapa()
-			if Net.es_host:
-				Game.comprometer_mapa()
+			Game.comprometer_mapa()
 			Net.viajar_al_pueblo()
 		return
 	# Entrar a la mazmorra = EXPEDICION NUEVA: siempre se empieza por el piso 1. La

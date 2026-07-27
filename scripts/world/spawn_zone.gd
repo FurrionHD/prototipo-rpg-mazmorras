@@ -72,10 +72,12 @@ const RECICLA_CERCA := 700.0
 var brotes_activos: bool = true
 var prob_brote: float = 0.01    # ~1 de cada 100 partos (brote espontaneo; el gordo lo trae el alboroto)
 
-# Tamaño del brote = tu grupo + 1, con tope MAX_COMBATIENTES (lo que cabe en una pelea): vas solo,
-# salen 2; con tres, salen 4. Siempre te superan por uno, nunca es una masacre imposible.
+# Tamaño del brote = los que estais en el piso + 1, con tope MAX_COMBATIENTES (lo que cabe en una
+# pelea): vas solo, salen 2; con tres, salen 4. Siempre os superan por uno, nunca es una masacre
+# imposible. En multi cuenta tambien el grupo del otro humano si esta en este piso: con Game.party
+# a secas el brote salia PEQUEÑO justo cuando estabais dos, que es cuando deberia dar mas.
 func brote_tamano() -> int:
-	return mini(Enemy.MAX_COMBATIENTES, Game.party.size() + 1)
+	return mini(Enemy.MAX_COMBATIENTES, Net.personajes_en_mi_piso() + 1)
 
 # Enemigos vivos que ha parido ESTA zona. Sin tipar el elemento: los enemigos exponen
 # metodos propios (esta_muerto) que un Array[Node] no dejaria llamar.

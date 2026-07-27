@@ -30,11 +30,10 @@ func interact_with_player() -> void:
 	# que estas (no el 1 al que vas a saltar) y COMETE al permanente lo cartografiado esta bajada.
 	Game.capturar_mapa()
 	# MULTIJUGADOR: salir YO no termina la expedicion si queda gente dentro; se avisa al host
-	# y el decide (el ultimo en salir la cierra). Al mapa PERMANENTE solo comete el host (la
-	# mazmorra es de SU mundo; la libreta del cliente no se contamina). El viaje lo hace Net.
+	# y el decide (el ultimo en salir la cierra). El viaje lo hace Net. Se comete el mapa seas o no
+	# host: comprometer_mapa ya distingue por dentro y en sesion no escribe en tu save (ver door.gd).
 	if Net.activo:
-		if Net.es_host:
-			Game.comprometer_mapa()
+		Game.comprometer_mapa()
 		Net.viajar_al_pueblo()
 		return
 	Game.comprometer_mapa()

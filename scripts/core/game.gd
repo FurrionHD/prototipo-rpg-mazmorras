@@ -724,8 +724,11 @@ func tick_alboroto(delta: float, movement_mode: int) -> void:
 # Suma (o resta) ruido al medidor y dispara el brote si se llena. Publico: lo llaman el combate y
 # los minijuegos, no solo el movimiento.
 func sumar_alboroto(cuanto: float) -> void:
-	# MULTIJUGADOR: sin enemigos no hay brotes que cebar; acumular alboroto solo desincroniza.
-	if Net.activo:
+	# MULTIJUGADOR: el alboroto es del PISO, y solo puede cebarlo quien lo SIMULA (es el unico que
+	# puede engendrar bichos por la pared: ver dungeon_floor.hay_sitio). En un espejo, acumularlo
+	# solo desincroniza. Antes esto era un `if Net.activo: return` seco, que mataba la mecanica
+	# entera en sesion: el medidor nunca subia y no salia un solo brote en toda una expedicion.
+	if not Net.simulo_mi_piso():
 		return
 	if en_pueblo():
 		return
@@ -6285,6 +6288,12 @@ func _dev_test_spawns() -> void:
 # B: fuerza un BROTE en la zona donde estas (el sistema esta apagado en juego; esto es
 # para poder verlo). Sale por la pared mas cercana que no tengas encima.
 func _dev_brote() -> void:
+	# Solo quien SIMULA el piso puede parir bichos. Pulsada desde un espejo, el aviso de pared se
+	# pintaba en todas las pantallas y luego no nacia nada (el gate esta en dungeon_floor.hay_sitio):
+	# un brote fantasma que hacia perder el tiempo buscando el bug donde no estaba.
+	if not Net.simulo_mi_piso():
+		print("[dev] este piso lo simula el otro: que pulse B quien lo lleve")
+		return
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso != null and piso.has_method("dev_brote_cercano"):
 		piso.dev_brote_cercano()
@@ -7157,7 +7166,7 @@ func _cerrar_recoleccion(nodo) -> void:
 		# MULTIJUGADOR: el agotado pasa por el host, que suelta el lock de la veta y lo difunde
 		# a TODOS (Net._agotar_celda hace aqui mismo el marcar_agotado + agotar del nodo).
 		if Net.activo:
-			Net.notificar_agotado(nodo.celda)
+			Net.notificar_agotado(nodo.celda, current_floor)
 		else:
 			var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 			if piso != null and piso.has_method("marcar_agotado"):

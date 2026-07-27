@@ -650,7 +650,7 @@ func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
 	_sitios[celda] = {"tipo": tipo}
 	# MULTIJUGADOR: lo agotado en ESTA expedicion no vuelve a nacer al reconstruir el piso
 	# (p. ej. al bajar y volver a subir): el sello de sesion vive en Net, no en mi save.
-	if Net.activo and Net.celda_agotada_sesion(celda):
+	if Net.activo and Net.celda_agotada_sesion(celda, _piso_construido):
 		return false
 	# ¿Agotada? Reaparece cuando han pasado RESPAWN_SEGUNDOS de JUEGO desde que la picaste. Si ya
 	# le toca, se limpia el sello y nace como nueva; si no, no nace todavia.
@@ -724,8 +724,9 @@ func _olvidar_agotado(celda: Vector2i) -> void:
 # donde estaba, con el material RE-TIRADO (ver _material_del_sitio): la veta que picaste no tiene
 # por que volver siendo lo mismo.
 func _repoblar_agotados(delta: float) -> void:
-	# MULTIJUGADOR: sin respawn en vivo. Depende de tiempo_mazmorra, un reloj LOCAL que diverge
-	# entre maquinas: la veta reviviria en una y en la otra no. Lo agotado en sesion no vuelve.
+	# MULTIJUGADOR: el barrido NO se hace aqui, porque tiempo_mazmorra es un reloj LOCAL que diverge
+	# entre maquinas (la veta reviviria en una y en la otra no). Lo lleva el HOST contra el reloj de
+	# la expedicion y lo anuncia por red: Net._barrer_respawns -> Net._revivir_celda -> revivir_celda.
 	if Net.activo:
 		return
 	_t_respawn -= delta
@@ -738,14 +739,25 @@ func _repoblar_agotados(delta: float) -> void:
 	for celda in _agotados.keys():
 		if Game.tiempo_mazmorra - float(_agotados[celda]) < Game.RESPAWN_SEGUNDOS:
 			continue
-		_olvidar_agotado(celda)
-		var sitio: Dictionary = _sitios.get(celda, {})
-		if sitio.is_empty():
-			continue   # sello de una partida vieja, sin sitio apuntado: se limpia y ya brotara al regenerar
-		var m: MaterialData = _material_del_sitio(celda)
-		if m == null:
-			continue   # la tabla no tiene nada para esta profundidad: la celda se queda vacia
-		_instanciar_nodo(int(sitio["tipo"]), celda, m, true)
+		revivir_celda(celda)
+
+
+# Hace BROTAR otra vez la celda: levanta el sello y planta el nodo con el material RE-TIRADO.
+# Sale de _repoblar_agotados porque lo llaman DOS sitios: el barrido local (solitario) y, en
+# multijugador, Net._revivir_celda cuando el host decide que a ese sitio le toca volver.
+func revivir_celda(celda: Vector2i) -> void:
+	_olvidar_agotado(celda)
+	var sitio: Dictionary = _sitios.get(celda, {})
+	if sitio.is_empty():
+		return   # sello de una partida vieja, sin sitio apuntado: se limpia y ya brotara al regenerar
+	# Si ya hay algo plantado ahi, no se duplica (un mensaje repetido no debe dar dos vetas).
+	for n in get_tree().get_nodes_in_group("recolectable"):
+		if is_instance_valid(n) and n.celda == celda and not n.agotado:
+			return
+	var m: MaterialData = _material_del_sitio(celda)
+	if m == null:
+		return   # la tabla no tiene nada para esta profundidad: la celda se queda vacia
+	_instanciar_nodo(int(sitio["tipo"]), celda, m, true)
 
 
 # Una celda de la zona que TOQUE pared (las vetas salen de la roca, y una planta en mitad

@@ -59,7 +59,7 @@ func interactuar() -> void:
 	# MULTIJUGADOR: la veta la trabaja UNO a la vez. Se le pide al host; si esta libre, el te
 	# abre el minijuego (abrir_minijuego via Net); si no, te llega el toast "esta ocupado".
 	if Net.activo:
-		Net.solicitar_veta(celda)
+		Net.solicitar_veta(celda, Game.current_floor)
 		return
 	abrir_minijuego()
 
