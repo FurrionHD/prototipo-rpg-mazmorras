@@ -42,52 +42,28 @@ func existe(slot: int) -> bool:
 #  Ahora se distingue, y sobre todo se distingue "mas vieja" de "mas nueva": ninguna de las dos es
 #  un hueco libre, y solo VACIA lo es.
 # ------------------------------------------------------------
-enum {
-	VACIA,        # no hay fichero: este SI es un hueco libre
-	OK,           # se puede jugar
-	MAS_VIEJA,    # de un build anterior: este build ya no entiende ese esquema
-	MAS_NUEVA,    # de un build POSTERIOR: hay que actualizar el juego, no borrarla
-	ILEGIBLE,     # el fichero esta ahi pero no sale un SaveData (corrupto, a medio escribir...)
-}
+#  Los estados y su lectura viven en SaveIO (scripts/core/save_io.gd), porque los MUNDOS
+#  COMPARTIDOS (autoload Mundos) necesitan exactamente lo mismo sobre otra carpeta. Aqui solo se
+#  reexportan los nombres para no tocar a quien ya llamaba a Perfil.VACIA / Perfil.OK.
+# ------------------------------------------------------------
+const VACIA := SaveIO.VACIA
+const OK := SaveIO.OK
+const MAS_VIEJA := SaveIO.MAS_VIEJA
+const MAS_NUEVA := SaveIO.MAS_NUEVA
+const ILEGIBLE := SaveIO.ILEGIBLE
 
 
 # Todo lo que se sabe de una ranura sin tener que adivinarlo:
 #   {"estado": uno de los de arriba, "version": int (0 si no se pudo leer), "datos": SaveData|null}
 # 'datos' solo viene si estado == OK: una partida que no entendemos no se toca ni para leerla.
 func inspeccionar(slot: int) -> Dictionary:
-	if not existe(slot):
-		return {"estado": VACIA, "version": 0, "datos": null}
-	var d = ResourceLoader.load(ruta(slot), "", ResourceLoader.CACHE_MODE_IGNORE)
-	if d == null or not (d is SaveData):
-		push_warning("[perfil] la ranura %d no se puede leer" % slot)
-		return {"estado": ILEGIBLE, "version": 0, "datos": null}
-	var s := d as SaveData
-	if s.version < SaveData.VERSION_ACTUAL:
-		# Una partida de una version vieja: mejor ignorarla entera que cargarla a medias y
-		# dejar el juego en un estado imposible.
-		push_warning("[perfil] la ranura %d es de una version antigua (%d): se ignora" % [slot, s.version])
-		return {"estado": MAS_VIEJA, "version": s.version, "datos": null}
-	if s.version > SaveData.VERSION_ACTUAL:
-		# Esta partida la escribio un build MAS NUEVO. Cargarla seria perder los campos que este
-		# build no conoce (Godot descarta lo que no entiende y lo reescribe sin ello), asi que se
-		# deja quieta -- pero el menu tiene que decir que esta OCUPADA, no ofrecer "Nueva partida".
-		push_warning("[perfil] la ranura %d es de una version MAS NUEVA (%d > %d): hay que actualizar el juego" % [slot, s.version, SaveData.VERSION_ACTUAL])
-		return {"estado": MAS_NUEVA, "version": s.version, "datos": null}
-	return {"estado": OK, "version": s.version, "datos": s}
+	return SaveIO.inspeccionar_ruta(ruta(slot))
 
 
 # Como se llama la razon por la que una ranura no se puede jugar, para pintarla tal cual.
 # Cadena vacia si la ranura esta bien o esta vacia (ahi no hay nada que explicar).
 func motivo_texto(info: Dictionary) -> String:
-	match int(info.get("estado", VACIA)):
-		MAS_NUEVA:
-			return "partida de una versión MÁS NUEVA (v%d) · actualiza el juego" % int(info.get("version", 0))
-		MAS_VIEJA:
-			return "partida de una versión anterior (v%d) · este build ya no puede abrirla" % int(info.get("version", 0))
-		ILEGIBLE:
-			return "el fichero está dañado o incompleto"
-		_:
-			return ""
+	return SaveIO.motivo_texto(info)
 
 
 # Carga solo para LEER la cabecera (pintar la lista del menu). null si la ranura esta vacia o si

@@ -71,7 +71,21 @@ func _ready() -> void:
 	_boton(vb, "Multijugador (LAN)", _abrir_multi)
 	_boton(vb, "Guardar", _guardar)
 	_boton(vb, "Guardar y salir al menú", _guardar_y_salir)
-	_boton(vb, "Salir SIN guardar", _salir_sin_guardar)
+	# SALIR SIN GUARDAR no existe en un MUNDO COMPARTIDO, y no es por gusto: el mundo es de varios y
+	# lo que juegas no es solo tuyo. Salir sin guardar tiraria tu rato Y dejaria el mundo bloqueado a
+	# tu nombre hasta que caducara el arrendamiento del cerrojo, o sea que tu compañero no podria
+	# abrirlo en un buen rato. En las 3 ranuras de un jugador sigue donde estaba.
+	if Mundos.abierto == "":
+		_boton(vb, "Salir SIN guardar", _salir_sin_guardar)
+	else:
+		var n := Label.new()
+		n.text = "En un mundo compartido siempre se guarda al salir."
+		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		n.custom_minimum_size = Vector2(260, 0)
+		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		n.add_theme_font_size_override("font_size", 11)
+		n.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+		vb.add_child(n)
 
 
 func _boton(vb: VBoxContainer, txt: String, fn: Callable) -> void:
@@ -131,6 +145,13 @@ func _guardar() -> void:
 		Net.pedir_guardar_todos()
 		_aviso.text = "Guardando: se lo pides al anfitrión y quedáis todos a salvo."
 		return
+	# MUNDO COMPARTIDO: se guarda en el mundo, no en una ranura, y ademas se SUBE (sin soltar el
+	# cerrojo) para que un cuelgue no se lleve la sesion.
+	if Mundos.abierto != "":
+		var subido: bool = await Mundos.autoguardar()
+		_aviso.text = "Mundo guardado y al día." if subido \
+			else "Guardado en tu disco, pero sin subir todavía."
+		return
 	var ok: bool = Perfil.guardar_actual()
 	if ok and Net.activo:
 		Net.guardar_todos()
@@ -145,6 +166,17 @@ func _guardar_y_salir() -> void:
 	if Net.activo and not Net.es_host:
 		Net.pedir_guardar_todos(true)
 		_aviso.text = "Guardando y cerrando: se lo pides al anfitrión."
+		return
+	# MUNDO COMPARTIDO: guardar, subir y SOLTAR EL CERROJO, en ese orden. Si la subida falla el mundo
+	# sigue reservado a mi nombre y queda marcado como pendiente: no se sale como si nada.
+	if Mundos.abierto != "":
+		if Net.activo:
+			await Net.guardar_todos(true)
+		var r: Dictionary = await Mundos.cerrar_y_subir()
+		if not r.get("ok", false):
+			_aviso.text = "%s\nSe sale, pero el mundo queda pendiente de subir." % String(r.get("mensaje", ""))
+			await get_tree().create_timer(1.5).timeout
+		_salir()
 		return
 	if not Perfil.guardar_actual():
 		_aviso.text = "No se pudo guardar (no se sale)."

@@ -262,6 +262,13 @@ func _en_el_pueblo() -> bool:
 	return esc != null and esc.scene_file_path.contains("town")
 
 
+# Lo mismo, pero para que lo pregunte quien esta FUERA. Lo usa Mundos: al abrir un mundo
+# compartido hay que hostear en cuanto se pise el pueblo (desde el menu no se puede), y el mundo
+# tiene que quedar abierto desde el minuto uno para que los demas entren cuando quieran.
+func puede_abrir_sala() -> bool:
+	return _en_el_pueblo()
+
+
 func hostear(codigo: String, puerto: int = PUERTO) -> int:
 	if not _en_el_pueblo():
 		estado_cambiado.emit("Solo se puede abrir una sala desde el pueblo.")

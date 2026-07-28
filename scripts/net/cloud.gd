@@ -71,6 +71,11 @@ var union: Dictionary = {}
 
 
 func _ready() -> void:
+	# El latido tiene que seguir latiendo con el ARBOL PAUSADO. Los menus de este juego pausan
+	# (ver Game._refrescar_pausa), asi que sin esto un jugador quieto dos minutos en el menu de
+	# pausa PERDERIA EL CERROJO de su propio mundo. Es lo mismo que hace Net (net.gd:224) y por la
+	# misma razon.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	almacen = _ALMACEN_LOCAL.new()
 	set_process(true)
 
@@ -122,8 +127,7 @@ func abrir(id: String, contrasena: String, direcciones: Array = []) -> Dictionar
 		return {"ok": false, "error": "ya_abierto",
 			"mensaje": "Ya tienes un mundo abierto. Ciérralo antes de abrir otro."}
 	_cambiar(TRABAJANDO)
-	var r: Dictionary = await almacen.abrir(id, contrasena, direcciones,
-		SaveData.VERSION_ACTUAL, Game.VERSION)
+	var r: Dictionary = await almacen.abrir(id, contrasena, direcciones, _sello(), Game.VERSION)
 	if not r.get("ok", false):
 		_cambiar(CERRADA)
 		return r
@@ -170,6 +174,20 @@ func latir() -> Dictionary:
 #  abrio despues. Se dice y se suelta lo local.
 # ------------------------------------------------------------
 func cerrar(save: PackedByteArray, meta: Dictionary = {}) -> Dictionary:
+	return await _subir(save, meta, true)
+
+
+# ============================================================
+#  SUBIR sin soltar: lo que usa el AUTOGUARDADO
+#  Mientras juegas, el mundo solo existe en tu disco. Si se te muere el PC, tu arrendamiento caduca
+#  y tu compañero abre el mundo con lo ULTIMO SUBIDO: sin esto seria la partida de ayer.
+#  Los fallos se tratan igual que al cerrar (PENDIENTE_SUBIR / PERDIDO), porque son los mismos.
+# ------------------------------------------------------------
+func subir(save: PackedByteArray, meta: Dictionary = {}) -> Dictionary:
+	return await _subir(save, meta, false)
+
+
+func _subir(save: PackedByteArray, meta: Dictionary, soltando: bool) -> Dictionary:
 	if estado == PERDIDO:
 		var r_perdido := {"ok": false, "error": "token_viejo",
 			"mensaje": "El mundo lo tiene otro: esta partida no se puede subir."}
@@ -181,11 +199,18 @@ func cerrar(save: PackedByteArray, meta: Dictionary = {}) -> Dictionary:
 	var id := mundo_id
 	var token := _token
 	_cambiar(TRABAJANDO)
-	var r: Dictionary = await almacen.cerrar(id, token, save, meta,
-		SaveData.VERSION_ACTUAL, Game.VERSION)
+	var r: Dictionary = await (almacen.cerrar(id, token, save, meta, _sello(), Game.VERSION) if soltando \
+		else almacen.subir(id, token, save, meta, _sello(), Game.VERSION))
 	if r.get("ok", false):
-		print("[nube] mundo ", id, " CERRADO y subido (", save.size(), " bytes)")
-		_olvidar()
+		if soltando:
+			print("[nube] mundo ", id, " CERRADO y subido (", save.size(), " bytes)")
+			_olvidar()
+		else:
+			# El cerrojo sigue siendo mio: se vuelve a HOST (y si veniamos de una subida pendiente,
+			# esta subida la ha resuelto).
+			print("[nube] mundo ", id, " al dia (", save.size(), " bytes)")
+			_desde_ultimo_latido = 0.0   # la subida ya ha dicho "sigo aqui"
+			_cambiar(HOST)
 		return r
 
 	if String(r.get("error", "")) == "token_viejo":
@@ -242,6 +267,16 @@ func direcciones_locales() -> Array:
 # ============================================================
 #  Cosas de dentro
 # ------------------------------------------------------------
+# EL SELLO de version que este build declara al almacen. Lleva las DOS versiones dentro:
+#   VERSION_ACTUAL  = el esquema del save (sube cuando una partida vieja deja de poder cargarse)
+#   VERSION_MUNDO   = el esquema de lo que es SOLO de un mundo compartido (los jugadores dentro)
+# Hacen falta las dos porque la convencion del proyecto es añadir campos SIN subir VERSION_ACTUAL:
+# sin VERSION_MUNDO, dos builds distintos declararian el mismo sello, el almacen los dejaria
+# pasar y el ida y vuelta por el build viejo PERDERIA los campos nuevos en silencio.
+func _sello() -> int:
+	return SaveData.VERSION_ACTUAL * 100 + SaveData.VERSION_MUNDO
+
+
 func _cambiar(nuevo: int) -> void:
 	if estado == nuevo:
 		return

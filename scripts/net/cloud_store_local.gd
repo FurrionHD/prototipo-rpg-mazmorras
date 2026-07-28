@@ -9,9 +9,10 @@
 #  Fase 2 es cambiar este objeto por uno que hable HTTP con las MISMAS cuatro operaciones y las
 #  mismas respuestas.
 #
-#  Las cuatro operaciones (los futuros endpoints):
+#  Las operaciones (los futuros endpoints):
 #    abrir(id, pass, direcciones, sello)  -> POST /abrir    test-and-set + save + token
 #    latido(id, token)                    -> POST /latido   renueva el arrendamiento
+#    subir(id, token, save, meta)         -> PUT  /subir    sube y SE QUEDA el cerrojo (autoguardado)
 #    cerrar(id, token, save, meta)        -> PUT  /cerrar    sube y LUEGO suelta
 #    estado(id, pass)                     -> GET  /estado    metadatos, sin bajarse el save
 #  Mas crear(id, pass), que en el Worker sera el alta de un mundo nuevo.
@@ -160,13 +161,17 @@ func latido(id: String, token: int) -> Dictionary:
 
 
 # ============================================================
-#  CERRAR: subir y LUEGO soltar (en ese orden, nunca al reves)
-#  Si la subida falla, el cerrojo se queda a tu nombre: mejor un mundo bloqueado dos minutos que un
-#  mundo libre con la partida de ayer dentro.
+#  SUBIR: sube la partida y SE QUEDA con el cerrojo
+#  Es lo que usa el AUTOGUARDADO, y no es un lujo: mientras juegas, el mundo solo existe en tu
+#  disco. Si se te muere el PC, tu arrendamiento caduca, tu compañero abre el mundo y se encuentra
+#  con lo ULTIMO SUBIDO -- sin subidas periodicas eso seria la partida de ayer y la sesion entera
+#  se iria a la basura. Es el mismo agujero del cuelgue que tapa el arrendamiento, pero por el
+#  otro lado.
+#
 #  Aqui vive el VALLADO de verdad: el token tiene que ser el vigente. Es lo que impide que el que
 #  revive tras caducar pise al que abrio despues.
 # ------------------------------------------------------------
-func cerrar(id: String, token: int, save: PackedByteArray, meta: Dictionary,
+func subir(id: String, token: int, save: PackedByteArray, meta: Dictionary,
 		sello_version: int, sello_build: String) -> Dictionary:
 	var mundo: Dictionary = _leer_json(_ruta_mundo(id))
 	if mundo.is_empty():
@@ -190,9 +195,22 @@ func cerrar(id: String, token: int, save: PackedByteArray, meta: Dictionary,
 	mundo["meta"] = meta
 	mundo["sello_version"] = sello_version
 	mundo["sello_build"] = sello_build
-	mundo["cerrado"] = _ahora()
+	mundo["subido"] = _ahora()
 	_escribir_json(_ruta_mundo(id), mundo)
+	return {"ok": true}
 
+
+# ============================================================
+#  CERRAR: subir y LUEGO soltar (en ese orden, nunca al reves)
+#  Si la subida falla, el cerrojo se queda a tu nombre: mejor un mundo bloqueado dos minutos que un
+#  mundo libre con la partida de ayer dentro. Por eso esto es subir() + soltar, y no dos caminos:
+#  toda la validacion y el vallado viven en un solo sitio.
+# ------------------------------------------------------------
+func cerrar(id: String, token: int, save: PackedByteArray, meta: Dictionary,
+		sello_version: int, sello_build: String) -> Dictionary:
+	var r: Dictionary = subir(id, token, save, meta, sello_version, sello_build)
+	if not r.get("ok", false):
+		return r
 	# Y AHORA se suelta. La direccion del host se va con el cerrojo: nunca se reparte la IP del que
 	# jugo ayer.
 	DirAccess.remove_absolute(_ruta_cerrojo(id))

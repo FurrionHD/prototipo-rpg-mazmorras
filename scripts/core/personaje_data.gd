@@ -36,6 +36,15 @@ class_name PersonajeData
 # (deslizandose hacia arriba en la formacion si hace falta). Saves viejos: lo marca la migracion
 # de importar_partida.
 @export var es_original: bool = false
+# DE QUIEN ES este personaje, en un MUNDO COMPARTIDO: la identidad de la persona que lo creo
+# (Identidad.id), no su nombre ni su peer_id. Vacio = partida de un jugador, o sea "del que juegue
+# aqui" (es el caso de TODAS las partidas que ya existen, y por eso el default es "").
+# El dueño se guarda tambien aqui, y no solo en la clave de SaveData.jugadores, porque el mundo lo
+# puede abrir cualquiera: al preguntar "¿este personaje es mio?" no hay que recorrer el diccionario,
+# y si alguna vez se descuadrara se puede recomponer desde los propios personajes.
+# es_original sigue significando lo mismo, pero pasa a ser UNO POR DUEÑO: el personaje con el que
+# ESA persona empezo en este mundo.
+@export var dueno: String = ""
 
 # --- Progresion (ver los comentarios largos de game.gd: interno / consolidado / base_nivel) ---
 @export var level: int = 1

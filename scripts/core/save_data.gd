@@ -29,6 +29,21 @@ class_name SaveData
 const VERSION_ACTUAL := 2
 @export var version: int = VERSION_ACTUAL
 
+# ============================================================
+#  MUNDO COMPARTIDO: la segunda version, la de lo que solo existe en un mundo de varios humanos
+#  Un mundo compartido guarda DENTRO a todos los jugadores (ver el campo `jugadores`), y eso es un
+#  esquema aparte que va a crecer. Necesita su propio numero porque la convencion de este proyecto
+#  es añadir @export con default SIN subir VERSION_ACTUAL: si el sello fuera solo VERSION_ACTUAL,
+#  dos builds distintos declararian lo mismo, el cerrojo los dejaria pasar y una ida y vuelta por
+#  el build viejo se comeria los campos nuevos EN SILENCIO (Godot descarta lo que no conoce y lo
+#  reescribe sin ello). Con esto, el build viejo se NIEGA a abrir y lo dice.
+#  Subir VERSION_ACTUAL no valia: convertiria en "ilegibles" las partidas de un jugador que ya
+#  existen, que no tienen nada que ver con esto.
+# ------------------------------------------------------------
+const VERSION_MUNDO := 1
+# 0 = esta partida NO es un mundo compartido (todas las de un jugador). Ver `mundo_compartido`.
+@export var version_mundo: int = 0
+
 # --- Cabecera: lo que se pinta en la lista de ranuras SIN tener que adivinar nada ---
 # El nombre y el color los ELIGE el jugador al crear la partida (ver main_menu.gd). El color
 # tiñe su cuerpo por el mapa (el ColorRect de player.tscn). Son de la PARTIDA, no del perfil:
@@ -110,6 +125,22 @@ const VERSION_ACTUAL := 2
 # (va en los campos planos), asi que sin esto, al cargar, la cabeza volveria siempre al hueco 1 y
 # se perderia quien iba en cada posicion. Default 0: las partidas viejas cargan con el lider primero.
 @export var lider_pos: int = 0
+
+# --- MUNDO COMPARTIDO: varios humanos dentro de UN save ---------------------------------------
+# `mundo_compartido` es el interruptor de TODO lo de multijugador de save unico: con el en false
+# (las 3 ranuras de un jugador y cualquier partida que ya existiera) `jugadores` esta vacio y no se
+# ejecuta ni una linea del camino nuevo. La ruta de un jugador queda intacta por construccion.
+#
+# `jugadores` va indexado por la IDENTIDAD de cada persona (Identidad.id, un id aleatorio de su
+# maquina) y NO por su nombre ni por su peer_id: el nombre lo cambia cuando quiere y el peer_id se
+# reasigna en cada conexion. Es lo que permite que el mundo lo abra cualquiera de los dos y que
+# cada uno se encuentre SU personaje: al cargar, el que juega en esta maquina adopta su JugadorData
+# y los demas se quedan aparcados tal cual (ver Game.jugadores_mundo).
+#
+# Los campos planos de arriba siguen siendo, como siempre, los del que juega AQUI.
+@export var mundo_compartido: bool = false
+@export var jugadores: Dictionary = {}   # identidad -> JugadorData
+
 @export var player_current_hp: float = -1.0
 @export var player_current_mp: float = -1.0
 @export var stamina: float = -1.0

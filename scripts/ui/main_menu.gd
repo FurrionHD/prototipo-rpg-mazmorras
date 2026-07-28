@@ -12,6 +12,7 @@ extends Control
 
 const PUEBLO := "res://scenes/levels/town.tscn"
 const MAZMORRA := "res://scenes/levels/main.tscn"
+const MULTIJUGADOR := "res://scenes/ui/multi_menu.tscn"
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const ROJO := Color(0.9, 0.5, 0.5)
@@ -73,10 +74,29 @@ func _ready() -> void:
 	_lista.add_theme_constant_override("separation", 6)
 	vb.add_child(_lista)
 
+	# MULTIJUGADOR: otra coleccion de partidas, con sus propios mundos. Las tres ranuras de arriba
+	# son de UN JUGADOR y se quedan como estan (con su LAN de siempre desde el menu de pausa); un
+	# MUNDO COMPARTIDO lleva dentro a todos los que juegan en el, cada personaje a nombre de su
+	# jugador, y lo puede abrir cualquiera de ellos (uno a la vez). Ver multi_menu.gd.
+	var multi := Button.new()
+	multi.custom_minimum_size = Vector2(0, 34)
+	multi.text = "MULTIJUGADOR  ·  mundos compartidos"
+	multi.add_theme_color_override("font_color", Color(0.55, 0.75, 0.98))
+	multi.pressed.connect(func(): get_tree().change_scene_to_file(MULTIJUGADOR))
+	vb.add_child(multi)
+
 	var salir := Button.new()
 	salir.text = "Salir del juego"
 	salir.pressed.connect(get_tree().quit)
 	vb.add_child(salir)
+
+	# En el menu principal NO puede quedar ningun mundo compartido abierto. Si llegamos aqui con uno
+	# (algun camino anomalo que no paso por "guardar y salir"), hay que soltarlo: si no, el siguiente
+	# guardado de una partida de UN JUGADOR se escribiria dentro del fichero del mundo y su ranura no
+	# se guardaria nunca. Ver Mundos.abandonar().
+	var colgado: String = Mundos.abandonar()
+	if colgado != "":
+		_aviso.text = "El mundo compartido se cerró sin guardar. Sigue reservado a tu nombre unos minutos."
 
 	_pintar()
 

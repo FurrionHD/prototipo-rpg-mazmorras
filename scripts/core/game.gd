@@ -1257,6 +1257,11 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	plantilla = [yo]
 	party = [yo]
 	lider_idx = 0
+	# Una partida nueva nace SIENDO DE UN JUGADOR. Quien quiera un mundo compartido lo marca despues
+	# (Mundos.estrenar): asi empezar una partida normal tras haber jugado en un mundo no se lleva el
+	# reparto por humanos de la anterior.
+	mundo_compartido = false
+	jugadores_mundo.clear()
 	randomize()
 	semilla_mundo = randi()
 	if semilla_mundo == 0:
@@ -1499,7 +1504,142 @@ func exportar_partida() -> SaveData:
 	d.cab_piso = current_floor
 	d.cab_dinero = money
 	d.cab_lugar = ("Mazmorra · piso %d" % current_floor) if en_mazmorra else "Pueblo"
+
+	# MUNDO COMPARTIDO: encima de todo lo de arriba (que sigue siendo lo del que juega AQUI) va el
+	# reparto por humanos. Los campos planos se quedan como estan a proposito: sirven de cabecera
+	# para la lista y de compatibilidad, pero en un mundo la verdad de cada persona es su JugadorData.
+	if mundo_compartido:
+		d.mundo_compartido = true
+		d.version_mundo = SaveData.VERSION_MUNDO
+		# Los OTROS van tal cual, sin tocarles un pelo: son suyos y yo no los he jugado.
+		d.jugadores = jugadores_mundo.duplicate()
+		d.jugadores[Identidad.id] = _mi_jugador_data(en_mazmorra, player)
 	return d
+
+
+# ============================================================
+#  MUNDO COMPARTIDO: varios humanos en UN save
+#  Un mundo lleva dentro a todos los que han jugado en el, cada uno con SUS personajes, SU dinero,
+#  SU bolsa, SUS oficios y SU sitio, indexados por su identidad (Identidad.id). Como el mundo lo
+#  puede abrir cualquiera, al cargar hay que quedarse con lo de uno y APARCAR lo de los demas.
+#
+#  La regla que mantiene todo lo viejo intacto: si `mundo_compartido` es false -- las 3 ranuras de
+#  un jugador y cualquier partida que ya existiera -- nada de esto se ejecuta.
+#
+#  Y la que hace que sea barato: Game.player_* NO son variables, son propiedades que leen al LIDER.
+#  Asi que "adoptar mi personaje" es cambiar el grupo, no copiar cuarenta numeros de sitio.
+# ------------------------------------------------------------
+var mundo_compartido := false
+# Los JugadorData de los OTROS humanos, tal y como estaban en el save. El mio NO esta aqui: el mio
+# soy yo (mi grupo, mi dinero, mi bolsa). Se vuelcan verbatim al exportar.
+var jugadores_mundo: Dictionary = {}
+
+
+# Lo MIO, empaquetado. Ojo: aqui las listas de personajes SI llevan al lider (un JugadorData es
+# autonomo; ver la cabecera de jugador_data.gd).
+func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
+	var jd := JugadorData.new()
+	jd.id = Identidad.id
+	jd.nombre_visible = Identidad.nombre
+	jd.personajes = []
+	for pj in plantilla:
+		if pj is PersonajeData:
+			(pj as PersonajeData).dueno = Identidad.id   # que el personaje sepa de quien es
+			jd.personajes.append(pj)
+	jd.equipo = party.duplicate()
+	jd.lider_pos = clampi(lider_idx, 0, maxi(0, party.size() - 1))
+	jd.dinero = money
+	jd.crystals = crystals.duplicate()
+	jd.materiales = materiales.duplicate()
+	jd.consumibles = {}
+	for c in consumables:
+		if c != null and c.resource_path != "":
+			jd.consumibles[c.resource_path] = int(consumables[c])
+	jd.owned_mochilas = owned_mochilas.duplicate()
+	jd.equipped_mochila = mochila_equipo
+	jd.mezcla_exp = mezcla_exp
+	jd.metalurgia_exp = metalurgia_exp
+	jd.peleteria_exp = peleteria_exp
+	jd.herreria_exp = herreria_exp
+	jd.materiales_vistos = materiales_vistos.duplicate()
+	jd.pack_inicial = pack_inicial_reclamado
+	jd.en_mazmorra = en_mazmorra
+	jd.current_floor = current_floor
+	if player is Node2D:
+		jd.pos = (player as Node2D).global_position
+	jd.fecha_visto = Time.get_datetime_string_from_system(false, true)
+	return jd
+
+
+# Al cargar: aparcar a los demas y quedarme con lo mio. Si en este mundo todavia no tengo personaje
+# (primera vez que entro), no se adopta nada y me quedo con el grupo de los campos planos -- el alta
+# de un jugador nuevo la hace quien abre el mundo.
+func _adoptar_mundo_compartido(d: SaveData) -> void:
+	mundo_compartido = d.mundo_compartido
+	jugadores_mundo.clear()
+	if not d.mundo_compartido:
+		return
+	var yo_id: String = Identidad.id
+	for k in d.jugadores:
+		var jd = d.jugadores[k]
+		if jd is JugadorData and String(k) != yo_id:
+			jugadores_mundo[String(k)] = jd
+	var mio = d.jugadores.get(yo_id)
+	if mio is JugadorData:
+		_adoptar_jugador(mio as JugadorData)
+	else:
+		print("[mundo] no tengo personaje en este mundo todavia (identidad ", yo_id, ")")
+
+
+func _adoptar_jugador(jd: JugadorData) -> void:
+	# Sin equipo no hay a quien adoptar: mejor quedarse con lo que trajeron los campos planos que
+	# dejar el juego sin lider (que es un estado del que no se sale).
+	var eq: Array = []
+	for pj in jd.equipo:
+		if pj is PersonajeData and eq.size() < PARTY_MAX:
+			eq.append(pj)
+	if eq.is_empty():
+		push_warning("[mundo] el JugadorData de %s no trae equipo: no se adopta" % jd.id)
+		return
+
+	plantilla.clear()
+	for pj in jd.personajes:
+		if pj is PersonajeData and not plantilla.has(pj):
+			plantilla.append(pj as PersonajeData)
+	for pj in eq:
+		if not plantilla.has(pj):
+			plantilla.append(pj)   # por si el .tres viniera descuadrado
+	# .assign() y NO `party = eq`: party es Array[PersonajeData] y eq es un Array pelado (viene de un
+	# @export, que no puede llevar tipo de clase). Asignarlo directamente LANZA en Godot 4 y aborta
+	# la funcion a media adopcion -- se queda el lider del que guardo, con el dinero del que guardo.
+	party.assign(eq)
+	lider_idx = clampi(jd.lider_pos, 0, eq.size() - 1)
+
+	money = jd.dinero
+	crystals.assign(jd.crystals)
+	materiales.assign(jd.materiales)
+	consumables.clear()
+	for ruta in jd.consumibles:
+		var c: Resource = load(ruta)
+		if c != null:
+			consumables[c] = int(jd.consumibles[ruta])
+	owned_mochilas.assign(jd.owned_mochilas)
+	mochila_equipo = jd.equipped_mochila as BackpackData
+	mezcla_exp = jd.mezcla_exp
+	metalurgia_exp = jd.metalurgia_exp
+	peleteria_exp = jd.peleteria_exp
+	herreria_exp = jd.herreria_exp
+	materiales_vistos = jd.materiales_vistos.duplicate()
+	pack_inicial_reclamado = jd.pack_inicial
+
+	# DONDE SE QUEDO. La expedicion la resuelve quien carga la escena: si la mazmorra ya se cerro,
+	# ese piso es de otro mapa (ver la nota de JugadorData.pos).
+	current_floor = maxi(1, jd.current_floor)
+	pos_cargada = jd.pos if jd.en_mazmorra else Vector2.INF
+
+	# Las player_* leen al lider, que ahora es otro: hay que rederivar las visibles.
+	_derivar_visible()
+	print("[mundo] adoptado ", jd.resumen())
 
 
 # La partida del INVITADO en multijugador (hito 6 preventivo: el host guarda por los dos).
@@ -1561,6 +1701,11 @@ func guardar_partida_invitado() -> bool:
 # ranura el baul, el mapa, los bosses y el PISO del mundo del HOST: justo lo que
 # exportar_partida_invitado existe para evitar.
 func guardar_mi_partida() -> bool:
+	# MUNDO COMPARTIDO: la partida no es de una ranura, es del mundo (user://mundos/<clave>.tres) y
+	# lleva dentro a todos los jugadores. Va primero porque en un mundo abierto Perfil.ranura_actual
+	# esta a 0 a proposito: cualquier camino que acabara en Perfil solo avisaria de que no hay ranura.
+	if Mundos.abierto != "":
+		return Mundos.guardar_actual()
 	if Net.activo and not Net.es_host:
 		return guardar_partida_invitado()
 	return Perfil.guardar_actual()
@@ -1732,6 +1877,13 @@ func importar_partida(d: SaveData) -> void:
 	var pos: int = clampi(d.lider_pos, 0, party.size())
 	party.insert(pos, yo)
 	lider_idx = pos
+	# MUNDO COMPARTIDO: hasta aqui se ha cargado la partida "como siempre", o sea con los campos
+	# planos del ULTIMO que guardo. Ahora es cuando cada uno se queda con LO SUYO: yo adopto mi
+	# JugadorData (y el `yo` de arriba se descarta) y los demas se quedan aparcados intactos.
+	# Va justo aqui, ANTES de _realinear_equip_meta(), a proposito: si se hiciera despues, el
+	# equip_meta de los personajes adoptados quedaria desatado de item_meta y reparar una pieza no
+	# se veria en la ficha (el bug que avisa el comentario de abajo).
+	_adoptar_mundo_compartido(d)
 	# Con el grupo ya montado y item_meta reconstruido, volver a atar equip_meta a item_meta: sin
 	# esto, reparar una pieza no se refleja en inventario/ficha tras cargar (dos copias divergentes).
 	_realinear_equip_meta()
@@ -1743,7 +1895,11 @@ func importar_partida(d: SaveData) -> void:
 	limpiar_curas_pendientes()
 	cerrar_menu()   # sin menus abiertos Y con el arbol despausado: la escena nueva tiene que correr
 	debug_panel_open = false
-	_stamina_cargada = d.stamina
+	# El aguante del que arranca. En un MUNDO COMPARTIDO el lider puede ser otro (el que se acaba de
+	# adoptar), y el suyo viaja en SU ficha, como el de los acompañantes: el campo plano del save es
+	# del ultimo que guardo y no tiene por que ser el mio. En una partida de un jugador lider() ES
+	# `yo`, asi que esto vale exactamente lo mismo que antes.
+	_stamina_cargada = lider().stamina if mundo_compartido else d.stamina
 
 
 # Carga una herramienta por su ruta. Si la partida es vieja o el .tres ya no existe, se
