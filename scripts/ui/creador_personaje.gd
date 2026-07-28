@@ -320,6 +320,20 @@ func _montar(titulo: String, subtitulo: String, texto_boton: String, previo: Dic
 		queue_free())
 	botones.add_child(aceptar)
 
+	# BOTONES DE MAS que pone quien abre la pantalla. Nacio para el "Importar personaje" de los mundos
+	# compartidos: alli crear uno nuevo y traerse uno hecho son la misma decision, asi que el boton
+	# tiene que estar AQUI y no en un panel previo que te obligue a elegir antes de ver nada.
+	#   previo["extras"] = [{"texto": String, "fn": Callable}]
+	# A la funcion se le pasa ESTA pantalla, para que decida ella si cerrarla: si lo que abre se puede
+	# cancelar (como la lista de partidas), el creador tiene que seguir vivo detras.
+	for ex in previo.get("extras", []):
+		var b := Button.new()
+		b.text = String((ex as Dictionary).get("texto", "..."))
+		var fn: Callable = (ex as Dictionary).get("fn", Callable())
+		if fn.is_valid():
+			b.pressed.connect(func(): fn.call(self))
+		botones.add_child(b)
+
 	var cancelar := Button.new()
 	cancelar.text = "Cancelar"
 	cancelar.pressed.connect(queue_free)
