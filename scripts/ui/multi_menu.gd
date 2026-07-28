@@ -399,15 +399,59 @@ func _crear_de_verdad(nombre: String, color: Color, png: PackedByteArray, pass_:
 	_sel = clave
 	_pintar()
 	_avisar_direccion(a)
+	# Aqui tambien se puede IMPORTAR: estrenar tu mundo con el personaje que ya tienes es igual de
+	# valido que estrenarlo con uno nuevo, y era la primera pantalla en la que se echaba de menos.
+	var previo: Dictionary = {"color": Color(0.45, 0.72, 1.0)}
+	if not _ranuras_importables().is_empty():
+		previo["extras"] = [{
+			"texto": "Importar personaje…",
+			"fn": func(creador): _elegir_ranura_a_importar(creador,
+				func(slot: int, capa: Control, cr: Node): _estrenar_con_importado(slot, capa, cr, clave)),
+		}]
 	CreadorPersonaje.abrir(_encima, "TU PERSONAJE EN «%s»" % nombre,
-		"Este personaje vive DENTRO del mundo, a tu nombre: te lo encontrarás igual quien lo abra.",
-		"Empezar la aventura", {"color": Color(0.45, 0.72, 1.0)},
+		"Este personaje vive DENTRO del mundo, a tu nombre: te lo encontrarás igual quien lo abra.\n"
+		+ "O puedes IMPORTAR uno de tus partidas, con sus acompañantes y lo que lleve en la bolsa.",
+		"Empezar la aventura", previo,
 		func(n: String, c: Color, m: float, tinte: float, imagen: PackedByteArray):
 			Game.nueva_partida(n, c, m, imagen, tinte)
 			if not Mundos.estrenar(clave):
 				_decir("No se pudo guardar el mundo.", false)
 				return
 			get_tree().change_scene_to_file(PUEBLO))
+
+
+# ESTRENAR MI PROPIO MUNDO con un personaje traido de una de mis ranuras.
+#
+# Aqui NO hay red: el mundo es mio y lo acabo de crear, asi que no hay anfitrion al que mandarle
+# nada (ese es el otro camino, _mudar_personaje). Pero SI se hace el mismo viaje de ida y vuelta por
+# jd_a_dict/jd_de_dict, y no por capricho: es lo que vuelve a REGISTRAR el equipo de los personajes
+# en el baul de este mundo, que nace vacio. Sin ese rodeo, sus armas quedarian puestas pero sin
+# existir en el baul ni en item_meta, y el juego las trataria como piezas T1 comunes.
+#
+# El orden es el que es: empaquetar ANTES de nueva_partida() (que borra item_meta, de donde sale la
+# identidad de cada pieza) y reconstruir DESPUES (sobre el mundo ya limpio y con su semilla nueva).
+func _estrenar_con_importado(slot: int, capa: Control, creador: Node, clave: String) -> void:
+	var jd: JugadorData = Game.jugador_data_desde_ranura(slot)
+	if jd == null:
+		_decir("Esa partida no se puede leer: no se ha traído nada.", false)
+		return
+	var congelado: Dictionary = Net.jd_a_dict(jd)
+
+	capa.queue_free()
+	if is_instance_valid(creador):
+		creador.queue_free()
+
+	# Mundo NUEVO: semilla nueva, baul vacio, almacen vacio, herramientas de serie. Lo de la persona
+	# entra despues y por encima.
+	Game.nueva_partida()
+	var llegado: JugadorData = Net.jd_de_dict(congelado)
+	Game.aplicar_jugador_mundo(llegado, 0)   # 0 = no toques la semilla que acaba de salir
+
+	if not Mundos.estrenar(clave):
+		_decir("No se pudo guardar el mundo.", false)
+		return
+	print("[mudanza] mundo estrenado con %s" % llegado.resumen())
+	get_tree().change_scene_to_file(PUEBLO)
 
 
 # ============================================================
@@ -537,7 +581,7 @@ func _crear_mi_personaje_en_mundo_ajeno(nombre_mundo: String) -> void:
 	if not _ranuras_importables().is_empty():
 		previo["extras"] = [{
 			"texto": "Importar personaje…",
-			"fn": func(creador): _elegir_ranura_a_importar(creador),
+			"fn": func(creador): _elegir_ranura_a_importar(creador, _mudar_personaje),
 		}]
 	CreadorPersonaje.abrir(_encima, "TU PERSONAJE EN EL MUNDO DE %s" % nombre_mundo.to_upper(),
 		"Es tu primera vez aquí. Este personaje se queda a vivir DENTRO de este mundo, a tu nombre: "
@@ -571,7 +615,11 @@ func _ranuras_importables() -> Array:
 
 # ¿CUAL de tus partidas te traes? Se abre ENCIMA del creador y el creador se queda vivo detras: si
 # cancelas aqui, sigues donde estabas y puedes crear uno nuevo como si nada.
-func _elegir_ranura_a_importar(creador: Node) -> void:
+#
+# La MISMA lista sirve para los dos sitios donde se importa (estrenar mi mundo y entrar en el de
+# otro), que solo se diferencian en QUE se hace con la ranura elegida. Por eso lo que hacer viene de
+# fuera: al_elegir(slot, capa, creador).
+func _elegir_ranura_a_importar(creador: Node, al_elegir: Callable) -> void:
 	var capa := ColorRect.new()
 	capa.color = Color(0.04, 0.04, 0.06, 0.97)
 	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -597,7 +645,8 @@ func _elegir_ranura_a_importar(creador: Node) -> void:
 		var b := Button.new()
 		b.text = "%s  ·  Nv.%d  ·  %d monedas" % [d.nombre, d.cab_nivel, d.cab_dinero]
 		b.custom_minimum_size = Vector2(0, 38)
-		b.pressed.connect(_mudar_personaje.bind(int(e["slot"]), capa, creador))
+		var s: int = int(e["slot"])
+		b.pressed.connect(func(): al_elegir.call(s, capa, creador))
 		vb.add_child(b)
 
 	MenuScaffold.nota(vb, "Tu partida NO se borra: es una copia. Lo que SÍ se queda allí es el baúl "
