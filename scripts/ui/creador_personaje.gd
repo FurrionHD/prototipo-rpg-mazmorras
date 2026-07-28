@@ -102,12 +102,16 @@ func _montar(titulo: String, subtitulo: String, texto_boton: String, previo: Dic
 	izq.add_theme_constant_override("separation", 8)
 	cols.add_child(izq)
 
+	# Esta pantalla no siempre bautiza a una persona: tambien se usa para ponerle nombre e icono a un
+	# MUNDO compartido (ver multi_menu.gd), y ahi "¿Como se llama?" con «Aventurero» debajo no dice
+	# nada. Quien la abre puede pasar su propia etiqueta y su propio nombre por defecto.
 	var lbl := Label.new()
-	lbl.text = "¿Cómo se llama?"
+	lbl.text = str(previo.get("etiqueta_nombre", "¿Cómo se llama?"))
 	izq.add_child(lbl)
 
 	var nombre := LineEdit.new()
-	nombre.placeholder_text = Game.NOMBRE_POR_DEFECTO   # si lo dejas vacio, se llama asi
+	# Si lo dejas vacio, se llama asi.
+	nombre.placeholder_text = str(previo.get("nombre_defecto", Game.NOMBRE_POR_DEFECTO))
 	nombre.max_length = 16
 	nombre.custom_minimum_size = Vector2(280, 0)
 	nombre.text = str(previo.get("nombre", ""))

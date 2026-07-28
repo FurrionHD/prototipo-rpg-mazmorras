@@ -30,6 +30,9 @@ const VERDE := Color(0.6, 0.9, 0.6)
 const MIOS := 0
 const AJENOS := 1
 
+# Como se llama un mundo al que no le pones nombre.
+const MUNDO_POR_DEFECTO := "Mundo nuevo"
+
 var _capa: CanvasLayer = null
 # Capa para lo que se abre ENCIMA (el creador de personaje, los dialogos). Tiene que ser otra
 # CanvasLayer con layer mas alto: el esqueleto del menu vive dentro de una CanvasLayer, y una
@@ -244,9 +247,13 @@ func _decir(txt: String, ok := true) -> void:
 func _crear_mundo() -> void:
 	CreadorPersonaje.abrir(_encima, "NUEVO MUNDO COMPARTIDO",
 		"Ponle nombre e imagen para reconocerlo en tu lista. Después crearás tu personaje.",
-		"Siguiente: tu personaje", {"nombre": "", "color": AZUL},
+		"Siguiente: tu personaje",
+		{"nombre": "", "color": AZUL,
+			"etiqueta_nombre": "Nombre del mundo", "nombre_defecto": MUNDO_POR_DEFECTO},
 		func(nombre: String, color: Color, _metalico: float, _tinte: float, png: PackedByteArray):
-			_pedir_contrasena(nombre, color, png))
+			# Si lo deja en blanco vale el del hueco: lo prometia el placeholder.
+			var n: String = nombre.strip_edges()
+			_pedir_contrasena(n if n != "" else MUNDO_POR_DEFECTO, color, png))
 
 
 func _pedir_contrasena(nombre: String, color: Color, png: PackedByteArray) -> void:
