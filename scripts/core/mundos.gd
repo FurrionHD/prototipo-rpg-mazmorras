@@ -273,10 +273,14 @@ func abrir(clave: String, contrasena: String) -> Dictionary:
 
 	# El cerrojo es mio. Los bytes que baja la nube MANDAN sobre la copia local: puede haber jugado
 	# el otro desde que yo cerre.
+	# Que direccion se ha publicado, para poder DECIRSELO: es lo unico que tienen que teclear los
+	# demas, y el juego no puede saber a ciencia cierta cual de las tuyas es la que ellos alcanzan.
+	_escribir_entrada(clave, {"publicada": dirs[0] if not dirs.is_empty() else ""})
+
 	var bytes: PackedByteArray = r.get("save", PackedByteArray())
 	if bytes.is_empty():
 		_contrasena = contrasena
-		return {"ok": true, "resultado": "nuevo", "clave": clave}
+		return {"ok": true, "resultado": "nuevo", "clave": clave, "direcciones": dirs}
 	if not SaveIO.escribir_bytes(ruta(clave), bytes):
 		# Ojo: el cerrojo YA es mio. Se suelta para no dejar el mundo bloqueado por un fallo de disco.
 		await Nube.cerrar(SaveIO.bytes_de_ruta(ruta(clave)), {})
@@ -285,7 +289,7 @@ func abrir(clave: String, contrasena: String) -> Dictionary:
 	if int(info["estado"]) != SaveIO.OK:
 		return {"ok": false, "mensaje": SaveIO.motivo_texto(info)}
 	_contrasena = contrasena
-	return {"ok": true, "resultado": "host", "clave": clave}
+	return {"ok": true, "resultado": "host", "clave": clave, "direcciones": dirs}
 
 
 # ESTRENAR un mundo recien creado: se llama DESPUES de Game.nueva_partida(). Deja el mundo por

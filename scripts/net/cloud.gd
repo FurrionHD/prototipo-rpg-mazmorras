@@ -260,8 +260,43 @@ func direcciones_locales() -> Array:
 		var s := String(ip)
 		if s.begins_with("127.") or s == "::1" or s.contains(":"):
 			continue   # loopback y IPv6 fuera: ENet aqui va por IPv4
+		# 169.254.x.x son LINK-LOCAL: las se pone Windows solo en un adaptador que NO consiguio red
+		# (VPN paradas, adaptadores virtuales, un cable sin DHCP). No llevan a ningun sitio y de estas
+		# suele haber VARIAS, asi que colarlas seria hacer que el cliente pruebe cuatro direcciones
+		# muertas antes de la buena.
+		if s.begins_with("169.254."):
+			continue
 		salida.append(s)
+	# Primero las de LAN VIRTUAL: son las que funcionan entre dos casas distintas. Una IP de tu red
+	# local solo sirve si estais en la misma casa.
+	salida.sort_custom(func(a, b): return _rango(a) < _rango(b))
 	return salida
+
+
+# Que pinta tiene una direccion, para poder ORDENARLAS y para decirselo al jugador. Cuanto mas bajo
+# el numero, mas probable es que sirva para jugar con alguien de fuera.
+func _rango(ip: String) -> int:
+	if ip.begins_with("25."):
+		return 0                      # Hamachi
+	if ip.begins_with("100."):
+		return 1                      # Tailscale (rango 100.64-100.127)
+	if ip.begins_with("192.168.") or ip.begins_with("10.") or ip.begins_with("172."):
+		return 2                      # red local de casa
+	return 3
+
+
+# Como se le llama a una direccion en la interfaz. El juego NO puede saber con certeza de que es
+# cada una (Hamachi no se anuncia), asi que se dice lo que parece y se deja elegir.
+func etiqueta_direccion(ip: String) -> String:
+	match _rango(ip):
+		0:
+			return "LAN virtual (Hamachi) — la buena para jugar de casa a casa"
+		1:
+			return "LAN virtual (Tailscale)"
+		2:
+			return "tu red local — solo sirve si estáis en la misma casa"
+		_:
+			return "otra red"
 
 
 # ============================================================

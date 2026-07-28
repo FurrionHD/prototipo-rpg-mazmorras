@@ -29,6 +29,7 @@ const VERDE := Color(0.6, 0.9, 0.6)
 
 const MIOS := 0
 const AJENOS := 1
+const YO := 2
 
 # Como se llama un mundo al que no le pones nombre.
 const MUNDO_POR_DEFECTO := "Mundo nuevo"
@@ -81,7 +82,8 @@ func _pintar() -> void:
 	for c in lista.get_children():
 		c.queue_free()
 
-	MenuScaffold.pestanas(header, ["MIS MUNDOS", "DE OTRAS PERSONAS"], _pestana, _on_pestana, 150)
+	MenuScaffold.pestanas(header, ["MIS MUNDOS", "DE OTRAS PERSONAS", "TÚ Y TU CONEXIÓN"],
+		_pestana, _on_pestana, 150)
 
 	# Quien soy: hace falta que se vea, porque es la llave de tus personajes en todos los mundos.
 	var quien := Label.new()
@@ -89,6 +91,11 @@ func _pintar() -> void:
 	quien.add_theme_font_size_override("font_size", 11)
 	quien.add_theme_color_override("font_color", MenuScaffold.GRIS)
 	header.add_child(quien)
+
+	if _pestana == YO:
+		_pintar_direcciones(lista)
+		_pintar_yo()
+		return
 
 	var mundos: Array = Mundos.catalogo().filter(func(e):
 		return bool(e.get("mio", false)) == (_pestana == MIOS))
@@ -155,6 +162,107 @@ func _textura(bytes) -> Texture2D:
 	return ImageTexture.create_from_image(img)
 
 
+# ============================================================
+#  TÚ Y TU CONEXIÓN
+#  Aqui vive lo que es de la PERSONA y no de ninguna partida: como te llamas para los demas, tu id
+#  (la llave de tus personajes en todos los mundos) y CUAL DE TUS DIRECCIONES publicas al abrir.
+#
+#  Lo de la direccion no es un ajuste de relleno: el juego no puede saber cual de las direcciones de
+#  tu maquina alcanzan tus compañeros (Hamachi no se anuncia como tal, y Windows suele tener media
+#  docena de adaptadores). Se ordenan por lo que PARECEN y eliges tu una vez; desde entonces se
+#  publica sola en cada apertura.
+# ------------------------------------------------------------
+func _pintar_direcciones(lista: VBoxContainer) -> void:
+	var l := Label.new()
+	l.text = "Tus direcciones"
+	l.add_theme_color_override("font_color", AMBAR)
+	lista.add_child(l)
+
+	var dirs: Array = Nube.direcciones_locales()
+	if dirs.is_empty():
+		MenuScaffold.nota(lista, "No se ve ninguna dirección utilizable. Si usas Hamachi o similar, "
+			+ "enciéndelo y vuelve a entrar aquí.")
+	for ip in dirs:
+		var s: String = String(ip)
+		var b := Button.new()
+		b.custom_minimum_size = Vector2(300, 30)
+		var elegida: bool = (Identidad.direccion_preferida == s)
+		b.text = ("● " if elegida else "○ ") + s
+		b.tooltip_text = Nube.etiqueta_direccion(s)
+		b.pressed.connect(func():
+			Identidad.poner_direccion(s)
+			_decir("Publicarás %s cuando abras un mundo." % s)
+			_pintar())
+		lista.add_child(b)
+		MenuScaffold.nota(lista, "    " + Nube.etiqueta_direccion(s))
+
+	if Identidad.direccion_preferida != "":
+		var quitar := Button.new()
+		quitar.text = "Quitar la elección (publicar todas)"
+		quitar.pressed.connect(func():
+			Identidad.poner_direccion("")
+			_decir("Se publicarán todas y el que entre probará en orden.")
+			_pintar())
+		lista.add_child(quitar)
+
+
+func _pintar_yo() -> void:
+	var vb: VBoxContainer = _piezas["content"]
+	for c in vb.get_children():
+		c.queue_free()
+
+	MenuScaffold.titulo(vb, "QUIÉN ERES", 20, AMBAR)
+	MenuScaffold.nota(vb, "Esto es de la PERSONA, no de una partida: es lo que permite que un mundo "
+		+ "recuerde qué personaje es tuyo, lo abra quien lo abra.")
+
+	var l1 := Label.new()
+	l1.text = "Tu nombre (el que verán tus compañeros)"
+	l1.add_theme_font_size_override("font_size", 12)
+	vb.add_child(l1)
+	var campo := LineEdit.new()
+	campo.text = Identidad.nombre
+	campo.max_length = 16
+	campo.custom_minimum_size = Vector2(260, 0)
+	vb.add_child(campo)
+	var guardar := Button.new()
+	guardar.text = "Guardar mi nombre"
+	guardar.pressed.connect(func():
+		Identidad.poner_nombre(campo.text)
+		_decir("Ahora eres «%s»." % Identidad.nombre)
+		_pintar())
+	vb.add_child(guardar)
+	MenuScaffold.nota(vb, "Cambiarlo NO te convierte en otra persona: tus personajes van atados a tu "
+		+ "id, no a tu nombre.")
+
+	MenuScaffold.fila(vb, "Tu id", Identidad.id, 60)
+	MenuScaffold.nota(vb, "Guárdalo en algún sitio. Si pierdes este ordenador (o el fichero de "
+		+ "identidad) es lo ÚNICO que te devuelve tus personajes en los mundos de otros.")
+	var otro := Button.new()
+	otro.text = "Pegar otro id..."
+	otro.pressed.connect(func():
+		_dialogo("PEGAR UN ID", "Solo si estás recuperando tu identidad de otro ordenador. "
+			+ "Son 24 caracteres. Con el id de otra persona no consigues nada: sus personajes "
+			+ "están en SU mundo, no aquí.",
+			[{"etiqueta": "Id (24 caracteres)", "valor": ""}],
+			func(v: Array):
+				if Identidad.poner_id(v[0]):
+					_decir("Identidad cambiada.")
+				else:
+					_decir("Ese id no vale (tienen que ser 24 caracteres hexadecimales).", false)
+				_pintar()))
+	vb.add_child(otro)
+
+	MenuScaffold.titulo(vb, "TU DIRECCIÓN", 18, AMBAR)
+	var pref: String = Identidad.direccion_preferida
+	MenuScaffold.fila(vb, "Publicas", pref if pref != "" else "todas (el que entre prueba en orden)", 90,
+		VERDE if pref != "" else null)
+	MenuScaffold.nota(vb, "Elígela en la lista de la izquierda. Es la que tendrán que poner tus "
+		+ "compañeros para entrar, junto con la contraseña del mundo.\n\n"
+		+ "⚠️ El juego reparte la dirección, pero no puede hacer que se pueda llegar a ella: para "
+		+ "jugar de casa a casa sigue haciendo falta Hamachi (o abrir el puerto 24567 UDP). Si usas "
+		+ "Hamachi, la buena es la que empieza por 25.")
+
+
 func _pintar_detalle() -> void:
 	var vb: VBoxContainer = _piezas["content"]
 	for c in vb.get_children():
@@ -177,10 +285,21 @@ func _pintar_detalle() -> void:
 	MenuScaffold.fila(vb, "Última vez", String(e.get("fecha", "—")), 110)
 	if bool(e.get("mio", false)):
 		MenuScaffold.fila(vb, "Código del mundo", String(e.get("id_nube", "—")), 110)
-		MenuScaffold.nota(vb, "Ese código y la contraseña son lo que necesitan tus compañeros para "
-			+ "añadir este mundo a su lista.")
+		# QUE TIENEN QUE PONER ELLOS. Es la pregunta practica y no estaba en ningun sitio.
+		var pref: String = Identidad.direccion_preferida
+		var pub: String = String(e.get("publicada", ""))
+		var dirs: Array = Nube.direcciones_locales()
+		var va_a_publicar: String = pref if pref != "" else (String(dirs[0]) if not dirs.is_empty() else "")
+		MenuScaffold.fila(vb, "Tus compañeros ponen", "%s + la contraseña" % \
+			(va_a_publicar if va_a_publicar != "" else "(no tienes dirección utilizable)"), 110,
+			VERDE if va_a_publicar != "" else ROJO)
+		if pub != "" and pub != va_a_publicar:
+			MenuScaffold.fila(vb, "La última vez", pub, 110)
+		MenuScaffold.nota(vb, "La dirección se elige en la pestaña «TÚ Y TU CONEXIÓN» y se publica "
+			+ "sola cada vez que abres. El código de mundo y la contraseña son lo que tienen que "
+			+ "meter una vez para añadirlo a su lista.")
 	else:
-		MenuScaffold.fila(vb, "Dirección", String(e.get("direccion", "—")), 110)
+		MenuScaffold.fila(vb, "Su dirección", String(e.get("direccion", "—")), 110)
 
 	var motivo: String = String(e.get("motivo", ""))
 	if motivo != "":
@@ -279,6 +398,7 @@ func _crear_de_verdad(nombre: String, color: Color, png: PackedByteArray, pass_:
 		return
 	_sel = clave
 	_pintar()
+	_avisar_direccion(a)
 	CreadorPersonaje.abrir(_encima, "TU PERSONAJE EN «%s»" % nombre,
 		"Este personaje vive DENTRO del mundo, a tu nombre: te lo encontrarás igual quien lo abra.",
 		"Empezar la aventura", {"color": Color(0.45, 0.72, 1.0)},
@@ -297,12 +417,13 @@ func _crear_de_verdad(nombre: String, color: Color, png: PackedByteArray, pass_:
 # ------------------------------------------------------------
 func _anadir_ajeno() -> void:
 	_dialogo("AÑADIR EL MUNDO DE OTRA PERSONA",
-		"Pídele su dirección (la de Hamachi o la que uséis) y la contraseña del mundo. El código de "
-		+ "mundo es opcional: servirá para encontrarle sin saber su dirección.",
+		"Los tres datos los tiene esa persona: los ve en su pantalla del mundo. La dirección es la "
+		+ "suya (la de Hamachi si es lo que usáis), no la tuya. El código de mundo es opcional: "
+		+ "servirá para encontrarle sin saber su dirección cuando esté el almacén de verdad.",
 		[
-			{"etiqueta": "Nombre para tu lista", "valor": ""},
-			{"etiqueta": "Dirección (IP)", "valor": ""},
-			{"etiqueta": "Contraseña", "secreto": true},
+			{"etiqueta": "Cómo quieres verlo en TU lista (p.ej. «la casa de Nacho»)", "valor": ""},
+			{"etiqueta": "SU dirección (IP)", "valor": ""},
+			{"etiqueta": "Contraseña del mundo", "secreto": true},
 			{"etiqueta": "Código del mundo (opcional)", "valor": ""},
 		],
 		func(v: Array):
@@ -339,7 +460,7 @@ func _abrir(clave: String, pass_: String) -> void:
 				% quien + "siguiente paso.", false)
 		"nuevo":
 			# Un mundo dado de alta al que todavia no se le ha creado personaje.
-			_decir("Este mundo está vacío: crea tu personaje.")
+			_avisar_direccion(r)
 			CreadorPersonaje.abrir(_encima, "TU PERSONAJE",
 				"Este personaje vive dentro del mundo, a tu nombre.", "Empezar la aventura",
 				{"color": Color(0.45, 0.72, 1.0)},
@@ -351,9 +472,22 @@ func _abrir(clave: String, pass_: String) -> void:
 			if not Mundos.cargar(clave):
 				_decir("No se pudo cargar ese mundo.", false)
 				return
+			_avisar_direccion(r)
 			# Se vuelve EXACTAMENTE donde se guardo, como en las ranuras de un jugador.
 			var datos: SaveData = Mundos.datos_cabecera(clave)
 			get_tree().change_scene_to_file(MAZMORRA if datos != null and datos.en_mazmorra else PUEBLO)
+
+
+# Al abrir, DECIR que direccion se ha publicado. Era la pregunta que no tenia respuesta en ninguna
+# pantalla: "¿como se que ha pillado mi IP?". Y si no hay ninguna utilizable, se avisa en rojo en vez
+# de dejarte creyendo que tus compañeros pueden entrar.
+func _avisar_direccion(r: Dictionary) -> void:
+	var dirs: Array = r.get("direcciones", [])
+	if dirs.is_empty():
+		_decir("Mundo abierto, pero SIN dirección publicada: nadie podrá entrar. Enciende Hamachi y "
+			+ "elige tu dirección en «TÚ Y TU CONEXIÓN».", false)
+		return
+	_decir("Mundo abierto. Tus compañeros tienen que poner %s y la contraseña." % String(dirs[0]))
 
 
 func _reintentar(clave: String) -> void:
