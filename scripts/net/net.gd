@@ -138,13 +138,16 @@ var _dentro: Dictionary = {}       # peer_id -> true: quienes estan en la mazmor
 # proposito: los pisos se generan con el mismo molde y repiten coordenadas, asi que con la celda
 # pelada picar una veta en el piso 3 borraba la del mismo hueco en el 4.
 var _vetas_ocupadas: Dictionary = {}  # sitio -> peer_id que la trabaja (host)
-# sitio -> segundo de expedicion en que se pico. El VALOR es lo que permite el respawn: el host
-# barre la tabla y suelta lo que ya ha cumplido su tiempo (ver _barrer_respawns).
+# sitio -> momento en que se pico. El VALOR es lo que permite el respawn: el host barre la tabla y
+# suelta lo que ya ha cumplido su tiempo (ver _barrer_respawns).
+#
+# EL RELOJ ES Game.tiempo_mazmorra DEL HOST, y tiene que ser ese y no otro. Antes habia un
+# `_reloj_expedicion` propio que nacia a cero con cada expedicion y moria con ella; el problema no
+# era el reloj en si, sino lo que arrastraba: como los sellos se apuntaban contra el, no podian
+# sobrevivir a que saliera el ultimo jugador, y al volver a bajar estaban TODAS las vetas otra vez.
+# tiempo_mazmorra ya va al save y sigue corriendo en el pueblo (que es lo que se quiere: si subes a
+# forjar, has esperado de verdad), asi que es el mismo criterio que en una partida de un jugador.
 var _agotados_sesion: Dictionary = {}
-# RELOJ DE LA EXPEDICION (solo host). El respawn de materiales tiene que ir contra UN reloj, no
-# contra el Game.tiempo_mazmorra de cada maquina, que es local y diverge. Corre mientras la
-# expedicion este abierta (haya alguien dentro), asi que no se para porque el host suba a vender.
-var _reloj_expedicion := 0.0
 var _t_barrido := 0.0
 const BARRIDO_RESPAWN_CADA := 2.0   # cada cuanto repasa el host la tabla (igual que en solitario)
 
@@ -260,7 +263,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not activo or not es_host or not expedicion_abierta:
 		return
-	_reloj_expedicion += delta
+	# El reloj del respawn ya lo mueve Game (tiempo_mazmorra): aqui solo se marca cada cuanto tocar
+	# la tabla.
 	_t_barrido -= delta
 	if _t_barrido <= 0.0:
 		_t_barrido = BARRIDO_RESPAWN_CADA
@@ -989,6 +993,9 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 		piso = 1
 	if not expedicion_abierta:
 		expedicion_abierta = true
+		# Se abre la mazmorra: vuelven los sellos de lo que ya se pico en expediciones anteriores,
+		# que estan en el save del host. Sin esto la tabla nacería vacia y todo estaria disponible.
+		_sembrar_agotados_del_save()
 	_dentro[quien] = true
 	var dueno: bool = _asignar_dueno(piso, quien)
 	var mem: Dictionary = {}
@@ -1056,31 +1063,26 @@ func _registrar_salida(quien: int, foto: Dictionary = {}) -> void:
 		_cerrar_expedicion()
 
 
-# Solo host: el ultimo salio. La expedicion se olvida: fuera drops de pisos y agotados de sesion.
+# Solo host: el ultimo salio. La expedicion se olvida: fuera drops de pisos y quien simulaba que.
 func _cerrar_expedicion() -> void:
 	expedicion_abierta = false
-	# La mazmorra se olvida: ni dueños ni pisos congelados (la proxima expedicion nace limpia,
-	# como en solitario).
+	# Se olvida lo que de verdad es DE UNA EXPEDICION: quien simulaba cada piso, las fotos de los
+	# congelados y las vetas que alguien tenia cogidas.
 	_dueno_piso.clear()
 	_fotos_piso.clear()
 	_vetas_ocupadas.clear()
-	_agotados_sesion.clear()
-	# El reloj vuelve a cero con la expedicion: los sellos de la siguiente se apuntan contra el, y
-	# arrastrar el de la anterior haria que todo naciera ya "vencido".
-	_reloj_expedicion = 0.0
 	_t_barrido = 0.0
-	_limpiar_agotados_sesion.rpc()
+	# LO PICADO NO SE OLVIDA. Aqui se hacia `_agotados_sesion.clear()` (y se difundia) con la idea de
+	# que "la proxima expedicion nace limpia, como en solitario"... y esa premisa es falsa: en
+	# solitario NO nace limpia, los sellos viven en mazmorra_persistente y sobreviven a volver al
+	# pueblo. Asi que salir todos y volver a entrar regalaba la mazmorra entera sin CD. Ahora los
+	# sellos se quedan (y estan guardados en el save del host, ver _registrar_agotado).
 	for id in _suelo.keys():
 		if str(_suelo[id]["lugar"]).begins_with("piso:"):
 			_suelo.erase(id)
 			_despawn_drop.rpc(id)
 			_despawn_drop(id)
 	estado_cambiado.emit("Expedicion terminada: la mazmorra se olvida.")
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _limpiar_agotados_sesion() -> void:
-	_agotados_sesion.clear()
 
 
 # --- ESCALERAS: cada uno POR SU CUENTA (hito 5.2) ---------------------------------------------
@@ -1419,22 +1421,30 @@ func _pedir_agotar(celda: Vector2i, piso: int) -> void:
 	_registrar_agotado(celda, piso)
 
 
-# Solo host: suelta el lock, sella el sitio con la HORA DE LA EXPEDICION (es lo que hara que
-# reviva) y difunde el agotado a todos.
+# Solo host: suelta el lock, sella el sitio con la hora (es lo que hara que reviva), lo APUNTA EN SU
+# SAVE y difunde el agotado a todos.
+#
+# Lo del save es lo que hace que el CD sobreviva a que salgais todos: la mazmorra es la del mundo del
+# host, asi que sus sellos van a mazmorra_persistente igual que en una partida de un jugador, y de
+# ahi se vuelven a sembrar en la siguiente expedicion (ver _sembrar_agotados_del_save).
 func _registrar_agotado(celda: Vector2i, piso: int) -> void:
 	var s: Vector3i = _sitio(piso, celda)
 	_vetas_ocupadas.erase(s)
-	_agotados_sesion[s] = _reloj_expedicion
+	_agotados_sesion[s] = Game.tiempo_mazmorra
+	(Game.persistente_piso(piso)["agotados"] as Dictionary)[celda] = Game.tiempo_mazmorra
 	_agotar_celda.rpc(celda, piso)
 	_agotar_celda(celda, piso)
 
 
 # Corre en TODOS los que esten en la mazmorra: la veta de ese sitio desaparece tambien aqui.
-# El sello local guarda el reloj del host que llego con el mensaje; a los clientes solo les sirve
-# de marca de "esto no esta" (quien decide el respawn es el host, en _barrer_respawns).
+# A los clientes el VALOR del sello no les sirve de nada, solo la presencia ("esto no esta"): quien
+# decide el respawn es el host, en _barrer_respawns.
+#
+# En el host esto corre justo despues de _registrar_agotado (que lo llama directo), asi que tiene que
+# sellar con el MISMO reloj o le pisaria el valor bueno al que se acaba de guardar en el save.
 @rpc("any_peer", "call_remote", "reliable")
 func _agotar_celda(celda: Vector2i, piso: int) -> void:
-	_agotados_sesion[_sitio(piso, celda)] = _reloj_expedicion
+	_agotados_sesion[_sitio(piso, celda)] = Game.tiempo_mazmorra
 	if not _mi_lugar.begins_with("piso:") or Game.current_floor != piso:
 		return
 	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
@@ -1447,19 +1457,36 @@ func _agotar_celda(celda: Vector2i, piso: int) -> void:
 
 
 # SOLO HOST: repasa los sitios picados y suelta los que ya han cumplido su tiempo. Es el equivalente
-# por red de dungeon_floor._repoblar_agotados, con la diferencia que importa: aqui manda UN reloj
-# (el de la expedicion) en vez del tiempo_mazmorra local de cada maquina, asi que la veta revive en
-# las dos a la vez. Antes esto no existia y lo picado en sesion no volvia NUNCA.
+# por red de dungeon_floor._repoblar_agotados, con la diferencia que importa: aqui manda UN reloj (el
+# tiempo_mazmorra DEL HOST) en vez del de cada maquina, que es local y diverge, asi que la veta
+# revive en todas a la vez. Antes esto no existia y lo picado en sesion no volvia NUNCA.
 func _barrer_respawns() -> void:
 	if _agotados_sesion.is_empty():
 		return
 	for s in _agotados_sesion.keys():
-		if _reloj_expedicion - float(_agotados_sesion[s]) < Game.RESPAWN_SEGUNDOS:
+		if Game.tiempo_mazmorra - float(_agotados_sesion[s]) < Game.RESPAWN_SEGUNDOS:
 			continue
 		_agotados_sesion.erase(s)
 		var celda := Vector2i(s.y, s.z)
 		_revivir_celda.rpc(celda, s.x)
 		_revivir_celda(celda, s.x)
+
+
+# SOLO HOST: rellena la tabla de la sesion con los sellos que quedaron guardados en el save. Se llama
+# al abrir la expedicion, y es la otra mitad de que el CD sobreviva: _registrar_agotado los escribe
+# en mazmorra_persistente, y esto los vuelve a traer cuando alguien baja de nuevo. Sin esto, la
+# tabla nacia vacia en cada sesion (se limpia al montarla) y daba igual lo que hubiera en el save.
+func _sembrar_agotados_del_save() -> void:
+	if not es_host:
+		return
+	for piso in Game.mazmorra_persistente:
+		var ag = (Game.mazmorra_persistente[piso] as Dictionary).get("agotados", {})
+		if not (ag is Dictionary):
+			continue
+		for celda in ag:
+			_agotados_sesion[_sitio(int(piso), celda as Vector2i)] = float(ag[celda])
+	if not _agotados_sesion.is_empty():
+		print("[multi] sembrados %d sitios ya picados de expediciones anteriores" % _agotados_sesion.size())
 
 
 # Corre en TODOS: se levanta el sello y, si estoy en ese piso, brota el nodo otra vez (con el
@@ -1468,6 +1495,11 @@ func _barrer_respawns() -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _revivir_celda(celda: Vector2i, piso: int) -> void:
 	_agotados_sesion.erase(_sitio(piso, celda))
+	# Y FUERA DEL SAVE DEL HOST, o el sello volveria a sembrarse en la proxima expedicion y la veta
+	# que acaba de revivir nacería agotada otra vez. Es lo mismo que hace _olvidar_agotado en
+	# solitario. Solo el host: en el invitado ese diccionario es de SU mundo, no de este.
+	if es_host:
+		(Game.persistente_piso(piso)["agotados"] as Dictionary).erase(celda)
 	if not _mi_lugar.begins_with("piso:") or Game.current_floor != piso:
 		return
 	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
