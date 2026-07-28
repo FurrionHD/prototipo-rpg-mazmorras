@@ -1606,6 +1606,62 @@ func _adoptar_mundo_compartido(d: SaveData) -> void:
 # echa al menu principal al pisar la mazmorra (ver dungeon_floor: "no hay partida cargada").
 # El resto del mundo (baul, bote, cofres, mapa, tienda, atajos) le llega por los canales de sesion
 # que ya existian, asi que aqui no se toca.
+# BORRA EL MUNDO QUE VENIA DE ANTES, antes de entrar de invitado en el mundo de otro.
+#
+# El bug: Game es un AUTOLOAD y sobrevive a los cambios de escena. Si venias de pulsar "Continuar"
+# en una de tus ranuras y desde ahi te ibas al menu de multijugador a entrar en el mundo de un
+# compañero, todo lo que _adoptar_jugador NO toca se quedaba puesto: tu baul de armas, tu almacen,
+# tu bote, tus cofres, tu mapa. Te creabas un personaje NUEVO en el mundo ajeno y te lo encontrabas
+# con las armas de tu partida de un jugador en el inventario.
+#
+# Un invitado no pasa por nueva_partida() ni por importar_partida(), que son los dos unicos sitios
+# que limpiaban esto, y _congelar_mi_mundo() se salta a proposito en compartido (ver net.gd). O sea
+# que no habia NADIE limpiando: de ahi la fuga.
+#
+# Solo se va lo que es DEL MUNDO. Lo de la PERSONA (grupo, dinero, bolsa, oficios) no se toca aqui:
+# eso llega en el JugadorData y lo pone _adoptar_jugador. El estado del mundo del host llega despues
+# por los canales de sesion que ya existian (_set_almacen, _set_bote, _set_cofre...).
+#
+# OJO CON EL MOMENTO EN QUE SE LLAMA: tiene que ser ANTES de reconstruir el JugadorData que viene por
+# cable. jd_de_dict -> ficha_de_dict -> deserializar_equipo(registrar=true) METE el equipo del
+# personaje en owned_weapons/owned_armor/item_meta, asi que limpiar despues seria borrarle al recien
+# llegado justo lo que acaba de traer puesto. Por eso lo llama net.gd al principio de _tu_jugador y
+# no esta metido dentro de aplicar_jugador_mundo.
+func limpiar_mundo_heredado() -> void:
+	# El BAUL y la identidad de cada pieza (tier/rareza/mejoras/durabilidad).
+	owned_weapons.clear()
+	owned_armor.clear()
+	item_meta.clear()
+	# La casa: almacen, hucha y cofres. En el mundo del host son COMUNES y me los va a mandar el.
+	almacen_materiales.clear()
+	bote_dinero = 0
+	cofre_equipo.clear()
+	cofre_consumibles.clear()
+	_cofre_next_id = 1
+	recompra.clear()
+	# El progreso del mundo: los jefes y los guardianes que cayeron son los de MI mundo, no los de este.
+	bosses_derrotados.clear()
+	guardianes_vencidos.clear()
+	# El mapa y la mazmorra: este mundo tiene OTRA semilla, esos pisos no son estos.
+	olvidar_mazmorra()
+	mazmorra_persistente.clear()
+	mapa_snapshot.clear()
+	mapa_trabajo.clear()
+	_vistas_baseline.clear()
+	tiempo_mazmorra = 0.0
+	# Las herramientas tampoco viajan en el JugadorData ni las manda el host: se vuelve a las de serie,
+	# que es con lo que cualquiera entra a la mazmorra.
+	tool_hit_reduction = 0
+	tool_destreza_bonus = 0
+	equipped_pico = PICO_BASICO as ToolData
+	equipped_hoz = HOZ_BASICA as ToolData
+	equipped_hacha = HACHA_BASICA as ToolData
+	# Y que ningun guardado despistado escriba en la ranura que tuviera abierta: aqui se juega en el
+	# mundo del host y mi ranura no pinta nada (es la misma razon que en Mundos.abrir()).
+	Perfil.ranura_actual = 0
+	print("[mundo] limpiado lo que quedaba de mi partida anterior: entro de invitado")
+
+
 func aplicar_jugador_mundo(jd: JugadorData, semilla: int) -> void:
 	mundo_compartido = true
 	jugadores_mundo.clear()   # los demas jugadores son cosa del host: yo solo tengo lo mio

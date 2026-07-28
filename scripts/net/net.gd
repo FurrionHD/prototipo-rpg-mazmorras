@@ -4345,6 +4345,12 @@ func _alta_personaje(d: Dictionary) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _tu_jugador(d: Dictionary, semilla: int) -> void:
 	_respondio = true
+	# LO PRIMERO, antes de reconstruir nada: fuera lo que quede de mi partida anterior. Game es un
+	# autoload y si venia de "Continuar" en una de mis ranuras, mi baul/almacen/mapa siguen puestos y
+	# me los llevaba dentro del mundo de otro (ver Game.limpiar_mundo_heredado). Y va ANTES de
+	# jd_de_dict porque ese registra en owned_*/item_meta el equipo que trae puesto mi personaje:
+	# limpiar despues seria borrarselo.
+	Game.limpiar_mundo_heredado()
 	var jd: JugadorData = jd_de_dict(d)
 	Game.aplicar_jugador_mundo(jd, semilla)
 	mundo_compartido = true
