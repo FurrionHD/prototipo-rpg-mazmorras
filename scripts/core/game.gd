@@ -2813,15 +2813,74 @@ func volver_al_pueblo_con_objeto(c: ConsumableData) -> bool:
 	if not gastar_consumible(c):
 		return false
 	var desde: int = current_floor
+	cerrar_menu()   # lo usas DESDE el inventario: sin esto llegas al pueblo congelado y en pausa
+	print("[retorno] Usas %s y vuelves al pueblo desde el piso %d." % [c.nombre, desde])
+	# MULTIJUGADOR: la piedra tiene que salir POR DONDE SALEN LAS DEMAS. Esta funcion cambiaba de
+	# escena por su cuenta sin avisar a Net, y en sesion eso te dejaba fichado como DENTRO: seguias
+	# siendo el dueño de tu piso (nadie mas lo simulaba), no entregabas su foto de bichos, no se
+	# liberaban tus vetas, tu lugar seguia siendo "piso:N" y los demas veian tu avatar ahi abajo
+	# mientras tu estabas en el pueblo. Y la expedicion no se cerraba jamas por esta via.
+	if Net.activo:
+		# El VIAJE COMPARTIDO: los que estan dentro y a los que la piedra alcanza reciben la oferta
+		# de subirse. Va ANTES de viajar, que despues ya estamos en otra escena.
+		Net.anunciar_retorno(c.piso_max_vuelta, player_nombre)
+		capturar_mapa()
+		comprometer_mapa()
+		Net.viajar_al_pueblo()   # se lleva la foto, suelta el piso, avisa al host y anuncia el lugar
+		return true
 	# Misma secuencia que la puerta del piso del boss (dungeon_exit.interact_with_player): vuelves
 	# VIVO, asi que lo cartografiado esta bajada SE COMETE al mapa permanente.
 	capturar_mapa()          # antes de tocar current_floor: captura el piso que abandonas
 	comprometer_mapa()
 	current_floor = 1
 	olvidar_mazmorra()
-	cerrar_menu()   # lo usas DESDE el inventario: sin esto llegas al pueblo congelado y en pausa
-	print("[retorno] Usas %s y vuelves al pueblo desde el piso %d." % [c.nombre, desde])
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
+	return true
+
+
+# ============================================================
+#  VIAJE COMPARTIDO DE LA PIEDRA (multijugador)
+#  El que la gasta se va al instante; a los demas se les OFRECE subirse, gratis. La oferta se
+#  guarda aqui y nada mas: quien decide cuando enseñarla es la UI (ver retorno_menu.gd), porque
+#  hay que esperar a que el jugador este libre -- un modal encima de un combate es injugable.
+# ============================================================
+
+# {"quien": nombre del que la uso, "piso_max": hasta donde alcanza} o {} si no hay ninguna.
+var oferta_retorno: Dictionary = {}
+
+# Corre en el RECEPTOR (lo llama Net). Solo apunta la oferta. Si ya habia una, la nueva la pisa:
+# dos piedras seguidas son un solo viaje, y el reloj vuelve a empezar.
+func recibir_oferta_retorno(quien: String, piso_max: int) -> void:
+	oferta_retorno = {"quien": quien, "piso_max": maxi(1, piso_max)}
+	print("[retorno] %s ha usado una piedra de retorno (alcanza al piso %d)." % [quien, piso_max])
+
+
+func hay_oferta_retorno() -> bool:
+	return not oferta_retorno.is_empty()
+
+
+func descartar_oferta_retorno() -> void:
+	oferta_retorno = {}
+
+
+# Subirse al viaje de otro: no cuesta piedra, pero SIGUE MANDANDO EL ALCANCE de la suya. Si has
+# bajado por debajo de el desde que llego la oferta, esa piedra ya no te llega. Devuelve si viajas.
+func aceptar_oferta_retorno() -> bool:
+	if oferta_retorno.is_empty() or not Net.activo:
+		return false
+	var piso_max: int = int(oferta_retorno.get("piso_max", 1))
+	if current_floor > piso_max:
+		print("[retorno] Esa piedra alcanza hasta el piso %d y estas en el %d." % [piso_max, current_floor])
+		descartar_oferta_retorno()
+		return false
+	if get_tree().get_first_node_in_group("dungeon_floor") == null:
+		descartar_oferta_retorno()   # ya estas en el pueblo: la oferta sobra
+		return false
+	descartar_oferta_retorno()
+	# Exactamente el mismo camino que el que gasto la piedra (y que la puerta del pueblo).
+	capturar_mapa()
+	comprometer_mapa()
+	Net.viajar_al_pueblo()
 	return true
 
 # Estudia un grimorio: aprendes su hechizo y el libro se gasta. Si ya te lo sabias o tienes

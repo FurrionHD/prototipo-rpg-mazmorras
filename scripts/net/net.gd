@@ -468,6 +468,61 @@ func _rel_peleando(peleando: bool) -> void:
 			_set_peleando.rpc_id(pid, de, peleando)
 
 
+# --- PIEDRA DE RETORNO: el viaje es COMPARTIDO ----------------------------------------------
+# El que la gasta se va al instante (Game.volver_al_pueblo_con_objeto) y a los demas se les OFRECE
+# subirse, gratis. Aqui solo se reparte el aviso; lo de enseñarlo y esperar a que el jugador este
+# libre es cosa de la UI (retorno_menu.gd).
+#
+# El reparto va FILTRADO POR PISO, y ese filtro es lo que mantiene el sentido del tier de la piedra
+# (T1 hasta el 6, T2 hasta el 12): al que esta en el pueblo no le llega nada, y al que esta mas
+# hondo de lo que alcanza, tampoco. Regalarle el viaje seria convertir una piedra T1 en una T2 para
+# todo el que no la paga.
+#
+# Molde: avisar_combate (arriba). El emisor puede ser cualquiera, asi que el cliente pasa por el
+# host y el host reparte -- en estrella los clientes no se ven entre si.
+func anunciar_retorno(piso_max: int, quien: String) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	if es_host:
+		_repartir_retorno(piso_max, quien, _mi_id())
+	else:
+		_rel_retorno.rpc_id(1, piso_max, quien)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_retorno(piso_max: int, quien: String) -> void:
+	if not es_host:
+		return
+	_repartir_retorno(piso_max, quien, multiplayer.get_remote_sender_id())
+
+
+# Solo host: a cada peer que este DENTRO y a tiro de la piedra. El host se auto-sirve si le cuadra
+# (no puede mandarse un rpc a si mismo), y al que la uso no se le ofrece: ya esta subiendo.
+func _repartir_retorno(piso_max: int, quien: String, de: int) -> void:
+	if not es_host:
+		return
+	if de != 1 and _alcanza_la_piedra(_mi_lugar, piso_max):
+		Game.recibir_oferta_retorno(quien, piso_max)
+	for pid in _peers:
+		if pid == de:
+			continue
+		if _alcanza_la_piedra(str(_peers[pid].get("lugar", "")), piso_max):
+			_ofrecer_retorno.rpc_id(pid, piso_max, quien)
+
+
+# ¿A ese LUGAR llega una piedra de ese alcance? "pueblo" no (ya estas arriba) y un piso por debajo
+# de su tope tampoco.
+func _alcanza_la_piedra(lugar: String, piso_max: int) -> bool:
+	if not lugar.begins_with("piso:"):
+		return false
+	return int(lugar.substr(5)) <= piso_max
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _ofrecer_retorno(piso_max: int, quien: String) -> void:
+	Game.recibir_oferta_retorno(quien, piso_max)
+
+
 # Donde esta cada OTRO jugador de mi mismo lugar y si esta peleando. Lo consultan las zonas de
 # parto para no hacer nacer bichos encima de nadie (y menos aun encima de quien pelea).
 func jugadores_remotos_aqui() -> Array:
