@@ -300,6 +300,74 @@ func abrir(clave: String, contrasena: String, forzar_build := false) -> Dictiona
 	return {"ok": true, "resultado": "host", "clave": clave, "direcciones": dirs}
 
 
+# ============================================================
+#  UNIRSE al mundo de otra persona
+#  ES EL UNICO CAMINO para unirse, y esta escrito asi a proposito: aqui vive la ULTIMA costura que
+#  depende de la nube. La direccion se resuelve en dos intentos:
+#    1. POR EL CERROJO: si tengo el codigo del mundo, se le pregunta al almacen quien lo tiene
+#       abierto AHORA y se usan las direcciones que ha publicado. Es el camino bueno: no depende de
+#       que la IP de tu compañero sea siempre la misma, ni de que te la vuelva a pasar.
+#    2. LA QUE ESCRIBI A MANO. Con el almacen local esto es lo unico que funciona (el mundo de tu
+#       compañero esta en SU disco, no en el mio), asi que hoy manda siempre.
+#  El dia que el almacen sea el Worker de Cloudflare, (1) empieza a funcionar y no hay que tocar ni
+#  este menu ni la capa de red: es literalmente el mismo codigo.
+#
+#  Lo que NO cambia nunca: la partida es ENet directo entre las dos maquinas. El almacen reparte la
+#  direccion; que se pueda LLEGAR a ella sigue siendo cosa de Hamachi o del puerto abierto.
+# ------------------------------------------------------------
+func unirse(clave: String, contrasena: String) -> Dictionary:
+	if abierto != "":
+		return {"ok": false, "mensaje": "Tienes un mundo abierto: ciérralo antes de unirte a otro."}
+	if Net.activo:
+		return {"ok": false, "mensaje": "Ya estás en una sesión."}
+	var e: Dictionary = entrada(clave)
+	if e.is_empty():
+		return {"ok": false, "mensaje": "Ese mundo no está en tu lista."}
+	if contrasena == "":
+		return {"ok": false, "mensaje": "Hace falta la contraseña del mundo."}
+
+	var direcciones: Array = []
+	var id: String = String(e.get("id_nube", ""))
+	if id != "":
+		var est: Dictionary = await Nube.consultar(id, contrasena)
+		if est.get("ok", false):
+			if not bool(est.get("abierto", false)):
+				return {"ok": false, "error": "cerrado",
+					"mensaje": "Ese mundo no lo tiene abierto nadie ahora mismo."}
+			# caducado = el que lo tenia se cayo y su direccion esta MUERTA: no se intenta.
+			if bool(est.get("caducado", false)):
+				return {"ok": false, "error": "caducado",
+					"mensaje": "Quien lo tenía abierto ha perdido la conexión. Espera un par de minutos."}
+			for d in est.get("direcciones", []):
+				direcciones.append(String(d))
+	var manual: String = String(e.get("direccion", ""))
+	if manual != "" and not direcciones.has(manual):
+		direcciones.append(manual)
+	if direcciones.is_empty():
+		return {"ok": false, "mensaje": "No sé a qué dirección conectarme: añade la suya en la ficha "
+			+ "de este mundo."}
+
+	# Se prueba la primera; si no contesta, Net avisa y el jugador puede reintentar (probar la lista
+	# entera en cadena necesita saber que un intento ha FALLADO, y eso solo lo dice el timeout de
+	# ENet: se deja para cuando haya varias de verdad, que es con el Worker).
+	var ip: String = String(direcciones[0])
+	var err: int = Net.unirse(ip, contrasena, Net.PUERTO, true)
+	if err != OK:
+		return {"ok": false, "mensaje": "No se pudo conectar a %s." % ip}
+	# Se recuerda a quien nos estamos uniendo: al llegar el personaje hay que saber de que mundo es.
+	uniendome = clave
+	return {"ok": true, "direccion": ip}
+
+
+# La clave del mundo AJENO al que me estoy uniendo (vacio = a ninguno). No es `abierto`: ese mundo no
+# es mio y yo no tengo su cerrojo ni su fichero; solo estoy jugando dentro.
+var uniendome: String = ""
+
+
+func dejar_de_unirse() -> void:
+	uniendome = ""
+
+
 # ESTRENAR un mundo recien creado: se llama DESPUES de Game.nueva_partida(). Deja el mundo por
 # abierto y escrito en disco, listo para irse al pueblo.
 func estrenar(clave: String) -> bool:
@@ -372,11 +440,12 @@ func guardar_actual() -> bool:
 
 # Lo que dispara el temporizador: guarda en disco y SUBE sin soltar el cerrojo.
 func autoguardar() -> bool:
+	# PRIMERO se recoge lo de los demas y DESPUES se escribe: al reves (como estaba) el save saldria
+	# sin el ultimo rato de tu compañero. Cada uno manda lo suyo y de aqui sale UN save.
+	if Net.activo and Net.es_host:
+		await Net.recoger_estados()
 	if not guardar_actual():
 		return false
-	# En sesion, que guarden todos: cada uno manda lo suyo y aqui sale UN save.
-	if Net.activo and Net.es_host:
-		Net.guardar_todos()
 	var r: Dictionary = await Nube.subir(SaveIO.bytes_de_ruta(ruta(abierto)), _meta())
 	if not r.get("ok", false):
 		aviso.emit("Autoguardado: guardado en tu disco, pero sin subir (%s)." % String(r.get("mensaje", "")))
@@ -390,6 +459,10 @@ func cerrar_y_subir() -> Dictionary:
 	if abierto == "":
 		return {"ok": true}
 	var clave := abierto
+	# Lo mismo que en el autoguardado: primero lo de los demas, y AVISANDOLES de que se cierra (se van
+	# al menu con su personaje ya dentro del save), y despues se escribe.
+	if Net.activo and Net.es_host:
+		await Net.recoger_estados(true)
 	if not guardar_actual():
 		return {"ok": false, "mensaje": "No se pudo guardar el mundo (no se cierra)."}
 	var r: Dictionary = await Nube.cerrar(SaveIO.bytes_de_ruta(ruta(clave)), _meta())

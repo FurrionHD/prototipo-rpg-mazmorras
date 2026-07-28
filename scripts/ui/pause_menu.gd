@@ -164,14 +164,24 @@ func _guardar_y_salir() -> void:
 	# El invitado lo pide igual, pero con cerrando=true: el host guarda, cierra, y a cada invitado se
 	# le devuelve a su mundo con lo recien guardado (el camino de _guardar_ahora ya estaba escrito).
 	if Net.activo and not Net.es_host:
+		# INVITADO EN UN MUNDO COMPARTIDO: mi personaje vive en ese mundo, asi que "salir" es dejarlo
+		# guardado y volver al menu de multijugador -- no tengo pueblo propio al que ir. Se le pide al
+		# anfitrion que guarde y se le da un respiro para que mi estado llegue antes de cortar.
+		if Net.mundo_compartido:
+			_aviso.text = "Guardando tu personaje en el mundo..."
+			Net.pedir_guardar_todos()
+			await get_tree().create_timer(1.0).timeout
+			Game.limpiar_modales()
+			Net.desconectar()
+			get_tree().change_scene_to_file("res://scenes/ui/multi_menu.tscn")
+			return
 		Net.pedir_guardar_todos(true)
 		_aviso.text = "Guardando y cerrando: se lo pides al anfitrión."
 		return
 	# MUNDO COMPARTIDO: guardar, subir y SOLTAR EL CERROJO, en ese orden. Si la subida falla el mundo
 	# sigue reservado a mi nombre y queda marcado como pendiente: no se sale como si nada.
+	# (cerrar_y_subir recoge antes el estado de los invitados y les avisa de que se cierra.)
 	if Mundos.abierto != "":
-		if Net.activo:
-			await Net.guardar_todos(true)
 		var r: Dictionary = await Mundos.cerrar_y_subir()
 		if not r.get("ok", false):
 			_aviso.text = "%s\nSe sale, pero el mundo queda pendiente de subir." % String(r.get("mensaje", ""))

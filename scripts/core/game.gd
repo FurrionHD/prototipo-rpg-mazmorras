@@ -115,10 +115,17 @@ func meter_en_equipo(pj: PersonajeData) -> bool:
 
 # EL personaje creado al empezar la partida (es_original). Fallback al lider por si un save
 # rarisimo no trajera marca: nunca devolver null.
+#
+# En un MUNDO COMPARTIDO `es_original` es UNO POR PERSONA (el intocable de cada humano), asi que hay
+# que filtrar por dueño. Hoy la plantilla de cada maquina solo tiene los personajes de quien juega
+# ahi -- los de los demas viven aparcados en jugadores_mundo -- asi que sin el filtro tampoco
+# fallaria; pero es un cuchillo boca arriba: el dia que se mezclen, `_aplicar_cupo` metaria en el
+# equipo el original de OTRO humano y lo pondria en cabeza (net.gd, el "original deslizado").
 func original() -> PersonajeData:
 	for pj in plantilla:
-		if pj.es_original:
+		if pj.es_original and (not mundo_compartido or String(pj.dueno) == Identidad.id):
 			return pj
+	# En un mundo, si no encuentro MI original, mejor el lider que el original de otro.
 	return lider()
 
 # Lo saca del equipo al banquillo (sigue en la plantilla: aqui NO se despide a nadie). El equipo
@@ -1591,6 +1598,27 @@ func _adoptar_mundo_compartido(d: SaveData) -> void:
 		print("[mundo] no tengo personaje en este mundo todavia (identidad ", yo_id, ")")
 
 
+# EL INVITADO ADOPTA SU JUGADOR, el que le acaba de mandar el host (ver Net._tu_jugador).
+#
+# Es el mismo mecanismo que al cargar un mundo del disco, pero la partida no viene de un fichero:
+# viene por cable, y aqui NO hay `importar_partida` que haya montado el mundo antes. Lo unico que
+# hace falta ademas de adoptar es la SEMILLA: sin ella `Game.hay_partida()` es falso y dungeon_floor
+# echa al menu principal al pisar la mazmorra (ver dungeon_floor: "no hay partida cargada").
+# El resto del mundo (baul, bote, cofres, mapa, tienda, atajos) le llega por los canales de sesion
+# que ya existian, asi que aqui no se toca.
+func aplicar_jugador_mundo(jd: JugadorData, semilla: int) -> void:
+	mundo_compartido = true
+	jugadores_mundo.clear()   # los demas jugadores son cosa del host: yo solo tengo lo mio
+	if semilla != 0:
+		semilla_mundo = semilla
+	_adoptar_jugador(jd)
+	# El aguante del que arranca sale de SU ficha, como al cargar (ver el final de importar_partida).
+	var l: PersonajeData = lider()
+	_stamina_cargada = l.stamina if l != null else -1.0
+	limpiar_curas_pendientes()
+	cerrar_menu()
+
+
 func _adoptar_jugador(jd: JugadorData) -> void:
 	# Sin equipo no hay a quien adoptar: mejor quedarse con lo que trajeron los campos planos que
 	# dejar el juego sin lider (que es un estado del que no se sale).
@@ -1707,8 +1735,22 @@ func guardar_mi_partida() -> bool:
 	if Mundos.abierto != "":
 		return Mundos.guardar_actual()
 	if Net.activo and not Net.es_host:
+		# INVITADO EN UN MUNDO COMPARTIDO: mi personaje vive en el mundo del anfitrion, asi que aqui
+		# no hay nada que escribir en MI disco. Se le pide a el, que es quien tiene el save (y de paso
+		# esto cubre los dos autoguardados que llaman aqui a pelo: morir y subir de nivel).
+		if Net.mundo_compartido:
+			Net.pedir_guardar_todos()
+			return true
 		return guardar_partida_invitado()
 	return Perfil.guardar_actual()
+
+
+# LO MIO, empaquetado para mandarselo al anfitrion de un mundo compartido (ver Net._dame_tu_estado).
+# Calcula igual que exportar_partida donde estoy: el piso solo cuenta si de verdad estoy en el.
+func mi_jugador_data() -> JugadorData:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var en_mazmorra: bool = piso != null and not _muriendo
+	return _mi_jugador_data(en_mazmorra, get_tree().get_first_node_in_group("player"))
 
 
 # Recarga MI ranura tal y como esta en disco. La usa el invitado cuando el host guarda Y CIERRA: se

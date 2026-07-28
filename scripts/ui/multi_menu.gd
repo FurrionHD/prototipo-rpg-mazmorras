@@ -57,6 +57,11 @@ func _ready() -> void:
 	(_piezas["root"] as Control).visible = true
 	Mundos.aviso.connect(func(t: String): MenuScaffold.decir(_piezas["aviso"], t, true))
 	Nube.cerrojo_perdido.connect(func(m: String): MenuScaffold.decir(_piezas["aviso"], m, false))
+	# Unirse a un mundo pasa por aqui: la red avisa y la pantalla responde. Abrir el creador de
+	# personaje NO es cosa de la capa de red, y menos dentro de un RPC.
+	Net.estado_cambiado.connect(func(t: String): MenuScaffold.decir(_piezas["aviso"], t, true))
+	Net.pedir_personaje.connect(_crear_mi_personaje_en_mundo_ajeno)
+	Net.entrada_lista.connect(_entrar_al_mundo_ajeno)
 	_pintar()
 
 
@@ -326,15 +331,10 @@ func _pintar_detalle() -> void:
 		if bool(e.get("pendiente", false)):
 			_boton(botones, "Reintentar subida", func(): _reintentar(_sel))
 	else:
-		# UNIRSE todavia no: hace falta el handshake con identidad para que el anfitrion le entregue
-		# a este jugador SU personaje del mundo. Se dice, en vez de dejar un boton que no hace nada.
-		var u := Button.new()
-		u.text = "Unirse"
-		u.disabled = true
-		botones.add_child(u)
-		MenuScaffold.nota(vb, "Unirse llega en el siguiente paso: falta que el anfitrión te entregue "
-			+ "tu personaje de ese mundo (hoy tu personaje seguiría viniendo de tu disco, que es "
-			+ "justo lo que estamos quitando).")
+		_boton(botones, "Unirse", func(): _unirse(_sel, campo.text))
+		MenuScaffold.nota(vb, "Tu personaje de ese mundo lo guarda quien lo tiene abierto: la primera "
+			+ "vez lo creas, y a partir de ahí entras con él. Esa persona tiene que tener el mundo "
+			+ "abierto en ese momento.")
 
 	_boton(botones, "Borrar de mi lista", func(): _borrar(_sel))
 
@@ -506,6 +506,52 @@ func _avisar_direccion(r: Dictionary) -> void:
 			+ "elige tu dirección en «TÚ Y TU CONEXIÓN».", false)
 		return
 	_decir("Mundo abierto. Tus compañeros tienen que poner %s y la contraseña." % String(dirs[0]))
+
+
+# ============================================================
+#  UNIRSE al mundo de otra persona
+#  El baile es: conectar -> el anfitrion mira si ya tengo personaje ahi -> me lo manda, o me pide que
+#  lo cree -> lo aplico -> al pueblo. Todo lo decide Mundos/Net; aqui solo se pinta y se abre el
+#  creador cuando lo piden.
+# ------------------------------------------------------------
+func _unirse(clave: String, pass_: String) -> void:
+	if _trabajando:
+		return
+	_trabajando = true
+	_decir("Conectando...")
+	var r: Dictionary = await Mundos.unirse(clave, pass_)
+	_trabajando = false
+	if not r.get("ok", false):
+		_decir(String(r.get("mensaje", "No se pudo unir.")), false)
+		return
+	_decir("Conectando a %s..." % String(r.get("direccion", "")))
+
+
+# El mundo no me conoce: me hago un personaje AHI. Vivira dentro de ese mundo, no en mi disco.
+func _crear_mi_personaje_en_mundo_ajeno(nombre_mundo: String) -> void:
+	CreadorPersonaje.abrir(_encima, "TU PERSONAJE EN EL MUNDO DE %s" % nombre_mundo.to_upper(),
+		"Es tu primera vez aquí. Este personaje se queda a vivir DENTRO de este mundo, a tu nombre: "
+		+ "la próxima vez que entres, entrarás con él.",
+		"Entrar en el mundo", {"color": Color(0.45, 0.72, 1.0)},
+		func(n: String, c: Color, m: float, tinte: float, imagen: PackedByteArray):
+			# Se arma un PersonajeData con lo elegido y se manda: el ANFITRION es quien lo guarda en
+			# el mundo (es suyo mientras tenga el cerrojo) y me lo devuelve ya empaquetado.
+			var pj := PersonajeData.new()
+			pj.nombre = n.strip_edges() if n.strip_edges() != "" else Game.NOMBRE_POR_DEFECTO
+			pj.color = c
+			pj.metalico = m
+			pj.color_alpha = tinte
+			pj.imagen = imagen
+			Net.mandar_alta_personaje(pj)
+			_decir("Creando tu personaje en el mundo..."))
+
+
+# Ya tengo mi personaje del mundo: al pueblo. El anuncio del lugar va DESPUES del cambio de escena
+# (es el patron de todo el proyecto): es lo que reconstruye avatares y suelo en la escena nueva.
+func _entrar_al_mundo_ajeno() -> void:
+	get_tree().change_scene_to_file(PUEBLO)
+	await get_tree().process_frame
+	Net.anunciar_lugar("pueblo")
 
 
 func _reintentar(clave: String) -> void:

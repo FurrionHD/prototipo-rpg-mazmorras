@@ -25,6 +25,18 @@ extends Node
 
 const PUERTO := 24567
 const MAX_JUGADORES := 4
+
+# VERSION DEL PROTOCOLO. Sube cuando cambia lo que viaja en el saludo (o lo que significa).
+#
+# Hace falta porque un desajuste de version entre dos builds NO da error: si el cliente llama a
+# _saludar con menos parametros de los que el host declara, Godot DESCARTA el paquete en silencio y
+# el que entra se queda para siempre en "Validando codigo...". Con esto, el host puede decirle lo que
+# pasa; y si el que esta viejo es el host (y por tanto no conoce este campo), lo tapa el plazo del
+# cliente (ver _PLAZO_SALUDO).
+const PROTOCOLO := 2
+
+# Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
+const _PLAZO_SALUDO := 5.0
 const _REMOTE_PLAYER := preload("res://scripts/actors/player/remote_player.gd")
 const _REMOTE_ENEMY := preload("res://scripts/actors/enemy/remote_enemy.gd")
 const _DROP_PICKUP := preload("res://scripts/items/drop_pickup.gd")
@@ -33,6 +45,18 @@ const _DROP_PICKUP := preload("res://scripts/items/drop_pickup.gd")
 # emite su posicion. En un jugador es false y NADA cambia.
 var activo := false
 var es_host := false
+
+# ¿Esta sesion es de un MUNDO COMPARTIDO (un solo save que lleva dentro a todos, ver mundos.gd) o del
+# LAN de siempre (cada uno trae su propia ranura)? Es el interruptor de todo lo nuevo, y va aparte de
+# `activo` a proposito: el camino viejo tiene que seguir funcionando exactamente igual.
+var mundo_compartido := false
+
+# Solo HOST: quien es cada peer de verdad (peer_id -> Identidad.id). El peer_id se reasigna en cada
+# conexion, asi que no sirve para reconocer a nadie entre sesiones; esto si.
+var _identidades: Dictionary = {}
+# Solo HOST: los que han saludado pero AUN NO ESTAN DENTRO, porque les falta tener personaje. Se
+# guarda su lugar para admitirles cuando avisen. Ver _saludar / _listo.
+var _en_la_puerta: Dictionary = {}
 
 var _codigo := ""                  # codigo de sala que hay que casar para entrar
 
@@ -282,14 +306,18 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 	_codigo = codigo
 	activo = true
 	es_host = true
+	# Si lo que tengo abierto es un mundo compartido, esta sesion lo es (lo consulta medio net.gd).
+	mundo_compartido = Mundos.abierto != ""
 	_sembrar_mapa_sesion()    # el mapa de la sesion arranca siendo el MIO: se juega en mi mundo
 	Game._refrescar_pausa()   # regimen multi: los menus dejan de pausar el arbol
 	estado_cambiado.emit("Servidor abierto. Esperando a que se unan...")
 	return OK
 
 
-func unirse(ip: String, codigo: String, puerto: int = PUERTO) -> int:
-	if not _en_el_pueblo():
+# compartido = me uno a un MUNDO COMPARTIDO: mi personaje vive alli y me lo dara el host, asi que
+# entro DESDE EL MENU y no desde un pueblo mio (no tengo partida cargada, ni tiene que haberla).
+func unirse(ip: String, codigo: String, puerto: int = PUERTO, compartido := false) -> int:
+	if not compartido and not _en_el_pueblo():
 		estado_cambiado.emit("Solo puedes unirte a una sala desde el pueblo.")
 		return ERR_UNAVAILABLE
 	var peer := ENetMultiplayerPeer.new()
@@ -301,6 +329,9 @@ func unirse(ip: String, codigo: String, puerto: int = PUERTO) -> int:
 	_codigo = codigo
 	activo = true
 	es_host = false
+	# Antes de que llegue la conexion: _on_connected_to_server lo consulta para no congelar un mundo
+	# propio que no existe ni presentarse con un personaje que todavia no tengo.
+	mundo_compartido = compartido
 	Game._refrescar_pausa()   # regimen multi: los menus dejan de pausar el arbol
 	estado_cambiado.emit("Conectando a %s..." % ip)
 	return OK
@@ -358,11 +389,15 @@ func desconectar() -> void:
 	_mapa_sesion.clear()
 	_vistas_sesion.clear()
 	# Restaurar MI baul de materiales si lo habia guardado al entrar de cliente (no perder nada).
-	if _almacen_guardado:
+	# En un MUNDO COMPARTIDO no hay nada que restaurar: el invitado no aparto ningun baul al entrar
+	# porque no trae mundo propio (ver _on_connected_to_server). Volcarle aqui un `_almacen_solo`
+	# vacio le borraria el baul del mundo en el que acaba de jugar.
+	if _almacen_guardado and not mundo_compartido:
 		var lista: Array[MaterialItem] = []
 		for m in _almacen_solo:
 			lista.append(m)
 		Game.almacen_materiales = lista
+	if _almacen_guardado:
 		_almacen_guardado = false
 		_almacen_solo = []
 	# La foto de MI mundo al entrar de invitado (ver _congelar_mi_mundo) no sobrevive a la sesion:
@@ -386,8 +421,16 @@ func desconectar() -> void:
 	# De vuelta al regimen de un jugador: si hay un menu abierto, el arbol vuelve a pausarse.
 	Game._refrescar_pausa()
 	# Fin de sesion: cupo = PARTY_MAX otra vez, asi que los apartados por el cupo vuelven todos.
-	_aplicar_cupo()
+	# En un mundo compartido NO: los apartados salieron de un grupo que vive en el mundo, y el
+	# invitado se va del mundo entero (no vuelve a "su" partida donde recuperarlos). Devolverlos aqui
+	# seria rearmar un grupo que ya no es de nadie en esta maquina.
+	if not mundo_compartido:
+		_aplicar_cupo()
 	_apartados.clear()
+	_identidades.clear()
+	_en_la_puerta.clear()
+	# El interruptor, al final: todo lo de arriba lo consulta.
+	mundo_compartido = false
 
 
 # --- RETRANSMISION de los mensajes de JUGADOR (topologia estrella) ---------------------------
@@ -3297,6 +3340,120 @@ const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
 	"mana_heal_left", "mana_heal_rate", "mana_heal_turnos"]
 
 
+# ============================================================
+#  UN PERSONAJE DE VERDAD (no el doble de combate) Y SU JUGADOR
+#  ficha_a_dict/ficha_de_dict son el DOBLE: mandan lo justo para pelear, viajan en CADA union a una
+#  pelea y traen el equipo SIN registrar a proposito (el bug de las 6 hachas). No se tocan.
+#
+#  Esto es lo otro: mandar a una PERSONA para que VIVA en un mundo que no esta en su disco. Va una
+#  vez al entrar y otra al guardar, asi que puede permitirse ser fiel. Lo que el doble no lleva y
+#  aqui es imprescindible:
+#    es_original          el personaje intocable DE ESA PERSONA (sin esto se le podria echar del equipo)
+#    dueno                de quien es (ver personaje_data.gd)
+#    rol                  su kit y su ficha
+#    pasivas_pendientes   una tirada de 1 entre 500.000 sin leer; perderla seria una crueldad
+#  Y su equipo se deserializa REGISTRANDO: en un mundo compartido el baul del mundo es la casa de
+#  esos objetos, no un prestamo para una pelea.
+# ------------------------------------------------------------
+const _PERMANENTES := ["es_original", "rol", "dueno", "pasivas_pendientes"]
+
+
+func pj_a_dict(pj: PersonajeData) -> Dictionary:
+	var d := ficha_a_dict(pj)
+	for campo in _PERMANENTES:
+		d[campo] = pj.get(campo)
+	return d
+
+
+func pj_de_dict(d: Dictionary) -> PersonajeData:
+	return ficha_de_dict(d, true)
+
+
+# TODO lo de una persona en un mundo: sus personajes y lo que es suyo y de nadie mas (dinero, bolsa,
+# oficios, donde se quedo). Es el JugadorData de jugador_data.gd, pero por cable.
+func jd_a_dict(jd: JugadorData) -> Dictionary:
+	var fichas: Array = []
+	for pj in jd.personajes:
+		if pj is PersonajeData:
+			fichas.append(pj_a_dict(pj as PersonajeData))
+	# El equipo va por INDICE dentro de `personajes`, NUNCA como copias: si el mismo personaje viajara
+	# dos veces, al otro lado serian DOS objetos distintos y estaria a la vez en el equipo y en la
+	# plantilla como dos personas (dos vidas, dos inventarios, y el desgaste de la pelea perdido).
+	var huecos: Array = []
+	for pj in jd.equipo:
+		var i: int = jd.personajes.find(pj)
+		if i >= 0:
+			huecos.append(i)
+	var bolsa: Array = []
+	for it in jd.materiales:
+		var m: Dictionary = _item_a_dict(it)
+		if not m.is_empty():
+			bolsa.append(m)
+	var cris: Array = []
+	for it in jd.crystals:
+		var c: Dictionary = _item_a_dict(it)
+		if not c.is_empty():
+			cris.append(c)
+	return {
+		"id": jd.id, "nombre_visible": jd.nombre_visible,
+		"personajes": fichas, "equipo": huecos, "lider_pos": jd.lider_pos,
+		"dinero": jd.dinero, "materiales": bolsa, "crystals": cris,
+		"consumibles": jd.consumibles.duplicate(),
+		"mochila": Game.serializar_equipo(jd.equipped_mochila),
+		"mezcla": jd.mezcla_exp, "metalurgia": jd.metalurgia_exp,
+		"peleteria": jd.peleteria_exp, "herreria": jd.herreria_exp,
+		"materiales_vistos": jd.materiales_vistos.duplicate(),
+		"pack_inicial": jd.pack_inicial,
+		"en_mazmorra": jd.en_mazmorra, "current_floor": jd.current_floor, "pos": jd.pos,
+	}
+
+
+func jd_de_dict(d: Dictionary) -> JugadorData:
+	var jd := JugadorData.new()
+	jd.id = String(d.get("id", ""))
+	jd.nombre_visible = String(d.get("nombre_visible", ""))
+	jd.personajes = []
+	for f in d.get("personajes", []):
+		jd.personajes.append(pj_de_dict(f as Dictionary))
+	jd.equipo = []
+	for i in d.get("equipo", []):
+		var idx: int = int(i)
+		if idx >= 0 and idx < jd.personajes.size() and not jd.equipo.has(jd.personajes[idx]):
+			jd.equipo.append(jd.personajes[idx])   # la MISMA instancia, no una copia
+	if jd.equipo.is_empty() and not jd.personajes.is_empty():
+		jd.equipo.append(jd.personajes[0])   # sin equipo no hay con quien jugar
+	jd.lider_pos = clampi(int(d.get("lider_pos", 0)), 0, maxi(0, jd.equipo.size() - 1))
+	jd.dinero = int(d.get("dinero", 0))
+	jd.materiales = []
+	for m in d.get("materiales", []):
+		var it: Resource = _item_de_dict(m as Dictionary)
+		if it != null:
+			jd.materiales.append(it)
+	jd.crystals = []
+	for c in d.get("crystals", []):
+		var it2: Resource = _item_de_dict(c as Dictionary)
+		if it2 != null:
+			jd.crystals.append(it2)
+	jd.consumibles = (d.get("consumibles", {}) as Dictionary).duplicate()
+	# La mochila SI se registra: es suya y vive en este mundo (ver Game.serializar_equipo, que le
+	# guarda la capacidad porque es el unico campo de instancia que no esta en la meta).
+	var mo: Resource = Game.deserializar_equipo(d.get("mochila", {}), true)
+	if mo is BackpackData:
+		jd.equipped_mochila = mo
+		jd.owned_mochilas = [mo]
+	jd.mezcla_exp = float(d.get("mezcla", 0.0))
+	jd.metalurgia_exp = float(d.get("metalurgia", 0.0))
+	jd.peleteria_exp = float(d.get("peleteria", 0.0))
+	jd.herreria_exp = float(d.get("herreria", 0.0))
+	jd.materiales_vistos = (d.get("materiales_vistos", {}) as Dictionary).duplicate()
+	jd.pack_inicial = bool(d.get("pack_inicial", false))
+	jd.en_mazmorra = bool(d.get("en_mazmorra", false))
+	jd.current_floor = maxi(1, int(d.get("current_floor", 1)))
+	jd.pos = d.get("pos", Vector2.ZERO)
+	jd.fecha_visto = Time.get_datetime_string_from_system(false, true)
+	return jd
+
+
 func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	var d := {}
 	for campo in ["nombre", "color", "metalico", "imagen", "color_alpha", "level",
@@ -3337,16 +3494,20 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	return d
 
 
-func ficha_de_dict(d: Dictionary) -> PersonajeData:
+# registrar: ¿el equipo que llega pasa a vivir en MI baul?
+#   false (por defecto) = es el DOBLE de otro humano en una pelea: su arma NO es mia. Sin esto se
+#     colaba en mi baul una copia por cada vez que se unia a mi pelea (el bug de las 6 hachas).
+#   true = el personaje es PERMANENTE y este mundo es su casa (un invitado que se crea o que vuelve
+#     en un mundo compartido): entonces su equipo TIENE que registrarse, porque el baul del mundo es
+#     el sitio donde viven esos objetos.
+func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 	var pj := PersonajeData.new()
 	for campo in d:
 		if campo == "spells" or _RANURAS.has(campo):
 			continue
 		pj.set(campo, d[campo])
 	for r in _RANURAS:
-		# registrar=false: es el arma/armadura del DOBLE de otro humano, no es mia. Sin esto se
-		# colaba en mi baul una copia por cada vez que se unia a mi pelea (el bug de las 6 hachas).
-		var item: Resource = Game.deserializar_equipo(d.get(r, {}), false)
+		var item: Resource = Game.deserializar_equipo(d.get(r, {}), registrar)
 		if item != null:
 			pj.set(r, item)
 			# Y su meta EQUIPADA apuntando al MISMO dict que la del objeto. Sin esto el doble
@@ -3826,10 +3987,77 @@ func mundo_propio_congelado() -> Dictionary:
 	return _mundo_propio
 
 
+# ============================================================
+#  GUARDAR EN UN MUNDO COMPARTIDO: al reves que en el LAN de siempre
+#  LAN de siempre: "guardaos todos" = cada uno escribe SU ranura. Aqui no: hay UN save y lo escribe
+#  el HOST, asi que lo que se pide no es "guardate" sino "MANDAME LO TUYO".
+#
+#  Se espera a que contesten, pero con plazo: si alguien no responde (se le fue la red justo ahora),
+#  se escribe su ultimo JugadorData conocido. Nunca se pierde su personaje; como mucho, sus ultimos
+#  minutos. Bloquear el guardado del mundo por un peer mudo seria peor.
+# ------------------------------------------------------------
+const _PLAZO_ESTADOS := 1.5
+
+var _estados_pedidos: Array = []   # peers a los que se les ha pedido y aun no han contestado
+
+
+func recoger_estados(cerrando: bool = false) -> void:
+	if not activo or not es_host or not mundo_compartido:
+		return
+	_estados_pedidos = _peers.keys()
+	if _estados_pedidos.is_empty():
+		return
+	_dame_tu_estado.rpc(cerrando)
+	var esperado := 0.0
+	while not _estados_pedidos.is_empty() and esperado < _PLAZO_ESTADOS:
+		await get_tree().create_timer(0.1).timeout
+		esperado += 0.1
+	if not _estados_pedidos.is_empty():
+		push_warning("[multi] %d jugador(es) no mandaron su estado: se guarda el ultimo que tengo" % \
+			_estados_pedidos.size())
+	_estados_pedidos.clear()
+
+
+# El host pide lo mio. Corre en el INVITADO.
+@rpc("any_peer", "call_remote", "reliable")
+func _dame_tu_estado(cerrando: bool) -> void:
+	if es_host:
+		return
+	_mi_estado.rpc_id(1, jd_a_dict(Game.mi_jugador_data()))
+	if not cerrando:
+		_toast("Partida guardada en el mundo.")
+		return
+	# El mundo se cierra: aqui no me queda nada (mi personaje se queda dentro de el). Un respiro para
+	# que el paquete de arriba salga antes de cortar, o se guardaria sin mi ultimo rato.
+	await get_tree().create_timer(0.4).timeout
+	desconectar()
+	estado_cambiado.emit("Se cerró el mundo. Tu personaje queda guardado dentro.")
+	get_tree().change_scene_to_file("res://scenes/ui/multi_menu.tscn")
+
+
+# Lo que manda el invitado. Corre EN EL HOST: lo mete en el mundo, tal cual, a nombre de su identidad.
+@rpc("any_peer", "call_remote", "reliable")
+func _mi_estado(d: Dictionary) -> void:
+	if not es_host or not mundo_compartido:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	var identidad := String(_identidades.get(quien, ""))
+	if identidad == "":
+		return
+	var jd: JugadorData = jd_de_dict(d)
+	jd.id = identidad          # manda MI registro de quien es, no lo que diga el paquete
+	Game.jugadores_mundo[identidad] = jd
+	_estados_pedidos.erase(quien)
+	print("[multi] estado recibido de ", jd.nombre_visible, ": ", jd.resumen())
+
+
 # Solo host: guardar por los dos. Mi partida la guarda quien me llama (el menu de pausa); aqui se le
 # pide a cada invitado que guarde la suya. 'cerrando' = el host ha dado a "Guardar y SALIR": el
 # invitado, ademas de guardar, se vuelve A SU MUNDO con la partida ya guardada, en vez de comerse un
 # "el host ha cerrado la partida" a secas.
+#
+# ⚠️ ESTO ES EL CAMINO LEGADO (cada uno con su ranura). En un MUNDO COMPARTIDO no se usa: alli se
+# llama a recoger_estados() y el host escribe UN save (ver arriba).
 func guardar_todos(cerrando: bool = false) -> void:
 	if not activo or not es_host or multiplayer.multiplayer_peer == null:
 		return
@@ -3859,9 +4087,15 @@ func pedir_guardar_todos(cerrando: bool = false) -> void:
 func _pedir_guardar(cerrando: bool = false) -> void:
 	if not es_host:
 		return
+	var quien: int = multiplayer.get_remote_sender_id()
+	# MUNDO COMPARTIDO: no hay "guardar por los dos", hay UN save. Se recogen los estados de todos
+	# (incluido el del que lo pide) y se escribe; Mundos.autoguardar ya hace las dos cosas en orden.
+	if mundo_compartido:
+		var bien: bool = await Mundos.autoguardar()
+		_aviso_guardado.rpc_id(quien, bien)
+		return
 	# El guardado del host lo hace Game (es quien habla con Perfil: ver la nota de _guardar_ahora).
 	var ok: bool = Game.guardar_mi_partida()
-	var quien: int = multiplayer.get_remote_sender_id()
 	_aviso_guardado.rpc_id(quien, ok)
 	if ok:
 		# Y de aqui salen los guardados de TODOS los invitados, el que lo pidio incluido.
@@ -3905,31 +4139,118 @@ func _guardar_ahora(cerrando: bool = false) -> void:
 # Cliente: nada mas conectar, se presenta al host (id 1) con el codigo, su aspecto y su lugar.
 func _on_connected_to_server() -> void:
 	estado_cambiado.emit("Conectado. Validando codigo...")
-	# Guardo MI baul de materiales antes de que el host me mande el suyo (lo recupero al salir).
-	_almacen_solo = Game.almacen_materiales.duplicate()
-	_almacen_guardado = true
-	_congelar_mi_mundo()   # para poder GUARDAR sin volcar en mi save nada del mundo del host
-	_saludar.rpc_id(1, _codigo, Game.player_color, Game.player_metalico, Game.player_nombre,
-		_mi_lugar, Game.player_imagen_png, Game.player_color_alpha)
+	if not mundo_compartido:
+		# LAN de siempre: tengo mi propia partida cargada y hay que protegerla del mundo del host.
+		# Guardo MI baul de materiales antes de que el host me mande el suyo (lo recupero al salir).
+		_almacen_solo = Game.almacen_materiales.duplicate()
+		_almacen_guardado = true
+		_congelar_mi_mundo()   # para poder GUARDAR sin volcar en mi save nada del mundo del host
+
+	# EL ASPECTO SOLO SI TENGO PERSONAJE. En un mundo compartido todavia no lo tengo (me lo va a dar
+	# el host), y `Game.player_*` delega en Game.lider(), que con el grupo vacio NO devuelve null: se
+	# INVENTA un PersonajeData en blanco y lo mete en la plantilla. Ese fantasma se quedaria ahi al
+	# llegar el personaje de verdad. Asi que en compartido se saluda con un aspecto neutro y el bueno
+	# se difunde solo (player.refrescar_grupo -> anunciar_aspecto) al pisar el pueblo.
+	var col := Color(1, 1, 1)
+	var met := 0.0
+	var nom := Identidad.nombre
+	var png := PackedByteArray()
+	var alp := 1.0
+	if not mundo_compartido:
+		col = Game.player_color
+		met = Game.player_metalico
+		nom = Game.player_nombre
+		png = Game.player_imagen_png
+		alp = Game.player_color_alpha
+
+	_esperar_respuesta()
+	_saludar.rpc_id(1, _codigo, PROTOCOLO, Identidad.id, Identidad.nombre,
+		col, met, nom, _mi_lugar, png, alp)
+
+
+# EL PLAZO. Si el host es de otro build, su _saludar tiene otra firma y Godot tira el paquete SIN
+# error: sin esto, el jugador se queda mirando "Validando codigo..." para siempre.
+var _respondio := false
+
+func _esperar_respuesta() -> void:
+	_respondio = false
+	await get_tree().create_timer(_PLAZO_SALUDO).timeout
+	if _respondio or not activo or es_host:
+		return
+	estado_cambiado.emit("El anfitrión no contesta. Lo más probable es que no coincida la versión "
+		+ "del juego: tenéis que ser el mismo build.")
+	desconectar()
 
 
 # Corre EN EL HOST, llamado por el cliente. Valida el codigo y, si vale, se registran
 # mutuamente; si no, se echa al que intenta colarse.
 @rpc("any_peer", "call_remote", "reliable")
-func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar: String,
+func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible: String,
+		color: Color, metal: float, nombre: String, lugar: String,
 		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	if codigo != _codigo:
 		estado_cambiado.emit("Rechazado un intento con codigo incorrecto.")
-		_rechazado.rpc_id(quien)
-		# Un respiro antes de cortar: los RPC salen en el siguiente poll, y desconectar en el
-		# mismo frame tira el paquete de _rechazado sin enviarlo (el cliente se quedaria sin
-		# saber POR QUE se le echo).
-		await get_tree().create_timer(0.3).timeout
-		if multiplayer.multiplayer_peer != null:
-			multiplayer.disconnect_peer(quien)
+		await _echar(quien, "No hay ninguna sala con ese codigo en esa IP.")
 		return
-	# Codigo OK. Presentaciones cruzadas con los que YA estaban (roster): antes de registrar al
+	if protocolo != PROTOCOLO:
+		estado_cambiado.emit("Rechazado: version de juego distinta (la suya %d, la mia %d)." % [
+			protocolo, PROTOCOLO])
+		await _echar(quien, "No coincide la versión del juego: tenéis que tener el mismo build.")
+		return
+
+	if mundo_compartido:
+		# En un mundo compartido la identidad no es un adorno: es la llave de SU personaje.
+		if identidad.strip_edges() == "":
+			await _echar(quien, "Tu juego no dice quién eres: actualízalo.")
+			return
+		# La MISMA identidad dos veces a la vez no puede ser (un identidad.cfg copiado en dos
+		# maquinas). Se permite usarla por turnos —eso es tu personaje en otro PC— pero no a la vez:
+		# los dos reclamarian el mismo personaje del mundo y el ultimo en guardar pisaria al otro.
+		for id in _identidades:
+			if String(_identidades[id]) == identidad:
+				await _echar(quien, "Ya hay alguien dentro con tu misma identidad de jugador.")
+				return
+
+	_identidades[quien] = identidad
+
+	if mundo_compartido:
+		# NO se le admite todavia: primero tiene que tener personaje. Se guarda en la puerta y se
+		# entra por _listo(). Aqui NO se puede esperar (`await`) a que rellene el creador: esto es un
+		# RPC, y mientras el elige nombre no puede andar por el mundo sin ficha.
+		_en_la_puerta[quien] = {"identidad": identidad, "lugar": lugar, "nombre": nombre_visible}
+		var jd = Game.jugadores_mundo.get(identidad)
+		if jd is JugadorData:
+			estado_cambiado.emit("%s vuelve al mundo." % nombre_visible)
+			_tu_jugador.rpc_id(quien, jd_a_dict(jd as JugadorData), Game.semilla_mundo)
+		else:
+			estado_cambiado.emit("%s entra por primera vez: está creando su personaje." % nombre_visible)
+			_crea_tu_personaje.rpc_id(quien, Game.player_nombre)
+		return
+
+	# LAN de siempre (cada uno con su ranura): dentro directo, como ha sido siempre.
+	_admitir(quien, color, metal, nombre, lugar, imagen, alpha)
+
+
+# Echar a alguien DICIENDO por que. El respiro es obligatorio: los RPC salen en el siguiente poll, y
+# desconectar en el mismo frame tira el paquete sin enviarlo (el cliente se quedaria sin saber por que
+# se le echo, que es como estaba antes de que el motivo viajara).
+func _echar(quien: int, motivo: String) -> void:
+	_rechazado.rpc_id(quien, motivo)
+	await get_tree().create_timer(0.3).timeout
+	_en_la_puerta.erase(quien)
+	_identidades.erase(quien)
+	if multiplayer.multiplayer_peer != null:
+		multiplayer.disconnect_peer(quien)
+
+
+# METERLE DENTRO de verdad. Es el cuerpo que antes era la segunda mitad de _saludar; se extrajo
+# porque en un mundo compartido hay un paso intermedio (darle su personaje) y hasta que lo tenga no
+# puede entrar.
+func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: String,
+		imagen: PackedByteArray, alpha: float) -> void:
+	_en_la_puerta.erase(quien)
+	# Presentaciones cruzadas con los que YA estaban (roster): antes de registrar al
 	# nuevo, para no presentarselo a si mismo. Cada cliente que ya estaba se entera del nuevo, y al
 	# nuevo se le pasa la lista entera. Sin esto, dos clientes serian invisibles entre si.
 	for otro in _peers:
@@ -3962,12 +4283,98 @@ func _saludar(codigo: String, color: Color, metal: float, nombre: String, lugar:
 	_set_mapa_sesion.rpc_id(quien, _mapa_sesion, _vistas_sesion)
 
 
+# ============================================================
+#  EL PERSONAJE DEL QUE SE UNE (mundo compartido)
+#  Tres mensajes y una regla: el invitado NO entra hasta que tiene ficha.
+#    host -> _tu_jugador        "este eres tu en este mundo" (vuelve alguien conocido)
+#    host -> _crea_tu_personaje "no te conozco: hazte uno" (primera vez)
+#    cliente -> _alta_personaje  el que acaba de crear; el host lo guarda EN EL MUNDO
+#    cliente -> _listo           ya lo he aplicado, y este es mi aspecto de verdad
+#  El aspecto viaja en _listo y no en el saludo porque al saludar el invitado todavia no tiene cara.
+# ------------------------------------------------------------
+
+# El mundo pide un personaje nuevo. Lo recoge la UI (el menu de multijugador), porque abrir una
+# pantalla no es cosa de la capa de red.
+signal pedir_personaje(nombre_mundo: String)
+# Ya tengo mi personaje del mundo y estoy dentro: quien escuche esto lleva al jugador al pueblo.
+signal entrada_lista
+
+
+# Lo llama la UI cuando el jugador ha terminado de crear su personaje para este mundo.
+func mandar_alta_personaje(pj: PersonajeData) -> void:
+	if not activo or es_host:
+		return
+	_alta_personaje.rpc_id(1, pj_a_dict(pj))
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _crea_tu_personaje(nombre_mundo: String) -> void:
+	_respondio = true
+	estado_cambiado.emit("Es tu primera vez en este mundo: crea tu personaje.")
+	pedir_personaje.emit(nombre_mundo)
+
+
+# El invitado manda el personaje recien creado. Corre EN EL HOST: es el que lo guarda en el mundo,
+# porque el mundo es suyo mientras tenga el cerrojo.
+@rpc("any_peer", "call_remote", "reliable")
+func _alta_personaje(d: Dictionary) -> void:
+	if not es_host or not mundo_compartido:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	if not _en_la_puerta.has(quien):
+		return
+	var identidad := String(_identidades.get(quien, ""))
+	if identidad == "":
+		return
+	var pj: PersonajeData = pj_de_dict(d)
+	pj.es_original = true       # EL personaje de esa persona en este mundo: intocable
+	pj.dueno = identidad
+	var jd := JugadorData.new()
+	jd.id = identidad
+	jd.nombre_visible = String(_en_la_puerta[quien].get("nombre", ""))
+	jd.personajes = [pj]
+	jd.equipo = [pj]
+	jd.lider_pos = 0
+	Game.jugadores_mundo[identidad] = jd
+	print("[multi] alta de ", pj.nombre, " (", jd.nombre_visible, ") en el mundo")
+	# Se le devuelve YA empaquetado: asi los dos lados parten de lo mismo y no hay dos verdades.
+	_tu_jugador.rpc_id(quien, jd_a_dict(jd), Game.semilla_mundo)
+
+
+# El host le da al invitado SU jugador de este mundo. Corre en el CLIENTE.
+@rpc("any_peer", "call_remote", "reliable")
+func _tu_jugador(d: Dictionary, semilla: int) -> void:
+	_respondio = true
+	var jd: JugadorData = jd_de_dict(d)
+	Game.aplicar_jugador_mundo(jd, semilla)
+	mundo_compartido = true
+	var l: PersonajeData = Game.lider()
+	# Y ahora si tengo cara: se manda con el "estoy listo" para que el host me registre con ella.
+	_listo.rpc_id(1, Game.player_color, Game.player_metalico, Game.player_nombre,
+		Game.player_imagen_png, Game.player_color_alpha)
+	estado_cambiado.emit("Entrando con %s." % (l.nombre if l != null else "tu personaje"))
+	entrada_lista.emit()
+
+
+# El invitado ya tiene ficha: ahora si se le mete dentro. Corre EN EL HOST.
+@rpc("any_peer", "call_remote", "reliable")
+func _listo(color: Color, metal: float, nombre: String, imagen: PackedByteArray, alpha: float) -> void:
+	if not es_host:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	if not _en_la_puerta.has(quien):
+		return
+	var lugar := String(_en_la_puerta[quien].get("lugar", "pueblo"))
+	_admitir(quien, color, metal, nombre, lugar, imagen, alpha)
+
+
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.
 @rpc("any_peer", "call_remote", "reliable")
 func _presentarse(color: Color, metal: float, nombre: String, lugar: String, semilla: int,
 		t2: bool, imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0,
 		atajos: PackedInt32Array = PackedInt32Array()) -> void:
 	var quien := multiplayer.get_remote_sender_id()
+	_respondio = true
 	semilla_host = semilla
 	tienda_t2_host = t2
 	pisos_host = Array(atajos)
@@ -3980,11 +4387,20 @@ func _presentarse(color: Color, metal: float, nombre: String, lugar: String, sem
 var _fui_rechazado := false
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rechazado() -> void:
+func _rechazado(motivo: String = "No hay ninguna sala con ese codigo en esa IP.") -> void:
 	_fui_rechazado = true
-	# En el idioma del jugador: no se distingue "la sala existe pero el codigo esta mal" de
-	# "no hay sala". Suena natural y de paso no confirma a un curioso que ahi hay una partida.
-	estado_cambiado.emit("No hay ninguna sala con ese codigo en esa IP.")
+	_respondio = true
+	_motivo_rechazo = motivo
+	# El motivo lo redacta el host. Para el codigo malo sigue siendo ambiguo a proposito ("no hay
+	# ninguna sala con ese codigo en esa IP"): no se distingue "la sala existe pero el codigo esta
+	# mal" de "no hay sala", asi que a un curioso no se le confirma que ahi hay una partida. Los
+	# demas motivos (version distinta, identidad repetida) SI son claros: ahi ya sabes que existe.
+	estado_cambiado.emit(motivo)
+
+
+# Se guarda para que la desconexion posterior repita el MISMO motivo en vez de pisarlo con un
+# "el host ha cerrado" que no cuenta la verdad.
+var _motivo_rechazo := "No hay ninguna sala con ese codigo en esa IP."
 
 
 # --- AVATARES -------------------------------------------------------------------------------
@@ -4145,11 +4561,24 @@ func _on_connection_failed() -> void:
 
 
 func _on_server_disconnected() -> void:
-	if _fui_rechazado:
+	# Se guarda ANTES de limpiar el flag: mas abajo hay que volver a saber si esto fue un rechazo, y
+	# si se lee `_fui_rechazado` despues de ponerlo a false siempre parece que no lo fue -- y se le
+	# pisaba al jugador el motivo de verdad ("tu identidad ya esta dentro") con un "se cerro el mundo".
+	var rechazado := _fui_rechazado
+	if rechazado:
 		_fui_rechazado = false
-		estado_cambiado.emit("No hay ninguna sala con ese codigo en esa IP.")
+		estado_cambiado.emit(_motivo_rechazo)
 	else:
 		estado_cambiado.emit("El host ha cerrado la partida.")
+	# MUNDO COMPARTIDO: mi personaje vive en el mundo del host, asi que aqui no me queda nada que
+	# jugar -- ni pueblo propio al que volver. Al menu de multijugador, y lo que hubiera sin guardar
+	# se queda en el ultimo guardado del host (el suyo autoguarda cada minuto).
+	if mundo_compartido:
+		desconectar()
+		if not rechazado:
+			estado_cambiado.emit("Se cerró el mundo. Tu personaje queda guardado dentro de él.")
+		get_tree().change_scene_to_file("res://scenes/ui/multi_menu.tscn")
+		return
 	# Si me pilla DENTRO de la mazmorra, de vuelta al pueblo: ese piso era del MUNDO DEL HOST
 	# (su semilla); sin sesion no tiene sentido seguir alli.
 	var en_mazmorra := _mi_lugar.begins_with("piso:")
