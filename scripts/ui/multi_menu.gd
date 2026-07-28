@@ -488,6 +488,9 @@ func _abrir(clave: String, pass_: String, forzar_build := false) -> void:
 				_decir("No se pudo cargar ese mundo.", false)
 				return
 			_avisar_direccion(r)
+			if bool(r.get("solo_local", false)):
+				_decir("Ojo: en el almacén no había partida de este mundo, se juega con la copia de "
+					+ "este ordenador. Al cerrar se sube.", false)
 			# Se vuelve EXACTAMENTE donde se guardo, como en las ranuras de un jugador.
 			var datos: SaveData = Mundos.datos_cabecera(clave)
 			get_tree().change_scene_to_file(MAZMORRA if datos != null and datos.en_mazmorra else PUEBLO)

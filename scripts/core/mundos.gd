@@ -280,6 +280,14 @@ func abrir(clave: String, contrasena: String, forzar_build := false) -> Dictiona
 	var bytes: PackedByteArray = r.get("save", PackedByteArray())
 	if bytes.is_empty():
 		_contrasena = contrasena
+		# La nube no tiene partida... pero puede haberla AQUI: una subida que nunca llego, o un
+		# almacen que se vacio. Si hay copia local jugable, esa MANDA. Decir "mundo nuevo" aqui seria
+		# ofrecer crear personaje, y estrenar() machacaria la partida que hay en el disco.
+		var local: Dictionary = SaveIO.inspeccionar_ruta(ruta(clave))
+		if int(local["estado"]) == SaveIO.OK:
+			push_warning("[mundos] %s no esta en el almacen pero SI en el disco: manda la copia local" % clave)
+			return {"ok": true, "resultado": "host", "clave": clave, "direcciones": dirs,
+				"solo_local": true}
 		return {"ok": true, "resultado": "nuevo", "clave": clave, "direcciones": dirs}
 	if not SaveIO.escribir_bytes(ruta(clave), bytes):
 		# Ojo: el cerrojo YA es mio. Se suelta para no dejar el mundo bloqueado por un fallo de disco.
@@ -339,8 +347,15 @@ func guardar_actual() -> bool:
 	if abierto == "":
 		push_warning("[mundos] no hay mundo abierto: no se guarda")
 		return false
+	# ANTES de exportar, no despues: es `Game.mundo_compartido` lo que hace que exportar_partida
+	# empaquete a los jugadores dentro. Si se pusiera solo en el SaveData de abajo, un mundo que se
+	# hubiera cargado de un fichero SIN la marca (una partida de un jugador ascendida a mundo, o de un
+	# build anterior a esto) se guardaria marcado como mundo pero con `jugadores` VACIO: seguiria
+	# jugandose bien, pero el mundo habria dejado de recordar de quien es cada personaje EN SILENCIO,
+	# que es justo lo unico que tiene que hacer.
+	Game.mundo_compartido = true
 	var datos: SaveData = Game.exportar_partida()
-	# Un mundo va SIEMPRE marcado como tal, y con su version de esquema: es lo que permite que un
+	# Y el mundo va SIEMPRE marcado como tal, con su version de esquema: es lo que permite que un
 	# build viejo se niegue a abrirlo en vez de comerse los jugadores de dentro.
 	datos.mundo_compartido = true
 	datos.version_mundo = SaveData.VERSION_MUNDO
