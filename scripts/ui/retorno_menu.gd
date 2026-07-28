@@ -11,9 +11,11 @@
 #   - MINIMIZADO: una pildora pequeña con la cuenta atras. AQUI es donde corre el minuto, y es lo
 #     que le da tiempo al jugador a extraer el cadaver que acaba de dejar antes de subir.
 #
-#  Que el reloj solo corra minimizado no es explotable: con el modal abierto no puedes moverte
-#  (Player._physics_process consulta Game.hay_modal()), asi que el que lo deja abierto para
-#  congelar el contador se queda igual de quieto.
+#  El reloj corre SOLO mientras puedes usarlo: aparcada y con el mundo por delante. Con el modal
+#  abierto no corre (puedes estar en el baño) y con un combate o un minijuego delante tampoco (una
+#  pelea de dos minutos se comeria el margen entero sin que pudieras hacer nada). Nada de eso es
+#  explotable: en los tres casos no puedes moverte ni recoger nada, asi que congelar el contador
+#  cuesta exactamente lo que da.
 # ============================================================
 
 extends CanvasLayer
@@ -101,17 +103,29 @@ func _process(delta: float) -> void:
 		return
 	if _root.visible:
 		return   # con el modal delante no corre el reloj: la decision no tiene prisa
+	var libre: bool = _jugador_libre()
 	if _minimizado:
-		_restante -= delta
-		if _restante <= 0.0:
-			_expirar()
-			return
+		# El reloj SOLO corre cuando puedes usar el minuto. Si te embisten mientras esta aparcada,
+		# la pildora se queda congelada hasta que salgas de la pelea: el minuto es para rematar lo
+		# que estabas haciendo, y una pelea de dos minutos se lo comeria entero sin que tu pudieras
+		# hacer nada. Es la misma condicion con la que se decide enseñarla, a proposito.
+		if libre:
+			_restante -= delta
+			if _restante <= 0.0:
+				_expirar()
+				return
 		_pildora_lbl.text = "  ↑ Volver al pueblo   ·   %d s" % ceili(_restante)
+		_pildora.modulate.a = 1.0 if libre else 0.55   # apagada = el tiempo no corre
 		return
-	# Ni abierto ni minimizado: es una oferta recien llegada. Se enseña en cuanto el jugador este
-	# libre (sin pantalla de minijuego/combate y sin ningun menu abierto).
-	if Game._active_layer == null and not Game.hay_modal() and not Game.debug_panel_open:
+	# Ni abierto ni minimizado: es una oferta recien llegada. Se enseña en cuanto estes libre.
+	if libre:
 		_abrir()
+
+
+# ¿Puede el jugador atender a esto AHORA? Sin pantalla de combate/minijuego delante y sin ningun
+# menu abierto. Manda las dos cosas: cuando se enseña la oferta y cuando corre su cuenta atras.
+func _jugador_libre() -> bool:
+	return Game._active_layer == null and not Game.hay_modal() and not Game.debug_panel_open
 
 
 func _abrir() -> void:
