@@ -325,6 +325,29 @@ func _build_almacen() -> void:
 	b.pressed.connect(_on_guardar)
 	_content.add_child(b)
 
+	# EL CAMINO DE VUELTA. Hasta ahora del baul solo se salia vendiendo o crafteando, y hace falta
+	# poder vaciarlo: al entrar en un mundo compartido solo viaja la BOLSA, asi que para llevarte tus
+	# materiales al mundo de un companero primero tienes que recogerlos aqui.
+	var todo := Button.new()
+	todo.text = "Recoger TODO (aunque te sobrecargue)"
+	todo.custom_minimum_size = Vector2(0, 36)
+	todo.disabled = Game.almacen_materiales.is_empty()
+	todo.pressed.connect(_on_recoger.bind(true))
+	_content.add_child(todo)
+
+	var cabe := Button.new()
+	cabe.text = "Recoger sin quedarme lento"
+	cabe.custom_minimum_size = Vector2(0, 36)
+	cabe.disabled = Game.almacen_materiales.is_empty()
+	cabe.pressed.connect(_on_recoger.bind(false))
+	_content.add_child(cabe)
+
+	MenuScaffold.fila(_content, "Tu carga", "%.1f / %.1f%s" % [
+		Game.peso_actual(), Game.capacidad_carga(),
+		"    ¡SOBRECARGADO!" if Game.esta_sobrecargado() else ""])
+	MenuScaffold.nota(_content, "Ir sobrecargado no te bloquea: te mueves más lento, y cuanto "
+		+ "más te pases, más. Para mudarte a un mundo compartido llévatelo todo y ya lo repartes allí.")
+
 
 func _on_guardar() -> void:
 	# MULTIJUGADOR: depositar toca el baul compartido -> coger el candado un momento, guardar y
@@ -344,6 +367,39 @@ func _on_guardar() -> void:
 	var n: int = Game.guardar_materiales_en_hogar()
 	_aviso = "Guardas %d materiales en casa." % n
 	_aviso_ok = true
+	_rebuild()
+
+
+# Sacar del baul a la bolsa. Mismo baile del candado que al depositar: en multi el baul es del host.
+func _on_recoger(todo: bool) -> void:
+	if Net.activo:
+		if not await Net.abrir_taller():
+			_aviso = "El hogar está ocupado (tu compañero está en el taller)."
+			_aviso_ok = false
+			_rebuild()
+			return
+		var n_multi: int = Game.recoger_materiales_del_hogar(todo)
+		Net.cerrar_taller()
+		_decir_recogida(n_multi, todo)
+		return
+	var n: int = Game.recoger_materiales_del_hogar(todo)
+	_decir_recogida(n, todo)
+
+
+# El aviso de la recogida dice lo que ha pasado de verdad: cuantos, si se quedaron fuera por peso, y
+# si te has quedado sobrecargado (que no es un error, pero conviene saberlo antes de bajar).
+func _decir_recogida(n: int, todo: bool) -> void:
+	if n == 0:
+		_aviso = "No hay nada guardado en casa." if todo \
+			else "Ya vas cargado: recoger más te dejaría lento."
+		_aviso_ok = false
+	else:
+		_aviso = "Recoges %d material%s." % [n, "" if n == 1 else "es"]
+		if not Game.almacen_materiales.is_empty():
+			_aviso += " Quedan %d en casa." % Game.almacen_materiales.size()
+		if Game.esta_sobrecargado():
+			_aviso += "  ¡Vas SOBRECARGADO: te moverás lento!"
+		_aviso_ok = true
 	_rebuild()
 
 

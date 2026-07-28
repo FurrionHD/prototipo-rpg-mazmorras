@@ -4255,6 +4255,51 @@ func guardar_materiales_en_hogar() -> int:
 	return n
 
 
+# HOGAR, EL CAMINO DE VUELTA: saca materiales del baul y los mete en la bolsa. Hasta ahora esto no
+# existia — del almacen solo se salia VENDIENDO (_sacar_del_hogar) o crafteando —, y hace falta para
+# poder llevarte tus materiales a un mundo compartido: al entrar en el mundo de otro solo viaja la
+# BOLSA, asi que lo que tengas guardado en casa hay que recogerlo antes.
+#
+# 'todo' = true se lo lleva ENTERO aunque te sobrecargue, que es justo lo que se quiere para mudarse:
+# la sobrecarga en este juego no es un muro, solo enciende el aviso y te frena gradualmente (ver
+# esta_sobrecargado y el multiplicador de velocidad). Cortar por capacidad haria imposible vaciar un
+# baul grande. Con 'todo' = false se coge solo lo que no te ralentice, que es lo normal del dia a dia.
+#
+# OJO con el tope del modo prudente: NO es la capacidad, es overload_threshold (el 80%). Empiezas a
+# ir lento AHI, no al llenarla del todo, asi que llenar hasta el 100% dejaba al jugador arrastrandose
+# con el boton que precisamente sirve para no ir lento.
+#
+# Devuelve cuantos se recogieron.
+func recoger_materiales_del_hogar(todo: bool = true) -> int:
+	# El mismo candado que para depositar: en multi el baul es del host y no se toca sin el taller.
+	if not Net.tengo_taller():
+		return 0
+	if almacen_materiales.is_empty():
+		return 0
+	var cogidos: int = 0
+	if todo:
+		for m in almacen_materiales:
+			materiales.append(m)
+			cogidos += 1
+		almacen_materiales.clear()
+	else:
+		# Solo hasta el umbral de sobrecarga. Se recorre una copia porque se va borrando del original.
+		var libre: float = (capacidad_carga() * overload_threshold) - peso_actual()
+		for m in almacen_materiales.duplicate():
+			var w: float = m.peso()
+			if w > libre:
+				continue   # este no cabe, pero puede que uno mas ligero de mas adelante si
+			materiales.append(m)
+			almacen_materiales.erase(m)
+			libre -= w
+			cogidos += 1
+	print("[hogar] Recoges %d materiales%s. Quedan en casa: %d. Carga: %.1f/%.1f%s" % [
+		cogidos, " (todo)" if todo else " (hasta el umbral de sobrecarga)",
+		almacen_materiales.size(), peso_actual(), capacidad_carga(),
+		"  SOBRECARGADO" if esta_sobrecargado() else ""])
+	return cogidos
+
+
 # ============================================================
 #  TIENDA: dinero, venta (bolsa/hogar/equipo), recompra, compra y PACK INICIAL
 #  Toda la math vive aqui; shop_menu.gd solo pinta.
