@@ -1904,9 +1904,23 @@ func boss_del_piso(piso: int) -> EnemyData:
 func boss_derrotado(piso: int) -> bool:
 	return bool(bosses_derrotados.get(piso, false))
 
-# El piso esta CERRADO si tiene boss y no lo has matado nunca: sin bajada y sin salida.
+# ¿Ha caido el jefe de ese piso EN ESTE MUNDO? No es lo mismo que boss_derrotado, que pregunta por
+# TU historial: en sesion juegas en el mundo del HOST, y ahi sus jefes ya estan muertos aunque tu no
+# los hayas visto nunca. Las PUERTAS son del mundo, no tuyas.
+#
+# Sin esto, el invitado que baja por el atajo al piso 6 aparece en un piso CERRADO: sin escalera de
+# bajada y sin salida al pueblo, mientras el host las ve las dos. El atajo ya se abria con la lista
+# del host (ver pisos_desbloqueados) y las puertas se quedaron mirando solo el save propio, asi que
+# te dejaba entrar a un callejon sin salida.
+#
+# Lo que NO se contagia es el CREDITO: tu bosses_derrotados sigue intacto, y tus atajos en solitario
+# siguen siendo los que te has ganado tu. Mismo reparto que la tienda T2.
+func boss_caido_en_el_mundo(piso: int) -> bool:
+	return boss_derrotado(piso) or (Net.activo and Net.pisos_host.has(piso))
+
+# El piso esta CERRADO si tiene boss y no ha caido nunca en este mundo: sin bajada y sin salida.
 func piso_bloqueado(piso: int) -> bool:
-	return BOSSES.has(piso) and not boss_derrotado(piso)
+	return BOSSES.has(piso) and not boss_caido_en_el_mundo(piso)
 
 # Lo llama el enemigo al morir (enemy.gd) si era el boss de su piso.
 func marcar_boss_derrotado(piso: int) -> void:
@@ -1924,12 +1938,10 @@ func marcar_boss_derrotado(piso: int) -> void:
 func pisos_desbloqueados() -> Array:
 	var out: Array = [1]
 	for piso in BOSSES:
-		if boss_derrotado(piso) and not out.has(piso):
+		# La MISMA pregunta que abre las puertas de ese piso (ver piso_bloqueado): si el atajo te
+		# lleva alli, alli tiene que haber por donde salir.
+		if boss_caido_en_el_mundo(piso) and not out.has(piso):
 			out.append(piso)
-	if Net.activo:
-		for piso in Net.pisos_host:
-			if not out.has(piso):
-				out.append(piso)
 	out.sort()
 	return out
 
