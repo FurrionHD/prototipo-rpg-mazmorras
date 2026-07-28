@@ -75,7 +75,13 @@ func _ready() -> void:
 	# lo que juegas no es solo tuyo. Salir sin guardar tiraria tu rato Y dejaria el mundo bloqueado a
 	# tu nombre hasta que caducara el arrendamiento del cerrojo, o sea que tu compañero no podria
 	# abrirlo en un buen rato. En las 3 ranuras de un jugador sigue donde estaba.
-	if Mundos.abierto == "":
+	#
+	# Y OJO CON PREGUNTARLO CON `Mundos.abierto`: esa variable es LOCAL, dice "tengo yo el fichero del
+	# mundo abierto en mi disco". El INVITADO no lo tiene (lo tiene el anfitrion), asi que para el
+	# valia "" y le salia el boton igualmente -- justo a quien mas dano le hace, porque su personaje
+	# vive DENTRO del mundo del otro y salir sin guardar es tirar el rato entero. La bandera que vale
+	# para los dos lados es Net.mundo_compartido, la misma que ya usa _guardar_y_salir.
+	if Mundos.abierto == "" and not (Net.activo and Net.mundo_compartido):
 		_boton(vb, "Salir SIN guardar", _salir_sin_guardar)
 	else:
 		var n := Label.new()
