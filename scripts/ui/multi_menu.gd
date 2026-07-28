@@ -31,6 +31,11 @@ const MIOS := 0
 const AJENOS := 1
 
 var _capa: CanvasLayer = null
+# Capa para lo que se abre ENCIMA (el creador de personaje, los dialogos). Tiene que ser otra
+# CanvasLayer con layer mas alto: el esqueleto del menu vive dentro de una CanvasLayer, y una
+# CanvasLayer se dibuja SIEMPRE por encima de los hijos normales del Control. Colgar el creador de
+# `self` lo deja detras del fondo opaco del menu: existe, recibe todo, y no se ve nada.
+var _encima: CanvasLayer = null
 var _piezas: Dictionary = {}
 var _pestana: int = MIOS
 var _sel: String = ""          # clave del mundo seleccionado
@@ -41,6 +46,9 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_capa = CanvasLayer.new()
 	add_child(_capa)
+	_encima = CanvasLayer.new()
+	_encima.layer = _capa.layer + 1
+	add_child(_encima)
 	_piezas = MenuScaffold.construir(_capa, "MULTIJUGADOR", "Mundos compartidos", _volver)
 	(_piezas["root"] as Control).visible = true
 	Mundos.aviso.connect(func(t: String): MenuScaffold.decir(_piezas["aviso"], t, true))
@@ -234,7 +242,7 @@ func _decir(txt: String, ok := true) -> void:
 #  a vivir dentro del mundo a tu nombre.
 # ------------------------------------------------------------
 func _crear_mundo() -> void:
-	CreadorPersonaje.abrir(self, "NUEVO MUNDO COMPARTIDO",
+	CreadorPersonaje.abrir(_encima, "NUEVO MUNDO COMPARTIDO",
 		"Ponle nombre e imagen para reconocerlo en tu lista. Después crearás tu personaje.",
 		"Siguiente: tu personaje", {"nombre": "", "color": AZUL},
 		func(nombre: String, color: Color, _metalico: float, _tinte: float, png: PackedByteArray):
@@ -264,7 +272,7 @@ func _crear_de_verdad(nombre: String, color: Color, png: PackedByteArray, pass_:
 		return
 	_sel = clave
 	_pintar()
-	CreadorPersonaje.abrir(self, "TU PERSONAJE EN «%s»" % nombre,
+	CreadorPersonaje.abrir(_encima, "TU PERSONAJE EN «%s»" % nombre,
 		"Este personaje vive DENTRO del mundo, a tu nombre: te lo encontrarás igual quien lo abra.",
 		"Empezar la aventura", {"color": Color(0.45, 0.72, 1.0)},
 		func(n: String, c: Color, m: float, tinte: float, imagen: PackedByteArray):
@@ -325,7 +333,7 @@ func _abrir(clave: String, pass_: String) -> void:
 		"nuevo":
 			# Un mundo dado de alta al que todavia no se le ha creado personaje.
 			_decir("Este mundo está vacío: crea tu personaje.")
-			CreadorPersonaje.abrir(self, "TU PERSONAJE",
+			CreadorPersonaje.abrir(_encima, "TU PERSONAJE",
 				"Este personaje vive dentro del mundo, a tu nombre.", "Empezar la aventura",
 				{"color": Color(0.45, 0.72, 1.0)},
 				func(n: String, c: Color, m: float, tinte: float, imagen: PackedByteArray):
@@ -372,7 +380,7 @@ func _borrar(clave: String) -> void:
 func _dialogo(titulo: String, explica: String, campos: Array, al_aceptar: Callable) -> void:
 	var capa := PanelContainer.new()
 	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(capa)
+	_encima.add_child(capa)   # en la capa de encima, o se queda detras del fondo del menu
 
 	var fondo := ColorRect.new()
 	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
