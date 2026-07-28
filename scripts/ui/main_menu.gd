@@ -21,6 +21,8 @@ var _aviso: Label = null
 
 # Ranura pendiente de confirmar sobrescritura (0 = nada pendiente).
 var _confirmar_nueva: int = 0
+# Ranura pendiente de confirmar borrado A CIEGAS (una que no se puede leer; ver _borrar_a_ciegas).
+var _confirmar_borrado: int = 0
 
 
 func _ready() -> void:
@@ -90,17 +92,34 @@ func _pintar() -> void:
 		fila.add_theme_constant_override("separation", 8)
 		_lista.add_child(fila)
 
-		var datos: SaveData = Perfil.cabecera(slot)
+		var info: Dictionary = Perfil.inspeccionar(slot)
+		var datos: SaveData = info["datos"] as SaveData
+		var estado: int = int(info["estado"])
 
 		var jugar := Button.new()
 		jugar.custom_minimum_size = Vector2(520, 0)
-		if datos == null:
+		if estado == Perfil.VACIA:
 			jugar.text = "Ranura %d — vacía  ·  Nueva partida" % slot
 			jugar.pressed.connect(_nueva.bind(slot))
-		else:
+		elif estado == Perfil.OK:
 			var marca: String = "  ◄ la más reciente" if slot == ultima else ""
 			jugar.text = "Ranura %d — %s%s" % [slot, datos.resumen(), marca]
 			jugar.pressed.connect(_cargar.bind(slot))
+		else:
+			# Ranura OCUPADA que este build no puede abrir. Lo que NO se puede hacer aqui es
+			# ofrecer "Nueva partida": hay una partida dentro y el jugador la perderia por un clic
+			# creyendo que la ranura estaba libre. Se dice lo que pasa y se deja mirando.
+			jugar.text = "Ranura %d — %s" % [slot, Perfil.motivo_texto(info)]
+			jugar.disabled = true
+			jugar.add_theme_color_override("font_disabled_color", ROJO)
+			fila.add_child(jugar)
+			# El unico boton es Borrar, y con confirmacion a dos clics: sin cabecera no hay nombre
+			# que pedir, pero tampoco se borra una partida ajena de un toque.
+			var tirar := Button.new()
+			tirar.text = "Borrar"
+			tirar.pressed.connect(_borrar_a_ciegas.bind(slot))
+			fila.add_child(tirar)
+			continue
 		fila.add_child(jugar)
 
 		if datos != null:
@@ -217,12 +236,7 @@ func _empezar(slot: int, nombre: String, color: Color, metalico: float, tinte: f
 func _borrar(slot: int) -> void:
 	var datos: SaveData = Perfil.cabecera(slot)
 	if datos == null:
-		# Ranura ilegible (p.ej. de una version vieja del save): no hay nombre que pedir, y
-		# tampoco hay progreso jugable que proteger.
-		Perfil.borrar(slot)
-		_aviso.text = "Ranura %d borrada." % slot
-		_confirmar_nueva = 0
-		_pintar()
+		_borrar_a_ciegas(slot)
 		return
 
 	var capa := PanelContainer.new()
@@ -296,6 +310,21 @@ func _borrar(slot: int) -> void:
 	borrar.pressed.connect(func(): _hacer_borrado(slot, capa))
 
 	campo.grab_focus()
+
+
+# Borrar una ranura de la que NO se puede leer la cabecera (de otra version, o dañada). No hay
+# nombre que pedir, asi que la proteccion es a dos clics: el primero avisa de que hay una partida
+# dentro y de que este build no sabe lo que se lleva por delante.
+func _borrar_a_ciegas(slot: int) -> void:
+	if _confirmar_borrado != slot:
+		_confirmar_borrado = slot
+		_aviso.text = "La ranura %d TIENE una partida que este build no puede leer. Pulsa otra vez «Borrar» para tirarla." % slot
+		return
+	_confirmar_borrado = 0
+	Perfil.borrar(slot)
+	_aviso.text = "Ranura %d borrada." % slot
+	_confirmar_nueva = 0
+	_pintar()
 
 
 func _hacer_borrado(slot: int, capa: Control) -> void:

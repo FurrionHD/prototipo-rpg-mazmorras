@@ -23,6 +23,9 @@ config/icon="res://icon.svg"
 Perfil="*res://scripts/core/profile.gd"
 Game="*res://scripts/core/game.gd"
 Net="*res://scripts/net/net.gd"
+; El CERROJO del mundo compartido (Fase 1: contra un almacen falso en user://nube_test/).
+; Va DESPUES de Game: lee Game.VERSION para el sello de build.
+Nube="*res://scripts/net/cloud.gd"
 
 [debug]
 
