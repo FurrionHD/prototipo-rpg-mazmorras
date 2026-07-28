@@ -550,7 +550,11 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 		_log.text = String(snap["log"])
 	if bool(snap.get("fin", false)):
 		_state = State.FINISHED
+		# Igual que en _end(): visible Y habilitado Y con su texto. Solo poner 'visible' no bastaba
+		# si el boton venia deshabilitado de antes: se veia el "Continuar" pero no se podia pulsar.
 		_continue_button.visible = true
+		_continue_button.disabled = false
+		_continue_button.text = "Continuar"
 		_ocultar_cajas()
 	_update_hp()
 
@@ -2207,6 +2211,17 @@ func _on_action(id: int) -> void:
 # El boton reutilizado (antes "Atacar") cierra la pantalla al terminar el combate.
 func _on_continue_pressed() -> void:
 	if _state != State.FINISHED:
+		return
+	# EN UN ESPEJO NO SE REPARTE NADA. Esta pantalla no simula la pelea: solo la pinta, y sus
+	# combatientes son maniquies que traen lo que se ve y nada mas. Todo lo de abajo (arrastrar el
+	# goteo de las pociones, tirar por las pasivas slayer de cada bicho abatido, decir con cuanta
+	# vida sale cada uno) lo resuelve el ANFITRION, que es quien lleva la pelea. Ejecutarlo aqui
+	# seria repartir premios dos veces y sobre datos que no son. Lo unico que hace el espejo al
+	# pulsar Continuar es cerrar su pantalla; el fin de verdad llega por Net (_fin_espejo).
+	if _espejo:
+		_ocultar_cajas()
+		_set_log("Esperando a que termine quien lleva la pelea...")
+		_continue_button.disabled = true
 		return
 	# Si sobrevives, la cura/maná de poción que quedaba a medias se arrastra a fuera de
 	# combate (no se malgasta). Si caiste, no hay nada que arrastrar. (KAN-57)
@@ -4363,6 +4378,15 @@ func _end(player_won: bool, fled: bool = false) -> void:
 		estado_mios.append("%s HP %.2f%s" % [c.nombre, c.current_hp, "" if c.is_alive() else " 💀"])
 	print("[combate] ===== FIN: %s | %s | %s =====" % [
 		desenlace, " | ".join(estado_mios), " | ".join(estado_rivales)])
+
+	# Y SE AVISA A LOS ESPEJOS DE QUE ESTO SE HA ACABADO. Va aqui, al final y SIN condicion: el flag
+	# "fin" viaja dentro de la instantanea y es lo unico que enciende el boton Continuar al otro lado.
+	# Antes la unica instantanea que salia de _end era la del `if mp_vic > 0.0: _update_hp()` de mas
+	# arriba, o sea que el aviso solo llegaba cuando alguien ganaba mana. Si el combate acababa por
+	# HUIDA, por DERROTA, o por victoria sin mana (nadie con arma magica, o todos a tope), el espejo
+	# no se enteraba y "Continuar" le salia solo al que llevaba la pelea. Al ir despues del reparto de
+	# mana, la foto que se manda ya lleva las vidas y el mana definitivos.
+	_difundir()
 
 
 # Log-HISTORIAL: cada evento se apila como una linea nueva y se muestran las
