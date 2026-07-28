@@ -6,10 +6,16 @@
 #  les llega la oferta de subirse GRATIS (ver Game.oferta_retorno y Net.anunciar_retorno). Este
 #  nodo es el que decide CUANDO se enseña y en que forma. Tiene dos caras:
 #
-#   - MODAL: quien la uso y tres salidas (volver / luego / me quedo). Mientras esta abierto no
-#     corre ningun reloj -- puedes estar en el baño.
+#   - TARJETA: una frase y tres botones pequeños en UNA fila. Mientras esta delante no corre
+#     ningun reloj -- puedes estar en el baño.
 #   - MINIMIZADO: una pildora pequeña con la cuenta atras. AQUI es donde corre el minuto, y es lo
 #     que le da tiempo al jugador a extraer el cadaver que acaba de dejar antes de subir.
+#
+#  NO usa MenuScaffold, y es a proposito: ese monta una PANTALLA (fondo opaco a pantalla completa,
+#  columna lateral, titulo, lista) y esto no es una pantalla, es una pregunta de una linea. Con el
+#  scaffold tapaba la mazmorra entera para decir seis palabras. Aqui: una tarjeta centrada, negra
+#  translucida, con el borde grueso y redondeado, y fuera de ella NADA -- ni velo ni oscurecido, se
+#  sigue viendo el juego.
 #
 #  El reloj corre SOLO mientras puedes usarlo: aparcada y con el mundo por delante. Con el modal
 #  abierto no corre (puedes estar en el baño) y con un combate o un minijuego delante tampoco (una
@@ -24,8 +30,10 @@ extends CanvasLayer
 # extraccion y recoger lo que hay por el suelo, y no tanto como para olvidarse de que existe.
 const SEGUNDOS := 60.0
 
-var _root: Control = null          # el modal
-var _content: VBoxContainer = null
+const AMBAR := Color(0.95, 0.72, 0.36)
+
+var _root: Control = null             # la capa transparente que sostiene la tarjeta
+var _frase: Label = null
 var _pildora: PanelContainer = null   # la cara minimizada
 var _pildora_lbl: Label = null
 var _restante: float = SEGUNDOS
@@ -36,37 +44,90 @@ func _ready() -> void:
 	layer = 94   # encima de los menus del pueblo (93), debajo del combate (100)
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para en solitario: hay que seguir vivo
 	add_to_group("retorno_menu")
-
-	var m: Dictionary = MenuScaffold.construir(self, "VUELTA AL PUEBLO",
-		"Alguien de tu grupo ha gastado una piedra de retorno. El viaje admite compañía.", _minimizar)
-	_root = m["root"]
-	_content = m["content"]
-	(m["lista_scroll"] as ScrollContainer).visible = false
-
+	_crear_tarjeta()
 	_crear_pildora()
 
 
-# La cara minimizada: una pildora en el centro-derecha, del mismo estilo que las de recogida del
-# HUD. Va en ESTA capa y no dentro del HUD porque su vida la manda la oferta, no el HUD.
+# El fondo NEGRO TRANSLUCIDO con el borde grueso y redondeado que llevan las dos caras. Una sola
+# funcion para que la tarjeta y la pildora sean obviamente la misma cosa en dos tamaños.
+func _fondo(radio: int, borde: int, margen_h: int, margen_v: int) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0.55)
+	sb.border_color = Color(0, 0, 0, 0.9)
+	sb.set_border_width_all(borde)
+	sb.set_corner_radius_all(radio)
+	sb.content_margin_left = margen_h
+	sb.content_margin_right = margen_h
+	sb.content_margin_top = margen_v
+	sb.content_margin_bottom = margen_v
+	return sb
+
+
+# La TARJETA: una frase y tres botones pequeños en una fila. Nada de velo por detras — la raiz es
+# un Control transparente en MOUSE_FILTER_IGNORE, asi que fuera de la tarjeta no hay literalmente
+# nada: ni pixel pintado ni clic capturado.
+func _crear_tarjeta() -> void:
+	_root = Control.new()
+	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.visible = false
+	add_child(_root)
+
+	var caja := PanelContainer.new()
+	caja.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	# Ancha de sobra para que la pregunta quepa en UNA linea: partida en dos, la tarjeta crece a lo
+	# alto y deja de leerse de un vistazo, que es justo lo unico que tiene que hacer.
+	caja.offset_left = -310
+	caja.offset_right = 310
+	caja.offset_top = 96      # a la altura de los avisos del HUD, no tapando al personaje
+	caja.mouse_filter = Control.MOUSE_FILTER_STOP
+	caja.add_theme_stylebox_override("panel", _fondo(14, 4, 18, 12))
+	_root.add_child(caja)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	caja.add_child(vb)
+
+	_frase = Label.new()
+	_frase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_frase.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_frase.add_theme_color_override("font_color", AMBAR)
+	_frase.add_theme_font_size_override("font_size", 15)
+	_frase.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_frase.add_theme_constant_override("outline_size", 3)
+	vb.add_child(_frase)
+
+	# Los tres, en UNA fila y pequeños: es una pregunta, no un menu.
+	var fila := HBoxContainer.new()
+	fila.alignment = BoxContainer.ALIGNMENT_CENTER
+	fila.add_theme_constant_override("separation", 8)
+	vb.add_child(fila)
+	fila.add_child(_boton("Sí, volver", _aceptar))
+	fila.add_child(_boton("Esperar %ds" % int(SEGUNDOS), _minimizar))
+	fila.add_child(_boton("No", _rechazar))
+
+
+func _boton(txt: String, al_pulsar: Callable) -> Button:
+	var b := Button.new()
+	b.text = txt
+	b.custom_minimum_size = Vector2(96, 26)
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_size_override("font_size", 13)
+	b.pressed.connect(al_pulsar)
+	return b
+
+
+# La cara minimizada: la misma tarjeta encogida a una linea, en el centro-derecha.
 func _crear_pildora() -> void:
 	_pildora = PanelContainer.new()
 	_pildora.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
-	_pildora.offset_left = -240
+	_pildora.offset_left = -230
 	_pildora.offset_right = -16
-	_pildora.offset_top = -18
-	_pildora.offset_bottom = 18
+	_pildora.offset_top = -20
+	_pildora.offset_bottom = 20
 	_pildora.visible = false
 	_pildora.mouse_filter = Control.MOUSE_FILTER_STOP
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.09, 0.12, 0.85)
-	sb.border_color = Color(0.87, 0.57, 0.26, 0.5)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(6)
-	sb.content_margin_left = 10
-	sb.content_margin_right = 12
-	sb.content_margin_top = 5
-	sb.content_margin_bottom = 5
-	_pildora.add_theme_stylebox_override("panel", sb)
+	_pildora.add_theme_stylebox_override("panel", _fondo(10, 3, 8, 4))
 	add_child(_pildora)
 
 	var b := Button.new()
@@ -77,7 +138,7 @@ func _crear_pildora() -> void:
 	_pildora.add_child(b)
 
 	_pildora_lbl = Label.new()
-	_pildora_lbl.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	_pildora_lbl.add_theme_color_override("font_color", AMBAR)
 	_pildora_lbl.add_theme_font_size_override("font_size", 14)
 	_pildora_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	_pildora_lbl.add_theme_constant_override("outline_size", 3)
@@ -200,35 +261,8 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
+# Solo la frase: los botones son fijos y ya estan puestos (ver _crear_tarjeta). Es una pregunta de
+# una linea, no un menu que se reconstruya.
 func _rebuild() -> void:
-	for c in _content.get_children():
-		c.queue_free()
-
-	var quien: String = str(Game.oferta_retorno.get("quien", "Alguien"))
-	var piso_max: int = int(Game.oferta_retorno.get("piso_max", 1))
-	MenuScaffold.titulo(_content, "%s VUELVE AL PUEBLO" % quien.to_upper())
-	MenuScaffold.nota(_content, "Ha gastado su piedra de retorno. Puedes subir con él sin gastar la tuya.")
-	_content.add_child(HSeparator.new())
-	MenuScaffold.fila(_content, "Estás en", "Piso %d" % Game.current_floor)
-	MenuScaffold.fila(_content, "Esa piedra alcanza", "hasta el piso %d" % piso_max)
-	_content.add_child(HSeparator.new())
-
-	var b_si := Button.new()
-	b_si.text = "Volver al pueblo con él"
-	b_si.custom_minimum_size = Vector2(0, 40)
-	b_si.pressed.connect(_aceptar)
-	_content.add_child(b_si)
-
-	var b_luego := Button.new()
-	b_luego.text = "Ahora no — dame %d s  (minimizar)" % int(SEGUNDOS)
-	b_luego.custom_minimum_size = Vector2(0, 38)
-	b_luego.pressed.connect(_minimizar)
-	_content.add_child(b_luego)
-
-	var b_no := Button.new()
-	b_no.text = "Me quedo abajo"
-	b_no.custom_minimum_size = Vector2(0, 34)
-	b_no.pressed.connect(_rechazar)
-	_content.add_child(b_no)
-
-	MenuScaffold.nota(_content, "Si lo minimizas te queda un minuto para rematar lo que estés haciendo —extraer un cuerpo, recoger lo que hay por el suelo— y decidir. Con esta ventana abierta el tiempo no corre.")
+	_frase.text = "%s ha usado una piedra de retorno. ¿Quieres volver al pueblo?" % str(
+		Game.oferta_retorno.get("quien", "Alguien"))
