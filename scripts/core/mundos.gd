@@ -239,7 +239,7 @@ func borrar(clave: String) -> void:
 #    "host"    el cerrojo es mio y hay partida: cargar y jugar.
 #    "unirse"  lo tiene otro AHORA MISMO: en "direcciones" estan las suyas.
 # ------------------------------------------------------------
-func abrir(clave: String, contrasena: String) -> Dictionary:
+func abrir(clave: String, contrasena: String, forzar_build := false) -> Dictionary:
 	if abierto != "":
 		return {"ok": false, "mensaje": "Ya tienes un mundo abierto."}
 	var e: Dictionary = entrada(clave)
@@ -262,7 +262,7 @@ func abrir(clave: String, contrasena: String) -> Dictionary:
 		if not dirs.has(d):
 			dirs.append(d)
 
-	var r: Dictionary = await Nube.abrir(id, contrasena, dirs)
+	var r: Dictionary = await Nube.abrir(id, contrasena, dirs, forzar_build)
 	if not r.get("ok", false):
 		return {"ok": false, "error": String(r.get("error", "")),
 			"mensaje": String(r.get("mensaje", "No se pudo abrir el mundo."))}

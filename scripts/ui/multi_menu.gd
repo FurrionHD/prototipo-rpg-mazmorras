@@ -439,15 +439,30 @@ func _anadir_ajeno() -> void:
 # ============================================================
 #  ABRIR / CERRAR / BORRAR
 # ------------------------------------------------------------
-func _abrir(clave: String, pass_: String) -> void:
+func _abrir(clave: String, pass_: String, forzar_build := false) -> void:
 	if _trabajando:
 		return
 	_trabajando = true
 	_decir("Abriendo el mundo...")
-	var r: Dictionary = await Mundos.abrir(clave, pass_)
+	var r: Dictionary = await Mundos.abrir(clave, pass_, forzar_build)
 	_trabajando = false
 	if not r.get("ok", false):
 		_decir(String(r.get("mensaje", "No se pudo abrir.")), false)
+		# BUILD DISTINTO no es una perdida de datos segura, solo un riesgo (los saves llevan rutas
+		# res:// dentro): lo normal es que dos builds tengan las mismas rutas y cargue perfecto. Si se
+		# rechazara a secas, subir el numero de version del juego dejaria tus mundos inaccesibles para
+		# siempre -- y durante el desarrollo la version cambia constantemente. Se avisa y tu decides.
+		if String(r.get("error", "")) == "build_distinto":
+			_pintar()
+			var vb: VBoxContainer = _piezas["content"]
+			var b := Button.new()
+			b.text = "Abrir de todos modos"
+			b.add_theme_color_override("font_color", ROJO)
+			b.pressed.connect(func(): _abrir(clave, pass_, true))
+			vb.add_child(b)
+			MenuScaffold.nota(vb, "Si al entrar falta algo (un arma, un material), cierra sin guardar "
+				+ "y vuelve al build con el que se guardó.")
+			return
 		_pintar()
 		return
 

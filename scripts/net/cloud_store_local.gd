@@ -80,7 +80,8 @@ func crear(id: String, contrasena: String) -> Dictionary:
 #  abrir un mundo que dejo uno nuevo, y se le dice por que en vez de dejarle un save que cargaria
 #  a medias o, peor, que veria como ranura vacia.
 # ------------------------------------------------------------
-func abrir(id: String, contrasena: String, direcciones: Array, sello_version: int, sello_build: String) -> Dictionary:
+func abrir(id: String, contrasena: String, direcciones: Array, sello_version: int,
+		sello_build: String, forzar_build := false) -> Dictionary:
 	var mundo: Dictionary = _leer_mundo(id, contrasena)
 	if mundo.is_empty():
 		return _no_autorizado()
@@ -108,9 +109,13 @@ func abrir(id: String, contrasena: String, direcciones: Array, sello_version: in
 		return _fallo("version_nueva",
 			"Este mundo lo guardó una versión más nueva del juego (v%d). Actualiza antes de abrirlo." % v)
 	var b: String = String(mundo.get("sello_build", ""))
-	if b != "" and sello_build != "" and b != sello_build:
-		# Los saves llevan rutas res:// dentro: entre builds distintos cargan roto. No es un
-		# "quiza": es un no.
+	if b != "" and sello_build != "" and b != sello_build and not forzar_build:
+		# Los saves llevan rutas res:// dentro, asi que entre builds distintos PUEDEN cargar roto (si
+		# se movio o se renombro un recurso). Pero al revés de la version, esto NO es una perdida de
+		# datos segura: la mayoria de las veces son dos builds con las mismas rutas y carga perfecto.
+		# Por eso se avisa y se deja FORZAR (forzar_build), en vez de dejar el mundo inaccesible para
+		# siempre por haberle subido el numero de version al juego -- que durante el desarrollo pasa
+		# cada dos por tres.
 		return _fallo("build_distinto",
 			"Este mundo se guardó con el build %s y tú tienes el %s. Tienen que ser el mismo." % [b, sello_build])
 

@@ -122,12 +122,14 @@ func crear_mundo(id: String, contrasena: String) -> Dictionary:
 #  La contraseña se pide SIEMPRE, tanto para abrir como para unirse: el que se une la necesita para
 #  que el almacen le de la direccion, y la reutiliza como codigo de sala. Se escribe una vez.
 # ------------------------------------------------------------
-func abrir(id: String, contrasena: String, direcciones: Array = []) -> Dictionary:
+func abrir(id: String, contrasena: String, direcciones: Array = [],
+		forzar_build := false) -> Dictionary:
 	if estado == HOST or estado == PENDIENTE_SUBIR:
 		return {"ok": false, "error": "ya_abierto",
 			"mensaje": "Ya tienes un mundo abierto. Ciérralo antes de abrir otro."}
 	_cambiar(TRABAJANDO)
-	var r: Dictionary = await almacen.abrir(id, contrasena, direcciones, _sello(), Game.VERSION)
+	var r: Dictionary = await almacen.abrir(id, contrasena, direcciones, _sello(), Game.VERSION,
+		forzar_build)
 	if not r.get("ok", false):
 		_cambiar(CERRADA)
 		return r
