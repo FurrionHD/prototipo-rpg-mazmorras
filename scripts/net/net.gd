@@ -996,6 +996,11 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 		# Se abre la mazmorra: vuelven los sellos de lo que ya se pico en expediciones anteriores,
 		# que estan en el save del host. Sin esto la tabla nacería vacia y todo estaria disponible.
 		_sembrar_agotados_del_save()
+		# Y se barren YA los que hayan cumplido su tiempo mientras no habia nadie. Va antes de
+		# conceder la entrada a proposito: el que baja construye su piso con la lista de agotados que
+		# le mandamos aqui abajo, asi que si esto se dejara al barrido periodico (cada 2 s) bajaria a
+		# un piso sin la veta y se la veria brotar de la nada dos segundos despues.
+		_barrer_respawns()
 	_dentro[quien] = true
 	var dueno: bool = _asignar_dueno(piso, quien)
 	var mem: Dictionary = {}
