@@ -45,6 +45,14 @@ func existe(slot: int) -> bool:
 #  Los estados y su lectura viven en SaveIO (scripts/core/save_io.gd), porque los MUNDOS
 #  COMPARTIDOS (autoload Mundos) necesitan exactamente lo mismo sobre otra carpeta. Aqui solo se
 #  reexportan los nombres para no tocar a quien ya llamaba a Perfil.VACIA / Perfil.OK.
+#
+#  ¡OJO CON ESTE `OK`! Sombrea al OK global de Godot DENTRO DE TODO ESTE SCRIPT. Y no valen lo
+#  mismo: el de SaveIO es un enum sin valores explicitos, asi que SaveIO.OK == 1, mientras que el
+#  de Godot (el que devuelve ResourceSaver.save) es 0 = EXITO. Escribir `if err != OK` aqui es
+#  comparar el error contra 1: SIEMPRE es distinto, asi que TODO guardado "fallaba" con el
+#  desconcertante mensaje "error 0" y devolvia false -- se perdia la ranura activa y "Guardar y
+#  salir" no dejaba salir nunca. Por eso en este script el error de Godot va SIEMPRE cualificado:
+#  `Error.OK`. Mundos hace el mismo `if err != OK` y funciona solo porque ahi no se reexporta nada.
 # ------------------------------------------------------------
 const VACIA := SaveIO.VACIA
 const OK := SaveIO.OK
@@ -88,7 +96,7 @@ func ultima_ranura() -> int:
 func guardar(slot: int) -> bool:
 	var datos: SaveData = Game.exportar_partida()
 	var err: int = ResourceSaver.save(datos, ruta(slot))
-	if err != OK:
+	if err != Error.OK:   # Error.OK, NO el OK de arriba: ver la nota de las constantes
 		push_warning("[perfil] no se pudo guardar la ranura %d (error %d)" % [slot, err])
 		return false
 	ranura_actual = slot
@@ -133,7 +141,7 @@ func editar_aspecto(slot: int, nombre: String, color: Color, metalico: float,
 	datos.imagen = imagen
 	datos.color_alpha = clampf(color_alpha, 0.0, 1.0)
 	var err: int = ResourceSaver.save(datos, ruta(slot))
-	if err != OK:
+	if err != Error.OK:   # Error.OK, NO el OK de arriba: ver la nota de las constantes
 		push_warning("[perfil] no se pudo editar la ranura %d (error %d)" % [slot, err])
 		return false
 	print("[perfil] aspecto de la ranura ", slot, " actualizado: ", datos.nombre)
@@ -159,7 +167,7 @@ func guardar_actual_con(datos: SaveData) -> bool:
 	if datos == null:
 		return false
 	var err: int = ResourceSaver.save(datos, ruta(ranura_actual))
-	if err != OK:
+	if err != Error.OK:   # Error.OK, NO el OK de arriba: ver la nota de las constantes
 		push_warning("[perfil] no se pudo guardar la ranura %d (error %d)" % [ranura_actual, err])
 		return false
 	print("[perfil] partida guardada en la ranura ", ranura_actual, ": ", datos.resumen())
