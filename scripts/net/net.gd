@@ -3402,8 +3402,11 @@ func pj_a_dict(pj: PersonajeData) -> Dictionary:
 	return d
 
 
-func pj_de_dict(d: Dictionary) -> PersonajeData:
-	return ficha_de_dict(d, true)
+# 'registrar' por defecto true porque el caso normal de esta funcion es el ALTA (un personaje que
+# pasa a vivir en este mundo). Ver la nota de ficha_de_dict, y sobre todo _mi_estado, que es
+# periodico y tiene que pasar false.
+func pj_de_dict(d: Dictionary, registrar := true) -> PersonajeData:
+	return ficha_de_dict(d, registrar)
 
 
 # TODO lo de una persona en un mundo: sus personajes y lo que es suyo y de nadie mas (dinero, bolsa,
@@ -3445,13 +3448,17 @@ func jd_a_dict(jd: JugadorData) -> Dictionary:
 	}
 
 
-func jd_de_dict(d: Dictionary) -> JugadorData:
+# 'registrar': ¿el equipo que trae este jugador pasa a vivir en MI baul? true en un ALTA (entra al
+# mundo por primera vez, o vuelve: sus cosas tienen que existir aqui). FALSE en las
+# SINCRONIZACIONES periodicas (_mi_estado), donde ya estan registradas de antes y volver a hacerlo
+# mete una COPIA NUEVA cada vez -- ver la nota larga de _mi_estado.
+func jd_de_dict(d: Dictionary, registrar := true) -> JugadorData:
 	var jd := JugadorData.new()
 	jd.id = String(d.get("id", ""))
 	jd.nombre_visible = String(d.get("nombre_visible", ""))
 	jd.personajes = []
 	for f in d.get("personajes", []):
-		jd.personajes.append(pj_de_dict(f as Dictionary))
+		jd.personajes.append(pj_de_dict(f as Dictionary, registrar))
 	jd.equipo = []
 	for i in d.get("equipo", []):
 		var idx: int = int(i)
@@ -3472,9 +3479,11 @@ func jd_de_dict(d: Dictionary) -> JugadorData:
 		if it2 != null:
 			jd.crystals.append(it2)
 	jd.consumibles = (d.get("consumibles", {}) as Dictionary).duplicate()
-	# La mochila SI se registra: es suya y vive en este mundo (ver Game.serializar_equipo, que le
-	# guarda la capacidad porque es el unico campo de instancia que no esta en la meta).
-	var mo: Resource = Game.deserializar_equipo(d.get("mochila", {}), true)
+	# La mochila va por el MISMO criterio que el resto del equipo (antes llevaba un `true` a pelo, y
+	# por ahi se colaba una mochila nueva en el baul en cada sincronizacion). Es suya y vive en este
+	# mundo, pero eso se decide al darla de alta, no cada minuto. Ver Game.serializar_equipo, que le
+	# guarda la capacidad porque es el unico campo de instancia que no esta en la meta.
+	var mo: Resource = Game.deserializar_equipo(d.get("mochila", {}), registrar)
 	if mo is BackpackData:
 		jd.equipped_mochila = mo
 		jd.owned_mochilas = [mo]
@@ -4090,6 +4099,15 @@ func _dame_tu_estado(cerrando: bool) -> void:
 
 
 # Lo que manda el invitado. Corre EN EL HOST: lo mete en el mundo, tal cual, a nombre de su identidad.
+#
+# SIN REGISTRAR EL EQUIPO, y esto es lo importante. Esto corre en CADA guardado (el autoguardado del
+# mundo es cada 60 s), y reconstruir una ficha con registrar=true mete su equipo en MI baul. Como
+# crear_item hace base.duplicate(), cada vuelta son objetos NUEVOS y el guardia `not
+# owned_weapons.has(item)` -- que compara por REFERENCIA -- no los reconoce: cada guardado añadia
+# arma + escudo + 5 piezas + mochila al baul del host, y en media hora lo dejaba inservible.
+# Su equipo ya se registro cuando entro al mundo (_alta_jugador / _alta_personaje); esto es una
+# ACTUALIZACION, no un alta. Es el mismo fallo que el "bug de las 6 hachas" de ficha_de_dict, que se
+# arreglo para el camino del combate y quedo vivo en este.
 @rpc("any_peer", "call_remote", "reliable")
 func _mi_estado(d: Dictionary) -> void:
 	if not es_host or not mundo_compartido:
@@ -4098,11 +4116,48 @@ func _mi_estado(d: Dictionary) -> void:
 	var identidad := String(_identidades.get(quien, ""))
 	if identidad == "":
 		return
-	var jd: JugadorData = jd_de_dict(d)
+	var jd: JugadorData = jd_de_dict(d, false)
 	jd.id = identidad          # manda MI registro de quien es, no lo que diga el paquete
+	# El estado ANTERIOR se tira: que se lleve consigo la meta de su equipo. Sin esto la fuga seguia
+	# por debajo: crear_item apunta en item_meta ANTES de mirar 'registrar', asi que cada
+	# sincronizacion dejaba ~8 entradas huerfanas que no purga nadie y que se vuelcan enteras al
+	# save (y cada clave es un Resource, o sea un [sub_resource] entero en el .tres).
+	_olvidar_meta_de(Game.jugadores_mundo.get(identidad))
 	Game.jugadores_mundo[identidad] = jd
 	_estados_pedidos.erase(quien)
 	print("[multi] estado recibido de ", jd.nombre_visible, ": ", jd.resumen())
+
+
+# La meta del equipo de un JugadorData que se va a TIRAR. Esas piezas las fabrico la sincronizacion
+# anterior y no las referencia ya nadie, pero item_meta las tiene de CLAVE y eso las mantiene vivas
+# (y las escribe en el save) para siempre.
+func _olvidar_meta_de(jd) -> void:
+	if not (jd is JugadorData):
+		return
+	for pj in (jd as JugadorData).personajes:
+		if pj is PersonajeData:
+			for r in _RANURAS:
+				_olvidar_meta_item((pj as PersonajeData).get(r))
+	_olvidar_meta_item((jd as JugadorData).equipped_mochila)
+
+
+func _olvidar_meta_item(item) -> void:
+	if not (item is Resource):
+		return
+	# SALVAGUARDA: si la pieza SI vive en mi baul (viene de un alta con registro, o de lo que dejo
+	# acumulado este bug), su meta es la buena y borrarla la degradaria a T1/Comun -- meta_de fabrica
+	# un por-defecto cuando no encuentra la entrada. Solo se olvida lo que no es de nadie.
+	# Se pregunta por TIPO antes del has(): los arrays estan tipados y preguntarle a owned_armor por
+	# un arma revienta (ver la nota de Game.sacar_de_baul).
+	if item is ArmorData:
+		if Game.owned_armor.has(item):
+			return
+	elif item is BackpackData:
+		if Game.owned_mochilas.has(item):
+			return
+	elif Game.owned_weapons.has(item):
+		return
+	Game.item_meta.erase(item)
 
 
 # Solo host: guardar por los dos. Mi partida la guarda quien me llama (el menu de pausa); aqui se le
