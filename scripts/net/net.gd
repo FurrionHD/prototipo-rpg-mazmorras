@@ -3723,52 +3723,66 @@ func _pedir_roster_pelea() -> void:
 
 # El anfitrion pide la accion al dueño de ese personaje. Mientras, su pantalla espera: el ATB no
 # corre (State.WAITING_PLAYER), asi que nadie pierde turnos por pensar.
-func pedir_accion(peer: int, idx: int) -> void:
+func pedir_accion(peer: int, idx: int, seq: int = 0) -> void:
 	if not activo or peer == 0 or multiplayer.multiplayer_peer == null:
 		return
-	_tu_turno.rpc_id(peer, idx)
+	_tu_turno.rpc_id(peer, idx, seq)
 
 
+# 'seq' es el numero de peticion: viaja de ida y vuelta para que el anfitrion sepa distinguir la
+# respuesta a ESTA peticion de una rezagada (ver combat.gd, _pet_seq).
 @rpc("any_peer", "call_remote", "reliable")
-func _tu_turno(idx: int) -> void:
-	if _pelea_sigo == 0:
+func _tu_turno(idx: int, seq: int = 0) -> void:
+	if _pelea_sigo == 0 or not _lo_manda_el_anfitrion():
 		return
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("turno_mio"):
-		p.turno_mio(idx)
+		p.turno_mio(idx, seq)
 
 
 # MAGIA (hito 5.4-C): recitar son varios turnos con su examen de frases, asi que no basta con
 # mandar una accion suelta como en las habilidades — hay que enrutar CADA frase. El anfitrion
 # sortea las opciones (lleva la pelea) y el dueño responde con la que eligio.
-func pedir_frase(peer: int, idx: int, opciones: Array, nombre: String, largo: int) -> void:
+func pedir_frase(peer: int, idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0) -> void:
 	if not activo or peer == 0 or multiplayer.multiplayer_peer == null:
 		return
-	_tu_frase.rpc_id(peer, idx, opciones, nombre, largo)
+	_tu_frase.rpc_id(peer, idx, opciones, nombre, largo, seq)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _tu_frase(idx: int, opciones: Array, nombre: String, largo: int) -> void:
-	if _pelea_sigo == 0:
+func _tu_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0) -> void:
+	if _pelea_sigo == 0 or not _lo_manda_el_anfitrion():
 		return
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("recitar_frase"):
-		p.recitar_frase(idx, opciones, nombre, largo)
+		p.recitar_frase(idx, opciones, nombre, largo, seq)
 
 
-func pedir_disparo(peer: int, nombre: String) -> void:
+func pedir_disparo(peer: int, nombre: String, seq: int = 0) -> void:
 	if not activo or peer == 0 or multiplayer.multiplayer_peer == null:
 		return
-	_tu_disparo.rpc_id(peer, nombre)
+	_tu_disparo.rpc_id(peer, nombre, seq)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _tu_disparo(nombre: String) -> void:
-	if _pelea_sigo == 0:
+func _tu_disparo(nombre: String, seq: int = 0) -> void:
+	if _pelea_sigo == 0 or not _lo_manda_el_anfitrion():
 		return
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("lanzar_conjuro"):
-		p.lanzar_conjuro(nombre)
+		p.lanzar_conjuro(nombre, seq)
+
+
+# ¿Esto me lo manda de verdad quien lleva mi pelea? Las tres RPC de turno son "any_peer" (tienen que
+# serlo: la pelea la ejecuta un jugador cualquiera, no el host de la red), asi que sin esta
+# comprobacion cualquier peer podia ponerme los botones de un turno que no me toca.
+func _lo_manda_el_anfitrion() -> bool:
+	var quien := multiplayer.get_remote_sender_id()
+	if _pelea_anfitrion != 0 and quien != _pelea_anfitrion:
+		print("[multi] turno ignorado: lo manda el peer %d y mi pelea la lleva el %d" % [
+			quien, _pelea_anfitrion])
+		return false
+	return true
 
 
 # El dueño manda lo que ha elegido.
@@ -3784,7 +3798,10 @@ func _accion_elegida(accion: Dictionary) -> void:
 		return
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("aplicar_accion_remota"):
-		p.aplicar_accion_remota(accion)
+		# QUIEN la manda va SIEMPRE con ella. Sin esto, el combate no podia distinguir la respuesta
+		# del jugador al que le toca de la de otro (o de un eco tardio), y una respuesta rezagada
+		# consumia el turno de quien no habia elegido nada. Ver combat.aplicar_accion_remota.
+		p.aplicar_accion_remota(accion, multiplayer.get_remote_sender_id())
 
 
 # El anfitrion cierra: los espejos se cierran con el.

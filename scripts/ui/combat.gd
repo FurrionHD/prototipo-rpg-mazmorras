@@ -211,6 +211,21 @@ var _esperando_a: int = 0
 # esta congelado esperandole. Con el reenvio, el turno se recupera solo.
 var _peticion_pendiente: Dictionary = {}
 var _espera_acum: float = 0.0
+# NUMERO DE PETICION. Sube con CADA cosa que se le pide a un remoto (su turno, una frase, el
+# disparo) y viaja con ella; el remoto lo devuelve en su respuesta. Es lo que distingue "me
+# contesta a lo que le acabo de pedir" de "me llega, tarde, la respuesta a lo de hace dos turnos".
+#
+# Sin esto se perdian turnos, y el camino era este: el espejo contesta y se pone en ADVANCING; si su
+# respuesta tarda mas de REENVIO_TURNO el heartbeat le repite la peticion; como ya no esta en
+# WAITING_PLAYER, el guardia de turno_mio no aplicaba y le volvia a pintar la barra de acciones de un
+# turno YA contestado -> segunda respuesta. Esa segunda llegaba cuando el anfitrion ya esperaba a
+# OTRO jugador y, como no se validaba nada, se aplicaba al turno de ese otro: le robaba el turno. Y
+# encima dejaba _esperando_a a 0 con el estado en WAITING_PLAYER, que es justo la combinacion que
+# apaga el heartbeat (ver _heartbeat_remoto) y deja la pelea muerta.
+var _pet_seq: int = 0
+# ESPEJO: el numero de lo que me han pedido y el de lo ultimo que ya conteste.
+var _seq_espejo: int = 0
+var _seq_contestada: int = 0
 # Cada cuanto se le repite la peticion a un remoto que no contesta. Generoso a proposito: un humano
 # tarda en decidir, y el reenvio NO le molesta (ver turno_mio, que lo ignora si ya esta eligiendo).
 const REENVIO_TURNO := 4.0
@@ -229,6 +244,21 @@ var _atb_acum := 0.0
 # remote_player interpola su posicion (mismo lerp exponencial y una SUAVIZADO analoga).
 var _gauge_objetivo: Dictionary = {}
 const SUAVIZADO_ATB := 14.0
+
+# TRAZA DEL TRAFICO DE TURNOS: las ultimas TRAZA_MAX cosas que han pasado con las peticiones y las
+# respuestas, cada una con su marca de tiempo. No se pinta en pantalla: se vuelca con la tecla P
+# (ver _volcado_p) para poder leer DESPUES por que se colgo un turno. Un cuelgue de estos no se
+# reproduce a voluntad, asi que la unica forma de cazarlo es que la partida vaya dejando el rastro.
+const TRAZA_MAX := 60
+var _traza: Array[String] = []
+var _t0: float = 0.0   # cuando empezo la pelea, para que los tiempos de la traza sean relativos
+
+func _traza_add(que: String) -> void:
+	var t: float = (Time.get_ticks_msec() / 1000.0) - _t0
+	_traza.append("[%7.2fs] %s" % [t, que])
+	while _traza.size() > TRAZA_MAX:
+		_traza.pop_front()
+
 
 enum State { ADVANCING, WAITING_PLAYER, PAUSED, FINISHED }
 var _state: State = State.ADVANCING
@@ -719,14 +749,24 @@ func marcar_dueno(c: Combatant, peer: int) -> void:
 
 
 # Corre en EL ESPEJO: me toca mover a mi personaje. Se enseña la barra de acciones de siempre.
-func turno_mio(idx: int) -> void:
+func turno_mio(idx: int, seq: int = 0) -> void:
 	if not _espejo or idx < 0 or idx >= _aliados.size():
 		return
+	# YA CONTESTE A ESTA MISMA PETICION. Es el reenvio del heartbeat cruzandose con mi respuesta:
+	# el anfitrion todavia no la ha procesado y me repite lo mismo. Volver a pintar la barra de
+	# acciones aqui era el origen del turno robado (ver _pet_seq): el jugador elegia por segunda vez
+	# y esa segunda respuesta acababa consumiendo el turno de otro. Con el numero se reconoce el eco.
+	if seq != 0 and seq == _seq_contestada:
+		_traza_add("me repiten la #%d, que YA conteste: la ignoro" % seq)
+		return
+	if seq != 0:
+		_seq_espejo = seq
 	# REPETICION del anfitrion (ver _heartbeat_remoto): si YA estoy eligiendo para este mismo
 	# personaje, no se toca nada — resetear los menus a media eleccion seria peor que el bug. Si en
 	# cambio ya habia contestado (o nunca me llego el turno), esto lo recupera.
 	if _state == State.WAITING_PLAYER and _player == _aliados[idx]:
 		return
+	_traza_add("ME TOCA (#%d) con %s" % [seq, _aliados[idx].nombre])
 	_player = _aliados[idx]
 	# El maniqui solo trae lo que se PINTA, asi que no tiene ni habilidades ni hechizos y los
 	# submenus salian vacios ("solo deja hacer basicos"). Se los pongo desde MI PROPIA ficha —la de
@@ -750,8 +790,15 @@ func turno_mio(idx: int) -> void:
 # congelaba la pelea entera para todos.
 func _pedir_a_remoto(dueno: int, pet: Dictionary) -> void:
 	_esperando_a = dueno
+	# CADA peticion lleva su numero. Es lo que permite luego distinguir su respuesta de una respuesta
+	# rezagada a algo que le pedi antes (ver _pet_seq y aplicar_accion_remota).
+	_pet_seq += 1
+	pet["seq"] = _pet_seq
 	_peticion_pendiente = pet
 	_espera_acum = 0.0
+	_traza_add("PIDO #%d '%s' al peer %d (para %s)" % [
+		_pet_seq, String(pet.get("tipo", "?")), dueno,
+		_player.nombre if _player != null else "?"])
 	_enviar_peticion()
 
 
@@ -759,14 +806,15 @@ func _enviar_peticion() -> void:
 	if _esperando_a == 0 or _peticion_pendiente.is_empty():
 		return
 	var pet: Dictionary = _peticion_pendiente
+	var seq: int = int(pet.get("seq", 0))
 	match String(pet.get("tipo", "")):
 		"accion":
-			Net.pedir_accion(_esperando_a, int(pet.get("idx", 0)))
+			Net.pedir_accion(_esperando_a, int(pet.get("idx", 0)), seq)
 		"frase":
 			Net.pedir_frase(_esperando_a, int(pet.get("idx", 0)), pet.get("opciones", []),
-				String(pet.get("nombre", "")), int(pet.get("largo", 1)))
+				String(pet.get("nombre", "")), int(pet.get("largo", 1)), seq)
 		"disparo":
-			Net.pedir_disparo(_esperando_a, String(pet.get("nombre", "")))
+			Net.pedir_disparo(_esperando_a, String(pet.get("nombre", "")), seq)
 
 
 # Deja de esperar (llego su respuesta, o se fue).
@@ -795,20 +843,60 @@ func _heartbeat_remoto(delta: float) -> void:
 		_fin_de_espera()
 		sacar_a(quien)
 		return
-	print("[combate] repito la peticion a %d (%s): no ha contestado en %.0f s" % [
-		_esperando_a, String(_peticion_pendiente.get("tipo", "?")), REENVIO_TURNO])
+	print("[combate] repito la peticion a %d (%s #%d): no ha contestado en %.0f s" % [
+		_esperando_a, String(_peticion_pendiente.get("tipo", "?")),
+		int(_peticion_pendiente.get("seq", 0)), REENVIO_TURNO])
+	_traza_add("REENVIO #%d '%s' al peer %d (sin respuesta en %.0fs)" % [
+		int(_peticion_pendiente.get("seq", 0)), String(_peticion_pendiente.get("tipo", "?")),
+		_esperando_a, REENVIO_TURNO])
 	_enviar_peticion()
 
 
 # Corre en EL ANFITRION: ha llegado la accion que eligio el dueño. Se ejecuta como si la hubiera
 # pulsado aqui, reusando las mismas funciones (asi el combate es UNO, sin reglas paralelas).
-func aplicar_accion_remota(accion: Dictionary) -> void:
+func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
+	var tipo: String = String(accion.get("tipo", "?"))
 	if _espejo or _state != State.WAITING_PLAYER or _esperando_a == 0:
 		# Descartarla EN SILENCIO era lo que dejaba el turno colgado sin dejar rastro. Ahora se dice,
 		# y el heartbeat volvera a pedirsela si de verdad seguimos esperando.
 		print("[combate] accion remota IGNORADA (%s): espejo=%s estado=%d esperando_a=%d" % [
-			String(accion.get("tipo", "?")), str(_espejo), _state, _esperando_a])
+			tipo, str(_espejo), _state, _esperando_a])
+		_traza_add("DESCARTO '%s' del peer %d: no estoy esperando (estado=%d, esperando_a=%d)" % [
+			tipo, emisor, _state, _esperando_a])
 		return
+
+	# ¿ME CONTESTA A QUIEN LE PREGUNTE? Antes no se miraba, y eso es lo que convertia una respuesta
+	# rezagada en un turno robado: llegaba la de un jugador cuando ya se esperaba a otro, se aplicaba
+	# al _player de turno (que era del otro) y se consumia su turno sin que el hubiera elegido nada.
+	if emisor != 0 and emisor != _esperando_a:
+		print("[combate] accion remota IGNORADA (%s): la manda el peer %d y yo espero al %d" % [
+			tipo, emisor, _esperando_a])
+		_traza_add("DESCARTO '%s': viene del peer %d y espero al %d (respuesta de otro)" % [
+			tipo, emisor, _esperando_a])
+		return
+
+	# ¿ME CONTESTA A LO QUE LE PREGUNTE, Y NO A LO DE ANTES? El numero de peticion lo distingue: una
+	# respuesta con un numero viejo es un eco de un turno ya resuelto y hay que tirarla, no aplicarla.
+	var seq_pet: int = int(_peticion_pendiente.get("seq", 0))
+	var seq_res: int = int(accion.get("seq", 0))
+	if seq_res != 0 and seq_pet != 0 and seq_res != seq_pet:
+		print("[combate] accion remota IGNORADA (%s): responde a la #%d y la pendiente es la #%d" % [
+			tipo, seq_res, seq_pet])
+		_traza_add("DESCARTO '%s' del peer %d: responde a #%d y pido la #%d (rezagada)" % [
+			tipo, emisor, seq_res, seq_pet])
+		return
+
+	# ¿Y ME CONTESTA LO QUE LE PREGUNTE? Un "atacar" retrasado cuando lo pendiente es una FRASE se
+	# colaba por el `_:` de mas abajo y se resolvia como un ataque, saltandose el recitado.
+	var pendiente: String = String(_peticion_pendiente.get("tipo", ""))
+	if not _encaja_con_lo_pedido(tipo, pendiente):
+		print("[combate] accion remota IGNORADA (%s): lo pendiente era '%s'" % [tipo, pendiente])
+		_traza_add("DESCARTO '%s' del peer %d: lo pendiente era '%s' (no encaja)" % [
+			tipo, emisor, pendiente])
+		return
+
+	_traza_add("RECIBO #%d '%s' del peer %d -> la aplico a %s" % [
+		seq_res, tipo, emisor, _player.nombre if _player != null else "?"])
 	_fin_de_espera()
 	var obj: int = int(accion.get("obj", -1))
 	if obj >= 0 and obj < _enemies.size():
@@ -867,6 +955,17 @@ func aplicar_accion_remota(accion: Dictionary) -> void:
 				_accion_atacar()
 		_:
 			_accion_atacar()
+
+
+# ¿La respuesta que llega es de la clase de lo que se pidio? Un turno ("accion") admite cualquiera de
+# las acciones del menu; una FRASE solo admite la frase, y el DISPARO solo el disparo. Mezclarlos era
+# lo que dejaba que un "atacar" rezagado se resolviera en mitad de un recitado.
+func _encaja_con_lo_pedido(tipo: String, pendiente: String) -> bool:
+	match pendiente:
+		"frase":   return tipo == "frase"
+		"disparo": return tipo == "disparar"
+		"accion":  return tipo in ["atacar", "defender", "huir", "habilidad", "magia", "objeto"]
+		_:         return true   # peticion sin tipo conocido: no se bloquea nada
 
 
 # El anfitrion ha cerrado la pelea: mi espejo se va con ella.
@@ -1153,6 +1252,10 @@ func _objetivos_area_aliados(ab: AbilityData, principal: Combatant) -> Array:
 
 
 func _ready() -> void:
+	# El reloj de la traza (ver _traza_add) arranca AQUI y no en setup(): hay dos caminos de entrada
+	# al combate (setup y setup_espejo) y lo que solo se escribe en uno se pierde para el otro.
+	_t0 = Time.get_ticks_msec() / 1000.0
+	_traza.clear()
 	# Forzamos que esta pantalla ocupe toda la ventana, aunque se abra como
 	# overlay encima de la mazmorra (si no, sale descentrada/pequeña).
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1856,9 +1959,11 @@ func _input(event: InputEvent) -> void:
 # desarrollo: es la salida de emergencia del jugador, y el volcado es lo que nos dira que lo causa.
 # Tres pasos, en este orden: contar que pasa, intentar seguir, y solo si no hay manera, salir.
 func _desatascar() -> void:
+	# Se apunta ANTES del volcado: asi el propio informe muestra cuantas veces se ha pulsado P y
+	# cuando, que ya dice mucho (si hay cinco P seguidas, lo que se intento no funciono).
+	_traza_add("--- el jugador pulsa P ---")
 	var lineas: Array = _diagnostico()
-	for l in lineas:
-		print("[desatascar] " + l)
+	_volcado_p()   # el informe LARGO va al log del juego (%APPDATA%/DungeonOratoria/logs/godot.log)
 	# El log de combate es de una linea: se pinta el resumen y el detalle queda en la consola.
 	_set_log("🔧 %s" % " · ".join(lineas))
 
@@ -1879,6 +1984,9 @@ func _desatascar() -> void:
 			return
 		# Sigue conectado: se le repite la peticion ya, sin esperar al heartbeat.
 		_espera_acum = 0.0
+		_traza_add("REENVIO A MANO (P) #%d '%s' al peer %d" % [
+			int(_peticion_pendiente.get("seq", 0)),
+			String(_peticion_pendiente.get("tipo", "?")), _esperando_a])
 		_enviar_peticion()
 		_set_log("🔧 Le repito la petición a %d. Si no contesta, vuelve a pulsar P." % _esperando_a)
 		return
@@ -1889,6 +1997,23 @@ func _desatascar() -> void:
 		_fin_de_espera()
 		_pause_left = 0.0
 		if _player != null and _player.is_alive() and not _huidos.has(_player):
+			# ¿DE QUIEN ES EL QUE TIENE EL TURNO? Esto no se miraba, y era el tercer camino por el que
+			# se perdian turnos: si _player es el personaje de OTRO humano, pintarme aqui SUS botones
+			# es jugar yo por el, y el _fin_de_espera() de arriba acababa de tirar la peticion que el
+			# heartbeat estaba reenviando. O sea que el dueño se quedaba sin turno para siempre y
+			# encima su personaje hacia lo que yo eligiera. Lo correcto es volver a pedirselo a el.
+			var dueno_p: int = int(_dueno_aliado.get(_player, 0))
+			if dueno_p != 0:
+				_state = State.WAITING_PLAYER
+				if not Net.esta_en_mi_pelea(dueno_p):
+					sacar_a(dueno_p)
+					_set_log("🔧 %s ya no está en la pelea: fuera. La pelea sigue." % dueno_p)
+					return
+				_ocultar_cajas()
+				_pedir_a_remoto(dueno_p, {"tipo": "accion", "idx": _aliados.find(_player)})
+				_set_log("🔧 El turno es de %s, que lo lleva otro jugador: se lo vuelvo a pedir."
+					% _player.nombre)
+				return
 			_state = State.WAITING_PLAYER
 			_mostrar_acciones()
 			_set_log("🔧 Turno devuelto a %s. Elige una acción." % _player.nombre)
@@ -1945,6 +2070,116 @@ func _diagnostico() -> Array:
 	if _actions_box != null and not _actions_box.visible and _state == State.WAITING_PLAYER:
 		out.append("OJO: submenu abierto sin caja de acciones")
 	return out
+
+
+# EL INFORME LARGO DE LA TECLA P. Va entero al log del juego, que se guarda solo en
+#   %APPDATA%\DungeonOratoria\logs\godot.log
+# (file_logging esta activado en project.godot), asi que despues de una partida se puede mandar ese
+# fichero y leer aqui que paso de verdad.
+#
+# Un turno colgado en red no se reproduce a voluntad: depende de quien tarde en elegir y de que
+# paquete se cruce con cual. Por eso lo importante no es la foto del momento sino la TRAZA: la lista
+# de peticiones, reenvios, respuestas y descartes con sus tiempos. Ahi se ve, por ejemplo, si a
+# alguien se le pidio el turno y nunca contesto, o si contesto a una peticion que ya no era la buena.
+func _volcado_p() -> void:
+	var nombres := ["ADVANCING", "WAITING_PLAYER", "PAUSED", "FINISHED"]
+	var L: Array[String] = []
+	L.append("============ VOLCADO DE COMBATE (tecla P) ============")
+	L.append("cuando: %s  ·  version del juego: %s" % [
+		Time.get_datetime_string_from_system(false, true), str(Game.VERSION)])
+
+	# --- QUIEN SOY EN ESTA PELEA
+	L.append("--- YO ---")
+	L.append("  esta pantalla: %s" % ("ESPEJO (la pelea la lleva otra maquina)" if _espejo
+		else "ANFITRION DE LA PELEA (la simulo yo)"))
+	L.append("  red activa: %s · soy host de red: %s · mundo compartido: %s" % [
+		str(Net.activo), str(Net.es_host), str(Net.mundo_compartido)])
+	if Net.activo and Net.multiplayer.multiplayer_peer != null:
+		L.append("  mi peer id: %d" % Net.multiplayer.get_unique_id())
+	L.append("  mi identidad: %s (%s)" % [Identidad.nombre, Identidad.id])
+
+	# --- LA PELEA A OJOS DE LA CAPA DE RED
+	L.append("--- LA PELEA (segun Net) ---")
+	for campo in ["_pelea_id", "_pelea_anfitrion", "_pelea_sigo"]:
+		L.append("  %s = %s" % [campo, str(Net.get(campo))])
+	var parts = Net.get("_pelea_participantes")
+	L.append("  participantes: %s" % str(parts))
+
+	# --- EL ESTADO DEL MOTOR
+	L.append("--- ESTADO ---")
+	L.append("  state = %s" % (nombres[_state] if _state < nombres.size() else str(_state)))
+	L.append("  pausa de lectura pendiente: %.2fs" % _pause_left)
+	L.append("  revision del roster: %d (pedida: %s)" % [_rev, str(_rev_pedida)])
+	L.append("  numero de peticion actual: %d" % _pet_seq)
+	if _espejo:
+		L.append("  [espejo] me han pedido la #%d y ya conteste hasta la #%d" % [
+			_seq_espejo, _seq_contestada])
+	if _esperando_a != 0:
+		L.append("  ESPERANDO al peer %d desde hace %.2fs" % [_esperando_a, _espera_acum])
+		L.append("    lo que le pedi: %s" % str(_peticion_pendiente))
+		L.append("    ¿sigue en la pelea?: %s" % ("si" if Net.esta_en_mi_pelea(_esperando_a) else "NO"))
+		L.append("    proximo reenvio en: %.2fs" % maxf(0.0, REENVIO_TURNO - _espera_acum))
+	else:
+		L.append("  no espero respuesta de nadie")
+		# Esta pareja es LA firma del cuelgue: parado esperando a alguien... a quien ya no se espera.
+		if _state == State.WAITING_PLAYER:
+			L.append("  >>> SOSPECHOSO: estado WAITING_PLAYER pero sin nadie a quien esperar.")
+			L.append("  >>> Con esta pareja el heartbeat no reenvia nada y la pelea no avanza sola.")
+
+	# --- DE QUIEN ES EL TURNO
+	L.append("--- TURNO ---")
+	if _player == null:
+		L.append("  no hay nadie con el turno (_player = null)")
+	else:
+		var d: int = int(_dueno_aliado.get(_player, 0))
+		L.append("  lo tiene: %s (indice %d)" % [_player.nombre, _aliados.find(_player)])
+		L.append("  su dueño: %s" % ("YO (local)" if d == 0 else "el peer %d" % d))
+		L.append("  vivo: %s · ha huido: %s" % [str(_player.is_alive()), str(_huidos.has(_player))])
+	if _cast_spell != null:
+		L.append("  recitando: %s, frase %d de %d" % [
+			_cast_spell.nombre, _cast_index + 1, _cast_spell.longitud()])
+
+	# --- LOS COMBATIENTES
+	L.append("--- LOS TUYOS (barra / %d para actuar) ---" % int(UMBRAL))
+	for i in _aliados.size():
+		var c: Combatant = _aliados[i]
+		var d2: int = int(_dueno_aliado.get(c, 0))
+		L.append("  [%d] %-14s barra %6.1f  HP %7.2f/%7.2f  EN %6.1f  MP %6.1f  dueño=%s%s%s" % [
+			i, c.nombre, _gauge.get(c, 0.0), c.current_hp, c.max_hp, c.current_energy,
+			c.current_mp, ("local" if d2 == 0 else "peer %d" % d2),
+			"" if c.is_alive() else "  [MUERTO]", "  [HUIDO]" if _huidos.has(c) else ""])
+	L.append("--- LOS BICHOS ---")
+	for i in _enemies.size():
+		var e: Combatant = _enemies[i]
+		L.append("  [%d] %-14s barra %6.1f  HP %7.2f/%7.2f%s%s" % [
+			i, e.nombre, _gauge.get(e, 0.0), e.current_hp, e.max_hp,
+			"" if e.is_alive() else "  [MUERTO]", "  [INVOCADO]" if _slots_invocados.has(i) else ""])
+
+	# --- QUE HAY EN PANTALLA (un submenu abierto no es un cuelgue: es que esperan que elijas)
+	L.append("--- PANTALLA ---")
+	L.append("  acciones=%s  habilidades=%s  magia=%s  objetos=%s  recitado=%s  continuar=%s" % [
+		_vis(_actions_box), _vis(_ability_box), _vis(_spell_box), _vis(_objeto_box),
+		_vis(_cast_box), _vis(_continue_button)])
+
+	# --- LA TRAZA: esto es lo que de verdad explica el cuelgue
+	L.append("--- TRAZA DE TURNOS (lo ultimo primero abajo; %d apuntes) ---" % _traza.size())
+	if _traza.is_empty():
+		L.append("  (vacia: en esta pelea no ha habido trafico de turnos por red)")
+	for t in _traza:
+		L.append("  " + t)
+	L.append("--- ULTIMAS LINEAS DEL COMBATE ---")
+	for l in _log_lines:
+		L.append("  " + l)
+	L.append("======================================================")
+
+	for l in L:
+		print(l)
+
+
+func _vis(n: Node) -> String:
+	if n == null:
+		return "(no existe)"
+	return "SI" if bool(n.get("visible")) else "no"
 
 
 # [dev] Cura al jugador del combate a tope (vida + mana + energia) y refresca las barras.
@@ -2378,9 +2613,7 @@ func _elegir_hechizo(spell: SpellData, aliado: Combatant = null) -> void:
 	# lo que se enruta despues, turno a turno, son las frases (ver _mostrar_test). El destinatario
 	# viaja como INDICE en _aliados, igual que ya hacia la pocion.
 	if _espejo and spell != null:
-		_ocultar_cajas()
-		_state = State.ADVANCING
-		Net.enviar_accion({"tipo": "magia", "ruta": spell.resource_path,
+		_responder_al_anfitrion({"tipo": "magia", "ruta": spell.resource_path,
 			"aliado": _aliados.find(aliado) if aliado != null else -1})
 		return
 	if not _player.has_mana(_coste_efectivo(spell)):
@@ -2428,12 +2661,18 @@ func _pintar_test(idx: int, opciones: Array, nombre: String, largo: int, correct
 
 
 # ESPEJO: me toca recitar una frase de MI personaje. El examen lo ha sorteado el anfitrion.
-func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int) -> void:
+func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0) -> void:
 	if not _espejo:
 		return
+	if seq != 0 and seq == _seq_contestada:
+		_traza_add("me repiten la frase #%d, que YA conteste: la ignoro" % seq)
+		return
+	if seq != 0:
+		_seq_espejo = seq
 	# Repeticion del anfitrion: si ya tengo el examen delante, no se re-sortea (ver turno_mio).
 	if _state == State.WAITING_PLAYER and _cast_box != null and _cast_box.visible:
 		return
+	_traza_add("ME PIDEN LA FRASE %d (#%d) de %s" % [idx + 1, seq, nombre])
 	_state = State.WAITING_PLAYER
 	_pintar_test(idx, opciones, nombre, largo, "")
 
@@ -2454,9 +2693,7 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		return
 	# ESPEJO: no se si he acertado (la frase correcta no viaja: la comprueba el anfitrion).
 	if _espejo:
-		_ocultar_cajas()
-		_state = State.ADVANCING
-		Net.enviar_accion({"tipo": "frase", "texto": elegida})
+		_responder_al_anfitrion({"tipo": "frase", "texto": elegida})
 		return
 	if elegida == correcta:
 		# La Magia NO se entrena por frase (solo al LANZAR, en _disparar_hechizo), para
@@ -2504,11 +2741,17 @@ func _pintar_disparo(nombre: String) -> void:
 
 
 # ESPEJO: mi conjuro esta listo, el boton de lanzarlo va aqui.
-func lanzar_conjuro(nombre: String) -> void:
+func lanzar_conjuro(nombre: String, seq: int = 0) -> void:
 	if not _espejo:
 		return
+	if seq != 0 and seq == _seq_contestada:
+		_traza_add("me repiten el disparo #%d, que YA conteste: lo ignoro" % seq)
+		return
+	if seq != 0:
+		_seq_espejo = seq
 	if _state == State.WAITING_PLAYER and _cast_box != null and _cast_box.visible:
 		return   # repeticion del anfitrion: ya tengo el boton delante
+	_traza_add("ME PIDEN EL DISPARO (#%d) de %s" % [seq, nombre])
 	_state = State.WAITING_PLAYER
 	_pintar_disparo(nombre)
 
@@ -2519,9 +2762,7 @@ func _disparar_hechizo() -> void:
 	# ESPEJO: el objetivo viaja como indice; lo resuelve el anfitrion con el conjuro que ya tiene
 	# recitado en la ficha del doble.
 	if _espejo:
-		_ocultar_cajas()
-		_state = State.ADVANCING
-		Net.enviar_accion({"tipo": "disparar", "obj": _target_idx})
+		_responder_al_anfitrion({"tipo": "disparar", "obj": _target_idx})
 		return
 	var spell := _cast_spell
 	# AQUI se paga el hechizo (ver _elegir_hechizo): al soltarlo, no al empezar a recitarlo. Se
@@ -3139,9 +3380,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	# En el espejo se elige, pero resuelve el anfitrion: le viaja QUE habilidad (por su ruta) y
 	# contra quien. El la busca en el loadout de mi personaje, que es el mismo que tiene el.
 	if _espejo and ab != null:
-		_ocultar_cajas()
-		_state = State.ADVANCING
-		Net.enviar_accion({"tipo": "habilidad", "ruta": ab.resource_path, "obj": _target_idx})
+		_responder_al_anfitrion({"tipo": "habilidad", "ruta": ab.resource_path, "obj": _target_idx})
 		return
 	# OBJETIVO capturado UNA vez, al principio de la accion. No se vuelve a preguntar por el
 	# dentro del bucle de golpes a proposito: si el objetivo cae al tercer tajo de una habilidad
@@ -3413,9 +3652,7 @@ func _usar_objeto(cons: ConsumableData, objetivo: Combatant, cobrar: bool = true
 	if _espejo and cons != null:
 		if not Game.gastar_consumible(cons):
 			return
-		_ocultar_cajas()
-		_state = State.ADVANCING
-		Net.enviar_accion({"tipo": "objeto", "ruta": cons.resource_path,
+		_responder_al_anfitrion({"tipo": "objeto", "ruta": cons.resource_path,
 			"aliado": _aliados.find(objetivo)})
 		return
 	if _state != State.WAITING_PLAYER or objetivo == null or not objetivo.is_alive():
@@ -3489,10 +3726,21 @@ func _ganar_mana_golpe() -> float:
 func _enviar_si_espejo(tipo: String) -> bool:
 	if not _espejo:
 		return false
+	_responder_al_anfitrion({"tipo": tipo, "obj": _target_idx})
+	return true
+
+
+# LA UNICA PUERTA DE SALIDA de las respuestas del espejo. Todas pasan por aqui para que ninguna se
+# olvide de dos cosas: sellar la respuesta con el numero de lo que me pidieron, y APUNTAR que ya
+# conteste a ese numero. Lo segundo es lo que hace que un reenvio del anfitrion no me vuelva a poner
+# los botones de un turno que ya jugue (ver turno_mio y _pet_seq).
+func _responder_al_anfitrion(accion: Dictionary) -> void:
+	accion["seq"] = _seq_espejo
+	_seq_contestada = _seq_espejo
 	_ocultar_cajas()
 	_state = State.ADVANCING
-	Net.enviar_accion({"tipo": tipo, "obj": _target_idx})
-	return true
+	_traza_add("CONTESTO #%d '%s'" % [_seq_espejo, String(accion.get("tipo", "?"))])
+	Net.enviar_accion(accion)
 
 
 func _accion_atacar() -> void:
@@ -3673,6 +3921,7 @@ func _huir_solo(peer: int) -> bool:
 func sacar_a(peer: int) -> void:
 	if _espejo or peer == 0 or _state == State.FINISHED:
 		return
+	_traza_add("SACO al peer %d de la pelea (ya no esta)" % peer)
 	for c in _aliados:
 		if int(_dueno_aliado.get(c, 0)) == peer:
 			_retirar_aliado(c)
