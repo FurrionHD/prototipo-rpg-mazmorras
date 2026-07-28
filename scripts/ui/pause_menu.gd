@@ -67,21 +67,29 @@ func _ready() -> void:
 	_aviso.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
 	vb.add_child(_aviso)
 
+	# ¿ESTOY EN UN MUNDO COMPARTIDO? Se calcula UNA vez y se usa para las dos cosas que dependen de
+	# ello (el panel de LAN y el salir sin guardar): con dos copias de la condicion, tarde o temprano
+	# una se queda atras de la otra.
+	#
+	# OJO CON PREGUNTARLO SOLO CON `Mundos.abierto`: esa variable es LOCAL, dice "tengo yo el fichero
+	# del mundo abierto en mi disco". El INVITADO no lo tiene (lo tiene el anfitrion), asi que para el
+	# vale "" aunque este dentro del mundo de otro. La bandera que sirve en los dos lados es
+	# Net.mundo_compartido, la misma que usa _guardar_y_salir.
+	var en_mundo_compartido: bool = Mundos.abierto != "" or (Net.activo and Net.mundo_compartido)
+
 	_boton(vb, "Reanudar", _cerrar)
-	_boton(vb, "Multijugador (LAN)", _abrir_multi)
+	# EL PANEL DE LAN es el de hostear/unirse por IP a mano, y dentro de un mundo compartido no pinta
+	# nada: ya estas conectado, y la partida esta abierta de base. Solo se ofrece jugando a solas.
+	# (El panel y el modo LAN de siempre siguen existiendo: lo que desaparece es la puerta.)
+	if not en_mundo_compartido:
+		_boton(vb, "Multijugador (LAN)", _abrir_multi)
 	_boton(vb, "Guardar", _guardar)
 	_boton(vb, "Guardar y salir al menú", _guardar_y_salir)
 	# SALIR SIN GUARDAR no existe en un MUNDO COMPARTIDO, y no es por gusto: el mundo es de varios y
 	# lo que juegas no es solo tuyo. Salir sin guardar tiraria tu rato Y dejaria el mundo bloqueado a
 	# tu nombre hasta que caducara el arrendamiento del cerrojo, o sea que tu compañero no podria
 	# abrirlo en un buen rato. En las 3 ranuras de un jugador sigue donde estaba.
-	#
-	# Y OJO CON PREGUNTARLO CON `Mundos.abierto`: esa variable es LOCAL, dice "tengo yo el fichero del
-	# mundo abierto en mi disco". El INVITADO no lo tiene (lo tiene el anfitrion), asi que para el
-	# valia "" y le salia el boton igualmente -- justo a quien mas dano le hace, porque su personaje
-	# vive DENTRO del mundo del otro y salir sin guardar es tirar el rato entero. La bandera que vale
-	# para los dos lados es Net.mundo_compartido, la misma que ya usa _guardar_y_salir.
-	if Mundos.abierto == "" and not (Net.activo and Net.mundo_compartido):
+	if not en_mundo_compartido:
 		_boton(vb, "Salir SIN guardar", _salir_sin_guardar)
 	else:
 		var n := Label.new()
