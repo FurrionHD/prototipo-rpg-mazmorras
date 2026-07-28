@@ -854,6 +854,11 @@ func stun_taken_mult(con_afinidad: bool = true) -> float:
 # Tira los estados "al golpear" de este combatiente sobre 'target' (tras un golpe que
 # acierta). Cada uno con su propia probabilidad. Devuelve los NOMBRES aplicados (para
 # el log); vacio si ninguno prendio.
+#
+# ⚠️ NO COMPRUEBA SI EL GOLPE ACERTO: da por hecho que quien llama ya lo ha mirado (result.evaded).
+# Un golpe fallado NO debe meter estados, asi que todo call site nuevo tiene que gatearse el mismo.
+# Ya paso una vez: en las habilidades de area se aplicaban los efectos a los que habian esquivado.
+# Lo mismo vale para roll_imbue y para combat._aplicar_aturdir.
 func roll_on_hit(target: Combatant) -> Array:
 	var aplicados: Array = []
 	if target == null:

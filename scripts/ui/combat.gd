@@ -3433,6 +3433,10 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		# der, izq) y, en arma+escudo, alterna arma (fuerte) / escudo (flojo). Ver ab.plan_golpes.
 		var plan: Array = ab.plan_golpes(golpes, manos)
 		var conecto: int = 0
+		# Aciertos POR OBJETIVO (combatiente -> nº de golpes que le entraron). El contador de arriba
+		# es el total contra TODOS y no vale para decidir a quien se le aplican los efectos: ver el
+		# bloque de efectos no-por-golpe al final del bucle.
+		var conecto_por_obj: Dictionary = {}
 		var hubo_critico: bool = false   # para los efectos NO por golpe (tirada al final)
 		var mana_ganado_golpes: float = 0.0
 		# Objetivos del ÁREA (el principal siempre el primero). En single-target = [obj].
@@ -3486,6 +3490,10 @@ func _usar_habilidad(ab: AbilityData) -> void:
 					mult_imbue = r.mult_imbue
 				if r.conecto:
 					conecto += 1
+					# Y POR OBJETIVO, que es lo que decide luego a quien se le tiran los efectos: el
+					# contador de arriba suma los aciertos contra CUALQUIERA, asi que no sirve para
+					# saber si a ESTE le llego algo. Ver el bloque de efectos no-por-golpe.
+					conecto_por_obj[r.c] = int(conecto_por_obj.get(r.c, 0)) + 1
 				if r.crit:
 					hubo_critico = true
 				mana_ganado_golpes += r.mana
@@ -3505,11 +3513,22 @@ func _usar_habilidad(ab: AbilityData) -> void:
 			# Si no queda NADIE vivo entre los objetivos, no hay a quién seguir pegando.
 			if _vivos().is_empty():
 				break
-		# Efectos NO por golpe: UNA tirada al final por cada objetivo VIVO que conectó (golpe de
-		# escudo -> stun; Onda -> aturde+ralentiza a todos los tocados).
-		if not ab.efectos_por_golpe and conecto > 0:
+		# Efectos NO por golpe: UNA tirada al final por cada objetivo VIVO AL QUE LE ENTRO ALGUN
+		# GOLPE (golpe de escudo -> stun; Onda -> aturde+ralentiza a los que alcanzo de verdad).
+		#
+		# EL QUE ESQUIVA NO SE COME EL DEBUFF. Esto se preguntaba con el contador GLOBAL (`conecto`),
+		# que suma los aciertos contra cualquiera, y se aplicaba a todo `tocados` -- y en `tocados`
+		# entra cualquier enemigo BARRIDO por el area, esquive o no (los mete _resolver_golpe_hab
+		# antes de saber si esquivo). Resultado: en un area contra tres bichos, si le acertabas a uno
+		# solo, los otros dos se comian el aturdido igual sin haber sido tocados. Lo mismo con
+		# redirige_al_morir. Ahora se mira acierto POR OBJETIVO, que es justo lo que ya hacia la rama
+		# enemiga (_enemy_resolver_golpes lleva su `conecto` de uno en uno porque se llama por bicho).
+		#
+		# Vale para todos sin escribirlo dos veces: las acciones de los compas y de los otros
+		# jugadores las resuelve el anfitrion por esta misma funcion (ver aplicar_accion_remota).
+		if not ab.efectos_por_golpe:
 			for t in tocados:
-				if t.is_alive():
+				if t.is_alive() and int(conecto_por_obj.get(t, 0)) > 0:
 					estados_log += _tirar_efectos_habilidad(ab, t, hubo_critico)
 		# Excelia: como el ataque, entrena Fuerza (por impacto medio, contra el principal).
 		var pj_hab: PersonajeData = Game.pj_de_combatant(_player)
