@@ -4324,6 +4324,14 @@ func mandar_alta_personaje(pj: PersonajeData) -> void:
 	_alta_personaje.rpc_id(1, pj_a_dict(pj))
 
 
+# MUDANZA: en vez de un personaje recien creado, se manda uno TRAIDO de una partida de un jugador,
+# con sus acompañantes, su equipo puesto y su bolsa (ver Game.jugador_data_desde_ranura).
+func mandar_alta_jugador(jd: JugadorData) -> void:
+	if not activo or es_host or jd == null:
+		return
+	_alta_jugador.rpc_id(1, jd_a_dict(jd))
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _crea_tu_personaje(nombre_mundo: String) -> void:
 	_respondio = true
@@ -4355,6 +4363,54 @@ func _alta_personaje(d: Dictionary) -> void:
 	Game.jugadores_mundo[identidad] = jd
 	print("[multi] alta de ", pj.nombre, " (", jd.nombre_visible, ") en el mundo")
 	# Se le devuelve YA empaquetado: asi los dos lados parten de lo mismo y no hay dos verdades.
+	_tu_jugador.rpc_id(quien, jd_a_dict(jd), Game.semilla_mundo)
+
+
+# MUDANZA: el invitado trae un jugador ENTERO de una de sus partidas (personajes + bolsa + oficios).
+# Corre EN EL HOST, que es quien manda mientras tenga el cerrojo del mundo, asi que aqui se valida
+# todo lo que llega: no se admite un paquete que diga ser de otra persona, ni un equipo mas grande
+# del que cabe. El equipo que traen los personajes se registra en el baul de este mundo (lo hace
+# jd_de_dict via ficha_de_dict con registrar=true), que es donde tienen que vivir a partir de ahora.
+@rpc("any_peer", "call_remote", "reliable")
+func _alta_jugador(d: Dictionary) -> void:
+	if not es_host or not mundo_compartido:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	if not _en_la_puerta.has(quien):
+		return
+	var identidad := String(_identidades.get(quien, ""))
+	if identidad == "":
+		return
+	# Ya tiene personaje aqui: no se le deja traer otro encima (seria machacar al que vive en el
+	# mundo, y con el todo lo que hubiera hecho dentro).
+	if Game.jugadores_mundo.get(identidad) is JugadorData:
+		print("[multi] %s ya tiene personaje en este mundo: no se importa nada" % identidad)
+		_tu_jugador.rpc_id(quien, jd_a_dict(Game.jugadores_mundo[identidad]), Game.semilla_mundo)
+		return
+
+	var jd: JugadorData = jd_de_dict(d)
+	if jd.equipo.is_empty():
+		print("[multi] el paquete de %s no trae equipo: no se da de alta" % identidad)
+		return
+	# La IDENTIDAD la pone el host con la del que lo manda, pase lo que pase en el diccionario.
+	jd.id = identidad
+	jd.nombre_visible = String(_en_la_puerta[quien].get("nombre", ""))
+	# El grupo que baja no puede pasar del tope, y cada personaje queda a nombre de su dueño. Solo el
+	# LIDER es "el original" de esa persona en este mundo; los acompañantes son contratados suyos.
+	while jd.equipo.size() > Game.PARTY_MAX:
+		jd.equipo.pop_back()
+	jd.lider_pos = clampi(jd.lider_pos, 0, maxi(0, jd.equipo.size() - 1))
+	for pj2 in jd.personajes:
+		if pj2 is PersonajeData:
+			(pj2 as PersonajeData).dueno = identidad
+			(pj2 as PersonajeData).es_original = false
+	var lider = jd.equipo[jd.lider_pos]
+	if lider is PersonajeData:
+		(lider as PersonajeData).es_original = true
+
+	Game.jugadores_mundo[identidad] = jd
+	print("[multi] MUDANZA: entra %s con %d personajes y %d materiales" % [
+		jd.resumen(), jd.personajes.size(), jd.materiales.size()])
 	_tu_jugador.rpc_id(quien, jd_a_dict(jd), Game.semilla_mundo)
 
 

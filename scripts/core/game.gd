@@ -1606,6 +1606,50 @@ func _adoptar_mundo_compartido(d: SaveData) -> void:
 # echa al menu principal al pisar la mazmorra (ver dungeon_floor: "no hay partida cargada").
 # El resto del mundo (baul, bote, cofres, mapa, tienda, atajos) le llega por los canales de sesion
 # que ya existian, asi que aqui no se toca.
+# MUDARSE: empaqueta el personaje de una de tus ranuras para llevarlo a un mundo compartido.
+#
+# Se lleva lo de LA PERSONA: el lider, sus acompañantes con el equipo que llevan PUESTO, la bolsa
+# (materiales, cristales, consumibles), las mochilas, el dinero y los oficios. NO se lleva el baul de
+# armas sueltas ni el almacen de casa: en un mundo compartido esas cosas son del MUNDO y son comunes,
+# y volcarle a tu compañero tu almacen entero no es mudarse, es otra cosa. Lo que quieras llevarte de
+# casa, recogelo antes a la bolsa (ver recoger_materiales_del_hogar).
+#
+# LA RANURA DE ORIGEN NO SE TOCA: esto es una COPIA. Sigues teniendo tu partida igual que estaba.
+#
+# El empaquetado NO remapea los cuarenta campos a mano, y es a proposito: reusa importar_partida()
+# (que es quien sabe reconstruir al lider desde los campos planos del save, rearmar item_meta con las
+# instancias buenas y realinear equip_meta) y luego _mi_jugador_data(), que es el mismo empaquetador
+# que ya usa el guardado de los mundos compartidos. Copiar campo a campo aqui seria una segunda
+# version de esa logica, condenada a quedarse atras en cuanto se toque la otra.
+#
+# OJO: importar_partida PISA el estado vivo de Game. Se llama justo antes de entrar en el mundo, con
+# lo que no hay nada que conservar; y al entrar se limpia igual (ver limpiar_mundo_heredado).
+# Devuelve null si esa ranura no se puede leer.
+func jugador_data_desde_ranura(slot: int) -> JugadorData:
+	var info: Dictionary = Perfil.inspeccionar(slot)
+	# Solo una partida que este build entiende. Una ranura ILEGIBLE o de otra version NO es un hueco
+	# vacio y tampoco es importable: mejor no ofrecerla que traer medio personaje.
+	if int(info.get("estado", -1)) != Perfil.OK:
+		push_warning("[mudanza] la ranura %d no se puede importar (%s)" % [
+			slot, Perfil.motivo_texto(info)])
+		return null
+	var d: SaveData = info.get("datos") as SaveData
+	if d == null:
+		return null
+
+	importar_partida(d)
+	var jd: JugadorData = _mi_jugador_data(false, null)
+
+	# AL PUEBLO. El piso en el que estaba es de SU mundo, con otra semilla: cargarlo alli seria
+	# aparecer en una mazmorra que en ese mundo no existe.
+	jd.en_mazmorra = false
+	jd.current_floor = 1
+	jd.pos = Vector2.ZERO
+	print("[mudanza] empaquetado de la ranura %d: %s · %d personajes · %d materiales en la bolsa" % [
+		slot, jd.resumen(), jd.personajes.size(), jd.materiales.size()])
+	return jd
+
+
 # BORRA EL MUNDO QUE VENIA DE ANTES, antes de entrar de invitado en el mundo de otro.
 #
 # El bug: Game es un AUTOLOAD y sobrevive a los cambios de escena. Si venias de pulsar "Continuar"

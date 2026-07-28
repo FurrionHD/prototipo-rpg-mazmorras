@@ -527,8 +527,77 @@ func _unirse(clave: String, pass_: String) -> void:
 	_decir("Conectando a %s..." % String(r.get("direccion", "")))
 
 
-# El mundo no me conoce: me hago un personaje AHI. Vivira dentro de ese mundo, no en mi disco.
+# El mundo no me conoce. Dos formas de entrar, y se pregunta cual antes de nada:
+#   - hacerse un personaje NUEVO ahi (lo de siempre), o
+#   - MUDAR uno de tus partidas de un jugador, con sus acompañantes y su bolsa.
+# Si no hay ninguna ranura importable no se pregunta nada y se va directo al creador de siempre.
 func _crear_mi_personaje_en_mundo_ajeno(nombre_mundo: String) -> void:
+	var importables: Array = []
+	for i in range(1, Perfil.RANURAS + 1):
+		var info: Dictionary = Perfil.inspeccionar(i)
+		# Solo las que este build entiende. Una ranura ILEGIBLE o de otra version NO es un hueco vacio,
+		# pero tampoco se puede traer: se deja fuera en vez de ofrecer media partida.
+		if int(info.get("estado", -1)) == Perfil.OK and info.get("datos") != null:
+			importables.append({"slot": i, "datos": info["datos"]})
+	if importables.is_empty():
+		_personaje_nuevo_en_mundo_ajeno(nombre_mundo)
+		return
+	_elegir_como_entrar(nombre_mundo, importables)
+
+
+# El panel de "¿con quien entras?". Por codigo, como el resto de menus del proyecto.
+func _elegir_como_entrar(nombre_mundo: String, importables: Array) -> void:
+	var capa := ColorRect.new()
+	capa.color = Color(0, 0, 0, 0.75)
+	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_encima.add_child(capa)
+
+	var centro := CenterContainer.new()
+	centro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	capa.add_child(centro)
+	var vb := VBoxContainer.new()
+	vb.custom_minimum_size = Vector2(460, 0)
+	vb.add_theme_constant_override("separation", 8)
+	centro.add_child(vb)
+
+	MenuScaffold.titulo(vb, "ENTRAR EN EL MUNDO DE %s" % nombre_mundo.to_upper(), 18)
+	MenuScaffold.nota(vb, "Es tu primera vez aquí. Puedes empezar de cero o traerte un personaje "
+		+ "que ya tengas, con sus acompañantes y lo que lleve en la BOLSA.")
+
+	var nuevo := Button.new()
+	nuevo.text = "Crear un personaje nuevo"
+	nuevo.custom_minimum_size = Vector2(0, 38)
+	nuevo.pressed.connect(func():
+		capa.queue_free()
+		_personaje_nuevo_en_mundo_ajeno(nombre_mundo))
+	vb.add_child(nuevo)
+
+	MenuScaffold.nota(vb, "O tráete uno de tus partidas (la partida NO se borra: es una copia):")
+	for e in importables:
+		var d: SaveData = e["datos"]
+		var b := Button.new()
+		b.text = "Traer a %s  ·  Nv.%d  ·  %d monedas" % [d.nombre, d.cab_nivel, d.cab_dinero]
+		b.custom_minimum_size = Vector2(0, 34)
+		b.pressed.connect(_mudar_personaje.bind(int(e["slot"]), capa))
+		vb.add_child(b)
+
+	MenuScaffold.nota(vb, "Ojo: el baúl de armas sueltas y el almacén de casa se quedan en tu "
+		+ "partida. Si quieres llevarte materiales, recógelos a la bolsa ANTES de venir.")
+
+
+# Empaqueta la ranura elegida y la manda. El anfitrion la valida y la guarda en el mundo.
+func _mudar_personaje(slot: int, capa: Control) -> void:
+	var jd: JugadorData = Game.jugador_data_desde_ranura(slot)
+	if jd == null:
+		_decir("Esa partida no se puede leer: no se ha traído nada.", false)
+		return
+	capa.queue_free()
+	Net.mandar_alta_jugador(jd)
+	_decir("Trayendo a %s al mundo..." % jd.resumen())
+
+
+# El camino de siempre: un personaje nuevo, que nace y vive dentro de ese mundo.
+func _personaje_nuevo_en_mundo_ajeno(nombre_mundo: String) -> void:
 	CreadorPersonaje.abrir(_encima, "TU PERSONAJE EN EL MUNDO DE %s" % nombre_mundo.to_upper(),
 		"Es tu primera vez aquí. Este personaje se queda a vivir DENTRO de este mundo, a tu nombre: "
 		+ "la próxima vez que entres, entrarás con él.",
