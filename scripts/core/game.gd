@@ -5902,10 +5902,27 @@ func herramienta_base(tipo: int) -> ToolData:
 	var ruta: String = str(HERRAMIENTA_BASE.get(tipo, ""))
 	return load(ruta) as ToolData if ruta != "" else null
 
-# El MANGO sale del tablon de su tier, y siempre de banda base: el sub-tier lo pone el METAL (es la
-# cabeza de la herramienta), la madera solo acompaña.
+# El MANGO va A JUEGO con la cabeza: mismo tier Y MISMA BANDA que el metal. Una herramienta de
+# cobre en bruto se monta con tablon comun, una de cobre veteado con tablon de veta y una de cobre
+# profundo con tablon anillado. No se elige: lo pide la receta, igual que la correa de una mochila
+# sale del tier de sus hebillas.
+#
+# Antes esto devolvia siempre la banda BASE, y era arbitrario: la madera tiene exactamente la misma
+# escalera de tres bandas que el metal (comun/veta/anillado, duro/ferreo/petrificado), asi que
+# clavarla a la base tiraba a la basura la mitad de la progresion de la carpinteria.
+#
+# La escalera cuadra 1:1 en los tres tiers, asi que la pareja SIEMPRE existe; si algun dia se mete
+# un metal sin su madera, esto devuelve null y herramienta_valida lo corta con un aviso, que es el
+# mismo freno que ya tienen la armadura sin cuero y la mochila sin correa.
 func tablon_de_herramienta(lingote: MaterialData) -> MaterialData:
-	return tablon_de_tier(Forge.tier_de_metal(lingote))
+	if lingote == null:
+		return null
+	for m in tablones_forja():
+		var md: MaterialData = m as MaterialData
+		if md != null and int(md.tier) == Forge.tier_de_metal(lingote) \
+				and int(md.mejora_min) == int(lingote.mejora_min):
+			return md
+	return null
 
 func score_herramienta(lingote: MaterialData, sel_met: Dictionary, sel_tab: Dictionary) -> float:
 	return Forge.score_final(score_seleccion([sel_met, sel_tab]),

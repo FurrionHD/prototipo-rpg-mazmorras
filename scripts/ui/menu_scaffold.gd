@@ -671,9 +671,12 @@ static func selector_material(vb: VBoxContainer, mats: Array, nombre_gama: Strin
 	var tiers: Array = tiers_de(mats)
 	var t: int = int(tiers[clampi(tier_sel, 0, tiers.size() - 1)])
 
+	# Con nombre_gama vacio, el boton dice solo "T1". Es lo que se quiere cuando el titulo de encima
+	# ya dice de que va la fila ("Metal · el tier pone la afinidad..."): repetir la palabra en los
+	# tres botones es la tercera vez que se lee y ademas alarga lo unico que hay que comparar.
 	var etiquetas_tier: Array = []
 	for x in tiers:
-		etiquetas_tier.append("%s  T%d" % [nombre_gama, int(x)])
+		etiquetas_tier.append("T%d" % int(x) if nombre_gama == "" else "%s  T%d" % [nombre_gama, int(x)])
 	cuadricula(vb, etiquetas_tier, clampi(tier_sel, 0, tiers.size() - 1), on_tier,
 		COLUMNAS_SELECTOR, TAM_SELECTOR)
 

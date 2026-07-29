@@ -1113,7 +1113,8 @@ func _on_forjar() -> void:
 
 func _build_herramientas() -> void:
 	_title(_header, "FORJAR UNA HERRAMIENTA")
-	_note(_header, "El pico, la hoz y el hacha no suben tus habilidades ni te dan más excelia: hacen el trabajo menos hostil. El TIER del metal te mide como si fueras mejor en el oficio; su VETA (en bruto, veteado, profundo) decide desde qué rareza empiezas a ahorrarte golpes. Es lo único que se forja con veta: en un arma, el cobre profundo haría exactamente la misma espada.")
+	_note(_header, "El pico, la hoz y el hacha no suben tus habilidades ni te dan más excelia: hacen el trabajo menos hostil. Cuenta el TIER del metal y también su VETA (en bruto, veteado, profundo): las dos suben lo que te ayuda, y la veta además te ahorra golpes. Es lo único que se forja con veta — en un arma, el cobre profundo haría exactamente la misma espada.")
+	_note(_header, "El mango va a juego con la cabeza: cobre en bruto pide tablón común, veteado pide tablón de veta y profundo pide tablón anillado. No se elige.")
 	_header.add_child(HSeparator.new())
 
 	var lingotes: Array = Game.lingotes_herramienta()
@@ -1139,7 +1140,7 @@ func _build_herramientas() -> void:
 	# componente que usan fundir, aserrar y curtir.
 	_content.add_child(HSeparator.new())
 	_title(_content, "Metal  ·  el tier pone la afinidad, la veta los golpes", 13)
-	var lingote: MaterialData = MenuScaffold.selector_material(_content, lingotes, "Metal",
+	var lingote: MaterialData = MenuScaffold.selector_material(_content, lingotes, "",
 		_herr_tier, _herr_sub, _on_herr_tier, _on_herr_sub)
 	if lingote == null:
 		return
@@ -1148,7 +1149,7 @@ func _build_herramientas() -> void:
 	var banda: int = int(lingote.mejora_min)
 	var tab: MaterialData = Game.tablon_de_herramienta(lingote)
 	if tab == null:
-		_note(_content, "Todavía no hay tablones a la altura del T%d: esa herramienta no se puede montar aún." % tier)
+		_note(_content, "No hay tablón a juego con ese metal: el mango tiene que ser de la misma veta que la cabeza.")
 		return
 
 	# --- Los dos ingredientes ---
