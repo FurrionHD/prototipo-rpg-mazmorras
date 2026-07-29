@@ -7,9 +7,15 @@
 #
 #  NO son armas: no ocupan mano, no pesan y no entran en el loadout de combate. Viven en
 #  sus propios slots (Game.equipped_pico / equipped_hoz / equipped_hacha). Una herramienta
-#  mejor NO sube la stat ni da mas excelia: solo hace el minijuego MENOS hostil. Quien pica bien
-#  sigue siendo la Fuerza; quien corta fino, la Destreza; quien lleva el compas, la Agilidad. Asi
-#  el equipo ayuda pero no sustituye al personaje.
+#  mejor NO te entrena mas rapido: solo hace el minijuego MENOS hostil y te deja sacar mas
+#  material por rato. Quien pica bien sigue siendo la Fuerza; quien corta fino, la Destreza; quien
+#  lleva el compas, la Agilidad. Asi el equipo ayuda pero no sustituye al personaje.
+#
+#  Como se consigue eso: la afinidad entra en la dificultad, y esa dificultad paga TAMBIEN la
+#  excelia (Game.start_*). Suena a que la herramienta te penaliza el entrenamiento, y no: como
+#  ademas quita golpes, el nodo paga menos pero cuesta menos, y la excelia POR GOLPE DADO sale
+#  plana. Cuando la excelia se medía sin la herramienta, lo que pasaba era lo contrario — un +50%
+#  de entrenamiento gratis por llevarla puesta.
 #
 #  AQUI NO HAY NUMEROS DE DIFICULTAD, y es a proposito. Los tuvo (ventana_bonus, control, filo,
 #  compas, golpes_menos, cortes_menos, hachazos_menos) y se borraron el 29/07 por dos razones:

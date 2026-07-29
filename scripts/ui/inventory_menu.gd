@@ -8,9 +8,9 @@
 #                     carga) y las HERRAMIENTAS (pico/hoz/hacha). Aqui SI se equipa, a diferencia
 #                     de armas y armaduras, que se cambian en el menu [C].
 #    3) CONSUMIBLES - pociones: seleccionas una y le das a "Usar".
-#    3) MATERIALES  - los ya guardados en el HOGAR (no pesan). Solo consulta.
-#    4) ARMAS       - armas/escudos/varitas de tu baul. Solo consulta (equipar: menu C).
-#    5) ARMADURAS   - piezas de armadura de tu baul. Solo consulta.
+#    4) MATERIALES  - los ya guardados en el HOGAR (no pesan). Solo consulta.
+#    5) ARMAS       - armas/escudos/varitas de tu baul. Solo consulta (equipar: menu C).
+#    6) ARMADURAS   - piezas de armadura de tu baul. Solo consulta.
 #
 #  PAUSA el juego mientras esta abierto (Game.abrir_menu / cerrar_menu), como el menu de
 #  personaje: antes solo se congelaba al jugador y los bichos seguian a lo suyo, asi que abrir la
@@ -436,7 +436,7 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 # --- HERRAMIENTAS: pico, hoz y hacha. Del grupo, como la mochila. ---
 func _build_herramientas() -> void:
 	_title(_header, "HERRAMIENTAS  (del equipo)")
-	_note(_header, "No suben tus habilidades ni te dan más excelia: hacen la recolección menos hostil. "
+	_note(_header, "No te entrenan más rápido: hacen la recolección menos hostil y sacas más material por rato. "
 		+ "Una por tipo, para todo el grupo. Las forja el herrero.")
 	var puestas: PackedStringArray = []
 	for tipo in [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA]:

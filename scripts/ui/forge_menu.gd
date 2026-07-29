@@ -1113,7 +1113,7 @@ func _on_forjar() -> void:
 
 func _build_herramientas() -> void:
 	_title(_header, "FORJAR UNA HERRAMIENTA")
-	_note(_header, "El pico, la hoz y el hacha no suben tus habilidades ni te dan más excelia: hacen el trabajo menos hostil. Cuenta el TIER del metal y también su VETA (en bruto, veteado, profundo): las dos suben lo que te ayuda, y la veta además te ahorra golpes. Es lo único que se forja con veta — en un arma, el cobre profundo haría exactamente la misma espada.")
+	_note(_header, "El pico, la hoz y el hacha no te entrenan más rápido: hacen el trabajo menos hostil y te dejan sacar más material por rato. Cuenta el TIER del metal y también su VETA (en bruto, veteado, profundo): las dos suben lo que te ayuda, y la veta además te ahorra golpes. Es lo único que se forja con veta — en un arma, el cobre profundo haría exactamente la misma espada.")
 	_note(_header, "El mango va a juego con la cabeza: cobre en bruto pide tablón común, veteado pide tablón de veta y profundo pide tablón anillado. No se elige.")
 	_header.add_child(HSeparator.new())
 
