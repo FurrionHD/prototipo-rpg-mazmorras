@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="SA_sang"]
 script = ExtResource("2")
 estado = 1
-prob = 0.55.0
+prob = 0.55
 
 [sub_resource type="Resource" id="SA_sang_crit"]
 script = ExtResource("2")

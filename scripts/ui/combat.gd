@@ -3736,8 +3736,13 @@ func _usar_habilidad(ab: AbilityData) -> void:
 			str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), ab.imbue_usos])
 	# LIMPIAR DEBUFFS: a un aliado elegido (Purificar) o a todo el grupo (el area del baston).
 	if ab.limpia_debuffs > 0:
-		var a_limpiar: Array = _aliados_vivos() if ab.objetivo_aliado == AbilityData.Objetivo.GRUPO \
-			else [_hab_objetivo_aliado()]
+		# Sin ternario a proposito: _aliados_vivos() devuelve Array[Combatant] y la otra rama un
+		# Array pelado, y GDScript avisa de que los dos lados no son del mismo tipo.
+		var a_limpiar: Array = []
+		if ab.objetivo_aliado == AbilityData.Objetivo.GRUPO:
+			a_limpiar.assign(_aliados_vivos())
+		else:
+			a_limpiar.append(_hab_objetivo_aliado())
 		for al in a_limpiar:
 			var quitados: Array = al.limpiar_debuffs(ab.limpia_debuffs)
 			if not quitados.is_empty():
