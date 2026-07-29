@@ -405,6 +405,8 @@ func _slot_de(item: Resource) -> String:
 		return String(Game.ARMOR_SLOT_ORDEN[i]) if i >= 0 and i < Game.ARMOR_SLOT_ORDEN.size() else "pecho"
 	if item is BackpackData:
 		return "mochila"
+	if item is ToolData:
+		return "herramienta"
 	if item is ShieldData or item is WandData:
 		return "off"
 	return "main"

@@ -3444,6 +3444,11 @@ func jd_a_dict(jd: JugadorData) -> Dictionary:
 		"dinero": jd.dinero, "materiales": bolsa, "crystals": cris,
 		"consumibles": jd.consumibles.duplicate(),
 		"mochila": Game.serializar_equipo(jd.equipped_mochila),
+		# Las tres HERRAMIENTAS equipadas. Solo viajan las puestas, como la mochila: el baul de
+		# herramientas de cada uno se queda en su save y no tiene por que existir en este mundo.
+		"pico": Game.serializar_equipo(jd.equipped_pico),
+		"hoz": Game.serializar_equipo(jd.equipped_hoz),
+		"hacha": Game.serializar_equipo(jd.equipped_hacha),
 		"mezcla": jd.mezcla_exp, "metalurgia": jd.metalurgia_exp,
 		"peleteria": jd.peleteria_exp, "herreria": jd.herreria_exp,
 		"materiales_vistos": jd.materiales_vistos.duplicate(),
@@ -3491,6 +3496,15 @@ func jd_de_dict(d: Dictionary, registrar := true) -> JugadorData:
 	if mo is BackpackData:
 		jd.equipped_mochila = mo
 		jd.owned_mochilas = [mo]
+	# HERRAMIENTAS, por el MISMO criterio 'registrar' que la mochila y por la misma razon: con un
+	# `true` a pelo cada sincronizacion periodica metería TRES herramientas nuevas en el baul. Es el
+	# bug de las 6 hachas multiplicado por tres.
+	jd.owned_tools = []
+	for par in [["pico", "equipped_pico"], ["hoz", "equipped_hoz"], ["hacha", "equipped_hacha"]]:
+		var t: Resource = Game.deserializar_equipo(d.get(String(par[0]), {}), registrar)
+		if t is ToolData:
+			jd.set(String(par[1]), t)
+			jd.owned_tools.append(t)
 	jd.mezcla_exp = float(d.get("mezcla", 0.0))
 	jd.metalurgia_exp = float(d.get("metalurgia", 0.0))
 	jd.peleteria_exp = float(d.get("peleteria", 0.0))
@@ -4149,6 +4163,9 @@ func _olvidar_meta_de(jd) -> void:
 			for r in _RANURAS:
 				_olvidar_meta_item((pj as PersonajeData).get(r))
 	_olvidar_meta_item((jd as JugadorData).equipped_mochila)
+	for t in [(jd as JugadorData).equipped_pico, (jd as JugadorData).equipped_hoz,
+			(jd as JugadorData).equipped_hacha]:
+		_olvidar_meta_item(t)
 
 
 func _olvidar_meta_item(item) -> void:
@@ -4164,6 +4181,9 @@ func _olvidar_meta_item(item) -> void:
 			return
 	elif item is BackpackData:
 		if Game.owned_mochilas.has(item):
+			return
+	elif item is ToolData:
+		if Game.owned_tools.has(item):
 			return
 	elif Game.owned_weapons.has(item):
 		return

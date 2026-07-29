@@ -1369,10 +1369,13 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	tool_destreza_bonus = 0
 	# Bajas a la mazmorra con un pico, una hoz y un hacha de serie: recolectar no es una
 	# habilidad que haya que desbloquear, es lo que hace cualquiera que entre ahi a buscarse
-	# la vida.
-	equipped_pico = PICO_BASICO as ToolData
-	equipped_hoz = HOZ_BASICA as ToolData
-	equipped_hacha = HACHA_BASICA as ToolData
+	# la vida. Van a NULL y no al .tres basico: los getters pico()/hoz()/hacha() ya caen a la
+	# basica solos, y asignar aqui el .tres COMPARTIDO del proyecto es como acaba metiendose en
+	# item_meta y en el save (ver es_herramienta_forjada).
+	owned_tools.clear()
+	equipped_pico = null
+	equipped_hoz = null
+	equipped_hacha = null
 	# Empiezas sin conocer NINGUN metal: el herrero solo te enseñara los que te traigas.
 	materiales_vistos.clear()
 
@@ -1495,11 +1498,15 @@ func exportar_partida() -> SaveData:
 	d.equipped_spells = equipped_spells.duplicate()
 	d.tool_hit_reduction = tool_hit_reduction
 	d.tool_destreza_bonus = tool_destreza_bonus
-	# El pico y la hoz son .tres del proyecto (no instancias con identidad propia, como las
-	# armas): basta con guardar su ruta, igual que las pociones.
-	d.pico = pico().resource_path
-	d.hoz = hoz().resource_path
-	d.hacha = hacha().resource_path
+	# HERRAMIENTAS: el baul y las tres equipadas, como instancias (llevan tier/rareza/banda en su
+	# item_meta). Se guardan las VARIABLES y no los getters pico()/hoz()/hacha(): el getter devuelve
+	# la basica cuando no llevas nada, y guardar eso metería el .tres COMPARTIDO del proyecto dentro
+	# del save. Con null se recarga como "sin herramienta", que es lo mismo y no ensucia nada.
+	# Los campos legacy (d.pico/hoz/hacha) ya no se escriben.
+	d.owned_tools = owned_tools.duplicate()
+	d.tool_pico = equipped_pico
+	d.tool_hoz = equipped_hoz
+	d.tool_hacha = equipped_hacha
 	d.materiales_vistos = materiales_vistos.duplicate()
 
 	d.en_mazmorra = en_mazmorra
@@ -1587,6 +1594,10 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 			jd.consumibles[c.resource_path] = int(consumables[c])
 	jd.owned_mochilas = owned_mochilas.duplicate()
 	jd.equipped_mochila = mochila_equipo
+	jd.owned_tools = owned_tools.duplicate()
+	jd.equipped_pico = equipped_pico
+	jd.equipped_hoz = equipped_hoz
+	jd.equipped_hacha = equipped_hacha
 	jd.mezcla_exp = mezcla_exp
 	jd.metalurgia_exp = metalurgia_exp
 	jd.peleteria_exp = peleteria_exp
@@ -1723,13 +1734,15 @@ func limpiar_mundo_heredado() -> void:
 	mapa_trabajo.clear()
 	_vistas_baseline.clear()
 	tiempo_mazmorra = 0.0
-	# Las herramientas tampoco viajan en el JugadorData ni las manda el host: se vuelve a las de serie,
-	# que es con lo que cualquiera entra a la mazmorra.
+	# Las herramientas SI viajan en el JugadorData desde el 29/07 (las repone _adoptar_jugador), pero
+	# aqui se limpian igual que el resto del mundo heredado: las que tengo puestas son de MI partida
+	# y no de este mundo. Null = las basicas, que es con lo que cualquiera entra a la mazmorra.
 	tool_hit_reduction = 0
 	tool_destreza_bonus = 0
-	equipped_pico = PICO_BASICO as ToolData
-	equipped_hoz = HOZ_BASICA as ToolData
-	equipped_hacha = HACHA_BASICA as ToolData
+	owned_tools.clear()
+	equipped_pico = null
+	equipped_hoz = null
+	equipped_hacha = null
 	# Y que ningun guardado despistado escriba en la ranura que tuviera abierta: aqui se juega en el
 	# mundo del host y mi ranura no pinta nada (es la misma razon que en Mundos.abrir()).
 	Perfil.ranura_actual = 0
@@ -1783,6 +1796,10 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 			consumables[c] = int(jd.consumibles[ruta])
 	owned_mochilas.assign(jd.owned_mochilas)
 	mochila_equipo = jd.equipped_mochila as BackpackData
+	owned_tools.assign(jd.owned_tools)
+	equipped_pico = jd.equipped_pico as ToolData
+	equipped_hoz = jd.equipped_hoz as ToolData
+	equipped_hacha = jd.equipped_hacha as ToolData
 	mezcla_exp = jd.mezcla_exp
 	metalurgia_exp = jd.metalurgia_exp
 	peleteria_exp = jd.peleteria_exp
@@ -2011,10 +2028,23 @@ func importar_partida(d: SaveData) -> void:
 	equipped_spells.assign(d.equipped_spells)
 	tool_hit_reduction = d.tool_hit_reduction
 	tool_destreza_bonus = d.tool_destreza_bonus
-	equipped_pico = _cargar_tool(d.pico, PICO_BASICO)
-	equipped_hoz = _cargar_tool(d.hoz, HOZ_BASICA)
-	# Las partidas de antes de la madera no tienen hacha guardada: _cargar_tool cae al respaldo.
-	equipped_hacha = _cargar_tool(d.hacha, HACHA_BASICA)
+	# HERRAMIENTAS. Baul + las tres equipadas, como instancias con su meta.
+	#
+	# MIGRACION de las partidas anteriores al 29/07: traen d.pico/hoz/hacha (rutas) y los campos
+	# nuevos vacios. Se DESCARTAN a proposito, y no se pierde nada: la unica ruta que podian
+	# contener era la de una de las tres basicas, porque en el juego no habia forma de conseguir
+	# ninguna otra herramienta (ni tienda, ni forja, ni loot). Al quedarse en null, los getters
+	# pico()/hoz()/hacha() devuelven esas mismas basicas.
+	owned_tools.assign(d.owned_tools)
+	equipped_pico = d.tool_pico as ToolData
+	equipped_hoz = d.tool_hoz as ToolData
+	equipped_hacha = d.tool_hacha as ToolData
+	# Una equipada que NO este en el baul es una herramienta huerfana: no se puede cambiar desde el
+	# inventario (que lista owned_tools) y ademas se quedaria fuera del baul para siempre. Godot
+	# conserva la identidad al cargar, asi que no deberia pasar; si pasa, se adopta.
+	for eq in [equipped_pico, equipped_hoz, equipped_hacha]:
+		if eq != null and not owned_tools.has(eq):
+			owned_tools.append(eq as ToolData)
 
 	# Lo descubierto. Las partidas de antes de esto lo traen vacio, asi que se reconstruye de lo
 	# que tengas encima o en el baul: si no, un veterano con el baul lleno de hierro abriria la
@@ -2075,16 +2105,6 @@ func importar_partida(d: SaveData) -> void:
 	# del ultimo que guardo y no tiene por que ser el mio. En una partida de un jugador lider() ES
 	# `yo`, asi que esto vale exactamente lo mismo que antes.
 	_stamina_cargada = lider().stamina if mundo_compartido else d.stamina
-
-
-# Carga una herramienta por su ruta. Si la partida es vieja o el .tres ya no existe, se
-# cae a la basica: quedarse SIN pico por un fichero que se movio bloquearia la mineria.
-func _cargar_tool(ruta: String, respaldo: Resource) -> ToolData:
-	if ruta != "":
-		var t: Resource = load(ruta)
-		if t is ToolData:
-			return t as ToolData
-	return respaldo as ToolData
 
 
 # Aguante con el que hay que arrancar al jugador tras cargar (-1 = al maximo). Lo lee el
@@ -2406,6 +2426,10 @@ var owned_weapons: Array[Resource] = []
 var owned_armor: Array[ArmorData] = []
 # Mochilas poseidas (van aparte: no son equipo de combate, tienen su propio slot).
 var owned_mochilas: Array[BackpackData] = []
+# Herramientas poseidas (pico/hoz/hacha forjadas). Mismo caso que las mochilas: no son equipo de
+# combate y viven en sus propios slots. Las tres BASICAS no estan aqui — son los .tres compartidos
+# del proyecto y siempre estan disponibles como respaldo (ver pico()/hoz()/hacha()).
+var owned_tools: Array[ToolData] = []
 
 # OBJETOS consumibles (pociones): ConsumableData -> cantidad. Por ahora se consiguen
 # desde el panel de debug (KAN-57). Curan por el tiempo (ver ConsumableData).
@@ -2621,6 +2645,33 @@ func tool_mods(t: ToolData) -> Dictionary:
 	return Upgrades.tool_mods(int(t.tipo), int(m.get("tier", 1)),
 		int(m.get("rareza", Upgrades.Rareza.COMUN)), int(m.get("banda", 0)))
 
+# La equipada de un TIPO (ToolData.Tipo), ya con el respaldo a la basica aplicado.
+func herramienta_de_tipo(tipo: int) -> ToolData:
+	match tipo:
+		ToolData.Tipo.PICO: return pico()
+		ToolData.Tipo.HOZ: return hoz()
+		_: return hacha()
+
+# Equipar / quitar. Trivial como equipar_mochila: no tiene dueño (es del GRUPO, no de un
+# personaje), no pasa por _quitar_a_los_demas y no toca equip_meta. Con null se vuelve a la basica.
+func equipar_herramienta(t: ToolData) -> void:
+	if t == null:
+		return
+	match int(t.tipo):
+		ToolData.Tipo.PICO: equipped_pico = t
+		ToolData.Tipo.HOZ: equipped_hoz = t
+		_: equipped_hacha = t
+
+func desequipar_herramienta(tipo: int) -> void:
+	match tipo:
+		ToolData.Tipo.PICO: equipped_pico = null
+		ToolData.Tipo.HOZ: equipped_hoz = null
+		_: equipped_hacha = null
+
+# ¿La llevas puesta? Lo consultan la UI (para el boton Equipar/Quitar) y la venta.
+func herramienta_equipada(t: ToolData) -> bool:
+	return t != null and (t == equipped_pico or t == equipped_hoz or t == equipped_hacha)
+
 # --- Equipamiento: loadout de DOS manos (arma principal + secundaria) ---
 # La secundaria puede ser otra WeaponData (dual-wield), un ShieldData o null.
 # Un arma a dos manos (dos_manos) obliga a secundaria = null.
@@ -2731,8 +2782,16 @@ func meta_de(item: Resource) -> Dictionary:
 		item_meta[item] = _meta_por_defecto()
 	return item_meta[item]
 
+# 'banda' = el sub-tier del MINERAL con el que se hizo (su mejora_min: 0 en bruto, 3 veteado,
+# 9 profundo). Hoy solo lo usan las HERRAMIENTAS, donde decide cuantos golpes te ahorras
+# (Upgrades.TOOL_GOLPES_MENOS); en armas y armaduras se queda en 0 y no lo lee nadie.
+#
+# Todo el que lo lea tiene que hacerlo con int(m.get("banda", 0)) y NUNCA con m["banda"]: las metas
+# de las partidas guardadas antes del 29/07 no lo traen. Por eso tampoco hace falta migracion ni
+# subir VERSION_ACTUAL — meta_datos se guarda como Array de dicts duplicados, no como lista de
+# campos, asi que una clave nueva viaja sola.
 func _meta_por_defecto() -> Dictionary:
-	return {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0}
+	return {"tier": 1, "rareza": Upgrades.Rareza.COMUN, "mejoras": {}, "durabilidad": 1.0, "banda": 0}
 
 
 func _meta(slot: String, pj: PersonajeData = null) -> Dictionary:
@@ -4101,8 +4160,10 @@ func add_owned_armor(pieza: ArmorData) -> void:
 # 'registrar' (por defecto true) mete la pieza en TU baul (owned_*). Se pone a FALSE para el DOBLE
 # de otro humano en una pelea de red: ese arma no es tuya, y registrarla te llenaba el inventario de
 # copias del compañero (una por cada vez que se unia a tu pelea). Ver ficha_de_dict.
+# 'banda' va la ULTIMA y con default a proposito: es el sub-tier del mineral y solo lo usan las
+# herramientas, asi que los llamadores de siempre (armas, armaduras, escudos, mochilas) no se tocan.
 func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary,
-		registrar: bool = true) -> Resource:
+		registrar: bool = true, banda: int = 0) -> Resource:
 	if base == null:
 		return null
 	var copia: Resource = base.duplicate()
@@ -4110,6 +4171,7 @@ func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary,
 		"tier": maxi(1, tier),
 		"rareza": clampi(rareza, 0, Upgrades.RAREZA_SLOTS.size() - 1),
 		"mejoras": mejoras.duplicate(),
+		"banda": maxi(0, banda),
 		# Ruta de la PLANTILLA base. La copia duplicada pierde su resource_path, asi que sin esto
 		# no habria forma de reconstruir la pieza en otra maquina (cofre compartido, multi).
 		"ruta_base": str(base.resource_path),
@@ -4121,6 +4183,10 @@ func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary,
 	elif copia is BackpackData:
 		if not owned_mochilas.has(copia):
 			owned_mochilas.append(copia as BackpackData)
+	elif copia is ToolData:
+		# Sin esta rama una herramienta caeria en add_owned_weapon y acabaria en el baul de ARMAS.
+		if not owned_tools.has(copia):
+			owned_tools.append(copia as ToolData)
 	else:
 		add_owned_weapon(copia)
 	return copia
@@ -4137,7 +4203,8 @@ func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary,
 # se apunta en la meta: asi la pieza queda reparada para siempre (se guarda en el save) y no hay que
 # volver a buscarla.
 const _CARPETAS_PLANTILLAS := ["res://resources/weapons", "res://resources/shields",
-	"res://resources/wands", "res://resources/backpacks", "res://resources/armor"]
+	"res://resources/wands", "res://resources/backpacks", "res://resources/armor",
+	"res://resources/tools"]
 
 # MANIFIESTO de plantillas: la lista EXPLICITA de todas las piezas base del juego. Es la fuente de
 # verdad en el .exe EXPORTADO, donde DirAccess NO enumera los recursos del .pck (devolvia "indice: 0"
@@ -4154,6 +4221,8 @@ const _MANIFIESTO_PLANTILLAS := [
 	"res://resources/shields/escudo_pequeno.tres",
 	"res://resources/wands/varita.tres",
 	"res://resources/backpacks/mochila_basica.tres",
+	"res://resources/tools/pico_basico.tres", "res://resources/tools/hoz_basica.tres",
+	"res://resources/tools/hacha_basica.tres",
 	"res://resources/armor/cuero_botas.tres", "res://resources/armor/cuero_casco.tres",
 	"res://resources/armor/cuero_manos.tres", "res://resources/armor/cuero_pantalones.tres",
 	"res://resources/armor/cuero_pecho.tres",
@@ -4174,7 +4243,8 @@ func _clave_plantilla(item: Resource) -> String:
 	if item == null:
 		return ""
 	var clase: String = "ArmorData" if item is ArmorData else \
-		("BackpackData" if item is BackpackData else "WeaponData")
+		("BackpackData" if item is BackpackData else \
+		("ToolData" if item is ToolData else "WeaponData"))
 	return "%s|%s" % [clase, str(item.get("nombre"))]
 
 
@@ -4383,7 +4453,8 @@ func serializar_equipo(item: Resource) -> Dictionary:
 	var ruta: String = ruta_base_de(item)
 	if ruta == "":
 		return {}
-	var clase: String = "armadura" if item is ArmorData else ("mochila" if item is BackpackData else "arma")
+	var clase: String = "armadura" if item is ArmorData else \
+		("mochila" if item is BackpackData else ("herramienta" if item is ToolData else "arma"))
 	var cap: int = int(item.get("capacidad")) if item is BackpackData else 0
 	return {
 		"ruta": ruta,
@@ -4391,6 +4462,8 @@ func serializar_equipo(item: Resource) -> Dictionary:
 		"rareza": int(m.get("rareza", 0)),
 		"mejoras": (m.get("mejoras", {}) as Dictionary).duplicate(),
 		"durabilidad": float(m.get("durabilidad", 1.0)),
+		# Sub-tier del metal: hoy solo lo llevan las herramientas, el resto manda 0 y nadie lo lee.
+		"banda": int(m.get("banda", 0)),
 		"capacidad": cap,
 		"clase": clase,
 		"desc": item_display_name(item),
@@ -4416,7 +4489,7 @@ func deserializar_equipo(d: Dictionary, registrar: bool = true) -> Resource:
 			str(d.get("desc", "?")), ruta])
 		return null
 	var item: Resource = crear_item(base, int(d.get("tier", 1)), int(d.get("rareza", 0)),
-		d.get("mejoras", {}), registrar)
+		d.get("mejoras", {}), registrar, int(d.get("banda", 0)))
 	if item == null:
 		return null
 	meta_de(item)["durabilidad"] = float(d.get("durabilidad", 1.0))
@@ -4441,6 +4514,9 @@ func sacar_de_baul(item: Resource) -> bool:
 	elif item is BackpackData:
 		fuera = owned_mochilas.has(item)
 		owned_mochilas.erase(item)
+	elif item is ToolData:
+		fuera = owned_tools.has(item)
+		owned_tools.erase(item)
 	else:
 		fuera = owned_weapons.has(item)
 		owned_weapons.erase(item)
@@ -4728,6 +4804,8 @@ func vender_equipo(item: Resource) -> int:
 		owned_armor.erase(item)
 	elif item is BackpackData:
 		owned_mochilas.erase(item)
+	elif item is ToolData:
+		owned_tools.erase(item)
 	else:
 		owned_weapons.erase(item)
 	recompra.append({"item": item, "precio": precio})
@@ -4751,6 +4829,9 @@ func recomprar(idx: int) -> bool:
 	elif item is BackpackData:
 		if not owned_mochilas.has(item):
 			owned_mochilas.append(item)
+	elif item is ToolData:
+		if not owned_tools.has(item):
+			owned_tools.append(item as ToolData)
 	else:
 		add_owned_weapon(item)
 	recompra.remove_at(idx)
@@ -5212,6 +5293,38 @@ func chapas_conocidas() -> Array:
 
 func hebillas_conocidas() -> Array:
 	return _formas_base("hebillas")
+
+# LA EXCEPCION A LA REGLA DE ARRIBA, y la unica: las HERRAMIENTAS si se forjan con la banda honda.
+# El argumento de "el sub-tier no fabrica" era que no cambiaba nada (la misma espada T1); en una
+# herramienta SI cambia: la banda decide desde que rareza empiezas a ahorrarte golpes
+# (Upgrades.TOOL_GOLPES_MENOS). Un pico de cobre profundo no es un pico T1 mejor de tier, es un pico
+# T1 que perdona mas. Asi el material hondo tiene un uso que no es solo mejorar armas.
+#
+# El gate de descubrimiento sigue funcionando solo: metales_forja_conocidos solo regala el T1 de la
+# banda base, y el veteado o el profundo no aparecen aqui hasta que los hayas picado.
+func lingotes_herramienta() -> Array:
+	var out: Array = []
+	for m in metales_forja_conocidos():
+		var lingote: MaterialData = m["lingote"] as MaterialData
+		if lingote != null:
+			out.append(lingote)
+	return out
+
+# El lingote de un (tier, banda) concreto. Lo usa fundir_devuelve para que deshacer una herramienta
+# devuelva el metal de su MISMA banda y no el de la base. Va contra la tabla COMPLETA (metales_forja)
+# y no contra la de conocidos: el material que sale de deshacer no depende de lo que hayas visto.
+func _lingote_de_banda(tier: int, banda: int) -> MaterialData:
+	var respaldo: MaterialData = null
+	for fila in metales_forja():
+		var mineral: MaterialData = fila["mineral"] as MaterialData
+		var lingote: MaterialData = fila["lingote"] as MaterialData
+		if mineral == null or lingote == null or int(mineral.tier) != tier:
+			continue
+		if int(mineral.mejora_min) == banda:
+			return lingote
+		if respaldo == null or int(mineral.mejora_min) == 0:
+			respaldo = lingote   # esa banda ya no existe: al menos devolvemos metal de su tier
+	return respaldo
 
 func _formas_base(clave: String) -> Array:
 	var out: Array = []
@@ -5766,6 +5879,77 @@ func fabricar_mochila(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dict
 	return m
 
 
+# --- FORJAR una HERRAMIENTA (herrero) ---
+# Hermana de la mochila: coste FIJO escrito aqui y no derivado de Forge.coste, que deduce la receta
+# de la CLASE y a una herramienta la tomaria por un arma (le pediria cuero y le sacaria la receta de
+# un valor_base de 40).
+#
+# LA EXCEPCION DEL SUB-TIER. Es lo unico del juego que se fabrica con la banda honda del metal
+# (cobre veteado / profundo, ver lingotes_herramienta): en armas y armaduras el sub-tier solo sirve
+# para gatear mejoras. Aqui la banda no cambia el TIER —eso lo sigue poniendo el metal— sino cuantos
+# golpes te ahorra cada escalon de rareza (Upgrades.TOOL_GOLPES_MENOS). Asi el sub-tier deja de ser
+# material muerto que se acumula en el almacen y pasa a decidir algo.
+const HERRAMIENTA_BASE := {
+	ToolData.Tipo.PICO: "res://resources/tools/pico_basico.tres",
+	ToolData.Tipo.HOZ: "res://resources/tools/hoz_basica.tres",
+	ToolData.Tipo.HACHA: "res://resources/tools/hacha_basica.tres",
+}
+# En unidades (puro 4 / intacto 3 / normal 2 / dañado 1), como el resto del crafteo. 6 en total
+# frente a las 12 de la mochila: es lo primero que se craftea y no puede pedir una expedicion entera.
+const HERRAMIENTA_COSTE := {"metal": 4, "tablon": 2}
+
+func herramienta_base(tipo: int) -> ToolData:
+	var ruta: String = str(HERRAMIENTA_BASE.get(tipo, ""))
+	return load(ruta) as ToolData if ruta != "" else null
+
+# El MANGO sale del tablon de su tier, y siempre de banda base: el sub-tier lo pone el METAL (es la
+# cabeza de la herramienta), la madera solo acompaña.
+func tablon_de_herramienta(lingote: MaterialData) -> MaterialData:
+	return tablon_de_tier(Forge.tier_de_metal(lingote))
+
+func score_herramienta(lingote: MaterialData, sel_met: Dictionary, sel_tab: Dictionary) -> float:
+	return Forge.score_final(score_seleccion([sel_met, sel_tab]),
+		Forge.bonus_herreria(herreria_activa()), Forge.bonus_metal(lingote))
+
+func herramienta_valida(lingote: MaterialData, sel_met: Dictionary, sel_tab: Dictionary) -> bool:
+	if lingote == null:
+		return false
+	var tab: MaterialData = tablon_de_herramienta(lingote)
+	if tab == null:
+		return false   # a ese tier aun no le existe su tablon
+	if not _sel_disponible(lingote, sel_met) or not _sel_disponible(tab, sel_tab):
+		return false
+	return uds_seleccion(sel_met) >= int(HERRAMIENTA_COSTE["metal"]) \
+		and uds_seleccion(sel_tab) >= int(HERRAMIENTA_COSTE["tablon"])
+
+func fabricar_herramienta(tipo: int, lingote: MaterialData, sel_met: Dictionary,
+		sel_tab: Dictionary) -> Resource:
+	if not herramienta_valida(lingote, sel_met, sel_tab):
+		return null
+	var base: ToolData = herramienta_base(tipo)
+	if base == null:
+		return null
+	var g_met: Dictionary = recortar_seleccion(sel_met, int(HERRAMIENTA_COSTE["metal"]))
+	var g_tab: Dictionary = recortar_seleccion(sel_tab, int(HERRAMIENTA_COSTE["tablon"]))
+	var tier: int = Forge.tier_de_metal(lingote)
+	# La BANDA es el sub-tier del mineral del que salio este lingote (su mejora_min).
+	var banda: int = int(lingote.mejora_min)
+	var rareza: int = Forge.tirar_rareza(score_herramienta(lingote, sel_met, sel_tab))
+	var tab: MaterialData = tablon_de_herramienta(lingote)
+	_consumir_seleccion_material(lingote, g_met)
+	_consumir_seleccion_material(tab, g_tab)
+	_tirar_devolucion(lingote, g_met, int(HERRAMIENTA_COSTE["metal"]))
+	_tirar_devolucion(tab, g_tab, int(HERRAMIENTA_COSTE["tablon"]))
+	var t: Resource = crear_item(base, tier, rareza, {}, true, banda)
+	herreria_exp += _puntos_oficio("herreria", tier)
+	var mods: Dictionary = tool_mods(t as ToolData)
+	print("[herrero] Forjas %s con %s -> T%d %s (banda %d): afinidad +%.0f, -%d %s.  Herreria %s" % [
+		base.tipo_texto().to_lower(), lingote.nombre, tier, Upgrades.rareza_nombre(rareza), banda,
+		float(mods["afinidad"]), int(mods["golpes_menos"]),
+		base.unidad_golpes(int(mods["golpes_menos"])), snappedf(herreria_exp, 0.1)])
+	return t
+
+
 # --- MEJORAR una pieza con NUCLEOS ---
 # Tope de mejoras de la pieza: lo MENOR entre lo que admite su rareza (huecos) y hasta donde
 # deja llegar el nucleo que uses. Un nucleo de slime no te sube una legendaria mas alla de +3
@@ -5861,8 +6045,14 @@ func mejorar_item(item: Resource, cat: String, nucleo: MaterialData) -> bool:
 # Mira a la PLANTILLA entera, no solo al lider: el baul es comun, y hasta que hubo grupo esto solo
 # preguntaba por el que iba en cabeza, asi que la armadura que llevaba puesta un compañero salia como
 # libre en la tienda y en el herrero. Se la vendias y seguia peleando con ella.
+# Las HERRAMIENTAS entran por su propia via (herramienta_equipada) y no por quien_lleva: como la
+# mochila, no son de una PERSONA sino del grupo, asi que no estan en el equip_meta de nadie.
 func item_equipado(item: Resource) -> bool:
-	return item != null and (item == mochila_equipo or quien_lleva(item) != null)
+	if item == null:
+		return false
+	if item is ToolData:
+		return herramienta_equipada(item as ToolData)
+	return item == mochila_equipo or quien_lleva(item) != null
 
 
 # Le quita TODO lo que lleva puesto y lo devuelve al baul comun (donde ya estaba: el equipo son
@@ -5907,6 +6097,8 @@ func puede_fundir(item: Resource) -> bool:
 		return owned_armor.has(item)
 	if item is BackpackData:
 		return owned_mochilas.has(item)
+	if item is ToolData:
+		return owned_tools.has(item)
 	return owned_weapons.has(item)
 
 
@@ -5939,6 +6131,22 @@ func fundir_devuelve(item: Resource) -> Dictionary:
 		if uds_cuero > 0 and cue_dev != null:
 			mats.append({"material": cue_dev, "uds": uds_cuero})
 		return {"materiales": mats, "nucleos": {}}
+	# HERRAMIENTA: mismo caso que la mochila (coste propio, sin nucleos porque no se mejora). Lo que
+	# vuelve es el lingote de SU BANDA, no el de la banda base: si forjaste el pico con cobre
+	# profundo, deshacerlo tiene que devolver cobre profundo o seria una forma de degradar material
+	# caro a base. La banda vive en la meta desde que se fabrico.
+	if item is ToolData:
+		var mats_t: Array = []
+		var met_t: MaterialData = _lingote_de_banda(int(meta_de(item)["tier"]),
+			int(meta_de(item).get("banda", 0)))
+		var uds_met: int = int(floor(float(HERRAMIENTA_COSTE["metal"]) * Forge.RECUPERACION))
+		if met_t != null and uds_met > 0:
+			mats_t.append({"material": met_t, "uds": uds_met})
+		var uds_tab: int = int(floor(float(HERRAMIENTA_COSTE["tablon"]) * Forge.RECUPERACION))
+		var tab_t: MaterialData = tablon_de_tier(int(meta_de(item)["tier"]))
+		if tab_t != null and uds_tab > 0:
+			mats_t.append({"material": tab_t, "uds": uds_tab})
+		return {"materiales": mats_t, "nucleos": {}}
 	var mejoras: int = mejoras_actuales(item)
 	# La escalera de metales va DENTRO: el coste de cada mejora se reparte en la banda de su
 	# sub-tier, asi que sin ella fundir devolveria de mas en las bandas hondas (material infinito).
@@ -5980,6 +6188,8 @@ func fundir_item(item: Resource) -> bool:
 		owned_armor.erase(item)
 	elif item is BackpackData:
 		owned_mochilas.erase(item)
+	elif item is ToolData:
+		owned_tools.erase(item)
 	else:
 		owned_weapons.erase(item)
 	item_meta.erase(item)

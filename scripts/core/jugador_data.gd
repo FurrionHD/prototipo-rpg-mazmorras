@@ -39,6 +39,14 @@ class_name JugadorData
 @export var consumibles: Dictionary = {}      # ruta del .tres de la pocion -> cuantas
 @export var owned_mochilas: Array = []
 @export var equipped_mochila: Resource = null
+# HERRAMIENTAS. Van aqui por lo mismo que la mochila: son del jugador, no del mundo. Antes vivian
+# solo en los campos planos del SaveData, y en un mundo compartido eso significaba que las
+# herramientas del ULTIMO que guardaba pasaban a ser las de todos. Con las tres basicas identicas
+# no se notaba; con un pico T3 de por medio, si.
+@export var owned_tools: Array = []
+@export var equipped_pico: Resource = null
+@export var equipped_hoz: Resource = null
+@export var equipped_hacha: Resource = null
 
 # Los OFICIOS son suyos porque son lo que DESBLOQUEA sus desarrollos (que ya son por personaje, ver
 # PersonajeData.desarrollos_rango): si fueran comunes, uno le regalaria habilidades al otro sin que

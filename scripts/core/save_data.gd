@@ -211,11 +211,25 @@ const VERSION_MUNDO := 1
 @export var tool_hit_reduction: int = 0
 @export var tool_destreza_bonus: int = 0
 
-# Herramientas de recoleccion. Son .tres del proyecto (no instancias con identidad propia,
-# como las armas), asi que basta su RUTA: igual que los consumibles.
+# LEGACY (partidas anteriores al 29/07). Cuando las herramientas eran .tres del proyecto sin
+# identidad propia bastaba su RUTA. Ya no se ESCRIBEN; se conservan los campos para que un save
+# viejo cargue sin quejarse. Ver el bloque de migracion en Game.importar_partida: la unica ruta que
+# pueden contener es la de una de las tres basicas (no habia forma de conseguir ninguna otra
+# herramienta en el juego), asi que descartarlas no pierde absolutamente nada.
 @export var pico: String = ""
 @export var hoz: String = ""
 @export var hacha: String = ""
+
+# HERRAMIENTAS forjadas: ya son instancias con identidad (tier/rareza/banda en meta_items), como
+# las armas. Mismo patron que las mochilas: el baul es del jugador y las equipadas son del GRUPO,
+# por eso van en la raiz y no dentro de cada PersonajeData.
+#
+# Tres campos planos y no un Dictionary: es lo que hace equipped_mochila, y evita dudas sobre como
+# serializa Godot un sub-recurso metido dentro de un diccionario.
+@export var owned_tools: Array = []
+@export var tool_pico: Resource = null
+@export var tool_hoz: Resource = null
+@export var tool_hacha: Resource = null
 
 # Que materiales has visto alguna vez (id -> true). Es lo que decide QUE te enseña el herrero:
 # un metal que no conoces no aparece en su menu. Ver Game.materiales_vistos.

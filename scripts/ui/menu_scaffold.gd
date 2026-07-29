@@ -541,7 +541,8 @@ static func color_de_item(m: Resource) -> Variant:
 		return d.color_rango() if d != null else null
 	if m is MaterialData:
 		return (m as MaterialData).color_rango()
-	if m is WeaponData or m is ShieldData or m is WandData or m is ArmorData or m is BackpackData:
+	if m is WeaponData or m is ShieldData or m is WandData or m is ArmorData \
+			or m is BackpackData or m is ToolData:
 		return Game.color_rareza_de(m)
 	return null
 
