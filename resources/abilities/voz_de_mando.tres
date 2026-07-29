@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 13
+prob = 1.0
+en_objetivo = false
+a_todo_el_grupo = true
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Voz de mando"
+precio = 4000
+coste_energia = 66
+cooldown = 6
+dano_mult = 0.0
+objetivo_aliado = 2
+descripcion = "Una orden corta y clara. Nadie se para a pensarla: los pies se mueven antes."
+efectos = [SubResource("SA_0")]

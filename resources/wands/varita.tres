@@ -2,6 +2,9 @@
 
 [ext_resource type="Script" path="res://scripts/items/wand_data.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/abilities/canalizar_varita.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/abilities/purificar.tres" id="n0_purifi"]
+[ext_resource type="Resource" path="res://resources/abilities/chispa_vinculada.tres" id="n1_chispa"]
+[ext_resource type="Resource" path="res://resources/abilities/egida_menor.tres" id="n2_egida_"]
 
 [resource]
 script = ExtResource("1")
@@ -11,5 +14,5 @@ mp_regen_turno = 0.33
 cast_vel_mult = 1.2
 bloqueo = 0.0
 evasion_penal = 0.0
-habilidades = [ExtResource("2")]
+habilidades = [ExtResource("2"), ExtResource("n0_purifi"), ExtResource("n1_chispa"), ExtResource("n2_egida_")]
 valor_base = 480

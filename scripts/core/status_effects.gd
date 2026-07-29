@@ -37,7 +37,8 @@ class_name StatusEffects
 # OJO: esto se amplia SOLO POR EL FINAL. Los .tres guardan `estado` como el ENTERO del enum, asi
 # que meter uno en medio renumera y corrompe todas las habilidades y hechizos que ya existen.
 enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATURDIDO, RAYO, PEGAJOSO, REGENERACION, REGEN_MANA, MOJADO,
-	PRESTEZA, BALUARTE, MARCA, HERIDA_PROFUNDA, CORROSION, SILENCIO, MIEDO, SIGILO, GUARDIA_CARNE }
+	PRESTEZA, BALUARTE, MARCA, HERIDA_PROFUNDA, CORROSION, SILENCIO, MIEDO, SIGILO, GUARDIA_CARNE,
+	ESCOLTA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -218,6 +219,11 @@ static var _defs: Dictionary = {
 		"turns": 3, "hp_mult": 2.0, "dmg_taken_mult": 2.0,
 		"descripcion": "Aguantas el doble y te duele el doble. Quien pega, se acuerda de ti.",
 	},
+	Id.ESCOLTA: {   # ATAQUE DE SEGUIMIENTO: pegas detras de cada ataque de un aliado
+		"id": Id.ESCOLTA, "nombre": "Escolta", "icono": "🗡", "color": Color(0.9, 0.8, 0.55),
+		"turns": 3, "seguimiento_pct": 0.5,
+		"descripcion": "Dejas de ir por tu cuenta: entras justo detrás del que abre el hueco.",
+	},
 }
 
 
@@ -396,12 +402,16 @@ static func efecto_legible(id: int, mult: float = 0.0) -> String:
 		"atk_mult": "ataque", "def_mult": "defensa", "spd_mult": "velocidad",
 		"dmg_taken_mult": "daño recibido", "heal_recv_mult": "curación recibida",
 		"def_flat_mult": "armadura", "aggro_mult": "atención que atrae",
+		"hp_mult": "vida máxima",
 	}
+	var partes: Array = []
 	for clave in etiquetas:
 		if not d.has(clave):
 			continue
 		var m: float = mult if mult > 0.0 else float(d[clave])
-		return "%+d%% %s" % [roundi((m - 1.0) * 100.0), str(etiquetas[clave])]
+		partes.append("%+d%% %s" % [roundi((m - 1.0) * 100.0), str(etiquetas[clave])])
+	if not partes.is_empty():
+		return " y ".join(partes)
 	if bool(d.get("is_stun", false)):
 		return "pierde el turno"
 	if bool(d.get("dot", false)):
@@ -412,6 +422,8 @@ static func efecto_legible(id: int, mult: float = 0.0) -> String:
 		return "maná por turno"
 	if bool(d.get("silencia", false)):
 		return "sin hechizos ni habilidades"
+	if float(d.get("seguimiento_pct", 0.0)) > 0.0:
+		return "pegas detrás de cada aliado, al %d%%" % roundi(float(d["seguimiento_pct"]) * 100.0)
 	return ""
 
 

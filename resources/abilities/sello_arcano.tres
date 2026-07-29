@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 18
+prob = 0.85
+turns = 2
+
+[resource]
+script = ExtResource("1")
+nombre = "Sello arcano"
+precio = 4000
+coste_energia = 54
+cooldown = 5
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.5
+descripcion = "Trazas un signo en el aire y lo cierras de golpe. Lo que iba a decir se queda dentro."
+efectos = [SubResource("SA_0")]

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 17
+prob = 0.85
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Rompecorazas"
+precio = 2500
+coste_energia = 56
+cooldown = 4
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.5
+dano_tipo_override = 1
+descripcion = "No busca la carne, busca la chapa. Después de esto la armadura sigue puesta, pero ya no sirve para lo que servía."
+efectos = [SubResource("SA_0")]

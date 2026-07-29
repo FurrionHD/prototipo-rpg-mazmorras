@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 1
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Tajo del verdugo"
+precio = 2500
+coste_energia = 76
+cooldown = 5
+golpes_min = 1
+golpes_max = 1
+dano_mult = 3.6
+carga_turnos = 1
+descripcion = "Levantas el acero por encima de la cabeza y esperas. Todo el mundo ve lo que viene, y aun así hay que estar en otro sitio cuando baje."
+efectos = [SubResource("SA_0")]

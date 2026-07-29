@@ -3,6 +3,9 @@
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/abilities/canalizar.tres" id="2"]
 [ext_resource type="Resource" path="res://resources/abilities/bastonazo.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/abilities/sello_arcano.tres" id="n0_sello_"]
+[ext_resource type="Resource" path="res://resources/abilities/velo_umbrio.tres" id="n1_velo_u"]
+[ext_resource type="Resource" path="res://resources/abilities/viento_limpio.tres" id="n2_viento"]
 
 [resource]
 script = ExtResource("1")
@@ -22,5 +25,5 @@ es_magica = true
 magic_amp = 1.7
 mp_regen_turno = 0.5
 cast_vel_mult = 1.05
-habilidades = [ExtResource("2"), ExtResource("3")]
+habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("n0_sello_"), ExtResource("n1_velo_u"), ExtResource("n2_viento")]
 valor_base = 500

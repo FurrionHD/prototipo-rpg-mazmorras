@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 5
+prob = 0.45
+mult = 0.7
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Estocada marcial"
+precio = 1200
+coste_energia = 52
+cooldown = 4
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.9
+descripcion = "Una punta limpia por encima del escudo. Donde entra, la guardia deja de cerrar bien."
+efectos = [SubResource("SA_0")]

@@ -3,6 +3,9 @@
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/abilities/hendedura.tres" id="2"]
 [ext_resource type="Resource" path="res://resources/abilities/hachazo_brutal.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/abilities/sed_de_sangre.tres" id="n0_sed_de"]
+[ext_resource type="Resource" path="res://resources/abilities/carniceria.tres" id="n1_carnic"]
+[ext_resource type="Resource" path="res://resources/abilities/desgarro.tres" id="n2_desgar"]
 
 [resource]
 script = ExtResource("1")
@@ -18,5 +21,5 @@ bloqueo = 0.07
 dano_tipo = 0
 aturdir_base = 0.0
 energia_ataque = 42.0
-habilidades = [ExtResource("2"), ExtResource("3")]
+habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("n0_sed_de"), ExtResource("n1_carnic"), ExtResource("n2_desgar")]
 valor_base = 540

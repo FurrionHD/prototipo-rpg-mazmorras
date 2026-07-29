@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 22
+prob = 1.0
+en_objetivo = false
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Oportunista"
+precio = 4000
+coste_energia = 44
+coste_energia_dual = 60
+cooldown = 6
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.7
+redirige_al_morir = true
+descripcion = "Dejas de buscar el hueco tú solo y empiezas a aprovechar los que abren los demás. Cada vez que uno de los tuyos entra, tú ya estás detrás."
+efectos = [SubResource("SA_0")]

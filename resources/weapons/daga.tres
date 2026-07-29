@@ -3,6 +3,9 @@
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/abilities/rafaga.tres" id="2"]
 [ext_resource type="Resource" path="res://resources/abilities/punalada.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/abilities/filo_emponzonado.tres" id="n0_filo_e"]
+[ext_resource type="Resource" path="res://resources/abilities/desaparecer.tres" id="n1_desapa"]
+[ext_resource type="Resource" path="res://resources/abilities/oportunista.tres" id="n2_oportu"]
 
 [resource]
 script = ExtResource("1")
@@ -18,5 +21,5 @@ evasion_bonus = 0.05
 bloqueo = 0.05
 dano_tipo = 0
 aturdir_base = 0.0
-habilidades = [ExtResource("2"), ExtResource("3")]
+habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("n0_filo_e"), ExtResource("n1_desapa"), ExtResource("n2_oportu")]
 valor_base = 350

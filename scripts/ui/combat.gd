@@ -4849,7 +4849,64 @@ func _tras_accion_jugador(obj: Combatant) -> void:
 # resolucion: _morir_enemigo mueve _target_idx (_reseleccionar) y te desplazaria el objetivo
 # bajo los pies con los golpes a medias. Los cadaveres sin rematar tampoco estorban: _vivos()
 # y el salpicon miran is_alive() (los PG), no si la muerte ya esta procesada.
+# ATAQUES DE SEGUIMIENTO (estado Escolta): cada vez que uno de los tuyos ATACA, los OTROS aliados
+# que lleven Escolta meten un golpe extra al mismo objetivo, a una fraccion del daño.
+#
+# El golpe usa el atk() del que ESCOLTA (su arma, su critico), no el del que abrio: es su golpe,
+# solo que llega detras del de otro.
+#
+# CORTAFUEGOS: un golpe de seguimiento NO dispara mas seguimientos. Sin la bandera, dos personajes
+# con Escolta se rebotarian el uno al otro hasta colgar el juego.
+var _en_seguimiento: bool = false
+
+func _disparar_seguimientos(obj: Combatant) -> void:
+	if _en_seguimiento or obj == null or not obj.is_alive():
+		return
+	var escoltas: Array = []
+	for al in _aliados_vivos():
+		if al != _player and al.has_status(StatusEffects.Id.ESCOLTA):
+			escoltas.append(al)
+	if escoltas.is_empty():
+		return
+	_en_seguimiento = true
+	var quien_actuaba: Combatant = _player
+	for esc in escoltas:
+		if not obj.is_alive():
+			break
+		var pct: float = 0.0
+		for e in esc.statuses:
+			if e.id() == StatusEffects.Id.ESCOLTA:
+				pct = maxf(pct, float(e.d.get("seguimiento_pct", 0.0)))
+		if pct <= 0.0:
+			continue
+		# _player es "quien tiene el turno" en todo el motor de golpes, asi que se le presta un
+		# momento al escolta para que el golpe salga con SUS numeros, y se devuelve al acabar.
+		_player = esc
+		var r := StatsMath.resolve_attack(esc, obj, false)
+		if r.evaded:
+			_log_extra("%s entra detrás pero %s lo esquiva. 💨" % [esc.nombre, obj.nombre])
+		else:
+			var dmg: float = float(r.damage) * pct
+			obj.take_damage(dmg)
+			Game.contar_dano_infligido(dmg)
+			_log_extra("%s entra detrás: %.2f%s" % [esc.nombre, dmg, " 💥" if r.crit else ""])
+		_player = quien_actuaba
+	_player = quien_actuaba
+	_en_seguimiento = false
+	_update_hp()
+
+
+# Una linea suelta al log sin tocar el mensaje principal de la accion.
+func _log_extra(txt: String) -> void:
+	print("        [escolta] " + txt)
+	_set_log(txt)
+
+
 func _tras_accion_jugador_varios(objs: Array) -> void:
+	# Los seguimientos van ANTES de rematar a los caidos: si el golpe del escolta es el que lo mata,
+	# tiene que contar como muerto en esta misma accion y no quedarse "vivo con 0".
+	if not objs.is_empty() and objs[0] is Combatant:
+		_disparar_seguimientos(objs[0])
 	var vistos: Dictionary = {}   # el mismo enemigo puede venir por el area Y por un rebote
 	for o in objs:
 		if o != null and not o.is_alive() and not vistos.has(o):

@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 13
+prob = 1.0
+en_objetivo = false
+turns = 2
+
+[resource]
+script = ExtResource("1")
+nombre = "Danza de acero"
+precio = 1200
+coste_energia = 46
+coste_energia_dual = 64
+cooldown = 5
+golpes_min = 3
+golpes_max = 3
+golpes_dual_min = 4
+golpes_dual_max = 4
+dano_mult = 0.65
+redirige_al_morir = true
+golpes_extra_por_enemigo = 0.7
+golpes_extra_por_enemigo_dual = 1.0
+descripcion = "Tres tiempos encadenados sin bajar la punta. Cuantos más tienes delante, más sitios donde clavarla."
+efectos = [SubResource("SA_0")]

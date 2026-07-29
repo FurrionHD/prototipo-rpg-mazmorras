@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 14
+prob = 1.0
+en_objetivo = false
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Voto de guardia"
+precio = 1200
+coste_energia = 42
+cooldown = 4
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.7
+bloqueo_turnos = 1
+descripcion = "Clavas los pies y cierras la guardia. No es un ataque: es decidir que por aquí no pasa nadie."
+efectos = [SubResource("SA_0")]

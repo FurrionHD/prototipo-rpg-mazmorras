@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 6
+prob = 1.0
+en_objetivo = false
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Sed de sangre"
+precio = 1200
+coste_energia = 50
+cooldown = 4
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.0
+descripcion = "Un hachazo normal, pero al notar que entra algo se te suelta por dentro y el siguiente sale más fuerte."
+efectos = [SubResource("SA_0")]

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Cambio de ritmo"
+precio = 2500
+coste_energia = 30
+coste_energia_dual = 42
+cooldown = 4
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.75
+reduce_cooldowns = 1
+redirige_al_morir = true
+descripcion = "Rompes la cadencia a media pelea. No hace gran cosa por sí solo, pero te deja las manos listas antes de tiempo."

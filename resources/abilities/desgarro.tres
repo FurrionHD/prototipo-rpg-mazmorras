@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 16
+prob = 0.85
+turns = 3
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 1
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+nombre = "Desgarro"
+precio = 1200
+coste_energia = 50
+cooldown = 4
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.1
+descripcion = "Entra y tira hacia fuera. Esa herida ya no cierra sola, y lo que le echen encima tampoco le va a servir de mucho."
+efectos = [SubResource("SA_0"), SubResource("SA_1")]

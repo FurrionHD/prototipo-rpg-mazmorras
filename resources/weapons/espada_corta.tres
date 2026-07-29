@@ -3,6 +3,9 @@
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/abilities/tajo_quebrantador.tres" id="2"]
 [ext_resource type="Resource" path="res://resources/abilities/doble_tajo.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/abilities/cambio_de_ritmo.tres" id="n0_cambio"]
+[ext_resource type="Resource" path="res://resources/abilities/senalar_el_hueco.tres" id="n1_senala"]
+[ext_resource type="Resource" path="res://resources/abilities/corte_de_tendones.tres" id="n2_corte_"]
 
 [resource]
 script = ExtResource("1")
@@ -17,5 +20,5 @@ crit_bonus = 0.08
 bloqueo = 0.08
 dano_tipo = 0
 aturdir_base = 0.0
-habilidades = [ExtResource("2"), ExtResource("3")]
+habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("n0_cambio"), ExtResource("n1_senala"), ExtResource("n2_corte_")]
 valor_base = 400

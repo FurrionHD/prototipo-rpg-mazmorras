@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 7
+prob = 0.4
+
+[resource]
+script = ExtResource("1")
+nombre = "Martillo de guerra"
+precio = 2500
+coste_energia = 76
+cooldown = 5
+golpes_min = 1
+golpes_max = 1
+dano_mult = 3.2
+carga_turnos = 1
+dano_tipo_override = 1
+descripcion = "Echas el martillo atrás con las dos manos y aguantas ahí un momento que se hace largo. Lo que toque cuando baje no se levanta igual."
+efectos = [SubResource("SA_0")]

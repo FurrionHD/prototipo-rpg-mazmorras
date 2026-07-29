@@ -4,6 +4,9 @@
 [ext_resource type="Resource" path="res://resources/abilities/golpe_demoledor.tres" id="2"]
 [ext_resource type="Resource" path="res://resources/abilities/rompepiernas.tres" id="3"]
 [ext_resource type="Resource" path="res://resources/abilities/aplastamiento.tres" id="4"]
+[ext_resource type="Resource" path="res://resources/abilities/grito_de_aliento.tres" id="n0_grito_"]
+[ext_resource type="Resource" path="res://resources/abilities/muro_de_aliados.tres" id="n1_muro_d"]
+[ext_resource type="Resource" path="res://resources/abilities/culatazo.tres" id="n2_culata"]
 
 [resource]
 script = ExtResource("1")
@@ -19,5 +22,5 @@ bloqueo = 0.08
 dano_tipo = 1
 aturdir_base = 0.12
 energia_ataque = 35.0
-habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("4")]
+habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("n0_grito_"), ExtResource("n1_muro_d"), ExtResource("n2_culata")]
 valor_base = 360

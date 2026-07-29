@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 19
+prob = 0.55
+
+[resource]
+script = ExtResource("1")
+nombre = "Grito de guerra"
+precio = 4000
+coste_energia = 64
+cooldown = 5
+dano_mult = 0.3
+area_modo = 1
+area_max = 3
+area_secundario = 0.6
+descripcion = "Levantas el mandoble y gritas algo que no es una palabra. Alguno decide, por su cuenta, que hoy no."
+efectos = [SubResource("SA_0")]

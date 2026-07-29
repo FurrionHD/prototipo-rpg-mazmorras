@@ -3,6 +3,9 @@
 [ext_resource type="Script" path="res://scripts/items/shield_data.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/abilities/golpe_escudo_normal.tres" id="2"]
 [ext_resource type="Resource" path="res://resources/abilities/provocacion.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/abilities/guardia_de_carne.tres" id="n0_guardi"]
+[ext_resource type="Resource" path="res://resources/abilities/cobertura.tres" id="n1_cobert"]
+[ext_resource type="Resource" path="res://resources/abilities/embestida.tres" id="n2_embest"]
 
 [resource]
 script = ExtResource("1")
@@ -13,5 +16,5 @@ bloqueo = 0.15
 resist_estados_base = 0.12
 velocidad_mult = 0.88
 evasion_penal = 0.055
-habilidades = [ExtResource("2"), ExtResource("3")]
+habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("n0_guardi"), ExtResource("n1_cobert"), ExtResource("n2_embest")]
 valor_base = 400

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Filo emponzoñado"
+precio = 2500
+coste_energia = 36
+cooldown = 5
+dano_mult = 0.0
+imbue_estado = 0
+imbue_usos = 5
+imbue_prob = 0.6
+imbue_prob_doble = 0.1
+imbue_por_destreza = true
+descripcion = "Pasas el filo por un frasco turbio y esperas a que agarre. No corta más: corta peor, y eso a veces vale más que cortar hondo."

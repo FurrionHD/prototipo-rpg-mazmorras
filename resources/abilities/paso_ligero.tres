@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 13
+prob = 1.0
+en_objetivo = false
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Paso ligero"
+precio = 1200
+coste_energia = 34
+coste_energia_dual = 48
+cooldown = 4
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.7
+redirige_al_morir = true
+descripcion = "Una finta y dos pasos de lado. Sales del sitio donde te esperaban y llegas antes a todo."
+efectos = [SubResource("SA_0")]

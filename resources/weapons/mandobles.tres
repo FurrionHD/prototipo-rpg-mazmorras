@@ -3,6 +3,9 @@
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/abilities/tajo_devastador.tres" id="2"]
 [ext_resource type="Resource" path="res://resources/abilities/molinete.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/abilities/grito_de_guerra.tres" id="n0_grito_"]
+[ext_resource type="Resource" path="res://resources/abilities/tajo_del_verdugo.tres" id="n1_tajo_d"]
+[ext_resource type="Resource" path="res://resources/abilities/segar.tres" id="n2_segar"]
 
 [resource]
 script = ExtResource("1")
@@ -18,5 +21,5 @@ bloqueo = 0.08
 dano_tipo = 0
 aturdir_base = 0.0
 energia_ataque = 42.0
-habilidades = [ExtResource("2"), ExtResource("3")]
+habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("n0_grito_"), ExtResource("n1_tajo_d"), ExtResource("n2_segar")]
 valor_base = 520

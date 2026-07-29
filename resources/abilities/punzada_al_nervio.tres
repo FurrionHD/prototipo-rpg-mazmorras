@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 4
+prob = 0.8
+turns = 3
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 3
+prob = 0.6
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Punzada al nervio"
+precio = 1200
+coste_energia = 42
+coste_energia_dual = 58
+cooldown = 4
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.9
+descripcion = "No busca el órgano: busca el cable. Después de esto, ni pega igual ni llega a tiempo."
+efectos = [SubResource("SA_0"), SubResource("SA_1")]

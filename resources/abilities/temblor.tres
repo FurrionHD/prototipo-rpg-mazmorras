@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 3
+prob = 0.75
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Temblor"
+precio = 1200
+coste_energia = 58
+cooldown = 4
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.9
+dano_tipo_override = 1
+area_modo = 1
+area_secundario = 0.7
+area_secundario_decay = 0.05
+descripcion = "Golpeas el suelo y no paras: el temblor se va abriendo y a todos les cuesta el doble mantener el paso."
+efectos = [SubResource("SA_0")]

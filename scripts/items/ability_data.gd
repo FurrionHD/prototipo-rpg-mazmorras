@@ -471,15 +471,16 @@ func resumen(manos: int = 1) -> String:
 	if manos < 2:
 		var d: Array = []
 		if golpes_dual_max > golpes_max:
-			d.append("da %s golpes en vez de %s (los de más, al %d%%)" % [
-				_golpes_txt(2), _golpes_txt(1), roundi(dual_golpe_mult * 100.0)])
+			d.append("da %s golpes en vez de %s" % [_golpes_txt(2), _golpes_txt(1)])
+			d.append("los golpes de la mano secundaria hacen un %d%% del daño" % roundi(
+				dual_golpe_mult * 100.0))
 		if golpes_extra_por_enemigo_dual > golpes_extra_por_enemigo:
 			d.append("suma %s golpes por enemigo en vez de %s" % [
 				_num(golpes_extra_por_enemigo_dual), _num(golpes_extra_por_enemigo)])
 		if coste_energia_dual > 0.0 and coste_energia_dual != coste_energia:
 			d.append("cuesta %.0f de energía" % coste_energia_dual)
 		if not d.is_empty():
-			l.append("CON DOS ARMAS IGUALES: %s." % _y(d))
+			l.append(_lista_efectos("CON DOS ARMAS IGUALES", d))
 	return "
 ".join(l)
 

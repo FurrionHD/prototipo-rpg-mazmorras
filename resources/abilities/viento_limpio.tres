@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Viento limpio"
+precio = 4000
+coste_energia = 70
+cooldown = 5
+dano_mult = 0.0
+objetivo_aliado = 2
+limpia_debuffs = 1
+descripcion = "Una corriente de aire limpio recorre a los tuyos. No lo cura todo, pero se lleva algo de encima de cada uno."

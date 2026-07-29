@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 1
+prob = 0.25
+
+[resource]
+script = ExtResource("1")
+nombre = "Segar"
+precio = 1200
+coste_energia = 60
+cooldown = 3
+golpes_min = 2
+golpes_max = 2
+dano_mult = 0.8
+area_modo = 2
+area_max = 3
+area_falloff = 0.75
+efectos_por_golpe = true
+descripcion = "Dos barridos bajos, a la altura de las piernas. No mata de una: abre a todos y deja que se desangren."
+efectos = [SubResource("SA_0")]

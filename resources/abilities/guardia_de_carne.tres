@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 21
+prob = 1.0
+en_objetivo = false
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Guardia de carne"
+precio = 2500
+coste_energia = 52
+cooldown = 6
+dano_mult = 0.0
+descripcion = "Te abres la guardia a propósito y te plantas. Aguantas el doble de lo que aguantarías... y te duele el doble todo lo que entre."
+efectos = [SubResource("SA_0")]
