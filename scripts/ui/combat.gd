@@ -45,6 +45,12 @@ const EXHAUSTED_RATE := 0.5         # a que ritmo (0.5 = la mitad)
 # Huir (KAN-55): entrar agotado dificulta la huida (la probabilidad se multiplica).
 const FLEE_EXHAUSTED_MULT := 0.6
 
+# Tope de golpes esquivados que cuentan para la Agilidad dentro de UNA habilidad enemiga multi-golpe.
+# Sin tope, una habilidad de cinco golpes esquivada entera rendiria cinco veces lo que un ataque
+# normal esquivado; con el, esquivar un chaparron sigue valiendo mas que esquivar un golpe suelto
+# (es mas dificil) pero no se dispara.
+const ESQUIVA_HAB_MAX := 2.0
+
 # Magia (KAN-56): nº de opciones del test de recitado (a/b/c/d). El maná se recupera
 # PEGANDO (_ganar_mana_golpe) y GANANDO el combate (_end): ya no hay goteo por turno,
 # salvo el que aporte el arma magica (mp_regen_turno).
@@ -2927,9 +2933,12 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		objetivo.take_damage(dmg)
 		Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
 		total += dmg
-		trail.append("%s%.1f%s" % [Elementos.icono(elem), dmg, _mult_sufijo(mult)])
-		print("[magia] %s golpe %d/%d %s sobre %s: %.2f (x%.2f)" % [
-			spell.nombre, i + 1, n, Elementos.nombre(elem), objetivo.nombre, dmg, mult])
+		# CRITICO MAGICO: mismo 💥 que en el rastro del golpe fisico, para que se lea igual.
+		trail.append("%s%s%.1f%s" % [Elementos.icono(elem),
+			"💥" if bool(res.get("crit", false)) else "", dmg, _mult_sufijo(mult)])
+		print("[magia] %s golpe %d/%d %s sobre %s: %.2f (x%.2f)%s" % [
+			spell.nombre, i + 1, n, Elementos.nombre(elem), objetivo.nombre, dmg, mult,
+			"  CRITICO 💥" if bool(res.get("crit", false)) else ""])
 		# Este golpe GASTA lo que lo amplificaba (el rayo evapora el Mojado): el x1.5 se cobra
 		# una vez y hay que volver a mojar. Va DESPUES del daño (este golpe si lo cobra).
 		_gastar_amplificadores(objetivo, elem)
@@ -2988,9 +2997,11 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 			a.dano = float(a.dano) + dmg
 			a.mult = mult
 			a.golpes = int(a.golpes) + 1
-			a.trail.append("%s%.1f%s" % [Elementos.icono(elem), dmg, _mult_sufijo(mult)])
-			print("[magia] %s bola %d/%d %s sobre %s: %.2f (x%.2f)" % [
-				spell.nombre, i + 1, n, Elementos.nombre(elem), obj.nombre, dmg, mult])
+			a.trail.append("%s%s%.1f%s" % [Elementos.icono(elem),
+				"💥" if bool(res.get("crit", false)) else "", dmg, _mult_sufijo(mult)])
+			print("[magia] %s bola %d/%d %s sobre %s: %.2f (x%.2f)%s" % [
+				spell.nombre, i + 1, n, Elementos.nombre(elem), obj.nombre, dmg, mult,
+				"  CRITICO 💥" if bool(res.get("crit", false)) else ""])
 			# La lluvia que moja amplifica (x1.5) los rayos que caigan DETRAS: el golpe gasta lo
 			# que lo amplificaba, igual que en la ruta normal.
 			_gastar_amplificadores(obj, elem)
@@ -3534,6 +3545,16 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		var pj_hab: PersonajeData = Game.pj_de_combatant(_player)
 		Game.ganar("fuerza", _reto(obj, pj_hab) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
 			Game.RETO_MAX_FISICO, pj_hab)
+		# Y si en la habilidad ha entrado algun CRITICO, entrena Agilidad igual que el basico: el
+		# hueco lo encuentras igual con una habilidad que con un espadazo suelto. Antes esta rama
+		# solo pagaba Fuerza, asi que a quien juega a base de habilidades —o sea, cualquiera en
+		# cuanto tiene energia— la Agilidad no le subia por critear en toda la pelea.
+		# Se paga UNA vez por habilidad aunque hayan criteado varios golpes (mismo criterio que la
+		# esquiva de las habilidades enemigas) y con el mismo tope de peso que el basico.
+		if hubo_critico:
+			Game.ganar("agilidad", _reto(obj, pj_hab)
+				* minf(_player.motion_value, Game.GAIN_AGILIDAD_CRIT_MV_MAX),
+				Game.GAIN_AGILIDAD_CRITICO, Game.RETO_MAX_FISICO, pj_hab)
 		print("        total: %.2f de daño en %d golpe%s%s | EN -%.0f -> %.1f/%.1f%s" % [
 			total, golpes, "" if golpes == 1 else "s",
 			_desglose_imbue(total, total_imbue, mult_imbue),
@@ -3870,11 +3891,27 @@ func _accion_huir() -> void:
 		chance *= FLEE_EXHAUSTED_MULT
 	var ok := randf() < chance
 	_fin_de_eleccion()
+	var dueno: int = int(_dueno_aliado.get(_player, 0))
+	# Excelia: escaparse entrena Agilidad, igual que abrir hueco corriendo por el mapa
+	# (player._tick_huida). Antes esta accion no pagaba NADA a nadie, y era el agujero que se notaba
+	# en el playtest: el que va de acompañante no veia subir su Agilidad por mucho que huyerais.
+	#
+	# Se paga por INTENTARLO, salga o no: el dado decide si escapas, no lo que aprendes de intentarlo,
+	# y si solo pagara al lograrlo la Agilidad dependeria de la suerte. Y lo cobra el GRUPO ENTERO,
+	# mismo criterio que el mapa: huyendo corren todos, no solo el que va delante. El reto se calcula
+	# para CADA UNO (al mas flojo el mismo bicho le exige mas).
+	#
+	# Solo si el que huye es de LOS TUYOS: si es el personaje de otro humano, su excelia es suya y
+	# vive en su maquina (pj_de_combatant devuelve null para ellos, y eso acabaria sumandoselo a tu
+	# lider por la puerta de atras).
+	if dueno == 0:
+		for pj in Game.party:
+			Game.ganar("agilidad", _reto(perseguidor, pj), Game.GAIN_AGILIDAD_HUIDA_COMBATE,
+				Game.RETO_MAX_FISICO, pj)
 	if ok:
 		# HUIR ES INDIVIDUAL (regla del usuario): si el que escapa es el personaje de OTRO humano,
 		# se va EL con los suyos y la pelea sigue para los que quedan. Solo se acaba para todos si
 		# con eso no queda nadie en pie.
-		var dueno: int = int(_dueno_aliado.get(_player, 0))
 		if dueno != 0 and _huir_solo(dueno):
 			_state = State.ADVANCING
 			return
@@ -4371,11 +4408,13 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	var estados: Array = []
 	var contra: String = ""
 	var rastro: Array = []   # un token por golpe para el desglose del log (mismo formato que el jugador)
+	var esquivados: int = 0  # para la excelia de Agilidad, que se paga UNA vez al final
 	for i in n_golpes:
 		var result := StatsMath.resolve_attack(e, t, defendiendo)
 		if result.evaded:
 			print("        [%s] golpe %d: esquivado 💨" % [t.nombre, i + 1])
 			Game.contar_esquiva()   # contador oculto de Reflejos
+			esquivados += 1
 			rastro.append({"t": "falla", "c": t})
 			if t.en_guardia and permitir_contra and contra == "":
 				contra = _contraatacar(e, t)
@@ -4407,11 +4446,26 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	if aplicar_efectos and not ab.efectos_por_golpe and conecto > 0 and t.is_alive() and e.is_alive():
 		estados += _enemy_tirar_efectos(e, ab, t, escala, "objetivo", escala_prob)
 	# Excelia: encajar el golpe entrena la Resistencia de QUIEN lo encaja, modulada por el daño.
+	# Mismo trato que el ataque BASICO (ver _enemy_turn): que el enemigo use una habilidad en vez de
+	# pegar de frente no puede cambiar lo que aprendes de comertelo. Antes esta rama solo pagaba la
+	# parte del GOLPE, asi que defender contra las habilidades —justo cuando mas falta hace— no
+	# entrenaba nada, y con lo aficionados que son los bichos a las habilidades eso era un agujero
+	# gordo en la Resistencia del que hace de tanque.
+	var aggro_mult: float = _mult_resistencia_aggro(t)
 	if total > 0.0:
 		var dmg_mult: float = clampf(total / maxf(1.0, float(t.max_hp) * 0.1), 0.5, 2.0)
 		Game.ganar("resistencia", _reto(e) * dmg_mult,
-			Game.GAIN_RESISTENCIA_GOLPE * _mult_resistencia_aggro(t),
-			Game.RETO_MAX_FISICO, pj_t)
+			Game.GAIN_RESISTENCIA_GOLPE * aggro_mult, Game.RETO_MAX_FISICO, pj_t)
+		if bool(_defendiendo.get(t, false)):
+			Game.ganar("resistencia", _reto(e) * t.defend_block,
+				Game.GAIN_RESISTENCIA_BLOQUEO * aggro_mult, Game.RETO_MAX_FISICO, pj_t)
+	# Y esquivar entrena Agilidad, igual que en el basico. Se paga UNA sola vez por habilidad y no
+	# por golpe esquivado: una de cinco golpes no puede rendir cinco veces mas que un ataque normal.
+	# Los golpes de mas suben el reto (aguantar un chaparron es mas dificil que un golpe suelto) pero
+	# con tope, para que la habilidad larga sea mejor que la corta sin ser cinco veces mejor.
+	if esquivados > 0:
+		Game.ganar("agilidad", _reto(e) * minf(float(esquivados), ESQUIVA_HAB_MAX),
+			Game.GAIN_AGILIDAD_ESQUIVAR, Game.RETO_MAX_FISICO, pj_t)
 	# 'defendio' sube al log: la guardia dura TODO el turno y tapa todos los golpes, pero si no se
 	# dice, con una habilidad multi-golpe parece que el escudo no ha hecho nada.
 	return {"total": total, "conecto": conecto, "estados": estados, "contra": contra,

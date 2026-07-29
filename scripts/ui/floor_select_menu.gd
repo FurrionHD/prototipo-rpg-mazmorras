@@ -54,8 +54,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _rebuild() -> void:
-	for c in _content.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(_content)
 
 	MenuScaffold.titulo(_content, "¿POR DÓNDE ENTRAS?")
 	_content.add_child(HSeparator.new())

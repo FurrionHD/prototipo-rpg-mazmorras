@@ -11,14 +11,12 @@
 
 extends CanvasLayer
 
-# Tipos de enemigo colocables: [etiqueta, ruta EnemyData]. Todos usan la misma
-# escena enemy.tscn; solo cambia el .tres de datos. Ampliar cuando haya mas bichos.
-const ENEMY_TYPES := [
-	["Slime", "res://scenes/actors/enemy/slime.tres"],
-	["Slime venenoso", "res://scenes/actors/enemy/slime_veneno.tres"],
-	["Slime de fuego", "res://scenes/actors/enemy/slime_fuego.tres"],
-	["Minotauro (guardián Nv2)", "res://scenes/actors/enemy/guardian_rango.tres"],  # dispara subir de nivel
-]
+# Tipos de enemigo colocables: [etiqueta, ruta EnemyData]. Todos usan la misma escena enemy.tscn;
+# solo cambia el .tres de datos. La lista se MONTA SOLA desde Game.rutas_enemigos() (el manifiesto),
+# con el nombre que cada bicho lleva dentro: antes eran cuatro rutas escritas a mano de los veinte
+# que hay, asi que en la arena no se podia probar contra el 80% del bestiario. Al meter un enemigo
+# nuevo basta con apuntarlo en el manifiesto y aparece aqui; en el editor ademas se avisa si falta.
+var _enemy_types: Array = []
 
 var _enemy_scene: PackedScene = preload("res://scenes/actors/enemy/enemy.tscn")
 
@@ -72,8 +70,9 @@ func _ready() -> void:
 	tlbl.text = "Tipo"
 	trow.add_child(tlbl)
 	_type_opt = OptionButton.new()
-	for i in ENEMY_TYPES.size():
-		_type_opt.add_item(ENEMY_TYPES[i][0], i)
+	_cargar_tipos()
+	for i in _enemy_types.size():
+		_type_opt.add_item(_enemy_types[i][0], i)
 	_type_opt.item_selected.connect(func(idx): _type_idx = idx)
 	trow.add_child(_type_opt)
 
@@ -94,6 +93,25 @@ func _ready() -> void:
 	vb.add_child(_count_lbl)
 
 	_refrescar()
+
+
+# Monta la lista desde el manifiesto: etiqueta = el nombre del propio EnemyData (+ su nivel si no es
+# 1, que es lo que distingue a un guardian). Ordenada por nivel y luego por nombre, para que los de
+# los primeros pisos queden arriba y buscar uno concreto no sea una loteria.
+func _cargar_tipos() -> void:
+	_enemy_types.clear()
+	for ruta in Game.rutas_enemigos():
+		var d: EnemyData = load(ruta) as EnemyData
+		if d == null:
+			continue
+		var etq: String = d.enemy_name
+		if int(d.level) > 1:
+			etq += "  (Nv%d)" % int(d.level)
+		_enemy_types.append([etq, ruta, int(d.level)])
+	_enemy_types.sort_custom(func(a, b):
+		if int(a[2]) != int(b[2]):
+			return int(a[2]) < int(b[2])
+		return str(a[0]) < str(b[0]))
 
 
 func _on_toggle() -> void:
@@ -136,7 +154,9 @@ func _colocar_en_raton() -> void:
 	var pos: Vector2 = _pos_raton_mundo(mundo)
 
 	var enemy: Node2D = _enemy_scene.instantiate()
-	enemy.data = load(ENEMY_TYPES[_type_idx][1])
+	if _type_idx < 0 or _type_idx >= _enemy_types.size():
+		return
+	enemy.data = load(_enemy_types[_type_idx][1])
 	mundo.add_child(enemy)
 	# recolocar tras add_child: _ready ya fijo el "hogar" del bicho, hay que
 	# moverlo Y re-hogarlo aqui (si no, deambula/regresa hacia (0,0)).

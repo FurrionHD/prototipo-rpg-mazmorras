@@ -138,8 +138,7 @@ func _on_tab(i: int) -> void:
 
 func _rebuild() -> void:
 	for zona in [_header, _content]:
-		for c in zona.get_children():
-			c.queue_free()
+		MenuScaffold.vaciar(zona)
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)

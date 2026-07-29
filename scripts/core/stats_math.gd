@@ -217,9 +217,14 @@ const CRIT_MIN := 0.02
 const CRIT_MAX := 0.40      # tope: un enemigo bestial nunca te critea mas de esto
 # Multiplicador BASE de daño critico. Encima se suma el crit_dmg del ATACANTE (KAN-52), que sale
 # del arma: base comun × RAREZA + mejoras de Precision (ver Upgrades.CRIT_DMG_BASE). Un arma comun
-# sin mejoras deja el critico en ×1.75; una obra maestra muy afinada se acerca al ×2.3. Los
-# enemigos no llevan arma con rareza -> critean al ×1.5 pelado.
-const CRIT_MULT := 1.5
+# sin mejoras deja el critico en ×1.50; una obra maestra muy afinada se acerca al ×2.05. Los
+# enemigos no llevan arma con rareza -> critean al ×1.25 pelado.
+#
+# BAJADO de 1.5 a 1.25 el 29/07, a la vez que la MAGIA estrenaba critico propio (resolve_spell).
+# Meter criticos en una via nueva sin tocar la base habria subido el daño global del juego; con el
+# recorte, lo que se gana por un lado se compensa por el otro. Es la fuente UNICA: la usan el golpe
+# fisico, el hechizo y las cuatro fichas de la UI que lo enseñan.
+const CRIT_MULT := 1.25
 
 const EVADE_PARITY := 0.05
 const EVADE_SPREAD := 0.30
@@ -384,7 +389,8 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 # ============================================================
 #  MAGIA (KAN-56): hechizos por encantamientos
 #  El "acierto" del hechizo NO es RNG: depende de recitar bien las frases (test
-#  en combat.gd). Aqui solo va el DAÑO. Sin esquiva ni critico en magia v1.
+#  en combat.gd). Aqui solo va el DAÑO. Sigue SIN esquiva —recitado bien, el hechizo
+#  entra— pero desde el 29/07 SI hay critico (ver resolve_spell).
 # ------------------------------------------------------------
 # Fraccion del dano_base que te haces a TI MISMO al fallar una frase (backfire),
 # escalada por lo avanzado que ibas. PROVISIONAL -> Excel.
@@ -412,10 +418,27 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 		else magic_value(defender.abilities, defender.level, defender.base_magic)
 	var dmg := damage(magic_atk, magic_def)
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
+	# CRITICO MAGICO. Mismo CONTEST que el fisico (tu Destreza contra la Agilidad del que lo recibe):
+	# el critico es "encontrar el hueco", y eso no cambia porque lo que lances sea una bola de fuego.
+	# Tener un solo sistema tambien evita que la resistencia a criticos de la armadura pesada dejara
+	# de valer contra magos por la puerta de atras.
+	#
+	# Lo que SI es propio de la magia son los DOS bonus del atacante: crit_magico y crit_dmg_magico
+	# salen de la mejora de Precision del BASTON y/o la VARITA (loadout_mods), no de las manos. Un
+	# guerrero que lance un hechizo critea con lo que le de su Destreza y nada mas, que es lo justo.
+	#
+	# Y sigue SIN esquiva: si has recitado bien, el hechizo entra.
+	var crit_p := clampf(crit_chance(float(attacker.abilities.destreza),
+		float(defender.abilities.agilidad))
+		+ attacker.crit_magico - defender.crit_resist, 0.0, 1.0)
+	var is_crit := crit_p > 0.0 and randf() < crit_p
+	if is_crit:
+		dmg *= CRIT_MULT + attacker.crit_dmg_magico
 	# Multiplicador ELEMENTAL segun la resistencia/debilidad del objetivo (KAN-58).
 	var mult_elem := Elementos.mult_recibido(elem, defender)
 	dmg *= mult_elem
-	return {"damage": maxf(0.1, dmg), "mult_elem": mult_elem, "elemento": elem}
+	return {"damage": maxf(0.1, dmg), "mult_elem": mult_elem, "elemento": elem,
+		"crit": is_crit, "crit_p": crit_p}
 
 
 # Backfire: daño que te haces al fallar una frase. Escala con dano_base (hechizos

@@ -1473,8 +1473,12 @@ func _barrer_respawns() -> void:
 			continue
 		_agotados_sesion.erase(s)
 		var celda := Vector2i(s.y, s.z)
-		_revivir_celda.rpc(celda, s.x)
-		_revivir_celda(celda, s.x)
+		# El NONCE lo pone el host y viaja con el mensaje: es lo que hace que la tirada del material
+		# salga IGUAL en todas las maquinas (ver dungeon_floor._material_del_sitio). Antes cada una
+		# tiraba por su cuenta y la misma veta salia de cobre normal en una y veteado en la otra.
+		var nonce: int = randi()
+		_revivir_celda.rpc(celda, s.x, nonce)
+		_revivir_celda(celda, s.x, nonce)
 
 
 # SOLO HOST: rellena la tabla de la sesion con los sellos que quedaron guardados en el save. Se llama
@@ -1498,7 +1502,7 @@ func _sembrar_agotados_del_save() -> void:
 # material RE-TIRADO, igual que en solitario). Si no estoy alli basta con soltar el sello: cuando
 # baje, el piso se construye y la celda vuelve a nacer sola.
 @rpc("any_peer", "call_remote", "reliable")
-func _revivir_celda(celda: Vector2i, piso: int) -> void:
+func _revivir_celda(celda: Vector2i, piso: int, nonce: int = 0) -> void:
 	_agotados_sesion.erase(_sitio(piso, celda))
 	# Y FUERA DEL SAVE DEL HOST, o el sello volveria a sembrarse en la proxima expedicion y la veta
 	# que acaba de revivir nacería agotada otra vez. Es lo mismo que hace _olvidar_agotado en
@@ -1509,7 +1513,7 @@ func _revivir_celda(celda: Vector2i, piso: int) -> void:
 		return
 	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if suelo != null and suelo.has_method("revivir_celda"):
-		suelo.revivir_celda(celda)
+		suelo.revivir_celda(celda, nonce)
 
 
 # ¿Este sitio ya se agoto en ESTA expedicion? Lo consulta dungeon_floor al construir el piso.
@@ -4042,6 +4046,12 @@ func _congelar_mi_mundo() -> void:
 		"mapa_snapshot": Game.mapa_snapshot.duplicate(true),
 		"mapa_trabajo": Game.mapa_trabajo.duplicate(true),
 		"bosses_derrotados": Game.bosses_derrotados.duplicate(),
+		# Que METALES/MADERAS conoce mi oficio. Es progreso del MUNDO tanto como los bosses: lo que
+		# se descubre picando aqui sale de las vetas del host, y si se queda pegado, al volver a mi
+		# partida el herrero me ofrece sub-tiers que en mi mundo no he sacado nunca. Es la mitad
+		# "LAN de siempre" del bug de los sub-tiers regalados; la otra mitad (mundo compartido) la
+		# tapa Game.limpiar_mundo_heredado.
+		"materiales_vistos": Game.materiales_vistos.duplicate(),
 	}
 
 

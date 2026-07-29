@@ -45,8 +45,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _rebuild() -> void:
-	for c in _content.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(_content)
 
 	MenuScaffold.titulo(_content, "NIVEL %d  →  %d" % [Game.player_level, Game.player_level + 1])
 	MenuScaffold.nota(_content, "Al subir, tu poder actual se graba en tu base (+10%) y las 5 habilidades vuelven a rango I para crecer sobre esa base más alta. Lo que llevas acumulado NO se pierde (sigue contando por debajo).")

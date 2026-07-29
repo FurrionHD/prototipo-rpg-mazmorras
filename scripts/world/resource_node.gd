@@ -127,8 +127,11 @@ func _crear_aspecto() -> void:
 # en vez de en un cuadradito central. Y se coloca en el CENTRO del rect, que no es el origen del
 # nodo (la enredadera y la planta cuelgan hacia arriba).
 #
-# MULTIJUGADOR: nada que sincronizar. El invitado genera el mismo piso con Net.semilla_host, asi
-# que su veta trae el mismo material_data y deriva el mismo color por su cuenta.
+# MULTIJUGADOR: nada que sincronizar AQUI, pero no es gratis. El invitado genera el mismo piso con
+# Net.semilla_host y deriva el color por su cuenta; que le salga el MISMO material depende de que la
+# tirada este sembrada con (semilla del piso, celda, nonce), y el nonce del respawn lo manda el host
+# (ver dungeon_floor._material_del_sitio y Net._revivir_celda). Cuando esa tirada iba al randf()
+# global, cada uno veia un sub-tier distinto en la misma veta.
 func _crear_destellos(tam: Vector2, esquina: Vector2) -> void:
 	if material_data == null:
 		return

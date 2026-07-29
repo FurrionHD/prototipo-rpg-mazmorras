@@ -127,8 +127,7 @@ func _on_tab(i: int) -> void:
 func _rebuild() -> void:
 	_dinero_lbl.text = "%d monedas" % Game.money
 	for zona in [_header, _lista, _content]:
-		for c in zona.get_children():
-			c.queue_free()
+		MenuScaffold.vaciar(zona)
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	match _tab:
@@ -594,6 +593,8 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		_row(vb, "Vel. casteo", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
 		if float(mg["mana_reduccion"]) > 0.0:
 			_row(vb, "Coste de maná", "-%.0f%%" % (float(mg["mana_reduccion"]) * 100.0))
+		for fila in MenuScaffold.filas_critico_magico(mg, wd.crit_bonus):
+			_row(vb, fila[0], fila[1])
 		_row(vb, "Durabilidad", Game.durabilidad_txt_item(wd), Game.durabilidad_color(wd))
 
 

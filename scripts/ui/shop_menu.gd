@@ -191,8 +191,7 @@ func _on_sub(i: int) -> void:
 
 func _rebuild() -> void:
 	for zona in [_header, _lista, _content]:
-		for c in zona.get_children():
-			c.queue_free()
+		MenuScaffold.vaciar(zona)
 	# Pestañas que solo existen cuando tienen algo dentro: el mostrador T2 (2), que lo abre el Rey
 	# Slime, el de recompra (3) y el pack inicial (4), que es de usar y tirar.
 	var visible_tab := {2: Game.tienda_t2_abierta(), 3: not Game.recompra.is_empty(),
@@ -716,6 +715,8 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		_row(vb, "Tipo", "Varita (mano secundaria, magia)")
 		_row(vb, "Amplif. magia", "×%.2f" % float(mm["magic_amp"]))
 		_row(vb, "Vel. casteo", "×%.2f" % wd.cast_vel_mult)
+		for fila in MenuScaffold.filas_critico_magico(mm, wd.crit_bonus):
+			_row(vb, fila[0], fila[1])
 	else:
 		_row(vb, "Tipo", _tipo_equipo(base))
 	# OJO: WeaponData no tiene campo 'descripcion', asi que base.get() devuelve null y str(null)

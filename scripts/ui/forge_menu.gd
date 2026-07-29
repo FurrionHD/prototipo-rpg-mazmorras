@@ -242,10 +242,25 @@ func _pick(i: int) -> void:
 	_rebuild()
 
 
+# Guarda de REENTRADA. Este menu es el unico al que le llegan tres reconstrucciones que pueden
+# pisarse: el focus_exited del stepper salta al liberar el LineEdit con foco (y su on_set acaba
+# llamando aqui otra vez, a mitad de este mismo pintado), y encima Net.hogar_cambiado /
+# reservas_cambiadas entran por red en cualquier momento — incluso disparadas por el propio
+# _preview_forjar, que publica reserva mientras pinta. Reconstruir dentro de una reconstruccion
+# pintaba la mitad de un menu sobre la otra mitad del anterior. Ver MenuScaffold.vaciar.
+var _reconstruyendo: bool = false
+
 func _rebuild() -> void:
+	if _reconstruyendo:
+		return
+	_reconstruyendo = true
+	_rebuild_real()
+	_reconstruyendo = false
+
+
+func _rebuild_real() -> void:
 	for zona in [_header, _lista, _content]:
-		for c in zona.get_children():
-			c.queue_free()
+		MenuScaffold.vaciar(zona)
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	var ids: Array = _tabs()

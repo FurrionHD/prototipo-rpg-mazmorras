@@ -129,8 +129,7 @@ func _input(event: InputEvent) -> void:
 
 func _rebuild() -> void:
 	for zona in [_header, _list, _detail]:
-		for c in zona.get_children():
-			c.queue_free()
+		MenuScaffold.vaciar(zona)
 	_recompute_recetas()
 
 	# Submenu de dos filas: TIER (Menores / Medianas) y TIPO (Vida / Maná). Las medianas solo

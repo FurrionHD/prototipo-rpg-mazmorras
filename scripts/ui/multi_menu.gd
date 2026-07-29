@@ -82,10 +82,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _pintar() -> void:
 	var header: VBoxContainer = _piezas["header"]
 	var lista: VBoxContainer = _piezas["lista"]
-	for c in header.get_children():
-		c.queue_free()
-	for c in lista.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(header)
+	MenuScaffold.vaciar(lista)
 
 	MenuScaffold.pestanas(header, ["MIS MUNDOS", "DE OTRAS PERSONAS", "TÚ Y TU CONEXIÓN"],
 		_pestana, _on_pestana, 150)
@@ -213,8 +211,7 @@ func _pintar_direcciones(lista: VBoxContainer) -> void:
 
 func _pintar_yo() -> void:
 	var vb: VBoxContainer = _piezas["content"]
-	for c in vb.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(vb)
 
 	MenuScaffold.titulo(vb, "QUIÉN ERES", 20, AMBAR)
 	MenuScaffold.nota(vb, "Esto es de la PERSONA, no de una partida: es lo que permite que un mundo "
@@ -270,8 +267,7 @@ func _pintar_yo() -> void:
 
 func _pintar_detalle() -> void:
 	var vb: VBoxContainer = _piezas["content"]
-	for c in vb.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(vb)
 
 	if _sel == "":
 		MenuScaffold.nota(vb, "Elige un mundo de la lista, o crea uno nuevo.\n\n"

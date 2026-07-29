@@ -76,8 +76,15 @@ var magia_base_factor: float = 1.0
 var stats_multiplicativas: bool = false
 var crit_dmg: float = 0.0        # se suma al MULTIPLICADOR de daño critico (StatsMath.CRIT_MULT).
                                  # Sale del arma (base × rareza + Precision). Los enemigos no
-                                 # llevan arma-con-rareza: se quedan en el ×1.5 base.
+                                 # llevan arma-con-rareza: se quedan en el ×1.25 base.
 var precision: float = 0.0       # ACIERTO (mejora Precision): baja la evasion del rival
+# CRITICO MAGICO (29/07). Van APARTE de crit_bonus/crit_dmg y no por mano a proposito: recitar un
+# hechizo no se hace con una mano concreta, asi que no puede alternar en dual-wield. Salen de la
+# mejora de Precision del BASTON y/o la VARITA, sumados en Game.loadout_mods(). Un guerrero que
+# lance un hechizo los deja en 0 y critea solo con lo que le da su Destreza. Ver
+# StatsMath.resolve_spell.
+var crit_magico: float = 0.0     # se suma a la prob. de critico de los HECHIZOS
+var crit_dmg_magico: float = 0.0 # se suma al multiplicador de daño critico de los HECHIZOS
 var dano_tipo: int = 0           # 0 CORTE, 1 CONTUNDENTE (WeaponData.DanoTipo)
 var aturdir_base: float = 0.0    # prob. base de aturdir/retrasar (contundentes)
 var energia_regen: float = 0.0   # energia que repone el basico con esta arma (0 = default global)

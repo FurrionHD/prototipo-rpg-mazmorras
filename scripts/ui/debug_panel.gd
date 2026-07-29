@@ -203,8 +203,7 @@ func _build_desarrollo(vb: VBoxContainer) -> void:
 func _sync_desarrollo() -> void:
 	if _desarrollo_list == null:
 		return
-	for c in _desarrollo_list.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(_desarrollo_list)
 	for d in Game.DESARROLLOS:
 		var p: Dictionary = Game.desarrollo_progreso(d)
 		var rango: int = int(p["rango"])
@@ -466,8 +465,7 @@ func _add_forja_mejora(cat: String, delta: int) -> void:
 func _rebuild_forja() -> void:
 	if _forja_rows == null:
 		return
-	for c in _forja_rows.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(_forja_rows)
 	var base := _forja_base()
 	var usadas: int = Upgrades.total_mejoras(_forja_mejoras)
 	var maxm: int = Upgrades.rareza_slots(_forja_rareza)
@@ -651,14 +649,11 @@ func _on_add_materiales() -> void:
 
 
 # --- Escaneo + categorizacion de TODOS los materiales (para el desplegable) ---
-# Escanea res://resources/materials/*.tres. Al ser una herramienta de DEV se lee la carpeta en
-# caliente: cualquier material nuevo aparece sin tocar nada.
+# Todos los materiales del juego, por el MANIFIESTO de Game. Antes hacia su propio DirAccess sobre
+# res://, que en el .exe exportado no enumera nada (el .pck): en la version compilada esta lista
+# salia vacia. El manifiesto ya avisa por consola en el editor si se queda corto.
 func _escanear_materiales() -> Array:
-	var rutas: Array = []
-	var carpeta := "res://resources/materials"
-	for f in DirAccess.get_files_at(carpeta):
-		if f.ends_with(".tres"):
-			rutas.append(carpeta.path_join(f))
+	var rutas: Array = Game.rutas_materiales().duplicate()
 	rutas.sort()
 	return rutas
 
@@ -781,8 +776,7 @@ func _slot_categories(slot: String) -> Array:
 func _rebuild_mejoras() -> void:
 	if _mej_rows == null:
 		return
-	for c in _mej_rows.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(_mej_rows)
 	var slot := _current_mej_slot()
 	var cats := _slot_categories(slot)
 	var mj: Dictionary = Game.equip_mejoras(slot)

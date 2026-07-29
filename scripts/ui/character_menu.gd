@@ -184,8 +184,7 @@ func _set_open(open: bool) -> void:
 # El reparto se hace por NOMBRE y no por indice (ver _rebuild): con una pestaña opcional en medio,
 # atarse a "el 3 es Hechizos" es pedir que el dia que se añada otra se pinte la que no toca.
 func _rebuild_tabs() -> void:
-	for c in _tab_box.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(_tab_box)
 	_tab_buttons.clear()
 	# "Desarrollo y pasivas" y no "Habilidades" a secas: en este juego las HABILIDADES ya son las
 	# cinco de DanMachi (la pagina del ⇄ dentro de Personaje). Dos pestañas con el mismo nombre y
@@ -214,8 +213,7 @@ func _on_tab(i: int) -> void:
 
 
 func _rebuild() -> void:
-	for c in _content.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(_content)
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	if _titulo_lbl != null:
@@ -651,6 +649,17 @@ func _bloque_magia(c: Combatant) -> void:
 	if absf(amp - 1.0) > 0.001:
 		_row(_content, "   · tu Magia", "×%.2f" % por_magia)
 		_row(_content, "   · el arma", "×%.2f" % amp)
+	# CRITICO MAGICO (29/07). Espejo exacto de las dos lineas fisicas de _build_stats_page: mismo
+	# contest (tu Destreza contra la Agilidad de un enemigo con tus mismas stats) porque el critico
+	# es el mismo sistema lo lances o lo blandas. Lo que cambia es el BONUS: aqui entra el del arma
+	# MAGICA (mejora de Precision del baston/varita), no el de las manos, y por eso hacen falta sus
+	# propias filas: sin ellas un mago no tenia forma de saber si su Precision estaba haciendo algo.
+	var crit_mag_p: float = clampf(StatsMath.crit_chance(float(c.abilities.destreza),
+		float(c.abilities.agilidad)) + c.crit_magico, 0.0, 1.0)
+	_row(_content, "Prob. crítico mágico", _fmt_pct(crit_mag_p))
+	var crit_mag_mult: float = StatsMath.CRIT_MULT + c.crit_dmg_magico
+	_row(_content, "Daño crít. mágico", "×%.2f (+%d%%)" % [
+		crit_mag_mult, roundi((crit_mag_mult - 1.0) * 100.0)])
 	# (La defensa MAGICA no esta aqui: va arriba con la fisica y la vida, que es donde se buscan
 	# las defensas y donde la ve tambien el que no lleva arma magica.)
 	# El regen a 0 se enseña igual: es la unica forma de enterarse de que el mana solo se recupera
@@ -974,6 +983,11 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 	var crit: float = float(mods["crit"])
 	if crit != 0.0:
 		_row(vb, "  Crítico", _con_mejoras_pct(float(base["crit"]), crit))
+	# Daño critico REAL de esta arma (base comun + rareza + Precision). Se enseña SIEMPRE, igual que
+	# en MenuScaffold.filas_arma: faltaba solo aqui, y era justo la ficha donde se mira el arma que
+	# llevas puesta para decidir si merece la pena otra mejora de Precision.
+	_row(vb, "  Daño crítico", _con_mejoras("×%.2f",
+		StatsMath.CRIT_MULT + float(base["crit_dmg"]), StatsMath.CRIT_MULT + float(mods["crit_dmg"])))
 	if float(mods["precision"]) > 0.0:
 		_row(vb, "  Precisión", "+%s" % _fmt_pct(float(mods["precision"])))
 	var evasion: float = float(mods["evasion"])
@@ -1039,6 +1053,13 @@ func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base
 		cast_base + float(mgb["cast_vel_add"]), cast_base + float(mg["cast_vel_add"])))
 	if float(mg["mana_reduccion"]) > 0.0:
 		_row(vb, "  Coste de maná", "-%s" % _fmt_pct(float(mg["mana_reduccion"])))
+	# CRITICO MAGICO del arma (lo que aporta ELLA; la parte que pone tu Destreza va en el bloque
+	# Magia de la ficha). Es lo que sube la mejora de Precision en un baston o una varita.
+	if float(mg["crit_magico"]) != 0.0:
+		_row(vb, "  Crítico mágico", _con_mejoras_pct(float(mgb["crit_magico"]), float(mg["crit_magico"])))
+	_row(vb, "  Daño crít. mágico", _con_mejoras("×%.2f",
+		StatsMath.CRIT_MULT + float(mgb["crit_dmg_magico"]),
+		StatsMath.CRIT_MULT + float(mg["crit_dmg_magico"])))
 
 
 # "14.5 + (6.1) = 20.6". El BASE ya lleva dentro el tier y la rareza de ESTE objeto (no es el

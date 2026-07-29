@@ -175,6 +175,28 @@ static func decir(aviso: Label, txt: String, ok: bool = true) -> void:
 		Color(0.55, 0.85, 0.55) if ok else Color(0.9, 0.5, 0.5))
 
 
+# VACIA un contenedor de la UI. Parece un detalle y es EL bug de "el menu sale duplicado": todos los
+# _rebuild hacian `for c in zona.get_children(): c.queue_free()`, y queue_free NO saca el nodo del
+# arbol — lo marca y el SceneTree lo borra al final del frame. Hasta entonces el VBox sigue teniendo
+# a los viejos por hijos, asi que lo que se pinta a continuacion se apila DEBAJO: por eso aparecian
+# dos veces el selector de materiales y el boton de Crear.
+#
+# Y hay tres caminos que repintan antes de ese flush, los tres en la forja:
+#   - los _on_* son corrutinas: `await Net.abrir_taller()` espera frames enteros en el cliente.
+#   - Net.hogar_cambiado / reservas_cambiadas estan conectadas a _rebuild y llegan por red.
+#   - el focus_exited del stepper salta al liberar el LineEdit que tenia el foco -> _rebuild reentrante.
+#
+# remove_child() SI es inmediato, asi que quitandolo antes el orden deja de depender del frame.
+# Se sigue liberando con queue_free y no con free porque el nodo puede estar en mitad de una señal
+# suya (justo el caso del focus_exited) y free() ahi revienta.
+static func vaciar(zona: Node) -> void:
+	if zona == null:
+		return
+	for c in zona.get_children():
+		zona.remove_child(c)
+		c.queue_free()
+
+
 # --- Piezas sueltas que repiten los cinco menus ---
 
 # EL titulo de todos los menus. Devuelve el Label para poder colgarle cosas encima (ver titulo_item):
@@ -332,6 +354,20 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 		filas.append(["Vel. casteo", "×%.2f" % (w.cast_vel_mult + float(mg["cast_vel_add"]))])
 		if float(mg["mana_reduccion"]) > 0.0:
 			filas.append(["Coste de maná", "-%.0f%%" % (float(mg["mana_reduccion"]) * 100.0)])
+		filas += filas_critico_magico(mg, w.crit_bonus)
+	return filas
+
+
+# CRITICO MAGICO de un arma magica (baston o varita): lo que aporta ELLA, aparte del contest de tu
+# Destreza. Va en su propia funcion porque lo pintan cuatro sitios (ficha de arma, inventario,
+# tienda y menu de personaje) y la varita no pasa por filas_arma. `crit_base` = el crit_bonus propio
+# del .tres, que hoy es 0 en todas.
+static func filas_critico_magico(mg: Dictionary, crit_base: float = 0.0) -> Array:
+	var filas: Array = []
+	var crit: float = crit_base + float(mg["crit_magico"])
+	if crit != 0.0:
+		filas.append(["Crítico mágico", "%+.0f%%" % (crit * 100.0)])
+	filas.append(["Daño crít. mágico", "×%.2f" % (StatsMath.CRIT_MULT + float(mg["crit_dmg_magico"]))])
 	return filas
 
 
@@ -429,6 +465,14 @@ static func _filas_mejora_magia(filas: Array, base_amp: float, mp_regen: float, 
 	if float(a["mana_reduccion"]) > 0.0 or float(b["mana_reduccion"]) > 0.0:
 		_attr(filas, "Coste de maná", "-%.0f%%" % (float(a["mana_reduccion"]) * 100.0),
 			_d(float(a["mana_reduccion"]) * 100.0, float(b["mana_reduccion"]) * 100.0, "+%.0f%%"))
+	# CRITICO MAGICO: es lo que sube la mejora de Precision en un arma magica, asi que tiene que
+	# verse en el preview o la mejora parece que no hace nada.
+	if float(a["crit_magico"]) > 0.0 or float(b["crit_magico"]) > 0.0:
+		_attr(filas, "Crítico mágico", "%+.0f%%" % (float(a["crit_magico"]) * 100.0),
+			_d(float(a["crit_magico"]) * 100.0, float(b["crit_magico"]) * 100.0, "+%.0f%%"))
+	_attr(filas, "Daño crít. mágico", "×%.2f" % (StatsMath.CRIT_MULT + float(a["crit_dmg_magico"])),
+		_d(StatsMath.CRIT_MULT + float(a["crit_dmg_magico"]),
+			StatsMath.CRIT_MULT + float(b["crit_dmg_magico"]), "+%.2f"))
 
 static func _attr(filas: Array, etiqueta: String, valor: String, delta: String) -> void:
 	filas.append([etiqueta, valor, delta])

@@ -103,8 +103,7 @@ func _ready() -> void:
 
 # Una fila por ranura: [Continuar/Jugar] [Nueva partida] [Borrar].
 func _pintar() -> void:
-	for c in _lista.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(_lista)
 
 	var ultima: int = Perfil.ultima_ranura()
 	for slot in range(1, Perfil.RANURAS + 1):

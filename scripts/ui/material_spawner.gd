@@ -119,10 +119,10 @@ func _ready() -> void:
 func _materiales() -> Array:
 	var tipo: int = CATEGORIAS[_cat_idx][1]
 	var out: Array = []
-	for f in DirAccess.get_files_at("res://resources/materials"):
-		if not f.ends_with(".tres"):
-			continue
-		var m: MaterialData = load("res://resources/materials/" + f) as MaterialData
+	# Por el MANIFIESTO de Game y no por DirAccess: en el .exe exportado DirAccess no enumera el .pck
+	# y esta lista salia VACIA, o sea que en la version compilada no habia materiales que colocar.
+	for ruta in Game.rutas_materiales():
+		var m: MaterialData = load(ruta) as MaterialData
 		if m != null and int(m.tipo) == tipo and m.exigencia > 0.0:
 			out.append(m)
 	out.sort_custom(func(a, b): return a.exigencia < b.exigencia)

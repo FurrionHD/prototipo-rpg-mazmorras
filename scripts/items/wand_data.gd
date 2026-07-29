@@ -27,6 +27,10 @@ class_name WandData
 # La varita apenas bloquea/estorba (va casi neutra en lo defensivo).
 @export var bloqueo: float = 0.0
 @export var evasion_penal: float = 0.0
+# Prob. de critico MAGICO que aporta la varita de fabrica, igual que WeaponData.crit_bonus hace con
+# el fisico. Hoy todas van a 0 y el critico magico sale entero de la mejora de Precision; existe
+# para que algun dia pueda haber una varita con identidad de critico, como la daga entre las melee.
+@export var crit_bonus: float = 0.0
 
 # HABILIDADES (KAN-57) que aporta la varita al loadout (Array[AbilityData]). Como es de
 # soporte y se lleva con OTRAS armas, su Canalizar da maná a peor ratio que el bastón.

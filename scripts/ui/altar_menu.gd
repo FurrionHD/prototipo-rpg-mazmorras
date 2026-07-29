@@ -97,8 +97,7 @@ func _pj() -> PersonajeData:
 # Una pestaña por miembro del grupo, con el numero que lo pone en cabeza (1/2/3) delante para que
 # se lea igual que la tecla. Con una sola persona no se pintan: un boton solo no elige nada.
 func _rebuild_tabs() -> void:
-	for c in _side.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(_side)
 	_tab_buttons.clear()
 	if Game.party.size() <= 1:
 		return
@@ -135,8 +134,7 @@ func mostrar_subida() -> void:
 
 
 func _rebuild() -> void:
-	for c in _content.get_children():
-		c.queue_free()
+	MenuScaffold.vaciar(_content)
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _pj_sel)
 

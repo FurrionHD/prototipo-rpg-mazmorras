@@ -330,12 +330,15 @@ const GAIN_FUERZA_ATAQUE := 0.15
 # continuo mientras haya un bicho al lado.
 # 0.15, medido EN LIMPIO tras arreglar los dos bugs que mataban la huida (la embestida reseteaba la
 # marca de agua, y solo contaba si el bicho perseguia al LIDER). A 0.25 una fuga daba ~1-1.5 por
-# persona y tick (2-3 ticks por fuga), y la Agilidad NO se entrena solo huyendo: esquivar (0.6) y
-# clavar criticos (0.3) la suben tambien en cada combate, asi que la fuga sumando encima la disparaba.
+# persona y tick (2-3 ticks por fuga), y la Agilidad NO se entrena solo huyendo: esquivar y clavar
+# criticos la suben tambien en cada combate, asi que la fuga sumando encima la disparaba.
 # OJO: el multiplicador de dificultad (hasta x2) y el reto (hasta x5) van ENCIMA de esto, asi que
 # huir de algo rapido y de tu nivel paga bastante mas; de uno lento y flojo, casi nada.
-# PROVISIONAL -> Excel/playtest.
-const GAIN_AGILIDAD_HUIDA := 0.15
+#
+# SUBIDA x1.5 (29/07): en el playtest la Agilidad se quedaba MUY plantada frente a Fuerza. Se sube
+# la tanda entera de fuentes de Agilidad por igual (esta, esquivar, critico y tala) para no cambiar
+# el reparto entre ellas, solo el ritmo. PROVISIONAL -> Excel/playtest.
+const GAIN_AGILIDAD_HUIDA := 0.225   # (0.15 x1.5)
 # Y lo que CUESTA la fuga multiplica lo que enseña: dejar atras a un bicho lento siendo un rayo no
 # entrena nada, y despegarse de uno que te pisa los talones entrena mucho. Se mide con la velocidad
 # de persecucion contra la TUYA REAL, con el peso y la armadura DENTRO a proposito: ir cargado te
@@ -355,7 +358,11 @@ func huida_dificultad_mult(vel_perseguidor: float, vel_propia: float) -> float:
 	if vel_propia <= 0.0:
 		return HUIDA_DIF_MAX
 	return clampf(vel_perseguidor / vel_propia * HUIDA_DIF_FACTOR, HUIDA_DIF_MIN, HUIDA_DIF_MAX)
-const GAIN_RESISTENCIA_GOLPE := 0.23
+# RESISTENCIA por encajar un golpe. SUBIDA x1.5 (29/07): en el playtest el que hacia de TANQUE
+# acababa con mas Fuerza que Resistencia pese a comerse casi todos los golpes de cada pelea, que es
+# justo lo contrario de lo que tiene que pasar. El reparto por aggro (RESIS_*) ya estaba, pero
+# repartia una tarta demasiado pequeña.
+const GAIN_RESISTENCIA_GOLPE := 0.345   # (0.23 x1.5)
 # SUBIDA DE PRUEBA (20/07): la RECOLECCION rendia demasiado poca stat por pieza — un material base
 # daba ~0.6, y farmear se hacia largo. Se multiplica x2.5 la ganancia de los TRES minijuegos de
 # recoleccion (mineria, herboristeria, talado), SIN tocar su dificultad (curva_reto y las formulas
@@ -375,16 +382,29 @@ const GAIN_FUERZA_MINERIA := 2.25      # (0.9 x2.5)
 # AGILIDAD: el talado. Talar NO va de fuerza bruta (si fuese Fuerza, entre la mina y la madera
 # la Fuerza se dispararia y las demas se quedarian atras): va de COMPAS, o sea de Agilidad. Y
 # de paso le da a la Agilidad una fuente fuera del combate, que le faltaba.
-const GAIN_AGILIDAD_TALA := 2.5        # (1.0 x2.5)
+const GAIN_AGILIDAD_TALA := 3.75       # (1.0 x2.5, y x1.5 en la subida de Agilidad del 29/07)
 # Fuentes de COMBATE para las stats que se farmean mal (bases altas: son eventos
 # raros, no ocurren cada turno como el ataque):
-const GAIN_AGILIDAD_ESQUIVAR := 0.6   # esquivar un golpe entrena Agilidad (adios correr en circulos)
-const GAIN_AGILIDAD_CRITICO := 0.3    # clavar un critico entrena Agilidad (encontrar el hueco)
+# Las dos subidas x1.5 el 29/07 (ver GAIN_AGILIDAD_HUIDA). Y ademas se les taparon los agujeros:
+# antes solo contaban en el ataque BASICO — esquivar dentro de una habilidad enemiga y clavar un
+# critico con una habilidad propia no pagaban nada, que es media Agilidad de cada pelea perdida.
+const GAIN_AGILIDAD_ESQUIVAR := 0.9   # esquivar un golpe entrena Agilidad (adios correr en circulos)
+const GAIN_AGILIDAD_CRITICO := 0.45   # clavar un critico entrena Agilidad (encontrar el hueco)
+# HUIR DEL COMBATE (no del mapa: eso es GAIN_AGILIDAD_HUIDA). Se paga por INTENTARLO, salga o no:
+# fallar la fuga y comerte el turno tambien enseña, y si solo pagara al escapar el jugador aprenderia
+# de la suerte del dado. Base ALTA porque es un evento raro (una vez por pelea como mucho) frente a
+# esquivar, que puede pasar varias veces por turno. Lo cobra el GRUPO, mismo criterio que el mapa:
+# huyendo corren todos. PROVISIONAL -> Excel/playtest.
+const GAIN_AGILIDAD_HUIDA_COMBATE := 0.5
 # TOPE del factor de PESO (motion_value) que escala esa ganancia. Al darle critico propio a las
 # pesadas (hacha 0.05, mandoble 0.025) critean ~25% mas que antes, y sin tope la Agilidad que
 # entrenan se disparaba. El tope les recorta ~20-25% por golpe y NO toca a las ligeras (MV < 1.2).
 const GAIN_AGILIDAD_CRIT_MV_MAX := 1.2
-const GAIN_RESISTENCIA_BLOQUEO := 0.3 # bloquear con Defender entrena Resistencia extra (KAN-81); moderado para no sobre-premiar el escudo
+# Bloquear con Defender entrena Resistencia EXTRA (KAN-81), aparte de la del golpe encajado.
+# Subida x1.25 el 29/07 (menos que el x1.5 del golpe a proposito: lo que faltaba era Resistencia en
+# general, no premiar mas todavia al que lleva escudo). Y se le tapo el agujero: la rama de HABILIDAD
+# enemiga calculaba el bloqueo para el log pero no pagaba este extra.
+const GAIN_RESISTENCIA_BLOQUEO := 0.375   # (0.3 x1.25)
 # REPARTO DE LA RESISTENCIA EN GRUPO. El aggro (escudo x2, Provocar x4) desviaba casi todos los
 # golpes al tanque, y sin querer congelaba la Resistencia del grupo entero: los demas apenas
 # encajaban golpes, y el tanque los encajaba MUY reducidos. Asi que la ganancia por golpe se
@@ -1686,6 +1706,13 @@ func limpiar_mundo_heredado() -> void:
 	# El progreso del mundo: los jefes y los guardianes que cayeron son los de MI mundo, no los de este.
 	bosses_derrotados.clear()
 	guardianes_vencidos.clear()
+	# Lo que CONOCES de los materiales (que sub-tiers te ofrece el herrero / el carpintero). Faltaba
+	# aqui, y era el bug de "al invitado le salen todos los sub-tiers del T1 de base": si venias de
+	# tu propia partida con cobre veteado descubierto, te lo llevabas puesto al mundo ajeno aunque tu
+	# personaje de alli acabara de nacer. Lo tuyo se borra y lo que sepa ESTE personaje llega en su
+	# JugadorData (_adoptar_jugador lo repone); si no trae ninguno, empieza sabiendo solo el cobre en
+	# bruto, igual que en nueva_partida.
+	materiales_vistos.clear()
 	# El mapa y la mazmorra: este mundo tiene OTRA semilla, esos pisos no son estos.
 	olvidar_mazmorra()
 	mazmorra_persistente.clear()
@@ -1800,6 +1827,9 @@ func exportar_partida_invitado() -> SaveData:
 	d.mapa_snapshot = (mio["mapa_snapshot"] as Dictionary).duplicate(true)
 	d.mapa_trabajo = (mio["mapa_trabajo"] as Dictionary).duplicate(true)
 	d.bosses_derrotados = (mio["bosses_derrotados"] as Dictionary).duplicate()
+	# Los materiales CONOCIDOS vuelven a los que sabia al entrar: los sub-tiers que haya descubierto
+	# picando en el mundo del host son de ese mundo, no del mio (ver Net._congelar_mi_mundo).
+	d.materiales_vistos = (mio.get("materiales_vistos", {}) as Dictionary).duplicate()
 	# vistas_baseline apunta a la niebla de la SESION (ver iniciar_expedicion_mapa): en mi save no
 	# significa nada. Se deja vacio; la proxima expedicion en mi mundo lo rehace al entrar.
 	d.vistas_baseline = {}
@@ -3640,6 +3670,10 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	c.mp_regen_turno = float(m["mp_regen_turno"])
 	c.mana_reduccion = float(m["mana_reduccion"])
 	c.cast_velocidad_mult = float(m["cast_velocidad_mult"])
+	# CRITICO MAGICO: va del loadout entero y no por mano (recitar no se hace con una mano), por eso
+	# se pone aqui y no en _hand_from. Ver StatsMath.resolve_spell.
+	c.crit_magico = float(m["crit_magico"])
+	c.crit_dmg_magico = float(m["crit_dmg_magico"])
 
 	# PERKS de combate (habilidades de desarrollo). Van los ULTIMOS, encima de lo que dan el equipo
 	# y la armadura: son tuyos, no del loadout, asi que no dependen de lo que lleves puesto. Se leen
@@ -3721,6 +3755,11 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 	var mp_regen_turno := 0.0
 	var mana_reduccion := 0.0
 	var cast_vel_add := 0.0
+	# CRITICO MAGICO (29/07): lo aporta la mejora de Precision del baston y/o la varita. Se SUMAN los
+	# dos (llevar las dos cosas no es posible hoy —el baston ocupa las dos manos— pero si algun dia
+	# lo fuera, sumar es lo coherente con el resto de mods magicos).
+	var crit_magico := 0.0
+	var crit_dmg_magico := 0.0
 	# Recitar un encantamiento no se hace con el arma: por defecto va a velocidad NORMAL (1.0).
 	# Solo las armas MAGICAS (baston / varita) la tocan, y con su campo PROPIO cast_vel_mult:
 	# lo rapido que RECITAS con un arma no tiene por que ser lo rapido que la BLANDES.
@@ -3732,6 +3771,8 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		mp_regen_turno += main.mp_regen_turno * float(mm["regen_mult"])
 		mana_reduccion += float(mm["mana_reduccion"])
 		cast_vel_add += float(mm["cast_vel_add"])
+		crit_magico += main.crit_bonus + float(mm["crit_magico"])
+		crit_dmg_magico += float(mm["crit_dmg_magico"])
 	if p.equipped_off is WandData:
 		var wand: WandData = p.equipped_off
 		var mo := Upgrades.magic_mods(wand.magic_amp, tier_mult(equip_tier("off", p)), equip_rareza("off", p), equip_mejoras("off", p))
@@ -3739,6 +3780,8 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		mp_regen_turno += wand.mp_regen_turno * float(mo["regen_mult"])
 		mana_reduccion += float(mo["mana_reduccion"])
 		cast_vel_add += float(mo["cast_vel_add"])
+		crit_magico += wand.crit_bonus + float(mo["crit_magico"])
+		crit_dmg_magico += float(mo["crit_dmg_magico"])
 		cast_base = wand.cast_vel_mult   # al castear, la barra usa la velocidad de la varita
 	m["magic_amp"] = magic_amp
 	# El BONO va aqui, en la MECANICA, y no en el mp_regen_turno de baston.tres/varita.tres: los
@@ -3751,6 +3794,8 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 	m["mp_regen_turno"] = mp_regen_turno * MAGIA_REGEN_BONUS
 	m["mana_reduccion"] = minf(0.25, mana_reduccion)
 	m["cast_velocidad_mult"] = cast_base * (1.0 + cast_vel_add)
+	m["crit_magico"] = crit_magico
+	m["crit_dmg_magico"] = crit_dmg_magico
 	return m
 
 
@@ -4142,6 +4187,115 @@ func _avisar_manifiesto_corto() -> void:
 # entraba sin arma y peleaba con los puños... sin un solo error por consola.
 func _ruta_plantilla_valida(r: String) -> bool:
 	return r != "" and r.begins_with("res://") and not r.contains("::")
+
+
+# ============================================================
+#  MANIFIESTOS de contenido escaneable (mismo problema y misma solucion que
+#  _MANIFIESTO_PLANTILLAS, ver arriba): DirAccess NO enumera los recursos del .pck, asi que en el
+#  .exe EXPORTADO cualquier lista construida escaneando una carpeta de res:// sale VACIA. Y aunque
+#  enumerase, al exportar los .tres se convierten a binario y aparecen como .res + .tres.remap, con
+#  lo que el filtro por extension fallaria igual. load() por ruta SI funciona en el .pck.
+#
+#  Lo sufrian tres herramientas de dev: el colocador de materiales de la arena (en el .exe no salia
+#  NINGUNO), el panel de debug y dev_curva_drops. Y el colocador de ENEMIGOS ni siquiera escaneaba:
+#  tenia 4 bichos escritos a mano de los 20 que hay.
+#
+#  Al añadir un material o un enemigo nuevo hay que apuntarlo aqui. En el EDITOR se contrasta con un
+#  escaneo real y se avisa por consola si la lista se ha quedado corta.
+# ------------------------------------------------------------
+const _CARPETA_MATERIALES := "res://resources/materials"
+const _MANIFIESTO_MATERIALES := [
+	"res://resources/materials/acero.tres", "res://resources/materials/baba_abisal.tres",
+	"res://resources/materials/baba_fuego.tres", "res://resources/materials/baba_profunda.tres",
+	"res://resources/materials/baba_rey_slime.tres", "res://resources/materials/baba_slime.tres",
+	"res://resources/materials/baba_venenosa.tres", "res://resources/materials/chapa_acero.tres",
+	"res://resources/materials/chapa_cobre.tres", "res://resources/materials/chapa_cobre_profundo.tres",
+	"res://resources/materials/chapa_cobre_veteado.tres", "res://resources/materials/chapa_hierro.tres",
+	"res://resources/materials/chapa_hierro_negro.tres", "res://resources/materials/chapa_hierro_templado.tres",
+	"res://resources/materials/cobre.tres", "res://resources/materials/cobre_profundo.tres",
+	"res://resources/materials/cobre_veteado.tres", "res://resources/materials/correa_cuero.tres",
+	"res://resources/materials/correa_reforzada.tres", "res://resources/materials/cuero_brunido.tres",
+	"res://resources/materials/cuero_curado.tres", "res://resources/materials/cuero_curtido.tres",
+	"res://resources/materials/cuero_endurecido.tres", "res://resources/materials/cuero_placado.tres",
+	"res://resources/materials/cuero_reforzado.tres", "res://resources/materials/cuero_simple.tres",
+	"res://resources/materials/cuero_t3.tres", "res://resources/materials/curtido_brunido.tres",
+	"res://resources/materials/curtido_curado.tres", "res://resources/materials/curtido_endurecido.tres",
+	"res://resources/materials/curtido_placado.tres", "res://resources/materials/curtido_reforzado.tres",
+	"res://resources/materials/esquirla_basalto.tres", "res://resources/materials/hebillas_acero.tres",
+	"res://resources/materials/hebillas_cobre.tres", "res://resources/materials/hebillas_hierro.tres",
+	"res://resources/materials/hierba_palida.tres", "res://resources/materials/hierro.tres",
+	"res://resources/materials/hierro_negro.tres", "res://resources/materials/hierro_templado.tres",
+	"res://resources/materials/icor.tres", "res://resources/materials/lingote_acero.tres",
+	"res://resources/materials/lingote_cobre.tres", "res://resources/materials/lingote_cobre_profundo.tres",
+	"res://resources/materials/lingote_cobre_veteado.tres", "res://resources/materials/lingote_hierro.tres",
+	"res://resources/materials/lingote_hierro_negro.tres", "res://resources/materials/lingote_hierro_templado.tres",
+	"res://resources/materials/liquen_abisal.tres", "res://resources/materials/madera_anillada.tres",
+	"res://resources/materials/madera_comun.tres", "res://resources/materials/madera_de_veta.tres",
+	"res://resources/materials/madera_dura.tres", "res://resources/materials/madera_ferrea.tres",
+	"res://resources/materials/madera_negra.tres", "res://resources/materials/madera_petrificada.tres",
+	"res://resources/materials/moho_simas.tres", "res://resources/materials/nucleo_aberracion.tres",
+	"res://resources/materials/nucleo_arana.tres", "res://resources/materials/nucleo_bestia.tres",
+	"res://resources/materials/nucleo_ciempies.tres", "res://resources/materials/nucleo_coloso.tres",
+	"res://resources/materials/nucleo_escarabajo.tres", "res://resources/materials/nucleo_fuego.tres",
+	"res://resources/materials/nucleo_gargola.tres", "res://resources/materials/nucleo_golem.tres",
+	"res://resources/materials/nucleo_jabali.tres", "res://resources/materials/nucleo_minotauro.tres",
+	"res://resources/materials/nucleo_rata.tres", "res://resources/materials/nucleo_rey_rata.tres",
+	"res://resources/materials/nucleo_rey_slime.tres", "res://resources/materials/nucleo_slime.tres",
+	"res://resources/materials/nucleo_slime_abisal.tres", "res://resources/materials/nucleo_trent.tres",
+	"res://resources/materials/nucleo_venenoso.tres", "res://resources/materials/placa_antigua.tres",
+	"res://resources/materials/quitina.tres", "res://resources/materials/raiz_amarga.tres",
+	"res://resources/materials/raiz_umbria.tres", "res://resources/materials/runa_arcilla.tres",
+	"res://resources/materials/sanguinaria.tres", "res://resources/materials/tablon_anillada.tres",
+	"res://resources/materials/tablon_comun.tres", "res://resources/materials/tablon_de_veta.tres",
+	"res://resources/materials/tablon_duro.tres", "res://resources/materials/tablon_ferrea.tres",
+	"res://resources/materials/tablon_negro.tres", "res://resources/materials/tablon_petrificada.tres",
+	"res://resources/materials/veneno_insecto.tres",
+]
+const _CARPETA_ENEMIGOS := "res://scenes/actors/enemy"
+const _MANIFIESTO_ENEMIGOS := [
+	"res://scenes/actors/enemy/aberracion.tres", "res://scenes/actors/enemy/acechador.tres",
+	"res://scenes/actors/enemy/arana.tres", "res://scenes/actors/enemy/bestia_acorazada.tres",
+	"res://scenes/actors/enemy/ciempies.tres", "res://scenes/actors/enemy/coloso.tres",
+	"res://scenes/actors/enemy/escarabajo.tres", "res://scenes/actors/enemy/gargola.tres",
+	"res://scenes/actors/enemy/golem_arcilla.tres", "res://scenes/actors/enemy/guardian_rango.tres",
+	"res://scenes/actors/enemy/jabali.tres", "res://scenes/actors/enemy/rata.tres",
+	"res://scenes/actors/enemy/rey_rata.tres", "res://scenes/actors/enemy/rey_slime.tres",
+	"res://scenes/actors/enemy/slime.tres", "res://scenes/actors/enemy/slime_abisal.tres",
+	"res://scenes/actors/enemy/slime_fuego.tres", "res://scenes/actors/enemy/slime_profundo.tres",
+	"res://scenes/actors/enemy/slime_veneno.tres", "res://scenes/actors/enemy/trent.tres",
+]
+
+
+# Todas las rutas de MaterialData del juego. Las consumen material_spawner, debug_panel y
+# dev_curva_drops, que antes hacian su propio DirAccess cada uno.
+func rutas_materiales() -> Array:
+	if OS.has_feature("editor"):
+		_avisar_manifiesto_corto_de(_CARPETA_MATERIALES, _MANIFIESTO_MATERIALES, "materiales")
+	return _MANIFIESTO_MATERIALES
+
+
+# Todas las rutas de EnemyData del juego (el spawner de la arena y dev_curva_drops).
+func rutas_enemigos() -> Array:
+	if OS.has_feature("editor"):
+		_avisar_manifiesto_corto_de(_CARPETA_ENEMIGOS, _MANIFIESTO_ENEMIGOS, "enemigos")
+	return _MANIFIESTO_ENEMIGOS
+
+
+# SOLO EDITOR: escanea la carpeta de verdad y canta lo que no este en la lista. Es el mismo servicio
+# que _avisar_manifiesto_corto le hace a las plantillas, pero parametrizado.
+func _avisar_manifiesto_corto_de(carpeta: String, manifiesto: Array, que: String) -> void:
+	var dir := DirAccess.open(carpeta)
+	if dir == null:
+		return
+	var faltan: Array = []
+	for f in dir.get_files():
+		if not (f.ends_with(".tres") or f.ends_with(".res")):
+			continue
+		var ruta: String = carpeta + "/" + f
+		if not manifiesto.has(ruta):
+			faltan.append(ruta)
+	if not faltan.is_empty():
+		push_warning("[dev] %s SIN apuntar en su manifiesto (no saldran en el .exe): %s" % [que, ", ".join(faltan)])
 
 
 # La ruta de la plantilla de 'item' ("" si no hay forma de saberla). REPARA la meta si la encuentra.
@@ -6400,6 +6554,27 @@ func ganar(abil: String, reto_val: float, base: float, max_reto: float = RETO_MA
 	var gain: float = base * clampf(reto_val, 0.0, max_reto) * factor * desarrollo_gain_mult(abil, p)
 	p.ability_internal[abil] = interno + gain
 
+
+# Fraccion de la excelia de un MINIJUEGO DE RECOLECCION que se llevan los que NO lo estan jugando.
+# Ver ganar_recoleccion.
+const RECO_REPARTO_GRUPO := 0.4
+
+# Excelia de los CUATRO minijuegos de recoleccion (extraccion, mineria, herboristeria, talado).
+# Es la unica ganancia del juego que se dispara fuera del combate, y hasta el 29/07 se la quedaba
+# ENTERA el lider, porque es el que maneja el pico: en el playtest eso hacia que el que llevabas
+# delante se despegara del resto sin remedio (una tala vale como ~16 fugas, y el de detras no veia
+# ni una). Cambiar de lider a mano para repartirlo no es jugar, es contabilidad.
+#
+# Ahora lo cobra el GRUPO, pero NO por igual: el que trabaja se lleva la parte entera y los demas
+# una fraccion (RECO_REPARTO_GRUPO). Es la version honesta del reparto: mirar como talan enseña
+# algo —vas con ellos, cargas la madera, haces el relevo— pero no lo mismo que dar los hachazos.
+# El reto y los rendimientos decrecientes se calculan por persona dentro de ganar(), asi que al mas
+# flojo del grupo la misma veta le sigue enseñando mas.
+func ganar_recoleccion(abil: String, reto_val: float, base: float, max_reto: float = RETO_MAX) -> void:
+	var quien: PersonajeData = lider()   # el que juega el minijuego es siempre el que va delante
+	for pj in party:
+		ganar(abil, reto_val, base if pj == quien else base * RECO_REPARTO_GRUPO, max_reto, pj)
+
 # Poder del jugador DE POR VIDA (suma de los totales ocultos) con un suelo para no dividir por 0.
 # Es el baremo contra el contenido de niveles ANTERIORES: no se resetea al ascender y ademas crece
 # un NIVEL_SPIKE extra en cada ascenso (ver subir_nivel), asi que lo viejo se hunde mas con cada
@@ -7661,7 +7836,7 @@ func _on_extraction_finished(cristal: Cristal, corpse) -> void:
 		# otras tres profesiones (ver _on_herboristeria_finished y sus hermanas): la dificultad
 		# cruda -> curva_reto -> ganar, con los mismos pivote/pendiente/tope. Asi un veterano
 		# destripando ratas deja de aprender, y un tier alto le sigue enseñando.
-		ganar("destreza", curva_reto(_last_extraction_reto, EXTRACTION_DESTREZA_PIVOTE,
+		ganar_recoleccion("destreza", curva_reto(_last_extraction_reto, EXTRACTION_DESTREZA_PIVOTE,
 			EXTRACTION_DESTREZA_SLOPE, EXTRACTION_DESTREZA_RETO_MAX), GAIN_DESTREZA_MINIJUEGO)
 	else:
 		print("El cristal se rompio: lo has perdido.")
@@ -7817,7 +7992,7 @@ func _on_mineria_finished(item: MaterialItem, nodo) -> void:
 		print("La veta se deshace en escombro: no sacas nada.")
 	# La FUERZA se entrena aunque la pieza salga rota: has picado igual. Lo que pierdes al
 	# hacerlo mal es el botin, no el aprendizaje.
-	ganar("fuerza", curva_reto(_last_reco_reto, MINERIA_PIVOTE, MINERIA_SLOPE, MINERIA_RETO_MAX),
+	ganar_recoleccion("fuerza", curva_reto(_last_reco_reto, MINERIA_PIVOTE, MINERIA_SLOPE, MINERIA_RETO_MAX),
 		GAIN_FUERZA_MINERIA, RETO_MAX_FISICO)
 
 
@@ -7869,7 +8044,7 @@ func _on_herboristeria_finished(item: MaterialItem, nodo) -> void:
 			_aviso_recogida(item.nombre(), 1, "¡PURO!")
 	else:
 		print("La planta queda hecha jirones: no sirve.")
-	ganar("destreza", curva_reto(_last_reco_reto, HERB_PIVOTE, HERB_SLOPE, HERB_RETO_MAX),
+	ganar_recoleccion("destreza", curva_reto(_last_reco_reto, HERB_PIVOTE, HERB_SLOPE, HERB_RETO_MAX),
 		GAIN_DESTREZA_PLANTA)
 
 
@@ -7919,7 +8094,7 @@ func _on_talado_finished(item: MaterialItem, nodo) -> void:
 		print("El tronco se raja en astillas: no sacas nada.")
 	# Como en la mineria: la Agilidad se entrena aunque la pieza salga rota. Lo que pierdes al
 	# hacerlo mal es el botin, no el aprendizaje.
-	ganar("agilidad", curva_reto(_last_reco_reto, TALA_PIVOTE, TALA_SLOPE, TALA_RETO_MAX),
+	ganar_recoleccion("agilidad", curva_reto(_last_reco_reto, TALA_PIVOTE, TALA_SLOPE, TALA_RETO_MAX),
 		GAIN_AGILIDAD_TALA, RETO_MAX_FISICO)
 
 
@@ -8032,21 +8207,19 @@ func dev_curva_recoleccion(pisos: Array = [1, 3, 5, 8, 13]) -> void:
 #  Las probabilidades son POR CADAVER EXTRAIDO: si no haces la extraccion, no cae nada.
 # ============================================================
 func dev_curva_drops(pisos: Array = [1, 2, 3, 4, 6, 8, 10, 12]) -> void:
-	var dir := "res://scenes/actors/enemy/"
-	var nombres: PackedStringArray = DirAccess.get_files_at(dir)
+	# Por el MANIFIESTO, no por DirAccess: en el .exe exportado esto salia sin una sola fila.
+	var nombres: Array = rutas_enemigos().duplicate()
 	nombres.sort()
 	print("[dev] curva de drops (%% por cadaver EXTRAIDO; '-' = no aparece en ese piso)")
 	var cab: String = "%-20s |" % "enemigo"
 	for p in pisos:
 		cab += " piso %-2d  |" % int(p)
 	print(cab)
-	for f in nombres:
-		if not f.ends_with(".tres"):
-			continue
-		var data: EnemyData = load(dir + f) as EnemyData
+	for ruta in nombres:
+		var data: EnemyData = load(ruta) as EnemyData
 		if data == null or (data.drop_material == null and data.nucleo == null):
 			continue
-		var linea: String = "%-20s |" % f.get_basename()
+		var linea: String = "%-20s |" % str(ruta).get_file().get_basename()
 		for p in pisos:
 			var piso: int = int(p)
 			if piso < data.drop_piso_debut:

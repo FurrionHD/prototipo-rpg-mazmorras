@@ -105,12 +105,12 @@ const CAT_NOMBRE := {
 const AGUDEZA_STEP := 0.05        # +raw, en % de la base del arma (decreciente)
 const PRECISION_CRIT_STEP := 0.02 # +prob. critico
 const PRECISION_HIT_STEP := 0.02  # +acierto (baja evasion rival)
-# DAÑO critico (KAN-52). Se SUMA al multiplicador base (StatsMath.CRIT_MULT ×1.5) y lo escala la
+# DAÑO critico (KAN-52). Se SUMA al multiplicador base (StatsMath.CRIT_MULT ×1.25) y lo escala la
 # RAREZA, como todo lo que hace mejor a un arma. De momento la base es IGUAL para todas: lo que
 # diferencia a un arma es su PROBABILIDAD de critico (crit_bonus), no lo fuerte que pega al
 # critear; el daño critico lo pones TU con rareza + mejoras de Precision. Asi Precision deja de
 # ser "la mejora del %" y pasa a ser la mejora de critico ENTERA (prob + acierto + daño).
-const CRIT_DMG_BASE := 0.25          # todas las armas parten de ×1.75 de critico (comun, sin mejoras)
+const CRIT_DMG_BASE := 0.25          # todas las armas parten de ×1.50 de critico (comun, sin mejoras)
 const PRECISION_CRITDMG_STEP := 0.06 # +daño critico por punto de Precision (decreciente)
 const PESO_STEP := 0.03           # +aturdir/stun (solo contundentes)
 const RAPIDEZ_STEP := 0.03        # +velocidad arma
@@ -278,10 +278,14 @@ static func weapon_categories(w: WeaponData) -> Array:
 	cats.append(DURABILIDAD)  # sube el maximo de durabilidad
 	return cats
 
-# Categorias magicas base (potencia + gestion de maná). El baston añade encima
+# Categorias magicas base (potencia + gestion de maná + critico). El baston añade encima
 # Agudeza/Peso; la varita se queda solo con estas (no ataca).
+#
+# PRECISION entro aqui el 29/07, cuando los hechizos estrenaron critico: es la mejora de critico del
+# juego y no tenia sentido que un mago no pudiera tocarla. En un baston sube ADEMAS su critico
+# fisico (el bastonazo), que es la misma mejora bien entendida; en una varita solo el magico.
 static func magic_categories() -> Array:
-	return [POTENCIA, EFICIENCIA, CELERIDAD, REGENERACION]
+	return [POTENCIA, EFICIENCIA, CELERIDAD, REGENERACION, PRECISION]
 
 # Categorias VALIDAS de una varita (magicas + durabilidad reservada).
 static func wand_categories() -> Array:
@@ -329,8 +333,15 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 		var aturdir_mag := 0.0
 		if int(w.dano_tipo) == 1:  # CONTUNDENTE
 			aturdir_mag = (w.aturdir_base + dim_sum(PESO_STEP, _count(mejoras, PESO))) * rmult
-		return {"raw": raw_mag, "crit": mejor_con_rareza(w.crit_bonus, rmult), "precision": 0.0,
-			"crit_dmg": CRIT_DMG_BASE * rmult,
+		# La PRECISION del baston cuenta tambien para su golpe FISICO, con las mismas formulas que
+		# un arma normal. Antes esta rama devolvia precision 0.0 porque el baston no podia mejorarla;
+		# desde que la Precision es categoria magica (magic_categories) si puede, y capar el golpe
+		# seria arbitrario: es la misma mejora en la misma arma.
+		var kp_mag := _count(mejoras, PRECISION)
+		return {"raw": raw_mag,
+			"crit": mejor_con_rareza(w.crit_bonus + dim_sum(PRECISION_CRIT_STEP, kp_mag), rmult),
+			"precision": dim_sum(PRECISION_HIT_STEP, kp_mag) * rmult,
+			"crit_dmg": (CRIT_DMG_BASE + dim_sum(PRECISION_CRITDMG_STEP, kp_mag)) * rmult,
 			"aturdir": aturdir_mag, "evasion": w.evasion_bonus * rmult,
 			"bloqueo": w.bloqueo * rmult, "vel_mult": 1.0}
 	var n := mejoras_combate(mejoras)   # la Durabilidad no cuenta para el +10% de daño
@@ -402,6 +413,14 @@ static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dict
 		"regen_mult": rmult * regen_tier_ratio(tmult)
 			* (1.0 + minf(cap_rareza(REGENERACION_CAP, rareza),
 				dim_sum(REGENERACION_STEP, _count(mejoras, REGENERACION)) * rmult)),
+		# CRITICO MAGICO (29/07): lo da la mejora de PRECISION, con las MISMAS formulas y los mismos
+		# steps que en un arma fisica. La Precision es la mejora de critico entera, tambien aqui: lo
+		# unico que no aporta en magia es el ACIERTO (un hechizo bien recitado no se esquiva).
+		# La base comun (CRIT_DMG_BASE) se cobra igual que en el arma fisica, asi que un baston sin
+		# mejoras ya critea al ×1.50 y no al ×1.25 pelado.
+		"crit_magico": dim_sum(PRECISION_CRIT_STEP, _count(mejoras, PRECISION)) * rmult,
+		"crit_dmg_magico": (CRIT_DMG_BASE
+			+ dim_sum(PRECISION_CRITDMG_STEP, _count(mejoras, PRECISION))) * rmult,
 	}
 
 

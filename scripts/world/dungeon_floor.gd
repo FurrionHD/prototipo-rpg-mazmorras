@@ -665,21 +665,32 @@ func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
 	return true
 
 
-# QUE material sale en esta celda, AHORA. Se tira cada vez, no se guarda.
+# QUE material sale en esta celda, AHORA. No se guarda: se deriva.
 #
-# Antes el material era DETERMINISTA (salia de la semilla del piso), asi que una veta que te toco
-# de cobre veteado lo seria para siempre, en todas las bajadas. Con los sub-tiers eso convierte la
-# mezcla del piso en una loteria de una sola tirada: si tu piso 4 salio con mal reparto, te lo
-# comes toda la partida. Ahora cada vez que un nodo nace o REAPARECE se vuelve a tirar contra la
-# tabla del piso, asi que la proporcion de §rampa se cumple a la larga en cada celda.
+# Antes el material era DETERMINISTA POR CELDA (salia de la semilla del piso), asi que una veta que
+# te toco de cobre veteado lo seria para siempre, en todas las bajadas. Con los sub-tiers eso
+# convierte la mezcla del piso en una loteria de una sola tirada: si tu piso 4 salio con mal
+# reparto, te lo comes toda la partida. Asi que se paso a tirar de verdad en cada nacimiento.
 #
-# Lo que sigue saliendo de la semilla es DONDE hay sitios de recoleccion (la forma del piso), que
-# es lo que de verdad tiene que ser reproducible.
-func _material_del_sitio(celda: Vector2i) -> MaterialData:
+# Y ESO ROMPIO EL MULTIJUGADOR (29/07): la tirada iba al randf() GLOBAL, o sea que cada maquina
+# sacaba la suya y dos jugadores veian materiales DISTINTOS en la misma veta (uno cobre normal, otro
+# veteado). Peor todavia: al picarla cada uno DESCUBRIA su sub-tier, y por ahi se colaban en el
+# herrero del invitado metales que en el mundo del host no habian salido nunca.
+#
+# La solucion se queda con las dos cosas: la tirada es de verdad (cada nacimiento vuelve a rodar)
+# pero SEMBRADA, con la semilla del piso —que en multi es la del host— + la celda + un 'nonce' que
+# identifica ESTE nacimiento. Al construir el piso el nonce es 0 en todas las maquinas; al revivir,
+# el host manda el suyo por RPC (ver Net._revivir_celda). Mismos tres numeros = mismo material, sin
+# necesidad de transportar la ruta del .tres ni de mantener una tabla sincronizada.
+#
+# Lo que sigue saliendo de la semilla a secas es DONDE hay sitios de recoleccion (la forma del piso).
+func _material_del_sitio(celda: Vector2i, nonce: int = 0) -> MaterialData:
 	var tabla: MaterialTable = _tabla_de_tipo(int((_sitios.get(celda, {}) as Dictionary).get("tipo", -1)))
 	if tabla == null:
 		return null
-	return tabla.elegir(Game.current_floor)   # sin rng = tirada de verdad
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_semilla_del_piso(), celda.x, celda.y, nonce])
+	return tabla.elegir(Game.current_floor, rng)
 
 
 func _tabla_de_tipo(tipo: int) -> MaterialTable:
@@ -739,13 +750,19 @@ func _repoblar_agotados(delta: float) -> void:
 	for celda in _agotados.keys():
 		if Game.tiempo_mazmorra - float(_agotados[celda]) < Game.RESPAWN_SEGUNDOS:
 			continue
-		revivir_celda(celda)
+		# Nonce al azar: en solitario no hay nadie con quien cuadrar, y lo que se quiere es que la
+		# veta que vuelve pueda traer otro sub-tier.
+		revivir_celda(celda, randi())
 
 
 # Hace BROTAR otra vez la celda: levanta el sello y planta el nodo con el material RE-TIRADO.
 # Sale de _repoblar_agotados porque lo llaman DOS sitios: el barrido local (solitario) y, en
 # multijugador, Net._revivir_celda cuando el host decide que a ese sitio le toca volver.
-func revivir_celda(celda: Vector2i) -> void:
+#
+# 'nonce' identifica ESTE nacimiento y es lo que hace que la tirada del material sea la misma en
+# todas las maquinas: en solitario lo pone quien llama (un numero al azar, para que revivir vuelva a
+# rodar de verdad) y en multi viene del HOST por RPC. Ver _material_del_sitio.
+func revivir_celda(celda: Vector2i, nonce: int = 0) -> void:
 	_olvidar_agotado(celda)
 	var sitio: Dictionary = _sitios.get(celda, {})
 	if sitio.is_empty():
@@ -754,7 +771,7 @@ func revivir_celda(celda: Vector2i) -> void:
 	for n in get_tree().get_nodes_in_group("recolectable"):
 		if is_instance_valid(n) and n.celda == celda and not n.agotado:
 			return
-	var m: MaterialData = _material_del_sitio(celda)
+	var m: MaterialData = _material_del_sitio(celda, nonce)
 	if m == null:
 		return   # la tabla no tiene nada para esta profundidad: la celda se queda vacia
 	_instanciar_nodo(int(sitio["tipo"]), celda, m, true)

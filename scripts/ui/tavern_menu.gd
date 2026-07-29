@@ -71,8 +71,7 @@ func _input(event: InputEvent) -> void:
 
 func _rebuild() -> void:
 	for zona in [_header, _content, _lista]:
-		for c in zona.get_children():
-			c.queue_free()
+		MenuScaffold.vaciar(zona)
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 	_dinero_lbl.text = "%d monedas" % Game.money
 
