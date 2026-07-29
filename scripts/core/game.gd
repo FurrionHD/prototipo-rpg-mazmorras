@@ -5941,6 +5941,13 @@ func fabricar_herramienta(tipo: int, lingote: MaterialData, sel_met: Dictionary,
 	_tirar_devolucion(lingote, g_met, int(HERRAMIENTA_COSTE["metal"]))
 	_tirar_devolucion(tab, g_tab, int(HERRAMIENTA_COSTE["tablon"]))
 	var t: Resource = crear_item(base, tier, rareza, {}, true, banda)
+	# La plantilla es la herramienta DE SERIE ("Hacha desafilada", "pesa mas de lo que corta"), y su
+	# nombre y su descripcion describen justo lo contrario de lo que acabas de forjar: sin esto, una
+	# prístina de cobre profundo se anunciaba como "Hacha desafilada · T1 Pristino". La copia estrena
+	# nombre neutro (el tier, la rareza y la veta ya los pone la ficha) y se queda sin el sabor de la
+	# de serie, que sigue siendo suyo.
+	t.set("nombre", base.tipo_texto())
+	t.set("descripcion", "")
 	herreria_exp += _puntos_oficio("herreria", tier)
 	var mods: Dictionary = tool_mods(t as ToolData)
 	print("[herrero] Forjas %s con %s -> T%d %s (banda %d): afinidad +%.0f, -%d %s.  Herreria %s" % [

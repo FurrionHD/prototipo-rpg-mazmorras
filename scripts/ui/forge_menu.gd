@@ -35,9 +35,10 @@ extends CanvasLayer
 # dispatch. La etiqueta visible sale de TAB_LABEL.
 const TAB_LABEL := {
 	"fundir": "Fundir", "chapas": "Chapas", "hebillas": "Hebillas", "tablones": "Tablones",
-	"forjar": "Forjar", "mejorar": "Mejorar", "deshacer": "Deshacer", "reparar": "Reparar",
+	"forjar": "Forjar", "herramientas": "Herramientas",
+	"mejorar": "Mejorar", "deshacer": "Deshacer", "reparar": "Reparar",
 }
-const TABS_HERRERO := ["fundir", "chapas", "hebillas", "forjar", "mejorar", "deshacer", "reparar"]
+const TABS_HERRERO := ["fundir", "chapas", "hebillas", "forjar", "herramientas", "mejorar", "deshacer", "reparar"]
 # El carpintero solo asierra tablones y forja armas magicas (bastones/varitas).
 const TABS_CARPINTERO := ["tablones", "forjar"]
 # Las pestañas con CUADRICULA de piezas (las demas ocupan el ancho entero).
@@ -109,6 +110,12 @@ var _lingote_idx: int = 0          # metal elegido (indice en lingotes o chapas,
 # Game.ingredientes_forja. Antes eran dos dicts sueltos (metal + fibra); ahora las armas llevan
 # tres materiales, asi que va en lista y se trata todo con un bucle.
 var _sel_forja: Array = []
+
+# --- HERRAMIENTAS ---
+var _herr_tipo: int = ToolData.Tipo.PICO   # cual de las tres se forja
+var _herr_lingote_idx: int = 0             # indice en Game.lingotes_herramienta() (TODAS las bandas)
+var _sel_herr_met: Dictionary = {}
+var _sel_herr_tab: Dictionary = {}
 
 # --- MEJORAR ---
 # El nucleo ya no se elige a mano (lo pone Game.nucleo_auto por el +N); solo queda la categoria.
@@ -280,6 +287,7 @@ func _rebuild_real() -> void:
 		"hebillas": _build_refinar(Refinado.HEBILLAS) # lingote -> hebillas (mochilas)
 		"tablones": _build_aserrar()                  # madera -> tablon (carpintero)
 		"forjar": _build_forjar()
+		"herramientas": _build_herramientas()
 		"mejorar": _build_mejorar()
 		"deshacer": _build_deshacer()                 # equipo -> material (recuperas la mitad)
 		"reparar": _build_reparar()                   # mantenimiento: pagar por reparar el desgaste
@@ -418,7 +426,8 @@ func _slot_de(item: Resource) -> String:
 func _subpestanas_slot(slots: Array) -> void:
 	var labels: Array = []
 	for s in slots:
-		labels.append("Arma" if s == "main" else ("Mochila" if s == "mochila" else SLOT_NOMBRES[s]))
+		var etq: String = "Arma" if s == "main" else 			("Mochila" if s == "mochila" else ("Herram." if s == "herramienta" else SLOT_NOMBRES[s]))
+		labels.append(etq)
 	MenuScaffold.cuadricula(_header, labels, _sub, _on_sub, 4, Vector2(0, 30))
 	_header.add_child(HSeparator.new())
 
@@ -1090,14 +1099,195 @@ func _on_forjar() -> void:
 #  Pestaña MEJORAR
 # ============================================================
 
-# Los slots que se ofrecen como subpestaña. Las MOCHILAS solo en DESHACER: no se mejoran (no
-# tienen ranuras), asi que en la pestaña de mejorar esa subpestaña saldria siempre vacia.
+# ============================================================
+#  Pestaña HERRAMIENTAS (pico / hoz / hacha)
+#
+#  Hermana de la mochila del peletero: coste FIJO, dos ingredientes y la rareza como unico eje de
+#  calidad (una herramienta no se mejora con nucleos). Lo que la distingue de TODO lo demas del
+#  herrero es que aqui SI se forja con el sub-tier del metal: ver Game.lingotes_herramienta.
+# ============================================================
+
+func _build_herramientas() -> void:
+	_title(_header, "FORJAR UNA HERRAMIENTA")
+	_note(_header, "El pico, la hoz y el hacha no suben tus habilidades ni te dan más excelia: hacen el trabajo menos hostil. El TIER del metal te mide como si fueras mejor en el oficio; su VETA (en bruto, veteado, profundo) decide desde qué rareza empiezas a ahorrarte golpes. Es lo único que se forja con veta: en un arma, el cobre profundo haría exactamente la misma espada.")
+	_header.add_child(HSeparator.new())
+
+	var lingotes: Array = Game.lingotes_herramienta()
+	if lingotes.is_empty():
+		_note(_header, "No conoces ningún metal. Pica una veta y vuelve.")
+		return
+	_herr_lingote_idx = clampi(_herr_lingote_idx, 0, lingotes.size() - 1)
+	var lingote: MaterialData = lingotes[_herr_lingote_idx]
+
+	# --- QUE herramienta ---
+	_title(_content, "Qué forjas", 13)
+	var tipos: Array = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA]
+	var etq_t: Array = []
+	var pistas_t: Array = []
+	for tp in tipos:
+		var b: ToolData = Game.herramienta_base(int(tp))
+		etq_t.append(b.tipo_texto() if b != null else "?")
+		pistas_t.append(_para_que(int(tp)))
+	MenuScaffold.cuadricula(_content, etq_t, tipos.find(_herr_tipo), _on_herr_tipo,
+		3, MenuScaffold.TAM_SELECTOR, [], [], pistas_t)
+
+	# --- CON QUE metal (tier Y veta) ---
+	_content.add_child(HSeparator.new())
+	_title(_content, "Metal  ·  el tier manda, la veta decide los golpes", 13)
+	var etq_m: Array = []
+	var apagados: Array = []
+	var pistas_m: Array = []
+	for i in lingotes.size():
+		var lm: MaterialData = lingotes[i]
+		var tengo: int = Game.disponible_unidades_material_en_hogar(lm)
+		etq_m.append("T%d %s" % [int(lm.tier), _veta_txt(int(lm.mejora_min))])
+		pistas_m.append("%s  ·  tienes %d unidades" % [lm.nombre, tengo])
+		if tengo <= 0:
+			apagados.append(i)
+	MenuScaffold.cuadricula(_content, etq_m, _herr_lingote_idx, _on_herr_lingote,
+		MenuScaffold.COLUMNAS_SELECTOR, MenuScaffold.TAM_SELECTOR,
+		MenuScaffold.colores_de(lingotes), apagados, pistas_m)
+
+	var tier: int = Forge.tier_de_metal(lingote)
+	var banda: int = int(lingote.mejora_min)
+	var tab: MaterialData = Game.tablon_de_herramienta(lingote)
+	if tab == null:
+		_note(_content, "Todavía no hay tablones a la altura del T%d: esa herramienta no se puede montar aún." % tier)
+		return
+
+	# --- Los dos ingredientes ---
+	_content.add_child(HSeparator.new())
+	_capar_herr(lingote, _sel_herr_met)
+	_capar_herr(tab, _sel_herr_tab)
+	if Net.activo:
+		var claim: Dictionary = {}
+		_sumar_claim_herr(claim, lingote, _sel_herr_met)
+		_sumar_claim_herr(claim, tab, _sel_herr_tab)
+		Net.reservar(claim)
+	_contadores(_content, lingote, _sel_herr_met, int(Game.HERRAMIENTA_COSTE["metal"]))
+	_contadores(_content, tab, _sel_herr_tab, int(Game.HERRAMIENTA_COSTE["tablon"]))
+	_note(_content, "Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la herramienta: mejora la RAREZA, y con ella los golpes que te ahorras.")
+
+	# --- Rareza EN VIVO, con lo que daria cada una CON ESTA VETA ---
+	_content.add_child(HSeparator.new())
+	var score: float = Game.score_herramienta(lingote, _sel_herr_met, _sel_herr_tab)
+	_title(_content, "Rareza que puede salir  ·  %s" % lingote.nombre)
+	var base_t: ToolData = Game.herramienta_base(_herr_tipo)
+	var probs: Array = Forge.probs_rareza(score)
+	for i in probs.size():
+		var p: float = float(probs[i])
+		if p <= 0.0:
+			continue
+		var n: int = int(Upgrades.tool_mods(_herr_tipo, tier, i, banda)["golpes_menos"])
+		var efecto: String = "sin ahorro" if n <= 0 else "-%d %s" % [n, base_t.unidad_golpes(n)]
+		_row(_content, Upgrades.rareza_nombre(i), "%s%%   →  %s" % [
+			str(snappedf(p * 100.0, 0.1)), efecto], Upgrades.rareza_color(i))
+	# La AFINIDAD no depende de la rareza, solo del tier: se dice una vez y aparte, para que no
+	# parezca que la tirada tambien la mueve.
+	_row(_content, "Afinidad (por el tier)", "+%.0f  ·  igual salga la rareza que salga" % \
+		float(Upgrades.tool_mods(_herr_tipo, tier, 0, banda)["afinidad"]))
+	var puesta: ToolData = Game.herramienta_de_tipo(_herr_tipo)
+	var pm: Dictionary = Game.tool_mods(puesta)
+	_row(_content, "Llevas ahora", "afinidad +%.0f, -%d %s" % [
+		float(pm["afinidad"]), int(pm["golpes_menos"]),
+		base_t.unidad_golpes(int(pm["golpes_menos"]))])
+
+	_content.add_child(HSeparator.new())
+	var ok: bool = Game.herramienta_valida(lingote, _sel_herr_met, _sel_herr_tab)
+	var b_hacer := Button.new()
+	b_hacer.text = "Forjar" if ok else "Faltan materiales"
+	b_hacer.disabled = not ok
+	b_hacer.custom_minimum_size = Vector2(0, 36)
+	b_hacer.pressed.connect(_on_forjar_herramienta)
+	_content.add_child(b_hacer)
+	_estado_oficio(_content, "Herrería", Game.tiene_desarrollo("herreria"),
+		"Empuja la tirada de rareza a tu favor, como si el metal fuera mejor de lo que es.")
+
+
+func _para_que(tipo: int) -> String:
+	match tipo:
+		ToolData.Tipo.PICO: return "Vetas de mineral  ·  entrena Fuerza"
+		ToolData.Tipo.HOZ: return "Plantas  ·  entrena Destreza"
+		_: return "Madera  ·  entrena Agilidad"
+
+
+# Como se llama la VETA de un metal, por su mejora_min. Es la palabra que distingue las tres
+# columnas de Upgrades.TOOL_GOLPES_MENOS.
+func _veta_txt(mejora_min: int) -> String:
+	if mejora_min >= 9:
+		return "profundo"
+	if mejora_min >= 3:
+		return "veteado"
+	return "bruto"
+
+
+func _on_herr_tipo(i: int) -> void:
+	_herr_tipo = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA][clampi(i, 0, 2)]
+	_rebuild()
+
+
+func _on_herr_lingote(i: int) -> void:
+	_herr_lingote_idx = i
+	# Otro metal = otras existencias: lo elegido para el anterior ya no vale.
+	_sel_herr_met.clear()
+	_sel_herr_tab.clear()
+	_rebuild()
+
+
+# MULTI: capa la seleccion a lo DISPONIBLE (por si el compañero reservó de lo mismo).
+func _capar_herr(mat: MaterialData, sel: Dictionary) -> void:
+	if mat == null:
+		return
+	for cal in sel.keys():
+		var disp: int = Game.disponible_calidad_en_hogar(mat, int(cal))
+		var n: int = clampi(int(sel[cal]), 0, disp)
+		if n <= 0:
+			sel.erase(cal)
+		else:
+			sel[cal] = n
+
+
+func _sumar_claim_herr(claim: Dictionary, mat: MaterialData, sel: Dictionary) -> void:
+	if mat == null:
+		return
+	for cal in sel:
+		var clave: String = "%s|%d" % [mat.id, int(cal)]
+		claim[clave] = int(claim.get(clave, 0)) + int(sel[cal])
+
+
+func _on_forjar_herramienta() -> void:
+	var lingotes: Array = Game.lingotes_herramienta()
+	if lingotes.is_empty():
+		return
+	var lingote: MaterialData = lingotes[clampi(_herr_lingote_idx, 0, lingotes.size() - 1)]
+	# El candado del taller y la reserva, igual que _on_forjar: sin esto, en multi dos jugadores
+	# pueden gastar el mismo lingote.
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		_rebuild()
+		return
+	var item: Resource = Game.fabricar_herramienta(_herr_tipo, lingote, _sel_herr_met, _sel_herr_tab)
+	if Net.activo:
+		Net.cerrar_taller()
+		Net.liberar_mis_reservas()
+	if item != null:
+		_decir("Forjas %s. Equípala en el inventario [I], pestaña Equipo." % Game.item_display_name(item))
+	else:
+		_decir("Te faltan materiales.", false)
+	_sel_herr_met.clear()
+	_sel_herr_tab.clear()
+	_rebuild()
+
+
+# Los slots que se ofrecen como subpestaña. Las MOCHILAS y las HERRAMIENTAS solo en DESHACER: no se
+# mejoran (no tienen ranuras), asi que en la pestaña de mejorar saldrian siempre vacias.
 func _slots_sub(con_mochila: bool) -> Array:
 	var out: Array = []
 	for s in Game.EQUIP_SLOTS:
 		out.append(s)
 	if con_mochila:
 		out.append("mochila")
+		out.append("herramienta")
 	return out
 
 
@@ -1130,6 +1320,8 @@ func _labels_del_baul(sin_equipado: bool = false, solo_slot: String = "",
 		todo.append(a)
 	for mo in Game.owned_mochilas:
 		todo.append(mo)
+	for t in Game.owned_tools:
+		todo.append(t)
 	for item in todo:
 		if sin_equipado and Game.item_equipado(item):
 			continue
@@ -1175,6 +1367,12 @@ func _preview_deshacer(vb: VBoxContainer) -> void:
 	# importa de ella es lo que carga, que es lo que se pierde al descoserla.
 	if item is BackpackData:
 		_row(vb, "Capacidad", "+%.0f de carga" % Game.capacidad_mochila(item as BackpackData))
+	elif item is ToolData:
+		# Tampoco se mejora ni se desgasta: lo que pierdes al deshacerla es lo que te ahorraba.
+		var tm: Dictionary = Game.tool_mods(item as ToolData)
+		var n: int = int(tm["golpes_menos"])
+		_row(vb, "Afinidad", "+%.0f" % float(tm["afinidad"]))
+		_row(vb, "Ahorro", "sin ahorro" if n <= 0 else "-%d %s" % [n, (item as ToolData).unidad_golpes(n)])
 	else:
 		_row(vb, "Mejoras", "+%d" % Game.mejoras_actuales(item))
 		_row(vb, "Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))

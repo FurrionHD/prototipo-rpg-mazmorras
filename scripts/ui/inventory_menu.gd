@@ -4,7 +4,10 @@
 #    1) BOLSA       - lo que llevas de la expedicion (cristales + materiales). Es lo que
 #                     PESA. Seleccionas un stack y puedes SOLTARLO al suelo (modal de
 #                     cantidad si hay mas de 1); lo soltado se recoge de nuevo con F.
-#    2) CONSUMIBLES - pociones: seleccionas una y le das a "Usar".
+#    2) EQUIPO      - lo del GRUPO que no es de combate, en dos subpestañas: la MOCHILA (sube la
+#                     carga) y las HERRAMIENTAS (pico/hoz/hacha). Aqui SI se equipa, a diferencia
+#                     de armas y armaduras, que se cambian en el menu [C].
+#    3) CONSUMIBLES - pociones: seleccionas una y le das a "Usar".
 #    3) MATERIALES  - los ya guardados en el HOGAR (no pesan). Solo consulta.
 #    4) ARMAS       - armas/escudos/varitas de tu baul. Solo consulta (equipar: menu C).
 #    5) ARMADURAS   - piezas de armadura de tu baul. Solo consulta.
@@ -16,7 +19,7 @@
 
 extends CanvasLayer
 
-const TABS := ["Bolsa", "Mochila", "Consumibles", "Materiales", "Armas", "Armaduras"]
+const TABS := ["Bolsa", "Equipo", "Consumibles", "Materiales", "Armas", "Armaduras"]
 const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "Mandoble",
 	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
 const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
@@ -132,7 +135,7 @@ func _rebuild() -> void:
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	match _tab:
 		0: _build_bolsa()
-		1: _build_mochila()
+		1: _build_equipo()
 		2: _build_consumibles()
 		3: _build_materiales()
 		4: _build_armas()
@@ -359,6 +362,28 @@ func _confirmar_soltar(cant: int) -> void:
 #  llevaba la suya y que el peso se contaba por cabeza).
 # ============================================================
 
+# La pestaña EQUIPO. Tiene DOS subpestañas (mochila y herramientas) en vez de dos pestañas propias
+# porque _rebuild() despacha por INDICE contra TABS: meter una pestaña nueva en medio desordena el
+# match entero. Y ademas las dos cosas son lo mismo conceptualmente — equipo del GRUPO que no es de
+# combate: no lo lleva un personaje, no pesa y no entra en el loadout.
+const SUBS_EQUIPO := ["Mochila", "Herramientas"]
+var _sub_equipo: int = 0
+
+func _build_equipo() -> void:
+	MenuScaffold.pestanas(_header, SUBS_EQUIPO, _sub_equipo, _on_sub_equipo)
+	_header.add_child(HSeparator.new())
+	if _sub_equipo == 0:
+		_build_mochila()
+	else:
+		_build_herramientas()
+
+
+func _on_sub_equipo(i: int) -> void:
+	_sub_equipo = i
+	_sel = 0
+	_rebuild()
+
+
 func _build_mochila() -> void:
 	_title(_header, "MOCHILA  (del equipo)")
 	var m: BackpackData = Game.mochila_equipo
@@ -406,6 +431,63 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 	vb.add_child(b)
 	if puesta:
 		_note(vb, "Al quitarla os quedáis con el zurrón de serie (25 de carga).")
+
+
+# --- HERRAMIENTAS: pico, hoz y hacha. Del grupo, como la mochila. ---
+func _build_herramientas() -> void:
+	_title(_header, "HERRAMIENTAS  (del equipo)")
+	_note(_header, "No suben tus habilidades ni te dan más excelia: hacen la recolección menos hostil. "
+		+ "Una por tipo, para todo el grupo. Las forja el herrero.")
+	var puestas: PackedStringArray = []
+	for tipo in [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA]:
+		var t: ToolData = Game.herramienta_de_tipo(int(tipo))
+		puestas.append("%s: %s" % [t.tipo_texto(),
+			Game.item_display_name(t) if Game.es_herramienta_forjada(t) else "la de serie"])
+	_note(_header, "   ·   ".join(puestas))
+	if not Game.en_pueblo():
+		_note(_header, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
+	_header.add_child(HSeparator.new())
+
+	_stacks = []
+	for t in Game.owned_tools:
+		_stacks.append({"modelo": t, "cantidad": 1})
+	if _stacks.is_empty():
+		_note(_content, "Todavía no has forjado ninguna. El herrero las hace con metal y un tablón; "
+			+ "el metal veteado o profundo da mejores herramientas que el cobre en bruto.")
+		return
+	var labels: Array = []
+	for s in _stacks:
+		var t: ToolData = s["modelo"]
+		labels.append(Game.item_display_name(t)
+			+ ("\n(puesta)" if Game.herramienta_equipada(t) else ""))
+	_grid_detail(labels, _preview_herramienta)
+
+
+func _preview_herramienta(vb: VBoxContainer) -> void:
+	var t: ToolData = _stacks[_sel]["modelo"]
+	var puesta: bool = Game.herramienta_equipada(t)
+	_titulo_rareza(vb, t, "   [puesta]" if puesta else "")
+	# Las filas salen de MenuScaffold, que las deriva de la MISMA math que usa el minijuego: lo que
+	# lees aqui es exactamente lo que vas a jugar.
+	for fila in MenuScaffold.filas_herramienta(t):
+		_row(vb, fila[0], fila[1])
+	if t.descripcion != "":
+		_note(vb, t.descripcion)
+
+	vb.add_child(HSeparator.new())
+	var b := Button.new()
+	b.text = "Quitar" if puesta else "Equipar"
+	b.disabled = not Game.en_pueblo()
+	b.pressed.connect(func():
+		if puesta:
+			Game.desequipar_herramienta(int(t.tipo))
+		else:
+			Game.equipar_herramienta(t)
+		_rebuild())
+	vb.add_child(b)
+	if puesta:
+		_note(vb, "Al quitarla vuelves a la %s de serie, que no ayuda en nada."
+			% t.tipo_texto().to_lower())
 
 
 # ============================================================

@@ -371,6 +371,33 @@ static func filas_critico_magico(mg: Dictionary, crit_base: float = 0.0) -> Arra
 	return filas
 
 
+# La ficha de una HERRAMIENTA. Sale de Game.tool_mods, o sea de la MISMA math que arma el minijuego:
+# lo que lees aqui es exactamente lo que vas a jugar. Los numeros nunca en la descripcion del .tres.
+#
+# Se enseñan las DOS cosas que la herramienta hace y de donde sale cada una, porque son ejes
+# distintos y confundirlos lleva a forjar mal: la AFINIDAD la pone el TIER del metal y la RAREZA no
+# la toca; el AHORRO de golpes lo ponen la rareza y la VETA juntas.
+static func filas_herramienta(t: ToolData) -> Array:
+	if t == null:
+		return []
+	var m: Dictionary = Game.tool_mods(t)
+	var meta: Dictionary = Game.item_meta.get(t, {})
+	var filas: Array = [["Tipo", t.tipo_texto()], ["Sirve para", TOOL_PARA[int(t.tipo)]]]
+	if not Game.es_herramienta_forjada(t):
+		filas.append(["Ayuda", "ninguna: es la de serie"])
+		return filas
+	filas.append(["Metal", "T%d  ·  %s" % [int(meta.get("tier", 1)),
+		TOOL_VETA[Upgrades.banda_columna(int(meta.get("banda", 0)))]]])
+	filas.append(["Afinidad", "+%.0f  (del tier)" % float(m["afinidad"])])
+	var n: int = int(m["golpes_menos"])
+	filas.append(["Ahorro", "sin ahorro" if n <= 0 else "-%d %s  (de la rareza y la veta)" % [
+		n, t.unidad_golpes(n)]])
+	return filas
+
+const TOOL_PARA := ["Vetas de mineral  ·  Fuerza", "Plantas  ·  Destreza", "Madera  ·  Agilidad"]
+const TOOL_VETA := ["en bruto", "veteado", "profundo"]
+
+
 const SHIELD_TAMANO_LABELS := ["Pequeño", "Normal", "Grande"]
 
 # La ficha del ESCUDO, por la misma via que la del arma (Upgrades -> la math del combate). Estaba
