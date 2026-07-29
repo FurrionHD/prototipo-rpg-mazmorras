@@ -378,9 +378,9 @@ func resumen(manos: int = 1) -> String:
 		var g: String = _golpes_txt(manos)
 		var pct: int = roundi(dano_mult * 100.0)
 		if g == "1":
-			l.append("Hace un %d%% de daño." % pct)
+			l.append("Golpea al objetivo haciendo un %d%% de daño." % pct)
 		else:
-			l.append("Golpea %s veces, cada una al %d%% de daño." % [g, pct])
+			l.append("Golpea %s veces al objetivo haciendo un %d%% de daño por golpe." % [g, pct])
 		if manos >= 2 and golpes_dual_max > golpes_max:
 			l.append("Los golpes que pone la segunda arma (del %dº) pegan al %d%%." % [
 				golpes_max + 1, roundi(dual_golpe_mult * 100.0)])
@@ -398,12 +398,12 @@ func resumen(manos: int = 1) -> String:
 		if at != "":
 			l.append(at)
 		elif redirige_al_morir and num_golpes_max(manos) > 1:
-			l.append("Si mata al objetivo, los golpes que sobren saltan al siguiente.")
+			l.append("Si mata al objetivo, los golpes que sobren saltan a los enemigos que sigan vivos.")
 		var por: float = golpes_extra_por_enemigo
 		if manos >= 2 and golpes_extra_por_enemigo_dual > 0.0:
 			por = golpes_extra_por_enemigo_dual
 		if por > 0.0:
-			l.append("Suma %s golpe%s por cada enemigo de más (hasta %d)." % [
+			l.append("Suma %s golpe%s por cada enemigo extra en combate (hasta %d)." % [
 				_num(por), "" if por == 1.0 else "s", golpes_extra_max])
 	elif not es_imbuicion() and limpia_debuffs <= 0:
 		l.append("No hace daño.")
@@ -452,7 +452,7 @@ func resumen(manos: int = 1) -> String:
 	if carga_turnos > 0:
 		coste_p.append("tarda %d turno%s en soltarse" % [carga_turnos, "" if carga_turnos == 1 else "s"])
 	if cooldown > 0:
-		coste_p.append("vuelve a estar lista en %d turno%s" % [cooldown, "" if cooldown == 1 else "s"])
+		coste_p.append("CD %d turno%s" % [cooldown, "" if cooldown == 1 else "s"])
 	if requiere_escudo:
 		coste_p.append("necesitas ESCUDO")
 	if requiere_off_libre:
@@ -461,10 +461,10 @@ func resumen(manos: int = 1) -> String:
 		# El "Cuesta" solo si de verdad gasta energia: sin ella salia "Cuesta vuelve a estar lista
 		# en 5 turnos", que no es una frase.
 		if c > 0.0:
-			l.append("Cuesta " + " · ".join(coste_p) + ".")
+			l.append("Coste: " + " · ".join(coste_p) + ".")
 		else:
-			var t: String = " · ".join(coste_p)
-			l.append(t[0].to_upper() + t.substr(1) + ".")
+			# Sin energia (las de los enemigos) no hay "Coste:" que poner: solo el cooldown.
+			l.append(" · ".join(coste_p) + ".")
 
 	# --- QUE CAMBIA CON DOS ARMAS IGUALES (al final: es un 'y ademas', no parte del kit) ---
 	# Solo se cuenta mirando la ficha a UNA mano: con dos ya se estan viendo los numeros del dual.
@@ -472,13 +472,13 @@ func resumen(manos: int = 1) -> String:
 		var d: Array = []
 		if golpes_dual_max > golpes_max:
 			d.append("da %s golpes en vez de %s" % [_golpes_txt(2), _golpes_txt(1)])
-			d.append("los golpes de la mano secundaria hacen un %d%% del daño" % roundi(
+			d.append("los golpes de la mano secundaria hacen un %d%% del daño original" % roundi(
 				dual_golpe_mult * 100.0))
 		if golpes_extra_por_enemigo_dual > golpes_extra_por_enemigo:
 			d.append("suma %s golpes por enemigo en vez de %s" % [
 				_num(golpes_extra_por_enemigo_dual), _num(golpes_extra_por_enemigo)])
 		if coste_energia_dual > 0.0 and coste_energia_dual != coste_energia:
-			d.append("cuesta %.0f de energía" % coste_energia_dual)
+			d.append("Coste: %.0f de energía" % coste_energia_dual)
 		if not d.is_empty():
 			l.append(_lista_efectos("CON DOS ARMAS IGUALES", d))
 	return "
@@ -507,12 +507,12 @@ func _texto_estados(manos: int = 1) -> String:
 	# "EN CADA GOLPE" cambia por completo lo que significa el porcentaje: un 22% en una habilidad
 	# de 6 tajos no es un 22%, es casi seguro. Sin esta coletilla el numero engaña.
 	var multi: bool = num_golpes_max(manos) > 1
-	var cada: String = " en cada golpe" if efectos_por_golpe and multi else ""
+	var cada: String = "En cada golpe " if efectos_por_golpe and multi else ""
 	var a_quien: String = "a cada enemigo alcanzado" if es_area() else "al objetivo"
 
 	var out: Array = []
 	if not al_rival.is_empty():
-		out.append(_lista_efectos("Aplica%s %s" % [cada, a_quien], al_rival))
+		out.append(_lista_efectos("%s%s %s" % [cada, "aplica" if cada != "" else "Aplica", a_quien], al_rival))
 	if not a_los_mios.is_empty():
 		if _algun_efecto_al_grupo():
 			out.append(_lista_efectos("Aplica a TODO el grupo", a_los_mios))
