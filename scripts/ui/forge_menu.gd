@@ -113,7 +113,11 @@ var _sel_forja: Array = []
 
 # --- HERRAMIENTAS ---
 var _herr_tipo: int = ToolData.Tipo.PICO   # cual de las tres se forja
-var _herr_lingote_idx: int = 0             # indice en Game.lingotes_herramienta() (TODAS las bandas)
+# El metal va en DOS niveles, como en fundir/aserrar/curtir (MenuScaffold.selector_material): primero
+# la gama (Metal T1/T2/T3) y luego la veta de esa gama. En plano eran siete botones repitiendo el
+# tier ("T1 bruto, T1 veteado, T1 profundo, T2 bruto...") y escondian que el tier es el eje gordo.
+var _herr_tier: int = 0
+var _herr_sub: int = 0
 var _sel_herr_met: Dictionary = {}
 var _sel_herr_tab: Dictionary = {}
 
@@ -1116,8 +1120,6 @@ func _build_herramientas() -> void:
 	if lingotes.is_empty():
 		_note(_header, "No conoces ningún metal. Pica una veta y vuelve.")
 		return
-	_herr_lingote_idx = clampi(_herr_lingote_idx, 0, lingotes.size() - 1)
-	var lingote: MaterialData = lingotes[_herr_lingote_idx]
 
 	# --- QUE herramienta ---
 	_title(_content, "Qué forjas", 13)
@@ -1131,22 +1133,16 @@ func _build_herramientas() -> void:
 	MenuScaffold.cuadricula(_content, etq_t, tipos.find(_herr_tipo), _on_herr_tipo,
 		3, MenuScaffold.TAM_SELECTOR, [], [], pistas_t)
 
-	# --- CON QUE metal (tier Y veta) ---
+	# --- CON QUE metal: DOS niveles (gama -> veta) ---
+	# El tier y la veta son dos preguntas distintas y responden a dos cosas distintas (el tier pone la
+	# afinidad, la veta los golpes que ahorras), asi que se preguntan por separado. Es el mismo
+	# componente que usan fundir, aserrar y curtir.
 	_content.add_child(HSeparator.new())
-	_title(_content, "Metal  ·  el tier manda, la veta decide los golpes", 13)
-	var etq_m: Array = []
-	var apagados: Array = []
-	var pistas_m: Array = []
-	for i in lingotes.size():
-		var lm: MaterialData = lingotes[i]
-		var tengo: int = Game.disponible_unidades_material_en_hogar(lm)
-		etq_m.append("T%d %s" % [int(lm.tier), _veta_txt(int(lm.mejora_min))])
-		pistas_m.append("%s  ·  tienes %d unidades" % [lm.nombre, tengo])
-		if tengo <= 0:
-			apagados.append(i)
-	MenuScaffold.cuadricula(_content, etq_m, _herr_lingote_idx, _on_herr_lingote,
-		MenuScaffold.COLUMNAS_SELECTOR, MenuScaffold.TAM_SELECTOR,
-		MenuScaffold.colores_de(lingotes), apagados, pistas_m)
+	_title(_content, "Metal  ·  el tier pone la afinidad, la veta los golpes", 13)
+	var lingote: MaterialData = MenuScaffold.selector_material(_content, lingotes, "Metal",
+		_herr_tier, _herr_sub, _on_herr_tier, _on_herr_sub)
+	if lingote == null:
+		return
 
 	var tier: int = Forge.tier_de_metal(lingote)
 	var banda: int = int(lingote.mejora_min)
@@ -1174,18 +1170,21 @@ func _build_herramientas() -> void:
 	_title(_content, "Rareza que puede salir  ·  %s" % lingote.nombre)
 	var base_t: ToolData = Game.herramienta_base(_herr_tipo)
 	var probs: Array = Forge.probs_rareza(score)
+	# Cada rareza con LAS DOS cosas que da, porque las dos suben con la tirada: la afinidad (lo que
+	# te abre la ventana) y el ahorro de golpes. Aqui salia solo el ahorro y una nota aparte diciendo
+	# que la afinidad era igual para todas — y con eso, gastar metal bueno o querer una tirada alta
+	# no parecia servir para nada.
 	for i in probs.size():
 		var p: float = float(probs[i])
 		if p <= 0.0:
 			continue
-		var n: int = int(Upgrades.tool_mods(_herr_tipo, tier, i, banda)["golpes_menos"])
-		var efecto: String = "sin ahorro" if n <= 0 else "-%d %s" % [n, base_t.unidad_golpes(n)]
+		var md: Dictionary = Upgrades.tool_mods(_herr_tipo, tier, i, banda)
+		var n: int = int(md["golpes_menos"])
+		var efecto: String = "afinidad +%.0f" % float(md["afinidad"])
+		if n > 0:
+			efecto += ",  -%d %s" % [n, base_t.unidad_golpes(n)]
 		_row(_content, Upgrades.rareza_nombre(i), "%s%%   →  %s" % [
 			str(snappedf(p * 100.0, 0.1)), efecto], Upgrades.rareza_color(i))
-	# La AFINIDAD no depende de la rareza, solo del tier: se dice una vez y aparte, para que no
-	# parezca que la tirada tambien la mueve.
-	_row(_content, "Afinidad (por el tier)", "+%.0f  ·  igual salga la rareza que salga" % \
-		float(Upgrades.tool_mods(_herr_tipo, tier, 0, banda)["afinidad"]))
 	var puesta: ToolData = Game.herramienta_de_tipo(_herr_tipo)
 	var pm: Dictionary = Game.tool_mods(puesta)
 	_row(_content, "Llevas ahora", "afinidad +%.0f, -%d %s" % [
@@ -1211,27 +1210,45 @@ func _para_que(tipo: int) -> String:
 		_: return "Madera  ·  entrena Agilidad"
 
 
-# Como se llama la VETA de un metal, por su mejora_min. Es la palabra que distingue las tres
-# columnas de Upgrades.TOOL_GOLPES_MENOS.
-func _veta_txt(mejora_min: int) -> String:
-	if mejora_min >= 9:
-		return "profundo"
-	if mejora_min >= 3:
-		return "veteado"
-	return "bruto"
-
-
 func _on_herr_tipo(i: int) -> void:
 	_herr_tipo = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA][clampi(i, 0, 2)]
 	_rebuild()
 
 
-func _on_herr_lingote(i: int) -> void:
-	_herr_lingote_idx = i
-	# Otro metal = otras existencias: lo elegido para el anterior ya no vale.
+func _on_herr_tier(i: int) -> void:
+	_herr_tier = i
+	_herr_sub = 0   # al cambiar de gama se vuelve a la veta base: la de abajo ya no existe
+	_limpiar_sel_herr()
+	_rebuild()
+
+
+func _on_herr_sub(i: int) -> void:
+	_herr_sub = i
+	_limpiar_sel_herr()
+	_rebuild()
+
+
+# Otro metal = otras existencias: lo que hubieras elegido del anterior ya no vale.
+func _limpiar_sel_herr() -> void:
 	_sel_herr_met.clear()
 	_sel_herr_tab.clear()
-	_rebuild()
+
+
+# El lingote elegido AHORA, resuelto desde (tier, veta). Lo necesita el boton de forjar, que no pinta
+# el selector y por tanto no tiene el que devuelve selector_material. Misma resolucion que el, para
+# que lo que se forja sea exactamente lo que se estaba enseñando.
+func _herr_lingote() -> MaterialData:
+	var lingotes: Array = Game.lingotes_herramienta()
+	if lingotes.is_empty():
+		return null
+	var tiers: Array = MenuScaffold.tiers_de(lingotes)
+	if tiers.is_empty():
+		return null
+	var t: int = int(tiers[clampi(_herr_tier, 0, tiers.size() - 1)])
+	var subs: Array = MenuScaffold.del_tier(lingotes, t)
+	if subs.is_empty():
+		return null
+	return subs[clampi(_herr_sub, 0, subs.size() - 1)] as MaterialData
 
 
 # MULTI: capa la seleccion a lo DISPONIBLE (por si el compañero reservó de lo mismo).
@@ -1256,10 +1273,9 @@ func _sumar_claim_herr(claim: Dictionary, mat: MaterialData, sel: Dictionary) ->
 
 
 func _on_forjar_herramienta() -> void:
-	var lingotes: Array = Game.lingotes_herramienta()
-	if lingotes.is_empty():
+	var lingote: MaterialData = _herr_lingote()
+	if lingote == null:
 		return
-	var lingote: MaterialData = lingotes[clampi(_herr_lingote_idx, 0, lingotes.size() - 1)]
 	# El candado del taller y la reserva, igual que _on_forjar: sin esto, en multi dos jugadores
 	# pueden gastar el mismo lingote.
 	if Net.activo and not await Net.abrir_taller():

@@ -224,6 +224,23 @@ static func rareza_mult_capacidad(r: int) -> float:
 #  Precedente en el codigo: tool_destreza_bonus hace justo esto en Game.start_extraction.
 const TOOL_AFINIDAD_TIER := [20.0, 32.0, 46.0]   # T1, T2, T3
 
+# Y la escalan TAMBIEN la rareza y la veta, no solo el tier. Al principio la afinidad era plana por
+# tier y el unico premio de una buena tirada era el -N golpes, y eso dejaba el sistema sin sentido:
+# un pico COMUN de cobre en bruto abria exactamente la misma ventana que un PRISTINO de cobre
+# profundo, o sea que no habia razon para gastar el material bueno ni para querer una tirada alta.
+# Peor aun, el -N se lo come el suelo del minijuego (4 hachazos / 2 golpes / 2 cortes) en cuanto el
+# material pide pocos golpes: alli un -2 y un -3 dan LO MISMO. Entre las dos cosas, los dos ejes que
+# el jugador decide -que metal quemas y que sale de la forja- no pagaban nada.
+#
+# La tabla de rareza es la MISMA que la de la mochila (RAREZA_CAPACIDAD) y por la misma razon: son
+# las dos unicas piezas del juego sin mejoras, asi que su rareza tiene que notarse de verdad y no
+# con el +15% de risa del combate.
+const TOOL_AFINIDAD_RAREZA := [1.00, 1.07, 1.15, 1.23, 1.32, 1.41, 1.50, 1.65]
+# Veta del metal (bruto / veteado / profundo). Mas floja que la rareza a proposito: la veta ya tiene
+# su premio propio y gordo en TOOL_GOLPES_MENOS, esto solo evita que se quede en nada cuando el
+# suelo se come ese -N.
+const TOOL_AFINIDAD_VETA := [1.00, 1.12, 1.25]
+
 # -N GOLPES/CORTES/HACHAZOS. Filas = rareza 0..7 (Comun..Pristino), columnas = BANDA del metal
 # (bruto / veteado / profundo). Que el sub-tier del mineral decida la columna es LA razon de ser
 # de esta tabla: hasta ahora el sub-tier solo servia para gatear mejoras y no se podia fabricar
@@ -266,7 +283,8 @@ static func tool_mods(_tipo: int, tier: int, rareza: int, banda: int) -> Diction
 	var r: int = clampi(rareza, 0, TOOL_GOLPES_MENOS.size() - 1)
 	var col: int = banda_columna(banda)
 	return {
-		"afinidad": float(TOOL_AFINIDAD_TIER[t]),
+		"afinidad": float(TOOL_AFINIDAD_TIER[t]) * float(TOOL_AFINIDAD_RAREZA[r])
+			* float(TOOL_AFINIDAD_VETA[col]),
 		"golpes_menos": int((TOOL_GOLPES_MENOS[r] as Array)[col]),
 	}
 

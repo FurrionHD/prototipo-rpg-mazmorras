@@ -374,9 +374,10 @@ static func filas_critico_magico(mg: Dictionary, crit_base: float = 0.0) -> Arra
 # La ficha de una HERRAMIENTA. Sale de Game.tool_mods, o sea de la MISMA math que arma el minijuego:
 # lo que lees aqui es exactamente lo que vas a jugar. Los numeros nunca en la descripcion del .tres.
 #
-# Se enseñan las DOS cosas que la herramienta hace y de donde sale cada una, porque son ejes
-# distintos y confundirlos lleva a forjar mal: la AFINIDAD la pone el TIER del metal y la RAREZA no
-# la toca; el AHORRO de golpes lo ponen la rareza y la VETA juntas.
+# Se enseñan las DOS cosas que la herramienta hace: la AFINIDAD (lo que te abre la ventana del
+# minijuego) y el AHORRO de golpes. Las dos suben con la rareza y la veta; la afinidad ademas con el
+# tier. Decirlo importa: mientras la afinidad fue plana por tier, un comun de metal en bruto rendia
+# igual que un pristino de profundo y no habia motivo para gastar material bueno.
 static func filas_herramienta(t: ToolData) -> Array:
 	if t == null:
 		return []
@@ -388,9 +389,9 @@ static func filas_herramienta(t: ToolData) -> Array:
 		return filas
 	filas.append(["Metal", "T%d  ·  %s" % [int(meta.get("tier", 1)),
 		TOOL_VETA[Upgrades.banda_columna(int(meta.get("banda", 0)))]]])
-	filas.append(["Afinidad", "+%.0f  (del tier)" % float(m["afinidad"])])
+	filas.append(["Afinidad", "+%.0f  (tier, rareza y veta)" % float(m["afinidad"])])
 	var n: int = int(m["golpes_menos"])
-	filas.append(["Ahorro", "sin ahorro" if n <= 0 else "-%d %s  (de la rareza y la veta)" % [
+	filas.append(["Ahorro", "sin ahorro" if n <= 0 else "-%d %s  (rareza y veta)" % [
 		n, t.unidad_golpes(n)]])
 	return filas
 
