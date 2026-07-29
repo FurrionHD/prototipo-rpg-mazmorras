@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="SA_quema"]
 script = ExtResource("2")
 estado = 2
-magnitud = 9.0
+magnitud = 6.0
 
 [resource]
 script = ExtResource("1")

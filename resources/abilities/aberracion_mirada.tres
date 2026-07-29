@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_miedo"]
+script = ExtResource("2")
+estado = 19
+prob = 0.7
+
+[resource]
+script = ExtResource("1")
+nombre = "Mirada del vacío"
+descripcion = "Algo dentro de esa masa te devuelve la mirada, y por un momento entiendes lo que estás mirando. El cuerpo decide por ti que no piensa moverse."
+coste_energia = 0.0
+dano_mult = 0.4
+efectos = [SubResource("SA_miedo")]
+cooldown = 5

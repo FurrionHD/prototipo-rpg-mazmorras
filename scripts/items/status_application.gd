@@ -10,15 +10,18 @@
 extends Resource
 class_name StatusApplication
 
-# Id de StatusEffects.Id (-1 = ninguno). Mapa:
-#   0 VENENO · 1 SANGRADO · 2 QUEMADURA · 3 LENTO · 4 DEBIL · 5 VULNERABLE ·
-#   6 FORTALEZA · 7 ATURDIDO · 8 RAYO · 9 PEGAJOSO
+# Id de StatusEffects.Id (-1 = ninguno). El mapa vive en StatusEffects.Id y NO se copia aqui:
+# una lista a mano se queda desactualizada en cuanto se añade un estado (esta lo estuvo).
 @export var estado: int = -1
 # Probabilidad de aplicarlo. Enemigos (al golpear): prob DIRECTA. Hechizos: es la
 # prob BASE por frase (la final = base × longitud del hechizo -> mas largo, mas fiable).
 @export var prob: float = 1.0
 # true = al RIVAL (DoT/debuff, puede resistir); false = a UNO MISMO (buff, siempre).
 @export var en_objetivo: bool = true
+# Solo con en_objetivo = false: el buff cae sobre TODO EL GRUPO vivo en vez de sobre quien lo
+# lanza. Es lo que hace posible el grito del tanque ("Fortaleza a todos") sin un campo a medida
+# por habilidad. Ignorado si en_objetivo = true (un debuff de area ya se reparte por su area_modo).
+@export var a_todo_el_grupo: bool = false
 # Duracion en turnos (-1 = la del catalogo).
 @export var turns: int = -1
 # Magnitud del DoT (quemadura...). -1 = la del catalogo (dot_default).

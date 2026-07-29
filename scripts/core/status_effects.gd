@@ -34,7 +34,10 @@
 extends RefCounted
 class_name StatusEffects
 
-enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATURDIDO, RAYO, PEGAJOSO, REGENERACION, REGEN_MANA, MOJADO }
+# OJO: esto se amplia SOLO POR EL FINAL. Los .tres guardan `estado` como el ENTERO del enum, asi
+# que meter uno en medio renumera y corrompe todas las habilidades y hechizos que ya existen.
+enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATURDIDO, RAYO, PEGAJOSO, REGENERACION, REGEN_MANA, MOJADO,
+	PRESTEZA, BALUARTE, MARCA, HERIDA_PROFUNDA, CORROSION, SILENCIO, MIEDO, SIGILO, GUARDIA_CARNE }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -88,38 +91,45 @@ static var _defs: Dictionary = {
 		"id": Id.VENENO, "nombre": "Veneno", "icono": "☠", "color": Color(0.45, 0.85, 0.2),
 		"dot": true, "turns": VENENO_TURNS, "dot_default": VENENO_BASE_DMG,
 		"stack_mode": "merge", "max_stacks": VENENO_MAX_STACKS, "dot_stack_mult": 2.0,
+		"debuff": true,
 		"descripcion": "Corre por dentro y no se cansa. Cada dosis nueva no se suma a la anterior: la multiplica.",
 	},
 	Id.SANGRADO: {
 		"id": Id.SANGRADO, "nombre": "Sangrado", "icono": "🩸", "color": Color(0.85, 0.15, 0.15),
 		"dot": true, "turns": SANGRADO_TURNS,   # magnitud/stack = escala con el aplicador
 		"stack_mode": "independent", "max_stacks": SANGRADO_MAX_STACKS,
+		"debuff": true,
 		"descripcion": "Una herida abierta que no espera. Cuanto más fuerte el que corta, más se abre; y cada corte sangra por su cuenta.",
 	},
 	Id.QUEMADURA: {
 		"id": Id.QUEMADURA, "nombre": "Quemadura", "icono": "🔥", "color": Color(1.0, 0.5, 0.1),
 		"dot": true, "turns": 2, "dot_default": 6.0,   # lo afinaran los hechizos (Fase 3)
+		"debuff": true,
 		"descripcion": "Sigue ardiendo cuando la llama ya no está. El agua la apaga.",
 	},
 	Id.LENTO: {   # Ralentizacion FIJA (hechizo/habilidad): NO apila, un -25% plano.
 		"id": Id.LENTO, "nombre": "Lento", "icono": "🐌", "color": Color(0.3, 0.6, 0.9),
 		"turns": 3, "spd_mult": 0.75,
+		"debuff": true,
 		"descripcion": "Los miembros pesan y el turno tarda en llegar.",
 	},
 	Id.PEGAJOSO: {   # Slimes: hasta 4 stacks INDEPENDIENTES, -5% vel/stack (cada uno su duracion)
 		"id": Id.PEGAJOSO, "nombre": "Pegajoso", "icono": "🕸", "color": Color(0.4, 0.8, 0.4),
 		"stack_mode": "independent", "max_stacks": 4, "turns": 3,
 		"spd_mult": 0.95,   # cada stack (instancia) multiplica x0.95 -> 4 stacks ~ -18.5%
+		"debuff": true,
 		"descripcion": "Baba que se agarra a todo. Una capa se nota poco; cuatro te dejan luchando dentro de un tarro.",
 	},
 	Id.DEBIL: {   # debuff de ataque
 		"id": Id.DEBIL, "nombre": "Débil", "icono": "💢", "color": Color(0.7, 0.4, 0.9),
 		"turns": 3, "atk_mult": 0.80,
+		"debuff": true,
 		"descripcion": "El golpe sale, pero sale sin nadie detrás.",
 	},
 	Id.VULNERABLE: {   # debuff de defensa (recibe mas daño)
 		"id": Id.VULNERABLE, "nombre": "Vulnerable", "icono": "🔻", "color": Color(0.9, 0.3, 0.5),
 		"turns": 3, "def_mult": 0.80,
+		"debuff": true,
 		"descripcion": "La guardia se ha abierto y todo entra más hondo.",
 	},
 	Id.FORTALEZA: {   # buff de ataque
@@ -130,6 +140,7 @@ static var _defs: Dictionary = {
 	Id.ATURDIDO: {   # pierde el turno; lo aplica el aturdir CRITICO de contundentes (Fase 2)
 		"id": Id.ATURDIDO, "nombre": "Aturdido", "icono": "💫", "color": Color(1.0, 0.9, 0.3),
 		"turns": 1, "is_stun": true,
+		"debuff": true,
 		"descripcion": "El mundo se va un momento. Cuando vuelve, ya te han pegado.",
 	},
 	Id.RAYO: {   # debuff estilo MH: x1.5 a la prob. de aturdir que recibe.
@@ -137,6 +148,7 @@ static var _defs: Dictionary = {
 		# los dos con el mismo nombre hacia ilegible la ficha ("daño de Rayo · Rayo 32%").
 		"id": Id.RAYO, "nombre": "Electrizado", "icono": "⚡", "color": Color(0.6, 0.8, 1.0),
 		"turns": 3, "stun_prob_mult": 1.5,
+		"debuff": true,
 		"descripcion": "Los músculos responden tarde y mal: un buen mazazo ahora te tumba mucho más fácil.",
 	},
 	Id.REGENERACION: {   # CURA por turno (espejo del DoT): pociones (KAN-57). magnitud = cura/turno.
@@ -158,6 +170,53 @@ static var _defs: Dictionary = {
 		"inmune": [Id.QUEMADURA],   # empapado NO puedes arder
 		"limpia": [Id.QUEMADURA],   # y te APAGA la quemadura que llevaras encima
 		"descripcion": "Empapado no ardes. Pero el agua conduce, y un rayo encuentra el camino.",
+	},
+	Id.PRESTEZA: {   # buff de VELOCIDAD: no habia ninguno (los unicos spd_mult eran < 1)
+		"id": Id.PRESTEZA, "nombre": "Presteza", "icono": "🌀", "color": Color(0.5, 0.9, 0.95),
+		"turns": 3, "spd_mult": 1.25,
+		"descripcion": "Los pies llegan antes que la idea.",
+	},
+	Id.BALUARTE: {   # buff de DEFENSA: tampoco habia ninguno, y dos habilidades ya lo prometian
+		"id": Id.BALUARTE, "nombre": "Baluarte", "icono": "🛡", "color": Color(0.6, 0.75, 0.95),
+		"turns": 3, "def_mult": 1.25,
+		"descripcion": "Plantado y entero. Lo que viene, rebota.",
+	},
+	Id.MARCA: {   # el marcado encaja mas daño DE TODOS: es el efecto que hace valer al grupo
+		"id": Id.MARCA, "nombre": "Marca", "icono": "🎯", "color": Color(0.95, 0.45, 0.3),
+		"turns": 3, "dmg_taken_mult": 1.25, "debuff": true,
+		"descripcion": "Le has enseñado a todos por dónde entra.",
+	},
+	Id.HERIDA_PROFUNDA: {   # le llega la MITAD de cada cura
+		"id": Id.HERIDA_PROFUNDA, "nombre": "Herida profunda", "icono": "🩹", "color": Color(0.8, 0.25, 0.35),
+		"turns": 3, "heal_recv_mult": 0.5, "debuff": true,
+		"descripcion": "Una herida que no cierra por mucho que la traten.",
+	},
+	Id.CORROSION: {   # come la DEF PLANA de la armadura. Distinto de Vulnerable, y se COMBINAN
+		"id": Id.CORROSION, "nombre": "Corrosión", "icono": "⚗", "color": Color(0.55, 0.7, 0.35),
+		"turns": 3, "def_flat_mult": 0.75, "debuff": true,
+		"descripcion": "La coraza cede. Ya no protege lo que protegía.",
+	},
+	Id.SILENCIO: {   # ni hechizos ni habilidades: solo golpe basico, Defender, objeto o huir
+		"id": Id.SILENCIO, "nombre": "Silencio", "icono": "🤐", "color": Color(0.65, 0.5, 0.8),
+		"turns": 2, "silencia": true, "debuff": true,
+		"descripcion": "Las palabras no salen y las manos no encuentran la maña.",
+	},
+	Id.MIEDO: {   # pierde el turno SIEMPRE; al llegarle el turno tira a ver si se DISIPA
+		"id": Id.MIEDO, "nombre": "Miedo", "icono": "😱", "color": Color(0.55, 0.35, 0.7),
+		"turns": 2, "is_stun": true, "disipa_prob": 0.40, "debuff": true,
+		"descripcion": "El cuerpo se planta y no responde. Se pasa... cuando se pasa.",
+	},
+	Id.SIGILO: {   # espejo de la Provocacion: INCLINA la balanza, no te hace intocable
+		"id": Id.SIGILO, "nombre": "Sigilo", "icono": "👤", "color": Color(0.45, 0.5, 0.6),
+		"turns": 3, "aggro_mult": 0.35,
+		"descripcion": "Te pierden de vista entre el ruido. Buscan a otro.",
+	},
+	Id.GUARDIA_CARNE: {   # el doble de vida a cambio del doble de daño: la jugada del tanque.
+		# NO se marca como debuff: te lo has puesto tu a sabiendas, y limpiarlo a media pelea te
+		# bajaria la vida de golpe (ver Combatant._escalar_vida_guardia).
+		"id": Id.GUARDIA_CARNE, "nombre": "Guardia de carne", "icono": "🫀", "color": Color(0.85, 0.35, 0.4),
+		"turns": 3, "hp_mult": 2.0, "dmg_taken_mult": 2.0,
+		"descripcion": "Aguantas el doble y te duele el doble. Quien pega, se acuerda de ti.",
 	},
 }
 
@@ -227,6 +286,14 @@ class Instance extends RefCounted:
 	func def_mult() -> float: return _stat_mult("def_mult")
 	func spd_mult() -> float: return _stat_mult("spd_mult")
 
+	# Multiplicador GENERICO de cualquier clave del catalogo, apilado como los de stat. Los tres de
+	# arriba (atk/def/spd) tienen metodo propio porque los usa medio motor; este vale para los que
+	# no necesitan uno: dmg_taken_mult, heal_recv_mult, def_flat_mult, aggro_mult...
+	func mult_de(clave: String) -> float:
+		if not d.has(clave):
+			return 1.0
+		return _stat_mult(clave)
+
 	func _stat_mult(clave: String) -> float:
 		var m: float = float(d.get(clave, 1.0))
 		if mult_override > 0.0 and d.has(clave):   # nivel propio (solo al stat que modifica)
@@ -236,7 +303,8 @@ class Instance extends RefCounted:
 	# Multiplicador BASE del estado de stat (override o catalogo), SIN contar stacks.
 	# 1.0 si el estado no modifica stats (DoT/stun). Para el label y comparar niveles.
 	func base_stat_mult() -> float:
-		for k in ["atk_mult", "def_mult", "spd_mult"]:
+		for k in ["atk_mult", "def_mult", "spd_mult",
+				"dmg_taken_mult", "heal_recv_mult", "def_flat_mult", "aggro_mult"]:
 			if d.has(k):
 				return mult_override if mult_override > 0.0 else float(d.get(k, 1.0))
 		return 1.0
@@ -292,11 +360,12 @@ class Instance extends RefCounted:
 			lineas.append("Te cura %.1f de vida cada turno." % heal_amount())
 		if mana_amount() > 0.0:
 			lineas.append("Te devuelve %.1f de maná cada turno." % mana_amount())
-		for par in [["atk_mult", "Haces"], ["def_mult", "Aguantas"], ["spd_mult", "Te mueves"]]:
+		for par in [["atk_mult", "Haces"], ["def_mult", "Aguantas"], ["spd_mult", "Te mueves"],
+				["dmg_taken_mult", "Te entra"], ["heal_recv_mult", "Te curan"],
+				["def_flat_mult", "Tu armadura protege"], ["aggro_mult", "Te buscan"]]:
 			if not d.has(par[0]):
 				continue
-			var m: float = atk_mult() if par[0] == "atk_mult" else \
-				(def_mult() if par[0] == "def_mult" else spd_mult())
+			var m: float = mult_de(str(par[0]))
 			var pct: int = roundi((m - 1.0) * 100.0)
 			lineas.append("%s un %d%% %s." % [
 				str(par[1]), absi(pct), "más" if pct > 0 else "menos"])
@@ -316,3 +385,39 @@ class Instance extends RefCounted:
 		# que hace falta es saber que te esta pasando, no leerse un parrafo. Se queda en el catalogo
 		# para donde tenga sentido (ficha/bestiario), que es donde se lee con calma.
 		return "\n".join(lineas)
+
+
+# UN CHIP por estado, aunque tenga varias instancias. Los estados 'independent' (Pegajoso,
+# Sangrado) crean una Instance por aplicacion, asi que la UI pintaba cuatro iconos iguales en fila
+# y no habia forma de saber cuanto le quedaba a cada uno.
+#
+# 'insts' = todas las instancias del MISMO estado. Devuelve [etiqueta, tooltip]:
+#   - etiqueta: los stacks SUMADOS y los turnos del que MAS le queda (el estado no se te va hasta
+#     que caduca el ultimo), y en los DoT el daño total de todas juntas.
+#   - tooltip: la ficha de la instancia mas larga + una linea con lo que le queda a cada una, que
+#     es justo el dato que se perdia al agrupar.
+static func chip_de_grupo(insts: Array) -> Array:
+	if insts.is_empty():
+		return ["", ""]
+	var larga: Instance = insts[0]
+	var stacks_tot: int = 0
+	var dot_tot: float = 0.0
+	var turnos: PackedStringArray = []
+	for e in insts:
+		if e.turns > larga.turns:
+			larga = e
+		stacks_tot += maxi(1, e.stacks)
+		dot_tot += e.dot_damage() + e.heal_amount() + e.mana_amount()
+		turnos.append("%dt" % e.turns)
+	if insts.size() == 1:
+		return [larga.etiqueta(), larga.resumen()]
+
+	var ic: String = str(larga.d.get("icono", "?"))
+	var etq: String
+	if dot_tot > 0.0:
+		etq = "%sx%d(%d)·%dt" % [ic, stacks_tot, roundi(dot_tot), larga.turns]
+	else:
+		etq = "%sx%d·%dt" % [ic, stacks_tot, larga.turns]
+	var tip: String = larga.resumen() + "\n\n%d aplicaciones: %s" % [
+		insts.size(), ", ".join(turnos)]
+	return [etq, tip]

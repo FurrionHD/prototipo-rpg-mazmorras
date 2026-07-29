@@ -464,7 +464,9 @@ func atk_escudo() -> float:
 	return (def_value() + defend_defense) * StatsMath.ESCUDO_DEF_A_ATAQUE * status_atk_mult()
 
 func def_value() -> float:
-	var base: float = base_defense + extra_defense
+	# La CORROSION solo come la DEF de la ARMADURA (extra_defense), no la de la carne: te abollan
+	# la coraza, no los huesos. Por eso va aqui y no multiplicando el resultado como Vulnerable.
+	var base: float = base_defense + extra_defense * status_def_flat_mult()
 	var d: float = StatsMath.defense_jugador(abilities, base) if stats_multiplicativas \
 		else StatsMath.defense_value(abilities, level, base)
 	return d * status_def_mult()
@@ -505,8 +507,10 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 
 # Cura vida SIN pasarse del maximo (pociones / Regeneración). No revive (si estas a 0
 # es que ya perdiste el turno de tick).
+# PASO UNICO de toda la curacion (pociones, regeneracion, hechizos): por eso la Herida profunda se
+# descuenta aqui y no en cada sitio que cura.
 func heal(amount: float) -> void:
-	current_hp = minf(max_hp, current_hp + maxf(0.0, amount))
+	current_hp = minf(max_hp, current_hp + maxf(0.0, amount) * status_heal_recv_mult())
 
 
 # --- Energia de combate (KAN-57) ---
@@ -697,8 +701,38 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	inst.magnitude = magnitude
 	inst.mult_override = mult_override
 	statuses.append(inst)
+	_al_poner_status(inst)
 	print("[estado] %s recibe %s (x%d, %.2f/turno, %d turnos)" % [
 		nombre, nombre_estado, inst.stacks, inst.dot_damage(), turns])
+
+
+# --- Estados que tocan la VIDA MAXIMA (Guardia de carne) ---
+# El doble de vida se hace ESCALANDO max_hp y current_hp de verdad, y no con un "max_hp efectivo"
+# calculado: max_hp se lee en un monton de sitios (barras, clamps de curacion, la UI del grupo) y un
+# multiplicador implicito los romperia todos. Escalar los dos a la vez conserva el PORCENTAJE solo,
+# que es justo lo que se quiere: entras al 50% y sigues al 50%, con el doble de numeros.
+func _al_poner_status(inst) -> void:
+	var m: float = float(inst.d.get("hp_mult", 1.0))
+	if m == 1.0 or _hp_escalado_por.has(inst.id()):
+		return   # idempotente: dos aplicaciones NO cuadruplican la vida
+	_hp_escalado_por[inst.id()] = m
+	max_hp *= m
+	current_hp *= m
+
+func _al_quitar_status(inst) -> void:
+	var id_est: int = inst.id()
+	if not _hp_escalado_por.has(id_est):
+		return
+	var m: float = float(_hp_escalado_por[id_est])
+	_hp_escalado_por.erase(id_est)
+	max_hp = maxf(1.0, max_hp / m)
+	# Suelo de 1 HP: al dividir, un moribundo con 1.5 de vida se quedaria en 0 y MORIRIA al
+	# expirarle el buff, que seria una forma absurda de palmar.
+	current_hp = clampf(current_hp / m, 1.0, max_hp)
+
+# {id de estado -> factor que le aplico a la vida}. Hace falta guardarlo para poder deshacerlo
+# exactamente igual aunque el catalogo cambie a media partida.
+var _hp_escalado_por: Dictionary = {}
 
 
 # Quita TODAS las instancias de un estado. Devuelve cuantas quito (0 = no lo tenia).
@@ -708,6 +742,8 @@ func _quitar_status(id: int) -> int:
 	for e in statuses:
 		if e.id() != id:
 			quedan.append(e)
+		else:
+			_al_quitar_status(e)   # deshace lo que tocara (la vida de la Guardia de carne)
 	statuses = quedan
 	return antes - statuses.size()
 
@@ -744,7 +780,17 @@ func tick_statuses() -> Dictionary:
 	var dot_labels: Array = []
 	var heal_labels: Array = []
 	var kept: Array = []
+	var disipados: Array = []
 	for e in statuses:
+		# DISIPACION (Miedo): te quita el turno SIEMPRE mientras lo tengas, pero al llegarte el
+		# turno se tira a ver si se te pasa. La tirada va ANTES de marcar stunned a proposito: si
+		# fuera despues siempre perderias al menos un turno y disiparse no serviria de nada. Por eso
+		# el Miedo puede irse a la primera sin haber hecho nada o comerte los dos turnos enteros.
+		var p_disipa: float = float(e.d.get("disipa_prob", 0.0))
+		if p_disipa > 0.0 and randf() < p_disipa:
+			disipados.append(str(e.d.get("nombre", "?")))
+			_al_quitar_status(e)
+			continue   # fuera de 'kept': se le quita y actua con normalidad
 		var dmg: float = e.dot_damage()
 		var cura: float = e.heal_amount()
 		var mana: float = e.mana_amount()
@@ -767,6 +813,7 @@ func tick_statuses() -> Dictionary:
 		e.turns -= 1
 		if e.turns <= 0:
 			expired.append(str(e.d.get("nombre", "?")))
+			_al_quitar_status(e)   # deshace lo que el estado hubiera tocado (vida de la Guardia)
 		else:
 			kept.append(e)
 	statuses = kept
@@ -789,6 +836,8 @@ func tick_statuses() -> Dictionary:
 			nombre, total_mana, current_mp, max_mp])
 	for nom in expired:
 		print("[estado] %s: expira %s" % [nombre, nom])
+	for nom in disipados:
+		print("[estado] %s: se le pasa el %s (se disipa) -> actua con normalidad" % [nombre, nom])
 	if stunned:
 		print("[estado] %s aturdido: pierde el turno" % nombre)
 	return {"damage": total_dmg, "heal": total_heal, "mana": total_mana, "stunned": stunned,
@@ -855,6 +904,48 @@ func status_spd_mult() -> float:
 	for e in statuses:
 		m *= e.spd_mult()
 	return m
+
+# DAÑO QUE RECIBE este combatiente. > 1.0 = le entra mas. Lo suben la Marca (que se la pone otro
+# para que TODO el grupo le pegue mas) y la Guardia de carne (que te la pones tu a sabiendas).
+# Se aplica al final del golpe, en StatsMath.resolve_attack, sobre el DEFENSOR.
+func status_dmg_taken_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.mult_de("dmg_taken_mult")
+	return m
+
+# CURACION QUE RECIBE. < 1.0 = le llega menos (Herida profunda). Se aplica en heal(), que es el
+# paso unico de toda la cura (pociones, regeneracion, hechizos).
+func status_heal_recv_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.mult_de("heal_recv_mult")
+	return m
+
+# DEF PLANA de la armadura (Corrosion). A proposito distinto de status_def_mult, que multiplica la
+# defensa YA calculada: la Corrosion te come la coraza y Vulnerable te abre la guardia, asi que son
+# cosas distintas y se COMBINAN.
+func status_def_flat_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.mult_de("def_flat_mult")
+	return m
+
+# Cuanto TIENDEN los enemigos a elegirte (Sigilo lo baja). Es el espejo de la Provocacion: inclina
+# la balanza del sorteo, no obliga ni te hace intocable. Ver combat.gd._elegir_objetivo_enemigo.
+func status_aggro_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.mult_de("aggro_mult")
+	return m
+
+# ¿No puede lanzar hechizos ni habilidades? (Silencio). Le quedan el golpe basico, Defender,
+# los objetos y huir: te corta las jugadas, no el turno.
+func silenciado() -> bool:
+	for e in statuses:
+		if bool(e.d.get("silencia", false)):
+			return true
+	return false
 
 # Multiplicador de la prob. de aturdir que RECIBE este combatiente. Lo SUBE el estado RAYO
 # (x1.5) y lo BAJA la afinidad de Rayo (cuerpo imbuido: resistente al aturdimiento, no inmune).

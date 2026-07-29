@@ -1147,8 +1147,11 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 # Un tanque quieto ya atrae ~el doble; provocando, se lleva la mayoria de los golpes unos turnos.
 # Vive aparte porque lo leen DOS sitios: el sorteo de objetivo y el reparto de la excelia de
 # Resistencia (_mult_resistencia_aggro). Si cada uno tuviera su copia, se desincronizarian.
+# El SIGILO entra aqui como el espejo exacto de la Provocacion: un multiplicador mas sobre el mismo
+# peso. Por eso INCLINA la balanza y no obliga -- al sigiloso le siguen pudiendo pegar, igual que
+# provocar no garantiza que te peguen a ti.
 func _peso_aggro(c: Combatant) -> float:
-	return c.aggro_base * (PROVOCA_PESO if c.provocar_turnos > 0 else 1.0)
+	return c.aggro_base * (PROVOCA_PESO if c.provocar_turnos > 0 else 1.0) * c.status_aggro_mult()
 
 
 func _peso_aggro_total() -> float:
@@ -1930,8 +1933,18 @@ func _chips_de(c: Combatant) -> Array:
 	var imb: String = c.imbue_etiqueta()
 	if imb != "":
 		out.append([imb, c.imbue_resumen()])
+	# UN chip por estado, no uno por instancia: los 'independent' (Pegajoso, Sangrado) apilan
+	# creando una Instance por aplicacion y salian cuatro iconos iguales en fila. Se agrupan por id
+	# conservando el orden en que se aplicaron; el detalle por stack va al tooltip.
+	var por_estado: Dictionary = {}
+	var orden: Array = []
 	for e in c.statuses:
-		out.append([e.etiqueta(), e.resumen()])
+		if not por_estado.has(e.id()):
+			por_estado[e.id()] = []
+			orden.append(e.id())
+		(por_estado[e.id()] as Array).append(e)
+	for id_est in orden:
+		out.append(StatusEffects.chip_de_grupo(por_estado[id_est]))
 	return out
 
 
@@ -2439,6 +2452,9 @@ func _refresh_actions() -> void:
 
 
 func _motivo_bloqueo(id: int) -> String:
+	# El Silencio manda sobre el otro motivo: si estas silenciado, da igual que tengas hechizos.
+	if _player != null and _player.silenciado() and (id == Action.MAGIC or id == Action.HABILIDAD):
+		return "Estás silenciado"
 	match id:
 		Action.MAGIC: return "No tienes hechizos equipados"
 		Action.DEFEND: return "Sin energía (ataca para regenerar)"
@@ -2452,8 +2468,9 @@ func _accion_disponible(id: int) -> bool:
 		Action.ATTACK: return true
 		Action.DEFEND: return _player.has_energy(DEFEND_ENERGY_COST)   # Defender cuesta energia
 		Action.FLEE: return true
-		Action.MAGIC: return _hay_hechizos()
-		Action.HABILIDAD: return not _player.abilities_combate.is_empty()
+		# El SILENCIO corta las dos jugadas, no el turno: te quedan atacar, Defender, objeto y huir.
+		Action.MAGIC: return _hay_hechizos() and not _player.silenciado()
+		Action.HABILIDAD: return not _player.abilities_combate.is_empty() and not _player.silenciado()
 		Action.OBJETO: return Game.consumibles_total() > 0
 	return false
 
@@ -3424,7 +3441,11 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		_imbue_dmg_txt(result, ab.dano_mult * m_golpe * escala)]
 	# IMBUICION: cada golpe que acierta tira su estado (multi-golpe = más tiradas).
 	if ab.efectos_por_golpe and objetivo.is_alive():
-		var ap: Array = _tirar_efectos_habilidad(ab, objetivo, result.crit)
+		# "objetivo": los buffs propios NO se tiran aqui (un multi-golpe los aplicaria una vez por
+		# tajo). Se hacen una sola vez al final de la habilidad, en _usar_habilidad.
+		# 'escala' es la fraccion de daño que encaja ESTE objetivo, y con ella va la probabilidad:
+		# al de al lado que se come el 40% del golpe le prende el estado un 40% de las veces.
+		var ap: Array = _tirar_efectos_habilidad(ab, objetivo, result.crit, "objetivo", escala, escala)
 		r.estados = ap
 		if not ap.is_empty():
 			r.linea += "  -> " + ", ".join(ap)
@@ -3497,6 +3518,11 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		# es el total contra TODOS y no vale para decidir a quien se le aplican los efectos: ver el
 		# bloque de efectos no-por-golpe al final del bucle.
 		var conecto_por_obj: Dictionary = {}
+		# FRACCION DE DAÑO que ha encajado cada objetivo (1.0 el principal, menos los secundarios de
+		# un area). De aqui sale la probabilidad de que les prenda el estado: quien se come el 40%
+		# del golpe tiene el 40% de la tirada. Derivarlo del daño y no de un campo aparte hace que
+		# al tocar area_secundario / area_falloff esto se ajuste solo.
+		var escala_por_obj: Dictionary = {}
 		var hubo_critico: bool = false   # para los efectos NO por golpe (tirada al final)
 		var mana_ganado_golpes: float = 0.0
 		# Objetivos del ÁREA (el principal siempre el primero). En single-target = [obj].
@@ -3521,6 +3547,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 						var esc: float = 1.0 if t == obj else esc_sec
 						var etq: String = "" if t == obj else " (%s)" % t.nombre
 						golpe_res.append(_resolver_golpe_hab(ab, t, i, manos, esc, etq, m_golpe))
+						escala_por_obj[t] = maxf(float(escala_por_obj.get(t, 0.0)), esc)
 						if t not in tocados: tocados.append(t)
 				AbilityData.AreaModo.BARRIDO:
 					# Todos reciben el golpe, pero x falloff^(n-1) con n = vivos alcanzados EN ESTE
@@ -3531,6 +3558,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 					for t in vivos_alc:
 						var etq2: String = "" if t == obj else " (%s)" % t.nombre
 						golpe_res.append(_resolver_golpe_hab(ab, t, i, manos, esc_b, etq2, m_golpe))
+						escala_por_obj[t] = maxf(float(escala_por_obj.get(t, 0.0)), esc_b)
 						if t not in tocados: tocados.append(t)
 				_:
 					# SIN área. Un objetivo; si cae y la habilidad REDIRIGE, salta al siguiente vivo.
@@ -3589,7 +3617,15 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		if not ab.efectos_por_golpe:
 			for t in tocados:
 				if t.is_alive() and int(conecto_por_obj.get(t, 0)) > 0:
-					estados_log += _tirar_efectos_habilidad(ab, t, hubo_critico)
+					# "objetivo": aqui solo van los efectos que le lanzas AL RIVAL. Los buffs propios
+					# se aplican una sola vez, justo debajo -- si fueran por este bucle, un area
+					# contra tres bichos te daria el buff tres veces.
+					estados_log += _tirar_efectos_habilidad(ab, t, hubo_critico, "objetivo",
+						float(escala_por_obj.get(t, 1.0)), float(escala_por_obj.get(t, 1.0)))
+		# BUFFS PROPIOS (en_objetivo = false): una vez por uso de la habilidad, tanto si es de area
+		# como si no, y aunque no le hayas acertado a nadie -- ponerte en guardia o gritarle a los
+		# tuyos no depende de que el bicho esquivara. Con a_todo_el_grupo caen sobre todo el equipo.
+		estados_log += _tirar_efectos_habilidad(ab, obj, hubo_critico, "self")
 		# Excelia: como el ataque, entrena Fuerza (por impacto medio, contra el principal).
 		var pj_hab: PersonajeData = Game.pj_de_combatant(_player)
 		Game.ganar("fuerza", _reto(obj, pj_hab) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
@@ -3784,21 +3820,63 @@ func _usar_objeto(cons: ConsumableData, objetivo: Combatant, cobrar: bool = true
 # estados del rival). El objetivo va por PARAMETRO, y es el que capturo la accion al lanzarse:
 # asi los estados caen sobre el mismo bicho que esta recibiendo los golpes.
 # Devuelve los NOMBRES de los que prenden.
-func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico: bool = false) -> Array:
+# Tira los efectos de una habilidad TUYA. Espejo de _enemy_tirar_efectos, con el que tiene que
+# mantenerse a la par: durante mucho tiempo esta rama ignoraba en_objetivo y mandaba TODO al
+# enemigo, asi que un auto-buff en un arma se lo quedaba el bicho.
+#
+#   filtro: "todos" | "objetivo" (solo lo que va al rival) | "self" (solo los buffs propios).
+#           Un area llama con "objetivo" por cada enemigo tocado y con "self" UNA sola vez, para
+#           que el buff propio no se aplique una vez por bicho.
+#   escala_prob / escala_mag: < 1.0 en los SECUNDARIOS de un area. Salen de la FRACCION DE DAÑO que
+#           ha encajado ese objetivo, no de un numero a mano: si encaja el 40% del golpe, tiene el
+#           40% de la probabilidad. Asi al tocar area_secundario esto se ajusta solo.
+func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico: bool = false,
+		filtro: String = "todos", escala_prob: float = 1.0, escala_mag: float = 1.0) -> Array:
 	var out: Array = []
 	for a in ab.efectos:
 		if a.estado < 0:
 			continue
 		if a.solo_crit and not fue_critico:
 			continue   # efecto reservado al critico (p.ej. 2o sangrado de la Punalada)
-		if randf() < a.prob * (1.0 - objetivo.status_resist):
-			var mag: float = StatusEffects.app_magnitude(a, _player.atk(), _player.motion_value)
-			# N stacks por tirada, igual que la rama enemiga (_enemy_tirar_efectos). Antes se
-			# aplicaba siempre 1 e ignoraba a.stacks: hoy ninguna habilidad tuya lo usa, pero la
-			# primera que lo ponga tiene que funcionar sin tener que acordarse de esto.
+		var al_enemigo: bool = a.en_objetivo
+		if filtro == "objetivo" and not al_enemigo:
+			continue
+		if filtro == "self" and al_enemigo:
+			continue
+		# A QUIEN cae. Los buffs propios pueden ir a todo el grupo (grito del tanque).
+		var destinos: Array = []
+		if al_enemigo:
+			destinos.append(objetivo)
+		elif a.a_todo_el_grupo:
+			for al in _aliados_vivos():
+				destinos.append(al)
+		else:
+			destinos.append(_player)
+		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
+		for d in destinos:
+			if d == null or not d.is_alive() or d.es_inmune(a.estado):
+				continue
+			# Solo lo que le LANZAS a alguien se resiste; un buff tuyo siempre prende (igual que
+			# en los hechizos, ver _aplicar_estado_hechizo).
+			var p: float = a.prob
+			if al_enemigo:
+				p = a.prob * (1.0 - d.status_resist) * escala_prob
+				# ATURDIR: la probabilidad de la habilidad es solo la BASE; encima suma el aturdir
+				# del ARMA (que ya viene con Peso y rareza aplicados, ver Game._hand_from). Antes el
+				# aturdir del arma solo contaba en el golpe basico, asi que mejorar Peso no le hacia
+				# nada a Golpe sismico ni a Aplastamiento. Y pasa por stun_taken_mult como el resto
+				# de vias, para que cuenten su resistencia, su afinidad y el estado Rayo.
+				if a.estado == StatusEffects.Id.ATURDIDO:
+					p = (a.prob + _player.aturdir_base) * (1.0 - d.status_resist) * escala_prob
+					p = clampf(p * d.stun_taken_mult(), 0.0, StatsMath.ATURDIR_MAX)
+			if randf() >= p:
+				continue
+			var mag: float = StatusEffects.app_magnitude(a, _player.atk(), _player.motion_value) * escala_mag
+			# N stacks por tirada, igual que la rama enemiga. Antes se aplicaba siempre 1 e
+			# ignoraba a.stacks: la primera habilidad que lo use tiene que funcionar sin acordarse.
 			for _s in maxi(1, a.stacks):
-				objetivo.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
-			out.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
+				d.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
+			out.append(nom if al_enemigo else "%s (%s)" % [nom, d.nombre])
 	return out
 
 
@@ -4141,7 +4219,8 @@ func _enemy_turn(e: Combatant) -> void:
 	# Decision: usar una HABILIDAD (si tiene alguna lista y sale la tirada) o atacar normal.
 	# En modo muñeco (Saco/Pegador) NO usa habilidades: mantiene limpias las pruebas de DPS/armadura.
 	var listas: Array = []
-	if not _dps_on:
+	# SILENCIADO: se queda sin habilidades, igual que tu te quedas sin el boton. Le queda pegar.
+	if not _dps_on and not e.silenciado():
 		for ab in e.habilidades:
 			if e.ability_ready(ab) and ab.invoca_cantidad <= 0:   # la invocacion ya se decidio arriba
 				listas.append(ab)

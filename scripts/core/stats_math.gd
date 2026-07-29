@@ -403,6 +403,11 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 		dmg_imbue = dmg * attacker.imbue_pct * mult_imbue
 		dmg += dmg_imbue
 
+	# 4.5) DAÑO QUE RECIBE el defensor por sus estados: Marca (se la ha puesto alguien para que
+	# TODO el grupo le pegue mas) y Guardia de carne (el doble de vida a cambio del doble de daño).
+	# Va al FINAL, sobre el daño ya mitigado, para que multiplique lo que de verdad le entra.
+	dmg *= defender.status_dmg_taken_mult()
+
 	# 5) Aturdir/retrasar (solo armas CONTUNDENTES).
 	var aturde := aturde_p > 0.0 and randf() < aturde_p
 
