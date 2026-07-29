@@ -313,8 +313,18 @@ static func flee_chance(own_agilidad: float, rival_agilidad: float) -> float:
 # del rival: 1.0 en igualdad (te quedas en la base), sube contra debiles y baja contra bestias.
 # Asi escala con tu Magia de forma RELATIVA y nunca se infla ni se queda obsoleta.
 const IMBUE_PROC_MAX := 0.60
-static func imbue_proc_chance(base: float, magia: float, rival_resistencia: float) -> float:
-	return clampf(base * _ratio_factor(magia, rival_resistencia), 0.0, IMBUE_PROC_MAX)
+# Tope de las imbuiciones que pone un ARMA (no un hechizo). Mas alto porque su base ya lo es: la
+# daga envenena al 60% en igualdad, y con el tope de los hechizos no habria margen para que la
+# Destreza subiera nada. Sigue por debajo de 1.0 a proposito: nunca es seguro.
+const IMBUE_PROC_MAX_ARMA := 0.85
+# 'de_arma' = la imbuicion la puso un ARMA (el veneno de la daga) y no un hechizo. Cambia el TOPE:
+# el 0.60 de los hechizos capaba en su propia base el escalon de 1 stack de la daga (0.60), asi que
+# subir Destreza no habria hecho absolutamente nada. Con IMBUE_PROC_MAX_ARMA crece con la stat pero
+# sigue sin poder ser seguro. Ver Combatant.roll_imbue.
+static func imbue_proc_chance(base: float, stat: float, rival_resistencia: float,
+		de_arma: bool = false) -> float:
+	var tope: float = IMBUE_PROC_MAX_ARMA if de_arma else IMBUE_PROC_MAX
+	return clampf(base * _ratio_factor(stat, rival_resistencia), 0.0, tope)
 
 
 # Resuelve un ataque completo: esquiva -> critico -> mitigacion/defensa -> aturdir.

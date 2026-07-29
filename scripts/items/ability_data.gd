@@ -78,6 +78,47 @@ class_name AbilityData
 func golpe_es_de_escudo(i: int) -> bool:
 	return escudo_desde_golpe >= 0 and i >= escudo_desde_golpe
 
+
+# ============================================================
+#  IMBUICION DESDE EL ARMA (el veneno de la daga)
+#  Hasta ahora solo imbuian los HECHIZOS (SpellData.imbue_*). Estos campos son su espejo, y
+#  reutilizan toda la maquinaria que ya existe: Combatant.aplicar_imbue, el gasto de UNA carga por
+#  ATAQUE (no por golpe), la persistencia entre combates en PersonajeData.imbue y los chips.
+#
+#  La diferencia esta en la TIRADA: dos escalones (60% un stack, 10% dos) y por DESTREZA en vez de
+#  por Magia, porque un picaro que envenena su daga no tiene Magia que valga. Ver roll_imbue.
+# ============================================================
+@export var imbue_estado: int = -1        # StatusEffects.Id (-1 = esta habilidad no imbuye)
+@export var imbue_usos: int = 0           # duracion en ATAQUES, no en turnos
+@export var imbue_pct: float = 0.0        # fraccion de daño elemental extra (0 = no añade daño)
+@export var imbue_elemento: int = 0       # Elementos.Elemento; NINGUNO si solo mete estado
+@export var imbue_prob: float = 0.0       # prob. de UN stack, en igualdad de stat vs Resistencia
+@export var imbue_prob_doble: float = 0.0 # prob. de DOS stacks de golpe (se tira antes)
+@export var imbue_por_destreza: bool = false
+
+func es_imbuicion() -> bool:
+	return imbue_estado >= 0 and imbue_usos > 0
+
+
+# ============================================================
+#  APOYO: apuntar a un ALIADO, limpiar debuffs y recortar cooldowns
+# ============================================================
+# A QUIEN va la habilidad. 0 = al enemigo (lo de siempre). 1 = a UN ALIADO que eliges (pasa por el
+# mismo selector que los Filos, ver combat.gd._elegir_objetivo_aliado). 2 = a TODO el grupo.
+# Es lo que permite curaciones y limpiezas sin un camino aparte por habilidad.
+enum Objetivo { ENEMIGO, ALIADO, GRUPO }
+@export var objetivo_aliado: int = Objetivo.ENEMIGO
+
+# Cuantos DEBUFFS quita a cada objetivo (0 = ninguno, 99 = todos). Solo toca lo que el catalogo
+# marca con "debuff": un buff tuyo (Fortaleza, Regeneracion) NO se limpia, ni el Mojado (que te
+# protege de la quemadura) ni la Guardia de carne (te la has puesto tu, y quitarla te bajaria la
+# vida de golpe). Si quita menos de los que hay, elige AL AZAR.
+@export var limpia_debuffs: int = 0
+
+# Turnos que le quita al cooldown de tus OTRAS habilidades. Nunca al suyo propio: si se
+# autorredujera saldria gratis y el cooldown dejaria de significar nada.
+@export var reduce_cooldowns: int = 0
+
 # ============================================================
 #  ÁREA / MULTI-OBJETIVO (habilidades melee). Dos modos distintos:
 #   SPLASH  -> el PRINCIPAL recibe todos los golpes al 100%; cada SECUNDARIO los recibe
@@ -363,6 +404,24 @@ func resumen(manos: int = 1) -> String:
 		p.append("guardia %dt" % bloqueo_turnos)
 	if provoca_turnos > 0:
 		p.append("provoca %dt" % provoca_turnos)
+	# IMBUICION DE ARMA: los dos escalones salen por separado, que es como se juega (no interesa
+	# el 70% total, interesa cuanto cae doble).
+	if es_imbuicion():
+		var nom_est: String = str(StatusEffects.def(imbue_estado).get("nombre", "?"))
+		var esc: String = "%d%%" % roundi(imbue_prob * 100.0)
+		if imbue_prob_doble > 0.0:
+			esc += " · x2 el %d%%" % roundi(imbue_prob_doble * 100.0)
+		p.append("imbuye %s %d ataques (%s%s)" % [nom_est, imbue_usos, esc,
+			", por Destreza" if imbue_por_destreza else ""])
+	if limpia_debuffs > 0:
+		p.append("quita %s" % ("TODOS los perjuicios" if limpia_debuffs >= 99
+			else "%d perjuicio%s" % [limpia_debuffs, "" if limpia_debuffs == 1 else "s"]))
+	if reduce_cooldowns > 0:
+		p.append("−%dt a tus otros cooldowns" % reduce_cooldowns)
+	if objetivo_aliado == Objetivo.ALIADO:
+		p.append("a un aliado")
+	elif objetivo_aliado == Objetivo.GRUPO:
+		p.append("a todo el grupo")
 	for a in efectos:
 		var et: String = _efecto_txt(a)
 		if et != "":

@@ -331,6 +331,19 @@ var _cast_index: int:
 # Vive en _casteos con el resto del conjuro porque el recitado dura 2-3 turnos y tiene que
 # sobrevivirlos (y al traspaso de anfitrion). Si el elegido cae mientras recitas, se cae al que
 # lanza: el conjuro no se pierde por eso.
+# A QUIEN va una HABILIDAD de las que caen sobre un aliado (Purificar, Égida menor). No puede
+# reutilizar _cast_aliado: ese vive dentro de _casteos y solo existe mientras recitas un conjuro,
+# asi que para una habilidad su setter no hace nada y el getter siempre devolveria _player.
+# Una habilidad se resuelve en el acto, asi que basta con guardarlo hasta que se resuelva.
+var _hab_aliado: Combatant = null
+
+# El aliado elegido para la habilidad en curso, o el que la lanza si no hay o ya no esta en pie.
+func _hab_objetivo_aliado() -> Combatant:
+	if _hab_aliado == null or not _hab_aliado.is_alive() or _huidos.has(_hab_aliado):
+		return _player
+	return _hab_aliado
+
+
 var _cast_aliado: Combatant:
 	get:
 		if not _casteos.has(_player):
@@ -618,7 +631,7 @@ func _volatil(c: Combatant) -> Dictionary:
 		"provocar": c.provocar_turnos, "estados": estados, "cd": cds,
 		"carga": [String(c.charging.resource_path) if c.charging != null else "", c.charge_left],
 		"imbue": [c.imbue_elemento, c.imbue_pct, c.imbue_usos, c.imbue_cuerpo,
-			c.imbue_estado, c.imbue_prob]}
+			c.imbue_estado, c.imbue_prob, c.imbue_prob_doble, c.imbue_por_destreza]}
 
 
 func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
@@ -654,6 +667,12 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 		c.imbue_cuerpo = bool(imb[3])
 		c.imbue_estado = int(imb[4])
 		c.imbue_prob = float(imb[5])
+		# Los dos escalones y el escalado por Destreza (imbuicion de ARMA). Si no viajaran, tras un
+		# traspaso de anfitrion el veneno de la daga se quedaria en un solo escalon y medido por
+		# Magia -- o sea, en nada, porque un picaro no tiene Magia.
+		if imb.size() >= 8:
+			c.imbue_prob_doble = float(imb[6])
+			c.imbue_por_destreza = bool(imb[7])
 		# Y la AFINIDAD, que es la mitad de un manto (resistencias, inmunidades, aturdimiento).
 		# Sin esto, quien llevara un Manto y sufriera un traspaso de anfitrion perdia todo el lado
 		# defensivo aunque el chip siguiera diciendo 🛡: solo le quedaba el bonus de daño.
@@ -3332,7 +3351,11 @@ func _accion_habilidad() -> void:
 		elif not es_conv and not _player.has_energy(coste):
 			b.disabled = true
 			b.tooltip_text = "⛔ Sin energía suficiente\n\n%s" % b.tooltip_text
-		b.pressed.connect(_usar_habilidad.bind(ab))
+		# Las que caen sobre un aliado preguntan A QUIEN antes de resolverse, igual que un Filo.
+		if ab.objetivo_aliado == AbilityData.Objetivo.ALIADO:
+			b.pressed.connect(_elegir_aliado_habilidad.bind(ab))
+		else:
+			b.pressed.connect(_usar_habilidad.bind(ab))
 		_celda_submenu(b)
 		grid.add_child(b)
 	var volver := Button.new()
@@ -3455,6 +3478,37 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 			r.estados.append(imb_h)
 			r.linea += "  ⚡ " + imb_h
 	return r
+
+
+# Segundo paso de las habilidades que caen sobre UN ALIADO (Purificar, Égida menor): a quien.
+# Mismo patron que el de los hechizos (_elegir_objetivo_aliado), pero en la caja de habilidades.
+# Con un solo aliado en pie no se pregunta nada: va directa a el.
+func _elegir_aliado_habilidad(ab: AbilityData) -> void:
+	var vivos: Array[Combatant] = _aliados_vivos()
+	if vivos.size() <= 1:
+		_hab_aliado = vivos[0] if not vivos.is_empty() else _player
+		_usar_habilidad(ab)
+		return
+	for c in _ability_box.get_children():
+		c.queue_free()
+	var grid := _rejilla_submenu(_ability_box)
+	for al in vivos:
+		var b := TooltipButton.new()
+		var estados: String = al.status_summary()
+		b.text = "%s  (%.0f/%.0f ♥)" % [al.nombre, al.current_hp, al.max_hp]
+		b.tooltip_text = "%s usa %s sobre %s.%s" % [_player.nombre, ab.nombre, al.nombre,
+			"\n\nAhora lleva: %s" % estados if estados != "" else "\n\nNo tiene ningún estado encima."]
+		b.pressed.connect(func():
+			_hab_aliado = al
+			_usar_habilidad(ab))
+		_celda_submenu(b)
+		grid.add_child(b)
+	var volver := Button.new()
+	volver.text = "◄ Volver"
+	volver.pressed.connect(_accion_habilidad)
+	_ability_box.add_child(volver)
+	_ability_box.visible = true
+	_ocultar_log()
 
 
 func _usar_habilidad(ab: AbilityData) -> void:
@@ -3670,6 +3724,29 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	# Provocacion no da cargas de Foco, no se aplicaba NUNCA.
 	if ab.provoca_turnos > 0:
 		_player.provocar_turnos = ab.provoca_turnos
+	# IMBUICION DESDE EL ARMA (el veneno de la daga). Reutiliza la misma maquinaria que los Filos:
+	# se gasta 1 carga por ATAQUE, aguanta entre combates y se ve en el mismo chip. OJO: aplicar_imbue
+	# SUSTITUYE, asi que envenenar la daga te quita el Filo o el Manto que llevaras -- hay una sola
+	# ranura de imbuicion, y es a proposito.
+	if ab.es_imbuicion():
+		_player.aplicar_imbue(ab.imbue_elemento, ab.imbue_pct, ab.imbue_usos, false,
+			ab.imbue_estado, ab.imbue_prob, Elementos.INTENSIDAD_IMBUIDO,
+			ab.imbue_prob_doble, ab.imbue_por_destreza)
+		estados_log.append("%s en el arma (%d ataques)" % [
+			str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), ab.imbue_usos])
+	# LIMPIAR DEBUFFS: a un aliado elegido (Purificar) o a todo el grupo (el area del baston).
+	if ab.limpia_debuffs > 0:
+		var a_limpiar: Array = _aliados_vivos() if ab.objetivo_aliado == AbilityData.Objetivo.GRUPO \
+			else [_hab_objetivo_aliado()]
+		for al in a_limpiar:
+			var quitados: Array = al.limpiar_debuffs(ab.limpia_debuffs)
+			if not quitados.is_empty():
+				estados_log.append("%s se quita %s" % [al.nombre, ", ".join(quitados)])
+	# RECORTE DE COOLDOWNS: a las OTRAS habilidades, nunca a la suya (ver AbilityData).
+	if ab.reduce_cooldowns > 0:
+		var destrabadas: int = _player.reducir_cooldowns(ab.reduce_cooldowns, ab)
+		estados_log.append("cooldowns −%dt%s" % [ab.reduce_cooldowns,
+			"" if destrabadas == 0 else " (%d lista%s)" % [destrabadas, "" if destrabadas == 1 else "s"]])
 
 	# ---- Mensaje al jugador ----
 	# Con daño van DOS lineas: el RASTRO (que hizo cada golpe) y el REPARTO (cuanto se llevo cada

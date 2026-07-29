@@ -854,12 +854,16 @@ func volcar_desgaste_en_ficha(pj: PersonajeData) -> void:
 func guardar_imbue_en_ficha(c: Combatant, pj: PersonajeData) -> void:
 	if c == null or pj == null:
 		return
-	if c.imbue_elemento == Elementos.Elemento.NINGUNO or c.imbue_usos <= 0:
+	# "No lleva nada" = ni bonus elemental ni estado. Preguntar SOLO por el elemento dejaba fuera
+	# las imbuiciones que no son elementales (el veneno que pone la daga tiene elemento NINGUNO y
+	# solo mete estado): se guardaban como vacias y se perdian al cambiar de combate.
+	if c.imbue_usos <= 0 or (c.imbue_elemento == Elementos.Elemento.NINGUNO and c.imbue_estado < 0):
 		pj.imbue = {}
 		return
 	pj.imbue = {"elem": c.imbue_elemento, "pct": c.imbue_pct, "usos": c.imbue_usos,
 		"cuerpo": c.imbue_cuerpo, "estado": c.imbue_estado, "prob": c.imbue_prob,
-		"intensidad": c.elemento_intensidad}
+		"intensidad": c.elemento_intensidad,
+		"prob_doble": c.imbue_prob_doble, "destreza": c.imbue_por_destreza}
 
 
 # Y la vuelta: se la devuelve al Combatant recien creado. Va por aplicar_imbue y no asignando los
@@ -902,7 +906,8 @@ func restaurar_imbue_de_ficha(c: Combatant, pj: PersonajeData) -> void:
 		return
 	c.aplicar_imbue(int(d["elem"]), float(d["pct"]), int(d["usos"]), bool(d["cuerpo"]),
 		int(d.get("estado", -1)), float(d.get("prob", 0.0)),
-		float(d.get("intensidad", Elementos.INTENSIDAD_IMBUIDO)))
+		float(d.get("intensidad", Elementos.INTENSIDAD_IMBUIDO)),
+		float(d.get("prob_doble", 0.0)), bool(d.get("destreza", false)))
 
 
 func olvidar_mazmorra() -> void:

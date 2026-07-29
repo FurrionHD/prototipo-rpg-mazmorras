@@ -270,6 +270,14 @@ var imbue_cuerpo: bool = false
 # (en igualdad de poder). La prob. real la escala un contest de tu Magia vs su Resistencia.
 var imbue_estado: int = -1
 var imbue_prob: float = 0.0
+# SEGUNDO ESCALON: probabilidad de meter DOS stacks de golpe en vez de uno (0 = no lo tiene).
+# Es lo que permite decir "60% un stack, 10% dos" sin dos efectos separados. Se tira ANTES que
+# imbue_prob (ver roll_imbue): el escalon gordo tiene prioridad.
+var imbue_prob_doble: float = 0.0
+# ¿La probabilidad escala con DESTREZA en vez de con Magia? Las imbuiciones de HECHIZO son cosa de
+# tu Magia; las que pone un ARMA (el veneno de la daga) son cosa de tu mano, y un picaro no tiene
+# Magia que valga. Ver Game / AbilityData.imbue_por_destreza.
+var imbue_por_destreza: bool = false
 # ¿Ya se ha cobrado la carga DEFENSIVA de esta accion enemiga? (ver gastar_imbue_defensiva)
 var imbue_def_gastada: bool = false
 
@@ -321,13 +329,16 @@ func resiste_por_afinidad(elem: int) -> bool:
 # Imbuye el arma (cuerpo = false) o el CUERPO (cuerpo = true) con un elemento.
 func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 		estado: int = -1, prob: float = 0.0,
-		intensidad: float = Elementos.INTENSIDAD_IMBUIDO) -> void:
+		intensidad: float = Elementos.INTENSIDAD_IMBUIDO,
+		prob_doble: float = 0.0, por_destreza: bool = false) -> void:
 	imbue_elemento = elem
 	imbue_pct = pct
 	imbue_usos = maxi(1, usos)
 	imbue_cuerpo = cuerpo
 	imbue_estado = estado
 	imbue_prob = prob
+	imbue_prob_doble = prob_doble
+	imbue_por_destreza = por_destreza
 	imbue_def_gastada = false
 	# La afinidad ANTERIOR se limpia SIEMPRE, aunque la nueva sea de arma. Antes solo se tocaba
 	# cuando la nueva era de cuerpo, asi que ponerse un Filo encima de un Manto dejaba la afinidad
@@ -395,16 +406,33 @@ func imbue_resumen() -> String:
 # StatsMath.imbue_proc_chance) y la baja su resistencia a estados. apply_status() ya corta
 # solo si el objetivo es inmune (el slime de fuego no se quema).
 func roll_imbue(target: Combatant) -> String:
-	if imbue_estado < 0 or imbue_prob <= 0.0 or target == null:
+	if imbue_estado < 0 or target == null:
+		return ""
+	if imbue_prob <= 0.0 and imbue_prob_doble <= 0.0:
 		return ""
 	if target.es_inmune(imbue_estado):
 		return ""
-	var p: float = StatsMath.imbue_proc_chance(imbue_prob, float(abilities.magia),
-		float(target.abilities.resistencia)) * (1.0 - target.status_resist)
-	if randf() >= p:
+	# Con QUE stat compite: Magia si viene de un hechizo, DESTREZA si la puso un arma. Un picaro
+	# que envenena su daga no tiene Magia, asi que medirlo por Magia lo dejaba sin veneno.
+	var stat: float = float(abilities.destreza) if imbue_por_destreza else float(abilities.magia)
+	var rival: float = float(target.abilities.resistencia)
+	var resiste: float = 1.0 - target.status_resist
+	var p2: float = StatsMath.imbue_proc_chance(imbue_prob_doble, stat, rival, imbue_por_destreza) * resiste
+	var p1: float = StatsMath.imbue_proc_chance(imbue_prob, stat, rival, imbue_por_destreza) * resiste
+	# DOS ESCALONES en una sola tirada: el gordo primero. Asi "60% un stack, 10% dos" es exactamente
+	# eso -- 10% dos, 60% uno, 30% nada -- y no dos tiradas que se pisan.
+	var r: float = randf()
+	var stacks: int = 0
+	if r < p2:
+		stacks = 2
+	elif r < p2 + p1:
+		stacks = 1
+	if stacks == 0:
 		return ""
-	target.apply_status(imbue_estado)   # duracion/magnitud por defecto del catalogo
-	return String(StatusEffects.def(imbue_estado).get("nombre", "?"))
+	for _s in stacks:
+		target.apply_status(imbue_estado)   # duracion/magnitud por defecto del catalogo
+	var nom: String = String(StatusEffects.def(imbue_estado).get("nombre", "?"))
+	return nom if stacks == 1 else "%s x%d" % [nom, stacks]
 
 
 # Gasta UN USO de la imbuicion: lo llama cada ATAQUE que lanzas (basico o habilidad), da igual
@@ -938,6 +966,48 @@ func status_aggro_mult() -> float:
 	for e in statuses:
 		m *= e.mult_de("aggro_mult")
 	return m
+
+# LIMPIA hasta 'cuantos' DEBUFFS (99 = todos) y devuelve los nombres de los que ha quitado.
+#
+# Solo toca lo que el catalogo marca con "debuff": los buffs propios (Fortaleza, Regeneracion,
+# Presteza...) se quedan, el Mojado tampoco se limpia (te protege de la Quemadura, quitarlo seria
+# un perjuicio) y la Guardia de carne menos (te la has puesto tu a sabiendas, y quitarla a media
+# pelea te bajaria la vida de golpe). Si hay mas debuffs que limpiezas, elige AL AZAR: una limpieza
+# parcial no puede ir siempre a por el mismo.
+func limpiar_debuffs(cuantos: int = 99) -> Array:
+	if cuantos <= 0:
+		return []
+	var ids: Array = []
+	for e in statuses:
+		if bool(e.d.get("debuff", false)) and not ids.has(e.id()):
+			ids.append(e.id())
+	ids.shuffle()
+	var out: Array = []
+	for id_est in ids:
+		if out.size() >= cuantos:
+			break
+		_quitar_status(id_est)   # se lleva TODAS las instancias de ese estado (sus stacks)
+		out.append(str(StatusEffects.def(id_est).get("nombre", "?")))
+	if not out.is_empty():
+		print("[estado] %s se limpia: %s" % [nombre, ", ".join(out)])
+	return out
+
+
+# Recorta 'turnos' al cooldown de todas las habilidades MENOS 'excepto' (la que lo provoca: si se
+# autorredujera saldria gratis). Devuelve cuantas ha destrabado del todo.
+func reducir_cooldowns(turnos: int, excepto = null) -> int:
+	var listas: int = 0
+	for ab in ability_cooldowns.keys():
+		if ab == excepto:
+			continue
+		var antes: int = int(ability_cooldowns[ab])
+		if antes <= 0:
+			continue
+		ability_cooldowns[ab] = maxi(0, antes - turnos)
+		if int(ability_cooldowns[ab]) == 0:
+			listas += 1
+	return listas
+
 
 # ¿No puede lanzar hechizos ni habilidades? (Silencio). Le quedan el golpe basico, Defender,
 # los objetos y huir: te corta las jugadas, no el turno.
