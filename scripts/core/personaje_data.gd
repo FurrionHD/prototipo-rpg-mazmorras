@@ -134,6 +134,16 @@ func imbue_elemento() -> int:
 @export var equipped_botas: Resource = null
 # (La MOCHILA no esta aqui: es del GRUPO, como la bolsa. Vive en Game.mochila_equipo.)
 @export var equipped_spells: Array = []
+# --- HABILIDADES de arma: lo que SABE y lo que LLEVA PUESTO (ver Game.habilidades_equipadas) ---
+# Las que le ha enseñado el maestro del pueblo (Array[AbilityData]). Las `inicial` NO estan aqui:
+# esas se saben siempre, vengan con el arma que vengan. Es POR PERSONAJE: cada compañero paga
+# las suyas.
+@export var habilidades_aprendidas: Array = []
+# Su set de MAX_HABILIDADES por TIPO DE ARMA: {int(WeaponData.Tipo) -> Array[AbilityData]}.
+# La clave es el TIPO y no el arma concreta, y de ahi salen las dos reglas de golpe: cambiar de
+# arma te pone el set de la nueva (clave distinta, todavia sin entrada -> se autorrellena), y la
+# MISMA arma de otro tier o mejorada te conserva el tuyo (misma clave). Sin codigo de reseteo.
+@export var loadout_habilidades: Dictionary = {}
 # tier + rareza + mejoras + durabilidad de lo que lleva PUESTO, por slot. Los dicts son los
 # MISMOS objetos que Game.item_meta[item] (por referencia): mejorar lo equipado mejora lo del baul.
 @export var equip_meta: Dictionary = {}
@@ -153,6 +163,8 @@ func _init() -> void:
 	pasivas_rng = {}
 	pasivas_pendientes = {}
 	equipped_spells = []
+	habilidades_aprendidas = []
+	loadout_habilidades = {}
 	equip_meta = meta_vacia()
 
 

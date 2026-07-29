@@ -34,23 +34,11 @@ const ROJO := Color(0.9, 0.5, 0.5)
 const GRIS := Color(0.6, 0.63, 0.7)
 
 # Catalogo de la tienda: lo que hay a la venta, por bloques.
-const CAT_ARMAS: Array[String] = [
-	"res://resources/weapons/daga.tres",
-	"res://resources/weapons/estoque.tres",
-	"res://resources/weapons/espada_corta.tres",
-	"res://resources/weapons/espada_larga.tres",
-	"res://resources/weapons/maza_peq.tres",
-	"res://resources/weapons/mandobles.tres",
-	"res://resources/weapons/hacha_grande.tres",
-	"res://resources/weapons/martillo_grande.tres",
-	"res://resources/weapons/baston.tres",
-]
-const CAT_SECUNDARIAS: Array[String] = [
-	"res://resources/shields/escudo_pequeno.tres",
-	"res://resources/shields/escudo_normal.tres",
-	"res://resources/shields/escudo_grande.tres",
-	"res://resources/wands/varita.tres",
-]
+# Armas y secundarias: la lista vive en CatalogoEquipo, porque el maestro de habilidades recorre
+# esas MISMAS plantillas para saber que habilidades trae cada arma. Duplicarla aqui hacia que un
+# arma nueva se pudiera comprar sin habilidades que aprender (o al reves).
+const CAT_ARMAS: Array[String] = CatalogoEquipo.ARMAS
+const CAT_SECUNDARIAS: Array[String] = CatalogoEquipo.SECUNDARIAS
 # La mochila basica: la unica que se compra hecha. Las buenas las cose el peletero.
 const CAT_MOCHILAS: Array[String] = [
 	"res://resources/backpacks/mochila_basica.tres",

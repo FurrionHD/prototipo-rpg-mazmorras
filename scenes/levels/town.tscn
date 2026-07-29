@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/town/peletero.gd" id="9_pelet"]
 [ext_resource type="Script" path="res://scripts/town/carpintero.gd" id="10_carpin"]
 [ext_resource type="Script" path="res://scripts/town/taberna.gd" id="11_tabern"]
+[ext_resource type="Script" path="res://scripts/town/maestro.gd" id="12_maestr"]
 
 [node name="Town" type="Node2D"]
 
@@ -20,15 +21,15 @@ position = Vector2(450, 320)
 [node name="Walls" type="Node2D" parent="."]
 
 [node name="WallTop" parent="Walls" instance=ExtResource("2_2vj2h")]
-position = Vector2(352, 80)
-scale = Vector2(17, 1)
+position = Vector2(272, 80)
+scale = Vector2(22, 1)
 
 [node name="WallBottom" parent="Walls" instance=ExtResource("2_2vj2h")]
-position = Vector2(352, 432)
-scale = Vector2(17, 1)
+position = Vector2(272, 432)
+scale = Vector2(22, 1)
 
 [node name="WallLeft" parent="Walls" instance=ExtResource("2_2vj2h")]
-position = Vector2(96, 256)
+position = Vector2(-64, 256)
 scale = Vector2(1, 12)
 
 [node name="WallRight" parent="Walls" instance=ExtResource("2_2vj2h")]
@@ -257,5 +258,30 @@ offset_right = 70.0
 offset_bottom = 24.0
 grow_horizontal = 2
 text = "TABERNA"
+horizontal_alignment = 1
+vertical_alignment = 0
+
+[node name="Maestro" type="Node2D" parent="."]
+position = Vector2(30, 256)
+script = ExtResource("12_maestr")
+
+[node name="Sprite" type="ColorRect" parent="Maestro"]
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+color = Color(0.68, 0.24, 0.28, 1)
+
+[node name="Label" type="Label" parent="Maestro/Sprite"]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = 2.0
+offset_right = 70.0
+offset_bottom = 24.0
+grow_horizontal = 2
+text = "MAESTRO"
 horizontal_alignment = 1
 vertical_alignment = 0

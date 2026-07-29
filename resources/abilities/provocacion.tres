@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Provocación"
+precio = 2000
 coste_energia = 40
 cooldown = 3
 dano_mult = 0.0

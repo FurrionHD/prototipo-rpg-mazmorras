@@ -12,6 +12,7 @@ mult = 0.75
 [resource]
 script = ExtResource("1")
 nombre = "Estocada penetrante"
+inicial = true
 coste_energia = 42
 coste_energia_dual = 60
 cooldown = 4

@@ -1355,6 +1355,8 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	mochila_equipo = null
 	consumables.clear()
 	equipped_spells.clear()
+	lider().habilidades_aprendidas.clear()
+	lider().loadout_habilidades.clear()
 	item_meta.clear()
 
 	equipped_main = null
@@ -1496,6 +1498,8 @@ func exportar_partida() -> SaveData:
 			d.consumibles[c.resource_path] = int(consumables[c])
 
 	d.equipped_spells = equipped_spells.duplicate()
+	d.habilidades_aprendidas = lider().habilidades_aprendidas.duplicate()
+	d.loadout_habilidades = lider().loadout_habilidades.duplicate(true)
 	d.tool_hit_reduction = tool_hit_reduction
 	d.tool_destreza_bonus = tool_destreza_bonus
 	# HERRAMIENTAS: el baul y las tres equipadas, como instancias (llevan tier/rareza/banda en su
@@ -2026,6 +2030,11 @@ func importar_partida(d: SaveData) -> void:
 			consumables[c] = int(d.consumibles[ruta])
 
 	equipped_spells.assign(d.equipped_spells)
+	# Habilidades del lider. Una partida anterior al maestro no trae estos campos y llega con los
+	# defaults ([] / {}): eso es exactamente lo que queremos, porque habilidades_equipadas()
+	# autorrellena el set con las `inicial` del arma que lleve puesta.
+	lider().habilidades_aprendidas.assign(d.habilidades_aprendidas)
+	lider().loadout_habilidades = d.loadout_habilidades.duplicate(true)
 	tool_hit_reduction = d.tool_hit_reduction
 	tool_destreza_bonus = d.tool_destreza_bonus
 	# HERRAMIENTAS. Baul + las tres equipadas, como instancias con su meta.
@@ -3522,6 +3531,190 @@ func quitar_hechizo(spell: SpellData, pj: PersonajeData = null) -> void:
 	var p: PersonajeData = pj if pj != null else lider()
 	p.equipped_spells.erase(spell)
 
+
+# ============================================================
+#  HABILIDADES de arma: saber, equipar y el tope de 4
+# ------------------------------------------------------------
+# El arma sigue siendo la fuente de verdad del POOL (WeaponData/ShieldData/WandData.habilidades):
+# es lo que tu equipo te DEJA hacer. Encima van dos filtros que son la parte de juego:
+#   1. lo que SABES  -> ab.inicial o esta en pj.habilidades_aprendidas (te lo enseña el maestro)
+#   2. lo que LLEVAS -> como mucho MAX_HABILIDADES, guardado POR TIPO DE ARMA
+# Sin el tope, un arma con 6 habilidades te las daba las 6 y no habia nada que elegir.
+# ============================================================
+
+# Cuantas caben en la barra a la vez. Bajo a proposito: con 4 huecos, meter la utilitaria de
+# turno (Provocacion, En guardia) te cuesta un hueco de daño. Ese es todo el juego.
+const MAX_HABILIDADES := 4
+
+# El POOL: todo lo que aporta el equipo que lleva puesto, sepa usarlo o no. Es el bucle que
+# antes vivia dentro de _aplicar_loadout; se saco aqui porque ahora lo miran tambien el menu
+# del maestro y habilidades_equipadas.
+func pool_habilidades(pj: PersonajeData = null) -> Array:
+	var p: PersonajeData = pj if pj != null else lider()
+	var pool: Array = []
+	var tiene_escudo: bool = p.equipped_off is ShieldData
+	# Mano secundaria LIBRE = vacia o con varita (WandData no pesa ni estorba el movimiento).
+	var off_libre: bool = p.equipped_off == null or p.equipped_off is WandData
+	for it in [p.equipped_main, p.equipped_off]:
+		if (it is WeaponData or it is ShieldData or it is WandData) and not it.habilidades.is_empty():
+			for ab in it.habilidades:
+				if ab == null or pool.has(ab):
+					continue
+				# Tecnicas de arma+escudo: solo si llevas escudo (ej: Guardia rota).
+				if ab.requiere_escudo and not tiene_escudo:
+					continue
+				# Tecnicas de una mano libre: solo con la otra mano vacia o con varita
+				# (ej: el estoque, "En guardia" / contraataque de duelo).
+				if ab.requiere_off_libre and not off_libre:
+					continue
+				pool.append(ab)
+	return pool
+
+
+# Con cuantas MANOS la usaria este personaje: 2 solo si las DOS armas la traen (daga+daga), que es
+# como el dual sube golpes y coste. Es la version FUERA de combate de Combatant.ability_manos, para
+# que el menu del maestro pueda enseñar el mismo resumen() que veras luego en la pelea.
+func manos_de(ab: AbilityData, pj: PersonajeData = null) -> int:
+	var p: PersonajeData = pj if pj != null else lider()
+	if ab == null:
+		return 1
+	if p.equipped_main is WeaponData and (p.equipped_main as WeaponData).habilidades.has(ab) \
+			and p.equipped_off is WeaponData and (p.equipped_off as WeaponData).habilidades.has(ab):
+		return 2
+	return 1
+
+
+# ¿Sabe usarla? Las `inicial` vienen con el arma; el resto hay que pagarlas.
+func habilidad_desbloqueada(ab: AbilityData, pj: PersonajeData = null) -> bool:
+	if ab == null:
+		return false
+	if ab.inicial:
+		return true
+	var p: PersonajeData = pj if pj != null else lider()
+	return p.habilidades_aprendidas.has(ab)
+
+
+# Se la enseña el maestro del pueblo. Cobra AQUI (mismo patron que fichar_en_taberna): si no
+# llega el dinero no se cobra nada y no se aprende nada.
+func aprender_habilidad(ab: AbilityData, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	if ab == null or habilidad_desbloqueada(ab, p):
+		return false
+	if not gastar(ab.precio):
+		return false
+	p.habilidades_aprendidas.append(ab)
+	print("[maestro] %s aprende %s por %d monedas." % [p.nombre, ab.nombre, ab.precio])
+	return true
+
+
+# La clave del set: el TIPO del arma principal (los puños incluidos, que tambien son un tipo).
+# Deliberadamente NO es el arma concreta: por eso la misma espada a otro tier o mejorada te
+# conserva el set, y cambiar a un arma distinta te pone el de esa.
+func clave_loadout(pj: PersonajeData = null) -> int:
+	var p: PersonajeData = pj if pj != null else lider()
+	return int(arma_main(p).tipo)
+
+
+# El set GUARDADO de la clave actual, saneado y con los huecos explicitos. MAX_HABILIDADES
+# posiciones, cada una con una habilidad o con null. Lo llama todo lo demas; el de fuera es
+# habilidades_equipadas(), que devuelve lo mismo sin los huecos.
+#
+# El null es lo que distingue los dos tipos de hueco, y sin esa distincion el sistema no funciona:
+#   - el que haces TU al quitar una habilidad -> se queda vacio y NO se rellena. Si se rellenara,
+#     quitar algo no serviria de nada (la siguiente lectura te la volvia a meter).
+#   - el que aparece SOLO porque lo que habia ahi ya no vale (soltaste el escudo, o cambiaste de
+#     escudo pequeño a grande, que traen habilidades distintas) -> se rellena con lo primero del
+#     pool que no lleves, para no dejarte un hueco muerto que tu no has pedido.
+# Y una clave que aun NO EXISTE (arma que no habias tocado) llega vacia y se llena entera: eso es
+# lo que hace que cambiar de arma "te ponga las suyas" sin escribir ni una linea de reseteo.
+func _set_guardado(p: PersonajeData) -> Array:
+	var pool: Array = pool_habilidades(p)
+	var clave: int = clave_loadout(p)
+	# El array guardado mide SIEMPRE MAX_HABILIDADES, huecos incluidos. Que midiera lo que llevas
+	# puesto parece mas limpio pero rompe el sistema: si te quitas la ultima, el hueco desaparece
+	# del array en vez de quedarse, y al releer no hay forma de saber que estaba vacio a proposito
+	# -> se autorrellenaba con la que acababas de quitar.
+	var crudo: Array = []
+	crudo.resize(MAX_HABILIDADES)
+	if not p.loadout_habilidades.has(clave):
+		# Arma que este personaje no habia tocado nunca: se le ponen las suyas y listo. Este es
+		# TODO el "cambiar de arma te cambia las habilidades": no hay codigo de reseteo.
+		var i: int = 0
+		for ab in pool:
+			if i >= MAX_HABILIDADES:
+				break
+			if habilidad_desbloqueada(ab, p):
+				crudo[i] = ab
+				i += 1
+		p.loadout_habilidades[clave] = crudo
+		return crudo
+
+	var guardado: Array = p.loadout_habilidades[clave]
+	# Primero, lo que sigue valiendo se queda donde estaba.
+	for i in mini(guardado.size(), MAX_HABILIDADES):
+		var ab = guardado[i]
+		if ab != null and pool.has(ab) and not crudo.has(ab) and habilidad_desbloqueada(ab, p):
+			crudo[i] = ab
+	# Y ahora los huecos, que NO son todos iguales:
+	#   - lo que habia ahi y ya no vale (soltaste el escudo, cambiaste de escudo pequeño a grande,
+	#     vendiste el arma) -> se sustituye por lo primero del pool que no lleves, para no dejarte
+	#     un hueco muerto que tu no has pedido.
+	#   - un null que estaba GUARDADO es un hueco TUYO y se respeta: si se rellenara, quitar una
+	#     habilidad no serviria de nada.
+	for i in MAX_HABILIDADES:
+		if crudo[i] != null:
+			continue
+		if i < guardado.size() and guardado[i] == null:
+			continue
+		for ab in pool:
+			if not crudo.has(ab) and habilidad_desbloqueada(ab, p):
+				crudo[i] = ab
+				break
+	p.loadout_habilidades[clave] = crudo
+	return crudo
+
+
+# LO QUE LLEVA PUESTO de verdad, sin los huecos. Es lo que va al combatiente y lo que pinta
+# el menu del maestro.
+func habilidades_equipadas(pj: PersonajeData = null) -> Array:
+	var p: PersonajeData = pj if pj != null else lider()
+	var out: Array = []
+	for ab in _set_guardado(p):
+		if ab != null:
+			out.append(ab)
+	return out
+
+
+func habilidades_llenas(pj: PersonajeData = null) -> bool:
+	return habilidades_equipadas(pj).size() >= MAX_HABILIDADES
+
+
+# Mete una en el primer hueco libre. false si no la sabe, si su arma no la da, si ya la lleva
+# o si no hay hueco (hay que quitar otra antes: el tope es el que obliga a elegir).
+func equipar_habilidad(ab: AbilityData, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	var crudo: Array = _set_guardado(p)   # sanea y deja el dict al dia
+	if ab == null or crudo.has(ab):
+		return false
+	if not habilidad_desbloqueada(ab, p) or not pool_habilidades(p).has(ab):
+		return false
+	var hueco: int = crudo.find(null)
+	if hueco < 0:
+		return false   # sin huecos: hay que quitar una antes
+	crudo[hueco] = ab
+	p.loadout_habilidades[clave_loadout(p)] = crudo
+	return true
+
+
+# La saca de la barra dejando el hueco VACIO (null), que es lo que impide que se autorrellene.
+func desequipar_habilidad(ab: AbilityData, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	var crudo: Array = _set_guardado(p)
+	var i: int = crudo.find(ab)
+	if i >= 0:
+		crudo[i] = null
+	p.loadout_habilidades[clave_loadout(p)] = crudo
+
 # --- Peso / capacidad de carga ---
 # De serie llevas un ZURRON pequeño (base_capacity). La Fuerza sube la capacidad.
 var base_capacity: float = 25.0        # zurron de serie
@@ -3708,25 +3901,10 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 # vida/mana/energia ni las stats base, solo lo que depende del equipo.
 func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	var p: PersonajeData = pj if pj != null else lider()
-	# Habilidades del loadout (KAN-57): las de la mano principal + las de la
-	# secundaria/escudo (sin duplicar; en dual de la misma arma aparece una vez).
-	var abils: Array = []
-	var tiene_escudo: bool = p.equipped_off is ShieldData
-	# Mano secundaria LIBRE = vacia o con varita (WandData no pesa ni estorba el movimiento).
-	var off_libre: bool = p.equipped_off == null or p.equipped_off is WandData
-	for it in [p.equipped_main, p.equipped_off]:
-		if (it is WeaponData or it is ShieldData or it is WandData) and not it.habilidades.is_empty():
-			for ab in it.habilidades:
-				if ab == null or abils.has(ab):
-					continue
-				# Tecnicas de arma+escudo: solo si llevas escudo (ej: Guardia rota).
-				if ab.requiere_escudo and not tiene_escudo:
-					continue
-				# Tecnicas de una mano libre: solo con la otra mano vacia o con varita
-				# (ej: el estoque, "En guardia" / contraataque de duelo).
-				if ab.requiere_off_libre and not off_libre:
-					continue
-				abils.append(ab)
+	# Habilidades del loadout (KAN-57): NO todo lo que dan las armas, sino las que este
+	# personaje SABE y lleva EQUIPADAS (como mucho MAX_HABILIDADES). El pool crudo del equipo
+	# y el saneo del set viven en habilidades_equipadas(); aqui solo se recogen.
+	var abils: Array = habilidades_equipadas(p)
 	c.abilities_combate = abils
 	# Mapa habilidad -> indices de MANO (arma) que la aportan. El dual de una habilidad
 	# SOLO se activa si AMBAS armas la traen (daga+daga), no daga+estoque: cada arma tiene

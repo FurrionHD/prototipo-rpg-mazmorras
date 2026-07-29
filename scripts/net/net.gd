@@ -3552,6 +3552,27 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 		if s != null and not String(s.resource_path).is_empty():
 			hechizos.append(s.resource_path)
 	d["spells"] = hechizos
+	# HABILIDADES de arma: lo que SABE y el set que lleva puesto POR TIPO DE ARMA. Sin esto el
+	# doble entraba a la pelea con el set por DEFECTO de su arma en vez de con el suyo, que es un
+	# bug de balance callado (el jugador ve otras cuatro habilidades y nadie avisa).
+	# Viajan como rutas .tres, igual que los hechizos; el dict va con la clave en texto porque el
+	# JSON no tiene claves enteras (al otro lado se vuelve a int, ver ficha_de_dict).
+	var sabidas: Array = []
+	for ab in pj.habilidades_aprendidas:
+		if ab != null and not String(ab.resource_path).is_empty():
+			sabidas.append(ab.resource_path)
+	d["habs_sabidas"] = sabidas
+	var sets: Dictionary = {}
+	for clave in pj.loadout_habilidades:
+		var rutas: Array = []
+		for ab in pj.loadout_habilidades[clave]:
+			# Los HUECOS viajan como "" y NO se saltan. Saltarlos acorta el array, y un set corto
+			# es justo lo que Game._set_guardado interpreta como "posiciones que nunca han
+			# existido" -> se las autorrellena. Resultado: el doble entraba con cuatro habilidades
+			# donde su dueño llevaba una a proposito.
+			rutas.append(ab.resource_path if ab != null and not String(ab.resource_path).is_empty() else "")
+		sets[str(clave)] = rutas
+	d["habs_sets"] = sets
 	# SOBREPESO del que se une: viaja para que su doble vaya lento EL solo, no todo el grupo del
 	# anfitrion. Es del loadout del HUMANO (su mochila), asi que va una vez por ficha con el mismo valor.
 	d["overload"] = Game.overload_speed_factor()
@@ -3567,7 +3588,7 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 	var pj := PersonajeData.new()
 	for campo in d:
-		if campo == "spells" or _RANURAS.has(campo):
+		if campo == "spells" or campo == "habs_sabidas" or campo == "habs_sets" or _RANURAS.has(campo):
 			continue
 		pj.set(campo, d[campo])
 	for r in _RANURAS:
@@ -3585,6 +3606,23 @@ func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 		if s != null:
 			hechizos.append(s)
 	pj.equipped_spells = hechizos
+	# Habilidades de arma (ver ficha_a_dict). La clave del set vuelve a int: es el
+	# WeaponData.Tipo con el que la guardo Game.clave_loadout.
+	var sabidas: Array = []
+	for ruta in d.get("habs_sabidas", []):
+		var ab = load(String(ruta))
+		if ab != null:
+			sabidas.append(ab)
+	pj.habilidades_aprendidas = sabidas
+	var sets: Dictionary = {}
+	var sets_in: Dictionary = d.get("habs_sets", {})
+	for clave in sets_in:
+		var lista: Array = []
+		for ruta in sets_in[clave]:
+			# "" = hueco que su dueño dejo vacio; entra como null y se respeta tal cual.
+			lista.append(load(String(ruta)) if String(ruta) != "" else null)
+		sets[int(str(clave))] = lista
+	pj.loadout_habilidades = sets
 	return pj
 
 

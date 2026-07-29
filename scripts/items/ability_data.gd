@@ -13,6 +13,15 @@ class_name AbilityData
 @export var nombre: String = "Habilidad"
 @export_multiline var descripcion: String = ""
 
+# --- APRENDIZAJE (maestro de habilidades) ---
+# El arma define su POOL entero, pero de ese pool solo puedes usar lo que SABES y lo que
+# llevas EQUIPADO (Game.MAX_HABILIDADES a la vez). Estos dos campos son la parte de "lo que
+# sabes": inicial = viene de fabrica con el arma (si no, comprar un arma nueva te dejaria sin
+# nada que pulsar); el resto te las tiene que enseñar el maestro del pueblo por `precio`.
+# Las habilidades de ENEMIGO se quedan con los valores por defecto: no pasan por aqui.
+@export var inicial: bool = false
+@export var precio: int = 0
+
 # Energia que gasta al usarla (KAN-57). El DUAL gasta mas (mete mas golpes con la
 # misma arma), en vez de bajar el daño por golpe. coste_energia_dual = 0 -> igual que base.
 @export var coste_energia: float = 20.0

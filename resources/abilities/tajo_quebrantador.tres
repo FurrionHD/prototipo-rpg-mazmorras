@@ -11,6 +11,7 @@ prob = 0.75
 [resource]
 script = ExtResource("1")
 nombre = "Tajo quebrantador"
+inicial = true
 coste_energia = 44
 coste_energia_dual = 62
 cooldown = 5

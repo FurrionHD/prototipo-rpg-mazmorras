@@ -16,6 +16,7 @@ prob = 0.6
 [resource]
 script = ExtResource("1")
 nombre = "Aplastamiento"
+precio = 2000
 coste_energia = 56
 cooldown = 5
 golpes_min = 2

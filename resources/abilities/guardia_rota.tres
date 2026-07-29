@@ -11,6 +11,7 @@ prob = 0.45
 [resource]
 script = ExtResource("1")
 nombre = "Guardia rota"
+precio = 2000
 coste_energia = 56
 cooldown = 5
 golpes_min = 2

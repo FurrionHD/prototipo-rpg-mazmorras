@@ -12,6 +12,7 @@ mult = 0.7
 [resource]
 script = ExtResource("1")
 nombre = "Tajo devastador"
+inicial = true
 coste_energia = 65
 cooldown = 4
 golpes_min = 1

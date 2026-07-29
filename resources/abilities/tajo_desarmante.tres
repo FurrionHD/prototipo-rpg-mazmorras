@@ -11,6 +11,7 @@ prob = 0.7
 [resource]
 script = ExtResource("1")
 nombre = "Tajo desarmante"
+precio = 1200
 coste_energia = 44
 cooldown = 5
 golpes_min = 1

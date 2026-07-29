@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Foco arcano"
+precio = 1200
 coste_energia = 70.0
 dano_mult = 0.0
 cooldown = 0

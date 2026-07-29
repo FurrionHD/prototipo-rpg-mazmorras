@@ -1388,6 +1388,29 @@ func _crear_acciones() -> void:
 	_ocultar_cajas()
 
 
+# Los submenus (habilidades, magia, objetos) se pintan a DOS COLUMNAS: en una sola columna cada
+# boton ocupaba el ancho entero y con 4 habilidades + los hechizos la lista se salia del hueco que
+# deja el log. Devuelve el GridContainer donde van los botones.
+#
+# El grid va DENTRO del VBox y no en su lugar: el "◄ Volver" tiene que ir debajo, a lo ancho, y un
+# GridContainer no tiene colspan — metido en la rejilla se quedaria como media celda torcida.
+# Quien llame a esto ya ha vaciado la caja (los hijos del VBox, grid incluido, se van de una).
+func _rejilla_submenu(caja: VBoxContainer) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	caja.add_child(grid)
+	return grid
+
+
+# Deja el boton listo para una celda de la rejilla: media anchura, alto fijo y el texto recortado
+# en vez de estirando la columna. Lo que no cabe en el texto esta en el tooltip, que es largo y
+# lleva el motivo del bloqueo (ver TooltipButton).
+func _celda_submenu(b: Button) -> void:
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(0, 40)
+	b.clip_text = true
+
+
 # Oculta las cajas del turno del jugador (acciones / submenu magia / recitado / habilidades /
 # objetos). Y por defecto DEVUELVE el historial: ocultar las cajas = volver al estado "mirando el
 # log". Los submenus que quieran ocupar el sitio del log (magia, frases, habilidades, objetos) se
@@ -2529,12 +2552,12 @@ func _accion_magia() -> void:
 	# Ordenados por coste de mana EFECTIVO descendente (los mas caros arriba).
 	var spells_ord: Array = _player.spells.duplicate()
 	spells_ord.sort_custom(func(a, b): return _coste_efectivo(a) > _coste_efectivo(b))
+	var grid := _rejilla_submenu(_spell_box)
 	for spell in spells_ord:
 		var b := TooltipButton.new()
 		var coste: float = _coste_efectivo(spell)
-		b.text = "%s  (%.2f MP · %d frase%s)" % [
-			spell.nombre, coste, spell.longitud(),
-			"" if spell.longitud() == 1 else "s"]
+		# A media anchura no cabe el numero de frases; va en el tooltip (descripcion_mecanica).
+		b.text = "%s  (%.2f MP)" % [spell.nombre, coste]
 		# Tooltip: datos DERIVADOS de los campos (resumen) + el sabor de la descripcion.
 		# Igual que las habilidades (ver _accion_habilidad): la magia lo tenia todo escrito
 		# en SpellData.resumen() y no lo enseñaba nadie.
@@ -2560,7 +2583,8 @@ func _accion_magia() -> void:
 			b.pressed.connect(_elegir_objetivo_aliado.bind(spell))
 		else:
 			b.pressed.connect(_elegir_hechizo.bind(spell))
-		_spell_box.add_child(b)
+		_celda_submenu(b)
+		grid.add_child(b)
 	var volver := Button.new()
 	volver.text = "◄ Volver"
 	volver.pressed.connect(_mostrar_acciones)
@@ -2595,6 +2619,7 @@ func _elegir_objetivo_aliado(spell: SpellData) -> void:
 		return
 	for c in _spell_box.get_children():
 		c.queue_free()
+	var grid := _rejilla_submenu(_spell_box)
 	for al in candidatos:
 		var b := TooltipButton.new()
 		var actual: String = al.imbue_etiqueta()
@@ -2602,7 +2627,8 @@ func _elegir_objetivo_aliado(spell: SpellData) -> void:
 		b.tooltip_text = "%s le echa %s a %s.%s" % [_player.nombre, spell.nombre, al.nombre,
 			"\n\nOJO: ya lleva una imbuición puesta y la nueva la sustituye." if actual != "" else ""]
 		b.pressed.connect(_elegir_hechizo.bind(spell, al))
-		_spell_box.add_child(b)
+		_celda_submenu(b)
+		grid.add_child(b)
 	var volver := Button.new()
 	volver.text = "◄ Volver"
 	volver.pressed.connect(_accion_magia)
@@ -3260,6 +3286,7 @@ func _accion_habilidad() -> void:
 	# manos que aportan CADA habilidad (dual solo si ambas armas la traen).
 	var abils: Array = _player.abilities_combate.duplicate()
 	abils.sort_custom(func(a, b): return a.coste(_player.ability_manos(a)) > b.coste(_player.ability_manos(b)))
+	var grid := _rejilla_submenu(_ability_box)
 	for ab in abils:
 		var manos: int = _player.ability_manos(ab)
 		var es_conv: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta toda la energia
@@ -3268,10 +3295,12 @@ func _accion_habilidad() -> void:
 		var b := TooltipButton.new()
 		var cd_txt := "  ⏳%d" % cd_left if cd_left > 0 else ""
 		var costo_txt := ("toda EN → %.1f MP" % (coste / ab.energia_a_mana)) if es_conv else ("%.0f EN" % coste)
+		# A media anchura no cabe todo: en el boton van el nombre, el coste y el cooldown (que es
+		# lo que decide si puedes pulsarlo AHORA), y las cargas de Foco se quedan para el tooltip.
 		var foco_txt := "  🔮%d cargas" % ab.foco_cargas if ab.foco_cargas > 0 else ""
-		b.text = "%s  (%s)%s%s" % [ab.nombre, costo_txt, foco_txt, cd_txt]
+		b.text = "%s  (%s)%s" % [ab.nombre, costo_txt, cd_txt]
 		# Tooltip: datos DERIVADos de los campos (resumen) + el sabor de la descripcion.
-		b.tooltip_text = ab.resumen(manos)
+		b.tooltip_text = foco_txt.strip_edges() + "\n" + ab.resumen(manos) if foco_txt != "" else ab.resumen(manos)
 		if ab.descripcion != "":
 			b.tooltip_text += "\n\n" + ab.descripcion
 		if cd_left > 0:
@@ -3287,7 +3316,8 @@ func _accion_habilidad() -> void:
 			b.disabled = true
 			b.tooltip_text = "⛔ Sin energía suficiente\n\n%s" % b.tooltip_text
 		b.pressed.connect(_usar_habilidad.bind(ab))
-		_ability_box.add_child(b)
+		_celda_submenu(b)
+		grid.add_child(b)
 	var volver := Button.new()
 	volver.text = "◄ Volver"
 	volver.pressed.connect(_mostrar_acciones)
@@ -3645,16 +3675,20 @@ func _accion_objeto() -> void:
 		c.queue_free()
 	# Una fila por tipo de poción del inventario, con la cantidad. Los grimorios NO salen: en
 	# mitad de una pelea no te pones a estudiar (se usan desde el inventario, en el pueblo).
+	var grid := _rejilla_submenu(_objeto_box)
 	for cons in Game.consumables:
 		var n: int = int(Game.consumables[cons])
 		if n <= 0 or cons.es_grimorio():
 			continue
 		var b := TooltipButton.new()
-		b.text = "%s  x%d  (%s en %d turnos)" % [
-			cons.nombre, n, cons.resumen(_player.max_hp, _player.max_mp), cons.turnos]
-		b.tooltip_text = cons.descripcion
+		# El cuanto/en cuantos turnos se va al tooltip: a media anchura solo caben nombre y cantidad.
+		b.text = "%s  x%d" % [cons.nombre, n]
+		b.tooltip_text = "%s en %d turnos" % [cons.resumen(_player.max_hp, _player.max_mp), cons.turnos]
+		if cons.descripcion != "":
+			b.tooltip_text += "\n\n" + cons.descripcion
 		b.pressed.connect(_elegir_objetivo_objeto.bind(cons))
-		_objeto_box.add_child(b)
+		_celda_submenu(b)
+		grid.add_child(b)
 	var volver := Button.new()
 	volver.text = "◄ Volver"
 	volver.pressed.connect(_mostrar_acciones)
@@ -3673,6 +3707,7 @@ func _elegir_objetivo_objeto(cons: ConsumableData) -> void:
 		return
 	for c in _objeto_box.get_children():
 		c.queue_free()
+	var grid := _rejilla_submenu(_objeto_box)
 	for al in vivos:
 		var b := TooltipButton.new()
 		var partes: Array = ["%.0f/%.0f ♥" % [al.current_hp, al.max_hp]]
@@ -3681,7 +3716,8 @@ func _elegir_objetivo_objeto(cons: ConsumableData) -> void:
 		b.text = "%s  (%s)" % [al.nombre, "  ".join(partes)]
 		b.tooltip_text = "%s le da %s a %s." % [_player.nombre, cons.nombre, al.nombre]
 		b.pressed.connect(_usar_objeto.bind(cons, al))
-		_objeto_box.add_child(b)
+		_celda_submenu(b)
+		grid.add_child(b)
 	var volver := Button.new()
 	volver.text = "◄ Volver"
 	volver.pressed.connect(_accion_objeto)

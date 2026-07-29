@@ -11,6 +11,7 @@ prob = 0.4
 [resource]
 script = ExtResource("1")
 nombre = "Ráfaga"
+inicial = true
 coste_energia = 44
 coste_energia_dual = 64
 cooldown = 4

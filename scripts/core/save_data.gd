@@ -208,6 +208,10 @@ const VERSION_MUNDO := 1
 @export var consumibles: Dictionary = {}
 
 @export var equipped_spells: Array = []     # .tres de hechizos (referencias)
+# HABILIDADES de arma del LIDER (los compañeros las llevan dentro de su PersonajeData, que ya
+# viaja en `plantilla`). Ver PersonajeData.habilidades_aprendidas / loadout_habilidades.
+@export var habilidades_aprendidas: Array = []
+@export var loadout_habilidades: Dictionary = {}
 @export var tool_hit_reduction: int = 0
 @export var tool_destreza_bonus: int = 0
 

@@ -146,6 +146,7 @@ func _ready() -> void:
 	add_child(_carpinteria_menu)                                   # carpintero (F sobre el NPC)
 	add_child(preload("res://scripts/ui/tannery_menu.gd").new())    # peletero (F sobre el NPC)
 	add_child(preload("res://scripts/ui/tavern_menu.gd").new())     # taberna: contratar (F sobre el NPC)
+	add_child(preload("res://scripts/ui/maestro_menu.gd").new())    # maestro: habilidades de arma (F sobre el NPC)
 	add_child(preload("res://scripts/ui/home_menu.gd").new())       # hogar: equipo + almacen (F sobre el NPC)
 	add_child(preload("res://scripts/ui/floor_select_menu.gd").new())  # elegir piso (puerta de la mazmorra)
 	add_child(preload("res://scripts/ui/character_menu.gd").new())  # menu de personaje (C)
