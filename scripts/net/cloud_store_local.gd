@@ -73,15 +73,19 @@ func crear(id: String, contrasena: String) -> Dictionary:
 # ============================================================
 #  ABRIR: test-and-set del cerrojo
 #  Tres desenlaces, y los tres son "ok": true -- el que importa lo dice "resultado":
-#    "host"    lo has cogido tu: vienen "save" (bytes, vacio si el mundo es nuevo) y "token"
-#    "unirse"  lo tiene otro y su arrendamiento esta VIVO: vienen sus "direcciones"
+#    "host"    lo has cogido tu: vienen "save" (bytes, vacio si el mundo es nuevo) y "token".
+#              Tambien por aqui cuando el cerrojo YA ERA TUYO y estaba suelto (ver 'quien_soy').
+#    "unirse"  lo tiene OTRO y su arrendamiento esta VIVO: vienen sus "direcciones"
 #    "fantasma" lo tiene otro pero su arrendamiento esta MUERTO y no se ha podido reclamar
+#  'quien_soy' es MI identidad (Identidad.id). Con ella, un cerrojo a mi nombre no me manda a
+#  "unirse" a mi propia sesion muerta: me lo quedo. Es lo que hace que cerrar con la X o colgarse no
+#  deje el mundo inaccesible durante los dos minutos del arrendamiento.
 #  El sello (version de SaveData + build) se comprueba ANTES de dar nada: un build viejo no puede
 #  abrir un mundo que dejo uno nuevo, y se le dice por que en vez de dejarle un save que cargaria
 #  a medias o, peor, que veria como ranura vacia.
 # ------------------------------------------------------------
 func abrir(id: String, contrasena: String, direcciones: Array, sello_version: int,
-		sello_build: String, forzar_build := false) -> Dictionary:
+		sello_build: String, forzar_build := false, quien_soy := "") -> Dictionary:
 	var mundo: Dictionary = _leer_mundo(id, contrasena)
 	if mundo.is_empty():
 		return _no_autorizado()
@@ -89,8 +93,20 @@ func abrir(id: String, contrasena: String, direcciones: Array, sello_version: in
 	# ¿Lo tiene alguien? El cerrojo es un fichero aparte: existir = estar cogido.
 	var cerrojo: Dictionary = _leer_json(_ruta_cerrojo(id))
 	if not cerrojo.is_empty():
-		if _vivo(cerrojo):
-			# Cogido y con latido reciente: esto no es un "no puedes", es un "entra con el".
+		# ¿Es MIO? Entonces no hay a quien unirse: es mi propia sesion anterior, que se fue sin
+		# soltarlo (cerrar con la X, un cuelgue, matar el proceso). Se recoge y se sigue.
+		#
+		# Sin esto el mundo quedaba inaccesible hasta DOS MINUTOS despues de cerrar con la X, y lo que
+		# se ofrecia entretanto era "unirse" a la direccion de un host que ya no existe: o sea, no
+		# poder entrar en tu propio mundo sin saber por que. Y no se arregla solo con soltar el cerrojo
+		# al cerrar la ventana, porque un cuelgue no da ese aviso.
+		#
+		# Nadie sale perjudicado: solo una maquina tiene mi identidad, asi que el unico al que le puedo
+		# quitar el cerrojo con esto soy yo.
+		var dueno := String(cerrojo.get("identidad", ""))
+		var es_mio: bool = quien_soy != "" and dueno == quien_soy
+		if _vivo(cerrojo) and not es_mio:
+			# Cogido por OTRO y con latido reciente: esto no es un "no puedes", es un "entra con el".
 			return {
 				"ok": true,
 				"resultado": "unirse",
@@ -98,8 +114,12 @@ func abrir(id: String, contrasena: String, direcciones: Array, sello_version: in
 				"direcciones": cerrojo.get("direcciones", []),
 				"desde": int(cerrojo.get("desde", 0)),
 			}
-		# Arrendamiento CADUCADO: el que lo tenia se cayo. Se le quita y se sigue. Su token queda
-		# atras para siempre porque abajo se incrementa el contador: si revive, su subida se rechaza.
+		if es_mio:
+			print("[nube] el cerrojo de %s ya era mio: lo recojo en vez de unirme a mi mismo" % id)
+		# Cerrojo MIO, o arrendamiento CADUCADO (el que lo tenia se cayo). Se le quita y se sigue. Su
+		# token queda atras para siempre porque abajo se incrementa el contador: si revive, su subida
+		# se rechaza -- y eso es justo lo que protege del caso raro de tener el mundo abierto DOS veces
+		# en esta misma maquina.
 		if DirAccess.remove_absolute(_ruta_cerrojo(id)) != OK:
 			return _fallo("fantasma", "El mundo lo tiene alguien que ya no responde y no se ha podido liberar.")
 
@@ -129,7 +149,11 @@ func abrir(id: String, contrasena: String, direcciones: Array, sello_version: in
 	var ahora: int = _ahora()
 	_escribir_json(_ruta_cerrojo(id), {
 		"token": token,
+		# 'quien' es para ENSEÑARLO ("lo tiene Kapu"); 'identidad' es la que se compara arriba para
+		# saber si el cerrojo es mio. El nombre de usuario de Windows no sirve para eso: dos personas
+		# distintas pueden llamarse igual, y la misma persona cambia de maquina.
 		"quien": OS.get_environment("USERNAME") if OS.has_environment("USERNAME") else "alguien",
+		"identidad": quien_soy,
 		"desde": ahora,
 		"latido": ahora,
 		"direcciones": direcciones,

@@ -4177,7 +4177,7 @@ func _dame_tu_estado(cerrando: bool) -> void:
 	await get_tree().create_timer(0.4).timeout
 	desconectar()
 	estado_cambiado.emit("Se cerró el mundo. Tu personaje queda guardado dentro.")
-	get_tree().change_scene_to_file("res://scenes/ui/multi_menu.tscn")
+	_sacar_a_escena("res://scenes/ui/multi_menu.tscn")
 
 
 # Lo que manda el invitado. Corre EN EL HOST: lo mete en el mundo, tal cual, a nombre de su identidad.
@@ -4328,7 +4328,7 @@ func _guardar_ahora(cerrando: bool = false) -> void:
 		Game.current_floor = 1
 		Game.olvidar_mazmorra()
 		estado_cambiado.emit("El anfitrión ha cerrado la partida.")
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
+	_sacar_a_escena("res://scenes/levels/town.tscn")
 
 
 # --- HANDSHAKE + CONTRASEÑA ------------------------------------------------------------------
@@ -4813,6 +4813,18 @@ func _on_peer_connected(_id: int) -> void:
 	pass
 
 
+# Sacar al jugador de la escena en la que esta por orden del host o por un corte de red. TODAS las
+# salidas de este tipo tienen que pasar por aqui, y no es cosmetico: la pila de modales vive en Game,
+# que es un autoload y PERSISTE entre escenas. Si al jugador se le saca con un menu abierto (el de
+# ESC es el caso tipico: el host guarda y cierra mientras el otro lo tiene delante), la pila se queda
+# con su pausa puesta y la escena nueva NACE CONGELADA: no responde a nada y la unica salida es
+# cerrar el juego a lo bruto. Es el mismo motivo por el que pause_menu._salir limpia antes de
+# cambiar de escena.
+func _sacar_a_escena(ruta: String) -> void:
+	Game.limpiar_modales()
+	get_tree().change_scene_to_file(ruta)
+
+
 func _on_connection_failed() -> void:
 	# IP mal escrita, host sin abrir, o no hay red: para el jugador es lo mismo.
 	estado_cambiado.emit("No se encontro ninguna partida en esa IP.")
@@ -4836,7 +4848,7 @@ func _on_server_disconnected() -> void:
 		desconectar()
 		if not rechazado:
 			estado_cambiado.emit("Se cerró el mundo. Tu personaje queda guardado dentro de él.")
-		get_tree().change_scene_to_file("res://scenes/ui/multi_menu.tscn")
+		_sacar_a_escena("res://scenes/ui/multi_menu.tscn")
 		return
 	# Si me pilla DENTRO de la mazmorra, de vuelta al pueblo: ese piso era del MUNDO DEL HOST
 	# (su semilla); sin sesion no tiene sentido seguir alli.
@@ -4845,4 +4857,4 @@ func _on_server_disconnected() -> void:
 	if en_mazmorra:
 		Game.current_floor = 1
 		Game.olvidar_mazmorra()
-		get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
+		_sacar_a_escena("res://scenes/levels/town.tscn")

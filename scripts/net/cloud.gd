@@ -128,8 +128,11 @@ func abrir(id: String, contrasena: String, direcciones: Array = [],
 		return {"ok": false, "error": "ya_abierto",
 			"mensaje": "Ya tienes un mundo abierto. Ciérralo antes de abrir otro."}
 	_cambiar(TRABAJANDO)
+	# Mi identidad viaja para que el almacen sepa si un cerrojo cogido es MI propia sesion anterior
+	# (cerre con la X, o me colgué) y me lo devuelva en vez de ofrecerme unirme a un host que ya no
+	# existe. Ver NubeAlmacenLocal.abrir.
 	var r: Dictionary = await almacen.abrir(id, contrasena, direcciones, _sello(), Game.VERSION,
-		forzar_build)
+		forzar_build, Identidad.id)
 	if not r.get("ok", false):
 		_cambiar(CERRADA)
 		return r
