@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="SA_lento"]
 script = ExtResource("2")
 estado = 3
-prob = 0.8
+prob = 0.35
 
 [resource]
 script = ExtResource("1")

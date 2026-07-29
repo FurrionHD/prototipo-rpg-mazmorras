@@ -6,12 +6,12 @@
 [sub_resource type="Resource" id="SA_stun"]
 script = ExtResource("2")
 estado = 7
-prob = 0.55
+prob = 0.35
 
 [sub_resource type="Resource" id="SA_vuln"]
 script = ExtResource("2")
 estado = 5
-prob = 0.6
+prob = 0.4
 
 [resource]
 script = ExtResource("1")

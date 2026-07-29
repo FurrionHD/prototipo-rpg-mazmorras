@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="SA_vuln"]
 script = ExtResource("2")
 estado = 5
-prob = 0.8
+prob = 0.45
 mult = 0.7
 
 [resource]

@@ -136,7 +136,7 @@ func _pintar_equipar(pj: PersonajeData) -> void:
 	for i in Game.MAX_HABILIDADES:
 		if i < puestas.size():
 			var ab: AbilityData = puestas[i]
-			var b := Button.new()
+			var b := TooltipButton.new()
 			b.text = "%d.  %s   ✕" % [i + 1, ab.nombre]
 			b.custom_minimum_size = Vector2(0, 32)
 			b.clip_text = true
@@ -182,7 +182,7 @@ func _fila_pool(pj: PersonajeData, ab: AbilityData, puestas: Array) -> void:
 		nom.add_theme_color_override("font_color", GRIS)
 	fila.add_child(nom)
 
-	var b := Button.new()
+	var b := TooltipButton.new()   # tooltip multilinea: el de Godot no parte lineas (ver tooltip_button.gd)
 	b.custom_minimum_size = Vector2(130, 30)
 	b.tooltip_text = ab.resumen(Game.manos_de(ab, pj))
 	if ab.descripcion != "":
@@ -269,7 +269,7 @@ func _fila_aprender(pj: PersonajeData, ab: AbilityData) -> void:
 	nom.custom_minimum_size = Vector2(180, 0)
 	fila.add_child(nom)
 
-	var b := Button.new()
+	var b := TooltipButton.new()   # idem: la ficha de la habilidad necesita varias lineas
 	b.custom_minimum_size = Vector2(150, 30)
 	# El resumen se pide a UNA mano: aqui no se sabe con que arma acabara peleando, y el numero
 	# de manos solo cambia el dual (que es del loadout, no de la habilidad).

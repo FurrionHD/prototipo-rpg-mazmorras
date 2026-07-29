@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="SA_debil"]
 script = ExtResource("2")
 estado = 4
-prob = 0.7
+prob = 0.45
 
 [resource]
 script = ExtResource("1")
