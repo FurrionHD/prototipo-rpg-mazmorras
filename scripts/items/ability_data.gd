@@ -374,10 +374,13 @@ func resumen(manos: int = 1) -> String:
 
 	# --- QUE HACE AL PEGAR ---
 	if dano_mult > 0.0:
+		# "del daño de un golpe normal" se repetia en TODAS y no aporta: el % ya se entiende solo.
 		var g: String = _golpes_txt(manos)
-		var uno: bool = g == "1"
-		l.append("Golpea %s%s al %d%% de un golpe normal." % [
-			"una vez" if uno else "%s veces" % g, "", roundi(dano_mult * 100.0)])
+		var pct: int = roundi(dano_mult * 100.0)
+		if g == "1":
+			l.append("Hace un %d%% de daño." % pct)
+		else:
+			l.append("Golpea %s veces, cada una al %d%% de daño." % [g, pct])
 		if manos >= 2 and golpes_dual_max > golpes_max:
 			l.append("Los golpes que pone la segunda arma (del %dº) pegan al %d%%." % [
 				golpes_max + 1, roundi(dual_golpe_mult * 100.0)])
@@ -441,6 +444,21 @@ func resumen(manos: int = 1) -> String:
 	if energia_a_mana > 0.0:
 		l.append("Convierte TODA tu energía en maná.")
 
+	# --- QUE CAMBIA CON DOS ARMAS IGUALES ---
+	# Solo se cuenta mirando la ficha a UNA mano: con dos ya se estan viendo los numeros del dual.
+	if manos < 2:
+		var d: Array = []
+		if golpes_dual_max > golpes_max:
+			d.append("da %s golpes en vez de %s (los de mas, al %d%%)" % [
+				_golpes_txt(2), _golpes_txt(1), roundi(dual_golpe_mult * 100.0)])
+		if golpes_extra_por_enemigo_dual > golpes_extra_por_enemigo:
+			d.append("suma %s golpes por enemigo en vez de %s" % [
+				_num(golpes_extra_por_enemigo_dual), _num(golpes_extra_por_enemigo)])
+		if coste_energia_dual > 0.0 and coste_energia_dual != coste_energia:
+			d.append("cuesta %.0f de energía" % coste_energia_dual)
+		if not d.is_empty():
+			l.append("CON DOS ARMAS IGUALES: %s." % _y(d))
+
 	# --- LO QUE CUESTA (siempre la ultima linea) ---
 	var coste_p: Array = []
 	var c: float = coste(manos)
@@ -455,7 +473,13 @@ func resumen(manos: int = 1) -> String:
 	if requiere_off_libre:
 		coste_p.append("necesitas la otra mano libre")
 	if not coste_p.is_empty():
-		l.append("Cuesta " + " · ".join(coste_p) + ".")
+		# El "Cuesta" solo si de verdad gasta energia: sin ella salia "Cuesta vuelve a estar lista
+		# en 5 turnos", que no es una frase.
+		if c > 0.0:
+			l.append("Cuesta " + " · ".join(coste_p) + ".")
+		else:
+			var t: String = " · ".join(coste_p)
+			l.append(t[0].to_upper() + t.substr(1) + ".")
 	return "
 ".join(l)
 
@@ -487,18 +511,31 @@ func _texto_estados(manos: int = 1) -> String:
 
 	var out: Array = []
 	if not al_rival.is_empty():
-		out.append("Aplica %s%s %s." % [_y(al_rival), cada, a_quien])
+		out.append(_lista_efectos("Aplica%s %s" % [cada, a_quien], al_rival))
 	if not a_los_mios.is_empty():
 		if _algun_efecto_al_grupo():
-			out.append("Aplica %s a TODO el grupo." % _y(a_los_mios))
+			out.append(_lista_efectos("Aplica a TODO el grupo", a_los_mios))
 		else:
-			out.append("Te aplica %s a ti." % _y(a_los_mios))
+			out.append(_lista_efectos("Te aplica a ti", a_los_mios))
 	# Los de critico van en su PROPIA frase, con la condicion delante: puestos en la misma lista
 	# salia "Aplica Sangrado (55%) y Sangrado (30%)", que no dice ni por que hay dos ni cuando cae
 	# el segundo.
 	if not por_crit.is_empty():
-		out.append("Si el golpe es CRÍTICO, además aplica %s." % _y(por_crit))
-	return " ".join(out)
+		out.append(_lista_efectos("Si el golpe es CRÍTICO, además aplica", por_crit))
+	return "
+".join(out)
+
+
+# Con UN efecto va todo en una frase; con varios, uno por linea con vineta. Juntarlos con "y" daba
+# lineas de 150 caracteres que no cabian en el tooltip y habia que leer dos veces.
+func _lista_efectos(cabecera: String, cosas: Array) -> String:
+	if cosas.size() == 1:
+		return "%s %s." % [cabecera, cosas[0]]
+	var l: Array = ["%s:" % cabecera]
+	for c in cosas:
+		l.append("   · %s" % c)
+	return "
+".join(l)
 
 
 func _algun_efecto_al_grupo() -> bool:
