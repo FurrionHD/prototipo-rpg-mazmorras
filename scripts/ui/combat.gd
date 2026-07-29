@@ -3907,8 +3907,9 @@ func _accion_atacar() -> void:
 	_tras_accion_jugador(obj)
 
 
-# Accion Defender (KAN-54): mitiga el proximo daño y anula criticos en tu contra
-# hasta tu siguiente turno. Cuesta el turno (no atacas).
+# Accion Defender (KAN-54): mitiga el proximo daño, suma la defensa del escudo y deja los criticos
+# en tu contra a la MITAD (no los anula, ver StatsMath.DEFEND_CRIT_MULT) hasta tu siguiente turno.
+# Cuesta el turno (no atacas).
 func _accion_defender() -> void:
 	if _enviar_si_espejo("defender"):
 		return

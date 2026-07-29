@@ -246,6 +246,13 @@ const EVADE_MAX_BUFF := 0.65  # tope ELEVADO cuando una HABILIDAD o BUFF sube tu
 # Capamos la reduccion entre estos limites (nunca 0 daño, nunca casi todo).
 const DEFEND_TAKEN_MIN := 0.2   # como maximo bloquea el 80%
 const DEFEND_TAKEN_MAX := 0.9   # como minimo bloquea el 10%
+# Defender REDUCE los criticos en tu contra, pero NO los anula. Antes los ponia a cero, y una
+# inmunidad absoluta es siempre demasiado: Defender apagaba de golpe la mecanica entera del
+# critico -- ni la afinidad del arma del bicho ni su Destreza contaban para nada ese turno, y las
+# habilidades que dejan en guardia (golpe de escudo, postura del estoque) heredaban gratis esa
+# inmunidad. A la mitad sigue siendo una razon de peso para Defender contra quien pega criticos,
+# pero el rival conserva su jugada.
+const DEFEND_CRIT_MULT := 0.5
 
 # Armadura: reduccion PORCENTUAL SIEMPRE activa (aparte de la DEF plana, que va por
 # la mitigacion K/(K+DEF)). Se aplica a TODO golpe recibido, criticos incluidos.
@@ -311,7 +318,8 @@ static func imbue_proc_chance(base: float, magia: float, rival_resistencia: floa
 
 
 # Resuelve un ataque completo: esquiva -> critico -> mitigacion/defensa -> aturdir.
-# defending: true si el DEFENSOR eligio Defender este turno (mitiga y anula crit).
+# defending: true si el DEFENSOR eligio Defender este turno (mitiga el daño, suma la defensa de su
+# escudo y deja los criticos en tu contra a la mitad; NO los anula, ver DEFEND_CRIT_MULT).
 # Usa los mods del loadout guardados en el Combatant (crit_bonus, evasion_penal,
 # defend_block, dano_tipo, aturdir_base). motion_value ya va dentro de atacante.atk().
 # Devuelve { "damage": float, "evaded": bool, "crit": bool, "aturde": bool,
@@ -335,7 +343,11 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	var evade_cap := EVADE_MAX_BUFF if evasion_extra > 0.0 else EVADE_MAX
 	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal - attacker.precision + evasion_extra, 0.0, evade_cap)
 	# RESIST. CRITICOS del defensor (armadura pesada) baja el crit del atacante.
-	var crit_p := 0.0 if defending else clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus + attacker.crit_flat - defender.crit_resist, 0.0, 1.0)
+	# Defender NO anula el critico: lo deja a la MITAD (DEFEND_CRIT_MULT). El x0.5 va DESPUES del
+	# clamp, sobre la probabilidad ya resuelta, para que reduzca lo que de verdad te iban a sacar.
+	var crit_p := clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus + attacker.crit_flat - defender.crit_resist, 0.0, 1.0)
+	if defending:
+		crit_p *= DEFEND_CRIT_MULT
 	# El aturdir depende de aturdir_base (ya viene promediado del loadout: en dual,
 	# una maza en la secundaria aporta aunque la principal sea de corte). El debuff de
 	# RAYO del defensor (KAN-58) MULTIPLICA esa probabilidad (x1.5, estilo MH), antes del cap.
