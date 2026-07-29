@@ -3662,10 +3662,12 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# La esquiva de armadura BAJA el evasion_penal (negativo = bonus de esquiva).
 	c.evasion_penal = float(m["evasion_penal"]) - float(am["evasion_bonus"])
 	# Magia del equipo (KAN-95): amplificador, regen extra, eficiencia y velocidad de
-	# casteo. La armadura NO frena el RECITADO (a diferencia del ataque): recitas al mismo ritmo
-	# lleves lo que lleves puesto, como si fueras sin armadura. Solo el arma mágica (varita/bastón)
-	# cambia la velocidad de casteo, vía m["cast_velocidad_mult"]. Ojo: la penalización de armadura
-	# (am["velocidad_mult"]) SIGUE aplicando al ataque normal (c.velocidad_mult, arriba).
+	# casteo. Ni la armadura ni el SOBREPESO frenan el RECITADO (a diferencia del ataque): recitas al
+	# mismo ritmo lleves lo que lleves puesto y cargues lo que cargues, porque no hablas mas despacio
+	# por pesar mas. Solo el arma mágica (varita/bastón) cambia la velocidad de casteo, vía
+	# m["cast_velocidad_mult"]. Ojo: la penalización de armadura (am["velocidad_mult"]) SIGUE
+	# aplicando al ataque normal (c.velocidad_mult, arriba), y el sobrepeso también — pero ese vive
+	# en el bucle de ATB (ver combat.gd, Combatant.overload_factor), no aquí.
 	c.magic_amp = float(m["magic_amp"])
 	c.mp_regen_turno = float(m["mp_regen_turno"])
 	c.mana_reduccion = float(m["mana_reduccion"])

@@ -2250,12 +2250,23 @@ func _process(delta: float) -> void:
 	# respecto al arma principal); si no, la velocidad normal. Y quien entro agotado va a medio
 	# ritmo sus primeras acciones.
 	for c in _aliados_vivos():
+		var casteando: bool = _casteos.has(c)
+		var rate: float = SPEED_SCALE
 		# El SOBREPESO es de cada uno (ver Combatant.overload_factor): en multi, el que va cargado va
 		# lento EL, no todo el grupo.
-		var rate: float = SPEED_SCALE * c.overload_factor
+		#
+		# Y NO frena el RECITADO, por lo mismo que no lo frena la armadura (ver loadout_mods): no
+		# hablas mas despacio por ir cargado. Antes se colaba igual, porque el factor multiplicaba el
+		# 'rate' de la barra ANTES de mirar si estabas casteando, asi que la exencion de la armadura
+		# estaba hecha y la del peso no. Al mago cargado se le frenaba el conjuro sin que nada en la
+		# ficha lo dijera (Vel. recitado nunca ha llevado el sobrepeso dentro).
+		if not casteando:
+			rate *= c.overload_factor
+		# El AGOTAMIENTO si frena las dos cosas, y es a proposito: eso no es lo que cargas, es como
+		# estas tu. Recitar sin aliento cuesta tanto como blandir sin aliento.
 		if int(_lentas.get(c, 0)) > 0:
 			rate *= EXHAUSTED_RATE
-		var cspeed: float = c.cast_spd() if _casteos.has(c) else c.spd()
+		var cspeed: float = c.cast_spd() if casteando else c.spd()
 		_gauge[c] += cspeed * delta * rate
 	for e in _vivos():
 		_gauge[e] += e.spd() * delta * SPEED_SCALE
