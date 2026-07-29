@@ -6,20 +6,21 @@
 [sub_resource type="Resource" id="SA_stun"]
 script = ExtResource("2")
 estado = 7
-prob = 0.55
+prob = 0.45
 
 [resource]
 script = ExtResource("1")
 nombre = "Golpe sísmico"
 inicial = true
-coste_energia = 70
+coste_energia = 60
 cooldown = 4
 golpes_min = 1
 golpes_max = 1
-dano_mult = 1.8
+dano_mult = 1.45
 area_modo = 1
-area_secundario = 0.6
+area_max = 3
+area_secundario = 0.5
 area_secundario_decay = 0.1
 efectos = [SubResource("SA_stun")]
 efectos_por_golpe = false
-descripcion = "Un mazazo colosal con toda la masa del martillo. La firma del martillo: pega como un espadón y encima atonta."
+descripcion = "Un mazazo colosal que revienta el suelo y sacude a todo lo que hay alrededor. No corta ni atraviesa: aplasta y aturde."

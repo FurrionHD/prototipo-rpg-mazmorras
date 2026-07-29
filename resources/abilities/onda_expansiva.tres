@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="SA_stun"]
 script = ExtResource("2")
 estado = 7
-prob = 0.5
+prob = 0.4
 
 [sub_resource type="Resource" id="SA_lento"]
 script = ExtResource("2")
@@ -21,10 +21,10 @@ coste_energia = 52
 cooldown = 3
 golpes_min = 1
 golpes_max = 1
-dano_mult = 1.6
+dano_mult = 1.3
 area_modo = 1
 area_max = 3
-area_secundario = 0.5
+area_secundario = 0.45
 efectos = [SubResource("SA_stun"), SubResource("SA_lento")]
 efectos_por_golpe = false
 descripcion = "Un martillazo al suelo que sacude al enemigo: primero le quita el turno, luego lo deja lento. Control más frecuente."
