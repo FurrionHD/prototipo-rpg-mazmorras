@@ -201,6 +201,76 @@ static func rareza_mult_capacidad(r: int) -> float:
 	return RAREZA_CAPACIDAD[clampi(r, 0, RAREZA_CAPACIDAD.size() - 1)]
 
 
+# ============================================================
+#  HERRAMIENTAS DE RECOLECCION (pico / hoz / hacha)
+#
+#  Una herramienta NO sube tu stat y NO te da mas excelia: solo hace el minijuego menos hostil
+#  (ver la cabecera de tool_data.gd, y Game.start_* que calcula el reto SIN ella a proposito).
+#  Da dos cosas, y cada una sale de un eje distinto del objeto:
+#
+#    AFINIDAD   <- el TIER del metal.   Baja la DIFICULTAD del minijuego.
+#    -N GOLPES  <- la RAREZA y la BANDA (sub-tier) del metal.
+#
+#  POR QUE LA AFINIDAD BAJA LA DIFICULTAD Y NO ENSANCHA LA VENTANA. Los campos viejos del .tres
+#  (compas, ventana_bonus, filo) se SUMABAN al ancho ya calculado, y eso hacia lo contrario de lo
+#  que interesa: como el ancho se estrecha con la exigencia del material, un +0.08 plano valia
+#  +31% en madera comun y +95% en madera anillada. O sea que un hacha T1 ayudaba MAS en el
+#  material T3 que en el suyo. Metiendola en el DENOMINADOR de la dificultad
+#  (d = exigencia / (stat*0.5 + suelo + AFINIDAD)) el alivio decae solo segun sube el material:
+#  con +20, la madera de veta gana un +42% de ventana y la dura solo un +18%. Sin capar nada a
+#  mano. Ademas toca a la vez la ventana, el tempo y el numero de golpes, que es lo que hace que
+#  se note como "esta herramienta va conmigo" y no como un numerito.
+#
+#  Precedente en el codigo: tool_destreza_bonus hace justo esto en Game.start_extraction.
+const TOOL_AFINIDAD_TIER := [20.0, 32.0, 46.0]   # T1, T2, T3
+
+# -N GOLPES/CORTES/HACHAZOS. Filas = rareza 0..7 (Comun..Pristino), columnas = BANDA del metal
+# (bruto / veteado / profundo). Que el sub-tier del mineral decida la columna es LA razon de ser
+# de esta tabla: hasta ahora el sub-tier solo servia para gatear mejoras y no se podia fabricar
+# nada con el (ver Game.lingotes_herramienta, que es la excepcion deliberada a esa regla).
+#
+# Los topes los fijo el usuario: bruto llega a -2 en Mitico; veteado a -2 ya en Legendario;
+# profundo empieza a -2 en Epico y es el UNICO que llega a -3, en Obra maestra y Pristino.
+# El relleno de abajo es creciente para que forjar una comun no sea tirar el material.
+#
+# NO puede trivializar el material facil: los minijuegos tienen suelo duro de golpes
+# (maxi(2,...) en pico y hoz, maxi(4,...) en hacha), asi que en lo facil este -N no hace nada y
+# solo se nota donde el material pide muchos golpes. Es deseado, no un efecto colateral.
+const TOOL_GOLPES_MENOS := [
+	[0, 0, 1],   # Comun
+	[0, 1, 1],   # Poco comun
+	[1, 1, 1],   # Raro
+	[1, 1, 2],   # Epico
+	[1, 2, 2],   # Legendario
+	[2, 2, 2],   # Mitico
+	[2, 2, 3],   # Obra maestra
+	[2, 2, 3],   # Pristino
+]
+
+# BANDA -> columna. La banda es el mejora_min del MINERAL: 0 = en bruto, 3 = veteado, 9 = profundo
+# (ver resources/materials/cobre*.tres). Se traduce por umbrales y no por un diccionario para que
+# un sub-tier nuevo con otro mejora_min caiga en la columna que le toca sin tocar esto.
+static func banda_columna(mejora_min: int) -> int:
+	if mejora_min >= 9:
+		return 2
+	if mejora_min >= 3:
+		return 1
+	return 0
+
+# Lo que aporta una herramienta forjada. 'tipo' es ToolData.Tipo (PICO/HOZ/HACHA) y hoy NO se usa:
+# las tres comparten tabla porque los tres minijuegos comparten la forma de la dificultad. Entra en
+# la firma a proposito, para que el dia que el pico y el hacha tengan que divergir no haya que
+# tocar a ninguno de los que llaman aqui.
+static func tool_mods(_tipo: int, tier: int, rareza: int, banda: int) -> Dictionary:
+	var t: int = clampi(tier - 1, 0, TOOL_AFINIDAD_TIER.size() - 1)
+	var r: int = clampi(rareza, 0, TOOL_GOLPES_MENOS.size() - 1)
+	var col: int = banda_columna(banda)
+	return {
+		"afinidad": float(TOOL_AFINIDAD_TIER[t]),
+		"golpes_menos": int((TOOL_GOLPES_MENOS[r] as Array)[col]),
+	}
+
+
 static func rareza_mult(r: int) -> float:
 	return RAREZA_MULT[clampi(r, 0, RAREZA_MULT.size() - 1)]
 

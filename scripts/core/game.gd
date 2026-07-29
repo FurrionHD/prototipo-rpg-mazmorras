@@ -2582,8 +2582,8 @@ var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
 
 # --- HERRAMIENTAS DE RECOLECCION: pico (vetas), hoz (plantas) y hacha (madera) ---
 # Slots APARTE: no ocupan mano, no pesan y no entran en el combate. Una herramienta mejor
-# no sube tu stat, solo hace el minijuego menos hostil (ver ToolData). Se arranca con las
-# basicas; la tienda vendera mejores.
+# no sube tu stat NI te da mas excelia, solo hace el minijuego menos hostil (ver ToolData y
+# Upgrades.tool_mods). Se arranca con las basicas; las buenas las forja el herrero.
 const PICO_BASICO := preload("res://resources/tools/pico_basico.tres")
 const HOZ_BASICA := preload("res://resources/tools/hoz_basica.tres")
 const HACHA_BASICA := preload("res://resources/tools/hacha_basica.tres")
@@ -2600,6 +2600,26 @@ func hoz() -> ToolData:
 
 func hacha() -> ToolData:
 	return equipped_hacha if equipped_hacha != null else (HACHA_BASICA as ToolData)
+
+# ¿Esta herramienta salio de la FORJA? Las tres basicas son los .tres COMPARTIDOS del proyecto
+# (preload de arriba) y nunca pasan por crear_item, asi que nunca tienen entrada en item_meta.
+#
+# OJO, y es la trampa principal de todo este sistema: aqui NO se puede usar meta_de(), porque
+# meta_de CREA la meta por defecto la primera vez que le preguntas. Con la basica eso la
+# convertiria en "T1 Comun forjada" (afinidad gratis para todo el mundo) y ademas metaria el .tres
+# COMPARTIDO dentro de item_meta, que se serializa al save. item_meta.has() solo pregunta.
+func es_herramienta_forjada(t: ToolData) -> bool:
+	return t != null and item_meta.has(t)
+
+# Lo que aporta la herramienta al minijuego: {"afinidad", "golpes_menos"}. Fuente UNICA, la usan
+# los tres start_* y tambien la ficha del inventario (MenuScaffold.filas_herramienta), asi que lo
+# que lees es exactamente lo que juegas. Una basica (o null) no aporta nada: es la linea base.
+func tool_mods(t: ToolData) -> Dictionary:
+	if not es_herramienta_forjada(t):
+		return {"afinidad": 0.0, "golpes_menos": 0}
+	var m: Dictionary = item_meta[t]
+	return Upgrades.tool_mods(int(t.tipo), int(m.get("tier", 1)),
+		int(m.get("rareza", Upgrades.Rareza.COMUN)), int(m.get("banda", 0)))
 
 # --- Equipamiento: loadout de DOS manos (arma principal + secundaria) ---
 # La secundaria puede ser otra WeaponData (dual-wield), un ShieldData o null.
@@ -7998,6 +8018,28 @@ func _exigencia_material(m: MaterialData) -> float:
 	return maxf(1.0, m.exigencia * pow(RECOLECCION_PISO_FACTOR, float(current_floor - 1)))
 
 
+# DIFICULTAD de un minijuego de recoleccion: lo duro que es el material contra tu stat (con suelo).
+# ~1 = a la par. La comparten los tres, por eso vive aqui y no copiada en cada start_*.
+#
+# 'afinidad' es lo que aporta la HERRAMIENTA (Upgrades.tool_mods) y entra en el DENOMINADOR, o sea
+# que una herramienta mejor te mide como si fueras mas bueno en ese oficio. Ver el bloque de
+# TOOL_AFINIDAD_TIER en upgrades.gd para el porque va aqui y no ensanchando la ventana.
+func _reto_recoleccion(exigencia: float, stat: int, suelo: float, afinidad: float = 0.0) -> float:
+	return exigencia / (float(stat) * RECOLECCION_STAT_PESO + suelo + afinidad)
+
+
+# Coletilla de la herramienta para el log de los tres minijuegos. Es EL instrumento con el que se
+# mide el balance de las herramientas: si no sale por consola, ajustar TOOL_AFINIDAD_TIER es a ciegas.
+func _log_herramienta(t: ToolData, tm: Dictionary) -> String:
+	if not es_herramienta_forjada(t):
+		return "  ·  sin herramienta (basica)"
+	var m: Dictionary = item_meta[t]
+	return "  ·  %s T%d %s (banda %d): afinidad +%.0f, -%d" % [
+		t.tipo_texto(), int(m.get("tier", 1)),
+		Upgrades.rareza_nombre(int(m.get("rareza", 0))), int(m.get("banda", 0)),
+		float(tm["afinidad"]), int(tm["golpes_menos"])]
+
+
 # --- MINERIA ---
 # 'nodo' va SIN TIPAR (es un ResourceNode, que no tiene class_name): asi GDScript deja
 # leerle lo suyo (material_data, celda) sin pelearse con el tipo estatico.
@@ -8006,26 +8048,33 @@ func start_mineria(nodo) -> void:
 		return
 	var m: MaterialData = nodo.material_data
 	var p: ToolData = pico()
+	var tm: Dictionary = tool_mods(p)
 
-	# Dificultad RELATIVA: lo dura que es la veta contra tu FUERZA (con suelo). ~1 = a la par.
-	var d: float = _exigencia_material(m) / (float(stat_total("fuerza")) * RECOLECCION_STAT_PESO + MINERIA_FUERZA_FLOOR)
+	# DOS dificultades, y la diferencia es toda la filosofia de las herramientas:
+	#   d_bruto = contra tu Fuerza a secas. Es la que paga la EXCELIA (_last_reco_reto), asi que un
+	#             pico mejor NO te quita ni te da aprendizaje: solo te quita hostilidad.
+	#   d       = con la afinidad del pico dentro. Es la que arma el minijuego.
+	# Sin esta separacion, craftear el pico te recortaba ~29% la Fuerza que da cada veta.
+	var d_bruto: float = _reto_recoleccion(_exigencia_material(m), stat_total("fuerza"), MINERIA_FUERZA_FLOOR)
+	var d: float = _reto_recoleccion(_exigencia_material(m), stat_total("fuerza"),
+		MINERIA_FUERZA_FLOOR, float(tm["afinidad"]))
 
 	# La Fuerza ensancha la franja optima Y la baja (no necesitas cargar tanto el pico).
-	var ancho: float = clampf(MINERIA_BASE_VENTANA / d, 0.06, 0.30) + p.ventana_bonus
-	ancho = clampf(ancho, 0.06, 0.60)
+	var ancho: float = clampf(MINERIA_BASE_VENTANA / d, 0.06, 0.30)
 	var ini: float = clampf(0.45 * d, 0.15, 1.0 - ancho - 0.05)
 	var carga: float = MINERIA_BASE_CARGA \
 		* clampf(d, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX) \
-		+ 0.06 * float(current_floor - 1) - p.control
-	# El techo se aplica AL FINAL, con el piso y el pico ya dentro: si se aplicara antes, la
-	# profundidad volveria a colarse por encima de el.
+		+ 0.06 * float(current_floor - 1)
+	# El techo se aplica AL FINAL, con el piso ya dentro: si se aplicara antes, la profundidad
+	# volveria a colarse por encima de el.
 	carga = clampf(carga, MINERIA_CARGA_MIN, MINERIA_CARGA_MAX)
-	var golpes: int = clampi(roundi(MINERIA_GOLPES_BASE * d), 2, 8) - p.golpes_menos
+	var golpes: int = clampi(roundi(MINERIA_GOLPES_BASE * d), 2, 8) - int(tm["golpes_menos"])
 	golpes = maxi(2, golpes)
 
-	_last_reco_reto = d
-	print("[reco] mineria %s · piso %d · Fuerza %d · exigencia %.0f -> reto %.2f  (franja %.3f, carga %.2f, golpes %d)" % [
-		m.nombre, current_floor, player_fuerza, _exigencia_material(m), d, ancho, carga, golpes])
+	_last_reco_reto = d_bruto
+	print("[reco] mineria %s · piso %d · Fuerza %d · exigencia %.0f -> reto %.2f (bruto %.2f)  (franja %.3f, carga %.2f, golpes %d)%s" % [
+		m.nombre, current_floor, player_fuerza, _exigencia_material(m), d, d_bruto, ancho, carga, golpes,
+		_log_herramienta(p, tm)])
 	var ex: Control = _mining_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
 	ex.setup(m, golpes, ini, ancho, carga)
@@ -8060,10 +8109,14 @@ func start_herboristeria(nodo) -> void:
 		return
 	var m: MaterialData = nodo.material_data
 	var h: ToolData = hoz()
+	var tm: Dictionary = tool_mods(h)
 
-	var d: float = _exigencia_material(m) / (float(stat_total("destreza")) * RECOLECCION_STAT_PESO + HERB_DESTREZA_FLOOR)
+	# d_bruto paga la excelia, d arma el minijuego. Ver start_mineria.
+	var d_bruto: float = _reto_recoleccion(_exigencia_material(m), stat_total("destreza"), HERB_DESTREZA_FLOOR)
+	var d: float = _reto_recoleccion(_exigencia_material(m), stat_total("destreza"),
+		HERB_DESTREZA_FLOOR, float(tm["afinidad"]))
 
-	var nucleo: float = clampf(HERB_BASE_NUCLEO / d, 0.015, 0.14) + h.filo
+	var nucleo: float = clampf(HERB_BASE_NUCLEO / d, 0.015, 0.14)
 	var borde: float = nucleo * HERB_BORDE_MULT
 	# El techo (HERB_VEL_MAX) estaba declarado pero NO se aplicaba: la pasada podia dispararse
 	# con el piso y volverse imposible de seguir con la vista, que es justo lo que el techo
@@ -8074,12 +8127,13 @@ func start_herboristeria(nodo) -> void:
 	vel = minf(vel, HERB_VEL_MAX)
 	# Mas cortes (tope 8, antes 5) para compensar el techo de velocidad mas bajo (HERB_VEL_MAX):
 	# un material exigente pide mas tallos seguibles en vez de una sola pasada imposible.
-	var cortes: int = clampi(2 + floori(d), 2, 8) - h.cortes_menos
+	var cortes: int = clampi(2 + floori(d), 2, 8) - int(tm["golpes_menos"])
 	cortes = maxi(2, cortes)
 
-	_last_reco_reto = d
-	print("[reco] herboristeria %s · piso %d · Destreza %d · exigencia %.0f -> reto %.2f  (nucleo %.3f, vel %.2f, cortes %d)" % [
-		m.nombre, current_floor, player_destreza, _exigencia_material(m), d, nucleo, vel, cortes])
+	_last_reco_reto = d_bruto
+	print("[reco] herboristeria %s · piso %d · Destreza %d · exigencia %.0f -> reto %.2f (bruto %.2f)  (nucleo %.3f, vel %.2f, cortes %d)%s" % [
+		m.nombre, current_floor, player_destreza, _exigencia_material(m), d, d_bruto, nucleo, vel, cortes,
+		_log_herramienta(h, tm)])
 	var ex: Control = _harvest_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
 	ex.setup(m, cortes, nucleo, borde, vel)
@@ -8114,22 +8168,28 @@ func start_talado(nodo) -> void:
 		return
 	var m: MaterialData = nodo.material_data
 	var a: ToolData = hacha()
+	var tm: Dictionary = tool_mods(a)
 
-	var d: float = _exigencia_material(m) / (float(stat_total("agilidad")) * RECOLECCION_STAT_PESO + TALA_AGILIDAD_FLOOR)
+	# d_bruto paga la excelia, d arma el minijuego. Ver start_mineria.
+	var d_bruto: float = _reto_recoleccion(_exigencia_material(m), stat_total("agilidad"), TALA_AGILIDAD_FLOOR)
+	var d: float = _reto_recoleccion(_exigencia_material(m), stat_total("agilidad"),
+		TALA_AGILIDAD_FLOOR, float(tm["afinidad"]))
 
-	# La Agilidad ensancha la ventana del hachazo y frena el tempo. El hacha ayuda encima.
-	var ancho: float = clampf(TALA_BASE_VENTANA / d, 0.05, 0.26) + a.compas
-	ancho = clampf(ancho, 0.05, 0.50)
+	# La Agilidad ensancha la ventana del hachazo y frena el tempo. El hacha, al bajar la dificultad,
+	# hace las dos cosas a la vez y ademas quita hachazos: por eso se nota como "esta hacha va
+	# conmigo" y no como un numerito suelto (ver Upgrades.TOOL_AFINIDAD_TIER).
+	var ancho: float = clampf(TALA_BASE_VENTANA / d, 0.05, 0.26)
 	var tempo: float = TALA_BASE_TEMPO \
 		* clampf(d, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX) \
 		+ 0.05 * float(current_floor - 1)
 	tempo = minf(tempo, TALA_TEMPO_MAX)
-	var hachazos: int = clampi(roundi(TALA_HACHAZOS_BASE * d), 4, 9) - a.hachazos_menos
+	var hachazos: int = clampi(roundi(TALA_HACHAZOS_BASE * d), 4, 9) - int(tm["golpes_menos"])
 	hachazos = maxi(4, hachazos)
 
-	_last_reco_reto = d
-	print("[reco] talado %s · piso %d · Agilidad %d · exigencia %.0f -> reto %.2f  (ventana %.3f, tempo %.2f, hachazos %d)" % [
-		m.nombre, current_floor, player_agilidad, _exigencia_material(m), d, ancho, tempo, hachazos])
+	_last_reco_reto = d_bruto
+	print("[reco] talado %s · piso %d · Agilidad %d · exigencia %.0f -> reto %.2f (bruto %.2f)  (ventana %.3f, tempo %.2f, hachazos %d)%s" % [
+		m.nombre, current_floor, player_agilidad, _exigencia_material(m), d, d_bruto, ancho, tempo, hachazos,
+		_log_herramienta(a, tm)])
 	var ex: Control = _talado_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
 	ex.setup(m, hachazos, ancho, tempo)

@@ -1,15 +1,25 @@
 # ============================================================
 #  tool_data.gd
 #  HERRAMIENTA de recoleccion: el PICO (minerales), la HOZ (plantas) y el HACHA (madera).
-#  Un .tres por herramienta; la tienda vendra a vender las buenas.
+#  Un .tres por TIPO: son PLANTILLAS, no piezas. La pieza de verdad la hace el herrero
+#  (Game.fabricar_herramienta -> crear_item), y su identidad —tier, rareza y BANDA del metal—
+#  vive en item_meta, igual que en las armas y la mochila.
 #
 #  NO son armas: no ocupan mano, no pesan y no entran en el loadout de combate. Viven en
 #  sus propios slots (Game.equipped_pico / equipped_hoz / equipped_hacha). Una herramienta
-#  mejor NO sube la stat: solo hace el minijuego MENOS hostil. Quien pica bien sigue siendo
-#  la Fuerza; quien corta fino, la Destreza; quien lleva el compas, la Agilidad. Asi el equipo
-#  ayuda pero no sustituye al personaje.
+#  mejor NO sube la stat ni da mas excelia: solo hace el minijuego MENOS hostil. Quien pica bien
+#  sigue siendo la Fuerza; quien corta fino, la Destreza; quien lleva el compas, la Agilidad. Asi
+#  el equipo ayuda pero no sustituye al personaje.
 #
-#  Cada tipo usa SUS campos (los del otro se ignoran): son tres minijuegos distintos.
+#  AQUI NO HAY NUMEROS DE DIFICULTAD, y es a proposito. Los tuvo (ventana_bonus, control, filo,
+#  compas, golpes_menos, cortes_menos, hachazos_menos) y se borraron el 29/07 por dos razones:
+#    1) Estaban TODOS a cero en los tres .tres: no hacian nada, eran un sistema muerto.
+#    2) Se sumaban al ancho YA calculado del minijuego, y eso escalaba al reves: como el ancho se
+#       estrecha con la exigencia del material, un +0.08 plano valia +31% en madera comun y +95%
+#       en anillada. Un hacha T1 ayudaba MAS en el material T3 que en el suyo.
+#  Lo que aporta una herramienta sale ahora de Upgrades.tool_mods(tipo, tier, rareza, banda), que
+#  baja la DIFICULTAD del minijuego en vez de ensanchar su ventana. Ver el bloque de
+#  TOOL_AFINIDAD_TIER en upgrades.gd para el porque completo.
 #
 #  HACHA va el ULTIMO a proposito: el enum se guarda como numero en los .tres.
 # ============================================================
@@ -22,28 +32,11 @@ enum Tipo { PICO, HOZ, HACHA }
 @export var tipo: Tipo = Tipo.PICO
 @export var nombre: String = "Herramienta"
 @export var descripcion: String = ""
+# Informativo de la PLANTILLA (todas son T1: son el punto de partida). El tier REAL de una
+# herramienta forjada lo pone el metal con el que se hizo y vive en su item_meta, asi que ningun
+# calculo de juego debe leer este campo — lee la meta.
 @export var tier: int = 1
 @export var valor_base: int = 40
-
-# --- PICO (minijuego de mineria) ---
-# Ensancha la franja de golpe optimo (mas margen para soltar en el punto justo).
-@export var ventana_bonus: float = 0.0
-# Frena la barra de carga: un pico bien equilibrado se controla mejor.
-@export var control: float = 0.0
-# Golpes que te ahorras para romper la veta.
-@export var golpes_menos: int = 0
-
-# --- HOZ (minijuego de herboristeria) ---
-# Ensancha el NUCLEO del corte (la franja del corte limpio).
-@export var filo: float = 0.0
-# Tallos que te ahorras cortar.
-@export var cortes_menos: int = 0
-
-# --- HACHA (minijuego de talado) ---
-# Ensancha la VENTANA del compas: un hacha bien pesada perdona mas el desfase.
-@export var compas: float = 0.0
-# Hachazos que te ahorras para tumbar el tronco.
-@export var hachazos_menos: int = 0
 
 
 func es_pico() -> bool:
@@ -63,26 +56,10 @@ func tipo_texto() -> String:
 		_: return "Hacha"
 
 
-# Los numeros van aqui, nunca en la descripcion.
-func resumen() -> String:
-	var partes: PackedStringArray = ["%s T%d" % [tipo_texto(), tier]]
-	if es_pico():
-		if ventana_bonus > 0.0:
-			partes.append("+%d%% de margen al golpear" % roundi(ventana_bonus * 100.0))
-		if control > 0.0:
-			partes.append("carga %.2f más lenta (más control)" % control)
-		if golpes_menos > 0:
-			partes.append("-%d golpes" % golpes_menos)
-	elif es_hoz():
-		if filo > 0.0:
-			partes.append("+%d%% de corte limpio" % roundi(filo * 100.0))
-		if cortes_menos > 0:
-			partes.append("-%d tallos" % cortes_menos)
-	else:
-		if compas > 0.0:
-			partes.append("+%d%% de ventana en el compás" % roundi(compas * 100.0))
-		if hachazos_menos > 0:
-			partes.append("-%d hachazos" % hachazos_menos)
-	if partes.size() == 1:
-		partes.append("sin mejoras: la herramienta de siempre")
-	return "  ·  ".join(partes)
+# Como se llama lo que ESTA herramienta te ahorra, en el idioma de su minijuego. Lo usa la ficha
+# (MenuScaffold.filas_herramienta): "-2 hachazos" se entiende y "-2 golpes" en un hacha, no.
+func unidad_golpes(n: int) -> String:
+	match tipo:
+		Tipo.PICO: return "golpe" if n == 1 else "golpes"
+		Tipo.HOZ: return "tallo" if n == 1 else "tallos"
+		_: return "hachazo" if n == 1 else "hachazos"
