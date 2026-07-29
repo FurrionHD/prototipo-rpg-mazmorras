@@ -6,9 +6,9 @@
 script = ExtResource("1")
 nombre = "Tajo pesado"
 inicial = true
-coste_energia = 66
+coste_energia = 73
 cooldown = 5
 golpes_min = 1
 golpes_max = 1
-dano_mult = 1.75
+dano_mult = 2.75
 descripcion = "Un mandoble descendente con todo el peso de la hoja. Daño puro, sin adornos: el mazazo de la espada larga."
