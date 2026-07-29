@@ -444,21 +444,6 @@ func resumen(manos: int = 1) -> String:
 	if energia_a_mana > 0.0:
 		l.append("Convierte TODA tu energía en maná.")
 
-	# --- QUE CAMBIA CON DOS ARMAS IGUALES ---
-	# Solo se cuenta mirando la ficha a UNA mano: con dos ya se estan viendo los numeros del dual.
-	if manos < 2:
-		var d: Array = []
-		if golpes_dual_max > golpes_max:
-			d.append("da %s golpes en vez de %s (los de mas, al %d%%)" % [
-				_golpes_txt(2), _golpes_txt(1), roundi(dual_golpe_mult * 100.0)])
-		if golpes_extra_por_enemigo_dual > golpes_extra_por_enemigo:
-			d.append("suma %s golpes por enemigo en vez de %s" % [
-				_num(golpes_extra_por_enemigo_dual), _num(golpes_extra_por_enemigo)])
-		if coste_energia_dual > 0.0 and coste_energia_dual != coste_energia:
-			d.append("cuesta %.0f de energía" % coste_energia_dual)
-		if not d.is_empty():
-			l.append("CON DOS ARMAS IGUALES: %s." % _y(d))
-
 	# --- LO QUE CUESTA (siempre la ultima linea) ---
 	var coste_p: Array = []
 	var c: float = coste(manos)
@@ -480,6 +465,21 @@ func resumen(manos: int = 1) -> String:
 		else:
 			var t: String = " · ".join(coste_p)
 			l.append(t[0].to_upper() + t.substr(1) + ".")
+
+	# --- QUE CAMBIA CON DOS ARMAS IGUALES (al final: es un 'y ademas', no parte del kit) ---
+	# Solo se cuenta mirando la ficha a UNA mano: con dos ya se estan viendo los numeros del dual.
+	if manos < 2:
+		var d: Array = []
+		if golpes_dual_max > golpes_max:
+			d.append("da %s golpes en vez de %s (los de más, al %d%%)" % [
+				_golpes_txt(2), _golpes_txt(1), roundi(dual_golpe_mult * 100.0)])
+		if golpes_extra_por_enemigo_dual > golpes_extra_por_enemigo:
+			d.append("suma %s golpes por enemigo en vez de %s" % [
+				_num(golpes_extra_por_enemigo_dual), _num(golpes_extra_por_enemigo)])
+		if coste_energia_dual > 0.0 and coste_energia_dual != coste_energia:
+			d.append("cuesta %.0f de energía" % coste_energia_dual)
+		if not d.is_empty():
+			l.append("CON DOS ARMAS IGUALES: %s." % _y(d))
 	return "
 ".join(l)
 
