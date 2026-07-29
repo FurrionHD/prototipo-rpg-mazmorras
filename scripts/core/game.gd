@@ -3539,8 +3539,24 @@ func capacidad_con_mochila(m: BackpackData) -> float:
 # maximo (a Fuerza 999 = +50%). Asi no puedes llevar de todo con un zurron.
 var fuerza_capacity_bonus_max: float = 0.5  # +50% a Fuerza maxima
 # Sobrecarga GRADUAL: por encima del umbral, la penalizacion de velocidad crece
-# con la pendiente hasta un maximo. Ej: 80% -> 0%, 90% -> ~33%, 100% -> ~66%.
-var overload_threshold: float = 0.8    # % a partir del cual empiezas a ir lento
+# con la pendiente hasta un maximo. Ej: 90% -> 0%, 100% -> ~33%, 114% -> el tope.
+#
+# UMBRAL SUBIDO DEL 80% AL 90% (29/07). El problema no era la penalizacion, era LA BANDA QUE NO
+# PUEDES USAR: como es un PORCENTAJE, cuanto mas capacidad tienes mas kilos te sobran a la vista sin
+# poder tocarlos. Y la capacidad crece por dos sitios a la vez (la mochila y el tamaño del grupo, ver
+# CARGA_POR_ACOMPANANTE), asi que justo cuando te ganas una bolsa mejor es cuando mas se nota: con 65
+# de capacidad empezabas a arrastrarte en el 52, o sea 13 puntos de bolsa que ves y no puedes llenar.
+# Mejorar la mochila tiene que sentirse como espacio de verdad, no como una cifra mas grande con la
+# misma parte util.
+#
+# OJO AL EFECTO SECUNDARIO, que no es menor: la pendiente se aplica sobre (ratio - umbral), asi que
+# subir el umbral SUAVIZA ademas el castigo a bolsa llena. Al 100% se pasa de x0.34 a x0.67, y el
+# suelo del -80% deja de tocarse en el 104% para llegar en el 114%. Es deliberado y va en la
+# direccion que hacia falta: desde que el recitado esta exento del sobrepeso (ver combat.gd), un
+# guerrero al x0.34 contra un mago al x1.00 era una diferencia de 3x en turnos. Con esto son 1.5x.
+# Si algun dia se quiere el umbral tardio PERO el castigo duro de antes a bolsa llena, la palanca es
+# la PENDIENTE (a 6.6 el 100% vuelve a valer x0.34), no devolver el umbral al 80%.
+var overload_threshold: float = 0.9    # % a partir del cual empiezas a ir lento
 var overload_slope: float = 3.3        # cuanto crece la penalizacion por encima
 var overload_max_penalty: float = 0.8  # penalizacion maxima (0.8 = -80% velocidad)
 
@@ -4465,9 +4481,10 @@ func guardar_materiales_en_hogar() -> int:
 # esta_sobrecargado y el multiplicador de velocidad). Cortar por capacidad haria imposible vaciar un
 # baul grande. Con 'todo' = false se coge solo lo que no te ralentice, que es lo normal del dia a dia.
 #
-# OJO con el tope del modo prudente: NO es la capacidad, es overload_threshold (el 80%). Empiezas a
-# ir lento AHI, no al llenarla del todo, asi que llenar hasta el 100% dejaba al jugador arrastrandose
-# con el boton que precisamente sirve para no ir lento.
+# OJO con el tope del modo prudente: NO es la capacidad, es overload_threshold (hoy el 90%). Empiezas
+# a ir lento AHI, no al llenarla del todo, asi que llenar hasta el 100% dejaba al jugador
+# arrastrandose con el boton que precisamente sirve para no ir lento. Se lee de la variable, asi que
+# mover el umbral mueve tambien este tope solo: no hay ningun 0.8 escrito a mano por ahi.
 #
 # Devuelve cuantos se recogieron.
 func recoger_materiales_del_hogar(todo: bool = true) -> int:
