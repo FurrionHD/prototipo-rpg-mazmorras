@@ -3538,8 +3538,8 @@ func capacidad_con_mochila(m: BackpackData) -> float:
 # La Fuerza MULTIPLICA la capacidad del contenedor (zurron+mochila) hasta un
 # maximo (a Fuerza 999 = +50%). Asi no puedes llevar de todo con un zurron.
 var fuerza_capacity_bonus_max: float = 0.5  # +50% a Fuerza maxima
-# Sobrecarga GRADUAL: por encima del umbral, la penalizacion de velocidad crece
-# con la pendiente hasta un maximo. Ej: 90% -> 0%, 100% -> ~33%, 114% -> el tope.
+# Sobrecarga GRADUAL: por encima del umbral, la penalizacion de velocidad crece por una CURVA
+# (ver OVERLOAD_CURVA abajo) hasta un maximo. Ej: 90% -> 0%, 100% -> ~32%, 110% -> el tope.
 #
 # UMBRAL SUBIDO DEL 80% AL 90% (29/07). El problema no era la penalizacion, era LA BANDA QUE NO
 # PUEDES USAR: como es un PORCENTAJE, cuanto mas capacidad tienes mas kilos te sobran a la vista sin
@@ -3549,15 +3549,27 @@ var fuerza_capacity_bonus_max: float = 0.5  # +50% a Fuerza maxima
 # Mejorar la mochila tiene que sentirse como espacio de verdad, no como una cifra mas grande con la
 # misma parte util.
 #
-# OJO AL EFECTO SECUNDARIO, que no es menor: la pendiente se aplica sobre (ratio - umbral), asi que
-# subir el umbral SUAVIZA ademas el castigo a bolsa llena. Al 100% se pasa de x0.34 a x0.67, y el
-# suelo del -80% deja de tocarse en el 104% para llegar en el 114%. Es deliberado y va en la
-# direccion que hacia falta: desde que el recitado esta exento del sobrepeso (ver combat.gd), un
-# guerrero al x0.34 contra un mago al x1.00 era una diferencia de 3x en turnos. Con esto son 1.5x.
-# Si algun dia se quiere el umbral tardio PERO el castigo duro de antes a bolsa llena, la palanca es
-# la PENDIENTE (a 6.6 el 100% vuelve a valer x0.34), no devolver el umbral al 80%.
+# OJO AL EFECTO SECUNDARIO, que no es menor: la penalizacion se mide sobre (ratio - umbral), asi que
+# subir el umbral SUAVIZA ademas el castigo a bolsa llena. Al 100% se pasa de x0.34 a x0.67. Es
+# deliberado y va en la direccion que hacia falta: desde que el recitado esta exento del sobrepeso
+# (ver combat.gd), un guerrero al x0.34 contra un mago al x1.00 era una diferencia de 3x en turnos.
+# Con esto son 1.5x. Si algun dia se quiere el umbral tardio PERO el castigo duro de antes a bolsa
+# llena, la palanca es el RANGO (a 0.10 el 100% vuelve a valer x0.20), no devolver el umbral al 80%.
 var overload_threshold: float = 0.9    # % a partir del cual empiezas a ir lento
-var overload_slope: float = 3.3        # cuanto crece la penalizacion por encima
+# CURVA, no recta (29/07). La penalizacion era LINEAL: cada punto de bolsa por encima del umbral
+# costaba lo mismo, asi que rozar el limite y pasarte de largo se sentian igual de mal. Ahora crece
+# con un exponente: los primeros puntos apenas se notan (llenar la bolsa del todo tiene que poder
+# hacerse) y a partir del 100% se desploma, que es cuando de verdad vas cargado como una mula.
+#
+#   bolsa    90%   95%   100%   105%   110%
+#   antes   x1.00 x0.84  x0.67  x0.50  x0.34
+#   ahora   x1.00 x0.87  x0.68  x0.45  x0.20   <- el suelo llega en el 110%, no en el 114%
+#
+# El 100% se deja CLAVADO donde estaba (x0.67): ese punto ya estaba donde tenia que estar y lo unico
+# que se queria cambiar era la forma de llegar y de seguir. Para mover el codo, OVERLOAD_CURVA (mas
+# alto = mas perdon al principio y mas castigo al final); para mover donde toca fondo, el rango.
+const OVERLOAD_CURVA := 1.3            # exponente de la curva (1.0 = la recta de antes)
+var overload_rango: float = 0.20       # cuanta bolsa por encima del umbral hasta tocar el suelo
 var overload_max_penalty: float = 0.8  # penalizacion maxima (0.8 = -80% velocidad)
 
 # Velocidad al ir SIN una pieza de armadura (slot vacio): ir ligero da un pelin de
@@ -6438,14 +6450,14 @@ func _nombre_item(item: Resource) -> String:
 		return "%s (%s)" % [m.nombre(), m.calidad_texto()]
 	return "?"
 
-# Multiplicador de velocidad por sobrecarga (1.0 = normal). Baja GRADUALMENTE
-# cuanto mas te pasas del umbral, hasta un suelo (1 - overload_max_penalty).
+# Multiplicador de velocidad por sobrecarga (1.0 = normal). Baja cuanto mas te pasas del umbral,
+# hasta un suelo (1 - overload_max_penalty). NO es lineal: ver OVERLOAD_CURVA arriba, con la tabla.
 func overload_speed_factor() -> float:
 	var over: float = ratio_carga() - overload_threshold
 	if over <= 0.0:
 		return 1.0
-	var penalty: float = clampf(over * overload_slope, 0.0, overload_max_penalty)
-	return 1.0 - penalty
+	var t: float = clampf(over / maxf(0.001, overload_rango), 0.0, 1.0)
+	return 1.0 - overload_max_penalty * pow(t, OVERLOAD_CURVA)
 
 
 # Cuanto acelera (o frena) el andar la AGILIDAD del que va en cabeza. El grupo se mueve al paso del
