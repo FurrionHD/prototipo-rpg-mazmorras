@@ -672,8 +672,13 @@ func _mudar_personaje(slot: int, capa: Control, creador: Node) -> void:
 # Ya tengo mi personaje del mundo: al pueblo. El anuncio del lugar va DESPUES del cambio de escena
 # (es el patron de todo el proyecto): es lo que reconstruye avatares y suelo en la escena nueva.
 func _entrar_al_mundo_ajeno() -> void:
-	get_tree().change_scene_to_file(PUEBLO)
-	await get_tree().process_frame
+	# El arbol se coge ANTES del cambio: este nodo ES la escena que se va, y en cuanto se cambia ya no
+	# esta dentro, asi que su get_tree() devuelve null. Con el await sobre ese null la funcion se
+	# cortaba aqui EN CADA entrada al mundo de otro y anunciar_lugar no llegaba a correr: el host no se
+	# enteraba de que estabas en el pueblo, y sin eso tu avatar no aparece para el resto.
+	var arbol := get_tree()
+	arbol.change_scene_to_file(PUEBLO)
+	await arbol.process_frame
 	Net.anunciar_lugar("pueblo")
 
 

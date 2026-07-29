@@ -15,8 +15,16 @@ const ARMOR_PREFIX := ["cuero", "hierro", "hierro_completo", "placas"]  # idx ->
 const ARMOR_LABELS := ["Cuero", "Hierro", "Hierro compl.", "Placas"]
 # FORJA: que se puede crear. [etiqueta, clave]. Las claves de armadura son el slot.
 const FORJA_CATS := [["Arma", "arma"], ["Escudo", "escudo"], ["Varita", "varita"],
+	["Herramienta", "herramienta"], ["Mochila", "mochila"],
 	["Casco", "casco"], ["Pecho", "pecho"], ["Manos", "manos"],
 	["Pantalon", "pantalones"], ["Botas", "botas"]]
+# Las claves que NO son un slot de armadura. Se comprueba contra ESTA lista (y no "todo lo que no
+# sea arma/escudo/varita") porque al meter categorias nuevas lo segundo las manda a ARMOR_LABELS y
+# rompe el indice del desplegable.
+const FORJA_NO_ARMADURA := ["arma", "escudo", "varita", "herramienta", "mochila"]
+# La VETA del metal con el que se forja una herramienta (su item_meta["banda"]). Solo las
+# herramientas la usan: sube la afinidad y el ahorro de golpes (ver Upgrades.tool_mods).
+const FORJA_VETAS := ["En bruto", "Veteado", "Profundo"]
 const FORJA_SHIELDS := ["res://resources/shields/escudo_pequeno.tres",
 	"res://resources/shields/escudo_normal.tres",
 	"res://resources/shields/escudo_grande.tres"]
@@ -42,6 +50,8 @@ var _forja_cat_opt: OptionButton = null
 var _forja_item_opt: OptionButton = null
 var _forja_tier: int = 1
 var _forja_rareza: int = Upgrades.Rareza.COMUN
+var _forja_banda: int = 0                # veta del metal, SOLO herramientas (ver FORJA_VETAS)
+var _forja_veta_opt: OptionButton = null  # se oculta en las categorias que no la usan
 var _forja_mejoras: Dictionary = {}      # categoria -> nº de mejoras
 var _forja_rows: VBoxContainer = null
 var _forja_nombre: Label = null
@@ -365,6 +375,12 @@ func _build_forja(vb: VBoxContainer) -> void:
 	vb.add_child(row2)
 	row2.add_child(_make_tier_opt(_on_forja_tier))
 	row2.add_child(_make_rareza_opt(_on_forja_rareza))
+	_forja_veta_opt = OptionButton.new()
+	for i in FORJA_VETAS.size():
+		_forja_veta_opt.add_item(FORJA_VETAS[i], i)
+	_forja_veta_opt.select(0)
+	_forja_veta_opt.item_selected.connect(_on_forja_veta)
+	row2.add_child(_forja_veta_opt)
 	_forja_nombre = Label.new()
 	_forja_nombre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row2.add_child(_forja_nombre)
@@ -394,6 +410,12 @@ func _forja_paths() -> Array:
 		return FORJA_SHIELDS
 	if cat == "varita":
 		return FORJA_WANDS
+	if cat == "herramienta":
+		# Las tres plantillas salen de la MISMA constante que usa el herrero: si algun dia se añade
+		# una cuarta herramienta, aparece aqui sola.
+		return Game.HERRAMIENTA_BASE.values()
+	if cat == "mochila":
+		return [Game.MOCHILA_BASE]
 	var res: Array = []
 	for pref in ARMOR_PREFIX:
 		res.append("res://resources/armor/%s_%s.tres" % [pref, cat])
@@ -411,11 +433,14 @@ func _on_forja_cat() -> void:
 	_forja_item_opt.clear()
 	var cat := _forja_cat()
 	var paths := _forja_paths()
-	var es_armadura: bool = not (cat in ["arma", "escudo", "varita"])
+	var es_armadura: bool = not (cat in FORJA_NO_ARMADURA)
 	for i in paths.size():
 		var etiqueta: String = ARMOR_LABELS[i] if es_armadura else str(load(paths[i]).get("nombre"))
 		_forja_item_opt.add_item(etiqueta, i)
 	_forja_item_opt.select(0)
+	# La veta solo pinta en las herramientas; en el resto crear_item recibe 0, su default de siempre.
+	if _forja_veta_opt != null:
+		_forja_veta_opt.visible = cat == "herramienta"
 	_on_forja_item()
 
 func _on_forja_item() -> void:
@@ -424,6 +449,10 @@ func _on_forja_item() -> void:
 
 func _on_forja_tier(t: int) -> void:
 	_forja_tier = t
+	_rebuild_forja()
+
+func _on_forja_veta(i: int) -> void:
+	_forja_banda = clampi(i, 0, FORJA_VETAS.size() - 1)
 	_rebuild_forja()
 
 func _on_forja_rareza(r: int) -> void:
@@ -507,7 +536,10 @@ func _on_crear() -> void:
 	var base := _forja_base()
 	if base == null:
 		return
-	var item: Resource = Game.crear_item(base, _forja_tier, _forja_rareza, _forja_mejoras)
+	# La BANDA solo la usan las herramientas: en las demas categorias el selector esta oculto y vale 0,
+	# que es el default con el que crear_item ha nacido siempre.
+	var banda: int = _forja_banda if _forja_cat() == "herramienta" else 0
+	var item: Resource = Game.crear_item(base, _forja_tier, _forja_rareza, _forja_mejoras, true, banda)
 	print("[dev] Forjado y añadido al baúl: ", Game.item_display_name(item))
 
 

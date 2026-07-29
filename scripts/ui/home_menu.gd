@@ -18,6 +18,18 @@ extends CanvasLayer
 # pasan a ser los del host (compartidos). Siempre visibles.
 const TABS := ["Equipo", "Almacén", "Bote", "Cofre"]
 
+# Los apartados del cofre, [etiqueta, id]. Van por ID y no por indice porque el numero cambia en
+# cuanto se mete uno nuevo en medio, y un `_cofre_sub == 2` suelto pasa a significar otra cosa sin
+# avisar. Mismo criterio que las pestañas de forge_menu.
+const COFRE_SUBS := [["Armas", "armas"], ["Armaduras", "armaduras"],
+	["Mochilas y herram.", "utiles"], ["Consumibles", "consumibles"]]
+# Que 'clase' de las que guarda el cofre se enseña en cada apartado (ver Game.serializar_equipo).
+const COFRE_CLASES := {
+	"armas": ["arma"],
+	"armaduras": ["armadura"],
+	"utiles": ["mochila", "herramienta"],
+}
+
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
 const GRIS := Color(0.6, 0.63, 0.7)
@@ -32,7 +44,7 @@ var _side: VBoxContainer = null
 var _aviso: String = ""
 var _aviso_ok: bool = true
 var _tab: int = 0
-var _cofre_sub: int = 0   # 0 = Armas, 1 = Armaduras (submenus del cofre)
+var _cofre_sub: int = 0   # indice dentro de COFRE_SUBS (el que MANDA es su id, no el numero)
 var _bote_input: String = ""   # cantidad escrita en el bote (se conserva entre re-dibujos)
 
 
@@ -464,19 +476,17 @@ func _cantidad_bote() -> int:
 
 
 # ============================================================
-#  COFRE del hogar (multi): armas y armaduras para traspasar. Ver paso 3.
+#  COFRE del hogar (multi): equipo para traspasar, por apartados (ver COFRE_SUBS). Ver paso 3.
 # ============================================================
 
 func _build_cofre() -> void:
 	MenuScaffold.titulo(_header, "COFRE COMPARTIDO", 18)
-	# Tres submenus: Armas (armas + mochilas), Armaduras y Consumibles (pociones/grimorios).
-	const SUBS := ["Armas", "Armaduras", "Consumibles"]
 	var sub := HBoxContainer.new()
 	sub.add_theme_constant_override("separation", 8)
 	_header.add_child(sub)
-	for i in SUBS.size():
+	for i in COFRE_SUBS.size():
 		var b := Button.new()
-		b.text = SUBS[i]
+		b.text = str(COFRE_SUBS[i][0])
 		b.toggle_mode = true
 		b.button_pressed = (_cofre_sub == i)
 		b.pressed.connect(func():
@@ -484,19 +494,25 @@ func _build_cofre() -> void:
 			_rebuild())
 		sub.add_child(b)
 
-	if _cofre_sub == 2:
+	_cofre_sub = clampi(_cofre_sub, 0, COFRE_SUBS.size() - 1)
+	# 'sub_id' y no 'id': mas abajo cada entrada del cofre tiene su propio id (un numero).
+	var sub_id: String = str(COFRE_SUBS[_cofre_sub][1])
+	if sub_id == "consumibles":
 		_build_cofre_consumibles()
 		return
 
-	var es_armas: bool = _cofre_sub == 0
-
 	# TUYAS (baul propio, sin equipar): se pueden depositar.
 	MenuScaffold.titulo(_lista, "Tuyas (para depositar)", 14)
+	# SIN TIPAR a proposito: en "utiles" se juntan dos arrays de clases distintas
+	# (Array[BackpackData] + Array[ToolData]), y un .has() con la clase equivocada sobre un array
+	# tipado no devuelve false: escupe un error del motor.
 	var mias: Array = []
-	if es_armas:
-		mias = Game.owned_weapons + Game.owned_mochilas
-	else:
-		mias = Game.owned_armor
+	match sub_id:
+		"armas": mias = Game.owned_weapons.duplicate()
+		"armaduras": mias = Game.owned_armor.duplicate()
+		# La mochila y las tres herramientas son del GRUPO, no de un personaje, y ninguna se mejora:
+		# van juntas en su propio apartado, igual que en el inventario ([I] -> Equipo).
+		"utiles": mias = Game.owned_mochilas + Game.owned_tools
 	var alguna := false
 	for item in mias:
 		# item_equipado y NO quien_lleva: la MOCHILA no vive en un equipped_* (es del GRUPO), asi que
@@ -526,9 +542,9 @@ func _build_cofre() -> void:
 	if not alguna:
 		MenuScaffold.nota(_lista, "No tienes piezas sueltas de este tipo para depositar.")
 
-	# EN EL COFRE: se pueden sacar.
+	# EN EL COFRE: se pueden sacar. La 'clase' la pone Game.serializar_equipo al depositar.
 	MenuScaffold.titulo(_content, "En el cofre", 14)
-	var clases: Array = ["arma", "mochila"] if es_armas else ["armadura"]
+	var clases: Array = COFRE_CLASES[sub_id]
 	var hay := false
 	for entrada in Net.cofre_visible():
 		if not clases.has(str(entrada.get("clase", ""))):

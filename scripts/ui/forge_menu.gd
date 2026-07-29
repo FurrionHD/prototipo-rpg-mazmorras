@@ -173,7 +173,7 @@ func abrir() -> void:
 		return
 	# MULTI: ya NO se coge el candado al abrir -> los dos podeis estar en la profesion a la vez. El
 	# candado se coge solo el instante de crear (ver _crear_con_taller), y mientras tanto lo que
-	# seleccionas se RESERVA para que el otro lo vea apartado (ver _capar_y_publicar_seleccion).
+	# seleccionas se RESERVA para que el otro lo vea apartado (ver _claim_reserva).
 	_tab = 0
 	_sub = 0
 	_sel = 0
@@ -261,6 +261,22 @@ func _pick(i: int) -> void:
 # pintaba la mitad de un menu sobre la otra mitad del anterior. Ver MenuScaffold.vaciar.
 var _reconstruyendo: bool = false
 
+# MULTI: lo que MI seleccion actual tiene apartado, {"mat_id|calidad": uds}. Lo rellena el build de la
+# pestaña que reserve (forjar y herramientas hoy) y lo publica _rebuild_real UNA SOLA VEZ al final.
+#
+# Esa unica publicacion por rebuild es lo importante, no un detalle de estilo. Antes cada rebuild
+# soltaba la reserva al empezar (`Net.reservar({})`) y el build la volvia a pedir: DOS reservas
+# distintas, asi que la deduplicacion de Net.reservar nunca las cortaba. En el HOST daba igual (el
+# eco es sincrono y lo descarta la guarda de reentrada de arriba), pero en el CLIENTE la respuesta de
+# cada una llega en OTRO frame, cuando la guarda ya no esta puesta -> otro rebuild -> otras dos
+# reservas -> cuatro respuestas... El trafico y los repintados se doblaban solos hasta que el juego
+# se cerraba. Le pasaba a la pestaña de HERRAMIENTAS, que reserva y no estaba en la excepcion.
+#
+# Publicando una vez, con la pestaña que sea, el valor es ESTABLE entre rebuilds: la deduplicacion
+# corta y no hay eco. Y una pestaña que no reserve deja el dict vacio, con lo que suelta lo que
+# hubiera apartado sin necesidad de acordarse de hacerlo.
+var _claim_reserva: Dictionary = {}
+
 func _rebuild() -> void:
 	if _reconstruyendo:
 		return
@@ -280,10 +296,8 @@ func _rebuild_real() -> void:
 	# Solo forjar/mejorar/deshacer tienen cuadricula de piezas; el resto ocupa el ancho entero.
 	_scroll_lista.visible = id in TABS_CON_GRID
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
-	# Fuera de la forja no reservo nada (refinar/mejorar/deshacer son accion instantanea): suelto lo
-	# que hubiera reservado. En la forja lo publica _capar_y_publicar_seleccion con la seleccion actual.
-	if Net.activo and id != "forjar":
-		Net.reservar({})
+	# MULTI: parto de "no tengo nada apartado". Lo que reserve esta pestaña lo apunta su build aqui.
+	_claim_reserva = {}
 
 	match id:
 		"fundir": _build_refinar(Refinado.LINGOTE)    # mineral -> lingote
@@ -295,6 +309,12 @@ func _rebuild_real() -> void:
 		"mejorar": _build_mejorar()
 		"deshacer": _build_deshacer()                 # equipo -> material (recuperas la mitad)
 		"reparar": _build_reparar()                   # mantenimiento: pagar por reparar el desgaste
+
+	# Y AQUI, una sola vez, ya con la pestaña pintada: ver el comentario de _claim_reserva. Va al
+	# final a proposito — que un build se corte antes de tiempo (sin metal conocido, sin tablon a
+	# juego...) no puede dejarme material apartado a espaldas del compañero.
+	if Net.activo:
+		Net.reservar(_claim_reserva)
 
 
 func _decir(txt: String, ok: bool = true) -> void:
@@ -835,8 +855,8 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 		for _i in ings.size():
 			_sel_forja.append({})
 	# MULTI: capar mi seleccion a lo DISPONIBLE (por si el compañero reservó de lo mismo mientras yo
-	# lo tenia elegido) y PUBLICARLA como reserva, para que el otro la vea apartada en vivo.
-	_capar_y_publicar_seleccion(ings)
+	# lo tenia elegido) y apuntarla como reserva, para que el otro la vea apartada en vivo.
+	_capar_y_apuntar_seleccion(ings)
 
 	_title(vb, str(base.get("nombre")))
 	if base is ArmorData:
@@ -945,9 +965,12 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 
 
 # MULTI: capa mi seleccion de forja a lo DISPONIBLE (por si el compañero reservó de lo mismo) y la
-# publica como reserva. Aplana _sel_forja a {"mat_id|cal": count}. En solitario el capado no quita
-# nada (disponible == lo que hay) y publicar no hace nada.
-func _capar_y_publicar_seleccion(ings: Array) -> void:
+# apunta como reserva. Aplana _sel_forja a {"mat_id|cal": count}. En solitario el capado no quita
+# nada (disponible == lo que hay) y apuntar no lleva a ninguna parte.
+#
+# APUNTA, no publica: la publicacion es UNA por rebuild y la hace _rebuild_real al final (ver
+# _claim_reserva). Publicar desde aqui era la mitad del bucle que colgaba a los clientes.
+func _capar_y_apuntar_seleccion(ings: Array) -> void:
 	var claim: Dictionary = {}
 	for i in mini(ings.size(), _sel_forja.size()):
 		var mat: MaterialData = ings[i]["material"]
@@ -963,8 +986,7 @@ func _capar_y_publicar_seleccion(ings: Array) -> void:
 				sel[cal] = n
 				var clave: String = "%s|%d" % [mat.id, int(cal)]
 				claim[clave] = int(claim.get(clave, 0)) + n
-	if Net.activo:
-		Net.reservar(claim)
+	_claim_reserva = claim
 
 
 # Fila "material: −  n  +" por cada calidad que tengas en el baul.
@@ -1156,11 +1178,11 @@ func _build_herramientas() -> void:
 	_content.add_child(HSeparator.new())
 	_capar_herr(lingote, _sel_herr_met)
 	_capar_herr(tab, _sel_herr_tab)
-	if Net.activo:
-		var claim: Dictionary = {}
-		_sumar_claim_herr(claim, lingote, _sel_herr_met)
-		_sumar_claim_herr(claim, tab, _sel_herr_tab)
-		Net.reservar(claim)
+	# Se APUNTA la reserva; la publica _rebuild_real al final, una sola vez (ver _claim_reserva).
+	var claim: Dictionary = {}
+	_sumar_claim_herr(claim, lingote, _sel_herr_met)
+	_sumar_claim_herr(claim, tab, _sel_herr_tab)
+	_claim_reserva = claim
 	_contadores(_content, lingote, _sel_herr_met, int(Game.HERRAMIENTA_COSTE["metal"]))
 	_contadores(_content, tab, _sel_herr_tab, int(Game.HERRAMIENTA_COSTE["tablon"]))
 	_note(_content, "Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la herramienta: mejora la RAREZA, y con ella los golpes que te ahorras.")

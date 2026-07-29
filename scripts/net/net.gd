@@ -2094,8 +2094,28 @@ func _reservado_por_otros_host(salvo: int, clave: String) -> int:
 
 @rpc("authority", "call_remote", "reliable")
 func _set_reservas(todas: Dictionary) -> void:
+	# El ECO de mi propia reserva vuelve por aqui: yo la pido, el host la aplica y me difunde el mapa
+	# entero, que ya incluye lo que acabo de mandar. Si NADA ha cambiado respecto a lo que ya tenia,
+	# emitir despertaria un rebuild en cada menu abierto por nada — y ese rebuild puede volver a
+	# publicar. Es un cortafuegos: el bucle de verdad se corta en quien publica (ver forge_menu
+	# _claim_reserva), pero esto lo hace imposible desde el otro lado.
+	if _mismas_reservas(todas, _reservas):
+		return
 	_reservas = todas.duplicate(true)
 	reservas_cambiadas.emit()
+
+
+# ¿Los dos mapas de reservas dicen lo MISMO? peer a peer, reusando la comparacion de una sola
+# reserva. Las claves son ids de peer, asi que basta con que coincidan los peers y sus dicts.
+func _mismas_reservas(a: Dictionary, b: Dictionary) -> bool:
+	if a.size() != b.size():
+		return false
+	for peer in a:
+		if not b.has(peer):
+			return false
+		if not _misma_reserva(a[peer] as Dictionary, b[peer] as Dictionary):
+			return false
+	return true
 
 
 # --- OBJETOS DEL SUELO (hito 2): soltar y recoger con autoridad del host --------------------
