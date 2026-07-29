@@ -8420,8 +8420,14 @@ func start_talado(nodo) -> void:
 		* clampf(d, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX) \
 		+ 0.05 * float(current_floor - 1)
 	tempo = minf(tempo, TALA_TEMPO_MAX)
-	var hachazos: int = clampi(roundi(TALA_HACHAZOS_BASE * d), 4, 9) - int(tm["golpes_menos"])
-	hachazos = maxi(4, hachazos)
+	# SUELO 2, como la mineria y la herboristeria. Era 4, y sin ninguna razon escrita: el talado era
+	# el unico de los tres con suelo propio. Lo malo no era el tronco de inicio, era que ese 4 se
+	# comia el -N de la herramienta justo arriba — una hacha EPICA y una PRISTINA de veta profunda
+	# daban los mismos 4 hachazos en las CUATRO maderas, o sea que la mejor del juego no se
+	# distinguia de una decente. Con 2 se separan, y el material facil se despacha igual de rapido
+	# que una veta de cobre o un tallo, que es lo coherente.
+	var hachazos: int = clampi(roundi(TALA_HACHAZOS_BASE * d), 2, 9) - int(tm["golpes_menos"])
+	hachazos = maxi(2, hachazos)
 
 	_last_reco_reto = d
 	print("[reco] talado %s · piso %d · Agilidad %d · exigencia %.0f -> reto %.2f  (ventana %.3f, tempo %.2f, hachazos %d)%s" % [

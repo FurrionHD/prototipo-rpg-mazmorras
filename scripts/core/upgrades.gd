@@ -231,15 +231,15 @@ static func rareza_mult_capacidad(r: int) -> float:
 #
 #  Medido en madera de veta (exig 150) con Agilidad 150 — sin hacha son 6 hachazos y 91 ms:
 #     Comun / bruto        5 hachazos / 110 ms
-#     Legendario/veteado   4 hachazos / 119 ms
-#     Pristino / profundo  4 hachazos / 131 ms
+#     Legendario/veteado   3 hachazos / 119 ms
+#     Pristino / profundo  2 hachazos / 131 ms
 const TOOL_AFINIDAD_TIER := [10.0, 16.0, 23.0]   # T1, T2, T3
 
 # Y la escalan TAMBIEN la rareza y la veta, no solo el tier. Al principio la afinidad era plana por
 # tier y el unico premio de una buena tirada era el -N golpes, y eso dejaba el sistema sin sentido:
 # un pico COMUN de cobre en bruto abria exactamente la misma ventana que un PRISTINO de cobre
 # profundo, o sea que no habia razon para gastar el material bueno ni para querer una tirada alta.
-# Peor aun, el -N se lo come el suelo del minijuego (4 hachazos / 2 golpes / 2 cortes) en cuanto el
+# Peor aun, el -N se lo come el suelo del minijuego (2 golpes en los tres) en cuanto el
 # material pide pocos golpes: alli un -2 y un -3 dan LO MISMO. Entre las dos cosas, los dos ejes que
 # el jugador decide -que metal quemas y que sale de la forja- no pagaban nada.
 #
@@ -262,7 +262,7 @@ const TOOL_AFINIDAD_VETA := [1.00, 1.12, 1.25]
 # El relleno de abajo es creciente para que forjar una comun no sea tirar el material.
 #
 # NO puede trivializar el material facil: los minijuegos tienen suelo duro de golpes
-# (maxi(2,...) en pico y hoz, maxi(4,...) en hacha), asi que en lo facil este -N no hace nada y
+# (maxi(2,...) en los tres), asi que en lo facil este -N no hace nada y
 # solo se nota donde el material pide muchos golpes. Es deseado, no un efecto colateral.
 const TOOL_GOLPES_MENOS := [
 	[0, 0, 1],   # Comun
