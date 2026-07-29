@@ -343,6 +343,15 @@ func _area_txt() -> String:
 	return ""
 
 
+# Tope de golpes que da con esas manos (sin contar los extra por multitud). Las frases de la ficha
+# lo necesitan: mirando maxi(golpes_max, golpes_dual_max) se decia "en cada golpe" en una habilidad
+# que a UNA mano da uno solo.
+func num_golpes_max(manos: int) -> int:
+	if manos >= 2 and golpes_dual_max > 0:
+		return golpes_dual_max
+	return golpes_max
+
+
 # Rango de golpes como texto ("1", "2", "1-2") para el 'manos' dado.
 func _golpes_txt(manos: int) -> String:
 	var lo: int = golpes_min
@@ -385,7 +394,7 @@ func resumen(manos: int = 1) -> String:
 		var at: String = _area_txt()
 		if at != "":
 			l.append(at)
-		elif redirige_al_morir and maxi(golpes_max, golpes_dual_max) > 1:
+		elif redirige_al_morir and num_golpes_max(manos) > 1:
 			l.append("Si mata al objetivo, los golpes que sobren saltan al siguiente.")
 		var por: float = golpes_extra_por_enemigo
 		if manos >= 2 and golpes_extra_por_enemigo_dual > 0.0:
@@ -397,7 +406,7 @@ func resumen(manos: int = 1) -> String:
 		l.append("No hace daño.")
 
 	# --- LO QUE APLICA ---
-	var est: String = _texto_estados()
+	var est: String = _texto_estados(manos)
 	if est != "":
 		l.append(est)
 	if es_imbuicion():
@@ -440,7 +449,7 @@ func resumen(manos: int = 1) -> String:
 	if carga_turnos > 0:
 		coste_p.append("tarda %d turno%s en soltarse" % [carga_turnos, "" if carga_turnos == 1 else "s"])
 	if cooldown > 0:
-		coste_p.append("vuelve a estar lista en %d turnos" % cooldown)
+		coste_p.append("vuelve a estar lista en %d turno%s" % [cooldown, "" if cooldown == 1 else "s"])
 	if requiere_escudo:
 		coste_p.append("necesitas ESCUDO")
 	if requiere_off_libre:
@@ -453,27 +462,42 @@ func resumen(manos: int = 1) -> String:
 
 # Los estados que aplica, agrupados por A QUIEN van. Mismo criterio que SpellData._texto_estados:
 # una frase con nombres y porcentajes, no una lista de siglas.
-func _texto_estados() -> String:
+func _texto_estados(manos: int = 1) -> String:
 	var al_rival: Array = []
 	var a_los_mios: Array = []
+	var por_crit: Array = []       # los que SOLO salen si el golpe critea (a.solo_crit)
 	for a in efectos:
 		if a == null or int(a.estado) < 0:
 			continue
 		var txt: String = _efecto_txt(a)
 		if txt == "":
 			continue
-		if a.en_objetivo:
+		if bool(a.solo_crit):
+			por_crit.append(txt)
+		elif a.en_objetivo:
 			al_rival.append(txt)
 		else:
 			a_los_mios.append(txt)
+
+	# "EN CADA GOLPE" cambia por completo lo que significa el porcentaje: un 22% en una habilidad
+	# de 6 tajos no es un 22%, es casi seguro. Sin esta coletilla el numero engaña.
+	var multi: bool = num_golpes_max(manos) > 1
+	var cada: String = " en cada golpe" if efectos_por_golpe and multi else ""
+	var a_quien: String = "a cada enemigo alcanzado" if es_area() else "al objetivo"
+
 	var out: Array = []
 	if not al_rival.is_empty():
-		out.append("Aplica %s %s." % [_y(al_rival),
-			"a cada enemigo alcanzado" if es_area() else "al objetivo"])
+		out.append("Aplica %s%s %s." % [_y(al_rival), cada, a_quien])
 	if not a_los_mios.is_empty():
-		var quien: String = "a todo el grupo" if _algun_efecto_al_grupo() else "a ti"
-		out.append("Te aplica %s." % _y(a_los_mios) if quien == "a ti"
-			else "Aplica %s a todo el grupo." % _y(a_los_mios))
+		if _algun_efecto_al_grupo():
+			out.append("Aplica %s a TODO el grupo." % _y(a_los_mios))
+		else:
+			out.append("Te aplica %s a ti." % _y(a_los_mios))
+	# Los de critico van en su PROPIA frase, con la condicion delante: puestos en la misma lista
+	# salia "Aplica Sangrado (55%) y Sangrado (30%)", que no dice ni por que hay dos ni cuando cae
+	# el segundo.
+	if not por_crit.is_empty():
+		out.append("Si el golpe es CRÍTICO, además aplica %s." % _y(por_crit))
 	return " ".join(out)
 
 
@@ -499,13 +523,18 @@ func _y(cosas) -> String:
 func _efecto_txt(a) -> String:
 	if a == null or int(a.estado) < 0:
 		return ""
-	var s: String = String(StatusEffects.def(int(a.estado)).get("nombre", "?"))
-	var detalles: Array = ["%d%%" % roundi(a.prob * 100.0)]
+	var id_est: int = int(a.estado)
+	# Cada numero con su NOMBRE delante. Antes salia "Vulnerable (30%, -25%)" y no habia forma de
+	# saber cual era la probabilidad, cual el efecto y cual la duracion.
+	var detalles: Array = ["prob. %d%%" % roundi(a.prob * 100.0)]
+	var que_hace: String = StatusEffects.efecto_legible(id_est, float(a.mult))
+	if que_hace != "":
+		detalles.append(que_hace)
 	if int(a.stacks) > 1:
-		detalles.append("x%d" % int(a.stacks))
-	if a.mult > 0.0:
-		# Nivel de un debuff/buff de stat: 0.80 -> -20%, 1.25 -> +25%.
-		detalles.append("%+d%%" % roundi((a.mult - 1.0) * 100.0))
-	if int(a.turns) > 0:
-		detalles.append("%d turnos" % int(a.turns))
-	return "%s (%s)" % [s, ", ".join(detalles)]
+		detalles.append("%d dosis de golpe" % int(a.stacks))
+	var turnos: int = int(a.turns) if int(a.turns) > 0 else int(StatusEffects.def(id_est).get("turns", 0))
+	if turnos > 0:
+		detalles.append("%d turno%s" % [turnos, "" if turnos == 1 else "s"])
+	if id_est == StatusEffects.Id.ATURDIDO and a.en_objetivo:
+		detalles.append("más el aturdir de tu arma")
+	return "%s (%s)" % [String(StatusEffects.def(id_est).get("nombre", "?")), " · ".join(detalles)]

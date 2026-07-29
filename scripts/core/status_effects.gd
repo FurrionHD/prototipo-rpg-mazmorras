@@ -387,6 +387,34 @@ class Instance extends RefCounted:
 		return "\n".join(lineas)
 
 
+# QUE hace un estado, en una frase corta y con el NOMBRE de lo que toca ("−25% defensa"), para las
+# fichas. Sin el nombre, un "(30%, -25%)" no dice si el -25% es probabilidad, daño o duracion.
+# 'mult' = el nivel concreto de esta aplicacion (StatusApplication.mult), o 0 para el del catalogo.
+static func efecto_legible(id: int, mult: float = 0.0) -> String:
+	var d: Dictionary = def(id)
+	var etiquetas: Dictionary = {
+		"atk_mult": "ataque", "def_mult": "defensa", "spd_mult": "velocidad",
+		"dmg_taken_mult": "daño recibido", "heal_recv_mult": "curación recibida",
+		"def_flat_mult": "armadura", "aggro_mult": "atención que atrae",
+	}
+	for clave in etiquetas:
+		if not d.has(clave):
+			continue
+		var m: float = mult if mult > 0.0 else float(d[clave])
+		return "%+d%% %s" % [roundi((m - 1.0) * 100.0), str(etiquetas[clave])]
+	if bool(d.get("is_stun", false)):
+		return "pierde el turno"
+	if bool(d.get("dot", false)):
+		return "daño por turno"
+	if bool(d.get("heal", false)):
+		return "cura por turno"
+	if bool(d.get("mana_heal", false)):
+		return "maná por turno"
+	if bool(d.get("silencia", false)):
+		return "sin hechizos ni habilidades"
+	return ""
+
+
 # UN CHIP por estado, aunque tenga varias instancias. Los estados 'independent' (Pegajoso,
 # Sangrado) crean una Instance por aplicacion, asi que la UI pintaba cuatro iconos iguales en fila
 # y no habia forma de saber cuanto le quedaba a cada uno.
