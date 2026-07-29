@@ -20,7 +20,7 @@
 
 extends Control
 
-signal talado_finished(item: MaterialItem)
+signal talado_finished(item: MaterialItem, progreso: float)
 
 enum { READY, RUNNING, FINISHED }
 
@@ -70,7 +70,7 @@ func _process(delta: float) -> void:
 
 	if _state == FINISHED:
 		if edge:
-			talado_finished.emit(_result)
+			talado_finished.emit(_result, progreso_frac())
 			queue_free()
 		return
 
@@ -124,6 +124,14 @@ func _nueva_vuelta() -> void:
 	# el golpe, que es de lo que va esto.
 	_pos = -_ancho
 	_tiempo_resuelto = false
+
+
+
+# Fraccion de la tarea que llegaste a COMPLETAR (0..1). La usa Game para pagar la excelia aunque
+# falles: hasta el 29/07 la ganancia no miraba tus aciertos en absoluto, asi que abandonar a la
+# primera pagaba lo mismo que terminarlo. Ver Game.ganar_recoleccion.
+func progreso_frac() -> float:
+	return clampf(float(_progreso) / float(maxi(1, _hachazos)), 0.0, 1.0)
 
 
 func _terminar() -> void:

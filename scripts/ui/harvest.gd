@@ -17,7 +17,7 @@
 
 extends Control
 
-signal recoleccion_finished(item: MaterialItem)
+signal recoleccion_finished(item: MaterialItem, progreso: float)
 
 enum { READY, RUNNING, FINISHED }
 
@@ -28,6 +28,7 @@ var _borde: float = 0.13    # semiancho del corte sucio
 var _vel: float = 0.7       # pasadas por segundo
 
 var _corte_actual: int = 0
+var _limpios: int = 0   # cortes que han salido BIEN (para la excelia parcial, ver progreso_frac)
 var _destrozo: int = 0
 var _marker: float = 0.0
 var _linea: float = 0.5     # donde esta el corte en esta pasada
@@ -62,7 +63,7 @@ func _process(delta: float) -> void:
 
 	if _state == FINISHED:
 		if edge:
-			recoleccion_finished.emit(_result)
+			recoleccion_finished.emit(_result, progreso_frac())
 			queue_free()
 		return
 
@@ -92,6 +93,7 @@ func _resolver(pos: float) -> void:
 	else:
 		var d: float = absf(pos - _linea)
 		if d <= _nucleo:
+			_limpios += 1
 			_ultimo = "¡Corte limpio!"
 		elif d <= _borde:
 			_destrozo += 1
@@ -120,6 +122,14 @@ func _nuevo_tallo() -> void:
 	_marker = 0.0
 	# La linea nunca cae pegada al borde de la banda: siempre te da tiempo a reaccionar.
 	_linea = randf_range(0.25, 0.85)
+
+
+
+# Fraccion de la tarea que llegaste a COMPLETAR (0..1). La usa Game para pagar la excelia aunque
+# falles: hasta el 29/07 la ganancia no miraba tus aciertos en absoluto, asi que abandonar a la
+# primera pagaba lo mismo que terminarlo. Ver Game.ganar_recoleccion.
+func progreso_frac() -> float:
+	return clampf(float(_limpios) / float(maxi(1, _cortes)), 0.0, 1.0)
 
 
 func _terminar() -> void:

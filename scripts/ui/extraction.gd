@@ -11,7 +11,7 @@
 
 extends Control
 
-signal extraction_finished(cristal: Cristal)
+signal extraction_finished(cristal: Cristal, progreso: float)
 
 enum { READY, RUNNING, FINISHED }
 
@@ -66,7 +66,7 @@ func _process(delta: float) -> void:
 	# de siempre (salir_modal, esconder_mundo) — mismo camino que un fin normal, sin puntos sueltos.
 	if _tiene_corpse and not is_instance_valid(_corpse):
 		_tiene_corpse = false
-		extraction_finished.emit(null)
+		extraction_finished.emit(null, 0.0)
 		queue_free()
 		return
 
@@ -76,7 +76,7 @@ func _process(delta: float) -> void:
 
 	if _state == FINISHED:
 		if edge:
-			extraction_finished.emit(_result)
+			extraction_finished.emit(_result, progreso_frac())
 			queue_free()
 		return
 
@@ -115,6 +115,14 @@ func _attempt() -> void:
 		return
 	if _done >= _presses:
 		_finish()
+
+
+
+# Fraccion de la tarea que llegaste a COMPLETAR (0..1). La usa Game para pagar la excelia aunque
+# falles. _done cuenta TODAS las pulsaciones (aciertes o no), asi que los aciertos son la resta.
+# Ver Game.ganar_recoleccion.
+func progreso_frac() -> float:
+	return clampf(float(_done - _misses) / float(maxi(1, _presses)), 0.0, 1.0)
 
 
 func _finish() -> void:

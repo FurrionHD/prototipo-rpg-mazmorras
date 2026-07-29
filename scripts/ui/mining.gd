@@ -20,7 +20,7 @@
 
 extends Control
 
-signal mineria_finished(item: MaterialItem)
+signal mineria_finished(item: MaterialItem, progreso: float)
 
 enum { READY, RUNNING, FINISHED }
 
@@ -69,7 +69,7 @@ func _process(delta: float) -> void:
 	if _state == FINISHED:
 		# Se sale con una pulsacion NUEVA (no con la que acabo de romper la veta).
 		if pressed and not _press_was:
-			mineria_finished.emit(_result)
+			mineria_finished.emit(_result, progreso_frac())
 			queue_free()
 		_press_was = pressed
 		return
@@ -127,6 +127,14 @@ func _golpear() -> void:
 # Golpes que aguanta la veta antes de derrumbarse.
 func _golpes_max() -> int:
 	return _golpes_necesarios + GOLPES_MARGEN
+
+
+
+# Fraccion de la tarea que llegaste a COMPLETAR (0..1). La usa Game para pagar la excelia aunque
+# falles: hasta el 29/07 la ganancia no miraba tus aciertos en absoluto, asi que abandonar a la
+# primera pagaba lo mismo que terminarlo. Ver Game.ganar_recoleccion.
+func progreso_frac() -> float:
+	return clampf(_progreso / float(maxi(1, _golpes_necesarios)), 0.0, 1.0)
 
 
 func _terminar() -> void:

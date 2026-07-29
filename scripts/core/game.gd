@@ -6570,10 +6570,26 @@ const RECO_REPARTO_GRUPO := 0.4
 # algo —vas con ellos, cargas la madera, haces el relevo— pero no lo mismo que dar los hachazos.
 # El reto y los rendimientos decrecientes se calculan por persona dentro de ganar(), asi que al mas
 # flojo del grupo la misma veta le sigue enseñando mas.
-func ganar_recoleccion(abil: String, reto_val: float, base: float, max_reto: float = RETO_MAX) -> void:
+#
+# 'progreso' = cuanto de la tarea llegaste a completar (0..1: aciertos / los que hacian falta), y
+# 'logrado' = si te llevaste la pieza. Hasta el 29/07 la ganancia NO miraba tus aciertos en absoluto:
+#   - talado, mineria y herboristeria pagaban el 100% pasara lo que pasara, asi que plantarse en un
+#     arbol duro y fallar los tres tiempos a proposito rendia lo mismo que talarlo entero. Farmeo
+#     gratis, y ademas hacia que jugar bien el minijuego no valiera nada en excelia.
+#   - la extraccion hacia lo contrario y no pagaba NADA al fallar, asi que un cristal de tier alto
+#     que se te rompia en la ultima pulsacion no enseñaba nada pese a ser lo mas dificil que habias
+#     hecho en toda la partida.
+# Ahora las cuatro van igual: si lo LOGRAS cobras entero, y si fallas cobras la parte que hiciste.
+# Nueve hachazos y clavas siete = el 78%, aunque el tronco se raje. Fallar de entrada = nada.
+func ganar_recoleccion(abil: String, reto_val: float, base: float, max_reto: float = RETO_MAX,
+		progreso: float = 1.0, logrado: bool = true) -> void:
+	var parte: float = 1.0 if logrado else clampf(progreso, 0.0, 1.0)
+	if parte <= 0.0:
+		return
 	var quien: PersonajeData = lider()   # el que juega el minijuego es siempre el que va delante
 	for pj in party:
-		ganar(abil, reto_val, base if pj == quien else base * RECO_REPARTO_GRUPO, max_reto, pj)
+		var suyo: float = base if pj == quien else base * RECO_REPARTO_GRUPO
+		ganar(abil, reto_val, suyo * parte, max_reto, pj)
 
 # Poder del jugador DE POR VIDA (suma de los totales ocultos) con un suelo para no dividir por 0.
 # Es el baremo contra el contenido de niveles ANTERIORES: no se resetea al ascender y ademas crece
@@ -7790,7 +7806,7 @@ func start_extraction(corpse: Node) -> void:
 # 'corpse' SIN tipar a proposito: al salir del piso a media extraccion se libera con la escena, y
 # pasar una instancia liberada a un parametro TIPADO revienta en Godot 4 (la trampa de net.gd). Se
 # lee siempre con is_instance_valid() antes de tocarlo.
-func _on_extraction_finished(cristal: Cristal, corpse) -> void:
+func _on_extraction_finished(cristal: Cristal, progreso: float, corpse) -> void:
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	# El minijuego se juega con ESPACIO, que ahora es TAMBIEN la tecla de atacar/interactuar:
@@ -7840,6 +7856,14 @@ func _on_extraction_finished(cristal: Cristal, corpse) -> void:
 			EXTRACTION_DESTREZA_SLOPE, EXTRACTION_DESTREZA_RETO_MAX), GAIN_DESTREZA_MINIJUEGO)
 	else:
 		print("El cristal se rompio: lo has perdido.")
+		# Y AUN ASI entrena, en proporcion a las pulsaciones que clavaste. Esta era la unica de las
+		# cuatro profesiones que al fallar no pagaba NADA (el ganar estaba dentro del bloque de
+		# exito), asi que un cristal de tier alto que se te partia en la ultima pulsacion —lo mas
+		# dificil que habias hecho— no enseñaba nada. Ver ganar_recoleccion.
+		if cristal != null:
+			ganar_recoleccion("destreza", curva_reto(_last_extraction_reto, EXTRACTION_DESTREZA_PIVOTE,
+				EXTRACTION_DESTREZA_SLOPE, EXTRACTION_DESTREZA_RETO_MAX), GAIN_DESTREZA_MINIJUEGO,
+				RETO_MAX, progreso, false)
 
 	# Lo que deja el bicho (probabilidad baja; en pruebas, 100%). La CALIDAD del material
 	# la hereda de TU cristal: si lo sacaste intacto, el material sale intacto (premia el
@@ -7975,7 +7999,7 @@ func start_mineria(nodo) -> void:
 	_abrir_pantalla(ex)
 
 
-func _on_mineria_finished(item: MaterialItem, nodo) -> void:
+func _on_mineria_finished(item: MaterialItem, progreso: float, nodo) -> void:
 	_cerrar_recoleccion(nodo)
 	if item == null:
 		return
@@ -7990,10 +8014,10 @@ func _on_mineria_finished(item: MaterialItem, nodo) -> void:
 			_aviso_recogida(item.nombre(), 1, "¡PURO!")
 	else:
 		print("La veta se deshace en escombro: no sacas nada.")
-	# La FUERZA se entrena aunque la pieza salga rota: has picado igual. Lo que pierdes al
-	# hacerlo mal es el botin, no el aprendizaje.
+	# La FUERZA se entrena aunque la pieza salga rota (has picado igual), pero en proporcion a los
+	# golpes que llegaste a dar bien: ver ganar_recoleccion.
 	ganar_recoleccion("fuerza", curva_reto(_last_reco_reto, MINERIA_PIVOTE, MINERIA_SLOPE, MINERIA_RETO_MAX),
-		GAIN_FUERZA_MINERIA, RETO_MAX_FISICO)
+		GAIN_FUERZA_MINERIA, RETO_MAX_FISICO, progreso, not item.se_pierde())
 
 
 # --- HERBORISTERIA ---
@@ -8029,7 +8053,7 @@ func start_herboristeria(nodo) -> void:
 	_abrir_pantalla(ex)
 
 
-func _on_herboristeria_finished(item: MaterialItem, nodo) -> void:
+func _on_herboristeria_finished(item: MaterialItem, progreso: float, nodo) -> void:
 	_cerrar_recoleccion(nodo)
 	if item == null:
 		return
@@ -8044,8 +8068,10 @@ func _on_herboristeria_finished(item: MaterialItem, nodo) -> void:
 			_aviso_recogida(item.nombre(), 1, "¡PURO!")
 	else:
 		print("La planta queda hecha jirones: no sirve.")
+	# Como sus hermanas: entrena aunque la planta quede hecha jirones, en proporcion a los cortes
+	# limpios que le llegaste a dar (ver ganar_recoleccion).
 	ganar_recoleccion("destreza", curva_reto(_last_reco_reto, HERB_PIVOTE, HERB_SLOPE, HERB_RETO_MAX),
-		GAIN_DESTREZA_PLANTA)
+		GAIN_DESTREZA_PLANTA, RETO_MAX, progreso, not item.se_pierde())
 
 
 # --- TALADO ---
@@ -8077,7 +8103,7 @@ func start_talado(nodo) -> void:
 	_abrir_pantalla(ex)
 
 
-func _on_talado_finished(item: MaterialItem, nodo) -> void:
+func _on_talado_finished(item: MaterialItem, progreso: float, nodo) -> void:
 	_cerrar_recoleccion(nodo)
 	if item == null:
 		return
@@ -8092,10 +8118,10 @@ func _on_talado_finished(item: MaterialItem, nodo) -> void:
 			_aviso_recogida(item.nombre(), 1, "¡PURO!")
 	else:
 		print("El tronco se raja en astillas: no sacas nada.")
-	# Como en la mineria: la Agilidad se entrena aunque la pieza salga rota. Lo que pierdes al
-	# hacerlo mal es el botin, no el aprendizaje.
+	# Como en la mineria: la Agilidad se entrena aunque el tronco se raje, pero SEGUN LO QUE HICISTE
+	# (ver ganar_recoleccion): siete hachazos limpios de nueve enseñan, aunque no te lleves la madera.
 	ganar_recoleccion("agilidad", curva_reto(_last_reco_reto, TALA_PIVOTE, TALA_SLOPE, TALA_RETO_MAX),
-		GAIN_AGILIDAD_TALA, RETO_MAX_FISICO)
+		GAIN_AGILIDAD_TALA, RETO_MAX_FISICO, progreso, not item.se_pierde())
 
 
 # Dificultad del ultimo minijuego de recoleccion (para la ganancia de stat al terminar).
