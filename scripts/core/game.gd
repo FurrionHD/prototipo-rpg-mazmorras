@@ -335,10 +335,12 @@ const GAIN_FUERZA_ATAQUE := 0.15
 # OJO: el multiplicador de dificultad (hasta x2) y el reto (hasta x5) van ENCIMA de esto, asi que
 # huir de algo rapido y de tu nivel paga bastante mas; de uno lento y flojo, casi nada.
 #
-# SUBIDA x1.5 (29/07): en el playtest la Agilidad se quedaba MUY plantada frente a Fuerza. Se sube
-# la tanda entera de fuentes de Agilidad por igual (esta, esquivar, critico y tala) para no cambiar
-# el reparto entre ellas, solo el ritmo. PROVISIONAL -> Excel/playtest.
-const GAIN_AGILIDAD_HUIDA := 0.225   # (0.15 x1.5)
+# SUBIDA x1.5 y DESHECHA el mismo dia (29/07). Se subio porque la Agilidad se quedaba plantada
+# frente a Fuerza, pero en la misma tanda se le taparon TRES agujeros —esquivar dentro de una
+# habilidad enemiga, critear con una habilidad propia y huir del combate no pagaban NADA— y esos
+# son eventos que pasan en cada pelea. Entre las dos cosas se pasaba de largo. Se vuelve a la base
+# de siempre y el ajuste lo hacen los agujeros tapados, que es de donde tenia que haber venido.
+const GAIN_AGILIDAD_HUIDA := 0.15
 # Y lo que CUESTA la fuga multiplica lo que enseña: dejar atras a un bicho lento siendo un rayo no
 # entrena nada, y despegarse de uno que te pisa los talones entrena mucho. Se mide con la velocidad
 # de persecucion contra la TUYA REAL, con el peso y la armadura DENTRO a proposito: ir cargado te
@@ -382,14 +384,15 @@ const GAIN_FUERZA_MINERIA := 2.25      # (0.9 x2.5)
 # AGILIDAD: el talado. Talar NO va de fuerza bruta (si fuese Fuerza, entre la mina y la madera
 # la Fuerza se dispararia y las demas se quedarian atras): va de COMPAS, o sea de Agilidad. Y
 # de paso le da a la Agilidad una fuente fuera del combate, que le faltaba.
-const GAIN_AGILIDAD_TALA := 3.75       # (1.0 x2.5, y x1.5 en la subida de Agilidad del 29/07)
+const GAIN_AGILIDAD_TALA := 2.5        # (1.0 x2.5; ver GAIN_AGILIDAD_HUIDA sobre el x1.5 deshecho)
 # Fuentes de COMBATE para las stats que se farmean mal (bases altas: son eventos
 # raros, no ocurren cada turno como el ataque):
-# Las dos subidas x1.5 el 29/07 (ver GAIN_AGILIDAD_HUIDA). Y ademas se les taparon los agujeros:
-# antes solo contaban en el ataque BASICO — esquivar dentro de una habilidad enemiga y clavar un
-# critico con una habilidad propia no pagaban nada, que es media Agilidad de cada pelea perdida.
-const GAIN_AGILIDAD_ESQUIVAR := 0.9   # esquivar un golpe entrena Agilidad (adios correr en circulos)
-const GAIN_AGILIDAD_CRITICO := 0.45   # clavar un critico entrena Agilidad (encontrar el hueco)
+# Estas dos se quedan en su valor de siempre (ver GAIN_AGILIDAD_HUIDA sobre el x1.5 deshecho). Lo
+# que SI cambio el 29/07 es CUANTAS VECES se cobran: antes solo contaban en el ataque BASICO, y ni
+# esquivar dentro de una habilidad enemiga ni clavar un critico con una habilidad propia pagaban
+# nada. Eso era media Agilidad de cada pelea perdida, y taparlo ya sube el ritmo sin tocar la base.
+const GAIN_AGILIDAD_ESQUIVAR := 0.6   # esquivar un golpe entrena Agilidad (adios correr en circulos)
+const GAIN_AGILIDAD_CRITICO := 0.3    # clavar un critico entrena Agilidad (encontrar el hueco)
 # HUIR DEL COMBATE (no del mapa: eso es GAIN_AGILIDAD_HUIDA). Se paga por INTENTARLO, salga o no:
 # fallar la fuga y comerte el turno tambien enseña, y si solo pagara al escapar el jugador aprenderia
 # de la suerte del dado. Base ALTA porque es un evento raro (una vez por pelea como mucho) frente a
