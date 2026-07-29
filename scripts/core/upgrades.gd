@@ -217,12 +217,23 @@ static func rareza_mult_capacidad(r: int) -> float:
 #  +31% en madera comun y +95% en madera anillada. O sea que un hacha T1 ayudaba MAS en el
 #  material T3 que en el suyo. Metiendola en el DENOMINADOR de la dificultad
 #  (d = exigencia / (stat*0.5 + suelo + AFINIDAD)) el alivio decae solo segun sube el material:
-#  con +20, la madera de veta gana un +42% de ventana y la dura solo un +18%. Sin capar nada a
-#  mano. Ademas toca a la vez la ventana, el tempo y el numero de golpes, que es lo que hace que
-#  se note como "esta herramienta va conmigo" y no como un numerito.
+#  el alivio decae solo segun sube el material. Sin capar nada a mano. Ademas toca a la vez la
+#  ventana, el tempo y el numero de golpes, que es lo que hace que se note como "esta herramienta va
+#  conmigo" y no como un numerito.
 #
 #  Precedente en el codigo: tool_destreza_bonus hace justo esto en Game.start_extraction.
-const TOOL_AFINIDAD_TIER := [20.0, 32.0, 46.0]   # T1, T2, T3
+#
+#  BAJADO A LA MITAD (de [20,32,46]) el 29/07: con 20 de suelo, una herramienta COMUN ya se comia el
+#  grueso del problema y lo que quedaba por delante era poco. Con 10 la de andar por casa ayuda un
+#  poco y el margen se lo reparten la rareza y la veta, que es donde estan las decisiones. La
+#  escalera entre tiers se divide por dos ENTERA para no tocar la relacion entre ellos, que estaba
+#  calibrada para dar un alivio parecido en el material de cada tier.
+#
+#  Medido en madera de veta (exig 150) con Agilidad 150 — sin hacha son 6 hachazos y 91 ms:
+#     Comun / bruto        5 hachazos / 110 ms
+#     Legendario/veteado   4 hachazos / 119 ms
+#     Pristino / profundo  4 hachazos / 131 ms
+const TOOL_AFINIDAD_TIER := [10.0, 16.0, 23.0]   # T1, T2, T3
 
 # Y la escalan TAMBIEN la rareza y la veta, no solo el tier. Al principio la afinidad era plana por
 # tier y el unico premio de una buena tirada era el -N golpes, y eso dejaba el sistema sin sentido:
