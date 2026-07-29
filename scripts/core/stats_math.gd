@@ -185,6 +185,15 @@ static func max_mp_jugador(ab: Abilities, base_mp: float) -> float:
 	return base_mp * (1.0 + ab.magia / MAG_MP_DIV)
 
 
+# GOLPE DE ESCUDO: cuanto "ataque" vale un punto de DEFENSA al dar un escudazo. La defensa y el
+# ataque no viven en el mismo rango (un tanque tiene ~2x mas def que atk, un pegador ~0.7x), asi
+# que hace falta este puente. Calibrado (2026-07-29) para que quien lleva escudo Y armadura pegue
+# algo MAS que antes (que escalaba con el arma) y quien se cuelga un escudo con build de daño pegue
+# bastante menos: es lo que convierte el escudazo en la jugada del tanque.
+# Ver Combatant.atk_escudo y AbilityData.escudo_desde_golpe.
+const ESCUDO_DEF_A_ATAQUE := 0.7
+
+
 # Daño = ataque mitigado por la defensa (rendimientos decrecientes).
 #   daño = ataque × K / (K + defensa)
 # Devuelve FLOAT (con decimales) para NO perder precision: asi mejoras pequeñas
@@ -307,8 +316,12 @@ static func imbue_proc_chance(base: float, magia: float, rival_resistencia: floa
 # defend_block, dano_tipo, aturdir_base). motion_value ya va dentro de atacante.atk().
 # Devuelve { "damage": float, "evaded": bool, "crit": bool, "aturde": bool,
 #            "evade_p": float, "crit_p": float, "aturde_p": float } (las _p para logs).
+# atk_override >= 0 -> el daño NO sale de attacker.atk() sino de ese valor. Lo usa el GOLPE DE
+# ESCUDO, que pega con la DEFENSA del que lo da (Combatant.atk_escudo) y no con su arma. Solo
+# cambia la MAGNITUD: esquiva, critico y aturdir se siguen resolviendo igual, porque quien pega
+# sigue siendo el mismo con su misma Destreza.
 static func resolve_attack(attacker: Combatant, defender: Combatant,
-		defending: bool = false) -> Dictionary:
+		defending: bool = false, atk_override: float = -1.0) -> Dictionary:
 	var atk_dex := float(attacker.abilities.destreza)
 	var def_agi := float(defender.abilities.agilidad)
 
@@ -341,7 +354,7 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# Si esta DEFENDIENDO, su escudo suma su defensa aqui (defend_defense): un escudo solo protege
 	# de lo que paras con el, asi que no puede ir en def_value() como la armadura.
 	var def_val := defender.def_value() + (defender.defend_defense if defending else 0.0)
-	var dmg := damage(attacker.atk(), def_val)
+	var dmg := damage(atk_override if atk_override >= 0.0 else attacker.atk(), def_val)
 	# Variacion aleatoria por golpe (±DAMAGE_VARIANCE), estilo Terraria.
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 

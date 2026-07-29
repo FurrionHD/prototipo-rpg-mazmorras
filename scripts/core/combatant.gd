@@ -453,6 +453,16 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 # spd() lleva la velocidad del arma (mas/menos turnos).
 func atk() -> float:
 	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(abilities.fuerza) * motion_value * status_atk_mult()
+# El "ataque" de un ESCUDAZO. No sale de tu arma sino de tu DEFENSA: la del cuerpo (armadura +
+# Resistencia, via def_value) MAS la del propio escudo (defend_defense), que es la chapa con la que
+# estas pegando. Por eso un escudo mas grande o de mejor tier pega mas, y por eso el escudazo es la
+# jugada del TANQUE: con build de daño y un escudo colgado sale flojo, que es lo suyo.
+#
+# La constante convierte una escala en la otra (defensa y ataque no viven en el mismo rango).
+# Ver StatsMath.ESCUDO_DEF_A_ATAQUE y AbilityData.escudo_desde_golpe.
+func atk_escudo() -> float:
+	return (def_value() + defend_defense) * StatsMath.ESCUDO_DEF_A_ATAQUE * status_atk_mult()
+
 func def_value() -> float:
 	var base: float = base_defense + extra_defense
 	var d: float = StatsMath.defense_jugador(abilities, base) if stats_multiplicativas \

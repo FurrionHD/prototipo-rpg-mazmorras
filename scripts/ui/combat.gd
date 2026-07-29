@@ -3388,7 +3388,11 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	# le toca a ESTE golpe segun el plan (mano principal/segunda del dual, o arma/escudo).
 	var r := {"c": objetivo, "dmg": 0.0, "imbue": 0.0, "mult_imbue": 1.0, "crit": false,
 		"evaded": false, "mana": 0.0, "conecto": false, "estados": [], "linea": ""}
-	var result := StatsMath.resolve_attack(_player, objetivo, false)
+	# Los golpes DE ESCUDO pegan con tu DEFENSA, no con tu arma (ver AbilityData.escudo_desde_golpe).
+	# En Guardia rota / Aplastamiento eso significa que el golpe 0 va con Ataque y el 1 con Defensa:
+	# cada uno con su atributo.
+	var atk_ov: float = _player.atk_escudo() if ab.golpe_es_de_escudo(i) else -1.0
+	var result := StatsMath.resolve_attack(_player, objetivo, false, atk_ov)
 	if result.evaded:
 		r.evaded = true
 		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
@@ -3407,8 +3411,12 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	var esc_txt: String = "" if is_equal_approx(escala, 1.0) else " [%d%%]" % roundi(escala * 100.0)
 	# Etiqueta de "con qué se pega": arma+escudo distingue arma/escudo; el dual, la 2ª mano.
 	var mano_txt: String = ""
-	if ab.requiere_escudo and not ab.mults_golpe.is_empty():
-		mano_txt = " [arma]" if m_golpe >= 1.0 else " [escudo %d%%]" % roundi(m_golpe * 100.0)
+	if ab.escudo_desde_golpe >= 0:
+		# Se dice con QUE se pega y, en el escudazo, que va con la DEFENSA: es la unica pista de
+		# que subir armadura le sube el daño a ese golpe.
+		mano_txt = " [escudo · DEF]" if ab.golpe_es_de_escudo(i) else " [arma]"
+		if ab.golpe_es_de_escudo(i) and m_golpe < 1.0:
+			mano_txt = " [escudo · DEF %d%%]" % roundi(m_golpe * 100.0)
 	elif m_golpe < 1.0:
 		mano_txt = " [2ª mano %d%%]" % roundi(m_golpe * 100.0)
 	r.linea = "golpe %d%s%s%s: %s %.2f%s" % [i + 1, etq, mano_txt, esc_txt,

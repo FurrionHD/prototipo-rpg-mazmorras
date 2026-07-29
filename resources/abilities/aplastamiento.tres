@@ -22,6 +22,7 @@ cooldown = 5
 golpes_min = 2
 golpes_max = 2
 dano_mult = 1.33
+escudo_desde_golpe = 1
 mults_golpe = [1.0, 0.5]
 redirige_al_morir = true
 efectos = [SubResource("SA_stun"), SubResource("SA_vuln")]

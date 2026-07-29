@@ -62,6 +62,22 @@ class_name AbilityData
 # Tipo de daño forzado: -1 = el del arma; 0 CORTE, 1 CONTUNDENTE (golpe de escudo).
 @export var dano_tipo_override: int = -1
 
+# GOLPES CON EL ESCUDO: indice del primer golpe que se da con el ESCUDO (-1 = ninguno).
+# Del indice en adelante, el golpe NO escala con tu ATAQUE sino con tu DEFENSA (ver
+# Combatant.atk_escudo). Es lo que hace que un escudazo sea del ESCUDO y no del arma que llevas
+# en la otra mano: antes, un golpe de escudo con mandobles pegaba mas que con daga, que no tiene
+# ningun sentido — el escudo es el mismo.
+#
+# Ademas convierte el escudazo en la jugada del TANQUE: quien va con armadura pesada y Resistencia
+# alta pega fuerte con el, y quien se cuelga un escudo llevando build de daño, no. Se combina con
+# mults_golpe: en Guardia rota / Aplastamiento el golpe 0 es del ARMA (con tu Ataque) y el 1 del
+# ESCUDO (con tu Defensa), cada uno con su atributo.
+@export var escudo_desde_golpe: int = -1
+
+# ¿Este golpe (0-indexado) se da con el escudo?
+func golpe_es_de_escudo(i: int) -> bool:
+	return escudo_desde_golpe >= 0 and i >= escudo_desde_golpe
+
 # ============================================================
 #  ÁREA / MULTI-OBJETIVO (habilidades melee). Dos modos distintos:
 #   SPLASH  -> el PRINCIPAL recibe todos los golpes al 100%; cada SECUNDARIO los recibe
@@ -311,6 +327,12 @@ func resumen(manos: int = 1) -> String:
 			for m in mults_golpe:
 				partes.append("%d%%" % roundi(float(m) * 100.0))
 			p.append("%s: %s" % ["arma/escudo" if requiere_escudo else "por golpe", ", ".join(partes)])
+		# ESCUDAZO: el golpe de escudo pega con tu DEFENSA, no con tu arma. Hay que decirlo, porque
+		# es la unica pista de que subir armadura le sube el daño a ese golpe (y de que con build
+		# de daño y un escudo colgado sale flojo). Ver Combatant.atk_escudo.
+		if escudo_desde_golpe >= 0:
+			p.append("el escudo pega con tu DEFENSA" if escudo_desde_golpe == 0
+				else "del %dº en adelante, con tu DEFENSA" % (escudo_desde_golpe + 1))
 		# ÁREA: cómo reparte a los demás enemigos (derivado de los campos, nunca a mano).
 		var at: String = _area_txt()
 		if at != "":
