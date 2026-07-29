@@ -401,7 +401,7 @@ static func efecto_legible(id: int, mult: float = 0.0) -> String:
 	var etiquetas: Dictionary = {
 		"atk_mult": "ataque", "def_mult": "defensa", "spd_mult": "velocidad",
 		"dmg_taken_mult": "daño recibido", "heal_recv_mult": "curación recibida",
-		"def_flat_mult": "armadura", "aggro_mult": "atención que atrae",
+		"def_flat_mult": "armadura", "aggro_mult": "de atención de los enemigos",
 		"hp_mult": "vida máxima",
 	}
 	var partes: Array = []
@@ -413,17 +413,18 @@ static func efecto_legible(id: int, mult: float = 0.0) -> String:
 	if not partes.is_empty():
 		return " y ".join(partes)
 	if bool(d.get("is_stun", false)):
-		return "pierde el turno"
+		return "le hace perder el turno"
 	if bool(d.get("dot", false)):
-		return "daño por turno"
+		return "le hace daño cada turno"
 	if bool(d.get("heal", false)):
-		return "cura por turno"
+		return "le cura cada turno"
 	if bool(d.get("mana_heal", false)):
-		return "maná por turno"
+		return "le devuelve maná cada turno"
 	if bool(d.get("silencia", false)):
-		return "sin hechizos ni habilidades"
+		return "le corta hechizos y habilidades"
 	if float(d.get("seguimiento_pct", 0.0)) > 0.0:
-		return "pegas detrás de cada aliado, al %d%%" % roundi(float(d["seguimiento_pct"]) * 100.0)
+		return "pegas detrás de cada aliado realizando un %d%% de daño" % roundi(
+			float(d["seguimiento_pct"]) * 100.0)
 	return ""
 
 
