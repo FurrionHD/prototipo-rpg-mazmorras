@@ -260,7 +260,10 @@ func _clave_item(it: Resource) -> String:
 		return "c|%d|%d" % [c.categoria, int(c.calidad)]
 	if it is MaterialItem:
 		var m := it as MaterialItem
-		return "m|%s|%d" % [m.nombre(), int(m.calidad)]
+		# El TAMAÑO entra en la clave: dos peces de la misma especie con tallas distintas NO son el
+		# mismo item y no pueden apilarse en un solo monton. Si se apilaran, el de 61 cm y el de 12
+		# se venderian al mismo precio y la corona no sabria a cual pegarse.
+		return "m|%s|%d|%d" % [m.nombre(), int(m.calidad), roundi(m.cm)]
 	return "?"
 
 
@@ -270,7 +273,9 @@ func _nombre_item(it: Resource) -> String:
 		return "Cristal Cat %d\n(%s)" % [c.categoria, c.calidad_texto()]
 	if it is MaterialItem:
 		var m := it as MaterialItem
-		return "%s\n(%s)" % [m.nombre(), m.calidad_texto()]
+		# nombre_mostrado() lleva ya la talla y la corona del record; en todo lo que no es pescado
+		# devuelve el nombre a secas.
+		return "%s\n(%s)" % [m.nombre_mostrado(), m.calidad_texto()]
 	return "?"
 
 
@@ -433,14 +438,18 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 		_note(vb, "Al quitarla os quedáis con el zurrón de serie (25 de carga).")
 
 
-# --- HERRAMIENTAS: pico, hoz y hacha. Del grupo, como la mochila. ---
+# --- HERRAMIENTAS: pico, hoz, hacha y caña. Del grupo, como la mochila. ---
 func _build_herramientas() -> void:
 	_title(_header, "HERRAMIENTAS  (del equipo)")
 	_note(_header, "No te entrenan más rápido: hacen la recolección menos hostil y sacas más material por rato. "
 		+ "Una por tipo, para todo el grupo. Las forja el herrero.")
 	var puestas: PackedStringArray = []
-	for tipo in [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA]:
+	for tipo in [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA, ToolData.Tipo.CANA]:
 		var t: ToolData = Game.herramienta_de_tipo(int(tipo))
+		# La CAÑA es la unica que puede venir NULL: sin caña forjada no se pesca, no hay "de serie".
+		if t == null:
+			puestas.append("Caña: ninguna (sin ella no se pesca)")
+			continue
 		puestas.append("%s: %s" % [t.tipo_texto(),
 			Game.item_display_name(t) if Game.es_herramienta_forjada(t) else "la de serie"])
 	_note(_header, "   ·   ".join(puestas))
@@ -486,8 +495,11 @@ func _preview_herramienta(vb: VBoxContainer) -> void:
 		_rebuild())
 	vb.add_child(b)
 	if puesta:
-		_note(vb, "Al quitarla vuelves a la %s de serie, que no ayuda en nada."
-			% t.tipo_texto().to_lower())
+		if t.es_cana():
+			_note(vb, "Sin caña no puedes pescar: no hay una de serie a la que volver.")
+		else:
+			_note(vb, "Al quitarla vuelves a la %s de serie, que no ayuda en nada."
+				% t.tipo_texto().to_lower())
 
 
 # ============================================================

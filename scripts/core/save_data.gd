@@ -234,6 +234,10 @@ const VERSION_MUNDO := 1
 @export var tool_pico: Resource = null
 @export var tool_hoz: Resource = null
 @export var tool_hacha: Resource = null
+@export var tool_cana: Resource = null
+
+# El LIBRO DEL PESCADOR: id del pez -> {capturas, cm_min, cm_max}. Ver Game.registro_pesca.
+@export var registro_pesca: Dictionary = {}
 
 # Que materiales has visto alguna vez (id -> true). Es lo que decide QUE te enseña el herrero:
 # un metal que no conoces no aparece en su menu. Ver Game.materiales_vistos.

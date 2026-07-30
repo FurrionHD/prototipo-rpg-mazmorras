@@ -27,13 +27,16 @@
 #  baja la DIFICULTAD del minijuego en vez de ensanchar su ventana. Ver el bloque de
 #  TOOL_AFINIDAD_TIER en upgrades.gd para el porque completo.
 #
-#  HACHA va el ULTIMO a proposito: el enum se guarda como numero en los .tres.
+#  Todo tipo NUEVO va al FINAL a proposito: el enum se guarda como numero en los .tres.
+#  La CAÑA es la cuarta y la rara del grupo: no ahorra golpes (no hay golpes que dar), su
+#  'golpes_menos' se gasta en ALARGAR LA VENTANA DEL TIRON, que es donde de verdad se pierden los
+#  peces al principio. Ver fishing_spot.gd.
 # ============================================================
 
 extends Resource
 class_name ToolData
 
-enum Tipo { PICO, HOZ, HACHA }
+enum Tipo { PICO, HOZ, HACHA, CANA }
 
 @export var tipo: Tipo = Tipo.PICO
 @export var nombre: String = "Herramienta"
@@ -54,11 +57,15 @@ func es_hoz() -> bool:
 func es_hacha() -> bool:
 	return tipo == Tipo.HACHA
 
+func es_cana() -> bool:
+	return tipo == Tipo.CANA
+
 
 func tipo_texto() -> String:
 	match tipo:
 		Tipo.PICO: return "Pico"
 		Tipo.HOZ: return "Hoz"
+		Tipo.CANA: return "Caña"
 		_: return "Hacha"
 
 
@@ -68,4 +75,6 @@ func unidad_golpes(n: int) -> String:
 	match tipo:
 		Tipo.PICO: return "golpe" if n == 1 else "golpes"
 		Tipo.HOZ: return "tallo" if n == 1 else "tallos"
+		# La caña no descuenta nada: lo suyo se lee en tiempo (ver filas_herramienta).
+		Tipo.CANA: return "tirón" if n == 1 else "tirones"
 		_: return "hachazo" if n == 1 else "hachazos"

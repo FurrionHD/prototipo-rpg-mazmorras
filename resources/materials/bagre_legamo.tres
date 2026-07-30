@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"bagre_legamo"
+nombre = "Bagre de légamo"
+descripcion = "Un bicho ancho y testarudo que se pasa el día en el fondo. No corre: se planta y aguanta hasta que a uno de los dos se le acaba la paciencia."
+familia = 0
+tipo = 9
+tier = 2
+exigencia = 56.0
+peso_base = 3.0
+valor_base = 40
+mejora_min = 0
+mejora_max = 0
+color = Color(0.42, 0.38, 0.3, 1)
+piso_min = 1
+piso_max = 0
+cm_min = 45.0
+cm_max = 85.0
+esbeltez = 2.2
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

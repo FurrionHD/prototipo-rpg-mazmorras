@@ -297,7 +297,9 @@ func _clave_item(it: Resource) -> String:
 		return "c|%d|%d" % [c.categoria, int(c.calidad)]
 	if it is MaterialItem:
 		var m := it as MaterialItem
-		return "m|%s|%d" % [m.nombre(), int(m.calidad)]
+		# La TALLA entra en la clave: dos peces de la misma especie con tallas distintas valen
+		# distinto (ver MaterialItem.valor_estimado), asi que no pueden ir al mismo monton.
+		return "m|%s|%d|%d" % [m.nombre(), int(m.calidad), roundi(m.cm)]
 	return "?"
 
 
@@ -307,7 +309,7 @@ func _nombre_item(it: Resource) -> String:
 		return "Cristal Cat %d\n(%s)" % [c.categoria, c.calidad_texto()]
 	if it is MaterialItem:
 		var m := it as MaterialItem
-		return "%s\n(%s)" % [m.nombre(), m.calidad_texto()]
+		return "%s\n(%s)" % [m.nombre_mostrado(), m.calidad_texto()]
 	return "?"
 
 

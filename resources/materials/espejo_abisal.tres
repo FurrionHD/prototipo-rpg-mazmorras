@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"espejo_abisal"
+nombre = "Espejo abisal"
+descripcion = "Plano, ancho y con los flancos como una lámina de plata bruñida. Nadie ha sabido cocinarlo y nadie lo ha intentado dos veces: se cuelga en la pared y se cuenta la historia."
+familia = 0
+tipo = 9
+tier = 3
+exigencia = 96.0
+peso_base = 2.5
+valor_base = 520
+mejora_min = 0
+mejora_max = 0
+color = Color(0.82, 0.85, 0.9, 1)
+piso_min = 1
+piso_max = 0
+cm_min = 70.0
+cm_max = 120.0
+esbeltez = 1.7
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="MaterialTable" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/material_table.gd" id="1_tabla"]
+[ext_resource type="Script" path="res://scripts/world/material_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" path="res://resources/materials/gobio_palido.tres" id="3_gobio"]
+[ext_resource type="Resource" path="res://resources/materials/lubina_mazmorra.tres" id="4_lubina"]
+[ext_resource type="Resource" path="res://resources/materials/bagre_legamo.tres" id="5_bagre"]
+[ext_resource type="Resource" path="res://resources/materials/anguila_pozo.tres" id="6_anguila"]
+[ext_resource type="Resource" path="res://resources/materials/espejo_abisal.tres" id="7_espejo"]
+
+[sub_resource type="Resource" id="E_gobio"]
+script = ExtResource("2_entrada")
+material = ExtResource("3_gobio")
+peso = 100.0
+
+[sub_resource type="Resource" id="E_lubina"]
+script = ExtResource("2_entrada")
+material = ExtResource("4_lubina")
+peso = 52.0
+
+[sub_resource type="Resource" id="E_bagre"]
+script = ExtResource("2_entrada")
+material = ExtResource("5_bagre")
+peso = 16.0
+
+[sub_resource type="Resource" id="E_anguila"]
+script = ExtResource("2_entrada")
+material = ExtResource("6_anguila")
+peso = 9.0
+
+[sub_resource type="Resource" id="E_espejo"]
+script = ExtResource("2_entrada")
+material = ExtResource("7_espejo")
+peso = 0.8
+
+[resource]
+script = ExtResource("1_tabla")
+nombre = "Peces"
+entradas = Array[ExtResource("2_entrada")]([SubResource("E_gobio"), SubResource("E_lubina"), SubResource("E_bagre"), SubResource("E_anguila"), SubResource("E_espejo")])
+metadata/_custom_type_script = "res://scripts/world/material_table.gd"

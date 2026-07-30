@@ -46,6 +46,9 @@ class_name DungeonFloor
 # Las ENREDADERAS (madera) trepan por la pared del PASILLO: se reparten como las plantas, y
 # _ocupada ya impide que nazcan las dos en la misma celda.
 @export var tabla_maderas: MaterialTable = preload("res://resources/world/maderas.tres")
+# Los PECES del charco (ver _elegir_estanque). Misma clase de tabla que las otras tres, pero no se
+# reparte por celdas: el estanque entero hace su tirada por cada pez que nada dentro.
+@export var tabla_peces: MaterialTable = preload("res://resources/world/peces.tres")
 # Cuantas celdas de pasillo por planta, y cuantas plantas aguanta un pasillo.
 @export var celdas_por_planta: int = 18
 @export var max_plantas_pasillo: int = 3
@@ -224,6 +227,7 @@ var _exit_script: GDScript = preload("res://scripts/world/dungeon_exit.gd")
 var _fx_pared_script: GDScript = preload("res://scripts/world/wall_birth_fx.gd")
 var _pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
 var _reco_script: GDScript = preload("res://scripts/world/resource_node.gd")
+var _fishing_script: GDScript = preload("res://scripts/world/fishing_spot.gd")
 
 # --- BOSS del piso (si lo hay) ---
 # Donde van la bajada y la salida al pueblo, y si ya estan puestas. En un piso con boss SIN
@@ -249,6 +253,21 @@ var _zona_aterrizaje: int = -1
 # a la escalera sigue siendo huir. Es la diferencia con _zona_aterrizaje, que solo se salta la
 # poblacion inicial (esa sala sigue pariendo mientras la cruzas).
 var _zonas_seguras: Array[int] = []
+
+# ZONA DEL ESTANQUE: la sala que lleva el charco de pescar. -1 = este piso no tiene (solo pasa si
+# el trazado se queda sin salas candidatas). NO es una zona segura: sigue pariendo bichos, solo que
+# MUCHO mas despacio (ESTANQUE_SPAWN_LENTO). Que pescar sea una decision con riesgo -y no un rincon
+# donde escaquearse- es justo lo que hace interesante pararse.
+var _zona_estanque: int = -1
+var _celda_estanque: Vector2i = Vector2i.MAX
+
+# Lo que se estira el intervalo de partos en la sala del estanque. Un pez tarda en picar; si la
+# sala pariese al ritmo normal, pescar seria imposible por interrupciones.
+const ESTANQUE_SPAWN_LENTO := 2.5
+# Tamaño del charco EN CELDAS. Fijo a proposito (no escala con el piso): el minijuego se juega
+# contra el charco, y un charco de tamaño variable cambiaria el tiempo que tardan los peces en
+# cruzarlo de un piso a otro sin que nadie lo haya decidido.
+const ESTANQUE_CELDAS := Vector2i(5, 4)
 
 var _geo: Node2D = null      # toda la geometria del piso (se tira entera al regenerar)
 var _zonas: Node2D = null    # todas las SpawnZone
@@ -329,6 +348,8 @@ func _construir(por_la_bajada: bool = false) -> void:
 	_boss_pos = Vector2.INF
 	_zona_aterrizaje = -1
 	_zonas_seguras.clear()
+	_zona_estanque = -1
+	_celda_estanque = Vector2i.MAX
 	gen = DungeonGenerator.new()
 	# El tamaño del @export es el del piso 1; abajo el mapa crece (ver AREA_GROWTH).
 	var fl: float = _factor_lineal_piso()
@@ -352,6 +373,11 @@ func _construir(por_la_bajada: bool = false) -> void:
 
 	_construir_geometria()
 	_colocar_actores(por_la_bajada)
+	# ANTES de _crear_zonas y DESPUES de _colocar_actores, y no es casualidad: necesita saber ya cual
+	# es la sala del jefe (la decide _colocar_boss, dentro de _colocar_actores) para no ponerle un
+	# charco al minotauro, y _crear_zonas necesita saber ya cual es la del estanque para frenarle el
+	# ritmo de partos.
+	_elegir_estanque()
 	_crear_zonas()
 	# DIFERIDO, por lo mismo que poblar() (ver _crear_zonas): al construir el piso desde
 	# _ready, el nodo padre (Main) aun esta montando sus hijos y Godot RECHAZA cualquier
@@ -594,6 +620,65 @@ func _sala_central() -> Rect2i:
 
 
 # ------------------------------------------------------------
+#  ESTANQUE: la sala con el charco de pescar. UNO por piso.
+# ------------------------------------------------------------
+#  Se elige con RNG PROPIO (sembrado aparte, como los recolectables) para que cambiar esto no
+#  altere el trazado del piso ni la colocacion de las vetas. Determinista: el mismo piso pone el
+#  charco en la misma sala, siempre, y el invitado lo calcula igual sin que viaje por la red.
+#
+#  "Uno por piso, SIEMPRE" vive entero AQUI: el dia que quiera que sea probabilistico, o que solo
+#  aparezca a partir del piso N, es esta funcion y nada mas.
+func _elegir_estanque() -> void:
+	if gen == null or gen.salas.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _semilla_del_piso() + 2027
+
+	# Ni la boca, ni la del fondo (escalera/salida), ni la del jefe. Las tres tienen ya su papel y
+	# meterles un charco encima solo estorba.
+	var entrada: Rect2i = gen.salas[0]
+	var escalera: Rect2i = _sala_mas_lejana(entrada)
+	var candidatas: Array[Rect2i] = []
+	for s in gen.salas:
+		if s == entrada or s == escalera:
+			continue
+		if gen.zona_en(s.get_center()) == _sala_boss:
+			continue
+		# Que quepa el charco con un anillo de suelo alrededor: si no, se pesca desde dentro del agua.
+		if s.size.x < ESTANQUE_CELDAS.x + 4 or s.size.y < ESTANQUE_CELDAS.y + 4:
+			continue
+		candidatas.append(s)
+	if candidatas.is_empty():
+		print("[mazmorra] piso ", _piso_construido, ": sin sala para el estanque")
+		return
+
+	var sala: Rect2i = candidatas[rng.randi_range(0, candidatas.size() - 1)]
+	_zona_estanque = gen.zona_en(sala.get_center())
+	_celda_estanque = sala.get_center()
+
+
+# El charco, ya con el arbol montado (lo llama _colocar_recolectables, que va diferido por el mismo
+# motivo). Marca sus celdas como ocupadas para que no le brote una veta dentro.
+func _crear_estanque() -> void:
+	if _zona_estanque < 0 or _celda_estanque == Vector2i.MAX or tabla_peces == null:
+		return
+	var mitad := Vector2i(ESTANQUE_CELDAS.x / 2, ESTANQUE_CELDAS.y / 2)
+	for dx in range(ESTANQUE_CELDAS.x):
+		for dy in range(ESTANQUE_CELDAS.y):
+			_ocupada[_celda_estanque - mitad + Vector2i(dx, dy)] = true
+
+	var n: Node2D = _fishing_script.new()
+	n.celda = _celda_estanque
+	n.tam_celdas = ESTANQUE_CELDAS
+	n.tabla = tabla_peces
+	n.position = gen.centro_px(_celda_estanque)
+	# Cuelga del PADRE (Main) y no del piso: el piso va a z_index -1 y el agua tiene que verse por
+	# encima del suelo, igual que las vetas.
+	get_parent().add_child(n)
+	print("[mazmorra] estanque en la zona ", _zona_estanque, " (celda ", _celda_estanque, ")")
+
+
+# ------------------------------------------------------------
 #  RECOLECTABLES: vetas (pico/Fuerza) y plantas (hoz/Destreza).
 #  DETERMINISTAS: el mismo piso pone siempre las mismas vetas, del mismo material y en la
 #  misma celda. Por eso la memoria del piso solo tiene que recordar cuales YA PICASTE
@@ -609,6 +694,9 @@ func _colocar_recolectables() -> void:
 	# El piso se rehace: ni las celdas ocupadas ni los sitios del piso viejo valen.
 	_ocupada.clear()
 	_sitios.clear()
+
+	# El charco PRIMERO: reserva sus celdas en _ocupada antes de que nadie reparta vetas.
+	_crear_estanque()
 
 	var plantas: int = _colocar_en_pasillos(rng, tabla_plantas, max_plantas_piso, 1)
 	var maderas: int = _colocar_en_pasillos(rng, tabla_maderas, max_madera_piso, 2)
@@ -1031,8 +1119,12 @@ func _crear_zonas() -> void:
 		zona.tipo = z["tipo"]
 		zona.partos = partos
 		# Se DIVIDE porque son segundos de ESPERA: mas ritmo = menos espera entre partos.
-		zona.intervalo_min = intervalo_min / ritmo
-		zona.intervalo_max = intervalo_max / ritmo
+		# Y la sala del ESTANQUE pare MUCHO mas despacio (se MULTIPLICA la espera): pescar lleva su
+		# rato y una pared pariendo al ritmo normal lo haria inviable. No se la deja sin zona (eso
+		# seria una sala segura): sigue habiendo bichos, solo que a cuentagotas.
+		var lento: float = ESTANQUE_SPAWN_LENTO if i == _zona_estanque else 1.0
+		zona.intervalo_min = intervalo_min * lento / ritmo
+		zona.intervalo_max = intervalo_max * lento / ritmo
 		# Aforo por AREA: una sala grande sostiene mas bichos que un pasillo. Y el TECHO de ese
 		# aforo crece con la profundidad (AFORO_ZONA_GROWTH, su propia rampa): abajo las salas
 		# aguantan corros mas gordos, hasta el tope duro (TOPE_SALA = lo que cabe en una pelea).

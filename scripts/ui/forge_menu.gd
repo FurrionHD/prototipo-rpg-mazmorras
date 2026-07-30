@@ -1146,7 +1146,7 @@ func _build_herramientas() -> void:
 
 	# --- QUE herramienta ---
 	_title(_content, "Qué forjas", 13)
-	var tipos: Array = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA]
+	var tipos: Array = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA, ToolData.Tipo.CANA]
 	var etq_t: Array = []
 	var pistas_t: Array = []
 	for tp in tipos:
@@ -1154,7 +1154,7 @@ func _build_herramientas() -> void:
 		etq_t.append(b.tipo_texto() if b != null else "?")
 		pistas_t.append(_para_que(int(tp)))
 	MenuScaffold.cuadricula(_content, etq_t, tipos.find(_herr_tipo), _on_herr_tipo,
-		3, MenuScaffold.TAM_SELECTOR, [], [], pistas_t)
+		4, MenuScaffold.TAM_SELECTOR, [], [], pistas_t)
 
 	# --- CON QUE metal: DOS niveles (gama -> veta) ---
 	# El tier y la veta son dos preguntas distintas y responden a dos cosas distintas (el tier pone la
@@ -1230,11 +1230,12 @@ func _para_que(tipo: int) -> String:
 	match tipo:
 		ToolData.Tipo.PICO: return "Vetas de mineral  ·  entrena Fuerza"
 		ToolData.Tipo.HOZ: return "Plantas  ·  entrena Destreza"
+		ToolData.Tipo.CANA: return "Estanques  ·  entrena Resistencia"
 		_: return "Madera  ·  entrena Agilidad"
 
 
 func _on_herr_tipo(i: int) -> void:
-	_herr_tipo = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA][clampi(i, 0, 2)]
+	_herr_tipo = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA, ToolData.Tipo.CANA][clampi(i, 0, 3)]
 	_rebuild()
 
 

@@ -25,7 +25,10 @@ enum Familia { CORRIENTE, NUCLEO }
 #   (la madera cruda ya no va directa a la forja; asi no sobra tanta).
 #   CARNE es el primer ingrediente de COCINA: no se recolecta ni mejora nada, cae de los bichos que
 #   tienen algo que descuartizar (ver EnemyData.drop_extra) y su unico destino es el fogon.
-enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA, TABLON, CARNE }
+#   PESCADO sale del ESTANQUE de la mazmorra (ver fishing_spot.gd). Es el unico material con un
+#   TAMAÑO propio por ejemplar: dos lubinas no son la misma lubina. Ver cm_min/cm_max y
+#   MaterialItem.cm.
+enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA, TABLON, CARNE, PESCADO }
 # A QUE se le puede meter este nucleo. Los del slime van al ARMA; el de la rata, a la
 # ARMADURA. CUALQUIERA = comodin (no lo usa ningun nucleo hoy, pero el campo lo admite).
 enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
@@ -80,6 +83,18 @@ enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
 @export var piso_min: int = 1
 @export var piso_max: int = 0
 
+# --- SOLO para PESCADO: la talla de un ejemplar, en centimetros ---
+# El pez es el unico material que se mide por PIEZA: lo que coleccionas no es "una lubina", es "una
+# lubina de 41 cm". Estos dos son los extremos de la especie; el sorteo real (con cola larga hacia
+# el maximo, ver fishing_spot) vive en el nodo del estanque y el resultado se guarda en
+# MaterialItem.cm. El libro del Pescador lleva la cuenta de tu mayor y tu menor.
+@export var cm_min: float = 0.0
+@export var cm_max: float = 0.0
+
+# Proporcion LARGO/ANCHO de la silueta en el agua (y de la "foto" del libro). Es lo que separa de un
+# vistazo a la anguila del bagre teniendo los dos el mismo rectangulo por cuerpo.
+@export var esbeltez: float = 3.0
+
 
 func disponible(piso: int) -> bool:
 	if piso < piso_min:
@@ -101,6 +116,7 @@ func tipo_texto() -> String:
 		Tipo.MADERA: return "Madera"
 		Tipo.TABLON: return "Tablón"
 		Tipo.CARNE: return "Carne"
+		Tipo.PESCADO: return "Pescado"
 		_: return "Núcleo"
 
 
@@ -114,6 +130,110 @@ func es_planta() -> bool:
 
 func es_madera() -> bool:
 	return tipo == Tipo.MADERA
+
+# ¿Con la CAÑA? El pescado no se recolecta de un nodo del mapa: se saca del estanque.
+func es_pescado() -> bool:
+	return tipo == Tipo.PESCADO
+
+
+# Talla de UN ejemplar: 0..1 LINEAL sobre la horquilla de la especie. Sin curva aqui a proposito —
+# la rareza de los extremos la pone el SORTEO (tirada_talla), no esta conversion. Que sea lineal es
+# lo que permite que las coronas se definan como franjas del TAMAÑO ("el 5% mas grande") y que sus
+# cortes en centimetros salgan de una regla de tres que cualquiera puede comprobar.
+func talla_desde(t: float) -> float:
+	if cm_max <= 0.0:
+		return 0.0
+	var lo: float = minf(cm_min, cm_max)
+	return lo + (cm_max - lo) * clampf(t, 0.0, 1.0)
+
+
+# EL SORTEO: media de dos tiradas, o sea una CAMPANA (distribucion triangular). La mayoria de los
+# peces salen del monton y los extremos son raros POR LOS DOS LADOS, que es lo que hace que tanto el
+# ejemplar de museo como el enano de coleccion valgan algo.
+#
+# Estuvo sesgado hacia el minimo con una potencia (t^2.2) y era un error medido: amontonaba una de
+# cada cuatro capturas en el 5% mas bajo de la horquilla, asi que la minicorona de oro -que deberia
+# ser el premio raro de la punta pequeña- caia el 26% de las veces. Con la campana, cada corona sale
+# en torno al 0.5% y cada plata al 1.5%.
+static func tirada_talla(rng: RandomNumberGenerator = null) -> float:
+	if rng == null:
+		return (randf() + randf()) * 0.5
+	return (rng.randf() + rng.randf()) * 0.5
+
+
+# ============================================================
+#  CORONAS (criterio Monster Hunter)
+# ============================================================
+#  La corona NO la da tu record personal: la da la TALLA en si, contra la horquilla de la especie.
+#  Un ejemplar de museo lo es aunque sea el primero que pescas, y sigue siendolo cuando saques otro
+#  mayor. Eso es lo que la convierte en algo que se colecciona y se enseña.
+#
+#  Cuatro premios, dos por cada punta de la horquilla:
+#    GRANDE:      el 10%-5% mas alto -> PLATA      el 5%-0% mas alto -> ORO
+#    MINIATURA:   el 10%-5% mas bajo -> PLATA      el 5%-0% mas bajo -> ORO
+#  Fuera de esas franjas, un pez es un pez.
+enum Corona { NINGUNA, MINI_PLATA, MINI_ORO, PLATA, ORO }
+
+const CORONA_PLATA := 0.10   # la decima parte de cada punta
+const CORONA_ORO := 0.05     # y la vigesima, dentro de ella
+
+
+# Que corona le toca a un ejemplar de 'cm'. Devuelve Corona.NINGUNA en todo lo que no es pescado.
+func corona_de(cm: float) -> int:
+	if cm <= 0.0 or cm_max <= cm_min:
+		return Corona.NINGUNA
+	var t: float = clampf((cm - cm_min) / (cm_max - cm_min), 0.0, 1.0)
+	if t >= 1.0 - CORONA_ORO:
+		return Corona.ORO
+	if t >= 1.0 - CORONA_PLATA:
+		return Corona.PLATA
+	if t <= CORONA_ORO:
+		return Corona.MINI_ORO
+	if t <= CORONA_PLATA:
+		return Corona.MINI_PLATA
+	return Corona.NINGUNA
+
+
+# El corte, en CENTIMETROS, a partir del cual (o por debajo del cual) cae cada corona. Lo enseña el
+# libro para que sepas exactamente que te falta, y sale de los campos: nadie lo escribe a mano.
+func corona_umbral(corona: int) -> float:
+	var rango: float = cm_max - cm_min
+	match corona:
+		Corona.ORO: return cm_min + rango * (1.0 - CORONA_ORO)
+		Corona.PLATA: return cm_min + rango * (1.0 - CORONA_PLATA)
+		Corona.MINI_ORO: return cm_min + rango * CORONA_ORO
+		Corona.MINI_PLATA: return cm_min + rango * CORONA_PLATA
+	return 0.0
+
+
+# Prefijo corto para el nombre en la bolsa. El GLIFO dice el tipo (corona = grande, rombo =
+# miniatura) y el color de la letra lo pone quien lo pinte; aqui va tambien la inicial para que se
+# lea sin color, que es como se ve en una lista de texto.
+static func corona_glifo(corona: int) -> String:
+	match corona:
+		Corona.ORO: return "👑O"
+		Corona.PLATA: return "👑P"
+		Corona.MINI_ORO: return "◆O"
+		Corona.MINI_PLATA: return "◆P"
+	return ""
+
+
+static func corona_texto(corona: int) -> String:
+	match corona:
+		Corona.ORO: return "Corona de oro"
+		Corona.PLATA: return "Corona de plata"
+		Corona.MINI_ORO: return "Minicorona de oro"
+		Corona.MINI_PLATA: return "Minicorona de plata"
+	return "—"
+
+
+# Color del premio, para pintarlo en la ficha. Las miniaturas van del mismo color que su hermana
+# grande: el metal dice lo raro que es, y el glifo si es por arriba o por abajo.
+static func corona_color(corona: int) -> Color:
+	match corona:
+		Corona.ORO, Corona.MINI_ORO: return Color(0.95, 0.80, 0.30)
+		Corona.PLATA, Corona.MINI_PLATA: return Color(0.80, 0.84, 0.90)
+	return Color(0.6, 0.63, 0.7)
 
 
 # ¿Este material es un nucleo que sirve para MEJORAR el equipo?
@@ -274,8 +394,10 @@ func resumen() -> String:
 		"valor base %d" % valor_base,
 		"peso %.1f" % peso_base,
 	]
-	if es_veta() or es_planta() or es_madera():
+	if es_veta() or es_planta() or es_madera() or es_pescado():
 		partes.append("exigencia %d" % roundi(exigencia))
+	if es_pescado() and cm_max > 0.0:
+		partes.append("talla %d-%d cm" % [roundi(cm_min), roundi(cm_max)])
 	if mejora_equipo():
 		var uso: String = uso_mejora_texto()
 		if tier_equipo > 0:

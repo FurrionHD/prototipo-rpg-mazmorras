@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://scripts/town/carpintero.gd" id="10_carpin"]
 [ext_resource type="Script" path="res://scripts/town/taberna.gd" id="11_tabern"]
 [ext_resource type="Script" path="res://scripts/town/maestro.gd" id="12_maestr"]
+[ext_resource type="Script" path="res://scripts/town/pescador.gd" id="13_pescad"]
 
 [node name="Town" type="Node2D"]
 
@@ -258,6 +259,31 @@ offset_right = 70.0
 offset_bottom = 24.0
 grow_horizontal = 2
 text = "TABERNA"
+horizontal_alignment = 1
+vertical_alignment = 0
+
+[node name="Pescador" type="Node2D" parent="."]
+position = Vector2(30, 150)
+script = ExtResource("13_pescad")
+
+[node name="Sprite" type="ColorRect" parent="Pescador"]
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+color = Color(0.22, 0.48, 0.62, 1)
+
+[node name="Label" type="Label" parent="Pescador/Sprite"]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = 2.0
+offset_right = 70.0
+offset_bottom = 24.0
+grow_horizontal = 2
+text = "PESCADOR"
 horizontal_alignment = 1
 vertical_alignment = 0
 

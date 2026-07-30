@@ -391,11 +391,22 @@ static func filas_herramienta(t: ToolData) -> Array:
 		TOOL_VETA[Upgrades.banda_columna(int(meta.get("banda", 0)))]]])
 	filas.append(["Afinidad", "+%.0f  (tier, rareza y veta)" % float(m["afinidad"])])
 	var n: int = int(m["golpes_menos"])
-	filas.append(["Ahorro", "sin ahorro" if n <= 0 else "-%d %s  (rareza y veta)" % [
-		n, t.unidad_golpes(n)]])
+	# La CAÑA gasta ese mismo numero en OTRA moneda: no quita tirones, alarga la ventana en la que
+	# puedes clavar el tiron. Se enseña en segundos porque es lo que se juega.
+	if t.es_cana():
+		filas.append(["Ventana del tirón", "sin margen extra" if n <= 0
+			else "+%.2f s  (rareza y veta)" % (float(n) * VENTANA_TIRON_POR_PUNTO)])
+	else:
+		filas.append(["Ahorro", "sin ahorro" if n <= 0 else "-%d %s  (rareza y veta)" % [
+			n, t.unidad_golpes(n)]])
 	return filas
 
-const TOOL_PARA := ["Vetas de mineral  ·  Fuerza", "Plantas  ·  Destreza", "Madera  ·  Agilidad"]
+# Lo que alarga la ventana del tiron cada punto de 'golpes_menos' de la caña. Copia del mismo numero
+# en fishing_spot.gd (que es quien lo aplica) para que la ficha no mienta.
+const VENTANA_TIRON_POR_PUNTO := 0.15
+
+const TOOL_PARA := ["Vetas de mineral  ·  Fuerza", "Plantas  ·  Destreza", "Madera  ·  Agilidad",
+	"Estanques  ·  Resistencia"]
 const TOOL_VETA := ["en bruto", "veteado", "profundo"]
 
 

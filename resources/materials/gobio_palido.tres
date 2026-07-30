@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"gobio_palido"
+nombre = "Gobio pálido"
+descripcion = "Un pececillo sin color que vive en los charcos de los primeros pisos. Pica a lo que sea y se rinde enseguida. Todo el mundo empieza por uno de estos."
+familia = 0
+tipo = 9
+tier = 1
+exigencia = 16.0
+peso_base = 0.6
+valor_base = 10
+mejora_min = 0
+mejora_max = 0
+color = Color(0.78, 0.79, 0.72, 1)
+piso_min = 1
+piso_max = 0
+cm_min = 7.0
+cm_max = 14.0
+esbeltez = 2.6
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

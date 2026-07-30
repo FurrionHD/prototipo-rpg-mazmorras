@@ -285,10 +285,14 @@ static func banda_columna(mejora_min: int) -> int:
 		return 1
 	return 0
 
-# Lo que aporta una herramienta forjada. 'tipo' es ToolData.Tipo (PICO/HOZ/HACHA) y hoy NO se usa:
-# las tres comparten tabla porque los tres minijuegos comparten la forma de la dificultad. Entra en
-# la firma a proposito, para que el dia que el pico y el hacha tengan que divergir no haya que
+# Lo que aporta una herramienta forjada. 'tipo' es ToolData.Tipo (PICO/HOZ/HACHA/CANA) y hoy NO se
+# usa: las cuatro comparten tabla porque los minijuegos comparten la forma de la dificultad. Entra
+# en la firma a proposito, para que el dia que el pico y el hacha tengan que divergir no haya que
 # tocar a ninguno de los que llaman aqui.
+#
+# La CAÑA es la que mas se aleja del molde: su 'golpes_menos' no descuenta golpes (no los hay), lo
+# gasta en ALARGAR la ventana del tiron (ver fishing_spot.VENTANA_POR_PUNTO). La afinidad si entra
+# igual que en los otros tres, por el denominador de Game._reto_recoleccion.
 static func tool_mods(_tipo: int, tier: int, rareza: int, banda: int) -> Dictionary:
 	var t: int = clampi(tier - 1, 0, TOOL_AFINIDAD_TIER.size() - 1)
 	var r: int = clampi(rareza, 0, TOOL_GOLPES_MENOS.size() - 1)

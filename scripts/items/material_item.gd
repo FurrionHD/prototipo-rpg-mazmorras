@@ -20,12 +20,36 @@ enum Calidad { INTACTO, NORMAL, DANADO, ROTO, PURO }
 @export var data: MaterialData = null
 @export var calidad: Calidad = Calidad.NORMAL
 
+# TALLA de ESTE ejemplar, en cm. Solo la llevan los PESCADOS (0 en todo lo demas). Vive aqui y no en
+# Game.item_meta a proposito: item_meta es para el EQUIPO, que es unico y se puede mejorar; un pez
+# es una unidad de bolsa mas, y su medida es parte de la unidad. Ver MaterialData.talla_desde.
+@export var cm: float = 0.0
+
 
 static func crear(d: MaterialData, c: Calidad = Calidad.NORMAL) -> MaterialItem:
 	var m := MaterialItem.new()
 	m.data = d
 	m.calidad = c
 	return m
+
+
+# La CORONA de esta pieza (criterio Monster Hunter): sale de la talla contra la horquilla de la
+# especie, NO de tu record. Un ejemplar de museo lo es para siempre, aunque luego saques otro mayor.
+func corona() -> int:
+	if cm <= 0.0 or data == null:
+		return MaterialData.Corona.NINGUNA
+	return data.corona_de(cm)
+
+
+# Nombre para la UI: el pez lleva su talla pegada al nombre (es media identidad del item) y, si le
+# toca, el glifo de su corona delante.
+func nombre_mostrado() -> String:
+	var n: String = nombre()
+	if cm <= 0.0:
+		return n
+	n = "%s (%d cm)" % [n, roundi(cm)]
+	var g: String = MaterialData.corona_glifo(corona())
+	return (g + " " + n) if g != "" else n
 
 
 func se_pierde() -> bool:
@@ -106,7 +130,20 @@ func valor_estimado() -> int:
 	if data == null:
 		return 0
 	var tier_mult: float = 1.0 + VALOR_TIER_FACTOR * float(maxi(1, data.tier) - 1) * float(data.tier)
-	return int(round(float(data.valor_base) * tier_mult * multiplicador_calidad()))
+	return int(round(float(data.valor_base) * tier_mult * multiplicador_calidad() * mult_talla()))
+
+
+# El PESCADO se paga por TAMAÑO: un ejemplar en el minimo de su especie vale la mitad y uno en el
+# maximo, el doble. Es lo que le da sentido a coleccionar tallas mas alla del libro — el pez gordo
+# no es solo una linea en el registro, es dinero. Todo lo que no es pescado devuelve 1.0.
+const VALOR_TALLA_MIN := 0.5
+const VALOR_TALLA_MAX := 2.0
+
+func mult_talla() -> float:
+	if data == null or cm <= 0.0 or data.cm_max <= data.cm_min:
+		return 1.0
+	var t: float = clampf((cm - data.cm_min) / (data.cm_max - data.cm_min), 0.0, 1.0)
+	return lerpf(VALOR_TALLA_MIN, VALOR_TALLA_MAX, t)
 
 
 func peso() -> float:

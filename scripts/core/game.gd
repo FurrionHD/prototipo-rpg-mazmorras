@@ -570,6 +570,29 @@ const TALA_PIVOTE := 1.5
 const TALA_SLOPE := 0.65
 const TALA_RETO_MAX := 5.0              # tope FISICO (la Agilidad es fisica, como la Fuerza)
 
+# PESCA (caña, RESISTENCIA). La cuarta profesion, y la unica que no se mide en aciertos: se mide en
+# AGUANTE. No hay golpes que clavar ni ventanas que acertar; hay que mantener al pez dentro de tu
+# tramo mientras el forcejea, y eso dura lo que dure. Por eso paga Resistencia y no Destreza: es la
+# stat de sostener el pulso, y hasta ahora solo se entrenaba comiendo golpes en combate.
+const PESCA_RESISTENCIA_FLOOR := 30.0   # suelo de skill, como en las otras tres
+const PESCA_BASE_TRAMO := 0.30          # alto de TU tramo a dificultad 1 (fraccion de la barra)
+const PESCA_TRAMO_MIN := 0.08           # por debajo de esto el tramo no se puede pilotar
+const PESCA_TRAMO_MAX := 0.45
+const PESCA_BASE_VEL := 0.42            # lo que recorre el pez por segundo a dificultad 1
+const PESCA_VEL_MAX := 1.15             # techo: un pez que cruza la barra 3 veces/seg no es dificil, es ilegible
+const PESCA_BASE_ERRATICO := 0.85       # cada cuanto cambia de idea a dificultad 1
+const PESCA_ERRATICO_MAX := 2.4
+# Ritmo de la barra de TENSION. Sube despacio y baja mas despacio todavia: la pelea tiene que durar
+# lo bastante para que se note el pulso, pero un despiste no puede costarte el pez de golpe.
+const PESCA_SUBE_BASE := 0.34
+const PESCA_SUBE_MIN := 0.13
+const PESCA_BAJA_BASE := 0.20
+const PESCA_BAJA_MAX := 0.42
+const PESCA_PIVOTE := 1.5
+const PESCA_SLOPE := 0.65
+const PESCA_RETO_MAX := 5.0             # tope FISICO (la Resistencia es fisica)
+const GAIN_RESISTENCIA_PESCA := 2.25    # a la par que la mineria: mismo esfuerzo por nodo
+
 # Dificultad CRUDA del ultimo minijuego de extraccion (para la ganancia de Destreza). Es el mismo
 # numero que _last_reco_reto en las otras tres profesiones: exigencia / (stat*peso + suelo).
 #
@@ -596,6 +619,7 @@ var _extraction_script: GDScript = preload("res://scripts/ui/extraction.gd")
 var _mining_script: GDScript = preload("res://scripts/ui/mining.gd")
 var _harvest_script: GDScript = preload("res://scripts/ui/harvest.gd")
 var _talado_script: GDScript = preload("res://scripts/ui/talado.gd")
+var _fishing_script: GDScript = preload("res://scripts/ui/fishing.gd")
 var _drop_pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
 var _active_enemies: Array[Node] = []   # enemigos del combate en curso (1..4, en orden de setup)
 var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
@@ -1469,6 +1493,8 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	equipped_pico = null
 	equipped_hoz = null
 	equipped_hacha = null
+	equipped_cana = null
+	registro_pesca.clear()
 	# Empiezas sin conocer NINGUN metal: el herrero solo te enseñara los que te traigas.
 	materiales_vistos.clear()
 
@@ -1602,7 +1628,9 @@ func exportar_partida() -> SaveData:
 	d.tool_pico = equipped_pico
 	d.tool_hoz = equipped_hoz
 	d.tool_hacha = equipped_hacha
+	d.tool_cana = equipped_cana
 	d.materiales_vistos = materiales_vistos.duplicate()
+	d.registro_pesca = registro_pesca.duplicate(true)
 
 	d.en_mazmorra = en_mazmorra
 	d.current_floor = current_floor
@@ -1693,6 +1721,8 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.equipped_pico = equipped_pico
 	jd.equipped_hoz = equipped_hoz
 	jd.equipped_hacha = equipped_hacha
+	jd.equipped_cana = equipped_cana
+	jd.registro_pesca = registro_pesca.duplicate(true)
 	jd.mezcla_exp = mezcla_exp
 	jd.metalurgia_exp = metalurgia_exp
 	jd.peleteria_exp = peleteria_exp
@@ -1838,6 +1868,7 @@ func limpiar_mundo_heredado() -> void:
 	equipped_pico = null
 	equipped_hoz = null
 	equipped_hacha = null
+	equipped_cana = null
 	# Y que ningun guardado despistado escriba en la ranura que tuviera abierta: aqui se juega en el
 	# mundo del host y mi ranura no pinta nada (es la misma razon que en Mundos.abrir()).
 	Perfil.ranura_actual = 0
@@ -1895,6 +1926,10 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	equipped_pico = jd.equipped_pico as ToolData
 	equipped_hoz = jd.equipped_hoz as ToolData
 	equipped_hacha = jd.equipped_hacha as ToolData
+	equipped_cana = jd.equipped_cana as ToolData
+	# El libro del Pescador viaja CON LA PERSONA (como las herramientas): tus records son tuyos,
+	# no del mundo en el que los sacaste.
+	registro_pesca = (jd.registro_pesca as Dictionary).duplicate(true)
 	mezcla_exp = jd.mezcla_exp
 	metalurgia_exp = jd.metalurgia_exp
 	peleteria_exp = jd.peleteria_exp
@@ -2139,10 +2174,12 @@ func importar_partida(d: SaveData) -> void:
 	equipped_pico = d.tool_pico as ToolData
 	equipped_hoz = d.tool_hoz as ToolData
 	equipped_hacha = d.tool_hacha as ToolData
+	equipped_cana = d.tool_cana as ToolData
+	registro_pesca = (d.registro_pesca as Dictionary).duplicate(true)
 	# Una equipada que NO este en el baul es una herramienta huerfana: no se puede cambiar desde el
 	# inventario (que lista owned_tools) y ademas se quedaria fuera del baul para siempre. Godot
 	# conserva la identidad al cargar, asi que no deberia pasar; si pasa, se adopta.
-	for eq in [equipped_pico, equipped_hoz, equipped_hacha]:
+	for eq in [equipped_pico, equipped_hoz, equipped_hacha, equipped_cana]:
 		if eq != null and not owned_tools.has(eq):
 			owned_tools.append(eq as ToolData)
 
@@ -2573,6 +2610,98 @@ var materiales: Array[MaterialItem] = []
 # --- BAUL DEL HOGAR: materiales ya guardados en casa. No pesan.
 var almacen_materiales: Array[MaterialItem] = []
 
+# ============================================================
+#  REGISTRO DE PESCA: el libro del Pescador
+# ============================================================
+#  La TABLA de peces vive aqui (y no solo en el @export de DungeonFloor) porque el libro se lee en
+#  el PUEBLO, donde no hay piso del que sacarla. Es la misma tabla: una sola fuente para lo que
+#  nada en el charco y para lo que sale en la ficha.
+const TABLA_PECES := preload("res://resources/world/peces.tres")
+
+func peces() -> Array:
+	var out: Array = []
+	for e in (TABLA_PECES as MaterialTable).entradas:
+		if e != null and e.material != null:
+			out.append(e.material)
+	return out
+
+
+# RAREZA de una especie: se deriva del PESO en la tabla, nunca de un campo escrito a mano. Asi el
+# libro no puede mentir el dia que se retoquen los pesos. Devuelve un peldaño 0..4 de la misma
+# escala que MaterialData.Rango (gris..amarillo), para que un "raro" signifique lo mismo aqui que
+# en una veta o en una espada.
+func rareza_pez(data: MaterialData) -> int:
+	if data == null:
+		return 0
+	var mayor: float = 0.0
+	var mio: float = 0.0
+	for e in (TABLA_PECES as MaterialTable).entradas:
+		if e == null or e.material == null:
+			continue
+		mayor = maxf(mayor, e.peso)
+		if e.material == data:
+			mio = e.peso
+	if mayor <= 0.0 or mio <= 0.0:
+		return 0
+	# En cuantas veces es mas raro que el mas comun. Se mide en pasos de x4 (comun -> x4 -> x16 ->
+	# x64 -> x256) porque los pesos de la tabla se mueven en ordenes de magnitud, no linealmente.
+	var veces: float = mayor / mio
+	return clampi(int(floor(log(veces) / log(4.0))), 0, 4)
+
+#  id del MaterialData del pez -> {"capturas": int, "cm_min": float, "cm_max": float}
+#
+#  Es la UNICA fuente del libro (fishing_book_menu) y de la corona del inventario. NO se recalcula
+#  desde la bolsa a proposito: el pez se vende, se cocina y se pierde, y el record tiene que
+#  sobrevivir a todo eso. Un pez pescado se apunta aqui en el momento de COBRARLO y ya nunca se
+#  borra (salvo partida nueva).
+var registro_pesca: Dictionary = {}
+
+
+# Apunta una captura. Devuelve true si esta pieza es tu MAYOR de la especie (para cantarlo).
+# 'coronas' guarda, en una mascara de bits, que premios de talla has conseguido ya de esta especie:
+# el libro los enseña como una coleccion aparte y NO se pierden al sacar otro pez.
+func apuntar_pesca(id: StringName, cm: float) -> bool:
+	if id == &"" or cm <= 0.0:
+		return false
+	var r: Dictionary = registro_pesca.get(id, {}) as Dictionary
+	var primera: bool = r.is_empty()
+	var record: bool = primera or cm > float(r.get("cm_max", 0.0))
+	registro_pesca[id] = {
+		"capturas": int(r.get("capturas", 0)) + 1,
+		"cm_min": cm if primera else minf(float(r["cm_min"]), cm),
+		"cm_max": cm if primera else maxf(float(r["cm_max"]), cm),
+		"coronas": int(r.get("coronas", 0)),
+	}
+	return record
+
+
+# Marca una corona como conseguida en esta especie. Se llama aparte de apuntar_pesca porque la
+# corona la decide el MaterialData (la talla contra la horquilla) y no el registro.
+func apuntar_corona(id: StringName, corona: int) -> void:
+	if id == &"" or corona == MaterialData.Corona.NINGUNA:
+		return
+	var r: Dictionary = registro_pesca.get(id, {}) as Dictionary
+	if r.is_empty():
+		return
+	r["coronas"] = int(r.get("coronas", 0)) | (1 << corona)
+	registro_pesca[id] = r
+
+
+func tiene_corona(id: StringName, corona: int) -> bool:
+	var r: Dictionary = registro_pesca.get(id, {}) as Dictionary
+	return (int(r.get("coronas", 0)) & (1 << corona)) != 0
+
+
+# Lo apuntado de una especie, siempre con las claves puestas (vacio = aun no has pescado ninguno).
+func ficha_pesca(id: StringName) -> Dictionary:
+	var r: Dictionary = registro_pesca.get(id, {}) as Dictionary
+	return {
+		"capturas": int(r.get("capturas", 0)),
+		"cm_min": float(r.get("cm_min", 0.0)),
+		"cm_max": float(r.get("cm_max", 0.0)),
+		"coronas": int(r.get("coronas", 0)),
+	}
+
 # --- ALMACEN del hogar: un BAUL de equipo/consumibles y una HUCHA de dinero. Persisten SIEMPRE
 # (se guardan en la partida). En un jugador son tu almacen personal; en multi pasan a ser los del
 # HOST (compartidos con el grupo). El movimiento en red lo orquesta Net (host-autoritativo).
@@ -2785,6 +2914,7 @@ const HACHA_BASICA := preload("res://resources/tools/hacha_basica.tres")
 var equipped_pico: ToolData = null
 var equipped_hoz: ToolData = null
 var equipped_hacha: ToolData = null
+var equipped_cana: ToolData = null
 
 func pico() -> ToolData:
 	return equipped_pico if equipped_pico != null else (PICO_BASICO as ToolData)
@@ -2794,6 +2924,13 @@ func hoz() -> ToolData:
 
 func hacha() -> ToolData:
 	return equipped_hacha if equipped_hacha != null else (HACHA_BASICA as ToolData)
+
+# La CAÑA es la unica SIN respaldo a la basica, y es la regla del oficio: a picar, cortar y talar se
+# puede ir con lo puesto, pero a pescar NO se va sin caña. Devuelve null si no llevas ninguna, y el
+# estanque te lo dice a la cara (ver fishing_spot.interactuar). El .tres basico existe solo como
+# PLANTILLA de forja (HERRAMIENTA_BASE), no como regalo de salida.
+func cana() -> ToolData:
+	return equipped_cana
 
 # ¿Esta herramienta salio de la FORJA? Las tres basicas son los .tres COMPARTIDOS del proyecto
 # (preload de arriba) y nunca pasan por crear_item, asi que nunca tienen entrada en item_meta.
@@ -2820,6 +2957,7 @@ func herramienta_de_tipo(tipo: int) -> ToolData:
 	match tipo:
 		ToolData.Tipo.PICO: return pico()
 		ToolData.Tipo.HOZ: return hoz()
+		ToolData.Tipo.CANA: return cana()
 		_: return hacha()
 
 # Equipar / quitar. Trivial como equipar_mochila: no tiene dueño (es del GRUPO, no de un
@@ -2830,17 +2968,20 @@ func equipar_herramienta(t: ToolData) -> void:
 	match int(t.tipo):
 		ToolData.Tipo.PICO: equipped_pico = t
 		ToolData.Tipo.HOZ: equipped_hoz = t
+		ToolData.Tipo.CANA: equipped_cana = t
 		_: equipped_hacha = t
 
 func desequipar_herramienta(tipo: int) -> void:
 	match tipo:
 		ToolData.Tipo.PICO: equipped_pico = null
 		ToolData.Tipo.HOZ: equipped_hoz = null
+		ToolData.Tipo.CANA: equipped_cana = null
 		_: equipped_hacha = null
 
 # ¿La llevas puesta? Lo consultan la UI (para el boton Equipar/Quitar) y la venta.
 func herramienta_equipada(t: ToolData) -> bool:
-	return t != null and (t == equipped_pico or t == equipped_hoz or t == equipped_hacha)
+	return t != null and (t == equipped_pico or t == equipped_hoz or t == equipped_hacha
+		or t == equipped_cana)
 
 # --- Equipamiento: loadout de DOS manos (arma principal + secundaria) ---
 # La secundaria puede ser otra WeaponData (dual-wield), un ShieldData o null.
@@ -4817,10 +4958,12 @@ func _ruta_plantilla_valida(r: String) -> bool:
 # ------------------------------------------------------------
 const _CARPETA_MATERIALES := "res://resources/materials"
 const _MANIFIESTO_MATERIALES := [
-	"res://resources/materials/acero.tres", "res://resources/materials/baba_abisal.tres",
+	"res://resources/materials/acero.tres", "res://resources/materials/anguila_pozo.tres",
+	"res://resources/materials/baba_abisal.tres",
 	"res://resources/materials/baba_fuego.tres", "res://resources/materials/baba_profunda.tres",
 	"res://resources/materials/baba_rey_slime.tres", "res://resources/materials/baba_slime.tres",
-	"res://resources/materials/baba_venenosa.tres", "res://resources/materials/carne_animal.tres",
+	"res://resources/materials/baba_venenosa.tres", "res://resources/materials/bagre_legamo.tres",
+	"res://resources/materials/carne_animal.tres",
 	"res://resources/materials/chapa_acero.tres",
 	"res://resources/materials/chapa_cobre.tres", "res://resources/materials/chapa_cobre_profundo.tres",
 	"res://resources/materials/chapa_cobre_veteado.tres", "res://resources/materials/chapa_hierro.tres",
@@ -4834,7 +4977,9 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/cuero_t3.tres", "res://resources/materials/curtido_brunido.tres",
 	"res://resources/materials/curtido_curado.tres", "res://resources/materials/curtido_endurecido.tres",
 	"res://resources/materials/curtido_placado.tres", "res://resources/materials/curtido_reforzado.tres",
-	"res://resources/materials/esquirla_basalto.tres", "res://resources/materials/hebillas_acero.tres",
+	"res://resources/materials/espejo_abisal.tres",
+	"res://resources/materials/esquirla_basalto.tres", "res://resources/materials/gobio_palido.tres",
+	"res://resources/materials/hebillas_acero.tres",
 	"res://resources/materials/hebillas_cobre.tres", "res://resources/materials/hebillas_hierro.tres",
 	"res://resources/materials/hierba_palida.tres", "res://resources/materials/hierro.tres",
 	"res://resources/materials/hierro_negro.tres", "res://resources/materials/hierro_templado.tres",
@@ -4842,7 +4987,8 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/lingote_cobre.tres", "res://resources/materials/lingote_cobre_profundo.tres",
 	"res://resources/materials/lingote_cobre_veteado.tres", "res://resources/materials/lingote_hierro.tres",
 	"res://resources/materials/lingote_hierro_negro.tres", "res://resources/materials/lingote_hierro_templado.tres",
-	"res://resources/materials/liquen_abisal.tres", "res://resources/materials/madera_anillada.tres",
+	"res://resources/materials/liquen_abisal.tres", "res://resources/materials/lubina_mazmorra.tres",
+	"res://resources/materials/madera_anillada.tres",
 	"res://resources/materials/madera_comun.tres", "res://resources/materials/madera_de_veta.tres",
 	"res://resources/materials/madera_dura.tres", "res://resources/materials/madera_ferrea.tres",
 	"res://resources/materials/madera_negra.tres", "res://resources/materials/madera_petrificada.tres",
@@ -6383,6 +6529,7 @@ const HERRAMIENTA_BASE := {
 	ToolData.Tipo.PICO: "res://resources/tools/pico_basico.tres",
 	ToolData.Tipo.HOZ: "res://resources/tools/hoz_basica.tres",
 	ToolData.Tipo.HACHA: "res://resources/tools/hacha_basica.tres",
+	ToolData.Tipo.CANA: "res://resources/tools/cana_basica.tres",
 }
 # En unidades (puro 4 / intacto 3 / normal 2 / dañado 1), como el resto del crafteo. 6 en total
 # frente a las 12 de la mochila: es lo primero que se craftea y no puede pedir una expedicion entera.
@@ -7622,6 +7769,11 @@ const PASIVAS_RNG: Array = [
 		"puro": true, "desc": "Recoges una planta de más cada vez que cosechas."},
 	{"id": "reco_talado", "nombre": "Leñador nato", "tipo": "reco", "reco": "talado",
 		"puro": true, "desc": "Sacas una madera de más cada vez que talas."},
+	# La de PESCA no lleva "puro" y no es un olvido: un pez no tiene calidad que subir (sale siempre
+	# NORMAL), su eje es el TAMAÑO. Por eso su pieza extra no pasa por _botin_extra_reco sino por
+	# cobrar_pesca, que le sortea su propia talla — y esa talla puede batirte el record.
+	{"id": "reco_pesca", "nombre": "Muñeca de pescador", "tipo": "reco", "reco": "pesca",
+		"desc": "Sacas un pez de más cada vez que cobras una pieza."},
 	{"id": "reco_extraccion", "nombre": "Pulso de joyero", "tipo": "reco", "reco": "extraccion",
 		"joyero": true, "desc": "Extraes un cristal de más de cada cadáver."},
 ]
@@ -8965,6 +9117,105 @@ func _on_talado_finished(item: MaterialItem, progreso: float, nodo) -> void:
 	# (ver ganar_recoleccion): siete hachazos limpios de nueve enseñan, aunque no te lleves la madera.
 	ganar_recoleccion("agilidad", curva_reto(_last_reco_reto, TALA_PIVOTE, TALA_SLOPE, TALA_RETO_MAX),
 		GAIN_AGILIDAD_TALA, RETO_MAX_FISICO, progreso, not item.se_pierde())
+
+
+# --- PESCA ---
+# El cuarto minijuego, y el unico que NO esconde el mundo. 'nodo' va sin tipar (es un FishingSpot,
+# que no tiene class_name), como en los otros tres.
+#
+# Ojo con lo que NO hace esto: no llama a _abrir_pantalla ni a esconder_mundo. La pantalla se monta
+# a mano, en una capa que se pega a un lado y deja ver el charco, el hilo y al pez agitandose. Y el
+# MODAL ya lo empujo el estanque al lanzar la caña (fishing_spot._lanzar): el bloqueo del jugador
+# empieza cuando echas el sedal, no cuando aparece la barra.
+func start_pesca(nodo, data: MaterialData, cm: float) -> void:
+	if _active_layer != null or nodo == null or data == null:
+		return
+	var c: ToolData = cana()
+	var tm: Dictionary = tool_mods(c)
+
+	# Misma tuberia de dificultad que las otras tres, con la afinidad de la caña DENTRO: arma el
+	# minijuego Y paga la excelia (ver el bloque largo de start_mineria sobre por que van acopladas).
+	var d: float = _reto_recoleccion(_exigencia_material(data), stat_total("resistencia"),
+		PESCA_RESISTENCIA_FLOOR, float(tm["afinidad"]))
+
+	# La Resistencia ENSANCHA tu tramo (aguantas al pez con mas margen) y CALMA la barra: el pez se
+	# mueve mas despacio para ti y la tension sube mas rapido. No pesca por ti: sigues teniendo que
+	# seguirlo con la mano.
+	var tramo: float = clampf(PESCA_BASE_TRAMO / d, PESCA_TRAMO_MIN, PESCA_TRAMO_MAX)
+	var vel: float = minf(PESCA_BASE_VEL * clampf(d, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX)
+		+ 0.03 * float(current_floor - 1), PESCA_VEL_MAX)
+	var erratico: float = minf(PESCA_BASE_ERRATICO * d, PESCA_ERRATICO_MAX)
+	var sube: float = maxf(PESCA_SUBE_BASE / d, PESCA_SUBE_MIN)
+	var baja: float = minf(PESCA_BAJA_BASE * d, PESCA_BAJA_MAX)
+
+	_last_reco_reto = d
+	print("[reco] pesca %s (%.0f cm) · piso %d · Resistencia %d · exigencia %.0f -> reto %.2f  (tramo %.3f, vel %.2f, err %.2f, +%.2f/-%.2f)%s" % [
+		data.nombre, cm, current_floor, player_resistencia, _exigencia_material(data), d,
+		tramo, vel, erratico, sube, baja, _log_herramienta(c, tm)])
+
+	var ex: Control = _fishing_script.new()
+	ex.process_mode = Node.PROCESS_MODE_ALWAYS
+	ex.setup(data, cm, tramo, vel, erratico, sube, baja)
+	ex.pesca_finished.connect(_on_pesca_finished.bind(nodo))
+
+	var layer := CanvasLayer.new()
+	layer.layer = 100
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	get_tree().root.add_child(layer)
+	layer.add_child(ex)
+	_active_layer = layer
+
+
+# La barra ha terminado. AQUI NO SE COBRA EL PEZ: solo se cierra la capa y se le dice al estanque
+# como fue. El pez es tuyo cuando LLEGA A TUS MANOS por el hilo (ver cobrar_pesca), ni un frame
+# antes -- que es justo lo que se pidio: nada de "has conseguido X" con el bicho aun en el agua.
+func _on_pesca_finished(logrado: bool, progreso: float, nodo) -> void:
+	if is_instance_valid(_active_layer):
+		_active_layer.queue_free()
+	_active_layer = null
+	# La RESISTENCIA se entrena aunque se te escape, en proporcion a lo que aguantaste: ver
+	# ganar_recoleccion. Se paga aqui (y no en cobrar_pesca) porque el esfuerzo fue la pelea.
+	ganar_recoleccion("resistencia", curva_reto(_last_reco_reto, PESCA_PIVOTE, PESCA_SLOPE, PESCA_RETO_MAX),
+		GAIN_RESISTENCIA_PESCA, RETO_MAX_FISICO, progreso, logrado)
+	# Pescar hace ruido: el mismo alboroto que picar una veta.
+	sumar_alboroto(ALBOROTO_RECOLECTAR)
+	if is_instance_valid(nodo) and nodo.has_method("terminar_lucha"):
+		nodo.terminar_lucha(logrado)
+
+
+# EL PEZ YA ESTA EN TUS MANOS. Lo llama el estanque cuando el bicho termina de venir por el hilo.
+# Es el unico sitio donde el pez entra en la bolsa y donde salta el aviso de material obtenido.
+func cobrar_pesca(data: MaterialData, cm: float) -> void:
+	print("Pescas ", data.nombre, " de ", roundi(cm), " cm.")
+	_embolsar_pez(data, cm)
+	# Pasiva RNG de recoleccion. No pasa por _botin_extra_reco (que clona la calidad de la pieza
+	# original) porque el eje del pez no es la calidad sino la TALLA: la pieza extra se sortea entera,
+	# asi que puede salirte mas grande que la que acabas de sacar. Y con eso, batirte el record.
+	rodar_pasiva("reco_pesca")
+	if tiene_pasiva("reco_pesca"):
+		print("[pasiva] +1 %s por 'Muñeca de pescador'." % data.nombre)
+		_embolsar_pez(data, data.talla_desde(MaterialData.tirada_talla()))
+
+
+func _embolsar_pez(data: MaterialData, cm: float) -> void:
+	var item := MaterialItem.crear(data, MaterialItem.Calidad.NORMAL)
+	item.cm = cm
+	# El REGISTRO va ANTES de embolsar: es lo que decide si esta pieza lleva corona, y el inventario
+	# se lo pregunta al registro (MaterialItem.es_record).
+	var record: bool = apuntar_pesca(data.id, cm)
+	var corona: int = item.corona()
+	# La CORONA es lo gordo y va primero: es un premio permanente de la especie, no un "por ahora".
+	var nueva: bool = corona != MaterialData.Corona.NINGUNA and not tiene_corona(data.id, corona)
+	apuntar_corona(data.id, corona)
+	materiales.append(item)
+	descubrir(data)
+	_aviso_recogida(item.nombre(), 1, "%d cm" % roundi(cm))
+	if corona != MaterialData.Corona.NINGUNA:
+		print("[pesca] %s: %s (%d cm)" % [data.nombre, MaterialData.corona_texto(corona), roundi(cm)])
+		_aviso_recogida(item.nombre(), 1, "¡%s%s!" % [
+			MaterialData.corona_texto(corona).to_upper(), "  (NUEVA)" if nueva else ""])
+	elif record:
+		_aviso_recogida(item.nombre(), 1, "tu mayor hasta ahora")
 
 
 # Dificultad del ultimo minijuego de recoleccion (para la ganancia de stat al terminar).
