@@ -3551,6 +3551,34 @@ func quitar_hechizo(spell: SpellData, pj: PersonajeData = null) -> void:
 # turno (Provocacion, En guardia) te cuesta un hueco de daño. Ese es todo el juego.
 const MAX_HABILIDADES := 4
 
+# LAS HABILIDADES QUE APORTA UNA PIEZA, leidas de su PLANTILLA y no de la copia.
+#
+# Un item equipado es base.duplicate() (ver crear_item), y al guardar la partida esa copia se graba
+# DENTRO del .tres del save como sub-recurso: con su lista `habilidades` congelada tal y como estaba
+# el dia que se compro el arma. Cuando se le cuelgan habilidades NUEVAS a una plantilla, las armas
+# que ya existian en los guardados no se enteran: el lider veia DOS tecnicas de bastón mientras la
+# pestaña Aprender le enseñaba las cinco (esa lee las plantillas de CatalogoEquipo, no la copia), y
+# el arma recien comprada de un compañero si las traia todas. No era un bug de multi ni de lider:
+# era arma vieja contra arma nueva.
+#
+# La plantilla se resuelve con ruta_base_de, que ademas REPARA la meta de las piezas antiguas por
+# nombre. Si no hay forma de saber de que plantilla salio, se cae a la lista de la copia: peor que
+# nada no es.
+var _cache_habs_plantilla: Dictionary = {}   # ruta -> Array de AbilityData
+
+func habilidades_de_item(it: Resource) -> Array:
+	if it == null:
+		return []
+	var ruta: String = ruta_base_de(it)
+	if ruta == "":
+		return it.get("habilidades") if "habilidades" in it else []
+	if not _cache_habs_plantilla.has(ruta):
+		var base: Resource = load(ruta)
+		_cache_habs_plantilla[ruta] = base.get("habilidades") if base != null and "habilidades" in base \
+			else (it.get("habilidades") if "habilidades" in it else [])
+	return _cache_habs_plantilla[ruta]
+
+
 # El POOL: todo lo que aporta el equipo que lleva puesto, sepa usarlo o no. Es el bucle que
 # antes vivia dentro de _aplicar_loadout; se saco aqui porque ahora lo miran tambien el menu
 # del maestro y habilidades_equipadas.
@@ -3561,8 +3589,8 @@ func pool_habilidades(pj: PersonajeData = null) -> Array:
 	# Mano secundaria LIBRE = vacia o con varita (WandData no pesa ni estorba el movimiento).
 	var off_libre: bool = p.equipped_off == null or p.equipped_off is WandData
 	for it in [p.equipped_main, p.equipped_off]:
-		if (it is WeaponData or it is ShieldData or it is WandData) and not it.habilidades.is_empty():
-			for ab in it.habilidades:
+		if it is WeaponData or it is ShieldData or it is WandData:
+			for ab in habilidades_de_item(it):
 				if ab == null or pool.has(ab):
 					continue
 				# Tecnicas de arma+escudo: solo si llevas escudo (ej: Guardia rota).
@@ -3583,8 +3611,10 @@ func manos_de(ab: AbilityData, pj: PersonajeData = null) -> int:
 	var p: PersonajeData = pj if pj != null else lider()
 	if ab == null:
 		return 1
-	if p.equipped_main is WeaponData and (p.equipped_main as WeaponData).habilidades.has(ab) \
-			and p.equipped_off is WeaponData and (p.equipped_off as WeaponData).habilidades.has(ab):
+	# Por la PLANTILLA de cada arma, no por la copia guardada (ver habilidades_de_item): con la copia,
+	# una habilidad nueva a dos dagas no se detectaba como dual y salia con los numeros de una mano.
+	if p.equipped_main is WeaponData and habilidades_de_item(p.equipped_main).has(ab) \
+			and p.equipped_off is WeaponData and habilidades_de_item(p.equipped_off).has(ab):
 		return 2
 	return 1
 
@@ -3918,9 +3948,11 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	var ability_hands: Dictionary = {}
 	for ab in abils:
 		var idxs: Array = []
-		if p.equipped_main is WeaponData and (p.equipped_main as WeaponData).habilidades.has(ab):
+		# Por la PLANTILLA (habilidades_de_item): con la lista de la copia guardada, una habilidad
+		# nueva no aparecia en NINGUNA mano y caia siempre a la principal, perdiendo el dual.
+		if p.equipped_main is WeaponData and habilidades_de_item(p.equipped_main).has(ab):
 			idxs.append(0)
-		if p.equipped_off is WeaponData and (p.equipped_off as WeaponData).habilidades.has(ab):
+		if p.equipped_off is WeaponData and habilidades_de_item(p.equipped_off).has(ab):
 			idxs.append(1)
 		if idxs.is_empty():
 			idxs.append(0)
