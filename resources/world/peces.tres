@@ -44,6 +44,9 @@ piso_pleno = 12
 script = ExtResource("2_entrada")
 material = ExtResource("7_espejo")
 peso = 0.5
+peso_pleno = 3.1
+piso_debut = 1
+piso_pleno = 12
 
 [resource]
 script = ExtResource("1_tabla")
