@@ -132,7 +132,7 @@ func color_visual(t: float) -> Color:
 
 # --- TERCERA tirada: el drop de COCINA/CONSUMO ---
 # Ni material de pociones ni nucleo de mejora: es lo que se le saca al bicho para COMER (hoy la
-# carne de rata/rey rata/jabali; mañana el pescado y lo que venga). Va en su propio slot y no en
+# carne, una POR BICHO: rata, jabali, insecto y bestia). Va en su propio slot y no en
 # drop_material por dos razones:
 #   - un bicho ya usa drop_material para su piel: la carne es OTRA cosa que cae A LA VEZ.
 #   - es una economia aparte. La comida se gasta por TIEMPO (un plato dura 20 min), no por pieza

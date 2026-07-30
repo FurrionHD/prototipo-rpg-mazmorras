@@ -6,6 +6,7 @@
 [ext_resource type="Resource" uid="uid://b7g0bfocs3wcx" path="res://resources/abilities/bestia_zarpazo.tres" id="4_emb"]
 [ext_resource type="Resource" path="res://resources/materials/cuero_endurecido.tres" id="5_cue"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_bestia.tres" id="6_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/carne_bestia.tres" id="7_carne"]
 
 [sub_resource type="Resource" id="SA_san"]
 script = ExtResource("2_sa")
@@ -31,6 +32,10 @@ crystal_category_max = 9
 crystal_category_weights = PackedFloat32Array(0.4, 0.4, 0.2)
 drop_material = ExtResource("5_cue")
 nucleo = ExtResource("6_nuc")
+drop_extra = ExtResource("7_carne")
+drop_extra_chance = 0.1
+drop_extra_min = 1
+drop_extra_max = 2
 drop_piso_debut = 8
 drop_piso_pleno = 11
 al_golpear = [SubResource("SA_san")]

@@ -6,6 +6,7 @@
 [ext_resource type="Resource" uid="uid://cokbgeybjshgn" path="res://resources/abilities/escarabajo_caparazon.tres" id="4_emb"]
 [ext_resource type="Resource" path="res://resources/materials/quitina.tres" id="5_qui"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_escarabajo.tres" id="6_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/carne_insecto.tres" id="7_carne"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
@@ -30,6 +31,10 @@ crystal_category_max = 7
 crystal_category_weights = PackedFloat32Array(0.5, 0.35, 0.15)
 drop_material = ExtResource("5_qui")
 nucleo = ExtResource("6_nuc")
+drop_extra = ExtResource("7_carne")
+drop_extra_chance = 0.1
+drop_extra_min = 1
+drop_extra_max = 1
 drop_piso_debut = 7
 drop_piso_pleno = 9
 al_golpear = [SubResource("SA_peg")]
