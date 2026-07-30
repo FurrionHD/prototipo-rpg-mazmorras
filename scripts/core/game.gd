@@ -840,12 +840,14 @@ func volcar_desgaste_en_ficha(pj: PersonajeData) -> void:
 	var c: Combatant = combatant_de_pj(pj)
 	if c == null:
 		return
+	c.deshacer_escalados_hp()   # con la Guardia de carne puesta, su vida esta al doble
 	pj.current_hp = maxf(1.0, c.current_hp)
 	if c.max_mp > 0.0:
 		pj.current_mp = c.current_mp
 	if c.max_energy > 0.0:
 		pj.stamina = c.current_energy
 	guardar_imbue_en_ficha(c, pj)
+	guardar_estados_en_ficha(c, pj)
 
 
 # La IMBUICION que quede al salir de la pelea se queda en la ficha: dura ENTRE combates. Se llama
@@ -895,6 +897,58 @@ func cola_pocion_a_estado(pj: PersonajeData, c: Combatant) -> void:
 		pj.mana_heal_left = 0.0
 		pj.mana_heal_rate = 0.0
 		pj.mana_heal_turnos = 0.0
+
+
+# ============================================================
+#  ESTADOS QUE SOBREVIVEN A LA PELEA
+# ------------------------------------------------------------
+# Los estados vivian y morian con el Combatant: cerrabas la pantalla y el veneno, el Pegajoso y la
+# Fortaleza que acababas de echarte se evaporaban. Ahora salen contigo y siguen corriendo por el mapa
+# (ver tick_estados). Mismo patron y MISMOS TRES SITIOS que la imbuicion -- el cierre normal, la
+# huida individual y la fabrica del combatiente --, porque hay dos caminos de entrada a una pelea y
+# escribirlo solo en uno se lo pierde para el que se une a mitad.
+#
+# QUE sale y que se queda en la pelea lo decide StatusEffects.estados_que_salen, que es la misma
+# regla que usan los enemigos (ver combat.gd): no hay dos versiones de lo que sobrevive.
+func guardar_estados_en_ficha(c: Combatant, pj: PersonajeData) -> void:
+	if c == null or pj == null:
+		return
+	var out: Array = StatusEffects.estados_que_salen(c.statuses)
+	pj.estados = out
+	pj.foco_cargas = c.foco_cargas
+	refrescar_cache_estados(pj)
+	if not out.is_empty():
+		print("[estado] %s sale de la pelea con %d estado(s) encima" % [pj.nombre, out.size()])
+
+
+# Y la vuelta: se los devuelve al Combatant recien creado, junto con sus cargas de Foco (que son
+# munición y no caducan: canalizas, sales de la pelea y siguen ahi).
+func restaurar_estados_de_ficha(c: Combatant, pj: PersonajeData) -> void:
+	if c == null or pj == null:
+		return
+	c.foco_cargas = pj.foco_cargas
+	if pj.estados.is_empty():
+		return
+	StatusEffects.aplicar_a(c, pj.estados)
+	# La ficha NO se vacia aqui: el cierre de la pelea la reescribe con lo que quede
+	# (guardar_estados_en_ficha). Vaciarla seria un agujero por dos sitios -- si la pelea se
+	# abandona sin cerrarse pierdes los estados, y el espejo llama a esta fabrica UNA VEZ POR TURNO
+	# sobre un combatiente de usar y tirar (ver combat.gd, _me_toca): al invitado se le limpiaba la
+	# ficha en su primer turno.
+
+
+# Le devuelve a un combatiente ENEMIGO los estados que su nodo se llevo de la pelea anterior. Existe
+# aparte (y no dentro de start_combat) por lo mismo que restaurar_estados_de_ficha: hay DOS caminos
+# por los que un bicho entra a una pelea -- el arranque y unir_enemigo_al_combate --, y escribirlo
+# solo en uno se lo perderia para el que llega a mitad.
+func aplicar_estados_a_enemigo(c: Combatant, nodo) -> void:
+	if c == null or nodo == null or not ("estados_restantes" in nodo):
+		return
+	var est: Array = nodo.estados_restantes
+	if est.is_empty():
+		return
+	StatusEffects.aplicar_a(c, est)
+	print("[estado] %s entra a la pelea con %d estado(s) de antes" % [c.nombre, est.size()])
 
 
 func restaurar_imbue_de_ficha(c: Combatant, pj: PersonajeData) -> void:
@@ -2503,7 +2557,9 @@ var player_mana_heal_rate: float:
 	set(v): lider().mana_heal_rate = v
 
 # Borra las curas a medias de TODO el grupo (cargar partida, morir): nadie arrastra el goteo
-# de la sesion/expedicion anterior.
+# de la sesion/expedicion anterior. Y con ellas, todo lo demas que es "lo que llevas encima ahora
+# mismo" y no parte de la persona: los estados alterados, las cargas de Foco y la imbuicion.
+# Morir te limpia el veneno; cargar una partida te devuelve entero.
 func limpiar_curas_pendientes() -> void:
 	for pj in party:
 		pj.heal_left = 0.0
@@ -2512,6 +2568,12 @@ func limpiar_curas_pendientes() -> void:
 		pj.mana_heal_left = 0.0
 		pj.mana_heal_rate = 0.0
 		pj.mana_heal_turnos = 0.0
+		pj.estados = []
+		pj.estados_reloj = 0.0
+		pj.estados_spd = 1.0
+		pj.estados_chip = ""
+		pj.foco_cargas = 0
+		pj.imbue = {}
 
 # Dinero (obtenido por vender cristales en la tienda).
 var money: int = 0
@@ -3496,6 +3558,118 @@ func tick_heal(delta: float) -> void:
 			p.heal_rate = 0.0
 			p.heal_turnos = 0.0
 
+# ============================================================
+#  EL RELOJ DE LOS ESTADOS FUERA DEL COMBATE
+# ------------------------------------------------------------
+# Dentro de la pelea los estados van por TURNOS; fuera no hay turnos, asi que hace falta un cambio
+# de moneda: un turno son SEG_POR_TURNO_FUERA segundos de mapa. Los turnos que ves en el chip son
+# los mismos dentro y fuera -- lo unico que cambia es a que ritmo se gastan.
+#
+# El tick lo llama player.gd en su _process, junto a las colas de pocion, asi que se congela solo con
+# la pausa de los menus y del combate: mirar el inventario no te cura el veneno, y una pelea larga no
+# te lo gasta por detras.
+const SEG_POR_TURNO_FUERA := 5.0
+
+func tick_estados(delta: float) -> void:
+	for p in party:
+		if p.estados.is_empty():
+			p.estados_reloj = 0.0
+			continue
+		p.estados_reloj += delta
+		if p.estados_reloj < SEG_POR_TURNO_FUERA:
+			continue
+		p.estados_reloj -= SEG_POR_TURNO_FUERA
+		_turno_de_estados_fuera(p)
+
+
+# UN turno de estados fuera de combate para 'p'. Rehidrata las instancias (una vez, no por frame),
+# cobra el daño, baja las duraciones y vuelve a serializar lo que sigue vivo.
+func _turno_de_estados_fuera(p: PersonajeData) -> void:
+	var dano: float = 0.0
+	var quedan: Array = []
+	var expirados: Array = []
+	for d in p.estados:
+		var inst = StatusEffects.instancia_de_dict(d)
+		if inst == null:
+			continue   # estado retirado del catalogo: se cae solo
+		dano += inst.dot_damage()
+		inst.turns -= 1
+		if inst.turns <= 0:
+			expirados.append(str(inst.d.get("nombre", "?")))
+		else:
+			quedan.append(StatusEffects.dict_de_instancia(inst))
+	p.estados = quedan
+	refrescar_cache_estados(p)
+	if dano > 0.0:
+		# NO MATA: te deja al borde (1 de vida) y la muerte tiene que venir de un golpe. Es la misma
+		# regla que el KO del combate, y evita morir mirando el mapa sin nada que puedas hacer.
+		var antes: float = p.current_hp if p.current_hp >= 0.0 else player_max_hp(p)
+		p.current_hp = maxf(1.0, antes - dano)
+		print("[estado] %s sufre %.1f fuera del combate | HP %.1f" % [p.nombre, dano, p.current_hp])
+	for nom in expirados:
+		print("[estado] %s: se le pasa el %s" % [p.nombre, nom])
+
+
+# Cuanto le FRENAN los estados que lleva puestos, para la velocidad de movimiento por el mapa
+# (Lento, Pegajoso... y tambien Presteza, que acelera). 1.0 = nada.
+#
+# Con un SUELO: cuatro capas de baba te dejan luchando dentro de un tarro, pero no clavado en un
+# pasillo sin poder salir de la pantalla del bicho que te las puso.
+#
+# Va CACHEADO en la ficha (estados_spd) y no se calcula al leerlo: lo pregunta player.gd en CADA
+# frame para montar su velocidad, y rehidratar las instancias ahi seria tirar objetos a la basura
+# sesenta veces por segundo. Se recalcula solo cuando los estados cambian, que es cada 5 s como
+# mucho.
+const ESTADOS_SPEED_MIN := 0.55
+
+func estados_speed_mult(pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
+	return p.estados_spd if p != null else 1.0
+
+
+# El PEOR del grupo: bajais en fila, asi que la baba del que va detras os frena a todos (mismo
+# criterio que el que se queda sin fuelle, ver player._pj_agotado). Es la que usa el movimiento.
+func estados_speed_mult_grupo() -> float:
+	var peor: float = 1.0
+	for p in party:
+		peor = minf(peor, p.estados_spd)
+	return peor
+
+
+# LOS CHIPS de lo que lleva puesto, para la linea del HUD ("" si no lleva nada). Ya calculados
+# (ver refrescar_cache_estados): el HUD los pide en cada frame.
+func etiqueta_estados(pj: PersonajeData = null) -> String:
+	var p: PersonajeData = pj if pj != null else lider()
+	return p.estados_chip if p != null else ""
+
+
+# Rehidrata los estados de 'p' UNA vez y de ahi saca las dos cosas que el mapa pregunta a sesenta
+# frames por segundo: cuanto le frenan y como se pintan sus chips. Se llama cada vez que `estados`
+# cambia (al salir de una pelea y en cada turno del reloj), no al leerlos.
+func refrescar_cache_estados(p: PersonajeData) -> void:
+	if p == null:
+		return
+	var mult: float = 1.0
+	var partes: PackedStringArray = []
+	if p.foco_cargas > 0:
+		partes.append("🔮x%d" % p.foco_cargas)   # munición, no estado: no lleva turnos
+	var por_id: Dictionary = {}
+	for d in p.estados:
+		var inst = StatusEffects.instancia_de_dict(d)
+		if inst == null:
+			continue
+		mult *= inst.spd_mult()
+		if not por_id.has(inst.id()):
+			por_id[inst.id()] = []
+		(por_id[inst.id()] as Array).append(inst)
+	# UN chip por estado aunque tenga varias instancias: cuatro capas de Pegajoso son "🕸x4·3t" y no
+	# cuatro iconos iguales en fila (mismo formato y mismo codigo que en el combate).
+	for id_est in por_id:
+		partes.append(str(StatusEffects.chip_de_grupo(por_id[id_est])[0]))
+	p.estados_spd = maxf(ESTADOS_SPEED_MIN, mult)
+	p.estados_chip = " ".join(partes)
+
+
 # Tiquea el MANÁ de poción fuera de combate de todo el grupo (la llama player.gd). Es la UNICA
 # via de recuperar maná fuera de combate (ya no hay regen pasiva), junto al altar del pueblo.
 func tick_mana_pocion(delta: float) -> void:
@@ -3926,6 +4100,10 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	# no en start_combat, porque asi la recuperan TAMBIEN los que se unen a mitad de pelea
 	# (unir_aliado_al_combate pasa por esta misma funcion).
 	restaurar_imbue_de_ficha(c, p)
+	# Y los ESTADOS con los que salio de la anterior: el veneno sigue corriendo, el buff sigue
+	# puesto. Aqui por lo mismo que la imbuicion: es la fabrica por la que pasan los dos caminos de
+	# entrada a una pelea (start_combat y unir_aliado_al_combate).
+	restaurar_estados_de_ficha(c, p)
 	return c
 
 
@@ -7965,7 +8143,9 @@ func unir_enemigo_al_combate(nodo: Node) -> bool:
 		return false
 	var t: float = float(nodo.current_t) if "current_t" in nodo else 0.5
 	var hp: float = float(nodo.hp_restante) if "hp_restante" in nodo else -1.0
-	var slot: int = combat.anadir_enemigo(nodo.data, t, hp)
+	# Los estados que traiga puestos entran con el (el veneno del que huiste y te ha vuelto a pillar).
+	var est: Array = nodo.estados_restantes if "estados_restantes" in nodo else []
+	var slot: int = combat.anadir_enemigo(nodo.data, t, hp, est)
 	if slot < 0:
 		return false   # pelea llena: a la cola
 	if slot < _active_enemies.size():
@@ -8043,6 +8223,9 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 		# aqui encima. hp_restante < 0 = intacto (nunca ha peleado o ya se curo).
 		if "hp_restante" in n and n.hp_restante >= 0.0:
 			ec.current_hp = clampf(n.hp_restante, 1.0, ec.max_hp)
+		# Y LOS ESTADOS que se llevo de la ultima pelea, con lo que les quede de duracion: si huiste
+		# dejandolo envenenado, vuelve a la pelea envenenado. Igual que el grupo, por apply_status.
+		aplicar_estados_a_enemigo(ec, n)
 		enemy_cs.append(ec)
 
 	# MODO PRUEBA (dev): convierte al enemigo en muñeco de DPS o pegador de armadura. Normalmente
@@ -8814,7 +8997,7 @@ func dev_curva_drops(pisos: Array = [1, 2, 3, 4, 6, 8, 10, 12]) -> void:
 # (el lider el primero): con quE vida, maná y energia sale cada uno.
 func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array = [],
 		energy_left: Array = [], muertos: Array = [], enemy_hp_left: Array = [],
-		duenos: Array = []) -> void:
+		duenos: Array = [], enemy_estados_left: Array = []) -> void:
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
@@ -8857,8 +9040,11 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 			pj.stamina = float(energy_left[i])
 			pj.set_meta("sin_fuelle", false)
 		# Y la IMBUICION con las cargas que le queden: el manto sigue puesto al salir de la pelea.
+		# Los ESTADOS igual (el veneno no se cura al cerrar la pantalla), y con ellos las cargas de
+		# Foco arcano, que son munición y no caducan.
 		if i < _active_player_cs.size():
 			guardar_imbue_en_ficha(_active_player_cs[i], pj)
+			guardar_estados_en_ficha(_active_player_cs[i], pj)
 	# ¿Cayo mi propio grupo (dueño 0)? Y ¿que PEERS cayeron enteros? (para mandarlos al pueblo).
 	var anfitrion_derrotado: bool = existe_dueno.has(0) and not vivo_por_dueno.has(0)
 	var peers_derrotados: Array = []
@@ -8908,7 +9094,11 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		if not is_instance_valid(n) or not n.has_method("reanudar_tras_combate"):
 			continue
 		var hp: float = float(enemy_hp_left[i]) if i < enemy_hp_left.size() else -1.0
-		n.reanudar_tras_combate(hp)
+		# Y los ESTADOS que le dejaste puestos: al que huyes envenenado le sigue corriendo el veneno
+		# por el mapa, y puede morirse solo. El espejo de un enemigo (remote_enemy) no los recibe: el
+		# que manda sobre ese bicho es su dueño, y es el quien lo tiquea.
+		var est: Array = enemy_estados_left[i] if i < enemy_estados_left.size() else []
+		n.reanudar_tras_combate(hp, est)
 	_active_enemies.clear()
 	enemigos_traspasados = []   # la marca dura solo este cierre
 

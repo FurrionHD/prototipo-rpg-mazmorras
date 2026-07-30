@@ -147,8 +147,11 @@ var _timeline: Control = null
 # filtrar objetos de combate a Game, que solo necesita saber a que NODO matar o dejar herido.
 # OJO: los muertos son la unica fuente de verdad, y NO se deducen de player_won: si huyes tras
 # matar a dos de cuatro, esos dos estan muertos igual y tienen que dejar su cadaver.
+# 'enemy_estados_left' va tambien por indice: los estados con los que se queda cada superviviente
+# (el veneno le sigue corriendo por el mapa, ver Enemy._tick_estados_fuera).
 signal combat_finished(player_won: bool, hp_left: Array, mp_left: Array,
-	energy_left: Array, muertos: Array, enemy_hp_left: Array, duenos: Array)
+	energy_left: Array, muertos: Array, enemy_hp_left: Array, duenos: Array,
+	enemy_estados_left: Array)
 
 # TU GRUPO. Orden FIJO (el que mando Game: el lider primero y detras los companeros), igual que
 # _enemies: es el orden de los bloques y el indice con el que vuelve todo en combat_finished.
@@ -1744,13 +1747,16 @@ func _invocar_slime(data: EnemyData) -> bool:
 # se mete en la pelea. A diferencia de un invocado, este es un enemigo DE VERDAD: cuenta como kill,
 # da maná al morir y su cadaver es extraible, asi que NO lleva la marca de invocado.
 # Devuelve el indice del slot, o -1 si no cabe (entonces el que llama lo pone en cola).
-func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0) -> int:
+func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array = []) -> int:
 	if data == null or _state == State.FINISHED:
 		return -1   # la pelea ya acabo (o se esta cerrando): que se quede fuera
 	var c: Combatant = data.crear_combatant(t)
 	# Vida arrastrada: si ya venia herido de otra pelea, entra con sus heridas (igual que el arranque).
 	if hp >= 0.0:
 		c.current_hp = clampf(hp, 1.0, c.max_hp)
+	# Y los ESTADOS que traia, tambien igual que en el arranque: el que se une a mitad no puede
+	# entrar limpio del veneno que le pusiste hace un minuto.
+	StatusEffects.aplicar_a(c, estados)
 	return _meter_enemigo(c, false)
 
 
@@ -2547,6 +2553,7 @@ func _on_continue_pressed() -> void:
 	# encontrar al mismo bicho herido que dejaste).
 	var muertos: Array = []
 	var hp_left: Array = []
+	var estados_left: Array = []
 	for i in _enemies.size():
 		var e_muerto: bool = not _enemies[i].is_alive()
 		# Los INVOCADOS (Rey Slime) van SIEMPRE como muertos: no tienen nodo en la mazmorra, asi que
@@ -2558,6 +2565,7 @@ func _on_continue_pressed() -> void:
 		if e_muerto:
 			Game.rodar_slayer_por_familia(int(_enemies[i].familia))
 		hp_left.append(_enemies[i].current_hp)
+		estados_left.append(StatusEffects.estados_que_salen(_enemies[i].statuses))
 	# Como sale cada uno de los tuyos, por indice (el mismo orden que llego a setup()).
 	var mi_hp: Array = []
 	var mi_mp: Array = []
@@ -2566,11 +2574,15 @@ func _on_continue_pressed() -> void:
 	# muerte POR HUMANO: cada uno cuyo grupo entero cayo vuelve al pueblo con su castigo.
 	var mi_duenos: Array = []
 	for c in _aliados:
+		# La vida que sale de la pelea tiene que estar en su escala DE VERDAD. Si alguien termina con
+		# la Guardia de carne puesta, su max_hp y su vida estan al doble (ver Combatant), y volcarlos
+		# asi le regalaba vida o se la recortaba el clamp del siguiente combate.
+		c.deshacer_escalados_hp()
 		mi_hp.append(c.current_hp)
 		mi_mp.append(c.current_mp)
 		mi_en.append(c.current_energy)
 		mi_duenos.append(int(_dueno_aliado.get(c, 0)))
-	combat_finished.emit(_player_won, mi_hp, mi_mp, mi_en, muertos, hp_left, mi_duenos)
+	combat_finished.emit(_player_won, mi_hp, mi_mp, mi_en, muertos, hp_left, mi_duenos, estados_left)
 	# Si lo abrio Game, el cierra la capa; si es prueba (F6), nos cerramos solos.
 	if not _injected:
 		queue_free()

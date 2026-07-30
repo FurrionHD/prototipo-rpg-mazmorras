@@ -209,6 +209,10 @@ func _physics_process(delta: float) -> void:
 	if not Game.hay_modal_de(Game.Modal.COMBATE):
 		Game.tick_heal(delta)
 		Game.tick_mana_pocion(delta)
+		# Y los ESTADOS que salieron de la ultima pelea: el veneno sigue corriendo por el mapa, a
+		# Game.SEG_POR_TURNO_FUERA segundos por turno. Con una pelea delante NO, por lo mismo que la
+		# cola de poción: ahi los estados ya viven en el combatiente y los tiquea el combate.
+		Game.tick_estados(delta)
 	_actualizar_max_aguante()     # el maximo escala con Resistencia/Agilidad (refresca si cambian las stats)
 	# hay_modal() cubre TODOS los menus de la pila (personaje, ayuda, pausa, panel multi...),
 	# no solo el inventario. En solitario esta rama casi no corria (la pausa congelaba el arbol
@@ -308,6 +312,12 @@ func _physics_process(delta: float) -> void:
 	# con 1/2/3 se nota tambien fuera del combate), pero si alguien va sin fuelle manda EL, que es
 	# quien se arrastra. Con dos agotados, el de menos Agilidad (ver _pj_agotado).
 	speed *= Game.agilidad_speed_mult(agotado)
+	# Y lo que FRENAN los estados (Lento, Pegajoso; Presteza acelera). Manda el PEOR del grupo, como
+	# con el que se queda sin fuelle: bajais juntos y en fila, asi que la baba que se ha comido el que
+	# va detras os frena a todos. Va al final de la cadena, como un multiplicador mas: los modos de
+	# movimiento (sigilo/correr) se calculan arriba y NO se tocan, que es lo que mantiene en pie la
+	# invariante de que correr es siempre mas rapido que andar, lleves lo que lleves encima.
+	speed *= Game.estados_speed_mult_grupo()
 
 	velocity = direction * speed
 	move_and_slide()
@@ -608,8 +618,12 @@ const Y_EN := Y_HP + ALTO_HP + 4.0
 const ALTO_EN := 12.0
 const Y_MP := Y_EN + ALTO_EN + 4.0
 const ALTO_MP := 12.0
+# La linea de CHIPS de estados (y las cargas de Foco), debajo de las tres barras. Los estados duran
+# entre combates, asi que tienen que verse desde el mapa.
+const Y_ESTADOS := Y_MP + ALTO_MP + 2.0
+const ALTO_ESTADOS := 12.0
 # Donde acaba la fila entera. Lo lee hud.gd para colocar debajo la caja de ayudas de teclas.
-const ALTO_BLOQUE := Y_MP + ALTO_MP
+const ALTO_BLOQUE := Y_ESTADOS + ALTO_ESTADOS
 
 
 # La x donde arranca la columna del personaje i (0 = tu). La usa tambien el HUD para saber donde
@@ -632,7 +646,7 @@ func _rehacer_barras() -> void:
 		var pj: PersonajeData = Game.party[i]
 		var raiz := Control.new()
 		raiz.position = Vector2(x_columna(i), 0.0)
-		raiz.size = Vector2(ANCHO_COL, Y_MP + ALTO_MP)
+		raiz.size = Vector2(ANCHO_COL, ALTO_BLOQUE)
 		raiz.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_barras_layer.add_child(raiz)
 
@@ -663,8 +677,21 @@ func _rehacer_barras() -> void:
 		var mp: ProgressBar = _barra_col(raiz, Y_MP, ALTO_MP, Color(0.4, 0.6, 1.0))
 		var mp_lbl: Label = _crear_label_barra(mp)
 
+		# Los ESTADOS que lleva puestos, en una linea de chips debajo de las barras. Los estados duran
+		# fuera del combate (el veneno sigue corriendo, el Pegajoso te frena), asi que hace falta
+		# poder verlos sin abrir nada: si no, la vida baja sola y no hay forma de saber por que.
+		var estados := Label.new()
+		estados.position = Vector2(0, Y_ESTADOS)
+		estados.size = Vector2(ANCHO_COL, ALTO_ESTADOS)
+		estados.add_theme_font_size_override("font_size", 10)
+		estados.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		estados.add_theme_constant_override("outline_size", 3)
+		estados.clip_text = true
+		estados.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		raiz.add_child(estados)
+
 		_barras.append({"pj": pj, "raiz": raiz, "nombre": nombre, "hp": hp, "hp_lbl": hp_lbl,
-			"en": en, "en_lbl": en_lbl, "mp": mp, "mp_lbl": mp_lbl})
+			"en": en, "en_lbl": en_lbl, "mp": mp, "mp_lbl": mp_lbl, "estados": estados})
 
 
 # Una barra de una columna (mismo ancho para las tres, solo cambian el alto y el color).
@@ -1177,6 +1204,9 @@ func _refrescar_barras() -> void:
 		mp_bar.max_value = maxf(1.0, maxmp_c)
 		mp_bar.value = mp_c
 		(fila["mp_lbl"] as Label).text = "%.2f/%.2f" % [mp_c, maxmp_c]
+		# Los estados que lleva encima fuera del combate (y las cargas de Foco). Cadena vacia = no
+		# lleva nada, y entonces la linea no ocupa nada visualmente.
+		(fila["estados"] as Label).text = Game.etiqueta_estados(pj)
 
 
 # Bebe la PRIMERA poción del inventario (tecla Q, fuera de combate). Arranca la

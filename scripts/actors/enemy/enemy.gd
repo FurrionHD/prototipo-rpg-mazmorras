@@ -81,6 +81,14 @@ const CONGELADO_TRAS_COMBATE := 3.0
 # guardarla ahi heriria a toda la especie de golpe).
 var hp_restante: float = -1.0
 
+# ESTADOS con los que quedo de ese combate (el veneno que le dejaste al huir). Espejo exacto de
+# hp_restante, y por lo mismo en el NODO y no en el EnemyData: son de ESTE bicho, no de su especie.
+# Formato: la lista de dicts de StatusEffects.dict_de_instancia. Siguen corriendo por el mapa a
+# Game.SEG_POR_TURNO_FUERA segundos por turno (ver _tick_estados_fuera), asi que un bicho al que
+# huyes envenenado puede morirse solo: escapar con el veneno puesto es una forma legitima de matar.
+var estados_restantes: Array = []
+var _reloj_estados: float = 0.0
+
 # Ataque del enemigo: distancia "optima" desde la que ataca y aviso previo.
 @export var attack_range: float = 44.0
 @export var attack_windup: float = 0.15       # segundos de aviso antes de atacar
@@ -234,6 +242,15 @@ func _aplicar_escala(escala: float) -> void:
 func _physics_process(delta: float) -> void:
 	if _combat_triggered or data == null:
 		return
+
+	# Los estados que se llevo de la ultima pelea siguen corriendo. Va aqui dentro y no en un timer
+	# aparte para heredar gratis las dos cosas que ya cumple este _process: no corre con el bicho
+	# metido en una pelea (el guard de arriba) ni cuando ya es un cadaver (set_physics_process(false)
+	# en morir), y se congela con la pausa del arbol igual que el reloj del jugador.
+	if not estados_restantes.is_empty():
+		_tick_estados_fuera(delta)
+		if _dead:
+			return   # se le fue la vida con el veneno: ya es un cadaver, no hay IA que correr
 
 	# ESPERANDO HUECO en una pelea llena: quieto al lado, llamando a la puerta cada poco. Si la
 	# pelea termina sin que entrara, vuelvo a la vida normal (y como sigo pegado, el contacto de
@@ -716,6 +733,42 @@ func esta_muerto() -> bool:
 	return _dead
 
 
+# UN turno de estados cada Game.SEG_POR_TURNO_FUERA segundos: cobra el DoT, baja las duraciones y
+# expira lo que se acabe. Al bicho SI lo mata (a diferencia del jugador, que se queda a 1): huir con
+# el veneno puesto y que se muera solo por el pasillo es justo lo que hace que envenenar sirva para
+# algo cuando la pelea se te va de las manos. Al caer queda como CADAVER normal, con su cristal
+# extraible; lo que no da es excelia, porque la excelia se reparte en la pantalla de combate y aqui
+# no hay pantalla.
+func _tick_estados_fuera(delta: float) -> void:
+	_reloj_estados += delta
+	if _reloj_estados < Game.SEG_POR_TURNO_FUERA:
+		return
+	_reloj_estados -= Game.SEG_POR_TURNO_FUERA
+	var dano: float = 0.0
+	var quedan: Array = []
+	for d in estados_restantes:
+		var inst = StatusEffects.instancia_de_dict(d)
+		if inst == null:
+			continue
+		dano += inst.dot_damage()
+		inst.turns -= 1
+		if inst.turns > 0:
+			quedan.append(StatusEffects.dict_de_instancia(inst))
+	estados_restantes = quedan
+	if dano <= 0.0:
+		return
+	# Sin vida arrastrada (nunca peleo) el DoT no tiene de donde morder: se le pone su vida entera y
+	# se le resta de ahi.
+	if hp_restante < 0.0:
+		hp_restante = float(data.crear_combatant(current_t).max_hp)
+	hp_restante -= dano
+	print("[estado] %s sufre %.1f por el mapa | HP %.1f" % [data.enemy_name, dano, hp_restante])
+	if hp_restante <= 0.0:
+		hp_restante = 0.0
+		print("[estado] %s se muere de lo que llevaba encima" % data.enemy_name)
+		morir()
+
+
 # MULTIJUGADOR (hito 5.1): lo que el host manda al cliente para PINTAR este bicho igual sin
 # conocer EnemyData: su color (ya con el tinte de su 't') y el lado de su cuerpo (los elites son
 # mas grandes). Se lee del propio ColorRect, que es la verdad tras _aplicar_escala.
@@ -1104,11 +1157,14 @@ func _start_combat(enemy_initiated: bool) -> void:
 # Vuelve a la vida normal tras un combate del que NO moriste (huiste, o te mato otro).
 # Se queda quieto CONGELADO_TRAS_COMBATE segundos: es la ventana para escapar de verdad, si no
 # huir no serviria de nada (te alcanzaria al instante y volveria a empezar la pelea).
-# 'hp' son las heridas que le dejaste: se guardan y se le aplican en el proximo combate.
-func reanudar_tras_combate(hp: float = -1.0) -> void:
+# 'hp' son las heridas que le dejaste: se guardan y se le aplican en el proximo combate. 'estados'
+# igual: el veneno que le pusiste sigue corriendo por el mapa (ver _tick_estados_fuera).
+func reanudar_tras_combate(hp: float = -1.0, estados: Array = []) -> void:
 	if _dead:
 		return
 	hp_restante = hp
+	estados_restantes = estados.duplicate()
+	_reloj_estados = 0.0
 	await get_tree().create_timer(CONGELADO_TRAS_COMBATE).timeout
 	if not is_instance_valid(self) or _dead:
 		return

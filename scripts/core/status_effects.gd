@@ -393,6 +393,72 @@ class Instance extends RefCounted:
 		return "\n".join(lineas)
 
 
+# ------------------------------------------------------------
+#  SERIALIZAR una Instance: los estados VIVEN FUERA DEL COMBATE
+# ------------------------------------------------------------
+# Una Instance es RefCounted y guarda una REFERENCIA al dict del catalogo, asi que no se puede
+# meter tal cual en la ficha de un personaje ni mandar por la red. Estos dos la pasan a un dict
+# plano (id + lo propio de esta aplicacion) y la reconstruyen atandola otra vez al catalogo.
+#
+# Se guarda lo que es DE ESTA APLICACION y nada mas: el resto (que hace, cuanto apila, de que color
+# es) sale del catalogo al rehidratar, asi que retocar el balance de un estado alcanza tambien a los
+# que la gente lleva puestos y no hay dos versiones del mismo veneno.
+static func dict_de_instancia(inst) -> Dictionary:
+	return {"id": inst.id(), "turns": inst.turns, "stacks": inst.stacks,
+		"magnitude": inst.magnitude, "mult": inst.mult_override}
+
+
+# LOS ESTADOS QUE SALEN DE UNA PELEA, en dicts. Es la regla de QUE sobrevive a la pantalla de
+# combate, y vive aqui porque la preguntan los dos bandos (Game por el grupo, combat.gd por los
+# enemigos) y tienen que contestar lo mismo.
+#
+# Dos exclusiones, cada una por su motivo:
+#   - Regeneración / Regen. mana: ya tienen su propio camino de vuelta al mapa (Game.arrastrar_regen
+#     -> heal_left -> tick_heal). Sacarlas tambien por aqui seria curar dos veces la misma pocion.
+#   - Los que escalan la VIDA MAXIMA (Guardia de carne): el escalado es del combatiente (toca max_hp
+#     y current_hp de verdad) y no puede quedarse a medias fuera de una pelea.
+static func estados_que_salen(statuses: Array) -> Array:
+	var out: Array = []
+	for e in statuses:
+		if e.is_heal() or e.is_mana_heal():
+			continue
+		if float(e.d.get("hp_mult", 1.0)) != 1.0:
+			continue
+		out.append(dict_de_instancia(e))
+	return out
+
+
+# LA VUELTA: le pone a un combatiente una lista de estados serializados. Va por apply_status y no
+# metiendo instancias en el array, porque apply_status es quien vuelve a aplicar los efectos DE
+# ENTRADA de cada estado (las limpiezas del Mojado) y quien respeta las inmunidades.
+#
+# 'c' sin tipar: este archivo es la capa de DATOS de los estados y Combatant es el motor, asi que
+# tiparlo aqui haria un ciclo de dependencias.
+static func aplicar_a(c, estados: Array) -> void:
+	for d in estados:
+		c.apply_status(int(d.get("id", -1)), int(d.get("turns", 0)), float(d.get("magnitude", -1.0)),
+			# stacks_add = los que traia. En los "merge" (veneno) eso reconstruye el nivel de una
+			# sola aplicacion; en los "independent" (Sangrado, Pegajoso) cada dict es SU instancia y
+			# entra con un stack, que es exactamente como se guardo.
+			maxi(1, int(d.get("stacks", 1))), false, -1, float(d.get("mult", 0.0)))
+
+
+# null si el id ya no existe en el catalogo (un estado retirado entre versiones: mejor perderlo que
+# arrastrar una instancia sin definicion, que reventaria en el primer tick).
+static func instancia_de_dict(d: Dictionary):
+	var def_: Dictionary = def(int(d.get("id", -1)))
+	if def_.is_empty():
+		return null
+	var inst := Instance.new(def_, int(d.get("turns", 0)), maxi(1, int(d.get("stacks", 1))))
+	inst.magnitude = float(d.get("magnitude", 0.0))
+	inst.mult_override = float(d.get("mult", 0.0))
+	# 'fresh' NO viaja: existe para que un buff recien echado no se coma un turno antes de poder
+	# usarlo DENTRO de la pelea. Fuera no hay accion que proteger, y al volver a entrar en combate
+	# lo que queda es lo que queda.
+	inst.fresh = false
+	return inst
+
+
 # QUE hace un estado, en una frase corta y con el NOMBRE de lo que toca ("−25% defensa"), para las
 # fichas. Sin el nombre, un "(30%, -25%)" no dice si el -25% es probabilidad, daño o duracion.
 # 'mult' = el nivel concreto de esta aplicacion (StatusApplication.mult), o 0 para el del catalogo.

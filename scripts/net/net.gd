@@ -3391,6 +3391,12 @@ const _RANURAS := ["equipped_main", "equipped_off", "equipped_casco", "equipped_
 # del doble, que nunca la vio.
 const _COLAS_POCION := ["heal_left", "heal_rate", "heal_turnos",
 	"mana_heal_left", "mana_heal_rate", "mana_heal_turnos"]
+# LO QUE LLEVA PUESTO AHORA MISMO y dura ENTRE combates: los estados alterados, las cargas de Foco
+# arcano y la imbuicion. Viaja en los dos sentidos por lo mismo que las colas de pocion: si te unes a
+# la pelea de otro envenenado, el doble tiene que entrar envenenado, y los buffs que se eche dentro
+# tienen que volverte al salir. La imbuicion llevaba aqui un agujero desde el principio -- solo
+# viajaba su COLOR (ver anunciar_imbue), asi que el doble peleaba sin el manto puesto.
+const _LO_PUESTO := ["estados", "foco_cargas", "imbue"]
 # Lo que se le devuelve al dueño cuando acaba la pelea: su desgaste y lo que ha aprendido.
 const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
 	"ability_internal", "ability_consolidado", "ability_base_nivel",
@@ -3398,7 +3404,8 @@ const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
 	"guardianes_vencidos", "esquivas_exp", "hechizos_exp", "recitado_exp",
 	"dano_recibido_exp", "dano_infligido_exp",
 	"heal_left", "heal_rate", "heal_turnos",
-	"mana_heal_left", "mana_heal_rate", "mana_heal_turnos"]
+	"mana_heal_left", "mana_heal_rate", "mana_heal_turnos",
+	"estados", "foco_cargas", "imbue"]
 
 
 # ============================================================
@@ -3550,8 +3557,9 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 			"esquivas_exp", "hechizos_exp", "recitado_exp",
 			"dano_recibido_exp", "dano_infligido_exp"]:
 		d[campo] = pj.get(campo)
-	# Y su pocion a medias, para que el anfitrion pueda meterla en la pelea (ver _COLAS_POCION).
-	for campo in _COLAS_POCION:
+	# Y su pocion a medias, para que el anfitrion pueda meterla en la pelea (ver _COLAS_POCION), y lo
+	# que lleve puesto: estados, cargas de Foco e imbuicion (ver _LO_PUESTO).
+	for campo in _COLAS_POCION + _LO_PUESTO:
 		d[campo] = pj.get(campo)
 	var sin_viajar: Array = []
 	for r in _RANURAS:
@@ -3658,6 +3666,10 @@ func aplicar_desgaste(pj: PersonajeData, d: Dictionary) -> void:
 	for campo in _VUELVE:
 		if d.has(campo):
 			pj.set(campo, d[campo])
+	# Los estados vuelven como datos, pero lo que el mapa lee de ellos (cuanto te frenan, sus chips)
+	# esta CACHEADO en la ficha: sin recalcularlo, el que se une a una pelea salia con el Pegajoso
+	# puesto y andando a velocidad normal, y sin chips que lo dijeran.
+	Game.refrescar_cache_estados(pj)
 
 
 # --- UNIRSE ---------------------------------------------------------------------------------

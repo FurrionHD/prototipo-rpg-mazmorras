@@ -267,7 +267,12 @@ func morir() -> void:
 
 # ...y a esto sobre los SUPERVIVIENTES, con las heridas que les dejaste. El dueño se las guarda
 # para la proxima pelea (vida arrastrada) y lo descongela.
-func reanudar_tras_combate(hp: float = -1.0) -> void:
+#
+# 'estados' se acepta y se IGNORA a proposito: los estados que se lleva un bicho del combate corren
+# en la maquina de su DUEÑO, que es la que manda sobre el (igual que el respawn de las vetas). Este
+# nodo es solo el espejo; tickearlos aqui tambien seria envenenarlo dos veces. La firma se mantiene
+# igual que la de enemy.gd para que Game pueda llamar a los dos sin preguntar cual es cual.
+func reanudar_tras_combate(hp: float = -1.0, _estados: Array = []) -> void:
 	_combat_triggered = false
 	hp_restante = hp
 	if has_meta("net_id") and not Net._soy_dueno:

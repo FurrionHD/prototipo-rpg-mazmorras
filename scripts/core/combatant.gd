@@ -763,6 +763,17 @@ func _al_quitar_status(inst) -> void:
 var _hp_escalado_por: Dictionary = {}
 
 
+# Deshace TODOS los escalados de vida que sigan puestos, dejando max_hp/current_hp en su escala de
+# verdad. Se llama AL CERRAR la pelea, antes de volcar la vida en la ficha: si la Guardia de carne
+# sigue activa al terminar, la vida del combatiente esta al doble y sin esto se guardaba asi -- y en
+# el siguiente combate el clamp contra el max_hp real te la recortaba (o entrabas "curado" del todo).
+# El estado en si se queda: es el escalado lo que no puede salir de la pelea.
+func deshacer_escalados_hp() -> void:
+	for e in statuses:
+		if _hp_escalado_por.has(e.id()):
+			_al_quitar_status(e)
+
+
 # Quita TODAS las instancias de un estado. Devuelve cuantas quito (0 = no lo tenia).
 func _quitar_status(id: int) -> int:
 	var antes: int = statuses.size()

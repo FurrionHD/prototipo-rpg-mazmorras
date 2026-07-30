@@ -97,6 +97,25 @@ var mana_heal_turnos: float = 0.0
 # Game.crear_player_combatant, que se lo pasa tal cual a Combatant.aplicar_imbue.
 var imbue: Dictionary = {}
 
+# ESTADOS ALTERADOS que se lleva puestos FUERA del combate (veneno, Pegajoso, Fortaleza...). Antes
+# morian con el Combatant al cerrar la pantalla: escapabas envenenado y salias limpio. Ahora salen
+# de la pelea contigo y siguen corriendo por el mapa a Game.SEG_POR_TURNO_FUERA segundos por turno.
+# Formato: una lista de dicts de StatusEffects.dict_de_instancia. Como el imbue y las colas de
+# pocion, NO es @export: aguanta la sesion pero no el guardado (cargar es empezar limpio).
+var estados: Array = []
+# Segundos acumulados hacia el proximo turno fuera de combate (ver Game.tick_estados).
+var estados_reloj: float = 0.0
+# Cuanto le FRENAN esos estados por el mapa (1.0 = nada) y como se pintan sus chips en el HUD. Los
+# dos van CACHEADOS porque el mapa los pregunta en cada frame: los pone Game.refrescar_cache_estados
+# cada vez que `estados` cambia, no al leerlos.
+var estados_spd: float = 1.0
+var estados_chip: String = ""
+
+# CARGAS DE FOCO ARCANO. Van aparte de `estados` porque NO son un estado con duracion: son munición.
+# No caducan con el tiempo -- solo las gasta lanzar un hechizo ofensivo (Combatant.consumir_foco),
+# igual que las cargas de una imbuicion. Canalizas, sales de la pelea y siguen ahi.
+var foco_cargas: int = 0
+
 
 # El elemento de la imbuicion QUE SE VE, o NINGUNO. Vive aqui porque la pregunta es sobre esta
 # ficha, y la hacen dos sitios distintos (el cuerpo del lider en player.gd y cada companero en
