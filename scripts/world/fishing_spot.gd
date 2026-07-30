@@ -22,10 +22,15 @@
 #  nadando. Sin esa regla, con 6 peces dando vueltas en un charco de 4x3 celdas la mordida seria
 #  instantanea y continua, y la espera -que es media pesca- desapareceria.
 #
-#  MULTIJUGADOR: nada que sincronizar, y es deliberado. El charco no se agota, asi que no hay
-#  recurso unico que arbitrar (a diferencia de la veta, que si necesita el candado de Net). Los
-#  peces son cosmetica LOCAL determinista, sembrada con la semilla del piso + la celda: los dos
-#  veis los mismos bichos nadando y los dos podeis pescar a la vez sin pisaros.
+#  EL BANCO: el charco NO es una fuente infinita. Guarda hasta 10 peces y solo enseña 4-6 a la vez;
+#  cada pieza que te llevas tarda 10 minutos en volver, con su propio contador. Dentro de una visita
+#  la reposicion es rapida (4 s) y no te quedas mirando el agua vacia; el freno lo pone el banco, no
+#  el temporizador. Ver el bloque de constantes para el porque de los dos relojes.
+#
+#  MULTIJUGADOR: nada que sincronizar, y es deliberado. No hay recurso unico que arbitrar (a
+#  diferencia de la veta, que si necesita el candado de Net): cada uno pesca de su propio banco. Los
+#  peces son cosmetica LOCAL determinista, sembrada con la semilla del piso + la celda + un nonce,
+#  asi que los dos veis los mismos bichos nadando tambien despues de un respawn.
 #
 #  Aspecto placeholder por codigo (el arte va al final): el agua es un ColorRect y cada pez es un
 #  rectangulo alargado mas oscuro que el agua, con el largo sacado de sus centimetros.
@@ -58,7 +63,8 @@ var _corcho: ColorRect = null
 var _corcho_base: Vector2 = Vector2.ZERO   # donde flota (sin el temblor encima)
 
 # --- Numeros del ciclo ---
-# CUANTOS peces nadan a la vez. Se repone uno cuando pescas o cuando se te escapa.
+# CUANTOS peces se VEN nadando a la vez. Es el aforo del agua, no lo que hay: el charco guarda hasta
+# STOCK_MAX y solo saca a la superficie hasta el aforo (ver el bloque de EL BANCO).
 const PECES_MIN := 4
 const PECES_MAX := 6
 # Velocidad de crucero de un pez, px/s. El grande no nada mas rapido: nada mas RECTO (gira menos),
@@ -92,9 +98,49 @@ const VENTANA_POR_PUNTO := 0.15
 const TIRON_AMP := 7.0
 # Lo que tarda el pez en llegar a tus manos por el hilo.
 const COBRO_DUR := 0.55
-# Lo que tarda en aparecer un pez nuevo despues de sacar (o perder) uno.
+# ============================================================
+#  EL BANCO: cuantos peces hay de verdad, y cada cuanto vuelven
+# ============================================================
+#  Dos numeros distintos, y confundirlos es lo que hacia que la pesca fuese barra libre:
+#
+#    STOCK   lo que HAY en el charco. Hasta 10. Es el presupuesto de verdad.
+#    AFORO   lo que se VE nadando a la vez. Entre 4 y 6. Es solo la superficie.
+#
+#  Los visibles SALEN del stock: no son peces aparte. Asi una visita da como mucho 10 piezas, se
+#  vean 4 o 6 a la vez.
+#
+#  Los dos relojes:
+#    - REPONER (4 s reales): sale uno del banco al agua. RAPIDO a proposito -- dentro de una visita
+#      no quiero que estes mirando el agua vacia, quiero que el limite lo ponga el banco.
+#    - STOCK_REGEN (10 min de tiempo_mazmorra): cada pez PESCADO vuelve al banco, con SU PROPIO
+#      contador. Diez minutos despues del ultimo que sacaste, el charco vuelve a estar lleno.
+#      Este es el gate de verdad, y usa el reloj de la mazmorra (que corre TAMBIEN en el pueblo,
+#      igual que el respawn de las vetas): irte a vender no lo congela.
+#
+#  El AFORO se vuelve a sortear cada 10 min y NO mata a nadie: si baja de 6 a 4 con cinco nadando,
+#  simplemente no repone hasta que queden menos de cuatro. El charco cambia de humor sin que
+#  desaparezca nada delante de tus narices.
+#
+#  Y todo esto se PERSISTE por piso y celda (Game.persistente_piso -> "charcos"), como los sellos de
+#  las vetas agotadas. Sin eso el gate de 10 minutos no valdria nada: bastaria con bajar un piso y
+#  subir para encontrarte el charco lleno otra vez.
+const STOCK_MAX := 10
+const STOCK_REGEN := 600.0      # segundos de tiempo_mazmorra que tarda en volver UN pez pescado
+const AFORO_REVISION := 600.0   # cada cuanto el charco vuelve a sortear su aforo
+
+# Lo que tarda en salir al agua el siguiente pez del banco.
 const REPONER := 4.0
 var _t_reponer: float = 0.0
+# Peces que HAY (los que nadan mas los que esperan turno).
+var _stock: int = STOCK_MAX
+# Cuantos se ven a la vez ahora mismo. Se re-sortea cada AFORO_REVISION.
+var _aforo: int = PECES_MIN
+var _t_aforo: float = 0.0       # tiempo_mazmorra del ultimo sorteo
+# Sellos de tiempo_mazmorra en los que vuelve al banco cada pez pescado. Uno por pieza: es lo que
+# hace que diez capturas seguidas tarden diez minutos en volver y no diez veces diez.
+var _vuelven: Array = []
+# Contador de nacimientos, para sembrar cada pez nuevo (ver _rng_pez).
+var _nonce: int = 0
 
 
 func _ready() -> void:
@@ -178,11 +224,83 @@ func _crear_aspecto() -> void:
 func _poblar() -> void:
 	if tabla == null:
 		return
+	_cargar_estado()
+	# Al llegar a la sala los peces YA estan nadando: nadie se queda mirando el agua vacia 24 s.
+	# Lo que sale es lo que el banco permite, que puede ser menos que el aforo si vienes de vaciarlo.
+	for i in range(mini(_aforo, _stock)):
+		_nacer_pez(_rng_pez())
+	# Si el banco no da para llenar el agua, que empiece a contar ya para cuando le entre uno.
+	_armar_reposicion()
+
+
+# ------------------------------------------------------------
+#  ESTADO PERSISTENTE del charco (por piso y celda)
+# ------------------------------------------------------------
+# Vive donde los sellos de las vetas agotadas: Game.persistente_piso(piso). Se escribe en el momento
+# de cada cambio y no al salir de la escena, porque el nodo se libera de golpe al regenerar el piso y
+# un _exit_tree no es sitio para tocar el save.
+#
+# MULTIJUGADOR: NO se escribe en el save (misma regla que DungeonFloor.marcar_agotado). Estas en el
+# mundo del host y vaciarle un charco no debe dejar sellos en TU partida. En sesion el banco vive
+# solo en RAM de este nodo, y no se sincroniza entre jugadores a proposito: el charco no es un
+# recurso unico que arbitrar, cada uno pesca del suyo. Ver la cabecera.
+func _guardar_estado() -> void:
+	if Net.activo:
+		return
+	var piso: Dictionary = Game.persistente_piso(Game.current_floor)
+	if not piso.has("charcos"):
+		piso["charcos"] = {}   # las partidas anteriores a la pesca no traen la clave
+	(piso["charcos"] as Dictionary)[celda] = {
+		"stock": _stock, "vuelven": _vuelven.duplicate(),
+		"aforo": _aforo, "t_aforo": _t_aforo,
+	}
+
+
+func _cargar_estado() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([_semilla(), celda.x, celda.y])
-	var n: int = rng.randi_range(PECES_MIN, PECES_MAX)
-	for i in range(n):
-		_nacer_pez(rng)
+	_aforo = rng.randi_range(PECES_MIN, PECES_MAX)
+	_t_aforo = Game.tiempo_mazmorra
+	_stock = STOCK_MAX
+	_vuelven = []
+
+	var guardado: Dictionary = {}
+	if not Net.activo:
+		guardado = ((Game.persistente_piso(Game.current_floor).get("charcos", {}) as Dictionary)
+			.get(celda, {}) as Dictionary)
+	if guardado.is_empty():
+		return   # charco virgen: lleno, como debe estar
+	_stock = int(guardado.get("stock", STOCK_MAX))
+	_vuelven = (guardado.get("vuelven", []) as Array).duplicate()
+	_aforo = int(guardado.get("aforo", _aforo))
+	_t_aforo = float(guardado.get("t_aforo", Game.tiempo_mazmorra))
+	# Lo que haya vencido mientras no mirabas entra ahora: el reloj corre aunque no estes en el piso.
+	_cobrar_vueltas()
+	_revisar_aforo()
+
+
+# Devuelve al banco los peces cuyo contador de 10 minutos ya ha vencido.
+func _cobrar_vueltas() -> void:
+	var quedan: Array = []
+	for t in _vuelven:
+		if Game.tiempo_mazmorra >= float(t):
+			_stock = mini(STOCK_MAX, _stock + 1)
+		else:
+			quedan.append(t)
+	_vuelven = quedan
+
+
+# Cada AFORO_REVISION el charco decide cuantos peces enseña. NO mata a los que ya nadan: si el aforo
+# baja, simplemente deja de reponer hasta que sobren. El sorteo va sembrado con el TRAMO de tiempo,
+# asi que los dos jugadores de una partida en red ven el mismo humor sin hablarse.
+func _revisar_aforo() -> void:
+	if Game.tiempo_mazmorra - _t_aforo < AFORO_REVISION:
+		return
+	var tramo: int = int(Game.tiempo_mazmorra / AFORO_REVISION)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_semilla(), celda.x, celda.y, tramo, "aforo"])
+	_aforo = rng.randi_range(PECES_MIN, PECES_MAX)
+	_t_aforo = Game.tiempo_mazmorra
 
 
 func _semilla() -> int:
@@ -192,10 +310,22 @@ func _semilla() -> int:
 	return int(Game.semilla_mundo)
 
 
+# El RNG del PROXIMO pez que nazca en este charco. Sembrado con (semilla del piso, celda, nonce),
+# igual que el material de una veta al reaparecer (ver DungeonFloor._material_del_sitio): asi el
+# invitado ve nadar exactamente los mismos bichos que el host sin que viaje nada por el cable, y
+# eso sigue siendo cierto DESPUES del primer respawn.
+#
+# Antes el pez repuesto salia del randf() global y en multi cada uno veia una especie distinta en el
+# mismo charco. En solitario no se notaba; en cuanto hay dos, la escena deja de ser la misma.
+func _rng_pez() -> RandomNumberGenerator:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash([_semilla(), celda.x, celda.y, _nonce])
+	_nonce += 1
+	return r
+
+
 func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
-	var r: RandomNumberGenerator = rng if rng != null else RandomNumberGenerator.new()
-	if rng == null:
-		r.randomize()
+	var r: RandomNumberGenerator = rng if rng != null else _rng_pez()
 	var d: MaterialData = tabla.elegir(Game.current_floor, r)
 	if d == null:
 		return
@@ -282,7 +412,12 @@ func interactuar() -> void:
 		_decir("Necesitas una caña de pescar. Te la forja el herrero.")
 		return
 	if _peces.is_empty():
-		_decir("El agua está quieta: aquí no queda nada que picar.")
+		# Puede ser por dos motivos y conviene distinguirlos: o lo has vaciado (y toca esperar a que
+		# el banco se reponga) o simplemente aun no ha salido el siguiente.
+		if _stock <= 0:
+			_decir("Has dejado el charco seco. Dale un rato y volverán.")
+		else:
+			_decir("El agua está quieta. Espera un momento.")
 		return
 	_lanzar()
 
@@ -338,12 +473,39 @@ func _process(delta: float) -> void:
 	_press_was = Input.is_key_pressed(KEY_SPACE)
 
 
+# Saca UNO del banco al agua cada REPONER segundos, y RE-ARMA el reloj mientras el agua siga por
+# debajo del aforo. Sin ese re-armado solo volvia un pez por temporizador: quitar dos seguidos
+# (pescar uno y perder otro) dejaba el charco permanentemente corto.
+#
+# Aqui tambien se atienden los dos relojes lentos, que corren aunque no estes pescando: los peces que
+# vuelven al banco y la revision del aforo.
 func _reponer(delta: float) -> void:
+	var antes: int = _stock
+	_cobrar_vueltas()
+	_revisar_aforo()
+	if _stock != antes:
+		_guardar_estado()
+		_armar_reposicion()   # ha entrado uno al banco: que salga al agua si hace falta
+
 	if _t_reponer <= 0.0:
 		return
 	_t_reponer -= delta
-	if _t_reponer <= 0.0 and _peces.size() < PECES_MIN:
+	if _t_reponer > 0.0:
+		return
+	if _hay_sitio_en_el_agua():
 		_nacer_pez()
+	_armar_reposicion()
+
+
+# ¿Cabe otro pez en el agua? Hacen falta las DOS cosas: hueco en la superficie (aforo) y una pieza
+# en el banco. Es lo que separa "solo se ven cuatro" de "solo quedan cuatro".
+func _hay_sitio_en_el_agua() -> bool:
+	return _peces.size() < _aforo and _peces.size() < _stock
+
+
+func _armar_reposicion() -> void:
+	if _t_reponer <= 0.0 and _hay_sitio_en_el_agua():
+		_t_reponer = REPONER
 
 
 func _paso_lanzando() -> void:
@@ -422,16 +584,19 @@ func terminar_lucha(logrado: bool) -> void:
 	_t = 0.0
 
 
-# Lo que devuelve el pez al agua: se olvida y vuelves a estado LIBRE con la caña recogida.
+# Se te ha escapado. El pez se va DEL AGUA (si se quedase volveria a morder a los tres segundos y
+# fallar no costaria nada) pero NO SALE DEL BANCO: sigue vivo en el charco y vuelve a salir en unos
+# segundos. Perder una pieza cuesta el rato y la excelia, no tu presupuesto de diez minutos.
 func _escapar(motivo: String) -> void:
 	_decir(motivo)
-	# El pez que se escapa se va DEL CHARCO: si se quedase, volveria a morder a los tres segundos y
-	# fallar no costaria nada. Se repone uno nuevo pasado un rato.
-	_quitar_pez()
+	_quitar_pez(false)
 	_soltar()
 
 
-func _quitar_pez() -> void:
+# 'pescado' distingue las dos formas de salir del agua:
+#   true  -> te lo llevas: sale del BANCO y arranca SU contador de 10 minutos para volver.
+#   false -> se te ha escapado: el banco no se toca, solo vuelve a la cola de salida.
+func _quitar_pez(pescado: bool) -> void:
 	if _pez.is_empty():
 		return
 	var i: int = _peces.find(_pez)
@@ -439,7 +604,13 @@ func _quitar_pez() -> void:
 		(_peces[i]["rect"] as ColorRect).queue_free()
 		_peces.remove_at(i)
 	_pez = {}
-	_t_reponer = REPONER
+	if pescado:
+		_stock = maxi(0, _stock - 1)
+		# SU propio sello, no uno compartido: diez capturas seguidas son diez vueltas escalonadas y
+		# no una sola espera. Es lo que hace que vaciar el charco cueste de verdad.
+		_vuelven.append(Game.tiempo_mazmorra + STOCK_REGEN)
+		_guardar_estado()
+	_armar_reposicion()
 
 
 func _soltar() -> void:
@@ -472,7 +643,7 @@ func _paso_cobro(_delta: float) -> void:
 func _cobrar() -> void:
 	var d: MaterialData = _pez.get("data", null)
 	var cm: float = float(_pez.get("cm", 0.0))
-	_quitar_pez()
+	_quitar_pez(true)   # este SI sale del banco: te lo llevas puesto
 	_soltar()
 	if d == null:
 		return
