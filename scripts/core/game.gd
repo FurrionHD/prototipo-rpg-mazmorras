@@ -1211,16 +1211,30 @@ func capturar_mapa() -> void:
 		if not vistas.has(gen.zona_en(celda)):
 			continue
 		salidas.append(celda)
+	# EL ESTANQUE es un HITO, no un nodo de recoleccion: ocupa 4x3 celdas, no se agota y vuelves a el
+	# a proposito. Por eso va en su propia lista y con su TAMAÑO — en el plano se pinta la balsa
+	# entera, no un puntito. Va aparte de 'vivos' porque el charco no tiene material_data (su pez se
+	# sortea en cada captura) y el filtro de arriba lo descartaba: el sitio al que mas quieres volver
+	# era el unico que no salia dibujado.
+	var estanques: Array = []
+	for nodo in get_tree().get_nodes_in_group("estanque"):
+		if not is_instance_valid(nodo):
+			continue
+		if not vistas.has(gen.zona_en(nodo.celda)):
+			continue
+		estanques.append({"cell": nodo.celda, "tam": nodo.tam_celdas})
 	mapa_trabajo[current_floor] = {
 		"ancho": gen.ancho, "alto": gen.alto,
 		"suelo": suelo,
 		"vivos": vivos,
 		"escaleras": escaleras,
 		"salidas": salidas,
+		"estanques": estanques,
 		"agotados": agotados_snap,
 	}
 	print("[mapa] trabajo al dia: piso ", current_floor, " (", vivos.size(), " nodos, ",
-		escaleras.size(), " escaleras, ", salidas.size(), " salidas, ", suelo.size(), " celdas)")
+		escaleras.size(), " escaleras, ", salidas.size(), " salidas, ", estanques.size(),
+		" estanques, ", suelo.size(), " celdas)")
 
 
 # De pixeles del mundo a celda del mapa: la vuelta de DungeonGenerator.centro_px.

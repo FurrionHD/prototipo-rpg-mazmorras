@@ -12,7 +12,7 @@
 
 extends CanvasLayer
 
-# Solo por el enum Tipo (VETA/PLANTA/MADERA) con el que se elige la forma de cada marca.
+# Solo por el enum Tipo (VETA/PLANTA/MADERA/SAL/HUERTO) con el que se elige la forma de cada marca.
 # resource_node.gd no tiene class_name, asi que hay que precargar el script para llegar a el.
 const ResourceNode := preload("res://scripts/world/resource_node.gd")
 
@@ -24,6 +24,9 @@ const COLOR_SUELO := Color(0.24, 0.24, 0.30)      # zona explorada
 const COLOR_SUBE := Color(0.55, 0.8, 0.35)
 const COLOR_BAJA := Color(0.1, 0.7, 0.85)
 const COLOR_PUEBLO := Color(0.9, 0.72, 0.3)
+# El agua del charco. NO es el color que tiene en el suelo (0.11, 0.19, 0.30): sobre el fondo casi
+# negro del plano ese azul no se ve. En un mapa manda que se distinga, no que empareje.
+const COLOR_AGUA := Color(0.26, 0.55, 0.82)
 
 var _root: Control = null
 var _lienzo: Control = null
@@ -199,7 +202,13 @@ func _dibujar() -> void:
 			"%dm" % int(ceil(falta / 60.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
 			Color(0.7, 0.7, 0.75))
 
-	# 4) ESCALERAS y SALIDAS: los puntos por los que de verdad te orientas. Van los ULTIMOS para que
+	# 4) EL ESTANQUE: la balsa entera, con su tamaño real. Va antes que las escaleras (que son las que
+	# mandan al orientarse) pero despues de los nodos, para que ninguna marca de veta se le pierda
+	# encima del azul. Con .get(): los mapas cartografiados antes de esto no traen la clave.
+	for est in (snap.get("estanques", []) as Array):
+		_estanque(offset, celda_px, font, est["cell"], est["tam"])
+
+	# 5) ESCALERAS y SALIDAS: los puntos por los que de verdad te orientas. Van los ULTIMOS para que
 	# no los tape ningun nodo ni su cuenta atras. Con .get(): los mapas de saves viejos no tienen
 	# estas claves (se rellenan solas la proxima vez que cartografies el piso).
 	for esc in (snap.get("escaleras", []) as Array):
@@ -208,6 +217,17 @@ func _dibujar() -> void:
 			COLOR_SUBE if sube else COLOR_BAJA, "SUBIR" if sube else "BAJAR")
 	for celda_salida in (snap.get("salidas", []) as Array):
 		_hito(offset, celda_px, font, celda_salida, COLOR_PUEBLO, "PUEBLO")
+
+
+# EL CHARCO. A diferencia de un hito de una celda, este se pinta a su TAMAÑO REAL (4x3 celdas): en
+# el plano hay que reconocer la balsa por su mancha, igual que en el suelo. La celda que se guarda es
+# su CENTRO (ver FishingSpot.celda), asi que hay que restarle la mitad para dar con la esquina.
+func _estanque(offset: Vector2, celda_px: float, font: Font, centro: Vector2i, tam: Vector2i) -> void:
+	var esquina: Vector2i = centro - Vector2i(tam.x / 2, tam.y / 2)
+	var p: Vector2 = offset + Vector2(esquina) * celda_px
+	_lienzo.draw_rect(Rect2(p, Vector2(tam) * celda_px), COLOR_AGUA)
+	_lienzo.draw_string(font, p + Vector2(0.0, -celda_px * 0.3), "PESCA",
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, COLOR_AGUA)
 
 
 # Un HITO del plano (escalera o salida): su celda pintada del color que tiene en el suelo, con el
@@ -224,6 +244,16 @@ func _hito(offset: Vector2, celda_px: float, font: Font, celda: Vector2i, color:
 # de colores parecidos no te dicen cual era la veta. Formas con primitivas y no glifos de fuente
 # a proposito: ThemeDB.fallback_font no garantiza ningun simbolo bonito.
 #   VETA = rombo (un bulto en la roca) · PLANTA = circulo (el manojo) · MADERA = cuadrado (tocon)
+#   SAL = triangulo (el terron que asoma) · HUERTO = barra ancha y baja (la mata a ras de suelo)
+#
+# La sal y el huerto SI se cartografiaban —tienen material_data y estan en "recolectable"—, pero
+# caian las dos en el circulo del `_:` y en el plano eran indistinguibles de una planta. Con cinco
+# tipos de nodo, "el que no es veta ni madera" ya no es una categoria: cada uno su forma.
+#
+# Las formas siguen la silueta que tiene el nodo EN EL SUELO (ver ResourceNode._crear_aspecto): el
+# huerto es ancho y bajo alli y aqui, la sal es compacta en los dos sitios. Lo que reconoces en el
+# pasillo es lo que reconoces en la libreta.
+#
 # tipo -1 = snapshot viejo sin el dato: circulo, como se dibujaba antes.
 func _marca(offset: Vector2, celda_px: float, celda: Vector2i, color: Color, tipo: int,
 		radio_frac: float) -> void:
@@ -236,5 +266,11 @@ func _marca(offset: Vector2, celda_px: float, celda: Vector2i, color: Color, tip
 			]), color)
 		ResourceNode.Tipo.MADERA:
 			_lienzo.draw_rect(Rect2(p - Vector2(r, r) * 0.8, Vector2(r, r) * 1.6), color)
+		ResourceNode.Tipo.SAL:
+			_lienzo.draw_colored_polygon(PackedVector2Array([
+				p + Vector2(0, -r), p + Vector2(r, r * 0.8), p + Vector2(-r, r * 0.8),
+			]), color)
+		ResourceNode.Tipo.HUERTO:
+			_lienzo.draw_rect(Rect2(p - Vector2(r, r * 0.45), Vector2(r * 2.0, r * 0.9)), color)
 		_:
 			_lienzo.draw_circle(p, r, color)

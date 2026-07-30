@@ -25,6 +25,12 @@
 #    COBRO     el pez viaja por el hilo hasta tus manos. El aviso de "has conseguido X" sale
 #              cuando LLEGA, no cuando se llena la barra: el pez no es tuyo hasta que lo tienes.
 #
+#  Y ES UN BUCLE: cobrar la pieza, perderla o recoger el sedal NO te echan de la pesca, te devuelven
+#  a APUNTANDO con el cebo todavia puesto (ver _volver_a_apuntar). Antes cada pez te soltaba al mundo
+#  y repetir la accion que acababas de hacer costaba F + menu + "Tirar la caña": tres pantallas para
+#  volver a lo mismo. De la pesca se sale cuando lo pides tu — F o ESC apuntando, ESC directamente
+#  con el sedal echado — o cuando el charco se queda seco y ya no hay nada que sacar.
+#
 #  UN PEZ A LA VEZ: mientras hay uno enganchado, los demas rebotan contra el corcho y siguen
 #  nadando. Sin esa regla, con 6 peces dando vueltas en un charco de 4x3 celdas la mordida seria
 #  instantanea y continua, y la espera -que es media pesca- desapareceria.
@@ -76,6 +82,17 @@ var _press_was: bool = false
 # F con la que lanzas sigue apretada en el primer frame: sin esto, echar el sedal y recogerlo serian
 # la misma pulsacion y no llegarias a pescar nunca.
 var _f_was: bool = true
+# La ESC del frame anterior, con la misma trampa que la F. ESC sale de la pesca de un tiron desde
+# cualquier punto con el sedal echado; la F hace los dos pasos (recoger -> apuntando -> salir).
+var _esc_was: bool = true
+# El ultimo cebo con el que echaste el sedal, para volver a ponerlo entre tiro y tiro (ver
+# _volver_a_apuntar).
+var _ultimo_cebo: ConsumableData = null
+# ¿Se ha soltado el ESPACIO desde que estamos apuntando? El medidor no empieza a cargar hasta que si.
+# Sin esto, la MISMA pulsacion que espanta a un pez (o que gana la pelea) seguia cargando el tiro
+# siguiente y se te escapaba un lanzamiento flojo sin haberlo pedido. Es el patron de "pulsacion
+# NUEVA" que ya usan la mineria (mining.gd, estado READY) y la extraccion.
+var _espacio_libre: bool = false
 
 # --- Aspecto ---
 var _agua: ColorRect = null
@@ -214,6 +231,11 @@ var _nonce: int = 0
 
 func _ready() -> void:
 	add_to_group("recolectable")
+	# Y ademas en su propio grupo, para el MAPA. En "recolectable" el charco es el raro: no tiene
+	# material_data (su pez se sortea en cada captura), y Game.capturar_mapa filtra justo por eso, asi
+	# que el estanque se caia del plano — el unico sitio del piso al que vuelves a proposito y el
+	# unico que no salia marcado. Con grupo propio se cartografia como lo que es: un hito, no un nodo.
+	add_to_group("estanque")
 	# El ciclo tiene que seguir corriendo con el arbol PAUSADO: en solitario, plantarse a pescar
 	# empuja un modal (ver interactuar) y eso para el arbol entero. Sin esto, el corcho se
 	# congelaria en el aire y no habria pesca que jugar. Misma trampa que los menus (Game.abrir_menu).
@@ -330,7 +352,7 @@ func _crear_mira() -> void:
 	_mira.add_child(_barra_relleno)
 
 	_mira_lbl = Label.new()
-	_mira_lbl.text = "A/D apunta  ·  MANTÉN ESPACIO  ·  F cancela"
+	_mira_lbl.text = "A/D apunta  ·  MANTÉN ESPACIO  ·  F o ESC salen"
 	_mira_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mira_lbl.add_theme_font_size_override("font_size", 9)
 	_mira_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
@@ -636,6 +658,8 @@ func empezar_apuntado() -> void:
 	# ESPACIO de cargar o como la F de cancelar.
 	_press_was = Input.is_key_pressed(KEY_SPACE)
 	_f_was = true
+	_esc_was = true
+	_espacio_libre = false
 	_mira.visible = true
 	_pintar_mira()
 
@@ -655,9 +679,11 @@ func _paso_apuntando(delta: float) -> void:
 			_ang = nuevo
 
 	var pulsa: bool = Input.is_key_pressed(KEY_SPACE)
-	if pulsa:
+	if not pulsa:
+		_espacio_libre = true   # a partir de aqui, la siguiente pulsacion ya es tuya
+	if pulsa and _espacio_libre:
 		_fuerza = minf(1.0, _fuerza + CARGA_VEL * delta)
-	elif _press_was and _fuerza > 0.0:
+	elif not pulsa and _press_was and _fuerza > 0.0:
 		_lanzar()   # has soltado: ahi va el sedal
 		return
 	_pintar_mira()
@@ -669,6 +695,7 @@ func _lanzar() -> void:
 		return
 	_corcho_base = _punto_de_tiro(_ang)
 	_mira.visible = false
+	_ultimo_cebo = Game.cebo_activo   # con el que vuelves a la mira si este tiro te lo gasta
 
 	_estado = LANZANDO
 	_t = 0.0
@@ -692,16 +719,34 @@ func _process(delta: float) -> void:
 	# final, y en COBRO el pez ya es tuyo y viene por el hilo. Recoger no espanta a nadie ni gasta
 	# stock: no has llegado a sacar nada.
 	if _estado in [APUNTANDO, LANZANDO, ESPERA, PICANDO, TIRON]:
+		# ESC ES LA PUERTA: sale de la pesca de un tiron desde donde estes, sin pasar por la mira. No
+		# choca con el menu de pausa porque ese se planta si Game.hay_modal(), y pescar mantiene un
+		# modal RECOLECCION puesto de principio a fin (ver pause_menu._unhandled_input).
+		var esc_ahora: bool = Input.is_key_pressed(KEY_ESCAPE)
+		if esc_ahora and not _esc_was:
+			_esc_was = true
+			_decir("Guardas la caña.")
+			_pez = {}
+			_soltar()
+			return
+		_esc_was = esc_ahora
+
 		var f_ahora: bool = Input.is_key_pressed(KEY_F)
 		if f_ahora and not _f_was:
 			_f_was = true
+			# La F hace los DOS pasos: con el sedal fuera lo recoge y te deja apuntando; ya apuntando,
+			# esa es la que sale. Asi la tecla con la que pescas es tambien con la que dejas de pescar,
+			# y ninguna de las dos cosas te pilla por sorpresa.
 			_decir("Guardas la caña." if _estado == APUNTANDO else "Recoges el sedal.")
 			# `_pez = {}` y NO `_pez.clear()`: los Dictionary van por REFERENCIA, y este es el MISMO
 			# que esta dentro de `_peces`. Vaciarlo le borraba los datos al pez de la lista y `_nadar`
 			# petaba al buscarle el 't_giro' en el frame siguiente. Aqui solo hay que soltarlo: el pez
 			# sigue vivo y vuelve a nadar con los demas.
 			_pez = {}
-			_soltar()
+			if _estado == APUNTANDO:
+				_soltar()
+			else:
+				_volver_a_apuntar()
 			return
 		_f_was = f_ahora
 	_t += delta
@@ -841,7 +886,7 @@ func _escapar(motivo: String) -> void:
 	if not _pez.is_empty():
 		_escapados.append({"data": _pez["data"], "cm": float(_pez["cm"])})
 	_quitar_pez(false)
-	_soltar()
+	_volver_a_apuntar()   # fallar no te echa de la pesca: te devuelve a la mira
 
 
 # 'pescado' distingue las dos formas de salir del agua:
@@ -862,6 +907,49 @@ func _quitar_pez(pescado: bool) -> void:
 		_vuelven.append(Game.tiempo_mazmorra + STOCK_REGEN)
 		_guardar_estado()
 	_armar_reposicion()
+
+
+# VUELVES A LA MIRA, no al mundo. Es el hermano de _soltar() y la diferencia es todo: NO saca el
+# modal de la pila y NO le devuelve el control al jugador, porque no has terminado de pescar — has
+# terminado UN LANZAMIENTO. Cobrar una pieza, perderla o recoger el sedal te dejan con la caña en la
+# mano, listo para el siguiente tiro.
+#
+# El peaje que quita: antes, cada pez te echaba al mundo y repetir la accion que acababas de hacer
+# costaba F + menu del estanque + "Tirar la caña". De la pesca ahora solo se sale cuando lo pides tu
+# (F o ESC), o cuando el charco se queda seco y ya no hay nada que pescar.
+func _volver_a_apuntar() -> void:
+	_hilo.visible = false
+	_corcho.visible = false
+	# LA UNICA SALIDA AUTOMATICA. Si te has llevado la ultima pieza no tiene sentido dejarte apuntando
+	# a un agua vacia diez minutos: eso no es un bucle, es una sala de espera. Mientras quede banco si
+	# te quedas, que repone uno cada REPONER segundos y se ve llegar.
+	if _stock <= 0:
+		_soltar()
+		_decir("Has dejado el charco seco. Dale un rato y volverán.")
+		return
+	# El cebo sigue puesto de un tiro al siguiente. Game.cebo_activo solo se vacia al gastar la ultima
+	# unidad, asi que esto casi nunca llega a hacer nada: va para que la regla ("si te quedan mas,
+	# sigue puesto") este escrita aqui y no dependa de un detalle de gastar_cebo_al_cobrar.
+	if Game.cebo_activo == null and _ultimo_cebo != null:
+		Game.poner_cebo(_ultimo_cebo)   # el se niega solo si te quedan 0
+
+	# Se conserva el ANGULO (estas trabajando el mismo sitio del agua: re-apuntar a mano despues de
+	# cada pez seria el mismo peaje por otro camino) y se tira la FUERZA, que es la decision del tiro.
+	_ang_base = (-_origen_hilo()).angle()
+	_ang = _ang_base + clampf(angle_difference(_ang_base, _ang), -ANGULO_MAX, ANGULO_MAX)
+	if _tramo_de_agua(_ang).x < 0.0:
+		_ang = _ang_base   # por si el angulo de antes ya no corta el agua
+	_fuerza = 0.0
+	_estado = APUNTANDO
+	_t = 0.0
+	# El ESPACIO con el que has ganado la pelea (o la F con la que has recogido) no puede contar como
+	# el ESPACIO que carga el tiro siguiente ni como la F que sale. Misma trampa que en _lanzar().
+	_press_was = true
+	_f_was = true
+	_esc_was = true
+	_espacio_libre = false
+	_mira.visible = true
+	_pintar_mira()
 
 
 func _soltar() -> void:
@@ -897,15 +985,16 @@ func _cobrar() -> void:
 	var d: MaterialData = _pez.get("data", null)
 	var cm: float = float(_pez.get("cm", 0.0))
 	_quitar_pez(true)   # este SI sale del banco: te lo llevas puesto
-	_soltar()
-	if d == null:
-		return
-	Game.cobrar_pesca(d, cm)
-	# EL CEBO SE PAGA AQUI Y SOLO AQUI: con la pieza ya en la mano. Ni al escaparse el pez ni al
-	# recoger el sedal, para que fallar el tiron no cueste dos veces.
-	var aviso: String = Game.gastar_cebo_al_cobrar()
-	if aviso != "":
-		_decir(aviso)
+	# EL ORDEN IMPORTA: primero se cobra y se paga el cebo, y la vuelta a la mira va LA ULTIMA. Al
+	# reves, el re-equipado de _volver_a_apuntar pondria un cebo que la linea siguiente se gasta.
+	if d != null:
+		Game.cobrar_pesca(d, cm)
+		# EL CEBO SE PAGA AQUI Y SOLO AQUI: con la pieza ya en la mano. Ni al escaparse el pez ni al
+		# recoger el sedal, para que fallar el tiron no cueste dos veces.
+		var aviso: String = Game.gastar_cebo_al_cobrar()
+		if aviso != "":
+			_decir(aviso)
+	_volver_a_apuntar()
 
 
 # ------------------------------------------------------------
