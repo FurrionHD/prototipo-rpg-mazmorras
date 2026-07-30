@@ -366,25 +366,48 @@ func gastar_imbue_defensiva() -> bool:
 	return consumir_imbue()
 
 
+# ¿Lleva imbuicion puesta? Hay DOS clases y la segunda no tiene elemento: el Filo emponzoñado (el
+# veneno de la daga) va con elemento NINGUNO y solo mete ESTADO. Preguntar solo por el elemento la
+# dejaba fuera — el mismo error que ya se arreglo una vez en Game.guardar_imbue_en_ficha, que aqui
+# hacia que el chip no saliera nunca: envenenabas el arma y no habia forma de saber si seguia puesta.
+func tiene_imbue() -> bool:
+	return imbue_usos > 0 and (imbue_elemento != Elementos.Elemento.NINGUNO or imbue_estado >= 0)
+
+
 # Etiqueta de la IMBUICION activa para el HUD ("" si no hay ninguna). DERIVADA de los campos:
-# el icono dice si es de ARMA (🗡) o de CUERPO (🛡), y detras van el elemento, el bonus y los
-# ATAQUES que le quedan. Ej: "🗡💧Agua +30%·4 ataques".
+# el icono dice si es de ARMA (🗡) o de CUERPO (🛡), y detras van el elemento (o el ESTADO, si es de
+# las que no llevan), el bonus y los ATAQUES que le quedan. Ej: "🗡💧Agua +30%·4 ataques".
 func imbue_etiqueta() -> String:
-	if imbue_elemento == Elementos.Elemento.NINGUNO or imbue_usos <= 0:
+	if not tiene_imbue():
 		return ""
-	return "%s%s%s +%d%%·%d ataque%s" % [
-		"🛡" if imbue_cuerpo else "🗡", Elementos.icono(imbue_elemento),
-		Elementos.nombre(imbue_elemento), roundi(imbue_pct * 100.0), imbue_usos,
-		"" if imbue_usos == 1 else "s"]
+	var mano: String = "🛡" if imbue_cuerpo else "🗡"
+	var usos: String = "%d ataque%s" % [imbue_usos, "" if imbue_usos == 1 else "s"]
+	if imbue_elemento == Elementos.Elemento.NINGUNO:
+		# Sin elemento: lo que la define es el estado que deja (Veneno, Sangrado...).
+		var d: Dictionary = StatusEffects.def(imbue_estado)
+		return "%s%s%s·%s" % [mano, str(d.get("icono", "")), str(d.get("nombre", "?")), usos]
+	return "%s%s%s +%d%%·%s" % [
+		mano, Elementos.icono(imbue_elemento), Elementos.nombre(imbue_elemento),
+		roundi(imbue_pct * 100.0), usos]
 
 
 # FICHA de la imbuicion activa, para el tooltip del combate ("" si no hay ninguna). Todos los
 # numeros salen de los campos, como en StatusEffects.Instance.resumen().
 func imbue_resumen() -> String:
-	if imbue_elemento == Elementos.Elemento.NINGUNO or imbue_usos <= 0:
+	if not tiene_imbue():
 		return ""
-	var elem: String = Elementos.nombre(imbue_elemento)
 	var lineas: PackedStringArray = []
+	if imbue_elemento == Elementos.Elemento.NINGUNO:
+		# La que no lleva elemento (Filo emponzoñado): su cabecera es el ESTADO, no un elemento.
+		var dn: String = str(StatusEffects.def(imbue_estado).get("nombre", "?"))
+		lineas.append("%s Arma emponzoñada (%s)" % [
+			str(StatusEffects.def(imbue_estado).get("icono", "")), dn])
+		lineas.append("Cada golpe que acierta puede dejar %s (%d%% base; la probabilidad real depende de tu Magia contra su Resistencia)."
+			% [dn, roundi(imbue_prob * 100.0)])
+		lineas.append("Le quedan %d ataque%s (se gasta al ATACAR, no con los turnos)." % [
+			imbue_usos, "" if imbue_usos == 1 else "s"])
+		return "\n".join(lineas)
+	var elem: String = Elementos.nombre(imbue_elemento)
 	lineas.append("%s Imbuición de %s (%s)" % [
 		Elementos.icono(imbue_elemento), elem, "cuerpo" if imbue_cuerpo else "arma"])
 	lineas.append("Tus golpes añaden un %d%% de daño de %s (ajustado por lo que resista o sufra el rival)."

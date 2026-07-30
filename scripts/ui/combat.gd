@@ -1963,6 +1963,14 @@ func _chips_de(c: Combatant) -> Array:
 	var imb: String = c.imbue_etiqueta()
 	if imb != "":
 		out.append([imb, c.imbue_resumen()])
+	# FOCO ARCANO. Faltaba: por el mapa se pinta (Game.refrescar_cache_estados) y dentro de la pelea
+	# no, que es justo donde importa — canalizabas, te quedaban dos cargas y no habia forma de saberlo
+	# mas que acordandote. No lleva turnos porque no caduca: es MUNICION, la gasta lanzar.
+	if c.foco_cargas > 0:
+		out.append(["🔮x%d" % c.foco_cargas,
+			"Foco arcano: %d carga%s\nCada hechizo OFENSIVO gasta una y pega un %d%% más.\nNo caduca con los turnos." % [
+				c.foco_cargas, "" if c.foco_cargas == 1 else "s", roundi(Combatant.FOCO_BONUS * 100.0)],
+			"🔮", Color(0.55, 0.7, 1.0)])
 	# UN chip por estado, no uno por instancia: los 'independent' (Pegajoso, Sangrado) apilan
 	# creando una Instance por aplicacion y salian cuatro iconos iguales en fila. Se agrupan por id
 	# conservando el orden en que se aplicaron; el detalle por stack va al tooltip.
@@ -2516,6 +2524,11 @@ func _fin_de_eleccion() -> void:
 	_ocultar_cajas()
 	if _slow_actions_left > 0:
 		_slow_actions_left -= 1
+	# Los CHIPS se repintan aqui, al cerrar CUALQUIER accion, y no solo cuando cambia la vida.
+	# Colgaban de _update_hp, asi que todo lo que no hace daño no los tocaba: echabas un Grito de
+	# aliento (Fortaleza a todo el grupo) o un Filo emponzoñado y no aparecia nada, porque nadie
+	# habia perdido un solo punto de vida. Este es el sitio por el que pasan TODAS las acciones.
+	_update_hp()
 
 
 # Despacha la accion elegida (solo en tu turno).
@@ -3014,6 +3027,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 	var anunciados: Dictionary = {}
 	var aplicados: Array = []   # estados que ENTRAN, para que el log los pliegue en una linea
 	var ultimo_mult: float = 1.0
+	var hubo_crit: bool = false
 	for i in n:
 		if not objetivo.is_alive():
 			break   # ya ha caido: los golpes que quedaban se pierden
@@ -3022,6 +3036,8 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		var dmg: float = float(res.damage) * foco
 		var mult: float = float(res.get("mult_elem", 1.0))
 		ultimo_mult = mult
+		if bool(res.get("crit", false)):
+			hubo_crit = true
 		objetivo.take_damage(dmg)
 		Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
 		total += dmg
@@ -3040,7 +3056,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 			_aplicar_estado_hechizo(spell, objetivo, elem, not multi, anunciados,
 				spell.es_multiobjetivo(), aplicados)
 	return {
-		"c": objetivo, "dano": total, "mult": ultimo_mult,
+		"c": objetivo, "dano": total, "mult": ultimo_mult, "crit": hubo_crit,
 		"golpes": trail.size(), "trail": trail, "estados": aplicados,
 	}
 
@@ -3082,12 +3098,14 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 			obj.take_damage(dmg)
 			Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
 			if not acc.has(obj):
-				acc[obj] = {"c": obj, "dano": 0.0, "mult": 1.0, "golpes": 0, "trail": [], "estados": []}
+				acc[obj] = {"c": obj, "dano": 0.0, "mult": 1.0, "crit": false, "golpes": 0, "trail": [], "estados": []}
 				anun[obj] = {}
 				orden.append(obj)
 			var a: Dictionary = acc[obj]
 			a.dano = float(a.dano) + dmg
 			a.mult = mult
+			if bool(res.get("crit", false)):
+				a.crit = true
 			a.golpes = int(a.golpes) + 1
 			a.trail.append("%s%s%.1f%s" % [Elementos.icono(elem),
 				"💥" if bool(res.get("crit", false)) else "", dmg, _mult_sufijo(mult)])
@@ -3127,14 +3145,21 @@ func _log_hechizo(spell: SpellData, res_area: Array, res_reb: Array, foco: float
 				spell.nombre, int(r0.golpes), _etq(r0.c), " · ".join(r0.trail)])
 			_set_log("… %.2f de daño en total.%s" % [total, foco_txt])
 		else:
-			_set_log("🔥 %s impacta a %s por %.2f de daño.%s%s" % [
-				spell.nombre, _etq(r0.c), total, _elem_txt(float(r0.mult)), foco_txt])
+			# El 💥 del critico: en los multigolpe ya iba dentro del rastro, pero un hechizo de UN
+			# golpe no pinta rastro y el critico no se veia por ningun lado — solo intuias que habia
+			# pasado algo porque el numero salia mas gordo de lo normal.
+			_set_log("🔥 %s impacta a %s por %.2f de daño.%s%s%s" % [
+				spell.nombre, _etq(r0.c), total,
+				"  ¡CRITICO! 💥" if bool(r0.get("crit", false)) else "",
+				_elem_txt(float(r0.mult)), foco_txt])
 		return total
 
 	# MULTI-OBJETIVO: "Nombre (daño)" por enemigo, en una linea.
 	var partes: Array = []
 	for r in res_area:
-		partes.append("%s (%.1f%s)" % [_etq(r.c), float(r.dano), _mult_sufijo(float(r.mult))])
+		# El 💥 por objetivo: en un area, uno puede comerse el critico y los demas no.
+		partes.append("%s (%s%.1f%s)" % [_etq(r.c), "💥" if bool(r.get("crit", false)) else "",
+			float(r.dano), _mult_sufijo(float(r.mult))])
 	_set_log("%s %s alcanza a %s" % [Elementos.icono(spell.elemento), spell.nombre, ", ".join(partes)])
 	if not res_reb.is_empty():
 		var reb: Array = []
@@ -4811,6 +4836,10 @@ func _contraatacar(atacante: Combatant, quien: Combatant) -> String:
 # Congela el ATB una fraccion de segundo tras la accion del enemigo, para poder
 # leer el log antes de que sigan llenandose las barras.
 func _pausa_lectura() -> void:
+	# Espejo de _fin_de_eleccion, para el otro bando: por aqui pasan TODAS las acciones enemigas, asi
+	# que es donde se repintan sus chips. Sin esto, un bicho que solo te pone un debuff (sin quitarte
+	# vida) no actualizaba nada y el estado no aparecia hasta el siguiente golpe.
+	_update_hp()
 	_pause_left = ENEMY_TURN_PAUSE
 	_state = State.PAUSED
 

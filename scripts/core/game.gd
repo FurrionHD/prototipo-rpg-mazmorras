@@ -3630,7 +3630,7 @@ func comer_plato(c: ConsumableData, pj: PersonajeData = null) -> bool:
 	# Se monta un Combatant de usar y tirar SOLO para reutilizar apply_status: es quien sabe de
 	# inmunidades, de familias excluyentes y de stack_modes. Duplicar esa logica aqui seria pedir que
 	# comer por el mapa y comer en combate acabaran comportandose distinto.
-	var c_tmp := Combatant.new(p.nombre, 1, p.abilities, 1.0, 1.0, 1.0, 1.0)
+	var c_tmp := Combatant.new(p.nombre, 1, abilities_de(p), 1.0, 1.0, 1.0, 1.0)
 	StatusEffects.aplicar_a(c_tmp, p.estados)
 	for ap in c.efectos:
 		if ap == null:
@@ -3930,6 +3930,11 @@ func tick_heal(delta: float) -> void:
 			p.heal_left = 0.0
 			p.heal_rate = 0.0
 			p.heal_turnos = 0.0
+		# El chip de "poción en el cuerpo" lleva la cifra que queda, y esa baja sola: hay que rehacer
+		# la cache mientras gotea. Se refresca solo cuando cambia el ENTERO que se ve, no en cada
+		# frame — el chip pone "✚27" y no hay nada que repintar hasta que sea "✚26".
+		if roundi(p.heal_left) != roundi(antes):
+			refrescar_cache_estados(p)
 
 # ============================================================
 #  EL RELOJ DE LOS ESTADOS FUERA DEL COMBATE
@@ -4039,11 +4044,40 @@ func refrescar_cache_estados(p: PersonajeData) -> void:
 	var mochila: float = 0.0
 	var partes: PackedStringArray = []
 	var chips: Array = []
+	# TODO lo que lleva puesto se pinta, sin excepciones: los estados del catalogo, la IMBUICION, las
+	# cargas de FOCO y la cura/maná de poción que aun le esta goteando. Si algo te esta afectando por
+	# el mapa tiene que verse por el mapa — no vale que solo salga dentro de la pelea, que es donde
+	# menos falta hace acordarse.
 	if p.foco_cargas > 0:
 		# Munición, no estado: no lleva turnos ni caduca (ver PersonajeData.foco_cargas).
 		partes.append("🔮x%d" % p.foco_cargas)
-		chips.append(["x%d" % p.foco_cargas, "Foco arcano\nCargas que le quedan: %d" % p.foco_cargas,
+		chips.append(["🔮x%d" % p.foco_cargas,
+			"Foco arcano: %d carga%s\nCada hechizo OFENSIVO gasta una y pega más.\nNo caduca con el tiempo." % [
+				p.foco_cargas, "" if p.foco_cargas == 1 else "s"],
 			"🔮", Color(0.55, 0.7, 1.0)])
+	# IMBUICION. Aguanta ENTRE combates (se gasta por ataques, no por turnos), asi que por el mapa la
+	# llevas puesta y hasta ahora no habia forma de saberlo. El texto sale del MISMO sitio que en la
+	# pelea —Combatant.imbue_etiqueta/imbue_resumen— montando un combatiente de usar y tirar: si se
+	# escribiera aparte, la ficha del arma envenenada acabaria diciendo dos cosas distintas.
+	if not p.imbue.is_empty():
+		var c_imb := Combatant.new(p.nombre, 1, abilities_de(p), 1.0, 1.0, 1.0, 1.0)
+		restaurar_imbue_de_ficha(c_imb, p)
+		var etq_imb: String = c_imb.imbue_etiqueta()
+		if etq_imb != "":
+			partes.append(etq_imb)
+			chips.append([etq_imb, c_imb.imbue_resumen(), "🗡", Color(0.85, 0.6, 0.95)])
+	# POCION EN CAMINO: la cura y el maná no caen de golpe, gotean por segundos (heal_left). Es un
+	# efecto activo como cualquier otro y se ve igual: sin esto, la vida sube sola y no sabes por que.
+	if p.heal_left > 0.01:
+		var e_hp: String = "✚%.0f" % p.heal_left
+		partes.append(e_hp)
+		chips.append([e_hp, "Poción en el cuerpo\nTe quedan %.0f de vida por recuperar, poco a poco." % p.heal_left,
+			"✚", Color(0.5, 0.9, 0.5)])
+	if p.mana_heal_left > 0.01:
+		var e_mp: String = "🔷%.0f" % p.mana_heal_left
+		partes.append(e_mp)
+		chips.append([e_mp, "Poción de maná en el cuerpo\nTe quedan %.0f de maná por recuperar, poco a poco." % p.mana_heal_left,
+			"🔷", Color(0.4, 0.7, 1.0)])
 	var por_id: Dictionary = {}
 	for d in p.estados:
 		var inst = StatusEffects.instancia_de_dict(d)
@@ -4096,6 +4130,10 @@ func tick_mana_pocion(delta: float) -> void:
 		var antes: float = p.mana_heal_left
 		p.mana_heal_left -= maxf(0.0, sube)
 		p.mana_heal_turnos *= (p.mana_heal_left / antes) if antes > 0.0 else 0.0
+		# Mismo motivo que en tick_heal: el chip lleva la cifra que queda y se rehace solo cuando
+		# cambia el entero que se ve.
+		if roundi(p.mana_heal_left) != roundi(antes):
+			refrescar_cache_estados(p)
 		if p.current_mp >= maxmp - 0.01 or p.mana_heal_left <= 0.01:
 			p.mana_heal_left = 0.0
 			p.mana_heal_rate = 0.0
@@ -4473,16 +4511,28 @@ var overload_max_penalty: float = 0.8  # penalizacion maxima (0.8 = -80% velocid
 const SIN_ARMADURA_VEL_MULT := 1.08
 
 
-# Crea el Combatant de UN personaje del grupo con sus stats actuales (manteniendo la vida).
-# Sin argumento = el que va en cabeza, que es el que pelea mientras el combate sea 1vN.
-func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
-	var p: PersonajeData = pj if pj != null else lider()
+# Las cinco habilidades de una ficha, en un Abilities. PersonajeData NO tiene un campo 'abilities':
+# las guarda por separado (ability_consolidado y compañia) y las expone sueltas, asi que hay que
+# montarlo. Existe como funcion propia porque hay varios sitios que necesitan un Combatant de usar y
+# tirar (comer un plato, leer la imbuicion para el HUD) y ahi es facil escribir 'p.abilities' de
+# memoria — que no existe y revienta EN EJECUCION, no al compilar.
+func abilities_de(p: PersonajeData) -> Abilities:
 	var a := Abilities.new()
+	if p == null:
+		return a
 	a.fuerza = p.fuerza
 	a.resistencia = p.resistencia
 	a.destreza = p.destreza
 	a.agilidad = p.agilidad
 	a.magia = p.magia
+	return a
+
+
+# Crea el Combatant de UN personaje del grupo con sus stats actuales (manteniendo la vida).
+# Sin argumento = el que va en cabeza, que es el que pelea mientras el combate sea 1vN.
+func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
+	var p: PersonajeData = pj if pj != null else lider()
+	var a := abilities_de(p)
 	var c := Combatant.new(p.nombre, p.level, a,
 		p.base_hp, p.base_attack, p.base_defense, p.base_speed)
 	c.base_magic = p.base_magic

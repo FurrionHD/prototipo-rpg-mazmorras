@@ -76,6 +76,24 @@ const MP_KILL_MULT_MIN := 1.25   # ...con suelo aqui (un corro de 4+ ya no baja 
 const MP_REGEN_TURNO_MULT := 0.5   # goteo por turno del arma magica EN combate
 const MP_KILL_MULT := 0.5          # maná por enemigo matado, AL terminar el combate
 
+# RECORTE 2 (30/07/2026, playtest en otra maquina): un mago seguia sin gastar UNA sola poción de
+# maná. El recorte no es plano a proposito: **depende del tamaño del corro**, poco con un bicho y
+# mucho con cinco.
+#
+# El porque: el problema no era el duelo, era la pelea grande. Con el mult por bicho ya decayendo,
+# un corro de cinco seguia soltando 3.1 veces lo de un duelo, asi que limpiar una sala te rellenaba
+# el deposito y las pociones sobraban. Un recorte plano habria arreglado eso rompiendo el 1v1, que
+# es justo donde el maná ya escuece (gastas un hechizo por un solo bicho).
+#
+# Interpola entre los dos puntos que se pidieron y se queda plano a partir de 5: por encima de eso
+# los corros son raros y no hace falta seguir castigando.
+const MP_KILL_RECORTE_1 := 0.90   # 1 bicho  -> −10%
+const MP_KILL_RECORTE_5 := 0.75   # 5 bichos -> −25%
+
+static func mp_kill_recorte(enemigos: int) -> float:
+	var n: float = clampf(float(enemigos), 1.0, 5.0)
+	return lerpf(MP_KILL_RECORTE_1, MP_KILL_RECORTE_5, (n - 1.0) / 4.0)
+
 # Maná que devuelve UN golpe de arma que acierta.
 static func mp_por_golpe() -> float:
 	return MP_BASE
@@ -87,7 +105,8 @@ static func mp_kill_mult(enemigos: int) -> float:
 # Maná que sueltan los enemigos al caer. 'regen_turno' = el goteo por turno de tu arma magica
 # (0 si no llevas): el baston no solo te gotea, tambien hace que los nucleos te cundan mas.
 static func mp_por_kill(regen_turno: float, enemigos: int = 1) -> float:
-	return MP_KILL_MULT * mp_kill_mult(enemigos) * (MP_BASE + maxf(regen_turno, 0.0)) * float(maxi(enemigos, 0))
+	return MP_KILL_MULT * mp_kill_recorte(enemigos) * mp_kill_mult(enemigos) \
+		* (MP_BASE + maxf(regen_turno, 0.0)) * float(maxi(enemigos, 0))
 
 # Resto de stats: siguen el modelo "base + habilidad × coef" (coef crece con el
 # nivel). Numeros bajos a proposito: 999 no debe dar 999 de golpe.
