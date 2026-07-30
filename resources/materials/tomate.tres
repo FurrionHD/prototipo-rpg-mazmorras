@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"tomate"
+nombre = "Tomate"
+descripcion = "Maduro y a punto de reventar. Sube de la superficie en cajas y no aguanta mucho ahí abajo."
+familia = 0
+tipo = 10
+tier = 1
+exigencia = 0.0
+peso_base = 0.3
+valor_base = 8
+mejora_min = 0
+mejora_max = 0
+color = Color(0.85, 0.3, 0.25, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

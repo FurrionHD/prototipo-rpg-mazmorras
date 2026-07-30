@@ -8,7 +8,8 @@
 #                     / Equipo (armas y armaduras). Cantidad por modal, igual que "soltar" en
 #                     el inventario. Boton de "vender todos los cristales" de un clic.
 #   2) RECOMPRAR    - lo que le has vendido al tendero (hasta 7), al mismo precio que te pago.
-#   3) TIENDA       - armas/escudos/varita/bastón a T1 comun, pociones y grimorios.
+#   3) TIENDA       - armas/escudos/varita/bastón a T1 comun, pociones, grimorios y la COMIDA (que
+#                     no es un consumible: son MATERIALES para cocinar, ver Game.comprar_material).
 #   4) PACK INICIAL - una vez por partida: un arma gratis (ni bastón ni varita) + 3 pociones.
 #
 #  Toda la MATH vive en Game (precio_compra_tier / vender_item / comprar_equipo_tier / recomprar...);
@@ -23,7 +24,9 @@ const TABS := ["Vender", "Tienda", "Tienda T2", "Recomprar", "Pack inicial"]
 const SUBS_VENDER := ["Bolsa", "Hogar", "Equipo", "Consumibles"]
 # El grimorio es un consumible en el inventario, pero en el mostrador va aparte: buscar un
 # libro de 2200 entre las pociones es incomodo.
-const SUBS_TIENDA := ["Armas", "Armaduras", "Mochilas", "Consumibles", "Grimorios"]
+# "Comida" va la ULTIMA: _build_tienda despacha las subpestañas por INDICE, asi que meter una en
+# medio le cambia el contenido a todas las de detras.
+const SUBS_TIENDA := ["Armas", "Armaduras", "Mochilas", "Consumibles", "Grimorios", "Comida"]
 
 const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
 const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
@@ -54,6 +57,21 @@ const CAT_GRIMORIOS: Array[String] = [
 	"res://resources/consumables/grimorio_descarga.tres",
 	"res://resources/consumables/grimorio_brasa.tres",
 	"res://resources/consumables/grimorio_rocio.tres",
+]
+# La DESPENSA del tendero. Son MATERIALES, no consumibles: no se comen, se cocinan. La sal y los
+# silvestres NO estan aqui a proposito —esos se bajan a buscar—, y tampoco hay lista T2: una cebolla
+# es una cebolla, la maten a quien maten los de los pisos hondos.
+const CAT_COMIDA: Array[String] = [
+	"res://resources/materials/cebolla.tres",
+	"res://resources/materials/ajo.tres",
+	"res://resources/materials/tomate.tres",
+	"res://resources/materials/lechuga.tres",
+	"res://resources/materials/patata.tres",
+	"res://resources/materials/zanahoria.tres",
+	"res://resources/materials/pimiento.tres",
+	"res://resources/materials/pan.tres",
+	"res://resources/materials/queso.tres",
+	"res://resources/materials/aceite.tres",
 ]
 
 # --- Catalogo del mostrador T2 (el que abre el Rey Slime) ---
@@ -620,6 +638,9 @@ func _build_tienda(tier: int) -> void:
 		4:
 			rutas = CAT_GRIMORIOS_T2 if tier >= 2 else CAT_GRIMORIOS
 			_note(_header, "Un libro por hechizo. Se estudia desde Consumibles, en el inventario [I]. Caben %d hechizos a la vez." % Game.MAX_HECHIZOS)
+		5:
+			rutas = CAT_COMIDA
+			_note(_header, "Género de la superficie, para cocinar. Crudo no hace nada: son ingredientes. La sal y lo que crece abajo no se venden aquí — eso se baja a buscar.")
 
 	_stacks = []
 	for ruta in rutas:
@@ -639,6 +660,10 @@ func _build_tienda(tier: int) -> void:
 func _precio_de(base: Resource) -> int:
 	if base is ConsumableData:
 		return Game.precio_compra(base)
+	# La comida lleva su propio margen (y tampoco escala con el tier del mostrador): ver
+	# Game.COMIDA_MARGEN, que es lo que impide comprarla y revenderla sin perder nada.
+	if base is MaterialData:
+		return Game.precio_comida(base as MaterialData)
 	return Game.precio_compra_tier(base, _tienda_tier)
 
 
@@ -675,6 +700,17 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		else:
 			_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
 			_row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(c, 0)))
+	elif base is MaterialData:
+		var md := base as MaterialData
+		_row(vb, "Tipo", "%s (ingrediente de cocina)" % md.tipo_texto())
+		_row(vb, "Peso", "%.1f por unidad" % md.peso_base)
+		# Cuantas llevas ENCIMA, no en el baul: lo que decide si te hace falta comprar mas antes de
+		# bajar es la bolsa. Se cuenta a mano porque los materiales son una unidad por elemento.
+		var llevas: int = 0
+		for m in Game.materiales:
+			if m != null and m.data == md:
+				llevas += 1
+		_row(vb, "Llevas", "%d en la bolsa" % llevas)
 	elif base is BackpackData:
 		var mo := base as BackpackData
 		# La carga de la mochila sale de una TABLA por tier (15/25/40), no de tier_mult.
@@ -716,7 +752,11 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		_note(vb, str(desc))
 
 	vb.add_child(HSeparator.new())
-	if base is ConsumableData:
+	if base is MaterialData:
+		# La comida se compra a puñados, como las pociones: mismo par de botones y mismo modal.
+		_boton(vb, "Comprar 1", _on_comprar_comida.bind(1), llego)
+		_boton(vb, "Comprar varias...", _on_comprar_varias, llego)
+	elif base is ConsumableData:
 		_boton(vb, "Comprar 1", _on_comprar_consumible.bind(1), llego)
 		if not (base as ConsumableData).es_grimorio():
 			_boton(vb, "Comprar varias...", _on_comprar_varias, llego)
@@ -770,9 +810,20 @@ func _on_comprar_consumible(n: int) -> void:
 	_rebuild()
 
 
+func _on_comprar_comida(n: int) -> void:
+	var base: MaterialData = _stacks[_sel]["modelo"]
+	if Game.comprar_material(base, n):
+		_decir("Compras %d x %s. Está en tu bolsa, listo para cocinar." % [n, base.nombre])
+	else:
+		_decir("No te llega para %d x %s." % [n, base.nombre], false)
+	_rebuild()
+
+
+# El modal de cantidad lo comparten la comida y los consumibles: el precio de cada uno sale de
+# _precio_de (que ya sabe cual es cual) y la compra se despacha por el tipo del pendiente.
 func _on_comprar_varias() -> void:
-	var base: ConsumableData = _stacks[_sel]["modelo"]
-	var precio: int = Game.precio_compra(base)
+	var base: Resource = _stacks[_sel]["modelo"]
+	var precio: int = _precio_de(base)
 	var maximo: int = 99 if precio <= 0 else maxi(1, Game.money / precio)
 	_pending_base = base
 	_abrir_modal_cantidad("¿Cuántas quieres comprar?  (te llega para %d)" % maximo, maximo,
@@ -781,12 +832,15 @@ func _on_comprar_varias() -> void:
 
 func _confirmar_compra_varias(cant: int) -> void:
 	if _pending_base != null:
-		var base: ConsumableData = _pending_base
+		var base: Resource = _pending_base
 		_pending_base = null
-		if Game.comprar_consumible(base, cant):
-			_decir("Compras %d x %s." % [cant, base.nombre])
+		var nombre: String = str(base.get("nombre"))
+		var ok: bool = Game.comprar_material(base as MaterialData, cant) if base is MaterialData \
+			else Game.comprar_consumible(base as ConsumableData, cant)
+		if ok:
+			_decir("Compras %d x %s." % [cant, nombre])
 		else:
-			_decir("No te llega para %d x %s." % [cant, base.nombre], false)
+			_decir("No te llega para %d x %s." % [cant, nombre], false)
 	_rebuild()
 
 

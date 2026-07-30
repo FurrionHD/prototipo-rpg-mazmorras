@@ -49,6 +49,11 @@ class_name DungeonFloor
 # Los PECES del charco (ver _elegir_estanque). Misma clase de tabla que las otras tres, pero no se
 # reparte por celdas: el estanque entero hace su tirada por cada pez que nada dentro.
 @export var tabla_peces: MaterialTable = preload("res://resources/world/peces.tres")
+# La DESPENSA de la mazmorra: la SAL se pica en las salas (es roca, va con las vetas) y los
+# SILVESTRES se cortan en los pasillos (van con las plantas). Tienen tabla y cupo PROPIOS a
+# proposito: si compartieran los de la forja, cada cebolla seria un mineral que no sale.
+@export var tabla_sal: MaterialTable = preload("res://resources/world/sal.tres")
+@export var tabla_silvestres: MaterialTable = preload("res://resources/world/silvestres.tres")
 # Cuantas celdas de pasillo por planta, y cuantas plantas aguanta un pasillo.
 @export var celdas_por_planta: int = 18
 @export var max_plantas_pasillo: int = 3
@@ -63,6 +68,14 @@ class_name DungeonFloor
 @export var max_vetas_piso: int = 8
 @export var max_plantas_piso: int = 8
 @export var max_madera_piso: int = 8
+# La DESPENSA va con CUPO FIJO (se tira entre el minimo y el maximo) y NO pasa por
+# escalar_con_el_piso: un cupo de 1-2 escalado con el area se pone en seis en un piso grande, y lo
+# que se quiere es justo lo contrario —que la comida sea contada y haya que bajar a por ella—.
+# Con el respawn lento (10 min), un piso da como mucho estas piezas por vuelta.
+@export var sal_min_piso: int = 1
+@export var sal_max_piso: int = 2
+@export var silvestres_min_piso: int = 2
+@export var silvestres_max_piso: int = 3
 
 # Cada cuanto se mira si a algun nodo picado le toca ya reaparecer. No hace falta afinar mas:
 # el respawn son minutos, y barrer el diccionario de agotados cada frame seria tirar CPU.
@@ -700,15 +713,24 @@ func _colocar_recolectables() -> void:
 
 	var plantas: int = _colocar_en_pasillos(rng, tabla_plantas, max_plantas_piso, 1)
 	var maderas: int = _colocar_en_pasillos(rng, tabla_maderas, max_madera_piso, 2)
+	# La DESPENSA se reparte DESPUES de lo de forjar: si el piso se queda sin celdas junto a pared,
+	# que la que falte sea una cebolla y no el mineral.
+	var silvestres: int = _colocar_en_pasillos(rng, tabla_silvestres,
+		rng.randi_range(silvestres_min_piso, silvestres_max_piso), 4, false)
 	var vetas: int = _colocar_vetas(rng)
+	var sal: int = _colocar_en_salas(rng, tabla_sal, 3,
+		rng.randi_range(sal_min_piso, sal_max_piso), 1, 1)
 	print("[mazmorra] recolectables: ", vetas, " vetas, ", plantas, " plantas y ",
 		maderas, " enredaderas (", _agotados.size(), " ya recolectadas)")
+	print("[mazmorra] despensa: ", sal, " de sal y ", silvestres, " silvestres")
 	if tabla_vetas != null:
 		print("[mazmorra] vetas del piso: ", tabla_vetas.resumen(Game.current_floor))
 	if tabla_plantas != null:
 		print("[mazmorra] plantas del piso: ", tabla_plantas.resumen(Game.current_floor))
 	if tabla_maderas != null:
 		print("[mazmorra] maderas del piso: ", tabla_maderas.resumen(Game.current_floor))
+	if tabla_silvestres != null:
+		print("[mazmorra] silvestres del piso: ", tabla_silvestres.resumen(Game.current_floor))
 
 
 # PLANTAS y ENREDADERAS: en los PASILLOS. Es el botin del transito: los pisas yendo a
@@ -720,11 +742,15 @@ func _colocar_recolectables() -> void:
 # nodos que acaban naciendo. Si contara solo los nacidos, cada planta que ya recolectaste
 # liberaria su cupo y brotaria OTRA en el siguiente hueco: volver a un piso lo repoblaria de
 # plantas nuevas y recolectar no serviria de nada.
+#
+# 'escalar' = si el tope crece con el AREA del piso. Lo de siempre (plantas y enredaderas) si: son
+# densidad, y un piso el doble de grande tiene que dar el doble. La despensa NO: su tope es un cupo
+# contado (2-3 silvestres y punto), y escalarlo lo convertiria en seis en un piso grande.
 func _colocar_en_pasillos(rng: RandomNumberGenerator, tabla: MaterialTable,
-		tope_base: int, tipo: int) -> int:
+		tope_base: int, tipo: int, escalar: bool = true) -> int:
 	if tabla == null:
 		return 0
-	var tope: int = escalar_con_el_piso(tope_base)
+	var tope: int = escalar_con_el_piso(tope_base) if escalar else tope_base
 	var sitios: int = 0
 	var puestas: int = 0
 	for i in range(gen.zonas.size()):
@@ -750,7 +776,19 @@ func _colocar_en_pasillos(rng: RandomNumberGenerator, tabla: MaterialTable,
 # bajar. Picar tiene que costarte meterte en la mazmorra; si la veta estuviera en la boca
 # del piso, farmear mineral seria entrar, picar y salir, sin cruzarte con nada.
 func _colocar_vetas(rng: RandomNumberGenerator) -> int:
-	if tabla_vetas == null:
+	return _colocar_en_salas(rng, tabla_vetas, 0, escalar_con_el_piso(max_vetas_piso),
+		vetas_min_sala, vetas_max_sala)
+
+
+# El reparto EN SALAS, que comparten las vetas y la sal (las dos son roca y las dos tienen que
+# quedar hondas). Lo unico que cambia entre las dos es la tabla, el tipo de nodo, el tope y cuantas
+# caben por sala; el criterio de QUE salas y en que orden es el mismo, y por eso vive en un sitio.
+#
+# El TOPE llega ya resuelto: las vetas lo escalan con el area del piso y la sal no (ver los @export
+# de la despensa). Que lo decida quien llama y no esta funcion.
+func _colocar_en_salas(rng: RandomNumberGenerator, tabla: MaterialTable, tipo: int,
+		tope: int, min_sala: int, max_sala: int) -> int:
+	if tabla == null or tope <= 0:
 		return 0
 	var entrada: Rect2i = gen.salas[0]
 	var escalera: Rect2i = _sala_mas_lejana(entrada)
@@ -772,7 +810,6 @@ func _colocar_vetas(rng: RandomNumberGenerator) -> int:
 
 	# Igual que con las plantas: lo que se cuenta contra el tope son los SITIOS, no las vetas
 	# que nacen. Si no, una veta ya picada dejaria su hueco libre para otra mas alla.
-	var tope: int = escalar_con_el_piso(max_vetas_piso)
 	var sitios: int = 0
 	var puestas: int = 0
 	for i in range(cuantas):
@@ -782,18 +819,19 @@ func _colocar_vetas(rng: RandomNumberGenerator) -> int:
 		if idx < 0:
 			continue
 		var celdas: Array = gen.zonas[idx]["celdas"]
-		var n: int = mini(rng.randi_range(vetas_min_sala, vetas_max_sala), tope - sitios)
+		var n: int = mini(rng.randi_range(min_sala, max_sala), tope - sitios)
 		for _k in range(n):
 			var c: Vector2i = _celda_junto_a_pared(celdas, rng)
 			if c == Vector2i.MAX:
 				break
 			sitios += 1
-			if _crear_recolectable(0, c):
+			if _crear_recolectable(tipo, c):
 				puestas += 1
 	return puestas
 
 
-# Instancia un recolectable (tipo 0 = veta, 1 = planta, 2 = madera). Devuelve false si esa celda
+# Instancia un recolectable (ver ResourceNode.Tipo: 0 veta, 1 planta, 2 madera, 3 sal, 4 huerto).
+# Devuelve false si esa celda
 # esta agotada y AUN NO le toca reaparecer (respawn por tiempo), o si la tabla no tiene nada
 # para esta profundidad.
 func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
@@ -851,6 +889,8 @@ func _tabla_de_tipo(tipo: int) -> MaterialTable:
 		0: return tabla_vetas
 		1: return tabla_plantas
 		2: return tabla_maderas
+		3: return tabla_sal
+		4: return tabla_silvestres
 	return null
 
 
@@ -1010,13 +1050,18 @@ func material_de_sitio(celda: Vector2i) -> MaterialData:
 # Lo llama Game al terminar un minijuego de recoleccion: esa celda queda explotada, con el
 # SELLO del tiempo actual. A partir de ahi cuenta RESPAWN_SEGUNDOS para reaparecer. Se guarda en
 # mazmorra_persistente (sobrevive a volver al pueblo) Y en la copia local del piso vivo.
-func marcar_agotado(celda: Vector2i) -> void:
-	_agotados[celda] = Game.tiempo_mazmorra
+#
+# 'retraso' es lo que tarda de MAS que un nodo normal (la despensa, el doble). Se suma al sello en
+# vez de guardarse aparte para que las restas de ahi abajo no tengan que saber de tipos: ver
+# Game.RESPAWN_RETRASO_DESPENSA.
+func marcar_agotado(celda: Vector2i, retraso: float = 0.0) -> void:
+	var sello: float = Game.tiempo_mazmorra + retraso
+	_agotados[celda] = sello
 	# MULTIJUGADOR: NO se escribe en mazmorra_persistente (que va al SAVE). Estas jugando en el
 	# mundo del HOST: agotar una veta aqui no debe dejar sellos en el mundo PROPIO de tu save.
 	if Net.activo:
 		return
-	(Game.persistente_piso(_piso_construido)["agotados"] as Dictionary)[celda] = Game.tiempo_mazmorra
+	(Game.persistente_piso(_piso_construido)["agotados"] as Dictionary)[celda] = sello
 
 
 # Los nodos AGOTADOS de este piso VIVO (celda -> sello de tiempo). La libreta del mapa los lee de

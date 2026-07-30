@@ -1,7 +1,8 @@
 # ============================================================
 #  material_spawner.gd  (CanvasLayer creada por codigo desde el jugador)
-#  Herramienta de DESARROLLO para PROBAR la RECOLECCION: planta vetas, plantas y enredaderas
-#  con el raton, del material que elijas, sin tener que bajar doce pisos a buscarlas.
+#  Herramienta de DESARROLLO para PROBAR la RECOLECCION: planta vetas, plantas, enredaderas y lo
+#  de la despensa (sal y silvestres) con el raton, del material que elijas, sin tener que bajar doce
+#  pisos a buscarlas.
 #
 #  Es el hermano de spawner.gd (que pone enemigos) y sigue su mismo patron: se autodestruye
 #  fuera del sandbox, se arma con un boton y cada clic izquierdo coloca.
@@ -21,10 +22,19 @@ const _RECO := preload("res://scripts/world/resource_node.gd")
 
 # Solo lo RECOLECTABLE. Un material de tipo MINERAL con exigencia 0 (la quitina, la runa de
 # arcilla) no es una veta: es un drop de bicho, y plantarlo como nodo no tendria minijuego.
+#
+# [nombre, tipo de material, tipo de nodo, tabla]. La TABLA solo la llevan las dos de la despensa, y
+# es por una razon: la sal y los silvestres comparten Tipo.DESPENSA (uno se pica y el otro se corta),
+# asi que filtrar por tipo los mezclaria. Cuando hay tabla, la lista sale de ella —que es la misma
+# que usa la mazmorra de verdad, o sea que esto no se puede quedar desfasado—.
 const CATEGORIAS := [
-	["Minerales (pico · Fuerza)", MaterialData.Tipo.MINERAL, _RECO.Tipo.VETA],
-	["Maderas (hacha · Agilidad)", MaterialData.Tipo.MADERA, _RECO.Tipo.MADERA],
-	["Plantas (hoz · Destreza)", MaterialData.Tipo.PLANTA, _RECO.Tipo.PLANTA],
+	["Minerales (pico · Fuerza)", MaterialData.Tipo.MINERAL, _RECO.Tipo.VETA, ""],
+	["Maderas (hacha · Agilidad)", MaterialData.Tipo.MADERA, _RECO.Tipo.MADERA, ""],
+	["Plantas (hoz · Destreza)", MaterialData.Tipo.PLANTA, _RECO.Tipo.PLANTA, ""],
+	["Sal (pico · Fuerza)", MaterialData.Tipo.DESPENSA, _RECO.Tipo.SAL,
+		"res://resources/world/sal.tres"],
+	["Silvestres (hoz · Destreza)", MaterialData.Tipo.DESPENSA, _RECO.Tipo.HUERTO,
+		"res://resources/world/silvestres.tres"],
 ]
 
 var _armed: bool = false
@@ -118,13 +128,23 @@ func _ready() -> void:
 # dificil), que es el orden en el que un jugador se los va encontrando.
 func _materiales() -> Array:
 	var tipo: int = CATEGORIAS[_cat_idx][1]
+	var ruta_tabla: String = CATEGORIAS[_cat_idx][3]
 	var out: Array = []
-	# Por el MANIFIESTO de Game y no por DirAccess: en el .exe exportado DirAccess no enumera el .pck
-	# y esta lista salia VACIA, o sea que en la version compilada no habia materiales que colocar.
-	for ruta in Game.rutas_materiales():
-		var m: MaterialData = load(ruta) as MaterialData
-		if m != null and int(m.tipo) == tipo and m.exigencia > 0.0:
-			out.append(m)
+	if ruta_tabla != "":
+		var tabla: MaterialTable = load(ruta_tabla) as MaterialTable
+		if tabla != null:
+			for e in tabla.entradas:
+				var em: MaterialData = (e as MaterialEntry).material
+				if em != null and em.exigencia > 0.0:
+					out.append(em)
+	else:
+		# Por el MANIFIESTO de Game y no por DirAccess: en el .exe exportado DirAccess no enumera el
+		# .pck y esta lista salia VACIA, o sea que en la version compilada no habia materiales que
+		# colocar.
+		for ruta in Game.rutas_materiales():
+			var m: MaterialData = load(ruta) as MaterialData
+			if m != null and int(m.tipo) == tipo and m.exigencia > 0.0:
+				out.append(m)
 	out.sort_custom(func(a, b): return a.exigencia < b.exigencia)
 	return out
 
@@ -165,7 +185,15 @@ func _refrescar() -> void:
 		return
 	# La dificultad que va a tener AHORA MISMO, con tus stats y el piso elegido: es el numero que
 	# de verdad se quiere ver al afinar la curva.
-	var stat: String = "fuerza" if m.es_veta() else ("agilidad" if m.es_madera() else "destreza")
+	#
+	# La stat se saca del NODO, no del material: la piedra de sal es de tipo DESPENSA y aun asi se
+	# pica con el pico (preguntarle al material daba Destreza, que es la del minijuego equivocado).
+	var nodo_tipo: int = CATEGORIAS[_cat_idx][2]
+	var stat: String = "fuerza"
+	if nodo_tipo == _RECO.Tipo.MADERA:
+		stat = "agilidad"
+	elif nodo_tipo == _RECO.Tipo.PLANTA or nodo_tipo == _RECO.Tipo.HUERTO:
+		stat = "destreza"
 	var d: float = Game._exigencia_material(m) / (float(Game.stat_total(stat)) * Game.RECOLECCION_STAT_PESO + 30.0)
 	_info_lbl.text = "  %s %d · dificultad %.2f\n  puestos: %d" % [
 		stat.substr(0, 3).to_upper(), Game.stat_total(stat), d, _puestos.size()]

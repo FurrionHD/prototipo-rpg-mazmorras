@@ -1,7 +1,8 @@
 # ============================================================
 #  resource_node.gd
 #  Lo que se RECOLECTA en el mapa: una VETA (pegada a la pared de una sala), una PLANTA
-#  (en un pasillo) o una ENREDADERA de la que sacar MADERA (trepando la pared del pasillo).
+#  (en un pasillo), una ENREDADERA de la que sacar MADERA (trepando la pared del pasillo), una
+#  PIEDRA DE SAL (roca, como la veta) o una mata del HUERTO (los silvestres de comer).
 #  Se interactua con F, abre su minijuego y suelta el material.
 #
 #  NO tiene colision a proposito: no quiero que una planta te tape un pasillo de 3 celdas
@@ -19,8 +20,15 @@
 
 extends Node2D
 
-# MADERA va la ULTIMA: dungeon_floor pasa el tipo como numero (0 veta, 1 planta, 2 madera).
-enum Tipo { VETA, PLANTA, MADERA }
+# El tipo viaja como NUMERO (dungeon_floor lo pasa asi y Net lo reconstruye), o sea que todo valor
+# nuevo va al FINAL: 0 veta, 1 planta, 2 madera, 3 sal, 4 huerto.
+#
+# SAL y HUERTO son los dos sitios de la DESPENSA (ver MaterialData.Tipo.DESPENSA). No traen minijuego
+# propio: la sal es roca y va con el de mineria, el huerto es tallo y va con el de herboristeria. Lo
+# que los hace distintos de una veta o una planta es que tienen su PROPIA tabla y su propio cupo (asi
+# no le quitan sitio al mineral de forjar) y que tardan el DOBLE en volver (ver
+# Game.RESPAWN_LENTO_SEGUNDOS): son el grifo de la comida.
+enum Tipo { VETA, PLANTA, MADERA, SAL, HUERTO }
 
 var tipo: int = Tipo.VETA
 # OJO con el nombre: NO puede llamarse 'material'. Esto es un Node2D, y CanvasItem ya tiene
@@ -46,11 +54,16 @@ func _ready() -> void:
 		create_tween().tween_property(self, "modulate:a", 1.0, 0.45)
 
 
+# Se pica con el PICO: la veta de mineral y la piedra de sal (que tambien es roca).
 func es_veta() -> bool:
-	return tipo == Tipo.VETA
+	return tipo == Tipo.VETA or tipo == Tipo.SAL
 
 func es_madera() -> bool:
 	return tipo == Tipo.MADERA
+
+# ¿Es de la DESPENSA? Lo unico que cambia: tarda el doble en volver (ver Game._cerrar_recoleccion).
+func es_despensa() -> bool:
+	return tipo == Tipo.SAL or tipo == Tipo.HUERTO
 
 
 # Lo llama el jugador al pulsar F (ver player._try_interact).
@@ -95,7 +108,16 @@ func _crear_aspecto() -> void:
 
 	var tam: Vector2
 	var esquina: Vector2
-	if es_veta():
+	if tipo == Tipo.SAL:
+		# La sal es un terron cuadrado que asoma de la roca: mas pequeña que una veta y con la misma
+		# altura que anchura, para no confundirla con el mineral desde el otro lado del pasillo.
+		tam = Vector2(18, 18)
+		esquina = Vector2(-9, -9)
+	elif tipo == Tipo.HUERTO:
+		# La mata de comer va a ras de suelo: ancha y baja, lo contrario que el manojo de la planta.
+		tam = Vector2(20, 12)
+		esquina = Vector2(-10, -6)
+	elif es_veta():
 		# La veta es un bulto en la roca: ancha y baja.
 		tam = Vector2(26, 18)
 		esquina = Vector2(-13, -9)

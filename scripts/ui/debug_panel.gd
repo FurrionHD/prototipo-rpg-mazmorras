@@ -700,7 +700,8 @@ func _categoria_de(d: MaterialData) -> String:
 		MaterialData.Tipo.CUERO: return "Cueros"
 		MaterialData.Tipo.BABA: return "Babas y fluidos"
 		MaterialData.Tipo.PLANTA: return "Plantas y hierbas"
-		MaterialData.Tipo.CARNE, MaterialData.Tipo.PESCADO: return "Carnes y pescados"
+		MaterialData.Tipo.CARNE, MaterialData.Tipo.PESCADO, MaterialData.Tipo.DESPENSA:
+			return "Cocina"
 		MaterialData.Tipo.NUCLEO:
 			match int(d.uso_mejora):
 				MaterialData.UsoMejora.ARMA: return "Núcleos (arma)"
@@ -722,8 +723,10 @@ func _categorias_materiales() -> Array:
 		if not por_cat.has(cat):
 			por_cat[cat] = []
 		(por_cat[cat] as Array).append(ruta)
+	# "Cocina" faltaba en esta lista (la carne y el pescado se quedaban sin pestaña propia y solo
+	# salian en "Todos"): quien añada una categoria arriba tiene que apuntarla TAMBIEN aqui.
 	var orden: Array = ["Minerales", "Maderas", "Tablones", "Refinados (metal)", "Cueros",
-		"Babas y fluidos", "Plantas y hierbas", "Núcleos (arma)", "Núcleos (armadura)",
+		"Babas y fluidos", "Plantas y hierbas", "Cocina", "Núcleos (arma)", "Núcleos (armadura)",
 		"Núcleos (comodín)", "Otros"]
 	var out: Array = [{"nombre": "Todos", "rutas": todas}]
 	for cat in orden:

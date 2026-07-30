@@ -28,7 +28,12 @@ enum Familia { CORRIENTE, NUCLEO }
 #   PESCADO sale del ESTANQUE de la mazmorra (ver fishing_spot.gd). Es el unico material con un
 #   TAMAÑO propio por ejemplar: dos lubinas no son la misma lubina. Ver cm_min/cm_max y
 #   MaterialItem.cm.
-enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA, TABLON, CARNE, PESCADO }
+#   DESPENSA es TODO lo demas que se come: la sal, las verduras, el pan, el queso, el aceite. Uno
+#   solo para los tres, y no un tipo por cada cosa, porque la diferencia "condimento vs verdura" la
+#   marca la RECETA nombrando el material, no un enum. Ojo: el tipo NO dice con que se saca —la sal
+#   se pica con el pico y el puerro se corta con la hoz siendo los dos DESPENSA—; quien decide la
+#   herramienta es el NODO del mapa (ver ResourceNode.Tipo), no esto.
+enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA, TABLON, CARNE, PESCADO, DESPENSA }
 # A QUE se le puede meter este nucleo. Los del slime van al ARMA; el de la rata, a la
 # ARMADURA. CUALQUIERA = comodin (no lo usa ningun nucleo hoy, pero el campo lo admite).
 enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
@@ -117,6 +122,7 @@ func tipo_texto() -> String:
 		Tipo.TABLON: return "Tablón"
 		Tipo.CARNE: return "Carne"
 		Tipo.PESCADO: return "Pescado"
+		Tipo.DESPENSA: return "Despensa"
 		_: return "Núcleo"
 
 
@@ -394,7 +400,11 @@ func resumen() -> String:
 		"valor base %d" % valor_base,
 		"peso %.1f" % peso_base,
 	]
-	if es_veta() or es_planta() or es_madera() or es_pescado():
+	# La DESPENSA va con un "y ademas": la mitad se recolecta (sal, silvestres) y la otra mitad se
+	# compra hecha (verduras, pan), asi que aqui manda la exigencia y no el tipo. Los demas siguen
+	# preguntandose por tipo porque hay .tres de baba/cuero con la exigencia por defecto sin limpiar.
+	if es_veta() or es_planta() or es_madera() or es_pescado() \
+			or (tipo == Tipo.DESPENSA and exigencia > 0.0):
 		partes.append("exigencia %d" % roundi(exigencia))
 	if es_pescado() and cm_max > 0.0:
 		partes.append("talla %d-%d cm" % [roundi(cm_min), roundi(cm_max)])

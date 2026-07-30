@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"puerro_gruta"
+nombre = "Puerro de gruta"
+descripcion = "Un tallo largo y correoso que se agarra a las grietas hondas. Cuesta cortarlo limpio y huele a huerta a media galería."
+familia = 0
+tipo = 10
+tier = 1
+exigencia = 150.0
+peso_base = 0.4
+valor_base = 14
+mejora_min = 0
+mejora_max = 0
+color = Color(0.65, 0.82, 0.5, 1)
+piso_min = 3
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"lechuga"
+nombre = "Lechuga"
+descripcion = "Fresca de la mañana. Bajarla a la mazmorra es una idea discutible, pero en un bocadillo cruje."
+familia = 0
+tipo = 10
+tier = 1
+exigencia = 0.0
+peso_base = 0.3
+valor_base = 7
+mejora_min = 0
+mejora_max = 0
+color = Color(0.55, 0.8, 0.45, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"ajo"
+nombre = "Ajo"
+descripcion = "Una cabeza seca. Poco peso, mucho carácter: de lo poco que se nota aunque le eches nada."
+familia = 0
+tipo = 10
+tier = 1
+exigencia = 0.0
+peso_base = 0.2
+valor_base = 6
+mejora_min = 0
+mejora_max = 0
+color = Color(0.92, 0.9, 0.82, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

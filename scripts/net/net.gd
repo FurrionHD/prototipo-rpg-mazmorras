@@ -1509,18 +1509,22 @@ func _veta_ocupada() -> void:
 
 
 # La llama Game._cerrar_recoleccion (rama multi) al terminar el minijuego de una celda.
-func notificar_agotado(celda: Vector2i, piso: int) -> void:
+#
+# 'retraso' = lo que ESTE sitio tarda de mas en volver (la despensa, el doble; ver
+# Game.RESPAWN_RETRASO_DESPENSA). Viaja con el mensaje porque el host no puede deducirlo: solo
+# recibe la celda, y puede no estar ni en ese piso para mirar que hay plantado en ella.
+func notificar_agotado(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
 	if es_host:
-		_registrar_agotado(celda, piso)
+		_registrar_agotado(celda, piso, retraso)
 	else:
-		_pedir_agotar.rpc_id(1, celda, piso)
+		_pedir_agotar.rpc_id(1, celda, piso, retraso)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_agotar(celda: Vector2i, piso: int) -> void:
+func _pedir_agotar(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
 	if not es_host:
 		return
-	_registrar_agotado(celda, piso)
+	_registrar_agotado(celda, piso, retraso)
 
 
 # Solo host: suelta el lock, sella el sitio con la hora (es lo que hara que reviva), lo APUNTA EN SU
@@ -1529,13 +1533,14 @@ func _pedir_agotar(celda: Vector2i, piso: int) -> void:
 # Lo del save es lo que hace que el CD sobreviva a que salgais todos: la mazmorra es la del mundo del
 # host, asi que sus sellos van a mazmorra_persistente igual que en una partida de un jugador, y de
 # ahi se vuelven a sembrar en la siguiente expedicion (ver _sembrar_agotados_del_save).
-func _registrar_agotado(celda: Vector2i, piso: int) -> void:
+func _registrar_agotado(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
 	var s: Vector3i = _sitio(piso, celda)
+	var sello: float = Game.tiempo_mazmorra + retraso
 	_vetas_ocupadas.erase(s)
-	_agotados_sesion[s] = Game.tiempo_mazmorra
-	(Game.persistente_piso(piso)["agotados"] as Dictionary)[celda] = Game.tiempo_mazmorra
-	_agotar_celda.rpc(celda, piso)
-	_agotar_celda(celda, piso)
+	_agotados_sesion[s] = sello
+	(Game.persistente_piso(piso)["agotados"] as Dictionary)[celda] = sello
+	_agotar_celda.rpc(celda, piso, retraso)
+	_agotar_celda(celda, piso, retraso)
 
 
 # Corre en TODOS los que esten en la mazmorra: la veta de ese sitio desaparece tambien aqui.
@@ -1545,13 +1550,13 @@ func _registrar_agotado(celda: Vector2i, piso: int) -> void:
 # En el host esto corre justo despues de _registrar_agotado (que lo llama directo), asi que tiene que
 # sellar con el MISMO reloj o le pisaria el valor bueno al que se acaba de guardar en el save.
 @rpc("any_peer", "call_remote", "reliable")
-func _agotar_celda(celda: Vector2i, piso: int) -> void:
-	_agotados_sesion[_sitio(piso, celda)] = Game.tiempo_mazmorra
+func _agotar_celda(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
+	_agotados_sesion[_sitio(piso, celda)] = Game.tiempo_mazmorra + retraso
 	if not _mi_lugar.begins_with("piso:") or Game.current_floor != piso:
 		return
 	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if suelo != null and suelo.has_method("marcar_agotado"):
-		suelo.marcar_agotado(celda)
+		suelo.marcar_agotado(celda, retraso)
 	for n in get_tree().get_nodes_in_group("recolectable"):
 		if is_instance_valid(n) and n.celda == celda:
 			n.agotar()

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"hongo_azufre"
+nombre = "Hongo de azufre"
+descripcion = "Crece sobre la piedra caliente y suelta un vaho que pica en la nariz. Se agarra al muro como si le fuera la vida."
+familia = 0
+tipo = 10
+tier = 2
+exigencia = 300.0
+peso_base = 0.4
+valor_base = 26
+mejora_min = 0
+mejora_max = 0
+color = Color(0.85, 0.72, 0.3, 1)
+piso_min = 7
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

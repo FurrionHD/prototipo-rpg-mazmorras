@@ -1,0 +1,45 @@
+[gd_resource type="Resource" script_class="MaterialTable" format=3]
+
+[ext_resource type="Script" uid="uid://cu560afpbuxtm" path="res://scripts/world/material_table.gd" id="1_tabla"]
+[ext_resource type="Script" uid="uid://5341cfr77rmh" path="res://scripts/world/material_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" path="res://resources/materials/seta_simas.tres" id="3_seta"]
+[ext_resource type="Resource" path="res://resources/materials/puerro_gruta.tres" id="4_puerro"]
+[ext_resource type="Resource" path="res://resources/materials/hongo_azufre.tres" id="5_hongo"]
+[ext_resource type="Resource" path="res://resources/materials/tuberculo_palido.tres" id="6_tuberculo"]
+
+[sub_resource type="Resource" id="E_seta"]
+script = ExtResource("2_entrada")
+material = ExtResource("3_seta")
+peso = 100.0
+peso_pleno = 18.0
+piso_pleno = 10
+
+[sub_resource type="Resource" id="E_puerro"]
+script = ExtResource("2_entrada")
+material = ExtResource("4_puerro")
+peso = 15.0
+peso_pleno = 45.0
+piso_debut = 3
+piso_pleno = 8
+
+[sub_resource type="Resource" id="E_hongo"]
+script = ExtResource("2_entrada")
+material = ExtResource("5_hongo")
+peso = 10.0
+peso_pleno = 50.0
+piso_debut = 7
+piso_pleno = 12
+
+[sub_resource type="Resource" id="E_tuberculo"]
+script = ExtResource("2_entrada")
+material = ExtResource("6_tuberculo")
+peso = 8.0
+peso_pleno = 55.0
+piso_debut = 10
+piso_pleno = 14
+
+[resource]
+script = ExtResource("1_tabla")
+nombre = "Silvestres"
+entradas = Array[ExtResource("2_entrada")]([SubResource("E_seta"), SubResource("E_puerro"), SubResource("E_hongo"), SubResource("E_tuberculo")])
+metadata/_custom_type_script = "res://scripts/world/material_table.gd"

@@ -758,6 +758,20 @@ var tiempo_mazmorra: float = 0.0
 # donde no hay piso vivo del que leerlo. PROVISIONAL -> Excel.
 const RESPAWN_SEGUNDOS := 300.0
 
+# La DESPENSA (sal y silvestres) tarda el DOBLE. Es el freno de la comida: son pocos por piso
+# (1-2 y 2-3) y encima lentos, asi que llenar la despensa es bajar, no plantarse en un pasillo a
+# dar vueltas. PROVISIONAL -> Excel, junto con el de arriba.
+#
+# COMO se aplica, que no es obvio: la cuenta atras se comprueba en CUATRO sitios que solo tienen la
+# celda a mano y no saben de que tipo es el nodo (dungeon_floor al construir y al barrer, Net en el
+# barrido del host, y el contador del mapa). En vez de cambiar la forma del sello —que viaja por RPC,
+# vive en el save y lo lee el plano—, se DESPLAZA el sello: al agotar un nodo lento se guarda
+# 'tiempo_mazmorra + RESPAWN_RETRASO_DESPENSA', y todas esas restas contra RESPAWN_SEGUNDOS dan
+# entonces los 10 minutos sin tocar ni una. El precio es que el valor guardado ya NO es literalmente
+# "cuando lo picaste": es "cuando lo habrias picado si fuera una veta normal".
+const RESPAWN_LENTO_SEGUNDOS := 600.0
+const RESPAWN_RETRASO_DESPENSA := RESPAWN_LENTO_SEGUNDOS - RESPAWN_SEGUNDOS
+
 # ============================================================
 #  MEDIDOR DE ALBOROTO (dispara los BROTES de pared)
 #  La mazmorra te "oye". Todo lo ruidoso -correr, pelear, picar- llena un medidor oculto; ir en
@@ -4958,12 +4972,13 @@ func _ruta_plantilla_valida(r: String) -> bool:
 # ------------------------------------------------------------
 const _CARPETA_MATERIALES := "res://resources/materials"
 const _MANIFIESTO_MATERIALES := [
-	"res://resources/materials/acero.tres", "res://resources/materials/anguila_pozo.tres",
+	"res://resources/materials/aceite.tres", "res://resources/materials/acero.tres",
+	"res://resources/materials/ajo.tres", "res://resources/materials/anguila_pozo.tres",
 	"res://resources/materials/baba_abisal.tres",
 	"res://resources/materials/baba_fuego.tres", "res://resources/materials/baba_profunda.tres",
 	"res://resources/materials/baba_rey_slime.tres", "res://resources/materials/baba_slime.tres",
 	"res://resources/materials/baba_venenosa.tres", "res://resources/materials/bagre_legamo.tres",
-	"res://resources/materials/carne_animal.tres",
+	"res://resources/materials/carne_animal.tres", "res://resources/materials/cebolla.tres",
 	"res://resources/materials/chapa_acero.tres",
 	"res://resources/materials/chapa_cobre.tres", "res://resources/materials/chapa_cobre_profundo.tres",
 	"res://resources/materials/chapa_cobre_veteado.tres", "res://resources/materials/chapa_hierro.tres",
@@ -4983,7 +4998,9 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/hebillas_cobre.tres", "res://resources/materials/hebillas_hierro.tres",
 	"res://resources/materials/hierba_palida.tres", "res://resources/materials/hierro.tres",
 	"res://resources/materials/hierro_negro.tres", "res://resources/materials/hierro_templado.tres",
-	"res://resources/materials/icor.tres", "res://resources/materials/lingote_acero.tres",
+	"res://resources/materials/hongo_azufre.tres",
+	"res://resources/materials/icor.tres", "res://resources/materials/lechuga.tres",
+	"res://resources/materials/lingote_acero.tres",
 	"res://resources/materials/lingote_cobre.tres", "res://resources/materials/lingote_cobre_profundo.tres",
 	"res://resources/materials/lingote_cobre_veteado.tres", "res://resources/materials/lingote_hierro.tres",
 	"res://resources/materials/lingote_hierro_negro.tres", "res://resources/materials/lingote_hierro_templado.tres",
@@ -5001,14 +5018,19 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/nucleo_rata.tres", "res://resources/materials/nucleo_rey_rata.tres",
 	"res://resources/materials/nucleo_rey_slime.tres", "res://resources/materials/nucleo_slime.tres",
 	"res://resources/materials/nucleo_slime_abisal.tres", "res://resources/materials/nucleo_trent.tres",
-	"res://resources/materials/nucleo_venenoso.tres", "res://resources/materials/placa_antigua.tres",
+	"res://resources/materials/nucleo_venenoso.tres", "res://resources/materials/pan.tres",
+	"res://resources/materials/patata.tres", "res://resources/materials/piedra_sal.tres",
+	"res://resources/materials/pimiento.tres", "res://resources/materials/placa_antigua.tres",
+	"res://resources/materials/puerro_gruta.tres", "res://resources/materials/queso.tres",
 	"res://resources/materials/quitina.tres", "res://resources/materials/raiz_amarga.tres",
 	"res://resources/materials/raiz_umbria.tres", "res://resources/materials/runa_arcilla.tres",
-	"res://resources/materials/sanguinaria.tres", "res://resources/materials/tablon_anillada.tres",
+	"res://resources/materials/sanguinaria.tres", "res://resources/materials/seta_simas.tres",
+	"res://resources/materials/tablon_anillada.tres",
 	"res://resources/materials/tablon_comun.tres", "res://resources/materials/tablon_de_veta.tres",
 	"res://resources/materials/tablon_duro.tres", "res://resources/materials/tablon_ferrea.tres",
 	"res://resources/materials/tablon_negro.tres", "res://resources/materials/tablon_petrificada.tres",
-	"res://resources/materials/veneno_insecto.tres",
+	"res://resources/materials/tomate.tres", "res://resources/materials/tuberculo_palido.tres",
+	"res://resources/materials/veneno_insecto.tres", "res://resources/materials/zanahoria.tres",
 ]
 const _CARPETA_ENEMIGOS := "res://scenes/actors/enemy"
 const _MANIFIESTO_ENEMIGOS := [
@@ -5495,6 +5517,37 @@ func comprar_consumible(base: ConsumableData, n: int = 1) -> bool:
 	if not gastar(precio):
 		return false
 	add_consumable(base, n)
+	print("[tienda] Compras %d x %s por %d. Dinero: %d" % [n, base.nombre, precio, money])
+	return true
+
+
+# --- COMPRAR COMIDA (la despensa del tendero) ---
+# Lo que se compra en la seccion de Comida NO es un consumible: es un MATERIAL de bolsa, igual que
+# la carne o el pescado, porque su destino es una RECETA. Por eso hace falta esta funcion y no vale
+# comprar_consumible: hay que fabricar unidades de verdad (MaterialItem), no sumar a un contador.
+#
+# El MARGEN es lo que impide el lavado: al revenderlo el tendero paga valor_estimado, que a calidad
+# normal es el valor_base pelado. Sin margen, comprar y vender saldria gratis y la tienda seria un
+# armario infinito. Con el, cada viaje de ida y vuelta te cuesta la mitad.
+const COMIDA_MARGEN := 2.0
+
+func precio_comida(base: MaterialData) -> int:
+	if base == null:
+		return 0
+	return maxi(1, int(round(float(base.valor_base) * COMIDA_MARGEN)))
+
+
+func comprar_material(base: MaterialData, n: int = 1) -> bool:
+	if base == null or n <= 0:
+		return false
+	var precio: int = precio_comida(base) * n
+	if not gastar(precio):
+		return false
+	# NO se mira la sobrecarga a proposito: recolectar tampoco la mira. Pasarte de peso te FRENA
+	# (esta_sobrecargado), no te impide coger cosas.
+	for _i in range(n):
+		materiales.append(MaterialItem.crear(base, MaterialItem.Calidad.NORMAL))
+	descubrir(base)
 	print("[tienda] Compras %d x %s por %d. Dinero: %d" % [n, base.nombre, precio, money])
 	return true
 
@@ -9266,14 +9319,18 @@ func _cerrar_recoleccion(nodo) -> void:
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()   # el minijuego se juega a ESPACIAZOS: que no ataque al salir
 	if is_instance_valid(nodo):
+		# CUANTO tarda ESTE en volver. Se decide AQUI porque es el unico punto de la cadena que
+		# tiene el nodo delante: de aqui en adelante solo viaja la celda (ver
+		# RESPAWN_RETRASO_DESPENSA para el porque de un retraso y no una duracion).
+		var retraso: float = RESPAWN_RETRASO_DESPENSA if nodo.es_despensa() else 0.0
 		# MULTIJUGADOR: el agotado pasa por el host, que suelta el lock de la veta y lo difunde
 		# a TODOS (Net._agotar_celda hace aqui mismo el marcar_agotado + agotar del nodo).
 		if Net.activo:
-			Net.notificar_agotado(nodo.celda, current_floor)
+			Net.notificar_agotado(nodo.celda, current_floor, retraso)
 		else:
 			var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 			if piso != null and piso.has_method("marcar_agotado"):
-				piso.marcar_agotado(nodo.celda)
+				piso.marcar_agotado(nodo.celda, retraso)
 			if nodo.has_method("agotar"):
 				nodo.agotar()
 		# ALBOROTO: picar y talar suenan. Menos que pelear, pero un rato dando golpes a una veta
