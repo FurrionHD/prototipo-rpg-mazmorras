@@ -3895,11 +3895,12 @@ func _accion_objeto() -> void:
 	for c in _objeto_box.get_children():
 		c.queue_free()
 	# Una fila por tipo de poción del inventario, con la cantidad. Los grimorios NO salen: en
-	# mitad de una pelea no te pones a estudiar (se usan desde el inventario, en el pueblo).
+	# mitad de una pelea no te pones a estudiar (se usan desde el inventario, en el pueblo). Los
+	# CEBOS tampoco: no se usan en ningun sitio que no sea la orilla de un estanque.
 	var grid := _rejilla_submenu(_objeto_box)
 	for cons in Game.consumables:
 		var n: int = int(Game.consumables[cons])
-		if n <= 0 or cons.es_grimorio():
+		if n <= 0 or cons.es_grimorio() or cons.es_cebo():
 			continue
 		var b := TooltipButton.new()
 		# El cuanto/en cuantos turnos se va al tooltip: a media anchura solo caben nombre y cantidad.

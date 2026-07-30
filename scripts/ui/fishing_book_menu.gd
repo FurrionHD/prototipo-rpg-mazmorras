@@ -1,10 +1,15 @@
 # ============================================================
 #  fishing_book_menu.gd  (CanvasLayer creada por codigo desde el jugador)
-#  EL LIBRO DEL PESCADOR. Una ficha por especie: su silueta, su rareza, cuantas has sacado, tu
-#  mayor y tu menor, y de que va el bicho.
+#  EL PESCADOR. Dos pestañas:
 #
-#  Lo que enseña sale ENTERO de Game.registro_pesca, que se apunta al cobrar cada pieza. NO se
-#  recalcula desde la bolsa a proposito: el pez se vende, se cocina y se pierde, y el record de la
+#   LIBRO  - una ficha por especie: su silueta, su rareza, cuantas has sacado, tu mayor y tu menor,
+#            y de que va el bicho.
+#   CEBOS  - su mostrador. Lo unico que vende, y lo unico que hace falta comprar para pescar mejor
+#            (la caña te la forja el herrero). El de T2 no se enseña hasta que cae el Rey Slime,
+#            igual que el mostrador T2 del tendero.
+#
+#  Lo que enseña el libro sale ENTERO de Game.registro_pesca, que se apunta al cobrar cada pieza. NO
+#  se recalcula desde la bolsa a proposito: el pez se vende, se cocina y se pierde, y el record de la
 #  lubina de 61 cm tiene que sobrevivir a todo eso.
 #
 #  La RAREZA tampoco se escribe: se deriva del peso de la especie en la tabla (Game.rareza_pez), y
@@ -21,17 +26,34 @@ var _root: Control = null
 var _header: VBoxContainer = null
 var _content: VBoxContainer = null
 var _lista: VBoxContainer = null
+var _side: VBoxContainer = null       # donde van las pestañas
+var _dinero: Label = null
+var _aviso: Label = null
+var _tab: int = 0                     # 0 = Libro, 1 = Cebos
 var _sel: int = 0
 var _peces: Array = []
+var _stacks: Array = []               # lo que hay a la venta en la pestaña de cebos
 
+const TABS := ["Libro", "Cebos"]
 const AMBAR := Color(0.95, 0.72, 0.36)
 const GRIS := Color(0.6, 0.63, 0.7)
+const VERDE := Color(0.55, 0.85, 0.55)
+const ROJO := Color(0.9, 0.5, 0.5)
 # Los cinco peldaños de rareza, con los MISMOS nombres que usa el equipo (Upgrades): un "raro"
 # tiene que querer decir lo mismo en un pez que en una espada.
 const RAREZAS := ["Común", "Poco común", "Raro", "Épico", "Legendario"]
 
 # Tamaño del recuadro de la "foto" y cuanto de el ocupa el pez mas largo de la especie.
 const FOTO := Vector2(260, 120)
+
+# EL MOSTRADOR. El T2 va aparte porque lo gatea el Rey Slime (Game.tienda_t2_abierta), igual que el
+# de la tienda del pueblo: no es que valga mas, es que hasta ahi no lo ves.
+const CAT_CEBOS: Array[String] = [
+	"res://resources/consumables/cebo_gusano.tres",
+]
+const CAT_CEBOS_T2: Array[String] = [
+	"res://resources/consumables/cebo_sanguijuela.tres",
+]
 
 
 func _ready() -> void:
@@ -40,17 +62,21 @@ func _ready() -> void:
 	add_to_group("fishing_book_menu")
 
 	var m: Dictionary = MenuScaffold.construir(self, "PESCADOR",
-		"Lleva la cuenta de lo que sacas de los estanques de ahí abajo. No compra ni vende: apunta.",
-		_cerrar)
+		"Lleva la cuenta de lo que sacas de los estanques de ahí abajo, y vende el cebo con el que "
+		+ "sacarlo.", _cerrar, true)
 	_root = m["root"]
 	_header = m["header"]
 	_content = m["content"]
 	_lista = m["lista"]
+	_side = m["side"]
+	_dinero = m["dinero"]
+	_aviso = m["aviso"]
 
 
 func abrir() -> void:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
+	_tab = 0
 	_sel = 0
 	_root.visible = true
 	Game.abrir_menu(self)
@@ -71,9 +97,33 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
+func _decir(txt: String, ok: bool = true) -> void:
+	MenuScaffold.decir(_aviso, txt, ok)
+
+
+func _on_tab(i: int) -> void:
+	_tab = i
+	_sel = 0
+	MenuScaffold.decir(_aviso, "")
+	_rebuild()
+
+
 func _rebuild() -> void:
-	for zona in [_header, _content, _lista]:
+	for zona in [_header, _content, _lista, _side]:
 		MenuScaffold.vaciar(zona)
+	if _dinero != null:
+		_dinero.text = "%d monedas" % Game.money
+	MenuScaffold.pestanas(_side, TABS, _tab, _on_tab, 0)
+	if _tab == 1:
+		_build_cebos()
+	else:
+		_build_libro()
+
+
+# ------------------------------------------------------------
+#  PESTAÑA: LIBRO
+# ------------------------------------------------------------
+func _build_libro() -> void:
 	_peces = Game.peces()
 
 	var vistas: int = 0
@@ -189,3 +239,78 @@ func _foto(d: MaterialData, conocido: bool) -> Control:
 	pez.color = d.color if conocido else Color(0.03, 0.05, 0.08)
 	marco.add_child(pez)
 	return marco
+
+
+# ------------------------------------------------------------
+#  PESTAÑA: CEBOS (el mostrador)
+# ------------------------------------------------------------
+func _build_cebos() -> void:
+	MenuScaffold.titulo(_header, "CEBOS")
+	MenuScaffold.nota(_header, "El cebo se pone en el estanque, no aquí: baja, ponte a la orilla y "
+		+ "pulsa [F].")
+	_header.add_child(HSeparator.new())
+
+	_stacks = []
+	var rutas: Array[String] = CAT_CEBOS.duplicate()
+	if Game.tienda_t2_abierta():
+		rutas.append_array(CAT_CEBOS_T2)
+	for ruta in rutas:
+		var base: Resource = load(ruta)
+		if base != null:
+			_stacks.append(base)
+
+	for i in _stacks.size():
+		var c: ConsumableData = _stacks[i]
+		var b := Button.new()
+		b.text = "%s   ·   %d" % [c.nombre, Game.precio_compra(c)]
+		b.toggle_mode = true
+		b.button_pressed = (i == _sel)
+		b.custom_minimum_size = Vector2(0, 34)
+		b.pressed.connect(_on_sel_cebo.bind(i))
+		_lista.add_child(b)
+
+	if _stacks.is_empty():
+		MenuScaffold.nota(_content, "Hoy no tiene nada en el mostrador.")
+		return
+	_ficha_cebo(_stacks[clampi(_sel, 0, _stacks.size() - 1)])
+
+
+func _on_sel_cebo(i: int) -> void:
+	_sel = i
+	_rebuild()
+
+
+func _ficha_cebo(c: ConsumableData) -> void:
+	var precio: int = Game.precio_compra(c)
+	MenuScaffold.titulo(_content, c.nombre, 16, AMBAR)
+	# Igual que en el libro: el numero sale del CAMPO (resumen()), no de la descripcion.
+	MenuScaffold.fila(_content, "Atracción", c.resumen(0.0, 0.0), 140, VERDE)
+	MenuScaffold.fila(_content, "Precio", str(precio), 140,
+		AMBAR if Game.money >= precio else ROJO)
+	MenuScaffold.fila(_content, "Tienes", str(int(Game.consumables.get(c, 0))), 140)
+	_content.add_child(HSeparator.new())
+	MenuScaffold.nota(_content, c.descripcion)
+	MenuScaffold.nota(_content, "Se gasta el %d%% de las veces que cobras una pieza. Si el pez se "
+		% int(round(Game.CEBO_GASTO * 100.0))
+		+ "escapa o recoges el sedal, no pagas nada.")
+	_content.add_child(HSeparator.new())
+
+	# Cantidad + comprar. El maximo es lo que te llega: no tiene sentido ofrecer un stepper que
+	# sube hasta 99 cuando la tercera unidad ya te deja sin monedas.
+	var cuantas: int = 1
+	var maximo: int = 99 if precio <= 0 else maxi(1, Game.money / precio)
+	MenuScaffold.fila(_content, "Cantidad", "", 140)
+	MenuScaffold.stepper(_content, 1, 1, maximo, func(n: int) -> void: cuantas = n)
+	var comprar := Button.new()
+	comprar.text = "Comprar"
+	comprar.custom_minimum_size = Vector2(0, 34)
+	comprar.pressed.connect(func() -> void: _on_comprar(c, cuantas))
+	_content.add_child(comprar)
+
+
+func _on_comprar(c: ConsumableData, n: int) -> void:
+	if Game.comprar_consumible(c, n):
+		_decir("Compras %d x %s. Se pone en el estanque, con [F] sobre el agua." % [n, c.nombre])
+	else:
+		_decir("No te llega para %d x %s." % [n, c.nombre], false)
+	_rebuild()

@@ -37,6 +37,7 @@ class_name JugadorData
 @export var crystals: Array = []
 @export var materiales: Array = []
 @export var consumibles: Dictionary = {}      # ruta del .tres de la pocion -> cuantas
+@export var cebo: String = ""                 # el cebo puesto en el anzuelo ("" = a pelo)
 @export var owned_mochilas: Array = []
 @export var equipped_mochila: Resource = null
 # HERRAMIENTAS. Van aqui por lo mismo que la mochila: son del jugador, no del mundo. Antes vivian

@@ -215,6 +215,9 @@ const VERSION_MUNDO := 1
 
 # Consumibles: {ruta del .tres -> cantidad}. Son ficheros del proyecto, asi que basta la ruta.
 @export var consumibles: Dictionary = {}
+# El CEBO puesto en el anzuelo, por su ruta ("" = pescas a pelo). Es una eleccion, no una cantidad,
+# asi que no cabe en el diccionario de arriba. Las partidas anteriores a los cebos llegan con "".
+@export var cebo: String = ""
 
 @export var equipped_spells: Array = []     # .tres de hechizos (referencias)
 # HABILIDADES de arma del LIDER (los compañeros las llevan dentro de su PersonajeData, que ya

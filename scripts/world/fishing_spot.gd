@@ -9,7 +9,14 @@
 #  barra de tension (fishing.gd) es solo una capa encima que no esconde nada.
 #
 #  EL CICLO:
-#    LIBRE     no estas pescando. F lanza (hace falta CAÑA equipada: sin ella no hay pesca).
+#    LIBRE     no estas pescando. F abre el MENU DE PESCA (hace falta CAÑA equipada: sin ella no hay
+#              pesca). Ahi eliges cebo y tiras la caña; el menu es tambien donde el cebo significa
+#              algo, porque es el unico sitio del juego donde ponerlo hace efecto.
+#    APUNTANDO eliges DONDE cae el corcho: A/D giran la mira (una linea de puntos) y MANTENER
+#              ESPACIO llena el medidor de fuerza. Sueltas y sale. La fuerza es DISTANCIA, no
+#              punteria: media barra cae a media travesia del charco y la barra llena casi en la
+#              orilla de enfrente. El punto SIEMPRE cae dentro del agua — no se recorta a posteriori,
+#              es que la mira solo admite angulos cuyo rayo corta la balsa (ver _tramo_de_agua).
 #    LANZANDO  el hilo vuela en ARCO desde el personaje hasta el agua (~0.4 s).
 #    ESPERA    el corcho flota. Los peces nadan. El PRIMERO que choca con el corcho se engancha.
 #    PICANDO   2-4 toques flojos: el corcho tiembla y vuelve. Pulsar aqui ESPANTA al pez.
@@ -21,6 +28,12 @@
 #  UN PEZ A LA VEZ: mientras hay uno enganchado, los demas rebotan contra el corcho y siguen
 #  nadando. Sin esa regla, con 6 peces dando vueltas en un charco de 4x3 celdas la mordida seria
 #  instantanea y continua, y la espera -que es media pesca- desapareceria.
+#
+#  EL CEBO (Game.cebo_activo) es lo unico que hace que los peces VENGAN: dentro de su radio viran
+#  hacia el corcho en vez de deambular. SIN CEBO NO HAY ATRACCION NINGUNA, a proposito — la pesca a
+#  pelo es la de siempre y el cebo es lo que compras cuando quieres elegir tu sitio y que el charco
+#  acuda. Lo que NO toca el cebo es quien muerde: la mordida sigue siendo por colision (_paso_espera)
+#  y el minijuego sigue siendo cosa de la caña. Ver ConsumableData.cebo_radio.
 #
 #  EL BANCO: el charco NO es una fuente infinita. Guarda hasta 10 peces y solo enseña 4-6 a la vez;
 #  cada pieza que te llevas tarda 10 minutos en volver, con su propio contador. Dentro de una visita
@@ -38,7 +51,7 @@
 
 extends Node2D
 
-enum { LIBRE, LANZANDO, ESPERA, PICANDO, TIRON, LUCHA, COBRO }
+enum { LIBRE, APUNTANDO, LANZANDO, ESPERA, PICANDO, TIRON, LUCHA, COBRO }
 
 # --- Lo que le pone DungeonFloor al crearlo ---
 var celda: Vector2i = Vector2i.ZERO
@@ -71,6 +84,17 @@ var _hilo: Line2D = null
 var _corcho: ColorRect = null
 var _corcho_base: Vector2 = Vector2.ZERO   # donde flota (sin el temblor encima)
 
+# --- La MIRA del lanzamiento (solo existe mientras APUNTANDO) ---
+var _mira: Node2D = null              # contenedor de la linea de puntos, el aro y el medidor
+var _mira_puntos: Array = []          # los ColorRect de la linea de puntos, reutilizados
+var _mira_aro: Line2D = null          # el circulo del punto de caida
+var _barra_fondo: ColorRect = null
+var _barra_relleno: ColorRect = null
+var _mira_lbl: Label = null
+var _ang: float = 0.0                 # hacia donde apunta la caña ahora mismo
+var _ang_base: float = 0.0            # de ti al centro del agua: el centro de la apertura
+var _fuerza: float = 0.0              # 0..1, lo que lleva cargado el medidor
+
 # --- Numeros del ciclo ---
 # CUANTOS peces se VEN nadando a la vez. Es el aforo del agua, no lo que hay: el charco guarda hasta
 # STOCK_MAX y solo saca a la superficie hasta el aforo (ver el bloque de EL BANCO).
@@ -96,6 +120,42 @@ const LARGO_MAX_FRAC := 0.42
 # El vuelo del hilo al lanzar, y lo alto que sube el arco por encima del jugador.
 const VUELO := 0.4
 const ARCO_ALTO := 46.0
+
+# ============================================================
+#  EL LANZAMIENTO: apuntar y cargar
+# ============================================================
+# Rad/s que gira la mira con A/D, y cuanto puede abrirse a cada lado de la linea que va de ti al
+# centro del agua. La apertura no es para que no te salgas —de eso ya se encarga _tramo_de_agua, que
+# solo admite angulos que corten la balsa— sino para que no puedas apuntar HACIA ATRAS y quedarte
+# mirando a la pared con la caña en la mano.
+const GIRO_MIRA := 2.2
+const ANGULO_MAX := 1.25
+# De 0 a 1 en ~1.1 s. La barra NO rebota al llegar arriba: se queda llena. La fuerza es una eleccion
+# de distancia, no una prueba de reflejos — quien quiera el borde de enfrente lo tiene mantiendo, y
+# lo que cuesta de verdad es acertar el sitio donde estan los peces.
+const CARGA_VEL := 0.9
+# Lo que el corcho se queda del borde del agua, en px. Sin este margen la fuerza maxima dejaba el
+# corcho pegado a la pared y los peces (que rebotan a medio largo del borde) no llegaban nunca.
+const MIRA_MARGEN := 6.0
+# Que fraccion del tramo de agua cubre ya la fuerza MINIMA. No es 0: soltar el medidor de inmediato
+# tiene que dejar el corcho en el agua, no en la orilla.
+const TIRO_MIN := 0.18
+# Cuantos puntos dibuja la linea de la mira.
+const MIRA_PUNTOS := 14
+
+# Rad/s a los que un pez atraido por el cebo se gira hacia el corcho. Es un VIRAJE, no un iman: el
+# pez conserva su velocidad y va nadando hasta alli, asi que uno grande y lento llega despues que un
+# gobio. Con un giro instantaneo todos caian encima del corcho a la vez y la espera desaparecia.
+#
+# El numero NO es libre: un perseguidor que solo puede girar a GIRO_CEBO y nunca frena describe
+# circulos alrededor de su presa con un radio de hasta 2*v/GIRO_CEBO. Con 2.6 rad/s y un pez rapido
+# (VEL_PEZ + VEL_PEZ_VAR = 28 px/s) eso son 21 px: medido, el pez se quedaba ORBITANDO el corcho a
+# 13 px sin llegar a morder nunca. A 4.5 la orbita peor cae a ~12 px, por debajo de EMBESTIDA.
+const GIRO_CEBO := 4.5
+# Y a partir de aqui el pez ya no vira: SE TIRA al cebo en linea recta. Es lo que remata la escena
+# (el ultimo tramo tiene que ser una embestida, no una curva) y lo que garantiza la mordida: sin
+# ella, el que orbite un poco mas ancho de la cuenta no la cruza nunca.
+const EMBESTIDA := 16.0
 
 # PICOTEO: cada toque flojo dura esto y separa al siguiente. Es el aviso de que hay algo ahi.
 const TOQUE_DUR := 0.35
@@ -222,6 +282,62 @@ func _crear_aspecto() -> void:
 	_corcho.rotation = 0.35   # ligeramente inclinado, como en el boceto
 	_corcho.visible = false
 	add_child(_corcho)
+
+	_crear_mira()
+
+
+# LA MIRA. Hecha de nodos sueltos y no de un _draw() porque este script ya dibuja debajo del agua:
+# lo que se pinta en el _draw de un Node2D queda POR DEBAJO de sus hijos, y el ColorRect del agua es
+# uno de ellos. Con nodos propios y z_index alto se ve encima de todo, peces incluidos (que nacen
+# despues y se colarian por delante).
+#
+# La linea es de PUNTOS y semitransparente a proposito: tiene que leerse como una intencion y no
+# como un laser. Los ColorRect se crean una sola vez y se recolocan cada frame; crear catorce nodos
+# por frame mientras apuntas seria tirar basura al recolector para nada.
+func _crear_mira() -> void:
+	_mira = Node2D.new()
+	_mira.z_index = 10
+	_mira.visible = false
+	add_child(_mira)
+
+	for _i in range(MIRA_PUNTOS):
+		var punto := ColorRect.new()
+		punto.size = Vector2(2, 2)
+		punto.color = Color(0.92, 0.90, 0.82, 0.35)
+		_mira.add_child(punto)
+		_mira_puntos.append(punto)
+
+	# El aro del punto de caida: un circulo de 12 lados, dibujado UNA vez y movido con position.
+	_mira_aro = Line2D.new()
+	_mira_aro.width = 1.0
+	_mira_aro.default_color = Color(0.92, 0.90, 0.82, 0.6)
+	_mira_aro.closed = true
+	var aro := PackedVector2Array()
+	for i in range(12):
+		aro.append(Vector2.from_angle(TAU * float(i) / 12.0) * 5.0)
+	_mira_aro.points = aro
+	_mira.add_child(_mira_aro)
+
+	# El medidor de fuerza: VERTICAL y pegado al jugador, como el de la mineria (mining.gd). Se llena
+	# de abajo arriba, que es lo que pide el gesto de cargar un lanzamiento.
+	_barra_fondo = ColorRect.new()
+	_barra_fondo.size = Vector2(6, 40)
+	_barra_fondo.color = Color(0.10, 0.10, 0.12, 0.75)
+	_mira.add_child(_barra_fondo)
+
+	_barra_relleno = ColorRect.new()
+	_barra_relleno.color = Color(0.95, 0.72, 0.36)
+	_mira.add_child(_barra_relleno)
+
+	_mira_lbl = Label.new()
+	_mira_lbl.text = "A/D apunta  ·  MANTÉN ESPACIO  ·  F cancela"
+	_mira_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mira_lbl.add_theme_font_size_override("font_size", 9)
+	_mira_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_mira_lbl.add_theme_constant_override("outline_size", 3)
+	_mira_lbl.offset_left = -110.0
+	_mira_lbl.offset_right = 110.0
+	_mira.add_child(_mira_lbl)
 
 
 # ------------------------------------------------------------
@@ -376,6 +492,8 @@ func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
 		"rect": rect, "data": d, "cm": cm, "largo": largo, "alto": alto,
 		"pos": pos, "vel": Vector2(cos(ang), sin(ang)) * vel,
 		"t_giro": r.randf_range(GIRO_MIN, GIRO_MAX),
+		# ¿Ha olido ya el cebo? Ver _atrae_el_cebo: una vez dentro del radio, viene aunque salga.
+		"cebo": false,
 	})
 	_colocar(_peces.back())
 
@@ -391,12 +509,27 @@ func _nadar(delta: float) -> void:
 		# El pez ENGANCHADO no deambula: se queda forcejeando junto al corcho.
 		if _pez_es(p) and _estado != ESPERA:
 			continue
-		p["t_giro"] = float(p["t_giro"]) - delta
-		if float(p["t_giro"]) <= 0.0:
-			# Giro SUAVE (no un rumbo nuevo de cero): un pez no da volantazos de 180 grados.
-			var v: Vector2 = p["vel"]
-			p["vel"] = v.rotated(randf_range(-1.1, 1.1))
+		if _atrae_el_cebo(p):
+			# EL CEBO manda mientras el pez este dentro de su radio: en vez de tirar su dado de rumbo,
+			# vira hacia el corcho. Conservando el modulo de la velocidad, o sea que cada uno va a lo
+			# suyo y llega cuando llega.
+			var atraido: Vector2 = p["vel"]
+			var hacia: Vector2 = _corcho_base - (p["pos"] as Vector2)
+			if hacia.length() <= EMBESTIDA:
+				p["vel"] = hacia.normalized() * atraido.length()   # ultimo tramo: se tira a por el
+			else:
+				p["vel"] = atraido.rotated(clampf(angle_difference(atraido.angle(), hacia.angle()),
+					-GIRO_CEBO * delta, GIRO_CEBO * delta))
+			# Se le re-arma el reloj del rumbo: al salir del radio sigue nadando, no da un volantazo
+			# en el frame siguiente por un contador que venia vencido de antes.
 			p["t_giro"] = randf_range(GIRO_MIN, GIRO_MAX)
+		else:
+			p["t_giro"] = float(p["t_giro"]) - delta
+			if float(p["t_giro"]) <= 0.0:
+				# Giro SUAVE (no un rumbo nuevo de cero): un pez no da volantazos de 180 grados.
+				var v: Vector2 = p["vel"]
+				p["vel"] = v.rotated(randf_range(-1.1, 1.1))
+				p["t_giro"] = randf_range(GIRO_MIN, GIRO_MAX)
 		var pos: Vector2 = (p["pos"] as Vector2) + (p["vel"] as Vector2) * delta
 		# Rebote en las paredes del charco. El margen es MEDIO LARGO EN LOS DOS EJES, no largo en x
 		# y alto en y: el pez esta GIRADO, asi que nadando en diagonal su morro ocupa en vertical
@@ -414,6 +547,27 @@ func _nadar(delta: float) -> void:
 		# El cuerpo se orienta con el rumbo: asi la anguila se lee como anguila al cruzar el charco.
 		(p["rect"] as ColorRect).rotation = (p["vel"] as Vector2).angle()
 		_colocar(p)
+
+
+# ¿Este pez esta oliendo el cebo? Hacen falta las tres cosas: que el corcho este flotando y libre
+# (en ESPERA y sin nadie enganchado), que lleves cebo puesto, y que el pez haya ENTRADO en su radio.
+# Sin cebo esto devuelve false SIEMPRE y los peces deambulan como toda la vida.
+#
+# UNA VEZ DENTRO, SE QUEDA ENGANCHADO (el pestillo "cebo" del pez) hasta que recojas o piques. Sin
+# ese pestillo el radio no servia de nada: un pez que entraba dandole la espalda al corcho tardaba
+# mas de un segundo en dar la vuelta (GIRO_CEBO es un viraje, no un iman) y para entonces ya habia
+# salido del radio, asi que rebotaba en el borde y se iba. Medido: entrando a 22 px de un cebo de
+# 26, acababa a 55 px. Con el pestillo, lo que el radio decide es QUIEN se entera del cebo, y el que
+# se entera viene.
+func _atrae_el_cebo(p: Dictionary) -> bool:
+	if _estado != ESPERA or not _pez.is_empty() or Game.cebo_radio() <= 0.0:
+		p["cebo"] = false
+		return false
+	if bool(p.get("cebo", false)):
+		return true
+	var r: float = Game.cebo_radio()
+	p["cebo"] = ((p["pos"] as Vector2) - _corcho_base).length_squared() <= r * r
+	return bool(p["cebo"])
 
 
 func _pez_es(p: Dictionary) -> bool:
@@ -439,7 +593,14 @@ func interactuar() -> void:
 		else:
 			_decir("El agua está quieta. Espera un momento.")
 		return
-	_lanzar()
+	# La F ya no lanza: abre el MENU DE PESCA, que es donde eliges cebo y desde donde se tira. El
+	# menu vuelve por empezar_apuntado(). Si por lo que sea no esta montado, se apunta directamente:
+	# quedarse sin poder pescar por un menu que falta seria peor que no tener cebos.
+	var menu: Node = get_tree().get_first_node_in_group("fishing_menu")
+	if menu != null and menu.has_method("abrir"):
+		menu.abrir(self)
+	else:
+		empezar_apuntado()
 
 
 func _decir(txt: String) -> void:
@@ -451,7 +612,11 @@ func _decir(txt: String) -> void:
 # ------------------------------------------------------------
 #  EL CICLO
 # ------------------------------------------------------------
-func _lanzar() -> void:
+# Lo llama el MENU DE PESCA al darle a "Tirar la caña" (o interactuar(), si el menu no esta). A
+# partir de aqui mandan A/D y ESPACIO, y el mundo se queda quieto.
+func empezar_apuntado() -> void:
+	if _estado != LIBRE:
+		return
 	var jugador = get_tree().get_first_node_in_group("player")
 	if jugador == null:
 		return
@@ -460,12 +625,50 @@ func _lanzar() -> void:
 	# peleas con el pez. Ojo: por eso este nodo es PROCESS_MODE_ALWAYS.
 	Game.entrar_modal(Game.Modal.RECOLECCION, self)
 
-	# El corcho cae en un punto del agua del lado por el que estas: el hilo no cruza el charco entero.
-	var hacia: Vector2 = to_local(jugador.global_position).normalized()
-	var tam: Vector2 = tam_px()
-	_corcho_base = Vector2(
-		clampf(hacia.x * tam.x * 0.28, -tam.x * 0.4, tam.x * 0.4),
-		clampf(hacia.y * tam.y * 0.28, -tam.y * 0.4, tam.y * 0.4))
+	# La mira nace mirando de TI al centro del agua, que es el tiro que siempre vale. A/D la abren
+	# desde ahi hasta ANGULO_MAX a cada lado.
+	_ang_base = (-_origen_hilo()).angle()
+	_ang = _ang_base
+	_fuerza = 0.0
+	_estado = APUNTANDO
+	_t = 0.0
+	# Ni la F con la que has abierto el menu ni el click de "Tirar la caña" pueden contar como el
+	# ESPACIO de cargar o como la F de cancelar.
+	_press_was = Input.is_key_pressed(KEY_SPACE)
+	_f_was = true
+	_mira.visible = true
+	_pintar_mira()
+
+
+func _paso_apuntando(delta: float) -> void:
+	# A/D giran la mira. Un angulo solo se acepta si (a) sigue dentro de la apertura y (b) su rayo
+	# CORTA el agua: asi el corcho no puede caer fuera del charco ni recortandolo despues, que es lo
+	# que haria que la linea de puntos te mintiera.
+	var giro: float = 0.0
+	if Input.is_key_pressed(KEY_A):
+		giro -= 1.0
+	if Input.is_key_pressed(KEY_D):
+		giro += 1.0
+	if giro != 0.0:
+		var nuevo: float = _ang + giro * GIRO_MIRA * delta
+		if absf(angle_difference(_ang_base, nuevo)) <= ANGULO_MAX and _tramo_de_agua(nuevo).x >= 0.0:
+			_ang = nuevo
+
+	var pulsa: bool = Input.is_key_pressed(KEY_SPACE)
+	if pulsa:
+		_fuerza = minf(1.0, _fuerza + CARGA_VEL * delta)
+	elif _press_was and _fuerza > 0.0:
+		_lanzar()   # has soltado: ahi va el sedal
+		return
+	_pintar_mira()
+
+
+func _lanzar() -> void:
+	var jugador = get_tree().get_first_node_in_group("player")
+	if jugador == null:
+		return
+	_corcho_base = _punto_de_tiro(_ang)
+	_mira.visible = false
 
 	_estado = LANZANDO
 	_t = 0.0
@@ -488,11 +691,11 @@ func _process(delta: float) -> void:
 	# Solo hasta el TIRON incluido: a partir de LUCHA manda la barra de tension, que tiene su propio
 	# final, y en COBRO el pez ya es tuyo y viene por el hilo. Recoger no espanta a nadie ni gasta
 	# stock: no has llegado a sacar nada.
-	if _estado in [LANZANDO, ESPERA, PICANDO, TIRON]:
+	if _estado in [APUNTANDO, LANZANDO, ESPERA, PICANDO, TIRON]:
 		var f_ahora: bool = Input.is_key_pressed(KEY_F)
 		if f_ahora and not _f_was:
 			_f_was = true
-			_decir("Recoges el sedal.")
+			_decir("Guardas la caña." if _estado == APUNTANDO else "Recoges el sedal.")
 			# `_pez = {}` y NO `_pez.clear()`: los Dictionary van por REFERENCIA, y este es el MISMO
 			# que esta dentro de `_peces`. Vaciarlo le borraba los datos al pez de la lista y `_nadar`
 			# petaba al buscarle el 't_giro' en el frame siguiente. Aqui solo hay que soltarlo: el pez
@@ -503,6 +706,7 @@ func _process(delta: float) -> void:
 		_f_was = f_ahora
 	_t += delta
 	match _estado:
+		APUNTANDO: _paso_apuntando(delta)
 		LANZANDO: _paso_lanzando()
 		ESPERA: _paso_espera()
 		PICANDO: _paso_picando()
@@ -665,6 +869,8 @@ func _soltar() -> void:
 	_t = 0.0
 	_hilo.visible = false
 	_corcho.visible = false
+	_mira.visible = false
+	_fuerza = 0.0
 	Game.salir_modal(self)
 	# El minijuego se juega a espaciazos y lanzar es F: sin esto, la ultima pulsacion vuelve a
 	# echar el sedal (o te lanza contra el bicho que tengas al lado) nada mas soltar.
@@ -695,6 +901,85 @@ func _cobrar() -> void:
 	if d == null:
 		return
 	Game.cobrar_pesca(d, cm)
+	# EL CEBO SE PAGA AQUI Y SOLO AQUI: con la pieza ya en la mano. Ni al escaparse el pez ni al
+	# recoger el sedal, para que fallar el tiron no cueste dos veces.
+	var aviso: String = Game.gastar_cebo_al_cobrar()
+	if aviso != "":
+		_decir(aviso)
+
+
+# ------------------------------------------------------------
+#  GEOMETRIA DEL TIRO
+# ------------------------------------------------------------
+# La punta de la caña en coordenadas locales del charco: el jugador, subido un poco. De aqui salen
+# TANTO el hilo como la linea de puntos de la mira, para que apuntes desde donde luego sale.
+func _origen_hilo() -> Vector2:
+	var jugador = get_tree().get_first_node_in_group("player")
+	if jugador == null:
+		return Vector2.ZERO
+	return to_local(jugador.global_position) + Vector2(0.0, -10.0)
+
+
+# EL TRAMO DE AGUA que atraviesa un tiro en ese angulo: (t de entrada, t de salida) en px desde la
+# punta de la caña. Devuelve (-1, -1) si ese angulo NO corta la balsa.
+#
+# Es la interseccion clasica rayo-rectangulo por "slabs", contra el agua encogida MIRA_MARGEN por
+# cada lado. Todo el lanzamiento cuelga de esto: como el punto se elige DENTRO del tramo, el corcho
+# no puede caer fuera del agua por construccion y no hace falta ningun clamp que falsee la mira.
+func _tramo_de_agua(ang: float) -> Vector2:
+	var lim: Vector2 = tam_px() * 0.5 - Vector2(MIRA_MARGEN, MIRA_MARGEN)
+	if lim.x <= 0.0 or lim.y <= 0.0:
+		return Vector2(-1.0, -1.0)
+	var ini: Vector2 = _origen_hilo()
+	var dir: Vector2 = Vector2.from_angle(ang)
+	var t0: float = -INF
+	var t1: float = INF
+	for eje in 2:
+		var d: float = dir.x if eje == 0 else dir.y
+		var o: float = ini.x if eje == 0 else ini.y
+		var l: float = lim.x if eje == 0 else lim.y
+		if absf(d) < 0.0001:
+			# Paralelo a este eje: o ya estas dentro de la franja, o no entras nunca.
+			if absf(o) > l:
+				return Vector2(-1.0, -1.0)
+			continue
+		var ta: float = (-l - o) / d
+		var tb: float = (l - o) / d
+		t0 = maxf(t0, minf(ta, tb))
+		t1 = minf(t1, maxf(ta, tb))
+	t0 = maxf(t0, 0.0)
+	if t1 <= t0:
+		return Vector2(-1.0, -1.0)
+	return Vector2(t0, t1)
+
+
+# DONDE CAE EL CORCHO con la fuerza cargada ahora mismo. Fuerza 0 cae justo pasada la orilla (ver
+# TIRO_MIN), media barra a MEDIA TRAVESIA del charco y la barra llena casi en el borde de enfrente.
+func _punto_de_tiro(ang: float) -> Vector2:
+	var tramo: Vector2 = _tramo_de_agua(ang)
+	if tramo.x < 0.0:
+		return Vector2.ZERO   # angulo imposible: al centro del agua, que siempre vale
+	var cerca: float = tramo.x + (tramo.y - tramo.x) * TIRO_MIN
+	return _origen_hilo() + Vector2.from_angle(ang) * lerpf(cerca, tramo.y, clampf(_fuerza, 0.0, 1.0))
+
+
+func _pintar_mira() -> void:
+	var ini: Vector2 = _origen_hilo()
+	var fin: Vector2 = _punto_de_tiro(_ang)
+	# La linea de puntos NO llega hasta el final: el ultimo tramo se lo queda el aro, para que el
+	# punto de caida se lea como un sitio y no como el ultimo punto de una fila.
+	for i in _mira_puntos.size():
+		var u: float = float(i + 1) / float(_mira_puntos.size() + 1)
+		var punto: ColorRect = _mira_puntos[i]
+		punto.position = ini.lerp(fin, u) - punto.size * 0.5
+	_mira_aro.position = fin
+
+	# El medidor va pegado al jugador y NO gira con la mira: es cuanto has cargado, no hacia donde.
+	var barra: Vector2 = ini + Vector2(14.0, -_barra_fondo.size.y * 0.5)
+	_barra_fondo.position = barra
+	_barra_relleno.size = Vector2(_barra_fondo.size.x, _barra_fondo.size.y * clampf(_fuerza, 0.0, 1.0))
+	_barra_relleno.position = barra + Vector2(0.0, _barra_fondo.size.y - _barra_relleno.size.y)
+	_mira_lbl.position = ini + Vector2(0.0, -34.0)
 
 
 # ------------------------------------------------------------
@@ -707,7 +992,7 @@ func _pintar_hilo(punta: Vector2, vuelo: float = 1.0) -> void:
 	if jugador == null:
 		_hilo.visible = false
 		return
-	var ini: Vector2 = to_local(jugador.global_position) + Vector2(0.0, -10.0)
+	var ini: Vector2 = _origen_hilo()
 	var fin: Vector2 = ini.lerp(punta, clampf(vuelo, 0.0, 1.0))
 	# El pico del arco: el punto medio, subido. Se dibuja con una parabola de tres puntos por
 	# Bezier cuadratica, muestreada en unos pocos tramos (un Line2D no curva solo).

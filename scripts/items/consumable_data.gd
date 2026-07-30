@@ -49,6 +49,20 @@ class_name ConsumableData
 @export var vuelve_al_pueblo: bool = false
 @export var piso_max_vuelta: int = 6
 
+# CEBO DE PESCA: si trae radio, este consumible no se bebe, ni se estudia, ni se come. Se PONE en el
+# anzuelo desde el menu del estanque y hace que los peces que pasen a menos de `cebo_radio` px del
+# corcho se giren hacia el y vayan a por el (ver FishingSpot._nadar).
+#
+# SIN CEBO NO HAY ATRACCION NINGUNA, y es a proposito: la pesca a pelo es la de siempre (los peces
+# deambulan y pican los que se cruzan por accidente) y el cebo es lo que compras cuando quieres que
+# vengan ellos. El unico eje del cebo es ese radio: no sesga especies ni tallas y no toca el
+# minijuego — eso ultimo ya es terreno de la CAÑA (tool_mods.golpes_menos alarga la ventana).
+#
+# Se gasta al COBRAR la pieza, con un 80% de probabilidad (Game.gastar_cebo_al_cobrar): si el pez se
+# te escapa o recoges el sedal no pagas nada, que es lo que impide que fallar el tiron cueste doble.
+# Un cebo no cura ni da maná: sus campos de poción se quedan a 0.
+@export var cebo_radio: float = 0.0
+
 # PLATO DE COCINA: si trae efectos, este consumible no se bebe ni se estudia, se COME
 # (Game.usar_consumible -> comer_plato). Cada efecto es un StatusApplication que le pone un estado
 # largo (20 min) al que elijas del grupo. Ver StatusEffects Id.PLATO_*.
@@ -76,6 +90,9 @@ func es_plato() -> bool:
 func es_vuelta_pueblo() -> bool:
 	return vuelve_al_pueblo
 
+func es_cebo() -> bool:
+	return cebo_radio > 0.0
+
 # ¿Esta poción cura VIDA? ¿da MANÁ? (para el menu y el uso).
 func cura_hp() -> bool: return cura_total > 0.0 or cura_pct > 0.0
 func da_mana() -> bool: return mana_total > 0.0 or mana_pct > 0.0
@@ -102,6 +119,8 @@ func mana_por_segundo(max_mp: float) -> float:
 func resumen(max_hp: float, max_mp: float) -> String:
 	if es_vuelta_pueblo():
 		return "vuelve al pueblo (hasta el piso %d)" % piso_max_vuelta
+	if es_cebo():
+		return "atrae peces a %.0f px del corcho" % cebo_radio
 	if es_plato():
 		return resumen_plato()
 	var p: Array = []

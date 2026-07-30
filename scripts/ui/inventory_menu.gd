@@ -540,6 +540,9 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		# La ficha del plato ya trae QUE hace y CUANTO dura, todo derivado de sus efectos: aqui no se
 		# escribe ni un numero (ver ConsumableData.resumen_plato).
 		_note(vb, cons.resumen_plato())
+	elif cons.es_cebo():
+		_row(vb, "Atracción", cons.resumen(0.0, 0.0))
+		_row(vb, "Puesto", "sí" if Game.cebo_activo == cons else "no")
 	else:
 		_row(vb, "Efecto", cons.resumen(Game.player_max_hp(), Game.player_max_mp()))
 		_row(vb, "Duración", "%.0f s (fuera de combate)" % cons.segundos)
@@ -586,6 +589,10 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 				b.text = "%s%s  (%s)" % [corona, pj.nombre, "  ".join(partes)]
 			b.pressed.connect(_on_usar.bind(cons, pj))
 			vb.add_child(b)
+	elif cons.es_cebo():
+		# Un cebo NO se usa desde la bolsa: se pone en el anzuelo, y eso solo significa algo con el
+		# agua delante. En vez de un boton que no haria nada, se dice donde se pone.
+		_note(vb, "Los cebos se ponen en el estanque: ponte en la orilla y pulsa [F].")
 	else:
 		var usar := Button.new()
 		usar.text = "Estudiar" if cons.es_grimorio() else ("Comer" if cons.es_plato() else "Usar")

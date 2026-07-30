@@ -1527,6 +1527,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	owned_mochilas.clear()
 	mochila_equipo = null
 	consumables.clear()
+	cebo_activo = null
 	equipped_spells.clear()
 	lider().habilidades_aprendidas.clear()
 	lider().loadout_habilidades.clear()
@@ -1676,6 +1677,9 @@ func exportar_partida() -> SaveData:
 	for c in consumables:
 		if c != null and c.resource_path != "":
 			d.consumibles[c.resource_path] = int(consumables[c])
+	# El cebo puesto va por su ruta, como los demas. Es una eleccion, no una cantidad: si no se
+	# guardase, cada partida empezaria pescando a pelo sin haberlo decidido nadie.
+	d.cebo = cebo_activo.resource_path if cebo_activo != null else ""
 
 	d.equipped_spells = equipped_spells.duplicate()
 	d.habilidades_aprendidas = lider().habilidades_aprendidas.duplicate()
@@ -1778,6 +1782,7 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	for c in consumables:
 		if c != null and c.resource_path != "":
 			jd.consumibles[c.resource_path] = int(consumables[c])
+	jd.cebo = cebo_activo.resource_path if cebo_activo != null else ""
 	jd.owned_mochilas = owned_mochilas.duplicate()
 	jd.equipped_mochila = mochila_equipo
 	jd.owned_tools = owned_tools.duplicate()
@@ -1983,6 +1988,7 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 		var c: Resource = load(ruta)
 		if c != null:
 			consumables[c] = int(jd.consumibles[ruta])
+	_cargar_cebo(jd.cebo)
 	owned_mochilas.assign(jd.owned_mochilas)
 	mochila_equipo = jd.equipped_mochila as BackpackData
 	owned_tools.assign(jd.owned_tools)
@@ -2217,6 +2223,7 @@ func importar_partida(d: SaveData) -> void:
 		var c: Resource = load(ruta)
 		if c != null:
 			consumables[c] = int(d.consumibles[ruta])
+	_cargar_cebo(d.cebo)
 
 	equipped_spells.assign(d.equipped_spells)
 	# Habilidades del lider. Una partida anterior al maestro no trae estos campos y llega con los
@@ -2807,6 +2814,17 @@ var owned_tools: Array[ToolData] = []
 # OBJETOS consumibles (pociones): ConsumableData -> cantidad. Por ahora se consiguen
 # desde el panel de debug (KAN-57). Curan por el tiempo (ver ConsumableData).
 var consumables: Dictionary = {}
+# EL CEBO QUE LLEVAS EN EL ANZUELO (null = pescas a pelo). No es una cantidad: es una ELECCION, y
+# por eso vive aparte del inventario aunque el cebo sea un consumible mas. Se pone desde el menu del
+# estanque (fishing_menu.gd) y lo lee FishingSpot._nadar para atraer a los peces.
+#
+# Sigue puesto de una pesca a otra y se guarda con la partida: cambiar de cebo cada vez que echas el
+# sedal seria un peaje de menus, no una decision.
+var cebo_activo: ConsumableData = null
+# Probabilidad de que el cebo SE GASTE al cobrar una pieza. No es 1.0 a proposito: que uno de cada
+# cinco peces salga gratis hace que un tarro de cebo rinda un poco mas de lo que pagaste y le quita
+# la sensacion de contador que baja a cada mordida.
+const CEBO_GASTO := 0.80
 # Lista para el panel de debug (añadir pociones al inventario).
 var _dev_consumables: Array[String] = [
 	"res://resources/consumables/pocion_menor.tres",
@@ -3595,6 +3613,60 @@ func gastar_consumible(c: ConsumableData) -> bool:
 		consumables[c] = n
 	return true
 
+# --- CEBOS DE PESCA ---
+# Recupera el cebo puesto al cargar una partida. Se llama DESPUES de rellenar `consumables`, porque
+# solo se restaura si de verdad te quedan unidades: una partida vieja (sin el campo) o un .tres que
+# ya no exista se quedan en null y pescas a pelo, sin un solo error por consola.
+func _cargar_cebo(ruta: String) -> void:
+	cebo_activo = null
+	# El exists() no sobra: load() de una ruta que ya no esta escupe un ERROR por consola aunque
+	# luego devuelvas null, y una partida vieja que apunte a un .tres retirado no es un fallo.
+	if ruta == "" or not ResourceLoader.exists(ruta):
+		return
+	var c: Resource = load(ruta)
+	if c is ConsumableData and (c as ConsumableData).es_cebo() and int(consumables.get(c, 0)) > 0:
+		cebo_activo = c
+
+
+# Los cebos del inventario, ordenados de menos a mas radio: es lo que pinta el menu del estanque.
+func cebos() -> Array:
+	var lista: Array = []
+	for c in consumables:
+		if c != null and int(consumables[c]) > 0 and (c as ConsumableData).es_cebo():
+			lista.append(c)
+	lista.sort_custom(func(a, b): return a.cebo_radio < b.cebo_radio)
+	return lista
+
+
+# Poner (o quitar, con null) el cebo del anzuelo. No gasta nada: ponerlo y quitarlo es gratis, lo
+# que cuesta es PESCAR con el.
+func poner_cebo(c: ConsumableData) -> void:
+	if c != null and (not c.es_cebo() or int(consumables.get(c, 0)) <= 0):
+		return
+	cebo_activo = c
+
+
+# Radio de atraccion efectivo del anzuelo ahora mismo, en px. 0 = sin cebo, o sea sin atraccion.
+func cebo_radio() -> float:
+	return cebo_activo.cebo_radio if cebo_activo != null else 0.0
+
+
+# Tirar el dado del cebo AL COBRAR una pieza. Devuelve el aviso para el toast ("" si no hay nada que
+# decir). Se llama SOLO desde FishingSpot._cobrar: si el pez se escapa o recoges el sedal no se
+# gasta, que es lo que impide que fallar el tiron te cueste dos veces.
+func gastar_cebo_al_cobrar() -> String:
+	if cebo_activo == null:
+		return ""
+	if randf() >= CEBO_GASTO:
+		return ""   # se ha aguantado en el anzuelo
+	var c: ConsumableData = cebo_activo
+	gastar_consumible(c)
+	if int(consumables.get(c, 0)) > 0:
+		return ""
+	cebo_activo = null
+	return "Se te ha acabado el cebo (%s)." % c.nombre
+
+
 # USAR un consumible del inventario (lo que hace el boton "Usar"): una poción se BEBE, un
 # grimorio se ESTUDIA y una piedra de retorno te SACA al pueblo. Punto unico para que la UI no
 # tenga que saber cual es cual.
@@ -3605,6 +3677,10 @@ func usar_consumible(c: ConsumableData, pj: PersonajeData = null) -> bool:
 		return false
 	if c.es_vuelta_pueblo():
 		return volver_al_pueblo_con_objeto(c)
+	# Un cebo no se "usa": se PONE, y solo hay un sitio donde eso significa algo (el estanque). Aqui
+	# se planta para que el boton de Usar del inventario no se lo trague sin hacer nada.
+	if c.es_cebo():
+		return false
 	if c.es_grimorio():
 		return aprender_de_grimorio(c, pj)
 	if c.es_plato():

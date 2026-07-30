@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Gusano de légamo"
+cura_total = 0.0
+cura_pct = 0.0
+mana_total = 0.0
+mana_pct = 0.0
+turnos = 1
+segundos = 1.0
+cebo_radio = 26.0
+valor_base = 40
+descripcion = "Gordo, palido y con muy pocas ganas de estar en un anzuelo. Se retuerce lo justo para que el agua a su alrededor se entere de que hay algo blando ahi."
