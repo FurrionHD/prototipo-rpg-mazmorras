@@ -1935,7 +1935,8 @@ func _chips_de(c: Combatant) -> Array:
 	# (y no como texto suelto) para heredar el tooltip y el clic-para-apuntar, y para no ensanchar
 	# el bloque: la zona de chips tiene alto fijo.
 	if c.charging != null:
-		out.append(["⚡ %s" % c.charging.nombre,
+		# Corto como el resto: el icono y los turnos que faltan. QUE esta cargando va al tooltip.
+		out.append(["⚡%dt" % c.charge_left,
 			"CARGANDO: %s\nSe dispara en %d turno%s.\nAturdirlo lo interrumpe." % [
 				c.charging.nombre, c.charge_left, "" if c.charge_left == 1 else "s"]])
 	# RECITANDO un hechizo. Hermano del chip de ataque cargado, y por el mismo motivo: un conjuro dura
@@ -1948,16 +1949,16 @@ func _chips_de(c: Combatant) -> Array:
 			var i: int = int(_casteos[c]["idx"])
 			var total: int = sp.longitud()
 			if i >= total:
-				out.append(["🔮 %s ▶" % sp.nombre,
+				out.append(["🔮▶",
 					"%s: LISTO\nEl conjuro esta recitado entero: el proximo turno se lanza." % sp.nombre])
 			else:
-				out.append(["🔮 %s %d/%d" % [sp.nombre, i + 1, total],
+				out.append(["🔮%d/%d" % [i + 1, total],
 					("%s: recitando\nFrase %d de %d. Fallar una descontrola el conjuro"
 					+ " (daño propio) y te cuesta el maná igual.") % [sp.nombre, i + 1, total]])
 	# PROVOCANDO (taunt de escudo): sin esto no habia forma de saber si te quedaba taunt ni cuanto.
 	# Va en los chips como todo lo demas, asi que sirve igual para ti y para un companero.
 	if c.provocar_turnos > 0:
-		out.append(["🎯 %dt" % c.provocar_turnos,
+		out.append(["🎯%dt" % c.provocar_turnos,
 			"Provocación (%d turno%s)\nLos enemigos centran su atención en ti: te atacan más." % [
 				c.provocar_turnos, "" if c.provocar_turnos == 1 else "s"]])
 	var imb: String = c.imbue_etiqueta()
@@ -1966,6 +1967,25 @@ func _chips_de(c: Combatant) -> Array:
 	# FOCO ARCANO. Faltaba: por el mapa se pinta (Game.refrescar_cache_estados) y dentro de la pelea
 	# no, que es justo donde importa — canalizabas, te quedaban dos cargas y no habia forma de saberlo
 	# mas que acordandote. No lleva turnos porque no caduca: es MUNICION, la gasta lanzar.
+	# POSTURA DE GUARDIA (estoque). Es un buff con duración —"hasta tu próxima acción"— que te frena
+	# mucho y te sube la esquiva, y hasta ahora solo se anunciaba UNA vez en el log y desaparecia de
+	# la vista. Igual que Defender y el agotamiento, aqui abajo.
+	if c.en_guardia:
+		out.append(["🤺", "En guardia (postura de contraataque)\nTe mueves un %d%% más lento, esquivas un %d%% más y devuelves el golpe al esquivar.\nDura hasta tu próxima acción."
+			% [roundi((1.0 - c.guardia_spd_mult) * 100.0), roundi(c.evasion_bonus * 100.0)],
+			"🤺", Color(0.85, 0.8, 0.5)])
+	# DEFENDIENDO: reduce el daño hasta su próximo turno. Vale para ti y para los compañeros.
+	if bool(_defendiendo.get(c, false)) or (c == _player and _player_defending):
+		out.append(["🛡", "Defendiendo\nEl daño que te entra se recorta hasta tu próximo turno, y los críticos en tu contra se quedan a la mitad.",
+			"🛡", Color(0.6, 0.75, 0.95)])
+	# AGOTAMIENTO: entraste sin fuelle y tus primeras acciones van a medio ritmo. Solo salia en la
+	# linea de intro del log, que a los tres turnos ya nadie recuerda.
+	var lentas: int = int(_lentas.get(c, 0))
+	if lentas > 0:
+		out.append(["😮‍💨x%d" % lentas,
+			"Sin fuelle\nEntraste agotado: tus próximas %d acción%s van a medio ritmo." % [
+				lentas, "" if lentas == 1 else "es"],
+			"😮‍💨", Color(0.8, 0.6, 0.45)])
 	if c.foco_cargas > 0:
 		out.append(["🔮x%d" % c.foco_cargas,
 			"Foco arcano: %d carga%s\nCada hechizo OFENSIVO gasta una y pega un %d%% más.\nNo caduca con los turnos." % [
@@ -3291,8 +3311,18 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 			continue
 		var al_enemigo: bool = a.en_objetivo
 		# Los buffs (en_objetivo = false) van al ALIADO ELEGIDO, que por defecto es el que lanza:
-		# Fortaleza se la puedes echar al tanque, no solo a ti.
-		var objetivo: Combatant = enemigo if al_enemigo else _cast_aliado
+		# Fortaleza se la puedes echar al tanque, no solo a ti. Y con a_todo_el_grupo, a TODOS —
+		# esta rama lo ignoraba, que es el mismo agujero que tenian las habilidades: las dos tienen
+		# que contestar igual o un hechizo de grupo escrito mañana solo buffearia a uno.
+		var destinos_h: Array = []
+		if al_enemigo:
+			destinos_h.append(enemigo)
+		elif a.a_todo_el_grupo:
+			for al_h in _aliados_vivos():
+				destinos_h.append(al_h)
+		else:
+			destinos_h.append(_cast_aliado)
+		var objetivo: Combatant = destinos_h[0]
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		# Inmunidad elemental: si el objetivo no puede recibir el estado, avisar y no tirar.
 		if objetivo.es_inmune(a.estado):   # incluye la inmunidad derivada de su AFINIDAD elemental
@@ -3315,14 +3345,18 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 					_set_log("… pero %s resiste el %s. (%.0f%%)" % [_etq(objetivo), nom, p * 100.0])
 				print("[estado] %s RESISTE %s del hechizo (prob %.0f%%)" % [objetivo.nombre, nom, p * 100.0])
 				continue
-		objetivo.apply_status(a.estado, a.turns, a.magnitud, 1, false, a.cap)
+		for d_h in destinos_h:
+			if d_h == null or not d_h.is_alive():
+				continue
+			d_h.apply_status(a.estado, a.turns, a.magnitud, 1, false, a.cap)
+			print("[estado] %s recibe %s del hechizo %s (prob %.0f%%)" % [
+				_etq(d_h), nom, spell.nombre, spell.efecto_prob(a) * 100.0])
 		if not aplicados.has(int(a.estado)):
 			aplicados.append(int(a.estado))
-		print("[estado] %s recibe %s del hechizo %s (prob %.0f%%)" % [
-			_etq(objetivo), nom, spell.nombre, spell.efecto_prob(a) * 100.0])
 		if not anunciados.has(a.estado) and not silencioso:
 			anunciados[a.estado] = true
-			_set_log("✨ %s: %s recibe %s." % [spell.nombre, _etq(objetivo), nom])
+			var a_quien: String = "todo el grupo" if destinos_h.size() > 1 else _etq(objetivo)
+			_set_log("✨ %s: %s recibe %s." % [spell.nombre, a_quien, nom])
 
 
 # Fallar una frase: el conjuro se descontrola. Daño propio (mayor cuanto mas avanzado ibas), el
@@ -3603,6 +3637,10 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	# pantalla salia un "0 de daño (2 golpes)" que no explicaba nada.
 	var rastro: Array = []
 	var dano_por_obj: Dictionary = {}
+	# ¿Alguno de los golpes fue CRITICO? Se declara AQUI FUERA, y no dentro del bloque de golpes,
+	# porque lo necesita la tirada de efectos, que ahora vive fuera (ver el bloque de EFECTOS mas
+	# abajo). Sin golpes se queda en false, que es lo correcto: una habilidad que no pega no critea.
+	var hubo_critico: bool = false
 	# GOLPES de daño (rango aleatorio; cada tajo con su ESQUIVA y CRITICO propios). Si
 	# efectos_por_golpe, cada tajo que acierta tira los efectos (sangrado 40%/hit).
 	# Las de UTILIDAD PURA (dano_mult 0, p.ej. Canalizar) NO golpean.
@@ -3621,7 +3659,6 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		# del golpe tiene el 40% de la tirada. Derivarlo del daño y no de un campo aparte hace que
 		# al tocar area_secundario / area_falloff esto se ajuste solo.
 		var escala_por_obj: Dictionary = {}
-		var hubo_critico: bool = false   # para los efectos NO por golpe (tirada al final)
 		var mana_ganado_golpes: float = 0.0
 		# Objetivos del ÁREA (el principal siempre el primero). En single-target = [obj].
 		var objetivos: Array[Combatant] = _objetivos_hab(ab, obj)
@@ -3720,10 +3757,6 @@ func _usar_habilidad(ab: AbilityData) -> void:
 					# contra tres bichos te daria el buff tres veces.
 					estados_log += _tirar_efectos_habilidad(ab, t, hubo_critico, "objetivo",
 						float(escala_por_obj.get(t, 1.0)), float(escala_por_obj.get(t, 1.0)))
-		# BUFFS PROPIOS (en_objetivo = false): una vez por uso de la habilidad, tanto si es de area
-		# como si no, y aunque no le hayas acertado a nadie -- ponerte en guardia o gritarle a los
-		# tuyos no depende de que el bicho esquivara. Con a_todo_el_grupo caen sobre todo el equipo.
-		estados_log += _tirar_efectos_habilidad(ab, obj, hubo_critico, "self")
 		# Excelia: como el ataque, entrena Fuerza (por impacto medio, contra el principal).
 		var pj_hab: PersonajeData = Game.pj_de_combatant(_player)
 		Game.ganar("fuerza", _reto(obj, pj_hab) * _player.motion_value, Game.GAIN_FUERZA_ATAQUE,
@@ -3751,6 +3784,24 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		# Una habilidad = UN uso de imbuicion, traiga los golpes que traiga (si no, las
 		# multi-golpe la fundirian de una). Las de utilidad pura (Canalizar) no la gastan.
 		_gastar_imbue()
+	else:
+		# UTILIDAD PURA (dano_mult 0): no hay golpes, pero SI puede llevar efectos que le lanzas al
+		# rival (un debuff sin daño). Sin esta rama se perdian: no hay acierto que comprobar, asi que
+		# entran directos, y su propia `prob` decide.
+		for t in _objetivos_hab(ab, obj):
+			if t != null and t.is_alive():
+				estados_log += _tirar_efectos_habilidad(ab, t, false, "objetivo")
+
+	# BUFFS PROPIOS (en_objetivo = false): UNA vez por uso, pegue la habilidad o no.
+	#
+	# ESTO ESTABA DENTRO DEL `if ab.dano_mult > 0.0` y era un agujero de los gordos: las OCHO
+	# habilidades de puro apoyo del jugador (Grito de aliento, Cobertura, Muro de aliados, Voz de
+	# mando, Égida menor, Chispa vinculada, Guardia de carne, Velo umbrío) no aplicaban NADA. Se
+	# gastaban la energía, salían en el log y no pasaba nada. La rama enemiga siempre lo hizo bien
+	# (ver _enemy_use_ability: su llamada "self" va fuera del if/else de daño) — son funciones
+	# espejo y se habian desincronizado justo aqui. Si se vuelve a tocar una, tocar la otra.
+	estados_log += _tirar_efectos_habilidad(ab, obj, hubo_critico, "self")
+
 	if ab.bloqueo_turnos > 0:
 		_player_defending = true   # golpe de escudo: te deja en guardia
 	# Postura de contraataque del estoque (KAN-57): entras en guardia hasta tu proxima accion.
@@ -3989,7 +4040,10 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			continue
 		if filtro == "self" and al_enemigo:
 			continue
-		# A QUIEN cae. Los buffs propios pueden ir a todo el grupo (grito del tanque).
+		# A QUIEN cae. Los buffs propios pueden ir a todo el grupo (grito del tanque) o a UN aliado
+		# que has elegido tu (Égida menor, Chispa vinculada): eso lo sabe _hab_objetivo_aliado, que
+		# devuelve al que lanza cuando la habilidad no pregunta por nadie. Antes ponia `_player` a
+		# pelo, asi que el escudo que le echabas al tanque te lo quedabas tu.
 		var destinos: Array = []
 		if al_enemigo:
 			destinos.append(objetivo)
@@ -3997,7 +4051,7 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			for al in _aliados_vivos():
 				destinos.append(al)
 		else:
-			destinos.append(_player)
+			destinos.append(_hab_objetivo_aliado())
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		for d in destinos:
 			if d == null or not d.is_alive() or d.es_inmune(a.estado):
@@ -4772,7 +4826,18 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 			continue   # los buffs propios no se reparten por objetivo (se aplican una vez aparte)
 		if filtro == "self" and al_jugador:
 			continue   # aqui solo van los buffs a si mismo
-		var objetivo: Combatant = victima if al_jugador else e
+		# A QUIEN cae. Los buffs propios pueden ir a TODO SU BANDO (a_todo_el_grupo), igual que en la
+		# rama del jugador: hoy ningun bicho lo usa, pero las dos ramas tienen que contestar lo mismo
+		# — desincronizarlas es exactamente lo que dejo ocho habilidades del jugador sin funcionar.
+		var destinos_e: Array = []
+		if al_jugador:
+			destinos_e.append(victima)
+		elif bool(a.a_todo_el_grupo):
+			for otro in _vivos():
+				destinos_e.append(otro)
+		else:
+			destinos_e.append(e)
+		var objetivo: Combatant = destinos_e[0]
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		if objetivo.es_inmune(a.estado):   # incluye la inmunidad derivada de su AFINIDAD elemental
 			# Si lo que te ha librado es el MANTO, se le cobra una carga (no te queman, no te mojan,
@@ -4801,8 +4866,11 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 		# de la mitad (misma prob). 1.0 en el principal y en single/reparto.
 		var mag: float = StatusEffects.app_magnitude(a, e.atk(), e.motion_value) * escala_mag
 		# Aplica los stacks de uno en uno (los independientes/merge suben stack por llamada).
-		for _s in maxi(1, a.stacks):
-			objetivo.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
+		for d_e in destinos_e:
+			if d_e == null or not d_e.is_alive():
+				continue
+			for _s in maxi(1, a.stacks):
+				d_e.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
 		out.append(nom if al_jugador else "%s (a sí mismo)" % nom)
 	return out
 

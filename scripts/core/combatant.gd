@@ -380,15 +380,13 @@ func tiene_imbue() -> bool:
 func imbue_etiqueta() -> String:
 	if not tiene_imbue():
 		return ""
+	# CORTO: los dos iconos (donde va puesta y de que es) y las cargas que quedan. El nombre, el
+	# porcentaje y la explicacion van al TOOLTIP. Antes ponia "🗡☠Veneno·3 ataques", que al lado del
+	# chip del Foco ("🔮x2") era un parrafo — y no decia nada que el icono no dijera ya.
 	var mano: String = "🛡" if imbue_cuerpo else "🗡"
-	var usos: String = "%d ataque%s" % [imbue_usos, "" if imbue_usos == 1 else "s"]
-	if imbue_elemento == Elementos.Elemento.NINGUNO:
-		# Sin elemento: lo que la define es el estado que deja (Veneno, Sangrado...).
-		var d: Dictionary = StatusEffects.def(imbue_estado)
-		return "%s%s%s·%s" % [mano, str(d.get("icono", "")), str(d.get("nombre", "?")), usos]
-	return "%s%s%s +%d%%·%s" % [
-		mano, Elementos.icono(imbue_elemento), Elementos.nombre(imbue_elemento),
-		roundi(imbue_pct * 100.0), usos]
+	var que: String = Elementos.icono(imbue_elemento) if imbue_elemento != Elementos.Elemento.NINGUNO \
+		else str(StatusEffects.def(imbue_estado).get("icono", ""))
+	return "%s%sx%d" % [mano, que, imbue_usos]
 
 
 # FICHA de la imbuicion activa, para el tooltip del combate ("" si no hay ninguna). Todos los

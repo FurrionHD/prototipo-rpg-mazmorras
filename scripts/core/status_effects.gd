@@ -180,7 +180,12 @@ static var _defs: Dictionary = {
 		"mana_heal": true, "turns": 3, "mana_default": 4.0,
 		"descripcion": "El pozo se va llenando solo, gota a gota.",
 	},
-	Id.MOJADO: {   # Lo aplican los golpes imbuidos de AGUA. Empapado no ardes... pero conduces.
+	# 'baja_fuera': ver StatusEffects.corre_fuera(). Mojado NO es un debuff (no se lo lleva
+	# limpiar_debuffs, y encima te hace inmune al fuego), pero es un ESTORBO —te amplifica el daño de
+	# Rayo que recibes— asi que por el mapa te secas solo, como un veneno se pasa. Sin esta clave se
+	# quedaria puesto para siempre, que es la regla de los buffs y aqui no pega.
+	Id.MOJADO: {
+		"baja_fuera": true,   # Lo aplican los golpes imbuidos de AGUA. Empapado no ardes... pero conduces.
 		# El "+50% de daño de RAYO recibido" NO vive aqui sino en Elementos.AMPLIFICA_POR_ESTADO:
 		# elements.gd ya depende de este archivo, y referenciar Elementos desde aqui haria un
 		# CICLO de dependencias (no compilaria).
@@ -308,6 +313,33 @@ static func def(id: int) -> Dictionary:
 # Lista de todos los Ids del catalogo.
 static func all_ids() -> Array:
 	return _defs.keys()
+
+
+# ¿A este estado le CORRE EL RELOJ fuera del combate?
+#
+# LA REGLA: fuera de la pelea solo se gastan los ESTORBOS y lo que te esta curando. Los BUFFS se
+# quedan ÍNTEGROS para el siguiente combate — te has puesto Fortaleza, sales al pasillo y sigues
+# teniendo tus 3 turnos de Fortaleza para el bicho de la vuelta de la esquina. Si se gastaran
+# andando, un buff de 3 turnos no llegaria vivo ni a la puerta y las habilidades de apoyo solo
+# valdrian a mitad de pelea.
+#
+# Corre fuera si:
+#   - es un DEBUFF (veneno, sangrado, lento...): te lo quitas de encima con el tiempo;
+#   - CURA vida o maná: la Regeneración sigue goteando (de hecho sale por heal_left);
+#   - es de TIEMPO REAL (los platos de cocina): duran 20 minutos de reloj, ese es su sentido;
+#   - o lleva 'baja_fuera' a mano (Mojado: no es debuff pero es un estorbo, ver su entrada).
+#
+# El DEFAULT es CONGELARSE, y eso es a proposito: un estado nuevo que sea un buff se comporta bien
+# sin que nadie se acuerde de tocar esta lista. Si el nuevo es un estorbo, se marca 'debuff' — que
+# es lo que hay que marcar de todas formas para que limpiar_debuffs se lo lleve.
+static func corre_fuera(def_: Dictionary) -> bool:
+	if def_.is_empty():
+		return true   # sin definicion: que caduque, mejor perderlo que dejarlo eterno
+	return bool(def_.get("debuff", false)) \
+		or bool(def_.get("heal", false)) \
+		or bool(def_.get("mana_heal", false)) \
+		or bool(def_.get("tiempo_real", false)) \
+		or bool(def_.get("baja_fuera", false))
 
 
 # ------------------------------------------------------------
@@ -444,25 +476,17 @@ class Instance extends RefCounted:
 	# Texto corto para la UI. DoT: muestra el daño/turno REAL (ya escalado por stacks).
 	# Ej "☠12·4t" (veneno x3), "☠x3(12)·4t", "🩸5·3t", "🐌x3·3t", "💫·1t".
 	func etiqueta() -> String:
+		# CORTO. El chip es un ICONO y un numero, nada mas — como el del Foco arcano, que es el
+		# formato que funciona: se lee de un vistazo y no ensancha el bloque. Todo lo demas (el daño
+		# por turno, el porcentaje que sube o baja, a que te hace inmune) va al TOOLTIP, que para eso
+		# esta: si necesitas el detalle, pasas el raton por encima.
+		#
+		# Antes ponia cosas como "☠x3(12)·4t" o "🔻x2-25%·3t": tres datos apretados en un chip que
+		# nadie lee a media pelea, y el numero que de verdad importa —cuanto le queda— se perdia
+		# entre los otros dos.
 		var ic: String = str(d.get("icono", "?"))
-		var dur: String = duracion_texto()
-		# Los PLATOS no llevan porcentaje en el chip: tocan varias cosas a la vez y ninguna resume
-		# a las demas. El icono dice cual es y el tooltip lo cuenta entero.
-		if familia() == "plato":
-			return "%s·%s" % [ic, dur]
-		if magnitude > 0.0:   # DoT
-			var dmg: int = roundi(dot_damage())
-			if stacks > 1:
-				return "%sx%d(%d)·%s" % [ic, stacks, dmg, dur]
-			return "%s%d·%s" % [ic, dmg, dur]
-		var bm: float = base_stat_mult()
-		if bm != 1.0:         # estado de stat (Vulnerable/Debil/Lento/Fortaleza): muestra el %
-			var pct: int = roundi((bm - 1.0) * 100.0)   # negativo = debuff, positivo = buff
-			var stk: String = "x%d" % stacks if stacks > 1 else ""
-			return "%s%s%+d%%·%s" % [ic, stk, pct, dur]
-		if stacks > 1:        # apilable sin stat ni DoT
-			return "%sx%d·%s" % [ic, stacks, dur]
-		return "%s·%s" % [ic, dur]
+		var stk: String = "x%d" % stacks if stacks > 1 else ""
+		return "%s%s %s" % [ic, stk, duracion_texto()]
 
 	# FICHA COMPLETA del estado (para el tooltip del combate). TODOS los numeros salen de los
 	# campos de esta instancia y de su definicion: la 'descripcion' del catalogo es solo
@@ -684,12 +708,9 @@ static func chip_de_grupo(insts: Array) -> Array:
 	if insts.size() == 1:
 		return [larga.etiqueta(), larga.resumen(), ic, col]
 
-	var dur: String = larga.duracion_texto()
-	var etq: String
-	if dot_tot > 0.0:
-		etq = "%sx%d(%d)·%s" % [ic, stacks_tot, roundi(dot_tot), dur]
-	else:
-		etq = "%sx%d·%s" % [ic, stacks_tot, dur]
+	# Mismo formato corto que etiqueta(): icono, stacks y lo que le queda. El daño total de todas
+	# las instancias juntas y el desglose por aplicacion van al tooltip, aqui debajo.
+	var etq: String = "%sx%d %s" % [ic, stacks_tot, larga.duracion_texto()]
 	var tip: String = larga.resumen() + "\n\n%d aplicaciones: %s" % [
 		insts.size(), ", ".join(turnos)]
 	return [etq, tip, ic, col]

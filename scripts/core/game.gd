@@ -3950,7 +3950,10 @@ const SEG_POR_TURNO_FUERA := 5.0
 
 func tick_estados(delta: float) -> void:
 	for p in party:
-		if p.estados.is_empty():
+		# Ni con la lista vacia ni con TODO congelado (buffs que no se gastan andando, ver
+		# StatusEffects.corre_fuera): en los dos casos no hay nada que tiquear y el reloj se para.
+		# Si no, un personaje con solo Fortaleza encima estaria contando turnos que no bajan nada.
+		if not _algo_corre_fuera(p):
 			p.estados_reloj = 0.0
 			continue
 		p.estados_reloj += delta
@@ -3958,6 +3961,14 @@ func tick_estados(delta: float) -> void:
 			continue
 		p.estados_reloj -= SEG_POR_TURNO_FUERA
 		_turno_de_estados_fuera(p)
+
+
+# ¿Le queda a 'p' algun estado al que le corra el reloj por el mapa?
+func _algo_corre_fuera(p: PersonajeData) -> bool:
+	for d in p.estados:
+		if StatusEffects.corre_fuera(StatusEffects.def(int(d.get("id", -1)))):
+			return true
+	return false
 
 
 # UN turno de estados fuera de combate para 'p'. Rehidrata las instancias (una vez, no por frame),
@@ -3973,6 +3984,11 @@ func _turno_de_estados_fuera(p: PersonajeData) -> void:
 			continue   # estado retirado del catalogo: se cae solo
 		dano += inst.dot_damage()
 		dot_mult *= inst.mult_de("dot_taken_mult")
+		# LOS BUFFS NO SE GASTAN ANDANDO: solo corren los estorbos, lo que te cura y los platos
+		# (ver StatusEffects.corre_fuera). Un buff se queda ENTERO para el siguiente combate.
+		if not StatusEffects.corre_fuera(inst.d):
+			quedan.append(StatusEffects.dict_de_instancia(inst))
+			continue
 		inst.turns -= 1
 		if inst.turns <= 0:
 			expirados.append(str(inst.d.get("nombre", "?")))
