@@ -8392,7 +8392,7 @@ func abrir_combate_espejo(roster: Dictionary) -> Node:
 # lleva quien ejecuta la pelea, y sus vidas vuelven por el camino de siempre). Solo se recoge la
 # pantalla y se devuelve el mundo.
 func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en := [],
-		_muertos := [], _ehp := [], _duenos := []) -> void:
+		_muertos := [], _ehp := [], _duenos := [], _eest := []) -> void:
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()

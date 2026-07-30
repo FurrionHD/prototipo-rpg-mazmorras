@@ -1001,7 +1001,7 @@ func cerrar_espejo() -> void:
 	if not _espejo:
 		return
 	_state = State.FINISHED
-	combat_finished.emit(false, [], [], [], [], [], [])
+	combat_finished.emit(false, [], [], [], [], [], [], [])
 
 
 # Manda la foto a los espejos. Se llama tras cada cambio que se VE (un golpe, un turno nuevo, el
