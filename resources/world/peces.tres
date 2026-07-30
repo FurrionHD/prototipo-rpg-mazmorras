@@ -11,27 +11,39 @@
 [sub_resource type="Resource" id="E_gobio"]
 script = ExtResource("2_entrada")
 material = ExtResource("3_gobio")
-peso = 100.0
+peso = 120.0
+peso_pleno = 10.0
+piso_debut = 1
+piso_pleno = 12
 
 [sub_resource type="Resource" id="E_lubina"]
 script = ExtResource("2_entrada")
 material = ExtResource("4_lubina")
-peso = 52.0
+peso = 18.0
+peso_pleno = 55.0
+piso_debut = 1
+piso_pleno = 12
 
 [sub_resource type="Resource" id="E_bagre"]
 script = ExtResource("2_entrada")
 material = ExtResource("5_bagre")
-peso = 16.0
+peso = 4.0
+peso_pleno = 45.0
+piso_debut = 1
+piso_pleno = 12
 
 [sub_resource type="Resource" id="E_anguila"]
 script = ExtResource("2_entrada")
 material = ExtResource("6_anguila")
-peso = 9.0
+peso = 1.0
+peso_pleno = 40.0
+piso_debut = 1
+piso_pleno = 12
 
 [sub_resource type="Resource" id="E_espejo"]
 script = ExtResource("2_entrada")
 material = ExtResource("7_espejo")
-peso = 0.8
+peso = 0.5
 
 [resource]
 script = ExtResource("1_tabla")
