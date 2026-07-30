@@ -36,9 +36,10 @@ var wander_radius: float = 90.0
 var puntos: Array = []
 var hogar: Vector2 = Vector2.ZERO
 
-# --- Ritmo (segundos entre partos). Lo fija dungeon_floor; aqui van los de referencia ---
-var intervalo_min: float = 25.0
-var intervalo_max: float = 70.0
+# --- Ritmo (segundos entre partos). Lo fija dungeon_floor (ya escalado por la profundidad: cuanto
+# mas hondo, mas seguido); aqui van los del PISO 1, de referencia ---
+var intervalo_min: float = 50.0
+var intervalo_max: float = 140.0
 
 # --- Aviso de la pared ---
 var aviso_dur: float = 1.2

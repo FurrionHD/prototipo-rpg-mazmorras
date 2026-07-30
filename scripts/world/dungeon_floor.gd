@@ -67,8 +67,11 @@ const RESPAWN_CHECK_CADA := 2.0
 var _t_respawn: float = RESPAWN_CHECK_CADA
 
 # --- RITMO de los partos (segundos). Franja ANCHA y LENTA a proposito: ver spawn_zone.gd ---
-@export var intervalo_min: float = 25.0
-@export var intervalo_max: float = 70.0
+# DOBLADOS (eran 25-70): con el aforo de la sala, los pasillos que desembocan en ella y los partos
+# encima, la mazmorra abrumaba -- entre pelear, extraer el cristal y moverte no habia hueco para
+# respirar. Es el ritmo del PISO 1: baja con la profundidad (ver _factor_spawn_piso).
+@export var intervalo_min: float = 50.0
+@export var intervalo_max: float = 140.0
 
 # --- Topes de poblacion ---
 # Vivos que aguanta el piso ENTERO EN EL PISO 1. Toda la mazmorra pare a la vez, asi que sin
@@ -180,6 +183,33 @@ func _factor_lineal_piso() -> float:
 # Vivos que aguanta ESTE piso (el @export es el del piso 1).
 func max_vivos() -> int:
 	return escalar_con_el_piso(max_vivos_piso)
+
+
+# ------------------------------------------------------------
+#  RITMO DE LOS PARTOS POR PROFUNDIDAD
+#  Cuanto mas hondo, mas seguido pare la pared: es la tercera pata de "abajo aprieta mas", junto al
+#  numero de bichos (que sigue al area) y al tamaño del corro (AFORO_ZONA_GROWTH).
+#
+#  Va con paso DECRECIENTE, la misma construccion que AREA_STEP_* y por el mismo motivo: un 3%
+#  compuesto a pelo son x2.36 al piso 30 y x10 al piso 80, o sea paredes escupiendo bichos cada seis
+#  segundos. Con el paso decayendo hacia un suelo, el ritmo siempre gana algo al bajar pero no se
+#  desmadra nunca: x1.14 al piso 6, x1.27 al 13, x1.45 al 30. Al piso 30 sigue pariendo MAS DESPACIO
+#  que lo que paria el piso 1 antes de doblar los intervalos.
+#  PROVISIONAL -> Excel, como el resto de las curvas.
+# ------------------------------------------------------------
+const SPAWN_STEP_MAX := 0.03    # el primer piso que bajas pare un 3% mas seguido
+const SPAWN_STEP_MIN := 0.005   # suelo: nunca deja de acelerar, pero cada vez menos
+const SPAWN_STEP_DECAY := 0.90  # cuanto se acerca el paso al suelo cada piso (mas alto = decae mas lento)
+
+func _paso_spawn(n: int) -> float:
+	return SPAWN_STEP_MIN + (SPAWN_STEP_MAX - SPAWN_STEP_MIN) * pow(SPAWN_STEP_DECAY, float(n - 1))
+
+# Cuantas veces MAS RAPIDO pare este piso que el piso 1. Los intervalos se DIVIDEN por esto.
+func _factor_spawn_piso() -> float:
+	var factor: float = 1.0
+	for i in range(1, maxi(1, _piso_construido)):   # un paso por cada piso bajado desde el 1
+		factor *= 1.0 + _paso_spawn(i)
+	return factor
 
 
 var gen: DungeonGenerator = null
@@ -878,6 +908,10 @@ func _crear_zonas() -> void:
 	# _colocar_actores, que corre justo antes y es quien sabe donde has caido.
 	var zona_entrada: int = _zona_aterrizaje if entrada_despejada else -1
 
+	# El ritmo de los partos de ESTE piso: cuanto mas hondo, mas seguido pare la pared (ver
+	# _factor_spawn_piso). Es el mismo para todas las zonas, asi que se calcula una vez.
+	var ritmo: float = _factor_spawn_piso()
+
 	for i in range(gen.zonas.size()):
 		var z: Dictionary = gen.zonas[i]
 		var celdas: Array = z["celdas"]
@@ -896,8 +930,9 @@ func _crear_zonas() -> void:
 		zona.zona_idx = i
 		zona.tipo = z["tipo"]
 		zona.partos = partos
-		zona.intervalo_min = intervalo_min
-		zona.intervalo_max = intervalo_max
+		# Se DIVIDE porque son segundos de ESPERA: mas ritmo = menos espera entre partos.
+		zona.intervalo_min = intervalo_min / ritmo
+		zona.intervalo_max = intervalo_max / ritmo
 		# Aforo por AREA: una sala grande sostiene mas bichos que un pasillo. Y el TECHO de ese
 		# aforo crece con la profundidad (AFORO_ZONA_GROWTH, su propia rampa): abajo las salas
 		# aguantan corros mas gordos, hasta el tope duro (TOPE_SALA = lo que cabe en una pelea).
