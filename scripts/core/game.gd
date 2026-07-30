@@ -4978,12 +4978,8 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/baba_fuego.tres", "res://resources/materials/baba_profunda.tres",
 	"res://resources/materials/baba_rey_slime.tres", "res://resources/materials/baba_slime.tres",
 	"res://resources/materials/baba_venenosa.tres", "res://resources/materials/bagre_legamo.tres",
-	# OJO con el nombre del primero: el fichero se llama carne_animal.tres pero dentro es la CARNE DE
-	# RATA. Cuando la carne se partio en una por bicho, el fichero NO se renombro a proposito: las
-	# partidas guardadas apuntan a esa ruta como ExtResource, y moverla les rompe la carga. Asi las
-	# pilas viejas de "Carne animal" pasan a ser carne de rata sin migrar nada.
-	"res://resources/materials/carne_animal.tres", "res://resources/materials/carne_bestia.tres",
-	"res://resources/materials/carne_insecto.tres", "res://resources/materials/carne_jabali.tres",
+	"res://resources/materials/carne_bestia.tres", "res://resources/materials/carne_insecto.tres",
+	"res://resources/materials/carne_jabali.tres", "res://resources/materials/carne_rata.tres",
 	"res://resources/materials/cebolla.tres",
 	"res://resources/materials/chapa_acero.tres",
 	"res://resources/materials/chapa_cobre.tres", "res://resources/materials/chapa_cobre_profundo.tres",

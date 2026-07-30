@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2_sa"]
 [ext_resource type="Resource" path="res://resources/materials/cuero_curado.tres" id="3_cuero"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_rey_rata.tres" id="4_nuc"]
-[ext_resource type="Resource" path="res://resources/materials/carne_animal.tres" id="8_carne"]
+[ext_resource type="Resource" path="res://resources/materials/carne_rata.tres" id="8_carne"]
 [ext_resource type="Resource" uid="uid://by7yjfetfon1w" path="res://resources/abilities/rey_rata_dentellada_real.tres" id="5_den"]
 [ext_resource type="Resource" uid="uid://bdp75q647wbkt" path="res://resources/abilities/rey_rata_chillido.tres" id="6_chi"]
 [ext_resource type="Resource" uid="uid://chytal5j21ku5" path="res://resources/abilities/rey_rata_yugular.tres" id="7_yug"]

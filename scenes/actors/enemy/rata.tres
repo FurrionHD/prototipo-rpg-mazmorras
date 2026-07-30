@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
 [ext_resource type="Resource" path="res://resources/materials/cuero_simple.tres" id="2_cuero"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_rata.tres" id="3_nuc"]
-[ext_resource type="Resource" path="res://resources/materials/carne_animal.tres" id="6_carne"]
+[ext_resource type="Resource" path="res://resources/materials/carne_rata.tres" id="6_carne"]
 [ext_resource type="Resource" path="res://resources/abilities/rata_mordisco_sangrante.tres" id="4_mor"]
 [ext_resource type="Resource" path="res://resources/abilities/rata_frenesi_dentelladas.tres" id="5_fre"]
 
