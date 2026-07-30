@@ -1,14 +1,35 @@
 # ============================================================
 #  craft_menu.gd  (CanvasLayer creada por codigo desde el jugador)
-#  Menu de la BOTICARIA: fabricar/mejorar pociones con los materiales del baul del Hogar.
-#  Lo abre la Boticaria del pueblo (boticaria.gd -> abrir()). No hay tecla propia: se
-#  entra por el NPC. Congela al jugador via Game.inventory_open mientras esta abierto.
+#  Menu de RECETAS con los materiales del baul del Hogar. Sirve a DOS oficios, y el que sea lo
+#  decide `modo` (ver MODOS abajo), que se le pone al instanciarlo desde player.gd:
+#    POCIONES -> la BOTICARIA (boticaria.gd). Tiers Menores/Medianas x tipo Vida/Maná, con mejoras
+#                que consumen la poción del escalon anterior.
+#    COCINA   -> el COCINERO (cocinero.gd). Tiers T1/T2, sin sub-tipo y sin mejoras.
+#  Van en el mismo archivo porque comparten TODO lo que cuesta: los contadores de calidad por
+#  ingrediente, las reservas de multijugador y el calculo de cuantas piezas salen. Lo unico
+#  distinto entre los dos son las pestañas, los textos y de donde salen las recetas.
 #
-#  Toda la MATH vive en Game (recetas_boticaria / seleccion_valida / craftear_con); aqui solo
+#  Lo abre su NPC del pueblo (-> abrir()). No hay tecla propia: se entra por el NPC. Congela al
+#  jugador via Game.inventory_open mientras esta abierto.
+#
+#  Toda la MATH vive en Game (recetas_* / seleccion_valida / craftear_con); aqui solo
 #  se pinta el estado y se derivan los numeros de los campos (nunca escritos a mano).
 # ============================================================
 
 extends CanvasLayer
+
+# Que oficio es este menu. Se le pone ANTES de meterlo al arbol (player.gd), porque _ready() ya lo
+# usa para elegir su grupo y su titulo.
+enum Modo { POCIONES, COCINA }
+var modo: int = Modo.POCIONES
+
+func _es_cocina() -> bool: return modo == Modo.COCINA
+# La PIEZA que sale de una receta, en singular y plural, para no escribir "poción" en un menu que
+# esta haciendo un kebab.
+func _pieza(n: int = 1) -> String:
+	if _es_cocina():
+		return "plato" if n == 1 else "platos"
+	return "poción" if n == 1 else "pociones"
 
 var _root: Control = null
 var _header: VBoxContainer = null    # cabecera FIJA
@@ -36,7 +57,7 @@ const AMBAR := Color(0.95, 0.72, 0.36)
 func _ready() -> void:
 	layer = 91
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
-	add_to_group("craft_menu")
+	add_to_group("cocina_menu" if _es_cocina() else "craft_menu")
 
 	# MULTI: refresco en vivo cuando el compañero toca el baul o su reserva (ver forge_menu).
 	if Net.has_signal("hogar_cambiado"):
@@ -46,8 +67,10 @@ func _ready() -> void:
 
 	# Misma forma que el resto de menus: cabecera fija, lista con su scroll (las recetas) y
 	# detalle con el suyo (los contadores de material, que se hacen largos).
-	var m: Dictionary = MenuScaffold.construir(self, "BOTICARIA",
-		"Fabrica pociones con lo que tengas guardado en el Hogar. Las mejoras (+1, +2) consumen la poción del escalón anterior.",
+	var m: Dictionary = MenuScaffold.construir(self,
+		"COCINERO" if _es_cocina() else "BOTICARIA",
+		"Cocina platos con lo que tengas guardado en el Hogar. Un plato dura un buen rato, y solo se puede llevar uno puesto." if _es_cocina()
+			else "Fabrica pociones con lo que tengas guardado en el Hogar. Las mejoras (+1, +2) consumen la poción del escalón anterior.",
 		_cerrar)
 	_root = m["root"]
 	_header = m["header"]
@@ -76,6 +99,12 @@ func abrir() -> void:
 # Rellena _recetas con las del TIER y TIPO elegidos. Vida = las que curan HP; Maná = las que dan
 # maná. Si las medianas no están desbloqueadas, cae a menores (por si acaso).
 func _recompute_recetas() -> void:
+	# COCINA: los dos tiers se ven SIEMPRE (el T2 se gatea solo, porque pide carne y plantas de los
+	# pisos hondos) y no hay sub-tipo: cada plato es de un eje distinto y ya lo dice su ficha.
+	if _es_cocina():
+		_recetas = Game.recetas_cocina_tier(_tier)
+		_sel = clampi(_sel, 0, maxi(0, _recetas.size() - 1))
+		return
 	if _tier >= 2 and not Game.medianas_desbloqueadas():
 		_tier = 1
 	_recetas = []
@@ -134,11 +163,16 @@ func _rebuild() -> void:
 
 	# Submenu de dos filas: TIER (Menores / Medianas) y TIPO (Vida / Maná). Las medianas solo
 	# salen si ya has conseguido algún material para hacerlas.
-	var tier_labels: Array = ["Menores"]
-	if Game.medianas_desbloqueadas():
-		tier_labels.append("Medianas")
-	MenuScaffold.pestanas(_header, tier_labels, _tier - 1, _on_tier)
-	MenuScaffold.pestanas(_header, ["Vida", "Maná"], _tipo, _on_tipo)
+	if _es_cocina():
+		# Los dos tiers desde el primer dia: el T2 no se puede cocinar hasta que bajas, pero verlo es
+		# la mitad de la gracia (te dice a que sabe seguir bajando).
+		MenuScaffold.pestanas(_header, ["De la cueva", "De lo hondo"], _tier - 1, _on_tier)
+	else:
+		var tier_labels: Array = ["Menores"]
+		if Game.medianas_desbloqueadas():
+			tier_labels.append("Medianas")
+		MenuScaffold.pestanas(_header, tier_labels, _tier - 1, _on_tier)
+		MenuScaffold.pestanas(_header, ["Vida", "Maná"], _tipo, _on_tipo)
 	_header.add_child(HSeparator.new())
 
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
@@ -223,6 +257,8 @@ func _build_detail(r: RecipeData) -> void:
 	_detail.add_child(t)
 
 	if r.resultado != null:
+		# QUE HACE, antes de gastar los ingredientes. En un plato son varias lineas (lo que sube y
+		# cuanto dura), todo derivado de sus efectos: aqui no hay ni una cifra escrita a mano.
 		_fila(r.resultado.resumen(maxhp, maxmp), Color(0.85, 0.88, 0.92))
 		if r.resultado.descripcion != "":
 			var d := Label.new()
@@ -268,7 +304,7 @@ func _build_detail(r: RecipeData) -> void:
 		var head := HBoxContainer.new()
 		head.add_theme_constant_override("separation", 8)
 		var nm := Label.new()
-		nm.text = "%s · %d uds/poción" % [ing.material.nombre, ing.unidades]
+		nm.text = "%s · %d uds/%s" % [ing.material.nombre, ing.unidades, _pieza()]
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		head.add_child(nm)
 		var tot := Label.new()
@@ -309,7 +345,8 @@ func _build_detail(r: RecipeData) -> void:
 	# Bonus de DOBLE segun lo que se va a GASTAR (en vivo). Es POR poción fabricada.
 	var prob: float = Game.prob_doble_desde_seleccion(r, gasto)
 	var bono := Label.new()
-	bono.text = "Fabricar 2 de golpe: %d%%  (por poción)" % roundi(prob * 100.0)
+	bono.text = "%s 2 de golpe: %d%%  (por %s)" % [
+		"Cocinar" if _es_cocina() else "Fabricar", roundi(prob * 100.0), _pieza()]
 	bono.add_theme_color_override("font_color", VERDE if prob > 0.0 else Color(0.55, 0.58, 0.65))
 	bono.add_theme_font_size_override("font_size", 12)
 	_detail.add_child(bono)
@@ -331,7 +368,12 @@ func _build_detail(r: RecipeData) -> void:
 	# Cuantas pociones saldran = lo que cubra la selección (mete 6 uds en una de 3 -> 2).
 	var n: int = Game.pociones_de_seleccion(r, _seleccion)
 	var fab := Button.new()
-	fab.text = "Fabricar  (%d poción%s)" % [n, "" if n == 1 else "es"] if n >= 1 else "Elige materiales suficientes"
+	# CUANTAS salen de verdad: pociones_de_seleccion dice cuantas HORNADAS cubre lo elegido, y cada
+	# hornada rinde unidades_resultado piezas (2 en cocina). Sin multiplicar, el boton prometia la
+	# mitad de los platos que salian.
+	var piezas: int = n * maxi(1, r.unidades_resultado)
+	fab.text = "%s  (%d %s)" % [
+		"Cocinar" if _es_cocina() else "Fabricar", piezas, _pieza(piezas)] if n >= 1 else "Elige materiales suficientes"
 	fab.disabled = n < 1
 	fab.custom_minimum_size = Vector2(0, 36)
 	fab.pressed.connect(_on_fabricar)
@@ -440,7 +482,7 @@ func _on_limpiar() -> void:
 func _on_fabricar() -> void:
 	var receta: RecipeData = _recetas[_sel]
 	# El nombre ANTES de fabricar/resetear (la seleccion se limpia despues).
-	var nombre: String = receta.resultado.nombre if receta.resultado != null else "poción"
+	var nombre: String = receta.resultado.nombre if receta.resultado != null else _pieza()
 	if Net.activo and not await Net.abrir_taller():
 		_ocupado()
 		_rebuild()

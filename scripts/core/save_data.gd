@@ -141,6 +141,15 @@ const VERSION_MUNDO := 1
 @export var mundo_compartido: bool = false
 @export var jugadores: Dictionary = {}   # identidad -> JugadorData
 
+# ESTADOS del LIDER. Los compañeros los llevan dentro de su PersonajeData (que ya viaja en
+# plantilla/equipo y los tiene @export), pero el que va en cabeza no viaja como PersonajeData sino
+# en estos campos planos, asi que necesita los suyos. Se guardan por los PLATOS DE COCINA: duran 20
+# minutos reales y cuestan ingredientes, asi que perderlos al guardar y salir seria robarle al
+# jugador. De paso, un veneno tampoco se cura ya cerrando el juego.
+# Vacio por defecto: las partidas de antes cargan sin estados, que es lo correcto.
+@export var player_estados: Array = []
+@export var player_estados_reloj: float = 0.0
+
 @export var player_current_hp: float = -1.0
 @export var player_current_mp: float = -1.0
 @export var stamina: float = -1.0

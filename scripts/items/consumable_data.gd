@@ -49,12 +49,29 @@ class_name ConsumableData
 @export var vuelve_al_pueblo: bool = false
 @export var piso_max_vuelta: int = 6
 
+# PLATO DE COCINA: si trae efectos, este consumible no se bebe ni se estudia, se COME
+# (Game.usar_consumible -> comer_plato). Cada efecto es un StatusApplication que le pone un estado
+# largo (20 min) al que elijas del grupo. Ver StatusEffects Id.PLATO_*.
+#
+# Un plato no cura ni da maná: sus campos de poción se quedan a 0. Y solo puedes llevar UNO puesto:
+# la exclusion la resuelve el propio estado por su "familia", no este recurso.
+# Array SIN tipar, como AbilityData.efectos y por el mismo motivo: los Array tipados escritos a mano
+# en un .tres dan problemas al cargar.
+@export var efectos: Array = []
+# TIER del plato: escala el BONUS del estado, no el valor. 1.0 = T1, 1.2 = T2 (un +10% pasa a +12%
+# y un +5% a +6%). Va aqui y no en el estado porque el T1 y el T2 comparten estado y solo cambia
+# cuanto aprieta: asi no hacen falta catorce entradas en el catalogo para siete platos.
+@export var escala_efecto: float = 1.0
+
 # PRECIO base de la tienda. Las de maná valen ~2.5 veces lo que las de vida equivalentes, y
 # los grimorios son el gasto gordo del principio.
 @export var valor_base: int = 100
 
 func es_grimorio() -> bool:
 	return spell != null
+
+func es_plato() -> bool:
+	return not efectos.is_empty()
 
 func es_vuelta_pueblo() -> bool:
 	return vuelve_al_pueblo
@@ -85,9 +102,36 @@ func mana_por_segundo(max_mp: float) -> float:
 func resumen(max_hp: float, max_mp: float) -> String:
 	if es_vuelta_pueblo():
 		return "vuelve al pueblo (hasta el piso %d)" % piso_max_vuelta
+	if es_plato():
+		return resumen_plato()
 	var p: Array = []
 	if cura_hp():
 		p.append("cura %.0f" % cura_efectiva(max_hp))
 	if da_mana():
 		p.append("maná %.0f" % mana_efectivo(max_mp))
 	return " + ".join(p)
+
+
+# FICHA de un plato: QUE te da y CUANTO dura, TODO derivado de los efectos y del catalogo de
+# estados. Ni una cifra escrita a mano — la `descripcion` del .tres es sabor puro y no repite un
+# solo numero, para que retocar el balance no deje el texto mintiendo.
+#
+# Se enseña ANTES de cocinar (en el menu del Cocinero) y tambien en el inventario: hay que poder
+# decidir si merece la pena gastar los ingredientes sin haber hecho el plato una vez.
+func resumen_plato() -> String:
+	var lineas: PackedStringArray = []
+	for ap in efectos:
+		if ap == null:
+			continue
+		var d: Dictionary = StatusEffects.def(int(ap.estado))
+		if d.is_empty():
+			continue
+		var que: String = StatusEffects.efecto_legible(int(ap.estado), 0.0, escala_efecto)
+		lineas.append("%s %s: %s" % [str(d.get("icono", "")), str(d.get("nombre", "?")), que])
+	var turnos: int = StatusEffects.PLATO_TURNOS
+	for ap in efectos:
+		if ap != null and int(ap.turns) > 0:
+			turnos = int(ap.turns)
+			break
+	lineas.append("Dura %d minutos." % int(round(float(turnos) * 5.0 / 60.0)))
+	return "\n".join(lineas)

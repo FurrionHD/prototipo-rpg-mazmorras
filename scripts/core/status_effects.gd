@@ -38,7 +38,9 @@ class_name StatusEffects
 # que meter uno en medio renumera y corrompe todas las habilidades y hechizos que ya existen.
 enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATURDIDO, RAYO, PEGAJOSO, REGENERACION, REGEN_MANA, MOJADO,
 	PRESTEZA, BALUARTE, MARCA, HERIDA_PROFUNDA, CORROSION, SILENCIO, MIEDO, SIGILO, GUARDIA_CARNE,
-	ESCOLTA }
+	ESCOLTA,
+	PLATO_GUARDIA, PLATO_BRIO, PLATO_FURIA, PLATO_ARCANO, PLATO_NUCLEO, PLATO_REMEDIO,
+	PLATO_ESTOMAGO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -83,6 +85,22 @@ static func app_magnitude(app, applier_atk: float, motion_value: float = 1.0) ->
 	if int(app.estado) == Id.SANGRADO:
 		return sangrado_magnitude(applier_atk, motion_value)
 	return -1.0
+
+# PLATOS: 20 minutos de mapa. No es un numero suelto — son los turnos que caben en 20 min al ritmo
+# del reloj de fuera de combate (Game.SEG_POR_TURNO_FUERA = 5 s), y esta escrito asi para que
+# cambiar ese reloj no deje los platos durando otra cosa. Dentro de una pelea gastan un turno por
+# turno como cualquier estado, que en 20 min de comida no se nota.
+# Nombre bonito de cada habilidad base, para los textos de los platos. Las claves son las del
+# sub-dict 'hab_mult' y coinciden con las propiedades de Abilities (asi Combatant.hab() lee la
+# habilidad por el mismo nombre que aparece en la ficha).
+const NOMBRE_HABILIDAD := {
+	"fuerza": "Fuerza", "resistencia": "Resistencia", "destreza": "Destreza",
+	"agilidad": "Agilidad", "magia": "Magia",
+}
+
+const PLATO_SEGUNDOS := 20.0 * 60.0
+const PLATO_TURNOS := int(PLATO_SEGUNDOS / 5.0)   # 5.0 = Game.SEG_POR_TURNO_FUERA (no se puede
+                                                  # referenciar: Game es autoload y esto es estatico)
 
 # Catalogo. Cada entrada trae solo los campos que usa (el resto = neutro por defecto,
 # ver los get(...) del motor). 'turns' = duracion base por defecto; 'dot' = es DoT;
@@ -224,6 +242,61 @@ static var _defs: Dictionary = {
 		"turns": 3, "seguimiento_pct": 0.5,
 		"descripcion": "Dejas de ir por tu cuenta: entras justo detrás del que abre el hueco.",
 	},
+
+	# --- PLATOS DE COCINA (KAN-119) ---------------------------------------------------
+	# Buffs LARGOS (PLATO_TURNOS = 20 min de mapa) que se comen en el pueblo o abajo. Tres cosas
+	# los separan del resto del catalogo:
+	#   - "familia": "plato"  -> EXCLUSION MUTUA: comer uno se lleva por delante al anterior.
+	#     Solo un plato activo por persona (lo resuelve Combatant.apply_status).
+	#   - "tiempo_real": true -> la UI pinta mm:ss en vez de "240t". Es solo de DISPLAY: los
+	#     turnos son los mismos, lo unico que cambia es como se leen.
+	#   - "hab_mult"          -> suben la HABILIDAD BASE (Fuerza/Resistencia/Agilidad/Magia), no
+	#     la stat derivada. Es a proposito: un +10% de Fuerza mueve ataque Y aturdir Y capacidad,
+	#     como si hubieras entrenado, en vez de ser un +10% pegado al daño final.
+	# Lo que NO puede llevar un plato: 'hp_mult' ni claves de cura por turno ('heal'/'mana_heal'),
+	# porque StatusEffects.estados_que_salen los deja fuera de la pelea y el plato tiene que salir.
+	Id.PLATO_GUARDIA: {
+		"id": Id.PLATO_GUARDIA, "nombre": "Aguante", "icono": "🛡", "color": Color(0.55, 0.7, 0.95),
+		"turns": PLATO_TURNOS, "familia": "plato", "tiempo_real": true,
+		"hab_mult": {"resistencia": 1.10}, "dmg_taken_mult": 0.95,
+		"descripcion": "Comida de verdad, de la que se queda en el cuerpo. Encajas lo que te echen.",
+	},
+	Id.PLATO_BRIO: {
+		"id": Id.PLATO_BRIO, "nombre": "Reflejos", "icono": "💨", "color": Color(0.5, 0.9, 0.8),
+		"turns": PLATO_TURNOS, "familia": "plato", "tiempo_real": true,
+		"hab_mult": {"agilidad": 1.10}, "crit_flat": 0.05, "evade_flat": 0.05,
+		"descripcion": "Ligero de estómago y suelto de piernas. Te ves venir los golpes.",
+	},
+	Id.PLATO_FURIA: {
+		"id": Id.PLATO_FURIA, "nombre": "Fuerza", "icono": "🔥", "color": Color(0.95, 0.5, 0.3),
+		"turns": PLATO_TURNOS, "familia": "plato", "tiempo_real": true,
+		"hab_mult": {"fuerza": 1.10}, "dmg_dealt_mult": 1.05, "mochila_extra": 10.0,
+		"descripcion": "Carne y fuego. Pegas con ganas y cargas con más de lo que deberías.",
+	},
+	Id.PLATO_ARCANO: {
+		"id": Id.PLATO_ARCANO, "nombre": "Magia", "icono": "✨", "color": Color(0.7, 0.55, 0.95),
+		"turns": PLATO_TURNOS, "familia": "plato", "tiempo_real": true,
+		"hab_mult": {"magia": 1.10}, "mana_coste_mult": 0.95,
+		"descripcion": "Sabe raro y se te queda la cabeza clara. Las palabras salen solas.",
+	},
+	Id.PLATO_NUCLEO: {
+		"id": Id.PLATO_NUCLEO, "nombre": "Maná", "icono": "🔮", "color": Color(0.45, 0.6, 0.95),
+		"turns": PLATO_TURNOS, "familia": "plato", "tiempo_real": true,
+		"mp_kill_mult": 1.25, "mp_regen_mult": 1.20,
+		"descripcion": "Caldo largo, de los que reposan. Lo que sueltan los bichos te cunde más.",
+	},
+	Id.PLATO_REMEDIO: {
+		"id": Id.PLATO_REMEDIO, "nombre": "Remedios", "icono": "💚", "color": Color(0.5, 0.9, 0.5),
+		"turns": PLATO_TURNOS, "familia": "plato", "tiempo_real": true,
+		"heal_recv_mult": 1.15,
+		"descripcion": "Pescado y verdura, comida de convaleciente. El frasco te dura más.",
+	},
+	Id.PLATO_ESTOMAGO: {
+		"id": Id.PLATO_ESTOMAGO, "nombre": "Estómago", "icono": "🧄", "color": Color(0.85, 0.8, 0.5),
+		"turns": PLATO_TURNOS, "familia": "plato", "tiempo_real": true,
+		"status_resist_flat": 0.10, "dot_taken_mult": 0.85,
+		"descripcion": "Salazón y encurtido. Después de esto, un veneno es casi una merienda.",
+	},
 }
 
 
@@ -253,6 +326,10 @@ class Instance extends RefCounted:
 	# para seguir ACTIVOS durante la accion del turno en que se aplican / expiran (si no, un
 	# buff de 3 turnos solo se usa en 2). Los DoT aplican daño y se van normal. Ver Combatant.
 	var fresh: bool = true
+	# TIER del plato: escala el BONUS, no el valor. 1.2 sube un +10% a +12% y un +5% a +6%.
+	# Va aparte de mult_override porque un plato toca VARIAS claves a la vez (+10% Fuerza y +5% daño)
+	# y el override las aplastaria todas al mismo numero.
+	var escala: float = 1.0
 
 	func _init(def_: Dictionary, turns_: int, stacks_: int = 1) -> void:
 		d = def_
@@ -304,7 +381,41 @@ class Instance extends RefCounted:
 		var m: float = float(d.get(clave, 1.0))
 		if mult_override > 0.0 and d.has(clave):   # nivel propio (solo al stat que modifica)
 			m = mult_override
-		return 1.0 + (m - 1.0) * float(stacks)
+		return 1.0 + (m - 1.0) * float(stacks) * escala
+
+	# --- PLATOS ---
+	# MULTIPLICADOR DE UNA HABILIDAD BASE ("fuerza", "resistencia", "destreza", "agilidad", "magia").
+	# 1.0 = neutro. Sale del sub-dict 'hab_mult' del catalogo y pasa por la misma escala/stacks que
+	# el resto, para que el T2 de un plato suba el bonus igual que sube los demas.
+	func hab_mult(clave: String) -> float:
+		var hm: Dictionary = d.get("hab_mult", {})
+		if not hm.has(clave):
+			return 1.0
+		return 1.0 + (float(hm[clave]) - 1.0) * float(stacks) * escala
+
+	# BONUS ADITIVO de una clave del catalogo (crit_flat, evade_flat, status_resist_flat,
+	# mochila_extra). Espejo de _stat_mult pero para lo que SUMA en vez de multiplicar: un +5% de
+	# critico no es un x1.05, es cinco puntos porcentuales.
+	func flat_de(clave: String) -> float:
+		if not d.has(clave):
+			return 0.0
+		return float(d[clave]) * float(stacks) * escala
+
+	# ¿Es un plato de cocina? (para la exclusion mutua y para pintar mm:ss en vez de turnos)
+	func familia() -> String: return str(d.get("familia", ""))
+	func es_tiempo_real() -> bool: return bool(d.get("tiempo_real", false))
+
+	# Lo que le queda, en mm:ss. Solo para los estados de 'tiempo_real' (platos): un buff de 20
+	# minutos en "240t" no lo lee nadie. El 5.0 es Game.SEG_POR_TURNO_FUERA.
+	func tiempo_restante() -> String:
+		var seg: int = int(round(float(turns) * 5.0))
+		@warning_ignore("integer_division")
+		var mins: int = seg / 60
+		return "%d:%02d" % [mins, seg % 60]
+
+	# Lo que le queda, ya formateado segun el tipo de estado ("4t" o "19:32").
+	func duracion_texto() -> String:
+		return tiempo_restante() if es_tiempo_real() else "%dt" % turns
 
 	# Multiplicador BASE del estado de stat (override o catalogo), SIN contar stacks.
 	# 1.0 si el estado no modifica stats (DoT/stun). Para el label y comparar niveles.
@@ -334,19 +445,24 @@ class Instance extends RefCounted:
 	# Ej "☠12·4t" (veneno x3), "☠x3(12)·4t", "🩸5·3t", "🐌x3·3t", "💫·1t".
 	func etiqueta() -> String:
 		var ic: String = str(d.get("icono", "?"))
+		var dur: String = duracion_texto()
+		# Los PLATOS no llevan porcentaje en el chip: tocan varias cosas a la vez y ninguna resume
+		# a las demas. El icono dice cual es y el tooltip lo cuenta entero.
+		if familia() == "plato":
+			return "%s·%s" % [ic, dur]
 		if magnitude > 0.0:   # DoT
 			var dmg: int = roundi(dot_damage())
 			if stacks > 1:
-				return "%sx%d(%d)·%dt" % [ic, stacks, dmg, turns]
-			return "%s%d·%dt" % [ic, dmg, turns]
+				return "%sx%d(%d)·%s" % [ic, stacks, dmg, dur]
+			return "%s%d·%s" % [ic, dmg, dur]
 		var bm: float = base_stat_mult()
 		if bm != 1.0:         # estado de stat (Vulnerable/Debil/Lento/Fortaleza): muestra el %
 			var pct: int = roundi((bm - 1.0) * 100.0)   # negativo = debuff, positivo = buff
 			var stk: String = "x%d" % stacks if stacks > 1 else ""
-			return "%s%s%+d%%·%dt" % [ic, stk, pct, turns]
+			return "%s%s%+d%%·%s" % [ic, stk, pct, dur]
 		if stacks > 1:        # apilable sin stat ni DoT
-			return "%sx%d·%dt" % [ic, stacks, turns]
-		return "%s·%dt" % [ic, turns]
+			return "%sx%d·%s" % [ic, stacks, dur]
+		return "%s·%s" % [ic, dur]
 
 	# FICHA COMPLETA del estado (para el tooltip del combate). TODOS los numeros salen de los
 	# campos de esta instancia y de su definicion: la 'descripcion' del catalogo es solo
@@ -356,8 +472,12 @@ class Instance extends RefCounted:
 		# frases cortas. Nada de parentesis explicando la mecanica por dentro: el tooltip se lee
 		# de un vistazo en mitad de un turno, no es documentacion.
 		var lineas: PackedStringArray = []
-		lineas.append("%s  %s  ·  %d turno%s" % [
-			str(d.get("icono", "?")), str(d.get("nombre", "?")), turns, "" if turns == 1 else "s"])
+		if es_tiempo_real():
+			lineas.append("%s  %s  ·  quedan %s" % [
+				str(d.get("icono", "?")), str(d.get("nombre", "?")), tiempo_restante()])
+		else:
+			lineas.append("%s  %s  ·  %d turno%s" % [
+				str(d.get("icono", "?")), str(d.get("nombre", "?")), turns, "" if turns == 1 else "s"])
 
 		# Que te HACE, con la magnitud REAL de esta instancia (stacks ya dentro).
 		if dot_damage() > 0.0:
@@ -366,15 +486,31 @@ class Instance extends RefCounted:
 			lineas.append("Te cura %.1f de vida cada turno." % heal_amount())
 		if mana_amount() > 0.0:
 			lineas.append("Te devuelve %.1f de maná cada turno." % mana_amount())
+		# HABILIDADES BASE (platos): van primero porque es lo gordo que hace el plato.
+		for clave in (d.get("hab_mult", {}) as Dictionary):
+			var hm: float = hab_mult(str(clave))
+			lineas.append("%s %+d%%." % [StatusEffects.NOMBRE_HABILIDAD.get(clave, str(clave)),
+				roundi((hm - 1.0) * 100.0)])
 		for par in [["atk_mult", "Haces"], ["def_mult", "Aguantas"], ["spd_mult", "Te mueves"],
 				["dmg_taken_mult", "Te entra"], ["heal_recv_mult", "Te curan"],
-				["def_flat_mult", "Tu armadura protege"], ["aggro_mult", "Te buscan"]]:
+				["def_flat_mult", "Tu armadura protege"], ["aggro_mult", "Te buscan"],
+				["dmg_dealt_mult", "Tus golpes hacen"], ["mana_coste_mult", "Los hechizos cuestan"],
+				["mp_kill_mult", "Cada bicho te deja"], ["mp_regen_mult", "Recuperas maná"],
+				["dot_taken_mult", "El daño por turno te hace"]]:
 			if not d.has(par[0]):
 				continue
 			var m: float = mult_de(str(par[0]))
 			var pct: int = roundi((m - 1.0) * 100.0)
 			lineas.append("%s un %d%% %s." % [
 				str(par[1]), absi(pct), "más" if pct > 0 else "menos"])
+		# Los ADITIVOS (puntos porcentuales, no multiplicadores).
+		for par in [["crit_flat", "Criticas un %d%% más a menudo."],
+				["evade_flat", "Esquivas un %d%% más a menudo."],
+				["status_resist_flat", "Resistes un %d%% más los estados alterados."]]:
+			if d.has(par[0]):
+				lineas.append(str(par[1]) % roundi(flat_de(str(par[0])) * 100.0))
+		if d.has("mochila_extra"):
+			lineas.append("Cargas con %d más." % roundi(flat_de("mochila_extra")))
 		if is_stun():
 			lineas.append("Pierdes el turno.")
 		if stun_prob_mult() != 1.0:
@@ -405,7 +541,7 @@ class Instance extends RefCounted:
 # que la gente lleva puestos y no hay dos versiones del mismo veneno.
 static func dict_de_instancia(inst) -> Dictionary:
 	return {"id": inst.id(), "turns": inst.turns, "stacks": inst.stacks,
-		"magnitude": inst.magnitude, "mult": inst.mult_override}
+		"magnitude": inst.magnitude, "mult": inst.mult_override, "escala": inst.escala}
 
 
 # LOS ESTADOS QUE SALEN DE UNA PELEA, en dicts. Es la regla de QUE sobrevive a la pantalla de
@@ -440,7 +576,8 @@ static func aplicar_a(c, estados: Array) -> void:
 			# stacks_add = los que traia. En los "merge" (veneno) eso reconstruye el nivel de una
 			# sola aplicacion; en los "independent" (Sangrado, Pegajoso) cada dict es SU instancia y
 			# entra con un stack, que es exactamente como se guardo.
-			maxi(1, int(d.get("stacks", 1))), false, -1, float(d.get("mult", 0.0)))
+			maxi(1, int(d.get("stacks", 1))), false, -1, float(d.get("mult", 0.0)),
+			float(d.get("escala", 1.0)))
 
 
 # null si el id ya no existe en el catalogo (un estado retirado entre versiones: mejor perderlo que
@@ -452,6 +589,9 @@ static func instancia_de_dict(d: Dictionary):
 	var inst := Instance.new(def_, int(d.get("turns", 0)), maxi(1, int(d.get("stacks", 1))))
 	inst.magnitude = float(d.get("magnitude", 0.0))
 	inst.mult_override = float(d.get("mult", 0.0))
+	# 'escala' con default 1.0: los dicts guardados ANTES de que existieran los platos no la traen
+	# y tienen que rehidratar neutros, no a cero (que apagaria el estado entero).
+	inst.escala = float(d.get("escala", 1.0))
 	# 'fresh' NO viaja: existe para que un buff recien echado no se coma un turno antes de poder
 	# usarlo DENTRO de la pelea. Fuera no hay accion que proteger, y al volver a entrar en combate
 	# lo que queda es lo que queda.
@@ -462,20 +602,41 @@ static func instancia_de_dict(d: Dictionary):
 # QUE hace un estado, en una frase corta y con el NOMBRE de lo que toca ("−25% defensa"), para las
 # fichas. Sin el nombre, un "(30%, -25%)" no dice si el -25% es probabilidad, daño o duracion.
 # 'mult' = el nivel concreto de esta aplicacion (StatusApplication.mult), o 0 para el del catalogo.
-static func efecto_legible(id: int, mult: float = 0.0) -> String:
+# 'escala' = el tier del plato (1.2 = el T2, que aprieta un 20% mas). Escala el BONUS, igual que
+# Instance.escala, para que la ficha del plato T2 diga +12% y no +10%.
+static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> String:
 	var d: Dictionary = def(id)
 	var etiquetas: Dictionary = {
 		"atk_mult": "ataque", "def_mult": "defensa", "spd_mult": "velocidad",
 		"dmg_taken_mult": "daño recibido", "heal_recv_mult": "curación recibida",
 		"def_flat_mult": "armadura", "aggro_mult": "de atención de los enemigos",
 		"hp_mult": "vida máxima",
+		"dmg_dealt_mult": "daño hecho", "spell_dmg_mult": "daño mágico",
+		"mana_coste_mult": "coste de los hechizos", "mp_kill_mult": "maná por enemigo",
+		"mp_regen_mult": "regeneración de maná", "dot_taken_mult": "daño por turno recibido",
+	}
+	# Los ADITIVOS: puntos porcentuales, no multiplicadores. Un "+5% crítico" no es un x1.05, y
+	# pasarlo por la formula de arriba lo pintaria como "-95%".
+	var etiquetas_flat: Dictionary = {
+		"crit_flat": "crítico", "evade_flat": "esquiva",
+		"status_resist_flat": "resistencia a estados",
 	}
 	var partes: Array = []
+	# Las HABILIDADES BASE (platos) van primero: es lo mas gordo que hacen.
+	for clave in (d.get("hab_mult", {}) as Dictionary):
+		partes.append("%+d%% %s" % [roundi((float(d["hab_mult"][clave]) - 1.0) * 100.0 * escala),
+			str(NOMBRE_HABILIDAD.get(clave, clave))])
 	for clave in etiquetas:
 		if not d.has(clave):
 			continue
 		var m: float = mult if mult > 0.0 else float(d[clave])
-		partes.append("%+d%% %s" % [roundi((m - 1.0) * 100.0), str(etiquetas[clave])])
+		partes.append("%+d%% %s" % [roundi((m - 1.0) * 100.0 * escala), str(etiquetas[clave])])
+	for clave in etiquetas_flat:
+		if d.has(clave):
+			partes.append("%+d%% %s" % [roundi(float(d[clave]) * 100.0 * escala),
+				str(etiquetas_flat[clave])])
+	if d.has("mochila_extra"):
+		partes.append("+%d de carga" % roundi(float(d["mochila_extra"]) * escala))
 	if not partes.is_empty():
 		return " y ".join(partes)
 	if bool(d.get("is_stun", false)):
@@ -498,14 +659,16 @@ static func efecto_legible(id: int, mult: float = 0.0) -> String:
 # Sangrado) crean una Instance por aplicacion, asi que la UI pintaba cuatro iconos iguales en fila
 # y no habia forma de saber cuanto le quedaba a cada uno.
 #
-# 'insts' = todas las instancias del MISMO estado. Devuelve [etiqueta, tooltip]:
+# 'insts' = todas las instancias del MISMO estado. Devuelve [etiqueta, tooltip, icono, color]:
 #   - etiqueta: los stacks SUMADOS y los turnos del que MAS le queda (el estado no se te va hasta
 #     que caduca el ultimo), y en los DoT el daño total de todas juntas.
 #   - tooltip: la ficha de la instancia mas larga + una linea con lo que le queda a cada una, que
 #     es justo el dato que se perdia al agrupar.
+#   - icono y color: para pintarlo como CHIP con recuadro (ver scripts/ui/status_chip.gd). Van al
+#     final para que quien solo queria [etiqueta, tooltip] siga funcionando sin tocar nada.
 static func chip_de_grupo(insts: Array) -> Array:
 	if insts.is_empty():
-		return ["", ""]
+		return ["", "", "", Color.WHITE]
 	var larga: Instance = insts[0]
 	var stacks_tot: int = 0
 	var dot_tot: float = 0.0
@@ -515,16 +678,18 @@ static func chip_de_grupo(insts: Array) -> Array:
 			larga = e
 		stacks_tot += maxi(1, e.stacks)
 		dot_tot += e.dot_damage() + e.heal_amount() + e.mana_amount()
-		turnos.append("%dt" % e.turns)
-	if insts.size() == 1:
-		return [larga.etiqueta(), larga.resumen()]
-
+		turnos.append(e.duracion_texto())
 	var ic: String = str(larga.d.get("icono", "?"))
+	var col: Color = larga.d.get("color", Color.WHITE)
+	if insts.size() == 1:
+		return [larga.etiqueta(), larga.resumen(), ic, col]
+
+	var dur: String = larga.duracion_texto()
 	var etq: String
 	if dot_tot > 0.0:
-		etq = "%sx%d(%d)·%dt" % [ic, stacks_tot, roundi(dot_tot), larga.turns]
+		etq = "%sx%d(%d)·%s" % [ic, stacks_tot, roundi(dot_tot), dur]
 	else:
-		etq = "%sx%d·%dt" % [ic, stacks_tot, larga.turns]
+		etq = "%sx%d·%s" % [ic, stacks_tot, dur]
 	var tip: String = larga.resumen() + "\n\n%d aplicaciones: %s" % [
 		insts.size(), ", ".join(turnos)]
-	return [etq, tip]
+	return [etq, tip, ic, col]

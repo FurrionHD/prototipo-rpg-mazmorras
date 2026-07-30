@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="MaterialTable" format=3]
+[gd_resource type="Resource" script_class="MaterialTable" format=3 uid="uid://cqfd3f2ibjdm3"]
 
 [ext_resource type="Script" uid="uid://cu560afpbuxtm" path="res://scripts/world/material_table.gd" id="1_tabla"]
 [ext_resource type="Script" uid="uid://5341cfr77rmh" path="res://scripts/world/material_entry.gd" id="2_entrada"]
@@ -25,7 +25,6 @@ piso_pleno = 8
 [sub_resource type="Resource" id="E_hongo"]
 script = ExtResource("2_entrada")
 material = ExtResource("5_hongo")
-peso = 10.0
 peso_pleno = 50.0
 piso_debut = 7
 piso_pleno = 12

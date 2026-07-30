@@ -127,7 +127,7 @@ func _ficha(d: MaterialData) -> void:
 	if conocido:
 		# La horquilla de la ESPECIE, para que sepas cuanto te queda hasta el ejemplar de museo.
 		MenuScaffold.fila(_content, "Talla de la especie",
-			"%d - %d cm" % [roundi(d.cm_min), roundi(d.cm_max)], 140)
+			"%.1f - %.1f cm" % [d.cm_min, d.cm_max], 140)
 		MenuScaffold.fila(_content, "Valor base", str(d.valor_base), 140)
 		_coronas(d)
 
@@ -149,7 +149,7 @@ func _fila_talla(etiqueta: String, d: MaterialData, cm: float, conocido: bool) -
 	var c: int = d.corona_de(cm)
 	var g: String = MaterialData.corona_glifo(c)
 	MenuScaffold.fila(_content, etiqueta,
-		"%d cm%s" % [roundi(cm), ("   " + g + " " + MaterialData.corona_texto(c)) if g != "" else ""],
+		"%.1f cm%s" % [cm, ("   " + g + " " + MaterialData.corona_texto(c)) if g != "" else ""],
 		140, MaterialData.corona_color(c) if c != MaterialData.Corona.NINGUNA else AMBAR)
 
 
@@ -163,12 +163,12 @@ func _coronas(d: MaterialData) -> void:
 	for c in [MaterialData.Corona.ORO, MaterialData.Corona.PLATA,
 			MaterialData.Corona.MINI_PLATA, MaterialData.Corona.MINI_ORO]:
 		var tengo: bool = Game.tiene_corona(d.id, c)
-		var umbral: int = roundi(d.corona_umbral(c))
-		var grande: bool = c == MaterialData.Corona.ORO or c == MaterialData.Corona.PLATA
-		var meta: String = ("desde %d cm" % umbral) if grande else ("hasta %d cm" % umbral)
+		# El corte NO se enseña hasta que la corona es tuya: si el libro te dice "desde 53.8 cm", la
+		# corona deja de ser un hallazgo y se convierte en una lista de la compra. Con ??? sacas peces
+		# hasta que uno salta y ENTONCES te enteras de donde estaba la raya.
 		MenuScaffold.fila(_content,
 			"%s %s" % [MaterialData.corona_glifo(c), MaterialData.corona_texto(c)],
-			("✓  conseguida" if tengo else "—  %s" % meta),
+			("✓  conseguida" if tengo else "—  ???"),
 			200, MaterialData.corona_color(c) if tengo else GRIS)
 
 

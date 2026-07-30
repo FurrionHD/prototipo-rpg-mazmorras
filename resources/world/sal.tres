@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="MaterialTable" format=3]
+[gd_resource type="Resource" script_class="MaterialTable" format=3 uid="uid://cuyudjqx6y0yd"]
 
 [ext_resource type="Script" uid="uid://cu560afpbuxtm" path="res://scripts/world/material_table.gd" id="1_tabla"]
 [ext_resource type="Script" uid="uid://5341cfr77rmh" path="res://scripts/world/material_entry.gd" id="2_entrada"]

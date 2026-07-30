@@ -575,19 +575,57 @@ const TALA_RETO_MAX := 5.0              # tope FISICO (la Agilidad es fisica, co
 # tramo mientras el forcejea, y eso dura lo que dure. Por eso paga Resistencia y no Destreza: es la
 # stat de sostener el pulso, y hasta ahora solo se entrenaba comiendo golpes en combate.
 const PESCA_RESISTENCIA_FLOOR := 30.0   # suelo de skill, como en las otras tres
-const PESCA_BASE_TRAMO := 0.30          # alto de TU tramo a dificultad 1 (fraccion de la barra)
-const PESCA_TRAMO_MIN := 0.08           # por debajo de esto el tramo no se puede pilotar
-const PESCA_TRAMO_MAX := 0.45
+# Alto del TRAMO VERDE (el que arrastra el pez) a dificultad 1, en fraccion de la barra.
+#
+# DOS playtests, y el segundo corrigio al primero. Primero se bajo de 0.30 a 0.17 porque el pez de
+# inicio no se podia fallar; con eso, un pez de exigencia 150 a Resistencia 150 (o sea CUMPLIENDO su
+# requisito) se quedaba en un tramo del 12% de la barra y era incapturable. El error fue recortar el
+# ANCHO y la SUBIDA de tension a la vez: son las dos palancas y se movieron en el mismo sentido.
+#
+# El reparto correcto es este: el ANCHO manda si algo es POSIBLE, y `sube` manda cuanto DURA. Lo que
+# hacia trivial al pez de inicio era que se sacaba en 1.9 s, no que el tramo fuera comodo. Asi que el
+# ancho vuelve a ser generoso (0.28) y la dureza se la queda `sube`, que se queda en 0.20.
+#
+# Calibrado para que al cumplir el requisito de un pez el tramo ronde el 0.20 de la barra:
+# exigencia 150 con Resistencia 150 -> reto 1.43 -> tramo 0.196.
+const PESCA_BASE_TRAMO := 0.28
+# El MINIMO sube de 0.06 a 0.10: por debajo de un decimo de barra la linea no se puede pilotar (tiene
+# inercia), asi que era un "imposible" disfrazado de dificil.
+const PESCA_TRAMO_MIN := 0.10
+const PESCA_TRAMO_MAX := 0.30
 const PESCA_BASE_VEL := 0.42            # lo que recorre el pez por segundo a dificultad 1
 const PESCA_VEL_MAX := 1.15             # techo: un pez que cruza la barra 3 veces/seg no es dificil, es ilegible
 const PESCA_BASE_ERRATICO := 0.85       # cada cuanto cambia de idea a dificultad 1
 const PESCA_ERRATICO_MAX := 2.4
 # Ritmo de la barra de TENSION. Sube despacio y baja mas despacio todavia: la pelea tiene que durar
 # lo bastante para que se note el pulso, pero un despiste no puede costarte el pez de golpe.
-const PESCA_SUBE_BASE := 0.34
-const PESCA_SUBE_MIN := 0.13
-const PESCA_BAJA_BASE := 0.20
-const PESCA_BAJA_MAX := 0.42
+#
+# SUBE: el knob de "cuanto dura la pelea". Fue 0.34 (un pez se sacaba en un parpadeo), luego 0.20
+# (demasiado lento: la barra no avanzaba) y se queda en 0.30.
+#
+# El numero de abajo es el tiempo IDEAL, con la linea clavada dentro del tramo todo el rato, y en la
+# practica se tarda bastante mas: para no perder terreno hay que estar dentro entre el 45% y el 60%
+# del tiempo segun el reto, asi que la pelea real es facil que dure dos o tres veces eso. Por eso el
+# ideal tiene que quedarse CORTO — si el ideal ya son 5 s, la pelea de verdad se hace eterna, que es
+# justo lo que paso con 0.20.
+const PESCA_SUBE_BASE := 0.30
+# Y el SUELO sube de 0.09 a 0.14: contra un pez muy por encima de ti la barra iba tan despacio que
+# la pelea no se perdia, se abandonaba.
+const PESCA_SUBE_MIN := 0.14
+# BAJA: lo que se DESTENSA con la linea fuera del tramo. Contra `sube`, estas dos deciden EL RATIO
+# que de verdad manda: la fraccion de tiempo que hay que estar dentro solo para no perder terreno,
+# que es `baja / (sube + baja)`.
+#
+# Bajado de 0.20/0.42 a 0.10/0.16 en dos pasos del mismo playtest. Con 0.24 de techo, un pez con el
+# requisito CUMPLIDO exigia estar dentro el 53% del tiempo y uno duro el 63%: a esos niveles no
+# estas siguiendo al pez, es que no puedes fallar ni una vez, y la pesca se volvia imposible aunque
+# tuvieras la Resistencia que pedia.
+#
+# Ahora: requisito cumplido -> ~40% dentro; pez muy por encima de ti -> ~53%. La DIFICULTAD no se ha
+# tocado y sigue donde debe estar —el tramo, lo rapido que se mueve el pez y lo erratico que es—,
+# o sea en SEGUIRLO. Lo que cambia es que seguirlo bien ahora gana, que antes no.
+const PESCA_BAJA_BASE := 0.10
+const PESCA_BAJA_MAX := 0.16
 const PESCA_PIVOTE := 1.5
 const PESCA_SLOPE := 0.65
 const PESCA_RETO_MAX := 5.0             # tope FISICO (la Resistencia es fisica)
@@ -1120,12 +1158,18 @@ func capturar_mapa() -> void:
 	# salas por las que no has pasado (te chiva materiales que no has descubierto).
 	var vivos: Array = []
 	for nodo in get_tree().get_nodes_in_group("recolectable"):
-		if not is_instance_valid(nodo) or nodo.material_data == null:
+		if not is_instance_valid(nodo):
+			continue
+		# Por get() y no por nodo.material_data: en "recolectable" no solo hay vetas y plantas. El
+		# CHARCO de pesca tambien esta (se recolecta con la caña) y NO tiene material_data, porque su
+		# material se sortea en cada captura y no antes. Leerselo a pelo petaba al bajar de piso.
+		var mat_nodo = nodo.get("material_data")
+		if mat_nodo == null:
 			continue
 		if not vistas.has(gen.zona_en(nodo.celda)):
 			continue
 		# El 'tipo' es lo que le deja al mapa dibujar una marca distinta por veta/planta/madera.
-		vivos.append({"cell": nodo.celda, "color": nodo.material_data.color, "tipo": nodo.tipo})
+		vivos.append({"cell": nodo.celda, "color": (mat_nodo as MaterialData).color, "tipo": nodo.tipo})
 	# AGOTADOS: no basta con el sello de tiempo. Cuando a una celda le vence el respawn, el mapa
 	# tiene que poder pintarla como nodo VIVO — pero el nodo no existia al cartografiar, asi que
 	# no esta en 'vivos'. Sin color ni tipo la celda se quedaba sin dibujar de ninguna forma:
@@ -1578,6 +1622,11 @@ func exportar_partida() -> SaveData:
 	# el lider siempre volveria al hueco 1 y se perderia quien iba donde).
 	d.equipo = companeros()
 	d.lider_pos = clampi(lider_idx, 0, maxi(0, party.size() - 1))
+	# Los estados del LIDER van aparte porque el lider no viaja como PersonajeData (ver
+	# SaveData.player_estados). duplicate(true) porque son dicts: sin el, el save y la partida viva
+	# compartirian los mismos y seguir jugando reescribiria lo guardado.
+	d.player_estados = lider().estados.duplicate(true)
+	d.player_estados_reloj = lider().estados_reloj
 	d.player_current_hp = player_hp()
 	d.player_current_mp = player_current_mp
 	d.stamina = float(player.current_stamina) if player != null and "current_stamina" in player else -1.0
@@ -2253,9 +2302,18 @@ func importar_partida(d: SaveData) -> void:
 	# El aguante del lider viaja en SU ficha (como el de los companeros), no en una variable aparte:
 	# asi cambiar de piso o de escena no le rellena la barra. Aqui se le clava el guardado.
 	yo.stamina = d.stamina
+	# Los estados del LIDER: los compañeros ya los traen dentro de su PersonajeData (@export), pero
+	# el que va en cabeza viaja en los campos planos. Va DESPUES de _adoptar_mundo_compartido, que es
+	# quien decide quien es el lider de verdad en un mundo compartido.
+	var l_est: PersonajeData = lider()
+	if l_est != null:
+		l_est.estados = d.player_estados.duplicate(true)
+		l_est.estados_reloj = d.player_estados_reloj
 
-	# Curas a medias y estados de la sesion anterior: fuera (de TODO el grupo).
-	limpiar_curas_pendientes()
+	# Colas de poción a medias: fuera. Los ESTADOS se quedan (false): los platos de cocina duran 20
+	# minutos reales y se guardan a proposito, asi que cargar no puede ser una forma de perderlos —
+	# ni, del mismo modo, de curarse un veneno gratis.
+	limpiar_curas_pendientes(false)
 	cerrar_menu()   # sin menus abiertos Y con el arbol despausado: la escena nueva tiene que correr
 	debug_panel_open = false
 	# El aguante del que arranca. En un MUNDO COMPARTIDO el lider puede ser otro (el que se acaba de
@@ -2648,19 +2706,29 @@ func rareza_pez(data: MaterialData) -> int:
 	if data == null:
 		return 0
 	var mayor: float = 0.0
+	var menor: float = INF
 	var mio: float = 0.0
 	for e in (TABLA_PECES as MaterialTable).entradas:
-		if e == null or e.material == null:
+		if e == null or e.material == null or e.peso <= 0.0:
 			continue
 		mayor = maxf(mayor, e.peso)
+		menor = minf(menor, e.peso)
 		if e.material == data:
 			mio = e.peso
-	if mayor <= 0.0 or mio <= 0.0:
+	if mayor <= 0.0 or mio <= 0.0 or menor >= mayor:
 		return 0
-	# En cuantas veces es mas raro que el mas comun. Se mide en pasos de x4 (comun -> x4 -> x16 ->
-	# x64 -> x256) porque los pesos de la tabla se mueven en ordenes de magnitud, no linealmente.
-	var veces: float = mayor / mio
-	return clampi(int(floor(log(veces) / log(4.0))), 0, 4)
+	# La escala se ESTIRA sobre la tabla de verdad: el pez mas comun es 0 (Común) y el MAS RARO DE
+	# TODOS es 4 (Legendario), con los demas repartidos por su orden de magnitud. Va en logaritmos
+	# porque los pesos se mueven en ordenes de magnitud, no linealmente.
+	#
+	# Antes eran pasos FIJOS de x4 (x4, x16, x64, x256) y el resultado era absurdo: el espejo abisal
+	# —el trofeo, el pez que no se cocina y se cuelga en la pared— sale x240 veces menos que el gobio
+	# y se quedaba en "Épico" por no llegar al x256, empatado con la anguila. Con la escala estirada,
+	# el mejor pez de la tabla es siempre el Legendario, y si algun dia se retocan los pesos o entra
+	# una especie nueva, la etiqueta se recoloca sola en vez de mentir.
+	var veces: float = log(mayor / mio)
+	var span: float = log(mayor / menor)
+	return clampi(roundi(4.0 * veces / span), 0, 4)
 
 #  id del MaterialData del pez -> {"capturas": int, "cm_min": float, "cm_max": float}
 #
@@ -2797,7 +2865,12 @@ var player_mana_heal_rate: float:
 # de la sesion/expedicion anterior. Y con ellas, todo lo demas que es "lo que llevas encima ahora
 # mismo" y no parte de la persona: los estados alterados, las cargas de Foco y la imbuicion.
 # Morir te limpia el veneno; cargar una partida te devuelve entero.
-func limpiar_curas_pendientes() -> void:
+# 'estados' = tambien borrar los estados alterados. Por defecto SI (morir o entrar a un mundo te
+# deja limpio), pero al CARGAR una partida va en false: desde que existen los platos de cocina los
+# estados se guardan (ver SaveData.player_estados) y limpiarlos aqui se cargaria de un plumazo un
+# buff de 20 minutos que costo ingredientes. Las colas de poción se borran siempre: esas si son de
+# sesion, y arrastrar un goteo a medias entre partidas no significa nada.
+func limpiar_curas_pendientes(estados: bool = true) -> void:
 	for pj in party:
 		pj.heal_left = 0.0
 		pj.heal_rate = 0.0
@@ -2805,12 +2878,12 @@ func limpiar_curas_pendientes() -> void:
 		pj.mana_heal_left = 0.0
 		pj.mana_heal_rate = 0.0
 		pj.mana_heal_turnos = 0.0
-		pj.estados = []
-		pj.estados_reloj = 0.0
-		pj.estados_spd = 1.0
-		pj.estados_chip = ""
 		pj.foco_cargas = 0
 		pj.imbue = {}
+		if estados:
+			pj.estados = []
+			pj.estados_reloj = 0.0
+		refrescar_cache_estados(pj)   # deja las caches (spd/chips/mochila) acordes a lo que quede
 
 # Dinero (obtenido por vender cristales en la tienda).
 var money: int = 0
@@ -3534,7 +3607,52 @@ func usar_consumible(c: ConsumableData, pj: PersonajeData = null) -> bool:
 		return volver_al_pueblo_con_objeto(c)
 	if c.es_grimorio():
 		return aprender_de_grimorio(c, pj)
+	if c.es_plato():
+		return comer_plato(c, pj)
 	return beber_pocion_fuera(c, pj)
+
+
+# COMERSE UN PLATO (cocina). Le pone su estado largo (20 min) al que elijas del grupo, y solo a el:
+# cada uno come lo suyo. Va por la ficha (PersonajeData.estados) y no por un Combatant porque esto
+# pasa POR EL MAPA; al entrar en combate, restaurar_estados_de_ficha se lo lleva a la pelea solo.
+#
+# Solo se puede llevar UN plato puesto: comer otro sustituye al anterior. La exclusion NO se hace
+# aqui —se hace en Combatant.apply_status por la "familia" del estado— para que valga igual comiendo
+# en el mapa que comiendo en mitad de una pelea.
+func comer_plato(c: ConsumableData, pj: PersonajeData = null) -> bool:
+	if c == null or not c.es_plato():
+		return false
+	var p: PersonajeData = pj if pj != null else lider()
+	if p == null:
+		return false
+	if not gastar_consumible(c):
+		return false
+	# Se monta un Combatant de usar y tirar SOLO para reutilizar apply_status: es quien sabe de
+	# inmunidades, de familias excluyentes y de stack_modes. Duplicar esa logica aqui seria pedir que
+	# comer por el mapa y comer en combate acabaran comportandose distinto.
+	var c_tmp := Combatant.new(p.nombre, 1, p.abilities, 1.0, 1.0, 1.0, 1.0)
+	StatusEffects.aplicar_a(c_tmp, p.estados)
+	for ap in c.efectos:
+		if ap == null:
+			continue
+		c_tmp.apply_status(int(ap.estado), int(ap.turns), float(ap.magnitud),
+			maxi(1, int(ap.stacks)), false, int(ap.cap), float(ap.mult), c.escala_efecto)
+	p.estados = StatusEffects.estados_que_salen(c_tmp.statuses)
+	refrescar_cache_estados(p)
+	print("[cocina] %s se come %s" % [p.nombre, c.nombre])
+	return true
+
+
+# NOMBRE del plato que lleva puesto 'p', o "" si va sin comer. Para que el inventario avise de a
+# quien le vas a tirar el plato que ya tenia (solo cabe uno).
+func plato_puesto(p: PersonajeData) -> String:
+	if p == null:
+		return ""
+	for d in p.estados:
+		var def_: Dictionary = StatusEffects.def(int(d.get("id", -1)))
+		if String(def_.get("familia", "")) == "plato":
+			return String(def_.get("nombre", "?"))
+	return ""
 
 
 # VOLVER AL PUEBLO con un objeto (piedra de retorno): la comodidad que antes solo daba la puerta
@@ -3679,8 +3797,12 @@ func beber_pocion_fuera(c: ConsumableData, pj: PersonajeData = null) -> bool:
 	if not gastar_consumible(c):
 		return false
 	var partes: Array = []
+	# CURACION RECIBIDA por estados (plato de Remedios / Herida profunda). Dentro del combate esto lo
+	# hace Combatant.heal(), que es el paso unico de toda la cura; fuera no hay Combatant, asi que se
+	# aplica AQUI, UNA vez, al encolar el goteo — y no en tick_heal, que corre en cada frame.
+	var mult_cura: float = estados_mult_fuera(p, "heal_recv_mult")
 	if c.cura_hp():
-		var total: float = c.cura_efectiva(maxhp)
+		var total: float = c.cura_efectiva(maxhp) * mult_cura
 		p.heal_left += total
 		p.heal_rate = maxf(p.heal_rate, c.cura_por_segundo(maxhp))
 		p.heal_turnos += float(c.turnos)   # los turnos se SUMAN: dos de 3 turnos = 6
@@ -3837,6 +3959,7 @@ func tick_estados(delta: float) -> void:
 # cobra el daño, baja las duraciones y vuelve a serializar lo que sigue vivo.
 func _turno_de_estados_fuera(p: PersonajeData) -> void:
 	var dano: float = 0.0
+	var dot_mult: float = 1.0
 	var quedan: Array = []
 	var expirados: Array = []
 	for d in p.estados:
@@ -3844,6 +3967,7 @@ func _turno_de_estados_fuera(p: PersonajeData) -> void:
 		if inst == null:
 			continue   # estado retirado del catalogo: se cae solo
 		dano += inst.dot_damage()
+		dot_mult *= inst.mult_de("dot_taken_mult")
 		inst.turns -= 1
 		if inst.turns <= 0:
 			expirados.append(str(inst.d.get("nombre", "?")))
@@ -3851,6 +3975,9 @@ func _turno_de_estados_fuera(p: PersonajeData) -> void:
 			quedan.append(StatusEffects.dict_de_instancia(inst))
 	p.estados = quedan
 	refrescar_cache_estados(p)
+	# Lo que aguanta el estomago (plato de Encurtidos), igual que dentro del combate: sobre el DoT ya
+	# sumado. Se lee de la lista de ANTES de expirar, que es la que estaba puesta durante el turno.
+	dano *= dot_mult
 	if dano > 0.0:
 		# NO MATA: te deja al borde (1 de vida) y la muerte tiene que venir de un golpe. Es la misma
 		# regla que el KO del combate, y evita morir mirando el mapa sin nada que puedas hacer.
@@ -3894,6 +4021,14 @@ func etiqueta_estados(pj: PersonajeData = null) -> String:
 	return p.estados_chip if p != null else ""
 
 
+# LOS CHIPS, uno por estado, ya montados: [etiqueta, tooltip, icono, color]. Es lo mismo que
+# etiqueta_estados pero SIN aplastar a un String, para poder pintar cada estado con su color (ver
+# scripts/ui/status_chip.gd). Tambien cacheado: lo pide el HUD del mapa.
+func chips_estados(pj: PersonajeData = null) -> Array:
+	var p: PersonajeData = pj if pj != null else lider()
+	return p.estados_chips if p != null else []
+
+
 # Rehidrata los estados de 'p' UNA vez y de ahi saca las dos cosas que el mapa pregunta a sesenta
 # frames por segundo: cuanto le frenan y como se pintan sus chips. Se llama cada vez que `estados`
 # cambia (al salir de una pelea y en cada turno del reloj), no al leerlos.
@@ -3901,24 +4036,49 @@ func refrescar_cache_estados(p: PersonajeData) -> void:
 	if p == null:
 		return
 	var mult: float = 1.0
+	var mochila: float = 0.0
 	var partes: PackedStringArray = []
+	var chips: Array = []
 	if p.foco_cargas > 0:
-		partes.append("🔮x%d" % p.foco_cargas)   # munición, no estado: no lleva turnos
+		# Munición, no estado: no lleva turnos ni caduca (ver PersonajeData.foco_cargas).
+		partes.append("🔮x%d" % p.foco_cargas)
+		chips.append(["x%d" % p.foco_cargas, "Foco arcano\nCargas que le quedan: %d" % p.foco_cargas,
+			"🔮", Color(0.55, 0.7, 1.0)])
 	var por_id: Dictionary = {}
 	for d in p.estados:
 		var inst = StatusEffects.instancia_de_dict(d)
 		if inst == null:
 			continue
 		mult *= inst.spd_mult()
+		mochila += inst.flat_de("mochila_extra")
 		if not por_id.has(inst.id()):
 			por_id[inst.id()] = []
 		(por_id[inst.id()] as Array).append(inst)
 	# UN chip por estado aunque tenga varias instancias: cuatro capas de Pegajoso son "🕸x4·3t" y no
 	# cuatro iconos iguales en fila (mismo formato y mismo codigo que en el combate).
 	for id_est in por_id:
-		partes.append(str(StatusEffects.chip_de_grupo(por_id[id_est])[0]))
+		var chip: Array = StatusEffects.chip_de_grupo(por_id[id_est])
+		partes.append(str(chip[0]))
+		chips.append(chip)
 	p.estados_spd = maxf(ESTADOS_SPEED_MIN, mult)
 	p.estados_chip = " ".join(partes)
+	p.estados_chips = chips
+	p.estados_mochila = mochila
+
+
+# Multiplicador ACUMULADO de una clave del catalogo para los estados que lleva puestos por el MAPA
+# (fuera de combate no hay Combatant, asi que los agregadores de alli no valen). Rehidrata al
+# vuelo: solo lo llaman caminos ocasionales (beber una poción, el turno del reloj de estados), NUNCA
+# algo por frame — para eso estan las caches de refrescar_cache_estados.
+func estados_mult_fuera(p: PersonajeData, clave: String) -> float:
+	if p == null:
+		return 1.0
+	var m: float = 1.0
+	for d in p.estados:
+		var inst = StatusEffects.instancia_de_dict(d)
+		if inst != null:
+			m *= inst.mult_de(clave)
+	return m
 
 
 # Tiquea el MANÁ de poción fuera de combate de todo el grupo (la llama player.gd). Es la UNICA
@@ -4761,7 +4921,14 @@ func _capacidad_con(contenedor: float, saturacion: float) -> float:
 	var media: float = suma / float(maxi(1, n))
 	var mult: float = 1.0 + clampf(media / maxf(1.0, saturacion), 0.0, 1.0) * fuerza_capacity_bonus_max
 	var manos: float = 1.0 + CARGA_POR_ACOMPANANTE * float(maxi(0, n - 1))
-	return contenedor * mult * manos
+	# CARGA EXTRA por ir comido (plato de Fuerza). Va PLANA y al FINAL, fuera de los multiplicadores:
+	# es un "cargo un saco mas", no un aumento de lo fuerte que eres, asi que ni la escala la Fuerza
+	# ni la multiplica el numero de manos. Y SUMA por persona (cada uno carga lo suyo), por eso sale
+	# de la cache estados_mochila de cada ficha y no del lider.
+	var extra: float = 0.0
+	for pj in party:
+		extra += pj.estados_mochila
+	return contenedor * mult * manos + extra
 
 func capacidad_carga() -> float:
 	return _capacidad_con(base_capacity + capacidad_mochila(), mochila_fuerza_saturacion())
@@ -7188,6 +7355,9 @@ func craftear_con(receta: RecipeData, seleccion: Array) -> int:
 			gastar_consumible(receta.pocion_base)
 		# El doble se tira por UNIDAD fabricada; la subida, por cada poción que sale de ella.
 		var cuantas: int = 2 if randf() < prob else 1
+		# Lo que RINDE una hornada. 1 en las pociones (como siempre); los platos de cocina rinden 2,
+		# porque cocinar obliga a subir al pueblo con los ingredientes a cuestas.
+		cuantas *= maxi(1, receta.unidades_resultado)
 		for _p in range(cuantas):
 			var sale: ConsumableData = receta.resultado
 			if mejor != null and randf() < prob_subir:
@@ -7282,6 +7452,39 @@ const _RECIPE_PATHS_MEDIANAS: Array[String] = [
 	"res://resources/recipes/pocion_mana_t2_2.tres",
 	"res://resources/recipes/pocion_mana_t2_3.tres",
 ]
+
+# RECETAS DE COCINA (el Cocinero del pueblo), por tiers como las de la boticaria. Siete platos, uno
+# por eje de juego, cada uno con su version T1 y T2.
+#
+# El T2 no se DESBLOQUEA con nada: pide carne/pescado/planta de los pisos 7+, asi que la receta se ve
+# desde el primer dia y sencillamente no se puede cocinar hasta que bajas. Por eso no hay aqui un
+# equivalente de medianas_desbloqueadas(): el gate es el ingrediente, y ademas asi el jugador ve a
+# donde va la cosa.
+const _RECIPE_PATHS_PLATOS_T1: Array[String] = [
+	"res://resources/recipes/plato_kebab_rata.tres",
+	"res://resources/recipes/plato_parrillada_jabali.tres",
+	"res://resources/recipes/plato_gobio_sal.tres",
+	"res://resources/recipes/plato_lubina_horno.tres",
+	"res://resources/recipes/plato_sopa_setas.tres",
+	"res://resources/recipes/plato_caldo_puerro.tres",
+	"res://resources/recipes/plato_encurtidos_sal.tres",
+]
+const _RECIPE_PATHS_PLATOS_T2: Array[String] = [
+	"res://resources/recipes/plato_kebab_bestia.tres",
+	"res://resources/recipes/plato_parrillada_insecto.tres",
+	"res://resources/recipes/plato_anguila_ajillo.tres",
+	"res://resources/recipes/plato_bagre_guisado.tres",
+	"res://resources/recipes/plato_crema_hongo.tres",
+	"res://resources/recipes/plato_pure_tuberculo.tres",
+	"res://resources/recipes/plato_encurtidos_hongo.tres",
+]
+
+func recetas_cocina() -> Array:
+	return _cargar_recetas(_RECIPE_PATHS_PLATOS_T1) + _cargar_recetas(_RECIPE_PATHS_PLATOS_T2)
+
+func recetas_cocina_tier(tier: int) -> Array:
+	return _cargar_recetas(_RECIPE_PATHS_PLATOS_T2 if tier >= 2 else _RECIPE_PATHS_PLATOS_T1)
+
 
 func _cargar_recetas(rutas: Array) -> Array:
 	var out: Array = []
@@ -9241,7 +9444,7 @@ func _on_pesca_finished(logrado: bool, progreso: float, nodo) -> void:
 # EL PEZ YA ESTA EN TUS MANOS. Lo llama el estanque cuando el bicho termina de venir por el hilo.
 # Es el unico sitio donde el pez entra en la bolsa y donde salta el aviso de material obtenido.
 func cobrar_pesca(data: MaterialData, cm: float) -> void:
-	print("Pescas ", data.nombre, " de ", roundi(cm), " cm.")
+	print("Pescas %s de %.1f cm." % [data.nombre, cm])
 	_embolsar_pez(data, cm)
 	# Pasiva RNG de recoleccion. No pasa por _botin_extra_reco (que clona la calidad de la pieza
 	# original) porque el eje del pez no es la calidad sino la TALLA: la pieza extra se sortea entera,
@@ -9264,9 +9467,9 @@ func _embolsar_pez(data: MaterialData, cm: float) -> void:
 	apuntar_corona(data.id, corona)
 	materiales.append(item)
 	descubrir(data)
-	_aviso_recogida(item.nombre(), 1, "%d cm" % roundi(cm))
+	_aviso_recogida(item.nombre(), 1, "%.1f cm" % cm)
 	if corona != MaterialData.Corona.NINGUNA:
-		print("[pesca] %s: %s (%d cm)" % [data.nombre, MaterialData.corona_texto(corona), roundi(cm)])
+		print("[pesca] %s: %s (%.1f cm)" % [data.nombre, MaterialData.corona_texto(corona), cm])
 		_aviso_recogida(item.nombre(), 1, "¡%s%s!" % [
 			MaterialData.corona_texto(corona).to_upper(), "  (NUEVA)" if nueva else ""])
 	elif record:

@@ -34,7 +34,6 @@ drop_material = ExtResource("5_cue")
 nucleo = ExtResource("6_nuc")
 drop_extra = ExtResource("7_carne")
 drop_extra_chance = 0.1
-drop_extra_min = 1
 drop_extra_max = 2
 drop_piso_debut = 8
 drop_piso_pleno = 11

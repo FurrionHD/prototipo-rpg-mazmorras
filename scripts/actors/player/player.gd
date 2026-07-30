@@ -139,6 +139,9 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD (barras, peso, piso, ayudas)
 	add_child(preload("res://scripts/ui/inventory_menu.gd").new())  # inventario (I)
 	add_child(preload("res://scripts/ui/craft_menu.gd").new())      # boticaria (F sobre el NPC)
+	var _cocina_menu := preload("res://scripts/ui/craft_menu.gd").new()  # cocinero: mismo menu, modo distinto
+	_cocina_menu.modo = _cocina_menu.Modo.COCINA                   # fijar ANTES de add_child: _ready ya lo lee
+	add_child(_cocina_menu)                                        # cocinero (F sobre el NPC)
 	add_child(preload("res://scripts/ui/shop_menu.gd").new())       # tienda (F sobre el tendero)
 	add_child(preload("res://scripts/ui/forge_menu.gd").new())      # herrero (F sobre el NPC)
 	var _carpinteria_menu := preload("res://scripts/ui/forge_menu.gd").new()  # carpintero: mismo menu, modo distinto
@@ -621,8 +624,11 @@ const Y_MP := Y_EN + ALTO_EN + 4.0
 const ALTO_MP := 12.0
 # La linea de CHIPS de estados (y las cargas de Foco), debajo de las tres barras. Los estados duran
 # entre combates, asi que tienen que verse desde el mapa.
-const Y_ESTADOS := Y_MP + ALTO_MP + 2.0
-const ALTO_ESTADOS := 12.0
+const Y_ESTADOS := Y_MP + ALTO_MP + 3.0
+# 22 y no 12: desde que los estados se pintan como CHIPS con recuadro y no como una linea de texto
+# recortada, la fila necesita el alto del chip. ALTO_BLOQUE lo recoge solo y hud.recolocar() baja la
+# caja de teclas: no hay ningun otro sitio que dependa de esto.
+const ALTO_ESTADOS := 22.0
 # Donde acaba la fila entera. Lo lee hud.gd para colocar debajo la caja de ayudas de teclas.
 const ALTO_BLOQUE := Y_ESTADOS + ALTO_ESTADOS
 
@@ -678,21 +684,22 @@ func _rehacer_barras() -> void:
 		var mp: ProgressBar = _barra_col(raiz, Y_MP, ALTO_MP, Color(0.4, 0.6, 1.0))
 		var mp_lbl: Label = _crear_label_barra(mp)
 
-		# Los ESTADOS que lleva puestos, en una linea de chips debajo de las barras. Los estados duran
-		# fuera del combate (el veneno sigue corriendo, el Pegajoso te frena), asi que hace falta
-		# poder verlos sin abrir nada: si no, la vida baja sola y no hay forma de saber por que.
-		var estados := Label.new()
+		# Los ESTADOS que lleva puestos, en una fila de CHIPS debajo de las barras. Los estados duran
+		# fuera del combate (el veneno sigue corriendo, el Pegajoso te frena, el plato de cocina dura
+		# 20 minutos), asi que hace falta poder verlos sin abrir nada: si no, la vida baja sola y no
+		# hay forma de saber por que.
+		var estados := HBoxContainer.new()
 		estados.position = Vector2(0, Y_ESTADOS)
 		estados.size = Vector2(ANCHO_COL, ALTO_ESTADOS)
-		estados.add_theme_font_size_override("font_size", 10)
-		estados.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-		estados.add_theme_constant_override("outline_size", 3)
-		estados.clip_text = true
-		estados.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		estados.add_theme_constant_override("separation", 3)
+		estados.clip_contents = true
 		raiz.add_child(estados)
 
+		# La FIRMA de lo que hay pintado ahora mismo. _refrescar_barras corre en CADA frame y los
+		# chips son nodos: sin esto se reconstruirian sesenta veces por segundo para pintar lo mismo.
 		_barras.append({"pj": pj, "raiz": raiz, "nombre": nombre, "hp": hp, "hp_lbl": hp_lbl,
-			"en": en, "en_lbl": en_lbl, "mp": mp, "mp_lbl": mp_lbl, "estados": estados})
+			"en": en, "en_lbl": en_lbl, "mp": mp, "mp_lbl": mp_lbl,
+			"estados": estados, "estados_firma": ""})
 
 
 # Una barra de una columna (mismo ancho para las tres, solo cambian el alto y el color).
@@ -1205,9 +1212,21 @@ func _refrescar_barras() -> void:
 		mp_bar.max_value = maxf(1.0, maxmp_c)
 		mp_bar.value = mp_c
 		(fila["mp_lbl"] as Label).text = "%.2f/%.2f" % [mp_c, maxmp_c]
-		# Los estados que lleva encima fuera del combate (y las cargas de Foco). Cadena vacia = no
-		# lleva nada, y entonces la linea no ocupa nada visualmente.
-		(fila["estados"] as Label).text = Game.etiqueta_estados(pj)
+		# Los estados que lleva encima fuera del combate (y las cargas de Foco), como chips.
+		#
+		# Esto corre en CADA FRAME y los chips son nodos, asi que se comparan primero por su FIRMA
+		# (el texto ya montado, que lleva dentro lo que le queda a cada estado): solo se reconstruyen
+		# cuando de verdad cambia algo, o serian sesenta reconstrucciones por segundo para pintar lo
+		# mismo. Los estados solo cambian cada SEG_POR_TURNO_FUERA, asi que casi siempre no hay nada
+		# que hacer aqui.
+		var caja: HBoxContainer = fila["estados"]
+		var firma: String = Game.etiqueta_estados(pj)
+		if firma != String(fila["estados_firma"]):
+			fila["estados_firma"] = firma
+			for viejo in caja.get_children():
+				viejo.queue_free()
+			for chip in Game.chips_estados(pj):
+				caja.add_child(StatusChip.crear(String(chip[0]), chip[3] as Color, String(chip[1])))
 
 
 # Bebe la PRIMERA poción del inventario (tecla Q, fuera de combate). Arranca la

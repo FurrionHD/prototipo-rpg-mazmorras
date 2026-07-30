@@ -20,6 +20,10 @@ class_name RecipeData
 # Array (sin tipar) de RecipeIngrediente, como habilidades/efectos en el resto del proyecto:
 # los Array tipados escritos a mano en .tres dan problemas al cargar.
 @export var ingredientes: Array = []
+# CUANTAS piezas salen de una hornada. Las pociones van de una en una; los PLATOS de cocina salen de
+# dos, porque cocinar obliga a subir al pueblo con los ingredientes y una sola racion no compensa
+# el viaje. El coste NO se reparte: son dos raciones al precio de la tanda entera.
+@export var unidades_resultado: int = 1
 
 
 func nombre() -> String:

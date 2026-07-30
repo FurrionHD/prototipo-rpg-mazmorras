@@ -340,8 +340,10 @@ static func imbue_proc_chance(base: float, stat: float, rival_resistencia: float
 # sigue siendo el mismo con su misma Destreza.
 static func resolve_attack(attacker: Combatant, defender: Combatant,
 		defending: bool = false, atk_override: float = -1.0) -> Dictionary:
-	var atk_dex := float(attacker.abilities.destreza)
-	var def_agi := float(defender.abilities.agilidad)
+	# Por hab() y no por abilities.*: los platos suben la HABILIDAD BASE, asi que la Destreza/
+	# Agilidad que se usan aqui son las EFECTIVAS (ver Combatant.hab).
+	var atk_dex := attacker.hab("destreza")
+	var def_agi := defender.hab("agilidad")
 
 	# Probabilidades (se calculan SIEMPRE, para poder loguearlas aunque no apliquen).
 	# ACIERTO del atacante (mejora Precision) baja la evasion del defensor. La esquiva
@@ -349,13 +351,14 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# Esquiva EXTRA de HABILIDADES/BUFFS (0 = ninguna). Si hay, SUMA a la esquiva y ademas
 	# ROMPE el tope normal: puedes pasar del EVADE_MAX de 0.35 hasta EVADE_MAX_BUFF (0.65).
 	# Generico: hoy lo alimenta la postura del estoque, manana cualquier buff de esquiva.
-	var evasion_extra := defender.evasion_bonus
+	var evasion_extra := defender.evasion_bonus + defender.status_evade_flat()
 	var evade_cap := EVADE_MAX_BUFF if evasion_extra > 0.0 else EVADE_MAX
 	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal - attacker.precision + evasion_extra, 0.0, evade_cap)
 	# RESIST. CRITICOS del defensor (armadura pesada) baja el crit del atacante.
 	# Defender NO anula el critico: lo deja a la MITAD (DEFEND_CRIT_MULT). El x0.5 va DESPUES del
 	# clamp, sobre la probabilidad ya resuelta, para que reduzca lo que de verdad te iban a sacar.
-	var crit_p := clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus + attacker.crit_flat - defender.crit_resist, 0.0, 1.0)
+	var crit_p := clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus + attacker.crit_flat
+		+ attacker.status_crit_flat() - defender.crit_resist, 0.0, 1.0)
 	if defending:
 		crit_p *= DEFEND_CRIT_MULT
 	# El aturdir depende de aturdir_base (ya viene promediado del loadout: en dual,
@@ -363,8 +366,8 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# RAYO del defensor (KAN-58) MULTIPLICA esa probabilidad (x1.5, estilo MH), antes del cap.
 	var aturde_p := 0.0
 	if attacker.aturdir_base > 0.0:
-		var stat := (float(attacker.abilities.fuerza) + float(attacker.abilities.destreza)) * 0.5
-		aturde_p = clampf(attacker.aturdir_base * _ratio_factor(stat, float(defender.abilities.fuerza))
+		var stat := (attacker.hab("fuerza") + atk_dex) * 0.5
+		aturde_p = clampf(attacker.aturdir_base * _ratio_factor(stat, defender.hab("fuerza"))
 			* defender.stun_taken_mult(), 0.0, ATURDIR_MAX)
 
 	# 1) Esquiva: base − penalizacion de esquiva del defensor (escudo estorba).
@@ -417,6 +420,9 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# TODO el grupo le pegue mas) y Guardia de carne (el doble de vida a cambio del doble de daño).
 	# Va al FINAL, sobre el daño ya mitigado, para que multiplique lo que de verdad le entra.
 	dmg *= defender.status_dmg_taken_mult()
+	# Y lo que pega DE MAS el atacante por sus estados (plato de Fuerza). Espejo del de arriba: uno
+	# es "cuanto te entra", el otro "cuanto sacas", y por eso son dos claves y no una.
+	dmg *= attacker.status_dmg_dealt_mult()
 
 	# 5) Aturdir/retrasar (solo armas CONTUNDENTES).
 	var aturde := aturde_p > 0.0 and randf() < aturde_p
@@ -449,13 +455,15 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 		elem_override: int = -1, dano_frac: float = 1.0) -> Dictionary:
 	var elem: int = elem_override if elem_override >= 0 else spell.elemento
 	var raw := spell.dano_base * dano_frac
-	var magic_atk := raw * magia_factor(float(attacker.abilities.magia)) * attacker.magic_amp * attacker.magia_base_factor * SPELL_DAMAGE_MULT
+	var magic_atk := raw * magia_factor(attacker.hab("magia")) * attacker.magic_amp \
+		* attacker.magia_base_factor * SPELL_DAMAGE_MULT * attacker.status_spell_dmg_mult()
 	# Defensa MAGICA del objetivo, espejo exacto de la fisica: una BASE propia del bicho +
 	# lo que aporte su Magia. Antes se pasaba 0.0 a pelo, y como ademas ningun enemigo tenia
 	# Magia, la defensa magica era CERO: los hechizos entraban a raw limpio mientras los
 	# golpes fisicos si se mitigaban. Por eso la magia parecia rota (lo estaba).
-	var magic_def := magic_jugador(defender.abilities, defender.base_magic) if defender.stats_multiplicativas \
-		else magic_value(defender.abilities, defender.level, defender.base_magic)
+	var def_ab := defender.abilities_eff()
+	var magic_def := magic_jugador(def_ab, defender.base_magic) if defender.stats_multiplicativas \
+		else magic_value(def_ab, defender.level, defender.base_magic)
 	var dmg := damage(magic_atk, magic_def)
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 	# CRITICO MAGICO. Mismo CONTEST que el fisico (tu Destreza contra la Agilidad del que lo recibe):
@@ -468,9 +476,8 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 	# guerrero que lance un hechizo critea con lo que le de su Destreza y nada mas, que es lo justo.
 	#
 	# Y sigue SIN esquiva: si has recitado bien, el hechizo entra.
-	var crit_p := clampf(crit_chance(float(attacker.abilities.destreza),
-		float(defender.abilities.agilidad))
-		+ attacker.crit_magico - defender.crit_resist, 0.0, 1.0)
+	var crit_p := clampf(crit_chance(attacker.hab("destreza"), defender.hab("agilidad"))
+		+ attacker.crit_magico + attacker.status_crit_flat() - defender.crit_resist, 0.0, 1.0)
 	var is_crit := crit_p > 0.0 and randf() < crit_p
 	if is_crit:
 		dmg *= CRIT_MULT + attacker.crit_dmg_magico

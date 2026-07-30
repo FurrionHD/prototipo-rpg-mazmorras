@@ -1911,7 +1911,12 @@ func _refrescar_chips(c: Combatant, box: Container, idx: int) -> void:
 	for hijo in box.get_children():
 		hijo.queue_free()
 	for par in _chips_de(c):
-		_chip(box, String(par[0]), String(par[1]), idx)
+		# Los chips de ESTADO traen ademas icono y color (chip_de_grupo); los de mecanica de combate
+		# (cargando, recitando, provocacion, imbuicion) siguen siendo pares y se pintan en gris claro.
+		# Se mira el tamaño y no el tipo para que un espejo con la instantanea vieja (pares de 2) no
+		# reviente al llegar: la red manda estos mismos arrays.
+		var col: Color = (par[3] as Color) if par.size() > 3 else CHIP_NEUTRO
+		_chip(box, String(par[0]), String(par[1]), idx, col)
 	box.visible = box.get_child_count() > 0
 
 
@@ -1981,16 +1986,16 @@ func _chips_de(c: Combatant) -> Array:
 # IGNORE como los demas hijos del bloque). En vez de pelearse con eso, se le hace bueno: el
 # chip tambien selecciona. Asi el bloque no tiene zonas muertas -> pinches donde pinches
 # dentro del borde, apuntas a ese bicho.
-func _chip(box: Container, texto: String, tooltip: String, idx: int = -1) -> void:
-	var b := TooltipButton.new()
-	b.text = texto
-	b.tooltip_text = tooltip
-	b.flat = true                      # es una etiqueta que se puede señalar, no un boton
-	b.focus_mode = Control.FOCUS_NONE  # que no robe el foco al tabular por las acciones
-	b.add_theme_font_size_override("font_size", 13)
-	if idx >= 0:
-		b.pressed.connect(_seleccionar.bind(idx))
-	box.add_child(b)
+# Color de los chips que NO son un estado del catalogo (cargando, recitando, provocacion, imbuicion):
+# no tienen color propio porque no salen de StatusEffects.
+const CHIP_NEUTRO := Color(0.78, 0.80, 0.86)
+
+# El chip se monta en StatusChip, el mismo sitio que usa el HUD del mapa: asi un veneno se ve igual
+# en la pelea y andando por el pasillo. Clicar el de un enemigo lo SELECCIONA, como antes.
+func _chip(box: Container, texto: String, tooltip: String, idx: int = -1,
+		color: Color = CHIP_NEUTRO) -> void:
+	var clic: Callable = _seleccionar.bind(idx) if idx >= 0 else Callable()
+	box.add_child(StatusChip.crear(texto, color, tooltip, clic))
 
 
 # Teclas de DESARROLLO DENTRO del combate. El combate corre con el arbol en PAUSA, asi
@@ -2397,7 +2402,8 @@ func _begin_player_turn() -> void:
 	# base por Magia se quito: el maná se gana PEGANDO (_ganar_mana_golpe) y GANANDO, no por
 	# dejar pasar turnos. Sin arma mágica, este turno no repone nada.
 	if _player.mp_regen_turno > 0.0:
-		_player.regen_mana(_player.mp_regen_turno * StatsMath.MP_REGEN_TURNO_MULT)
+		_player.regen_mana(_player.mp_regen_turno * StatsMath.MP_REGEN_TURNO_MULT
+			* _player.status_mp_regen_mult())
 	_update_hp()
 	# Si estas casteando un hechizo, el turno va al recitado / disparo, NO a las
 	# acciones normales (por diseño no puedes hacer otra cosa mientras cantas).
@@ -2688,7 +2694,8 @@ func _elegir_objetivo_aliado(spell: SpellData) -> void:
 # Coste de maná EFECTIVO tras la mejora Eficiencia del equipo (KAN-95). FLOAT (sin
 # redondeo hacia arriba: así CUALQUIER % de Eficiencia se nota). Mínimo 0.5.
 func _coste_efectivo(spell: SpellData) -> float:
-	return maxf(0.5, float(spell.coste_mana) * (1.0 - _player.mana_reduccion))
+	return maxf(0.5, float(spell.coste_mana) * (1.0 - _player.mana_reduccion)
+		* _player.status_mana_coste_mult())
 
 
 # Empiezas a castear: se COMPRUEBA que te llega el mana, pero NO se cobra todavia, y recitas la
@@ -3272,7 +3279,7 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 			continue
 		if al_enemigo:
 			# La resistencia a estados del objetivo baja la probabilidad efectiva.
-			var p: float = spell.efecto_prob(a) * (1.0 - objetivo.status_resist)
+			var p: float = spell.efecto_prob(a) * (1.0 - objetivo.resist_estados())
 			if a.estado == StatusEffects.Id.ATURDIDO:
 				# El aturdir de un hechizo escala igual que el de un golpe fisico: x1.5 si el
 				# objetivo esta ELECTRIZADO, x0.6 si su afinidad es Rayo. Sin esto, electrizar
@@ -3821,7 +3828,9 @@ func _accion_objeto() -> void:
 		var b := TooltipButton.new()
 		# El cuanto/en cuantos turnos se va al tooltip: a media anchura solo caben nombre y cantidad.
 		b.text = "%s  x%d" % [cons.nombre, n]
-		b.tooltip_text = "%s en %d turnos" % [cons.resumen(_player.max_hp, _player.max_mp), cons.turnos]
+		# Un PLATO no se reparte en turnos: su ficha ya dice lo que hace y cuanto dura.
+		b.tooltip_text = cons.resumen_plato() if cons.es_plato() \
+			else "%s en %d turnos" % [cons.resumen(_player.max_hp, _player.max_mp), cons.turnos]
 		if cons.descripcion != "":
 			b.tooltip_text += "\n\n" + cons.descripcion
 		b.pressed.connect(_elegir_objetivo_objeto.bind(cons))
@@ -3884,6 +3893,24 @@ func _usar_objeto(cons: ConsumableData, objetivo: Combatant, cobrar: bool = true
 		return
 	if cobrar and not Game.gastar_consumible(cons):
 		return
+	# UN PLATO DE COCINA no cura: pone un buff largo. Sale antes que el reparto de la poción porque
+	# no tiene nada que repartir (turnos = 0), y va por apply_status como todo lo demas: es el que
+	# sabe de la familia excluyente, o sea que comer aqui tira el plato anterior igual que comer por
+	# el mapa. Gasta el turno igual que beber.
+	if cons.es_plato():
+		for ap in cons.efectos:
+			if ap == null:
+				continue
+			objetivo.apply_status(int(ap.estado), int(ap.turns), float(ap.magnitud),
+				maxi(1, int(ap.stacks)), false, int(ap.cap), float(ap.mult), cons.escala_efecto)
+		print("[cocina] %s le da %s a %s (en combate)" % [_player.nombre, cons.nombre, objetivo.nombre])
+		_set_log("%s se come %s." % [objetivo.nombre, cons.nombre] if objetivo == _player
+			else "%s le da %s a %s." % [_player.nombre, cons.nombre, objetivo.nombre])
+		_update_hp()
+		_fin_de_eleccion()
+		_state = State.ADVANCING
+		return
+
 	var restantes: int = maxi(0, cons.turnos - 1)   # el primer turno se cobra AL INSTANTE
 	var partes: Array = []
 	if cons.cura_hp():
@@ -3954,14 +3981,14 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			# en los hechizos, ver _aplicar_estado_hechizo).
 			var p: float = a.prob
 			if al_enemigo:
-				p = a.prob * (1.0 - d.status_resist) * escala_prob
+				p = a.prob * (1.0 - d.resist_estados()) * escala_prob
 				# ATURDIR: la probabilidad de la habilidad es solo la BASE; encima suma el aturdir
 				# del ARMA (que ya viene con Peso y rareza aplicados, ver Game._hand_from). Antes el
 				# aturdir del arma solo contaba en el golpe basico, asi que mejorar Peso no le hacia
 				# nada a Golpe sismico ni a Aplastamiento. Y pasa por stun_taken_mult como el resto
 				# de vias, para que cuenten su resistencia, su afinidad y el estado Rayo.
 				if a.estado == StatusEffects.Id.ATURDIDO:
-					p = (a.prob + _player.aturdir_base) * (1.0 - d.status_resist) * escala_prob
+					p = (a.prob + _player.aturdir_base) * (1.0 - d.resist_estados()) * escala_prob
 					p = clampf(p * d.stun_taken_mult(), 0.0, StatsMath.ATURDIR_MAX)
 			if randf() >= p:
 				continue
@@ -4731,7 +4758,7 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 		# Solo los estados que te LANZAN a ti se resisten; los buffs propios siempre prenden.
 		# escala_prob < 1.0 en los SECUNDARIOS del area cuando la habilidad lo pide (el lento pilla
 		# menos a los lados). No toca a los buffs propios (siempre prenden).
-		var p: float = a.prob * (1.0 - victima.status_resist) * escala_prob if al_jugador else a.prob
+		var p: float = a.prob * (1.0 - victima.resist_estados()) * escala_prob if al_jugador else a.prob
 		# ATURDIR: escala igual que el de un golpe fisico o el de un hechizo (ver
 		# _aplicar_estado_hechizo). Faltaba SOLO aqui, que es justamente la unica via por la que los
 		# enemigos te aturden -- asi que ni la afinidad de Rayo ni stun_resist hacian nada en defensa.
@@ -4956,7 +4983,9 @@ func _end(player_won: bool, fled: bool = false) -> void:
 			if c.max_mp <= 0.0 or c.current_mp >= c.max_mp or kills_reales <= 0:
 				continue
 			var antes: float = c.current_mp
-			c.regen_mana(StatsMath.mp_por_kill(c.mp_regen_turno, kills_reales))
+			# El plato de Maná multiplica lo que le saca CADA UNO a los nucleos, asi que va por
+			# combatiente y no sobre el total: si solo uno ha comido, solo a el le cunde mas.
+			c.regen_mana(StatsMath.mp_por_kill(c.mp_regen_turno, kills_reales) * c.status_mp_kill_mult())
 			mp_vic += c.current_mp - antes
 			print("[combate] maná de los nucleos para %s: +%.2f (%d enemigo%s, regen del arma %.2f) -> %.2f/%.2f" % [
 				c.nombre, c.current_mp - antes, kills_reales, "" if kills_reales == 1 else "s",

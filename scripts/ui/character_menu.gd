@@ -530,7 +530,7 @@ func _build_stats_page() -> void:
 	# en el comparador de armadura, asi que era imposible saber cuanto llevabas EN TOTAL. Mismo
 	# wording que _armor_stats() para que la ficha y la pieza se lean igual.
 	_row(_content, "Reducción de daño", _fmt_pct(c.armor_reduction))
-	_row(_content, "Resist. estados", _fmt_pct(c.status_resist))
+	_row(_content, "Resist. estados", _fmt_pct(c.resist_estados()))
 	if c.crit_resist > 0.001:
 		_row(_content, "Resist. crítico", _fmt_pct(c.crit_resist))
 	# La defensa MAGICA va aqui, con la fisica y la vida, y para TODO el mundo: no es una stat de

@@ -47,6 +47,11 @@ var tabla: MaterialTable = null
 
 # --- Peces nadando: [{rect: ColorRect, data, cm, vel: Vector2, largo, alto}] ---
 var _peces: Array = []
+# LOS QUE SE TE HAN ESCAPADO y esperan turno para volver al agua: [{data, cm}]. Vuelven ELLOS, con su
+# talla, no un pez nuevo sorteado (ver _escapar / _nacer_pez). Es de la VISITA: si te vas del piso se
+# pierde, lo cual esta bien -- lo que no puede pasar es que se te escape el pez de tu vida y a los
+# tres segundos salga otro distinto.
+var _escapados: Array = []
 var _estado: int = LIBRE
 var _pez: Dictionary = {}        # el enganchado (vacio si ninguno)
 var _t: float = 0.0              # cronometro del estado actual
@@ -54,6 +59,10 @@ var _toques: int = 0             # picotazos dados en PICANDO
 var _toques_max: int = 3
 var _ventana: float = 1.2        # duracion de la ventana del TIRON, en segundos
 var _press_was: bool = false
+# La F del frame anterior, para recoger el sedal con una pulsacion NUEVA. Arranca en true porque la
+# F con la que lanzas sigue apretada en el primer frame: sin esto, echar el sedal y recogerlo serian
+# la misma pulsacion y no llegarias a pescar nunca.
+var _f_was: bool = true
 
 # --- Aspecto ---
 var _agua: ColorRect = null
@@ -326,10 +335,21 @@ func _rng_pez() -> RandomNumberGenerator:
 
 func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
 	var r: RandomNumberGenerator = rng if rng != null else _rng_pez()
-	var d: MaterialData = tabla.elegir(Game.current_floor, r)
+	var d: MaterialData
+	var cm: float
+	# LOS QUE SE TE ESCAPARON VUELVEN PRIMERO, y vuelven ellos: misma especie y mismos centimetros.
+	# Solo entonces se sortea uno nuevo.
+	if not _escapados.is_empty():
+		var vuelve: Dictionary = _escapados.pop_front()
+		d = vuelve["data"]
+		cm = float(vuelve["cm"])
+	else:
+		d = tabla.elegir(Game.current_floor, r)
+		if d == null:
+			return
+		cm = d.talla_desde(MaterialData.tirada_talla(r))
 	if d == null:
 		return
-	var cm: float = d.talla_desde(MaterialData.tirada_talla(r))
 	var tam_agua: Vector2 = tam_px()
 	var largo: float = clampf(cm * PX_POR_CM, LARGO_MIN,
 		minf(tam_agua.x, tam_agua.y) * LARGO_MAX_FRAC)
@@ -450,6 +470,7 @@ func _lanzar() -> void:
 	_estado = LANZANDO
 	_t = 0.0
 	_press_was = true   # la F de lanzar no debe contar como el ESPACIO del tiron
+	_f_was = true       # ni como la F de recoger (ver _process)
 	_hilo.visible = true
 	_corcho.visible = true
 	_pintar_corcho(Vector2.ZERO)
@@ -460,6 +481,26 @@ func _process(delta: float) -> void:
 	_reponer(delta)
 	if _estado == LIBRE:
 		return
+	# RECOGER EL SEDAL con la misma F con la que lo echaste. Mientras esperas estas dentro de un
+	# modal, asi que la F no le llega al jugador y sin esto te quedabas plantado en la orilla para
+	# siempre si el pez no picaba (o si te habias equivocado de sitio).
+	#
+	# Solo hasta el TIRON incluido: a partir de LUCHA manda la barra de tension, que tiene su propio
+	# final, y en COBRO el pez ya es tuyo y viene por el hilo. Recoger no espanta a nadie ni gasta
+	# stock: no has llegado a sacar nada.
+	if _estado in [LANZANDO, ESPERA, PICANDO, TIRON]:
+		var f_ahora: bool = Input.is_key_pressed(KEY_F)
+		if f_ahora and not _f_was:
+			_f_was = true
+			_decir("Recoges el sedal.")
+			# `_pez = {}` y NO `_pez.clear()`: los Dictionary van por REFERENCIA, y este es el MISMO
+			# que esta dentro de `_peces`. Vaciarlo le borraba los datos al pez de la lista y `_nadar`
+			# petaba al buscarle el 't_giro' en el frame siguiente. Aqui solo hay que soltarlo: el pez
+			# sigue vivo y vuelve a nadar con los demas.
+			_pez = {}
+			_soltar()
+			return
+		_f_was = f_ahora
 	_t += delta
 	match _estado:
 		LANZANDO: _paso_lanzando()
@@ -587,8 +628,14 @@ func terminar_lucha(logrado: bool) -> void:
 # Se te ha escapado. El pez se va DEL AGUA (si se quedase volveria a morder a los tres segundos y
 # fallar no costaria nada) pero NO SALE DEL BANCO: sigue vivo en el charco y vuelve a salir en unos
 # segundos. Perder una pieza cuesta el rato y la excelia, no tu presupuesto de diez minutos.
+#
+# Y vuelve EL MISMO, con su especie y sus centimetros: es el mismo animal, no otro. Antes se borraba
+# y el charco sorteaba uno nuevo, asi que perder el espejo abisal de tu vida y que reapareciera un
+# gobio era lo normal — justo el momento en el que mas duele que el juego reparta de nuevo.
 func _escapar(motivo: String) -> void:
 	_decir(motivo)
+	if not _pez.is_empty():
+		_escapados.append({"data": _pez["data"], "cm": float(_pez["cm"])})
 	_quitar_pez(false)
 	_soltar()
 

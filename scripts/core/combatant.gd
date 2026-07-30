@@ -416,7 +416,7 @@ func roll_imbue(target: Combatant) -> String:
 	# que envenena su daga no tiene Magia, asi que medirlo por Magia lo dejaba sin veneno.
 	var stat: float = float(abilities.destreza) if imbue_por_destreza else float(abilities.magia)
 	var rival: float = float(target.abilities.resistencia)
-	var resiste: float = 1.0 - target.status_resist
+	var resiste: float = 1.0 - target.resist_estados()
 	var p2: float = StatsMath.imbue_proc_chance(imbue_prob_doble, stat, rival, imbue_por_destreza) * resiste
 	var p1: float = StatsMath.imbue_proc_chance(imbue_prob, stat, rival, imbue_por_destreza) * resiste
 	# DOS ESCALONES en una sola tirada: el gordo primero. Asi "60% un stack, 10% dos" es exactamente
@@ -480,7 +480,7 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 #   - motion_value: reparte el raw por golpe (rapidas < 1, grandes > 1).
 # spd() lleva la velocidad del arma (mas/menos turnos).
 func atk() -> float:
-	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(abilities.fuerza) * motion_value * status_atk_mult()
+	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(hab("fuerza")) * motion_value * status_atk_mult()
 # El "ataque" de un ESCUDAZO. No sale de tu arma sino de tu DEFENSA: la del cuerpo (armadura +
 # Resistencia, via def_value) MAS la del propio escudo (defend_defense), que es la chapa con la que
 # estas pegando. Por eso un escudo mas grande o de mejor tier pega mas, y por eso el escudazo es la
@@ -495,8 +495,9 @@ func def_value() -> float:
 	# La CORROSION solo come la DEF de la ARMADURA (extra_defense), no la de la carne: te abollan
 	# la coraza, no los huesos. Por eso va aqui y no multiplicando el resultado como Vulnerable.
 	var base: float = base_defense + extra_defense * status_def_flat_mult()
-	var d: float = StatsMath.defense_jugador(abilities, base) if stats_multiplicativas \
-		else StatsMath.defense_value(abilities, level, base)
+	var ab: Abilities = abilities_eff()
+	var d: float = StatsMath.defense_jugador(ab, base) if stats_multiplicativas \
+		else StatsMath.defense_value(ab, level, base)
 	return d * status_def_mult()
 func spd() -> float:
 	if dummy_speed_override >= 0.0:
@@ -506,8 +507,9 @@ func spd() -> float:
 func cast_spd() -> float: return _spd_base() * cast_velocidad_mult * status_spd_mult() * _guardia_spd()
 # Velocidad "cruda" segun la Agilidad (multiplicativa en el jugador, aditiva en los enemigos).
 func _spd_base() -> float:
-	return StatsMath.speed_jugador(abilities, base_speed) if stats_multiplicativas \
-		else StatsMath.speed_value(abilities, level, base_speed)
+	var ab: Abilities = abilities_eff()
+	return StatsMath.speed_jugador(ab, base_speed) if stats_multiplicativas \
+		else StatsMath.speed_value(ab, level, base_speed)
 
 # Penalizacion de velocidad de la postura de guardia (1.0 = sin postura).
 func _guardia_spd() -> float: return guardia_spd_mult if en_guardia else 1.0
@@ -657,7 +659,7 @@ func current_hand_slot() -> String:
 # enemigos flojos capan a nivel bajo; ataques especiales, mas alto). -1 = tope del def.
 func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		stacks_add: int = 1, refresh_all: bool = false, stack_cap: int = -1,
-		mult_override: float = 0.0) -> void:
+		mult_override: float = 0.0, escala: float = 1.0) -> void:
 	var d: Dictionary = StatusEffects.def(id)
 	if d.is_empty():
 		return
@@ -667,6 +669,17 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	if es_inmune(id):
 		print("[estado] %s es INMUNE a %s" % [nombre, String(d.get("nombre", "?"))])
 		return
+	# FAMILIAS EXCLUYENTES: solo un estado de cada familia a la vez (hoy, los platos de cocina: no
+	# puedes ir comido de dos cosas). Va aqui y no en quien da de comer porque por aqui pasan las dos
+	# vias —comer en el mapa y comer en combate— y ademas la vuelta del combate
+	# (StatusEffects.aplicar_a), que si no reconstruiria los dos platos que se excluian.
+	var fam: String = String(d.get("familia", ""))
+	if fam != "":
+		for e in statuses.duplicate():
+			if e.id() != id and e.familia() == fam:
+				_quitar_status(e.id())
+				print("[estado] %s: %s sustituye a %s (familia '%s')" % [
+					nombre, String(d.get("nombre", "?")), String(e.d.get("nombre", "?")), fam])
 	# Estados que APAGAN a otros al aplicarse: Mojado te apaga la Quemadura que llevaras.
 	for id_apagado in (d.get("limpia", []) as Array):
 		var quitados: int = _quitar_status(id_apagado)
@@ -706,7 +719,9 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		var ni := StatusEffects.Instance.new(d, turns, 1)
 		ni.magnitude = magnitude
 		ni.mult_override = mult_override
+		ni.escala = escala
 		statuses.append(ni)
+		_invalidar_hab()
 		print("[estado] %s recibe %s: +1 stack (%.2f/turno c/u, %d turnos) -> %d stacks" % [
 			nombre, nombre_estado, magnitude, turns, _count_status(id)])
 		return
@@ -722,14 +737,18 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 				e.mult_override = mult_override
 			if mode == "merge":
 				e.stacks = mini(e.stacks + stacks_add, maxs)
+			e.escala = maxf(e.escala, escala)   # re-comer: se queda el plato del mejor tier
+			_invalidar_hab()
 			print("[estado] %s: %s re-aplicado (x%d, %.2f/turno, %d turnos)" % [
 				nombre, nombre_estado, e.stacks, e.dot_damage(), turns])
 			return
 	var inst := StatusEffects.Instance.new(d, turns, mini(stacks_add, maxs) if mode == "merge" else 1)
 	inst.magnitude = magnitude
 	inst.mult_override = mult_override
+	inst.escala = escala
 	statuses.append(inst)
 	_al_poner_status(inst)
+	_invalidar_hab()
 	print("[estado] %s recibe %s (x%d, %.2f/turno, %d turnos)" % [
 		nombre, nombre_estado, inst.stacks, inst.dot_damage(), turns])
 
@@ -784,6 +803,8 @@ func _quitar_status(id: int) -> int:
 		else:
 			_al_quitar_status(e)   # deshace lo que tocara (la vida de la Guardia de carne)
 	statuses = quedan
+	if antes != statuses.size():
+		_invalidar_hab()
 	return antes - statuses.size()
 
 
@@ -811,6 +832,7 @@ func _min_turns_status(id: int):
 # se saltan el PRIMER decremento (flag 'fresh'), asi un buff/debuff de 3 turnos sigue
 # activo durante la accion de los 3 turnos (si no, se "gasta" uno antes de poder usarlo).
 func tick_statuses() -> Dictionary:
+	var antes_de_tick: int = statuses.size()
 	var total_dmg: float = 0.0
 	var total_heal: float = 0.0
 	var total_mana: float = 0.0
@@ -856,6 +878,12 @@ func tick_statuses() -> Dictionary:
 		else:
 			kept.append(e)
 	statuses = kept
+	if antes_de_tick != statuses.size():
+		_invalidar_hab()
+	# Lo que aguanta el estomago (plato de Encurtidos): recorta TODO el daño por turno de una vez,
+	# ya sumado, en vez de estado por estado. Es lo mismo (la suma es lineal) y ademas asi el plato
+	# no se puede "colar" dentro de la propia reduccion.
+	total_dmg *= status_dot_taken_mult()
 	if total_dmg > 0.0:
 		take_damage(total_dmg, true)   # DoT: NO lo tapa el escudo del sequito (pega limpio)
 	if total_heal > 0.0:
@@ -961,6 +989,140 @@ func status_heal_recv_mult() -> float:
 		m *= e.mult_de("heal_recv_mult")
 	return m
 
+# --- PLATOS DE COCINA: multiplicadores y bonus que solo dan ellos (por ahora) ---
+# Todos siguen el mismo patron que los de arriba. Los que MULTIPLICAN van por mult_de(); los que
+# SUMAN puntos porcentuales (crit/esquiva/resistencia) van por flat_de() y se acumulan sumando,
+# porque un +5% de critico no es un x1.05.
+
+# DAÑO QUE HACE este combatiente, encima de todo lo demas (plato de Fuerza). Espejo exacto de
+# status_dmg_taken_mult pero del lado del ATACANTE.
+func status_dmg_dealt_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.mult_de("dmg_dealt_mult")
+	return m
+
+# DAÑO DE HECHIZO. Hoy nadie lo toca (el plato de Magia sube la Magia, que ya multiplica el daño);
+# queda enchufado para los estados de magia que vengan.
+func status_spell_dmg_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.mult_de("spell_dmg_mult")
+	return m
+
+# COSTE DE MANA de los hechizos. < 1.0 = mas baratos (plato de Magia).
+func status_mana_coste_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.mult_de("mana_coste_mult")
+	return m
+
+# MANA QUE SUELTA CADA BICHO al morir y goteo por turno del arma magica (plato de Maná).
+func status_mp_kill_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.mult_de("mp_kill_mult")
+	return m
+
+func status_mp_regen_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.mult_de("mp_regen_mult")
+	return m
+
+# DAÑO POR TURNO que le entra (plato de Estómago). Se aplica sobre el DoT ya sumado en tick_statuses.
+func status_dot_taken_mult() -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.mult_de("dot_taken_mult")
+	return m
+
+# PUNTOS de critico / esquiva que suman los estados (plato de Reflejos). Se suman a la probabilidad
+# ya calculada en StatsMath.resolve_attack.
+func status_crit_flat() -> float:
+	var s: float = 0.0
+	for e in statuses:
+		s += e.flat_de("crit_flat")
+	return s
+
+func status_evade_flat() -> float:
+	var s: float = 0.0
+	for e in statuses:
+		s += e.flat_de("evade_flat")
+	return s
+
+# RESISTENCIA A ESTADOS de este combatiente, TODO junto: la suya de siempre (armadura + base, la
+# pone Game al montarlo) mas lo que aporten los estados (plato de Estómago).
+#
+# Existe para que haya UN solo sitio que conteste "cuanto resiste este", porque la probabilidad de
+# meter un estado se calcula en cinco puntos distintos (golpes, hechizos, habilidades del jugador,
+# habilidades enemigas, imbuiciones) y si uno se queda leyendo status_resist a pelo el plato
+# funciona a medias segun quien te ataque, que es justo el bug que no se ve.
+func resist_estados() -> float:
+	return clampf(status_resist + status_resist_flat(), 0.0, 0.95)
+
+func status_resist_flat() -> float:
+	var s: float = 0.0
+	for e in statuses:
+		s += e.flat_de("status_resist_flat")
+	return s
+
+# PESO EXTRA que puedes cargar por ir comido (plato de Fuerza). Lo lee Game.capacidad_carga.
+func status_mochila_extra() -> float:
+	var s: float = 0.0
+	for e in statuses:
+		s += e.flat_de("mochila_extra")
+	return s
+
+
+# --- HABILIDADES BASE modificadas por estados (platos) ---
+# Los platos suben la HABILIDAD (Fuerza/Resistencia/Agilidad/Magia), no la stat derivada, asi que
+# hay que leerlas por aqui en vez de tocar 'abilities'. Dos accesos:
+#   - hab("fuerza")   -> el valor de UNA habilidad, ya multiplicado (para los sitios que leen una).
+#   - abilities_eff() -> una copia de Abilities con todas aplicadas, para las formulas de StatsMath
+#     que reciben el objeto entero (defense_jugador, speed_jugador, magic_jugador).
+#
+# OJO con lo que NO pasa por aqui, y es a proposito:
+#   - max_hp / max_mp: se calculan UNA vez en _init. Si la Resistencia del plato entrara ahi, comer
+#     te subiria la vida maxima y al caducar te la bajaria — que es justo el lio del 'hp_mult' de la
+#     Guardia de carne, y por eso ese estado no puede salir de la pelea.
+#   - Game.poder_jugador_eff / poder_jugador_nivel: el denominador del reto sale de PersonajeData,
+#     no de Combatant, asi que no lo tocan solos. Que siga asi: un plato NO puede falsear la excelia.
+var _abilities_eff = null   # cache; null = hay que recalcularla
+
+func _invalidar_hab() -> void:
+	_abilities_eff = null
+
+func hab(clave: String) -> float:
+	var base: float = float(abilities.get(clave))
+	return base * _hab_mult(clave)
+
+func _hab_mult(clave: String) -> float:
+	var m: float = 1.0
+	for e in statuses:
+		m *= e.hab_mult(clave)
+	return m
+
+# Abilities EFECTIVAS. Si no hay ningun estado que toque habilidades devuelve el objeto original tal
+# cual (caso normal: cero copias, cero basura); solo duplica cuando de verdad hace falta.
+func abilities_eff() -> Abilities:
+	if _abilities_eff != null:
+		return _abilities_eff
+	var toca: bool = false
+	for e in statuses:
+		if not (e.d.get("hab_mult", {}) as Dictionary).is_empty():
+			toca = true
+			break
+	if not toca:
+		_abilities_eff = abilities
+		return _abilities_eff
+	var a: Abilities = abilities.duplicate() as Abilities
+	for clave in StatusEffects.NOMBRE_HABILIDAD:
+		a.set(clave, int(round(float(abilities.get(clave)) * _hab_mult(str(clave)))))
+	_abilities_eff = a
+	return _abilities_eff
+
+
 # DEF PLANA de la armadura (Corrosion). A proposito distinto de status_def_mult, que multiplica la
 # defensa YA calculada: la Corrosion te come la coraza y Vulnerable te abre la guardia, asi que son
 # cosas distintas y se COMBINAN.
@@ -1056,7 +1218,7 @@ func roll_on_hit(target: Combatant) -> Array:
 		if a.estado < 0:
 			continue
 		# La resistencia a estados del OBJETIVO baja la probabilidad de que prenda.
-		var p: float = a.prob * (1.0 - target.status_resist)
+		var p: float = a.prob * (1.0 - target.resist_estados())
 		if randf() >= p:
 			continue
 		var mag: float = StatusEffects.app_magnitude(a, atk(), motion_value)   # sangrado escala con MI ataque (mv invertido)

@@ -100,16 +100,22 @@ var imbue: Dictionary = {}
 # ESTADOS ALTERADOS que se lleva puestos FUERA del combate (veneno, Pegajoso, Fortaleza...). Antes
 # morian con el Combatant al cerrar la pantalla: escapabas envenenado y salias limpio. Ahora salen
 # de la pelea contigo y siguen corriendo por el mapa a Game.SEG_POR_TURNO_FUERA segundos por turno.
-# Formato: una lista de dicts de StatusEffects.dict_de_instancia. Como el imbue y las colas de
-# pocion, NO es @export: aguanta la sesion pero no el guardado (cargar es empezar limpio).
-var estados: Array = []
+# Formato: una lista de dicts de StatusEffects.dict_de_instancia. SI se guardan (a diferencia del
+# imbue y de las colas de pocion, que son de sesion): un plato de cocina dura 20 minutos y cuesta
+# ingredientes, asi que evaporarse al guardar y salir seria un robo. Al LIDER no le vale con esto —
+# no viaja como PersonajeData sino en los campos planos del save (SaveData.player_estados).
+@export var estados: Array = []
 # Segundos acumulados hacia el proximo turno fuera de combate (ver Game.tick_estados).
-var estados_reloj: float = 0.0
-# Cuanto le FRENAN esos estados por el mapa (1.0 = nada) y como se pintan sus chips en el HUD. Los
-# dos van CACHEADOS porque el mapa los pregunta en cada frame: los pone Game.refrescar_cache_estados
-# cada vez que `estados` cambia, no al leerlos.
+@export var estados_reloj: float = 0.0
+# Cuanto le FRENAN esos estados por el mapa (1.0 = nada), como se pintan sus chips en el HUD (texto
+# plano y datos por chip) y cuanta carga extra le dan. Van CACHEADOS porque el mapa los pregunta en
+# cada frame: los pone Game.refrescar_cache_estados cada vez que `estados` cambia, no al leerlos.
 var estados_spd: float = 1.0
 var estados_chip: String = ""
+# Un elemento por chip: [etiqueta, tooltip, icono, color]. Mismo contenido que estados_chip pero sin
+# aplastar a String, para poder pintar cada estado como un recuadro con su color (ver status_chip.gd).
+var estados_chips: Array = []
+var estados_mochila: float = 0.0
 
 # CARGAS DE FOCO ARCANO. Van aparte de `estados` porque NO son un estado con duracion: son munición.
 # No caducan con el tiempo -- solo las gasta lanzar un hechizo ofensivo (Combatant.consumir_foco),

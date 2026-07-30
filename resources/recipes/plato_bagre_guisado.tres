@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="RecipeData" format=3]
+
+
+[ext_resource type="Script" path="res://scripts/items/recipe_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/recipe_ingrediente.gd" id="2"]
+[ext_resource type="Resource" path="res://resources/consumables/plato_bagre_guisado.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/materials/bagre_legamo.tres" id="m0"]
+[ext_resource type="Resource" path="res://resources/materials/tuberculo_palido.tres" id="m1"]
+[ext_resource type="Resource" path="res://resources/materials/patata.tres" id="m2"]
+[ext_resource type="Resource" path="res://resources/materials/zanahoria.tres" id="m3"]
+[ext_resource type="Resource" path="res://resources/materials/cebolla.tres" id="m4"]
+[ext_resource type="Resource" path="res://resources/materials/aceite.tres" id="m5"]
+
+[sub_resource type="Resource" id="I_bagre_legamo"]
+script = ExtResource("2")
+material = ExtResource("m0")
+unidades = 4
+
+[sub_resource type="Resource" id="I_tuberculo_palido"]
+script = ExtResource("2")
+material = ExtResource("m1")
+unidades = 3
+
+[sub_resource type="Resource" id="I_patata"]
+script = ExtResource("2")
+material = ExtResource("m2")
+unidades = 2
+
+[sub_resource type="Resource" id="I_zanahoria"]
+script = ExtResource("2")
+material = ExtResource("m3")
+unidades = 2
+
+[sub_resource type="Resource" id="I_cebolla"]
+script = ExtResource("2")
+material = ExtResource("m4")
+unidades = 2
+
+[sub_resource type="Resource" id="I_aceite"]
+script = ExtResource("2")
+material = ExtResource("m5")
+unidades = 1
+
+[resource]
+script = ExtResource("1")
+resultado = ExtResource("3")
+ingredientes = [SubResource("I_bagre_legamo"), SubResource("I_tuberculo_palido"), SubResource("I_patata"), SubResource("I_zanahoria"), SubResource("I_cebolla"), SubResource("I_aceite")]
+unidades_resultado = 2

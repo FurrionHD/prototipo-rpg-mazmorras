@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_plato"]
+script = ExtResource("2")
+estado = 28
+prob = 1.0
+
+[resource]
+script = ExtResource("1")
+nombre = "Bagre guisado con tubérculo"
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+efectos = [SubResource("SA_plato")]
+escala_efecto = 1.2
+descripcion = "Un guiso espeso de los que reposan toda la noche. Lo que te tomes después te dura el doble."
+valor_base = 640

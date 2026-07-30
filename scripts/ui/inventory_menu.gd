@@ -536,6 +536,10 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		_row(vb, "Enseña", cons.spell.nombre)
 		_row(vb, "Coste", "%d de maná" % cons.spell.coste_mana)
 		_row(vb, "Hechizos", "%d / %d aprendidos" % [Game.lider().equipped_spells.size(), Game.MAX_HECHIZOS])
+	elif cons.es_plato():
+		# La ficha del plato ya trae QUE hace y CUANTO dura, todo derivado de sus efectos: aqui no se
+		# escribe ni un numero (ver ConsumableData.resumen_plato).
+		_note(vb, cons.resumen_plato())
 	else:
 		_row(vb, "Efecto", cons.resumen(Game.player_max_hp(), Game.player_max_mp()))
 		_row(vb, "Duración", "%.0f s (fuera de combate)" % cons.segundos)
@@ -549,10 +553,13 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 	# Un GRIMORIO igual, y ademas es lo importante: el libro se GASTA al estudiarlo, asi que si iba
 	# siempre al lider y el que querias que lo aprendiera no era el lider, perdias el hechizo y el
 	# libro. Con uno solo en el grupo, el boton de siempre.
-	var por_persona: bool = (cons.cura_hp() or cons.da_mana() or cons.es_grimorio()) \
+	# Un PLATO de cocina, lo mismo y por el mismo motivo que el grimorio: se gasta al comerlo y el
+	# buff se lo queda SOLO quien lo come, asi que mandarlo siempre al lider seria perder el plato.
+	var por_persona: bool = (cons.cura_hp() or cons.da_mana() or cons.es_grimorio() or cons.es_plato()) \
 		and Game.party.size() > 1
 	if por_persona:
-		_note(vb, "¿Quién lo estudia?" if cons.es_grimorio() else "¿A quién se la das?")
+		_note(vb, "¿Quién lo estudia?" if cons.es_grimorio() else (
+			"¿Quién se lo come?" if cons.es_plato() else "¿A quién se la das?"))
 		for pj in Game.party:
 			var b := Button.new()
 			var corona: String = "👑 " if pj == Game.lider() else ""
@@ -566,6 +573,12 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 					"sin hueco" if lleno else "%d/%d hechizos" % [suyos.size(), Game.MAX_HECHIZOS])
 				b.text = "%s%s  (%s)" % [corona, pj.nombre, estado]
 				b.disabled = lo_sabe or lleno
+			elif cons.es_plato():
+				# Lo util aqui no es su vida: es SI YA VA COMIDO, porque el plato nuevo se lleva por
+				# delante al que llevara puesto y eso conviene saberlo ANTES de gastarlo.
+				var puesto: String = Game.plato_puesto(pj)
+				b.text = "%s%s  (%s)" % [corona, pj.nombre,
+					("lleva %s" % puesto) if puesto != "" else "sin comer"]
 			else:
 				var partes: Array = ["%.0f/%.0f ♥" % [Game.player_hp(pj), Game.player_max_hp(pj)]]
 				if cons.da_mana():
@@ -575,7 +588,7 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 			vb.add_child(b)
 	else:
 		var usar := Button.new()
-		usar.text = "Estudiar" if cons.es_grimorio() else "Usar"
+		usar.text = "Estudiar" if cons.es_grimorio() else ("Comer" if cons.es_plato() else "Usar")
 		usar.disabled = cons.es_grimorio() and (sabido or Game.hechizos_llenos())
 		usar.pressed.connect(_on_usar.bind(cons))
 		vb.add_child(usar)

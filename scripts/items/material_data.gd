@@ -407,7 +407,7 @@ func resumen() -> String:
 			or (tipo == Tipo.DESPENSA and exigencia > 0.0):
 		partes.append("exigencia %d" % roundi(exigencia))
 	if es_pescado() and cm_max > 0.0:
-		partes.append("talla %d-%d cm" % [roundi(cm_min), roundi(cm_max)])
+		partes.append("talla %.1f-%.1f cm" % [cm_min, cm_max])
 	if mejora_equipo():
 		var uso: String = uso_mejora_texto()
 		if tier_equipo > 0:

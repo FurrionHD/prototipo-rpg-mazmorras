@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="MaterialTable" format=3]
+[gd_resource type="Resource" script_class="MaterialTable" format=3 uid="uid://kvoes2iuemka"]
 
-[ext_resource type="Script" path="res://scripts/world/material_table.gd" id="1_tabla"]
-[ext_resource type="Script" path="res://scripts/world/material_entry.gd" id="2_entrada"]
+[ext_resource type="Script" uid="uid://cu560afpbuxtm" path="res://scripts/world/material_table.gd" id="1_tabla"]
+[ext_resource type="Script" uid="uid://5341cfr77rmh" path="res://scripts/world/material_entry.gd" id="2_entrada"]
 [ext_resource type="Resource" path="res://resources/materials/gobio_palido.tres" id="3_gobio"]
 [ext_resource type="Resource" path="res://resources/materials/lubina_mazmorra.tres" id="4_lubina"]
 [ext_resource type="Resource" path="res://resources/materials/bagre_legamo.tres" id="5_bagre"]
@@ -13,7 +13,6 @@ script = ExtResource("2_entrada")
 material = ExtResource("3_gobio")
 peso = 120.0
 peso_pleno = 10.0
-piso_debut = 1
 piso_pleno = 12
 
 [sub_resource type="Resource" id="E_lubina"]
@@ -21,7 +20,6 @@ script = ExtResource("2_entrada")
 material = ExtResource("4_lubina")
 peso = 18.0
 peso_pleno = 55.0
-piso_debut = 1
 piso_pleno = 12
 
 [sub_resource type="Resource" id="E_bagre"]
@@ -29,7 +27,6 @@ script = ExtResource("2_entrada")
 material = ExtResource("5_bagre")
 peso = 4.0
 peso_pleno = 45.0
-piso_debut = 1
 piso_pleno = 12
 
 [sub_resource type="Resource" id="E_anguila"]
@@ -37,7 +34,6 @@ script = ExtResource("2_entrada")
 material = ExtResource("6_anguila")
 peso = 1.0
 peso_pleno = 40.0
-piso_debut = 1
 piso_pleno = 12
 
 [sub_resource type="Resource" id="E_espejo"]
@@ -45,7 +41,6 @@ script = ExtResource("2_entrada")
 material = ExtResource("7_espejo")
 peso = 0.5
 peso_pleno = 3.1
-piso_debut = 1
 piso_pleno = 12
 
 [resource]
