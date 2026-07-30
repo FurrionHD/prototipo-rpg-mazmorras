@@ -134,6 +134,10 @@ var _apartados: Array = []         # PersonajeData que el cupo mando al hogar, e
 # cliente jamas puede deducirlo de su _peers (que solo tiene al host).
 var _num_humanos := 1
 var _dentro: Dictionary = {}       # peer_id -> true: quienes estan en la mazmorra (host)
+# peer_id -> true: quienes han CAIDO y todavia no han vuelto a bajar (host). Es la cuenta de "¿habeis
+# muerto todos?", que es lo unico que olvida la mazmorra compartida (ver _registrar_muerte). Se le
+# borra la marca al que vuelve a entrar: ha vuelto a la pelea.
+var _muertos: Dictionary = {}
 # CLAVE de un sitio de recoleccion: Vector3i(piso, celda.x, celda.y). Va el PISO dentro a
 # proposito: los pisos se generan con el mismo molde y repiten coordenadas, asi que con la celda
 # pelada picar una veta en el piso 3 borraba la del mismo hueco en el 4.
@@ -381,6 +385,7 @@ func desconectar() -> void:
 	_enem_acum = 0.0
 	_peers.clear()
 	_dentro.clear()
+	_muertos.clear()
 	_vetas_ocupadas.clear()
 	_agotados_sesion.clear()
 	_bosses_sello.clear()
@@ -1013,6 +1018,7 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 		# un piso sin la veta y se la veria brotar de la nada dos segundos despues.
 		_barrer_respawns()
 	_dentro[quien] = true
+	_muertos.erase(quien)   # el que vuelve a bajar ya no cuenta como caido (ver _registrar_muerte)
 	var dueno: bool = _asignar_dueno(piso, quien)
 	var mem: Dictionary = {}
 	if dueno:
@@ -1089,6 +1095,72 @@ func _registrar_salida(quien: int, foto: Dictionary = {}) -> void:
 	_dentro.erase(quien)
 	if _dentro.is_empty() and expedicion_abierta:
 		_cerrar_expedicion()
+
+
+# --- MUERTE en la mazmorra (decision del usuario: que caiga UNO no cierra la mazmorra) -----------
+#
+# La llama Game.morir_jugador ANTES de desmontar el piso. Es la misma salida que viajar_al_pueblo
+# —foto, suelto el piso, aviso al host— y por la misma razon de peso: si te vas siendo aun el dueño,
+# cada bicho difunde su propia baja al morir con la escena (_exit_tree -> baja_enemigo) y al compañero
+# que sigue dentro se le vacia el piso. Lo unico que cambia es lo que el host apunta: una MUERTE.
+#
+# Lo que NO se hace aqui es Game.cerrar_bajada(): morir_jugador ya se encarga de lo suyo (y el
+# alboroto lo reinicia olvidar_mazmorra), y la foto se toma igual unas lineas mas abajo.
+func morir_en_la_mazmorra() -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	var foto: Dictionary = _foto_de_mi_piso()
+	_soy_dueno = false
+	_olvidar_mis_enemigos()
+	if es_host:
+		_registrar_muerte(1, foto)
+	else:
+		_pedir_muerte.rpc_id(1, foto)
+	anunciar_lugar("pueblo")
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_muerte(foto: Dictionary) -> void:
+	if not es_host:
+		return
+	_registrar_muerte(multiplayer.get_remote_sender_id(), foto)
+
+
+# Solo host: 'quien' ha caido. Sale del piso igual que si volviera andando (el relevo de la
+# simulacion pasa al que siga dentro, con la foto fiel), y se le apunta como MUERTO.
+#
+# La mazmorra compartida solo se OLVIDA cuando habeis caido todos: mientras quede un humano en pie,
+# los pisos siguen como estaban. Que muera uno no puede castigar al otro —era justo el bug que se
+# arreglaba aqui—, y tampoco puede borrarle la mazmorra al que esta arriba vendiendo.
+func _registrar_muerte(quien: int, foto: Dictionary = {}) -> void:
+	_muertos[quien] = true
+	_registrar_salida(quien, foto)   # suelta vetas, piso y cargos (y cierra si era el ultimo dentro)
+	if _dentro.is_empty() and _muertos.size() >= maxi(1, _num_humanos):
+		_olvidar_expedicion()
+	else:
+		print("[multi] ha caido el peer %d (%d de %d): la mazmorra sigue en pie" % [
+			quien, _muertos.size(), maxi(1, _num_humanos)])
+
+
+# Solo host: habeis caido TODOS. ESTO es cerrar la mazmorra de verdad (lo otro, _cerrar_expedicion,
+# solo suelta los cargos): se olvidan los pisos congelados, el botin que quedo tirado por ellos y los
+# jefes se levantan. Es el equivalente en sesion de Game.olvidar_mazmorra.
+#
+# Lo picado (_agotados_sesion) NO entra: en solitario tampoco se pierde al morir, los sellos viven en
+# mazmorra_persistente. Su CD es su CD.
+func _olvidar_expedicion() -> void:
+	_fotos_piso.clear()
+	_muertos.clear()
+	for id in _suelo.keys():
+		if str(_suelo[id]["lugar"]).begins_with("piso:"):
+			_suelo.erase(id)
+			_despawn_drop.rpc(id)
+			_despawn_drop(id)
+	for piso in _bosses_sello.keys():
+		_marcar_boss(piso, false)
+		_marcar_boss.rpc(piso, false)
+	print("[multi] habeis caido todos: la mazmorra se olvida")
+	estado_cambiado.emit("Habéis caído todos: la mazmorra se olvida.")
 
 
 # Solo host: el ultimo salio. Se sueltan los CARGOS de la expedicion (quien simulaba cada piso, que
@@ -4910,6 +4982,9 @@ func _on_peer_disconnected(id: int) -> void:
 		# siempre. Que cada dueño suelte los suyos.
 		_soltar_reservas_de.rpc(id)
 		_soltar_reservas_de(id)
+		# Irse NO es morir: se le quita la marca de caido para que no cuente en el "¿habeis muerto
+		# todos?" de _registrar_muerte (el que se va tambien deja de contar en _num_humanos).
+		_muertos.erase(id)
 		if _dentro.has(id):
 			_dentro.erase(id)
 			if _dentro.is_empty():

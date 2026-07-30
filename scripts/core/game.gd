@@ -2257,7 +2257,19 @@ func morir_jugador() -> void:
 		pj.set_meta("sin_fuelle", false)
 	limpiar_curas_pendientes()
 
-	# Expedicion nueva: vuelves al piso 1 y la mazmorra se olvida de lo que dejaste.
+	# MULTIJUGADOR: caer es SALIR del piso, y hay que decirlo antes de desmontar la escena. Si no, te
+	# vas siendo aun el dueño del piso y cada bicho, al morir con la escena, difunde su propia baja
+	# (_exit_tree -> Net.baja_enemigo): al compañero que se queda dentro se le vacia el piso entero
+	# delante de las narices. Y ademas nadie recoge el relevo de la simulacion.
+	#
+	# La mazmorra COMPARTIDA no se olvida por que caiga uno: eso pasa cuando habeis caido TODOS (ver
+	# Net._registrar_muerte). Va ANTES de olvidar_mazmorra, que es quien vacia la memoria local de la
+	# que sale la foto que se le pasa al que sigue dentro.
+	if Net.activo:
+		Net.morir_en_la_mazmorra()
+
+	# Tu expedicion se acaba: vuelves al piso 1 y la mazmorra se olvida de lo que dejaste. En sesion
+	# esto solo tira TU cache local (la mazmorra de verdad la lleva el host).
 	current_floor = 1
 	olvidar_mazmorra()
 	# Y PIERDES lo que cartografiaste esta expedicion: el mapa vuelve al baseline de cuando entraste.
