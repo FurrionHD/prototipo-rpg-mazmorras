@@ -700,6 +700,7 @@ func _categoria_de(d: MaterialData) -> String:
 		MaterialData.Tipo.CUERO: return "Cueros"
 		MaterialData.Tipo.BABA: return "Babas y fluidos"
 		MaterialData.Tipo.PLANTA: return "Plantas y hierbas"
+		MaterialData.Tipo.CARNE: return "Carnes y pescados"
 		MaterialData.Tipo.NUCLEO:
 			match int(d.uso_mejora):
 				MaterialData.UsoMejora.ARMA: return "Núcleos (arma)"

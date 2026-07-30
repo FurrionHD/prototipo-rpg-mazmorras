@@ -60,9 +60,13 @@ func interact_with_player() -> void:
 			menu.abrir()
 			return
 		Game.current_floor = 1
-		# Y la mazmorra se repuebla: lo que dejaste en los pisos la expedicion anterior ya no
-		# esta. Si se recordara entre expediciones, los pisos se vaciarian para siempre.
-		Game.olvidar_mazmorra()
+		# NO se llama a Game.olvidar_mazmorra(): la mazmorra SIGUE ABIERTA entre bajadas. Volver al
+		# pueblo a vender y bajar otra vez te encuentra los pisos como los dejaste, y —lo que se
+		# pedia— lo que se te cayo al suelo en el piso 4 sigue ahi esperandote.
+		# Lo que SI la cierra: morir (Game.morir_jugador), salir por la puerta del jefe
+		# (dungeon_exit) y cerrar el juego (al cargar solo vuelve el piso que estabas pisando, ver
+		# Game.cargar). Los jefes ya no dependen de esto para volver: reaparecen por tiempo
+		# (Game.BOSS_RESPAWN).
 		# Baseline del mapa: lo que cartografies esta expedicion se pierde si mueres.
 		Game.iniciar_expedicion_mapa()
 	else:
@@ -70,5 +74,8 @@ func interact_with_player() -> void:
 		# cartografiado esta expedicion (ver Game). Es el unico momento en que el mapa se consolida.
 		Game.capturar_mapa()
 		Game.comprometer_mapa()
+		# Y se cierra la BAJADA (no la mazmorra): el piso que dejas se congela tal cual —es lo que te
+		# vas a encontrar al bajar otra vez— y se apaga el alboroto. Ver Game.cerrar_bajada.
+		Game.cerrar_bajada()
 	print("[Puerta] Viajando a: %s" % _destination)
 	get_tree().change_scene_to_file(_destination)

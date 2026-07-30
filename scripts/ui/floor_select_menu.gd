@@ -68,7 +68,7 @@ func _rebuild() -> void:
 		b.pressed.connect(_bajar.bind(piso))
 		_content.add_child(b)
 
-	MenuScaffold.nota(_content, "Entrar es empezar una expedición: la mazmorra se repuebla, y lo que dejaste tirado en sus pisos ya no está.")
+	MenuScaffold.nota(_content, "La mazmorra sigue como la dejaste: los mismos bichos y lo que se te cayó por el suelo. Sólo morir (o cerrar el juego) la reinicia.")
 
 
 func _bajar(piso: int) -> void:
@@ -79,13 +79,12 @@ func _bajar(piso: int) -> void:
 		Game.cerrar_menu(self)
 		Net.solicitar_entrar(maxi(1, piso))
 		return
-	# Igual que entrar por la boca (door.gd): expedicion NUEVA. Lo unico distinto es por que
-	# piso empiezas.
+	# Igual que entrar por la boca (door.gd). Lo unico distinto es por que piso empiezas: la mazmorra
+	# NO se olvida (los pisos siguen como los dejaste; ver el comentario de door.gd).
 	Game.current_floor = maxi(1, piso)
 	# Al piso 1 se entra por la BOCA (ahi esta la puerta al pueblo). A un piso de boss se entra por
 	# SU salida al pueblo, que esta en el fondo: apareces junto a ella y a la bajada.
 	Game.entrada_por_atajo = Game.current_floor > 1
-	Game.olvidar_mazmorra()
 	# Baseline del mapa: lo que cartografies esta expedicion se pierde si mueres.
 	Game.iniciar_expedicion_mapa()
 	Game.cerrar_menu(self)

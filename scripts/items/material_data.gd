@@ -23,7 +23,9 @@ enum Familia { CORRIENTE, NUCLEO }
 #   MADERA se saca con el HACHA de los arboles y las enredaderas de los pasillos.
 #   TABLON no se recolecta: sale de ASERRAR madera en el carpintero, y es el MANGO de las armas
 #   (la madera cruda ya no va directa a la forja; asi no sobra tanta).
-enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA, TABLON }
+#   CARNE es el primer ingrediente de COCINA: no se recolecta ni mejora nada, cae de los bichos que
+#   tienen algo que descuartizar (ver EnemyData.drop_extra) y su unico destino es el fogon.
+enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA, TABLON, CARNE }
 # A QUE se le puede meter este nucleo. Los del slime van al ARMA; el de la rata, a la
 # ARMADURA. CUALQUIERA = comodin (no lo usa ningun nucleo hoy, pero el campo lo admite).
 enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
@@ -98,6 +100,7 @@ func tipo_texto() -> String:
 		Tipo.LINGOTE: return "Lingote"
 		Tipo.MADERA: return "Madera"
 		Tipo.TABLON: return "Tablón"
+		Tipo.CARNE: return "Carne"
 		_: return "Núcleo"
 
 

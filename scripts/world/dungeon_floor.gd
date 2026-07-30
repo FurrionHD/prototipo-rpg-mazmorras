@@ -65,6 +65,7 @@ class_name DungeonFloor
 # el respawn son minutos, y barrer el diccionario de agotados cada frame seria tirar CPU.
 const RESPAWN_CHECK_CADA := 2.0
 var _t_respawn: float = RESPAWN_CHECK_CADA
+var _t_boss: float = RESPAWN_CHECK_CADA   # el mismo latido, para el respawn del jefe
 
 # --- RITMO de los partos (segundos). Franja ANCHA y LENTA a proposito: ver spawn_zone.gd ---
 # DOBLADOS (eran 25-70): con el aforo de la sala, los pasillos que desembocan en ella y los partos
@@ -231,10 +232,23 @@ var _salida_pos: Vector2 = Vector2.INF
 var _salidas_puestas: bool = false
 # Zona (sala) que ocupa el boss: no pare bichos. Nadie le hace de escolta.
 var _sala_boss: int = -1
+# Donde se planta el jefe de este piso (INF = este piso no tiene). Se guarda porque tambien se usa
+# EN CALIENTE: si su reloj cumple mientras estas dentro, renace ahi mismo (ver _repoblar_boss).
+var _boss_pos: Vector2 = Vector2.INF
 # Zona en la que ATERRIZA el jugador al construirse el piso. La fija _colocar_actores (que es
 # quien decide donde apareces) y la lee _crear_zonas para no poblarla. NO se puede dar por hecho
 # que sea la boca: por el atajo, o subiendo, apareces en el FONDO.
 var _zona_aterrizaje: int = -1
+# SALAS SEGURAS: las de las PUERTAS del piso (la boca -puerta al pueblo o escalera de subir- y el
+# fondo -bajada y, en los pisos de jefe, la salida al pueblo-). No se les crea zona de spawn, asi
+# que ni entran en la poblacion inicial, ni sus paredes paren, ni las eligen los brotes, ni nadie
+# migra a ellas (todo eso pasa por _zonas; ver _crear_zonas). Es el mismo mecanismo que la sala
+# del boss.
+#
+# Lo que NO son es invulnerabilidad: el bicho que ya te esta PERSIGUIENDO entra detras de ti. Huir
+# a la escalera sigue siendo huir. Es la diferencia con _zona_aterrizaje, que solo se salta la
+# poblacion inicial (esa sala sigue pariendo mientras la cruzas).
+var _zonas_seguras: Array[int] = []
 
 var _geo: Node2D = null      # toda la geometria del piso (se tira entera al regenerar)
 var _zonas: Node2D = null    # todas las SpawnZone
@@ -312,7 +326,9 @@ func _construir(por_la_bajada: bool = false) -> void:
 	_salida_pos = Vector2.INF
 	_salidas_puestas = false
 	_sala_boss = -1
+	_boss_pos = Vector2.INF
 	_zona_aterrizaje = -1
+	_zonas_seguras.clear()
 	gen = DungeonGenerator.new()
 	# El tamaño del @export es el del piso 1; abajo el mapa crece (ver AREA_GROWTH).
 	var fl: float = _factor_lineal_piso()
@@ -447,6 +463,13 @@ func _colocar_actores(por_la_bajada: bool = false) -> void:
 	# resuelto y no de gen.salas[0], que solo acertaba cuando entrabas por la boca.
 	_zona_aterrizaje = gen.zona_en(Vector2i((destino / float(DungeonGenerator.CELDA)).floor()))
 
+	# SALAS SEGURAS: la de la BOCA y la del FONDO. Con esas dos quedan cubiertas las tres puertas del
+	# piso, sin tener que ir puerta por puerta: la salida al pueblo se planta 3 celdas al lado de la
+	# bajada (ver abrir_salidas), y en el piso 1 la puerta al pueblo esta en la propia boca.
+	# Se marcan aunque este piso no tenga bajada todavia (jefe sin matar): la sala del fondo es la
+	# misma, y si la matas se abre ahi.
+	_marcar_seguras([entrada.get_center(), lejana.get_center() if lejana.size != Vector2i.ZERO else entrada.get_center()])
+
 	var player := get_tree().get_first_node_in_group("player")
 	if player != null and player.has_method("recolocar"):
 		player.recolocar(destino)  # recolocar, no mover a pelo: no regala excelia de distancia
@@ -517,15 +540,27 @@ func _colocar_boss() -> void:
 	var data: EnemyData = Game.boss_del_piso(Game.current_floor)
 	if data == null:
 		return
-	# Si el piso se RESTAURA de memoria, el boss ya vendra con los demas enemigos: no duplicar.
-	if Game.memoria_pisos.has(_piso_construido):
-		return
 	var sala: Rect2i = _sala_central()
 	if sala.size == Vector2i.ZERO:
 		return
 	# La ZONA se marca AQUI MISMO (sincrono): _crear_zonas la lee justo despues para NO poblar la
 	# sala del boss. Diferir esto le pondria escolta al jefe.
+	#
+	# Y se marca ANTES de los dos "return" de abajo a proposito: la sala del jefe es suya SIEMPRE,
+	# tambien cuando el piso se restaura de memoria o cuando el jefe esta muerto esperando su reloj.
+	# Antes esto colgaba del caso "piso nuevo", asi que un piso ya pisado le llenaba la sala de
+	# escolta; con la mazmorra persistente eso pasaria casi siempre.
 	_sala_boss = gen.zona_en(sala.get_center())   # su zona NO parira bichos (ver _crear_zonas)
+	_boss_pos = gen.centro_px(sala.get_center())  # donde renace si su reloj cumple (ver _repoblar_boss)
+
+	# Si el piso se RESTAURA de memoria, el boss ya vendra con los demas enemigos: no duplicar.
+	if Game.memoria_pisos.has(_piso_construido):
+		return
+	# Y si esta MUERTO y su reloj no ha cumplido, no se planta: la mazmorra ya no se olvida al pasar
+	# por el pueblo, asi que el jefe vuelve por tiempo (ver Game.BOSS_RESPAWN).
+	if not Game.boss_disponible(_piso_construido):
+		print("[mazmorra] el jefe del piso ", _piso_construido, " sigue muerto: aun le queda reloj")
+		return
 	# El BICHO, en cambio, DIFERIDO, por lo mismo que poblar()/_colocar_recolectables:
 	# crear_enemigo cuelga al enemigo de Main (get_parent()), y si el piso se construye desde
 	# _ready (entrar por el ATAJO, o cargar una partida en este piso) Main aun esta montando sus
@@ -785,6 +820,35 @@ func _repoblar_agotados(delta: float) -> void:
 		revivir_celda(celda, randi())
 
 
+# RESPAWN DEL JEFE, EN CALIENTE. Hermano de _repoblar_agotados y por el mismo motivo: el jefe ya no
+# vuelve porque la mazmorra se olvide al pasar por el pueblo (ya no se olvida), vuelve por reloj (ver
+# Game.BOSS_RESPAWN), y hay que poder verlo volver estando plantado en su sala.
+#
+# Quien decide si "toca" es Game.boss_disponible, que en sesion pregunta al host: aqui solo se planta.
+# Se aprovecha el mismo cronometro que el respawn de vetas (_t_respawn no, que ese ya lo consume la
+# otra: este lleva el suyo) y se comprueba lo minimo, que esto corre en cada frame.
+func _repoblar_boss(delta: float) -> void:
+	if _boss_pos == Vector2.INF:
+		return   # este piso no tiene jefe
+	_t_boss -= delta
+	if _t_boss > 0.0:
+		return
+	_t_boss = RESPAWN_CHECK_CADA
+	# MULTIJUGADOR: lo planta el DUEÑO del piso, el mismo que lo coloca al construirlo. El que espeja
+	# lo vera aparecer por red.
+	if not Net.simulo_mi_piso() or not Game.boss_disponible(_piso_construido):
+		return
+	# ¿Ya hay uno de pie? Los cadaveres estan en el grupo "corpse", asi que basta con mirar "enemy".
+	for n in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(n) and n.es_boss:
+			return
+	var data: EnemyData = Game.boss_del_piso(_piso_construido)
+	if data == null:
+		return
+	print("[mazmorra] el jefe del piso ", _piso_construido, " vuelve a su sala")
+	_parir_boss(data, _boss_pos, _piso_construido)
+
+
 # Hace BROTAR otra vez la celda: levanta el sello y planta el nodo con el material RE-TIRADO.
 # Sale de _repoblar_agotados porque lo llaman DOS sitios: el barrido local (solitario) y, en
 # multijugador, Net._revivir_celda cuando el host decide que a ese sitio le toca volver.
@@ -874,6 +938,37 @@ func agotados_vivos() -> Dictionary:
 	return _agotados
 
 
+# Apunta como SEGURAS las zonas de esas celdas (ver _zonas_seguras). Se llama una sola vez por piso,
+# desde _colocar_actores, que es quien sabe donde caen la boca y el fondo.
+#
+# GUARDA: un piso tiene que poder parir. Si al quitar estas salas quedaran menos de dos zonas con
+# paredes propias, no se marca ninguna: mas vale un bicho junto a la escalera que un piso muerto.
+# El descuento del jefe se hace a mano porque _sala_boss aun no esta decidido cuando corre esto.
+func _marcar_seguras(celdas: Array) -> void:
+	var candidatas: Array[int] = []
+	for c in celdas:
+		var idx: int = gen.zona_en(c)
+		if idx >= 0 and not candidatas.has(idx):
+			candidatas.append(idx)
+
+	var paridoras: int = 0
+	for i in range(gen.zonas.size()):
+		if candidatas.has(i):
+			continue
+		if (gen.zonas[i]["celdas"] as Array).is_empty() or gen.celdas_de_parto(i).is_empty():
+			continue
+		paridoras += 1
+	if Game.BOSSES.has(_piso_construido):
+		paridoras -= 1   # la sala central se la queda el jefe y tampoco pare
+
+	if paridoras < 2:
+		print("[mazmorra] piso ", _piso_construido, " demasiado pequeño para salas seguras (quedarian ",
+			paridoras, " zonas paridoras): se dejan normales")
+		return
+	_zonas_seguras = candidatas
+	print("[mazmorra] salas seguras (sin spawn): zonas ", _zonas_seguras)
+
+
 func _sala_mas_lejana(desde: Rect2i) -> Rect2i:
 	var mejor := Rect2i()
 	var best_d: float = -1.0
@@ -921,7 +1016,12 @@ func _crear_zonas() -> void:
 
 		# La sala del BOSS no pare NADA: el rey slime pelea solo, sin escolta que se te eche
 		# encima mientras lo tienes a media vida.
-		if i == _sala_boss:
+		#
+		# Y las SALAS SEGURAS tampoco: las de las puertas del piso (boca, bajada y salida al pueblo)
+		# son zona franca. Al no crearles zona se van de una vez del reparto de poblacion, de los
+		# partos, de los brotes (provocar_brote recorre _zonas) y de las migraciones de manada
+		# (aforo_de_zona da 0 para una zona que no existe). Ver _zonas_seguras.
+		if i == _sala_boss or _zonas_seguras.has(i):
 			continue
 
 		var es_sala: bool = z["tipo"] == "sala"
@@ -1311,6 +1411,7 @@ func _process(delta: float) -> void:
 	# El reloj de expedicion (Game.tiempo_mazmorra) lo lleva Game._process: tiene que contar
 	# tambien el tiempo de combate, y este _process se congela con el arbol.
 	_repoblar_agotados(delta)
+	_repoblar_boss(delta)
 
 	_t_barrido -= delta
 	if _t_barrido > 0.0:

@@ -964,14 +964,46 @@ func restaurar_imbue_de_ficha(c: Combatant, pj: PersonajeData) -> void:
 		float(d.get("prob_doble", 0.0)), bool(d.get("destreza", false)))
 
 
+# CIERRA la mazmorra: se olvida como quedaron los pisos y todo vuelve a nacer poblado.
+#
+# OJO con QUIEN llama a esto, que es la mitad del sistema: la mazmorra ya NO se cierra al volver al
+# pueblo (bajar a recoger lo que te dejaste es el punto), asi que solo la cierran MORIR
+# (morir_jugador), SALIR POR LA PUERTA DEL JEFE (dungeon_exit) y cerrar el juego (al cargar solo
+# vuelve el piso que estabas pisando, ver cargar_datos). Meter esto otra vez en door.gd o en el menu
+# de atajos deshace la funcion entera.
 func olvidar_mazmorra() -> void:
 	memoria_pisos.clear()
-	# El alboroto es de esta expedicion: al volver al pueblo (o morir) se reinicia, no arrastras el
-	# jaleo de la bajada anterior a la siguiente.
+	# Los sellos de los jefes son de la expedicion, como la memoria: cerrada la mazmorra, el jefe
+	# vuelve a estar de pie sin esperar su reloj (ver BOSS_RESPAWN).
+	bosses_sello.clear()
+	# El alboroto es de esta expedicion: al morir (o salir por la puerta del jefe) se reinicia, no
+	# arrastras el jaleo de la bajada anterior a la siguiente.
 	alboroto = 0.0
 	_alboroto_enfriando = 0.0
 	# mazmorra_persistente NO se toca: los nodos agotados y las zonas vistas duran mas que una
 	# expedicion (esa es justo la gracia). El reloj tampoco se reinicia.
+
+
+# CIERRA LA BAJADA (no la mazmorra). Lo llaman las tres vueltas al pueblo CON VIDA: la puerta, la
+# salida del jefe y la piedra de retorno. Hace las dos cosas que son de ESTE viaje y no del mundo:
+#
+#  1. CONGELA el piso en el que estas: vuelca sus bichos, sus cadaveres y lo que haya por su suelo a
+#     memoria_pisos, para que al volver a bajar este igual. Hace falta porque el volcado normal cuelga
+#     de CAMBIAR DE PISO (DungeonFloor._limpiar): el piso que abandonas por la escalera se guarda
+#     solo, pero el que estas pisando al salir por la puerta no se guardaba nunca. Con la mazmorra
+#     persistente ese es el caso mas comun (bajas al 4, tiras cosas y te vuelves andando: el 4 quedaba
+#     guardado y el 1, por el que sales, nacia repoblado).
+#     En sesion esto no se hace: alli la foto la saca Net._foto_de_mi_piso y se la queda el host.
+#  2. Apaga el ALBOROTO. El jaleo es de la bajada, no del piso: si se quedara puesto, volver a entrar
+#     te reventaria una pared en la cara por el escandalo que armaste hace media hora.
+func cerrar_bajada() -> void:
+	alboroto = 0.0
+	_alboroto_enfriando = 0.0
+	if Net.activo:
+		return
+	var f: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if f != null and f.has_method("volcar_a_memoria"):
+		f.volcar_a_memoria()
 
 
 # La NIEBLA de un piso (zona_idx -> true): las zonas que ya has pisado. Es lo que escribe el piso
@@ -2124,7 +2156,14 @@ func importar_partida(d: SaveData) -> void:
 				descubrir((it as MaterialItem).data)
 
 	current_floor = d.current_floor
-	memoria_pisos = d.memoria_pisos.duplicate(true)
+	# CERRAR EL JUEGO CIERRA LA MAZMORRA. La memoria de los pisos se guarda (hace falta para poder
+	# guardar DENTRO de la mazmorra y volver al mismo sitio con los mismos bichos), pero al cargar
+	# solo se recupera el piso que estabas pisando: los demas nacen poblados otra vez. Es el limite
+	# que se le puso a la mazmorra persistente para que no deje de sentirse nueva nunca.
+	# Si guardaste en el pueblo (en_mazmorra == false), no vuelve ninguno.
+	memoria_pisos.clear()
+	if d.en_mazmorra and d.memoria_pisos.has(d.current_floor):
+		memoria_pisos[d.current_floor] = (d.memoria_pisos[d.current_floor] as Dictionary).duplicate(true)
 	mazmorra_persistente = d.mazmorra_persistente.duplicate(true)
 	mapa_snapshot = d.mapa_snapshot.duplicate(true)
 	mapa_trabajo = d.mapa_trabajo.duplicate(true)
@@ -2314,6 +2353,49 @@ const BOSSES := {
 
 # {piso: true} de los bosses YA derrotados alguna vez en esta partida. Se guarda en SaveData.
 var bosses_derrotados: Dictionary = {}
+
+# --- RESPAWN de jefes POR RELOJ ---
+# El jefe volvia porque la mazmorra se olvidaba al pasar por el pueblo: matabas al rey slime, salias
+# a vender y al bajar estaba de pie otra vez. Desde que la mazmorra NO se cierra (ver
+# olvidar_mazmorra) ese respawn de rebote desaparecio, asi que ahora es EXPLICITO y por tiempo.
+#
+# Cuenta con tiempo_mazmorra, que corre TAMBIEN en el pueblo: el jefe se rehace mientras compras, no
+# hace falta estar delante. Y el reloj no se detiene en combate, asi que una pelea larga tambien
+# cuenta. Segundos por piso, que no todos los jefes valen lo mismo.
+const BOSS_RESPAWN := {
+	6: 600.0,    # Rey Slime: 10 min
+	12: 900.0,   # Guardián/Minotauro: 15 min
+}
+
+# {piso: tiempo_mazmorra en que cayo}. Vive en RAM y es de SCOPE EXPEDICION, como memoria_pisos: no
+# se guarda en la partida (cerrar el juego levanta a los jefes) y olvidar_mazmorra lo limpia.
+# Sin entrada = el jefe esta de pie.
+# En sesion la tabla que manda es la del HOST (ver Net.boss_disponible): aqui solo se lleva la del
+# mundo propio.
+var bosses_sello: Dictionary = {}
+
+# Lo llama enemy.gd cuando cae un jefe (ademas de marcar_boss_derrotado, que es el hito permanente).
+# Se apunta SIEMPRE, no solo la primera vez: es el arranque de su cuenta atras.
+func sellar_boss_caido(piso: int) -> void:
+	if not BOSSES.has(piso):
+		return
+	bosses_sello[piso] = tiempo_mazmorra
+	print("[mazmorra] jefe del piso %d abatido: vuelve en %d s de reloj de mazmorra." % [
+		piso, roundi(float(BOSS_RESPAWN.get(piso, 0.0)))])
+
+
+# ¿Toca que el jefe de ese piso este de pie? Sin sello = si (nunca ha caido en esta expedicion).
+# Con sello = solo cuando su reloj ha cumplido.
+func boss_disponible(piso: int) -> bool:
+	if not BOSSES.has(piso):
+		return false
+	# EN SESION decide el host: si cada maquina llevara su propia cuenta, el dueño del piso plantaria
+	# el jefe cuando le tocara A EL y los demas verian aparecer uno que para ellos seguia muerto.
+	if Net.activo:
+		return Net.boss_disponible(piso)
+	if not bosses_sello.has(piso):
+		return true
+	return tiempo_mazmorra - float(bosses_sello[piso]) >= float(BOSS_RESPAWN.get(piso, 0.0))
 
 func boss_del_piso(piso: int) -> EnemyData:
 	if not BOSSES.has(piso):
@@ -3327,11 +3409,13 @@ func volver_al_pueblo_con_objeto(c: ConsumableData) -> bool:
 		Net.viajar_al_pueblo()   # se lleva la foto, suelta el piso, avisa al host y anuncia el lugar
 		return true
 	# Misma secuencia que la puerta del piso del boss (dungeon_exit.interact_with_player): vuelves
-	# VIVO, asi que lo cartografiado esta bajada SE COMETE al mapa permanente.
+	# VIVO, asi que lo cartografiado esta bajada SE COMETE al mapa permanente. Y como en todas las
+	# vueltas con vida, la mazmorra NO se olvida: la piedra es un atajo a casa, no un reinicio (si
+	# olvidara, usarla te borraria lo que has dejado tirado en los pisos).
 	capturar_mapa()          # antes de tocar current_floor: captura el piso que abandonas
 	comprometer_mapa()
+	cerrar_bajada()          # el piso del que te teletransportas queda como lo dejas
 	current_floor = 1
-	olvidar_mazmorra()
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
 	return true
 
@@ -4724,7 +4808,8 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/acero.tres", "res://resources/materials/baba_abisal.tres",
 	"res://resources/materials/baba_fuego.tres", "res://resources/materials/baba_profunda.tres",
 	"res://resources/materials/baba_rey_slime.tres", "res://resources/materials/baba_slime.tres",
-	"res://resources/materials/baba_venenosa.tres", "res://resources/materials/chapa_acero.tres",
+	"res://resources/materials/baba_venenosa.tres", "res://resources/materials/carne_animal.tres",
+	"res://resources/materials/chapa_acero.tres",
 	"res://resources/materials/chapa_cobre.tres", "res://resources/materials/chapa_cobre_profundo.tres",
 	"res://resources/materials/chapa_cobre_veteado.tres", "res://resources/materials/chapa_hierro.tres",
 	"res://resources/materials/chapa_hierro_negro.tres", "res://resources/materials/chapa_hierro_templado.tres",
@@ -8601,6 +8686,17 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 	var chance_n: float = 1.0 if dev_force_drop else clampf(data.nucleo_chance * f_piso + mas_n, 0.0, 1.0)
 	if data.nucleo != null and randf() < chance_n:
 		caidos.append(MaterialItem.crear(data.nucleo, _calidad_joyero(calidad, joyero)))
+
+	# TERCERA tirada, la de COCINA (carne, y mañana pescado). Va aparte de las dos de arriba y no la
+	# tocan ni el factor de piso ni el Pulso de joyero, a proposito:
+	#   - el factor de piso existe para que bajar a por EL MATERIAL de un bicho compense; la carne es
+	#     un ingrediente, y una rata del piso 1 tiene la misma que la del 4.
+	#   - el joyero es una pasiva de EXTRACCION de cristales: no hace mejor carnicero a nadie.
+	var chance_x: float = 1.0 if dev_force_drop else clampf(data.drop_extra_chance, 0.0, 1.0)
+	if data.drop_extra != null and randf() < chance_x:
+		var cuantos_x: int = randi_range(maxi(1, data.drop_extra_min), maxi(1, data.drop_extra_max))
+		for _i in range(cuantos_x):
+			caidos.append(MaterialItem.crear(data.drop_extra, calidad))
 
 	if caidos.is_empty():
 		return

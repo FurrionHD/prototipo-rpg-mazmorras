@@ -130,6 +130,19 @@ func color_visual(t: float) -> Color:
 # escaso (es EL sistema de progresion), pero escaso no es lo mismo que interminable.
 @export var nucleo_chance: float = 0.15   # ~1 de cada 7
 
+# --- TERCERA tirada: el drop de COCINA/CONSUMO ---
+# Ni material de pociones ni nucleo de mejora: es lo que se le saca al bicho para COMER (hoy la
+# carne de rata/rey rata/jabali; mañana el pescado y lo que venga). Va en su propio slot y no en
+# drop_material por dos razones:
+#   - un bicho ya usa drop_material para su piel: la carne es OTRA cosa que cae A LA VEZ.
+#   - es una economia aparte. La comida se gasta por TIEMPO (un plato dura 20 min), no por pieza
+#     de equipo, asi que su escasez no se calibra contra la forja.
+# El campo es GENERICO a proposito: el motor no sabe que esto es "carne".
+@export var drop_extra: MaterialData = null
+@export var drop_extra_chance: float = 0.05
+@export var drop_extra_min: int = 1
+@export var drop_extra_max: int = 1
+
 # --- DROP por PROFUNDIDAD ---
 # Un bicho soltaba lo mismo en su primer piso que en el ultimo, asi que bajar a por SU material
 # no compensaba: farmeabas ratas en el piso 1, donde no te matan, y nunca tenias motivo para

@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2_sa"]
 [ext_resource type="Resource" path="res://resources/materials/cuero_brunido.tres" id="3_cuero"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_jabali.tres" id="4_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/carne_animal.tres" id="8_carne"]
 [ext_resource type="Resource" uid="uid://ddjhoceoado8m" path="res://resources/abilities/jabali_embestida.tres" id="5_emb"]
 [ext_resource type="Resource" path="res://resources/abilities/jabali_pisoton.tres" id="6_pis"]
 [ext_resource type="Resource" uid="uid://v1yj1srb46hr" path="res://resources/abilities/jabali_cornada.tres" id="7_cor"]
@@ -42,6 +43,10 @@ extraction_req_destreza = 75
 drop_material = ExtResource("3_cuero")
 drop_chance = 0.4
 nucleo = ExtResource("4_nuc")
+drop_extra = ExtResource("8_carne")
+drop_extra_chance = 0.05
+drop_extra_min = 1
+drop_extra_max = 2
 drop_piso_debut = 3
 drop_piso_pleno = 6
 al_golpear = [SubResource("SA_stun")]

@@ -721,6 +721,9 @@ func morir() -> void:
 	# El boss cae: el piso se abre AHORA MISMO (sin salir ni volver a entrar).
 	if es_boss:
 		Game.marcar_boss_derrotado(Game.current_floor)
+		# Y arranca su cuenta atras: el jefe ya no vuelve por que la mazmorra se olvide al pasar por el
+		# pueblo (ya no se olvida), vuelve por reloj (ver Game.BOSS_RESPAWN).
+		Game.sellar_boss_caido(Game.current_floor)
 		var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 		if piso != null and piso.has_method("abrir_salidas"):
 			piso.abrir_salidas()

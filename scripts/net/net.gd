@@ -148,6 +148,16 @@ var _vetas_ocupadas: Dictionary = {}  # sitio -> peer_id que la trabaja (host)
 # tiempo_mazmorra ya va al save y sigue corriendo en el pueblo (que es lo que se quiere: si subes a
 # forjar, has esperado de verdad), asi que es el mismo criterio que en una partida de un jugador.
 var _agotados_sesion: Dictionary = {}
+# JEFES caidos de la sesion: piso -> momento (del reloj del host) en que cayo. Mismo mecanismo que
+# _agotados_sesion y por la misma razon: el jefe reaparece por RELOJ (Game.BOSS_RESPAWN) y su cuenta
+# atras tiene que sobrevivir a que os subais todos al pueblo.
+#
+# ESTAR EN LA TABLA = ESTA MUERTO. La resta contra el reloj la hace SOLO el host (_barrer_bosses), y
+# cuando cumple borra la entrada y lo difunde. En los clientes el valor no significa nada —su
+# tiempo_mazmorra es el de su mundo, no el del host— y solo se mira si la clave esta o no: asi el
+# dueño de un piso (que puede ser un cliente) planta el jefe cuando lo dice el host y no cuando se lo
+# diga su propio reloj.
+var _bosses_sello: Dictionary = {}
 var _t_barrido := 0.0
 const BARRIDO_RESPAWN_CADA := 2.0   # cada cuanto repasa el host la tabla (igual que en solitario)
 
@@ -373,6 +383,7 @@ func desconectar() -> void:
 	_dentro.clear()
 	_vetas_ocupadas.clear()
 	_agotados_sesion.clear()
+	_bosses_sello.clear()
 	expedicion_abierta = false
 	_dueno_piso.clear()
 	_fotos_piso.clear()
@@ -1010,17 +1021,26 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 	# Va el diccionario ENTERO, no solo las claves: el valor es el momento en que se pico, y sin el
 	# quien entra no sabria cuanto le queda a cada sitio para revivir.
 	if quien == 1:
-		_entrar_ok(piso, _agotados_sesion, dueno, mem)
+		_entrar_ok(piso, _agotados_sesion, dueno, mem, _bosses_sello)
 	else:
-		_entrar_ok.rpc_id(quien, piso, _agotados_sesion, dueno, mem)
+		_entrar_ok.rpc_id(quien, piso, _agotados_sesion, dueno, mem, _bosses_sello)
 
 
 # Corre en QUIEN entra: hace el viaje completo. olvidar_mazmorra() limpia la memoria LOCAL de
 # expediciones viejas (imprescindible tambien para el que se une: si no, restauraria SUS bichos
 # rancios); los agotados de LA SESION llegan del host para que las vetas ya picadas no nazcan.
+#
+# ESTE olvidar_mazmorra() SE QUEDA aunque en solitario se haya quitado del door.gd: en sesion la
+# mazmorra persistente la lleva el HOST (_fotos_piso), y tu memoria local solo vale como cache de la
+# foto que el te manda tres lineas mas abajo. Borrarla aqui es lo que impide que tu mundo propio se
+# mezcle con el suyo.
 @rpc("any_peer", "call_remote", "reliable")
-func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary) -> void:
+func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
+		sellos_boss: Dictionary = {}) -> void:
 	_agotados_sesion = agotados.duplicate()
+	# Que jefes de la sesion estan muertos ahora mismo. Sin esto, el que baja al piso 6 por el atajo
+	# plantaria un rey slime que para los demas sigue muerto (y solo el lo veria).
+	_bosses_sello = sellos_boss.duplicate()
 	Game.current_floor = piso
 	Game.olvidar_mazmorra()
 	_olvidar_mis_enemigos()
@@ -1043,6 +1063,9 @@ func viajar_al_pueblo() -> void:
 	# Me llevo la foto del piso que dejo (si lo simulaba yo) para que no se pierdan sus bichos:
 	# se la queda el host, o pasa al que siga dentro. Hay que sacarla ANTES de cambiar de escena.
 	var foto: Dictionary = _foto_de_mi_piso()
+	# El jaleo es de la bajada y se queda aqui (en sesion la foto del piso ya la lleva _foto_de_mi_piso,
+	# asi que de cerrar_bajada solo hace falta esa mitad; ver Game).
+	Game.cerrar_bajada()
 	_soy_dueno = false
 	_olvidar_mis_enemigos()
 	if es_host:
@@ -1068,26 +1091,28 @@ func _registrar_salida(quien: int, foto: Dictionary = {}) -> void:
 		_cerrar_expedicion()
 
 
-# Solo host: el ultimo salio. La expedicion se olvida: fuera drops de pisos y quien simulaba que.
+# Solo host: el ultimo salio. Se sueltan los CARGOS de la expedicion (quien simulaba cada piso, que
+# vetas tenia cogidas cada cual), pero la MAZMORRA NO SE OLVIDA.
+#
+# Es el mismo cambio que en solitario (ver door.gd): salir todos al pueblo y volver a entrar te
+# encuentra los pisos como los dejasteis, y lo que se os cayo al suelo en el piso 4 sigue ahi. Los
+# dos diccionarios que lo sostienen son _fotos_piso (los pisos congelados) y _suelo (el botin
+# tirado), y los dos viven en la RAM del host: cuando el host cierra el juego, la mazmorra se cierra
+# para todos. Eso ES el limite acordado, no un descuido.
+#
+# Historia de lo que NO se limpia, para que no se "arregle" dos veces:
+#   - _agotados_sesion: aqui se hacia clear() creyendo que "la proxima expedicion nace limpia, como
+#     en solitario", y la premisa era falsa (en solitario los sellos viven en mazmorra_persistente).
+#     Salir y volver a entrar regalaba la mazmorra entera sin CD.
+#   - _fotos_piso y los drops de "piso:N": lo mismo con los bichos y el botin. Se borraban aqui.
+#   - _bosses_sello: los jefes ya no vuelven porque la mazmorra se olvide, vuelven por RELOJ
+#     (Game.BOSS_RESPAWN); limpiarlo aqui seria un jefe nuevo por cada viaje al pueblo.
 func _cerrar_expedicion() -> void:
 	expedicion_abierta = false
-	# Se olvida lo que de verdad es DE UNA EXPEDICION: quien simulaba cada piso, las fotos de los
-	# congelados y las vetas que alguien tenia cogidas.
 	_dueno_piso.clear()
-	_fotos_piso.clear()
 	_vetas_ocupadas.clear()
 	_t_barrido = 0.0
-	# LO PICADO NO SE OLVIDA. Aqui se hacia `_agotados_sesion.clear()` (y se difundia) con la idea de
-	# que "la proxima expedicion nace limpia, como en solitario"... y esa premisa es falsa: en
-	# solitario NO nace limpia, los sellos viven en mazmorra_persistente y sobreviven a volver al
-	# pueblo. Asi que salir todos y volver a entrar regalaba la mazmorra entera sin CD. Ahora los
-	# sellos se quedan (y estan guardados en el save del host, ver _registrar_agotado).
-	for id in _suelo.keys():
-		if str(_suelo[id]["lugar"]).begins_with("piso:"):
-			_suelo.erase(id)
-			_despawn_drop.rpc(id)
-			_despawn_drop(id)
-	estado_cambiado.emit("Expedicion terminada: la mazmorra se olvida.")
+	estado_cambiado.emit("Expedicion terminada: la mazmorra queda como la habeis dejado.")
 
 
 # --- ESCALERAS: cada uno POR SU CUENTA (hito 5.2) ---------------------------------------------
@@ -1466,6 +1491,10 @@ func _agotar_celda(celda: Vector2i, piso: int) -> void:
 # tiempo_mazmorra DEL HOST) en vez del de cada maquina, que es local y diverge, asi que la veta
 # revive en todas a la vez. Antes esto no existia y lo picado en sesion no volvia NUNCA.
 func _barrer_respawns() -> void:
+	# Los JEFES van en el mismo barrido (mismo reloj, misma cadencia, y misma puesta al dia cuando
+	# alguien vuelve a bajar). Va ANTES del early-return de abajo: un piso sin vetas picadas puede
+	# perfectamente tener un jefe esperando su hora.
+	_barrer_bosses()
 	if _agotados_sesion.is_empty():
 		return
 	for s in _agotados_sesion.keys():
@@ -1532,6 +1561,68 @@ func avisar_boss_caido(piso: int) -> void:
 	if not activo or multiplayer.multiplayer_peer == null:
 		return
 	_boss_caido.rpc(piso)
+	# Y que el HOST arranque su cuenta atras, que es el unico que la lleva. Va aparte de _boss_caido
+	# porque ese es "call_remote" (quien mata ya hizo su parte en local) y porque el sello no es un
+	# hito de mundo: es un cronometro.
+	if es_host:
+		_sellar_boss_host(piso)
+	else:
+		_pedir_sellar_boss.rpc_id(1, piso)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_sellar_boss(piso: int) -> void:
+	if es_host:
+		_sellar_boss_host(piso)
+
+
+# Solo host: el jefe de ese piso queda MUERTO en la tabla de sesion, y se difunde para que todos
+# sepan que no toca plantarlo (el dueño del piso puede ser cualquiera).
+func _sellar_boss_host(piso: int) -> void:
+	if not Game.BOSSES.has(piso):
+		return
+	_bosses_sello[piso] = Game.tiempo_mazmorra
+	_marcar_boss(piso, true)
+	_marcar_boss.rpc(piso, true)
+	print("[multi] jefe del piso %d abatido: vuelve en %d s" % [
+		piso, roundi(float(Game.BOSS_RESPAWN.get(piso, 0.0)))])
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _marcar_boss(piso: int, muerto: bool) -> void:
+	if muerto:
+		# En el cliente el valor da igual (no compara relojes, ver _bosses_sello): lo que cuenta es
+		# que la clave este.
+		if not _bosses_sello.has(piso):
+			_bosses_sello[piso] = Game.tiempo_mazmorra
+	else:
+		_bosses_sello.erase(piso)
+
+
+# SOLO HOST: repasa los jefes muertos y levanta a los que han cumplido su tiempo. Va colgado del
+# mismo barrido que las vetas (_barrer_respawns), asi que hereda sus dos propiedades: corre cada
+# BARRIDO_RESPAWN_CADA con la expedicion abierta, y se pone al dia de golpe cuando alguien vuelve a
+# entrar despues de un rato en el pueblo.
+#
+# Aqui NO se planta el bicho: solo se suelta el sello. Plantarlo es cosa del dueño del piso, que es
+# quien simula alli (dungeon_floor._repoblar_boss), o del propio piso al construirse.
+func _barrer_bosses() -> void:
+	if not es_host:
+		return
+	for piso in _bosses_sello.keys():
+		var espera: float = float(Game.BOSS_RESPAWN.get(piso, 0.0))
+		if Game.tiempo_mazmorra - float(_bosses_sello[piso]) < espera:
+			continue
+		_bosses_sello.erase(piso)
+		_marcar_boss(piso, false)
+		_marcar_boss.rpc(piso, false)
+		print("[multi] el jefe del piso %d vuelve a estar de pie" % piso)
+
+
+# ¿Toca que el jefe de ese piso este de pie? Lo pregunta Game.boss_disponible cuando hay sesion.
+# Es una consulta de TABLA, sin relojes: la resta la hace el host en _barrer_bosses.
+func boss_disponible(piso: int) -> bool:
+	return not _bosses_sello.has(piso)
 
 
 # Corre en TODOS: apunta el hito de mundo y, si estoy en ESE piso, abre sus salidas (la escalera
@@ -2170,11 +2261,37 @@ func _pedir_soltar(d: Dictionary, pos: Vector2, lugar: String) -> void:
 # Solo host: apunta el drop en el registro y lo difunde (a los peers por RPC, a si mismo directo).
 # Guarda pos y LUGAR: un peer que entre despues (o que viaje a ese lugar) tiene que verlo.
 func _registrar_y_difundir(d: Dictionary, pos: Vector2, lugar: String) -> void:
+	_hacer_hueco_en(lugar)
 	var id := _next_id
 	_next_id += 1
 	_suelo[id] = {"d": d, "pos": pos, "lugar": lugar}
 	_spawn_drop.rpc(id, d, pos, lugar)
 	_spawn_drop(id, d, pos, lugar)
+
+
+# TOPE de cosas tiradas por LUGAR. Desde que la mazmorra no se cierra al volver al pueblo (ver
+# _cerrar_expedicion), el suelo de un piso no lo vacia nadie: en una sesion larga se acumulan cientos
+# de pickups que el host difunde a todo el que entra. El tope es generoso a proposito —cabe de sobra
+# lo que se te caiga por sobrepeso en una bajada— y al llegar tira el MAS VIEJO, que es el que menos
+# posibilidades tiene de que alguien vuelva a por el (los ids son crecientes, asi que la clave mas
+# baja de ese lugar es la mas antigua).
+const SUELO_TOPE_POR_LUGAR := 60
+
+func _hacer_hueco_en(lugar: String) -> void:
+	var ids: Array = []
+	for id in _suelo:
+		if _suelo[id]["lugar"] == lugar:
+			ids.append(id)
+	if ids.size() < SUELO_TOPE_POR_LUGAR:
+		return
+	ids.sort()
+	var sobran: int = ids.size() - SUELO_TOPE_POR_LUGAR + 1
+	for i in range(sobran):
+		var viejo: int = ids[i]
+		_suelo.erase(viejo)
+		_despawn_drop.rpc(viejo)
+		_despawn_drop(viejo)
+	print("[suelo] %s estaba lleno (%d): se van los %d mas viejos" % [lugar, ids.size(), sobran])
 
 
 @rpc("any_peer", "call_remote", "reliable")
