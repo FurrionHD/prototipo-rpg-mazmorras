@@ -713,13 +713,19 @@ func _colocar_recolectables() -> void:
 
 	var plantas: int = _colocar_en_pasillos(rng, tabla_plantas, max_plantas_piso, 1)
 	var maderas: int = _colocar_en_pasillos(rng, tabla_maderas, max_madera_piso, 2)
-	# La DESPENSA se reparte DESPUES de lo de forjar: si el piso se queda sin celdas junto a pared,
-	# que la que falte sea una cebolla y no el mineral.
-	var silvestres: int = _colocar_en_pasillos(rng, tabla_silvestres,
-		rng.randi_range(silvestres_min_piso, silvestres_max_piso), 4, false)
 	var vetas: int = _colocar_vetas(rng)
+	# La DESPENSA va la ULTIMA, y el orden importa por DOS razones:
+	#   1) es la que sobra: si el piso se queda sin celdas junto a pared, que la que falte sea una
+	#      cebolla y no el mineral;
+	#   2) TODAS estas tiradas salen del MISMO rng, asi que meterla en medio le habria corrido el
+	#      sitio a las vetas de las partidas que YA EXISTEN. Puesta al final, el piso de siempre
+	#      sigue siendo el piso de siempre y esto solo AÑADE (comprobado celda a celda contra la
+	#      version anterior en los pisos 1, 3 y 5).
+	# Quien meta un recolectable nuevo, que lo ponga detras de este por lo mismo.
 	var sal: int = _colocar_en_salas(rng, tabla_sal, 3,
 		rng.randi_range(sal_min_piso, sal_max_piso), 1, 1)
+	var silvestres: int = _colocar_en_pasillos(rng, tabla_silvestres,
+		rng.randi_range(silvestres_min_piso, silvestres_max_piso), 4, false)
 	print("[mazmorra] recolectables: ", vetas, " vetas, ", plantas, " plantas y ",
 		maderas, " enredaderas (", _agotados.size(), " ya recolectadas)")
 	print("[mazmorra] despensa: ", sal, " de sal y ", silvestres, " silvestres")
