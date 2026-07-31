@@ -1,5 +1,14 @@
 [gd_resource type="Resource" script_class="MaterialTable" format=3 uid="uid://kvoes2iuemka"]
 
+; ESCALERA DE ESPECIES. Cada pez REINA en su tramo de pisos y luego cede el sitio, en vez de que el
+; gobio se lo comiera todo hasta el final (era el 62% en el piso 4: "salen todos peces base").
+; Reinados: gobio 1-3, lubina 4, bagre 7, anguila 10 en adelante. El espejo abisal NO reina nunca --
+; es el trofeo, y sube del 0.6% al 2.6% segun bajas y nada mas.
+;
+; La forma la da el tramo de OCASO de MaterialEntry (peso_ocaso/piso_ocaso), que se añadio para esto:
+; sin el, un pez que llega a su peso pleno se queda ahi para siempre y la unica forma de quitarle
+; protagonismo era desplomar al anterior de golpe -- un escalon, no una curva.
+
 [ext_resource type="Script" uid="uid://cu560afpbuxtm" path="res://scripts/world/material_table.gd" id="1_tabla"]
 [ext_resource type="Script" uid="uid://5341cfr77rmh" path="res://scripts/world/material_entry.gd" id="2_entrada"]
 [ext_resource type="Resource" path="res://resources/materials/gobio_palido.tres" id="3_gobio"]
@@ -8,39 +17,56 @@
 [ext_resource type="Resource" path="res://resources/materials/anguila_pozo.tres" id="6_anguila"]
 [ext_resource type="Resource" path="res://resources/materials/espejo_abisal.tres" id="7_espejo"]
 
+; GOBIO: el pez de los primeros pisos. 87% en el 1 y para el 12 es una anecdota.
 [sub_resource type="Resource" id="E_gobio"]
 script = ExtResource("2_entrada")
 material = ExtResource("3_gobio")
-peso = 120.0
-peso_pleno = 10.0
-piso_pleno = 12
+peso = 300.0
+peso_pleno = 250.0
+piso_debut = 1
+piso_pleno = 2
+peso_ocaso = 20.0
+piso_ocaso = 12
 
+; LUBINA: asoma ya en el 1, manda en el 4 y se retira despacio.
 [sub_resource type="Resource" id="E_lubina"]
 script = ExtResource("2_entrada")
 material = ExtResource("4_lubina")
-peso = 18.0
-peso_pleno = 55.0
-piso_pleno = 12
+peso = 34.0
+peso_pleno = 210.0
+piso_debut = 1
+piso_pleno = 4
+peso_ocaso = 45.0
+piso_ocaso = 12
 
+; BAGRE: aparece en el 3 y manda en el 7.
 [sub_resource type="Resource" id="E_bagre"]
 script = ExtResource("2_entrada")
 material = ExtResource("5_bagre")
-peso = 4.0
-peso_pleno = 45.0
-piso_pleno = 12
+peso = 8.0
+peso_pleno = 250.0
+piso_debut = 3
+piso_pleno = 7
+peso_ocaso = 70.0
+piso_ocaso = 12
 
+; ANGUILA (T2): aparece en el 5 y de la mitad para abajo es la reina. Sin ocaso: es el ultimo escalon
+; de la escalera normal, no tiene a quien cederle el sitio.
 [sub_resource type="Resource" id="E_anguila"]
 script = ExtResource("2_entrada")
 material = ExtResource("6_anguila")
-peso = 1.0
-peso_pleno = 40.0
-piso_pleno = 12
+peso = 3.0
+peso_pleno = 200.0
+piso_debut = 5
+piso_pleno = 10
 
+; ESPEJO ABISAL (T3): el trofeo. Nunca pasa del 3%, y es el gate del plato de la Fortuna T2.
 [sub_resource type="Resource" id="E_espejo"]
 script = ExtResource("2_entrada")
 material = ExtResource("7_espejo")
-peso = 0.5
-peso_pleno = 3.1
+peso = 2.0
+peso_pleno = 9.0
+piso_debut = 1
 piso_pleno = 12
 
 [resource]
