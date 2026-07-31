@@ -561,17 +561,22 @@ func _build_habilidades_page() -> void:
 	# enseñaba en velocidad y maná: el numero no se movia al mirar una habilidad u otra) y no un
 	# multiplicador abstracto (que es lo que se enseñaba en Fuerza: un "×1.01" no dice si eso son
 	# dos puntos de daño o veinte). Los numeros salen por DIFERENCIA; ver _sin_habilidad().
-	var ab: Abilities = c.abilities
+	#
+	# Las EFECTIVAS (con los platos puestos) y no las crudas: es lo que el juego usa de verdad para
+	# vida, defensa, velocidad y maná, asi que si aqui se leyeran las crudas la ficha diria un numero
+	# y el combate haria otro. Ademas c.max_hp ya viene calculado con estas, y restarle un maximo
+	# crudo daria un aporte de Resistencia inflado.
+	var ab: Abilities = c.abilities_eff()
 
 	# FUERZA -> ataque fisico. Como fuerza_factor(0) == 1, lo que aporta es todo lo que el ataque
 	# total tiene por encima del raw pelado (base + arma).
-	_row(_content, "Fuerza", str(_pj().fuerza))
+	_fila_habilidad("Fuerza", "fuerza", ab)
 	var atk_sin: float = (c.base_attack + c.ataque_arma) * c.status_atk_mult()
 	_note(_content, "Multiplica el daño físico (base + arma), así que cuanto mejor sea el arma más "
 		+ "vale cada punto. Ahora: +%.1f de ataque." % (_ataque_total(c) - atk_sin))
 
 	# RESISTENCIA -> vida y defensa.
-	_row(_content, "Resistencia", str(_pj().resistencia))
+	_fila_habilidad("Resistencia", "resistencia", ab)
 	var ab_sin_res: Abilities = _sin_habilidad(ab, "resistencia")
 	var hp_de_res: float = c.max_hp - StatsMath.max_hp_jugador(ab_sin_res, _pj().base_hp)
 	var def_base: float = c.base_defense + c.extra_defense
@@ -585,15 +590,15 @@ func _build_habilidades_page() -> void:
 	# hay enemigo delante), y por eso hay que decir de QUIEN es cada stat: la frase de antes hablaba
 	# de "un rival igual de ágil" dentro de la linea de Destreza y parecia que la Destreza tuviera
 	# algo que ver con ser agil.
-	_row(_content, "Destreza", str(_pj().destreza))
-	var crit_espejo: float = StatsMath.crit_chance(float(_pj().destreza), float(_pj().agilidad))
+	_fila_habilidad("Destreza", "destreza", ab)
+	var crit_espejo: float = StatsMath.crit_chance(float(ab.destreza), float(ab.agilidad))
 	_note(_content, "Precisión: tu Destreza pelea contra la Agilidad del rival para critear (y te "
 		+ "da mano firme al recolectar). Contra un maniquí con tus mismas stats: ~%s de crítico."
 		% _fmt_pct(crit_espejo))
 
 	# AGILIDAD -> esquiva (el duelo espejo del critico) y velocidad de turno.
-	_row(_content, "Agilidad", str(_pj().agilidad))
-	var evade_espejo: float = StatsMath.evade_chance(float(_pj().agilidad), float(_pj().destreza))
+	_fila_habilidad("Agilidad", "agilidad", ab)
+	var evade_espejo: float = StatsMath.evade_chance(float(ab.agilidad), float(ab.destreza))
 	# Lo que aporta a la VELOCIDAD, no la velocidad total. Todo lo que multiplica detras de
 	# _spd_base() (arma, armadura, estados, guardia) es comun a las dos ramas, asi que basta la
 	# proporcion entre la velocidad cruda con y sin Agilidad.
@@ -606,14 +611,14 @@ func _build_habilidades_page() -> void:
 
 	# MAGIA -> daño de hechizos, maná y defensa magica (las tres cosas, que la ultima acaba de salir
 	# a la ficha de Estadisticas y tambien sale de aqui).
-	_row(_content, "Magia", str(_pj().magia))
+	_fila_habilidad("Magia", "magia", ab)
 	var ab_sin_mag: Abilities = _sin_habilidad(ab, "magia")
 	var mp_de_mag: float = c.max_mp - StatsMath.max_mp_jugador(ab_sin_mag, _pj().base_mp)
 	var mdef_de_mag: float = StatsMath.magic_jugador(ab, c.base_magic) \
 		- StatsMath.magic_jugador(ab_sin_mag, c.base_magic)
 	_note(_content, "Poder arcano: multiplica el daño de los hechizos, y sube el maná y la defensa "
 		+ "mágica. Ahora: ×%.2f a los hechizos, +%.1f de maná y +%.1f de defensa mágica." % [
-		StatsMath.magia_factor(float(_pj().magia)), mp_de_mag, mdef_de_mag])
+		StatsMath.magia_factor(float(ab.magia)), mp_de_mag, mdef_de_mag])
 
 	_note(_content, "Las 5 habilidades (0–999). Suben con el uso y se aplican en el hogar. Cada "
 		+ "«Ahora» es lo que te está dando ESA habilidad, no tu total.")
@@ -696,6 +701,26 @@ func _ataque_total(c: Combatant) -> float:
 # (StatsMath.*_jugador). Coinciden a nivel 1 con las bases de inicio -y por eso colaba-, pero en
 # cuanto el bakeo de subir de nivel infla las bases, cada punto vale mas de lo que decia la ficha.
 # Por diferencia da igual cual sea la formula: siempre sale la de verdad.
+# Una fila de habilidad con lo que le esta SUMANDO la comida entre parentesis: "180 (+18)".
+#
+# Existe porque no habia forma de saber si un plato hacia algo: te comias el de Fuerza, la ficha
+# seguia diciendo el mismo numero y solo cambiaba el peso que podias cargar. El parentesis es la
+# prueba de que el 10% esta puesto, y sale por DIFERENCIA contra la stat cruda para que no haya dos
+# formulas que puedan discrepar.
+#
+# Se pinta solo si hay diferencia: sin platos la ficha se ve exactamente igual que siempre. Y en
+# rojo si es negativa, porque por aqui pasan tambien los debuffs.
+func _fila_habilidad(nombre: String, clave: String, ab_eff: Abilities) -> void:
+	var crudo: int = int(_pj().get(clave))
+	var eff: int = int(ab_eff.get(clave))
+	if eff == crudo:
+		_row(_content, nombre, str(crudo))
+		return
+	var delta: int = eff - crudo
+	_row(_content, nombre, "%d (%+d)" % [crudo, delta],
+		Color(0.5, 0.9, 0.5) if delta > 0 else Color(0.95, 0.45, 0.45))
+
+
 func _sin_habilidad(ab: Abilities, cual: String) -> Abilities:
 	var z := Abilities.new()
 	z.fuerza = ab.fuerza

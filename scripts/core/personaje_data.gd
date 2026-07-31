@@ -116,6 +116,15 @@ var estados_chip: String = ""
 # aplastar a String, para poder pintar cada estado como un recuadro con su color (ver status_chip.gd).
 var estados_chips: Array = []
 var estados_mochila: float = 0.0
+# MULTIPLICADOR DE HABILIDAD por estado (clave -> factor; vacio o 1.0 = nada). Es el "10% mas de
+# Fuerza" del plato, y por el mapa hace falta en sitios que se leen constantemente (la vida maxima
+# del HUD, la capacidad de carga, el reto de cada minijuego de recoleccion), asi que se cachea igual
+# que los de arriba. Lo consumen Game.abilities_eff_de y Game.stat_total_eff.
+var estados_hab: Dictionary = {}
+# SUERTE del plato de la fortuna: cuanto multiplica la probabilidad de drop, y que probabilidad hay
+# de que la cantidad salga DOBLE. Lo lee Game._tirar_drop, que corre una vez por bicho muerto.
+var estados_drop_mult: float = 1.0
+var estados_drop_doble: float = 0.0
 
 # CARGAS DE FOCO ARCANO. Van aparte de `estados` porque NO son un estado con duracion: son munición.
 # No caducan con el tiempo -- solo las gasta lanzar un hechizo ofensivo (Combatant.consumir_foco),

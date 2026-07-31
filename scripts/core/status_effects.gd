@@ -40,7 +40,7 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	PRESTEZA, BALUARTE, MARCA, HERIDA_PROFUNDA, CORROSION, SILENCIO, MIEDO, SIGILO, GUARDIA_CARNE,
 	ESCOLTA,
 	PLATO_GUARDIA, PLATO_BRIO, PLATO_FURIA, PLATO_ARCANO, PLATO_NUCLEO, PLATO_REMEDIO,
-	PLATO_ESTOMAGO }
+	PLATO_ESTOMAGO, PLATO_FORTUNA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -302,6 +302,18 @@ static var _defs: Dictionary = {
 		"status_resist_flat": 0.10, "dot_taken_mult": 0.85,
 		"descripcion": "Salazón y encurtido. Después de esto, un veneno es casi una merienda.",
 	},
+	# EL PLATO DE LA SUERTE. El unico que no toca ni tus stats ni la pelea: toca lo que SUELTAN los
+	# bichos. Dos efectos distintos a proposito, porque hacen cosas distintas:
+	#   - drop_mult   -> tiras mas veces (mas bichos sueltan algo).
+	#   - drop_doble_flat -> cuando sale, a veces sale DOBLE (el golpe de suerte que se nota).
+	# Uno solo de los dos seria un numero aburrido; los dos juntos hacen que una bajada con este plato
+	# se recuerde. Lo lee Game._tirar_drop por la cache PersonajeData.estados_drop_*.
+	Id.PLATO_FORTUNA: {
+		"id": Id.PLATO_FORTUNA, "nombre": "Fortuna", "icono": "🍀", "color": Color(0.45, 0.85, 0.5),
+		"turns": PLATO_TURNOS, "familia": "plato", "tiempo_real": true,
+		"drop_mult": 1.25, "drop_doble_flat": 0.10,
+		"descripcion": "Se cocina con el trébol de las simas. Dicen que la mazmorra se porta mejor con quien come bien.",
+	},
 }
 
 
@@ -520,7 +532,8 @@ class Instance extends RefCounted:
 				["def_flat_mult", "Tu armadura protege"], ["aggro_mult", "Te buscan"],
 				["dmg_dealt_mult", "Tus golpes hacen"], ["mana_coste_mult", "Los hechizos cuestan"],
 				["mp_kill_mult", "Cada bicho te deja"], ["mp_regen_mult", "Recuperas maná"],
-				["dot_taken_mult", "El daño por turno te hace"]]:
+				["dot_taken_mult", "El daño por turno te hace"],
+				["drop_mult", "Los bichos sueltan botín"]]:
 			if not d.has(par[0]):
 				continue
 			var m: float = mult_de(str(par[0]))
@@ -530,7 +543,8 @@ class Instance extends RefCounted:
 		# Los ADITIVOS (puntos porcentuales, no multiplicadores).
 		for par in [["crit_flat", "Criticas un %d%% más a menudo."],
 				["evade_flat", "Esquivas un %d%% más a menudo."],
-				["status_resist_flat", "Resistes un %d%% más los estados alterados."]]:
+				["status_resist_flat", "Resistes un %d%% más los estados alterados."],
+				["drop_doble_flat", "Un %d%% de los botines sale doble."]]:
 			if d.has(par[0]):
 				lineas.append(str(par[1]) % roundi(flat_de(str(par[0])) * 100.0))
 		if d.has("mochila_extra"):
@@ -638,12 +652,14 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 		"dmg_dealt_mult": "daño hecho", "spell_dmg_mult": "daño mágico",
 		"mana_coste_mult": "coste de los hechizos", "mp_kill_mult": "maná por enemigo",
 		"mp_regen_mult": "regeneración de maná", "dot_taken_mult": "daño por turno recibido",
+		"drop_mult": "probabilidad de botín",
 	}
 	# Los ADITIVOS: puntos porcentuales, no multiplicadores. Un "+5% crítico" no es un x1.05, y
 	# pasarlo por la formula de arriba lo pintaria como "-95%".
 	var etiquetas_flat: Dictionary = {
 		"crit_flat": "crítico", "evade_flat": "esquiva",
 		"status_resist_flat": "resistencia a estados",
+		"drop_doble_flat": "de que el botín salga doble",
 	}
 	var partes: Array = []
 	# Las HABILIDADES BASE (platos) van primero: es lo mas gordo que hacen.
