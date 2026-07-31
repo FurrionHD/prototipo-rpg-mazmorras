@@ -573,10 +573,16 @@ func _cola_log() -> String:
 # Lo que cambia de un combatiente entre instantaneas: sus tres barras y sus ESTADOS. Los estados van
 # como pares [texto, tooltip] ya resueltos (ver _chips_de): en el espejo no hay motor de estados, y
 # sin esto los debuffs de los demas eran invisibles alli.
+#
+# Y LOS MAXIMOS. Antes solo viajaban en el ROSTER (una vez, al montar la pelea), asi que el espejo se
+# quedaba congelado con el maximo del principio: en cuanto alguien lanzaba Guardia de carne -que
+# DUPLICA max_hp en vivo- uno veia "130/150" y el otro "130/75", con la barra roja desbordada. Son
+# tres numeros mas por combatiente y ahorran una clase entera de desincronizacion.
 func _valores(lista: Array) -> Array:
 	var out: Array = []
 	for c in lista:
-		out.append([c.current_hp, c.current_mp, c.current_energy, _chips_de(c)])
+		out.append([c.current_hp, c.current_mp, c.current_energy, _chips_de(c),
+			c.max_hp, c.max_mp, c.max_energy])
 	return out
 
 
@@ -1071,6 +1077,12 @@ func _volcar(lista: Array, valores: Array) -> void:
 		lista[i].current_energy = float(v[2])
 		if v.size() > 3:
 			_chips_espejo[lista[i]] = v[3]
+		# Los MAXIMOS, si el paquete los trae (un compañero con una version anterior no los manda, y
+		# entonces se dejan como estaban en vez de ponerlos a cero y borrarle las barras).
+		if v.size() > 6:
+			lista[i].max_hp = float(v[4])
+			lista[i].max_mp = float(v[5])
+			lista[i].max_energy = float(v[6])
 
 
 # ESPEJO: los que han caido en la instantanea se apagan aqui igual que en la pantalla que ejecuta.
@@ -1870,6 +1882,10 @@ func _update_hp() -> void:
 	for i in _bloques.size():
 		var e: Combatant = _enemies[i]
 		var b: Dictionary = _bloques[i]
+		# El MAXIMO tambien, en cada refresco. Se fijaba solo al crear el bloque, asi que cualquier
+		# cosa que mueva max_hp en vivo (Guardia de carne, que lo duplica) dejaba la barra midiendo
+		# contra un tope viejo: el numero decia 130/150 y la barra se pintaba llena como si fuera 75.
+		b["hp"].max_value = e.max_hp
 		b["hp"].value = e.current_hp
 		b["hp_lbl"].text = "%.2f / %.2f" % [e.current_hp, e.max_hp]
 		# La etiqueta se queda SOLO con el nombre y el nivel; los estados van en su fila de
@@ -1885,12 +1901,17 @@ func _update_hp() -> void:
 	for i in _bloques_aliados.size():
 		var c: Combatant = _aliados[i]
 		var b: Dictionary = _bloques_aliados[i]
+		# Los tres maximos en cada refresco, por lo mismo que arriba: son numeros que se mueven en
+		# mitad de la pelea y la barra tiene que medir contra el de AHORA.
+		b["hp"].max_value = c.max_hp
 		b["hp"].value = c.current_hp
 		b["hp_lbl"].text = "%.2f / %.2f" % [c.current_hp, c.max_hp]
 		if b.has("en"):
+			b["en"].max_value = c.max_energy
 			b["en"].value = c.current_energy
 			b["en_lbl"].text = "EN  %.1f / %.1f" % [c.current_energy, c.max_energy]
 		if b.has("mp"):
+			b["mp"].max_value = c.max_mp
 			b["mp"].value = c.current_mp
 			b["mp_lbl"].text = "MP  %.2f / %.2f" % [c.current_mp, c.max_mp]
 		# La coronita marca a QUIEN LE TOCA: con tres bloques iguales hace falta saber de un
@@ -2423,9 +2444,36 @@ func _begin_player_turn() -> void:
 			_set_log("%s se regenera (+%.1f). ♻" % [_player.nombre, curado])
 			_update_hp()
 	if ev.stunned:
-		_set_log("%s está aturdido y pierde el turno. 💫" % _player.nombre)
+		# Aturdirte mientras CARGAS te interrumpe, igual que a los bichos (ver el mismo bloque en
+		# _enemy_turn). La energia no se devuelve: el riesgo de comerte un aturdido es justo el precio
+		# de una habilidad que se telegrafia.
+		if _player.charging != null:
+			var interrumpida: String = _player.charging.nombre
+			_player.charging = null
+			_player.charge_left = 0
+			print("[habilidad] %s ATURDIDO: se le INTERRUMPE %s" % [_player.nombre, interrumpida])
+			_set_log("%s está aturdido: se le interrumpe %s. 💫" % [_player.nombre, interrumpida])
+		else:
+			_set_log("%s está aturdido y pierde el turno. 💫" % _player.nombre)
 		_pausa_lectura()
 		return
+
+	# ATAQUE DE CARGA en curso: este turno se va en seguir cargando; al llegar a 0, se suelta.
+	# Espejo exacto del bloque de _enemy_turn. Va ANTES de mirar el recitado de hechizos y de sacar
+	# los botones: mientras cargas no eliges nada, que es lo que hace que la carga se pague.
+	if _player.charging != null:
+		_player.charge_left -= 1
+		if _player.charge_left > 0:
+			_set_log("%s sigue cargando %s... ⚡" % [_player.nombre, _player.charging.nombre])
+			_ocultar_cajas()
+			_pausa_lectura()
+			return
+		var cargada: AbilityData = _player.charging
+		_player.charging = null
+		# 'soltando': ni cobra energia ni arranca cooldown otra vez, que se pagaron al empezarla.
+		_usar_habilidad(cargada, true)
+		return
+
 	# Regen de maná POR TURNO: ya solo la del ARMA MAGICA (mejora Regeneración, KAN-95). La
 	# base por Magia se quito: el maná se gana PEGANDO (_ganar_mana_golpe) y GANANDO, no por
 	# dejar pasar turnos. Sin arma mágica, este turno no repone nada.
@@ -3589,7 +3637,26 @@ func _elegir_aliado_habilidad(ab: AbilityData) -> void:
 	_ocultar_log()
 
 
-func _usar_habilidad(ab: AbilityData) -> void:
+# EL JUGADOR EMPIEZA A CARGAR. Espejo de _enemy_begin_charge, con la misma regla: el turno se va en
+# anunciarlo, y aturdirte te la interrumpe (ver _begin_player_turn).
+#
+# El OBJETIVO no se guarda: se vuelve a preguntar al soltar. Dos turnos son muchos en una pelea y el
+# bicho al que apuntabas puede estar muerto; obligar a que el golpe caiga en un cadaver seria peor
+# que dejar que busque otro (que es lo que hace _objetivo()).
+func _empezar_carga_jugador(ab: AbilityData) -> void:
+	_player.charging = ab
+	_player.charge_left = ab.carga_turnos
+	print("[habilidad] %s empieza a cargar %s (%d turno%s)" % [
+		_player.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
+	_set_log("⚡ %s se prepara para %s. (si te aturden, se interrumpe)" % [_player.nombre, ab.nombre])
+	_fin_de_eleccion()   # cierra la accion: oculta las cajas y repinta (aqui sale el chip ⚡)
+	_tras_accion_jugador_varios([])   # pasa el turno sin rematar a nadie: no ha habido golpe
+
+
+# 'soltando' = esta habilidad viene de una CARGA que acaba de llegar a cero (la dispara
+# _begin_player_turn). Cuando es true no se vuelve a cobrar ni a validar nada: la energia y el
+# cooldown se pagaron al EMPEZAR a cargar, hace dos turnos.
+func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# En el espejo se elige, pero resuelve el anfitrion: le viaja QUE habilidad (por su ruta) y
 	# contra quien. El la busca en el loadout de mi personaje, que es el mismo que tiene el.
 	if _espejo and ab != null:
@@ -3605,27 +3672,46 @@ func _usar_habilidad(ab: AbilityData) -> void:
 	var manos: int = maxi(1, idxs.size())
 	var es_conversion: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta TODA la energia
 	var coste: float = _player.current_energy if es_conversion else ab.coste(manos)
-	if _state != State.WAITING_PLAYER or not _player.ability_ready(ab):
-		return
-	# Foco arcano: no se puede recanalizar mientras te queden cargas (gate por hechizos).
-	if ab.foco_cargas > 0 and _player.foco_cargas > 0:
-		return
-	if es_conversion:
-		if _player.current_energy < ab.energia_a_mana:
-			return   # no llega ni para 1 de maná
-	elif not _player.has_energy(coste):
-		return
-	_player.spend_energy(coste)
-	_player.start_cooldown(ab)   # entra en cooldown (si la habilidad tiene)
+	# Al SOLTAR una carga no se valida ni se cobra: ya se hizo al empezarla, y volver a exigir
+	# energia aqui te dejaria la habilidad a medias por haberte quedado seco entre medias.
+	if not soltando:
+		if _state != State.WAITING_PLAYER or not _player.ability_ready(ab):
+			return
+		# Foco arcano: no se puede recanalizar mientras te queden cargas (gate por hechizos).
+		if ab.foco_cargas > 0 and _player.foco_cargas > 0:
+			return
+		if es_conversion:
+			if _player.current_energy < ab.energia_a_mana:
+				return   # no llega ni para 1 de maná
+		elif not _player.has_energy(coste):
+			return
+		# ATAQUE DE CARGA: si la habilidad tarda turnos en soltarse, este turno se va en ANUNCIARLA.
+		# Va DESPUES de cobrar la energia y ANTES de resolver nada: te comprometes al empezar.
+		# El campo existia desde siempre (AbilityData.carga_turnos) y la ficha lo prometia, pero solo
+		# lo implementaba la rama ENEMIGA: las del jugador se disparaban al instante. Ver
+		# _enemy_begin_charge, que es su espejo — si se toca una, tocar la otra.
+		if ab.carga_turnos > 0:
+			_player.spend_energy(coste)
+			_player.start_cooldown(ab)
+			_empezar_carga_jugador(ab)
+			return
+		_player.spend_energy(coste)
+		_player.start_cooldown(ab)   # entra en cooldown (si la habilidad tiene)
 	# Maná recuperado: FIJO (mana_gain) + por CONVERSION de toda la energia (energia_a_mana).
+	# Al SOLTAR una carga la conversion NO paga otra vez: la energia se fundio al empezarla, y aqui
+	# 'coste' vale lo que tengas AHORA. Sin este guardia, una habilidad de conversion con carga te
+	# daria maná gratis por energia que ya no gastas.
 	var mana_ganado: float = ab.mana_gain
-	if es_conversion:
+	if es_conversion and not soltando:
 		mana_ganado += coste / ab.energia_a_mana
 	if mana_ganado > 0.0:
 		_player.regen_mana(mana_ganado)
 	var mana_txt := "  +%.1f MP" % mana_ganado if mana_ganado > 0.0 else ""
-	print("[habilidad] %s usa %s  (%s, %.0f EN%s)" % [
-		_player.nombre, ab.nombre, ("dual" if manos >= 2 else "1 mano"), coste, mana_txt])
+	# Al soltar una carga el coste ya se pago hace dos turnos: decir "76 EN" aqui haria pensar que se
+	# cobra dos veces cuando se lea el log buscando por que alguien se queda sin energia.
+	print("[habilidad] %s usa %s  (%s, %s%s)" % [
+		_player.nombre, ab.nombre, ("dual" if manos >= 2 else "1 mano"),
+		"carga soltada, ya pagada" if soltando else "%.0f EN" % coste, mana_txt])
 	var total: float = 0.0
 	var total_imbue: float = 0.0   # cuanto del total lo ha puesto la imbuicion (va DENTRO de 'total')
 	var mult_imbue: float = 1.0
@@ -3774,7 +3860,7 @@ func _usar_habilidad(ab: AbilityData) -> void:
 		print("        total: %.2f de daño en %d golpe%s%s | EN -%.0f -> %.1f/%.1f%s" % [
 			total, golpes, "" if golpes == 1 else "s",
 			_desglose_imbue(total, total_imbue, mult_imbue),
-			coste, _player.current_energy, _player.max_energy,
+			0.0 if soltando else coste, _player.current_energy, _player.max_energy,
 			"" if mana_ganado_golpes <= 0.0 else " | MP +%.1f -> %.1f/%.1f" % [
 				mana_ganado_golpes, _player.current_mp, _player.max_mp]])
 		# El maná que han repuesto los golpes se suma al del propio efecto de la habilidad
