@@ -312,7 +312,7 @@ static var _defs: Dictionary = {
 		"id": Id.PLATO_FORTUNA, "nombre": "Fortuna", "icono": "🍀", "color": Color(0.45, 0.85, 0.5),
 		"turns": PLATO_TURNOS, "familia": "plato", "tiempo_real": true,
 		"drop_mult": 1.25, "drop_doble_flat": 0.10,
-		"descripcion": "Se cocina con el trébol de las simas. Dicen que la mazmorra se porta mejor con quien come bien.",
+		"descripcion": "Dicen que la mazmorra se porta mejor con quien baja comido. Nadie lo ha demostrado y todo el mundo lo cumple.",
 	},
 }
 
