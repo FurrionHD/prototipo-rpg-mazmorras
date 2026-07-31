@@ -1091,6 +1091,7 @@ func _pedir_salir(foto: Dictionary) -> void:
 
 func _registrar_salida(quien: int, foto: Dictionary = {}) -> void:
 	_liberar_vetas_de(quien)
+	_liberar_pesca_de(quien)   # sus corchos y el pez que tuviera enganchado
 	_soltar_piso(quien, foto)
 	_dentro.erase(quien)
 	if _dentro.is_empty() and expedicion_abierta:
@@ -2696,6 +2697,166 @@ func _pedir_enemigos(lugar: String) -> void:
 	var dueno: int = _dueno_piso.get(piso, 0)
 	if dueno != 0 and dueno != quien:
 		_pedir_roster.rpc_id(dueno, lugar, quien)
+
+
+# ==============================================================================================
+#  PESCA COMPARTIDA
+#
+#  El charco funciona como los enemigos: lo SIMULA el dueño del piso y los demas lo ven en espejo.
+#  Antes cada maquina corria su propio charco con su propio banco de 10, asi que dos personas en la
+#  misma orilla sacaban veinte peces de un sitio que tiene diez, y ademas cada uno veia los suyos.
+#
+#  Tres cosas viajan, y ninguna es adorno:
+#    1) EL BANCO (_peces_estado): que peces hay, donde nadan y cuantos quedan en el charco. Va a
+#       ~10 Hz, sin fiabilidad (como el tick de los bichos): si se pierde un paquete, el siguiente
+#       ya trae la verdad.
+#    2) EL CORCHO de cada uno (_corcho_pesca): el dueño necesita saber donde ha caido el sedal del
+#       otro para poder decidir QUE pez pica. La mordida es una colision, y las colisiones solo
+#       existen en la maquina que simula.
+#    3) EL CANDADO por pez: quien lo tiene enganchado. Es lo que hace que "ves como lo esta
+#       pescando y no puedes interactuar con el" sea verdad y no una carrera entre dos maquinas.
+#
+#  Todo pasa por el host, como el resto: en estrella un cliente no habla con otro cliente.
+# ==============================================================================================
+
+# El charco vivo de MI piso (solo hay uno por piso). Lo registra fishing_spot._ready.
+var _charco: Node = null
+
+
+func registrar_charco(nodo: Node) -> void:
+	_charco = nodo
+
+
+func olvidar_charco(nodo: Node) -> void:
+	if _charco == nodo:
+		_charco = null
+
+
+# --- 1) EL BANCO: del dueño a los demas ---
+# Lo llama fishing_spot._process en el dueño, ya con su propio ritmo (no hace falta acumulador
+# aqui: el charco sabe mejor que Net cada cuanto merece la pena mandar su foto).
+func difundir_charco(snap: Dictionary) -> void:
+	if not activo or not _soy_dueno or multiplayer.multiplayer_peer == null:
+		return
+	if es_host:
+		for peer_id in _peers:
+			if _peers[peer_id].get("lugar", "") == _mi_lugar:
+				_tick_charco.rpc_id(peer_id, snap)
+	else:
+		_rel_charco.rpc_id(1, _mi_lugar, snap)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _tick_charco(snap: Dictionary) -> void:
+	if _charco != null and is_instance_valid(_charco):
+		_charco.aplicar_red(snap)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _rel_charco(lugar: String, snap: Dictionary) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	if _mi_lugar == lugar and not _soy_dueno:
+		_tick_charco(snap)
+	for peer_id in _peers:
+		if peer_id != de and _peers[peer_id].get("lugar", "") == lugar:
+			_tick_charco.rpc_id(peer_id, snap)
+
+
+# --- 2) EL CORCHO: de cada pescador al dueño ---
+# 'activo' false = he recogido el sedal (o he salido de la pesca): el dueño se olvida de mi corcho.
+func publicar_corcho(pos: Vector2, esta_activo: bool) -> void:
+	if not activo or _soy_dueno or multiplayer.multiplayer_peer == null:
+		return
+	_corcho_pesca.rpc_id(1, _mi_lugar, pos, esta_activo)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _corcho_pesca(lugar: String, pos: Vector2, esta_activo: bool) -> void:
+	var de := multiplayer.get_remote_sender_id()
+	# Yo soy el dueño de ese piso: el corcho es para mi charco.
+	if _mi_lugar == lugar and _soy_dueno and _charco != null and is_instance_valid(_charco):
+		_charco.corcho_remoto(de, pos, esta_activo)
+		return
+	# No lo soy: si soy el host, se lo encamino a quien si.
+	if not es_host:
+		return
+	var piso: int = int(lugar.substr(5)) if lugar.begins_with("piso:") else -1
+	var dueno: int = _dueno_piso.get(piso, 0)
+	if dueno != 0 and dueno != de:
+		_corcho_pesca_a.rpc_id(dueno, de, lugar, pos, esta_activo)
+
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func _corcho_pesca_a(de: int, lugar: String, pos: Vector2, esta_activo: bool) -> void:
+	if _mi_lugar == lugar and _soy_dueno and _charco != null and is_instance_valid(_charco):
+		_charco.corcho_remoto(de, pos, esta_activo)
+
+
+# --- 3) LA MORDIDA: el dueño le dice a un pescador que ha picado, y cual ---
+# 'idx' es el indice del pez en el banco, que es la misma lista en las dos maquinas (va en el snap).
+func avisar_mordida(a_quien: int, idx: int) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	if es_host:
+		_pez_pica.rpc_id(a_quien, idx)
+	else:
+		_rel_mordida.rpc_id(1, a_quien, idx)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_mordida(a_quien: int, idx: int) -> void:
+	if not es_host:
+		return
+	if a_quien == 1:
+		_pez_pica(idx)
+	else:
+		_pez_pica.rpc_id(a_quien, idx)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pez_pica(idx: int) -> void:
+	if _charco != null and is_instance_valid(_charco):
+		_charco.me_ha_picado(idx)
+
+
+# --- 4) EL RESULTADO: el pescador le dice al dueño como acabo ---
+# 'cobrado' true = me lo llevo (sale del banco y arranca su gate de 10 min); false = se escapo o
+# recogi el sedal (el pez vuelve a nadar y el banco no se toca).
+func resolver_pesca(idx: int, cobrado: bool) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	if _soy_dueno:
+		return   # el dueño lo resuelve en local, no se manda una carta a si mismo
+	_fin_pesca.rpc_id(1, _mi_lugar, idx, cobrado)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _fin_pesca(lugar: String, idx: int, cobrado: bool) -> void:
+	var de := multiplayer.get_remote_sender_id()
+	if _mi_lugar == lugar and _soy_dueno and _charco != null and is_instance_valid(_charco):
+		_charco.resolver_pez_remoto(de, idx, cobrado)
+		return
+	if not es_host:
+		return
+	var piso: int = int(lugar.substr(5)) if lugar.begins_with("piso:") else -1
+	var dueno: int = _dueno_piso.get(piso, 0)
+	if dueno != 0 and dueno != de:
+		_fin_pesca_a.rpc_id(dueno, de, lugar, idx, cobrado)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _fin_pesca_a(de: int, lugar: String, idx: int, cobrado: bool) -> void:
+	if _mi_lugar == lugar and _soy_dueno and _charco != null and is_instance_valid(_charco):
+		_charco.resolver_pez_remoto(de, idx, cobrado)
+
+
+# Al desconectarse alguien, sus corchos y sus peces enganchados se sueltan: un pez reservado por un
+# fantasma se quedaria bloqueado para siempre (mismo motivo que _liberar_vetas_de).
+func _liberar_pesca_de(quien: int) -> void:
+	if _charco != null and is_instance_valid(_charco):
+		_charco.soltar_todo_de(quien)
 
 
 # --- PELEAR CONTRA UN PISO QUE SIMULA OTRO (hito 5.3) -----------------------------------------
@@ -4986,6 +5147,7 @@ func _on_peer_disconnected(id: int) -> void:
 		for otro in _peers:
 			_quitar_ajeno.rpc_id(otro, id)
 		_liberar_vetas_de(id)
+		_liberar_pesca_de(id)
 		if _taller_dueno == id:   # se fue con el taller cogido: se libera (su crafteo a medias se pierde)
 			_taller_dueno = 0
 		if _reservas.has(id):   # se fue con material reservado: lo suelta para que el otro lo vea libre

@@ -46,10 +46,21 @@
 #  la reposicion es rapida (4 s) y no te quedas mirando el agua vacia; el freno lo pone el banco, no
 #  el temporizador. Ver el bloque de constantes para el porque de los dos relojes.
 #
-#  MULTIJUGADOR: nada que sincronizar, y es deliberado. No hay recurso unico que arbitrar (a
-#  diferencia de la veta, que si necesita el candado de Net): cada uno pesca de su propio banco. Los
-#  peces son cosmetica LOCAL determinista, sembrada con la semilla del piso + la celda + un nonce,
-#  asi que los dos veis los mismos bichos nadando tambien despues de un respawn.
+#  MULTIJUGADOR: el charco lo SIMULA el dueño del piso y los demas lo ven en espejo, igual que los
+#  bichos. Antes cada maquina corria su propio charco, y eso significaba que dos personas en la misma
+#  orilla sacaban veinte peces de un sitio que tiene diez, cada uno viendo un banco distinto.
+#
+#  El reparto de trabajo:
+#    - EL DUEÑO simula: los peces nadan, el banco baja, los sellos de 10 minutos corren y se guardan
+#      en SU save. Y decide las mordidas de TODOS, porque una mordida es una colision y las
+#      colisiones solo existen donde hay simulacion.
+#    - EL ESPEJO no simula nada: recibe la foto del banco (~10 Hz) y coloca sus rectangulos. Cuando
+#      echa el sedal, le manda al dueño donde ha caido el corcho y espera a que le diga que ha picado.
+#
+#  UN PEZ SOLO LO PESCA UNO: el que esta enganchado lleva de QUIEN es. Para los demas rebota como si
+#  no estuviera, y en el espejo se pinta mas claro — ves como tu compañero lo esta peleando.
+#
+#  En SOLITARIO no cambia nada: Net.simulo_mi_piso() devuelve true y todo corre como siempre.
 #
 #  Aspecto placeholder por codigo (el arte va al final): el agua es un ColorRect y cada pez es un
 #  rectangulo alargado mas oscuro que el agua, con el largo sacado de sus centimetros.
@@ -228,6 +239,29 @@ var _vuelven: Array = []
 # Contador de nacimientos, para sembrar cada pez nuevo (ver _rng_pez).
 var _nonce: int = 0
 
+# --- MULTIJUGADOR ---
+# Cada cuanto el dueño manda la foto del banco. 10 Hz: los peces van despacio y el espejo interpola,
+# asi que subirlo solo gastaria red. (Los bichos van a 20 porque persiguen y hay que ver el amago.)
+const RED_TICK := 0.1
+var _t_red: float = 0.0
+# ESPEJO: hacia donde va cada pez segun la ultima foto, para moverlo suave entre paquete y paquete.
+var _destinos: Array = []
+const SUAVIZADO_RED := 12.0
+# DUEÑO: el corcho de cada pescador remoto -> {pos: Vector2 local, activo: bool}. Con esto el dueño
+# puede resolver la mordida del otro sin que el otro simule nada.
+var _corchos: Dictionary = {}
+# El pez que YO tengo enganchado, por indice en _peces. Solo lo usa el espejo: el dueño trabaja con
+# el diccionario del pez directamente (_pez).
+var _idx_enganchado: int = -1
+# ESPEJO: ¿estoy esperando a que el dueño me diga si ha picado algo? Evita mandarle el corcho como
+# "nuevo" en cada frame.
+var _espero_mordida: bool = false
+
+
+# ¿Simulo YO este charco? En solitario siempre. En multi, solo el dueño del piso.
+func _soy_dueno() -> bool:
+	return Net.simulo_mi_piso()
+
 
 func _ready() -> void:
 	add_to_group("recolectable")
@@ -241,7 +275,16 @@ func _ready() -> void:
 	# congelaria en el aire y no habria pesca que jugar. Misma trampa que los menus (Game.abrir_menu).
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_crear_aspecto()
-	_poblar()
+	# MULTI: Net necesita saber cual es el charco de este piso para encaminarle los paquetes.
+	Net.registrar_charco(self)
+	# El ESPEJO no puebla: sus peces llegan en la primera foto del dueño. Poblar aqui crearia peces
+	# que no existen para nadie mas y que la primera foto tendria que borrar (parpadeo garantizado).
+	if _soy_dueno():
+		_poblar()
+
+
+func _exit_tree() -> void:
+	Net.olvidar_charco(self)
 
 
 # ------------------------------------------------------------
@@ -387,12 +430,12 @@ func _poblar() -> void:
 # de cada cambio y no al salir de la escena, porque el nodo se libera de golpe al regenerar el piso y
 # un _exit_tree no es sitio para tocar el save.
 #
-# MULTIJUGADOR: NO se escribe en el save (misma regla que DungeonFloor.marcar_agotado). Estas en el
-# mundo del host y vaciarle un charco no debe dejar sellos en TU partida. En sesion el banco vive
-# solo en RAM de este nodo, y no se sincroniza entre jugadores a proposito: el charco no es un
-# recurso unico que arbitrar, cada uno pesca del suyo. Ver la cabecera.
+# MULTIJUGADOR: lo escribe EL DUEÑO del piso, que es el unico que lleva el banco de verdad. Misma
+# regla que los sellos de las vetas (Net._registrar_agotado): el mundo es el suyo, asi que los sellos
+# de diez minutos van a SU save. El invitado no escribe nada — vaciarle el charco al host no puede
+# dejar rastro en la partida propia del invitado, que es de otro mundo y otra semilla.
 func _guardar_estado() -> void:
-	if Net.activo:
+	if not _soy_dueno():
 		return
 	var piso: Dictionary = Game.persistente_piso(Game.current_floor)
 	if not piso.has("charcos"):
@@ -411,8 +454,10 @@ func _cargar_estado() -> void:
 	_stock = STOCK_MAX
 	_vuelven = []
 
+	# Solo el dueño lee del save, por lo mismo que solo el escribe (ver _guardar_estado). El invitado
+	# arranca vacio y su banco lo pone la primera foto que le llega.
 	var guardado: Dictionary = {}
-	if not Net.activo:
+	if _soy_dueno():
 		guardado = ((Game.persistente_piso(Game.current_floor).get("charcos", {}) as Dictionary)
 			.get(celda, {}) as Dictionary)
 	if guardado.is_empty():
@@ -467,20 +512,31 @@ func _semilla() -> int:
 func _rng_pez() -> RandomNumberGenerator:
 	var r := RandomNumberGenerator.new()
 	r.seed = hash([_semilla(), celda.x, celda.y, _nonce])
+	_nonce_usado = _nonce   # con cual nacio el pez de este sorteo (lo guarda _nacer_pez)
 	_nonce += 1
 	return r
+
+
+# El nonce del ULTIMO sorteo. Es la IDENTIDAD del pez de cara a la red: el espejo solo recibe este
+# numero y con el rehace la especie y la talla por su cuenta (ver _nacer_pez_espejo).
+var _nonce_usado: int = 0
 
 
 func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
 	var r: RandomNumberGenerator = rng if rng != null else _rng_pez()
 	var d: MaterialData
 	var cm: float
+	var nonce: int = _nonce_usado
 	# LOS QUE SE TE ESCAPARON VUELVEN PRIMERO, y vuelven ellos: misma especie y mismos centimetros.
 	# Solo entonces se sortea uno nuevo.
 	if not _escapados.is_empty():
 		var vuelve: Dictionary = _escapados.pop_front()
 		d = vuelve["data"]
 		cm = float(vuelve["cm"])
+		# Y vuelve con SU nonce, el de cuando nacio. Es lo que le deja al espejo seguir sacando la
+		# misma especie y la misma talla del sorteo sembrado: con un nonce nuevo, al invitado se le
+		# convertiria en otro pez justo al reaparecer.
+		nonce = int(vuelve.get("nonce", _nonce_usado))
 	else:
 		d = tabla.elegir(Game.current_floor, r)
 		if d == null:
@@ -516,6 +572,11 @@ func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
 		"t_giro": r.randf_range(GIRO_MIN, GIRO_MAX),
 		# ¿Ha olido ya el cebo? Ver _atrae_el_cebo: una vez dentro del radio, viene aunque salga.
 		"cebo": false,
+		# MULTI: el peer que lo tiene enganchado (0 = libre, nadie lo esta peleando). Es el candado
+		# por pez: para los demas corchos este bicho no existe, y en el espejo se pinta mas claro.
+		"de": 0,
+		# MULTI: su identidad de cara a la red (ver _rng_pez).
+		"nonce": nonce,
 	})
 	_colocar(_peces.back())
 
@@ -528,8 +589,12 @@ func _colocar(p: Dictionary) -> void:
 func _nadar(delta: float) -> void:
 	var tam: Vector2 = tam_px()
 	for p in _peces:
-		# El pez ENGANCHADO no deambula: se queda forcejeando junto al corcho.
+		# El pez ENGANCHADO no deambula: se queda forcejeando junto al corcho. Vale tanto para el mio
+		# como para el que este peleando un compañero (p["de"] != 0): mientras alguien lo tiene en el
+		# anzuelo, ese pez no es del banco.
 		if _pez_es(p) and _estado != ESPERA:
+			continue
+		if int(p.get("de", 0)) != 0:
 			continue
 		if _atrae_el_cebo(p):
 			# EL CEBO manda mientras el pez este dentro de su radio: en vez de tirar su dado de rumbo,
@@ -699,6 +764,8 @@ func _lanzar() -> void:
 
 	_estado = LANZANDO
 	_t = 0.0
+	_espero_mordida = false   # tiro nuevo: vuelvo a estar a la espera de que el dueño me diga algo
+	_idx_enganchado = -1
 	_press_was = true   # la F de lanzar no debe contar como el ESPACIO del tiron
 	_f_was = true       # ni como la F de recoger (ver _process)
 	_hilo.visible = true
@@ -707,8 +774,20 @@ func _lanzar() -> void:
 
 
 func _process(delta: float) -> void:
-	_nadar(delta)
-	_reponer(delta)
+	# EL BANCO: lo mueve el dueño y lo copia el espejo. Todo lo de abajo (la caña, el corcho, las
+	# teclas) es IGUAL para los dos: cada uno maneja su sedal, lo unico que cambia es quien decide
+	# donde estan los peces y quien muerde.
+	if _soy_dueno():
+		_nadar(delta)
+		_reponer(delta)
+		_mordidas_remotas()
+		_t_red += delta
+		if _t_red >= RED_TICK:
+			_t_red = 0.0
+			Net.difundir_charco(estado_red())
+	else:
+		_interpolar_peces(delta)
+		_publicar_mi_corcho()
 	if _estado == LIBRE:
 		return
 	# RECOGER EL SEDAL con la misma F con la que lo echaste. Mientras esperas estas dentro de un
@@ -810,11 +889,15 @@ func _paso_lanzando() -> void:
 # metodo ni corre (el estado ya no es ESPERA) y los demas siguen nadando tan tranquilos.
 func _paso_espera() -> void:
 	_pintar_corcho(Vector2(0.0, sin(_t * 2.2) * 1.2))   # cabeceo tonto en el agua
-	for p in _peces:
-		var d: Vector2 = (p["pos"] as Vector2) - _corcho_base
-		if absf(d.x) < float(p["largo"]) * 0.5 + 6.0 and absf(d.y) < float(p["alto"]) * 0.5 + 6.0:
-			_morder(p)
-			return
+	# EL ESPEJO NO DECIDE MORDIDAS. La colision solo existe donde estan los peces de verdad, asi que
+	# aqui solo se manda el corcho (lo hace _publicar_mi_corcho en _process) y se espera el aviso del
+	# dueño (Net -> me_ha_picado). Sin esta puerta, las dos maquinas resolverian la misma mordida por
+	# su cuenta y cada una engancharia un pez distinto.
+	if not _soy_dueno():
+		return
+	var p: Dictionary = _pez_que_choca(_corcho_base)
+	if not p.is_empty():
+		_morder(p)
 
 
 func _morder(p: Dictionary) -> void:
@@ -884,7 +967,9 @@ func terminar_lucha(logrado: bool) -> void:
 func _escapar(motivo: String) -> void:
 	_decir(motivo)
 	if not _pez.is_empty():
-		_escapados.append({"data": _pez["data"], "cm": float(_pez["cm"])})
+		# Con su NONCE: es el mismo animal, y en multi ese numero es su identidad (ver _nacer_pez).
+		_escapados.append({"data": _pez["data"], "cm": float(_pez["cm"]),
+			"nonce": int(_pez.get("nonce", 0))})
 	_quitar_pez(false)
 	_volver_a_apuntar()   # fallar no te echa de la pesca: te devuelve a la mira
 
@@ -896,17 +981,34 @@ func _quitar_pez(pescado: bool) -> void:
 	if _pez.is_empty():
 		return
 	var i: int = _peces.find(_pez)
+	# MULTI (espejo): el banco no es mio, asi que aqui NO se toca — se le dice al dueño como acabo y
+	# el lo apunta en el de verdad (resolver_pez_remoto). Mi copia se limpia igual para que el
+	# minijuego siga su curso; la proxima foto la reconcilia.
+	if not _soy_dueno():
+		Net.resolver_pesca(_idx_enganchado if _idx_enganchado >= 0 else i, pescado)
+		_pez = {}
+		_idx_enganchado = -1
+		_espero_mordida = false
+		return
 	if i >= 0:
 		(_peces[i]["rect"] as ColorRect).queue_free()
 		_peces.remove_at(i)
 	_pez = {}
+	_idx_enganchado = -1
 	if pescado:
-		_stock = maxi(0, _stock - 1)
-		# SU propio sello, no uno compartido: diez capturas seguidas son diez vueltas escalonadas y
-		# no una sola espera. Es lo que hace que vaciar el charco cueste de verdad.
-		_vuelven.append(Game.tiempo_mazmorra + STOCK_REGEN)
-		_guardar_estado()
+		_cobrar_del_banco()
 	_armar_reposicion()
+
+
+# Una pieza SALE del banco: baja el stock y arranca SU contador de 10 minutos. Suelto porque lo
+# llaman dos caminos —el pescador local (_quitar_pez) y el remoto (resolver_pez_remoto)— y el banco
+# es uno solo: si el invitado saca un pez, el charco del dueño tiene que notarlo igual.
+func _cobrar_del_banco() -> void:
+	_stock = maxi(0, _stock - 1)
+	# SU propio sello, no uno compartido: diez capturas seguidas son diez vueltas escalonadas y
+	# no una sola espera. Es lo que hace que vaciar el charco cueste de verdad.
+	_vuelven.append(Game.tiempo_mazmorra + STOCK_REGEN)
+	_guardar_estado()
 
 
 # VUELVES A LA MIRA, no al mundo. Es el hermano de _soltar() y la diferencia es todo: NO saca el
@@ -1100,3 +1202,217 @@ func _pintar_corcho(desvio: Vector2) -> void:
 func _pintar_corcho_en(pos: Vector2) -> void:
 	_corcho.position = pos - _corcho.size * 0.5
 	_pintar_hilo(pos)
+
+
+# ============================================================
+#  MULTIJUGADOR
+#  El dueño del piso simula el charco entero; los demas lo ven en espejo y le mandan su corcho.
+#  Ver la cabecera del archivo para el reparto completo.
+# ============================================================
+
+# Color del pez que esta peleando OTRO. Mas claro que el resto: es la señal de "eso ya lo tiene tu
+# compañero". No hace falta mas: el charco es pequeño y el contraste con el agua ya canta.
+const COLOR_PEZ_OCUPADO := Color(0.35, 0.55, 0.70, 0.55)
+
+
+# El pez LIBRE que choca con un corcho puesto en 'donde' (coordenadas locales del charco), o null.
+# Suelto porque lo usan las dos mordidas: la mia (_paso_espera) y la de cada pescador remoto
+# (_mordidas_remotas). Una sola regla de colision para todos, que es justo lo que hace que las dos
+# maquinas no puedan discrepar sobre quien ha picado.
+func _pez_que_choca(donde: Vector2) -> Dictionary:
+	for p in _peces:
+		if int(p.get("de", 0)) != 0 or _pez_es(p):
+			continue   # ya lo esta peleando alguien
+		var d: Vector2 = (p["pos"] as Vector2) - donde
+		if absf(d.x) < float(p["largo"]) * 0.5 + 6.0 and absf(d.y) < float(p["alto"]) * 0.5 + 6.0:
+			return p
+	return {}   # {} = ninguno, el mismo convenio que _pez en todo el archivo
+
+
+# DUEÑO: resuelve la mordida de los pescadores remotos. Corre en cada frame porque los peces se
+# mueven en cada frame; es una pasada por una lista de seis como mucho.
+func _mordidas_remotas() -> void:
+	if _corchos.is_empty():
+		return
+	for peer in _corchos:
+		var c: Dictionary = _corchos[peer]
+		if not bool(c.get("activo", false)):
+			continue
+		var p: Dictionary = _pez_que_choca(c["pos"])
+		if p.is_empty():
+			continue
+		# Se le reserva AQUI, antes de avisarle. Si esperase a su respuesta, en ese viaje de ida y
+		# vuelta el mismo pez podria picarle tambien a otro.
+		p["de"] = peer
+		c["activo"] = false   # ya tiene pieza: su corcho deja de pescar hasta que resuelva
+		Net.avisar_mordida(peer, _peces.find(p))
+
+
+# ESPEJO: le mando al dueño donde tengo el corcho, y solo mientras de verdad este pescando. Fuera de
+# ESPERA no hay nada que pescar (o ya tengo pieza), y mandarlo igual haria que me picase un pez
+# mientras peleo con otro.
+func _publicar_mi_corcho() -> void:
+	var pescando: bool = _estado == ESPERA and _pez.is_empty() and not _espero_mordida
+	Net.publicar_corcho(_corcho_base, pescando)
+
+
+# DUEÑO: llega el corcho de un pescador remoto (o el aviso de que lo ha recogido).
+func corcho_remoto(peer: int, pos: Vector2, activo: bool) -> void:
+	if not _soy_dueno():
+		return
+	if not activo and not _corchos.has(peer):
+		return
+	if not _corchos.has(peer):
+		_corchos[peer] = {}
+	_corchos[peer]["pos"] = pos
+	_corchos[peer]["activo"] = activo
+	if not activo:
+		_soltar_peces_de(peer)
+
+
+# ESPEJO: el dueño me dice que me ha picado el pez 'idx'. A partir de aqui el minijuego es MIO y va
+# en local (el picoteo, el tiron y la barra de tension): lo unico que el dueño necesita saber es como
+# acaba, y eso se lo digo en Net.resolver_pesca.
+func me_ha_picado(idx: int) -> void:
+	if _soy_dueno() or _estado != ESPERA:
+		return
+	if idx < 0 or idx >= _peces.size():
+		return
+	_idx_enganchado = idx
+	_espero_mordida = false
+	_morder(_peces[idx])
+
+
+# DUEÑO: un pescador remoto ha terminado con su pez. Es el unico sitio donde el banco baja por culpa
+# de otro, y por eso pasa por aqui y no por _quitar_pez: el que cobra es EL, con su charco espejado;
+# aqui solo se apunta el resultado en el banco de verdad.
+func resolver_pez_remoto(peer: int, idx: int, cobrado: bool) -> void:
+	if not _soy_dueno():
+		return
+	if idx < 0 or idx >= _peces.size():
+		_soltar_peces_de(peer)   # el indice ya no vale: al menos que no se quede el candado puesto
+		return
+	var p: Dictionary = _peces[idx]
+	if int(p.get("de", 0)) != peer:
+		return   # no era suyo: llega tarde (ya se lo solto la desconexion, o el indice ha bailado)
+	p["de"] = 0
+	if not cobrado:
+		return
+	# Se lo lleva: fuera del agua y fuera del banco, con su sello de diez minutos.
+	(p["rect"] as ColorRect).queue_free()
+	_peces.remove_at(idx)
+	_cobrar_del_banco()
+	_armar_reposicion()
+
+
+# DUEÑO: suelta lo que tuviera reservado un peer (recoge el sedal, se va del piso, se desconecta).
+func _soltar_peces_de(peer: int) -> void:
+	for p in _peces:
+		if int(p.get("de", 0)) == peer:
+			p["de"] = 0
+
+
+func soltar_todo_de(peer: int) -> void:
+	if not _soy_dueno():
+		return
+	_corchos.erase(peer)
+	_soltar_peces_de(peer)
+
+
+# La FOTO del charco que viaja a los espejos. Un pez son cuatro cosas y ninguna sobra:
+#   nonce -> con el, el espejo saca especie y talla del MISMO sorteo determinista que el dueño, asi
+#            que no hace falta mandar ni el MaterialData ni los centimetros.
+#   pos   -> donde nada (lo unico que cambia en cada foto).
+#   ang   -> hacia donde mira, para que el rectangulo no vaya de lado.
+#   de    -> quien lo tiene enganchado, 0 = libre. Es lo que el espejo pinta distinto.
+func estado_red() -> Dictionary:
+	var lista: Array = []
+	for p in _peces:
+		lista.append([int(p.get("nonce", 0)), p["pos"], (p["vel"] as Vector2).angle(),
+			int(p.get("de", 0))])
+	return {"peces": lista, "stock": _stock, "aforo": _aforo}
+
+
+# ESPEJO: llega la foto. Se reconcilia POR NONCE y no por indice: si se pierde un paquete y el banco
+# ha cambiado, por indice cada pez heredaria los datos del que ocupaba su sitio (una anguila pasaria
+# a ser un gobio sin avisar). Con el nonce, cada uno sigue siendo quien es.
+func aplicar_red(snap: Dictionary) -> void:
+	if _soy_dueno():
+		return   # el dueño no se aplica su propia foto
+	_stock = int(snap.get("stock", _stock))
+	_aforo = int(snap.get("aforo", _aforo))
+	var filas: Array = snap.get("peces", [])
+
+	var mios: Dictionary = {}
+	for p in _peces:
+		mios[int(p.get("nonce", 0))] = p
+
+	var nuevos: Array = []
+	var destinos: Array = []
+	for f in filas:
+		var nonce: int = int(f[0])
+		var p: Dictionary = mios.get(nonce, {})
+		if p.is_empty():
+			p = _nacer_pez_espejo(nonce, f[1])
+			if p.is_empty():
+				continue
+		else:
+			mios.erase(nonce)
+		p["de"] = int(f[3])
+		# El enganchado por OTRO se pinta mas claro: es la señal de "eso lo esta peleando tu
+		# compañero, no le tires encima". El que engancho YO se queda como esta.
+		(p["rect"] as ColorRect).color = COLOR_PEZ_OCUPADO if int(f[3]) != 0 \
+			else Color(0.04, 0.07, 0.12, 0.45)
+		nuevos.append(p)
+		destinos.append([f[1], f[2]])
+
+	# Lo que ya no viene en la foto se ha ido del agua (lo pesco alguien, o se retiro).
+	for sobra in mios.values():
+		if _pez_es(sobra):
+			_pez = {}   # me lo han quitado de debajo: suelto la referencia antes de liberarlo
+		(sobra["rect"] as ColorRect).queue_free()
+	_peces = nuevos
+	_destinos = destinos
+	_idx_enganchado = _peces.find(_pez) if not _pez.is_empty() else -1
+
+
+# ESPEJO: crea el rectangulo de un pez que aun no tenia. La especie y la talla NO viajan: salen del
+# mismo sorteo sembrado que uso el dueño (semilla del piso + celda + nonce), asi que las dos maquinas
+# sacan exactamente el mismo bicho sin gastar un byte en ello.
+func _nacer_pez_espejo(nonce: int, pos: Vector2) -> Dictionary:
+	if tabla == null:
+		return {}
+	var r := RandomNumberGenerator.new()
+	r.seed = hash([_semilla(), celda.x, celda.y, nonce])
+	var d: MaterialData = tabla.elegir(Game.current_floor, r)
+	if d == null:
+		return {}
+	var cm: float = d.talla_desde(MaterialData.tirada_talla(r))
+	var tam_agua: Vector2 = tam_px()
+	var largo: float = clampf(cm * PX_POR_CM, LARGO_MIN,
+		minf(tam_agua.x, tam_agua.y) * LARGO_MAX_FRAC)
+	var alto: float = maxf(2.0, largo / maxf(1.2, d.esbeltez))
+	var rect := ColorRect.new()
+	rect.size = Vector2(largo, alto)
+	rect.pivot_offset = rect.size * 0.5
+	rect.color = Color(0.04, 0.07, 0.12, 0.45)
+	add_child(rect)
+	var p: Dictionary = {
+		"rect": rect, "data": d, "cm": cm, "largo": largo, "alto": alto,
+		"pos": pos, "vel": Vector2.RIGHT, "t_giro": 0.0, "cebo": false, "de": 0, "nonce": nonce,
+	}
+	_colocar(p)
+	return p
+
+
+# ESPEJO: entre foto y foto (10 Hz) los peces se acercan a su ultimo destino conocido. Sin esto se
+# moverian a tirones de diez por segundo, que es exactamente lo que se ve mal.
+func _interpolar_peces(delta: float) -> void:
+	var t: float = 1.0 - exp(-SUAVIZADO_RED * delta)
+	for i in mini(_peces.size(), _destinos.size()):
+		var p: Dictionary = _peces[i]
+		var destino: Vector2 = _destinos[i][0]
+		p["pos"] = (p["pos"] as Vector2).lerp(destino, t)
+		var rect: ColorRect = p["rect"]
+		rect.rotation = lerp_angle(rect.rotation, float(_destinos[i][1]), t)
+		_colocar(p)
