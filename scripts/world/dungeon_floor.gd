@@ -268,15 +268,15 @@ var _zona_aterrizaje: int = -1
 var _zonas_seguras: Array[int] = []
 
 # ZONA DEL ESTANQUE: la sala que lleva el charco de pescar. -1 = este piso no tiene (solo pasa si
-# el trazado se queda sin salas candidatas). NO es una zona segura: sigue pariendo bichos, solo que
-# MUCHO mas despacio (ESTANQUE_SPAWN_LENTO). Que pescar sea una decision con riesgo -y no un rincon
-# donde escaquearse- es justo lo que hace interesante pararse.
+# el trazado se queda sin salas candidatas).
+#
+# ES ZONA SEGURA, como las de las puertas: no se le crea zona, asi que no pare, no brota y no
+# recibe migraciones. Antes solo pariía mas despacio (x2.5), y en la practica no bastaba: sacar un
+# pez lleva su rato, y con dos personas pescando la sala acababa llena igual. Pescar sigue teniendo
+# riesgo -el bicho que YA te persigue entra detras de ti- pero deja de ser una tirada de dados.
+# Ver _zonas_seguras y celda_en_estanque().
 var _zona_estanque: int = -1
 var _celda_estanque: Vector2i = Vector2i.MAX
-
-# Lo que se estira el intervalo de partos en la sala del estanque. Un pez tarda en picar; si la
-# sala pariese al ritmo normal, pescar seria imposible por interrupciones.
-const ESTANQUE_SPAWN_LENTO := 2.5
 # Tamaño del charco EN CELDAS. Fijo a proposito (no escala con el piso): el minijuego se juega
 # contra el charco, y un charco de tamaño variable cambiaria el tiempo que tardan los peces en
 # cruzarlo de un piso a otro sin que nadie lo haya decidido.
@@ -689,6 +689,24 @@ func _crear_estanque() -> void:
 	# encima del suelo, igual que las vetas.
 	get_parent().add_child(n)
 	print("[mazmorra] estanque en la zona ", _zona_estanque, " (celda ", _celda_estanque, ")")
+
+
+# ¿Esta celda es agua (o su orilla inmediata)? La consulta el MERODEO de los bichos
+# (Enemy._pick_wander_target) para no elegir un destino dentro del charco.
+#
+# El agua ya tiene colision, asi que fisicamente no entran; el problema era que SI la elegian como
+# destino, se quedaban empujando contra el borde hasta que saltaba el anti-atasco y los teletransportaba
+# a casa. Desde fuera parecia que el bicho se metia en el estanque. Ahora ni lo intentan.
+#
+# El MARGEN de 1 celda es a proposito: sin el, el destino cae justo pegado al agua y el bicho acaba
+# igualmente rozandola. Y esto NO lo mira _chase(): el que te persigue entra detras de ti.
+func celda_en_estanque(celda: Vector2i, margen: int = 1) -> bool:
+	if _celda_estanque == Vector2i.MAX:
+		return false
+	var mitad := Vector2i(ESTANQUE_CELDAS.x / 2, ESTANQUE_CELDAS.y / 2)
+	var esquina: Vector2i = _celda_estanque - mitad - Vector2i(margen, margen)
+	var tam: Vector2i = ESTANQUE_CELDAS + Vector2i(margen, margen) * 2
+	return Rect2i(esquina, tam).has_point(celda)
 
 
 # ------------------------------------------------------------
@@ -1160,7 +1178,11 @@ func _crear_zonas() -> void:
 		# son zona franca. Al no crearles zona se van de una vez del reparto de poblacion, de los
 		# partos, de los brotes (provocar_brote recorre _zonas) y de las migraciones de manada
 		# (aforo_de_zona da 0 para una zona que no existe). Ver _zonas_seguras.
-		if i == _sala_boss or _zonas_seguras.has(i):
+		#
+		# La sala del ESTANQUE entra en el mismo saco por la misma puerta: pescar es pararse quieto
+		# un buen rato mirando el agua, y una pared pariendo detras -aunque fuese despacio- convertia
+		# eso en una loteria. Ver el comentario de _zona_estanque.
+		if i == _sala_boss or _zonas_seguras.has(i) or i == _zona_estanque:
 			continue
 
 		var es_sala: bool = z["tipo"] == "sala"
@@ -1170,12 +1192,8 @@ func _crear_zonas() -> void:
 		zona.tipo = z["tipo"]
 		zona.partos = partos
 		# Se DIVIDE porque son segundos de ESPERA: mas ritmo = menos espera entre partos.
-		# Y la sala del ESTANQUE pare MUCHO mas despacio (se MULTIPLICA la espera): pescar lleva su
-		# rato y una pared pariendo al ritmo normal lo haria inviable. No se la deja sin zona (eso
-		# seria una sala segura): sigue habiendo bichos, solo que a cuentagotas.
-		var lento: float = ESTANQUE_SPAWN_LENTO if i == _zona_estanque else 1.0
-		zona.intervalo_min = intervalo_min * lento / ritmo
-		zona.intervalo_max = intervalo_max * lento / ritmo
+		zona.intervalo_min = intervalo_min / ritmo
+		zona.intervalo_max = intervalo_max / ritmo
 		# Aforo por AREA: una sala grande sostiene mas bichos que un pasillo. Y el TECHO de ese
 		# aforo crece con la profundidad (AFORO_ZONA_GROWTH, su propia rampa): abajo las salas
 		# aguantan corros mas gordos, hasta el tope duro (TOPE_SALA = lo que cabe en una pelea).
@@ -1191,10 +1209,19 @@ func _crear_zonas() -> void:
 		# Por donde MERODEAN sus bichos: las celdas pisables de la zona. Antes deambulaban
 		# en un circulo alrededor del sitio donde nacian y, como nacen PEGADOS A LA PARED,
 		# medio circulo era roca: chocaban y se quedaban clavados contra el muro.
+		# El AGUA se cae de la lista: un destino dentro del charco (o pegado a el) deja al bicho
+		# empujando contra la colision hasta que el anti-atasco lo manda a casa, y desde fuera parece
+		# que se ha metido en el estanque. Filtrar AQUI y no en Enemy vale para los dos caminos que
+		# leen esta lista (merodeo normal y unirse_a, que la copia tal cual) y no cuesta nada en vivo.
+		# Si una zona fuese TODA agua nos quedariamos sin puntos, asi que hay red de seguridad.
 		var pts: Array = []
+		var pts_secos: Array = []
 		for c in celdas:
-			pts.append(gen.centro_px(c))
-		zona.puntos = pts
+			var px: Vector2 = gen.centro_px(c)
+			pts.append(px)
+			if not celda_en_estanque(c):
+				pts_secos.append(px)
+		zona.puntos = pts_secos if not pts_secos.is_empty() else pts
 		zona.hogar = _centro_pisable(pts)
 		_zonas.add_child(zona)
 
@@ -1334,6 +1361,10 @@ func _guardar_estado() -> void:
 				# Las HERIDAS que le dejaste al huir. Sin esto, subir y bajar la escalera curaba
 				# del todo al bicho del que acababas de escapar a duras penas.
 				"hp": float(e.hp_restante) if "hp_restante" in e else -1.0,
+				# CUANDO se pudre este cuerpo (ver Enemy.CADAVER_SEGUNDOS). Sin guardarlo, subir y
+				# bajar la escalera le reiniciaba los 5 minutos y los cadaveres volvian a ser eternos
+				# para cualquiera que cambie de piso a menudo.
+				"pudre": float(e.sello_pudre) if "sello_pudre" in e else -1.0,
 			})
 
 	var suelo: Array = []
@@ -1374,6 +1405,10 @@ func _restaurar_estado() -> void:
 		# y su muerte no abriria nada.
 		e.es_boss = data_boss != null and d["data"] == data_boss
 		if bool(d["muerto"]):
+			# El sello va ANTES de morir(): morir() solo lo pone si venia a -1, justo para que
+			# revivir un cadaver de la foto no le regale otros cinco minutos. Saves viejos -> -1, y
+			# entonces morir() se lo pone ahora (empiezan a contar desde que vuelves, no se quedan).
+			e.sello_pudre = float(d.get("pudre", -1.0))
 			e.morir()   # vuelve a ser un cadaver: gris, sin IA y con su cristal dentro
 		elif zona != null:
 			zona.adoptar(e)   # la zona lo cuenta como suyo, o parira por encima de su aforo
@@ -1561,6 +1596,8 @@ func _process(delta: float) -> void:
 		return
 	_t_barrido = BARRIDO_CADA
 
+	_pudrir_cadaveres()
+
 	var player := get_tree().get_first_node_in_group("player")
 	if not (player is Node2D):
 		return
@@ -1603,6 +1640,30 @@ func _process(delta: float) -> void:
 				lejos = false
 				break
 		e.set_physics_process(not lejos)
+
+
+# Los cadaveres a los que se les paso el arroz se van solos (ver Enemy.CADAVER_SEGUNDOS). Va aqui y
+# no en el propio bicho porque morir() le apaga el _physics_process: un cadaver no tiene bucle.
+#
+# MULTIJUGADOR: lo decide el DUEÑO del piso y punto. El espejo no cuenta cadaveres por su cuenta —su
+# reloj de expedicion es otro y se irian en momentos distintos—; se entera porque desvanecer() acaba
+# en queue_free() y el _exit_tree del bicho ya llama a Net.baja_enemigo, que difunde el despawn.
+func _pudrir_cadaveres() -> void:
+	if not Net.simulo_mi_piso():
+		return
+	for c in get_tree().get_nodes_in_group("corpse"):
+		if not is_instance_valid(c) or c.has_meta("es_espejo"):
+			continue
+		if not ("sello_pudre" in c):
+			continue
+		var sello: float = float(c.sello_pudre)
+		if sello < 0.0 or Game.tiempo_mazmorra < sello:
+			continue
+		# El BOSS no se pudre: su cuerpo es el hito que dice que el piso esta abierto, y su vuelta la
+		# lleva su propio reloj (Game.BOSS_RESPAWN), no este.
+		if c.get("es_boss"):
+			continue
+		c.desvanecer()
 
 
 # ------------------------------------------------------------

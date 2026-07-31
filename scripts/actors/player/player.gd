@@ -1060,13 +1060,18 @@ func _hueco_hasta(otro: Node) -> float:
 	return maxf(d.x - suma, d.y - suma)
 
 
-# INTERACTUAR (F). Por orden de cercania de la intencion:
+# INTERACTUAR (F). El orden NO es por distancia entre categorias, es por lo EFIMERO que es cada
+# cosa: primero lo que se te puede escapar, y al final lo que va a seguir ahi dentro de una hora.
 #   1) NPC interactuable (altar, tienda, puerta, escalera, hogar).
-#   2) EXTRAER el cristal de un cadaver.
-#   3) RECOLECTAR una veta o una planta (su minijuego).
-#   4) RECOGER un item del suelo.
-# El cadaver va ANTES que el recolectable a proposito: un bicho que cae encima de una veta
-# no puede dejarte sin tu cristal (y la veta no se va a ningun sitio, sigue ahi despues).
+#   2) EXTRAER el cristal de un cadaver  -> se pudre (ver Enemy.CADAVER_SEGUNDOS).
+#   3) RECOGER un item del suelo         -> es lo que acaba de soltar el bicho.
+#   4) RECOLECTAR una veta o una planta  -> no se va a ningun sitio.
+#
+# El pickup subio por delante del recolectable despues de un playtest: matabas un bicho en la orilla
+# del estanque y la F abria la caña de pescar en vez de coger tu propio loot, porque el charco es un
+# "recolectable" enorme que gana la medida de cercania casi siempre. Mismo motivo por el que el
+# cadaver iba ya delante: lo perecedero primero.
+#
 # ATACAR ya NO esta aqui: tiene su propia tecla (ESPACIO). Asi, acercarte a lootear con un
 # bicho al lado no te mete en un combate que no habias pedido.
 func _try_interact() -> void:
@@ -1082,13 +1087,7 @@ func _try_interact() -> void:
 		Game.start_extraction(corpse)
 		return
 
-	# 3) Veta o planta: abre su minijuego (pico -> Fuerza, hoz -> Destreza).
-	var reco: Node = _mas_cercano_en_grupo("recolectable", false)
-	if reco != null and reco.has_method("interactuar"):
-		reco.interactuar()
-		return
-
-	# 4) Item del suelo para recoger (lo que solto el monstruo, o algo que tiraste tu).
+	# 3) Item del suelo para recoger (lo que solto el monstruo, o algo que tiraste tu).
 	var pickup: Node = _mas_cercano_en_grupo("pickup", false)
 	if pickup != null and pickup.has_method("recoger"):
 		# MULTIJUGADOR: un drop replicado (con net_id) no se coge a pelo: se le PIDE al host,
@@ -1098,6 +1097,17 @@ func _try_interact() -> void:
 			Net.solicitar_recoger(pickup.get_meta("net_id"))
 			return
 		Game.embolsar(pickup.recoger())
+		return
+
+	# 4) Veta o planta: abre su minijuego (pico -> Fuerza, hoz -> Destreza).
+	# El ESTANQUE va el ultimo de los ultimos: ocupa 5x4 celdas y mide la distancia desde su BORDE
+	# (radio_extra), asi que a igualdad de cercania le gana a cualquier veta de la sala. Se busca
+	# primero entre todo lo demas y solo se cae al agua si de verdad no hay otra cosa a mano.
+	var reco: Node = _mas_cercano_en_grupo("recolectable", false, "estanque")
+	if reco == null:
+		reco = _mas_cercano_en_grupo("estanque", false)
+	if reco != null and reco.has_method("interactuar"):
+		reco.interactuar()
 
 
 # Recoloca al jugador (lo usa el generador del piso para plantarte en la sala de
@@ -1130,11 +1140,15 @@ func bloquear_interaccion() -> void:
 
 # Devuelve el nodo mas cercano del grupo dentro del rango de interaccion.
 # Si skip_extracted, ignora los cadaveres ya extraidos.
-func _mas_cercano_en_grupo(grupo: String, skip_extracted: bool) -> Node:
+# Si excluir != "", se salta los nodos que ademas esten en ESE grupo (lo usa la F para dejar el
+# estanque fuera del reparto de "recolectable" y probarlo aparte, al final).
+func _mas_cercano_en_grupo(grupo: String, skip_extracted: bool, excluir: String = "") -> Node:
 	var nearest: Node = null
 	var best: float = INF
 	for n in get_tree().get_nodes_in_group(grupo):
 		if not is_instance_valid(n):
+			continue
+		if excluir != "" and n.is_in_group(excluir):
 			continue
 		if skip_extracted and "extracted" in n and n.extracted:
 			continue

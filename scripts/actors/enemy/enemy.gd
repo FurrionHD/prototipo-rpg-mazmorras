@@ -700,6 +700,20 @@ func nacer_embistiendo() -> void:
 var es_boss: bool = false
 
 
+# Lo que tarda un cadaver en pudrirse si no le sacas el cristal. Va contra Game.tiempo_mazmorra (el
+# reloj de expedicion) y no contra un Timer del nodo: asi respeta el desfase de dev (+10 min con una
+# tecla) y sobrevive al guardado, igual que el respawn de las vetas.
+#
+# Por que existe: sin esto los cuerpos no se iban NUNCA. Un piso que llevas media hora limpiando
+# acaba siendo un campo de cadaveres que te roba la F (el cadaver va antes que el loot y la veta) y
+# que se guarda entero en la memoria del piso. Cinco minutos es tiempo de sobra para volver a por tu
+# cristal, y poco para que se acumulen.
+const CADAVER_SEGUNDOS := 300.0
+
+# Momento (en Game.tiempo_mazmorra) en el que este cuerpo se desvanece. -1 = no es un cadaver todavia.
+var sello_pudre: float = -1.0
+
+
 # Lo llama Game al GANAR el combate: el enemigo queda como CADAVER (no se
 # borra), apagado e interactuable para extraerle el cristal (minijuego).
 func morir() -> void:
@@ -714,6 +728,10 @@ func morir() -> void:
 		_facing_line.visible = false
 	remove_from_group("enemy")  # ya no es un enemigo activo
 	add_to_group("corpse")      # ahora es un cadaver interactuable
+	# Arranca su cuenta atras. Solo si no la traia ya puesta: _restaurar_estado revive los cadaveres
+	# llamando a morir(), y sin esto volver al piso les reiniciaria el reloj una y otra vez.
+	if sello_pudre < 0.0:
+		sello_pudre = Game.tiempo_mazmorra + CADAVER_SEGUNDOS
 	# MULTIJUGADOR: que los demas lo vean caer. Sin esto seguirian viendo un bicho VIVO donde ya
 	# solo hay un cadaver (el nodo no se libera al morir, asi que baja_enemigo no salta).
 	Net.enemigo_muerto(self)

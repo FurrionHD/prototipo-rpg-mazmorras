@@ -33,6 +33,12 @@ var _tab: int = 0                     # 0 = Libro, 1 = Cebos
 var _sel: int = 0
 var _peces: Array = []
 var _stacks: Array = []               # lo que hay a la venta en la pestaña de cebos
+# CUANTOS cebos vas a comprar (el numero del stepper). Es un CAMPO y no una variable local de
+# _ficha_cebo a proposito: las lambdas de GDScript capturan los locales POR VALOR, asi que el
+# `func(n): cuantas = n` del stepper escribia en su propia copia y el boton de comprar leia el 1 de
+# siempre. Comprabas cuatro y te llevabas uno (cobrandote uno, eso si). Los campos del nodo se leen
+# en vivo desde la lambda y no tienen ese problema.
+var _cuantas: int = 1
 
 const TABS := ["Libro", "Cebos"]
 const AMBAR := Color(0.95, 0.72, 0.36)
@@ -297,14 +303,16 @@ func _ficha_cebo(c: ConsumableData) -> void:
 
 	# Cantidad + comprar. El maximo es lo que te llega: no tiene sentido ofrecer un stepper que
 	# sube hasta 99 cuando la tercera unidad ya te deja sin monedas.
-	var cuantas: int = 1
 	var maximo: int = 99 if precio <= 0 else maxi(1, Game.money / precio)
+	# La ficha se repinta entera al cambiar de cebo o al comprar, y el stepper vuelve a nacer en 1:
+	# el campo tiene que arrancar de acuerdo con el, o el boton compraria una cantidad que no se ve.
+	_cuantas = 1
 	MenuScaffold.fila(_content, "Cantidad", "", 140)
-	MenuScaffold.stepper(_content, 1, 1, maximo, func(n: int) -> void: cuantas = n)
+	MenuScaffold.stepper(_content, 1, 1, maximo, func(n: int) -> void: _cuantas = n)
 	var comprar := Button.new()
 	comprar.text = "Comprar"
 	comprar.custom_minimum_size = Vector2(0, 34)
-	comprar.pressed.connect(func() -> void: _on_comprar(c, cuantas))
+	comprar.pressed.connect(func() -> void: _on_comprar(c, _cuantas))
 	_content.add_child(comprar)
 
 

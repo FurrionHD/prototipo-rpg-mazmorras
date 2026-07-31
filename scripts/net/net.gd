@@ -4242,6 +4242,12 @@ func _fusionar_mapa(trabajo: Dictionary, vistas: Dictionary) -> void:
 # semilla): lo que cambia es cuanto ha visto cada uno, asi que la union es exacta. Se hace campo a
 # campo y no reemplazando el snapshot entero, porque el que sube solo ha horneado SU niebla y
 # reemplazar borraria del plano las zonas que descubrio el otro.
+#
+# ¡OJO! CAMPO A CAMPO SIGNIFICA QUE ESTA LISTA HAY QUE MANTENERLA. Lo que Game.capturar_mapa meta en
+# el snapshot y no se copie AQUI se pierde en cada fusion, y solo en MULTIJUGADOR: en solitario
+# comprometer_mapa reemplaza el diccionario entero y el campo nuevo llega igual. Asi se perdio
+# "estanques" -- el plano pintaba los charcos en el editor y no en la partida con un compañero, que
+# es el sitio donde nadie lo mira dos veces. Si añades una clave al snapshot, añadela abajo.
 func _fundir_snap(base: Dictionary, nuevo: Dictionary) -> void:
 	base["ancho"] = nuevo.get("ancho", base.get("ancho", 0))
 	base["alto"] = nuevo.get("alto", base.get("alto", 0))
@@ -4249,6 +4255,8 @@ func _fundir_snap(base: Dictionary, nuevo: Dictionary) -> void:
 	_unir_por_celda(base, nuevo, "vivos")
 	_unir_por_celda(base, nuevo, "escaleras")
 	_unir_celdas(base, nuevo, "salidas")
+	# El charco lleva su celda en "cell" como las escaleras (mas un "tam"), asi que una por celda.
+	_unir_por_celda(base, nuevo, "estanques")
 	# AGOTADOS: gana el sello mas NUEVO (es una cuenta atras de respawn; el ultimo picado es la verdad).
 	var ag: Dictionary = base.get("agotados", {})
 	for celda in (nuevo.get("agotados", {}) as Dictionary):

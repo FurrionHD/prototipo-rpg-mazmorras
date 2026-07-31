@@ -2835,10 +2835,14 @@ var consumables: Dictionary = {}
 # Sigue puesto de una pesca a otra y se guarda con la partida: cambiar de cebo cada vez que echas el
 # sedal seria un peaje de menus, no una decision.
 var cebo_activo: ConsumableData = null
-# Probabilidad de que el cebo SE GASTE al cobrar una pieza. No es 1.0 a proposito: que uno de cada
-# cinco peces salga gratis hace que un tarro de cebo rinda un poco mas de lo que pagaste y le quita
-# la sensacion de contador que baja a cada mordida.
-const CEBO_GASTO := 0.80
+# Probabilidad de que el cebo SE GASTE al cobrar una pieza. Un cebo aguanta ~3 piezas.
+#
+# Estaba en 0.80 (o sea: 1,25 peces por cebo) de cuando pescar era bajar al charco, sacar UNO y
+# volverte al mundo. Con el bucle de ahora -cobras y vuelves directo a la mira- eso son cuatro o
+# cinco piezas en un minuto seguido: comprabas cuatro cebos y se te iban en lo que dura un rato de
+# pesca, sin tiempo de notar que los estabas gastando. Un cebo tiene que durar lo que dura trabajar
+# un sitio del agua, no una mordida.
+const CEBO_GASTO := 0.30
 # Lista para el panel de debug (añadir pociones al inventario).
 var _dev_consumables: Array[String] = [
 	"res://resources/consumables/pocion_menor.tres",
