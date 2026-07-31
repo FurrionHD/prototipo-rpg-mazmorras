@@ -516,30 +516,59 @@ class Instance extends RefCounted:
 				str(d.get("icono", "?")), str(d.get("nombre", "?")), turns, "" if turns == 1 else "s"])
 
 		# Que te HACE, con la magnitud REAL de esta instancia (stacks ya dentro).
+		# Las tres van en "por turno" y con el mismo verbo a proposito: son la misma familia (algo que
+		# te pasa cada turno) y antes decian "cada turno" con tres verbos distintos.
 		if dot_damage() > 0.0:
-			lineas.append("Te hace %.1f de daño cada turno." % dot_damage())
+			lineas.append("Te quita %.1f de vida por turno." % dot_damage())
 		if heal_amount() > 0.0:
-			lineas.append("Te cura %.1f de vida cada turno." % heal_amount())
+			lineas.append("Te recupera %.1f de vida por turno." % heal_amount())
 		if mana_amount() > 0.0:
-			lineas.append("Te devuelve %.1f de maná cada turno." % mana_amount())
+			lineas.append("Te recupera %.1f de maná por turno." % mana_amount())
 		# HABILIDADES BASE (platos): van primero porque es lo gordo que hace el plato.
 		for clave in (d.get("hab_mult", {}) as Dictionary):
 			var hm: float = hab_mult(str(clave))
 			lineas.append("%s %+d%%." % [StatusEffects.NOMBRE_HABILIDAD.get(clave, str(clave)),
 				roundi((hm - 1.0) * 100.0)])
-		for par in [["atk_mult", "Haces"], ["def_mult", "Aguantas"], ["spd_mult", "Te mueves"],
-				["dmg_taken_mult", "Te entra"], ["heal_recv_mult", "Te curan"],
-				["def_flat_mult", "Tu armadura protege"], ["aggro_mult", "Te buscan"],
-				["dmg_dealt_mult", "Tus golpes hacen"], ["mana_coste_mult", "Los hechizos cuestan"],
-				["mp_kill_mult", "Cada bicho te deja"], ["mp_regen_mult", "Recuperas maná"],
-				["dot_taken_mult", "El daño por turno te hace"],
-				["drop_mult", "Los bichos sueltan botín"]]:
+		# UNA FRASE POR SIGNO, no un "más/menos" pegado a un tronco comun. Con el tronco salian cosas
+		# como "Haces un 20% menos." (¿menos QUE?) o "Aguantas un 25% más.", que es la queja que abrio
+		# esta revision: el jugador no tiene por que reconstruir la frase.
+		#
+		# Y hacen falta las dos versiones porque el MISMO campo lo usan un buff y un debuff (def_mult
+		# es Baluarte y Vulnerable; spd_mult es Presteza, Lento y Pegajoso), y en castellano no siempre
+		# se dicen con la misma estructura: "más rápido" / "más lento", no "más/menos rápido".
+		for par in [
+				["atk_mult", "Haces un %d%% más de daño.", "Haces un %d%% menos de daño."],
+				["def_mult", "Aumenta tu defensa un %d%%.", "Tu defensa baja un %d%%."],
+				["spd_mult", "Te mueves un %d%% más rápido.", "Te mueves un %d%% más lento."],
+				# La vida maxima va ANTES del daño recibido: en Guardia de carne son las dos caras del
+				# mismo trato y se lee mejor la ganancia y luego el precio.
+				["hp_mult", "Aumenta tu vida máxima un %d%%.", "Tu vida máxima baja un %d%%."],
+				["dmg_taken_mult", "Recibes un %d%% más de daño.", "Recibes un %d%% menos de daño."],
+				["heal_recv_mult", "Recibes un %d%% más de curación.",
+					"Recibes un %d%% menos de curación."],
+				["def_flat_mult", "Tu armadura protege un %d%% más.",
+					"Tu armadura protege un %d%% menos."],
+				["aggro_mult", "Es un %d%% más probable que te ataquen.",
+					"Es un %d%% menos probable que te ataquen."],
+				["dmg_dealt_mult", "Tus golpes hacen un %d%% más de daño.",
+					"Tus golpes hacen un %d%% menos de daño."],
+				["mana_coste_mult", "Los hechizos cuestan un %d%% más.",
+					"Los hechizos cuestan un %d%% menos."],
+				["mp_kill_mult", "Cada bicho te deja un %d%% más de maná.",
+					"Cada bicho te deja un %d%% menos de maná."],
+				["mp_regen_mult", "Recuperas un %d%% más de maná por turno.",
+					"Recuperas un %d%% menos de maná por turno."],
+				["dot_taken_mult", "El daño por turno te hace un %d%% más.",
+					"El daño por turno te hace un %d%% menos."],
+				["drop_mult", "Los bichos sueltan botín un %d%% más a menudo.",
+					"Los bichos sueltan botín un %d%% menos a menudo."]]:
 			if not d.has(par[0]):
 				continue
 			var m: float = mult_de(str(par[0]))
 			var pct: int = roundi((m - 1.0) * 100.0)
-			lineas.append("%s un %d%% %s." % [
-				str(par[1]), absi(pct), "más" if pct > 0 else "menos"])
+			if pct == 0:
+				continue
+			lineas.append(str(par[1] if pct > 0 else par[2]) % absi(pct))
 		# Los ADITIVOS (puntos porcentuales, no multiplicadores).
 		for par in [["crit_flat", "Criticas un %d%% más a menudo."],
 				["evade_flat", "Esquivas un %d%% más a menudo."],
@@ -550,7 +579,13 @@ class Instance extends RefCounted:
 		if d.has("mochila_extra"):
 			lineas.append("Cargas con %d más." % roundi(flat_de("mochila_extra")))
 		if is_stun():
-			lineas.append("Pierdes el turno.")
+			lineas.append("No puedes actuar.")
+		# SILENCIO no decia NADA: lo veias puesto y no habia forma de saber que hacia.
+		if bool(d.get("silencia", false)):
+			lineas.append("Impide tirar habilidades y hechizos.")
+		# ESCOLTA, igual: era un chip mudo.
+		if float(d.get("seguimiento_pct", 0.0)) > 0.0:
+			lineas.append("Atacas detrás de un compañero.")
 		if stun_prob_mult() != 1.0:
 			lineas.append("Te aturden más fácil.")
 		for id_inm in (d.get("inmune", []) as Array):
@@ -690,7 +725,7 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 	if bool(d.get("silencia", false)):
 		return "le corta hechizos y habilidades"
 	if float(d.get("seguimiento_pct", 0.0)) > 0.0:
-		return "pegas detrás de cada aliado realizando un %d%% de daño" % roundi(
+		return "pegas detrás de cada aliado realizando un %d%% del daño básico" % roundi(
 			float(d["seguimiento_pct"]) * 100.0)
 	return ""
 
