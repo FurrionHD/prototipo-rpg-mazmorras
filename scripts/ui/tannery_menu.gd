@@ -396,12 +396,12 @@ func _build_mochilas() -> void:
 	var tramos: Array = MenuScaffold.tramos_por_calidad(materiales, MAX_COLUMNAS_RAREZA)
 	if piezas > 1 and tramos.size() > 1:
 		MenuScaffold.titulo(_content, "Rareza que puede salir  ·  %d mochilas, cada una con su material" % piezas)
-		_rejilla_mochila(materiales, tramos, heb)
-		_content.add_child(HSeparator.new())
-		MenuScaffold.titulo(_content, "Lo que da cada rareza", 13)
+		# La carga de cada rareza va en la ULTIMA columna de la misma rejilla, no en una tabla aparte
+		# debajo: separada, la lista de rarezas salia dos veces en la misma pantalla.
+		var cargas: Array = []
 		for i in Upgrades.RAREZA_NOMBRE.size():
-			_row(Upgrades.rareza_nombre(i), "+%.0f de carga" % _carga_de(tier, i),
-				Upgrades.rareza_color(i))
+			cargas.append("+%.0f de carga" % _carga_de(tier, i))
+		_rejilla_mochila(materiales, tramos, heb, cargas)
 	else:
 		var score: float = Game.score_mochila(heb, _sel_heb, _sel_cor, _sel_cue)
 		MenuScaffold.titulo(_content, "Rareza que puede salir%s" % (
@@ -457,7 +457,7 @@ func _build_mochilas() -> void:
 
 # La rejilla de una tanda de mochilas: una columna por tramo de piezas iguales, una fila por rareza.
 # Misma forma que la del herrero (MenuScaffold.rejilla_probs), que las dos tiran con score_final.
-func _rejilla_mochila(materiales: Array, tramos: Array, heb: MaterialData) -> void:
+func _rejilla_mochila(materiales: Array, tramos: Array, heb: MaterialData, cargas: Array) -> void:
 	var oficio: float = Forge.bonus_herreria(Game.peleteria_activa())
 	var bono_metal: float = Forge.bonus_metal(heb)
 	var corto: bool = tramos.size() > 6
@@ -497,8 +497,9 @@ func _rejilla_mochila(materiales: Array, tramos: Array, heb: MaterialData) -> vo
 				valores.append("%d%%" % roundi(p * 100.0) if corto
 					else "%s%%" % str(snappedf(p * 100.0, 0.1)))
 		filas.append({"etiqueta": Upgrades.rareza_nombre(int(r)),
-			"color": Upgrades.rareza_color(int(r)), "valores": valores})
-	MenuScaffold.rejilla_probs(_content, "pieza", cabeceras, filas)
+			"color": Upgrades.rareza_color(int(r)), "valores": valores,
+			"extra": str(cargas[int(r)]) if int(r) < cargas.size() else ""})
+	MenuScaffold.rejilla_probs(_content, "pieza", cabeceras, filas, "lo que da", _content.size.x)
 
 
 # Los dos Autos: ▲ empieza por el mejor material, ▼ por el peor. Rellenan para `_cantidad` mochilas;

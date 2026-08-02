@@ -799,8 +799,13 @@ static func etiqueta_tramo(tramo: Dictionary, nombre: String = "Pieza", plural: 
 # ------------------------------------------------------------
 
 # `cabeceras` = lo que va encima de cada columna (los numeros de pieza: "1-3", "4"...).
-# `filas` = [{etiqueta, color (Variant), valores: Array[String]}], una por rareza (o por lo que sea).
-# Las celdas con GUION se pintan apagadas: es "esto no puede salir", no un cero.
+# `filas` = [{etiqueta, color (Variant), valores: Array[String], extra: String}], una por rareza (o
+# por lo que sea). Las celdas con GUION se pintan apagadas: es "esto no puede salir", no un cero.
+#
+# `extra` es la ULTIMA columna, la que dice QUE DA esa rareza ("afinidad +13, -1 golpe", "+29 de
+# carga"). Va aqui dentro y no en una tabla aparte debajo: separada, la lista de rarezas salia dos
+# veces en la misma pantalla. Si ninguna fila trae extra, esa columna es el hueco que empuja las
+# demas a la izquierda.
 #
 # La letra se encoge con el numero de columnas porque el panel de detalle NO tiene scroll horizontal
 # (ver construir): esto tiene que caber si o si. Medido a su ancho real (498 px): 14 columnas a
@@ -808,15 +813,28 @@ static func etiqueta_tramo(tramo: Dictionary, nombre: String = "Pieza", plural: 
 const GUION := "—"
 
 static func rejilla_probs(vb: VBoxContainer, etiqueta_izq: String, cabeceras: Array,
-		filas: Array) -> void:
+		filas: Array, cabecera_extra: String = "", ancho_disp: float = 0.0) -> void:
 	var n: int = cabeceras.size()
 	if n <= 0:
 		return
-	var tam: int = 14 if n <= 6 else (12 if n <= 9 else 10)
-	var ancho_nombre: int = 110 if n <= 6 else 88
+	# El tamaño MAS GRANDE que quepa, no uno fijo por numero de columnas: la pestaña de forjar tiene
+	# el panel a 498 px (comparte fila con la cuadricula de piezas) pero herramientas y mochilas lo
+	# tienen entero, 848, y ahi encoger la letra por tener siete columnas no venia a cuento.
+	# Sin ancho (primer pintado, aun sin layout) se asume el panel estrecho, que es el que aprieta.
+	var libre: float = ancho_disp if ancho_disp > 100.0 else 498.0
+	if cabecera_extra != "":
+		libre -= 150.0   # la columna de "lo que da"
+	var tam: int = 10
+	var ancho_nombre: int = 88
+	var ancho_col: int = 38
 	# Ancho de columna FIJO y corto a proposito: las columnas van pegadas entre si y a la izquierda,
 	# no repartidas por todo el panel (con tres, media pantalla se iba en huecos y no se comparaban).
-	var ancho_col: int = 52 if n <= 6 else (46 if n <= 9 else 38)
+	for opcion in [[14, 110, 52], [12, 96, 46]]:
+		if float(int(opcion[1]) + n * (int(opcion[2]) + 4)) <= libre:
+			tam = int(opcion[0])
+			ancho_nombre = int(opcion[1])
+			ancho_col = int(opcion[2])
+			break
 
 	var grid := GridContainer.new()
 	# Una columna de mas al final: un hueco vacio que se come el ancho sobrante y empuja el resto a
@@ -829,15 +847,31 @@ static func rejilla_probs(vb: VBoxContainer, etiqueta_izq: String, cabeceras: Ar
 	_celda(grid, etiqueta_izq, ancho_nombre, tam, GRIS, false)
 	for c in cabeceras:
 		_celda(grid, str(c), ancho_col, tam, Color(0.7, 0.8, 0.95), true)
-	_relleno(grid)
+	_ultima(grid, cabecera_extra, tam, GRIS)
 	for f in filas:
 		var fila: Dictionary = f
 		_celda(grid, str(fila.get("etiqueta", "")), ancho_nombre, tam, fila.get("color"), false)
 		for v in (fila.get("valores", []) as Array):
 			var txt: String = str(v)
 			_celda(grid, txt, ancho_col, tam, GRIS if txt == GUION else fila.get("color"), true)
-		_relleno(grid)
+		_ultima(grid, str(fila.get("extra", "")), tam, fila.get("color"))
 	vb.add_child(grid)
+
+
+# La ultima columna: el texto de "que da" esta rareza, o (si viene vacio) el hueco que se lleva el
+# ancho sobrante para que las columnas de numeros queden juntas y a la izquierda.
+static func _ultima(grid: GridContainer, txt: String, tam: int, color: Variant) -> void:
+	if txt == "":
+		_relleno(grid)
+		return
+	var l := Label.new()
+	l.text = "   " + txt
+	l.add_theme_font_size_override("font_size", tam)
+	if color is Color:
+		l.add_theme_color_override("font_color", color)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.clip_text = true
+	grid.add_child(l)
 
 
 # Una celda de la rejilla. `derecha` = las cifras, alineadas a la derecha para que las columnas se

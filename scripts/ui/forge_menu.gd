@@ -1043,8 +1043,11 @@ func _rareza_por_pieza(vb: VBoxContainer, base: Resource, metal: MaterialData, p
 # Pinta la rejilla de una tanda: cabeceras con los numeros de pieza, la calidad de cada columna, el
 # empujon del tier (solo si empuja en alguna) y una fila por rareza. La comparten las tres tandas
 # (armas, herramientas y mochilas) porque las tres tiran la rareza con la misma formula.
+#
+# `efectos` (opcional) = que da cada rareza, indexado por rareza: sale como ULTIMA columna, para que
+# la lista de rarezas no se repita en una tabla aparte debajo. `cab_efecto` la titula.
 func _rejilla_rareza(vb: VBoxContainer, materiales: Array, tramos: Array, oficio: float,
-		bono_metal: float) -> void:
+		bono_metal: float, efectos: Array = [], cab_efecto: String = "") -> void:
 	var corto: bool = tramos.size() > 6
 	var cabeceras: Array = []
 	var calidad: Array = []
@@ -1084,8 +1087,9 @@ func _rejilla_rareza(vb: VBoxContainer, materiales: Array, tramos: Array, oficio
 				valores.append("%d%%" % roundi(p * 100.0) if corto
 					else "%s%%" % str(snappedf(p * 100.0, 0.1)))
 		filas.append({"etiqueta": Upgrades.rareza_nombre(int(r)),
-			"color": Upgrades.rareza_color(int(r)), "valores": valores})
-	MenuScaffold.rejilla_probs(vb, "pieza", cabeceras, filas)
+			"color": Upgrades.rareza_color(int(r)), "valores": valores,
+			"extra": str(efectos[int(r)]) if int(r) < efectos.size() else ""})
+	MenuScaffold.rejilla_probs(vb, "pieza", cabeceras, filas, cab_efecto, _content.size.x)
 
 
 # MULTI: capa mi seleccion de forja a lo DISPONIBLE (por si el compañero reservó de lo mismo) y la
@@ -1352,11 +1356,12 @@ func _build_herramientas() -> void:
 		if tramos.size() > 1:
 			_title(_content, "Rareza que puede salir  ·  %d herramientas  ·  %s" % [
 				piezas, lingote.nombre])
+			# Lo que da cada rareza va en la ULTIMA columna de la misma rejilla: en una tabla aparte
+			# debajo, la lista de rarezas salia dos veces en la misma pantalla.
 			_rejilla_rareza(_content, materiales, tramos,
-				Forge.bonus_herreria(Game.herreria_activa()), Forge.bonus_metal_veta(lingote))
-			_content.add_child(HSeparator.new())
-			_title(_content, "Lo que da cada rareza", 13)
-			_leyenda_herramienta(tier, banda, base_t)
+				Forge.bonus_herreria(Game.herreria_activa()), Forge.bonus_metal_veta(lingote),
+				_efectos_herramienta(tier, banda, base_t), "lo que da")
+			_herr_llevas(base_t)
 			_herr_acciones(_content, piezas)
 			return
 	var score: float = Game.score_herramienta(lingote, _sel_herr_met, _sel_herr_tab)
@@ -1381,17 +1386,18 @@ func _build_herramientas() -> void:
 	_herr_acciones(_content, piezas)
 
 
-# Lo que da cada rareza CON ESTA VETA, sin porcentajes: es la leyenda de la rejilla de una tanda
-# (las dos cosas que suben con la tirada, la afinidad y los golpes que te ahorras).
-func _leyenda_herramienta(tier: int, banda: int, base_t: ToolData) -> void:
+# Lo que da cada rareza CON ESTA VETA, indexado por rareza: las dos cosas que suben con la tirada,
+# la afinidad y los golpes que te ahorras. Es la ultima columna de la rejilla de una tanda.
+func _efectos_herramienta(tier: int, banda: int, base_t: ToolData) -> Array:
+	var out: Array = []
 	for i in Upgrades.RAREZA_NOMBRE.size():
 		var md: Dictionary = Upgrades.tool_mods(_herr_tipo, tier, i, banda)
 		var n: int = int(md["golpes_menos"])
 		var efecto: String = "afinidad +%.0f" % float(md["afinidad"])
 		if n > 0:
 			efecto += ",  -%d %s" % [n, base_t.unidad_golpes(n)]
-		_row(_content, Upgrades.rareza_nombre(i), efecto, Upgrades.rareza_color(i))
-	_herr_llevas(base_t)
+		out.append(efecto)
+	return out
 
 
 func _herr_llevas(base_t: ToolData) -> void:
