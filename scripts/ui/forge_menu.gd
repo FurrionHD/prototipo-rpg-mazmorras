@@ -1064,39 +1064,44 @@ func _rareza_por_pieza(vb: VBoxContainer, base: Resource, metal: MaterialData, p
 	# La letra se encoge con las columnas: el panel de detalle no tiene scroll horizontal, asi que
 	# esto tiene que caber si o si. Con muchas, ademas, el porcentaje va sin decimal.
 	var n: int = tramos.size()
-	var tam: int = 14 if n <= 4 else (12 if n <= 6 else (11 if n <= 9 else 9))
-	# Medido con el panel de detalle a su ancho real: 14 columnas a letra 9 son 460 px de 498, y 20
-	# ya se salen. De ahi el tope de arriba.
+	var tam: int = 14 if n <= 6 else (12 if n <= 9 else 10)
 	var corto: bool = n > 6
-	var ancho_nombre: int = 170 if n <= 4 else 110
+	var ancho_nombre: int = 110 if n <= 6 else 88
+	# Ancho de una columna de numeros. Es FIJO y corto a proposito: las columnas van pegadas entre si
+	# y pegadas a la izquierda, no repartidas por todo el panel (con tres, media pantalla se iba en
+	# huecos y no se podian comparar).
+	var ancho_col: int = 52 if not corto else (46 if n <= 9 else 38)
 
 	var grid := GridContainer.new()
-	grid.columns = 1 + n
-	grid.add_theme_constant_override("h_separation", 6)
+	# Una columna de mas al final: es un hueco vacio que se come TODO el ancho sobrante y empuja las
+	# demas a la izquierda. Sin ella, el grid reparte el sobrante entre las columnas de datos.
+	grid.columns = 2 + n
+	grid.add_theme_constant_override("h_separation", 4)
 	grid.add_theme_constant_override("v_separation", 2)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	# Cabecera: de que pieza a que pieza es cada columna. Con muchas columnas, sin la palabra
-	# "Piezas" delante (el titulo de arriba ya dice que son piezas y es lo que no cabe).
-	_celda(grid, "", ancho_nombre, tam, null, false)
+	# Cabecera: solo los NUMEROS de pieza ("1-13", "14"). La palabra va una vez, a la izquierda.
+	_celda(grid, "pieza", ancho_nombre, tam, GRIS, false)
 	for tramo in tramos:
-		var cab: String = MenuScaffold.etiqueta_tramo(tramo)
-		if corto:
-			var d: int = int(tramo["desde"])
-			var h: int = int(tramo["hasta"])
-			cab = str(d) if d == h else "%d-%d" % [d, h]
-		_celda(grid, cab, 0, tam, Color(0.7, 0.8, 0.95), true)
+		var d: int = int(tramo["desde"])
+		var h: int = int(tramo["hasta"])
+		_celda(grid, str(d) if d == h else "%d-%d" % [d, h], ancho_col, tam,
+			Color(0.7, 0.8, 0.95), true)
+	_relleno(grid)
 	# La calidad del material de cada columna: es la que mueve toda la tirada de debajo.
 	_celda(grid, "material", ancho_nombre, tam, GRIS, false)
 	for tramo in tramos:
-		_celda(grid, "%d%%" % roundi(float(materiales[int(tramo["i"])]) * 100.0), 0, tam, GRIS, true)
+		_celda(grid, "%d%%" % roundi(float(materiales[int(tramo["i"])]) * 100.0), ancho_col, tam,
+			GRIS, true)
+	_relleno(grid)
 	# Y lo que aporta el METAL, que no es igual en todas: se capa en el techo del material, asi que
 	# donde la pieza va con material puro el metal no suma nada (ver Forge.score_final).
 	_celda(grid, "metal", ancho_nombre, tam, GRIS, false)
 	for tramo in tramos:
 		var mat_c: float = float(materiales[int(tramo["i"])])
 		var met_c: float = Forge.score_final(mat_c, herr, bono_metal) - Forge.score_final(mat_c, herr, 0.0)
-		_celda(grid, "%+d%%" % roundi(met_c * 100.0), 0, tam, GRIS, true)
+		_celda(grid, "%+d%%" % roundi(met_c * 100.0), ancho_col, tam, GRIS, true)
+	_relleno(grid)
 	for r in rarezas:
 		_celda(grid, Upgrades.rareza_nombre(int(r)), ancho_nombre, tam,
 			Upgrades.rareza_color(int(r)), false)
@@ -1105,8 +1110,17 @@ func _rareza_por_pieza(vb: VBoxContainer, base: Resource, metal: MaterialData, p
 			var txt: String = "—"
 			if p > 0.0:
 				txt = "%d%%" % roundi(p * 100.0) if corto else "%s%%" % str(snappedf(p * 100.0, 0.1))
-			_celda(grid, txt, 0, tam, Upgrades.rareza_color(int(r)) if p > 0.0 else GRIS, true)
+			_celda(grid, txt, ancho_col, tam, Upgrades.rareza_color(int(r)) if p > 0.0 else GRIS, true)
+		_relleno(grid)
 	vb.add_child(grid)
+
+
+# La celda vacia del final de cada fila: se lleva el ancho que sobra para que las columnas de datos
+# se queden juntas y a la izquierda.
+func _relleno(grid: GridContainer) -> void:
+	var c := Control.new()
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_child(c)
 
 
 # Una celda de la rejilla de rareza. `derecha` = las cifras, que se alinean a la derecha para que
@@ -1120,9 +1134,10 @@ func _celda(grid: GridContainer, txt: String, ancho: int, tam: int, color: Varia
 		l.add_theme_color_override("font_color", color)
 	if ancho > 0:
 		l.custom_minimum_size = Vector2(ancho, 0)
+	# Las cifras NO expanden: con expand, tres columnas se repartian el panel entero y quedaban a
+	# media pantalla unas de otras. Van a su ancho fijo, juntas, y lo que sobra se lo lleva _relleno.
 	if derecha:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.clip_text = true
 	grid.add_child(l)
 
