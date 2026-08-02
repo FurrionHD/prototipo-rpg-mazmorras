@@ -980,16 +980,18 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 # El empujon de la HERRERIA entra en el 'score' (y por tanto en las probabilidades de abajo, que son
 # las de verdad), pero NO se desglosa: el rango del oficio es oculto y ponerlo aqui como un "+X%" lo
 # cantaba.
+#
+# Lo que aporta el METAL tampoco se desglosa ya. Era una linea que decia "+0%" casi siempre y no por
+# un fallo: bonus_metal es 0.10 por tier POR ENCIMA del primero, o sea CERO con todo el cobre, y
+# ademas score_final lo capa en el techo del material recolectado, asi que con material intacto
+# tampoco suma. Un numero que solo se mueve en un caso raro (metal noble + material malo) no merece
+# una linea fija; sigue contando en las probabilidades de abajo, que es donde se ve.
 func _tabla_rareza(vb: VBoxContainer, base: Resource, metal: MaterialData, material: float) -> void:
 	# El empujon de oficio es Carpinteria en las armas magicas, Herreria en el resto.
 	var oficio_factor: float = Game.carpinteria_activa() if _es_magica(base) else Game.herreria_activa()
 	var herr: float = Forge.bonus_herreria(oficio_factor)
 	var score: float = Forge.score_final(material, herr, Forge.bonus_metal(metal))
-	# Lo que aporta el metal DE VERDAD: la diferencia entre tirar con el y sin el. Si ya vas por
-	# encima del techo (llevas material puro), el metal no suma y aqui se ve un +0%.
-	var met_ef: float = score - Forge.score_final(material, herr, 0.0)
-	_note(vb, "Calidad del material %d%%  +  metal %+d%%" % [
-		roundi(material * 100.0), roundi(met_ef * 100.0)])
+	_note(vb, "Calidad del material %d%%" % roundi(material * 100.0))
 	var probs: Array = Forge.probs_rareza(score)
 	for i in probs.size():
 		var p: float = float(probs[i])
@@ -1088,15 +1090,11 @@ func _rareza_por_pieza(vb: VBoxContainer, base: Resource, metal: MaterialData, p
 		_celda(grid, str(d) if d == h else "%d-%d" % [d, h], ancho_col, tam,
 			Color(0.7, 0.8, 0.95), true)
 	_relleno(grid)
-	# La calidad del material NO se pinta: es lo que separa unas columnas de otras, pero como numero
-	# no dice nada que no digan ya las probabilidades de debajo (a mejor material, mejor tirada).
-	# Lo que aporta el METAL si, porque no es igual en todas: se capa en el techo del material, asi que
-	# donde la pieza va con material puro el metal no suma nada (ver Forge.score_final).
-	_celda(grid, "metal", ancho_nombre, tam, GRIS, false)
+	# La calidad del material de cada columna: es lo que separa una columna de otra.
+	_celda(grid, "calidad", ancho_nombre, tam, GRIS, false)
 	for tramo in tramos:
-		var mat_c: float = float(materiales[int(tramo["i"])])
-		var met_c: float = Forge.score_final(mat_c, herr, bono_metal) - Forge.score_final(mat_c, herr, 0.0)
-		_celda(grid, "%+d%%" % roundi(met_c * 100.0), ancho_col, tam, GRIS, true)
+		_celda(grid, "%d%%" % roundi(float(materiales[int(tramo["i"])]) * 100.0), ancho_col, tam,
+			GRIS, true)
 	_relleno(grid)
 	for r in rarezas:
 		_celda(grid, Upgrades.rareza_nombre(int(r)), ancho_nombre, tam,
