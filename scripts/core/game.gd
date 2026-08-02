@@ -4060,7 +4060,7 @@ func _algo_corre_fuera(p: PersonajeData) -> bool:
 
 
 # UN turno de estados fuera de combate para 'p'. Rehidrata las instancias (una vez, no por frame),
-# cobra el daño, baja las duraciones y vuelve a serializar lo que sigue vivo.
+		# cobra el daño, baja las duraciones y vuelve a serializar lo que sigue vivo.
 func _turno_de_estados_fuera(p: PersonajeData) -> void:
 	var dano: float = 0.0
 	var dot_mult: float = 1.0

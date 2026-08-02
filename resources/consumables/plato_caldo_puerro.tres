@@ -11,7 +11,7 @@ prob = 1.0
 
 [resource]
 script = ExtResource("1")
-nombre = "Caldo de puerro y gruta"
+nombre = "Caldo de puerro de gruta"
 cura_total = 0.0
 turnos = 0
 segundos = 0.0

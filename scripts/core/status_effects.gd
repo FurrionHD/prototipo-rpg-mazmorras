@@ -554,14 +554,14 @@ class Instance extends RefCounted:
 					"Tus golpes hacen un %d%% menos de daño."],
 				["mana_coste_mult", "Los hechizos cuestan un %d%% más.",
 					"Los hechizos cuestan un %d%% menos."],
-				["mp_kill_mult", "Cada bicho te deja un %d%% más de maná.",
-					"Cada bicho te deja un %d%% menos de maná."],
+				["mp_kill_mult", "Te recupera un %d%% más de maná por enemigo muerto en combate.",
+					"Te recupera un %d%% menos de maná por enemigo muerto en combate."],
 				["mp_regen_mult", "Recuperas un %d%% más de maná por turno.",
 					"Recuperas un %d%% menos de maná por turno."],
-				["dot_taken_mult", "El daño por turno te hace un %d%% más.",
-					"El daño por turno te hace un %d%% menos."],
-				["drop_mult", "Los bichos sueltan botín un %d%% más a menudo.",
-					"Los bichos sueltan botín un %d%% menos a menudo."]]:
+				["dot_taken_mult", "El daño en el tiempo te hace un %d%% más de daño.",
+					"El daño en el tiempo te hace un %d%% menos de daño."],
+				["drop_mult", "Los enemigos te sueltan botín un %d%% más a menudo.",
+					"Los enemigos te sueltan botín un %d%% menos a menudo."]]:
 			if not d.has(par[0]):
 				continue
 			var m: float = mult_de(str(par[0]))
@@ -573,11 +573,12 @@ class Instance extends RefCounted:
 		for par in [["crit_flat", "Criticas un %d%% más a menudo."],
 				["evade_flat", "Esquivas un %d%% más a menudo."],
 				["status_resist_flat", "Resistes un %d%% más los estados alterados."],
-				["drop_doble_flat", "Un %d%% de los botines sale doble."]]:
+				["drop_doble_flat", "Un %d%% del botín sale doble."]]:
 			if d.has(par[0]):
 				lineas.append(str(par[1]) % roundi(flat_de(str(par[0])) * 100.0))
 		if d.has("mochila_extra"):
-			lineas.append("Cargas con %d más." % roundi(flat_de("mochila_extra")))
+			# "Cargas con 10 más" no decia mas de QUE: son unidades de PESO de la mochila.
+			lineas.append("Cargas con %d más de peso." % roundi(flat_de("mochila_extra")))
 		if is_stun():
 			lineas.append("No puedes actuar.")
 		# SILENCIO no decia NADA: lo veias puesto y no habia forma de saber que hacia.

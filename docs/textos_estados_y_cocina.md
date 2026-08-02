@@ -98,12 +98,12 @@ turno, asi que va al grano: que me esta pasando y cuanto.
 | 🗡 Escolta | 🗡  Escolta  ·  3 turnos |  |
 | 🛡 Aguante | 🛡  Aguante  ·  quedan 20:00 · Resistencia +10%. · Te entra un 5% menos. |  |
 | 💨 Reflejos | 💨  Reflejos  ·  quedan 20:00 · Agilidad +10%. · Criticas un 5% más a menudo. · Esquivas un 5% más a menudo. |  |
-| 🔥 Fuerza | 🔥  Fuerza  ·  quedan 20:00 · Fuerza +10%. · Tus golpes hacen un 5% más. · Cargas con 10 más. |  |
+| 🔥 Fuerza | 🔥  Fuerza  ·  quedan 20:00 · Fuerza +10%. · Tus golpes hacen un 5% más de daño. · Cargas con 10 más de peso. |  |
 | ✨ Magia | ✨  Magia  ·  quedan 20:00 · Magia +10%. · Los hechizos cuestan un 5% menos. |  |
-| 🔮 Maná | 🔮  Maná  ·  quedan 20:00 · Cada bicho te deja un 25% más. · Recuperas maná un 20% más. |  |
+| 🔮 Maná | 🔮  Maná  ·  quedan 20:00 · Te recupera un 25% más de maná por enemigo muerto en combate. · Recuperas un 20% más de maná por turno. |  |
 | 💚 Remedios | 💚  Remedios  ·  quedan 20:00 · Te curan un 15% más. |  |
-| 🧄 Estómago | 🧄  Estómago  ·  quedan 20:00 · El daño por turno te hace un 15% menos. · Resistes un 10% más los estados alterados. |  |
-| 🍀 Fortuna | 🍀  Fortuna  ·  quedan 20:00 · Los bichos sueltan botín un 25% más. · Un 10% de los botines sale doble. |  |
+| 🧄 Estómago | 🧄  Estómago  ·  quedan 20:00 · El daño en el tiempo te hace un 15% menos de daño. · Resistes un 10% más los estados alterados. |  |
+| 🍀 Fortuna | 🍀  Fortuna  ·  quedan 20:00 · Los enemigos te sueltan botín un 25% más a menudo. · Un 10% del botín sale doble. |  |
 
 ## 3. Chip corto (`Instance.etiqueta()`)
 
@@ -194,7 +194,7 @@ y el del inventario. La ficha (`resumen_plato()`) la deriva el codigo.
 | `plato_gobio_sal` | Gobio a la sal |  | Pescado pequeño, sal gorda y un chorro de aceite. Se come de pie y en dos minutos. |  |
 | `plato_lubina_horno` | Lubina al horno con patatas |  | Comida de convaleciente, de la que sacan cuando alguien vuelve mal de abajo. Sienta como una manta. |  |
 | `plato_sopa_setas` | Sopa de setas de las simas |  | Sabe a sótano y a cosa que no ha visto el sol. Después las palabras salen ordenadas solas. |  |
-| `plato_caldo_puerro` | Caldo de puerro y gruta |  | Caldo claro de los que hierven media tarde. No llena nada, y aun así algo deja dentro. |  |
+| `plato_caldo_puerro` | Caldo de puerro de gruta |  | Caldo claro de los que hierven media tarde. No llena nada, y aun así algo deja dentro. |  |
 | `plato_encurtidos_sal` | Encurtidos en salazón |  | Vinagre, sal y paciencia. Después de esto el estómago aguanta lo que le eches. |  |
 | `plato_revuelto_setas` | Revuelto de dos setas |  | Las dos setas de ahí abajo en la misma sartén. Nadie sabe por qué, pero el que lo desayuna vuelve con la bolsa llena. |  |
 | `plato_kebab_bestia` | Kebab de bestia |  | La misma receta de siempre, con carne que sí impone. Se sigue sin preguntar nada. |  |
@@ -243,7 +243,7 @@ Dura 20 minutos.
 Dura 20 minutos.
 ```
 
-**Caldo de puerro y gruta** (T1)
+**Caldo de puerro de gruta** (T1)
 
 ```
 🔮 Maná: +25% maná por enemigo y +20% regeneración de maná
