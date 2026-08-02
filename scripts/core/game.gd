@@ -6787,6 +6787,58 @@ func recortar_seleccion(sel: Dictionary, necesita: int) -> Dictionary:
 	return out
 
 
+# De MEJOR a peor. Es el mismo orden que ya usan recortar_seleccion y _peor_calidad_de al reves:
+# el enum no sirve para comparar calidades, asi que el orden se escribe una vez y se comparte.
+const CAL_MEJOR_A_PEOR: Array = [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
+	MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
+
+
+# Parte una seleccion (Array paralelo a los ingredientes, {calidad: cantidad} con el TOTAL de la
+# tanda) en `n` LOTES, uno por pieza. Cada lote se llena de mejor a peor tirando de un fondo comun,
+# asi que las PRIMERAS piezas se llevan el material bueno entero.
+#
+# Existe porque la calidad se resolvia como una media de todo lo que metias: con intactos para 3
+# armaduras y mezcla para otras 4, las 7 salian con la media aguada y las 3 buenas pagaban el
+# material malo de las otras. Repartiendo en lotes, cada pieza tira con SU material.
+#
+# `uds_por_ingrediente` va en paralelo a la seleccion (lo que cuesta UNA pieza de cada ingrediente).
+func lotes_de_seleccion(seleccion: Array, uds_por_ingrediente: Array, n: int) -> Array:
+	var lotes: Array = []
+	if n <= 0:
+		return lotes
+	# Fondo comun del que van tirando las piezas, una detras de otra (se consume: no tocar el original).
+	var fondo: Array = []
+	for d in seleccion:
+		fondo.append((d as Dictionary).duplicate())
+	for _k in range(n):
+		var lote: Array = []
+		for i in fondo.size():
+			var necesita: int = int(uds_por_ingrediente[i]) if i < uds_por_ingrediente.size() else 0
+			lote.append(_coger_del_fondo(fondo[i], necesita))
+		lotes.append(lote)
+	return lotes
+
+
+# Saca del `fondo` (que se MODIFICA) lo justo para cubrir `necesita` unidades, de mejor a peor. Si
+# la ultima pieza que coge se pasa (un puro son 4 uds para un coste de 3), el sobrante es el recorte
+# de siempre: puede volver al baul con _tirar_devolucion.
+func _coger_del_fondo(fondo: Dictionary, necesita: int) -> Dictionary:
+	var out: Dictionary = {}
+	var restante: int = necesita
+	for cal in CAL_MEJOR_A_PEOR:
+		if restante <= 0:
+			break
+		var hay: int = int(fondo.get(cal, 0))
+		var uds: int = _uds_calidad(int(cal))
+		if hay <= 0 or uds <= 0:
+			continue
+		var usar: int = mini(int(ceil(float(restante) / float(uds))), hay)
+		out[cal] = usar
+		fondo[cal] = hay - usar
+		restante -= usar * uds
+	return out
+
+
 # El METAL que pide esta pieza: la CHAPA si es armadura, el LINGOTE si es arma. La UI le pide
 # a Game el material concreto en vez de decidirlo ella.
 func metal_de_forja(base: Resource, idx: int) -> MaterialData:
@@ -6824,48 +6876,85 @@ func _sel_disponible(mat: MaterialData, dict: Dictionary) -> bool:
 	return true
 
 
+# ¿Para CUANTAS piezas llega esta seleccion? Hermana de pociones_de_seleccion: el minimo, por
+# ingrediente, de (unidades elegidas / unidades que cuesta una pieza). Es el tope de la tanda.
+func piezas_de_seleccion_forja(base: Resource, metal: MaterialData, selecciones: Array) -> int:
+	if base == null or metal == null:
+		return 0
+	var ings: Array = ingredientes_forja(base, metal)
+	if ings.is_empty() or selecciones.size() != ings.size():
+		return 0
+	var n: int = -1
+	for i in ings.size():
+		var mat: MaterialData = ings[i]["material"]
+		if mat == null or not _sel_disponible(mat, selecciones[i]):
+			return 0
+		var uds: int = int(ings[i]["uds"])
+		if uds <= 0:
+			continue
+		var cabe: int = uds_seleccion(selecciones[i]) / uds
+		n = cabe if n < 0 else mini(n, cabe)
+	return maxi(0, n)
+
+
 # FORJA una pieza: el METAL (lingote si es arma, chapa si es armadura) fija el tier, y la
 # calidad media de lo que metes (mas tu Herreria) tira la rareza. Solo se gasta lo NECESARIO:
 # si te pasas de unidades, el sobrante se queda en el baul (ver recortar_seleccion). Devuelve
 # el item nuevo, ya en el baul; null si la seleccion no llega.
 func forjar(base: Resource, metal: MaterialData, selecciones: Array) -> Resource:
-	if not forja_valida(base, metal, selecciones):
-		return null
+	var items: Array = forjar_tanda(base, metal, selecciones, 1)
+	return null if items.is_empty() else items[0] as Resource
+
+
+# FORJA hasta `n` piezas de una tacada. Cada una tira SU rareza con SU lote de material (ver
+# lotes_de_seleccion): con material para 3 piezas buenas y 4 mezcladas salen 3 buenas y 4 mezcladas,
+# no 7 medianias. Devuelve los items creados, ya en el baul (vacio si la seleccion no llega ni a una).
+func forjar_tanda(base: Resource, metal: MaterialData, selecciones: Array, n: int) -> Array:
+	var piezas: int = mini(maxi(0, n), piezas_de_seleccion_forja(base, metal, selecciones))
+	if piezas < 1:
+		return []
 	var ings: Array = ingredientes_forja(base, metal)
+	var uds_pieza: Array = []
+	var nombres: PackedStringArray = []
+	for ing in ings:
+		uds_pieza.append(int(ing["uds"]))
+		nombres.append((ing["material"] as MaterialData).nombre)
 	var tier: int = Forge.tier_de_metal(metal)
-	var rareza: int = Forge.tirar_rareza(score_forja(base, metal, selecciones))
 	# La HERRERIA hace dos cosas: empuja la rareza (ya va dentro de score_forja) y tira por
 	# devolverte material de cada ingrediente.
 	var prob_dev: float = Forge.prob_devolver_forja(_oficio_forja_activo(base))
-	var nombres: PackedStringArray = []
+	var out: Array = []
 	var devueltos: int = 0
-	for i in ings.size():
-		var mat: MaterialData = ings[i]["material"]
-		var uds: int = int(ings[i]["uds"])
-		var gasto: Dictionary = recortar_seleccion(selecciones[i], uds)
-		_consumir_seleccion_material(mat, gasto)
-		# Aprovechamiento: lo que sobra del ultimo trozo puede volver al baul (ver Forge).
-		_tirar_devolucion(mat, gasto, uds)
-		# Y encima, la Herreria puede rescatar una pieza entera de lo que se ha gastado. Se
-		# devuelve la PEOR de las calidades que metiste: el recorte ya te guardo las buenas.
-		var peor: int = _peor_calidad_de(gasto)
-		if peor >= 0 and randf() < prob_dev:
-			almacen_materiales.append(MaterialItem.crear(mat, peor))
-			devueltos += 1
-		nombres.append(mat.nombre)
-	var item: Resource = crear_item(base, tier, rareza, {})
-	# El arma magica entrena CARPINTERIA; el resto, Herreria (misma tirada, distinto oficio).
+	var rarezas: PackedStringArray = []
+	for lote in lotes_de_seleccion(selecciones, uds_pieza, piezas):
+		var rareza: int = Forge.tirar_rareza(score_forja(base, metal, lote))
+		for i in ings.size():
+			var mat: MaterialData = ings[i]["material"]
+			var gasto: Dictionary = lote[i]
+			_consumir_seleccion_material(mat, gasto)
+			# Aprovechamiento: lo que sobra del ultimo trozo puede volver al baul (ver Forge).
+			_tirar_devolucion(mat, gasto, int(ings[i]["uds"]))
+			# Y encima, la Herreria puede rescatar una pieza entera de lo que se ha gastado. Se
+			# devuelve la PEOR de las calidades que metiste: el reparto ya guardo las buenas arriba.
+			var peor: int = _peor_calidad_de(gasto)
+			if peor >= 0 and randf() < prob_dev:
+				almacen_materiales.append(MaterialItem.crear(mat, peor))
+				devueltos += 1
+		out.append(crear_item(base, tier, rareza, {}))
+		rarezas.append(Upgrades.rareza_nombre(rareza))
+	# El arma magica entrena CARPINTERIA; el resto, Herreria (misma tirada, distinto oficio). Los
+	# puntos van POR PIEZA: forjar tres de golpe entrena como forjarlas de una en una.
 	if _es_arma_magica(base):
-		carpinteria_exp += _puntos_oficio("carpinteria", tier)
-		print("[carpintero] Forjas %s con %s -> T%d %s.  (%d pieza(s) recuperadas)  Carpinteria %s" % [
-			str(base.get("nombre")), ", ".join(nombres), tier,
-			Upgrades.rareza_nombre(rareza), devueltos, snappedf(carpinteria_exp, 0.1)])
+		carpinteria_exp += _puntos_oficio("carpinteria", tier) * float(piezas)
+		print("[carpintero] Forjas %d x %s con %s -> T%d %s.  (%d pieza(s) recuperadas)  Carpinteria %s" % [
+			piezas, str(base.get("nombre")), ", ".join(nombres), tier,
+			", ".join(rarezas), devueltos, snappedf(carpinteria_exp, 0.1)])
 	else:
-		herreria_exp += _puntos_oficio("herreria", tier)
-		print("[herrero] Forjas %s con %s -> T%d %s.  (%d pieza(s) recuperadas)  Herreria %s" % [
-			str(base.get("nombre")), ", ".join(nombres), tier,
-			Upgrades.rareza_nombre(rareza), devueltos, snappedf(herreria_exp, 0.1)])
-	return item
+		herreria_exp += _puntos_oficio("herreria", tier) * float(piezas)
+		print("[herrero] Forjas %d x %s con %s -> T%d %s.  (%d pieza(s) recuperadas)  Herreria %s" % [
+			piezas, str(base.get("nombre")), ", ".join(nombres), tier,
+			", ".join(rarezas), devueltos, snappedf(herreria_exp, 0.1)])
+	return out
 
 
 # La PEOR calidad de una seleccion {calidad: cantidad}, o -1 si esta vacia. Mismo orden que usa
@@ -7518,6 +7607,34 @@ func prob_doble_desde_seleccion(receta: RecipeData, seleccion: Array) -> float:
 	return clampf(MAX_PROB_DOBLE * (suma_score / suma_uds) + Forge.bonus_herreria(mezcla_activa()), 0.0, 1.0)
 
 
+# La prob. de doble de CADA una de las `n` piezas que salen, repartiendo lo que se gasta en lotes
+# (ver lotes_de_seleccion). Lo usan el crafteo y el menu, para que lo que ves sea lo que se tira:
+# antes se pintaba y se tiraba UNA media de toda la tanda, y las piezas hechas con el material bueno
+# pagaban el malo de las demas.
+func probs_doble_por_pieza(receta: RecipeData, gasto: Array, n: int) -> Array:
+	var out: Array = []
+	if receta == null or n <= 0:
+		return out
+	var uds_pieza: Array = []
+	for ing in receta.ingredientes:
+		uds_pieza.append(0 if ing == null else int(ing.unidades))
+	for lote in lotes_de_seleccion(gasto, uds_pieza, n):
+		out.append(prob_doble_desde_seleccion(receta, lote))
+	return out
+
+
+# Los LOTES de una tanda de forja (uno por pieza), para que el menu pinte la rareza de cada una con
+# el mismo reparto con el que se va a forjar. Hermana de probs_doble_por_pieza.
+func lotes_forja(base: Resource, metal: MaterialData, selecciones: Array, n: int) -> Array:
+	var ings: Array = ingredientes_forja(base, metal)
+	if ings.is_empty() or selecciones.size() != ings.size():
+		return []
+	var uds_pieza: Array = []
+	for ing in ings:
+		uds_pieza.append(int(ing["uds"]))
+	return lotes_de_seleccion(selecciones, uds_pieza, n)
+
+
 # La poción del SIGUIENTE escalon de la cadena de esta receta (lo que puede regalarte la Mezcla),
 # o null si ya es la tope. NO hace falta ningun dato nuevo en los .tres: la cadena ya esta escrita
 # en las propias recetas de MEJORA (la que consume esta poción como 'pocion_base' es, por
@@ -7561,7 +7678,9 @@ func craftear_con(receta: RecipeData, seleccion: Array) -> int:
 	# Lo que se gasta DE VERDAD, por ingrediente. La prob. de doble se calcula con esto y no con
 	# lo elegido: un dañado que ni se llega a usar no tiene por que bajarte la media.
 	var gasto: Array = gasto_crafteo(receta, seleccion)
-	var prob: float = prob_doble_desde_seleccion(receta, gasto)
+	# Y una prob. de doble POR PIEZA, con el material que le toca a cada una: las que se llevan lo
+	# bueno no tienen por que pagar el dañado que entra en las ultimas (ver lotes_de_seleccion).
+	var probs: Array = probs_doble_por_pieza(receta, gasto, n)
 	# MEZCLA: cada poción tira TAMBIEN por salir del escalon de arriba. Sin la habilidad,
 	# mezcla_activa() = 0 -> prob 0, y el tally se queda todo en receta.resultado (como antes).
 	var prob_subir: float = Forge.prob_subir_pocion(mezcla_activa())
@@ -7574,7 +7693,9 @@ func craftear_con(receta: RecipeData, seleccion: Array) -> int:
 	for _k in range(n):
 		if receta.es_mejora():
 			gastar_consumible(receta.pocion_base)
-		# El doble se tira por UNIDAD fabricada; la subida, por cada poción que sale de ella.
+		# El doble se tira por UNIDAD fabricada, con la calidad de SU lote; la subida, por cada
+		# poción que sale de ella.
+		var prob: float = float(probs[_k]) if _k < probs.size() else 0.0
 		var cuantas: int = 2 if randf() < prob else 1
 		# Lo que RINDE una hornada. 1 en las pociones (como siempre); los platos de cocina rinden 2,
 		# porque cocinar obliga a subir al pueblo con los ingredientes a cuestas.
@@ -7605,8 +7726,17 @@ func craftear_con(receta: RecipeData, seleccion: Array) -> int:
 	var detalle: PackedStringArray = []
 	for cons in salida:
 		detalle.append("%d x %s" % [int(salida[cons]), (cons as ConsumableData).nombre])
+	# La prob. de doble ya no es una sola: se dice el RANGO de la tanda (la mejor pieza y la peor).
+	var p_min: float = 1.0
+	var p_max: float = 0.0
+	for p in probs:
+		p_min = minf(p_min, float(p))
+		p_max = maxf(p_max, float(p))
+	if probs.is_empty():
+		p_min = 0.0
 	print("[boticaria] Fabricas ", n, " poción(es) -> ", ", ".join(detalle),
-		"  (prob. doble ", roundi(prob * 100.0), "% por poción; subir de escalón ",
+		"  (prob. doble ", roundi(p_min * 100.0), "-", roundi(p_max * 100.0),
+		"% por poción; subir de escalón ",
 		roundi(prob_subir * 100.0), "% -> ", subidas, " subida(s))  ·  Mezcla ", snappedf(mezcla_exp, 0.1))
 	return total
 
@@ -7624,21 +7754,30 @@ func _consumir_seleccion_material(mat: MaterialData, dict: Dictionary) -> void:
 			i -= 1
 
 
-# Seleccion AUTO (peor calidad primero) que cubre las unidades de cada ingrediente. La usa el
-# boton "Auto" del menu para rellenar de un clic; luego el jugador la retoca a mano.
-func seleccion_auto_peor(receta: RecipeData) -> Array:
+# Seleccion AUTO que cubre las unidades de `veces` piezas de cada ingrediente. La usan los dos
+# botones "Auto" del menu para rellenar de un clic; luego el jugador la retoca a mano.
+#
+# `mejor_primero` = por que punta de la escalera empieza a gastar (puro..dañado o al reves). El PURO
+# entra en las dos: "mejor primero" significa lo mejor que tengas, sin excepciones.
+#
+# Si no llega para las `veces` que pides, rellena lo que salga: el menu ya recalcula cuantas piezas
+# cubre eso y el boton de fabricar lo dice. Lee DISPONIBLE (no el stock a secas) para no pedir en
+# multijugador lo que el compañero ya tiene reservado.
+func seleccion_auto(receta: RecipeData, veces: int, mejor_primero: bool) -> Array:
 	var sel: Array = []
 	if receta == null:
 		return sel
-	var orden: Array = [MaterialItem.Calidad.DANADO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.INTACTO]
+	var orden: Array = CAL_MEJOR_A_PEOR.duplicate()
+	if not mejor_primero:
+		orden.reverse()
 	for ing in receta.ingredientes:
 		var dict: Dictionary = {}
 		if ing != null and ing.material != null:
-			var restante: int = ing.unidades
+			var restante: int = ing.unidades * maxi(1, veces)
 			for cal in orden:
 				if restante <= 0:
 					break
-				var disp: int = items_calidad_en_hogar(ing.material, int(cal))
+				var disp: int = disponible_calidad_en_hogar(ing.material, int(cal))
 				var uds: int = _uds_calidad(int(cal))
 				if disp <= 0 or uds <= 0:
 					continue

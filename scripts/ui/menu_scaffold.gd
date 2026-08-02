@@ -675,8 +675,15 @@ static func del_tier(mats: Array, tier: int) -> Array:
 # Pinta las DOS filas y devuelve el material elegido (null si la lista viene vacia).
 # `nombre_gama` = como se llama la familia en la fila de arriba ("Madera", "Metal", "Piel").
 # `tier_sel` / `sub_sel` = lo que hay elegido ahora; `on_tier` / `on_sub` reciben el indice nuevo.
+#
+# `sub_por_numero` cambia la fila de abajo de nombres ("Lingote de cobre veteado") a NUMEROS de
+# sub-tier ("T1.2"), con el nombre en el tooltip. Es para las pantallas donde el material no es lo
+# que eliges sino la VETA de una misma cosa (las herramientas): ahi los tres botones repetian
+# "Lingote de cobre" y la palabra que cambiaba iba al final. En las de REFINAR se deja el nombre,
+# porque ahi lo que eliges ES el material que va a salir.
 static func selector_material(vb: VBoxContainer, mats: Array, nombre_gama: String,
-		tier_sel: int, sub_sel: int, on_tier: Callable, on_sub: Callable) -> MaterialData:
+		tier_sel: int, sub_sel: int, on_tier: Callable, on_sub: Callable,
+		sub_por_numero: bool = false) -> MaterialData:
 	if mats.is_empty():
 		return null
 	var tiers: Array = tiers_de(mats)
@@ -699,10 +706,14 @@ static func selector_material(vb: VBoxContainer, mats: Array, nombre_gama: Strin
 		# poder mejorar la pieza (ver MaterialData.cubre_mejora), y los tres cobres son marrones a 0.06
 		# de distancia. Con el rango pintado, gris/verde/azul se lee sin abrir nada.
 		var etiquetas_sub: Array = []
-		for m in subs:
-			etiquetas_sub.append((m as MaterialData).nombre)
+		var pistas_sub: Array = []
+		for i in subs.size():
+			var m: MaterialData = subs[i] as MaterialData
+			# del_tier ordena por mejora_min, asi que .1 es la banda base y el ultimo la mejor veta.
+			etiquetas_sub.append("T%d.%d" % [t, i + 1] if sub_por_numero else m.nombre)
+			pistas_sub.append(m.nombre if sub_por_numero else "")
 		cuadricula(vb, etiquetas_sub, clampi(sub_sel, 0, subs.size() - 1), on_sub,
-			COLUMNAS_SELECTOR, TAM_SELECTOR, colores_de(subs))
+			COLUMNAS_SELECTOR, TAM_SELECTOR, colores_de(subs), [], pistas_sub)
 	return subs[clampi(sub_sel, 0, subs.size() - 1)] as MaterialData
 
 
@@ -756,6 +767,28 @@ static func stepper(parent: Node, valor: int, minv: int, maxv: int, on_set: Call
 
 	parent.add_child(caja)
 	return campo
+
+
+# Parte una lista de valores (uno por PIEZA de una tanda) en tramos de piezas consecutivas que
+# valen lo mismo. Con lotes por pieza, una tanda de 8 platos puede tener 8 probabilidades distintas
+# y pintarlas una a una llena el panel; casi siempre son dos o tres tramos ("las 3 primeras al 25%,
+# las 4 siguientes al 12%"), que es como se lee de un vistazo.
+# Devuelve [{desde, hasta, i}] en base 1 (`i` = indice del primero del tramo, base 0).
+static func tramos_iguales(claves: Array) -> Array:
+	var out: Array = []
+	for i in claves.size():
+		if not out.is_empty() and str(claves[i]) == str(claves[int(out[out.size() - 1]["i"])]):
+			out[out.size() - 1]["hasta"] = i + 1
+		else:
+			out.append({"desde": i + 1, "hasta": i + 1, "i": i})
+	return out
+
+
+# "Pieza 3" o "Piezas 1-3", segun el tramo. `nombre` para decir plato/poción/pieza en su oficio.
+static func etiqueta_tramo(tramo: Dictionary, nombre: String = "Pieza", plural: String = "Piezas") -> String:
+	var d: int = int(tramo["desde"])
+	var h: int = int(tramo["hasta"])
+	return "%s %d" % [nombre, d] if d == h else "%s %d-%d" % [plural, d, h]
 
 
 # Fila de un refinado: etiqueta + stepper editable + boton "Crear". `salen` = maximo que puedes hacer

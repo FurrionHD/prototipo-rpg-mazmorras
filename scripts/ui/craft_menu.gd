@@ -48,6 +48,10 @@ var _tipo: int = 0
 # entrada un {calidad: cantidad}. Es lo que el jugador elige a mano con los contadores. Se
 # resetea al cambiar de receta, NO en cada _rebuild (si no, borraria lo que va poniendo).
 var _seleccion: Array = []
+# CUANTAS piezas quieres que rellene el Auto. Es solo del boton Auto: lo que se fabrica de verdad
+# sale de la seleccion (pociones_de_seleccion), asi que si pides 5 y solo da para 4, se rellenan 4.
+# Persiste entre rebuilds y entre recetas: pedir "5" una vez y que vuelva a 1 sola era un incordio.
+var _cantidad: int = 1
 
 const VERDE := Color(0.55, 0.85, 0.55)
 const ROJO := Color(0.9, 0.5, 0.5)
@@ -342,23 +346,57 @@ func _build_detail(r: RecipeData) -> void:
 	var gasto: Array = Game.gasto_crafteo(r, _seleccion)
 	_aviso_recorte(r, gasto)
 
-	# Bonus de DOBLE segun lo que se va a GASTAR (en vivo). Es POR poción fabricada.
-	var prob: float = Game.prob_doble_desde_seleccion(r, gasto)
-	var bono := Label.new()
-	bono.text = "%s 2 de golpe: %d%%  (por %s)" % [
-		"Cocinar" if _es_cocina() else "Fabricar", roundi(prob * 100.0), _pieza()]
-	bono.add_theme_color_override("font_color", VERDE if prob > 0.0 else Color(0.55, 0.58, 0.65))
-	bono.add_theme_font_size_override("font_size", 12)
-	_detail.add_child(bono)
+	# Bonus de DOBLE segun lo que se va a GASTAR (en vivo). Es POR pieza fabricada, y cada una tira
+	# con SU material (ver Game.lotes_de_seleccion): con material bueno para dos platos y del malo
+	# para otros dos, los dos primeros van al tope y los otros dos abajo. Antes salia una sola media
+	# para toda la tanda y los buenos pagaban por los malos.
+	var n_piezas: int = Game.pociones_de_seleccion(r, _seleccion)
+	var probs: Array = Game.probs_doble_por_pieza(r, gasto, n_piezas)
+	var verbo: String = "Cocinar" if _es_cocina() else "Fabricar"
+	if probs.size() <= 1:
+		var prob: float = float(probs[0]) if probs.size() == 1 else Game.prob_doble_desde_seleccion(r, gasto)
+		var bono := Label.new()
+		bono.text = "%s 2 de golpe: %d%%  (por %s)" % [verbo, roundi(prob * 100.0), _pieza()]
+		bono.add_theme_color_override("font_color", VERDE if prob > 0.0 else Color(0.55, 0.58, 0.65))
+		bono.add_theme_font_size_override("font_size", 12)
+		_detail.add_child(bono)
+	else:
+		var cab2 := Label.new()
+		cab2.text = "%s 2 de golpe (cada %s con su material):" % [verbo, _pieza()]
+		cab2.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
+		cab2.add_theme_font_size_override("font_size", 12)
+		_detail.add_child(cab2)
+		var claves: Array = []
+		for p in probs:
+			claves.append(roundi(float(p) * 100.0))
+		for tramo in MenuScaffold.tramos_iguales(claves):
+			var p2: float = float(probs[int(tramo["i"])])
+			var l2 := Label.new()
+			l2.text = "   %s · %d%%" % [
+				MenuScaffold.etiqueta_tramo(tramo, _pieza().capitalize(), _pieza(2).capitalize()),
+				roundi(p2 * 100.0)]
+			l2.add_theme_color_override("font_color", VERDE if p2 > 0.0 else Color(0.55, 0.58, 0.65))
+			l2.add_theme_font_size_override("font_size", 12)
+			_detail.add_child(l2)
 
 	_detail.add_child(HSeparator.new())
-	# Botones de conveniencia.
+	# Botones de conveniencia. La CANTIDAD es del Auto: dice para cuantas piezas rellenar.
 	var acc := HBoxContainer.new()
 	acc.add_theme_constant_override("separation", 8)
-	var auto := Button.new()
-	auto.text = "Auto (peor primero)"
-	auto.pressed.connect(_on_auto)
-	acc.add_child(auto)
+	var cant_lbl := Label.new()
+	cant_lbl.text = "Cantidad"
+	acc.add_child(cant_lbl)
+	MenuScaffold.stepper(acc, _cantidad, 1, 99, func(v: int) -> void: _cantidad = v)
+	var auto_mej := Button.new()
+	auto_mej.text = "Auto ▲"
+	auto_mej.tooltip_text = "Rellena empezando por el MEJOR material que tengas (puro, intacto...). Más probabilidad de que salgan dobles."
+	auto_mej.pressed.connect(_on_auto.bind(true))
+	acc.add_child(auto_mej)
+	var auto_peor := Button.new()
+	auto_peor.text = "Auto ▼"
+	auto_peor.tooltip_text = "Rellena empezando por el PEOR material que tengas (dañado, normal...). Para gastar lo que sobra sin tocar lo bueno."
+	auto_peor.pressed.connect(_on_auto.bind(false))
+	acc.add_child(auto_peor)
 	var limpiar := Button.new()
 	limpiar.text = "Limpiar"
 	limpiar.pressed.connect(_on_limpiar)
@@ -366,7 +404,7 @@ func _build_detail(r: RecipeData) -> void:
 	_detail.add_child(acc)
 
 	# Cuantas pociones saldran = lo que cubra la selección (mete 6 uds en una de 3 -> 2).
-	var n: int = Game.pociones_de_seleccion(r, _seleccion)
+	var n: int = n_piezas
 	var fab := Button.new()
 	# CUANTAS salen de verdad: pociones_de_seleccion dice cuantas HORNADAS cubre lo elegido, y cada
 	# hornada rinde unidades_resultado piezas (2 en cocina). Sin multiplicar, el boton prometia la
@@ -469,8 +507,10 @@ func _set_sel(i: int, cal: int, n: int) -> void:
 	_rebuild()
 
 
-func _on_auto() -> void:
-	_seleccion = Game.seleccion_auto_peor(_recetas[_sel])
+# Los dos Autos: ▲ empieza por el mejor material, ▼ por el peor. Rellenan para `_cantidad` piezas;
+# si no llega, rellenan lo que salga (el boton de fabricar ya dice cuantas cubre eso).
+func _on_auto(mejor_primero: bool) -> void:
+	_seleccion = Game.seleccion_auto(_recetas[_sel], _cantidad, mejor_primero)
 	_rebuild()
 
 

@@ -110,6 +110,9 @@ var _lingote_idx: int = 0          # metal elegido (indice en lingotes o chapas,
 # Game.ingredientes_forja. Antes eran dos dicts sueltos (metal + fibra); ahora las armas llevan
 # tres materiales, asi que va en lista y se trata todo con un bucle.
 var _sel_forja: Array = []
+# CUANTAS piezas quieres que rellene el Auto. Es solo del boton Auto: lo que se forja de verdad sale
+# de la seleccion (Game.piezas_de_seleccion_forja), asi que si pides 5 y solo da para 4, salen 4.
+var _cantidad: int = 1
 
 # --- HERRAMIENTAS ---
 var _herr_tipo: int = ToolData.Tipo.PICO   # cual de las tres se forja
@@ -910,51 +913,72 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	_note(vb, "Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la pieza: mejora la RAREZA que te va a tocar.")
 
 	# --- Tabla de rareza EN VIVO, con el score REAL (material + metal + herrería) ---
+	# CUANTAS piezas salen con lo elegido. Cada una se forja con SU lote de material (el mejor va a
+	# las primeras, ver Game.lotes_de_seleccion), asi que cada una tiene su propia tirada.
+	var piezas: int = Game.piezas_de_seleccion_forja(base, metal, _sel_forja)
 	vb.add_child(HSeparator.new())
-	var score: float = Game.score_forja(base, metal, _sel_forja)
-	var t := Label.new()
-	t.text = "Rareza que puede salir"
-	t.add_theme_color_override("font_color", AMBAR)
-	vb.add_child(t)
-	# La calidad que cuenta es la de lo que se GASTA (el sobrante no entra en la media). Sale de
-	# Game y NO de restarle los bonos al score: score_final ya no es una suma (el metal se capa en
-	# el techo del material recolectado), asi que restar daria un numero falso.
-	# El empujon de la HERRERIA entra en el 'score' (y por tanto en las probabilidades de abajo,
-	# que son las de verdad), pero NO se desglosa: el rango del oficio es oculto y ponerlo aqui
-	# como un "+X%" lo cantaba.
-	var material: float = Game.score_material_forja(base, metal, _sel_forja)
-	# Lo que aporta el metal DE VERDAD: la diferencia entre tirar con el y sin el. Si ya vas por
-	# encima del techo (llevas material puro), el metal no suma y aqui se ve un +0%.
-	# El empujon de oficio es Carpinteria en las armas magicas, Herreria en el resto.
-	var oficio_factor: float = Game.carpinteria_activa() if _es_magica(base) else Game.herreria_activa()
-	var herr: float = Forge.bonus_herreria(oficio_factor)
-	var met_ef: float = score - Forge.score_final(material, herr, 0.0)
-	_note(vb, "Calidad del material %d%%  +  metal %+d%%" % [
-		roundi(material * 100.0), roundi(met_ef * 100.0)])
-	var probs: Array = Forge.probs_rareza(score)
-	for i in probs.size():
-		var p: float = float(probs[i])
-		if p <= 0.0:
-			continue
-		_row(vb, Upgrades.rareza_nombre(i), "%s%%   (%d huecos de mejora)" % [
-			str(snappedf(p * 100.0, 0.1)), Upgrades.rareza_slots(i)],
-			Upgrades.rareza_color(i))
+	if piezas > 1:
+		_rareza_por_pieza(vb, base, metal, piezas)
+	else:
+		var score: float = Game.score_forja(base, metal, _sel_forja)
+		var t := Label.new()
+		t.text = "Rareza que puede salir"
+		t.add_theme_color_override("font_color", AMBAR)
+		vb.add_child(t)
+		# La calidad que cuenta es la de lo que se GASTA (el sobrante no entra en la media). Sale de
+		# Game y NO de restarle los bonos al score: score_final ya no es una suma (el metal se capa en
+		# el techo del material recolectado), asi que restar daria un numero falso.
+		# El empujon de la HERRERIA entra en el 'score' (y por tanto en las probabilidades de abajo,
+		# que son las de verdad), pero NO se desglosa: el rango del oficio es oculto y ponerlo aqui
+		# como un "+X%" lo cantaba.
+		var material: float = Game.score_material_forja(base, metal, _sel_forja)
+		# Lo que aporta el metal DE VERDAD: la diferencia entre tirar con el y sin el. Si ya vas por
+		# encima del techo (llevas material puro), el metal no suma y aqui se ve un +0%.
+		# El empujon de oficio es Carpinteria en las armas magicas, Herreria en el resto.
+		var oficio_factor: float = Game.carpinteria_activa() if _es_magica(base) else Game.herreria_activa()
+		var herr: float = Forge.bonus_herreria(oficio_factor)
+		var met_ef: float = score - Forge.score_final(material, herr, 0.0)
+		_note(vb, "Calidad del material %d%%  +  metal %+d%%" % [
+			roundi(material * 100.0), roundi(met_ef * 100.0)])
+		var probs: Array = Forge.probs_rareza(score)
+		for i in probs.size():
+			var p: float = float(probs[i])
+			if p <= 0.0:
+				continue
+			_row(vb, Upgrades.rareza_nombre(i), "%s%%   (%d huecos de mejora)" % [
+				str(snappedf(p * 100.0, 0.1)), Upgrades.rareza_slots(i)],
+				Upgrades.rareza_color(i))
 
 	vb.add_child(HSeparator.new())
+	# La CANTIDAD es del Auto: dice para cuantas piezas rellenar de un clic.
 	var acc := HBoxContainer.new()
 	acc.add_theme_constant_override("separation", 8)
-	var auto := Button.new()
-	auto.text = "Auto (mejor primero)"
-	auto.pressed.connect(_on_auto)
-	acc.add_child(auto)
+	var cant_lbl := Label.new()
+	cant_lbl.text = "Cantidad"
+	acc.add_child(cant_lbl)
+	MenuScaffold.stepper(acc, _cantidad, 1, 99, func(v: int) -> void: _cantidad = v)
+	var auto_mej := Button.new()
+	auto_mej.text = "Auto ▲"
+	auto_mej.tooltip_text = "Rellena empezando por el MEJOR material que tengas (puro, intacto...). Sube la rareza que puede salir."
+	auto_mej.pressed.connect(_on_auto.bind(true))
+	acc.add_child(auto_mej)
+	var auto_peor := Button.new()
+	auto_peor.text = "Auto ▼"
+	auto_peor.tooltip_text = "Rellena empezando por el PEOR material que tengas (dañado, normal...). Para gastar lo que sobra sin tocar lo bueno."
+	auto_peor.pressed.connect(_on_auto.bind(false))
+	acc.add_child(auto_peor)
 	var limpiar := Button.new()
 	limpiar.text = "Limpiar"
 	limpiar.pressed.connect(_on_limpiar)
 	acc.add_child(limpiar)
 	vb.add_child(acc)
 
-	var ok: bool = Game.forja_valida(base, metal, _sel_forja)
-	_boton(vb, "Forjar" if ok else "Faltan materiales", _on_forjar, ok)
+	var txt_boton: String = "Faltan materiales"
+	if piezas == 1:
+		txt_boton = "Forjar"
+	elif piezas > 1:
+		txt_boton = "Forjar (%d piezas)" % piezas
+	_boton(vb, txt_boton, _on_forjar, piezas >= 1)
 
 	if _es_magica(base):
 		_estado_oficio(vb, "Carpintería", Game.tiene_desarrollo("carpinteria"),
@@ -962,6 +986,40 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 	else:
 		_estado_oficio(vb, "Herrería", Game.tiene_desarrollo("herreria"),
 			"Empuja la tirada de rareza a tu favor, como si el metal fuera mejor de lo que es.")
+
+
+# La rareza de una TANDA: una linea por pieza (agrupando las que salen iguales), porque cada una
+# se forja con SU lote de material. La tabla larga de rarezas se reserva para la pieza suelta: con
+# ocho piezas serian cuarenta filas.
+#
+# Aqui esta lo que motivo todo esto: con intactos para 3 piezas y mezcla para otras 4, las 3
+# primeras tienen que verse ARRIBA y las otras abajo, no las 7 con la misma media aguada.
+func _rareza_por_pieza(vb: VBoxContainer, base: Resource, metal: MaterialData, piezas: int) -> void:
+	var t := Label.new()
+	t.text = "Rareza que puede salir  ·  %d piezas, cada una con su material" % piezas
+	t.add_theme_color_override("font_color", AMBAR)
+	vb.add_child(t)
+	var lotes: Array = Game.lotes_forja(base, metal, _sel_forja, piezas)
+	var scores: Array = []
+	var claves: Array = []
+	for lote in lotes:
+		var s: float = Game.score_forja(base, metal, lote)
+		scores.append(s)
+		# Se agrupan por el TEXTO que se va a pintar: dos scores que redondean igual dicen lo mismo.
+		claves.append("%d|%d" % [roundi(Game.score_material_forja(base, metal, lote) * 100.0),
+			roundi(s * 100.0)])
+	for tramo in MenuScaffold.tramos_iguales(claves):
+		var i: int = int(tramo["i"])
+		var probs: Array = Forge.probs_rareza(float(scores[i]))
+		var partes: PackedStringArray = []
+		for j in probs.size():
+			var p: float = float(probs[j])
+			if p > 0.0:
+				partes.append("%s %s%%" % [Upgrades.rareza_nombre(j), str(snappedf(p * 100.0, 0.1))])
+		_row(vb, "%s · material %d%%" % [
+			MenuScaffold.etiqueta_tramo(tramo),
+			roundi(Game.score_material_forja(base, metal, lotes[i]) * 100.0)],
+			"  ".join(partes), GRIS)
 
 
 # MULTI: capa mi seleccion de forja a lo DISPONIBLE (por si el compañero reservó de lo mismo) y la
@@ -1063,10 +1121,13 @@ func _on_lingote(i: int) -> void:
 	_rebuild()
 
 
-# Rellena con lo MEJOR primero. En la FORJA la calidad del material sube la rareza, asi que el
-# atajo "Auto" mete tus mejores piezas para maximizar la tirada. (En las MEJORAS es al reves: la
-# calidad no importa, y Game gasta lo peor para no malgastar el material bueno.)
-func _on_auto() -> void:
+# Los dos Autos, para `_cantidad` piezas:
+#   ▲ MEJOR primero: en la FORJA la calidad del material sube la rareza, asi que mete tus mejores
+#     piezas para maximizar la tirada. (En las MEJORAS es al reves: la calidad no importa, y Game
+#     gasta lo peor para no malgastar el material bueno.)
+#   ▼ PEOR primero: para vaciar el baul de dañados sin tocar lo bueno.
+# Si no llega para las que pides, rellena lo que salga: el boton de forjar ya dice cuantas cubren.
+func _on_auto(mejor_primero: bool) -> void:
 	var base: Resource = _stacks[_sel]["modelo"]
 	var metal: MaterialData = Game.metal_de_forja(base, _lingote_idx)
 	if metal == null:
@@ -1075,18 +1136,23 @@ func _on_auto() -> void:
 	_sel_forja = []
 	for ing in ings:
 		var mat: MaterialData = ing["material"]
-		_sel_forja.append({} if mat == null else _auto_sel(mat, int(ing["uds"])))
+		_sel_forja.append({} if mat == null else _auto_sel(mat, int(ing["uds"]) * maxi(1, _cantidad),
+			mejor_primero))
 	_rebuild()
 
 
-func _auto_sel(mat: MaterialData, necesita: int) -> Dictionary:
+func _auto_sel(mat: MaterialData, necesita: int, mejor_primero: bool) -> Dictionary:
 	var sel: Dictionary = {}
 	var restante: int = necesita
-	# CALIDADES ya va de MEJOR a peor (puro, intacto, normal, dañado): mejor primero.
-	for cal in CALIDADES:
+	# CALIDADES ya va de MEJOR a peor (puro, intacto, normal, dañado); al reves para el Auto ▼.
+	var orden: Array = CALIDADES.duplicate()
+	if not mejor_primero:
+		orden.reverse()
+	for cal in orden:
 		if restante <= 0:
 			break
-		var disp: int = Game.items_calidad_en_hogar(mat, int(cal))
+		# DISPONIBLE, no el stock a secas: en multijugador no se pide lo que el compañero reservó.
+		var disp: int = Game.disponible_calidad_en_hogar(mat, int(cal))
 		var uds: int = _uds(int(cal))
 		if disp <= 0 or uds <= 0:
 			continue
@@ -1109,12 +1175,20 @@ func _on_forjar() -> void:
 		_ocupado()
 		_rebuild()
 		return
-	var item: Resource = Game.forjar(base, metal, _sel_forja)
+	# TANDA: se forjan todas las piezas que cubra la seleccion, cada una con su lote de material y
+	# por tanto con SU tirada de rareza (ver Game.forjar_tanda).
+	var items: Array = Game.forjar_tanda(base, metal, _sel_forja,
+		Game.piezas_de_seleccion_forja(base, metal, _sel_forja))
 	if Net.activo:
 		Net.cerrar_taller()
 		Net.liberar_mis_reservas()   # ya consumido: suelto la reserva ya
-	if item != null:
-		_decir("Forjas %s. Está en tu baúl: equípalo en el menú de personaje [C]." % Game.item_display_name(item))
+	if items.size() == 1:
+		_decir("Forjas %s. Está en tu baúl: equípalo en el menú de personaje [C]." % Game.item_display_name(items[0]))
+	elif items.size() > 1:
+		var nombres: PackedStringArray = []
+		for it in items:
+			nombres.append(Game.item_display_name(it as Resource))
+		_decir("Forjas %d piezas: %s. Están en tu baúl [C]." % [items.size(), ", ".join(nombres)])
 	else:
 		_decir("Te faltan materiales.", false)
 	_limpiar_seleccion()
@@ -1162,8 +1236,11 @@ func _build_herramientas() -> void:
 	# componente que usan fundir, aserrar y curtir.
 	_content.add_child(HSeparator.new())
 	_title(_content, "Metal  ·  el tier pone la afinidad, la veta los golpes", 13)
+	# La fila de abajo va por NUMERO de veta (T1.1, T1.2, T1.3) y no por nombre: los tres botones
+	# decian "Lingote de cobre / ... veteado / ... profundo" y lo unico que cambiaba iba al final.
+	# El nombre entero sigue en el tooltip y en el titulo de la tabla de rareza de abajo.
 	var lingote: MaterialData = MenuScaffold.selector_material(_content, lingotes, "",
-		_herr_tier, _herr_sub, _on_herr_tier, _on_herr_sub)
+		_herr_tier, _herr_sub, _on_herr_tier, _on_herr_sub, true)
 	if lingote == null:
 		return
 
