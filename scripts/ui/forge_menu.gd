@@ -56,6 +56,10 @@ const ROJO := Color(0.9, 0.5, 0.5)
 const GRIS := Color(0.6, 0.63, 0.7)
 
 const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
+# Cuantas columnas admite la rejilla de rareza de una tanda (ver _rareza_por_pieza). Por encima, las
+# piezas se agrupan por tramos de calidad mas gruesos: el panel de detalle no tiene scroll
+# horizontal y a partir de aqui ni encogiendo la letra caben.
+const MAX_COLUMNAS_RAREZA := 12
 # De mejor a peor (el enum NO esta ordenado: PURO se añadio al final para no romper partidas).
 const CALIDADES := [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
 	MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
@@ -996,30 +1000,131 @@ func _tabla_rareza(vb: VBoxContainer, base: Resource, metal: MaterialData, mater
 			Upgrades.rareza_color(i))
 
 
-# La rareza de una TANDA: la MISMA tabla de arriba, una por tramo de piezas que salen iguales,
-# porque cada pieza se forja con SU lote de material.
+# La rareza de una TANDA, en COLUMNAS: una por tramo de piezas que salen iguales (cada pieza se
+# forja con SU lote de material), y una fila por rareza. Asi se ve de un vistazo como cae la calidad
+# a lo largo de la tanda; apiladas, catorce piezas eran catorce tablas y habia que hacer scroll para
+# comparar dos.
 #
 # Aqui esta lo que motivo todo esto: con intactos para 3 piezas y mezcla para otras 4, las 3
-# primeras tienen que verse ARRIBA y las otras abajo, no las 7 con la misma media aguada.
+# primeras tienen que verse mejor que las otras, no las 7 con la misma media aguada.
+#
+# Los "(N huecos de mejora)" NO salen aqui: con muchas columnas es lo primero que sobra. Siguen en la
+# tabla de la pieza suelta, que es donde hay sitio.
 func _rareza_por_pieza(vb: VBoxContainer, base: Resource, metal: MaterialData, piezas: int) -> void:
-	var t := Label.new()
-	t.text = "Rareza que puede salir  ·  %d piezas, cada una con su material" % piezas
-	t.add_theme_color_override("font_color", AMBAR)
-	vb.add_child(t)
 	var materiales: Array = []
-	var claves: Array = []
 	for lote in Game.lotes_forja(base, metal, _sel_forja, piezas):
 		materiales.append(Game.score_uds(lote))
-		# Se agrupan por lo que se va a PINTAR: dos lotes que redondean igual darian dos tablas
-		# identicas una debajo de otra.
-		claves.append(roundi(float(materiales[materiales.size() - 1]) * 100.0))
-	var primero: bool = true
-	for tramo in MenuScaffold.tramos_iguales(claves):
-		if not primero:
-			vb.add_child(HSeparator.new())
-		primero = false
-		MenuScaffold.titulo(vb, MenuScaffold.etiqueta_tramo(tramo), 13, Color(0.7, 0.8, 0.95))
-		_tabla_rareza(vb, base, metal, float(materiales[int(tramo["i"])]))
+
+	# Se agrupan por lo que se va a PINTAR: dos lotes que redondean igual darian dos columnas
+	# calcadas. Y si aun asi salen demasiadas columnas para el ancho del panel, se redondea mas
+	# grueso (de 1 en 1 por ciento a 5, 10, 20...) hasta que quepan: mas alla de una docena, ni
+	# encogiendo la letra entra, y comparar veinte columnas de tres digitos tampoco se lee.
+	var tramos: Array = []
+	for paso in [1, 2, 5, 10, 20, 50]:
+		var claves: Array = []
+		for m in materiales:
+			claves.append(roundi(float(m) * 100.0 / float(paso)))
+		tramos = MenuScaffold.tramos_iguales(claves)
+		if tramos.size() <= MAX_COLUMNAS_RAREZA:
+			break
+
+	# El empujon de oficio es Carpinteria en las armas magicas, Herreria en el resto.
+	var herr: float = Forge.bonus_herreria(
+		Game.carpinteria_activa() if _es_magica(base) else Game.herreria_activa())
+	var bono_metal: float = Forge.bonus_metal(metal)
+
+	# Un solo tramo = todas las piezas iguales: no hay nada que comparar, asi que se pinta la tabla
+	# de siempre (con sus huecos de mejora) en vez de una rejilla de una columna.
+	var igual: bool = tramos.size() <= 1
+	var t := Label.new()
+	t.text = "Rareza que puede salir  ·  %d piezas %s" % [
+		piezas, "con el mismo material" if igual else "cada una con su material"]
+	t.add_theme_color_override("font_color", AMBAR)
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(t)
+
+	if igual:
+		_tabla_rareza(vb, base, metal, float(materiales[0]) if not materiales.is_empty() else 0.0)
+		return
+
+	# Las probabilidades de cada columna, y que rarezas llegan a salir en ALGUNA (las demas no
+	# gastan una fila entera de guiones).
+	var probs_col: Array = []
+	var sale: Dictionary = {}
+	for tramo in tramos:
+		var probs: Array = Forge.probs_rareza(
+			Forge.score_final(float(materiales[int(tramo["i"])]), herr, bono_metal))
+		probs_col.append(probs)
+		for i in probs.size():
+			if float(probs[i]) > 0.0:
+				sale[i] = true
+	var rarezas: Array = sale.keys()
+	rarezas.sort()
+
+	# La letra se encoge con las columnas: el panel de detalle no tiene scroll horizontal, asi que
+	# esto tiene que caber si o si. Con muchas, ademas, el porcentaje va sin decimal.
+	var n: int = tramos.size()
+	var tam: int = 14 if n <= 4 else (12 if n <= 6 else (11 if n <= 9 else 9))
+	# Medido con el panel de detalle a su ancho real: 14 columnas a letra 9 son 460 px de 498, y 20
+	# ya se salen. De ahi el tope de arriba.
+	var corto: bool = n > 6
+	var ancho_nombre: int = 170 if n <= 4 else 110
+
+	var grid := GridContainer.new()
+	grid.columns = 1 + n
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 2)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	# Cabecera: de que pieza a que pieza es cada columna. Con muchas columnas, sin la palabra
+	# "Piezas" delante (el titulo de arriba ya dice que son piezas y es lo que no cabe).
+	_celda(grid, "", ancho_nombre, tam, null, false)
+	for tramo in tramos:
+		var cab: String = MenuScaffold.etiqueta_tramo(tramo)
+		if corto:
+			var d: int = int(tramo["desde"])
+			var h: int = int(tramo["hasta"])
+			cab = str(d) if d == h else "%d-%d" % [d, h]
+		_celda(grid, cab, 0, tam, Color(0.7, 0.8, 0.95), true)
+	# La calidad del material de cada columna: es la que mueve toda la tirada de debajo.
+	_celda(grid, "material", ancho_nombre, tam, GRIS, false)
+	for tramo in tramos:
+		_celda(grid, "%d%%" % roundi(float(materiales[int(tramo["i"])]) * 100.0), 0, tam, GRIS, true)
+	# Y lo que aporta el METAL, que no es igual en todas: se capa en el techo del material, asi que
+	# donde la pieza va con material puro el metal no suma nada (ver Forge.score_final).
+	_celda(grid, "metal", ancho_nombre, tam, GRIS, false)
+	for tramo in tramos:
+		var mat_c: float = float(materiales[int(tramo["i"])])
+		var met_c: float = Forge.score_final(mat_c, herr, bono_metal) - Forge.score_final(mat_c, herr, 0.0)
+		_celda(grid, "%+d%%" % roundi(met_c * 100.0), 0, tam, GRIS, true)
+	for r in rarezas:
+		_celda(grid, Upgrades.rareza_nombre(int(r)), ancho_nombre, tam,
+			Upgrades.rareza_color(int(r)), false)
+		for c in probs_col.size():
+			var p: float = float((probs_col[c] as Array)[int(r)])
+			var txt: String = "—"
+			if p > 0.0:
+				txt = "%d%%" % roundi(p * 100.0) if corto else "%s%%" % str(snappedf(p * 100.0, 0.1))
+			_celda(grid, txt, 0, tam, Upgrades.rareza_color(int(r)) if p > 0.0 else GRIS, true)
+	vb.add_child(grid)
+
+
+# Una celda de la rejilla de rareza. `derecha` = las cifras, que se alinean a la derecha para que
+# las columnas se lean como una tabla; el resto (nombres) a la izquierda con su ancho minimo.
+func _celda(grid: GridContainer, txt: String, ancho: int, tam: int, color: Variant,
+		derecha: bool) -> void:
+	var l := Label.new()
+	l.text = txt
+	l.add_theme_font_size_override("font_size", tam)
+	if color is Color:
+		l.add_theme_color_override("font_color", color)
+	if ancho > 0:
+		l.custom_minimum_size = Vector2(ancho, 0)
+	if derecha:
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.clip_text = true
+	grid.add_child(l)
 
 
 # MULTI: capa mi seleccion de forja a lo DISPONIBLE (por si el compañero reservó de lo mismo) y la
