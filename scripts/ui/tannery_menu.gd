@@ -499,7 +499,7 @@ func _rejilla_mochila(materiales: Array, tramos: Array, heb: MaterialData, carga
 		filas.append({"etiqueta": Upgrades.rareza_nombre(int(r)),
 			"color": Upgrades.rareza_color(int(r)), "valores": valores,
 			"extra": str(cargas[int(r)]) if int(r) < cargas.size() else ""})
-	MenuScaffold.rejilla_probs(_content, "pieza", cabeceras, filas, "lo que da", _content.size.x)
+	MenuScaffold.rejilla_probs(_content, "pieza", cabeceras, filas, "aporta", _content.size.x)
 
 
 # Los dos Autos: ▲ empieza por el mejor material, ▼ por el peor. Rellenan para `_cantidad` mochilas;

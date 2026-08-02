@@ -823,7 +823,7 @@ static func rejilla_probs(vb: VBoxContainer, etiqueta_izq: String, cabeceras: Ar
 	# Sin ancho (primer pintado, aun sin layout) se asume el panel estrecho, que es el que aprieta.
 	var libre: float = ancho_disp if ancho_disp > 100.0 else 498.0
 	if cabecera_extra != "":
-		libre -= 150.0   # la columna de "lo que da"
+		libre -= 150.0   # la columna de "aporta"
 	var tam: int = 10
 	var ancho_nombre: int = 88
 	var ancho_col: int = 38

@@ -1360,7 +1360,7 @@ func _build_herramientas() -> void:
 			# debajo, la lista de rarezas salia dos veces en la misma pantalla.
 			_rejilla_rareza(_content, materiales, tramos,
 				Forge.bonus_herreria(Game.herreria_activa()), Forge.bonus_metal_veta(lingote),
-				_efectos_herramienta(tier, banda, base_t), "lo que da")
+				_efectos_herramienta(tier, banda, base_t), "aporta")
 			_herr_llevas(base_t)
 			_herr_acciones(_content, piezas)
 			return
