@@ -6793,23 +6793,32 @@ const CAL_MEJOR_A_PEOR: Array = [MaterialItem.Calidad.PURO, MaterialItem.Calidad
 	MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
 
 
-# Parte una seleccion (Array paralelo a los ingredientes, {calidad: cantidad} con el TOTAL de la
-# tanda) en `n` LOTES, uno por pieza. Cada lote se llena de mejor a peor tirando de un fondo comun,
-# asi que las PRIMERAS piezas se llevan el material bueno entero.
+# Parte lo que se va a gastar (Array paralelo a los ingredientes, {calidad: cantidad} con el TOTAL
+# de la tanda) en `n` LOTES, uno por pieza, para saber CON QUE CALIDAD sale cada una. Cada lote se
+# llena de mejor a peor tirando de un fondo comun, asi que las PRIMERAS piezas se llevan lo bueno.
 #
 # Existe porque la calidad se resolvia como una media de todo lo que metias: con intactos para 3
 # armaduras y mezcla para otras 4, las 7 salian con la media aguada y las 3 buenas pagaban el
 # material malo de las otras. Repartiendo en lotes, cada pieza tira con SU material.
 #
-# `uds_por_ingrediente` va en paralelo a la seleccion (lo que cuesta UNA pieza de cada ingrediente).
+# Reparte UNIDADES, no piezas de material: un tablon intacto son 3 unidades y un mango cuesta 1, asi
+# que ese tablon da para tres mangos. Repartiendo piezas enteras, la primera se quedaba el tablon
+# entero y las otras dos salian sin madera ninguna.
+#
+# Los lotes son SOLO para la calidad: lo que se consume del baul sigue saliendo del total
+# (recortar_seleccion / gasto_crafteo), como siempre.
+# `uds_por_ingrediente` va en paralelo (lo que cuesta UNA pieza de cada ingrediente).
 func lotes_de_seleccion(seleccion: Array, uds_por_ingrediente: Array, n: int) -> Array:
 	var lotes: Array = []
 	if n <= 0:
 		return lotes
-	# Fondo comun del que van tirando las piezas, una detras de otra (se consume: no tocar el original).
+	# Fondo comun en UNIDADES, del que van tirando las piezas una detras de otra.
 	var fondo: Array = []
 	for d in seleccion:
-		fondo.append((d as Dictionary).duplicate())
+		var uds_cal: Dictionary = {}
+		for cal in (d as Dictionary):
+			uds_cal[cal] = int(d[cal]) * _uds_calidad(int(cal))
+		fondo.append(uds_cal)
 	for _k in range(n):
 		var lote: Array = []
 		for i in fondo.size():
@@ -6819,9 +6828,8 @@ func lotes_de_seleccion(seleccion: Array, uds_por_ingrediente: Array, n: int) ->
 	return lotes
 
 
-# Saca del `fondo` (que se MODIFICA) lo justo para cubrir `necesita` unidades, de mejor a peor. Si
-# la ultima pieza que coge se pasa (un puro son 4 uds para un coste de 3), el sobrante es el recorte
-# de siempre: puede volver al baul con _tirar_devolucion.
+# Saca del `fondo` (que se MODIFICA) `necesita` unidades, de mejor a peor. Los dos van en UNIDADES:
+# {calidad: unidades}.
 func _coger_del_fondo(fondo: Dictionary, necesita: int) -> Dictionary:
 	var out: Dictionary = {}
 	var restante: int = necesita
@@ -6829,14 +6837,28 @@ func _coger_del_fondo(fondo: Dictionary, necesita: int) -> Dictionary:
 		if restante <= 0:
 			break
 		var hay: int = int(fondo.get(cal, 0))
-		var uds: int = _uds_calidad(int(cal))
-		if hay <= 0 or uds <= 0:
+		if hay <= 0:
 			continue
-		var usar: int = mini(int(ceil(float(restante) / float(uds))), hay)
+		var usar: int = mini(restante, hay)
 		out[cal] = usar
 		fondo[cal] = hay - usar
-		restante -= usar * uds
+		restante -= usar
 	return out
+
+
+# La calidad media de un lote {calidad: UNIDADES} (o de una lista de ellos, un lote de varios
+# ingredientes): 0 = todo dañado, 0.5 = normal, 1 = intacto, 1.5 = puro. Hermana de
+# score_seleccion, pero contando unidades ya repartidas en vez de piezas de material.
+func score_uds(lote) -> float:
+	var suma: float = 0.0
+	var uds: float = 0.0
+	var dicts: Array = lote if lote is Array else [lote]
+	for d in dicts:
+		for cal in (d as Dictionary):
+			var u: float = float(int(d[cal]))
+			suma += _score_calidad(int(cal)) * u
+			uds += u
+	return 0.0 if uds <= 0.0 else suma / uds
 
 
 # El METAL que pide esta pieza: la CHAPA si es armadura, el LINGOTE si es arma. La UI le pide
@@ -6923,25 +6945,35 @@ func forjar_tanda(base: Resource, metal: MaterialData, selecciones: Array, n: in
 	# La HERRERIA hace dos cosas: empuja la rareza (ya va dentro de score_forja) y tira por
 	# devolverte material de cada ingrediente.
 	var prob_dev: float = Forge.prob_devolver_forja(_oficio_forja_activo(base))
+	# Lo que se GASTA de verdad, por ingrediente: el total de la tanda recortado a lo justo, igual
+	# que cuando se forjaba de una en una. Los lotes de abajo solo reparten CALIDAD, no consumo.
+	var gastos: Array = []
+	for i in ings.size():
+		gastos.append(recortar_seleccion(selecciones[i], int(ings[i]["uds"]) * piezas))
+	var herr: float = Forge.bonus_herreria(_oficio_forja_activo(base))
+	var bono_metal: float = Forge.bonus_metal(metal)
 	var out: Array = []
 	var devueltos: int = 0
 	var rarezas: PackedStringArray = []
-	for lote in lotes_de_seleccion(selecciones, uds_pieza, piezas):
-		var rareza: int = Forge.tirar_rareza(score_forja(base, metal, lote))
-		for i in ings.size():
-			var mat: MaterialData = ings[i]["material"]
-			var gasto: Dictionary = lote[i]
-			_consumir_seleccion_material(mat, gasto)
-			# Aprovechamiento: lo que sobra del ultimo trozo puede volver al baul (ver Forge).
-			_tirar_devolucion(mat, gasto, int(ings[i]["uds"]))
-			# Y encima, la Herreria puede rescatar una pieza entera de lo que se ha gastado. Se
-			# devuelve la PEOR de las calidades que metiste: el reparto ya guardo las buenas arriba.
-			var peor: int = _peor_calidad_de(gasto)
-			if peor >= 0 and randf() < prob_dev:
-				almacen_materiales.append(MaterialItem.crear(mat, peor))
-				devueltos += 1
+	for lote in lotes_de_seleccion(gastos, uds_pieza, piezas):
+		# La rareza de ESTA pieza, con la calidad de las unidades que le han tocado.
+		var rareza: int = Forge.tirar_rareza(Forge.score_final(score_uds(lote), herr, bono_metal))
 		out.append(crear_item(base, tier, rareza, {}))
 		rarezas.append(Upgrades.rareza_nombre(rareza))
+	for i in ings.size():
+		var mat: MaterialData = ings[i]["material"]
+		var gasto: Dictionary = gastos[i]
+		_consumir_seleccion_material(mat, gasto)
+		# Aprovechamiento: lo que sobra del ultimo trozo puede volver al baul (ver Forge).
+		_tirar_devolucion(mat, gasto, int(ings[i]["uds"]) * piezas)
+		# Y encima, la Herreria puede rescatar una pieza entera de lo que se ha gastado, POR pieza
+		# forjada. Se devuelve la PEOR de las calidades que metiste: el recorte ya guardo las buenas.
+		var peor: int = _peor_calidad_de(gasto)
+		if peor >= 0:
+			for _p in range(piezas):
+				if randf() < prob_dev:
+					almacen_materiales.append(MaterialItem.crear(mat, peor))
+					devueltos += 1
 	# El arma magica entrena CARPINTERIA; el resto, Herreria (misma tirada, distinto oficio). Los
 	# puntos van POR PIEZA: forjar tres de golpe entrena como forjarlas de una en una.
 	if _es_arma_magica(base):
@@ -7618,21 +7650,26 @@ func probs_doble_por_pieza(receta: RecipeData, gasto: Array, n: int) -> Array:
 	var uds_pieza: Array = []
 	for ing in receta.ingredientes:
 		uds_pieza.append(0 if ing == null else int(ing.unidades))
+	# MEZCLA (la habilidad de la boticaria) suma igual a todas: lo que cambia por pieza es la calidad.
+	var bono: float = Forge.bonus_herreria(mezcla_activa())
 	for lote in lotes_de_seleccion(gasto, uds_pieza, n):
-		out.append(prob_doble_desde_seleccion(receta, lote))
+		out.append(clampf(MAX_PROB_DOBLE * score_uds(lote) + bono, 0.0, 1.0))
 	return out
 
 
 # Los LOTES de una tanda de forja (uno por pieza), para que el menu pinte la rareza de cada una con
-# el mismo reparto con el que se va a forjar. Hermana de probs_doble_por_pieza.
+# el mismo reparto con el que se va a forjar. Hermana de probs_doble_por_pieza: parte de lo que se
+# va a GASTAR (el total recortado a la tanda), igual que forjar_tanda.
 func lotes_forja(base: Resource, metal: MaterialData, selecciones: Array, n: int) -> Array:
 	var ings: Array = ingredientes_forja(base, metal)
-	if ings.is_empty() or selecciones.size() != ings.size():
+	if ings.is_empty() or selecciones.size() != ings.size() or n <= 0:
 		return []
 	var uds_pieza: Array = []
-	for ing in ings:
-		uds_pieza.append(int(ing["uds"]))
-	return lotes_de_seleccion(selecciones, uds_pieza, n)
+	var gastos: Array = []
+	for i in ings.size():
+		uds_pieza.append(int(ings[i]["uds"]))
+		gastos.append(recortar_seleccion(selecciones[i], int(ings[i]["uds"]) * n))
+	return lotes_de_seleccion(gastos, uds_pieza, n)
 
 
 # La poción del SIGUIENTE escalon de la cadena de esta receta (lo que puede regalarte la Mezcla),
