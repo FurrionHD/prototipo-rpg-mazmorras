@@ -189,12 +189,34 @@ static func decir(aviso: Label, txt: String, ok: bool = true) -> void:
 # remove_child() SI es inmediato, asi que quitandolo antes el orden deja de depender del frame.
 # Se sigue liberando con queue_free y no con free porque el nodo puede estar en mitad de una señal
 # suya (justo el caso del focus_exited) y free() ahi revienta.
+#
+# Y ANTES de quitar nada se marca el subarbol como MURIENDO. Es por el focus_exited del stepper: al
+# sacar el LineEdit que tenia el foco, su callback salta EN MITAD de este bucle y llama al on_set del
+# menu -> _rebuild reentrante -> Godot corta el vaciado de dentro ("Parent node is busy
+# adding/removing children") y el panel acaba pintado DOS VECES. En ese instante el nodo aun se
+# declara dentro del arbol y sin encolar (medido), asi que no hay forma de notarlo desde el propio
+# nodo: hay que marcarlo aqui. Un campo que se esta destruyendo no tiene por que opinar sobre su
+# valor -- ver stepper().
+const META_MURIENDO := "_muriendo"
+
 static func vaciar(zona: Node) -> void:
 	if zona == null:
 		return
 	for c in zona.get_children():
+		_marcar_muriendo(c)
 		zona.remove_child(c)
 		c.queue_free()
+
+
+static func _marcar_muriendo(n: Node) -> void:
+	n.set_meta(META_MURIENDO, true)
+	for h in n.get_children():
+		_marcar_muriendo(h)
+
+
+# ¿Este nodo (o alguno de sus padres) esta siendo destruido por vaciar()?
+static func muriendo(n: Node) -> bool:
+	return n == null or not is_instance_valid(n) or n.get_meta(META_MURIENDO, false)
 
 
 # --- Piezas sueltas que repiten los cinco menus ---
@@ -734,6 +756,12 @@ static func stepper(parent: Node, valor: int, minv: int, maxv: int, on_set: Call
 	var mas := Button.new()
 
 	var aplicar := func(nuevo: int) -> void:
+		# Si el campo se esta destruyendo, callar. Su focus_exited salta EN MITAD del vaciado del
+		# panel (al sacarlo del arbol pierde el foco), y avisar entonces reconstruye el menu por
+		# dentro de su propia reconstruccion: el panel salia pintado dos veces. Ademas escribiria el
+		# valor viejo encima de la seleccion que acabas de elegir con el Auto. Ver vaciar().
+		if muriendo(campo):
+			return
 		var c: int = clampi(nuevo, minv, maxv)
 		campo.text = str(c)
 		menos.disabled = vacio or c <= minv

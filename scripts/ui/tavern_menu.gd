@@ -69,7 +69,21 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
+# Guardia de REENTRADA. Un _rebuild puede entrar mientras otro esta a medias (el focus_exited de un
+# stepper al liberarlo, las señales de red, un _on_* que espera en un await), y entonces el de dentro
+# pinta su panel y el de fuera apila el suyo debajo: el menu salia DUPLICADO. Es el mismo guardia que
+# lleva el herrero desde que se cazo alli.
+var _reconstruyendo := false
+
 func _rebuild() -> void:
+	if _reconstruyendo:
+		return
+	_reconstruyendo = true
+	_rebuild_real()
+	_reconstruyendo = false
+
+
+func _rebuild_real() -> void:
 	for zona in [_header, _content, _lista]:
 		MenuScaffold.vaciar(zona)
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
