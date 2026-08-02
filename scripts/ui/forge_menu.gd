@@ -1018,24 +1018,11 @@ func _rareza_por_pieza(vb: VBoxContainer, base: Resource, metal: MaterialData, p
 	var materiales: Array = []
 	for lote in Game.lotes_forja(base, metal, _sel_forja, piezas):
 		materiales.append(Game.score_uds(lote))
-
-	# Se agrupan por lo que se va a PINTAR: dos lotes que redondean igual darian dos columnas
-	# calcadas. Y si aun asi salen demasiadas columnas para el ancho del panel, se redondea mas
-	# grueso (de 1 en 1 por ciento a 5, 10, 20...) hasta que quepan: mas alla de una docena, ni
-	# encogiendo la letra entra, y comparar veinte columnas de tres digitos tampoco se lee.
-	var tramos: Array = []
-	for paso in [1, 2, 5, 10, 20, 50]:
-		var claves: Array = []
-		for m in materiales:
-			claves.append(roundi(float(m) * 100.0 / float(paso)))
-		tramos = MenuScaffold.tramos_iguales(claves)
-		if tramos.size() <= MAX_COLUMNAS_RAREZA:
-			break
+	var tramos: Array = MenuScaffold.tramos_por_calidad(materiales, MAX_COLUMNAS_RAREZA)
 
 	# El empujon de oficio es Carpinteria en las armas magicas, Herreria en el resto.
 	var herr: float = Forge.bonus_herreria(
 		Game.carpinteria_activa() if _es_magica(base) else Game.herreria_activa())
-	var bono_metal: float = Forge.bonus_metal(metal)
 
 	# Un solo tramo = todas las piezas iguales: no hay nada que comparar, asi que se pinta la tabla
 	# de siempre (con sus huecos de mejora) en vez de una rejilla de una columna.
@@ -1050,107 +1037,55 @@ func _rareza_por_pieza(vb: VBoxContainer, base: Resource, metal: MaterialData, p
 	if igual:
 		_tabla_rareza(vb, base, metal, float(materiales[0]) if not materiales.is_empty() else 0.0)
 		return
+	_rejilla_rareza(vb, materiales, tramos, herr, Forge.bonus_metal(metal))
 
-	# Las probabilidades de cada columna, y que rarezas llegan a salir en ALGUNA (las demas no
-	# gastan una fila entera de guiones).
+
+# Pinta la rejilla de una tanda: cabeceras con los numeros de pieza, la calidad de cada columna, el
+# empujon del tier (solo si empuja en alguna) y una fila por rareza. La comparten las tres tandas
+# (armas, herramientas y mochilas) porque las tres tiran la rareza con la misma formula.
+func _rejilla_rareza(vb: VBoxContainer, materiales: Array, tramos: Array, oficio: float,
+		bono_metal: float) -> void:
+	var corto: bool = tramos.size() > 6
+	var cabeceras: Array = []
+	var calidad: Array = []
+	var tier_pct: Array = []
+	var aporta: bool = false
 	var probs_col: Array = []
 	var sale: Dictionary = {}
 	for tramo in tramos:
-		var probs: Array = Forge.probs_rareza(
-			Forge.score_final(float(materiales[int(tramo["i"])]), herr, bono_metal))
+		var mat_c: float = float(materiales[int(tramo["i"])])
+		cabeceras.append(MenuScaffold.numeros_tramo(tramo))
+		calidad.append("%d%%" % roundi(mat_c * 100.0))
+		# Lo que aporta el TIER del metal casi siempre es cero (con el T1, o con material intacto: el
+		# tope de score_final no le deja sumar), y una fila entera de "+0%" es ruido.
+		var p_t: int = roundi((Forge.score_final(mat_c, oficio, bono_metal)
+			- Forge.score_final(mat_c, oficio, 0.0)) * 100.0)
+		tier_pct.append("%+d%%" % p_t)
+		aporta = aporta or p_t != 0
+		var probs: Array = Forge.probs_rareza(Forge.score_final(mat_c, oficio, bono_metal))
 		probs_col.append(probs)
 		for i in probs.size():
 			if float(probs[i]) > 0.0:
 				sale[i] = true
+
+	var filas: Array = [{"etiqueta": "calidad", "color": GRIS, "valores": calidad}]
+	if aporta:
+		filas.append({"etiqueta": "tier", "color": GRIS, "valores": tier_pct})
+	# Solo las rarezas que llegan a salir en ALGUNA columna: las demas no gastan una fila de guiones.
 	var rarezas: Array = sale.keys()
 	rarezas.sort()
-
-	# La letra se encoge con las columnas: el panel de detalle no tiene scroll horizontal, asi que
-	# esto tiene que caber si o si. Con muchas, ademas, el porcentaje va sin decimal.
-	var n: int = tramos.size()
-	var tam: int = 14 if n <= 6 else (12 if n <= 9 else 10)
-	var corto: bool = n > 6
-	var ancho_nombre: int = 110 if n <= 6 else 88
-	# Ancho de una columna de numeros. Es FIJO y corto a proposito: las columnas van pegadas entre si
-	# y pegadas a la izquierda, no repartidas por todo el panel (con tres, media pantalla se iba en
-	# huecos y no se podian comparar).
-	var ancho_col: int = 52 if not corto else (46 if n <= 9 else 38)
-
-	var grid := GridContainer.new()
-	# Una columna de mas al final: es un hueco vacio que se come TODO el ancho sobrante y empuja las
-	# demas a la izquierda. Sin ella, el grid reparte el sobrante entre las columnas de datos.
-	grid.columns = 2 + n
-	grid.add_theme_constant_override("h_separation", 4)
-	grid.add_theme_constant_override("v_separation", 2)
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	# Cabecera: solo los NUMEROS de pieza ("1-13", "14"). La palabra va una vez, a la izquierda.
-	_celda(grid, "pieza", ancho_nombre, tam, GRIS, false)
-	for tramo in tramos:
-		var d: int = int(tramo["desde"])
-		var h: int = int(tramo["hasta"])
-		_celda(grid, str(d) if d == h else "%d-%d" % [d, h], ancho_col, tam,
-			Color(0.7, 0.8, 0.95), true)
-	_relleno(grid)
-	# La calidad del material de cada columna: es lo que separa una columna de otra.
-	_celda(grid, "calidad", ancho_nombre, tam, GRIS, false)
-	for tramo in tramos:
-		_celda(grid, "%d%%" % roundi(float(materiales[int(tramo["i"])]) * 100.0), ancho_col, tam,
-			GRIS, true)
-	_relleno(grid)
-	# Lo que aporta el TIER del metal, SOLO si aporta en alguna columna (ver _tabla_rareza: con cobre
-	# o con material intacto es siempre cero, y una fila entera de "+0%" es ruido).
-	var tier_pct: Array = []
-	var aporta: bool = false
-	for tramo in tramos:
-		var mat_c: float = float(materiales[int(tramo["i"])])
-		var p_t: int = roundi((Forge.score_final(mat_c, herr, bono_metal)
-			- Forge.score_final(mat_c, herr, 0.0)) * 100.0)
-		tier_pct.append(p_t)
-		aporta = aporta or p_t != 0
-	if aporta:
-		_celda(grid, "tier", ancho_nombre, tam, GRIS, false)
-		for p_t in tier_pct:
-			_celda(grid, "%+d%%" % int(p_t), ancho_col, tam, GRIS, true)
-		_relleno(grid)
 	for r in rarezas:
-		_celda(grid, Upgrades.rareza_nombre(int(r)), ancho_nombre, tam,
-			Upgrades.rareza_color(int(r)), false)
+		var valores: Array = []
 		for c in probs_col.size():
 			var p: float = float((probs_col[c] as Array)[int(r)])
-			var txt: String = "—"
-			if p > 0.0:
-				txt = "%d%%" % roundi(p * 100.0) if corto else "%s%%" % str(snappedf(p * 100.0, 0.1))
-			_celda(grid, txt, ancho_col, tam, Upgrades.rareza_color(int(r)) if p > 0.0 else GRIS, true)
-		_relleno(grid)
-	vb.add_child(grid)
-
-
-# La celda vacia del final de cada fila: se lleva el ancho que sobra para que las columnas de datos
-# se queden juntas y a la izquierda.
-func _relleno(grid: GridContainer) -> void:
-	var c := Control.new()
-	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_child(c)
-
-
-# Una celda de la rejilla de rareza. `derecha` = las cifras, que se alinean a la derecha para que
-# las columnas se lean como una tabla; el resto (nombres) a la izquierda con su ancho minimo.
-func _celda(grid: GridContainer, txt: String, ancho: int, tam: int, color: Variant,
-		derecha: bool) -> void:
-	var l := Label.new()
-	l.text = txt
-	l.add_theme_font_size_override("font_size", tam)
-	if color is Color:
-		l.add_theme_color_override("font_color", color)
-	if ancho > 0:
-		l.custom_minimum_size = Vector2(ancho, 0)
-	# Las cifras NO expanden: con expand, tres columnas se repartian el panel entero y quedaban a
-	# media pantalla unas de otras. Van a su ancho fijo, juntas, y lo que sobra se lo lleva _relleno.
-	if derecha:
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	l.clip_text = true
-	grid.add_child(l)
+			if p <= 0.0:
+				valores.append(MenuScaffold.GUION)
+			else:
+				valores.append("%d%%" % roundi(p * 100.0) if corto
+					else "%s%%" % str(snappedf(p * 100.0, 0.1)))
+		filas.append({"etiqueta": Upgrades.rareza_nombre(int(r)),
+			"color": Upgrades.rareza_color(int(r)), "valores": valores})
+	MenuScaffold.rejilla_probs(vb, "pieza", cabeceras, filas)
 
 
 # MULTI: capa mi seleccion de forja a lo DISPONIBLE (por si el compañero reservó de lo mismo) y la
@@ -1393,15 +1328,39 @@ func _build_herramientas() -> void:
 	_sumar_claim_herr(claim, lingote, _sel_herr_met)
 	_sumar_claim_herr(claim, tab, _sel_herr_tab)
 	_claim_reserva = claim
-	_contadores(_content, lingote, _sel_herr_met, int(Game.HERRAMIENTA_COSTE["metal"]))
-	_contadores(_content, tab, _sel_herr_tab, int(Game.HERRAMIENTA_COSTE["tablon"]))
+	# CUANTAS herramientas salen con lo elegido: los contadores cuentan la TANDA entera.
+	var piezas: int = Game.piezas_de_seleccion_herramienta(lingote, _sel_herr_met, _sel_herr_tab)
+	var cuantas: int = maxi(1, piezas)
+	_contadores(_content, lingote, _sel_herr_met, int(Game.HERRAMIENTA_COSTE["metal"]) * cuantas)
+	_contadores(_content, tab, _sel_herr_tab, int(Game.HERRAMIENTA_COSTE["tablon"]) * cuantas)
 	_note(_content, "Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la herramienta: mejora la RAREZA, y con ella los golpes que te ahorras.")
 
 	# --- Rareza EN VIVO, con lo que daria cada una CON ESTA VETA ---
 	_content.add_child(HSeparator.new())
+	var base_t: ToolData = Game.herramienta_base(_herr_tipo)
+	# TANDA: cada herramienta se forja con SU lote de material, asi que cada una tira su rareza. Con
+	# varias calidades por medio va la rejilla de columnas, y la tabla de "que da cada rareza" queda
+	# debajo como leyenda (no depende del material, solo de la veta y el tier).
+	if piezas > 1:
+		var materiales: Array = []
+		for lote in Game.lotes_de_seleccion([
+				Game.recortar_seleccion(_sel_herr_met, int(Game.HERRAMIENTA_COSTE["metal"]) * piezas),
+				Game.recortar_seleccion(_sel_herr_tab, int(Game.HERRAMIENTA_COSTE["tablon"]) * piezas)],
+				[int(Game.HERRAMIENTA_COSTE["metal"]), int(Game.HERRAMIENTA_COSTE["tablon"])], piezas):
+			materiales.append(Game.score_uds(lote))
+		var tramos: Array = MenuScaffold.tramos_por_calidad(materiales, MAX_COLUMNAS_RAREZA)
+		if tramos.size() > 1:
+			_title(_content, "Rareza que puede salir  ·  %d herramientas  ·  %s" % [
+				piezas, lingote.nombre])
+			_rejilla_rareza(_content, materiales, tramos,
+				Forge.bonus_herreria(Game.herreria_activa()), Forge.bonus_metal_veta(lingote))
+			_content.add_child(HSeparator.new())
+			_title(_content, "Lo que da cada rareza", 13)
+			_leyenda_herramienta(tier, banda, base_t)
+			_herr_acciones(_content, piezas)
+			return
 	var score: float = Game.score_herramienta(lingote, _sel_herr_met, _sel_herr_tab)
 	_title(_content, "Rareza que puede salir  ·  %s" % lingote.nombre)
-	var base_t: ToolData = Game.herramienta_base(_herr_tipo)
 	var probs: Array = Forge.probs_rareza(score)
 	# Cada rareza con LAS DOS cosas que da, porque las dos suben con la tirada: la afinidad (lo que
 	# te abre la ventana) y el ahorro de golpes. Aqui salia solo el ahorro y una nota aparte diciendo
@@ -1418,22 +1377,87 @@ func _build_herramientas() -> void:
 			efecto += ",  -%d %s" % [n, base_t.unidad_golpes(n)]
 		_row(_content, Upgrades.rareza_nombre(i), "%s%%   →  %s" % [
 			str(snappedf(p * 100.0, 0.1)), efecto], Upgrades.rareza_color(i))
+	_herr_llevas(base_t)
+	_herr_acciones(_content, piezas)
+
+
+# Lo que da cada rareza CON ESTA VETA, sin porcentajes: es la leyenda de la rejilla de una tanda
+# (las dos cosas que suben con la tirada, la afinidad y los golpes que te ahorras).
+func _leyenda_herramienta(tier: int, banda: int, base_t: ToolData) -> void:
+	for i in Upgrades.RAREZA_NOMBRE.size():
+		var md: Dictionary = Upgrades.tool_mods(_herr_tipo, tier, i, banda)
+		var n: int = int(md["golpes_menos"])
+		var efecto: String = "afinidad +%.0f" % float(md["afinidad"])
+		if n > 0:
+			efecto += ",  -%d %s" % [n, base_t.unidad_golpes(n)]
+		_row(_content, Upgrades.rareza_nombre(i), efecto, Upgrades.rareza_color(i))
+	_herr_llevas(base_t)
+
+
+func _herr_llevas(base_t: ToolData) -> void:
 	var puesta: ToolData = Game.herramienta_de_tipo(_herr_tipo)
 	var pm: Dictionary = Game.tool_mods(puesta)
 	_row(_content, "Llevas ahora", "afinidad +%.0f, -%d %s" % [
 		float(pm["afinidad"]), int(pm["golpes_menos"]),
 		base_t.unidad_golpes(int(pm["golpes_menos"]))])
 
-	_content.add_child(HSeparator.new())
-	var ok: bool = Game.herramienta_valida(lingote, _sel_herr_met, _sel_herr_tab)
+
+# La fila de conveniencia + el boton de forjar de la pestaña de herramientas. Misma forma que la de
+# forjar armas: cantidad para el Auto, los dos Autos y Limpiar.
+func _herr_acciones(vb: VBoxContainer, piezas: int) -> void:
+	vb.add_child(HSeparator.new())
+	var acc := HBoxContainer.new()
+	acc.add_theme_constant_override("separation", 8)
+	var cant_lbl := Label.new()
+	cant_lbl.text = "Cantidad"
+	acc.add_child(cant_lbl)
+	MenuScaffold.stepper(acc, _cantidad, 1, 99, func(v: int) -> void: _cantidad = v)
+	var auto_mej := Button.new()
+	auto_mej.text = "Auto ▲"
+	auto_mej.tooltip_text = "Rellena empezando por el MEJOR material que tengas (puro, intacto...). Sube la rareza que puede salir."
+	auto_mej.pressed.connect(_on_auto_herr.bind(true))
+	acc.add_child(auto_mej)
+	var auto_peor := Button.new()
+	auto_peor.text = "Auto ▼"
+	auto_peor.tooltip_text = "Rellena empezando por el PEOR material que tengas (dañado, normal...). Para gastar lo que sobra sin tocar lo bueno."
+	auto_peor.pressed.connect(_on_auto_herr.bind(false))
+	acc.add_child(auto_peor)
+	var limpiar := Button.new()
+	limpiar.text = "Limpiar"
+	limpiar.pressed.connect(_on_limpiar_herr)
+	acc.add_child(limpiar)
+	vb.add_child(acc)
+
+	var txt: String = "Faltan materiales"
+	if piezas == 1:
+		txt = "Forjar"
+	elif piezas > 1:
+		txt = "Forjar (%d herramientas)" % piezas
 	var b_hacer := Button.new()
-	b_hacer.text = "Forjar" if ok else "Faltan materiales"
-	b_hacer.disabled = not ok
+	b_hacer.text = txt
+	b_hacer.disabled = piezas < 1
 	b_hacer.custom_minimum_size = Vector2(0, 36)
 	b_hacer.pressed.connect(_on_forjar_herramienta)
-	_content.add_child(b_hacer)
-	_estado_oficio(_content, "Herrería", Game.tiene_desarrollo("herreria"),
+	vb.add_child(b_hacer)
+	_estado_oficio(vb, "Herrería", Game.tiene_desarrollo("herreria"),
 		"Empuja la tirada de rareza a tu favor, como si el metal fuera mejor de lo que es.")
+
+
+# Los dos Autos de las herramientas, para `_cantidad` piezas (ver _on_auto en la pestaña de forjar).
+func _on_auto_herr(mejor_primero: bool) -> void:
+	var lingote: MaterialData = _herr_lingote()
+	var tab: MaterialData = Game.tablon_de_herramienta(lingote)
+	if lingote == null or tab == null:
+		return
+	var veces: int = maxi(1, _cantidad)
+	_sel_herr_met = _auto_sel(lingote, int(Game.HERRAMIENTA_COSTE["metal"]) * veces, mejor_primero)
+	_sel_herr_tab = _auto_sel(tab, int(Game.HERRAMIENTA_COSTE["tablon"]) * veces, mejor_primero)
+	_rebuild()
+
+
+func _on_limpiar_herr() -> void:
+	_limpiar_sel_herr()
+	_rebuild()
 
 
 func _para_que(tipo: int) -> String:
@@ -1516,12 +1540,20 @@ func _on_forjar_herramienta() -> void:
 		_ocupado()
 		_rebuild()
 		return
-	var item: Resource = Game.fabricar_herramienta(_herr_tipo, lingote, _sel_herr_met, _sel_herr_tab)
+	# TANDA: se forjan todas las que cubra lo elegido, cada una con su lote de material y su tirada.
+	var items: Array = Game.fabricar_herramienta_tanda(_herr_tipo, lingote, _sel_herr_met,
+		_sel_herr_tab, Game.piezas_de_seleccion_herramienta(lingote, _sel_herr_met, _sel_herr_tab))
 	if Net.activo:
 		Net.cerrar_taller()
 		Net.liberar_mis_reservas()
-	if item != null:
-		_decir("Forjas %s. Equípala en el inventario [I], pestaña Equipo." % Game.item_display_name(item))
+	if items.size() == 1:
+		_decir("Forjas %s. Equípala en el inventario [I], pestaña Equipo." % Game.item_display_name(items[0]))
+	elif items.size() > 1:
+		var nombres: PackedStringArray = []
+		for it in items:
+			nombres.append(Game.item_display_name(it as Resource))
+		_decir("Forjas %d herramientas: %s. Están en el inventario [I]." % [
+			items.size(), ", ".join(nombres)])
 	else:
 		_decir("Te faltan materiales.", false)
 	_sel_herr_met.clear()

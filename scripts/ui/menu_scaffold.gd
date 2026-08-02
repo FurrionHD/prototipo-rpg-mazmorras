@@ -791,6 +791,104 @@ static func etiqueta_tramo(tramo: Dictionary, nombre: String = "Pieza", plural: 
 	return "%s %d" % [nombre, d] if d == h else "%s %d-%d" % [plural, d, h]
 
 
+# ------------------------------------------------------------
+#  REJILLA DE PROBABILIDADES POR PIEZA (tandas)
+#  La usan los tres oficios que fabrican de varias en varias: forjar (armas/armaduras), forjar
+#  herramientas y coser mochilas. Una COLUMNA por tramo de piezas que salen iguales y una FILA por
+#  rareza; apiladas en tablas sueltas, una tanda de catorce piezas eran catorce tablas.
+# ------------------------------------------------------------
+
+# `cabeceras` = lo que va encima de cada columna (los numeros de pieza: "1-3", "4"...).
+# `filas` = [{etiqueta, color (Variant), valores: Array[String]}], una por rareza (o por lo que sea).
+# Las celdas con GUION se pintan apagadas: es "esto no puede salir", no un cero.
+#
+# La letra se encoge con el numero de columnas porque el panel de detalle NO tiene scroll horizontal
+# (ver construir): esto tiene que caber si o si. Medido a su ancho real (498 px): 14 columnas a
+# letra 9 son 460 px, y 20 ya se salen -- por eso quien llama agrupa antes de pasarse de doce.
+const GUION := "—"
+
+static func rejilla_probs(vb: VBoxContainer, etiqueta_izq: String, cabeceras: Array,
+		filas: Array) -> void:
+	var n: int = cabeceras.size()
+	if n <= 0:
+		return
+	var tam: int = 14 if n <= 6 else (12 if n <= 9 else 10)
+	var ancho_nombre: int = 110 if n <= 6 else 88
+	# Ancho de columna FIJO y corto a proposito: las columnas van pegadas entre si y a la izquierda,
+	# no repartidas por todo el panel (con tres, media pantalla se iba en huecos y no se comparaban).
+	var ancho_col: int = 52 if n <= 6 else (46 if n <= 9 else 38)
+
+	var grid := GridContainer.new()
+	# Una columna de mas al final: un hueco vacio que se come el ancho sobrante y empuja el resto a
+	# la izquierda. Sin ella, el grid reparte el sobrante entre las columnas de datos.
+	grid.columns = 2 + n
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 2)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	_celda(grid, etiqueta_izq, ancho_nombre, tam, GRIS, false)
+	for c in cabeceras:
+		_celda(grid, str(c), ancho_col, tam, Color(0.7, 0.8, 0.95), true)
+	_relleno(grid)
+	for f in filas:
+		var fila: Dictionary = f
+		_celda(grid, str(fila.get("etiqueta", "")), ancho_nombre, tam, fila.get("color"), false)
+		for v in (fila.get("valores", []) as Array):
+			var txt: String = str(v)
+			_celda(grid, txt, ancho_col, tam, GRIS if txt == GUION else fila.get("color"), true)
+		_relleno(grid)
+	vb.add_child(grid)
+
+
+# Una celda de la rejilla. `derecha` = las cifras, alineadas a la derecha para que las columnas se
+# lean como una tabla; el resto (nombres) a la izquierda con su ancho minimo. Las cifras NO expanden:
+# con expand, tres columnas se repartian el panel entero y quedaban a media pantalla unas de otras.
+static func _celda(grid: GridContainer, txt: String, ancho: int, tam: int, color: Variant,
+		derecha: bool) -> void:
+	var l := Label.new()
+	l.text = txt
+	l.add_theme_font_size_override("font_size", tam)
+	if color is Color:
+		l.add_theme_color_override("font_color", color)
+	if ancho > 0:
+		l.custom_minimum_size = Vector2(ancho, 0)
+	if derecha:
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	l.clip_text = true
+	grid.add_child(l)
+
+
+# La celda vacia del final de cada fila: se lleva el ancho que sobra.
+static func _relleno(grid: GridContainer) -> void:
+	var c := Control.new()
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_child(c)
+
+
+# Parte una tanda de `piezas` en tramos por su calidad de material, agrupando las que darian la MISMA
+# columna. Si aun asi salen mas de `tope` columnas, redondea mas grueso (de 1 en 1 por ciento a 5,
+# 10, 20...) hasta que quepan: mas alla de una docena ni encogiendo la letra entra, y comparar veinte
+# columnas de tres digitos tampoco se lee.
+static func tramos_por_calidad(materiales: Array, tope: int) -> Array:
+	var tramos: Array = []
+	for paso in [1, 2, 5, 10, 20, 50]:
+		var claves: Array = []
+		for m in materiales:
+			claves.append(roundi(float(m) * 100.0 / float(paso)))
+		tramos = tramos_iguales(claves)
+		if tramos.size() <= tope:
+			break
+	return tramos
+
+
+# La cabecera de una columna: solo los NUMEROS de pieza ("1-3", "14"). La palabra "pieza" se dice una
+# vez, en la esquina de la izquierda.
+static func numeros_tramo(tramo: Dictionary) -> String:
+	var d: int = int(tramo["desde"])
+	var h: int = int(tramo["hasta"])
+	return str(d) if d == h else "%d-%d" % [d, h]
+
+
 # Fila de un refinado: etiqueta + stepper editable + boton "Crear". `salen` = maximo que puedes hacer
 # (0 = en gris, no se puede). Al pulsar Crear se lee la cantidad del stepper y se llama a `crear(n)`.
 # Reemplaza el viejo "Hacer 1 / Hacer todo": ahora eliges cuantos (escribiendo o con −/+) y creas.

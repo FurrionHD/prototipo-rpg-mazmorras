@@ -50,6 +50,11 @@ var _cor_tier: int = 0
 var _sel_heb: Dictionary = {}
 var _sel_cor: Dictionary = {}
 var _sel_cue: Dictionary = {}
+# CUANTAS mochilas quieres que rellene el Auto. Es solo del boton Auto: lo que se cose de verdad sale
+# de la seleccion (Game.piezas_de_coste), asi que si pides 5 y solo da para 4, salen 4.
+var _cantidad: int = 1
+# Tope de columnas de la rejilla de rareza de una tanda (ver MenuScaffold.tramos_por_calidad).
+const MAX_COLUMNAS_RAREZA := 12
 
 
 func _ready() -> void:
@@ -366,35 +371,180 @@ func _build_mochilas() -> void:
 		_sumar_claim(claim, cor, _sel_cor)
 		_sumar_claim(claim, cue, _sel_cue)
 		Net.reservar(claim)
-	_contadores(heb, _sel_heb, int(coste["hebillas"]))
-	_contadores(cor, _sel_cor, int(coste["correa"]))
-	_contadores(cue, _sel_cue, int(coste["cuero"]))
+	# CUANTAS mochilas salen con lo elegido: los contadores cuentan la TANDA entera, no una pieza.
+	var mats: Array = [heb, cor, cue]
+	var sels: Array = [_sel_heb, _sel_cor, _sel_cue]
+	var uds: Array = [int(coste["hebillas"]), int(coste["correa"]), int(coste["cuero"])]
+	var piezas: int = Game.piezas_de_coste(mats, sels, uds)
+	var cuantas: int = maxi(1, piezas)
+	for i in mats.size():
+		_contadores(mats[i], sels[i], int(uds[i]) * cuantas)
 	_note("Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la mochila: mejora la RAREZA, y con ella lo que te cabe dentro.")
 
 	# --- Rareza EN VIVO, y lo que daria cada una ---
+	# Con una TANDA, cada mochila se cose con SU lote de material (el mejor va a las primeras, ver
+	# Game.lotes_de_seleccion) y por tanto tira su propia rareza: eso va en rejilla de columnas, con
+	# la carga de cada rareza debajo como leyenda.
 	_content.add_child(HSeparator.new())
-	var score: float = Game.score_mochila(heb, _sel_heb, _sel_cor, _sel_cue)
-	MenuScaffold.titulo(_content, "Rareza que puede salir")
-	var probs: Array = Forge.probs_rareza(score)
-	for i in probs.size():
-		var p: float = float(probs[i])
-		if p <= 0.0:
-			continue
-		_row(Upgrades.rareza_nombre(i), "%s%%   →  +%.0f de carga" % [
-			str(snappedf(p * 100.0, 0.1)), _carga_de(tier, i)],
-			Upgrades.rareza_color(i))
+	var materiales: Array = []
+	if piezas > 1:
+		var gastos: Array = []
+		for i in mats.size():
+			gastos.append(Game.recortar_seleccion(sels[i], int(uds[i]) * piezas))
+		for lote in Game.lotes_de_seleccion(gastos, uds, piezas):
+			materiales.append(Game.score_uds(lote))
+	var tramos: Array = MenuScaffold.tramos_por_calidad(materiales, MAX_COLUMNAS_RAREZA)
+	if piezas > 1 and tramos.size() > 1:
+		MenuScaffold.titulo(_content, "Rareza que puede salir  ·  %d mochilas, cada una con su material" % piezas)
+		_rejilla_mochila(materiales, tramos, heb)
+		_content.add_child(HSeparator.new())
+		MenuScaffold.titulo(_content, "Lo que da cada rareza", 13)
+		for i in Upgrades.RAREZA_NOMBRE.size():
+			_row(Upgrades.rareza_nombre(i), "+%.0f de carga" % _carga_de(tier, i),
+				Upgrades.rareza_color(i))
+	else:
+		var score: float = Game.score_mochila(heb, _sel_heb, _sel_cor, _sel_cue)
+		MenuScaffold.titulo(_content, "Rareza que puede salir%s" % (
+			"" if piezas <= 1 else "  ·  %d mochilas con el mismo material" % piezas))
+		var probs: Array = Forge.probs_rareza(score)
+		for i in probs.size():
+			var p: float = float(probs[i])
+			if p <= 0.0:
+				continue
+			_row(Upgrades.rareza_nombre(i), "%s%%   →  +%.0f de carga" % [
+				str(snappedf(p * 100.0, 0.1)), _carga_de(tier, i)],
+				Upgrades.rareza_color(i))
 	_row("Llevas ahora", "%d de capacidad" % roundi(Game.capacidad_carga()))
 
+	# --- Cantidad + los dos Autos, igual que en el herrero ---
 	_content.add_child(HSeparator.new())
-	var ok: bool = Game.mochila_valida(heb, _sel_heb, _sel_cor, _sel_cue)
+	var acc := HBoxContainer.new()
+	acc.add_theme_constant_override("separation", 8)
+	var cant_lbl := Label.new()
+	cant_lbl.text = "Cantidad"
+	acc.add_child(cant_lbl)
+	MenuScaffold.stepper(acc, _cantidad, 1, 99, func(v: int) -> void: _cantidad = v)
+	var auto_mej := Button.new()
+	auto_mej.text = "Auto ▲"
+	auto_mej.tooltip_text = "Rellena empezando por el MEJOR material que tengas (puro, intacto...). Sube la rareza que puede salir."
+	auto_mej.pressed.connect(_on_auto.bind(true))
+	acc.add_child(auto_mej)
+	var auto_peor := Button.new()
+	auto_peor.text = "Auto ▼"
+	auto_peor.tooltip_text = "Rellena empezando por el PEOR material que tengas (dañado, normal...). Para gastar lo que sobra sin tocar lo bueno."
+	auto_peor.pressed.connect(_on_auto.bind(false))
+	acc.add_child(auto_peor)
+	var limpiar := Button.new()
+	limpiar.text = "Limpiar"
+	limpiar.pressed.connect(_on_limpiar_mochila)
+	acc.add_child(limpiar)
+	_content.add_child(acc)
+
+	var txt: String = "Faltan materiales"
+	if piezas == 1:
+		txt = "Coser la mochila"
+	elif piezas > 1:
+		txt = "Coser (%d mochilas)" % piezas
 	var b_hacer := Button.new()
-	b_hacer.text = "Coser la mochila" if ok else "Faltan materiales"
-	b_hacer.disabled = not ok
+	b_hacer.text = txt
+	b_hacer.disabled = piezas < 1
 	b_hacer.custom_minimum_size = Vector2(0, 36)
 	b_hacer.pressed.connect(_on_coser)
 	_content.add_child(b_hacer)
 
 	_estado_peleteria()
+
+
+# La rejilla de una tanda de mochilas: una columna por tramo de piezas iguales, una fila por rareza.
+# Misma forma que la del herrero (MenuScaffold.rejilla_probs), que las dos tiran con score_final.
+func _rejilla_mochila(materiales: Array, tramos: Array, heb: MaterialData) -> void:
+	var oficio: float = Forge.bonus_herreria(Game.peleteria_activa())
+	var bono_metal: float = Forge.bonus_metal(heb)
+	var corto: bool = tramos.size() > 6
+	var cabeceras: Array = []
+	var calidad: Array = []
+	var tier_pct: Array = []
+	var aporta: bool = false
+	var probs_col: Array = []
+	var sale: Dictionary = {}
+	for tramo in tramos:
+		var mat_c: float = float(materiales[int(tramo["i"])])
+		cabeceras.append(MenuScaffold.numeros_tramo(tramo))
+		calidad.append("%d%%" % roundi(mat_c * 100.0))
+		# El empujon del TIER solo se enseña si empuja: con hebillas T1, o con material intacto (el
+		# tope de score_final no le deja sumar), es siempre cero.
+		var p_t: int = roundi((Forge.score_final(mat_c, oficio, bono_metal)
+			- Forge.score_final(mat_c, oficio, 0.0)) * 100.0)
+		tier_pct.append("%+d%%" % p_t)
+		aporta = aporta or p_t != 0
+		var probs: Array = Forge.probs_rareza(Forge.score_final(mat_c, oficio, bono_metal))
+		probs_col.append(probs)
+		for i in probs.size():
+			if float(probs[i]) > 0.0:
+				sale[i] = true
+	var filas: Array = [{"etiqueta": "calidad", "color": GRIS, "valores": calidad}]
+	if aporta:
+		filas.append({"etiqueta": "tier", "color": GRIS, "valores": tier_pct})
+	var rarezas: Array = sale.keys()
+	rarezas.sort()
+	for r in rarezas:
+		var valores: Array = []
+		for c in probs_col.size():
+			var p: float = float((probs_col[c] as Array)[int(r)])
+			if p <= 0.0:
+				valores.append(MenuScaffold.GUION)
+			else:
+				valores.append("%d%%" % roundi(p * 100.0) if corto
+					else "%s%%" % str(snappedf(p * 100.0, 0.1)))
+		filas.append({"etiqueta": Upgrades.rareza_nombre(int(r)),
+			"color": Upgrades.rareza_color(int(r)), "valores": valores})
+	MenuScaffold.rejilla_probs(_content, "pieza", cabeceras, filas)
+
+
+# Los dos Autos: ▲ empieza por el mejor material, ▼ por el peor. Rellenan para `_cantidad` mochilas;
+# si no llega, rellenan lo que salga (el boton de coser ya dice cuantas cubre eso).
+func _on_auto(mejor_primero: bool) -> void:
+	var hebillas: Array = Game.hebillas_conocidas()
+	if hebillas.is_empty():
+		return
+	var heb: MaterialData = hebillas[clampi(_heb_idx, 0, hebillas.size() - 1)]
+	var cor: MaterialData = Game.correa_de_mochila(heb)
+	var cue: MaterialData = Game.cuero_de_mochila(heb)
+	if cor == null or cue == null:
+		return
+	var veces: int = maxi(1, _cantidad)
+	var coste: Dictionary = Game.MOCHILA_COSTE
+	_sel_heb = _auto_sel(heb, int(coste["hebillas"]) * veces, mejor_primero)
+	_sel_cor = _auto_sel(cor, int(coste["correa"]) * veces, mejor_primero)
+	_sel_cue = _auto_sel(cue, int(coste["cuero"]) * veces, mejor_primero)
+	_rebuild()
+
+
+# Rellena una seleccion con `necesita` unidades de `mat`, de mejor a peor (o al reves). Lee lo
+# DISPONIBLE, no el stock a secas: en multijugador no se pide lo que el compañero tiene reservado.
+func _auto_sel(mat: MaterialData, necesita: int, mejor_primero: bool) -> Dictionary:
+	var sel: Dictionary = {}
+	var restante: int = necesita
+	var orden: Array = CALIDADES.duplicate()
+	if not mejor_primero:
+		orden.reverse()
+	for cal in orden:
+		if restante <= 0:
+			break
+		var disp: int = Game.disponible_calidad_en_hogar(mat, int(cal))
+		var uds: int = MaterialItem.crear(null, int(cal)).unidades_crafteo()
+		if disp <= 0 or uds <= 0:
+			continue
+		var usar: int = mini(int(ceil(float(restante) / float(uds))), disp)
+		if usar > 0:
+			sel[cal] = usar
+			restante -= usar * uds
+	return sel
+
+
+func _on_limpiar_mochila() -> void:
+	_limpiar()
+	_rebuild()
 
 
 # Lo que daria una mochila de este tier y esta rareza (derivado, nunca escrito a mano).
@@ -418,13 +568,24 @@ func _on_coser() -> void:
 		_ocupado()
 		_rebuild()
 		return
-	var m: Resource = Game.fabricar_mochila(heb, _sel_heb, _sel_cor, _sel_cue)
+	# TANDA: se cosen todas las que cubra lo elegido, cada una con su lote de material y su tirada.
+	var coste: Dictionary = Game.MOCHILA_COSTE
+	var piezas: int = Game.piezas_de_coste(
+		[heb, Game.correa_de_mochila(heb), Game.cuero_de_mochila(heb)],
+		[_sel_heb, _sel_cor, _sel_cue],
+		[int(coste["hebillas"]), int(coste["correa"]), int(coste["cuero"])])
+	var hechas: Array = Game.fabricar_mochila_tanda(heb, _sel_heb, _sel_cor, _sel_cue, piezas)
 	if Net.activo:
 		Net.cerrar_taller()
 		Net.liberar_mis_reservas()   # consumido: suelto la reserva
-	if m != null:
+	if hechas.size() == 1:
 		_decir("Coses %s: +%.0f de carga. Equípala en el menú de personaje [C]." % [
-			Game.item_display_name(m), Game.capacidad_mochila(m as BackpackData)])
+			Game.item_display_name(hechas[0]), Game.capacidad_mochila(hechas[0] as BackpackData)])
+	elif hechas.size() > 1:
+		var nombres: PackedStringArray = []
+		for m in hechas:
+			nombres.append(Game.item_display_name(m as Resource))
+		_decir("Coses %d mochilas: %s. Están en tu baúl [C]." % [hechas.size(), ", ".join(nombres)])
 	else:
 		_decir("Te faltan materiales.", false)
 	_limpiar()

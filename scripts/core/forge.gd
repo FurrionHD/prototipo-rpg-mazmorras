@@ -115,13 +115,28 @@ static func prob_devolver_forja(factor: float) -> float:
 # mas probables las rarezas buenas. Un tocho de metal noble ya viene medio hecho.
 const BONUS_POR_TIER_METAL := 0.10   # T1 +0, T2 +0.10, T3 +0.20 al score
 
-# OJO: solo el TIER, no el sub-tier. Los sub-tiers (cobre veteado, profundo...) no llegan aqui
-# porque no se puede FABRICAR con ellos: la forja solo ofrece la banda base (ver
-# Game.lingotes_conocidos). Son material de MEJORA, no de fabricacion.
+# OJO: solo el TIER, no el sub-tier. En la FORJA de armas y armaduras no se puede fabricar con
+# sub-tiers (la lista solo ofrece la banda base, ver Game.lingotes_conocidos): son material de
+# MEJORA. Donde SI se fabrica con veta es en las herramientas, y esas usan bonus_metal_veta.
 static func bonus_metal(lingote: MaterialData) -> float:
 	if lingote == null:
 		return 0.0
 	return BONUS_POR_TIER_METAL * float(maxi(1, lingote.tier) - 1)
+
+
+# El empujon del metal cuando la VETA tambien cuenta: las HERRAMIENTAS, el unico sitio donde se
+# forja con sub-tier. Cada veta vale un TERCIO de tier, asi que el cobre profundo se nota de verdad
+# pero no alcanza al hierro en bruto -- subir de tier tiene que seguir siendo el salto gordo.
+#
+# La veta ya se cobraba en lo que da la herramienta (afinidad y golpes ahorrados, ver
+# Upgrades.tool_mods); esto es lo otro que pedia el material bueno: que la tirada de rareza tambien
+# lo note. Sigue capado por score_final, o sea que con material intacto no suma nada.
+const BONUS_POR_VETA := BONUS_POR_TIER_METAL / 3.0
+
+static func bonus_metal_veta(lingote: MaterialData) -> float:
+	if lingote == null:
+		return 0.0
+	return bonus_metal(lingote) + BONUS_POR_VETA * float(Upgrades.banda_columna(int(lingote.mejora_min)))
 
 
 # El SCORE final con el que se tira la rareza, juntando las tres fuentes con SU jerarquia:

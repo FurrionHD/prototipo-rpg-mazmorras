@@ -7056,27 +7056,63 @@ func mochila_valida(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dictio
 		and uds_seleccion(sel_cue) >= int(MOCHILA_COSTE["cuero"])
 
 func fabricar_mochila(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dictionary, sel_cue: Dictionary) -> Resource:
-	if not mochila_valida(hebillas, sel_heb, sel_cor, sel_cue):
-		return null
-	var g_heb: Dictionary = recortar_seleccion(sel_heb, int(MOCHILA_COSTE["hebillas"]))
-	var g_cor: Dictionary = recortar_seleccion(sel_cor, int(MOCHILA_COSTE["correa"]))
-	var g_cue: Dictionary = recortar_seleccion(sel_cue, int(MOCHILA_COSTE["cuero"]))
-	var tier: int = Forge.tier_de_metal(hebillas)
-	var rareza: int = Forge.tirar_rareza(score_mochila(hebillas, sel_heb, sel_cor, sel_cue))
+	var out: Array = fabricar_mochila_tanda(hebillas, sel_heb, sel_cor, sel_cue, 1)
+	return null if out.is_empty() else out[0] as Resource
+
+
+# ¿Para CUANTAS piezas llegan estas selecciones en una receta de coste FIJO (mochila, herramienta)?
+# Hermana de piezas_de_seleccion_forja, pero con los materiales y el coste dados a mano: estas dos
+# recetas no salen de Forge.coste (ver HERRAMIENTA_COSTE / MOCHILA_COSTE).
+func piezas_de_coste(mats: Array, selecciones: Array, uds: Array) -> int:
+	var n: int = -1
+	for i in mats.size():
+		var mat: MaterialData = mats[i]
+		if mat == null or not _sel_disponible(mat, selecciones[i]):
+			return 0
+		var cuesta: int = int(uds[i])
+		if cuesta <= 0:
+			continue
+		var cabe: int = uds_seleccion(selecciones[i]) / cuesta
+		n = cabe if n < 0 else mini(n, cabe)
+	return maxi(0, n)
+
+
+# COSE hasta `n` mochilas de una tacada. Como forjar_tanda: el consumo sale del total recortado y
+# cada mochila tira SU rareza con el lote de calidad que le toca (ver lotes_de_seleccion).
+func fabricar_mochila_tanda(hebillas: MaterialData, sel_heb: Dictionary, sel_cor: Dictionary,
+		sel_cue: Dictionary, n: int) -> Array:
+	if hebillas == null:
+		return []
 	var cor: MaterialData = correa_de_mochila(hebillas)
 	var cue: MaterialData = cuero_de_mochila(hebillas)
-	_consumir_seleccion_material(hebillas, g_heb)
-	_consumir_seleccion_material(cor, g_cor)
-	_consumir_seleccion_material(cue, g_cue)
-	_tirar_devolucion(hebillas, g_heb, int(MOCHILA_COSTE["hebillas"]))
-	_tirar_devolucion(cor, g_cor, int(MOCHILA_COSTE["correa"]))
-	_tirar_devolucion(cue, g_cue, int(MOCHILA_COSTE["cuero"]))
-	var m: Resource = crear_item(mochila_base(), tier, rareza, {})
-	peleteria_exp += _puntos_oficio("peleteria", tier)
-	print("[peletero] Coses una mochila con %s -> T%d %s (+%.0f de carga).  Peleteria %s" % [
-		hebillas.nombre, tier, Upgrades.rareza_nombre(rareza),
-		capacidad_mochila(m as BackpackData), snappedf(peleteria_exp, 0.1)])
-	return m
+	if cor == null or cue == null:
+		return []   # a ese tier aun no le existe su correa (o su curtido)
+	var mats: Array = [hebillas, cor, cue]
+	var sels: Array = [sel_heb, sel_cor, sel_cue]
+	var uds: Array = [int(MOCHILA_COSTE["hebillas"]), int(MOCHILA_COSTE["correa"]),
+		int(MOCHILA_COSTE["cuero"])]
+	var piezas: int = mini(maxi(0, n), piezas_de_coste(mats, sels, uds))
+	if piezas < 1:
+		return []
+	var tier: int = Forge.tier_de_metal(hebillas)
+	var bono: float = Forge.bonus_herreria(peleteria_activa())
+	var bono_metal: float = Forge.bonus_metal(hebillas)
+	var gastos: Array = []
+	for i in mats.size():
+		gastos.append(recortar_seleccion(sels[i], int(uds[i]) * piezas))
+	var out: Array = []
+	var rarezas: PackedStringArray = []
+	for lote in lotes_de_seleccion(gastos, uds, piezas):
+		var rareza: int = Forge.tirar_rareza(Forge.score_final(score_uds(lote), bono, bono_metal))
+		out.append(crear_item(mochila_base(), tier, rareza, {}))
+		rarezas.append(Upgrades.rareza_nombre(rareza))
+	for i in mats.size():
+		_consumir_seleccion_material(mats[i], gastos[i])
+		_tirar_devolucion(mats[i], gastos[i], int(uds[i]) * piezas)
+	peleteria_exp += _puntos_oficio("peleteria", tier) * float(piezas)
+	print("[peletero] Coses %d mochila(s) con %s -> T%d %s.  Peleteria %s" % [
+		piezas, hebillas.nombre, tier, ", ".join(rarezas), snappedf(peleteria_exp, 0.1)])
+	return out
 
 
 # --- FORJAR una HERRAMIENTA (herrero) ---
@@ -7125,9 +7161,12 @@ func tablon_de_herramienta(lingote: MaterialData) -> MaterialData:
 			return md
 	return null
 
+# El empujon del metal cuenta AQUI con la veta (bonus_metal_veta): la herramienta es lo unico que se
+# fabrica con sub-tier, asi que forjar con cobre profundo tiene que notarse tambien en la tirada, no
+# solo en los golpes que ahorra.
 func score_herramienta(lingote: MaterialData, sel_met: Dictionary, sel_tab: Dictionary) -> float:
 	return Forge.score_final(score_seleccion([sel_met, sel_tab]),
-		Forge.bonus_herreria(herreria_activa()), Forge.bonus_metal(lingote))
+		Forge.bonus_herreria(herreria_activa()), Forge.bonus_metal_veta(lingote))
 
 func herramienta_valida(lingote: MaterialData, sel_met: Dictionary, sel_tab: Dictionary) -> bool:
 	if lingote == null:
@@ -7142,37 +7181,68 @@ func herramienta_valida(lingote: MaterialData, sel_met: Dictionary, sel_tab: Dic
 
 func fabricar_herramienta(tipo: int, lingote: MaterialData, sel_met: Dictionary,
 		sel_tab: Dictionary) -> Resource:
-	if not herramienta_valida(lingote, sel_met, sel_tab):
-		return null
+	var out: Array = fabricar_herramienta_tanda(tipo, lingote, sel_met, sel_tab, 1)
+	return null if out.is_empty() else out[0] as Resource
+
+
+# ¿Para cuantas herramientas llega lo elegido? (ver piezas_de_coste)
+func piezas_de_seleccion_herramienta(lingote: MaterialData, sel_met: Dictionary,
+		sel_tab: Dictionary) -> int:
+	var tab: MaterialData = tablon_de_herramienta(lingote)
+	if lingote == null or tab == null:
+		return 0
+	return piezas_de_coste([lingote, tab], [sel_met, sel_tab],
+		[int(HERRAMIENTA_COSTE["metal"]), int(HERRAMIENTA_COSTE["tablon"])])
+
+
+# FORJA hasta `n` herramientas de una tacada. Como forjar_tanda: el consumo sale del total recortado
+# y cada una tira SU rareza con el lote de calidad que le toca.
+func fabricar_herramienta_tanda(tipo: int, lingote: MaterialData, sel_met: Dictionary,
+		sel_tab: Dictionary, n: int) -> Array:
 	var base: ToolData = herramienta_base(tipo)
-	if base == null:
-		return null
-	var g_met: Dictionary = recortar_seleccion(sel_met, int(HERRAMIENTA_COSTE["metal"]))
-	var g_tab: Dictionary = recortar_seleccion(sel_tab, int(HERRAMIENTA_COSTE["tablon"]))
+	var tab: MaterialData = tablon_de_herramienta(lingote)
+	if base == null or lingote == null or tab == null:
+		return []
+	var mats: Array = [lingote, tab]
+	var sels: Array = [sel_met, sel_tab]
+	var uds: Array = [int(HERRAMIENTA_COSTE["metal"]), int(HERRAMIENTA_COSTE["tablon"])]
+	var piezas: int = mini(maxi(0, n), piezas_de_coste(mats, sels, uds))
+	if piezas < 1:
+		return []
 	var tier: int = Forge.tier_de_metal(lingote)
 	# La BANDA es el sub-tier del mineral del que salio este lingote (su mejora_min).
 	var banda: int = int(lingote.mejora_min)
-	var rareza: int = Forge.tirar_rareza(score_herramienta(lingote, sel_met, sel_tab))
-	var tab: MaterialData = tablon_de_herramienta(lingote)
-	_consumir_seleccion_material(lingote, g_met)
-	_consumir_seleccion_material(tab, g_tab)
-	_tirar_devolucion(lingote, g_met, int(HERRAMIENTA_COSTE["metal"]))
-	_tirar_devolucion(tab, g_tab, int(HERRAMIENTA_COSTE["tablon"]))
-	var t: Resource = crear_item(base, tier, rareza, {}, true, banda)
-	# La plantilla es la herramienta DE SERIE ("Hacha desafilada", "pesa mas de lo que corta"), y su
-	# nombre y su descripcion describen justo lo contrario de lo que acabas de forjar: sin esto, una
-	# prístina de cobre profundo se anunciaba como "Hacha desafilada · T1 Pristino". La copia estrena
-	# nombre neutro (el tier, la rareza y la veta ya los pone la ficha) y se queda sin el sabor de la
-	# de serie, que sigue siendo suyo.
-	t.set("nombre", base.tipo_texto())
-	t.set("descripcion", "")
-	herreria_exp += _puntos_oficio("herreria", tier)
-	var mods: Dictionary = tool_mods(t as ToolData)
-	print("[herrero] Forjas %s con %s -> T%d %s (banda %d): afinidad +%.0f, -%d %s.  Herreria %s" % [
-		base.tipo_texto().to_lower(), lingote.nombre, tier, Upgrades.rareza_nombre(rareza), banda,
-		float(mods["afinidad"]), int(mods["golpes_menos"]),
-		base.unidad_golpes(int(mods["golpes_menos"])), snappedf(herreria_exp, 0.1)])
-	return t
+	var bono: float = Forge.bonus_herreria(herreria_activa())
+	# Aqui SI cuenta la veta, que es lo unico que se fabrica con ella (ver Forge.bonus_metal_veta).
+	var bono_metal: float = Forge.bonus_metal_veta(lingote)
+	var gastos: Array = []
+	for i in mats.size():
+		gastos.append(recortar_seleccion(sels[i], int(uds[i]) * piezas))
+	var out: Array = []
+	var detalle: PackedStringArray = []
+	for lote in lotes_de_seleccion(gastos, uds, piezas):
+		var rareza: int = Forge.tirar_rareza(Forge.score_final(score_uds(lote), bono, bono_metal))
+		var t: Resource = crear_item(base, tier, rareza, {}, true, banda)
+		# La plantilla es la herramienta DE SERIE ("Hacha desafilada", "pesa mas de lo que corta"), y
+		# su nombre y su descripcion describen justo lo contrario de lo que acabas de forjar: sin
+		# esto, una prístina de cobre profundo se anunciaba como "Hacha desafilada · T1 Pristino". La
+		# copia estrena nombre neutro (el tier, la rareza y la veta ya los pone la ficha) y se queda
+		# sin el sabor de la de serie, que sigue siendo suyo.
+		t.set("nombre", base.tipo_texto())
+		t.set("descripcion", "")
+		out.append(t)
+		var mods: Dictionary = tool_mods(t as ToolData)
+		detalle.append("%s (afinidad +%.0f, -%d %s)" % [Upgrades.rareza_nombre(rareza),
+			float(mods["afinidad"]), int(mods["golpes_menos"]),
+			base.unidad_golpes(int(mods["golpes_menos"]))])
+	for i in mats.size():
+		_consumir_seleccion_material(mats[i], gastos[i])
+		_tirar_devolucion(mats[i], gastos[i], int(uds[i]) * piezas)
+	herreria_exp += _puntos_oficio("herreria", tier) * float(piezas)
+	print("[herrero] Forjas %d x %s con %s -> T%d (banda %d): %s.  Herreria %s" % [
+		piezas, base.tipo_texto().to_lower(), lingote.nombre, tier, banda,
+		", ".join(detalle), snappedf(herreria_exp, 0.1)])
+	return out
 
 
 # --- MEJORAR una pieza con NUCLEOS ---
