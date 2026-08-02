@@ -981,17 +981,19 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 # las de verdad), pero NO se desglosa: el rango del oficio es oculto y ponerlo aqui como un "+X%" lo
 # cantaba.
 #
-# Lo que aporta el METAL tampoco se desglosa ya. Era una linea que decia "+0%" casi siempre y no por
-# un fallo: bonus_metal es 0.10 por tier POR ENCIMA del primero, o sea CERO con todo el cobre, y
-# ademas score_final lo capa en el techo del material recolectado, asi que con material intacto
-# tampoco suma. Un numero que solo se mueve en un caso raro (metal noble + material malo) no merece
-# una linea fija; sigue contando en las probabilidades de abajo, que es donde se ve.
+# Lo que aporta el TIER del metal solo se dice CUANDO APORTA. Casi siempre es +0% y no por un fallo:
+# bonus_metal es 0.10 por tier POR ENCIMA del primero (o sea CERO con todo el cobre) y ademas
+# score_final lo capa en el techo del material recolectado, asi que con material intacto tampoco
+# suma. Hace falta metal noble Y material del malo para que se mueva; el resto del tiempo era una
+# linea fija diciendo cero.
 func _tabla_rareza(vb: VBoxContainer, base: Resource, metal: MaterialData, material: float) -> void:
 	# El empujon de oficio es Carpinteria en las armas magicas, Herreria en el resto.
 	var oficio_factor: float = Game.carpinteria_activa() if _es_magica(base) else Game.herreria_activa()
 	var herr: float = Forge.bonus_herreria(oficio_factor)
 	var score: float = Forge.score_final(material, herr, Forge.bonus_metal(metal))
-	_note(vb, "Calidad del material %d%%" % roundi(material * 100.0))
+	var tier_pct: int = roundi((score - Forge.score_final(material, herr, 0.0)) * 100.0)
+	_note(vb, "Calidad del material %d%%%s" % [roundi(material * 100.0),
+		"" if tier_pct == 0 else "  +  tier %+d%%" % tier_pct])
 	var probs: Array = Forge.probs_rareza(score)
 	for i in probs.size():
 		var p: float = float(probs[i])
@@ -1096,6 +1098,21 @@ func _rareza_por_pieza(vb: VBoxContainer, base: Resource, metal: MaterialData, p
 		_celda(grid, "%d%%" % roundi(float(materiales[int(tramo["i"])]) * 100.0), ancho_col, tam,
 			GRIS, true)
 	_relleno(grid)
+	# Lo que aporta el TIER del metal, SOLO si aporta en alguna columna (ver _tabla_rareza: con cobre
+	# o con material intacto es siempre cero, y una fila entera de "+0%" es ruido).
+	var tier_pct: Array = []
+	var aporta: bool = false
+	for tramo in tramos:
+		var mat_c: float = float(materiales[int(tramo["i"])])
+		var p_t: int = roundi((Forge.score_final(mat_c, herr, bono_metal)
+			- Forge.score_final(mat_c, herr, 0.0)) * 100.0)
+		tier_pct.append(p_t)
+		aporta = aporta or p_t != 0
+	if aporta:
+		_celda(grid, "tier", ancho_nombre, tam, GRIS, false)
+		for p_t in tier_pct:
+			_celda(grid, "%+d%%" % int(p_t), ancho_col, tam, GRIS, true)
+		_relleno(grid)
 	for r in rarezas:
 		_celda(grid, Upgrades.rareza_nombre(int(r)), ancho_nombre, tam,
 			Upgrades.rareza_color(int(r)), false)
