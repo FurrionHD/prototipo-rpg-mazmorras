@@ -1088,13 +1088,9 @@ func _rareza_por_pieza(vb: VBoxContainer, base: Resource, metal: MaterialData, p
 		_celda(grid, str(d) if d == h else "%d-%d" % [d, h], ancho_col, tam,
 			Color(0.7, 0.8, 0.95), true)
 	_relleno(grid)
-	# La calidad del material de cada columna: es la que mueve toda la tirada de debajo.
-	_celda(grid, "material", ancho_nombre, tam, GRIS, false)
-	for tramo in tramos:
-		_celda(grid, "%d%%" % roundi(float(materiales[int(tramo["i"])]) * 100.0), ancho_col, tam,
-			GRIS, true)
-	_relleno(grid)
-	# Y lo que aporta el METAL, que no es igual en todas: se capa en el techo del material, asi que
+	# La calidad del material NO se pinta: es lo que separa unas columnas de otras, pero como numero
+	# no dice nada que no digan ya las probabilidades de debajo (a mejor material, mejor tirada).
+	# Lo que aporta el METAL si, porque no es igual en todas: se capa en el techo del material, asi que
 	# donde la pieza va con material puro el metal no suma nada (ver Forge.score_final).
 	_celda(grid, "metal", ancho_nombre, tam, GRIS, false)
 	for tramo in tramos:
