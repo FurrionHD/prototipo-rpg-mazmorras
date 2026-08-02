@@ -981,7 +981,7 @@ func _preview_forjar(vb: VBoxContainer) -> void:
 # las de verdad), pero NO se desglosa: el rango del oficio es oculto y ponerlo aqui como un "+X%" lo
 # cantaba.
 #
-# Lo que aporta el TIER del metal solo se dice CUANDO APORTA. Casi siempre es +0% y no por un fallo:
+# Lo que aporta la CATEGORIA del metal (su tier) solo se dice CUANDO APORTA. Casi siempre es +0% y no por un fallo:
 # bonus_metal es 0.10 por tier POR ENCIMA del primero (o sea CERO con todo el cobre) y ademas
 # score_final lo capa en el techo del material recolectado, asi que con material intacto tampoco
 # suma. Hace falta metal noble Y material del malo para que se mueva; el resto del tiempo era una
@@ -993,7 +993,7 @@ func _tabla_rareza(vb: VBoxContainer, base: Resource, metal: MaterialData, mater
 	var score: float = Forge.score_final(material, herr, Forge.bonus_metal(metal))
 	var tier_pct: int = roundi((score - Forge.score_final(material, herr, 0.0)) * 100.0)
 	_note(vb, "Calidad del material %d%%%s" % [roundi(material * 100.0),
-		"" if tier_pct == 0 else "  +  tier %+d%%" % tier_pct])
+		"" if tier_pct == 0 else "  +  categoría %+d%%" % tier_pct])
 	var probs: Array = Forge.probs_rareza(score)
 	for i in probs.size():
 		var p: float = float(probs[i])
@@ -1059,7 +1059,7 @@ func _rejilla_rareza(vb: VBoxContainer, materiales: Array, tramos: Array, oficio
 		var mat_c: float = float(materiales[int(tramo["i"])])
 		cabeceras.append(MenuScaffold.numeros_tramo(tramo))
 		calidad.append("%d%%" % roundi(mat_c * 100.0))
-		# Lo que aporta el TIER del metal casi siempre es cero (con el T1, o con material intacto: el
+		# Lo que aporta la CATEGORIA del metal casi siempre es cero (con el T1, o con material intacto: el
 		# tope de score_final no le deja sumar), y una fila entera de "+0%" es ruido.
 		var p_t: int = roundi((Forge.score_final(mat_c, oficio, bono_metal)
 			- Forge.score_final(mat_c, oficio, 0.0)) * 100.0)
@@ -1073,7 +1073,7 @@ func _rejilla_rareza(vb: VBoxContainer, materiales: Array, tramos: Array, oficio
 
 	var filas: Array = [{"etiqueta": "calidad", "color": GRIS, "valores": calidad}]
 	if aporta:
-		filas.append({"etiqueta": "tier", "color": GRIS, "valores": tier_pct})
+		filas.append({"etiqueta": "categoría", "color": GRIS, "valores": tier_pct})
 	# Solo las rarezas que llegan a salir en ALGUNA columna: las demas no gastan una fila de guiones.
 	var rarezas: Array = sale.keys()
 	rarezas.sort()

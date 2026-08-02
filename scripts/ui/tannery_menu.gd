@@ -484,7 +484,7 @@ func _rejilla_mochila(materiales: Array, tramos: Array, heb: MaterialData, carga
 				sale[i] = true
 	var filas: Array = [{"etiqueta": "calidad", "color": GRIS, "valores": calidad}]
 	if aporta:
-		filas.append({"etiqueta": "tier", "color": GRIS, "valores": tier_pct})
+		filas.append({"etiqueta": "categoría", "color": GRIS, "valores": tier_pct})
 	var rarezas: Array = sale.keys()
 	rarezas.sort()
 	for r in rarezas:
