@@ -665,6 +665,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 	var caben: int = int(tope / maxf(0.1, peso_ud))
 	MenuScaffold.fila(_content, "Trabajarán", "%d unidades" % trabajadas)
 	MenuScaffold.fila(_content, "Les caben", "%d  (%.0f kg)" % [caben, tope])
+	_build_reparto_botin(trabajadas)
 	if caben < trabajadas:
 		var faltan := Label.new()
 		faltan.text = "Se dejarán ~%d por peso: mándales una mochila." % (trabajadas - caben)
@@ -702,6 +703,39 @@ func _build_encargo_pronostico(libres: Array) -> void:
 		_enc_sub = 0
 		_rebuild())
 	_content.add_child(b)
+
+
+# QUÉ PARTE DEL BOTÍN es cada material. Ahora las unidades siguen a la gente (dos a las vetas traen
+# el doble de mineral), así que hace falta ver el efecto de mover a alguien SIN tener que mandarlos
+# primero. El % de cada material es el de su tipo por el peso que tiene dentro de su tabla: un tipo
+# al 40% con dos materiales al 50/50 son dos materiales al 20%.
+func _build_reparto_botin(trabajadas: int) -> void:
+	var por_tipo: Dictionary = Encargos.repartir(trabajadas, _enc_tipos, _miembros_previstos(),
+		_enc_uids)
+	var filas: Array = []
+	for t in _enc_tipos:
+		var tipo: int = int(t)
+		var uds: int = int(por_tipo.get(tipo, 0))
+		var cuota: float = float(uds) / maxf(1.0, float(trabajadas))
+		var pool: Array = Encargos.opciones(tipo, _enc_piso)
+		var peso_total: float = 0.0
+		for o in pool:
+			peso_total += float(o["peso"])
+		for o in pool:
+			var m := o["material"] as MaterialData
+			filas.append({"etiqueta": m.nombre, "color": m.color_rango(), "orden": cuota
+				* float(o["peso"]) / maxf(0.001, peso_total)})
+	if filas.is_empty():
+		return
+	filas.sort_custom(func(a, b): return float(a["orden"]) > float(b["orden"]))
+	var recorte: Array = filas.slice(0, CALIDADES_A_LA_VISTA)
+	for f in recorte:
+		(f as Dictionary)["valores"] = [Encargos.pct(float((f as Dictionary)["orden"]))]
+	MenuScaffold.titulo(_content, "Cuánto de cada cosa", 13)
+	MenuScaffold.rejilla_probs(_content, "Material", ["Del botín"], recorte)
+	if filas.size() > recorte.size():
+		MenuScaffold.nota(_content, "(y %d material%s más, con menos)" % [filas.size() - recorte.size(),
+			"" if filas.size() - recorte.size() == 1 else "es"])
 
 
 # Una fila por MATERIAL con la calidad que le sacarían. Se ordenan por exigencia (de lo fácil a lo

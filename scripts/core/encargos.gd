@@ -659,15 +659,36 @@ static func unidades(duracion: int, n_miembros: int, golpes_menos: int, factor: 
 	return maxi(1, int(round(UNID_HORA * horas * float(maxi(1, n_miembros)) * factor
 		* (1.0 + GOLPES_UNID * float(golpes_menos)))))
 
-# Reparte n unidades entre los tipos marcados, a partes lo mas iguales posible y sin perder ninguna
-# por el redondeo (las que sobran van a los primeros de la lista).
-static func repartir(n: int, tipos: Array) -> Dictionary:
+# Reparte n unidades entre los tipos marcados SEGUN CUANTA GENTE trabaja cada uno, sin perder
+# ninguna por el redondeo (las que sobran van a los primeros de la lista).
+#
+# Antes iba a partes iguales pasara lo que pasara, y eso hacia que asignar faenas fuera un mal
+# negocio: mandar a dos a las vetas no traia ni una veta mas, pero SI bajaba la calidad de todo lo
+# demas (menos manos en cada cosa). Ahora dos a las vetas traen el doble de mineral y la mitad de
+# hierba. El TOTAL que trae el grupo no cambia: solo cambia en que se reparte el rato.
+#
+# Sin ordenes todos trabajan todo, los pesos salen iguales y esto se comporta como el reparto de
+# siempre -- que es justo lo que tiene que pasar con un encargo viejo del save.
+static func repartir(n: int, tipos: Array, miembros: Array = [], todos: Array = []) -> Dictionary:
+	var pesos: Array = []
+	var suma: float = 0.0
+	for t in tipos:
+		var w: float = float(uids_trabajando(miembros, int(t), todos).size()) if not todos.is_empty() \
+			else 1.0
+		pesos.append(w)
+		suma += w
 	var out: Dictionary = {}
-	var k: int = maxi(1, tipos.size())
-	var base: int = n / k
-	var resto: int = n % k
+	var dado: int = 0
 	for i in tipos.size():
-		out[int(tipos[i])] = base + (1 if i < resto else 0)
+		var cuantas: int = int(floor(float(n) * float(pesos[i]) / maxf(0.001, suma)))
+		out[int(tipos[i])] = cuantas
+		dado += cuantas
+	# Las que sobran del redondeo, a los primeros, como siempre.
+	var i2: int = 0
+	while dado < n and not tipos.is_empty():
+		out[int(tipos[i2 % tipos.size()])] += 1
+		dado += 1
+		i2 += 1
 	return out
 
 
@@ -835,13 +856,16 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 		# dedicado se lleva su rato entero en fuerza en vez de un tercio, aunque el grupo saliera a
 		# tres cosas. Es lo que hace que asignar faenas valga para algo.
 		var mios: Dictionary = {}
+		var manos: Dictionary = {}       # cuanta gente hay en cada uno de SUS tipos
 		var total_uds: float = 0.0
 		for tipo in trabajadas:
 			if int(trabajadas[tipo]) <= 0:
 				continue
-			if not uids_trabajando(miembros, int(tipo), todos).has(pj.uid):
+			var equipo_t: Array = uids_trabajando(miembros, int(tipo), todos)
+			if not equipo_t.has(pj.uid):
 				continue
 			mios[int(tipo)] = int(trabajadas[tipo])
+			manos[int(tipo)] = maxi(1, equipo_t.size())
 			total_uds += float(trabajadas[tipo])
 		# --- A) por RECOLECTAR, UNA VEZ POR TIPO QUE EL TRABAJA. Cada tipo entrena SU stat: por eso
 		# multiseleccionar reparte tambien el aprendizaje, y no es solo comodidad.
@@ -866,8 +890,15 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 				"max_reto": float(of["tope"]),
 				# Por HORAS trabajadas, no por unidades traidas: currar ocho horas enseña lo mismo
 				# aunque la mochila les obligara a dejar la mitad tirada.
+				#
+				# Y PARTIDO ENTRE LOS QUE HACEN ESA FAENA: la excelia de las vetas es un bote del
+				# encargo, no una paga por cabeza. Si van dos a picar, a cada uno le toca la mitad.
+				# Eso es lo que convierte el numero de gente en una decision de verdad en vez de en un
+				# "cuantos mas mejor": mucha gente trae mucho material, poca gente aprende mas rapido.
+				# El reto y los rendimientos decrecientes siguen siendo de cada uno (ver arriba y
+				# Game.ganar), asi que al mas flojo la misma veta le sigue enseñando mas.
 				"base": float(of["gain"]) * GAIN_FACTOR * GAIN_RECO * mult
-					* horas * RITMO_EXCELIA * cuota,
+					* horas * RITMO_EXCELIA * cuota / float(manos[int(tipo)]),
 			})
 		# --- B) por PELEAR. Se la llevan TODOS aunque el encargo sea de picar piedra: ahi abajo hay
 		# bichos. Game.reto() es la misma funcion que usa el combate, y el requisito del piso ya esta
@@ -941,7 +972,7 @@ static func resolver(e: Dictionary, pjs: Array, entradas_cofre: Array) -> Dictio
 
 	# --- Cuanto TRABAJAN (esto es lo que da la excelia; el botin lo recorta el peso despues).
 	var trabajadas: int = unidades(duracion, n, golpes, float(CANTIDAD_DESENLACE[desenlace]))
-	var por_tipo: Dictionary = repartir(trabajadas, tipos)
+	var por_tipo: Dictionary = repartir(trabajadas, tipos, miembros, _uids(pjs))
 
 	# --- Eje 2: que sacan y con que calidad. La calidad la deciden SOLO los que trabajan ese tipo:
 	# si mandaste al fuerte a las vetas y al torpe a las hierbas, el torpe no le estropea el mineral.
