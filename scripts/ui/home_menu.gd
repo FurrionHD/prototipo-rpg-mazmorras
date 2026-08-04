@@ -104,6 +104,19 @@ func abrir() -> void:
 
 
 func _cerrar() -> void:
+	# Si has mandado a TODOS a casa, alguien tiene que llevar el cuerpo: baja tu original.
+	# Va aqui porque _cerrar es el embudo de los TRES caminos de cierre -- la tecla Esc (_input de
+	# abajo), el boton del scaffold, y el cierre a la fuerza cuando te embiste un bicho
+	# (Game.cerrar_menus_abiertos). Game.lider() ya rellena con el original el solo; esto solo lo
+	# adelanta para que sea determinista y para poder avisar.
+	if Game.party.is_empty():
+		var solo: PersonajeData = Game.lider()
+		var p: Node = get_tree().get_first_node_in_group("player")
+		if p != null and p.has_method("refrescar_lider"):
+			p.refrescar_lider()
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud != null and hud.has_method("mostrar_toast"):
+			hud.mostrar_toast("No dejaste a nadie en el equipo: %s baja contigo." % solo.nombre)
 	_root.visible = false
 	Game.cerrar_menu(self)
 
@@ -162,6 +175,9 @@ func _build_equipo() -> void:
 	MenuScaffold.titulo(_lista, "El equipo (%d de %d)" % [Game.party.size(), Game.PARTY_MAX], 14)
 	for i in Game.party.size():
 		_fila_equipo(i)
+	if Game.party.is_empty():
+		MenuScaffold.nota(_lista, "No baja nadie. Si cierras así, %s (tu personaje original) se pone "
+			% Game.original().nombre + "al frente solo: alguien tiene que llevar el cuerpo.")
 	MenuScaffold.nota(_lista, "El de la 👑 va EN CABEZA: es el cuerpo que mueves por el mapa, el "
 		+ "que recolecta y el que gasta aguante. Cada uno tiene su hueco fijo (su número); cambiar "
 		+ "de cabeza con «Al frente» o las teclas 1/2/3 no los mueve de sitio.")
@@ -207,10 +223,11 @@ func _fila_equipo(i: int) -> void:
 
 	var fuera := Button.new()
 	fuera.text = "A casa"
-	# Alguien tiene que llevar el cuerpo, y el ORIGINAL (el que creaste) es intocable: nunca sale.
-	fuera.disabled = Game.party.size() <= 1 or pj.es_original
-	fuera.tooltip_text = "Es tu personaje original: no se puede dejar en casa." if pj.es_original \
-		else "Lo deja en el Hogar. No se despide a nadie: sigue en tu plantilla."
+	# CUALQUIERA puede quedarse en casa, el original incluido, y el equipo puede quedarse vacio: al
+	# cerrar el Hogar baja el original solo (ver _cerrar).
+	fuera.tooltip_text = "Lo deja en el Hogar. No se despide a nadie: sigue en tu plantilla." \
+		+ ("\nSi no dejas a nadie en el equipo, al cerrar bajará tu personaje original." \
+			if Game.party.size() <= 1 else "")
 	fuera.pressed.connect(func():
 		if Game.sacar_del_equipo(pj):
 			_aviso = "%s se queda en casa." % pj.nombre

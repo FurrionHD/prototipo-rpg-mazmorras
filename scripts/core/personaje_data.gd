@@ -31,10 +31,15 @@ class_name PersonajeData
 # ROL con el que salio de la taberna ("guerrero" | "tanque" | "mago"). No cambia nada mecanico:
 # decide el kit inicial y el texto de la ficha. El jugador no tiene rol ("").
 @export var rol: String = ""
-# ¿Es EL personaje que creaste al empezar la partida? Solo uno lo lleva. Es intocable: nunca se
-# le puede sacar del equipo, y en multijugador el cupo de sesion siempre lo mantiene contigo
-# (deslizandose hacia arriba en la formacion si hace falta). Saves viejos: lo marca la migracion
-# de importar_partida.
+# ¿Es EL personaje que creaste al empezar la partida? Solo uno lo lleva POR DUEÑO.
+#
+# YA NO ES INTOCABLE: se le puede dejar en casa como a cualquiera, y el cupo de sesion protege al que
+# llevas EN CABEZA, no a este (si solo te cabe uno, ese uno lo eliges tu). Lo que sigue significando
+# es "a quien se recurre cuando no queda nadie": si mandas a TODO el mundo al hogar, es el que baja
+# solo al cerrar el menu (ver Game.lider()).
+#
+# Su flag viaja en el save por SaveData.player_es_original cuando este va en cabeza, y dentro de este
+# @export cuando no. Game._sanear_originales() garantiza que solo haya uno por dueño.
 @export var es_original: bool = false
 # DE QUIEN ES este personaje, en un MUNDO COMPARTIDO: la identidad de la persona que lo creo
 # (Identidad.id), no su nombre ni su peer_id. Vacio = partida de un jugador, o sea "del que juegue

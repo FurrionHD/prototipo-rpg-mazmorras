@@ -1748,12 +1748,16 @@ func _set_num_humanos(n: int) -> void:
 
 
 # Ajusta MI equipo al cupo. Cada maquina se ajusta sola (todas conocen n y su rol).
-#  - RECORTE: se quedan las primeras posiciones de la formacion, con la garantia del ORIGINAL
-#    (el personaje que creaste): si el cupo lo dejaria fuera, SE DESLIZA al ultimo hueco
-#    permitido desplazando al que iba ahi. Los apartados van al hogar (banquillo) EN ORDEN.
+#  - RECORTE: se quedan las primeras posiciones de la formacion, con la garantia del que va EN
+#    CABEZA: si el cupo lo dejaria fuera, SE DESLIZA al ultimo hueco permitido desplazando al que
+#    iba ahi. Los apartados van al hogar (banquillo) EN ORDEN.
 #  - RESTAURACION: al bajar la gente (o cerrar sesion), los apartados vuelven en su orden.
-# Se recompone el array party entero (sacar_del_equipo no vale: rechaza al original y no
-# desliza posiciones), reapuntando lider_idx a la misma persona si sigue, o al original.
+# Se recompone el array party entero (sacar_del_equipo no desliza posiciones), reapuntando
+# lider_idx a la misma persona.
+#
+# LA GARANTIA ES DEL LIDER, NO DEL ORIGINAL. Antes se protegia al personaje con el que empezaste la
+# partida, pero eso es justo lo que el jugador pidio quitar: si en una sesion de cuatro humanos solo
+# le cabe uno, ESE UNO LO ELIGE EL. Y el que ha elegido es a quien lleva en cabeza.
 func _aplicar_cupo() -> void:
 	var cupo := cupo_party()
 	var antes: int = Game.party.size()
@@ -1767,19 +1771,19 @@ func _aplicar_cupo() -> void:
 	# Recortar si sobra gente.
 	if Game.party.size() > cupo:
 		var lider_pj: PersonajeData = Game.lider()
-		var orig: PersonajeData = Game.original()
 		var mantener: Array = []
 		for pj in Game.party:
 			if mantener.size() < cupo:
 				mantener.append(pj)
-		if Game.party.has(orig) and not mantener.has(orig):
-			mantener[cupo - 1] = orig   # el original se desliza al ultimo hueco permitido
+		if Game.party.has(lider_pj) and not mantener.has(lider_pj):
+			mantener[cupo - 1] = lider_pj   # el que llevas en cabeza se desliza al ultimo hueco
 		for pj in Game.party:
 			if not mantener.has(pj):
 				_apartados.append(pj)
 		Game.party.assign(mantener)
-		var idx: int = Game.party.find(lider_pj)
-		Game.lider_idx = idx if idx >= 0 else maxi(0, Game.party.find(orig))
+		# El lider siempre esta en `mantener` por la garantia de arriba, asi que el find no falla; el
+		# maxi es la red por si el equipo llegara vacio a esta rama.
+		Game.lider_idx = maxi(0, Game.party.find(lider_pj))
 
 	if Game.party.size() == antes:
 		return   # nada cambio: ni refresco ni toast
@@ -3799,7 +3803,7 @@ const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
 #  Esto es lo otro: mandar a una PERSONA para que VIVA en un mundo que no esta en su disco. Va una
 #  vez al entrar y otra al guardar, asi que puede permitirse ser fiel. Lo que el doble no lleva y
 #  aqui es imprescindible:
-#    es_original          el personaje intocable DE ESA PERSONA (sin esto se le podria echar del equipo)
+#    es_original          el personaje de referencia DE ESA PERSONA (a quien se recurre si no queda nadie)
 #    dueno                de quien es (ver personaje_data.gd)
 #    rol                  su kit y su ficha
 #    pasivas_pendientes   una tirada de 1 entre 500.000 sin leer; perderla seria una crueldad
@@ -4949,7 +4953,7 @@ func _alta_personaje(d: Dictionary) -> void:
 	if identidad == "":
 		return
 	var pj: PersonajeData = pj_de_dict(d)
-	pj.es_original = true       # EL personaje de esa persona en este mundo: intocable
+	pj.es_original = true       # EL personaje de esa persona en este mundo (su referencia)
 	pj.dueno = identidad
 	var jd := JugadorData.new()
 	jd.id = identidad

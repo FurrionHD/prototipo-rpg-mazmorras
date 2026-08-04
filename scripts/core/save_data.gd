@@ -65,6 +65,19 @@ const VERSION_MUNDO := 1
 # estrenaria identificador en cada carga. Vacio en los saves viejos -> Game.asegurar_uids() le pone
 # uno al importar.
 @export var player_uid: String = ""
+# ¿El que iba EN CABEZA al guardar era el personaje ORIGINAL (el que creaste al empezar)?
+#
+# Hace falta por lo mismo que player_uid: el lider no esta en `plantilla`, se desmonta en estos
+# campos planos, y al cargar se reconstruye. Antes se le clavaba es_original = true a pelo, asi que
+# si guardabas llevando en cabeza a un contratado acababas con DOS marcados (el reconstruido y el
+# original de verdad, que va en `plantilla` con su flag serializado) y Game.original() devolvia el
+# primero de la lista: la identidad de "original" se transferia sola a quien llevaras delante.
+#
+# El default FALSE es el que hace que los saves viejos migren bien EN LOS DOS CASOS:
+#   - el lider ERA el original -> no queda nadie marcado -> _sanear_originales() marca al lider. Es
+#     exactamente lo que hacia el codigo viejo.
+#   - el lider NO era el original -> solo queda marcado el de `plantilla`, que es el correcto.
+@export var player_es_original: bool = false
 @export var fecha: String = ""          # "12/07/2026 20:31"
 @export var cab_nivel: int = 1
 @export var cab_piso: int = 1

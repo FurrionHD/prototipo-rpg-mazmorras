@@ -54,15 +54,32 @@ var party: Array[PersonajeData] = []
 var lider_idx: int = 0
 
 # El que va EN CABEZA. Es el "jugador" de toda la vida (todas las Game.player_* delegan en el).
+#
+# LA RED DE SEGURIDAD ES LA FUNCION. Desde que se puede dejar a CUALQUIERA en casa (el original ya no
+# es intocable), el equipo se puede quedar vacio mientras tienes el Hogar abierto. Este relleno salta
+# constantemente -- player._comprobar_grupo cada frame, el combate, el HUD -- asi que pelearse con el
+# seria perder; en vez de eso RELLENA CON EL ORIGINAL, que es justo lo que se quiere que pase.
+# Resultado: da igual quien lea al lider con el equipo vacio, siempre sale lo correcto. Lo que hace
+# home_menu._cerrar es solo adelantarlo para que sea determinista y poder avisar.
 func lider() -> PersonajeData:
 	if party.is_empty():
-		# Red de seguridad: nunca se juega sin nadie. Si la plantilla tiene gente, sale el primero
-		# (te quedaste sin equipo montado); si no hay nadie, se estrena un personaje.
-		var pj: PersonajeData = plantilla[0] if not plantilla.is_empty() else PersonajeData.new()
+		var pj: PersonajeData = _original_crudo()
+		if pj == null:
+			# Ni original marcado ni nada: el primero que haya, y si no hay nadie se estrena uno.
+			pj = plantilla[0] if not plantilla.is_empty() else PersonajeData.new()
 		if not plantilla.has(pj):
 			plantilla.append(pj)
 		party.append(pj)
+		lider_idx = 0
 	return party[clampi(lider_idx, 0, party.size() - 1)]
+
+# MI original, o null. Sin fallback a lider(): esta es la que llama lider() cuando el equipo esta
+# vacio, asi que si cayera en original() se llamarian en circulo.
+func _original_crudo() -> PersonajeData:
+	for pj in plantilla:
+		if pj.es_original and (not mundo_compartido or String(pj.dueno) == Identidad.id):
+			return pj
+	return null
 
 # Los COMPANEROS: todos menos el lider, en su ORDEN FIJO de party (no reordenados por quien manda).
 func companeros() -> Array[PersonajeData]:
@@ -132,6 +149,37 @@ func asegurar_uids() -> void:
 			for pj in (jd as JugadorData).personajes:
 				asegurar_uid(pj)
 
+# EXACTAMENTE un `es_original` por dueño en la plantilla.
+#
+# Los saves anteriores a SaveData.player_es_original pueden traer:
+#   - CERO marcados (el caso normal: el lider era el original y su flag no se guardaba) -> se marca
+#     al lider, que es literalmente lo que hacia el codigo viejo.
+#   - DOS marcados (guardaste llevando en cabeza a un contratado) -> se deja el primero de la
+#     plantilla y se limpia el resto.
+# Con saves nuevos no hace nada: el flag viaja bien y ya viene uno solo.
+func _sanear_originales() -> void:
+	var por_dueno: Dictionary = {}   # dueño -> [PersonajeData marcados]
+	for pj in plantilla:
+		if pj.es_original:
+			var d: String = String(pj.dueno)
+			if not por_dueno.has(d):
+				por_dueno[d] = []
+			(por_dueno[d] as Array).append(pj)
+	for d in por_dueno:
+		var lista: Array = por_dueno[d]
+		for i in range(1, lista.size()):
+			(lista[i] as PersonajeData).es_original = false
+		if lista.size() > 1:
+			print("[grupo] %d personajes venian marcados como original (dueño '%s'): se deja a %s." % [
+				lista.size(), d, (lista[0] as PersonajeData).nombre])
+	# Nadie marcado para MI: el lider lo es (es el caso de todos los saves de antes de este campo).
+	if _original_crudo() == null:
+		var l: PersonajeData = lider()
+		l.es_original = true
+		if mundo_compartido and String(l.dueno).is_empty():
+			l.dueno = Identidad.id
+
+
 # El de la plantilla con ese uid, o null. Es como los encargos vuelven a encontrar a quien mandaron.
 func pj_por_uid(uid: String) -> PersonajeData:
 	if uid.is_empty():
@@ -158,17 +206,20 @@ func meter_en_equipo(pj: PersonajeData) -> bool:
 # fallaria; pero es un cuchillo boca arriba: el dia que se mezclen, `_aplicar_cupo` metaria en el
 # equipo el original de OTRO humano y lo pondria en cabeza (net.gd, el "original deslizado").
 func original() -> PersonajeData:
-	for pj in plantilla:
-		if pj.es_original and (not mundo_compartido or String(pj.dueno) == Identidad.id):
-			return pj
+	var pj: PersonajeData = _original_crudo()
+	if pj != null:
+		return pj
 	# En un mundo, si no encuentro MI original, mejor el lider que el original de otro.
 	return lider()
 
-# Lo saca del equipo al banquillo (sigue en la plantilla: aqui NO se despide a nadie). El equipo
-# nunca se queda vacio: alguien tiene que llevar el cuerpo que se mueve por el mapa.
-# El ORIGINAL (el personaje que creaste) es intocable: el nunca se va al banquillo.
+# Lo saca del equipo al banquillo (sigue en la plantilla: aqui NO se despide a nadie).
+#
+# CUALQUIERA puede quedarse en casa, el original incluido, y el equipo SI puede quedarse vacio: es un
+# estado transitorio que solo existe con el Hogar abierto (ahi el arbol esta pausado y nadie mueve el
+# cuerpo). Al cerrar el menu se rellena solo con el original -- ver lider() y home_menu._cerrar --,
+# asi que nunca se guarda vacio ni se entra en combate vacio.
 func sacar_del_equipo(pj: PersonajeData) -> bool:
-	if pj == null or not party.has(pj) or party.size() <= 1 or pj.es_original:
+	if pj == null or not party.has(pj):
 		return false
 	var idx: int = party.find(pj)
 	party.erase(pj)
@@ -177,7 +228,9 @@ func sacar_del_equipo(pj: PersonajeData) -> bool:
 	# ocupe ahora ese hueco (clamp). Sin esto, sacar a alguien podia dejar al lider descuadrado.
 	if idx < lider_idx:
 		lider_idx -= 1
-	lider_idx = clampi(lider_idx, 0, party.size() - 1)
+	# maxi(...) porque con el equipo ya vacio el tope seria -1 y clampi devolveria -1, que es un
+	# indice sucio que se acabaria serializando en lider_pos.
+	lider_idx = clampi(lider_idx, 0, maxi(0, party.size() - 1))
 	return true
 
 
@@ -1506,7 +1559,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	# Empiezas SOLO: una plantilla de una persona, a estrenar (los companeros se contratan en la
 	# taberna). Va lo primero porque todo lo que viene despues escribe en el lider.
 	var yo := PersonajeData.new()
-	yo.es_original = true   # EL personaje de esta partida (el "yo" de los campos planos): intocable
+	yo.es_original = true   # EL personaje de esta partida: a quien se recurre si no queda nadie
 	asegurar_uid(yo)        # no pasa por fichar(), asi que se le pone aqui
 	plantilla = [yo]
 	party = [yo]
@@ -1647,6 +1700,9 @@ func exportar_partida() -> SaveData:
 	# y al cargar se reconstruye un PersonajeData nuevo. Sin esta linea estrenaria uid en cada carga y
 	# un encargo mandado antes de guardar ya no sabria de quien era.
 	d.player_uid = lider().uid
+	# Y si el que va en cabeza es el ORIGINAL o no. Antes se daba por hecho que si (se clavaba a
+	# true al cargar) y por eso se duplicaba la marca. Ver SaveData.player_es_original.
+	d.player_es_original = lider().es_original
 	d.color = player_color
 	d.metalico = player_metalico
 	d.imagen = player_imagen_png
@@ -1671,9 +1727,12 @@ func exportar_partida() -> SaveData:
 	# SaveData.plantilla). Van SIN duplicar: son Resources y Godot los incrusta enteros en el .tres,
 	# conservando tanto la identidad entre las dos listas como la de las armas que llevan puestas
 	# con las del baul.
+	# El lider se saca UNA VEZ, fuera del bucle: lider() rellena el equipo si esta vacio, asi que
+	# llamarlo por elemento lo mutaba en la primera vuelta (y ademas eran N llamadas para nada).
+	var jefe: PersonajeData = lider()
 	d.plantilla = []
 	for pj in plantilla:
-		if pj != lider():
+		if pj != jefe:
 			d.plantilla.append(pj)
 	# El equipo que baja, SIN el lider (va en los campos planos) y en su orden fijo. lider_pos guarda
 	# en que hueco del equipo estaba la cabeza, para reconstruir el orden EXACTO al cargar (si no,
@@ -2021,15 +2080,16 @@ func aplicar_jugador_mundo(jd: JugadorData, semilla: int) -> void:
 
 
 func _adoptar_jugador(jd: JugadorData) -> void:
-	# Sin equipo no hay a quien adoptar: mejor quedarse con lo que trajeron los campos planos que
-	# dejar el juego sin lider (que es un estado del que no se sale).
 	var eq: Array = []
 	for pj in jd.equipo:
 		if pj is PersonajeData and eq.size() < PARTY_MAX:
 			eq.append(pj)
-	if eq.is_empty():
-		push_warning("[mundo] el JugadorData de %s no trae equipo: no se adopta" % jd.id)
-		return
+	# OJO: antes esto hacia `return` con el equipo vacio, y ESO ERA PERDIDA DE DATOS. Se salia ANTES
+	# de adoptar plantilla, dinero, bolsa y oficios, asi que te quedabas con el personaje y el dinero
+	# del ULTIMO QUE GUARDO EL MUNDO. Mientras el equipo no podia vaciarse era inalcanzable; desde que
+	# se puede dejar a cualquiera en casa, no. Ahora se adopta todo igual y solo se busca a alguien
+	# que lleve el cuerpo, que es lo unico que de verdad faltaba.
+	var sin_equipo: bool = eq.is_empty()
 
 	plantilla.clear()
 	for pj in jd.personajes:
@@ -2038,11 +2098,24 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	for pj in eq:
 		if not plantilla.has(pj):
 			plantilla.append(pj)   # por si el .tres viniera descuadrado
+	if sin_equipo:
+		# El original si lo hay; si no, el primero que haya. lider() no vale aqui: aun no se ha
+		# escrito `party` y rellenaria contra la plantilla de la partida anterior.
+		var alguien: PersonajeData = null
+		for pj in plantilla:
+			if pj.es_original and String(pj.dueno) == jd.id:
+				alguien = pj
+				break
+		if alguien == null and not plantilla.is_empty():
+			alguien = plantilla[0]
+		if alguien != null:
+			eq.append(alguien)
+			push_warning("[mundo] el JugadorData de %s venia sin equipo: baja %s" % [jd.id, alguien.nombre])
 	# .assign() y NO `party = eq`: party es Array[PersonajeData] y eq es un Array pelado (viene de un
 	# @export, que no puede llevar tipo de clase). Asignarlo directamente LANZA en Godot 4 y aborta
 	# la funcion a media adopcion -- se queda el lider del que guardo, con el dinero del que guardo.
 	party.assign(eq)
-	lider_idx = clampi(jd.lider_pos, 0, eq.size() - 1)
+	lider_idx = clampi(jd.lider_pos, 0, maxi(0, eq.size() - 1))
 
 	money = jd.dinero
 	crystals.assign(jd.crystals)
@@ -2180,7 +2253,9 @@ func importar_partida(d: SaveData) -> void:
 	# es lo que hace todo el cuerpo de esta funcion, via las propiedades que delegan en el). Si no
 	# se reemplaza aqui, se cargaria encima del personaje de la partida ANTERIOR de esta sesion.
 	var yo := PersonajeData.new()
-	yo.es_original = true   # EL personaje de esta partida (el "yo" de los campos planos): intocable
+	# ¿Era EL original? Se lee del save, NO se da por hecho. Clavarlo a true era lo que duplicaba la
+	# marca cuando guardabas llevando en cabeza a un contratado (ver SaveData.player_es_original).
+	yo.es_original = d.player_es_original
 	# Su uid es el GUARDADO, no uno nuevo: es la misma persona que cerro el juego. Si el save es
 	# anterior al uid viene vacio y se lo pone asegurar_uids() al final de esta funcion.
 	yo.uid = d.player_uid
@@ -2405,6 +2480,9 @@ func importar_partida(d: SaveData) -> void:
 	# Los saves anteriores al uid traen el campo vacio (default del @export). Se rellena AQUI, con el
 	# grupo y los jugadores del mundo ya montados, para que nadie se quede sin identificador estable.
 	asegurar_uids()
+	# Que haya EXACTAMENTE un original por dueño (los saves anteriores a player_es_original traen
+	# cero o dos, ver la nota de ese campo).
+	_sanear_originales()
 	# Un ENCARGO que apunte a una pieza del cofre que ya no existe la dejaria bloqueada PARA SIEMPRE
 	# (un cierre sucio basta). El barrido es barato y se hace en cada carga.
 	_barrer_encargos_huerfanos()
