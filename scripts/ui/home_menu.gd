@@ -511,14 +511,14 @@ func _build_encargo_pronostico(libres: Array) -> void:
 	MenuScaffold.fila(_content, "Poder del grupo", "%d" % int(round(pg)))
 	MenuScaffold.fila(_content, "El piso %d pide" % _enc_piso, "%d" % int(round(req)))
 	var exito := Label.new()
-	var pct: int = int(round(100.0 * float(probs[0])))
-	exito.text = "ÉXITO %d%%   ·   a medias %d%%   ·   fracaso %d%%" % [pct,
-		int(round(100.0 * float(probs[1]))), int(round(100.0 * float(probs[2])))]
+	var pct: float = 100.0 * float(probs[0])
+	exito.text = "ÉXITO %s   ·   a medias %s   ·   fracaso %s" % [
+		Encargos.pct(float(probs[0])), Encargos.pct(float(probs[1])), Encargos.pct(float(probs[2]))]
 	exito.add_theme_font_size_override("font_size", 16)
 	exito.add_theme_color_override("font_color",
-		VERDE if pct > 85 else (AMBAR if pct >= 60 else Color(0.90, 0.45, 0.40)))
+		VERDE if pct > 85.0 else (AMBAR if pct >= 60.0 else Color(0.90, 0.45, 0.40)))
 	_content.add_child(exito)
-	if pct < 60:
+	if pct < 60.0:
 		MenuScaffold.nota(_content, "Van muy justos: ahí abajo hay bichos. Manda a más gente, o "
 			+ "vísteles mejor antes de que salgan.")
 
@@ -559,13 +559,20 @@ func _build_encargo_pronostico(libres: Array) -> void:
 	var q: Dictionary = Encargos.reparto_calidades(r_m)
 	MenuScaffold.rejilla_probs(_content, "Calidad", ["Intacto", "Normal", "Dañado"],
 		[{"etiqueta": String(Encargos.NOMBRE_TIPO[t0]), "color": AMBAR, "valores": [
-			"%d%%" % int(round(100.0 * float(q["intacto"]))),
-			"%d%%" % int(round(100.0 * float(q["normal"]))),
-			"%d%%" % int(round(100.0 * float(q["danado"])))]}])
+			Encargos.pct(float(q["intacto"])), Encargos.pct(float(q["normal"])),
+			Encargos.pct(float(q["danado"]))]}])
 
 	# --- Mandar.
+	var pega: String = Encargos.motivo_no_puede(_enc_tipos, entradas)
+	if not pega.is_empty():
+		var aviso := Label.new()
+		aviso.text = pega
+		aviso.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		aviso.add_theme_color_override("font_color", Color(0.90, 0.45, 0.40))
+		_content.add_child(aviso)
 	var b := Button.new()
 	b.text = "Mandarlos"
+	b.disabled = not pega.is_empty()
 	b.custom_minimum_size = Vector2(0, 38)
 	b.pressed.connect(func():
 		var id: int = Game.enviar_encargo(_enc_piso, _enc_tipos, dur, _enc_uids, _enc_utiles)

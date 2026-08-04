@@ -31,7 +31,7 @@ class_name Encargos
 # casillas ES el "mixto", asi que no hace falta un preset aparte. El tiempo se reparte entre lo
 # marcado y cada unidad se resuelve con el oficio de SU tipo, o sea que multiseleccionar reparte
 # tambien el aprendizaje: tiene un coste real y no es solo comodidad.
-enum Tipo { VETA, PLANTA, MADERA, SAL, HUERTO, BICHO }
+enum Tipo { VETA, PLANTA, MADERA, COMIDA, PESCA, BICHO }
 
 const ESTADO_EN_CURSO := 0
 const ESTADO_LISTO := 1
@@ -49,19 +49,39 @@ const DURACIONES := [3600, 14400, 28800]   # 1 h / 4 h / 8 h de reloj real
 const MIEMBROS_MAX := 4
 
 # Las mismas tablas que usa el piso de verdad. Cero contenido nuevo que mantener en dos sitios.
+# Un tipo puede tirar de VARIAS: COMIDA junta la despensa (silvestres) y la sal, que es lo que de
+# verdad se sale a buscar cuando vas a por comida — y asi los seis tipos son seis decisiones
+# distintas en vez de tener una casilla para un solo material.
 # BICHO no esta aqui: sus materiales se derivan de la spawn table (Game.materiales_de_bicho_en).
 const TABLAS := {
-	Tipo.VETA: "res://resources/world/vetas.tres",
-	Tipo.PLANTA: "res://resources/world/plantas.tres",
-	Tipo.MADERA: "res://resources/world/maderas.tres",
-	Tipo.SAL: "res://resources/world/sal.tres",
-	Tipo.HUERTO: "res://resources/world/silvestres.tres",
+	Tipo.VETA: ["res://resources/world/vetas.tres"],
+	Tipo.PLANTA: ["res://resources/world/plantas.tres"],
+	Tipo.MADERA: ["res://resources/world/maderas.tres"],
+	Tipo.COMIDA: ["res://resources/world/silvestres.tres", "res://resources/world/sal.tres"],
+	Tipo.PESCA: ["res://resources/world/peces.tres"],
 }
 
 const NOMBRE_TIPO := {
 	Tipo.VETA: "Vetas", Tipo.PLANTA: "Plantas", Tipo.MADERA: "Madera",
-	Tipo.SAL: "Sal", Tipo.HUERTO: "Silvestres", Tipo.BICHO: "Enemigos",
+	Tipo.COMIDA: "Comida", Tipo.PESCA: "Pesca", Tipo.BICHO: "Enemigos",
 }
+
+# A PESCAR NO SE VA SIN CAÑA. Es la regla que ya tiene el juego (Game.cana() es la unica herramienta
+# sin respaldo a una basica, y el estanque te lo dice a la cara), asi que un encargo de pesca sin
+# caña asignada tampoco sale. Devuelve "" si todo bien, o el motivo.
+static func motivo_no_puede(tipos: Array, entradas_cofre: Array) -> String:
+	if not tipos.has(int(Tipo.PESCA)):
+		return ""
+	for e in entradas_cofre:
+		if float(mods_util(e as Dictionary, int(Tipo.PESCA))["afinidad"]) > 0.0:
+			return ""
+		# Una caña sin forjar no da afinidad pero SIRVE para ir: lo que no vale es no llevar ninguna.
+		var d: Dictionary = (e as Dictionary).get("dict", {})
+		if String(d.get("clase", "")) == "herramienta":
+			var pl: ToolData = load(String(d.get("ruta", ""))) as ToolData
+			if pl != null and int(pl.tipo) == int(ToolData.Tipo.CANA):
+				return ""
+	return "A pescar no se va sin caña: métele una del cofre."
 
 static func tipos_validos(tipos: Array) -> Array:
 	var out: Array = []
@@ -206,11 +226,18 @@ static func requisito_combate(piso: int) -> float:
 
 
 # --- Ratio -> % de exito ---
-# Nunca 0% ni 100%: siempre cabe la suerte, buena o mala.
+# El techo es 0.99 (siempre cabe la mala suerte) pero NO HAY SUELO, a proposito: un grupo con el 1%
+# del poder que pide el piso no tiene "un 5% de conseguirlo", tiene practicamente cero, y redondear
+# eso hacia arriba es mentirle al jugador en la unica cifra en la que se va a apoyar para decidir.
+#
+# El exponente 1.8 es lo que hace que la curva se DERRUMBE abajo sin ablandarse arriba:
+#   r 0.01 -> 0.02%     r 0.44 -> 22%     r 0.89 -> 77%     r 1.15 -> 99%
+# Con el 1.1 de antes, la mitad del poder necesario daba un 44%: media pantalla del rango util se
+# iba en grupos que no tenian nada que hacer.
 const EXITO_MAX := 0.99
-const EXITO_MIN := 0.05
+const EXITO_MIN := 0.0
 const EXITO_K := 0.95
-const EXITO_POT := 1.1
+const EXITO_POT := 1.8
 
 static func exito(poder_del_grupo: float, piso: int) -> float:
 	var r: float = poder_del_grupo / requisito_combate(piso)
@@ -222,6 +249,20 @@ static func probs_desenlace(poder_del_grupo: float, piso: int) -> Array:
 	var e: float = exito(poder_del_grupo, piso)
 	var resto: float = (1.0 - e) * 0.5
 	return [e, resto, resto]
+
+# Una probabilidad (0..1) como texto. HASTA dos decimales: los porcentajes grandes se leen mejor
+# redondos ("77%"), pero los pequeños hay que verlos enteros ("0.02%") o parecen todos iguales, que
+# es justo lo que hacia el suelo de antes.
+static func pct(p: float) -> String:
+	var v: float = 100.0 * p
+	if v >= 10.0:
+		return "%d%%" % int(round(v))
+	var s: String = "%.2f" % v
+	while s.ends_with("0"):
+		s = s.substr(0, s.length() - 1)
+	if s.ends_with("."):
+		s = s.substr(0, s.length() - 1)
+	return s + "%"
 
 static func tirar_desenlace(poder_del_grupo: float, piso: int, rng: RandomNumberGenerator) -> int:
 	var p: Array = probs_desenlace(poder_del_grupo, piso)
@@ -246,14 +287,15 @@ static func oficio_de(tipo: int) -> Dictionary:
 			return {"stat": "fuerza", "suelo": Game.MINERIA_FUERZA_FLOOR, "tool": ToolData.Tipo.PICO,
 				"gain": Game.GAIN_FUERZA_MINERIA, "pivote": Game.MINERIA_PIVOTE,
 				"slope": Game.MINERIA_SLOPE, "tope": Game.RETO_MAX_FISICO}
-		Tipo.SAL:
-			return {"stat": "fuerza", "suelo": Game.MINERIA_FUERZA_FLOOR, "tool": ToolData.Tipo.PICO,
-				"gain": Game.GAIN_FUERZA_MINERIA, "pivote": Game.MINERIA_PIVOTE,
-				"slope": Game.MINERIA_SLOPE, "tope": Game.RETO_MAX_FISICO}
 		Tipo.MADERA:
 			return {"stat": "agilidad", "suelo": Game.TALA_AGILIDAD_FLOOR, "tool": ToolData.Tipo.HACHA,
 				"gain": Game.GAIN_AGILIDAD_TALA, "pivote": Game.TALA_PIVOTE,
 				"slope": Game.TALA_SLOPE, "tope": Game.RETO_MAX_FISICO}
+		Tipo.PESCA:
+			return {"stat": "resistencia", "suelo": Game.PESCA_RESISTENCIA_FLOOR,
+				"tool": ToolData.Tipo.CANA, "gain": Game.GAIN_RESISTENCIA_PESCA,
+				"pivote": Game.PESCA_PIVOTE, "slope": Game.PESCA_SLOPE,
+				"tope": Game.RETO_MAX_FISICO}
 		Tipo.BICHO:
 			# CAZA. No hay herramienta que valga (un pico no sirve para despellejar) y la stat es
 			# Destreza, que es la que entrena EXTRAER un cristal de un cadaver, que es literalmente lo
@@ -262,26 +304,41 @@ static func oficio_de(tipo: int) -> Dictionary:
 				"gain": Game.GAIN_DESTREZA_MINIJUEGO, "pivote": Game.HERB_PIVOTE,
 				"slope": Game.HERB_SLOPE, "tope": Game.RETO_MAX}
 		_:
-			# PLANTA y HUERTO: hoz y Destreza.
+			# PLANTA y COMIDA: hoz y Destreza. La sal se pica con pico, pero va dentro de COMIDA y
+			# manda el oficio de la casilla: buscar comida es buscar comida.
 			return {"stat": "destreza", "suelo": Game.HERB_DESTREZA_FLOOR, "tool": ToolData.Tipo.HOZ,
 				"gain": Game.GAIN_DESTREZA_PLANTA, "pivote": Game.HERB_PIVOTE,
 				"slope": Game.HERB_SLOPE, "tope": Game.RETO_MAX}
 
-static func tabla_de(tipo: int) -> MaterialTable:
-	var ruta: String = String(TABLAS.get(tipo, TABLAS[Tipo.VETA]))
-	return load(ruta) as MaterialTable
+static func tablas_de(tipo: int) -> Array:
+	var out: Array = []
+	for ruta in (TABLAS.get(tipo, []) as Array):
+		var t: MaterialTable = load(String(ruta)) as MaterialTable
+		if t != null:
+			out.append(t)
+	return out
 
 # Lo que puede salir de un tipo en un piso, como [{"material", "peso"}]. Unifica las dos fuentes:
 # las MaterialTable de siempre y, para BICHO, lo que sueltan los bichos del piso.
+#
+# Cuando un tipo tiene VARIAS tablas (COMIDA), los pesos de cada una se NORMALIZAN antes de juntarse:
+# si no, la sal (peso 100 en una tabla de una sola entrada) aplastaria a las cuatro silvestres, que
+# se reparten pesos mucho menores. Normalizando, cada tabla aporta la mitad y dentro de ella manda su
+# propio reparto, que es lo que se espera al marcar una casilla que junta dos cosas.
 static func opciones(tipo: int, piso: int) -> Array:
 	if tipo == Tipo.BICHO:
 		return Game.materiales_de_bicho_en(piso)
-	var tabla: MaterialTable = tabla_de(tipo)
-	if tabla == null:
-		return []
+	var tablas: Array = tablas_de(tipo)
 	var out: Array = []
-	for e in tabla.disponibles(piso):
-		out.append({"material": e.material, "peso": e.peso_en(piso)})
+	for t in tablas:
+		var disp: Array = (t as MaterialTable).disponibles(piso)
+		var total: float = 0.0
+		for e in disp:
+			total += e.peso_en(piso)
+		if total <= 0.0:
+			continue
+		for e in disp:
+			out.append({"material": e.material, "peso": e.peso_en(piso) / total})
 	return out
 
 static func elegir_material(tipo: int, piso: int, rng: RandomNumberGenerator) -> MaterialData:
@@ -619,20 +676,27 @@ static func resolver(e: Dictionary, pjs: Array, entradas_cofre: Array) -> Dictio
 			# Perder no solo recorta la cantidad: lo que traen viene PEOR. A medias, la mitad.
 			if desenlace == FRACASO or (desenlace == PARCIAL and rng.randf() < 0.5):
 				cal = bajar_calidad(cal)
-			piezas.append({"material": m, "calidad": cal})
+			# Un PEZ sin talla no es un pez: el peso, el valor y la corona salen de sus centimetros.
+			# Misma tirada que usa el estanque (MaterialData.tirada_talla), con el rng del encargo.
+			var cm: float = m.talla_desde(MaterialData.tirada_talla(rng)) if m.cm_max > 0.0 else 0.0
+			piezas.append({"material": m, "calidad": cal, "cm": cm})
 
 	# --- El tope de peso. Solo recorta el BOTIN: la excelia va por `trabajadas`.
 	var corte: Dictionary = recortar_por_peso(piezas, tope_carga(pjs, entradas_cofre))
 
-	# Agrupar por (ruta, calidad) para que el encargo guarde poco y viaje ligero.
+	# Agrupar por (ruta, calidad, talla) para que el encargo guarde poco y viaje ligero. La TALLA
+	# entra en la clave a proposito: dos peces del mismo tipo no son el mismo pez, y de sus
+	# centimetros salen el valor y la corona. Lo que no es pez lleva cm 0 y se agrupa como siempre.
 	var cuenta: Dictionary = {}
 	for p in corte["traidas"]:
-		var clave: String = "%s|%d" % [(p["material"] as MaterialData).resource_path, int(p["calidad"])]
+		var clave: String = "%s|%d|%.1f" % [(p["material"] as MaterialData).resource_path,
+			int(p["calidad"]), float(p.get("cm", 0.0))]
 		cuenta[clave] = int(cuenta.get(clave, 0)) + 1
 	var botin: Array = []
 	for clave in cuenta:
 		var partes: PackedStringArray = clave.split("|")
-		botin.append({"ruta": partes[0], "calidad": int(partes[1]), "n": int(cuenta[clave])})
+		botin.append({"ruta": partes[0], "calidad": int(partes[1]), "cm": float(partes[2]),
+			"n": int(cuenta[clave])})
 
 	return {
 		"desenlace": desenlace,

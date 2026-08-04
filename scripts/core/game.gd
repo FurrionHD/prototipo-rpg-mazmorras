@@ -3079,6 +3079,9 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 					return 0
 				reserva.append(d)
 				break
+	# A pescar no se va sin caña (la misma regla del estanque).
+	if not Encargos.motivo_no_puede(tt, reserva).is_empty():
+		return 0
 
 	var miembros: Array = []
 	for uid in uids:
@@ -3182,7 +3185,10 @@ func recoger_encargo(id: int) -> Dictionary:
 		if data == null:
 			continue
 		for i in int((b as Dictionary)["n"]):
-			almacen_materiales.append(MaterialItem.crear(data, int((b as Dictionary)["calidad"])))
+			var it: MaterialItem = MaterialItem.crear(data, int((b as Dictionary)["calidad"]))
+			# Los peces llevan su talla: de ella salen el valor y la corona (ver MaterialItem.cm).
+			it.cm = float((b as Dictionary).get("cm", 0.0))
+			almacen_materiales.append(it)
 			n_mat += 1
 		descubrir(data)
 
