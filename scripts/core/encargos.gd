@@ -286,3 +286,53 @@ static func unidades(duracion: int, n_miembros: int, golpes_menos: int, factor: 
 	var horas: float = float(duracion) / 3600.0
 	return maxi(1, int(round(UNID_HORA * horas * float(maxi(1, n_miembros)) * factor
 		* (1.0 + GOLPES_UNID * float(golpes_menos)))))
+
+
+# ============================================================
+#  EXCELIA: lo que APRENDEN los que van
+# ============================================================
+# Dos ganancias, una por eje, porque han hecho dos cosas: recolectar y pelearse con lo que salia.
+#
+# GAIN_FACTOR esta POR DEBAJO de RECO_REPARTO_GRUPO (0.4) a proposito: ir de encargo tiene que
+# enseñar MENOS por unidad que estar delante mirando como otro pica. Un encargo son horas de reloj
+# real, no de juego; si rentara igual, jugar seria tonteria.
+const GAIN_FACTOR := 0.35
+const GAIN_RECO := 0.70          # reparto del presupuesto entre los dos ejes
+const GAIN_COMBATE := 0.30
+# Cuanto entrena una hora de pelearse con los bichos del piso. Anclado a lo que da encajar golpes en
+# combate (GAIN_RESISTENCIA_GOLPE 0.345): una hora ahi abajo son unos cuantos encontronazos.
+const GAIN_COMBATE_HORA := 0.9
+
+# Devuelve la lista de ganancias a aplicar: [{"uid", "abil", "base", "reto", "max_reto"}].
+# NO las aplica: quien las aplique tiene que llamar a Game.ganar() con el PersonajeData correcto, que
+# en multi puede vivir en otra maquina (ver la nota de las dos vias en net.gd).
+static func excelia_de(pjs: Array, tipo: int, piso: int, duracion: int,
+		unids: int, exigencia_media: float, afinidad: float) -> Array:
+	var of: Dictionary = oficio_de(tipo)
+	var horas: float = float(duracion) / 3600.0
+	var n: int = maxi(1, pjs.size())
+	var req: float = requisito_combate(piso)
+	var salida: Array = []
+	for pj_ in pjs:
+		var pj: PersonajeData = pj_ as PersonajeData
+		if pj == null:
+			continue
+		# --- A) por RECOLECTAR. El reto es POR PERSONA: al mas flojo del grupo le enseña mas, igual
+		# que en los minijuegos. Y con SU stat, no con la del grupo.
+		var suyo: float = Game.stat_total_eff(String(of["stat"]), pj) * Game.RECOLECCION_STAT_PESO \
+			+ float(of["suelo"]) + afinidad
+		var reto_r: float = Game.curva_reto(exigencia_media / maxf(1.0, suyo),
+			float(of["pivote"]), float(of["slope"]), float(of["tope"]))
+		salida.append({
+			"uid": pj.uid, "abil": String(of["stat"]), "reto": reto_r,
+			"max_reto": float(of["tope"]),
+			"base": float(of["gain"]) * GAIN_FACTOR * GAIN_RECO * (float(unids) / float(n)),
+		})
+		# --- B) por PELEAR. Game.reto() es la misma funcion que usa el combate, y el requisito del
+		# piso ya esta en su escala (suma de habilidades), asi que entra tal cual.
+		var reto_c: float = Game.reto(req, 1, pj)
+		var base_c: float = GAIN_COMBATE_HORA * GAIN_FACTOR * GAIN_COMBATE * horas
+		for abil in ["fuerza", "resistencia"]:
+			salida.append({"uid": pj.uid, "abil": abil, "reto": reto_c,
+				"max_reto": Game.RETO_MAX_FISICO, "base": base_c * 0.5})
+	return salida
