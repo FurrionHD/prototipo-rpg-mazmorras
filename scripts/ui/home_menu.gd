@@ -549,19 +549,12 @@ func _build_encargo_pronostico(libres: Array) -> void:
 		faltan.add_theme_color_override("font_color", Color(0.90, 0.45, 0.40))
 		_content.add_child(faltan)
 
-	# Calidades del primer tipo marcado (el detalle de cada uno se ve al recogerlo).
-	# Los BICHOS van por el eje de COMBATE: sus materiales no tienen exigencia, se sacan de un
-	# cadaver. Los demas, por la stat del oficio contra la exigencia media del piso.
-	var t0: int = int(_enc_tipos[0])
-	var r_m: float = pg / req
-	if t0 != Encargos.Tipo.BICHO:
-		r_m = Encargos.poder_recolector(pjs, t0, afin_media) \
-			/ maxf(1.0, Encargos.exigencia_media(t0, _enc_piso))
-	var q: Dictionary = Encargos.reparto_calidades(r_m)
-	MenuScaffold.rejilla_probs(_content, "Calidad", ["Intacto", "Normal", "Dañado"],
-		[{"etiqueta": String(Encargos.NOMBRE_TIPO[t0]), "color": AMBAR, "valores": [
-			Encargos.pct(float(q["intacto"])), Encargos.pct(float(q["normal"])),
-			Encargos.pct(float(q["danado"]))]}])
+	# CALIDADES POR MATERIAL, nunca una media del tipo.
+	# Una sola fila por "Vetas" era mentira: con 0 de Fuerza el cobre en bruto (exigencia 30) sale
+	# casi siempre intacto y el veteado (150) no lo pillan ni de casualidad, y promediarlos daba un
+	# "37% normal" que no le pasa a ningun material de verdad. Lo que decide la calidad es CADA
+	# material, asi que se enseña material a material.
+	_build_tabla_calidades(pjs, entradas, pg / req)
 
 	# --- Mandar.
 	var pega: String = Encargos.motivo_no_puede(_enc_tipos, entradas)
@@ -588,6 +581,42 @@ func _build_encargo_pronostico(libres: Array) -> void:
 			_enc_sub = 0
 		_rebuild())
 	_content.add_child(b)
+
+
+# Una fila por MATERIAL con la calidad que le sacarían. Se ordenan por exigencia (de lo fácil a lo
+# difícil), que es como se lee la progresión de un vistazo: lo de arriba te lo traes entero y lo de
+# abajo es lo que te falta stat para conseguir.
+const CALIDADES_A_LA_VISTA := 8
+
+func _build_tabla_calidades(pjs: Array, entradas: Array, r_combate: float) -> void:
+	var filas: Array = []
+	for t in _enc_tipos:
+		var tipo: int = int(t)
+		# La afinidad de la herramienta de ESE tipo (la mejor asignada), como en la resolución.
+		var afin: float = 0.0
+		for entrada in entradas:
+			afin = maxf(afin, float(Encargos.mods_util(entrada as Dictionary, tipo)["afinidad"]))
+		var poder_reco: float = Encargos.poder_recolector(pjs, tipo, afin)
+		var pool: Array = Encargos.opciones(tipo, _enc_piso)
+		pool.sort_custom(func(a, b):
+			return Game._exigencia_material(a["material"] as MaterialData, _enc_piso) \
+				< Game._exigencia_material(b["material"] as MaterialData, _enc_piso))
+		for o in pool:
+			var m := o["material"] as MaterialData
+			var r_m: float = Encargos.ratio_calidad(tipo, m, _enc_piso, poder_reco, r_combate)
+			var q: Dictionary = Encargos.reparto_calidades(r_m)
+			filas.append({"etiqueta": m.nombre, "color": m.color_rango(), "valores": [
+				Encargos.pct(float(q["intacto"])), Encargos.pct(float(q["normal"])),
+				Encargos.pct(float(q["danado"]))]})
+	if filas.is_empty():
+		return
+	# Con varios tipos marcados esto se va a treinta filas. Se enseñan las primeras y se dice cuántas
+	# faltan: la tabla es para decidir, no para consultarla entera.
+	var recorte: Array = filas.slice(0, CALIDADES_A_LA_VISTA)
+	MenuScaffold.rejilla_probs(_content, "Qué calidad", ["Intacto", "Normal", "Dañado"], recorte)
+	if filas.size() > recorte.size():
+		MenuScaffold.nota(_content, "(y %d material%s más)" % [filas.size() - recorte.size(),
+			"" if filas.size() - recorte.size() == 1 else "es"])
 
 
 # El peso de una unidad media de lo marcado, para poder decir cuántas caben ANTES de mandarlos.

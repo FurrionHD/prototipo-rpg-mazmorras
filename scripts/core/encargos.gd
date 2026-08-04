@@ -243,12 +243,26 @@ static func exito(poder_del_grupo: float, piso: int) -> float:
 	var r: float = poder_del_grupo / requisito_combate(piso)
 	return clampf(EXITO_K * pow(maxf(0.0, r), EXITO_POT), EXITO_MIN, EXITO_MAX)
 
-# TRES desenlaces, no cara o cruz. Lo que sobra del exito se parte por la mitad entre "a medias" y
-# "fracaso": con 99% sale EXITO casi siempre, con 50% sale 50/25/25, con 20% sale 20/40/40.
+# TRES desenlaces, no cara o cruz.
+#
+# "A medias" NO es la mitad de lo que sobra. Repartir el resto por igual daba disparates: con un
+# 0.02% de exito salia "a medias 50%", como si un grupo que no puede ni acercarse tuviera media
+# posibilidad de volver con algo decente. Salir a medias es "casi lo consiguen", asi que se mide con
+# LA MISMA curva contra un liston mas bajo: quien no llega ni a ese liston, fracasa.
+#
+#   p(exito)   = curva(r)
+#   p(al menos a medias) = curva(r / UMBRAL_PARCIAL)     # el liston rebajado
+#   p(a medias) = la diferencia          p(fracaso) = lo que quede
+#
+# Asi "a medias" hace joroba en la zona media (donde de verdad te la juegas) y se desvanece en los
+# dos extremos, que es como se comporta de verdad.
+const UMBRAL_PARCIAL := 0.6
+
 static func probs_desenlace(poder_del_grupo: float, piso: int) -> Array:
 	var e: float = exito(poder_del_grupo, piso)
-	var resto: float = (1.0 - e) * 0.5
-	return [e, resto, resto]
+	var hasta_parcial: float = exito(poder_del_grupo / UMBRAL_PARCIAL, piso)
+	var p: float = maxf(0.0, hasta_parcial - e)
+	return [e, p, maxf(0.0, 1.0 - e - p)]
 
 # Una probabilidad (0..1) como texto. HASTA dos decimales: los porcentajes grandes se leen mejor
 # redondos ("77%"), pero los pequeños hay que verlos enteros ("0.02%") o parecen todos iguales, que
@@ -434,7 +448,15 @@ static func bajar_calidad(cal: int) -> int:
 # UNID_HORA es EL mando de balance de todo esto. Referencia contra jugar: un nodo de mineria son
 # unos 15-25 s mas el transito, o sea del orden de 60-100 unidades por hora jugando. Un encargo de
 # 8 h con cuatro personas da 64. Nunca puede compensar mas que jugar.
-const UNID_HORA := 2.0
+# Cuanto RECOGEN por hora y persona. Es alto a proposito: lo que tiene que limitar un encargo largo
+# es LO QUE PUEDEN CARGAR, no el reloj. Con el 2.0 de antes, tres personas ocho horas juntaban 50
+# unidades y les cabian 100: la mochila no pintaba absolutamente nada y el tope de peso no llegaba a
+# morder nunca. Ahora juntan mas de lo que pueden llevar casi siempre, tiran lo peor, y una mochila
+# mejor es directamente mas botin.
+#
+# Los encargos CORTOS siguen limitados por el tiempo (1 h a solas son 6 unidades y en el zurron
+# caben ~14), asi que la curva es: de poco rato manda el reloj, de mucho manda la espalda.
+const UNID_HORA := 6.0
 const GOLPES_UNID := 0.04
 # Techo de carga: pueden volver SOBRECARGADOS (overload_threshold es 0.9), pero no mas alla de esto.
 # Es el limite duro que hace que la mochila sea una decision y no un adorno.
@@ -565,6 +587,12 @@ static func tope_carga(pjs: Array, entradas: Array) -> float:
 const GAIN_FACTOR := 0.35
 const GAIN_RECO := 0.70          # reparto del presupuesto entre los dos ejes
 const GAIN_COMBATE := 0.30
+# Cuantos "nodos equivalentes" por hora y persona vale APRENDER en un encargo. Va aparte de
+# UNID_HORA (que es cuanto RECOGEN) a proposito, y son numeros distintos porque miden cosas
+# distintas: lo que se traen lo corta la espalda, pero lo que aprenden no depende de si tuvieron que
+# dejar sacos atras. Si esto colgara de UNID_HORA, subirle el ritmo de recogida para que la mochila
+# importara habria triplicado la excelia de rebote.
+const RITMO_EXCELIA := 2.0
 # Cuanto entrena una hora de pelearse con los bichos del piso. Anclado a lo que da encajar golpes en
 # combate (GAIN_RESISTENCIA_GOLPE 0.345): una hora ahi abajo son unos cuantos encontronazos.
 const GAIN_COMBATE_HORA := 0.9
@@ -580,6 +608,13 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 	var n: int = maxi(1, pjs.size())
 	var req: float = requisito_combate(piso)
 	var mult: float = float(MULT_DESENLACE[clampi(desenlace, 0, 2)])
+	# El reparto entre tipos se mide en CUOTA (que parte del rato dedicaron a cada cosa), no en
+	# unidades sueltas: asi el desenlace entra UNA sola vez, por `mult`. Antes entraba dos veces --
+	# tambien venia dentro del recuento de unidades, que ya llevaba CANTIDAD_DESENLACE-- y eso hacia
+	# que un fracaso enseñara nueve veces menos que un exito en vez de tres.
+	var total_uds: float = 0.0
+	for tipo in trabajadas:
+		total_uds += float(trabajadas[tipo])
 	var salida: Array = []
 	for pj_ in pjs:
 		var pj: PersonajeData = pj_ as PersonajeData
@@ -591,6 +626,7 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 			var uds: int = int(trabajadas[tipo])
 			if uds <= 0:
 				continue
+			var cuota: float = float(uds) / maxf(1.0, total_uds)
 			var of: Dictionary = oficio_de(int(tipo))
 			var afin: float = float(afinidades.get(tipo, 0.0))
 			# El reto es POR PERSONA: al mas flojo del grupo le enseña mas, igual que en los
@@ -607,7 +643,10 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 			salida.append({
 				"uid": pj.uid, "abil": String(of["stat"]), "reto": reto_r,
 				"max_reto": float(of["tope"]),
-				"base": float(of["gain"]) * GAIN_FACTOR * GAIN_RECO * mult * (float(uds) / float(n)),
+				# Por HORAS trabajadas, no por unidades traidas: currar ocho horas enseña lo mismo
+				# aunque la mochila les obligara a dejar la mitad tirada.
+				"base": float(of["gain"]) * GAIN_FACTOR * GAIN_RECO * mult
+					* horas * RITMO_EXCELIA * cuota,
 			})
 		# --- B) por PELEAR. Game.reto() es la misma funcion que usa el combate, y el requisito del
 		# piso ya esta en su escala (suma de habilidades), asi que entra tal cual.
