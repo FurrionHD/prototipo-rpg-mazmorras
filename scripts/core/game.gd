@@ -3077,7 +3077,11 @@ func pjs_de_encargo(e: Dictionary) -> Array:
 
 
 # --- MANDAR un encargo. Devuelve el id, o 0 si no se pudo. ---
-func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array) -> int:
+# 'faenas' y 'clases' son {uid: int}: a que va cada uno y con que clase pelea. Pueden venir vacios
+# (todo el mundo a todo, y clase por defecto), y en multi vienen de la maquina del INVITADO, asi que
+# la clase se recomprueba aqui contra su equipo real: un cliente puede mandar el numero que quiera.
+func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array,
+		faenas: Dictionary = {}, clases: Dictionary = {}) -> int:
 	var tt: Array = Encargos.tipos_validos(tipos)
 	if uids.is_empty() or uids.size() > Encargos.MIEMBROS_MAX:
 		return 0
@@ -3105,10 +3109,16 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 	var miembros: Array = []
 	for uid in uids:
 		var pj: PersonajeData = pj_por_uid(String(uid))
+		# La faena solo vale si es uno de los tipos que van a trabajar; -1 es "lo que haga falta".
+		var faena: int = int(faenas.get(String(uid), -1))
+		if not tt.has(faena):
+			faena = -1
 		miembros.append({
 			"dueno": String(pj.dueno) if pj != null else "",
 			"uid": String(uid),
 			"nombre": pj.nombre if pj != null else "?",
+			"faena": faena,
+			"clase": Encargos.clase_valida(pj, int(clases.get(String(uid), Encargos.Clase.GUERRERO))),
 		})
 
 	var e: Dictionary = {

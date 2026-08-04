@@ -58,6 +58,8 @@ var _enc_dur: int = 0                # indice en Encargos.DURACIONES
 var _enc_tipos: Array = [0]          # Encargos.Tipo marcados
 var _enc_uids: Array = []            # quienes van
 var _enc_utiles: Array = []          # ids de entradas del cofre asignadas
+var _enc_faena: Dictionary = {}      # uid -> Encargos.Tipo, o -1 = "lo que haga falta"
+var _enc_clase: Dictionary = {}      # uid -> Encargos.Clase (con que pelea)
 
 
 func _ready() -> void:
@@ -335,6 +337,14 @@ func _build_encargos_nuevo() -> void:
 				vivos.append(uid)
 				break
 	_enc_uids = vivos
+	# Y las ordenes de los que ya no van, o las faenas que apuntaban a un tipo que has desmarcado:
+	# si no se limpian aqui, mandas gente "a las plantas" en un encargo que ya no lleva plantas.
+	for uid in _enc_faena.keys():
+		if not _enc_uids.has(uid) or not _enc_tipos.has(int(_enc_faena[uid])):
+			_enc_faena.erase(uid)
+	for uid in _enc_clase.keys():
+		if not _enc_uids.has(uid):
+			_enc_clase.erase(uid)
 
 	# --- Izquierda: a qué van, dónde y cuánto.
 	MenuScaffold.titulo(_lista, "Tipo de encargo", 14)
@@ -474,6 +484,55 @@ func _build_encargo_gente(libres: Array) -> void:
 				_enc_uids.append(uid)
 			_rebuild())
 		(t["botones"] as HBoxContainer).add_child(b)
+		# Las ordenes solo tienen sentido para el que va: al que dejas en casa no le mandas nada.
+		if va:
+			_build_ordenes(t["caja"] as VBoxContainer, ficha)
+
+
+# Las dos ordenes que le das a UNA persona: a que va, y con que pelea.
+#
+# La de CLASE sale siempre, aunque no los mandes a por bichos: ahi abajo hay bichos igual y de esa
+# pelea se llevan excelia. La de FAENA solo tiene sentido si hay mas de un tipo marcado (con uno
+# solo no hay nada que elegir).
+func _build_ordenes(caja: VBoxContainer, ficha: Dictionary) -> void:
+	var uid: String = String(ficha.get("uid", ""))
+
+	if _enc_tipos.size() > 1:
+		var et: Array = ["Lo que haga falta"]
+		var vals: Array = [-1]
+		for t in _enc_tipos:
+			et.append(String(Encargos.NOMBRE_TIPO.get(int(t), "?")))
+			vals.append(int(t))
+		var sel: int = vals.find(int(_enc_faena.get(uid, -1)))
+		MenuScaffold.nota(caja, "A qué va")
+		MenuScaffold.cuadricula(caja, et, maxi(0, sel), func(i: int):
+			_enc_faena[uid] = int(vals[i])
+			_rebuild(), 4, Vector2(120, 28))
+
+	# Las clases DISPONIBLES viajan ya calculadas en la ficha del roster: dependen de lo que lleve
+	# puesto, y de los personajes del compañero no tenemos el equipo (solo lo que publica el host).
+	var disp: Array = ficha.get("clases", [int(Encargos.Clase.GUERRERO)])
+	var et_c: Array = []
+	var vals_c: Array = []
+	var off: Array = []
+	var tips: Array = []
+	for c in Encargos.Clase.values():
+		if not disp.has(int(c)):
+			off.append(vals_c.size())   # `deshabilitados` va por INDICE, no por booleano
+		et_c.append(String(Encargos.NOMBRE_CLASE.get(c, "?")))
+		vals_c.append(int(c))
+		tips.append("" if disp.has(int(c)) else String(Encargos.REQUISITO_CLASE.get(c, "")))
+	# Por defecto, la primera que SI puede: nunca se queda sin clase ni con una imposible.
+	var actual: int = int(_enc_clase.get(uid, int(disp[0]) if not disp.is_empty() else 0))
+	if not disp.has(actual):
+		actual = int(disp[0]) if not disp.is_empty() else int(Encargos.Clase.GUERRERO)
+	# Se deja escrito el que se está enseñando: si no, quien no toque la fila mandaría al personaje
+	# con la clase por defecto del host en vez de con la que ve marcada en pantalla.
+	_enc_clase[uid] = actual
+	MenuScaffold.nota(caja, "Con qué pelea")
+	MenuScaffold.cuadricula(caja, et_c, vals_c.find(actual), func(i: int):
+		_enc_clase[uid] = int(vals_c[i])
+		_rebuild(), 3, Vector2(120, 28), [], off, tips)
 
 
 func _build_encargo_utiles() -> void:
@@ -613,11 +672,14 @@ func _build_encargo_pronostico(libres: Array) -> void:
 	b.disabled = not pega.is_empty()
 	b.custom_minimum_size = Vector2(0, 38)
 	b.pressed.connect(func():
-		Net.solicitar_encargo(_enc_piso, _enc_tipos, dur, _enc_uids, _enc_utiles)
+		Net.solicitar_encargo(_enc_piso, _enc_tipos, dur, _enc_uids, _enc_utiles,
+			_enc_faena.duplicate(), _enc_clase.duplicate())
 		_aviso = "En marcha. Vuelven en %d h." % (dur / 3600)
 		_aviso_ok = true
 		_enc_uids.clear()
 		_enc_utiles.clear()
+		_enc_faena.clear()
+		_enc_clase.clear()
 		_enc_sub = 0
 		_rebuild())
 	_content.add_child(b)
@@ -636,15 +698,18 @@ func _build_tabla_calidades(fichas: Array, entradas: Array, r_combate: float) ->
 		var afin: float = 0.0
 		for entrada in entradas:
 			afin = maxf(afin, float(Encargos.mods_util(entrada as Dictionary, tipo)["afinidad"]))
-		var poder_reco: float = Encargos.poder_recolector_de(_stats(fichas, tipo), tipo, afin)
+		# SOLO los que van a ese tipo: si mandaste al fuerte a las vetas, el torpe que se fue a las
+		# hierbas no le estropea el mineral. Con nadie asignado, la regla de Encargos devuelve a todos.
+		var poder_reco: float = Encargos.poder_recolector_de(
+			_stats(_fichas_faena(fichas, tipo), tipo), tipo, afin)
 		var pool: Array = Encargos.opciones(tipo, _enc_piso)
 		pool.sort_custom(func(a, b):
 			return Game._exigencia_material(a["material"] as MaterialData, _enc_piso) \
 				< Game._exigencia_material(b["material"] as MaterialData, _enc_piso))
 		for o in pool:
 			var m := o["material"] as MaterialData
-			var r_m: float = Encargos.ratio_calidad(tipo, m, _enc_piso, poder_reco, r_combate)
-			var q: Dictionary = Encargos.reparto_calidades(r_m)
+			var margen: float = Encargos.margen_calidad(tipo, m, _enc_piso, poder_reco, r_combate)
+			var q: Dictionary = Encargos.reparto_calidades(margen)
 			filas.append({"etiqueta": m.nombre, "color": m.color_rango(), "valores": [
 				Encargos.pct(float(q["intacto"])), Encargos.pct(float(q["normal"])),
 				Encargos.pct(float(q["danado"]))]})
@@ -665,6 +730,28 @@ func _fuerzas(fichas: Array) -> Array:
 	var out: Array = []
 	for f in fichas:
 		out.append(float(((f as Dictionary).get("stats", {}) as Dictionary).get("fuerza", 0.0)))
+	return out
+
+
+# Las fichas de los que van a trabajar ESE tipo. La regla ("si no hay nadie asignado lo hacen
+# todos") vive en Encargos y se llama desde aquí en vez de copiarla: el pronóstico y la resolución
+# de verdad tienen que decir lo mismo o la tabla es mentira.
+func _fichas_faena(fichas: Array, tipo: int) -> Array:
+	var trabajan: Array = Encargos.uids_trabajando(_miembros_previstos(), tipo, _enc_uids)
+	var out: Array = []
+	for f in fichas:
+		if trabajan.has(String((f as Dictionary).get("uid", ""))):
+			out.append(f)
+	return out if not out.is_empty() else fichas
+
+
+# Los `miembros` tal y como van a quedar en el encargo, para poder preguntarle a Encargos con la
+# misma forma de datos que usará la resolución.
+func _miembros_previstos() -> Array:
+	var out: Array = []
+	for uid in _enc_uids:
+		out.append({"uid": String(uid), "faena": int(_enc_faena.get(uid, -1)),
+			"clase": int(_enc_clase.get(uid, Encargos.Clase.GUERRERO))})
 	return out
 
 
@@ -845,7 +932,9 @@ func _tarjeta(padre: VBoxContainer) -> Dictionary:
 	var botones := HBoxContainer.new()
 	botones.add_theme_constant_override("separation", 4)
 	caja.add_child(botones)
-	return {"info": info, "botones": botones}
+	# `caja` es el VBox entero: quien quiera colgar mas filas debajo de los botones (las ordenes de un
+	# encargo, por ejemplo) las mete ahi.
+	return {"info": info, "botones": botones, "caja": caja}
 
 
 func _fondo_tarjeta() -> StyleBoxFlat:

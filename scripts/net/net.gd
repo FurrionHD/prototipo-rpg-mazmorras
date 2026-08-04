@@ -2023,20 +2023,23 @@ func _set_cofre(lista: Array) -> void:
 #  difunde la lista entera. Calcado del cofre y del bote.
 # ============================================================
 
-func solicitar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array) -> void:
+func solicitar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array,
+		faenas: Dictionary = {}, clases: Dictionary = {}) -> void:
 	if _soy_cliente():
-		_pedir_encargo.rpc_id(1, piso, tipos, duracion, uids, cofre_ids)
+		_pedir_encargo.rpc_id(1, piso, tipos, duracion, uids, cofre_ids, faenas, clases)
 	else:
-		if Game.enviar_encargo(piso, tipos, duracion, uids, cofre_ids) != 0:
+		if Game.enviar_encargo(piso, tipos, duracion, uids, cofre_ids, faenas, clases) != 0:
 			_difundir_hogar()
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array) -> void:
+func _pedir_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array,
+		faenas: Dictionary = {}, clases: Dictionary = {}) -> void:
 	if not es_host:
 		return
 	var quien: int = multiplayer.get_remote_sender_id()
-	var id: int = Game.enviar_encargo(piso, tipos, duracion, uids, cofre_ids)
+	# enviar_encargo revalida la clase contra el equipo real: lo que mande el cliente es una peticion.
+	var id: int = Game.enviar_encargo(piso, tipos, duracion, uids, cofre_ids, faenas, clases)
 	if id == 0:
 		_aviso_remoto.rpc_id(quien, "No se pudo mandar ese encargo.")
 		return
@@ -2189,6 +2192,10 @@ func _fila_roster(pj: PersonajeData, dueno: String, dueno_nombre: String) -> Dic
 			"agilidad": Game.stat_total_eff("agilidad", pj),
 			"magia": Game.stat_total_eff("magia", pj),
 		},
+		# Las CLASES de combate que puede elegir hoy, tambien ya calculadas. Salen de lo que lleve
+		# puesto (escudo, dagas, magias...) y el invitado no tiene su equipo, asi que si no viajan aqui
+		# el desplegable de clase le sale vacio o mentiroso para los personajes del compañero.
+		"clases": Encargos.clases_de(pj),
 		"color": pj.color,
 	}
 

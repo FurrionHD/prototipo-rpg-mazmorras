@@ -93,6 +93,98 @@ static func tipos_validos(tipos: Array) -> Array:
 
 
 # ============================================================
+#  CLASE DE COMBATE
+#  Aunque los mandes a picar piedra ahi abajo hay bichos, asi que TODOS pelean y todos se llevan
+#  excelia de combate. Antes esa excelia era fuerza/resistencia al 50/50 para todo el mundo, con lo
+#  que un tio con baston y magias volvia mas fuerte de brazos: absurdo.
+#
+#  La clase NO se guarda en el personaje ni se elige de por vida (para eso ya estan las habilidades,
+#  que son raras y ya diferencian a la gente). Es una ORDEN que das al mandar la expedicion, y las
+#  opciones salen de lo que lleve puesto ESE dia. Cambiale el arma y cambian sus clases.
+#
+#  Solo decide A QUE STATS va su excelia de combate. No toca el % de exito ni el desenlace: eso lo
+#  siguen decidiendo el poder y el equipo, que ya estaban calibrados.
+# ============================================================
+enum Clase { GUERRERO, GUERRERO_PESADO, PICARO, TANQUE, MAGO, GUERRERO_MAGICO }
+
+const NOMBRE_CLASE := {
+	Clase.GUERRERO: "Guerrero", Clase.GUERRERO_PESADO: "Guerrero pesado",
+	Clase.PICARO: "Pícaro", Clase.TANQUE: "Tanque",
+	Clase.MAGO: "Mago", Clase.GUERRERO_MAGICO: "Guerrero mágico",
+}
+
+# Por que NO puedes elegirla. Es el tooltip de la casilla deshabilitada.
+const REQUISITO_CLASE := {
+	Clase.GUERRERO: "Necesita un arma ligera (espada corta, larga o maza).",
+	Clase.GUERRERO_PESADO: "Necesita un arma a dos manos (mandoble, hacha o martillo).",
+	Clase.PICARO: "Necesita una daga o un estoque.",
+	Clase.TANQUE: "Necesita un escudo en la mano secundaria.",
+	Clase.MAGO: "Necesita magias equipadas.",
+	Clase.GUERRERO_MAGICO: "Necesita magias equipadas Y un arma melee (la varita no cuenta).",
+}
+
+# Como reparte su excelia de COMBATE cada clase. Cada fila SUMA 1.0 a proposito: la clase cambia a
+# donde va el aprendizaje, no cuanto. Asi se puede tocar esta tabla sin recalibrar nada.
+#
+# Y son las cinco stats, no dos: a un mago le pegan (resistencia) y esquiva (agilidad) igual que a
+# cualquiera, y si se queda sin mana pega un bastonazo (algo de fuerza). Lo que no hace es ponerse
+# cachas peleando. El 0.0 se escribe igual para que la tabla se lea de un vistazo.
+const PESOS_CLASE := {
+	Clase.GUERRERO:        {"fuerza": 0.35, "resistencia": 0.25, "destreza": 0.20, "agilidad": 0.20, "magia": 0.00},
+	Clase.GUERRERO_PESADO: {"fuerza": 0.50, "resistencia": 0.25, "destreza": 0.15, "agilidad": 0.10, "magia": 0.00},
+	Clase.PICARO:          {"fuerza": 0.20, "resistencia": 0.10, "destreza": 0.30, "agilidad": 0.40, "magia": 0.00},
+	Clase.TANQUE:          {"fuerza": 0.25, "resistencia": 0.50, "destreza": 0.10, "agilidad": 0.10, "magia": 0.05},
+	Clase.MAGO:            {"fuerza": 0.05, "resistencia": 0.15, "destreza": 0.05, "agilidad": 0.20, "magia": 0.55},
+	Clase.GUERRERO_MAGICO: {"fuerza": 0.30, "resistencia": 0.15, "destreza": 0.05, "agilidad": 0.15, "magia": 0.35},
+}
+
+# Las tres familias de arma, derivadas de WeaponData.Tipo. Este es EL UNICO sitio del proyecto que
+# clasifica armas por familia; si algun dia hace falta en otro lado, se llama aqui y no se copia.
+# "Pesada" es dos_manos Y NO magica: el baston tambien es de dos manos, pero es un arma de mago.
+const ARMAS_PICARO := [WeaponData.Tipo.DAGA, WeaponData.Tipo.ESTOQUE]
+const ARMAS_LIGERAS := [WeaponData.Tipo.ESPADA_CORTA, WeaponData.Tipo.ESPADA_LARGA,
+	WeaponData.Tipo.MAZA_PEQ]
+
+# Las clases que ESE personaje puede elegir hoy, por lo que lleva puesto. Nunca devuelve vacio:
+# a puno limpio sigues siendo un guerrero.
+static func clases_de(pj: PersonajeData) -> Array:
+	var out: Array = []
+	if pj == null:
+		return [int(Clase.GUERRERO)]
+	var w: WeaponData = Game.arma_main(pj)
+	var tipo_w: int = int(w.tipo) if w != null else int(WeaponData.Tipo.PUNOS)
+	var magica: bool = w != null and w.es_magica
+	# Melee "de verdad": ni baston ni punos. Es lo que separa al guerrero magico del mago pelado.
+	var melee: bool = w != null and not magica and tipo_w != int(WeaponData.Tipo.PUNOS)
+	var hechizos: bool = Game.tiene_hechizos(pj)
+
+	if hechizos:
+		out.append(int(Clase.MAGO))
+		if melee:
+			out.append(int(Clase.GUERRERO_MAGICO))
+	if pj.equipped_off is ShieldData:
+		out.append(int(Clase.TANQUE))
+	if ARMAS_PICARO.has(tipo_w):
+		out.append(int(Clase.PICARO))
+	elif w != null and w.dos_manos and not magica:
+		out.append(int(Clase.GUERRERO_PESADO))
+	elif ARMAS_LIGERAS.has(tipo_w):
+		out.append(int(Clase.GUERRERO))
+
+	# Respaldo: con baston y sin magias no encajas en ninguna de las de arriba, y a punos tampoco.
+	if out.is_empty():
+		out.append(int(Clase.GUERRERO))
+	return out
+
+# La que se usa de verdad: valida lo que pidieron contra lo que pueden, y si no cuadra coge la
+# primera disponible. El host llama a ESTO, porque un cliente puede mandar por RPC lo que le de la
+# gana y no vamos a fiarnos de su numerito.
+static func clase_valida(pj: PersonajeData, pedida: int) -> int:
+	var disp: Array = clases_de(pj)
+	return pedida if disp.has(int(pedida)) else int(disp[0])
+
+
+# ============================================================
 #  RELOJ REAL
 #  NUNCA Game.tiempo_mazmorra: ese se para con los menus abiertos y no corre con el juego cerrado,
 #  que son justo los dos momentos en los que un encargo tiene que seguir avanzando.
@@ -397,6 +489,46 @@ static func exigencia_media(tipo: int, piso: int) -> float:
 		peso += float(o["peso"])
 	return suma / maxf(0.001, peso)
 
+# ============================================================
+#  FAENA: quien trabaja cada tipo
+# ============================================================
+# Al mandarlos le dices a cada uno a que va ("tu a las vetas, tu a las hierbas"). Se guarda como
+# `faena` en su entrada de `miembros`, y -1 significa "lo que haga falta".
+#
+# LA REGLA, y es una sola: un tipo con gente asignada lo trabajan SOLO esos; un tipo al que no
+# asignaste a nadie lo trabajan TODOS. Asi el desplegable es una preferencia y no una trampa: si
+# marcas tres cosas y solo dices quien va a una, las otras dos siguen saliendo.
+static func faena_de(miembros: Array, uid: String) -> int:
+	for m in miembros:
+		if String((m as Dictionary).get("uid", "")) == uid:
+			return int((m as Dictionary).get("faena", -1))
+	return -1
+
+static func clase_de(miembros: Array, uid: String) -> int:
+	for m in miembros:
+		if String((m as Dictionary).get("uid", "")) == uid:
+			return int((m as Dictionary).get("clase", Clase.GUERRERO))
+	return int(Clase.GUERRERO)
+
+# Sobre uids sueltos, porque lo llaman los dos lados: la resolucion (que tiene PersonajeData) y el
+# pronostico de la UI (que en multi solo tiene fichas del roster).
+static func uids_trabajando(miembros: Array, tipo: int, todos: Array) -> Array:
+	var out: Array = []
+	for u in todos:
+		if faena_de(miembros, String(u)) == int(tipo):
+			out.append(String(u))
+	return out if not out.is_empty() else todos
+
+# Lo mismo, ya filtrado a PersonajeData.
+static func trabajadores(pjs: Array, miembros: Array, tipo: int) -> Array:
+	var out: Array = []
+	for pj_ in pjs:
+		var pj: PersonajeData = pj_ as PersonajeData
+		if pj != null and faena_de(miembros, pj.uid) == int(tipo):
+			out.append(pj)
+	return out if not out.is_empty() else pjs
+
+
 # Lo bien preparados que van para ESE material. >= 1 es ir sobrado. Es el inverso de
 # _reto_recoleccion, que devuelve "lo dificil que te resulta".
 static func poder_recolector(pjs: Array, tipo: int, afinidad: float) -> float:
@@ -422,30 +554,48 @@ static func poder_recolector_de(valores: Array, tipo: int, afinidad: float) -> f
 static func ratio_material(m: MaterialData, piso: int, poder_reco: float) -> float:
 	return poder_reco / maxf(1.0, Game._exigencia_material(m, piso))
 
-# El ratio que decide la CALIDAD de una unidad, segun su tipo.
+# Lo que decide la CALIDAD de una unidad, segun su tipo. Devuelve el MARGEN: cuanta stat de oficio
+# les sobra por encima de la exigencia del material.
 #
 # Los materiales de monstruo tienen exigencia 0.0 en sus .tres, y no es un olvido: no se recolectan,
 # se sacan de un cadaver. Asi que para BICHO no hay eje de herramienta que valga y la calidad la
-# decide el COMBATE (r_c). Es ademas lo que hace el juego hoy: la calidad del drop sale de
-# _calidad_material_de_cristal(), o sea de lo bien que rematas.
-static func ratio_calidad(tipo: int, m: MaterialData, piso: int, poder_reco: float,
+# decide el COMBATE. Es ademas lo que hace el juego hoy: la calidad del drop sale de
+# _calidad_material_de_cristal(), o sea de lo bien que rematas. Como el combate SI viene en ratio
+# (adimensional, no hay exigencia que restar), se traduce a margen por la misma escala.
+static func margen_calidad(tipo: int, m: MaterialData, piso: int, poder_reco: float,
 		r_combate: float) -> float:
 	if tipo == Tipo.BICHO:
-		return r_combate
-	return ratio_material(m, piso, poder_reco)
+		return (r_combate - 1.0) * MARGEN_PLENO
+	return poder_reco - Game._exigencia_material(m, piso)
 
-# Ratio -> reparto de calidades. Calibrado con el ejemplo del jugador: exigencia 150 contra 100 de
-# poder recolector (r = 0.667) tiene que dar mas o menos 30 dañado / 50 normal / 20 intacto.
+# MARGEN -> reparto de calidades.
+#
+# Antes esto iba por RATIO (poder / exigencia) y estaba mal planteado: un cociente le pide a cada
+# material un esfuerzo proporcional a lo que ya vale. Llegar a x2 en algo de exigencia 40 sale
+# gratis, y en algo de exigencia 500 pediria +500 puntos de stat, que sencillamente no existen. O
+# sea que el techo de calidad se volvia inalcanzable justo donde importa.
+#
+# Ahora va por MARGEN ABSOLUTO: te pide una cantidad PLANA de stat por encima de la exigencia, la
+# misma para el cobre en bruto que para lo del piso 13. Ir sobrado es ir sobrado.
+#
+# Calibrado contra el mismo punto de referencia de siempre (poder 100 contra exigencia 150, o sea
+# margen -50 -> unos 30 dañado / 50 normal / 20 intacto), asi que el tramo bajo no se mueve.
 # PURO no sale de un encargo (es el techo de Metalurgia) y ROTO tampoco se genera: fallar se modela
 # como cantidad perdida y calidad peor, no como piezas rotas invisibles.
-static func reparto_calidades(r: float) -> Dictionary:
-	var intacto: float = clampf(0.45 * r - 0.10, 0.0, 0.70)
-	var danado: float = 0.75 * pow(clampf(1.0 - r, 0.0, 1.0), 0.8)
+const MARGEN_PLENO := 100.0    # stat POR ENCIMA de la exigencia que da el 100% de intacto
+const MARGEN_NULO := -90.0     # por debajo de esto no sale nada intacto
+const MARGEN_MALO := 155.0     # cuanto por DEBAJO hace falta para el 75% de dañado
+
+static func reparto_calidades(margen: float) -> Dictionary:
+	var intacto: float = clampf((margen - MARGEN_NULO) / (MARGEN_PLENO - MARGEN_NULO), 0.0, 1.0)
+	var danado: float = 0.75 * pow(clampf(-margen / MARGEN_MALO, 0.0, 1.0), 0.8)
+	# Las dos ramas no se pisan: intacto solo empieza a subir a partir de MARGEN_NULO y dañado solo
+	# existe con margen negativo, asi que su suma nunca pasa de 1 y `normal` es lo que queda.
 	var normal: float = maxf(0.0, 1.0 - intacto - danado)
 	return {"intacto": intacto, "normal": normal, "danado": danado}
 
-static func calidad_tirada(r: float, rng: RandomNumberGenerator) -> int:
-	var p: Dictionary = reparto_calidades(r)
+static func calidad_tirada(margen: float, rng: RandomNumberGenerator) -> int:
+	var p: Dictionary = reparto_calidades(margen)
 	var x: float = rng.randf()
 	if x < float(p["intacto"]):
 		return MaterialItem.Calidad.INTACTO
@@ -647,29 +797,37 @@ const GAIN_COMBATE_HORA := 0.9
 # 'trabajadas' = {tipo: unidades} (las TRABAJADAS, no las traidas), 'afinidades' = {tipo: afinidad}.
 # 'desenlace' escala todo por MULT_DESENLACE (x3 / x2 / x1).
 static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Dictionary,
-		afinidades: Dictionary, r_combate: float, desenlace: int) -> Array:
+		afinidades: Dictionary, r_combate: float, desenlace: int, miembros: Array = []) -> Array:
 	var horas: float = float(duracion) / 3600.0
-	var n: int = maxi(1, pjs.size())
 	var req: float = requisito_combate(piso)
 	var mult: float = float(MULT_DESENLACE[clampi(desenlace, 0, 2)])
-	# El reparto entre tipos se mide en CUOTA (que parte del rato dedicaron a cada cosa), no en
-	# unidades sueltas: asi el desenlace entra UNA sola vez, por `mult`. Antes entraba dos veces --
-	# tambien venia dentro del recuento de unidades, que ya llevaba CANTIDAD_DESENLACE-- y eso hacia
-	# que un fracaso enseñara nueve veces menos que un exito en vez de tres.
-	var total_uds: float = 0.0
-	for tipo in trabajadas:
-		total_uds += float(trabajadas[tipo])
+	var todos: Array = _uids(pjs)
 	var salida: Array = []
 	for pj_ in pjs:
 		var pj: PersonajeData = pj_ as PersonajeData
 		if pj == null:
 			continue
-		# --- A) por RECOLECTAR, UNA VEZ POR TIPO MARCADO. Cada tipo entrena SU stat: por eso
-		# multiseleccionar reparte tambien el aprendizaje, y no es solo comodidad.
+		# El reparto entre tipos se mide en CUOTA (que parte del rato dedicaron a cada cosa), no en
+		# unidades sueltas: asi el desenlace entra UNA sola vez, por `mult`. Antes entraba dos veces
+		# --tambien venia dentro del recuento de unidades, que ya llevaba CANTIDAD_DESENLACE-- y eso
+		# hacia que un fracaso enseñara nueve veces menos que un exito en vez de tres.
+		#
+		# Y la cuota es SUYA, no del encargo: solo cuentan los tipos que EL trabaja. Por eso un minero
+		# dedicado se lleva su rato entero en fuerza en vez de un tercio, aunque el grupo saliera a
+		# tres cosas. Es lo que hace que asignar faenas valga para algo.
+		var mios: Dictionary = {}
+		var total_uds: float = 0.0
 		for tipo in trabajadas:
-			var uds: int = int(trabajadas[tipo])
-			if uds <= 0:
+			if int(trabajadas[tipo]) <= 0:
 				continue
+			if not uids_trabajando(miembros, int(tipo), todos).has(pj.uid):
+				continue
+			mios[int(tipo)] = int(trabajadas[tipo])
+			total_uds += float(trabajadas[tipo])
+		# --- A) por RECOLECTAR, UNA VEZ POR TIPO QUE EL TRABAJA. Cada tipo entrena SU stat: por eso
+		# multiseleccionar reparte tambien el aprendizaje, y no es solo comodidad.
+		for tipo in mios:
+			var uds: int = int(mios[tipo])
 			var cuota: float = float(uds) / maxf(1.0, total_uds)
 			var of: Dictionary = oficio_de(int(tipo))
 			var afin: float = float(afinidades.get(tipo, 0.0))
@@ -692,14 +850,34 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 				"base": float(of["gain"]) * GAIN_FACTOR * GAIN_RECO * mult
 					* horas * RITMO_EXCELIA * cuota,
 			})
-		# --- B) por PELEAR. Game.reto() es la misma funcion que usa el combate, y el requisito del
-		# piso ya esta en su escala (suma de habilidades), asi que entra tal cual.
+		# --- B) por PELEAR. Se la llevan TODOS aunque el encargo sea de picar piedra: ahi abajo hay
+		# bichos. Game.reto() es la misma funcion que usa el combate, y el requisito del piso ya esta
+		# en su escala (suma de habilidades), asi que entra tal cual.
+		#
+		# A DONDE va esa excelia lo decide la CLASE que le pusiste al mandarlo. Los pesos suman 1.0,
+		# asi que el total es el mismo de antes y solo cambia el reparto: un mago sale de ahi con
+		# magia y esquiva donde un guerrero pesado sale con brazos.
 		var reto_c: float = Game.reto(req, 1, pj)
 		var base_c: float = GAIN_COMBATE_HORA * GAIN_FACTOR * GAIN_COMBATE * horas * mult
-		for abil in ["fuerza", "resistencia"]:
-			salida.append({"uid": pj.uid, "abil": abil, "reto": reto_c,
-				"max_reto": Game.RETO_MAX_FISICO, "base": base_c * 0.5})
+		var pesos: Dictionary = PESOS_CLASE.get(clase_de(miembros, pj.uid),
+			PESOS_CLASE[Clase.GUERRERO])
+		for abil in pesos:
+			var peso: float = float(pesos[abil])
+			if peso <= 0.0:
+				continue
+			# La magia se mide con la escala de la magia (RETO_MAX), no con la de los mamporros.
+			salida.append({"uid": pj.uid, "abil": String(abil), "reto": reto_c,
+				"max_reto": Game.RETO_MAX if abil == "magia" else Game.RETO_MAX_FISICO,
+				"base": base_c * peso})
 	return salida
+
+static func _uids(pjs: Array) -> Array:
+	var out: Array = []
+	for pj_ in pjs:
+		var pj: PersonajeData = pj_ as PersonajeData
+		if pj != null:
+			out.append(pj.uid)
+	return out
 
 # El ratio de combate, leido como "reto": ir justo enseña, ir sobrado no. Es el inverso del ratio,
 # con la misma forma que curva_reto le da a los oficios.
@@ -722,6 +900,7 @@ static func resolver(e: Dictionary, pjs: Array, entradas_cofre: Array) -> Dictio
 	var piso: int = int(e.get("piso", 1))
 	var duracion: int = int(e.get("duracion", 3600))
 	var tipos: Array = tipos_validos(e.get("tipos", []))
+	var miembros: Array = e.get("miembros", [])
 	var n: int = maxi(1, pjs.size())
 
 	# --- Eje 1: ¿vuelven bien?
@@ -745,17 +924,19 @@ static func resolver(e: Dictionary, pjs: Array, entradas_cofre: Array) -> Dictio
 	var trabajadas: int = unidades(duracion, n, golpes, float(CANTIDAD_DESENLACE[desenlace]))
 	var por_tipo: Dictionary = repartir(trabajadas, tipos)
 
-	# --- Eje 2: que sacan y con que calidad.
+	# --- Eje 2: que sacan y con que calidad. La calidad la deciden SOLO los que trabajan ese tipo:
+	# si mandaste al fuerte a las vetas y al torpe a las hierbas, el torpe no le estropea el mineral.
 	var piezas: Array = []
 	for tipo in por_tipo:
 		var t: int = int(tipo)
-		var poder_reco: float = poder_recolector(pjs, t, float(afinidades.get(t, 0.0)))
+		var poder_reco: float = poder_recolector(trabajadores(pjs, miembros, t), t,
+			float(afinidades.get(t, 0.0)))
 		for i in int(por_tipo[tipo]):
 			var m: MaterialData = elegir_material(t, piso, rng)
 			if m == null:
 				continue
-			var r_m: float = ratio_calidad(t, m, piso, poder_reco, r_c)
-			var cal: int = calidad_tirada(r_m, rng)
+			var margen: float = margen_calidad(t, m, piso, poder_reco, r_c)
+			var cal: int = calidad_tirada(margen, rng)
 			# Perder no solo recorta la cantidad: lo que traen viene PEOR. A medias, la mitad.
 			if desenlace == FRACASO or (desenlace == PARCIAL and rng.randf() < 0.5):
 				cal = bajar_calidad(cal)
@@ -784,7 +965,7 @@ static func resolver(e: Dictionary, pjs: Array, entradas_cofre: Array) -> Dictio
 	return {
 		"desenlace": desenlace,
 		"botin": botin,
-		"excelia": excelia_de(pjs, piso, duracion, por_tipo, afinidades, r_c, desenlace),
+		"excelia": excelia_de(pjs, piso, duracion, por_tipo, afinidades, r_c, desenlace, miembros),
 		"trabajadas": trabajadas,
 		"traidas": (corte["traidas"] as Array).size(),
 		"perdido": int(corte["perdido"]),
