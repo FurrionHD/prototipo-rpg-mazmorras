@@ -430,9 +430,8 @@ func _build_encargo_gente(libres: Array) -> void:
 	for f in libres:
 		var ficha := f as Dictionary
 		var uid: String = String(ficha.get("uid", ""))
-		var fila := HBoxContainer.new()
-		fila.add_theme_constant_override("separation", 6)
-		_content.add_child(fila)
+		var t: Dictionary = _tarjeta(_content)
+		var fila: HBoxContainer = t["info"]
 		fila.add_child(_punto_color(ficha.get("color", Color.WHITE)))
 		var l := Label.new()
 		# En mundo compartido, de quién es. Sin esto no sabes a quién le estás prestando la gente.
@@ -455,13 +454,14 @@ func _build_encargo_gente(libres: Array) -> void:
 			else:
 				_enc_uids.append(uid)
 			_rebuild())
-		fila.add_child(b)
+		(t["botones"] as HBoxContainer).add_child(b)
 
 
 func _build_encargo_utiles() -> void:
 	MenuScaffold.titulo(_content, "Útiles del cofre", 14)
 	var hay: bool = false
-	for entrada_ in Game.cofre_equipo:
+	# Net.cofre_visible() y no Game.cofre_equipo: de cliente el cofre del hogar es el del HOST.
+	for entrada_ in Net.cofre_visible():
 		var entrada := entrada_ as Dictionary
 		var clase: String = String(entrada.get("clase", ""))
 		if clase != "herramienta" and clase != "mochila":
@@ -469,9 +469,8 @@ func _build_encargo_utiles() -> void:
 		hay = true
 		var id: int = int(entrada.get("id", -1))
 		var ocupada: int = int(entrada.get("encargo", 0))
-		var fila := HBoxContainer.new()
-		fila.add_theme_constant_override("separation", 6)
-		_content.add_child(fila)
+		var tar: Dictionary = _tarjeta(_content)
+		var fila: HBoxContainer = tar["info"]
 		var l := Label.new()
 		l.text = String(entrada.get("desc", "?"))
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -503,7 +502,7 @@ func _build_encargo_utiles() -> void:
 			else:
 				_enc_utiles.append(id)
 			_rebuild())
-		fila.add_child(b)
+		(tar["botones"] as HBoxContainer).add_child(b)
 	if not hay:
 		MenuScaffold.nota(_content, "El cofre no tiene herramientas ni mochilas. Mete ahí las que "
 			+ "quieras prestarles: mientras están fuera nadie puede sacarlas.")
@@ -526,7 +525,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 
 	var entradas: Array = []
 	for id in _enc_utiles:
-		for entrada in Game.cofre_equipo:
+		for entrada in Net.cofre_visible():
 			if int((entrada as Dictionary).get("id", -1)) == int(id):
 				entradas.append(entrada)
 				break
@@ -697,20 +696,20 @@ func _build_equipo() -> void:
 
 func _fila_equipo(i: int) -> void:
 	var pj: PersonajeData = Game.party[i]
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 6)
-	_lista.add_child(fila)
+	var t: Dictionary = _tarjeta(_lista)
+	var fila: HBoxContainer = t["botones"]
 
-	fila.add_child(_punto(pj))
+	(t["info"] as HBoxContainer).add_child(_punto(pj))
 
 	var es_lider: bool = pj == Game.lider()
 	var l := Label.new()
 	# El numero es el de la tecla que lo pone en cabeza (1/2/3), y es FIJO: cada uno tiene su hueco.
-	l.text = "%d. %s%s  ·  Nv.%d" % [i + 1, "👑 " if es_lider else "", pj.nombre, pj.level]
+	l.text = "%d. %s%s  ·  Nv.%d  ·  Poder %d" % [i + 1, "👑 " if es_lider else "", pj.nombre,
+		pj.level, int(round(Encargos.poder(pj)))]
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if es_lider:
 		l.add_theme_color_override("font_color", AMBAR)
-	fila.add_child(l)
+	(t["info"] as HBoxContainer).add_child(l)
 
 	# Ponerlo EN CABEZA. Ya no reordena el equipo (las posiciones son fijas): solo mueve la corona,
 	# lo mismo que hace su tecla. Deshabilitado si ya va delante.
@@ -745,11 +744,10 @@ func _fila_equipo(i: int) -> void:
 
 
 func _fila_banquillo(pj: PersonajeData) -> void:
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 6)
-	_content.add_child(fila)
+	var t: Dictionary = _tarjeta(_content)
+	var fila: HBoxContainer = t["botones"]
 
-	fila.add_child(_punto(pj))
+	(t["info"] as HBoxContainer).add_child(_punto(pj))
 
 	# ¿Está fuera, de encargo? Entonces no se le puede tocar hasta que vuelva.
 	var enc_id: int = Game.uid_de_encargo(String(pj.uid))
@@ -765,7 +763,7 @@ func _fila_banquillo(pj: PersonajeData) -> void:
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if enc_id != 0:
 		l.add_theme_color_override("font_color", GRIS)
-	fila.add_child(l)
+	(t["info"] as HBoxContainer).add_child(l)
 
 	var dentro := Button.new()
 	dentro.text = "Que baje"
@@ -810,6 +808,40 @@ func _fila_banquillo(pj: PersonajeData) -> void:
 # Editar la CARA de cualquiera de los tuyos, esten en el equipo o en el banquillo. Antes solo el
 # personaje de la ranura se podia retocar (desde el menu principal) y los companeros se quedaban
 # con el aspecto del dia que los contrataste para siempre.
+# TARJETA de una persona: los datos en una linea y los botones en OTRA, dentro de un panelito.
+#
+# Antes era todo una fila sola y no cabia: con tres botones detras del nombre, el ultimo se salia de
+# la pantalla y no habia forma de pulsarlo. Poniendo los botones debajo cabe cualquier combinacion
+# sin depender de lo largo que sea un nombre ni de cuantos botones lleve esa fila.
+func _tarjeta(padre: VBoxContainer) -> Dictionary:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _fondo_tarjeta())
+	padre.add_child(panel)
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 3)
+	panel.add_child(caja)
+	var info := HBoxContainer.new()
+	info.add_theme_constant_override("separation", 6)
+	caja.add_child(info)
+	var botones := HBoxContainer.new()
+	botones.add_theme_constant_override("separation", 4)
+	caja.add_child(botones)
+	return {"info": info, "botones": botones}
+
+
+func _fondo_tarjeta() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.10, 0.11, 0.14, 0.85)
+	sb.border_color = Color(0.30, 0.33, 0.40, 0.7)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(5)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 5
+	sb.content_margin_bottom = 5
+	return sb
+
+
 func _boton_aspecto(pj: PersonajeData) -> Button:
 	var b := Button.new()
 	b.text = "Aspecto"
