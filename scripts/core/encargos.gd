@@ -113,6 +113,14 @@ const NOMBRE_CLASE := {
 	Clase.MAGO: "Mago", Clase.GUERRERO_MAGICO: "Guerrero mágico",
 }
 
+# Para las casillas de la tarjeta, que son estrechas: ahi no caben "Guerrero pesado" ni "Guerrero
+# magico" enteros y se recortaban a media palabra. El nombre largo va en el tooltip.
+const ABREV_CLASE := {
+	Clase.GUERRERO: "Guerrero", Clase.GUERRERO_PESADO: "G. pesado",
+	Clase.PICARO: "Pícaro", Clase.TANQUE: "Tanque",
+	Clase.MAGO: "Mago", Clase.GUERRERO_MAGICO: "G. mágico",
+}
+
 # Por que NO puedes elegirla. Es el tooltip de la casilla deshabilitada.
 const REQUISITO_CLASE := {
 	Clase.GUERRERO: "Necesita un arma ligera (espada corta, larga o maza).",
@@ -492,17 +500,18 @@ static func exigencia_media(tipo: int, piso: int) -> float:
 # ============================================================
 #  FAENA: quien trabaja cada tipo
 # ============================================================
-# Al mandarlos le dices a cada uno a que va ("tu a las vetas, tu a las hierbas"). Se guarda como
-# `faena` en su entrada de `miembros`, y -1 significa "lo que haga falta".
+# Al mandarlos le dices a cada uno a que va ("tu a las vetas, tu a pescar y a por bichos"). Se guarda
+# como `faenas` en su entrada de `miembros`: una LISTA, porque a uno le puedes mandar varias cosas.
+# Vacia = "lo que haga falta".
 #
 # LA REGLA, y es una sola: un tipo con gente asignada lo trabajan SOLO esos; un tipo al que no
-# asignaste a nadie lo trabajan TODOS. Asi el desplegable es una preferencia y no una trampa: si
+# asignaste a nadie lo trabajan TODOS. Asi las casillas son una preferencia y no una trampa: si
 # marcas tres cosas y solo dices quien va a una, las otras dos siguen saliendo.
-static func faena_de(miembros: Array, uid: String) -> int:
+static func faenas_de(miembros: Array, uid: String) -> Array:
 	for m in miembros:
 		if String((m as Dictionary).get("uid", "")) == uid:
-			return int((m as Dictionary).get("faena", -1))
-	return -1
+			return (m as Dictionary).get("faenas", [])
+	return []
 
 static func clase_de(miembros: Array, uid: String) -> int:
 	for m in miembros:
@@ -515,7 +524,7 @@ static func clase_de(miembros: Array, uid: String) -> int:
 static func uids_trabajando(miembros: Array, tipo: int, todos: Array) -> Array:
 	var out: Array = []
 	for u in todos:
-		if faena_de(miembros, String(u)) == int(tipo):
+		if faenas_de(miembros, String(u)).has(int(tipo)):
 			out.append(String(u))
 	return out if not out.is_empty() else todos
 
@@ -524,9 +533,19 @@ static func trabajadores(pjs: Array, miembros: Array, tipo: int) -> Array:
 	var out: Array = []
 	for pj_ in pjs:
 		var pj: PersonajeData = pj_ as PersonajeData
-		if pj != null and faena_de(miembros, pj.uid) == int(tipo):
+		if pj != null and faenas_de(miembros, pj.uid).has(int(tipo)):
 			out.append(pj)
 	return out if not out.is_empty() else pjs
+
+# Las faenas que pidieron, limpias: fuera lo que no sea un tipo del encargo y fuera los repetidos.
+# Si se queda vacia es "lo que haga falta", que es el valor por defecto y el de siempre.
+static func faenas_validas(pedidas: Array, tipos_encargo: Array) -> Array:
+	var out: Array = []
+	for t in pedidas:
+		var i: int = int(t)
+		if tipos_encargo.has(i) and not out.has(i):
+			out.append(i)
+	return out
 
 
 # Lo bien preparados que van para ESE material. >= 1 es ir sobrado. Es el inverso de

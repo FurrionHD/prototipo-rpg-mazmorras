@@ -3109,15 +3109,12 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 	var miembros: Array = []
 	for uid in uids:
 		var pj: PersonajeData = pj_por_uid(String(uid))
-		# La faena solo vale si es uno de los tipos que van a trabajar; -1 es "lo que haga falta".
-		var faena: int = int(faenas.get(String(uid), -1))
-		if not tt.has(faena):
-			faena = -1
 		miembros.append({
 			"dueno": String(pj.dueno) if pj != null else "",
 			"uid": String(uid),
 			"nombre": pj.nombre if pj != null else "?",
-			"faena": faena,
+			# Puede ir a VARIAS cosas (pescar y cazar, por ejemplo). Vacia = a lo que haga falta.
+			"faenas": Encargos.faenas_validas(faenas.get(String(uid), []), tt),
 			"clase": Encargos.clase_valida(pj, int(clases.get(String(uid), Encargos.Clase.GUERRERO))),
 		})
 

@@ -340,8 +340,10 @@ func _build_encargos_nuevo() -> void:
 	# Y las ordenes de los que ya no van, o las faenas que apuntaban a un tipo que has desmarcado:
 	# si no se limpian aqui, mandas gente "a las plantas" en un encargo que ya no lleva plantas.
 	for uid in _enc_faena.keys():
-		if not _enc_uids.has(uid) or not _enc_tipos.has(int(_enc_faena[uid])):
+		if not _enc_uids.has(uid):
 			_enc_faena.erase(uid)
+		else:
+			_enc_faena[uid] = Encargos.faenas_validas(_enc_faena[uid], _enc_tipos)
 	for uid in _enc_clase.keys():
 		if not _enc_uids.has(uid):
 			_enc_clase.erase(uid)
@@ -497,17 +499,32 @@ func _build_encargo_gente(libres: Array) -> void:
 func _build_ordenes(caja: VBoxContainer, ficha: Dictionary) -> void:
 	var uid: String = String(ficha.get("uid", ""))
 
+	# OJO con el ancho: estas cuadrículas van DENTRO de una tarjeta de la columna derecha, que es
+	# estrecha. Con ancho mínimo la rejilla empuja la columna entera fuera de la pantalla, así que se
+	# deja en 0 y que el EXPAND_FILL reparta lo que haya.
+	# A qué va es MULTISELECCIÓN, como el "Tipo de encargo" de la izquierda: a uno le puedes mandar a
+	# pescar Y a por bichos. Sin nada marcado va a lo que haga falta, que es lo de siempre.
 	if _enc_tipos.size() > 1:
-		var et: Array = ["Lo que haga falta"]
-		var vals: Array = [-1]
+		var suyas: Array = _enc_faena.get(uid, [])
+		var et: Array = []
+		var vals: Array = []
+		var tips_f: Array = []
 		for t in _enc_tipos:
-			et.append(String(Encargos.NOMBRE_TIPO.get(int(t), "?")))
+			var n: String = String(Encargos.NOMBRE_TIPO.get(int(t), "?"))
+			et.append("%s %s" % ["☑" if suyas.has(int(t)) else "☐", n])
 			vals.append(int(t))
-		var sel: int = vals.find(int(_enc_faena.get(uid, -1)))
-		MenuScaffold.nota(caja, "A qué va")
-		MenuScaffold.cuadricula(caja, et, maxi(0, sel), func(i: int):
-			_enc_faena[uid] = int(vals[i])
-			_rebuild(), 4, Vector2(120, 28))
+			tips_f.append("Trabaja %s." % n.to_lower())
+		MenuScaffold.nota(caja, "A qué va" if not suyas.is_empty()
+			else "A qué va  ·  sin marcar nada, a lo que haga falta")
+		MenuScaffold.cuadricula(caja, et, -1, func(i: int):
+			var lista: Array = (_enc_faena.get(uid, []) as Array).duplicate()
+			var t: int = int(vals[i])
+			if lista.has(t):
+				lista.erase(t)
+			else:
+				lista.append(t)
+			_enc_faena[uid] = lista
+			_rebuild(), 3, Vector2(0, 26), [], [], tips_f)
 
 	# Las clases DISPONIBLES viajan ya calculadas en la ficha del roster: dependen de lo que lleve
 	# puesto, y de los personajes del compañero no tenemos el equipo (solo lo que publica el host).
@@ -519,9 +536,11 @@ func _build_ordenes(caja: VBoxContainer, ficha: Dictionary) -> void:
 	for c in Encargos.Clase.values():
 		if not disp.has(int(c)):
 			off.append(vals_c.size())   # `deshabilitados` va por INDICE, no por booleano
-		et_c.append(String(Encargos.NOMBRE_CLASE.get(c, "?")))
+		et_c.append(String(Encargos.ABREV_CLASE.get(c, "?")))
 		vals_c.append(int(c))
-		tips.append("" if disp.has(int(c)) else String(Encargos.REQUISITO_CLASE.get(c, "")))
+		# El nombre entero siempre en el tooltip (la casilla va abreviada), y si no puede, el motivo.
+		tips.append(String(Encargos.NOMBRE_CLASE.get(c, "?")) if disp.has(int(c))
+			else String(Encargos.REQUISITO_CLASE.get(c, "")))
 	# Por defecto, la primera que SI puede: nunca se queda sin clase ni con una imposible.
 	var actual: int = int(_enc_clase.get(uid, int(disp[0]) if not disp.is_empty() else 0))
 	if not disp.has(actual):
@@ -532,7 +551,7 @@ func _build_ordenes(caja: VBoxContainer, ficha: Dictionary) -> void:
 	MenuScaffold.nota(caja, "Con qué pelea")
 	MenuScaffold.cuadricula(caja, et_c, vals_c.find(actual), func(i: int):
 		_enc_clase[uid] = int(vals_c[i])
-		_rebuild(), 3, Vector2(120, 28), [], off, tips)
+		_rebuild(), 3, Vector2(0, 26), [], off, tips)
 
 
 func _build_encargo_utiles() -> void:
@@ -750,7 +769,7 @@ func _fichas_faena(fichas: Array, tipo: int) -> Array:
 func _miembros_previstos() -> Array:
 	var out: Array = []
 	for uid in _enc_uids:
-		out.append({"uid": String(uid), "faena": int(_enc_faena.get(uid, -1)),
+		out.append({"uid": String(uid), "faenas": _enc_faena.get(uid, []),
 			"clase": int(_enc_clase.get(uid, Encargos.Clase.GUERRERO))})
 	return out
 
