@@ -66,6 +66,31 @@ func _tirar(piso: int) -> SpawnEntry:
 	return pool.back()
 
 
+# APLANA la tabla: [{"data": EnemyData, "prob": float}] con la probabilidad ABSOLUTA de cada bicho
+# en este piso, familias ya resueltas. Es lo mismo que calcula resumen(), pero devolviendo datos en
+# vez de texto: los ENCARGOS necesitan saber que bichos hay en un piso al que no estas para poder
+# derivar de ahi que materiales de monstruo pueden traer, sin inventarse una tabla paralela.
+func aplanar(piso: int, cuota: float = 1.0, profundidad: int = 0) -> Array:
+	var out: Array = []
+	if profundidad >= MAX_PROFUNDIDAD:
+		return out
+	var pool: Array = disponibles(piso)
+	if pool.is_empty():
+		return out
+	var total: float = 0.0
+	for e in pool:
+		total += e.peso
+	if total <= 0.0:
+		return out
+	for e in pool:
+		var p: float = cuota * e.peso / total
+		if e.es_familia():
+			out.append_array(e.tabla.aplanar(piso, p, profundidad + 1))
+		elif e.enemy_data != null:
+			out.append({"data": e.enemy_data, "prob": p})
+	return out
+
+
 # Texto con los numeros DERIVADOS de los pesos (nunca escritos a mano): que probabilidad
 # REAL tiene cada cosa en este piso. Una familia se abre entre parentesis con sus
 # variantes ya multiplicadas por la parte que le toca a la familia, que es el numero que

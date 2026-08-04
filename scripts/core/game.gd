@@ -2886,6 +2886,43 @@ var _cofre_next_id: int = 1
 var encargos: Array = []
 var _encargo_next_id: int = 1
 
+# --- MATERIALES DE BICHO de un piso (para los encargos de caza) ---
+# NO es una tabla nueva: se deriva de la spawn table que ya decide que sale de las paredes. Por cada
+# bicho del piso y su probabilidad absoluta, sus TRES punteros de botin con su chance real. Asi, el
+# dia que se retoque un peso de spawn o un drop_chance, esto se entera solo.
+#
+# Los BOSSES quedan fuera a proposito: viven en BOSSES, no en la spawn table. Un encargo no te trae
+# baba de Rey Slime; eso hay que ir a ganarselo.
+const TABLA_SPAWNS := "res://resources/spawns/piso_comun.tres"
+
+func materiales_de_bicho_en(piso: int) -> Array:
+	var tabla: SpawnTable = load(TABLA_SPAWNS) as SpawnTable
+	if tabla == null:
+		return []
+	# {MaterialData: peso}: un mismo material puede venir de dos bichos distintos y hay que sumarlo.
+	var pesos: Dictionary = {}
+	for fila in tabla.aplanar(piso):
+		var data: EnemyData = fila["data"]
+		var p: float = float(fila["prob"])
+		var f: float = data.drop_factor_piso(piso)
+		if data.drop_material != null:
+			var n: float = float(maxi(1, data.drop_cantidad_min) + maxi(1, data.drop_cantidad_max)) * 0.5
+			pesos[data.drop_material] = float(pesos.get(data.drop_material, 0.0)) \
+				+ p * data.drop_chance * f * n
+		if data.nucleo != null:
+			pesos[data.nucleo] = float(pesos.get(data.nucleo, 0.0)) + p * data.nucleo_chance * f
+		if data.drop_extra != null:
+			# La carne NO lleva factor de piso (asi esta en _tirar_drop): se respeta.
+			var nx: float = float(maxi(1, data.drop_extra_min) + maxi(1, data.drop_extra_max)) * 0.5
+			pesos[data.drop_extra] = float(pesos.get(data.drop_extra, 0.0)) \
+				+ p * data.drop_extra_chance * nx
+	var out: Array = []
+	for m in pesos:
+		if float(pesos[m]) > 0.0:
+			out.append({"material": m, "peso": float(pesos[m])})
+	return out
+
+
 # El encargo con ese id, o un dict vacio.
 func encargo_por_id(id: int) -> Dictionary:
 	for e in encargos:
