@@ -3120,7 +3120,23 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 	return int(e["id"])
 
 
-# --- CANCELAR: libera gente y utiles, y NO trae nada. ---
+# --- TRAER DE VUELTA antes de tiempo. Vuelven con LO QUE YA LLEVAN. ---
+# No es cancelar: el trabajo hecho es suyo. Se resuelve como un encargo de la duracion que de verdad
+# han estado fuera, asi que a media faena traen la mitad. Como todo sale de las horas (las unidades,
+# la excelia y hasta el desgaste), no hace falta ninguna regla nueva: basta con acortar el encargo.
+func traer_encargo(id: int) -> bool:
+	var e: Dictionary = encargo_por_id(id)
+	if e.is_empty() or int(e.get("estado", 0)) != Encargos.ESTADO_EN_CURSO:
+		return false
+	var transcurrido: int = clampi(Encargos.ahora() - int(e.get("t_inicio", 0)), 0,
+		int(e.get("duracion", 0)))
+	e["duracion"] = maxi(60, transcurrido)   # el minimo evita un encargo de duracion 0
+	_resolver_encargo(e)
+	return true
+
+
+# --- CANCELAR: libera gente y utiles, y NO trae nada. Lo usa la resolucion cuando algo va mal; el
+# jugador tiene "Traer de vuelta", que es lo mismo pero honrado con lo que ya han currado. ---
 func cancelar_encargo(id: int) -> bool:
 	var e: Dictionary = encargo_por_id(id)
 	if e.is_empty():
@@ -3128,6 +3144,21 @@ func cancelar_encargo(id: int) -> bool:
 	_soltar_utiles(e)
 	encargos.erase(e)
 	return true
+
+
+# --- DEV: como si hubiera pasado el tiempo entero. Para poder probar sin esperar 8 horas. ---
+func dev_terminar_encargos() -> int:
+	var n: int = 0
+	for e_ in encargos.duplicate():
+		var e := e_ as Dictionary
+		if int(e.get("estado", 0)) != Encargos.ESTADO_EN_CURSO:
+			continue
+		# Se retrasa el INICIO en vez de tocar la duracion: asi el resultado es el mismo que si
+		# hubieras esperado de verdad, y sirve para probar el balance y no solo la UI.
+		e["t_inicio"] = Encargos.ahora() - int(e.get("duracion", 0))
+		_resolver_encargo(e)
+		n += 1
+	return n
 
 
 func _soltar_utiles(e: Dictionary) -> void:

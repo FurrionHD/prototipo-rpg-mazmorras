@@ -264,15 +264,16 @@ func _fila_encargo(e: Dictionary) -> void:
 			_rebuild())
 		acciones.add_child(recoger)
 	else:
-		var cancelar := Button.new()
-		cancelar.text = "Cancelar"
-		cancelar.tooltip_text = "Los hace volver YA. No traen nada, pero se liberan ellos y sus útiles."
-		cancelar.pressed.connect(func():
-			Game.cancelar_encargo(int(e["id"]))
-			_aviso = "Encargo cancelado: vuelven con las manos vacías."
-			_aviso_ok = false
+		var traer := Button.new()
+		traer.text = "Traer de vuelta"
+		traer.tooltip_text = "Los hace volver YA, con lo que lleven recogido hasta ahora. A media " \
+			+ "faena traen la mitad: el trabajo hecho no se pierde."
+		traer.pressed.connect(func():
+			if Game.traer_encargo(int(e["id"])):
+				_aviso = "Vuelven a casa con lo que llevaban. Recógelo aquí mismo."
+				_aviso_ok = true
 			_rebuild())
-		acciones.add_child(cancelar)
+		acciones.add_child(traer)
 
 
 func _texto_informe(inf: Dictionary) -> String:

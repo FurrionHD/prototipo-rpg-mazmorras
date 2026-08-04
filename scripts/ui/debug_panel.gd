@@ -140,6 +140,8 @@ func _ready() -> void:
 	_build_objetos(vb)
 	_sep(vb)
 	_build_materiales(vb)
+	_sep(vb)
+	_build_encargos(vb)
 
 
 # --- Secciones -----------------------------------------------
@@ -152,6 +154,41 @@ func _header(vb: VBoxContainer, txt: String) -> void:
 
 func _sep(vb: VBoxContainer) -> void:
 	vb.add_child(HSeparator.new())
+
+
+# ENCARGOS: saltarse la espera. Un encargo dura entre 1 y 8 HORAS DE RELOJ REAL, asi que sin esto
+# probar el ciclo entero o mirar el balance del boton seria inviable.
+func _build_encargos(vb: VBoxContainer) -> void:
+	_header(vb, "ENCARGOS (%d en marcha)" % Game.encargos.size())
+
+	var b := Button.new()
+	b.text = "Terminar TODOS los encargos ya"
+	b.tooltip_text = "Como si hubiera pasado su tiempo entero: el resultado es el mismo que si " \
+		+ "hubieras esperado de verdad, así que sirve para mirar el balance y no solo la UI."
+	b.pressed.connect(func():
+		var n: int = Game.dev_terminar_encargos()
+		print("[dev] %d encargo(s) terminados: pásate por el Hogar a recogerlos." % n)
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud != null and hud.has_method("mostrar_toast"):
+			hud.mostrar_toast("[dev] %d encargo(s) listos para recoger." % n))
+	vb.add_child(b)
+
+	# Saltar el reloj del sistema es lo que de verdad prueba que cuentan CON EL JUEGO CERRADO:
+	# adelanta el reloj de los encargos sin resolver nada, y el tick de siempre hace el resto.
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	vb.add_child(row)
+	for horas in [1, 4, 8]:
+		var s := Button.new()
+		s.text = "+%d h" % horas
+		s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		s.tooltip_text = "Adelanta el reloj de los encargos %d hora(s). No resuelve nada: lo hace " \
+			% horas + "el repaso normal, igual que al volver de haber cerrado el juego."
+		s.pressed.connect(func():
+			Encargos.desfase_prueba += horas * 3600
+			print("[dev] reloj de encargos +%d h (desfase total: %d h)" % [
+				horas, Encargos.desfase_prueba / 3600]))
+		row.add_child(s)
 
 
 func _build_desarrollo(vb: VBoxContainer) -> void:
