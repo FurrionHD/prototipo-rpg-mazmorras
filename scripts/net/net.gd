@@ -3474,6 +3474,16 @@ func _toast(texto: String) -> void:
 		print("[net] ", texto)
 
 
+# Acuse de recibo DISCRETO, en la esquina de abajo. Para lo rutinario (el autoguardado salta cada
+# minuto): un cartelon en mitad de la pantalla cada 60 segundos era insufrible.
+func _aviso_esquina(texto: String) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_aviso_esquina"):
+		hud.mostrar_aviso_esquina(texto)
+	else:
+		print("[net] ", texto)
+
+
 # --- PELEAS COMPARTIDAS: unirse a la pelea de otro (hito 5.4-C) -------------------------------
 #
 # Quien abre una pelea la EJECUTA. Los demas se unen: reciben el roster, abren la pantalla en
@@ -4549,7 +4559,7 @@ func _dame_tu_estado(cerrando: bool) -> void:
 		return
 	_mi_estado.rpc_id(1, jd_a_dict(Game.mi_jugador_data()))
 	if not cerrando:
-		_toast("Partida guardada en el mundo.")
+		_aviso_esquina("Partida guardada")
 		return
 	# El mundo se cierra: aqui no me queda nada (mi personaje se queda dentro de el). Un respiro para
 	# que el paquete de arriba salga antes de cortar, o se guardaria sin mi ultimo rato.
@@ -4692,8 +4702,11 @@ func _guardar_ahora(cerrando: bool = false) -> void:
 	# un ciclo net -> Perfil -> Game -> net y GDScript deja de inferir los tipos de Game.* aqui dentro.
 	var ok: bool = Game.guardar_partida_invitado()
 	if not cerrando:
-		_toast("El anfitrión ha guardado: tu personaje queda a salvo en tu pueblo." if ok
-			else "El anfitrión ha guardado, pero tu partida NO se pudo guardar.")
+		# El exito es rutina (va a la esquina); el FALLO si es una noticia y sale en grande.
+		if ok:
+			_aviso_esquina("Partida guardada")
+		else:
+			_toast("El anfitrión ha guardado, pero tu partida NO se pudo guardar.")
 		return
 	# El host cierra la sesion. Me vuelvo A MI MUNDO con lo que se acaba de guardar: se RECARGA de la
 	# ranura, que es la unica forma de garantizar que no me llevo nada del mundo del host (baul, mapa,

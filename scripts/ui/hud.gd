@@ -23,6 +23,10 @@ var _caja_ayudas: PanelContainer = null
 # aparece unos segundos y se desvanece solo; se apilan varios y se limita el numero a la vista.
 var _recogidas: VBoxContainer = null
 const RECOGIDAS_MAX := 5
+# Avisos de ESQUINA: la columna discreta de abajo a la derecha ("Guardando...", "Partida guardada").
+# No son noticias, son acuses de recibo: no deben robarte la vista en mitad de la pantalla.
+var _avisos_esquina: VBoxContainer = null
+const AVISOS_ESQUINA_MAX := 3
 
 
 func _ready() -> void:
@@ -102,6 +106,19 @@ func _ready() -> void:
 	_recogidas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_recogidas)
 
+	# Avisos de esquina, abajo a la DERECHA (creciendo hacia arriba). La otra esquina de abajo no
+	# vale: ahi cae la caja de ayudas de tecla, cuya altura se mueve con ALTO_BLOQUE del jugador.
+	_avisos_esquina = VBoxContainer.new()
+	_avisos_esquina.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	_avisos_esquina.offset_right = -16
+	_avisos_esquina.offset_bottom = -16
+	_avisos_esquina.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_avisos_esquina.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_avisos_esquina.alignment = BoxContainer.ALIGNMENT_END
+	_avisos_esquina.add_theme_constant_override("separation", 4)
+	_avisos_esquina.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_avisos_esquina)
+
 	recolocar()
 	_avisar_muerte()
 
@@ -176,6 +193,65 @@ func mostrar_toast(texto: String) -> void:
 	t.tween_interval(5.0)
 	t.tween_property(aviso, "modulate:a", 0.0, 1.5)
 	t.tween_callback(aviso.queue_free)
+
+
+# AVISO DE ESQUINA: una pildora pequeña abajo a la derecha, del estilo "Guardando..." de toda la
+# vida. Es para acuses de recibo, NO para noticias: lo que el jugador tiene que leer si o si va por
+# mostrar_toast, que sale en grande en el centro.
+#
+# OJO A LA PAUSA: el HUD hereda PAUSABLE y todos los menus de este proyecto paran el arbol, asi que
+# un tween creado desde el HUD se CONGELA con el menu abierto y el cartel se queda clavado en
+# pantalla. Por eso la pildora se marca ALWAYS y su tween se crea DESDE ELLA (create_tween se ata al
+# nodo que lo crea). Al HUD entero no se le pone ALWAYS: su _process reescribe labels cada frame y
+# estaria corriendo durante todos los menus para nada.
+func mostrar_aviso_esquina(texto: String, dur: float = 2.0) -> void:
+	if _avisos_esquina == null:
+		return
+
+	# El autoguardado repite el mismo texto cada minuto: si el anterior sigue vivo, se le reinicia
+	# la cuenta en vez de apilar dos pildoras identicas.
+	for hijo in _avisos_esquina.get_children():
+		if hijo.has_meta("texto") and String(hijo.get_meta("texto")) == texto:
+			hijo.modulate.a = 1.0
+			_temporizar_esquina(hijo as Control, dur)
+			return
+
+	while _avisos_esquina.get_child_count() >= AVISOS_ESQUINA_MAX:
+		var vieja := _avisos_esquina.get_child(0)
+		_avisos_esquina.remove_child(vieja)
+		vieja.queue_free()
+
+	var pildora := PanelContainer.new()
+	pildora.add_theme_stylebox_override("panel", _fondo_pildora())
+	pildora.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pildora.process_mode = Node.PROCESS_MODE_ALWAYS
+	pildora.set_meta("texto", texto)
+	pildora.size_flags_horizontal = Control.SIZE_SHRINK_END
+
+	var l := Label.new()
+	l.text = texto
+	l.add_theme_font_size_override("font_size", 12)
+	l.add_theme_color_override("font_color", Color(0.78, 0.80, 0.85))
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	l.add_theme_constant_override("outline_size", 3)
+	pildora.add_child(l)
+
+	_avisos_esquina.add_child(pildora)
+	_temporizar_esquina(pildora, dur)
+
+
+func _temporizar_esquina(pildora: Control, dur: float) -> void:
+	# Un tween por pildora: al crear uno nuevo sobre el mismo nodo, Godot descarta el anterior si lo
+	# guardamos y lo matamos a mano (si no, los dos tirarian del modulate a la vez).
+	if pildora.has_meta("tween"):
+		var viejo = pildora.get_meta("tween")
+		if viejo is Tween and (viejo as Tween).is_valid():
+			(viejo as Tween).kill()
+	var t := pildora.create_tween()
+	pildora.set_meta("tween", t)
+	t.tween_interval(dur)
+	t.tween_property(pildora, "modulate:a", 0.0, 0.6)
+	t.tween_callback(pildora.queue_free)
 
 
 # Aviso de RECOGIDA (no bloqueante): una pildora a la izquierda con el material que acabas de

@@ -440,17 +440,32 @@ func guardar_actual() -> bool:
 
 # Lo que dispara el temporizador: guarda en disco y SUBE sin soltar el cerrojo.
 func autoguardar() -> bool:
+	# El HOST tampoco veia nada al autoguardar (el aviso solo iba al invitado). Ahora los dos ven la
+	# misma pildora discreta abajo a la derecha, y el "Guardando..." va ANTES del await: recoger los
+	# estados tiene un plazo de segundo y medio y durante ese rato el juego parece parado.
+	_avisar_hud("Guardando…")
 	# PRIMERO se recoge lo de los demas y DESPUES se escribe: al reves (como estaba) el save saldria
 	# sin el ultimo rato de tu compañero. Cada uno manda lo suyo y de aqui sale UN save.
 	if Net.activo and Net.es_host:
 		await Net.recoger_estados()
 	if not guardar_actual():
+		_avisar_hud("No se pudo guardar")
 		return false
 	var r: Dictionary = await Nube.subir(SaveIO.bytes_de_ruta(ruta(abierto)), _meta())
 	if not r.get("ok", false):
 		aviso.emit("Autoguardado: guardado en tu disco, pero sin subir (%s)." % String(r.get("mensaje", "")))
+		_avisar_hud("Guardado sin subir")
 		return false
+	_avisar_hud("Partida guardada")
 	return true
+
+
+# Acuse de recibo en MI pantalla. La señal `aviso` solo la escucha el menu de mundos, asi que dentro
+# de la partida no habia forma de enterarse de nada; esto habla con el HUD por el grupo, como Net.
+func _avisar_hud(texto: String) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_aviso_esquina"):
+		hud.mostrar_aviso_esquina(texto)
 
 
 # CERRAR el mundo: guardar, subir y soltar el cerrojo (en ese orden; si la subida falla el mundo
@@ -459,6 +474,7 @@ func cerrar_y_subir() -> Dictionary:
 	if abierto == "":
 		return {"ok": true}
 	var clave := abierto
+	_avisar_hud("Guardando…")
 	# Lo mismo que en el autoguardado: primero lo de los demas, y AVISANDOLES de que se cierra (se van
 	# al menu con su personaje ya dentro del save), y despues se escribe.
 	if Net.activo and Net.es_host:
