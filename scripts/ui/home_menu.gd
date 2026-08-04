@@ -302,7 +302,7 @@ func _build_encargos_nuevo() -> void:
 	_enc_uids = vivos
 
 	# --- Izquierda: a qué van, dónde y cuánto.
-	MenuScaffold.titulo(_lista, "¿A qué van?", 14)
+	MenuScaffold.titulo(_lista, "Tipo de encargo", 14)
 	var etiquetas: Array = []
 	var marcados: Array = []
 	for t in range(0, int(Encargos.Tipo.BICHO) + 1):
@@ -332,13 +332,7 @@ func _build_encargos_nuevo() -> void:
 		_enc_piso = v
 		_rebuild())
 	for t in _enc_tipos:
-		if int(t) == Encargos.Tipo.BICHO:
-			MenuScaffold.nota(_lista, "Bichos: %s" % _resumen_bichos(_enc_piso))
-		else:
-			var tabla: MaterialTable = Encargos.tabla_de(int(t))
-			if tabla != null:
-				MenuScaffold.nota(_lista, "%s: %s" % [String(Encargos.NOMBRE_TIPO[int(t)]),
-					tabla.resumen(_enc_piso)])
+		_linea_materiales(int(t), _enc_piso)
 
 	MenuScaffold.titulo(_lista, "Cuánto tiempo", 14)
 	var horas: Array = []
@@ -354,21 +348,61 @@ func _build_encargos_nuevo() -> void:
 	_build_encargo_pronostico(libres)
 
 
-func _resumen_bichos(piso: int) -> String:
-	var pool: Array = Game.materiales_de_bicho_en(piso)
+# Lo que sale de un tipo en un piso, con CADA MATERIAL DE SU COLOR (el de su rango: gris el bruto,
+# verde el veteado, azul el profundo...). No se usa MaterialTable.resumen porque devuelve una String
+# pelada y aqui hace falta un Label por material para poder teñirlos; y asi ademas el mismo codigo
+# sirve para los enemigos, que no tienen MaterialTable.
+const MATS_A_LA_VISTA := 6
+
+func _linea_materiales(tipo: int, piso: int) -> void:
+	var pool: Array = Encargos.opciones(tipo, piso)
 	if pool.is_empty():
-		return "no hay bichos que dejen nada en este piso"
+		MenuScaffold.nota(_lista, "%s: nada que sacar en este piso." % String(Encargos.NOMBRE_TIPO[tipo]))
+		return
 	var total: float = 0.0
 	for o in pool:
 		total += float(o["peso"])
 	pool.sort_custom(func(a, b): return float(a["peso"]) > float(b["peso"]))
-	var partes: PackedStringArray = []
-	for o in pool.slice(0, 5):
-		partes.append("%s %s%%" % [(o["material"] as MaterialData).nombre,
-			snappedf(100.0 * float(o["peso"]) / maxf(0.001, total), 0.1)])
-	if pool.size() > 5:
-		partes.append("y %d más" % (pool.size() - 5))
-	return ", ".join(partes)
+
+	var flujo := HFlowContainer.new()
+	flujo.add_theme_constant_override("h_separation", 4)
+	flujo.add_theme_constant_override("v_separation", 0)
+	_lista.add_child(flujo)
+
+	var cab := Label.new()
+	cab.text = "%s:" % String(Encargos.NOMBRE_TIPO[tipo])
+	cab.add_theme_font_size_override("font_size", 12)
+	cab.add_theme_color_override("font_color", GRIS)
+	flujo.add_child(cab)
+
+	var n: int = mini(pool.size(), MATS_A_LA_VISTA)
+	for i in n:
+		var o := pool[i] as Dictionary
+		var m := o["material"] as MaterialData
+		var l := Label.new()
+		l.text = "%s %s%%%s" % [m.nombre,
+			snappedf(100.0 * float(o["peso"]) / maxf(0.001, total), 0.1),
+			"" if i == n - 1 else ","]
+		l.add_theme_font_size_override("font_size", 12)
+		l.add_theme_color_override("font_color", m.color_rango())
+		flujo.add_child(l)
+	if pool.size() > n:
+		var mas := Label.new()
+		mas.text = "y %d más ⓘ" % (pool.size() - n)
+		mas.add_theme_font_size_override("font_size", 12)
+		mas.add_theme_color_override("font_color", AMBAR)
+		# El resto, al pasar el raton por encima. Los enemigos sueltan hasta 15 cosas distintas por
+		# piso y listarlas todas en linea llenaba media pantalla, pero esconderlas del todo tampoco
+		# vale: son las que decides al marcar la casilla.
+		# OJO: un Label nace con MOUSE_FILTER_IGNORE, o sea que sin esto el tooltip nunca saldria.
+		mas.mouse_filter = Control.MOUSE_FILTER_STOP
+		var resto: PackedStringArray = []
+		for i in range(n, pool.size()):
+			var o := pool[i] as Dictionary
+			resto.append("%s  %s%%" % [(o["material"] as MaterialData).nombre,
+				snappedf(100.0 * float(o["peso"]) / maxf(0.001, total), 0.1)])
+		mas.tooltip_text = "También pueden traer:\n" + "\n".join(resto)
+		flujo.add_child(mas)
 
 
 func _build_encargo_gente(libres: Array) -> void:

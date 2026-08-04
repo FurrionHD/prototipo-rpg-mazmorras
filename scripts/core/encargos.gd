@@ -60,7 +60,7 @@ const TABLAS := {
 
 const NOMBRE_TIPO := {
 	Tipo.VETA: "Vetas", Tipo.PLANTA: "Plantas", Tipo.MADERA: "Madera",
-	Tipo.SAL: "Sal", Tipo.HUERTO: "Silvestres", Tipo.BICHO: "Bichos",
+	Tipo.SAL: "Sal", Tipo.HUERTO: "Silvestres", Tipo.BICHO: "Enemigos",
 }
 
 static func tipos_validos(tipos: Array) -> Array:
