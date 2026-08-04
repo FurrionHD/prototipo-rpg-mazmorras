@@ -180,6 +180,25 @@ func _sanear_originales() -> void:
 			l.dueno = Identidad.id
 
 
+# ¿Soy quien resuelve los encargos? En solitario si; en sesion, solo el host (la resolucion tira
+# dados: si la corriera cada maquina, cada uno veria un botin distinto).
+func es_host_de_encargos() -> bool:
+	return not Net.activo or Net.es_host
+
+# El personaje con ese uid dentro de los OTROS jugadores del mundo (los que viven aparcados en
+# jugadores_mundo, no en mi plantilla).
+func _pj_en_mundo(uid: String) -> PersonajeData:
+	if uid.is_empty():
+		return null
+	for jd in jugadores_mundo.values():
+		if jd == null:
+			continue
+		for pj in (jd as JugadorData).personajes:
+			if pj is PersonajeData and String((pj as PersonajeData).uid) == uid:
+				return pj
+	return null
+
+
 # El de la plantilla con ese uid, o null. Es como los encargos vuelven a encontrar a quien mandaron.
 func pj_por_uid(uid: String) -> PersonajeData:
 	if uid.is_empty():
@@ -3209,6 +3228,12 @@ func recoger_encargo(id: int) -> Dictionary:
 	var e: Dictionary = encargo_por_id(id)
 	if e.is_empty() or int(e.get("estado", 0)) != Encargos.ESTADO_LISTO:
 		return {}
+	# En mundo compartido el almacen es COMUN, asi que escribir en el sin el candado del taller lo
+	# desincroniza (Net._set_almacen se niega a pisar el baul de quien lo tiene prestado, y
+	# saltarselo es peor). Si esta ocupado NO se fuerza: el encargo se queda en LISTO y se recoge
+	# luego, que no caduca.
+	if Net.activo and Net.es_host and Net.taller_ocupado():
+		return {"ocupado": true}
 
 	var n_mat: int = 0
 	for b in (e.get("botin", []) as Array):
@@ -3225,15 +3250,37 @@ func recoger_encargo(id: int) -> Dictionary:
 
 	# La excelia, a cada uno por su uid. ganar() escribe en ability_internal y NO consolida: hay que
 	# pasar por el altar, igual que con todo lo demas.
+	#
+	# EN MULTI HAY DOS VIAS Y SOLO SE TOMA UNA, nunca las dos:
+	#   - el dueño esta CONECTADO -> se le manda por RPC y la aplica EL en su maquina. Escribirla
+	#     tambien aqui, sobre jugadores_mundo, seria trabajo tirado: Net._mi_estado sobrescribe ese
+	#     snapshot entero en el siguiente autoguardado. O peor, doble contabilidad si llega antes.
+	#   - el dueño NO esta -> su JugadorData en jugadores_mundo ES la copia buena, y se aplica aqui.
+	var para_otros: Dictionary = {}   # identidad -> [entradas]
 	for g in (e.get("excelia", []) as Array):
 		var d := g as Dictionary
 		if bool(d.get("aplicada", false)):
 			continue
 		var pj: PersonajeData = pj_por_uid(String(d.get("uid", "")))
-		if pj == null:
+		if pj != null:
+			ganar(String(d["abil"]), float(d["reto"]), float(d["base"]), float(d["max_reto"]), pj)
+			d["aplicada"] = true
 			continue
-		ganar(String(d["abil"]), float(d["reto"]), float(d["base"]), float(d["max_reto"]), pj)
-		d["aplicada"] = true
+		# No esta en MI plantilla: es de otro humano.
+		var dueno: String = String(d.get("dueno", ""))
+		if Net.activo and es_host_de_encargos() and Net.peer_de_identidad(dueno) != 0:
+			if not para_otros.has(dueno):
+				para_otros[dueno] = []
+			(para_otros[dueno] as Array).append(d)
+			d["aplicada"] = true
+		else:
+			# Desconectado (o sin red): su JugadorData es la copia autoritativa ahora mismo.
+			var otro: PersonajeData = _pj_en_mundo(String(d.get("uid", "")))
+			if otro != null:
+				ganar(String(d["abil"]), float(d["reto"]), float(d["base"]), float(d["max_reto"]), otro)
+				d["aplicada"] = true
+	for dueno in para_otros:
+		Net.mandar_excelia(String(dueno), para_otros[dueno])
 
 	_soltar_utiles(e)
 	var informe: Dictionary = {

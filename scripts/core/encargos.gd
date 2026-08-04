@@ -185,12 +185,20 @@ static func poder(pj: PersonajeData) -> float:
 const REPARTO := 0.4
 
 static func poder_grupo(pjs: Array) -> float:
+	var poderes: Array = []
+	for pj in pjs:
+		poderes.append(poder(pj as PersonajeData))
+	return poder_grupo_de(poderes)
+
+# Lo mismo pero desde una lista de PODERES ya calculados. Hace falta para el multijugador: el
+# invitado NO tiene los PersonajeData de los personajes de su compañero (viven en la maquina del
+# host), asi que su poder le llega ya hecho dentro del roster.
+static func poder_grupo_de(poderes: Array) -> float:
 	var mejor: float = 0.0
 	var suma: float = 0.0
-	for pj in pjs:
-		var p: float = poder(pj as PersonajeData)
-		suma += p
-		mejor = maxf(mejor, p)
+	for p in poderes:
+		suma += float(p)
+		mejor = maxf(mejor, float(p))
 	return mejor + REPARTO * (suma - mejor)
 
 
@@ -387,12 +395,20 @@ static func exigencia_media(tipo: int, piso: int) -> float:
 # _reto_recoleccion, que devuelve "lo dificil que te resulta".
 static func poder_recolector(pjs: Array, tipo: int, afinidad: float) -> float:
 	var of: Dictionary = oficio_de(tipo)
+	var valores: Array = []
+	for pj in pjs:
+		valores.append(Game.stat_total_eff(String(of["stat"]), pj as PersonajeData))
+	return poder_recolector_de(valores, tipo, afinidad)
+
+# Desde una lista con LA STAT DEL OFICIO de cada uno, por lo mismo que poder_grupo_de: en multi el
+# invitado recibe las stats del compañero dentro del roster, no sus PersonajeData.
+static func poder_recolector_de(valores: Array, tipo: int, afinidad: float) -> float:
+	var of: Dictionary = oficio_de(tipo)
 	var suma: float = 0.0
 	var mejor: float = 0.0
-	for pj in pjs:
-		var s: float = Game.stat_total_eff(String(of["stat"]), pj as PersonajeData)
-		suma += s
-		mejor = maxf(mejor, s)
+	for v in valores:
+		suma += float(v)
+		mejor = maxf(mejor, float(v))
 	# Mismo reparto que el combate: el que mas sabe lleva la voz cantante.
 	var stat: float = mejor + REPARTO * (suma - mejor)
 	return stat * Game.RECOLECCION_STAT_PESO + float(of["suelo"]) + afinidad
@@ -562,18 +578,40 @@ static func capacidad_util(entrada: Dictionary) -> float:
 
 # Lo que puede cargar la cuadrilla, ya con el 110% aplicado. `entradas` son las del cofre asignadas.
 static func tope_carga(pjs: Array, entradas: Array) -> float:
+	return CARGA_MAX * Game._capacidad_con(Game.base_capacity + _capacidad_utiles(entradas),
+		_saturacion_utiles(entradas), pjs)
+
+# La misma cuenta desde una lista de FUERZAS, para el pronostico del invitado (que no tiene los
+# PersonajeData del compañero). Se replica lo que hace Game._capacidad_con: media de Fuerza para el
+# multiplicador y +15% de contenedor por cada acompañante.
+static func tope_carga_de(fuerzas: Array, entradas: Array) -> float:
+	var n: int = maxi(1, fuerzas.size())
+	var suma: float = 0.0
+	for f in fuerzas:
+		suma += float(f)
+	var media: float = suma / float(n)
+	var sat: float = _saturacion_utiles(entradas)
+	var mult: float = 1.0 + clampf(media / maxf(1.0, sat), 0.0, 1.0) * Game.fuerza_capacity_bonus_max
+	var manos: float = 1.0 + Game.CARGA_POR_ACOMPANANTE * float(n - 1)
+	return CARGA_MAX * (Game.base_capacity + _capacidad_utiles(entradas)) * mult * manos
+
+static func _capacidad_utiles(entradas: Array) -> float:
 	var extra: float = 0.0
+	for e in entradas:
+		extra += capacidad_util(e as Dictionary)
+	return extra
+
+# La saturacion de Fuerza la marca la MEJOR mochila (mismo criterio que Game).
+static func _saturacion_utiles(entradas: Array) -> float:
 	var mejor_tier: int = 0
 	for e in entradas:
-		var c: float = capacidad_util(e as Dictionary)
-		if c <= 0.0:
+		if capacidad_util(e as Dictionary) <= 0.0:
 			continue
-		extra += c
 		mejor_tier = maxi(mejor_tier, int(((e as Dictionary).get("dict", {}) as Dictionary).get("tier", 1)))
-	# La saturacion de Fuerza la marca la MEJOR mochila (mismo criterio que Game).
-	var sat: float = Game.SATURACION_SIN_MOCHILA if mejor_tier <= 0 \
-		else float(Game.MOCHILA_FUERZA_SATURACION[clampi(mejor_tier, 1, Game.MOCHILA_FUERZA_SATURACION.size()) - 1])
-	return CARGA_MAX * Game._capacidad_con(Game.base_capacity + extra, sat, pjs)
+	if mejor_tier <= 0:
+		return Game.SATURACION_SIN_MOCHILA
+	return float(Game.MOCHILA_FUERZA_SATURACION[
+		clampi(mejor_tier, 1, Game.MOCHILA_FUERZA_SATURACION.size()) - 1])
 
 
 # ============================================================

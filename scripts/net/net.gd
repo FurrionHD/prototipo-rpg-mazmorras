@@ -221,6 +221,8 @@ func cofre_visible() -> Array:
 	return _cofre_mirror if _soy_cliente() else Game.cofre_equipo
 func cofre_consumibles_visible() -> Dictionary:
 	return _cofre_consum_mirror if _soy_cliente() else Game.cofre_consumibles
+func encargos_visibles() -> Array:
+	return _encargos_mirror if _soy_cliente() else Game.encargos
 
 # --- ALMACEN del hogar (bote/cofre): viven en Game (PERSISTEN en la partida, solo y multi). En
 # solitario son tu almacen personal; en multi los del HOST son los compartidos. Aqui solo guardo
@@ -229,6 +231,12 @@ func cofre_consumibles_visible() -> Dictionary:
 var _bote_mirror: int = 0
 var _cofre_mirror: Array = []
 var _cofre_consum_mirror: Dictionary = {}
+# ENCARGOS: la lista es del MUNDO y la lleva el host. El cliente solo tiene el reflejo.
+# Y el ROSTER: quien hay en el hogar de TODOS (con su poder y si esta fuera), porque el invitado
+# tiene Game.jugadores_mundo vacio a proposito -- los demas jugadores son cosa del host -- y sin
+# esta lista no podria ni ver a los personajes de su compañero para mandarlos.
+var _encargos_mirror: Array = []
+var _roster_mirror: Array = []
 # Baul de MATERIALES: como el crafteo trabaja sobre Game.almacen_materiales, al ser cliente se
 # guarda aparte el mio y se restaura al desconectar (durante la sesion veo/uso el del host).
 var _almacen_solo: Array = []
@@ -426,6 +434,8 @@ func desconectar() -> void:
 	_mundo_propio = {}
 	_bote_mirror = 0
 	_cofre_mirror = []
+	_encargos_mirror = []
+	_roster_mirror = []
 	_cofre_consum_mirror = {}
 	_taller_dueno = 0
 	_taller_resp = 0
@@ -2002,6 +2012,221 @@ func _set_cofre(lista: Array) -> void:
 	hogar_cambiado.emit()
 
 
+# ============================================================
+#  ENCARGOS (mandar gente del hogar a recolectar por reloj real)
+#
+#  EL HOST ES LA AUTORIDAD, y aqui no es una manía: resolver un encargo TIRA DADOS. Si lo resolviera
+#  cada maquina, cada uno veria un botin distinto del mismo encargo. El host resuelve una vez y
+#  difunde el resultado YA COCIDO.
+#
+#  Patron de siempre: la UI llama a solicitar_*(), el cliente lo manda por RPC, el host resuelve y
+#  difunde la lista entera. Calcado del cofre y del bote.
+# ============================================================
+
+func solicitar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array) -> void:
+	if _soy_cliente():
+		_pedir_encargo.rpc_id(1, piso, tipos, duracion, uids, cofre_ids)
+	else:
+		if Game.enviar_encargo(piso, tipos, duracion, uids, cofre_ids) != 0:
+			_difundir_hogar()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array) -> void:
+	if not es_host:
+		return
+	var quien: int = multiplayer.get_remote_sender_id()
+	var id: int = Game.enviar_encargo(piso, tipos, duracion, uids, cofre_ids)
+	if id == 0:
+		_aviso_remoto.rpc_id(quien, "No se pudo mandar ese encargo.")
+		return
+	# Quien lo manda es el que lo pidio, no el host: es quien puede traerlos de vuelta.
+	var e: Dictionary = Game.encargo_por_id(id)
+	if not e.is_empty():
+		e["quien_manda"] = _identidad_de_peer(quien)
+	_difundir_hogar()
+
+
+func solicitar_traer_encargo(id: int) -> void:
+	if _soy_cliente():
+		_pedir_traer_encargo.rpc_id(1, id)
+	else:
+		if Game.traer_encargo(id):
+			_difundir_hogar()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_traer_encargo(id: int) -> void:
+	if es_host and Game.traer_encargo(id):
+		_difundir_hogar()
+
+
+func solicitar_recoger_encargo(id: int) -> void:
+	if _soy_cliente():
+		_pedir_recoger_encargo.rpc_id(1, id)
+	else:
+		var inf: Dictionary = Game.recoger_encargo(id)
+		if not inf.is_empty():
+			_difundir_hogar()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_recoger_encargo(id: int) -> void:
+	if not es_host:
+		return
+	var inf: Dictionary = Game.recoger_encargo(id)
+	var quien: int = multiplayer.get_remote_sender_id()
+	if inf.is_empty():
+		return
+	if bool(inf.get("ocupado", false)):
+		_aviso_remoto.rpc_id(quien, "El taller está ocupado: inténtalo en un momento.")
+		return
+	_aviso_remoto.rpc_id(quien, "Han vuelto: %d material(es) al almacén." % int(inf.get("materiales", 0)))
+	_difundir_hogar()
+
+
+# Repasar (¿ha vencido alguno?). Lo pide la UI al abrir el Hogar; en cliente se lo pide al host,
+# que es el unico que puede resolver.
+func pedir_repasar_encargos() -> void:
+	if _soy_cliente():
+		_pedir_repaso_encargos.rpc_id(1)
+	elif Game.repasar_encargos() > 0:
+		_difundir_hogar()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_repaso_encargos() -> void:
+	if es_host and Game.repasar_encargos() > 0:
+		_difundir_hogar()
+
+
+# UNA sola difusion para las tres cosas del hogar que van juntas (encargos, cofre y roster), en
+# ORDEN FIJO. Publicar dos valores distintos del mismo estado en un mismo rebuild es lo que cuelga
+# al invitado, asi que el roster se construye UNA vez y se manda esa copia.
+func _difundir_hogar() -> void:
+	if activo and es_host:
+		var roster: Array = _construir_roster()
+		_set_encargos.rpc(Game.encargos)
+		_set_cofre.rpc(Game.cofre_equipo)
+		_set_roster_hogar.rpc(roster)
+		_roster_mirror = roster
+	hogar_cambiado.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _set_encargos(lista: Array) -> void:
+	_encargos_mirror = lista
+	# EL ENCARGO GANA, EL EQUIPO CEDE. Si uno de los MIOS acaba de salir de encargo, se va del
+	# equipo aqui mismo. Es lo que hace _aplicar_cupo con el cupo de sesion: nada de handshakes,
+	# gana el estado que difunde el host y cada maquina se ajusta sola.
+	for pj in Game.plantilla.duplicate():
+		if Game.party.has(pj) and Game.esta_de_encargo(pj):
+			Game.sacar_del_equipo(pj)
+	hogar_cambiado.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _set_roster_hogar(lista: Array) -> void:
+	_roster_mirror = lista
+	hogar_cambiado.emit()
+
+
+# QUIEN HAY EN EL HOGAR, de todos los jugadores. Solo lectura: lo justo para pintar la fila y decidir
+# si se le puede mandar. El invitado no tiene los PersonajeData de su compañero (Game.jugadores_mundo
+# esta vacio en su maquina a proposito), asi que sin esto no podria mandar a nadie que no sea suyo.
+func _construir_roster() -> Array:
+	var out: Array = []
+	# Los mios.
+	for pj in Game.plantilla:
+		out.append(_fila_roster(pj, Identidad.id, Identidad.nombre))
+	# Y los de los demas, que viven aparcados en jugadores_mundo.
+	for id in Game.jugadores_mundo:
+		var jd: JugadorData = Game.jugadores_mundo[id]
+		if jd == null:
+			continue
+		for pj in jd.personajes:
+			if pj is PersonajeData:
+				out.append(_fila_roster(pj as PersonajeData, String(jd.id), jd.nombre_visible))
+	return out
+
+
+func _fila_roster(pj: PersonajeData, dueno: String, dueno_nombre: String) -> Dictionary:
+	# En_equipo se mira contra el equipo de SU dueño. Para los mios es Game.party; para los demas,
+	# el `equipo` de su JugadorData, que puede ir hasta 60 s desfasado -- por eso la regla es que el
+	# encargo gana y el equipo cede (ver _set_encargos) en vez de fiarse de este dato.
+	var en_equipo: bool = Game.party.has(pj)
+	if dueno != Identidad.id:
+		var jd: JugadorData = Game.jugadores_mundo.get(dueno)
+		en_equipo = jd != null and jd.equipo.has(pj)
+	return {
+		"uid": String(pj.uid), "nombre": pj.nombre, "level": pj.level,
+		"dueno": dueno, "dueno_nombre": dueno_nombre,
+		"en_equipo": en_equipo, "de_encargo": Game.esta_de_encargo(pj),
+		# El poder viaja YA CALCULADO (el invitado no tiene el equipo del compañero para sacarlo) y
+		# las STATS EFECTIVAS viajan crudas, porque el pronostico de recoleccion necesita la stat del
+		# oficio persona a persona. Son cinco enteros: sale mas barato que pedirselas al host cada
+		# vez que marcas una casilla.
+		"poder": int(round(Encargos.poder(pj))),
+		"stats": {
+			"fuerza": Game.stat_total_eff("fuerza", pj),
+			"resistencia": Game.stat_total_eff("resistencia", pj),
+			"destreza": Game.stat_total_eff("destreza", pj),
+			"agilidad": Game.stat_total_eff("agilidad", pj),
+			"magia": Game.stat_total_eff("magia", pj),
+		},
+		"color": pj.color,
+	}
+
+
+# Lo que la UI del hogar tiene que listar como "gente disponible". En solitario se construye al
+# vuelo; de cliente, el reflejo de lo que mando el host.
+func roster_hogar() -> Array:
+	if _soy_cliente():
+		return _roster_mirror
+	return _construir_roster()
+
+
+func _identidad_de_peer(peer: int) -> String:
+	return String(_identidades.get(peer, ""))
+
+
+# El peer de una identidad, o 0 si no esta conectada. Es lo que decide cual de las DOS VIAS de la
+# excelia se toma (ver Game.recoger_encargo): mandarsela, o escribirla en su JugadorData.
+func peer_de_identidad(identidad: String) -> int:
+	if identidad.is_empty() or not activo:
+		return 0
+	for peer in _identidades:
+		if String(_identidades[peer]) == identidad:
+			return int(peer)
+	return 0
+
+
+# El host le manda a un jugador la excelia que se han ganado SUS personajes en un encargo.
+func mandar_excelia(identidad: String, entradas: Array) -> void:
+	var peer: int = peer_de_identidad(identidad)
+	if peer != 0:
+		_set_excelia_encargo.rpc_id(peer, entradas)
+
+
+# Corre en el DUEÑO. Aplica lo suyo a sus propios PersonajeData: son los unicos autoritativos.
+@rpc("authority", "call_remote", "reliable")
+func _set_excelia_encargo(entradas: Array) -> void:
+	var tocados: int = 0
+	for g in entradas:
+		var d := g as Dictionary
+		var pj: PersonajeData = Game.pj_por_uid(String(d.get("uid", "")))
+		if pj == null:
+			# Puede pasar si el save de este jugador es anterior al uid y el backfill le puso otro.
+			# Se avisa en vez de callarlo: perder excelia en silencio es de lo peor que puede hacer
+			# un sistema que tarda ocho horas en dar su premio.
+			push_warning("[encargos] llega excelia para un uid que no tengo: %s" % String(d.get("uid", "")))
+			continue
+		Game.ganar(String(d["abil"]), float(d["reto"]), float(d["base"]), float(d["max_reto"]), pj)
+		tocados += 1
+	if tocados > 0:
+		_aviso_esquina("Los tuyos han vuelto de un encargo")
+
+
 # --- COFRE de CONSUMIBLES (pociones/grimorios): stackeable, ruta -> cantidad -----------------
 
 func meter_consumible_cofre(ruta: String, n: int) -> void:
@@ -2094,6 +2319,12 @@ func _cargar_almacen(arr: Array) -> void:
 # La llama un menu de taller (herrero/carpintero/boticaria/peletero) al abrir, o una accion
 # suelta (depositar/vender del hogar) antes de tocar el baul. true = tienes el taller y tu
 # Game.almacen_materiales YA es el baul autoritativo; false = esta ocupado por tu companero.
+# ¿Lo tiene prestado OTRO? Solo el host puede preguntarlo con sentido (es quien arbitra el candado).
+# Lo usa el cobro de un encargo para no pisar el almacen comun mientras alguien craftea.
+func taller_ocupado() -> bool:
+	return activo and es_host and _taller_dueno != 0 and _taller_dueno != 1
+
+
 func abrir_taller() -> bool:
 	if not activo:
 		return true   # solitario: el baul es tuyo y punto
@@ -4897,6 +5128,10 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	_set_bote.rpc_id(quien, Game.bote_dinero)
 	_set_cofre.rpc_id(quien, Game.cofre_equipo)
 	_set_cofre_consumibles.rpc_id(quien, Game.cofre_consumibles)
+	# Los encargos en marcha y quien hay en el hogar de todos: sin esto entraria viendo el hogar
+	# vacio y solo se le poblaria al primer cambio.
+	_set_encargos.rpc_id(quien, Game.encargos)
+	_set_roster_hogar.rpc_id(quien, _construir_roster())
 	# Y la LIBRETA del mundo (mapa + niebla): al entrar en mi mundo recoge lo que yo tenga descubierto.
 	_set_mapa_sesion.rpc_id(quien, _mapa_sesion, _vistas_sesion)
 

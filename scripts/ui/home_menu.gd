@@ -190,11 +190,10 @@ func _build_encargos() -> void:
 			_enc_sub = i
 			_aviso = ""
 			_rebuild())
-	# Al abrir la pestaña se repasa: puede haber vencido alguno mientras no mirabas.
-	if Game.repasar_encargos() > 0:
-		_aviso = "Alguien ha vuelto de un encargo."
-		_aviso_ok = true
-		MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
+	# Al abrir la pestaña se repasa: puede haber vencido alguno mientras no mirabas. De cliente esto
+	# es una PETICION al host (el unico que puede resolver), asi que la respuesta llega despues por
+	# hogar_cambiado y re-dibuja sola; aqui no se puede avisar de nada todavia.
+	Net.pedir_repasar_encargos()
 	if String(ENCARGO_SUBS[_enc_sub][1]) == "curso":
 		_build_encargos_curso()
 	else:
@@ -202,7 +201,7 @@ func _build_encargos() -> void:
 
 
 func _build_encargos_curso() -> void:
-	var lista: Array = Game.encargos
+	var lista: Array = Net.encargos_visibles()
 	MenuScaffold.titulo(_lista, "En marcha (%d)" % lista.size(), 14)
 	if lista.is_empty():
 		MenuScaffold.nota(_lista, "No hay nadie fuera. En «Mandar uno» eliges a quién mandas, a qué "
@@ -258,9 +257,16 @@ func _fila_encargo(e: Dictionary) -> void:
 		var recoger := Button.new()
 		recoger.text = "Recoger"
 		recoger.pressed.connect(func():
-			var inf: Dictionary = Game.recoger_encargo(int(e["id"]))
-			_aviso = _texto_informe(inf)
-			_aviso_ok = int(inf.get("desenlace", 0)) != Encargos.FRACASO
+			# De cliente el informe llega por _aviso_remoto: el botin lo reparte el host.
+			if Net._soy_cliente():
+				Net.solicitar_recoger_encargo(int(e["id"]))
+				_aviso = "Recogiendo…"
+				_aviso_ok = true
+			else:
+				var inf: Dictionary = Game.recoger_encargo(int(e["id"]))
+				_aviso = _texto_informe(inf)
+				_aviso_ok = int(inf.get("desenlace", 0)) != Encargos.FRACASO
+				Net._difundir_hogar()
 			_rebuild())
 		acciones.add_child(recoger)
 	else:
@@ -269,9 +275,9 @@ func _fila_encargo(e: Dictionary) -> void:
 		traer.tooltip_text = "Los hace volver YA, con lo que lleven recogido hasta ahora. A media " \
 			+ "faena traen la mitad: el trabajo hecho no se pierde."
 		traer.pressed.connect(func():
-			if Game.traer_encargo(int(e["id"])):
-				_aviso = "Vuelven a casa con lo que llevaban. Recógelo aquí mismo."
-				_aviso_ok = true
+			Net.solicitar_traer_encargo(int(e["id"]))
+			_aviso = "Vuelven a casa con lo que llevaban. Recógelo aquí mismo."
+			_aviso_ok = true
 			_rebuild())
 		acciones.add_child(traer)
 
@@ -279,6 +285,9 @@ func _fila_encargo(e: Dictionary) -> void:
 func _texto_informe(inf: Dictionary) -> String:
 	if inf.is_empty():
 		return "Ese encargo ya no está."
+	if bool(inf.get("ocupado", false)):
+		# El almacén del hogar es común y ahora mismo lo tiene otro. No se fuerza: el encargo espera.
+		return "Tu compañero está en el taller. Vuelve en un momento: no se pierde nada."
 	var t: String = "%s. Traen %d material%s" % [
 		Encargos.NOMBRE_DESENLACE[int(inf.get("desenlace", 0))],
 		int(inf.get("materiales", 0)), "" if int(inf.get("materiales", 0)) == 1 else "es"]
@@ -288,16 +297,22 @@ func _texto_informe(inf: Dictionary) -> String:
 
 
 # --- El formulario de "Mandar uno" ---
+#
+# Trabaja sobre FICHAS del roster (dicts), no sobre PersonajeData, y es el MISMO camino en solitario
+# y en multi: en solitario el roster se construye al vuelo de tu plantilla, y de cliente llega del
+# host. Tiene que ser asi porque el invitado NO tiene los PersonajeData de los personajes de su
+# compañero -- viven en la maquina del host -- y aun asi puede mandarlos.
 func _build_encargos_nuevo() -> void:
 	var libres: Array = []
-	for pj in Game.en_el_banquillo():
-		if not Game.esta_de_encargo(pj):
-			libres.append(pj)
-	# Limpiar de la seleccion a quien ya no esta disponible (lo metiste al equipo, se fue en otro...).
+	for f in Net.roster_hogar():
+		var ficha := f as Dictionary
+		if not bool(ficha.get("en_equipo", false)) and not bool(ficha.get("de_encargo", false)):
+			libres.append(ficha)
+	# Limpiar de la seleccion a quien ya no esta disponible (lo metieron al equipo, se fue en otro...).
 	var vivos: Array = []
 	for uid in _enc_uids:
-		for pj in libres:
-			if String((pj as PersonajeData).uid) == String(uid):
+		for ficha in libres:
+			if String((ficha as Dictionary).get("uid", "")) == String(uid):
 				vivos.append(uid)
 				break
 	_enc_uids = vivos
@@ -412,25 +427,33 @@ func _build_encargo_gente(libres: Array) -> void:
 		MenuScaffold.nota(_content, "No hay nadie libre en casa. Manda a alguien del equipo al hogar "
 			+ "en la pestaña «Equipo», o contrata gente en la taberna.")
 		return
-	for pj_ in libres:
-		var pj := pj_ as PersonajeData
+	for f in libres:
+		var ficha := f as Dictionary
+		var uid: String = String(ficha.get("uid", ""))
 		var fila := HBoxContainer.new()
 		fila.add_theme_constant_override("separation", 6)
 		_content.add_child(fila)
-		fila.add_child(_punto(pj))
+		fila.add_child(_punto_color(ficha.get("color", Color.WHITE)))
 		var l := Label.new()
-		l.text = "%s  ·  Nv.%d  ·  Poder %d" % [pj.nombre, pj.level, int(round(Encargos.poder(pj)))]
+		# En mundo compartido, de quién es. Sin esto no sabes a quién le estás prestando la gente.
+		var de_quien: String = ""
+		if Net.activo and String(ficha.get("dueno", "")) != Identidad.id:
+			de_quien = "  (de %s)" % String(ficha.get("dueno_nombre", "tu compañero"))
+		l.text = "%s  ·  Nv.%d  ·  Poder %d%s" % [String(ficha.get("nombre", "?")),
+			int(ficha.get("level", 1)), int(ficha.get("poder", 0)), de_quien]
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if de_quien != "":
+			l.add_theme_color_override("font_color", GRIS)
 		fila.add_child(l)
 		var b := Button.new()
-		var va: bool = _enc_uids.has(pj.uid)
+		var va: bool = _enc_uids.has(uid)
 		b.text = "Quitar" if va else "Que vaya"
 		b.disabled = not va and _enc_uids.size() >= Encargos.MIEMBROS_MAX
 		b.pressed.connect(func():
-			if _enc_uids.has(pj.uid):
-				_enc_uids.erase(pj.uid)
+			if _enc_uids.has(uid):
+				_enc_uids.erase(uid)
 			else:
-				_enc_uids.append(pj.uid)
+				_enc_uids.append(uid)
 			_rebuild())
 		fila.add_child(b)
 
@@ -487,16 +510,19 @@ func _build_encargo_utiles() -> void:
 
 
 func _build_encargo_pronostico(libres: Array) -> void:
-	var pjs: Array = []
+	var fichas: Array = []
 	for uid in _enc_uids:
-		for pj in libres:
-			if String((pj as PersonajeData).uid) == String(uid):
-				pjs.append(pj)
+		for f in libres:
+			if String((f as Dictionary).get("uid", "")) == String(uid):
+				fichas.append(f)
 				break
 	MenuScaffold.titulo(_content, "Pronóstico", 14)
-	if pjs.is_empty():
+	if fichas.is_empty():
 		MenuScaffold.nota(_content, "Elige a alguien para ver cómo le iría.")
 		return
+	var poderes: Array = []
+	for f in fichas:
+		poderes.append(float((f as Dictionary).get("poder", 0)))
 
 	var entradas: Array = []
 	for id in _enc_utiles:
@@ -506,7 +532,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 				break
 
 	# --- Eje 1: ¿vuelven bien?
-	var pg: float = Encargos.poder_grupo(pjs)
+	var pg: float = Encargos.poder_grupo_de(poderes)
 	var req: float = Encargos.requisito_combate(_enc_piso)
 	var probs: Array = Encargos.probs_desenlace(pg, _enc_piso)
 	MenuScaffold.fila(_content, "Poder del grupo", "%d" % int(round(pg)))
@@ -536,8 +562,8 @@ func _build_encargo_pronostico(libres: Array) -> void:
 		afin_media += mejor
 	afin_media /= maxf(1.0, float(_enc_tipos.size()))
 
-	var trabajadas: int = Encargos.unidades(dur, pjs.size(), golpes, 1.0)
-	var tope: float = Encargos.tope_carga(pjs, entradas)
+	var trabajadas: int = Encargos.unidades(dur, fichas.size(), golpes, 1.0)
+	var tope: float = Encargos.tope_carga_de(_fuerzas(fichas), entradas)
 	# Cuántas caben, con el peso medio de lo que van a traer.
 	var peso_ud: float = _peso_medio_unidad()
 	var caben: int = int(tope / maxf(0.1, peso_ud))
@@ -554,7 +580,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 	# casi siempre intacto y el veteado (150) no lo pillan ni de casualidad, y promediarlos daba un
 	# "37% normal" que no le pasa a ningun material de verdad. Lo que decide la calidad es CADA
 	# material, asi que se enseña material a material.
-	_build_tabla_calidades(pjs, entradas, pg / req)
+	_build_tabla_calidades(fichas, entradas, pg / req)
 
 	# --- Mandar.
 	var pega: String = Encargos.motivo_no_puede(_enc_tipos, entradas)
@@ -569,16 +595,12 @@ func _build_encargo_pronostico(libres: Array) -> void:
 	b.disabled = not pega.is_empty()
 	b.custom_minimum_size = Vector2(0, 38)
 	b.pressed.connect(func():
-		var id: int = Game.enviar_encargo(_enc_piso, _enc_tipos, dur, _enc_uids, _enc_utiles)
-		if id == 0:
-			_aviso = "No se pudo mandar el encargo."
-			_aviso_ok = false
-		else:
-			_aviso = "En marcha. Vuelven en %d h." % (dur / 3600)
-			_aviso_ok = true
-			_enc_uids.clear()
-			_enc_utiles.clear()
-			_enc_sub = 0
+		Net.solicitar_encargo(_enc_piso, _enc_tipos, dur, _enc_uids, _enc_utiles)
+		_aviso = "En marcha. Vuelven en %d h." % (dur / 3600)
+		_aviso_ok = true
+		_enc_uids.clear()
+		_enc_utiles.clear()
+		_enc_sub = 0
 		_rebuild())
 	_content.add_child(b)
 
@@ -588,7 +610,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 # abajo es lo que te falta stat para conseguir.
 const CALIDADES_A_LA_VISTA := 8
 
-func _build_tabla_calidades(pjs: Array, entradas: Array, r_combate: float) -> void:
+func _build_tabla_calidades(fichas: Array, entradas: Array, r_combate: float) -> void:
 	var filas: Array = []
 	for t in _enc_tipos:
 		var tipo: int = int(t)
@@ -596,7 +618,7 @@ func _build_tabla_calidades(pjs: Array, entradas: Array, r_combate: float) -> vo
 		var afin: float = 0.0
 		for entrada in entradas:
 			afin = maxf(afin, float(Encargos.mods_util(entrada as Dictionary, tipo)["afinidad"]))
-		var poder_reco: float = Encargos.poder_recolector(pjs, tipo, afin)
+		var poder_reco: float = Encargos.poder_recolector_de(_stats(fichas, tipo), tipo, afin)
 		var pool: Array = Encargos.opciones(tipo, _enc_piso)
 		pool.sort_custom(func(a, b):
 			return Game._exigencia_material(a["material"] as MaterialData, _enc_piso) \
@@ -617,6 +639,23 @@ func _build_tabla_calidades(pjs: Array, entradas: Array, r_combate: float) -> vo
 	if filas.size() > recorte.size():
 		MenuScaffold.nota(_content, "(y %d material%s más)" % [filas.size() - recorte.size(),
 			"" if filas.size() - recorte.size() == 1 else "es"])
+
+
+# Las stats que salen en las fichas del roster. Se leen del dict y no de PersonajeData porque de
+# los personajes del compañero solo tenemos lo que publica el host.
+func _fuerzas(fichas: Array) -> Array:
+	var out: Array = []
+	for f in fichas:
+		out.append(float(((f as Dictionary).get("stats", {}) as Dictionary).get("fuerza", 0.0)))
+	return out
+
+
+func _stats(fichas: Array, tipo: int) -> Array:
+	var clave: String = String(Encargos.oficio_de(tipo)["stat"])
+	var out: Array = []
+	for f in fichas:
+		out.append(float(((f as Dictionary).get("stats", {}) as Dictionary).get(clave, 0.0)))
+	return out
 
 
 # El peso de una unidad media de lo marcado, para poder decir cuántas caben ANTES de mandarlos.
@@ -821,6 +860,15 @@ func _punto(pj: PersonajeData) -> ColorRect:
 	punto.custom_minimum_size = Vector2(18, 18)
 	punto.color = pj.color
 	punto.material = Game.material_de(pj)
+	return punto
+
+
+# El mismo punto pero SOLO con el color, para las filas que salen del roster: de un personaje de tu
+# compañero no tienes el PersonajeData (ni su imagen), solo lo que el host publica.
+func _punto_color(c: Variant) -> ColorRect:
+	var punto := ColorRect.new()
+	punto.custom_minimum_size = Vector2(18, 18)
+	punto.color = c if c is Color else Color.WHITE
 	return punto
 
 
