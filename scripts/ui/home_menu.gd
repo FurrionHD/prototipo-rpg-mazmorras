@@ -16,7 +16,10 @@ extends CanvasLayer
 
 # Almacen del hogar. Bote y Cofre son tu almacen personal (persiste en la partida); en multi
 # pasan a ser los del host (compartidos). Siempre visibles.
-const TABS := ["Equipo", "Almacén", "Bote", "Cofre"]
+const TABS := ["Equipo", "Encargos", "Almacén", "Bote", "Cofre"]
+
+# Los dos apartados de Encargos, por ID como los del cofre (ver COFRE_SUBS).
+const ENCARGO_SUBS := [["En marcha", "curso"], ["Mandar uno", "nuevo"]]
 
 # Los apartados del cofre, [etiqueta, id]. Van por ID y no por indice porque el numero cambia en
 # cuanto se mete uno nuevo en medio, y un `_cofre_sub == 2` suelto pasa a significar otra cosa sin
@@ -46,6 +49,15 @@ var _aviso_ok: bool = true
 var _tab: int = 0
 var _cofre_sub: int = 0   # indice dentro de COFRE_SUBS (el que MANDA es su id, no el numero)
 var _bote_input: String = ""   # cantidad escrita en el bote (se conserva entre re-dibujos)
+
+# --- Lo que se esta montando en "Mandar uno". Se conserva entre re-dibujos: cada casilla que marcas
+# rehace el panel entero (hay que recalcular el pronostico) y sin esto se perderia la seleccion.
+var _enc_sub: int = 0
+var _enc_piso: int = 1
+var _enc_dur: int = 0                # indice en Encargos.DURACIONES
+var _enc_tipos: Array = [0]          # Encargos.Tipo marcados
+var _enc_uids: Array = []            # quienes van
+var _enc_utiles: Array = []          # ids de entradas del cofre asignadas
 
 
 func _ready() -> void:
@@ -160,9 +172,392 @@ func _rebuild_real() -> void:
 
 	match _tabs()[_tab]:
 		"Equipo": _build_equipo()
+		"Encargos": _build_encargos()
 		"Almacén": _build_almacen()
 		"Bote": _build_bote()
 		"Cofre": _build_cofre()
+
+
+# ============================================================
+#  ENCARGOS: mandar a los del hogar a recolectar por RELOJ REAL
+#  Dos apartados: los que estan fuera y el formulario para mandar uno nuevo.
+# ============================================================
+
+func _build_encargos() -> void:
+	MenuScaffold.titulo(_header, "ENCARGOS", 18)
+	MenuScaffold.pestanas(_header, [ENCARGO_SUBS[0][0], ENCARGO_SUBS[1][0]], _enc_sub,
+		func(i: int):
+			_enc_sub = i
+			_aviso = ""
+			_rebuild())
+	# Al abrir la pestaña se repasa: puede haber vencido alguno mientras no mirabas.
+	if Game.repasar_encargos() > 0:
+		_aviso = "Alguien ha vuelto de un encargo."
+		_aviso_ok = true
+		MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
+	if String(ENCARGO_SUBS[_enc_sub][1]) == "curso":
+		_build_encargos_curso()
+	else:
+		_build_encargos_nuevo()
+
+
+func _build_encargos_curso() -> void:
+	var lista: Array = Game.encargos
+	MenuScaffold.titulo(_lista, "En marcha (%d)" % lista.size(), 14)
+	if lista.is_empty():
+		MenuScaffold.nota(_lista, "No hay nadie fuera. En «Mandar uno» eliges a quién mandas, a qué "
+			+ "piso y cuánto tiempo. Cuentan por reloj real, así que siguen aunque cierres el juego.")
+		return
+	for e_ in lista:
+		_fila_encargo(e_ as Dictionary)
+
+
+func _fila_encargo(e: Dictionary) -> void:
+	var listo: bool = int(e.get("estado", 0)) == Encargos.ESTADO_LISTO
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 2)
+	_lista.add_child(caja)
+
+	var cab := HBoxContainer.new()
+	cab.add_theme_constant_override("separation", 6)
+	caja.add_child(cab)
+	var nombres: PackedStringArray = []
+	for m in (e.get("miembros", []) as Array):
+		nombres.append(String((m as Dictionary).get("nombre", "?")))
+	var tipos: PackedStringArray = []
+	for t in (e.get("tipos", []) as Array):
+		tipos.append(String(Encargos.NOMBRE_TIPO.get(int(t), "?")))
+
+	var l := Label.new()
+	l.text = "Piso %d · %s  ·  %s" % [int(e.get("piso", 1)), ", ".join(tipos), ", ".join(nombres)]
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cab.add_child(l)
+
+	var est := Label.new()
+	if listo:
+		est.text = "¡De vuelta!"
+		est.add_theme_color_override("font_color", AMBAR)
+	else:
+		est.text = "faltan %s" % Encargos.texto_restante(e)
+		est.add_theme_color_override("font_color", GRIS)
+	cab.add_child(est)
+
+	if not listo:
+		var barra := ProgressBar.new()
+		barra.custom_minimum_size = Vector2(0, 6)
+		barra.show_percentage = false
+		var dur: float = maxf(1.0, float(e.get("duracion", 1)))
+		barra.value = 100.0 * clampf(1.0 - float(Encargos.restante(e)) / dur, 0.0, 1.0)
+		caja.add_child(barra)
+
+	var acciones := HBoxContainer.new()
+	acciones.add_theme_constant_override("separation", 6)
+	caja.add_child(acciones)
+
+	if listo:
+		var recoger := Button.new()
+		recoger.text = "Recoger"
+		recoger.pressed.connect(func():
+			var inf: Dictionary = Game.recoger_encargo(int(e["id"]))
+			_aviso = _texto_informe(inf)
+			_aviso_ok = int(inf.get("desenlace", 0)) != Encargos.FRACASO
+			_rebuild())
+		acciones.add_child(recoger)
+	else:
+		var cancelar := Button.new()
+		cancelar.text = "Cancelar"
+		cancelar.tooltip_text = "Los hace volver YA. No traen nada, pero se liberan ellos y sus útiles."
+		cancelar.pressed.connect(func():
+			Game.cancelar_encargo(int(e["id"]))
+			_aviso = "Encargo cancelado: vuelven con las manos vacías."
+			_aviso_ok = false
+			_rebuild())
+		acciones.add_child(cancelar)
+
+
+func _texto_informe(inf: Dictionary) -> String:
+	if inf.is_empty():
+		return "Ese encargo ya no está."
+	var t: String = "%s. Traen %d material%s" % [
+		Encargos.NOMBRE_DESENLACE[int(inf.get("desenlace", 0))],
+		int(inf.get("materiales", 0)), "" if int(inf.get("materiales", 0)) == 1 else "es"]
+	if int(inf.get("perdido", 0)) > 0:
+		t += ", y se dejaron %d por peso (mándales una mochila mejor)" % int(inf["perdido"])
+	return t + ". Está en el almacén; lo aprendido, en el altar."
+
+
+# --- El formulario de "Mandar uno" ---
+func _build_encargos_nuevo() -> void:
+	var libres: Array = []
+	for pj in Game.en_el_banquillo():
+		if not Game.esta_de_encargo(pj):
+			libres.append(pj)
+	# Limpiar de la seleccion a quien ya no esta disponible (lo metiste al equipo, se fue en otro...).
+	var vivos: Array = []
+	for uid in _enc_uids:
+		for pj in libres:
+			if String((pj as PersonajeData).uid) == String(uid):
+				vivos.append(uid)
+				break
+	_enc_uids = vivos
+
+	# --- Izquierda: a qué van, dónde y cuánto.
+	MenuScaffold.titulo(_lista, "¿A qué van?", 14)
+	var etiquetas: Array = []
+	var marcados: Array = []
+	for t in range(0, int(Encargos.Tipo.BICHO) + 1):
+		etiquetas.append("%s %s" % ["☑" if _enc_tipos.has(t) else "☐",
+			String(Encargos.NOMBRE_TIPO.get(t, "?"))])
+		marcados.append(t)
+	MenuScaffold.cuadricula(_lista, etiquetas, -1, func(i: int):
+		var t: int = int(marcados[i])
+		if _enc_tipos.has(t):
+			if _enc_tipos.size() > 1:      # siempre tiene que quedar uno marcado
+				_enc_tipos.erase(t)
+		else:
+			_enc_tipos.append(t)
+		_rebuild(), 3, Vector2(150, 34))
+	if _enc_tipos.size() > 1:
+		MenuScaffold.nota(_lista, "Con %d marcados reparten el tiempo: menos de cada cosa, y lo que "
+			% _enc_tipos.size() + "aprenden se reparte entre varias habilidades.")
+
+	MenuScaffold.titulo(_lista, "Piso", 14)
+	var tope: int = 1
+	for p in Game.pisos_desbloqueados():
+		tope = maxi(tope, int(p))
+	var fila_piso := HBoxContainer.new()
+	_lista.add_child(fila_piso)
+	_enc_piso = clampi(_enc_piso, 1, tope)
+	MenuScaffold.stepper(fila_piso, _enc_piso, 1, tope, func(v: int):
+		_enc_piso = v
+		_rebuild())
+	for t in _enc_tipos:
+		if int(t) == Encargos.Tipo.BICHO:
+			MenuScaffold.nota(_lista, "Bichos: %s" % _resumen_bichos(_enc_piso))
+		else:
+			var tabla: MaterialTable = Encargos.tabla_de(int(t))
+			if tabla != null:
+				MenuScaffold.nota(_lista, "%s: %s" % [String(Encargos.NOMBRE_TIPO[int(t)]),
+					tabla.resumen(_enc_piso)])
+
+	MenuScaffold.titulo(_lista, "Cuánto tiempo", 14)
+	var horas: Array = []
+	for d in Encargos.DURACIONES:
+		horas.append("%d hora%s" % [int(d) / 3600, "" if int(d) == 3600 else "s"])
+	MenuScaffold.cuadricula(_lista, horas, _enc_dur, func(i: int):
+		_enc_dur = i
+		_rebuild(), 3, Vector2(130, 36))
+
+	# --- Derecha: quién va, con qué, y el pronóstico.
+	_build_encargo_gente(libres)
+	_build_encargo_utiles()
+	_build_encargo_pronostico(libres)
+
+
+func _resumen_bichos(piso: int) -> String:
+	var pool: Array = Game.materiales_de_bicho_en(piso)
+	if pool.is_empty():
+		return "no hay bichos que dejen nada en este piso"
+	var total: float = 0.0
+	for o in pool:
+		total += float(o["peso"])
+	pool.sort_custom(func(a, b): return float(a["peso"]) > float(b["peso"]))
+	var partes: PackedStringArray = []
+	for o in pool.slice(0, 5):
+		partes.append("%s %s%%" % [(o["material"] as MaterialData).nombre,
+			snappedf(100.0 * float(o["peso"]) / maxf(0.001, total), 0.1)])
+	if pool.size() > 5:
+		partes.append("y %d más" % (pool.size() - 5))
+	return ", ".join(partes)
+
+
+func _build_encargo_gente(libres: Array) -> void:
+	MenuScaffold.titulo(_content, "Quién va (%d de %d)" % [_enc_uids.size(), Encargos.MIEMBROS_MAX], 14)
+	if libres.is_empty():
+		MenuScaffold.nota(_content, "No hay nadie libre en casa. Manda a alguien del equipo al hogar "
+			+ "en la pestaña «Equipo», o contrata gente en la taberna.")
+		return
+	for pj_ in libres:
+		var pj := pj_ as PersonajeData
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 6)
+		_content.add_child(fila)
+		fila.add_child(_punto(pj))
+		var l := Label.new()
+		l.text = "%s  ·  Nv.%d  ·  Poder %d" % [pj.nombre, pj.level, int(round(Encargos.poder(pj)))]
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fila.add_child(l)
+		var b := Button.new()
+		var va: bool = _enc_uids.has(pj.uid)
+		b.text = "Quitar" if va else "Que vaya"
+		b.disabled = not va and _enc_uids.size() >= Encargos.MIEMBROS_MAX
+		b.pressed.connect(func():
+			if _enc_uids.has(pj.uid):
+				_enc_uids.erase(pj.uid)
+			else:
+				_enc_uids.append(pj.uid)
+			_rebuild())
+		fila.add_child(b)
+
+
+func _build_encargo_utiles() -> void:
+	MenuScaffold.titulo(_content, "Útiles del cofre", 14)
+	var hay: bool = false
+	for entrada_ in Game.cofre_equipo:
+		var entrada := entrada_ as Dictionary
+		var clase: String = String(entrada.get("clase", ""))
+		if clase != "herramienta" and clase != "mochila":
+			continue
+		hay = true
+		var id: int = int(entrada.get("id", -1))
+		var ocupada: int = int(entrada.get("encargo", 0))
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 6)
+		_content.add_child(fila)
+		var l := Label.new()
+		l.text = String(entrada.get("desc", "?"))
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Lo que APORTA a este encargo, para que se vea por qué merece la pena mandarla.
+		var aporta: String = ""
+		if clase == "mochila":
+			aporta = "+%.0f kg" % Encargos.capacidad_util(entrada)
+		else:
+			var mejor: float = 0.0
+			for t in _enc_tipos:
+				mejor = maxf(mejor, float(Encargos.mods_util(entrada, int(t))["afinidad"]))
+			aporta = "+%.0f afinidad" % mejor if mejor > 0.0 else "no sirve para esto"
+			if mejor <= 0.0:
+				l.add_theme_color_override("font_color", GRIS)
+		fila.add_child(l)
+		var ap := Label.new()
+		ap.text = aporta
+		ap.add_theme_color_override("font_color", VERDE if aporta.begins_with("+") else GRIS)
+		fila.add_child(ap)
+		var b := Button.new()
+		var puesta: bool = _enc_utiles.has(id)
+		b.text = "Quitar" if puesta else "Llevar"
+		b.disabled = ocupada != 0
+		if ocupada != 0:
+			b.tooltip_text = "En uso en otro encargo."
+		b.pressed.connect(func():
+			if _enc_utiles.has(id):
+				_enc_utiles.erase(id)
+			else:
+				_enc_utiles.append(id)
+			_rebuild())
+		fila.add_child(b)
+	if not hay:
+		MenuScaffold.nota(_content, "El cofre no tiene herramientas ni mochilas. Mete ahí las que "
+			+ "quieras prestarles: mientras están fuera nadie puede sacarlas.")
+
+
+func _build_encargo_pronostico(libres: Array) -> void:
+	var pjs: Array = []
+	for uid in _enc_uids:
+		for pj in libres:
+			if String((pj as PersonajeData).uid) == String(uid):
+				pjs.append(pj)
+				break
+	MenuScaffold.titulo(_content, "Pronóstico", 14)
+	if pjs.is_empty():
+		MenuScaffold.nota(_content, "Elige a alguien para ver cómo le iría.")
+		return
+
+	var entradas: Array = []
+	for id in _enc_utiles:
+		for entrada in Game.cofre_equipo:
+			if int((entrada as Dictionary).get("id", -1)) == int(id):
+				entradas.append(entrada)
+				break
+
+	# --- Eje 1: ¿vuelven bien?
+	var pg: float = Encargos.poder_grupo(pjs)
+	var req: float = Encargos.requisito_combate(_enc_piso)
+	var probs: Array = Encargos.probs_desenlace(pg, _enc_piso)
+	MenuScaffold.fila(_content, "Poder del grupo", "%d" % int(round(pg)))
+	MenuScaffold.fila(_content, "El piso %d pide" % _enc_piso, "%d" % int(round(req)))
+	var exito := Label.new()
+	var pct: int = int(round(100.0 * float(probs[0])))
+	exito.text = "ÉXITO %d%%   ·   a medias %d%%   ·   fracaso %d%%" % [pct,
+		int(round(100.0 * float(probs[1]))), int(round(100.0 * float(probs[2])))]
+	exito.add_theme_font_size_override("font_size", 16)
+	exito.add_theme_color_override("font_color",
+		VERDE if pct > 85 else (AMBAR if pct >= 60 else Color(0.90, 0.45, 0.40)))
+	_content.add_child(exito)
+	if pct < 60:
+		MenuScaffold.nota(_content, "Van muy justos: ahí abajo hay bichos. Manda a más gente, o "
+			+ "vísteles mejor antes de que salgan.")
+
+	# --- Eje 2: qué traen.
+	var dur: int = int(Encargos.DURACIONES[_enc_dur])
+	var golpes: int = 0
+	var afin_media: float = 0.0
+	for t in _enc_tipos:
+		var mejor: float = 0.0
+		for entrada in entradas:
+			var m: Dictionary = Encargos.mods_util(entrada as Dictionary, int(t))
+			mejor = maxf(mejor, float(m["afinidad"]))
+			golpes = maxi(golpes, int(m["golpes_menos"]))
+		afin_media += mejor
+	afin_media /= maxf(1.0, float(_enc_tipos.size()))
+
+	var trabajadas: int = Encargos.unidades(dur, pjs.size(), golpes, 1.0)
+	var tope: float = Encargos.tope_carga(pjs, entradas)
+	# Cuántas caben, con el peso medio de lo que van a traer.
+	var peso_ud: float = _peso_medio_unidad()
+	var caben: int = int(tope / maxf(0.1, peso_ud))
+	MenuScaffold.fila(_content, "Trabajarán", "%d unidades" % trabajadas)
+	MenuScaffold.fila(_content, "Les caben", "%d  (%.0f kg)" % [caben, tope])
+	if caben < trabajadas:
+		var faltan := Label.new()
+		faltan.text = "Se dejarán ~%d por peso: mándales una mochila." % (trabajadas - caben)
+		faltan.add_theme_color_override("font_color", Color(0.90, 0.45, 0.40))
+		_content.add_child(faltan)
+
+	# Calidades del primer tipo marcado (el detalle de cada uno se ve al recogerlo).
+	# Los BICHOS van por el eje de COMBATE: sus materiales no tienen exigencia, se sacan de un
+	# cadaver. Los demas, por la stat del oficio contra la exigencia media del piso.
+	var t0: int = int(_enc_tipos[0])
+	var r_m: float = pg / req
+	if t0 != Encargos.Tipo.BICHO:
+		r_m = Encargos.poder_recolector(pjs, t0, afin_media) \
+			/ maxf(1.0, Encargos.exigencia_media(t0, _enc_piso))
+	var q: Dictionary = Encargos.reparto_calidades(r_m)
+	MenuScaffold.rejilla_probs(_content, "Calidad", ["Intacto", "Normal", "Dañado"],
+		[{"etiqueta": String(Encargos.NOMBRE_TIPO[t0]), "color": AMBAR, "valores": [
+			"%d%%" % int(round(100.0 * float(q["intacto"]))),
+			"%d%%" % int(round(100.0 * float(q["normal"]))),
+			"%d%%" % int(round(100.0 * float(q["danado"])))]}])
+
+	# --- Mandar.
+	var b := Button.new()
+	b.text = "Mandarlos"
+	b.custom_minimum_size = Vector2(0, 38)
+	b.pressed.connect(func():
+		var id: int = Game.enviar_encargo(_enc_piso, _enc_tipos, dur, _enc_uids, _enc_utiles)
+		if id == 0:
+			_aviso = "No se pudo mandar el encargo."
+			_aviso_ok = false
+		else:
+			_aviso = "En marcha. Vuelven en %d h." % (dur / 3600)
+			_aviso_ok = true
+			_enc_uids.clear()
+			_enc_utiles.clear()
+			_enc_sub = 0
+		_rebuild())
+	_content.add_child(b)
+
+
+# El peso de una unidad media de lo marcado, para poder decir cuántas caben ANTES de mandarlos.
+func _peso_medio_unidad() -> float:
+	var suma: float = 0.0
+	var peso: float = 0.0
+	for t in _enc_tipos:
+		for o in Encargos.opciones(int(t), _enc_piso):
+			var m: MaterialData = o["material"] as MaterialData
+			suma += m.peso_base * 0.9 * float(o["peso"])   # 0.9 = calidad NORMAL, la mas comun
+			peso += float(o["peso"])
+	return suma / maxf(0.001, peso) if peso > 0.0 else 1.0
 
 
 # ============================================================
@@ -246,16 +641,29 @@ func _fila_banquillo(pj: PersonajeData) -> void:
 
 	fila.add_child(_punto(pj))
 
+	# ¿Está fuera, de encargo? Entonces no se le puede tocar hasta que vuelva.
+	var enc_id: int = Game.uid_de_encargo(String(pj.uid))
+	var enc: Dictionary = Game.encargo_por_id(enc_id) if enc_id != 0 else {}
+	var fuera_txt: String = ""
+	if not enc.is_empty():
+		fuera_txt = "  ·  De encargo (%s)" % ("¡de vuelta!" \
+			if int(enc.get("estado", 0)) == Encargos.ESTADO_LISTO else Encargos.texto_restante(enc))
+
 	var l := Label.new()
-	l.text = "%s  ·  Nv.%d" % [pj.nombre, pj.level]
+	l.text = "%s  ·  Nv.%d  ·  Poder %d%s" % [pj.nombre, pj.level,
+		int(round(Encargos.poder(pj))), fuera_txt]
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if enc_id != 0:
+		l.add_theme_color_override("font_color", GRIS)
 	fila.add_child(l)
 
 	var dentro := Button.new()
 	dentro.text = "Que baje"
 	# En sesion multi el cupo puede ser menor que PARTY_MAX (Net.cupo_party; en solitario es 4).
 	var cupo: int = mini(Game.PARTY_MAX, Net.cupo_party())
-	dentro.disabled = Game.party.size() >= cupo
+	dentro.disabled = Game.party.size() >= cupo or enc_id != 0
+	if enc_id != 0:
+		dentro.tooltip_text = "Está fuera, en un encargo. Recógelo primero."
 	dentro.pressed.connect(func():
 		if Game.meter_en_equipo(pj):
 			_aviso = "%s se une al equipo." % pj.nombre
@@ -273,9 +681,12 @@ func _fila_banquillo(pj: PersonajeData) -> void:
 	var lleva: int = _piezas_puestas(pj)
 	var quitar := Button.new()
 	quitar.text = "Recoger su equipo"
-	quitar.disabled = lleva == 0
-	quitar.tooltip_text = "Le quita lo que lleve puesto y lo devuelve al baúl, para dárselo a otro, " \
-		+ "venderlo o fundirlo." if lleva > 0 else "No lleva nada puesto."
+	# Y estando de encargo tampoco: su equipo es lo que decide si vuelve entero, y el pronostico ya
+	# se calculo con el puesto. Desnudarlo a media faena seria hacer trampa al reves.
+	quitar.disabled = lleva == 0 or enc_id != 0
+	quitar.tooltip_text = "Está fuera, en un encargo: no puedes desvestirle a media faena." \
+		if enc_id != 0 else ("Le quita lo que lleve puesto y lo devuelve al baúl, para dárselo a " \
+		+ "otro, venderlo o fundirlo." if lleva > 0 else "No lleva nada puesto.")
 	quitar.pressed.connect(func():
 		var n: int = Game.desequipar_todo(pj)
 		_aviso = "%s deja %d pieza%s en el baúl." % [pj.nombre, n, "" if n == 1 else "s"]
@@ -590,9 +1001,18 @@ func _build_cofre() -> void:
 		# La rareza viaja YA dentro de la entrada serializada (ver Game._item_a_dict del cofre), asi que
 		# aqui no hay que reconstruir la pieza para saber de que color va su nombre.
 		l.add_theme_color_override("font_color", Upgrades.rareza_color(int(entrada.get("rareza", 0))))
+		# EN USO en un encargo: se ve en gris y no se puede sacar. El host lo rechaza igualmente
+		# (ver Net._resolver_saca_cofre); esto es solo para no ofrecer un boton que no va a funcionar.
+		var en_encargo: bool = int(entrada.get("encargo", 0)) != 0
+		if en_encargo:
+			l.text += "   · en un encargo"
+			l.add_theme_color_override("font_color", GRIS)
 		fila.add_child(l)
 		var sacar := Button.new()
 		sacar.text = "Sacar"
+		sacar.disabled = en_encargo
+		if en_encargo:
+			sacar.tooltip_text = "Se la han llevado a un encargo. Vuelve cuando lo recojas."
 		var id: int = int(entrada.get("id", 0))
 		sacar.pressed.connect(func():
 			Net.sacar_de_cofre(id)

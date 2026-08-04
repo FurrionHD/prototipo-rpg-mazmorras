@@ -2486,6 +2486,11 @@ func importar_partida(d: SaveData) -> void:
 	# Un ENCARGO que apunte a una pieza del cofre que ya no existe la dejaria bloqueada PARA SIEMPRE
 	# (un cierre sucio basta). El barrido es barato y se hace en cada carga.
 	_barrer_encargos_huerfanos()
+	# Y lo que venciera con el juego CERRADO: corren por reloj real, asi que al volver puede haber
+	# varios esperando. Se resuelven aqui, antes de que el jugador pise el pueblo.
+	var listos: int = repasar_encargos()
+	if listos > 0:
+		print("[encargos] %d encargo(s) habian vuelto mientras no estabas." % listos)
 
 
 # Aguante con el que hay que arrancar al jugador tras cargar (-1 = al maximo). Lo lee el
@@ -3022,6 +3027,214 @@ func uid_de_encargo(uid: String) -> int:
 func esta_de_encargo(pj: PersonajeData) -> bool:
 	return pj != null and uid_de_encargo(String(pj.uid)) != 0
 
+# Las entradas del cofre que tiene reservadas un encargo.
+func _entradas_de_encargo(e: Dictionary) -> Array:
+	var out: Array = []
+	for id in (e.get("cofre_ids", []) as Array):
+		for entrada in cofre_equipo:
+			if int((entrada as Dictionary).get("id", -1)) == int(id):
+				out.append(entrada)
+				break
+	return out
+
+# Los PersonajeData de los miembros. En solitario todos estan en la plantilla; en un mundo
+# compartido los del compañero viven en jugadores_mundo (los busca tambien ahi).
+func pjs_de_encargo(e: Dictionary) -> Array:
+	var out: Array = []
+	for m in (e.get("miembros", []) as Array):
+		var uid: String = String((m as Dictionary).get("uid", ""))
+		var pj: PersonajeData = pj_por_uid(uid)
+		if pj == null:
+			for jd in jugadores_mundo.values():
+				for otro in (jd as JugadorData).personajes:
+					if otro is PersonajeData and String((otro as PersonajeData).uid) == uid:
+						pj = otro
+						break
+				if pj != null:
+					break
+		if pj != null:
+			out.append(pj)
+	return out
+
+
+# --- MANDAR un encargo. Devuelve el id, o 0 si no se pudo. ---
+func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array) -> int:
+	var tt: Array = Encargos.tipos_validos(tipos)
+	if uids.is_empty() or uids.size() > Encargos.MIEMBROS_MAX:
+		return 0
+	# Nadie puede ir a dos sitios a la vez, ni estar bajando contigo.
+	for uid in uids:
+		if uid_de_encargo(String(uid)) != 0:
+			return 0
+		var pj: PersonajeData = pj_por_uid(String(uid))
+		if pj != null and party.has(pj):
+			return 0
+	# Y los utiles tienen que estar libres en el cofre.
+	var reserva: Array = []
+	for id in cofre_ids:
+		for entrada in cofre_equipo:
+			var d := entrada as Dictionary
+			if int(d.get("id", -1)) == int(id):
+				if int(d.get("encargo", 0)) != 0:
+					return 0
+				reserva.append(d)
+				break
+
+	var miembros: Array = []
+	for uid in uids:
+		var pj: PersonajeData = pj_por_uid(String(uid))
+		miembros.append({
+			"dueno": String(pj.dueno) if pj != null else "",
+			"uid": String(uid),
+			"nombre": pj.nombre if pj != null else "?",
+		})
+
+	var e: Dictionary = {
+		"id": _encargo_next_id,
+		"quien_manda": Identidad.id,
+		"piso": maxi(1, piso),
+		"tipos": tt,
+		"t_inicio": Encargos.ahora(),
+		"duracion": maxi(60, duracion),
+		"miembros": miembros,
+		"cofre_ids": cofre_ids.duplicate(),
+		"estado": Encargos.ESTADO_EN_CURSO,
+		"semilla": randi(),
+		"botin": [], "excelia": [], "desenlace": 0,
+		"ratio": 0.0, "trabajadas": 0, "traidas": 0, "perdido": 0,
+	}
+	_encargo_next_id += 1
+	encargos.append(e)
+	for d in reserva:
+		d["encargo"] = int(e["id"])
+	# Si alguno estaba en el equipo no deberia llegar aqui, pero por si acaso: el encargo manda.
+	for m in miembros:
+		var pj: PersonajeData = pj_por_uid(String(m["uid"]))
+		if pj != null and party.has(pj):
+			sacar_del_equipo(pj)
+	print("[encargos] #%d: %d persona(s) al piso %d durante %d h." % [
+		e["id"], miembros.size(), e["piso"], int(e["duracion"]) / 3600])
+	return int(e["id"])
+
+
+# --- CANCELAR: libera gente y utiles, y NO trae nada. ---
+func cancelar_encargo(id: int) -> bool:
+	var e: Dictionary = encargo_por_id(id)
+	if e.is_empty():
+		return false
+	_soltar_utiles(e)
+	encargos.erase(e)
+	return true
+
+
+func _soltar_utiles(e: Dictionary) -> void:
+	for entrada in _entradas_de_encargo(e):
+		(entrada as Dictionary)["encargo"] = 0
+
+
+# --- REPASAR: resuelve los que ya han vencido. Devuelve cuantos. ---
+# Se llama al cargar la partida, al abrir el Hogar y por el tick del reloj.
+func repasar_encargos() -> int:
+	var n: int = 0
+	for e_ in encargos:
+		var e := e_ as Dictionary
+		if int(e.get("estado", 0)) != Encargos.ESTADO_EN_CURSO:
+			continue
+		# El reloj del sistema ha ido HACIA ATRAS: la cuenta vuelve a empezar. Atrasarlo penaliza,
+		# nunca acelera. Adelantarlo si acelera y no hay defensa honesta offline: se asume.
+		if Encargos.ahora() < int(e.get("t_inicio", 0)):
+			e["t_inicio"] = Encargos.ahora()
+			continue
+		if not Encargos.vencido(e):
+			continue
+		_resolver_encargo(e)
+		n += 1
+	return n
+
+
+func _resolver_encargo(e: Dictionary) -> void:
+	var pjs: Array = pjs_de_encargo(e)
+	if pjs.is_empty():
+		# No queda ni uno (¿un save descuadrado?): se cierra sin premio en vez de dejarlo colgado
+		# bloqueando utiles del cofre para siempre.
+		push_warning("[encargos] #%d no encuentra a sus miembros: se cierra en vacio" % int(e["id"]))
+		_soltar_utiles(e)
+		encargos.erase(e)
+		return
+	var informe: Dictionary = Encargos.resolver(e, pjs, _entradas_de_encargo(e))
+	for clave in informe:
+		e[clave] = informe[clave]
+	e["estado"] = Encargos.ESTADO_LISTO
+	print("[encargos] #%d de vuelta: %s, %d de %d unidades (%d por peso)." % [
+		int(e["id"]), Encargos.NOMBRE_DESENLACE[int(e["desenlace"])],
+		int(e["traidas"]), int(e["trabajadas"]), int(e["perdido"])])
+
+
+# --- RECOGER: el material al almacen del hogar, la excelia a cada uno. Devuelve el informe. ---
+func recoger_encargo(id: int) -> Dictionary:
+	var e: Dictionary = encargo_por_id(id)
+	if e.is_empty() or int(e.get("estado", 0)) != Encargos.ESTADO_LISTO:
+		return {}
+
+	var n_mat: int = 0
+	for b in (e.get("botin", []) as Array):
+		var data: MaterialData = load(String((b as Dictionary)["ruta"])) as MaterialData
+		if data == null:
+			continue
+		for i in int((b as Dictionary)["n"]):
+			almacen_materiales.append(MaterialItem.crear(data, int((b as Dictionary)["calidad"])))
+			n_mat += 1
+		descubrir(data)
+
+	# La excelia, a cada uno por su uid. ganar() escribe en ability_internal y NO consolida: hay que
+	# pasar por el altar, igual que con todo lo demas.
+	for g in (e.get("excelia", []) as Array):
+		var d := g as Dictionary
+		if bool(d.get("aplicada", false)):
+			continue
+		var pj: PersonajeData = pj_por_uid(String(d.get("uid", "")))
+		if pj == null:
+			continue
+		ganar(String(d["abil"]), float(d["reto"]), float(d["base"]), float(d["max_reto"]), pj)
+		d["aplicada"] = true
+
+	_soltar_utiles(e)
+	var informe: Dictionary = {
+		"desenlace": int(e.get("desenlace", 0)),
+		"materiales": n_mat,
+		"perdido": int(e.get("perdido", 0)),
+		"trabajadas": int(e.get("trabajadas", 0)),
+		"miembros": (e.get("miembros", []) as Array).duplicate(true),
+	}
+	encargos.erase(e)
+	return informe
+
+
+# Repaso periodico. Se mira UNA VEZ POR MINUTO y no cada frame: comparar unos pocos enteros es
+# barato, pero resolver no lo es y no hace falta la precision del frame para algo que dura horas.
+# En un mundo compartido manda el HOST: si lo resolviera cada maquina, cada uno veria un botin
+# distinto (la resolucion tira dados).
+const SEG_TICK_ENCARGOS := 60.0
+var _acum_encargos: float = 0.0
+
+func _tick_encargos(delta: float) -> void:
+	if encargos.is_empty():
+		return
+	if Net.activo and not Net.es_host:
+		return
+	_acum_encargos += delta
+	if _acum_encargos < SEG_TICK_ENCARGOS:
+		return
+	_acum_encargos = 0.0
+	if repasar_encargos() > 0:
+		_avisar_encargos_listos()
+
+
+func _avisar_encargos_listos() -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast("Un encargo ha vuelto: pásate por el Hogar a recogerlo.")
+
 # Suelta las piezas del cofre marcadas para un encargo que ya no existe. Un cierre sucio (o un save
 # de una version anterior) dejaria un pico bloqueado PARA SIEMPRE, sin forma de que el jugador lo
 # desatasque. Se llama en cada carga: es barato y no hay excusa para no hacerlo.
@@ -3233,6 +3446,9 @@ func _ready() -> void:
 #   - No se puede trampear cerrando el juego (se congela) ni tocando el reloj del PC (no mira la
 #     hora real). Persiste en el save.
 func _process(delta: float) -> void:
+	# El tick de los ENCARGOS va ANTES del return por menu abierto, a proposito: corren por RELOJ
+	# REAL y tienen que vencer aunque estes con el Hogar abierto, que es justo cuando los miras.
+	_tick_encargos(delta)
 	if inventory_open:
 		return
 	# Corre en la mazmorra Y en el pueblo: la cuenta atras del respawn baja aunque subas a vender,

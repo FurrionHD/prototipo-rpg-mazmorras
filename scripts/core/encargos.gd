@@ -449,20 +449,52 @@ static func _peso_mult(cal: int) -> float:
 		MaterialItem.Calidad.DANADO: return 0.7
 		_: return 1.0
 
-# Lo que puede cargar la cuadrilla, ya con el 110% aplicado.
-static func tope_carga(pjs: Array, mochilas: Array) -> float:
+# ============================================================
+#  LOS UTILES DEL COFRE
+#  Se leen del DICT SERIALIZADO de la entrada del cofre, nunca deserializandolo.
+#  Deserializar registraria una copia en el baul cada vez que se mira un encargo, que es exactamente
+#  el bug de las 6 hachas. Y no hace falta: el dict ya trae tier, rareza, banda y capacidad.
+# ============================================================
+
+# Afinidad y golpes_menos de una herramienta del cofre, por TIPO de encargo. 0 si no es del tipo que
+# toca (un pico no sirve para plantas) o si es de las basicas (esas no tienen entrada en item_meta).
+static func mods_util(entrada: Dictionary, tipo: int) -> Dictionary:
+	var nada := {"afinidad": 0.0, "golpes_menos": 0}
+	var d: Dictionary = entrada.get("dict", {})
+	if String(d.get("clase", "")) != "herramienta":
+		return nada
+	var quiere: int = int(oficio_de(tipo).get("tool", -1))
+	if quiere < 0:
+		return nada   # los BICHOS no llevan herramienta
+	var plantilla: ToolData = load(String(d.get("ruta", ""))) as ToolData
+	if plantilla == null or int(plantilla.tipo) != quiere:
+		return nada
+	return Upgrades.tool_mods(int(plantilla.tipo), int(d.get("tier", 1)),
+		int(d.get("rareza", 0)), int(d.get("banda", 0)))
+
+# Capacidad que aporta una mochila del cofre. Misma cuenta que Game.capacidad_mochila, pero desde el
+# dict: capacidad base x factor de tier x multiplicador de rareza.
+static func capacidad_util(entrada: Dictionary) -> float:
+	var d: Dictionary = entrada.get("dict", {})
+	if String(d.get("clase", "")) != "mochila":
+		return 0.0
+	return float(d.get("capacidad", 0)) * Game.mochila_tier_factor(int(d.get("tier", 1))) \
+		* Upgrades.rareza_mult_capacidad(int(d.get("rareza", 0)))
+
+# Lo que puede cargar la cuadrilla, ya con el 110% aplicado. `entradas` son las del cofre asignadas.
+static func tope_carga(pjs: Array, entradas: Array) -> float:
 	var extra: float = 0.0
-	var mejor: BackpackData = null
-	for m in mochilas:
-		var mo: BackpackData = m as BackpackData
-		if mo == null:
+	var mejor_tier: int = 0
+	for e in entradas:
+		var c: float = capacidad_util(e as Dictionary)
+		if c <= 0.0:
 			continue
-		var c: float = Game.capacidad_mochila(mo)
 		extra += c
-		if mejor == null or c > Game.capacidad_mochila(mejor):
-			mejor = mo
-	return CARGA_MAX * Game._capacidad_con(Game.base_capacity + extra,
-		Game.mochila_fuerza_saturacion(mejor), pjs)
+		mejor_tier = maxi(mejor_tier, int(((e as Dictionary).get("dict", {}) as Dictionary).get("tier", 1)))
+	# La saturacion de Fuerza la marca la MEJOR mochila (mismo criterio que Game).
+	var sat: float = Game.SATURACION_SIN_MOCHILA if mejor_tier <= 0 \
+		else float(Game.MOCHILA_FUERZA_SATURACION[clampi(mejor_tier, 1, Game.MOCHILA_FUERZA_SATURACION.size()) - 1])
+	return CARGA_MAX * Game._capacidad_con(Game.base_capacity + extra, sat, pjs)
 
 
 # ============================================================
@@ -533,3 +565,81 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 # con la misma forma que curva_reto le da a los oficios.
 static func r_combate_a_reto(r: float) -> float:
 	return Game.curva_reto(1.0 / maxf(0.05, r), Game.HERB_PIVOTE, Game.HERB_SLOPE, Game.RETO_MAX)
+
+
+# ============================================================
+#  RESOLVER un encargo: la unica funcion que tira dados
+# ============================================================
+# Sembrada con encargo.semilla, asi que el resultado es REPRODUCIBLE: se puede volver a calcular
+# igual para depurar, y en multi el host lo resuelve una vez y difunde el resultado ya cocido.
+#
+# Devuelve el informe: {"desenlace", "botin", "excelia", "trabajadas", "traidas", "perdido", "ratio"}.
+# NO toca nada de Game: quien lo llame decide cuando y donde aplicar el botin y la excelia.
+static func resolver(e: Dictionary, pjs: Array, entradas_cofre: Array) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(e.get("semilla", 0))
+
+	var piso: int = int(e.get("piso", 1))
+	var duracion: int = int(e.get("duracion", 3600))
+	var tipos: Array = tipos_validos(e.get("tipos", []))
+	var n: int = maxi(1, pjs.size())
+
+	# --- Eje 1: ¿vuelven bien?
+	var pg: float = poder_grupo(pjs)
+	var r_c: float = pg / requisito_combate(piso)
+	var desenlace: int = tirar_desenlace(pg, piso, rng)
+
+	# --- Lo que aportan los utiles, por tipo.
+	var afinidades: Dictionary = {}
+	var golpes: int = 0
+	for tipo in tipos:
+		var mejor: float = 0.0
+		for entrada in entradas_cofre:
+			var m: Dictionary = mods_util(entrada as Dictionary, int(tipo))
+			if float(m["afinidad"]) > mejor:
+				mejor = float(m["afinidad"])
+				golpes = maxi(golpes, int(m["golpes_menos"]))
+		afinidades[int(tipo)] = mejor
+
+	# --- Cuanto TRABAJAN (esto es lo que da la excelia; el botin lo recorta el peso despues).
+	var trabajadas: int = unidades(duracion, n, golpes, float(CANTIDAD_DESENLACE[desenlace]))
+	var por_tipo: Dictionary = repartir(trabajadas, tipos)
+
+	# --- Eje 2: que sacan y con que calidad.
+	var piezas: Array = []
+	for tipo in por_tipo:
+		var t: int = int(tipo)
+		var poder_reco: float = poder_recolector(pjs, t, float(afinidades.get(t, 0.0)))
+		for i in int(por_tipo[tipo]):
+			var m: MaterialData = elegir_material(t, piso, rng)
+			if m == null:
+				continue
+			var r_m: float = ratio_calidad(t, m, piso, poder_reco, r_c)
+			var cal: int = calidad_tirada(r_m, rng)
+			# Perder no solo recorta la cantidad: lo que traen viene PEOR. A medias, la mitad.
+			if desenlace == FRACASO or (desenlace == PARCIAL and rng.randf() < 0.5):
+				cal = bajar_calidad(cal)
+			piezas.append({"material": m, "calidad": cal})
+
+	# --- El tope de peso. Solo recorta el BOTIN: la excelia va por `trabajadas`.
+	var corte: Dictionary = recortar_por_peso(piezas, tope_carga(pjs, entradas_cofre))
+
+	# Agrupar por (ruta, calidad) para que el encargo guarde poco y viaje ligero.
+	var cuenta: Dictionary = {}
+	for p in corte["traidas"]:
+		var clave: String = "%s|%d" % [(p["material"] as MaterialData).resource_path, int(p["calidad"])]
+		cuenta[clave] = int(cuenta.get(clave, 0)) + 1
+	var botin: Array = []
+	for clave in cuenta:
+		var partes: PackedStringArray = clave.split("|")
+		botin.append({"ruta": partes[0], "calidad": int(partes[1]), "n": int(cuenta[clave])})
+
+	return {
+		"desenlace": desenlace,
+		"botin": botin,
+		"excelia": excelia_de(pjs, piso, duracion, por_tipo, afinidades, r_c, desenlace),
+		"trabajadas": trabajadas,
+		"traidas": (corte["traidas"] as Array).size(),
+		"perdido": int(corte["perdido"]),
+		"ratio": r_c,
+	}
