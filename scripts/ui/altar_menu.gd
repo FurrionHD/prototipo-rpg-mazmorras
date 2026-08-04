@@ -86,25 +86,53 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-# El personaje cuya pestaña se esta viendo. Con el party vacio (imposible en la practica) cae al
-# lider, que Game garantiza que existe siempre.
+# TODOS a los que se puede consolidar: los que bajan contigo Y los que esperan en el hogar.
+#
+# El banquillo esta aqui porque los ENCARGOS les dan excelia sin que bajen a ningun sitio, y
+# `ganar()` escribe en ability_internal SIN consolidar (a proposito: consolidar gratis se cargaria
+# el altar). Antes el altar solo pintaba pestañas del party, asi que esa excelia no habia forma de
+# verla ni de cobrarla: se quedaba invisible para siempre.
+func _pjs() -> Array:
+	var out: Array = []
+	for pj in Game.party:
+		out.append(pj)
+	for pj in Game.en_el_banquillo():
+		out.append(pj)
+	return out
+
+
+# El personaje cuya pestaña se esta viendo. Con el party vacio (transitorio, con el Hogar abierto)
+# cae al lider, que Game garantiza que existe siempre.
 func _pj() -> PersonajeData:
-	if _pj_sel < 0 or _pj_sel >= Game.party.size():
+	var todos: Array = _pjs()
+	if _pj_sel < 0 or _pj_sel >= todos.size():
 		_pj_sel = 0
-	return Game.party[_pj_sel] if not Game.party.is_empty() else Game.lider()
+	return todos[_pj_sel] if not todos.is_empty() else Game.lider()
 
 
-# Una pestaña por miembro del grupo, con el numero que lo pone en cabeza (1/2/3) delante para que
-# se lea igual que la tecla. Con una sola persona no se pintan: un boton solo no elige nada.
+# Una pestaña por persona. Los del EQUIPO llevan el numero que los pone en cabeza (1/2/3), para que
+# se lea igual que la tecla; los de casa van detras con una casita y sin numero, porque no tienen
+# tecla que pulsar. Un punto ambar marca a quien tiene algo sin consolidar.
 func _rebuild_tabs() -> void:
 	MenuScaffold.vaciar(_side)
 	_tab_buttons.clear()
-	if Game.party.size() <= 1:
-		return
-	for i in Game.party.size():
+	var todos: Array = _pjs()
+	if todos.size() <= 1:
+		return   # un boton solo no elige nada
+	var n_equipo: int = Game.party.size()
+	for i in todos.size():
+		var pj: PersonajeData = todos[i]
 		var b := Button.new()
-		var corona: String = "👑 " if Game.party[i] == Game.lider() else ""
-		b.text = "%d. %s%s" % [i + 1, corona, Game.party[i].nombre]
+		var marca: String = " ·" if Game.tiene_pendiente(pj) else ""
+		if i < n_equipo:
+			var corona: String = "👑 " if pj == Game.lider() else ""
+			b.text = "%d. %s%s%s" % [i + 1, corona, pj.nombre, marca]
+		else:
+			var fuera: bool = Game.esta_de_encargo(pj)
+			b.text = "🏠 %s%s%s" % [pj.nombre, "  (de encargo)" if fuera else "", marca]
+			b.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+		if Game.tiene_pendiente(pj):
+			b.tooltip_text = "Tiene experiencia sin consolidar: ábrele la ficha y actualízale el estado."
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(0, 34)
 		b.pressed.connect(_on_tab.bind(i))
@@ -122,7 +150,7 @@ func _on_tab(i: int) -> void:
 func mostrar_subida() -> void:
 	if not _root.visible:
 		return
-	_pj_sel = maxi(0, Game.party.find(Game.lider()))
+	_pj_sel = maxi(0, _pjs().find(Game.lider()))
 	# Tras subir, el visible es 0 en todas: mostramos el reset explicito (-1 = "reset por subida").
 	var d: Array = []
 	for s in STATS:
@@ -155,9 +183,15 @@ func _rebuild_real() -> void:
 	var pj: PersonajeData = _pj()
 	var es_lider: bool = pj == Game.lider()
 
-	MenuScaffold.titulo(_content, "%s  ·  Nivel %d" % [pj.nombre, pj.level])
+	var donde: String = ""
+	if not Game.party.has(pj):
+		donde = "  ·  de encargo" if Game.esta_de_encargo(pj) else "  ·  en el Hogar"
+	MenuScaffold.titulo(_content, "%s  ·  Nivel %d%s" % [pj.nombre, pj.level, donde])
 	if _aviso != "":
 		MenuScaffold.nota(_content, _aviso)
+	if Game.tiene_pendiente(pj):
+		MenuScaffold.nota(_content, "Tiene experiencia sin consolidar. Actualízale el estado para "
+			+ "que se le vea en las habilidades.")
 	_content.add_child(HSeparator.new())
 
 	# Habilidades VISIBLES actuales (rango de este nivel) de ESTE personaje.
@@ -183,8 +217,15 @@ func _rebuild_real() -> void:
 	elif es_lider and Game.guardianes_vencidos.get(pj.level + 1, false):
 		MenuScaffold.nota(_content, "Venciste al guardián del rango, pero aún te falta llegar a rango C en alguna habilidad para ascender.")
 	elif not es_lider:
-		MenuScaffold.nota(_content, "Subir de nivel es del que va en cabeza. Para subir a %s, ponlo delante con la tecla %d." % [
-			pj.nombre, _pj_sel + 1])
+		if Game.party.has(pj):
+			MenuScaffold.nota(_content, "Subir de nivel es del que va en cabeza. Para subir a %s, ponlo delante con la tecla %d." % [
+				pj.nombre, _pj_sel + 1])
+		else:
+			# Los de casa SI pueden consolidar (es como se cobra lo que ganan en los encargos), pero
+			# ni descansan ni suben de nivel: para eso hay que bajarlos a la mazmorra.
+			MenuScaffold.nota(_content, "%s espera en el Hogar. Aquí puede consolidar lo que haya "
+				% pj.nombre + "aprendido, pero para descansar o subir de nivel tiene que bajar "
+				+ "contigo: mételo en el equipo desde el Hogar.")
 
 	# Antes→después del ultimo "Actualizar" de ESTE personaje (o el reset de su subida).
 	var delta: Array = _deltas.get(pj, [])

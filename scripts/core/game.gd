@@ -8833,8 +8833,25 @@ func _desarrollos_subidos(p: PersonajeData, antes: Dictionary) -> Array:
 # bajan y los tres se cansan, asi que los tres descansan: si solo consolidara el lider, tendrias
 # que ir cambiando de cabeza y volver a pulsar para no dejarte a nadie la excelia colgando.
 func actualizar_estado_grupo() -> void:
-	for pj in party:
-		actualizar_estado(pj)
+	actualizar_estado_de(party)
+
+# Consolida a QUIEN LE DIGAS. Existe aparte de actualizar_estado_grupo porque los ENCARGOS dan
+# excelia a gente que NO baja contigo, y hasta que no se consolida no se ve en ningun sitio: el
+# altar tiene que poder llegar tambien al banquillo.
+func actualizar_estado_de(grupo: Array) -> void:
+	for pj in grupo:
+		if pj is PersonajeData:
+			actualizar_estado(pj as PersonajeData)
+
+# ¿Tiene algo SIN CONSOLIDAR? Es lo que decide la marca ambar de la pestaña del altar: si no, la
+# excelia de un encargo se queda invisible y el jugador no sabe ni que tiene que pasarse por aqui.
+func tiene_pendiente(pj: PersonajeData) -> bool:
+	if pj == null:
+		return false
+	for s in pj.ability_internal:
+		if float(pj.ability_internal[s]) - float(pj.ability_consolidado.get(s, 0.0)) > 0.005:
+			return true
+	return false
 
 # Pone las stats visibles a partir de lo CONSOLIDADO. No consolida nada: es solo la lectura.
 func _derivar_visible(pj: PersonajeData = null) -> void:
