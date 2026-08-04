@@ -272,12 +272,18 @@ static func probs_desenlace(poder_del_grupo: float, piso: int) -> Array:
 	var p: float = maxf(0.0, hasta_parcial - e)
 	return [e, p, maxf(0.0, 1.0 - e - p)]
 
-# Una probabilidad (0..1) como texto. HASTA dos decimales: los porcentajes grandes se leen mejor
-# redondos ("77%"), pero los pequeños hay que verlos enteros ("0.02%") o parecen todos iguales, que
-# es justo lo que hacia el suelo de antes.
+# Una probabilidad (0..1) como texto, con HASTA dos decimales.
+#
+# En el tramo de en medio se lee mejor redondo ("77%"), pero en LOS DOS EXTREMOS hacen falta los
+# decimales:
+#   - cerca de 0, porque si no todo lo improbable parece igual de improbable ("0%").
+#   - cerca de 100, porque redondear un 99.95 a "100%" es decir que algo es SEGURO cuando no lo es,
+#     y ademas descuadra la linea: 0.02 + 0.03 + 99.95 suma 100, pero 0.02 + 0.03 + 100 no.
 static func pct(p: float) -> String:
 	var v: float = 100.0 * p
-	if v >= 10.0:
+	if v >= 100.0:
+		return "100%"
+	if v >= 10.0 and v < 99.0:
 		return "%d%%" % int(round(v))
 	var s: String = "%.2f" % v
 	while s.ends_with("0"):
