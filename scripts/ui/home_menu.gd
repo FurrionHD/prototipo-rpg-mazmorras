@@ -281,6 +281,25 @@ func _fila_encargo(e: Dictionary) -> void:
 			_rebuild())
 		acciones.add_child(traer)
 
+		# --- BOTON DE DEV (temporal, quitar antes de publicar) ---
+		# No es lo mismo que "Traer de vuelta": aquel acorta la duracion y por eso vuelven con lo
+		# proporcional; este RETRASA EL INICIO, asi que el encargo cuenta COMPLETO y da exactamente
+		# lo mismo que si hubieras esperado las ocho horas. Es el unico que sirve para mirar el
+		# balance sin esperar de verdad. Va aqui y no solo en el panel de dev porque asi se puede
+		# terminar UNO concreto, y porque se ve en el .exe exportado (el panel de dev tambien, pero
+		# esto es un clic en vez de abrirlo y buscar la seccion).
+		var dev := Button.new()
+		dev.text = "⚡ Terminar ya [dev]"
+		dev.tooltip_text = "Como si hubiera pasado su tiempo ENTERO: el resultado es idéntico al de "
+		dev.tooltip_text += "esperarlo de verdad. Botón de pruebas, se quitará."
+		dev.modulate = Color(0.75, 0.85, 1.0)
+		dev.pressed.connect(func():
+			Net.solicitar_dev_terminar_encargo(int(e["id"]))
+			_aviso = "[dev] Encargo terminado al 100%. Ya se puede recoger."
+			_aviso_ok = true
+			_rebuild())
+		acciones.add_child(dev)
+
 
 func _texto_informe(inf: Dictionary) -> String:
 	if inf.is_empty():

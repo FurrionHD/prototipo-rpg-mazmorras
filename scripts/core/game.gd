@@ -3166,17 +3166,28 @@ func cancelar_encargo(id: int) -> bool:
 
 
 # --- DEV: como si hubiera pasado el tiempo entero. Para poder probar sin esperar 8 horas. ---
+#
+# OJO A LA DIFERENCIA CON traer_encargo(): aquel ACORTA la duracion (vuelven con lo proporcional a
+# lo que han estado fuera, que es una mecanica de verdad); este RETRASA EL INICIO, asi que el
+# encargo cuenta como completo y el resultado es EXACTAMENTE el mismo que si hubieras esperado.
+# Por eso sirve para mirar el balance y no solo la UI.
+func dev_terminar_encargo(id: int) -> bool:
+	var e: Dictionary = encargo_por_id(id)
+	if e.is_empty() or int(e.get("estado", 0)) != Encargos.ESTADO_EN_CURSO:
+		return false
+	e["t_inicio"] = Encargos.ahora() - int(e.get("duracion", 0))
+	_resolver_encargo(e)
+	return true
+
+
 func dev_terminar_encargos() -> int:
 	var n: int = 0
 	for e_ in encargos.duplicate():
 		var e := e_ as Dictionary
 		if int(e.get("estado", 0)) != Encargos.ESTADO_EN_CURSO:
 			continue
-		# Se retrasa el INICIO en vez de tocar la duracion: asi el resultado es el mismo que si
-		# hubieras esperado de verdad, y sirve para probar el balance y no solo la UI.
-		e["t_inicio"] = Encargos.ahora() - int(e.get("duracion", 0))
-		_resolver_encargo(e)
-		n += 1
+		if dev_terminar_encargo(int(e.get("id", 0))):
+			n += 1
 	return n
 
 

@@ -2061,6 +2061,21 @@ func _pedir_traer_encargo(id: int) -> void:
 		_difundir_hogar()
 
 
+# DEV (temporal): terminar UNO al 100%, como si hubiera pasado su tiempo entero. Va por la red como
+# los demas para que tambien sirva probando en multi.
+func solicitar_dev_terminar_encargo(id: int) -> void:
+	if _soy_cliente():
+		_pedir_dev_terminar_encargo.rpc_id(1, id)
+	elif Game.dev_terminar_encargo(id):
+		_difundir_hogar()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_dev_terminar_encargo(id: int) -> void:
+	if es_host and Game.dev_terminar_encargo(id):
+		_difundir_hogar()
+
+
 func solicitar_recoger_encargo(id: int) -> void:
 	if _soy_cliente():
 		_pedir_recoger_encargo.rpc_id(1, id)
