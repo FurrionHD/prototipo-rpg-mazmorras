@@ -98,12 +98,48 @@ func cambiar_lider(i: int) -> bool:
 func fichar(pj: PersonajeData) -> void:
 	if pj == null or plantilla.has(pj):
 		return
+	asegurar_uid(pj)
 	plantilla.append(pj)
 	# En sesion multi el equipo tiene un CUPO menor que PARTY_MAX (Net.cupo_party; en solitario
 	# devuelve PARTY_MAX y no cambia nada): el fichado espera en el hogar si no cabe.
 	if party.size() < mini(PARTY_MAX, Net.cupo_party()):
 		party.append(pj)
 	print("[grupo] ficha %s (plantilla %d, equipo %d)" % [pj.nombre, plantilla.size(), party.size()])
+
+# --- UID: el identificador estable de un personaje (ver personaje_data.gd) ---
+# Formato "identidad-microsegundos-contador". Lleva la identidad delante para que dos personas que
+# crean un personaje a la vez en maquinas distintas no puedan chocar aunque el reloj coincida, y el
+# contador para el caso de crear varios en el mismo microsegundo (los packs iniciales).
+var _uid_seq: int = 0
+
+func nuevo_uid() -> String:
+	_uid_seq += 1
+	return "%s-%d-%d" % [Identidad.id, Time.get_ticks_usec(), _uid_seq]
+
+func asegurar_uid(pj: PersonajeData) -> void:
+	if pj != null and String(pj.uid).is_empty():
+		pj.uid = nuevo_uid()
+
+# Rellena los que vengan vacios. Es para los saves ANTERIORES al uid (donde el campo no existia) y
+# para los personajes que llegan por red de una version vieja: nadie se queda sin identificador.
+# Se llama al importar la partida y al adoptar un mundo, que son los dos sitios por los que entra
+# gente que no ha pasado por fichar().
+func asegurar_uids() -> void:
+	for pj in plantilla:
+		asegurar_uid(pj)
+	for jd in jugadores_mundo.values():
+		if jd is JugadorData:
+			for pj in (jd as JugadorData).personajes:
+				asegurar_uid(pj)
+
+# El de la plantilla con ese uid, o null. Es como los encargos vuelven a encontrar a quien mandaron.
+func pj_por_uid(uid: String) -> PersonajeData:
+	if uid.is_empty():
+		return null
+	for pj in plantilla:
+		if String(pj.uid) == uid:
+			return pj
+	return null
 
 # Mete a alguien de la plantilla en el equipo que baja. false si no hay sitio o ya estaba.
 func meter_en_equipo(pj: PersonajeData) -> bool:
@@ -1471,6 +1507,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	# taberna). Va lo primero porque todo lo que viene despues escribe en el lider.
 	var yo := PersonajeData.new()
 	yo.es_original = true   # EL personaje de esta partida (el "yo" de los campos planos): intocable
+	asegurar_uid(yo)        # no pasa por fichar(), asi que se le pone aqui
 	plantilla = [yo]
 	party = [yo]
 	lider_idx = 0
@@ -1536,6 +1573,8 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	cofre_equipo.clear()
 	cofre_consumibles.clear()
 	_cofre_next_id = 1
+	encargos.clear()
+	_encargo_next_id = 1
 	owned_weapons.clear()
 	owned_armor.clear()
 	owned_mochilas.clear()
@@ -1604,6 +1643,10 @@ func exportar_partida() -> SaveData:
 
 	d.semilla_mundo = semilla_mundo
 	d.nombre = player_nombre     # identidad: la eligio al crear la partida
+	# El uid del LIDER va aparte porque el lider NO esta en d.plantilla: vive en estos campos planos,
+	# y al cargar se reconstruye un PersonajeData nuevo. Sin esta linea estrenaria uid en cada carga y
+	# un encargo mandado antes de guardar ya no sabria de quien era.
+	d.player_uid = lider().uid
 	d.color = player_color
 	d.metalico = player_metalico
 	d.imagen = player_imagen_png
@@ -1664,6 +1707,8 @@ func exportar_partida() -> SaveData:
 	d.bote_dinero = bote_dinero
 	d.cofre_equipo = cofre_equipo.duplicate(true)
 	d.cofre_consumibles = cofre_consumibles.duplicate(true)
+	d.encargos = encargos.duplicate(true)
+	d.encargo_next_id = _encargo_next_id
 	d.owned_weapons = owned_weapons.duplicate()
 	d.owned_armor = owned_armor.duplicate()
 	d.owned_mochilas = owned_mochilas.duplicate()
@@ -1923,6 +1968,11 @@ func limpiar_mundo_heredado() -> void:
 	cofre_equipo.clear()
 	cofre_consumibles.clear()
 	_cofre_next_id = 1
+	# Los ENCARGOS son progreso DEL MUNDO, como el cofre: apuntan a gente y a herramientas que aqui no
+	# existen. Sin esta linea, volver a mi ranura me traeria encargos de otro mundo apuntando al vacio
+	# (la misma fuga que hubo con materiales_vistos).
+	encargos.clear()
+	_encargo_next_id = 1
 	recompra.clear()
 	# El progreso del mundo: los jefes y los guardianes que cayeron son los de MI mundo, no los de este.
 	bosses_derrotados.clear()
@@ -2056,6 +2106,8 @@ func exportar_partida_invitado() -> SaveData:
 	d.bote_dinero = int(mio["bote_dinero"])
 	d.cofre_equipo = (mio["cofre_equipo"] as Array).duplicate(true)
 	d.cofre_consumibles = (mio["cofre_consumibles"] as Dictionary).duplicate(true)
+	d.encargos = (mio["encargos"] as Array).duplicate(true)
+	d.encargo_next_id = int(mio["encargo_next_id"])
 	d.mazmorra_persistente = (mio["mazmorra_persistente"] as Dictionary).duplicate(true)
 	d.mapa_snapshot = (mio["mapa_snapshot"] as Dictionary).duplicate(true)
 	d.mapa_trabajo = (mio["mapa_trabajo"] as Dictionary).duplicate(true)
@@ -2129,6 +2181,9 @@ func importar_partida(d: SaveData) -> void:
 	# se reemplaza aqui, se cargaria encima del personaje de la partida ANTERIOR de esta sesion.
 	var yo := PersonajeData.new()
 	yo.es_original = true   # EL personaje de esta partida (el "yo" de los campos planos): intocable
+	# Su uid es el GUARDADO, no uno nuevo: es la misma persona que cerro el juego. Si el save es
+	# anterior al uid viene vacio y se lo pone asegurar_uids() al final de esta funcion.
+	yo.uid = d.player_uid
 	plantilla = [yo]
 	party = [yo]
 	lider_idx = 0
@@ -2192,6 +2247,11 @@ func importar_partida(d: SaveData) -> void:
 	_cofre_next_id = 1
 	for e in cofre_equipo:
 		_cofre_next_id = maxi(_cofre_next_id, int(e.get("id", 0)) + 1)
+	# Los encargos, con el mismo cuidado del contador (los saves viejos traen la lista vacia).
+	encargos = d.encargos.duplicate(true)
+	_encargo_next_id = maxi(1, d.encargo_next_id)
+	for e in encargos:
+		_encargo_next_id = maxi(_encargo_next_id, int((e as Dictionary).get("id", 0)) + 1)
 	owned_weapons.assign(d.owned_weapons)
 	owned_armor.assign(d.owned_armor)
 	owned_mochilas.assign(d.owned_mochilas)
@@ -2342,6 +2402,12 @@ func importar_partida(d: SaveData) -> void:
 	# del ultimo que guardo y no tiene por que ser el mio. En una partida de un jugador lider() ES
 	# `yo`, asi que esto vale exactamente lo mismo que antes.
 	_stamina_cargada = lider().stamina if mundo_compartido else d.stamina
+	# Los saves anteriores al uid traen el campo vacio (default del @export). Se rellena AQUI, con el
+	# grupo y los jugadores del mundo ya montados, para que nadie se quede sin identificador estable.
+	asegurar_uids()
+	# Un ENCARGO que apunte a una pieza del cofre que ya no existe la dejaria bloqueada PARA SIEMPRE
+	# (un cierre sucio basta). El barrido es barato y se hace en cada carga.
+	_barrer_encargos_huerfanos()
 
 
 # Aguante con el que hay que arrancar al jugador tras cargar (-1 = al maximo). Lo lee el
@@ -2812,6 +2878,51 @@ var bote_dinero: int = 0
 var cofre_equipo: Array = []            # entradas {id, dict serializado, clase, desc}
 var cofre_consumibles: Dictionary = {}  # ruta -> cantidad
 var _cofre_next_id: int = 1
+
+# --- ENCARGOS: la gente del hogar mandada a recolectar por RELOJ REAL (ver encargos.gd) ---
+# Viven aqui, en la raiz del mundo, y no dentro de un JugadorData: un encargo puede llevar gente de
+# dos jugadores y bloquea piezas del cofre COMUN. Son diccionarios de primitivos a proposito (ver
+# SaveData.encargos): asi viajan por RPC tal cual y no incrustan Resources en el .tres.
+var encargos: Array = []
+var _encargo_next_id: int = 1
+
+# El encargo con ese id, o un dict vacio.
+func encargo_por_id(id: int) -> Dictionary:
+	for e in encargos:
+		if int((e as Dictionary).get("id", 0)) == id:
+			return e as Dictionary
+	return {}
+
+# ¿Esta persona esta ahora mismo fuera, en un encargo? Se pregunta por uid porque el PersonajeData
+# de un compañero de otro jugador ni siquiera vive en esta maquina.
+func uid_de_encargo(uid: String) -> int:
+	if uid.is_empty():
+		return 0
+	for e in encargos:
+		for m in ((e as Dictionary).get("miembros", []) as Array):
+			if String((m as Dictionary).get("uid", "")) == uid:
+				return int((e as Dictionary).get("id", 0))
+	return 0
+
+func esta_de_encargo(pj: PersonajeData) -> bool:
+	return pj != null and uid_de_encargo(String(pj.uid)) != 0
+
+# Suelta las piezas del cofre marcadas para un encargo que ya no existe. Un cierre sucio (o un save
+# de una version anterior) dejaria un pico bloqueado PARA SIEMPRE, sin forma de que el jugador lo
+# desatasque. Se llama en cada carga: es barato y no hay excusa para no hacerlo.
+func _barrer_encargos_huerfanos() -> void:
+	var vivos := {}
+	for e in encargos:
+		vivos[int((e as Dictionary).get("id", 0))] = true
+	var sueltas: int = 0
+	for entrada in cofre_equipo:
+		var d := entrada as Dictionary
+		var id_e: int = int(d.get("encargo", 0))
+		if id_e != 0 and not vivos.has(id_e):
+			d["encargo"] = 0
+			sueltas += 1
+	if sueltas > 0:
+		print("[encargos] %d pieza(s) del cofre estaban marcadas para encargos que ya no existen: liberadas." % sueltas)
 
 # --- BAUL DE EQUIPO: lo que POSEES (aunque no lo lleves puesto). De momento se llena
 # desde el panel de debug; en el futuro, comprando/crafteando. El menu de personaje solo
@@ -5126,10 +5237,13 @@ const CARGA_POR_ACOMPANANTE := 0.15
 # 'saturacion' = la Fuerza media a la que se toca el tope del multiplicador. La pone la MOCHILA
 # (ver MOCHILA_FUERZA_SATURACION), asi que el mismo grupo con la misma Fuerza rinde distinto segun
 # lo que lleve a la espalda.
-func _capacidad_con(contenedor: float, saturacion: float) -> float:
+# 'grupo' = quienes cargan. Por defecto el equipo que baja hoy, que es el caso de siempre; los
+# ENCARGOS pasan su propia cuadrilla, que no tiene por que solaparse con el party.
+func _capacidad_con(contenedor: float, saturacion: float, grupo: Array = []) -> float:
+	var quienes: Array = party if grupo.is_empty() else grupo
 	var suma: float = 0.0
 	var n: int = 0
-	for pj in party:
+	for pj in quienes:
 		# Fuerza TOTAL (oculta), no la visible: si no, al subir de nivel perderias capacidad de carga
 		# (el visible vuelve a 0). Mismo criterio que el aguante y la recoleccion.
 		#
@@ -5147,7 +5261,7 @@ func _capacidad_con(contenedor: float, saturacion: float) -> float:
 	# ni la multiplica el numero de manos. Y SUMA por persona (cada uno carga lo suyo), por eso sale
 	# de la cache estados_mochila de cada ficha y no del lider.
 	var extra: float = 0.0
-	for pj in party:
+	for pj in quienes:
 		extra += pj.estados_mochila
 	return contenedor * mult * manos + extra
 
@@ -9665,11 +9779,14 @@ func _calidad_material_de_cristal(cal: int) -> MaterialItem.Calidad:
 #  el minijuego de dentro NO se parece: ver mining.gd y harvest.gd.
 # ============================================================
 
-# Cuanto exige un material A ESTA PROFUNDIDAD (la roca esta mas apretada abajo).
-func _exigencia_material(m: MaterialData) -> float:
+# Cuanto exige un material A ESA PROFUNDIDAD (la roca esta mas apretada abajo).
+# El piso es parametro (y no siempre current_floor) porque los ENCARGOS calculan lo que pasaria en un
+# piso al que no estas: se manda gente al 5 desde el pueblo.
+func _exigencia_material(m: MaterialData, piso: int = -1) -> float:
 	if m == null:
 		return 1.0
-	return maxf(1.0, m.exigencia * pow(RECOLECCION_PISO_FACTOR, float(current_floor - 1)))
+	var p: int = current_floor if piso < 0 else piso
+	return maxf(1.0, m.exigencia * pow(RECOLECCION_PISO_FACTOR, float(p - 1)))
 
 
 # DIFICULTAD de un minijuego de recoleccion: lo duro que es el material contra tu stat (con suelo).

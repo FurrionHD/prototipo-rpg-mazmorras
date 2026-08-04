@@ -45,6 +45,17 @@ class_name PersonajeData
 # es_original sigue significando lo mismo, pero pasa a ser UNO POR DUEÑO: el personaje con el que
 # ESA persona empezo en este mundo.
 @export var dueno: String = ""
+# IDENTIFICADOR ESTABLE de esta persona. Nace con ella y no cambia nunca: ni al renombrarla, ni al
+# reordenar el equipo, ni al viajar por la red.
+#
+# Hace falta porque hay cosas que apuntan a un personaje y le SOBREVIVEN a la vuelta por red: un
+# ENCARGO se manda hoy y se recoge dentro de ocho horas, y cuando vuelve hay que darle la excelia a
+# quien la sudo. Apuntar por indice del array no vale: jd_de_dict RECONSTRUYE personajes/equipo en
+# cada sincronizacion (cada 60 s) y _aplicar_cupo reordena party, asi que el indice 2 de ahora es
+# otra persona dentro de un rato y las stats se las llevaria un tercero.
+#
+# Vacio en los saves viejos: lo rellena Game.asegurar_uids() al importar.
+@export var uid: String = ""
 
 # --- Progresion (ver los comentarios largos de game.gd: interno / consolidado / base_nivel) ---
 @export var level: int = 1

@@ -60,6 +60,11 @@ const VERSION_MUNDO := 1
 # Cuanto tiñe el color por encima de esa imagen (0 = imagen limpia, 1 = solo color). Sin imagen
 # no pinta nada. Default 1 = como se comportaba antes de que existieran las imagenes.
 @export var color_alpha: float = 1.0
+# UID del LIDER. Los compañeros llevan el suyo dentro de su PersonajeData (@export), pero el que va
+# en cabeza viaja en los campos planos de aqui y al cargar se reconstruye entero: sin este campo
+# estrenaria identificador en cada carga. Vacio en los saves viejos -> Game.asegurar_uids() le pone
+# uno al importar.
+@export var player_uid: String = ""
 @export var fecha: String = ""          # "12/07/2026 20:31"
 @export var cab_nivel: int = 1
 @export var cab_piso: int = 1
@@ -189,6 +194,13 @@ const VERSION_MUNDO := 1
 @export var bote_dinero: int = 0
 @export var cofre_equipo: Array = []        # entradas {id, dict, clase, desc} (equipo serializado)
 @export var cofre_consumibles: Dictionary = {}   # ruta -> cantidad
+# ENCARGOS en marcha: la gente que has mandado a recolectar por RELOJ REAL. Array de diccionarios
+# de primitivos (ver el molde en encargos.gd), nunca Resources: apuntan a las personas por `uid` y a
+# las herramientas por el `id` de su entrada en cofre_equipo, asi que aqui no se incrusta nada.
+# Son del MUNDO, no de una persona: un encargo puede llevar gente de dos jugadores y bloquea piezas
+# del cofre comun, igual que el bote y el propio cofre.
+@export var encargos: Array = []
+@export var encargo_next_id: int = 1
 @export var owned_weapons: Array = []       # baul (instancias propias, con su identidad)
 @export var owned_armor: Array = []
 # MOCHILAS: van aparte del equipo de combate (solo suben la carga). La equipada es del GRUPO

@@ -1879,6 +1879,13 @@ func _retiro_fallido() -> void:
 		hud.mostrar_toast("No hay tanto en el bote del hogar.")
 
 
+# El host le dice a UN cliente por que no ha podido hacer algo. Generico a proposito: el motivo lo
+# escribe quien lo rechaza, que es el unico que lo sabe.
+@rpc("any_peer", "call_remote", "reliable")
+func _aviso_remoto(texto: String) -> void:
+	_aviso_esquina(texto)
+
+
 # Difunde el bote a los clientes (solo si hay sesion) y refresca la UI.
 func _difundir_bote() -> void:
 	if activo:
@@ -1922,8 +1929,11 @@ func _pedir_meter_cofre(d: Dictionary) -> void:
 
 # Host o solitario: apunta la pieza en el cofre (Game.cofre_equipo, que persiste).
 func _apuntar_en_cofre(d: Dictionary) -> void:
+	# "encargo": id del encargo que la esta usando ahi abajo, o 0 si esta libre. Vive DENTRO de la
+	# entrada y no en un diccionario aparte porque asi persiste y viaja gratis: cofre_equipo ya es
+	# @export en SaveData y ya se difunde entero con _set_cofre.
 	Game.cofre_equipo.append({"id": Game._cofre_next_id, "dict": d,
-		"clase": str(d.get("clase", "arma")), "desc": str(d.get("desc", "?"))})
+		"clase": str(d.get("clase", "arma")), "desc": str(d.get("desc", "?")), "encargo": 0})
 	Game._cofre_next_id += 1
 	_difundir_cofre()
 
@@ -1952,6 +1962,14 @@ func _resolver_saca_cofre(id: int, quien: int) -> void:
 			idx = i
 			break
 	if idx < 0:
+		return
+	# EN USO en un encargo: no se la lleva nadie, ni el que la metio. La UI ya deshabilita el boton,
+	# pero el que manda es el host: un cliente con la lista desfasada podria pedirla igual.
+	if int(Game.cofre_equipo[idx].get("encargo", 0)) != 0:
+		if quien == 1:
+			_aviso_esquina("Esa pieza está en un encargo")
+		else:
+			_aviso_remoto.rpc_id(quien, "Esa pieza está en un encargo")
 		return
 	var d: Dictionary = Game.cofre_equipo[idx]["dict"]
 	Game.cofre_equipo.remove_at(idx)
@@ -3788,7 +3806,10 @@ const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
 #  Y su equipo se deserializa REGISTRANDO: en un mundo compartido el baul del mundo es la casa de
 #  esos objetos, no un prestamo para una pelea.
 # ------------------------------------------------------------
-const _PERMANENTES := ["es_original", "rol", "dueno", "pasivas_pendientes"]
+# OJO: esta lista es FIJA. Un campo permanente de PersonajeData que no este aqui funciona perfecto en
+# solitario y desaparece SOLO en multi, que es de las averias mas caras de encontrar. `uid` esta aqui
+# porque los ENCARGOS apuntan a la gente por uid y se cobran horas despues, quiza en otra maquina.
+const _PERMANENTES := ["es_original", "rol", "dueno", "pasivas_pendientes", "uid"]
 
 
 func pj_a_dict(pj: PersonajeData) -> Dictionary:
@@ -4503,6 +4524,10 @@ func _congelar_mi_mundo() -> void:
 		"bote_dinero": Game.bote_dinero,
 		"cofre_equipo": Game.cofre_equipo.duplicate(true),
 		"cofre_consumibles": Game.cofre_consumibles.duplicate(true),
+		# Los ENCARGOS son del mundo, igual que el cofre: los del host apuntan a gente y herramientas
+		# que en mi partida no existen, asi que los mios se apartan y vuelven al desconectar.
+		"encargos": Game.encargos.duplicate(true),
+		"encargo_next_id": Game._encargo_next_id,
 		"mazmorra_persistente": Game.mazmorra_persistente.duplicate(true),
 		"mapa_snapshot": Game.mapa_snapshot.duplicate(true),
 		"mapa_trabajo": Game.mapa_trabajo.duplicate(true),
