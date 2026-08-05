@@ -8804,6 +8804,25 @@ func poder_jugador_eff(pj: PersonajeData = null) -> float:
 		+ stat_total("destreza", p) + stat_total("agilidad", p) + stat_total("magia", p))
 	return maxf(suma, PODER_JUGADOR_SUELO)
 
+# Poder del jugador PUESTO: lo mismo, pero sobre lo CONSOLIDADO en el altar. Es "lo fuerte que es
+# hoy", que es otra magnitud que "lo que ha vivido" y por eso son dos funciones y no un flag —el
+# mismo motivo por el que stat_total y stat_consolidado van separadas.
+#
+# Quien mide DIFICULTAD (reto, excelia, recoleccion) tiene que seguir usando poder_jugador_eff: ahi
+# cuenta todo lo vivido y da igual que hayas descansado. Quien mide FUERZA (el Poder de la ficha, el
+# desenlace de un encargo) tiene que usar esta: la excelia sin consolidar NO pelea, porque las stats
+# que pelean salen de ability_consolidado (ver _derivar_visible).
+#
+# Sin esto se colaba por partida doble: cuatro personajes de nivel 1 con las stats visibles a 0 y el
+# mismo equipo salian con Poder 33 y 68 segun quien volviera de un encargo, y esa excelia pendiente
+# ademas les ganaba el encargo siguiente sin haber pasado por el altar.
+func poder_jugador_puesto(pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
+	var suma: float = float(stat_consolidado("fuerza", p) + stat_consolidado("resistencia", p)
+		+ stat_consolidado("destreza", p) + stat_consolidado("agilidad", p)
+		+ stat_consolidado("magia", p))
+	return maxf(suma, PODER_JUGADOR_SUELO)
+
 # Poder del jugador EN ESTE NIVEL: suma del progreso desde el ultimo ascenso. Es el baremo contra el
 # contenido de TU nivel o superior — cada nivel es su propia arena y arranca en cero, asi que recien
 # ascendido el contenido nuevo te mide como a un novato (y te entrena como a uno).

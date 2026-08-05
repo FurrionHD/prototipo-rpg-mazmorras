@@ -274,10 +274,16 @@ static func mult_equipo(pj: PersonajeData) -> float:
 	return clampf(DESNUDO + puntos_equipo(pj) / EQUIPO_DIV, DESNUDO, EQUIPO_TECHO)
 
 # EL NUMERO. El que sale en la ficha y en cada fila del hogar.
+#
+# Sobre lo CONSOLIDADO (poder_jugador_puesto) y NO sobre el total oculto: la excelia que traen de un
+# encargo esta pendiente hasta que descansan en el altar, no se ve en ninguna ficha, y sobre todo NO
+# PELEA —las stats que pelean salen de ability_consolidado—. Contandola aqui pasaban dos cosas: dos
+# personajes identicos en pantalla daban Poderes distintos sin forma de cuadrarlo, y el grupo se
+# llevaba el encargo siguiente con una fuerza que todavia no se habia puesto.
 static func poder(pj: PersonajeData) -> float:
 	if pj == null:
 		return 0.0
-	return Game.poder_jugador_eff(pj) * mult_equipo(pj)
+	return Game.poder_jugador_puesto(pj) * mult_equipo(pj)
 
 # El del GRUPO: el que mas, entero, y los demas a fraccion. Es el hermano de RECO_REPARTO_GRUPO y
 # con el mismo motivo: cuatro clones valen x2.2, no x4. Mandar mas gente compensa, pero no convierte
