@@ -33,6 +33,7 @@ func _ready() -> void:
 	# APK en cada retoque de tamaño o posicion. En el juego de verdad nadie la pasa.
 	if OS.get_cmdline_args().has("--tactil") or OS.get_cmdline_user_args().has("--tactil"):
 		activo = true
+		print("[tactil] mandos de movil FORZADOS por --tactil")
 	else:
 		activo = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
 
