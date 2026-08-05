@@ -43,6 +43,10 @@ var _stacks: Array = []             # stacks visibles de la pestaña actual
 func _ready() -> void:
 	layer = 91   # encima del HUD, debajo del menu de personaje (92) y del combate (100)
 	process_mode = Node.PROCESS_MODE_ALWAYS   # abrirlo para el arbol: hay que seguir respondiendo
+	# Para que el boton de la barra tactil lo encuentre. Un boton de pantalla no puede "pulsar la I":
+	# Input.action_press no genera un evento de tecla y este menu escucha eventos, asi que el camino
+	# es llamarle a _toggle() directamente.
+	add_to_group("menu_inventario")
 
 	var m: Dictionary = MenuScaffold.construir(self, "INVENTARIO", "", _cerrar, true)
 	_root = m["root"]
@@ -68,7 +72,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
-	if (event as InputEventKey).keycode != KEY_ESCAPE:
+	if not event.is_action_pressed(&"cancelar"):
 		return
 	if _modal != null:
 		_cerrar_modal()   # primero el modal de dentro (cantidad), luego la bolsa
@@ -86,7 +90,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if Game.escribiendo():
 		return   # con el foco en un campo de texto, una tecla es una LETRA y no un atajo
-	if (event as InputEventKey).keycode == KEY_I:
+	if event.is_action_pressed(&"inventario"):
 		_toggle()
 
 

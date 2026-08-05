@@ -65,7 +65,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
-	if (event as InputEventKey).keycode != KEY_ESCAPE:
+	if not event.is_action_pressed(&"cancelar"):
 		return
 	_cerrar()
 	get_viewport().set_input_as_handled()
@@ -81,14 +81,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if Game.escribiendo():
 		return   # con el foco en un campo de texto, una tecla es una LETRA y no un atajo
-	var code: int = (event as InputEventKey).keycode
-	if code == KEY_M:
+	if event.is_action_pressed(&"mapa"):
 		_toggle()
 	elif not _root.visible:
 		return
-	elif code == KEY_LEFT or code == KEY_A:
+	elif event.is_action_pressed(&"move_left"):
 		_cambiar_viendo(-1)
-	elif code == KEY_RIGHT or code == KEY_D:
+	elif event.is_action_pressed(&"move_right"):
 		_cambiar_viendo(1)
 
 

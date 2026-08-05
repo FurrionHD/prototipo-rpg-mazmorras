@@ -48,6 +48,7 @@ var _armor_cand: int = 0                  # indice de la pieza candidata en el c
 func _ready() -> void:
 	layer = 92
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	add_to_group("menu_personaje")   # lo busca el boton de la barra tactil (ver inventory_menu)
 
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -130,7 +131,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
-	if (event as InputEventKey).keycode != KEY_ESCAPE:
+	if not event.is_action_pressed(&"cancelar"):
 		return
 	_cerrar()
 	get_viewport().set_input_as_handled()
@@ -145,7 +146,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if Game.escribiendo():
 		return   # con el foco en un campo de texto, una tecla es una LETRA y no un atajo
-	if (event as InputEventKey).keycode == KEY_C:
+	if event.is_action_pressed(&"personaje"):
 		_toggle()
 
 

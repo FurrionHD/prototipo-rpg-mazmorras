@@ -107,14 +107,31 @@ func _ready() -> void:
 	_pez_y = 0.5
 	_pez_destino = 0.5
 	_y = 0.5
+	if Tactil.activo:
+		# La zona de toque va en la CAPA, no aqui dentro: este panel ocupa una franja estrecha del
+		# lado derecho y hay que poder aguantar el sedal tocando en cualquier sitio. Aqui NO hay boton
+		# de salir a proposito: en la lucha ya estas con el pez cogido y eso se gana o se pierde.
+		_pad = _TOUCH_PAD.new()
+		get_parent().add_child(_pad)
+
+
+func _exit_tree() -> void:
+	# La capa la libera Game, pero el pad es hijo de ella y no mio: si no lo recojo yo, sobrevive a
+	# la barra en los caminos que reusan la capa.
+	if is_instance_valid(_pad):
+		_pad.queue_free()
+		_pad = null
 
 const ANCHO := 150.0
 const ALTO := 300.0
 const MARGEN := 40.0
 
+const _TOUCH_PAD := preload("res://scripts/ui/touch_pad.gd")
+var _pad: Control = null
+
 
 func _process(delta: float) -> void:
-	var pressed: bool = Input.is_key_pressed(KEY_SPACE)
+	var pressed: bool = Input.is_action_pressed(&"recolectar")
 
 	if _state == FINISHED:
 		# Se sale con una pulsacion NUEVA, no con la que acabo de sacar el pez.

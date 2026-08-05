@@ -46,6 +46,9 @@ func _ready() -> void:
 	var caja := _caja_ayudas
 	caja.add_theme_stylebox_override("panel", _fondo_negro())
 	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# En el movil no hay teclas que recordar, y esa caja se come una esquina de pantalla que ahi
+	# vale mucho mas (ver touch_controls.gd).
+	caja.visible = not Tactil.activo
 	add_child(caja)
 
 	_counts = Label.new()
@@ -79,6 +82,17 @@ func _ready() -> void:
 	_money_lbl.add_theme_color_override("font_color", Color(0.95, 0.86, 0.5))
 	_money_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(_money_lbl)
+
+	# En el movil, debajo del dinero: los dos menus que se abren a mano. El panel de la esquina
+	# tiene que dejar de ser IGNORE o los botones no reciben el toque.
+	if Tactil.activo:
+		esq.mouse_filter = Control.MOUSE_FILTER_PASS
+		var fila := HBoxContainer.new()
+		fila.alignment = BoxContainer.ALIGNMENT_END
+		fila.add_theme_constant_override("separation", 6)
+		col.add_child(fila)
+		fila.add_child(_boton_menu("Personaje", "menu_personaje"))
+		fila.add_child(_boton_menu("Bolsa", "menu_inventario"))
 
 	# Cuadrado de PESO (placeholder de una futura bolsa/mochila) a la derecha de las
 	# barras, con el numero encima. Cambia de color segun te vas cargando.
@@ -348,11 +362,29 @@ func _fondo_negro() -> StyleBoxFlat:
 	return sb
 
 
+# Un boton que abre (o cierra) uno de los menus del jugador. Le llama a su _toggle() en vez de
+# fingir la tecla: Input.action_press no genera un evento de teclado y esos menus escuchan eventos,
+# asi que por ahi no se enterarian. Ver inventory_menu.gd.
+func _boton_menu(texto: String, grupo: String) -> Button:
+	var b := Button.new()
+	b.text = texto
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, 34)
+	b.add_theme_font_size_override("font_size", 12)
+	b.pressed.connect(func() -> void:
+		var m: Node = get_tree().get_first_node_in_group(grupo)
+		if m != null and m.has_method("_toggle"):
+			m._toggle()
+	)
+	return b
+
+
 func _process(_delta: float) -> void:
 	# Ayudas de tecla (el resto de datos viven en las barras / cuadrado de peso / menus).
 	# El [F] va AQUI y no repetido en el cartel de cada edificio: la tecla es siempre la misma, asi
 	# que ponerla nueve veces por el pueblo era ruido. Va la primera por ser la que mas se usa.
-	_counts.text = "[F] Interactuar   [I] Inventario   [C] Personaje   [Q] Curación óptima\n[F1] Ayuda   [F3] FPS   [Esc] Pausa"
+	if not Tactil.activo:
+		_counts.text = "[F] Interactuar   [I] Inventario   [C] Personaje   [Q] Curación óptima\n[F1] Ayuda   [F3] FPS   [Esc] Pausa"
 
 	# Piso arriba a la derecha, y el dinero debajo.
 	_floor_lbl.text = "Piso: %d" % Game.current_floor

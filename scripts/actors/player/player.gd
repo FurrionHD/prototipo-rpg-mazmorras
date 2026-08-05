@@ -102,6 +102,10 @@ var _drink_was: bool = false   # antirebote de la tecla Q (beber pocion)
 # la tecla 1 es "el que ya va en cabeza" y no hace nada, pero se deja el hueco para que el indice
 # del array sea el mismo que el de Game.party y no haya que restar 1 en ningun sitio.
 var _lider_was: Array[bool] = [false, false, false, false]
+# Las acciones que corresponden a cada hueco. Antes esto era KEY_1 + i, que solo funcionaba porque
+# los codigos de las teclas 1-4 son consecutivos; con acciones hay que nombrarlas. El tamaño de esta
+# lista y el de _lider_was tienen que ir a la par.
+const ACCIONES_LIDER: Array[StringName] = [&"lider_1", &"lider_2", &"lider_3", &"lider_4"]
 
 # Excelia de AGILIDAD: HUIR de un enemigo que te persigue (ver _tick_huida).
 #   _huida_perseguidor = el bicho que nos persigue AHORA (null = no estamos huyendo).
@@ -137,6 +141,8 @@ func _ready() -> void:
 	add_to_group("aliado")
 	_crear_capa_barras()
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD (barras, peso, piso, ayudas)
+	if Tactil.activo:
+		add_child(preload("res://scripts/ui/touch_controls.gd").new())  # joystick y botones (movil)
 	add_child(preload("res://scripts/ui/inventory_menu.gd").new())  # inventario (I)
 	add_child(preload("res://scripts/ui/craft_menu.gd").new())      # boticaria (F sobre el NPC)
 	var _cocina_menu := preload("res://scripts/ui/craft_menu.gd").new()  # cocinero: mismo menu, modo distinto
@@ -193,9 +199,9 @@ func _ready() -> void:
 	# por una puerta), las marcamos como "ya pulsadas" para NO dispararlas de nuevo
 	# hasta que el jugador las suelte y las vuelva a pulsar. Esto evita el rebote
 	# entre escenas al mantener F pulsada.
-	_interact_was = Input.is_key_pressed(KEY_F)
-	_attack_was = Input.is_key_pressed(KEY_SPACE)
-	_drink_was = Input.is_key_pressed(KEY_Q)
+	_interact_was = Input.is_action_pressed(&"interactuar")
+	_attack_was = Input.is_action_pressed(&"atacar")
+	_drink_was = Input.is_action_pressed(&"curar")
 
 	# Recuperacion segun el nivel (fija, no depende de stats).
 	_regen_actual = stamina_regen + stamina_regen_per_level * (Game.player_level - 1)
@@ -244,18 +250,24 @@ func _physics_process(delta: float) -> void:
 
 	var direction: Vector2 = Input.get_vector(
 		"move_left", "move_right", "move_up", "move_down")
+	# Con los dedos manda el joystick de la pantalla, que es ANALOGICO: las cuatro acciones de
+	# movimiento son de dentro/fuera y con ellas no habria medias velocidades. Solo pisa al teclado
+	# cuando hay un dedo puesto (eje != ZERO), asi que un mando o un teclado enchufado al movil
+	# siguen funcionando.
+	if Tactil.activo and Tactil.eje != Vector2.ZERO:
+		direction = Tactil.eje
 	var moving: bool = direction != Vector2.ZERO
 	if moving:
 		_facing = direction.normalized()  # recordamos hacia donde miramos
 
 	# Modo segun teclas (Ctrl = sigilo tiene prioridad sobre Shift = correr).
 	# Si estamos AGOTADOS, no se puede correr (hasta recuperar la mitad).
-	var sneaking: bool = Input.is_key_pressed(KEY_CTRL)
+	var sneaking: bool = Input.is_action_pressed(&"sigilo")
 	# El grupo va al paso del MAS CANSADO: basta con que UNO este sin fuelle para que el grupo entero
 	# se arrastre, sea el lider o un companero. Antes, si el agotado era un companero, solo se perdia
 	# el correr (seguias andando normal) y el que no podia mas te seguia el paso como si nada.
 	var agotado: PersonajeData = _pj_agotado()
-	var running: bool = Input.is_key_pressed(KEY_SHIFT) and not sneaking \
+	var running: bool = Input.is_action_pressed(&"correr") and not sneaking \
 		and moving and agotado == null
 
 	var speed: float = walk_speed
@@ -345,7 +357,7 @@ func _physics_process(delta: float) -> void:
 	# El ESPACIO no se tira si no habia nadie a tiro: se RECUERDA (ver ATK_BUFFER) y se reintenta cada
 	# frame mientras dure. Es lo que hace que "pulsar cuando le ves venir" funcione contra una embestida
 	# en vez de gastarse en balde a 20 px del bicho.
-	var atk: bool = Input.is_key_pressed(KEY_SPACE)
+	var atk: bool = Input.is_action_pressed(&"atacar")
 	if atk and not _attack_was:
 		if not _try_attack():
 			_atk_buffer = ATK_BUFFER
@@ -355,13 +367,13 @@ func _physics_process(delta: float) -> void:
 			_atk_buffer = 0.0
 	_attack_was = atk
 
-	var inter: bool = Input.is_key_pressed(KEY_F)
+	var inter: bool = Input.is_action_pressed(&"interactuar")
 	if inter and not _interact_was:
 		_try_interact()
 	_interact_was = inter
 
 	# Beber una pocion (Q): cura por el tiempo fuera de combate.
-	var drink: bool = Input.is_key_pressed(KEY_Q)
+	var drink: bool = Input.is_action_pressed(&"curar")
 	if drink and not _drink_was:
 		_beber_pocion()
 	_drink_was = drink
@@ -372,7 +384,7 @@ func _physics_process(delta: float) -> void:
 	# Ahora cada hueco es fijo, asi que la tecla 1 (hueco 0) tambien sirve: pone en cabeza al
 	# primero. cambiar_lider no hace nada si ya es el lider.
 	for i in range(mini(Game.party.size(), _lider_was.size())):
-		var pulsada: bool = Input.is_key_pressed(KEY_1 + i)
+		var pulsada: bool = Input.is_action_pressed(ACCIONES_LIDER[i])
 		if pulsada and not _lider_was[i]:
 			if Game.cambiar_lider(i):
 				refrescar_lider()
@@ -655,7 +667,20 @@ func _rehacer_barras() -> void:
 		var raiz := Control.new()
 		raiz.position = Vector2(x_columna(i), 0.0)
 		raiz.size = Vector2(ANCHO_COL, ALTO_BLOQUE)
-		raiz.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# En el movil la tarjeta ES el boton de cambiar de lider: no hay teclas 1/2/3 y la columna ya
+		# dice quien es cada uno. Sale por el mismo sitio que la tecla (cambiar_lider + refrescar), asi
+		# que no hay una segunda version de la regla.
+		if Tactil.activo:
+			raiz.mouse_filter = Control.MOUSE_FILTER_STOP
+			raiz.gui_input.connect(func(event: InputEvent) -> void:
+				var toque: bool = (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) \
+					or (event is InputEventMouseButton and (event as InputEventMouseButton).pressed \
+						and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT)
+				if toque and Game.cambiar_lider(i):
+					refrescar_lider()
+			)
+		else:
+			raiz.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_barras_layer.add_child(raiz)
 
 		# El cuadradito de color y el nombre encima, lo unico que distingue una columna de otra.
@@ -1074,6 +1099,31 @@ func _hueco_hasta(otro: Node) -> float:
 #
 # ATACAR ya NO esta aqui: tiene su propia tecla (ESPACIO). Asi, acercarte a lootear con un
 # bicho al lado no te mete en un combate que no habias pedido.
+# Que haria AHORA MISMO el boton grande de la barra tactil. En el movil las dos teclas de siempre
+# (F y ESPACIO) caben en UN boton, pero el orden importa y es el mismo de _try_interact: primero lo
+# que hay a mano, y solo si no hay nada, el bicho que tengas delante. Es lo que impide que ir a
+# extraer un cristal con un enemigo al lado te meta en una pelea sin haberlo pedido (ver el bloque
+# de _physics_process sobre por que son dos intenciones distintas).
+#
+# Devuelve "" si no hay nada de nada: el boton se pinta apagado y no hace de nada.
+func accion_de_contexto() -> StringName:
+	if _mas_cercano_en_grupo("interactable", false) != null \
+			or _mas_cercano_en_grupo("corpse", true) != null \
+			or _mas_cercano_en_grupo("pickup", false) != null \
+			or _mas_cercano_en_grupo("recolectable", false, "estanque") != null \
+			or _mas_cercano_en_grupo("estanque", false) != null:
+		return &"interactuar"
+	if not _enemigos_a_tiro().is_empty():
+		return &"atacar"
+	return &""
+
+
+# ¿Se ha quedado sin fuelle el que marca el paso? Lo mira la barra tactil para apagar el boton de
+# correr: el codigo ya deja de correr solo, pero el boton se quedaria hundido diciendo que corres.
+func sin_fuelle() -> bool:
+	return _exhausted or _pj_agotado() != null
+
+
 func _try_interact() -> void:
 	# 1) NPCs interactuables (altar, tienda, puerta, etc).
 	var interactable: Node = _mas_cercano_en_grupo("interactable", false)

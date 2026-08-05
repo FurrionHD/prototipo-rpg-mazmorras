@@ -58,13 +58,29 @@ func setup(material: MaterialData, hachazos: int, ancho: float, vel: float) -> v
 	_vel = vel
 
 
+const _TOUCH_PAD := preload("res://scripts/ui/touch_pad.gd")
+
+
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_nueva_vuelta()
+	if Tactil.activo:
+		# La pantalla entera es el hacha (ver touch_pad.gd) y el boton es la puerta de salida, que
+		# hasta ahora no existia: sin teclado, esto era una ratonera.
+		var pad: Control = _TOUCH_PAD.new()
+		add_child(pad)
+		pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+
+
+# Irse a medias ABANDONA el tronco: sales sin la madera, igual que si se hubiera rajado. Si no,
+# bastaria con largarse cada vez que se fallara un hachazo y volver a entrar hasta clavarlos todos.
+func _abandonar() -> void:
+	talado_finished.emit(_result if _state == FINISHED else null, progreso_frac())
+	queue_free()
 
 
 func _process(delta: float) -> void:
-	var pressed: bool = Input.is_key_pressed(KEY_SPACE)
+	var pressed: bool = Input.is_action_pressed(&"recolectar")
 	var edge: bool = pressed and not _press_was
 	_press_was = pressed
 

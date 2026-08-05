@@ -55,9 +55,26 @@ func setup(categoria: int, presses: int, zone_ratio: float,
 	_tiene_corpse = corpse != null
 
 
+const _TOUCH_PAD := preload("res://scripts/ui/touch_pad.gd")
+
+
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_randomize_zone()
+	if Tactil.activo:
+		# La pantalla entera es el cuchillo (ver touch_pad.gd) y el boton es la puerta de salida, que
+		# hasta ahora no existia: sin teclado, esto era una ratonera.
+		var pad: Control = _TOUCH_PAD.new()
+		add_child(pad)
+		pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+
+
+# Dejar el cuerpo a medias lo CONSUME, igual que si el cristal se hubiera partido: sale por el mismo
+# camino que la auto-cancelacion de arriba (cristal null), que en multijugador es ademas el unico que
+# suelta bien el candado del cadaver.
+func _abandonar() -> void:
+	extraction_finished.emit(_result if _state == FINISHED else null, progreso_frac())
+	queue_free()
 
 
 func _process(delta: float) -> void:
@@ -70,7 +87,7 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 
-	var pressed: bool = Input.is_key_pressed(KEY_SPACE)
+	var pressed: bool = Input.is_action_pressed(&"recolectar")
 	var edge: bool = pressed and not _press_was
 	_press_was = pressed
 

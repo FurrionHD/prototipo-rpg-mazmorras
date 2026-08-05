@@ -113,7 +113,7 @@ func _boton(vb: VBoxContainer, txt: String, fn: Callable) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
-	if (event as InputEventKey).keycode != KEY_ESCAPE:
+	if not event.is_action_pressed(&"cancelar"):
 		return
 	# ESC dentro de OTRO menu lo CIERRA y no abre esto. La primera linea de defensa es que cada menu
 	# consume la ESC en su _input (que corre antes que este _unhandled_input), asi que normalmente aqui

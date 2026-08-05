@@ -721,11 +721,12 @@ func empezar_apuntado() -> void:
 	_t = 0.0
 	# Ni la F con la que has abierto el menu ni el click de "Tirar la caña" pueden contar como el
 	# ESPACIO de cargar o como la F de cancelar.
-	_press_was = Input.is_key_pressed(KEY_SPACE)
+	_press_was = Input.is_action_pressed(&"recolectar")
 	_f_was = true
 	_esc_was = true
 	_espacio_libre = false
 	_mira.visible = true
+	_montar_tactil()
 	_pintar_mira()
 
 
@@ -733,17 +734,25 @@ func _paso_apuntando(delta: float) -> void:
 	# A/D giran la mira. Un angulo solo se acepta si (a) sigue dentro de la apertura y (b) su rayo
 	# CORTA el agua: asi el corcho no puede caer fuera del charco ni recortandolo despues, que es lo
 	# que haria que la linea de puntos te mintiera.
-	var giro: float = 0.0
-	if Input.is_key_pressed(KEY_A):
-		giro -= 1.0
-	if Input.is_key_pressed(KEY_D):
-		giro += 1.0
-	if giro != 0.0:
-		var nuevo: float = _ang + giro * GIRO_MIRA * delta
-		if absf(angle_difference(_ang_base, nuevo)) <= ANGULO_MAX and _tramo_de_agua(nuevo).x >= 0.0:
-			_ang = nuevo
+	if _pad != null and _pad.hay_dedo():
+		# Con los dedos se apunta ARRASTRANDO: donde tengas el dedo en horizontal es hacia donde mira
+		# la caña, de un extremo a otro de la apertura. La fuerza la sigue dando el rato que aguantes,
+		# asi que apuntar y cargar son el MISMO gesto, y sueltas cuando lo tengas.
+		var nuevo_t: float = _ang_base + (_pad.x_norm() * 2.0 - 1.0) * ANGULO_MAX
+		if _tramo_de_agua(nuevo_t).x >= 0.0:
+			_ang = nuevo_t
+	else:
+		var giro: float = 0.0
+		if Input.is_action_pressed(&"move_left"):
+			giro -= 1.0
+		if Input.is_action_pressed(&"move_right"):
+			giro += 1.0
+		if giro != 0.0:
+			var nuevo: float = _ang + giro * GIRO_MIRA * delta
+			if absf(angle_difference(_ang_base, nuevo)) <= ANGULO_MAX and _tramo_de_agua(nuevo).x >= 0.0:
+				_ang = nuevo
 
-	var pulsa: bool = Input.is_key_pressed(KEY_SPACE)
+	var pulsa: bool = Input.is_action_pressed(&"recolectar")
 	if not pulsa:
 		_espacio_libre = true   # a partir de aqui, la siguiente pulsacion ya es tuya
 	if pulsa and _espacio_libre:
@@ -801,31 +810,17 @@ func _process(delta: float) -> void:
 		# ESC ES LA PUERTA: sale de la pesca de un tiron desde donde estes, sin pasar por la mira. No
 		# choca con el menu de pausa porque ese se planta si Game.hay_modal(), y pescar mantiene un
 		# modal RECOLECCION puesto de principio a fin (ver pause_menu._unhandled_input).
-		var esc_ahora: bool = Input.is_key_pressed(KEY_ESCAPE)
+		var esc_ahora: bool = Input.is_action_pressed(&"cancelar")
 		if esc_ahora and not _esc_was:
 			_esc_was = true
-			_decir("Guardas la caña.")
-			_pez = {}
-			_soltar()
+			_guardar_cana()
 			return
 		_esc_was = esc_ahora
 
-		var f_ahora: bool = Input.is_key_pressed(KEY_F)
+		var f_ahora: bool = Input.is_action_pressed(&"interactuar")
 		if f_ahora and not _f_was:
 			_f_was = true
-			# La F hace los DOS pasos: con el sedal fuera lo recoge y te deja apuntando; ya apuntando,
-			# esa es la que sale. Asi la tecla con la que pescas es tambien con la que dejas de pescar,
-			# y ninguna de las dos cosas te pilla por sorpresa.
-			_decir("Guardas la caña." if _estado == APUNTANDO else "Recoges el sedal.")
-			# `_pez = {}` y NO `_pez.clear()`: los Dictionary van por REFERENCIA, y este es el MISMO
-			# que esta dentro de `_peces`. Vaciarlo le borraba los datos al pez de la lista y `_nadar`
-			# petaba al buscarle el 't_giro' en el frame siguiente. Aqui solo hay que soltarlo: el pez
-			# sigue vivo y vuelve a nadar con los demas.
-			_pez = {}
-			if _estado == APUNTANDO:
-				_soltar()
-			else:
-				_volver_a_apuntar()
+			_recoger_sedal()
 			return
 		_f_was = f_ahora
 	_t += delta
@@ -839,7 +834,7 @@ func _process(delta: float) -> void:
 		# arriba se lea como algo que esta pasando en el agua y no como un widget suelto.
 		LUCHA: _pintar_corcho(Vector2(randf_range(-2.0, 2.0), randf_range(-1.0, 3.0)))
 		COBRO: _paso_cobro(delta)
-	_press_was = Input.is_key_pressed(KEY_SPACE)
+	_press_was = Input.is_action_pressed(&"recolectar")
 
 
 # Saca UNO del banco al agua cada REPONER segundos, y RE-ARMA el reloj mientras el agua siga por
@@ -937,12 +932,38 @@ func _paso_tiron() -> void:
 
 
 func _espacio_nuevo() -> bool:
-	return Input.is_key_pressed(KEY_SPACE) and not _press_was
+	return Input.is_action_pressed(&"recolectar") and not _press_was
+
+
+# GUARDAR LA CAÑA: sales de la pesca de un tiron desde donde estes, sin pasar por la mira. Es lo que
+# hace el ESC y lo que hace el boton "Salir" de la capa tactil.
+func _guardar_cana() -> void:
+	_decir("Guardas la caña.")
+	# `_pez = {}` y NO `_pez.clear()`: los Dictionary van por REFERENCIA, y este es el MISMO que esta
+	# dentro de `_peces`. Vaciarlo le borraba los datos al pez de la lista y `_nadar` petaba al
+	# buscarle el 't_giro' en el frame siguiente. Aqui solo hay que soltarlo: el pez sigue vivo.
+	_pez = {}
+	_soltar()
+
+
+# RECOGER: hace los DOS pasos. Con el sedal fuera lo recoge y te deja apuntando; ya apuntando, esa es
+# la que sale. Asi con lo mismo con lo que pescas dejas de pescar, y ninguna de las dos cosas te pilla
+# por sorpresa. Es la F, y el boton "Recoger" de la capa tactil.
+func _recoger_sedal() -> void:
+	_decir("Guardas la caña." if _estado == APUNTANDO else "Recoges el sedal.")
+	_pez = {}
+	if _estado == APUNTANDO:
+		_soltar()
+	else:
+		_volver_a_apuntar()
 
 
 func _pelear() -> void:
 	_estado = LUCHA
 	_t = 0.0
+	# La lucha monta SU propia zona de toque (ver fishing.gd) y las dos empujarian la misma accion:
+	# con las dos puestas, levantar el dedo soltaba solo una y el sedal se quedaba tirando solo.
+	_quitar_tactil()
 	Game.start_pesca(self, _pez["data"], float(_pez["cm"]))
 
 
@@ -1051,12 +1072,46 @@ func _volver_a_apuntar() -> void:
 	_esc_was = true
 	_espacio_libre = false
 	_mira.visible = true
+	_montar_tactil()   # la lucha se llevo la suya por delante; si volvemos a apuntar, vuelve la nuestra
 	_pintar_mira()
+
+
+# ------------------------------------------------------------
+#  LA CAPA TACTIL de la pesca (solo en el movil)
+#  Vive de empezar_apuntado() a _soltar(), o hasta que empieza la lucha (que trae la suya). Lleva
+#  la zona de arrastre para apuntar y los DOS botones que resuelven lo que sin teclado no tenia
+#  salida: "Recoger" (la F: clava el tiron si ha picado, y si no recoge el sedal) y "Salir" (el ESC).
+# ------------------------------------------------------------
+const _TOUCH_PAD := preload("res://scripts/ui/touch_pad.gd")
+var _capa_tactil: CanvasLayer = null
+var _pad: Control = null
+
+
+func _montar_tactil() -> void:
+	if not Tactil.activo or _pad != null:
+		return
+	_capa_tactil = CanvasLayer.new()
+	# Por debajo de la barra de tension de la lucha (100), por encima del HUD.
+	_capa_tactil.layer = 90
+	_capa_tactil.process_mode = Node.PROCESS_MODE_ALWAYS
+	get_tree().root.add_child(_capa_tactil)
+	_pad = _TOUCH_PAD.new()
+	_capa_tactil.add_child(_pad)
+	_pad.anadir_boton("Recoger", Color(0.20, 0.30, 0.42)).pressed.connect(_recoger_sedal)
+	_pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_guardar_cana)
+
+
+func _quitar_tactil() -> void:
+	_pad = null
+	if is_instance_valid(_capa_tactil):
+		_capa_tactil.queue_free()
+	_capa_tactil = null
 
 
 func _soltar() -> void:
 	_estado = LIBRE
 	_t = 0.0
+	_quitar_tactil()
 	_hilo.visible = false
 	_corcho.visible = false
 	_mira.visible = false

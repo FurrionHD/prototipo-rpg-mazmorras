@@ -51,13 +51,29 @@ func setup(material: MaterialData, cortes: int, nucleo: float, borde: float, vel
 	_vel = vel
 
 
+const _TOUCH_PAD := preload("res://scripts/ui/touch_pad.gd")
+
+
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_nuevo_tallo()
+	if Tactil.activo:
+		# La pantalla entera es la hoz (ver touch_pad.gd) y el boton es la puerta de salida, que
+		# hasta ahora no existia: sin teclado, esto era una ratonera.
+		var pad: Control = _TOUCH_PAD.new()
+		add_child(pad)
+		pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+
+
+# Irse a medias ABANDONA la planta: sales sin nada, igual que si hubiera quedado hecha jirones. Si
+# no, bastaria con largarse en cuanto se fallara un corte y repetir hasta cortarlos todos limpios.
+func _abandonar() -> void:
+	recoleccion_finished.emit(_result if _state == FINISHED else null, progreso_frac())
+	queue_free()
 
 
 func _process(delta: float) -> void:
-	var pressed: bool = Input.is_key_pressed(KEY_SPACE)
+	var pressed: bool = Input.is_action_pressed(&"recolectar")
 	var edge: bool = pressed and not _press_was
 	_press_was = pressed
 

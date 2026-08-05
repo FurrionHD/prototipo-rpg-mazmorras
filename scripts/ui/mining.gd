@@ -58,13 +58,30 @@ func setup(material: MaterialData, golpes: int, opt_ini: float, opt_ancho: float
 	_carga_vel = carga_vel
 
 
+const _TOUCH_PAD := preload("res://scripts/ui/touch_pad.gd")
+
+
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_sortear_franja()
+	if Tactil.activo:
+		# Con los dedos la pantalla entera es el pico (ver touch_pad.gd) y hace falta una PUERTA:
+		# hasta ahora de aqui no se salia mas que picando, y sin teclado eso es una ratonera.
+		var pad: Control = _TOUCH_PAD.new()
+		add_child(pad)
+		pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+
+
+# Largarse a medias ABANDONA la veta: sales sin la pieza, igual que si se hubiera roto. Sin ese
+# precio bastaria con salirse cada vez que la franja cayera mal y volver a entrar hasta sacarla
+# perfecta. Si la veta ya estaba resuelta, el boton solo recoge lo que hubiera.
+func _abandonar() -> void:
+	mineria_finished.emit(_result if _state == FINISHED else null, progreso_frac())
+	queue_free()
 
 
 func _process(delta: float) -> void:
-	var pressed: bool = Input.is_key_pressed(KEY_SPACE)
+	var pressed: bool = Input.is_action_pressed(&"recolectar")
 
 	if _state == FINISHED:
 		# Se sale con una pulsacion NUEVA (no con la que acabo de romper la veta).
