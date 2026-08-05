@@ -148,7 +148,7 @@ const PESOS_CLASE := {
 	# 46 del pesado, y eso no se sostenia.
 	Clase.GUERRERO:        {"fuerza": 0.32, "resistencia": 0.24, "destreza": 0.22, "agilidad": 0.22, "magia": 0.00},
 	Clase.GUERRERO_PESADO: {"fuerza": 0.40, "resistencia": 0.22, "destreza": 0.18, "agilidad": 0.20, "magia": 0.00},
-	Clase.PICARO:          {"fuerza": 0.34, "resistencia": 0.11, "destreza": 0.24, "agilidad": 0.31, "magia": 0.00},
+	Clase.PICARO:          {"fuerza": 0.28, "resistencia": 0.12, "destreza": 0.27, "agilidad": 0.33, "magia": 0.00},
 	# El TANQUE tenia 0.50 de Resistencia y en el playtest salio con +74 cuando los demas iban por
 	# +46. Se queda en 0.38 porque encajar golpes es ya la ganancia mas generosa del juego
 	# (GAIN_RESISTENCIA_GOLPE 0.345, contra 0.15 de atacar): con medio reparto encima se disparaba.
