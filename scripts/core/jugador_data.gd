@@ -60,6 +60,8 @@ class_name JugadorData
 @export var metalurgia_exp: float = 0.0
 @export var peleteria_exp: float = 0.0
 @export var herreria_exp: float = 0.0
+@export var carpinteria_exp: float = 0.0
+@export var cocina_exp: float = 0.0
 # Lo que ha visto: decide que le enseña el herrero A EL. Es conocimiento suyo.
 @export var materiales_vistos: Dictionary = {}
 @export var pack_inicial: bool = false

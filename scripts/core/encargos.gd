@@ -41,7 +41,11 @@ const ESTADO_LISTO := 1
 const EXITO := 0
 const PARCIAL := 1
 const FRACASO := 2
-const MULT_DESENLACE := [3.0, 2.0, 1.0]          # excelia
+# Excelia. La escala es la misma 3:2:1, pero NORMALIZADA a que el exito valga 1.0: desde que una
+# unidad de encargo paga como un nodo que picas tu, un x3 encima haria que trabajar de encargo
+# enseñara el TRIPLE que hacerlo tu mismo, que es absurdo. El exito es el caso normal, asi que es el
+# que tiene que valer "lo que vale".
+const MULT_DESENLACE := [1.0, 2.0 / 3.0, 1.0 / 3.0]
 const CANTIDAD_DESENLACE := [1.0, 2.0 / 3.0, 1.0 / 3.0]   # material: el mismo 3:2:1 normalizado
 const NOMBRE_DESENLACE := ["Éxito", "A medias", "Fracaso"]
 
@@ -141,7 +145,7 @@ const PESOS_CLASE := {
 	Clase.GUERRERO:        {"fuerza": 0.35, "resistencia": 0.25, "destreza": 0.20, "agilidad": 0.20, "magia": 0.00},
 	Clase.GUERRERO_PESADO: {"fuerza": 0.50, "resistencia": 0.25, "destreza": 0.15, "agilidad": 0.10, "magia": 0.00},
 	Clase.PICARO:          {"fuerza": 0.20, "resistencia": 0.10, "destreza": 0.30, "agilidad": 0.40, "magia": 0.00},
-	Clase.TANQUE:          {"fuerza": 0.25, "resistencia": 0.50, "destreza": 0.10, "agilidad": 0.10, "magia": 0.05},
+	Clase.TANQUE:          {"fuerza": 0.25, "resistencia": 0.50, "destreza": 0.15, "agilidad": 0.10, "magia": 0.00},
 	Clase.MAGO:            {"fuerza": 0.05, "resistencia": 0.15, "destreza": 0.05, "agilidad": 0.20, "magia": 0.55},
 	Clase.GUERRERO_MAGICO: {"fuerza": 0.30, "resistencia": 0.15, "destreza": 0.05, "agilidad": 0.15, "magia": 0.35},
 }
@@ -530,6 +534,12 @@ static func faenas_de(miembros: Array, uid: String) -> Array:
 			return (m as Dictionary).get("faenas", [])
 	return []
 
+static func _dueno_de(miembros: Array, uid: String) -> String:
+	for m in miembros:
+		if String((m as Dictionary).get("uid", "")) == uid:
+			return String((m as Dictionary).get("dueno", ""))
+	return ""
+
 static func clase_de(miembros: Array, uid: String) -> int:
 	for m in miembros:
 		if String((m as Dictionary).get("uid", "")) == uid:
@@ -676,36 +686,24 @@ static func unidades(duracion: int, n_miembros: int, golpes_menos: int, factor: 
 	return maxi(1, int(round(UNID_HORA * horas * float(maxi(1, n_miembros)) * factor
 		* (1.0 + GOLPES_UNID * float(golpes_menos)))))
 
-# Reparte n unidades entre los tipos marcados SEGUN CUANTA GENTE trabaja cada uno, sin perder
-# ninguna por el redondeo (las que sobran van a los primeros de la lista).
+# Reparte n unidades entre los tipos marcados A PARTES IGUALES, sin perder ninguna por el redondeo
+# (las que sobran van a los primeros de la lista). Seis tipos = un sexto cada uno, marques a quien
+# marques.
 #
-# Antes iba a partes iguales pasara lo que pasara, y eso hacia que asignar faenas fuera un mal
-# negocio: mandar a dos a las vetas no traia ni una veta mas, pero SI bajaba la calidad de todo lo
-# demas (menos manos en cada cosa). Ahora dos a las vetas traen el doble de mineral y la mitad de
-# hierba. El TOTAL que trae el grupo no cambia: solo cambia en que se reparte el rato.
+# Se probo pesarlo por CUANTA GENTE trabaja cada tipo, y salio mal por un sitio que no se veia venir:
+# como un tipo sin nadie asignado "lo hacen todos", ese contaba con cuatro manos y los demas con una,
+# asi que el unico tipo que NO habias pedido se llevaba el 44% de la expedicion. En el playtest eso
+# fue media carga de setas y piedra de sal, y ademas subia Destreza a los cuatro (Comida, Plantas y
+# Enemigos entrenan las tres Destreza).
 #
-# Sin ordenes todos trabajan todo, los pesos salen iguales y esto se comporta como el reparto de
-# siempre -- que es justo lo que tiene que pasar con un encargo viejo del save.
-static func repartir(n: int, tipos: Array, miembros: Array = [], todos: Array = []) -> Dictionary:
-	var pesos: Array = []
-	var suma: float = 0.0
-	for t in tipos:
-		var w: float = float(uids_trabajando(miembros, int(t), todos).size()) if not todos.is_empty() \
-			else 1.0
-		pesos.append(w)
-		suma += w
+# Quien trabaja cada tipo lo sigue decidiendo uids_trabajando: eso decide QUIEN, no CUANTO sale.
+static func repartir(n: int, tipos: Array) -> Dictionary:
 	var out: Dictionary = {}
-	var dado: int = 0
+	var k: int = maxi(1, tipos.size())
+	var base: int = n / k
+	var resto: int = n % k
 	for i in tipos.size():
-		var cuantas: int = int(floor(float(n) * float(pesos[i]) / maxf(0.001, suma)))
-		out[int(tipos[i])] = cuantas
-		dado += cuantas
-	# Las que sobran del redondeo, a los primeros, como siempre.
-	var i2: int = 0
-	while dado < n and not tipos.is_empty():
-		out[int(tipos[i2 % tipos.size()])] += 1
-		dado += 1
-		i2 += 1
+		out[int(tipos[i])] = base + (1 if i < resto else 0)
 	return out
 
 
@@ -832,21 +830,23 @@ static func _saturacion_utiles(entradas: Array) -> float:
 # ============================================================
 # Dos ganancias, una por eje, porque han hecho dos cosas: recolectar y pelearse con lo que salia.
 #
-# GAIN_FACTOR esta POR DEBAJO de RECO_REPARTO_GRUPO (0.4) a proposito: ir de encargo tiene que
-# enseñar MENOS por unidad que estar delante mirando como otro pica. Un encargo son horas de reloj
-# real, no de juego; si rentara igual, jugar seria tonteria.
-const GAIN_FACTOR := 0.35
-const GAIN_RECO := 0.70          # reparto del presupuesto entre los dos ejes
-const GAIN_COMBATE := 0.30
-# Cuantos "nodos equivalentes" por hora y persona vale APRENDER en un encargo. Va aparte de
-# UNID_HORA (que es cuanto RECOGEN) a proposito, y son numeros distintos porque miden cosas
-# distintas: lo que se traen lo corta la espalda, pero lo que aprenden no depende de si tuvieron que
-# dejar sacos atras. Si esto colgara de UNID_HORA, subirle el ritmo de recogida para que la mochila
-# importara habria triplicado la excelia de rebote.
-const RITMO_EXCELIA := 2.0
-# Cuanto entrena una hora de pelearse con los bichos del piso. Anclado a lo que da encajar golpes en
-# combate (GAIN_RESISTENCIA_GOLPE 0.345): una hora ahi abajo son unos cuantos encontronazos.
-const GAIN_COMBATE_HORA := 0.9
+# UNA UNIDAD DE ENCARGO PAGA COMO UN NODO QUE PICAS TU. Ni mas ni menos, y no hay constante que la
+# escale: el descuento ya lo hace UNID_HORA (recogen 6 por hora y persona, cuando jugando se sacan
+# 60-100), asi que volver a descontarlo aqui seria cobrarles el trabajo dos veces.
+#
+# Y es justo lo que pasaba. Habia un RITMO_EXCELIA = 2.0 ("nodos equivalentes por hora") que les
+# pagaba 2 nodos/hora aunque UNID_HORA dijera que trabajaban 6, y encima se multiplicaba por
+# GAIN_FACTOR x GAIN_RECO = 0.245. Resultado medido en playtest: 8 horas de reloj real con cuatro
+# personas daban +1/+7 por stat, cuando jugando esas mismas horas se sacan +100/+200. Veinte a
+# cincuenta veces por debajo, no "algo por debajo".
+
+# Cuantas peleas se comen por hora ahi abajo. Ocho horas cruzando un piso poblado son muchos
+# encontronazos; una cada doce minutos es lo que sale de mirar el aforo y el ritmo de partos.
+const PELEAS_HORA := 5.0
+# Lo que saca de UNA pelea un miembro de un grupo de cuatro: unos 3 golpes dados
+# (GAIN_FUERZA_ATAQUE 0.15) y 2 encajados (GAIN_RESISTENCIA_GOLPE 0.345). No es un numero inventado
+# como el GAIN_COMBATE_HORA que habia antes: sale de las mismas constantes que usa combat.gd.
+const VALE_UNA_PELEA := 1.35
 
 # Devuelve la lista de ganancias a aplicar: [{"uid", "abil", "base", "reto", "max_reto"}].
 # NO las aplica: quien las aplique tiene que llamar a Game.ganar() con el PersonajeData correcto, que
@@ -855,7 +855,6 @@ const GAIN_COMBATE_HORA := 0.9
 # 'desenlace' escala todo por MULT_DESENLACE (x3 / x2 / x1).
 static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Dictionary,
 		afinidades: Dictionary, r_combate: float, desenlace: int, miembros: Array = []) -> Array:
-	var horas: float = float(duracion) / 3600.0
 	var req: float = requisito_combate(piso)
 	var mult: float = float(MULT_DESENLACE[clampi(desenlace, 0, 2)])
 	var todos: Array = _uids(pjs)
@@ -872,23 +871,21 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 		# Y la cuota es SUYA, no del encargo: solo cuentan los tipos que EL trabaja. Por eso un minero
 		# dedicado se lleva su rato entero en fuerza en vez de un tercio, aunque el grupo saliera a
 		# tres cosas. Es lo que hace que asignar faenas valga para algo.
+		# NODOS SUYOS, no cuotas: las unidades de ese tipo partidas entre los que lo trabajan. Si van
+		# dos a las vetas se reparten las vetas, igual que jugando. Un tipo que el no trabaja no le
+		# paga nada.
 		var mios: Dictionary = {}
-		var manos: Dictionary = {}       # cuanta gente hay en cada uno de SUS tipos
-		var total_uds: float = 0.0
 		for tipo in trabajadas:
 			if int(trabajadas[tipo]) <= 0:
 				continue
 			var equipo_t: Array = uids_trabajando(miembros, int(tipo), todos)
 			if not equipo_t.has(pj.uid):
 				continue
-			mios[int(tipo)] = int(trabajadas[tipo])
-			manos[int(tipo)] = maxi(1, equipo_t.size())
-			total_uds += float(trabajadas[tipo])
+			mios[int(tipo)] = float(trabajadas[tipo]) / float(maxi(1, equipo_t.size()))
 		# --- A) por RECOLECTAR, UNA VEZ POR TIPO QUE EL TRABAJA. Cada tipo entrena SU stat: por eso
 		# multiseleccionar reparte tambien el aprendizaje, y no es solo comodidad.
 		for tipo in mios:
-			var uds: int = int(mios[tipo])
-			var cuota: float = float(uds) / maxf(1.0, total_uds)
+			var nodos: float = float(mios[tipo])
 			var of: Dictionary = oficio_de(int(tipo))
 			var afin: float = float(afinidades.get(tipo, 0.0))
 			# El reto es POR PERSONA: al mas flojo del grupo le enseña mas, igual que en los
@@ -905,17 +902,9 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 			salida.append({
 				"uid": pj.uid, "abil": String(of["stat"]), "reto": reto_r,
 				"max_reto": float(of["tope"]),
-				# Por HORAS trabajadas, no por unidades traidas: currar ocho horas enseña lo mismo
-				# aunque la mochila les obligara a dejar la mitad tirada.
-				#
-				# Y PARTIDO ENTRE LOS QUE HACEN ESA FAENA: la excelia de las vetas es un bote del
-				# encargo, no una paga por cabeza. Si van dos a picar, a cada uno le toca la mitad.
-				# Eso es lo que convierte el numero de gente en una decision de verdad en vez de en un
-				# "cuantos mas mejor": mucha gente trae mucho material, poca gente aprende mas rapido.
-				# El reto y los rendimientos decrecientes siguen siendo de cada uno (ver arriba y
-				# Game.ganar), asi que al mas flojo la misma veta le sigue enseñando mas.
-				"base": float(of["gain"]) * GAIN_FACTOR * GAIN_RECO * mult
-					* horas * RITMO_EXCELIA * cuota / float(manos[int(tipo)]),
+				# Por unidades TRABAJADAS, no traidas: currar ocho horas enseña lo mismo aunque la
+				# mochila les obligara a dejar la mitad tirada. Y cada una paga como un nodo entero.
+				"base": float(of["gain"]) * nodos * mult,
 			})
 		# --- B) por PELEAR. Se la llevan TODOS aunque el encargo sea de picar piedra: ahi abajo hay
 		# bichos. Game.reto() es la misma funcion que usa el combate, y el requisito del piso ya esta
@@ -925,9 +914,8 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 		# asi que el total es el mismo de antes y solo cambia el reparto: un mago sale de ahi con
 		# magia y esquiva donde un guerrero pesado sale con brazos.
 		var reto_c: float = Game.reto(req, 1, pj)
-		var base_c: float = GAIN_COMBATE_HORA * GAIN_FACTOR * GAIN_COMBATE * horas * mult
-		var pesos: Dictionary = PESOS_CLASE.get(clase_de(miembros, pj.uid),
-			PESOS_CLASE[Clase.GUERRERO])
+		var base_c: float = peleas(duracion) * VALE_UNA_PELEA * mult
+		var pesos: Dictionary = pesos_clase_de(clase_de(miembros, pj.uid), pj)
 		for abil in pesos:
 			var peso: float = float(pesos[abil])
 			if peso <= 0.0:
@@ -937,6 +925,30 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 				"max_reto": Game.RETO_MAX if abil == "magia" else Game.RETO_MAX_FISICO,
 				"base": base_c * peso})
 	return salida
+
+# Cuantas peleas se comen en un encargo de esa duracion.
+static func peleas(duracion: int) -> float:
+	return PELEAS_HORA * float(duracion) / 3600.0
+
+# Los pesos de una clase PARA ESE PERSONAJE. El candado: si no lleva hechizos equipados no puede
+# ganar Magia peleando, por mucho que la tabla de su clase diga otra cosa — ese peso se reparte
+# proporcionalmente entre las otras cuatro.
+#
+# Existe porque le puse un 0.05 de Magia al Tanque "por si acaso" y en el playtest salio un tanque
+# con +1 de Magia sin llevar una sola magia encima. La tabla ya esta arreglada, pero el candado se
+# queda: es la clase de error que vuelve por otra puerta.
+static func pesos_clase_de(clase: int, pj: PersonajeData) -> Dictionary:
+	var base: Dictionary = PESOS_CLASE.get(clase, PESOS_CLASE[Clase.GUERRERO])
+	var magia: float = float(base.get("magia", 0.0))
+	if magia <= 0.0 or (pj != null and Game.tiene_hechizos(pj)):
+		return base
+	var resto: float = 1.0 - magia
+	if resto <= 0.0:
+		return {"fuerza": 1.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+	var out: Dictionary = {}
+	for abil in base:
+		out[abil] = 0.0 if abil == "magia" else float(base[abil]) / resto
+	return out
 
 static func _uids(pjs: Array) -> Array:
 	var out: Array = []
@@ -989,7 +1001,7 @@ static func resolver(e: Dictionary, pjs: Array, entradas_cofre: Array) -> Dictio
 
 	# --- Cuanto TRABAJAN (esto es lo que da la excelia; el botin lo recorta el peso despues).
 	var trabajadas: int = unidades(duracion, n, golpes, float(CANTIDAD_DESENLACE[desenlace]))
-	var por_tipo: Dictionary = repartir(trabajadas, tipos, miembros, _uids(pjs))
+	var por_tipo: Dictionary = repartir(trabajadas, tipos)
 
 	# --- Eje 2: que sacan y con que calidad. La calidad la deciden SOLO los que trabajan ese tipo:
 	# si mandaste al fuerte a las vetas y al torpe a las hierbas, el torpe no le estropea el mineral.
@@ -1033,8 +1045,62 @@ static func resolver(e: Dictionary, pjs: Array, entradas_cofre: Array) -> Dictio
 		"desenlace": desenlace,
 		"botin": botin,
 		"excelia": excelia_de(pjs, piso, duracion, por_tipo, afinidades, r_c, desenlace, miembros),
+		"partes": partes_de(pjs, duracion, por_tipo, miembros),
 		"trabajadas": trabajadas,
 		"traidas": (corte["traidas"] as Array).size(),
 		"perdido": int(corte["perdido"]),
 		"ratio": r_c,
 	}
+
+
+# ============================================================
+#  EL PARTE DE TRABAJO: que ha hecho cada uno ahi abajo
+# ============================================================
+# La excelia no es lo unico que sale de currar ocho horas: tambien se tiran las pasivas RNG y suben
+# los contadores ocultos de los desarrollos (Cazador, Autorregeneracion, Reflejos, Erudito...). Pero
+# eso vive en Game y en los PersonajeData, y esta clase es ESTATICA y no toca Game a proposito.
+#
+# Asi que aqui solo se cuenta lo que han hecho, en primitivos, y quien lo aplique tira los dados. Es
+# ademas lo que hace falta para multijugador: el parte viaja con el informe y lo aplica la maquina
+# del DUEÑO de cada personaje (ver las dos vias de net.gd), que es la unica que tiene su ficha.
+#
+# Bichos por pelea: los brotes del piso son de dos (ver spawn_zone), asi que dos abatidos por pelea.
+const BICHOS_POR_PELEA := 2.0
+# Cuanto reparte y cuanto encaja un miembro de un grupo de cuatro en UNA pelea del piso. Son los
+# mismos ordenes de magnitud con los que se calibro VALE_UNA_PELEA.
+const DANO_DADO_POR_PELEA := 60.0
+const DANO_RECIBIDO_POR_PELEA := 25.0
+const ESQUIVAS_POR_PELEA := 0.3        # EVADE_MIN es 0.03 y encajan ~6 golpes: se esquiva poco
+const HECHIZOS_POR_PELEA := 3.0        # solo cuenta para quien lleve magias
+
+static func partes_de(pjs: Array, duracion: int, trabajadas: Dictionary,
+		miembros: Array) -> Array:
+	var todos: Array = _uids(pjs)
+	var n_peleas: float = peleas(duracion)
+	var salida: Array = []
+	for pj_ in pjs:
+		var pj: PersonajeData = pj_ as PersonajeData
+		if pj == null:
+			continue
+		# Unidades que ha trabajado EL, por tipo: el mismo reparto que paga la excelia.
+		var uds: Dictionary = {}
+		for tipo in trabajadas:
+			if int(trabajadas[tipo]) <= 0:
+				continue
+			var equipo_t: Array = uids_trabajando(miembros, int(tipo), todos)
+			if not equipo_t.has(pj.uid):
+				continue
+			uds[int(tipo)] = int(round(float(trabajadas[tipo]) / float(maxi(1, equipo_t.size()))))
+		salida.append({
+			"uid": pj.uid,
+			# De quien es: lo necesita el reparto por red, igual que las entradas de excelia.
+			"dueno": _dueno_de(miembros, pj.uid),
+			"unidades": uds,
+			"peleas": n_peleas,
+			"bichos": int(round(n_peleas * BICHOS_POR_PELEA)),
+			"dano_dado": n_peleas * DANO_DADO_POR_PELEA,
+			"dano_recibido": n_peleas * DANO_RECIBIDO_POR_PELEA,
+			"esquivas": n_peleas * ESQUIVAS_POR_PELEA,
+			"hechizos": n_peleas * HECHIZOS_POR_PELEA,
+		})
+	return salida

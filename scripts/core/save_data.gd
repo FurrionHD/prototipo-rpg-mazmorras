@@ -181,6 +181,10 @@ const VERSION_MUNDO := 1
 @export var metalurgia_exp: float = 0.0
 @export var peleteria_exp: float = 0.0
 @export var herreria_exp: float = 0.0
+# CARPINTERIA no estaba, y por eso su desarrollo era imposible de conseguir: el contador se
+# evaporaba al guardar. COCINA es nueva (antes los platos sumaban a mezcla_exp).
+@export var carpinteria_exp: float = 0.0
+@export var cocina_exp: float = 0.0
 # Los contadores OCULTOS de los perks de COMBATE, hermanos de los de oficio: cada perk se gana
 # haciendo lo suyo. Un @export nuevo con default NO invalida las partidas viejas (Godot rellena
 # el default), asi que esto no toca VERSION_ACTUAL: una partida de antes arranca a 0.

@@ -705,13 +705,12 @@ func _build_encargo_pronostico(libres: Array) -> void:
 	_content.add_child(b)
 
 
-# QUÉ PARTE DEL BOTÍN es cada material. Ahora las unidades siguen a la gente (dos a las vetas traen
-# el doble de mineral), así que hace falta ver el efecto de mover a alguien SIN tener que mandarlos
-# primero. El % de cada material es el de su tipo por el peso que tiene dentro de su tabla: un tipo
-# al 40% con dos materiales al 50/50 son dos materiales al 20%.
+# QUÉ PARTE DEL BOTÍN es cada material, para poder ver lo que van a traer SIN tener que mandarlos
+# primero. Los tipos se reparten el rato a partes iguales, así que el % de cada material es el de su
+# tipo por el peso que tiene dentro de su tabla: con seis tipos marcados, un tipo al 16,7% con dos
+# materiales al 50/50 son dos materiales al 8,3%.
 func _build_reparto_botin(trabajadas: int) -> void:
-	var por_tipo: Dictionary = Encargos.repartir(trabajadas, _enc_tipos, _miembros_previstos(),
-		_enc_uids)
+	var por_tipo: Dictionary = Encargos.repartir(trabajadas, _enc_tipos)
 	var filas: Array = []
 	for t in _enc_tipos:
 		var tipo: int = int(t)

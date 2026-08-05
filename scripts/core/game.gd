@@ -1629,6 +1629,8 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	metalurgia_exp = 0.0
 	peleteria_exp = 0.0
 	herreria_exp = 0.0
+	carpinteria_exp = 0.0
+	cocina_exp = 0.0
 	esquivas_exp = 0.0
 	hechizos_exp = 0.0
 	recitado_exp = 0.0
@@ -1771,6 +1773,8 @@ func exportar_partida() -> SaveData:
 	d.metalurgia_exp = metalurgia_exp
 	d.peleteria_exp = peleteria_exp
 	d.herreria_exp = herreria_exp
+	d.carpinteria_exp = carpinteria_exp
+	d.cocina_exp = cocina_exp
 	d.esquivas_exp = esquivas_exp
 	d.hechizos_exp = hechizos_exp
 	d.recitado_exp = recitado_exp
@@ -1932,6 +1936,8 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.metalurgia_exp = metalurgia_exp
 	jd.peleteria_exp = peleteria_exp
 	jd.herreria_exp = herreria_exp
+	jd.carpinteria_exp = carpinteria_exp
+	jd.cocina_exp = cocina_exp
 	jd.materiales_vistos = materiales_vistos.duplicate()
 	jd.pack_inicial = pack_inicial_reclamado
 	jd.en_mazmorra = en_mazmorra
@@ -2159,6 +2165,8 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	metalurgia_exp = jd.metalurgia_exp
 	peleteria_exp = jd.peleteria_exp
 	herreria_exp = jd.herreria_exp
+	carpinteria_exp = jd.carpinteria_exp
+	cocina_exp = jd.cocina_exp
 	materiales_vistos = jd.materiales_vistos.duplicate()
 	pack_inicial_reclamado = jd.pack_inicial
 
@@ -2316,6 +2324,8 @@ func importar_partida(d: SaveData) -> void:
 	metalurgia_exp = d.metalurgia_exp
 	peleteria_exp = d.peleteria_exp
 	herreria_exp = d.herreria_exp
+	carpinteria_exp = d.carpinteria_exp
+	cocina_exp = d.cocina_exp
 	esquivas_exp = d.esquivas_exp
 	hechizos_exp = d.hechizos_exp
 	recitado_exp = d.recitado_exp
@@ -2997,6 +3007,26 @@ var _encargo_next_id: int = 1
 # baba de Rey Slime; eso hay que ir a ganarselo.
 const TABLA_SPAWNS := "res://resources/spawns/piso_comun.tres"
 
+# Las FAMILIAS de bicho que salen en ese piso, con su peso. Lo usan los encargos para saber por que
+# slayer tirar cuando abaten algo ahi abajo: la pelea de un encargo no tiene enemigos concretos, solo
+# el piso al que los mandaste.
+func familias_de_bichos_en(piso: int) -> Array:
+	var tabla: SpawnTable = load(TABLA_SPAWNS) as SpawnTable
+	if tabla == null:
+		return []
+	var pesos: Dictionary = {}
+	for fila in tabla.aplanar(piso):
+		var data: EnemyData = fila["data"]
+		var fam: int = int(data.familia)
+		if fam <= 0:
+			continue
+		pesos[fam] = float(pesos.get(fam, 0.0)) + float(fila["prob"])
+	var out: Array = []
+	for f in pesos:
+		out.append({"familia": int(f), "peso": float(pesos[f])})
+	return out
+
+
 func materiales_de_bicho_en(piso: int) -> Array:
 	var tabla: SpawnTable = load(TABLA_SPAWNS) as SpawnTable
 	if tabla == null:
@@ -3129,7 +3159,9 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 		"cofre_ids": cofre_ids.duplicate(),
 		"estado": Encargos.ESTADO_EN_CURSO,
 		"semilla": randi(),
-		"botin": [], "excelia": [], "desenlace": 0,
+		# `partes` es el parte de trabajo por persona: lo que hizo cada uno ahi abajo, para las
+		# pasivas RNG y los contadores de desarrollo. Lo rellena Encargos.resolver, como el botin.
+		"botin": [], "excelia": [], "partes": [], "desenlace": 0,
 		"ratio": 0.0, "trabajadas": 0, "traidas": 0, "perdido": 0,
 	}
 	_encargo_next_id += 1
@@ -3300,6 +3332,35 @@ func recoger_encargo(id: int) -> Dictionary:
 	for dueno in para_otros:
 		Net.mandar_excelia(String(dueno), para_otros[dueno])
 
+	# EL PARTE DE TRABAJO (pasivas RNG y contadores de desarrollo) va por LAS MISMAS DOS VIAS que la
+	# excelia y por el mismo motivo: solo la maquina del dueño tiene su PersonajeData. Se manda junto
+	# a la excelia para que no puedan llegar por separado.
+	var partes_otros: Dictionary = {}
+	for p_ in (e.get("partes", []) as Array):
+		var parte := p_ as Dictionary
+		if bool(parte.get("aplicada", false)):
+			continue
+		var piso_e: int = int(e.get("piso", 1))
+		var mio: PersonajeData = pj_por_uid(String(parte.get("uid", "")))
+		if mio != null:
+			aplicar_parte_encargo(parte, piso_e, mio)
+			parte["aplicada"] = true
+			continue
+		var dueno2: String = String(parte.get("dueno", ""))
+		if Net.activo and es_host_de_encargos() and Net.peer_de_identidad(dueno2) != 0:
+			parte["piso"] = piso_e
+			if not partes_otros.has(dueno2):
+				partes_otros[dueno2] = []
+			(partes_otros[dueno2] as Array).append(parte)
+			parte["aplicada"] = true
+		else:
+			var otro2: PersonajeData = _pj_en_mundo(String(parte.get("uid", "")))
+			if otro2 != null:
+				aplicar_parte_encargo(parte, piso_e, otro2)
+				parte["aplicada"] = true
+	for dueno in partes_otros:
+		Net.mandar_partes_encargo(String(dueno), partes_otros[dueno])
+
 	_soltar_utiles(e)
 	var informe: Dictionary = {
 		"desenlace": int(e.get("desenlace", 0)),
@@ -3310,6 +3371,47 @@ func recoger_encargo(id: int) -> Dictionary:
 	}
 	encargos.erase(e)
 	return informe
+
+
+# Aplica a UN personaje lo que hizo en la expedicion, mas alla de la excelia: las tiradas de pasiva
+# RNG y los contadores ocultos de los desarrollos.
+#
+# Las pasivas se tiran UNA VEZ POR UNIDAD TRABAJADA, con la misma PASIVA_PROB de siempre: currar
+# ocho horas de encargo cuenta como currar, no como un caso aparte con su propia loteria. Y el
+# slayer, una vez por bicho abatido, contra una familia sacada de la tabla de spawns del piso.
+#
+# La llaman las DOS vias del reparto (aqui y Net._set_partes_encargo), como la excelia.
+func aplicar_parte_encargo(parte: Dictionary, piso: int, pj: PersonajeData) -> void:
+	if pj == null:
+		return
+	for tipo in (parte.get("unidades", {}) as Dictionary):
+		var id: String = String(PASIVA_POR_FAENA.get(int(tipo), ""))
+		if id == "":
+			continue
+		for i in int((parte["unidades"] as Dictionary)[tipo]):
+			rodar_pasiva(id, pj)
+	# Slayer: por cada bicho, se elige familia con los pesos del piso (no todas salen igual).
+	var fams: Array = familias_de_bichos_en(piso)
+	if not fams.is_empty():
+		var total: float = 0.0
+		for f in fams:
+			total += float((f as Dictionary)["peso"])
+		for i in int(parte.get("bichos", 0)):
+			var t: float = randf() * total
+			for f in fams:
+				t -= float((f as Dictionary)["peso"])
+				if t <= 0.0:
+					rodar_slayer_por_familia(int((f as Dictionary)["familia"]), pj)
+					break
+	# Contadores ocultos de los desarrollos. Los de magia solo si de verdad lleva con que lanzar.
+	contar_dano_infligido(float(parte.get("dano_dado", 0.0)), pj)
+	contar_dano_recibido(float(parte.get("dano_recibido", 0.0)), pj)
+	for i in int(round(float(parte.get("esquivas", 0.0)))):
+		contar_esquiva(pj)
+	if tiene_hechizos(pj):
+		for i in int(round(float(parte.get("hechizos", 0.0)))):
+			contar_hechizo(pj)
+			contar_frase_recitada(pj)
 
 
 # Repaso periodico. Se mira UNA VEZ POR MINUTO y no cada frame: comparar unos pocos enteros es
@@ -3469,7 +3571,15 @@ var money: int = 0
 # Semilla de una futura habilidad de desarrollo estilo DanMachi: "Mezcla" mejora la calidad
 # al crear objetos. De momento solo se acumula y se guarda; el efecto se ajustara despues.
 var mezcla_exp: float = 0.0
-const MEZCLA_EXP_POR_POCION := 1.0   # PROVISIONAL: cuanto sube por poción fabricada
+const MEZCLA_EXP_POR_POCION := 1.0
+# Lo mismo para el COCINERO. Contador propio y no compartido con Mezcla: son dos oficios, dos NPCs y
+# dos desarrollos, y hasta el 05/08 los platos alimentaban el de la boticaria.
+var cocina_exp: float = 0.0
+const COCINA_EXP_POR_PLATO := 1.0
+# Lo que suma el rango de Cocina a la POTENCIA del plato (a rango S). Es el segundo efecto del
+# desarrollo, el hermano de la subida de escalon de la Mezcla: no se puede copiar esa porque los
+# platos T1 y T2 no forman cadena en los .tres (no hay `pocion_base` entre ellos).
+const COCINA_POTENCIA_MAX := 0.25   # PROVISIONAL: cuanto sube por poción fabricada
 
 # PRUEBAS: fuerza el drop al 100%. Poner en false para usar drop_chance real.
 var dev_force_drop: bool = false
@@ -4264,11 +4374,16 @@ func comer_plato(c: ConsumableData, pj: PersonajeData = null) -> bool:
 	# comer por el mapa y comer en combate acabaran comportandose distinto.
 	var c_tmp := Combatant.new(p.nombre, 1, abilities_de(p), 1.0, 1.0, 1.0, 1.0)
 	StatusEffects.aplicar_a(c_tmp, p.estados)
+	# COCINA: el segundo efecto del desarrollo del cocinero. Se aplica AQUI y no al cocinar porque el
+	# inventario apila por instancia de ConsumableData: sellar la potencia en el plato obligaria a
+	# duplicar el recurso por cada rango y cada plato dejaria de apilar con los demas. La lectura es
+	# "sabes cocinar, tu comida alimenta mas", y sube con el rango como todo lo demas.
+	var escala: float = c.escala_efecto * (1.0 + COCINA_POTENCIA_MAX * cocina_activa())
 	for ap in c.efectos:
 		if ap == null:
 			continue
 		c_tmp.apply_status(int(ap.estado), int(ap.turns), float(ap.magnitud),
-			maxi(1, int(ap.stacks)), false, int(ap.cap), float(ap.mult), c.escala_efecto)
+			maxi(1, int(ap.stacks)), false, int(ap.cap), float(ap.mult), escala)
 	p.estados = StatusEffects.estados_que_salen(c_tmp.statuses)
 	refrescar_cache_estados(p)
 	print("[cocina] %s se come %s" % [p.nombre, c.nombre])
@@ -6579,20 +6694,29 @@ const ESQUIVA_POR_ESQUIVAR := 1.0
 const HECHIZO_POR_LANZAR := 1.0
 const RECITADO_POR_FRASE := 1.0
 
-func contar_esquiva() -> void:
-	esquivas_exp += ESQUIVA_POR_ESQUIVAR
+# Todas llevan `pj`: los contadores son DEL PERSONAJE, asi que tienen que apuntarse a quien hizo la
+# accion. Sin el parametro caian siempre en el lider por las propiedades de arriba, y eso ya dejaba
+# cosas imposibles a la vista -- en el playtest habia un personaje con 44.435 de daño infligido y 0
+# de excelia, porque el daño lo repartia otro y el contador se lo llevaba el que iba en cabeza.
+func contar_esquiva(pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	p.esquivas_exp += ESQUIVA_POR_ESQUIVAR
 
-func contar_hechizo() -> void:
-	hechizos_exp += HECHIZO_POR_LANZAR
+func contar_hechizo(pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	p.hechizos_exp += HECHIZO_POR_LANZAR
 
-func contar_frase_recitada() -> void:
-	recitado_exp += RECITADO_POR_FRASE
+func contar_frase_recitada(pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	p.recitado_exp += RECITADO_POR_FRASE
 
-func contar_dano_recibido(dmg: float) -> void:
-	dano_recibido_exp += maxf(0.0, dmg)
+func contar_dano_recibido(dmg: float, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	p.dano_recibido_exp += maxf(0.0, dmg)
 
-func contar_dano_infligido(dmg: float) -> void:
-	dano_infligido_exp += maxf(0.0, dmg)
+func contar_dano_infligido(dmg: float, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	p.dano_infligido_exp += maxf(0.0, dmg)
 # Interruptores (los pondra a true el sistema de habilidades de desarrollo cuando exista).
 # Con esto en false, el oficio solo ACUMULA.
 var habilidad_metalurgia: bool = false
@@ -6615,6 +6739,21 @@ func herreria_activa() -> float:
 # magicas (rol Herreria). Ver refinar() y el forjado (bonus_herreria / prob_devolver_forja).
 func carpinteria_activa() -> float:
 	return factor_desarrollo("carpinteria")
+
+# Cocina: el oficio del COCINERO. Hermano de Mezcla, y por los mismos dos efectos (racion doble y
+# platos mas potentes). Va aparte a proposito: hasta el 05/08 cocinar sumaba a mezcla_exp, o sea que
+# hacer platos te desbloqueaba el desarrollo de la Boticaria.
+func cocina_activa() -> float:
+	return factor_desarrollo("cocina")
+
+# El oficio de taller que empuja ESTA receta: Cocina si es un plato, Mezcla si es una poción. Es el
+# hermano de _oficio_forja_activo (Carpinteria en armas magicas, Herreria en el resto), y existe por
+# lo mismo: un solo craftear_con sirve para la boticaria y para el cocinero.
+func _oficio_taller_activo(receta: RecipeData) -> float:
+	return cocina_activa() if _es_receta_cocina(receta) else mezcla_activa()
+
+func _es_receta_cocina(receta: RecipeData) -> bool:
+	return receta != null and recetas_cocina().has(receta)
 
 func mezcla_activa() -> float:
 	return factor_desarrollo("mezcla")
@@ -8251,9 +8390,10 @@ func prob_doble_desde_seleccion(receta: RecipeData, seleccion: Array) -> float:
 			suma_uds += u
 	if suma_uds <= 0.0:
 		return 0.0
-	# MEZCLA (habilidad de desarrollo de la boticaria): suma un bonus por su rango a la prob. de
-	# doble poción (misma curva exp->bonus que la Herrería). Sin la habilidad, mezcla_activa() = 0.
-	return clampf(MAX_PROB_DOBLE * (suma_score / suma_uds) + Forge.bonus_herreria(mezcla_activa()), 0.0, 1.0)
+	# El OFICIO (Mezcla en la boticaria, Cocina en el cocinero) suma un bonus por su rango a la
+	# prob. de doble (misma curva exp->bonus que la Herrería). Sin la habilidad, el factor es 0.
+	return clampf(MAX_PROB_DOBLE * (suma_score / suma_uds)
+		+ Forge.bonus_herreria(_oficio_taller_activo(receta)), 0.0, 1.0)
 
 
 # La prob. de doble de CADA una de las `n` piezas que salen, repartiendo lo que se gasta en lotes
@@ -8267,8 +8407,8 @@ func probs_doble_por_pieza(receta: RecipeData, gasto: Array, n: int) -> Array:
 	var uds_pieza: Array = []
 	for ing in receta.ingredientes:
 		uds_pieza.append(0 if ing == null else int(ing.unidades))
-	# MEZCLA (la habilidad de la boticaria) suma igual a todas: lo que cambia por pieza es la calidad.
-	var bono: float = Forge.bonus_herreria(mezcla_activa())
+	# El oficio suma igual a todas: lo que cambia por pieza es la calidad del material.
+	var bono: float = Forge.bonus_herreria(_oficio_taller_activo(receta))
 	for lote in lotes_de_seleccion(gasto, uds_pieza, n):
 		out.append(clampf(MAX_PROB_DOBLE * score_uds(lote) + bono, 0.0, 1.0))
 	return out
@@ -8376,7 +8516,12 @@ func craftear_con(receta: RecipeData, seleccion: Array) -> int:
 	for ing in receta.ingredientes:
 		if ing != null and ing.material != null:
 			pocion_tier = maxi(pocion_tier, int(ing.material.tier))
-	mezcla_exp += _puntos_oficio("mezcla", pocion_tier) * MEZCLA_EXP_POR_POCION * float(total)
+	# Y va al oficio QUE TOCA. Hasta el 05/08 esto sumaba siempre a mezcla_exp, asi que cocinar
+	# engordaba el desarrollo de la Boticaria: hacer platos te desbloqueaba la Mezcla.
+	if _es_receta_cocina(receta):
+		cocina_exp += _puntos_oficio("cocina", pocion_tier) * COCINA_EXP_POR_PLATO * float(total)
+	else:
+		mezcla_exp += _puntos_oficio("mezcla", pocion_tier) * MEZCLA_EXP_POR_POCION * float(total)
 	var detalle: PackedStringArray = []
 	for cons in salida:
 		detalle.append("%d x %s" % [int(salida[cons]), (cons as ConsumableData).nombre])
@@ -9160,13 +9305,20 @@ func pasiva_por_id(id: String) -> Dictionary:
 # estado, y tu estado no lo lees tu picando piedra -- se lee en el ALTAR, al actualizarlo, igual
 # que la excelia. Hasta entonces no hace efecto, no sale en la ficha y no hay aviso ninguno: la
 # gracia es encontrartela ahi. Ver consolidar_pasivas.
-func rodar_pasiva(id: String) -> bool:
-	if tiene_pasiva(id) or pasiva_pendiente(id):
+#
+# Tira EL QUE HACE LA ACCION, no el que va en cabeza. Hasta el 05/08 esto escribia siempre en
+# lider(), asi que un compañero no podia sacar una pasiva NUNCA -- ni matando el bicho, ni de
+# expedicion. Por eso lleva `pj`: quien pica la veta sigue siendo el lider (es quien juega el
+# minijuego), pero quien mata al bicho y quien se pasa ocho horas de encargo son otros.
+func rodar_pasiva(id: String, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	if tiene_pasiva(id, p) or pasiva_pendiente(id, p):
 		return false
 	if randf() >= PASIVA_PROB:
 		return false
-	lider().pasivas_pendientes[id] = true
-	print("[pasiva] Tirada ganada: '%s' queda PENDIENTE hasta la proxima actualizacion de estado." % id)
+	p.pasivas_pendientes[id] = true
+	print("[pasiva] %s gana la tirada de '%s': PENDIENTE hasta su proxima actualizacion de estado."
+		% [p.nombre, id])
 	return true
 
 
@@ -9190,14 +9342,26 @@ func consolidar_pasivas(pj: PersonajeData = null) -> Array:
 		print("[pasiva] ¡%s consigue la pasiva '%s'!" % [p.nombre, str(d.get("nombre", id))])
 	return nuevas
 
-# Al matar un bicho de familia `fam`, tira por su slayer (si esa familia tiene uno).
-func rodar_slayer_por_familia(fam: int) -> void:
+# Al matar un bicho de familia `fam`, tira por su slayer (si esa familia tiene uno). Tira QUIEN LO
+# MATO: un slayer se gana matando, y el que va en cabeza no tiene por que ser el que remata.
+func rodar_slayer_por_familia(fam: int, pj: PersonajeData = null) -> void:
 	if fam <= 0:
 		return
 	for p in PASIVAS_RNG:
 		if str(p.get("tipo", "")) == "slayer" and int(p.get("familia", 0)) == fam:
-			rodar_pasiva(str(p["id"]))
+			rodar_pasiva(str(p["id"]), pj)
 			return
+
+# La pasiva de recoleccion que le toca a cada tipo de encargo. Es el puente entre las faenas y el
+# catalogo de PASIVAS_RNG: sin esto habria que repetir el mapeo en cada sitio que reparta pasivas.
+const PASIVA_POR_FAENA := {
+	Encargos.Tipo.VETA: "reco_mineria",
+	Encargos.Tipo.PLANTA: "reco_herboristeria",
+	Encargos.Tipo.COMIDA: "reco_herboristeria",   # la despensa se recoge con la hoz
+	Encargos.Tipo.MADERA: "reco_talado",
+	Encargos.Tipo.PESCA: "reco_pesca",
+	Encargos.Tipo.BICHO: "reco_extraccion",
+}
 
 # Pasiva de una RECOLECCION: tira por conseguirla y, si ya la tienes, mete UNA pieza extra en la
 # bolsa. Lo llaman las finales de mineria/herboristeria/talado.
@@ -9268,6 +9432,11 @@ const DESARROLLOS: Array = [
 	{"id": "mezcla", "nombre": "Mezcla", "tipo": "oficio",
 		"desc": "Al fabricar pociones, tira por doblarlas y por subirlas de escalón.",
 		"req": "exp", "contador": "mezcla_exp", "umbral": 500.0},
+	# COCINA: el hermano de Mezcla en el otro fogón. Umbral mas bajo que el de la boticaria porque un
+	# plato se hace de uno en uno y rinde dos raciones, mientras que las pociones salen a tandas.
+	{"id": "cocina", "nombre": "Cocina", "tipo": "oficio",
+		"desc": "Al cocinar, tira por sacar ración doble, y lo que preparas alimenta más.",
+		"req": "exp", "contador": "cocina_exp", "umbral": 250.0},
 	# CAZADOR y AUTORREGEN: solo se DESBLOQUEAN a nivel 1 (solo_nivel_1). Su contador va por DAÑO
 	# (hecho / encajado); una vez tuyos, suben de rango con el daño acumulado como los demas.
 	{"id": "cazador", "nombre": "Cazador", "tipo": "combate", "solo_nivel_1": true,

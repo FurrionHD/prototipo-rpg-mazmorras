@@ -376,6 +376,22 @@ var _slow_actions_left: int:
 # 'player_cs' viene con el LIDER el primero y detras los companeros en su orden de equipo. Ese
 # orden es el de los bloques y el de los arrays que devuelve combat_finished.
 # 'exhausted' es un bool POR ALIADO (el que baje sin fuelle empieza lento; ver _lentas).
+# QUIEN DIO EL ULTIMO GOLPE a cada enemigo. Existe por el slayer: un slayer se gana MATANDO, y al
+# terminar la pelea (donde se tira el dado) ya no hay forma de saber quien remato a quien. Antes se
+# lo llevaba siempre el que iba en cabeza, aunque el bicho lo hubiera matado otro.
+var _ultimo_en_golpear: Dictionary = {}   # Combatant -> PersonajeData
+
+
+# Un golpe del grupo a un enemigo: se lo apunta a QUIEN lo dio, no al lider. Es el mismo motivo por
+# el que en el playtest habia un personaje con 44.435 de daño infligido y cero excelia: el contador
+# iba al de cabeza y la excelia al que pegaba.
+func _apuntar_dano(objetivo: Combatant, dmg: float, quien: Combatant) -> void:
+	var pj: PersonajeData = Game.pj_de_combatant(quien)
+	Game.contar_dano_infligido(dmg, pj)
+	if pj != null and objetivo != null:
+		_ultimo_en_golpear[objetivo] = pj
+
+
 func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 		exhausted: Array = [], player_overload_factor: float = 1.0) -> void:
 	# El sobrepeso es POR COMBATIENTE (ver Combatant.overload_factor): estos son los del anfitrion,
@@ -383,6 +399,7 @@ func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 	for c in player_cs:
 		c.overload_factor = player_overload_factor
 	_aliados.assign(player_cs)
+	_ultimo_en_golpear.clear()
 	# Dos personajes con el mismo nombre se quedaban indistinguibles (en el log y en los bloques).
 	for c in _aliados:
 		_desambiguar(c)
@@ -2650,7 +2667,8 @@ func _on_continue_pressed() -> void:
 			muertos.append(i)
 		# Pasiva RNG slayer: cada bicho ABATIDO de verdad tira por su slayer de familia (ultra-raro).
 		if e_muerto:
-			Game.rodar_slayer_por_familia(int(_enemies[i].familia))
+			Game.rodar_slayer_por_familia(int(_enemies[i].familia),
+				_ultimo_en_golpear.get(_enemies[i]))
 		hp_left.append(_enemies[i].current_hp)
 		estados_left.append(StatusEffects.estados_que_salen(_enemies[i].statuses))
 	# Como sale cada uno de los tuyos, por indice (el mismo orden que llego a setup()).
@@ -2878,7 +2896,7 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		# La Magia NO se entrena por frase (solo al LANZAR, en _disparar_hechizo), para
 		# que la ganancia sea predecible y no se cuente doble.
 		_cast_index += 1
-		Game.contar_frase_recitada()   # contador oculto de Encantamiento rapido
+		Game.contar_frase_recitada(Game.pj_de_combatant(_player))   # oculto de Encantamiento rapido
 		if _cast_index < _cast_spell.longitud():
 			_set_log("✓ Frase correcta. Continua el proximo turno...")
 		else:
@@ -3011,7 +3029,7 @@ func _disparar_hechizo() -> void:
 	var pj_lanza: PersonajeData = Game.pj_de_combatant(_player)   # entrena EL QUE LANZA
 	Game.ganar("magia", Game.reto_stat(_poder_enemigo(obj), "magia", obj.level, pj_lanza),
 		Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO, pj_lanza)
-	Game.contar_hechizo()   # contador oculto de Erudito
+	Game.contar_hechizo(pj_lanza)   # contador oculto de Erudito
 	print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
 		_player.nombre, spell.nombre, dano, _player.abilities.magia, obj.nombre,
 		StatsMath.magic_value(obj.abilities, obj.level, obj.base_magic)])
@@ -3107,7 +3125,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		if bool(res.get("crit", false)):
 			hubo_crit = true
 		objetivo.take_damage(dmg)
-		Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
+		_apuntar_dano(objetivo, dmg, _player)   # contador oculto de Cazador
 		total += dmg
 		# CRITICO MAGICO: mismo 💥 que en el rastro del golpe fisico, para que se lea igual.
 		trail.append("%s%s%.1f%s" % [Elementos.icono(elem),
@@ -3164,7 +3182,7 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 			var dmg: float = float(res.damage) * foco
 			var mult: float = float(res.get("mult_elem", 1.0))
 			obj.take_damage(dmg)
-			Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
+			_apuntar_dano(obj, dmg, _player)   # contador oculto de Cazador
 			if not acc.has(obj):
 				acc[obj] = {"c": obj, "dano": 0.0, "mult": 1.0, "crit": false, "golpes": 0, "trail": [], "estados": []}
 				anun[obj] = {}
@@ -3568,7 +3586,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
 	objetivo.take_damage(dmg)
-	Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
+	_apuntar_dano(objetivo, dmg, _player)   # contador oculto de Cazador
 	r.mana = _ganar_mana_golpe()       # cada golpe que conecta repone maná
 	if float(result.get("dmg_imbue", 0.0)) > 0.0:
 		_gastar_amplificadores(objetivo, _player.imbue_elemento)
@@ -4222,7 +4240,7 @@ func _accion_atacar() -> void:
 		_set_log("%s esquiva tu ataque (%s). 💨" % [_etq(obj), con_arma])
 	else:
 		obj.take_damage(result.damage)
-		Game.contar_dano_infligido(result.damage)   # contador oculto de Cazador
+		_apuntar_dano(obj, result.damage, _player)   # contador oculto de Cazador
 		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).
 		if float(result.get("dmg_imbue", 0.0)) > 0.0:
 			_gastar_amplificadores(obj, _player.imbue_elemento)
@@ -4538,7 +4556,7 @@ func _enemy_turn(e: Combatant) -> void:
 		# EL QUE ESQUIVA, no el que llevas delante.
 		Game.ganar("agilidad", _reto(e), Game.GAIN_AGILIDAD_ESQUIVAR,
 			Game.RETO_MAX_FISICO, pj_obj)
-		Game.contar_esquiva()   # contador oculto de Reflejos
+		Game.contar_esquiva(pj_obj)   # contador oculto de Reflejos
 		# CONTRAATAQUE (estoque, KAN-57): en guardia, cada golpe esquivado lo devuelves.
 		# Se lo devuelves A QUIEN TE HA ATACADO, no a tu objetivo seleccionado.
 		if obj.en_guardia:
@@ -4566,7 +4584,7 @@ func _enemy_turn(e: Combatant) -> void:
 	if obj.resiste_por_afinidad(e.elemento_ataque):
 		obj.gastar_imbue_defensiva()
 	Game.desgastar_armadura(pj_obj)   # DURABILIDAD: encajar un golpe gasta un poco SU armadura
-	Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
+	Game.contar_dano_recibido(dmg, pj_obj)   # contador oculto de Autorregeneracion
 	if _dps_on:
 		_dmg_taken_total += dmg
 		_dmg_taken_hits += 1
@@ -4835,7 +4853,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 		var result := StatsMath.resolve_attack(e, t, defendiendo)
 		if result.evaded:
 			print("        [%s] golpe %d: esquivado 💨" % [t.nombre, i + 1])
-			Game.contar_esquiva()   # contador oculto de Reflejos
+			Game.contar_esquiva(pj_t)   # contador oculto de Reflejos
 			esquivados += 1
 			rastro.append({"t": "falla", "c": t})
 			if t.en_guardia and permitir_contra and contra == "":
@@ -4850,7 +4868,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			if t.resiste_por_afinidad(e.elemento_ataque):
 				t.gastar_imbue_defensiva()
 			Game.desgastar_armadura(pj_t)   # DURABILIDAD: cada golpe encajado gasta las piezas
-			Game.contar_dano_recibido(dmg)   # contador oculto de Autorregeneracion
+			Game.contar_dano_recibido(dmg, pj_t)   # contador oculto de Autorregeneracion
 			total += dmg
 			conecto += 1
 			rastro.append({"t": "💥%.2f" % dmg if result.crit else "%.2f" % dmg, "c": t})
@@ -4977,7 +4995,7 @@ func _contraatacar(atacante: Combatant, quien: Combatant) -> String:
 		return "%s esquiva y contraataca, pero %s lo esquiva. 💨" % [quien.nombre, atacante.nombre]
 	var dmg: float = result.damage * quien.guardia_contra_mult
 	atacante.take_damage(dmg)
-	Game.contar_dano_infligido(dmg)   # contador oculto de Cazador
+	_apuntar_dano(atacante, dmg, quien)   # contador oculto de Cazador
 	_dps_add("Contraataque", dmg)
 	_ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
 	# Excelia: el contraataque golpea, entrena Fuerza como un ataque normal.
@@ -5111,7 +5129,7 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 		else:
 			var dmg: float = float(r.damage) * pct
 			obj.take_damage(dmg)
-			Game.contar_dano_infligido(dmg)
+			_apuntar_dano(obj, dmg, esc)
 			_log_extra("%s entra detrás: %.2f%s" % [esc.nombre, dmg, " 💥" if r.crit else ""])
 		_player = quien_actuaba
 	_player = quien_actuaba

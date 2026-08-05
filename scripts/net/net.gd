@@ -2249,6 +2249,28 @@ func _set_excelia_encargo(entradas: Array) -> void:
 		_aviso_esquina("Los tuyos han vuelto de un encargo")
 
 
+# Y el PARTE DE TRABAJO: las pasivas RNG y los contadores ocultos de los desarrollos. Va por su
+# propio RPC pero por la MISMA via y el mismo motivo que la excelia — solo esta maquina tiene sus
+# PersonajeData. Si esto solo se enganchara en Game.recoger_encargo, el compañero conectado se
+# quedaria sin pasivas y sin contadores y no habria ni un error que lo dijera.
+func mandar_partes_encargo(identidad: String, partes: Array) -> void:
+	var peer: int = peer_de_identidad(identidad)
+	if peer != 0:
+		_set_partes_encargo.rpc_id(peer, partes)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _set_partes_encargo(partes: Array) -> void:
+	for p in partes:
+		var parte := p as Dictionary
+		var pj: PersonajeData = Game.pj_por_uid(String(parte.get("uid", "")))
+		if pj == null:
+			push_warning("[encargos] llega un parte de trabajo para un uid que no tengo: %s"
+				% String(parte.get("uid", "")))
+			continue
+		Game.aplicar_parte_encargo(parte, int(parte.get("piso", 1)), pj)
+
+
 # --- COFRE de CONSUMIBLES (pociones/grimorios): stackeable, ruta -> cantidad -----------------
 
 func meter_consumible_cofre(ruta: String, n: int) -> void:
@@ -4123,6 +4145,7 @@ func jd_a_dict(jd: JugadorData) -> Dictionary:
 		"registro_pesca": jd.registro_pesca.duplicate(true),
 		"mezcla": jd.mezcla_exp, "metalurgia": jd.metalurgia_exp,
 		"peleteria": jd.peleteria_exp, "herreria": jd.herreria_exp,
+		"carpinteria": jd.carpinteria_exp, "cocina": jd.cocina_exp,
 		"materiales_vistos": jd.materiales_vistos.duplicate(),
 		"pack_inicial": jd.pack_inicial,
 		"en_mazmorra": jd.en_mazmorra, "current_floor": jd.current_floor, "pos": jd.pos,
@@ -4183,6 +4206,8 @@ func jd_de_dict(d: Dictionary, registrar := true) -> JugadorData:
 	jd.metalurgia_exp = float(d.get("metalurgia", 0.0))
 	jd.peleteria_exp = float(d.get("peleteria", 0.0))
 	jd.herreria_exp = float(d.get("herreria", 0.0))
+	jd.carpinteria_exp = float(d.get("carpinteria", 0.0))
+	jd.cocina_exp = float(d.get("cocina", 0.0))
 	jd.materiales_vistos = (d.get("materiales_vistos", {}) as Dictionary).duplicate()
 	jd.pack_inicial = bool(d.get("pack_inicial", false))
 	jd.en_mazmorra = bool(d.get("en_mazmorra", false))
