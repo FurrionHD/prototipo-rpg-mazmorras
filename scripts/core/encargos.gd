@@ -723,7 +723,10 @@ static func repartir(n: int, tipos: Array) -> Dictionary:
 	var base: int = n / k
 	var resto: int = n % k
 	for i in tipos.size():
-		out[int(tipos[i])] = base + (1 if i < resto else 0)
+		# El reparto del RATO es a partes iguales, pero de un sitio del que solo salen cuatro setas
+		# no se vuelve con doscientas por mucho que esperes: se recorta por lo que hay en el piso.
+		out[int(tipos[i])] = int(round(float(base + (1 if i < resto else 0))
+			* abundancia(int(tipos[i]))))
 	return out
 
 
@@ -870,12 +873,34 @@ static func _saturacion_utiles(entradas: Array) -> float:
 # Con esto ninguna se va mas alla del doble de las demas. Lo que NO se toca es la recoleccion de
 # verdad: jugando, la sal y los peces raros siguen pagando lo que valen.
 const RITMO_FAENA := {
-	Tipo.COMIDA: 0.38,   # x5.4 -> x2
-	Tipo.PESCA: 0.67,    # x3.0 -> x2
+	Tipo.PESCA: 0.47,    # x3.0 -> x1, o sea lo mismo que picar una veta
 }
 
 static func ritmo_faena(tipo: int) -> float:
 	return float(RITMO_FAENA.get(int(tipo), 1.0))
+
+# CUANTO HAY DE ESO EN EL PISO, comparado con una veta. No es balance: es el mapa.
+#
+# La mazmorra pone 8 vetas, 8 plantas y 8 maderas, y vuelven en RESPAWN_SEGUNDOS (5 min). Pero de la
+# DESPENSA solo hay 1-2 piedras de sal y 2-3 silvestres, y esas tardan el doble en volver
+# (RESPAWN_LENTO_SEGUNDOS, 10 min). O sea que hay del orden de cuatro veces menos comida que mineral
+# y encima se recupera a la mitad de ritmo. De pesca hay UN estanque por piso.
+#
+# Sin esto, ocho horas de encargo traian tantas setas como piedras, que no existen en el piso, y
+# ademas convertian la Comida en la mejor forma de subir Destreza del juego (57 contra los 35 de las
+# Plantas) por un sitio del que se supone que sacas cuatro setas. Recortando las UNIDADES caen las
+# dos cosas a la vez: traen menos comida Y aprenden menos de ella.
+const ABUNDANCIA := {
+	Tipo.VETA: 1.0,
+	Tipo.PLANTA: 1.0,
+	Tipo.MADERA: 1.0,
+	Tipo.COMIDA: 0.22,   # ~4 nodos a mitad de ritmo contra 8 rapidos
+	Tipo.PESCA: 0.7,     # un solo estanque, aunque su banco sea generoso
+	Tipo.BICHO: 1.0,     # los bichos no se agotan: siguen brotando
+}
+
+static func abundancia(tipo: int) -> float:
+	return float(ABUNDANCIA.get(int(tipo), 1.0))
 
 # Cuantas peleas se comen por hora ahi abajo. Ocho horas cruzando un piso poblado son muchos
 # encontronazos; una cada doce minutos es lo que sale de mirar el aforo y el ritmo de partos.
@@ -1039,8 +1064,13 @@ static func resolver(e: Dictionary, pjs: Array, entradas_cofre: Array) -> Dictio
 		afinidades[int(tipo)] = mejor
 
 	# --- Cuanto TRABAJAN (esto es lo que da la excelia; el botin lo recorta el peso despues).
-	var trabajadas: int = unidades(duracion, n, golpes, float(CANTIDAD_DESENLACE[desenlace]))
-	var por_tipo: Dictionary = repartir(trabajadas, tipos)
+	var por_tipo: Dictionary = repartir(
+		unidades(duracion, n, golpes, float(CANTIDAD_DESENLACE[desenlace])), tipos)
+	# Lo que TRABAJAN de verdad es la suma de lo que da cada tipo: repartir() recorta los que escasean
+	# en el piso (ver ABUNDANCIA), asi que ya no coincide con lo que darian las horas a secas.
+	var trabajadas: int = 0
+	for t in por_tipo:
+		trabajadas += int(por_tipo[t])
 
 	# --- Eje 2: que sacan y con que calidad. La calidad la deciden SOLO los que trabajan ese tipo:
 	# si mandaste al fuerte a las vetas y al torpe a las hierbas, el torpe no le estropea el mineral.
