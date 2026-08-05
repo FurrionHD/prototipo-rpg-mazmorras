@@ -142,12 +142,21 @@ const REQUISITO_CLASE := {
 # cualquiera, y si se queda sin mana pega un bastonazo (algo de fuerza). Lo que no hace es ponerse
 # cachas peleando. El 0.0 se escribe igual para que la tabla se lea de un vistazo.
 const PESOS_CLASE := {
-	Clase.GUERRERO:        {"fuerza": 0.35, "resistencia": 0.25, "destreza": 0.20, "agilidad": 0.20, "magia": 0.00},
-	Clase.GUERRERO_PESADO: {"fuerza": 0.50, "resistencia": 0.25, "destreza": 0.15, "agilidad": 0.10, "magia": 0.00},
-	Clase.PICARO:          {"fuerza": 0.20, "resistencia": 0.10, "destreza": 0.30, "agilidad": 0.40, "magia": 0.00},
-	Clase.TANQUE:          {"fuerza": 0.25, "resistencia": 0.50, "destreza": 0.15, "agilidad": 0.10, "magia": 0.00},
-	Clase.MAGO:            {"fuerza": 0.05, "resistencia": 0.15, "destreza": 0.05, "agilidad": 0.20, "magia": 0.55},
-	Clase.GUERRERO_MAGICO: {"fuerza": 0.30, "resistencia": 0.15, "destreza": 0.05, "agilidad": 0.15, "magia": 0.35},
+	# TODO EL QUE PELEA PEGA, asi que la Fuerza no se hunde por clase: un picaro con dagas da MAS
+	# golpes que un mandoble, no menos. Lo que separa a las clases es a donde va el resto (el picaro
+	# esquiva y critica, el pesado encaja). En el playtest el picaro sacaba 15 de Fuerza contra los
+	# 46 del pesado, y eso no se sostenia.
+	Clase.GUERRERO:        {"fuerza": 0.32, "resistencia": 0.24, "destreza": 0.22, "agilidad": 0.22, "magia": 0.00},
+	Clase.GUERRERO_PESADO: {"fuerza": 0.40, "resistencia": 0.22, "destreza": 0.18, "agilidad": 0.20, "magia": 0.00},
+	Clase.PICARO:          {"fuerza": 0.34, "resistencia": 0.11, "destreza": 0.24, "agilidad": 0.31, "magia": 0.00},
+	# El TANQUE tenia 0.50 de Resistencia y en el playtest salio con +74 cuando los demas iban por
+	# +46. Se queda en 0.38 porque encajar golpes es ya la ganancia mas generosa del juego
+	# (GAIN_RESISTENCIA_GOLPE 0.345, contra 0.15 de atacar): con medio reparto encima se disparaba.
+	Clase.TANQUE:          {"fuerza": 0.26, "resistencia": 0.32, "destreza": 0.21, "agilidad": 0.21, "magia": 0.00},
+	# Y las dos MAGICAS suben su Magia: pelear es la UNICA forma de subirla —no hay ningun oficio de
+	# recoleccion que la entrene—, asi que con el mismo peso que las demas se quedaba corta de por vida.
+	Clase.MAGO:            {"fuerza": 0.07, "resistencia": 0.14, "destreza": 0.07, "agilidad": 0.17, "magia": 0.55},
+	Clase.GUERRERO_MAGICO: {"fuerza": 0.26, "resistencia": 0.14, "destreza": 0.06, "agilidad": 0.14, "magia": 0.40},
 }
 
 # Las tres familias de arma, derivadas de WeaponData.Tipo. Este es EL UNICO sitio del proyecto que
@@ -846,7 +855,10 @@ const PELEAS_HORA := 5.0
 # Lo que saca de UNA pelea un miembro de un grupo de cuatro: unos 3 golpes dados
 # (GAIN_FUERZA_ATAQUE 0.15) y 2 encajados (GAIN_RESISTENCIA_GOLPE 0.345). No es un numero inventado
 # como el GAIN_COMBATE_HORA que habia antes: sale de las mismas constantes que usa combat.gd.
-const VALE_UNA_PELEA := 1.35
+# Subido de 1.35: aplanar los pesos por clase (para que un picaro no saliera con 15 de Fuerza)
+# repartia el mismo total entre mas stats y las principales se quedaban cortas. Lo que sube es lo que
+# se lleva CADA UNO por pelea, no el numero de peleas.
+const VALE_UNA_PELEA := 1.6
 
 # Devuelve la lista de ganancias a aplicar: [{"uid", "abil", "base", "reto", "max_reto"}].
 # NO las aplica: quien las aplique tiene que llamar a Game.ganar() con el PersonajeData correcto, que
