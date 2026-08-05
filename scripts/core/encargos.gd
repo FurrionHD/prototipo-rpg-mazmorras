@@ -152,7 +152,7 @@ const PESOS_CLASE := {
 	# El TANQUE tenia 0.50 de Resistencia y en el playtest salio con +74 cuando los demas iban por
 	# +46. Se queda en 0.38 porque encajar golpes es ya la ganancia mas generosa del juego
 	# (GAIN_RESISTENCIA_GOLPE 0.345, contra 0.15 de atacar): con medio reparto encima se disparaba.
-	Clase.TANQUE:          {"fuerza": 0.26, "resistencia": 0.32, "destreza": 0.21, "agilidad": 0.21, "magia": 0.00},
+	Clase.TANQUE:          {"fuerza": 0.24, "resistencia": 0.40, "destreza": 0.19, "agilidad": 0.17, "magia": 0.00},
 	# Y las dos MAGICAS suben su Magia: pelear es la UNICA forma de subirla —no hay ningun oficio de
 	# recoleccion que la entrene—, asi que con el mismo peso que las demas se quedaba corta de por vida.
 	Clase.MAGO:            {"fuerza": 0.07, "resistencia": 0.14, "destreza": 0.07, "agilidad": 0.17, "magia": 0.55},
@@ -515,16 +515,27 @@ static func elegir_material(tipo: int, piso: int, rng: RandomNumberGenerator) ->
 			return o["material"] as MaterialData
 	return (pool.back() as Dictionary)["material"] as MaterialData
 
-# La exigencia MEDIA de lo que sale de ese tipo en ese piso, ponderada por sus pesos. Es lo que usa
-# la excelia (una sola cifra por tipo) y el pronostico de la UI.
-# Para BICHO da 0: sus materiales no tienen exigencia porque no se recolectan (ver mas abajo).
-static func exigencia_media(tipo: int, piso: int) -> float:
+# El RETO MEDIO de un tipo: la media, ponderada por lo que sale, del reto de CADA material suyo.
+#
+# NO es lo mismo que curva_reto(exigencia_media), que es lo que se hacia antes, y la diferencia es
+# gorda cuando una bolsa mezcla cosas facilisimas con cosas durisimas. La Comida junta setas
+# (exigencia 30) con piedra de sal (150): la MEDIA da 90, que cae justo en el codo de la curva y
+# pagaba 2.71 de Destreza por nodo — siete veces lo que una veta de cobre. Material a material, esa
+# misma bolsa paga lo que de verdad se saca: casi nada por las setas y mucho por la sal.
+#
+# Y es ademas lo fiel a "como si lo recogieras tu": tu no recoges el material medio, recoges ESTE.
+static func reto_medio(tipo: int, piso: int, suyo: float, of: Dictionary) -> float:
 	var pool: Array = opciones(tipo, piso)
+	if pool.is_empty():
+		return 0.0
 	var suma: float = 0.0
 	var peso: float = 0.0
 	for o in pool:
-		suma += Game._exigencia_material(o["material"] as MaterialData, piso) * float(o["peso"])
-		peso += float(o["peso"])
+		var ex: float = Game._exigencia_material(o["material"] as MaterialData, piso)
+		var w: float = float(o["peso"])
+		suma += Game.curva_reto(ex / maxf(1.0, suyo), float(of["pivote"]), float(of["slope"]),
+			float(of["tope"])) * w
+		peso += w
 	return suma / maxf(0.001, peso)
 
 # ============================================================
@@ -849,6 +860,23 @@ static func _saturacion_utiles(entradas: Array) -> float:
 # personas daban +1/+7 por stat, cuando jugando esas mismas horas se sacan +100/+200. Veinte a
 # cincuenta veces por debajo, no "algo por debajo".
 
+# CUANTO PAGA UNA FAENA respecto a las demas. Es un ajuste de BALANCE del encargo, no una regla del
+# mundo: hay bolsas que mezclan material facilisimo con material durisimo (la piedra de sal, de
+# exigencia 150, es la mitad de la Comida; y el banco de peces tiene rarezas exigentisimas detras del
+# gobio). Como el sistema paga por lo que te cuesta, esas dos pagaban x5.4 y x3 lo que una veta de
+# cobre, y una sola faena decidia la expedicion entera: el tanque volvia con +74 de Resistencia por
+# haber ido a pescar, no por ser tanque.
+#
+# Con esto ninguna se va mas alla del doble de las demas. Lo que NO se toca es la recoleccion de
+# verdad: jugando, la sal y los peces raros siguen pagando lo que valen.
+const RITMO_FAENA := {
+	Tipo.COMIDA: 0.38,   # x5.4 -> x2
+	Tipo.PESCA: 0.67,    # x3.0 -> x2
+}
+
+static func ritmo_faena(tipo: int) -> float:
+	return float(RITMO_FAENA.get(int(tipo), 1.0))
+
 # Cuantas peleas se comen por hora ahi abajo. Ocho horas cruzando un piso poblado son muchos
 # encontronazos; una cada doce minutos es lo que sale de mirar el aforo y el ritmo de partos.
 const PELEAS_HORA := 5.0
@@ -909,14 +937,13 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 			else:
 				var suyo: float = Game.stat_total_eff(String(of["stat"]), pj) \
 					* Game.RECOLECCION_STAT_PESO + float(of["suelo"]) + afin
-				reto_r = Game.curva_reto(exigencia_media(int(tipo), piso) / maxf(1.0, suyo),
-					float(of["pivote"]), float(of["slope"]), float(of["tope"]))
+				reto_r = reto_medio(int(tipo), piso, suyo, of)
 			salida.append({
 				"uid": pj.uid, "abil": String(of["stat"]), "reto": reto_r,
 				"max_reto": float(of["tope"]),
 				# Por unidades TRABAJADAS, no traidas: currar ocho horas enseña lo mismo aunque la
 				# mochila les obligara a dejar la mitad tirada. Y cada una paga como un nodo entero.
-				"base": float(of["gain"]) * nodos * mult,
+				"base": float(of["gain"]) * nodos * mult * ritmo_faena(int(tipo)),
 			})
 		# --- B) por PELEAR. Se la llevan TODOS aunque el encargo sea de picar piedra: ahi abajo hay
 		# bichos. Game.reto() es la misma funcion que usa el combate, y el requisito del piso ya esta
