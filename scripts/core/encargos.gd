@@ -45,7 +45,14 @@ const FRACASO := 2
 # unidad de encargo paga como un nodo que picas tu, un x3 encima haria que trabajar de encargo
 # enseñara el TRIPLE que hacerlo tu mismo, que es absurdo. El exito es el caso normal, asi que es el
 # que tiene que valer "lo que vale".
-const MULT_DESENLACE := [1.0, 2.0 / 3.0, 1.0 / 3.0]
+# El FRACASO paga poco a proposito. Con el 1/3 de antes, mandarlos a un piso donde fallan el 97% de
+# las veces rendia MAS en valor esperado que mandarlos a uno que se les da bien: el reto crece con la
+# profundidad, y un tercio de una cifra enorme sigue siendo enorme. O sea que la forma optima de
+# jugar era tirar gente a un pozo a que fracasara.
+#
+# Con 0.45 / 0.15 la curva queda como tiene que estar: apretar un poco (donde aun ganas a veces) es
+# lo que mas rinde, y pasarse deja de compensar porque casi nunca vuelven con algo.
+const MULT_DESENLACE := [1.0, 0.45, 0.15]
 const CANTIDAD_DESENLACE := [1.0, 2.0 / 3.0, 1.0 / 3.0]   # material: el mismo 3:2:1 normalizado
 const NOMBRE_DESENLACE := ["Éxito", "A medias", "Fracaso"]
 
@@ -902,6 +909,15 @@ const ABUNDANCIA := {
 static func abundancia(tipo: int) -> float:
 	return float(ABUNDANCIA.get(int(tipo), 1.0))
 
+# LO QUE RINDE UN ENCARGO respecto a hacerlo tu mismo. Es la unica palanca global que queda, y esta
+# aqui para poder moverla sin tocar la forma de la curva.
+#
+# El 0.65 sale del playtest: con el 1.0 (una unidad de encargo = un nodo tuyo) los numeros del piso 1
+# estaban bien, pero mandarlos a un piso donde van justos disparaba las stats — el reto crece con la
+# profundidad y ahi ya no hay un jugador decidiendo si se mete o se retira, solo un reloj. Bajar esto
+# recorta el techo sin aplanar el incentivo: ir mas hondo sigue pagando mas, que es la gracia.
+const RENDIMIENTO := 0.65
+
 # Cuantas peleas se comen por hora ahi abajo. Ocho horas cruzando un piso poblado son muchos
 # encontronazos; una cada doce minutos es lo que sale de mirar el aforo y el ritmo de partos.
 const PELEAS_HORA := 5.0
@@ -968,7 +984,7 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 				"max_reto": float(of["tope"]),
 				# Por unidades TRABAJADAS, no traidas: currar ocho horas enseña lo mismo aunque la
 				# mochila les obligara a dejar la mitad tirada. Y cada una paga como un nodo entero.
-				"base": float(of["gain"]) * nodos * mult * ritmo_faena(int(tipo)),
+				"base": float(of["gain"]) * nodos * mult * ritmo_faena(int(tipo)) * RENDIMIENTO,
 			})
 		# --- B) por PELEAR. Se la llevan TODOS aunque el encargo sea de picar piedra: ahi abajo hay
 		# bichos. Game.reto() es la misma funcion que usa el combate, y el requisito del piso ya esta
@@ -978,7 +994,7 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 		# asi que el total es el mismo de antes y solo cambia el reparto: un mago sale de ahi con
 		# magia y esquiva donde un guerrero pesado sale con brazos.
 		var reto_c: float = Game.reto(req, 1, pj)
-		var base_c: float = peleas(duracion) * VALE_UNA_PELEA * mult
+		var base_c: float = peleas(duracion) * VALE_UNA_PELEA * mult * RENDIMIENTO
 		var pesos: Dictionary = pesos_clase_de(clase_de(miembros, pj.uid), pj)
 		for abil in pesos:
 			var peso: float = float(pesos[abil])
