@@ -266,9 +266,20 @@ static func puntos_equipo(pj: PersonajeData) -> float:
 		var item: Resource = Game._item_equipado_de(slot, pj)
 		if item == null:
 			continue
-		var p: float = puntos_pieza(item, Game._meta(slot, pj))
-		total += p * 2.0 if slot == "main" else p
+		total += puntos_pieza(item, Game._meta(slot, pj)) * _peso_slot(slot, pj)
 	return total
+
+# Cuanto pesa cada ranura. El arma principal vale por DOS, y por TRES si es de dos manos.
+#
+# El x3 no es un premio: es que un arma a dos manos OCUPA la secundaria. Sin esto, un mandoble o un
+# baston se comian los puntos de esa ranura por dejarla vacia —una ranura que no pueden llenar— y
+# salian por debajo de la misma persona con arma de una mano y escudo, como si les faltara una pieza.
+# Con el x3 un dos manos y un una-mano+secundaria cubren lo mismo, que es lo que de verdad pasa.
+static func _peso_slot(slot: String, pj: PersonajeData) -> float:
+	if slot != "main":
+		return 1.0
+	var w: WeaponData = pj.equipped_main as WeaponData
+	return 3.0 if w != null and w.dos_manos else 2.0
 
 static func mult_equipo(pj: PersonajeData) -> float:
 	return clampf(DESNUDO + puntos_equipo(pj) / EQUIPO_DIV, DESNUDO, EQUIPO_TECHO)
