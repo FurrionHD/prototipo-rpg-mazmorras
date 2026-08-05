@@ -45,14 +45,26 @@ const FRACASO := 2
 # unidad de encargo paga como un nodo que picas tu, un x3 encima haria que trabajar de encargo
 # enseñara el TRIPLE que hacerlo tu mismo, que es absurdo. El exito es el caso normal, asi que es el
 # que tiene que valer "lo que vale".
-# El FRACASO paga poco a proposito. Con el 1/3 de antes, mandarlos a un piso donde fallan el 97% de
-# las veces rendia MAS en valor esperado que mandarlos a uno que se les da bien: el reto crece con la
-# profundidad, y un tercio de una cifra enorme sigue siendo enorme. O sea que la forma optima de
-# jugar era tirar gente a un pozo a que fracasara.
+# Cuanto paga cada desenlace. El EXITO es el ancla (1.0 = lo que vale el trabajo) y "a medias" paga
+# casi la mitad, porque algo trajeron.
 #
-# Con 0.45 / 0.15 la curva queda como tiene que estar: apretar un poco (donde aun ganas a veces) es
-# lo que mas rinde, y pasarse deja de compensar porque casi nunca vuelven con algo.
-const MULT_DESENLACE := [1.0, 0.45, 0.15]
+# EL FRACASO NO ES UN NUMERO FIJO: depende de LAS PROBABILIDADES QUE TENIAN. Fallar con un 90% a
+# favor es mala suerte y se compensa; fallar con un 3% es que ya lo sabias cuando los mandaste, y ahi
+# no se paga por tirar gente a un pozo.
+#
+# Sin esto, la forma optima de jugar era justo esa. Con un fracaso a 1/3 fijo, mandarlos a un piso
+# donde fallan el 97% de las veces rendia MAS en valor esperado que mandarlos a uno que se les da
+# bien: el reto crece con la profundidad, y un tercio de una cifra enorme sigue siendo enorme.
+const MULT_EXITO := 1.0
+const MULT_PARCIAL := 0.45
+const FRACASO_SUELO := 0.02    # fallar sabiendolo: casi nada
+const FRACASO_POR_SUERTE := 0.20   # lo que se suma si las probabilidades eran buenas
+
+static func mult_desenlace(desenlace: int, p_exito: float = 1.0) -> float:
+	match desenlace:
+		EXITO: return MULT_EXITO
+		PARCIAL: return MULT_PARCIAL
+		_: return FRACASO_SUELO + FRACASO_POR_SUERTE * clampf(p_exito, 0.0, 1.0)
 const CANTIDAD_DESENLACE := [1.0, 2.0 / 3.0, 1.0 / 3.0]   # material: el mismo 3:2:1 normalizado
 const NOMBRE_DESENLACE := ["Éxito", "A medias", "Fracaso"]
 
@@ -933,11 +945,13 @@ const VALE_UNA_PELEA := 1.6
 # NO las aplica: quien las aplique tiene que llamar a Game.ganar() con el PersonajeData correcto, que
 # en multi puede vivir en otra maquina (ver la nota de las dos vias en net.gd).
 # 'trabajadas' = {tipo: unidades} (las TRABAJADAS, no las traidas), 'afinidades' = {tipo: afinidad}.
-# 'desenlace' escala todo por MULT_DESENLACE (x3 / x2 / x1).
+# 'desenlace' y 'p_exito' escalan todo por mult_desenlace(): el fracaso paga segun las
+# probabilidades que tenian (ver ahi).
 static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Dictionary,
-		afinidades: Dictionary, r_combate: float, desenlace: int, miembros: Array = []) -> Array:
+		afinidades: Dictionary, r_combate: float, desenlace: int, miembros: Array = [],
+		p_exito: float = 1.0) -> Array:
 	var req: float = requisito_combate(piso)
-	var mult: float = float(MULT_DESENLACE[clampi(desenlace, 0, 2)])
+	var mult: float = mult_desenlace(desenlace, p_exito)
 	var todos: Array = _uids(pjs)
 	var salida: Array = []
 	for pj_ in pjs:
@@ -1129,7 +1143,8 @@ static func resolver(e: Dictionary, pjs: Array, entradas_cofre: Array) -> Dictio
 	return {
 		"desenlace": desenlace,
 		"botin": botin,
-		"excelia": excelia_de(pjs, piso, duracion, por_tipo, afinidades, r_c, desenlace, miembros),
+		"excelia": excelia_de(pjs, piso, duracion, por_tipo, afinidades, r_c, desenlace, miembros,
+			float(probs_desenlace(pg, piso)[EXITO])),
 		"partes": partes_de(pjs, duracion, por_tipo, miembros),
 		"trabajadas": trabajadas,
 		"traidas": (corte["traidas"] as Array).size(),
