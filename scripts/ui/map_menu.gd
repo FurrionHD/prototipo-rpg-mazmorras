@@ -28,9 +28,19 @@ const COLOR_PUEBLO := Color(0.9, 0.72, 0.3)
 # negro del plano ese azul no se ve. En un mapa manda que se distinga, no que empareje.
 const COLOR_AGUA := Color(0.26, 0.55, 0.82)
 
+# --- LA TIRA DE PISOS (columna de tarjetas a la izquierda) ---
+# Ancho de la columna entera. El plano se dibuja a partir de aqui: ver _dibujar.
+const ANCHO_TIRA := 132.0
+const TARJETA_ALTO := 64.0
+const TARJETA_SEP := 8.0
+const Y_TIRA := 60.0        # debajo del titulo
+
 var _root: Control = null
 var _lienzo: Control = null
 var _titulo: Label = null
+var _tira: ScrollContainer = null
+var _tira_col: VBoxContainer = null
+var _tarjetas: Dictionary = {}   # piso (int) -> Control de su tarjeta
 var _piso_viendo: int = 1   # piso cuyo mapa se esta MIRANDO (independiente de Game.current_floor)
 
 
@@ -57,6 +67,28 @@ func _ready() -> void:
 	_titulo.add_theme_font_size_override("font_size", 18)
 	_titulo.position = Vector2(MARGEN, 20.0)
 	_root.add_child(_titulo)
+
+	# La TIRA DE PISOS: una tarjeta por piso, en una columna que se desliza. Sustituye al hojeo con
+	# ◀ ▶, que en el movil no existia (no hay teclas) y que ademas no te decia en cual estabas.
+	_tira = ScrollContainer.new()
+	_tira.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_tira.position = Vector2(12.0, Y_TIRA)
+	_tira.size = Vector2(ANCHO_TIRA, 400.0)   # el alto se ajusta en _refrescar, ya con viewport
+	_root.add_child(_tira)
+	_tira_col = VBoxContainer.new()
+	_tira_col.add_theme_constant_override("separation", int(TARJETA_SEP))
+	_tira.add_child(_tira_col)
+	ArrastreScroll.enganchar(_tira)
+
+	# La ✕ de cerrar, arriba a la derecha. Hace falta de verdad: el mapa se cerraba solo con M o
+	# ESC, asi que desde el movil se entraba y no se salia. Va tambien en escritorio.
+	var cerrar: Control = BotonIcono.crear(Callable(Iconos, "equis"), _cerrar, 56.0)
+	cerrar.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	cerrar.offset_left = -12.0 - 56.0
+	cerrar.offset_right = -12.0
+	cerrar.offset_top = 12.0
+	cerrar.offset_bottom = 12.0 + 56.0
+	_root.add_child(cerrar)
 
 
 # ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
@@ -109,7 +141,10 @@ func _toggle() -> void:
 	_piso_viendo = Game.current_floor
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
-	_refrescar()
+	# La tira se rehace CADA VEZ: la lista de pisos crece segun juegas, y el que se rehiciera solo al
+	# nacer el menu la dejaba congelada con los pisos de la primera vez que lo abriste.
+	_rehacer_tira()
+	_ver_piso(_piso_viendo)   # pinta y deja la tira ya puesta en tu piso
 
 
 func _cerrar() -> void:
@@ -123,8 +158,83 @@ func _cerrar() -> void:
 # estas viendo ahora mismo.
 func _pisos_disponibles() -> Array:
 	var out: Array = Game.mapa_visible().keys()
+	# Y SIEMPRE el piso en el que estas, lo tengas cartografiado o no: si no, el piso al que acabas
+	# de bajar no tendria tarjeta y esta libreta —que es como sabes donde estas desde que el numero
+	# se fue del HUD— se quedaria justo sin el dato que importa.
+	if not out.has(Game.current_floor):
+		out.append(Game.current_floor)
 	out.sort()
 	return out
+
+
+# ------------------------------------------------------------
+#  LA TIRA DE PISOS
+#  Dos marcas DISTINTAS, porque son dos cosas distintas y de un vistazo se confunden:
+#    - donde ESTAS (Game.current_floor): borde vivo y la etiqueta "AQUI".
+#    - lo que MIRAS (_piso_viendo): la tarjeta rellena.
+#  Casi siempre coinciden (el mapa abre por tu piso), pero al hojear se separan.
+# ------------------------------------------------------------
+func _rehacer_tira() -> void:
+	for t in _tira_col.get_children():
+		t.queue_free()
+	_tarjetas.clear()
+	for piso in _pisos_disponibles():
+		var tarjeta: Control = _crear_tarjeta(int(piso))
+		_tira_col.add_child(tarjeta)
+		_tarjetas[int(piso)] = tarjeta
+	# El alto se fija aqui y no en _ready porque depende del viewport, que al construirse el menu
+	# todavia no es el definitivo.
+	var alto_util: float = get_viewport().get_visible_rect().size.y - Y_TIRA - 16.0
+	_tira.size = Vector2(ANCHO_TIRA, maxf(120.0, alto_util))
+
+
+func _crear_tarjeta(piso: int) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(ANCHO_TIRA - 16.0, TARJETA_ALTO)
+	c.mouse_filter = Control.MOUSE_FILTER_STOP
+	var font: Font = ThemeDB.fallback_font
+	c.draw.connect(func() -> void:
+		var aqui: bool = piso == Game.current_floor
+		var mirando: bool = piso == _piso_viendo
+		var con_mapa: bool = Game.mapa_visible().has(piso)
+
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.20, 0.24, 0.34, 0.95) if mirando else Color(0.09, 0.10, 0.13, 0.85)
+		sb.border_color = COLOR_SUBE if aqui else Color(1, 1, 1, 0.18)
+		sb.set_border_width_all(3 if aqui else 1)
+		sb.set_corner_radius_all(10)
+		c.draw_style_box(sb, Rect2(Vector2.ZERO, c.size))
+
+		# Un piso sin cartografiar se pinta apagado: se puede mirar igual, pero sale en blanco.
+		var tinta: Color = Color(0.95, 0.95, 1.0) if con_mapa else Color(0.55, 0.55, 0.62)
+		c.draw_string(font, Vector2(14.0, 34.0), "P %d" % piso,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 22, tinta)
+		if aqui:
+			c.draw_string(font, Vector2(14.0, 54.0), "AQUÍ",
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 12, COLOR_SUBE)
+		elif not con_mapa:
+			c.draw_string(font, Vector2(14.0, 54.0), "sin mapa",
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.5, 0.5, 0.57))
+	)
+	c.gui_input.connect(func(event: InputEvent) -> void:
+		# Solo al SOLTAR, y solo si el gesto no se ha convertido en un arrastre de la tira: si no,
+		# deslizar la columna cambiaria de piso a cada dedazo (ver arrastre_scroll.gd).
+		var suelta: bool = (event is InputEventScreenTouch and not (event as InputEventScreenTouch).pressed) \
+			or (event is InputEventMouseButton and not (event as InputEventMouseButton).pressed \
+				and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT)
+		if suelta and not ArrastreScroll.hubo_arrastre(_tira):
+			_ver_piso(piso)
+	)
+	return c
+
+
+# Cambia el plano que se mira. UNICA puerta: por aqui pasan el toque en la tarjeta y las teclas
+# ◀ ▶, para que la marca y el desplazamiento de la tira no dependan de por donde hayas entrado.
+func _ver_piso(piso: int) -> void:
+	_piso_viendo = piso
+	_refrescar()
+	if _tarjetas.has(piso):
+		_tira.ensure_control_visible(_tarjetas[piso])
 
 
 # Salta al piso cartografiado anterior/siguiente (dir = -1/+1). Solo entre los explorados.
@@ -134,21 +244,24 @@ func _cambiar_viendo(dir: int) -> void:
 	if idx == -1:
 		if pisos.is_empty():
 			return
-		_piso_viendo = pisos[0]
+		_ver_piso(int(pisos[0]))
 	else:
-		var nuevo: int = clampi(idx + dir, 0, pisos.size() - 1)
-		_piso_viendo = pisos[nuevo]
-	_refrescar()
+		_ver_piso(int(pisos[clampi(idx + dir, 0, pisos.size() - 1)]))
 
 
 func _refrescar() -> void:
-	var pisos: Array = _pisos_disponibles()
-	var hay_mas: bool = pisos.size() > 1
-	var flechas: String = "   ◀ ▶ pisos" if hay_mas else ""
-	# Con los dedos no hay tecla M que nombrar (se cierra con la X del propio menu).
-	var cerrar: String = "" if Tactil.activo else "   ·  [M] cerrar"
-	_titulo.text = "MAPA · Piso %d%s%s" % [_piso_viendo, flechas, cerrar]
+	# Ni "◀ ▶ pisos" ni "[M] cerrar": la tira de la izquierda ya enseña los pisos y la ✕ ya enseña
+	# por donde se sale, asi que nombrar las teclas encima era ruido.
+	_titulo.text = "MAPA · Piso %d" % _piso_viendo
+	for t in _tira_col.get_children():
+		(t as Control).queue_redraw()   # la marca de "lo que miras" se ha movido
 	_lienzo.queue_redraw()
+
+
+# Donde empieza el plano por la izquierda: justo despues de la tira de pisos. En un solo sitio
+# porque lo miran el dibujo del plano Y el aviso de "sin cartografiar".
+func _x_plano() -> float:
+	return 12.0 + ANCHO_TIRA + MARGEN * 0.5
 
 
 func _dibujar() -> void:
@@ -156,7 +269,7 @@ func _dibujar() -> void:
 	# Sin snapshot, o uno viejo sin la geometria horneada (saves anteriores): nada que dibujar.
 	if snap.is_empty() or not snap.has("suelo"):
 		var f0: Font = ThemeDB.fallback_font
-		_lienzo.draw_string(f0, Vector2(MARGEN, 90.0),
+		_lienzo.draw_string(f0, Vector2(_x_plano(), 90.0),
 			"Aún no has cartografiado este piso. Explóralo y sal con vida.",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.7, 0.7, 0.75))
 		return
@@ -165,10 +278,14 @@ func _dibujar() -> void:
 	var alto: int = int(snap["alto"])
 	var agotados: Dictionary = snap["agotados"]
 
-	# Escala: que el mapa entero quepa en la pantalla con margen, manteniendo proporcion.
-	var area := get_viewport().get_visible_rect().size - Vector2(MARGEN, MARGEN) * 2.0
+	# Escala: que el mapa entero quepa en la pantalla con margen, manteniendo proporcion. El ancho
+	# util arranca DESPUES de la tira de pisos (_x_plano), o el plano se dibujaria por debajo de las
+	# tarjetas y no habria forma de leerlo.
+	var x0: float = _x_plano()
+	var area := get_viewport().get_visible_rect().size \
+		- Vector2(x0 + MARGEN, MARGEN * 2.0)
 	var celda_px: float = minf(area.x / float(ancho), area.y / float(alto))
-	var offset := Vector2(MARGEN, MARGEN) \
+	var offset := Vector2(x0, MARGEN) \
 		+ (area - Vector2(ancho, alto) * celda_px) * 0.5
 
 	# 1) SUELO de las zonas cartografiadas (horneado en la libreta; la niebla es no dibujar el resto).

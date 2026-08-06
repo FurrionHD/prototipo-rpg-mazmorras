@@ -81,6 +81,14 @@ static func engranaje(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> v
 	c.draw_arc(centro, lado * 0.09, 0.0, TAU, 16, col, g * 0.8, true)
 
 
+# --- EQUIS (cerrar): dos aspas ---
+static func equis(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.12
+	var m: float = lado * 0.24   # cuanto se mete el aspa desde el borde de la caja
+	c.draw_line(pos + Vector2(m, m), pos + Vector2(lado - m, lado - m), col, g, true)
+	c.draw_line(pos + Vector2(lado - m, m), pos + Vector2(m, lado - m), col, g, true)
+
+
 # Una capsula (rectangulo con las puntas redondeadas) entre dos puntos: la forma de los rollos del
 # pergamino. draw_line con round=true ya la da hecha, asi que es una linea gorda y ya.
 static func _capsula(c: CanvasItem, a: Vector2, b: Vector2, grosor: float, col: Color, borde: float) -> void:

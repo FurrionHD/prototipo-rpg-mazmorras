@@ -45,6 +45,14 @@ window/handheld/orientation=4
 
 run/main_run_args="--tactil"
 
+[gui]
+
+; Pixeles que hay que arrastrar antes de que un toque deje de ser "he pulsado el boton" y pase a ser
+; "estoy deslizando". Va POR ENCIMA del umbral de arrastre_scroll.gd (16) a proposito: asi el que
+; manda es siempre el nuestro y el arrastre que trae Godot no llega a arrancar, que si arrancaran
+; los dos la lista correria al doble.
+common/default_scroll_deadzone=24
+
 [input]
 
 move_left={

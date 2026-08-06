@@ -356,75 +356,16 @@ func _montar_botonera() -> void:
 	fila.add_theme_constant_override("separation", ICONO_SEP)
 	add_child(fila)
 
-	fila.add_child(_boton_icono(Callable(Iconos, "persona"),
-		_abrir_menu.bind("menu_personaje", "_toggle")))
-	fila.add_child(_boton_icono(Callable(Iconos, "mochila"),
-		_abrir_menu.bind("menu_inventario", "_toggle")))
-	fila.add_child(_boton_icono(Callable(Iconos, "pergamino"),
-		_abrir_menu.bind("menu_mapa", "_toggle")))
+	fila.add_child(BotonIcono.crear(Callable(Iconos, "persona"),
+		_abrir_menu.bind("menu_personaje", "_toggle"), ICONO_LADO))
+	fila.add_child(BotonIcono.crear(Callable(Iconos, "mochila"),
+		_abrir_menu.bind("menu_inventario", "_toggle"), ICONO_LADO))
+	fila.add_child(BotonIcono.crear(Callable(Iconos, "pergamino"),
+		_abrir_menu.bind("menu_mapa", "_toggle"), ICONO_LADO))
 	# La pausa NO va por _toggle: tiene su propia alternar(), que es donde vive la regla de cuando
 	# se puede pausar (ni sobre un combate ni sobre otro menu). Ver pause_menu.gd.
-	fila.add_child(_boton_icono(Callable(Iconos, "engranaje"),
-		_abrir_menu.bind("menu_pausa", "alternar")))
-
-
-# Un boton cuadrado que se pinta solo: fondo redondeado y el icono encima.
-func _boton_icono(dibujo: Callable, al_pulsar: Callable) -> Control:
-	var c := Control.new()
-	c.custom_minimum_size = Vector2(ICONO_LADO, ICONO_LADO)
-	c.mouse_filter = Control.MOUSE_FILTER_STOP
-	c.set_meta("hundido", false)
-	c.draw.connect(func() -> void:
-		var fondo := Color(0.10, 0.11, 0.14, 0.82)
-		var tinta := Color(0.90, 0.90, 0.94)
-		if bool(c.get_meta("hundido")):
-			fondo = Color(0.30, 0.32, 0.40, 0.92)
-		c.draw_style_box(_caja_boton(fondo), Rect2(Vector2.ZERO, c.size))
-		# El icono, con un margen para que no toque el borde del cuadro.
-		var pad: float = ICONO_LADO * 0.18
-		dibujo.call(c, Vector2(pad, pad), ICONO_LADO - pad * 2.0, tinta)
-	)
-	c.gui_input.connect(func(event: InputEvent) -> void:
-		var abajo: bool = false
-		var suelta: bool = false
-		if event is InputEventScreenTouch:
-			abajo = (event as InputEventScreenTouch).pressed
-			suelta = not abajo
-		elif event is InputEventMouseButton:
-			var m := event as InputEventMouseButton
-			if m.button_index != MOUSE_BUTTON_LEFT:
-				return
-			abajo = m.pressed
-			suelta = not m.pressed
-		else:
-			return
-		if abajo:
-			c.set_meta("hundido", true)
-			c.queue_redraw()
-		elif suelta:
-			# Se dispara al SOLTAR, no al pulsar: asi arrastrar el dedo fuera del boton lo cancela,
-			# que es lo que uno espera cuando se da cuenta de que iba a darle al que no era.
-			var dentro: bool = bool(c.get_meta("hundido"))
-			c.set_meta("hundido", false)
-			c.queue_redraw()
-			if dentro:
-				al_pulsar.call()
-	)
-	c.mouse_exited.connect(func() -> void:
-		if bool(c.get_meta("hundido")):
-			c.set_meta("hundido", false)
-			c.queue_redraw()
-	)
-	return c
-
-
-func _caja_boton(fondo: Color) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fondo
-	sb.border_color = Color(1, 1, 1, 0.28)
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(12)
-	return sb
+	fila.add_child(BotonIcono.crear(Callable(Iconos, "engranaje"),
+		_abrir_menu.bind("menu_pausa", "alternar"), ICONO_LADO))
 
 
 # Abre (o cierra) uno de los menus del jugador llamandole a su metodo. NO se finge la tecla:

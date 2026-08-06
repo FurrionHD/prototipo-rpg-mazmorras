@@ -160,6 +160,14 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll_det.add_child(content)
 
+	# DESLIZAR CON EL DEDO. Va aqui y no en cada menu porque este es el sitio por el que pasan los
+	# veinte: la lista y el detalle de todos salen de estas dos lineas. Solo con los dedos, para no
+	# cambiarle el raton a nadie en escritorio (ahi ya esta la rueda). Ver arrastre_scroll.gd para
+	# por que no basta con el arrastre que trae Godot.
+	if Tactil.activo:
+		ArrastreScroll.enganchar(scroll_lista)
+		ArrastreScroll.enganchar(scroll_det)
+
 	return {
 		"root": root, "side": tabs, "header": header, "aviso": aviso,
 		"lista": lista, "lista_scroll": scroll_lista, "content": content, "dinero": dinero,
