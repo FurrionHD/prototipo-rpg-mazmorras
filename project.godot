@@ -156,6 +156,9 @@ cancelar={
 
 [rendering]
 
+; Android EXIGE que este puesto para dejar exportar (aunque hoy no haya ninguna textura comprimida
+; en VRAM: el proyecto va de ColorRects y dibujo por codigo). Sin esto el export se niega en seco.
+textures/vram_compression/import_etc2_astc=true
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
