@@ -37,6 +37,7 @@ var _piso_viendo: int = 1   # piso cuyo mapa se esta MIRANDO (independiente de G
 func _ready() -> void:
 	layer = 92   # como el menu de personaje: por encima del HUD
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
+	add_to_group("menu_mapa")   # lo busca el boton del pergamino del HUD (ver hud.gd)
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.visible = false
@@ -101,15 +102,11 @@ func _toggle() -> void:
 	# Ya NO exige piso vivo: se abre tambien en el pueblo (la libreta es autonoma).
 	if Game._active_layer != null or Game.debug_panel_open or Game.hay_modal():
 		return
-	# Empieza mirando el piso actual si tiene mapa; si no (p.ej. en el pueblo), el mas profundo
-	# ya cartografiado.
-	var pisos: Array = _pisos_disponibles()
-	if Game.mapa_visible().has(Game.current_floor):
-		_piso_viendo = Game.current_floor
-	elif not pisos.is_empty():
-		_piso_viendo = pisos[-1]
-	else:
-		_piso_viendo = Game.current_floor
+	# Empieza SIEMPRE por el piso en el que estas, lo tengas cartografiado o no. Antes, si el piso
+	# era nuevo, saltaba al mas profundo que hubieras traido a salvo: justo lo contrario de lo que
+	# hace falta, porque el numero del piso ya no se enseña en el HUD y esta libreta es ahora la
+	# forma de saber DONDE estas. Sin mapa se abre en blanco, que ya lo cuenta _dibujar().
+	_piso_viendo = Game.current_floor
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_refrescar()
@@ -148,7 +145,9 @@ func _refrescar() -> void:
 	var pisos: Array = _pisos_disponibles()
 	var hay_mas: bool = pisos.size() > 1
 	var flechas: String = "   ◀ ▶ pisos" if hay_mas else ""
-	_titulo.text = "MAPA · Piso %d%s   ·  [M] cerrar" % [_piso_viendo, flechas]
+	# Con los dedos no hay tecla M que nombrar (se cierra con la X del propio menu).
+	var cerrar: String = "" if Tactil.activo else "   ·  [M] cerrar"
+	_titulo.text = "MAPA · Piso %d%s%s" % [_piso_viendo, flechas, cerrar]
 	_lienzo.queue_redraw()
 
 

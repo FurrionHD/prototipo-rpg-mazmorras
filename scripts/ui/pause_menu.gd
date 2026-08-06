@@ -21,6 +21,7 @@ var _aviso: Label = null
 func _ready() -> void:
 	layer = 95   # por encima del HUD, por debajo del combate (100)
 	process_mode = Node.PROCESS_MODE_ALWAYS   # tiene que funcionar con el juego en pausa
+	add_to_group("menu_pausa")   # lo busca el boton del engranaje del HUD (ver hud.gd)
 
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -115,14 +116,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not event.is_action_pressed(&"cancelar"):
 		return
-	# ESC dentro de OTRO menu lo CIERRA y no abre esto. La primera linea de defensa es que cada menu
-	# consume la ESC en su _input (que corre antes que este _unhandled_input), asi que normalmente aqui
-	# no llega nada; hay_modal() es el cinturon por si algun menu se olvida de consumirla. Y con un
-	# combate o una extraccion delante, ESC no hace nada: ahi no se guarda.
-	if not _root.visible and (Game.hay_pantalla_abierta() or Game.hay_modal()):
+	if not alternar():
 		return
-	_set_open(not _root.visible)
 	get_viewport().set_input_as_handled()
+
+
+# Abre o cierra la pausa, con la guarda dentro. Lo llaman las DOS vias (la tecla ESC de arriba y el
+# boton del engranaje del HUD), para que la regla de cuando SE PUEDE pausar viva en un solo sitio y
+# no en dos que se separen el dia que cambie.
+#
+# ESC dentro de OTRO menu lo CIERRA y no abre esto. La primera linea de defensa es que cada menu
+# consume la ESC en su _input (que corre antes que el _unhandled_input de arriba), asi que
+# normalmente ahi no llega nada; hay_modal() es el cinturon por si algun menu se olvida de
+# consumirla. Y con un combate o una extraccion delante no hace nada: ahi no se guarda.
+#
+# Devuelve si ha hecho algo, que es lo que la tecla necesita para saber si consume el evento.
+func alternar() -> bool:
+	if not _root.visible and (Game.hay_pantalla_abierta() or Game.hay_modal()):
+		return false
+	_set_open(not _root.visible)
+	return true
 
 
 func _set_open(abierto: bool) -> void:

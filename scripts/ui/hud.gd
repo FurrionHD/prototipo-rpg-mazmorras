@@ -3,8 +3,11 @@
 #  HUD de exploracion (siempre visible):
 #   - Cuadrado de PESO a la derecha de las barras (placeholder de la bolsa/mochila),
 #     con el numero encima y color gris -> amarillo -> rojo segun la carga.
-#   - "Piso: N" en la esquina superior derecha.
-#   - Linea de ayudas de tecla bajo las barras.
+#   - Linea de ayudas de tecla bajo las barras (en el movil no: alli no hay teclas).
+#   - Con los dedos, la BOTONERA de la esquina superior derecha (personaje, bolsa, mapa, pausa).
+#  El PISO y el DINERO ya no se pintan aqui: el piso se lee en el titulo del mapa (que se abre
+#  siempre por el piso en el que estas) y el dinero, arriba en la bolsa. Tenerlos ademas clavados
+#  en pantalla era repetir dos numeros que ya viven en su sitio.
 #  El INVENTARIO vive ahora en inventory_menu.gd (tecla I) y las stats en
 #  character_menu.gd (tecla C). Las barras de vida/energia/mana las pinta player.gd.
 # ============================================================
@@ -12,8 +15,6 @@
 extends CanvasLayer
 
 var _counts: Label = null
-var _floor_lbl: Label = null    # "Piso: N" en la esquina superior derecha
-var _money_lbl: Label = null    # monedas, debajo del piso
 var _peso_box: ColorRect = null # cuadrado (placeholder de bolsa) a la derecha de las barras
 var _peso_lbl: Label = null     # numero de peso encima del cuadrado
 # La caja de ayudas de teclas. Va debajo de las barras y no se mueve, pero se guarda por si algun
@@ -56,43 +57,12 @@ func _ready() -> void:
 	_counts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	caja.add_child(_counts)
 
-	# "Piso: N" y las MONEDAS en la esquina superior derecha, en el mismo panel negro
-	# semitransparente (sobre una pared clara, el texto a pelo no se leia).
-	var esq := PanelContainer.new()
-	esq.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	esq.offset_left = -170
-	esq.offset_right = -12
-	esq.offset_top = 8
-	esq.add_theme_stylebox_override("panel", _fondo_negro())
-	esq.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(esq)
-
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 0)
-	esq.add_child(col)
-
-	_floor_lbl = Label.new()
-	_floor_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_floor_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(_floor_lbl)
-
-	# Monedas, justo debajo del piso: ahora que la tienda cobra, hay que ver lo que llevas.
-	_money_lbl = Label.new()
-	_money_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_money_lbl.add_theme_color_override("font_color", Color(0.95, 0.86, 0.5))
-	_money_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(_money_lbl)
-
-	# En el movil, debajo del dinero: los dos menus que se abren a mano. El panel de la esquina
-	# tiene que dejar de ser IGNORE o los botones no reciben el toque.
+	# La esquina superior derecha es AHORA la botonera, y solo eso. El "Piso: N" y las monedas que
+	# vivian aqui se han ido: los dos numeros ya estan donde toca mirarlos —el piso, en el titulo del
+	# mapa (que ademas se abre siempre por el piso en el que estas); el dinero, arriba en la bolsa—,
+	# y tenerlos ademas pegados en pantalla era repetirlos por repetirlos.
 	if Tactil.activo:
-		esq.mouse_filter = Control.MOUSE_FILTER_PASS
-		var fila := HBoxContainer.new()
-		fila.alignment = BoxContainer.ALIGNMENT_END
-		fila.add_theme_constant_override("separation", 6)
-		col.add_child(fila)
-		fila.add_child(_boton_menu("Personaje", "menu_personaje"))
-		fila.add_child(_boton_menu("Bolsa", "menu_inventario"))
+		_montar_botonera()
 
 	# Cuadrado de PESO (placeholder de una futura bolsa/mochila) a la derecha de las
 	# barras, con el numero encima. Cambia de color segun te vas cargando.
@@ -362,21 +332,108 @@ func _fondo_negro() -> StyleBoxFlat:
 	return sb
 
 
-# Un boton que abre (o cierra) uno de los menus del jugador. Le llama a su _toggle() en vez de
-# fingir la tecla: Input.action_press no genera un evento de teclado y esos menus escuchan eventos,
-# asi que por ahi no se enterarian. Ver inventory_menu.gd.
-func _boton_menu(texto: String, grupo: String) -> Button:
-	var b := Button.new()
-	b.text = texto
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(0, 34)
-	b.add_theme_font_size_override("font_size", 12)
-	b.pressed.connect(func() -> void:
-		var m: Node = get_tree().get_first_node_in_group(grupo)
-		if m != null and m.has_method("_toggle"):
-			m._toggle()
+# ============================================================
+#  LA BOTONERA (solo con los dedos): personaje, bolsa, mapa y pausa, arriba a la derecha.
+#
+#  72 px de lado y no los 34 de altura que tenian antes: 34 px en la resolucion de referencia
+#  (1280x720) son ~3 mm de pantalla real, la mitad de lo que un pulgar acierta. 72 salen a ~7 mm,
+#  que es la talla que se recomienda para un objetivo tactil.
+#
+#  Los cuatro con sus huecos ocupan ~310 px de los 1280: no llegan a chocar con las tarjetas del
+#  grupo, que con cuatro miembros acaban en el 764 (ver player.x_columna).
+# ============================================================
+const ICONO_LADO := 72.0
+const ICONO_SEP := 10.0
+const ICONO_MARGEN := 12.0
+
+
+func _montar_botonera() -> void:
+	var fila := HBoxContainer.new()
+	fila.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	fila.offset_right = -ICONO_MARGEN
+	fila.offset_top = ICONO_MARGEN
+	fila.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	fila.add_theme_constant_override("separation", ICONO_SEP)
+	add_child(fila)
+
+	fila.add_child(_boton_icono(Callable(Iconos, "persona"),
+		_abrir_menu.bind("menu_personaje", "_toggle")))
+	fila.add_child(_boton_icono(Callable(Iconos, "mochila"),
+		_abrir_menu.bind("menu_inventario", "_toggle")))
+	fila.add_child(_boton_icono(Callable(Iconos, "pergamino"),
+		_abrir_menu.bind("menu_mapa", "_toggle")))
+	# La pausa NO va por _toggle: tiene su propia alternar(), que es donde vive la regla de cuando
+	# se puede pausar (ni sobre un combate ni sobre otro menu). Ver pause_menu.gd.
+	fila.add_child(_boton_icono(Callable(Iconos, "engranaje"),
+		_abrir_menu.bind("menu_pausa", "alternar")))
+
+
+# Un boton cuadrado que se pinta solo: fondo redondeado y el icono encima.
+func _boton_icono(dibujo: Callable, al_pulsar: Callable) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(ICONO_LADO, ICONO_LADO)
+	c.mouse_filter = Control.MOUSE_FILTER_STOP
+	c.set_meta("hundido", false)
+	c.draw.connect(func() -> void:
+		var fondo := Color(0.10, 0.11, 0.14, 0.82)
+		var tinta := Color(0.90, 0.90, 0.94)
+		if bool(c.get_meta("hundido")):
+			fondo = Color(0.30, 0.32, 0.40, 0.92)
+		c.draw_style_box(_caja_boton(fondo), Rect2(Vector2.ZERO, c.size))
+		# El icono, con un margen para que no toque el borde del cuadro.
+		var pad: float = ICONO_LADO * 0.18
+		dibujo.call(c, Vector2(pad, pad), ICONO_LADO - pad * 2.0, tinta)
 	)
-	return b
+	c.gui_input.connect(func(event: InputEvent) -> void:
+		var abajo: bool = false
+		var suelta: bool = false
+		if event is InputEventScreenTouch:
+			abajo = (event as InputEventScreenTouch).pressed
+			suelta = not abajo
+		elif event is InputEventMouseButton:
+			var m := event as InputEventMouseButton
+			if m.button_index != MOUSE_BUTTON_LEFT:
+				return
+			abajo = m.pressed
+			suelta = not m.pressed
+		else:
+			return
+		if abajo:
+			c.set_meta("hundido", true)
+			c.queue_redraw()
+		elif suelta:
+			# Se dispara al SOLTAR, no al pulsar: asi arrastrar el dedo fuera del boton lo cancela,
+			# que es lo que uno espera cuando se da cuenta de que iba a darle al que no era.
+			var dentro: bool = bool(c.get_meta("hundido"))
+			c.set_meta("hundido", false)
+			c.queue_redraw()
+			if dentro:
+				al_pulsar.call()
+	)
+	c.mouse_exited.connect(func() -> void:
+		if bool(c.get_meta("hundido")):
+			c.set_meta("hundido", false)
+			c.queue_redraw()
+	)
+	return c
+
+
+func _caja_boton(fondo: Color) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = fondo
+	sb.border_color = Color(1, 1, 1, 0.28)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(12)
+	return sb
+
+
+# Abre (o cierra) uno de los menus del jugador llamandole a su metodo. NO se finge la tecla:
+# Input.action_press no genera un evento de teclado y esos menus escuchan eventos, asi que por ahi
+# no se enterarian (ver inventory_menu.gd).
+func _abrir_menu(grupo: String, metodo: String) -> void:
+	var m: Node = get_tree().get_first_node_in_group(grupo)
+	if m != null and m.has_method(metodo):
+		m.call(metodo)
 
 
 func _process(_delta: float) -> void:
@@ -385,10 +442,6 @@ func _process(_delta: float) -> void:
 	# que ponerla nueve veces por el pueblo era ruido. Va la primera por ser la que mas se usa.
 	if not Tactil.activo:
 		_counts.text = "[F] Interactuar   [I] Inventario   [C] Personaje   [Q] Curación óptima\n[F1] Ayuda   [F3] FPS   [Esc] Pausa"
-
-	# Piso arriba a la derecha, y el dinero debajo.
-	_floor_lbl.text = "Piso: %d" % Game.current_floor
-	_money_lbl.text = "%d monedas" % Game.money
 
 	# Cuadrado de PESO: numero encima y color por ratio de carga.
 	# Blanco/gris cuando vas ligero -> amarillo al acercarte al limite -> rojo sobrecargado.
