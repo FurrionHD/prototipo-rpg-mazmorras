@@ -1413,9 +1413,11 @@ func _ready() -> void:
 # Encaja solo porque ya se pintaban a dos columnas (ver _rejilla_submenu): al abrir uno se sustituye
 # una rejilla de 2 por otra de 2 en el MISMO sitio, asi que la pantalla no salta ni hay que
 # rediseñarlos.
-const ANCHO_PANEL_ACCIONES := 360.0
-const ANCHO_BOTON_ACCION := 168.0
-const ALTO_BOTON_ACCION := 62.0
+# La rejilla ocupa TODO el ancho que queda a la izquierda del log, en 3 columnas x 2 filas: con las
+# 2x3 de antes, el panel media 360 px y dejaba media franja de abajo sin usar.
+const COLUMNAS_ACCION := 3
+const ANCHO_BOTON_ACCION := 168.0   # minimo; los botones se reparten el ancho sobrante
+const ALTO_BOTON_ACCION := 76.0
 # La linea de accion (turn_timeline) se come los ultimos 80 px de la pantalla. Todo lo de abajo
 # tiene que quedarse por encima de ella.
 const HUECO_TIMELINE := 96.0
@@ -1426,21 +1428,23 @@ func _crear_acciones() -> void:
 	# botones son lo que se toca y van al alcance del pulgar, el texto es lo que se lee y va a la
 	# columna de la derecha.
 	_panel_acciones = VBoxContainer.new()
-	_panel_acciones.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_panel_acciones.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_panel_acciones.offset_left = 16.0 + Tactil.borde.x
-	_panel_acciones.offset_right = 16.0 + Tactil.borde.x + ANCHO_PANEL_ACCIONES
+	# Hasta donde empieza la columna del log: la franja de abajo entera es suya.
+	_panel_acciones.offset_right = -ANCHO_LOG - 32.0 - Tactil.borde.x
 	_panel_acciones.offset_bottom = -HUECO_TIMELINE - Tactil.borde.y
-	_panel_acciones.offset_top = _panel_acciones.offset_bottom - ALTO_BOTON_ACCION * 3.0 - 24.0
+	_panel_acciones.offset_top = _panel_acciones.offset_bottom - ALTO_BOTON_ACCION * 2.0 - 20.0
 	_panel_acciones.alignment = BoxContainer.ALIGNMENT_END
 	_panel_acciones.add_theme_constant_override("separation", 8)
 	_panel_acciones.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(_panel_acciones)
 
-	# Los seis, en rejilla de 2x3.
+	# Los seis, en rejilla de 3x2 y repartiendose el ancho.
 	_actions_box = GridContainer.new()
-	(_actions_box as GridContainer).columns = 2
-	_actions_box.add_theme_constant_override("h_separation", 8)
-	_actions_box.add_theme_constant_override("v_separation", 8)
+	(_actions_box as GridContainer).columns = COLUMNAS_ACCION
+	_actions_box.add_theme_constant_override("h_separation", 10)
+	_actions_box.add_theme_constant_override("v_separation", 10)
+	_actions_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_panel_acciones.add_child(_actions_box)
 	var defs := [
 		[Action.ATTACK, "Atacar"],
@@ -1454,7 +1458,8 @@ func _crear_acciones() -> void:
 		var b := TooltipButton.new()   # tooltip con ancho maximo (ver tooltip_button.gd)
 		b.text = d[1]
 		b.custom_minimum_size = Vector2(ANCHO_BOTON_ACCION, ALTO_BOTON_ACCION)
-		b.add_theme_font_size_override("font_size", 17)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # se reparten la franja a partes iguales
+		b.add_theme_font_size_override("font_size", 18)
 		var id: int = d[0]
 		b.pressed.connect(_on_action.bind(id))
 		_actions_box.add_child(b)
@@ -1482,7 +1487,12 @@ func _crear_acciones() -> void:
 # Quien llame a esto ya ha vaciado la caja (los hijos del VBox, grid incluido, se van de una).
 func _rejilla_submenu(caja: VBoxContainer) -> GridContainer:
 	var grid := GridContainer.new()
-	grid.columns = 2
+	# Las MISMAS columnas que la rejilla de acciones: los submenus comparten panel con ella, y con
+	# un numero distinto la franja cambiaria de forma al abrir uno.
+	grid.columns = COLUMNAS_ACCION
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	caja.add_child(grid)
 	return grid
 
