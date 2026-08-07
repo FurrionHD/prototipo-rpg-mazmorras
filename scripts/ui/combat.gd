@@ -1475,6 +1475,17 @@ func _crear_acciones() -> void:
 	# Submenu de objetos/pociones (KAN-57).
 	_objeto_box = VBoxContainer.new()
 	_panel_acciones.add_child(_objeto_box)
+
+	# CONTINUAR (el del final del combate) se muda aqui abajo con los demas. Vivia arriba, pegado a
+	# las barras: justo donde NO esta el pulgar despues de haber estado pulsando en esta franja toda
+	# la pelea. Va el ultimo del VBox para que salga en el mismo sitio que la rejilla, que a esas
+	# alturas ya esta escondida.
+	_continue_button.get_parent().remove_child(_continue_button)
+	_panel_acciones.add_child(_continue_button)
+	_continue_button.custom_minimum_size = Vector2(0, ALTO_BOTON_ACCION)
+	_continue_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_continue_button.add_theme_font_size_override("font_size", 20)
+
 	_ocultar_cajas()
 
 
