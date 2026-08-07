@@ -361,11 +361,15 @@ func _pintar_detalle() -> void:
 	var campo := LineEdit.new()
 	campo.text = String(e.get("contrasena", ""))
 	campo.secret = true
-	campo.custom_minimum_size = Vector2(260, 0)
+	# A lo ancho de la columna y con la misma altura que los botones de debajo: un campo de texto es
+	# tambien un objetivo que hay que acertar para escribir en el.
+	campo.custom_minimum_size = Vector2(0, ALTO_BOTON_FICHA)
+	campo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(campo)
 
 	var botones := HBoxContainer.new()
-	botones.add_theme_constant_override("separation", 8)
+	botones.add_theme_constant_override("separation", 10)
+	botones.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(botones)
 
 	if bool(e.get("mio", false)):
@@ -381,10 +385,20 @@ func _pintar_detalle() -> void:
 	_boton(botones, "Borrar de mi lista", func(): _borrar(_sel))
 
 
+# Los botones de la ficha del mundo ("Abrir y jugar", "Borrar de mi lista"...). Se REPARTEN el
+# ancho de su columna a partes iguales y son altos: eran del tamaño de su texto, o sea dos objetivos
+# pequeños y de distinto tamaño pegados el uno al otro, que con el pulgar es la receta para darle al
+# que no era.
+const ALTO_BOTON_FICHA := 52.0
+
+
 func _boton(caja: BoxContainer, txt: String, fn: Callable) -> void:
 	var b := Button.new()
 	b.text = txt
 	b.disabled = _trabajando
+	b.custom_minimum_size = Vector2(0, ALTO_BOTON_FICHA)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_theme_font_size_override("font_size", 16)
 	b.pressed.connect(fn)
 	caja.add_child(b)
 
