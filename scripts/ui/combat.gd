@@ -1416,16 +1416,22 @@ func _ready() -> void:
 const ANCHO_PANEL_ACCIONES := 360.0
 const ANCHO_BOTON_ACCION := 168.0
 const ALTO_BOTON_ACCION := 62.0
+# La linea de accion (turn_timeline) se come los ultimos 80 px de la pantalla. Todo lo de abajo
+# tiene que quedarse por encima de ella.
+const HUECO_TIMELINE := 96.0
 
 
 func _crear_acciones() -> void:
+	# ABAJO A LA IZQUIERDA, donde antes estaba el historial. El log se ha ido al otro lado: los
+	# botones son lo que se toca y van al alcance del pulgar, el texto es lo que se lee y va a la
+	# columna de la derecha.
 	_panel_acciones = VBoxContainer.new()
-	_panel_acciones.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	_panel_acciones.offset_left = -ANCHO_PANEL_ACCIONES - Tactil.borde.x
-	_panel_acciones.offset_right = -16.0 - Tactil.borde.x
-	_panel_acciones.offset_top = 16.0 + Tactil.borde.y
-	_panel_acciones.offset_bottom = -16.0 - Tactil.borde.y
-	_panel_acciones.alignment = BoxContainer.ALIGNMENT_CENTER
+	_panel_acciones.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_panel_acciones.offset_left = 16.0 + Tactil.borde.x
+	_panel_acciones.offset_right = 16.0 + Tactil.borde.x + ANCHO_PANEL_ACCIONES
+	_panel_acciones.offset_bottom = -HUECO_TIMELINE - Tactil.borde.y
+	_panel_acciones.offset_top = _panel_acciones.offset_bottom - ALTO_BOTON_ACCION * 3.0 - 24.0
+	_panel_acciones.alignment = BoxContainer.ALIGNMENT_END
 	_panel_acciones.add_theme_constant_override("separation", 8)
 	_panel_acciones.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(_panel_acciones)
@@ -1538,9 +1544,8 @@ func _setup_ui() -> void:
 	for i in _aliados.size():
 		_anadir_bloque_aliado(_aliados[i])
 	_seleccionar(0)
-	# El log siempre muestra LOG_MAX lineas (ver _set_log), asi que ocupa un alto FIJO y
-	# los botones no se mueven. clip_text evita que una linea larga se derrame a la dcha.
-	_log.clip_text = true
+	# El log lo configura _montar_log (columna derecha, con las frases partidas en varias lineas).
+	# Aqui ya NO se le pone clip_text: recortar era de cuando vivia en una linea por frase.
 	_update_hp()
 	_continue_button.visible = false
 	_ocultar_cajas()
@@ -5256,10 +5261,15 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	_difundir()
 
 
-# Log-HISTORIAL: cada evento se apila como una linea nueva y se muestran las
-# ultimas LOG_MAX (antes era una sola linea que se sobrescribia y no daba tiempo a
-# leer los DoT / lo que aplicabas). Evita duplicar la misma linea consecutiva.
-const LOG_MAX := 6
+# Log-HISTORIAL: cada evento se apila como una frase nueva (antes era una sola linea que se
+# sobrescribia y no daba tiempo a leer los DoT / lo que aplicabas). Evita duplicar la misma
+# consecutiva.
+#
+# LOG_MAX son FRASES guardadas, no lineas pintadas: desde que el log vive en su columna, cada frase
+# ocupa las lineas que necesite y lo que sobra por arriba lo recorta la caja (ver _montar_log). Se
+# guardan de sobra —el limite de verdad es el sitio— y ya no hace falta rellenar con lineas vacias
+# para cuadrar un alto fijo.
+const LOG_MAX := 20
 var _log_lines: Array[String] = []
 
 func _set_log(texto: String) -> void:
@@ -5268,13 +5278,8 @@ func _set_log(texto: String) -> void:
 	_log_lines.append(texto)
 	while _log_lines.size() > LOG_MAX:
 		_log_lines.pop_front()
-	# Se muestran SIEMPRE LOG_MAX lineas (rellenando con vacias ARRIBA cuando hay menos):
-	# asi el log ocupa un alto FIJO desde el primer frame y los botones de accion NO se
-	# desplazan al ir creciendo el historial. El texto nuevo queda pegado a los botones.
-	var display: Array[String] = _log_lines.duplicate()
-	while display.size() < LOG_MAX:
-		display.insert(0, "")
-	_log.text = "\n".join(display)
+	_log.text = "\n".join(_log_lines)
+	_recolocar_log()
 
 
 # Aplica el aturdir a un objetivo y devuelve el texto para el log. Dos niveles (KAN-58):
@@ -5530,15 +5535,64 @@ func _anadir_fondo() -> void:
 func _montar_columna() -> void:
 	_col = $VBox
 	_col.mouse_filter = Control.MOUSE_FILTER_PASS
-	# Se le deja libre a la derecha el ancho del panel de acciones: si no, el log y los bloques se
-	# meterian por debajo de los botones. El borde seguro del aparato va aparte (ver Tactil.borde).
-	_col.offset_right = -ANCHO_PANEL_ACCIONES - 24.0 - Tactil.borde.x
+	# Se le deja libre a la derecha el ancho de la columna del log. El borde seguro del aparato va
+	# aparte (ver Tactil.borde).
+	_col.offset_right = -ANCHO_LOG - 32.0 - Tactil.borde.x
 	_col.offset_left = Tactil.borde.x
 	_col.offset_top = Tactil.borde.y
-	# El LOG con letra mas grande: ahora tiene toda la mitad izquierda para el y era lo que peor se
-	# leia de la pantalla. Sus lineas (LOG_MAX) y su alto fijo no se tocan, que es lo que impide que
-	# los bloques bailen segun se va llenando.
-	_log.add_theme_font_size_override("font_size", 20)
+	_montar_log()
+
+
+# EL HISTORIAL, en una columna a la derecha. Antes vivia abajo a la izquierda, en una linea por
+# frase recortada a lo que cupiera, y con un alto fijo de LOG_MAX lineas para que los botones no
+# bailaran debajo. Ahora que los botones estan en la otra esquina, nada de eso hace falta:
+#
+#   - Cada frase se PARTE en las lineas que necesite (autowrap) en vez de recortarse. Lo que decia
+#     un golpe entero se lee entero.
+#   - El limite ya no son 6 lineas, es EL SITIO: la columna llega desde arriba hasta un poco por
+#     encima de la linea de accion.
+#   - El texto se pega ABAJO y crece hacia arriba, con la caja recortando por el techo: lo ultimo
+#     que ha pasado esta siempre a la vista, y lo viejo se va por arriba solo.
+const ANCHO_LOG := 460.0
+var _log_caja: Control = null
+
+
+func _montar_log() -> void:
+	_log_caja = Control.new()
+	_log_caja.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
+	_log_caja.offset_left = -ANCHO_LOG - 16.0 - Tactil.borde.x
+	_log_caja.offset_right = -16.0 - Tactil.borde.x
+	_log_caja.offset_top = 16.0 + Tactil.borde.y
+	_log_caja.offset_bottom = -HUECO_TIMELINE - Tactil.borde.y
+	# Lo que se sale por arriba se CORTA (no se dibuja encima de los bloques): es lo que deja que el
+	# texto crezca hacia arriba sin limite aparente y que lo viejo se pierda solo.
+	_log_caja.clip_contents = true
+	_log_caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_log_caja)
+
+	_log.get_parent().remove_child(_log)
+	_log_caja.add_child(_log)
+	_log.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_log.offset_left = 0.0
+	_log.offset_right = 0.0
+	_log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_log.clip_text = false
+	_log.add_theme_font_size_override("font_size", 18)
+	_log.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Al cambiar el tamaño de la ventana el ancho cambia, y con el las lineas que ocupa cada frase.
+	_log_caja.resized.connect(_recolocar_log)
+
+
+# Pega el texto al SUELO de su caja y lo deja crecer hacia arriba. Se hace a mano y no con anclajes
+# porque un Label con autowrap calcula su alto a partir de su ANCHO, y con los anclajes de abajo el
+# ancho todavia no estaba resuelto cuando Godot pedia la altura: salia un alto absurdo (medido:
+# 22907 px con ocho frases) y el texto se iba de la pantalla.
+func _recolocar_log() -> void:
+	if _log == null or _log_caja == null or _log_caja.size.x < 10.0:
+		return
+	var alto: float = _log.get_combined_minimum_size().y
+	_log.offset_top = _log_caja.size.y - alto
+	_log.offset_bottom = _log_caja.size.y
 	# Dos filas simetricas, ellos arriba y los tuyos debajo. Centradas: con 1 o 2 bloques la fila
 	# queda en medio de la pantalla en vez de pegada a la izquierda con un hueco raro al lado.
 	_bloques_box = _crear_fila_bloques()
