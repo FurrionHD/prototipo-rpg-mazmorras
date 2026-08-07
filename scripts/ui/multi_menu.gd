@@ -63,6 +63,14 @@ func _ready() -> void:
 	# MenuScaffold.construir) y las pestañas siguen en la cabecera, donde ya estaban.
 	_piezas = MenuScaffold.construir(_capa, "MULTIJUGADOR", "Mundos compartidos", _volver,
 		false, false)
+	# LA PANTALLA A MEDIAS. El scaffold le da a la lista un ancho FIJO (ANCHO_LISTA, pensado para
+	# una cuadricula de items de 150), y aqui dentro no hay items: hay TARJETAS DE MUNDO con el
+	# nombre, el personaje, el piso y el dinero. En 330 px eso se cortaba a media palabra.
+	# Las dos columnas pasan a repartirse el sitio al 50%, que es justo lo que pedia esta pantalla:
+	# la mitad para elegir mundo y la mitad para su ficha.
+	var lista_scroll: ScrollContainer = _piezas["lista_scroll"]
+	lista_scroll.custom_minimum_size = Vector2(0, 0)
+	lista_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	(_piezas["root"] as Control).visible = true
 	Mundos.aviso.connect(func(t: String): MenuScaffold.decir(_piezas["aviso"], t, true))
 	Nube.cerrojo_perdido.connect(func(m: String): MenuScaffold.decir(_piezas["aviso"], m, false))
@@ -131,6 +139,7 @@ func _fila_mundo(lista: VBoxContainer, e: Dictionary) -> void:
 	var clave: String = String(e["clave"])
 	var caja := HBoxContainer.new()
 	caja.add_theme_constant_override("separation", 6)
+	caja.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lista.add_child(caja)
 
 	# El ICONO del mundo (el jugador elige una imagen suya, como con los personajes): es lo que hace
@@ -154,7 +163,10 @@ func _fila_mundo(lista: VBoxContainer, e: Dictionary) -> void:
 	# debajo en gris de quien es la partida que hay dentro. El boton va sin texto y con las lineas
 	# de hijos, que es la unica forma de tener dos tamaños de letra dentro de un Button.
 	var b := Button.new()
+	# El ancho es un MINIMO: la tarjeta se estira con su media pantalla, que es lo que hace que el
+	# "· 22519 monedas" del final quepa en vez de cortarse.
 	b.custom_minimum_size = Vector2(ANCHO_MUNDO, ALTO_MUNDO)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.toggle_mode = true
 	b.button_pressed = (clave == _sel)
 	b.pressed.connect(func():
