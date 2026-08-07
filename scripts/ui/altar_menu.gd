@@ -47,7 +47,7 @@ func _ready() -> void:
 	_root = m["root"]
 	_content = m["content"]
 	_side = m["side"]
-	(m["lista_scroll"] as ScrollContainer).visible = false
+	MenuScaffold.solo_detalle(m)   # sin cuadricula: el detalle solo, centrado y legible
 
 
 func abrir() -> void:

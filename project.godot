@@ -47,10 +47,6 @@ run/main_run_args="--tactil"
 
 [gui]
 
-; Pixeles que hay que arrastrar antes de que un toque deje de ser "he pulsado el boton" y pase a ser
-; "estoy deslizando". Va POR ENCIMA del umbral de arrastre_scroll.gd (16) a proposito: asi el que
-; manda es siempre el nuestro y el arrastre que trae Godot no llega a arrancar, que si arrancaran
-; los dos la lista correria al doble.
 common/default_scroll_deadzone=24
 
 [input]
@@ -156,9 +152,7 @@ cancelar={
 
 [rendering]
 
-; Android EXIGE que este puesto para dejar exportar (aunque hoy no haya ninguna textura comprimida
-; en VRAM: el proyecto va de ColorRects y dibujo por codigo). Sin esto el export se niega en seco.
-textures/vram_compression/import_etc2_astc=true
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true

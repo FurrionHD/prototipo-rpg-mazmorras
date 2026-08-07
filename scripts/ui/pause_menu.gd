@@ -44,10 +44,10 @@ func _ready() -> void:
 	sb.border_color = Color(0.87, 0.57, 0.26, 0.7)
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(8)
-	sb.content_margin_left = 28
-	sb.content_margin_right = 28
-	sb.content_margin_top = 22
-	sb.content_margin_bottom = 22
+	sb.content_margin_left = 42
+	sb.content_margin_right = 42
+	sb.content_margin_top = 32
+	sb.content_margin_bottom = 32
 	panel.add_theme_stylebox_override("panel", sb)
 	center.add_child(panel)
 
@@ -58,7 +58,7 @@ func _ready() -> void:
 	var tit := Label.new()
 	tit.text = "PAUSA"
 	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tit.add_theme_font_size_override("font_size", 20)
+	tit.add_theme_font_size_override("font_size", 28)
 	tit.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
 	vb.add_child(tit)
 
@@ -96,17 +96,26 @@ func _ready() -> void:
 		var n := Label.new()
 		n.text = "En un mundo compartido siempre se guarda al salir."
 		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		n.custom_minimum_size = Vector2(260, 0)
+		n.custom_minimum_size = Vector2(ANCHO_BOTON, 0)
 		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		n.add_theme_font_size_override("font_size", 11)
 		n.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
 		vb.add_child(n)
 
 
+# 420x56 y no 260 de ancho por lo alto que salga: con el pulgar, un boton de 31 px de alto es una
+# loteria. Con los CINCO de un jugador (reanudar, LAN, guardar, guardar y salir, salir sin guardar)
+# son ~420 px de alto contando titulo y nota, que entran de sobra en los 720 de referencia; en un
+# mundo compartido son tres y sobra aire.
+const ANCHO_BOTON := 420.0
+const ALTO_BOTON := 56.0
+
+
 func _boton(vb: VBoxContainer, txt: String, fn: Callable) -> void:
 	var b := Button.new()
 	b.text = txt
-	b.custom_minimum_size = Vector2(260, 0)
+	b.custom_minimum_size = Vector2(ANCHO_BOTON, ALTO_BOTON)
+	b.add_theme_font_size_override("font_size", 17)
 	b.pressed.connect(fn)
 	vb.add_child(b)
 

@@ -75,8 +75,9 @@ func _ready() -> void:
 	_header = m["header"]
 	_content = m["content"]
 	_aviso_lbl = m["aviso"]
-	# El peletero no tiene cuadricula de piezas: una sola columna, a lo ancho.
-	(m["lista_scroll"] as ScrollContainer).visible = false
+	# El peletero no tiene cuadricula de piezas: una sola columna, con ancho de lectura y
+	# centrada (ver MenuScaffold.solo_detalle: a lo ancho de la pantalla se desparramaba).
+	MenuScaffold.solo_detalle(m)
 
 	for i in TABS.size():
 		var b := Button.new()

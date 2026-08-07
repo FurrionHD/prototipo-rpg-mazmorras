@@ -118,7 +118,8 @@ const ALTO_CHIPS := 56.0
 # genera por codigo (convencion: UI por codigo por ahora) y es de datos, asi
 # futuras acciones (habilidades, objetos) solo añaden una entrada.
 enum Action { ATTACK, HABILIDAD, MAGIC, DEFEND, OBJETO, FLEE }
-var _actions_box: HBoxContainer = null
+var _actions_box: Container = null       # rejilla 2x3 de las seis acciones
+var _panel_acciones: VBoxContainer = null  # la columna de la derecha donde viven todas
 var _action_buttons: Dictionary = {}   # Action(int) -> Button
 var _ability_box: VBoxContainer = null   # submenu de habilidades (KAN-57)
 var _objeto_box: VBoxContainer = null    # submenu de objetos/pociones (KAN-57)
@@ -1405,14 +1406,36 @@ func _ready() -> void:
 		" + ".join(rivales), " + ".join(mios), quien])
 
 
-# Crea la barra de acciones (KAN-55): Atacar / Magia / Defender / Huir, de datos.
+# El PANEL DE ACCIONES, a la derecha de la pantalla. Los seis botones eran una fila de texto pequeño
+# abajo del todo, pegada al log: con el pulgar era una loteria.
+#
+# Y los SUBMENUS (habilidades, magia, objetos, recitado) viven en el mismo panel, no debajo del log.
+# Encaja solo porque ya se pintaban a dos columnas (ver _rejilla_submenu): al abrir uno se sustituye
+# una rejilla de 2 por otra de 2 en el MISMO sitio, asi que la pantalla no salta ni hay que
+# rediseñarlos.
+const ANCHO_PANEL_ACCIONES := 360.0
+const ANCHO_BOTON_ACCION := 168.0
+const ALTO_BOTON_ACCION := 62.0
+
+
 func _crear_acciones() -> void:
-	# Espaciador: baja un pelin los botones de accion para que no queden pegados al log.
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 8)
-	_col.add_child(spacer)
-	_actions_box = HBoxContainer.new()
-	_col.add_child(_actions_box)
+	_panel_acciones = VBoxContainer.new()
+	_panel_acciones.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	_panel_acciones.offset_left = -ANCHO_PANEL_ACCIONES - Tactil.borde.x
+	_panel_acciones.offset_right = -16.0 - Tactil.borde.x
+	_panel_acciones.offset_top = 16.0 + Tactil.borde.y
+	_panel_acciones.offset_bottom = -16.0 - Tactil.borde.y
+	_panel_acciones.alignment = BoxContainer.ALIGNMENT_CENTER
+	_panel_acciones.add_theme_constant_override("separation", 8)
+	_panel_acciones.mouse_filter = Control.MOUSE_FILTER_PASS
+	add_child(_panel_acciones)
+
+	# Los seis, en rejilla de 2x3.
+	_actions_box = GridContainer.new()
+	(_actions_box as GridContainer).columns = 2
+	_actions_box.add_theme_constant_override("h_separation", 8)
+	_actions_box.add_theme_constant_override("v_separation", 8)
+	_panel_acciones.add_child(_actions_box)
 	var defs := [
 		[Action.ATTACK, "Atacar"],
 		[Action.HABILIDAD, "Habilidad"],
@@ -1424,21 +1447,23 @@ func _crear_acciones() -> void:
 	for d in defs:
 		var b := TooltipButton.new()   # tooltip con ancho maximo (ver tooltip_button.gd)
 		b.text = d[1]
+		b.custom_minimum_size = Vector2(ANCHO_BOTON_ACCION, ALTO_BOTON_ACCION)
+		b.add_theme_font_size_override("font_size", 17)
 		var id: int = d[0]
 		b.pressed.connect(_on_action.bind(id))
 		_actions_box.add_child(b)
 		_action_buttons[id] = b
 	# Cajas de magia (KAN-56): submenu de hechizos y caja del recitado/disparo.
 	_spell_box = VBoxContainer.new()
-	_col.add_child(_spell_box)
+	_panel_acciones.add_child(_spell_box)
 	_cast_box = VBoxContainer.new()
-	_col.add_child(_cast_box)
+	_panel_acciones.add_child(_cast_box)
 	# Submenu de habilidades (KAN-57).
 	_ability_box = VBoxContainer.new()
-	_col.add_child(_ability_box)
+	_panel_acciones.add_child(_ability_box)
 	# Submenu de objetos/pociones (KAN-57).
 	_objeto_box = VBoxContainer.new()
-	_col.add_child(_objeto_box)
+	_panel_acciones.add_child(_objeto_box)
 	_ocultar_cajas()
 
 
@@ -1461,7 +1486,9 @@ func _rejilla_submenu(caja: VBoxContainer) -> GridContainer:
 # lleva el motivo del bloqueo (ver TooltipButton).
 func _celda_submenu(b: Button) -> void:
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.custom_minimum_size = Vector2(0, 40)
+	# Del mismo alto que los seis botones de accion, que ahora comparten panel: si un submenu tuviera
+	# celdas mas bajas, abrirlo se sentiria como que la pantalla encoge.
+	b.custom_minimum_size = Vector2(ANCHO_BOTON_ACCION, ALTO_BOTON_ACCION)
 	b.clip_text = true
 
 
@@ -1479,13 +1506,14 @@ func _ocultar_cajas() -> void:
 	if _log != null: _log.visible = true
 
 
-# El submenu abierto OCUPA el sitio del historial: se oculta el log (6 lineas de alto fijo) y el
-# VBox sube el submenu al hueco. Lo llaman magia/frases/habilidades/objetos justo tras mostrarse.
-# La barra de ACCIONES no lo llama: con ella el historial sigue visible (arriba) y los botones
-# debajo, que es lo que el jugador quiere ver al empezar el turno.
+# YA NO ESCONDE NADA, y se queda como un sitio al que llamar por si algun dia hace falta.
+#
+# Cuando los submenus vivian debajo del log, abrir uno le quitaba el sitio al historial: seis lineas
+# de alto fijo no caben con una lista de hechizos debajo. Desde que los submenus estan en el panel de
+# la derecha, ese conflicto no existe — y el historial tiene que verse SIEMPRE, que es justo lo que
+# uno quiere leer mientras elige que hacer.
 func _ocultar_log() -> void:
-	if _log != null:
-		_log.visible = false
+	pass
 
 
 func _setup_ui() -> void:
@@ -5502,6 +5530,15 @@ func _anadir_fondo() -> void:
 func _montar_columna() -> void:
 	_col = $VBox
 	_col.mouse_filter = Control.MOUSE_FILTER_PASS
+	# Se le deja libre a la derecha el ancho del panel de acciones: si no, el log y los bloques se
+	# meterian por debajo de los botones. El borde seguro del aparato va aparte (ver Tactil.borde).
+	_col.offset_right = -ANCHO_PANEL_ACCIONES - 24.0 - Tactil.borde.x
+	_col.offset_left = Tactil.borde.x
+	_col.offset_top = Tactil.borde.y
+	# El LOG con letra mas grande: ahora tiene toda la mitad izquierda para el y era lo que peor se
+	# leia de la pantalla. Sus lineas (LOG_MAX) y su alto fijo no se tocan, que es lo que impide que
+	# los bloques bailen segun se va llenando.
+	_log.add_theme_font_size_override("font_size", 20)
 	# Dos filas simetricas, ellos arriba y los tuyos debajo. Centradas: con 1 o 2 bloques la fila
 	# queda en medio de la pantalla en vez de pegada a la izquierda con un hueco raro al lado.
 	_bloques_box = _crear_fila_bloques()
