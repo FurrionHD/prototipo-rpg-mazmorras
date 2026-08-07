@@ -5540,6 +5540,10 @@ func _montar_columna() -> void:
 	_col.offset_right = -ANCHO_LOG - 32.0 - Tactil.borde.x
 	_col.offset_left = Tactil.borde.x
 	_col.offset_top = Tactil.borde.y
+	# Dos filas simetricas, ellos arriba y los tuyos debajo. Centradas: con 1 o 2 bloques la fila
+	# queda en medio de la pantalla en vez de pegada a la izquierda con un hueco raro al lado.
+	_bloques_box = _crear_fila_bloques()
+	_col.move_child(_bloques_box, 0)
 	_montar_log()
 
 
@@ -5593,10 +5597,6 @@ func _recolocar_log() -> void:
 	var alto: float = _log.get_combined_minimum_size().y
 	_log.offset_top = _log_caja.size.y - alto
 	_log.offset_bottom = _log_caja.size.y
-	# Dos filas simetricas, ellos arriba y los tuyos debajo. Centradas: con 1 o 2 bloques la fila
-	# queda en medio de la pantalla en vez de pegada a la izquierda con un hueco raro al lado.
-	_bloques_box = _crear_fila_bloques()
-	_col.move_child(_bloques_box, 0)
 
 
 # Una fila de bloques de combatiente (enemigos o tuyos), colgada de la columna.
