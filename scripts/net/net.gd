@@ -4276,6 +4276,12 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	# SOBREPESO del que se une: viaja para que su doble vaya lento EL solo, no todo el grupo del
 	# anfitrion. Es del loadout del HUMANO (su mochila), asi que va una vez por ficha con el mismo valor.
 	d["overload"] = Game.overload_speed_factor()
+	# AGOTAMIENTO (correr sin fuelle) y COOLDOWNS pendientes de sus habilidades. Los dos duran ENTRE
+	# combates y los dos se perdian al unirse a la pelea de otro: el doble entraba descansado y con
+	# los CD a cero. Van aqui, no en _LO_PUESTO, porque no son campos de la ficha (uno es una meta y
+	# el otro vive en Game.ability_cooldowns_persist). Los CD viajan por RUTA, ver Game.cds_a_rutas.
+	d["sin_fuelle"] = bool(pj.get_meta("sin_fuelle", false))
+	d["cds"] = Game.cds_a_rutas(Game.ability_cooldowns_persist.get(pj, {}))
 	return d
 
 
@@ -4323,6 +4329,10 @@ func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 			lista.append(load(String(ruta)) if String(ruta) != "" else null)
 		sets[int(str(clave))] = lista
 	pj.loadout_habilidades = sets
+	# Lo que no es campo de la ficha, en metas (ver ficha_a_dict): las lee Game al meterlo en la
+	# pelea. Los cooldowns siguen aqui en RUTAS; se traducen al aplicarlos.
+	pj.set_meta("sin_fuelle", bool(d.get("sin_fuelle", false)))
+	pj.set_meta("cds", d.get("cds", {}))
 	return pj
 
 
@@ -4331,6 +4341,14 @@ func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 	var d := {}
 	for campo in _VUELVE:
 		d[campo] = pj.get(campo)
+	# Los COOLDOWNS que le queden al doble: van APARTE de _VUELVE porque no son un campo de la ficha
+	# (viven en Game.ability_cooldowns_persist, ver Game.cds_a_rutas). Si no vuelven, el que se une a
+	# la pelea de otro sale de ella con todas sus habilidades listas. Mientras se pelea los buenos
+	# son los del COMBATIENTE (el dict de Game solo tiene los de la entrada): asi tambien salen bien
+	# si se marcha a mitad, que es el otro camino que pasa por aqui.
+	var vivo: Combatant = Game.combatant_de_pj(pj)
+	d["cds"] = Game.cds_a_rutas(vivo.ability_cooldowns if vivo != null \
+		else Game.ability_cooldowns_persist.get(pj, {}))
 	return d
 
 
@@ -4338,6 +4356,8 @@ func aplicar_desgaste(pj: PersonajeData, d: Dictionary) -> void:
 	for campo in _VUELVE:
 		if d.has(campo):
 			pj.set(campo, d[campo])
+	if d.has("cds"):
+		Game.ability_cooldowns_persist[pj] = Game.cds_de_rutas(d["cds"] as Dictionary)
 	# Los estados vuelven como datos, pero lo que el mapa lee de ellos (cuanto te frenan, sus chips)
 	# esta CACHEADO en la ficha: sin recalcularlo, el que se une a una pelea salia con el Pegajoso
 	# puesto y andando a velocidad normal, y sin chips que lo dijeran.

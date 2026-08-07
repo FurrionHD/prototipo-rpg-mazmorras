@@ -827,14 +827,32 @@ func turno_mio(idx: int, seq: int = 0) -> void:
 	var mio: PersonajeData = Net.mi_pj_en_pelea(idx)
 	var real: Combatant = Game.crear_player_combatant(mio) if mio != null else null
 	if real != null:
-		_player.abilities_combate = real.abilities_combate
-		_player.spells = real.spells
-		_player.ability_cooldowns = real.ability_cooldowns
-		_player.magic_amp = real.magic_amp
-		_player.mana_reduccion = real.mana_reduccion
-		_player.motion_value = real.motion_value
+		_vestir_maniqui(_player, real)
 	_state = State.WAITING_PLAYER
 	_mostrar_acciones()
+
+
+# ESPEJO: le pone al maniqui todo lo que la barra de acciones necesita para ELEGIR, copiado del
+# combatiente de VERDAD (el que monta Game.crear_player_combatant con mi ficha y mi equipo).
+#
+# TODO LO QUE LOS MENUS CONSULTEN VA AQUI. El maniqui nace con lo minimo (ver _maniqui_de_fila) y
+# cada campo que falte no da error: devuelve su valor por defecto y MIENTE en silencio. Asi se
+# perdio el DUAL — sin `ability_hands`, ability_hand_indices devuelve [0] y toda la pantalla se
+# calculaba a UNA mano: Rafaga a 48 EN en vez de 70, el tooltip con 2 golpes en vez de 4, y la
+# puerta de energia dejando pulsar con 48 (el anfitrion la rechazaba y la pelea se quedaba colgada).
+#
+# La vida, el mana y la energia NO se tocan: de eso manda la instantanea del anfitrion.
+func _vestir_maniqui(m: Combatant, real: Combatant) -> void:
+	m.abilities_combate = real.abilities_combate
+	m.spells = real.spells
+	m.ability_cooldowns = real.ability_cooldowns
+	m.magic_amp = real.magic_amp
+	m.mana_reduccion = real.mana_reduccion
+	# Las MANOS del loadout (dual): set_hands va ANTES de motion_value porque activa la mano 0 y
+	# pisa motion_value/ataque_arma/etc. con los de esa mano (que es la principal: mismo valor).
+	m.set_hands(real.hands)
+	m.ability_hands = real.ability_hands
+	m.motion_value = real.motion_value
 
 
 # LE PIDO ALGO A UN REMOTO (su turno, una frase, el disparo) y me quedo esperando. Se recuerda QUE
@@ -1604,7 +1622,9 @@ func esperar_refuerzo(si: bool) -> void:
 	_espera_refuerzo = si
 
 
-func anadir_aliado(c: Combatant) -> bool:
+# 'agotado' = llega SIN FUELLE de correr por el mapa. Sus primeras acciones van lentas, igual que
+# las del que empieza la pelea agotado (ver setup: es la misma penalizacion, y se olvidaba aqui).
+func anadir_aliado(c: Combatant, agotado: bool = false) -> bool:
 	if c == null or _state == State.FINISHED:
 		return false
 	# Los HUIDOS no ocupan plaza. _aliados NO se vacia al huir (ese array se cruza por INDICE con
@@ -1617,6 +1637,8 @@ func anadir_aliado(c: Combatant) -> bool:
 	_aliados.append(c)
 	_espera_refuerzo = false   # ya ha llegado
 	_gauge[c] = 0.0          # entra con la barra a cero: unirse no regala un turno inmediato
+	if agotado:
+		_lentas[c] = EXHAUSTED_SLOW_ACTIONS
 	_anadir_bloque_aliado(c)
 	if _timeline != null:
 		_timeline.anadir(c, _color_de(c), _material_de(c), "")
@@ -3747,15 +3769,25 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# Al SOLTAR una carga no se valida ni se cobra: ya se hizo al empezarla, y volver a exigir
 	# energia aqui te dejaria la habilidad a medias por haberte quedado seco entre medias.
 	if not soltando:
-		if _state != State.WAITING_PLAYER or not _player.ability_ready(ab):
+		# Fuera de turno = ni es una eleccion ni hay turno que gastar (un click perdido, un eco de la
+		# interfaz): se ignora y ya. Es el UNICO caso que sale por un return seco, ver abajo.
+		if _state != State.WAITING_PLAYER:
 			return
-		# Foco arcano: no se puede recanalizar mientras te queden cargas (gate por hechizos).
-		if ab.foco_cargas > 0 and _player.foco_cargas > 0:
-			return
-		if es_conversion:
-			if _player.current_energy < ab.energia_a_mana:
-				return   # no llega ni para 1 de maná
-		elif not _player.has_energy(coste):
+		# LA HABILIDAD NO SE PUEDE LANZAR (en cooldown, con cargas de Foco pendientes, sin energia).
+		# En local no llegas aqui: el boton sale deshabilitado. Pero una eleccion REMOTA se valida en
+		# esta maquina, y su pantalla puede estar mintiendole (era el caso del dual perdido: el espejo
+		# le ponia Rafaga a 48 EN, la pulsaba con 50 y aqui costaba 70). Un return seco dejaba la
+		# pelea COLGADA PARA TODOS: _aplicar_accion_remota ya hizo _fin_de_espera, asi que nadie
+		# vuelve a pedirle el turno y el estado se queda en WAITING_PLAYER para siempre.
+		# Se cae a basico, igual que cuando la habilidad ya no esta en su loadout: no se pierde el turno.
+		var puede: bool = _player.ability_ready(ab) \
+			and not (ab.foco_cargas > 0 and _player.foco_cargas > 0)
+		if puede:
+			puede = _player.current_energy >= ab.energia_a_mana if es_conversion \
+				else _player.has_energy(coste)
+		if not puede:
+			print("[habilidad] %s no puede lanzar %s ahora: ataca de basico" % [_player.nombre, ab.nombre])
+			_accion_atacar()
 			return
 		# ATAQUE DE CARGA: si la habilidad tarda turnos en soltarse, este turno se va en ANUNCIARLA.
 		# Va DESPUES de cobrar la energia y ANTES de resolver nada: te comprometes al empezar.

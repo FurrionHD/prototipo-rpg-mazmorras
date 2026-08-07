@@ -9847,6 +9847,12 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
 	if pj.equipped_main != null and c.current_hand_name() == "Puños":
 		push_warning("[multi] %s entra con PUÑOS y su ficha lleva '%s' (ruta_base='%s')" % [
 			pj.nombre, str(pj.equipped_main.get("nombre")), ruta_base_de(pj.equipped_main)])
+	# Y LA MANO SECUNDARIA, por lo mismo: una off-hand que no viaje no dejaba al doble con los puños,
+	# lo dejaba peleando A UNA MANO en silencio (Rafaga a 48 EN y 2 golpes en vez de 70 y 4). Es
+	# justo el sintoma que no avisaba de nada. Solo cuentan las ARMAS: un escudo no hace dual.
+	if pj.equipped_off is WeaponData and c.hands.size() < 2:
+		push_warning("[multi] %s entra a UNA mano y su ficha lleva de secundaria '%s' (ruta_base='%s')" % [
+			pj.nombre, str(pj.equipped_off.get("nombre")), ruta_base_de(pj.equipped_off)])
 	# ENERGIA DE COMBATE. No la calcula crear_player_combatant: se la inyecta start_combat leyendo
 	# el aguante del mapa. Un aliado que se une A MITAD no pasa por ahi, asi que entraba con la
 	# barra a CERO y sin poder usar habilidades ni Defender. aguante_de_grupo tira de la ficha para
@@ -9861,16 +9867,60 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
 	# start_combat, asi que entraba sin la Regeneracion y la cura se le quedaba goteando fuera de la
 	# pelea, al vacio. Es EL MISMO olvido que ya tenia la energia, dos lineas mas arriba.
 	cola_pocion_a_estado(pj, c)
+	# COOLDOWNS que viajan entre combates, con el mismo -1 por ENTRAR que hace start_combat. Sin
+	# esto, unirse a mitad de pelea te los reseteaba: soltabas el nuke, salias, te unias a la pelea
+	# del compañero y lo volvias a tener listo. Para el doble de otro humano no valia mirar
+	# ability_cooldowns_persist (es un PersonajeData recien creado, no ha estado nunca ahi): sus CD
+	# llegan con la ficha, en la meta 'cds' que pone Net.ficha_de_dict ({ruta: turnos}).
+	var cd_carry: Dictionary = {}
+	var suyos: Dictionary = ability_cooldowns_persist.get(pj, _cds_de_meta(pj))
+	for ab in suyos:
+		var left: int = int(suyos[ab]) - 1
+		if left > 0:
+			cd_carry[ab] = left
+	ability_cooldowns_persist[pj] = cd_carry
+	c.ability_cooldowns = cd_carry.duplicate()
 	# A los DOS arrays y en el mismo orden ANTES de avisar al combate: anadir_aliado ya consulta
 	# pj_de_combatant para pintar su color en el marcador de turnos.
 	_active_player_cs.append(c)
 	_active_player_pjs.append(pj)
-	if combat.anadir_aliado(c):
+	# El AGOTAMIENTO de correr por el mapa: quien llega sin fuelle pelea lento tambien si se une a
+	# mitad (start_combat ya lo pasaba por 'exhausted'; este camino se lo saltaba). La meta viaja en
+	# la ficha para los dobles de otros humanos, igual que el sobrepeso.
+	if combat.anadir_aliado(c, bool(pj.get_meta("sin_fuelle", false))):
 		return true
 	# No cabia: deshacer para no dejar los arrays desparejados.
 	_active_player_cs.pop_back()
 	_active_player_pjs.pop_back()
 	return false
+
+
+# --- COOLDOWNS QUE VIAJAN POR LA RED --------------------------------------------------------
+# ability_cooldowns_persist va con AbilityData de clave y es un dict de Game, no un campo de la
+# ficha, asi que no cabe ni en _VUELVE ni en un RPC. Por la red van sus RUTAS; estas dos funciones
+# son la traduccion, y viven aqui (no en Net) porque es Game quien manda sobre los cooldowns.
+
+# {AbilityData: turnos} -> {ruta: turnos}, para meterlo en un dict que se manda por la red.
+func cds_a_rutas(cds: Dictionary) -> Dictionary:
+	var d: Dictionary = {}
+	for ab in cds:
+		if ab is AbilityData and String(ab.resource_path) != "":
+			d[String(ab.resource_path)] = int(cds[ab])
+	return d
+
+# {ruta: turnos} -> {AbilityData: turnos}. Una ruta que ya no carga (habilidad renombrada o
+# borrada entre versiones) se ignora en silencio: perder un cooldown no puede tumbar una union.
+func cds_de_rutas(rutas: Dictionary) -> Dictionary:
+	var d: Dictionary = {}
+	for ruta in rutas:
+		var ab = load(String(ruta)) if ResourceLoader.exists(String(ruta)) else null
+		if ab is AbilityData:
+			d[ab] = int(rutas[ruta])
+	return d
+
+# Los cooldowns que trae la ficha de un doble (los deja Net.ficha_de_dict al reconstruirla).
+func _cds_de_meta(pj: PersonajeData) -> Dictionary:
+	return cds_de_rutas(pj.get_meta("cds", {}) as Dictionary)
 
 
 # Mete un enemigo del mapa en el combate EN CURSO (hito 5.4): un bicho que te alcanza mientras
