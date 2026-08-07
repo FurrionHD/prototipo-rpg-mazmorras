@@ -22,6 +22,19 @@ var activo: bool = false
 # (largo 0..1). Vector2.ZERO = no hay dedo puesto.
 var eje: Vector2 = Vector2.ZERO
 
+# EL BORDE QUE NO SE VE. Muchos moviles tienen la pantalla redondeada por las esquinas, o con una
+# muesca, o curvada por los lados: lo que se pinta pegado al borde se PIERDE. Medido en un aparato
+# de verdad, las tarjetas del grupo y los botones aparecian cortados.
+#
+# Esto es cuanto hay que apartarse de cada lado, en pixeles del juego (no de la pantalla: se
+# convierte con la escala del stretch, o en un movil de 1080 de alto el margen saldria del doble de
+# lo que toca). Lo consultan el HUD, las barras del grupo y los mandos.
+var borde: Vector2 = Vector2.ZERO
+
+# Suelo del borde en un aparato tactil, por si el sistema no declara zona segura (muchos no lo
+# hacen) pero la pantalla si esta redondeada. Mas vale un dedo de aire de sobra que un boton cortado.
+const BORDE_MINIMO := 18.0
+
 # Las acciones que hemos dejado pulsadas nosotros (los botones de fijar: correr, sigilo). Se
 # guardan para poder soltarlas TODAS de golpe: si un boton se queda hundido al cambiar de escena
 # o al abrir un menu, el personaje se queda corriendo solo para siempre.
@@ -36,6 +49,32 @@ func _ready() -> void:
 		print("[tactil] mandos de movil FORZADOS por --tactil")
 	else:
 		activo = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
+	_medir_borde()
+	# La zona segura cambia al girar el aparato, asi que hay que volver a medirla.
+	get_tree().get_root().size_changed.connect(_medir_borde)
+
+
+# Calcula cuanto hay que apartarse de los bordes. La zona segura viene en pixeles DE PANTALLA y el
+# juego dibuja en los 1280x720 de referencia (stretch canvas_items), asi que hay que pasarla por la
+# escala o el margen saldria el doble de gordo de lo que toca.
+func _medir_borde() -> void:
+	if not activo:
+		borde = Vector2.ZERO
+		return
+	var pantalla: Vector2 = Vector2(DisplayServer.window_get_size())
+	var segura: Rect2i = DisplayServer.get_display_safe_area()
+	var izq: float = 0.0
+	var arr: float = 0.0
+	if pantalla.x > 0.0 and segura.size.x > 0 and segura.size.x < int(pantalla.x):
+		izq = float(segura.position.x)
+	if pantalla.y > 0.0 and segura.size.y > 0 and segura.size.y < int(pantalla.y):
+		arr = float(segura.position.y)
+	var lienzo: Vector2 = get_viewport().get_visible_rect().size
+	var escala: Vector2 = Vector2.ONE
+	if pantalla.x > 0.0 and pantalla.y > 0.0:
+		escala = lienzo / pantalla
+	borde = Vector2(maxf(izq * escala.x, BORDE_MINIMO), maxf(arr * escala.y, BORDE_MINIMO))
+	print("[tactil] borde seguro: %.0f x %.0f px de juego" % [borde.x, borde.y])
 
 
 # Empuja una accion del InputMap como si se hubiera pulsado la tecla.

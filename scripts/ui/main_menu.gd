@@ -16,6 +16,18 @@ const MULTIJUGADOR := "res://scenes/ui/multi_menu.tscn"
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const ROJO := Color(0.9, 0.5, 0.5)
+const GRIS := Color(0.62, 0.64, 0.70)
+
+# Medidas de una fila de ranura. Antes eran 520x31 con tres botones al lado, o sea una tira de ~764
+# de ancho por 31 de alto: con un pulgar eso no se acierta. Ahora la fila es mas ESTRECHA y mucho mas
+# ALTA, y la ficha de la partida se reparte en dos lineas para que quepa.
+const ANCHO_RANURA := 460.0
+const ANCHO_BORRAR := 96.0
+const ALTO_FILA := 76.0
+const SEP_FILA := 8.0
+# Lo que mide una fila entera. Lo usan multijugador y salir para que la columna sea un bloque y no
+# tres anchos distintos.
+const ANCHO_TOTAL := ANCHO_RANURA + SEP_FILA + ANCHO_BORRAR
 
 var _lista: VBoxContainer = null
 var _aviso: Label = null
@@ -79,13 +91,14 @@ func _ready() -> void:
 	# MUNDO COMPARTIDO lleva dentro a todos los que juegan en el, cada personaje a nombre de su
 	# jugador, y lo puede abrir cualquiera de ellos (uno a la vez). Ver multi_menu.gd.
 	var multi := Button.new()
-	multi.custom_minimum_size = Vector2(0, 34)
+	multi.custom_minimum_size = Vector2(ANCHO_TOTAL, 52.0)
 	multi.text = "MULTIJUGADOR  ·  mundos compartidos"
 	multi.add_theme_color_override("font_color", Color(0.55, 0.75, 0.98))
 	multi.pressed.connect(func(): get_tree().change_scene_to_file(MULTIJUGADOR))
 	vb.add_child(multi)
 
 	var salir := Button.new()
+	salir.custom_minimum_size = Vector2(ANCHO_TOTAL, 52.0)
 	salir.text = "Salir del juego"
 	salir.pressed.connect(get_tree().quit)
 	vb.add_child(salir)
@@ -101,62 +114,95 @@ func _ready() -> void:
 	_pintar()
 
 
-# Una fila por ranura: [Continuar/Jugar] [Nueva partida] [Borrar].
+# Una fila por ranura: [la partida] [Borrar]. Ya NO hay "Editar" (el nombre y el aspecto se cambian
+# desde el Hogar, y alli ademas para cualquiera del grupo) ni "Nueva" sobre una ranura ocupada: para
+# empezar de cero se borra primero, que ademas cuesta mucho mas hacerlo sin querer.
 func _pintar() -> void:
 	MenuScaffold.vaciar(_lista)
 
 	var ultima: int = Perfil.ultima_ranura()
 	for slot in range(1, Perfil.RANURAS + 1):
 		var fila := HBoxContainer.new()
-		fila.add_theme_constant_override("separation", 8)
+		fila.add_theme_constant_override("separation", int(SEP_FILA))
 		_lista.add_child(fila)
 
 		var info: Dictionary = Perfil.inspeccionar(slot)
 		var datos: SaveData = info["datos"] as SaveData
 		var estado: int = int(info["estado"])
 
-		var jugar := Button.new()
-		jugar.custom_minimum_size = Vector2(520, 0)
 		if estado == Perfil.VACIA:
-			jugar.text = "Ranura %d — vacía  ·  Nueva partida" % slot
-			jugar.pressed.connect(_nueva.bind(slot))
-		elif estado == Perfil.OK:
-			var marca: String = "  ◄ la más reciente" if slot == ultima else ""
-			jugar.text = "Ranura %d — %s%s" % [slot, datos.resumen(), marca]
-			jugar.pressed.connect(_cargar.bind(slot))
-		else:
+			var vacia: Button = _boton_ranura("Ranura %d — vacía" % slot, ["Nueva partida"], GRIS)
+			vacia.pressed.connect(_nueva.bind(slot))
+			fila.add_child(vacia)
+			continue
+
+		if estado != Perfil.OK:
 			# Ranura OCUPADA que este build no puede abrir. Lo que NO se puede hacer aqui es
 			# ofrecer "Nueva partida": hay una partida dentro y el jugador la perderia por un clic
 			# creyendo que la ranura estaba libre. Se dice lo que pasa y se deja mirando.
-			jugar.text = "Ranura %d — %s" % [slot, Perfil.motivo_texto(info)]
-			jugar.disabled = true
-			jugar.add_theme_color_override("font_disabled_color", ROJO)
-			fila.add_child(jugar)
+			var rota: Button = _boton_ranura("Ranura %d" % slot,
+				[Perfil.motivo_texto(info)], ROJO, ROJO)
+			rota.disabled = true
+			fila.add_child(rota)
 			# El unico boton es Borrar, y con confirmacion a dos clics: sin cabecera no hay nombre
 			# que pedir, pero tampoco se borra una partida ajena de un toque.
-			var tirar := Button.new()
-			tirar.text = "Borrar"
-			tirar.pressed.connect(_borrar_a_ciegas.bind(slot))
-			fila.add_child(tirar)
+			fila.add_child(_boton_borrar(_borrar_a_ciegas.bind(slot)))
 			continue
+
+		# Ranura con partida. La ficha va en DOS lineas porque en una sola no cabe con la fila ya
+		# estrecha: arriba lo que identifica la partida, y debajo en gris el resto.
+		var titulo: String = "%s  ·  Nv.%d" % [datos.nombre, datos.cab_nivel]
+		if slot == ultima:
+			titulo += "   ◄"   # la mas reciente. La flecha sola basta: el texto entero ya no cabe.
+		var jugar: Button = _boton_ranura(titulo,
+			["%s  ·  %d monedas" % [datos.cab_lugar, datos.cab_dinero], datos.fecha], AMBAR)
+		jugar.pressed.connect(_cargar.bind(slot))
 		fila.add_child(jugar)
+		fila.add_child(_boton_borrar(_borrar.bind(slot)))
 
-		if datos != null:
-			# Editar: cambiarte el color o ponerte una imagen sin empezar de cero.
-			var editar := Button.new()
-			editar.text = "Editar"
-			editar.pressed.connect(_crear_personaje.bind(slot, true))
-			fila.add_child(editar)
 
-			var nueva := Button.new()
-			nueva.text = "Nueva"
-			nueva.pressed.connect(_nueva.bind(slot))
-			fila.add_child(nueva)
+# El boton alto de una ranura. Va SIN texto y con las lineas dentro: un Button no sabe pintar varias
+# lineas con tamaños y colores distintos, pero si dejarle dentro un VBox de Labels que no coman el
+# raton. Asi se conservan el pulsado, el hover y el disabled que usa la ranura ilegible.
+func _boton_ranura(titulo: String, lineas: Array, color_titulo: Color,
+		color_lineas: Color = GRIS) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(ANCHO_RANURA, ALTO_FILA)
+	if color_titulo == ROJO:
+		b.add_theme_color_override("font_disabled_color", ROJO)
 
-			var borrar := Button.new()
-			borrar.text = "Borrar"
-			borrar.pressed.connect(_borrar.bind(slot))
-			fila.add_child(borrar)
+	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 14
+	col.offset_right = -14
+	col.add_theme_constant_override("separation", 1)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(col)
+
+	var t := Label.new()
+	t.text = titulo
+	t.add_theme_font_size_override("font_size", 17)
+	t.add_theme_color_override("font_color", color_titulo)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(t)
+
+	for linea in lineas:
+		var l := Label.new()
+		l.text = str(linea)
+		l.add_theme_font_size_override("font_size", 12)
+		l.add_theme_color_override("font_color", color_lineas)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(l)
+	return b
+
+
+func _boton_borrar(al_pulsar: Callable) -> Button:
+	var b := Button.new()
+	b.text = "Borrar"
+	b.custom_minimum_size = Vector2(ANCHO_BORRAR, ALTO_FILA)
+	b.pressed.connect(al_pulsar)
+	return b
 
 
 func _cargar(slot: int) -> void:
@@ -181,11 +227,7 @@ func _nueva(slot: int) -> void:
 
 
 # ============================================================
-#  PERSONAJE: nombre + aspecto. La MISMA pantalla hace dos cosas segun 'editando':
-#    - CREAR  (Nueva partida): al aceptar arranca una partida de cero.
-#    - EDITAR (boton Editar):  al aceptar solo reescribe el aspecto de esa ranura y vuelve al
-#      menu. NO toca el progreso: ver Perfil.editar_aspecto, que explica por que no se puede
-#      guardar por la via normal desde aqui.
+#  PERSONAJE NUEVO: nombre + aspecto, y al aceptar arranca una partida de cero.
 #  El aspecto son cuatro cosas, y las cuatro van al SaveData de ESA ranura (no al perfil): cada
 #  partida es un personaje distinto.
 #    - COLOR:   el cuerpo, si no pones imagen.
@@ -193,48 +235,24 @@ func _nueva(slot: int) -> void:
 #      guarda ya recortada DENTRO de la partida (ver Game.png_cuadrado).
 #    - TINTE:   cuanto se ve el color por encima de esa imagen. Sin imagen no pinta nada.
 #    - METAL:   el brillo, que va SIEMPRE lo ultimo: barniza tambien tu imagen.
+#
+#  Esta pantalla tenia tambien un modo EDITAR, que llegaba desde un boton "Editar" de cada fila.
+#  Ya no: cambiar el nombre y la cara se hace desde el HOGAR, que ademas deja hacerlo con
+#  cualquiera del grupo y no solo con el lider (ver home_menu._editar_aspecto).
 #  Interfaz placeholder por codigo, como el resto; el arte va al final.
 # ------------------------------------------------------------
-func _crear_personaje(slot: int, editando: bool = false) -> void:
-	# Editando se arranca con lo que ya tenias; creando, en blanco.
-	var previo: SaveData = Perfil.cabecera(slot) if editando else null
-	if previo == null:
-		editando = false   # si la ranura no se puede leer, esto es una creacion y punto
-
-	var datos: Dictionary = {}
-	if previo != null:
-		datos = {"nombre": previo.nombre, "color": previo.color, "metalico": previo.metalico,
-			"color_alpha": previo.color_alpha, "imagen": previo.imagen}
-	else:
-		datos = {"color": COLOR_INICIAL}
-
+func _crear_personaje(slot: int) -> void:
 	CreadorPersonaje.abrir(self,
-		("EDITAR PERSONAJE  ·  ranura %d" if editando else "NUEVO PERSONAJE  ·  ranura %d") % slot,
-		"Solo cambia cómo te ves. Tu progreso no se toca." if editando else "",
-		"Guardar cambios" if editando else "Empezar la aventura",
-		datos,
+		"NUEVO PERSONAJE  ·  ranura %d" % slot,
+		"",
+		"Empezar la aventura",
+		{"color": COLOR_INICIAL},
 		func(nombre: String, color: Color, metalico: float, tinte: float, png: PackedByteArray):
-			if editando:
-				_guardar_aspecto(slot, nombre, color, metalico, tinte, png)
-			else:
-				_empezar(slot, nombre, color, metalico, tinte, png))
-
+			_empezar(slot, nombre, color, metalico, tinte, png))
 
 
 # Color de salida de la creacion (uno cualquiera, ya lo cambiara).
 const COLOR_INICIAL := Color(0.45, 0.72, 1.0)
-
-
-# EDITAR: solo el aspecto de esa ranura, y de vuelta al menu. El progreso ni se toca (Perfil
-# reescribe los cinco campos del .tres a mano; ver alli por que no se puede guardar por la via
-# normal desde el menu).
-func _guardar_aspecto(slot: int, nombre: String, color: Color, metalico: float, tinte: float,
-		png: PackedByteArray) -> void:
-	if Perfil.editar_aspecto(slot, nombre, color, metalico, png, tinte):
-		_aviso.text = "Ranura %d: aspecto actualizado." % slot
-	else:
-		_aviso.text = "No se pudo editar la ranura %d." % slot
-	_pintar()   # el nombre sale en la fila de la ranura: hay que repintarla
 
 
 func _empezar(slot: int, nombre: String, color: Color, metalico: float, tinte: float,

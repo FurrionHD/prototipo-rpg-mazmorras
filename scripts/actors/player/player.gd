@@ -143,6 +143,10 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD (barras, peso, piso, ayudas)
 	if Tactil.activo:
 		add_child(preload("res://scripts/ui/touch_controls.gd").new())  # joystick y botones (movil)
+		# Mantener pulsado = leer la ficha de lo que sea. Sin esto, en el movil las descripciones
+		# (que viven en tooltip_text, o sea en el tooltip del RATON) no se pueden ver de ninguna
+		# manera. Ver ficha_tactil.gd.
+		add_child(preload("res://scripts/ui/ficha_tactil.gd").new())
 	add_child(preload("res://scripts/ui/inventory_menu.gd").new())  # inventario (I)
 	add_child(preload("res://scripts/ui/craft_menu.gd").new())      # boticaria (F sobre el NPC)
 	var _cocina_menu := preload("res://scripts/ui/craft_menu.gd").new()  # cocinero: mismo menu, modo distinto
@@ -649,7 +653,9 @@ const ALTO_BLOQUE := Y_ESTADOS + ALTO_ESTADOS
 # La x donde arranca la columna del personaje i (0 = tu). La usa tambien el HUD para saber donde
 # poner la mochila, que va detras de la ultima.
 static func x_columna(i: int) -> float:
-	return X_COL_BARRAS + float(i) * (ANCHO_COL + SEP_COL)
+	# El borde seguro se suma aqui, que es el unico sitio que decide donde empieza la fila: en un
+	# movil con la pantalla redondeada, la primera columna se comia el canto (ver Tactil.borde).
+	return X_COL_BARRAS + Tactil.borde.x + float(i) * (ANCHO_COL + SEP_COL)
 
 
 # Rehace TODAS las columnas de barras: una por miembro del grupo, en su ORDEN FIJO de party (el
@@ -665,7 +671,9 @@ func _rehacer_barras() -> void:
 	for i in Game.party.size():
 		var pj: PersonajeData = Game.party[i]
 		var raiz := Control.new()
-		raiz.position = Vector2(x_columna(i), 0.0)
+		# La y tambien baja por el borde seguro: la muesca y la esquina redondeada se comen la fila
+		# de arriba igual que el canto lateral.
+		raiz.position = Vector2(x_columna(i), Tactil.borde.y)
 		raiz.size = Vector2(ANCHO_COL, ALTO_BLOQUE)
 		# En el movil la tarjeta ES el boton de cambiar de lider: no hay teclas 1/2/3 y la columna ya
 		# dice quien es cada uno. Sale por el mismo sitio que la tecla (cambiar_lider + refrescar), asi
@@ -1099,23 +1107,23 @@ func _hueco_hasta(otro: Node) -> float:
 #
 # ATACAR ya NO esta aqui: tiene su propia tecla (ESPACIO). Asi, acercarte a lootear con un
 # bicho al lado no te mete en un combate que no habias pedido.
-# Que haria AHORA MISMO el boton grande de la barra tactil. En el movil las dos teclas de siempre
-# (F y ESPACIO) caben en UN boton, pero el orden importa y es el mismo de _try_interact: primero lo
-# que hay a mano, y solo si no hay nada, el bicho que tengas delante. Es lo que impide que ir a
-# extraer un cristal con un enemigo al lado te meta en una pelea sin haberlo pedido (ver el bloque
-# de _physics_process sobre por que son dos intenciones distintas).
+# Si hay ALGO a mano con lo que interactuar (lo mismo que mira _try_interact). Lo pregunta la barra
+# tactil para encender o apagar su boton de interactuar.
 #
-# Devuelve "" si no hay nada de nada: el boton se pinta apagado y no hace de nada.
-func accion_de_contexto() -> StringName:
-	if _mas_cercano_en_grupo("interactable", false) != null \
-			or _mas_cercano_en_grupo("corpse", true) != null \
-			or _mas_cercano_en_grupo("pickup", false) != null \
-			or _mas_cercano_en_grupo("recolectable", false, "estanque") != null \
-			or _mas_cercano_en_grupo("estanque", false) != null:
-		return &"interactuar"
-	if not _enemigos_a_tiro().is_empty():
-		return &"atacar"
-	return &""
+# Empezo siendo una sola funcion que decidia POR TI cual de las dos cosas hacer (tocar si habia algo,
+# pegar si no). Sonaba bien y jugando era malo: con un cadaver o una veta al lado, el boton no
+# atacaba nunca y entrar en combate se volvia un baile. Ahora son dos botones y dos preguntas, y cada
+# uno se apaga cuando no tiene nada que hacer, que se ve de un vistazo y no hay que adivinarlo.
+func hay_algo_que_tocar() -> bool:
+	return _mas_cercano_en_grupo("interactable", false) != null \
+		or _mas_cercano_en_grupo("corpse", true) != null \
+		or _mas_cercano_en_grupo("pickup", false) != null \
+		or _mas_cercano_en_grupo("recolectable", false, "estanque") != null \
+		or _mas_cercano_en_grupo("estanque", false) != null
+
+
+func hay_enemigo_a_tiro() -> bool:
+	return not _enemigos_a_tiro().is_empty()
 
 
 # ¿Se ha quedado sin fuelle el que marca el paso? Lo mira la barra tactil para apagar el boton de

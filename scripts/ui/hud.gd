@@ -350,8 +350,10 @@ const ICONO_MARGEN := 12.0
 func _montar_botonera() -> void:
 	var fila := HBoxContainer.new()
 	fila.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	fila.offset_right = -ICONO_MARGEN
-	fila.offset_top = ICONO_MARGEN
+	# El borde seguro va DENTRO del margen: en un movil con las esquinas redondeadas, el ultimo
+	# boton de la fila salia cortado por el canto de la pantalla (ver Tactil.borde).
+	fila.offset_right = -ICONO_MARGEN - Tactil.borde.x
+	fila.offset_top = ICONO_MARGEN + Tactil.borde.y
 	fila.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	fila.add_theme_constant_override("separation", ICONO_SEP)
 	add_child(fila)

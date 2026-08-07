@@ -37,8 +37,13 @@ const ANCHO_LISTA := 330.0
 #  - side: la columna izquierda (mete ahi tus pestañas; el titulo y el ✕ Cerrar ya van).
 #  - header / lista / content: las tres zonas de arriba.
 #  - dinero: la etiqueta de monedas arriba a la derecha (null si con_dinero = false).
+#
+# con_lateral = false monta el titulo y las pestañas en una BARRA DE ARRIBA y pone el ✕ en la
+# esquina, sin columna izquierda. Solo lo usa el menu de mundos compartidos: alli estas eligiendo
+# partida y no hojeando un catalogo, asi que la columna se quedaba vacia ocupando 230 px. Los demas
+# menus no lo pasan y no cambian nada.
 static func construir(capa: CanvasLayer, titulo: String, nota: String,
-		al_cerrar: Callable, con_dinero: bool = false) -> Dictionary:
+		al_cerrar: Callable, con_dinero: bool = false, con_lateral: bool = true) -> Dictionary:
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.visible = false
@@ -73,40 +78,47 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 		root.add_child(dinero)
 
 	# --- Lateral: titulo, nota, (las pestañas las mete el menu) y cerrar ---
-	var side := VBoxContainer.new()
-	side.custom_minimum_size = Vector2(230, 0)
-	side.add_theme_constant_override("separation", 6)
-	hb.add_child(side)
+	# 'tabs' es lo que se le devuelve al menu como "side": es donde mete sus pestañas. Con lateral
+	# es una columna a la izquierda; sin el, una fila en la barra de arriba. El menu no se entera.
+	var tabs: BoxContainer
+	if con_lateral:
+		var side := VBoxContainer.new()
+		side.custom_minimum_size = Vector2(230, 0)
+		side.add_theme_constant_override("separation", 6)
+		hb.add_child(side)
 
-	var t := Label.new()
-	t.text = titulo
-	t.add_theme_color_override("font_color", AMBAR)
-	t.add_theme_font_size_override("font_size", 18)
-	side.add_child(t)
+		var t := Label.new()
+		t.text = titulo
+		t.add_theme_color_override("font_color", AMBAR)
+		t.add_theme_font_size_override("font_size", 18)
+		side.add_child(t)
 
-	if nota != "":
-		var n := Label.new()
-		n.text = nota
-		n.add_theme_color_override("font_color", GRIS)
-		n.add_theme_font_size_override("font_size", 11)
-		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		side.add_child(n)
-	side.add_child(HSeparator.new())
+		if nota != "":
+			var n := Label.new()
+			n.text = nota
+			n.add_theme_color_override("font_color", GRIS)
+			n.add_theme_font_size_override("font_size", 11)
+			n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			side.add_child(n)
+		side.add_child(HSeparator.new())
 
-	# El menu mete aqui sus pestañas; lo que va DESPUES (spacer + cerrar) se añade ya, asi que
-	# el boton de cerrar queda siempre abajo del todo.
-	var tabs := VBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 6)
-	side.add_child(tabs)
+		# El menu mete aqui sus pestañas; lo que va DESPUES (spacer + cerrar) se añade ya, asi que
+		# el boton de cerrar queda siempre abajo del todo.
+		tabs = VBoxContainer.new()
+		tabs.add_theme_constant_override("separation", 6)
+		side.add_child(tabs)
 
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side.add_child(spacer)
-	var cerrar := Button.new()
-	cerrar.text = "✕ Cerrar  (Esc)"
-	cerrar.custom_minimum_size = Vector2(0, 34)
-	cerrar.pressed.connect(al_cerrar)
-	side.add_child(cerrar)
+		var spacer := Control.new()
+		spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		side.add_child(spacer)
+		var cerrar := Button.new()
+		cerrar.text = "✕ Cerrar  (Esc)"
+		cerrar.custom_minimum_size = Vector2(0, 44)
+		cerrar.pressed.connect(al_cerrar)
+		side.add_child(cerrar)
+	else:
+		tabs = HBoxContainer.new()
+		tabs.add_theme_constant_override("separation", 8)
 
 	# --- Derecha: cabecera fija + lista y detalle, cada uno con su scroll ---
 	var margin := MarginContainer.new()
@@ -119,6 +131,28 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 6)
 	margin.add_child(col)
+
+	# SIN LATERAL: la barra de arriba se monta aqui, que es lo primero de la columna derecha —
+	# titulo, las pestañas en fila, y la ✕ empujada al otro extremo.
+	if not con_lateral:
+		var barra := HBoxContainer.new()
+		barra.add_theme_constant_override("separation", 14)
+		barra.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_child(barra)
+
+		var t2 := Label.new()
+		t2.text = titulo
+		t2.add_theme_color_override("font_color", AMBAR)
+		t2.add_theme_font_size_override("font_size", 20)
+		barra.add_child(t2)
+		barra.add_child(tabs)
+
+		var hueco := Control.new()
+		hueco.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		barra.add_child(hueco)
+
+		barra.add_child(BotonIcono.crear(Callable(Iconos, "equis"), al_cerrar, 44.0))
+		col.add_child(HSeparator.new())
 
 	# Linea de AVISO ("Sacas 3 lingotes...", "No te llega"). Vive FUERA del header y con una
 	# altura FIJA aunque este vacia: si apareciera y desapareciera con el mensaje, empujaria el
@@ -172,6 +206,27 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 		"root": root, "side": tabs, "header": header, "aviso": aviso,
 		"lista": lista, "lista_scroll": scroll_lista, "content": content, "dinero": dinero,
 	}
+
+
+# Un boton ⓘ al lado de 'dueño' que enseña SU ficha (su tooltip_text) en un panel.
+#
+# Solo sale con los dedos: en escritorio ya la enseña el tooltip de siempre al pasar el raton. Y en
+# el movil el mantener pulsado tambien funciona en todas partes (ver ficha_tactil.gd), pero en las
+# pantallas donde la ficha es imprescindible —el maestro, la tienda, la forja— no se puede depender
+# de que el jugador descubra un gesto que nadie le ha contado.
+#
+# El texto se lee AL PULSAR y no al crear el boton a proposito: quien lo llama suele rematar el
+# tooltip despues (los "⛔ te faltan N monedas" se anteponen mas abajo), y leyendolo aqui saldria la
+# version a medio hacer.
+static func info(fila: BoxContainer, dueno: Control, titulo: String = "") -> void:
+	if not Tactil.activo or dueno == null:
+		return
+	var b: Control = BotonIcono.crear(Callable(Iconos, "info"), func() -> void:
+		var f: Node = fila.get_tree().get_first_node_in_group("ficha_tactil")
+		if f != null and f.has_method("abrir"):
+			f.abrir(dueno.tooltip_text, titulo)
+	, 38.0)
+	fila.add_child(b)
 
 
 # Pinta (o borra) el mensaje de la linea de aviso. Verde = salio bien, rojo = no.
@@ -325,7 +380,7 @@ static func nota(vb: VBoxContainer, txt: String) -> void:
 
 
 # Fila de botones-pestaña (los de arriba de la cabecera). `pulsado` recibe el indice.
-static func pestanas(vb: VBoxContainer, nombres: Array, activa: int, pulsado: Callable,
+static func pestanas(vb: BoxContainer, nombres: Array, activa: int, pulsado: Callable,
 		ancho: int = 120) -> void:
 	var fila_tabs := HBoxContainer.new()
 	fila_tabs.add_theme_constant_override("separation", 6)
@@ -334,7 +389,9 @@ static func pestanas(vb: VBoxContainer, nombres: Array, activa: int, pulsado: Ca
 		b.text = str(nombres[i])
 		b.toggle_mode = true
 		b.button_pressed = (i == activa)
-		b.custom_minimum_size = Vector2(ancho, 30)
+		# 44 y no 30: una pestaña de 30 px de alto no se acierta con un pulgar. Va tambien en
+		# escritorio, que ahi no molesta y evita tener dos medidas del mismo menu.
+		b.custom_minimum_size = Vector2(ancho, 44)
 		b.pressed.connect(pulsado.bind(i))
 		fila_tabs.add_child(b)
 	vb.add_child(fila_tabs)

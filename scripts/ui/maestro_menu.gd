@@ -226,6 +226,9 @@ func _fila_pool(pj: PersonajeData, ab: AbilityData, puestas: Array) -> void:
 				_aviso_ok = true
 			_rebuild())
 	fila.add_child(b)
+	# Con los dedos no hay "pasar el raton por encima", asi que la ficha de la habilidad no se podia
+	# leer de ninguna manera. Ver MenuScaffold.info.
+	MenuScaffold.info(fila, b, ab.nombre)
 
 
 # ============================================================
@@ -313,6 +316,7 @@ func _fila_aprender(pj: PersonajeData, ab: AbilityData) -> void:
 				_aviso_ok = false
 			_rebuild())
 	fila.add_child(b)
+	MenuScaffold.info(fila, b, ab.nombre)   # la ficha, para el que juega con los dedos
 
 
 # Las plantillas base de todo lo que aporta habilidades: las armas y las secundarias

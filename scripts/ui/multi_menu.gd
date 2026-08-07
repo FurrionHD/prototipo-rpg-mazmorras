@@ -31,6 +31,11 @@ const MIOS := 0
 const AJENOS := 1
 const YO := 2
 
+# La tarjeta de un mundo. Alta y en dos lineas como las ranuras del menu de inicio: esto es un
+# selector de partidas y con 34 px de alto no se acierta con el pulgar.
+const ANCHO_MUNDO := 300.0
+const ALTO_MUNDO := 62.0
+
 # Como se llama un mundo al que no le pones nombre.
 const MUNDO_POR_DEFECTO := "Mundo nuevo"
 
@@ -53,7 +58,11 @@ func _ready() -> void:
 	_encima = CanvasLayer.new()
 	_encima.layer = _capa.layer + 1
 	add_child(_encima)
-	_piezas = MenuScaffold.construir(_capa, "MULTIJUGADOR", "Mundos compartidos", _volver)
+	# Sin lateral: aqui se elige PARTIDA, no se hojea un catalogo, asi que la columna izquierda se
+	# quedaba vacia comiendose 230 px. El titulo y el ✕ se van a una barra arriba (ver
+	# MenuScaffold.construir) y las pestañas siguen en la cabecera, donde ya estaban.
+	_piezas = MenuScaffold.construir(_capa, "MULTIJUGADOR", "Mundos compartidos", _volver,
+		false, false)
 	(_piezas["root"] as Control).visible = true
 	Mundos.aviso.connect(func(t: String): MenuScaffold.decir(_piezas["aviso"], t, true))
 	Nube.cerrojo_perdido.connect(func(m: String): MenuScaffold.decir(_piezas["aviso"], m, false))
@@ -110,7 +119,7 @@ func _pintar() -> void:
 		_fila_mundo(lista, e)
 
 	var nuevo := Button.new()
-	nuevo.custom_minimum_size = Vector2(0, 34)
+	nuevo.custom_minimum_size = Vector2(0, 48)
 	nuevo.text = "+ Crear un mundo nuevo" if _pestana == MIOS else "+ Añadir el mundo de otra persona"
 	nuevo.pressed.connect(_crear_mundo if _pestana == MIOS else _anadir_ajeno)
 	lista.add_child(nuevo)
@@ -127,7 +136,7 @@ func _fila_mundo(lista: VBoxContainer, e: Dictionary) -> void:
 	# El ICONO del mundo (el jugador elige una imagen suya, como con los personajes): es lo que hace
 	# que dos mundos se distingan de un vistazo.
 	var icono := TextureRect.new()
-	icono.custom_minimum_size = Vector2(34, 34)
+	icono.custom_minimum_size = Vector2(ALTO_MUNDO, ALTO_MUNDO)
 	icono.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	icono.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	var tex: Texture2D = _textura(e.get("icono", PackedByteArray()))
@@ -135,25 +144,50 @@ func _fila_mundo(lista: VBoxContainer, e: Dictionary) -> void:
 		icono.texture = tex
 	else:
 		var col := ColorRect.new()
-		col.custom_minimum_size = Vector2(34, 34)
+		col.custom_minimum_size = Vector2(ALTO_MUNDO, ALTO_MUNDO)
 		col.color = e.get("color", AZUL)
 		caja.add_child(col)
 	if tex != null:
 		caja.add_child(icono)
 
+	# TARJETA ALTA de dos lineas, como las ranuras del menu de inicio: arriba el nombre del mundo,
+	# debajo en gris de quien es la partida que hay dentro. El boton va sin texto y con las lineas
+	# de hijos, que es la unica forma de tener dos tamaños de letra dentro de un Button.
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(240, 34)
-	b.text = String(e.get("nombre", "?"))
-	if int(e.get("estado", SaveIO.VACIA)) not in [SaveIO.VACIA, SaveIO.OK]:
-		b.text += "  ⚠"
-	if bool(e.get("pendiente", false)):
-		b.text += "  ⬆"
+	b.custom_minimum_size = Vector2(ANCHO_MUNDO, ALTO_MUNDO)
 	b.toggle_mode = true
 	b.button_pressed = (clave == _sel)
 	b.pressed.connect(func():
 		_sel = clave
 		_pintar())
 	caja.add_child(b)
+
+	var col2 := VBoxContainer.new()
+	col2.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col2.offset_left = 12
+	col2.offset_right = -12
+	col2.alignment = BoxContainer.ALIGNMENT_CENTER
+	col2.add_theme_constant_override("separation", 1)
+	col2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(col2)
+
+	var nombre := String(e.get("nombre", "?"))
+	if int(e.get("estado", SaveIO.VACIA)) not in [SaveIO.VACIA, SaveIO.OK]:
+		nombre += "  ⚠"
+	if bool(e.get("pendiente", false)):
+		nombre += "  ⬆"
+	var l1 := Label.new()
+	l1.text = nombre
+	l1.add_theme_font_size_override("font_size", 16)
+	l1.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col2.add_child(l1)
+
+	var l2 := Label.new()
+	l2.text = String(e.get("cab", "sin abrir todavía"))
+	l2.add_theme_font_size_override("font_size", 11)
+	l2.add_theme_color_override("font_color", MenuScaffold.GRIS)
+	l2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col2.add_child(l2)
 
 
 func _textura(bytes) -> Texture2D:

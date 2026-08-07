@@ -5,7 +5,8 @@
 #    - Mitad izquierda: joystick DINAMICO. No se dibuja hasta que pones el dedo; nace donde lo
 #      pones y el circulito lo sigue. Publica Tactil.eje, que es lo que lee player.gd.
 #    - Abajo a la derecha: el boton GRANDE de actuar. Hace la F y el ESPACIO en uno, y enseña
-#      CUAL de las dos va a hacer (ver player.accion_de_contexto).
+#      la F, y a su lado el de ATACAR, que hace el ESPACIO. Cada uno se apaga cuando no tiene nada
+#      que hacer (ver player.hay_algo_que_tocar / hay_enemigo_a_tiro).
 #    - Pegado a el, el circulito azul de curacion optima (la Q).
 #    - Encima, dos botones pequeños de FIJAR: correr y sigilo. Se quedan hundidos hasta que los
 #      vuelves a pulsar; con el teclado siguen siendo de mantener, que ahi es lo comodo.
@@ -21,11 +22,14 @@
 
 extends CanvasLayer
 
-const RADIO_BASE := 68.0      # lo que se abre el joystick: a esa distancia del centro, velocidad tope
-const RADIO_MUERTO := 14.0    # por debajo de esto, quieto: un pulgar apoyado no es una direccion
-const RADIO_DEDO := 26.0      # el circulito que sigue al dedo
+# El joystick era claramente pequeño en el aparato: se vio jugando. Todo sube en proporcion para
+# que la zona muerta siga siendo la misma parte del recorrido y no cambie el tacto.
+const RADIO_BASE := 100.0     # lo que se abre el joystick: a esa distancia del centro, velocidad tope
+const RADIO_MUERTO := 20.0    # por debajo de esto, quieto: un pulgar apoyado no es una direccion
+const RADIO_DEDO := 38.0      # el circulito que sigue al dedo
 
 const R_ACTUAR := 52.0
+const R_ATACAR := 44.0
 const R_PEQUENO := 30.0
 const MARGEN := 28.0
 
@@ -34,7 +38,7 @@ var _centro: Vector2 = Vector2.ZERO
 var _dedo_joystick: int = -1
 
 var _actuar: Control = null
-var _actuar_lbl: Label = null
+var _atacar: Control = null
 var _curar: Control = null
 var _correr: Control = null
 var _sigilo: Control = null
@@ -78,13 +82,13 @@ func _process(_delta: float) -> void:
 			_soltar_todo()
 	if not visible:
 		return
-	# Saber que haria el boton cuesta un barrido de cuatro grupos del mapa (ver accion_de_contexto),
-	# y a 60 fps en un movil eso es tirar bateria: a ~8 veces por segundo el icono cambia igual de
-	# rapido de lo que uno se acerca a las cosas.
+	# Saber si hay algo a mano cuesta un barrido de cuatro grupos del mapa (ver hay_algo_que_tocar),
+	# y a 60 fps en un movil eso es tirar bateria: a ~8 veces por segundo los botones se encienden
+	# igual de rapido de lo que uno se acerca a las cosas.
 	_desde_refresco += 1
 	if _desde_refresco >= 8:
 		_desde_refresco = 0
-		_refrescar_actuar()
+		_refrescar_botones()
 	_refrescar_fijos()
 
 
@@ -169,114 +173,129 @@ func _soltar_joystick() -> void:
 	_joystick.visible = false
 
 
+
 # ------------------------------------------------------------
 #  BOTONES
+#  Mismo aspecto que la botonera de arriba (fondo oscuro, borde claro, icono dibujado) pero
+#  REDONDOS. Y con iconos de iconos.gd, no emoji: un emoji sale segun la fuente que tenga el
+#  aparato, y eso no se descubre hasta tener el APK en la mano.
 # ------------------------------------------------------------
 func _montar_botones() -> void:
-	# El grande de actuar, en la esquina de abajo a la derecha: es el que mas se usa y el que mejor
-	# le cae al pulgar.
-	_actuar = _crear_boton(R_ACTUAR, Color(0.86, 0.80, 0.42), "·")
-	_actuar_lbl = _actuar.get_child(0) as Label
+	# INTERACTUAR, en la esquina: es el que mas se usa y el que mejor le cae al pulgar.
+	_actuar = _crear_boton(R_ACTUAR, Callable(Iconos, "mano"))
 	_colocar(_actuar, MARGEN, MARGEN)
 	add_child(_actuar)
 
-	# El azul de curacion, pegado a su izquierda (es el circulito del boceto).
-	_curar = _crear_boton(R_PEQUENO, Color(0.38, 0.62, 0.92), "+")
-	_colocar(_curar, MARGEN + R_ACTUAR * 2.0 + 18.0, MARGEN)
+	# ATACAR, en diagonal. Antes NO existia: el grande decidia solo (tocar si habia algo, pegar si
+	# no), y con un cadaver o una veta al lado nunca llegaba a atacar — por eso costaba tanto entrar
+	# en combate. Con dos botones se acaba la adivinanza: el grande toca, este pega, siempre.
+	_atacar = _crear_boton(R_ATACAR, Callable(Iconos, "espada"))
+	_colocar(_atacar, MARGEN + R_ACTUAR * 2.0 + 14.0, MARGEN + 30.0)
+	add_child(_atacar)
+
+	_curar = _crear_boton(R_PEQUENO, Callable(Iconos, "pocion"))
+	_colocar(_curar, MARGEN + R_ACTUAR * 2.0 + 14.0 + R_ATACAR * 2.0 + 14.0, MARGEN)
 	add_child(_curar)
 
-	# Los dos de FIJAR, encima del grande y mas pequeños: no son de pulsar a cada paso.
-	_correr = _crear_boton(R_PEQUENO, Color(0.45, 0.75, 0.45), "»")
+	# Los dos de FIJAR, encima y mas pequeños: no son de pulsar a cada paso.
+	_correr = _crear_boton(R_PEQUENO, Callable(Iconos, "correr"))
 	_colocar(_correr, MARGEN + R_ACTUAR - R_PEQUENO, MARGEN + R_ACTUAR * 2.0 + 16.0)
 	add_child(_correr)
 
-	_sigilo = _crear_boton(R_PEQUENO, Color(0.55, 0.50, 0.75), "~")
+	_sigilo = _crear_boton(R_PEQUENO, Callable(Iconos, "sigilo"))
 	_colocar(_sigilo, MARGEN + R_ACTUAR - R_PEQUENO + R_PEQUENO * 2.0 + 16.0,
 		MARGEN + R_ACTUAR * 2.0 + 16.0)
 	add_child(_sigilo)
 
 	_conectar_pulso(_actuar, _on_actuar)
+	_conectar_pulso(_atacar, _on_atacar)
 	_conectar_pulso(_curar, _on_curar)
 	_conectar_pulso(_correr, _on_correr)
 	_conectar_pulso(_sigilo, _on_sigilo)
 
 
-# Un boton REDONDO: un Control anclado a la esquina de abajo a la derecha que se pinta solo. No es
-# un Button porque los botones de Godot son rectangulos y aqui el area de toque tiene que ser el
-# circulo: en un movil, dos rectangulos pegados se pisan las esquinas y pulsas el que no querias.
-func _crear_boton(radio: float, color: Color, texto: String) -> Control:
+# Un boton REDONDO que se pinta solo. No es un Button porque los de Godot son rectangulos y aqui el
+# area de toque tiene que ser el CIRCULO: en un movil, dos rectangulos pegados se pisan las esquinas
+# y acabas pulsando el que no querias.
+func _crear_boton(radio: float, dibujo: Callable) -> Control:
 	var c := Control.new()
 	c.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	c.mouse_filter = Control.MOUSE_FILTER_STOP
 	c.set_meta("radio", radio)
-	c.set_meta("color", color)
 	c.set_meta("activo", true)
 	c.set_meta("hundido", false)
-	c.draw.connect(_dibujar_boton.bind(c))
-
-	var lbl := Label.new()
-	lbl.text = texto
-	lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", int(radio * 0.7))
-	lbl.add_theme_color_override("font_color", Color(0.06, 0.06, 0.08))
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	c.add_child(lbl)
+	c.draw.connect(func() -> void:
+		var r: float = float(c.get_meta("radio"))
+		var encendido: bool = bool(c.get_meta("activo"))
+		var fondo := Color(0.10, 0.11, 0.14, 0.86)
+		var tinta := Color(0.90, 0.90, 0.94)
+		var borde := Color(1, 1, 1, 0.30)
+		if not encendido:
+			fondo = Color(0.10, 0.11, 0.14, 0.45)
+			tinta = Color(0.45, 0.46, 0.52, 0.7)
+			borde = Color(1, 1, 1, 0.12)
+		elif bool(c.get_meta("hundido")):
+			fondo = Color(0.30, 0.32, 0.40, 0.94)
+		var centro := Vector2(r, r)
+		c.draw_circle(centro, r, fondo)
+		c.draw_arc(centro, r, 0.0, TAU, 48, borde, 2.5, true)
+		var lado: float = r * 1.15
+		dibujo.call(c, centro - Vector2(lado, lado) * 0.5, lado, tinta)
+	)
 	return c
 
 
 # Coloca un boton midiendo desde la esquina de ABAJO A LA DERECHA (los anclajes ya estan ahi), que
-# es como se piensa un mando de movil: "tantos pixeles del borde", no una coordenada absoluta.
+# es como se piensa un mando de movil: "tantos pixeles del borde", no una coordenada absoluta. El
+# borde seguro del aparato va DENTRO de la cuenta: ver Tactil.borde.
 func _colocar(c: Control, desde_derecha: float, desde_abajo: float) -> void:
 	var d: float = float(c.get_meta("radio")) * 2.0
-	c.offset_right = -desde_derecha
-	c.offset_left = -desde_derecha - d
-	c.offset_bottom = -desde_abajo
-	c.offset_top = -desde_abajo - d
-
-
-func _dibujar_boton(c: Control) -> void:
-	var r: float = float(c.get_meta("radio"))
-	var col: Color = c.get_meta("color")
-	if not bool(c.get_meta("activo")):
-		col = col.darkened(0.55)
-		col.a = 0.45
-	elif bool(c.get_meta("hundido")):
-		col = col.lightened(0.35)
-	var centro := Vector2(r, r)
-	c.draw_circle(centro, r, Color(col.r, col.g, col.b, col.a * 0.75))
-	c.draw_arc(centro, r, 0.0, TAU, 48, Color(1, 1, 1, 0.5), 2.5, true)
+	var b: Vector2 = Tactil.borde
+	c.offset_right = -desde_derecha - b.x
+	c.offset_left = c.offset_right - d
+	c.offset_bottom = -desde_abajo - b.y
+	c.offset_top = c.offset_bottom - d
 
 
 # El toque cuenta solo si cae DENTRO del circulo: la esquina del rectangulo es del boton de al lado.
 func _conectar_pulso(c: Control, fn: Callable) -> void:
 	c.gui_input.connect(func(event: InputEvent) -> void:
 		var pos: Vector2 = Vector2.ZERO
+		var pulsando: bool = false
 		if event is InputEventScreenTouch:
-			if not (event as InputEventScreenTouch).pressed:
-				return
-			pos = (event as InputEventScreenTouch).position
+			var t := event as InputEventScreenTouch
+			pos = t.position
+			pulsando = t.pressed
 		elif event is InputEventMouseButton:
 			var m := event as InputEventMouseButton
-			if not m.pressed or m.button_index != MOUSE_BUTTON_LEFT:
+			if m.button_index != MOUSE_BUTTON_LEFT:
 				return
 			pos = m.position
+			pulsando = m.pressed
 		else:
 			return
 		var r: float = float(c.get_meta("radio"))
+		if not pulsando:
+			if bool(c.get_meta("hundido")):
+				c.set_meta("hundido", false)
+				c.queue_redraw()
+			return
 		if pos.distance_to(Vector2(r, r)) > r:
 			return
 		if not bool(c.get_meta("activo")):
 			return
+		c.set_meta("hundido", true)
+		c.queue_redraw()
 		fn.call()
 	)
 
 
 func _on_actuar() -> void:
-	var accion: StringName = _accion_actual()
-	if accion != &"":
-		Tactil.toque(accion)
+	Tactil.toque(&"interactuar")
+
+
+func _on_atacar() -> void:
+	Tactil.toque(&"atacar")
 
 
 func _on_curar() -> void:
@@ -290,8 +309,9 @@ func _on_correr() -> void:
 		Tactil.soltar(&"correr")
 	else:
 		Tactil.pulsar(&"correr")
-		Tactil.soltar(&"sigilo")   # el sigilo tiene prioridad en player.gd: con los dos puestos,
-		                           # correr no haria nada y el boton mentiria
+		# El sigilo tiene prioridad en player.gd: con los dos puestos, correr no haria nada y el
+		# boton estaria mintiendo.
+		Tactil.soltar(&"sigilo")
 
 
 func _on_sigilo() -> void:
@@ -311,29 +331,21 @@ func _lider_nodo() -> Node:
 	return _jugador
 
 
-func _accion_actual() -> StringName:
+# Cada boton se apaga cuando no tiene nada que hacer, que es lo que sustituye al icono cambiante de
+# antes: ya no hay que adivinar cual de las dos intenciones va a salir, se ve cual esta viva.
+func _refrescar_botones() -> void:
 	var p: Node = _lider_nodo()
-	if p == null or not p.has_method("accion_de_contexto"):
-		return &""
-	return p.accion_de_contexto()
+	var tocar: bool = p != null and p.has_method("hay_algo_que_tocar") and p.hay_algo_que_tocar()
+	var pegar: bool = p != null and p.has_method("hay_enemigo_a_tiro") and p.hay_enemigo_a_tiro()
+	_encender(_actuar, tocar)
+	_encender(_atacar, pegar)
 
 
-# El boton grande dice QUE va a hacer antes de que lo pulses: con una sola tecla para las dos
-# intenciones, adivinarlo seria lo mismo que no tener las dos.
-func _refrescar_actuar() -> void:
-	var accion: StringName = _accion_actual()
-	var texto: String = "·"
-	var color := Color(0.86, 0.80, 0.42)
-	if accion == &"interactuar":
-		texto = "✋"
-	elif accion == &"atacar":
-		texto = "⚔"
-		color = Color(0.90, 0.48, 0.40)
-	_actuar_lbl.text = texto
-	if _actuar.get_meta("color") != color or bool(_actuar.get_meta("activo")) != (accion != &""):
-		_actuar.set_meta("color", color)
-		_actuar.set_meta("activo", accion != &"")
-		_actuar.queue_redraw()
+func _encender(c: Control, si: bool) -> void:
+	if bool(c.get_meta("activo")) == si:
+		return
+	c.set_meta("activo", si)
+	c.queue_redraw()
 
 
 func _refrescar_fijos() -> void:
