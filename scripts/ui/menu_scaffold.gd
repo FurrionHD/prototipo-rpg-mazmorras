@@ -761,63 +761,102 @@ static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Call
 
 
 # ============================================================
-#  TEXTO QUE NO CABE: en vez de cortarlo, se pasea
+#  TEXTO QUE NO CABE: CARRUSEL
 #  Un boton de rejilla mide 120-160 px y un nombre de equipo es "Daga +4  ·  T1 Comun" (y si la
-#  lleva otro del grupo, ademas un "🔒 Fulano" en otra linea). Hasta ahora eso se resolvia con
-#  clip_text: el texto se cortaba en seco y no habia forma de leer el resto.
+#  lleva otro del grupo, ademas un "🔒 Fulano" en otra linea). Con clip_text se cortaba en seco y no
+#  habia forma de leer el resto.
 #
-#  Se hace con un LABEL DENTRO del boton (y el boton con clip_contents), no con el text del propio
-#  boton: un Button no deja mover su texto, y ademas las particulas de rareza necesitan un Label
-#  para colgarse (ver brillo_en). Dos pajaros.
+#  Las tres reglas, y son las tres a la vez:
+#
+#   1. MISMA VELOCIDAD SIEMPRE (VELOCIDAD_CARRUSEL px/s), mida lo que mida el texto. La duracion
+#      sale de dividir lo que sobra entre esa velocidad -- nunca al reves. Un nombre el doble de
+#      largo tarda el doble, no corre el doble.
+#   2. CADA LINEA VA POR SU CUENTA. Si el nombre del objeto no cabe pero el de quien lo lleva si,
+#      se mueve SOLO el nombre; el otro se queda quieto. Por eso cada linea es su propio Label
+#      dentro de su propia ventanita, y no un unico Label de dos lineas.
+#   3. CARRUSEL, no vaiven: avanza hasta que ha entrado el final del texto y ahi VUELVE AL PRINCIPIO
+#      y empieza otra vez. Nada de ir y volver.
+#
+#  Va como Label DENTRO del boton (y el boton con clip_contents) y no como text del propio Button:
+#  un Button no deja mover su texto, y ademas las particulas de rareza necesitan un Label para
+#  colgarse (ver brillo_en). Dos pajaros.
 # ============================================================
 
 # Margen que se le deja al texto dentro de la caja (el borde del tema se come 2 px por lado).
 const MARGEN_TEXTO := 8.0
+# Pixeles por segundo del carrusel. UNO para todo el juego: es lo que hace que dos celdas distintas
+# se lean al mismo ritmo.
+const VELOCIDAD_CARRUSEL := 40.0
 
+# Monta el texto dentro de 'caja' (una linea por cada \n) y devuelve el Label de la PRIMERA, que es
+# el nombre del objeto: es al que se le cuelgan los destellos de la rareza.
 static func texto_deslizante(caja: Control, texto: String, color: Variant = null) -> Label:
 	caja.clip_contents = true
+	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 0)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caja.add_child(col)
+	var primera: Label = null
+	for linea in texto.split("\n"):
+		var l: Label = _linea_carrusel(col, String(linea), color)
+		if primera == null:
+			primera = l
+	return primera
+
+
+# UNA linea: su ventanita (que recorta) y su Label dentro (que es lo que se mueve).
+static func _linea_carrusel(col: VBoxContainer, texto: String, color: Variant) -> Label:
+	var marco := Control.new()
+	marco.clip_contents = true
+	marco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	marco.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_child(marco)
+
 	var lbl := Label.new()
 	lbl.text = texto
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE   # el que se pulsa es el boton de debajo
 	# OBLIGATORIO: abrir un menu PARA el arbol (Game.abrir_menu), y un Tween se para con el nodo al
-	# que pertenece. Sin esto el texto se quedaria congelado justo cuando se supone que se lee. Es el
-	# mismo aviso que lleva brillo_en para sus destellos.
+	# que pertenece. Sin esto el carrusel se quedaria congelado justo cuando se supone que se lee. Es
+	# el mismo aviso que lleva brillo_en para sus destellos.
 	lbl.process_mode = Node.PROCESS_MODE_ALWAYS
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	if color is Color:
 		lbl.add_theme_color_override("font_color", color)
-	caja.add_child(lbl)
+	marco.add_child(lbl)
+	marco.custom_minimum_size = Vector2(0, lbl.get_minimum_size().y)
 
 	# El ancho de verdad no se sabe hasta que el contenedor coloca la celda, asi que la decision de
-	# pasear o no se toma con el layout (mismo motivo por el que brillo_en se reajusta en resized).
+	# rodar o no se toma con el layout (mismo motivo por el que brillo_en se reajusta en resized).
 	var tween: Tween = null
 	var colocar := func() -> void:
-		var sobra: float = lbl.get_minimum_size().x - (caja.size.x - MARGEN_TEXTO)
-		lbl.size = Vector2(maxf(lbl.get_minimum_size().x, caja.size.x - MARGEN_TEXTO), caja.size.y)
+		var texto_ancho: float = lbl.get_minimum_size().x
+		var hueco: float = marco.size.x - MARGEN_TEXTO
+		var sobra: float = texto_ancho - hueco
+		lbl.size = Vector2(maxf(texto_ancho, hueco), marco.size.y)
 		if sobra <= 1.0:
-			# CABE: quieto y centrado. Si venia paseandose (la celda ha crecido), se corta el paseo.
+			# CABE: quieto y centrado. Si venia rodando (la celda ha crecido), se corta.
 			if tween != null and tween.is_valid():
 				tween.kill()
 				tween = null
+			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			lbl.position = Vector2(MARGEN_TEXTO * 0.5, 0)
 			lbl.set_meta("pasea", false)
 			return
 		if tween != null and tween.is_valid():
-			return   # ya se esta paseando: no reiniciarlo en cada resize
-		lbl.position = Vector2(MARGEN_TEXTO * 0.5, 0)
-		# Ida, espera, vuelta, espera. En bucle. La velocidad va por PIXELES POR SEGUNDO y no por una
-		# duracion fija: si no, un nombre el doble de largo se leeria al doble de rapido.
-		var dur: float = maxf(0.6, sobra / 40.0)
-		# Se apunta en el Label si esta paseando o no: por fuera no hay forma de preguntarle a un
-		# nodo por sus tweens, y esto es lo que deja comprobarlo (y verlo de un vistazo al depurar).
+			return   # ya esta rodando: no reiniciarlo en cada resize
+		# Rodando se lee de izquierda a derecha: centrarlo ademas lo descuadraria al arrancar.
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var inicio: float = MARGEN_TEXTO * 0.5
+		# Se apunta en el Label si esta rodando o no: por fuera no hay forma de preguntarle a un nodo
+		# por sus tweens, y esto es lo que deja comprobarlo (y verlo de un vistazo al depurar).
 		lbl.set_meta("pasea", true)
+		# UN solo tramo en bucle: al acabar vuelve de golpe al principio (el .from lo garantiza) y
+		# arranca otra vez. Eso es el carrusel; un segundo tramo de vuelta seria un vaiven.
 		tween = lbl.create_tween().set_loops()
-		tween.tween_interval(1.2)
-		tween.tween_property(lbl, "position:x", MARGEN_TEXTO * 0.5 - sobra, dur)
-		tween.tween_interval(1.2)
-		tween.tween_property(lbl, "position:x", MARGEN_TEXTO * 0.5, dur)
-	caja.resized.connect(colocar)
+		tween.tween_property(lbl, "position:x", inicio - sobra, sobra / VELOCIDAD_CARRUSEL).from(inicio)
+	marco.resized.connect(colocar)
 	colocar.call()
 	return lbl
 
