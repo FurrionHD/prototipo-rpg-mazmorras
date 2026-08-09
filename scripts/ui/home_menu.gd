@@ -16,7 +16,7 @@ extends CanvasLayer
 
 # Almacen del hogar. Bote y Cofre son tu almacen personal (persiste en la partida); en multi
 # pasan a ser los del host (compartidos). Siempre visibles.
-const TABS := ["Equipo", "Encargos", "Almacén", "Bote", "Cofre"]
+const TABS := ["Equipo", "Encargos", "Almacén", "Cofre"]
 
 # Los dos apartados de Encargos, por ID como los del cofre (ver COFRE_SUBS).
 const ENCARGO_SUBS := [["En marcha", "curso"], ["Mandar uno", "nuevo"]]
@@ -24,8 +24,11 @@ const ENCARGO_SUBS := [["En marcha", "curso"], ["Mandar uno", "nuevo"]]
 # Los apartados del cofre, [etiqueta, id]. Van por ID y no por indice porque el numero cambia en
 # cuanto se mete uno nuevo en medio, y un `_cofre_sub == 2` suelto pasa a significar otra cosa sin
 # avisar. Mismo criterio que las pestañas de forge_menu.
+# La HUCHA es un apartado mas del cofre y no una pestaña suya arriba: es lo mismo que el resto
+# (algo que dejas en casa y que en multi es comun), y sola en su pantalla se quedaba una fila de
+# tres numeros perdida en medio de un vacio enorme.
 const COFRE_SUBS := [["Armas", "armas"], ["Armaduras", "armaduras"],
-	["Mochilas y herram.", "utiles"], ["Consumibles", "consumibles"]]
+	["Mochilas y herram.", "utiles"], ["Consumibles", "consumibles"], ["Monedas", "monedas"]]
 # Que 'clase' de las que guarda el cofre se enseña en cada apartado (ver Game.serializar_equipo).
 const COFRE_CLASES := {
 	"armas": ["arma"],
@@ -41,6 +44,9 @@ var _root: Control = null
 var _header: VBoxContainer = null
 var _content: VBoxContainer = null
 var _lista: VBoxContainer = null
+# La COLUMNA de la lista, para poder esconderla en las pestañas que no la usan: si se queda ahi
+# vacia, se lleva 330 px de ancho y el contenido de al lado se apretuja contra el borde.
+var _lista_scroll: ScrollContainer = null
 var _aviso_lbl: Label = null
 var _tab_buttons: Array = []
 var _side: VBoxContainer = null
@@ -74,6 +80,7 @@ func _ready() -> void:
 	_header = m["header"]
 	_content = m["content"]
 	_lista = m["lista"]
+	_lista_scroll = m["lista_scroll"]
 	_aviso_lbl = m["aviso"]
 	_side = m["side"]
 	# Las pestañas se rehacen en cada _rebuild: en sesion multi aparecen Bote y Cofre.
@@ -172,11 +179,18 @@ func _rebuild_real() -> void:
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 
+	# La columna de la lista solo la usan el Cofre (sus dos columnas: lo tuyo / lo que hay dentro) y
+	# los Encargos. En las demas se esconde: vacia se quedaba con 330 px y el contenido de al lado se
+	# apretujaba en lo que sobraba (los tres botones del baul no cabian en una fila por esto).
+	var con_lista: bool = _tabs()[_tab] in ["Cofre", "Encargos", "Equipo"]
+	if _lista_scroll != null:
+		_lista_scroll.visible = con_lista
+
 	match _tabs()[_tab]:
 		"Equipo": _build_equipo()
 		"Encargos": _build_encargos()
 		"Almacén": _build_almacen()
-		"Bote": _build_bote()
+		# La HUCHA ya no tiene pestaña propia: es un apartado dentro del cofre (ver COFRE_SUBS).
 		"Cofre": _build_cofre()
 
 
@@ -1085,29 +1099,33 @@ func _build_almacen() -> void:
 	MenuScaffold.fila(_content, "Guardado en casa", "%d materiales" % Game.almacen_materiales.size())
 	MenuScaffold.nota(_content, "Los cristales NO se guardan: esos hay que venderlos en la tienda.")
 
-	var b := Button.new()
-	b.text = "Guardar todo lo que traigo"
-	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	b.disabled = Game.materiales.is_empty()
-	b.pressed.connect(_on_guardar)
-	_content.add_child(b)
+	# LOS TRES EN UNA FILA. Son las tres cosas que se pueden hacer aqui y se comparan entre ellas
+	# (guardar / recoger todo / recoger lo que quepa): en columna ocupaban tres renglones de pantalla
+	# y parecian tres pasos de algo. Se reparten el ancho a partes iguales (EXPAND_FILL).
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 8)
+	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(fila)
+
+	# Etiquetas CORTAS y el matiz en el tooltip: tres botones en una fila no dan para una frase, y
+	# el aviso de la sobrecarga ya esta escrito en la nota de abajo.
+	var b := MenuScaffold.boton(fila, "Guardar todo", _on_guardar, not Game.materiales.is_empty())
+	b.tooltip_text = "Deja en el baúl todo lo que traes en la bolsa."
+	b.clip_text = true
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# EL CAMINO DE VUELTA. Hasta ahora del baul solo se salia vendiendo o crafteando, y hace falta
 	# poder vaciarlo: al entrar en un mundo compartido solo viaja la BOLSA, asi que para llevarte tus
 	# materiales al mundo de un companero primero tienes que recogerlos aqui.
-	var todo := Button.new()
-	todo.text = "Recoger TODO (aunque te sobrecargue)"
-	todo.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	todo.disabled = Game.almacen_materiales.is_empty()
-	todo.pressed.connect(_on_recoger.bind(true))
-	_content.add_child(todo)
-
-	var cabe := Button.new()
-	cabe.text = "Recoger sin quedarme lento"
-	cabe.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	cabe.disabled = Game.almacen_materiales.is_empty()
-	cabe.pressed.connect(_on_recoger.bind(false))
-	_content.add_child(cabe)
+	var vacio: bool = Game.almacen_materiales.is_empty()
+	var todo := MenuScaffold.boton(fila, "Recoger TODO", _on_recoger.bind(true), not vacio)
+	todo.tooltip_text = "Saca del baúl todo lo que hay, aunque te deje sobrecargado."
+	todo.clip_text = true
+	todo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var cabe := MenuScaffold.boton(fila, "Recoger lo que quepa", _on_recoger.bind(false), not vacio)
+	cabe.tooltip_text = "Saca solo lo que puedas cargar sin quedarte lento."
+	cabe.clip_text = true
+	cabe.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	MenuScaffold.fila(_content, "Tu carga", "%.1f / %.1f%s" % [
 		Game.peso_actual(), Game.capacidad_carga(),
@@ -1174,8 +1192,14 @@ func _decir_recogida(n: int, todo: bool) -> void:
 #  BOTE del hogar (multi): dinero comun. Tu dinero de bolsillo sigue siendo tuyo.
 # ============================================================
 
+# La HUCHA, que es un apartado del cofre (el titulo grande lo pone _build_cofre).
 func _build_bote() -> void:
-	MenuScaffold.titulo(_header, "HUCHA DEL HOGAR", 18)
+	# Los otros apartados del cofre usan las dos columnas (lo tuyo / lo que hay dentro); este no, asi
+	# que se esconde la de la lista o la fila de la cantidad se queda sin sitio y se sale por la
+	# derecha.
+	if _lista_scroll != null:
+		_lista_scroll.visible = false
+	MenuScaffold.titulo(_content, "La hucha de casa", 14)
 	MenuScaffold.fila(_content, "En la hucha", "%d monedas" % Net.bote_visible())
 	MenuScaffold.fila(_content, "En tu bolsillo", "%d monedas" % Game.money)
 	var nota: String = "Guarda dinero en casa. " + ("En multijugador es común: deposita para que "
@@ -1189,18 +1213,23 @@ func _build_bote() -> void:
 
 	var etq := Label.new()
 	etq.text = "Cantidad:"
+	etq.custom_minimum_size = Vector2(150, 0)
+	etq.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	caja.add_child(etq)
 
 	var le := LineEdit.new()
 	le.text = _bote_input
 	le.placeholder_text = "0"
-	le.custom_minimum_size = Vector2(120, 0)
-	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Alto de dedo como todo lo demas, y ancho ACOTADO: estirado a toda la pantalla parecia el campo
+	# de un formulario web, y aqui se escriben cuatro cifras.
+	le.custom_minimum_size = Vector2(220, MenuScaffold.ALTO_BOTON)
+	le.add_theme_font_size_override("font_size", 18)
 	le.text_changed.connect(func(t: String): _bote_input = t)   # se conserva al re-dibujar
 	caja.add_child(le)
 
 	var dep := Button.new()
 	dep.text = "Depositar"
+	dep.custom_minimum_size = Vector2(150, MenuScaffold.ALTO_BOTON)
 	dep.pressed.connect(func():
 		var n: int = _cantidad_bote()
 		if n <= 0:
@@ -1214,6 +1243,7 @@ func _build_bote() -> void:
 
 	var ret := Button.new()
 	ret.text = "Retirar"
+	ret.custom_minimum_size = Vector2(150, MenuScaffold.ALTO_BOTON)
 	ret.pressed.connect(func():
 		var n: int = _cantidad_bote()
 		if n <= 0:
@@ -1244,6 +1274,7 @@ func _build_cofre() -> void:
 		var b := Button.new()
 		b.text = str(COFRE_SUBS[i][0])
 		b.toggle_mode = true
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)   # alto de dedo, como el resto
 		b.button_pressed = (_cofre_sub == i)
 		b.pressed.connect(func():
 			_cofre_sub = i
@@ -1255,6 +1286,9 @@ func _build_cofre() -> void:
 	var sub_id: String = str(COFRE_SUBS[_cofre_sub][1])
 	if sub_id == "consumibles":
 		_build_cofre_consumibles()
+		return
+	if sub_id == "monedas":
+		_build_bote()
 		return
 
 	# TUYAS (baul propio, sin equipar): se pueden depositar.
@@ -1286,6 +1320,7 @@ func _build_cofre() -> void:
 		fila.add_child(l)
 		var meter := Button.new()
 		meter.text = "Al cofre"
+		meter.custom_minimum_size = Vector2(120, MenuScaffold.ALTO_BOTON)
 		meter.pressed.connect(func():
 			if Net.meter_en_cofre(item):
 				_aviso = "Guardas %s en el cofre." % Game.item_display_name(item)
@@ -1324,6 +1359,7 @@ func _build_cofre() -> void:
 		fila.add_child(l)
 		var sacar := Button.new()
 		sacar.text = "Sacar"
+		sacar.custom_minimum_size = Vector2(120, MenuScaffold.ALTO_BOTON)
 		sacar.disabled = en_encargo
 		if en_encargo:
 			sacar.tooltip_text = "Se la han llevado a un encargo. Vuelve cuando lo recojas."
@@ -1357,6 +1393,7 @@ func _build_cofre_consumibles() -> void:
 		var ruta: String = c.resource_path
 		var meter := Button.new()
 		meter.text = "Al cofre"
+		meter.custom_minimum_size = Vector2(120, MenuScaffold.ALTO_BOTON)
 		meter.pressed.connect(func():
 			Net.meter_consumible_cofre(ruta, 1)
 			_aviso = "Guardas 1 en el cofre."
@@ -1384,6 +1421,7 @@ func _build_cofre_consumibles() -> void:
 		fila.add_child(l)
 		var sacar := Button.new()
 		sacar.text = "Sacar"
+		sacar.custom_minimum_size = Vector2(120, MenuScaffold.ALTO_BOTON)
 		sacar.pressed.connect(func():
 			Net.sacar_consumible_cofre(ruta, 1)
 			_aviso = "Sacas 1 del cofre."
