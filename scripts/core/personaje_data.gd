@@ -134,8 +134,9 @@ var estados_chips: Array = []
 var estados_mochila: float = 0.0
 # MULTIPLICADOR DE HABILIDAD por estado (clave -> factor; vacio o 1.0 = nada). Es el "10% mas de
 # Fuerza" del plato, y por el mapa hace falta en sitios que se leen constantemente (la vida maxima
-# del HUD, la capacidad de carga, el reto de cada minijuego de recoleccion), asi que se cachea igual
-# que los de arriba. Lo consumen Game.abilities_eff_de y Game.stat_total_eff.
+# del HUD, la capacidad de carga, la dificultad de cada minijuego de recoleccion), asi que se cachea
+# igual que los de arriba. Lo consumen Game.abilities_eff_de (dentro del combate) y
+# Game.stat_consolidado_eff (fuera). NUNCA stat_total: el plato no toca el reto ni la excelia.
 var estados_hab: Dictionary = {}
 # SUERTE del plato de la fortuna: cuanto multiplica la probabilidad de drop, y que probabilidad hay
 # de que la cantidad salga DOBLE. Lo lee Game._tirar_drop, que corre una vez por bicho muerto.

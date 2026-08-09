@@ -5792,14 +5792,16 @@ func _capacidad_con(contenedor: float, saturacion: float, grupo: Array = []) -> 
 	var suma: float = 0.0
 	var n: int = 0
 	for pj in quienes:
-		# Fuerza TOTAL (oculta), no la visible: si no, al subir de nivel perderias capacidad de carga
-		# (el visible vuelve a 0). Mismo criterio que el aguante y la recoleccion.
+		# Fuerza CONSOLIDADA, no la visible: si no, al subir de nivel perderias capacidad de carga (el
+		# visible vuelve a 0). La consolidada tampoco se desploma al ascender, asi que cumple igual —
+		# y ademas espera al altar, como todos los efectos. Mismo criterio que el aguante y la
+		# recoleccion (antes esto leia la INTERNA y la carga te subia sin haber descansado).
 		#
 		# Y con los ESTADOS puestos (_eff). El plato de Fuerza entra por DOS vias distintas y es a
 		# proposito: aqui multiplica -eres mas fuerte, luego cargas mas- y ademas suma su mochila_extra
 		# plana mas abajo. Antes solo llegaba la plana, y por eso parecia que la Fuerza del plato no
 		# hacia nada mas que un saco de regalo.
-		suma += stat_total_eff("fuerza", pj)
+		suma += stat_consolidado_eff("fuerza", pj)
 		n += 1
 	var media: float = suma / float(maxi(1, n))
 	var mult: float = 1.0 + clampf(media / maxf(1.0, saturacion), 0.0, 1.0) * fuerza_capacity_bonus_max
@@ -8866,7 +8868,10 @@ func agilidad_esperada_piso(piso: int = -1) -> float:
 # 'pj' = de QUIEN sale el paso (null = el lider, que es quien manda cuando el grupo va entero). Si
 # alguien va sin fuelle, player.gd pasa a ESE: el que se arrastra impone su ritmo, no el de cabeza.
 func agilidad_speed_mult(pj: PersonajeData = null, piso: int = -1) -> float:
-	var agi: float = stat_total_eff("agilidad", pj)   # con el plato de Agilidad puesto
+	# La CONSOLIDADA, con el plato de Agilidad puesto: andar mas rapido es un efecto, y los efectos
+	# esperan al altar (ver stat_consolidado_eff). Iba con la interna, asi que la excelia sin
+	# consolidar ya te aceleraba.
+	var agi: float = stat_consolidado_eff("agilidad", pj)
 	var esperada: float = agilidad_esperada_piso(piso)
 	# Todo se mide en PUNTOS de distancia al liston, nunca en porcentaje: 150 por encima es el
 	# +50%, 150 por debajo es el -20%, y da igual el piso en el que estes. En porcentaje pasaba lo
@@ -9099,34 +9104,38 @@ func _visible_nivel(s: String, pj: PersonajeData = null) -> int:
 	var p: PersonajeData = pj if pj != null else lider()
 	return maxi(0, floori(float(p.ability_consolidado[s]) - float(p.ability_base_nivel[s])))
 
-# TOTAL acumulado (oculto) de una habilidad. Es lo que usan recoleccion y reto: no se resetea al
-# subir de nivel, asi la recoleccion sigue facil y un enemigo de piso bajo da reto ~0 (no exploit).
+# TOTAL acumulado (oculto) de una habilidad: el interno, lo ganado hasta el ultimo golpe, este o no
+# consolidado. Es la de RETO y EXCELIA, y SOLO esa — lo que mide cuanto te queda por aprender.
+#
+# Va SIN los estados a proposito, y por eso no tiene gemela con plato: si la comida entrara aqui, un
+# plato te bajaria el reto (menos excelia) o te subiria el poder del numerador. Comer tiene que
+# facilitarte la accion, no cambiar lo que aprendes de ella. Mismo aviso en Combatant (_hab_mult).
+# Para armar un minijuego o cualquier otro EFECTO, la que toca es stat_consolidado_eff.
 func stat_total(s: String, pj: PersonajeData = null) -> int:
 	var p: PersonajeData = pj if pj != null else lider()
 	return floori(float(p.ability_internal[s]))
 
-# El total oculto CON los estados encima (el 10% del plato). Hermano de abilities_eff_de para el otro
-# numero de habilidad que maneja el juego: el visible alimenta vida/defensa/daño, y este alimenta lo
-# que se hace CON el cuerpo — cuanto cargas, cuanto aguantas y como de facil te sale un minijuego.
-#
-# CUIDADO: esto NO es un reemplazo directo de stat_total, y por eso son dos funciones y no un flag.
-# Hay dos sitios que tienen que seguir leyendo el CRUDO pase lo que pase:
-#   - poder_jugador (el numerador de la excelia)
-#   - curva_reto (la dificultad de lo que te enfrentas)
-# Si un plato entrara ahi, comer te subiria la excelia que ganas y te bajaria el reto: la comida
-# dejaria de ser una ayuda para ser un exploit. Ver el mismo aviso en Combatant (_hab_mult).
-func stat_total_eff(s: String, pj: PersonajeData = null) -> float:
-	var p: PersonajeData = pj if pj != null else lider()
-	return float(stat_total(s, p)) * float(p.estados_hab.get(s, 1.0))
-
 # CONSOLIDADO de una habilidad: lo que quedo fijado en el ULTIMO altar. A diferencia de
 # stat_total (el interno oculto, que crece con cada golpe), esto solo cambia al descansar. Y a
 # diferencia del VISIBLE (consolidado - base_nivel, que cae a 0 al subir de nivel), NO se resetea:
-# por eso sirve para magnitudes que deben crecer solo al consolidar pero sin desplomarse al ascender
-# —hoy, el aguante maximo (ver player._calc_max_aguante)—.
+# por eso sirve para magnitudes que deben crecer solo al consolidar pero sin desplomarse al ascender.
 func stat_consolidado(s: String, pj: PersonajeData = null) -> int:
 	var p: PersonajeData = pj if pj != null else lider()
 	return floori(float(p.ability_consolidado[s]))
+
+# LA STAT DE EFECTO FUERA DE COMBATE: el consolidado con los estados encima (el 10% del plato).
+# Es la que arma los minijuegos, los oficios, cuanto cargas, cuanto aguantas y como de rapido andas
+# — todo lo que se hace CON el cuerpo. Hermana de abilities_eff_de, que es la de DENTRO del combate
+# (esa va por el visible, que se resetea al ascender; aqui no puede, la recoleccion no se endurece
+# al subir de nivel).
+#
+# LEE LO CONSOLIDADO A PROPOSITO. Antes todos estos sitios llamaban a stat_total_eff, que va sobre
+# el INTERNO, asi que la excelia sin consolidar ya te facilitaba los minijuegos y te subia la carga
+# sin haber pasado por el altar. Descansar es lo que hace tuyo lo aprendido: hasta entonces no
+# cuenta para nada mas que para tu propio progreso.
+func stat_consolidado_eff(s: String, pj: PersonajeData = null) -> float:
+	var p: PersonajeData = pj if pj != null else lider()
+	return float(stat_consolidado(s, p)) * float(p.estados_hab.get(s, 1.0))
 
 
 # ============================================================
@@ -10230,9 +10239,10 @@ func start_extraction(corpse: Node) -> void:
 	if corpse.has_method("poder_normalizado"):
 		t = corpse.poder_normalizado()
 	var categoria: int = data.roll_crystal_category(t)
-	# Destreza TOTAL (acumulada, oculta): recolectar no se endurece al subir de nivel (el visible cae a 0).
-	# Y con el plato de Destreza puesto si lo llevas (_eff): comer ayuda tambien a los oficios.
-	var eff_destreza: int = int(round(stat_total_eff("destreza"))) + tool_destreza_bonus
+	# Destreza CONSOLIDADA (la del ultimo altar) y con el plato puesto si lo llevas: es la stat de
+	# efecto fuera de combate. No se endurece al subir de nivel (a diferencia de la visible, que cae
+	# a 0) y no se mueve con la excelia que aun no has descansado. Ver stat_consolidado_eff.
+	var eff_destreza: int = int(round(stat_consolidado_eff("destreza"))) + tool_destreza_bonus
 
 	# Exigencia por TIER del cristal (no por enemigo ni por piso): un t4 cuesta lo mismo lo saques
 	# donde lo saques. La tabla cubre las categorias bajas y por encima se extrapola (ver _extraction_req).
@@ -10256,17 +10266,21 @@ func start_extraction(corpse: Node) -> void:
 		ajuste_hits = -(floori(1.0 / difficulty) - 1)
 	var required_hits: int = maxi(EXTRACTION_HITS_MIN,
 		data.extraction_hits + ajuste_hits - tool_hit_reduction)
-	# La dificultad CRUDA, que es la que enseña. Ni la zona ni las pulsaciones entran aqui: las dos
-	# estan topadas por jugabilidad y con ellas el aprendizaje se congelaba (ver _last_extraction_reto).
-	_last_extraction_reto = difficulty
+	# LA QUE ENSEÑA, aparte: con la Destreza INTERNA (lo ganado hasta el ultimo golpe) y SIN el plato.
+	# El bonus de la herramienta si entra, igual que la afinidad en los otros cuatro minijuegos (ver
+	# _reto_recoleccion). Ni la zona ni las pulsaciones entran aqui: las dos estan topadas por
+	# jugabilidad y con ellas el aprendizaje se congelaba.
+	_last_extraction_reto = req / (float(stat_total("destreza") + tool_destreza_bonus)
+		* RECOLECCION_STAT_PESO + EXTRACTION_DESTREZA_FLOOR)
 	# Marcador: mas rapido cuanto mas DIFICIL (ahora la dificultad la pone el TIER, no el piso),
 	# con TECHO y con SUELO (ver RECOLECCION_VEL_RETO_MIN: ser bueno no puede frenar el marcador).
 	var marker_speed: float = EXTRACTION_BASE_MARKER \
 		* clampf(difficulty, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX)
 	marker_speed = minf(marker_speed, EXTRACTION_MARKER_MAX)
 	var speed_step: float = 0.15
-	print("[reco] extraccion tier %d (req %.0f) · Destreza %d (con plato %.0f) -> reto %.2f  (zona %.3f, marcador %.2f, pulsaciones %d)" % [
-		categoria, req, player_destreza, stat_total_eff("destreza"), difficulty, zone_ratio, marker_speed, required_hits])
+	print("[reco] extraccion tier %d (req %.0f) · Destreza %.0f (crudo %d) -> reto %.2f (paga %.2f)  (zona %.3f, marcador %.2f, pulsaciones %d)" % [
+		categoria, req, stat_consolidado_eff("destreza"), stat_total("destreza"),
+		difficulty, _last_extraction_reto, zone_ratio, marker_speed, required_hits])
 
 	var ex: Control = _extraction_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -10478,14 +10492,27 @@ func _exigencia_material(m: MaterialData, piso: int = -1) -> float:
 
 
 # DIFICULTAD de un minijuego de recoleccion: lo duro que es el material contra tu stat (con suelo).
-# ~1 = a la par. La comparten los tres, por eso vive aqui y no copiada en cada start_*.
+# ~1 = a la par. La comparten los cinco, por eso vive aqui y no copiada en cada start_*.
+#
+# CADA MINIJUEGO LA LLAMA DOS VECES, y la diferencia esta solo en la stat que le pasa:
+#   - la 'd' que ARMA el minijuego  -> stat_consolidado_eff(): lo del ultimo altar, CON el plato.
+#     Comer te facilita la accion, y la excelia que aun no has consolidado no cuenta todavia.
+#   - la 'd_reto' que PAGA la excelia -> stat_total(): el interno crudo y SIN plato. Lo que aprendes
+#     no puede depender de lo que hayas cenado (ver el aviso de stat_total).
+# Antes era UNA sola sobre stat_total_eff (interno + plato), que juntaba los dos errores.
 #
 # 'afinidad' es lo que aporta la HERRAMIENTA (Upgrades.tool_mods) y entra en el DENOMINADOR, o sea
 # que una herramienta mejor te mide como si fueras mas bueno en ese oficio. Ver el bloque de
-# TOOL_AFINIDAD_TIER en upgrades.gd para el porque va aqui y no ensanchando la ventana.
-# 'stat' va en FLOAT y no en int: los cuatro minijuegos le pasan stat_total_eff(), que multiplica el
-# total oculto por el plato y sale con decimales. Redondearlo a int aqui se comia buena parte del
-# bonus en las stats bajas, que es justo donde un plato se tiene que notar.
+# TOOL_AFINIDAD_TIER en upgrades.gd para el porque va aqui y no ensanchando la ventana. Y va en LAS
+# DOS: eso NO se separa. Estuvo separado (con herramienta para el minijuego, sin ella para la
+# excelia) con la idea de que craftear un pico no te recortara la Fuerza por veta, y MEDIDO hacia lo
+# contrario de lo que decia querer: como el pico ademas quita GOLPES, el nodo pagaba lo mismo pero
+# costaba menos, o sea un +50% de excelia POR GOLPE DADO — la herramienta regalaba entrenamiento,
+# justo lo que la cabecera de tool_data.gd dice que no debe hacer. Acopladas, la excelia por golpe
+# se queda PLANA (~0.5 con y sin pico).
+#
+# 'stat' va en FLOAT y no en int: el plato sale con decimales, y redondearlo aqui se comia buena
+# parte del bonus en las stats bajas, que es justo donde se tiene que notar.
 func _reto_recoleccion(exigencia: float, stat: float, suelo: float, afinidad: float = 0.0) -> float:
 	return exigencia / (stat * RECOLECCION_STAT_PESO + suelo + afinidad)
 
@@ -10512,18 +10539,11 @@ func start_mineria(nodo) -> void:
 	var p: ToolData = pico()
 	var tm: Dictionary = tool_mods(p)
 
-	# UNA sola dificultad, y la afinidad del pico va DENTRO: arma el minijuego y paga la excelia.
-	#
-	# Estuvo separado en dos (una con herramienta para el minijuego y otra sin ella para la excelia)
-	# con la idea de que craftear un pico no te recortara la Fuerza por veta. MEDIDO, esa separacion
-	# hacia lo contrario de lo que decia querer: como el pico ademas quita GOLPES, el nodo pagaba lo
-	# mismo pero costaba menos, o sea un +50% de excelia POR GOLPE DADO. La herramienta regalaba
-	# entrenamiento, que es justo lo que la cabecera de tool_data.gd dice que no debe hacer.
-	#
-	# Acopladas, la excelia por golpe se queda PLANA (~0.5 con y sin pico): la herramienta te da
-	# material mas rapido y menos hostilidad, no stats mas rapido. Cada nodo paga ~20-30% menos, pero
-	# cuesta menos golpes, asi que por esfuerzo sale igual.
-	var d: float = _reto_recoleccion(_exigencia_material(m), stat_total_eff("fuerza"),
+	# DOS dificultades: la que ARMA el minijuego y la que PAGA la excelia. Ver _reto_recoleccion para
+	# el reparto (consolidado+plato vs interno crudo) y por que la afinidad del pico va en LAS DOS.
+	var d: float = _reto_recoleccion(_exigencia_material(m), stat_consolidado_eff("fuerza"),
+		MINERIA_FUERZA_FLOOR, float(tm["afinidad"]))
+	var d_reto: float = _reto_recoleccion(_exigencia_material(m), float(stat_total("fuerza")),
 		MINERIA_FUERZA_FLOOR, float(tm["afinidad"]))
 
 	# La Fuerza ensancha la franja optima Y la baja (no necesitas cargar tanto el pico).
@@ -10538,9 +10558,10 @@ func start_mineria(nodo) -> void:
 	var golpes: int = clampi(roundi(MINERIA_GOLPES_BASE * d), 2, 8) - int(tm["golpes_menos"])
 	golpes = maxi(2, golpes)
 
-	_last_reco_reto = d
-	print("[reco] mineria %s · piso %d · Fuerza %.0f · exigencia %.0f -> reto %.2f  (franja %.3f, carga %.2f, golpes %d)%s" % [
-		m.nombre, current_floor, stat_total_eff("fuerza"), _exigencia_material(m), d, ancho, carga, golpes,
+	_last_reco_reto = d_reto
+	print("[reco] mineria %s · piso %d · Fuerza %.0f (crudo %d) · exigencia %.0f -> reto %.2f (paga %.2f)  (franja %.3f, carga %.2f, golpes %d)%s" % [
+		m.nombre, current_floor, stat_consolidado_eff("fuerza"), stat_total("fuerza"),
+		_exigencia_material(m), d, d_reto, ancho, carga, golpes,
 		_log_herramienta(p, tm)])
 	var ex: Control = _mining_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -10578,8 +10599,10 @@ func start_herboristeria(nodo) -> void:
 	var h: ToolData = hoz()
 	var tm: Dictionary = tool_mods(h)
 
-	# La afinidad va DENTRO: arma el minijuego Y paga la excelia. Ver start_mineria.
-	var d: float = _reto_recoleccion(_exigencia_material(m), stat_total_eff("destreza"),
+	# La que arma el minijuego y la que paga la excelia. Ver _reto_recoleccion.
+	var d: float = _reto_recoleccion(_exigencia_material(m), stat_consolidado_eff("destreza"),
+		HERB_DESTREZA_FLOOR, float(tm["afinidad"]))
+	var d_reto: float = _reto_recoleccion(_exigencia_material(m), float(stat_total("destreza")),
 		HERB_DESTREZA_FLOOR, float(tm["afinidad"]))
 
 	var nucleo: float = clampf(HERB_BASE_NUCLEO / d, 0.015, 0.14)
@@ -10596,9 +10619,10 @@ func start_herboristeria(nodo) -> void:
 	var cortes: int = clampi(2 + floori(d), 2, 8) - int(tm["golpes_menos"])
 	cortes = maxi(2, cortes)
 
-	_last_reco_reto = d
-	print("[reco] herboristeria %s · piso %d · Destreza %.0f · exigencia %.0f -> reto %.2f  (nucleo %.3f, vel %.2f, cortes %d)%s" % [
-		m.nombre, current_floor, stat_total_eff("destreza"), _exigencia_material(m), d, nucleo, vel, cortes,
+	_last_reco_reto = d_reto
+	print("[reco] herboristeria %s · piso %d · Destreza %.0f (crudo %d) · exigencia %.0f -> reto %.2f (paga %.2f)  (nucleo %.3f, vel %.2f, cortes %d)%s" % [
+		m.nombre, current_floor, stat_consolidado_eff("destreza"), stat_total("destreza"),
+		_exigencia_material(m), d, d_reto, nucleo, vel, cortes,
 		_log_herramienta(h, tm)])
 	var ex: Control = _harvest_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -10636,8 +10660,10 @@ func start_talado(nodo) -> void:
 	var a: ToolData = hacha()
 	var tm: Dictionary = tool_mods(a)
 
-	# La afinidad va DENTRO: arma el minijuego Y paga la excelia. Ver start_mineria.
-	var d: float = _reto_recoleccion(_exigencia_material(m), stat_total_eff("agilidad"),
+	# La que arma el minijuego y la que paga la excelia. Ver _reto_recoleccion.
+	var d: float = _reto_recoleccion(_exigencia_material(m), stat_consolidado_eff("agilidad"),
+		TALA_AGILIDAD_FLOOR, float(tm["afinidad"]))
+	var d_reto: float = _reto_recoleccion(_exigencia_material(m), float(stat_total("agilidad")),
 		TALA_AGILIDAD_FLOOR, float(tm["afinidad"]))
 
 	# La Agilidad ensancha la ventana del hachazo y frena el tempo. El hacha, al bajar la dificultad,
@@ -10657,9 +10683,10 @@ func start_talado(nodo) -> void:
 	var hachazos: int = clampi(roundi(TALA_HACHAZOS_BASE * d), 2, 9) - int(tm["golpes_menos"])
 	hachazos = maxi(2, hachazos)
 
-	_last_reco_reto = d
-	print("[reco] talado %s · piso %d · Agilidad %.0f · exigencia %.0f -> reto %.2f  (ventana %.3f, tempo %.2f, hachazos %d)%s" % [
-		m.nombre, current_floor, stat_total_eff("agilidad"), _exigencia_material(m), d, ancho, tempo, hachazos,
+	_last_reco_reto = d_reto
+	print("[reco] talado %s · piso %d · Agilidad %.0f (crudo %d) · exigencia %.0f -> reto %.2f (paga %.2f)  (ventana %.3f, tempo %.2f, hachazos %d)%s" % [
+		m.nombre, current_floor, stat_consolidado_eff("agilidad"), stat_total("agilidad"),
+		_exigencia_material(m), d, d_reto, ancho, tempo, hachazos,
 		_log_herramienta(a, tm)])
 	var ex: Control = _talado_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -10703,9 +10730,11 @@ func start_pesca(nodo, data: MaterialData, cm: float) -> void:
 	var c: ToolData = cana()
 	var tm: Dictionary = tool_mods(c)
 
-	# Misma tuberia de dificultad que las otras tres, con la afinidad de la caña DENTRO: arma el
-	# minijuego Y paga la excelia (ver el bloque largo de start_mineria sobre por que van acopladas).
-	var d: float = _reto_recoleccion(_exigencia_material(data), stat_total_eff("resistencia"),
+	# Misma tuberia de dificultad que las otras tres: una arma el minijuego y otra paga la excelia,
+	# con la afinidad de la caña DENTRO de las dos (ver el bloque largo de _reto_recoleccion).
+	var d: float = _reto_recoleccion(_exigencia_material(data), stat_consolidado_eff("resistencia"),
+		PESCA_RESISTENCIA_FLOOR, float(tm["afinidad"]))
+	var d_reto: float = _reto_recoleccion(_exigencia_material(data), float(stat_total("resistencia")),
 		PESCA_RESISTENCIA_FLOOR, float(tm["afinidad"]))
 
 	# La Resistencia ENSANCHA tu tramo (aguantas al pez con mas margen) y CALMA la barra: el pez se
@@ -10718,9 +10747,10 @@ func start_pesca(nodo, data: MaterialData, cm: float) -> void:
 	var sube: float = maxf(PESCA_SUBE_BASE / d, PESCA_SUBE_MIN)
 	var baja: float = minf(PESCA_BAJA_BASE * d, PESCA_BAJA_MAX)
 
-	_last_reco_reto = d
-	print("[reco] pesca %s (%.0f cm) · piso %d · Resistencia %.0f · exigencia %.0f -> reto %.2f  (tramo %.3f, vel %.2f, err %.2f, +%.2f/-%.2f)%s" % [
-		data.nombre, cm, current_floor, stat_total_eff("resistencia"), _exigencia_material(data), d,
+	_last_reco_reto = d_reto
+	print("[reco] pesca %s (%.0f cm) · piso %d · Resistencia %.0f (crudo %d) · exigencia %.0f -> reto %.2f (paga %.2f)  (tramo %.3f, vel %.2f, err %.2f, +%.2f/-%.2f)%s" % [
+		data.nombre, cm, current_floor, stat_consolidado_eff("resistencia"), stat_total("resistencia"),
+		_exigencia_material(data), d, d_reto,
 		tramo, vel, erratico, sube, baja, _log_herramienta(c, tm)])
 
 	var ex: Control = _fishing_script.new()

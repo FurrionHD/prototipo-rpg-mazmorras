@@ -620,7 +620,11 @@ static func poder_recolector(pjs: Array, tipo: int, afinidad: float) -> float:
 	var of: Dictionary = oficio_de(tipo)
 	var valores: Array = []
 	for pj in pjs:
-		valores.append(Game.stat_total_eff(String(of["stat"]), pj as PersonajeData))
+		# La CONSOLIDADA con su plato: es lo que decide la CALIDAD de lo que traen, o sea un efecto, y
+		# los efectos esperan al altar. Ver Game.stat_consolidado_eff. Ojo si se toca: Net._fila_roster
+		# publica estas mismas cinco stats para que el invitado haga su pronostico -- las dos tienen
+		# que leer lo mismo o vera una calidad y le llegara otra.
+		valores.append(Game.stat_consolidado_eff(String(of["stat"]), pj as PersonajeData))
 	return poder_recolector_de(valores, tipo, afinidad)
 
 # Desde una lista con LA STAT DEL OFICIO de cada uno, por lo mismo que poder_grupo_de: en multi el
@@ -990,7 +994,9 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 				# Sin exigencia que medir (vale 0 en sus .tres): el reto es el del combate.
 				reto_r = clampf(r_combate_a_reto(r_combate), 0.0, float(of["tope"]))
 			else:
-				var suyo: float = Game.stat_total_eff(String(of["stat"]), pj) \
+				# Esto es RETO, no efecto: va con la INTERNA y SIN plato, igual que los minijuegos
+				# (ver Game._reto_recoleccion). Lo que aprendes no puede depender de lo que cenaste.
+				var suyo: float = float(Game.stat_total(String(of["stat"]), pj)) \
 					* Game.RECOLECCION_STAT_PESO + float(of["suelo"]) + afin
 				reto_r = reto_medio(int(tipo), piso, suyo, of)
 			salida.append({

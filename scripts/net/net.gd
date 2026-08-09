@@ -2181,16 +2181,18 @@ func _fila_roster(pj: PersonajeData, dueno: String, dueno_nombre: String) -> Dic
 		"dueno": dueno, "dueno_nombre": dueno_nombre,
 		"en_equipo": en_equipo, "de_encargo": Game.esta_de_encargo(pj),
 		# El poder viaja YA CALCULADO (el invitado no tiene el equipo del compañero para sacarlo) y
-		# las STATS EFECTIVAS viajan crudas, porque el pronostico de recoleccion necesita la stat del
-		# oficio persona a persona. Son cinco enteros: sale mas barato que pedirselas al host cada
+		# las STATS DE EFECTO van sueltas, porque el pronostico de recoleccion necesita la stat del
+		# oficio persona a persona. Son cinco numeros: sale mas barato que pedirselas al host cada
 		# vez que marcas una casilla.
+		# TIENEN que ser las MISMAS que usa Encargos.poder_recolector al resolver (consolidado + su
+		# plato): si aqui viajara otra cosa, el invitado veria una calidad prevista y le llegaria otra.
 		"poder": int(round(Encargos.poder(pj))),
 		"stats": {
-			"fuerza": Game.stat_total_eff("fuerza", pj),
-			"resistencia": Game.stat_total_eff("resistencia", pj),
-			"destreza": Game.stat_total_eff("destreza", pj),
-			"agilidad": Game.stat_total_eff("agilidad", pj),
-			"magia": Game.stat_total_eff("magia", pj),
+			"fuerza": Game.stat_consolidado_eff("fuerza", pj),
+			"resistencia": Game.stat_consolidado_eff("resistencia", pj),
+			"destreza": Game.stat_consolidado_eff("destreza", pj),
+			"agilidad": Game.stat_consolidado_eff("agilidad", pj),
+			"magia": Game.stat_consolidado_eff("magia", pj),
 		},
 		# Las CLASES de combate que puede elegir hoy, tambien ya calculadas. Salen de lo que lleve
 		# puesto (escudo, dagas, magias...) y el invitado no tiene su equipo, asi que si no viajan aqui

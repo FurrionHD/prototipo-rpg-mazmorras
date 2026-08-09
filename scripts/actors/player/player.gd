@@ -450,10 +450,12 @@ func _tick_aguante_companeros(delta: float, corriendo: bool) -> void:
 # frena el grupo: su Agilidad es la que multiplica la velocidad (ver _physics_process).
 func _pj_agotado() -> PersonajeData:
 	var peor: PersonajeData = null
-	var peor_agi: int = 0
+	# Con la CONSOLIDADA (y su plato), que es la misma que luego decide CUANTO se frena el grupo en
+	# Game.agilidad_speed_mult. Con la interna, el que mandaba aqui no era siempre el que mas frena.
+	var peor_agi: float = 0.0
 	if _exhausted:
 		peor = _pj_actual
-		peor_agi = Game.stat_total("agilidad", _pj_actual)
+		peor_agi = Game.stat_consolidado_eff("agilidad", _pj_actual)
 	for pj in Game.companeros():
 		var maxi_: float = _calc_max_aguante(pj)
 		if _aguante_de(pj) <= 0.0:
@@ -462,7 +464,7 @@ func _pj_agotado() -> PersonajeData:
 			pj.set_meta("sin_fuelle", false)
 		if not bool(pj.get_meta("sin_fuelle", false)):
 			continue
-		var agi: int = Game.stat_total("agilidad", pj)
+		var agi: float = Game.stat_consolidado_eff("agilidad", pj)
 		if peor == null or agi < peor_agi:
 			peor = pj
 			peor_agi = agi
