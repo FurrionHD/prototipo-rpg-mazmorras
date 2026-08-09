@@ -347,21 +347,30 @@ static func decir(aviso: Label, txt: String, ok: bool = true) -> void:
 # valor -- ver stepper().
 const META_MURIENDO := "_muriendo"
 
-# Para los menus que NO usan la columna de la lista (el peletero, el altar, el selector de desarrollo
-# y el de elegir piso): esconde la lista Y le pone al detalle un ancho de LECTURA, centrado.
+# Para los menus que NO usan la columna de la lista (el altar, el selector de desarrollo, el de
+# elegir piso, el peletero): esconde la lista y decide que hace el detalle con el ancho que queda.
 #
-# Sin lo segundo el detalle se quedaba solo y se desparramaba a lo ancho de la pantalla: una columna
-# de filas cortas con media pantalla de nada a la derecha. Y en el movil, encima, obligaba a barrer
-# la vista de un extremo al otro para leer una fila.
+# 'ancho' > 0 = columna de LECTURA de ese ancho. Es para las pantallas de texto: sin ella el detalle
+# se desparramaba a lo ancho de la pantalla y en el movil obligaba a barrer la vista de un extremo al
+# otro para leer una fila.
+#
+# 'ancho' <= 0 = OCUPA TODO. Es para las pantallas de oficio (peletero), donde las filas son las
+# mismas que las del herrero y el carpintero -- que no llaman a esto y por tanto llegan al borde. Con
+# la columna de 900 el peletero se quedaba con las lineas cortadas y un palmo de nada a la derecha, y
+# al lado de los otros dos cantaba que era el raro.
 static func solo_detalle(piezas: Dictionary, ancho: float = 900.0) -> void:
 	var lista: ScrollContainer = piezas.get("lista_scroll") as ScrollContainer
 	if lista != null:
 		lista.visible = false
 	var content: VBoxContainer = piezas.get("content") as VBoxContainer
-	if content != null:
-		content.custom_minimum_size = Vector2(0, 0)
+	if content == null:
+		return
+	if ancho > 0.0:
 		content.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		content.custom_minimum_size = Vector2(ancho, 0)
+	else:
+		content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content.custom_minimum_size = Vector2(0, 0)
 
 
 static func vaciar(zona: Node) -> void:

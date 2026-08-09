@@ -75,9 +75,11 @@ func _ready() -> void:
 	_header = m["header"]
 	_content = m["content"]
 	_aviso_lbl = m["aviso"]
-	# El peletero no tiene cuadricula de piezas: una sola columna, con ancho de lectura y
-	# centrada (ver MenuScaffold.solo_detalle: a lo ancho de la pantalla se desparramaba).
-	MenuScaffold.solo_detalle(m)
+	# El peletero no tiene cuadricula de piezas: una sola columna. Y a TODO EL ANCHO (el 0), como el
+	# herrero y el carpintero, que son las otras dos pantallas de oficio y tienen las mismas filas:
+	# con la columna de lectura de 900 este se quedaba con las lineas a medias y un palmo de nada a
+	# la derecha, y al lado de los otros dos parecia que estaba roto.
+	MenuScaffold.solo_detalle(m, 0.0)
 
 	for i in TABS.size():
 		var b := Button.new()
