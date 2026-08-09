@@ -760,6 +760,95 @@ static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Call
 	vb.add_child(grid)
 
 
+# ============================================================
+#  TEXTO QUE NO CABE: en vez de cortarlo, se pasea
+#  Un boton de rejilla mide 120-160 px y un nombre de equipo es "Daga +4  ·  T1 Comun" (y si la
+#  lleva otro del grupo, ademas un "🔒 Fulano" en otra linea). Hasta ahora eso se resolvia con
+#  clip_text: el texto se cortaba en seco y no habia forma de leer el resto.
+#
+#  Se hace con un LABEL DENTRO del boton (y el boton con clip_contents), no con el text del propio
+#  boton: un Button no deja mover su texto, y ademas las particulas de rareza necesitan un Label
+#  para colgarse (ver brillo_en). Dos pajaros.
+# ============================================================
+
+# Margen que se le deja al texto dentro de la caja (el borde del tema se come 2 px por lado).
+const MARGEN_TEXTO := 8.0
+
+static func texto_deslizante(caja: Control, texto: String, color: Variant = null) -> Label:
+	caja.clip_contents = true
+	var lbl := Label.new()
+	lbl.text = texto
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE   # el que se pulsa es el boton de debajo
+	# OBLIGATORIO: abrir un menu PARA el arbol (Game.abrir_menu), y un Tween se para con el nodo al
+	# que pertenece. Sin esto el texto se quedaria congelado justo cuando se supone que se lee. Es el
+	# mismo aviso que lleva brillo_en para sus destellos.
+	lbl.process_mode = Node.PROCESS_MODE_ALWAYS
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	if color is Color:
+		lbl.add_theme_color_override("font_color", color)
+	caja.add_child(lbl)
+
+	# El ancho de verdad no se sabe hasta que el contenedor coloca la celda, asi que la decision de
+	# pasear o no se toma con el layout (mismo motivo por el que brillo_en se reajusta en resized).
+	var tween: Tween = null
+	var colocar := func() -> void:
+		var sobra: float = lbl.get_minimum_size().x - (caja.size.x - MARGEN_TEXTO)
+		lbl.size = Vector2(maxf(lbl.get_minimum_size().x, caja.size.x - MARGEN_TEXTO), caja.size.y)
+		if sobra <= 1.0:
+			# CABE: quieto y centrado. Si venia paseandose (la celda ha crecido), se corta el paseo.
+			if tween != null and tween.is_valid():
+				tween.kill()
+				tween = null
+			lbl.position = Vector2(MARGEN_TEXTO * 0.5, 0)
+			lbl.set_meta("pasea", false)
+			return
+		if tween != null and tween.is_valid():
+			return   # ya se esta paseando: no reiniciarlo en cada resize
+		lbl.position = Vector2(MARGEN_TEXTO * 0.5, 0)
+		# Ida, espera, vuelta, espera. En bucle. La velocidad va por PIXELES POR SEGUNDO y no por una
+		# duracion fija: si no, un nombre el doble de largo se leeria al doble de rapido.
+		var dur: float = maxf(0.6, sobra / 40.0)
+		# Se apunta en el Label si esta paseando o no: por fuera no hay forma de preguntarle a un
+		# nodo por sus tweens, y esto es lo que deja comprobarlo (y verlo de un vistazo al depurar).
+		lbl.set_meta("pasea", true)
+		tween = lbl.create_tween().set_loops()
+		tween.tween_interval(1.2)
+		tween.tween_property(lbl, "position:x", MARGEN_TEXTO * 0.5 - sobra, dur)
+		tween.tween_interval(1.2)
+		tween.tween_property(lbl, "position:x", MARGEN_TEXTO * 0.5, dur)
+	caja.resized.connect(colocar)
+	colocar.call()
+	return lbl
+
+
+# LA CELDA DE UNA REJILLA DE OBJETOS: el boton, su texto paseante y los destellos de la rareza.
+#
+# Las particulas aqui SI, al reves que en cuadricula(): esta celda es para rejillas de UNAS POCAS
+# piezas (las armas que tienes, las cinco de un slot), no para las 20-40 de la tienda o el baul. Y
+# solo las lleva lo que TIENE rareza: una pieza comun llega con color null y no gasta ni un emisor.
+static func celda_item(grid: Node, texto: String, tam: Vector2, sel: bool, on_pick: Callable,
+		color: Variant = null, intensidad: float = 0.0, activo: bool = true) -> Button:
+	var b := Button.new()
+	b.toggle_mode = true
+	b.button_pressed = sel
+	b.custom_minimum_size = tam
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# El texto completo, siempre, en el tooltip: la marquesina se lee sola pero hay que esperarla, y
+	# con el raton encima es mas rapido leerlo de golpe.
+	b.tooltip_text = texto
+	if activo and on_pick.is_valid():
+		b.pressed.connect(on_pick)
+	else:
+		b.disabled = not activo
+	grid.add_child(b)
+	# DESPUES de meterlo en el arbol: el Label necesita el tamaño ya resuelto y el tween un nodo vivo.
+	var lbl: Label = texto_deslizante(b, texto, color)
+	if color is Color and intensidad > 0.0:
+		brillo_en(lbl, color as Color, intensidad)
+	return b
+
+
 # El color que le toca a un item en una lista, o null si no tiene escala:
 #   equipo (arma/escudo/varita/armadura/mochila) -> su RAREZA
 #   material                                     -> su RANGO (banda / fase de pocion / nucleo)

@@ -255,8 +255,10 @@ func _selector_personaje() -> void:
 	for i in Game.party.size():
 		var corona: String = "👑 " if Game.party[i] == Game.lider() else ""
 		labels.append("%d. %s%s" % [i + 1, corona, Game.party[i].nombre])
+	# Alto de dedo como el resto (era el unico sitio del proyecto con 32), y el nombre completo en el
+	# tooltip: la celda recorta, y un nombre largo se quedaba sin manera de leerse.
 	MenuScaffold.cuadricula(_content, labels, _pj_sel, _pick_personaje,
-		Game.PARTY_MAX, Vector2(150, 32))
+		Game.PARTY_MAX, Vector2(150, MenuScaffold.ALTO_BOTON), [], [], labels)
 	_content.add_child(HSeparator.new())
 
 
@@ -831,10 +833,8 @@ func _bloque_arma(rol: String, nombre: String, permite_cambio: bool, on_cambiar:
 		MenuScaffold.brillo_en(n, Game.color_rareza_de(item), Game.intensidad_rareza_de(item))
 
 	if permite_cambio:
-		var b := Button.new()
-		b.text = "Cambiar"
-		b.pressed.connect(on_cambiar)
-		head.add_child(b)
+		var b := MenuScaffold.boton(head, "Cambiar", on_cambiar)
+		b.custom_minimum_size = Vector2(130, MenuScaffold.ALTO_BOTON)
 	_content.add_child(head)
 
 
@@ -907,7 +907,7 @@ func _build_armas_cambiar() -> void:
 	_build_cambiar_layout(labels, _arma_cand, disabled, _pick_arma,
 		_preview_arma, _equipar_arma, _cancelar_arma,
 		"Desequipar" if _arma_cand_equipada() else "Equipar",
-		MenuScaffold.colores_de(catalogo))
+		MenuScaffold.colores_de(catalogo), _intensidades_de(catalogo))
 
 
 # True si el arma marcada ahora mismo es la que ya llevas en esa mano.
@@ -1285,7 +1285,7 @@ func _build_armadura_slot(slot: String) -> void:
 	_build_cambiar_layout(labels, _armor_cand, disabled, _pick_armor,
 		_preview_armor, _equipar_armor, _cerrar_slot,
 		"Desequipar" if _armor_cand_equipada() else "Equipar",
-		MenuScaffold.colores_de(cat))
+		MenuScaffold.colores_de(cat), _intensidades_de(cat))
 
 
 # True si la pieza marcada ahora mismo es la que ya llevas puesta en ese slot.
@@ -1367,10 +1367,20 @@ func _armor_stats(vb: VBoxContainer, a: ArmorData) -> void:
 
 # 'equipar_txt' lo pasa quien llama: si el candidato es "nada", el boton dice DESEQUIPAR
 # (elegir "(nada)" en la principal = pelear a puños; en la armadura = quitarse la pieza).
+# Cuanto brilla cada pieza de la lista, en paralelo a colores_de(): las particulas de la celda salen
+# de aqui. Un comun apenas centellea y un pristino centellea de verdad (ver Upgrades.rareza_intensidad).
+func _intensidades_de(items: Array) -> Array:
+	var out: Array = []
+	for it in items:
+		out.append(Game.intensidad_rareza_de(it) if it != null else 0.0)
+	return out
+
+
 func _build_cambiar_layout(labels: Array, cand: int, disabled: Array,
 		on_pick: Callable, preview_builder: Callable,
 		on_equipar: Callable, on_cancel: Callable,
-		equipar_txt: String = "Equipar", colores: Array = []) -> void:
+		equipar_txt: String = "Equipar", colores: Array = [],
+		intensidades: Array = []) -> void:
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 20)
 	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1382,18 +1392,13 @@ func _build_cambiar_layout(labels: Array, cand: int, disabled: Array,
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
 	for i in labels.size():
-		var b := Button.new()
-		b.text = str(labels[i])
-		b.toggle_mode = true
-		b.button_pressed = (i == cand)
-		b.clip_text = true
-		b.custom_minimum_size = Vector2(120, 46)
-		if disabled.has(i):
-			b.disabled = true
-		else:
-			b.pressed.connect(on_pick.bind(i))
-		MenuScaffold.tintar(b, colores[i] if i < colores.size() else null)
-		grid.add_child(b)
+		# 160x58 y no 120x46: la etiqueta de un arma es "Daga +4  ·  T1 Comun" y, si la lleva otro del
+		# grupo, lleva ademas un "🔒 Fulano" en una segunda linea. Con 46 no cabian ni las dos lineas
+		# ni el nombre entero. Lo que siga sin caber se pasea (ver MenuScaffold.celda_item).
+		MenuScaffold.celda_item(grid, str(labels[i]), Vector2(160, 58), i == cand,
+			on_pick.bind(i), colores[i] if i < colores.size() else null,
+			float(intensidades[i]) if i < intensidades.size() else 0.0,
+			not disabled.has(i))
 	hb.add_child(grid)
 
 	# Derecha: stats del candidato + acciones.
@@ -1405,15 +1410,10 @@ func _build_cambiar_layout(labels: Array, cand: int, disabled: Array,
 
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 8)
-	var eq := Button.new()
-	eq.text = equipar_txt
-	eq.disabled = disabled.has(cand)
-	eq.pressed.connect(on_equipar)
-	actions.add_child(eq)
-	var ca := Button.new()
-	ca.text = "Cancelar"
-	ca.pressed.connect(on_cancel)
-	actions.add_child(ca)
+	var eq := MenuScaffold.boton(actions, equipar_txt, on_equipar, not disabled.has(cand))
+	eq.custom_minimum_size = Vector2(150, MenuScaffold.ALTO_BOTON)
+	var ca := MenuScaffold.boton(actions, "Cancelar", on_cancel)
+	ca.custom_minimum_size = Vector2(150, MenuScaffold.ALTO_BOTON)
 	right.add_child(HSeparator.new())
 	right.add_child(actions)
 
@@ -1447,14 +1447,10 @@ func _build_hechizos() -> void:
 	grid.add_theme_constant_override("v_separation", 6)
 	for i in spells.size():
 		var s: SpellData = spells[i]
-		var b := Button.new()
-		b.text = "%s\n%d MP" % [s.nombre, s.coste_mana]
-		b.toggle_mode = true
-		b.button_pressed = (i == _spell_sel)
-		b.clip_text = true
-		b.custom_minimum_size = Vector2(120, 46)
-		b.pressed.connect(_pick_hechizo.bind(i))
-		grid.add_child(b)
+		# La misma celda que la rejilla de armas (sin color: un hechizo no tiene rareza). Tener dos
+		# rejillas con distinto aspecto en el mismo menu no lo entiende nadie.
+		MenuScaffold.celda_item(grid, "%s\n%d MP" % [s.nombre, s.coste_mana], Vector2(160, 58),
+			i == _spell_sel, _pick_hechizo.bind(i))
 	hb.add_child(grid)
 
 	# Derecha: la ficha del seleccionado.
