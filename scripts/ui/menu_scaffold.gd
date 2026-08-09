@@ -138,13 +138,7 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 	var margen_x: float = 16.0 + Tactil.borde.x
 	var margen_y: float = 16.0 + Tactil.borde.y
 	if con_lateral:
-		var equis: Control = BotonIcono.crear(Callable(Iconos, "equis"), al_cerrar, LADO_ICONO)
-		equis.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-		equis.offset_left = -(margen_x + LADO_ICONO)
-		equis.offset_right = -margen_x
-		equis.offset_top = margen_y
-		equis.offset_bottom = margen_y + LADO_ICONO
-		root.add_child(equis)
+		equis_cerrar(root, al_cerrar, "Cerrar  (Esc)")
 
 	# Monedas arriba a la derecha (donde el jugador ya las busca), DEBAJO de la ✕: comparten esquina
 	# y antes se pisaban. Grandes a proposito: es el numero que se mira antes de cada compra.
@@ -472,6 +466,30 @@ static func nota(vb: VBoxContainer, txt: String) -> void:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(l)
+
+
+# LA ✕ DE CERRAR en la esquina de arriba a la derecha, anclada al Control raiz de la pantalla (no al
+# layout) para que flote sobre todo.
+#
+# Va suelta de construir() porque hay pantallas que se montan su PROPIO armazon —el menu de personaje
+# es la grande— y la ✕ tiene que ser exactamente la misma, en el mismo sitio y del mismo tamaño. Si
+# cada una se la pinta por su cuenta, acaban bailando unos pixeles entre pantalla y pantalla.
+#
+# El margen respeta Tactil.borde (la zona segura del movil: muescas y esquinas redondeadas).
+static func equis_cerrar(root: Control, al_cerrar: Callable, pista: String = "") -> Control:
+	var margen_x: float = 16.0 + Tactil.borde.x
+	var margen_y: float = 16.0 + Tactil.borde.y
+	var equis: Control = BotonIcono.crear(Callable(Iconos, "equis"), al_cerrar, LADO_ICONO)
+	equis.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	equis.offset_left = -(margen_x + LADO_ICONO)
+	equis.offset_right = -margen_x
+	equis.offset_top = margen_y
+	equis.offset_bottom = margen_y + LADO_ICONO
+	# La tecla que hace lo mismo, en el tooltip: al quitar el boton de texto se perdia el unico sitio
+	# donde ponia que con Esc (o con C) tambien se sale.
+	equis.tooltip_text = pista
+	root.add_child(equis)
+	return equis
 
 
 # BOTON ESTANDAR de menu (Vender, Comprar, Fabricar...). Existe para que la medida sea UNA: cada

@@ -66,7 +66,9 @@ func _ready() -> void:
 	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hb.offset_left = 16
 	hb.offset_top = 16
-	hb.offset_right = -16
+	# El contenido se para ANTES de la esquina: ahi va la ✕. Sin este hueco, la fila de pestañas del
+	# grupo (que se estira a todo lo ancho) le pasaba justo por debajo.
+	hb.offset_right = -(16.0 + MenuScaffold.LADO_ICONO + 8.0)
 	hb.offset_bottom = -16
 	hb.add_theme_constant_override("separation", 18)
 	_root.add_child(hb)
@@ -92,14 +94,12 @@ func _ready() -> void:
 	_tab_box.add_theme_constant_override("separation", 6)
 	side.add_child(_tab_box)
 
+	# El spacer mantiene las pestañas arriba. Cerrar es la ✕ de la esquina, la misma que el resto de
+	# pantallas (esta se monta su propio armazon, por eso se pide a mano; ver MenuScaffold.equis_cerrar).
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	side.add_child(spacer)
-	var cerrar := Button.new()
-	cerrar.text = "✕ Cerrar  (C)"
-	cerrar.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	cerrar.pressed.connect(_cerrar)
-	side.add_child(cerrar)
+	MenuScaffold.equis_cerrar(_root, _cerrar, "Cerrar  (C)")
 
 	# --- Contenido (derecha) ---
 	var margin := MarginContainer.new()
