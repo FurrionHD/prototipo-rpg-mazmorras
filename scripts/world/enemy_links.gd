@@ -27,8 +27,7 @@ extends Node2D
 const Enemy = preload("res://scripts/actors/enemy/enemy.gd")
 
 # Cada cuanto se recalculan los pares. NO cada frame: son N^2 distancias y los bichos no se
-# teletransportan; a 5 veces por segundo el ojo no nota el retardo. Mismo espiritu que el
-# recalculo perezoso del cono de vision (ver enemy.gd RECALCULO_ANGULO / RECALCULO_DIST).
+# teletransportan; a 5 veces por segundo el ojo no nota el retardo.
 const INTERVALO := 0.2
 # Solo se miran los bichos a menos de esto del jugador: los del otro extremo del piso no se ven
 # y no hace falta calcularles nada.

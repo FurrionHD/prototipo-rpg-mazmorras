@@ -138,7 +138,8 @@ resources/     datos como .tres (items, enemigos, dificultad)
 
 ### Epic KAN-43 — Sigilo, aguante e iniciativa ✅ COMPLETADO
 - [x] Movimiento jugador: sigilo (Ctrl) / andar / correr (Shift) + aguante. (KAN-44/45/46)
-- [x] Enemigo: deambular aleatorio, visión en CONO (con cono+línea dibujados),
+- [x] Enemigo: deambular aleatorio, visión en CONO (dibujada solo con la línea de hacia dónde mira:
+  el polígono del cono se quitó porque llenaba la pantalla; la detección es la misma),
   oído según tu ruido, y ataque desde distancia óptima con aviso de 0.15s
   (instantáneo si estás agotado). (KAN-47/48/50)
 - [x] Atacar con ESPACIO para iniciar combate sin tocar al enemigo:

@@ -146,9 +146,9 @@ var current_move_speed: float = 40.0
 var _dead: bool = false       # true cuando es un cadaver (combate ganado)
 var extracted: bool = false   # true cuando ya le has sacado el cristal
 
-# Indicadores visuales (creados por codigo).
+# Indicadores visuales (creados por codigo). Solo la linea de "hacia donde mira": el cono de vision
+# ya no se dibuja (ver _crear_indicadores).
 var _facing_line: Line2D = null
-var _vision_cone: Polygon2D = null
 # Rastro del elemento del bicho (null si no es elemental). Ver _crear_fx_elemental.
 var _fx_elem: CPUParticles2D = null
 
@@ -722,10 +722,8 @@ func morir() -> void:
 	set_physics_process(false)  # detiene la IA
 	velocity = Vector2.ZERO
 	_color_rect.color = Color(0.4, 0.4, 0.4)  # cuerpo gris/apagado
-	if _vision_cone != null:
-		_vision_cone.visible = false
 	if _facing_line != null:
-		_facing_line.visible = false
+		_facing_line.visible = false   # un cadaver ya no mira a ningun sitio
 	remove_from_group("enemy")  # ya no es un enemigo activo
 	add_to_group("corpse")      # ahora es un cadaver interactuable
 	# Arranca su cuenta atras. Solo si no la traia ya puesta: _restaurar_estado revive los cadaveres
@@ -1196,28 +1194,17 @@ func reanudar_tras_combate(hp: float = -1.0, estados: Array = []) -> void:
 	_pick_wander_target()
 
 
-# --- Visual: cono de vision + linea de direccion ---
-# El cono se dibuja RECORTADO por la roca: cada uno de sus rayos se para donde topa con la
-# pared. Si se pintara entero (atravesando el muro) el dibujo mentiria -parece que te ve y no
-# te ve-, y el sigilo se juega MIRANDO el cono: tiene que enseñar donde te pueden pillar de
-# verdad. Se recalcula solo cuando el bicho se ha movido o girado lo suficiente, no cada
-# frame: son SEGMENTOS_CONO rayos y no hace falta rehacerlos por medio pixel.
-const SEGMENTOS_CONO := 14
-const RECALCULO_ANGULO := 0.10   # rad girados que obligan a rehacer el cono
-const RECALCULO_DIST := 6.0      # px movidos que obligan a rehacerlo
-
-var _cono_hecho: bool = false    # ¿ya hay un cono pintado? (el primero se traza siempre)
-var _cono_ang: float = 0.0       # angulo con el que se trazo el cono que hay pintado
-var _cono_pos: Vector2 = Vector2.ZERO
-
-
+# --- Visual: linea de direccion ---
+# El CONO DE VISION ya no se pinta (ni en PC ni en movil). Se dibujaba como un poligono translucido
+# recortado por la roca, rayo a rayo; era util para ver el sigilo por dentro, pero llena la pantalla
+# de manchas amarillas con varios bichos y tapa lo que pasa debajo.
+#
+# Lo que SI se queda es la LINEA de direccion: hacia donde mira cada bicho hace falta saberlo (es lo
+# que dice si te ha fichado o si puedes rodearlo), y una raya no estorba.
+#
+# OJO: esto es solo el DIBUJO. La deteccion no se ha tocado — el cono sigue existiendo en
+# vision_range / vision_half_angle_deg y en _ve_u_oye_a, con su linea de vision contra la roca.
 func _crear_indicadores() -> void:
-	# Cono (poligono translucido), por detras del enemigo.
-	_vision_cone = Polygon2D.new()
-	_vision_cone.color = Color(1.0, 1.0, 0.3, 0.12)
-	add_child(_vision_cone)
-	move_child(_vision_cone, 0)  # al fondo
-
 	# Linea de direccion (hacia donde mira).
 	_facing_line = Line2D.new()
 	_facing_line.add_point(Vector2.ZERO)
@@ -1228,41 +1215,8 @@ func _crear_indicadores() -> void:
 
 
 func _actualizar_indicadores() -> void:
-	var ang: float = _facing.angle()
-	if _facing_line != null:
-		_facing_line.rotation = ang
-		# Rojo/naranja mientras avisa el ataque (telegrafia el golpe).
-		_facing_line.default_color = Color(1.0, 0.3, 0.1) if _winding else Color(1.0, 1.0, 0.0)
-	if _vision_cone != null:
-		_vision_cone.color = Color(1.0, 0.25, 0.1, 0.18) if _winding else Color(1.0, 1.0, 0.3, 0.12)
-		if not _cono_hecho \
-				or absf(angle_difference(ang, _cono_ang)) > RECALCULO_ANGULO \
-				or global_position.distance_to(_cono_pos) > RECALCULO_DIST:
-			_redibujar_cono(ang)
-
-
-# Traza el cono rayo a rayo y corta cada uno donde encuentra roca. El poligono va en
-# coordenadas LOCALES (es hijo del bicho), asi que los puntos se pasan a local; y por eso
-# mismo el Polygon2D NO se rota: sus puntos ya vienen con el giro dentro.
-func _redibujar_cono(ang: float) -> void:
-	_cono_hecho = true
-	_cono_ang = ang
-	_cono_pos = global_position
-	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
-	var half: float = deg_to_rad(vision_half_angle_deg)
-	# Mismo motivo que en _linea_de_vision_libre: el jugador comparte capa con la roca y, sin
-	# excluirlo, el cono se recortaria CONTRA TI (te taparias a ti mismo del cono que te ve).
-	var fuera: Array[RID] = _excluir_del_rayo()
-
-	var pts: PackedVector2Array = [Vector2.ZERO]
-	for i in range(SEGMENTOS_CONO + 1):
-		var a: float = ang - half + (2.0 * half) * float(i) / float(SEGMENTOS_CONO)
-		var dir: Vector2 = Vector2(cos(a), sin(a))
-		var fin: Vector2 = global_position + dir * vision_range
-		var query := PhysicsRayQueryParameters2D.create(global_position, fin, CAPA_ROCA)
-		query.exclude = fuera
-		var hit: Dictionary = espacio.intersect_ray(query)
-		if not hit.is_empty():
-			fin = hit["position"]
-		pts.append(fin - global_position)   # a local
-	_vision_cone.polygon = pts
+	if _facing_line == null:
+		return
+	_facing_line.rotation = _facing.angle()
+	# Rojo/naranja mientras avisa el ataque (telegrafia el golpe).
+	_facing_line.default_color = Color(1.0, 0.3, 0.1) if _winding else Color(1.0, 1.0, 0.0)
