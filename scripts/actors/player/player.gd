@@ -45,9 +45,18 @@ var movement_mode: int = 1
 # Direccion a la que "mira" el jugador (ultimo movimiento), para atacar.
 var _facing: Vector2 = Vector2.DOWN
 
-# Ataque cuerpo a cuerpo para INICIAR combate (corto alcance hacia delante).
-@export var attack_range: float = 44.0
+# Ataque para INICIAR combate, hacia delante. El numero es de CENTRO A CENTRO, pero lo que se filtra
+# es el HUECO entre los dos cuerpos (ver _enemigos_a_tiro): attack_range - 32 = 68 px de hueco.
+#
+# Era 44 (12 px de hueco: practicamente pegado) y el boton se encendia demasiado tarde. Entre las
+# embestidas y los bichos girandose, para cuando podias pulsar ya te habian pegado ellos y la
+# iniciativa (media barra de ATB) era suya. Con 100 hay margen para pulsar ANTES, que es de lo que
+# iba: no cambia nada de lo que pasa dentro del combate, solo cuando puedes entrar.
+@export var attack_range: float = 100.0
 @export var attack_half_angle_deg: float = 70.0
+# Hueco a partir del cual se considera que ya NO es cuerpo a cuerpo: es el alcance de antes
+# (44 - 32). Por debajo de esto el bicho esta literalmente encima y no se le pide linea de vision.
+const HUECO_CUERPO_A_CUERPO := 12.0
 
 # Interaccion (F) con cadaveres para extraer el cristal.
 @export var interact_range: float = 40.0
@@ -1060,13 +1069,21 @@ func _enemigos_a_tiro() -> Array:
 			continue
 		# El alcance se mide por el HUECO entre los dos cuerpos, no entre sus centros: dos
 		# cuadrados de 32x32 tocandose POR LA ESQUINA tienen los centros a 45.2 px, o sea mas
-		# de attack_range (44) -> estabas pegado al slime y no podias pegarle. Con un elite
+		# de lo que era attack_range (44) -> estabas pegado al slime y no podias pegarle. Con un elite
 		# (1.6x de tamaño) la esquina son ~59 px: era intocable en diagonal. Ver enemy.hueco_hasta().
 		var hueco: float = _hueco_hasta(e)
 		if hueco > attack_range - 32.0:
 			continue
 		# El CONO sigue mandando: atacar exige mirar al bicho, es una accion deliberada.
 		if absf(_facing.angle_to(to_e / dist)) > deg_to_rad(attack_half_angle_deg):
+			continue
+		# PARED EN MEDIO. Con los 12 px de hueco de antes daba igual; con 68 es de lo mas normal tener
+		# un muro entre los dos, y encender el boton ahi seria prometer una pelea que no existe.
+		# Va el ULTIMO porque es lo unico que cuesta (un rayo): el hueco y el cono ya han descartado a
+		# casi todos. Y solo se pregunta FUERA del cuerpo a cuerpo de siempre: si el bicho esta
+		# encima, se acepta sin rayo — asi el alcance nuevo es el unico que paga la comprobacion y no
+		# hay forma de que un corte raro del rayo estropee lo que hoy ya funciona.
+		if hueco > HUECO_CUERPO_A_CUERPO and not _vision_libre(e.global_position):
 			continue
 		out.append([hueco, e])
 	out.sort_custom(func(a, b): return a[0] < b[0])

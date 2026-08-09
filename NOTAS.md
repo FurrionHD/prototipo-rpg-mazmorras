@@ -780,8 +780,16 @@ Plan en `~/.claude/plans/vale-jefazo-hay-que-quizzical-crane.md`. Cuatro cosas d
 ### Entrada en combate: buffer de ataque y el CONTRA 🔧 A PROBAR
 
 Del playtest: con las embestidas costaba entrar TÚ primero, y unirse a una pelea ya empezada obligaba
-a recolocarse dándole al espacio. Las dos cosas eran de RESPUESTA, no de balance (no se ha tocado
-`attack_range` 44, ni el cono 140°, ni los números de la embestida, ni `MAX_ALIADOS`).
+a recolocarse dándole al espacio. Las dos cosas eran de RESPUESTA, no de balance (no se han tocado los
+números de la embestida ni `MAX_ALIADOS`).
+
+- **Alcance** (2ª tanda de playtest): `attack_range` 44 → **100** (el filtro real es el HUECO entre
+  cuerpos: 12 px → **68**). El botón se encendía cuando ya estabas encima, así que los bichos se
+  giraban y pegaban primero. El **cono sigue en 140°**: atacar sigue exigiendo encararlos.
+- **Línea de visión**: con 68 px de hueco es normal tener un muro en medio, así que `_enemigos_a_tiro`
+  pide `_vision_libre()` (rayo contra la roca, el mismo del aguante) **solo por encima de
+  `HUECO_CUERPO_A_CUERPO` = 12**. Pegado al bicho se acepta sin rayo: el alcance nuevo es el único que
+  paga la comprobación.
 
 - **Buffer de ataque** (`player.ATK_BUFFER = 0.25`): atacar era un flanco de UN frame, así que pulsar
   con el bicho a 20 px **tiraba la pulsación** y mantener el espacio no reintentaba nada — había que
