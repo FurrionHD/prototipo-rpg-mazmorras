@@ -500,6 +500,28 @@ static func hueco_equis() -> float:
 	return 16.0 + Tactil.borde.x + LADO_ICONO + 8.0
 
 
+# SEPARADOR que se corta solo si le toca pasar por debajo de la ✕, y que llega hasta el borde si no.
+# Una linea cruzando por detras del boton se ve fatal y es lo unico que se cuela en esa esquina: el
+# resto de filas o son cortas o ya se apartan.
+#
+# No se puede decidir al construirlo: la altura a la que cae una fila depende de cuantas haya encima
+# (con UN personaje no hay selector, y entonces la primera linea sube justo a la ✕). Asi que se mide
+# el sitio DESPUES de que el contenedor lo coloque, y se recorta o no segun donde haya quedado.
+static func separador(padre: Node) -> MarginContainer:
+	var m := MarginContainer.new()
+	m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	m.add_child(HSeparator.new())
+	padre.add_child(m)
+	var ajustar := func() -> void:
+		var arriba: float = 16.0 + Tactil.borde.y
+		var en_la_banda: bool = m.global_position.y < arriba + LADO_ICONO \
+			and m.global_position.y + m.size.y > arriba
+		m.add_theme_constant_override("margin_right", int(hueco_equis()) - 16 if en_la_banda else 0)
+	m.resized.connect(ajustar)
+	ajustar.call()
+	return m
+
+
 static func equis_cerrar(root: Control, al_cerrar: Callable, pista: String = "") -> Control:
 	var margen_x: float = 16.0 + Tactil.borde.x
 	var margen_y: float = 16.0 + Tactil.borde.y

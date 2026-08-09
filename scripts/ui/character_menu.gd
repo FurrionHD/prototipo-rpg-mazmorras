@@ -275,7 +275,9 @@ func _selector_personaje() -> void:
 	# Va en su envoltorio: es la fila de mas arriba y con cuatro personajes llega hasta la esquina.
 	MenuScaffold.cuadricula(_fila_bajo_equis(), labels, _pj_sel, _pick_personaje,
 		Game.PARTY_MAX, Vector2(150, MenuScaffold.ALTO_BOTON), [], [], labels)
-	_content.add_child(HSeparator.new())
+	# La linea de debajo del selector cae A LA ALTURA de la ✕ y le cruzaba por detras: este separador
+	# se corta solo cuando le toca ahi (ver MenuScaffold.separador).
+	MenuScaffold.separador(_content)
 
 
 func _pick_personaje(i: int) -> void:
@@ -471,7 +473,9 @@ func _build_personaje() -> void:
 	# Esta fila puede quedar la PRIMERA de todas (con un solo personaje no hay selector encima), y
 	# entonces el ⇄ cae justo donde esta la ✕. Ver _fila_bajo_equis.
 	_fila_bajo_equis().add_child(head)
-	_content.add_child(HSeparator.new())
+	# Con UN personaje no hay selector encima, asi que esta linea sube justo a la ✕: por eso tambien
+	# es de las que se cortan solas. Con mas personajes queda mas abajo y llega al borde como todas.
+	MenuScaffold.separador(_content)
 
 	if _char_page == 0:
 		_build_stats_page()
