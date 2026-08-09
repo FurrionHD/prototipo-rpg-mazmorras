@@ -677,20 +677,21 @@ func _rehacer_barras() -> void:
 		# de arriba igual que el canto lateral.
 		raiz.position = Vector2(x_columna(i), Tactil.borde.y)
 		raiz.size = Vector2(ANCHO_COL, ALTO_BLOQUE)
-		# En el movil la tarjeta ES el boton de cambiar de lider: no hay teclas 1/2/3 y la columna ya
-		# dice quien es cada uno. Sale por el mismo sitio que la tecla (cambiar_lider + refrescar), asi
+		# LA TARJETA ENTERA ES EL BOTON de cambiar de lider: las tres barras, el nombre y el hueco
+		# entre medias. Sale por el mismo sitio que las teclas 1/2/3 (cambiar_lider + refrescar), asi
 		# que no hay una segunda version de la regla.
-		if Tactil.activo:
-			raiz.mouse_filter = Control.MOUSE_FILTER_STOP
-			raiz.gui_input.connect(func(event: InputEvent) -> void:
-				var toque: bool = (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) \
-					or (event is InputEventMouseButton and (event as InputEventMouseButton).pressed \
-						and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT)
-				if toque and Game.cambiar_lider(i):
-					refrescar_lider()
-			)
-		else:
-			raiz.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		#
+		# Se pulsa TAMBIEN con el raton, y no solo con los dedos: la tarjeta se ve igual en las dos, y
+		# tener una zona que responde en el movil y no en el escritorio no hay quien lo adivine. Las
+		# teclas siguen igual.
+		raiz.mouse_filter = Control.MOUSE_FILTER_STOP
+		raiz.gui_input.connect(func(event: InputEvent) -> void:
+			var toque: bool = (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) \
+				or (event is InputEventMouseButton and (event as InputEventMouseButton).pressed \
+					and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT)
+			if toque and Game.cambiar_lider(i):
+				refrescar_lider()
+		)
 		_barras_layer.add_child(raiz)
 
 		# El cuadradito de color y el nombre encima, lo unico que distingue una columna de otra.
@@ -699,6 +700,7 @@ func _rehacer_barras() -> void:
 		punto.position = Vector2(0, Y_NOMBRE + 1.0)
 		punto.color = pj.color
 		punto.material = Game.material_de(pj)
+		punto.mouse_filter = Control.MOUSE_FILTER_IGNORE   # que el toque llegue a la tarjeta
 		raiz.add_child(punto)
 
 		# La CORONA va aparte del nombre (mismo Label lleva el emoji + el texto): asi al cambiar de
@@ -729,6 +731,9 @@ func _rehacer_barras() -> void:
 		estados.size = Vector2(ANCHO_COL, ALTO_ESTADOS)
 		estados.add_theme_constant_override("separation", 3)
 		estados.clip_contents = true
+		# La FILA no atrapa el toque (asi el hueco entre chips sigue cambiando de lider); los chips que
+		# van dentro si lo hacen, que cada uno tiene su tooltip.
+		estados.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		raiz.add_child(estados)
 
 		# La FIRMA de lo que hay pintado ahora mismo. _refrescar_barras corre en CADA frame y los
@@ -746,6 +751,10 @@ func _barra_col(raiz: Control, y: float, alto: float, color: Color) -> ProgressB
 	b.size = Vector2(ANCHO_COL, alto)
 	b.position = Vector2(0, y)
 	b.self_modulate = color
+	# UNA BARRA NO SE PULSA: se deja pasar el toque a la tarjeta, que es la que cambia de lider. Un
+	# Control atrapa el raton por defecto, y como las tres barras ocupan casi toda la tarjeta, lo
+	# unico que quedaba vivo era la tira del nombre y los huecos entre barras.
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	raiz.add_child(b)
 	return b
 
