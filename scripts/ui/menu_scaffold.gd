@@ -774,8 +774,15 @@ static func cuadricula(vb: VBoxContainer, labels: Array, sel: int, pulsado: Call
 #   2. CADA LINEA VA POR SU CUENTA. Si el nombre del objeto no cabe pero el de quien lo lleva si,
 #      se mueve SOLO el nombre; el otro se queda quieto. Por eso cada linea es su propio Label
 #      dentro de su propia ventanita, y no un unico Label de dos lineas.
-#   3. CARRUSEL, no vaiven: avanza hasta que ha entrado el final del texto y ahi VUELVE AL PRINCIPIO
-#      y empieza otra vez. Nada de ir y volver.
+#   3. CARRUSEL, no vaiven: entra por un lado y sale por el otro; al terminar vuelve al principio y
+#      otra vez. Nada de ir y volver.
+#      Y el salto de vuelta se da POR LA MITAD DE LA CAJA: el texto empieza con su primera letra en
+#      el centro y termina con la ultima en el centro. Empezando pegado a un borde y terminando
+#      pegado al otro, el salto era de la caja entera y pegaba un tiron; asi los dos extremos se
+#      parecen (media caja con texto, media vacia) y el corte apenas se nota.
+#      Cada linea recorre SU PROPIO ancho, asi que las de una misma celda no van acompasadas: el
+#      nombre corto de una persona da varias vueltas mientras el del arma da una. Es lo que se
+#      quiere -- si arrancaran a la vez pareceria un bloque moviendose, no dos textos.
 #
 #  Va como Label DENTRO del boton (y el boton con clip_contents) y no como text del propio Button:
 #  un Button no deja mover su texto, y ademas las particulas de rareza necesitan un Label para
@@ -829,33 +836,56 @@ static func _linea_carrusel(col: VBoxContainer, texto: String, color: Variant) -
 
 	# El ancho de verdad no se sabe hasta que el contenedor coloca la celda, asi que la decision de
 	# rodar o no se toma con el layout (mismo motivo por el que brillo_en se reajusta en resized).
-	var tween: Tween = null
+	# EL ESTADO VA EN UN DICCIONARIO, no en dos locales, y esto NO es un capricho: una lambda de
+	# GDScript captura los locales POR VALOR, asi que escribir `tween = ...` dentro de colocar() no
+	# se veia en la siguiente llamada. Resultado: la primera pasada (con la caja aun a 0 de ancho)
+	# creaba un carrusel, la segunda creia que no habia ninguno, no lo mataba, y el texto seguia
+	# rodando eternamente aunque cupiera de sobra. Un Dictionary se captura por REFERENCIA.
+	#   tween = el carrusel que esta corriendo (null si el texto cabe)
+	#   ancho = con que ancho de caja se monto (para no reiniciarlo por cada resize, pero SI
+	#           rehacerlo si la caja cambia de tamaño: el recorrido se calcula con el)
+	var estado: Dictionary = {"tween": null, "ancho": -1.0}
 	var colocar := func() -> void:
 		var texto_ancho: float = lbl.get_minimum_size().x
 		var hueco: float = marco.size.x - MARGEN_TEXTO
 		var sobra: float = texto_ancho - hueco
 		lbl.size = Vector2(maxf(texto_ancho, hueco), marco.size.y)
+		var rodando: Tween = estado["tween"]
 		if sobra <= 1.0:
-			# CABE: quieto y centrado. Si venia rodando (la celda ha crecido), se corta.
-			if tween != null and tween.is_valid():
-				tween.kill()
-				tween = null
+			# CABE: quieto y centrado. Si venia rodando, se corta -- y esto pasa DE VERDAD: la primera
+			# medida se toma antes de que el contenedor coloque nada, con la caja todavia a 0 de ancho,
+			# asi que cualquier texto "no cabe" en ese instante. Sin esta segunda pasada un nombre
+			# corto arrancaba a rodar y ya no paraba.
+			if rodando != null and rodando.is_valid():
+				rodando.kill()
+			estado["tween"] = null
+			estado["ancho"] = -1.0
 			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			lbl.position = Vector2(MARGEN_TEXTO * 0.5, 0)
 			lbl.set_meta("pasea", false)
 			return
-		if tween != null and tween.is_valid():
-			return   # ya esta rodando: no reiniciarlo en cada resize
+		if rodando != null and rodando.is_valid():
+			if is_equal_approx(float(estado["ancho"]), marco.size.x):
+				return   # misma caja: ya esta rodando, no reiniciarlo
+			rodando.kill()   # la caja ha cambiado de ancho: el recorrido de antes ya no vale
+		estado["ancho"] = marco.size.x
 		# Rodando se lee de izquierda a derecha: centrarlo ademas lo descuadraria al arrancar.
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		var inicio: float = MARGEN_TEXTO * 0.5
+		# DE MEDIA CAJA A MEDIA CAJA: arranca con la primera letra en el centro y acaba con la ultima
+		# en el centro, o sea que recorre exactamente SU ancho. Los dos extremos se ven parecidos y el
+		# salto de vuelta no da el tiron que daba yendo de borde a borde.
+		var centro: float = marco.size.x * 0.5
+		var fin: float = centro - texto_ancho
 		# Se apunta en el Label si esta rodando o no: por fuera no hay forma de preguntarle a un nodo
 		# por sus tweens, y esto es lo que deja comprobarlo (y verlo de un vistazo al depurar).
 		lbl.set_meta("pasea", true)
 		# UN solo tramo en bucle: al acabar vuelve de golpe al principio (el .from lo garantiza) y
 		# arranca otra vez. Eso es el carrusel; un segundo tramo de vuelta seria un vaiven.
-		tween = lbl.create_tween().set_loops()
-		tween.tween_property(lbl, "position:x", inicio - sobra, sobra / VELOCIDAD_CARRUSEL).from(inicio)
+		# La duracion sale del RECORRIDO entre la velocidad: cada linea tarda lo suyo y por eso las
+		# de una misma celda se reinician en momentos distintos.
+		var nuevo: Tween = lbl.create_tween().set_loops()
+		nuevo.tween_property(lbl, "position:x", fin, texto_ancho / VELOCIDAD_CARRUSEL).from(centro)
+		estado["tween"] = nuevo
 	marco.resized.connect(colocar)
 	colocar.call()
 	return lbl
