@@ -67,8 +67,9 @@ func _ready() -> void:
 	hb.offset_left = 16
 	hb.offset_top = 16
 	# El contenido se para ANTES de la esquina: ahi va la ✕. Sin este hueco, la fila de pestañas del
-	# grupo (que se estira a todo lo ancho) le pasaba justo por debajo.
-	hb.offset_right = -(16.0 + MenuScaffold.LADO_ICONO + 8.0)
+	# grupo (que se estira a todo lo ancho) le pasaba justo por debajo -- con cuatro, el cuarto boton
+	# quedaba medio tapado. El ancho lo dice MenuScaffold para que sea la misma cuenta que la ✕.
+	hb.offset_right = -MenuScaffold.hueco_equis()
 	hb.offset_bottom = -16
 	hb.add_theme_constant_override("separation", 18)
 	_root.add_child(hb)

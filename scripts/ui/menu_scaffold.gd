@@ -226,6 +226,19 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 		barra.add_child(BotonIcono.crear(Callable(Iconos, "equis"), al_cerrar, LADO_ICONO))
 		col.add_child(HSeparator.new())
 
+	# LA CABECERA ENTERA (aviso + titulo + pestañas) se para antes de la esquina de la ✕: es la unica
+	# zona que queda a su altura, y es justo la que se estira a todo lo ancho (un titulo largo, una
+	# nota de dos lineas, una fila de pestañas). Lo de abajo —la lista y el detalle— ya empieza por
+	# debajo de ella, asi que no se toca: recortarlo tambien seria regalar un hueco muerto.
+	var tapa := MarginContainer.new()
+	tapa.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if con_lateral:
+		tapa.add_theme_constant_override("margin_right", int(hueco_equis()) - 16)
+	col.add_child(tapa)
+	var cab := VBoxContainer.new()
+	cab.add_theme_constant_override("separation", 6)
+	tapa.add_child(cab)
+
 	# Linea de AVISO ("Sacas 3 lingotes...", "No te llega"). Vive FUERA del header y con una
 	# altura FIJA aunque este vacia: si apareciera y desapareciera con el mensaje, empujaria el
 	# titulo y todo el menu bailaria cada vez que haces algo.
@@ -233,12 +246,12 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 	aviso.custom_minimum_size = Vector2(0, 22)
 	aviso.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	aviso.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_child(aviso)
+	cab.add_child(aviso)
 
 	var header := VBoxContainer.new()
 	header.add_theme_constant_override("separation", 4)
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_child(header)
+	cab.add_child(header)
 
 	var split := HBoxContainer.new()
 	split.add_theme_constant_override("separation", 20)
@@ -476,6 +489,17 @@ static func nota(vb: VBoxContainer, txt: String) -> void:
 # cada una se la pinta por su cuenta, acaban bailando unos pixeles entre pantalla y pantalla.
 #
 # El margen respeta Tactil.borde (la zona segura del movil: muescas y esquinas redondeadas).
+# El ancho que hay que dejarle LIBRE a la ✕ en la esquina de arriba a la derecha, contando su
+# margen. Quien pinte una fila que se estire a todo lo ancho (las pestañas del grupo, un titulo
+# largo) tiene que pararse aqui o se le mete por debajo.
+#
+# Sale de la MISMA cuenta que usa equis_cerrar, y ese es el motivo de que exista: al reservar el
+# hueco a mano se olvido Tactil.borde, asi que en un aparato tactil (donde la ✕ se aparta 18 px mas
+# del canto) la ✕ se comia el ultimo boton de la fila. Con dos cuentas separadas vuelve a pasar.
+static func hueco_equis() -> float:
+	return 16.0 + Tactil.borde.x + LADO_ICONO + 8.0
+
+
 static func equis_cerrar(root: Control, al_cerrar: Callable, pista: String = "") -> Control:
 	var margen_x: float = 16.0 + Tactil.borde.x
 	var margen_y: float = 16.0 + Tactil.borde.y
