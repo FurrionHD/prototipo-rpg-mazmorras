@@ -66,10 +66,7 @@ func _ready() -> void:
 	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hb.offset_left = 16
 	hb.offset_top = 16
-	# El contenido se para ANTES de la esquina: ahi va la ✕. Sin este hueco, la fila de pestañas del
-	# grupo (que se estira a todo lo ancho) le pasaba justo por debajo -- con cuatro, el cuarto boton
-	# quedaba medio tapado. El ancho lo dice MenuScaffold para que sea la misma cuenta que la ✕.
-	hb.offset_right = -MenuScaffold.hueco_equis()
+	hb.offset_right = -16
 	hb.offset_bottom = -16
 	hb.add_theme_constant_override("separation", 18)
 	_root.add_child(hb)
@@ -249,6 +246,23 @@ func _rebuild_real() -> void:
 #
 # El numero delante del nombre es el MISMO que la tecla que lo pone en cabeza (1/2/3), para que
 # las dos cosas se lean igual: el 2 de aqui es el 2 de alla.
+# Un hueco dentro de _content para UNA fila de las de arriba, apartada de la esquina donde vive la
+# ✕. Solo lo necesitan las que pueden quedar a su altura (el selector de personaje y la cabecera con
+# el ⇄): recortar _content ENTERO dejaba media pantalla de aire muerto a la derecha en todas las
+# filas de abajo, que es justo lo que no hace el resto de menus (ver MenuScaffold.construir, que
+# limita la cabecera y deja la lista y el detalle a todo lo ancho).
+func _fila_bajo_equis() -> VBoxContainer:
+	var m := MarginContainer.new()
+	m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	m.add_theme_constant_override("margin_right", int(MenuScaffold.hueco_equis()) - 16)
+	_content.add_child(m)
+	# Devuelve un VBox y no el MarginContainer: es lo que piden los helpers de MenuScaffold.
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	m.add_child(v)
+	return v
+
+
 func _selector_personaje() -> void:
 	if Game.party.size() <= 1:
 		return
@@ -258,7 +272,8 @@ func _selector_personaje() -> void:
 		labels.append("%d. %s%s" % [i + 1, corona, Game.party[i].nombre])
 	# Alto de dedo como el resto (era el unico sitio del proyecto con 32), y el nombre completo en el
 	# tooltip: la celda recorta, y un nombre largo se quedaba sin manera de leerse.
-	MenuScaffold.cuadricula(_content, labels, _pj_sel, _pick_personaje,
+	# Va en su envoltorio: es la fila de mas arriba y con cuatro personajes llega hasta la esquina.
+	MenuScaffold.cuadricula(_fila_bajo_equis(), labels, _pj_sel, _pick_personaje,
 		Game.PARTY_MAX, Vector2(150, MenuScaffold.ALTO_BOTON), [], [], labels)
 	_content.add_child(HSeparator.new())
 
@@ -453,7 +468,9 @@ func _build_personaje() -> void:
 	swap.custom_minimum_size = Vector2(44, MenuScaffold.ALTO_BOTON)
 	swap.pressed.connect(_flip_char_page)
 	head.add_child(swap)
-	_content.add_child(head)
+	# Esta fila puede quedar la PRIMERA de todas (con un solo personaje no hay selector encima), y
+	# entonces el ⇄ cae justo donde esta la ✕. Ver _fila_bajo_equis.
+	_fila_bajo_equis().add_child(head)
 	_content.add_child(HSeparator.new())
 
 	if _char_page == 0:
