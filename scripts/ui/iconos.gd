@@ -153,6 +153,21 @@ static func info(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 	c.draw_line(centro + Vector2(0, -lado * 0.03), centro + Vector2(0, lado * 0.18), col, g, true)
 
 
+# --- CONSOLA (el panel de debug): la ventana con el prompt ">_" ---
+static func consola(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.075
+	var m: float = lado * 0.14
+	# El marco de la ventana.
+	c.draw_rect(Rect2(pos + Vector2(m, m), Vector2(lado - m * 2.0, lado - m * 2.0)), col, false, g)
+	# El prompt: el angulo ">" y su guion, como en una terminal.
+	var x: float = pos.x + lado * 0.31
+	var y: float = pos.y + lado * 0.42
+	c.draw_line(Vector2(x, y), Vector2(x + lado * 0.13, y + lado * 0.11), col, g, true)
+	c.draw_line(Vector2(x + lado * 0.13, y + lado * 0.11), Vector2(x, y + lado * 0.22), col, g, true)
+	c.draw_line(Vector2(x + lado * 0.20, y + lado * 0.24), Vector2(x + lado * 0.38, y + lado * 0.24),
+		col, g, true)
+
+
 # --- EQUIS (cerrar): dos aspas ---
 static func equis(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 	var g: float = lado * 0.12

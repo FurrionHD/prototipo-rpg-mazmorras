@@ -1201,10 +1201,10 @@ func _build_armadura_lista() -> void:
 		if pieza is ArmorData or pieza is BackpackData:
 			l.add_theme_color_override("font_color", Game.color_rareza_de(pieza))
 			MenuScaffold.brillo_en(l, Game.color_rareza_de(pieza), Game.intensidad_rareza_de(pieza))
-		var ver := Button.new()
-		ver.text = "Ver ▶"
-		ver.pressed.connect(_abrir_slot.bind(slot))
-		row.add_child(ver)
+		# El boton manda la fila entera: es lo unico que se pulsa aqui, asi que va a tamaño de dedo
+		# (era el de por defecto de Godot, una pastillita de 20 px imposible de acertar).
+		var ver := MenuScaffold.boton(row, "Ver ▶", _abrir_slot.bind(slot))
+		ver.custom_minimum_size = Vector2(110, MenuScaffold.ALTO_BOTON)
 		_content.add_child(row)
 
 
@@ -1245,7 +1245,7 @@ func _build_armadura_slot(slot: String) -> void:
 	head.add_theme_constant_override("separation", 8)
 	var prev := Button.new()
 	prev.text = "◀"
-	prev.custom_minimum_size = Vector2(40, 0)
+	prev.custom_minimum_size = Vector2(MenuScaffold.ALTO_BOTON, MenuScaffold.ALTO_BOTON)
 	prev.pressed.connect(_ciclar_slot.bind(-1))
 	head.add_child(prev)
 	var t := Label.new()
@@ -1257,11 +1257,12 @@ func _build_armadura_slot(slot: String) -> void:
 	head.add_child(t)
 	var next := Button.new()
 	next.text = "▶"
-	next.custom_minimum_size = Vector2(40, 0)
+	next.custom_minimum_size = Vector2(MenuScaffold.ALTO_BOTON, MenuScaffold.ALTO_BOTON)
 	next.pressed.connect(_ciclar_slot.bind(1))
 	head.add_child(next)
 	var volver := Button.new()
 	volver.text = "Volver"
+	volver.custom_minimum_size = Vector2(110, MenuScaffold.ALTO_BOTON)
 	volver.pressed.connect(_cerrar_slot)
 	head.add_child(volver)
 	_content.add_child(head)

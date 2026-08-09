@@ -88,22 +88,19 @@ func _make_rareza_opt(cb: Callable) -> OptionButton:
 
 func _ready() -> void:
 	layer = 6
+	# Quien lo abre es el icono de consola de la botonera del HUD, que lo busca por este grupo (ver
+	# hud._montar_botonera). Ya no hay boton propio: era un "DEBUG" de texto con el estilo por
+	# defecto de Godot, abajo a la izquierda y lejos del resto de la interfaz.
+	add_to_group("debug_panel")
 
-	var toggle := Button.new()
-	toggle.text = "DEBUG"
-	toggle.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	toggle.offset_left = 8
-	toggle.offset_top = -34
-	toggle.offset_bottom = -8
-	toggle.pressed.connect(_toggle)
-	add_child(toggle)
-
+	# El panel cuelga de la esquina de arriba a la derecha, DEBAJO de la botonera: se abre donde
+	# esta el boton que lo abre. Antes salia por la esquina de abajo a la izquierda.
 	_panel = PanelContainer.new()
-	_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	_panel.offset_left = 8
-	_panel.offset_bottom = -40
-	_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_panel.grow_horizontal = Control.GROW_DIRECTION_END
+	_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_panel.offset_right = -Hud.ICONO_MARGEN - Tactil.borde.x
+	_panel.offset_top = Hud.ICONO_MARGEN + Tactil.borde.y + Hud.ICONO_LADO + 8.0
+	_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_panel.grow_vertical = Control.GROW_DIRECTION_END
 	_panel.visible = false
 	add_child(_panel)
 

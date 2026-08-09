@@ -13,6 +13,9 @@
 # ============================================================
 
 extends CanvasLayer
+# Con nombre de clase para que las medidas de la botonera (ICONO_LADO, ICONO_MARGEN) se puedan leer
+# desde fuera: el panel de debug se abre justo debajo de ella y tiene que cuadrar con la fila.
+class_name Hud
 
 var _counts: Label = null
 var _peso_box: ColorRect = null # cuadrado (placeholder de bolsa) a la derecha de las barras
@@ -61,8 +64,7 @@ func _ready() -> void:
 	# vivian aqui se han ido: los dos numeros ya estan donde toca mirarlos —el piso, en el titulo del
 	# mapa (que ademas se abre siempre por el piso en el que estas); el dinero, arriba en la bolsa—,
 	# y tenerlos ademas pegados en pantalla era repetirlos por repetirlos.
-	if Tactil.activo:
-		_montar_botonera()
+	_montar_botonera()
 
 	# Cuadrado de PESO (placeholder de una futura bolsa/mochila) a la derecha de las
 	# barras, con el numero encima. Cambia de color segun te vas cargando.
@@ -333,13 +335,17 @@ func _fondo_negro() -> StyleBoxFlat:
 
 
 # ============================================================
-#  LA BOTONERA (solo con los dedos): personaje, bolsa, mapa y pausa, arriba a la derecha.
+#  LA BOTONERA: debug, personaje, bolsa, mapa y pausa, arriba a la derecha.
 #
 #  72 px de lado y no los 34 de altura que tenian antes: 34 px en la resolucion de referencia
 #  (1280x720) son ~3 mm de pantalla real, la mitad de lo que un pulgar acierta. 72 salen a ~7 mm,
 #  que es la talla que se recomienda para un objetivo tactil.
 #
-#  Los cuatro con sus huecos ocupan ~310 px de los 1280: no llegan a chocar con las tarjetas del
+#  Sale TAMBIEN EN ESCRITORIO, no solo con los dedos. Antes iba tras un `if Tactil.activo` y en PC
+#  no habia mas via que las teclas: quien no se las supiera de memoria no tenia por donde entrar a
+#  su ficha o al mapa. Las teclas siguen igual, y su chuleta tambien (esa si es solo de PC).
+#
+#  Los cinco con sus huecos ocupan ~390 px de los 1280: no llegan a chocar con las tarjetas del
 #  grupo, que con cuatro miembros acaban en el 764 (ver player.x_columna).
 # ============================================================
 const ICONO_LADO := 72.0
@@ -358,6 +364,11 @@ func _montar_botonera() -> void:
 	fila.add_theme_constant_override("separation", ICONO_SEP)
 	add_child(fila)
 
+	# El DEBUG va el PRIMERO (a la izquierda del todo): asi los cuatro de siempre no se mueven de
+	# sitio y el engranaje sigue siendo el de la esquina. Antes era un boton de texto suelto abajo a
+	# la izquierda, con el estilo por defecto de Godot y lejos de todo lo demas.
+	fila.add_child(BotonIcono.crear(Callable(Iconos, "consola"),
+		_abrir_menu.bind("debug_panel", "_toggle"), ICONO_LADO))
 	fila.add_child(BotonIcono.crear(Callable(Iconos, "persona"),
 		_abrir_menu.bind("menu_personaje", "_toggle"), ICONO_LADO))
 	fila.add_child(BotonIcono.crear(Callable(Iconos, "mochila"),
