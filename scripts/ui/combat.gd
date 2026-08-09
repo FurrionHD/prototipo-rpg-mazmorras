@@ -1011,6 +1011,15 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 			if _cast_spell == null or _cast_index >= _cast_spell.longitud():
 				return
 			_responder_frase(String(accion.get("texto", "")), _cast_spell.frases[_cast_index])
+		"cancelar":
+			# Se ha echado atras ANTES de recitar nada: el conjuro se cae sin coste y le devuelvo el
+			# turno entero. Con una frase ya recitada NO se acepta (solo puede ser un eco: el boton
+			# no existe a partir de la segunda).
+			if _cast_spell == null or _cast_index > 0:
+				return
+			_limpiar_casteo()
+			_update_hp()
+			_pedir_accion_del_turno()
 		"disparar":
 			if _cast_spell == null:
 				return
@@ -1032,7 +1041,8 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 # lo que dejaba que un "atacar" rezagado se resolviera en mitad de un recitado.
 func _encaja_con_lo_pedido(tipo: String, pendiente: String) -> bool:
 	match pendiente:
-		"frase":   return tipo == "frase"
+		# La frase admite tambien el "cancelar": desde el examen de la PRIMERA se puede volver atras.
+		"frase":   return tipo in ["frase", "cancelar"]
 		"disparo": return tipo == "disparar"
 		"accion":  return tipo in ["atacar", "defender", "huir", "habilidad", "magia", "objeto"]
 		_:         return true   # peticion sin tipo conocido: no se bloquea nada
@@ -1436,6 +1446,15 @@ func _ready() -> void:
 const COLUMNAS_ACCION := 3
 const ANCHO_BOTON_ACCION := 168.0   # minimo; los botones se reparten el ancho sobrante
 const ALTO_BOTON_ACCION := 76.0
+# Las FRASES del recitado van una por fila (el texto es largo y necesita el ancho entero), asi que
+# son mas bajas que un boton de accion: cuatro de 76 + el Volver no caben en pantalla. 60 px sigue
+# estando por encima del minimo comodo para un pulgar, que es lo que se buscaba: fallar una frase
+# duele (backfire), y se estaban fallando por el TAMAÑO del boton, no por no saberse la frase.
+const ALTO_BOTON_FRASE := 60.0
+const ALTO_BOTON_VOLVER := 56.0
+# Hasta donde puede crecer el panel hacia ARRIBA. Por encima de esto se comeria los bloques del
+# grupo (que acaban hacia la mitad de la pantalla).
+const ALTO_PANEL_MAX := 420.0
 # La linea de accion (turn_timeline) se come los ultimos 80 px de la pantalla. Todo lo de abajo
 # tiene que quedarse por encima de ella.
 const HUECO_TIMELINE := 96.0
@@ -1537,6 +1556,38 @@ func _celda_submenu(b: Button) -> void:
 	b.clip_text = true
 
 
+# El panel de acciones CRECE hacia arriba segun lo que tenga que enseñar. Antes era de alto fijo (dos
+# filas), y por eso todo lo que no fuera la rejilla de seis se pintaba apretado: las cuatro frases del
+# recitado y los "◄ Volver" salian del alto por defecto de un Button, pegados unos a otros. En el
+# movil eso es fallar la frase sin querer.
+#
+# El panel esta anclado ABAJO, asi que mover offset_top solo le da sitio; los botones no se mueven de
+# donde estaban. Quien abre un submenu pide su alto; _ocultar_cajas lo devuelve a las dos filas.
+func _alto_panel(alto: float) -> void:
+	if _panel_acciones == null:
+		return
+	_panel_acciones.offset_top = _panel_acciones.offset_bottom \
+		- clampf(alto, ALTO_BOTON_ACCION * 2.0, ALTO_PANEL_MAX) - 20.0
+
+
+# Cierra un submenu: le pone el "◄ Volver" a lo ancho, ajusta el alto del panel a lo que ocupa su
+# rejilla y lo enseña. 'n' = cuantos botones lleva la rejilla (de ahi salen las filas), 'al' = a
+# donde vuelve el boton. Los seis submenus repetian estas cuatro lineas a mano.
+func _cerrar_submenu(caja: VBoxContainer, n: int, al: Callable) -> void:
+	# Separacion entre la rejilla y el Volver: pegado a las celdas se pulsa por accidente.
+	caja.add_theme_constant_override("separation", 12)
+	var volver := Button.new()
+	volver.text = "◄ Volver"
+	volver.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	volver.custom_minimum_size = Vector2(0, ALTO_BOTON_VOLVER)
+	volver.add_theme_font_size_override("font_size", 18)
+	volver.pressed.connect(al)
+	caja.add_child(volver)
+	var filas: int = maxi(1, ceili(n / float(COLUMNAS_ACCION)))
+	_alto_panel(filas * ALTO_BOTON_ACCION + (filas - 1) * 10.0 + 12.0 + ALTO_BOTON_VOLVER)
+	caja.visible = true
+
+
 # Oculta las cajas del turno del jugador (acciones / submenu magia / recitado / habilidades /
 # objetos). Y por defecto DEVUELVE el historial: ocultar las cajas = volver al estado "mirando el
 # log". Los submenus que quieran ocupar el sitio del log (magia, frases, habilidades, objetos) se
@@ -1549,6 +1600,7 @@ func _ocultar_cajas() -> void:
 	if _ability_box != null: _ability_box.visible = false
 	if _objeto_box != null: _objeto_box.visible = false
 	if _log != null: _log.visible = true
+	_alto_panel(0.0)   # vuelve a las dos filas de la rejilla de acciones (el clamp lo sube al minimo)
 
 
 # YA NO ESCONDE NADA, y se queda como un sitio al que llamar por si algun dia hace falta.
@@ -2582,21 +2634,28 @@ func _begin_player_turn() -> void:
 		else:
 			_mostrar_disparo()
 	else:
-		# MULTI (hito 5.4-C): si el que actua es el personaje de OTRO, los botones no van aqui: se
-		# le piden a su dueño y esta pantalla se queda esperando. El ATB no corre mientras tanto
-		# (estamos en WAITING_PLAYER), asi que nadie pierde turnos por pensar.
-		var dueno: int = int(_dueno_aliado.get(_player, 0))
-		if dueno != 0 and not Net.esta_en_mi_pelea(dueno):
-			# Ya no esta en la pelea (se fue, o su pantalla dejo de espejarme): pedirle la accion
-			# seria esperar para siempre. Sus personajes salen y la pelea sigue.
-			sacar_a(dueno)
-			return
-		if dueno != 0:
-			_ocultar_cajas()
-			_set_log("Turno de %s. Esperando su acción..." % _player.nombre)
-			_pedir_a_remoto(dueno, {"tipo": "accion", "idx": _aliados.find(_player)})
-		else:
-			_mostrar_acciones()
+		_pedir_accion_del_turno()
+
+
+# Le da el turno a quien toca: los botones aqui si el personaje es de esta pantalla, y si no, se le
+# piden a su dueño. Vive aparte porque hay DOS momentos que reparten turno: el turno normal y el
+# volver atras de un conjuro cancelado (ver _cancelar_casteo), que devuelve la accion sin gastar nada.
+#
+# MULTI (hito 5.4-C): el ATB no corre mientras se espera (estamos en WAITING_PLAYER), asi que nadie
+# pierde turnos por pensar.
+func _pedir_accion_del_turno() -> void:
+	var dueno: int = int(_dueno_aliado.get(_player, 0))
+	if dueno != 0 and not Net.esta_en_mi_pelea(dueno):
+		# Ya no esta en la pelea (se fue, o su pantalla dejo de espejarme): pedirle la accion
+		# seria esperar para siempre. Sus personajes salen y la pelea sigue.
+		sacar_a(dueno)
+		return
+	if dueno != 0:
+		_ocultar_cajas()
+		_set_log("Turno de %s. Esperando su acción..." % _player.nombre)
+		_pedir_a_remoto(dueno, {"tipo": "accion", "idx": _aliados.find(_player)})
+	else:
+		_mostrar_acciones()
 
 
 # Apila en el log los eventos del tick de estados: DoT sufrido (con iconos) y
@@ -2814,11 +2873,7 @@ func _accion_magia() -> void:
 			b.pressed.connect(_elegir_hechizo.bind(spell))
 		_celda_submenu(b)
 		grid.add_child(b)
-	var volver := Button.new()
-	volver.text = "◄ Volver"
-	volver.pressed.connect(_mostrar_acciones)
-	_spell_box.add_child(volver)
-	_spell_box.visible = true
+	_cerrar_submenu(_spell_box, spells_ord.size(), _mostrar_acciones)
 	_ocultar_log()   # el submenu ocupa el sitio del historial
 
 
@@ -2858,11 +2913,7 @@ func _elegir_objetivo_aliado(spell: SpellData) -> void:
 		b.pressed.connect(_elegir_hechizo.bind(spell, al))
 		_celda_submenu(b)
 		grid.add_child(b)
-	var volver := Button.new()
-	volver.text = "◄ Volver"
-	volver.pressed.connect(_accion_magia)
-	_spell_box.add_child(volver)
-	_spell_box.visible = true
+	_cerrar_submenu(_spell_box, candidatos.size(), _accion_magia)
 	_ocultar_log()
 
 
@@ -2922,12 +2973,33 @@ func _pintar_test(idx: int, opciones: Array, nombre: String, largo: int, correct
 	_ocultar_cajas()
 	for c in _cast_box.get_children():
 		c.queue_free()
+	# Una frase por FILA, a ancho completo y separadas: el texto es largo (no cabe a media anchura) y
+	# equivocarse de opcion cuesta un backfire, asi que el boton tiene que ser grande de verdad.
+	_cast_box.add_theme_constant_override("separation", 10)
 	var letras := ["a", "b", "c", "d", "e", "f"]
 	for i in opciones.size():
 		var b := Button.new()
 		b.text = "%s)  %s" % [letras[i], opciones[i]]
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(0, ALTO_BOTON_FRASE)
+		b.add_theme_font_size_override("font_size", 18)
+		b.clip_text = true
 		b.pressed.connect(_responder_frase.bind(String(opciones[i]), correcta))
 		_cast_box.add_child(b)
+	var alto: float = opciones.size() * ALTO_BOTON_FRASE + (opciones.size() - 1) * 10.0
+	# ECHARSE ATRAS: solo en la PRIMERA frase. En cuanto has recitado una ya no se puede (el conjuro
+	# esta en marcha), asi que el boton ni se pinta. Y aqui no se pierde nada: el maná se cobra al
+	# soltar el hechizo o al fallar, nunca al empezar (ver _elegir_hechizo).
+	if idx == 0:
+		var volver := Button.new()
+		volver.text = "◄ Volver (aún no has recitado nada)"
+		volver.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		volver.custom_minimum_size = Vector2(0, ALTO_BOTON_VOLVER)
+		volver.add_theme_font_size_override("font_size", 18)
+		volver.pressed.connect(_cancelar_casteo)
+		_cast_box.add_child(volver)
+		alto += 10.0 + ALTO_BOTON_VOLVER
+	_alto_panel(alto)
 	_cast_box.visible = true
 	_set_log("🔮 %s — recita la frase %d/%d:" % [nombre, idx + 1, largo])
 	_ocultar_log()   # las frases ocupan el sitio del historial
@@ -2987,6 +3059,30 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		_backfire()
 
 
+# ECHARSE ATRAS con el conjuro recien elegido, ANTES de recitar la primera frase. No cuesta maná (se
+# cobra al soltarlo o al fallar, ver _elegir_hechizo) y NO gasta el turno: te devuelve al submenu de
+# magia, por si el hechizo que has tocado no era el que querias.
+#
+# Con una frase ya recitada esto no se puede llamar: el boton solo se pinta con idx == 0
+# (_pintar_test), y aun asi el anfitrion lo vuelve a comprobar antes de aplicarlo.
+func _cancelar_casteo() -> void:
+	if _state != State.WAITING_PLAYER:
+		return
+	# ESPEJO: la decision es mia, pero el conjuro lo lleva el anfitrion. Se ocultan las cajas ANTES de
+	# contestar: el menu de acciones que me devolvera viene por el mismo camino que una repeticion, y
+	# los guardias de turno_mio / recitar_frase lo descartarian si aun tuviera los botones delante.
+	if _espejo:
+		_ocultar_cajas()
+		_set_log("Cancelando el conjuro...")
+		_responder_al_anfitrion({"tipo": "cancelar"})
+		return
+	if _cast_spell == null or _cast_index > 0:
+		return
+	_limpiar_casteo()
+	_update_hp()   # se va el chip 🔮 del bloque: los chips solo se rehacen desde aqui
+	_accion_magia()
+
+
 # Turno de DISPARO: un unico boton para lanzar el hechizo ya recitado.
 func _mostrar_disparo() -> void:
 	# MULTI: el conjuro es de otro -> el boton va en SU pantalla (y alli puede reapuntar antes de
@@ -3006,8 +3102,12 @@ func _pintar_disparo(nombre: String) -> void:
 		c.queue_free()
 	var b := Button.new()
 	b.text = "🔥 ¡Lanzar %s!" % nombre
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(0, ALTO_BOTON_ACCION)
+	b.add_theme_font_size_override("font_size", 20)
 	b.pressed.connect(_disparar_hechizo)
 	_cast_box.add_child(b)
+	_alto_panel(ALTO_BOTON_ACCION)
 	_cast_box.visible = true
 	_set_log("El conjuro está listo. ¡Lánzalo!")
 	_ocultar_log()   # el boton de disparo ocupa el sitio del historial
@@ -3578,11 +3678,7 @@ func _accion_habilidad() -> void:
 			b.pressed.connect(_usar_habilidad.bind(ab))
 		_celda_submenu(b)
 		grid.add_child(b)
-	var volver := Button.new()
-	volver.text = "◄ Volver"
-	volver.pressed.connect(_mostrar_acciones)
-	_ability_box.add_child(volver)
-	_ability_box.visible = true
+	_cerrar_submenu(_ability_box, abils.size(), _mostrar_acciones)
 	_ocultar_log()   # el submenu ocupa el sitio del historial
 
 
@@ -3723,11 +3819,7 @@ func _elegir_aliado_habilidad(ab: AbilityData) -> void:
 			_usar_habilidad(ab))
 		_celda_submenu(b)
 		grid.add_child(b)
-	var volver := Button.new()
-	volver.text = "◄ Volver"
-	volver.pressed.connect(_accion_habilidad)
-	_ability_box.add_child(volver)
-	_ability_box.visible = true
+	_cerrar_submenu(_ability_box, vivos.size(), _accion_habilidad)
 	_ocultar_log()
 
 
@@ -4103,11 +4195,7 @@ func _accion_objeto() -> void:
 		b.pressed.connect(_elegir_objetivo_objeto.bind(cons))
 		_celda_submenu(b)
 		grid.add_child(b)
-	var volver := Button.new()
-	volver.text = "◄ Volver"
-	volver.pressed.connect(_mostrar_acciones)
-	_objeto_box.add_child(volver)
-	_objeto_box.visible = true
+	_cerrar_submenu(_objeto_box, grid.get_child_count(), _mostrar_acciones)
 	_ocultar_log()   # el submenu ocupa el sitio del historial
 
 
@@ -4132,11 +4220,7 @@ func _elegir_objetivo_objeto(cons: ConsumableData) -> void:
 		b.pressed.connect(_usar_objeto.bind(cons, al))
 		_celda_submenu(b)
 		grid.add_child(b)
-	var volver := Button.new()
-	volver.text = "◄ Volver"
-	volver.pressed.connect(_accion_objeto)
-	_objeto_box.add_child(volver)
-	_objeto_box.visible = true
+	_cerrar_submenu(_objeto_box, vivos.size(), _accion_objeto)
 
 
 # Bebe una poción y se la da a 'objetivo': cura vida y/o maná YA, en este mismo turno, y deja el
