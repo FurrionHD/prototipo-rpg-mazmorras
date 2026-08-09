@@ -39,6 +39,63 @@ const ALTO_BOTON := 44.0
 const LADO_ICONO := 44.0
 
 
+# ============================================================
+#  EL TEMA DE LOS BOTONES
+#  El tema por defecto de Godot pinta el boton como un gris plano SIN BORDE, y sobre el fondo casi
+#  negro de los menus (FONDO, ahi arriba) no se distinguia del hueco: habia que adivinar donde se
+#  podia pulsar. Con un borde, cada boton se ve como lo que es.
+#
+#  Se construye UNA vez (esta cacheado) y se cuelga de la RAIZ del arbol, no de cada menu: ver
+#  Game._ready. Asi entra tambien en lo que no sale de este esqueleto -- el combate, la pausa, el HUD,
+#  el menu de personaje --, que es lo que se pidio: TODOS los botones.
+#
+#  El lenguaje visual es el mismo que ya usaba la ✕ (ver boton_icono.gd): fondo oscuro translucido,
+#  borde blanco flojo y esquinas redondeadas. Alli el radio es 12 porque es un cuadrado; aqui 6, que
+#  en un boton alargado un radio grande le hace forma de pastilla.
+#
+#  Nada de esto pisa a quien tenga su propio estilo: un add_theme_stylebox_override (los chips de
+#  estado, los mandos tactiles) manda sobre el tema. Y tintar() solo toca colores de FUENTE, asi que
+#  las celdas teñidas por rareza conservan su color y ademas ganan el borde.
+# ============================================================
+
+static var _tema: Theme = null
+
+static func tema() -> Theme:
+	if _tema != null:
+		return _tema
+	_tema = Theme.new()
+	# normal / hover / pressed / disabled / focus: los cinco estados que pinta un Button. Si falta
+	# alguno, Godot lo rellena con SU gris y el boton cambia de aspecto al tocarlo.
+	# El alfa del borde va ALTO (0.45 y subiendo). Con el 0.28 de la ✕ el boton se quedaba en una
+	# mancha oscura: ese valor funciona en un cuadro pequeño y aislado, no en una fila de botones
+	# alargados sobre el fondo del menu. Medido en captura antes de subirlo.
+	_tema.set_stylebox("normal", "Button", _caja(Color(0.16, 0.17, 0.22, 0.95), 0.45))
+	_tema.set_stylebox("hover", "Button", _caja(Color(0.22, 0.24, 0.30, 0.97), 0.70))
+	_tema.set_stylebox("pressed", "Button", _caja(Color(0.30, 0.32, 0.40, 0.95), 0.85))
+	_tema.set_stylebox("focus", "Button", _caja(Color(0.16, 0.17, 0.22, 0.95), 0.65))
+	# Apagado: el borde casi desaparece y el fondo se hunde en el del menu. Un boton que no se puede
+	# pulsar tiene que NOTARSE que no se puede, no solo tener la letra mas gris.
+	_tema.set_stylebox("disabled", "Button", _caja(Color(0.09, 0.10, 0.13, 0.75), 0.14))
+	# El campo del stepper con la MISMA caja: asi el − [ n ] + se lee como un solo control y no como
+	# dos botones con un hueco en medio.
+	_tema.set_stylebox("normal", "LineEdit", _caja(Color(0.10, 0.11, 0.14, 0.95), 0.45))
+	_tema.set_stylebox("focus", "LineEdit", _caja(Color(0.10, 0.11, 0.14, 0.95), 0.75))
+	_tema.set_stylebox("read_only", "LineEdit", _caja(Color(0.09, 0.10, 0.13, 0.75), 0.14))
+	return _tema
+
+
+static func _caja(fondo: Color, borde_alpha: float) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = fondo
+	sb.border_color = Color(1, 1, 1, borde_alpha)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(6)
+	# Aire a los lados para que la letra no toque el borde nuevo.
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	return sb
+
+
 # Construye el esqueleto dentro de `capa` (un CanvasLayer) y devuelve sus piezas:
 #   {root, side, header, lista, content, dinero}
 #  - root: el Control full-rect (empieza invisible; el menu lo enseña en abrir()).

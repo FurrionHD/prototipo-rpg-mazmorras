@@ -302,18 +302,23 @@ func _boton(vb: VBoxContainer, txt: String, cb: Callable, activo: bool = true) -
 	MenuScaffold.boton(vb, txt, cb, activo)
 
 
-# Fila "Cantidad  −  n  +  ·  Total: N monedas". Guarda lo elegido en _cant, que es lo que leen los
-# botones de Vender y Comprar. Antes esto era un modal a pantalla completa con un SpinBox: dos
-# pulsaciones de mas y un teclado diminuto para lo que mas se hace en la tienda.
+# UNA fila con todo lo de la operacion: "Cantidad  −  n  +   N monedas   [Vender]". El boton va DENTRO
+# de la fila, al final: es lo siguiente que haces despues de tocar el +, asi que tenerlo bajo el mismo
+# dedo ahorra el viaje hasta un boton ancho en otra linea. Mismo reparto que MenuScaffold.fila_refino.
+#
+# Antes la cantidad se pedia en un modal a pantalla completa con un SpinBox: dos pulsaciones de mas y
+# un teclado diminuto para lo que mas se hace en la tienda.
+#
+# Con UNA sola unidad el stepper se pinta igual pero en gris (el propio stepper se deshabilita cuando
+# maximo <= minimo). Se prefiere a esconderlo: si apareciera y desapareciera segun el monton, la fila
+# bailaria de sitio entre un item y el siguiente.
 #
 # El total se reescribe EN SITIO desde el on_set (nunca con un _rebuild): reconstruir el panel desde
 # dentro del stepper es la trampa que el propio MenuScaffold.stepper avisa —el focus_exited del campo
 # salta en mitad del vaciado y el menu se repinta dos veces—.
-func _selector_cantidad(vb: VBoxContainer, maximo: int, precio: int) -> void:
+func _fila_accion(vb: VBoxContainer, maximo: int, precio: int, texto: String, cb: Callable,
+		activo: bool = true) -> void:
 	_cant = clampi(_cant, 1, maxi(1, maximo))
-	if maximo <= 1:
-		_cant = 1
-		return   # de uno en uno no hay nada que elegir: solo el boton
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 8)
 	var k := Label.new()
@@ -324,10 +329,17 @@ func _selector_cantidad(vb: VBoxContainer, maximo: int, precio: int) -> void:
 	var total := Label.new()
 	total.text = "%d monedas" % (precio * _cant)
 	total.add_theme_color_override("font_color", AMBAR)
-	MenuScaffold.stepper(fila, _cant, 1, maximo, func(n: int) -> void:
+	MenuScaffold.stepper(fila, _cant, 1, maxi(1, maximo), func(n: int) -> void:
 		_cant = n
 		total.text = "%d monedas" % (precio * n))
 	fila.add_child(total)
+	# El muelle empuja el boton al extremo derecho de la fila.
+	var muelle := Control.new()
+	muelle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fila.add_child(muelle)
+	var b := MenuScaffold.boton(fila, texto, cb, activo)
+	b.custom_minimum_size = Vector2(140, MenuScaffold.ALTO_BOTON)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_END
 	vb.add_child(fila)
 
 
@@ -440,8 +452,7 @@ func _preview_venta_bolsa(vb: VBoxContainer) -> void:
 		_row(vb, "Material", (modelo as MaterialItem).data.resumen())
 	_row(vb, "Te pagan", "%d por unidad  (todo: %d)" % [precio, precio * n])
 	vb.add_child(HSeparator.new())
-	_selector_cantidad(vb, n, precio)
-	_boton(vb, "Vender", _on_vender_stack)
+	_fila_accion(vb, n, precio, "Vender", _on_vender_stack)
 
 
 func _on_vender_stack() -> void:
@@ -572,8 +583,7 @@ func _preview_venta_consumible(vb: VBoxContainer) -> void:
 		_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
 	_row(vb, "Te pagan", "%d por unidad  (todo: %d)" % [precio, precio * n])
 	vb.add_child(HSeparator.new())
-	_selector_cantidad(vb, n, precio)
-	_boton(vb, "Vender", _on_vender_consumible)
+	_fila_accion(vb, n, precio, "Vender", _on_vender_consumible)
 
 
 func _on_vender_consumible() -> void:
@@ -787,8 +797,8 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		or (base is ConsumableData and not (base as ConsumableData).es_grimorio())
 	if a_punados:
 		var precio_u: int = _precio_de(base)
-		_selector_cantidad(vb, 99 if precio_u <= 0 else clampi(Game.money / precio_u, 1, 99), precio_u)
-		_boton(vb, "Comprar", _on_comprar_cantidad, llego)
+		_fila_accion(vb, 99 if precio_u <= 0 else clampi(Game.money / precio_u, 1, 99), precio_u,
+			"Comprar", _on_comprar_cantidad, llego)
 	elif base is ConsumableData:
 		_boton(vb, "Comprar", _on_comprar_consumible.bind(1), llego)
 	else:

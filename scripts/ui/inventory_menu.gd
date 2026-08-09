@@ -353,10 +353,7 @@ func _preview_bolsa(vb: VBoxContainer) -> void:
 			_note(vb, m.data.descripcion)
 
 	vb.add_child(HSeparator.new())
-	var soltar := Button.new()
-	soltar.text = "Soltar al suelo"
-	soltar.pressed.connect(_on_soltar)
-	vb.add_child(soltar)
+	MenuScaffold.boton(vb, "Soltar al suelo", _on_soltar)
 	_note(vb, "Lo que sueltes queda en el suelo a tus pies; puedes recogerlo otra vez con [F].")
 
 

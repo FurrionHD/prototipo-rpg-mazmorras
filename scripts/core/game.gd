@@ -3624,6 +3624,18 @@ func _ready() -> void:
 	# hereda "pausable" y se congelaria igual que el resto.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
+	# EL TEMA DE LA INTERFAZ (el borde de los botones, ver MenuScaffold.tema).
+	#
+	# Ponerlo en la ventana raiz NO basta, y esto costo una captura de pantalla descubrirlo: un
+	# CanvasLayer CORTA la cadena del tema, asi que los Control que cuelgan de una capa se quedan con
+	# el tema por DEFECTO de Godot (medido: el boton resolvia un StyleBox de borde 0 y radio 3). Y en
+	# este juego TODAS las pantallas viven en su propia capa.
+	#
+	# Asi que se les pone segun nacen. Es una linea en un sitio en vez de una por pantalla, y sobre
+	# todo: lo coge tambien la pantalla que se escriba mañana, sin que nadie tenga que acordarse.
+	get_tree().root.theme = MenuScaffold.tema()
+	get_tree().node_added.connect(_tema_de_capa)
+
 	# Contador de FPS / frame time (F3). Vive AQUI y no en el HUD porque el HUD lo crea el
 	# jugador y desaparece en los menus, y porque tiene que verse por encima del combate y de
 	# los minijuegos, que es justo donde hay que medir.
@@ -3647,6 +3659,14 @@ func _ready() -> void:
 			c.categoria = randi_range(1, 3)
 			c.calidad = Cristal.Calidad.INTACTO
 			crystals.append(c)
+
+
+# Le pone el tema a la raiz de cada pantalla nueva (ver _ready). Solo actua sobre el Control que
+# cuelga DIRECTAMENTE de un CanvasLayer -- que es donde se corta la cadena -- y nunca pisa a quien
+# traiga tema propio. De ahi para abajo ya lo heredan sus hijos.
+func _tema_de_capa(n: Node) -> void:
+	if n is Control and n.get_parent() is CanvasLayer and (n as Control).theme == null:
+		(n as Control).theme = MenuScaffold.tema()
 
 
 # RELOJ DE EXPEDICION. Corre mientras estas DENTRO de la mazmorra, y cuenta tambien el tiempo de
