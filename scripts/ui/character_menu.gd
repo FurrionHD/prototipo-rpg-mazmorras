@@ -97,7 +97,7 @@ func _ready() -> void:
 	side.add_child(spacer)
 	var cerrar := Button.new()
 	cerrar.text = "✕ Cerrar  (C)"
-	cerrar.custom_minimum_size = Vector2(0, 34)
+	cerrar.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	cerrar.pressed.connect(_cerrar)
 	side.add_child(cerrar)
 
@@ -200,7 +200,7 @@ func _rebuild_tabs() -> void:
 		var b := Button.new()
 		b.text = str(nombres[i])
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, 34)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.pressed.connect(_on_tab.bind(i))
 		_tab_box.add_child(b)
 		_tab_buttons.append(b)
@@ -372,7 +372,7 @@ func _confirmar_robo(item: Resource, al_aceptar: Callable) -> void:
 
 	var si := Button.new()
 	si.text = "Sí, quitárselo"
-	si.custom_minimum_size = Vector2(0, 36)
+	si.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	si.pressed.connect(func():
 		capa.queue_free()
 		al_aceptar.call())
@@ -380,7 +380,7 @@ func _confirmar_robo(item: Resource, al_aceptar: Callable) -> void:
 
 	var no := Button.new()
 	no.text = "Cancelar"
-	no.custom_minimum_size = Vector2(0, 36)
+	no.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	no.pressed.connect(capa.queue_free)
 	botones.add_child(no)
 
@@ -447,7 +447,7 @@ func _build_personaje() -> void:
 	var swap := Button.new()
 	swap.text = "⇄"
 	swap.tooltip_text = "Cambiar vista (estadísticas / habilidades)"
-	swap.custom_minimum_size = Vector2(44, 34)
+	swap.custom_minimum_size = Vector2(44, MenuScaffold.ALTO_BOTON)
 	swap.pressed.connect(_flip_char_page)
 	head.add_child(swap)
 	_content.add_child(head)

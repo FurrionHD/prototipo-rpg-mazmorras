@@ -119,10 +119,11 @@ var _stacks: Array = []              # lo que hay pintado en la cuadricula actua
 var _aviso: String = ""              # mensaje de la ultima accion (compra fallida, etc.)
 var _aviso_ok: bool = true
 
-var _modal: Control = null
-var _modal_spin: SpinBox = null
-var _pending_modelo: Resource = null  # stack que se va a vender (espera al modal)
-var _pending_base: Resource = null    # consumible que se va a comprar (espera al modal)
+# CUANTAS unidades de lo elegido (la del − n + del panel). Vive fuera del preview porque el panel se
+# repinta entero en cada _rebuild y hay que recordar lo que el jugador acababa de marcar. Se vuelve a
+# 1 al cambiar de seleccion o de pestaña: la cantidad es DE ESE monton, no del menu.
+var _cant: int = 1
+var _pending_modelo: Resource = null  # el stack que se esta vendiendo (lo lee _confirmar_venta)
 
 
 func _ready() -> void:
@@ -143,7 +144,7 @@ func _ready() -> void:
 		var b := Button.new()
 		b.text = TABS[i]
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, 34)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.pressed.connect(_on_tab.bind(i))
 		(m["side"] as VBoxContainer).add_child(b)
 		_tab_buttons.append(b)
@@ -163,7 +164,6 @@ func abrir() -> void:
 
 
 func _cerrar() -> void:
-	_cerrar_modal()
 	_root.visible = false
 	Game.cerrar_menu(self)
 
@@ -173,10 +173,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event as InputEventKey).keycode == KEY_ESCAPE:
-			if _modal != null:
-				_cerrar_modal()
-			else:
-				_cerrar()
+			_cerrar()
 			get_viewport().set_input_as_handled()
 
 
@@ -184,6 +181,7 @@ func _on_tab(i: int) -> void:
 	_tab = i
 	_sub = 0   # Vender y Tienda tienen subpestañas distintas: no arrastres la del otro
 	_sel = 0
+	_cant = 1   # la cantidad es del monton que estabas mirando, no del menu
 	_aviso = ""
 	_rebuild()
 
@@ -191,6 +189,7 @@ func _on_tab(i: int) -> void:
 func _on_sub(i: int) -> void:
 	_sub = i
 	_sel = 0
+	_cant = 1
 	_aviso = ""
 	_rebuild()
 
@@ -288,6 +287,7 @@ func _grid_detail(labels: Array, preview: Callable) -> void:
 
 func _pick(i: int) -> void:
 	_sel = i
+	_cant = 1   # otro monton, otra cantidad: no heredes la del anterior
 	_rebuild()
 
 
@@ -299,12 +299,36 @@ func _subpestanas(nombres: Array) -> void:
 
 
 func _boton(vb: VBoxContainer, txt: String, cb: Callable, activo: bool = true) -> void:
-	var b := Button.new()
-	b.text = txt
-	b.disabled = not activo
-	b.custom_minimum_size = Vector2(0, 32)
-	b.pressed.connect(cb)
-	vb.add_child(b)
+	MenuScaffold.boton(vb, txt, cb, activo)
+
+
+# Fila "Cantidad  −  n  +  ·  Total: N monedas". Guarda lo elegido en _cant, que es lo que leen los
+# botones de Vender y Comprar. Antes esto era un modal a pantalla completa con un SpinBox: dos
+# pulsaciones de mas y un teclado diminuto para lo que mas se hace en la tienda.
+#
+# El total se reescribe EN SITIO desde el on_set (nunca con un _rebuild): reconstruir el panel desde
+# dentro del stepper es la trampa que el propio MenuScaffold.stepper avisa —el focus_exited del campo
+# salta en mitad del vaciado y el menu se repinta dos veces—.
+func _selector_cantidad(vb: VBoxContainer, maximo: int, precio: int) -> void:
+	_cant = clampi(_cant, 1, maxi(1, maximo))
+	if maximo <= 1:
+		_cant = 1
+		return   # de uno en uno no hay nada que elegir: solo el boton
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 8)
+	var k := Label.new()
+	k.text = "Cantidad"
+	k.custom_minimum_size = Vector2(150, 0)
+	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
+	fila.add_child(k)
+	var total := Label.new()
+	total.text = "%d monedas" % (precio * _cant)
+	total.add_theme_color_override("font_color", AMBAR)
+	MenuScaffold.stepper(fila, _cant, 1, maximo, func(n: int) -> void:
+		_cant = n
+		total.text = "%d monedas" % (precio * n))
+	fila.add_child(total)
+	vb.add_child(fila)
 
 
 # Agrupa Cristal/MaterialItem en stacks {modelo, cantidad} (igual que el inventario).
@@ -416,20 +440,20 @@ func _preview_venta_bolsa(vb: VBoxContainer) -> void:
 		_row(vb, "Material", (modelo as MaterialItem).data.resumen())
 	_row(vb, "Te pagan", "%d por unidad  (todo: %d)" % [precio, precio * n])
 	vb.add_child(HSeparator.new())
+	_selector_cantidad(vb, n, precio)
 	_boton(vb, "Vender", _on_vender_stack)
 
 
 func _on_vender_stack() -> void:
 	var s: Dictionary = _stacks[_sel]
-	var n: int = int(s["cantidad"])
 	_pending_modelo = s["modelo"]
-	if n <= 1:
-		_confirmar_venta(1)
-	else:
-		_abrir_modal_cantidad("¿Cuántas quieres vender?", n, _confirmar_venta)
+	_confirmar_venta(clampi(_cant, 1, int(s["cantidad"])))
 
 
 func _confirmar_venta(cant: int) -> void:
+	# La cantidad marcada muere con la venta: el monton ya no es el mismo, y heredar un 5 para la
+	# siguiente pila (que a lo mejor tiene 2) solo lleva a vender de mas sin querer.
+	_cant = 1
 	if _pending_modelo != null:
 		var del_hogar: bool = _sub == 1
 		# MULTIJUGADOR: el baul del hogar es COMPARTIDO, asi que vender de ahi exige el candado del
@@ -548,26 +572,17 @@ func _preview_venta_consumible(vb: VBoxContainer) -> void:
 		_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
 	_row(vb, "Te pagan", "%d por unidad  (todo: %d)" % [precio, precio * n])
 	vb.add_child(HSeparator.new())
+	_selector_cantidad(vb, n, precio)
 	_boton(vb, "Vender", _on_vender_consumible)
 
 
 func _on_vender_consumible() -> void:
 	var c: ConsumableData = _stacks[_sel]["modelo"]
-	var n: int = int(_stacks[_sel]["cantidad"])
-	_pending_base = c
-	if n <= 1:
-		_confirmar_venta_consumible(1)
-	else:
-		_abrir_modal_cantidad("¿Cuántas quieres vender?", n, _confirmar_venta_consumible)
-
-
-func _confirmar_venta_consumible(cant: int) -> void:
-	if _pending_base != null:
-		var c: ConsumableData = _pending_base
-		_pending_base = null
-		var cobrado: int = Game.vender_consumible(c, cant)
-		_decir("Vendes %d x %s por %d monedas." % [cant, c.nombre, cobrado])
+	var cant: int = clampi(_cant, 1, int(_stacks[_sel]["cantidad"]))
+	var cobrado: int = Game.vender_consumible(c, cant)
+	_decir("Vendes %d x %s por %d monedas." % [cant, c.nombre, cobrado])
 	_sel = 0
+	_cant = 1
 	_rebuild()
 
 
@@ -766,14 +781,16 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		_note(vb, str(desc))
 
 	vb.add_child(HSeparator.new())
-	if base is MaterialData:
-		# La comida se compra a puñados, como las pociones: mismo par de botones y mismo modal.
-		_boton(vb, "Comprar 1", _on_comprar_comida.bind(1), llego)
-		_boton(vb, "Comprar varias...", _on_comprar_varias, llego)
+	# La comida y las pociones se compran a puñados: un solo boton con su − n +, y el maximo es lo
+	# que te llega (tope 99). El grimorio y el equipo van de uno en uno: no hay cantidad que elegir.
+	var a_punados: bool = base is MaterialData \
+		or (base is ConsumableData and not (base as ConsumableData).es_grimorio())
+	if a_punados:
+		var precio_u: int = _precio_de(base)
+		_selector_cantidad(vb, 99 if precio_u <= 0 else clampi(Game.money / precio_u, 1, 99), precio_u)
+		_boton(vb, "Comprar", _on_comprar_cantidad, llego)
 	elif base is ConsumableData:
-		_boton(vb, "Comprar 1", _on_comprar_consumible.bind(1), llego)
-		if not (base as ConsumableData).es_grimorio():
-			_boton(vb, "Comprar varias...", _on_comprar_varias, llego)
+		_boton(vb, "Comprar", _on_comprar_consumible.bind(1), llego)
 	else:
 		_boton(vb, "Comprar", _on_comprar_equipo, llego)
 	if not llego:
@@ -833,29 +850,15 @@ func _on_comprar_comida(n: int) -> void:
 	_rebuild()
 
 
-# El modal de cantidad lo comparten la comida y los consumibles: el precio de cada uno sale de
-# _precio_de (que ya sabe cual es cual) y la compra se despacha por el tipo del pendiente.
-func _on_comprar_varias() -> void:
-	var base: Resource = _stacks[_sel]["modelo"]
-	var precio: int = _precio_de(base)
-	var maximo: int = 99 if precio <= 0 else maxi(1, Game.money / precio)
-	_pending_base = base
-	_abrir_modal_cantidad("¿Cuántas quieres comprar?  (te llega para %d)" % maximo, maximo,
-		_confirmar_compra_varias)
-
-
-func _confirmar_compra_varias(cant: int) -> void:
-	if _pending_base != null:
-		var base: Resource = _pending_base
-		_pending_base = null
-		var nombre: String = str(base.get("nombre"))
-		var ok: bool = Game.comprar_material(base as MaterialData, cant) if base is MaterialData \
-			else Game.comprar_consumible(base as ConsumableData, cant)
-		if ok:
-			_decir("Compras %d x %s." % [cant, nombre])
-		else:
-			_decir("No te llega para %d x %s." % [cant, nombre], false)
-	_rebuild()
+# Comprar lo que diga el − n +. La comida y los consumibles comparten boton: se despachan por el
+# tipo, que es lo mismo que hacia el modal que habia antes.
+func _on_comprar_cantidad() -> void:
+	var n: int = _cant
+	_cant = 1   # igual que al vender: la cantidad es de esa compra, no del menu
+	if _stacks[_sel]["modelo"] is MaterialData:
+		_on_comprar_comida(n)
+	else:
+		_on_comprar_consumible(n)
 
 
 # ============================================================
@@ -899,83 +902,3 @@ func _on_reclamar_pack() -> void:
 	else:
 		_decir("El pack ya estaba reclamado.", false)
 	_rebuild()
-
-
-# ============================================================
-#  Modal de CANTIDAD (vender varias / comprar varias)
-# ============================================================
-
-func _abrir_modal_cantidad(pregunta: String, maximo: int, cb: Callable) -> void:
-	_cerrar_modal()
-	_modal = Control.new()
-	_modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.add_child(_modal)
-
-	var back := ColorRect.new()
-	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	back.color = Color(0, 0, 0, 0.6)
-	back.mouse_filter = Control.MOUSE_FILTER_STOP
-	_modal.add_child(back)
-
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_modal.add_child(center)
-
-	var panel := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.09, 0.12, 1.0)
-	sb.border_color = Color(0.87, 0.57, 0.26, 0.8)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(6)
-	sb.content_margin_left = 16
-	sb.content_margin_right = 16
-	sb.content_margin_top = 12
-	sb.content_margin_bottom = 12
-	panel.add_theme_stylebox_override("panel", sb)
-	center.add_child(panel)
-
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 8)
-	panel.add_child(vb)
-
-	var l := Label.new()
-	l.text = "%s  (máx. %d)" % [pregunta, maximo]
-	vb.add_child(l)
-
-	_modal_spin = SpinBox.new()
-	_modal_spin.min_value = 1
-	_modal_spin.max_value = maxi(1, maximo)
-	_modal_spin.step = 1
-	_modal_spin.value = 1
-	vb.add_child(_modal_spin)
-
-	var acciones := HBoxContainer.new()
-	acciones.add_theme_constant_override("separation", 8)
-	var ok := Button.new()
-	ok.text = "Aceptar"
-	ok.pressed.connect(_modal_aceptar.bind(cb))
-	acciones.add_child(ok)
-	var ca := Button.new()
-	ca.text = "Cancelar"
-	ca.pressed.connect(_cancelar_modal)
-	acciones.add_child(ca)
-	vb.add_child(acciones)
-
-
-func _modal_aceptar(cb: Callable) -> void:
-	var cant: int = int(_modal_spin.value) if _modal_spin != null else 1
-	_cerrar_modal()
-	cb.call(cant)
-
-
-func _cancelar_modal() -> void:
-	_pending_modelo = null
-	_pending_base = null
-	_cerrar_modal()
-
-
-func _cerrar_modal() -> void:
-	if _modal != null:
-		_modal.queue_free()
-		_modal = null
-	_modal_spin = null

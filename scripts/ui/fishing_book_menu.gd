@@ -162,7 +162,7 @@ func _build_libro() -> void:
 		b.text = d.nombre if conocido else "??????"
 		b.toggle_mode = true
 		b.button_pressed = (i == _sel)
-		b.custom_minimum_size = Vector2(0, 34)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		if not conocido:
 			b.add_theme_color_override("font_color", GRIS)
 		b.pressed.connect(_on_sel.bind(i))
@@ -285,7 +285,7 @@ func _build_cebos() -> void:
 		b.text = "%s   ·   %d" % [c.nombre, Game.precio_compra(c)]
 		b.toggle_mode = true
 		b.button_pressed = (i == _sel)
-		b.custom_minimum_size = Vector2(0, 34)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.pressed.connect(_on_sel_cebo.bind(i))
 		_lista.add_child(b)
 
@@ -325,7 +325,7 @@ func _ficha_cebo(c: ConsumableData) -> void:
 	MenuScaffold.stepper(_content, 1, 1, maximo, func(n: int) -> void: _cuantas = n)
 	var comprar := Button.new()
 	comprar.text = "Comprar"
-	comprar.custom_minimum_size = Vector2(0, 34)
+	comprar.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	comprar.pressed.connect(func() -> void: _on_comprar(c, _cuantas))
 	_content.add_child(comprar)
 

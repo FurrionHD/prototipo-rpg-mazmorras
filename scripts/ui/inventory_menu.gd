@@ -59,7 +59,7 @@ func _ready() -> void:
 		var b := Button.new()
 		b.text = TABS[i]
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, 34)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.pressed.connect(_on_tab.bind(i))
 		(m["side"] as VBoxContainer).add_child(b)
 		_tab_buttons.append(b)

@@ -114,7 +114,7 @@ func _rebuild_real() -> void:
 
 	var b := Button.new()
 	b.text = "Contratar por %d" % precio
-	b.custom_minimum_size = Vector2(0, 38)
+	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	b.disabled = not Game.puede_pagar(precio)
 	b.pressed.connect(_abrir_creador)
 	_content.add_child(b)

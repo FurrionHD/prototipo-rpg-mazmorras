@@ -110,7 +110,7 @@ func _crear_tarjeta() -> void:
 func _boton(txt: String, al_pulsar: Callable) -> Button:
 	var b := Button.new()
 	b.text = txt
-	b.custom_minimum_size = Vector2(96, 26)
+	b.custom_minimum_size = Vector2(96, MenuScaffold.ALTO_BOTON)
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", 13)
 	b.pressed.connect(al_pulsar)

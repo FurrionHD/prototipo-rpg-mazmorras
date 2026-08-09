@@ -234,7 +234,7 @@ func _pintar_direcciones(lista: VBoxContainer) -> void:
 	for ip in dirs:
 		var s: String = String(ip)
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(300, 30)
+		b.custom_minimum_size = Vector2(300, MenuScaffold.ALTO_BOTON)
 		var elegida: bool = (Identidad.direccion_preferida == s)
 		b.text = ("● " if elegida else "○ ") + s
 		b.tooltip_text = Nube.etiqueta_direccion(s)
@@ -700,7 +700,7 @@ func _elegir_ranura_a_importar(creador: Node, al_elegir: Callable) -> void:
 		var d: SaveData = e["datos"]
 		var b := Button.new()
 		b.text = "%s  ·  Nv.%d  ·  %d monedas" % [d.nombre, d.cab_nivel, d.cab_dinero]
-		b.custom_minimum_size = Vector2(0, 38)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		var s: int = int(e["slot"])
 		b.pressed.connect(func(): al_elegir.call(s, capa, creador))
 		vb.add_child(b)

@@ -169,7 +169,7 @@ func _ready() -> void:
 		var b := Button.new()
 		b.text = str(TAB_LABEL[ids[i]])
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, 34)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.pressed.connect(_on_tab.bind(i))
 		(m["side"] as VBoxContainer).add_child(b)
 		_tab_buttons.append(b)
@@ -389,7 +389,7 @@ func _boton(vb: VBoxContainer, txt: String, cb: Callable, activo: bool = true) -
 	var b := Button.new()
 	b.text = txt
 	b.disabled = not activo
-	b.custom_minimum_size = Vector2(0, 36)
+	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	b.pressed.connect(cb)
 	vb.add_child(b)
 
@@ -1442,7 +1442,7 @@ func _herr_acciones(vb: VBoxContainer, piezas: int) -> void:
 	var b_hacer := Button.new()
 	b_hacer.text = txt
 	b_hacer.disabled = piezas < 1
-	b_hacer.custom_minimum_size = Vector2(0, 36)
+	b_hacer.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	b_hacer.pressed.connect(_on_forjar_herramienta)
 	vb.add_child(b_hacer)
 	_estado_oficio(vb, "Herrería", Game.tiene_desarrollo("herreria"),
@@ -1738,7 +1738,7 @@ func _fila_reparar(vb: VBoxContainer, etiqueta: String, estado: String, precio: 
 	var b := Button.new()
 	b.text = "Reparar · %d" % precio if precio > 0 else "A punto"
 	b.disabled = precio <= 0 or not Game.puede_pagar(precio)
-	b.custom_minimum_size = Vector2(150, 32)
+	b.custom_minimum_size = Vector2(150, MenuScaffold.ALTO_BOTON)
 	b.clip_text = true
 	if precio > 0:
 		b.pressed.connect(cb)
@@ -1899,7 +1899,7 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 		b.button_pressed = (i == _cat_idx)
 		b.clip_text = true
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size = Vector2(0, 30)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.pressed.connect(_on_cat.bind(i))
 		grid.add_child(b)
 	vb.add_child(grid)

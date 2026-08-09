@@ -128,7 +128,7 @@ func _rebuild_real() -> void:
 	MenuScaffold.cuadricula(_header, nombres, _pj_idx, func(i: int):
 		_pj_idx = i
 		_aviso = ""
-		_rebuild(), 4, Vector2(120, 32))
+		_rebuild(), 4, Vector2(120, MenuScaffold.ALTO_BOTON))
 	_header.add_child(HSeparator.new())
 
 	if _tab == 0:
@@ -152,7 +152,7 @@ func _pintar_equipar(pj: PersonajeData) -> void:
 			var ab: AbilityData = puestas[i]
 			var b := TooltipButton.new()
 			b.text = "%d.  %s   ✕" % [i + 1, ab.nombre]
-			b.custom_minimum_size = Vector2(0, 32)
+			b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 			b.clip_text = true
 			b.tooltip_text = "Pulsa para quitarla del hueco.\n\n" + ab.resumen(Game.manos_de(ab, pj))
 			b.pressed.connect(func():
@@ -165,7 +165,7 @@ func _pintar_equipar(pj: PersonajeData) -> void:
 			var vacio := Label.new()
 			vacio.text = "%d.  — hueco libre —" % (i + 1)
 			vacio.add_theme_color_override("font_color", GRIS)
-			vacio.custom_minimum_size = Vector2(0, 32)
+			vacio.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 			_lista.add_child(vacio)
 
 	# --- Derecha: todo lo que su equipo le permite usar ---
@@ -197,7 +197,7 @@ func _fila_pool(pj: PersonajeData, ab: AbilityData, puestas: Array) -> void:
 	fila.add_child(nom)
 
 	var b := TooltipButton.new()   # tooltip multilinea: el de Godot no parte lineas (ver tooltip_button.gd)
-	b.custom_minimum_size = Vector2(130, 30)
+	b.custom_minimum_size = Vector2(130, MenuScaffold.ALTO_BOTON)
 	b.tooltip_text = ab.resumen(Game.manos_de(ab, pj))
 	if ab.descripcion != "":
 		b.tooltip_text += "\n\n" + ab.descripcion
@@ -251,7 +251,7 @@ func _pintar_aprender(pj: PersonajeData) -> void:
 		b.text = "%s%s" % [it.nombre, "   (%d)" % quedan if quedan > 0 else ""]
 		b.toggle_mode = true
 		b.button_pressed = (i == _arma_idx)
-		b.custom_minimum_size = Vector2(0, 30)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.clip_text = true
 		if quedan > 0:
 			b.tooltip_text = "Le quedan %d técnicas por aprender de esta arma." % quedan
@@ -287,7 +287,7 @@ func _fila_aprender(pj: PersonajeData, ab: AbilityData) -> void:
 	fila.add_child(nom)
 
 	var b := TooltipButton.new()   # idem: la ficha de la habilidad necesita varias lineas
-	b.custom_minimum_size = Vector2(150, 30)
+	b.custom_minimum_size = Vector2(150, MenuScaffold.ALTO_BOTON)
 	# El resumen se pide a UNA mano: aqui no se sabe con que arma acabara peleando, y el numero
 	# de manos solo cambia el dual (que es del loadout, no de la habilidad).
 	b.tooltip_text = ab.resumen(1)

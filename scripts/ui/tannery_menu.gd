@@ -83,7 +83,7 @@ func _ready() -> void:
 		var b := Button.new()
 		b.text = TABS[i]
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, 34)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.pressed.connect(_on_tab.bind(i))
 		(m["side"] as VBoxContainer).add_child(b)
 		_tab_buttons.append(b)
@@ -463,7 +463,7 @@ func _build_mochilas() -> void:
 	var b_hacer := Button.new()
 	b_hacer.text = txt
 	b_hacer.disabled = piezas < 1
-	b_hacer.custom_minimum_size = Vector2(0, 36)
+	b_hacer.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	b_hacer.pressed.connect(_on_coser)
 	_content.add_child(b_hacer)
 

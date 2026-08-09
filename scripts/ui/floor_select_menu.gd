@@ -78,7 +78,7 @@ func _rebuild_real() -> void:
 		b.text = "Piso %d" % piso
 		if piso > 1:
 			b.text += "   (acceso abierto por el jefe)"
-		b.custom_minimum_size = Vector2(0, 38)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.pressed.connect(_bajar.bind(piso))
 		_content.add_child(b)
 

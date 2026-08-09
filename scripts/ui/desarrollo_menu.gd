@@ -82,7 +82,7 @@ func _rebuild_real() -> void:
 	_content.add_child(HSeparator.new())
 	var saltar := Button.new()
 	saltar.text = "Ascender sin habilidad nueva"
-	saltar.custom_minimum_size = Vector2(0, 40)
+	saltar.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	saltar.pressed.connect(_elegir.bind(""))
 	_content.add_child(saltar)
 

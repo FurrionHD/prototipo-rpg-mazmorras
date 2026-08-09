@@ -211,7 +211,7 @@ func _rebuild_real() -> void:
 		b.toggle_mode = true
 		b.button_pressed = (i == _sel)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.custom_minimum_size = Vector2(0, 32)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.add_theme_color_override("font_color", VERDE if puede else Color(0.75, 0.77, 0.82))
 		b.pressed.connect(_pick.bind(i))
 		_list.add_child(b)
@@ -403,16 +403,19 @@ func _build_detail(r: RecipeData) -> void:
 	MenuScaffold.stepper(acc, _cantidad, 1, 99, func(v: int) -> void: _cantidad = v)
 	var auto_mej := Button.new()
 	auto_mej.text = "Auto ▲"
+	auto_mej.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	auto_mej.tooltip_text = "Rellena empezando por el MEJOR material que tengas (puro, intacto...). Más probabilidad de que salgan dobles."
 	auto_mej.pressed.connect(_on_auto.bind(true))
 	acc.add_child(auto_mej)
 	var auto_peor := Button.new()
 	auto_peor.text = "Auto ▼"
+	auto_peor.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	auto_peor.tooltip_text = "Rellena empezando por el PEOR material que tengas (dañado, normal...). Para gastar lo que sobra sin tocar lo bueno."
 	auto_peor.pressed.connect(_on_auto.bind(false))
 	acc.add_child(auto_peor)
 	var limpiar := Button.new()
 	limpiar.text = "Limpiar"
+	limpiar.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	limpiar.pressed.connect(_on_limpiar)
 	acc.add_child(limpiar)
 	_detail.add_child(acc)
@@ -427,7 +430,7 @@ func _build_detail(r: RecipeData) -> void:
 	fab.text = "%s  (%d %s)" % [
 		"Cocinar" if _es_cocina() else "Fabricar", piezas, _pieza(piezas)] if n >= 1 else "Elige materiales suficientes"
 	fab.disabled = n < 1
-	fab.custom_minimum_size = Vector2(0, 36)
+	fab.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	fab.pressed.connect(_on_fabricar)
 	_detail.add_child(fab)
 

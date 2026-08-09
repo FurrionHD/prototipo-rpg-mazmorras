@@ -134,7 +134,7 @@ func _rebuild_tabs() -> void:
 		if Game.tiene_pendiente(pj):
 			b.tooltip_text = "Tiene experiencia sin consolidar: ábrele la ficha y actualízale el estado."
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, 34)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.pressed.connect(_on_tab.bind(i))
 		_side.add_child(b)
 		_tab_buttons.append(b)
@@ -203,7 +203,7 @@ func _rebuild_real() -> void:
 
 	var b_act := Button.new()
 	b_act.text = "Actualizar estado (consolidar)"
-	b_act.custom_minimum_size = Vector2(0, 38)
+	b_act.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	b_act.pressed.connect(_actualizar.bind(pj))
 	_content.add_child(b_act)
 
@@ -211,7 +211,7 @@ func _rebuild_real() -> void:
 	if es_lider and Game.puede_subir_nivel():
 		var b_lvl := Button.new()
 		b_lvl.text = "★ Subir de nivel  (Nv %d → %d)" % [pj.level, pj.level + 1]
-		b_lvl.custom_minimum_size = Vector2(0, 40)
+		b_lvl.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b_lvl.pressed.connect(_subir)
 		_content.add_child(b_lvl)
 	elif es_lider and Game.guardianes_vencidos.get(pj.level + 1, false):

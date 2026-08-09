@@ -101,7 +101,7 @@ func _rehacer_tabs() -> void:
 		var b := Button.new()
 		b.text = etiquetas[i]
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, 34)
+		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		b.pressed.connect(_on_tab.bind(i))
 		_side.add_child(b)
 		_tab_buttons.append(b)
@@ -690,7 +690,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 	var b := Button.new()
 	b.text = "Mandarlos"
 	b.disabled = not pega.is_empty()
-	b.custom_minimum_size = Vector2(0, 38)
+	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	b.pressed.connect(func():
 		Net.solicitar_encargo(_enc_piso, _enc_tipos, dur, _enc_uids, _enc_utiles,
 			_enc_faena.duplicate(), _enc_clase.duplicate())
@@ -873,6 +873,7 @@ func _fila_equipo(i: int) -> void:
 	# lo mismo que hace su tecla. Deshabilitado si ya va delante.
 	var frente := Button.new()
 	frente.text = "👑 Al frente"
+	frente.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	frente.disabled = es_lider
 	frente.tooltip_text = "Ponlo en cabeza (tecla %d). El cuerpo que mueves pasa a ser el suyo." % (i + 1)
 	frente.pressed.connect(func():
@@ -885,6 +886,7 @@ func _fila_equipo(i: int) -> void:
 
 	var fuera := Button.new()
 	fuera.text = "A casa"
+	fuera.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	# CUALQUIERA puede quedarse en casa, el original incluido, y el equipo puede quedarse vacio: al
 	# cerrar el Hogar baja el original solo (ver _cerrar).
 	fuera.tooltip_text = "Lo deja en el Hogar. No se despide a nadie: sigue en tu plantilla." \
@@ -1005,6 +1007,7 @@ func _fondo_tarjeta() -> StyleBoxFlat:
 func _boton_aspecto(pj: PersonajeData) -> Button:
 	var b := Button.new()
 	b.text = "Aspecto"
+	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	b.tooltip_text = "Cambia su cara, su color y su brillo. Ni su progreso ni su equipo se tocan."
 	b.pressed.connect(func(): _editar_aspecto(pj))
 	return b
@@ -1084,7 +1087,7 @@ func _build_almacen() -> void:
 
 	var b := Button.new()
 	b.text = "Guardar todo lo que traigo"
-	b.custom_minimum_size = Vector2(0, 36)
+	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	b.disabled = Game.materiales.is_empty()
 	b.pressed.connect(_on_guardar)
 	_content.add_child(b)
@@ -1094,14 +1097,14 @@ func _build_almacen() -> void:
 	# materiales al mundo de un companero primero tienes que recogerlos aqui.
 	var todo := Button.new()
 	todo.text = "Recoger TODO (aunque te sobrecargue)"
-	todo.custom_minimum_size = Vector2(0, 36)
+	todo.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	todo.disabled = Game.almacen_materiales.is_empty()
 	todo.pressed.connect(_on_recoger.bind(true))
 	_content.add_child(todo)
 
 	var cabe := Button.new()
 	cabe.text = "Recoger sin quedarme lento"
-	cabe.custom_minimum_size = Vector2(0, 36)
+	cabe.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	cabe.disabled = Game.almacen_materiales.is_empty()
 	cabe.pressed.connect(_on_recoger.bind(false))
 	_content.add_child(cabe)

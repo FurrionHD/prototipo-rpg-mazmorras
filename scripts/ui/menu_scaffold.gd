@@ -30,11 +30,19 @@ const FONDO := Color(0.05, 0.06, 0.08, 1.0)
 # Ancho de la columna de la lista (la cuadricula de items cabe en dos columnas de 150).
 const ANCHO_LISTA := 330.0
 
+# ALTO DE UN BOTON DE MENU. 44 es el minimo que se acierta con un pulgar, y ya era la medida de las
+# pestañas y de las celdas de la cuadricula; lo que pasaba es que cada menu se inventaba la suya para
+# los botones sueltos (32 en la tienda, 34 en el pescador, 36 en el crafteo) y quedaban finos justo
+# donde hay que pulsar. Va tambien en escritorio: dos medidas del mismo menu no las quiere nadie.
+const ALTO_BOTON := 44.0
+# Lado de los botones de ICONO (la ✕ de cerrar). Mismo criterio.
+const LADO_ICONO := 44.0
+
 
 # Construye el esqueleto dentro de `capa` (un CanvasLayer) y devuelve sus piezas:
 #   {root, side, header, lista, content, dinero}
 #  - root: el Control full-rect (empieza invisible; el menu lo enseña en abrir()).
-#  - side: la columna izquierda (mete ahi tus pestañas; el titulo y el ✕ Cerrar ya van).
+#  - side: la columna izquierda (mete ahi tus pestañas; el titulo ya va, y cerrar es la ✕ de arriba).
 #  - header / lista / content: las tres zonas de arriba.
 #  - dinero: la etiqueta de monedas arriba a la derecha (null si con_dinero = false).
 #
@@ -64,17 +72,35 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 	hb.add_theme_constant_override("separation", 18)
 	root.add_child(hb)
 
-	# Monedas arriba a la derecha (donde el jugador ya las busca).
+	# LA ✕ DE CERRAR, arriba a la derecha. Va anclada al root (no al layout) para que flote sobre
+	# todo, igual que en el mapa. Antes esto era un boton de texto "✕ Cerrar (Esc)" al fondo de la
+	# columna izquierda: en movil hay que cruzar la pantalla entera para cerrar, y ademas no es donde
+	# se busca. Con lateral o sin el, la ✕ es la misma y esta en el mismo sitio.
+	# El margen respeta Tactil.borde (la zona segura del movil: muescas y barra de gestos).
+	# Tactil.borde es un Vector2: x = cuanto apartarse de los LADOS, y = de ARRIBA.
+	var margen_x: float = 16.0 + Tactil.borde.x
+	var margen_y: float = 16.0 + Tactil.borde.y
+	if con_lateral:
+		var equis: Control = BotonIcono.crear(Callable(Iconos, "equis"), al_cerrar, LADO_ICONO)
+		equis.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		equis.offset_left = -(margen_x + LADO_ICONO)
+		equis.offset_right = -margen_x
+		equis.offset_top = margen_y
+		equis.offset_bottom = margen_y + LADO_ICONO
+		root.add_child(equis)
+
+	# Monedas arriba a la derecha (donde el jugador ya las busca), DEBAJO de la ✕: comparten esquina
+	# y antes se pisaban. Grandes a proposito: es el numero que se mira antes de cada compra.
 	var dinero: Label = null
 	if con_dinero:
 		dinero = Label.new()
 		dinero.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 		dinero.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		dinero.offset_left = -240
-		dinero.offset_right = -20
-		dinero.offset_top = 16
+		dinero.offset_left = -(margen_x + 300.0)
+		dinero.offset_right = -margen_x
+		dinero.offset_top = margen_y + LADO_ICONO + 8.0
 		dinero.add_theme_color_override("font_color", Color(0.95, 0.86, 0.5))
-		dinero.add_theme_font_size_override("font_size", 18)
+		dinero.add_theme_font_size_override("font_size", 22)
 		root.add_child(dinero)
 
 	# --- Lateral: titulo, nota, (las pestañas las mete el menu) y cerrar ---
@@ -102,8 +128,8 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 			side.add_child(n)
 		side.add_child(HSeparator.new())
 
-		# El menu mete aqui sus pestañas; lo que va DESPUES (spacer + cerrar) se añade ya, asi que
-		# el boton de cerrar queda siempre abajo del todo.
+		# El menu mete aqui sus pestañas. El spacer de debajo las mantiene arriba (antes servia ademas
+		# para empujar el boton de cerrar al fondo; ahora cerrar es la ✕ de la esquina).
 		tabs = VBoxContainer.new()
 		tabs.add_theme_constant_override("separation", 6)
 		side.add_child(tabs)
@@ -111,11 +137,6 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 		var spacer := Control.new()
 		spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		side.add_child(spacer)
-		var cerrar := Button.new()
-		cerrar.text = "✕ Cerrar  (Esc)"
-		cerrar.custom_minimum_size = Vector2(0, 44)
-		cerrar.pressed.connect(al_cerrar)
-		side.add_child(cerrar)
 	else:
 		tabs = HBoxContainer.new()
 		tabs.add_theme_constant_override("separation", 8)
@@ -151,7 +172,7 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 		hueco.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		barra.add_child(hueco)
 
-		barra.add_child(BotonIcono.crear(Callable(Iconos, "equis"), al_cerrar, 44.0))
+		barra.add_child(BotonIcono.crear(Callable(Iconos, "equis"), al_cerrar, LADO_ICONO))
 		col.add_child(HSeparator.new())
 
 	# Linea de AVISO ("Sacas 3 lingotes...", "No te llega"). Vive FUERA del header y con una
@@ -394,6 +415,19 @@ static func nota(vb: VBoxContainer, txt: String) -> void:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(l)
+
+
+# BOTON ESTANDAR de menu (Vender, Comprar, Fabricar...). Existe para que la medida sea UNA: cada
+# menu tenia su propio helper con su propio alto y todos se quedaban por debajo de los 44 tactiles.
+static func boton(parent: Node, texto: String, al_pulsar: Callable, activo: bool = true) -> Button:
+	var b := Button.new()
+	b.text = texto
+	b.disabled = not activo
+	b.custom_minimum_size = Vector2(0, ALTO_BOTON)
+	if al_pulsar.is_valid():
+		b.pressed.connect(al_pulsar)
+	parent.add_child(b)
+	return b
 
 
 # Fila de botones-pestaña (los de arriba de la cabecera). `pulsado` recibe el indice.
@@ -752,7 +786,7 @@ static func tintar(b: Button, color: Variant) -> void:
 # lista se iba a lo alto sin necesidad y empujaba fuera las filas de calidad, que es lo que de
 # verdad vienes a pulsar.
 const COLUMNAS_SELECTOR := 4
-const TAM_SELECTOR := Vector2(120, 32)
+const TAM_SELECTOR := Vector2(120, ALTO_BOTON)
 
 
 # Los tiers presentes en una lista de MaterialData, ordenados. Es lo que pinta la fila de arriba.
@@ -851,8 +885,11 @@ static func stepper(parent: Node, valor: int, minv: int, maxv: int, on_set: Call
 		if on_set.is_valid():
 			on_set.call(c)
 
+	# −, el numero y + a tamaño de DEDO (44). Eran de 30 de ancho y sin alto minimo: en movil se
+	# fallaba mas de lo que se acertaba, y este es el control que mas se repite del juego (comprar,
+	# vender, fabricar, refinar, depositar).
 	menos.text = "−"
-	menos.custom_minimum_size = Vector2(30, 0)
+	menos.custom_minimum_size = Vector2(ALTO_BOTON, ALTO_BOTON)
 	menos.disabled = vacio or v <= minv
 	menos.focus_mode = Control.FOCUS_NONE
 	menos.pressed.connect(func() -> void: aplicar.call(int(campo.text) - 1))
@@ -860,7 +897,8 @@ static func stepper(parent: Node, valor: int, minv: int, maxv: int, on_set: Call
 
 	campo.text = str(v)
 	campo.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	campo.custom_minimum_size = Vector2(46, 0)
+	campo.custom_minimum_size = Vector2(72, ALTO_BOTON)
+	campo.add_theme_font_size_override("font_size", 18)
 	campo.editable = not vacio
 	campo.select_all_on_focus = true
 	campo.max_length = 6
@@ -869,7 +907,7 @@ static func stepper(parent: Node, valor: int, minv: int, maxv: int, on_set: Call
 	caja.add_child(campo)
 
 	mas.text = "+"
-	mas.custom_minimum_size = Vector2(30, 0)
+	mas.custom_minimum_size = Vector2(ALTO_BOTON, ALTO_BOTON)
 	mas.disabled = vacio or v >= maxv
 	mas.focus_mode = Control.FOCUS_NONE
 	mas.pressed.connect(func() -> void: aplicar.call(int(campo.text) + 1))
@@ -1048,6 +1086,7 @@ static func fila_refino(parent: Node, etiqueta: String, salen: int, crear: Calla
 	var campo: LineEdit = stepper(row, 0, 0, salen)
 	var b := Button.new()
 	b.text = "Crear"
+	b.custom_minimum_size = Vector2(0, ALTO_BOTON)
 	b.disabled = salen < 1
 	b.pressed.connect(func() -> void:
 		var n: int = clampi(int(campo.text), 1, salen)

@@ -103,7 +103,7 @@ func _rebuild_real() -> void:
 	_lista.add_child(HSeparator.new())
 	var tirar := Button.new()
 	tirar.text = "🎣  Tirar la caña"
-	tirar.custom_minimum_size = Vector2(0, 40)
+	tirar.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	tirar.pressed.connect(_on_tirar)
 	_lista.add_child(tirar)
 
@@ -115,7 +115,7 @@ func _boton_cebo(txt: String, extra: String, idx: int) -> Button:
 	b.text = txt if extra == "" else "%s   %s" % [txt, extra]
 	b.toggle_mode = true
 	b.button_pressed = (idx == _sel)
-	b.custom_minimum_size = Vector2(0, 32)
+	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	b.pressed.connect(_on_sel.bind(idx))
 	return b
 
