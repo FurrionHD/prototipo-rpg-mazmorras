@@ -5090,7 +5090,11 @@ func tick_mana_pocion(delta: float) -> void:
 # Cuantos hechizos caben en la cabeza a la vez. Aprender no es gratis: al llegar al tope hay
 # que OLVIDAR uno para meter otro (el objeto que devuelve un hechizo a su libro vendra luego,
 # caro o dificil de fabricar a proposito: cambiar de repertorio tiene que doler).
-const MAX_HECHIZOS := 7
+#
+# SEIS Y NO SIETE, y el motivo es de PANTALLA: los submenus de magia se pintan a 3 columnas (en
+# combate y en el mapa), asi que 6 son dos filas exactas y 7 dejan una tercera fila con un solo
+# boton suelto. Con 6 el panel es siempre igual de alto y siempre cabe, se mire donde se mire.
+const MAX_HECHIZOS := 6
 
 func hechizos_llenos() -> bool:
 	return equipped_spells.size() >= MAX_HECHIZOS

@@ -146,6 +146,12 @@ func _menu_hechizos() -> void:
 		b.pressed.connect(_elegir.bind(sp))
 		grid.add_child(b)
 	_boton_ancho("◄ Volver", ALTO_BOTON_VOLVER, _cancelar)
+	# El panel se ajusta a las FILAS que ocupen los hechizos. Sin esto se quedaba con el alto de dos
+	# filas de _vaciar(), y en cuanto tenias 4 hechizos (2 filas + el Volver) el contenido sobraba y
+	# se salia por debajo de la pantalla: el Volver acababa detras de la barra de tareas.
+	var filas: int = maxi(1, ceili(grid.get_child_count() / float(COLUMNAS)))
+	_panel.offset_top = _panel.offset_bottom \
+		- (filas * ALTO_BOTON + (filas - 1) * 10.0 + 12.0 + ALTO_BOTON_VOLVER) - 20.0
 	_globo_estado("🔮 ¿Qué vas a recitar?", Color(0.75, 0.75, 0.9))
 	# El ruido empieza AQUI: ya estas plantado en mitad del pasillo sacando el grimorio.
 	_coger_ruido()
