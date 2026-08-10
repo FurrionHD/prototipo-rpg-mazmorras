@@ -54,6 +54,10 @@ const CAT_POCIONES: Array[String] = [
 	"res://resources/consumables/piedra_retorno.tres",
 ]
 const CAT_GRIMORIOS: Array[String] = [
+	# El PULSO va el primero y mas barato (1700 contra 2200): es la magia sin elemento, la que se le
+	# vende a cualquiera que empiece. Pega a UNO solo y no hace nada mas, asi que su sitio natural es
+	# ser lo primero que compras.
+	"res://resources/consumables/grimorio_pulso_menor.tres",
 	"res://resources/consumables/grimorio_descarga.tres",
 	"res://resources/consumables/grimorio_brasa.tres",
 	"res://resources/consumables/grimorio_rocio.tres",
@@ -85,6 +89,7 @@ const CAT_POCIONES_T2: Array[String] = [
 # Los de 2 frases: ataque medio de los tres elementos, potenciacion, debuff e imbuiciones. Los de 1
 # frase se quedan en el mostrador T1; los de 3 (Tormenta) no se venden.
 const CAT_GRIMORIOS_T2: Array[String] = [
+	"res://resources/consumables/grimorio_pulso_arcano.tres",
 	"res://resources/consumables/grimorio_chorro_agua.tres",
 	"res://resources/consumables/grimorio_bola_fuego.tres",
 	"res://resources/consumables/grimorio_rayo.tres",

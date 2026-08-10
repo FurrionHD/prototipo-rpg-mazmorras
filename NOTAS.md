@@ -786,11 +786,16 @@ se abre el combate con ese bicho como **objetivo principal** y el hechizo se res
 camino de siempre.
 
 **El proyectil tiene FORMA por elemento** (`proyectil_hechizo.gd`, dibujado con `_draw`): fuego =
-núcleo + llamas que ondean hacia atrás; agua = gota estirada en la dirección de vuelo; rayo = un
-zigzag que chisporrotea (nada redondo); sin elemento = rombo arcano girando. Antes era un cuadrado
-del color del elemento y todo parecía la misma bola pintada de otro color. **El tamaño sale de la
-potencia** (`dano_mostrado`, de 6→radio 9 a 46→radio 26): un nuke se ve venir. Al impactar, destello
-con `Particulas.destellos`.
+núcleo + llamas que ondean hacia atrás; agua = una **ola** (frente ancho con cresta, no una gota: las
+magias de agua son todas de área y un proyectil que se clava en uno mentía); rayo = un zigzag que
+chisporrotea (nada redondo); sin elemento = rombo arcano girando. Antes era un cuadrado del color del
+elemento y todo parecía la misma bola pintada de otro color. **El tamaño sale de la potencia**
+(`dano_mostrado`, de 6→radio 9 a 46→radio 26): un nuke se ve venir. Al impactar, destello con
+`Particulas.destellos`.
+
+🔜 **PENDIENTE (aparcado a propósito)**: el aspecto lo decide el ELEMENTO, no el hechizo, así que
+Rocío y Torrente vuelan igual aunque uno sea una llovizna y el otro un río. Lo suyo sería un campo de
+aspecto en `SpellData` y que cada conjuro tuviera el suyo.
 
 - **Un solo resolvedor**: `combat._resolver_hechizo` (extraído de `_disparar_hechizo`) lo usan el
   turno de disparo y `combat.hechizo_de_entrada`. Área, dispersión, rebotes, estados, imbuición,
@@ -822,6 +827,22 @@ con `Particulas.destellos`.
   `anunciar_conjuro`). El hechizo lo resuelve la máquina que monta la pelea. ⚠️ Si acabas
   UNIÉNDOTE a la pelea de otro (la ejecuta él), el conjuro no tiene dónde soltarse: caduca a los 5 s
   y **se devuelve el maná** (`Game.tick_hechizo_de_entrada`).
+
+### Magia SIN elemento: la línea de los Pulsos 🔧 A PROBAR
+
+No había ninguna magia de daño neutra, y los tres elementos comparten personalidad (todos salpican,
+rebotan o dispersan): un mago no tenía forma de **concentrar** el daño en una sola cabeza, que es lo
+que pide un jefe.
+
+- **Pulso menor** (1 frase, **4** maná, 17.3 al objetivo) y **Pulso arcano** (2 frases, **8** maná,
+  35.3 en 2 golpes). `alcance = OBJETIVO` y `dano_salpicon = 0`: cero salpicón, cero rebotes, cero
+  dispersión, cero estados. Es su identidad entera.
+- **Menos maná que sus equivalentes** (los básicos van a 6 y los medios a 11) y **los mejores por
+  maná contra UN bicho** (4.3 y 4.4, contra 3.1 de Brasa o 3.8 de Rayo). Contra un corro, cualquier
+  elemental les pasa por encima: ese es el trato.
+- Y **nunca los resisten**: sin elemento no hay ×0.5 de afinidad… ni ×1.5 de debilidad.
+- Grimorios más baratos: **1700** (T1, contra 2200 de los básicos) y **5600** (T2, contra 7300).
+- Números PROVISIONALES → Excel.
 
 ### Backfire: ahora escala contigo 🔧 A PROBAR
 

@@ -4210,6 +4210,8 @@ var equipped_spells: Array:
 	set(v): lider().equipped_spells = v
 # Lista para el panel de debug (equipar/quitar). Rutas de los .tres de hechizos.
 var _dev_spells: Array[String] = [
+	"res://resources/spells/pulso_menor.tres",
+	"res://resources/spells/pulso_arcano.tres",
 	"res://resources/spells/descarga.tres",
 	"res://resources/spells/brasa.tres",
 	"res://resources/spells/rocio.tres",

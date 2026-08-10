@@ -71,14 +71,16 @@ const REPOSITORIO: Array[String] = [
 	# Debilitamiento (debuff: Debil)
 	"Languidez, quiebra su fuerza",
 	"Flaqueza, muerde sus huesos",
-	# Genericas (relleno / despiste)
+	# SIN ELEMENTO (la linea arcana: Pulso menor y Pulso arcano) y relleno. Estas no nombran a
+	# ningun elemento a proposito: son las que puede usar una magia que no arde, ni moja, ni
+	# chisporrotea. Las que no tienen dueño siguen valiendo de distractor, como todas.
 	"Por el pacto de los ancianos",
-	"Que se cumpla mi voluntad",
+	"Que se cumpla mi voluntad",          # Pulso menor
 	"Silencio, criatura del abismo",
 	"Vientos del norte, acudid",
 	"Sangre y raiz, respondedme",
-	"El vacio escucha mi llamada",
-	"Sello roto, poder liberado",
+	"El vacio escucha mi llamada",        # Pulso arcano
+	"Sello roto, poder liberado",         # Pulso arcano
 ]
 
 

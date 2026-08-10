@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Pulso arcano"
+tipo = 0
+elemento = 0
+hits = 2
+frases = Array[String](["Sello roto, poder liberado", "El vacio escucha mi llamada"])
+coste_mana = 8
+dano_base = 23.5
+alcance = 0
+dano_objetivo = 1.0
+dano_salpicon = 0.0
+descripcion = "El pulso de siempre, recitado dos veces y soltado de golpe: dos impactos secos en el mismo sitio. No reparte, no salta y no deja nada ardiendo; toda la magia va a una sola cabeza, que es justo lo que hace falta cuando delante solo hay una y es enorme."

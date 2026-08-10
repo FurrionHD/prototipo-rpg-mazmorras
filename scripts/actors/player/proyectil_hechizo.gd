@@ -9,9 +9,14 @@
 #  (_draw) porque son cuatro formas simples y asi no hace falta ni un PNG ni un shader:
 #
 #    FUEGO -> nucleo claro + halo que late + lengüetas de llama que ondean.
-#    AGUA  -> una GOTA estirada en la direccion de vuelo, con su brillo.
+#    AGUA  -> una OLA: un frente ancho con su cresta, no una gota (todas las magias de agua que hay
+#             son de AREA, asi que un proyectil que se clava en uno mentia).
 #    RAYO  -> ni bola ni nada redondo: un ZIGZAG que chisporrotea y se redibuja solo.
-#    (sin elemento) -> rombo arcano girando dentro de un anillo fino.
+#    (sin elemento) -> rombo arcano girando dentro de un anillo fino (la linea de los Pulsos).
+#
+#  PENDIENTE (aparcado a proposito): el aspecto lo decide el ELEMENTO, no el hechizo, asi que Rocío
+#  y Torrente vuelan igual aunque uno sea una llovizna y el otro un rio. Lo suyo seria un campo de
+#  aspecto en SpellData y que cada conjuro tuviera el suyo.
 #
 #  Y EL TAMAÑO SALE DE LA POTENCIA del hechizo: una Descarga es una chispa y una Tormenta es una
 #  bola que se ve venir. Es informacion, no adorno: por el tamaño sabes lo que le va a caer encima.
@@ -147,24 +152,40 @@ func _dibujar_fuego() -> void:
 	draw_circle(Vector2.ZERO, r * 0.34, Color(1.0, 0.95, 0.75))
 
 
-# Gota: alargada en la direccion de vuelo, con la punta POR DELANTE (parte el aire) y la cola
-# detras. El brillo va descentrado, arriba a la izquierda del cuerpo, como en cualquier gota.
+# OLA, no gota. Empezo siendo una gota alargada y el dibujo MENTIA: todas las magias de agua que hay
+# son de area (Rocío moja a todos, Torrente arrasa a todos), asi que lo que tiene que verse venir es
+# un FRENTE, no algo que se clava en uno. Va ANCHA (perpendicular al vuelo) y poco profunda, con la
+# cresta clara delante y la espuma quedandose detras.
 func _dibujar_agua() -> void:
 	var lado: Vector2 = Vector2(-_dir.y, _dir.x)
-	var r: float = _radio * (1.0 + 0.06 * sin(_t * 9.0 + _semilla))
-	var pts := PackedVector2Array([
-		_dir * r * 1.75,                       # la punta, delante
-		lado * r * 0.72 + _dir * r * 0.15,
-		-_dir * r * 1.15 + lado * r * 0.30,    # la cola, ancha y corta
-		-_dir * r * 1.30,
-		-_dir * r * 1.15 - lado * r * 0.30,
-		-lado * r * 0.72 + _dir * r * 0.15,
-	])
-	draw_colored_polygon(pts, _color)
-	# Reflejo: el mismo color aclarado, no blanco puro, para no perder el azul.
+	var r: float = _radio
+	var ancho: float = r * 1.75         # a los lados: es lo que la hace un frente
+	var fondo: float = r * 0.75         # lo que avanza: poca cosa, es una lamina
+	# El frente se dibuja como un arco: cinco puntos de lado a lado, la cresta adelantada en el
+	# centro y ondeando, y la parte de atras recogida.
+	var pts := PackedVector2Array()
+	var n := 7
+	for i in n:
+		var t: float = float(i) / float(n - 1)          # 0..1 de un extremo al otro
+		var x: float = lerpf(-1.0, 1.0, t)
+		# Curva del frente: maximo en el centro (parabola) + un rizo que corre por la cresta.
+		var avance: float = (1.0 - x * x) * fondo * (1.0 + 0.18 * sin(_t * 11.0 + t * 5.0 + _semilla))
+		pts.append(lado * x * ancho + _dir * avance)
+	# ...y se cierra por detras con la espuma, mas apretada que el frente.
+	for i in n:
+		var t: float = 1.0 - float(i) / float(n - 1)
+		var x: float = lerpf(-1.0, 1.0, t)
+		var cola: float = -fondo * (0.55 + 0.45 * (1.0 - absf(x)))
+		pts.append(lado * x * ancho * 0.82 + _dir * cola)
+	draw_colored_polygon(pts, Color(_color.r, _color.g, _color.b, 0.85))
+	# La CRESTA: la misma linea de delante, mas clara y fina. Es lo que la lee como agua y no como
+	# una mancha azul.
 	var claro := Color(minf(1.0, _color.r + 0.45), minf(1.0, _color.g + 0.35),
-		minf(1.0, _color.b + 0.25), 0.85)
-	draw_circle(_dir * r * 0.25 + lado * r * 0.22, r * 0.26, claro)
+		minf(1.0, _color.b + 0.25), 0.95)
+	var cresta := PackedVector2Array()
+	for i in n:
+		cresta.append(pts[i])
+	draw_polyline(cresta, claro, maxf(2.0, r * 0.18), true)
 
 
 # Rayo: NADA redondo. Un zigzag corto que se rehace varias veces por segundo (chisporroteo) con un

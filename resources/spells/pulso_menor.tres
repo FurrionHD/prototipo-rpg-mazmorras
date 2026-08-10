@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Pulso menor"
+tipo = 0
+elemento = 0
+hits = 1
+frases = Array[String](["Que se cumpla mi voluntad"])
+coste_mana = 4
+dano_base = 11.5
+alcance = 0
+dano_objetivo = 1.0
+dano_salpicon = 0.0
+descripcion = "La primera magia que aprende cualquiera: fuerza sin forma, empujada contra un solo cuerpo. No arde, no moja y no chisporrotea, asi que tampoco hay nada que la apague ni piel que la resista. Barata de recitar y sin una gota de talento dentro."
