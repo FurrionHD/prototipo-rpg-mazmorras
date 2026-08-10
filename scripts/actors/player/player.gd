@@ -58,13 +58,14 @@ var _ruido_pico_dur: float = 0.0
 var _facing: Vector2 = Vector2.DOWN
 
 # Ataque para INICIAR combate, hacia delante. El numero es de CENTRO A CENTRO, pero lo que se filtra
-# es el HUECO entre los dos cuerpos (ver _enemigos_a_tiro): attack_range - 32 = 68 px de hueco.
+# es el HUECO entre los dos cuerpos (ver _enemigos_a_tiro): attack_range - 32 = 12 px de hueco.
 #
-# Era 44 (12 px de hueco: practicamente pegado) y el boton se encendia demasiado tarde. Entre las
-# embestidas y los bichos girandose, para cuando podias pulsar ya te habian pegado ellos y la
-# iniciativa (media barra de ATB) era suya. Con 100 hay margen para pulsar ANTES, que es de lo que
-# iba: no cambia nada de lo que pasa dentro del combate, solo cuando puedes entrar.
-@export var attack_range: float = 100.0
+# ESTO NO SE TOCA PARA ARREGLAR "EL BOTON SE ENCIENDE TARDE". Ya se probo: subirlo a 100 (68 px de
+# hueco) hacia que entraras en combate con el bicho a dos cuerpos, que no es lo que se pedia — y de
+# paso se comia el mantenido del mago, porque la pulsacion se gastaba en el espadazo antes de que te
+# diera tiempo a nada. Lo que tenia que encenderse antes era el BOTON, no el alcance: eso lo lleva
+# hay_algo_que_atacar(), que mira tambien si puedes CANTARLE desde lejos.
+@export var attack_range: float = 44.0
 @export var attack_half_angle_deg: float = 70.0
 # Hueco a partir del cual se considera que ya NO es cuerpo a cuerpo: es el alcance de antes
 # (44 - 32). Por debajo de esto el bicho esta literalmente encima y no se le pide linea de vision.
@@ -1099,6 +1100,10 @@ func _tick_ataque(delta: float) -> void:
 		_atk_hold = 0.0
 		if not _try_attack():
 			_atk_buffer = ATK_BUFFER
+			# Toque corto a distancia de CONJURO: no ha llegado el espadazo, pero algo se puede
+			# hacer. Se dice, que si no el boton esta encendido y parece que no responde.
+			if hay_conjuro_a_tiro():
+				_toast("Está lejos: MANTÉN para recitar un hechizo.")
 		else:
 			_atk_hold = -1.0   # ya ha entrado en combate: este mantenido no cuenta
 	elif atk and _atk_hold >= 0.0:
@@ -1329,6 +1334,26 @@ func hay_algo_que_tocar() -> bool:
 
 func hay_enemigo_a_tiro() -> bool:
 	return not _enemigos_a_tiro().is_empty()
+
+
+# ¿Hay alguien a quien pueda CANTARLE un hechizo desde aqui? Es el alcance LARGO, y solo cuenta si
+# llevas baston o varita y tienes hechizos equipados: es lo que hace que a un mago el boton se le
+# encienda mucho antes que a un espadachin, que es justo la gracia.
+func hay_conjuro_a_tiro() -> bool:
+	var pj: PersonajeData = Game.lider()
+	if not Game.lleva_arma_magica(pj) or pj.equipped_spells.is_empty():
+		return false
+	return not _enemigos_a_tiro(RANGO_CASTEO).is_empty()
+
+
+# LO QUE DECIDE SI EL BOTON DE ATACAR ESTA ENCENDIDO. No es lo mismo que "puedo dar un espadazo":
+# con un arma magica, a media pantalla ya puedes hacer algo (mantener y cantar), y el boton tiene
+# que decirtelo. Ademas es NECESARIO: un boton apagado no acepta ni el mantenido (ver
+# touch_controls._conectar_mantener), asi que con esto apagado era literalmente imposible ponerse a
+# recitar en el movil — te encendia a distancia de espadazo, y ahi la pulsacion ya se va en el
+# espadazo.
+func hay_algo_que_atacar() -> bool:
+	return hay_enemigo_a_tiro() or hay_conjuro_a_tiro()
 
 
 # ¿Se ha quedado sin fuelle el que marca el paso? Lo mira la barra tactil para apagar el boton de

@@ -823,13 +823,17 @@ Del playtest: con las embestidas costaba entrar TÚ primero, y unirse a una pele
 a recolocarse dándole al espacio. Las dos cosas eran de RESPUESTA, no de balance (no se han tocado los
 números de la embestida ni `MAX_ALIADOS`).
 
-- **Alcance** (2ª tanda de playtest): `attack_range` 44 → **100** (el filtro real es el HUECO entre
-  cuerpos: 12 px → **68**). El botón se encendía cuando ya estabas encima, así que los bichos se
-  giraban y pegaban primero. El **cono sigue en 140°**: atacar sigue exigiendo encararlos.
-- **Línea de visión**: con 68 px de hueco es normal tener un muro en medio, así que `_enemigos_a_tiro`
-  pide `_vision_libre()` (rayo contra la roca, el mismo del aguante) **solo por encima de
-  `HUECO_CUERPO_A_CUERPO` = 12**. Pegado al bicho se acepta sin rayo: el alcance nuevo es el único que
-  paga la comprobación.
+- **Alcance: NO se toca.** `attack_range` sigue en 44 (12 px de hueco). Se probó subirlo a 100 (68 px)
+  para arreglar el "el botón se enciende tarde" del playtest y **estaba mal leído**: entrabas en
+  combate con el bicho a dos cuerpos, y de paso se comía el mantenido del mago (la pulsación se iba
+  en el espadazo). Lo que tenía que encenderse antes era **el BOTÓN**, no el alcance.
+- **El botón se enciende por `hay_algo_que_atacar()`**, que es melé **o** conjuro: con bastón/varita
+  se enciende a `RANGO_CASTEO` (300 px) y se pinta **azul** para avisar de que ahí el toque no pega,
+  lo que hay es mantener y recitar. Y no es solo un aviso: **un botón apagado no acepta el
+  mantenido** (`_conectar_mantener`), así que sin esto era imposible ponerse a cantar en el móvil.
+- **Línea de visión**: `_enemigos_a_tiro` pide `_vision_libre()` (rayo contra la roca, el mismo del
+  aguante) **por encima de `HUECO_CUERPO_A_CUERPO` = 12**. A distancia de espadazo no llega a
+  aplicarse; quien lo paga es el alcance largo del conjuro, que es donde de verdad hay muros en medio.
 
 - **Buffer de ataque** (`player.ATK_BUFFER = 0.25`): atacar era un flanco de UN frame, así que pulsar
   con el bicho a 20 px **tiraba la pulsación** y mantener el espacio no reintentaba nada — había que

@@ -6,7 +6,7 @@
 #      pones y el circulito lo sigue. Publica Tactil.eje, que es lo que lee player.gd.
 #    - Abajo a la derecha: el boton GRANDE de actuar. Hace la F y el ESPACIO en uno, y enseña
 #      la F, y a su lado el de ATACAR, que hace el ESPACIO. Cada uno se apaga cuando no tiene nada
-#      que hacer (ver player.hay_algo_que_tocar / hay_enemigo_a_tiro).
+#      que hacer (ver player.hay_algo_que_tocar / hay_algo_que_atacar).
 #    - Pegado a el, el circulito azul de curacion optima (la Q).
 #    - Encima, dos botones pequeños de FIJAR: correr y sigilo. Se quedan hundidos hasta que los
 #      vuelves a pulsar; con el teclado siguen siendo de mantener, que ahi es lo comodo.
@@ -239,6 +239,12 @@ func _crear_boton(radio: float, dibujo: Callable) -> Control:
 			borde = Color(1, 1, 1, 0.12)
 		elif bool(c.get_meta("hundido")):
 			fondo = Color(0.30, 0.32, 0.40, 0.94)
+		elif bool(c.get_meta("solo_magia", false)):
+			# Encendido pero AZUL: a esta distancia el toque no llega a pegar, lo que hay es el
+			# conjuro (mantener). Sin este aviso, el boton encendido prometia un espadazo que no era.
+			fondo = Color(0.16, 0.16, 0.30, 0.88)
+			tinta = Color(0.72, 0.76, 1.00)
+			borde = Color(0.60, 0.66, 1.00, 0.55)
 		var centro := Vector2(r, r)
 		c.draw_circle(centro, r, fondo)
 		c.draw_arc(centro, r, 0.0, TAU, 48, borde, 2.5, true)
@@ -389,9 +395,19 @@ func _lider_nodo() -> Node:
 func _refrescar_botones() -> void:
 	var p: Node = _lider_nodo()
 	var tocar: bool = p != null and p.has_method("hay_algo_que_tocar") and p.hay_algo_que_tocar()
-	var pegar: bool = p != null and p.has_method("hay_enemigo_a_tiro") and p.hay_enemigo_a_tiro()
+	# El de atacar se enciende tambien cuando lo unico que puedes hacer es CANTAR (arma magica y un
+	# bicho a media pantalla). Tiene que ser asi por dos motivos: te avisa de que ya puedes actuar
+	# —que era la queja del playtest, que se encendia tarde y te emboscaban— y, sobre todo, un boton
+	# apagado no acepta el mantenido, o sea que sin esto no habia forma de ponerse a recitar.
+	var pegar: bool = p != null and p.has_method("hay_algo_que_atacar") and p.hay_algo_que_atacar()
+	# ...pero se PINTA distinto si a esa distancia solo llega el conjuro: con el mismo icono de
+	# siempre no hay forma de saber si el toque va a pegar o no va a hacer nada.
+	var solo_magia: bool = pegar and p.has_method("hay_enemigo_a_tiro") and not p.hay_enemigo_a_tiro()
 	_encender(_actuar, tocar)
 	_encender(_atacar, pegar)
+	if bool(_atacar.get_meta("solo_magia", false)) != solo_magia:
+		_atacar.set_meta("solo_magia", solo_magia)
+		_atacar.queue_redraw()
 
 
 func _encender(c: Control, si: bool) -> void:
