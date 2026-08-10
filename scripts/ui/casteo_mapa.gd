@@ -50,6 +50,11 @@ const RUIDO_ESTALLIDO_DUR := 3.0
 # mazmorra tiene el mismo precio lo hagas con los pies o con la boca.
 const ALBOROTO_CANTANDO := 3.0
 
+# Lo que ocupan los mandos tactiles por abajo (ver touch_controls: MARGEN + el boton de actuar + los
+# dos de fijar). El panel se planta POR ENCIMA de esa franja cuando estan puestos: el mundo sigue
+# corriendo mientras cantas, asi que tienes que poder seguir moviendote y corriendo.
+const ALTO_BANDA_TACTIL := 212.0
+
 var _pj: PersonajeData = null
 var _jugador: Node2D = null
 var _objetivo: Node = null          # el bicho al que va (se fija al empezar)
@@ -70,12 +75,17 @@ func setup(pj: PersonajeData, jugador: Node2D, objetivo: Node) -> void:
 
 
 func _ready() -> void:
-	layer = 5   # por encima del HUD del mapa, por debajo de los menus (que van en su propia capa)
+	# POR ENCIMA DE LOS MANDOS TACTILES (capa 6). No es un capricho de dibujo: la zona del joystick
+	# es la MITAD IZQUIERDA ENTERA de la pantalla con MOUSE_FILTER_STOP, asi que desde una capa mas
+	# baja se comia los toques de las frases y, en su lugar, te sacaba el joystick encima.
+	layer = 7
 	_panel = VBoxContainer.new()
 	_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_panel.offset_left = 16.0 + Tactil.borde.x
 	_panel.offset_right = -16.0 - Tactil.borde.x
-	_panel.offset_bottom = -16.0 - Tactil.borde.y
+	# Con mandos tactiles el panel sube por encima de ellos: los botones redondos (correr, sigilo,
+	# curar) tienen que seguir alcanzandose mientras cantas, que para eso el mundo no se para.
+	_panel.offset_bottom = -16.0 - Tactil.borde.y - (ALTO_BANDA_TACTIL if Tactil.activo else 0.0)
 	_panel.offset_top = _panel.offset_bottom - ALTO_BOTON * 2.0 - 20.0
 	_panel.alignment = BoxContainer.ALIGNMENT_END
 	_panel.add_theme_constant_override("separation", 12)
