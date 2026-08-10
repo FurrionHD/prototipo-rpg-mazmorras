@@ -32,11 +32,13 @@ signal fallado(spell: SpellData, dano: float, muerto: bool)
 # Se ha cerrado sin cantar nada (Volver, o interrumpido): no se ha cobrado nada.
 signal cancelado()
 
-# Los MISMOS numeros que el recitado de combate (ver combat.ALTO_BOTON_FRASE y compañia): esto se
+# Los MISMOS numeros que el recitado de combate (ver combat.ALTO_BOTON_ACCION y compañia): esto se
 # aprende una vez y tiene que sentirse igual en los dos sitios.
 const COLUMNAS := 3
+# Las FRASES van a dos columnas y no a tres: lo que hay dentro es una frase entera ("Que el cielo
+# descargue su furia"), no el nombre corto de un hechizo.
+const COLUMNAS_FRASES := 2
 const ALTO_BOTON := 76.0
-const ALTO_BOTON_FRASE := 60.0
 const ALTO_BOTON_VOLVER := 56.0
 const N_OPCIONES_TEST := 4
 
@@ -50,10 +52,11 @@ const RUIDO_ESTALLIDO_DUR := 3.0
 # mazmorra tiene el mismo precio lo hagas con los pies o con la boca.
 const ALBOROTO_CANTANDO := 3.0
 
-# Lo que ocupan los mandos tactiles por abajo (ver touch_controls: MARGEN + el boton de actuar + los
-# dos de fijar). El panel se planta POR ENCIMA de esa franja cuando estan puestos: el mundo sigue
-# corriendo mientras cantas, asi que tienes que poder seguir moviendote y corriendo.
-const ALTO_BANDA_TACTIL := 212.0
+# Lo que ocupan los mandos tactiles por la DERECHA (ver touch_controls._colocar: actuar + atacar +
+# curar, cada uno con su margen). El panel se queda a su izquierda en vez de subirse por encima:
+# abajo es donde va -es donde cae el pulgar y donde el usuario lo pidio-, y asi los botones redondos
+# se siguen alcanzando mientras cantas, que para eso el mundo no se para.
+const ANCHO_BANDA_TACTIL := 340.0
 
 var _pj: PersonajeData = null
 var _jugador: Node2D = null
@@ -82,10 +85,10 @@ func _ready() -> void:
 	_panel = VBoxContainer.new()
 	_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_panel.offset_left = 16.0 + Tactil.borde.x
-	_panel.offset_right = -16.0 - Tactil.borde.x
-	# Con mandos tactiles el panel sube por encima de ellos: los botones redondos (correr, sigilo,
-	# curar) tienen que seguir alcanzandose mientras cantas, que para eso el mundo no se para.
-	_panel.offset_bottom = -16.0 - Tactil.borde.y - (ALTO_BANDA_TACTIL if Tactil.activo else 0.0)
+	# Con mandos tactiles se para ANTES de ellos, no por encima: el panel va abajo (es donde cae el
+	# pulgar) y los botones redondos siguen alcanzables mientras cantas.
+	_panel.offset_right = -16.0 - Tactil.borde.x - (ANCHO_BANDA_TACTIL if Tactil.activo else 0.0)
+	_panel.offset_bottom = -16.0 - Tactil.borde.y
 	_panel.offset_top = _panel.offset_bottom - ALTO_BOTON * 2.0 - 20.0
 	_panel.alignment = BoxContainer.ALIGNMENT_END
 	_panel.add_theme_constant_override("separation", 12)
@@ -151,19 +154,29 @@ func _mostrar_frase() -> void:
 	_vaciar()
 	var correcta: String = _spell.frases[_frase]
 	var opciones: Array = SpellBook.opciones_test(correcta, _otras_frases(), N_OPCIONES_TEST)
+	# En REJILLA, como los hechizos y las habilidades: cuadradas y pegadas unas a otras. Una por fila
+	# a lo ancho de la pantalla dejaba unas tiras larguisimas de las que solo se usaba el trocito del
+	# texto, y el ojo tenia que recorrer todo el ancho para leer cuatro opciones.
+	# DOS columnas y no tres: aqui el texto es una FRASE entera, no el nombre de un hechizo.
+	# ...y a UNA si a dos no cabe la frase mas larga: una opcion recortada no se puede leer, y sin
+	# poder leerla la eliges a ciegas y te comes el backfire.
+	var cols: int = SpellBook.columnas_para_frases(opciones, _panel.size.x,
+		_panel.get_theme_default_font(), 17, COLUMNAS_FRASES)
+	var grid := _rejilla(cols)
 	var letras := ["a", "b", "c", "d", "e", "f"]
 	for i in opciones.size():
 		var b := Button.new()
 		b.text = "%s)  %s" % [letras[i], opciones[i]]
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size = Vector2(0, ALTO_BOTON_FRASE)
-		b.add_theme_font_size_override("font_size", 18)
+		b.custom_minimum_size = Vector2(0, ALTO_BOTON)
+		b.add_theme_font_size_override("font_size", 17)
 		b.clip_text = true
 		b.pressed.connect(_responder.bind(String(opciones[i]), correcta))
-		_panel.add_child(b)
+		grid.add_child(b)
 	# Echarse atras SOLO antes de la primera frase, igual que en combate: en cuanto sueltas una, el
 	# conjuro esta en marcha y ya no se para.
-	var alto: float = opciones.size() * ALTO_BOTON_FRASE + (opciones.size() - 1) * 10.0
+	var filas: int = ceili(opciones.size() / float(cols))
+	var alto: float = filas * ALTO_BOTON + (filas - 1) * 10.0
 	if _frase == 0:
 		_boton_ancho("◄ Volver (aún no has recitado nada)", ALTO_BOTON_VOLVER, _menu_hechizos)
 		alto += 12.0 + ALTO_BOTON_VOLVER
@@ -281,9 +294,9 @@ func _vaciar() -> void:
 	_panel.offset_top = _panel.offset_bottom - ALTO_BOTON * 2.0 - 20.0
 
 
-func _rejilla() -> GridContainer:
+func _rejilla(columnas: int = COLUMNAS) -> GridContainer:
 	var grid := GridContainer.new()
-	grid.columns = COLUMNAS
+	grid.columns = columnas
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL

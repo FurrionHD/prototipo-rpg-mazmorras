@@ -108,6 +108,16 @@ var _aliados_box: HBoxContainer = null
 # Que ya tenga su tamaño definitivo evita que el dia que entre el primer aliado se recoloque
 # todo de golpe.
 const ANCHO_BLOQUE := 216.0
+# ...pero eso ya NO es el ancho de la pantalla. El log se mudo a una columna de la derecha, asi que
+# los bloques viven en lo que queda (viewport - ANCHO_LOG - margenes), y ahi 5 x 216 no entran: la
+# fila esta CENTRADA, asi que lo que sobraba se salia por los dos lados y el bicho nº1 se quedaba
+# medio fuera de la pantalla. Cuando no caben a su ancho preferido se encogen a partes iguales,
+# hasta este minimo (donde todavia se leen el numero y la barra de vida).
+#
+# Encogerlos y no partirlos en dos filas: la fila ES la numeracion que usa la barra de accion (el
+# nº2 es el 2º empezando por la izquierda), y en dos filas eso deja de leerse de un vistazo.
+const ANCHO_BLOQUE_MIN := 118.0
+const SEP_BLOQUES := 8.0
 # Alto RESERVADO para los estados: dos filas de chips. Se reserva SIEMPRE, haya estados o no,
 # para que entrar o salir uno no mueva de sitio la barra de vida ni nada de lo que hay debajo.
 # Dos filas y no una porque en un bloque de 260 px solo caben ~3 chips por fila, y un bicho
@@ -565,6 +575,8 @@ func aplicar_roster(roster: Dictionary) -> void:
 	# slimes vivos): al cambiar la lista hay que repartirla otra vez.
 	for e in _enemies:
 		e.battle_enemies = _enemies
+	# El roster puede haber traido bichos nuevos: si ya no caben a su ancho, se encogen todos.
+	_reajustar_anchos(_bloques, _enemies.size())
 	_update_hp()
 
 
@@ -1450,8 +1462,10 @@ const ALTO_BOTON_ACCION := 76.0
 # son mas bajas que un boton de accion: cuatro de 76 + el Volver no caben en pantalla. 60 px sigue
 # estando por encima del minimo comodo para un pulgar, que es lo que se buscaba: fallar una frase
 # duele (backfire), y se estaban fallando por el TAMAÑO del boton, no por no saberse la frase.
-const ALTO_BOTON_FRASE := 60.0
 const ALTO_BOTON_VOLVER := 56.0
+# Las FRASES del recitado van a DOS columnas (las acciones y los submenus van a tres): lo que llevan
+# dentro es una frase entera, no el nombre corto de un hechizo.
+const COLUMNAS_FRASES := 2
 # Hasta donde puede crecer el panel hacia ARRIBA. Por encima de esto se comeria los bloques del
 # grupo (que acaban hacia la mitad de la pantalla).
 const ALTO_PANEL_MAX := 420.0
@@ -1533,11 +1547,12 @@ func _crear_acciones() -> void:
 # El grid va DENTRO del VBox y no en su lugar: el "◄ Volver" tiene que ir debajo, a lo ancho, y un
 # GridContainer no tiene colspan — metido en la rejilla se quedaria como media celda torcida.
 # Quien llame a esto ya ha vaciado la caja (los hijos del VBox, grid incluido, se van de una).
-func _rejilla_submenu(caja: VBoxContainer) -> GridContainer:
+func _rejilla_submenu(caja: VBoxContainer, columnas: int = COLUMNAS_ACCION) -> GridContainer:
 	var grid := GridContainer.new()
-	# Las MISMAS columnas que la rejilla de acciones: los submenus comparten panel con ella, y con
-	# un numero distinto la franja cambiaria de forma al abrir uno.
-	grid.columns = COLUMNAS_ACCION
+	# Por defecto, las MISMAS columnas que la rejilla de acciones: los submenus comparten panel con
+	# ella, y con un numero distinto la franja cambiaria de forma al abrir uno. El recitado pide
+	# menos columnas a proposito (ver _pintar_test): sus botones llevan una frase entera dentro.
+	grid.columns = columnas
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1650,6 +1665,8 @@ func _anadir_bloque_aliado(c: Combatant) -> void:
 	_crear_barras_aliado(ba, c)
 	_bloques_aliados.append(ba)
 	_aliados_box.add_child(ba["panel"])
+	# La fila acaba de crecer: puede que lo que cabia antes ya no quepa (ver _ancho_bloque).
+	_reajustar_anchos(_bloques_aliados, _bloques_aliados.size())
 
 
 # UN ALIADO MAS en la pelea en curso (hito 5.4-C): entra el personaje de otro humano que se une.
@@ -1743,8 +1760,9 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 	# de la barra: una ProgressBar es STOP por defecto y ocupa media caja).
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP if numero > 0 else Control.MOUSE_FILTER_IGNORE
 	panel.add_theme_stylebox_override("panel", _sb_bloque(false))
-	# Mismo ancho para todos, tuyo o enemigo: es lo que les permite ir en fila.
-	panel.custom_minimum_size = Vector2(ANCHO_BLOQUE, 0)
+	# Mismo ancho para todos los de su fila, tuyo o enemigo: es lo que les permite ir en fila.
+	panel.custom_minimum_size = Vector2(_ancho_bloque(
+		_enemies.size() if numero > 0 else _aliados.size()), 0)
 
 	var margen := MarginContainer.new()
 	margen.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -1940,6 +1958,9 @@ func _meter_enemigo(c: Combatant, es_invocado: bool) -> int:
 		var b: Dictionary = _crear_bloque(c, idx + 1, idx)
 		_bloques.append(b)
 		_bloques_box.add_child(b["panel"])
+		# La fila acaba de crecer (refuerzos, invocaciones): con uno mas puede que ya no quepan a su
+		# ancho preferido y haya que encogerlos a todos (ver _ancho_bloque).
+		_reajustar_anchos(_bloques, _enemies.size())
 	# Estructuras por-combatiente (mismas que puebla el arranque): ATB, marcador y roster del escudo.
 	_gauge[c] = 0.0                  # entra con la barra a cero (no regala una accion inmediata)
 	if _timeline != null:
@@ -2973,20 +2994,28 @@ func _pintar_test(idx: int, opciones: Array, nombre: String, largo: int, correct
 	_ocultar_cajas()
 	for c in _cast_box.get_children():
 		c.queue_free()
-	# Una frase por FILA, a ancho completo y separadas: el texto es largo (no cabe a media anchura) y
-	# equivocarse de opcion cuesta un backfire, asi que el boton tiene que ser grande de verdad.
-	_cast_box.add_theme_constant_override("separation", 10)
+	# En REJILLA, como los hechizos y las habilidades, y del mismo alto que ellos: cuadradas y
+	# pegadas unas a otras. Una por fila dejaba cuatro tiras largas y bajas que no se parecian a
+	# nada de lo demas. DOS columnas y no tres (COLUMNAS_ACCION): aqui dentro va una FRASE entera,
+	# no el nombre corto de un hechizo.
+	_cast_box.add_theme_constant_override("separation", 12)
+	# ...y a UNA si a dos no cabe la frase mas larga: una opcion recortada no se puede leer, y sin
+	# poder leerla la eliges a ciegas y te comes el backfire (ver SpellBook.columnas_para_frases).
+	var cols: int = SpellBook.columnas_para_frases(opciones, _panel_acciones.size.x,
+		_cast_box.get_theme_default_font(), 17, COLUMNAS_FRASES)
+	var grid := _rejilla_submenu(_cast_box, cols)
 	var letras := ["a", "b", "c", "d", "e", "f"]
 	for i in opciones.size():
 		var b := Button.new()
 		b.text = "%s)  %s" % [letras[i], opciones[i]]
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size = Vector2(0, ALTO_BOTON_FRASE)
-		b.add_theme_font_size_override("font_size", 18)
+		b.custom_minimum_size = Vector2(0, ALTO_BOTON_ACCION)
+		b.add_theme_font_size_override("font_size", 17)
 		b.clip_text = true
 		b.pressed.connect(_responder_frase.bind(String(opciones[i]), correcta))
-		_cast_box.add_child(b)
-	var alto: float = opciones.size() * ALTO_BOTON_FRASE + (opciones.size() - 1) * 10.0
+		grid.add_child(b)
+	var filas: int = ceili(opciones.size() / float(cols))
+	var alto: float = filas * ALTO_BOTON_ACCION + (filas - 1) * 10.0
 	# ECHARSE ATRAS: solo en la PRIMERA frase. En cuanto has recitado una ya no se puede (el conjuro
 	# esta en marcha), asi que el boton ni se pinta. Y aqui no se pierde nada: el maná se cobra al
 	# soltar el hechizo o al fallar, nunca al empezar (ver _elegir_hechizo).
@@ -2998,7 +3027,7 @@ func _pintar_test(idx: int, opciones: Array, nombre: String, largo: int, correct
 		volver.add_theme_font_size_override("font_size", 18)
 		volver.pressed.connect(_cancelar_casteo)
 		_cast_box.add_child(volver)
-		alto += 10.0 + ALTO_BOTON_VOLVER
+		alto += 12.0 + ALTO_BOTON_VOLVER
 	_alto_panel(alto)
 	_cast_box.visible = true
 	_set_log("🔮 %s — recita la frase %d/%d:" % [nombre, idx + 1, largo])
@@ -5786,9 +5815,31 @@ func _recolocar_log() -> void:
 
 
 # Una fila de bloques de combatiente (enemigos o tuyos), colgada de la columna.
+# Lo que mide cada bloque cuando hay 'n' en su fila. A su ancho preferido mientras quepan, y
+# encogiendose a partes iguales cuando no. El sitio disponible se calcula igual que los offsets de
+# la columna (ver _montar_columna): la pantalla menos la columna del log y los margenes.
+func _ancho_bloque(n: int) -> float:
+	if n <= 1:
+		return ANCHO_BLOQUE
+	var disponible: float = get_viewport_rect().size.x - ANCHO_LOG - 32.0 \
+		- Tactil.borde.x * 2.0 - 16.0
+	return clampf((disponible - SEP_BLOQUES * float(n - 1)) / float(n),
+		ANCHO_BLOQUE_MIN, ANCHO_BLOQUE)
+
+
+# Reajusta el ancho de los bloques de una fila. Hace falta porque la fila CRECE a mitad de pelea:
+# entran refuerzos, se une el compañero... y lo que cabia con tres deja de caber con cinco.
+func _reajustar_anchos(bloques: Array, n: int) -> void:
+	var ancho: float = _ancho_bloque(n)
+	for b in bloques:
+		var panel: Control = b.get("panel")
+		if panel != null and is_instance_valid(panel):
+			panel.custom_minimum_size = Vector2(ancho, 0)
+
+
 func _crear_fila_bloques() -> HBoxContainer:
 	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 8)
+	fila.add_theme_constant_override("separation", SEP_BLOQUES)
 	fila.alignment = BoxContainer.ALIGNMENT_CENTER
 	fila.mouse_filter = Control.MOUSE_FILTER_PASS
 	_col.add_child(fila)

@@ -103,3 +103,23 @@ static func opciones_test(correcta: String, extra_pool: Array = [], n_opciones: 
 	opciones.append(correcta)
 	opciones.shuffle()
 	return opciones
+
+
+# ¿A cuantas columnas se pueden pintar estas opciones en 'ancho' px? Las frases van en rejilla (como
+# los hechizos y las habilidades), pero una frase RECORTADA es peor que fea: si no puedes leer la
+# opcion no puedes elegirla, y equivocarse cuesta un backfire. Asi que si a dos columnas no cabe la
+# mas larga, se pintan a una.
+#
+# Vive aqui, con el resto del examen, porque lo preguntan las DOS pantallas que lo pintan: la de
+# combate (combat._pintar_test) y la del mapa (casteo_mapa._mostrar_frase).
+static func columnas_para_frases(opciones: Array, ancho: float, fuente: Font, tam: int,
+		columnas: int = 2, margen: float = 24.0) -> int:
+	if fuente == null or columnas <= 1:
+		return 1
+	var mas_larga: float = 0.0
+	for o in opciones:
+		# El "a)  " de delante cuenta: es parte del boton.
+		var t: String = "a)  %s" % String(o)
+		mas_larga = maxf(mas_larga, fuente.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x)
+	var por_columna: float = (ancho - 10.0 * float(columnas - 1)) / float(columnas)
+	return columnas if por_columna >= mas_larga + margen else 1
