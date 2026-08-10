@@ -913,29 +913,32 @@ func _rel_canto(texto: String, color: Color, lugar: String) -> void:
 
 
 # El conjuro que sale volando hacia un bicho. Viaja el net_id del objetivo (que es lo unico que
-# significa lo mismo en las dos maquinas) y el color de su elemento.
-func anunciar_conjuro(objetivo: Node, color: Color) -> void:
+# significa lo mismo en las dos maquinas), el color y la RUTA del hechizo: de ella salen la forma y
+# el tamaño del proyectil (ver proyectil_hechizo), asi que sin ella el compañero veria un conjuro
+# generico donde tu ves una Tormenta.
+func anunciar_conjuro(objetivo: Node, color: Color, spell: SpellData = null) -> void:
 	if not activo or multiplayer.multiplayer_peer == null or objetivo == null:
 		return
 	var id: int = int(objetivo.get_meta("net_id", 0)) if objetivo.has_meta("net_id") else 0
 	if id == 0:
 		return
+	var ruta: String = String(spell.resource_path) if spell != null else ""
 	if es_host:
 		for pid in _peers:
 			if _peers[pid].get("lugar", "") == _mi_lugar:
-				_set_conjuro.rpc_id(pid, _mi_id(), id, color)
+				_set_conjuro.rpc_id(pid, _mi_id(), id, color, ruta)
 	else:
-		_rel_conjuro.rpc_id(1, id, color, _mi_lugar)
+		_rel_conjuro.rpc_id(1, id, color, ruta, _mi_lugar)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _set_conjuro(emisor: int, id: int, color: Color) -> void:
+func _set_conjuro(emisor: int, id: int, color: Color, ruta: String = "") -> void:
 	var a = _avatares.get(emisor)
 	var obj = _enem_nodos.get(id)
 	if a == null or not is_instance_valid(a) or obj == null or not is_instance_valid(obj):
 		return
 	var p: Node2D = _PROYECTIL_HECHIZO.new()
-	p.setup(obj, color)
+	p.setup(obj, color, load(ruta) as SpellData if ruta != "" else null)
 	p.global_position = (a as Node2D).global_position
 	var mundo: Node = get_tree().current_scene
 	if mundo != null:
@@ -943,15 +946,15 @@ func _set_conjuro(emisor: int, id: int, color: Color) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rel_conjuro(id: int, color: Color, lugar: String) -> void:
+func _rel_conjuro(id: int, color: Color, ruta: String, lugar: String) -> void:
 	if not es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
 	if _mi_lugar == lugar:
-		_set_conjuro(de, id, color)
+		_set_conjuro(de, id, color, ruta)
 	for pid in _peers:
 		if pid != de and _peers[pid].get("lugar", "") == lugar:
-			_set_conjuro.rpc_id(pid, de, id, color)
+			_set_conjuro.rpc_id(pid, de, id, color, ruta)
 
 
 # Tira los cuerpos de los acompañantes de un peer (cambio de lugar, se fue, fin de sesion).

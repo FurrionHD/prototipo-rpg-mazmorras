@@ -4306,6 +4306,31 @@ func olvidar_hechizo_de_entrada() -> void:
 	_hechizo_entrada_t = 0.0
 
 
+# EL CANTO QUE TE INTERRUMPIERON. Estabas recitando en el mapa y te ha caido encima una pelea: el
+# conjuro no se tira, se sigue DENTRO por la frase que llevabas. Es la hermana de arriba, y viaja por
+# los mismos dos caminos de entrada; la diferencia es que aqui no hay nada que cobrar ni que
+# devolver (el maná se paga al soltarlo), asi que si la pelea no se monta aqui, no se pierde nada.
+var _canto_a_medias: Dictionary = {}
+
+func apuntar_canto_a_medias(spell: SpellData, frase: int, pj: PersonajeData) -> void:
+	if spell == null:
+		return
+	_canto_a_medias = {"spell": spell, "frase": frase, "pj": pj}
+
+
+func _soltar_canto_a_medias(combat: Node, pj: PersonajeData) -> void:
+	if _canto_a_medias.is_empty() or combat == null:
+		return
+	if _canto_a_medias.get("pj") != pj:
+		return   # el canto era de otro: no es el que entra ahora
+	var nota := _canto_a_medias
+	_canto_a_medias = {}
+	var idx: int = _active_player_pjs.find(pj)
+	if idx < 0 or not combat.has_method("retomar_canto"):
+		return
+	combat.retomar_canto(nota.get("spell"), int(nota.get("frase", 0)), idx)
+
+
 # El conjuro apuntado CADUCA si la pelea no llega a abrirse aqui. Pasa en multi: el bicho era de
 # otro y la pelea acaba ejecutandose en SU maquina (te unes como espejo), asi que este hechizo no
 # tiene donde soltarse. En ese caso se DEVUELVE el maná: lo has recitado bien, no es culpa tuya.
@@ -10020,6 +10045,7 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
 		# El OTRO camino de entrada: te unes a una pelea que ya estaba abierta lanzando tu conjuro
 		# desde el mapa. Lo que solo se escribe en start_combat no existe para el que se une.
 		_soltar_hechizo_de_entrada(combat, pj)
+		_soltar_canto_a_medias(combat, pj)
 		return true
 	# No cabia: deshacer para no dejar los arrays desparejados.
 	_active_player_cs.pop_back()
@@ -10213,7 +10239,10 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 	_montar_pantalla_combate(combat)
 	# El hechizo con el que has ABIERTO la pelea desde el mapa (ver player._impacto_conjuro): se
 	# resuelve dentro, contra el bicho al que le diste, antes del primer turno.
-	_soltar_hechizo_de_entrada(combat, _active_player_pjs[0] if not _active_player_pjs.is_empty() else lider())
+	var quien: PersonajeData = _active_player_pjs[0] if not _active_player_pjs.is_empty() else lider()
+	_soltar_hechizo_de_entrada(combat, quien)
+	# Y el canto que te interrumpieron al abrirse esta misma pelea: se sigue por su frase.
+	_soltar_canto_a_medias(combat, quien)
 	return true
 
 

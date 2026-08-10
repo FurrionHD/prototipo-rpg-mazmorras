@@ -781,9 +781,16 @@ Plan en `~/.claude/plans/vale-jefazo-hay-que-quizzical-crane.md`. Cuatro cosas d
 ### Recitar hechizos EN EL MAPA (entrada de mago) 🔧 A PROBAR
 
 Mantener el botón de atacar **1 s** con bastón o varita saca tus hechizos equipados y los recitas ahí
-mismo, en la mazmorra (`casteo_mapa.gd`). Si lo cantas entero sale el conjuro disparado
-(`proyectil_hechizo.gd`, del color de su elemento y con estela); al impactar se abre el combate con
-ese bicho como **objetivo principal** y el hechizo se resuelve DENTRO, por el camino de siempre.
+mismo, en la mazmorra (`casteo_mapa.gd`). Si lo cantas entero sale el conjuro disparado; al impactar
+se abre el combate con ese bicho como **objetivo principal** y el hechizo se resuelve DENTRO, por el
+camino de siempre.
+
+**El proyectil tiene FORMA por elemento** (`proyectil_hechizo.gd`, dibujado con `_draw`): fuego =
+núcleo + llamas que ondean hacia atrás; agua = gota estirada en la dirección de vuelo; rayo = un
+zigzag que chisporrotea (nada redondo); sin elemento = rombo arcano girando. Antes era un cuadrado
+del color del elemento y todo parecía la misma bola pintada de otro color. **El tamaño sale de la
+potencia** (`dano_mostrado`, de 6→radio 9 a 46→radio 26): un nuke se ve venir. Al impactar, destello
+con `Particulas.destellos`.
 
 - **Un solo resolvedor**: `combat._resolver_hechizo` (extraído de `_disparar_hechizo`) lo usan el
   turno de disparo y `combat.hechizo_de_entrada`. Área, dispersión, rebotes, estados, imbuición,
@@ -792,8 +799,17 @@ ese bicho como **objetivo principal** y el hechizo se resuelve DENTRO, por el ca
 - **Los DOS caminos de entrada**: `Game.start_combat` y `Game.unir_aliado_al_combate` sueltan el
   hechizo apuntado (`apuntar_hechizo_de_entrada`). El de unirse es real: el compañero que entra
   después con su propio conjuro.
-- **El mundo NO se para**: no es un menú y no entra en la pila modal. Si un bicho te alcanza, el
-  canto se pierde **sin cobrar** (`_montar_pantalla_combate` → `player.interrumpir_casteo`).
+- **El mundo NO se para**: no es un menú y no entra en la pila modal.
+- **Si te interrumpen, el canto SIGUE dentro de la pelea.** Un bicho te alcanza → se apunta por
+  dónde ibas (`Game.apuntar_canto_a_medias`) y `combat.retomar_canto` lo escribe en `_casteos`, de
+  donde ya tira `_player_turn` para sacarte el examen de ESA frase. Sin cobrar nada: el maná se paga
+  al soltarlo. Perder tres frases porque te alcanzan en la última era el peor castigo posible.
+- **Quieto y a la vista para recitar**: las frases se apagan mientras te MUEVES (`VEL_QUIETO`) o si
+  el objetivo se mete detrás de una **pared** (`player.ve_a()`, el rayo de siempre contra la roca).
+  No cancela: **espera**. Y `_completar` lo vuelve a comprobar antes de cobrar, que el maná se paga
+  ahí y de ahí no se vuelve. El `◄ Volver` no se bloquea nunca.
+- **Alcance del canto**: `RANGO_CASTEO` 300 → **200** (playtest: a media pantalla cantabas sin que
+  nada te molestara). Es el mismo número que enciende el botón en azul.
 - **Cantar hace RUIDO**: el oído del enemigo salía solo de `velocity`, así que quieto eras mudo.
   Ahora `enemy._detecta_a` pregunta por `player.ruido_oido()` (velocidad + `ruido_extra` sostenido +
   el pico de un estallido) y se ceba el alboroto al ritmo de correr.
@@ -828,7 +844,7 @@ números de la embestida ni `MAX_ALIADOS`).
   combate con el bicho a dos cuerpos, y de paso se comía el mantenido del mago (la pulsación se iba
   en el espadazo). Lo que tenía que encenderse antes era **el BOTÓN**, no el alcance.
 - **El botón se enciende por `hay_algo_que_atacar()`**, que es melé **o** conjuro: con bastón/varita
-  se enciende a `RANGO_CASTEO` (300 px) y se pinta **azul** para avisar de que ahí el toque no pega,
+  se enciende a `RANGO_CASTEO` (200 px) y se pinta **azul** para avisar de que ahí el toque no pega,
   lo que hay es mantener y recitar. Y no es solo un aviso: **un botón apagado no acepta el
   mantenido** (`_conectar_mantener`), así que sin esto era imposible ponerse a cantar en el móvil.
 - **Línea de visión**: `_enemigos_a_tiro` pide `_vision_libre()` (rayo contra la roca, el mismo del

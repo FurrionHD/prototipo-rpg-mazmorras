@@ -67,6 +67,16 @@ var _cerrado: bool = false
 
 var _panel: VBoxContainer = null
 var _globo: Node2D = null
+# Los botones de las OPCIONES de la frase actual. Se guardan porque se apagan y se encienden solos
+# segun puedas recitar o no (ver _refrescar_bloqueo). El "◄ Volver" NO entra en la lista: cancelar
+# tiene que poder hacerse siempre, tambien corriendo y con una pared en medio.
+var _botones_frase: Array[Button] = []
+# Por que NO se puede recitar ahora mismo ("" = se puede). Es lo que se pinta en el globo.
+var _bloqueo: String = ""
+
+# Por encima de esta velocidad se considera que te estas MOVIENDO y no se puede recitar: cantar es
+# plantarse. No es 0 exacto porque el cuerpo tiene rebotes de colision de un frame suelto.
+const VEL_QUIETO := 6.0
 
 
 # 'objetivo' es el bicho al que ira el conjuro: se fija AQUI y no al terminar de cantar, para que no
@@ -173,6 +183,7 @@ func _mostrar_frase() -> void:
 		b.clip_text = true
 		b.pressed.connect(_responder.bind(String(opciones[i]), correcta))
 		grid.add_child(b)
+		_botones_frase.append(b)
 	# Echarse atras SOLO antes de la primera frase, igual que en combate: en cuanto sueltas una, el
 	# conjuro esta en marcha y ya no se para.
 	var filas: int = ceili(opciones.size() / float(cols))
@@ -181,11 +192,14 @@ func _mostrar_frase() -> void:
 		_boton_ancho("◄ Volver (aún no has recitado nada)", ALTO_BOTON_VOLVER, _menu_hechizos)
 		alto += 12.0 + ALTO_BOTON_VOLVER
 	_panel.offset_top = _panel.offset_bottom - alto - 20.0
-	_globo_estado("🔮 %s · %d/%d" % [_spell.nombre, _frase + 1, _spell.longitud()], _color_spell())
+	_bloqueo = ""   # se recalcula en el proximo _process, que es quien pinta el estado del globo
+	_refrescar_bloqueo()
 
 
 func _responder(elegida: String, correcta: String) -> void:
-	if _cerrado:
+	# El boton esta apagado cuando no se puede recitar, pero se vuelve a preguntar: entre que se
+	# pinta y llega el clic puede haber echado a andar (o el bicho haberse tapado).
+	if _cerrado or _motivo_bloqueo() != "":
 		return
 	if elegida != correcta:
 		_backfire()
@@ -203,6 +217,14 @@ func _responder(elegida: String, correcta: String) -> void:
 # ------------------------------------------------------------
 # Cantado entero: se cobra el mana (al SOLTARLO, igual que en combate) y sale el conjuro.
 func _completar() -> void:
+	# ULTIMA COMPROBACION antes de cobrar: sin linea de visión (o en movimiento) el conjuro NO sale.
+	# Los botones ya se apagan solos (ver _motivo_bloqueo) y _responder lo vuelve a mirar, asi que
+	# esto solo salta en una carrera rarisima; esta porque el maná se paga AQUI y de aqui no se
+	# vuelve. Se retrocede una frase para no dejar el panel muerto: la repites y ya.
+	if _motivo_bloqueo() != "":
+		_frase = maxi(0, _frase - 1)
+		_mostrar_frase()
+		return
 	var coste: float = _coste(_spell)
 	Game.gastar_mana(_pj, coste)
 	print("[casteo] %s lanza %s desde el mapa | -%.2f MP" % [_pj.nombre, _spell.nombre, coste])
@@ -244,14 +266,24 @@ func _cancelar() -> void:
 
 
 # Lo llama el jugador si algo de fuera se lleva el canto por delante (un bicho que te alcanza y abre
-# la pelea, cambiar de piso...). No cobra nada: perder el conjuro por algo que no es culpa tuya ya
-# es bastante castigo, y es la misma regla que en combate.
-func interrumpir() -> void:
+# la pelea, cambiar de piso...). No cobra nada, que es la regla de siempre: el maná se paga al
+# soltarlo o al fallar.
+#
+# Devuelve por donde ibas ({} si no habias empezado ninguno). Que te interrumpan NO tira el conjuro:
+# si lo que te ha cortado es una pelea, sigues cantandolo DENTRO por la frase que llevabas (ver
+# player.interrumpir_casteo -> Game.apuntar_canto_a_medias). Perder tres frases porque un bicho te
+# alcanza en la ultima era el peor momento posible para castigar.
+func interrumpir() -> Dictionary:
 	if _cerrado:
-		return
-	print("[casteo] canto interrumpido: el conjuro se pierde (sin cobrar)")
+		return {}
+	var a_medias: Dictionary = {}
+	if _spell != null:
+		a_medias = {"spell": _spell, "frase": _frase}
+		print("[casteo] canto interrumpido en la frase %d/%d: se sigue dentro del combate" % [
+			_frase + 1, _spell.longitud()])
 	_cerrar()
 	cancelado.emit()
+	return a_medias
 
 
 func _cerrar() -> void:
@@ -273,6 +305,46 @@ func _process(delta: float) -> void:
 		interrumpir()
 		return
 	Game.sumar_alboroto(ALBOROTO_CANTANDO * delta)
+	_refrescar_bloqueo()
+
+
+# ¿SE PUEDE RECITAR AHORA MISMO? Devuelve el motivo por el que NO ("" = si se puede).
+#
+#   MOVIENDOTE  -> cantar es plantarse. Recitar corriendo quitaba toda la tension: te ibas leyendo
+#                  las frases de camino y el ruido no significaba nada.
+#   TRAS UNA PARED -> si el bicho se te mete detras de un muro, el conjuro no tiene por donde salir.
+#                  No se cancela (eso seria castigar el conjuro por un paso suyo): se ESPERA. Si se
+#                  vuelve a asomar, sigues por donde ibas.
+#
+# El "◄ Volver" no se toca nunca: cancelar tiene que poder hacerse en cualquiera de los dos casos.
+func _motivo_bloqueo() -> String:
+	if not is_instance_valid(_jugador):
+		return ""
+	if (_jugador.velocity as Vector2).length() > VEL_QUIETO:
+		return "quieto para recitar"
+	if _objetivo is Node2D and _jugador.has_method("ve_a") \
+			and not _jugador.ve_a((_objetivo as Node2D).global_position):
+		return "sin línea de visión"
+	return ""
+
+
+func _refrescar_bloqueo() -> void:
+	var motivo: String = _motivo_bloqueo()
+	if motivo == _bloqueo and not _botones_frase.is_empty():
+		return   # nada que repintar: sigue igual que el frame anterior
+	_bloqueo = motivo
+	for b in _botones_frase:
+		if is_instance_valid(b):
+			b.disabled = motivo != ""
+	if _spell == null:
+		return
+	# El aviso va en el GLOBO, que es donde ya estas mirando mientras cantas, y en gris para que se
+	# vea de un vistazo que ahora mismo no toca.
+	var txt: String = "🔮 %s · %d/%d" % [_spell.nombre, _frase + 1, _spell.longitud()]
+	if motivo == "":
+		_globo_estado(txt, _color_spell())
+	else:
+		_globo_estado("%s — %s" % [txt, motivo], Color(0.55, 0.55, 0.6))
 
 
 func _coger_ruido() -> void:
@@ -289,6 +361,7 @@ func _soltar_ruido() -> void:
 #  UTILIDADES DE PINTADO
 # ------------------------------------------------------------
 func _vaciar() -> void:
+	_botones_frase.clear()
 	for c in _panel.get_children():
 		c.queue_free()
 	_panel.offset_top = _panel.offset_bottom - ALTO_BOTON * 2.0 - 20.0

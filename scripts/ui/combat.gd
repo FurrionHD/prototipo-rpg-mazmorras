@@ -3262,6 +3262,27 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	return tocados
 
 
+# EL CANTO QUE TE INTERRUMPIERON. Estabas recitando en el mapa y esta misma pelea te ha caido
+# encima: el conjuro NO se pierde, se sigue aqui por la frase que llevabas.
+#
+# No hace falta ni una linea de turnos nueva: los conjuros a medias ya viven en _casteos (es de
+# donde tira el espejo para restaurar el canto de otro, ver aplicar_roster), y en cuanto esta ahi
+# puesto, _player_turn le saca a ese aliado el examen de SU frase en vez de las acciones normales.
+#
+# El maná sigue sin cobrarse hasta soltarlo, asi que la cuenta cuadra sola: te interrumpen, no pagas.
+func retomar_canto(spell: SpellData, idx_frase: int, idx_lanzador: int) -> void:
+	if spell == null or _espejo:
+		return
+	if idx_lanzador < 0 or idx_lanzador >= _aliados.size():
+		return
+	var quien: Combatant = _aliados[idx_lanzador]
+	var frase: int = clampi(idx_frase, 0, maxi(0, spell.longitud() - 1))
+	_casteos[quien] = {"spell": spell, "idx": frase}
+	_set_log("🔮 %s sigue recitando %s (frase %d/%d)." % [
+		quien.nombre, spell.nombre, frase + 1, spell.longitud()])
+	_update_hp()   # repinta el chip del conjuro en su bloque
+
+
 # EL CONJURO CON EL QUE ABRES LA PELEA. Lo has recitado en el mapa (casteo_mapa.gd), ha impactado, y
 # la pelea se ha abierto por el camino de siempre: aqui se cobra el hechizo, contra el bicho al que
 # le diste y ANTES del primer turno. No gasta turno ni energia — el turno no ha empezado.

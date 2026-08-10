@@ -1022,6 +1022,13 @@ func _tick_ruido(delta: float) -> void:
 # (Enemy._linea_de_vision_libre): un rayo con la mascara de la ROCA. Se excluye a todo el grupo
 # porque el jugador y los companeros COMPARTEN capa con la roca; sin excluirlos, el rayo chocaria
 # consigo mismo o con un aliado y creeria que hay pared donde no la hay.
+#
+# ve_a() es lo mismo pero PUBLICO: lo pregunta el panel del canto desde otro archivo (para bloquear
+# el recitado si el bicho se te mete detras de un muro) y no tiene por que llamar a un _privado.
+func ve_a(punto: Vector2) -> bool:
+	return _vision_libre(punto)
+
+
 func _vision_libre(punto: Vector2) -> bool:
 	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
 	var query := PhysicsRayQueryParameters2D.create(global_position, punto, CAPA_ROCA)
@@ -1209,8 +1216,11 @@ func quiere_atacarme(bicho: Node) -> bool:
 const CASTEO_MAPA = preload("res://scripts/ui/casteo_mapa.gd")
 const PROYECTIL_HECHIZO = preload("res://scripts/actors/player/proyectil_hechizo.gd")
 
-# Hasta donde llega el conjuro. Mucho mas que el espadazo: es justo la gracia de ser mago.
-const RANGO_CASTEO := 300.0
+# Hasta donde llega el conjuro. Mucho mas que el espadazo (44): es justo la gracia de ser mago.
+# Bajado de 300 tras el playtest — a media pantalla cantabas sin que nada te molestara nunca. Este
+# numero manda tambien sobre cuando se enciende el boton en azul (ver hay_conjuro_a_tiro): las dos
+# cosas son la misma pregunta y se ajustan de un solo sitio.
+const RANGO_CASTEO := 200.0
 
 
 func _abrir_casteo() -> void:
@@ -1246,7 +1256,7 @@ func _soltar_conjuro(spell: SpellData, objetivo: Node) -> void:
 	var color: Color = Elementos.color(spell.elemento) if Elementos.tiene_color(spell.elemento) \
 		else Color(0.75, 0.75, 0.95)
 	var p: Node2D = PROYECTIL_HECHIZO.new()
-	p.setup(objetivo, color)
+	p.setup(objetivo, color, spell)   # el hechizo decide su FORMA (elemento) y su TAMAÑO (potencia)
 	p.global_position = global_position
 	# Cuelga del PADRE (el piso), no de mi: si colgara de mi, me seguiria a mi en vez de volar.
 	var mundo: Node = get_parent()
@@ -1254,7 +1264,7 @@ func _soltar_conjuro(spell: SpellData, objetivo: Node) -> void:
 		return
 	mundo.add_child(p)
 	p.impacto.connect(_impacto_conjuro.bind(spell))
-	Net.anunciar_conjuro(objetivo, color)   # que el conjuro se vea volar en las otras pantallas
+	Net.anunciar_conjuro(objetivo, color, spell)   # que se vea volar EL MISMO en las otras pantallas
 
 
 # El conjuro ha llegado: se abre la pelea a mi nombre (con la iniciativa de siempre) y el hechizo
@@ -1272,10 +1282,17 @@ func _impacto_conjuro(objetivo: Node, spell: SpellData) -> void:
 
 
 # Algo de fuera se lleva el canto por delante (un bicho que me alcanza y abre la pelea). Lo llama
-# quien entra en combate: el conjuro se pierde, pero no se cobra nada.
+# quien entra en combate.
+#
+# El conjuro NO se pierde: se apunta por donde iba y la pantalla de combate lo RETOMA en esa misma
+# frase (ver Game.apuntar_canto_a_medias). Que te interrumpan a la tercera frase y perderlo todo era
+# el peor castigo posible, y encima por algo que no depende de ti.
 func interrumpir_casteo() -> void:
 	if is_instance_valid(_casteo):
-		_casteo.interrumpir()
+		var a_medias: Dictionary = _casteo.interrumpir()
+		if not a_medias.is_empty():
+			Game.apuntar_canto_a_medias(a_medias.get("spell"), int(a_medias.get("frase", 0)),
+				Game.lider())
 	_casteo = null
 
 
