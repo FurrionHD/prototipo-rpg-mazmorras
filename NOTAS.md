@@ -778,6 +778,45 @@ Plan en `~/.claude/plans/vale-jefazo-hay-que-quizzical-crane.md`. Cuatro cosas d
   (`crafting.gd`/`Crafting`, `Forge.prob_devolver`, `MEZCLA_ACTIVA`). `Game._tirar_devolucion` lo hace.
 - Números PROVISIONALES → Excel.
 
+### Recitar hechizos EN EL MAPA (entrada de mago) 🔧 A PROBAR
+
+Mantener el botón de atacar **1 s** con bastón o varita saca tus hechizos equipados y los recitas ahí
+mismo, en la mazmorra (`casteo_mapa.gd`). Si lo cantas entero sale el conjuro disparado
+(`proyectil_hechizo.gd`, del color de su elemento y con estela); al impactar se abre el combate con
+ese bicho como **objetivo principal** y el hechizo se resuelve DENTRO, por el camino de siempre.
+
+- **Un solo resolvedor**: `combat._resolver_hechizo` (extraído de `_disparar_hechizo`) lo usan el
+  turno de disparo y `combat.hechizo_de_entrada`. Área, dispersión, rebotes, estados, imbuición,
+  muerte y excelia de Magia salen gratis e iguales. Si el conjuro se los lleva a todos, ganas la
+  pelea de entrada, con su loot.
+- **Los DOS caminos de entrada**: `Game.start_combat` y `Game.unir_aliado_al_combate` sueltan el
+  hechizo apuntado (`apuntar_hechizo_de_entrada`). El de unirse es real: el compañero que entra
+  después con su propio conjuro.
+- **El mundo NO se para**: no es un menú y no entra en la pila modal. Si un bicho te alcanza, el
+  canto se pierde **sin cobrar** (`_montar_pantalla_combate` → `player.interrumpir_casteo`).
+- **Cantar hace RUIDO**: el oído del enemigo salía solo de `velocity`, así que quieto eras mudo.
+  Ahora `enemy._detecta_a` pregunta por `player.ruido_oido()` (velocidad + `ruido_extra` sostenido +
+  el pico de un estallido) y se ceba el alboroto al ritmo de correr.
+- **Se ve la pantalla partida a propósito**: bocadillo sobre la cabeza con el estado del canto
+  (`globo_casteo.gd`, también en el avatar de tu compañero por red) y las opciones a/b/c/d en la
+  banda de abajo, donde cae el pulgar. Las frases son largas y no caben sobre un cuerpo de 32 px.
+- **El botón táctil de atacar pasa a ser de MANTENER** (`touch_controls._conectar_mantener`): con
+  `Tactil.toque` (pulsar y soltar al frame siguiente) mantener era imposible en el móvil.
+- **Multi**: el bocadillo y el proyectil viajan como adorno (`Net.anunciar_canto` /
+  `anunciar_conjuro`). El hechizo lo resuelve la máquina que monta la pelea. ⚠️ Si acabas
+  UNIÉNDOTE a la pelea de otro (la ejecuta él), el conjuro no tiene dónde soltarse: caduca a los 5 s
+  y **se devuelve el maná** (`Game.tick_hechizo_de_entrada`).
+
+### Backfire: ahora escala contigo 🔧 A PROBAR
+
+Fallar una frase hacía `dano_base × 0.5 × progreso`: un número atado al `.tres` del hechizo que a los
+500 de vida era un arañazo. Ahora `daño = 8% × tu vida máxima × (frase fallada, 1-based)` — la 1ª
+cuesta el 8%, la 4ª el 32%, y los conjuros largos exponen más sin que su longitud entre en la
+fórmula. **Puede matarte**, dentro (KO normal) y fuera (`Game.morir_jugador`): es la regla que ya
+estaba escrita para el DoT — *la muerte tiene que venir de un golpe*, y un backfire lo es. Fallar en
+el mapa además hace un estallido que se oye lejos y **NO abre combate**: te quedas tú, tocado, con lo
+que venga. Números PROVISIONALES → Excel.
+
 ### Entrada en combate: buffer de ataque y el CONTRA 🔧 A PROBAR
 
 Del playtest: con las embestidas costaba entrar TÚ primero, y unirse a una pelea ya empezada obligaba

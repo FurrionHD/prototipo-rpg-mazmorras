@@ -40,6 +40,7 @@ const _PLAZO_SALUDO := 5.0
 const _REMOTE_PLAYER := preload("res://scripts/actors/player/remote_player.gd")
 const _REMOTE_ENEMY := preload("res://scripts/actors/enemy/remote_enemy.gd")
 const _DROP_PICKUP := preload("res://scripts/items/drop_pickup.gd")
+const _PROYECTIL_HECHIZO := preload("res://scripts/actors/player/proyectil_hechizo.gd")
 
 # ¿Hay una sesion de red en marcha? El resto del juego (player.gd) lo consulta para decidir si
 # emite su posicion. En un jugador es false y NADA cambia.
@@ -872,6 +873,85 @@ func _rel_imbue(elems: PackedInt32Array) -> void:
 	for pid in _peers:
 		if pid != de:
 			_set_imbue.rpc_id(pid, de, elems)
+
+
+# --- CANTAR HECHIZOS EN EL MAPA: lo que ven los demas ------------------------------------------
+# Puro ADORNO, y por eso va por su propio canal y no con la pelea: el bocadillo sobre la cabeza del
+# que esta recitando y el conjuro que sale disparado. Nada de esto decide nada — quien resuelve el
+# hechizo es la maquina que acaba montando el combate (ver Game._soltar_hechizo_de_entrada).
+#
+# 'texto' vacio = ha dejado de cantar (lo ha soltado, ha fallado o lo ha cancelado).
+func anunciar_canto(texto: String, color: Color) -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	if es_host:
+		for pid in _peers:
+			if _peers[pid].get("lugar", "") == _mi_lugar:
+				_set_canto.rpc_id(pid, _mi_id(), texto, color)
+	else:
+		_rel_canto.rpc_id(1, texto, color, _mi_lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_canto(emisor: int, texto: String, color: Color) -> void:
+	var a = _avatares.get(emisor)   # SIN tipar: puede estar liberado
+	if a == null or not is_instance_valid(a) or not a.has_method("cantar"):
+		return
+	a.cantar(texto, color)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_canto(texto: String, color: Color, lugar: String) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	if _mi_lugar == lugar:
+		_set_canto(de, texto, color)
+	for pid in _peers:
+		if pid != de and _peers[pid].get("lugar", "") == lugar:
+			_set_canto.rpc_id(pid, de, texto, color)
+
+
+# El conjuro que sale volando hacia un bicho. Viaja el net_id del objetivo (que es lo unico que
+# significa lo mismo en las dos maquinas) y el color de su elemento.
+func anunciar_conjuro(objetivo: Node, color: Color) -> void:
+	if not activo or multiplayer.multiplayer_peer == null or objetivo == null:
+		return
+	var id: int = int(objetivo.get_meta("net_id", 0)) if objetivo.has_meta("net_id") else 0
+	if id == 0:
+		return
+	if es_host:
+		for pid in _peers:
+			if _peers[pid].get("lugar", "") == _mi_lugar:
+				_set_conjuro.rpc_id(pid, _mi_id(), id, color)
+	else:
+		_rel_conjuro.rpc_id(1, id, color, _mi_lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_conjuro(emisor: int, id: int, color: Color) -> void:
+	var a = _avatares.get(emisor)
+	var obj = _enem_nodos.get(id)
+	if a == null or not is_instance_valid(a) or obj == null or not is_instance_valid(obj):
+		return
+	var p: Node2D = _PROYECTIL_HECHIZO.new()
+	p.setup(obj, color)
+	p.global_position = (a as Node2D).global_position
+	var mundo: Node = get_tree().current_scene
+	if mundo != null:
+		mundo.add_child(p)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_conjuro(id: int, color: Color, lugar: String) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	if _mi_lugar == lugar:
+		_set_conjuro(de, id, color)
+	for pid in _peers:
+		if pid != de and _peers[pid].get("lugar", "") == lugar:
+			_set_conjuro.rpc_id(pid, de, id, color)
 
 
 # Tira los cuerpos de los acompañantes de un peer (cambio de lugar, se fue, fin de sesion).

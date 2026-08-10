@@ -4254,6 +4254,106 @@ func player_mp(pj: PersonajeData = null) -> float:
 	var p: PersonajeData = pj if pj != null else lider()
 	return p.current_mp if p.current_mp >= 0.0 else player_max_mp(p)
 
+
+# GASTAR maná FUERA del combate (recitar un hechizo en la mazmorra). Dentro de la pelea manda el
+# Combatant (spend_mana); aqui la verdad esta en la ficha. Devuelve false si no llegaba: quien lo
+# llama no debe hacer nada mas.
+func gastar_mana(pj: PersonajeData, cuanto: float) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	var actual: float = player_mp(p)
+	if actual < cuanto:
+		return false
+	p.current_mp = maxf(0.0, actual - cuanto)
+	return true
+
+
+# Lo que cuesta DE VERDAD un hechizo con el equipo puesto: su coste menos la Eficiencia del bastón /
+# la varita (loadout_mods, que ya viene capada al 25%). Con suelo, para que ninguna combinación de
+# mejoras deje los conjuros gratis.
+#
+# El combate hace esta MISMA cuenta en combat._coste_efectivo, pero desde el Combatant (que lleva la
+# reducción ya bakeada) y multiplicando además por los estados que tenga encima en ese momento. Si
+# tocas una, mira la otra.
+func coste_mana_efectivo(spell: SpellData, pj: PersonajeData = null) -> float:
+	if spell == null:
+		return 0.0
+	var p: PersonajeData = pj if pj != null else lider()
+	return maxf(0.5, float(spell.coste_mana) * (1.0 - float(loadout_mods(p)["mana_reduccion"])))
+
+
+# --- EL HECHIZO CON EL QUE ABRES LA PELEA (recitado en el mapa) -------------------------------
+# Cuando el conjuro que has cantado fuera IMPACTA, no se resuelve ahi: se APUNTA aquí y lo cobra la
+# pantalla de combate en cuanto se monta, por el camino normal de un hechizo. Así el daño, los
+# estados, el área, los rebotes, la muerte y la excelia de Magia salen exactamente igual que si lo
+# hubieras lanzado dentro, sin una segunda implementación que se desincronice con la primera.
+#
+# Es una nota de UN SOLO USO y de un solo hueco: se pone justo antes de abrir la pelea y se consume
+# al montarla. Si la pelea no llega a abrirse, quien lo apuntó lo borra (ver player._impacto_conjuro).
+var _hechizo_entrada: Dictionary = {}
+# Cuanto se espera a que la pelea se monte antes de dar el conjuro por perdido. En solitario es
+# inmediato; en multi, pedir pelea es una vuelta por la red (y el dueño del piso puede decir que no,
+# o mandarte a UNIRTE a la pelea de otro, que ya se ejecuta en su maquina y no en la tuya).
+const HECHIZO_ENTRADA_ESPERA := 5.0
+var _hechizo_entrada_t: float = 0.0
+
+func apuntar_hechizo_de_entrada(spell: SpellData, enemigo: Node, pj: PersonajeData) -> void:
+	_hechizo_entrada = {"spell": spell, "enemigo": enemigo, "pj": pj}
+	_hechizo_entrada_t = HECHIZO_ENTRADA_ESPERA
+
+
+func olvidar_hechizo_de_entrada() -> void:
+	_hechizo_entrada = {}
+	_hechizo_entrada_t = 0.0
+
+
+# El conjuro apuntado CADUCA si la pelea no llega a abrirse aqui. Pasa en multi: el bicho era de
+# otro y la pelea acaba ejecutandose en SU maquina (te unes como espejo), asi que este hechizo no
+# tiene donde soltarse. En ese caso se DEVUELVE el maná: lo has recitado bien, no es culpa tuya.
+# Lo tickea el jugador (ver player._physics_process).
+func tick_hechizo_de_entrada(delta: float) -> void:
+	if _hechizo_entrada.is_empty():
+		return
+	_hechizo_entrada_t -= delta
+	if _hechizo_entrada_t > 0.0:
+		return
+	var pj: PersonajeData = _hechizo_entrada.get("pj")
+	var spell: SpellData = _hechizo_entrada.get("spell")
+	_hechizo_entrada = {}
+	if pj == null or spell == null:
+		return
+	var devuelto: float = coste_mana_efectivo(spell, pj)
+	pj.current_mp = minf(player_max_mp(pj), player_mp(pj) + devuelto)
+	print("[casteo] la pelea no se abrio aqui: %s se pierde y se devuelven %.2f MP" % [
+		spell.nombre, devuelto])
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast("El conjuro se disipa: esa pelea la lleva otro. (Maná devuelto)")
+
+
+# Se lo pasa a la pantalla de combate y lo borra. El bicho viaja como INDICE dentro de los enemigos
+# de la pelea: es lo único que significa lo mismo dentro de ella (el nodo del mapa no le sirve).
+func _soltar_hechizo_de_entrada(combat: Node, pj: PersonajeData) -> void:
+	if _hechizo_entrada.is_empty() or combat == null:
+		return
+	var nota := _hechizo_entrada
+	_hechizo_entrada = {}
+	# Solo lo cobra QUIEN lo lanzó: si te unes a una pelea y el conjuro apuntado era de otro, no es
+	# tuyo. (Hoy solo puede haber uno, pero esto lo deja atado si mañana hay más.)
+	if nota.get("pj") != pj:
+		return
+	var idx: int = _active_enemies.find(nota.get("enemigo"))
+	var idx_lanza: int = _active_player_pjs.find(pj)
+	if idx < 0 or idx_lanza < 0 or not combat.has_method("hechizo_de_entrada"):
+		return
+	combat.hechizo_de_entrada(nota.get("spell"), idx, idx_lanza)
+
+
+# ¿Lleva encima un arma MAGICA (bastón en la principal o varita en la secundaria)? Es lo que permite
+# recitar en el mapa. El criterio no se repite: es el mismo _es_arma_magica que usa la forja.
+func lleva_arma_magica(pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	return _es_arma_magica(p.equipped_main) or _es_arma_magica(p.equipped_off)
+
 # True si la escena actual es el PUEBLO (donde se puede cambiar de equipo). Lo consulta
 # el menu de personaje para habilitar/bloquear los cambios de armas/armadura.
 func en_pueblo() -> bool:
@@ -9917,6 +10017,9 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
 	# mitad (start_combat ya lo pasaba por 'exhausted'; este camino se lo saltaba). La meta viaja en
 	# la ficha para los dobles de otros humanos, igual que el sobrepeso.
 	if combat.anadir_aliado(c, bool(pj.get_meta("sin_fuelle", false))):
+		# El OTRO camino de entrada: te unes a una pelea que ya estaba abierta lanzando tu conjuro
+		# desde el mapa. Lo que solo se escribe en start_combat no existe para el que se une.
+		_soltar_hechizo_de_entrada(combat, pj)
 		return true
 	# No cabia: deshacer para no dejar los arrays desparejados.
 	_active_player_cs.pop_back()
@@ -10108,12 +10211,21 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 	Net.registrar_pelea()
 
 	_montar_pantalla_combate(combat)
+	# El hechizo con el que has ABIERTO la pelea desde el mapa (ver player._impacto_conjuro): se
+	# resuelve dentro, contra el bicho al que le diste, antes del primer turno.
+	_soltar_hechizo_de_entrada(combat, _active_player_pjs[0] if not _active_player_pjs.is_empty() else lider())
 	return true
 
 
 # Cuelga la pantalla de combate y deja el mundo en modo "estoy peleando". Se saco de start_combat
 # porque el ESPEJO (hito 5.4-C) monta exactamente lo mismo: misma capa, mismo modal, mismo aviso.
 func _montar_pantalla_combate(combat: Node) -> void:
+	# Si estabas recitando en el mapa, el canto se lo lleva la pelea por delante: el conjuro se
+	# pierde y NO se cobra (ver casteo_mapa.interrumpir). Va aqui, en el sitio por el que pasan
+	# TODAS las peleas —la tuya, la del espejo, la que te embiste—, y no en start_combat.
+	var pnode: Node = get_tree().get_first_node_in_group("player")
+	if pnode != null and pnode.has_method("interrumpir_casteo"):
+		pnode.interrumpir_casteo()
 	# Lo metemos en una CanvasLayer: asi NO le afecta la camara 2D de la
 	# mazmorra (si no, la pantalla de combate sale descentrada).
 	var layer := CanvasLayer.new()

@@ -29,6 +29,9 @@ var _cuerpo: ColorRect = null
 var _nombre: Label = null
 # Rastro de SU imbuicion (null = no lleva ninguna). Ver aplicar_imbue.
 var _fx_imbue: CPUParticles2D = null
+# Su bocadillo mientras canta un hechizo en el mapa (null = no esta cantando). Ver cantar().
+const _GLOBO := preload("res://scripts/ui/globo_casteo.gd")
+var _globo: Node2D = null
 
 
 func _ready() -> void:
@@ -103,6 +106,21 @@ func aplicar_imbue(elem: int) -> void:
 		_fx_imbue = Particulas.ascendentes(self, Elementos.color(elem), 1.0, LADO)
 	else:
 		Particulas.repintar(_fx_imbue, Elementos.color(elem))
+
+
+# ESTA CANTANDO un hechizo en el mapa: le sale el mismo bocadillo que a ti (ver globo_casteo.gd).
+# Texto vacio = ha dejado de cantar. Es puro adorno, pero de los que importan: ver a tu compañero
+# recitando es lo que te dice que no le atropelles la pelea... o que corras a cubrirle.
+func cantar(texto: String, color: Color) -> void:
+	if texto.is_empty():
+		if is_instance_valid(_globo):
+			_globo.queue_free()
+			_globo = null
+		return
+	if not is_instance_valid(_globo):
+		_globo = _GLOBO.new()
+		add_child(_globo)
+	_globo.mostrar(texto, color)
 
 
 # Nuevo destino recibido de la red (lo llama Net al llegar cada paquete de posicion).

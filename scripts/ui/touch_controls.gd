@@ -208,7 +208,10 @@ func _montar_botones() -> void:
 	add_child(_sigilo)
 
 	_conectar_pulso(_actuar, _on_actuar)
-	_conectar_pulso(_atacar, _on_atacar)
+	# ATACAR va de MANTENER, no de tocar: un toque corto es el ataque de siempre y mantenerlo saca
+	# los hechizos (ver player._tick_ataque). Con Tactil.toque -pulsar y soltar al frame siguiente-
+	# mantener el dedo era imposible en el movil: siempre se leia como un toque corto.
+	_conectar_mantener(_atacar, &"atacar")
 	_conectar_pulso(_curar, _on_curar)
 	_conectar_pulso(_correr, _on_correr)
 	_conectar_pulso(_sigilo, _on_sigilo)
@@ -290,12 +293,62 @@ func _conectar_pulso(c: Control, fn: Callable) -> void:
 	)
 
 
+# Boton de MANTENER: la accion se queda pulsada mientras el dedo esta encima y se suelta al
+# levantarlo. Es lo que permite distinguir un toque de un mantenido (ver _conectar_pulso, que es su
+# hermano de "toque suelto").
+func _conectar_mantener(c: Control, accion: StringName) -> void:
+	c.set_meta("accion_mantenida", accion)
+	c.gui_input.connect(func(event: InputEvent) -> void:
+		var pos: Vector2 = Vector2.ZERO
+		var pulsando: bool = false
+		if event is InputEventScreenTouch:
+			var t := event as InputEventScreenTouch
+			pos = t.position
+			pulsando = t.pressed
+		elif event is InputEventMouseButton:
+			var m := event as InputEventMouseButton
+			if m.button_index != MOUSE_BUTTON_LEFT:
+				return
+			pos = m.position
+			pulsando = m.pressed
+		else:
+			return
+		if not pulsando:
+			_soltar_mantenidos()
+			return
+		var r: float = float(c.get_meta("radio"))
+		if pos.distance_to(Vector2(r, r)) > r:
+			return
+		if not bool(c.get_meta("activo")):
+			return
+		c.set_meta("hundido", true)
+		c.queue_redraw()
+		Tactil.pulsar(accion)
+	)
+
+
+# RED DE SEGURIDAD: si el dedo se sale del boton antes de levantarlo, el "soltar" no le llega al
+# Control y la accion se quedaria pulsada PARA SIEMPRE (atacando sola). Aqui se caza cualquier
+# levantada que no haya consumido nadie.
+func _unhandled_input(event: InputEvent) -> void:
+	var soltando: bool = (event is InputEventScreenTouch and not (event as InputEventScreenTouch).pressed) \
+		or (event is InputEventMouseButton and not (event as InputEventMouseButton).pressed)
+	if soltando:
+		_soltar_mantenidos()
+
+
+func _soltar_mantenidos() -> void:
+	for c in get_children():
+		if not (c is Control) or not c.has_meta("accion_mantenida"):
+			continue
+		if bool(c.get_meta("hundido")):
+			c.set_meta("hundido", false)
+			c.queue_redraw()
+		Tactil.soltar(StringName(c.get_meta("accion_mantenida")))
+
+
 func _on_actuar() -> void:
 	Tactil.toque(&"interactuar")
-
-
-func _on_atacar() -> void:
-	Tactil.toque(&"atacar")
 
 
 func _on_curar() -> void:

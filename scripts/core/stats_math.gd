@@ -32,7 +32,7 @@ const MAGIA_FACTOR_EXP := 0.661
 
 # Multiplicador GLOBAL del daño de todos los hechizos (rebalance de magia: los hechizos pegaban
 # muy poco, "una decima parte de la vida" y encima con dos turnos de casteo). Centralizado en
-# resolve_spell para no tocar cada .tres; el backfire NO lo usa (escala con dano_base directo).
+# resolve_spell para no tocar cada .tres; el backfire NO lo usa (va por tu vida maxima, no por el daño).
 # PROVISIONAL: ×2 se noto excesivo en pruebas -> ×1.5. Revisar en pisos altos (ajuste-curvas-holistico).
 const SPELL_DAMAGE_MULT := 1.5
 
@@ -457,9 +457,14 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 #  en combat.gd). Aqui solo va el DAÑO. Sigue SIN esquiva —recitado bien, el hechizo
 #  entra— pero desde el 29/07 SI hay critico (ver resolve_spell).
 # ------------------------------------------------------------
-# Fraccion del dano_base que te haces a TI MISMO al fallar una frase (backfire),
-# escalada por lo avanzado que ibas. PROVISIONAL -> Excel.
-const BACKFIRE_FRAC := 0.5
+# Backfire: lo que te haces a TI MISMO al fallar una frase, como FRACCION DE TU VIDA MAXIMA por cada
+# frase que llevabas cantada. PROVISIONAL -> Excel.
+#
+# Antes era una fraccion del dano_base del hechizo, y eso se quedaba en nada segun crecias: el
+# dano_base de un conjuro es un numero fijo del .tres, asi que a los 500 de vida fallar costaba un
+# arañazo y el examen dejaba de dar miedo. Atado a TU vida, un fallo duele lo mismo el primer dia que
+# el ultimo.
+const BACKFIRE_PCT := 0.08
 
 
 # Daño de un hechizo: dano_base × magia_factor(Magia) × magic_amp (arma), mitigado
@@ -507,9 +512,18 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 		"crit": is_crit, "crit_p": crit_p}
 
 
-# Backfire: daño que te haces al fallar una frase. Escala con dano_base (hechizos
-# largos duelen mas) y con el PROGRESO (cuantas frases llevabas: casi terminar y
-# fallar duele mas). Ignora defensa (es un descontrol interno).
-static func backfire_damage(spell: SpellData, cast_index: int, n_frases: int) -> float:
-	var progreso := float(cast_index + 1) / float(maxi(1, n_frases))
-	return maxf(1.0, spell.dano_base * BACKFIRE_FRAC * progreso)
+# Backfire: daño que te haces al fallar una frase. Ignora defensa (es un descontrol interno) y
+# PUEDE MATARTE: quien lo llama decide si te tumba, aqui solo sale el numero.
+#
+#   daño = BACKFIRE_PCT × vida_maxima × (frase que has fallado, contando desde 1)
+#
+# O sea: fallar la 1ª frase cuesta el 8% de tu vida; la 4ª, el 32%. Los conjuros LARGOS duelen mas
+# sin que el numero de frases entre en la formula — para llegar a fallar la 4ª hay que estar
+# cantando uno de cuatro. Eso es justo lo que se buscaba: el conjuro gordo expone mas, y casi
+# terminarlo y fallar es lo que mas escuece.
+#
+# El hechizo ya no pinta nada (antes iba por su dano_base y se quedaba en un arañazo segun crecias).
+# Se le sigue pasando para el log y por si algun dia una escuela quiere su propio riesgo.
+static func backfire_damage(_spell: SpellData, cast_index: int, _n_frases: int,
+		vida_maxima: float) -> float:
+	return maxf(1.0, BACKFIRE_PCT * maxf(1.0, vida_maxima) * float(cast_index + 1))

@@ -3154,6 +3154,27 @@ func _disparar_hechizo() -> void:
 	# Objetivo PRINCIPAL, capturado una vez, como en el resto de acciones (ver _usar_habilidad).
 	# El area y los rebotes salen de el; y el sigue siendo el que cuenta para la Excelia y el DPS.
 	var obj: Combatant = _objetivo()
+	var tocados: Array = _resolver_hechizo(spell, obj)
+	_player.regen_energy(ATTACK_ENERGY_REGEN)   # lanzar es un turno basico: regenera energia (KAN-57)
+	_limpiar_casteo()
+	_update_hp()
+	_fin_de_eleccion()
+	# Un hechizo de area puede tumbar a varios de golpe: hay que rematarlos a TODOS. El
+	# principal va en la lista aunque el hechizo no sea de area (es el primero del area).
+	_tras_accion_jugador_varios(tocados if not tocados.is_empty() else [obj])
+
+
+# TODO lo que HACE un hechizo ya soltado: daño (area, dispersion, rebotes), estados, imbuicion,
+# log y excelia. Devuelve los enemigos TOCADOS, para rematarlos de una vez.
+#
+# Esta aparte porque hay DOS sitios que sueltan un hechizo: el turno de disparo de toda la vida
+# (_disparar_hechizo) y el conjuro con el que ABRES la pelea desde el mapa (hechizo_de_entrada).
+# Lo que va fuera —cobrar el maná, gastar el turno, la energia— es de cada uno; esto es lo comun.
+#
+# OJO: da por hecho que _player ES QUIEN LANZA. Todo lo de dentro (resolve_spell, el contador de
+# Cazador, el log, la excelia) tira de _player, y por eso quien llame desde fuera de un turno tiene
+# que dejarlo puesto (lo hace hechizo_de_entrada).
+func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	# Todos los enemigos tocados (area + rebotes): hay que rematarlos AL FINAL, de una vez.
 	var tocados: Array = []
 	# DAÑO solo para hechizos de ATAQUE (los de BUFF/DEBUFF no pegan, solo aplican estado).
@@ -3209,12 +3230,38 @@ func _disparar_hechizo() -> void:
 	print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
 		_player.nombre, spell.nombre, dano, _player.abilities.magia, obj.nombre,
 		StatsMath.magic_value(obj.abilities, obj.level, obj.base_magic)])
-	_player.regen_energy(ATTACK_ENERGY_REGEN)   # lanzar es un turno basico: regenera energia (KAN-57)
-	_limpiar_casteo()
+	return tocados
+
+
+# EL CONJURO CON EL QUE ABRES LA PELEA. Lo has recitado en el mapa (casteo_mapa.gd), ha impactado, y
+# la pelea se ha abierto por el camino de siempre: aqui se cobra el hechizo, contra el bicho al que
+# le diste y ANTES del primer turno. No gasta turno ni energia — el turno no ha empezado.
+#
+# 'idx_enemigo' es el indice del bicho DENTRO de la pelea (el nodo del mapa no significa nada aqui) y
+# 'idx_lanzador' el del que lo canto dentro del grupo. Lo llama Game._soltar_hechizo_de_entrada por
+# los DOS caminos de entrada: el que abre la pelea y el que se une a una ya abierta.
+func hechizo_de_entrada(spell: SpellData, idx_enemigo: int, idx_lanzador: int) -> void:
+	if spell == null or _espejo:
+		return
+	if idx_enemigo < 0 or idx_enemigo >= _enemies.size():
+		return
+	if idx_lanzador < 0 or idx_lanzador >= _aliados.size():
+		return
+	var obj: Combatant = _enemies[idx_enemigo]
+	if not obj.is_alive():
+		return
+	_target_idx = idx_enemigo   # al que le diste es el objetivo principal, tambien para el turno 1
+	# _resolver_hechizo va por _player para TODO (daño, log, excelia, contadores). Fuera de un turno,
+	# _player es quien la pantalla tenga puesto, que no tiene por que ser el que canto: se le presta
+	# el sitio al lanzador y se devuelve. Es eso o pasarle el lanzador a media docena de funciones.
+	var previo: Combatant = _player
+	_player = _aliados[idx_lanzador]
+	_set_log("✨ %s abre la pelea con %s." % [_player.nombre, spell.nombre])
+	var tocados: Array = _resolver_hechizo(spell, obj)
+	_player = previo
 	_update_hp()
-	_fin_de_eleccion()
-	# Un hechizo de area puede tumbar a varios de golpe: hay que rematarlos a TODOS. El
-	# principal va en la lista aunque el hechizo no sea de area (es el primero del area).
+	# Si el conjuro se los ha llevado a todos, esto cierra la pelea con victoria (y su loot y su
+	# excelia): matar de entrada es un desenlace legitimo, no un caso raro que haya que evitar.
 	_tras_accion_jugador_varios(tocados if not tocados.is_empty() else [obj])
 
 
@@ -3608,7 +3655,9 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 func _backfire() -> void:
 	var spell := _cast_spell
 	_player.spend_mana(_coste_efectivo(spell))
-	var dmg := StatsMath.backfire_damage(spell, _cast_index, spell.longitud())
+	# Por TU VIDA MAXIMA, no por el daño del hechizo: asi fallar duele lo mismo el primer dia que
+	# con 500 de vida (ver StatsMath.backfire_damage). Y puede tumbarte: el KO se resuelve abajo.
+	var dmg := StatsMath.backfire_damage(spell, _cast_index, spell.longitud(), _player.max_hp)
 	_player.take_damage(dmg)
 	print("[magia] BACKFIRE %s | frase %d/%d | dano propio:%.2f" % [
 		spell.nombre, _cast_index + 1, spell.longitud(), dmg])

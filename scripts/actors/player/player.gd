@@ -42,6 +42,18 @@ var _exhausted: bool = false
 # 0 = sigilo, 1 = andar, 2 = correr.
 var movement_mode: int = 1
 
+# --- RUIDO QUE NO ES ANDAR ---------------------------------------------------------------------
+# El oido de los bichos sale de tu VELOCIDAD (enemy._detecta_a), asi que quieto eres MUDO. Cantar un
+# hechizo en mitad de un pasillo tiene que oirse, y un conjuro que te estalla en la cara, mas: estos
+# dos campos se suman a la velocidad cuando el bicho calcula su radio de oido (ver ruido_oido).
+#
+# Van en "px/s equivalentes" y no en un invento nuevo a proposito: asi el ruido del canto se puede
+# comparar de un vistazo con andar (100) y correr (~170), y las paredes lo amortiguan solas.
+var ruido_extra: float = 0.0     # sostenido mientras dure algo (cantar): lo pone y lo quita quien canta
+var _ruido_pico: float = 0.0     # de golpe (un estallido) y se desinfla solo
+var _ruido_pico_t: float = 0.0   # lo que le queda al pico
+var _ruido_pico_dur: float = 0.0
+
 # Direccion a la que "mira" el jugador (ultimo movimiento), para atacar.
 var _facing: Vector2 = Vector2.DOWN
 
@@ -62,6 +74,11 @@ const HUECO_CUERPO_A_CUERPO := 12.0
 @export var interact_range: float = 40.0
 var _interact_was: bool = false
 var _attack_was: bool = false   # antirrebote de ESPACIO (atacar)
+# Cuanto llevas MANTENIENDO el boton de atacar. -1 = este mantenido ya se gasto (o ya entraste en
+# combate con el flanco), asi que hay que soltar y volver a pulsar. Ver _tick_ataque.
+var _atk_hold: float = 0.0
+# El panel de recitar en el mapa mientras esta abierto (null = no estas cantando).
+var _casteo: Node = null
 
 # BUFFER DE ATAQUE: cuanto se recuerda un ESPACIO que no encontro a nadie a tiro.
 #
@@ -355,6 +372,8 @@ func _physics_process(delta: float) -> void:
 	# ALBOROTO: la mazmorra te oye. Correr mete ruido (llena el medidor de los brotes), ir en
 	# sigilo lo baja. El modo ya esta calculado arriba (0 sigilo, 1 andar, 2 correr).
 	Game.tick_alboroto(delta, movement_mode)
+	_tick_ruido(delta)   # desinfla el estallido de un conjuro fallido (ver hacer_ruido)
+	Game.tick_hechizo_de_entrada(delta)   # devuelve el maná si la pelea del conjuro no llego a abrirse
 
 	# --- Excelia: subida de habilidades por uso (interno; se aplica en el hogar) ---
 	# Agilidad: HUIR de verdad. Ver _tick_huida. No le pasamos la velocidad del grupo: cada
@@ -370,15 +389,7 @@ func _physics_process(delta: float) -> void:
 	# El ESPACIO no se tira si no habia nadie a tiro: se RECUERDA (ver ATK_BUFFER) y se reintenta cada
 	# frame mientras dure. Es lo que hace que "pulsar cuando le ves venir" funcione contra una embestida
 	# en vez de gastarse en balde a 20 px del bicho.
-	var atk: bool = Input.is_action_pressed(&"atacar")
-	if atk and not _attack_was:
-		if not _try_attack():
-			_atk_buffer = ATK_BUFFER
-	elif _atk_buffer > 0.0:
-		_atk_buffer -= delta
-		if _try_attack():
-			_atk_buffer = 0.0
-	_attack_was = atk
+	_tick_ataque(delta)
 
 	var inter: bool = Input.is_action_pressed(&"interactuar")
 	if inter and not _interact_was:
@@ -975,6 +986,37 @@ func _dist_huida() -> float:
 	return _huida_presa.global_position.distance_to(_huida_perseguidor.global_position)
 
 
+# Lo que un bicho "oye" de mi: mi velocidad de verdad + el ruido que estoy haciendo por otras vias
+# (cantar, un conjuro que revienta). Lo pregunta enemy._detecta_a; quien no tenga este metodo (un
+# companero, el avatar de otro humano) sigue midiendose solo por su velocidad, como siempre.
+func ruido_oido() -> float:
+	return velocity.length() + ruido_extra + _ruido_pico
+
+
+# Un ruido de GOLPE que se desinfla en 'segundos' (el estallido de un conjuro fallido). No se suma
+# al que hubiera: se queda el mas fuerte, que es como funciona un ruido de verdad — dos petardazos
+# seguidos no suenan al doble, suena el gordo.
+func hacer_ruido(cuanto: float, segundos: float) -> void:
+	if cuanto <= _ruido_pico:
+		return
+	_ruido_pico = cuanto
+	_ruido_pico_dur = maxf(0.01, segundos)
+	_ruido_pico_t = _ruido_pico_dur
+
+
+# Desinfla el pico de ruido. Se llama desde _physics_process.
+func _tick_ruido(delta: float) -> void:
+	if _ruido_pico_t <= 0.0:
+		return
+	_ruido_pico_t -= delta
+	if _ruido_pico_t <= 0.0:
+		_ruido_pico = 0.0
+		_ruido_pico_t = 0.0
+		return
+	# Baja en rampa: el estallido se apaga, no se corta de cuajo.
+	_ruido_pico *= _ruido_pico_t / maxf(_ruido_pico_t + delta, 0.001)
+
+
 # ¿Hay linea de vision LIBRE (sin pared) entre el jugador y 'punto'? Mismo patron que el enemigo
 # (Enemy._linea_de_vision_libre): un rayo con la mascara de la ROCA. Se excluye a todo el grupo
 # porque el jugador y los companeros COMPARTEN capa con la roca; sin excluirlos, el rayo chocaria
@@ -1032,6 +1074,51 @@ func _nivel_enemigo_nodo(e: Node) -> int:
 	return e.data.level
 
 
+# TODO lo que hace el boton de atacar, que ya no es una sola cosa:
+#
+#   TOQUE CORTO  -> el ataque de siempre (entrar en combate cuerpo a cuerpo).
+#   MANTENER 1 s -> si llevas baston o varita, sacas tus hechizos y recitas AHI MISMO (casteo_mapa).
+#
+# El flanco de pulsacion NO ha cambiado de sitio a proposito: el ataque cuerpo a cuerpo sigue
+# saliendo en el instante en que pulsas, no al soltar. Si se esperara a saber si es toque o
+# mantenido, pegar se sentiria con medio segundo de retraso — y contra una embestida eso es la
+# diferencia entre entrar tu o entrar el.
+#
+# Solo si el flanco NO ha entrado en combate empieza a contar el mantenido: teniendo al bicho
+# pegado, la pulsacion ya se ha gastado en pegarle.
+const CASTEO_MANTENER := 1.0   # segundos aguantando el boton para sacar los hechizos
+
+func _tick_ataque(delta: float) -> void:
+	var atk: bool = Input.is_action_pressed(&"atacar")
+	# Mientras recitas, el boton no hace nada mas: las frases se tocan en la banda de abajo.
+	if is_instance_valid(_casteo):
+		_attack_was = atk
+		_atk_hold = 0.0
+		return
+	if atk and not _attack_was:
+		_atk_hold = 0.0
+		if not _try_attack():
+			_atk_buffer = ATK_BUFFER
+		else:
+			_atk_hold = -1.0   # ya ha entrado en combate: este mantenido no cuenta
+	elif atk and _atk_hold >= 0.0:
+		_atk_hold += delta
+		if _atk_hold >= CASTEO_MANTENER:
+			_atk_hold = -1.0   # un canto por pulsacion: hay que soltar y volver a mantener
+			_abrir_casteo()
+	if not atk:
+		_atk_hold = 0.0
+	# El ESPACIO que no encontro a nadie se RECUERDA y se reintenta (ver ATK_BUFFER). Ojo: esto corre
+	# tambien mientras mantienes, y es lo que quieres — si el bicho llega hasta ti a mitad del
+	# mantenido, le pegas y el canto no llega a abrirse.
+	if not (atk and not _attack_was) and _atk_buffer > 0.0:
+		_atk_buffer -= delta
+		if _try_attack():
+			_atk_buffer = 0.0
+			_atk_hold = -1.0
+	_attack_was = atk
+
+
 # Busca un enemigo VIVO justo enfrente y muy cerca; si lo hay, inicia el combate
 # con NUESTRA iniciativa. Devuelve true si ataco (lo usa _try_interact para saber
 # si ya ha consumido la pulsacion de F).
@@ -1058,7 +1145,11 @@ func _try_attack() -> bool:
 # [hueco, nodo]. El orden importa: antes se cogia el primero de get_nodes_in_group("enemy"), que va en
 # un orden arbitrario, asi que con 2-5 bichos apelotonados (o sea, en cualquier pelea) le pegabas al
 # que no querias.
-func _enemigos_a_tiro() -> Array:
+# 'alcance' = de centro a centro, como attack_range (el filtro real es el HUECO, que le resta los
+# dos medios cuerpos). Se le pasa otro numero para el CANTO, que llega mucho mas lejos que un
+# espadazo: el filtro (hueco + cono + pared) tiene que ser el mismo, solo cambia la distancia.
+func _enemigos_a_tiro(alcance: float = -1.0) -> Array:
+	var rango: float = alcance if alcance > 0.0 else attack_range
 	var out: Array = []
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e):
@@ -1072,7 +1163,7 @@ func _enemigos_a_tiro() -> Array:
 		# de lo que era attack_range (44) -> estabas pegado al slime y no podias pegarle. Con un elite
 		# (1.6x de tamaño) la esquina son ~59 px: era intocable en diagonal. Ver enemy.hueco_hasta().
 		var hueco: float = _hueco_hasta(e)
-		if hueco > attack_range - 32.0:
+		if hueco > rango - 32.0:
 			continue
 		# El CONO sigue mandando: atacar exige mirar al bicho, es una accion deliberada.
 		if absf(_facing.angle_to(to_e / dist)) > deg_to_rad(attack_half_angle_deg):
@@ -1101,6 +1192,92 @@ func quiere_atacarme(bicho: Node) -> bool:
 		if par[1] == bicho:
 			return true
 	return false
+
+
+# ============================================================
+#  RECITAR UN HECHIZO EN EL MAPA (mantener el boton de atacar)
+# ------------------------------------------------------------
+# Es la forma que tiene un mago de ABRIR la pelea: recitas aqui fuera y, si lo cantas entero, el
+# conjuro sale disparado. Al impactar se abre el combate con ese bicho como objetivo principal y el
+# hechizo se resuelve DENTRO, tal cual. Toda la maquina del recitado vive en casteo_mapa.gd; aqui
+# solo estan el "puedo o no" y lo que pasa cuando el conjuro llega.
+const CASTEO_MAPA = preload("res://scripts/ui/casteo_mapa.gd")
+const PROYECTIL_HECHIZO = preload("res://scripts/actors/player/proyectil_hechizo.gd")
+
+# Hasta donde llega el conjuro. Mucho mas que el espadazo: es justo la gracia de ser mago.
+const RANGO_CASTEO := 300.0
+
+
+func _abrir_casteo() -> void:
+	if is_instance_valid(_casteo) or Game.combate_activo():
+		return
+	var pj: PersonajeData = Game.lider()
+	if not Game.lleva_arma_magica(pj):
+		return   # sin baston ni varita no hay nada que sacar: ni aviso, seria ruido de UI
+	if pj.equipped_spells.is_empty():
+		_toast("No llevas hechizos equipados.")
+		return
+	# El objetivo se fija AHORA (el mas cercano dentro del cono, sin pared) y ya no cambia: si
+	# pudiera cambiar a media cancion, acabarias lanzandole a otro por haberte girado.
+	var candidatos: Array = _enemigos_a_tiro(RANGO_CASTEO)
+	if candidatos.is_empty():
+		_toast("No hay nada a tiro a lo que lanzarle un conjuro.")
+		return
+	var objetivo = candidatos[0][1]
+	var c: Node = CASTEO_MAPA.new()
+	c.setup(pj, self, objetivo)
+	c.lanzado.connect(_soltar_conjuro)
+	c.fallado.connect(func(_sp, _dano, _muerto) -> void: _casteo = null)
+	c.cancelado.connect(func() -> void: _casteo = null)
+	add_child(c)
+	_casteo = c
+
+
+# Cantado entero: sale el proyectil hacia el bicho. El mana ya lo cobro el panel.
+func _soltar_conjuro(spell: SpellData, objetivo: Node) -> void:
+	_casteo = null
+	if not is_instance_valid(objetivo):
+		return
+	var color: Color = Elementos.color(spell.elemento) if Elementos.tiene_color(spell.elemento) \
+		else Color(0.75, 0.75, 0.95)
+	var p: Node2D = PROYECTIL_HECHIZO.new()
+	p.setup(objetivo, color)
+	p.global_position = global_position
+	# Cuelga del PADRE (el piso), no de mi: si colgara de mi, me seguiria a mi en vez de volar.
+	var mundo: Node = get_parent()
+	if mundo == null:
+		return
+	mundo.add_child(p)
+	p.impacto.connect(_impacto_conjuro.bind(spell))
+	Net.anunciar_conjuro(objetivo, color)   # que el conjuro se vea volar en las otras pantallas
+
+
+# El conjuro ha llegado: se abre la pelea a mi nombre (con la iniciativa de siempre) y el hechizo
+# queda APUNTADO para que el combate lo resuelva en cuanto se monte, como si lo hubiera lanzado
+# dentro. Lo recoge Game.start_combat / unir_aliado_al_combate: los DOS caminos de entrada.
+func _impacto_conjuro(objetivo: Node, spell: SpellData) -> void:
+	if not is_instance_valid(objetivo) or not objetivo.has_method("atacado_por_jugador"):
+		return
+	Game.apuntar_hechizo_de_entrada(spell, objetivo, Game.lider())
+	if not bool(objetivo.atacado_por_jugador()):
+		# No ha admitido la pelea (ya la tiene otro, un espejo que se niega...): el hechizo apuntado
+		# se tira, que si no se quedaria esperando a la siguiente pelea que se abriera por lo que
+		# fuera y saldria solo de la nada.
+		Game.olvidar_hechizo_de_entrada()
+
+
+# Algo de fuera se lleva el canto por delante (un bicho que me alcanza y abre la pelea). Lo llama
+# quien entra en combate: el conjuro se pierde, pero no se cobra nada.
+func interrumpir_casteo() -> void:
+	if is_instance_valid(_casteo):
+		_casteo.interrumpir()
+	_casteo = null
+
+
+func _toast(texto: String) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast(texto)
 
 
 func _avisar_no_puedo_entrar() -> void:

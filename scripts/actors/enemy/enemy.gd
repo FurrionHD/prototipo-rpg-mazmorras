@@ -351,8 +351,14 @@ func _detecta_a(quien: Node2D) -> bool:
 	# ¿Hay roca de por medio? Se calcula UNA vez y la usan la vista y el oido.
 	# Solo hace falta saberlo si estas en el cono o dentro del alcance del oido; si no, ni se
 	# tira el rayo (un piso con 20 bichos son 20 rayos por frame como mucho).
+	# El RUIDO que hace. Normalmente es su velocidad, pero el lider puede estar haciendo ruido sin
+	# moverse (cantando un hechizo, o con un conjuro estallandole en la cara): quien tenga
+	# ruido_oido() manda, y quien no (un companero, el avatar de otro humano) se mide por su
+	# velocidad como toda la vida.
 	var player_speed: float = 0.0
-	if "velocity" in quien:
+	if quien.has_method("ruido_oido"):
+		player_speed = float(quien.ruido_oido())
+	elif "velocity" in quien:
 		player_speed = (quien.velocity as Vector2).length()
 	var hear_radius: float = minf(player_speed * hearing_factor, hearing_max)
 
