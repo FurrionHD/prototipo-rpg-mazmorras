@@ -1265,12 +1265,7 @@ func _apagar_caidos() -> void:
 	for i in _bloques_aliados.size():
 		if i >= _aliados.size() or _aliados[i].is_alive():
 			continue
-		var b: Dictionary = _bloques_aliados[i]
-		b["panel"].modulate = Color(0.4, 0.4, 0.4)
-		b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
-		b["chips"].visible = false
-		if _fx != null:
-			_fx.pintar_estados(b, [], false)   # ver _apagar_bloque
+		_apagar_diferido(_bloques_aliados[i], true)
 		if _timeline != null:
 			_timeline.quitar(_aliados[i])
 
@@ -1476,6 +1471,9 @@ func _ready() -> void:
 	_fx = CombatFX.new()
 	add_child(_fx)
 	_fx.tinte_cambiado.connect(_on_tinte_cambiado)
+	# El gris del cadaver espera a que se vea el golpe que lo mata (ver _apagar_diferido).
+	_fx.apagar_ahora.connect(func(b: Dictionary) -> void:
+		_apagar_visual(b, bool(b.get("fx_apagar_aliado", false))))
 
 	_anadir_fondo()  # fondo opaco para tapar la mazmorra detras
 	_montar_columna()  # el combate pasa a una columna de ancho fijo, centrada
@@ -2039,10 +2037,33 @@ func _apagar_bloque(e: Combatant) -> void:
 	var i: int = _enemies.find(e)
 	if i < 0 or i >= _bloques.size():
 		return
-	var b: Dictionary = _bloques[i]
-	b["panel"].modulate = Color(0.4, 0.4, 0.4)
-	b["panel"].mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
+	_apagar_diferido(_bloques[i], false)
+
+
+# EL GRIS DEL CADAVER, pero ESPERANDO a que se vea morir. Los muertos se rematan al final de la
+# accion (_tras_accion_jugador_varios), o sea ANTES de que la cola de animacion haya reproducido
+# un solo golpe: la tarjeta se ponia gris y despues llegaba volando el hechizo que la mataba.
+#
+# Si a ese bloque aun le quedan golpes por aterrizar, se marca y lo apaga CombatFX en cuanto
+# caiga el ultimo (señal apagar_ahora). Si no queda ninguno, se apaga ya.
+func _apagar_diferido(b: Dictionary, es_aliado: bool) -> void:
+	if _fx != null and _fx.golpes_pendientes(b):
+		b["fx_apagar"] = true
+		b["fx_apagar_aliado"] = es_aliado
+		return
+	_apagar_visual(b, es_aliado)
+
+
+# El apagado en si. Un solo sitio, porque lo llaman cuatro caminos (enemigo muerto, aliado KO, el
+# barrido de caidos del espejo, y el diferido de arriba) y antes estaba copiado en todos.
+func _apagar_visual(b: Dictionary, es_aliado: bool) -> void:
+	var panel: Control = b.get("panel")
+	if panel == null or not is_instance_valid(panel):
+		return
+	panel.modulate = Color(0.4, 0.4, 0.4)
+	if not es_aliado:
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel", _sb_bloque(false))
 	b["chips"].visible = false
 	# Un cadaver no arde ni centellea. Hay que apagarlo A MANO porque _update_hp se salta los
 	# chips de los muertos: sin esto el emisor se quedaba emitiendo encima del muerto para siempre.
@@ -2063,12 +2084,7 @@ func _caer_aliado(c: Combatant) -> void:
 	c.statuses.clear()
 	var i: int = _aliados.find(c)
 	if i >= 0 and i < _bloques_aliados.size():
-		var b: Dictionary = _bloques_aliados[i]
-		b["panel"].modulate = Color(0.4, 0.4, 0.4)
-		b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
-		b["chips"].visible = false
-		if _fx != null:
-			_fx.pintar_estados(b, [], false)   # ver _apagar_bloque: los caidos no siguen ardiendo
+		_apagar_diferido(_bloques_aliados[i], true)   # espera a que se vea el golpe que lo tumba
 	_set_log("%s cae derrotado. 💀" % c.nombre)
 	# El que actuaba era el: el puntero pasa a alguien en pie, o las acciones (y el log de "tu
 	# turno") se quedarian colgadas de un KO.

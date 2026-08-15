@@ -39,6 +39,12 @@ class_name CombatFX
 # en cuanto te entrara un veneno.
 signal tinte_cambiado(bloque: Dictionary)
 
+# A esta tarjeta ya le ha caido el ULTIMO golpe que tenia pendiente, asi que ya se puede apagar
+# (el gris del cadaver). Existe porque los muertos se rematan al final de la accion, o sea antes
+# de que la animacion haya reproducido un solo golpe: sin esto el bicho se ponia gris y despues
+# le llegaba volando el hechizo que lo mataba.
+signal apagar_ahora(bloque: Dictionary)
+
 # COMO se presenta un impacto. MELEE es lo de siempre: la tarjeta del que pega EMBISTE a la del
 # que lo recibe. Todos los demas son de hechizo y NINGUNO embiste -- el que lanza se queda en su
 # sitio y lo que viaja es el efecto, que es lo que diferencia lanzar un conjuro de dar un tajo.
@@ -623,17 +629,36 @@ func _descontar(bloque: Dictionary, dmg: float) -> void:
 	var pend: float = maxf(0.0, float(bloque.get("hp_pend", 0.0)) - maxf(dmg, 0.0))
 	bloque["hp_pend"] = pend
 	bloque["hp_meta"] = float(bloque["hp_fin"]) + pend
+	if pend <= 0.0:
+		_soltar_apagado(bloque)
+
+
+# Si esta tarjeta estaba esperando a morirse en pantalla, ya puede: le ha caido todo lo que le
+# tenia que caer.
+func _soltar_apagado(bloque: Dictionary) -> void:
+	if not bool(bloque.get("fx_apagar", false)):
+		return
+	bloque.erase("fx_apagar")
+	apagar_ahora.emit(bloque)
+
+
+# ¿Le queda a esta tarjeta algun golpe por aterrizar? Lo pregunta combat.gd antes de poner un
+# cadaver en gris.
+func golpes_pendientes(bloque: Dictionary) -> bool:
+	return float(bloque.get("hp_pend", 0.0)) > 0.0
 
 
 # Suelta lo que quedara a medias: la barra se va ya a la vida real. Se llama al acabar la racha y
 # al cancelarla (tecla P), para que un golpe que no se llego a ver no deje la barra mintiendo.
 func _saldar_barras() -> void:
 	for b in _tarjetas:
-		if float(b.get("hp_pend", 0.0)) == 0.0:
-			continue
-		b["hp_pend"] = 0.0
-		if b.has("hp_fin"):
-			b["hp_meta"] = b["hp_fin"]
+		if float(b.get("hp_pend", 0.0)) != 0.0:
+			b["hp_pend"] = 0.0
+			if b.has("hp_fin"):
+				b["hp_meta"] = b["hp_fin"]
+		# Y si alguien se quedo esperando a morirse en pantalla, que se muera ya: la racha se ha
+		# acabado (o la han cortado con la P) y no va a caerle nada mas.
+		_soltar_apagado(b)
 
 
 func _mover_barras(delta: float) -> void:
