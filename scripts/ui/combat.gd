@@ -1124,6 +1124,8 @@ func _difundir_atb(delta: float) -> void:
 # leer, asi que un segundo paquete montaria una racha nueva encima de la que ya estaba corriendo.
 const MAX_IMPACTOS_RED := CombatFX.MAX_EVENTOS
 var _impactos_red: PackedInt32Array = PackedInt32Array()
+# La tanda del ultimo impacto apuntado para la red, para saber cuando marcar el bit de "abre tanda".
+var _ult_tanda_red := -1
 
 
 # El codigo de un combatiente dentro del roster: los tuyos tal cual y los de enfrente a partir de
@@ -1141,7 +1143,7 @@ func _cod_combatiente(c: Combatant) -> int:
 # El reparto de bits de 'flags', que hay que leer igual en las dos puntas:
 #   0      critico
 #   1      evadido
-#   2      libre
+#   2      ABRE TANDA (este golpe empieza una tanda nueva; ver CombatFX.tanda)
 #   3-5    elemento + 1  (0..4)
 #   6-8    estilo        (los 8 de CombatFX.Estilo, ni uno mas: por eso son 8)
 #   9-15   peso x 64     (0..127 -> 0.00..1.98)
@@ -1153,7 +1155,14 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 	var cv: int = _cod_combatiente(victima)
 	if cv < 0:
 		return
-	var flags: int = (1 if crit else 0) | (2 if evadido else 0) \
+	# LA TANDA VIAJA. El espejo reconstruye la cola llamando a _fx_golpe en orden, pero no pasa por
+	# los _fx_tanda de la resolucion, asi que sin esto veria un molinete como cuatro golpes sueltos
+	# mientras el anfitrion lo ve como un barrido. No hace falta mandar el numero: como el orden se
+	# respeta, basta con marcar DONDE empieza cada tanda y que el espejo lleve el contador.
+	var t_ev: int = _fx.ultima_tanda() if _fx != null else -1
+	var abre: bool = t_ev != _ult_tanda_red
+	_ult_tanda_red = t_ev
+	var flags: int = (1 if crit else 0) | (2 if evadido else 0) | (4 if abre else 0) \
 		| (((elem + 1) & 7) << 3) | ((estilo & 7) << 6) \
 		| (clampi(roundi(peso * 64.0), 0, 127) << 9)
 	_impactos_red.append(ca)
@@ -1171,6 +1180,7 @@ func _soltar_impactos_red() -> void:
 	if not _espejo and Net.activo:
 		Net.difundir_impactos(_impactos_red)
 	_impactos_red = PackedInt32Array()
+	_ult_tanda_red = -1   # la accion se ha ido: la siguiente vuelve a empezar por su tanda 0
 
 
 # Corre en el ESPEJO: reproduce los golpes que acaba de resolver el anfitrion. Solo pinta -- no
@@ -1179,15 +1189,21 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 	if not _espejo or _fx == null:
 		return
 	var j: int = 0
+	var tanda: int = -1
 	while j + 3 < datos.size():
 		var ca: int = datos[j]
 		var cv: int = datos[j + 1]
 		var dmg: float = float(datos[j + 2]) / 10.0
 		var flags: int = datos[j + 3]
 		j += 4
+		# El bit de "abre tanda" se lee SIEMPRE, aunque la victima ya no exista en esta pantalla:
+		# el contador tiene que seguir el mismo compas que el del anfitrion pase lo que pase.
+		if (flags & 4) != 0:
+			tanda += 1
 		var victima: Combatant = _de_codigo(cv)
 		if victima == null:
 			continue
+		_fx_tanda(maxi(0, tanda))
 		# Con MASCARA en cada campo: sin ella, el elemento se leia con los bits del estilo y del
 		# peso pegados detras y salia un numero absurdo.
 		_fx_golpe(_de_codigo(ca), victima, dmg, (flags & 1) != 0, (flags & 2) != 0,
@@ -2242,8 +2258,11 @@ func _update_hp() -> void:
 		# cosa que mueva max_hp en vivo (Guardia de carne, que lo duplica) dejaba la barra midiendo
 		# contra un tope viejo: el numero decia 130/150 y la barra se pintaba llena como si fuera 75.
 		b["hp"].max_value = e.max_hp
-		# La barra se DESLIZA hasta ahi (lo mueve CombatFX); el numero de al lado va instantaneo.
-		# La barra puede mentir medio segundo mientras baja, la cifra no.
+		# La barra se DESLIZA hasta ahi (lo mueve CombatFX) y EL NUMERO VIAJA CON ELLA: el formato
+		# se deja apuntado en el bloque y CombatFX lo repinta cada frame desde el valor de la barra
+		# (ver _pintar_numero). Lo que se escribe aqui es el valor FINAL: es el que manda cuando la
+		# barra ya ha llegado, y el unico que hay cuando no existe capa de efectos.
+		b["hp_fmt"] = "%.2f / %.2f"
 		_fijar_barra(b, "hp", e.current_hp)
 		b["hp_lbl"].text = "%.2f / %.2f" % [e.current_hp, e.max_hp]
 		# La etiqueta se queda SOLO con el nombre y el nivel; los estados van en su fila de
@@ -2262,14 +2281,17 @@ func _update_hp() -> void:
 		# Los tres maximos en cada refresco, por lo mismo que arriba: son numeros que se mueven en
 		# mitad de la pelea y la barra tiene que medir contra el de AHORA.
 		b["hp"].max_value = c.max_hp
+		b["hp_fmt"] = "%.2f / %.2f"
 		_fijar_barra(b, "hp", c.current_hp)
 		b["hp_lbl"].text = "%.2f / %.2f" % [c.current_hp, c.max_hp]
 		if b.has("en"):
 			b["en"].max_value = c.max_energy
+			b["en_fmt"] = "EN  %.1f / %.1f"
 			_fijar_barra(b, "en", c.current_energy)
 			b["en_lbl"].text = "EN  %.1f / %.1f" % [c.current_energy, c.max_energy]
 		if b.has("mp"):
 			b["mp"].max_value = c.max_mp
+			b["mp_fmt"] = "MP  %.2f / %.2f"
 			_fijar_barra(b, "mp", c.current_mp)
 			b["mp_lbl"].text = "MP  %.2f / %.2f" % [c.current_mp, c.max_mp]
 		# La coronita marca a QUIEN LE TOCA: con tres bloques iguales hace falta saber de un
@@ -2307,6 +2329,16 @@ func _bloque_de(c: Combatant) -> Dictionary:
 # contraataque) y nadie mas. No pinta nada todavia: apunta el golpe en la cola, y quien la echa a
 # andar es el final de la accion (ver _pausa_lectura), que es cuando ya se sabe cuantos golpes
 # tiene y por tanto cuanto tiene que durar el turno.
+# A QUE GOLPE de la accion pertenece lo siguiente que se encole. Los que comparten numero caen A
+# LA VEZ: un molinete pega a los cuatro bichos de una tacada, no de uno en uno. Se llama con el
+# indice del golpe justo antes de _fx_golpe, y con eso basta -- NO hace falta reordenar como se
+# resuelve el combate, que es lo delicado (sobre todo en la rama enemiga, que va victima a
+# victima). Ver CombatFX.tanda.
+func _fx_tanda(i: int) -> void:
+	if _fx != null:
+		_fx.tanda(i)
+
+
 func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		evadido: bool, elem: int = Elementos.Elemento.NINGUNO,
 		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0) -> void:
@@ -2394,7 +2426,10 @@ func _chips_de(c: Combatant) -> Array:
 	# el bloque: la zona de chips tiene alto fijo.
 	if c.charging != null:
 		# Corto como el resto: el icono y los turnos que faltan. QUE esta cargando va al tooltip.
-		out.append(["⚡%dt" % c.charge_left,
+		# RELOJ DE ARENA, no rayo: con el ⚡ este chip se leia como un estado mas de los del catalogo
+		# y no habia forma de ver de un vistazo cual era el que te estaba preparando el pepino. Lo
+		# que dice es "aqui hay una cuenta atras", que es exactamente lo que pasa.
+		out.append(["⏳%dt" % c.charge_left,
 			"CARGANDO: %s\nSe dispara en %d turno%s.\nAturdirlo lo interrumpe." % [
 				c.charging.nombre, c.charge_left, "" if c.charge_left == 1 else "s"]])
 	# RECITANDO un hechizo. Hermano del chip de ataque cargado, y por el mismo motivo: un conjuro dura
@@ -3522,13 +3557,17 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		# objetivo), pero es lo que hace que cinco rebotes se lean como UNA cadena y no como cinco
 		# lanzamientos sueltos.
 		var anterior: Combatant = null
+		# La cadena arranca DESPUES del ultimo golpe del area: un rebote es una cosa que pasa
+		# detras, no a la vez (ver _fx_tanda).
+		var tanda_reb: int = spell.golpes()
 		for i in spell.rebotes_n():
 			var vivos: Array[Combatant] = _vivos()
 			if vivos.is_empty():
 				break   # no queda nadie a quien saltar: la cadena se apaga
 			var victima: Combatant = vivos.pick_random()
 			res_reb.append(_resolver_golpes_hechizo(spell, victima, foco, spell.dano_rebote,
-				spell.rebote_estados, anterior, true))
+				spell.rebote_estados, anterior, true, tanda_reb))
+			tanda_reb += spell.golpes()
 			tocados.append(victima)
 			# Se apunta aunque este rebote la mate: los muertos se rematan al final de la accion
 			# (_tras_accion_jugador_varios), asi que su tarjeta sigue ahi para el arco siguiente.
@@ -3676,10 +3715,14 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 #                     bolas" y "ha reventado ahi y ha alcanzado a los de al lado", que es lo que
 #                     de verdad pasa. Ver _resolver_hechizo.
 #   rebote       -> solo para el ASPECTO: los rebotes se pintan como arcos.
+#   tanda_base   -> tambien solo aspecto: desde que golpe cuenta esta llamada, para que el golpe i
+#                   caiga a la vez sobre todos los del area (ver _fx_tanda). El area pasa 0 (las
+#                   llamadas son hermanas, una por objetivo); los REBOTES pasan un numero que
+#                   crece, porque una cadena tiene que verse justamente como un salto tras otro.
 # Devuelve {c, dano, mult, golpes, trail, estados}.
 func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float,
 		escala: float = 1.0, tira_estados: bool = true, desde: Combatant = null,
-		rebote: bool = false) -> Dictionary:
+		rebote: bool = false, tanda_base: int = 0) -> Dictionary:
 	var n: int = spell.golpes()
 	var frac: float = escala / float(n)
 	var peso: float = _peso_hechizo(spell, escala)
@@ -3696,6 +3739,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 	for i in n:
 		if not objetivo.is_alive():
 			break   # ya ha caido: los golpes que quedaban se pierden
+		_fx_tanda(tanda_base + i)
 		var elem: int = spell.elemento_de_golpe()
 		var res: Dictionary = StatsMath.resolve_spell(_player, objetivo, spell, elem, frac)
 		var dmg: float = float(res.damage) * foco
@@ -3770,6 +3814,9 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 			# un numero ni un temblor. Se veian menos que un puñetazo.
 			# El salpicon de una bola sale DEL SITIO DONDE HA CAIDO, no de tu mano: la bola cae en
 			# uno y de ahi alcanza a sus vecinos (ver _resolver_hechizo, misma regla).
+			# La bola y SU salpicon son el mismo instante: cae en uno y revienta, no va tocando
+			# vecinos de uno en uno. Cada bola (i) si es su propia tanda. Ver _fx_tanda.
+			_fx_tanda(i)
 			_fx_golpe(_player if obj == principal else principal, obj, dmg,
 				bool(res.get("crit", false)), false, elem,
 				_estilo_hechizo(spell, elem, false), _peso_hechizo(spell, float(t.escala)))
@@ -4165,6 +4212,10 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	# En Guardia rota / Aplastamiento eso significa que el golpe 0 va con Ataque y el 1 con Defensa:
 	# cada uno con su atributo.
 	var atk_ov: float = _player.atk_escudo() if ab.golpe_es_de_escudo(i) else -1.0
+	# TODO lo de este golpe cae a la vez, alcance a uno o a cuatro: un molinete es UN barrido por
+	# golpe, no un golpecito por bicho. La resolucion sigue yendo objetivo a objetivo; lo unico que
+	# se agrupa es como se ve (ver _fx_tanda).
+	_fx_tanda(i)
 	var result := StatsMath.resolve_attack(_player, objetivo, false, atk_ov)
 	if result.evaded:
 		r.evaded = true
@@ -5334,7 +5385,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				if t == null: break
 				if principal == null: principal = t
 				var sub := _enemy_resolver_golpes(e, ab, t, 1, 1.0, contra_txt == "",
-					ab.efectos_por_golpe)
+					ab.efectos_por_golpe, 1.0, i)
 				total += float(sub["total"]); estados_log += sub["estados"]
 				conecto_algo += int(sub["conecto"])
 				rastro += sub["rastro"]; dano_por_obj[t] = float(dano_por_obj.get(t, 0.0)) + float(sub["total"])
@@ -5442,8 +5493,14 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 # (1.0 = pleno; area_secundario en los adyacentes). 'permitir_contra' deja que t (en guardia)
 # devuelva UN golpe. 'aplicar_efectos' decide si t recibe los estados (el principal siempre; los
 # adyacentes solo si la habilidad lo pide). Devuelve {total, conecto, estados, contra}.
+# 'tanda_base' = por que golpe de la habilidad va esta llamada. Sirve SOLO para la animacion: los
+# golpes con el mismo numero caen a la vez, y asi un area enemiga se ve como un barrido aunque
+# aqui se siga resolviendo victima a victima (ver _fx_tanda). En el area vale 0 (cada llamada
+# recorre sus golpes desde el principio); en reparto_por_golpe, donde el que llama trae un golpe
+# suelto por vuelta, hay que pasarle el indice o los dos embates del slime caerian encima.
 func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpes: int,
-		escala: float, permitir_contra: bool, aplicar_efectos: bool, escala_prob: float = 1.0) -> Dictionary:
+		escala: float, permitir_contra: bool, aplicar_efectos: bool, escala_prob: float = 1.0,
+		tanda_base: int = 0) -> Dictionary:
 	var pj_t: PersonajeData = Game.pj_de_combatant(t)
 	var defendiendo: bool = bool(_defendiendo.get(t, false)) or t.en_guardia
 	var total: float = 0.0
@@ -5453,6 +5510,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	var rastro: Array = []   # un token por golpe para el desglose del log (mismo formato que el jugador)
 	var esquivados: int = 0  # para la excelia de Agilidad, que se paga UNA vez al final
 	for i in n_golpes:
+		_fx_tanda(tanda_base + i)
 		var result := StatsMath.resolve_attack(e, t, defendiendo)
 		if result.evaded:
 			print("        [%s] golpe %d: esquivado 💨" % [t.nombre, i + 1])

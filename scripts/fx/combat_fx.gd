@@ -236,6 +236,10 @@ var _cola: Array[Dictionary] = []       # impactos de la accion en curso
 var _t := 0.0                           # reloj de la racha
 var _dur := 0.0                         # lo que dura la racha entera
 var _activa := false
+# LA TANDA de un impacto: los que comparten numero caen A LA VEZ (ver arrancar_cola). Un molinete
+# a cuatro bichos son DOS tandas de cuatro golpes, no ocho golpes seguidos.
+var _tanda_pedida := -1                 # la que ha fijado quien resuelve, o -1 si no ha dicho nada
+var _tanda_auto := -1                   # la ultima estampada: sin peticion, cada golpe va a la suya
 var _numeros: Array[Dictionary] = []    # los que estan volando ahora
 var _pool: Array[Label] = []            # Labels reciclados: nada de crear nodos por frame
 
@@ -590,8 +594,9 @@ static func _stacks_de(etiqueta: String) -> int:
 # ============================================================
 
 # _update_hp sigue siendo el unico que decide el valor, pero ahora fija el DESTINO y la barra
-# viaja sola. El NUMERO de al lado se queda instantaneo (lo pone _update_hp): la barra puede
-# mentir medio segundo, la cifra no.
+# viaja sola. El NUMERO de al lado VIAJA CON ELLA: lo repinta _mover_barras desde bar.value, asi
+# que la cifra y el dibujo cuentan siempre lo mismo. (Antes la cifra iba instantanea al valor
+# final: la barra bajaba despacio mientras el numero ya estaba abajo, y eso se leia como un fallo.)
 func fijar_barra(bloque: Dictionary, clave: String, valor: float, inmediato := false) -> void:
 	if not bloque.has(clave):
 		return
@@ -608,17 +613,47 @@ func fijar_barra(bloque: Dictionary, clave: String, valor: float, inmediato := f
 	# descontar LO SUYO cuando toca, o la vida baja antes de que se vea el golpe que la baja.
 	# Lo que queda por descontar se guarda en '<clave>_pend' (ver arrancar_cola).
 	bloque[clave + "_fin"] = valor
-	bloque[clave + "_meta"] = valor + float(bloque.get(clave + "_pend", 0.0))
+	_recalcular_meta(bloque, clave)
 	if inmediato or primera:
 		bar.value = bloque[clave + "_meta"]
+
+
+# EL DESTINO de una barra = la vida final MAS lo que aun no se ha visto caer. Un solo sitio para
+# los tres que lo tocan (fijar_barra, encolar y _descontar), porque los tres tienen que respetar
+# las mismas dos vallas:
+#
+#   1. NUNCA por encima del maximo. 'pend' guarda el daño BRUTO del golpe, pero la vida final sale
+#      de current_hp, que esta clampeado a 0 (ver Combatant.take_damage). En un remate con exceso
+#      (bicho a 10/30 que come 50) daba fin=0 + pend=50 = 50, y la ProgressBar lo recortaba a 30:
+#      la barra SUBIA hasta llenarse de rojo justo antes de morir. Mismo desajuste con el escudo
+#      del sequito del Rey Slime, que recorta el daño aplicado despues de haberse encolado el bruto.
+#   2. MIENTRAS QUEDEN GOLPES POR CAER, LA BARRA SOLO BAJA. Es lo que remata el caso de arriba: un
+#      golpe pendiente jamas puede empujar la barra hacia arriba, venga el numero que venga. Solo
+#      se aplica con pend > 0, para que una CURACION siga subiendola con toda normalidad.
+func _recalcular_meta(bloque: Dictionary, clave: String) -> void:
+	if not bloque.has(clave) or not bloque.has(clave + "_fin"):
+		return
+	var bar: ProgressBar = bloque[clave]
+	if bar == null or not is_instance_valid(bar):
+		return
+	var pend: float = float(bloque.get(clave + "_pend", 0.0))
+	var meta: float = clampf(float(bloque[clave + "_fin"]) + pend, 0.0, bar.max_value)
+	if pend > 0.0:
+		meta = minf(meta, bar.value)
+	bloque[clave + "_meta"] = meta
 
 
 # Olvida los destinos de las barras de UNA tarjeta, para que el siguiente fijar_barra vuelva a
 # ser un salto seco. Lo usa el hueco de cadaver que se reestrena: la barra del que entra no puede
 # venir viajando desde la vida del que estaba antes.
+#
+# Se borra TAMBIEN lo pendiente y la vida final: si solo se quitaba la meta, el que entra en el
+# hueco heredaba los golpes sin aterrizar del muerto y su barra nacia midiendo con la vida ajena.
 func olvidar_barras(bloque: Dictionary) -> void:
 	for clave in ["hp", "en", "mp"]:
 		bloque.erase(clave + "_meta")
+		bloque.erase(clave + "_pend")
+		bloque.erase(clave + "_fin")
 
 
 # Le quita a la barra de UNA tarjeta lo que acaba de comerse en este golpe. Cuando ya no queda
@@ -628,7 +663,7 @@ func _descontar(bloque: Dictionary, dmg: float) -> void:
 		return
 	var pend: float = maxf(0.0, float(bloque.get("hp_pend", 0.0)) - maxf(dmg, 0.0))
 	bloque["hp_pend"] = pend
-	bloque["hp_meta"] = float(bloque["hp_fin"]) + pend
+	_recalcular_meta(bloque, "hp")
 	if pend <= 0.0:
 		_soltar_apagado(bloque)
 
@@ -654,8 +689,7 @@ func _saldar_barras() -> void:
 	for b in _tarjetas:
 		if float(b.get("hp_pend", 0.0)) != 0.0:
 			b["hp_pend"] = 0.0
-			if b.has("hp_fin"):
-				b["hp_meta"] = b["hp_fin"]
+			_recalcular_meta(b, "hp")
 		# Y si alguien se quedo esperando a morirse en pantalla, que se muera ya: la racha se ha
 		# acabado (o la han cortado con la P) y no va a caerle nada mas.
 		_soltar_apagado(b)
@@ -670,10 +704,31 @@ func _mover_barras(delta: float) -> void:
 			if bar == null or not is_instance_valid(bar):
 				continue
 			var meta: float = b[clave + "_meta"]
-			if is_equal_approx(bar.value, meta):
-				continue
-			var paso: float = maxf(bar.max_value, 1.0) * VEL_BARRA * delta
-			bar.value = move_toward(bar.value, meta, paso)
+			if not is_equal_approx(bar.value, meta):
+				var paso: float = maxf(bar.max_value, 1.0) * VEL_BARRA * delta
+				bar.value = move_toward(bar.value, meta, paso)
+			# El numero se repinta SIEMPRE, tambien con la barra quieta. Es lo que cubre la RETENCION:
+			# entre que el golpe se resuelve y el impacto aterriza, la barra se queda a proposito
+			# donde estaba... pero _update_hp ya ha escrito el numero de despues. Sin repintar aqui,
+			# la cifra seguia adelantandose al golpe justo en el hueco que importa.
+			_pintar_numero(b, clave)
+
+
+# EL NUMERO de una barra, sacado de la BARRA y no del combatiente: es lo que hace que la cifra y
+# el dibujo cuenten lo mismo mientras la vida viaja. Al llegar a la meta, move_toward aterriza
+# exacto, asi que en reposo la cifra sigue siendo la de verdad.
+#
+# El formato lo deja _update_hp en '<clave>_fmt' (cada barra tiene el suyo: "EN 1/1", "MP 1.00/1.00").
+# Sin formato no se toca nada: manda lo que haya escrito _update_hp, que es el camino que funciona
+# tambien cuando no hay capa de efectos.
+func _pintar_numero(bloque: Dictionary, clave: String) -> void:
+	if not bloque.has(clave + "_lbl") or not bloque.has(clave + "_fmt"):
+		return
+	var lbl: Label = bloque[clave + "_lbl"]
+	if lbl == null or not is_instance_valid(lbl):
+		return
+	var bar: ProgressBar = bloque[clave]
+	lbl.text = String(bloque[clave + "_fmt"]) % [bar.value, bar.max_value]
 
 
 func _snap_barras() -> void:
@@ -681,11 +736,23 @@ func _snap_barras() -> void:
 		for clave in ["hp", "en", "mp"]:
 			if b.has(clave) and b.has(clave + "_meta") and is_instance_valid(b[clave]):
 				b[clave].value = b[clave + "_meta"]
+				_pintar_numero(b, clave)
 
 
 # ============================================================
 #  IMPACTOS
 # ============================================================
+
+# A QUE TANDA pertenece el proximo golpe que se encole. Lo dice quien resuelve la accion, con el
+# indice del golpe que ya tiene a mano: un molinete de dos golpes a cuatro bichos llama con 0 para
+# los cuatro primeros y con 1 para los cuatro siguientes, y esos cuatro caen A LA VEZ.
+#
+# Solo vale para UN encolar: en cuanto se estampa, se olvida. Asi lo que NO pase por aqui (un
+# basico, los rebotes encadenados de un rayo) sigue yendo golpe a golpe como siempre, que es como
+# tiene que verse: un rebote es justamente una cosa DESPUES de otra.
+func tanda(n: int) -> void:
+	_tanda_pedida = maxi(0, n)
+
 
 # Apunta UN golpe. No lo reproduce todavia: la accion puede tener 8 y hasta que no estan todos
 # no se sabe cuanto tiene que durar la racha (ver arrancar_cola).
@@ -698,11 +765,18 @@ func _snap_barras() -> void:
 func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bool,
 		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0) -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
+		_tanda_pedida = -1
 		return
+	# La tanda que hayan pedido, o una nueva para este golpe solo. Nunca hacia atras: si alguien
+	# mezcla golpes con tanda y sin ella, los de despues no pueden caer ANTES.
+	var t_ev: int = _tanda_auto + 1 if _tanda_pedida < 0 else maxi(_tanda_pedida, 0)
+	_tanda_auto = maxi(_tanda_auto, t_ev)
+	_tanda_pedida = -1
 	_cola.append({
 		"ba": b_atacante, "bv": b_victima, "dmg": dmg, "crit": crit,
 		"evadido": evadido, "color": color_elem, "t": 0.0, "lanzado": false,
 		"estilo": estilo, "peso": clampf(peso, 0.2, 1.5), "fx_lanzado": false,
+		"tanda": t_ev,
 	})
 	# LA VIDA NO PUEDE BAJAR ANTES QUE EL GOLPE. Se apunta AQUI, en el mismo instante en que el
 	# golpe se resuelve, y no al arrancar la cola: entre una cosa y otra combat.gd llama a
@@ -714,8 +788,7 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 	# Cada impacto le descuenta lo suyo al aterrizar (ver _descontar).
 	if not evadido and dmg > 0.0:
 		b_victima["hp_pend"] = float(b_victima.get("hp_pend", 0.0)) + dmg
-		if b_victima.has("hp_fin"):
-			b_victima["hp_meta"] = float(b_victima["hp_fin"]) + float(b_victima["hp_pend"])
+		_recalcular_meta(b_victima, "hp")
 
 
 # Cierra la racha y la echa a andar. Devuelve LO QUE VA A DURAR: ese numero es el que se convierte
@@ -738,12 +811,25 @@ func arrancar_cola() -> float:
 	# despues, y eso cambia segun la accion.)
 	var t_enc: float = T_ENCADENADO_MAGIA if magia else T_ENCADENADO
 	var arranque: float = T_ARRANQUE_MAGIA if magia else T_IDA
+	# EL TIEMPO SE REPARTE ENTRE TANDAS, NO ENTRE IMPACTOS. Un golpe de area es UN golpe aunque
+	# alcance a cuatro: los cuatro tienen que caer en el mismo instante. Escalonando por indice de
+	# evento, un molinete de 2 golpes a 4 bichos salian 8 instantes distintos y se leia como ocho
+	# golpecitos en fila en vez de dos barridos. De paso el turno dura lo que dura DE VERDAD (dos
+	# tandas), que es bastante menos.
+	var orden: Dictionary = {}   # numero de tanda -> su posicion (0, 1, 2...)
+	for ev in _cola:
+		var tv: int = int(ev.get("tanda", 0))
+		if not orden.has(tv):
+			orden[tv] = orden.size()
+	var n_tandas: int = maxi(1, orden.size())
 	# Los extras TOPAN: 32 impactos de una tormenta no pueden durar cinco segundos. Lo que hacen
 	# es encadenarse mas apretados dentro de la misma ventana.
-	var extra: float = minf(t_enc * float(n - 1), TOPE_RACHA_MAGIA if magia else TOPE_RACHA)
-	var paso: float = extra / maxf(1.0, float(n - 1))
+	var extra: float = minf(t_enc * float(n_tandas - 1), TOPE_RACHA_MAGIA if magia else TOPE_RACHA)
+	var paso: float = extra / maxf(1.0, float(n_tandas - 1))
 	for i in n:
-		_cola[i]["t"] = arranque + paso * float(i)
+		var pos: int = int(orden[int(_cola[i].get("tanda", 0))])
+		_cola[i]["t"] = arranque + paso * float(pos)
+		_cola[i]["pos_tanda"] = pos
 		_cola[i]["lanzado"] = false
 		_cola[i]["fx_lanzado"] = false
 	_t = 0.0
@@ -751,8 +837,18 @@ func arrancar_cola() -> float:
 		_dur = minf(arranque + T_PUM + extra + T_COLA_MAGIA, TOPE_TOTAL_MAGIA)
 	else:
 		_dur = minf(arranque + T_PUM + extra + T_VUELTA, TOPE_TOTAL)
+	# La accion se ha cerrado: la numeracion de tandas empieza de cero en la siguiente.
+	_tanda_auto = -1
+	_tanda_pedida = -1
 	_activa = true
 	return _dur
+
+
+# La tanda del ULTIMO golpe encolado, o -1 si no hay ninguno. La pregunta combat.gd justo despues
+# de encolar, para contarle al espejo cuando empieza una tanda nueva sin tener que llevar la
+# cuenta por su lado (y arriesgarse a que las dos cuentas se separen).
+func ultima_tanda() -> int:
+	return int(_cola[-1].get("tanda", 0)) if not _cola.is_empty() else -1
 
 
 func ocupado() -> bool:
@@ -767,6 +863,8 @@ func cancelar() -> void:
 	_activa = false
 	_t = 0.0
 	_dur = 0.0
+	_tanda_auto = -1
+	_tanda_pedida = -1
 	for b in _tarjetas:
 		_reposo(b)
 	for n in _numeros:
@@ -836,10 +934,13 @@ func _process(delta: float) -> void:
 			_descontar(ev["bv"], float(ev["dmg"]) if not bool(ev["evadido"]) else 0.0)
 
 		# EMBESTIDA del atacante. SOLO EN MELEE: un mago no se lanza contra el bicho para tirarle
-		# una bola de fuego, se queda donde esta y lo que viaja es el conjuro. Del 7º golpe en
+		# una bola de fuego, se queda donde esta y lo que viaja es el conjuro. De la 7ª TANDA en
 		# adelante tampoco se mueve nadie: con esa densidad el movimiento se lee como ruido.
+		#
+		# Cuenta la TANDA y no el indice del evento: si no, un molinete a cuatro bichos gastaba el
+		# cupo con el primer barrido y el atacante se quedaba plantado en el segundo.
 		if pa != null and is_instance_valid(pa) and pa != pv \
-				and estilo == Estilo.MELEE and i < MAX_IMPACTOS_ANIMADOS:
+				and estilo == Estilo.MELEE and int(ev.get("pos_tanda", i)) < MAX_IMPACTOS_ANIMADOS:
 			var dir: Vector2 = _direccion(pa, pv)
 			var d: float = 0.0
 			if _t < t_imp and _t >= t_imp - T_IDA:

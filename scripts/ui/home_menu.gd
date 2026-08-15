@@ -383,8 +383,12 @@ func _build_encargos_nuevo() -> void:
 			% _enc_tipos.size() + "aprenden se reparte entre varias habilidades.")
 
 	MenuScaffold.titulo(_lista, "Piso", 14)
+	# HASTA DONDE HAS LLEGADO, que es la libreta del mapa (los pisos traidos a salvo al pueblo).
+	# Antes se preguntaba a Game.pisos_desbloqueados(), que NO es eso: es la lista de ATAJOS
+	# abiertos por jefes, y como solo hay jefes en el 6 y en el 12, devolvia [1] hasta matar al Rey
+	# Slime. Con cuatro pisos explorados el selector no se movia del 1.
 	var tope: int = 1
-	for p in Game.pisos_desbloqueados():
+	for p in Game.mapa_visible().keys():
 		tope = maxi(tope, int(p))
 	var fila_piso := HBoxContainer.new()
 	_lista.add_child(fila_piso)

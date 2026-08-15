@@ -127,6 +127,10 @@ var _objetivo: Node2D = null
 var _wander_target: Vector2 = Vector2.ZERO
 var _wander_timer: float = 0.0
 var _stuck_time: float = 0.0   # cuanto lleva atascado contra una pared
+# DESATASCO: mientras dura, en vez de empujar la roca la BORDEA (ver _desatascar_bordeando).
+var _bordeo: Vector2 = Vector2.ZERO       # la tangente elegida; ZERO = no esta desatascandose
+var _bordeo_t: float = 0.0                # lo que le queda de rodeo
+var _bordeos: int = 0                     # rodeos seguidos sin llegar a despegarse
 var _windup_timer: float = -1.0  # -1 = no esta preparando ataque
 var _winding: bool = false       # true mientras hace el aviso de ataque
 # EMBESTIDA: direccion COMPROMETIDA al acabar el aviso (no se recalcula: por eso se puede esquivar),
@@ -295,11 +299,24 @@ func _physics_process(delta: float) -> void:
 		State.EMBESTIDA: _embestida(delta)
 		State.RETURN: _return()
 
+	# BORDEAR la pared en vez de empujarla. Va DESPUES del estado (le pisa la direccion) y ANTES de
+	# la separacion, porque durante el rodeo la separacion es justo lo que lo prensaba contra la
+	# roca. Solo actua si hay un rodeo en marcha; ver _vigilar_atasco.
+	var separando: float = 1.0
+	if _bordeo != Vector2.ZERO:
+		_bordeo_t -= delta
+		if _bordeo_t <= 0.0:
+			_bordeo = Vector2.ZERO
+		else:
+			velocity = _bordeo * current_move_speed
+			separando = 0.25
+
 	# El empujon de separacion se suma a lo que sea que estuviera haciendo (merodear, ir a por su
 	# manada o perseguirte): vale para todo, y en la persecucion es lo que evita que los cuatro
 	# lleguen apilados en el mismo pixel encima de ti.
-	velocity += _separacion() * current_move_speed * SEPARACION_FUERZA
+	velocity += _separacion() * current_move_speed * SEPARACION_FUERZA * separando
 
+	var antes: Vector2 = global_position
 	move_and_slide()
 
 	# La direccion de mirada = hacia donde nos movemos (si nos movemos).
@@ -307,20 +324,75 @@ func _physics_process(delta: float) -> void:
 		_facing = velocity.normalized()
 	_actualizar_indicadores()
 
-	# Anti-atasco al deambular: si chocamos con una pared, apuntamos de vuelta
-	# a nuestro sitio (nos despegamos hacia dentro). Si llevamos mucho rato
-	# atascados (p. ej. nos expulso fuera en una esquina), volvemos de golpe.
-	if _state == State.WANDER:
-		if get_slide_collision_count() > 0:
-			_stuck_time += delta
-			if _stuck_time > 1.5:
-				global_position = _home  # red de seguridad
-				_stuck_time = 0.0
-				_pick_wander_target()
-			else:
-				_wander_target = _home  # tira hacia casa para despegarse
-		else:
+	_vigilar_atasco(delta, antes)
+
+
+# ANTI-ATASCO, en TODOS los estados que se mueven. Antes solo existia en WANDER, asi que un bicho
+# que te tuviera fichado podia pasarse minutos empujando un rincon (lose_range son 300 px): en
+# CHASE no habia nada que lo despegara. Y se medía por get_slide_collision_count(), que se resetea
+# con un solo frame sin rozar, de modo que un roce intermitente en esquina no llegaba nunca al
+# tiempo de corte.
+#
+# Aqui se mide LO QUE DE VERDAD IMPORTA: si pide moverse y NO se mueve, esta atascado, dé o no dé
+# la colision ese frame. El rincon concavo es el caso feo -- el vector directo se anula en los dos
+# ejes y move_and_slide no tiene sobre que deslizar.
+const ATASCO_AVANCE := 0.35    # fraccion del avance esperado por debajo de la cual "no avanza"
+const ATASCO_T := 0.35         # cuanto aguanta asi antes de intentar salir
+const BORDEO_T := 0.6          # lo que dura un rodeo
+const BORDEOS_MAX := 3         # rodeos seguidos antes de rendirse y volverse a su sitio
+func _vigilar_atasco(delta: float, antes: Vector2) -> void:
+	# Si no pide moverse (esta plantado haciendo el aviso, o esperando) no hay atasco que valer.
+	var pedido: float = velocity.length() * delta
+	if pedido < 0.5 or _bordeo != Vector2.ZERO:
+		if _bordeo == Vector2.ZERO:
 			_stuck_time = 0.0
+		return
+	var avance: float = global_position.distance_to(antes)
+	if avance >= pedido * ATASCO_AVANCE:
+		_stuck_time = 0.0
+		_bordeos = 0
+		return
+	_stuck_time += delta
+	if _stuck_time < ATASCO_T:
+		return
+	_stuck_time = 0.0
+	_bordeos += 1
+	if _bordeos > BORDEOS_MAX:
+		# No hay manera. Merodeando, la red de seguridad de siempre: de vuelta a casa de golpe. Pero
+		# a un bicho que te esta persiguiendo NO se le teletransporta delante de las narices: suelta
+		# la presa y se vuelve andando, que ademas te da la salida.
+		_bordeos = 0
+		if _state == State.WANDER:
+			global_position = _home
+			_pick_wander_target()
+		else:
+			_cancelar_aviso()
+			_objetivo = null
+			_state = State.RETURN
+		return
+	_desatascar_bordeando()
+
+
+# Sigue la pared en vez de empujarla. De la normal del choque salen las dos tangentes; se coge la
+# que mas acerca a donde quiere ir. Es wall-following de andar por casa, pero es lo que saca de un
+# rincon concavo, y no hace falta navegacion para eso (en el proyecto no hay ninguna).
+func _desatascar_bordeando() -> void:
+	var destino: Vector2 = _wander_target
+	if _state == State.CHASE and _objetivo != null and is_instance_valid(_objetivo):
+		destino = _objetivo.global_position
+	elif _state == State.RETURN:
+		destino = _home
+	var hacia: Vector2 = (destino - global_position)
+	hacia = hacia.normalized() if hacia.length() > 0.01 else _facing
+	# La normal de la roca contra la que empuja. Sin colision este frame (roce intermitente), se
+	# usa la propia direccion de marcha como si fuera de frente.
+	var normal: Vector2 = -hacia
+	if get_slide_collision_count() > 0:
+		normal = get_slide_collision(0).get_normal()
+	var t1: Vector2 = Vector2(-normal.y, normal.x)
+	var t2: Vector2 = -t1
+	_bordeo = t1 if t1.dot(hacia) >= t2.dot(hacia) else t2
+	_bordeo_t = BORDEO_T
 
 
 

@@ -3148,10 +3148,16 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 			"clase": Encargos.clase_valida(pj, int(clases.get(String(uid), Encargos.Clase.GUERRERO))),
 		})
 
+	# EL PISO LO CIERRA EL ANFITRION. El selector del menu ya lo topa a lo explorado, pero esa era
+	# la UNICA valla del sistema: por Net.solicitar_encargo un cliente podia pedir la profundidad
+	# que le diera la gana. Mismo tope que la UI: la libreta de pisos traidos a salvo al pueblo.
+	var tope_piso: int = 1
+	for p in mapa_visible().keys():
+		tope_piso = maxi(tope_piso, int(p))
 	var e: Dictionary = {
 		"id": _encargo_next_id,
 		"quien_manda": Identidad.id,
-		"piso": maxi(1, piso),
+		"piso": clampi(piso, 1, tope_piso),
 		"tipos": tt,
 		"t_inicio": Encargos.ahora(),
 		"duracion": maxi(60, duracion),
