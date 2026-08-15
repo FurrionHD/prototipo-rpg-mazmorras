@@ -5985,12 +5985,12 @@ var _estados_panel: PanelContainer = null
 # esto es un panel de pruebas, y buscar aqui tiene que costar cero.
 #
 # El reparto NO es "buenos y malos", es POR LO QUE TOCAN, que es como se busca cuando pruebas:
-#   - Debuffs                bajan tus numeros (ataque, defensa, curacion que recibes...)
-#   - Debuffs de movimiento  tocan el TURNO: te frenan la barra o te la quitan entera
-#   - Amplificadores         no te hacen NADA por si mismos ni te restringen: suben lo que le
-#                            pase a lo SIGUIENTE que te caiga (Mojado multiplica x1.5 el daño del
-#                            rayo; Electrizado x1.5 la probabilidad de que te aturdan)
-#   - DoT                    te quitan vida cada turno
+#   - Debuffs                 bajan tus numeros (ataque, defensa, curacion que recibes...)
+#   - Debuffs de movimiento   tocan el TURNO: te frenan la barra o te la quitan entera
+#   - Debuffs amplificadores  no te hacen NADA por si mismos ni te restringen: suben lo que le
+#                             pase a lo SIGUIENTE que te caiga (Mojado multiplica x1.5 el daño
+#                             del rayo; Electrizado x1.5 la probabilidad de que te aturdan)
+#   - DoT                     te quitan vida cada turno
 const DEV_ESTADOS_CATS: Array = [
 	["Buffs", [
 		StatusEffects.Id.FORTALEZA, StatusEffects.Id.BALUARTE, StatusEffects.Id.PRESTEZA,
@@ -6005,7 +6005,7 @@ const DEV_ESTADOS_CATS: Array = [
 		StatusEffects.Id.LENTO, StatusEffects.Id.PEGAJOSO, StatusEffects.Id.ATURDIDO,
 		StatusEffects.Id.MIEDO,
 	]],
-	["Amplificadores", [
+	["Debuffs amplificadores", [
 		StatusEffects.Id.MOJADO, StatusEffects.Id.RAYO,
 	]],
 	["DoT (daño por turno)", [
