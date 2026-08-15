@@ -1118,7 +1118,11 @@ func _difundir_atb(delta: float) -> void:
 #
 # Formato: 4 enteros por impacto, y nada mas. Es cosmetico, asi que va por el mismo canal SIN
 # GARANTIA que el ATB: un paquete perdido no puede competir con la instantanea ni atascar un turno.
-const MAX_IMPACTOS_RED := 40   # 40 x 4 x 4 B = 640 B, muy por debajo de la MTU de ENet (1392)
+# EL MISMO numero que CombatFX.MAX_EVENTOS, y a proposito: un impacto que el anfitrion ni siquiera
+# anima tampoco tiene sentido mandarlo. 40 x 4 x 4 B = 640 B, muy por debajo de la MTU de ENet
+# (1392). NO se puede trocear en dos paquetes: aplicar_impactos arranca la cola al terminar de
+# leer, asi que un segundo paquete montaria una racha nueva encima de la que ya estaba corriendo.
+const MAX_IMPACTOS_RED := CombatFX.MAX_EVENTOS
 var _impactos_red: PackedInt32Array = PackedInt32Array()
 
 
@@ -1134,15 +1138,24 @@ func _cod_combatiente(c: Combatant) -> int:
 	return 100 + i if i >= 0 else -1
 
 
+# El reparto de bits de 'flags', que hay que leer igual en las dos puntas:
+#   0      critico
+#   1      evadido
+#   2      libre
+#   3-5    elemento + 1  (0..4)
+#   6-8    estilo        (los 8 de CombatFX.Estilo, ni uno mas: por eso son 8)
+#   9-15   peso x 64     (0..127 -> 0.00..1.98)
 func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
-		crit: bool, evadido: bool, elem: int) -> void:
+		crit: bool, evadido: bool, elem: int, estilo: int, peso: float) -> void:
 	if _espejo or not Net.activo or _impactos_red.size() >= MAX_IMPACTOS_RED * 4:
 		return
 	var ca: int = _cod_combatiente(atacante)
 	var cv: int = _cod_combatiente(victima)
 	if cv < 0:
 		return
-	var flags: int = (1 if crit else 0) | (2 if evadido else 0) | ((elem + 1) << 3)
+	var flags: int = (1 if crit else 0) | (2 if evadido else 0) \
+		| (((elem + 1) & 7) << 3) | ((estilo & 7) << 6) \
+		| (clampi(roundi(peso * 64.0), 0, 127) << 9)
 	_impactos_red.append(ca)
 	_impactos_red.append(cv)
 	_impactos_red.append(roundi(minf(dmg, 3000.0) * 10.0))   # x10: un decimal, y cabe en el int
@@ -1175,8 +1188,10 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 		var victima: Combatant = _de_codigo(cv)
 		if victima == null:
 			continue
+		# Con MASCARA en cada campo: sin ella, el elemento se leia con los bits del estilo y del
+		# peso pegados detras y salia un numero absurdo.
 		_fx_golpe(_de_codigo(ca), victima, dmg, (flags & 1) != 0, (flags & 2) != 0,
-			(flags >> 3) - 1)
+			((flags >> 3) & 7) - 1, (flags >> 6) & 7, float((flags >> 9) & 127) / 64.0)
 	_fx.arrancar_cola()
 
 
@@ -2277,17 +2292,47 @@ func _bloque_de(c: Combatant) -> Dictionary:
 # andar es el final de la accion (ver _pausa_lectura), que es cuando ya se sabe cuantos golpes
 # tiene y por tanto cuanto tiene que durar el turno.
 func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
-		evadido: bool, elem: int = Elementos.Elemento.NINGUNO) -> void:
+		evadido: bool, elem: int = Elementos.Elemento.NINGUNO,
+		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0) -> void:
 	if _fx == null:
 		return
 	var bv: Dictionary = _bloque_de(victima)
 	if bv.is_empty():
 		return
 	var col: Color = Elementos.color(elem) if Elementos.tiene_color(elem) else Color(1, 0.95, 0.9)
-	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido, col)
+	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido, col, estilo, peso)
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
-	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem)
+	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso)
+
+
+# EL ASPECTO de un golpe de hechizo. Manda el ELEMENTO DEL GOLPE, no el del hechizo: Tormenta
+# reparte sus 20 golpes entre agua y rayo, y cada uno tiene que pintarse como lo que es (gotas o
+# rayos), no todos como "el hechizo de rayo que es Tormenta".
+#
+# 'dispersa' cambia de DONDE SALE: una tormenta cae del cielo sobre cada bicho, mientras que una
+# brasa la lanzas tu desde la mano.
+func _estilo_hechizo(spell: SpellData, elem: int, rebote: bool) -> int:
+	if rebote:
+		return CombatFX.Estilo.ARCO
+	match elem:
+		Elementos.Elemento.FUEGO:
+			return CombatFX.Estilo.PROYECTIL
+		Elementos.Elemento.RAYO:
+			return CombatFX.Estilo.CAIDA_RAYO if spell.dispersa else CombatFX.Estilo.RAYO
+		Elementos.Elemento.AGUA:
+			return CombatFX.Estilo.CAIDA_GOTA if spell.dispersa else CombatFX.Estilo.BARRIDO
+		_:
+			return CombatFX.Estilo.ARCANO
+
+
+# QUE FRACCION del golpe principal se lleva este objetivo. Es lo que decide el tamaño del temblor
+# y del efecto: en Brasa el del medio come 1.5 y los de los lados 0.75, o sea que los lados salen
+# a 0.5 y tiemblan la mitad. Se saca de los multiplicadores del hechizo y NO del daño ya
+# calculado: el daño lleva dentro el critico y las resistencias, asi que un bicho que resiste el
+# fuego temblaria menos que uno que no, justo al reves de lo que cuenta el hechizo.
+func _peso_hechizo(spell: SpellData, escala: float) -> float:
+	return escala / maxf(spell.dano_objetivo, 0.01)
 
 
 # Reconstruye los chips de un combatiente: uno por estado ACTIVO (mas la imbuicion, que no es
@@ -3448,14 +3493,22 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		# CADA rebote, asi que la cadena nunca cae sobre un cadaver (ni sobre el que acaba de
 		# tumbar el rebote anterior).
 		var res_reb: Array = []
+		# De donde SALE cada arco. El primero de tu mano, y a partir de ahi cada salto desde la
+		# victima anterior: es puro dibujo (la mecanica sigue eligiendo al azar, y puede repetir
+		# objetivo), pero es lo que hace que cinco rebotes se lean como UNA cadena y no como cinco
+		# lanzamientos sueltos.
+		var anterior: Combatant = null
 		for i in spell.rebotes_n():
 			var vivos: Array[Combatant] = _vivos()
 			if vivos.is_empty():
 				break   # no queda nadie a quien saltar: la cadena se apaga
 			var victima: Combatant = vivos.pick_random()
 			res_reb.append(_resolver_golpes_hechizo(spell, victima, foco, spell.dano_rebote,
-				spell.rebote_estados))
+				spell.rebote_estados, anterior))
 			tocados.append(victima)
+			# Se apunta aunque este rebote la mate: los muertos se rematan al final de la accion
+			# (_tras_accion_jugador_varios), asi que su tarjeta sigue ahi para el arco siguiente.
+			anterior = victima
 		dano = _log_hechizo(spell, res_area, res_reb, foco)
 		_dps_add("Hechizo: %s" % spell.nombre, dano)   # una entrada por lanzamiento, agregada
 	else:
@@ -3592,11 +3645,16 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 #                   salpicon...). Modula 'frac', y como resolve_spell es LINEAL en el ataque,
 #                   escalar aqui es exactamente lo mismo que escalar el dano_base solo para el.
 #   tira_estados -> false en los rebotes (ver SpellData.rebote_estados).
+#   desde        -> SOLO en los rebotes: de quien SALE el arco. Los saltos se dibujan encadenados
+#                   (el primero desde ti y cada uno siguiente desde la victima anterior), que es
+#                   como se lee un rebote; por dentro la mecanica sigue eligiendo al azar.
 # Devuelve {c, dano, mult, golpes, trail, estados}.
 func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float,
-		escala: float = 1.0, tira_estados: bool = true) -> Dictionary:
+		escala: float = 1.0, tira_estados: bool = true, desde: Combatant = null) -> Dictionary:
 	var n: int = spell.golpes()
 	var frac: float = escala / float(n)
+	var peso: float = _peso_hechizo(spell, escala)
+	var lanzador: Combatant = desde if desde != null else _player
 	var multi: bool = n > 1
 	var total: float = 0.0
 	var trail: Array = []
@@ -3618,8 +3676,9 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 			hubo_crit = true
 		objetivo.take_damage(dmg)
 		# Cada golpe del hechizo lleva SU elemento: en un multi-elemento los numeros salen de
-		# colores distintos, que es justo lo que cuenta el hechizo.
-		_fx_golpe(_player, objetivo, dmg, bool(res.get("crit", false)), false, elem)
+		# colores distintos y con la forma de su elemento, que es justo lo que cuenta el hechizo.
+		_fx_golpe(lanzador, objetivo, dmg, bool(res.get("crit", false)), false, elem,
+			_estilo_hechizo(spell, elem, desde != null), peso)
 		_apuntar_dano(objetivo, dmg, _player)   # contador oculto de Cazador
 		total += dmg
 		# CRITICO MAGICO: mismo 💥 que en el rastro del golpe fisico, para que se lea igual.
@@ -3677,6 +3736,11 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 			var dmg: float = float(res.damage) * foco
 			var mult: float = float(res.get("mult_elem", 1.0))
 			obj.take_damage(dmg)
+			# EL GOLPE SE VE. Faltaba: la dispersion era la UNICA ruta de daño que no pasaba por
+			# _fx_golpe, y por eso Tormenta y Andanada -los dos hechizos mas gordos- no sacaban ni
+			# un numero ni un temblor. Se veian menos que un puñetazo.
+			_fx_golpe(_player, obj, dmg, bool(res.get("crit", false)), false, elem,
+				_estilo_hechizo(spell, elem, false), _peso_hechizo(spell, float(t.escala)))
 			_apuntar_dano(obj, dmg, _player)   # contador oculto de Cazador
 			if not acc.has(obj):
 				acc[obj] = {"c": obj, "dano": 0.0, "mult": 1.0, "crit": false, "golpes": 0, "trail": [], "estados": []}

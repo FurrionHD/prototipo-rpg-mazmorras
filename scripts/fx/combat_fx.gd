@@ -39,6 +39,22 @@ class_name CombatFX
 # en cuanto te entrara un veneno.
 signal tinte_cambiado(bloque: Dictionary)
 
+# COMO se presenta un impacto. MELEE es lo de siempre: la tarjeta del que pega EMBISTE a la del
+# que lo recibe. Todos los demas son de hechizo y NINGUNO embiste -- el que lanza se queda en su
+# sitio y lo que viaja es el efecto, que es lo que diferencia lanzar un conjuro de dar un tajo.
+#
+# Son OCHO justos porque en la red viajan en 3 bits (ver _apuntar_impacto_red en combat.gd).
+enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
+		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7 }
+
+# Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
+# instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
+# sacudida: si el rayo llegara despues del temblor, se leeria al reves.
+const T_VUELO := {
+	Estilo.MELEE: 0.0, Estilo.PROYECTIL: 0.20, Estilo.ARCANO: 0.18, Estilo.RAYO: 0.10,
+	Estilo.CAIDA_RAYO: 0.16, Estilo.CAIDA_GOTA: 0.22, Estilo.BARRIDO: 0.26, Estilo.ARCO: 0.14,
+}
+
 # --- ritmo de un impacto -------------------------------------------------------------------
 # Manda la ANIMACION: el turno dura lo que dura esto, no hay espera muerta detras. Un golpe
 # suelto (0.55) sale mas rapido que el segundo fijo que habia antes; una racha se nota.
@@ -48,10 +64,24 @@ const T_VUELTA := 0.21       # y se vuelve a su sitio
 const T_ENCADENADO := 0.20   # separacion entre impactos de una misma racha
 const TOPE_RACHA := 0.75     # techo de lo que suman TODOS los extras de una racha
 const TOPE_TOTAL := 1.40     # techo duro: ninguna accion puede comerse mas turno que esto
+
+# LOS HECHIZOS VAN A SU AIRE. Una racha de magia no es una racha de espada: los impactos se
+# encadenan MUCHO mas apretados (una tormenta es un chaparron, no veinte tajos) pero el conjunto
+# puede durar mas, porque es el momentazo del mago. Tormenta son ~32 impactos -> ~1.9s.
+# El melee no se entera de nada de esto: sigue con las constantes de arriba.
+const TOPE_TOTAL_MAGIA := 2.00
+const TOPE_RACHA_MAGIA := 1.30
+const T_ENCADENADO_MAGIA := 0.075
+const T_ARRANQUE_MAGIA := 0.22   # lo que tarda en llegar el efecto mas lento (el barrido)
+const T_COLA_MAGIA := 0.25       # margen para que la ultima sacudida y salpicadura terminen
+
 # Del 7º impacto en adelante ya no hay embestida (seria un temblor ilegible): solo numero y
-# sacudida. Un area de 5 golpes x 5 objetivos son 25 impactos y tienen que caber igual.
+# sacudida. Solo afecta al melee -- la magia no embiste nunca.
 const MAX_IMPACTOS_ANIMADOS := 6
-const MAX_EVENTOS := 24      # a partir de aqui se descartan: son cosmeticos
+# A partir de aqui se descartan: son cosmeticos. 40 y no 24 porque Tormenta encola ~32 impactos
+# (20 golpes, y los de RAYO ademas salpican a los adyacentes) y con el tope viejo los ultimos
+# desaparecian EN SILENCIO: el daño se aplicaba igual, solo faltaba el dibujo.
+const MAX_EVENTOS := 40
 
 const DIST_EMBESTIDA := 26.0   # cuanto se desplaza la tarjeta que pega
 const AMP_SACUDIDA := 7.0      # y cuanto tiembla la que la recibe
@@ -59,7 +89,7 @@ const T_SACUDIDA := 0.22
 const T_FLASH := 0.06
 
 # --- numeros flotantes ---------------------------------------------------------------------
-const MAX_NUMEROS := 24
+const MAX_NUMEROS := 32
 const T_NUMERO := 0.65
 const SUBIDA_NUMERO := 26.0
 const RETRASO_CRIT := 0.05   # el critico entra un pelin tarde para que se lea antes el impacto
@@ -96,7 +126,22 @@ static var _tabla_cache: Dictionary = {}
 
 # La capa donde vuelan los numeros. La monta combat.gd por encima de todo (si colgaran de la
 # tarjeta, el clip_contents de la zona de chips se los comeria).
-var capa_numeros: Control = null
+#
+# Al asignarla se crea DENTRO la capa de hechizos, por debajo de los numeros. Se hace aqui y no
+# en _ready porque el orden de arranque manda: este nodo nace al principio de combat._ready (las
+# tarjetas necesitan registrarse en el) y la capa de numeros no existe hasta _montar_columna.
+var capa_numeros: Control = null:
+	set(v):
+		capa_numeros = v
+		if v == null or _capa_fx != null:
+			return
+		_capa_fx = CapaHechizos.new()
+		v.add_child(_capa_fx)
+		# El PRIMERO de la capa: los rayos y las bolas van por DEBAJO de los numeros de daño, que
+		# son lo que hay que poder leer pase lo que pase.
+		v.move_child(_capa_fx, 0)
+
+var _capa_fx: CapaHechizos = null
 
 var _tarjetas: Array[Dictionary] = []   # las mismas Dictionary que maneja combat.gd
 var _cola: Array[Dictionary] = []       # impactos de la accion en curso
@@ -361,13 +406,20 @@ func _snap_barras() -> void:
 
 # Apunta UN golpe. No lo reproduce todavia: la accion puede tener 8 y hasta que no estan todos
 # no se sabe cuanto tiene que durar la racha (ver arrancar_cola).
+#
+# 'peso' = QUE FRACCION del golpe principal se lleva este objetivo (1.0 el principal, 0.5 un
+# adyacente de Brasa, 0.55 un rebote de Rayo). Manda el tamaño del temblor y del efecto: si el
+# del medio come 100 y los de los lados 50, los de los lados tiemblan la mitad. Se pasa la
+# FRACCION y no el daño a proposito -- el daño ya lleva dentro el critico y las resistencias, y
+# entonces un objetivo que RESISTE el fuego temblaria menos que uno que no, justo al reves.
 func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bool,
-		evadido: bool, color_elem: Color) -> void:
+		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0) -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
 		return
 	_cola.append({
 		"ba": b_atacante, "bv": b_victima, "dmg": dmg, "crit": crit,
 		"evadido": evadido, "color": color_elem, "t": 0.0, "lanzado": false,
+		"estilo": estilo, "peso": clampf(peso, 0.2, 1.5), "fx_lanzado": false,
 	})
 
 
@@ -378,15 +430,29 @@ func arrancar_cola() -> float:
 	if _cola.is_empty():
 		return 0.0
 	var n: int = _cola.size()
-	# Los extras TOPAN: 25 impactos de un area no pueden durar cinco segundos. Lo que hacen es
-	# encadenarse mas apretados dentro de la misma ventana.
-	var extra: float = minf(T_ENCADENADO * float(n - 1), TOPE_RACHA)
+	# ¿Es una racha de MAGIA? Se deduce de la propia cola en vez de recibirlo por parametro, y eso
+	# importa: a esta funcion la llama TAMBIEN el espejo de multijugador (aplicar_impactos), asi
+	# que dedurciendolo aqui las dos pantallas sacan la misma duracion sin sincronizar nada.
+	var magia: bool = false
+	for ev in _cola:
+		if int(ev.get("estilo", Estilo.MELEE)) != Estilo.MELEE:
+			magia = true
+			break
+	var t_enc: float = T_ENCADENADO_MAGIA if magia else T_ENCADENADO
+	var arranque: float = T_ARRANQUE_MAGIA if magia else T_IDA
+	# Los extras TOPAN: 32 impactos de una tormenta no pueden durar cinco segundos. Lo que hacen
+	# es encadenarse mas apretados dentro de la misma ventana.
+	var extra: float = minf(t_enc * float(n - 1), TOPE_RACHA_MAGIA if magia else TOPE_RACHA)
 	var paso: float = extra / maxf(1.0, float(n - 1))
 	for i in n:
-		_cola[i]["t"] = T_IDA + paso * float(i)
+		_cola[i]["t"] = arranque + paso * float(i)
 		_cola[i]["lanzado"] = false
+		_cola[i]["fx_lanzado"] = false
 	_t = 0.0
-	_dur = minf(T_IDA + T_PUM + extra + T_VUELTA, TOPE_TOTAL)
+	if magia:
+		_dur = minf(arranque + T_PUM + extra + T_COLA_MAGIA, TOPE_TOTAL_MAGIA)
+	else:
+		_dur = minf(arranque + T_PUM + extra + T_VUELTA, TOPE_TOTAL)
 	_activa = true
 	return _dur
 
@@ -408,6 +474,9 @@ func cancelar() -> void:
 	for n in _numeros:
 		_soltar_numero(n)
 	_numeros.clear()
+	# Y los rayos y bolas que estuvieran en el aire, o se quedan pintados para siempre.
+	if _capa_fx != null and is_instance_valid(_capa_fx):
+		_capa_fx.limpiar()
 	_snap_barras()
 
 
@@ -439,23 +508,36 @@ func _process(delta: float) -> void:
 	var mov: Dictionary = {}      # panel -> Vector2
 	var flash: Dictionary = {}    # panel -> float 0..1
 	var punch: Dictionary = {}    # panel -> float 0..1
+	var aura: Dictionary = {}     # panel -> [Color, float 0..1]: el brillo del que CANALIZA
 
 	for i in _cola.size():
 		var ev: Dictionary = _cola[i]
 		var t_imp: float = ev["t"]
+		var estilo: int = int(ev.get("estilo", Estilo.MELEE))
+		var peso: float = float(ev.get("peso", 1.0))
 		var pa: Control = ev["ba"].get("panel") if not ev["ba"].is_empty() else null
 		var pv: Control = ev["bv"].get("panel")
 		if pv == null or not is_instance_valid(pv):
 			continue
+
+		# EL DIBUJO sale ANTES que el golpe, lo que tarde en volar, para que llegue justo a tiempo.
+		var vuelo: float = float(T_VUELO.get(estilo, 0.0))
+		if not ev["fx_lanzado"] and vuelo > 0.0 and _t >= t_imp - vuelo:
+			ev["fx_lanzado"] = true
+			if _capa_fx != null:
+				_capa_fx.alta(estilo, _punto(ev["ba"]), _punto(ev["bv"]), ev["color"], peso,
+					vuelo, _ancho_tarjeta(ev["bv"]))
 
 		# EL IMPACTO: se dispara una vez, justo al cruzar su instante.
 		if not ev["lanzado"] and _t >= t_imp:
 			ev["lanzado"] = true
 			_soltar_numero_de(ev)
 
-		# EMBESTIDA del atacante. Del 7º en adelante ya no se mueve nadie: con esa densidad el
-		# movimiento se lee como ruido y lo unico que aporta son numeros y temblor.
-		if pa != null and is_instance_valid(pa) and pa != pv and i < MAX_IMPACTOS_ANIMADOS:
+		# EMBESTIDA del atacante. SOLO EN MELEE: un mago no se lanza contra el bicho para tirarle
+		# una bola de fuego, se queda donde esta y lo que viaja es el conjuro. Del 7º golpe en
+		# adelante tampoco se mueve nadie: con esa densidad el movimiento se lee como ruido.
+		if pa != null and is_instance_valid(pa) and pa != pv \
+				and estilo == Estilo.MELEE and i < MAX_IMPACTOS_ANIMADOS:
 			var dir: Vector2 = _direccion(pa, pv)
 			var d: float = 0.0
 			if _t < t_imp and _t >= t_imp - T_IDA:
@@ -470,10 +552,25 @@ func _process(delta: float) -> void:
 				if not mov.has(pa) or v.length() > (mov[pa] as Vector2).length():
 					mov[pa] = v
 
+		# CANALIZACION: lo que hace el lanzador en vez de embestir. Su tarjeta se enciende del
+		# color del elemento mientras el conjuro esta en el aire. Los de CAIDA no la encienden: de
+		# un rayo que cae del cielo no sale nada de tu mano.
+		if pa != null and is_instance_valid(pa) and estilo != Estilo.MELEE \
+				and estilo != Estilo.CAIDA_RAYO and estilo != Estilo.CAIDA_GOTA \
+				and estilo != Estilo.ARCO and _t >= t_imp - vuelo and _t < t_imp:
+			var k: float = 1.0 - (t_imp - _t) / maxf(vuelo, 0.001)
+			if not aura.has(pa) or k > float(aura[pa][1]):
+				aura[pa] = [ev["color"], k]
+
 		# SACUDIDA + FLASH + PUNCH de la victima, desde el instante del golpe.
-		if _t >= t_imp and _t < t_imp + T_SACUDIDA and not bool(ev["evadido"]):
-			var u3: float = (_t - t_imp) / T_SACUDIDA
-			var amp: float = AMP_SACUDIDA * (1.0 - u3) * (1.5 if bool(ev["crit"]) else 1.0)
+		# Los de CAIDA pegan mas fuerte y mas rato: un rayo del cielo es un pisoton, no un empujon.
+		var cae: bool = estilo == Estilo.CAIDA_RAYO or estilo == Estilo.CAIDA_GOTA
+		var t_sac: float = T_SACUDIDA * (1.2 if cae else 1.0)
+		if _t >= t_imp and _t < t_imp + t_sac and not bool(ev["evadido"]):
+			var u3: float = (_t - t_imp) / t_sac
+			# El PESO es lo que hace que el adyacente que come la mitad tiemble la mitad.
+			var amp: float = AMP_SACUDIDA * peso * (1.15 if cae else 1.0) \
+				* (1.0 - u3) * (1.5 if bool(ev["crit"]) else 1.0)
 			# Deterministico y de frecuencias distintas en X e Y: parece un golpe, no una vibracion.
 			var s: Vector2 = Vector2(sin(u3 * 71.0), cos(u3 * 53.0)) * amp
 			if not mov.has(pv) or s.length() > (mov[pv] as Vector2).length():
@@ -482,9 +579,9 @@ func _process(delta: float) -> void:
 				flash[pv] = 1.0 - (_t - t_imp) / T_FLASH
 			var t_punch: float = T_PUM
 			if _t < t_imp + t_punch:
-				punch[pv] = 1.0 - (_t - t_imp) / t_punch
+				punch[pv] = (1.0 - (_t - t_imp) / t_punch) * peso
 
-	_aplicar(mov, flash, punch)
+	_aplicar(mov, flash, punch, aura)
 
 	if _t >= _dur:
 		_activa = false
@@ -495,7 +592,7 @@ func _process(delta: float) -> void:
 
 # Un frame de animacion sobre los paneles. Los que no participan vuelven a reposo: es lo que
 # garantiza que nadie se quede torcido si una racha se corta a medias.
-func _aplicar(mov: Dictionary, flash: Dictionary, punch: Dictionary) -> void:
+func _aplicar(mov: Dictionary, flash: Dictionary, punch: Dictionary, aura: Dictionary) -> void:
 	for b in _tarjetas:
 		var panel: Control = b.get("panel")
 		if panel == null or not is_instance_valid(panel):
@@ -504,7 +601,14 @@ func _aplicar(mov: Dictionary, flash: Dictionary, punch: Dictionary) -> void:
 		var f: float = flash.get(panel, 0.0)
 		# self_modulate y NO modulate: modulate es de _apagar_bloque (el gris del cadaver) y
 		# pisarlo resucitaria visualmente a los muertos cada vez que les pegan.
-		panel.self_modulate = Color(1.0 + 0.6 * f, 1.0 + 0.6 * f, 1.0 + 0.6 * f)
+		#
+		# El aura del que canaliza se pliega AQUI, en la misma expresion, y no se escribe aparte:
+		# esta linea corre cada frame para todas las tarjetas, asi que cualquier otro que tocara
+		# self_modulate por su cuenta se lo comeria al frame siguiente.
+		var col: Color = Color(1.0 + 0.6 * f, 1.0 + 0.6 * f, 1.0 + 0.6 * f)
+		if aura.has(panel):
+			col = col.lerp((aura[panel][0] as Color) * 1.35, 0.35 * float(aura[panel][1]))
+		panel.self_modulate = col
 		var p: float = punch.get(panel, 0.0)
 		if p > 0.0:
 			panel.pivot_offset = panel.size * 0.5
@@ -513,6 +617,25 @@ func _aplicar(mov: Dictionary, flash: Dictionary, punch: Dictionary) -> void:
 		else:
 			panel.scale = Vector2.ONE
 			panel.rotation = 0.0
+
+
+# El centro de una tarjeta en coordenadas de la capa de efectos. Si el bloque esta vacio (un
+# hechizo que "cae del cielo" no tiene tarjeta de origen) devuelve un punto por encima del techo,
+# que es justo de donde tiene que venir.
+func _punto(bloque: Dictionary) -> Vector2:
+	if bloque.is_empty() or capa_numeros == null or not is_instance_valid(capa_numeros):
+		return Vector2.ZERO
+	var p: Control = bloque.get("panel")
+	if p == null or not is_instance_valid(p):
+		return Vector2.ZERO
+	return p.get_global_rect().get_center() - capa_numeros.global_position
+
+
+func _ancho_tarjeta(bloque: Dictionary) -> float:
+	var p: Control = bloque.get("panel")
+	if p == null or not is_instance_valid(p):
+		return 120.0
+	return p.size.x
 
 
 # Hacia donde se lanza el que pega. La horizontal sale de los centros reales de las dos tarjetas;
