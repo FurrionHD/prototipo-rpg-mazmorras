@@ -130,6 +130,11 @@ var _stuck_time: float = 0.0   # cuanto lleva atascado contra una pared
 var _lado_desvio: int = 0            # por que lado viene esquivando la pared (0 = sin decidir)
 var _dir_desvio: Vector2 = Vector2.ZERO   # la ultima direccion desviada, para no cambiar de idea
 var _desvio_t: float = 0.0           # lo que le queda de compromiso con ese lado
+# ANTI-ORBITA (ver _vigilar_orbita): lo mas cerca que ha llegado a estar de su presa en ESTA
+# persecucion, y cuanto lleva sin mejorarlo.
+var _orbita_record: float = 99999.0
+var _orbita_t: float = 0.0
+var _orbita_cambios: int = 0
 # DESATASCO: mientras dura, en vez de empujar la roca la BORDEA (ver _desatascar_bordeando).
 var _bordeo: Vector2 = Vector2.ZERO       # la tangente elegida; ZERO = no esta desatascandose
 var _bordeo_t: float = 0.0                # lo que le queda de rodeo
@@ -428,6 +433,7 @@ func _try_detect() -> void:
 	for aliado in _aliados():
 		if _detecta_a(aliado):
 			_objetivo = aliado
+			_olvidar_orbita()
 			_state = State.CHASE
 			return
 
@@ -543,6 +549,12 @@ func _excluir_del_rayo() -> Array[RID]:
 # desvia YA, sin frenar y sin dejar de venir hacia ti. Solo lo cambia si de verdad hay algo: con
 # el camino libre devuelve la direccion tal cual.
 #
+# SOLO SE USA PERSIGUIENDO. Ni al merodear ni al volver a casa: ahi el destino se elige a boleo y
+# muchas veces cae detras de una roca, asi que el bicho se ponia a bordearla eternamente sin
+# llegar -- y como no llega, tampoco elige destino nuevo, que es justo lo que lo desatascaba. En
+# esos dos estados va derecho y, si choca, ya se encarga el desatasco reactivo. Perseguir es lo
+# unico donde importa llegar rapido, y ademas ahi si hay un final: tocarte abre la pelea.
+#
 # Nada de navegacion ni de mallas: tres rayos (el del medio y los dos costados del cuerpo) contra
 # la capa de la roca, y si no cabe se van abriendo angulos hasta encontrar por donde, del desvio
 # mas pequeño al mas grande -- asi bordea la esquina pegado a ella en vez de dar un rodeo.
@@ -578,6 +590,51 @@ func _direccion_esquivando(hacia: Vector2) -> Vector2:
 	# Sin salida por delante (fondo de saco): que siga empujando, y de eso ya se encarga el
 	# desatasco reactivo, que es justo el caso para el que sirve.
 	return dir
+
+
+# FRENO ANTI-ORBITA. Bordear es dar vueltas por definicion, asi que con un pilar de por medio un
+# bicho comprometido con un lado puede girar alrededor eternamente sin acercarse un palmo. Aqui se
+# mira lo unico que dice si el rodeo SIRVE: si esta llegando a estar mas cerca que nunca.
+#
+#   * Si no mejora su record en un rato -> prueba por el otro lado.
+#   * Si tampoco -> deja de perseguir y se vuelve a su sitio. Es un bicho, no un sabueso: darse por
+#     vencido es mejor que quedarse de adorno girando alrededor de una piedra.
+const ORBITA_MARGEN := 8.0     # cuanto tiene que recortar para que cuente como progreso
+const ORBITA_T := 2.5          # cuanto le damos sin progresar antes de cambiar de lado
+func _vigilar_orbita(delta: float, dist: float) -> void:
+	if _orbita_record >= 99998.0:
+		_orbita_record = dist   # primera vuelta de esta persecucion: el record es donde empieza
+	if dist < _orbita_record - ORBITA_MARGEN:
+		_orbita_record = dist
+		_orbita_t = 0.0
+		_orbita_cambios = 0
+		return
+	_orbita_t += delta
+	if _orbita_t < ORBITA_T:
+		return
+	_orbita_t = 0.0
+	_orbita_cambios += 1
+	if _orbita_cambios == 1 and _lado_desvio != 0:
+		_lado_desvio = -_lado_desvio   # por aqui no era: al otro lado
+		_desvio_t = DESVIO_MEMORIA
+		return
+	# Ni por un lado ni por el otro. Lo deja estar.
+	_olvidar_orbita()
+	_cancelar_aviso()
+	_objetivo = null
+	_state = State.RETURN
+	velocity = Vector2.ZERO
+
+
+# Persecucion nueva, cuenta nueva. Sin esto el record de la anterior (que pudo acabar pegado a ti)
+# haria que la siguiente naciera ya "sin progresar" y se rindiera a los dos segundos.
+func _olvidar_orbita() -> void:
+	_orbita_record = 99999.0
+	_orbita_t = 0.0
+	_orbita_cambios = 0
+	_lado_desvio = 0
+	_dir_desvio = Vector2.ZERO
+	_desvio_t = 0.0
 
 
 # El desvio mas pequeño que deja pasar el cuerpo, probando solo los lados que se le pidan.
@@ -635,8 +692,14 @@ func _wander(delta: float) -> void:
 
 	# De mudanza anda con un pelin mas de intencion (no de paseo), pero sin llegar al esprint de
 	# perseguirte: no es a ti a quien va, solo se cambia de sala.
+	# MERODEANDO NO SE ESQUIVA NADA: va derecho y punto. La esquiva es SOLO para perseguirte (ver
+	# _direccion_esquivando). Aqui hacia mas mal que bien: el destino de paseo se elige a boleo y
+	# muchas veces cae detras de una roca, asi que el bicho se ponia a bordearla sin llegar nunca
+	# -- y como no llega, tampoco elige destino nuevo, que es lo que normalmente lo desatasca. Se
+	# quedaban dando vueltas alrededor de las piedras para siempre. Chocando, en cambio, el
+	# desatasco reactivo le cambia el destino y a otra cosa.
 	var vel: float = current_move_speed * (MIGRAR_VEL_MULT if _migrando else 1.0)
-	velocity = _direccion_esquivando(to_t) * vel
+	velocity = to_t.normalized() * vel
 
 
 func _chase(delta: float) -> void:
@@ -692,6 +755,7 @@ func _chase(delta: float) -> void:
 		# Aun lejos: a por ti. Perseguir NO va a la velocidad de merodear (ver chase_speed_mult).
 		# Y si hay pared en el camino, la BORDEA sin frenar (ver _direccion_esquivando): antes iba
 		# derecho, se empotraba, y solo se despegaba tras casi un segundo pegado a la roca.
+		_vigilar_orbita(delta, dist)
 		velocity = _direccion_esquivando(to_p) * _chase_speed()
 
 
@@ -881,6 +945,7 @@ func atacado_por_jugador() -> bool:
 func nacer_embistiendo() -> void:
 	_objetivo = _aliado_mas_cercano()
 	if _objetivo != null:
+		_olvidar_orbita()
 		_state = State.CHASE
 
 
@@ -1036,7 +1101,9 @@ func _return() -> void:
 		_state = State.WANDER
 		_pick_wander_target()
 	else:
-		velocity = _direccion_esquivando(to_home) * current_move_speed
+		# Volviendo a casa tampoco se esquiva, por lo mismo que al merodear: nadie mira si vuelve
+		# rapido o lento, y bordear sin llegar es peor que chocar y que el desatasco lo resuelva.
+		velocity = to_home.normalized() * current_move_speed
 
 
 # ============================================================
