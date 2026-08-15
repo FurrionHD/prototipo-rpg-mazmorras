@@ -39,6 +39,7 @@ static var _tex_chispa: ImageTexture = null
 static var _tex_raya: ImageTexture = null
 static var _tex_llama: ImageTexture = null
 static var _tex_rayito: ImageTexture = null
+static var _tex_calavera: ImageTexture = null
 static var _curva_menguante: Curve = null
 
 
@@ -335,6 +336,30 @@ static func chispas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0,
 	return p
 
 
+# SANGRE que cae. Es un chorreton pero mas pequeño, mas rapido y mas nervioso: la baba escurre,
+# la sangre GOTEA. Sale de toda la caja (estas sangrando por la herida que sea, no por un punto).
+static func sangre(padre: Node, color: Color, zona: Vector2, intensidad := 1.0) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.texture = textura_gota()
+	p.local_coords = true
+	p.amount = maxi(3, roundi(5.0 * intensidad))
+	p.lifetime = 1.0
+	p.lifetime_randomness = 0.5
+	p.randomness = 1.0
+	p.direction = Vector2.DOWN
+	p.spread = 10.0
+	p.gravity = Vector2(0.0, 90.0)   # bastante mas que la baba: una gota cae, no escurre
+	p.initial_velocity_min = 6.0
+	p.initial_velocity_max = 18.0
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	p.emission_rect_extents = Vector2(zona.x * 0.42, zona.y * 0.3)
+	p.scale_amount_min = 0.55
+	p.scale_amount_max = 1.0
+	p.color_ramp = _rampa_baba(color)
+	padre.add_child(p)
+	return p
+
+
 # La CRUZ de curar: un mas, de 7x7, con los brazos de 3 px. No se usa la de 4x4 escalada porque
 # escalar un cuadrado da un cuadrado; la forma es todo el mensaje aqui.
 static func textura_cruz() -> ImageTexture:
@@ -427,6 +452,36 @@ static func textura_rayito() -> ImageTexture:
 				img.set_pixel(int(x), y, Color.WHITE)
 		_tex_rayito = ImageTexture.create_from_image(img)
 	return _tex_rayito
+
+
+# CALAVERITA para el Veneno. Los huecos de los ojos van transparentes, que es lo unico que hace
+# que a 7 px se lea como una calavera y no como una piedra.
+static func textura_calavera() -> ImageTexture:
+	if _tex_calavera == null:
+		_tex_calavera = _de_filas([
+			".#####.",
+			"#######",
+			"#.###.#",   # los ojos
+			"#######",
+			".#####.",
+			".#.#.#.",   # los dientes
+		])
+	return _tex_calavera
+
+
+# Construye una textura a partir de filas de texto: '#' pinta, cualquier otra cosa deja hueco.
+# Para las formas con detalle es MUCHO mas legible que calcular indices a mano (y mas facil de
+# retocar: se ve el dibujo en el propio codigo).
+static func _de_filas(filas: Array) -> ImageTexture:
+	var ancho: int = String(filas[0]).length()
+	var img := Image.create(ancho, filas.size(), false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 1, 1, 0))
+	for y in filas.size():
+		var f: String = filas[y]
+		for x in mini(ancho, f.length()):
+			if f[x] == "#":
+				img.set_pixel(x, y, Color.WHITE)
+	return ImageTexture.create_from_image(img)
 
 
 # RAYA horizontal de 12x2: la linea de velocidad. Larga y finita, para que se lea como un barrido

@@ -28,7 +28,7 @@ const ALTO_VEDIJA := 26.0
 # CAPAS INDEPENDIENTES, porque se pueden dar todas a la vez:
 #   COLGAJOS  lo que te chorrea encima, colgando del borde de arriba. Admite VARIOS a la vez
 #             (baba y agua), y cada uno cuelga de sitios distintos para que no se solapen.
-var capas: Array[Color] = []
+var capas: Array[Dictionary] = []
 var color_niebla: Color = Color.TRANSPARENT
 var niebla: float = 0.0
 #   DIANA   te han señalado: un circulo en el centro que late. Siempre en el mismo sitio y siempre
@@ -39,6 +39,9 @@ var diana: float = 0.0
 #           particulas aparte, ver POS_RAJA: nacen justo en el corte).
 var color_raja: Color = Color.TRANSPARENT
 var raja: float = 0.0
+#   FUEGO   arde por abajo: lenguas de llama subiendo del borde inferior de la tarjeta.
+var color_fuego: Color = Color.TRANSPARENT
+var fuego: float = 0.0
 
 var _t := 0.0
 var _semilla := 0.0
@@ -58,6 +61,8 @@ func _init() -> void:
 # Los colores de TODO lo que te chorrea encima ahora mismo (baba, agua, o las dos). Lista vacia =
 # nada que pintar, y entonces esto deja de repintarse: una pelea sin nadie pringado no gasta ni un
 # frame aqui.
+# Cada entrada es {col, stacks}: las DOSIS cuentan, porque el Pegajoso apila y tres capas de baba
+# tienen que verse mas que una.
 func pintar_capas(cols: Array) -> void:
 	capas.clear()
 	for c in cols:
@@ -87,8 +92,15 @@ func pintar_raja(col: Color, fuerza: float) -> void:
 	queue_redraw()
 
 
+# LA HOGUERA de la Quemadura, en el borde de abajo.
+func pintar_fuego(col: Color, fuerza: float) -> void:
+	color_fuego = col
+	fuego = clampf(fuerza, 0.0, 1.0)
+	queue_redraw()
+
+
 func _process(delta: float) -> void:
-	if capas.is_empty() and niebla <= 0.0 and diana <= 0.0 and raja <= 0.0:
+	if capas.is_empty() and niebla <= 0.0 and diana <= 0.0 and raja <= 0.0 and fuego <= 0.0:
 		return
 	_t += delta
 	queue_redraw()
@@ -99,12 +111,41 @@ func _draw() -> void:
 		return
 	if niebla > 0.0:
 		_dibujar_niebla()
+	if fuego > 0.0:
+		_dibujar_fuego()
 	if diana > 0.0:
 		_dibujar_diana()
 	if raja > 0.0:
 		_dibujar_raja()
 	for k in capas.size():
-		_dibujar_colgajos(capas[k], k)
+		_dibujar_colgajos(capas[k]["col"], k, int(capas[k].get("stacks", 1)))
+
+
+# ARDE POR ABAJO. Lenguas de llama que suben del borde inferior, cada una a su ritmo, en dos
+# capas: una gorda y oscura detras y otra mas pequeña y clara delante (el nucleo). Es lo mismo que
+# hace el agua -- una masa con la orilla viva-- pero al reves y con puntas.
+func _dibujar_fuego() -> void:
+	var alto: float = size.y * 0.34
+	# DOS pasadas: el cuerpo de la llama y, mas corto y mas claro, lo que arde de verdad.
+	_lenguas(alto, 9, 0.0, Color(color_fuego.r, color_fuego.g, color_fuego.b, 0.42 * fuego))
+	_lenguas(alto * 0.6, 7, 1.7,
+		Color(minf(1.0, color_fuego.r + 0.25), minf(1.0, color_fuego.g + 0.3),
+			color_fuego.b * 0.5, 0.5 * fuego))
+
+
+# Una fila de lenguas de fuego que sube del borde de abajo. 'n' = cuantas; 'fase' las desincroniza
+# entre pasadas para que no se muevan las dos igual (que es lo que lo delataria como un dibujo).
+func _lenguas(alto: float, n: int, fase: float, col: Color) -> void:
+	var pts := PackedVector2Array()
+	pts.append(Vector2(0.0, size.y))
+	for i in n + 1:
+		var u: float = float(i) / float(n)
+		# Cada lengua sube y baja por su cuenta; el seno de u las hace desiguales entre si.
+		var lengua: float = alto * (0.45 + 0.55 * absf(sin(u * PI * float(n) * 0.5
+			+ _t * 3.2 + fase + _semilla)))
+		pts.append(Vector2(u * size.x, size.y - lengua))
+	pts.append(Vector2(size.x, size.y))
+	draw_colored_polygon(pts, col)
 
 
 # LOS COLGAJOS que cuelgan del borde de arriba, cada uno a su ritmo. Ya NO hay charco abajo: se
@@ -113,17 +154,21 @@ func _draw() -> void:
 # 'ranura' desplaza el juego entero un poco a la derecha, para que la baba y el agua NO caigan
 # exactamente de los mismos tres puntos: si coinciden se solapan y se ve un solo colgajo de color
 # raro en vez de dos cosas distintas.
-func _dibujar_colgajos(col_base: Color, ranura: int) -> void:
+# 'stacks' = las dosis: cuantos MAS colgajos y mas largos, que es como se ve que te han pringado
+# cuatro veces y no una.
+func _dibujar_colgajos(col_base: Color, ranura: int, stacks: int) -> void:
+	var n: int = N_GOTERONES + mini(maxi(stacks, 1) - 1, 3)   # 3 de base, hasta 6
+	var crece: float = 1.0 + 0.18 * float(mini(maxi(stacks, 1) - 1, 3))
 	var col := Color(col_base.r, col_base.g, col_base.b, 0.5)
 	var desfase: float = float(ranura) * 0.11
-	for k in N_GOTERONES:
-		var f: float = float(k + 1) / float(N_GOTERONES + 1) + desfase
+	for k in n:
+		var f: float = float(k + 1) / float(n + 1) + desfase
 		if f <= 0.04 or f >= 0.96:
 			continue
 		var x: float = size.x * f
 		var fase: float = float(k) * 2.1 + float(ranura) * 1.7 + _semilla
-		var largo: float = size.y * 0.16 * (0.6 + 0.4 * sin(_t * 1.3 + fase))
-		var ancho: float = 3.5 + 1.5 * sin(_t * 2.0 + fase)
+		var largo: float = size.y * 0.16 * crece * (0.6 + 0.4 * sin(_t * 1.3 + fase))
+		var ancho: float = (3.5 + 1.5 * sin(_t * 2.0 + fase)) * (1.0 + 0.1 * (crece - 1.0))
 		draw_line(Vector2(x, 0.0), Vector2(x, largo), col, ancho * 2.0, true)
 		# La gota del final, a punto de soltarse.
 		draw_circle(Vector2(x, largo), ancho, col)
@@ -157,15 +202,16 @@ func _dibujar_diana() -> void:
 	var c: Vector2 = size * 0.5
 	# El latido: entre el 90% y el 110% de su tamaño, sin prisa.
 	var pulso: float = 1.0 + 0.1 * sin(_t * 3.4)
-	var r: float = minf(size.x, size.y) * 0.28 * pulso
-	var col := Color(color_diana.r, color_diana.g, color_diana.b, 0.55 * diana)
-	draw_arc(c, r, 0.0, TAU, 28, col, 2.0, true)
-	draw_arc(c, r * 0.55, 0.0, TAU, 20, col, 2.0, true)
-	draw_circle(c, r * 0.16, col)
+	# PEQUEÑA: es una chincheta en el centro, no un aro alrededor de la tarjeta. Ocupaba tanto que
+	# cruzaba el nombre y la barra de vida enteros.
+	var r: float = minf(size.x, size.y) * 0.11 * pulso
+	var col := Color(color_diana.r, color_diana.g, color_diana.b, 0.5 * diana)
+	draw_arc(c, r, 0.0, TAU, 20, col, 1.6, true)
+	draw_circle(c, r * 0.3, col)
 	# Las cuatro marcas de la cruz, cortitas, que es lo que la lee como una MIRA y no como un aro.
-	var cruz := Color(color_diana.r, color_diana.g, color_diana.b, 0.4 * diana)
+	var cruz := Color(color_diana.r, color_diana.g, color_diana.b, 0.35 * diana)
 	for d in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
-		draw_line(c + d * r * 1.02, c + d * r * 1.4, cruz, 2.0, true)
+		draw_line(c + d * r * 1.15, c + d * r * 1.75, cruz, 1.6, true)
 
 
 # EL CORTE. Una lente (dos arcos que se juntan en las puntas) inclinada, oscura por dentro y con
@@ -174,8 +220,9 @@ func _dibujar_diana() -> void:
 func _dibujar_raja() -> void:
 	var c: Vector2 = size * POS_RAJA
 	var largo: float = minf(size.x, size.y) * 0.34
-	# La abertura respira: un corte que no cierra se lee mucho mejor que una raya quieta.
-	var ancho: float = largo * (0.22 + 0.05 * sin(_t * 2.6))
+	# QUIETA: la herida no late. Lo que se mueve es la sangre que cae de ella (esas son
+	# particulas, ver POS_RAJA); un corte palpitando parecia que respiraba.
+	var ancho: float = largo * 0.22
 	var eje := Vector2(0.42, -0.91).normalized()   # inclinada, no vertical: parece un tajo
 	var lado := Vector2(-eje.y, eje.x)
 	var pts := PackedVector2Array()
@@ -187,11 +234,12 @@ func _dibujar_raja() -> void:
 	for i in n + 1:
 		var u2: float = lerpf(1.0, -1.0, float(i) / float(n))
 		pts.append(c + eje * u2 * largo * 0.5 - lado * (1.0 - u2 * u2) * ancho)
+	# Con transparencia como todo lo demas: esto se pinta encima de la tarjeta y no puede taparla.
 	draw_colored_polygon(pts, Color(color_raja.r * 0.35, color_raja.g * 0.15,
-		color_raja.b * 0.15, 0.75 * raja))
+		color_raja.b * 0.15, 0.42 * raja))
 	# Los LABIOS, mas claros: es lo que la lee como una herida abierta y no como una mancha.
 	draw_polyline(pts, Color(minf(1.0, color_raja.r + 0.2), color_raja.g * 0.55,
-		color_raja.b * 0.55, 0.8 * raja), 1.8, true)
+		color_raja.b * 0.55, 0.5 * raja), 1.6, true)
 
 
 # Una banda de niebla con las dos orillas onduladas. Se recorta a la caja por arriba y por abajo

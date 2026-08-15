@@ -127,14 +127,17 @@ const VEL_BARRA := 3.0
 # y que te sube el maná. Juntas, la de vida ganaba siempre y la azul no salia nunca.
 const FAMILIAS: Array = [
 	# [nombre, forma, ids...] -- el orden dentro de la lista es quien gana el hueco de su familia.
-	# El fuego va aparte: son LLAMITAS, no motas. Un cuadradito naranja subiendo no es una quemadura.
+	# ARDE POR ABAJO: una hoguera en el borde inferior de la tarjeta (dibujada, como el agua) mas
+	# las llamitas que suben de ella. Un cuadradito naranja subiendo no es una quemadura.
 	["fuego", "llama", [StatusEffects.Id.QUEMADURA]],
+	# CALAVERITAS subiendo, y mas cuantas mas dosis lleves: el veneno APILA y se tiene que notar.
+	["veneno", "veneno", [StatusEffects.Id.VENENO]],
+	# SANGRA, y tambien apila: gotas que caen por toda la tarjeta.
+	["sangra", "sangre", [StatusEffects.Id.SANGRADO]],
 	# UN CORTE ABIERTO dibujado en un sitio fijo, del que gotea sangre. Las motas genericas no
 	# dicen "herida"; un tajo que no cierra, si.
 	["herida", "raja", [StatusEffects.Id.HERIDA_PROFUNDA]],
-	["dano", "ascendente", [
-		StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO, StatusEffects.Id.CORROSION,
-	]],
+	["dano", "ascendente", [StatusEffects.Id.CORROSION]],
 	# Te CHORREA encima: pelicula que se acumula + goterones. Es lo unico que pinta CapaEstado.
 	["capa", "capa", [
 		StatusEffects.Id.PEGAJOSO, StatusEffects.Id.MOJADO,
@@ -320,7 +323,8 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 			quiere.append({"icono": String(par[2]), "color": col,
 				"tipo": String(info["tipo"]), "familia": fam,
 				"fam_orden": int(info.get("fam_orden", 99)),
-				"orden": int(info.get("orden", 99))})
+				"orden": int(info.get("orden", 99)),
+				"stacks": _stacks_de(String(par[0]))})
 	# Por FAMILIA primero y por gravedad despues: lo que te esta matando se ve antes que lo que te
 	# viene bien. El orden tiene que ser estable ademas de justo, porque de el sale la firma que
 	# decide si hay que recrear emisores o no.
@@ -337,7 +341,9 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 	var tinte: Color = _tinte_de(n_buff, n_debuff, col_buff, col_debuff)
 	var firma: String = "%d" % tinte.to_rgba32()
 	for q in quiere:
-		firma += ";%s,%d" % [q["icono"], (q["color"] as Color).to_rgba32()]
+		# Los STACKS entran en la firma: si te cae otra dosis de baba, el efecto tiene que crecer,
+		# y sin esto el corte por firma decidia que "no ha cambiado nada" y se quedaba igual.
+		firma += ";%s,%d,%d" % [q["icono"], (q["color"] as Color).to_rgba32(), int(q["stacks"])]
 	if String(bloque.get("fx_firma", "")) == firma:
 		return
 	bloque["fx_firma"] = firma
@@ -353,13 +359,17 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 		# y con un tajo abierto a la vez, y cada cosa se pinta en su sitio.
 		var pintado: Dictionary = {}   # tipo -> color
 		var chorreos: Array = []       # TODAS las que te chorrean (baba y agua pueden ir juntas)
+		var stk: Dictionary = {}       # tipo -> dosis, para lo que escala
 		for q in quiere:
 			var t: String = String(q["tipo"])
 			if t == "capa":
-				chorreos.append(q["color"])
+				chorreos.append({"col": q["color"], "stacks": int(q.get("stacks", 1))})
 			elif not pintado.has(t):
 				pintado[t] = q["color"]
+				stk[t] = int(q.get("stacks", 1))
 		pelicula.pintar_capas(chorreos)
+		pelicula.pintar_fuego(pintado.get("llama", Color.TRANSPARENT),
+			1.0 if pintado.has("llama") else 0.0)
 		pelicula.pintar_niebla(pintado.get("niebla", Color.TRANSPARENT),
 			1.0 if pintado.has("niebla") else 0.0)
 		pelicula.pintar_diana(pintado.get("diana", Color.TRANSPARENT),
@@ -379,13 +389,16 @@ func _reconciliar_emisores(bloque: Dictionary, quiere: Array[Dictionary]) -> voi
 	var vivos: Dictionary = bloque.get("fx_emisores", {})
 	var quedan: Dictionary = {}
 	for q in quiere:
-		var ico: String = q["icono"]
+		# La clave lleva los STACKS: si te cae otra dosis, el emisor se rehace con mas cantidad en
+		# vez de quedarse con la de antes. Sin ellos en la clave, "el mismo icono" se daba por
+		# bueno y el efecto no crecia nunca.
+		var ico: String = "%s#%d" % [q["icono"], int(q.get("stacks", 1))]
 		var p: CPUParticles2D = vivos.get(ico)
 		if p != null and is_instance_valid(p):
 			quedan[ico] = p
 			vivos.erase(ico)
 			continue
-		p = _crear_emisor(capa, q["tipo"], q["color"])
+		p = _crear_emisor(capa, q["tipo"], q["color"], int(q.get("stacks", 1)))
 		if p != null:
 			quedan[ico] = p
 	# Lo que sobra: se apaga (deja de emitir sin borrar lo ya emitido) y se libera.
@@ -397,12 +410,22 @@ func _reconciliar_emisores(bloque: Dictionary, quiere: Array[Dictionary]) -> voi
 	bloque["fx_emisores"] = quedan
 
 
-func _crear_emisor(capa: Control, tipo: String, color: Color) -> CPUParticles2D:
+# 'stacks' = cuantas dosis lleva. Sube la CANTIDAD del efecto (mas gotas, mas calaveras), que es
+# la forma honesta de enseñar que te han echado tres capas de baba y no una. Se capa por arriba:
+# a partir de la tercera ya no se distingue y solo seria ruido.
+func _crear_emisor(capa: Control, tipo: String, color: Color, stacks: int = 1) -> CPUParticles2D:
 	var tam: Vector2 = capa.size
 	if tam.x <= 0.0 or tam.y <= 0.0:
 		tam = Vector2(180, 90)   # todavia sin layout: se recoloca solo en el resized de abajo
+	var mult: float = 1.0 + 0.5 * float(clampi(stacks, 1, 4) - 1)
 	var p: CPUParticles2D = null
 	match tipo:
+		"veneno":
+			# Calaveritas subiendo, y mas cuantas mas dosis lleve encima.
+			p = Particulas.ascendentes(capa, color, 0.85 * mult, tam.y * 0.5,
+				Particulas.textura_calavera())
+		"sangre":
+			p = Particulas.sangre(capa, color, tam, mult)
 		"ascendente":
 			# 'alto' es el lado del cuerpo para Particulas: aqui el cuerpo es la tarjeta, y con la
 			# mitad del alto las llamas suben ~1.5 tarjetas sin taparlo todo.
@@ -410,7 +433,7 @@ func _crear_emisor(capa: Control, tipo: String, color: Color) -> CPUParticles2D:
 		"cruz":
 			p = Particulas.cruces(capa, color, 1.0, tam.y * 0.5)
 		"capa":
-			p = Particulas.chorretones(capa, color, tam, 1.0)
+			p = Particulas.chorretones(capa, color, tam, mult)
 		"flecha":
 			p = Particulas.flechas(capa, color, tam, 1.0)
 		"flecha_arriba":
@@ -540,6 +563,22 @@ static func _clave(ico: String, col: Color) -> String:
 	return "%s|%d" % [ico, col.to_rgba32()]
 
 
+# CUANTAS DOSIS lleva encima, sacadas de la etiqueta del chip ("🕸x3 2t" -> 3). Se lee del texto y
+# no de c.statuses a proposito, por lo mismo que todo lo demas de aqui: en el espejo de
+# multijugador no hay motor de estados y la etiqueta ya resuelta es lo unico que llega.
+# Los que no apilan no traen la "xN" y valen 1.
+static func _stacks_de(etiqueta: String) -> int:
+	var i: int = etiqueta.find("x")
+	if i < 0:
+		return 1
+	var n := ""
+	var j: int = i + 1
+	while j < etiqueta.length() and etiqueta[j] >= "0" and etiqueta[j] <= "9":
+		n += etiqueta[j]
+		j += 1
+	return maxi(1, int(n)) if n != "" else 1
+
+
 # ============================================================
 #  BARRAS
 # ============================================================
@@ -558,9 +597,14 @@ func fijar_barra(bloque: Dictionary, clave: String, valor: float, inmediato := f
 	# crean tarjetas (el arranque, un refuerzo, un compañero que se une, el roster del espejo):
 	# sin esto, cada tarjeta recien nacida hacia subir su vida desde cero como si se curara.
 	var primera: bool = not bloque.has(clave + "_meta")
-	bloque[clave + "_meta"] = valor
+	# 'valor' es la vida FINAL de la accion entera, que es lo unico que sabe combat.gd. Pero la
+	# barra no puede irse ya a ese numero: los golpes van cayendo uno a uno y cada uno tiene que
+	# descontar LO SUYO cuando toca, o la vida baja antes de que se vea el golpe que la baja.
+	# Lo que queda por descontar se guarda en '<clave>_pend' (ver arrancar_cola).
+	bloque[clave + "_fin"] = valor
+	bloque[clave + "_meta"] = valor + float(bloque.get(clave + "_pend", 0.0))
 	if inmediato or primera:
-		bar.value = valor
+		bar.value = bloque[clave + "_meta"]
 
 
 # Olvida los destinos de las barras de UNA tarjeta, para que el siguiente fijar_barra vuelva a
@@ -569,6 +613,27 @@ func fijar_barra(bloque: Dictionary, clave: String, valor: float, inmediato := f
 func olvidar_barras(bloque: Dictionary) -> void:
 	for clave in ["hp", "en", "mp"]:
 		bloque.erase(clave + "_meta")
+
+
+# Le quita a la barra de UNA tarjeta lo que acaba de comerse en este golpe. Cuando ya no queda
+# nada pendiente, la meta es la vida final y todo cuadra solo.
+func _descontar(bloque: Dictionary, dmg: float) -> void:
+	if bloque.is_empty() or not bloque.has("hp_fin"):
+		return
+	var pend: float = maxf(0.0, float(bloque.get("hp_pend", 0.0)) - maxf(dmg, 0.0))
+	bloque["hp_pend"] = pend
+	bloque["hp_meta"] = float(bloque["hp_fin"]) + pend
+
+
+# Suelta lo que quedara a medias: la barra se va ya a la vida real. Se llama al acabar la racha y
+# al cancelarla (tecla P), para que un golpe que no se llego a ver no deje la barra mintiendo.
+func _saldar_barras() -> void:
+	for b in _tarjetas:
+		if float(b.get("hp_pend", 0.0)) == 0.0:
+			continue
+		b["hp_pend"] = 0.0
+		if b.has("hp_fin"):
+			b["hp_meta"] = b["hp_fin"]
 
 
 func _mover_barras(delta: float) -> void:
@@ -631,6 +696,19 @@ func arrancar_cola() -> float:
 		if int(ev.get("estilo", Estilo.MELEE)) != Estilo.MELEE:
 			magia = true
 			break
+	# LA VIDA BAJA CON CADA GOLPE, no antes. combat.gd solo sabe decir la vida FINAL de la accion
+	# entera, asi que aqui se suma lo que va a comerse cada uno y se le devuelve a su barra: la
+	# barra vuelve a donde estaba ANTES de la accion, y cada impacto le descuenta lo suyo al caer.
+	# Sin esto, en un multi-golpe la vida se iba al total de un tiron y los numeros salian despues.
+	for ev in _cola:
+		var d: float = float(ev["dmg"])
+		if d <= 0.0 or bool(ev["evadido"]):
+			continue
+		var bv: Dictionary = ev["bv"]
+		bv["hp_pend"] = float(bv.get("hp_pend", 0.0)) + d
+		if bv.has("hp_fin"):
+			bv["hp_meta"] = float(bv["hp_fin"]) + float(bv["hp_pend"])
+
 	var t_enc: float = T_ENCADENADO_MAGIA if magia else T_ENCADENADO
 	var arranque: float = T_ARRANQUE_MAGIA if magia else T_IDA
 	# Los extras TOPAN: 32 impactos de una tormenta no pueden durar cinco segundos. Lo que hacen
@@ -670,6 +748,7 @@ func cancelar() -> void:
 	# Y los rayos y bolas que estuvieran en el aire, o se quedan pintados para siempre.
 	if _capa_fx != null and is_instance_valid(_capa_fx):
 		_capa_fx.limpiar()
+	_saldar_barras()   # los golpes que no se llegaron a ver ya han pasado: la vida, a la real
 	_snap_barras()
 
 
@@ -725,6 +804,9 @@ func _process(delta: float) -> void:
 		if not ev["lanzado"] and _t >= t_imp:
 			ev["lanzado"] = true
 			_soltar_numero_de(ev)
+			# Y ESTE golpe le quita SU parte a la barra, justo ahora: lo que baja la vida es
+			# exactamente el numero que acaba de salir volando.
+			_descontar(ev["bv"], float(ev["dmg"]) if not bool(ev["evadido"]) else 0.0)
 
 		# EMBESTIDA del atacante. SOLO EN MELEE: un mago no se lanza contra el bicho para tirarle
 		# una bola de fuego, se queda donde esta y lo que viaja es el conjuro. Del 7º golpe en
@@ -779,6 +861,7 @@ func _process(delta: float) -> void:
 	if _t >= _dur:
 		_activa = false
 		_cola.clear()
+		_saldar_barras()
 		for b in _tarjetas:
 			_reposo(b)
 
@@ -861,11 +944,13 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 		lbl.add_theme_color_override("font_color", Color(0.7, 0.75, 0.85))
 		lbl.add_theme_font_size_override("font_size", 18)
 	else:
-		lbl.text = "%.0f" % maxf(float(ev["dmg"]), 0.0)
+		# Con DOS DECIMALES, igual que el log y que los numeros de dentro de las barras: si el
+		# numero que vuela dice 134 y la barra dice 134.42, parecen dos cuentas distintas.
+		lbl.text = "%.2f" % maxf(float(ev["dmg"]), 0.0)
 		if crit:
 			lbl.text += "!"
 		lbl.add_theme_color_override("font_color", ev["color"])
-		lbl.add_theme_font_size_override("font_size", 30 if crit else 20)
+		lbl.add_theme_font_size_override("font_size", 28 if crit else 19)
 
 	# El sitio: encima de la tarjeta que lo come, en coordenadas de la capa.
 	var r: Rect2 = pv.get_global_rect()
