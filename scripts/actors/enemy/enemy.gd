@@ -580,7 +580,7 @@ func _direccion_esquivando(hacia: Vector2) -> Vector2:
 	var comprometido: bool = _lado_desvio != 0 and _desvio_t > 0.0
 	_desvio_t = DESVIO_MEMORIA
 	var salida: Vector2 = _buscar_hueco(dir, sonda, [_lado_desvio]) if comprometido \
-		else _elegir_lado(dir, sonda)
+		else _elegir_lado(dir, sonda, hacia)
 	# Si por su lado no hay nada (ha llegado al fondo yendo por ahi), suelta el compromiso y mira
 	# tambien por el otro: mas vale desdecirse que empotrarse.
 	if salida == Vector2.ZERO and comprometido:
@@ -601,7 +601,11 @@ func _direccion_esquivando(hacia: Vector2) -> Vector2:
 #   * Si tampoco -> deja de perseguir y se vuelve a su sitio. Es un bicho, no un sabueso: darse por
 #     vencido es mejor que quedarse de adorno girando alrededor de una piedra.
 const ORBITA_MARGEN := 8.0     # cuanto tiene que recortar para que cuente como progreso
-const ORBITA_T := 2.5          # cuanto le damos sin progresar antes de cambiar de lado
+# Generoso a proposito: rodear de verdad NO acerca mientras dura. Un bicho que le da la vuelta
+# entera a un muro largo se pasa varios segundos igual de lejos o mas, y es un rodeo legitimo --
+# con el listón bajo lo matabamos a mitad de camino y se volvia a casa habiendo hecho medio
+# trabajo, que se ve mucho peor que tardar un poco.
+const ORBITA_T := 4.0          # cuanto le damos sin progresar antes de cambiar de lado
 func _vigilar_orbita(delta: float, dist: float) -> void:
 	if _orbita_record >= 99998.0:
 		_orbita_record = dist   # primera vuelta de esta persecucion: el record es donde empieza
@@ -616,8 +620,12 @@ func _vigilar_orbita(delta: float, dist: float) -> void:
 	_orbita_t = 0.0
 	_orbita_cambios += 1
 	if _orbita_cambios == 1 and _lado_desvio != 0:
-		_lado_desvio = -_lado_desvio   # por aqui no era: al otro lado
+		# Por aqui no era: al otro lado, y con la cuenta A CERO. Si se le dejara el record de la
+		# primera mitad, la segunda nace ya "sin progresar" desde donde acabo la primera (que suele
+		# ser el punto mas lejano del rodeo) y se rinde antes de haber tenido opcion.
+		_lado_desvio = -_lado_desvio
 		_desvio_t = DESVIO_MEMORIA
+		_orbita_record = 99999.0
 		return
 	# Ni por un lado ni por el otro. Lo deja estar.
 	_olvidar_orbita()
@@ -638,29 +646,43 @@ func _olvidar_orbita() -> void:
 	_desvio_t = 0.0
 
 
-# LA PRIMERA VEZ que hay que elegir lado, se eligen los DOS y gana el que tenga mas camino por
-# delante. Antes se probaban en orden fijo [1, -1], asi que a igual angulo ganaba SIEMPRE el mismo
-# sentido de giro: en un pasillo, la mitad de las veces el bicho se metia de morros contra la pared
-# larga en vez de tirar por donde se llega. No era mala suerte, era un sesgo.
+# LA PRIMERA VEZ que hay que elegir lado se miran los DOS, y esa eleccion pesa muchisimo: mientras
+# siga habiendo pared delante el compromiso se renueva solo, asi que equivocarse aqui es irse por
+# donde no era hasta que salte el freno anti-orbita.
 #
-# El criterio principal sigue siendo el desvio MAS PEQUEÑO (se para en el primer angulo que sirva
-# por algun lado); lo que decide entre los dos lados de ESE angulo es cual esta mas despejado.
-const OJEADA := 5.0   # cuanto se mira hacia delante para comparar lados, en veces la sonda
-func _elegir_lado(dir: Vector2, sonda: float) -> Vector2:
+# LA PREGUNTA BUENA NO ES "¿por donde hay mas sitio?" sino "¿por donde acabo MAS CERCA DE EL?".
+# Comparando hueco libre, dos lados que llegan al tope de la ojeada EMPATAN, y en el empate ganaba
+# otra vez el primero de la lista -- o sea el mismo sesgo de antes, solo que mas disimulado: en un
+# pasillo o en campo abierto los dos lados se ven despejados y el bicho tiraba igual hacia la
+# pared larga.
+#
+# Asi que cada lado se puntua yendo hasta donde llegaria por ahi (lo que le deje la roca, con un
+# tope) y midiendo cuanto le faltaria DESDE ALLI. Eso no empata casi nunca, y ademas dice lo que
+# de verdad importa: el lado que doble la esquina hacia ti gana, aunque por el otro haya mas hueco.
+#
+# El criterio principal sigue siendo el desvio MAS PEQUEÑO: se para en el primer angulo que sirva
+# por algun lado, y la puntuacion solo decide entre los dos lados de ESE angulo.
+const OJEADA_MIN := 3.0    # lo menos que se mira hacia delante para comparar, en veces la sonda
+const OJEADA_MAX := 12.0   # ...y lo mas, para no medir media mazmorra en cada frame
+func _elegir_lado(dir: Vector2, sonda: float, hacia: Vector2) -> Vector2:
+	var objetivo: Vector2 = global_position + hacia
+	# Se ojea, como mucho, lo que hay hasta el: mirar mas lejos que la presa no dice nada util.
+	var ojeada: float = clampf(hacia.length(), sonda * OJEADA_MIN, sonda * OJEADA_MAX)
 	for g in DESVIOS:
 		var rad: float = deg_to_rad(g)
 		var mejor: Vector2 = Vector2.ZERO
 		var mejor_lado: int = 0
-		var mejor_sitio: float = -1.0
+		var mejor_falta: float = INF
 		for s in [1, -1]:
 			var cand: Vector2 = dir.rotated(rad * float(s))
 			if not _cabe_por(cand, sonda):
 				continue
-			var sitio: float = _recorrido_libre(cand, sonda * OJEADA)
-			if sitio > mejor_sitio:
+			var corrida: float = _recorrido_libre(cand, ojeada)
+			var falta: float = (global_position + cand * corrida).distance_to(objetivo)
+			if falta < mejor_falta:
 				mejor = cand
 				mejor_lado = s
-				mejor_sitio = sitio
+				mejor_falta = falta
 		if mejor != Vector2.ZERO:
 			_lado_desvio = mejor_lado
 			return mejor
