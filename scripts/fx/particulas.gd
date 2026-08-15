@@ -35,6 +35,9 @@ static var _tex_gota: ImageTexture = null
 static var _tex_flecha: ImageTexture = null
 static var _tex_estrella: ImageTexture = null
 static var _tex_chispa: ImageTexture = null
+static var _tex_raya: ImageTexture = null
+static var _tex_llama: ImageTexture = null
+static var _tex_rayito: ImageTexture = null
 static var _curva_menguante: Curve = null
 
 
@@ -56,9 +59,12 @@ static func textura() -> ImageTexture:
 # costado) y esta BAJADA hacia los pies. Ceñida al centro se leia como una columnita de humo por
 # detras del bicho; desbordando por los lados y naciendo abajo se lee como algo que le arde por
 # todo el cuerpo, que es lo que tiene que decir un slime de fuego.
-static func ascendentes(padre: Node, color: Color, intensidad := 1.0, alto := 24.0) -> CPUParticles2D:
+# 'tex' cambia la FORMA sin tocar el comportamiento: el rastro de un bicho de fuego son motas, pero
+# una Quemadura son llamitas. Es la misma fisica con otro dibujo.
+static func ascendentes(padre: Node, color: Color, intensidad := 1.0, alto := 24.0,
+		tex: Texture2D = null) -> CPUParticles2D:
 	var p := CPUParticles2D.new()
-	p.texture = textura()
+	p.texture = tex if tex != null else textura()
 	# false = las particulas ya emitidas NO siguen al nodo: se quedan donde nacieron y el cuerpo
 	# las deja atras al andar. Es lo que hace que parezca un rastro y no una peluca.
 	p.local_coords = false
@@ -219,7 +225,11 @@ static func chorretones(padre: Node, color: Color, zona: Vector2, intensidad := 
 # FLECHAS que caen despacio. Es el "algo tuyo ha bajado": el Lento, el Debil, el Vulnerable, la
 # Marca. Van hacia ABAJO y sin prisa -- una flecha rapida se lee como un proyectil, y una flecha
 # hacia abajo lenta se lee como "esto se te ha hundido", que es justo lo que ha pasado.
-static func flechas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0) -> CPUParticles2D:
+# 'arriba' = true las da la vuelta y las sube: es el espejo exacto para los buffs que SUBEN una
+# stat (Fortaleza, Baluarte, Presteza). Al ser la misma forma girada no hay nada nuevo que
+# aprenderse -- flecha abajo algo ha bajado, flecha arriba algo ha subido.
+static func flechas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0,
+		arriba := false) -> CPUParticles2D:
 	var p := CPUParticles2D.new()
 	p.texture = textura_flecha()
 	p.local_coords = true
@@ -227,17 +237,48 @@ static func flechas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0)
 	p.lifetime = 1.5
 	p.lifetime_randomness = 0.3
 	p.randomness = 1.0
-	p.direction = Vector2.DOWN
+	p.direction = Vector2.UP if arriba else Vector2.DOWN
 	p.spread = 8.0
 	p.gravity = Vector2.ZERO
 	p.initial_velocity_min = 10.0
 	p.initial_velocity_max = 20.0
+	# La textura apunta ABAJO, asi que para las de subir se le da media vuelta.
+	if arriba:
+		p.angle_min = 180.0
+		p.angle_max = 180.0
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
 	p.emission_rect_extents = Vector2(zona.x * 0.42, zona.y * 0.1)
-	p.position.y = -zona.y * 0.22
+	p.position.y = zona.y * 0.22 if arriba else -zona.y * 0.22
 	p.scale_amount_min = 0.9
 	p.scale_amount_max = 1.2
 	p.color_ramp = _rampa_destello(_realzar(color), intensidad)
+	padre.add_child(p)
+	return p
+
+
+# ESTELAS DE VELOCIDAD: rayas horizontales que cruzan la caja a toda leche. Es para Presteza, y
+# existe porque unos puntitos brillantes no significan "vas mas rapido" -- las lineas de velocidad
+# de toda la vida si, y encima no hay que explicarlas.
+static func estelas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.texture = textura_raya()
+	p.local_coords = true
+	p.amount = maxi(3, roundi(4.0 * intensidad))
+	p.lifetime = 0.55        # corta: una raya que se queda quieta deja de leerse como velocidad
+	p.lifetime_randomness = 0.35
+	p.randomness = 1.0
+	p.direction = Vector2.RIGHT
+	p.spread = 0.0           # perfectamente horizontales
+	p.gravity = Vector2.ZERO
+	p.initial_velocity_min = zona.x * 1.4
+	p.initial_velocity_max = zona.x * 2.2
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	# Nacen pegadas al borde IZQUIERDO y cruzan hacia la derecha, repartidas por todo el alto.
+	p.emission_rect_extents = Vector2(2.0, zona.y * 0.38)
+	p.position.x = -zona.x * 0.5
+	p.scale_amount_min = 0.8
+	p.scale_amount_max = 1.5
+	p.color_ramp = _rampa_rastro(_realzar(color), intensidad)
 	padre.add_child(p)
 	return p
 
@@ -249,18 +290,20 @@ static func orbitan(padre: Node, color: Color, zona: Vector2, intensidad := 1.0)
 	var p := CPUParticles2D.new()
 	p.texture = textura_estrella()
 	p.local_coords = true
-	p.amount = maxi(3, roundi(4.0 * intensidad))
+	p.amount = maxi(4, roundi(5.0 * intensidad))
 	p.lifetime = 1.5
-	p.lifetime_randomness = 0.15
-	p.randomness = 0.4
+	# Casi sin azar: el corro tiene que verse como UN corro que gira, no como estrellas sueltas.
+	# Es la diferencia entre el gag de dibujos y un puñado de brillos.
+	p.lifetime_randomness = 0.05
+	p.randomness = 0.1
 	p.gravity = Vector2.ZERO
 	p.initial_velocity_min = 0.0
 	p.initial_velocity_max = 0.0
-	# Nacen en un ANILLO alrededor del centro y le dan vueltas.
+	# Nacen en un ANILLO y le dan vueltas. Quien llama lo coloca (va sobre la cabeza, no en medio).
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE_SURFACE
-	p.emission_sphere_radius = minf(zona.x, zona.y) * 0.34
-	p.orbit_velocity_min = 0.35
-	p.orbit_velocity_max = 0.5
+	p.emission_sphere_radius = minf(zona.x, zona.y) * 0.3
+	p.orbit_velocity_min = 0.55
+	p.orbit_velocity_max = 0.65
 	p.scale_amount_min = 0.8
 	p.scale_amount_max = 1.2
 	p.color_ramp = _rampa_destello(_realzar(color), intensidad)
@@ -271,9 +314,10 @@ static func orbitan(padre: Node, color: Color, zona: Vector2, intensidad := 1.0)
 # CHISPAS: cortas, rapidas y nerviosas. Para el Electrizado, que no te hace nada por si mismo pero
 # esta ahi crepitando. Es lo contrario del destello: vida corta y randomness al maximo, porque un
 # chisporroteo TIENE que ser inquieto (un destello tranquilo diria "esto es bueno").
-static func chispas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0) -> CPUParticles2D:
+static func chispas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0,
+		tex: Texture2D = null) -> CPUParticles2D:
 	var p := CPUParticles2D.new()
-	p.texture = textura_chispa()
+	p.texture = tex if tex != null else textura_chispa()
 	p.local_coords = true
 	p.amount = maxi(4, roundi(6.0 * intensidad))
 	p.lifetime = 0.45
@@ -338,6 +382,53 @@ static func textura_estrella() -> ImageTexture:
 				img.set_pixel(k, 6 - k, Color(1, 1, 1, 0.7))
 		_tex_estrella = ImageTexture.create_from_image(img)
 	return _tex_estrella
+
+
+# LLAMITA: una gota puntiaguda hacia ARRIBA, ancha por la panza. Para la Quemadura, porque un
+# cuadradito naranja subiendo no es fuego, es un cuadradito naranja subiendo.
+static func textura_llama() -> ImageTexture:
+	if _tex_llama == null:
+		# Medio ancho por fila, de la punta (arriba) a la base. La panza va en el tercio bajo.
+		var medios := [0, 0, 1, 1, 2, 2, 3, 2, 1]
+		var img := Image.create(7, medios.size(), false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 0))
+		for y in medios.size():
+			var m: int = medios[y]
+			for x in range(3 - m, 4 + m):
+				# El centro mas opaco que los bordes: da la sensacion de llama y no de mancha.
+				img.set_pixel(x, y, Color(1, 1, 1, 1.0 if absi(x - 3) < m else 0.65))
+		_tex_llama = ImageTexture.create_from_image(img)
+	return _tex_llama
+
+
+# RAYITO: el zigzag de toda la vida, en 5x7. Para el Electrizado -- una X se lee como una chispa
+# generica, y esto se lee como electricidad.
+static func textura_rayito() -> ImageTexture:
+	if _tex_rayito == null:
+		var filas := [
+			[2, 3], [1, 2], [1], [0, 1, 2, 3], [2, 3], [2], [1],
+		]
+		var img := Image.create(5, filas.size(), false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 0))
+		for y in filas.size():
+			for x in filas[y]:
+				img.set_pixel(int(x), y, Color.WHITE)
+		_tex_rayito = ImageTexture.create_from_image(img)
+	return _tex_rayito
+
+
+# RAYA horizontal de 12x2: la linea de velocidad. Larga y finita, para que se lea como un barrido
+# y no como un guion.
+static func textura_raya() -> ImageTexture:
+	if _tex_raya == null:
+		var img := Image.create(12, 2, false, Image.FORMAT_RGBA8)
+		img.fill(Color.WHITE)
+		# Las puntas a media alfa: una raya con los dos extremos cortados a cuchillo canta.
+		for y in 2:
+			img.set_pixel(0, y, Color(1, 1, 1, 0.35))
+			img.set_pixel(11, y, Color(1, 1, 1, 0.35))
+		_tex_raya = ImageTexture.create_from_image(img)
+	return _tex_raya
 
 
 # CHISPA: una X de 5x5. Corta y con esquinas, que es lo que la separa del cuadradito del destello.

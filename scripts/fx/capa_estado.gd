@@ -19,8 +19,15 @@ class_name CapaEstado
 const ALTO_POZO := 0.30    # que fraccion de la tarjeta ocupa la baba acumulada abajo
 const N_GOTERONES := 3
 
+# DOS capas independientes, porque se pueden dar a la vez (puedes estar pringado Y escondido):
+#   BABA    lo que te chorrea encima: se acumula abajo y gotea del borde de arriba.
+#   NIEBLA  lo que te TAPA: un velo que cubre la tarjeta entera. Es lo que hace el Sigilo, y va
+#           asi y no con particulas porque unos puntitos no dicen "no me ves" -- lo que lo dice
+#           es que te cueste verlo.
 var color: Color = Color.TRANSPARENT
 var intensidad: float = 0.0   # 0 = nada que pintar
+var color_niebla: Color = Color.TRANSPARENT
+var niebla: float = 0.0
 
 var _t := 0.0
 var _semilla := 0.0
@@ -41,15 +48,26 @@ func pintar(col: Color, fuerza: float) -> void:
 	queue_redraw()
 
 
+# El VELO que te tapa (Sigilo). Va aparte de la baba porque las dos pueden estar a la vez.
+func pintar_niebla(col: Color, fuerza: float) -> void:
+	color_niebla = col
+	niebla = clampf(fuerza, 0.0, 1.0)
+	queue_redraw()
+
+
 func _process(delta: float) -> void:
-	if intensidad <= 0.0:
+	if intensidad <= 0.0 and niebla <= 0.0:
 		return
 	_t += delta
 	queue_redraw()
 
 
 func _draw() -> void:
-	if intensidad <= 0.0 or size.x <= 1.0 or size.y <= 1.0:
+	if size.x <= 1.0 or size.y <= 1.0:
+		return
+	if niebla > 0.0:
+		_dibujar_niebla()
+	if intensidad <= 0.0:
 		return
 	var col := Color(color.r, color.g, color.b, 0.42 * intensidad)
 	var claro := Color(minf(1.0, color.r + 0.35), minf(1.0, color.g + 0.35),
@@ -86,3 +104,22 @@ func _draw() -> void:
 		draw_line(Vector2(x2, 0.0), Vector2(x2, largo), col, ancho * 2.0, true)
 		# La gota del final, a punto de soltarse.
 		draw_circle(Vector2(x2, largo), ancho, col)
+
+
+# EL VELO. Un manto que cubre la tarjeta entera mas unas vedijas que la cruzan despacio. La gracia
+# es que TAPA: al que esta en sigilo cuesta mas leerlo, que es exactamente lo que dice el estado.
+#
+# Las vedijas son bandas anchas y muy transparentes que se solapan. No hay desenfoque de verdad
+# (seria un shader y esto es un _draw), pero tres bandas translucidas cruzandose a distinta
+# velocidad se leen como niebla igual.
+func _dibujar_niebla() -> void:
+	var base := Color(color_niebla.r, color_niebla.g, color_niebla.b, 0.34 * niebla)
+	draw_rect(Rect2(Vector2.ZERO, size), base)
+	for k in 3:
+		var f: float = float(k)
+		# Cada vedija va a su ritmo y da la vuelta por el otro lado al salirse.
+		var y: float = fmod(_t * (7.0 + f * 4.0) + f * size.y * 0.4 + _semilla * 9.0, size.y + 40.0) - 20.0
+		var alto: float = size.y * (0.20 + 0.08 * f)
+		var a: float = (0.10 - 0.02 * f) * niebla
+		draw_rect(Rect2(Vector2(-4.0, y), Vector2(size.x + 8.0, alto)),
+			Color(1.0, 1.0, 1.0, a))

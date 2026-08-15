@@ -127,8 +127,10 @@ const VEL_BARRA := 3.0
 # y que te sube el maná. Juntas, la de vida ganaba siempre y la azul no salia nunca.
 const FAMILIAS: Array = [
 	# [nombre, forma, ids...] -- el orden dentro de la lista es quien gana el hueco de su familia.
+	# El fuego va aparte: son LLAMITAS, no motas. Un cuadradito naranja subiendo no es una quemadura.
+	["fuego", "llama", [StatusEffects.Id.QUEMADURA]],
 	["dano", "ascendente", [
-		StatusEffects.Id.QUEMADURA, StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO,
+		StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO,
 		StatusEffects.Id.CORROSION, StatusEffects.Id.HERIDA_PROFUNDA,
 	]],
 	# Te CHORREA encima: pelicula que se acumula + goterones. Es lo unico que pinta CapaEstado.
@@ -140,32 +142,49 @@ const FAMILIAS: Array = [
 		StatusEffects.Id.LENTO, StatusEffects.Id.DEBIL, StatusEffects.Id.VULNERABLE,
 		StatusEffects.Id.MARCA,
 	]],
-	# Te quitan el turno o te lo capan: estrellas dando vueltas, el clasico del grogui.
+	# Te quitan el turno o te lo capan: el corro de estrellitas girando SOBRE LA CABEZA, tal cual el
+	# gag de dibujos animados de toda la vida.
 	["control", "estrella", [
 		StatusEffects.Id.ATURDIDO, StatusEffects.Id.MIEDO, StatusEffects.Id.SILENCIO,
 	]],
-	# No te hace nada por si mismo, esta ahi crepitando y sube lo siguiente que te caiga.
-	["ampli", "chispa", [
+	# No te hace nada por si mismo, esta ahi crepitando y sube lo siguiente que te caiga. Van
+	# RAYITOS (zigzags) y no chispas genericas: una X se lee como "algo brilla", un zigzag como
+	# "esto esta electrificado".
+	["ampli", "rayito", [
 		StatusEffects.Id.RAYO,
 	]],
-	# Las dos curaciones, cada una en SU familia: cruces verdes la vida, azules el maná.
+	# Las dos curaciones: cruces verdes la vida, azules el maná.
 	["vida", "cruz", [StatusEffects.Id.REGENERACION]],
 	["mana", "cruz", [StatusEffects.Id.REGEN_MANA]],
-	# El resto de cosas a tu favor: el destello de siempre, que en todo el juego significa
-	# "esto es bueno" (es el de las vetas y el equipo raro), asi que aqui encaja.
-	["buff", "destello", [
-		StatusEffects.Id.FORTALEZA, StatusEffects.Id.BALUARTE, StatusEffects.Id.PRESTEZA,
-		StatusEffects.Id.SIGILO, StatusEffects.Id.GUARDIA_CARNE, StatusEffects.Id.ESCOLTA,
+	# Algo tuyo ha SUBIDO: las mismas flechas de la merma pero hacia arriba. Al ser el espejo
+	# exacto se leen de un vistazo sin tener que aprenderse nada nuevo.
+	["buff", "flecha_arriba", [
+		StatusEffects.Id.FORTALEZA, StatusEffects.Id.BALUARTE,
+	]],
+	# VELOCIDAD: lineas de velocidad cruzando la tarjeta. Unos puntitos brillantes no dicen "vas
+	# mas rapido"; estas si, y sin tener que explicarlas.
+	["veloz", "estela", [StatusEffects.Id.PRESTEZA]],
+	# TE TAPA: un velo de niebla sobre la tarjeta entera, sin una sola particula. El Sigilo se dice
+	# haciendo que cueste verte, no echandote puntitos grises encima.
+	["velo", "niebla", [StatusEffects.Id.SIGILO]],
+	# El resto de cosas a tu favor, que no son ni "un numero que sube" ni nada con forma propia:
+	# el destello de siempre, que en todo el juego significa "esto es bueno".
+	["favor", "destello", [
+		StatusEffects.Id.GUARDIA_CARNE, StatusEffects.Id.ESCOLTA,
 	]],
 ]
 # Los 8 PLATOS se quedan SOLO con el tinte a proposito, y no es un olvido: duran 20 minutos de
 # reloj, asi que un emisor suyo estaria encendido toda la partida y no diria nada -- lo que
 # informa de un estado es que aparezca y desaparezca.
 
-# Una por familia, asi que el techo es el numero de familias. Llegar a las ocho a la vez no pasa
-# ni queriendo, y aun asi serian 8 emisores de 3-6 particulas: irrelevante en CPU (ver la cabecera
-# de particulas.gd).
-const MAX_EMISORES := 8
+# CUANTOS se pintan a la vez. NO es uno por familia: eso hacia que dos estados de la misma familia
+# se taparan entre si (te ponias Sigilo y Guardia de carne y solo salia uno), que es el mismo tipo
+# de mentira que enseñar un estado que no tienes. Se pintan los CUATRO primeros, salgan de donde
+# salgan, y el orden es el de FAMILIAS: lo que te esta matando antes que lo que te viene bien.
+#
+# Cuatro y no mas porque la tarjeta mide 216x120: con cinco o seis emisores encima deja de leerse
+# nada. Los que se caen del corte se siguen viendo en su chip y en el tinte del recuadro.
+const MAX_EMISORES := 4
 
 const DORADO_BUFF := Color(1.0, 0.85, 0.35)
 
@@ -261,8 +280,7 @@ func olvidar_todas() -> void:
 func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 	if bloque.is_empty() or not bloque.has("fx_capa"):
 		return
-	var quiere: Array[Dictionary] = []      # lo que hay que pintar, uno por familia
-	var por_familia: Dictionary = {}        # familia -> el que la representa
+	var quiere: Array[Dictionary] = []      # lo que se pinta al final (como mucho MAX_EMISORES)
 	var n_buff := 0
 	var n_debuff := 0
 	var col_debuff := Color.WHITE
@@ -276,6 +294,8 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 			var info: Dictionary = tabla.get(_clave(String(par[2]), col), {})
 			if info.is_empty():
 				continue
+			# El recuento de buffs/debuffs es para el TINTE del recuadro, y va aparte de las
+			# particulas: un estado sin forma (los platos) tiñe igual.
 			if bool(info.get("debuff", false)):
 				n_debuff += 1
 				if col_debuff == Color.WHITE:
@@ -284,22 +304,22 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 				n_buff += 1
 				if col_buff == Color.WHITE:
 					col_buff = col
-				var fam: String = String(info.get("familia", ""))
-				if fam == "":
-					continue
-				# UNO POR FAMILIA: gana el primero de su lista. Asi arder y estar envenenado no se
-				# pelean por el mismo hueco con estar pringado o con estar regenerando -- son
-				# preguntas distintas y cada una tiene su sitio en la tarjeta.
-				var previo: Dictionary = por_familia.get(fam, {})
-				if not previo.is_empty() and int(previo["orden"]) <= int(info.get("orden", 99)):
-					continue
-				por_familia[fam] = {"icono": String(par[2]), "color": col,
-					"tipo": String(info["tipo"]), "orden": int(info.get("orden", 99)),
-					"familia": fam}
-	# En el orden fijo de FAMILIAS, para que la firma sea estable y no se recreen emisores por nada.
-	for f in FAMILIAS:
-		if por_familia.has(String(f[0])):
-			quiere.append(por_familia[String(f[0])])
+			var fam: String = String(info.get("familia", ""))
+			if fam == "":
+				continue   # sin forma: se queda solo con el tinte
+			quiere.append({"icono": String(par[2]), "color": col,
+				"tipo": String(info["tipo"]), "familia": fam,
+				"fam_orden": int(info.get("fam_orden", 99)),
+				"orden": int(info.get("orden", 99))})
+	# Por FAMILIA primero y por gravedad despues: lo que te esta matando se ve antes que lo que te
+	# viene bien. El orden tiene que ser estable ademas de justo, porque de el sale la firma que
+	# decide si hay que recrear emisores o no.
+	quiere.sort_custom(func(a, b) -> bool:
+		if int(a["fam_orden"]) != int(b["fam_orden"]):
+			return int(a["fam_orden"]) < int(b["fam_orden"])
+		return int(a["orden"]) < int(b["orden"]))
+	if quiere.size() > MAX_EMISORES:
+		quiere.resize(MAX_EMISORES)
 
 	# FIRMA: la huella de lo que deberia verse. _update_hp llama aqui constantemente (cada golpe,
 	# cada tick, cada refresco de red) y casi siempre no ha cambiado nada; sin este corte se
@@ -319,12 +339,23 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 	# de baba" y no como "algo verde te esta pasando".
 	var pelicula: CapaEstado = bloque.get("fx_pelicula")
 	if pelicula != null and is_instance_valid(pelicula):
-		var cubre: Dictionary = por_familia.get("capa", {})
-		# Solo los que CHORREAN pintan pelicula: Electrizado esta en la misma familia pero chispea.
-		if cubre.is_empty() or String(cubre.get("tipo", "")) != "capa":
+		# Las dos capas son INDEPENDIENTES: puedes estar pringado Y escondido a la vez.
+		var cubre: Dictionary = {}
+		var velo: Dictionary = {}
+		for q in quiere:
+			var t: String = String(q["tipo"])
+			if t == "capa" and cubre.is_empty():
+				cubre = q
+			elif t == "niebla" and velo.is_empty():
+				velo = q
+		if cubre.is_empty():
 			pelicula.pintar(Color.TRANSPARENT, 0.0)
 		else:
 			pelicula.pintar(cubre["color"], 1.0)
+		if velo.is_empty():
+			pelicula.pintar_niebla(Color.TRANSPARENT, 0.0)
+		else:
+			pelicula.pintar_niebla(velo["color"], 1.0)
 
 	if bloque.get("tinte", Color.WHITE) != tinte:
 		bloque["tinte"] = tinte
@@ -372,10 +403,20 @@ func _crear_emisor(capa: Control, tipo: String, color: Color) -> CPUParticles2D:
 			p = Particulas.chorretones(capa, color, tam, 1.0)
 		"flecha":
 			p = Particulas.flechas(capa, color, tam, 1.0)
+		"flecha_arriba":
+			p = Particulas.flechas(capa, color, tam, 1.0, true)
 		"estrella":
 			p = Particulas.orbitan(capa, color, tam, 1.0)
+		"llama":
+			p = Particulas.ascendentes(capa, color, 0.85, tam.y * 0.5, Particulas.textura_llama())
 		"chispa":
 			p = Particulas.chispas(capa, color, tam, 1.0)
+		"rayito":
+			p = Particulas.chispas(capa, color, tam, 1.0, Particulas.textura_rayito())
+		"estela":
+			p = Particulas.estelas(capa, color, tam, 1.0)
+		"niebla":
+			return null   # no lleva particulas: lo pinta CapaEstado
 		_:
 			p = Particulas.destellos(capa, color, tam, 0.6, 0.7)
 	if p == null:
@@ -389,7 +430,7 @@ func _crear_emisor(capa: Control, tipo: String, color: Color) -> CPUParticles2D:
 			return
 		p.position = capa.size * 0.5
 		match tipo:
-			"ascendente", "cruz":
+			"ascendente", "cruz", "llama":
 				# Nacen en una franja ancha y baja: la cosa te sube por todo el cuerpo, no te
 				# brota de un punto.
 				p.emission_rect_extents = Vector2(capa.size.x * 0.45, capa.size.y * 0.12)
@@ -397,13 +438,22 @@ func _crear_emisor(capa: Control, tipo: String, color: Color) -> CPUParticles2D:
 				# Los goterones nacen ARRIBA del todo y bajan por la tarjeta.
 				p.position.y = capa.size.y * 0.16
 				p.emission_rect_extents = Vector2(capa.size.x * 0.44, capa.size.y * 0.08)
-			"flecha":
-				# Las flechas caen desde arriba, como los goterones pero sin pelicula.
-				p.position.y = capa.size.y * 0.22
+			"flecha", "flecha_arriba":
+				# Las de bajar nacen arriba y las de subir abajo, para que se vea el recorrido.
+				var signo: float = 1.0 if tipo == "flecha" else -1.0
+				p.position.y = capa.size.y * (0.5 - 0.28 * signo)
 				p.emission_rect_extents = Vector2(capa.size.x * 0.42, capa.size.y * 0.1)
 			"estrella":
-				# El anillo por el que dan vueltas, centrado en la tarjeta.
-				p.emission_sphere_radius = minf(capa.size.x, capa.size.y) * 0.34
+				# SOBRE LA CABEZA, no en medio de la tarjeta: el corro va arriba, donde estaria la
+				# cabeza del personaje, que es donde lo pone todo dibujo animado desde siempre.
+				p.position.y = capa.size.y * 0.2
+				p.emission_sphere_radius = minf(capa.size.x * 0.5, capa.size.y) * 0.42
+			"estela":
+				# Nacen pegadas al borde izquierdo y cruzan la tarjeta entera.
+				p.position.x = 0.0
+				p.emission_rect_extents = Vector2(2.0, capa.size.y * 0.38)
+				p.initial_velocity_min = capa.size.x * 1.4
+				p.initial_velocity_max = capa.size.x * 2.2
 			_:
 				p.emission_rect_extents = capa.size * 0.5
 	capa.resized.connect(ajustar)
@@ -440,15 +490,18 @@ static func _tabla() -> Dictionary:
 		var familia := ""
 		var tipo := ""
 		var orden := 99
-		for f in FAMILIAS:
+		var fam_orden := 99
+		for fi in FAMILIAS.size():
+			var f: Array = FAMILIAS[fi]
 			var i: int = (f[2] as Array).find(id)
 			if i >= 0:
 				familia = String(f[0])
 				tipo = String(f[1])
 				orden = i
+				fam_orden = fi
 				break
 		_tabla_cache[_clave(ico, d.get("color", Color.WHITE))] = {
-			"tipo": tipo, "familia": familia, "orden": orden,
+			"tipo": tipo, "familia": familia, "orden": orden, "fam_orden": fam_orden,
 			"debuff": bool(d.get("debuff", false))}
 	return _tabla_cache
 
