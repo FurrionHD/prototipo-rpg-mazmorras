@@ -32,6 +32,9 @@ const LADO := 4
 static var _tex: ImageTexture = null
 static var _tex_cruz: ImageTexture = null
 static var _tex_gota: ImageTexture = null
+static var _tex_flecha: ImageTexture = null
+static var _tex_estrella: ImageTexture = null
+static var _tex_chispa: ImageTexture = null
 static var _curva_menguante: Curve = null
 
 
@@ -213,6 +216,83 @@ static func chorretones(padre: Node, color: Color, zona: Vector2, intensidad := 
 	return p
 
 
+# FLECHAS que caen despacio. Es el "algo tuyo ha bajado": el Lento, el Debil, el Vulnerable, la
+# Marca. Van hacia ABAJO y sin prisa -- una flecha rapida se lee como un proyectil, y una flecha
+# hacia abajo lenta se lee como "esto se te ha hundido", que es justo lo que ha pasado.
+static func flechas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.texture = textura_flecha()
+	p.local_coords = true
+	p.amount = maxi(2, roundi(3.0 * intensidad))
+	p.lifetime = 1.5
+	p.lifetime_randomness = 0.3
+	p.randomness = 1.0
+	p.direction = Vector2.DOWN
+	p.spread = 8.0
+	p.gravity = Vector2.ZERO
+	p.initial_velocity_min = 10.0
+	p.initial_velocity_max = 20.0
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	p.emission_rect_extents = Vector2(zona.x * 0.42, zona.y * 0.1)
+	p.position.y = -zona.y * 0.22
+	p.scale_amount_min = 0.9
+	p.scale_amount_max = 1.2
+	p.color_ramp = _rampa_destello(_realzar(color), intensidad)
+	padre.add_child(p)
+	return p
+
+
+# ESTRELLAS ORBITANDO: el clasico de "te han dejado grogui". Es para los estados que te quitan el
+# TURNO (Aturdido, Miedo) o te lo capan (Silencio). La clave es el orbit_velocity: no suben ni
+# caen, dan vueltas, y eso es lo que lo separa de todo lo demas de un vistazo.
+static func orbitan(padre: Node, color: Color, zona: Vector2, intensidad := 1.0) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.texture = textura_estrella()
+	p.local_coords = true
+	p.amount = maxi(3, roundi(4.0 * intensidad))
+	p.lifetime = 1.5
+	p.lifetime_randomness = 0.15
+	p.randomness = 0.4
+	p.gravity = Vector2.ZERO
+	p.initial_velocity_min = 0.0
+	p.initial_velocity_max = 0.0
+	# Nacen en un ANILLO alrededor del centro y le dan vueltas.
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE_SURFACE
+	p.emission_sphere_radius = minf(zona.x, zona.y) * 0.34
+	p.orbit_velocity_min = 0.35
+	p.orbit_velocity_max = 0.5
+	p.scale_amount_min = 0.8
+	p.scale_amount_max = 1.2
+	p.color_ramp = _rampa_destello(_realzar(color), intensidad)
+	padre.add_child(p)
+	return p
+
+
+# CHISPAS: cortas, rapidas y nerviosas. Para el Electrizado, que no te hace nada por si mismo pero
+# esta ahi crepitando. Es lo contrario del destello: vida corta y randomness al maximo, porque un
+# chisporroteo TIENE que ser inquieto (un destello tranquilo diria "esto es bueno").
+static func chispas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.texture = textura_chispa()
+	p.local_coords = true
+	p.amount = maxi(4, roundi(6.0 * intensidad))
+	p.lifetime = 0.45
+	p.lifetime_randomness = 0.6
+	p.randomness = 1.0
+	p.direction = Vector2.UP
+	p.spread = 180.0     # saltan en cualquier direccion
+	p.gravity = Vector2.ZERO
+	p.initial_velocity_min = 8.0
+	p.initial_velocity_max = 26.0
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	p.emission_rect_extents = Vector2(zona.x * 0.42, zona.y * 0.38)
+	p.scale_amount_min = 0.7
+	p.scale_amount_max = 1.25
+	p.color_ramp = _rampa_rastro(_realzar(color), intensidad)
+	padre.add_child(p)
+	return p
+
+
 # La CRUZ de curar: un mas, de 7x7, con los brazos de 3 px. No se usa la de 4x4 escalada porque
 # escalar un cuadrado da un cuadrado; la forma es todo el mensaje aqui.
 static func textura_cruz() -> ImageTexture:
@@ -227,6 +307,49 @@ static func textura_cruz() -> ImageTexture:
 				img.set_pixel(k, i, Color.WHITE)
 		_tex_cruz = ImageTexture.create_from_image(img)
 	return _tex_cruz
+
+
+# FLECHA hacia abajo: un triangulo de 7x7 con el vertice abajo.
+static func textura_flecha() -> ImageTexture:
+	if _tex_flecha == null:
+		var img := Image.create(7, 7, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 0))
+		for y in 7:
+			# Fila 0 ocupa los 7 px y la ultima solo el central: un triangulo apuntando abajo.
+			var medio: int = 3 - (y * 3) / 6
+			for x in range(medio, 7 - medio):
+				img.set_pixel(x, y, Color.WHITE)
+		_tex_flecha = ImageTexture.create_from_image(img)
+	return _tex_flecha
+
+
+# ESTRELLA de cuatro puntas, 7x7: los dos ejes completos y las diagonales cortas. La de verdad
+# (cinco puntas) a este tamaño es una mancha; con esta se lee la forma.
+static func textura_estrella() -> ImageTexture:
+	if _tex_estrella == null:
+		var img := Image.create(7, 7, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 0))
+		for i in 7:
+			img.set_pixel(i, 3, Color.WHITE)
+			img.set_pixel(3, i, Color.WHITE)
+		for d in [-1, 1]:
+			for k in [2, 4]:
+				img.set_pixel(k, k, Color(1, 1, 1, 0.7))
+				img.set_pixel(k, 6 - k, Color(1, 1, 1, 0.7))
+		_tex_estrella = ImageTexture.create_from_image(img)
+	return _tex_estrella
+
+
+# CHISPA: una X de 5x5. Corta y con esquinas, que es lo que la separa del cuadradito del destello.
+static func textura_chispa() -> ImageTexture:
+	if _tex_chispa == null:
+		var img := Image.create(5, 5, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 0))
+		for i in 5:
+			img.set_pixel(i, i, Color.WHITE)
+			img.set_pixel(i, 4 - i, Color.WHITE)
+		_tex_chispa = ImageTexture.create_from_image(img)
+	return _tex_chispa
 
 
 # El GOTERON de la baba: un circulo relleno de 8x8. Un cuadrado no escurre.

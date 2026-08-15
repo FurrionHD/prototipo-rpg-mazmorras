@@ -122,33 +122,50 @@ const VEL_BARRA := 3.0
 #
 # Se guardan los Id (enteros), NUNCA los emojis: el catalogo es la fuente de iconos y colores, y
 # asi un estado nuevo entra solo (como "solo tinte", que es el fallback correcto).
-const IDS_DANO: Array[int] = [
-	StatusEffects.Id.QUEMADURA, StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO,
-	StatusEffects.Id.CORROSION, StatusEffects.Id.HERIDA_PROFUNDA,
+# CADA FAMILIA tiene su hueco y su forma. Ojo a las dos curaciones: van en familias SEPARADAS a
+# proposito, porque son dos recursos distintos y tienes que poder ver a la vez que te sube la vida
+# y que te sube el maná. Juntas, la de vida ganaba siempre y la azul no salia nunca.
+const FAMILIAS: Array = [
+	# [nombre, forma, ids...] -- el orden dentro de la lista es quien gana el hueco de su familia.
+	["dano", "ascendente", [
+		StatusEffects.Id.QUEMADURA, StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO,
+		StatusEffects.Id.CORROSION, StatusEffects.Id.HERIDA_PROFUNDA,
+	]],
+	# Te CHORREA encima: pelicula que se acumula + goterones. Es lo unico que pinta CapaEstado.
+	["capa", "capa", [
+		StatusEffects.Id.PEGAJOSO, StatusEffects.Id.MOJADO,
+	]],
+	# Algo tuyo ha BAJADO: flechas cayendo despacio.
+	["merma", "flecha", [
+		StatusEffects.Id.LENTO, StatusEffects.Id.DEBIL, StatusEffects.Id.VULNERABLE,
+		StatusEffects.Id.MARCA,
+	]],
+	# Te quitan el turno o te lo capan: estrellas dando vueltas, el clasico del grogui.
+	["control", "estrella", [
+		StatusEffects.Id.ATURDIDO, StatusEffects.Id.MIEDO, StatusEffects.Id.SILENCIO,
+	]],
+	# No te hace nada por si mismo, esta ahi crepitando y sube lo siguiente que te caiga.
+	["ampli", "chispa", [
+		StatusEffects.Id.RAYO,
+	]],
+	# Las dos curaciones, cada una en SU familia: cruces verdes la vida, azules el maná.
+	["vida", "cruz", [StatusEffects.Id.REGENERACION]],
+	["mana", "cruz", [StatusEffects.Id.REGEN_MANA]],
+	# El resto de cosas a tu favor: el destello de siempre, que en todo el juego significa
+	# "esto es bueno" (es el de las vetas y el equipo raro), asi que aqui encaja.
+	["buff", "destello", [
+		StatusEffects.Id.FORTALEZA, StatusEffects.Id.BALUARTE, StatusEffects.Id.PRESTEZA,
+		StatusEffects.Id.SIGILO, StatusEffects.Id.GUARDIA_CARNE, StatusEffects.Id.ESCOLTA,
+	]],
 ]
-# Electrizado va AQUI y no en los buffs aunque no sea una baba: es algo que llevas encima, y
-# sobre todo es un DEBUFF -- puesto entre los destellos de "algo bueno" se leia como un buff, que
-# es exactamente el error que tenia el Pegajoso.
-const IDS_CAPA: Array[int] = [
-	StatusEffects.Id.PEGAJOSO, StatusEffects.Id.MOJADO, StatusEffects.Id.RAYO,
-]
-# De los de la familia CAPA, estos dos son los que te CHORREAN (pelicula + goterones). Electrizado
-# esta en la misma familia pero chispea, que una baba electrica no es nada.
-const IDS_BABA: Array[int] = [
-	StatusEffects.Id.PEGAJOSO, StatusEffects.Id.MOJADO,
-]
-const IDS_AYUDA: Array[int] = [
-	StatusEffects.Id.REGENERACION, StatusEffects.Id.REGEN_MANA,
-	StatusEffects.Id.FORTALEZA, StatusEffects.Id.BALUARTE, StatusEffects.Id.PRESTEZA,
-]
-# Los que curan llevan CRUZ en vez de destello: verde la vida, azul el maná. Una cruz solo puede
-# querer decir una cosa, y por eso no se confunde con un debuff que sea del mismo color.
-const IDS_CRUZ: Array[int] = [
-	StatusEffects.Id.REGENERACION, StatusEffects.Id.REGEN_MANA,
-]
-# Una por familia. Con 4 aliados y 5 enemigos son 27 emisores como techo, y a 3-7 particulas cada
-# uno el coste en CPU sigue siendo irrelevante (ver la cabecera de particulas.gd).
-const MAX_EMISORES := 3
+# Los 8 PLATOS se quedan SOLO con el tinte a proposito, y no es un olvido: duran 20 minutos de
+# reloj, asi que un emisor suyo estaria encendido toda la partida y no diria nada -- lo que
+# informa de un estado es que aparezca y desaparezca.
+
+# Una por familia, asi que el techo es el numero de familias. Llegar a las ocho a la vez no pasa
+# ni queriendo, y aun asi serian 8 emisores de 3-6 particulas: irrelevante en CPU (ver la cabecera
+# de particulas.gd).
+const MAX_EMISORES := 8
 
 const DORADO_BUFF := Color(1.0, 0.85, 0.35)
 
@@ -279,10 +296,10 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 				por_familia[fam] = {"icono": String(par[2]), "color": col,
 					"tipo": String(info["tipo"]), "orden": int(info.get("orden", 99)),
 					"familia": fam}
-	# En orden fijo de familia, para que la firma sea estable y no se recreen emisores por nada.
-	for fam in ["dano", "capa", "ayuda"]:
-		if por_familia.has(fam):
-			quiere.append(por_familia[fam])
+	# En el orden fijo de FAMILIAS, para que la firma sea estable y no se recreen emisores por nada.
+	for f in FAMILIAS:
+		if por_familia.has(String(f[0])):
+			quiere.append(por_familia[String(f[0])])
 
 	# FIRMA: la huella de lo que deberia verse. _update_hp llama aqui constantemente (cada golpe,
 	# cada tick, cada refresco de red) y casi siempre no ha cambiado nada; sin este corte se
@@ -353,6 +370,12 @@ func _crear_emisor(capa: Control, tipo: String, color: Color) -> CPUParticles2D:
 			p = Particulas.cruces(capa, color, 1.0, tam.y * 0.5)
 		"capa":
 			p = Particulas.chorretones(capa, color, tam, 1.0)
+		"flecha":
+			p = Particulas.flechas(capa, color, tam, 1.0)
+		"estrella":
+			p = Particulas.orbitan(capa, color, tam, 1.0)
+		"chispa":
+			p = Particulas.chispas(capa, color, tam, 1.0)
 		_:
 			p = Particulas.destellos(capa, color, tam, 0.6, 0.7)
 	if p == null:
@@ -374,6 +397,13 @@ func _crear_emisor(capa: Control, tipo: String, color: Color) -> CPUParticles2D:
 				# Los goterones nacen ARRIBA del todo y bajan por la tarjeta.
 				p.position.y = capa.size.y * 0.16
 				p.emission_rect_extents = Vector2(capa.size.x * 0.44, capa.size.y * 0.08)
+			"flecha":
+				# Las flechas caen desde arriba, como los goterones pero sin pelicula.
+				p.position.y = capa.size.y * 0.22
+				p.emission_rect_extents = Vector2(capa.size.x * 0.42, capa.size.y * 0.1)
+			"estrella":
+				# El anillo por el que dan vueltas, centrado en la tarjeta.
+				p.emission_sphere_radius = minf(capa.size.x, capa.size.y) * 0.34
 			_:
 				p.emission_rect_extents = capa.size * 0.5
 	capa.resized.connect(ajustar)
@@ -410,18 +440,13 @@ static func _tabla() -> Dictionary:
 		var familia := ""
 		var tipo := ""
 		var orden := 99
-		if IDS_DANO.has(id):
-			familia = "dano"
-			tipo = "ascendente"
-			orden = IDS_DANO.find(id)
-		elif IDS_CAPA.has(id):
-			familia = "capa"
-			tipo = "capa" if IDS_BABA.has(id) else "destello"
-			orden = IDS_CAPA.find(id)
-		elif IDS_AYUDA.has(id):
-			familia = "ayuda"
-			tipo = "cruz" if IDS_CRUZ.has(id) else "destello"
-			orden = IDS_AYUDA.find(id)
+		for f in FAMILIAS:
+			var i: int = (f[2] as Array).find(id)
+			if i >= 0:
+				familia = String(f[0])
+				tipo = String(f[1])
+				orden = i
+				break
 		_tabla_cache[_clave(ico, d.get("color", Color.WHITE))] = {
 			"tipo": tipo, "familia": familia, "orden": orden,
 			"debuff": bool(d.get("debuff", false))}
