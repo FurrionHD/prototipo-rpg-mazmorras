@@ -4581,6 +4581,31 @@ func _atb(ratios: PackedFloat32Array) -> void:
 		p.aplicar_atb(ratios)
 
 
+# LOS GOLPES, para que el espejo pueda REPRODUCIRLOS (la embestida de la tarjeta y los numeros de
+# daño). Sin esto el compañero veria las vidas bajar de golpe: los combatientes de su pantalla son
+# maniquis y no resuelven nada. Sale UN paquete por accion, con 4 enteros por golpe.
+#
+# Va unreliable_ordered como el ATB, y a proposito: es puramente cosmetico. Perder uno significa
+# ver un turno sin animacion, mientras que mandarlo fiable lo pondria a competir con la instantanea
+# -que es la que lleva los numeros de verdad- por el mismo ancho de banda.
+func difundir_impactos(datos: PackedInt32Array) -> void:
+	if not activo or _pelea_id == 0 or _pelea_participantes.is_empty():
+		return
+	for p in _pelea_participantes:
+		_impactos.rpc_id(p, datos)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _impactos(datos: PackedInt32Array) -> void:
+	if _pelea_sigo == 0:
+		return
+	var p: Node = _pantalla_combate()
+	# El has_method NO es paranoia: un compañero con una version anterior no tiene aplicar_impactos,
+	# y asi el paquete se le cae en silencio en vez de reventarle la pelea.
+	if p != null and p.has_method("aplicar_impactos"):
+		p.aplicar_impactos(datos)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _instantanea(snap: Dictionary) -> void:
 	if _pelea_sigo == 0:

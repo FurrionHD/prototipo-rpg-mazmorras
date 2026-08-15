@@ -142,6 +142,12 @@ var _objeto_box: VBoxContainer = null    # submenu de objetos/pociones (KAN-57)
 var _bloques: Array[Dictionary] = []   # indice = indice en _enemies
 var _bloques_aliados: Array[Dictionary] = []   # indice = indice en _aliados
 
+# TODO lo que se mueve y brilla (particulas de estado, tinte, embestidas, numeros de daño).
+# Es una capa PASIVA: no decide nada de la pelea, solo pinta lo que le cuentan desde aqui. Ver
+# scripts/fx/combat_fx.gd.
+var _fx: CombatFX = null
+var _capa_numeros: Control = null   # donde vuelan los numeros de daño, por encima de todo
+
 # --- Casteo de hechizos (KAN-56) ---
 # Submenu de hechizos (al pulsar Magia) y caja dinamica del recitado/disparo.
 var _spell_box: VBoxContainer = null
@@ -283,10 +289,18 @@ func _traza_add(que: String) -> void:
 enum State { ADVANCING, WAITING_PLAYER, PAUSED, FINISHED }
 var _state: State = State.ADVANCING
 
-# Pausa breve tras la accion del ENEMIGO para poder leer que hizo (las barras ATB
-# se congelan durante la pausa). El combate corre con el arbol en pausa, pero esta
-# escena tiene PROCESS_MODE_ALWAYS, asi que el tiempo (delta) sigue corriendo.
-const ENEMY_TURN_PAUSE := 1.0   # segundos
+# CUANTO DURA UN TURNO cuando ya se ha resuelto. Las barras ATB se congelan mientras tanto (ver
+# _process). El combate corre con el arbol en pausa, pero esta escena tiene PROCESS_MODE_ALWAYS,
+# asi que el tiempo (delta) sigue corriendo.
+#
+# MANDA LA ANIMACION: si la accion ha tenido golpes, el turno dura EXACTAMENTE lo que dure la
+# embestida (0.55 s un golpe suelto, hasta 1.4 s una racha larga) y detras no queda tiempo muerto.
+# Antes habia un segundo fijo de "para que te de tiempo a leer" que era eso: un segundo parado.
+#
+# La constante de abajo es solo para los turnos en los que NO hay nada que animar -- estas
+# aturdido, el bicho invoca, o te mete un debuff sin quitarte vida. Ahi si hace falta un respiro,
+# o el log pasa volando y no te enteras de lo que te acaban de hacer.
+const PAUSA_SIN_GOLPE := 0.5   # segundos
 var _pause_left: float = 0.0
 
 var _injected: bool = false       # true si Game nos paso los combatientes
@@ -567,7 +581,7 @@ func aplicar_roster(roster: Dictionary) -> void:
 			_enemies.append(c)
 			var b: Dictionary = _crear_bloque(c, i + 1, i)
 			_bloques.append(b)
-			_bloques_box.add_child(b["panel"])
+			_bloques_box.add_child(b["wrap"])
 		_gauge[c] = 0.0
 		if _timeline != null:
 			_timeline.anadir(c, c.color_visual, null, str(i + 1))
@@ -1096,6 +1110,85 @@ func _difundir_atb(delta: float) -> void:
 	Net.difundir_atb(r)
 
 
+# --- IMPACTOS PARA EL ESPEJO -----------------------------------------------------------------
+# El que espeja la pelea no simula nada: sin esto veria las vidas bajar de golpe, sin embestidas
+# ni numeros. Se le manda un paquete por ACCION (no por golpe): se van apuntando los impactos
+# segun se resuelven y se sueltan todos juntos al cerrar la accion, JUSTO ANTES del _update_hp
+# que difunde la instantanea -- asi alli tambien se ve primero el golpe y despues baja la barra.
+#
+# Formato: 4 enteros por impacto, y nada mas. Es cosmetico, asi que va por el mismo canal SIN
+# GARANTIA que el ATB: un paquete perdido no puede competir con la instantanea ni atascar un turno.
+const MAX_IMPACTOS_RED := 40   # 40 x 4 x 4 B = 640 B, muy por debajo de la MTU de ENet (1392)
+var _impactos_red: PackedInt32Array = PackedInt32Array()
+
+
+# El codigo de un combatiente dentro del roster: los tuyos tal cual y los de enfrente a partir de
+# 100. Mismo orden que usa _difundir_atb (aliados primero), que es el que conoce el espejo.
+func _cod_combatiente(c: Combatant) -> int:
+	if c == null:
+		return -1
+	var i: int = _aliados.find(c)
+	if i >= 0:
+		return i
+	i = _enemies.find(c)
+	return 100 + i if i >= 0 else -1
+
+
+func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
+		crit: bool, evadido: bool, elem: int) -> void:
+	if _espejo or not Net.activo or _impactos_red.size() >= MAX_IMPACTOS_RED * 4:
+		return
+	var ca: int = _cod_combatiente(atacante)
+	var cv: int = _cod_combatiente(victima)
+	if cv < 0:
+		return
+	var flags: int = (1 if crit else 0) | (2 if evadido else 0) | ((elem + 1) << 3)
+	_impactos_red.append(ca)
+	_impactos_red.append(cv)
+	_impactos_red.append(roundi(minf(dmg, 3000.0) * 10.0))   # x10: un decimal, y cabe en el int
+	_impactos_red.append(flags)
+
+
+# Suelta lo apuntado. Se llama al cerrar CADA accion (la del enemigo en _pausa_lectura, la tuya en
+# _tras_accion_jugador_varios, y la que remata la pelea en _end). Nunca desde _process: es como
+# mucho un paquete por turno.
+func _soltar_impactos_red() -> void:
+	if _impactos_red.is_empty():
+		return
+	if not _espejo and Net.activo:
+		Net.difundir_impactos(_impactos_red)
+	_impactos_red = PackedInt32Array()
+
+
+# Corre en el ESPEJO: reproduce los golpes que acaba de resolver el anfitrion. Solo pinta -- no
+# toca _state ni _pause_left, que aqui no existen (el espejo retorna al principio de _process).
+func aplicar_impactos(datos: PackedInt32Array) -> void:
+	if not _espejo or _fx == null:
+		return
+	var j: int = 0
+	while j + 3 < datos.size():
+		var ca: int = datos[j]
+		var cv: int = datos[j + 1]
+		var dmg: float = float(datos[j + 2]) / 10.0
+		var flags: int = datos[j + 3]
+		j += 4
+		var victima: Combatant = _de_codigo(cv)
+		if victima == null:
+			continue
+		_fx_golpe(_de_codigo(ca), victima, dmg, (flags & 1) != 0, (flags & 2) != 0,
+			(flags >> 3) - 1)
+	_fx.arrancar_cola()
+
+
+func _de_codigo(cod: int) -> Combatant:
+	if cod < 0:
+		return null
+	if cod >= 100:
+		var i: int = cod - 100
+		return _enemies[i] if i < _enemies.size() else null
+	return _aliados[cod] if cod < _aliados.size() else null
+
+
 # Corre en el ESPEJO: los avances que me manda el anfitrion, en el orden del roster (los mios
 # primero y detras los de enfrente). _update_timeline ya los pinta desde _gauge en cada frame.
 func aplicar_atb(ratios: PackedFloat32Array) -> void:
@@ -1161,6 +1254,8 @@ func _apagar_caidos() -> void:
 		b["panel"].modulate = Color(0.4, 0.4, 0.4)
 		b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
 		b["chips"].visible = false
+		if _fx != null:
+			_fx.pintar_estados(b, [], false)   # ver _apagar_bloque
 		if _timeline != null:
 			_timeline.quitar(_aliados[i])
 
@@ -1360,6 +1455,12 @@ func _ready() -> void:
 	# Forzamos que esta pantalla ocupe toda la ventana, aunque se abra como
 	# overlay encima de la mazmorra (si no, sale descentrada/pequeña).
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	# ANTES que nada: _crear_bloque le cuelga a cada tarjeta su capa de efectos, asi que el nodo
+	# de FX tiene que existir antes de que se monte la primera.
+	_fx = CombatFX.new()
+	add_child(_fx)
+	_fx.tinte_cambiado.connect(_on_tinte_cambiado)
 
 	_anadir_fondo()  # fondo opaco para tapar la mazmorra detras
 	_montar_columna()  # el combate pasa a una columna de ancho fijo, centrada
@@ -1634,7 +1735,7 @@ func _setup_ui() -> void:
 	for i in _enemies.size():
 		var b: Dictionary = _crear_bloque(_enemies[i], i + 1, i)
 		_bloques.append(b)
-		_bloques_box.add_child(b["panel"])
+		_bloques_box.add_child(b["wrap"])
 	# Separador para que tu fila no se confunda con la de enfrente. IGNORE: un Control es STOP
 	# por defecto y esta franja se comeria los clics que caigan en ella.
 	var sep := Control.new()
@@ -1664,7 +1765,7 @@ func _anadir_bloque_aliado(c: Combatant) -> void:
 	var ba: Dictionary = _crear_bloque(c, 0, -1)
 	_crear_barras_aliado(ba, c)
 	_bloques_aliados.append(ba)
-	_aliados_box.add_child(ba["panel"])
+	_aliados_box.add_child(ba["wrap"])
 	# La fila acaba de crecer: puede que lo que cabia antes ya no quepa (ver _ancho_bloque).
 	_reajustar_anchos(_bloques_aliados, _bloques_aliados.size())
 
@@ -1755,14 +1856,33 @@ func _hay_aliado_llamado(nombre: String, salvo: Combatant) -> bool:
 #   idx = indice en _enemies (-1 para el jugador).
 # Devuelve {panel, vbox, nombre, chips, hp, hp_lbl}.
 func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
+	# ENVOLTORIO. La tarjeta va DENTRO de un Control pelado, y es el envoltorio -no el panel- el
+	# que entra en la fila. Motivo: un Container reescribe la 'position' de sus hijos en cada
+	# re-layout, y aqui hay re-layouts a punta pala (_refrescar_chips borra y recrea los chips en
+	# CADA _update_hp). Sin esto, la embestida de una tarjeta se deshacia a mitad de golpe.
+	# Con el envoltorio, el HBox coloca el envoltorio y el panel queda fuera del alcance de
+	# cualquier Container: su position, su scale y su rotation son de CombatFX.
+	var wrap := Control.new()
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE   # el clic sigue siendo del panel, que va en STOP
+	wrap.clip_contents = false                        # la embestida TIENE que poder desbordar
+	# Mismo ancho para todos los de su fila, tuyo o enemigo: es lo que les permite ir en fila.
+	wrap.custom_minimum_size = Vector2(_ancho_bloque(
+		_enemies.size() if numero > 0 else _aliados.size()), 0)
+
 	var panel := PanelContainer.new()
 	# El panel es quien recibe el clic; sus hijos van en PASS para no comerselo (ver _crear_bloque
 	# de la barra: una ProgressBar es STOP por defecto y ocupa media caja).
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP if numero > 0 else Control.MOUSE_FILTER_IGNORE
 	panel.add_theme_stylebox_override("panel", _sb_bloque(false))
-	# Mismo ancho para todos los de su fila, tuyo o enemigo: es lo que les permite ir en fila.
-	panel.custom_minimum_size = Vector2(_ancho_bloque(
-		_enemies.size() if numero > 0 else _aliados.size()), 0)
+	wrap.add_child(panel)
+	# El tamaño se copia A MANO y no con anclajes: los anclajes recalculan la 'position' en cada
+	# resized, que es exactamente lo que el envoltorio existe para evitar.
+	wrap.resized.connect(func() -> void:
+		if is_instance_valid(panel):
+			panel.size = wrap.size)
+	panel.minimum_size_changed.connect(func() -> void:
+		if is_instance_valid(wrap):
+			wrap.custom_minimum_size.y = panel.get_combined_minimum_size().y)
 
 	var margen := MarginContainer.new()
 	margen.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -1835,21 +1955,49 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 	if numero > 0:
 		panel.gui_input.connect(_on_bloque_gui_input.bind(idx))
 
-	return {"panel": panel, "vbox": vb, "nombre": nombre, "chips": chips,
-		"hp": hp, "hp_lbl": hp_lbl, "idx": idx}
+	var bloque: Dictionary = {"wrap": wrap, "panel": panel, "vbox": vb, "nombre": nombre,
+		"chips": chips, "hp": hp, "hp_lbl": hp_lbl, "idx": idx}
+	# Le cuelga su capa de efectos (particulas de estado) y lo da de alta para las animaciones.
+	if _fx != null:
+		_fx.registrar(bloque)
+	return bloque
 
 
 # Estilo del bloque: seleccionado = borde blanco alrededor de todo, normal = borde transparente.
 # El GROSOR es el mismo en los dos a proposito, y lo que cambia es el COLOR: si el borde
 # apareciera y desapareciera, el bloque cambiaria de tamaño y la columna daria un brinco cada
 # vez que cambias de objetivo.
-func _sb_bloque(sel: bool) -> StyleBoxFlat:
+#
+# 'tinte' = el color que le pegan sus ESTADOS (dorado si manda un buff, el color del estado
+# apagado si manda un debuff, blanco si nada). Lo calcula CombatFX y llega por la señal
+# tinte_cambiado; el borde de seleccion siempre gana, que es lo que hay que poder ver cuando
+# estas eligiendo objetivo.
+func _sb_bloque(sel: bool, tinte: Color = Color.WHITE) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(1, 1, 1, 0.05) if sel else Color(0, 0, 0, 0)
+	var tenido: bool = tinte != Color.WHITE
 	sb.set_border_width_all(2)
-	sb.border_color = Color(1, 1, 1, 0.95) if sel else Color(0, 0, 0, 0)
 	sb.set_corner_radius_all(4)
+	if tenido:
+		sb.bg_color = Color(tinte.r, tinte.g, tinte.b, 0.12 if sel else 0.10)
+		sb.border_color = Color(1, 1, 1, 0.95) if sel else Color(tinte.r, tinte.g, tinte.b, 0.75)
+		return sb
+	sb.bg_color = Color(1, 1, 1, 0.05) if sel else Color(0, 0, 0, 0)
+	sb.border_color = Color(1, 1, 1, 0.95) if sel else Color(0, 0, 0, 0)
 	return sb
+
+
+# Repinta el recuadro de UNA tarjeta juntando las dos cosas que deciden su estilo: si esta
+# seleccionada (borde blanco) y el tinte de sus estados. Existe porque son dos fuentes que se
+# pisaban: al entrar un veneno se perdia el borde de seleccion, y al cambiar de objetivo se
+# perdia el tinte.
+func _on_tinte_cambiado(bloque: Dictionary) -> void:
+	var panel: Control = bloque.get("panel")
+	if panel == null or not is_instance_valid(panel):
+		return
+	var idx: int = int(bloque.get("idx", -1))
+	var sel: bool = idx >= 0 and idx == _target_idx \
+		and idx < _enemies.size() and _enemies[idx].is_alive()
+	panel.add_theme_stylebox_override("panel", _sb_bloque(sel, bloque.get("tinte", Color.WHITE)))
 
 
 # Clic en un bloque enemigo = pasa a ser tu objetivo.
@@ -1865,7 +2013,8 @@ func _seleccionar(idx: int) -> void:
 	_target_idx = idx
 	for i in _bloques.size():
 		var vivo: bool = _enemies[i].is_alive()
-		_bloques[i]["panel"].add_theme_stylebox_override("panel", _sb_bloque(vivo and i == idx))
+		_bloques[i]["panel"].add_theme_stylebox_override("panel",
+			_sb_bloque(vivo and i == idx, _bloques[i].get("tinte", Color.WHITE)))
 
 
 # Apaga el bloque de un enemigo que ha caido: gris, barra a 0 y sin clic. NO se libera el nodo
@@ -1880,6 +2029,10 @@ func _apagar_bloque(e: Combatant) -> void:
 	b["panel"].mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
 	b["chips"].visible = false
+	# Un cadaver no arde ni centellea. Hay que apagarlo A MANO porque _update_hp se salta los
+	# chips de los muertos: sin esto el emisor se quedaba emitiendo encima del muerto para siempre.
+	if _fx != null:
+		_fx.pintar_estados(b, [], false)
 
 
 # UN ALIADO CAE (KO). No es una derrota: sale del orden de turnos, se le apaga el bloque y la
@@ -1899,6 +2052,8 @@ func _caer_aliado(c: Combatant) -> void:
 		b["panel"].modulate = Color(0.4, 0.4, 0.4)
 		b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
 		b["chips"].visible = false
+		if _fx != null:
+			_fx.pintar_estados(b, [], false)   # ver _apagar_bloque: los caidos no siguen ardiendo
 	_set_log("%s cae derrotado. 💀" % c.nombre)
 	# El que actuaba era el: el puntero pasa a alguien en pie, o las acciones (y el log de "tu
 	# turno") se quedarian colgadas de un KO.
@@ -1957,7 +2112,7 @@ func _meter_enemigo(c: Combatant, es_invocado: bool) -> int:
 		_enemies.append(c)
 		var b: Dictionary = _crear_bloque(c, idx + 1, idx)
 		_bloques.append(b)
-		_bloques_box.add_child(b["panel"])
+		_bloques_box.add_child(b["wrap"])
 		# La fila acaba de crecer (refuerzos, invocaciones): con uno mas puede que ya no quepan a su
 		# ancho preferido y haya que encogerlos a todos (ver _ancho_bloque).
 		_reajustar_anchos(_bloques, _enemies.size())
@@ -1991,6 +2146,10 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 	b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
 	b["chips"].visible = true
 	b["hp"].max_value = c.max_hp
+	# El hueco se REESTRENA: la barra del que entra tiene que aparecer ya en su sitio, no venir
+	# deslizandose desde la vida que tenia el cadaver anterior.
+	if _fx != null:
+		_fx.olvidar_barras(b)
 
 
 # Crea las barras de ENERGIA (amarilla) y MANA (azul) de UN aliado, justo debajo de su barra de
@@ -2052,13 +2211,15 @@ func _update_hp() -> void:
 		# cosa que mueva max_hp en vivo (Guardia de carne, que lo duplica) dejaba la barra midiendo
 		# contra un tope viejo: el numero decia 130/150 y la barra se pintaba llena como si fuera 75.
 		b["hp"].max_value = e.max_hp
-		b["hp"].value = e.current_hp
+		# La barra se DESLIZA hasta ahi (lo mueve CombatFX); el numero de al lado va instantaneo.
+		# La barra puede mentir medio segundo mientras baja, la cifra no.
+		_fijar_barra(b, "hp", e.current_hp)
 		b["hp_lbl"].text = "%.2f / %.2f" % [e.current_hp, e.max_hp]
 		# La etiqueta se queda SOLO con el nombre y el nivel; los estados van en su fila de
 		# chips, porque ahi cada uno se puede señalar y explicarse solo.
 		b["nombre"].text = "%s  (Nv.%d)" % [e.nombre, e.level]
 		if e.is_alive():
-			_refrescar_chips(e, b["chips"], i)
+			_refrescar_chips(e, b, i)
 
 	# Y un bloque por aliado, con SUS tres barras. Los KO se siguen refrescando (barra a 0) igual
 	# que los cadaveres de enfrente: su bloque se queda apagado en su sitio, no desaparece.
@@ -2070,21 +2231,63 @@ func _update_hp() -> void:
 		# Los tres maximos en cada refresco, por lo mismo que arriba: son numeros que se mueven en
 		# mitad de la pelea y la barra tiene que medir contra el de AHORA.
 		b["hp"].max_value = c.max_hp
-		b["hp"].value = c.current_hp
+		_fijar_barra(b, "hp", c.current_hp)
 		b["hp_lbl"].text = "%.2f / %.2f" % [c.current_hp, c.max_hp]
 		if b.has("en"):
 			b["en"].max_value = c.max_energy
-			b["en"].value = c.current_energy
+			_fijar_barra(b, "en", c.current_energy)
 			b["en_lbl"].text = "EN  %.1f / %.1f" % [c.current_energy, c.max_energy]
 		if b.has("mp"):
 			b["mp"].max_value = c.max_mp
-			b["mp"].value = c.current_mp
+			_fijar_barra(b, "mp", c.current_mp)
 			b["mp_lbl"].text = "MP  %.2f / %.2f" % [c.current_mp, c.max_mp]
 		# La coronita marca a QUIEN LE TOCA: con tres bloques iguales hace falta saber de un
 		# vistazo de quien es la accion que estas eligiendo.
 		b["nombre"].text = "%s%s  (Nv.%d)" % [("▶ " if c == _player else ""), c.nombre, c.level]
 		if c.is_alive():
-			_refrescar_chips(c, b["chips"], -1)
+			_refrescar_chips(c, b, -1)
+
+
+# Fija el destino de UNA barra. Envoltorio para no repetir en los cuatro sitios el "y si no hay
+# capa de efectos, a pelo": la pantalla tiene que funcionar igual sin CombatFX (es decoracion).
+func _fijar_barra(bloque: Dictionary, clave: String, valor: float, inmediato := false) -> void:
+	if _fx != null:
+		_fx.fijar_barra(bloque, clave, valor, inmediato)
+	elif bloque.has(clave):
+		bloque[clave].value = valor
+
+
+# La tarjeta de un combatiente, sea de los tuyos o de enfrente. Vacia si no tiene (un invitado a
+# medio entrar, o alguien que ya no esta en la pelea).
+func _bloque_de(c: Combatant) -> Dictionary:
+	if c == null:
+		return {}
+	var i: int = _aliados.find(c)
+	if i >= 0 and i < _bloques_aliados.size():
+		return _bloques_aliados[i]
+	i = _enemies.find(c)
+	if i >= 0 and i < _bloques.size():
+		return _bloques[i]
+	return {}
+
+
+# EL UNICO ENGANCHE DE ANIMACION. Lo llaman los seis sitios donde se aplica daño (los basicos de
+# los dos bandos, los golpes de habilidad, los de hechizo, los de habilidad enemiga y el
+# contraataque) y nadie mas. No pinta nada todavia: apunta el golpe en la cola, y quien la echa a
+# andar es el final de la accion (ver _pausa_lectura), que es cuando ya se sabe cuantos golpes
+# tiene y por tanto cuanto tiene que durar el turno.
+func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
+		evadido: bool, elem: int = Elementos.Elemento.NINGUNO) -> void:
+	if _fx == null:
+		return
+	var bv: Dictionary = _bloque_de(victima)
+	if bv.is_empty():
+		return
+	var col: Color = Elementos.color(elem) if Elementos.tiene_color(elem) else Color(1, 0.95, 0.9)
+	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido, col)
+	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
+	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
+	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem)
 
 
 # Reconstruye los chips de un combatiente: uno por estado ACTIVO (mas la imbuicion, que no es
@@ -2092,12 +2295,19 @@ func _update_hp() -> void:
 # Se rehace entero en cada refresco: son 0-5 botones y asi no hay que llevar la cuenta de
 # cuales han expirado.
 # 'idx' = indice del enemigo dueño de los chips (-1 = jugador): los chips tambien seleccionan.
-func _refrescar_chips(c: Combatant, box: Container, idx: int) -> void:
+func _refrescar_chips(c: Combatant, bloque: Dictionary, idx: int) -> void:
+	var box: Container = bloque.get("chips")
 	if box == null:
 		return
 	for hijo in box.get_children():
 		hijo.queue_free()
-	for par in _chips_de(c):
+	var pares: Array = _chips_de(c)
+	# Los MISMOS pares alimentan las particulas y el tinte del recuadro. Se leen de aqui y no de
+	# c.statuses a proposito: en el espejo los combatientes son maniquis sin motor de estados y
+	# esto es lo unico que les llega resuelto, asi que asi las dos pantallas pintan igual.
+	if _fx != null:
+		_fx.pintar_estados(bloque, pares, true)
+	for par in pares:
 		# Los chips de ESTADO traen ademas icono y color (chip_de_grupo); los de mecanica de combate
 		# (cargando, recitando, provocacion, imbuicion) siguen siendo pares y se pintan en gris claro.
 		# Se mira el tamaño y no el tipo para que un espejo con la instantanea vieja (pares de 2) no
@@ -2249,7 +2459,16 @@ func _desatascar() -> void:
 	# Se apunta ANTES del volcado: asi el propio informe muestra cuantas veces se ha pulsado P y
 	# cuando, que ya dice mucho (si hay cinco P seguidas, lo que se intento no funciono).
 	_traza_add("--- el jugador pulsa P ---")
+	# Lo PRIMERO: cortar la animacion y dejar las tarjetas en su sitio. Va antes de todos los
+	# intentos (y antes de la salida del espejo) porque los intentos 2 y 3 pisan _pause_left y el
+	# turno, y una tarjeta a medio embestir se quedaria torcida y a medio brillo para siempre.
+	# Cortarla no puede perder ni duplicar un turno: la cola solo pinta, no decide de quien es.
+	# Se APUNTA lo que habia antes de cortar: si el atasco fuera de la animacion, eso es el dato.
+	var fx_txt: String = _fx.diagnostico() if _fx != null else "fx: no hay"
+	if _fx != null:
+		_fx.cancelar()
 	var lineas: Array = _diagnostico()
+	lineas.append(fx_txt)
 	_volcado_p()   # el informe LARGO va al log del juego (%APPDATA%/DungeonOratoria/logs/godot.log)
 	# El log de combate es de una linea: se pinta el resumen y el detalle queda en la consola.
 	_set_log("🔧 %s" % " · ".join(lineas))
@@ -3398,6 +3617,9 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		if bool(res.get("crit", false)):
 			hubo_crit = true
 		objetivo.take_damage(dmg)
+		# Cada golpe del hechizo lleva SU elemento: en un multi-elemento los numeros salen de
+		# colores distintos, que es justo lo que cuenta el hechizo.
+		_fx_golpe(_player, objetivo, dmg, bool(res.get("crit", false)), false, elem)
 		_apuntar_dano(objetivo, dmg, _player)   # contador oculto de Cazador
 		total += dmg
 		# CRITICO MAGICO: mismo 💥 que en el rastro del golpe fisico, para que se lea igual.
@@ -3851,12 +4073,15 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	if result.evaded:
 		r.evaded = true
 		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
+		_fx_golpe(_player, objetivo, 0.0, false, true)
 		return r
 	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala
 	r.dmg = dmg
 	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
 	objetivo.take_damage(dmg)
+	_fx_golpe(_player, objetivo, dmg, result.crit, false,
+		_player.imbue_elemento if r.imbue > 0.0 else Elementos.Elemento.NINGUNO)
 	_apuntar_dano(objetivo, dmg, _player)   # contador oculto de Cazador
 	r.mana = _ganar_mana_golpe()       # cada golpe que conecta repone maná
 	if float(result.get("dmg_imbue", 0.0)) > 0.0:
@@ -4507,8 +4732,12 @@ func _accion_atacar() -> void:
 	var con_arma: String = _player.current_hand_name()
 	if result.evaded:
 		_set_log("%s esquiva tu ataque (%s). 💨" % [_etq(obj), con_arma])
+		_fx_golpe(_player, obj, 0.0, false, true)
 	else:
 		obj.take_damage(result.damage)
+		_fx_golpe(_player, obj, result.damage, result.crit, false,
+			_player.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
+			else Elementos.Elemento.NINGUNO)
 		_apuntar_dano(obj, result.damage, _player)   # contador oculto de Cazador
 		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).
 		if float(result.get("dmg_imbue", 0.0)) > 0.0:
@@ -4720,11 +4949,16 @@ func _retirar_aliado(c: Combatant) -> void:
 		b["panel"].modulate = Color(0.4, 0.4, 0.4)
 		b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
 		b["chips"].visible = false
+		if _fx != null:
+			_fx.pintar_estados(b, [], false)   # ver _apagar_bloque
 		# Y se QUITA de la fila, no solo se apaga: la fila no hace wrap (216 px por bloque en un
 		# viewport de 1152), asi que si el que huyo sigue ocupando sitio, el bloque del que vuelve a
 		# entrar se saldria de la pantalla. Su entrada se queda en _bloques_aliados para no
 		# descuadrar los indices, que se cruzan con _aliados.
-		b["panel"].visible = false
+		#
+		# Se esconde el ENVOLTORIO y no el panel: el envoltorio es quien ocupa el hueco en la fila
+		# (el panel va dentro de el), asi que ocultando solo el panel el sitio seguia pillado.
+		b["wrap"].visible = false
 
 
 # Empieza una accion enemiga: se abre el cupo de gasto DEFENSIVO de las imbuiciones. Cada accion
@@ -4821,6 +5055,9 @@ func _enemy_turn(e: Combatant) -> void:
 	var result := StatsMath.resolve_attack(e, obj, defendiendo)
 	_debug_ataque(e, obj, result, defendiendo)
 	if result.evaded:
+		# El "FALLA" se apunta aqui arriba y no en cada rama: por debajo esto se bifurca en
+		# esquiva a secas y esquiva-con-contraataque, y el golpe fallado es el mismo en las dos.
+		_fx_golpe(e, obj, 0.0, false, true)
 		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos). La entrena
 		# EL QUE ESQUIVA, no el que llevas delante.
 		Game.ganar("agilidad", _reto(e), Game.GAIN_AGILIDAD_ESQUIVAR,
@@ -4849,6 +5086,7 @@ func _enemy_turn(e: Combatant) -> void:
 
 	var dmg: float = result.damage * e.dummy_dmg_out_mult   # Saco = 0 (no pega)
 	obj.take_damage(dmg)
+	_fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque)
 	# El MANTO ha recortado el golpe por su elemento: se le cobra la carga (tope de una por accion).
 	if obj.resiste_por_afinidad(e.elemento_ataque):
 		obj.gastar_imbue_defensiva()
@@ -5125,6 +5363,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			Game.contar_esquiva(pj_t)   # contador oculto de Reflejos
 			esquivados += 1
 			rastro.append({"t": "falla", "c": t})
+			_fx_golpe(e, t, 0.0, false, true)
 			if t.en_guardia and permitir_contra and contra == "":
 				contra = _contraatacar(e, t)
 				if not e.is_alive():
@@ -5132,6 +5371,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 		else:
 			var dmg: float = result.damage * ab.dano_mult * escala * e.dummy_dmg_out_mult
 			t.take_damage(dmg)
+			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque)
 			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
 			# El tope por accion hace que una habilidad de cinco golpes cueste una, no cinco.
 			if t.resiste_por_afinidad(e.elemento_ataque):
@@ -5261,9 +5501,14 @@ func _contraatacar(atacante: Combatant, quien: Combatant) -> String:
 	var result := StatsMath.resolve_attack(quien, atacante, false)
 	_debug_ataque(quien, atacante, result, false)
 	if result.evaded:
+		_fx_golpe(quien, atacante, 0.0, false, true)
 		return "%s esquiva y contraataca, pero %s lo esquiva. 💨" % [quien.nombre, atacante.nombre]
 	var dmg: float = result.damage * quien.guardia_contra_mult
 	atacante.take_damage(dmg)
+	# Golpe INVERTIDO: aqui el que embiste es el tuyo y el que tiembla es el bicho, en mitad de la
+	# accion del bicho. Sale solo porque se pasan los dos combatientes y la direccion la calcula
+	# CombatFX de los centros reales de las dos tarjetas.
+	_fx_golpe(quien, atacante, dmg, result.crit, false)
 	_apuntar_dano(atacante, dmg, quien)   # contador oculto de Cazador
 	_dps_add("Contraataque", dmg)
 	_ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
@@ -5275,14 +5520,20 @@ func _contraatacar(atacante: Combatant, quien: Combatant) -> String:
 	return "%s esquiva y CONTRAATACA con el estoque: %s%.2f de daño! 🤺" % [quien.nombre, extra, dmg]
 
 
-# Congela el ATB una fraccion de segundo tras la accion del enemigo, para poder
-# leer el log antes de que sigan llenandose las barras.
+# CIERRA la accion del enemigo y congela el ATB mientras se ve. Es el unico sitio que decide
+# cuanto dura un turno enemigo, y por eso los 16 puntos que lo llaman no han tenido que cambiar:
+# los que traen golpes se llevan la animacion, y los que no (aturdido, invocacion, un debuff a
+# secas) se llevan su pausa corta de lectura.
 func _pausa_lectura() -> void:
+	# La cola se suelta ANTES del _update_hp: asi lo primero que se ve es la embestida, y la vida
+	# baja detras, mientras la tarjeta vuelve a su sitio.
+	var dur: float = _fx.arrancar_cola() if _fx != null else 0.0
+	_soltar_impactos_red()
 	# Espejo de _fin_de_eleccion, para el otro bando: por aqui pasan TODAS las acciones enemigas, asi
 	# que es donde se repintan sus chips. Sin esto, un bicho que solo te pone un debuff (sin quitarte
 	# vida) no actualizaba nada y el estado no aparecia hasta el siguiente golpe.
 	_update_hp()
-	_pause_left = ENEMY_TURN_PAUSE
+	_pause_left = dur if dur > 0.0 else PAUSA_SIN_GOLPE
 	_state = State.PAUSED
 
 
@@ -5395,9 +5646,11 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 		var r := StatsMath.resolve_attack(esc, obj, false)
 		if r.evaded:
 			_log_extra("%s entra detrás pero %s lo esquiva. 💨" % [esc.nombre, obj.nombre])
+			_fx_golpe(esc, obj, 0.0, false, true)
 		else:
 			var dmg: float = float(r.damage) * pct
 			obj.take_damage(dmg)
+			_fx_golpe(esc, obj, dmg, r.crit, false)
 			_apuntar_dano(obj, dmg, esc)
 			_log_extra("%s entra detrás: %.2f%s" % [esc.nombre, dmg, " 💥" if r.crit else ""])
 		_player = quien_actuaba
@@ -5425,10 +5678,28 @@ func _tras_accion_jugador_varios(objs: Array) -> void:
 	if _vivos().is_empty():
 		_end(true)
 	else:
-		_state = State.ADVANCING
+		# El turno TUYO tambien dura lo que dure su animacion. Antes volvia a ADVANCING en el acto,
+		# y con la embestida puesta eso significaba que un combo de ocho golpes se quedaba a medias
+		# porque el bicho de al lado ya tenia la barra llena y le montaba su turno encima.
+		# Se reutiliza PAUSED (que es lo que congela el ATB); si no hubo golpes, todo sigue igual
+		# que siempre y no se añade ni un frame de espera.
+		var dur: float = _fx.arrancar_cola() if _fx != null else 0.0
+		_soltar_impactos_red()
+		if dur > 0.0:
+			_pause_left = dur
+			_state = State.PAUSED
+		else:
+			_state = State.ADVANCING
 
 
 func _end(player_won: bool, fled: bool = false) -> void:
+	# El GOLPE MORTAL tambien se ve: la cola se suelta igual aunque la pelea acabe aqui. No se
+	# cancela nada -- la animacion se queda corriendo sobre la pantalla de resultado, que es
+	# justo lo que se quiere ver. Lo unico que no puede pasar es que se quede sin mandar a los
+	# espejos, de ahi el volcado de impactos.
+	if _fx != null:
+		_fx.arrancar_cola()
+	_soltar_impactos_red()
 	_dps_resumen()
 	_player_won = player_won
 	_state = State.FINISHED
@@ -5782,6 +6053,18 @@ func _montar_columna() -> void:
 	_col.move_child(_bloques_box, 0)
 	_montar_log()
 
+	# LOS NUMEROS DE DAÑO van en su propia capa, por encima de todo (se añade la ULTIMA, despues
+	# del log). No pueden colgar de la tarjeta: la zona de chips va con clip_contents y el numero
+	# tiene que poder salirse de la caja hacia arriba, que es justo lo que hace.
+	_capa_numeros = Control.new()
+	_capa_numeros.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_capa_numeros.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_capa_numeros.clip_contents = false
+	_capa_numeros.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_capa_numeros)
+	if _fx != null:
+		_fx.capa_numeros = _capa_numeros
+
 
 # EL HISTORIAL, en una columna a la derecha. Antes vivia abajo a la izquierda, en una linea por
 # frase recortada a lo que cupiera, y con un alto fijo de LOG_MAX lineas para que los botones no
@@ -5853,9 +6136,11 @@ func _ancho_bloque(n: int) -> float:
 func _reajustar_anchos(bloques: Array, n: int) -> void:
 	var ancho: float = _ancho_bloque(n)
 	for b in bloques:
-		var panel: Control = b.get("panel")
-		if panel != null and is_instance_valid(panel):
-			panel.custom_minimum_size = Vector2(ancho, 0)
+		# El ancho lo lleva el ENVOLTORIO, que es el que esta dentro de la fila; el panel se
+		# limita a copiarle el tamaño (ver _crear_bloque).
+		var wrap: Control = b.get("wrap")
+		if wrap != null and is_instance_valid(wrap):
+			wrap.custom_minimum_size.x = ancho
 
 
 func _crear_fila_bloques() -> HBoxContainer:
