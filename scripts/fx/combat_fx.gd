@@ -954,10 +954,12 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 		lbl.add_theme_color_override("font_color", ev["color"])
 		lbl.add_theme_font_size_override("font_size", 28 if crit else 19)
 
-	# El sitio: encima de la tarjeta que lo come, en coordenadas de la capa.
+	# El sitio: DENTRO de la tarjeta que lo come, en su tercio alto, no pegado a su borde de
+	# arriba. La fila de enemigos esta casi tocando el techo de la pantalla, asi que naciendo en
+	# el borde y subiendo 26 px, sus numeros se salian por arriba y no se leian.
 	var r: Rect2 = pv.get_global_rect()
 	var base: Vector2 = r.get_center() - capa_numeros.global_position
-	base.y = r.position.y - capa_numeros.global_position.y
+	base.y = (r.position.y + r.size.y * 0.34) - capa_numeros.global_position.y
 
 	# Que una racha no se lea como un borron: cada numero sobre la MISMA tarjeta baja un poco y
 	# se aparta en zigzag, asi ocho golpes seguidos quedan en escalerilla y se pueden contar.
@@ -965,6 +967,9 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 	ev["bv"]["fx_num_seq"] = seq + 1
 	base.y += 12.0 * float(seq % 5)
 	base.x += 14.0 * (1.0 if seq % 2 == 0 else -1.0) * float((seq % 4) / 2 + 1)
+	# Y por si acaso: ninguno puede nacer tan arriba que al subir se salga de la pantalla. Es el
+	# cinturon para las tarjetas cortas y para las resoluciones bajas.
+	base.y = maxf(base.y, SUBIDA_NUMERO + 8.0)
 
 	lbl.position = base - Vector2(60, 24)
 	lbl.modulate.a = 1.0
