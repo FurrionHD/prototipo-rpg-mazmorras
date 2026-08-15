@@ -3486,8 +3486,16 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			for r in res_area:
 				tocados.append(r.c)
 		else:
+			# DE DONDE SALE cada golpe del area. Si el hechizo reparte DESIGUAL (Brasa, Descarga:
+			# mucho al principal y menos a los de al lado), lo que pasa de verdad es que revienta
+			# en el principal y de ahi alcanza a sus vecinos -- asi que el efecto de los vecinos
+			# sale DEL PRINCIPAL, no de tu mano. Si reparte IGUAL a todos (Rocío, Torrente), si
+			# es que has barrido a todo el mundo, y entonces cada ola sale de ti.
+			var reparte_igual: bool = spell.alcance == SpellData.Alcance.TODOS
 			for t in _objetivos_area(spell, obj):
-				res_area.append(_resolver_golpes_hechizo(spell, t.c, foco, float(t.escala)))
+				var de: Combatant = null if (reparte_igual or t.c == obj) else obj
+				res_area.append(_resolver_golpes_hechizo(spell, t.c, foco, float(t.escala),
+					true, de))
 				tocados.append(t.c)
 		# 2) REBOTES: DESPUES del area, cada uno a un vivo al azar. _vivos() se recalcula en
 		# CADA rebote, asi que la cadena nunca cae sobre un cadaver (ni sobre el que acaba de
@@ -3504,7 +3512,7 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 				break   # no queda nadie a quien saltar: la cadena se apaga
 			var victima: Combatant = vivos.pick_random()
 			res_reb.append(_resolver_golpes_hechizo(spell, victima, foco, spell.dano_rebote,
-				spell.rebote_estados, anterior))
+				spell.rebote_estados, anterior, true))
 			tocados.append(victima)
 			# Se apunta aunque este rebote la mate: los muertos se rematan al final de la accion
 			# (_tras_accion_jugador_varios), asi que su tarjeta sigue ahi para el arco siguiente.
@@ -3645,12 +3653,17 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 #                   salpicon...). Modula 'frac', y como resolve_spell es LINEAL en el ataque,
 #                   escalar aqui es exactamente lo mismo que escalar el dano_base solo para el.
 #   tira_estados -> false en los rebotes (ver SpellData.rebote_estados).
-#   desde        -> SOLO en los rebotes: de quien SALE el arco. Los saltos se dibujan encadenados
-#                   (el primero desde ti y cada uno siguiente desde la victima anterior), que es
-#                   como se lee un rebote; por dentro la mecanica sigue eligiendo al azar.
+#   desde        -> DE DONDE SALE el efecto, si no sale de ti. Dos usos:
+#                   * rebotes: el arco sale de la victima anterior (cadena);
+#                   * salpicon de un hechizo que reparte desigual (Brasa, Descarga): sale del
+#                     OBJETIVO PRINCIPAL, no de tu mano. Es la diferencia entre "he lanzado tres
+#                     bolas" y "ha reventado ahi y ha alcanzado a los de al lado", que es lo que
+#                     de verdad pasa. Ver _resolver_hechizo.
+#   rebote       -> solo para el ASPECTO: los rebotes se pintan como arcos.
 # Devuelve {c, dano, mult, golpes, trail, estados}.
 func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float,
-		escala: float = 1.0, tira_estados: bool = true, desde: Combatant = null) -> Dictionary:
+		escala: float = 1.0, tira_estados: bool = true, desde: Combatant = null,
+		rebote: bool = false) -> Dictionary:
 	var n: int = spell.golpes()
 	var frac: float = escala / float(n)
 	var peso: float = _peso_hechizo(spell, escala)
@@ -3678,7 +3691,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		# Cada golpe del hechizo lleva SU elemento: en un multi-elemento los numeros salen de
 		# colores distintos y con la forma de su elemento, que es justo lo que cuenta el hechizo.
 		_fx_golpe(lanzador, objetivo, dmg, bool(res.get("crit", false)), false, elem,
-			_estilo_hechizo(spell, elem, desde != null), peso)
+			_estilo_hechizo(spell, elem, rebote), peso)
 		_apuntar_dano(objetivo, dmg, _player)   # contador oculto de Cazador
 		total += dmg
 		# CRITICO MAGICO: mismo 💥 que en el rastro del golpe fisico, para que se lea igual.
@@ -3739,7 +3752,10 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 			# EL GOLPE SE VE. Faltaba: la dispersion era la UNICA ruta de daño que no pasaba por
 			# _fx_golpe, y por eso Tormenta y Andanada -los dos hechizos mas gordos- no sacaban ni
 			# un numero ni un temblor. Se veian menos que un puñetazo.
-			_fx_golpe(_player, obj, dmg, bool(res.get("crit", false)), false, elem,
+			# El salpicon de una bola sale DEL SITIO DONDE HA CAIDO, no de tu mano: la bola cae en
+			# uno y de ahi alcanza a sus vecinos (ver _resolver_hechizo, misma regla).
+			_fx_golpe(_player if obj == principal else principal, obj, dmg,
+				bool(res.get("crit", false)), false, elem,
 				_estilo_hechizo(spell, elem, false), _peso_hechizo(spell, float(t.escala)))
 			_apuntar_dano(obj, dmg, _player)   # contador oculto de Cazador
 			if not acc.has(obj):

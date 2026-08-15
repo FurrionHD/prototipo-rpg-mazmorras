@@ -679,6 +679,18 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		"evadido": evadido, "color": color_elem, "t": 0.0, "lanzado": false,
 		"estilo": estilo, "peso": clampf(peso, 0.2, 1.5), "fx_lanzado": false,
 	})
+	# LA VIDA NO PUEDE BAJAR ANTES QUE EL GOLPE. Se apunta AQUI, en el mismo instante en que el
+	# golpe se resuelve, y no al arrancar la cola: entre una cosa y otra combat.gd llama a
+	# _update_hp varias veces y desde sitios distintos segun la accion, asi que hacerlo al final
+	# dependia de en que orden cayeran las llamadas. Aqui no hay orden que valga.
+	#
+	# Lo apuntado se le DEVUELVE a la barra: mientras quede pendiente, su destino es "la vida
+	# final MAS lo que aun no se ha visto caer", o sea justo donde estaba antes de la accion.
+	# Cada impacto le descuenta lo suyo al aterrizar (ver _descontar).
+	if not evadido and dmg > 0.0:
+		b_victima["hp_pend"] = float(b_victima.get("hp_pend", 0.0)) + dmg
+		if b_victima.has("hp_fin"):
+			b_victima["hp_meta"] = float(b_victima["hp_fin"]) + float(b_victima["hp_pend"])
 
 
 # Cierra la racha y la echa a andar. Devuelve LO QUE VA A DURAR: ese numero es el que se convierte
@@ -696,19 +708,9 @@ func arrancar_cola() -> float:
 		if int(ev.get("estilo", Estilo.MELEE)) != Estilo.MELEE:
 			magia = true
 			break
-	# LA VIDA BAJA CON CADA GOLPE, no antes. combat.gd solo sabe decir la vida FINAL de la accion
-	# entera, asi que aqui se suma lo que va a comerse cada uno y se le devuelve a su barra: la
-	# barra vuelve a donde estaba ANTES de la accion, y cada impacto le descuenta lo suyo al caer.
-	# Sin esto, en un multi-golpe la vida se iba al total de un tiron y los numeros salian despues.
-	for ev in _cola:
-		var d: float = float(ev["dmg"])
-		if d <= 0.0 or bool(ev["evadido"]):
-			continue
-		var bv: Dictionary = ev["bv"]
-		bv["hp_pend"] = float(bv.get("hp_pend", 0.0)) + d
-		if bv.has("hp_fin"):
-			bv["hp_meta"] = float(bv["hp_fin"]) + float(bv["hp_pend"])
-
+	# (Lo que le queda por bajar a cada barra ya se apunto al ENCOLAR cada golpe, no aqui: ver
+	# encolar. Hacerlo en este punto dependia de si combat.gd llamaba a _update_hp antes o
+	# despues, y eso cambia segun la accion.)
 	var t_enc: float = T_ENCADENADO_MAGIA if magia else T_ENCADENADO
 	var arranque: float = T_ARRANQUE_MAGIA if magia else T_IDA
 	# Los extras TOPAN: 32 impactos de una tormenta no pueden durar cinco segundos. Lo que hacen
