@@ -121,31 +121,92 @@ func _draw() -> void:
 		_dibujar_colgajos(capas[k]["col"], k, int(capas[k].get("stacks", 1)))
 
 
-# ARDE POR ABAJO. Lenguas de llama que suben del borde inferior, cada una a su ritmo, en dos
-# capas: una gorda y oscura detras y otra mas pequeña y clara delante (el nucleo). Es lo mismo que
-# hace el agua -- una masa con la orilla viva-- pero al reves y con puntas.
+# ARDE POR ABAJO. Antes esto eran dos CINTAS: un poligono continuo de lado a lado cuyo borde
+# ondulaba con un seno. El resultado no se leia como fuego ni de lejos -- salian dos bandas planas
+# con dientes de sierra y un bloque amarillo macizo abajo que ademas te tapaba la barra de vida.
+#
+# El fuego son LENGUAS SUELTAS, no una cinta. Tres cosas lo arreglan y son las tres necesarias:
+#   1. Cada llama es su propio poligono, con su altura, su ritmo y su bamboleo. Una cinta ondulada
+#      siempre parece una cinta ondulada, por bien que ondule.
+#   2. AFILAN hacia arriba y se DESVANECEN: se dibujan con draw_polygon dando color POR VERTICE, y
+#      los de la punta van a alfa 0. Ese degradado es lo que separa "fuego" de "mancha naranja".
+#   3. Dos pasadas por llama -- cuerpo naranja y, dentro, un nucleo corto casi blanco --, mas un
+#      resplandor bajito pegado al borde. El nucleo es lo que le da temperatura.
+# Y al desvanecerse por arriba, la barra de vida se sigue leyendo por debajo del fuego.
+const FUEGO_ALTO := 0.62     # lo que sube la llama mas alta, en fraccion de la tarjeta
+# DOS HILERAS y no una. Con una sola fila de llamas iguales y equiespaciadas sale un peine: se lee
+# como una hilera de arcos, no como una hoguera. La de atras va mas alta y apagada, la de delante
+# mas corta y viva, y van desplazadas media casilla entre si para que se enreden.
+const FUEGO_FONDO := 5
+const FUEGO_FRENTE := 8
+
 func _dibujar_fuego() -> void:
-	var alto: float = size.y * 0.34
-	# DOS pasadas: el cuerpo de la llama y, mas corto y mas claro, lo que arde de verdad.
-	_lenguas(alto, 9, 0.0, Color(color_fuego.r, color_fuego.g, color_fuego.b, 0.42 * fuego))
-	_lenguas(alto * 0.6, 7, 1.7,
-		Color(minf(1.0, color_fuego.r + 0.25), minf(1.0, color_fuego.g + 0.3),
-			color_fuego.b * 0.5, 0.5 * fuego))
+	# El resplandor de la base: sin el, las llamas parecen pegadas de canto sobre la nada.
+	_resplandor_fuego(size.y * 0.11)
+	var c := color_fuego
+	# ATRAS: altas, estrechas y oscuras (tirando a rojo). Dan la silueta de la hoguera.
+	_hilera(FUEGO_FONDO, 0.5, 1.0, 0.34, 3.7,
+		Color(c.r, c.g * 0.55, c.b * 0.6, 0.34 * fuego), 0.0)
+	# DELANTE: mas cortas y mas vivas, con nucleo casi blanco dentro.
+	_hilera(FUEGO_FRENTE, 0.0, 0.62, 0.30, 1.3,
+		Color(c.r, c.g, c.b, 0.42 * fuego), 0.46)
 
 
-# Una fila de lenguas de fuego que sube del borde de abajo. 'n' = cuantas; 'fase' las desincroniza
-# entre pasadas para que no se muevan las dos igual (que es lo que lo delataria como un dibujo).
-func _lenguas(alto: float, n: int, fase: float, col: Color) -> void:
+# UNA hilera de llamas. 'desfase' la corre por el eje X (media casilla = se enreda con la otra),
+# 'alto_f' y 'ancho_f' son fracciones del paso, 'reloj' desincroniza el latido entre hileras, y
+# 'nucleo' > 0 añade dentro de cada llama una segunda mas corta y casi blanca (lo que arde).
+func _hilera(n: int, desfase: float, alto_f: float, ancho_f: float, reloj: float,
+		col: Color, nucleo: float) -> void:
+	var paso: float = size.x / float(n)
+	var alto_max: float = size.y * FUEGO_ALTO * alto_f
+	for i in n:
+		var fase: float = float(i) * 2.27 + reloj + _semilla
+		# Cada llama late a su ritmo, con DOS senos que no cierran ciclo juntos: con uno solo se ve
+		# que las cinco respiran a la vez cada dos segundos y canta muchisimo.
+		var late: float = 0.5 + 0.32 * sin(_t * 3.1 + fase) + 0.18 * sin(_t * 5.3 + fase * 1.7)
+		# Y ademas cada una tiene SU tamaño de base: una hoguera no tiene todas las llamas iguales.
+		var suya: float = 0.72 + 0.28 * absf(sin(float(i) * 1.9 + _semilla))
+		var alto: float = alto_max * suya * (0.45 + 0.55 * clampf(late, 0.0, 1.0))
+		var cx: float = paso * (float(i) + 0.5 + desfase)
+		var vaiven: float = sin(_t * 1.9 + fase) * paso * 0.3
+		_lengua(cx, paso * ancho_f, alto, vaiven, col)
+		if nucleo > 0.0:
+			_lengua(cx, paso * ancho_f * 0.45, alto * nucleo, vaiven * 0.6,
+				Color(1.0, minf(1.0, color_fuego.g + 0.42), 0.3, 0.5 * fuego))
+
+
+# UNA lengua: una gota afilada que nace en el borde de abajo y se apaga en la punta. El color va
+# POR VERTICE (draw_polygon, no draw_colored_polygon): en la base el que le toque y en la punta el
+# mismo a alfa 0. Sin ese degradado la llama es un triangulo de color, que es justo lo que habia.
+func _lengua(cx: float, ancho: float, alto: float, vaiven: float, col: Color) -> void:
+	var pasos := 7
+	var punta := Color(col.r, col.g, col.b, 0.0)
 	var pts := PackedVector2Array()
-	pts.append(Vector2(0.0, size.y))
-	for i in n + 1:
-		var u: float = float(i) / float(n)
-		# Cada lengua sube y baja por su cuenta; el seno de u las hace desiguales entre si.
-		var lengua: float = alto * (0.45 + 0.55 * absf(sin(u * PI * float(n) * 0.5
-			+ _t * 3.2 + fase + _semilla)))
-		pts.append(Vector2(u * size.x, size.y - lengua))
-	pts.append(Vector2(size.x, size.y))
-	draw_colored_polygon(pts, col)
+	var cols := PackedColorArray()
+	# Subiendo por la izquierda y bajando por la derecha, para que el poligono cierre bien.
+	for lado in [-1.0, 1.0]:
+		for j in pasos + 1:
+			var i: int = j if lado < 0.0 else pasos - j
+			var v: float = float(i) / float(pasos)
+			# El perfil de la llama: panza en el tercio bajo y punta afilada. El seno da la panza
+			# (mas ancha a media altura que en la base misma) y el pow la afila arriba; con un
+			# simple (1-v) salia un triangulo, y un triangulo no es una llama.
+			var w: float = ancho * pow(1.0 - v, 1.15) * (1.0 + 0.55 * sin(v * PI))
+			# La punta bambolea mas que la base (v*v): abajo la llama esta anclada.
+			pts.append(Vector2(cx + vaiven * v * v + w * lado, size.y - alto * v))
+			cols.append(col.lerp(punta, v * v))
+	draw_polygon(pts, cols)
+
+
+# El rescoldo del borde inferior: una franja que va del color del fuego (abajo) a nada (arriba).
+func _resplandor_fuego(alto: float) -> void:
+	var abajo := Color(color_fuego.r, color_fuego.g, color_fuego.b, 0.30 * fuego)
+	var arriba := Color(color_fuego.r, color_fuego.g, color_fuego.b, 0.0)
+	draw_polygon(
+		PackedVector2Array([
+			Vector2(0.0, size.y), Vector2(0.0, size.y - alto),
+			Vector2(size.x, size.y - alto), Vector2(size.x, size.y)]),
+		PackedColorArray([abajo, arriba, arriba, abajo]))
 
 
 # LOS COLGAJOS que cuelgan del borde de arriba, cada uno a su ritmo. Ya NO hay charco abajo: se
