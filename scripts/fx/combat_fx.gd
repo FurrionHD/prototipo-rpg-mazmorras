@@ -129,9 +129,11 @@ const FAMILIAS: Array = [
 	# [nombre, forma, ids...] -- el orden dentro de la lista es quien gana el hueco de su familia.
 	# El fuego va aparte: son LLAMITAS, no motas. Un cuadradito naranja subiendo no es una quemadura.
 	["fuego", "llama", [StatusEffects.Id.QUEMADURA]],
+	# UN CORTE ABIERTO dibujado en un sitio fijo, del que gotea sangre. Las motas genericas no
+	# dicen "herida"; un tajo que no cierra, si.
+	["herida", "raja", [StatusEffects.Id.HERIDA_PROFUNDA]],
 	["dano", "ascendente", [
-		StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO,
-		StatusEffects.Id.CORROSION, StatusEffects.Id.HERIDA_PROFUNDA,
+		StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO, StatusEffects.Id.CORROSION,
 	]],
 	# Te CHORREA encima: pelicula que se acumula + goterones. Es lo unico que pinta CapaEstado.
 	["capa", "capa", [
@@ -140,8 +142,11 @@ const FAMILIAS: Array = [
 	# Algo tuyo ha BAJADO: flechas cayendo despacio.
 	["merma", "flecha", [
 		StatusEffects.Id.LENTO, StatusEffects.Id.DEBIL, StatusEffects.Id.VULNERABLE,
-		StatusEffects.Id.MARCA,
 	]],
+	# TE HAN SEÑALADO: una diana en el centro de la tarjeta que late. Va dibujada y no con
+	# particulas porque es un MARCADOR -- tiene que estar siempre en el mismo sitio y con la misma
+	# pinta, o deja de servir para encontrar de un vistazo a quien has marcado.
+	["marca", "diana", [StatusEffects.Id.MARCA]],
 	# Te quitan el turno o te lo capan: el corro de estrellitas girando SOBRE LA CABEZA, tal cual el
 	# gag de dibujos animados de toda la vida.
 	["control", "estrella", [
@@ -185,6 +190,11 @@ const FAMILIAS: Array = [
 # Cuatro y no mas porque la tarjeta mide 216x120: con cinco o seis emisores encima deja de leerse
 # nada. Los que se caen del corte se siguen viendo en su chip y en el tinte del recuadro.
 const MAX_EMISORES := 4
+
+# Lo TRANSPARENTES que van todos los efectos de estado. Se pintan encima del nombre, de la barra
+# de vida y de los numeros, asi que ninguno puede taparlos: informan de algo, pero lo que hay
+# debajo importa mas.
+const OPACIDAD := 0.7
 
 const DORADO_BUFF := Color(1.0, 0.85, 0.35)
 
@@ -339,23 +349,23 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 	# de baba" y no como "algo verde te esta pasando".
 	var pelicula: CapaEstado = bloque.get("fx_pelicula")
 	if pelicula != null and is_instance_valid(pelicula):
-		# Las dos capas son INDEPENDIENTES: puedes estar pringado Y escondido a la vez.
-		var cubre: Dictionary = {}
-		var velo: Dictionary = {}
+		# Las cuatro capas son INDEPENDIENTES entre si: puedes estar pringado, escondido, marcado
+		# y con un tajo abierto a la vez, y cada cosa se pinta en su sitio.
+		var pintado: Dictionary = {}   # tipo -> color
+		var chorreos: Array = []       # TODAS las que te chorrean (baba y agua pueden ir juntas)
 		for q in quiere:
 			var t: String = String(q["tipo"])
-			if t == "capa" and cubre.is_empty():
-				cubre = q
-			elif t == "niebla" and velo.is_empty():
-				velo = q
-		if cubre.is_empty():
-			pelicula.pintar(Color.TRANSPARENT, 0.0)
-		else:
-			pelicula.pintar(cubre["color"], 1.0)
-		if velo.is_empty():
-			pelicula.pintar_niebla(Color.TRANSPARENT, 0.0)
-		else:
-			pelicula.pintar_niebla(velo["color"], 1.0)
+			if t == "capa":
+				chorreos.append(q["color"])
+			elif not pintado.has(t):
+				pintado[t] = q["color"]
+		pelicula.pintar_capas(chorreos)
+		pelicula.pintar_niebla(pintado.get("niebla", Color.TRANSPARENT),
+			1.0 if pintado.has("niebla") else 0.0)
+		pelicula.pintar_diana(pintado.get("diana", Color.TRANSPARENT),
+			1.0 if pintado.has("diana") else 0.0)
+		pelicula.pintar_raja(pintado.get("raja", Color.TRANSPARENT),
+			1.0 if pintado.has("raja") else 0.0)
 
 	if bloque.get("tinte", Color.WHITE) != tinte:
 		bloque["tinte"] = tinte
@@ -415,14 +425,23 @@ func _crear_emisor(capa: Control, tipo: String, color: Color) -> CPUParticles2D:
 			p = Particulas.chispas(capa, color, tam, 1.0, Particulas.textura_rayito())
 		"estela":
 			p = Particulas.estelas(capa, color, tam, 1.0)
-		"niebla":
-			return null   # no lleva particulas: lo pinta CapaEstado
+		"raja":
+			# El corte lo dibuja CapaEstado; esto son SOLO las gotas que salen de el, asi que la
+			# boquilla es diminuta (el tamaño se lo da el ajustar de abajo, en el punto del corte).
+			p = Particulas.chorretones(capa, color, Vector2(8.0, 8.0), 0.6)
+		"niebla", "diana":
+			return null   # no llevan particulas: los pinta CapaEstado
 		_:
 			p = Particulas.destellos(capa, color, tam, 0.6, 0.7)
 	if p == null:
 		return null
 	# OBLIGATORIO (ver cabecera): en solitario el arbol esta pausado durante el combate.
 	p.process_mode = Node.PROCESS_MODE_ALWAYS
+	# NADA opaco encima de la tarjeta. Estos efectos van sobre el nombre, la vida y los numeros, y
+	# lo que hay debajo importa mas que ellos: son un aviso, no el contenido. Se baja aqui, en el
+	# emisor, y no en las rampas de Particulas -- esas las comparten las vetas y los proyectiles
+	# del mundo, donde si tienen que verse a tope.
+	p.modulate.a = OPACIDAD
 	# El tamaño real no se sabe hasta que el contenedor coloca la tarjeta, asi que la zona de
 	# emision sigue al layout en vez de clavarse a un numero. Mismo patron que MenuScaffold.brillo_en.
 	var ajustar := func() -> void:
@@ -448,6 +467,10 @@ func _crear_emisor(capa: Control, tipo: String, color: Color) -> CPUParticles2D:
 				# cabeza del personaje, que es donde lo pone todo dibujo animado desde siempre.
 				p.position.y = capa.size.y * 0.2
 				p.emission_sphere_radius = minf(capa.size.x * 0.5, capa.size.y) * 0.42
+			"raja":
+				# Las gotas nacen EN EL CORTE, en el mismo punto donde CapaEstado lo dibuja.
+				p.position = capa.size * CapaEstado.POS_RAJA
+				p.emission_rect_extents = Vector2(3.0, 2.0)
 			"estela":
 				# Nacen pegadas al borde izquierdo y cruzan la tarjeta entera.
 				p.position.x = 0.0
