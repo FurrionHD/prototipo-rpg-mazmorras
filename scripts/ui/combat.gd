@@ -5984,8 +5984,13 @@ var _estados_panel: PanelContainer = null
 # Las CATEGORIAS del panel. Los nombres son los de siempre (buff, debuff, DoT) y no inventados:
 # esto es un panel de pruebas, y buscar aqui tiene que costar cero.
 #
-# Los de MOVIMIENTO van aparte de los demas debuffs porque son los que tocan el turno -- te frenan
-# la barra o te la quitan entera-- y al probar el ATB es justo lo que se busca de golpe.
+# El reparto NO es "buenos y malos", es POR LO QUE TOCAN, que es como se busca cuando pruebas:
+#   - Debuffs                bajan tus numeros (ataque, defensa, curacion que recibes...)
+#   - Debuffs de movimiento  tocan el TURNO: te frenan la barra o te la quitan entera
+#   - Amplificadores         no te hacen NADA por si mismos ni te restringen: suben lo que le
+#                            pase a lo SIGUIENTE que te caiga (Mojado multiplica x1.5 el daño del
+#                            rayo; Electrizado x1.5 la probabilidad de que te aturdan)
+#   - DoT                    te quitan vida cada turno
 const DEV_ESTADOS_CATS: Array = [
 	["Buffs", [
 		StatusEffects.Id.FORTALEZA, StatusEffects.Id.BALUARTE, StatusEffects.Id.PRESTEZA,
@@ -5994,12 +5999,14 @@ const DEV_ESTADOS_CATS: Array = [
 	]],
 	["Debuffs", [
 		StatusEffects.Id.DEBIL, StatusEffects.Id.VULNERABLE, StatusEffects.Id.MARCA,
-		StatusEffects.Id.MOJADO, StatusEffects.Id.SILENCIO, StatusEffects.Id.CORROSION,
-		StatusEffects.Id.HERIDA_PROFUNDA,
+		StatusEffects.Id.CORROSION, StatusEffects.Id.HERIDA_PROFUNDA, StatusEffects.Id.SILENCIO,
 	]],
 	["Debuffs de movimiento", [
 		StatusEffects.Id.LENTO, StatusEffects.Id.PEGAJOSO, StatusEffects.Id.ATURDIDO,
-		StatusEffects.Id.MIEDO, StatusEffects.Id.RAYO,
+		StatusEffects.Id.MIEDO,
+	]],
+	["Amplificadores", [
+		StatusEffects.Id.MOJADO, StatusEffects.Id.RAYO,
 	]],
 	["DoT (daño por turno)", [
 		StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO, StatusEffects.Id.QUEMADURA,
