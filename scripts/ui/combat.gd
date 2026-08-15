@@ -5981,26 +5981,28 @@ func _update_timeline() -> void:
 var _dev_target_enemy: bool = true
 var _estados_panel: PanelContainer = null
 
-# Las CATEGORIAS del panel, agrupadas por lo que le HACEN al que las lleva, que es como se busca
-# uno cuando esta probando ("a ver que pasa si le pongo algo que le estorbe"). No por el bando ni
-# por si son buff o debuff: Sigilo y Guardia de carne son cosas a favor aunque no suban una stat.
+# Las CATEGORIAS del panel. Los nombres son los de siempre (buff, debuff, DoT) y no inventados:
+# esto es un panel de pruebas, y buscar aqui tiene que costar cero.
+#
+# Los de MOVIMIENTO van aparte de los demas debuffs porque son los que tocan el turno -- te frenan
+# la barra o te la quitan entera-- y al probar el ATB es justo lo que se busca de golpe.
 const DEV_ESTADOS_CATS: Array = [
-	["Daño con el tiempo", [
-		StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO, StatusEffects.Id.QUEMADURA,
-		StatusEffects.Id.CORROSION, StatusEffects.Id.HERIDA_PROFUNDA,
-	]],
-	["Te estorban", [
-		StatusEffects.Id.PEGAJOSO, StatusEffects.Id.MOJADO, StatusEffects.Id.LENTO,
-		StatusEffects.Id.ATURDIDO, StatusEffects.Id.RAYO, StatusEffects.Id.SILENCIO,
-		StatusEffects.Id.MIEDO,
-	]],
-	["Te merman", [
-		StatusEffects.Id.DEBIL, StatusEffects.Id.VULNERABLE, StatusEffects.Id.MARCA,
-	]],
-	["A tu favor", [
+	["Buffs", [
 		StatusEffects.Id.FORTALEZA, StatusEffects.Id.BALUARTE, StatusEffects.Id.PRESTEZA,
 		StatusEffects.Id.REGENERACION, StatusEffects.Id.REGEN_MANA, StatusEffects.Id.SIGILO,
 		StatusEffects.Id.GUARDIA_CARNE, StatusEffects.Id.ESCOLTA,
+	]],
+	["Debuffs", [
+		StatusEffects.Id.DEBIL, StatusEffects.Id.VULNERABLE, StatusEffects.Id.MARCA,
+		StatusEffects.Id.MOJADO, StatusEffects.Id.SILENCIO, StatusEffects.Id.CORROSION,
+		StatusEffects.Id.HERIDA_PROFUNDA,
+	]],
+	["Debuffs de movimiento", [
+		StatusEffects.Id.LENTO, StatusEffects.Id.PEGAJOSO, StatusEffects.Id.ATURDIDO,
+		StatusEffects.Id.MIEDO, StatusEffects.Id.RAYO,
+	]],
+	["DoT (daño por turno)", [
+		StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO, StatusEffects.Id.QUEMADURA,
 	]],
 	["Platos (cocina)", [
 		StatusEffects.Id.PLATO_GUARDIA, StatusEffects.Id.PLATO_BRIO, StatusEffects.Id.PLATO_FURIA,
