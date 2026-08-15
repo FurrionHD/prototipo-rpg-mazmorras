@@ -100,22 +100,55 @@ const RETRASO_CRIT := 0.05   # el critico entra un pelin tarde para que se lea a
 # embestida a proposito: la barra acaba de bajar justo cuando la tarjeta vuelve a su sitio.
 const VEL_BARRA := 3.0
 
-# QUE ESTADO SE VE COMO QUE. No estan los 31 a proposito: con todos, una tarjeta con cuatro
-# debuffs seria una sopa de cuadraditos. Los que no salen aqui se ven igual, pero solo por el
-# TINTE del recuadro, que es informacion suficiente para un "lento" o un "marcado".
-# Se guardan los Id (enteros), NUNCA los emojis: el catalogo es la fuente de iconos y colores.
-const IDS_ASCENDENTE: Array[int] = [
+# QUE ESTADO SE VE COMO QUE.
+#
+# Van por TRES FAMILIAS, y cada una tiene su forma. La forma es lo que hace la lectura: antes
+# todos eran el mismo cuadradito brillante con distinto color, asi que el Pegajoso (verde) se leia
+# igual que una curacion. Un cuadradito que centellea significa "algo bueno" en TODO el juego (es
+# el destello de las vetas y del equipo raro), asi que no puede ser tambien un debuff.
+#
+#   DAÑO   algo te esta consumiendo    -> motas que SUBEN y se deshacen
+#   CAPA   algo te cubre               -> pelicula que se acumula + goterones que escurren
+#   AYUDA  algo te esta ayudando       -> CRUCES que suben (curar) o destellos (los demas buffs)
+#
+# CABE UNA DE CADA FAMILIA A LA VEZ, no dos de la misma: si estas ardiendo Y envenenado se ve el
+# fuego (el primero de la lista manda), pero si estas ardiendo Y pringado Y regenerando se ven las
+# tres cosas, porque son tres familias distintas y no compiten entre si. Con eso, lo que ves
+# siempre responde a tres preguntas separadas: ¿me estan haciendo daño?, ¿llevo algo encima?,
+# ¿tengo algo a favor?
+#
+# Lo que no sale en ninguna lista se sigue viendo, pero solo por el TINTE del recuadro, que es
+# informacion suficiente para un "lento" o un "marcado". Con los 31 a la vez esto seria una sopa.
+#
+# Se guardan los Id (enteros), NUNCA los emojis: el catalogo es la fuente de iconos y colores, y
+# asi un estado nuevo entra solo (como "solo tinte", que es el fallback correcto).
+const IDS_DANO: Array[int] = [
 	StatusEffects.Id.QUEMADURA, StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO,
 	StatusEffects.Id.CORROSION, StatusEffects.Id.HERIDA_PROFUNDA,
 ]
-const IDS_DESTELLO: Array[int] = [
+# Electrizado va AQUI y no en los buffs aunque no sea una baba: es algo que llevas encima, y
+# sobre todo es un DEBUFF -- puesto entre los destellos de "algo bueno" se leia como un buff, que
+# es exactamente el error que tenia el Pegajoso.
+const IDS_CAPA: Array[int] = [
 	StatusEffects.Id.PEGAJOSO, StatusEffects.Id.MOJADO, StatusEffects.Id.RAYO,
+]
+# De los de la familia CAPA, estos dos son los que te CHORREAN (pelicula + goterones). Electrizado
+# esta en la misma familia pero chispea, que una baba electrica no es nada.
+const IDS_BABA: Array[int] = [
+	StatusEffects.Id.PEGAJOSO, StatusEffects.Id.MOJADO,
+]
+const IDS_AYUDA: Array[int] = [
+	StatusEffects.Id.REGENERACION, StatusEffects.Id.REGEN_MANA,
 	StatusEffects.Id.FORTALEZA, StatusEffects.Id.BALUARTE, StatusEffects.Id.PRESTEZA,
+]
+# Los que curan llevan CRUZ en vez de destello: verde la vida, azul el maná. Una cruz solo puede
+# querer decir una cosa, y por eso no se confunde con un debuff que sea del mismo color.
+const IDS_CRUZ: Array[int] = [
 	StatusEffects.Id.REGENERACION, StatusEffects.Id.REGEN_MANA,
 ]
-# Dos por tarjeta como mucho (el debuff mas grave y el buff mas notable). Con 4 aliados y 5
-# enemigos son 18 emisores; a 3-7 particulas cada uno es un coste irrelevante en CPU.
-const MAX_EMISORES := 2
+# Una por familia. Con 4 aliados y 5 enemigos son 27 emisores como techo, y a 3-7 particulas cada
+# uno el coste en CPU sigue siendo irrelevante (ver la cabecera de particulas.gd).
+const MAX_EMISORES := 3
 
 const DORADO_BUFF := Color(1.0, 0.85, 0.35)
 
@@ -172,6 +205,11 @@ func registrar(bloque: Dictionary) -> void:
 	var panel: Control = bloque.get("panel")
 	if panel == null or not is_instance_valid(panel):
 		return
+	# La PELICULA va primero (debajo): es una capa sobre la tarjeta, y las particulas caen encima.
+	var pelicula := CapaEstado.new()
+	panel.add_child(pelicula)
+	bloque["fx_pelicula"] = pelicula
+
 	var capa := Control.new()
 	capa.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	capa.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -206,7 +244,8 @@ func olvidar_todas() -> void:
 func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 	if bloque.is_empty() or not bloque.has("fx_capa"):
 		return
-	var quiere: Array[Dictionary] = []   # los que merecen emisor, en orden de prioridad
+	var quiere: Array[Dictionary] = []      # lo que hay que pintar, uno por familia
+	var por_familia: Dictionary = {}        # familia -> el que la representa
 	var n_buff := 0
 	var n_debuff := 0
 	var col_debuff := Color.WHITE
@@ -216,10 +255,10 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 		for par in chips:
 			if par.size() < 4:
 				continue
-			var info: Dictionary = tabla.get(String(par[2]), {})
+			var col: Color = par[3]
+			var info: Dictionary = tabla.get(_clave(String(par[2]), col), {})
 			if info.is_empty():
 				continue
-			var col: Color = par[3]
 			if bool(info.get("debuff", false)):
 				n_debuff += 1
 				if col_debuff == Color.WHITE:
@@ -228,13 +267,22 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 				n_buff += 1
 				if col_buff == Color.WHITE:
 					col_buff = col
-			if String(info.get("tipo", "")) != "":
-				quiere.append({"icono": String(par[2]), "color": col,
-					"tipo": String(info["tipo"]), "orden": int(info.get("orden", 99))})
-	# Los mas graves primero, y solo caben MAX_EMISORES.
-	quiere.sort_custom(func(a, b): return int(a["orden"]) < int(b["orden"]))
-	if quiere.size() > MAX_EMISORES:
-		quiere.resize(MAX_EMISORES)
+				var fam: String = String(info.get("familia", ""))
+				if fam == "":
+					continue
+				# UNO POR FAMILIA: gana el primero de su lista. Asi arder y estar envenenado no se
+				# pelean por el mismo hueco con estar pringado o con estar regenerando -- son
+				# preguntas distintas y cada una tiene su sitio en la tarjeta.
+				var previo: Dictionary = por_familia.get(fam, {})
+				if not previo.is_empty() and int(previo["orden"]) <= int(info.get("orden", 99)):
+					continue
+				por_familia[fam] = {"icono": String(par[2]), "color": col,
+					"tipo": String(info["tipo"]), "orden": int(info.get("orden", 99)),
+					"familia": fam}
+	# En orden fijo de familia, para que la firma sea estable y no se recreen emisores por nada.
+	for fam in ["dano", "capa", "ayuda"]:
+		if por_familia.has(fam):
+			quiere.append(por_familia[fam])
 
 	# FIRMA: la huella de lo que deberia verse. _update_hp llama aqui constantemente (cada golpe,
 	# cada tick, cada refresco de red) y casi siempre no ha cambiado nada; sin este corte se
@@ -248,6 +296,18 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 	bloque["fx_firma"] = firma
 
 	_reconciliar_emisores(bloque, quiere)
+
+	# LA PELICULA de lo que te cubre. Va aparte de los emisores porque no es una particula: es una
+	# capa pintada sobre la tarjeta, y es lo que hace que el Pegajoso se lea como "estas cubierto
+	# de baba" y no como "algo verde te esta pasando".
+	var pelicula: CapaEstado = bloque.get("fx_pelicula")
+	if pelicula != null and is_instance_valid(pelicula):
+		var cubre: Dictionary = por_familia.get("capa", {})
+		# Solo los que CHORREAN pintan pelicula: Electrizado esta en la misma familia pero chispea.
+		if cubre.is_empty() or String(cubre.get("tipo", "")) != "capa":
+			pelicula.pintar(Color.TRANSPARENT, 0.0)
+		else:
+			pelicula.pintar(cubre["color"], 1.0)
 
 	if bloque.get("tinte", Color.WHITE) != tinte:
 		bloque["tinte"] = tinte
@@ -284,12 +344,17 @@ func _crear_emisor(capa: Control, tipo: String, color: Color) -> CPUParticles2D:
 	if tam.x <= 0.0 or tam.y <= 0.0:
 		tam = Vector2(180, 90)   # todavia sin layout: se recoloca solo en el resized de abajo
 	var p: CPUParticles2D = null
-	if tipo == "ascendente":
-		# 'alto' es el lado del cuerpo para Particulas: aqui el cuerpo es la tarjeta, y con la
-		# mitad del alto las llamas suben ~1.5 tarjetas sin taparlo todo.
-		p = Particulas.ascendentes(capa, color, 0.85, tam.y * 0.5)
-	else:
-		p = Particulas.destellos(capa, color, tam, 0.6, 0.7)
+	match tipo:
+		"ascendente":
+			# 'alto' es el lado del cuerpo para Particulas: aqui el cuerpo es la tarjeta, y con la
+			# mitad del alto las llamas suben ~1.5 tarjetas sin taparlo todo.
+			p = Particulas.ascendentes(capa, color, 0.85, tam.y * 0.5)
+		"cruz":
+			p = Particulas.cruces(capa, color, 1.0, tam.y * 0.5)
+		"capa":
+			p = Particulas.chorretones(capa, color, tam, 1.0)
+		_:
+			p = Particulas.destellos(capa, color, tam, 0.6, 0.7)
 	if p == null:
 		return null
 	# OBLIGATORIO (ver cabecera): en solitario el arbol esta pausado durante el combate.
@@ -299,12 +364,18 @@ func _crear_emisor(capa: Control, tipo: String, color: Color) -> CPUParticles2D:
 	var ajustar := func() -> void:
 		if not is_instance_valid(p) or not is_instance_valid(capa):
 			return
-		if tipo == "ascendente":
-			p.position = capa.size * 0.5
-			p.emission_rect_extents = Vector2(capa.size.x * 0.45, capa.size.y * 0.12)
-		else:
-			p.position = capa.size * 0.5
-			p.emission_rect_extents = capa.size * 0.5
+		p.position = capa.size * 0.5
+		match tipo:
+			"ascendente", "cruz":
+				# Nacen en una franja ancha y baja: la cosa te sube por todo el cuerpo, no te
+				# brota de un punto.
+				p.emission_rect_extents = Vector2(capa.size.x * 0.45, capa.size.y * 0.12)
+			"capa":
+				# Los goterones nacen ARRIBA del todo y bajan por la tarjeta.
+				p.position.y = capa.size.y * 0.16
+				p.emission_rect_extents = Vector2(capa.size.x * 0.44, capa.size.y * 0.08)
+			_:
+				p.emission_rect_extents = capa.size * 0.5
 	capa.resized.connect(ajustar)
 	ajustar.call()
 	return p
@@ -334,17 +405,38 @@ static func _tabla() -> Dictionary:
 		var ico: String = str(d.get("icono", ""))
 		if ico == "":
 			continue
+		# 'familia' = de que hueco compite (uno por familia); 'orden' = quien gana dentro de ella;
+		# 'tipo' = con que forma se pinta.
+		var familia := ""
 		var tipo := ""
 		var orden := 99
-		if IDS_ASCENDENTE.has(id):
+		if IDS_DANO.has(id):
+			familia = "dano"
 			tipo = "ascendente"
-			orden = IDS_ASCENDENTE.find(id)
-		elif IDS_DESTELLO.has(id):
-			tipo = "destello"
-			orden = 10 + IDS_DESTELLO.find(id)
-		_tabla_cache[ico] = {"tipo": tipo, "orden": orden,
+			orden = IDS_DANO.find(id)
+		elif IDS_CAPA.has(id):
+			familia = "capa"
+			tipo = "capa" if IDS_BABA.has(id) else "destello"
+			orden = IDS_CAPA.find(id)
+		elif IDS_AYUDA.has(id):
+			familia = "ayuda"
+			tipo = "cruz" if IDS_CRUZ.has(id) else "destello"
+			orden = IDS_AYUDA.find(id)
+		_tabla_cache[_clave(ico, d.get("color", Color.WHITE))] = {
+			"tipo": tipo, "familia": familia, "orden": orden,
 			"debuff": bool(d.get("debuff", false))}
 	return _tabla_cache
+
+
+# La clave de la tabla: icono Y COLOR, no solo el icono. HAY EMOJIS REPETIDOS en el catalogo --
+# 🔥 lo llevan Quemadura y el plato "Fuerza", 🛡 lo llevan Baluarte y el plato "Aguante"-- asi que
+# con la clave solo por icono el que se define despues (el plato, que va al final) pisaba al otro
+# y Quemadura y Baluarte se quedaban SIN efecto, mudos, sin un solo error por ningun lado.
+#
+# El color los separa porque cada entrada del catalogo tiene el suyo, y es el mismo que viaja en
+# el chip resuelto: la clave se puede reconstruir igual en el espejo, que es donde no hay Ids.
+static func _clave(ico: String, col: Color) -> String:
+	return "%s|%d" % [ico, col.to_rgba32()]
 
 
 # ============================================================

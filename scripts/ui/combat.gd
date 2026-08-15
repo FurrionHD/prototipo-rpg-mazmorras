@@ -5981,6 +5981,35 @@ func _update_timeline() -> void:
 var _dev_target_enemy: bool = true
 var _estados_panel: PanelContainer = null
 
+# Las CATEGORIAS del panel, agrupadas por lo que le HACEN al que las lleva, que es como se busca
+# uno cuando esta probando ("a ver que pasa si le pongo algo que le estorbe"). No por el bando ni
+# por si son buff o debuff: Sigilo y Guardia de carne son cosas a favor aunque no suban una stat.
+const DEV_ESTADOS_CATS: Array = [
+	["Daño con el tiempo", [
+		StatusEffects.Id.VENENO, StatusEffects.Id.SANGRADO, StatusEffects.Id.QUEMADURA,
+		StatusEffects.Id.CORROSION, StatusEffects.Id.HERIDA_PROFUNDA,
+	]],
+	["Te estorban", [
+		StatusEffects.Id.PEGAJOSO, StatusEffects.Id.MOJADO, StatusEffects.Id.LENTO,
+		StatusEffects.Id.ATURDIDO, StatusEffects.Id.RAYO, StatusEffects.Id.SILENCIO,
+		StatusEffects.Id.MIEDO,
+	]],
+	["Te merman", [
+		StatusEffects.Id.DEBIL, StatusEffects.Id.VULNERABLE, StatusEffects.Id.MARCA,
+	]],
+	["A tu favor", [
+		StatusEffects.Id.FORTALEZA, StatusEffects.Id.BALUARTE, StatusEffects.Id.PRESTEZA,
+		StatusEffects.Id.REGENERACION, StatusEffects.Id.REGEN_MANA, StatusEffects.Id.SIGILO,
+		StatusEffects.Id.GUARDIA_CARNE, StatusEffects.Id.ESCOLTA,
+	]],
+	["Platos (cocina)", [
+		StatusEffects.Id.PLATO_GUARDIA, StatusEffects.Id.PLATO_BRIO, StatusEffects.Id.PLATO_FURIA,
+		StatusEffects.Id.PLATO_ARCANO, StatusEffects.Id.PLATO_NUCLEO,
+		StatusEffects.Id.PLATO_REMEDIO, StatusEffects.Id.PLATO_ESTOMAGO,
+		StatusEffects.Id.PLATO_FORTUNA,
+	]],
+]
+
 func _crear_estados_dev() -> void:
 	# Boton toggle (abajo-dcha, siempre visible) para cerrar/abrir el panel dev.
 	var toggle := Button.new()
@@ -6032,31 +6061,84 @@ func _crear_estados_dev() -> void:
 		tgt.text = "Objetivo: Enemigo sel." if on else "Objetivo: Jugador")
 	vb.add_child(tgt)
 
-	var flow := HFlowContainer.new()
-	vb.add_child(flow)
-	# Veneno: un solo boton; cada pulsacion = +1 stack (y cada stack DUPLICA el daño).
-	var bv := Button.new()
-	bv.text = "☠ Veneno +stack"
-	bv.pressed.connect(_dev_veneno)
-	flow.add_child(bv)
-	# Sangrado: magnitud = escala con el ATAQUE del aplicador (el bando contrario al objetivo).
-	var bs := Button.new()
-	bs.text = "🩸 Sangrado"
-	bs.pressed.connect(_dev_sangrado)
-	flow.add_child(bs)
-	# Resto de estados: magnitud/duracion por defecto del catalogo.
-	for id in StatusEffects.all_ids():
-		if int(id) == StatusEffects.Id.VENENO or int(id) == StatusEffects.Id.SANGRADO:
-			continue
-		var d: Dictionary = StatusEffects.def(id)
-		var b := Button.new()
-		b.text = "%s %s" % [d.get("icono", "?"), d.get("nombre", "?")]
-		b.pressed.connect(_dev_aplicar_estado.bind(int(id)))
-		flow.add_child(b)
 	var clr := Button.new()
-	clr.text = "Limpiar"
+	clr.text = "Limpiar todos"
 	clr.pressed.connect(_dev_limpiar_estados)
-	flow.add_child(clr)
+	vb.add_child(clr)
+
+	# Los 31 estados EN UNA SOLA LISTA no caben: la columna crecia hacia arriba hasta salirse por
+	# el techo de la pantalla y los de arriba quedaban inalcanzables. Van por CATEGORIAS plegables
+	# (solo la primera abierta) y ademas dentro de un scroll, que es el cinturon de seguridad para
+	# cuando la ventana sea pequeña o el catalogo crezca.
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 300)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vb.add_child(scroll)
+
+	var lista := VBoxContainer.new()
+	lista.add_theme_constant_override("separation", 2)
+	lista.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(lista)
+
+	var primera := true
+	for cat in DEV_ESTADOS_CATS:
+		var flow: HFlowContainer = _dev_seccion(lista, String(cat[0]), primera)
+		for id in cat[1]:
+			match int(id):
+				StatusEffects.Id.VENENO:
+					# Cada pulsacion = +1 stack (y cada stack DUPLICA el daño), por eso va aparte.
+					_dev_boton(flow, "☠ Veneno +stack", _dev_veneno)
+				StatusEffects.Id.SANGRADO:
+					# La magnitud escala con el ATAQUE del aplicador, no es la del catalogo.
+					_dev_boton(flow, "🩸 Sangrado", _dev_sangrado)
+				_:
+					var d: Dictionary = StatusEffects.def(int(id))
+					_dev_boton(flow, "%s %s" % [d.get("icono", "?"), d.get("nombre", "?")],
+						_dev_aplicar_estado.bind(int(id)))
+		primera = false
+
+	# CUALQUIERA QUE FALTE. El catalogo solo se amplia por el final, asi que un estado nuevo caeria
+	# fuera de las categorias de arriba y se perderia en silencio: aqui aparece solo.
+	var sueltos: Array = []
+	for id in StatusEffects.all_ids():
+		var visto := false
+		for cat2 in DEV_ESTADOS_CATS:
+			if cat2[1].has(int(id)):
+				visto = true
+				break
+		if not visto:
+			sueltos.append(int(id))
+	if not sueltos.is_empty():
+		var flow2: HFlowContainer = _dev_seccion(lista, "Sin clasificar", false)
+		for id in sueltos:
+			var d2: Dictionary = StatusEffects.def(int(id))
+			_dev_boton(flow2, "%s %s" % [d2.get("icono", "?"), d2.get("nombre", "?")],
+				_dev_aplicar_estado.bind(int(id)))
+
+
+# UNA categoria del panel de estados: cabecera que pliega y despliega, y la rejilla de botones.
+# Devuelve la rejilla para que quien llama le cuelgue los suyos.
+func _dev_seccion(padre: VBoxContainer, titulo: String, abierta: bool) -> HFlowContainer:
+	var flow := HFlowContainer.new()
+	var cab := Button.new()
+	cab.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	cab.toggle_mode = true
+	cab.button_pressed = abierta
+	cab.text = ("▼ " if abierta else "▶ ") + titulo
+	cab.toggled.connect(func(on: bool) -> void:
+		flow.visible = on
+		cab.text = ("▼ " if on else "▶ ") + titulo)
+	padre.add_child(cab)
+	flow.visible = abierta
+	padre.add_child(flow)
+	return flow
+
+
+func _dev_boton(padre: Container, texto: String, accion: Callable) -> void:
+	var b := Button.new()
+	b.text = texto
+	b.pressed.connect(accion)
+	padre.add_child(b)
 
 
 func _dev_target() -> Combatant:

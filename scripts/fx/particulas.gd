@@ -30,6 +30,8 @@ const LADO := 4
 # Cacheadas: son inmutables y las comparten TODOS los emisores del juego. Crear una Image y una
 # Curve por veta seria tirar memoria por cada nodo del piso.
 static var _tex: ImageTexture = null
+static var _tex_cruz: ImageTexture = null
+static var _tex_gota: ImageTexture = null
 static var _curva_menguante: Curve = null
 
 
@@ -151,7 +153,111 @@ static func apagar(p: CPUParticles2D) -> void:
 		p.emitting = false
 
 
+# CRUCES que suben. Es lo que se te pone encima cuando algo te esta CURANDO: verde para la vida y
+# azul para el maná. Va aparte de los destellos por un motivo de lectura, no de estetica -- un
+# cuadradito brillante dice "esto es valioso" y sirve igual para una veta que para un veneno; una
+# cruz solo puede querer decir una cosa, y por eso no se confunde con un debuff del mismo color.
+#
+# Suben MAS DESPACIO que el rastro y duran mas: una cura no es una llamarada, es algo que te va
+# subiendo por el cuerpo. Y NO menguan (sin curva de escala): una cruz pequeña deja de leerse como
+# una cruz y pasa a ser una mota.
+static func cruces(padre: Node, color: Color, intensidad := 1.0, alto := 24.0) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.texture = textura_cruz()
+	p.local_coords = true    # pertenecen al cuerpo que se cura y viajan con el
+	p.amount = maxi(2, roundi(4.0 * intensidad))
+	p.lifetime = 1.6
+	p.lifetime_randomness = 0.3
+	p.randomness = 1.0
+	p.direction = Vector2.UP
+	p.spread = 12.0          # casi rectas hacia arriba: es un goteo ordenado, no una hoguera
+	p.gravity = Vector2.ZERO
+	p.initial_velocity_min = alto * 0.35
+	p.initial_velocity_max = alto * 0.6
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	p.emission_rect_extents = Vector2(alto * 0.5, alto * 0.18)
+	p.position.y = alto * 0.25
+	p.scale_amount_min = 0.9
+	p.scale_amount_max = 1.3
+	p.color_ramp = _rampa_destello(_realzar(color), intensidad)
+	padre.add_child(p)
+	return p
+
+
+# CHORRETONES: gotas gordas que CAEN despacio y se quedan. Es lo contrario del rastro ascendente
+# (que emana) y del destello (que centellea): esto es algo que te ha caido encima y te escurre.
+# Lo pide el Pegajoso, que con destellos se leia como si te estuvieran curando.
+#
+# Lo que lo hace legible como baba y no como lluvia: van LENTAS, GORDAS y opacas casi toda su vida
+# (ver _rampa_baba), y nacen repartidas por todo el ancho, arriba.
+static func chorretones(padre: Node, color: Color, zona: Vector2, intensidad := 1.0) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.texture = textura_gota()
+	p.local_coords = true    # la baba va pegada al cuerpo, no se queda atras
+	p.amount = maxi(3, roundi(5.0 * intensidad))
+	p.lifetime = 1.8
+	p.lifetime_randomness = 0.4
+	p.randomness = 1.0
+	p.direction = Vector2.DOWN
+	p.spread = 6.0
+	p.gravity = Vector2(0.0, 22.0)   # poquita: escurre, no se cae
+	p.initial_velocity_min = 4.0
+	p.initial_velocity_max = 12.0
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	p.emission_rect_extents = Vector2(zona.x * 0.44, zona.y * 0.08)
+	p.position.y = -zona.y * 0.34   # nacen ARRIBA de la caja y bajan por ella
+	p.scale_amount_min = 1.1
+	p.scale_amount_max = 2.0
+	p.color_ramp = _rampa_baba(color)
+	padre.add_child(p)
+	return p
+
+
+# La CRUZ de curar: un mas, de 7x7, con los brazos de 3 px. No se usa la de 4x4 escalada porque
+# escalar un cuadrado da un cuadrado; la forma es todo el mensaje aqui.
+static func textura_cruz() -> ImageTexture:
+	if _tex_cruz == null:
+		var img := Image.create(7, 7, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 0))
+		# Brazos de 3 px de grueso: la barra horizontal son las filas 2-4 y la vertical las
+		# columnas 2-4. Cruzandolas sale el mas.
+		for i in 7:
+			for k in range(2, 5):
+				img.set_pixel(i, k, Color.WHITE)
+				img.set_pixel(k, i, Color.WHITE)
+		_tex_cruz = ImageTexture.create_from_image(img)
+	return _tex_cruz
+
+
+# El GOTERON de la baba: un circulo relleno de 8x8. Un cuadrado no escurre.
+static func textura_gota() -> ImageTexture:
+	if _tex_gota == null:
+		var lado := 8
+		var img := Image.create(lado, lado, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 0))
+		var c := (float(lado) - 1.0) * 0.5
+		for x in lado:
+			for y in lado:
+				var d: float = Vector2(float(x) - c, float(y) - c).length()
+				if d <= c + 0.15:
+					# El borde a media alfa suaviza el circulo sin tirar de mipmaps.
+					img.set_pixel(x, y, Color(1, 1, 1, 1.0 if d <= c - 0.6 else 0.55))
+		_tex_gota = ImageTexture.create_from_image(img)
+	return _tex_gota
+
+
 # --- interno ---
+
+# Baba: entra rapido, se queda OPACA casi toda la vida y se va al final. Nada de parpadeo -- lo
+# que distingue una gota de baba de un destello es justo que la baba no titila, esta ahi.
+static func _rampa_baba(color: Color) -> Gradient:
+	var transp := Color(color.r, color.g, color.b, 0.0)
+	var pleno := Color(color.r, color.g, color.b, 0.9)
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.12, 0.72, 1.0])
+	g.colors = PackedColorArray([transp, pleno, pleno, transp])
+	return g
+
 
 # Mengua de 1 a 1/4 a lo largo de la vida. Solo la usa el rastro.
 static func _curva() -> Curve:
