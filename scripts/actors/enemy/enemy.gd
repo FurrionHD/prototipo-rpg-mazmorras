@@ -579,7 +579,8 @@ func _direccion_esquivando(hacia: Vector2) -> Vector2:
 	# Bloqueado: se recarga la memoria (mientras haya pared delante, el compromiso no caduca).
 	var comprometido: bool = _lado_desvio != 0 and _desvio_t > 0.0
 	_desvio_t = DESVIO_MEMORIA
-	var salida: Vector2 = _buscar_hueco(dir, sonda, [_lado_desvio] if comprometido else [1, -1])
+	var salida: Vector2 = _buscar_hueco(dir, sonda, [_lado_desvio]) if comprometido \
+		else _elegir_lado(dir, sonda)
 	# Si por su lado no hay nada (ha llegado al fondo yendo por ahi), suelta el compromiso y mira
 	# tambien por el otro: mas vale desdecirse que empotrarse.
 	if salida == Vector2.ZERO and comprometido:
@@ -635,6 +636,49 @@ func _olvidar_orbita() -> void:
 	_lado_desvio = 0
 	_dir_desvio = Vector2.ZERO
 	_desvio_t = 0.0
+
+
+# LA PRIMERA VEZ que hay que elegir lado, se eligen los DOS y gana el que tenga mas camino por
+# delante. Antes se probaban en orden fijo [1, -1], asi que a igual angulo ganaba SIEMPRE el mismo
+# sentido de giro: en un pasillo, la mitad de las veces el bicho se metia de morros contra la pared
+# larga en vez de tirar por donde se llega. No era mala suerte, era un sesgo.
+#
+# El criterio principal sigue siendo el desvio MAS PEQUEÑO (se para en el primer angulo que sirva
+# por algun lado); lo que decide entre los dos lados de ESE angulo es cual esta mas despejado.
+const OJEADA := 5.0   # cuanto se mira hacia delante para comparar lados, en veces la sonda
+func _elegir_lado(dir: Vector2, sonda: float) -> Vector2:
+	for g in DESVIOS:
+		var rad: float = deg_to_rad(g)
+		var mejor: Vector2 = Vector2.ZERO
+		var mejor_lado: int = 0
+		var mejor_sitio: float = -1.0
+		for s in [1, -1]:
+			var cand: Vector2 = dir.rotated(rad * float(s))
+			if not _cabe_por(cand, sonda):
+				continue
+			var sitio: float = _recorrido_libre(cand, sonda * OJEADA)
+			if sitio > mejor_sitio:
+				mejor = cand
+				mejor_lado = s
+				mejor_sitio = sitio
+		if mejor != Vector2.ZERO:
+			_lado_desvio = mejor_lado
+			return mejor
+	return Vector2.ZERO
+
+
+# Cuanto se puede andar en esa direccion antes de comerse la roca (tope: 'largo'). Es solo para
+# comparar un lado con el otro, asi que con el rayo del centro basta -- que quepa el cuerpo ya lo
+# ha comprobado _cabe_por.
+func _recorrido_libre(dir: Vector2, largo: float) -> float:
+	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	var query := PhysicsRayQueryParameters2D.create(
+		global_position, global_position + dir * largo, CAPA_ROCA)
+	query.exclude = _excluir_del_rayo()
+	var hit: Dictionary = espacio.intersect_ray(query)
+	if hit.is_empty():
+		return largo
+	return global_position.distance_to(hit["position"])
 
 
 # El desvio mas pequeño que deja pasar el cuerpo, probando solo los lados que se le pidan.
