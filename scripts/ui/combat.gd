@@ -440,8 +440,10 @@ func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 		if i < exhausted.size() and bool(exhausted[i]):
 			_lentas[_aliados[i]] = EXHAUSTED_SLOW_ACTIONS
 	_injected = true
-	# El modo muñeco (Saco/Pegador) siempre es 1v1: lo garantiza enemy.gd al no reclutar
-	# vecinos con debug_dummy_mode activo (las medidas de DPS/turno se irian al traste).
+	# ¿Es una prueba de muñeco? Basta con que lo sea el primero: la conversion es de la pelea
+	# entera (ver Game.volver_muneco), refuerzos incluidos. Ya NO es 1v1 -- en la arena se entra en
+	# grupo como en cualquier combate --, asi que con varios el DPS por turno enemigo va repartido
+	# entre todos los que peguen (el resumen final lo avisa).
 	_dps_on = not _enemies.is_empty() and _enemies[0].es_dummy
 
 
@@ -2134,6 +2136,10 @@ func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array 
 	# Y los ESTADOS que traia, tambien igual que en el arranque: el que se une a mitad no puede
 	# entrar limpio del veneno que le pusiste hace un minuto.
 	StatusEffects.aplicar_a(c, estados)
+	# MODO PRUEBA: el refuerzo tambien es muñeco. Este es el SEGUNDO camino de entrada al combate y
+	# es el que siempre se queda sin lo que se escribe en el otro: sin esto, el que llegaba tarde
+	# entraba con sus stats de verdad y ensuciaba la medida en silencio.
+	Game.volver_muneco(c, _player)
 	return _meter_enemigo(c, false)
 
 
@@ -5710,8 +5716,13 @@ func _dps_resumen() -> void:
 		return
 	var tj: int = maxi(1, _turnos_jugador)
 	var te: int = maxi(1, _turnos_enemigo)
-	# El modo prueba siempre es 1v1 (ver setup): el muñeco es _enemies[0].
-	print("[dps] ===== RESUMEN DE PRUEBA vs %s =====" % _enemies[0].nombre)
+	# El modo prueba YA NO es 1v1 (se entra en grupo como en cualquier pelea), asi que el titulo va
+	# con el primero y, si habia mas, se dice: el DPS por turno enemigo se reparte entre todos los
+	# que peguen, y sin este aviso el numero se lee mal.
+	var contra: String = _enemies[0].nombre if not _enemies.is_empty() else "?"
+	if _enemies.size() > 1:
+		contra += " (+%d mas: el DPS por turno enemigo va repartido)" % (_enemies.size() - 1)
+	print("[dps] ===== RESUMEN DE PRUEBA vs %s =====" % contra)
 	print("[dps] INFLIGIDO: %.2f total | %d turnos tuyos, %d del enemigo | DPS %.2f/tuyo · %.2f/enemigo" % [
 		_dmg_dealt_total, _turnos_jugador, _turnos_enemigo, _dmg_dealt_total / tj, _dmg_dealt_total / te])
 	var fuentes: Array = _dmg_dealt.keys()

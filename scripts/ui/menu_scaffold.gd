@@ -78,10 +78,38 @@ static func tema() -> Theme:
 	_tema.set_stylebox("disabled", "Button", _caja(Color(0.09, 0.10, 0.13, 0.75), 0.14))
 	# El campo del stepper con la MISMA caja: asi el − [ n ] + se lee como un solo control y no como
 	# dos botones con un hueco en medio.
+	# Y EL PANEL, que no estaba. Sin esto un PanelContainer usa el estilo por defecto de Godot, que
+	# es SEMITRANSPARENTE: los paneles de dev de la arena se veian con el mundo (y el cartelon de
+	# "ARENA DE PRUEBAS") transparentandose por debajo, y no habia forma de leerlos. Va mas opaco
+	# que los botones a proposito -- es el fondo, no un control.
+	_tema.set_stylebox("panel", "PanelContainer", _caja(Color(0.07, 0.08, 0.11, 0.98), 0.35))
 	_tema.set_stylebox("normal", "LineEdit", _caja(Color(0.10, 0.11, 0.14, 0.95), 0.45))
 	_tema.set_stylebox("focus", "LineEdit", _caja(Color(0.10, 0.11, 0.14, 0.95), 0.75))
 	_tema.set_stylebox("read_only", "LineEdit", _caja(Color(0.09, 0.10, 0.13, 0.75), 0.14))
 	return _tema
+
+
+# ============================================================
+#  LAS CAPAS DE LOS PANELES DE DEV
+#  Los tres (debug, spawner, materiales) estaban en layer 6, el MISMO. A igualdad de layer, Godot
+#  desempata por orden de entrada al arbol, y el jugador los crea en orden debug -> spawner ->
+#  materiales, asi que el de debug quedaba SIEMPRE el ultimo en dibujarse: se lo comian los otros
+#  dos. Ahora tienen franja propia por encima del HUD (5) y del casteo (7), y el que tocas se pone
+#  delante -- que es lo unico razonable cuando puedes tener los tres abiertos a la vez.
+# ============================================================
+
+const CAPA_DEV := 8        # los paneles de dev en reposo
+const CAPA_DEV_FRENTE := 10  # y el ultimo que has tocado
+
+# Pone ESTE panel de dev por delante de sus hermanos. Todos tienen que estar en el grupo
+# "panel_dev" para que se les pueda bajar.
+static func al_frente(capa: CanvasLayer) -> void:
+	if capa == null or not is_instance_valid(capa):
+		return
+	for otro in capa.get_tree().get_nodes_in_group("panel_dev"):
+		if otro is CanvasLayer and otro != capa:
+			(otro as CanvasLayer).layer = CAPA_DEV
+	capa.layer = CAPA_DEV_FRENTE
 
 
 static func _caja(fondo: Color, borde_alpha: float) -> StyleBoxFlat:

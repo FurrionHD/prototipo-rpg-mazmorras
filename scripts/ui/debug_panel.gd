@@ -40,9 +40,6 @@ var _open: bool = false
 var _stat_edits: Dictionary = {}
 var _enemy_edits: Dictionary = {}   # habilidades del enemigo, una LineEdit por stat
 var _enemy_buttons: Array = []
-var _dummy_buttons: Array = []   # [boton, modo] del modo prueba (Off/Saco/Pegador)
-var _dummy_hp_edit: LineEdit = null
-var _dummy_group_check: CheckBox = null
 var _floor_edit: LineEdit = null
 var _desarrollo_list: VBoxContainer = null   # contadores ocultos de los desarrollos
 # FORJA
@@ -87,7 +84,8 @@ func _make_rareza_opt(cb: Callable) -> OptionButton:
 
 
 func _ready() -> void:
-	layer = 6
+	layer = MenuScaffold.CAPA_DEV
+	add_to_group("panel_dev")   # para que los tres paneles de dev se ordenen entre si
 	# Quien lo abre es el icono de consola de la botonera del HUD, que lo busca por este grupo (ver
 	# hud._montar_botonera). Ya no hay boton propio: era un "DEBUG" de texto con el estilo por
 	# defecto de Godot, abajo a la izquierda y lejos del resto de la interfaz.
@@ -345,38 +343,9 @@ func _build_enemy(vb: VBoxContainer) -> void:
 	fapply.pressed.connect(_apply_floor)
 	frow.add_child(fapply)
 
-	# MODO PRUEBA: muñeco de DPS (Saco) / pegador de armadura, con HP configurable.
-	_header(vb, "Prueba (muñeco)")
-	var drow := HBoxContainer.new()
-	drow.add_theme_constant_override("separation", 4)
-	vb.add_child(drow)
-	for dpreset in [["Off", 0], ["Saco DPS", 1], ["Pegador", 2]]:
-		var db := Button.new()
-		db.text = dpreset[0]
-		db.toggle_mode = true
-		db.pressed.connect(_set_dummy.bind(dpreset[1]))
-		drow.add_child(db)
-		_dummy_buttons.append([db, dpreset[1]])
-	var hrow := HBoxContainer.new()
-	hrow.add_theme_constant_override("separation", 4)
-	vb.add_child(hrow)
-	var hlbl := Label.new()
-	hlbl.text = "HP"
-	hrow.add_child(hlbl)
-	_dummy_hp_edit = LineEdit.new()
-	_dummy_hp_edit.custom_minimum_size = Vector2(60, 0)
-	_dummy_hp_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_dummy_hp_edit.text_submitted.connect(func(_t): _apply_dummy_hp())
-	hrow.add_child(_dummy_hp_edit)
-	var hap := Button.new()
-	hap.text = "Aplicar"
-	hap.pressed.connect(_apply_dummy_hp)
-	hrow.add_child(hap)
-	# GRUPO: permite refuerzos en el saco/pegador (varios muñecos) para probar hechizos de area.
-	_dummy_group_check = CheckBox.new()
-	_dummy_group_check.text = "Grupo (varios muñecos, para probar área)"
-	_dummy_group_check.toggled.connect(func(p): Game.debug_dummy_group = p)
-	vb.add_child(_dummy_group_check)
+	# (El modo prueba -- muñeco de DPS / pegador -- se mudo al panel del SPAWNER: solo tiene
+	# sentido en la arena, y estando alli se apaga solo al salir en vez de seguirte a la
+	# mazmorra de verdad dejandote invulnerable. Ver spawner.gd.)
 
 
 # ============================================================
@@ -887,6 +856,7 @@ func _toggle() -> void:
 	_panel.visible = _open
 	Game.debug_panel_open = _open
 	if _open:
+		MenuScaffold.al_frente(self)   # el que se abre manda: en la arena hay otros dos paneles
 		_sync_from_game()
 
 
@@ -918,17 +888,6 @@ func _set_enemy(valor: int) -> void:
 		for clave in _enemy_edits:
 			Game.debug_enemy_override[clave] = valor
 	_sync_enemy()
-
-
-func _set_dummy(modo: int) -> void:
-	Game.debug_dummy_mode = modo
-	_sync_dummy()
-
-
-func _apply_dummy_hp() -> void:
-	var v: float = maxf(1.0, float(_dummy_hp_edit.text.to_float()))
-	Game.debug_dummy_hp = v
-	_dummy_hp_edit.text = str(int(v))
 
 
 func _apply_floor() -> void:
@@ -974,12 +933,3 @@ func _sync_enemy() -> void:
 		var activo: bool = ov.is_empty() if valor < 0 else (
 			ov.size() == _enemy_edits.size() and ov.values().all(func(v): return int(v) == valor))
 		(pair[0] as Button).button_pressed = activo
-	_sync_dummy()
-
-func _sync_dummy() -> void:
-	for pair in _dummy_buttons:
-		(pair[0] as Button).button_pressed = (pair[1] == Game.debug_dummy_mode)
-	if _dummy_hp_edit != null:
-		_dummy_hp_edit.text = str(int(Game.debug_dummy_hp))
-	if _dummy_group_check != null:
-		_dummy_group_check.set_pressed_no_signal(Game.debug_dummy_group)

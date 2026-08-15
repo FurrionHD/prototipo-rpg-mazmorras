@@ -1300,6 +1300,13 @@ func mi_piso() -> int:
 # ¿Simulo yo los bichos del piso donde estoy? En solitario SIEMPRE (no hay red que repartir).
 # Lo consultan los gates de dungeon_floor (hay_sitio, boss, poblacion).
 func simulo_mi_piso() -> bool:
+	# LA ARENA DE PRUEBAS ES SIEMPRE MIA. Es una sala local de dev: sus bichos los pone tu spawner,
+	# no viajan por la red y nadie mas los ve. La propiedad solo se reclama en pisos de mazmorra
+	# (ver _reclamar_piso), asi que en la arena _soy_dueno era false y con una sesion abierta
+	# _start_combat se salia en seco SIN marcar nada ni reintentar: los bichos se te pegaban y te
+	# atacaban y no se abria una sola pelea.
+	if _mi_lugar == "sandbox":
+		return true
 	return (not activo) or _soy_dueno
 
 

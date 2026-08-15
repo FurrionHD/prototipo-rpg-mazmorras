@@ -28,22 +28,33 @@ var _toggle_btn: Button = null
 var _type_opt: OptionButton = null
 var _count_lbl: Label = null
 
+# MODO PRUEBA (muñeco). Vivia en el panel de debug, que existe en TODAS las salas, y como el modo
+# es una variable global de Game te seguia a la mazmorra de verdad dejandote invulnerable sin que
+# nada lo dijera. Aqui vive donde tiene sentido -- junto al boton de poner bichos -- y, como este
+# panel solo existe en la arena, al salir se apaga solo (ver _ready y _exit_tree).
+var _dummy_buttons: Array = []   # [boton, modo]: Off / Saco DPS / Pegador
+var _dummy_hp_edit: LineEdit = null
+
 
 func _ready() -> void:
 	# Herramienta de dev solo para la ARENA de pruebas: en el resto de salas
 	# (pueblo/mazmorra) se autodestruye para no ensuciar la interfaz.
 	var escena: Node = get_tree().current_scene
 	if escena == null or not escena.scene_file_path.contains("sandbox"):
+		_apagar_muneco()   # por si vienes de la arena con el saco puesto
 		queue_free()
 		return
 
-	layer = 6  # como el panel de debug
+	layer = MenuScaffold.CAPA_DEV
+	add_to_group("panel_dev")   # para que los tres paneles de dev se ordenen entre si
 
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	panel.offset_right = -8
 	panel.offset_top = 8
 	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	# Tocarlo lo pone delante de los otros paneles de dev.
+	panel.gui_input.connect(func(ev): if ev is InputEventMouseButton and ev.pressed: MenuScaffold.al_frente(self))
 	add_child(panel)
 
 	var margin := MarginContainer.new()
@@ -92,7 +103,69 @@ func _ready() -> void:
 	_count_lbl = Label.new()
 	vb.add_child(_count_lbl)
 
+	# --- MODO PRUEBA (muñeco) -------------------------------------------------
+	var dtit := Label.new()
+	dtit.text = "Muñeco"
+	dtit.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
+	vb.add_child(dtit)
+	var drow := HBoxContainer.new()
+	drow.add_theme_constant_override("separation", 4)
+	vb.add_child(drow)
+	for dpreset in [["Off", 0], ["Saco DPS", 1], ["Pegador", 2]]:
+		var db := Button.new()
+		db.text = dpreset[0]
+		db.toggle_mode = true
+		db.pressed.connect(_set_dummy.bind(dpreset[1]))
+		drow.add_child(db)
+		_dummy_buttons.append([db, dpreset[1]])
+	var hrow := HBoxContainer.new()
+	hrow.add_theme_constant_override("separation", 4)
+	vb.add_child(hrow)
+	var hlbl := Label.new()
+	hlbl.text = "HP"
+	hrow.add_child(hlbl)
+	_dummy_hp_edit = LineEdit.new()
+	_dummy_hp_edit.custom_minimum_size = Vector2(60, 0)
+	_dummy_hp_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dummy_hp_edit.text_submitted.connect(func(_t): _apply_dummy_hp())
+	hrow.add_child(_dummy_hp_edit)
+	var hap := Button.new()
+	hap.text = "Aplicar"
+	hap.pressed.connect(_apply_dummy_hp)
+	hrow.add_child(hap)
+
 	_refrescar()
+	_sync_dummy()
+
+
+# Al irse de la arena, el modo prueba se va con ella. Es lo que impide que te lleves puesta la
+# invulnerabilidad a la mazmorra de verdad sin enterarte (ver Game.volver_muneco).
+func _exit_tree() -> void:
+	_apagar_muneco()
+
+
+func _apagar_muneco() -> void:
+	Game.debug_dummy_mode = 0
+
+
+func _set_dummy(modo: int) -> void:
+	Game.debug_dummy_mode = modo
+	_sync_dummy()
+
+
+func _apply_dummy_hp() -> void:
+	if _dummy_hp_edit == null:
+		return
+	var v: float = maxf(1.0, float(_dummy_hp_edit.text.to_float()))
+	Game.debug_dummy_hp = v
+	_dummy_hp_edit.text = str(int(v))
+
+
+func _sync_dummy() -> void:
+	for pair in _dummy_buttons:
+		(pair[0] as Button).button_pressed = (pair[1] == Game.debug_dummy_mode)
+	if _dummy_hp_edit != null:
+		_dummy_hp_edit.text = str(int(Game.debug_dummy_hp))
 
 
 # Monta la lista desde el manifiesto: etiqueta = el nombre del propio EnemyData (+ su nivel si no es
@@ -190,6 +263,11 @@ func _limpiar() -> void:
 		if is_instance_valid(e):
 			e.queue_free()
 	_spawned.clear()
+	# Y QUE EL COMBATE SE ENTERE. Barrer bichos que estaban apuntados en una pelea dejaba la lista
+	# de Game llena de nodos liberados, y con eso el juego cree que sigue habiendo pelea PARA
+	# SIEMPRE: a partir de ahi ningun bicho vuelve a abrir combate en ninguna sala, se te pegan y
+	# te atacan sin que pase nada. Ver Game._destrabar_combate.
+	Game.combate_activo()
 	_refrescar()
 
 

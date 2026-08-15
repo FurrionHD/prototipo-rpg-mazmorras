@@ -55,13 +55,16 @@ func _ready() -> void:
 		queue_free()
 		return
 
-	layer = 6   # como el spawner de enemigos y el panel de debug
+	layer = MenuScaffold.CAPA_DEV
+	add_to_group("panel_dev")   # para que los tres paneles de dev se ordenen entre si
 
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	panel.offset_right = -8
 	panel.offset_top = 150      # justo debajo del spawner de enemigos
 	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	# Tocarlo lo pone delante de los otros paneles de dev.
+	panel.gui_input.connect(func(ev): if ev is InputEventMouseButton and ev.pressed: MenuScaffold.al_frente(self))
 	add_child(panel)
 
 	var margin := MarginContainer.new()

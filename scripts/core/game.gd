@@ -769,6 +769,9 @@ var _fishing_script: GDScript = preload("res://scripts/ui/fishing.gd")
 var _drop_pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
 var _active_enemies: Array[Node] = []   # enemigos del combate en curso (1..4, en orden de setup)
 var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
+# Cuando empezo a montarse la pelea en curso (ms). Mientras dura, "hay enemigos apuntados pero no
+# hay pantalla" es normal y no hay que destrabar nada. Ver _destrabar_combate.
+var _montaje_ms: int = 0
 
 
 # ¿Hay una pantalla modal por encima del mapa (combate o extraccion)? Lo consulta el menu de
@@ -3606,13 +3609,13 @@ var debug_enemy_override: Dictionary = {}
 # MODO PRUEBA (muñeco): 0 = off, 1 = Saco (mucha vida, no pega, sin esquiva -> mide tu DPS),
 # 2 = Pegador (aguanta y te pega -> mide la mitigacion de tu armadura). Ambos: velocidad
 # estandar (cadencia regular) y el jugador es invulnerable (tests largos sin morir).
+#
+# Lo ponen los botones del SPAWNER (no el panel de debug), que solo existe en la arena y lo apaga
+# al salir: antes esto te seguia a la mazmorra de verdad y peleabas invulnerable sin saberlo.
+# Se aplica a TODOS los de la pelea, tambien a los refuerzos que llegan tarde (ver volver_muneco);
+# ya no se fuerza el 1v1, en la arena se entra en grupo como en cualquier combate normal.
 var debug_dummy_mode: int = 0
 var debug_dummy_hp: float = 500.0
-# GRUPO de muñecos: por defecto el modo prueba es 1v1 (el DPS/turno se mide contra UNA cadencia).
-# Con esto ON, el saco/pegador SI recluta vecinos (hasta MAX_COMBATIENTES) y TODOS se vuelven
-# muñecos: es la unica forma de ver un hechizo de AREA/dispersion repartiendo en el sandbox. El
-# DPS/turno deja de ser exacto (varias cadencias enemigas), a cambio de poder probar multiobjetivo.
-var debug_dummy_group: bool = false
 # True mientras el panel de debug esta abierto: congela al jugador (para poder
 # escribir en los campos sin que WASD lo muevan). Lo consulta player.gd.
 var debug_panel_open: bool = false
@@ -3670,7 +3673,19 @@ func _ready() -> void:
 # Le pone el tema a la raiz de cada pantalla nueva (ver _ready). Solo actua sobre el Control que
 # cuelga DIRECTAMENTE de un CanvasLayer -- que es donde se corta la cadena -- y nunca pisa a quien
 # traiga tema propio. De ahi para abajo ya lo heredan sus hijos.
+#
+# Y DE PASO: NINGUN BOTON SE QUEDA CON EL FOCO. Un Button enfocado se vuelve a disparar con
+# ESPACIO, porque ui_accept y ui_select son ESPACIO en Godot -- la misma tecla que "atacar". El
+# sintoma era de los buenos: pulsabas un boton de un panel de dev (el "Colocar: ON" del spawner) y
+# a partir de ahi el espacio ya no atacaba, solo re-alternaba ese boton. Y podia salir en
+# cualquier otro sitio, porque el foco es de Godot, no del panel.
+#
+# Un Theme NO puede fijar focus_mode, asi que va aqui: este enganche ya existia para el tema y es
+# el unico sitio por el que pasan TODOS los nodos que nacen. El juego es raton y tactil; no se
+# navegan menus con el teclado, asi que no se pierde nada.
 func _tema_de_capa(n: Node) -> void:
+	if n is BaseButton:
+		(n as BaseButton).focus_mode = Control.FOCUS_NONE
 	if n is Control and n.get_parent() is CanvasLayer and (n as Control).theme == null:
 		(n as Control).theme = MenuScaffold.tema()
 
@@ -9957,7 +9972,49 @@ func _dev_print_armor() -> void:
 # pausa global (multi) el mundo sigue vivo y otro bicho puede alcanzarte a mitad de pelea; si se
 # congelara sin que la pelea llegue a arrancar, se quedaria de estatua para siempre.
 func combate_activo() -> bool:
+	_destrabar_combate()
 	return not _active_enemies.is_empty()
+
+
+# EL COMBATE ENCASQUILLADO. Hay DOS formas de preguntar "¿hay pelea?" y se pueden separar:
+# combate_activo() mira _active_enemies y hay_pelea_en_pantalla() mira _active_layer. El array se
+# llena AL PRINCIPIO de start_combat y solo se vacia AL CERRAR la pelea, asi que cualquier cosa que
+# se lleve los nodos o la pantalla por en medio lo deja lleno de basura para siempre:
+#   * el boton Limpiar del spawner liberaba bichos que estaban en la lista,
+#   * un cambio de escena,
+#   * o un error a media construccion, entre llenar el array y montar la pantalla.
+#
+# Y a partir de ahi el juego se rompe ENTERO, en silencio y en cualquier sala: el bicho te toca,
+# combate_activo() dice que si, unir_enemigo_al_combate falla porque no hay pantalla a la que
+# unirse, se queda _esperando_hueco, al frame siguiente ve que no hay pantalla y se suelta, te
+# vuelve a tocar... y asi para siempre. Pegado a ti, atacandote, sin que se abra una sola pelea.
+#
+# Aqui se cierra por los dos lados: fuera los nodos que ya no existen, y si queda gente apuntada
+# pero NO hay pantalla, es que la pelea nunca llego a montarse. Se avisa (esto no puede volver a
+# fallar mudo) y se limpia, que es lo unico que permite que la siguiente pelea arranque.
+func _destrabar_combate() -> void:
+	# MIENTRAS SE MONTA LA PELEA esto no puede opinar: entre que se apuntan los enemigos y se cuelga
+	# la pantalla hay medio start_combat de por medio, y ahi el estado "lista llena, capa nula" es
+	# NORMAL. Sin el pestillo, cualquier cosa que preguntara combate_activo() en ese hueco borraba
+	# la pelea que se estaba montando.
+	#
+	# El pestillo es una MARCA DE TIEMPO y no un booleano a proposito: montar la pelea es sincrono
+	# (pasa entero en un frame), asi que si al llegar aqui la marca tiene mas de un segundo es que
+	# el montaje se quedo a medias -- y precisamente ese es el caso que hay que destrabar. Con un
+	# booleano, un error a mitad de start_combat dejaba el pestillo echado para siempre y esto no
+	# volvia a mirar nunca: el mismo cuelgue de antes, pero ahora tapado por la propia red.
+	if Time.get_ticks_msec() - _montaje_ms < 1000 or _active_enemies.is_empty():
+		return
+	var vivos: Array[Node] = []   # TIPADO: _active_enemies es Array[Node] y no traga un Array pelado
+	for n in _active_enemies:
+		if is_instance_valid(n):
+			vivos.append(n)
+	_active_enemies = vivos
+	if _active_enemies.is_empty():
+		return
+	if not is_instance_valid(_active_layer):
+		push_warning("[combate] Habia %d enemigos apuntados sin pantalla de combate: pelea a medio montar. Se sueltan." % _active_enemies.size())
+		_active_enemies.clear()
 
 
 # ¿Tengo una pantalla de combate delante? Es distinto de combate_activo(): un ESPEJO (la pelea de
@@ -9965,8 +10022,38 @@ func combate_activo() -> bool:
 # igual de metido en una pelea. Preguntar por combate_activo() para "¿le abro una pelea?" dejaba
 # que a alguien que estaba espejando le montaran OTRA pelea local encima: se le robaba la pantalla y
 # el anfitrion se quedaba esperando para siempre un turno suyo que ya no iba a llegar.
+# Convierte UN combatiente en muñeco de pruebas. Sacado a funcion porque hay DOS caminos de
+# entrada al combate y el segundo se olvida siempre: el del setup (start_combat) y el del refuerzo
+# que se une a mitad (unir_enemigo_al_combate). Sin esto, un bicho que llegaba tarde entraba con
+# sus stats de verdad y ensuciaba la medida sin que nada lo dijera.
+#   modo 1 (Saco):    DPS limpio -- ni defensa, ni esquiva, y no pega.
+#   modo 2 (Pegador): conserva sus stats y te pega, para medir la mitigacion de tu armadura.
+func volver_muneco(enemy_c: Combatant, player_c: Combatant) -> void:
+	if enemy_c == null or debug_dummy_mode <= 0:
+		return
+	enemy_c.es_dummy = true
+	enemy_c.max_hp = debug_dummy_hp
+	enemy_c.current_hp = debug_dummy_hp
+	if player_c != null:
+		enemy_c.dummy_speed_override = player_c.spd()   # velocidad estandar (cadencia ~1:1)
+	if debug_dummy_mode == 1:
+		enemy_c.dummy_dmg_out_mult = 0.0
+		enemy_c.abilities.resistencia = 0
+		enemy_c.abilities.agilidad = 0
+
+
+# ¿Este nodo concreto esta metido en la pelea en curso? Lo pregunta enemy.gd tras arrancar un
+# combate: congela a todo el grupo ANTES de pedirlo, y start_combat puede quedarse con solo una
+# parte (descarta a los que no traigan EnemyData). Al que se quedo fuera hay que descongelarlo.
+func esta_en_combate(nodo: Node) -> bool:
+	return is_instance_valid(nodo) and _active_enemies.has(nodo)
+
+
+# is_instance_valid y no '!= null': una capa LIBERADA pero sin nular cumple el != null y falla el
+# is_instance_valid que usa unir_enemigo_al_combate, y esa diferencia sola basta para trabar el
+# combate igual que arriba (uno cree que hay pantalla, el otro no la encuentra).
 func hay_pelea_en_pantalla() -> bool:
-	return _active_layer != null
+	return is_instance_valid(_active_layer)
 
 
 # Mata a UN enemigo del combate: le apunta el credito de guardian (si lo era) y lo convierte en
@@ -10150,11 +10237,16 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 
 	# Se filtran aqui los que no traigan EnemyData: abajo se les pide crear_combatant() y sin
 	# data reventaria a media construccion, con medio combate ya montado.
+	# PESTILLO: a partir de aqui y hasta que la pantalla esta colgada, la lista de enemigos esta
+	# llena pero la capa todavia no existe. Ese estado es normal AQUI y es justo el que
+	# _destrabar_combate considera una pelea rota, asi que se le pide que no mire.
+	_montaje_ms = Time.get_ticks_msec()
 	_active_enemies.clear()
 	for n in enemy_nodes:
 		if is_instance_valid(n) and "data" in n and n.data != null:
 			_active_enemies.append(n)
 	if _active_enemies.is_empty():
+		_montaje_ms = 0
 		return false
 
 	# EL GRUPO ENTERO baja a la pelea: un Combatant por miembro del equipo, con el LIDER el primero
@@ -10194,22 +10286,13 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 		aplicar_estados_a_enemigo(ec, n)
 		enemy_cs.append(ec)
 
-	# MODO PRUEBA (dev): convierte al enemigo en muñeco de DPS o pegador de armadura. Normalmente
-	# solo al [0]: el modo prueba es 1v1 (lo garantiza enemy.gd no reclutando vecinos), porque el
-	# DPS/turno se mide contra UNA cadencia enemiga. Con debug_dummy_group los vecinos SI entran y
-	# TODOS se vuelven muñecos: es la unica forma de probar hechizos de AREA/dispersion en el saco.
+	# MODO PRUEBA (dev): convierte en muñeco a TODOS los de la pelea, no solo al primero. Antes se
+	# forzaba 1v1 (enemy.gd no reclutaba vecinos) para que el DPS por turno se midiera contra UNA
+	# cadencia; ahora en la arena se entra en grupo como en cualquier pelea normal, asi que para
+	# medir DPS limpio basta con poner un solo bicho.
 	if debug_dummy_mode > 0:
-		var dummies: Array = enemy_cs if debug_dummy_group else [enemy_cs[0]]
-		for enemy_c in dummies:
-			enemy_c.es_dummy = true
-			enemy_c.max_hp = debug_dummy_hp
-			enemy_c.current_hp = debug_dummy_hp
-			enemy_c.dummy_speed_override = player_c.spd()   # velocidad estandar (cadencia ~1:1)
-			if debug_dummy_mode == 1:            # Saco: DPS limpio (sin defensa ni esquiva, no pega)
-				enemy_c.dummy_dmg_out_mult = 0.0
-				enemy_c.abilities.resistencia = 0
-				enemy_c.abilities.agilidad = 0
-			# debug_dummy_mode == 2 (Pegador): conserva sus stats y te pega (mult 1.0).
+		for enemy_c in enemy_cs:
+			volver_muneco(enemy_c, player_c)
 		player_c.invulnerable = true                    # no mueres durante la prueba
 
 	# ENERGIA de combate (KAN-57) = la stamina de exploracion con la que ENTRA CADA UNO (correr por
@@ -10249,6 +10332,7 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 	Net.registrar_pelea()
 
 	_montar_pantalla_combate(combat)
+	_montaje_ms = 0   # ya hay pantalla: el destrabe puede volver a vigilar
 	# El hechizo con el que has ABIERTO la pelea desde el mapa (ver player._impacto_conjuro): se
 	# resuelve dentro, contra el bicho al que le diste, antes del primer turno.
 	var quien: PersonajeData = _active_player_pjs[0] if not _active_player_pjs.is_empty() else lider()

@@ -1403,11 +1403,9 @@ func asignar_zona(puntos: Array, hogar: Vector2) -> void:
 # que lo que entra al combate es exactamente lo que la linea te avisaba de que iba a entrar.
 func vecinos() -> Array:
 	var out: Array = [self]
-	# Las pruebas de DPS/armadura son 1v1 por defecto: el DPS se mide por turno enemigo, y con
-	# cuatro muñecos pegando saldria dividido entre cuatro sin que nada avisara del error. Con
-	# debug_dummy_group ON se permiten refuerzos aposta (para probar hechizos de area/dispersion).
-	if Game.debug_dummy_mode > 0 and not Game.debug_dummy_group:
-		return out
+	# (Aqui habia un 1v1 forzado cuando estaba puesto el modo muñeco. Se quito: en la arena se
+	# entra en grupo como en cualquier pelea normal, que es lo que se queria probar. Si lo que
+	# quieres es medir DPS limpio, pon un solo bicho.)
 	var cand: Array = []
 	for n in get_tree().get_nodes_in_group("enemy"):
 		# Filtrar a los que YA estan en un combate es imprescindible: si no, un bicho que se
@@ -1494,6 +1492,14 @@ func _start_combat(enemy_initiated: bool) -> void:
 			if is_instance_valid(n):
 				n._combat_triggered = false
 				n._esperando_hueco = true
+		return
+	# LA PELEA ARRANCO, pero puede no haberse llevado a TODO el grupo: start_combat descarta a los
+	# que no traigan EnemyData. A ese lo hemos congelado nosotros ahi arriba y ya no lo va a
+	# descongelar nadie -- no esta en la pelea, asi que su final no le llega. Estatua muda para
+	# siempre: sin IA, sin loot y ocupando aforo. Se le suelta aqui.
+	for n in grupo:
+		if is_instance_valid(n) and not Game.esta_en_combate(n):
+			n._combat_triggered = false
 
 
 # Vuelve a la vida normal tras un combate del que NO moriste (huiste, o te mato otro).
