@@ -61,7 +61,7 @@ func _ready() -> void:
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	panel.offset_right = -8
-	panel.offset_top = 150      # justo debajo del spawner de enemigos
+	panel.offset_top = 150      # provisional: lo ajusta _colgar_del_spawner con el alto de verdad
 	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	# Tocarlo lo pone delante de los otros paneles de dev.
 	panel.gui_input.connect(func(ev): if ev is InputEventMouseButton and ev.pressed: MenuScaffold.al_frente(self))
@@ -125,6 +125,26 @@ func _ready() -> void:
 	vb.add_child(_info_lbl)
 
 	_poblar_materiales()
+	_colgar_del_spawner(panel)
+
+
+# SE CUELGA DEL SPAWNER DE ENEMIGOS, midiendolo. Los dos paneles viven en la misma esquina y este
+# va debajo; la altura estaba escrita a mano (150), asi que en cuanto al de arriba le crecia una
+# fila -- paso al mudarle los botones del muñeco -- le tapaba el titulo a este.
+#
+# Se reengancha a 'resized' porque el de arriba cambia de alto EN VIVO (su lista de tipos, sus
+# secciones), y hace falta un frame de espera antes de la primera medida: hasta que el arbol no
+# resuelve el layout, size.y todavia es cero.
+func _colgar_del_spawner(panel: PanelContainer) -> void:
+	var arriba: Control = get_tree().get_first_node_in_group("panel_dev_spawner") as Control
+	if arriba == null:
+		return
+	var recolocar := func():
+		if is_instance_valid(arriba) and is_instance_valid(panel):
+			panel.offset_top = arriba.offset_top + arriba.size.y + 8.0
+	arriba.resized.connect(recolocar)
+	await get_tree().process_frame
+	recolocar.call()
 
 
 # Los materiales recolectables de la categoria elegida, ordenados por exigencia (de facil a

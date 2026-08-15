@@ -55,6 +55,10 @@ func _ready() -> void:
 	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	# Tocarlo lo pone delante de los otros paneles de dev.
 	panel.gui_input.connect(func(ev): if ev is InputEventMouseButton and ev.pressed: MenuScaffold.al_frente(self))
+	# El panel de MATERIALES se cuelga JUSTO DEBAJO de este, y para eso necesita encontrarlo y
+	# saber cuanto mide. Antes se ponia a una altura fija escrita a mano, asi que en cuanto a este
+	# se le añadia una fila mas (paso con la seccion del muñeco) se le comia el de abajo.
+	panel.add_to_group("panel_dev_spawner")
 	add_child(panel)
 
 	var margin := MarginContainer.new()
