@@ -127,6 +127,9 @@ var _objetivo: Node2D = null
 var _wander_target: Vector2 = Vector2.ZERO
 var _wander_timer: float = 0.0
 var _stuck_time: float = 0.0   # cuanto lleva atascado contra una pared
+var _lado_desvio: int = 0            # por que lado viene esquivando la pared (0 = sin decidir)
+var _dir_desvio: Vector2 = Vector2.ZERO   # la ultima direccion desviada, para no cambiar de idea
+var _desvio_t: float = 0.0           # lo que le queda de compromiso con ese lado
 # DESATASCO: mientras dura, en vez de empujar la roca la BORDEA (ver _desatascar_bordeando).
 var _bordeo: Vector2 = Vector2.ZERO       # la tangente elegida; ZERO = no esta desatascandose
 var _bordeo_t: float = 0.0                # lo que le queda de rodeo
@@ -293,6 +296,15 @@ func _physics_process(delta: float) -> void:
 	if _state != State.CHASE and _state != State.EMBESTIDA:
 		_try_detect()
 
+	# La memoria del lado por el que viene rodeando se gasta sola. Cada frame que la sonda vuelve a
+	# encontrar pared la recarga (ver _direccion_esquivando), asi que solo caduca cuando de verdad
+	# lleva un rato con el camino despejado: entonces ya puede volver a elegir de cero.
+	if _desvio_t > 0.0:
+		_desvio_t -= delta
+		if _desvio_t <= 0.0:
+			_lado_desvio = 0
+			_dir_desvio = Vector2.ZERO
+
 	match _state:
 		State.WANDER: _wander(delta)
 		State.CHASE: _chase(delta)
@@ -334,11 +346,15 @@ func _physics_process(delta: float) -> void:
 # tiempo de corte.
 #
 # Aqui se mide LO QUE DE VERDAD IMPORTA: si pide moverse y NO se mueve, esta atascado, dé o no dé
-# la colision ese frame. El rincon concavo es el caso feo -- el vector directo se anula en los dos
-# ejes y move_and_slide no tiene sobre que deslizar.
+# la colision ese frame.
+#
+# ES LA RED DE SEGURIDAD, NO EL PLAN. Las esquinas las resuelve _direccion_esquivando antes de
+# tocarlas y sin frenar; esto solo salta donde aquello no tiene salida que ofrecer (un fondo de
+# saco). Por eso los tiempos son cortos: cuando este bloque actua, el bicho YA esta parado, y cada
+# decima que aguante es una decima que te regala para largarte.
 const ATASCO_AVANCE := 0.35    # fraccion del avance esperado por debajo de la cual "no avanza"
-const ATASCO_T := 0.35         # cuanto aguanta asi antes de intentar salir
-const BORDEO_T := 0.6          # lo que dura un rodeo
+const ATASCO_T := 0.18         # cuanto aguanta asi antes de intentar salir
+const BORDEO_T := 0.3          # lo que dura un rodeo
 const BORDEOS_MAX := 3         # rodeos seguidos antes de rendirse y volverse a su sitio
 func _vigilar_atasco(delta: float, antes: Vector2) -> void:
 	# Si no pide moverse (esta plantado haciendo el aviso, o esperando) no hay atasco que valer.
@@ -391,7 +407,16 @@ func _desatascar_bordeando() -> void:
 		normal = get_slide_collision(0).get_normal()
 	var t1: Vector2 = Vector2(-normal.y, normal.x)
 	var t2: Vector2 = -t1
-	_bordeo = t1 if t1.dot(hacia) >= t2.dot(hacia) else t2
+	# POR EL LADO QUE YA VENIA. Elegir "la tangente que mas acerca a la presa" es lo natural y es
+	# justo lo que no vale en una esquina: si el hueco esta arriba y la presa abajo, esa cuenta
+	# manda para abajo, deshace lo que la esquiva llevaba ganado, y el bicho se queda subiendo y
+	# bajando delante del hueco sin entrar nunca. Si _direccion_esquivando ya se habia decidido por
+	# un lado, se respeta; solo sin nada decidido se mira hacia donde esta la presa.
+	# Se compara contra la ULTIMA direccion que dio la esquiva, no contra un signo de giro: son dos
+	# sistemas distintos (uno gira sobre la marcha, el otro sobre la normal de la roca) y traducir
+	# de uno a otro era pedir un error de signo.
+	var referencia: Vector2 = _dir_desvio if _dir_desvio != Vector2.ZERO else hacia
+	_bordeo = t1 if t1.dot(referencia) >= t2.dot(referencia) else t2
 	_bordeo_t = BORDEO_T
 
 
@@ -508,6 +533,91 @@ func _excluir_del_rayo() -> Array[RID]:
 	return out
 
 
+# ============================================================
+#  ESQUIVAR LA PARED ANTES DE TOCARLA
+# ============================================================
+#
+# El desatasco de mas abajo (_vigilar_atasco) es REACTIVO: choca, se queda un rato empujando, y
+# solo entonces bordea. Eso son casi tres cuartos de segundo parado contra la roca, tiempo de
+# sobra para irte andando. Esto es lo contrario: MIRA HACIA DONDE VA y, si ahi hay pared, se
+# desvia YA, sin frenar y sin dejar de venir hacia ti. Solo lo cambia si de verdad hay algo: con
+# el camino libre devuelve la direccion tal cual.
+#
+# Nada de navegacion ni de mallas: tres rayos (el del medio y los dos costados del cuerpo) contra
+# la capa de la roca, y si no cabe se van abriendo angulos hasta encontrar por donde, del desvio
+# mas pequeño al mas grande -- asi bordea la esquina pegado a ella en vez de dar un rodeo.
+#
+# Y UNA VEZ ELIGE LADO, SE COMPROMETE. Es lo que separa "rodear" de "bailar": mirando solo el
+# frame de ahora, el desvio mas corto siempre apunta de vuelta al centro del muro, asi que el
+# bicho se aparta, se despeja, vuelve a encarar, se vuelve a bloquear y se aparta por el otro
+# lado... eternamente. Mientras le dure la memoria solo se consideran angulos de SU lado, aunque
+# haya uno mas corto por el otro. Asi llega al borde y lo dobla.
+const DESVIOS := [22.5, 45.0, 67.5, 90.0, 112.5, 135.0]   # grados que se prueban, de menos a mas
+const SONDA_MIN := 34.0        # lo que mira por delante como minimo (poco mas de un cuerpo)
+const SONDA_SEG := 0.45        # ...o lo que recorreria en este tiempo, si va mas rapido
+const DESVIO_MEMORIA := 1.0    # cuanto dura el compromiso con un lado tras despejarse el camino
+
+func _direccion_esquivando(hacia: Vector2) -> Vector2:
+	if hacia.length_squared() < 0.0001:
+		return hacia
+	var dir: Vector2 = hacia.normalized()
+	var sonda: float = maxf(SONDA_MIN, current_move_speed * SONDA_SEG)
+	if _cabe_por(dir, sonda):
+		return dir
+	# Bloqueado: se recarga la memoria (mientras haya pared delante, el compromiso no caduca).
+	var comprometido: bool = _lado_desvio != 0 and _desvio_t > 0.0
+	_desvio_t = DESVIO_MEMORIA
+	var salida: Vector2 = _buscar_hueco(dir, sonda, [_lado_desvio] if comprometido else [1, -1])
+	# Si por su lado no hay nada (ha llegado al fondo yendo por ahi), suelta el compromiso y mira
+	# tambien por el otro: mas vale desdecirse que empotrarse.
+	if salida == Vector2.ZERO and comprometido:
+		salida = _buscar_hueco(dir, sonda, [-_lado_desvio])
+	if salida != Vector2.ZERO:
+		_dir_desvio = salida
+		return salida
+	# Sin salida por delante (fondo de saco): que siga empujando, y de eso ya se encarga el
+	# desatasco reactivo, que es justo el caso para el que sirve.
+	return dir
+
+
+# El desvio mas pequeño que deja pasar el cuerpo, probando solo los lados que se le pidan.
+# Vector2.ZERO = por ahi no hay nada.
+func _buscar_hueco(dir: Vector2, sonda: float, lados: Array) -> Vector2:
+	for g in DESVIOS:
+		var rad: float = deg_to_rad(g)
+		for s in lados:
+			if int(s) == 0:
+				continue
+			var cand: Vector2 = dir.rotated(rad * float(s))
+			if _cabe_por(cand, sonda):
+				_lado_desvio = int(s)
+				return cand
+	return Vector2.ZERO
+
+
+# ¿Cabe el cuerpo yendo por ahi? El rayo del medio no basta: con uno solo el bicho corta las
+# esquinas y se empotra de hombro, porque el punto pasa por donde el cuerpo no pasa.
+#
+# Las antenas van un pelin POR FUERA del cuerpo, no por dentro. Parece un detalle y no lo es: con
+# ellas a ras (o peor, dos pixeles adentro) el bicho daba por bueno un hueco al que le faltaban
+# esos mismos dos pixeles, se metia, y se quedaba empujando la esquina para siempre. Pasarse de
+# ancho solo cuesta que rodee un poquito antes; quedarse corto cuesta que se atasque.
+const MARGEN_CUERPO := 2.0
+
+func _cabe_por(dir: Vector2, sonda: float) -> bool:
+	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	var excluir: Array[RID] = _excluir_del_rayo()
+	var media: float = _MEDIO_CUERPO + radio_extra + MARGEN_CUERPO
+	var lado: Vector2 = Vector2(-dir.y, dir.x) * media
+	for off in [Vector2.ZERO, lado, -lado]:
+		var desde: Vector2 = global_position + off
+		var query := PhysicsRayQueryParameters2D.create(desde, desde + dir * sonda, CAPA_ROCA)
+		query.exclude = excluir
+		if not espacio.intersect_ray(query).is_empty():
+			return false
+	return true
+
+
 func _wander(delta: float) -> void:
 	# En pausa: quieto, contando. Al que va de mudanza NO se le hace esperar: se pone en marcha.
 	if _wander_timer > 0.0 and not _migrando:
@@ -526,7 +636,7 @@ func _wander(delta: float) -> void:
 	# De mudanza anda con un pelin mas de intencion (no de paseo), pero sin llegar al esprint de
 	# perseguirte: no es a ti a quien va, solo se cambia de sala.
 	var vel: float = current_move_speed * (MIGRAR_VEL_MULT if _migrando else 1.0)
-	velocity = to_t.normalized() * vel
+	velocity = _direccion_esquivando(to_t) * vel
 
 
 func _chase(delta: float) -> void:
@@ -580,7 +690,9 @@ func _chase(delta: float) -> void:
 			_lanzar_embestida(_objetivo)
 	else:
 		# Aun lejos: a por ti. Perseguir NO va a la velocidad de merodear (ver chase_speed_mult).
-		velocity = to_p.normalized() * _chase_speed()
+		# Y si hay pared en el camino, la BORDEA sin frenar (ver _direccion_esquivando): antes iba
+		# derecho, se empotraba, y solo se despegaba tras casi un segundo pegado a la roca.
+		velocity = _direccion_esquivando(to_p) * _chase_speed()
 
 
 # El miembro del grupo que tiene A TIRO ahora mismo (dentro del margen de ataque), o null. Mira a
@@ -924,7 +1036,7 @@ func _return() -> void:
 		_state = State.WANDER
 		_pick_wander_target()
 	else:
-		velocity = to_home.normalized() * current_move_speed
+		velocity = _direccion_esquivando(to_home) * current_move_speed
 
 
 # ============================================================
