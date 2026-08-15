@@ -33,6 +33,7 @@ static var _tex: ImageTexture = null
 static var _tex_cruz: ImageTexture = null
 static var _tex_gota: ImageTexture = null
 static var _tex_flecha: ImageTexture = null
+static var _tex_flecha_arr: ImageTexture = null
 static var _tex_estrella: ImageTexture = null
 static var _tex_chispa: ImageTexture = null
 static var _tex_raya: ImageTexture = null
@@ -231,7 +232,8 @@ static func chorretones(padre: Node, color: Color, zona: Vector2, intensidad := 
 static func flechas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0,
 		arriba := false) -> CPUParticles2D:
 	var p := CPUParticles2D.new()
-	p.texture = textura_flecha()
+	# Cada sentido con SU textura ya dibujada del derecho (ver textura_flecha_arriba).
+	p.texture = textura_flecha_arriba() if arriba else textura_flecha()
 	p.local_coords = true
 	p.amount = maxi(2, roundi(3.0 * intensidad))
 	p.lifetime = 1.5
@@ -242,10 +244,6 @@ static func flechas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0,
 	p.gravity = Vector2.ZERO
 	p.initial_velocity_min = 10.0
 	p.initial_velocity_max = 20.0
-	# La textura apunta ABAJO, asi que para las de subir se le da media vuelta.
-	if arriba:
-		p.angle_min = 180.0
-		p.angle_max = 180.0
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
 	p.emission_rect_extents = Vector2(zona.x * 0.42, zona.y * 0.1)
 	p.position.y = zona.y * 0.22 if arriba else -zona.y * 0.22
@@ -353,18 +351,32 @@ static func textura_cruz() -> ImageTexture:
 	return _tex_cruz
 
 
-# FLECHA hacia abajo: un triangulo de 7x7 con el vertice abajo.
+# FLECHA, en las dos direcciones. Son DOS TEXTURAS y no una girada con angle_min/angle_max: eso
+# no llegaba a aplicarse y las flechas de los buffs subian apuntando hacia abajo, que es peor que
+# no tenerlas. Dibujar el triangulo del derecho no puede fallar.
 static func textura_flecha() -> ImageTexture:
 	if _tex_flecha == null:
-		var img := Image.create(7, 7, false, Image.FORMAT_RGBA8)
-		img.fill(Color(1, 1, 1, 0))
-		for y in 7:
-			# Fila 0 ocupa los 7 px y la ultima solo el central: un triangulo apuntando abajo.
-			var medio: int = 3 - (y * 3) / 6
-			for x in range(medio, 7 - medio):
-				img.set_pixel(x, y, Color.WHITE)
-		_tex_flecha = ImageTexture.create_from_image(img)
+		_tex_flecha = _triangulo(false)
 	return _tex_flecha
+
+
+static func textura_flecha_arriba() -> ImageTexture:
+	if _tex_flecha_arr == null:
+		_tex_flecha_arr = _triangulo(true)
+	return _tex_flecha_arr
+
+
+# Triangulo de 7x7 con el vertice arriba o abajo. La PUNTA es la fila de 1 px y la BASE la de 7:
+# apuntando arriba, la punta va en la fila 0; apuntando abajo, en la ultima.
+static func _triangulo(arriba: bool) -> ImageTexture:
+	var img := Image.create(7, 7, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 1, 1, 0))
+	for y in 7:
+		var fila: int = y if arriba else (6 - y)
+		var medio: int = 3 - (fila * 3) / 6    # 3 = un pixel (la punta); 0 = los siete (la base)
+		for x in range(medio, 7 - medio):
+			img.set_pixel(x, y, Color.WHITE)
+	return ImageTexture.create_from_image(img)
 
 
 # ESTRELLA de cuatro puntas, 7x7: los dos ejes completos y las diagonales cortas. La de verdad
