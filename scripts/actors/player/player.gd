@@ -654,9 +654,7 @@ const SEP_COL := 8.0          # aire entre una columna y la siguiente
 # barras se encogen para dejarle sitio DENTRO de la columna, asi que la fila sigue siendo una fila
 # de columnas iguales y la mochila se coloca detras sola.
 #
-# Ocupa el ALTO ENTERO de la tarjeta (del nombre al fondo de los chips) y no solo el de las tres
-# barras: con 50 px de alto los cubitos de un arma salian de 3 px y no habia quien distinguiera una
-# daga de un estoque. El alto es lo que de verdad manda en lo que se lee.
+# Va del NOMBRE al FONDO DE LA ULTIMA BARRA, ni un pixel mas: ver ALTO_EQUIPO abajo.
 const LADO_EQUIPO := 68.0
 const SEP_EQUIPO := 6.0
 const ANCHO_BARRA := ANCHO_COL - LADO_EQUIPO - SEP_EQUIPO
@@ -672,6 +670,16 @@ const Y_EN := Y_HP + ALTO_HP + 4.0
 const ALTO_EN := 12.0
 const Y_MP := Y_EN + ALTO_EN + 4.0
 const ALTO_MP := 12.0
+# LA LINEA DE ABAJO, y el alto de todo lo que va a su lado. Todo lo que se pinte a la derecha de las
+# barras -el cuadro de equipo de cada uno y la mochila del HUD- tiene que empezar en el nombre y
+# acabar EXACTAMENTE aqui, en el fondo de la barra de mana. Antes el cuadro llegaba hasta el final
+# del bloque (los chips incluidos) y se salia 25 px por debajo de las barras: la fila se veia
+# descuadrada por abajo.
+#
+# Sale UNA SOLA VEZ y de aqui lo lee todo el mundo (hud.recolocar tambien): es lo unico que
+# garantiza que sigan cuadrados el dia que una barra cambie de alto.
+const Y_LINEA_BAJA := Y_MP + ALTO_MP
+const ALTO_EQUIPO := Y_LINEA_BAJA - Y_NOMBRE
 # La linea de CHIPS de estados (y las cargas de Foco), debajo de las tres barras. Los estados duran
 # entre combates, asi que tienen que verse desde el mapa.
 const Y_ESTADOS := Y_MP + ALTO_MP + 3.0
@@ -758,7 +766,7 @@ func _rehacer_barras() -> void:
 		var equipo := CuadroEquipo.new()
 		equipo.pj = pj
 		equipo.position = Vector2(ANCHO_BARRA + SEP_EQUIPO, Y_NOMBRE)
-		equipo.size = Vector2(LADO_EQUIPO, ALTO_BLOQUE - Y_NOMBRE)
+		equipo.size = Vector2(LADO_EQUIPO, ALTO_EQUIPO)
 		raiz.add_child(equipo)
 
 		# Los ESTADOS que lleva puestos, en una fila de CHIPS debajo de las barras. Los estados duran
@@ -767,9 +775,9 @@ func _rehacer_barras() -> void:
 		# hay forma de saber por que.
 		var estados := HBoxContainer.new()
 		estados.position = Vector2(0, Y_ESTADOS)
-		# Solo hasta donde llegan las barras: a la derecha esta el cuadro de equipo, que ocupa el
-		# alto entero de la tarjeta, y los chips se le meterian debajo.
-		estados.size = Vector2(ANCHO_BARRA, ALTO_ESTADOS)
+		# El ancho ENTERO de la columna: el cuadro de equipo acaba en la linea de las barras
+		# (Y_LINEA_BAJA), asi que por debajo no estorba y los chips tienen todo el sitio.
+		estados.size = Vector2(ANCHO_COL, ALTO_ESTADOS)
 		estados.add_theme_constant_override("separation", 3)
 		estados.clip_contents = true
 		# La FILA no atrapa el toque (asi el hueco entre chips sigue cambiando de lider); los chips que

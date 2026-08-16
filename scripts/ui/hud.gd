@@ -20,10 +20,11 @@ class_name Hud
 var _counts: Label = null
 var _peso_box: CuadroCarga = null # la mochila (deposito con agua) a la derecha de las barras
 var _peso_lbl: Label = null       # numero de peso encima del deposito
-# El deposito es CUADRADO y ocupa el alto entero de la tarjeta (de la linea del nombre al fondo del
-# bloque, lo mismo que el cuadro de equipo de cada personaje): asi la fila de arriba queda cuadrada
-# por abajo y la mochila se ve desde lejos, que es lo suyo para algo que miras de reojo andando.
-const LADO_MOCHILA := 89.0
+# El deposito es CUADRADO, y su lado NO se escribe aqui: se lo pide a player.ALTO_EQUIPO, que es el
+# alto de los cuadros de equipo (del nombre al fondo de la barra de mana). Asi la mochila y los
+# cuadros comparten LA MISMA linea de abajo por construccion, y no por que alguien haya cuadrado dos
+# numeros a mano que mañana se separan. Esta constante es solo el respaldo de por si no hay jugador.
+const LADO_MOCHILA := 64.0
 const ALTO_MOCHILA := LADO_MOCHILA
 # La caja de ayudas de teclas. Va debajo de las barras y no se mueve, pero se guarda por si algun
 # dia hay que recolocarla como al cuadrado del peso.
@@ -149,12 +150,16 @@ func recolocar() -> void:
 		f = jugador.escala_fila()
 	if _peso_box != null:
 		var x: float = 200.0   # sin jugador (no deberia pasar): donde estaba de siempre
+		var y0: float = 16.0
+		var lado: float = LADO_MOCHILA
 		if jugador != null:
 			x = jugador.x_columna(Game.party.size()) + 4.0
+			# ARRIBA en la linea del nombre y ABAJO en la de las barras, el mismo alto que los
+			# cuadros de equipo: los dos salen de player.ALTO_EQUIPO, asi que no pueden descuadrarse.
+			y0 = jugador.Y_NOMBRE + Tactil.borde.y
+			lado = jugador.ALTO_EQUIPO
 		_peso_box.scale = Vector2(f, f)
-		# Arranca en la linea del NOMBRE (no en la primera barra): asi el deposito cubre el alto
-		# entero del bloque y la fila queda cuadrada por arriba y por abajo.
-		var y0: float = (jugador.Y_NOMBRE + Tactil.borde.y) if jugador != null else 16.0
+		_peso_box.size = Vector2(lado, lado)   # cuadrada
 		_peso_box.position = Vector2(x * f, y0 * f)
 	# Y la caja de ayudas, justo debajo del bloque de barras. Va aqui y no con una y fija porque
 	# el bloque crecio al meterle el nombre encima: con la 64 de antes se solapaban.
