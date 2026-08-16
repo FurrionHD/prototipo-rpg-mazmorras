@@ -4150,8 +4150,50 @@ func _desgastar_slot(slot: String, puntos: float, pj: PersonajeData = null) -> v
 	var maxd: float = max_durabilidad(slot, p)
 	if maxd <= 0.0:
 		return
-	var frac: float = durabilidad_slot(slot, p) - puntos / maxd
-	p.equip_meta[slot]["durabilidad"] = clampf(frac, 0.0, 1.0)
+	var antes: float = durabilidad_slot(slot, p)
+	var frac: float = clampf(antes - puntos / maxd, 0.0, 1.0)
+	p.equip_meta[slot]["durabilidad"] = frac
+	_avisar_durabilidad(slot, p, antes, frac)
+
+
+# --- AVISO DE DURABILIDAD --------------------------------------------------------------------
+# En el playtest, un tanque jugo MEDIA EXPEDICION con cuatro piezas ROTAS y las grebas al 2%, sin
+# manera de enterarse: la durabilidad solo se veia entrando pieza a pieza en el menu. Y le pasa al
+# tanque antes que a nadie, porque encajar un golpe desgasta armadura (ver desgastar_armadura), o
+# sea justo al que mas le duele quedarse sin ella.
+#
+# UNA VEZ POR PIEZA Y UMBRAL sin guardar nada: se mira si el golpe CRUZA el liston (antes por
+# encima, ahora por debajo). Como reparar deja la pieza a 1.0, el siguiente desgaste vuelve a
+# cruzarlo y vuelve a avisar, que es lo que se quiere.
+const DUR_AVISO_GASTADA := 0.25   # pildora discreta en la esquina
+const DUR_NOMBRES := {
+	"main": "arma", "off": "mano secundaria", "casco": "casco", "pecho": "peto",
+	"manos": "guanteletes", "pantalones": "grebas", "botas": "botas"}
+
+func _avisar_durabilidad(slot: String, p: PersonajeData, antes: float, ahora: float) -> void:
+	if ahora >= antes:
+		return
+	# EN MULTI la pelea la resuelve UNA maquina para todos, asi que aqui pasa tambien el equipo del
+	# personaje de otro humano: sus avisos son suyos, no mios. El desgaste ya le vuelve por el
+	# paquete de siempre y lo vera en su pantalla.
+	if not plantilla.has(p):
+		return
+	var hud: Node = get_tree().get_first_node_in_group("hud") if is_inside_tree() else null
+	if hud == null:
+		return
+	var pieza: String = String(DUR_NOMBRES.get(slot, slot))
+	if ahora <= 0.0 and antes > 0.0:
+		# Sin articulos ni participios concordados: por aqui pasan el peto, las grebas y el arma, y
+		# "ROTA" quedaba mal en la mitad. El 0% ya lo dice todo.
+		if hud.has_method("mostrar_toast"):
+			hud.mostrar_toast("💥 %s — %s al 0%%. Así no sirve: toca reparar." % [
+				p.nombre, pieza.capitalize()])
+		print("[durabilidad] ROTA: %s de %s" % [pieza, p.nombre])
+	elif ahora <= DUR_AVISO_GASTADA and antes > DUR_AVISO_GASTADA:
+		if hud.has_method("mostrar_aviso_esquina"):
+			hud.mostrar_aviso_esquina("%s: %s al %d%%" % [
+				p.nombre, pieza.capitalize(), roundi(ahora * 100.0)], 3.0)
+		print("[durabilidad] %s de %s al %d%%" % [pieza, p.nombre, roundi(ahora * 100.0)])
 
 # Desgasta el ARMA de la mano indicada ("main"/"off") por un golpe dado. Los puños (sin arma)
 # no se gastan (no hay pieza equipada de verdad).

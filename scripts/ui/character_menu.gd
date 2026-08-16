@@ -1223,6 +1223,15 @@ func _build_armadura_lista() -> void:
 		if pieza is ArmorData or pieza is BackpackData:
 			l.add_theme_color_override("font_color", Game.color_rareza_de(pieza))
 			MenuScaffold.brillo_en(l, Game.color_rareza_de(pieza), Game.intensidad_rareza_de(pieza))
+			# LA DURABILIDAD, AQUI MISMO. Antes habia que entrar pieza a pieza para verla, y por eso
+			# un tanque jugo media expedicion con cuatro piezas rotas sin enterarse. Va en su propio
+			# Label porque lleva SU color (verde/ambar/rojo), no el de la rareza.
+			var dur := Label.new()
+			dur.text = Game.durabilidad_txt_item(pieza)
+			dur.add_theme_color_override("font_color", Game.durabilidad_color(pieza))
+			dur.custom_minimum_size = Vector2(70, 0)
+			dur.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			row.add_child(dur)
 		# El boton manda la fila entera: es lo unico que se pulsa aqui, asi que va a tamaño de dedo
 		# (era el de por defecto de Godot, una pastillita de 20 px imposible de acertar).
 		var ver := MenuScaffold.boton(row, "Ver ▶", _abrir_slot.bind(slot))

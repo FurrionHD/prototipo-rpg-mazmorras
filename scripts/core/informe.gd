@@ -238,7 +238,7 @@ static func _equipo(L: Array[String], pj: PersonajeData) -> void:
 		var dur = meta.get("durabilidad")
 		var dur_txt: String = "?" if dur == null else "%.0f%%" % (float(dur) * 100.0)
 		if dur != null and float(dur) <= 0.0:
-			dur_txt = "0%% ROTA"
+			dur_txt = "0% ROTA"   # cadena literal, no un format: aqui el %% imprimia DOS %
 		L.append("    %-11s %-30s T%s r%s dur %s%s" % [slot, str(it.get("nombre")).substr(0, 30),
 			str(meta.get("tier", "?")), str(meta.get("rareza", "?")), dur_txt,
 			"" if mejoras.is_empty() else "  mejoras " + str(mejoras)])
