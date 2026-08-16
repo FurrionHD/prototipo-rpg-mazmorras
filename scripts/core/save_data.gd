@@ -88,6 +88,11 @@ const VERSION_MUNDO := 1
 # La semilla vive AQUI y no en el perfil: cada partida estrena mazmorra, asi que dos ranuras
 # distintas tienen mapas distintos.
 @export var semilla_mundo: int = 0
+# ÉPOCA de la mazmorra: que reparto de materiales y de peces rige esta expedicion (ver
+# Game.epoca_mazmorra). Va al save porque la mazmorra ya no se cierra al volver al pueblo: si se
+# perdiera al guardar y cargar, bajar otra vez rebarajaria los tiers a media expedicion. Un 0 (o una
+# partida vieja, que no trae el campo) significa "estrena epoca al arrancar".
+@export var epoca_mazmorra: int = 0
 
 # --- Personaje ---
 # ability_internal es la FUENTE DE VERDAD de las stats (las player_* se derivan de ella con

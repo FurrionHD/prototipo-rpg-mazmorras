@@ -31,6 +31,12 @@ const RECOGIDAS_MAX := 5
 # No son noticias, son acuses de recibo: no deben robarte la vista en mitad de la pantalla.
 var _avisos_esquina: VBoxContainer = null
 const AVISOS_ESQUINA_MAX := 3
+# TOASTS: la columna de noticias en grande, arriba en el centro. Antes cada uno era un Label suelto
+# con el mismo offset_top clavado, asi que dos avisos seguidos se pintaban UNO ENCIMA DEL OTRO y no
+# se leia ninguno (la pesca suelta varios en cadena y ahi se veia clarisimo). Con contenedor se
+# apilan solos, como sus dos hermanos de este mismo archivo.
+var _toasts: VBoxContainer = null
+const TOASTS_MAX := 3
 
 
 func _ready() -> void:
@@ -105,6 +111,17 @@ func _ready() -> void:
 	_avisos_esquina.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_avisos_esquina)
 
+	# Toasts, arriba en el centro y creciendo hacia abajo. El 130 es el sitio de siempre; por encima
+	# (en el 90) esta el aviso de muerte, asi que la columna NO puede subir.
+	_toasts = VBoxContainer.new()
+	_toasts.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_toasts.offset_top = 130
+	_toasts.offset_left = -420
+	_toasts.offset_right = 420
+	_toasts.add_theme_constant_override("separation", 6)
+	_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_toasts)
+
 	recolocar()
 	_avisar_muerte()
 
@@ -161,21 +178,53 @@ func _avisar_muerte() -> void:
 # TOAST no bloqueante (el juego NO se para): un cartel dorado que aparece arriba y se desvanece.
 # Lo usa Game para avisar de cosas raras (una pasiva RNG que acabas de conseguir). Se le puede
 # llamar desde cualquier parte via el grupo "hud".
+#
+# SE APILAN: cuelgan de _toasts (un VBox), asi que el segundo cae DEBAJO del primero en vez de
+# encima. Mismas tres reglas que mostrar_aviso_esquina, y por los mismos motivos:
+#   - dedupe: repetir el mismo texto reinicia la cuenta, no apila dos carteles iguales;
+#   - tope TOASTS_MAX, tirando el mas viejo;
+#   - el tween se crea DESDE EL CARTEL y este se marca ALWAYS. El HUD es PAUSABLE y todos los menus
+#     de este proyecto paran el arbol: un tween creado con create_tween() del HUD se congela con
+#     cualquier menu abierto y el cartel se queda clavado en pantalla.
 func mostrar_toast(texto: String) -> void:
+	if _toasts == null:
+		return
+
+	for hijo in _toasts.get_children():
+		if hijo.has_meta("texto") and String(hijo.get_meta("texto")) == texto:
+			(hijo as Control).modulate.a = 1.0
+			_temporizar_toast(hijo as Control)
+			return
+
+	while _toasts.get_child_count() >= TOASTS_MAX:
+		var viejo := _toasts.get_child(0)
+		_toasts.remove_child(viejo)
+		viejo.queue_free()
+
 	var aviso := Label.new()
 	aviso.text = texto
-	aviso.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	aviso.offset_top = 130
-	aviso.offset_left = -420
-	aviso.offset_right = 420
+	aviso.set_meta("texto", texto)
+	aviso.process_mode = Node.PROCESS_MODE_ALWAYS
 	aviso.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	aviso.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	aviso.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	aviso.add_theme_font_size_override("font_size", 18)
 	aviso.add_theme_color_override("font_color", Color(0.98, 0.82, 0.35))
 	aviso.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	aviso.add_theme_constant_override("outline_size", 5)
-	add_child(aviso)
-	var t := create_tween()
+	_toasts.add_child(aviso)
+	_temporizar_toast(aviso)
+
+
+# Un tween por cartel (igual que _temporizar_esquina): al reiniciar la cuenta de un toast repetido
+# hay que MATAR el anterior, o los dos tirarian del modulate a la vez.
+func _temporizar_toast(aviso: Control) -> void:
+	if aviso.has_meta("tween"):
+		var viejo = aviso.get_meta("tween")
+		if viejo is Tween and (viejo as Tween).is_valid():
+			(viejo as Tween).kill()
+	var t := aviso.create_tween()
+	aviso.set_meta("tween", t)
 	t.tween_interval(5.0)
 	t.tween_property(aviso, "modulate:a", 0.0, 1.5)
 	t.tween_callback(aviso.queue_free)

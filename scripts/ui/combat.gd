@@ -2199,6 +2199,16 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 	b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
 	b["chips"].visible = true
 	b["hp"].max_value = c.max_hp
+	# EL APAGADO PENDIENTE DEL CADAVER ANTERIOR, FUERA. Es lo que dejaba GRIS al refuerzo que entra en
+	# el hueco de un muerto: _apagar_diferido no apaga en el acto si quedan golpes por aterrizar, deja
+	# b["fx_apagar"] = true y lo consume despues _saldar_barras, que recorre TODAS las tarjetas. Si
+	# entre medias el hueco se reestrena, ese flag apaga al que acaba de entrar —vivo— y ademas le
+	# pone mouse_filter = IGNORE, asi que tampoco se le podia clicar en todo el combate.
+	b.erase("fx_apagar")
+	b.erase("fx_apagar_aliado")
+	# Y el TINTE de estados del muerto: lo repintan _on_tinte_cambiado y _seleccionar leyendo
+	# b.get("tinte"), asi que sin borrarlo el que entra hereda el color de veneno del anterior.
+	b.erase("tinte")
 	# El hueco se REESTRENA: la barra del que entra tiene que aparecer ya en su sitio, no venir
 	# deslizandose desde la vida que tenia el cadaver anterior.
 	if _fx != null:

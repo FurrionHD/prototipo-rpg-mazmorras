@@ -291,6 +291,14 @@ var _t_barrido: float = 0.0  # acumulador del barrido de congelado
 # con saber cuales YA NO estan. Se vuelca a Game.memoria_pisos y vuelve de ahi.
 var _agotados: Dictionary = {}
 
+# NONCE del brote VIVO de cada sitio (celda -> int). 0 (o ausente) = lo que puso la epoca al
+# construir el piso; cualquier otro = lo que salio en su ultimo respawn.
+#
+# Hermano de _agotados y con sus mismas reglas de escritura: copia local + mazmorra_persistente en
+# solitario, y en multi NO se toca mi save (el mundo es del host, sus nonces viven en Net).
+# Es lo que hace que el sub-tier con el que rebrota una veta SOBREVIVA a reconstruir el piso.
+var _nonces: Dictionary = {}
+
 # QUE profundidad esta construida ahora mismo. NO se puede usar Game.current_floor para
 # guardar el estado al salir: cuando el piso se regenera, current_floor YA vale el piso
 # NUEVO (lo sube Game._cambiar_piso antes de llamarnos), y guardariamos los bichos del piso
@@ -379,10 +387,15 @@ func _construir(por_la_bajada: bool = false) -> void:
 	# respawn). Vive en mazmorra_persistente, que sobrevive a volver al pueblo: por eso picar un
 	# nodo y salir/entrar ya no lo resetea. { celda: tiempo_mazmorra en que se pico }.
 	_agotados = (Game.persistente_piso(_piso_construido)["agotados"] as Dictionary).duplicate()
+	# Y con que nonce nacio lo que hay en cada sitio, que va en el mismo sitio y por lo mismo: sin
+	# esto, la veta que rebroto de estaño profundo volvia a ser cobre en cuanto rehacias la escena.
+	_nonces = (Game.persistente_piso(_piso_construido)["nonces"] as Dictionary).duplicate()
 	# MULTIJUGADOR: los sellos de MI save no pintan nada en el mundo del host. Se arranca en
-	# limpio; lo agotado en ESTA expedicion lo trae Net (celda_agotada_sesion) al construir.
+	# limpio; lo agotado en ESTA expedicion lo trae Net (celda_agotada_sesion) al construir, y los
+	# nonces igual (nonce_celda_sesion).
 	if Net.activo:
 		_agotados = {}
+		_nonces = {}
 
 	_construir_geometria()
 	_colocar_actores(por_la_bajada)
@@ -873,11 +886,28 @@ func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
 		if Game.tiempo_mazmorra - float(_agotados[celda]) < Game.RESPAWN_SEGUNDOS:
 			return false
 		_olvidar_agotado(celda)
-	var m: MaterialData = _material_del_sitio(celda)
+	var m: MaterialData = _material_del_sitio(celda, _nonce_del_sitio(celda))
 	if m == null:
 		return false
 	_instanciar_nodo(tipo, celda, m, false)
 	return true
+
+
+# El nonce del brote VIVO de este sitio. En multi manda el de la sesion (el mundo es del host); en
+# solitario, el de mi save. 0 = nunca ha rebrotado, sale lo que puso la epoca.
+func _nonce_del_sitio(celda: Vector2i) -> int:
+	if Net.activo:
+		return Net.nonce_celda_sesion(celda, _piso_construido)
+	return int(_nonces.get(celda, 0))
+
+
+# Apunta con que nonce acaba de brotar este sitio, en la copia local Y en la persistente. Gemela de
+# marcar_agotado, y con su misma regla de red: en sesion mi save no se toca.
+func _apuntar_nonce(celda: Vector2i, nonce: int) -> void:
+	_nonces[celda] = nonce
+	if Net.activo:
+		return   # en multi lo lleva Net._nonces_sesion, que es del mundo del host
+	(Game.persistente_piso(_piso_construido)["nonces"] as Dictionary)[celda] = nonce
 
 
 # QUE material sale en esta celda, AHORA. No se guarda: se deriva.
@@ -899,12 +929,19 @@ func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
 # necesidad de transportar la ruta del .tres ni de mantener una tabla sincronizada.
 #
 # Lo que sigue saliendo de la semilla a secas es DONDE hay sitios de recoleccion (la forma del piso).
+#
+# Y AUN ASI SEGUIA SIENDO ETERNO (16/08): al CONSTRUIR el piso el nonce valia 0 en todas las
+# bajadas, asi que una celda daba el mismo material y el mismo sub-tier durante toda la partida —
+# la "tirada de verdad" solo pasaba en los respawns en caliente. Se arregla por los dos lados:
+#   - la EPOCA (Game.epoca_actual) entra en la semilla: cada expedicion nueva rebaraja el piso entero;
+#   - el nonce del ultimo brote se GUARDA (ver _nonces), asi que dentro de una expedicion bajar y
+#     volver a subir encuentra lo mismo, pero lo que rebrote puede traer otro sub-tier.
 func _material_del_sitio(celda: Vector2i, nonce: int = 0) -> MaterialData:
 	var tabla: MaterialTable = _tabla_de_tipo(int((_sitios.get(celda, {}) as Dictionary).get("tipo", -1)))
 	if tabla == null:
 		return null
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash([_semilla_del_piso(), celda.x, celda.y, nonce])
+	rng.seed = hash([_semilla_del_piso(), Game.epoca_actual(), celda.x, celda.y, nonce])
 	return tabla.elegir(Game.current_floor, rng)
 
 
@@ -1020,6 +1057,9 @@ func revivir_celda(celda: Vector2i, nonce: int = 0) -> void:
 	var m: MaterialData = _material_del_sitio(celda, nonce)
 	if m == null:
 		return   # la tabla no tiene nada para esta profundidad: la celda se queda vacia
+	# Se APUNTA el nonce con el que ha brotado: asi este sub-tier es el que se vera tambien cuando el
+	# piso se reconstruya, en vez de volver al que puso la epoca al principio.
+	_apuntar_nonce(celda, nonce)
 	_instanciar_nodo(int(sitio["tipo"]), celda, m, true)
 
 
@@ -1068,7 +1108,9 @@ func sitio_de(celda: Vector2i) -> Dictionary:
 func material_de_sitio(celda: Vector2i) -> MaterialData:
 	if not _sitios.has(celda):
 		return null
-	return _material_del_sitio(celda)
+	# Con el nonce del brote VIVO: sin el, esto contestaria lo que habia al principio de la epoca y
+	# no lo que de verdad hay plantado ahi despues de un respawn.
+	return _material_del_sitio(celda, _nonce_del_sitio(celda))
 
 
 # Lo llama Game al terminar un minijuego de recoleccion: esa celda queda explotada, con el

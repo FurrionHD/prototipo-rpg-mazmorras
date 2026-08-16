@@ -1167,8 +1167,17 @@ func olvidar_mazmorra() -> void:
 	# arrastras el jaleo de la bajada anterior a la siguiente.
 	alboroto = 0.0
 	_alboroto_enfriando = 0.0
-	# mazmorra_persistente NO se toca: los nodos agotados y las zonas vistas duran mas que una
-	# expedicion (esa es justo la gracia). El reloj tampoco se reinicia.
+	# EPOCA NUEVA: la mazmorra vuelve a nacer, asi que se rebaraja QUE hay en ella (tiers de los
+	# materiales, especies del charco). Las UBICACIONES no se mueven: eso lo decide la semilla, que
+	# no se toca. Ver epoca_mazmorra.
+	renovar_epoca()
+	# Y los nonces de los sitios de recoleccion, que son de la expedicion que se cierra: con la
+	# epoca nueva ya no significan nada, y dejarlos ahi congelaria el sub-tier de las celdas que se
+	# picaron en la bajada anterior.
+	for p in mazmorra_persistente:
+		(mazmorra_persistente[p] as Dictionary)["nonces"] = {}
+	# mazmorra_persistente NO se toca por lo demas: los nodos agotados y las zonas vistas duran mas
+	# que una expedicion (esa es justo la gracia). El reloj tampoco se reinicia.
 
 
 # CIERRA LA BAJADA (no la mazmorra). Lo llaman las tres vueltas al pueblo CON VIDA: la puerta, la
@@ -1213,8 +1222,13 @@ func mapa_visible() -> Dictionary:
 # El estado persistente del piso (agotados + zonas_vistas), creandolo vacio si no existe.
 func persistente_piso(piso: int) -> Dictionary:
 	if not mazmorra_persistente.has(piso):
-		mazmorra_persistente[piso] = {"agotados": {}, "zonas_vistas": {}}
-	return mazmorra_persistente[piso]
+		mazmorra_persistente[piso] = {"agotados": {}, "zonas_vistas": {}, "nonces": {}}
+	# 'nonces' llego despues: las partidas guardadas antes no traen la clave (celda -> nonce del
+	# nacimiento vivo de ese sitio; ver DungeonFloor._material_del_sitio).
+	var d: Dictionary = mazmorra_persistente[piso]
+	if not d.has("nonces"):
+		d["nonces"] = {}
+	return d
 
 
 # MAPA = una LIBRETA (piso -> snapshot congelado) que se pone al dia al ABANDONAR un piso (bajar,
@@ -1408,6 +1422,40 @@ func revertir_mapa_expedicion() -> void:
 # Cada partida nueva estrena la suya, asi que dos ranuras tienen mazmorras distintas.
 var semilla_mundo: int = 0
 
+# ÉPOCA de la mazmorra: el numero que distingue ESTA expedicion de la siguiente.
+#
+# La semilla del piso decide la FORMA (trazado, salas, donde hay charco y donde hay sitios de
+# recoleccion) y esa no se mueve nunca: el piso 3 es siempre el mismo piso 3. Lo que decide la
+# epoca es el CONTENIDO: que material y que sub-tier sale en cada veta, y que especie y que talla
+# de pez hay en el charco. Antes eso tambien colgaba de la semilla a secas, asi que una partida
+# entera veia SIEMPRE los mismos peces y los mismos tiers en los mismos sitios.
+#
+# Cambia solo cuando se CIERRA la mazmorra (ver olvidar_mazmorra): morir, salir por la puerta del
+# jefe o cerrar el juego. Dentro de una expedicion es constante, asi que subir al pueblo y volver a
+# bajar NO rebaraja nada. Lo que si rebaraja es el respawn de una celda concreta, que lleva su
+# propio nonce (ver DungeonFloor._material_del_sitio).
+#
+# MULTIJUGADOR: manda la del host y viaja con el resto del estado de expedicion (Net._entrar_ok).
+var epoca_mazmorra: int = 0
+
+
+# La epoca que rige AHORA. En sesion es la del host: si cada maquina usara la suya, el invitado
+# veria otra especie de pez y otro sub-tier en la misma veta.
+func epoca_actual() -> int:
+	if Net.activo and Net.epoca_sesion != 0:
+		return Net.epoca_sesion
+	if epoca_mazmorra == 0:
+		renovar_epoca()   # partida anterior a la epoca (o recien creada): estrena una al vuelo
+	return epoca_mazmorra
+
+
+# Estrena epoca. El 0 esta reservado para "no hay", asi que nunca puede salir.
+func renovar_epoca() -> void:
+	epoca_mazmorra = randi()
+	if epoca_mazmorra == 0:
+		epoca_mazmorra = 1
+
+
 # ¿Hay una partida en marcha? La semilla es el testigo: nueva_partida() se asegura de que NUNCA
 # valga 0, asi que un 0 solo puede significar que nadie ha creado ni cargado nada. Lo pregunta la
 # mazmorra para no montarse sin personaje si alguien lanza su escena a pelo desde el editor.
@@ -1595,6 +1643,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	semilla_mundo = randi()
 	if semilla_mundo == 0:
 		semilla_mundo = 1   # 0 = "sin semilla"; nunca puede ser el valor bueno
+	renovar_epoca()
 
 	player_nombre = nombre_.strip_edges()
 	if player_nombre == "":
@@ -1719,6 +1768,7 @@ func exportar_partida() -> SaveData:
 	var player := get_tree().get_first_node_in_group("player")
 
 	d.semilla_mundo = semilla_mundo
+	d.epoca_mazmorra = epoca_mazmorra
 	d.nombre = player_nombre     # identidad: la eligio al crear la partida
 	# El uid del LIDER va aparte porque el lider NO esta en d.plantilla: vive en estos campos planos,
 	# y al cargar se reconstruye un PersonajeData nuevo. Sin esta linea estrenaria uid en cada carga y
@@ -2293,6 +2343,11 @@ func importar_partida(d: SaveData) -> void:
 	party = [yo]
 	lider_idx = 0
 	semilla_mundo = d.semilla_mundo
+	# Un 0 = partida anterior a la epoca: estrena una (si no, todas las guardadas de antes seguirian
+	# viendo el mismo reparto de siempre y pareceria que el cambio no hace nada).
+	epoca_mazmorra = d.epoca_mazmorra
+	if epoca_mazmorra == 0:
+		renovar_epoca()
 	player_nombre = d.nombre if d.nombre.strip_edges() != "" else NOMBRE_POR_DEFECTO
 	player_color = d.color
 	player_metalico = d.metalico

@@ -77,6 +77,24 @@ var _mi_lugar := "pueblo"          # donde estoy YO: "pueblo" o "piso:N"
 # NUNCA se escribe en Game.semilla_mundo del cliente: esa es de SU save.
 var semilla_host: int = 0
 
+# ÉPOCA de la mazmorra de ESTA sesion (ver Game.epoca_mazmorra): decide QUE material y QUE pez sale
+# en cada sitio. La pone el host y la tienen TODOS igual, o el invitado veria otra especie en el
+# mismo charco y otro sub-tier en la misma veta.
+#
+# Viaja en _entrar_ok, junto al resto del estado de expedicion (agotados, sellos de jefe), porque es
+# exactamente eso: estado de la expedicion. NO cambia al subir al pueblo —la mazmorra persiste—,
+# solo cuando caeis todos (_olvidar_expedicion), que es el equivalente en sesion de olvidar_mazmorra.
+# Un 0 significa "aun no me la han dicho": Game.epoca_actual cae entonces a la local.
+var epoca_sesion: int = 0
+
+# NONCE VIVO de cada sitio de recoleccion de la sesion: sitio -> el numero con el que nacio lo que
+# hay ahi ahora. Hermano de _agotados_sesion y con su misma clave (Vector3i(piso, x, y)).
+#
+# Es lo que hace que el sub-tier de una veta SOBREVIVA a reconstruir el piso: sin esto, al bajar y
+# volver a subir la celda renacia con nonce 0 y volvia a ser lo de siempre. Lo estrena _revivir_celda
+# (respawn) y lo reparte _entrar_ok al que baja.
+var _nonces_sesion: Dictionary = {}
+
 # El surtido de la tienda manda el MUNDO DEL HOST: si el tiene la T2 abierta (Rey Slime muerto),
 # ambos la ven. Llega en el handshake; no cambia en sesion (los enemigos estan apagados en multi,
 # asi que el host no mata bosses mientras jugais).
@@ -397,6 +415,8 @@ func desconectar() -> void:
 	_muertos.clear()
 	_vetas_ocupadas.clear()
 	_agotados_sesion.clear()
+	_nonces_sesion.clear()
+	epoca_sesion = 0
 	_bosses_sello.clear()
 	expedicion_abierta = false
 	_dueno_piso.clear()
@@ -1100,6 +1120,13 @@ func _pedir_entrar(piso: int = 1) -> void:
 func _conceder_entrada(quien: int, piso: int = 1) -> void:
 	if piso <= 1 or not Game.BOSSES.has(piso):
 		piso = 1
+	# La EPOCA de la sesion se fija UNA vez y no la mueve entrar ni salir: la mazmorra persiste, asi
+	# que subir al pueblo y volver a bajar tiene que encontrar los mismos tiers. Solo la renueva
+	# _olvidar_expedicion (habeis caido todos). Se coge del save del host, que es de quien es el mundo.
+	if epoca_sesion == 0:
+		if Game.epoca_mazmorra == 0:
+			Game.renovar_epoca()
+		epoca_sesion = Game.epoca_mazmorra
 	if not expedicion_abierta:
 		expedicion_abierta = true
 		# Se abre la mazmorra: vuelven los sellos de lo que ya se pico en expediciones anteriores,
@@ -1120,9 +1147,10 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 	# Va el diccionario ENTERO, no solo las claves: el valor es el momento en que se pico, y sin el
 	# quien entra no sabria cuanto le queda a cada sitio para revivir.
 	if quien == 1:
-		_entrar_ok(piso, _agotados_sesion, dueno, mem, _bosses_sello)
+		_entrar_ok(piso, _agotados_sesion, dueno, mem, _bosses_sello, epoca_sesion, _nonces_sesion)
 	else:
-		_entrar_ok.rpc_id(quien, piso, _agotados_sesion, dueno, mem, _bosses_sello)
+		_entrar_ok.rpc_id(quien, piso, _agotados_sesion, dueno, mem, _bosses_sello,
+			epoca_sesion, _nonces_sesion)
 
 
 # Corre en QUIEN entra: hace el viaje completo. olvidar_mazmorra() limpia la memoria LOCAL de
@@ -1135,13 +1163,20 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 # mezcle con el suyo.
 @rpc("any_peer", "call_remote", "reliable")
 func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
-		sellos_boss: Dictionary = {}) -> void:
+		sellos_boss: Dictionary = {}, epoca: int = 0, nonces: Dictionary = {}) -> void:
 	_agotados_sesion = agotados.duplicate()
 	# Que jefes de la sesion estan muertos ahora mismo. Sin esto, el que baja al piso 6 por el atajo
 	# plantaria un rey slime que para los demas sigue muerto (y solo el lo veria).
 	_bosses_sello = sellos_boss.duplicate()
 	Game.current_floor = piso
+	# La EPOCA y los NONCES del mundo del host: sin ellos el invitado tiraria por su cuenta que
+	# material y que pez sale en cada sitio, y veria cosas distintas de las del host en la MISMA veta.
+	# Se cogen ANTES de olvidar_mazmorra a proposito: esa renueva la epoca LOCAL (la de mi propio
+	# mundo, que aqui no pinta nada) y lo que vale mientras dure la sesion es epoca_sesion.
+	_nonces_sesion = nonces.duplicate()
 	Game.olvidar_mazmorra()
+	if epoca != 0:
+		epoca_sesion = epoca
 	_olvidar_mis_enemigos()
 	# ¿Simulo yo este piso? Si si, y venia congelado, se siembra la memoria LOCAL con su foto para
 	# que _restaurar_estado lo levante igual que en solitario (va DESPUES de olvidar_mazmorra,
@@ -1245,6 +1280,12 @@ func _registrar_muerte(quien: int, foto: Dictionary = {}) -> void:
 func _olvidar_expedicion() -> void:
 	_fotos_piso.clear()
 	_muertos.clear()
+	# EPOCA NUEVA, como en solitario (Game.olvidar_mazmorra): la mazmorra vuelve a nacer, asi que se
+	# rebaraja QUE hay en ella. Los nonces vivos se van con ella —ya no significan nada— y a los
+	# demas les llega todo en el _entrar_ok de la proxima bajada.
+	Game.renovar_epoca()
+	epoca_sesion = Game.epoca_mazmorra
+	_nonces_sesion.clear()
 	for id in _suelo.keys():
 		if str(_suelo[id]["lugar"]).begins_with("piso:"):
 			_suelo.erase(id)
@@ -1711,6 +1752,10 @@ func _sembrar_agotados_del_save() -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _revivir_celda(celda: Vector2i, piso: int, nonce: int = 0) -> void:
 	_agotados_sesion.erase(_sitio(piso, celda))
+	# El nonce se APUNTA, no solo se usa: es lo que hace que el sub-tier con el que acaba de brotar
+	# siga siendo el mismo cuando alguien reconstruya el piso (bajar y volver a subir). Sin esto, la
+	# veta que revivio de estaño profundo volvia a ser la de siempre en cuanto se rehacia la escena.
+	_nonces_sesion[_sitio(piso, celda)] = nonce
 	# Y FUERA DEL SAVE DEL HOST, o el sello volveria a sembrarse en la proxima expedicion y la veta
 	# que acaba de revivir nacería agotada otra vez. Es lo mismo que hace _olvidar_agotado en
 	# solitario. Solo el host: en el invitado ese diccionario es de SU mundo, no de este.
@@ -1726,6 +1771,12 @@ func _revivir_celda(celda: Vector2i, piso: int, nonce: int = 0) -> void:
 # ¿Este sitio ya se agoto en ESTA expedicion? Lo consulta dungeon_floor al construir el piso.
 func celda_agotada_sesion(celda: Vector2i, piso: int) -> bool:
 	return _agotados_sesion.has(_sitio(piso, celda))
+
+
+# Con que nonce nacio lo que hay AHORA en ese sitio (0 = lo original de esta epoca, nunca ha
+# rebrotado). Lo consulta dungeon_floor al construir el piso, igual que celda_agotada_sesion.
+func nonce_celda_sesion(celda: Vector2i, piso: int) -> int:
+	return int(_nonces_sesion.get(_sitio(piso, celda), 0))
 
 
 # --- BOSS CAIDO (hito 5.3) --------------------------------------------------------------------
@@ -3155,15 +3206,28 @@ func _rel_charco(lugar: String, snap: Dictionary) -> void:
 
 # --- 2) EL CORCHO: de cada pescador al dueño ---
 # 'activo' false = he recogido el sedal (o he salido de la pesca): el dueño se olvida de mi corcho.
+#
+# OJO con el HOST que NO es dueño del piso (lo simula un cliente): mismo caso REAL que en
+# solicitar_pelea, y aqui se colaba. Un rpc_id(1, ...) a uno mismo revienta con "RPC on yourself is
+# not allowed", asi que el corcho del host NUNCA llegaba al dueño: veia los peces nadar, echaba el
+# sedal y no le picaba jamas. Si soy el host, el enrutado me lo hago en local pasandome como
+# pescador (yo soy el peer 1).
 func publicar_corcho(pos: Vector2, esta_activo: bool) -> void:
 	if not activo or _soy_dueno or multiplayer.multiplayer_peer == null:
 		return
-	_corcho_pesca.rpc_id(1, _mi_lugar, pos, esta_activo)
+	if es_host:
+		_encaminar_corcho(1, _mi_lugar, pos, esta_activo)
+	else:
+		_corcho_pesca.rpc_id(1, _mi_lugar, pos, esta_activo)
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func _corcho_pesca(lugar: String, pos: Vector2, esta_activo: bool) -> void:
-	var de := multiplayer.get_remote_sender_id()
+	_encaminar_corcho(multiplayer.get_remote_sender_id(), lugar, pos, esta_activo)
+
+
+# SOLO host (o el propio host haciendose de pescador): el corcho va a quien simule ese piso.
+func _encaminar_corcho(de: int, lugar: String, pos: Vector2, esta_activo: bool) -> void:
 	# Yo soy el dueño de ese piso: el corcho es para mi charco.
 	if _mi_lugar == lugar and _soy_dueno and _charco != null and is_instance_valid(_charco):
 		_charco.corcho_remoto(de, pos, esta_activo)
@@ -3171,8 +3235,7 @@ func _corcho_pesca(lugar: String, pos: Vector2, esta_activo: bool) -> void:
 	# No lo soy: si soy el host, se lo encamino a quien si.
 	if not es_host:
 		return
-	var piso: int = int(lugar.substr(5)) if lugar.begins_with("piso:") else -1
-	var dueno: int = _dueno_piso.get(piso, 0)
+	var dueno: int = _dueno_de(lugar)
 	if dueno != 0 and dueno != de:
 		_corcho_pesca_a.rpc_id(dueno, de, lugar, pos, esta_activo)
 
@@ -3218,19 +3281,27 @@ func resolver_pesca(idx: int, cobrado: bool) -> void:
 		return
 	if _soy_dueno:
 		return   # el dueño lo resuelve en local, no se manda una carta a si mismo
-	_fin_pesca.rpc_id(1, _mi_lugar, idx, cobrado)
+	# Mismo caso que en publicar_corcho: el host que solo espeja el piso no puede mandarse el
+	# resultado a si mismo. Sin esto, el pez que pescaba el host no salia nunca del banco del dueño.
+	if es_host:
+		_encaminar_fin_pesca(1, _mi_lugar, idx, cobrado)
+	else:
+		_fin_pesca.rpc_id(1, _mi_lugar, idx, cobrado)
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _fin_pesca(lugar: String, idx: int, cobrado: bool) -> void:
-	var de := multiplayer.get_remote_sender_id()
+	_encaminar_fin_pesca(multiplayer.get_remote_sender_id(), lugar, idx, cobrado)
+
+
+# SOLO host (o el propio host haciendose de pescador): el resultado va a quien simule ese piso.
+func _encaminar_fin_pesca(de: int, lugar: String, idx: int, cobrado: bool) -> void:
 	if _mi_lugar == lugar and _soy_dueno and _charco != null and is_instance_valid(_charco):
 		_charco.resolver_pez_remoto(de, idx, cobrado)
 		return
 	if not es_host:
 		return
-	var piso: int = int(lugar.substr(5)) if lugar.begins_with("piso:") else -1
-	var dueno: int = _dueno_piso.get(piso, 0)
+	var dueno: int = _dueno_de(lugar)
 	if dueno != 0 and dueno != de:
 		_fin_pesca_a.rpc_id(dueno, de, lugar, idx, cobrado)
 

@@ -256,6 +256,12 @@ var _idx_enganchado: int = -1
 # ESPEJO: ¿estoy esperando a que el dueño me diga si ha picado algo? Evita mandarle el corcho como
 # "nuevo" en cada frame.
 var _espero_mordida: bool = false
+# ESPEJO: lo ultimo que le dije al dueño sobre mi corcho, para no repetirselo cada frame (ver
+# _publicar_mi_corcho). El latido lo reenvia igual de vez en cuando por si se perdio el paquete.
+const CORCHO_LATIDO := 0.5
+var _corcho_ultimo_pos: Vector2 = Vector2.INF
+var _corcho_ultimo_activo: bool = false
+var _t_corcho: float = 0.0
 
 
 # ¿Simulo YO este charco? En solitario siempre. En multi, solo el dueño del piso.
@@ -448,7 +454,7 @@ func _guardar_estado() -> void:
 
 func _cargar_estado() -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash([_semilla(), celda.x, celda.y])
+	rng.seed = hash([_semilla(), Game.epoca_actual(), celda.x, celda.y])
 	_aforo = rng.randi_range(PECES_MIN, PECES_MAX)
 	_t_aforo = Game.tiempo_mazmorra
 	_stock = STOCK_MAX
@@ -490,7 +496,7 @@ func _revisar_aforo() -> void:
 		return
 	var tramo: int = int(Game.tiempo_mazmorra / AFORO_REVISION)
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash([_semilla(), celda.x, celda.y, tramo, "aforo"])
+	rng.seed = hash([_semilla(), Game.epoca_actual(), celda.x, celda.y, tramo, "aforo"])
 	_aforo = rng.randi_range(PECES_MIN, PECES_MAX)
 	_t_aforo = Game.tiempo_mazmorra
 
@@ -509,9 +515,14 @@ func _semilla() -> int:
 #
 # Antes el pez repuesto salia del randf() global y en multi cada uno veia una especie distinta en el
 # mismo charco. En solitario no se notaba; en cuanto hay dos, la escena deja de ser la misma.
+#
+# Y lleva la EPOCA (ver Game.epoca_mazmorra): sin ella el charco daba SIEMPRE los mismos peces, en el
+# mismo orden y con las mismas tallas, durante toda la partida —el _nonce arranca en 0 en cada
+# instancia, asi que el primer pez de cada visita era literalmente el mismo bicho—. Con la epoca,
+# cada expedicion estrena banco; dentro de una, subir y bajar sigue dando lo mismo.
 func _rng_pez() -> RandomNumberGenerator:
 	var r := RandomNumberGenerator.new()
-	r.seed = hash([_semilla(), celda.x, celda.y, _nonce])
+	r.seed = hash([_semilla(), Game.epoca_actual(), celda.x, celda.y, _nonce])
 	_nonce_usado = _nonce   # con cual nacio el pez de este sorteo (lo guarda _nacer_pez)
 	_nonce += 1
 	return r
@@ -796,7 +807,7 @@ func _process(delta: float) -> void:
 			Net.difundir_charco(estado_red())
 	else:
 		_interpolar_peces(delta)
-		_publicar_mi_corcho()
+		_publicar_mi_corcho(delta)
 	if _estado == LIBRE:
 		return
 	# RECOGER EL SEDAL con la misma F con la que lo echaste. Mientras esperas estas dentro de un
@@ -1306,8 +1317,20 @@ func _mordidas_remotas() -> void:
 # ESPEJO: le mando al dueño donde tengo el corcho, y solo mientras de verdad este pescando. Fuera de
 # ESPERA no hay nada que pescar (o ya tengo pieza), y mandarlo igual haria que me picase un pez
 # mientras peleo con otro.
-func _publicar_mi_corcho() -> void:
+#
+# SOLO CUANDO CAMBIA (mas un latido de seguridad): esto corre en CADA frame del espejo, y el corcho
+# no se mueve mientras esperas —solo cabecea, y eso es pintura, no _corcho_base—. Mandarlo 60 veces
+# por segundo era un RPC por frame para repetir el mismo Vector2. El latido esta porque el transporte
+# es unreliable: si se pierde el unico paquete del cambio, el dueño no sabria que estoy pescando.
+func _publicar_mi_corcho(delta: float) -> void:
 	var pescando: bool = _estado == ESPERA and _pez.is_empty() and not _espero_mordida
+	_t_corcho -= delta
+	if pescando == _corcho_ultimo_activo and _corcho_base.distance_to(_corcho_ultimo_pos) < 1.0 \
+			and _t_corcho > 0.0:
+		return
+	_t_corcho = CORCHO_LATIDO
+	_corcho_ultimo_activo = pescando
+	_corcho_ultimo_pos = _corcho_base
 	Net.publicar_corcho(_corcho_base, pescando)
 
 
@@ -1432,13 +1455,16 @@ func aplicar_red(snap: Dictionary) -> void:
 
 
 # ESPEJO: crea el rectangulo de un pez que aun no tenia. La especie y la talla NO viajan: salen del
-# mismo sorteo sembrado que uso el dueño (semilla del piso + celda + nonce), asi que las dos maquinas
-# sacan exactamente el mismo bicho sin gastar un byte en ello.
+# mismo sorteo sembrado que uso el dueño (semilla del piso + epoca + celda + nonce), asi que las dos
+# maquinas sacan exactamente el mismo bicho sin gastar un byte en ello.
+#
+# LA FORMULA TIENE QUE SER LA MISMA QUE LA DE _rng_pez, letra por letra. Si se le añade algo alli y
+# aqui no, el invitado ve otra especie y otra talla en el mismo pez y no da ni un error.
 func _nacer_pez_espejo(nonce: int, pos: Vector2) -> Dictionary:
 	if tabla == null:
 		return {}
 	var r := RandomNumberGenerator.new()
-	r.seed = hash([_semilla(), celda.x, celda.y, nonce])
+	r.seed = hash([_semilla(), Game.epoca_actual(), celda.x, celda.y, nonce])
 	var d: MaterialData = tabla.elegir(Game.current_floor, r)
 	if d == null:
 		return {}
