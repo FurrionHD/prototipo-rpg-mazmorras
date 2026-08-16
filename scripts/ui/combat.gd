@@ -3432,7 +3432,9 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		# La Magia NO se entrena por frase (solo al LANZAR, en _disparar_hechizo), para
 		# que la ganancia sea predecible y no se cuente doble.
 		_cast_index += 1
-		Game.contar_frase_recitada(Game.pj_de_combatant(_player))   # oculto de Encantamiento rapido
+		# oculto de Encantamiento rapido. La ficha se saca AQUI y no dentro: el que recita es quien
+		# tiene el turno en este instante, y _player se presta y se devuelve en otras ramas.
+		Game.contar_frase_recitada(_pj_de_magia(_player, "recitar " + _cast_spell.nombre))
 		if _cast_index < _cast_spell.longitud():
 			_set_log("✓ Frase correcta. Continua el proximo turno...")
 		else:
@@ -3734,7 +3736,7 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF
 	# Reto por-stat (contra TU magia, no tu poder total): asi un cuerpo fuerte con magia baja SI
 	# entrena la magia contra bichos de su piso, en vez de quedarse clavado a 0 (ver Game.reto_stat).
-	var pj_lanza: PersonajeData = Game.pj_de_combatant(_player)   # entrena EL QUE LANZA
+	var pj_lanza: PersonajeData = _pj_de_magia(_player, "lanzar " + spell.nombre)   # entrena EL QUE LANZA
 	Game.ganar("magia", Game.reto_stat(_poder_enemigo(obj), "magia", obj.level, pj_lanza),
 		Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO, pj_lanza)
 	Game.contar_hechizo(pj_lanza)   # contador oculto de Erudito
@@ -6197,6 +6199,26 @@ func _reto(c: Combatant, pj: PersonajeData = null) -> float:
 	if c == null:
 		return 0.0
 	return Game.reto(_poder_enemigo(c), c.level, pj)
+
+
+# LA FICHA DEL QUE HACE MAGIA, con la lupa puesta. Los contadores de hechizo/frase son los UNICOS
+# que sacan su personaje de `_player` -estado de PANTALLA, que se presta y se devuelve en
+# hechizo_de_entrada y en Escolta-, mientras que los que funcionan bien (esquiva, daño) lo sacan del
+# combatiente del evento. Ese es el unico sospechoso que queda del tanque con hechizos_exp = 140 sin
+# haber llevado un conjuro en su vida.
+#
+# INSTRUMENTACION TEMPORAL (16/08/2026): escribe en el log a QUIEN se le apunta cada cosa, y si la
+# ficha no aparece, todo lo que hace falta para saber por que. Se quita cuando el log conteste.
+func _pj_de_magia(c: Combatant, que: String) -> PersonajeData:
+	var pj: PersonajeData = Game.pj_de_combatant(c)
+	if pj == null:
+		var nom: String = c.nombre if c != null else "(nadie)"
+		push_warning("[magia] '%s' sin ficha: %s no esta en la pelea de Game" % [que, nom])
+		print("[magia] SIN FICHA al %s | combatiente='%s' | espejo=%s | es_aliado=%s | huido=%s | aliados=%d" % [
+			que, nom, str(_espejo), str(_aliados.has(c)), str(_huidos.has(c)), _aliados.size()])
+	else:
+		print("[magia] %s -> se le apunta a %s" % [que, pj.nombre])
+	return pj
 
 
 # Crea la linea de orden de turnos (banda horizontal en la zona media).

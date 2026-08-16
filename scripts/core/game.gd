@@ -7010,24 +7010,48 @@ const RECITADO_POR_FRASE := 1.0
 # accion. Sin el parametro caian siempre en el lider por las propiedades de arriba, y eso ya dejaba
 # cosas imposibles a la vista -- en el playtest habia un personaje con 44.435 de daño infligido y 0
 # de excelia, porque el daño lo repartia otro y el contador se lo llevaba el que iba en cabeza.
+#
+# Y SI EL 'pj' LLEGA NULL, NO SE CUENTA. Antes caia en lider() en silencio, que es la peor de las
+# tres salidas posibles: no es "un dato de menos", es un dato FALSO apuntado a otra persona. De ahi
+# salio el tanque con hechizos_exp = 140 sin haber llevado un conjuro en su vida (iba en cabeza
+# mientras el mago del grupo lanzaba). Hoy NINGUNA llamada se apoya en el valor por defecto —las 12
+# pasan su personaje—, asi que un null aqui es siempre un bug de quien llama, y el aviso lo dice.
+func _pj_contador(pj: PersonajeData, que: String) -> PersonajeData:
+	if pj != null:
+		return pj
+	push_warning("[contador] '%s' sin personaje: NO se cuenta a nadie" % que)
+	print("[contador] AVISO: '%s' ha llegado sin personaje. No se apunta (antes se lo quedaba %s)."
+		% [que, lider().nombre])
+	return null
+
 func contar_esquiva(pj: PersonajeData = null) -> void:
-	var p: PersonajeData = pj if pj != null else lider()
+	var p: PersonajeData = _pj_contador(pj, "esquiva")
+	if p == null:
+		return
 	p.esquivas_exp += ESQUIVA_POR_ESQUIVAR
 
 func contar_hechizo(pj: PersonajeData = null) -> void:
-	var p: PersonajeData = pj if pj != null else lider()
+	var p: PersonajeData = _pj_contador(pj, "hechizo")
+	if p == null:
+		return
 	p.hechizos_exp += HECHIZO_POR_LANZAR
 
 func contar_frase_recitada(pj: PersonajeData = null) -> void:
-	var p: PersonajeData = pj if pj != null else lider()
+	var p: PersonajeData = _pj_contador(pj, "frase recitada")
+	if p == null:
+		return
 	p.recitado_exp += RECITADO_POR_FRASE
 
 func contar_dano_recibido(dmg: float, pj: PersonajeData = null) -> void:
-	var p: PersonajeData = pj if pj != null else lider()
+	var p: PersonajeData = _pj_contador(pj, "daño recibido")
+	if p == null:
+		return
 	p.dano_recibido_exp += maxf(0.0, dmg)
 
 func contar_dano_infligido(dmg: float, pj: PersonajeData = null) -> void:
-	var p: PersonajeData = pj if pj != null else lider()
+	var p: PersonajeData = _pj_contador(pj, "daño infligido")
+	if p == null:
+		return
 	p.dano_infligido_exp += maxf(0.0, dmg)
 # Interruptores (los pondra a true el sistema de habilidades de desarrollo cuando exista).
 # Con esto en false, el oficio solo ACUMULA.
