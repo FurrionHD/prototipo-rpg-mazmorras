@@ -120,6 +120,8 @@ func _ready() -> void:
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(vb)
 
+	_build_atajos(vb)
+	_sep(vb)
 	_build_stats(vb)
 	_sep(vb)
 	_build_desarrollo(vb)
@@ -153,6 +155,61 @@ func _sep(vb: VBoxContainer) -> void:
 
 # ENCARGOS: saltarse la espera. Un encargo dura entre 1 y 8 HORAS DE RELOJ REAL, asi que sin esto
 # probar el ciclo entero o mirar el balance del boton seria inviable.
+# LOS ATAJOS QUE ANTES ERAN TECLAS (U/H/R/T/P/B/N). Vivian sueltos en la build normal y cualquiera
+# los pulsaba sin querer: en el playtest del 16/08 una U a media mazmorra CONSOLIDO el estado y
+# falseo la medicion de la sesion entera (parecia que un tanque habia subido 3 cuando habia subido
+# 31). Aqui hay que venir a buscarlos, que es justo lo que se queria.
+#
+# La Ñ (informe) sigue siendo tecla: solo lee, y es el instrumento con el que se diagnostica.
+func _build_atajos(vb: VBoxContainer) -> void:
+	_header(vb, "ATAJOS DE DEV (antes eran teclas)")
+
+	# El mas peligroso primero y con su aviso: consolidar fuera del altar cambia la partida.
+	var cons := Button.new()
+	cons.text = "Consolidar estado (era U)"
+	cons.tooltip_text = "Vuelca lo ganado al visible, como el altar pero desde donde estes. " \
+		+ "OJO: cambia la partida de verdad y falsea cualquier medicion a medias."
+	cons.pressed.connect(func():
+		Game.actualizar_estado()
+		_sync_from_game())
+	vb.add_child(cons)
+
+	var fila1 := HBoxContainer.new()
+	fila1.add_theme_constant_override("separation", 6)
+	vb.add_child(fila1)
+	_atajo(fila1, "Curar (H)", "Vida y maná llenos en el próximo combate.", Game.dev_curar)
+	_atajo(fila1, "Respawn (R)", "Recarga la sala: bichos y nodos vuelven a nacer.", Game.dev_respawn)
+
+	var fila2 := HBoxContainer.new()
+	fila2.add_theme_constant_override("separation", 6)
+	vb.add_child(fila2)
+	_atajo(fila2, "Sandbox (T)", "Arena de pruebas: escenario vacío + spawner.", Game.dev_sandbox)
+	_atajo(fila2, "Brote (B)", "Fuerza un brote en la zona más cercana.", Game.dev_brote)
+
+	var fila3 := HBoxContainer.new()
+	fila3.add_theme_constant_override("separation", 6)
+	vb.add_child(fila3)
+	_atajo(fila3, "Tabla spawns (P)", "Tira 200 veces la tabla del piso y cuenta qué sale (consola).",
+		Game.dev_test_spawns)
+	_atajo(fila3, "+10 min (N)", "Salta el reloj de mazmorra: para probar el respawn de recursos.",
+		Game.dev_saltar_reloj)
+
+	var inf := Button.new()
+	inf.text = "Informe de la partida (sigue en la tecla Ñ)"
+	inf.tooltip_text = "Vuelca al log y a un fichero el estado de todos los personajes. Solo LEE."
+	inf.pressed.connect(Game.dev_informe)
+	vb.add_child(inf)
+
+
+func _atajo(fila: HBoxContainer, txt: String, ayuda: String, accion: Callable) -> void:
+	var b := Button.new()
+	b.text = txt
+	b.tooltip_text = ayuda
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.pressed.connect(accion)
+	fila.add_child(b)
+
+
 func _build_encargos(vb: VBoxContainer) -> void:
 	_header(vb, "ENCARGOS (%d en marcha)" % Game.encargos.size())
 

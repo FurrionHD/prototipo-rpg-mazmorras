@@ -9960,7 +9960,15 @@ func _debug_set_visible(s: String, valor: int) -> void:
 	ability_internal[s] = float(ability_base_nivel[s]) + float(clampi(valor, 0, 999))
 
 
-# Teclas de DESARROLLO (temporales): U actualizar estado, H cura, R respawn.
+# LA UNICA TECLA DE DEV QUE QUEDA: la Ñ (informe). Las otras siete -U/H/R/T/P/B/N- vivian aqui y
+# estaban VIVAS en la build normal, y eso ha costado caro: en el playtest del 16/08 el hermano le dio
+# a la U sin querer a media mazmorra, que CONSOLIDA desde cualquier sitio, y a partir de ahi toda la
+# medicion de la sesion era mentira ("solo he subido 3" cuando habia subido 31). Ahora estan en el
+# panel de dev (debug_panel._build_atajos), donde hay que ir a buscarlas a proposito.
+#
+# La Ñ se queda porque solo LEE (vuelca el informe) y es justo el instrumento con el que se
+# diagnostica: tiene que poder pulsarse sin abrir nada. La P de DENTRO del combate (desatascar) vive
+# en combat.gd y tambien se queda: es la salida cuando el turno se cuelga y no se puede abrir un menu.
 #
 # OJO, va en _unhandled_key_input Y NO EN _input A PROPOSITO: _input corre ANTES que la GUI,
 # asi que estas teclas se comian lo que escribias en cualquier campo de texto (el nombre de la
@@ -9982,35 +9990,39 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	var esc: Node = get_tree().current_scene
 	if esc != null and esc.scene_file_path.ends_with("main_menu.tscn"):
 		return
-	# LA Ñ, APARTE DEL MATCH: no tiene constante propia en Godot. En un teclado español ocupa la
-	# posicion fisica del KEY_SEMICOLON, pero eso depende de la distribucion, asi que se mira TAMBIEN
-	# el caracter que ha producido (241 = ñ). Con las dos vias funciona la tecla se llame como se
-	# llame en cada maquina.
+	# LA Ñ: no tiene constante propia en Godot. En un teclado español ocupa la posicion fisica del
+	# KEY_SEMICOLON, pero eso depende de la distribucion, asi que se mira TAMBIEN el caracter que ha
+	# producido (241 = ñ). Con las dos vias funciona la tecla se llame como se llame en cada maquina.
 	var tecla := event as InputEventKey
 	if tecla.keycode == KEY_SEMICOLON or tecla.unicode == 241 or tecla.unicode == 209:
-		_dev_informe()
-		return
-	match tecla.keycode:
-		KEY_U:
-			actualizar_estado()
-		KEY_H:
-			player_current_hp = -1  # se rellena a tope en el proximo combate
-			player_current_mp = -1  # y el mana
-			print("[dev] Vida y mana al 100%")
-		KEY_R:
-			print("[dev] Respawn: recargando la mazmorra")
-			_dev_cambiar_escena("")
-		KEY_T:
-			print("[dev] Arena de pruebas (sandbox): escenario vacio + spawner")
-			_dev_cambiar_escena("res://scenes/levels/sandbox.tscn")
-		KEY_P:
-			_dev_test_spawns()
-		KEY_B:
-			_dev_brote()
-		KEY_N:
-			# Salta el reloj 10 min de juego: para probar el respawn de recursos sin esperar.
-			tiempo_mazmorra += 600.0
-			print("[dev] +10 min de reloj de mazmorra (total %.0fs). Recarga el piso (R) para ver el respawn." % tiempo_mazmorra)
+		dev_informe()
+
+
+# --- LO QUE HACIAN LAS TECLAS, ahora con nombre y desde el panel de dev -----------------------
+# Estan sueltas (una funcion por accion) y no dentro de un match para que el panel pueda llamarlas
+# una a una. Ver debug_panel._build_atajos.
+
+# H: vida y mana llenos en el proximo combate.
+func dev_curar() -> void:
+	player_current_hp = -1
+	player_current_mp = -1
+	print("[dev] Vida y mana al 100%")
+
+# R: recarga la sala (los bichos y los nodos vuelven a nacer).
+func dev_respawn() -> void:
+	print("[dev] Respawn: recargando la mazmorra")
+	_dev_cambiar_escena("")
+
+# T: la arena de pruebas.
+func dev_sandbox() -> void:
+	print("[dev] Arena de pruebas (sandbox): escenario vacio + spawner")
+	_dev_cambiar_escena("res://scenes/levels/sandbox.tscn")
+
+# N: salta el reloj 10 min de juego, para probar el respawn de recursos sin esperar.
+func dev_saltar_reloj() -> void:
+	tiempo_mazmorra += 600.0
+	print("[dev] +10 min de reloj de mazmorra (total %.0fs). Recarga el piso para ver el respawn."
+		% tiempo_mazmorra)
 
 
 # Cambio de escena de las teclas de DEV (R recarga, T sandbox). Ruta vacia = recargar.
@@ -10039,7 +10051,7 @@ func _dev_cambiar_escena(ruta: String) -> void:
 # Ñ: el INFORME de la partida entera al log y a un fichero (ver Informe). Es la herramienta de
 # diagnostico: ante un "he jugado dos horas y no me sube nada", se pulsa antes y despues y se
 # comparan los dos ficheros, en vez de deducir los numeros leyendo codigo.
-func _dev_informe() -> void:
+func dev_informe() -> void:
 	var ruta: String = Informe.volcar()
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
@@ -10049,7 +10061,7 @@ func _dev_informe() -> void:
 # --- PRUEBAS del sistema de spawns ---
 # P: tira 200 veces la tabla del piso y cuenta que sale. Valida en un segundo que el
 # venenoso cae ~1/10 y el de fuego ~1/50, sin jugarte una hora esperando partos.
-func _dev_test_spawns() -> void:
+func dev_test_spawns() -> void:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso != null and piso.has_method("test_proporciones"):
 		piso.test_proporciones(200)
@@ -10057,7 +10069,7 @@ func _dev_test_spawns() -> void:
 
 # B: fuerza un BROTE en la zona donde estas (el sistema esta apagado en juego; esto es
 # para poder verlo). Sale por la pared mas cercana que no tengas encima.
-func _dev_brote() -> void:
+func dev_brote() -> void:
 	# Solo quien SIMULA el piso puede parir bichos. Pulsada desde un espejo, el aviso de pared se
 	# pintaba en todas las pantallas y luego no nacia nada (el gate esta en dungeon_floor.hay_sitio):
 	# un brote fantasma que hacia perder el tiempo buscando el bug donde no estaba.

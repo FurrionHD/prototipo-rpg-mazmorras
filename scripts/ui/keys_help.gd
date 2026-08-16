@@ -8,15 +8,11 @@
 extends CanvasLayer
 
 const DEBUG_KEYS := [
-	["U", "Recalcular stats visibles"],
-	["H", "Curar vida y maná al 100%"],
-	["R", "Respawn (recargar la sala)"],
-	["T", "Arena de pruebas (sandbox vacío + spawner)"],
-	["P", "FUERA del combate: tirar 200 veces la tabla de spawns y contar (consola)"],
-	["B", "Forzar un brote en la zona más cercana"],
-	["N", "+10 min al reloj de mazmorra (probar respawn de recursos)"],
-	["DEBUG", "Botón abajo-izq: panel (stats, enemigo, armas,"],
-	["", "armadura, piso, MUÑECO DPS/pegador, mejoras)"],
+	["Ñ", "Informe de la partida al log y a un fichero (solo lee)"],
+	["DEBUG", "Icono de consola (arriba-der): panel de dev. ATAJOS (consolidar,"],
+	["", "curar, respawn, sandbox, brote, tabla de spawns, +10 min),"],
+	["", "stats, enemigo, armas, armadura, piso, MUÑECO DPS, mejoras"],
+	["", "Las viejas U/H/R/T/P/B/N ya NO son teclas: están ahí dentro."],
 	["Spawner", "En la sandbox: clic izq coloca enemigo / der quita"],
 ]
 const CONTROLS := [
