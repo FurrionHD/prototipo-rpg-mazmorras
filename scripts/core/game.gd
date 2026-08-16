@@ -4138,6 +4138,54 @@ func durabilidad_color(item: Resource) -> Color:
 		return Color(0.95, 0.75, 0.30)   # ambar: gastada
 	return Color(0.55, 0.80, 0.55)       # verde: bien
 
+# --- LAS DOS ESCALERAS DE COLOR DEL HUD -------------------------------------------------------
+# Las dos cuentan lo mismo -"como de mal vas"- y por eso acaban las dos en rojo, pero recorren el
+# camino al reves: la mochila se LLENA (blanco vacio -> rojo a tope) y el equipo se GASTA (blanco
+# nuevo -> rojo roto). Van juntas aqui para que nadie las separe.
+#
+# Son APARTE de durabilidad_color (arriba) a proposito: aquella tiñe TEXTO en los menus, donde
+# verde/ambar/rojo es la convencion de toda la vida y un texto blanco no diria nada. Estas tiñen un
+# DIBUJO, y ahi el blanco es justo lo que lee como "metal sano".
+
+# Interpola entre paradas [[x, Color], ...] ORDENADAS por x. Fuera de rango, se queda en el extremo.
+func _rampa(paradas: Array, x: float) -> Color:
+	if paradas.is_empty():
+		return Color.WHITE
+	if x <= float(paradas[0][0]):
+		return paradas[0][1]
+	for i in range(1, paradas.size()):
+		var x0: float = float(paradas[i - 1][0])
+		var x1: float = float(paradas[i][0])
+		if x <= x1:
+			var t: float = 0.0 if x1 <= x0 else (x - x0) / (x1 - x0)
+			return (paradas[i - 1][1] as Color).lerp(paradas[i][1] as Color, t)
+	return paradas[paradas.size() - 1][1]
+
+# CARGA de la mochila: blanco vacio -> amarillo a media -> naranja oscuro al empezar a ir lento ->
+# rojo a tope -> rojo oscuro cuando ya vas al minimo de velocidad.
+#
+# Los dos ultimos escalones NO son numeros inventados: son overload_threshold (donde empiezas a ir
+# lento) y overload_threshold + overload_rango (donde tocas el suelo de velocidad, ver
+# overload_speed_factor). Se leen de ahi para que tocar el balance mueva tambien el color.
+func color_carga(ratio: float) -> Color:
+	return _rampa([
+		[0.0, Color(0.95, 0.95, 0.95)],                      # vacio: blanco
+		[0.5, Color(0.95, 0.85, 0.20)],                      # medio: amarillo
+		[overload_threshold, Color(0.90, 0.45, 0.10)],       # 90%: naranja oscuro (ya vas lento)
+		[1.0, Color(0.85, 0.15, 0.15)],                      # lleno: rojo
+		[overload_threshold + overload_rango, Color(0.45, 0.05, 0.05)],   # 110%: rojo oscuro
+	], ratio)
+
+# DESGASTE de una pieza: entera es blanca y rota es roja (justo al reves que la mochila).
+func color_desgaste(frac: float) -> Color:
+	return _rampa([
+		[0.0, Color(0.85, 0.15, 0.15)],     # rota: rojo
+		[0.25, Color(0.90, 0.45, 0.10)],    # naranja
+		[0.5, Color(0.95, 0.85, 0.20)],     # amarillo
+		[1.0, Color(0.95, 0.95, 0.95)],     # entera: blanco
+	], clampf(frac, 0.0, 1.0))
+
+
 # Multiplicador de rendimiento por desgaste (daño del arma / proteccion de la pieza).
 # Gastada: rampa lineal con TOPE PENAL_MAX. Rota (frac<=0): acantilado a 1-PENAL_ROTO.
 func durabilidad_mult(frac: float) -> float:

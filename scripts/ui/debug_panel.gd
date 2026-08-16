@@ -96,7 +96,7 @@ func _ready() -> void:
 	_panel = PanelContainer.new()
 	_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	_panel.offset_right = -Hud.ICONO_MARGEN - Tactil.borde.x
-	_panel.offset_top = Hud.ICONO_MARGEN + Tactil.borde.y + Hud.ICONO_LADO + 8.0
+	_panel.offset_top = Hud.ICONO_MARGEN + Tactil.borde.y + Hud.icono_lado() + 8.0
 	_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_panel.grow_vertical = Control.GROW_DIRECTION_END
 	_panel.visible = false

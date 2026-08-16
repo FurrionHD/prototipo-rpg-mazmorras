@@ -18,8 +18,13 @@ extends CanvasLayer
 class_name Hud
 
 var _counts: Label = null
-var _peso_box: ColorRect = null # cuadrado (placeholder de bolsa) a la derecha de las barras
-var _peso_lbl: Label = null     # numero de peso encima del cuadrado
+var _peso_box: CuadroCarga = null # la mochila (deposito con agua) a la derecha de las barras
+var _peso_lbl: Label = null       # numero de peso encima del deposito
+# El deposito es CUADRADO y ocupa el alto entero de la tarjeta (de la linea del nombre al fondo del
+# bloque, lo mismo que el cuadro de equipo de cada personaje): asi la fila de arriba queda cuadrada
+# por abajo y la mochila se ve desde lejos, que es lo suyo para algo que miras de reojo andando.
+const LADO_MOCHILA := 89.0
+const ALTO_MOCHILA := LADO_MOCHILA
 # La caja de ayudas de teclas. Va debajo de las barras y no se mueve, pero se guarda por si algun
 # dia hay que recolocarla como al cuadrado del peso.
 var _caja_ayudas: PanelContainer = null
@@ -72,18 +77,21 @@ func _ready() -> void:
 	# y tenerlos ademas pegados en pantalla era repetirlos por repetirlos.
 	_montar_botonera()
 
-	# Cuadrado de PESO (placeholder de una futura bolsa/mochila) a la derecha de las
-	# barras, con el numero encima. Cambia de color segun te vas cargando.
-	_peso_box = ColorRect.new()
+	# LA MOCHILA, a la derecha de las barras: un deposito que se llena de abajo arriba con el agua
+	# meciendose, y el numero encima. Era un cuadrado plano que solo cambiaba de color, o sea que
+	# decia "vas cargado" pero no cuanto. Ver cuadro_carga.gd.
+	_peso_box = CuadroCarga.new()
 	_peso_box.position = Vector2(200, 16)
-	_peso_box.size = Vector2(44, 44)
+	_peso_box.size = Vector2(LADO_MOCHILA, ALTO_MOCHILA)
 	add_child(_peso_box)
 
 	_peso_lbl = Label.new()
 	_peso_lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_peso_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_peso_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_peso_lbl.add_theme_font_size_override("font_size", 11)
+	# ARRIBA y no centrado: el agua sube desde abajo, y un numero en mitad del vaso acaba tapado por
+	# ella justo cuando mas importa (cargado hasta arriba).
+	_peso_lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_peso_lbl.add_theme_font_size_override("font_size", 13)
 	_peso_lbl.add_theme_color_override("font_color", Color.WHITE)
 	_peso_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	_peso_lbl.add_theme_constant_override("outline_size", 4)
@@ -134,17 +142,26 @@ func _ready() -> void:
 # el dia que una columna cambie de ancho.
 func recolocar() -> void:
 	var jugador: Node = get_tree().get_first_node_in_group("player")
+	# La fila del grupo se ENCOGE cuando no cabe (ver player.escala_fila): la mochila va detras de
+	# la ultima columna, asi que tiene que encogerse y moverse con ellas o se despegaria de la fila.
+	var f: float = 1.0
+	if jugador != null and jugador.has_method("escala_fila"):
+		f = jugador.escala_fila()
 	if _peso_box != null:
 		var x: float = 200.0   # sin jugador (no deberia pasar): donde estaba de siempre
 		if jugador != null:
 			x = jugador.x_columna(Game.party.size()) + 4.0
-		_peso_box.position = Vector2(x, jugador.Y_HP if jugador != null else 16.0)
+		_peso_box.scale = Vector2(f, f)
+		# Arranca en la linea del NOMBRE (no en la primera barra): asi el deposito cubre el alto
+		# entero del bloque y la fila queda cuadrada por arriba y por abajo.
+		var y0: float = (jugador.Y_NOMBRE + Tactil.borde.y) if jugador != null else 16.0
+		_peso_box.position = Vector2(x * f, y0 * f)
 	# Y la caja de ayudas, justo debajo del bloque de barras. Va aqui y no con una y fija porque
 	# el bloque crecio al meterle el nombre encima: con la 64 de antes se solapaban.
 	if _caja_ayudas != null:
 		var y: float = 64.0
 		if jugador != null:
-			y = float(jugador.ALTO_BLOQUE) + 6.0
+			y = float(jugador.ALTO_BLOQUE) * f + 6.0
 		_caja_ayudas.position = Vector2(8, y)
 
 
@@ -394,12 +411,30 @@ func _fondo_negro() -> StyleBoxFlat:
 #  no habia mas via que las teclas: quien no se las supiera de memoria no tenia por donde entrar a
 #  su ficha o al mapa. Las teclas siguen igual, y su chuleta tambien (esa si es solo de PC).
 #
-#  Los cinco con sus huecos ocupan ~390 px de los 1280: no llegan a chocar con las tarjetas del
-#  grupo, que con cuatro miembros acaban en el 764 (ver player.x_columna).
+#  En ESCRITORIO son mas pequeños que con los dedos: los 72 px son la talla de un objetivo tactil
+#  (~7 mm, lo que acierta un pulgar de verdad), pero con raton se apunta al pixel y ahi ese tamaño
+#  solo come pantalla. Con 46 la fila entera ocupa ~290 px en vez de ~390.
+#
+#  Y aunque ocupen menos, la fila de tarjetas del grupo NO depende de que quepan por suerte: se
+#  encoge sola hasta caber en el hueco que dejan estos (ver player.escala_fila). Por eso hace falta
+#  ancho_botonera(): es el contrato entre los dos, y asi no pueden solaparse en ninguna resolucion.
 # ============================================================
-const ICONO_LADO := 72.0
-const ICONO_SEP := 10.0
+const ICONO_LADO_TACTIL := 72.0
+const ICONO_LADO_RATON := 46.0
+const ICONO_SEP := 8.0
 const ICONO_MARGEN := 12.0
+const ICONOS_N := 5   # cuantos botones hay en la fila (debug, ficha, bolsa, mapa, pausa)
+
+# El lado que toca en este aparato. Es funcion y no constante porque depende de Tactil; quien lo
+# necesite fuera (el panel de dev se coloca justo debajo) lo pide por aqui.
+static func icono_lado() -> float:
+	return ICONO_LADO_TACTIL if Tactil.activo else ICONO_LADO_RATON
+
+# Lo que ocupa la botonera de ancho, con sus huecos y su margen. Lo usa el reparto de la fila de
+# arriba para saber cuanto sitio le queda al grupo (ver player.escala_fila).
+static func ancho_botonera() -> float:
+	return icono_lado() * float(ICONOS_N) + ICONO_SEP * float(ICONOS_N - 1) \
+		+ ICONO_MARGEN * 2.0 + Tactil.borde.x
 
 
 func _montar_botonera() -> void:
@@ -412,6 +447,7 @@ func _montar_botonera() -> void:
 	fila.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	fila.add_theme_constant_override("separation", ICONO_SEP)
 	add_child(fila)
+	var ICONO_LADO: float = icono_lado()
 
 	# El DEBUG va el PRIMERO (a la izquierda del todo): asi los cuatro de siempre no se mueven de
 	# sitio y el engranaje sigue siendo el de la esquina. Antes era un boton de texto suelto abajo a
@@ -446,15 +482,11 @@ func _process(_delta: float) -> void:
 	if not Tactil.activo:
 		_counts.text = "[F] Interactuar   [I] Inventario   [C] Personaje   [Q] Curación óptima\n[F1] Ayuda   [F3] FPS   [Esc] Pausa"
 
-	# Cuadrado de PESO: numero encima y color por ratio de carga.
-	# Blanco/gris cuando vas ligero -> amarillo al acercarte al limite -> rojo sobrecargado.
+	# LA MOCHILA: el numero encima, y el nivel + el color del agua los pinta ella sola con el ratio
+	# de carga (ver cuadro_carga.gd y Game.color_carga).
 	_peso_lbl.text = "%d/%d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
-	var ratio: float = Game.ratio_carga()
-	var col: Color
-	if Game.esta_sobrecargado():
-		col = Color(0.85, 0.15, 0.15)  # rojo pleno
-	else:
-		# 0..overload_threshold -> gris a amarillo.
-		var t: float = clampf(ratio / maxf(0.01, Game.overload_threshold), 0.0, 1.0)
-		col = Color(0.35, 0.35, 0.38).lerp(Color(0.9, 0.8, 0.1), t)
-	_peso_box.color = col
+	_peso_box.ratio = Game.ratio_carga()
+	_peso_box.tooltip_text = "Carga %d/%d  (%d%%)%s" % [
+		roundi(Game.peso_actual()), roundi(Game.capacidad_carga()),
+		roundi(_peso_box.ratio * 100.0),
+		"\nVas SOBRECARGADO: andas más lento." if Game.esta_sobrecargado() else ""]

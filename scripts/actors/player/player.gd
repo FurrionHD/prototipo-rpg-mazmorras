@@ -648,8 +648,18 @@ func _firma_imbue() -> Array:
 #  publicas: el HUD las lee para saber donde acaba la fila (ver hud.recolocar).
 # ============================================================
 const X_COL_BARRAS := 12.0    # donde empieza tu columna (misma sangria que siempre)
-const ANCHO_COL := 180.0      # lo que mide una columna: el ancho de tus barras de toda la vida
+const ANCHO_COL := 200.0      # lo que mide una columna ENTERA (barras + cuadro de equipo)
 const SEP_COL := 8.0          # aire entre una columna y la siguiente
+# EL CUADRO DE EQUIPO, a la derecha de las tres barras de cada uno (ver cuadro_equipo.gd). Las
+# barras se encogen para dejarle sitio DENTRO de la columna, asi que la fila sigue siendo una fila
+# de columnas iguales y la mochila se coloca detras sola.
+#
+# Ocupa el ALTO ENTERO de la tarjeta (del nombre al fondo de los chips) y no solo el de las tres
+# barras: con 50 px de alto los cubitos de un arma salian de 3 px y no habia quien distinguiera una
+# daga de un estoque. El alto es lo que de verdad manda en lo que se lee.
+const LADO_EQUIPO := 68.0
+const SEP_EQUIPO := 6.0
+const ANCHO_BARRA := ANCHO_COL - LADO_EQUIPO - SEP_EQUIPO
 # El NOMBRE va encima de las tres barras, y por eso todo el bloque baja: con las barras pegadas
 # al borde de arriba (y=12, como estaban cuando no habia grupo) el nombre se salia de la pantalla.
 const Y_NOMBRE := 4.0
@@ -743,13 +753,23 @@ func _rehacer_barras() -> void:
 		var mp: ProgressBar = _barra_col(raiz, Y_MP, ALTO_MP, Color(0.4, 0.6, 1.0))
 		var mp_lbl: Label = _crear_label_barra(mp)
 
+		# EL CUADRO DE EQUIPO, pegado a la derecha de las tres barras y con su mismo alto (de la de
+		# vida al fondo de la de mana). Alterna solo entre armadura y armas; ver cuadro_equipo.gd.
+		var equipo := CuadroEquipo.new()
+		equipo.pj = pj
+		equipo.position = Vector2(ANCHO_BARRA + SEP_EQUIPO, Y_NOMBRE)
+		equipo.size = Vector2(LADO_EQUIPO, ALTO_BLOQUE - Y_NOMBRE)
+		raiz.add_child(equipo)
+
 		# Los ESTADOS que lleva puestos, en una fila de CHIPS debajo de las barras. Los estados duran
 		# fuera del combate (el veneno sigue corriendo, el Pegajoso te frena, el plato de cocina dura
 		# 20 minutos), asi que hace falta poder verlos sin abrir nada: si no, la vida baja sola y no
 		# hay forma de saber por que.
 		var estados := HBoxContainer.new()
 		estados.position = Vector2(0, Y_ESTADOS)
-		estados.size = Vector2(ANCHO_COL, ALTO_ESTADOS)
+		# Solo hasta donde llegan las barras: a la derecha esta el cuadro de equipo, que ocupa el
+		# alto entero de la tarjeta, y los chips se le meterian debajo.
+		estados.size = Vector2(ANCHO_BARRA, ALTO_ESTADOS)
 		estados.add_theme_constant_override("separation", 3)
 		estados.clip_contents = true
 		# La FILA no atrapa el toque (asi el hueco entre chips sigue cambiando de lider); los chips que
@@ -760,16 +780,19 @@ func _rehacer_barras() -> void:
 		# La FIRMA de lo que hay pintado ahora mismo. _refrescar_barras corre en CADA frame y los
 		# chips son nodos: sin esto se reconstruirian sesenta veces por segundo para pintar lo mismo.
 		_barras.append({"pj": pj, "raiz": raiz, "nombre": nombre, "hp": hp, "hp_lbl": hp_lbl,
-			"en": en, "en_lbl": en_lbl, "mp": mp, "mp_lbl": mp_lbl,
+			"en": en, "en_lbl": en_lbl, "mp": mp, "mp_lbl": mp_lbl, "equipo": equipo,
 			"estados": estados, "estados_firma": ""})
+
+	# La fila acaba de cambiar de ancho (un companero mas o uno menos): puede que ya no quepa.
+	_ajustar_escala_fila()
 
 
 # Una barra de una columna (mismo ancho para las tres, solo cambian el alto y el color).
 func _barra_col(raiz: Control, y: float, alto: float, color: Color) -> ProgressBar:
 	var b := ProgressBar.new()
 	b.show_percentage = false
-	b.custom_minimum_size = Vector2(ANCHO_COL, alto)
-	b.size = Vector2(ANCHO_COL, alto)
+	b.custom_minimum_size = Vector2(ANCHO_BARRA, alto)
+	b.size = Vector2(ANCHO_BARRA, alto)
 	b.position = Vector2(0, y)
 	b.self_modulate = color
 	# UNA BARRA NO SE PULSA: se deja pasar el toque a la tarjeta, que es la que cambia de lider. Un
@@ -1482,6 +1505,49 @@ func _crear_capa_barras() -> void:
 	layer.layer = 10
 	add_child(layer)
 	_barras_layer = layer
+	# LA FILA SE AJUSTA A LA VENTANA. Con cuatro companeros la fila mide ~850 px, asi que en una
+	# ventana pequeña se metia debajo de la botonera y se solapaba todo. En vez de recortar lo que
+	# se enseña, la fila entera se ENCOGE hasta caber: se ve mas pequeña, pero se ve TODA y no pisa
+	# nada. Hay que rehacerlo cada vez que cambia el tamaño de la ventana.
+	get_viewport().size_changed.connect(_ajustar_escala_fila)
+
+
+# Cuanto hay que encoger la fila del grupo para que quepa entre el borde izquierdo y la botonera.
+# 1.0 = cabe entera. Nunca agranda (no tiene sentido inflar la interfaz en un monitor grande).
+#
+# OJO CON LAS UNIDADES: el proyecto estira por 'canvas_items' con aspecto 'expand', asi que el ancho
+# LOGICO nunca baja de los 1280 de referencia —el motor ya encoge la ventana entera por su cuenta—
+# y aqui se mide en logico. O sea que esto NO salta por cambiar de resolucion, salta por el TAMAÑO
+# DEL GRUPO, que es lo que de verdad hacia desbordar la fila: con cuatro companeros y los botones
+# grandes de antes, la fila pedia 1280 justos y las tarjetas se metian debajo de la botonera.
+#
+# Hoy, con PARTY_MAX = 4 y los botones de escritorio, la fila pide ~1227 de 1280: cabe, y esto se
+# queda de RED DE SEGURIDAD para el dia que crezca el grupo, la columna o la botonera. El suelo es
+# bajo a proposito: entre "se lee pequeño" y "se solapa", lo segundo no es aceptable.
+const ESCALA_FILA_MIN := 0.35
+
+func escala_fila() -> float:
+	var vp: Viewport = get_viewport()
+	if vp == null:
+		return 1.0
+	var disponible: float = float(vp.get_visible_rect().size.x) - Hud.ancho_botonera() - X_COL_BARRAS
+	# Lo que ocupa TODO: una columna por miembro del grupo mas la mochila del HUD detras.
+	var necesario: float = x_columna(maxi(Game.party.size(), 1)) + Hud.LADO_MOCHILA + 8.0
+	if necesario <= 0.0:
+		return 1.0
+	return clampf(disponible / necesario, ESCALA_FILA_MIN, 1.0)
+
+
+# Aplica esa escala a la capa de barras y le pide al HUD que recoloque la mochila, que va detras de
+# la ultima columna y tiene que encogerse con ellas.
+func _ajustar_escala_fila() -> void:
+	if _barras_layer == null:
+		return
+	var f: float = escala_fila()
+	_barras_layer.scale = Vector2(f, f)
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("recolocar"):
+		hud.recolocar()
 
 
 # Crea un Label centrado que cubre toda la barra, para pintar el numero DENTRO.
@@ -1539,6 +1605,11 @@ func _refrescar_barras() -> void:
 		# cuando de verdad cambia algo, o serian sesenta reconstrucciones por segundo para pintar lo
 		# mismo. Los estados solo cambian cada SEG_POR_TURNO_FUERA, asi que casi siempre no hay nada
 		# que hacer aqui.
+		# El cuadro de equipo (armadura / armas y su desgaste). Se refresca con el mismo criterio que
+		# los chips: el se guarda su propia firma y solo se repinta si algo ha cambiado de verdad.
+		var eq = fila.get("equipo")
+		if eq != null and is_instance_valid(eq):
+			eq.refrescar()
 		var caja: HBoxContainer = fila["estados"]
 		var firma: String = Game.etiqueta_estados(pj)
 		if firma != String(fila["estados_firma"]):
