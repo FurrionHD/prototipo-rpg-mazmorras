@@ -646,6 +646,9 @@ func _on_mat_cat_changed(idx: int) -> void:
 
 
 func _on_add_materiales() -> void:
+	# apply() ANTES de leer: lo tecleado en un SpinBox no llega a .value hasta que se confirma, y
+	# pulsar el boton no lo confirma (mismo fallo que tenia el modal de soltar del inventario).
+	_mat_cantidad_spin.apply()
 	var n: int = int(_mat_cantidad_spin.value)
 	var cat_idx: int = _mat_cat_opt.get_selected_id()
 	if cat_idx < 0 or cat_idx >= _mat_cats.size():

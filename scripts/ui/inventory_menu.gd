@@ -803,6 +803,10 @@ func _abrir_modal_cantidad(maximo: int) -> void:
 	_modal_spin.step = 1
 	_modal_spin.value = 1
 	vb.add_child(_modal_spin)
+	# ENTER confirma, sin tener que ir a buscar el boton con el raton. Y el foco entra ya en la
+	# caja: se abre el modal, se teclea el numero y se pulsa Enter.
+	_modal_spin.get_line_edit().text_submitted.connect(func(_t): _modal_aceptar())
+	_modal_spin.get_line_edit().call_deferred("grab_focus")
 
 	var acciones := HBoxContainer.new()
 	acciones.add_theme_constant_override("separation", 8)
@@ -810,6 +814,13 @@ func _abrir_modal_cantidad(maximo: int) -> void:
 	ok.text = "Soltar"
 	ok.pressed.connect(_modal_aceptar)
 	acciones.add_child(ok)
+	# El caso mas comun -y el que mas cansa de uno en uno- es vaciar el monton entero.
+	var todo := Button.new()
+	todo.text = "Todo (%d)" % maximo
+	todo.pressed.connect(func():
+		_cerrar_modal()
+		_confirmar_soltar(maximo))
+	acciones.add_child(todo)
 	var ca := Button.new()
 	ca.text = "Cancelar"
 	ca.pressed.connect(_cancelar_modal)
@@ -817,8 +828,15 @@ func _abrir_modal_cantidad(maximo: int) -> void:
 	vb.add_child(acciones)
 
 
+# OJO CON EL SpinBox: lo que TECLEAS no llega a .value hasta que se confirma el texto (Enter o
+# perder el foco), y pulsar el boton con el raton no lo confirmaba. O sea que escribias 10, dabas a
+# "Soltar" y se soltaba UNA: .value seguia siendo el 1 de partida. apply() vuelca el texto de la
+# caja al valor, y por eso va ANTES de leerlo. Medido con dev_soltar.gd (16/08/2026).
 func _modal_aceptar() -> void:
-	var cant: int = int(_modal_spin.value) if _modal_spin != null else 1
+	var cant: int = 1
+	if _modal_spin != null:
+		_modal_spin.apply()
+		cant = int(_modal_spin.value)
 	_cerrar_modal()
 	_confirmar_soltar(cant)
 
