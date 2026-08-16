@@ -762,8 +762,11 @@ func estado_para_traspaso(nuevo: int) -> Dictionary:
 			# El tercer campo es A QUIEN va (indice en _aliados; -1 = a si mismo): un conjuro de
 			# los que caen sobre un aliado dura 2-3 turnos y puede pillar el traspaso a medias.
 			var dest = _casteos[c].get("aliado")
+			# El CUARTO es 'pagado' (el conjuro que alguien se trajo ya recitado del mapa): sin el, al
+			# cambiar de anfitrion se le volveria a cobrar el maná al soltarlo.
 			fila["casteo"] = [String((_casteos[c]["spell"] as SpellData).resource_path),
-				int(_casteos[c]["idx"]), _aliados.find(dest) if dest != null else -1]
+				int(_casteos[c]["idx"]), _aliados.find(dest) if dest != null else -1,
+				bool(_casteos[c].get("pagado", false))]
 		als.append(fila)
 	var ens: Array = []
 	for i in _enemies.size():
@@ -801,7 +804,8 @@ func retomar(estado: Dictionary, cs: Array, filas_e: Array) -> void:
 				var cst: Array = fila["casteo"]
 				var idest: int = int(cst[2]) if cst.size() > 2 else -1
 				_casteos[c] = {"spell": sp, "idx": int(cst[1]),
-					"aliado": _aliados[idest] if idest >= 0 and idest < _aliados.size() else null}
+					"aliado": _aliados[idest] if idest >= 0 and idest < _aliados.size() else null,
+					"pagado": bool(cst[3]) if cst.size() > 3 else false}
 	for i in mini(_enemies.size(), filas_e.size()):
 		var e: Combatant = _enemies[i]
 		_aplicar_volatil(e, filas_e[i].get("vol", {}))
@@ -3619,19 +3623,25 @@ func _disparar_hechizo() -> void:
 		_responder_al_anfitrion({"tipo": "disparar", "obj": _target_idx})
 		return
 	var spell := _cast_spell
+	# ¿ESTE YA ESTABA PAGADO? Lo esta el conjuro que alguien recito en el MAPA y se trajo al unirse a
+	# esta pelea: casteo_mapa cobra el maná antes del impacto (ver Game.casteo_para_viajar). Cobrarlo
+	# otra vez aqui seria pagarlo dos veces, y si no le llegara, encima le tiraria el conjuro por la
+	# rama de "se le deshace".
+	var ya_pagado: bool = bool((_casteos.get(_player, {}) as Dictionary).get("pagado", false))
 	# AQUI se paga el hechizo (ver _elegir_hechizo): al soltarlo, no al empezar a recitarlo. Se
 	# vuelve a comprobar porque entre la eleccion y este momento han pasado turnos y el mana puede
 	# haber bajado (otro conjuro, un drenaje futuro). Si no llega, el conjuro se disipa sin daño y
 	# sin cobrar: no se puede lanzar lo que no se puede pagar.
 	var coste: float = _coste_efectivo(spell)
-	if not _player.has_mana(coste):
-		_set_log("%s se queda sin maná y el conjuro se le deshace. 💨" % _player.nombre)
-		_limpiar_casteo()
-		_update_hp()
-		_fin_de_eleccion()
-		_tras_accion_jugador_varios([])
-		return
-	_player.spend_mana(coste)
+	if not ya_pagado:
+		if not _player.has_mana(coste):
+			_set_log("%s se queda sin maná y el conjuro se le deshace. 💨" % _player.nombre)
+			_limpiar_casteo()
+			_update_hp()
+			_fin_de_eleccion()
+			_tras_accion_jugador_varios([])
+			return
+		_player.spend_mana(coste)
 	# Objetivo PRINCIPAL, capturado una vez, como en el resto de acciones (ver _usar_habilidad).
 	# El area y los rebotes salen de el; y el sigue siendo el que cuenta para la Excelia y el DPS.
 	var obj: Combatant = _objetivo()
@@ -3753,6 +3763,36 @@ func retomar_canto(spell: SpellData, idx_frase: int, idx_lanzador: int) -> void:
 	_set_log("🔮 %s sigue recitando %s (frase %d/%d)." % [
 		quien.nombre, spell.nombre, frase + 1, spell.longitud()])
 	_update_hp()   # repinta el chip del conjuro en su bloque
+
+
+# EL CONJURO QUE TRAE EL QUE SE UNE A MI PELEA. Hermana de retomar_canto, pero para un aliado que
+# entra a mitad desde OTRA maquina: su nota de casteo no puede soltarse en su pantalla (alli solo hay
+# un espejo), asi que viaja con la ficha y se siembra aqui, sobre su doble.
+#
+# A partir de ahi no hace falta nada mas: el flujo de turnos de siempre ve _casteos puesto y le saca
+# el examen de su frase o el disparo, y como su dueño es remoto se lo pide a EL (ver _mostrar_test /
+# _mostrar_disparo). Sin esto, el que se metia a ayudar con un conjuro cantado lo perdia.
+#
+# 'frase' == longitud() significa YA TERMINADO (es lo que mira _begin_player_turn para ir al
+# disparo). Por eso el clamp llega hasta longitud() INCLUSIVE, al reves que en retomar_canto.
+func aplicar_casteo_entrante(idx_aliado: int, d: Dictionary) -> void:
+	if _espejo or idx_aliado < 0 or idx_aliado >= _aliados.size():
+		return
+	var sp: SpellData = load(String(d.get("ruta", ""))) as SpellData
+	if sp == null:
+		return
+	var quien: Combatant = _aliados[idx_aliado]
+	var frase: int = clampi(int(d.get("frase", 0)), 0, sp.longitud())
+	# 'pagado' = el maná se gasto YA, fuera, al recitarlo en el mapa (casteo_mapa lo cobra antes del
+	# impacto). Sin esta marca, _disparar_hechizo se lo volveria a cobrar aqui.
+	_casteos[quien] = {"spell": sp, "idx": frase, "aliado": null,
+		"pagado": bool(d.get("pagado", false))}
+	if frase >= sp.longitud():
+		_set_log("✨ %s entra con %s ya recitado." % [quien.nombre, sp.nombre])
+	else:
+		_set_log("🔮 %s entra recitando %s (frase %d/%d)." % [
+			quien.nombre, sp.nombre, frase + 1, sp.longitud()])
+	_update_hp()   # pinta ya el chip 🔮 de su bloque
 
 
 # EL CONJURO CON EL QUE ABRES LA PELEA. Lo has recitado en el mapa (casteo_mapa.gd), ha impactado, y

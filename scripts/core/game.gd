@@ -4451,6 +4451,68 @@ func _soltar_hechizo_de_entrada(combat: Node, pj: PersonajeData) -> void:
 	combat.hechizo_de_entrada(nota.get("spell"), idx, idx_lanza)
 
 
+# --- EL CONJURO QUE TE LLEVAS A LA PELEA DE OTRO ----------------------------------------------
+#
+# Las dos notas de arriba solo saben soltarse en una pelea QUE SE EJECUTA AQUI. Cuando te UNES a la
+# de un compañero, la pelea corre en SU maquina y tu abres un espejo, asi que no habia donde
+# soltarlas: el conjuro que acababas de cantar se disipaba a los 5 s (con el maná devuelto) y el
+# canto a medias se quedaba colgado. Recitabas, te metias a ayudar, y el trabajo se perdia.
+#
+# Ahora la nota VIAJA con la ficha y el anfitrion la siembra en el doble (combat.aplicar_casteo_
+# entrante). El flujo de turnos de siempre hace el resto: al llegar tu turno te saldra el disparo
+# (o la frase por la que ibas), pedido a TU pantalla porque el doble es tuyo.
+var _casteo_en_vuelo: Dictionary = {}
+
+# Lo que se lleva ese personaje, si lleva algo. CONSUME la nota: dejarla apuntada haria que
+# tick_hechizo_de_entrada devolviera el maná de un conjuro que SI ha entrado en la pelea.
+#   {"ruta": String, "frase": int, "pagado": bool}
+#   pagado=true  -> venia YA TERMINADO del mapa, y su maná se gasto en casteo_mapa
+#   pagado=false -> canto a medias: el maná se cobra al soltarlo, como siempre
+# OJO: NO limpia _casteo_en_vuelo al entrar. Se llama en bucle, una vez por personaje del grupo, y
+# solo UNO puede traer nota; si limpiara aqui, la llamada del segundo (que devuelve {}) borraria la
+# del primero y ya no habria nada que devolver si la union se deniega. Lo limpia quien abre el
+# viaje: Net.solicitar_unirse (ver soltar_casteo_en_vuelo).
+func casteo_para_viajar(pj: PersonajeData) -> Dictionary:
+	if not _hechizo_entrada.is_empty() and _hechizo_entrada.get("pj") == pj:
+		var sp: SpellData = _hechizo_entrada.get("spell")
+		if sp != null:
+			_casteo_en_vuelo = {"nota": "entrada", "datos": _hechizo_entrada}
+			_hechizo_entrada = {}
+			_hechizo_entrada_t = 0.0
+			# La frase es la ULTIMA + 1 = "ya esta terminado": es lo que mira combat._begin_player_turn
+			# para ir al disparo en vez de al examen.
+			return {"ruta": sp.resource_path, "frase": sp.longitud(), "pagado": true}
+	if not _canto_a_medias.is_empty() and _canto_a_medias.get("pj") == pj:
+		var sp2: SpellData = _canto_a_medias.get("spell")
+		if sp2 != null:
+			var fr: int = int(_canto_a_medias.get("frase", 0))
+			_casteo_en_vuelo = {"nota": "medias", "datos": _canto_a_medias}
+			_canto_a_medias = {}
+			return {"ruta": sp2.resource_path, "frase": fr, "pagado": false}
+	return {}
+
+
+# La union se denegó: la nota vuelve a su sitio. NO es opcional — para mandarla ya se le corto el
+# canto al jugador, asi que sin esto el conjuro (y su maná) se pierden sin que nadie lo cuente. Con
+# la nota de vuelta, tick_hechizo_de_entrada hace lo de siempre y devuelve el maná a los 5 s.
+func devolver_casteo_en_vuelo() -> void:
+	if _casteo_en_vuelo.is_empty():
+		return
+	var v := _casteo_en_vuelo
+	_casteo_en_vuelo = {}
+	if String(v.get("nota", "")) == "entrada":
+		_hechizo_entrada = v["datos"]
+		_hechizo_entrada_t = HECHIZO_ENTRADA_ESPERA
+	else:
+		_canto_a_medias = v["datos"]
+
+
+# La union salio bien (o se empieza otra): lo que estuviera en vuelo ya no vuelve. Sin esto, una
+# nota vieja de una union denegada podria resucitar en la SIGUIENTE.
+func soltar_casteo_en_vuelo() -> void:
+	_casteo_en_vuelo = {}
+
+
 # ¿Lleva encima un arma MAGICA (bastón en la principal o varita en la secundaria)? Es lo que permite
 # recitar en el mapa. El criterio no se repite: es el mismo _es_arma_magica que usa la forja.
 func lleva_arma_magica(pj: PersonajeData = null) -> bool:

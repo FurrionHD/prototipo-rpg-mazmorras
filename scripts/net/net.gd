@@ -4535,12 +4535,26 @@ func solicitar_unirse(anfitrion: int) -> void:
 		return
 	if anfitrion == multiplayer.get_unique_id():
 		return
+	# EL CANTO SE CORTA AQUI, y no en Game._montar_pantalla_combate como en las demas peleas: alli
+	# seria tarde, la ficha ya habria salido. Interrumpirlo ahora deja player._casteo en null, asi que
+	# el interrumpir_casteo de _montar_pantalla_combate se queda en nada y no lo apunta dos veces.
+	var pnode: Node = get_tree().get_first_node_in_group("player")
+	if pnode != null and pnode.has_method("interrumpir_casteo"):
+		pnode.interrumpir_casteo()
+	Game.soltar_casteo_en_vuelo()   # lo de una union anterior ya no vuelve
 	# Va MI GRUPO ENTERO, en orden de formacion: sin sus fichas el anfitrion no puede tirar los
 	# dados por ellos. Entra lo que quepa (el decide, ver _pedir_unirme); mi pos 1 siempre.
 	_mis_en_pelea = _mi_formacion()
 	var fichas: Array = []
 	for pj in _mis_en_pelea:
-		fichas.append(ficha_a_dict(pj))
+		var f: Dictionary = ficha_a_dict(pj)
+		# Y con el CONJURO que traiga puesto (recitado entero en el mapa, o a medias). Va como una
+		# clave mas DENTRO de la ficha y no como un parametro nuevo del rpc: cambiar la aridad de un
+		# @rpc rompe a cualquier peer con la version anterior, una clave de mas se ignora sola.
+		var cast: Dictionary = Game.casteo_para_viajar(pj)
+		if not cast.is_empty():
+			f["casteo"] = cast
+		fichas.append(f)
 	_pedir_unirme.rpc_id(anfitrion, fichas)
 
 
@@ -4581,7 +4595,13 @@ func _pedir_unirme(fichas: Array) -> void:
 		var suyo: Combatant = Game.combatant_de_pj(doble)
 		if suyo != null and p.has_method("marcar_dueno"):
 			p.marcar_dueno(suyo, quien)
-		idxs.append(p.indice_de_aliado(suyo))
+		var idx_al: int = p.indice_de_aliado(suyo)
+		idxs.append(idx_al)
+		# El conjuro que traia se siembra sobre SU doble. A partir de ahi lo lleva el flujo de turnos
+		# de siempre: al llegarle el turno se le pedira a EL el disparo (o la frase por la que iba).
+		var cast := (f as Dictionary).get("casteo", {}) as Dictionary
+		if not cast.is_empty() and p.has_method("aplicar_casteo_entrante"):
+			p.aplicar_casteo_entrante(idx_al, cast)
 	if p.has_method("esperar_refuerzo"):
 		p.esperar_refuerzo(false)
 	if dobles.is_empty():
@@ -4599,6 +4619,10 @@ func _pedir_unirme(fichas: Array) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _union_denegada(motivo: String = "Esa pelea ya no está disponible.") -> void:
+	# El conjuro que mande con la ficha vuelve a su sitio. NO es opcional: para mandarlo ya le corte
+	# el canto al jugador (ver solicitar_unirse), asi que sin esto el hechizo —y su maná— se pierden
+	# en silencio. Con la nota de vuelta, el camino de siempre le devuelve el maná a los 5 s.
+	Game.devolver_casteo_en_vuelo()
 	# El motivo lo manda el anfitrion: "no existe" y "esta llena" son cosas distintas y el jugador
 	# necesita saber cual de las dos, o se pone a recolocarse pensando que apunta mal.
 	_toast(motivo)
@@ -4613,6 +4637,8 @@ func _union_ok(id: int, roster: Dictionary, idxs: Array) -> void:
 		return
 	if Game.abrir_combate_espejo(roster) == null:
 		return
+	# El conjuro que mande con la ficha ya esta sembrado en mi doble, alli: aqui no vuelve.
+	Game.soltar_casteo_en_vuelo()
 	_pelea_sigo = id
 	_pelea_anfitrion = multiplayer.get_remote_sender_id()
 	_mis_huecos.clear()
