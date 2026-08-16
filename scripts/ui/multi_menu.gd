@@ -653,6 +653,11 @@ func _crear_mi_personaje_en_mundo_ajeno(nombre_mundo: String) -> void:
 			pj.metalico = m
 			pj.color_alpha = tinte
 			pj.imagen = imagen
+			# EL UID, A MANO. Este personaje no pasa por Game.fichar(), que es el unico sitio que lo
+			# pone, asi que salia con uid "" y llegaba asi al mundo del host. Un uid vacio es un
+			# personaje FANTASMA: no se le puede mirar si esta de encargo (uid_de_encargo("") = 0), no
+			# se le encuentra por uid, y en el reparto de la excelia de un encargo aparecia como "?".
+			Game.asegurar_uid(pj)
 			Net.mandar_alta_personaje(pj)
 			_decir("Creando tu personaje en el mundo..."))
 

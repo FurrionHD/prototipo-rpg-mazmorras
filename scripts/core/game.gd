@@ -122,6 +122,7 @@ func fichar(pj: PersonajeData) -> void:
 	if party.size() < mini(PARTY_MAX, Net.cupo_party()):
 		party.append(pj)
 	print("[grupo] ficha %s (plantilla %d, equipo %d)" % [pj.nombre, plantilla.size(), party.size()])
+	Net.marcar_hogar_sucio()   # uno mas en el hogar: entra en el selector de todos
 
 # --- UID: el identificador estable de un personaje (ver personaje_data.gd) ---
 # Formato "identidad-microsegundos-contador". Lleva la identidad delante para que dos personas que
@@ -214,6 +215,9 @@ func meter_en_equipo(pj: PersonajeData) -> bool:
 			or party.size() >= mini(PARTY_MAX, Net.cupo_party()):
 		return false
 	party.append(pj)
+	# EL HOGAR CAMBIA: hay que publicarlo YA, no dentro de 60 s. Si el compañero tenia a este marcado
+	# en el selector de encargos, se le tiene que caer en el acto (ver Net.marcar_hogar_sucio).
+	Net.marcar_hogar_sucio()
 	return true
 
 # EL personaje creado al empezar la partida (es_original). Fallback al lider por si un save
@@ -250,6 +254,7 @@ func sacar_del_equipo(pj: PersonajeData) -> bool:
 	# maxi(...) porque con el equipo ya vacio el tope seria -1 y clampi devolveria -1, que es un
 	# indice sucio que se acabaria serializando en lider_pos.
 	lider_idx = clampi(lider_idx, 0, maxi(0, party.size() - 1))
+	Net.marcar_hogar_sucio()   # vuelve a estar libre: que lo vean todos ya
 	return true
 
 
@@ -2019,6 +2024,9 @@ func _adoptar_mundo_compartido(d: SaveData) -> void:
 		_adoptar_jugador(mio as JugadorData)
 	else:
 		print("[mundo] no tengo personaje en este mundo todavia (identidad ", yo_id, ")")
+	# BACKFILL de uids para los mundos ya guardados: pudieron entrar personajes sin uid antes de que
+	# multi_menu lo pusiera. Sin esto seguirian siendo fantasmas para siempre (ver asegurar_uids).
+	asegurar_uids()
 
 
 # EL INVITADO ADOPTA SU JUGADOR, el que le acaba de mandar el host (ver Net._tu_jugador).
@@ -2150,6 +2158,10 @@ func aplicar_jugador_mundo(jd: JugadorData, semilla: int) -> void:
 	if semilla != 0:
 		semilla_mundo = semilla
 	_adoptar_jugador(jd)
+	# Nadie sin uid. Es la otra mitad del arreglo del personaje fantasma: si el que llega viene de una
+	# version que no lo ponia (o de un mundo guardado de antes), aqui se le pone. Sin esto no se le
+	# podia mandar de encargo ni cobrarle la excelia, y salia como "?" en la lista.
+	asegurar_uids()
 	# El aguante del que arranca sale de SU ficha, como al cargar (ver el final de importar_partida).
 	var l: PersonajeData = lider()
 	_stamina_cargada = l.stamina if l != null else -1.0
@@ -3177,6 +3189,9 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 	for uid in uids:
 		if uid_de_encargo(String(uid)) != 0:
 			return 0
+		# 'party' es la del HOST, asi que esto solo caza a los suyos. La disponibilidad de verdad —la
+		# del equipo de CADA dueño, en vivo— la comprueba Net._motivo_no_disponible antes de llegar
+		# aqui; esto queda como la valla de casa.
 		var pj: PersonajeData = pj_por_uid(String(uid))
 		if pj != null and party.has(pj):
 			return 0
@@ -3196,7 +3211,13 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 
 	var miembros: Array = []
 	for uid in uids:
+		# pj_por_uid solo mira MI plantilla. Para un personaje del compañero devolvia null, y entonces
+		# el miembro se apuntaba con dueño "" y nombre "?" -- y con el dueño vacio, Encargos._dueno_de
+		# no encuentra a quien mandarle la excelia al volver: OCHO HORAS DE TRABAJO PERDIDAS EN
+		# SILENCIO. Con el fallback a jugadores_mundo, el dueño y el nombre salen bien.
 		var pj: PersonajeData = pj_por_uid(String(uid))
+		if pj == null:
+			pj = _pj_en_mundo(String(uid))
 		miembros.append({
 			"dueno": String(pj.dueno) if pj != null else "",
 			"uid": String(uid),

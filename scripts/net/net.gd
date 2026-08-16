@@ -256,6 +256,20 @@ var _cofre_consum_mirror: Dictionary = {}
 # esta lista no podria ni ver a los personajes de su compañero para mandarlos.
 var _encargos_mirror: Array = []
 var _roster_mirror: Array = []
+# SOLO HOST: identidad -> las filas del hogar de ESE jugador, EN VIVO, calculadas por el.
+#
+# Antes las filas de los demas se sacaban de Game.jugadores_mundo, que es una FOTO que solo se
+# refresca con el autoguardado (~60 s). Con eso, el invitado veia sus PROPIOS personajes a traves de
+# una copia rancia del host: si acababa de meter a alguien en su equipo, al compañero le seguia
+# apareciendo libre, y los suyos se le caian del selector por un 'en_equipo' desfasado. Ahora cada
+# uno publica lo suyo, que ademas es lo correcto: Encargos.poder y las stats de efecto dependen del
+# equipo PUESTO, y eso solo lo sabe su dueño.
+var _roster_ajeno: Dictionary = {}
+# Hay que republicar/redifundir el hogar en el proximo frame. Es un FLAG y no un envio directo a
+# proposito: _difundir_hogar -> _set_encargos -> Game.sacar_del_equipo marcaria sucio DENTRO de la
+# recepcion de una difusion, y con envio inmediato eso son dos clientes difundiendose en bucle.
+# Agrupado por frame, meter y sacar a cuatro personas seguidas es UNA sola publicacion.
+var _hogar_sucio: bool = false
 # Baul de MATERIALES: como el crafteo trabaja sobre Game.almacen_materiales, al ser cliente se
 # guarda aparte el mio y se restaura al desconectar (durante la sesion veo/uso el del host).
 var _almacen_solo: Array = []
@@ -302,6 +316,14 @@ func _ready() -> void:
 # posiciones ya resueltas por la fisica del bicho ese frame.
 # El HOST lleva el reloj de la expedicion y decide que vetas/plantas reviven. Ver _barrer_respawns.
 func _process(delta: float) -> void:
+	# EL HOGAR, agrupado por frame (ver _hogar_sucio). Va ARRIBA del todo, antes de los guardias de
+	# host y de expedicion: publicar tu equipo no tiene nada que ver con estar en la mazmorra.
+	if _hogar_sucio:
+		_hogar_sucio = false
+		if _soy_cliente():
+			_mi_hogar.rpc_id(1, _mis_filas_hogar())
+		elif es_host:
+			_difundir_hogar()
 	if not activo or not es_host or not expedicion_abierta:
 		return
 	# El reloj del respawn ya lo mueve Game (tiempo_mazmorra): aqui solo se marca cada cuanto tocar
@@ -416,6 +438,8 @@ func desconectar() -> void:
 	_vetas_ocupadas.clear()
 	_agotados_sesion.clear()
 	_nonces_sesion.clear()
+	_roster_ajeno.clear()
+	_hogar_sucio = false
 	epoca_sesion = 0
 	_bosses_sello.clear()
 	expedicion_abierta = false
@@ -2169,6 +2193,14 @@ func solicitar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofr
 	if _soy_cliente():
 		_pedir_encargo.rpc_id(1, piso, tipos, duracion, uids, cofre_ids, faenas, clases)
 	else:
+		# El host tambien pasa por la aduana: el que se le puede haber ido del selector es un
+		# personaje DEL COMPAÑERO, y eso Game.enviar_encargo no lo sabe mirar (su party es la de aqui).
+		if activo:
+			var motivo: String = _motivo_no_disponible(uids)
+			if not motivo.is_empty():
+				_toast(motivo)
+				_difundir_hogar()
+				return
 		if Game.enviar_encargo(piso, tipos, duracion, uids, cofre_ids, faenas, clases) != 0:
 			_difundir_hogar()
 
@@ -2179,6 +2211,14 @@ func _pedir_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 	if not es_host:
 		return
 	var quien: int = multiplayer.get_remote_sender_id()
+	# ¿SIGUEN LIBRES? El cliente pinta con el roster que le llego, y entre su clic y este RPC su
+	# compañero ha podido meter a ese personaje en su equipo. Se comprueba contra el roster EN VIVO,
+	# que es la unica verdad, y se le redifunde el hogar para que su selector se repinte con ella.
+	var motivo: String = _motivo_no_disponible(uids)
+	if not motivo.is_empty():
+		_aviso_remoto.rpc_id(quien, motivo)
+		_difundir_hogar()
+		return
 	# enviar_encargo revalida la clase contra el equipo real: lo que mande el cliente es una peticion.
 	var id: int = Game.enviar_encargo(piso, tipos, duracion, uids, cofre_ids, faenas, clases)
 	if id == 0:
@@ -2189,6 +2229,27 @@ func _pedir_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 	if not e.is_empty():
 		e["quien_manda"] = _identidad_de_peer(quien)
 	_difundir_hogar()
+
+
+# SOLO HOST: ¿se puede mandar a toda esa gente AHORA? Devuelve "" si si, y si no, el motivo con el
+# nombre del que falla (que es lo que el jugador necesita para entenderlo).
+#
+# Se construye el roster UNA vez y se indexa: es la misma foto para los N uids, asi que no puede
+# contestar que si a uno y que no a otro por haberse movido algo entre medias.
+func _motivo_no_disponible(uids: Array) -> String:
+	var por_uid: Dictionary = {}
+	for f in _construir_roster():
+		por_uid[String((f as Dictionary).get("uid", ""))] = f
+	for u in uids:
+		var fila = por_uid.get(String(u))
+		if fila == null:
+			return "Uno de los elegidos ya no está en el hogar."
+		var d := fila as Dictionary
+		if bool(d.get("en_equipo", false)):
+			return "%s ya no está disponible: lo han metido en su equipo." % String(d.get("nombre", "?"))
+		if bool(d.get("de_encargo", false)):
+			return "%s ya no está disponible: se ha ido de encargo." % String(d.get("nombre", "?"))
+	return ""
 
 
 func solicitar_traer_encargo(id: int) -> void:
@@ -2295,18 +2356,79 @@ func _set_roster_hogar(lista: Array) -> void:
 # esta vacio en su maquina a proposito), asi que sin esto no podria mandar a nadie que no sea suyo.
 func _construir_roster() -> Array:
 	var out: Array = []
-	# Los mios.
+	# Los mios, calculados aqui: mi party es la de verdad.
 	for pj in Game.plantilla:
+		if String(pj.uid).is_empty():
+			push_warning("[hogar] %s no tiene uid: fuera del selector de encargos" % pj.nombre)
+			continue   # sin uid no se le puede mandar ni cobrar: es el personaje fantasma
 		out.append(_fila_roster(pj, Identidad.id, Identidad.nombre))
-	# Y los de los demas, que viven aparcados en jugadores_mundo.
+	# Y los de los demas. Si su dueño esta conectado, sus filas llegan EN VIVO (_roster_ajeno); si no
+	# —desconectado—, se sacan de la foto de jugadores_mundo, que para alguien que no esta jugando es
+	# perfectamente buena.
 	for id in Game.jugadores_mundo:
 		var jd: JugadorData = Game.jugadores_mundo[id]
 		if jd == null:
 			continue
+		if _roster_ajeno.has(id):
+			for f in (_roster_ajeno[id] as Array):
+				var fila: Dictionary = (f as Dictionary).duplicate()
+				# 'de_encargo' lo sella el HOST y solo el: Game.encargos vive aqui, y el dueño no puede
+				# saber si a uno suyo lo ha mandado ya el compañero.
+				fila["de_encargo"] = Game.uid_de_encargo(String(fila.get("uid", ""))) != 0
+				if String(fila.get("dueno_nombre", "")).is_empty():
+					fila["dueno_nombre"] = jd.nombre_visible
+				out.append(fila)
+			continue
 		for pj in jd.personajes:
-			if pj is PersonajeData:
+			if pj is PersonajeData and not String((pj as PersonajeData).uid).is_empty():
 				out.append(_fila_roster(pj as PersonajeData, String(jd.id), jd.nombre_visible))
 	return out
+
+
+# MIS filas del hogar, para mandarselas al host. Las calculo YO porque soy el unico que tiene mi
+# party y mi equipo puesto (de ahi salen Encargos.poder, las stats de efecto y las clases).
+# 'de_encargo' va como venga: lo pisa el host al construir el roster, que es quien tiene Game.encargos.
+func _mis_filas_hogar() -> Array:
+	var out: Array = []
+	for pj in Game.plantilla:
+		if String(pj.uid).is_empty():
+			continue
+		out.append(_fila_roster(pj, Identidad.id, Identidad.nombre))
+	return out
+
+
+# Mi hogar ha cambiado (he metido o sacado a alguien del equipo, o he fichado). No manda nada aqui:
+# lo agrupa _process. Lo llaman Game.meter_en_equipo / sacar_del_equipo / fichar, que son el embudo
+# por el que pasan las teclas, la taberna, el Hogar y el cupo de sesion.
+func marcar_hogar_sucio() -> void:
+	if activo:
+		_hogar_sucio = true
+
+
+# Corre en EL HOST: un jugador me dice como esta su hogar AHORA.
+@rpc("any_peer", "call_remote", "reliable")
+func _mi_hogar(filas: Array) -> void:
+	if not es_host:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	var identidad: String = _identidad_de_peer(quien)
+	if identidad.is_empty():
+		return
+	var limpias: Array = []
+	for f in filas:
+		var fila := (f as Dictionary).duplicate()
+		if String(fila.get("uid", "")).is_empty():
+			continue
+		# El dueño NO se cree lo que venga en el paquete: se pone el de quien lo manda. Mismo criterio
+		# que en el resto de altas — si no, cualquiera podria colar filas a nombre de otro.
+		fila["dueno"] = identidad
+		limpias.append(fila)
+	# Si no ha cambiado nada, NO se redifunde. Es la otra mitad del cerrojo del bucle: sin esto, dos
+	# clientes en la misma sala se turnarian difundiendose para siempre.
+	if _roster_ajeno.get(identidad) == limpias:
+		return
+	_roster_ajeno[identidad] = limpias
+	_difundir_hogar()
 
 
 func _fila_roster(pj: PersonajeData, dueno: String, dueno_nombre: String) -> Dictionary:
@@ -5488,6 +5610,11 @@ func _alta_personaje(d: Dictionary) -> void:
 	var pj: PersonajeData = pj_de_dict(d)
 	pj.es_original = true       # EL personaje de esa persona en este mundo (su referencia)
 	pj.dueno = identidad
+	# Red de seguridad para clientes de versiones anteriores, que mandaban el uid vacio (no pasaban
+	# por Game.fichar). Un personaje sin uid no se puede mandar de encargo ni cobrar su excelia. Se le
+	# pone AQUI, antes de guardarlo, para que el uid que salga viaje de vuelta en jd_a_dict y las dos
+	# maquinas partan del mismo.
+	Game.asegurar_uid(pj)
 	var jd := JugadorData.new()
 	jd.id = identidad
 	jd.nombre_visible = String(_en_la_puerta[quien].get("nombre", ""))
@@ -5729,6 +5856,12 @@ func _on_peer_disconnected(id: int) -> void:
 			_reservas.erase(id)
 			_set_reservas.rpc(_reservas)
 			reservas_cambiadas.emit()
+		# Sus filas EN VIVO del hogar se van con el: a partir de ahora manda la foto de
+		# jugadores_mundo, que para quien no esta jugando es la buena. Sin esto se quedarian filas de
+		# alguien que ya no esta, y vuelve el personaje fantasma por otra puerta.
+		var ident_ida: String = _identidad_de_peer(id)
+		if not ident_ida.is_empty() and _roster_ajeno.erase(ident_ida):
+			marcar_hogar_sucio()
 		# Si simulaba un piso, lo suelta SIN foto (se fue de golpe, no dio tiempo a sacarla): quien
 		# se quede lo hereda vacio y las paredes lo van repoblando. Es el precio de un corte brusco.
 		_soltar_piso(id, {})

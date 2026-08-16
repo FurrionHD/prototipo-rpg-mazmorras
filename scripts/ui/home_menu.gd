@@ -162,13 +162,21 @@ func _on_tab(i: int) -> void:
 # pinta su panel y el de fuera apila el suyo debajo: el menu salia DUPLICADO. Es el mismo guardia que
 # lleva el herrero desde que se cazo alli.
 var _reconstruyendo := false
+# Y lo que llego MIENTRAS. Salir en seco perdia la señal: un hogar_cambiado que entra a mitad de un
+# rebuild (los RPC llegan con el arbol pausado y este menu es PROCESS_MODE_ALWAYS) dejaba la pestaña
+# mintiendo hasta que el jugador la tocara -- justo lo que no puede pasar con el roster en vivo.
+var _rebuild_pendiente := false
 
 func _rebuild() -> void:
 	if _reconstruyendo:
+		_rebuild_pendiente = true
 		return
 	_reconstruyendo = true
 	_rebuild_real()
 	_reconstruyendo = false
+	if _rebuild_pendiente:
+		_rebuild_pendiente = false
+		_rebuild()
 
 
 func _rebuild_real() -> void:
@@ -210,10 +218,72 @@ func _build_encargos() -> void:
 	# es una PETICION al host (el unico que puede resolver), asi que la respuesta llega despues por
 	# hogar_cambiado y re-dibuja sola; aqui no se puede avisar de nada todavia.
 	Net.pedir_repasar_encargos()
+	# La purga va AQUI y no solo dentro de "Mandar uno": el roster cambia en vivo (tu compañero mete a
+	# alguien en su equipo y se le cae del selector a todo el mundo), y si solo se limpiara al pintar
+	# esa sub-pestaña, mirando "En marcha" te quedaria una seleccion mentirosa esperando.
+	_purgar_seleccion(_libres_del_hogar())
 	if String(ENCARGO_SUBS[_enc_sub][1]) == "curso":
 		_build_encargos_curso()
 	else:
 		_build_encargos_nuevo()
+
+
+# Los del hogar a los que se puede mandar AHORA: ni bajando con su dueño, ni ya de encargo.
+func _libres_del_hogar() -> Array:
+	var out: Array = []
+	for f in Net.roster_hogar():
+		var ficha := f as Dictionary
+		if not bool(ficha.get("en_equipo", false)) and not bool(ficha.get("de_encargo", false)):
+			out.append(ficha)
+	return out
+
+
+# Quita de la seleccion a quien ya no esta libre y LO DICE. Antes se hacia en silencio: marcabas a
+# tres, tu compañero se llevaba a uno a su equipo, y al mandar el encargo iban dos sin que nadie te
+# explicara por que.
+func _purgar_seleccion(libres: Array) -> void:
+	var por_uid: Dictionary = {}
+	for f in libres:
+		por_uid[String((f as Dictionary).get("uid", ""))] = true
+	# El nombre hay que cogerlo del roster COMPLETO: el que se cae ya no esta en 'libres'.
+	var nombres: Dictionary = {}
+	for f in Net.roster_hogar():
+		nombres[String((f as Dictionary).get("uid", ""))] = String((f as Dictionary).get("nombre", "?"))
+
+	var vivos: Array = []
+	var caidos: Array = []
+	for uid in _enc_uids:
+		if por_uid.has(String(uid)):
+			vivos.append(uid)
+		else:
+			caidos.append(String(nombres.get(String(uid), "Alguien")))
+	if caidos.is_empty() and vivos.size() == _enc_uids.size():
+		_limpiar_ordenes_sueltas()
+		return
+	_enc_uids = vivos
+	if not caidos.is_empty():
+		_aviso = "%s ya no está%s disponible%s: %s." % [
+			", ".join(caidos), "" if caidos.size() == 1 else "n", "" if caidos.size() == 1 else "s",
+			"lo han metido en un equipo o se ha ido de encargo" if caidos.size() == 1
+				else "los han metido en un equipo o se han ido de encargo"]
+		_aviso_ok = false
+		# Repintar la linea A MANO: _rebuild_real ya la pinto ANTES de llamar aqui, asi que sin esto el
+		# aviso no saldria hasta el siguiente rebuild -- justo cuando ya no hace falta.
+		MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
+	_limpiar_ordenes_sueltas()
+
+
+# Las ordenes de los que ya no van, o las faenas que apuntaban a un tipo que has desmarcado: si no se
+# limpian, mandas gente "a las plantas" en un encargo que ya no lleva plantas.
+func _limpiar_ordenes_sueltas() -> void:
+	for uid in _enc_faena.keys():
+		if not _enc_uids.has(uid):
+			_enc_faena.erase(uid)
+		else:
+			_enc_faena[uid] = Encargos.faenas_validas(_enc_faena[uid], _enc_tipos)
+	for uid in _enc_clase.keys():
+		if not _enc_uids.has(uid):
+			_enc_clase.erase(uid)
 
 
 func _build_encargos_curso() -> void:
@@ -338,29 +408,8 @@ func _texto_informe(inf: Dictionary) -> String:
 # host. Tiene que ser asi porque el invitado NO tiene los PersonajeData de los personajes de su
 # compañero -- viven en la maquina del host -- y aun asi puede mandarlos.
 func _build_encargos_nuevo() -> void:
-	var libres: Array = []
-	for f in Net.roster_hogar():
-		var ficha := f as Dictionary
-		if not bool(ficha.get("en_equipo", false)) and not bool(ficha.get("de_encargo", false)):
-			libres.append(ficha)
-	# Limpiar de la seleccion a quien ya no esta disponible (lo metieron al equipo, se fue en otro...).
-	var vivos: Array = []
-	for uid in _enc_uids:
-		for ficha in libres:
-			if String((ficha as Dictionary).get("uid", "")) == String(uid):
-				vivos.append(uid)
-				break
-	_enc_uids = vivos
-	# Y las ordenes de los que ya no van, o las faenas que apuntaban a un tipo que has desmarcado:
-	# si no se limpian aqui, mandas gente "a las plantas" en un encargo que ya no lleva plantas.
-	for uid in _enc_faena.keys():
-		if not _enc_uids.has(uid):
-			_enc_faena.erase(uid)
-		else:
-			_enc_faena[uid] = Encargos.faenas_validas(_enc_faena[uid], _enc_tipos)
-	for uid in _enc_clase.keys():
-		if not _enc_uids.has(uid):
-			_enc_clase.erase(uid)
+	var libres: Array = _libres_del_hogar()
+	_purgar_seleccion(libres)
 
 	# --- Izquierda: a qué van, dónde y cuánto.
 	MenuScaffold.titulo(_lista, "Tipo de encargo", 14)
