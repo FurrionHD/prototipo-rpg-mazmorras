@@ -213,77 +213,105 @@ const ESCUDO_GRANDE := [
 ]
 
 # --- ARMADURA: el monigote, una tabla por zona -----------------------------------------------
-# Las cinco van sobre la MISMA rejilla de 11x11, cada una en su sitio, para que juntas formen una
+# Las cinco van sobre la MISMA rejilla de 13x15, cada una en su sitio, para que juntas formen una
 # figura. Se pintan por separado porque cada pieza lleva SU color de desgaste.
+#
+# DOS REGLAS que salieron de verlo en pantalla:
+#  1) Cada pieza SEPARADA de las vecinas por una fila o columna vacia. Pegadas se fundian en una
+#     mancha y no se distinguia cual era la que estaba roja.
+#  2) El PECHO es la pieza mas grande y la CABEZA una de las pequeñas, que es como son de verdad.
+#     Antes el casco ocupaba tres filas de once y el monigote parecia un cabezon.
+# La rejilla es grande (13x15) justo para que quepan esos huecos sin que las piezas se queden en
+# nada: lo que se ve pequeño no son los cubitos, son las piezas, que es lo que se buscaba.
 
 const ARM_CASCO := [
-	"   #####   ",
-	"  #######  ",
-	"  ## # ##  ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
+	"             ",
+	"     ###     ",   # la cabeza: tres cubitos de ancho y nada mas
+	"     ###     ",
+	"             ",   # <- hueco: separa cabeza de torso
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
 ]
 
 const ARM_PECHO := [
-	"           ",
-	"           ",
-	"           ",
-	"  #######  ",
-	"  #######  ",
-	"  #######  ",
-	"   #####   ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"    #####    ",   # el torso: la pieza MAS grande de las cinco
+	"    #####    ",
+	"    #####    ",
+	"    #####    ",
+	"             ",   # <- hueco: separa torso de piernas
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
 ]
 
 const ARM_MANOS := [
-	"           ",
-	"           ",
-	"           ",
-	"##       ##",
-	"##       ##",
-	"##       ##",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	" ##       ## ",   # las manos, despegadas del torso por una columna vacia a cada lado
+	" ##       ## ",
+	" ##       ## ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
 ]
 
 const ARM_PANTALONES := [
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"  ### ###  ",
-	"  ### ###  ",
-	"           ",
-	"           ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"    ## ##    ",   # dos piernas, con su hueco en medio
+	"    ## ##    ",
+	"    ## ##    ",
+	"             ",   # <- hueco: separa piernas de botas
+	"             ",
+	"             ",
 ]
 
 const ARM_BOTAS := [
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"           ",
-	"  ### ###  ",
-	" #### #### ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"             ",
+	"   ### ###   ",   # los pies, un pelin mas anchos que la pierna
+	"   ### ###   ",
 ]
 
 
