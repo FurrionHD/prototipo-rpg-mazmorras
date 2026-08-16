@@ -4787,7 +4787,24 @@ func _tu_disparo(nombre: String, seq: int = 0) -> void:
 		p.lanzar_conjuro(nombre, seq)
 
 
-# ¿Esto me lo manda de verdad quien lleva mi pelea? Las tres RPC de turno son "any_peer" (tienen que
+# ATAQUE DE CARGA listo: la orden de soltarlo (y el objetivo) es de SU dueño, no del anfitrion.
+# Hermana de pedir_disparo, y por lo mismo: hay un turno cuya unica accion posible es esa.
+func pedir_soltar(peer: int, nombre: String, seq: int = 0) -> void:
+	if not activo or peer == 0 or multiplayer.multiplayer_peer == null:
+		return
+	_tu_carga.rpc_id(peer, nombre, seq)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _tu_carga(nombre: String, seq: int = 0) -> void:
+	if _pelea_sigo == 0 or not _lo_manda_el_anfitrion():
+		return
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("soltar_carga"):
+		p.soltar_carga(nombre, seq)
+
+
+# ¿Esto me lo manda de verdad quien lleva mi pelea? Las RPC de turno son "any_peer" (tienen que
 # serlo: la pelea la ejecuta un jugador cualquiera, no el host de la red), asi que sin esta
 # comprobacion cualquier peer podia ponerme los botones de un turno que no me toca.
 func _lo_manda_el_anfitrion() -> bool:

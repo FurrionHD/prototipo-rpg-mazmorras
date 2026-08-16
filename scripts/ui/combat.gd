@@ -913,6 +913,8 @@ func _enviar_peticion() -> void:
 				String(pet.get("nombre", "")), int(pet.get("largo", 1)), seq)
 		"disparo":
 			Net.pedir_disparo(_esperando_a, String(pet.get("nombre", "")), seq)
+		"soltar":
+			Net.pedir_soltar(_esperando_a, String(pet.get("nombre", "")), seq)
 
 
 # Deja de esperar (llego su respuesta, o se fue).
@@ -1052,6 +1054,12 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 			if _cast_spell == null:
 				return
 			_disparar_hechizo()
+		"soltar":
+			# Su carga, con SU objetivo (_target_idx ya viene puesto de accion["obj"], arriba).
+			if _player.charging == null:
+				_accion_atacar()   # se la interrumpieron entre medias: no se pierde el turno
+			else:
+				_soltar_la_carga()
 		"objeto":
 			var cons = load(String(accion.get("ruta", "")))
 			var ia: int = int(accion.get("aliado", -1))
@@ -1072,6 +1080,8 @@ func _encaja_con_lo_pedido(tipo: String, pendiente: String) -> bool:
 		# La frase admite tambien el "cancelar": desde el examen de la PRIMERA se puede volver atras.
 		"frase":   return tipo in ["frase", "cancelar"]
 		"disparo": return tipo == "disparar"
+		# Soltar una carga no admite nada mas: ese turno no tiene otra accion posible.
+		"soltar":  return tipo == "soltar"
 		"accion":  return tipo in ["atacar", "defender", "huir", "habilidad", "magia", "objeto"]
 		_:         return true   # peticion sin tipo conocido: no se bloquea nada
 
@@ -2445,9 +2455,15 @@ func _chips_de(c: Combatant) -> Array:
 		# RELOJ DE ARENA, no rayo: con el ⚡ este chip se leia como un estado mas de los del catalogo
 		# y no habia forma de ver de un vistazo cual era el que te estaba preparando el pepino. Lo
 		# que dice es "aqui hay una cuenta atras", que es exactamente lo que pasa.
-		out.append(["⏳%dt" % c.charge_left,
-			"CARGANDO: %s\nSe dispara en %d turno%s.\nAturdirlo lo interrumpe." % [
-				c.charging.nombre, c.charge_left, "" if c.charge_left == 1 else "s"]])
+		#
+		# Y con la cuenta a 0 el chip cambia: ya no faltan turnos, esta LISTA y solo espera a que su
+		# dueño elija objetivo (ver _pedir_soltar_carga). Sin esta rama ponia "⏳0t", que no dice nada.
+		if c.charge_left <= 0:
+			out.append(["⚡!", "%s: LISTA.\nSolo falta elegir a quién." % c.charging.nombre])
+		else:
+			out.append(["⏳%dt" % c.charge_left,
+				"CARGANDO: %s\nSe dispara en %d turno%s.\nAturdirlo lo interrumpe." % [
+					c.charging.nombre, c.charge_left, "" if c.charge_left == 1 else "s"]])
 	# RECITANDO un hechizo. Hermano del chip de ataque cargado, y por el mismo motivo: un conjuro dura
 	# varios turnos y sin esto no habia forma de saber QUE esta recitando cada uno ni por donde va --
 	# ni de ti mismo cuando llevas grupo, ni del personaje del otro humano. Va aqui, en el sitio
@@ -2955,20 +2971,28 @@ func _begin_player_turn() -> void:
 		_pausa_lectura()
 		return
 
-	# ATAQUE DE CARGA en curso: este turno se va en seguir cargando; al llegar a 0, se suelta.
-	# Espejo exacto del bloque de _enemy_turn. Va ANTES de mirar el recitado de hechizos y de sacar
-	# los botones: mientras cargas no eliges nada, que es lo que hace que la carga se pague.
+	# ATAQUE DE CARGA en curso: este turno se va en seguir cargando; al llegar a 0, LA SUELTA SU DUEÑO.
+	# Va ANTES de mirar el recitado de hechizos y de sacar los botones: mientras cargas no eliges nada,
+	# que es lo que hace que la carga se pague.
+	#
+	# YA NO SE DISPARA SOLA. Antes, al llegar a 0, se llamaba a _usar_habilidad y el objetivo salia de
+	# _target_idx, que es una variable DE PANTALLA: en multi eso era el ultimo clic del ANFITRION, no
+	# el del dueño del personaje, asi que el martillazo caia donde le tocara. Ahora se pide la orden,
+	# con su objetivo, igual que el disparo de un conjuro.
+	#
+	# El descuento y la comprobacion van SEPARADOS para que esto sea idempotente: tras un traspaso de
+	# anfitrion la carga viaja en _volatil con charge_left ya a 0, y el nuevo no debe restar otra vez.
 	if _player.charging != null:
-		_player.charge_left -= 1
+		if _player.charge_left > 0:
+			_player.charge_left -= 1
 		if _player.charge_left > 0:
 			_set_log("%s sigue cargando %s... ⚡" % [_player.nombre, _player.charging.nombre])
 			_ocultar_cajas()
 			_pausa_lectura()
 			return
-		var cargada: AbilityData = _player.charging
-		_player.charging = null
-		# 'soltando': ni cobra energia ni arranca cooldown otra vez, que se pagaron al empezarla.
-		_usar_habilidad(cargada, true)
+		# LISTA. 'charging' se queda puesto hasta que de verdad se suelte: es lo que hace que el estado
+		# sobreviva a un traspaso, a un reenvio del heartbeat y a que su dueño se vaya de la pelea.
+		_pedir_soltar_carga(_player.charging)
 		return
 
 	# Regen de maná POR TURNO: ya solo la del ARMA MAGICA (mejora Regeneración, KAN-95). La
@@ -3487,6 +3511,103 @@ func lanzar_conjuro(nombre: String, seq: int = 0) -> void:
 	_traza_add("ME PIDEN EL DISPARO (#%d) de %s" % [seq, nombre])
 	_state = State.WAITING_PLAYER
 	_pintar_disparo(nombre)
+
+
+# --- ATAQUES DE CARGA: la sueltas TU, y eliges a quien ------------------------------------------
+#
+# Gemelas de las tres de arriba (_mostrar_disparo / _pintar_disparo / lanzar_conjuro) y por el mismo
+# motivo: hay un turno en el que la unica accion posible es "soltar esto", y hay que preguntarle al
+# DUEÑO del personaje, no resolverlo con el objetivo que tenga marcado esta pantalla.
+
+# La carga esta lista y hay que decidir a quien cae. Gemela de _pedir_accion_del_turno.
+func _pedir_soltar_carga(ab: AbilityData) -> void:
+	var dueno: int = int(_dueno_aliado.get(_player, 0))
+	if dueno != 0 and not Net.esta_en_mi_pelea(dueno):
+		# Ya no esta en la pelea: pedirle la orden seria esperar para siempre (mismo criterio que
+		# _pedir_accion_del_turno).
+		sacar_a(dueno)
+		return
+	if dueno != 0:
+		_ocultar_cajas()
+		_set_log("%s tiene %s lista. Esperando su objetivo..." % [_player.nombre, ab.nombre])
+		_pedir_a_remoto(dueno, {"tipo": "soltar", "nombre": ab.nombre})
+		return
+	_pintar_soltar(ab.nombre)
+
+
+# UN SOLO BOTON, y SIN cancelar: la energia y el cooldown se pagaron al empezar la carga (ver
+# _empezar_carga_jugador), asi que aqui ya no hay vuelta atras. Se reusa _cast_box, que es la caja
+# dinamica que ya existe para esto; _actions_box es una rejilla de botones fijos.
+func _pintar_soltar(nombre: String) -> void:
+	_ocultar_cajas()
+	for c in _cast_box.get_children():
+		c.queue_free()
+	# El objetivo por defecto tiene que ser uno VIVO: si el marcado es un cadaver, lo que ve el
+	# jugador no seria lo que va a pasar (el anfitrion cae al primer vivo en _objetivo()).
+	_apuntar_al_primer_vivo()
+	var b := Button.new()
+	b.text = "⚡ ¡Soltar %s!" % nombre
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(0, ALTO_BOTON_ACCION)
+	b.add_theme_font_size_override("font_size", 20)
+	b.pressed.connect(_on_soltar_pulsado)
+	_cast_box.add_child(b)
+	_alto_panel(ALTO_BOTON_ACCION)
+	_cast_box.visible = true
+	_set_log("%s está lista. Elige a quién y suéltala." % nombre)
+	_ocultar_log()   # el boton ocupa el sitio del historial, igual que el de disparo
+
+
+# Si el objetivo marcado esta muerto (o no hay), se apunta al primer vivo y se repinta la seleccion.
+func _apuntar_al_primer_vivo() -> void:
+	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx].is_alive():
+		return
+	for i in _enemies.size():
+		if _enemies[i].is_alive():
+			_seleccionar(i)
+			return
+
+
+# ESPEJO: mi carga esta lista, el boton va aqui. Con los DOS guardias de eco de lanzar_conjuro, o el
+# reenvio del heartbeat me repinta el boton de una carga que ya solte.
+func soltar_carga(nombre: String, seq: int = 0) -> void:
+	if not _espejo:
+		return
+	if seq != 0 and seq == _seq_contestada:
+		_traza_add("me repiten la carga #%d, que YA conteste: la ignoro" % seq)
+		return
+	if seq != 0:
+		_seq_espejo = seq
+	if _state == State.WAITING_PLAYER and _cast_box != null and _cast_box.visible:
+		return   # repeticion del anfitrion: ya tengo el boton delante
+	_traza_add("ME PIDEN SOLTAR (#%d) %s" % [seq, nombre])
+	_state = State.WAITING_PLAYER
+	_pintar_soltar(nombre)
+
+
+# El boton. En el espejo NO se pasa por _usar_habilidad: su rama espejo manda {"tipo": "habilidad"},
+# que _encaja_con_lo_pedido rechazaria contra un "soltar" pendiente y dejaria la pelea colgada hasta
+# el heartbeat.
+func _on_soltar_pulsado() -> void:
+	if _state != State.WAITING_PLAYER:
+		return
+	if _espejo:
+		_responder_al_anfitrion({"tipo": "soltar", "obj": _target_idx})
+		return
+	_soltar_la_carga()
+
+
+# La orden, ya con objetivo. Un solo sitio para los dos caminos (el boton local y el remoto).
+func _soltar_la_carga() -> void:
+	if _state != State.WAITING_PLAYER or _player == null or _player.charging == null:
+		return
+	if not _player.is_alive():
+		return   # se lo han llevado entre la peticion y la respuesta
+	var ab: AbilityData = _player.charging
+	_player.charging = null
+	_player.charge_left = 0
+	# 'soltando': ni cobra energia ni arranca cooldown otra vez, que se pagaron al empezarla.
+	_usar_habilidad(ab, true)
 
 
 func _disparar_hechizo() -> void:
@@ -4310,12 +4431,13 @@ func _elegir_aliado_habilidad(ab: AbilityData) -> void:
 	_ocultar_log()
 
 
-# EL JUGADOR EMPIEZA A CARGAR. Espejo de _enemy_begin_charge, con la misma regla: el turno se va en
-# anunciarlo, y aturdirte te la interrumpe (ver _begin_player_turn).
+# EL JUGADOR EMPIEZA A CARGAR. El turno se va en anunciarlo, y aturdirte te la interrumpe (ver
+# _begin_player_turn).
 #
-# El OBJETIVO no se guarda: se vuelve a preguntar al soltar. Dos turnos son muchos en una pelea y el
-# bicho al que apuntabas puede estar muerto; obligar a que el golpe caiga en un cadaver seria peor
-# que dejar que busque otro (que es lo que hace _objetivo()).
+# El OBJETIVO no se guarda, y ahora eso es literal: al llegar el turno de soltarla se le PREGUNTA a
+# su dueño a quien (boton "Soltar X" + clic en el bloque, ver _pedir_soltar_carga). Dos turnos son
+# muchos en una pelea y el bicho al que apuntabas puede estar muerto, asi que apuntar al empezar no
+# valdria de nada; y en multi el _target_idx de esta pantalla no es el suyo.
 func _empezar_carga_jugador(ab: AbilityData) -> void:
 	_player.charging = ab
 	_player.charge_left = ab.carga_turnos
@@ -4372,7 +4494,12 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		# Va DESPUES de cobrar la energia y ANTES de resolver nada: te comprometes al empezar.
 		# El campo existia desde siempre (AbilityData.carga_turnos) y la ficha lo prometia, pero solo
 		# lo implementaba la rama ENEMIGA: las del jugador se disparaban al instante. Ver
-		# _enemy_begin_charge, que es su espejo — si se toca una, tocar la otra.
+		# _enemy_begin_charge.
+		#
+		# LAS DOS RAMAS YA NO SON ESPEJO, y es a proposito: la del BICHO sigue resolviendose sola al
+		# llegar su turno (_enemy_turn), y la del JUGADOR pide la orden a su dueño con un boton
+		# "Soltar X" para que elija objetivo (ver _pedir_soltar_carga). Antes se disparaba sola con el
+		# _target_idx de la pantalla, que en multi era el ultimo clic del anfitrion.
 		if ab.carga_turnos > 0:
 			_player.spend_energy(coste)
 			_player.start_cooldown(ab)
