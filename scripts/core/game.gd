@@ -9958,7 +9958,15 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	var esc: Node = get_tree().current_scene
 	if esc != null and esc.scene_file_path.ends_with("main_menu.tscn"):
 		return
-	match (event as InputEventKey).keycode:
+	# LA Ñ, APARTE DEL MATCH: no tiene constante propia en Godot. En un teclado español ocupa la
+	# posicion fisica del KEY_SEMICOLON, pero eso depende de la distribucion, asi que se mira TAMBIEN
+	# el caracter que ha producido (241 = ñ). Con las dos vias funciona la tecla se llame como se
+	# llame en cada maquina.
+	var tecla := event as InputEventKey
+	if tecla.keycode == KEY_SEMICOLON or tecla.unicode == 241 or tecla.unicode == 209:
+		_dev_informe()
+		return
+	match tecla.keycode:
 		KEY_U:
 			actualizar_estado()
 		KEY_H:
@@ -10002,6 +10010,16 @@ func _dev_cambiar_escena(ruta: String) -> void:
 	# sigues en el pueblo y tu vista se queda con los avatares de la escena que acabas de tirar.
 	if Net.activo:
 		Net.anunciar_lugar("sandbox")
+
+
+# Ñ: el INFORME de la partida entera al log y a un fichero (ver Informe). Es la herramienta de
+# diagnostico: ante un "he jugado dos horas y no me sube nada", se pulsa antes y despues y se
+# comparan los dos ficheros, en vez de deducir los numeros leyendo codigo.
+func _dev_informe() -> void:
+	var ruta: String = Informe.volcar()
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast("Informe volcado al log%s" % ("" if ruta.is_empty() else ":\n" + ruta))
 
 
 # --- PRUEBAS del sistema de spawns ---
