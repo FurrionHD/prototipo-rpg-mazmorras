@@ -399,6 +399,13 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# de lo que paras con el, asi que no puede ir en def_value() como la armadura.
 	var def_val := defender.def_value() + (defender.defend_defense if defending else 0.0)
 	var dmg := damage(atk_override if atk_override >= 0.0 else attacker.atk(), def_val)
+	# CUANTO SE HA COMIDO LA MITIGACION, como un solo factor. Se va acumulando en los TRES sitios
+	# que mitigan (defensa, armadura, bloqueo) y sale por 'dmg_sin_mitigar': el golpe que te habrian
+	# metido a pelo. Lo usa la excelia de Resistencia — lo que te enseña es la fuerza del golpe que
+	# paras, no el arañazo que te queda despues de pararlo, porque si no el tanque vive clavado en el
+	# suelo del clamp: tiene mucha vida Y mucha mitigacion, o sea doble castigo por hacer su trabajo.
+	# Va como factor acumulado y NO repitiendo el pipeline aparte: dos copias se desincronizan.
+	var mitig := MITIGATION_K / (MITIGATION_K + def_val)
 	# Variacion aleatoria por golpe (±DAMAGE_VARIANCE), estilo Terraria.
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 
@@ -410,7 +417,9 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 		dmg *= CRIT_MULT + attacker.crit_dmg
 
 	# 3.5) Armadura: reduccion porcentual SIEMPRE activa (afecta tambien al critico).
-	dmg *= (1.0 - clampf(defender.armor_reduction, 0.0, ARMOR_REDUCTION_MAX))
+	var f_armadura := (1.0 - clampf(defender.armor_reduction, 0.0, ARMOR_REDUCTION_MAX))
+	dmg *= f_armadura
+	mitig *= f_armadura
 
 	# 3.6) PASIVAS SLAYER (del jugador): +daño a una familia, −daño de ella. Los dicts van vacios en
 	# los enemigos (mult 1.0), asi que esto solo tiene efecto cuando el jugador tiene el slayer.
@@ -419,7 +428,9 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 
 	# 4) Defensa activa: reduce el daño segun el bloqueo del loadout del defensor.
 	if defending:
-		dmg *= clampf(1.0 - defender.defend_block, DEFEND_TAKEN_MIN, DEFEND_TAKEN_MAX)
+		var f_bloqueo := clampf(1.0 - defender.defend_block, DEFEND_TAKEN_MIN, DEFEND_TAKEN_MAX)
+		dmg *= f_bloqueo
+		mitig *= f_bloqueo
 
 	# 4.5) ELEMENTOS (KAN-58). Dos cosas distintas, a proposito:
 	#  a) El golpe ENTERO va del elemento del atacante (enemigos: el slime de fuego pega fuego).
@@ -448,7 +459,10 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 
 	return {"damage": maxf(0.1, dmg), "evaded": false, "crit": is_crit, "aturde": aturde,
 		"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p,
-		"mult_elem": mult_elem, "mult_imbue": mult_imbue, "dmg_imbue": dmg_imbue}
+		"mult_elem": mult_elem, "mult_imbue": mult_imbue, "dmg_imbue": dmg_imbue,
+		# El mismo golpe SIN defensa, armadura ni bloqueo (ver 'mitig' arriba). Solo lo mira la
+		# excelia de Resistencia; el daño que se aplica sigue siendo 'damage'.
+		"dmg_sin_mitigar": maxf(0.1, dmg / maxf(0.0001, mitig))}
 
 
 # ============================================================

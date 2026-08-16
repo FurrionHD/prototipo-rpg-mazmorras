@@ -742,7 +742,12 @@ const PESCA_BAJA_MAX := 0.16
 const PESCA_PIVOTE := 1.5
 const PESCA_SLOPE := 0.65
 const PESCA_RETO_MAX := 5.0             # tope FISICO (la Resistencia es fisica)
-const GAIN_RESISTENCIA_PESCA := 2.25    # a la par que la mineria: mismo esfuerzo por nodo
+# A UN TERCIO desde el 16/08/2026. Estaba a 2.25 (a la par que la mineria, mismo esfuerzo por nodo),
+# pero medido contra el combate salia disparatado: en el tramo del log del playtest, DOS peces daban
+# ~2,4 de Resistencia y 23 GOLPES ENCAJADOS daban ~0,5. Un pez valia once golpes, o sea que el tanque
+# entrenaba mas echando el sedal que haciendo de tanque. Con 0.75 esos dos peces dan ~0,8 y el
+# combate (ya con el daño sin mitigar) ~1,7: pelear pasa a rendir mas que pescar, que es lo suyo.
+const GAIN_RESISTENCIA_PESCA := 0.75
 
 # Dificultad CRUDA del ultimo minijuego de extraccion (para la ganancia de Destreza). Es el mismo
 # numero que _last_reco_reto en las otras tres profesiones: exigencia / (stat*peso + suelo).

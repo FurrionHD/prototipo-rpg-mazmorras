@@ -5392,7 +5392,7 @@ func _enemy_turn(e: Combatant) -> void:
 		_fx_golpe(e, obj, 0.0, false, true)
 		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos). La entrena
 		# EL QUE ESQUIVA, no el que llevas delante.
-		Game.ganar("agilidad", _reto(e), Game.GAIN_AGILIDAD_ESQUIVAR,
+		Game.ganar("agilidad", _reto(e, pj_obj), Game.GAIN_AGILIDAD_ESQUIVAR,
 			Game.RETO_MAX_FISICO, pj_obj)
 		Game.contar_esquiva(pj_obj)   # contador oculto de Reflejos
 		# CONTRAATAQUE (estoque, KAN-57): en guardia, cada golpe esquivado lo devuelves.
@@ -5430,16 +5430,21 @@ func _enemy_turn(e: Combatant) -> void:
 	# Excelia: la Resistencia sube por la PELIGROSIDAD del enemigo (como el
 	# ataque), modulada por el DAÑO recibido (golpe gordo entrena mas). Asi
 	# tambien sube bien al principio, cuando el enemigo es un gran reto.
-	var dmg_mult: float = clampf(dmg / maxf(1.0, float(obj.max_hp) * 0.1), 0.5, 2.0)
+	# Se mide con el golpe SIN MITIGAR (ver StatsMath 'mitig'): lo que te enseña es la fuerza de lo
+	# que paras, no el arañazo que queda despues de pararlo. Con el mitigado, el tanque vivia clavado
+	# en el suelo 0.5 del clamp -mucha vida Y mucha mitigacion, doble castigo por hacer su trabajo- y
+	# encajar golpes rendia la decima parte que echar el sedal.
+	var dmg_bruto: float = float(result.get("dmg_sin_mitigar", dmg))
+	var dmg_mult: float = clampf(dmg_bruto / maxf(1.0, float(obj.max_hp) * 0.1), 0.5, 2.0)
 	# El reparto por AGGRO va en el 'base', NO en el reto_val: el reto_val lo capa RETO_MAX_FISICO
 	# dentro de ganar(), y con un enemigo duro el bono se lo comeria el techo sin dejar rastro.
 	var aggro_mult: float = _mult_resistencia_aggro(obj)
-	Game.ganar("resistencia", _reto(e) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE * aggro_mult,
+	Game.ganar("resistencia", _reto(e, pj_obj) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE * aggro_mult,
 		Game.RETO_MAX_FISICO, pj_obj)
 	# Excelia: si BLOQUEAS (Defender), entrenas Resistencia EXTRA segun cuanto
 	# bloquees (escudo grande entrena mas). Formaliza KAN-81 y premia el escudo.
 	if bool(_defendiendo.get(obj, false)):
-		Game.ganar("resistencia", _reto(e) * obj.defend_block,
+		Game.ganar("resistencia", _reto(e, pj_obj) * obj.defend_block,
 			Game.GAIN_RESISTENCIA_BLOQUEO * aggro_mult, Game.RETO_MAX_FISICO, pj_obj)
 	var msg: String
 	if result.crit:
@@ -5689,6 +5694,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	var pj_t: PersonajeData = Game.pj_de_combatant(t)
 	var defendiendo: bool = bool(_defendiendo.get(t, false)) or t.en_guardia
 	var total: float = 0.0
+	var total_bruto: float = 0.0   # el mismo daño SIN mitigar, para la excelia de Resistencia
 	var conecto: int = 0
 	var estados: Array = []
 	var contra: String = ""
@@ -5718,6 +5724,10 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			Game.desgastar_armadura(pj_t)   # DURABILIDAD: cada golpe encajado gasta las piezas
 			Game.contar_dano_recibido(dmg, pj_t)   # contador oculto de Autorregeneracion
 			total += dmg
+			# Lo MISMO sin defensa, armadura ni bloqueo: es con lo que se mide la Resistencia (abajo),
+			# igual que en el golpe basico. Se acumula aqui, golpe a golpe, con los mismos factores.
+			total_bruto += float(result.get("dmg_sin_mitigar", result.damage)) \
+				* ab.dano_mult * escala * e.dummy_dmg_out_mult
 			conecto += 1
 			rastro.append({"t": "💥%.2f" % dmg if result.crit else "%.2f" % dmg, "c": t})
 			var et := "[%s] golpe %d: %s %.2f" % [t.nombre, i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
@@ -5741,18 +5751,18 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	# gordo en la Resistencia del que hace de tanque.
 	var aggro_mult: float = _mult_resistencia_aggro(t)
 	if total > 0.0:
-		var dmg_mult: float = clampf(total / maxf(1.0, float(t.max_hp) * 0.1), 0.5, 2.0)
-		Game.ganar("resistencia", _reto(e) * dmg_mult,
+		var dmg_mult: float = clampf(total_bruto / maxf(1.0, float(t.max_hp) * 0.1), 0.5, 2.0)
+		Game.ganar("resistencia", _reto(e, pj_t) * dmg_mult,
 			Game.GAIN_RESISTENCIA_GOLPE * aggro_mult, Game.RETO_MAX_FISICO, pj_t)
 		if bool(_defendiendo.get(t, false)):
-			Game.ganar("resistencia", _reto(e) * t.defend_block,
+			Game.ganar("resistencia", _reto(e, pj_t) * t.defend_block,
 				Game.GAIN_RESISTENCIA_BLOQUEO * aggro_mult, Game.RETO_MAX_FISICO, pj_t)
 	# Y esquivar entrena Agilidad, igual que en el basico. Se paga UNA sola vez por habilidad y no
 	# por golpe esquivado: una de cinco golpes no puede rendir cinco veces mas que un ataque normal.
 	# Los golpes de mas suben el reto (aguantar un chaparron es mas dificil que un golpe suelto) pero
 	# con tope, para que la habilidad larga sea mejor que la corta sin ser cinco veces mejor.
 	if esquivados > 0:
-		Game.ganar("agilidad", _reto(e) * minf(float(esquivados), ESQUIVA_HAB_MAX),
+		Game.ganar("agilidad", _reto(e, pj_t) * minf(float(esquivados), ESQUIVA_HAB_MAX),
 			Game.GAIN_AGILIDAD_ESQUIVAR, Game.RETO_MAX_FISICO, pj_t)
 	# 'defendio' sube al log: la guardia dura TODO el turno y tapa todos los golpes, pero si no se
 	# dice, con una habilidad multi-golpe parece que el escudo no ha hecho nada.
