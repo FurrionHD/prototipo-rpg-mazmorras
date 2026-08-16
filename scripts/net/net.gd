@@ -4287,15 +4287,36 @@ func _moriste() -> void:
 	Game.morir_jugador()
 
 
-# Corre en EL DUEÑO de los personajes: lo que vivio cada doble se aplica a su ficha de verdad. El
-# lote viene en el MISMO orden en que mande las fichas al unirme (mi formacion), asi que se cruza
-# por indice con _mis_en_pelea: si no, el acompañante se quedaria con la vida del lider.
+# Corre en EL DUEÑO de los personajes: lo que vivio cada doble se aplica a su ficha de verdad.
+#
+# SE CRUZA POR UID, NO POR POSICION. Antes iba por indice contra _mis_en_pelea dando por hecho que
+# el lote volvia en el mismo orden en que mande las fichas, y esa premisa se rompe por dos sitios:
+#   - el TRASPASO de pelea (Game.retomar_combate) añade los dobles con un `if` sin `break`, asi que
+#     si uno no cabe la lista del anfitrion queda CORRIDA respecto a mi formacion;
+#   - _mis_en_pelea puede haber cambiado de orden (cambiar de lider, recolocar el equipo) o ser de
+#     una union anterior, y aqui no se validaba ninguna id de pelea.
+# Como aplicar_desgaste ASIGNA, un desfase de un puesto copiaba al mago encima del tanque: su
+# excelia, su nivel, sus cinco stats y sus contadores. El uid lo hace imposible.
 @rpc("any_peer", "call_remote", "reliable")
 func _devolver_desgaste(lote: Array) -> void:
-	for i in mini(lote.size(), _mis_en_pelea.size()):
-		var pj: PersonajeData = _mis_en_pelea[i]
-		if pj != null:
-			aplicar_desgaste(pj, lote[i])
+	for d_ in lote:
+		var d := d_ as Dictionary
+		var pj: PersonajeData = _mio_por_uid(String(d.get("uid", "")))
+		if pj == null:
+			push_warning("[multi] desgaste sin dueño (uid '%s'): se descarta" % String(d.get("uid", "")))
+			continue
+		aplicar_desgaste(pj, d)
+
+
+# El personaje MIO con ese uid, entre los que mande a la pelea. Se busca en _mis_en_pelea y no en la
+# plantilla entera a proposito: solo puede volver desgaste de quien mande.
+func _mio_por_uid(uid: String) -> PersonajeData:
+	if uid.is_empty():
+		return null
+	for pj in _mis_en_pelea:
+		if pj != null and String((pj as PersonajeData).uid) == uid:
+			return pj
+	return null
 
 
 # ¿Estoy espejando una pelea? (lo consulta el jugador para no dejarme accionar por mi cuenta)
@@ -4625,7 +4646,18 @@ func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 	var d := {}
 	for campo in _VUELVE:
-		d[campo] = pj.get(campo)
+		var v = pj.get(campo)
+		# COPIA, no referencia. Los tres dicts de habilidad y los estados son objetos: metidos a pelo,
+		# el lote apunta al MISMO dict de la ficha, asi que cualquier cambio posterior lo reescribe por
+		# detras. Por red no se nota (el RPC serializa), pero en local el lote mentia.
+		d[campo] = v.duplicate(true) if (v is Dictionary or v is Array) else v
+	# DE QUIEN ES ESTE LOTE. Va aparte de _VUELVE a proposito: el uid identifica, no se aplica (si
+	# entrara en el bucle de arriba, aplicar_desgaste se lo escribiria encima al de casa).
+	#
+	# Antes el lote no llevaba identidad ninguna y el dueño lo cruzaba POR POSICION con su formacion
+	# (ver _devolver_desgaste). Un solo puesto de desfase no "suma mal": COPIA un personaje entero
+	# encima de otro -- excelia, nivel, las cinco stats, vida y contadores.
+	d["uid"] = String(pj.uid)
 	# Los COOLDOWNS que le queden al doble: van APARTE de _VUELVE porque no son un campo de la ficha
 	# (viven en Game.ability_cooldowns_persist, ver Game.cds_a_rutas). Si no vuelven, el que se une a
 	# la pelea de otro sale de ella con todas sus habilidades listas. Mientras se pelea los buenos
@@ -4637,9 +4669,28 @@ func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 	return d
 
 
+# LO QUE SOLO SUBE se funde por MAXIMO; lo demas se asigna.
+#
+# La excelia y los contadores ocultos nunca bajan, asi que si lo que llega es MENOR que lo que ya
+# tengo, lo que llega esta rancio y hay que ignorarlo. Asignar a pelo tenia dos formas de perder
+# progreso de verdad:
+#   - la excelia de un ENCARGO que aterriza mientras espejo una pelea (Net._set_excelia_encargo
+#     escribe en el PersonajeData real) se borraba al cerrarse la pelea;
+#   - cualquier lote rezagado o repetido revertia lo ganado desde que se mando la ficha.
+# Con el maximo, el peor caso de un paquete raro es que no aporte nada, nunca que reste.
+const _SOLO_SUBEN := ["esquivas_exp", "hechizos_exp", "recitado_exp",
+	"dano_recibido_exp", "dano_infligido_exp"]
+const _DICTS_HABILIDAD := ["ability_internal", "ability_consolidado", "ability_base_nivel"]
+
 func aplicar_desgaste(pj: PersonajeData, d: Dictionary) -> void:
 	for campo in _VUELVE:
-		if d.has(campo):
+		if not d.has(campo):
+			continue
+		if campo in _DICTS_HABILIDAD:
+			pj.set(campo, _fundir_maximo(pj.get(campo), d[campo]))
+		elif campo in _SOLO_SUBEN:
+			pj.set(campo, maxf(float(pj.get(campo)), float(d[campo])))
+		else:
 			pj.set(campo, d[campo])
 	if d.has("cds"):
 		Game.ability_cooldowns_persist[pj] = Game.cds_de_rutas(d["cds"] as Dictionary)
@@ -4647,6 +4698,17 @@ func aplicar_desgaste(pj: PersonajeData, d: Dictionary) -> void:
 	# esta CACHEADO en la ficha: sin recalcularlo, el que se une a una pelea salia con el Pegajoso
 	# puesto y andando a velocidad normal, y sin chips que lo dijeran.
 	Game.refrescar_cache_estados(pj)
+
+
+# Dos dicts de habilidad, quedandose con el mayor de cada stat. Las claves que solo esten en uno de
+# los dos entran tal cual: un peer de otra version puede no traerlas todas.
+func _fundir_maximo(mio_, suyo_) -> Dictionary:
+	var mio := (mio_ if mio_ is Dictionary else {}) as Dictionary
+	var suyo := (suyo_ if suyo_ is Dictionary else {}) as Dictionary
+	var out: Dictionary = mio.duplicate()
+	for k in suyo:
+		out[k] = maxf(float(mio.get(k, 0.0)), float(suyo[k]))
+	return out
 
 
 # --- UNIRSE ---------------------------------------------------------------------------------
@@ -4745,6 +4807,9 @@ func _union_denegada(motivo: String = "Esa pelea ya no está disponible.") -> vo
 	# el canto al jugador (ver solicitar_unirse), asi que sin esto el hechizo —y su maná— se pierden
 	# en silencio. Con la nota de vuelta, el camino de siempre le devuelve el maná a los 5 s.
 	Game.devolver_casteo_en_vuelo()
+	# Y la lista de a quien mande, que si no se queda de una union que no llego a existir: un lote de
+	# desgaste rezagado se buscaria el uid ahi dentro y podria colarse (ver _devolver_desgaste).
+	_mis_en_pelea.clear()
 	# El motivo lo manda el anfitrion: "no existe" y "esta llena" son cosas distintas y el jugador
 	# necesita saber cual de las dos, o se pone a recolocarse pensando que apunta mal.
 	_toast(motivo)
