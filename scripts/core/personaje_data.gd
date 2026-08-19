@@ -174,6 +174,10 @@ func imbue_elemento() -> int:
 @export var recitado_exp: float = 0.0
 @export var dano_recibido_exp: float = 0.0
 @export var dano_infligido_exp: float = 0.0
+# El daño que has PARADO levantando la guardia (ver Game.contar_dano_bloqueado). Es el contador de
+# la Autorregeneracion desde que dejo de ir por dano_recibido_exp, que premiaba justo lo contrario:
+# cuanto mejor te defendias, mas despacio subia.
+@export var dano_bloqueado_exp: float = 0.0
 
 # --- Equipo (instancias del baul comun; la misma que esta en Game.owned_*) ---
 @export var equipped_main: Resource = null    # WeaponData | null (null = punos)

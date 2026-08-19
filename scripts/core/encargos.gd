@@ -1176,6 +1176,10 @@ const BICHOS_POR_PELEA := 2.0
 # mismos ordenes de magnitud con los que se calibro VALE_UNA_PELEA.
 const DANO_DADO_POR_PELEA := 60.0
 const DANO_RECIBIDO_POR_PELEA := 25.0
+# Lo que PARA levantando la guardia (contador de la Autorregeneracion, ver Game.contar_dano_bloqueado).
+# Sin esto, quien se va de encargo no progresa nunca en ese perk. El orden de magnitud: se defiende
+# ~1 de cada 6 golpes que entran, y un golpe defendido se come la mayor parte del bruto. PROVISIONAL.
+const DANO_BLOQUEADO_POR_PELEA := 10.0
 const ESQUIVAS_POR_PELEA := 0.3        # EVADE_MIN es 0.03 y encajan ~6 golpes: se esquiva poco
 const HECHIZOS_POR_PELEA := 3.0        # solo cuenta para quien lleve magias
 
@@ -1206,6 +1210,7 @@ static func partes_de(pjs: Array, duracion: int, trabajadas: Dictionary,
 			"bichos": int(round(n_peleas * BICHOS_POR_PELEA)),
 			"dano_dado": n_peleas * DANO_DADO_POR_PELEA,
 			"dano_recibido": n_peleas * DANO_RECIBIDO_POR_PELEA,
+			"dano_bloqueado": n_peleas * DANO_BLOQUEADO_POR_PELEA,
 			"esquivas": n_peleas * ESQUIVAS_POR_PELEA,
 			"hechizos": n_peleas * HECHIZOS_POR_PELEA,
 		})

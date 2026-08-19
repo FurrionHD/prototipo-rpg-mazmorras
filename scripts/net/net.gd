@@ -4370,7 +4370,7 @@ const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
 	"ability_internal", "ability_consolidado", "ability_base_nivel",
 	"fuerza", "resistencia", "destreza", "agilidad", "magia",
 	"guardianes_vencidos", "esquivas_exp", "hechizos_exp", "recitado_exp",
-	"dano_recibido_exp", "dano_infligido_exp",
+	"dano_recibido_exp", "dano_infligido_exp", "dano_bloqueado_exp",
 	"heal_left", "heal_rate", "heal_turnos",
 	"mana_heal_left", "mana_heal_rate", "mana_heal_turnos",
 	"estados", "foco_cargas", "imbue"]
@@ -4533,7 +4533,7 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 			"current_hp", "current_mp", "stamina",
 			"desarrollos_rango", "pasivas_rng", "guardianes_vencidos",
 			"esquivas_exp", "hechizos_exp", "recitado_exp",
-			"dano_recibido_exp", "dano_infligido_exp"]:
+			"dano_recibido_exp", "dano_infligido_exp", "dano_bloqueado_exp"]:
 		d[campo] = pj.get(campo)
 	# Y su pocion a medias, para que el anfitrion pueda meterla en la pelea (ver _COLAS_POCION), y lo
 	# que lleve puesto: estados, cargas de Foco e imbuicion (ver _LO_PUESTO).
@@ -4679,7 +4679,7 @@ func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 #   - cualquier lote rezagado o repetido revertia lo ganado desde que se mando la ficha.
 # Con el maximo, el peor caso de un paquete raro es que no aporte nada, nunca que reste.
 const _SOLO_SUBEN := ["esquivas_exp", "hechizos_exp", "recitado_exp",
-	"dano_recibido_exp", "dano_infligido_exp"]
+	"dano_recibido_exp", "dano_infligido_exp", "dano_bloqueado_exp"]
 const _DICTS_HABILIDAD := ["ability_internal", "ability_consolidado", "ability_base_nivel"]
 
 func aplicar_desgaste(pj: PersonajeData, d: Dictionary) -> void:

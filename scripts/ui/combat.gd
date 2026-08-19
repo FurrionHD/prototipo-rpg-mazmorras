@@ -5417,24 +5417,31 @@ func _enemy_turn(e: Combatant) -> void:
 		return
 
 	var dmg: float = result.damage * e.dummy_dmg_out_mult   # Saco = 0 (no pega)
+	# El MISMO golpe sin defensa, armadura ni bloqueo (ver StatsMath 'mitig'). Se calcula AQUI y no mas
+	# abajo porque lo miran dos cosas: el contador de bloqueo (justo debajo) y la excelia de Resistencia.
+	var dmg_bruto: float = float(result.get("dmg_sin_mitigar", dmg))
 	obj.take_damage(dmg)
 	_fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque)
 	# El MANTO ha recortado el golpe por su elemento: se le cobra la carga (tope de una por accion).
 	if obj.resiste_por_afinidad(e.elemento_ataque):
 		obj.gastar_imbue_defensiva()
 	Game.desgastar_armadura(pj_obj)   # DURABILIDAD: encajar un golpe gasta un poco SU armadura
-	Game.contar_dano_recibido(dmg, pj_obj)   # contador oculto de Autorregeneracion
+	Game.contar_dano_recibido(dmg, pj_obj)   # daño encajado (informe; ya no gatea ningun desarrollo)
+	# AUTORREGENERACION: solo cuenta lo que paras habiendo LEVANTADO LA GUARDIA. El bruto va aqui con
+	# el dummy_dmg_out_mult puesto (que 'dmg' ya lleva): contra el Saco, que pega 0, si no se
+	# multiplicara se estaria regalando el bloqueo del golpe entero por cada porrazo de mentira.
+	if defendiendo:
+		Game.contar_dano_bloqueado(dmg_bruto * e.dummy_dmg_out_mult, dmg, pj_obj)
 	if _dps_on:
 		_dmg_taken_total += dmg
 		_dmg_taken_hits += 1
 	# Excelia: la Resistencia sube por la PELIGROSIDAD del enemigo (como el
 	# ataque), modulada por el DAÑO recibido (golpe gordo entrena mas). Asi
 	# tambien sube bien al principio, cuando el enemigo es un gran reto.
-	# Se mide con el golpe SIN MITIGAR (ver StatsMath 'mitig'): lo que te enseña es la fuerza de lo
-	# que paras, no el arañazo que queda despues de pararlo. Con el mitigado, el tanque vivia clavado
+	# Se mide con el golpe SIN MITIGAR ('dmg_bruto', calculado arriba): lo que te enseña es la fuerza de
+	# lo que paras, no el arañazo que queda despues de pararlo. Con el mitigado, el tanque vivia clavado
 	# en el suelo 0.5 del clamp -mucha vida Y mucha mitigacion, doble castigo por hacer su trabajo- y
 	# encajar golpes rendia la decima parte que echar el sedal.
-	var dmg_bruto: float = float(result.get("dmg_sin_mitigar", dmg))
 	var dmg_mult: float = clampf(dmg_bruto / maxf(1.0, float(obj.max_hp) * 0.1), 0.5, 2.0)
 	# El reparto por AGGRO va en el 'base', NO en el reto_val: el reto_val lo capa RETO_MAX_FISICO
 	# dentro de ganar(), y con un enemigo duro el bono se lo comeria el techo sin dejar rastro.
@@ -5715,6 +5722,11 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 					break
 		else:
 			var dmg: float = result.damage * ab.dano_mult * escala * e.dummy_dmg_out_mult
+			# Lo MISMO sin defensa, armadura ni bloqueo, con los MISMOS factores que 'dmg' (incluido
+			# el dummy_dmg_out_mult, o el Saco regalaria bloqueo a cada porrazo de mentira). Lo miran
+			# dos cosas: el contador de bloqueo de aqui y la excelia de Resistencia de mas abajo.
+			var dmg_bruto: float = float(result.get("dmg_sin_mitigar", result.damage)) \
+				* ab.dano_mult * escala * e.dummy_dmg_out_mult
 			t.take_damage(dmg)
 			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque)
 			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
@@ -5722,12 +5734,14 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			if t.resiste_por_afinidad(e.elemento_ataque):
 				t.gastar_imbue_defensiva()
 			Game.desgastar_armadura(pj_t)   # DURABILIDAD: cada golpe encajado gasta las piezas
-			Game.contar_dano_recibido(dmg, pj_t)   # contador oculto de Autorregeneracion
+			Game.contar_dano_recibido(dmg, pj_t)   # daño encajado (informe; ya no gatea ningun desarrollo)
+			# AUTORREGENERACION: solo lo que paras con la guardia arriba, igual que en el golpe basico.
+			if defendiendo:
+				Game.contar_dano_bloqueado(dmg_bruto, dmg, pj_t)
 			total += dmg
-			# Lo MISMO sin defensa, armadura ni bloqueo: es con lo que se mide la Resistencia (abajo),
-			# igual que en el golpe basico. Se acumula aqui, golpe a golpe, con los mismos factores.
-			total_bruto += float(result.get("dmg_sin_mitigar", result.damage)) \
-				* ab.dano_mult * escala * e.dummy_dmg_out_mult
+			# El bruto se acumula golpe a golpe: es con lo que se mide la Resistencia (abajo), igual
+			# que en el golpe basico.
+			total_bruto += dmg_bruto
 			conecto += 1
 			rastro.append({"t": "💥%.2f" % dmg if result.crit else "%.2f" % dmg, "c": t})
 			var et := "[%s] golpe %d: %s %.2f" % [t.nombre, i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]

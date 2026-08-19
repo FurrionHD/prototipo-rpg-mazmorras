@@ -1698,6 +1698,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	recitado_exp = 0.0
 	dano_recibido_exp = 0.0
 	dano_infligido_exp = 0.0
+	dano_bloqueado_exp = 0.0
 	pack_inicial_reclamado = false
 	bosses_derrotados.clear()
 	recompra.clear()
@@ -1843,6 +1844,7 @@ func exportar_partida() -> SaveData:
 	d.recitado_exp = recitado_exp
 	d.dano_recibido_exp = dano_recibido_exp
 	d.dano_infligido_exp = dano_infligido_exp
+	d.dano_bloqueado_exp = dano_bloqueado_exp
 	d.pack_inicial = pack_inicial_reclamado
 	d.bosses_derrotados = bosses_derrotados.duplicate()
 
@@ -2406,6 +2408,7 @@ func importar_partida(d: SaveData) -> void:
 	recitado_exp = d.recitado_exp
 	dano_recibido_exp = d.dano_recibido_exp
 	dano_infligido_exp = d.dano_infligido_exp
+	dano_bloqueado_exp = d.dano_bloqueado_exp
 	# DERIVAR y no actualizar_estado(): cargar la partida NO es descansar. Si esto consolidara,
 	# guardar y volver a entrar seria un altar gratis desde cualquier sitio (y era justo lo que
 	# pasaba: al llegar al altar ya tenias los numeros nuevos puestos y el boton no sumaba nada).
@@ -3496,6 +3499,9 @@ func aplicar_parte_encargo(parte: Dictionary, piso: int, pj: PersonajeData) -> v
 	# Contadores ocultos de los desarrollos. Los de magia solo si de verdad lleva con que lanzar.
 	contar_dano_infligido(float(parte.get("dano_dado", 0.0)), pj)
 	contar_dano_recibido(float(parte.get("dano_recibido", 0.0)), pj)
+	# El bloqueo ya viene calculado del parte (alli no hay golpes, solo un total por pelea), asi que
+	# entra como 'bruto' con 'aplicado' a 0 y la resta lo deja tal cual.
+	contar_dano_bloqueado(float(parte.get("dano_bloqueado", 0.0)), 0.0, pj)
 	for i in int(round(float(parte.get("esquivas", 0.0)))):
 		contar_esquiva(pj)
 	if tiene_hechizos(pj):
@@ -7087,12 +7093,19 @@ var hechizos_exp: float:             # Erudito: cada hechizo que lanzas
 var recitado_exp: float:             # Encantamiento rapido: cada frase de recitado acertada
 	get: return lider().recitado_exp
 	set(v): lider().recitado_exp = v
-var dano_recibido_exp: float:        # Autorregeneracion: el daño que encajas (acumula el daño)
+var dano_recibido_exp: float:        # el daño que encajas. YA NO lo usa ningun desarrollo (ver abajo)
 	get: return lider().dano_recibido_exp
 	set(v): lider().dano_recibido_exp = v
 var dano_infligido_exp: float:       # Cazador: el daño que HACES (acumula el daño; solo nivel 1)
 	get: return lider().dano_infligido_exp
 	set(v): lider().dano_infligido_exp = v
+# AUTORREGENERACION: el daño que PARAS levantando la guardia. Antes iba por dano_recibido_exp, y eso
+# castigaba justo a quien la quiere: el tanque encaja poco PORQUE se defiende bien, asi que cuanto
+# mejor hacia su trabajo mas tardaba en ganarse el perk de su trabajo. Con el bloqueo se invierte el
+# signo. dano_recibido_exp se queda vivo porque sale en el informe, pero ya no gatea nada.
+var dano_bloqueado_exp: float:
+	get: return lider().dano_bloqueado_exp
+	set(v): lider().dano_bloqueado_exp = v
 
 # Lo que sube cada contador por cada cosa que haces. Los tres primeros van por VECES (1 por
 # esquiva/hechizo/frase); el de la autorregeneracion va por DAÑO, asi que su umbral esta en otra
@@ -7148,6 +7161,23 @@ func contar_dano_infligido(dmg: float, pj: PersonajeData = null) -> void:
 	if p == null:
 		return
 	p.dano_infligido_exp += maxf(0.0, dmg)
+
+# AUTORREGENERACION: lo que te has comido tu y no tu vida, pero SOLO cuando has levantado la guardia.
+#   'bruto'    = el golpe SIN defensa, armadura ni bloqueo (result.dmg_sin_mitigar)
+#   'aplicado' = el que de verdad te entro
+# La diferencia es lo que has parado. Quien llama decide si estabas defendiendo: AQUI NO SE COMPRUEBA
+# (el Combatant no sabe si su dueño pulso Defender; eso vive en combat.gd, ver _defendiendo/en_guardia).
+#
+# Los dos brutos tienen que venir con los MISMOS multiplicadores que el aplicado —dano_mult, escala y
+# sobre todo dummy_dmg_out_mult—, o el Saco de entrenamiento (que pega 0) regala bloqueo infinito.
+#
+# El camino de los ENCARGOS pasa el bloqueo ya calculado como 'bruto' con 'aplicado' a 0: alli no hay
+# golpes, solo un total estimado por pelea (ver Encargos.DANO_BLOQUEADO_POR_PELEA).
+func contar_dano_bloqueado(bruto: float, aplicado: float, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = _pj_contador(pj, "daño bloqueado")
+	if p == null:
+		return
+	p.dano_bloqueado_exp += maxf(0.0, bruto - aplicado)
 # Interruptores (los pondra a true el sistema de habilidades de desarrollo cuando exista).
 # Con esto en false, el oficio solo ACUMULA.
 var habilidad_metalurgia: bool = false
@@ -9837,6 +9867,15 @@ func _aplicar_pasivas_slayer(c: Combatant, pj: PersonajeData = null) -> void:
 		c.mult_from_familia[fam] = float(p["dmg_from"])
 
 
+# --- ESCALERA DE RANGOS de los desarrollos (I..S, 10). Va ANTES del catalogo porque DESARROLLOS
+# usa RANGO_MULT_COMBATE dentro de la propia constante, y GDScript resuelve las constantes en orden.
+const RANGO_MULT := 2.5              # cada rango pide × esto sobre el anterior (base × 2.5^(rango-1))
+# Los desarrollos que llevan `rango_mult` usan el suyo en vez del de arriba. Hoy solo los de VECES
+# (esquivas/hechizos/frases): ver la nota de las DOS ESCALERAS en el catalogo.
+const RANGO_MULT_COMBATE := 1.6
+const RANGO_MAX := 10                # I..S
+const LETRAS_RANGO := ["I", "H", "G", "F", "E", "D", "C", "B", "A", "S"]
+
 # --- HABILIDADES DE DESARROLLO (eliges 1 al subir de nivel) ---
 # Catalogo: 4 OFICIOS (encienden los interruptores ya sembrados: mejoran lo que crafteas) + 5
 # perks de COMBATE, cada uno con un efecto DISTINTO (antes eran tres veces el mismo +30%).
@@ -9850,10 +9889,17 @@ func _aplicar_pasivas_slayer(c: Combatant, pj: PersonajeData = null) -> void:
 #
 # UMBRALES: PROVISIONALES -> Excel. Los de oficio van en "veces" (cada refinado/forja/poción suma
 # 1.0; ver Forge.OFICIO_POR_REFINADO / HERRERIA_POR_PIEZA / MEZCLA_EXP_POR_POCION). Los de combate
-# tambien, salvo autorregeneracion, que va en DAÑO ENCAJADO y por eso su numero es tan grande.
-# UMBRAL = requisito del RANGO I (primer desbloqueo). Los rangos siguientes piden base × 2.5^(rango-1)
+# tambien, salvo Cazador y Autorregeneracion, que van en DAÑO (hecho / parado) y por eso sus numeros
+# son tan grandes.
+# UMBRAL = requisito del RANGO I (primer desbloqueo). Los rangos siguientes piden base × mult^(rango-1)
 # (ver req_de_rango). solo_nivel_1 = solo se puede DESBLOQUEAR a nivel 1 (Cazador/Autorregen: sus
 # contadores van por DAÑO y a nivel 2+ se llenan solos, así que su base dejaría de significar nada).
+#
+# DOS ESCALERAS (`rango_mult`, ver RANGO_MULT_COMBATE): los contadores que van por VECES (esquivas,
+# hechizos, frases) suben a ritmo casi constante toda la partida, asi que con el ×2.5 de los oficios
+# el rango S pedia 1.144.409 esquivas y los rangos altos sencillamente no existian. Esos bajan a
+# ×1.6. Los que van por DAÑO se quedan en ×2.5 porque ya llevan un escalado implicito encima: un
+# golpe del piso 13 vale muchisimo mas que uno del 1, asi que su contador se acelera solo.
 const DESARROLLOS: Array = [
 	{"id": "metalurgia", "nombre": "Metalurgia", "tipo": "oficio",
 		"desc": "Al refinar metal, tira por subir un escalón la calidad.",
@@ -9879,25 +9925,32 @@ const DESARROLLOS: Array = [
 	# (hecho / encajado); una vez tuyos, suben de rango con el daño acumulado como los demas.
 	{"id": "cazador", "nombre": "Cazador", "tipo": "combate", "solo_nivel_1": true,
 		"desc": "Todo lo que entrenas cunde un poco más.",
-		"req": "exp", "contador": "dano_infligido_exp", "umbral": 24000.0},
+		"req": "exp", "contador": "dano_infligido_exp", "umbral": 150000.0},
 	{"id": "reflejos", "nombre": "Reflejos", "tipo": "combate",
 		"desc": "Esquivas mejor en combate.",
-		"req": "exp", "contador": "esquivas_exp", "umbral": 300.0},
+		"req": "exp", "contador": "esquivas_exp", "umbral": 1000.0,
+		"rango_mult": RANGO_MULT_COMBATE},
 	{"id": "erudito", "nombre": "Erudito", "tipo": "combate",
 		"desc": "Tus hechizos pegan más fuerte.",
-		"req": "exp", "contador": "hechizos_exp", "umbral": 300.0},
+		"req": "exp", "contador": "hechizos_exp", "umbral": 1000.0,
+		"rango_mult": RANGO_MULT_COMBATE},
+	# El de recitado va mas alto que el de hechizos porque su contador corre MUCHO mas rapido: cada
+	# conjuro lanzado suma 1 a hechizos_exp y UNA POR FRASE a recitado_exp (ver contar_frase_recitada),
+	# asi que con conjuros de 3-4 lineas sube 3-4 veces mas deprisa. Con el mismo umbral, este perk
+	# saldria siempre antes que Erudito.
 	{"id": "encantamiento_rapido", "nombre": "Encantamiento rápido", "tipo": "combate",
 		"desc": "Recitas los conjuros más rápido.",
-		"req": "exp", "contador": "recitado_exp", "umbral": 450.0},
+		"req": "exp", "contador": "recitado_exp", "umbral": 1500.0,
+		"rango_mult": RANGO_MULT_COMBATE},
+	# Va por daño BLOQUEADO (lo que paras defendiendo), no por daño encajado: es el perk del tanque y
+	# tiene que ganarselo levantando la guardia. Ver contar_dano_bloqueado.
 	{"id": "autorregeneracion", "nombre": "Autorregeneración", "tipo": "combate", "solo_nivel_1": true,
 		"desc": "Recuperas algo de vida al principio de cada turno.",
-		"req": "exp", "contador": "dano_recibido_exp", "umbral": 12000.0},
+		"req": "exp", "contador": "dano_bloqueado_exp", "umbral": 20000.0},
 ]
 
-# --- RANGOS de los desarrollos (I..S, 10). SISTEMA PROPIO, nada que ver con el de las stats (0-999).
-const RANGO_MULT := 2.5              # cada rango pide × esto sobre el anterior (base × 2.5^(rango-1))
-const RANGO_MAX := 10                # I..S
-const LETRAS_RANGO := ["I", "H", "G", "F", "E", "D", "C", "B", "A", "S"]
+# --- RANGOS de los desarrollos: SISTEMA PROPIO, nada que ver con el de las stats (0-999). Las
+# constantes (RANGO_MULT y cia) estan arriba, justo antes del catalogo.
 # Puntos que suma un material/pieza segun su TIER, SOLO cuando ya tienes el desarrollo (para subir de
 # rango). T1=1, T2=1.5, T3=2.25. Para DESBLOQUEAR (rango I) siempre suma 1 (ver los incrementos).
 func tier_puntos(tier: int) -> float:
@@ -9908,9 +9961,15 @@ func tier_puntos(tier: int) -> float:
 func _puntos_oficio(id: String, tier: int) -> float:
 	return tier_puntos(tier) if tiene_desarrollo(id) else 1.0
 
-# Requisito (valor del contador) para alcanzar `rango` de un desarrollo de base `umbral`.
-func req_de_rango(umbral: float, rango: int) -> float:
-	return umbral * pow(RANGO_MULT, float(maxi(1, rango) - 1))
+# Requisito (valor del contador) para alcanzar `rango` de un desarrollo de base `umbral`. `mult` es
+# lo que pide cada escalon sobre el anterior: por defecto RANGO_MULT, o el `rango_mult` propio del
+# desarrollo si lo trae (ver _mult_de_rango y la nota de las DOS ESCALERAS en el catalogo).
+func req_de_rango(umbral: float, rango: int, mult: float = RANGO_MULT) -> float:
+	return umbral * pow(mult, float(maxi(1, rango) - 1))
+
+# El multiplicador de escalera de UN desarrollo, sacado de su ficha del catalogo.
+func _mult_de_rango(d: Dictionary) -> float:
+	return float(d.get("rango_mult", RANGO_MULT))
 
 # Rango actual de un desarrollo (0 = no adquirido) y helpers.
 func desarrollo_rango(id: String, pj: PersonajeData = null) -> int:
@@ -9982,7 +10041,8 @@ func _subir_rangos_desarrollo(pj: PersonajeData = null) -> void:
 		var cont: float = float(p.get(nombre_cont)) if nombre_cont in p else float(get(nombre_cont))
 		var rango: int = int(p.desarrollos_rango[id])
 		var nuevo: int = rango
-		while nuevo < RANGO_MAX and cont >= req_de_rango(umbral, nuevo + 1):
+		var mult: float = _mult_de_rango(d)
+		while nuevo < RANGO_MAX and cont >= req_de_rango(umbral, nuevo + 1, mult):
 			nuevo += 1
 		if nuevo != rango:
 			p.desarrollos_rango[id] = nuevo
@@ -9993,7 +10053,7 @@ func desarrollo_progreso(d: Dictionary) -> Dictionary:
 	var cont: String = str(d.get("contador", ""))
 	var umbral: float = float(d.get("umbral", 0.0))
 	var rango: int = desarrollo_rango(str(d.get("id", "")))
-	var objetivo: float = umbral if rango < 1 else req_de_rango(umbral, rango + 1)
+	var objetivo: float = umbral if rango < 1 else req_de_rango(umbral, rango + 1, _mult_de_rango(d))
 	return {
 		"contador": cont,
 		"umbral": objetivo,

@@ -197,8 +197,9 @@ const VERSION_MUNDO := 1
 @export var esquivas_exp: float = 0.0        # Reflejos
 @export var hechizos_exp: float = 0.0        # Erudito
 @export var recitado_exp: float = 0.0        # Encantamiento rapido
-@export var dano_recibido_exp: float = 0.0   # Autorregeneracion
+@export var dano_recibido_exp: float = 0.0   # ya no lo usa ningun desarrollo; se enseña en el informe
 @export var dano_infligido_exp: float = 0.0  # Cazador (daño hecho; solo nivel 1)
+@export var dano_bloqueado_exp: float = 0.0  # Autorregeneracion (lo que paras DEFENDIENDO)
 # PACK INICIAL de la tienda (arma gratis + pociones): una sola vez por partida. Un @export
 # nuevo con valor por defecto NO invalida las partidas viejas (Godot rellena el default), asi
 # que esto no toca VERSION_ACTUAL: una partida de antes de la tienda arranca sin reclamar.

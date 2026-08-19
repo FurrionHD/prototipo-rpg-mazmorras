@@ -298,6 +298,8 @@ static func _ocultos(L: Array[String], pj: PersonajeData) -> void:
 	L.append("    esquivas %.1f | hechizos %.1f | recitado %.1f | dmg recibido %.1f | dmg hecho %.1f" % [
 		pj.esquivas_exp, pj.hechizos_exp, pj.recitado_exp,
 		pj.dano_recibido_exp, pj.dano_infligido_exp])
+	L.append("    dmg BLOQUEADO %.1f   <-- el de la Autorregeneracion (solo cuenta si defendias)"
+		% pj.dano_bloqueado_exp)
 
 
 # Lo escribe en el log Y en un fichero de la carpeta de la partida, para poder pasarlo tal cual sin
