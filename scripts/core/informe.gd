@@ -162,6 +162,25 @@ static func _cabecera(L: Array[String]) -> void:
 		L.append("  ¿simulo mi piso?.. %s" % str(Net.simulo_mi_piso()))
 		L.append("  epoca_sesion ..... %d" % Net.epoca_sesion)
 		L.append("  semilla_host ..... %d" % Net.semilla_host)
+	_oficios(L)
+
+
+# CUANTO SE HA CRAFTEADO, en bruto. Estos contadores son DEL GRUPO (viven en Game, no en cada
+# PersonajeData), asi que van una sola vez y aqui arriba: si salieran solo dentro de cada ficha, ver
+# el mismo "metalurgia 340" repetido en las cuatro parece un bug de datos y no lo es.
+#
+# El desarrollo de oficio si es de cada uno (su rango vive en su desarrollos_rango), asi que un
+# personaje puede tener Herreria B y otro no tenerla, los dos con este mismo contador detras.
+static func _oficios(L: Array[String]) -> void:
+	L.append("")
+	L.append("[OFICIOS DEL GRUPO]  (contadores compartidos: cuanto se ha crafteado en esta partida)")
+	for d in Game.DESARROLLOS:
+		if str(d.get("tipo", "")) != "oficio":
+			continue
+		var cont: String = str(d["contador"])
+		L.append("    %-14s %10s   (umbral de %s: %s)" % [d["nombre"],
+			String.num(float(Game.get(cont)), 1), Game.letra_rango(1),
+			String.num(float(d.get("umbral", 0.0)), 0)])
 
 
 static func _ficha(L: Array[String], pj: PersonajeData, dueno: String,
@@ -239,9 +258,30 @@ static func _equipo(L: Array[String], pj: PersonajeData) -> void:
 		var dur_txt: String = "?" if dur == null else "%.0f%%" % (float(dur) * 100.0)
 		if dur != null and float(dur) <= 0.0:
 			dur_txt = "0% ROTA"   # cadena literal, no un format: aqui el %% imprimia DOS %
-		L.append("    %-11s %-30s T%s r%s dur %s%s" % [slot, str(it.get("nombre")).substr(0, 30),
-			str(meta.get("tier", "?")), str(meta.get("rareza", "?")), dur_txt,
-			"" if mejoras.is_empty() else "  mejoras " + str(mejoras)])
+		# La RAREZA por su nombre y con lo que de verdad hace (el multiplicador de Upgrades), no el
+		# indice crudo: "r4" no dice nada, "Legendario x1.35" contesta la pregunta sin ir a la tabla.
+		var rar_txt: String = "r?"
+		if meta.has("rareza"):
+			var r: int = int(meta["rareza"])
+			rar_txt = "%s x%.2f" % [Upgrades.rareza_nombre(r), Upgrades.rareza_mult(r)]
+		# Y los huecos de mejora GASTADOS sobre los que da esa rareza: es lo que dice si a la pieza le
+		# queda recorrido en el herrero o ya esta al tope.
+		var slots_txt: String = ""
+		if meta.has("rareza"):
+			var usados: int = Upgrades.total_mejoras(mejoras)
+			var tope: int = Upgrades.rareza_slots(int(meta["rareza"]))
+			slots_txt = "  mejoras %d/%d" % [usados, tope]
+			if usados >= tope:
+				slots_txt += " (AL TOPE)"
+			if not mejoras.is_empty():
+				# Compacto ("Ataque+3, Critico+1") y no el dict crudo: str() de un Dictionary mete
+				# comillas y espacios por todas partes y parte la linea en la consola.
+				var det: Array[String] = []
+				for k in mejoras:
+					det.append("%s+%d" % [str(k), int(mejoras[k])])
+				slots_txt += " " + ", ".join(det)
+		L.append("    %-11s %-28s T%s  %-22s dur %-8s%s" % [slot, str(it.get("nombre")).substr(0, 28),
+			str(meta.get("tier", "?")), rar_txt, dur_txt, slots_txt])
 
 
 static func _kit(L: Array[String], pj: PersonajeData) -> void:
@@ -284,22 +324,75 @@ static func _vivo(v: float) -> String:
 	return "lleno" if v < 0.0 else "%.1f" % v
 
 
+# El contador que gatea un desarrollo, LEIDO DE QUIEN TOCA. Los de combate son de la persona (viven
+# en su PersonajeData) y los de oficio son del grupo (viven en Game), exactamente el mismo criterio
+# que usa Game._subir_rangos_desarrollo. Sin esto, los contadores de combate de todo el mundo salian
+# con el numero del LIDER (es lo que hace Game.desarrollo_progreso, que va por la propiedad de Game).
+static func _contador_de(pj: PersonajeData, nombre: String) -> float:
+	if nombre == "":
+		return 0.0
+	return float(pj.get(nombre)) if nombre in pj else float(Game.get(nombre))
+
+
 # Los contadores OCULTOS (los que gatean los desarrollos) y los perks. En el juego no se enseñan a
 # proposito —ver la nota de "gating oculto"—, pero un informe de diagnostico sin ellos no sirve.
+#
+# Se listan TODOS los desarrollos, tenga o no cada uno: el que ya tienes con su rango y lo que le
+# falta al siguiente, y el que no, con lo que le falta para desbloquearse. Antes salia el dict crudo
+# ({"herreria": 3}), que no dice ni como se llama, ni que letra es, ni cuanto queda.
 static func _ocultos(L: Array[String], pj: PersonajeData) -> void:
 	L.append("")
-	L.append("  PERKS Y CONTADORES OCULTOS")
-	L.append("    desarrollos .... %s" % str(pj.desarrollos_rango))
-	L.append("    pasivas RNG .... %s" % str(pj.pasivas_rng))
+	L.append("  DESARROLLOS   (los de oficio llevan el contador DEL GRUPO, ver [OFICIOS DEL GRUPO])")
+	L.append("    %-22s %-10s %9s / %-9s  %s  %s" % [
+		"", "tipo", "contador", "umbral I", "esc.", "estado"])
+	for d in Game.DESARROLLOS:
+		var id: String = str(d["id"])
+		var rango: int = int(pj.desarrollos_rango.get(id, 0))
+		var umbral: float = float(d.get("umbral", 0.0))
+		var mult: float = Game._mult_de_rango(d)
+		var cont: float = _contador_de(pj, str(d.get("contador", "")))
+		var estado: String
+		if rango >= Game.RANGO_MAX:
+			estado = "rango S — AL TOPE"
+		elif rango >= 1:
+			var sig: float = Game.req_de_rango(umbral, rango + 1, mult)
+			estado = "rango %s  ->  %s falta %s para %s" % [Game.letra_rango(rango),
+				_barra(cont, sig), String.num(maxf(0.0, sig - cont), 0),
+				Game.letra_rango(rango + 1)]
+		else:
+			var falta: String = String.num(maxf(0.0, umbral - cont), 0)
+			estado = "no lo tiene   %s falta %s para DESBLOQUEAR" % [_barra(cont, umbral), falta]
+			if cont >= umbral:
+				estado = "no lo tiene   LISTO: sale en el proximo ascenso"
+			if bool(d.get("solo_nivel_1", false)) and pj.level != 1:
+				estado += "  (solo nivel 1: YA NO PUEDE)"
+		L.append("    %-22s %-10s %9s / %-9s  x%.2f  %s" % [d["nombre"], "(%s)" % d["tipo"],
+			String.num(cont, 0), String.num(umbral, 0), mult, estado])
+
+	L.append("")
+	L.append("  PASIVAS Y CONTADORES SUELTOS")
+	var pas: Array[String] = []
+	for id in pj.pasivas_rng:
+		if bool(pj.pasivas_rng[id]):
+			pas.append(str(Game.pasiva_por_id(str(id)).get("nombre", id)))
+	L.append("    pasivas RNG .... %s" % ("-" if pas.is_empty() else ", ".join(pas)))
 	if not pj.pasivas_pendientes.is_empty():
+		var pend: Array[String] = []
+		for id in pj.pasivas_pendientes:
+			pend.append(str(Game.pasiva_por_id(str(id)).get("nombre", id)))
 		L.append("    pendientes ..... %s   <-- le tocaron y aun no lo sabe (falta altar)"
-			% str(pj.pasivas_pendientes))
-	L.append("    guardianes ..... %s" % str(pj.guardianes_vencidos))
-	L.append("    esquivas %.1f | hechizos %.1f | recitado %.1f | dmg recibido %.1f | dmg hecho %.1f" % [
-		pj.esquivas_exp, pj.hechizos_exp, pj.recitado_exp,
-		pj.dano_recibido_exp, pj.dano_infligido_exp])
-	L.append("    dmg BLOQUEADO %.1f   <-- el de la Autorregeneracion (solo cuenta si defendias)"
-		% pj.dano_bloqueado_exp)
+			% ", ".join(pend))
+	L.append("    guardianes ..... %s" % ("-" if pj.guardianes_vencidos.is_empty()
+		else str(pj.guardianes_vencidos)))
+	L.append("    dmg recibido ... %.1f   (ya no gatea nada; el perk va por el BLOQUEADO)"
+		% pj.dano_recibido_exp)
+
+
+# Barra de progreso de texto, para poder ver de un vistazo quien esta cerca y quien no.
+static func _barra(v: float, tope: float) -> String:
+	var f: float = clampf(v / maxf(0.0001, tope), 0.0, 1.0)
+	var n: int = int(round(f * 10.0))
+	return "[%s%s]%3.0f%%" % ["#".repeat(n), ".".repeat(10 - n), f * 100.0]
 
 
 # Lo escribe en el log Y en un fichero de la carpeta de la partida, para poder pasarlo tal cual sin
