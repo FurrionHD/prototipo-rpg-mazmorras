@@ -406,17 +406,24 @@ func _pintar_splat(e: Dictionary) -> void:
 		var u: float = clampf(t / maxf(dur, 0.01), 0.0, 1.0)
 		var p: Vector2 = a.lerp(b, u)
 		p.y -= sin(u * PI) * minf(150.0, a.distance_to(b) * 0.45 + 60.0)
-		# Se encoge al despegar y se estira al caer: da el peso.
+		# Se encoge al despegar y se estira al caer: da el peso. Redondo por las dos mitades (aun
+		# no toca nada), y se dibuja apoyado en su parte baja para que el aterrizaje no de un salto.
 		var estira: float = 0.85 + 0.5 * u
-		_blob(p, r / estira, r * estira, col, claro, 0.95)
+		_masa(p + Vector2(0.0, r * estira), r / estira, r * estira, r * estira, col, claro, 0.95)
 		return
-	# APLASTADO: se abre a lo ancho, se aplana y se apaga.
+	# APLASTADO. La clave: NO se encoge entero, SE CHAFA CONTRA EL SUELO. Primero se aplana la parte
+	# de ABAJO (que es la que toca) mientras arriba sigue siendo una cupula redonda, y la masa se
+	# escurre hacia los LADOS. Solo despues empieza a bajar el techo.
 	var v: float = clampf((t - dur) / 0.34, 0.0, 1.0)
-	var ancho: float = r * (1.0 + 0.55 * v)
-	var alto: float = r * (0.75 - 0.62 * v)
+	# Abajo se chafa deprisa: a un tercio del golpe ya esta plano contra el suelo.
+	var abajo: float = r * maxf(0.0, 1.0 - v * 3.0)
+	# Arriba aguanta redondo bastante mas: es lo que lo mantiene con forma de slime y no de tortita.
+	var arriba: float = r * (1.0 - 0.55 * v)
+	# Y lo que no cabe a lo alto sale a lo ancho.
+	var ancho: float = r * (1.0 + 0.6 * v)
 	var alfa: float = 1.0 - v
-	if alto > 0.5:
-		_blob(b, ancho, alto, col, claro, 0.92 * alfa)
+	if arriba > 0.5:
+		_masa(b, ancho, arriba, abajo, col, claro, 0.92 * alfa)
 	# ONDA de impacto: un anillo bajo y ancho que se abre por el suelo. Es lo que dice "esto ha
 	# pegado a TODO lo de aqui debajo" mejor que la propia mancha.
 	var ro: float = r * (1.0 + 1.1 * v)
@@ -439,6 +446,33 @@ func _pintar_splat(e: Dictionary) -> void:
 # la animacion estaria mintiendo sobre a quien toca.
 func _radio_grupo(e: Dictionary, k: float, suelo: float) -> float:
 	return maxf(maxf(suelo, float(e["r"])), float(e["ancho"]) * k)
+
+
+# UNA MASA CON LAS DOS MITADES INDEPENDIENTES: 'arriba' y 'abajo' son los radios verticales de la
+# mitad de arriba y la de abajo, y 'apoyo' es el punto donde toca el suelo.
+#
+# Es lo que permite que un slime se aplaste COMO SE APLASTA de verdad: la parte de abajo se chafa
+# contra el suelo primero (abajo -> 0) mientras la de arriba sigue siendo una cupula redonda, y solo
+# despues se va bajando el techo. Con una elipse normal -las dos mitades iguales- lo unico que se
+# puede hacer es encogerla entera, y eso parece una bola que se desinfla, no algo que se estampa.
+#
+# El punto de APOYO no se mueve en todo el aplastamiento: la masa crece hacia los lados y hacia
+# arriba, nunca hacia abajo. Si se dibujara centrada, al ensancharse se hundiria en el suelo.
+func _masa(apoyo: Vector2, rx: float, arriba: float, abajo: float,
+		col: Color, claro: Color, alfa: float) -> void:
+	var centro: Vector2 = apoyo - Vector2(0.0, abajo)
+	var pts := PackedVector2Array()
+	var n := 22
+	for i in n:
+		var ang: float = TAU * float(i) / float(n)
+		var y: float = sin(ang)
+		# El radio vertical cambia segun se este dibujando la mitad de arriba o la de abajo.
+		pts.append(centro + Vector2(cos(ang) * rx, -y * (arriba if y > 0.0 else abajo)))
+	draw_colored_polygon(pts, Color(col.r, col.g, col.b, alfa))
+	# El brillo, arriba a la izquierda: es lo que le da volumen de gelatina.
+	draw_circle(centro + Vector2(-rx * 0.32, -arriba * 0.42),
+		maxf(1.0, minf(rx, maxf(arriba, 1.0)) * 0.3),
+		Color(claro.r, claro.g, claro.b, 0.5 * alfa))
 
 
 # Una masa gelatinosa: elipse rellena + brillo arriba. La usan el splat y el escupitajo.
