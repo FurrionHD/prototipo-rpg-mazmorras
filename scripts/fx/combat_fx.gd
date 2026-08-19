@@ -874,12 +874,16 @@ func arrancar_cola() -> float:
 #   SPLAT      un bicho que salta encima es UN cuerpo; repetido caian bolas sueltas sobre cada uno.
 #   VORTICE    un remolino que se traga a tres es UNO ancho, no tres remolinos pequeños.
 #   EXPLOSION  la bola revienta UNA vez y la onda alcanza a los lados; repetida son tres petardos.
+#   ARRASTRE   el bicho embiste UNA vez llevandose la llama por delante. Repetido salia una llama
+#              por cabeza, o sea "un proyectil a cada uno", que es justo lo contrario de la
+#              Combustion: el slime se pone al rojo y ARRASA de lado a lado, en grande.
 #
 # De cada tanda se queda UNA como portadora del dibujo y a las demas se les apaga (siguen dando su
 # numero, su temblor y su parte de barra: lo unico que pierden es repetir el efecto). La portadora
 # recibe el ANCHO de todo lo alcanzado -del borde izquierdo del primero al derecho del ultimo- y el
 # CENTRO, asi que el efecto se adapta solo a 2, 3 o 4 objetivos sin que nadie le pase el numero.
-const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION]
+const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
+	Estilo.ARRASTRE]
 
 func _marcar_efectos_de_grupo() -> void:
 	var por_tanda: Dictionary = {}   # "tanda:estilo" -> [indices de la cola]

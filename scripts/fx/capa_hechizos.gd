@@ -568,19 +568,29 @@ func _pintar_arrastre(e: Dictionary) -> void:
 		return
 	var p: Vector2 = a.lerp(b, minf(u, 1.0))
 	var g: float = float(e["semilla"])
-	# La llama: lenguas que salen hacia DELANTE (hacia el objetivo), no en todas direcciones. Es lo
-	# que hace que se lea como algo que empuja y no como una hoguera quieta.
+	# CUANTO ABARCA A LO ANCHO. Es la diferencia entre la Llamarada (uno solo: una lengua estrecha
+	# que va con el bicho) y la Combustion (area: el slime se pone al rojo y ARRASA de lado a lado).
+	# Sale de lo alcanzado, no del daño, por lo mismo que en _radio_grupo.
+	var media: float = maxf(r * 1.6, float(e["ancho"]) * 0.42)
 	var dir: Vector2 = (b - a).normalized() if a.distance_to(b) > 1.0 else Vector2.RIGHT
 	var lado := Vector2(-dir.y, dir.x)
-	for i in 7:
-		var k: float = float(i) / 6.0 - 0.5
+	# Mas lenguas cuanto mas ancho, o al ensanchar quedaban cuatro pelos sueltos y se veia el hueco.
+	var n: int = clampi(int(media / 14.0), 7, 26)
+	for i in n:
+		var k: float = float(i) / float(n - 1) - 0.5
 		var onda: float = sin(t * 16.0 + float(i) * 1.3 + g)
-		var largo: float = r * (1.3 + 0.6 * onda)
-		var base: Vector2 = p + lado * k * r * 1.6
+		# Las de los bordes son mas cortas: le da forma de frente de fuego y no de peine.
+		var perfil: float = 1.0 - 0.45 * absf(k) * 2.0
+		var largo: float = r * (1.3 + 0.6 * onda) * maxf(0.35, perfil)
+		var base: Vector2 = p + lado * k * media * 2.0
 		draw_line(base, base + dir * largo + lado * onda * r * 0.25,
 			Color(claro.r, claro.g, claro.b, 0.7 * alfa), maxf(1.5, r * 0.26), true)
-	# Nucleo caliente pegado al bicho.
-	draw_circle(p, r * 0.75 * (1.0 + 0.1 * sin(t * 13.0)), Color(col.r, col.g, col.b, 0.75 * alfa))
+	# Nucleo caliente pegado al bicho. Se estira a lo ancho con el frente.
+	var pts := PackedVector2Array()
+	for i in 14:
+		var ang: float = TAU * float(i) / 14.0
+		pts.append(p + lado * cos(ang) * media * 0.7 + dir * sin(ang) * r * 0.75)
+	draw_colored_polygon(pts, Color(col.r, col.g, col.b, 0.7 * alfa))
 
 
 # SIN ELEMENTO: un rombo girando dentro de un anillo. Se lee como "magia" sin tirar de ningun
