@@ -10,6 +10,7 @@ magnitud = 6.0
 
 [resource]
 script = ExtResource("1")
+fx_estilo = 13
 nombre = "Combustión"
 descripcion = "ATAQUE DE CARGA: el slime se pone al rojo vivo y detona en una bola de fuego que te deja ardiendo. Aturdirlo mientras se calienta lo interrumpe."
 coste_energia = 0.0

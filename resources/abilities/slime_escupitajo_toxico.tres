@@ -10,6 +10,7 @@ cap = 1
 
 [resource]
 script = ExtResource("1")
+fx_estilo = 10
 nombre = "Escupitajo tóxico"
 descripcion = "El slime te escupe una bilis corrosiva directa a la cara: el veneno prende sin fallar."
 coste_energia = 0.0

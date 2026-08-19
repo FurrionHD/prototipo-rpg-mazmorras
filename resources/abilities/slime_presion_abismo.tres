@@ -10,6 +10,7 @@ prob = 0.6
 
 [resource]
 script = ExtResource("1")
+fx_estilo = 12
 nombre = "Presión del abismo"
 descripcion = "Se comprime y descarga toda la presión de la profundidad en un solo embate. Mientras se hincha puedes aturdirlo para cortarlo; si conecta, tu guardia se resiente y todo lo demás te entra más hondo."
 coste_energia = 0.0

@@ -9,6 +9,7 @@ estado = 2
 
 [resource]
 script = ExtResource("1")
+fx_estilo = 13
 nombre = "Llamarada"
 descripcion = "El slime escupe una lengua de fuego que te prende sin fallar."
 coste_energia = 0.0

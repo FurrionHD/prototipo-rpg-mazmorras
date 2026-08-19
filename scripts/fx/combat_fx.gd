@@ -52,8 +52,15 @@ signal apagar_ahora(bloque: Dictionary)
 # Caben DIECISEIS: en la red viajan en 4 bits (ver _apuntar_impacto_red en combat.gd). Eran ocho y
 # tres bits; al añadir la EXPLOSION hubo que ensanchar el campo, y hay que tocar las dos puntas a la
 # vez o el compañero ve un efecto distinto al tuyo (y sin dar ningun error).
+# Del 9 en adelante son los de los ENEMIGOS (los pide cada habilidad por su fx_estilo):
+#   SPLAT   cuerpo que cae gordo y redondo y se APLASTA al tocar (Reventon, Aplastamiento)
+#   ESCUPITAJO  bola pequeña con PARABOLA (Escupitajo toxico, Rociada, Escision)
+#   AURA    resplandor sobre el PROPIO lanzador, no viaja (Ignicion y los buffs)
+#   VORTICE espiral oscura que se cierra encima (las del abismo)
+#   ARRASTRE  melee que se lleva una llama consigo mientras embiste (Llamarada, Combustion)
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
-		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8 }
+		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
+		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13 }
 
 # Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
@@ -64,6 +71,9 @@ const T_VUELO := {
 	# La EXPLOSION no viaja: nace donde revienta. Un pelin de vuelo para que la onda haya empezado
 	# a abrirse cuando entran el numero y el temblor, y no salga toda de golpe con ellos.
 	Estilo.EXPLOSION: 0.08,
+	# El SPLAT cae de MAS ARRIBA que un rayo y pesa mas: se ve venir, que es media gracia.
+	Estilo.SPLAT: 0.34, Estilo.ESCUPITAJO: 0.26, Estilo.AURA: 0.10,
+	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -837,6 +847,7 @@ func arrancar_cola() -> float:
 		_cola[i]["pos_tanda"] = pos
 		_cola[i]["lanzado"] = false
 		_cola[i]["fx_lanzado"] = false
+	_marcar_olas()
 	_t = 0.0
 	if magia:
 		_dur = minf(arranque + T_PUM + extra + T_COLA_MAGIA, TOPE_TOTAL_MAGIA)
@@ -847,6 +858,54 @@ func arrancar_cola() -> float:
 	_tanda_pedida = -1
 	_activa = true
 	return _dur
+
+
+# UNA SOLA OLA POR TANDA, Y DEL ANCHO DE TODO LO QUE BARRE.
+#
+# Una ola no es un proyectil: es UN frente que pasa por delante de varios. Pintando una por victima
+# salian tres o cuatro olas identicas en fila, una por cada uno, que es justo lo que no es un
+# barrido -- y le pasaba igual a Rocío y a Torrente (que alcanzan a TODOS) que a la Marea del Rey.
+#
+# Asi que de cada tanda se queda UNA como portadora del dibujo y a las demas se les apaga (siguen
+# dando su numero, su temblor y su parte de barra: lo unico que pierden es repetir la ola). La
+# portadora recibe como ancho la distancia del borde izquierdo del primero al borde derecho del
+# ultimo, asi que la ola se adapta sola a 2, 3 o 4 objetivos sin que nadie le pase el numero.
+func _marcar_olas() -> void:
+	var por_tanda: Dictionary = {}   # tanda -> [indices de la cola con estilo BARRIDO]
+	for i in _cola.size():
+		if int(_cola[i].get("estilo", Estilo.MELEE)) != Estilo.BARRIDO:
+			continue
+		var tv: int = int(_cola[i].get("tanda", 0))
+		if not por_tanda.has(tv):
+			por_tanda[tv] = []
+		(por_tanda[tv] as Array).append(i)
+	for tv in por_tanda:
+		var idx: Array = por_tanda[tv]
+		var izq: float = INF
+		var der: float = -INF
+		var portadora: int = -1
+		for i in idx:
+			var b: Dictionary = _cola[i]["bv"]
+			var p: Control = b.get("panel")
+			if p == null or not is_instance_valid(p):
+				continue
+			var c: Vector2 = _punto(b)
+			var w: float = _ancho_tarjeta(b)
+			izq = minf(izq, c.x - w * 0.5)
+			der = maxf(der, c.x + w * 0.5)
+			# La portadora es la de MAS A LA IZQUIERDA: da igual cual sea mientras sea estable, pero
+			# asi el centro del frente cae donde tiene que caer aunque solo haya una.
+			if portadora < 0 or c.x < _punto(_cola[portadora]["bv"]).x:
+				portadora = i
+		if portadora < 0:
+			continue
+		for i in idx:
+			if i != portadora:
+				_cola[i]["sin_dibujo"] = true
+		# El ancho del FRENTE ENTERO. _pintar_ola lo usa como semi-ancho (x 0.55), asi que se le pasa
+		# la medida completa y el centro se recoloca al medio de lo barrido.
+		_cola[portadora]["ancho_ola"] = maxf(der - izq, 1.0)
+		_cola[portadora]["centro_ola"] = (izq + der) * 0.5
 
 
 # La tanda del ULTIMO golpe encolado, o -1 si no hay ninguno. La pregunta combat.gd justo despues
@@ -926,9 +985,17 @@ func _process(delta: float) -> void:
 		var vuelo: float = float(T_VUELO.get(estilo, 0.0))
 		if not ev["fx_lanzado"] and vuelo > 0.0 and _t >= t_imp - vuelo:
 			ev["fx_lanzado"] = true
-			if _capa_fx != null:
-				_capa_fx.alta(estilo, _punto(ev["ba"]), _punto(ev["bv"]), ev["color"], peso,
-					vuelo, _ancho_tarjeta(ev["bv"]))
+			# 'sin_dibujo' lo pone _marcar_olas: de una tanda de barrido solo dibuja UNA (la ola es un
+			# frente, no un proyectil por cabeza). Los demas siguen con su numero y su temblor.
+			if _capa_fx != null and not bool(ev.get("sin_dibujo", false)):
+				# La ola portadora barre TODO el frente, asi que va al centro de lo barrido y con el
+				# ancho de todos; las demas cosas apuntan a su tarjeta y llevan el ancho de una.
+				var destino: Vector2 = _punto(ev["bv"])
+				var ancho: float = _ancho_tarjeta(ev["bv"])
+				if ev.has("ancho_ola"):
+					destino.x = float(ev["centro_ola"])
+					ancho = float(ev["ancho_ola"])
+				_capa_fx.alta(estilo, _punto(ev["ba"]), destino, ev["color"], peso, vuelo, ancho)
 
 		# EL IMPACTO: se dispara una vez, justo al cruzar su instante.
 		if not ev["lanzado"] and _t >= t_imp:
@@ -944,8 +1011,11 @@ func _process(delta: float) -> void:
 		#
 		# Cuenta la TANDA y no el indice del evento: si no, un molinete a cuatro bichos gastaba el
 		# cupo con el primer barrido y el atacante se quedaba plantado en el segundo.
+		# ARRASTRE embiste IGUAL que el melee: es un melee, solo que llevandose una llama por delante
+		# (la Llamarada del slime de fuego no se lanza, va con el bicho encima).
 		if pa != null and is_instance_valid(pa) and pa != pv \
-				and estilo == Estilo.MELEE and int(ev.get("pos_tanda", i)) < MAX_IMPACTOS_ANIMADOS:
+				and (estilo == Estilo.MELEE or estilo == Estilo.ARRASTRE) \
+				and int(ev.get("pos_tanda", i)) < MAX_IMPACTOS_ANIMADOS:
 			var dir: Vector2 = _direccion(pa, pv)
 			var d: float = 0.0
 			if _t < t_imp and _t >= t_imp - T_IDA:
@@ -963,16 +1033,24 @@ func _process(delta: float) -> void:
 		# CANALIZACION: lo que hace el lanzador en vez de embestir. Su tarjeta se enciende del
 		# color del elemento mientras el conjuro esta en el aire. Los de CAIDA no la encienden: de
 		# un rayo que cae del cielo no sale nada de tu mano.
+		# Los de CAIDA y el SPLAT no la encienden (no sale de tu mano, viene de arriba); el ARCO
+		# tampoco (salta de una victima a otra); ni el ARRASTRE ni el AURA, que son fuego SOBRE el
+		# propio bicho y ya se ven de sobra sin encenderle ademas la tarjeta.
 		if pa != null and is_instance_valid(pa) and estilo != Estilo.MELEE \
 				and estilo != Estilo.CAIDA_RAYO and estilo != Estilo.CAIDA_GOTA \
-				and estilo != Estilo.ARCO and _t >= t_imp - vuelo and _t < t_imp:
+				and estilo != Estilo.ARCO and estilo != Estilo.SPLAT \
+				and estilo != Estilo.ARRASTRE and estilo != Estilo.AURA \
+				and _t >= t_imp - vuelo and _t < t_imp:
 			var k: float = 1.0 - (t_imp - _t) / maxf(vuelo, 0.001)
 			if not aura.has(pa) or k > float(aura[pa][1]):
 				aura[pa] = [ev["color"], k]
 
 		# SACUDIDA + FLASH + PUNCH de la victima, desde el instante del golpe.
 		# Los de CAIDA pegan mas fuerte y mas rato: un rayo del cielo es un pisoton, no un empujon.
-		var cae: bool = estilo == Estilo.CAIDA_RAYO or estilo == Estilo.CAIDA_GOTA
+		# El SPLAT entra aqui de cabeza: que te caiga un slime entero encima es el pisoton por
+		# excelencia, mas que un rayo.
+		var cae: bool = estilo == Estilo.CAIDA_RAYO or estilo == Estilo.CAIDA_GOTA \
+			or estilo == Estilo.SPLAT
 		var t_sac: float = T_SACUDIDA * (1.2 if cae else 1.0)
 		if _t >= t_imp and _t < t_imp + t_sac and not bool(ev["evadido"]):
 			var u3: float = (_t - t_imp) / t_sac

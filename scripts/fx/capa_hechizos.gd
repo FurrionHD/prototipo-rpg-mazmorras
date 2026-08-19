@@ -72,6 +72,13 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.CAIDA_RAYO, CombatFX.Estilo.CAIDA_GOTA:
 			# Del cielo: el origen es el techo de la pantalla, justo encima del objetivo.
 			e["a"] = Vector2(b.x + randf_range(-14.0, 14.0), FUERA)
+		CombatFX.Estilo.SPLAT:
+			# Tambien del cielo, pero SIN desvio lateral: un cuerpo que se deja caer aterriza donde
+			# apunta. El desvio esta bien para una gota de lluvia, no para el Rey Slime.
+			e["a"] = Vector2(b.x, FUERA)
+		CombatFX.Estilo.AURA:
+			# No viaja: nace y muere sobre la misma tarjeta.
+			e["a"] = b
 		CombatFX.Estilo.ARCO:
 			e["a"] = a
 			# Un rebote puede caer OTRA VEZ en el mismo bicho (pasa siempre en 1v1). Entonces no hay
@@ -148,6 +155,11 @@ func _draw() -> void:
 			CombatFX.Estilo.BARRIDO: _pintar_ola(e)
 			CombatFX.Estilo.ARCANO: _pintar_arcano(e)
 			CombatFX.Estilo.EXPLOSION: _pintar_explosion(e)
+			CombatFX.Estilo.SPLAT: _pintar_splat(e)
+			CombatFX.Estilo.ESCUPITAJO: _pintar_escupitajo(e)
+			CombatFX.Estilo.AURA: _pintar_aura(e)
+			CombatFX.Estilo.VORTICE: _pintar_vortice(e)
+			CombatFX.Estilo.ARRASTRE: _pintar_arrastre(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -275,9 +287,15 @@ func _pintar_gotas(e: Dictionary) -> void:
 
 
 # OLA: un FRENTE ancho, no una gota. Todas las magias de agua sin dispersion son de area (Rocío
-# moja a todos, Torrente arrasa a todos), asi que lo que tiene que verse venir es una lamina del
-# ancho de la tarjeta. Como la cola separa los impactos, con varios objetivos entran escalonadas y
-# el conjunto se lee como un barrido de la fila.
+# moja a todos, Torrente arrasa a todos), asi que lo que tiene que verse venir es una lamina.
+#
+# 'ancho' es el ancho DEL FRENTE ENTERO, no el de una tarjeta: CombatFX._marcar_olas deja UNA sola
+# ola por tanda y le pasa la medida de todo lo que barre (ver alli el porque). Antes se pintaba una
+# ola por victima y del ancho de su tarjeta, asi que un Rocío a cuatro salian cuatro olitas en fila
+# -- que es justo lo contrario de un barrido.
+#
+# El +10 es un poco de rebose por los lados: una ola que muere exactamente en el borde de la ultima
+# tarjeta parece recortada.
 func _pintar_ola(e: Dictionary) -> void:
 	var a: Vector2 = e["a"]
 	var b: Vector2 = e["b"]
@@ -287,7 +305,7 @@ func _pintar_ola(e: Dictionary) -> void:
 	var dir: Vector2 = (b - a).normalized() if a.distance_to(b) > 1.0 else Vector2.DOWN
 	var lado := Vector2(-dir.y, dir.x)
 	var p: Vector2 = a.lerp(b, u)
-	var ancho: float = maxf(40.0, float(e["ancho"]) * 0.55)
+	var ancho: float = maxf(40.0, float(e["ancho"]) * 0.5 + 10.0)
 	var fondo: float = float(e["r"]) * 0.9
 	var alfa: float = 1.0 if u < 1.0 else clampf(1.0 - (t - float(e["dur"])) / 0.12, 0.0, 1.0)
 
@@ -348,6 +366,194 @@ func _pintar_explosion(e: Dictionary) -> void:
 		var d1: float = rad * (0.95 + 0.25 * sin(g * 3.0 + float(i)))
 		draw_line(b + dir * d0, b + dir * d1,
 			Color(claro.r, claro.g, claro.b, 0.75 * (1.0 - u)), maxf(1.5, r * 0.18), true)
+
+
+# ============================================================
+#  LOS DE LOS ENEMIGOS (ver CombatFX.Estilo, del 9 en adelante)
+# ============================================================
+
+# SPLAT: un cuerpo que se deja caer. Baja GORDO Y REDONDO, acelerando, y al tocar SE APLANA en una
+# mancha ancha y baja que se abre y se apaga. Es la Reventon del slime y el Aplastamiento del Rey.
+#
+# El achatamiento es lo que lo cuenta: si solo se encogiera, seria una bola que desaparece. Al
+# ensanchar a la vez que se aplasta se lee como masa que se esparce por el suelo.
+func _pintar_splat(e: Dictionary) -> void:
+	var a: Vector2 = e["a"]
+	var b: Vector2 = e["b"]
+	var col: Color = e["col"]
+	var r: float = e["r"] * 1.35   # un cuerpo entero, no una bolita
+	var t: float = e["t"]
+	var dur: float = float(e["dur"])
+	var claro := Color(minf(1.0, col.r + 0.3), minf(1.0, col.g + 0.3), minf(1.0, col.b + 0.3), 1.0)
+	if t < dur:
+		# CAYENDO: u*u para que acelere. Se estira un poco en vertical segun coge velocidad, que es
+		# lo que hace que parezca que pesa.
+		var u: float = clampf(t / maxf(dur, 0.01), 0.0, 1.0)
+		var p: Vector2 = Vector2(b.x, lerpf(a.y, b.y, u * u))
+		var estira: float = 1.0 + 0.35 * u
+		_blob(p, r / estira, r * estira, col, claro, 0.9)
+		return
+	# APLASTADO: la mancha se abre a lo ancho y se aplana, y se apaga.
+	var v: float = clampf((t - dur) / 0.30, 0.0, 1.0)
+	var ancho: float = r * (1.0 + 2.2 * v)
+	var alto: float = r * (1.0 - 0.85 * v)
+	var alfa: float = 1.0 - v
+	if alto > 0.5:
+		_blob(b, ancho, alto, col, claro, 0.9 * alfa)
+	# Y las GOTAS que saltan al reventar, para que no sea una tortita limpia.
+	for i in 5:
+		var ang: float = float(e["semilla"]) + TAU * float(i) / 5.0
+		var dir := Vector2(cos(ang), -absf(sin(ang)) * 0.8)
+		var d: float = ancho * (0.7 + 0.5 * v)
+		draw_circle(b + dir * d, maxf(1.0, r * 0.22 * (1.0 - v)),
+			Color(col.r, col.g, col.b, 0.8 * alfa))
+
+
+# Una masa gelatinosa: elipse rellena + brillo arriba. La usan el splat y el escupitajo.
+func _blob(p: Vector2, rx: float, ry: float, col: Color, claro: Color, alfa: float) -> void:
+	var pts := PackedVector2Array()
+	var n := 16
+	for i in n:
+		var k: float = TAU * float(i) / float(n)
+		pts.append(p + Vector2(cos(k) * rx, sin(k) * ry))
+	draw_colored_polygon(pts, Color(col.r, col.g, col.b, alfa))
+	# El brillo va ARRIBA A LA IZQUIERDA siempre: es lo que le da volumen y lo separa de una mancha.
+	draw_circle(p + Vector2(-rx * 0.3, -ry * 0.35), maxf(1.0, minf(rx, ry) * 0.32),
+		Color(claro.r, claro.g, claro.b, 0.55 * alfa))
+
+
+# ESCUPITAJO: una bola pequeña con PARABOLA. No va en linea recta como el proyectil de fuego: sube
+# y cae, que es lo que hace que se lea como algo escupido y no como algo lanzado con puntería.
+# Al llegar deja un goteron que se escurre.
+func _pintar_escupitajo(e: Dictionary) -> void:
+	var a: Vector2 = e["a"]
+	var b: Vector2 = e["b"]
+	var col: Color = e["col"]
+	var r: float = e["r"] * 0.7   # pequeño a proposito: la Rociada son DOS de estos
+	var t: float = e["t"]
+	var dur: float = float(e["dur"])
+	var claro := Color(minf(1.0, col.r + 0.3), minf(1.0, col.g + 0.3), minf(1.0, col.b + 0.3), 1.0)
+	var u: float = clampf(t / maxf(dur, 0.01), 0.0, 1.0)
+	if u < 1.0:
+		# PARABOLA: interpolacion recta + una campana hacia arriba. La altura sale de la distancia,
+		# asi que un escupitajo corto no hace un arco absurdo.
+		var p: Vector2 = a.lerp(b, u)
+		var alto: float = minf(70.0, a.distance_to(b) * 0.32)
+		p.y -= sin(u * PI) * alto
+		# Se aplasta un poco en la direccion de marcha (como una gota en el aire).
+		_blob(p, r * 1.15, r * 0.85, col, claro, 0.92)
+		# Estela de gotitas detras, que es lo que lo hace baboso.
+		for i in 3:
+			var ur: float = u - 0.07 * float(i + 1)
+			if ur <= 0.0:
+				continue
+			var q: Vector2 = a.lerp(b, ur)
+			q.y -= sin(ur * PI) * alto
+			draw_circle(q, maxf(1.0, r * (0.4 - 0.1 * float(i))),
+				Color(col.r, col.g, col.b, 0.4 - 0.1 * float(i)))
+		return
+	# IMPACTO: se abre y se escurre hacia abajo.
+	var v: float = clampf((t - dur) / 0.22, 0.0, 1.0)
+	var alfa: float = 1.0 - v
+	_blob(b, r * (1.0 + 1.3 * v), r * (1.0 - 0.4 * v), col, claro, 0.85 * alfa)
+	draw_line(b, b + Vector2(0.0, r * 1.8 * v), Color(col.r, col.g, col.b, 0.6 * alfa),
+		maxf(1.0, r * 0.35), true)
+
+
+# AURA: el bicho se enciende A SI MISMO. No viaja: se queda en su tarjeta, latiendo. Es la Ignicion
+# del slime de fuego (y vale para cualquier buff: Caparazon, Muralla, Endurecerse).
+func _pintar_aura(e: Dictionary) -> void:
+	var b: Vector2 = e["b"]
+	var col: Color = e["col"]
+	var r: float = e["r"]
+	var t: float = e["t"]
+	# Vive bastante mas que su "vuelo": un buff tiene que lucir.
+	var u: float = clampf(t / maxf(float(e["dur"]) + 0.55, 0.05), 0.0, 1.0)
+	if u >= 1.0:
+		return
+	var claro := Color(minf(1.0, col.r + 0.4), minf(1.0, col.g + 0.35), minf(1.0, col.b + 0.2), 1.0)
+	# Entra deprisa y se va despacio, para que se vea el estallido inicial.
+	var alfa: float = (u / 0.18) if u < 0.18 else (1.0 - (u - 0.18) / 0.82)
+	var g: float = float(e["semilla"])
+	# LENGUAS que suben, repartidas alrededor y ondeando. Son lo que lo lee como fuego y no como
+	# un circulo de color.
+	for i in 10:
+		var ang: float = g + TAU * float(i) / 10.0
+		var onda: float = sin(t * 9.0 + float(i) * 1.7)
+		var largo: float = r * (1.5 + 0.5 * onda)
+		var base: Vector2 = b + Vector2(cos(ang) * r * 1.25, sin(ang) * r * 0.75)
+		var punta: Vector2 = base + Vector2(onda * r * 0.35, -largo)
+		draw_line(base, punta, Color(claro.r, claro.g, claro.b, 0.55 * alfa),
+			maxf(1.5, r * 0.22), true)
+	# Y un halo pegado al cuerpo, que late.
+	draw_arc(b, r * (1.5 + 0.12 * sin(t * 7.0)), 0.0, TAU, 26,
+		Color(col.r, col.g, col.b, 0.45 * alfa), maxf(2.0, r * 0.3), true)
+
+
+# VORTICE: una espiral que se CIERRA sobre la victima. Es lo del abismo: no te golpea, te succiona.
+# Brazos que giran hacia dentro y un nucleo negro que se traga la luz.
+func _pintar_vortice(e: Dictionary) -> void:
+	var b: Vector2 = e["b"]
+	var col: Color = e["col"]
+	var r: float = e["r"]
+	var t: float = e["t"]
+	var u: float = clampf(t / maxf(float(e["dur"]) + 0.35, 0.05), 0.0, 1.0)
+	if u >= 1.0:
+		return
+	var alfa: float = 1.0 - u * u
+	var claro := Color(minf(1.0, col.r + 0.5), minf(1.0, col.g + 0.5), minf(1.0, col.b + 0.55), 1.0)
+	# Los brazos se cierran: el radio exterior encoge segun avanza.
+	var rad: float = r * (3.0 - 1.9 * u)
+	var giro: float = float(e["semilla"]) + t * 5.5
+	# Cinco brazos, cada uno una polilinea que va enroscandose hacia el centro.
+	for i in 5:
+		var pts := PackedVector2Array()
+		var base_ang: float = giro + TAU * float(i) / 5.0
+		for j in 9:
+			var k: float = float(j) / 8.0
+			# El angulo crece con k: eso es lo que lo curva (una espiral, no un radio recto).
+			var ang: float = base_ang + k * 2.1
+			var d: float = rad * (1.0 - k * 0.85)
+			pts.append(b + Vector2(cos(ang) * d, sin(ang) * d * 0.72))
+		draw_polyline(pts, Color(claro.r, claro.g, claro.b, 0.5 * alfa), maxf(1.5, r * 0.16), true)
+	# NUCLEO: negro de verdad, que es lo que le da el fondo de pozo.
+	var nr: float = rad * 0.30
+	draw_circle(b, nr, Color(0.02, 0.01, 0.05, 0.85 * alfa))
+	draw_arc(b, nr, 0.0, TAU, 22, Color(col.r, col.g, col.b, 0.7 * alfa), maxf(1.5, r * 0.2), true)
+
+
+# ARRASTRE: el bicho embiste (de eso se encarga CombatFX) y SE LLEVA UNA LLAMA por delante. La
+# Llamarada del slime de fuego no se lanza: le sale el fuego encima y avanza con el.
+#
+# Se dibuja a lo largo del trayecto a->b, que es el mismo que recorre su tarjeta al embestir.
+func _pintar_arrastre(e: Dictionary) -> void:
+	var a: Vector2 = e["a"]
+	var b: Vector2 = e["b"]
+	var col: Color = e["col"]
+	var r: float = e["r"]
+	var t: float = e["t"]
+	var dur: float = float(e["dur"])
+	var claro := Color(minf(1.0, col.r + 0.45), minf(1.0, col.g + 0.35), minf(1.0, col.b + 0.1), 1.0)
+	var u: float = clampf(t / maxf(dur, 0.01), 0.0, 1.0)
+	var fin: float = clampf((t - dur) / 0.20, 0.0, 1.0)
+	var alfa: float = 1.0 if u < 1.0 else 1.0 - fin
+	if alfa <= 0.0:
+		return
+	var p: Vector2 = a.lerp(b, minf(u, 1.0))
+	var g: float = float(e["semilla"])
+	# La llama: lenguas que salen hacia DELANTE (hacia el objetivo), no en todas direcciones. Es lo
+	# que hace que se lea como algo que empuja y no como una hoguera quieta.
+	var dir: Vector2 = (b - a).normalized() if a.distance_to(b) > 1.0 else Vector2.RIGHT
+	var lado := Vector2(-dir.y, dir.x)
+	for i in 7:
+		var k: float = float(i) / 6.0 - 0.5
+		var onda: float = sin(t * 16.0 + float(i) * 1.3 + g)
+		var largo: float = r * (1.3 + 0.6 * onda)
+		var base: Vector2 = p + lado * k * r * 1.6
+		draw_line(base, base + dir * largo + lado * onda * r * 0.25,
+			Color(claro.r, claro.g, claro.b, 0.7 * alfa), maxf(1.5, r * 0.26), true)
+	# Nucleo caliente pegado al bicho.
+	draw_circle(p, r * 0.75 * (1.0 + 0.1 * sin(t * 13.0)), Color(col.r, col.g, col.b, 0.75 * alfa))
 
 
 # SIN ELEMENTO: un rombo girando dentro de un anillo. Se lee como "magia" sin tirar de ningun

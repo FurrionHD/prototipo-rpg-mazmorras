@@ -216,6 +216,20 @@ func secundario_para(n_enemigos: int) -> float:
 @export var invoca_pool: Array = []      # Array[EnemyData]; vacio = no invoca nada
 @export var invoca_cantidad: int = 0     # cuantos slimes por lanzamiento (el Rey saca 2)
 
+# --- COMO SE VE (solo presentacion; no toca una sola cuenta) ----------------------------------
+# QUE DIBUJO lleva esta habilidad. -1 = lo de siempre (la tarjeta embiste, CombatFX.Estilo.MELEE);
+# cualquier otro valor es un CombatFX.Estilo.
+#
+# Existe porque TODOS los ataques enemigos se veian igual: daba lo mismo que te escupieran acido,
+# que te cayera un slime encima o que te barriera una marea, era el mismo empujon de tarjeta. La
+# maquinaria de dibujos ya estaba montada (CapaHechizos) pero solo la usaban los hechizos del
+# jugador; esto es lo que deja que un bicho pida la suya.
+# EL COLOR no se pide aqui: lo decide combat.gd._color_golpe. Manda el elemento si lo hay y, si no,
+# el color del propio bicho. Con eso los slimes ya atacan de su color (ninguno lleva elemento salvo
+# el de fuego, que es naranja de todas formas) sin necesidad de un campo aparte -- y sobre todo sin
+# tener que mandarlo por red, porque el espejo deriva el mismo color de su propio Combatant.
+@export var fx_estilo: int = -1
+
 # COOLDOWN (KAN-57): turnos que debes ESPERAR para volver a usarla. 0 = sin cooldown
 # (usable cada turno). N = tras usarla, no vuelve a estar disponible hasta N turnos
 # tuyos despues. El estado (turnos restantes) vive en el Combatant, no aqui (recurso

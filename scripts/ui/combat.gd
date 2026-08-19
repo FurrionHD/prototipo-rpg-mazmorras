@@ -2468,11 +2468,41 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	var bv: Dictionary = _bloque_de(victima)
 	if bv.is_empty():
 		return
-	var col: Color = Elementos.color(elem) if Elementos.tiene_color(elem) else Color(1, 0.95, 0.9)
-	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido, col, estilo, peso)
+	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido,
+		_color_golpe(atacante, elem, estilo), estilo, peso)
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
 	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso)
+
+
+# DE QUE COLOR sale un golpe. Manda el ELEMENTO cuando lo tiene (un rayo es amarillo lo lance quien
+# lo lance); si no, lo pinta EL BICHO con su propio color.
+#
+# El color del bicho es lo que hace que los slimes ataquen de su color -- el venenoso escupe verde y
+# el abisal azul oscuro -- sin tener que meterle un elemento falso a cada habilidad solo para
+# teñirla. Antes todo lo que no llevaba elemento salia del mismo blanco hueso.
+#
+# NO VIAJA POR RED, y no hace falta: el espejo resuelve al atacante con _de_codigo y ese Combatant
+# ya trae su color_visual, asi que el color se deriva igual en las dos maquinas.
+#
+# Los golpes a puño limpio (MELEE sin elemento) se quedan con el blanco de siempre: teñir tambien el
+# basico de cada bicho llenaba la pantalla de color y le quitaba fuerza justo a las habilidades, que
+# es lo que se queria destacar.
+# EL ASPECTO que pide una habilidad enemiga. -1 (el valor por defecto de AbilityData) = la de
+# siempre: la tarjeta embiste. Un solo sitio para que los dos caminos de golpe enemigo -el basico y
+# el de habilidades- no se contesten distinto, que es el error clasico de esta pantalla.
+func _estilo_de_habilidad(ab: AbilityData) -> int:
+	if ab == null or ab.fx_estilo < 0:
+		return CombatFX.Estilo.MELEE
+	return ab.fx_estilo
+
+
+func _color_golpe(atacante: Combatant, elem: int, estilo: int) -> Color:
+	if Elementos.tiene_color(elem):
+		return Elementos.color(elem)
+	if estilo != CombatFX.Estilo.MELEE and atacante != null:
+		return atacante.color_visual
+	return Color(1, 0.95, 0.9)
 
 
 # EL ASPECTO de un golpe de hechizo. Manda el ELEMENTO DEL GOLPE, no el del hechizo: Tormenta
@@ -5834,6 +5864,10 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	var contra: String = ""
 	var rastro: Array = []   # un token por golpe para el desglose del log (mismo formato que el jugador)
 	var esquivados: int = 0  # para la excelia de Agilidad, que se paga UNA vez al final
+	# EL ASPECTO lo pide la habilidad (ver AbilityData.fx_estilo). Se saca UNA vez, fuera del bucle:
+	# es el mismo para todos sus golpes. Tambien se usa en los que FALLAN, para que un escupitajo
+	# esquivado se vea salir y pasar de largo en vez de convertirse en un empujon de tarjeta.
+	var estilo_ab: int = _estilo_de_habilidad(ab)
 	for i in n_golpes:
 		_fx_tanda(tanda_base + i)
 		var result := StatsMath.resolve_attack(e, t, defendiendo)
@@ -5842,7 +5876,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			Game.contar_esquiva(pj_t)   # contador oculto de Reflejos
 			esquivados += 1
 			rastro.append({"t": "falla", "c": t})
-			_fx_golpe(e, t, 0.0, false, true)
+			_fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_ab)
 			if t.en_guardia and permitir_contra and contra == "":
 				contra = _contraatacar(e, t)
 				if not e.is_alive():
@@ -5855,7 +5889,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			var dmg_bruto: float = float(result.get("dmg_sin_mitigar", result.damage)) \
 				* ab.dano_mult * escala * e.dummy_dmg_out_mult
 			t.take_damage(dmg)
-			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque)
+			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab)
 			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
 			# El tope por accion hace que una habilidad de cinco golpes cueste una, no cinco.
 			if t.resiste_por_afinidad(e.elemento_ataque):

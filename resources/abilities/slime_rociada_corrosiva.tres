@@ -15,6 +15,7 @@ estado = 9
 
 [resource]
 script = ExtResource("1")
+fx_estilo = 10
 nombre = "Rociada corrosiva"
 descripcion = "Sacude su cuerpo y te rocía de baba ácida. Cada salpicón te deja pringado y puede envenenarte."
 coste_energia = 0.0
