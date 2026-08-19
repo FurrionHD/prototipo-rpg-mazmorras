@@ -58,6 +58,16 @@ enum Familia { NINGUNA, SLIME, ROEDOR, INSECTO, PIEDRA, BESTIA, HUMANOIDE }
 @export_range(0.0, 1.2) var franja_low: float = 0.0
 @export_range(0.0, 1.2) var franja_high: float = 0.6
 
+# EN MEDIO DE LA FILA, SIEMPRE. Los JEFES no hacen cola con su propio séquito: el Rey Slime invoca
+# lanzando bolas a los lados y luego se desplazaba él, porque los invocados entran en el primer
+# hueco libre y la fila se recolocaba. Con esto su tarjeta se lleva al centro pase lo que pase con
+# el array (ver combat.gd._ordenar_fila_enemigos).
+#
+# Es SOLO colocacion: el array no se toca, porque los codigos de red son sus indices. Lo que sí se
+# ajusta es la adyacencia de la fila enemiga, que pasa a ir por el orden de PANTALLA -- si no, lo
+# que ves al lado y a lo que salpica tu hechizo dejarian de ser lo mismo.
+@export var centrado_en_fila: bool = false
+
 
 # Color REAL con el que se pinta este bicho: su color base aclarado segun su 't' (los mas
 # fuertes de su franja salen mas claros). Lo usan el cuerpo del mapa (enemy.gd) y la UI de
@@ -306,6 +316,7 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	# Con que color se le ve: viaja en el Combatant porque la UI de combate solo recibe
 	# Combatants (no el EnemyData), y necesita pintar su marcador en la barra de accion.
 	c.color_visual = color_visual(t)
+	c.centrado_en_fila = centrado_en_fila
 	return c
 
 

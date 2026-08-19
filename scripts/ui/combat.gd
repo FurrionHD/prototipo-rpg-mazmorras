@@ -1425,24 +1425,26 @@ func _mult_resistencia_aggro(obj: Combatant) -> float:
 	return 1.0 + Game.RESIS_TANQUE_K * pow(exceso, Game.RESIS_APORTE_EXP)
 
 
-# Los VECINOS de 'principal' a los que salpica un hechizo de area: el primer enemigo VIVO a su
-# izquierda y el primero a su derecha (maximo 2, haya los cadaveres que haya en medio).
-# Los muertos NO se comen el salpicon: siguen en _enemies para que la numeracion no baile bajo
-# tu dedo (ver el comentario de _enemies), que es cosa de la UI, no la geometria de la pelea.
-# Si el hueco muerto absorbiera el golpe, el hechizo iria a MENOS segun avanza el combate, y
-# encima sin decirtelo. Es la misma regla que ya sigue _objetivo(): nada se lanza al vacio.
+# Los VECINOS de 'principal' a los que salpica un hechizo de area: el de su izquierda y el de su
+# derecha EN PANTALLA (maximo 2).
+#
+# VA POR EL ORDEN DE PANTALLA (_fila_visual_enemigos), no por el del array, y esa es la clave: los
+# cadaveres ya no estan en la fila (se retiran, ver _retirando) y el jefe se recoloca al centro
+# (_ordenar_fila_enemigos), asi que el array y lo que ves pueden decir cosas distintas. Lo que
+# salpica tiene que ser lo que el jugador ve al lado; si no, el hechizo alcanza a alguien que en la
+# pantalla esta a dos huecos y parece un bug aunque el numero sea correcto.
+#
+# Los muertos no cuentan y no absorben nada: nada se lanza al vacio (misma regla que _objetivo()).
 func _adyacentes_vivos(principal: Combatant) -> Array[Combatant]:
 	var out: Array[Combatant] = []
-	var centro: int = _enemies.find(principal)
+	var fila: Array[Combatant] = _fila_visual_enemigos()
+	var centro: int = fila.find(principal)
 	if centro < 0:
 		return out
 	for paso in [-1, 1]:
 		var i: int = centro + paso
-		while i >= 0 and i < _enemies.size():
-			if _enemies[i].is_alive():
-				out.append(_enemies[i])
-				break
-			i += paso
+		if i >= 0 and i < fila.size():
+			out.append(fila[i])
 	return out
 
 
@@ -2186,6 +2188,63 @@ func _recomponer_fila_enemigos() -> void:
 		if wrap != null and is_instance_valid(wrap) and wrap.visible:
 			visibles.append(b)
 	_reajustar_anchos(visibles, visibles.size())
+	_ordenar_fila_enemigos()
+
+
+# EL JEFE, SIEMPRE EN EL CENTRO. Los invocados entran en el primer hueco libre y se añaden al final,
+# asi que el Rey Slime acababa lanzando sus bolas hacia los lados y luego DESPLAZANDOSE el, como si
+# hiciera cola con su propio sequito. Aqui se recoloca su tarjeta al medio de las que se ven.
+#
+# Se mueve el NODO dentro del HBox (move_child), nunca la entrada de _enemies: los codigos de red
+# son los indices del array (ver _cod_combatiente), y tocarlos desincroniza al espejo en silencio.
+# Los ocultos se empujan al final para que no dejen huecos raros en el reparto.
+func _ordenar_fila_enemigos() -> void:
+	if _bloques_box == null or not is_instance_valid(_bloques_box):
+		return
+	var jefes: Array = []
+	var resto: Array = []
+	var ocultos: Array = []
+	for i in _bloques.size():
+		var wrap: Control = _bloques[i].get("wrap")
+		if wrap == null or not is_instance_valid(wrap):
+			continue
+		if not wrap.visible:
+			ocultos.append(wrap)
+		elif i < _enemies.size() and _enemies[i].centrado_en_fila:
+			jefes.append(wrap)
+		else:
+			resto.append(wrap)
+	if jefes.is_empty():
+		return   # sin jefe no hay nada que recolocar: se respeta el orden del array
+	# Los jefes se meten JUSTO EN MEDIO de los demas. Con 2 secuaces queda [s, REY, s]; con 1,
+	# [s, REY] -- que es lo mas centrado posible sin inventarse un hueco.
+	var orden: Array = resto.duplicate()
+	for w in jefes:
+		orden.insert(orden.size() / 2, w)
+	var idx: int = 0
+	for w in orden + ocultos:
+		_bloques_box.move_child(w, idx)
+		idx += 1
+
+
+# La fila de enemigos TAL COMO SE VE: los vivos y visibles, de izquierda a derecha. Es lo que manda
+# para la adyacencia, y no el orden del array: desde que el jefe se recoloca al centro
+# (_ordenar_fila_enemigos) los dos ordenes pueden no coincidir, y "el de al lado" tiene que ser el
+# que el jugador ve al lado. Si no, volveriamos al problema de los cadaveres pero al reves.
+func _fila_visual_enemigos() -> Array[Combatant]:
+	var pares: Array = []
+	for i in _bloques.size():
+		if i >= _enemies.size() or not _enemies[i].is_alive():
+			continue
+		var wrap: Control = _bloques[i].get("wrap")
+		if wrap == null or not is_instance_valid(wrap) or not wrap.visible:
+			continue
+		pares.append([wrap.get_index(), _enemies[i]])
+	pares.sort_custom(func(x, y): return int(x[0]) < int(y[0]))
+	var out: Array[Combatant] = []
+	for p in pares:
+		out.append(p[1])
+	return out
 
 
 # Apaga el bloque de un enemigo que ha caido: gris, barra a 0 y sin clic. El nodo NO se libera y su
@@ -2312,10 +2371,10 @@ func _meter_enemigo(c: Combatant, es_invocado: bool) -> int:
 		var b: Dictionary = _crear_bloque(c, idx + 1, idx)
 		_bloques.append(b)
 		_bloques_box.add_child(b["wrap"])
-		# La fila acaba de crecer (refuerzos, invocaciones): con uno mas puede que ya no quepan a su
-		# ancho preferido y haya que encogerlos a todos (ver _ancho_bloque). Cuenta los VISIBLES: si
-		# hay cadaveres ya retirados, los vivos no tienen por que encogerse por ellos.
-		_recomponer_fila_enemigos()
+	# La fila ha cambiado (uno mas, o un hueco reestrenado): repartir el ancho entre los VISIBLES y
+	# devolver al jefe al centro. VA EN LOS DOS CAMINOS -- reestrenar un hueco tambien saca una
+	# tarjeta de la nada, y por el camino de arriba se quedaba sin recolocar.
+	_recomponer_fila_enemigos()
 	# Estructuras por-combatiente (mismas que puebla el arranque): ATB, marcador y roster del escudo.
 	_gauge[c] = 0.0                  # entra con la barra a cero (no regala una accion inmediata)
 	if _timeline != null:

@@ -203,6 +203,9 @@ var elemento: int = Elementos.Elemento.NINGUNO
 # accion con el mismo color que tiene el bicho en la mazmorra. El JUGADOR no lo usa (su
 # aspecto sale de Game.player_color / Game.material_cuerpo()).
 var color_visual: Color = Color(0.9, 0.35, 0.3)
+# JEFE que se queda SIEMPRE en el centro de la fila (ver EnemyData.centrado_en_fila). Como el
+# color, es dato de PRESENTACION que viaja aqui porque la pantalla de combate solo ve Combatants.
+var centrado_en_fila: bool = false
 # FRANJA de la afinidad: 1.0 = PURO (una criatura hecha del elemento: ×0.5 / ×1.5), menos =
 # mas suave. Un cuerpo imbuido va a INTENSIDAD_IMBUIDO (0.4 -> ×0.8 / ×1.2): no es lo mismo
 # SER de fuego que haberte echado un manto por encima. No afecta a inmunidades (son binarias).

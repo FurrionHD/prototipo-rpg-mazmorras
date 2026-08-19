@@ -75,6 +75,13 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.AURA:
 			# No viaja: nace y muere sobre la misma tarjeta.
 			e["a"] = b
+		CombatFX.Estilo.BARRIDO:
+			# RECTA, NUNCA EN DIAGONAL. Un frente de agua avanza de una fila a la otra; si sale de la
+			# tarjeta del que lanza y va al centro de lo barrido, cuando esos dos no estan alineados
+			# la lamina cruza la pantalla torcida y se ve rarisimo -- ademas de que una ola inclinada
+			# no "barre" nada. Se le hace nacer JUSTO DEBAJO del destino: conserva la distancia (o
+			# sea el tiempo de viaje) y sube derecha.
+			e["a"] = Vector2(b.x, a.y)
 		CombatFX.Estilo.ARCO:
 			e["a"] = a
 			# Un rebote puede caer OTRA VEZ en el mismo bicho (pasa siempre en 1v1). Entonces no hay
