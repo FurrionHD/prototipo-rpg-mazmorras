@@ -72,10 +72,6 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.CAIDA_RAYO, CombatFX.Estilo.CAIDA_GOTA:
 			# Del cielo: el origen es el techo de la pantalla, justo encima del objetivo.
 			e["a"] = Vector2(b.x + randf_range(-14.0, 14.0), FUERA)
-		CombatFX.Estilo.SPLAT:
-			# Tambien del cielo, pero SIN desvio lateral: un cuerpo que se deja caer aterriza donde
-			# apunta. El desvio esta bien para una gota de lluvia, no para el Rey Slime.
-			e["a"] = Vector2(b.x, FUERA)
 		CombatFX.Estilo.AURA:
 			# No viaja: nace y muere sobre la misma tarjeta.
 			e["a"] = b
@@ -372,40 +368,55 @@ func _pintar_explosion(e: Dictionary) -> void:
 #  LOS DE LOS ENEMIGOS (ver CombatFX.Estilo, del 9 en adelante)
 # ============================================================
 
-# SPLAT: un cuerpo que se deja caer. Baja GORDO Y REDONDO, acelerando, y al tocar SE APLANA en una
-# mancha ancha y baja que se abre y se apaga. Es la Reventon del slime y el Aplastamiento del Rey.
+# SPLAT: EL BICHO SALTA ENCIMA. UN SOLO cuerpo, gordo y redondo, que sale DE SU TARJETA, describe un
+# salto y aterriza aplastando a todos los que pille debajo. Es el Reventon del slime y el
+# Aplastamiento del Rey.
 #
-# El achatamiento es lo que lo cuenta: si solo se encogiera, seria una bola que desaparece. Al
-# ensanchar a la vez que se aplasta se lee como masa que se esparce por el suelo.
+# DOS COSAS QUE SON EL 90% DE QUE FUNCIONE:
+#  1. Es UNO, no uno por victima. De eso se encarga CombatFX._marcar_efectos_de_grupo, que deja una
+#     sola portadora por tanda. Antes caian tres bolas sueltas sobre tres tarjetas, que es
+#     justamente lo que no pasa cuando un bicho enorme te salta encima.
+#  2. SALE DEL BICHO, no del cielo. Un salto tiene origen; una piedra que cae del techo, no. Por eso
+#     'a' se queda siendo la tarjeta del atacante (no se toca en alta()) y aqui se dibuja el arco.
+#
+# El tamaño sale de 'ancho' (lo que abarca el grupo alcanzado), no del peso: si aplasta a cuatro
+# tiene que TAPARLOS a los cuatro, o el dibujo estaria mintiendo sobre a quien pega.
 func _pintar_splat(e: Dictionary) -> void:
 	var a: Vector2 = e["a"]
 	var b: Vector2 = e["b"]
 	var col: Color = e["col"]
-	var r: float = e["r"] * 1.35   # un cuerpo entero, no una bolita
 	var t: float = e["t"]
 	var dur: float = float(e["dur"])
+	# Radio del cuerpo: la mitad de lo que abarca, con un suelo para que en 1v1 siga siendo gordo.
+	var r: float = maxf(26.0, float(e["ancho"]) * 0.5)
 	var claro := Color(minf(1.0, col.r + 0.3), minf(1.0, col.g + 0.3), minf(1.0, col.b + 0.3), 1.0)
 	if t < dur:
-		# CAYENDO: u*u para que acelere. Se estira un poco en vertical segun coge velocidad, que es
-		# lo que hace que parezca que pesa.
+		# EL SALTO: va de su tarjeta a donde aterriza, subiendo por el camino. La altura sale de la
+		# distancia, y el ARRANQUE es lento y la caida rapida (u*u), que es como cae un cuerpo.
 		var u: float = clampf(t / maxf(dur, 0.01), 0.0, 1.0)
-		var p: Vector2 = Vector2(b.x, lerpf(a.y, b.y, u * u))
-		var estira: float = 1.0 + 0.35 * u
-		_blob(p, r / estira, r * estira, col, claro, 0.9)
+		var p: Vector2 = a.lerp(b, u)
+		p.y -= sin(u * PI) * minf(150.0, a.distance_to(b) * 0.45 + 60.0)
+		# Se encoge al despegar y se estira al caer: da el peso.
+		var estira: float = 0.85 + 0.5 * u
+		_blob(p, r / estira, r * estira, col, claro, 0.95)
 		return
-	# APLASTADO: la mancha se abre a lo ancho y se aplana, y se apaga.
-	var v: float = clampf((t - dur) / 0.30, 0.0, 1.0)
-	var ancho: float = r * (1.0 + 2.2 * v)
-	var alto: float = r * (1.0 - 0.85 * v)
+	# APLASTADO: se abre a lo ancho, se aplana y se apaga.
+	var v: float = clampf((t - dur) / 0.34, 0.0, 1.0)
+	var ancho: float = r * (1.0 + 0.55 * v)
+	var alto: float = r * (0.75 - 0.62 * v)
 	var alfa: float = 1.0 - v
 	if alto > 0.5:
-		_blob(b, ancho, alto, col, claro, 0.9 * alfa)
+		_blob(b, ancho, alto, col, claro, 0.92 * alfa)
+	# ONDA de impacto: un anillo bajo y ancho que se abre por el suelo. Es lo que dice "esto ha
+	# pegado a TODO lo de aqui debajo" mejor que la propia mancha.
+	var ro: float = r * (1.0 + 1.1 * v)
+	draw_arc(b, ro, 0.0, TAU, 30, Color(claro.r, claro.g, claro.b, 0.55 * alfa),
+		maxf(2.0, r * 0.10 * (1.0 - v)), true)
 	# Y las GOTAS que saltan al reventar, para que no sea una tortita limpia.
-	for i in 5:
-		var ang: float = float(e["semilla"]) + TAU * float(i) / 5.0
-		var dir := Vector2(cos(ang), -absf(sin(ang)) * 0.8)
-		var d: float = ancho * (0.7 + 0.5 * v)
-		draw_circle(b + dir * d, maxf(1.0, r * 0.22 * (1.0 - v)),
+	for i in 7:
+		var ang: float = float(e["semilla"]) + TAU * float(i) / 7.0
+		var dir := Vector2(cos(ang), -absf(sin(ang)) * 0.7)
+		draw_circle(b + dir * ancho * (0.8 + 0.55 * v), maxf(1.5, r * 0.11 * (1.0 - v)),
 			Color(col.r, col.g, col.b, 0.8 * alfa))
 
 

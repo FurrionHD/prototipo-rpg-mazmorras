@@ -853,7 +853,7 @@ func arrancar_cola() -> float:
 		_cola[i]["pos_tanda"] = pos
 		_cola[i]["lanzado"] = false
 		_cola[i]["fx_lanzado"] = false
-	_marcar_olas()
+	_marcar_efectos_de_grupo()
 	_t = 0.0
 	if magia:
 		_dur = minf(arranque + T_PUM + extra + T_COLA_MAGIA, TOPE_TOTAL_MAGIA)
@@ -866,27 +866,35 @@ func arrancar_cola() -> float:
 	return _dur
 
 
-# UNA SOLA OLA POR TANDA, Y DEL ANCHO DE TODO LO QUE BARRE.
+# UN SOLO EFECTO POR TANDA para los estilos que son UNA COSA GRANDE, no un proyectil por cabeza.
 #
-# Una ola no es un proyectil: es UN frente que pasa por delante de varios. Pintando una por victima
-# salian tres o cuatro olas identicas en fila, una por cada uno, que es justo lo que no es un
-# barrido -- y le pasaba igual a Rocío y a Torrente (que alcanzan a TODOS) que a la Marea del Rey.
+# Son dos casos con el mismo vicio:
+#   BARRIDO  una ola es UN frente que pasa por delante de varios. Pintando una por victima salian
+#            tres o cuatro olitas identicas en fila -- lo contrario de un barrido.
+#   SPLAT    un bicho que salta encima es UN cuerpo. Pintando uno por victima caian tres bolas
+#            sueltas sobre tres tarjetas, que es exactamente lo que NO pasa: salta uno solo y
+#            aplasta a los que pille debajo.
 #
-# Asi que de cada tanda se queda UNA como portadora del dibujo y a las demas se les apaga (siguen
-# dando su numero, su temblor y su parte de barra: lo unico que pierden es repetir la ola). La
-# portadora recibe como ancho la distancia del borde izquierdo del primero al borde derecho del
-# ultimo, asi que la ola se adapta sola a 2, 3 o 4 objetivos sin que nadie le pase el numero.
-func _marcar_olas() -> void:
-	var por_tanda: Dictionary = {}   # tanda -> [indices de la cola con estilo BARRIDO]
+# De cada tanda se queda UNA como portadora del dibujo y a las demas se les apaga (siguen dando su
+# numero, su temblor y su parte de barra: lo unico que pierden es repetir el efecto). La portadora
+# recibe el ANCHO de todo lo alcanzado -del borde izquierdo del primero al derecho del ultimo- y el
+# CENTRO, asi que el efecto se adapta solo a 2, 3 o 4 objetivos sin que nadie le pase el numero.
+const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT]
+
+func _marcar_efectos_de_grupo() -> void:
+	var por_tanda: Dictionary = {}   # "tanda:estilo" -> [indices de la cola]
 	for i in _cola.size():
-		if int(_cola[i].get("estilo", Estilo.MELEE)) != Estilo.BARRIDO:
+		var es: int = int(_cola[i].get("estilo", Estilo.MELEE))
+		if not _ESTILOS_DE_GRUPO.has(es):
 			continue
-		var tv: int = int(_cola[i].get("tanda", 0))
-		if not por_tanda.has(tv):
-			por_tanda[tv] = []
-		(por_tanda[tv] as Array).append(i)
-	for tv in por_tanda:
-		var idx: Array = por_tanda[tv]
+		# La clave lleva el ESTILO: si en una misma tanda cayeran una ola y un splat, cada uno tiene
+		# que quedarse con su propia portadora.
+		var k: String = "%d:%d" % [int(_cola[i].get("tanda", 0)), es]
+		if not por_tanda.has(k):
+			por_tanda[k] = []
+		(por_tanda[k] as Array).append(i)
+	for k in por_tanda:
+		var idx: Array = por_tanda[k]
 		var izq: float = INF
 		var der: float = -INF
 		var portadora: int = -1
@@ -900,7 +908,7 @@ func _marcar_olas() -> void:
 			izq = minf(izq, c.x - w * 0.5)
 			der = maxf(der, c.x + w * 0.5)
 			# La portadora es la de MAS A LA IZQUIERDA: da igual cual sea mientras sea estable, pero
-			# asi el centro del frente cae donde tiene que caer aunque solo haya una.
+			# asi el centro cae donde tiene que caer aunque solo haya una.
 			if portadora < 0 or c.x < _punto(_cola[portadora]["bv"]).x:
 				portadora = i
 		if portadora < 0:
@@ -908,10 +916,8 @@ func _marcar_olas() -> void:
 		for i in idx:
 			if i != portadora:
 				_cola[i]["sin_dibujo"] = true
-		# El ancho del FRENTE ENTERO. _pintar_ola lo usa como semi-ancho (x 0.55), asi que se le pasa
-		# la medida completa y el centro se recoloca al medio de lo barrido.
-		_cola[portadora]["ancho_ola"] = maxf(der - izq, 1.0)
-		_cola[portadora]["centro_ola"] = (izq + der) * 0.5
+		_cola[portadora]["ancho_grupo"] = maxf(der - izq, 1.0)
+		_cola[portadora]["centro_grupo"] = (izq + der) * 0.5
 
 
 # La tanda del ULTIMO golpe encolado, o -1 si no hay ninguno. La pregunta combat.gd justo despues
@@ -991,16 +997,17 @@ func _process(delta: float) -> void:
 		var vuelo: float = float(T_VUELO.get(estilo, 0.0))
 		if not ev["fx_lanzado"] and vuelo > 0.0 and _t >= t_imp - vuelo:
 			ev["fx_lanzado"] = true
-			# 'sin_dibujo' lo pone _marcar_olas: de una tanda de barrido solo dibuja UNA (la ola es un
-			# frente, no un proyectil por cabeza). Los demas siguen con su numero y su temblor.
+			# 'sin_dibujo' lo pone _marcar_efectos_de_grupo: de una tanda de ola o de splat solo se
+			# dibuja UNO (son una cosa grande, no un proyectil por cabeza). Los demas siguen con su
+			# numero y su temblor.
 			if _capa_fx != null and not bool(ev.get("sin_dibujo", false)):
-				# La ola portadora barre TODO el frente, asi que va al centro de lo barrido y con el
-				# ancho de todos; las demas cosas apuntan a su tarjeta y llevan el ancho de una.
+				# El portador cubre TODO lo alcanzado: va al centro del grupo y con el ancho de
+				# todos. Lo demas apunta a su tarjeta y lleva el ancho de una.
 				var destino: Vector2 = _punto(ev["bv"])
 				var ancho: float = _ancho_tarjeta(ev["bv"])
-				if ev.has("ancho_ola"):
-					destino.x = float(ev["centro_ola"])
-					ancho = float(ev["ancho_ola"])
+				if ev.has("ancho_grupo"):
+					destino.x = float(ev["centro_grupo"])
+					ancho = float(ev["ancho_grupo"])
 				_capa_fx.alta(estilo, _punto(ev["ba"]), destino, ev["color"], peso, vuelo, ancho)
 
 		# UN ADORNO no impacta: se ha pintado y ya. Ni numero, ni barra, ni sacudida (el 'continue'
