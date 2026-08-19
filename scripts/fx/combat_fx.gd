@@ -868,18 +868,18 @@ func arrancar_cola() -> float:
 
 # UN SOLO EFECTO POR TANDA para los estilos que son UNA COSA GRANDE, no un proyectil por cabeza.
 #
-# Son dos casos con el mismo vicio:
-#   BARRIDO  una ola es UN frente que pasa por delante de varios. Pintando una por victima salian
-#            tres o cuatro olitas identicas en fila -- lo contrario de un barrido.
-#   SPLAT    un bicho que salta encima es UN cuerpo. Pintando uno por victima caian tres bolas
-#            sueltas sobre tres tarjetas, que es exactamente lo que NO pasa: salta uno solo y
-#            aplasta a los que pille debajo.
+# LA REGLA, que vale para todos: si un ataque es de area, el efecto no se REPITE, se hace MAS
+# GRANDE hasta cubrir a los que alcanza. Repetirlo convierte una cosa enorme en varias pequeñas.
+#   BARRIDO    una ola es UN frente que pasa por delante de varios; repetida salian olitas en fila.
+#   SPLAT      un bicho que salta encima es UN cuerpo; repetido caian bolas sueltas sobre cada uno.
+#   VORTICE    un remolino que se traga a tres es UNO ancho, no tres remolinos pequeños.
+#   EXPLOSION  la bola revienta UNA vez y la onda alcanza a los lados; repetida son tres petardos.
 #
 # De cada tanda se queda UNA como portadora del dibujo y a las demas se les apaga (siguen dando su
 # numero, su temblor y su parte de barra: lo unico que pierden es repetir el efecto). La portadora
 # recibe el ANCHO de todo lo alcanzado -del borde izquierdo del primero al derecho del ultimo- y el
 # CENTRO, asi que el efecto se adapta solo a 2, 3 o 4 objetivos sin que nadie le pase el numero.
-const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT]
+const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION]
 
 func _marcar_efectos_de_grupo() -> void:
 	var por_tanda: Dictionary = {}   # "tanda:estilo" -> [indices de la cola]

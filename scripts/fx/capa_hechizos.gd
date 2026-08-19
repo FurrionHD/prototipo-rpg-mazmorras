@@ -335,7 +335,10 @@ func _pintar_ola(e: Dictionary) -> void:
 func _pintar_explosion(e: Dictionary) -> void:
 	var b: Vector2 = e["b"]
 	var col: Color = e["col"]
-	var r: float = e["r"]
+	# El tamaño sale de LO QUE ABARCA (ver _radio_grupo): una explosion que alcanza a tres es UNA
+	# grande, no tres petardos. El 0.30 la deja algo mas chica que el vortice: una onda se lee bien
+	# aunque no tape del todo, y asi no se come la pantalla en 1v1.
+	var r: float = _radio_grupo(e, 0.30, 11.0)
 	var t: float = e["t"]
 	# La explosion vive MAS que su vuelo: el 'dur' es lo que tarda en llegar el impacto, y la onda
 	# sigue abriendose despues. Se apaga sola con 'u'.
@@ -418,6 +421,17 @@ func _pintar_splat(e: Dictionary) -> void:
 		var dir := Vector2(cos(ang), -absf(sin(ang)) * 0.7)
 		draw_circle(b + dir * ancho * (0.8 + 0.55 * v), maxf(1.5, r * 0.11 * (1.0 - v)),
 			Color(col.r, col.g, col.b, 0.8 * alfa))
+
+
+# EL RADIO DE UN EFECTO QUE CUBRE A VARIOS. 'ancho' es lo que abarca el grupo alcanzado (lo pone
+# CombatFX._marcar_efectos_de_grupo en la portadora); 'k' es cuanto de eso ocupa este dibujo y
+# 'suelo' el minimo para que en 1v1 siga viendose gordo.
+#
+# Se saca del ANCHO y no del peso del golpe a proposito: el dibujo tiene que tapar justo a quien
+# pega. Si el tamaño saliera del daño, un area floja se veria pequeña aunque alcanzara a cuatro, y
+# la animacion estaria mintiendo sobre a quien toca.
+func _radio_grupo(e: Dictionary, k: float, suelo: float) -> float:
+	return maxf(maxf(suelo, float(e["r"])), float(e["ancho"]) * k)
 
 
 # Una masa gelatinosa: elipse rellena + brillo arriba. La usan el splat y el escupitajo.
@@ -506,7 +520,9 @@ func _pintar_aura(e: Dictionary) -> void:
 func _pintar_vortice(e: Dictionary) -> void:
 	var b: Vector2 = e["b"]
 	var col: Color = e["col"]
-	var r: float = e["r"]
+	# Igual que la explosion: si se traga a tres, es UN remolino ancho. Los brazos ya se abren a
+	# 3 x r, asi que el factor va bajo (0.17) para que con cuatro objetivos no salga de la pantalla.
+	var r: float = _radio_grupo(e, 0.17, 8.0)
 	var t: float = e["t"]
 	var u: float = clampf(t / maxf(float(e["dur"]) + 0.35, 0.05), 0.0, 1.0)
 	if u >= 1.0:
