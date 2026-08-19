@@ -10,6 +10,7 @@ en_objetivo = false
 
 [resource]
 script = ExtResource("1")
+fx_estilo = 11
 nombre = "Ignición"
 descripcion = "El slime aviva su núcleo hasta ponerse incandescente: no golpea, pero a partir de ahora pega mucho más fuerte."
 coste_energia = 0.0

@@ -216,6 +216,30 @@ func secundario_para(n_enemigos: int) -> float:
 @export var invoca_pool: Array = []      # Array[EnemyData]; vacio = no invoca nada
 @export var invoca_cantidad: int = 0     # cuantos slimes por lanzamiento (el Rey saca 2)
 
+# --- HUELLA: para las de CUERPO QUE CAE ------------------------------------------------------
+# El area normal es "el objetivo y sus vecinos". Para un bicho que se deja caer eso no vale: lo que
+# manda es DONDE ATERRIZA y CUANTO MIDE. Cayendo pegado al borde de la fila tapa a tres (media
+# huella se pierde fuera); cayendo centrado los tapa a los cuatro.
+#
+# area_centrada = la huella no cae sobre el objetivo, sino CENTRADA en el grupo vivo. Es lo del
+# Aplastamiento del Rey: es tan grande que da igual a quien mirase, cae en medio y los pilla a
+# todos. El Reventon del slime comun NO la lleva: es pequeño y cae donde cae.
+@export var area_centrada: bool = false
+
+# COMO SE REPARTE el daño segun A CUANTOS alcanza. Una entrada por numero de alcanzados: la de
+# indice 0 es para cuando alcanza a 1, la de indice 1 para 2, etc. Cada entrada es un Array de
+# fracciones, de MAS a MENOS, que se reparten por cercania al centro de la huella.
+#
+# Existe porque "100% al principal y 50% a todos los demas" hace pequeño a un bicho enorme: si el
+# Rey te cae encima a ti y a otro, a los dos os tiene que aplastar igual. La tabla del Rey es
+# [[1.0], [1.0, 1.0], [1.0, 0.8, 0.8], [1.0, 1.0, 0.5, 0.5]]: con dos, los dos al 100%; con cuatro,
+# el 100% para los dos que le caen mas cerca.
+#
+# VACIO = se comporta como siempre (area_secundario para todos los que no son el principal), asi que
+# ninguna otra habilidad del juego cambia por esto.
+@export var area_escalas: Array = []
+
+
 # --- COMO SE VE (solo presentacion; no toca una sola cuenta) ----------------------------------
 # QUE DIBUJO lleva esta habilidad. -1 = lo de siempre (la tarjeta embiste, CombatFX.Estilo.MELEE);
 # cualquier otro valor es un CombatFX.Estilo.

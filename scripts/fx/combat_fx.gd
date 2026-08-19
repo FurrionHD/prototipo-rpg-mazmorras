@@ -777,8 +777,14 @@ func tanda(n: int) -> void:
 # del medio come 100 y los de los lados 50, los de los lados tiemblan la mitad. Se pasa la
 # FRACCION y no el daño a proposito -- el daño ya lleva dentro el critico y las resistencias, y
 # entonces un objetivo que RESISTE el fuego temblaria menos que uno que no, justo al reves.
+#
+# 'solo_dibujo' = esto NO es un golpe, es UN ADORNO. Sale el efecto y nada mas: ni numero, ni
+# temblor, ni barra. Es como se pintan las cosas que no pegan -- el aura de un buff, las gotas del
+# Brote del Rey al desprenderse-- sin tener que inventarles un daño de cero, que sacaba un "0"
+# flotando y una sacudida por un golpe que no existe.
 func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bool,
-		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0) -> void:
+		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0,
+		solo_dibujo: bool = false) -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
 		_tanda_pedida = -1
 		return
@@ -791,7 +797,7 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		"ba": b_atacante, "bv": b_victima, "dmg": dmg, "crit": crit,
 		"evadido": evadido, "color": color_elem, "t": 0.0, "lanzado": false,
 		"estilo": estilo, "peso": clampf(peso, 0.2, 1.5), "fx_lanzado": false,
-		"tanda": t_ev,
+		"tanda": t_ev, "solo_dibujo": solo_dibujo,
 	})
 	# LA VIDA NO PUEDE BAJAR ANTES QUE EL GOLPE. Se apunta AQUI, en el mismo instante en que el
 	# golpe se resuelve, y no al arrancar la cola: entre una cosa y otra combat.gd llama a
@@ -996,6 +1002,11 @@ func _process(delta: float) -> void:
 					destino.x = float(ev["centro_ola"])
 					ancho = float(ev["ancho_ola"])
 				_capa_fx.alta(estilo, _punto(ev["ba"]), destino, ev["color"], peso, vuelo, ancho)
+
+		# UN ADORNO no impacta: se ha pintado y ya. Ni numero, ni barra, ni sacudida (el 'continue'
+		# se salta tambien la embestida y el temblor de mas abajo). Ver 'solo_dibujo' en encolar.
+		if bool(ev.get("solo_dibujo", false)):
+			continue
 
 		# EL IMPACTO: se dispara una vez, justo al cruzar su instante.
 		if not ev["lanzado"] and _t >= t_imp:

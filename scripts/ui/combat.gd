@@ -1163,6 +1163,7 @@ func _cod_combatiente(c: Combatant) -> int:
 #   3-5    elemento + 1  (0..4)
 #   6-9    estilo        (CombatFX.Estilo; 4 bits = caben 16)
 #   10-16  peso x 64     (0..127 -> 0.00..1.98)
+#   17     SOLO DIBUJO   (un adorno, no un golpe: ver CombatFX.encolar)
 #
 # El estilo eran 3 bits (8 estilos justos) y se ensancho a 4 al añadir la EXPLOSION, corriendo el
 # peso un bit a la izquierda. Es un PackedInt32Array, asi que sitio sobra. Si se toca una punta y no
@@ -1170,7 +1171,8 @@ func _cod_combatiente(c: Combatant) -> int:
 # con efectos distintos a los tuyos. Las mascaras de cada campo tienen que cuadrar aqui y en
 # aplicar_impactos.
 func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
-		crit: bool, evadido: bool, elem: int, estilo: int, peso: float) -> void:
+		crit: bool, evadido: bool, elem: int, estilo: int, peso: float,
+		solo_dibujo: bool = false) -> void:
 	if _espejo or not Net.activo or _impactos_red.size() >= MAX_IMPACTOS_RED * 4:
 		return
 	var ca: int = _cod_combatiente(atacante)
@@ -1186,7 +1188,8 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 	_ult_tanda_red = t_ev
 	var flags: int = (1 if crit else 0) | (2 if evadido else 0) | (4 if abre else 0) \
 		| (((elem + 1) & 7) << 3) | ((estilo & 15) << 6) \
-		| (clampi(roundi(peso * 64.0), 0, 127) << 10)
+		| (clampi(roundi(peso * 64.0), 0, 127) << 10) \
+		| (131072 if solo_dibujo else 0)
 	_impactos_red.append(ca)
 	_impactos_red.append(cv)
 	_impactos_red.append(roundi(minf(dmg, 3000.0) * 10.0))   # x10: un decimal, y cabe en el int
@@ -1229,7 +1232,8 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 		# Con MASCARA en cada campo: sin ella, el elemento se leia con los bits del estilo y del
 		# peso pegados detras y salia un numero absurdo.
 		_fx_golpe(_de_codigo(ca), victima, dmg, (flags & 1) != 0, (flags & 2) != 0,
-			((flags >> 3) & 7) - 1, (flags >> 6) & 15, float((flags >> 10) & 127) / 64.0)
+			((flags >> 3) & 7) - 1, (flags >> 6) & 15, float((flags >> 10) & 127) / 64.0,
+			(flags & 131072) != 0)
 	_fx.arrancar_cola()
 
 
@@ -1483,20 +1487,70 @@ func _adyacentes_aliados_vivos(principal: Combatant) -> Array[Combatant]:
 
 
 # A quien alcanza el AREA de una habilidad ENEMIGA sobre tu grupo, con su escala de daño ya puesta:
-# [{c, escala}]. El principal SIEMPRE el primero al 100%; los secundarios a area_secundario.
-# El ALCANCE lo decide area_max: >= 99 = TODA la fila (Pisotón, Chillido, Bramido); si no, solo los
-# ADYACENTES (Aplastamiento, Combustión, Carga). Por eso esas ultimas fijan area_max = 3.
+# [{c, escala}]. El principal SIEMPRE el primero.
+#
+# EL ALCANCE lo decide area_max: >= 99 = TODA la fila (Pisotón, Chillido, Bramido, Marea); si no,
+# solo los ADYACENTES (Combustión, Carga, Reventón). Por eso esas fijan area_max = 3.
+# Y area_centrada se salta todo eso: la huella cae en MEDIO del grupo y los tapa a todos (ver
+# AbilityData.area_centrada; es el Aplastamiento del Rey).
+#
+# EL REPARTO sale de area_escalas si la habilidad la trae (por cercania al centro de la huella), y
+# si no, de area_secundario como siempre.
 func _objetivos_area_aliados(ab: AbilityData, principal: Combatant) -> Array:
-	var out: Array = [{"c": principal, "escala": 1.0}]
-	var secundarios: Array[Combatant]
-	if ab.area_max >= 99:
-		secundarios = _aliados_vivos()
+	var alcanzados: Array[Combatant] = []
+	if ab.area_centrada or ab.area_max >= 99:
+		alcanzados = _aliados_vivos()
 	else:
-		secundarios = _adyacentes_aliados_vivos(principal)
-	for c in secundarios:
-		if c != principal:
-			out.append({"c": c, "escala": ab.area_secundario})
-	return out
+		alcanzados.append(principal)
+		for c in _adyacentes_aliados_vivos(principal):
+			if c != principal:
+				alcanzados.append(c)
+	if alcanzados.is_empty():
+		alcanzados.append(principal)
+
+	# EL CENTRO DE LA HUELLA, en indices de la fila. Centrada = el medio del grupo vivo; si no, el
+	# objetivo. Es lo que decide quien se lleva la peor parte, y es EL MISMO dato con el que se
+	# dibuja: lo que ves tapado es exactamente lo que cobra.
+	var centro: float = 0.0
+	if ab.area_centrada:
+		var suma: float = 0.0
+		for c in alcanzados:
+			suma += float(_aliados.find(c))
+		centro = suma / float(alcanzados.size())
+	else:
+		centro = float(_aliados.find(principal))
+
+	# Sin tabla, el de siempre: el principal entero y los demas a area_secundario.
+	if ab.area_escalas.is_empty():
+		var out: Array = [{"c": principal, "escala": 1.0}]
+		for c in alcanzados:
+			if c != principal:
+				out.append({"c": c, "escala": ab.area_secundario})
+		return out
+
+	# CON tabla: se ordenan por cercania al centro (desempatando por indice, para que dos peleas
+	# iguales repartan igual) y se les va dando la escala que toca.
+	var orden: Array = alcanzados.duplicate()
+	orden.sort_custom(func(x, y):
+		var ix: float = absf(float(_aliados.find(x)) - centro)
+		var iy: float = absf(float(_aliados.find(y)) - centro)
+		if is_equal_approx(ix, iy):
+			return _aliados.find(x) < _aliados.find(y)
+		return ix < iy)
+	# La fila de la tabla que toca por numero de alcanzados; si se pasa, la ultima que haya.
+	var fila: Array = ab.area_escalas[mini(orden.size(), ab.area_escalas.size()) - 1]
+	var out2: Array = []
+	for i in orden.size():
+		var esc: float = float(fila[i]) if i < fila.size() else ab.area_secundario
+		out2.append({"c": orden[i], "escala": esc})
+	# El PRINCIPAL tiene que ir el primero: el log y los efectos lo dan por hecho (el de la posicion
+	# 0 es "el objetivo"). Con la tabla el orden es por cercania, asi que puede no coincidir.
+	for i in out2.size():
+		if out2[i]["c"] == principal:
+			if i > 0:
+				out2.insert(0, out2.pop_at(i))
+			break
+	return out2
 
 
 func _ready() -> void:
@@ -2205,10 +2259,13 @@ func _caer_aliado(c: Combatant) -> void:
 # INVOCACION (Rey Slime, Parte B): mete un slime VIVO en la pelea en curso.
 # El slime nace flojo (t bajo): su papel es ser ESCUDO del Rey (reduccion de daño), no matarte.
 # Va marcado como INVOCADO: no cuenta como kill ni da maná al matarlo (ver _slots_invocados).
-func _invocar_slime(data: EnemyData) -> bool:
+# Devuelve el slime metido, o null si no cabia. Devuelve EL BICHO y no un bool porque quien invoca
+# necesita su tarjeta para pintarle la gota que lo desprende (ver el Brote en _enemy_use_ability).
+func _invocar_slime(data: EnemyData) -> Combatant:
 	if data == null:
-		return false
-	return _meter_enemigo(data.crear_combatant(0.2), true) >= 0
+		return null
+	var c: Combatant = data.crear_combatant(0.2)
+	return c if _meter_enemigo(c, true) >= 0 else null
 
 
 # REFUERZO QUE LLEGA ANDANDO (hito 5.4): un bicho del mapa alcanza a alguien que ya esta peleando y
@@ -2462,17 +2519,18 @@ func _fx_tanda(i: int) -> void:
 
 func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		evadido: bool, elem: int = Elementos.Elemento.NINGUNO,
-		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0) -> void:
+		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0,
+		solo_dibujo: bool = false) -> void:
 	if _fx == null:
 		return
 	var bv: Dictionary = _bloque_de(victima)
 	if bv.is_empty():
 		return
 	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido,
-		_color_golpe(atacante, elem, estilo), estilo, peso)
+		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo)
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
-	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso)
+	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo)
 
 
 # DE QUE COLOR sale un golpe. Manda el ELEMENTO cuando lo tiene (un rayo es amarillo lo lance quien
@@ -5689,6 +5747,12 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		return
 	e.start_cooldown(ab)   # instantaneas: cooldown al usar (las cargadas ya lo arrancaron)
 	print("[habilidad enemigo] %s usa %s contra %s" % [e.nombre, ab.nombre, obj.nombre])
+	# AURA = la habilidad se la echa A SI MISMO (Ignicion, y valdria para Caparazon, Muralla o
+	# Endurecerse). Se pinta AQUI y no en el bucle de golpes porque estas no pegan: con dano_mult 0
+	# no entran en el reparto y no llegarian a pasar por _fx_golpe nunca. Va como adorno (sin numero
+	# ni temblor) y sobre su PROPIA tarjeta: atacante y victima son el mismo.
+	if _estilo_de_habilidad(ab) == CombatFX.Estilo.AURA:
+		_fx_golpe(e, e, 0.0, false, false, e.elemento_ataque, CombatFX.Estilo.AURA, 1.3, true)
 	var total: float = 0.0
 	var golpes: int = 0
 	var estados_log: Array = []
@@ -5785,9 +5849,17 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	if ab.invoca_cantidad > 0 and not ab.invoca_pool.is_empty():
 		for _k in range(ab.invoca_cantidad):
 			var pick: EnemyData = ab.invoca_pool[randi() % ab.invoca_pool.size()]
-			if not _invocar_slime(pick):
+			var cria: Combatant = _invocar_slime(pick)
+			if cria == null:
 				break   # no cabe ninguno mas
 			invocados += 1
+			# EL BROTE SE VE SALIR DE EL. Una gota gorda se DESPRENDE de la tarjeta del Rey y cae en
+			# el hueco donde nace el secuaz, con su mismo color. Sin esto los slimes aparecian de la
+			# nada y no se leia que habian salido de su masa, que es toda la gracia de la habilidad.
+			# Cada gota en SU tanda, para que las dos no salgan pegadas.
+			_fx_tanda(_k)
+			_fx_golpe(e, cria, 0.0, false, false, e.elemento_ataque,
+				CombatFX.Estilo.ESCUPITAJO, 1.2, true)
 		_update_hp()   # refresca los bloques revividos/nuevos (nombre + barra)
 
 	# Mensaje: con daño va el DESGLOSE de dos lineas (mismo helper que tus habilidades: rastro golpe
