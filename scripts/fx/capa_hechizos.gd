@@ -147,6 +147,7 @@ func _draw() -> void:
 			CombatFX.Estilo.CAIDA_GOTA: _pintar_gotas(e)
 			CombatFX.Estilo.BARRIDO: _pintar_ola(e)
 			CombatFX.Estilo.ARCANO: _pintar_arcano(e)
+			CombatFX.Estilo.EXPLOSION: _pintar_explosion(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -309,6 +310,44 @@ func _pintar_ola(e: Dictionary) -> void:
 		cresta.append(pts[i])
 	draw_polyline(cresta, Color(minf(1.0, col.r + 0.45), minf(1.0, col.g + 0.35),
 		minf(1.0, col.b + 0.25), 0.95 * alfa), maxf(2.0, float(e["r"]) * 0.18), true)
+
+
+# EXPLOSION: no viaja, REVIENTA donde esta. Es lo que se lleva el SALPICON de las magias de fuego:
+# la bola vuela hasta el objetivo principal y ahi estalla, y a los de al lado los alcanza la ONDA,
+# no una segunda bola. Antes el salpicon se pintaba con el mismo estilo que el golpe principal, asi
+# que Brasa y Andanada parecian tres bolas lanzadas a la vez en vez de una que revienta.
+#
+# Una onda que se abre y se apaga, un nucleo que se encoge y unas lenguas hacia fuera.
+func _pintar_explosion(e: Dictionary) -> void:
+	var b: Vector2 = e["b"]
+	var col: Color = e["col"]
+	var r: float = e["r"]
+	var t: float = e["t"]
+	# La explosion vive MAS que su vuelo: el 'dur' es lo que tarda en llegar el impacto, y la onda
+	# sigue abriendose despues. Se apaga sola con 'u'.
+	var u: float = clampf(t / maxf(float(e["dur"]) + 0.22, 0.05), 0.0, 1.0)
+	if u >= 1.0:
+		return
+	var claro := Color(minf(1.0, col.r + 0.45), minf(1.0, col.g + 0.3), minf(1.0, col.b + 0.15), 1.0)
+	# ONDA: un anillo que se abre rapido al principio y se frena (1 - (1-u)^2), y que adelgaza.
+	var rad: float = r * (0.5 + 2.6 * (1.0 - pow(1.0 - u, 2.0)))
+	draw_arc(b, rad, 0.0, TAU, 28, Color(claro.r, claro.g, claro.b, 0.9 * (1.0 - u)),
+		maxf(1.5, r * 0.30 * (1.0 - u)), true)
+	# NUCLEO: empieza gordo y se consume.
+	var nr: float = r * 1.15 * (1.0 - u)
+	if nr > 0.5:
+		draw_circle(b, nr, Color(col.r, col.g, col.b, 0.85 * (1.0 - u)))
+		draw_circle(b, nr * 0.55, Color(claro.r, claro.g, claro.b, 0.9 * (1.0 - u)))
+	# LENGUAS: seis chorros cortos hacia fuera, con la semilla para que dos explosiones seguidas no
+	# salgan calcadas.
+	var g: float = float(e["semilla"])
+	for i in 6:
+		var ang: float = g + TAU * float(i) / 6.0
+		var dir := Vector2(cos(ang), sin(ang))
+		var d0: float = rad * 0.55
+		var d1: float = rad * (0.95 + 0.25 * sin(g * 3.0 + float(i)))
+		draw_line(b + dir * d0, b + dir * d1,
+			Color(claro.r, claro.g, claro.b, 0.75 * (1.0 - u)), maxf(1.5, r * 0.18), true)
 
 
 # SIN ELEMENTO: un rombo girando dentro de un anillo. Se lee como "magia" sin tirar de ningun

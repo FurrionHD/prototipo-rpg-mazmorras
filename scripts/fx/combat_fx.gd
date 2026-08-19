@@ -49,9 +49,11 @@ signal apagar_ahora(bloque: Dictionary)
 # que lo recibe. Todos los demas son de hechizo y NINGUNO embiste -- el que lanza se queda en su
 # sitio y lo que viaja es el efecto, que es lo que diferencia lanzar un conjuro de dar un tajo.
 #
-# Son OCHO justos porque en la red viajan en 3 bits (ver _apuntar_impacto_red en combat.gd).
+# Caben DIECISEIS: en la red viajan en 4 bits (ver _apuntar_impacto_red en combat.gd). Eran ocho y
+# tres bits; al añadir la EXPLOSION hubo que ensanchar el campo, y hay que tocar las dos puntas a la
+# vez o el compañero ve un efecto distinto al tuyo (y sin dar ningun error).
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
-		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7 }
+		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8 }
 
 # Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
@@ -59,6 +61,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 const T_VUELO := {
 	Estilo.MELEE: 0.0, Estilo.PROYECTIL: 0.20, Estilo.ARCANO: 0.18, Estilo.RAYO: 0.10,
 	Estilo.CAIDA_RAYO: 0.16, Estilo.CAIDA_GOTA: 0.22, Estilo.BARRIDO: 0.26, Estilo.ARCO: 0.14,
+	# La EXPLOSION no viaja: nace donde revienta. Un pelin de vuelo para que la onda haya empezado
+	# a abrirse cuando entran el numero y el temblor, y no salga toda de golpe con ellos.
+	Estilo.EXPLOSION: 0.08,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------

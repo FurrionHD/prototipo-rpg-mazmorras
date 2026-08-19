@@ -592,7 +592,7 @@ func aplicar_roster(roster: Dictionary) -> void:
 	for e in _enemies:
 		e.battle_enemies = _enemies
 	# El roster puede haber traido bichos nuevos: si ya no caben a su ancho, se encogen todos.
-	_reajustar_anchos(_bloques, _enemies.size())
+	_recomponer_fila_enemigos()
 	_update_hp()
 
 
@@ -1161,8 +1161,14 @@ func _cod_combatiente(c: Combatant) -> int:
 #   1      evadido
 #   2      ABRE TANDA (este golpe empieza una tanda nueva; ver CombatFX.tanda)
 #   3-5    elemento + 1  (0..4)
-#   6-8    estilo        (los 8 de CombatFX.Estilo, ni uno mas: por eso son 8)
-#   9-15   peso x 64     (0..127 -> 0.00..1.98)
+#   6-9    estilo        (CombatFX.Estilo; 4 bits = caben 16)
+#   10-16  peso x 64     (0..127 -> 0.00..1.98)
+#
+# El estilo eran 3 bits (8 estilos justos) y se ensancho a 4 al añadir la EXPLOSION, corriendo el
+# peso un bit a la izquierda. Es un PackedInt32Array, asi que sitio sobra. Si se toca una punta y no
+# la otra NO SALTA NINGUN ERROR: el espejo simplemente lee otro estilo y otro peso, y ve la pelea
+# con efectos distintos a los tuyos. Las mascaras de cada campo tienen que cuadrar aqui y en
+# aplicar_impactos.
 func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 		crit: bool, evadido: bool, elem: int, estilo: int, peso: float) -> void:
 	if _espejo or not Net.activo or _impactos_red.size() >= MAX_IMPACTOS_RED * 4:
@@ -1179,8 +1185,8 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 	var abre: bool = t_ev != _ult_tanda_red
 	_ult_tanda_red = t_ev
 	var flags: int = (1 if crit else 0) | (2 if evadido else 0) | (4 if abre else 0) \
-		| (((elem + 1) & 7) << 3) | ((estilo & 7) << 6) \
-		| (clampi(roundi(peso * 64.0), 0, 127) << 9)
+		| (((elem + 1) & 7) << 3) | ((estilo & 15) << 6) \
+		| (clampi(roundi(peso * 64.0), 0, 127) << 10)
 	_impactos_red.append(ca)
 	_impactos_red.append(cv)
 	_impactos_red.append(roundi(minf(dmg, 3000.0) * 10.0))   # x10: un decimal, y cabe en el int
@@ -1223,7 +1229,7 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 		# Con MASCARA en cada campo: sin ella, el elemento se leia con los bits del estilo y del
 		# peso pegados detras y salia un numero absurdo.
 		_fx_golpe(_de_codigo(ca), victima, dmg, (flags & 1) != 0, (flags & 2) != 0,
-			((flags >> 3) & 7) - 1, (flags >> 6) & 7, float((flags >> 9) & 127) / 64.0)
+			((flags >> 3) & 7) - 1, (flags >> 6) & 15, float((flags >> 10) & 127) / 64.0)
 	_fx.arrancar_cola()
 
 
@@ -1454,9 +1460,16 @@ func _objetivos_area(spell: SpellData, principal: Combatant) -> Array:
 	return out
 
 
-# ESPEJO de _adyacentes_vivos pero sobre TU GRUPO (_aliados): el primer aliado VIVO a la izquierda
-# de 'principal' y el primero a la derecha (maximo 2). Lo usa el AREA de las habilidades ENEMIGAS
-# (un slime que aplasta salpica a los aliados de al lado). Misma regla: los KO no comen el salpicon.
+# Los aliados PEGADOS a 'principal': el de su izquierda y el de su derecha, y ya. Lo usa el AREA de
+# las habilidades ENEMIGAS (un slime que aplasta salpica a los de al lado).
+#
+# SOLO centro-1 y centro+1, y si estan KO no entran. Antes esto era un `while` que se SALTABA a los
+# muertos y seguia buscando al siguiente vivo, asi que con un compañero caido el salpicon aterrizaba
+# en alguien que estaba a dos o tres huecos, con un cuerpo en medio -- y eso ya no es "de al lado".
+#
+# El gemelo de la fila de ENFRENTE (_adyacentes_vivos) no necesita este arreglo: alli los cadaveres
+# se retiran de la fila (ver _retirando), asi que el vecino de al lado siempre esta vivo. Aqui no,
+# porque las tarjetas de los tuyos se quedan puestas a proposito.
 func _adyacentes_aliados_vivos(principal: Combatant) -> Array[Combatant]:
 	var out: Array[Combatant] = []
 	var centro: int = _aliados.find(principal)
@@ -1464,11 +1477,8 @@ func _adyacentes_aliados_vivos(principal: Combatant) -> Array[Combatant]:
 		return out
 	for paso in [-1, 1]:
 		var i: int = centro + paso
-		while i >= 0 and i < _aliados.size():
-			if _aliados[i].is_alive():
-				out.append(_aliados[i])
-				break
-			i += paso
+		if i >= 0 and i < _aliados.size() and _aliados[i].is_alive():
+			out.append(_aliados[i])
 	return out
 
 
@@ -2062,9 +2072,70 @@ func _seleccionar(idx: int) -> void:
 			_sb_bloque(vivo and i == idx, _bloques[i].get("tinte", Color.WHITE)))
 
 
-# Apaga el bloque de un enemigo que ha caido: gris, barra a 0 y sin clic. NO se libera el nodo
-# a proposito -> si desapareciera, la columna se recolocaria de golpe en mitad del combate y la
-# numeracion bailaria. El muerto se queda en su sitio, con su numero, apagado.
+# --- RETIRADA DE CADAVERES (SOLO la fila de enfrente) ----------------------------------------
+# Bloques de enemigos muertos que se estan yendo de la fila. El nodo NO se libera y su entrada en
+# _enemies/_bloques NO se toca: solo se OCULTA el envoltorio y se recolocan los anchos.
+#
+# NO SE PUEDE SACAR DEL ARRAY, por mucho que sea lo natural: los codigos de red SON los indices
+# (_cod_combatiente devuelve 100 + i y _de_codigo hace _enemies[cod - 100]). Quitar a un muerto
+# desplaza todos los indices de detras y el espejo aplicaria los golpes AL BICHO EQUIVOCADO, sin
+# dar un solo error. Ocultando la tarjeta se arregla lo que se ve sin tocar lo que se sincroniza.
+#
+# Y los NUMEROS no se recalculan: se selecciona a los enemigos por su numero, asi que renumerar a
+# mitad de pelea haria que el "4" que tenias apuntado pasara a ser otro bicho. Quedan 1, 2, 4, 5.
+var _retirando: Array[Dictionary] = []
+const T_RETIRADA := 0.28   # lo que tarda la tarjeta en desvanecerse
+
+
+# Espera a que la barra TERMINE de bajar y entonces desvanece la tarjeta y recompone la fila.
+# Va en _process ANTES del return del espejo: en el espejo tambien se muere gente.
+#
+# El apagado (apagar_ahora) salta cuando ATERRIZA el ultimo golpe, que es un pelin ANTES de que la
+# barra llegue a cero -- la barra viaja sola a VEL_BARRA. Si se retirase ahi, la tarjeta se iria
+# con la barra a medias y no se veria el golpe que lo mata, que es justo lo que se queria evitar.
+func _avanzar_retiradas(delta: float) -> void:
+	if _retirando.is_empty():
+		return
+	var recomponer: bool = false
+	for i in range(_retirando.size() - 1, -1, -1):
+		var b: Dictionary = _retirando[i]
+		var wrap: Control = b.get("wrap")
+		# Si el hueco se ha reestrenado mientras se iba (un refuerzo entra en el slot del muerto),
+		# _revivir_bloque ya lo ha sacado de la lista. Esto cubre el resto de casos raros.
+		if wrap == null or not is_instance_valid(wrap) or not wrap.visible:
+			_retirando.remove_at(i)
+			continue
+		var bar: ProgressBar = b.get("hp")
+		if bar != null and is_instance_valid(bar) and bar.value > 0.01:
+			continue   # aun le queda vida que bajar: que se vea
+		var t: float = float(b.get("retirada_t", 0.0)) + delta
+		b["retirada_t"] = t
+		wrap.modulate.a = 1.0 - clampf(t / T_RETIRADA, 0.0, 1.0)
+		if t < T_RETIRADA:
+			continue
+		wrap.visible = false
+		wrap.modulate.a = 1.0   # el alpha se deja limpio por si el hueco se reestrena
+		b.erase("retirada_t")
+		_retirando.remove_at(i)
+		recomponer = true
+	if recomponer:
+		_recomponer_fila_enemigos()
+
+
+# Reparte el ancho entre las tarjetas que SE VEN. Es lo que hace que al morir uno de cinco la fila
+# pase sola al formato de cuatro. Un unico sitio, para que el arranque, los refuerzos y la retirada
+# cuenten todos igual: contando bloques ocultos, los vivos se quedaban estrechos sin motivo.
+func _recomponer_fila_enemigos() -> void:
+	var visibles: Array = []
+	for b in _bloques:
+		var wrap: Control = b.get("wrap")
+		if wrap != null and is_instance_valid(wrap) and wrap.visible:
+			visibles.append(b)
+	_reajustar_anchos(visibles, visibles.size())
+
+
+# Apaga el bloque de un enemigo que ha caido: gris, barra a 0 y sin clic. El nodo NO se libera y su
+# slot NO se toca (ver _retirando): solo se oculta la tarjeta cuando ha terminado de morirse.
 func _apagar_bloque(e: Combatant) -> void:
 	var i: int = _enemies.find(e)
 	if i < 0 or i >= _bloques.size():
@@ -2101,6 +2172,10 @@ func _apagar_visual(b: Dictionary, es_aliado: bool) -> void:
 	# chips de los muertos: sin esto el emisor se quedaba emitiendo encima del muerto para siempre.
 	if _fx != null:
 		_fx.pintar_estados(b, [], false)
+	# Y ahora que ya se ha visto morir, que se VAYA de la fila (solo los de enfrente; los tuyos se
+	# quedan en su sitio a proposito). Ver _avanzar_retiradas.
+	if not es_aliado and not _retirando.has(b):
+		_retirando.append(b)
 
 
 # UN ALIADO CAE (KO). No es una derrota: sale del orden de turnos, se le apaga el bloque y la
@@ -2181,8 +2256,9 @@ func _meter_enemigo(c: Combatant, es_invocado: bool) -> int:
 		_bloques.append(b)
 		_bloques_box.add_child(b["wrap"])
 		# La fila acaba de crecer (refuerzos, invocaciones): con uno mas puede que ya no quepan a su
-		# ancho preferido y haya que encogerlos a todos (ver _ancho_bloque).
-		_reajustar_anchos(_bloques, _enemies.size())
+		# ancho preferido y haya que encogerlos a todos (ver _ancho_bloque). Cuenta los VISIBLES: si
+		# hay cadaveres ya retirados, los vivos no tienen por que encogerse por ellos.
+		_recomponer_fila_enemigos()
 	# Estructuras por-combatiente (mismas que puebla el arranque): ATB, marcador y roster del escudo.
 	_gauge[c] = 0.0                  # entra con la barra a cero (no regala una accion inmediata)
 	if _timeline != null:
@@ -2213,6 +2289,16 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 	b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
 	b["chips"].visible = true
 	b["hp"].max_value = c.max_hp
+	# EL HUECO SE REESTRENA: la tarjeta del cadaver estaba oculta (o desvaneciendose), asi que hay
+	# que devolverla a la vida ENTERA. Sin esto el refuerzo entraba invisible -- o peor, se seguia
+	# desvaneciendo encima del que acababa de entrar, porque la retirada mira el envoltorio y no
+	# sabe que dentro hay otro bicho. Ver _avanzar_retiradas.
+	_retirando.erase(b)
+	b.erase("retirada_t")
+	var wrap: Control = b.get("wrap")
+	if wrap != null and is_instance_valid(wrap):
+		wrap.visible = true
+		wrap.modulate.a = 1.0
 	# EL APAGADO PENDIENTE DEL CADAVER ANTERIOR, FUERA. Es lo que dejaba GRIS al refuerzo que entra en
 	# el hueco de un muerto: _apagar_diferido no apaga en el acto si quedan golpes por aterrizar, deja
 	# b["fx_apagar"] = true y lo consume despues _saldar_barras, que recorre TODAS las tarjetas. Si
@@ -2284,17 +2370,12 @@ func _update_hp() -> void:
 	for i in _bloques.size():
 		var e: Combatant = _enemies[i]
 		var b: Dictionary = _bloques[i]
-		# El MAXIMO tambien, en cada refresco. Se fijaba solo al crear el bloque, asi que cualquier
-		# cosa que mueva max_hp en vivo (Guardia de carne, que lo duplica) dejaba la barra midiendo
-		# contra un tope viejo: el numero decia 130/150 y la barra se pintaba llena como si fuera 75.
-		b["hp"].max_value = e.max_hp
-		# La barra se DESLIZA hasta ahi (lo mueve CombatFX) y EL NUMERO VIAJA CON ELLA: el formato
-		# se deja apuntado en el bloque y CombatFX lo repinta cada frame desde el valor de la barra
-		# (ver _pintar_numero). Lo que se escribe aqui es el valor FINAL: es el que manda cuando la
-		# barra ya ha llegado, y el unico que hay cuando no existe capa de efectos.
-		b["hp_fmt"] = "%.2f / %.2f"
-		_fijar_barra(b, "hp", e.current_hp)
-		b["hp_lbl"].text = "%.2f / %.2f" % [e.current_hp, e.max_hp]
+		# El MAXIMO se refresca en cada vuelta (lo hace _fijar_barra_num). Se fijaba solo al crear el
+		# bloque, asi que cualquier cosa que mueva max_hp en vivo (Guardia de carne, que lo duplica)
+		# dejaba la barra midiendo contra un tope viejo: el numero decia 130/150 y la barra se
+		# pintaba llena como si fuera 75.
+		# La barra se DESLIZA hasta la vida nueva (lo mueve CombatFX) y EL NUMERO VIAJA CON ELLA.
+		_fijar_barra_num(b, "hp", e.current_hp, e.max_hp, "%.2f / %.2f")
 		# La etiqueta se queda SOLO con el nombre y el nivel; los estados van en su fila de
 		# chips, porque ahi cada uno se puede señalar y explicarse solo.
 		b["nombre"].text = "%s  (Nv.%d)" % [e.nombre, e.level]
@@ -2310,20 +2391,9 @@ func _update_hp() -> void:
 		var b: Dictionary = _bloques_aliados[i]
 		# Los tres maximos en cada refresco, por lo mismo que arriba: son numeros que se mueven en
 		# mitad de la pelea y la barra tiene que medir contra el de AHORA.
-		b["hp"].max_value = c.max_hp
-		b["hp_fmt"] = "%.2f / %.2f"
-		_fijar_barra(b, "hp", c.current_hp)
-		b["hp_lbl"].text = "%.2f / %.2f" % [c.current_hp, c.max_hp]
-		if b.has("en"):
-			b["en"].max_value = c.max_energy
-			b["en_fmt"] = "EN  %.1f / %.1f"
-			_fijar_barra(b, "en", c.current_energy)
-			b["en_lbl"].text = "EN  %.1f / %.1f" % [c.current_energy, c.max_energy]
-		if b.has("mp"):
-			b["mp"].max_value = c.max_mp
-			b["mp_fmt"] = "MP  %.2f / %.2f"
-			_fijar_barra(b, "mp", c.current_mp)
-			b["mp_lbl"].text = "MP  %.2f / %.2f" % [c.current_mp, c.max_mp]
+		_fijar_barra_num(b, "hp", c.current_hp, c.max_hp, "%.2f / %.2f")
+		_fijar_barra_num(b, "en", c.current_energy, c.max_energy, "EN  %.1f / %.1f")
+		_fijar_barra_num(b, "mp", c.current_mp, c.max_mp, "MP  %.2f / %.2f")
 		# La coronita marca a QUIEN LE TOCA: con tres bloques iguales hace falta saber de un
 		# vistazo de quien es la accion que estas eligiendo.
 		b["nombre"].text = "%s%s  (Nv.%d)" % [("▶ " if c == _player else ""), c.nombre, c.level]
@@ -2338,6 +2408,27 @@ func _fijar_barra(bloque: Dictionary, clave: String, valor: float, inmediato := 
 		_fx.fijar_barra(bloque, clave, valor, inmediato)
 	elif bloque.has(clave):
 		bloque[clave].value = valor
+
+
+# UNA barra y SU numero de una vez: el maximo, el formato, el destino y la cifra.
+#
+# LA CIFRA SALE DE LA BARRA, NO DEL COMBATIENTE. Es lo que evita el SPOILER: el daño se aplica
+# cuando se resuelve la accion, pero el golpe no se ve hasta que la cola lo reproduce, asi que
+# escribir aqui `valor` (la vida FINAL) cantaba el resultado antes de tiempo -- lo mas feo era la
+# muerte: la cifra ya decia 0.00 mientras la barra seguia bajando tan tranquila.
+#
+# CombatFX ya repinta el numero cada frame desde bar.value (ver _pintar_numero), pero eso empieza
+# en el frame SIGUIENTE; leyendo la barra aqui, la cifra tambien es correcta en este.
+# Sin capa de efectos no hay viaje: la barra ya vale el valor final y sale lo mismo de siempre.
+func _fijar_barra_num(bloque: Dictionary, clave: String, valor: float, maximo: float,
+		fmt: String) -> void:
+	if not bloque.has(clave):
+		return
+	bloque[clave].max_value = maximo
+	bloque[clave + "_fmt"] = fmt
+	_fijar_barra(bloque, clave, valor)
+	if bloque.has(clave + "_lbl"):
+		bloque[clave + "_lbl"].text = fmt % [bloque[clave].value, maximo]
 
 
 # La tarjeta de un combatiente, sea de los tuyos o de enfrente. Vacia si no tiene (un invitado a
@@ -2390,14 +2481,38 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 #
 # 'dispersa' cambia de DONDE SALE: una tormenta cae del cielo sobre cada bicho, mientras que una
 # brasa la lanzas tu desde la mano.
-func _estilo_hechizo(spell: SpellData, elem: int, rebote: bool) -> int:
+func _estilo_hechizo(spell: SpellData, elem: int, rebote: bool, salpicon: bool = false) -> int:
 	if rebote:
 		return CombatFX.Estilo.ARCO
+	if salpicon:
+		return _estilo_salpicon(spell, elem)
 	match elem:
 		Elementos.Elemento.FUEGO:
 			return CombatFX.Estilo.PROYECTIL
 		Elementos.Elemento.RAYO:
 			return CombatFX.Estilo.CAIDA_RAYO if spell.dispersa else CombatFX.Estilo.RAYO
+		Elementos.Elemento.AGUA:
+			return CombatFX.Estilo.CAIDA_GOTA if spell.dispersa else CombatFX.Estilo.BARRIDO
+		_:
+			return CombatFX.Estilo.ARCANO
+
+
+# EL ASPECTO DE LO QUE LE LLEGA A UN VECINO, que NO es lo mismo que le llega al principal. Sin esto,
+# el salpicon se pintaba igual que el golpe gordo y lo que de verdad es una cosa que revienta en uno
+# y alcanza a los de al lado se leia como "he lanzado tres bolas a la vez".
+#
+#   FUEGO -> EXPLOSION. La bola vuela hasta el principal, estalla, y a los lados les llega la ONDA.
+#            Vale para Brasa (una bola) y para Andanada ignea (varias).
+#   RAYO  -> ARCO: una DESCARGA corta que salta del principal a su vecino, colgando de la linea
+#            principal. Ojo: solo las de rayo NORMALES (Descarga, Rayo). TORMENTA se queda como
+#            esta -- es dispersa, cae del cielo sobre cada bicho y asi es como tiene que verse.
+#   AGUA  -> BARRIDO, sin cambios: esas son de alcance TODOS y las cubre la ola unica y ancha.
+func _estilo_salpicon(spell: SpellData, elem: int) -> int:
+	match elem:
+		Elementos.Elemento.FUEGO:
+			return CombatFX.Estilo.EXPLOSION
+		Elementos.Elemento.RAYO:
+			return CombatFX.Estilo.CAIDA_RAYO if spell.dispersa else CombatFX.Estilo.ARCO
 		Elementos.Elemento.AGUA:
 			return CombatFX.Estilo.CAIDA_GOTA if spell.dispersa else CombatFX.Estilo.BARRIDO
 		_:
@@ -2861,6 +2976,10 @@ func _process(delta: float) -> void:
 	if _espejo:
 		_interpolar_atb_espejo(delta)
 	_update_timeline()  # refleja el orden de turnos siempre
+	# Los cadaveres de enfrente que se estan yendo. VA AQUI ARRIBA, antes del return del espejo y de
+	# los de PAUSED/ADVANCING: en el espejo tambien se muere gente, y una tarjeta a medio desvanecer
+	# durante la pausa de lectura se quedaria congelada a medio alpha.
+	_avanzar_retiradas(delta)
 	# ESPEJO (hito 5.4-C): esta pantalla no SIMULA nada, solo pinta la pelea que lleva otra
 	# maquina. Ni ATB, ni turnos, ni resolucion: todo eso llega por instantaneas.
 	if _espejo:
@@ -3929,8 +4048,13 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		objetivo.take_damage(dmg)
 		# Cada golpe del hechizo lleva SU elemento: en un multi-elemento los numeros salen de
 		# colores distintos y con la forma de su elemento, que es justo lo que cuenta el hechizo.
+		# SALPICON = este golpe no va al objetivo principal, sino a un vecino al que ha alcanzado lo
+		# que ha reventado en el principal. Se reconoce por 'desde' (viene del principal, no de tu
+		# mano) sin ser rebote, que es la otra cosa que trae 'desde'. Se pinta distinto: ver
+		# _estilo_salpicon.
+		var es_salpicon: bool = desde != null and not rebote
 		_fx_golpe(lanzador, objetivo, dmg, bool(res.get("crit", false)), false, elem,
-			_estilo_hechizo(spell, elem, rebote), peso)
+			_estilo_hechizo(spell, elem, rebote, es_salpicon), peso)
 		_apuntar_dano(objetivo, dmg, _player)   # contador oculto de Cazador
 		total += dmg
 		# CRITICO MAGICO: mismo 💥 que en el rastro del golpe fisico, para que se lea igual.
@@ -3996,9 +4120,12 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 			# La bola y SU salpicon son el mismo instante: cae en uno y revienta, no va tocando
 			# vecinos de uno en uno. Cada bola (i) si es su propia tanda. Ver _fx_tanda.
 			_fx_tanda(i)
+			# Igual que en _resolver_golpes_hechizo: al vecino le llega la ONDA de lo que ha
+			# reventado en el principal, no otra bola. Ver _estilo_salpicon.
 			_fx_golpe(_player if obj == principal else principal, obj, dmg,
 				bool(res.get("crit", false)), false, elem,
-				_estilo_hechizo(spell, elem, false), _peso_hechizo(spell, float(t.escala)))
+				_estilo_hechizo(spell, elem, false, obj != principal),
+				_peso_hechizo(spell, float(t.escala)))
 			_apuntar_dano(obj, dmg, _player)   # contador oculto de Cazador
 			if not acc.has(obj):
 				acc[obj] = {"c": obj, "dano": 0.0, "mult": 1.0, "crit": false, "golpes": 0, "trail": [], "estados": []}

@@ -42,12 +42,21 @@ enum Familia { NINGUNA, SLIME, ROEDOR, INSECTO, PIEDRA, BESTIA, HUMANOIDE }
 # perder nunca. Peso bajo (un slime es tonto), pero que exista y escale con el piso.
 @export_range(0, 999) var magia: int = 15
 
-# --- Sub-tramo de la franja del piso que ocupa ESTE arquetipo (0..1) ---
+# --- Sub-tramo de la franja del piso que ocupa ESTE arquetipo ---
 # La suma de habilidades cae en lerp(franja_del_piso, franja_low..franja_high). El
 # slime ocupa la parte BAJA (mas flojo); goblins (futuro) la parte alta. Asi en el
 # mismo piso conviven enemigos mas y menos fuertes cubriendo toda la franja.
-@export_range(0.0, 1.0) var franja_low: float = 0.0
-@export_range(0.0, 1.0) var franja_high: float = 0.6
+#
+# EL TOPE PASA DE 1.0 porque los JEFES pueden salirse de la franja del piso por arriba: son la
+# excepcion del piso, no un bicho mas. Hasta el 19/08/2026 los dos (Rey Slime y Guardian de rango)
+# tenian franja_low = franja_high = 1.0, o sea CERO variacion -- eran los unicos del juego que
+# salian siempre identicos, cuando hasta el mini-jefe Rey Rata baila entre 0.2 y 0.7. Ahora van a
+# 0.85-1.05: casi siempre rondan lo de antes y de vez en cuando sale uno que da miedo.
+#
+# El rango del @export tiene que dar de si para eso: con (0.0, 1.0) el inspector recortaba el 1.05
+# a 1.0 en cuanto alguien abriera la ficha, y la variacion se perdia sin que nadie tocara nada.
+@export_range(0.0, 1.2) var franja_low: float = 0.0
+@export_range(0.0, 1.2) var franja_high: float = 0.6
 
 
 # Color REAL con el que se pinta este bicho: su color base aclarado segun su 't' (los mas
