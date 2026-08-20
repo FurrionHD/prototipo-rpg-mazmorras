@@ -14,4 +14,5 @@ area_modo = 1
 area_max = 3
 area_secundario = 0.5
 carga_turnos = 1
+fx_estilo = 32
 cooldown = 4

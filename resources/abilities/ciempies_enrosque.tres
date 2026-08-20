@@ -20,4 +20,5 @@ descripcion = "Se enrolla alrededor de ti y aprieta. No te suelta hasta que te h
 coste_energia = 0.0
 dano_mult = 1.2
 efectos = [SubResource("SA_lento"), SubResource("SA_peg")]
+fx_estilo = 30
 cooldown = 4

@@ -20,4 +20,5 @@ dano_mult = 0.55
 reparto_por_golpe = true
 efectos = [SubResource("SA_ven")]
 efectos_por_golpe = true
+fx_estilo = 31
 cooldown = 3

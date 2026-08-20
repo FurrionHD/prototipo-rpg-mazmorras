@@ -181,6 +181,16 @@ func _vida(e: Dictionary) -> float:
 	if es == CombatFX.Estilo.CAPARAZON or es == CombatFX.Estilo.MURALLA \
 			or es == CombatFX.Estilo.ESCUDO:
 		return float(e["dur"]) + 0.70
+	if es == CombatFX.Estilo.PONZONA:
+		return float(e["dur"]) + 0.34
+	if es == CombatFX.Estilo.TELARANA:
+		return float(e["dur"]) + 0.42   # se despliega y se queda tirante un momento
+	if es == CombatFX.Estilo.ENROSQUE:
+		return float(e["dur"]) + 0.42   # apretar lleva su tiempo
+	if es == CombatFX.Estilo.PATAS:
+		return float(e["dur"]) + 0.30
+	if es == CombatFX.Estilo.RODADA:
+		return float(e["dur"]) + 0.34
 	if es == CombatFX.Estilo.RAICES:
 		return float(e["dur"]) + 0.34   # brotan y se quedan un momento antes de ceder el relevo
 			# al dibujo del estado, que ya las mantiene puestas mientras dure
@@ -225,6 +235,11 @@ func _draw() -> void:
 			CombatFX.Estilo.CAPARAZON: _pintar_caparazon(e)
 			CombatFX.Estilo.MURALLA: _pintar_muralla(e)
 			CombatFX.Estilo.ESCUDO: _pintar_escudo(e)
+			CombatFX.Estilo.PONZONA: _pintar_ponzona(e)
+			CombatFX.Estilo.TELARANA: _pintar_telarana(e)
+			CombatFX.Estilo.ENROSQUE: _pintar_enrosque(e)
+			CombatFX.Estilo.PATAS: _pintar_patas(e)
+			CombatFX.Estilo.RODADA: _pintar_rodada(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -789,7 +804,17 @@ func _pintar_colmillazo(e: Dictionary) -> void:
 func _pintar_yugular(e: Dictionary) -> void:
 	var v: float = _dentellada(e, _P_PALETOS_ARRIBA, _P_PALETOS_ABAJO, 1.15, 0.85)
 	if v >= 0.0:
-		_destello(e, v)
+		_destello(e, v, Color(0.90, 0.10, 0.12), Color(1.0, 0.55, 0.48))
+
+
+# PONZOÑA: el mordisco de la araña. Muerde con las FAUCES (quelíceros, no los paletos de un roedor)
+# y el destello sale VERDE en vez de rojo: no es que te desangre, es que te ha metido veneno.
+func _pintar_ponzona(e: Dictionary) -> void:
+	var v: float = _dentellada(e, _P_FAUCES_ARRIBA, _P_FAUCES_ABAJO, 1.0, 0.9)
+	if v >= 0.0:
+		# Mas pequeño que el de la yugular (el 0.62): aquella es UN golpe y este son dos o tres
+		# picaduras seguidas, asi que a tamaño completo se comia la pantalla tres veces por turno.
+		_destello(e, v, Color(0.35, 0.85, 0.20), Color(0.80, 1.0, 0.55), 0.62)
 
 
 # Pinta la mordida entera. Devuelve el avance DESPUES del cierre (0 = acaba de morder, 1 = se ha
@@ -887,7 +912,11 @@ func _marca_mordida(centro: Vector2, eje: Vector2, lado: Vector2, media: float, 
 # EL DESTELLO de la yugular: una estrella de cuatro puntas con los lados CONCAVOS, nucleo blanco
 # quemado y halo rojo. Un flash redondo no valdria: lo que hay que leer es que este mordisco es EL
 # golpe del Rey rata y no uno mas de una racha.
-func _destello(e: Dictionary, v: float) -> void:
+#
+# EL COLOR VIENE DE FUERA. Lo llevaba escrito dentro (rojo) hasta que la araña pidio el suyo en
+# verde: no es lo mismo desangrarse que envenenarse, y son la misma forma. 'tam' encoge el conjunto
+# para los mordiscos que se repiten varias veces en un turno.
+func _destello(e: Dictionary, v: float, fuera: Color, dentro: Color, tam: float = 1.0) -> void:
 	# Del sitio EXACTO donde ha mordido (lo deja _dentellada), no del centro de la tarjeta: la
 	# mordida va desplazada un poco al azar y el destello tiene que ir con ella.
 	var b: Vector2 = e.get("mordida_c", e["b"])
@@ -896,10 +925,10 @@ func _destello(e: Dictionary, v: float) -> void:
 	if k <= 0.0:
 		return
 	var pico: float = 1.0 if v >= 0.14 else 1.0 + 0.35 * (1.0 - v / 0.14)
-	var r: float = clampf(float(e["ancho"]) * 0.55, 30.0, 92.0) * 1.25 * k * pico
-	_estrella(b, r * 1.60, r * 1.15, 0.42, Color(0.90, 0.10, 0.12, 0.80 * k))   # las agujas de fuera
-	_estrella(b, r * 0.58, r * 0.40, 0.75, Color(1.0, 0.55, 0.48, 0.95 * k))    # el cuerpo caliente
-	_estrella(b, r * 0.28, r * 0.20, 1.30, Color(1.0, 0.95, 0.92, k))           # el nucleo quemado
+	var r: float = clampf(float(e["ancho"]) * 0.55, 30.0, 92.0) * 1.25 * k * pico * tam
+	_estrella(b, r * 1.60, r * 1.15, 0.42, Color(fuera.r, fuera.g, fuera.b, 0.80 * k))
+	_estrella(b, r * 0.58, r * 0.40, 0.75, Color(dentro.r, dentro.g, dentro.b, 0.95 * k))
+	_estrella(b, r * 0.28, r * 0.20, 1.30, Color(1.0, 0.97, 0.94, k))           # el nucleo quemado
 	draw_circle(b, maxf(1.5, r * 0.10), Color(1.0, 1.0, 1.0, k))
 
 
@@ -910,6 +939,11 @@ func _destello(e: Dictionary, v: float) -> void:
 # Por eso el destello son TRES estrellas encajadas de p creciente: las agujas rojas de fuera, el
 # cuerpo naranja y el nucleo blanco. Con una sola salia una cruz de brazos rectos y no brillaba.
 func _estrella(c: Vector2, rx: float, ry: float, filo: float, col: Color) -> void:
+	# DEMASIADO PEQUEÑA PARA DIBUJARLA. El suelo de 'f' de abajo es RELATIVO, asi que no salva este
+	# caso: cuando el destello se apaga el radio tiende a cero y TODOS los vertices caen en el mismo
+	# punto -> "Invalid polygon data, triangulation failed". Y a este tamaño no se ve nada igual.
+	if rx < 1.0 or ry < 1.0:
+		return
 	var pts := PackedVector2Array()
 	for i in 56:
 		var a: float = TAU * float(i) / 56.0
@@ -1460,6 +1494,171 @@ func _pintar_escudo(e: Dictionary) -> void:
 	# Y el nucleo endurecido: un halo apretado que dice que lo de dentro se ha vuelto piedra.
 	draw_arc(b, caja * 0.40, 0.0, TAU, 26,
 		Color(0.85, 0.8, 0.7, 0.35 * alfa * k), maxf(1.5, caja * 0.03), true)
+
+
+# ============================================================
+#  BICHOS (araña, ciempies, escarabajo)
+# ============================================================
+
+# TELARAÑA: lo unico de los insectos que VIAJA de verdad -se la lanzan a uno- y por eso llega
+# volando y se despliega al tocar. Lo que la lee como red son los RADIOS mas los hilos en espiral
+# entre ellos; una maraña de rayas sueltas no dice "red", dice "arañazos".
+func _pintar_telarana(e: Dictionary) -> void:
+	var a: Vector2 = e["a"]
+	var b: Vector2 = e["b"]
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.62, 34.0, 100.0)
+	var hilo := Color(0.92, 0.94, 0.90)
+	var u: float = clampf(t / maxf(dur, 0.01), 0.0, 1.0)
+	if u < 1.0:
+		# EN VUELO va hecha un ovillo: una red abierta cruzando la pantalla parece una cometa.
+		var p: Vector2 = a.lerp(b, u * u)
+		var r: float = caja * (0.16 + 0.10 * u)
+		draw_arc(p, r, 0.0, TAU, 12, Color(hilo.r, hilo.g, hilo.b, 0.75), 2.0, true)
+		draw_arc(p, r * 0.55, 0.0, TAU, 10, Color(hilo.r, hilo.g, hilo.b, 0.5), 1.5, true)
+		return
+	var v: float = clampf((t - dur) / 0.40, 0.0, 1.0)
+	var alfa: float = 1.0 if v < 0.5 else 1.0 - (v - 0.5) / 0.5
+	if alfa <= 0.0:
+		return
+	# SE DESPLIEGA de golpe y se queda TIRANTE: crece deprisa hasta su tamaño y ahi se planta.
+	var k: float = clampf(v / 0.18, 0.0, 1.0)
+	var radios: int = 9
+	var rr: float = caja * k
+	# Los radios, con el largo desigual: una red de verdad no es un abanico perfecto.
+	var largos: Array = []
+	for i in radios:
+		largos.append(rr * (0.78 + 0.22 * absf(sin(g * 1.7 + float(i) * 2.3))))
+	for i in radios:
+		var ang: float = g + TAU * float(i) / float(radios)
+		draw_line(b, b + Vector2(cos(ang), sin(ang) * 0.8) * float(largos[i]),
+			Color(hilo.r, hilo.g, hilo.b, 0.55 * alfa), 1.5, true)
+	# Y las vueltas en espiral entre radio y radio, que es lo que la convierte en RED.
+	for anillo in range(1, 4):
+		var f: float = float(anillo) / 3.5
+		var pts := PackedVector2Array()
+		for i in radios + 1:
+			var idx: int = i % radios
+			var ang2: float = g + TAU * float(i) / float(radios)
+			# Cada tramo cuelga un poco hacia dentro: los hilos no van tensos entre radios.
+			pts.append(b + Vector2(cos(ang2), sin(ang2) * 0.8) * float(largos[idx]) * f * 0.94)
+		draw_polyline(pts, Color(hilo.r, hilo.g, hilo.b, 0.42 * alfa), 1.5, true)
+
+
+# ENROSQUE: el ciempies se enrolla alrededor y APRIETA. La clave es que los anillos se CIERREN --
+# si se quedaran del mismo tamaño seria un adorno; lo que duele es que encojan.
+func _pintar_enrosque(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, 0.40, 0.05)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.62, 34.0, 100.0)
+	var claro := Color(minf(1.0, col.r + 0.28), minf(1.0, col.g + 0.22), minf(1.0, col.b + 0.2), 1.0)
+	# APRIETA: de 1.15 a 0.62 del tamaño. Ese encogimiento ES la habilidad.
+	var apriete: float = 1.15 - 0.53 * clampf(v / 0.45, 0.0, 1.0)
+	for i in 3:
+		var f: float = 1.0 - float(i) * 0.16
+		var y: float = (float(i) - 1.0) * caja * 0.34
+		_anillo(b + Vector2(0.0, y), caja * apriete * f, caja * 0.20 * f,
+			Color(col.r, col.g, col.b, 0.85 * alfa), maxf(2.5, caja * 0.11))
+		# El brillo del lomo, arriba de cada vuelta: le da bulto de cuerpo y no de aro pintado.
+		_anillo(b + Vector2(0.0, y - caja * 0.04), caja * apriete * f * 0.97, caja * 0.19 * f,
+			Color(claro.r, claro.g, claro.b, 0.35 * alfa), maxf(1.0, caja * 0.035))
+	# Y las PATAS agarrando por fuera del anillo del medio: es un ciempies, no una serpiente.
+	for i in 14:
+		var s: float = float(i) / 13.0 - 0.5
+		var x: float = s * caja * apriete * 1.9
+		var lado: float = -1.0 if i % 2 == 0 else 1.0
+		var base := Vector2(b.x + x, b.y + lado * caja * 0.18)
+		draw_line(base, base + Vector2(sin(g + float(i)) * caja * 0.05, lado * caja * 0.16),
+			Color(claro.r, claro.g, claro.b, 0.6 * alfa), maxf(1.0, caja * 0.03), true)
+
+
+# OLEADA DE PATAS: decenas de patas finas recorriendote de arriba abajo. Cada una pincha poco -por
+# eso son finas y muchas-, y lo que se lee es la CANTIDAD y el barrido, no cada pinchazo.
+func _pintar_patas(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, 0.30, 0.10)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var claro := Color(minf(1.0, col.r + 0.3), minf(1.0, col.g + 0.26), minf(1.0, col.b + 0.2), 1.0)
+	# El barrido BAJA por la tarjeta: la franja de patas activas recorre de arriba abajo. El
+	# recorrido se queda DENTRO de la caja (-0.48 a 0.48): pasandose, la ultima mitad de las patas
+	# salia por debajo de la tarjeta y parecia que pinchaban el suelo.
+	var frente: float = -0.48 + 0.96 * v
+	for i in 22:
+		var s: float = float(i) / 21.0 - 0.5
+		# Cada pata entra cuando el frente pasa por su altura, y se apaga detras.
+		var y: float = sin(g * 1.3 + float(i) * 1.9) * 0.42
+		var d: float = absf(y - frente)
+		if d > 0.30:
+			continue
+		var k: float = 1.0 - d / 0.30
+		var lado: float = -1.0 if i % 2 == 0 else 1.0
+		var base := Vector2(b.x + s * caja * 1.5, b.y + y * caja)
+		# En gancho: un tramo recto y una uña corta al final. Una raya suelta no pincha.
+		var pta: Vector2 = base + Vector2(lado * caja * 0.28 * k, caja * 0.19 * k)
+		draw_line(base, pta, Color(claro.r, claro.g, claro.b, 0.85 * alfa * k),
+			maxf(1.5, caja * 0.032), true)
+		draw_line(pta, pta + Vector2(lado * caja * 0.08, -caja * 0.09) * k,
+			Color(_HUESO.r, _HUESO.g, _HUESO.b, 0.85 * alfa * k), maxf(1.0, caja * 0.026), true)
+
+
+# RODADA: el escarabajo se hace una bola y ARROLLA. Es la carga con giro, asi que lo que la separa
+# de una embestida normal son las estelas circulares y el polvo saliendo por debajo.
+func _pintar_rodada(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, 0.34, 0.06)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	# UNA BOLA ES DEL TAMAÑO DE UNA BOLA. Lo que crece cuando arrolla a varios no es su diametro,
+	# es SU RECORRIDO: por eso el radio va CAPADO y lo que sale del ancho del grupo es el trayecto.
+	# Sacando el radio de _radio_grupo a secas, un arrollamiento a cuatro pintaba una bola de 500 px
+	# quieta en el centro, que no rueda ni arrolla: solo tapa.
+	var r: float = clampf(_radio_grupo(e, 0.28, 22.0), 22.0, 46.0)
+	var span: float = maxf(float(e["ancho"]) * 0.5 - r, 0.0)
+	# CRUZA la fila mientras dura: entra por un lado y sale por el otro.
+	var cx: float = b.x + lerpf(-span, span, clampf(v / 0.75, 0.0, 1.0))
+	b = Vector2(cx, b.y)
+	var claro := Color(minf(1.0, col.r + 0.3), minf(1.0, col.g + 0.28), minf(1.0, col.b + 0.25), 1.0)
+	# LA BOLA, con el giro marcado por dentro. El angulo avanza con v: rueda de verdad.
+	var giro: float = g + v * 9.0
+	draw_circle(b, r, Color(col.r * 0.55 + 0.08, col.g * 0.55 + 0.08, col.b * 0.55 + 0.08,
+		0.92 * alfa))
+	for i in 4:
+		var a2: float = giro + PI * float(i) / 4.0
+		draw_line(b - Vector2(cos(a2), sin(a2)) * r * 0.85,
+			b + Vector2(cos(a2), sin(a2)) * r * 0.85,
+			Color(claro.r, claro.g, claro.b, 0.30 * alfa), maxf(1.5, r * 0.09), true)
+	draw_arc(b, r, 0.0, TAU, 26, Color(claro.r, claro.g, claro.b, 0.8 * alfa),
+		maxf(2.0, r * 0.10), true)
+	# ESTELAS de rotacion: arcos cortos detras, que es lo que dice "esto viene girando".
+	for i in 3:
+		var off: float = float(i) * 0.55
+		var ini: float = giro - 2.4 - off
+		draw_arc(b, r * (1.20 + 0.22 * float(i)), ini, ini + 1.1, 12,
+			Color(claro.r, claro.g, claro.b, (0.4 - 0.1 * float(i)) * alfa),
+			maxf(1.0, r * 0.06), true)
+	# Y el polvo que levanta por abajo.
+	for i in 6:
+		var ang: float = g * 2.1 + TAU * float(i) / 6.0
+		draw_circle(b + Vector2(cos(ang) * r * (1.1 + 0.5 * v), absf(sin(ang)) * r * 0.55),
+			maxf(1.0, r * 0.10 * (1.0 - v)), Color(claro.r, claro.g, claro.b, 0.3 * alfa))
 
 
 func _anillo(c: Vector2, rx: float, ry: float, col: Color, grosor: float) -> void:

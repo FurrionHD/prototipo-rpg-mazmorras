@@ -77,13 +77,20 @@ signal apagar_ahora(bloque: Dictionary)
 #   CAPARAZON elitro negro abombado, con costura central y brillo (el escarabajo)
 #   MURALLA   muro de ladrillo que se levanta delante (el coloso)
 #   ESCUDO    placas que se cierran sobre el (el golem)
+# Y los BICHOS (28-32):
+#   PONZONA   la dentellada de fauces con un destello VERDE (los queliceros de la araña)
+#   TELARANA  una red que cae encima y se queda tirante
+#   ENROSQUE  anillos que rodean la tarjeta y APRIETAN (el ciempies)
+#   PATAS     muchas patas finas barriendo de arriba abajo
+#   RODADA    la carga, pero GIRANDO: una bola con estelas de rotacion
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
 		MORDISCO = 14, COLMILLAZO = 15, YUGULAR = 16, CHILLIDO = 17,
 		ZARPAZO = 18, PLACAJE = 19, CORNADA = 20, CARGA = 21, PISOTON = 22,
 		GOLPETAZO = 23, RAICES = 24,
-		CAPARAZON = 25, MURALLA = 26, ESCUDO = 27 }
+		CAPARAZON = 25, MURALLA = 26, ESCUDO = 27,
+		PONZONA = 28, TELARANA = 29, ENROSQUE = 30, PATAS = 31, RODADA = 32 }
 
 # Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
@@ -119,6 +126,10 @@ const T_VUELO := {
 	# proposito: es lo que tardan en cerrarse encima, y eso es justo lo que hay que ver. El muro va
 	# el que mas porque se levanta hilada a hilada.
 	Estilo.CAPARAZON: 0.18, Estilo.MURALLA: 0.24, Estilo.ESCUDO: 0.16,
+	# La TELARAÑA es lo unico de los bichos que VIAJA de verdad (se la lanza), de ahi el vuelo largo.
+	# Los demas van con la embestida, asi que su vuelo es solo el adelanto del dibujo.
+	Estilo.PONZONA: 0.06, Estilo.TELARANA: 0.24, Estilo.ENROSQUE: 0.10,
+	Estilo.PATAS: 0.05, Estilo.RODADA: 0.10,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -967,6 +978,10 @@ func arrancar_cola() -> float:
 # que fundirlos en uno se cargaria justo lo que hay que leer: cuantas veces te han mordido y a quien.
 #   PISOTON    una onda por el suelo alcanza a varios y es UNA. Repetida serian tres pisotones
 #              simultaneos, que ademas es imposible: el bicho tiene dos patas.
+#   RODADA     una bola que rueda y arrolla a tres es UNA bola que pasa por encima de los tres, no
+#              tres bolas. Igual que el ARRASTRE, y por el mismo motivo.
+# La OLEADA DE PATAS no entra: reparte golpe a golpe, asi que cada impacto es su propia tanda de
+# patas sobre quien le toque -- lo mismo que los mordiscos.
 
 
 # LOS QUE SON CUERPO A CUERPO. Manda dos cosas a la vez, y por eso esta en UNA lista y no repartido
@@ -979,7 +994,8 @@ func arrancar_cola() -> float:
 # tocar las dos, y olvidar la segunda dejaba al bicho embistiendo Y encendido como un mago.
 const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estilo.COLMILLAZO,
 	Estilo.YUGULAR, Estilo.ZARPAZO, Estilo.PLACAJE, Estilo.CORNADA, Estilo.CARGA,
-	Estilo.PISOTON, Estilo.GOLPETAZO]
+	Estilo.PISOTON, Estilo.GOLPETAZO, Estilo.PONZONA, Estilo.ENROSQUE, Estilo.PATAS,
+	Estilo.RODADA]
 
 
 # LOS QUE SE PINTAN SOBRE UNO MISMO. El bicho se echa la cosa ENCIMA (un aura, una coraza, un muro):
@@ -987,7 +1003,7 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
 const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
-	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES]
+	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA]
 
 func _marcar_efectos_de_grupo() -> void:
 	var por_tanda: Dictionary = {}   # "tanda:estilo" -> [indices de la cola]

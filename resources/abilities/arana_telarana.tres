@@ -21,4 +21,5 @@ descripcion = "Te lanza una red pegajosa que apenas duele pero te deja los pies 
 coste_energia = 0.0
 dano_mult = 0.6
 efectos = [SubResource("SA_peg"), SubResource("SA_lento")]
+fx_estilo = 29
 cooldown = 4
