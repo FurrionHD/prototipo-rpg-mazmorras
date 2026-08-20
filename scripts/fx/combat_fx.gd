@@ -986,6 +986,9 @@ func arrancar_cola() -> float:
 #              simultaneos, que ademas es imposible: el bicho tiene dos patas.
 #   RODADA     una bola que rueda y arrolla a tres es UNA bola que pasa por encima de los tres, no
 #              tres bolas. Igual que el ARRASTRE, y por el mismo motivo.
+#   CARGA      lo mismo: el bicho embiste UNA vez y arrolla lo que pilla por el camino. Repetida
+#              salian tres embestidas simultaneas, cada una con sus lineas de velocidad apuntando a
+#              una victima distinta, y se leia como tres bichos cargando a la vez.
 # La OLEADA DE PATAS no entra: reparte golpe a golpe, asi que cada impacto es su propia tanda de
 # patas sobre quien le toque -- lo mismo que los mordiscos.
 
@@ -1002,6 +1005,8 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	Estilo.YUGULAR, Estilo.ZARPAZO, Estilo.PLACAJE, Estilo.CORNADA, Estilo.CARGA,
 	Estilo.PISOTON, Estilo.GOLPETAZO, Estilo.PONZONA, Estilo.ENROSQUE, Estilo.PATAS,
 	Estilo.RODADA, Estilo.LATIGAZO]
+# NOTA: la CARGA esta en _ESTILOS_DE_GRUPO y aun asi embiste. No es contradictorio: embestir es del
+# ATACANTE (su tarjeta se lanza) y agruparse es del DIBUJO (uno solo para todo lo alcanzado).
 
 
 # LOS QUE SE PINTAN SOBRE UNO MISMO. El bicho se echa la cosa ENCIMA (un aura, una coraza, un muro):
@@ -1009,7 +1014,8 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
 const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
-	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA]
+	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
+	Estilo.CARGA]
 
 func _marcar_efectos_de_grupo() -> void:
 	var por_tanda: Dictionary = {}   # "tanda:estilo" -> [indices de la cola]

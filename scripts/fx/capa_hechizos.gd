@@ -1213,15 +1213,32 @@ func _pintar_carga(e: Dictionary) -> void:
 	var alfa: float = 1.0 - v * v
 	if alfa <= 0.0:
 		return
+	# ARROLLA A LO LARGO DE LA FILA. La Carga acorazada alcanza hasta tres, y como este estilo es de
+	# grupo (ver _ESTILOS_DE_GRUPO) se dibuja UNA sola vez con el ancho de todo lo alcanzado: el
+	# frente entra por un extremo y BARRE hasta el otro, en vez de reventar en un punto. Antes, sin
+	# agrupar, salia una embestida entera por victima -con sus lineas de velocidad apuntando a cada
+	# una-, y se leia como tres bichos cargando a la vez.
+	#
+	# A UN SOLO objetivo el recorrido sale casi cero y se comporta como el choque de siempre, que es
+	# lo que quieren el Picado y la Embestida del jabali.
+	# El umbral (caja * 0.8) separa "arrolla una fila" de "choca contra uno": con una sola victima el
+	# ancho es el de SU tarjeta y el recorrido sale corto, y ahi no tiene que barrer ni dejar surco.
+	var span: float = maxf(float(e["ancho"]) * 0.5 - caja * 0.35, 0.0)
+	# Entra por el lado del que carga: si viene de la izquierda, barre hacia la derecha.
+	var signo: float = 1.0 if a.x <= b.x else -1.0
+	var avance: float = clampf(v / 0.72, 0.0, 1.0)
+	var frente: Vector2 = Vector2(b.x + signo * lerpf(-span, span, avance), b.y)
+	# Cuando barre, la marcha es HORIZONTAL; cuando es a uno solo, la del que venia embistiendo.
+	var mar: Vector2 = Vector2(signo, 0.0) if span > caja * 0.8 else dir
+	var per := Vector2(-mar.y, mar.x)
 	# LA POLVAREDA: MUCHAS motas pequeñas y translucidas, no cuatro pelotas. Con circulos gordos
 	# parecian bolas de barro; el polvo se lee por cantidad y por lo tenue, no por tamaño.
+	# Se queda DETRAS del frente: el polvo no avanza con el bicho, lo deja atras.
 	for i in 18:
 		var ang: float = g + TAU * float(i) / 18.0 + float(i) * 0.7
 		var d := Vector2(cos(ang), sin(ang) * 0.55)
-		# Cada mota con su propio alcance, o salen todas en un anillo perfecto.
 		var alcance: float = 0.35 + 0.9 * v * (0.6 + 0.4 * absf(sin(g * 2.1 + float(i))))
-		# Empujadas EN CONTRA de la marcha: el polvo no avanza con el bicho, se queda y se abre.
-		var p: Vector2 = b + (d * alcance - dir * 0.30 * v) * caja * 0.75
+		var p: Vector2 = frente + (d * alcance - mar * (0.30 + 0.5 * avance)) * caja * 0.75
 		draw_circle(p, maxf(1.0, caja * 0.055 * (1.0 - v * 0.5)),
 			Color(claro.r, claro.g, claro.b, 0.30 * alfa))
 	# EL FRENTE del choque: un arco COMBADO perpendicular a la marcha. Va estrecho (0.55 de la
@@ -1229,13 +1246,17 @@ func _pintar_carga(e: Dictionary) -> void:
 	var arco := PackedVector2Array()
 	for i in 13:
 		var s: float = float(i) / 12.0 - 0.5
-		# Comba EN EL SENTIDO DE LA MARCHA (+dir por el centro): es un frente empujando hacia
+		# Comba EN EL SENTIDO DE LA MARCHA (+mar por el centro): es un frente empujando hacia
 		# dentro. Combado al reves salia una sonrisa -- con las motas de polvo encima haciendo de
 		# ojos, la tarjeta se leia literalmente como una carita.
-		arco.append(b + lado * s * caja * (0.55 + 0.35 * v)
-			+ dir * (1.0 - 4.0 * s * s) * caja * 0.18 * (1.0 - v))
+		arco.append(frente + per * s * caja * (0.55 + 0.35 * v)
+			+ mar * (1.0 - 4.0 * s * s) * caja * 0.18 * (1.0 - v))
 	draw_polyline(arco, Color(claro.r, claro.g, claro.b, 0.8 * alfa),
 		maxf(2.0, caja * 0.05 * (1.0 - v * 0.7)), true)
+	# EL SURCO que deja por donde ha pasado, solo cuando de verdad barre la fila.
+	if span > caja * 0.8:
+		draw_line(Vector2(b.x - signo * span, b.y), frente,
+			Color(claro.r, claro.g, claro.b, 0.30 * alfa), maxf(2.0, caja * 0.10), true)
 
 
 # PISOTON: la pata baja y el suelo se abre. Se lee en dos cosas: la GRIETA (lineas quebradas que
@@ -1383,9 +1404,16 @@ func _cubrirse(e: Dictionary) -> Array:
 	return [cierra, alfa]
 
 
-# CAPARAZON: el elitro del escarabajo. Lo que hay que leer es el ovalo ABOMBADO con la COSTURA
-# central de arriba abajo, las estrias finas a los lados y el brillo -- eso es lo que lo separa de
-# "una mancha negra encima del bicho".
+# CAPARAZON: el escarabajo visto DESDE ARRIBA, cerrandose sobre el bicho.
+#
+# La primera version era una elipse oscura con rayas finas y quedaba fatal, porque lo que hace que
+# una mancha negra se lea como un escarabajo NO son las estrias:
+#   1. LA DIVISION pronoto / elitro. Son dos piezas separadas por una junta clara, y el ojo la pilla
+#      antes que nada. Con una sola pieza es un huevo, se le pinte lo que se le pinte encima.
+#   2. EL CUERNO asomando por delante del pronoto. Es la silueta que lo hace ESE bicho.
+#   3. UN BRILLO ANCHO Y BLANDO. Un caparazon es charolado: el reflejo es una mancha grande, no dos
+#      lineas -- dos lineas finas se leen como arañazos, que es justo lo contrario de "coraza".
+# Las estrias van al final y sirven de poco; el trabajo lo hacen esas tres.
 func _pintar_caparazon(e: Dictionary) -> void:
 	var r0: Array = _cubrirse(e)
 	var k: float = r0[0]
@@ -1395,37 +1423,89 @@ func _pintar_caparazon(e: Dictionary) -> void:
 	var b: Vector2 = e["b"]
 	var caja: float = clampf(float(e["ancho"]) * 0.9, 50.0, 150.0)
 	# Baja desde arriba al cerrarse: es una tapa, no algo que crece.
-	var c: Vector2 = b + Vector2(0.0, -caja * 0.55 * (1.0 - k))
-	var rx: float = caja * 0.44
-	var ry: float = caja * 0.50
-	# Negro, pero NO negro puro: sobre una tarjeta oscura desaparecia. Y translucido, porque esto va
-	# encima del nombre y de la barra de vida y no puede taparlos -- mismo criterio que CapaEstado.
-	var quitina := Color(0.17, 0.16, 0.19, 0.78 * alfa)
-	var pts := PackedVector2Array()
-	for i in 30:
-		var a: float = TAU * float(i) / 30.0
-		# Mas ancho por arriba que por abajo: un elitro es un huevo, no una elipse.
-		var f: float = 1.0 + 0.10 * cos(a)
-		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry * f))
-	draw_colored_polygon(pts, quitina)
-	# LA COSTURA, de arriba abajo por el centro. Es LO que dice "escarabajo".
-	draw_line(c - Vector2(0.0, ry * 0.92), c + Vector2(0.0, ry * 0.92),
-		Color(0.02, 0.02, 0.03, 0.9 * alfa), maxf(1.5, caja * 0.022), true)
-	# Estrias a los dos lados, paralelas a la costura y curvandose con el cuerpo.
-	for i in 8:
-		var s: float = (float(i % 4) + 1.0) / 5.0 * (1.0 if i < 4 else -1.0)
-		var x: float = rx * s
-		var alto: float = ry * sqrt(maxf(0.0, 1.0 - s * s)) * 0.88
-		draw_line(c + Vector2(x, -alto), c + Vector2(x, alto),
-			Color(0.03, 0.03, 0.04, 0.55 * alfa), maxf(1.0, caja * 0.008), true)
-	# EL BRILLO: dos reflejos alargados arriba a la izquierda. Es lo que lo pone brillante en vez
-	# de mate, y en la referencia es la mitad de la lectura.
-	for i in 2:
-		var off: float = -0.42 + float(i) * 0.16
-		draw_line(c + Vector2(rx * off, -ry * 0.62), c + Vector2(rx * off * 0.7, ry * 0.10),
-			Color(0.85, 0.87, 0.92, (0.5 - 0.18 * float(i)) * alfa), maxf(1.5, caja * 0.02), true)
-	# Reborde claro: es lo que le da el canto duro y lo despega del fondo.
-	draw_polyline(pts, Color(0.55, 0.53, 0.50, 0.75 * alfa), maxf(1.5, caja * 0.016), true)
+	var c: Vector2 = b + Vector2(0.0, -caja * 0.62 * (1.0 - k))
+	var rx: float = caja * 0.42
+	var largo: float = caja * 0.62      # de la junta hacia abajo (el elitro)
+	var y0: float = c.y - largo * 0.30  # donde acaba el pronoto y empieza el elitro
+	# Negro charolado, pero NO negro puro: sobre una tarjeta oscura desaparecia. Y translucido,
+	# porque esto va sobre el nombre y la barra de vida -- mismo criterio que CapaEstado.
+	var quitina := Color(0.13, 0.12, 0.15, 0.80 * alfa)
+	var canto := Color(0.62, 0.60, 0.58, 0.85 * alfa)
+
+	# --- EL ELITRO: ancho arriba (donde encaja con el pronoto) y en punta redondeada abajo.
+	var eli := PackedVector2Array()
+	var n := 20
+	for i in n + 1:                       # lado derecho, de arriba abajo
+		var s: float = float(i) / float(n)
+		eli.append(Vector2(c.x + _hw_elitro(s) * rx, y0 + s * largo))
+	for i in n + 1:                       # y de vuelta por el izquierdo
+		var s2: float = 1.0 - float(i) / float(n)
+		eli.append(Vector2(c.x - _hw_elitro(s2) * rx, y0 + s2 * largo))
+	draw_colored_polygon(eli, quitina)
+
+	# --- EL BRILLO: una mancha ANCHA por el lomo izquierdo, no una raya.
+	var luz := PackedVector2Array()
+	for i in 13:
+		var s3: float = 0.06 + 0.62 * float(i) / 12.0
+		luz.append(Vector2(c.x - _hw_elitro(s3) * rx * 0.62, y0 + s3 * largo))
+	for i in 13:
+		var s4: float = 0.68 - 0.62 * float(i) / 12.0
+		luz.append(Vector2(c.x - _hw_elitro(s4) * rx * 0.16, y0 + s4 * largo))
+	draw_colored_polygon(luz, Color(0.78, 0.80, 0.86, 0.30 * alfa))
+
+	# --- LA COSTURA por el centro y un par de estrias por lado, cortas y pegadas a ella.
+	draw_line(Vector2(c.x, y0 + largo * 0.04), Vector2(c.x, y0 + largo * 0.94),
+		Color(0.02, 0.02, 0.03, 0.9 * alfa), maxf(1.5, caja * 0.024), true)
+	for i in 4:
+		var lado: float = -1.0 if i < 2 else 1.0
+		var f: float = 0.34 + 0.30 * float(i % 2)
+		var pts2 := PackedVector2Array()
+		for j in 7:
+			var s5: float = 0.10 + 0.76 * float(j) / 6.0
+			pts2.append(Vector2(c.x + lado * _hw_elitro(s5) * rx * f, y0 + s5 * largo))
+		draw_polyline(pts2, Color(0.05, 0.05, 0.06, 0.5 * alfa), maxf(1.0, caja * 0.009), true)
+	draw_polyline(eli, canto, maxf(1.5, caja * 0.016), true)
+
+	# --- EL PRONOTO: la pieza de delante, mas estrecha, con su propio canto. La JUNTA entre las dos
+	# piezas es lo que mas dice "escarabajo", asi que se deja ver.
+	var ph: float = largo * 0.34
+	var pro := PackedVector2Array()
+	for i in 13:
+		var s6: float = float(i) / 12.0
+		# Trapecio de esquinas redondeadas: estrecho arriba y ancho abajo, donde encaja.
+		var w: float = rx * (0.55 + 0.42 * s6) * (1.0 - 0.28 * pow(1.0 - s6, 2.6))
+		pro.append(Vector2(c.x + w, y0 - ph + s6 * ph))
+	for i in 13:
+		var s7: float = 1.0 - float(i) / 12.0
+		var w2: float = rx * (0.55 + 0.42 * s7) * (1.0 - 0.28 * pow(1.0 - s7, 2.6))
+		pro.append(Vector2(c.x - w2, y0 - ph + s7 * ph))
+	draw_colored_polygon(pro, Color(quitina.r * 1.25, quitina.g * 1.25, quitina.b * 1.25, quitina.a))
+	draw_polyline(pro, canto, maxf(1.5, caja * 0.015), true)
+	# Su propio reflejo, arriba a la izquierda.
+	draw_circle(Vector2(c.x - rx * 0.34, y0 - ph * 0.55), maxf(1.5, caja * 0.05),
+		Color(0.78, 0.80, 0.86, 0.28 * alfa))
+
+	# --- EL CUERNO, asomando por delante y curvado hacia arriba. Es la silueta del bicho.
+	var base := Vector2(c.x, y0 - ph * 0.92)
+	var cu := PackedVector2Array()
+	var cd := PackedVector2Array()
+	for i in 9:
+		var s8: float = float(i) / 8.0
+		var p := Vector2(c.x - largo * 0.10 * s8 * s8, base.y - largo * 0.46 * s8)
+		var w3: float = rx * 0.13 * (1.0 - pow(s8, 1.5)) + 0.4
+		cu.append(p + Vector2(w3, 0.0))
+		cd.append(p - Vector2(w3, 0.0))
+	for i in range(cd.size() - 1, -1, -1):
+		cu.append(cd[i])
+	draw_colored_polygon(cu, Color(quitina.r * 1.4, quitina.g * 1.4, quitina.b * 1.4, quitina.a))
+	draw_polyline(cu, canto, maxf(1.0, caja * 0.012), true)
+
+
+# El PERFIL del elitro: media anchura (0..1) segun lo que se ha bajado por el (s: 0 arriba, 1 abajo).
+# Ancho arriba, donde encaja con el pronoto, y cerrandose en punta REDONDEADA abajo. Con una elipse
+# normal el bicho salia con forma de huevo y no de escarabajo.
+func _hw_elitro(s: float) -> float:
+	return sqrt(maxf(0.0, 1.0 - pow(clampf(s, 0.0, 1.0), 2.6))) * (0.90 + 0.10 * (1.0 - s))
 
 
 # MURALLA: un muro de LADRILLO que se levanta delante del coloso, hilada a hilada. Lo que lo lee
