@@ -45,6 +45,7 @@ drop_extra_max = 2
 drop_piso_debut = 2
 drop_piso_pleno = 5
 al_golpear = [SubResource("SA_sang")]
+fx_basico = 14
 habilidades = [ExtResource("5_den"), ExtResource("6_chi"), ExtResource("7_yug")]
 prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

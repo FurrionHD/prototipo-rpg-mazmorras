@@ -63,10 +63,12 @@ signal apagar_ahora(bloque: Dictionary)
 #   COLMILLAZO  lo mismo pero con fauces de fiera: dientes irregulares y colmillos largos
 #   YUGULAR   un colmillazo seco con un DESTELLO de cuatro puntas encima (la del Rey rata)
 #   CHILLIDO  anillos que se abren desde el lanzador y barren la fila; no muerde a nadie
+#   ZARPAZO   cuatro surcos diagonales de borde dentado, en punta por los dos extremos
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
-		MORDISCO = 14, COLMILLAZO = 15, YUGULAR = 16, CHILLIDO = 17 }
+		MORDISCO = 14, COLMILLAZO = 15, YUGULAR = 16, CHILLIDO = 17,
+		ZARPAZO = 18 }
 
 # Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
@@ -80,12 +82,16 @@ const T_VUELO := {
 	# El SPLAT cae de MAS ARRIBA que un rayo y pesa mas: se ve venir, que es media gracia.
 	Estilo.SPLAT: 0.34, Estilo.ESCUPITAJO: 0.26, Estilo.AURA: 0.10,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
-	# Los mordiscos NO viajan: es la tarjeta la que se lanza (embisten como el MELEE) y las fauces
-	# se cierran donde aterriza. El COLMILLAZO abre un pelin antes porque son fauces mas grandes y
-	# tienen que verse abrirse; la YUGULAR reserva un instante para que el destello arranque con el
-	# numero y no despues.
-	Estilo.MORDISCO: 0.0, Estilo.COLMILLAZO: 0.05, Estilo.YUGULAR: 0.06,
-	Estilo.CHILLIDO: 0.14,
+	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
+	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte
+	# nada, asi que un estilo a 0.0 no llega a darse de alta en su vida. Ya mordio una vez: los
+	# mordiscos estaban a 0.0 "porque no viajan, van con la embestida" y las tres habilidades de
+	# rata no sacaban ningun efecto.
+	#
+	# Los mordiscos no viajan de verdad (la tarjeta es la que se lanza y las fauces se cierran donde
+	# aterriza), asi que su vuelo es solo el adelanto con el que se abre la boca antes del golpe.
+	Estilo.MORDISCO: 0.05, Estilo.COLMILLAZO: 0.06, Estilo.YUGULAR: 0.07,
+	Estilo.CHILLIDO: 0.14, Estilo.ZARPAZO: 0.06,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1046,6 +1052,9 @@ func _process(delta: float) -> void:
 			continue
 
 		# EL DIBUJO sale ANTES que el golpe, lo que tarde en volar, para que llegue justo a tiempo.
+		# OJO con el `vuelo > 0.0`: es lo que hace que el MELEE no pinte nada, o sea que un estilo
+		# SIN entrada en T_VUELO (o con un 0.0) queda mudo para siempre y sin dar ningun error. Si
+		# añades un estilo, dale vuelo aunque su efecto no viaje. Ver la nota en T_VUELO.
 		var vuelo: float = float(T_VUELO.get(estilo, 0.0))
 		if not ev["fx_lanzado"] and vuelo > 0.0 and _t >= t_imp - vuelo:
 			ev["fx_lanzado"] = true
@@ -1088,7 +1097,7 @@ func _process(delta: float) -> void:
 		if pa != null and is_instance_valid(pa) and pa != pv \
 				and (estilo == Estilo.MELEE or estilo == Estilo.ARRASTRE \
 					or estilo == Estilo.MORDISCO or estilo == Estilo.COLMILLAZO \
-					or estilo == Estilo.YUGULAR) \
+					or estilo == Estilo.YUGULAR or estilo == Estilo.ZARPAZO) \
 				and int(ev.get("pos_tanda", i)) < MAX_IMPACTOS_ANIMADOS:
 			var dir: Vector2 = _direccion(pa, pv)
 			var d: float = 0.0
@@ -1118,7 +1127,7 @@ func _process(delta: float) -> void:
 				and estilo != Estilo.ARCO and estilo != Estilo.SPLAT \
 				and estilo != Estilo.ARRASTRE and estilo != Estilo.AURA \
 				and estilo != Estilo.MORDISCO and estilo != Estilo.COLMILLAZO \
-				and estilo != Estilo.YUGULAR \
+				and estilo != Estilo.YUGULAR and estilo != Estilo.ZARPAZO \
 				and _t >= t_imp - vuelo and _t < t_imp:
 			var k: float = 1.0 - (t_imp - _t) / maxf(vuelo, 0.001)
 			if not aura.has(pa) or k > float(aura[pa][1]):

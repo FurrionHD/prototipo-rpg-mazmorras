@@ -2631,13 +2631,19 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 # Los golpes a puño limpio (MELEE sin elemento) se quedan con el blanco de siempre: teñir tambien el
 # basico de cada bicho llenaba la pantalla de color y le quitaba fuerza justo a las habilidades, que
 # es lo que se queria destacar.
-# EL ASPECTO que pide una habilidad enemiga. -1 (el valor por defecto de AbilityData) = la de
-# siempre: la tarjeta embiste. Un solo sitio para que los dos caminos de golpe enemigo -el basico y
-# el de habilidades- no se contesten distinto, que es el error clasico de esta pantalla.
-func _estilo_de_habilidad(ab: AbilityData) -> int:
-	if ab == null or ab.fx_estilo < 0:
-		return CombatFX.Estilo.MELEE
-	return ab.fx_estilo
+# EL ASPECTO de un golpe enemigo. Un solo sitio para que los dos caminos -el basico y el de
+# habilidades- no se contesten distinto, que es el error clasico de esta pantalla.
+#
+# Manda la HABILIDAD si pide algo (AbilityData.fx_estilo). Si no pide nada -o no hay habilidad, que
+# es el caso del ataque basico- manda COMO PEGA EL BICHO (EnemyData.fx_basico): una rata muerde
+# tanto cuando le sale la tecnica como cuando no. Y si el bicho tampoco dice nada, el empujon de
+# tarjeta de siempre.
+func _estilo_de_habilidad(ab: AbilityData, atacante: Combatant = null) -> int:
+	if ab != null and ab.fx_estilo >= 0:
+		return ab.fx_estilo
+	if atacante != null and atacante.fx_basico >= 0:
+		return atacante.fx_basico
+	return CombatFX.Estilo.MELEE
 
 
 func _color_golpe(atacante: Combatant, elem: int, estilo: int) -> Color:
@@ -5693,12 +5699,16 @@ func _enemy_turn(e: Combatant) -> void:
 	var pj_obj: PersonajeData = Game.pj_de_combatant(obj)   # a quien se le apunta la excelia
 	# La postura de guardia del estoque reduce el daño como el Defender (rama defending).
 	var defendiendo: bool = bool(_defendiendo.get(obj, false)) or obj.en_guardia
+	# COMO PEGA ESTE BICHO a secas. Este es EL OTRO CAMINO del golpe enemigo: sin habilidad de por
+	# medio, asi que el estilo sale entero del Combatant (EnemyData.fx_basico). Hay que ponerlo en
+	# las dos ramas de aqui abajo -la que falla y la que acierta- igual que hace la de habilidades.
+	var estilo_bas: int = _estilo_de_habilidad(null, e)
 	var result := StatsMath.resolve_attack(e, obj, defendiendo)
 	_debug_ataque(e, obj, result, defendiendo)
 	if result.evaded:
 		# El "FALLA" se apunta aqui arriba y no en cada rama: por debajo esto se bifurca en
 		# esquiva a secas y esquiva-con-contraataque, y el golpe fallado es el mismo en las dos.
-		_fx_golpe(e, obj, 0.0, false, true)
+		_fx_golpe(e, obj, 0.0, false, true, e.elemento_ataque, estilo_bas)
 		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos). La entrena
 		# EL QUE ESQUIVA, no el que llevas delante.
 		Game.ganar("agilidad", _reto(e, pj_obj), Game.GAIN_AGILIDAD_ESQUIVAR,
@@ -5730,7 +5740,7 @@ func _enemy_turn(e: Combatant) -> void:
 	# abajo porque lo miran dos cosas: el contador de bloqueo (justo debajo) y la excelia de Resistencia.
 	var dmg_bruto: float = float(result.get("dmg_sin_mitigar", dmg))
 	obj.take_damage(dmg)
-	_fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque)
+	_fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque, estilo_bas)
 	# El MANTO ha recortado el golpe por su elemento: se le cobra la carga (tope de una por accion).
 	if obj.resiste_por_afinidad(e.elemento_ataque):
 		obj.gastar_imbue_defensiva()
@@ -6030,10 +6040,13 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	var contra: String = ""
 	var rastro: Array = []   # un token por golpe para el desglose del log (mismo formato que el jugador)
 	var esquivados: int = 0  # para la excelia de Agilidad, que se paga UNA vez al final
-	# EL ASPECTO lo pide la habilidad (ver AbilityData.fx_estilo). Se saca UNA vez, fuera del bucle:
-	# es el mismo para todos sus golpes. Tambien se usa en los que FALLAN, para que un escupitajo
-	# esquivado se vea salir y pasar de largo en vez de convertirse en un empujon de tarjeta.
-	var estilo_ab: int = _estilo_de_habilidad(ab)
+	# EL ASPECTO lo pide la habilidad y, si no pide nada, el propio bicho (ver _estilo_de_habilidad).
+	# Por aqui pasan LOS DOS caminos: con 'ab' cuando lanza tecnica y con 'ab' nulo cuando pega su
+	# ataque basico, asi que pasarle el atacante es lo que hace que la rata muerda tambien sin
+	# tecnica. Se saca UNA vez, fuera del bucle: es el mismo para todos sus golpes. Tambien se usa
+	# en los que FALLAN, para que un escupitajo esquivado se vea salir y pasar de largo en vez de
+	# convertirse en un empujon de tarjeta.
+	var estilo_ab: int = _estilo_de_habilidad(ab, e)
 	for i in n_golpes:
 		_fx_tanda(tanda_base + i)
 		var result := StatsMath.resolve_attack(e, t, defendiendo)

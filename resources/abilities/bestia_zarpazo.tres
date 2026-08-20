@@ -18,4 +18,5 @@ golpes_max = 2
 dano_mult = 1.1
 efectos = [SubResource("SA_san")]
 efectos_por_golpe = true
+fx_estilo = 18
 cooldown = 3

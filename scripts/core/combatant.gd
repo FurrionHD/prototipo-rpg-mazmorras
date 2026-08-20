@@ -206,6 +206,12 @@ var color_visual: Color = Color(0.9, 0.35, 0.3)
 # JEFE que se queda SIEMPRE en el centro de la fila (ver EnemyData.centrado_en_fila). Como el
 # color, es dato de PRESENTACION que viaja aqui porque la pantalla de combate solo ve Combatants.
 var centrado_en_fila: bool = false
+# COMO PEGA cuando NO usa habilidad. Las habilidades piden su dibujo por AbilityData.fx_estilo,
+# pero el ataque basico no pasa por ninguna habilidad, asi que su aspecto tiene que venir del
+# propio bicho: sin esto una rata lanza dentelladas al usar tecnica y da empujones de tarjeta el
+# resto del turno. -1 = MELEE de siempre. Igual que color_visual, es dato de PRESENTACION que
+# viaja aqui porque la pantalla de combate solo ve Combatants.
+var fx_basico: int = -1
 # FRANJA de la afinidad: 1.0 = PURO (una criatura hecha del elemento: ×0.5 / ×1.5), menos =
 # mas suave. Un cuerpo imbuido va a INTENSIDAD_IMBUIDO (0.4 -> ×0.8 / ×1.2): no es lo mismo
 # SER de fuego que haberte echado un manto por encima. No afecta a inmunidades (son binarias).

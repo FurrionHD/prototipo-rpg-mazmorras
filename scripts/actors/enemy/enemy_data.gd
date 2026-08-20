@@ -68,6 +68,13 @@ enum Familia { NINGUNA, SLIME, ROEDOR, INSECTO, PIEDRA, BESTIA, HUMANOIDE }
 # que ves al lado y a lo que salpica tu hechizo dejarian de ser lo mismo.
 @export var centrado_en_fila: bool = false
 
+# COMO PEGA ESTE BICHO cuando no usa habilidad (un CombatFX.Estilo; -1 = el empujon de tarjeta de
+# siempre). Las habilidades ya piden su dibujo con AbilityData.fx_estilo, pero el ataque basico no
+# pasa por ninguna habilidad: sin esto una rata solo muerde cuando le sale la tecnica y el resto de
+# turnos da el mismo empujon que un esqueleto. Aqui se pone COMO ATACA EL BICHO, que suele ser una
+# sola cosa (la rata muerde, el acechador desgarra), y las habilidades lo afinan por encima.
+@export var fx_basico: int = -1
+
 
 # Color REAL con el que se pinta este bicho: su color base aclarado segun su 't' (los mas
 # fuertes de su franja salen mas claros). Lo usan el cuerpo del mapa (enemy.gd) y la UI de
@@ -317,6 +324,7 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	# Combatants (no el EnemyData), y necesita pintar su marcador en la barra de accion.
 	c.color_visual = color_visual(t)
 	c.centrado_en_fila = centrado_en_fila
+	c.fx_basico = fx_basico
 	return c
 
 

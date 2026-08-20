@@ -78,7 +78,8 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.AURA:
 			# No viaja: nace y muere sobre la misma tarjeta.
 			e["a"] = b
-		CombatFX.Estilo.MORDISCO, CombatFX.Estilo.COLMILLAZO, CombatFX.Estilo.YUGULAR:
+		CombatFX.Estilo.MORDISCO, CombatFX.Estilo.COLMILLAZO, CombatFX.Estilo.YUGULAR, \
+		CombatFX.Estilo.ZARPAZO:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -161,6 +162,8 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + 0.40   # y ademas tiene que apagarse el destello
 	if es == CombatFX.Estilo.CHILLIDO:
 		return float(e["dur"]) + 0.34   # lo que tarda el ultimo anillo en salir de la fila
+	if es == CombatFX.Estilo.ZARPAZO:
+		return float(e["dur"]) + 0.34   # las cuatro garras entran escalonadas, no a la vez
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -192,6 +195,7 @@ func _draw() -> void:
 			CombatFX.Estilo.COLMILLAZO: _pintar_colmillazo(e)
 			CombatFX.Estilo.YUGULAR: _pintar_yugular(e)
 			CombatFX.Estilo.CHILLIDO: _pintar_chillido(e)
+			CombatFX.Estilo.ZARPAZO: _pintar_zarpazo(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -771,11 +775,18 @@ func _dentellada(e: Dictionary, arriba: Array, abajo: Array, escala: float, lent
 	var boca: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0) * escala
 	var media: float = boca * 0.5
 	var largo_max: float = media * 0.85
-	# Ladeada segun la semilla: el Frenesi son seis dentelladas seguidas y calcadas se leerian como
-	# un unico dibujo parpadeando.
-	var ang: float = sin(float(e["semilla"]) * 3.3) * 0.22
+	# CADA MORDISCO CAE DISTINTO. El Frenesi son seis dentelladas seguidas sobre las mismas caras: si
+	# todas salieran con el mismo angulo y en el mismo sitio, las seis se leerian como un unico
+	# dibujo parpadeando en vez de como seis bocados. La semilla las ladea hasta 26 grados para
+	# cualquiera de los dos lados (pasando por el recto) y ademas las desplaza un poco.
+	var g: float = float(e["semilla"])
+	var ang: float = sin(g * 3.3) * 0.45
 	var eje := Vector2(cos(ang), sin(ang))
 	var lado := Vector2(-eje.y, eje.x)
+	# El desvio va en el diccionario porque el destello de la yugular tiene que salir DEL MISMO
+	# sitio que la mordida, no del centro de la tarjeta.
+	b += Vector2(cos(g * 2.1), sin(g * 1.7)) * media * 0.18
+	e["mordida_c"] = b
 	var c: float = 0.0        # 0 = boca abierta de par en par, 1 = dientes tocandose
 	var alfa: float = 1.0
 	var v: float = -1.0
@@ -793,10 +804,11 @@ func _dentellada(e: Dictionary, arriba: Array, abajo: Array, escala: float, lent
 	if alfa <= 0.0:
 		return v
 	# Lo que separa las dos hileras: de abiertas del todo a cruzarse un poco al cerrar.
-	# Abierta de par en par tiene que caber MAS DE UN DIENTE de hueco (2.1): con menos, las puntas
-	# de las dos hileras ya casi se tocan al empezar y la boca no se ve abrirse. Y al cerrar se
-	# cruzan muy poco (-0.05), o en vez de una mordida se lee una cremallera.
-	var sep: float = lerpf(largo_max * 2.1, -largo_max * 0.05, c)
+	# Abierta de par en par tiene que caber MAS DE UN DIENTE de hueco (1.75) o la boca no se ve
+	# abrirse; pasado eso la mordida sale mas alta que la propia tarjeta y deja de leerse como algo
+	# que le pasa AL BICHO. Al cerrar se cruzan muy poco (-0.05), o en vez de una mordida se lee
+	# una cremallera.
+	var sep: float = lerpf(largo_max * 1.75, -largo_max * 0.05, c)
 	for d in arriba:
 		_diente(b, eje, lado, media, largo_max, sep, d, true, alfa)
 	for d in abajo:
@@ -847,7 +859,9 @@ func _marca_mordida(centro: Vector2, eje: Vector2, lado: Vector2, media: float, 
 # quemado y halo rojo. Un flash redondo no valdria: lo que hay que leer es que este mordisco es EL
 # golpe del Rey rata y no uno mas de una racha.
 func _destello(e: Dictionary, v: float) -> void:
-	var b: Vector2 = e["b"]
+	# Del sitio EXACTO donde ha mordido (lo deja _dentellada), no del centro de la tarjeta: la
+	# mordida va desplazada un poco al azar y el destello tiene que ir con ella.
+	var b: Vector2 = e.get("mordida_c", e["b"])
 	# Entra de golpe pasandose de tamaño y se apaga encogiendo.
 	var k: float = (v / 0.14) if v < 0.14 else maxf(0.0, 1.0 - (v - 0.14) / 0.60)
 	if k <= 0.0:
@@ -905,6 +919,82 @@ func _pintar_chillido(e: Dictionary) -> void:
 	var p: float = 1.0 - clampf(u / 0.3, 0.0, 1.0)
 	if p > 0.0:
 		draw_circle(a, 9.0 * p, Color(claro.r, claro.g, claro.b, 0.5 * p))
+
+
+# ZARPAZO: cuatro surcos diagonales que se abren de golpe sobre la tarjeta. Lo que hay que leer no
+# es "un golpe mas fuerte", es QUE TE HAN ABIERTO: por eso los surcos van en punta por los dos
+# extremos (una garra entra y sale, no se para dentro) y con el borde dentado, no como cuatro rayas
+# limpias.
+#
+# Igual que los mordiscos, cada zarpazo cae con SU angulo y en SU sitio: dos zarpazos seguidos sobre
+# la misma cara con la misma inclinacion se leen como un dibujo repitiendose.
+func _pintar_zarpazo(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var g: float = float(e["semilla"])
+	# Diagonal de arriba-derecha a abajo-izquierda, con hasta 30 grados de desvio a cada lado.
+	var ang: float = -PI / 3.0 + sin(g * 3.3) * 0.55
+	var dir := Vector2(cos(ang), sin(ang))
+	var lado := Vector2(-dir.y, dir.x)
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var centro: Vector2 = e["b"] + Vector2(cos(g * 2.1), sin(g * 1.7)) * caja * 0.12
+	var v: float = 0.0
+	var alfa: float = 1.0
+	if t < dur:
+		return   # la garra todavia viene con la tarjeta: aun no ha tocado
+	v = clampf((t - dur) / 0.34, 0.0, 1.0)
+	alfa = 1.0 if v < 0.5 else 1.0 - (v - 0.5) / 0.5
+	if alfa <= 0.0:
+		return
+	for i in 4:
+		# ESCALONADAS. Las cuatro garras no entran a la vez: entran barriendo, que es lo que hace
+		# que se lea como una zarpa pasando y no como cuatro cortes que aparecen de golpe.
+		var k: float = clampf((v - float(i) * 0.055) / 0.20, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		# Las de los extremos, mas cortas y mas finas: una zarpa es un arco de dedos, no un peine.
+		var perfil: float = 1.0 - 0.30 * absf(float(i) - 1.5) / 1.5
+		var largo: float = caja * 1.45 * perfil
+		# EN ABANICO, no en paralelo: los dedos de una zarpa se abren. Cuatro rayas exactamente
+		# paralelas y a la misma distancia se leen como un rastrillo.
+		var dir_i: Vector2 = dir.rotated((float(i) - 1.5) * 0.07)
+		# SE TRAZA DE UNA PUNTA A LA OTRA, no crece desde el centro. Anclando el arranque y
+		# alargando solo la otra punta se lee como una garra que arrastra; creciendo desde el medio
+		# los surcos a medio hacer parecian munones y las cuatro salian descuadradas entre si.
+		var eje: Vector2 = centro + lado * (float(i) - 1.5) * caja * 0.21 - dir_i * largo * 0.5
+		_surco(eje + dir_i * largo * k * 0.5, dir_i, largo * k, caja * 0.11 * perfil,
+			g + float(i) * 7.3, alfa)
+
+
+# UN SURCO: un huso largo, gordo por el centro y en punta por los dos extremos, con el borde
+# mordido. El dentado sale de la SEMILLA y del indice del punto, nunca de randf(): _draw puede
+# correr varias veces en el mismo frame (ver la cabecera), y con azar de verdad el corte herviria.
+func _surco(c: Vector2, dir: Vector2, largo: float, semi: float, sem: float, alfa: float) -> void:
+	var lado := Vector2(-dir.y, dir.x)
+	var n: int = 16
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	for i in n + 1:
+		var s: float = float(i) / float(n)
+		# Huso: el exponente alto del interior afila las puntas y el bajo de fuera mantiene gordo
+		# el centro, que es el perfil de un corte de garra.
+		var w: float = semi * pow(maxf(0.0, 1.0 - pow(absf(s - 0.5) * 2.0, 1.7)), 0.62)
+		# Suelo minimo: si las dos orillas se juntaran en el mismo punto exacto saldrian vertices
+		# duplicados y la triangulacion se cae (le paso a la estrella del destello).
+		w = maxf(w, semi * 0.03)
+		var r1: float = sin(sem + float(i) * 2.7) * 0.42 + sin(sem * 1.7 + float(i) * 5.1) * 0.22
+		var r2: float = sin(sem * 2.3 + float(i) * 3.1) * 0.42 + sin(sem + float(i) * 6.7) * 0.22
+		izq.append(c + dir * ((s - 0.5) * largo) + lado * w * (1.0 + r1))
+		der.append(c + dir * ((s - 0.5) * largo) - lado * w * (1.0 + r2))
+	var pts := PackedVector2Array()
+	pts.append_array(izq)
+	for i in range(der.size() - 1, -1, -1):
+		pts.append(der[i])
+	draw_colored_polygon(pts, Color(_HUESO.r, _HUESO.g, _HUESO.b, alfa))
+	# La sangre va DENTRO y fina: manda el surco blanco. Con el hilo rojo gordo el corte se leia
+	# como una raya roja con reborde en vez de como algo que te han abierto.
+	draw_line(c - dir * largo * 0.34, c + dir * largo * 0.34,
+		Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.40 * alfa), maxf(1.0, semi * 0.30), true)
 
 
 func _anillo(c: Vector2, rx: float, ry: float, col: Color, grosor: float) -> void:
