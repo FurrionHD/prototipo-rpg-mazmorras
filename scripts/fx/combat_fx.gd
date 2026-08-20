@@ -69,12 +69,14 @@ signal apagar_ahora(bloque: Dictionary)
 #   CARGA     la embestida: lineas de velocidad y polvareda en el choque
 #   PISOTON   grieta que se abre por el suelo y onda baja de polvo
 #   GOLPETAZO porrazo romo: estrella de impacto corta y gorda (puños de piedra, mazas, ramas)
+#   RAICES    brotan del suelo y suben ramificandose; te dejan ATADO (el estado Enraizado pinta
+#             esta misma forma en la tarjeta, ver CapaEstado._dibujar_raices)
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
 		MORDISCO = 14, COLMILLAZO = 15, YUGULAR = 16, CHILLIDO = 17,
 		ZARPAZO = 18, PLACAJE = 19, CORNADA = 20, CARGA = 21, PISOTON = 22,
-		GOLPETAZO = 23 }
+		GOLPETAZO = 23, RAICES = 24 }
 
 # Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
@@ -103,6 +105,9 @@ const T_VUELO := {
 	# entran antes que el choque) y el PISOTON un pelin, para que la grieta abra con el temblor.
 	Estilo.PLACAJE: 0.05, Estilo.CORNADA: 0.06, Estilo.CARGA: 0.08,
 	Estilo.PISOTON: 0.07, Estilo.GOLPETAZO: 0.05,
+	# Las RAICES no las lanza nadie: brotan del suelo. El vuelo es lo que tardan en salir, y va largo
+	# a proposito -- tienen que verse SUBIR, que es lo que dice "te estan atrapando".
+	Estilo.RAICES: 0.16,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -221,6 +226,10 @@ const FAMILIAS: Array = [
 	# particulas porque es un MARCADOR -- tiene que estar siempre en el mismo sitio y con la misma
 	# pinta, o deja de servir para encontrar de un vistazo a quien has marcado.
 	["marca", "diana", [StatusEffects.Id.MARCA]],
+	# TE TIENEN AGARRADO POR LOS PIES: raices que suben del borde de abajo y no se sueltan. Va en su
+	# propia familia y no en "control" porque el Enraizado NO te quita el turno -- te quita media
+	# baraja -, y las estrellitas sobre la cabeza dirian justo lo que no es.
+	["raices", "raices", [StatusEffects.Id.ENRAIZADO]],
 	# Te quitan el turno o te lo capan: el corro de estrellitas girando SOBRE LA CABEZA, tal cual el
 	# gag de dibujos animados de toda la vida.
 	["control", "estrella", [
@@ -455,6 +464,8 @@ func pintar_estados(bloque: Dictionary, chips: Array, vivo: bool) -> void:
 			1.0 if pintado.has("diana") else 0.0)
 		pelicula.pintar_raja(pintado.get("raja", Color.TRANSPARENT),
 			1.0 if pintado.has("raja") else 0.0)
+		pelicula.pintar_raices(pintado.get("raices", Color.TRANSPARENT),
+			1.0 if pintado.has("raices") else 0.0)
 
 	if bloque.get("tinte", Color.WHITE) != tinte:
 		bloque["tinte"] = tinte
@@ -531,7 +542,7 @@ func _crear_emisor(capa: Control, tipo: String, color: Color, stacks: int = 1) -
 			# El corte lo dibuja CapaEstado; esto son SOLO las gotas que salen de el, asi que la
 			# boquilla es diminuta (el tamaño se lo da el ajustar de abajo, en el punto del corte).
 			p = Particulas.chorretones(capa, color, Vector2(8.0, 8.0), 0.6)
-		"niebla", "diana":
+		"niebla", "diana", "raices":
 			return null   # no llevan particulas: los pinta CapaEstado
 		_:
 			p = Particulas.destellos(capa, color, tam, 0.6, 0.7)
@@ -959,7 +970,7 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	Estilo.YUGULAR, Estilo.ZARPAZO, Estilo.PLACAJE, Estilo.CORNADA, Estilo.CARGA,
 	Estilo.PISOTON, Estilo.GOLPETAZO]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
-	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON]
+	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES]
 
 func _marcar_efectos_de_grupo() -> void:
 	var por_tanda: Dictionary = {}   # "tanda:estilo" -> [indices de la cola]

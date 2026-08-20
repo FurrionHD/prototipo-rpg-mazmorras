@@ -42,6 +42,11 @@ var raja: float = 0.0
 #   FUEGO   arde por abajo: lenguas de llama subiendo del borde inferior de la tarjeta.
 var color_fuego: Color = Color.TRANSPARENT
 var fuego: float = 0.0
+#   RAICES  te tienen agarrado por los pies: raices que suben del borde de abajo, se ramifican y
+#           se quedan AHI mientras dure el Enraizado. Es lo que hace que el estado se lea sin
+#           mirar el chip -- ves que el bicho sigue atado.
+var color_raices: Color = Color.TRANSPARENT
+var raices: float = 0.0
 
 var _t := 0.0
 var _semilla := 0.0
@@ -99,8 +104,16 @@ func pintar_fuego(col: Color, fuerza: float) -> void:
 	queue_redraw()
 
 
+# LAS RAICES del Enraizado, agarrando por abajo.
+func pintar_raices(col: Color, fuerza: float) -> void:
+	color_raices = col
+	raices = clampf(fuerza, 0.0, 1.0)
+	queue_redraw()
+
+
 func _process(delta: float) -> void:
-	if capas.is_empty() and niebla <= 0.0 and diana <= 0.0 and raja <= 0.0 and fuego <= 0.0:
+	if capas.is_empty() and niebla <= 0.0 and diana <= 0.0 and raja <= 0.0 and fuego <= 0.0 \
+			and raices <= 0.0:
 		return
 	_t += delta
 	queue_redraw()
@@ -117,6 +130,8 @@ func _draw() -> void:
 		_dibujar_diana()
 	if raja > 0.0:
 		_dibujar_raja()
+	if raices > 0.0:
+		_dibujar_raices()
 	for k in capas.size():
 		_dibujar_colgajos(capas[k]["col"], k, int(capas[k].get("stacks", 1)))
 
@@ -301,6 +316,87 @@ func _dibujar_raja() -> void:
 	# Los LABIOS, mas claros: es lo que la lee como una herida abierta y no como una mancha.
 	draw_polyline(pts, Color(minf(1.0, color_raja.r + 0.2), color_raja.g * 0.55,
 		color_raja.b * 0.55, 0.5 * raja), 1.6, true)
+
+
+# TE TIENEN AGARRADO. Raices que brotan del borde de ABAJO y suben por la tarjeta ramificandose,
+# como la cepa de un arbol pero al reves: aqui salen del suelo hacia arriba y no hay tronco, solo
+# la maraña.
+#
+# Es la MISMA forma que el golpe que te enraiza (CapaHechizos._pintar_raices), a proposito: el
+# ataque te clava y lo que se queda puesto es lo mismo que te clavo. Si el estado se dibujara con
+# otra cosa, no se leeria que sigues atado por AQUELLO.
+#
+# NO SE MUEVEN. Se dibujan con un reloj congelado y solo respiran un poco (el balanceo del final):
+# una raiz agitandose parecia una llama verde, y lo que tiene que decir esto es "esto no te suelta".
+const RAICES_MADRE := 5
+const RAICES_PROF := 3
+
+func _dibujar_raices() -> void:
+	# Respiran un poquito y nada mas. Lo que tiene que decir esto es "esto no te suelta".
+	var respira: float = 1.0 + 0.02 * sin(_t * 1.6 + _semilla)
+	mata_de_raices(self, Vector2(size.x * 0.5, size.y), size.x, size.y * 0.72 * respira,
+		_semilla, color_raices, 0.62 * raices)
+
+
+# LA MATA DE RAICES, dibujada sobre cualquier lienzo. Es ESTATICA y recibe el CanvasItem a proposito:
+# la usan las DOS capas -- esta (el estado Enraizado, que las deja puestas en la tarjeta) y
+# CapaHechizos (el golpe que te enraiza, que las hace brotar). Tienen que salir iguales o no se
+# leeria que lo que te tiene atado es lo que te acaba de golpear, y con la funcion duplicada eso
+# duraria hasta el primer retoque en una de las dos copias.
+#
+# 'origen' = el punto del suelo del que brotan, 'ancho' cuanto se reparten a los lados, 'alto' lo
+# que suben. 'crec' de 0 a 1 las hace crecer (el golpe las levanta; el estado las pinta ya crecidas).
+static func mata_de_raices(ci: CanvasItem, origen: Vector2, ancho: float, alto: float,
+		sem: float, col: Color, alfa: float, crec: float = 1.0) -> void:
+	if alfa <= 0.0 or crec <= 0.0:
+		return
+	for i in RAICES_MADRE:
+		# Repartidas por el ancho, pero NO a intervalos exactos: una reja de raices no es una maraña.
+		var f: float = (float(i) + 0.5) / float(RAICES_MADRE)
+		var x: float = origen.x + ancho * (f - 0.5 + 0.055 * sin(sem + float(i) * 2.7))
+		# Las de los lados se inclinan hacia fuera y las del medio suben rectas.
+		var incl: float = (f - 0.5) * 1.1 + 0.25 * sin(sem * 1.3 + float(i))
+		var largo: float = alto * (0.60 + 0.40 * absf(sin(sem * 2.1 + float(i) * 1.9)))
+		# ESCALONADAS: no brotan las cinco a la vez, salen una detras de otra.
+		var k: float = clampf((crec - float(i) * 0.07) / 0.80, 0.0, 1.0)
+		_raiz_en(ci, Vector2(x, origen.y), Vector2(incl, -1.0).normalized(), largo * k,
+			maxf(1.4, ancho * 0.022), RAICES_PROF, float(i) * 3.1 + sem, col, alfa)
+
+
+# Un tramo de raiz: se estrecha segun sube, se comba, y al final se parte en DOS mas finas y mas
+# cortas. La combadura y los angulos salen de 'sem' (fijo por raiz), nunca de randf(): _draw puede
+# correr varias veces en el mismo frame y la maraña bailaria.
+static func _raiz_en(ci: CanvasItem, base: Vector2, dir: Vector2, largo: float, grosor: float,
+		prof: int, sem: float, col: Color, alfa: float) -> void:
+	if prof <= 0 or largo < 3.0 or grosor < 0.35:
+		return
+	var lado := Vector2(-dir.y, dir.x)
+	var comba: float = sin(sem * 1.7) * 0.35
+	var n: int = 6
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	var punta: Vector2 = base
+	for i in n + 1:
+		var s: float = float(i) / float(n)
+		# El desvio lateral crece con s^2: la raiz sale recta del suelo y se tuerce arriba.
+		var p: Vector2 = base + dir * largo * s + lado * comba * largo * s * s
+		var w: float = maxf(grosor * (1.0 - 0.75 * s), 0.25)
+		izq.append(p + lado * w)
+		der.append(p - lado * w)
+		punta = p
+	var pts := PackedVector2Array()
+	pts.append_array(izq)
+	for i in range(der.size() - 1, -1, -1):
+		pts.append(der[i])
+	# Corteza translucida: esto va ENCIMA de la tarjeta y no puede tapar ni el nombre ni la barra.
+	ci.draw_colored_polygon(pts, Color(col.r * 0.55, col.g * 0.45, col.b * 0.30, alfa))
+	# Las HIJAS, desde la punta y abriendose a los dos lados.
+	var giro: float = 0.42 + 0.18 * sin(sem * 2.3)
+	var dir2: Vector2 = (dir + lado * comba * 0.9).normalized()
+	_raiz_en(ci, punta, dir2.rotated(giro), largo * 0.58, grosor * 0.60, prof - 1,
+		sem * 1.7 + 1.1, col, alfa)
+	_raiz_en(ci, punta, dir2.rotated(-giro * 0.85), largo * 0.52, grosor * 0.55, prof - 1,
+		sem * 2.3 + 2.7, col, alfa)
 
 
 # Una banda de niebla con las dos orillas onduladas. Se recorta a la caja por arriba y por abajo

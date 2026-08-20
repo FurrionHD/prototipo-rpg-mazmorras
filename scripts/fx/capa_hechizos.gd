@@ -175,6 +175,9 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + 0.38   # la grieta abre y la onda tiene que llegar a los lados
 	if es == CombatFX.Estilo.GOLPETAZO:
 		return float(e["dur"]) + 0.26   # un porrazo es seco: entra y se va
+	if es == CombatFX.Estilo.RAICES:
+		return float(e["dur"]) + 0.34   # brotan y se quedan un momento antes de ceder el relevo
+			# al dibujo del estado, que ya las mantiene puestas mientras dure
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -212,6 +215,7 @@ func _draw() -> void:
 			CombatFX.Estilo.CARGA: _pintar_carga(e)
 			CombatFX.Estilo.PISOTON: _pintar_pisoton(e)
 			CombatFX.Estilo.GOLPETAZO: _pintar_golpetazo(e)
+			CombatFX.Estilo.RAICES: _pintar_raices(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -1259,6 +1263,37 @@ func _pintar_golpetazo(e: Dictionary) -> void:
 	# del golpe en vez de como la onda del porrazo.
 	_anillo(b, r * (0.95 + 0.55 * v), r * (0.80 + 0.45 * v) * 0.85,
 		Color(claro.r, claro.g, claro.b, 0.35 * alfa), maxf(1.5, r * 0.08 * (1.0 - v)))
+
+
+# RAICES: el suelo se abre y brotan raices que suben agarrando. No las lanza nadie -- por eso este
+# no embiste y si enciende la tarjeta del que las invoca.
+#
+# Comparte el dibujo con el estado Enraizado (CapaEstado.mata_de_raices): lo que te clava y lo que
+# te tiene clavado tienen que ser LA MISMA cosa, o no se lee que sigues atado por aquello. Aqui
+# CRECEN (brotan) y alli se pintan ya crecidas.
+func _pintar_raices(e: Dictionary) -> void:
+	var b: Vector2 = e["b"]
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var caja: float = clampf(float(e["ancho"]) * 0.9, 50.0, 150.0)
+	# Brotan MIENTRAS vuelan (el vuelo largo es justo eso: verlas subir) y se quedan un momento.
+	var u: float = clampf(t / maxf(dur, 0.01), 0.0, 1.0)
+	var v: float = clampf((t - dur) / 0.34, 0.0, 1.0)
+	var alfa: float = 0.75 if v <= 0.0 else 0.75 * (1.0 - v * v)
+	if alfa <= 0.0:
+		return
+	# Del BORDE DE ABAJO de la tarjeta hacia arriba: brotan del suelo, no del centro del bicho.
+	var suelo: Vector2 = b + Vector2(0.0, caja * 0.36)
+	CapaEstado.mata_de_raices(self, suelo, caja, caja * 0.95, float(e["semilla"]), col, alfa,
+		u if v <= 0.0 else 1.0)
+	# Los TERRONES que salta el suelo al abrirse, solo en el momento de brotar.
+	if v <= 0.0:
+		for i in 6:
+			var ang: float = float(e["semilla"]) + TAU * float(i) / 6.0
+			var d := Vector2(cos(ang), -absf(sin(ang)) * 0.7)
+			draw_circle(suelo + d * caja * 0.35 * u, maxf(1.0, caja * 0.035 * (1.0 - u)),
+				Color(0.32, 0.26, 0.18, 0.7 * alfa))
 
 
 func _anillo(c: Vector2, rx: float, ry: float, col: Color, grosor: float) -> void:

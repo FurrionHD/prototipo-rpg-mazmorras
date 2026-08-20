@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://bq7xt2mvn4rc8"]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_raiz"]
+script = ExtResource("2")
+estado = 31
+prob = 0.7
+
+[resource]
+script = ExtResource("1")
+nombre = "Raíces atenazantes"
+descripcion = "El suelo se abre bajo tus pies y sube algo que no piensa soltarte. Los brazos los tienes libres; para conjurar basta con eso."
+coste_energia = 0.0
+dano_mult = 0.8
+efectos = [SubResource("SA_raiz")]
+fx_estilo = 24
+cooldown = 4

@@ -1220,6 +1220,16 @@ func silenciado() -> bool:
 			return true
 	return false
 
+
+# ¿Clavado al suelo? (Enraizado). EL ESPEJO DEL SILENCIO: aquel te deja pegar y te corta la magia,
+# este te corta el golpe basico y las habilidades de arma y te deja LOS HECHIZOS -- para conjurar
+# no hacen falta los pies. Le quedan tambien Defender, los objetos y huir.
+func enraizado() -> bool:
+	for e in statuses:
+		if bool(e.d.get("enraiza", false)):
+			return true
+	return false
+
 # Multiplicador de la prob. de aturdir que RECIBE este combatiente. Lo SUBE el estado RAYO
 # (x1.5) y lo BAJA la afinidad de Rayo (cuerpo imbuido: resistente al aturdimiento, no inmune).
 # 'con_afinidad' = false devuelve lo mismo SIN el descuento del manto: sirve para saber si ha sido

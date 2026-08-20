@@ -3401,6 +3401,9 @@ func _motivo_bloqueo(id: int) -> String:
 	# El Silencio manda sobre el otro motivo: si estas silenciado, da igual que tengas hechizos.
 	if _player != null and _player.silenciado() and (id == Action.MAGIC or id == Action.HABILIDAD):
 		return "Estás silenciado"
+	# Y el Enraizado igual, pero al reves: te corta el brazo, no la boca.
+	if _player != null and _player.enraizado() and (id == Action.ATTACK or id == Action.HABILIDAD):
+		return "Estás enraizado (puedes lanzar hechizos)"
 	match id:
 		Action.MAGIC: return "No tienes hechizos equipados"
 		Action.DEFEND: return "Sin energía (ataca para regenerar)"
@@ -3411,12 +3414,15 @@ func _motivo_bloqueo(id: int) -> String:
 
 func _accion_disponible(id: int) -> bool:
 	match id:
-		Action.ATTACK: return true
+		# El ENRAIZADO te clava los pies: no llegas a pegar ni a ejecutar una tecnica de arma. Los
+		# hechizos NO se tocan (ver mas abajo): es justo lo contrario del Silencio.
+		Action.ATTACK: return not _player.enraizado()
 		Action.DEFEND: return _player.has_energy(DEFEND_ENERGY_COST)   # Defender cuesta energia
 		Action.FLEE: return true
 		# El SILENCIO corta las dos jugadas, no el turno: te quedan atacar, Defender, objeto y huir.
 		Action.MAGIC: return _hay_hechizos() and not _player.silenciado()
-		Action.HABILIDAD: return not _player.abilities_combate.is_empty() and not _player.silenciado()
+		Action.HABILIDAD: return not _player.abilities_combate.is_empty() \
+			and not _player.silenciado() and not _player.enraizado()
 		Action.OBJETO: return Game.consumibles_total() > 0
 	return false
 
@@ -5688,12 +5694,21 @@ func _enemy_turn(e: Combatant) -> void:
 		# ADVANCING la pelea se quedaba parada sin que nadie pasara turno.
 		_pausa_lectura()
 		return
-	if not listas.is_empty() and randf() < e.prob_habilidad:
+	# ENRAIZADO: la otra mitad de lo que le pasa al jugador (ver _accion_disponible). A el le quitamos
+	# el boton de atacar; al bicho hay que quitarle el ataque basico AQUI, o el estado seria mitad
+	# mecanica y mitad decorado -- y sin dar ningun error, que es como se pierden estas cosas.
+	# Si tiene tecnica lista la usa (para conjurar no hacen falta los pies) y si no, pierde el turno.
+	var atado: bool = e.enraizado()
+	if not listas.is_empty() and (atado or randf() < e.prob_habilidad):
 		var elegida: AbilityData = listas[randi() % listas.size()]
 		if elegida.carga_turnos > 0:
 			_enemy_begin_charge(e, elegida)
 		else:
 			_enemy_use_ability(e, elegida, obj)
+		return
+	if atado:
+		_set_log("🌱 %s está enraizado y no llega a atacar." % e.nombre)
+		_pausa_lectura()
 		return
 
 	var pj_obj: PersonajeData = Game.pj_de_combatant(obj)   # a quien se le apunta la excelia

@@ -40,7 +40,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	PRESTEZA, BALUARTE, MARCA, HERIDA_PROFUNDA, CORROSION, SILENCIO, MIEDO, SIGILO, GUARDIA_CARNE,
 	ESCOLTA,
 	PLATO_GUARDIA, PLATO_BRIO, PLATO_FURIA, PLATO_ARCANO, PLATO_NUCLEO, PLATO_REMEDIO,
-	PLATO_ESTOMAGO, PLATO_FORTUNA }
+	PLATO_ESTOMAGO, PLATO_FORTUNA,
+	ENRAIZADO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -224,6 +225,14 @@ static var _defs: Dictionary = {
 		"id": Id.SILENCIO, "nombre": "Silencio", "icono": "🤐", "color": Color(0.65, 0.5, 0.8),
 		"turns": 2, "silencia": true, "debuff": true,
 		"descripcion": "Las palabras no salen y las manos no encuentran la maña.",
+	},
+	# EL ESPEJO DEL SILENCIO. Aquel te deja pegar y te corta la magia; este te clava al suelo y te
+	# corta lo de pegar, pero los hechizos SALEN IGUAL: para conjurar no hace falta moverse.
+	# Por eso NO lleva is_stun -- no pierdes el turno, pierdes media baraja.
+	Id.ENRAIZADO: {
+		"id": Id.ENRAIZADO, "nombre": "Enraizado", "icono": "🌱", "color": Color(0.45, 0.62, 0.3),
+		"turns": 2, "enraiza": true, "debuff": true,
+		"descripcion": "Las raíces te agarran los pies. Los brazos los tienes libres; los pies, no.",
 	},
 	Id.MIEDO: {   # pierde el turno SIEMPRE; al llegarle el turno tira a ver si se DISIPA
 		"id": Id.MIEDO, "nombre": "Miedo", "icono": "😱", "color": Color(0.55, 0.35, 0.7),
@@ -584,6 +593,8 @@ class Instance extends RefCounted:
 		# SILENCIO no decia NADA: lo veias puesto y no habia forma de saber que hacia.
 		if bool(d.get("silencia", false)):
 			lineas.append("Impide tirar habilidades y hechizos.")
+		if bool(d.get("enraiza", false)):
+			lineas.append("Impide atacar y tirar habilidades. Los hechizos sí salen.")
 		# ESCOLTA, igual: era un chip mudo.
 		if float(d.get("seguimiento_pct", 0.0)) > 0.0:
 			lineas.append("Atacas detrás de un compañero.")
@@ -725,6 +736,8 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 		return "le devuelve maná cada turno"
 	if bool(d.get("silencia", false)):
 		return "le corta hechizos y habilidades"
+	if bool(d.get("enraiza", false)):
+		return "le clava al suelo: no puede atacar ni usar habilidades (los hechizos sí)"
 	if float(d.get("seguimiento_pct", 0.0)) > 0.0:
 		return "pegas detrás de cada aliado realizando un %d%% del daño básico" % roundi(
 			float(d["seguimiento_pct"]) * 100.0)
