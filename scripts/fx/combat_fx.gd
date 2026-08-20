@@ -83,6 +83,8 @@ signal apagar_ahora(bloque: Dictionary)
 #   ENROSQUE  anillos que rodean la tarjeta y APRIETAN (el ciempies)
 #   PATAS     muchas patas finas barriendo de arriba abajo
 #   RODADA    la carga, pero GIRANDO: una bola con estelas de rotacion
+#   MIRADA    un OJO que se abre en el lanzador y suelta una onda hacia el objetivo
+#   LATIGAZO  verdugones de azote que aparecen SOBRE EL GOLPEADO
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -90,7 +92,8 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		ZARPAZO = 18, PLACAJE = 19, CORNADA = 20, CARGA = 21, PISOTON = 22,
 		GOLPETAZO = 23, RAICES = 24,
 		CAPARAZON = 25, MURALLA = 26, ESCUDO = 27,
-		PONZONA = 28, TELARANA = 29, ENROSQUE = 30, PATAS = 31, RODADA = 32 }
+		PONZONA = 28, TELARANA = 29, ENROSQUE = 30, PATAS = 31, RODADA = 32,
+		MIRADA = 33, LATIGAZO = 34 }
 
 # Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
@@ -130,6 +133,9 @@ const T_VUELO := {
 	# Los demas van con la embestida, asi que su vuelo es solo el adelanto del dibujo.
 	Estilo.PONZONA: 0.06, Estilo.TELARANA: 0.24, Estilo.ENROSQUE: 0.10,
 	Estilo.PATAS: 0.05, Estilo.RODADA: 0.10,
+	# La MIRADA es de las pocas que de verdad VIAJA: el ojo se abre en el lanzador y la onda cruza,
+	# asi que necesita vuelo para que se vea salir. El LATIGAZO va con el golpe.
+	Estilo.MIRADA: 0.26, Estilo.LATIGAZO: 0.06,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -995,7 +1001,7 @@ func arrancar_cola() -> float:
 const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estilo.COLMILLAZO,
 	Estilo.YUGULAR, Estilo.ZARPAZO, Estilo.PLACAJE, Estilo.CORNADA, Estilo.CARGA,
 	Estilo.PISOTON, Estilo.GOLPETAZO, Estilo.PONZONA, Estilo.ENROSQUE, Estilo.PATAS,
-	Estilo.RODADA]
+	Estilo.RODADA, Estilo.LATIGAZO]
 
 
 # LOS QUE SE PINTAN SOBRE UNO MISMO. El bicho se echa la cosa ENCIMA (un aura, una coraza, un muro):

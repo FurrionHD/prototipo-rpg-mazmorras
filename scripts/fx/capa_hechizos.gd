@@ -181,6 +181,10 @@ func _vida(e: Dictionary) -> float:
 	if es == CombatFX.Estilo.CAPARAZON or es == CombatFX.Estilo.MURALLA \
 			or es == CombatFX.Estilo.ESCUDO:
 		return float(e["dur"]) + 0.70
+	if es == CombatFX.Estilo.MIRADA:
+		return float(e["dur"]) + 0.30
+	if es == CombatFX.Estilo.LATIGAZO:
+		return float(e["dur"]) + 0.32
 	if es == CombatFX.Estilo.PONZONA:
 		return float(e["dur"]) + 0.34
 	if es == CombatFX.Estilo.TELARANA:
@@ -240,6 +244,8 @@ func _draw() -> void:
 			CombatFX.Estilo.ENROSQUE: _pintar_enrosque(e)
 			CombatFX.Estilo.PATAS: _pintar_patas(e)
 			CombatFX.Estilo.RODADA: _pintar_rodada(e)
+			CombatFX.Estilo.MIRADA: _pintar_mirada(e)
+			CombatFX.Estilo.LATIGAZO: _pintar_latigazo(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -1032,7 +1038,12 @@ func _pintar_zarpazo(e: Dictionary) -> void:
 # UN SURCO: un huso largo, gordo por el centro y en punta por los dos extremos, con el borde
 # mordido. El dentado sale de la SEMILLA y del indice del punto, nunca de randf(): _draw puede
 # correr varias veces en el mismo frame (ver la cabecera), y con azar de verdad el corte herviria.
-func _surco(c: Vector2, dir: Vector2, largo: float, semi: float, sem: float, alfa: float) -> void:
+#
+# EL COLOR VIENE DE FUERA (por defecto hueso, que es el zarpazo). Un verdugon de latigo es ROJO en
+# carne viva, no un tajo blanco, y es exactamente la misma forma: gordo por el medio y en punta por
+# los dos extremos.
+func _surco(c: Vector2, dir: Vector2, largo: float, semi: float, sem: float, alfa: float,
+		col: Color = _HUESO) -> void:
 	var lado := Vector2(-dir.y, dir.x)
 	var n: int = 16
 	var izq := PackedVector2Array()
@@ -1053,7 +1064,7 @@ func _surco(c: Vector2, dir: Vector2, largo: float, semi: float, sem: float, alf
 	pts.append_array(izq)
 	for i in range(der.size() - 1, -1, -1):
 		pts.append(der[i])
-	draw_colored_polygon(pts, Color(_HUESO.r, _HUESO.g, _HUESO.b, alfa))
+	draw_colored_polygon(pts, Color(col.r, col.g, col.b, alfa))
 	# La sangre va DENTRO y fina: manda el surco blanco. Con el hilo rojo gordo el corte se leia
 	# como una raya roja con reborde en vez de como algo que te han abierto.
 	draw_line(c - dir * largo * 0.34, c + dir * largo * 0.34,
@@ -1659,6 +1670,109 @@ func _pintar_rodada(e: Dictionary) -> void:
 		var ang: float = g * 2.1 + TAU * float(i) / 6.0
 		draw_circle(b + Vector2(cos(ang) * r * (1.1 + 0.5 * v), absf(sin(ang)) * r * 0.55),
 			maxf(1.0, r * 0.10 * (1.0 - v)), Color(claro.r, claro.g, claro.b, 0.3 * alfa))
+
+
+# MIRADA: se abre un OJO en el que mira y de el sale una onda hasta el objetivo. Lo usan la Mirada
+# petrea de la gargola y la Mirada del vacio de la aberracion -- las dos son lo mismo: no te tocan,
+# te MIRAN, y el efecto viaja por la vista.
+#
+# Es de las pocas de bicho que viaja de verdad, asi que NO embiste y SI enciende la tarjeta del que
+# mira mientras la onda cruza (queda fuera de _CUERPO_A_CUERPO a proposito).
+func _pintar_mirada(e: Dictionary) -> void:
+	var a: Vector2 = e["a"]
+	var b: Vector2 = e["b"]
+	var col: Color = e["col"]
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var caja: float = clampf(float(e["ancho"]) * 0.5, 30.0, 80.0)
+	var claro := Color(minf(1.0, col.r + 0.45), minf(1.0, col.g + 0.42), minf(1.0, col.b + 0.5), 1.0)
+	var u: float = clampf(t / maxf(dur, 0.01), 0.0, 1.0)
+	var v: float = clampf((t - dur) / 0.30, 0.0, 1.0)
+	var alfa: float = 1.0 if v <= 0.0 else 1.0 - v * v
+	if alfa <= 0.0:
+		return
+	# EL OJO, en el que mira. Se abre (el parpado sube) y se queda mirando.
+	var abre: float = clampf(u / 0.45, 0.0, 1.0) * (1.0 - v * 0.7)
+	if abre > 0.02:
+		var rx: float = caja * 0.42
+		var ry: float = caja * 0.30 * abre
+		# La almendra: dos arcos enfrentados. Con una elipse sale un huevo, no un ojo.
+		var ojo := PackedVector2Array()
+		for i in 15:
+			var s: float = float(i) / 14.0 * 2.0 - 1.0
+			ojo.append(a + Vector2(s * rx, -ry * (1.0 - s * s)))
+		for i in 15:
+			var s2: float = 1.0 - float(i) / 14.0 * 2.0
+			ojo.append(a + Vector2(s2 * rx, ry * (1.0 - s2 * s2)))
+		draw_colored_polygon(ojo, Color(0.95, 0.95, 0.92, 0.9 * alfa))
+		# El iris mira AL OBJETIVO: se desplaza hacia el, que es lo que lo hace inquietante.
+		var haz: Vector2 = (b - a).normalized()
+		var iris: Vector2 = a + haz * rx * 0.35
+		draw_circle(iris, maxf(2.0, ry * 0.75), Color(col.r * 0.5, col.g * 0.5, col.b * 0.6,
+			0.95 * alfa))
+		draw_circle(iris, maxf(1.0, ry * 0.34), Color(0.03, 0.02, 0.05, alfa))
+		draw_polyline(ojo, Color(0.1, 0.09, 0.12, 0.8 * alfa), maxf(1.0, caja * 0.03), true)
+	# LA ONDA que sale del ojo y llega al objetivo: anillos que viajan por el trayecto.
+	for i in 3:
+		var k: float = u - float(i) * 0.22
+		if k <= 0.0 or k >= 1.0:
+			continue
+		var p: Vector2 = a.lerp(b, k)
+		var rr: float = caja * (0.22 + 0.55 * k)
+		_anillo(p, rr, rr * 0.82, Color(claro.r, claro.g, claro.b, 0.5 * (1.0 - k) * alfa),
+			maxf(1.5, caja * 0.06 * (1.0 - k)))
+	# Y al llegar, el objetivo queda envuelto un momento.
+	if v > 0.0:
+		_anillo(b, caja * (0.75 + 0.5 * v), caja * (0.6 + 0.4 * v),
+			Color(claro.r, claro.g, claro.b, 0.45 * alfa), maxf(1.5, caja * 0.07 * (1.0 - v)))
+
+
+# LATIGAZO: el tentaculo azota desde lejos y lo que se ve es LO QUE DEJA -- los verdugones cruzados
+# sobre el golpeado. Se reusa el huso de borde dentado del zarpazo (_surco), que es exactamente la
+# forma de una marca de azote: gorda por el medio y en punta por los dos extremos.
+#
+# La diferencia con el zarpazo es que aqui son POCAS marcas, largas y cruzadas en angulos distintos
+# (un latigo no da cuatro surcos paralelos), y va con el tentaculo entrando de fuera.
+func _pintar_latigazo(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, 0.32, 0.10)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# EL TENTACULO entrando: una linea gruesa y combada que llega de fuera y se retira. Es lo que
+	# dice que el golpe viene de LEJOS, que es la gracia de la habilidad.
+	var ent: float = clampf(v / 0.30, 0.0, 1.0)
+	if v < 0.55:
+		var lado: float = 1.0 if sin(g * 2.3) > 0.0 else -1.0
+		var desde := b + Vector2(lado * caja * 2.2, -caja * 0.9)
+		var pts := PackedVector2Array()
+		for i in 9:
+			var s: float = float(i) / 8.0
+			var p: Vector2 = desde.lerp(b, s * ent)
+			# Combado: un latigo no llega recto.
+			p.y += sin(s * PI) * caja * 0.42 * (1.0 - ent * 0.5)
+			pts.append(p)
+		draw_polyline(pts, Color(col.r * 0.7, col.g * 0.6, col.b * 0.75,
+			0.7 * alfa * (1.0 - v / 0.55)), maxf(2.0, caja * 0.07), true)
+	# LOS VERDUGONES: dos o tres, largos y CRUZADOS en angulos distintos. Escalonados, para que se
+	# lean como varios azotes seguidos y no como una equis dibujada de golpe.
+	for i in 3:
+		var k: float = clampf((v - float(i) * 0.10) / 0.22, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		var ang: float = -0.9 + sin(g * 1.9 + float(i) * 2.7) * 1.1
+		var dir := Vector2(cos(ang), sin(ang))
+		var off: Vector2 = Vector2(-dir.y, dir.x) * (float(i) - 1.0) * caja * 0.22
+		var largo: float = caja * 1.5 * (0.82 + 0.18 * absf(sin(g + float(i))))
+		# Se traza de una punta a la otra, como el zarpazo: un latigo pasa, no aparece.
+		var eje: Vector2 = b + off - dir * largo * 0.5
+		# En CARNE VIVA, no en hueso: esto no te abre como una garra, te levanta la piel.
+		_surco(eje + dir * largo * k * 0.5, dir, largo * k, caja * 0.075, g + float(i) * 5.1,
+			alfa, Color(0.82, 0.22, 0.20))
 
 
 func _anillo(c: Vector2, rx: float, ry: float, col: Color, grosor: float) -> void:

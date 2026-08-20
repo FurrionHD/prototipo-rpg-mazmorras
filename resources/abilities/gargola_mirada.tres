@@ -20,4 +20,5 @@ descripcion = "Fija en ti sus ojos vacíos y por un momento sientes la piel tira
 coste_energia = 0.0
 dano_mult = 0.0
 efectos = [SubResource("SA_lento"), SubResource("SA_vuln")]
+fx_estilo = 33
 cooldown = 5
