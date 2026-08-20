@@ -1,3 +1,10 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Bancos de pruebas temporales (dev_*): se crean para verificar algo y se borran al terminar.
+# Van ignorados para que un `git add -A` a media sesion no los cuele en un commit.
+dev_*.gd
+dev_*.tscn
+dev_*.uid
+dev_*.png
