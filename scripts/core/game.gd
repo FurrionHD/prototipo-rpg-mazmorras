@@ -1700,6 +1700,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	dano_infligido_exp = 0.0
 	dano_bloqueado_exp = 0.0
 	pack_inicial_reclamado = false
+	velocidad_combate = 1.0
 	bosses_derrotados.clear()
 	recompra.clear()
 
@@ -1846,6 +1847,7 @@ func exportar_partida() -> SaveData:
 	d.dano_infligido_exp = dano_infligido_exp
 	d.dano_bloqueado_exp = dano_bloqueado_exp
 	d.pack_inicial = pack_inicial_reclamado
+	d.velocidad_combate = velocidad_combate
 	d.bosses_derrotados = bosses_derrotados.duplicate()
 
 	d.crystals = crystals.duplicate()
@@ -2414,6 +2416,7 @@ func importar_partida(d: SaveData) -> void:
 	# pasaba: al llegar al altar ya tenias los numeros nuevos puestos y el boton no sumaba nada).
 	_derivar_visible()
 	pack_inicial_reclamado = d.pack_inicial
+	velocidad_combate = d.velocidad_combate
 	bosses_derrotados = d.bosses_derrotados.duplicate()
 	# El historial de recompra es de SESION: cargar partida no te devuelve el mostrador del
 	# tendero tal y como lo dejaste hace tres dias.
@@ -7022,6 +7025,14 @@ func comprar_material(base: MaterialData, n: int = 1) -> bool:
 # te la pagas tu) y tres pociones menores. Es la red de seguridad de que nadie baje a la
 # mazmorra a puños; a partir de ahi, la tienda cobra.
 var pack_inicial_reclamado: bool = false
+
+# VELOCIDAD DE COMBATE elegida: 1.0 (normal) o 2.0 (doble). Acelera la pelea ENTERA -- barra de
+# accion, animaciones y pausas-, no solo los dibujos.
+#
+# En MULTIJUGADOR manda la del DUEÑO de la pelea, no la de cada uno: si te unes a la pelea de un
+# compañero que juega a x2, la ves a x2 (para ir a su ritmo), y cuando el se une a la tuya la ve a
+# la tuya. Ver combat.gd (_vel_pelea), que es quien resuelve cual toca.
+var velocidad_combate: float = 1.0
 
 const PACK_ARMAS: Array[String] = [
 	"res://resources/weapons/daga.tres",

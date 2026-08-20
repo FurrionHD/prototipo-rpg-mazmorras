@@ -209,6 +209,17 @@ var _espera_refuerzo := false
 # aplicado a una pelea entera, y es lo que permite reusar TODA la interfaz (bloques, barras, log,
 # marcador de turnos) sin tocarla.
 var _espejo := false
+
+# --- VELOCIDAD DE ESTA PELEA -----------------------------------------------------------------
+# 1.0 o 2.0. Manda SIEMPRE el DUEÑO de la pelea: el que la simula. Si te unes a la de un compañero
+# que juega a x2, la ves a x2 para ir a su ritmo; cuando el se une a la tuya, la ve a la tuya.
+#
+# Por eso el espejo NO la elige (su boton va deshabilitado) y la recibe en cada instantanea: si el
+# dueño la cambia a mitad de pelea, al otro le cambia sola. Guardarla por tu lado y aplicarla en la
+# pelea de otro descuadraria las dos pantallas -- uno veria el turno resuelto y el otro aun
+# animando-, que es justo la clase de desincronizacion que cuesta horas de encontrar.
+var _vel_pelea: float = 1.0
+var _boton_vel: Control = null
 # De quien es cada aliado que NO es mio: Combatant -> peer_id. Solo lo llena el anfitrion. Cuando
 # le toca el turno a uno de estos, no se enseñan los botones aqui: se le pide la accion a su dueño,
 # que es quien tiene que decidir. Los mios no estan en este diccionario.
@@ -604,9 +615,11 @@ func aplicar_roster(roster: Dictionary) -> void:
 const _LOG_COLA_ESPEJO := 12
 
 func instantanea() -> Dictionary:
+	# 'vel' va en CADA instantanea (no solo en el roster) para que si el dueño la cambia a mitad de
+	# pelea, al que la espeja le cambie sola. Es un float: sale mas barato que un aviso aparte.
 	return {"a": _valores(_aliados), "e": _valores(_enemies),
 		"turno": _aliados.find(_player), "log": _cola_log(), "fin": _state == State.FINISHED,
-		"rev": _rev}
+		"rev": _rev, "vel": _vel_pelea}
 
 
 func _cola_log() -> String:
@@ -640,6 +653,12 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 	# instantanea solo trae numeros, asi que sin esto las filas de mas se descartaban EN SILENCIO
 	# -era el bug de "no veo los enemigos que se añaden"-. La revision lo delata y pido el roster
 	# entero UNA vez; mientras llega, los numeros que si cuadran se siguen pintando.
+	# LA VELOCIDAD LA MANDA EL DUEÑO. Aqui no se elige: se obedece, y por eso el boton va apagado en
+	# el espejo. Asi las dos pantallas van al mismo ritmo y nadie ve un turno resuelto mientras el
+	# otro lo sigue animando.
+	var vel: float = float(snap.get("vel", _vel_pelea))
+	if not is_equal_approx(vel, _vel_pelea):
+		_aplicar_velocidad(vel)
 	var rev: int = int(snap.get("rev", _rev))
 	if rev != _rev and not _rev_pedida:
 		_rev_pedida = true
@@ -1527,7 +1546,7 @@ func _objetivos_area_aliados(ab: AbilityData, principal: Combatant) -> Array:
 		var out: Array = [{"c": principal, "escala": 1.0}]
 		for c in alcanzados:
 			if c != principal:
-				out.append({"c": c, "escala": ab.area_secundario})
+					out.append({"c": c, "escala": ab.area_secundario})
 		return out
 
 	# CON tabla: se ordenan por cercania al centro (desempatando por indice, para que dos peleas
@@ -1572,6 +1591,10 @@ func _ready() -> void:
 	# El gris del cadaver espera a que se vea el golpe que lo mata (ver _apagar_diferido).
 	_fx.apagar_ahora.connect(func(b: Dictionary) -> void:
 		_apagar_visual(b, bool(b.get("fx_apagar_aliado", false))))
+
+	# LA VELOCIDAD, antes de montar nada: si la pelea es MIA vale la mia; si estoy espejando la de
+	# otro, la suya llegara en la primera instantanea (ver aplicar_instantanea).
+	_aplicar_velocidad(1.0 if _espejo else Game.velocidad_combate)
 
 	_anadir_fondo()  # fondo opaco para tapar la mazmorra detras
 	_montar_columna()  # el combate pasa a una columna de ancho fijo, centrada
@@ -1626,6 +1649,7 @@ func _ready() -> void:
 	_crear_acciones()
 	_setup_ui()
 	_crear_timeline()
+	_crear_boton_velocidad()   # x1 / x2, arriba a la derecha
 	_crear_estados_dev()  # herramienta de test de estados (KAN-58 Fase 1)
 	var primero: Combatant = _enemies[0] if not _enemies.is_empty() else null
 	var intro: String
@@ -3142,6 +3166,15 @@ func _process(delta: float) -> void:
 	if _state != State.ADVANCING:
 		return
 
+	# LA BARRA DE ACCION TAMBIEN VA A LA VELOCIDAD ELEGIDA: acelerar la pelea es acelerarla ENTERA,
+	# no solo los dibujos. A x2 las barras se llenan al doble y los turnos llegan al doble.
+	#
+	# Ojo: aqui va _vel_pelea PELADA, sin el RITMO_BASE que llevan los efectos. Lo que se pidio
+	# lento son las ANIMACIONES (no daba tiempo a leer el golpe); frenar ademas los turnos haria la
+	# pelea mas lenta de JUGAR, que es lo contrario de lo que se busca. La pausa de lectura tampoco
+	# se escala aqui: ya sale acortada de arrancar_cola, que devuelve segundos de verdad.
+	var datb: float = delta * _vel_pelea
+
 	# CADA aliado llena SU barra con SU velocidad: el grupo no actua a la vez, se van alternando
 	# segun quien sea mas rapido (por eso meter a alguien agil cambia el ritmo de la pelea).
 	# Al CASTEAR (KAN-95) se llena a la velocidad de casteo (la varita del mago hibrido la cambia
@@ -3165,9 +3198,9 @@ func _process(delta: float) -> void:
 		if int(_lentas.get(c, 0)) > 0:
 			rate *= EXHAUSTED_RATE
 		var cspeed: float = c.cast_spd() if casteando else c.spd()
-		_gauge[c] += cspeed * delta * rate
+		_gauge[c] += cspeed * datb * rate
 	for e in _vivos():
-		_gauge[e] += e.spd() * delta * SPEED_SCALE
+		_gauge[e] += e.spd() * datb * SPEED_SCALE
 
 	# Actua el que tenga la barra MAS llena por encima del umbral. Se arranca por los TUYOS y se
 	# compara con > estricto, asi los empates caen de tu lado (es lo mismo que hacia el
@@ -6634,6 +6667,69 @@ const DEV_ESTADOS_CATS: Array = [
 		StatusEffects.Id.PLATO_FORTUNA,
 	]],
 ]
+
+# EL BOTON DE VELOCIDAD, arriba a la derecha. Un triangulo de "play" para x1 y DOS solapados (el
+# avance rapido de toda la vida) para x2. Se dibuja a mano en vez de poner texto porque es un icono
+# que todo el mundo reconoce sin leerlo.
+#
+# En la pelea de OTRO sale apagado: la velocidad la manda su dueño (ver _vel_pelea).
+func _crear_boton_velocidad() -> void:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(64, 40)
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	b.offset_right = -12
+	b.offset_top = 10
+	b.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	b.disabled = _espejo
+	b.tooltip_text = ("La velocidad la marca quien lleva esta pelea" if _espejo
+		else "Velocidad del combate: toda la pelea, barra de acción incluida")
+	# El dibujo va en un hijo que solo pinta: asi el Button conserva su hover y su pulsacion.
+	var icono := Control.new()
+	icono.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icono.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	icono.draw.connect(func() -> void: _pintar_icono_velocidad(icono))
+	b.add_child(icono)
+	b.pressed.connect(func() -> void:
+		# Solo el dueño: x1 <-> x2 y se recuerda para las proximas peleas.
+		Game.velocidad_combate = 2.0 if Game.velocidad_combate < 1.5 else 1.0
+		_aplicar_velocidad(Game.velocidad_combate)
+		icono.queue_redraw()
+		# Que le llegue YA al compañero, sin esperar al proximo cambio de vida.
+		_difundir())
+	add_child(b)
+	_boton_vel = icono
+
+
+func _pintar_icono_velocidad(c: Control) -> void:
+	var col := Color(0.85, 0.87, 0.95, 0.45 if _espejo else 1.0)
+	var alto: float = 16.0
+	var ancho: float = 13.0
+	var cy: float = c.size.y * 0.5
+	# A x1 un solo triangulo centrado; a x2 dos SOLAPADOS un poco, que es como se lee "mas rapido".
+	var doble: bool = _vel_pelea >= 1.5
+	var cx: float = c.size.x * 0.5 - (ancho * 0.42 if doble else 0.0)
+	for i in (2 if doble else 1):
+		var x: float = cx + float(i) * ancho * 0.84
+		c.draw_colored_polygon(PackedVector2Array([
+			Vector2(x - ancho * 0.5, cy - alto * 0.5),
+			Vector2(x + ancho * 0.5, cy),
+			Vector2(x - ancho * 0.5, cy + alto * 0.5),
+		]), col)
+
+
+# Deja la pelea corriendo a 'v'. Un solo sitio: lo llaman el arranque, el boton y las instantaneas
+# que llegan del dueño, y los tres tienen que tocar exactamente lo mismo.
+func _aplicar_velocidad(v: float) -> void:
+	_vel_pelea = clampf(v, 0.5, 4.0)
+	if _fx != null:
+		# Los EFECTOS llevan ademas el ritmo base (mas lentos de lo que dicen sus constantes); la
+		# barra de accion no (ver _process). Por eso se multiplican aqui y no en el ATB.
+		_fx.escala_tiempo = CombatFX.RITMO_BASE * _vel_pelea
+	if _boton_vel != null and is_instance_valid(_boton_vel):
+		_boton_vel.queue_redraw()
+
 
 func _crear_estados_dev() -> void:
 	# Boton toggle (abajo-dcha, siempre visible) para cerrar/abrir el panel dev.

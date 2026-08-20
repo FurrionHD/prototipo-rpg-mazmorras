@@ -121,6 +121,27 @@ const RETRASO_CRIT := 0.05   # el critico entra un pelin tarde para que se lea a
 # embestida a proposito: la barra acaba de bajar justo cuando la tarjeta vuelve a su sitio.
 const VEL_BARRA := 3.0
 
+# --- RITMO ------------------------------------------------------------------------------------
+# EL RITMO BASE. Por debajo de 1.0 = todo mas despacio de lo que dicen las constantes de arriba.
+# Las animaciones iban demasiado rapidas para verlas: un golpe se resolvia antes de que te diera
+# tiempo a leer lo que habia pasado. No se toca cada constante (son quince y se descuadran entre
+# ellas): se escala el DELTA en _process y ya.
+const RITMO_BASE := 0.70
+
+# Lo que multiplica al ritmo base. Lo pone combat.gd desde la velocidad elegida (x1 o x2), y en
+# multijugador desde la del DUEÑO de la pelea. 1.0 = RITMO_BASE pelado.
+#
+# OJO: 'arrancar_cola' devuelve la duracion en segundos DE VERDAD (dividida por esto), porque ese
+# numero es el que se convierte en la pausa del turno. Si devolviera la duracion sin escalar, a x2
+# el turno esperaria el doble de lo que dura la animacion y a x1 se cortaria por la mitad.
+# Se la pasa a la capa de dibujos en el mismo momento: los dos relojes tienen que ir igualados o el
+# impacto deja de coincidir con el golpe.
+var escala_tiempo: float = RITMO_BASE:
+	set(v):
+		escala_tiempo = maxf(v, 0.05)
+		if _capa_fx != null and is_instance_valid(_capa_fx):
+			_capa_fx.escala_tiempo = escala_tiempo
+
 # QUE ESTADO SE VE COMO QUE.
 #
 # Van por TRES FAMILIAS, y cada una tiene su forma. La forma es lo que hace la lectura: antes
@@ -239,6 +260,10 @@ var capa_numeros: Control = null:
 		if v == null or _capa_fx != null:
 			return
 		_capa_fx = CapaHechizos.new()
+		# Nace con el ritmo que ya este puesto: la capa se crea DESPUES de que combat.gd fije la
+		# velocidad, asi que sin esto la primera pelea corria los dibujos a otro ritmo que las
+		# tarjetas hasta el siguiente cambio.
+		_capa_fx.escala_tiempo = escala_tiempo
 		v.add_child(_capa_fx)
 		# El PRIMERO de la capa: los rayos y las bolas van por DEBAJO de los numeros de daño, que
 		# son lo que hay que poder leer pase lo que pase.
@@ -863,7 +888,8 @@ func arrancar_cola() -> float:
 	_tanda_auto = -1
 	_tanda_pedida = -1
 	_activa = true
-	return _dur
+	# En SEGUNDOS DE VERDAD: _dur esta en tiempo de animacion y _process avanza a escala_tiempo.
+	return _dur / maxf(escala_tiempo, 0.01)
 
 
 # UN SOLO EFECTO POR TANDA para los estilos que son UNA COSA GRANDE, no un proyectil por cabeza.
@@ -973,11 +999,15 @@ func _reposo(bloque: Dictionary) -> void:
 
 
 func _process(delta: float) -> void:
-	_mover_barras(delta)
-	_mover_numeros(delta)
+	# TODO el combate corre a esta escala: las embestidas, los dibujos, las barras y los numeros.
+	# Escalando el DELTA en un solo sitio no hay que tocar ni una de las constantes de tiempo, y no
+	# se puede quedar una parte a otro ritmo (que es lo que pasaria ajustandolas una a una).
+	var dt: float = delta * escala_tiempo
+	_mover_barras(dt)
+	_mover_numeros(dt)
 	if not _activa:
 		return
-	_t += delta
+	_t += dt
 
 	# Lo que le toca a cada panel ESTE frame. Se acumula en un diccionario y se aplica al final:
 	# un mismo atacante puede tener varios impactos solapados y hay que quedarse con uno, no

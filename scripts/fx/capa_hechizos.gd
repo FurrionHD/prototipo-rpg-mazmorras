@@ -36,6 +36,9 @@ const FUERA := -20.0         # de que altura caen los rayos y las gotas (por enc
 var _efectos: Array[Dictionary] = []
 var _pool: Array[Dictionary] = []
 
+# El ritmo al que corren los dibujos. Lo mantiene igualado CombatFX (ver su escala_tiempo).
+var escala_tiempo: float = 1.0
+
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -118,10 +121,14 @@ func limpiar() -> void:
 func _process(delta: float) -> void:
 	if _efectos.is_empty():
 		return
+	# AL MISMO RITMO QUE EL RESTO. Esta capa lleva su propio reloj, asi que si no se escala aqui
+	# tambien, al bajar la velocidad las tarjetas se movian despacio pero los conjuros seguian
+	# volando igual de rapido, y el impacto dejaba de coincidir con el golpe. Lo pone CombatFX.
+	var d: float = delta * escala_tiempo
 	var i: int = _efectos.size() - 1
 	while i >= 0:
 		var e: Dictionary = _efectos[i]
-		e["t"] = float(e["t"]) + delta
+		e["t"] = float(e["t"]) + d
 		# El chisporroteo del rayo se rehace AQUI y no en _draw (ver cabecera).
 		if _es_rayo(int(e["estilo"])) and float(e["t"]) >= float(e["prox"]):
 			e["prox"] = float(e["t"]) + ZIGZAG_CADA

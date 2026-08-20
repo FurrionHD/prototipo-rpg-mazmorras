@@ -204,6 +204,9 @@ const VERSION_MUNDO := 1
 # nuevo con valor por defecto NO invalida las partidas viejas (Godot rellena el default), asi
 # que esto no toca VERSION_ACTUAL: una partida de antes de la tienda arranca sin reclamar.
 @export var pack_inicial: bool = false
+# VELOCIDAD DE COMBATE elegida (1.0 = normal, 2.0 = doble). Es una preferencia del jugador y se
+# guarda, para no tener que volver a pulsarla en cada pelea.
+@export var velocidad_combate: float = 1.0
 # BOSSES ya derrotados ({piso: true}). Es un HITO de la partida, no del piso: memoria_pisos se
 # borra en cada expedicion, pero lo que abre un boss (bajada, salida y atajo) no se pierde.
 @export var bosses_derrotados: Dictionary = {}
