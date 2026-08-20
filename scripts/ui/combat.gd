@@ -5849,6 +5849,37 @@ func _enemy_turn(e: Combatant) -> void:
 # lo cancela (ver _enemy_turn). Te da tus turnos para defender/curarte/reventarlo.
 # Devuelve la habilidad de INVOCACION lista de 'e' (Rey Slime) si toca lanzarla, o null. "Toca" =
 # la tiene fuera de cooldown Y hay sitio para meter slimes (sequito no lleno). El Rey la prioriza.
+# EL DIBUJO DE LAS QUE NO PEGAN. Una habilidad con dano_mult 0 no entra en el reparto de golpes, o
+# sea que NO PASA POR _fx_golpe EN SU VIDA: si pide un fx_estilo y nadie lo pinta aqui, sale sin
+# efecto y sin dar ningun error. Le paso ya dos veces -- primero con el aura de la Ignicion y
+# despues con el Bramido del Minotauro y el Alarido de la Aberracion --, asi que en vez de ir
+# apuntando estilos uno a uno, la regla es general: SIN DAÑO + CON ESTILO = adorno.
+#
+# Va como 'solo_dibujo' (el ultimo true): sale el efecto y nada mas, ni numero ni temblor ni barra.
+#
+# DONDE se pinta depende del estilo. Los de CombatFX.SOBRE_SI_MISMO (un aura, una coraza, un muro)
+# van en la tarjeta del propio bicho. El resto -un grito, una mirada- van sobre A QUIEN alcanzan, y
+# por eso se recorre la misma lista de objetivos que usaria si pegara: asi un grito que coge a tres
+# se funde en UNO solo (ver _ESTILOS_DE_GRUPO) igual que lo haria un area con daño.
+func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
+	if ab == null or ab.dano_mult > 0.0:
+		return
+	var estilo: int = _estilo_de_habilidad(ab, e)
+	if estilo == CombatFX.Estilo.MELEE:
+		return   # sin dibujo propio: un empujon de tarjeta sin golpe no se ve, y mejor asi
+	if CombatFX.SOBRE_SI_MISMO.has(estilo):
+		_fx_golpe(e, e, 0.0, false, false, e.elemento_ataque, estilo, 1.3, true)
+		return
+	if obj == null:
+		return
+	if ab.es_area():
+		for o in _objetivos_area_aliados(ab, obj):
+			_fx_golpe(e, o["c"], 0.0, false, false, e.elemento_ataque, estilo,
+				float(o["escala"]), true)
+	else:
+		_fx_golpe(e, obj, 0.0, false, false, e.elemento_ataque, estilo, 1.0, true)
+
+
 func _invocacion_lista(e: Combatant) -> AbilityData:
 	for ab in e.habilidades:
 		if ab.invoca_cantidad > 0 and e.ability_ready(ab) and _hay_sitio_para_invocar(e):
@@ -5894,12 +5925,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		return
 	e.start_cooldown(ab)   # instantaneas: cooldown al usar (las cargadas ya lo arrancaron)
 	print("[habilidad enemigo] %s usa %s contra %s" % [e.nombre, ab.nombre, obj.nombre])
-	# AURA = la habilidad se la echa A SI MISMO (Ignicion, y valdria para Caparazon, Muralla o
-	# Endurecerse). Se pinta AQUI y no en el bucle de golpes porque estas no pegan: con dano_mult 0
-	# no entran en el reparto y no llegarian a pasar por _fx_golpe nunca. Va como adorno (sin numero
-	# ni temblor) y sobre su PROPIA tarjeta: atacante y victima son el mismo.
-	if _estilo_de_habilidad(ab) == CombatFX.Estilo.AURA:
-		_fx_golpe(e, e, 0.0, false, false, e.elemento_ataque, CombatFX.Estilo.AURA, 1.3, true)
+	_fx_adorno(e, ab, obj)
 	var total: float = 0.0
 	var golpes: int = 0
 	var estados_log: Array = []

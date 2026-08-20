@@ -19,4 +19,5 @@ area_secundario = 0.3
 area_efectos_secundarios = true
 area_prob_secundario = 0.5
 efectos = [SubResource("SA_lento")]
+fx_estilo = 22
 cooldown = 4

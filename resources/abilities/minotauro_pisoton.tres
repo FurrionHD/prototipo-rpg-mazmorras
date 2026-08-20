@@ -13,4 +13,5 @@ dano_mult = 1.7
 area_modo = 1
 area_max = 99
 area_secundario = 1.0
+fx_estilo = 22
 cooldown = 4

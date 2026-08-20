@@ -1204,9 +1204,17 @@ func _pintar_pisoton(e: Dictionary) -> void:
 	var claro := Color(minf(1.0, col.r + 0.3), minf(1.0, col.g + 0.28), minf(1.0, col.b + 0.25), 1.0)
 	# LA GRIETA: seis brazos quebrados que salen del pie. Los quiebros salen de la semilla, no de
 	# randf(), o la grieta cambiaria de forma en cada frame.
+	#
+	# VAN HACIA LOS OTROS OBJETIVOS. Los brazos no se reparten por igual: los que apuntan A LO ANCHO
+	# se alargan y los que suben o bajan se quedan cortos. La fila esta en horizontal, asi que asi
+	# la grieta CORRE HASTA los demas alcanzados en vez de hacer una estrella bonita centrada en el
+	# pie -- que es lo que dice "el suelo se ha roto hasta alli" y por tanto por que les llega.
 	var k: float = clampf(v / 0.22, 0.0, 1.0)
 	for i in 6:
 		var ang: float = g * 1.3 + TAU * float(i) / 6.0
+		# |cos| vale 1 en horizontal y 0 en vertical: el brazo que apunta a un lado llega entero y
+		# el que apunta arriba se queda en un tercio.
+		var reparto: float = 0.32 + 0.68 * absf(cos(ang))
 		var pts := PackedVector2Array()
 		for j in 5:
 			var s: float = float(j) / 4.0
@@ -1215,7 +1223,7 @@ func _pintar_pisoton(e: Dictionary) -> void:
 			# las tarjetas y parecian rayos, no suelo roto.
 			var desv: float = sin(g + float(i) * 2.3 + float(j) * 3.7) * 0.30
 			var a2: float = ang + desv * s
-			pts.append(b + Vector2(cos(a2), sin(a2) * 0.26) * r * s * k)
+			pts.append(b + Vector2(cos(a2), sin(a2) * 0.26) * r * s * k * reparto)
 		# Los grosores van CAPADOS. Salen de 'r', y como 'r' crece con el numero de alcanzados, un
 		# pisoton a cuatro pintaba grietas de 30 px de gruesas: parecian vigas, no grietas.
 		draw_polyline(pts, Color(0.06, 0.05, 0.06, 0.8 * alfa),
