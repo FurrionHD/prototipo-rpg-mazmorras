@@ -16,4 +16,5 @@ descripcion = "Se lanza al cuello. Si acierta, no hay torniquete que valga: te v
 coste_energia = 0.0
 dano_mult = 1.5
 efectos = [SubResource("SA_0")]
+fx_estilo = 16
 cooldown = 4

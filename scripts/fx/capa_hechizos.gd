@@ -78,6 +78,12 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.AURA:
 			# No viaja: nace y muere sobre la misma tarjeta.
 			e["a"] = b
+		CombatFX.Estilo.MORDISCO, CombatFX.Estilo.COLMILLAZO, CombatFX.Estilo.YUGULAR:
+			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
+			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
+			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
+			# pantalla por su cuenta mientras el bicho llega por detras.
+			e["a"] = b
 		CombatFX.Estilo.BARRIDO:
 			# RECTA, NUNCA EN DIAGONAL. Un frente de agua avanza de una fila a la otra; si sale de la
 			# tarjeta del que lanza y va al centro de lo barrido, cuando esos dos no estan alineados
@@ -143,7 +149,19 @@ func _process(delta: float) -> void:
 # Lo que dura el efecto ENTERO: el vuelo mas la coleta de despues (el reventon, el resplandor del
 # rayo apagandose, la salpicadura de la gota).
 func _vida(e: Dictionary) -> float:
-	var extra: float = 0.18 if _es_rayo(int(e["estilo"])) else 0.12
+	var es: int = int(e["estilo"])
+	# Los mordiscos casi no tienen vuelo (van con la embestida), asi que TODO lo suyo pasa en la
+	# coleta: cerrarse, el rebote de la mandibula y la marca quedandose un instante. Con los 0.12 de
+	# siempre la dentellada era un parpadeo y no se llegaba a leer.
+	if es == CombatFX.Estilo.MORDISCO:
+		return float(e["dur"]) + 0.30
+	if es == CombatFX.Estilo.COLMILLAZO:
+		return float(e["dur"]) + 0.38   # fauces mas grandes, cierran mas despacio
+	if es == CombatFX.Estilo.YUGULAR:
+		return float(e["dur"]) + 0.40   # y ademas tiene que apagarse el destello
+	if es == CombatFX.Estilo.CHILLIDO:
+		return float(e["dur"]) + 0.34   # lo que tarda el ultimo anillo en salir de la fila
+	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
 
@@ -170,6 +188,10 @@ func _draw() -> void:
 			CombatFX.Estilo.AURA: _pintar_aura(e)
 			CombatFX.Estilo.VORTICE: _pintar_vortice(e)
 			CombatFX.Estilo.ARRASTRE: _pintar_arrastre(e)
+			CombatFX.Estilo.MORDISCO: _pintar_mordisco(e)
+			CombatFX.Estilo.COLMILLAZO: _pintar_colmillazo(e)
+			CombatFX.Estilo.YUGULAR: _pintar_yugular(e)
+			CombatFX.Estilo.CHILLIDO: _pintar_chillido(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -659,3 +681,235 @@ func _pintar_arcano(e: Dictionary) -> void:
 		p + eje * r, p + lado * r * 0.55, p - eje * r, p - lado * r * 0.55,
 	]), Color(col.r, col.g, col.b, alfa))
 	draw_arc(p, r * 1.25, 0.0, TAU, 24, Color(col.r, col.g, col.b, 0.5 * alfa), 2.0, true)
+
+
+# ============================================================
+#  MORDISCOS
+# ============================================================
+# DOS HILERAS DE DIENTES QUE SE CIERRAN sobre la tarjeta de la victima. Lo que distingue a un bicho
+# que muerde de uno que pega es la BOCA, asi que es lo que se dibuja: no un impacto generico teñido
+# de otro color, sino la dentellada concreta de ese bicho.
+#
+# EL COLOR DEL BICHO NO SE USA para el diente. Lo demas de la capa tiñe con 'col' (que sale de
+# combat.gd._color_golpe: el elemento o, si no lo hay, el color del propio enemigo), pero una rata
+# es marron y una dentellada marron sobre una tarjeta no se lee. El diente va en HUESO y la marca en
+# SANGRE, que ademas es la firma de la familia entera: aqui todo lo que muerde hace sangrar.
+#
+# El PERFIL es la tabla de dientes de una hilera; cada diente es
+#     [off_x, semiancho, largo, inclinacion, punta]
+# donde off_x va de -1 a 1 sobre la MEDIA boca, 'semiancho' es lo que sobresale a CADA lado (o sea
+# medio diente: dos dientes se tocan cuando sus off_x distan la suma de sus semianchos), 'largo' es
+# fraccion del maximo, la inclinacion desvia la punta hacia un lado (fraccion del largo) y 'punta'
+# va de 0 = punta PLANA (el paleto de un roedor) a 1 = punta afilada (el colmillo de una fiera).
+#
+# La irregularidad de las fauces esta ESCRITA EN LA TABLA y no sacada de randf(): _draw puede
+# correr varias veces en el mismo frame (ver la cabecera del fichero), asi que un colmillo con el
+# largo aleatorio no seria "irregular", seria un diente vibrando.
+
+# ROEDOR: dos PALETOS anchos de punta recta que dominan la boca, y dientecitos parejos a los lados.
+const _P_PALETOS_ARRIBA := [
+	[-0.165, 0.160, 1.00, 0.0, 0.05], [0.165, 0.160, 1.00, 0.0, 0.05],
+	[-0.44, 0.070, 0.34, 0.0, 0.35], [0.44, 0.070, 0.34, 0.0, 0.35],
+	[-0.60, 0.065, 0.28, 0.0, 0.35], [0.60, 0.065, 0.28, 0.0, 0.35],
+	[-0.75, 0.060, 0.22, 0.0, 0.40], [0.75, 0.060, 0.22, 0.0, 0.40],
+]
+const _P_PALETOS_ABAJO := [
+	[-0.145, 0.140, 0.72, 0.0, 0.08], [0.145, 0.140, 0.72, 0.0, 0.08],
+	[-0.40, 0.065, 0.28, 0.0, 0.35], [0.40, 0.065, 0.28, 0.0, 0.35],
+	[-0.56, 0.060, 0.24, 0.0, 0.35], [0.56, 0.060, 0.24, 0.0, 0.35],
+	[-0.71, 0.055, 0.20, 0.0, 0.40], [0.71, 0.055, 0.20, 0.0, 0.40],
+]
+
+# FIERA: colmillos largos en los extremos curvados hacia DENTRO, y dientes cortos e irregulares en
+# medio. Los numeros estan desparejados a proposito (-0.84 contra 0.86, -0.19 contra 0.21): la
+# simetria perfecta hacia que pareciera un peine en vez de una boca.
+const _P_FAUCES_ARRIBA := [
+	[-0.86, 0.095, 1.00, 0.09, 0.92], [0.88, 0.090, 0.96, -0.10, 0.92],
+	[-0.63, 0.080, 0.74, 0.05, 0.88], [0.65, 0.085, 0.80, -0.06, 0.88],
+	[-0.42, 0.070, 0.50, 0.02, 0.80], [0.44, 0.065, 0.46, -0.02, 0.80],
+	[-0.21, 0.070, 0.62, 0.0, 0.85], [0.23, 0.075, 0.56, 0.0, 0.85],
+	[0.01, 0.065, 0.44, 0.0, 0.78],
+]
+const _P_FAUCES_ABAJO := [
+	[-0.88, 0.090, 0.92, 0.08, 0.92], [0.86, 0.095, 0.98, -0.09, 0.92],
+	[-0.66, 0.080, 0.70, 0.05, 0.88], [0.63, 0.080, 0.76, -0.05, 0.88],
+	[-0.33, 0.065, 0.42, 0.0, 0.80], [0.35, 0.065, 0.46, 0.0, 0.80],
+	[-0.11, 0.060, 0.38, 0.0, 0.78], [0.13, 0.060, 0.40, 0.0, 0.78],
+]
+
+const _HUESO := Color(0.96, 0.94, 0.87)
+const _ENCIA := Color(0.10, 0.03, 0.05)     # el contorno, para que el diente se lea sobre cualquier fondo
+const _SANGRE := Color(0.72, 0.06, 0.08)
+
+
+func _pintar_mordisco(e: Dictionary) -> void:
+	_dentellada(e, _P_PALETOS_ARRIBA, _P_PALETOS_ABAJO, 1.0, 1.0)
+
+
+func _pintar_colmillazo(e: Dictionary) -> void:
+	# Fauces mas anchas y que cierran mas despacio: una mandibula grande pesa.
+	_dentellada(e, _P_FAUCES_ARRIBA, _P_FAUCES_ABAJO, 1.35, 1.25)
+
+
+# LA YUGULAR SIGUE SIENDO UNA RATA: muerde con paletos, no con colmillos. Lo que la separa de las
+# otras dentelladas no es la boca, es que va a UN SOLO SITIO y con todo -- y eso lo dice el destello.
+func _pintar_yugular(e: Dictionary) -> void:
+	var v: float = _dentellada(e, _P_PALETOS_ARRIBA, _P_PALETOS_ABAJO, 1.15, 0.85)
+	if v >= 0.0:
+		_destello(e, v)
+
+
+# Pinta la mordida entera. Devuelve el avance DESPUES del cierre (0 = acaba de morder, 1 = se ha
+# ido del todo) o -1 mientras las fauces todavia se estan abriendo, que es lo que usa la yugular
+# para saber cuando soltar el destello.
+func _dentellada(e: Dictionary, arriba: Array, abajo: Array, escala: float, lentitud: float) -> float:
+	var b: Vector2 = e["b"]
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	# La boca se ajusta a la TARJETA que muerde y no al daño: un mordisco tapa una cara. (Los
+	# mordiscos no son estilos de grupo, asi que 'ancho' es el ancho de esa victima, no el del grupo.)
+	var boca: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0) * escala
+	var media: float = boca * 0.5
+	var largo_max: float = media * 0.85
+	# Ladeada segun la semilla: el Frenesi son seis dentelladas seguidas y calcadas se leerian como
+	# un unico dibujo parpadeando.
+	var ang: float = sin(float(e["semilla"]) * 3.3) * 0.22
+	var eje := Vector2(cos(ang), sin(ang))
+	var lado := Vector2(-eje.y, eje.x)
+	var c: float = 0.0        # 0 = boca abierta de par en par, 1 = dientes tocandose
+	var alfa: float = 1.0
+	var v: float = -1.0
+	if t < dur:
+		# Abriendose mientras la tarjeta llega. Con un T_VUELO casi cero esto dura un parpadeo, pero
+		# es lo que evita que las fauces aparezcan ya cerradas y el mordisco no se vea morder.
+		alfa = clampf(t / maxf(dur, 0.01), 0.0, 1.0)
+	else:
+		v = clampf((t - dur) / (0.30 * lentitud), 0.0, 1.0)
+		c = clampf(v / 0.30, 0.0, 1.0)   # cierra de golpe en el primer tercio
+		# REBOTE de la mandibula: al llegar a tope afloja un pelin en vez de quedarse clavada.
+		if v > 0.30 and v < 0.48:
+			c = 1.0 - 0.14 * sin((v - 0.30) / 0.18 * PI)
+		alfa = 1.0 if v < 0.55 else 1.0 - (v - 0.55) / 0.45
+	if alfa <= 0.0:
+		return v
+	# Lo que separa las dos hileras: de abiertas del todo a cruzarse un poco al cerrar.
+	# Abierta de par en par tiene que caber MAS DE UN DIENTE de hueco (2.1): con menos, las puntas
+	# de las dos hileras ya casi se tocan al empezar y la boca no se ve abrirse. Y al cerrar se
+	# cruzan muy poco (-0.05), o en vez de una mordida se lee una cremallera.
+	var sep: float = lerpf(largo_max * 2.1, -largo_max * 0.05, c)
+	for d in arriba:
+		_diente(b, eje, lado, media, largo_max, sep, d, true, alfa)
+	for d in abajo:
+		_diente(b, eje, lado, media, largo_max, sep, d, false, alfa)
+	if v >= 0.0 and c > 0.85:
+		_marca_mordida(b, eje, lado, media, largo_max, alfa)
+	return v
+
+
+func _diente(centro: Vector2, eje: Vector2, lado: Vector2, media: float, largo_max: float,
+		sep: float, d: Array, es_arriba: bool, alfa: float) -> void:
+	var dir: float = 1.0 if es_arriba else -1.0   # hacia donde CRECE el diente (+lado = hacia abajo)
+	var x: float = float(d[0]) * media
+	var w: float = float(d[1]) * media
+	var largo: float = float(d[2]) * largo_max
+	var incl: float = float(d[3]) * largo
+	# LA MANDIBULA VA CURVADA. Una boca abre por el CENTRO: en las comisuras las dos hileras casi se
+	# tocan aunque este abierta de par en par. Sin esto los dientes salian en dos lineas rectas
+	# paralelas y el dibujo se leia como una reja, no como algo que muerde.
+	var k: float = float(d[0])
+	var y0: float = -dir * sep * 0.5 * (1.0 - 0.55 * k * k)
+	var base: Vector2 = centro + eje * x + lado * y0
+	var pta: Vector2 = centro + eje * (x + incl) + lado * (y0 + dir * largo)
+	# Lo que convierte un paleto en un colmillo: cuanto se estrecha la punta.
+	var w2: float = w * lerpf(0.78, 0.05, float(d[4]))
+	var pts := PackedVector2Array([
+		base - eje * w, base + eje * w, pta + eje * w2, pta - eje * w2,
+	])
+	draw_colored_polygon(pts, Color(_HUESO.r, _HUESO.g, _HUESO.b, alfa))
+	# Contorno oscuro: sin el, un diente hueso sobre una tarjeta clara desaparece.
+	pts.append(pts[0])
+	draw_polyline(pts, Color(_ENCIA.r, _ENCIA.g, _ENCIA.b, 0.75 * alfa), maxf(1.0, w * 0.22), true)
+
+
+# LO QUE DEJA la mordida: los dos agujeros por donde han entrado los dientes grandes y un hilo
+# escurriendo de cada uno. Es lo que ata el dibujo a la mecanica -- toda esta familia sangra.
+func _marca_mordida(centro: Vector2, eje: Vector2, lado: Vector2, media: float, largo_max: float,
+		alfa: float) -> void:
+	for s in [-1.0, 1.0]:
+		var p: Vector2 = centro + eje * (0.13 * media * s)
+		draw_circle(p, maxf(1.5, largo_max * 0.13),
+			Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.9 * alfa))
+		draw_line(p, p + lado * largo_max * 0.5,
+			Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.55 * alfa), maxf(1.0, largo_max * 0.09), true)
+
+
+# EL DESTELLO de la yugular: una estrella de cuatro puntas con los lados CONCAVOS, nucleo blanco
+# quemado y halo rojo. Un flash redondo no valdria: lo que hay que leer es que este mordisco es EL
+# golpe del Rey rata y no uno mas de una racha.
+func _destello(e: Dictionary, v: float) -> void:
+	var b: Vector2 = e["b"]
+	# Entra de golpe pasandose de tamaño y se apaga encogiendo.
+	var k: float = (v / 0.14) if v < 0.14 else maxf(0.0, 1.0 - (v - 0.14) / 0.60)
+	if k <= 0.0:
+		return
+	var pico: float = 1.0 if v >= 0.14 else 1.0 + 0.35 * (1.0 - v / 0.14)
+	var r: float = clampf(float(e["ancho"]) * 0.55, 30.0, 92.0) * 1.25 * k * pico
+	_estrella(b, r * 1.60, r * 1.15, 0.42, Color(0.90, 0.10, 0.12, 0.80 * k))   # las agujas de fuera
+	_estrella(b, r * 0.58, r * 0.40, 0.75, Color(1.0, 0.55, 0.48, 0.95 * k))    # el cuerpo caliente
+	_estrella(b, r * 0.28, r * 0.20, 1.30, Color(1.0, 0.95, 0.92, k))           # el nucleo quemado
+	draw_circle(b, maxf(1.5, r * 0.10), Color(1.0, 1.0, 1.0, k))
+
+
+# r(a) = R * (1 - |sin 2a|^p). En los cuatro ejes vale R (la punta) y en las diagonales cae a cero,
+# asi que salen cuatro puntas; lo que hace el trabajo es 'p', el filo:
+#   p bajo (~0.5)  cae a plomo nada mas salir del eje -> puntas larguisimas y finas, lados COMBADOS
+#   p alto (~1.3)  aguanta ancho un rato antes de caer -> un cuerpo gordo con las puntas cortas
+# Por eso el destello son TRES estrellas encajadas de p creciente: las agujas rojas de fuera, el
+# cuerpo naranja y el nucleo blanco. Con una sola salia una cruz de brazos rectos y no brillaba.
+func _estrella(c: Vector2, rx: float, ry: float, filo: float, col: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in 56:
+		var a: float = TAU * float(i) / 56.0
+		# SUELO en el radio. En las cuatro diagonales exactas f vale 0, y como 56 es multiplo de 8
+		# esos angulos SALEN en el bucle: los cuatro vertices caian en el mismo punto (el centro) y
+		# la triangulacion fallaba ("Invalid polygon data"), asi que no se pintaba nada.
+		var f: float = maxf(1.0 - pow(absf(sin(a * 2.0)), filo), 0.02)
+		pts.append(c + Vector2(cos(a) * rx * f, sin(a) * ry * f))
+	draw_colored_polygon(pts, col)
+
+
+# CHILLIDO: el unico de la familia que no muerde. Anillos que salen del que grita y BARREN la fila
+# entera. Es estilo de grupo (ver _ESTILOS_DE_GRUPO): el Rey chilla UNA vez, no una por victima.
+func _pintar_chillido(e: Dictionary) -> void:
+	var a: Vector2 = e["a"]
+	var b: Vector2 = e["b"]
+	var col: Color = e["col"]
+	var t: float = float(e["t"])
+	var u: float = clampf(t / maxf(float(e["dur"]) + 0.34, 0.05), 0.0, 1.0)
+	if u >= 1.0:
+		return
+	# Hasta donde tiene que llegar: la fila alcanzada entera y un margen. Sale del ancho del grupo
+	# por lo mismo que _radio_grupo -- si alcanza a cuatro, la onda tiene que pasarles por encima.
+	var alcance: float = a.distance_to(b) + maxf(40.0, float(e["ancho"]) * 0.6)
+	var claro := Color(minf(1.0, col.r + 0.45), minf(1.0, col.g + 0.45), minf(1.0, col.b + 0.5), 1.0)
+	# CUATRO anillos desfasados: uno solo se lee como una burbuja, varios como un sonido que insiste.
+	for i in 4:
+		var k: float = u - float(i) * 0.16
+		if k <= 0.0 or k >= 1.0:
+			continue
+		var rad: float = alcance * k
+		# Mas anchos que altos: una onda que recorre la fila, no una esfera que se infla.
+		_anillo(a, rad * 1.15, rad * 0.72,
+			Color(claro.r, claro.g, claro.b, 0.55 * (1.0 - k)), maxf(1.5, 5.0 * (1.0 - k)))
+	# Y el pellizco en la garganta del que grita, que es de donde sale todo.
+	var p: float = 1.0 - clampf(u / 0.3, 0.0, 1.0)
+	if p > 0.0:
+		draw_circle(a, 9.0 * p, Color(claro.r, claro.g, claro.b, 0.5 * p))
+
+
+func _anillo(c: Vector2, rx: float, ry: float, col: Color, grosor: float) -> void:
+	var pts := PackedVector2Array()
+	for i in 33:
+		var ang: float = TAU * float(i) / 32.0
+		pts.append(c + Vector2(cos(ang) * rx, sin(ang) * ry))
+	draw_polyline(pts, col, grosor, true)

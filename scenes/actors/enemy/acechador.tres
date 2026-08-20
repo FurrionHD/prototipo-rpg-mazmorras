@@ -5,7 +5,7 @@
 [ext_resource type="Resource" path="res://resources/materials/cuero_placado.tres" id="3_cue"]
 [ext_resource type="Resource" uid="uid://b7g0bfocs3wcx" path="res://resources/abilities/bestia_zarpazo.tres" id="4_zar"]
 [ext_resource type="Resource" uid="uid://ddjhoceoado8m" path="res://resources/abilities/jabali_embestida.tres" id="5_emb"]
-[ext_resource type="Resource" uid="uid://cvhrdy3iynfby" path="res://resources/abilities/rata_mordisco_sangrante.tres" id="6_mor"]
+[ext_resource type="Resource" uid="uid://d1yqkr3nvx8ba" path="res://resources/abilities/acechador_dentellada.tres" id="6_mor"]
 [ext_resource type="Resource" path="res://resources/materials/carne_bestia.tres" id="7_carne"]
 
 [sub_resource type="Resource" id="SA_san"]

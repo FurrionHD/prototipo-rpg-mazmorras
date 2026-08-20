@@ -23,4 +23,5 @@ area_modo = 1
 area_secundario = 1.0
 area_efectos_secundarios = true
 efectos = [SubResource("SA_0"), SubResource("SA_1")]
+fx_estilo = 17
 cooldown = 3

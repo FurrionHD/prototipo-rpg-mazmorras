@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://cvhrdy3iynfby"]
+[gd_resource type="Resource" script_class="AbilityData" format=3 uid="uid://d1yqkr3nvx8ba"]
 
 [ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
 [ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
@@ -10,13 +10,13 @@ prob = 0.5
 
 [resource]
 script = ExtResource("1")
-nombre = "Mordisco sangrante"
-descripcion = "Se cuela por debajo de tu guardia y clava los dientes un par de veces, rápida, antes de que puedas apartarla. Cada tarascada deja un corte que no para de sangrar."
+nombre = "Dentellada desgarradora"
+descripcion = "Cierra las fauces y tira hacia atrás sin soltar. No muerde para hacer daño: muerde para abrir, y lo que deja no se cierra solo."
 coste_energia = 0.0
 golpes_min = 2
 golpes_max = 2
 dano_mult = 0.85
 efectos = [SubResource("SA_sang")]
 efectos_por_golpe = true
-fx_estilo = 14
+fx_estilo = 15
 cooldown = 2

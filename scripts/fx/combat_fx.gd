@@ -49,18 +49,24 @@ signal apagar_ahora(bloque: Dictionary)
 # que lo recibe. Todos los demas son de hechizo y NINGUNO embiste -- el que lanza se queda en su
 # sitio y lo que viaja es el efecto, que es lo que diferencia lanzar un conjuro de dar un tajo.
 #
-# Caben DIECISEIS: en la red viajan en 4 bits (ver _apuntar_impacto_red en combat.gd). Eran ocho y
-# tres bits; al añadir la EXPLOSION hubo que ensanchar el campo, y hay que tocar las dos puntas a la
-# vez o el compañero ve un efecto distinto al tuyo (y sin dar ningun error).
+# Caben SESENTA Y CUATRO: en la red viajan en 6 bits (ver _apuntar_impacto_red en combat.gd). Eran
+# ocho y tres bits, luego dieciseis y cuatro al añadir la EXPLOSION, y seis al entrar los mordiscos.
+# Hay que tocar las dos puntas a la vez o el compañero ve un efecto distinto al tuyo (y sin dar
+# ningun error).
 # Del 9 en adelante son los de los ENEMIGOS (los pide cada habilidad por su fx_estilo):
 #   SPLAT   cuerpo que cae gordo y redondo y se APLASTA al tocar (Reventon, Aplastamiento)
 #   ESCUPITAJO  bola pequeña con PARABOLA (Escupitajo toxico, Rociada, Escision)
 #   AURA    resplandor sobre el PROPIO lanzador, no viaja (Ignicion y los buffs)
 #   VORTICE espiral oscura que se cierra encima (las del abismo)
 #   ARRASTRE  melee que se lleva una llama consigo mientras embiste (Llamarada, Combustion)
+#   MORDISCO  dos hileras que se cierran, con los PALETOS anchos de un roedor (las ratas)
+#   COLMILLAZO  lo mismo pero con fauces de fiera: dientes irregulares y colmillos largos
+#   YUGULAR   un colmillazo seco con un DESTELLO de cuatro puntas encima (la del Rey rata)
+#   CHILLIDO  anillos que se abren desde el lanzador y barren la fila; no muerde a nadie
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
-		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13 }
+		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
+		MORDISCO = 14, COLMILLAZO = 15, YUGULAR = 16, CHILLIDO = 17 }
 
 # Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
@@ -74,6 +80,12 @@ const T_VUELO := {
 	# El SPLAT cae de MAS ARRIBA que un rayo y pesa mas: se ve venir, que es media gracia.
 	Estilo.SPLAT: 0.34, Estilo.ESCUPITAJO: 0.26, Estilo.AURA: 0.10,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
+	# Los mordiscos NO viajan: es la tarjeta la que se lanza (embisten como el MELEE) y las fauces
+	# se cierran donde aterriza. El COLMILLAZO abre un pelin antes porque son fauces mas grandes y
+	# tienen que verse abrirse; la YUGULAR reserva un instante para que el destello arranque con el
+	# numero y no despues.
+	Estilo.MORDISCO: 0.0, Estilo.COLMILLAZO: 0.05, Estilo.YUGULAR: 0.06,
+	Estilo.CHILLIDO: 0.14,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -908,8 +920,14 @@ func arrancar_cola() -> float:
 # numero, su temblor y su parte de barra: lo unico que pierden es repetir el efecto). La portadora
 # recibe el ANCHO de todo lo alcanzado -del borde izquierdo del primero al derecho del ultimo- y el
 # CENTRO, asi que el efecto se adapta solo a 2, 3 o 4 objetivos sin que nadie le pase el numero.
+#   CHILLIDO   un grito es UNA onda que se abre y coge a todo el que pilla. Repetido serian tres
+#              gritos a la vez, que ademas es justo lo que NO es: el Rey chilla una sola vez.
+#
+# Los MORDISCOS no entran aqui A PROPOSITO. El Frenesi y la Dentellada real reparten golpe a golpe
+# (cada impacto es una dentellada entera sobre quien le toque, no la salpicadura de una comun), asi
+# que fundirlos en uno se cargaria justo lo que hay que leer: cuantas veces te han mordido y a quien.
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
-	Estilo.ARRASTRE]
+	Estilo.ARRASTRE, Estilo.CHILLIDO]
 
 func _marcar_efectos_de_grupo() -> void:
 	var por_tanda: Dictionary = {}   # "tanda:estilo" -> [indices de la cola]
@@ -1064,9 +1082,13 @@ func _process(delta: float) -> void:
 		# Cuenta la TANDA y no el indice del evento: si no, un molinete a cuatro bichos gastaba el
 		# cupo con el primer barrido y el atacante se quedaba plantado en el segundo.
 		# ARRASTRE embiste IGUAL que el melee: es un melee, solo que llevandose una llama por delante
-		# (la Llamarada del slime de fuego no se lanza, va con el bicho encima).
+		# (la Llamarada del slime de fuego no se lanza, va con el bicho encima). Los MORDISCOS
+		# tambien: para morderte hay que llegar hasta ti, y de hecho es la embestida la que lleva las
+		# fauces al sitio (por eso su T_VUELO es casi cero).
 		if pa != null and is_instance_valid(pa) and pa != pv \
-				and (estilo == Estilo.MELEE or estilo == Estilo.ARRASTRE) \
+				and (estilo == Estilo.MELEE or estilo == Estilo.ARRASTRE \
+					or estilo == Estilo.MORDISCO or estilo == Estilo.COLMILLAZO \
+					or estilo == Estilo.YUGULAR) \
 				and int(ev.get("pos_tanda", i)) < MAX_IMPACTOS_ANIMADOS:
 			var dir: Vector2 = _direccion(pa, pv)
 			var d: float = 0.0
@@ -1087,11 +1109,16 @@ func _process(delta: float) -> void:
 		# un rayo que cae del cielo no sale nada de tu mano.
 		# Los de CAIDA y el SPLAT no la encienden (no sale de tu mano, viene de arriba); el ARCO
 		# tampoco (salta de una victima a otra); ni el ARRASTRE ni el AURA, que son fuego SOBRE el
-		# propio bicho y ya se ven de sobra sin encenderle ademas la tarjeta.
+		# propio bicho y ya se ven de sobra sin encenderle ademas la tarjeta. Los MORDISCOS tampoco:
+		# ya embisten, y encenderlos ademas los convertiria en un conjuro. El CHILLIDO si se queda
+		# dentro -- el grito SALE del Rey, y que se le encienda la tarjeta mientras la onda viaja es
+		# exactamente lo que se quiere leer.
 		if pa != null and is_instance_valid(pa) and estilo != Estilo.MELEE \
 				and estilo != Estilo.CAIDA_RAYO and estilo != Estilo.CAIDA_GOTA \
 				and estilo != Estilo.ARCO and estilo != Estilo.SPLAT \
 				and estilo != Estilo.ARRASTRE and estilo != Estilo.AURA \
+				and estilo != Estilo.MORDISCO and estilo != Estilo.COLMILLAZO \
+				and estilo != Estilo.YUGULAR \
 				and _t >= t_imp - vuelo and _t < t_imp:
 			var k: float = 1.0 - (t_imp - _t) / maxf(vuelo, 0.001)
 			if not aura.has(pa) or k > float(aura[pa][1]):

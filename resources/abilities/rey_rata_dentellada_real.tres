@@ -19,4 +19,5 @@ dano_mult = 0.8
 reparto_por_golpe = true
 efectos = [SubResource("SA_0")]
 efectos_por_golpe = true
+fx_estilo = 14
 cooldown = 2

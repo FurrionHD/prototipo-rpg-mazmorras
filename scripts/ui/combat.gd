@@ -1180,15 +1180,17 @@ func _cod_combatiente(c: Combatant) -> int:
 #   1      evadido
 #   2      ABRE TANDA (este golpe empieza una tanda nueva; ver CombatFX.tanda)
 #   3-5    elemento + 1  (0..4)
-#   6-9    estilo        (CombatFX.Estilo; 4 bits = caben 16)
-#   10-16  peso x 64     (0..127 -> 0.00..1.98)
-#   17     SOLO DIBUJO   (un adorno, no un golpe: ver CombatFX.encolar)
+#   6-11   estilo        (CombatFX.Estilo; 6 bits = caben 64)
+#   12-18  peso x 64     (0..127 -> 0.00..1.98)
+#   19     SOLO DIBUJO   (un adorno, no un golpe: ver CombatFX.encolar)
 #
-# El estilo eran 3 bits (8 estilos justos) y se ensancho a 4 al añadir la EXPLOSION, corriendo el
-# peso un bit a la izquierda. Es un PackedInt32Array, asi que sitio sobra. Si se toca una punta y no
-# la otra NO SALTA NINGUN ERROR: el espejo simplemente lee otro estilo y otro peso, y ve la pelea
-# con efectos distintos a los tuyos. Las mascaras de cada campo tienen que cuadrar aqui y en
-# aplicar_impactos.
+# El estilo eran 3 bits (8 estilos justos), se ensancho a 4 al añadir la EXPLOSION y a 6 al entrar
+# los mordiscos de la familia ROEDOR, corriendo el peso a la izquierda cada vez. Se salto de 5 a 6
+# a proposito: quedan familias enteras de bichos por hacer (insectos, piedra, bestias, jefes) y con
+# 64 no hay que volver a tocarlo. Es un PackedInt32Array, asi que sitio sobra: viajan los mismos
+# cuatro enteros por impacto. Si se toca una punta y no la otra NO SALTA NINGUN ERROR: el espejo
+# simplemente lee otro estilo y otro peso, y ve la pelea con efectos distintos a los tuyos. Las
+# mascaras de cada campo tienen que cuadrar aqui y en aplicar_impactos.
 func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 		crit: bool, evadido: bool, elem: int, estilo: int, peso: float,
 		solo_dibujo: bool = false) -> void:
@@ -1206,9 +1208,9 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 	var abre: bool = t_ev != _ult_tanda_red
 	_ult_tanda_red = t_ev
 	var flags: int = (1 if crit else 0) | (2 if evadido else 0) | (4 if abre else 0) \
-		| (((elem + 1) & 7) << 3) | ((estilo & 15) << 6) \
-		| (clampi(roundi(peso * 64.0), 0, 127) << 10) \
-		| (131072 if solo_dibujo else 0)
+		| (((elem + 1) & 7) << 3) | ((estilo & 63) << 6) \
+		| (clampi(roundi(peso * 64.0), 0, 127) << 12) \
+		| (524288 if solo_dibujo else 0)
 	_impactos_red.append(ca)
 	_impactos_red.append(cv)
 	_impactos_red.append(roundi(minf(dmg, 3000.0) * 10.0))   # x10: un decimal, y cabe en el int
@@ -1251,8 +1253,8 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 		# Con MASCARA en cada campo: sin ella, el elemento se leia con los bits del estilo y del
 		# peso pegados detras y salia un numero absurdo.
 		_fx_golpe(_de_codigo(ca), victima, dmg, (flags & 1) != 0, (flags & 2) != 0,
-			((flags >> 3) & 7) - 1, (flags >> 6) & 15, float((flags >> 10) & 127) / 64.0,
-			(flags & 131072) != 0)
+			((flags >> 3) & 7) - 1, (flags >> 6) & 63, float((flags >> 12) & 127) / 64.0,
+			(flags & 524288) != 0)
 	_fx.arrancar_cola()
 
 
