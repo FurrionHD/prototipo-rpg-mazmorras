@@ -3372,6 +3372,8 @@ func _mostrar_acciones() -> void:
 func _ayuda_accion(id: int) -> String:
 	match id:
 		Action.ATTACK:
+			if _pasa_el_turno():
+				return "Estás enraizado y no llegas a golpear: cedes el turno. Los hechizos, Defender, los objetos y huir sí te quedan."
 			return "Golpe básico con lo que lleves en las manos. No cuesta energía: la RECUPERA, así que es lo que te permite volver a lanzar habilidades."
 		Action.HABILIDAD:
 			return "Técnicas que te dan tus armas. Cuestan energía y tienen enfriamiento."
@@ -3395,14 +3397,23 @@ func _refresh_actions() -> void:
 		var ayuda: String = _ayuda_accion(id)
 		var motivo: String = "" if disponible else _motivo_bloqueo(id)
 		_action_buttons[id].tooltip_text = ayuda if motivo == "" else "⛔ %s\n\n%s" % [motivo, ayuda]
+	# EL BASICO SE CONVIERTE EN "PASAR" MIENTRAS ESTES ENRAIZADO. No es un adorno: es lo que evita
+	# que te quedes SIN NINGUNA JUGADA. Antes del Enraizado, Atacar estaba siempre disponible y hacia
+	# de suelo; en cuanto se lo quitas, un personaje sin hechizos, sin objetos y sin energia se queda
+	# solo con Huir. Y es peor de lo que parece, porque la energia se recupera ATACANDO: enraizado te
+	# corta justo lo que necesitas para poder Defender, asi que no puedes ni salir del apuro solo.
+	if _action_buttons.has(Action.ATTACK):
+		_action_buttons[Action.ATTACK].text = "Pasar" if _pasa_el_turno() else "Atacar"
 
 
 func _motivo_bloqueo(id: int) -> String:
 	# El Silencio manda sobre el otro motivo: si estas silenciado, da igual que tengas hechizos.
 	if _player != null and _player.silenciado() and (id == Action.MAGIC or id == Action.HABILIDAD):
 		return "Estás silenciado"
-	# Y el Enraizado igual, pero al reves: te corta el brazo, no la boca.
-	if _player != null and _player.enraizado() and (id == Action.ATTACK or id == Action.HABILIDAD):
+	# Y el Enraizado igual, pero al reves: te corta el brazo, no la boca. El BASICO no se bloquea
+	# nunca -- se convierte en "Pasar" (ver _refresh_actions), que es lo que garantiza que siempre
+	# tengas una jugada.
+	if _player != null and _player.enraizado() and id == Action.HABILIDAD:
 		return "Estás enraizado (puedes lanzar hechizos)"
 	match id:
 		Action.MAGIC: return "No tienes hechizos equipados"
@@ -3412,11 +3423,19 @@ func _motivo_bloqueo(id: int) -> String:
 	return ""
 
 
+# ¿El boton de Atacar es ahora mismo un "Pasar"? UN SOLO SITIO lo decide, y lo miran los tres que
+# tienen que estar de acuerdo: el rotulo del boton, su tooltip y lo que hace al pulsarlo. Con la
+# condicion escrita tres veces, cambiarla en dos de los tres deja un boton que dice una cosa y hace
+# otra -- y eso no da ningun error.
+func _pasa_el_turno() -> bool:
+	return _player != null and _player.enraizado()
+
+
 func _accion_disponible(id: int) -> bool:
 	match id:
-		# El ENRAIZADO te clava los pies: no llegas a pegar ni a ejecutar una tecnica de arma. Los
-		# hechizos NO se tocan (ver mas abajo): es justo lo contrario del Silencio.
-		Action.ATTACK: return not _player.enraizado()
+		# SIEMPRE disponible, pase lo que pase: es el suelo del menu. Enraizado no lo desactiva, lo
+		# convierte en "Pasar" (ver _refresh_actions y _accion_atacar).
+		Action.ATTACK: return true
 		Action.DEFEND: return _player.has_energy(DEFEND_ENERGY_COST)   # Defender cuesta energia
 		Action.FLEE: return true
 		# El SILENCIO corta las dos jugadas, no el turno: te quedan atacar, Defender, objeto y huir.
@@ -5370,6 +5389,15 @@ func _responder_al_anfitrion(accion: Dictionary) -> void:
 
 func _accion_atacar() -> void:
 	if _enviar_si_espejo("atacar"):
+		return
+	# ENRAIZADO: el basico se convierte en CEDER EL TURNO. Va aqui abajo, DESPUES del envio al
+	# espejo, y no en el boton: el anfitrion despacha por esta misma funcion el "atacar" que le
+	# manda el invitado (ver aplicar_accion_remota), asi que atajando arriba el invitado pasaria
+	# turno en su pantalla y el anfitrion le resolveria un ataque. Una sola autoridad, un solo sitio.
+	if _pasa_el_turno():
+		_set_log("🌱 %s está enraizado y no llega a golpear: cede el turno." % _player.nombre)
+		_fin_de_eleccion()
+		_state = State.ADVANCING
 		return
 	# Objetivo capturado una vez (ver _usar_habilidad): el golpe va a quien elegiste.
 	var obj: Combatant = _objetivo()
