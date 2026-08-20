@@ -79,7 +79,8 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 			# No viaja: nace y muere sobre la misma tarjeta.
 			e["a"] = b
 		CombatFX.Estilo.MORDISCO, CombatFX.Estilo.COLMILLAZO, CombatFX.Estilo.YUGULAR, \
-		CombatFX.Estilo.ZARPAZO:
+		CombatFX.Estilo.ZARPAZO, CombatFX.Estilo.PLACAJE, CombatFX.Estilo.CORNADA, \
+		CombatFX.Estilo.PISOTON, CombatFX.Estilo.GOLPETAZO:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -164,6 +165,16 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + 0.34   # lo que tarda el ultimo anillo en salir de la fila
 	if es == CombatFX.Estilo.ZARPAZO:
 		return float(e["dur"]) + 0.34   # las cuatro garras entran escalonadas, no a la vez
+	if es == CombatFX.Estilo.PLACAJE:
+		return float(e["dur"]) + 0.32   # chafarse y escurrirse lleva su tiempo
+	if es == CombatFX.Estilo.CORNADA:
+		return float(e["dur"]) + 0.30
+	if es == CombatFX.Estilo.CARGA:
+		return float(e["dur"]) + 0.30   # la polvareda del choque se queda un poco
+	if es == CombatFX.Estilo.PISOTON:
+		return float(e["dur"]) + 0.38   # la grieta abre y la onda tiene que llegar a los lados
+	if es == CombatFX.Estilo.GOLPETAZO:
+		return float(e["dur"]) + 0.26   # un porrazo es seco: entra y se va
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -196,6 +207,11 @@ func _draw() -> void:
 			CombatFX.Estilo.YUGULAR: _pintar_yugular(e)
 			CombatFX.Estilo.CHILLIDO: _pintar_chillido(e)
 			CombatFX.Estilo.ZARPAZO: _pintar_zarpazo(e)
+			CombatFX.Estilo.PLACAJE: _pintar_placaje(e)
+			CombatFX.Estilo.CORNADA: _pintar_cornada(e)
+			CombatFX.Estilo.CARGA: _pintar_carga(e)
+			CombatFX.Estilo.PISOTON: _pintar_pisoton(e)
+			CombatFX.Estilo.GOLPETAZO: _pintar_golpetazo(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -995,6 +1011,254 @@ func _surco(c: Vector2, dir: Vector2, largo: float, semi: float, sem: float, alf
 	# como una raya roja con reborde en vez de como algo que te han abierto.
 	draw_line(c - dir * largo * 0.34, c + dir * largo * 0.34,
 		Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.40 * alfa), maxf(1.0, semi * 0.30), true)
+
+
+# ============================================================
+#  CUERPO A CUERPO DE LOS BICHOS GORDOS
+# ============================================================
+# El desvio de angulo/sitio de cada golpe sale de la SEMILLA, igual que en los mordiscos y el
+# zarpazo: dos placajes seguidos sobre la misma cara con el dibujo calcado se leen como uno solo
+# parpadeando. Devuelve [avance 0..1, alfa, centro desplazado] o un avance negativo si aun no toca.
+func _golpe_cuerpo(e: Dictionary, coleta: float, desvio: float) -> Array:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	if t < dur:
+		return [-1.0, 0.0, Vector2.ZERO]
+	var g: float = float(e["semilla"])
+	var v: float = clampf((t - dur) / coleta, 0.0, 1.0)
+	var alfa: float = 1.0 if v < 0.55 else 1.0 - (v - 0.55) / 0.45
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	return [v, alfa, e["b"] + Vector2(cos(g * 2.1), sin(g * 1.7)) * caja * desvio]
+
+
+# PLACAJE: el slime se estampa de lado y SE ESCURRE. No es el SPLAT (aquel cae de arriba y se
+# chafa contra el suelo): aqui el cuerpo llega en horizontal, se aplasta contra la victima y la
+# masa se le va a los lados, chorreando.
+#
+# Este SI va del color del bicho, al reves que los mordiscos: un slime es su color, y ademas hay
+# seis distintos (verde, veneno, fuego, abisal...) que se distinguen justo por eso.
+func _pintar_placaje(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, 0.32, 0.10)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var claro := Color(minf(1.0, col.r + 0.3), minf(1.0, col.g + 0.3), minf(1.0, col.b + 0.3), 1.0)
+	var r: float = clampf(float(e["ancho"]) * 0.34, 20.0, 54.0)
+	# Se chafa DEPRISA y se ensancha despues: primero el impacto, luego el escurrido.
+	var chafa: float = clampf(v / 0.28, 0.0, 1.0)
+	var ancho: float = r * (1.0 + 0.85 * chafa)
+	var alto: float = r * (1.0 - 0.45 * chafa)
+	# EL CUERPO, con el borde IRREGULAR. Una elipse limpia se leia como una pastilla verde; lo que
+	# lo convierte en algo blando estampado son los lobulos del contorno, que ademas se marcan mas
+	# segun se escurre (el 0.20 * chafa). Los bultos salen de la semilla, no de randf().
+	var pts := PackedVector2Array()
+	for i in 26:
+		var ang: float = TAU * float(i) / 26.0
+		var bulto: float = 1.0 + (0.10 + 0.20 * chafa) \
+			* (sin(g * 1.7 + ang * 3.0) * 0.6 + sin(g + ang * 5.0) * 0.4)
+		pts.append(b + Vector2(cos(ang) * ancho * bulto, sin(ang) * alto * bulto))
+	draw_colored_polygon(pts, Color(col.r, col.g, col.b, 0.85 * alfa))
+	# El brillo arriba a la izquierda: es lo que le da volumen de gelatina y no de mancha.
+	draw_circle(b + Vector2(-ancho * 0.30, -alto * 0.38), maxf(1.5, minf(ancho, alto) * 0.30),
+		Color(claro.r, claro.g, claro.b, 0.5 * alfa))
+	# LOS GOTERONES que salpican al reventar. Salen mas hacia los lados que hacia arriba, que es
+	# por donde escapa la masa cuando algo blando se estampa de frente.
+	for i in 8:
+		var ang: float = float(e["semilla"]) + TAU * float(i) / 8.0
+		var d: Vector2 = Vector2(cos(ang) * 1.35, sin(ang) * 0.55)
+		draw_circle(b + d * ancho * (0.75 + 0.7 * v), maxf(1.5, r * 0.15 * (1.0 - v)),
+			Color(col.r, col.g, col.b, 0.8 * alfa))
+
+
+# CORNADA: un cuerno que engancha DE ABAJO ARRIBA y levanta. Lo que la separa de un porrazo es el
+# recorrido: entra bajo, sube y saca. Por eso el cuerno se dibuja como un arco que barre hacia
+# arriba, y el desgarro se queda donde ha salido la punta.
+func _pintar_cornada(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, 0.30, 0.10)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# El barrido: de abajo (y positivo) a arriba, con el cuerno inclinado a un lado u otro.
+	var k: float = clampf(v / 0.30, 0.0, 1.0)
+	var ladeo: float = sin(g * 3.3) * 0.5
+	var subida: float = caja * 1.25
+	var punta: Vector2 = b + Vector2(ladeo * caja * 0.30, subida * (0.45 - k * 0.9))
+	# EL CUERNO: un cono GRUESO y curvado. Se dibuja como una tira de cuadrilateros porque tiene
+	# que combarse; con un huso recto se leia como una estaca clavada, no como un cuerno.
+	# La base es ancha de verdad (0.26 de la caja): un cuerno fino es un pincho, y lo que tiene que
+	# leerse aqui es la masa del bicho detras del golpe.
+	var n: int = 14
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	for i in n + 1:
+		var s: float = float(i) / float(n)          # 0 = punta, 1 = base del cuerno
+		# Curvatura: cerca de la punta va casi recto y hacia la base se tuerce al lado del ladeo.
+		var x: float = ladeo * caja * 0.55 * s * s
+		var y: float = subida * 0.80 * s
+		# Cono con la cintura llena: el (1-s^1.6) engorda el cuerpo y deja la punta afilada.
+		var w: float = caja * 0.26 * (1.0 - pow(s, 1.6)) * (0.35 + 0.65 * s)
+		w = maxf(w, caja * 0.008)
+		izq.append(punta + Vector2(x - w, y))
+		der.append(punta + Vector2(x + w, y))
+	var pts := PackedVector2Array()
+	pts.append_array(izq)
+	for i in range(der.size() - 1, -1, -1):
+		pts.append(der[i])
+	draw_colored_polygon(pts, Color(_HUESO.r, _HUESO.g, _HUESO.b, alfa))
+	pts.append(pts[0])
+	draw_polyline(pts, Color(_ENCIA.r, _ENCIA.g, _ENCIA.b, 0.6 * alfa), maxf(1.0, caja * 0.02), true)
+	# EL DESGARRO en la punta, cuando ya ha enganchado. Se reusa el huso dentado del zarpazo.
+	if k > 0.5:
+		_surco(punta, Vector2(ladeo, -1.0).normalized(), caja * 0.5, caja * 0.05,
+			g * 1.9, alfa * 0.9)
+
+
+# CARGA: la embestida. No se dibuja el bicho -se ve venir su tarjeta-, se dibuja LO QUE DEJA:
+# las lineas de velocidad del trayecto y la polvareda del choque.
+#
+# Es el unico de los cinco que necesita el punto de ORIGEN (por eso no entra en la rama de alta()
+# que hace a = b): las lineas tienen que venir de donde estaba el bicho, no de ningun sitio.
+func _pintar_carga(e: Dictionary) -> void:
+	var a: Vector2 = e["a"]
+	var b: Vector2 = e["b"]
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var dir: Vector2 = (b - a).normalized() if a.distance_to(b) > 1.0 else Vector2.UP
+	var lado := Vector2(-dir.y, dir.x)
+	var claro := Color(minf(1.0, col.r + 0.35), minf(1.0, col.g + 0.33), minf(1.0, col.b + 0.3), 1.0)
+	# LAS LINEAS DE VELOCIDAD, que es lo que lo hace verse VENIR. Empiezan antes del golpe y
+	# SOBREVIVEN un poco al choque: si se cortaran justo al impactar, la carga se perderia --
+	# quedaria solo una polvareda y no se leeria de donde ha salido.
+	var u_lin: float = clampf(t / maxf(dur, 0.01), 0.0, 1.0)
+	var post: float = clampf((t - dur) / 0.16, 0.0, 1.0)   # 0 al tocar, 1 cuando ya se han ido
+	if post < 1.0:
+		for i in 7:
+			var off: float = (float(i) - 3.0) / 3.0
+			var base: Vector2 = b.lerp(a, 0.30 + 0.5 * absf(off)) + lado * off * caja * 0.42
+			draw_line(base, base + dir * caja * (0.35 + 0.4 * u_lin),
+				Color(claro.r, claro.g, claro.b, 0.5 * u_lin * (1.0 - post)),
+				maxf(1.0, caja * 0.035), true)
+	if t < dur:
+		return
+	var v: float = clampf((t - dur) / 0.30, 0.0, 1.0)
+	var alfa: float = 1.0 - v * v
+	if alfa <= 0.0:
+		return
+	# LA POLVAREDA: MUCHAS motas pequeñas y translucidas, no cuatro pelotas. Con circulos gordos
+	# parecian bolas de barro; el polvo se lee por cantidad y por lo tenue, no por tamaño.
+	for i in 18:
+		var ang: float = g + TAU * float(i) / 18.0 + float(i) * 0.7
+		var d := Vector2(cos(ang), sin(ang) * 0.55)
+		# Cada mota con su propio alcance, o salen todas en un anillo perfecto.
+		var alcance: float = 0.35 + 0.9 * v * (0.6 + 0.4 * absf(sin(g * 2.1 + float(i))))
+		# Empujadas EN CONTRA de la marcha: el polvo no avanza con el bicho, se queda y se abre.
+		var p: Vector2 = b + (d * alcance - dir * 0.30 * v) * caja * 0.75
+		draw_circle(p, maxf(1.0, caja * 0.055 * (1.0 - v * 0.5)),
+			Color(claro.r, claro.g, claro.b, 0.30 * alfa))
+	# EL FRENTE del choque: un arco COMBADO perpendicular a la marcha. Va estrecho (0.55 de la
+	# caja): a lo ancho que estaba antes se salia de la tarjeta y se leia como un palo cruzado.
+	var arco := PackedVector2Array()
+	for i in 13:
+		var s: float = float(i) / 12.0 - 0.5
+		# Comba EN EL SENTIDO DE LA MARCHA (+dir por el centro): es un frente empujando hacia
+		# dentro. Combado al reves salia una sonrisa -- con las motas de polvo encima haciendo de
+		# ojos, la tarjeta se leia literalmente como una carita.
+		arco.append(b + lado * s * caja * (0.55 + 0.35 * v)
+			+ dir * (1.0 - 4.0 * s * s) * caja * 0.18 * (1.0 - v))
+	draw_polyline(arco, Color(claro.r, claro.g, claro.b, 0.8 * alfa),
+		maxf(2.0, caja * 0.05 * (1.0 - v * 0.7)), true)
+
+
+# PISOTON: la pata baja y el suelo se abre. Se lee en dos cosas: la GRIETA (lineas quebradas que
+# salen del punto y se estrechan) y una onda baja de polvo que corre a ras.
+#
+# Es de grupo (ver _ESTILOS_DE_GRUPO): si alcanza a tres, es UN pisoton ancho.
+func _pintar_pisoton(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, 0.38, 0.06)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	# El alcance sale de lo ALCANZADO, no del daño: si pisa para tres, la grieta los cruza. El 0.5
+	# es MEDIO ancho del grupo, que es el radio justo para taparlo entero -- con mas, un pisoton a
+	# cuatro llenaba la pantalla de lado a lado.
+	var r: float = _radio_grupo(e, 0.5, 26.0)
+	var claro := Color(minf(1.0, col.r + 0.3), minf(1.0, col.g + 0.28), minf(1.0, col.b + 0.25), 1.0)
+	# LA GRIETA: seis brazos quebrados que salen del pie. Los quiebros salen de la semilla, no de
+	# randf(), o la grieta cambiaria de forma en cada frame.
+	var k: float = clampf(v / 0.22, 0.0, 1.0)
+	for i in 6:
+		var ang: float = g * 1.3 + TAU * float(i) / 6.0
+		var pts := PackedVector2Array()
+		for j in 5:
+			var s: float = float(j) / 4.0
+			# MUY aplastada en vertical: es una grieta EN EL SUELO vista de frente, asi que tiene
+			# que quedarse a ras de la fila. Con poco achatamiento los brazos subian por encima de
+			# las tarjetas y parecian rayos, no suelo roto.
+			var desv: float = sin(g + float(i) * 2.3 + float(j) * 3.7) * 0.30
+			var a2: float = ang + desv * s
+			pts.append(b + Vector2(cos(a2), sin(a2) * 0.26) * r * s * k)
+		# Los grosores van CAPADOS. Salen de 'r', y como 'r' crece con el numero de alcanzados, un
+		# pisoton a cuatro pintaba grietas de 30 px de gruesas: parecian vigas, no grietas.
+		draw_polyline(pts, Color(0.06, 0.05, 0.06, 0.8 * alfa),
+			clampf(r * 0.06 * (1.0 - 0.5 * v), 1.5, 7.0), true)
+	# LA ONDA de polvo, a ras: un anillo bajo que se abre justo hasta el borde de lo alcanzado.
+	_anillo(b, r * (0.35 + 0.75 * v), r * (0.10 + 0.20 * v),
+		Color(claro.r, claro.g, claro.b, 0.45 * alfa), clampf(r * 0.05 * (1.0 - v), 1.5, 5.0))
+	# Y los cascotes que saltan del sitio.
+	for i in 7:
+		var ang2: float = g * 2.7 + TAU * float(i) / 7.0
+		var d := Vector2(cos(ang2), -absf(sin(ang2)) * 0.8)
+		draw_circle(b + d * r * (0.30 + 0.5 * v), clampf(r * 0.05 * (1.0 - v), 1.0, 5.0),
+			Color(0.35, 0.31, 0.28, 0.75 * alfa))
+
+
+# GOLPETAZO: un porrazo ROMO. Ni filo ni diente: un puño de piedra, una maza, una rama. Se dibuja
+# como una estrella de impacto CORTA Y GORDA -lo contrario del destello de la yugular, que es de
+# agujas largas- mas un anillo que se abre. Es el basico de media docena de bichos, asi que va
+# corto y seco a proposito: sale muchas veces por pelea y no puede cansar.
+func _pintar_golpetazo(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, 0.26, 0.09)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var r: float = clampf(float(e["ancho"]) * 0.30, 18.0, 48.0) * (0.75 + 0.5 * clampf(v / 0.2, 0.0, 1.0))
+	var claro := Color(minf(1.0, col.r + 0.42), minf(1.0, col.g + 0.4), minf(1.0, col.b + 0.35), 1.0)
+	# Las puas: cortas, gordas y de largo desigual. La desigualdad sale de la semilla (fija), que
+	# es lo que lo separa de una estrella de dibujo animado.
+	var pts := PackedVector2Array()
+	var n: int = 9
+	for i in n:
+		var ang: float = g + TAU * float(i) / float(n)
+		var largo: float = r * (0.85 + 0.35 * sin(g * 1.7 + float(i) * 2.9))
+		pts.append(b + Vector2(cos(ang), sin(ang) * 0.85) * largo)
+		# El valle entre pua y pua se queda ALTO (0.52): eso es lo que lo hace romo en vez de
+		# afilado. Con el valle bajo salia un sol de puntas finas.
+		var med: float = ang + PI / float(n)
+		pts.append(b + Vector2(cos(med), sin(med) * 0.85) * largo * 0.52)
+	draw_colored_polygon(pts, Color(claro.r, claro.g, claro.b, 0.8 * alfa))
+	# El anillo, APLASTADO y pegado a las puas. Redondo y ancho se leia como una burbuja alrededor
+	# del golpe en vez de como la onda del porrazo.
+	_anillo(b, r * (0.95 + 0.55 * v), r * (0.80 + 0.45 * v) * 0.85,
+		Color(claro.r, claro.g, claro.b, 0.35 * alfa), maxf(1.5, r * 0.08 * (1.0 - v)))
 
 
 func _anillo(c: Vector2, rx: float, ry: float, col: Color, grosor: float) -> void:

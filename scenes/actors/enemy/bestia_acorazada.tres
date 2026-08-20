@@ -39,5 +39,6 @@ drop_piso_debut = 8
 drop_piso_pleno = 11
 al_golpear = [SubResource("SA_san")]
 resist_aturdir = 0.4
+fx_basico = 23
 habilidades = [ExtResource("3_cor"), ExtResource("4_emb")]
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

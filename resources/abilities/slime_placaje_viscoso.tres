@@ -21,4 +21,5 @@ descripcion = "El slime se abalanza y te embiste con su masa gelatinosa, dejánd
 coste_energia = 0.0
 dano_mult = 1.2
 efectos = [SubResource("SA_peg"), SubResource("SA_lento")]
+fx_estilo = 19
 cooldown = 3

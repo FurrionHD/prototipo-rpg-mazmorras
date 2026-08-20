@@ -64,11 +64,17 @@ signal apagar_ahora(bloque: Dictionary)
 #   YUGULAR   un colmillazo seco con un DESTELLO de cuatro puntas encima (la del Rey rata)
 #   CHILLIDO  anillos que se abren desde el lanzador y barren la fila; no muerde a nadie
 #   ZARPAZO   cuatro surcos diagonales de borde dentado, en punta por los dos extremos
+#   PLACAJE   un cuerpo blando que se estampa y se ESCURRE a los lados (los slimes)
+#   CORNADA   un cuerno que engancha de abajo arriba y levanta
+#   CARGA     la embestida: lineas de velocidad y polvareda en el choque
+#   PISOTON   grieta que se abre por el suelo y onda baja de polvo
+#   GOLPETAZO porrazo romo: estrella de impacto corta y gorda (puños de piedra, mazas, ramas)
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
 		MORDISCO = 14, COLMILLAZO = 15, YUGULAR = 16, CHILLIDO = 17,
-		ZARPAZO = 18 }
+		ZARPAZO = 18, PLACAJE = 19, CORNADA = 20, CARGA = 21, PISOTON = 22,
+		GOLPETAZO = 23 }
 
 # Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
@@ -92,6 +98,11 @@ const T_VUELO := {
 	# aterriza), asi que su vuelo es solo el adelanto con el que se abre la boca antes del golpe.
 	Estilo.MORDISCO: 0.05, Estilo.COLMILLAZO: 0.06, Estilo.YUGULAR: 0.07,
 	Estilo.CHILLIDO: 0.14, Estilo.ZARPAZO: 0.06,
+	# Los cinco de cuerpo a cuerpo tampoco viajan: su vuelo es el adelanto con el que empieza el
+	# dibujo. La CARGA lleva el mas largo porque tiene que verse VENIR (las lineas de velocidad
+	# entran antes que el choque) y el PISOTON un pelin, para que la grieta abra con el temblor.
+	Estilo.PLACAJE: 0.05, Estilo.CORNADA: 0.06, Estilo.CARGA: 0.08,
+	Estilo.PISOTON: 0.07, Estilo.GOLPETAZO: 0.05,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -932,8 +943,23 @@ func arrancar_cola() -> float:
 # Los MORDISCOS no entran aqui A PROPOSITO. El Frenesi y la Dentellada real reparten golpe a golpe
 # (cada impacto es una dentellada entera sobre quien le toque, no la salpicadura de una comun), asi
 # que fundirlos en uno se cargaria justo lo que hay que leer: cuantas veces te han mordido y a quien.
+#   PISOTON    una onda por el suelo alcanza a varios y es UNA. Repetida serian tres pisotones
+#              simultaneos, que ademas es imposible: el bicho tiene dos patas.
+
+
+# LOS QUE SON CUERPO A CUERPO. Manda dos cosas a la vez, y por eso esta en UNA lista y no repartido
+# en dos condiciones: estos EMBISTEN (la tarjeta del que pega se lanza contra la del que lo recibe)
+# y estos NO encienden la tarjeta al canalizar (no sale nada de tu mano: vas tu).
+#
+# El MELEE de siempre y el ARRASTRE (un melee que se lleva una llama por delante) entran aqui igual
+# que los de los bichos. Era una cadena de diez `estilo == ...` encadenados con `or`, duplicada al
+# derecho en la embestida y al reves en la canalizacion: cada familia nueva habia que acordarse de
+# tocar las dos, y olvidar la segunda dejaba al bicho embistiendo Y encendido como un mago.
+const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estilo.COLMILLAZO,
+	Estilo.YUGULAR, Estilo.ZARPAZO, Estilo.PLACAJE, Estilo.CORNADA, Estilo.CARGA,
+	Estilo.PISOTON, Estilo.GOLPETAZO]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
-	Estilo.ARRASTRE, Estilo.CHILLIDO]
+	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON]
 
 func _marcar_efectos_de_grupo() -> void:
 	var por_tanda: Dictionary = {}   # "tanda:estilo" -> [indices de la cola]
@@ -1090,14 +1116,11 @@ func _process(delta: float) -> void:
 		#
 		# Cuenta la TANDA y no el indice del evento: si no, un molinete a cuatro bichos gastaba el
 		# cupo con el primer barrido y el atacante se quedaba plantado en el segundo.
-		# ARRASTRE embiste IGUAL que el melee: es un melee, solo que llevandose una llama por delante
-		# (la Llamarada del slime de fuego no se lanza, va con el bicho encima). Los MORDISCOS
-		# tambien: para morderte hay que llegar hasta ti, y de hecho es la embestida la que lleva las
-		# fauces al sitio (por eso su T_VUELO es casi cero).
+		# Quien EMBISTE sale de _CUERPO_A_CUERPO: son los estilos en los que el bicho tiene que
+		# llegar hasta ti (morder, cornear, placar, pisar), y de hecho es la embestida la que lleva
+		# el efecto al sitio -- por eso su T_VUELO es casi cero.
 		if pa != null and is_instance_valid(pa) and pa != pv \
-				and (estilo == Estilo.MELEE or estilo == Estilo.ARRASTRE \
-					or estilo == Estilo.MORDISCO or estilo == Estilo.COLMILLAZO \
-					or estilo == Estilo.YUGULAR or estilo == Estilo.ZARPAZO) \
+				and _CUERPO_A_CUERPO.has(estilo) \
 				and int(ev.get("pos_tanda", i)) < MAX_IMPACTOS_ANIMADOS:
 			var dir: Vector2 = _direccion(pa, pv)
 			var d: float = 0.0
@@ -1117,17 +1140,15 @@ func _process(delta: float) -> void:
 		# color del elemento mientras el conjuro esta en el aire. Los de CAIDA no la encienden: de
 		# un rayo que cae del cielo no sale nada de tu mano.
 		# Los de CAIDA y el SPLAT no la encienden (no sale de tu mano, viene de arriba); el ARCO
-		# tampoco (salta de una victima a otra); ni el ARRASTRE ni el AURA, que son fuego SOBRE el
-		# propio bicho y ya se ven de sobra sin encenderle ademas la tarjeta. Los MORDISCOS tampoco:
-		# ya embisten, y encenderlos ademas los convertiria en un conjuro. El CHILLIDO si se queda
-		# dentro -- el grito SALE del Rey, y que se le encienda la tarjeta mientras la onda viaja es
-		# exactamente lo que se quiere leer.
-		if pa != null and is_instance_valid(pa) and estilo != Estilo.MELEE \
+		# tampoco (salta de una victima a otra); ni el AURA, que es fuego SOBRE el propio bicho y ya
+		# se ve de sobra sin encenderle ademas la tarjeta. Y NINGUNO de los de cuerpo a cuerpo: esos
+		# ya embisten, y encenderlos encima los convertiria en un conjuro.
+		# El CHILLIDO si se queda dentro -- el grito SALE del Rey, y que se le encienda la tarjeta
+		# mientras la onda viaja es exactamente lo que se quiere leer.
+		if pa != null and is_instance_valid(pa) and not _CUERPO_A_CUERPO.has(estilo) \
 				and estilo != Estilo.CAIDA_RAYO and estilo != Estilo.CAIDA_GOTA \
 				and estilo != Estilo.ARCO and estilo != Estilo.SPLAT \
-				and estilo != Estilo.ARRASTRE and estilo != Estilo.AURA \
-				and estilo != Estilo.MORDISCO and estilo != Estilo.COLMILLAZO \
-				and estilo != Estilo.YUGULAR and estilo != Estilo.ZARPAZO \
+				and estilo != Estilo.AURA \
 				and _t >= t_imp - vuelo and _t < t_imp:
 			var k: float = 1.0 - (t_imp - _t) / maxf(vuelo, 0.001)
 			if not aura.has(pa) or k > float(aura[pa][1]):

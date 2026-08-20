@@ -50,6 +50,7 @@ nucleo_chance = 1.0
 drop_piso_debut = 6
 drop_piso_pleno = 6
 al_golpear = [SubResource("SA_peg")]
+fx_basico = 19
 habilidades = [ExtResource("5_apl"), ExtResource("6_esc"), ExtResource("7_mar"), ExtResource("8_inv")]
 prob_habilidad = 0.7
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

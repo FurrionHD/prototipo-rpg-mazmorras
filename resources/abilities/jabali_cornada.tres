@@ -15,4 +15,5 @@ descripcion = "Mete el colmillo por debajo del escudo y levanta. No es el golpe 
 coste_energia = 0.0
 dano_mult = 1.2
 efectos = [SubResource("SA_0")]
+fx_estilo = 20
 cooldown = 3

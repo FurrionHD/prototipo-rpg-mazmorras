@@ -34,5 +34,6 @@ nucleo = ExtResource("7_nuc")
 drop_piso_pleno = 4
 al_golpear = [SubResource("SA_peg"), SubResource("SA_ven")]
 inmune_estados = [0]
+fx_basico = 19
 habilidades = [ExtResource("3_plc"), ExtResource("4_dbe"), ExtResource("5_esc")]
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

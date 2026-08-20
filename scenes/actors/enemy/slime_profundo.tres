@@ -32,5 +32,6 @@ drop_material = ExtResource("5_baba")
 drop_piso_debut = 7
 drop_piso_pleno = 9
 al_golpear = [SubResource("SA_peg")]
+fx_basico = 19
 habilidades = [ExtResource("3_rev"), ExtResource("4_emb")]
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

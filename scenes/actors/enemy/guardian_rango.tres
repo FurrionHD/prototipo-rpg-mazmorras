@@ -40,6 +40,7 @@ nucleo = ExtResource("7_nuc")
 nucleo_chance = 1.0
 drop_piso_debut = 12
 drop_piso_pleno = 12
+fx_basico = 23
 habilidades = [ExtResource("3_cor"), ExtResource("4_pis"), ExtResource("5_bra")]
 prob_habilidad = 0.5
 nivel_que_otorga = 2

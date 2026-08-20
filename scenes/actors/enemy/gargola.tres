@@ -38,5 +38,6 @@ resist_elemental = {
 3: 0.5
 }
 resist_aturdir = 0.7
+fx_basico = 18
 habilidades = [ExtResource("3_pis"), ExtResource("4_cor")]
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

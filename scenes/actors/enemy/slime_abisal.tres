@@ -34,6 +34,7 @@ nucleo = ExtResource("6_nuc")
 drop_piso_debut = 5
 drop_piso_pleno = 6
 al_golpear = [SubResource("SA_peg")]
+fx_basico = 19
 habilidades = [ExtResource("3_rev"), ExtResource("5_pre"), ExtResource("4_tro")]
 prob_habilidad = 0.6
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

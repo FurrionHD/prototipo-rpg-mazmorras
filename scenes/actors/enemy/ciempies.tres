@@ -44,6 +44,7 @@ resist_elemental = {
 1: 1.5
 }
 inmune_estados = [0]
+fx_basico = 15
 habilidades = [ExtResource("3_fre"), ExtResource("4_mor")]
 prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
