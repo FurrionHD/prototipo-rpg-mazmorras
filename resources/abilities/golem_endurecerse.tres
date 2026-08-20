@@ -15,4 +15,5 @@ descripcion = "La arcilla se le cuece por dentro hasta quedar como piedra cocida
 coste_energia = 0.0
 dano_mult = 0.0
 efectos = [SubResource("SA_fort")]
+fx_estilo = 27
 cooldown = 5

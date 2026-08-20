@@ -71,12 +71,19 @@ signal apagar_ahora(bloque: Dictionary)
 #   GOLPETAZO porrazo romo: estrella de impacto corta y gorda (puños de piedra, mazas, ramas)
 #   RAICES    brotan del suelo y suben ramificandose; te dejan ATADO (el estado Enraizado pinta
 #             esta misma forma en la tarjeta, ver CapaEstado._dibujar_raices)
+# Del 25 en adelante, los tres de PONERSE A CUBIERTO. Son la misma mecanica (Fortaleza sobre uno
+# mismo, 0 de daño) con tres formas distintas, porque lo que se cubre no es lo mismo: un bicho con
+# coraza, un coloso de piedra y un muñeco de arcilla.
+#   CAPARAZON elitro negro abombado, con costura central y brillo (el escarabajo)
+#   MURALLA   muro de ladrillo que se levanta delante (el coloso)
+#   ESCUDO    placas que se cierran sobre el (el golem)
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
 		MORDISCO = 14, COLMILLAZO = 15, YUGULAR = 16, CHILLIDO = 17,
 		ZARPAZO = 18, PLACAJE = 19, CORNADA = 20, CARGA = 21, PISOTON = 22,
-		GOLPETAZO = 23, RAICES = 24 }
+		GOLPETAZO = 23, RAICES = 24,
+		CAPARAZON = 25, MURALLA = 26, ESCUDO = 27 }
 
 # Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
@@ -108,6 +115,10 @@ const T_VUELO := {
 	# Las RAICES no las lanza nadie: brotan del suelo. El vuelo es lo que tardan en salir, y va largo
 	# a proposito -- tienen que verse SUBIR, que es lo que dice "te estan atrapando".
 	Estilo.RAICES: 0.16,
+	# Los de ponerse a cubierto no viajan (nacen sobre el propio bicho), pero llevan vuelo LARGO a
+	# proposito: es lo que tardan en cerrarse encima, y eso es justo lo que hay que ver. El muro va
+	# el que mas porque se levanta hilada a hilada.
+	Estilo.CAPARAZON: 0.18, Estilo.MURALLA: 0.24, Estilo.ESCUDO: 0.16,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -974,7 +985,7 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # LOS QUE SE PINTAN SOBRE UNO MISMO. El bicho se echa la cosa ENCIMA (un aura, una coraza, un muro):
 # atacante y victima son el mismo y el dibujo va en SU tarjeta, no en la de enfrente. Los demas
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
-const SOBRE_SI_MISMO := [Estilo.AURA]
+const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES]
 

@@ -75,8 +75,9 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.CAIDA_RAYO, CombatFX.Estilo.CAIDA_GOTA:
 			# Del cielo: el origen es el techo de la pantalla, justo encima del objetivo.
 			e["a"] = Vector2(b.x + randf_range(-14.0, 14.0), FUERA)
-		CombatFX.Estilo.AURA:
-			# No viaja: nace y muere sobre la misma tarjeta.
+		CombatFX.Estilo.AURA, CombatFX.Estilo.CAPARAZON, CombatFX.Estilo.MURALLA, \
+		CombatFX.Estilo.ESCUDO:
+			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA).
 			e["a"] = b
 		CombatFX.Estilo.MORDISCO, CombatFX.Estilo.COLMILLAZO, CombatFX.Estilo.YUGULAR, \
 		CombatFX.Estilo.ZARPAZO, CombatFX.Estilo.PLACAJE, CombatFX.Estilo.CORNADA, \
@@ -175,6 +176,11 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + 0.38   # la grieta abre y la onda tiene que llegar a los lados
 	if es == CombatFX.Estilo.GOLPETAZO:
 		return float(e["dur"]) + 0.26   # un porrazo es seco: entra y se va
+	# Los de ponerse a cubierto AGUANTAN puestos un buen rato: son un buff que dura turnos, y si se
+	# cerraran y desaparecieran en tres cuartos de segundo no se leeria que el bicho se ha protegido.
+	if es == CombatFX.Estilo.CAPARAZON or es == CombatFX.Estilo.MURALLA \
+			or es == CombatFX.Estilo.ESCUDO:
+		return float(e["dur"]) + 0.70
 	if es == CombatFX.Estilo.RAICES:
 		return float(e["dur"]) + 0.34   # brotan y se quedan un momento antes de ceder el relevo
 			# al dibujo del estado, que ya las mantiene puestas mientras dure
@@ -216,6 +222,9 @@ func _draw() -> void:
 			CombatFX.Estilo.PISOTON: _pintar_pisoton(e)
 			CombatFX.Estilo.GOLPETAZO: _pintar_golpetazo(e)
 			CombatFX.Estilo.RAICES: _pintar_raices(e)
+			CombatFX.Estilo.CAPARAZON: _pintar_caparazon(e)
+			CombatFX.Estilo.MURALLA: _pintar_muralla(e)
+			CombatFX.Estilo.ESCUDO: _pintar_escudo(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -1302,6 +1311,155 @@ func _pintar_raices(e: Dictionary) -> void:
 			var d := Vector2(cos(ang), -absf(sin(ang)) * 0.7)
 			draw_circle(suelo + d * caja * 0.35 * u, maxf(1.0, caja * 0.035 * (1.0 - u)),
 				Color(0.32, 0.26, 0.18, 0.7 * alfa))
+
+
+# ============================================================
+#  PONERSE A CUBIERTO (Caparazon, Muralla, Endurecerse)
+# ============================================================
+# Los tres son la MISMA mecanica -Fortaleza sobre uno mismo, 0 de daño-, y por eso los tres pasan
+# por _fx_adorno en vez de por el reparto de golpes (ver combat.gd). Lo que cambia es la FORMA,
+# porque lo que se cubre no es lo mismo: un bicho con coraza, un coloso de piedra y un muñeco de
+# arcilla. Con un aura para los tres, las tres habilidades se veian iguales.
+#
+# El ciclo lo comparten: se cierra encima (0 -> 1 durante el vuelo), aguanta puesto un rato y se
+# desvanece. Devuelve [cerrado 0..1, alfa] o [-1, 0] si ya se ha ido.
+func _cubrirse(e: Dictionary) -> Array:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var cierra: float = clampf(t / maxf(dur, 0.01), 0.0, 1.0)
+	# Entra con un rebasamiento corto: cae encima y asienta, en vez de aparecer.
+	if cierra < 1.0:
+		cierra = 1.0 - pow(1.0 - cierra, 2.2)
+	var fuera: float = clampf((t - dur) / 0.70, 0.0, 1.0)
+	# Aguanta a tope media vida y despues se apaga.
+	var alfa: float = 1.0 if fuera < 0.55 else 1.0 - (fuera - 0.55) / 0.45
+	if alfa <= 0.0:
+		return [-1.0, 0.0]
+	return [cierra, alfa]
+
+
+# CAPARAZON: el elitro del escarabajo. Lo que hay que leer es el ovalo ABOMBADO con la COSTURA
+# central de arriba abajo, las estrias finas a los lados y el brillo -- eso es lo que lo separa de
+# "una mancha negra encima del bicho".
+func _pintar_caparazon(e: Dictionary) -> void:
+	var r0: Array = _cubrirse(e)
+	var k: float = r0[0]
+	if k < 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.9, 50.0, 150.0)
+	# Baja desde arriba al cerrarse: es una tapa, no algo que crece.
+	var c: Vector2 = b + Vector2(0.0, -caja * 0.55 * (1.0 - k))
+	var rx: float = caja * 0.44
+	var ry: float = caja * 0.50
+	# Negro, pero NO negro puro: sobre una tarjeta oscura desaparecia. Y translucido, porque esto va
+	# encima del nombre y de la barra de vida y no puede taparlos -- mismo criterio que CapaEstado.
+	var quitina := Color(0.17, 0.16, 0.19, 0.78 * alfa)
+	var pts := PackedVector2Array()
+	for i in 30:
+		var a: float = TAU * float(i) / 30.0
+		# Mas ancho por arriba que por abajo: un elitro es un huevo, no una elipse.
+		var f: float = 1.0 + 0.10 * cos(a)
+		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry * f))
+	draw_colored_polygon(pts, quitina)
+	# LA COSTURA, de arriba abajo por el centro. Es LO que dice "escarabajo".
+	draw_line(c - Vector2(0.0, ry * 0.92), c + Vector2(0.0, ry * 0.92),
+		Color(0.02, 0.02, 0.03, 0.9 * alfa), maxf(1.5, caja * 0.022), true)
+	# Estrias a los dos lados, paralelas a la costura y curvandose con el cuerpo.
+	for i in 8:
+		var s: float = (float(i % 4) + 1.0) / 5.0 * (1.0 if i < 4 else -1.0)
+		var x: float = rx * s
+		var alto: float = ry * sqrt(maxf(0.0, 1.0 - s * s)) * 0.88
+		draw_line(c + Vector2(x, -alto), c + Vector2(x, alto),
+			Color(0.03, 0.03, 0.04, 0.55 * alfa), maxf(1.0, caja * 0.008), true)
+	# EL BRILLO: dos reflejos alargados arriba a la izquierda. Es lo que lo pone brillante en vez
+	# de mate, y en la referencia es la mitad de la lectura.
+	for i in 2:
+		var off: float = -0.42 + float(i) * 0.16
+		draw_line(c + Vector2(rx * off, -ry * 0.62), c + Vector2(rx * off * 0.7, ry * 0.10),
+			Color(0.85, 0.87, 0.92, (0.5 - 0.18 * float(i)) * alfa), maxf(1.5, caja * 0.02), true)
+	# Reborde claro: es lo que le da el canto duro y lo despega del fondo.
+	draw_polyline(pts, Color(0.55, 0.53, 0.50, 0.75 * alfa), maxf(1.5, caja * 0.016), true)
+
+
+# MURALLA: un muro de LADRILLO que se levanta delante del coloso, hilada a hilada. Lo que lo lee
+# como muro es el APAREJO -las hiladas desplazadas media pieza- y la junta oscura entre ellas, no
+# el color; con los ladrillos alineados en rejilla parece un azulejo.
+func _pintar_muralla(e: Dictionary) -> void:
+	var r0: Array = _cubrirse(e)
+	var k: float = r0[0]
+	if k < 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.95, 50.0, 160.0)
+	var ancho: float = caja * 0.96
+	var alto: float = caja * 0.92
+	var filas: int = 7
+	var h: float = alto / float(filas)
+	var abajo: float = b.y + alto * 0.5
+	var g: float = float(e["semilla"])
+	for f in filas:
+		# SE LEVANTA de abajo arriba: cada hilada entra cuando le toca.
+		var kf: float = clampf((k - float(f) * 0.09) / 0.55, 0.0, 1.0)
+		if kf <= 0.0:
+			continue
+		var y: float = abajo - h * (float(f) + 1.0)
+		# APAREJO A SOGA: las impares van desplazadas MEDIA pieza. Es el escalonado lo que lo
+		# convierte en muro.
+		var w: float = ancho / 3.4
+		var off: float = (w * 0.5) if f % 2 == 1 else 0.0
+		var x: float = b.x - ancho * 0.5 - w + off
+		while x < b.x + ancho * 0.5:
+			var x0: float = maxf(x, b.x - ancho * 0.5)
+			var x1: float = minf(x + w, b.x + ancho * 0.5)
+			if x1 - x0 > 1.0:
+				# Cada pieza con su tono: un muro de ladrillos identicos parece papel pintado.
+				var tono: float = 0.46 + 0.10 * sin(g + float(f) * 2.7 + x * 0.07)
+				var alto_f: float = h * kf
+				# TRANSLUCIDO: un muro opaco tapaba la tarjeta entera durante casi un segundo, o sea
+				# el nombre y la barra de vida. Se tiene que leer el bicho DETRAS del muro.
+				draw_rect(Rect2(x0 + 1.0, y + (h - alto_f) + 1.0, x1 - x0 - 2.0, alto_f - 2.0),
+					Color(tono, tono * 0.97, tono * 0.94, 0.70 * alfa))
+			x += w
+	# La junta se lee sola por el hueco de 2 px entre piezas, pero el muro necesita SOMBRA abajo
+	# para no flotar.
+	draw_line(Vector2(b.x - ancho * 0.5, abajo), Vector2(b.x + ancho * 0.5, abajo),
+		Color(0.05, 0.05, 0.06, 0.75 * alfa), maxf(2.0, caja * 0.03), true)
+
+
+# ESCUDO (Endurecerse): placas que se cierran sobre el golem. No es un muro delante ni una coraza
+# de bicho: es la propia arcilla que se acartona, asi que son PLACAS que encajan unas con otras.
+func _pintar_escudo(e: Dictionary) -> void:
+	var r0: Array = _cubrirse(e)
+	var k: float = r0[0]
+	if k < 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.9, 50.0, 150.0)
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var placas: int = 7
+	for i in placas:
+		var ang: float = g + TAU * float(i) / float(placas)
+		# Vienen de FUERA y encajan hacia dentro: se ve el cierre.
+		var d: float = caja * (0.62 - 0.16 * k)
+		var c: Vector2 = b + Vector2(cos(ang) * d, sin(ang) * d * 0.72)
+		var eje := Vector2(cos(ang), sin(ang) * 0.72).normalized()
+		var lado := Vector2(-eje.y, eje.x)
+		var largo: float = caja * 0.30
+		var ancho2: float = caja * 0.19
+		var tono: float = 0.55 + 0.12 * sin(g * 1.7 + float(i) * 2.1)
+		draw_colored_polygon(PackedVector2Array([
+			c - eje * largo * 0.35 - lado * ancho2, c - eje * largo * 0.35 + lado * ancho2,
+			c + eje * largo * 0.5 + lado * ancho2 * 0.6,
+			c + eje * largo * 0.5 - lado * ancho2 * 0.6,
+		]), Color(col.r * tono + 0.18, col.g * tono + 0.16, col.b * tono + 0.12, 0.9 * alfa))
+	# Y el nucleo endurecido: un halo apretado que dice que lo de dentro se ha vuelto piedra.
+	draw_arc(b, caja * 0.40, 0.0, TAU, 26,
+		Color(0.85, 0.8, 0.7, 0.35 * alfa * k), maxf(1.5, caja * 0.03), true)
 
 
 func _anillo(c: Vector2, rx: float, ry: float, col: Color, grosor: float) -> void:

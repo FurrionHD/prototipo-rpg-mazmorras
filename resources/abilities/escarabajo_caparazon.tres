@@ -15,4 +15,5 @@ descripcion = "Se repliega bajo su coraza y aprieta las placas. Durante un rato,
 coste_energia = 0.0
 dano_mult = 0.0
 efectos = [SubResource("SA_fort")]
+fx_estilo = 25
 cooldown = 5
