@@ -198,6 +198,13 @@ func _vida(e: Dictionary) -> float:
 	if es == CombatFX.Estilo.RAICES:
 		return float(e["dur"]) + 0.34   # brotan y se quedan un momento antes de ceder el relevo
 			# al dibujo del estado, que ya las mantiene puestas mientras dure
+	# EL AURA SE CORTABA A UN TERCIO. Su painter se anima sobre `dur + 0.55` ("un buff tiene que
+	# lucir", dice alli), pero aqui caia en el 0.12 de por defecto: el efecto se retiraba en 0.22
+	# cuando llevaba un 34% de su animacion y todavia estaba al 80% de opacidad, o sea que la
+	# Ignicion del slime de fuego desaparecia de golpe en vez de apagarse. Los dos numeros tienen
+	# que ser EL MISMO.
+	if es == CombatFX.Estilo.AURA:
+		return float(e["dur"]) + 0.55
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
