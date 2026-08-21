@@ -4959,11 +4959,6 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# porque lo necesita la tirada de efectos, que ahora vive fuera (ver el bloque de EFECTOS mas
 	# abajo). Sin golpes se queda en false, que es lo correcto: una habilidad que no pega no critea.
 	var hubo_critico: bool = false
-	# LAS QUE NO PEGAN TAMBIEN SE VEN. Una habilidad con dano_mult 0 no entra en el reparto de golpes
-	# de aqui abajo, o sea que NO PASA POR _fx_golpe EN SU VIDA: sin esto, el Filo emponzoñado se
-	# aplicaria en silencio y sin dibujo. Es la gemela de la llamada que ya hacia la rama enemiga
-	# (ver _fx_adorno y _enemy_use_ability): el mismo agujero, en el otro bando.
-	_fx_adorno(_player, ab, _objetivo())
 	# GOLPES de daño (rango aleatorio; cada tajo con su ESQUIVA y CRITICO propios). Si
 	# efectos_por_golpe, cada tajo que acierta tira los efectos (sangrado 40%/hit).
 	# Las de UTILIDAD PURA (dano_mult 0, p.ej. Canalizar) NO golpean.
@@ -5199,6 +5194,16 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	if ab.provoca_turnos > 0:
 		msg += "  🎯 Provocas %d turnos: los enemigos irán más a por ti." % ab.provoca_turnos
 	_set_log(msg)
+	# LAS QUE NO PEGAN TAMBIEN SE VEN. Una habilidad con dano_mult 0 no entra en el reparto de golpes,
+	# o sea que NO PASA POR _fx_golpe EN SU VIDA: sin esto, el Filo emponzoñado se aplicaria en
+	# silencio y sin dibujo. Es la gemela de la llamada que ya hacia la rama enemiga (ver _fx_adorno
+	# y _enemy_use_ability): el mismo agujero, en el otro bando.
+	#
+	# VA AQUI ABAJO Y NO ARRIBA, y no da igual: el COLOR del adorno sale de lo que el personaje lleve
+	# puesto en ese instante (ver _color_golpe), y la imbuicion se aplica en este mismo bloque de
+	# efectos. Pintandolo antes, el Filo emponzoñado salia de acero -- el bote gris, el liquido gris y
+	# la hoja sin cambiar de color-- porque todavia no se habia envenenado nada.
+	_fx_adorno(_player, ab, _objetivo())
 	_update_hp()
 	_fin_de_eleccion()
 	# A TODOS los alcanzados, no solo al objetivo principal (misma regla que la magia de area).

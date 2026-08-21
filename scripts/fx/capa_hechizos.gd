@@ -2208,7 +2208,10 @@ func _pintar_imbuir_filo(e: Dictionary) -> void:
 	for i in 14:
 		var a: float = TAU * float(i) / 14.0
 		cuerpo.append(bote + Vector2(cos(a) * rb * 0.85, sin(a) * rb))
-	draw_colored_polygon(cuerpo, Color(0.30, 0.36, 0.30, 0.95 * alfa))
+	# El cristal va TEÑIDO de lo que lleva dentro, no gris a secas: un frasco de veneno se ve verde
+	# aunque el vidrio no lo sea. Sin esto el bote se leia como un trozo de piedra al lado de la hoja.
+	var vidrio: Color = Color(0.30, 0.36, 0.34).lerp(col, 0.45)
+	draw_colored_polygon(cuerpo, Color(vidrio.r, vidrio.g, vidrio.b, 0.95 * alfa))
 	# El veneno que le queda dentro, por la mitad de abajo.
 	var dentro := PackedVector2Array()
 	for i in 9:
@@ -2216,7 +2219,7 @@ func _pintar_imbuir_filo(e: Dictionary) -> void:
 		dentro.append(bote + Vector2(cos(a2) * rb * 0.62, sin(a2) * rb * 0.72))
 	draw_colored_polygon(dentro, Color(col.r, col.g, col.b, 0.9 * alfa))
 	draw_line(bote + Vector2(0.0, rb * 0.6), bote + Vector2(0.0, rb * 1.5),
-		Color(0.30, 0.36, 0.30, 0.95 * alfa), maxf(2.0, rb * 0.5), true)
+		Color(vidrio.r, vidrio.g, vidrio.b, 0.95 * alfa), maxf(2.0, rb * 0.5), true)
 
 	# --- EL CHORRO ------------------------------------------------------------------------------
 	# Del cuello del bote a la hoja, ondulando un poco. Solo mientras esta echando.
