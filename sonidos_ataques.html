@@ -1,0 +1,377 @@
+<title>Banco de Sonidos de la Mazmorra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --piedra-0: #E6E7E3;
+  --piedra-1: #DBDCD6;
+  --tinta:    #23262A;
+  --tinta-2:  #55595B;
+  --tinta-3:  #7C8083;
+  --laton:    #9A6A22;
+  --laton-br: #C08A33;
+  --verdin:   #38665A;
+  --linea:    #BFC2BA;
+  --bloque:   #F2F3EF;
+}
+:root:not([data-theme="light"]) {
+  @media (prefers-color-scheme: dark) {
+    --piedra-0: #16181B;
+    --piedra-1: #1D2024;
+    --tinta:    #E4E5E1;
+    --tinta-2:  #A6AAA8;
+    --tinta-3:  #7E8386;
+    --laton:    #D2A052;
+    --laton-br: #E8BC72;
+    --verdin:   #6FA895;
+    --linea:    #34383C;
+    --bloque:   #101215;
+  }
+}
+:root[data-theme="dark"] {
+  --piedra-0: #16181B;
+  --piedra-1: #1D2024;
+  --tinta:    #E4E5E1;
+  --tinta-2:  #A6AAA8;
+  --tinta-3:  #7E8386;
+  --laton:    #D2A052;
+  --laton-br: #E8BC72;
+  --verdin:   #6FA895;
+  --linea:    #34383C;
+  --bloque:   #101215;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--piedra-0);
+  color: var(--tinta);
+  font-family: "Source Sans 3", system-ui, -apple-system, sans-serif;
+  font-size: 16.5px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.envoltorio { max-width: 58rem; margin: 0 auto; padding: 3.5rem 1.5rem 6rem; }
+
+.cabecera { border-bottom: 2px solid var(--tinta); padding-bottom: 1.6rem; margin-bottom: 2rem; }
+.sobretitulo {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--laton); margin: 0 0 0.9rem;
+}
+h1 {
+  font-family: "Zilla Slab", Georgia, serif; font-weight: 700;
+  font-size: clamp(2.1rem, 5.5vw, 3rem); line-height: 1.06;
+  margin: 0 0 0.7rem; text-wrap: balance; letter-spacing: -0.015em;
+}
+.entradilla { font-size: 1.06rem; color: var(--tinta-2); max-width: 40rem; margin: 0; }
+
+.nota {
+  background: var(--piedra-1); border-left: 3px solid var(--laton);
+  padding: 1rem 1.25rem; margin: 1.6rem 0; border-radius: 0 3px 3px 0;
+}
+.nota h3 {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--laton); margin: 0 0 0.5rem; font-weight: 500;
+}
+.nota p { margin: 0 0 0.55rem; font-size: 0.94rem; color: var(--tinta-2); }
+.nota p:last-child { margin-bottom: 0; }
+.nota strong { color: var(--tinta); }
+code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.86em; color: var(--tinta);
+}
+
+.familia { margin-top: 2.8rem; }
+.familia > h2 {
+  font-family: "Zilla Slab", Georgia, serif; font-weight: 600;
+  font-size: 1.45rem; margin: 0 0 1rem; letter-spacing: -0.01em;
+  padding-bottom: 0.55rem; border-bottom: 1px solid var(--linea);
+}
+
+.ficha { margin-bottom: 1.5rem; }
+.ficha-cab {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: 0.35rem 0.75rem; margin-bottom: 0.4rem;
+}
+.ficha-cab h3 {
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 500;
+  font-size: 0.9rem; margin: 0; color: var(--laton-br);
+}
+.dur {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem; font-variant-numeric: tabular-nums;
+  color: var(--verdin); border: 1px solid var(--verdin);
+  padding: 0.05rem 0.4rem; border-radius: 2px; white-space: nowrap;
+}
+.quien { font-size: 0.85rem; color: var(--tinta-3); }
+
+.prompt {
+  background: var(--bloque); border: 1px solid var(--linea);
+  border-left: 3px solid var(--laton-br);
+  padding: 0.8rem 1rem; border-radius: 0 3px 3px 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.83rem; line-height: 1.58; color: var(--tinta);
+  overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+  user-select: all;
+}
+
+footer {
+  margin-top: 3.5rem; padding-top: 1.4rem; border-top: 1px solid var(--linea);
+  font-size: 0.88rem; color: var(--tinta-3);
+}
+footer p { margin: 0 0 0.5rem; }
+</style>
+
+<div class="envoltorio">
+
+<header class="cabecera">
+  <p class="sobretitulo">Especificación de audio · 38 sonidos</p>
+  <h1>Banco de Sonidos de la Mazmorra</h1>
+  <p class="entradilla">Un bloque por fichero, corto y completo. Copiar, pegar, generar. No hay que juntar nada ni editar nada.</p>
+</header>
+
+<div class="nota">
+  <h3>El truco de los gritos</h3>
+  <p>Si le pides <em>«scream»</em> o <em>«shriek»</em> a secas, el generador te devuelve una voz humana casi siempre — y queda mal y suena desagradable. <strong>La forma de evitarlo es no nombrar la voz, sino el material que la produce.</strong></p>
+  <p>Por eso los tres gritos de abajo hablan de metal raspado, vapor a presión o cuerdas graves en vez de decir «grito», y llevan <code>animal, no human voice</code> dentro. Si aun así te sale humano, prueba a quitar el nombre del bicho y dejar solo el material.</p>
+</div>
+
+<div class="nota">
+  <h3>Lo demás</h3>
+  <p><strong>WAV, 44.100 Hz, 16 bits, mono.</strong> El nombre del fichero está en cada ficha.</p>
+  <p><strong>La duración va dentro del prompt</strong>, pero es la del efecto en pantalla: si te lo devuelve más largo, el importador de Godot tiene una casilla <em>Trim</em> que quita el silencio sobrante.</p>
+  <p><strong>Si algún prompt aún no te cabe</strong>, corta por el final: lo último (<code>no music, 0.5s</code>) es lo menos importante.</p>
+</div>
+
+<!-- ROEDORES -->
+<section class="familia">
+  <h2>Roedores y fieras</h2>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_mordisco.wav</h3><span class="dur">0,50 s</span><span class="quien">Rata de mazmorra</span></div>
+    <div class="prompt">Giant rat bite: sharp incisor clack, wet crunch into flesh, quick tear. Small and bright. Dry mono SFX, no reverb, no music, 0.5s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_colmillazo.wav</h3><span class="dur">0,63 s</span><span class="quien">Acechador de las simas</span></div>
+    <div class="prompt">Big panther jaws clamp shut: fangs punch through hide, dull knock on bone, slow gristly drag. Heavy and wet. Dry mono SFX, no reverb, 0.6s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_yugular.wav</h3><span class="dur">0,67 s</span><span class="quien">Rey rata</span></div>
+    <div class="prompt">Killing bite to the throat: one hard snap, bright metallic glint, deep blood gush, thin drip. Final. Dry mono SFX, no reverb, 0.65s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_chillido.wav</h3><span class="dur">0,69 s</span><span class="quien">Rey rata</span></div>
+    <div class="prompt">Rodent squeal, animal, no human voice: thin metal scraped on metal, cracking, then a low pressure wash rolling out. Dry mono SFX, no reverb, 0.7s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_bramido.wav</h3><span class="dur">0,69 s</span><span class="quien">Minotauro</span></div>
+    <div class="prompt">Bull bellow, animal, no human voice: huge chest roar with brass rasp, low vibrato, rolling out wide. Dry mono SFX, no reverb, 0.7s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_alarido.wav</h3><span class="dur">0,69 s</span><span class="quien">Aberración de la sima</span></div>
+    <div class="prompt">Monster wail, no human voice: pressurised steam whistle over detuned low strings, two pitches clashing, spreading out. Dry mono SFX, no reverb, 0.7s.</div>
+  </div>
+</section>
+
+<!-- BESTIAS Y PIEDRA -->
+<section class="familia">
+  <h2>Bestias y criaturas de piedra</h2>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_zarpazo.wav</h3><span class="dur">0,57 s</span><span class="quien">Acechador · Gárgola</span></div>
+    <div class="prompt">Beast claws rake flesh: four staggered fibrous rips like torn canvas, wet edge, small spatter. Dry mono SFX, no reverb, 0.55s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_cornada.wav</h3><span class="dur">0,51 s</span><span class="quien">Jabalí</span></div>
+    <div class="prompt">Boar gores with a tusk: grunt, blunt thud into ribs, then an upward scooping tear as it lifts. Dry mono SFX, no reverb, 0.5s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_cornada_minotauro.wav</h3><span class="dur">0,51 s</span><span class="quien">Minotauro</span></div>
+    <div class="prompt">Minotaur gores with a huge bull horn: deep grunt, massive blunt impact, heavy upward wrench. Dry mono SFX, no reverb, 0.5s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_carga.wav</h3><span class="dur">0,54 s</span><span class="quien">Jabalí</span></div>
+    <div class="prompt">Boar charges and slams: fast hooves, air rush, deep dull boom of mass stopping dead, grit settles. Dry mono SFX, no reverb, 0.55s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_carga_acorazada.wav</h3><span class="dur">0,54 s</span><span class="quien">Bestia acorazada</span></div>
+    <div class="prompt">Armoured beast ploughs through a line: heavy footfalls, then three body collisions in a row, metal plating grinding. Dry mono SFX, no reverb, 0.55s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_picado.wav</h3><span class="dur">0,54 s</span><span class="quien">Gárgola</span></div>
+    <div class="prompt">Stone gargoyle dives: stone wings snap open, falling air, granite slab lands on a body, rock chips. Dry mono SFX, no reverb, 0.55s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_pisoton.wav</h3><span class="dur">0,64 s</span><span class="quien">Jabalí</span></div>
+    <div class="prompt">Boar stamps the ground: solid hoof thud, short dry floor crack, grit raining. Compact, animal-sized. Dry mono SFX, no reverb, 0.65s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_pisoton_sismico.wav</h3><span class="dur">0,64 s</span><span class="quien">Coloso</span></div>
+    <div class="prompt">Stone colossus stamps: massive sub thud, floor fractures, cracks race sideways, low rumble, rubble. Dry mono SFX, no reverb, 0.65s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_pisoton_atronador.wav</h3><span class="dur">0,64 s</span><span class="quien">Minotauro</span></div>
+    <div class="prompt">Minotaur slams a hoof down: colossal low impact, shock racing through the floor, cracking rock, deep rumble. Dry mono SFX, no reverb, 0.65s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_golpetazo.wav</h3><span class="dur">0,44 s</span><span class="quien">Coloso · Escarabajo · Bestia acorazada · Minotauro</span></div>
+    <div class="prompt">Blunt heavy hit: dense dry thud like a sledgehammer into packed clay, short crunch, no ring at all. Dry mono SFX, no reverb, 0.45s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_machaca.wav</h3><span class="dur">0,44 s</span><span class="quien">Gólem de arcilla</span></div>
+    <div class="prompt">Clay golem drops both fists: heavy whoosh, huge dull impact, baked ceramic cracking, crumbs. Dry mono SFX, no reverb, 0.45s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_ramazo.wav</h3><span class="dur">0,44 s</span><span class="quien">Trent</span></div>
+    <div class="prompt">Tree swings a thick branch: timber whoosh with leaves, solid hardwood knock on a body, creak. Dry mono SFX, no reverb, 0.45s.</div>
+  </div>
+</section>
+
+<!-- SLIMES -->
+<section class="familia">
+  <h2>Slimes</h2>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_placaje.wav</h3><span class="dur">0,53 s</span><span class="quien">Slime</span></div>
+    <div class="prompt">Slime body-slam: wet heavy slap like a dense water balloon, squelching squash, droplets flicked off. Dry mono SFX, no reverb, 0.55s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_aplastamiento.wav</h3><span class="dur">0,66 s</span><span class="quien">Rey Slime</span></div>
+    <div class="prompt">Giant slime drops and bursts: falling whistle, huge wet flat impact, skin gives, thick spatter. Dry mono SFX, no reverb, 0.65s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_escupitajo.wav</h3><span class="dur">0,54 s</span><span class="quien">Slime venenoso</span></div>
+    <div class="prompt">Slime spits acid: guttural hawk, wet spurt, small sharp splat, then a fine corrosive sizzle. Dry mono SFX, no reverb, 0.55s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_savia.wav</h3><span class="dur">0,54 s</span><span class="quien">Trent</span></div>
+    <div class="prompt">Tree spits corrosive sap: woody groan of pressure, viscous glob, heavy sticky splat, low fizzing burn. Dry mono SFX, no reverb, 0.55s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_arrastre.wav</h3><span class="dur">0,43 s</span><span class="quien">Slime de fuego</span></div>
+    <div class="prompt">Burning body charges past dragging flame: roaring fire whoosh moving sideways, wet gel underneath, fat-in-pan crackle. Dry mono SFX, no reverb, 0.45s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_vortice.wav</h3><span class="dur">0,51 s</span><span class="quien">Slime abisal</span></div>
+    <div class="prompt">Dark spiral crushes inward: low sucking inhale, hollow deep-sea pressure groan, thin cold shimmer, collapses in. Dry mono SFX, no reverb, 0.5s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_aura.wav</h3><span class="dur">1,07 s</span><span class="quien">Slime de fuego</span></div>
+    <div class="prompt">Body catches fire on itself: soft ignition whump, then a steady low flame roar with crackle. No impact, it just burns. Dry mono SFX, no reverb, 1.05s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_barrido.wav</h3><span class="dur">0,54 s</span><span class="quien">Rey Slime</span></div>
+    <div class="prompt">Wave of caustic slime sweeps sideways across several bodies: broad thick surge, corrosive hiss, wash receding. Dry mono SFX, no reverb, 0.55s.</div>
+  </div>
+</section>
+
+<!-- INSECTOS -->
+<section class="familia">
+  <h2>Insectos</h2>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_ponzona.wav</h3><span class="dur">0,57 s</span><span class="quien">Araña de las simas</span></div>
+    <div class="prompt">Spider fangs stab and inject: dry hollow chitin click, double puncture, thin pressurised squirt with a fizz. Dry mono SFX, no reverb, 0.55s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_telarana.wav</h3><span class="dur">0,94 s</span><span class="quien">Araña de las simas</span></div>
+    <div class="prompt">Spider shoots sticky web: pneumatic thwip, spinning travel, burst of fine elastic snaps pulling taut, tacky creak. Dry mono SFX, no reverb, 0.95s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_enrosque.wav</h3><span class="dur">0,74 s</span><span class="quien">Ciempiés carmesí</span></div>
+    <div class="prompt">Giant centipede coils and squeezes: dry chitin segments sliding, many legs scrabbling, then tight creaking pressure. Dry mono SFX, no reverb, 0.75s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_patas.wav</h3><span class="dur">0,50 s</span><span class="quien">Ciempiés carmesí</span></div>
+    <div class="prompt">Dozens of sharp insect legs rake down a body: dense fast granular pinpricks sweeping downward, faintly wet. Dry mono SFX, no reverb, 0.5s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_rodada.wav</h3><span class="dur">0,63 s</span><span class="quien">Escarabajo de hierro</span></div>
+    <div class="prompt">Armoured beetle balls up and rolls over people: shell clacks shut, grinding rumble crossing, plates knocking, two heavy hits. Dry mono SFX, no reverb, 0.65s.</div>
+  </div>
+</section>
+
+<!-- PONERSE A CUBIERTO -->
+<section class="familia">
+  <h2>Ponerse a cubierto</h2>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_caparazon.wav</h3><span class="dur">1,26 s</span><span class="quien">Escarabajo de hierro</span></div>
+    <div class="prompt">Beetle clamps its shell shut: two chitin plates slide down, solid locking clack, hollow settle. Armour closing, no impact. Dry mono SFX, no reverb, 1.25s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_muralla.wav</h3><span class="dur">1,34 s</span><span class="quien">Coloso</span></div>
+    <div class="prompt">Brick wall rises out of the ground: stone grinding up, six heavy blocks seating one by one, mortar dust, final thud. Dry mono SFX, no reverb, 1.35s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_escudo.wav</h3><span class="dur">1,23 s</span><span class="quien">Gólem de arcilla</span></div>
+    <div class="prompt">Wet clay hardens into stone: soft squelching compacts, turns grinding then ceramic, plates snap into place. Dry mono SFX, no reverb, 1.25s.</div>
+  </div>
+</section>
+
+<!-- RAROS -->
+<section class="familia">
+  <h2>Trent, Gárgola y Aberración</h2>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_raices.wav</h3><span class="dur">0,71 s</span><span class="quien">Trent</span></div>
+    <div class="prompt">Roots burst up through a stone floor and grip: soil cracks open, creaking woody growth with branching snaps, then holds tight. Dry mono SFX, no reverb, 0.7s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_mirada_petrea.wav</h3><span class="dur">0,80 s</span><span class="quien">Gárgola</span></div>
+    <div class="prompt">Petrifying gaze: grinding stone eyelids part, a low sub pulse travels outward, cold mineral shimmer, skin crackles to rock. Dry mono SFX, no reverb, 0.8s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_mirada_vacio.wav</h3><span class="dur">0,80 s</span><span class="quien">Aberración de la sima</span></div>
+    <div class="prompt">Gaze of dread, no voice: wet lid peeling open, distant subsonic drone, detuned shimmer that will not settle. Dry mono SFX, no reverb, 0.8s.</div>
+  </div>
+
+  <div class="ficha">
+    <div class="ficha-cab"><h3>sfx_latigazo.wav</h3><span class="dur">0,54 s</span><span class="quien">Aberración de la sima</span></div>
+    <div class="prompt">Wet tentacle lashes from far off: long rubbery whip whoosh, sharp wet slap, tacky peel off the skin, twice. Dry mono SFX, no reverb, 0.55s.</div>
+  </div>
+</section>
+
+<footer>
+  <p>Duraciones medidas sobre el tiempo de vuelo y la cola de cada efecto en <code>capa_hechizos.gd</code>, a velocidad x1. A x2 el juego reproduce lo mismo en la mitad de tiempo, así que conviene que el golpe fuerte del sonido esté al principio.</p>
+  <p>El Brote del Rey Slime no está: invoca en vez de golpear y necesita su propio sonido de gestación.</p>
+</footer>
+
+</div>
