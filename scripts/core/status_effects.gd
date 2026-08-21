@@ -258,7 +258,10 @@ static var _defs: Dictionary = {
 	# quede colgada la pelea entera si no llega a gastarse.
 	Id.ESCOLTA: {   # ATAQUE DE SEGUIMIENTO: pegas detras de cada ataque de un aliado
 		"id": Id.ESCOLTA, "nombre": "Escolta", "icono": "🗡", "color": Color(0.9, 0.8, 0.55),
-		"turns": 30, "usos": 5, "seguimiento_pct": 0.5,
+		# El 0.75: con el medio golpe de antes, entrar detras no se notaba en la barra de nadie. Con
+		# dos armas ademas entra por las dos (la segunda a DUAL_SEGUIMIENTO_MULT), asi que una entrada
+		# con dual sale por algo mas de un ataque entero.
+		"turns": 30, "usos": 5, "seguimiento_pct": 0.75,
 		"descripcion": "Dejas de ir por tu cuenta: entras justo detrás del que abre el hueco.",
 	},
 
@@ -692,7 +695,11 @@ static func aplicar_a(c, estados: Array) -> void:
 			# sola aplicacion; en los "independent" (Sangrado, Pegajoso) cada dict es SU instancia y
 			# entra con un stack, que es exactamente como se guardo.
 			maxi(1, int(d.get("stacks", 1))), false, -1, float(d.get("mult", 0.0)),
-			float(d.get("escala", 1.0)))
+			# Las CARGAS que le quedaban (la Escolta a medio gastar). Sin esto, el estado volvia de
+			# cada pelea con las del catalogo: entrabas con cinco entradas por muchas que hubieras
+			# usado. Un dict de antes de que existieran no la trae y se queda en -1 = las del
+			# catalogo, que para el resto de estados es lo correcto.
+			float(d.get("escala", 1.0)), int(d.get("usos", -1)))
 
 
 # null si el id ya no existe en el catalogo (un estado retirado entre versiones: mejor perderlo que

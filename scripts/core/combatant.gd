@@ -691,9 +691,16 @@ func current_hand_slot() -> String:
 # turns < 0 = duracion base del def; magnitude < 0 = magnitud por defecto del def.
 # stack_cap (>=0) = tope de stacks que ESTA aplicacion puede alcanzar (habilidades/
 # enemigos flojos capan a nivel bajo; ataques especiales, mas alto). -1 = tope del def.
+# 'usos' = las CARGAS que le quedan a un estado que va por veces y no por turnos (la Escolta). -1 =
+# las que diga el catalogo, que es lo normal al echarlo por primera vez.
+#
+# EXISTE PARA LA VUELTA DE UNA PELEA. Los estados salen del combate serializados (con sus cargas ya
+# gastadas dentro) y vuelven a entrar POR AQUI, asi que sin este parametro la instancia se creaba
+# con las del catalogo: gastabas una entrada de la Escolta, terminabas la pelea y en la siguiente
+# volvias a tener las cinco.
 func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		stacks_add: int = 1, refresh_all: bool = false, stack_cap: int = -1,
-		mult_override: float = 0.0, escala: float = 1.0) -> void:
+		mult_override: float = 0.0, escala: float = 1.0, usos: int = -1) -> void:
 	var d: Dictionary = StatusEffects.def(id)
 	if d.is_empty():
 		return
@@ -754,6 +761,8 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		ni.magnitude = magnitude
 		ni.mult_override = mult_override
 		ni.escala = escala
+		if usos >= 0:
+			ni.usos = usos
 		statuses.append(ni)
 		_invalidar_hab()
 		print("[estado] %s recibe %s: +1 stack (%.2f/turno c/u, %d turnos) -> %d stacks" % [
@@ -765,6 +774,10 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		if e.id() == id:
 			e.turns = turns   # resetea la duracion
 			e.fresh = true    # refrescar = como recien aplicado (se salta el proximo decremento)
+			# Volver a echarlo REPONE las cargas (vuelves a untar el filo, vuelves a tener cinco
+			# entradas); pero rehidratando desde un save manda lo que traiga el dict, o la pelea
+			# siguiente empezaria con el estado lleno otra vez.
+			e.usos = usos if usos >= 0 else int(e.d.get("usos", 0))
 			e.magnitude = maxf(e.magnitude, magnitude)   # sube al mas fuerte
 			# Nivel de stat: se queda con el MAS FUERTE (mas lejos de 1.0).
 			if mult_override > 0.0 and absf(mult_override - 1.0) > absf(e.base_stat_mult() - 1.0):
@@ -780,6 +793,8 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	inst.magnitude = magnitude
 	inst.mult_override = mult_override
 	inst.escala = escala
+	if usos >= 0:
+		inst.usos = usos
 	statuses.append(inst)
 	_al_poner_status(inst)
 	_invalidar_hab()
@@ -1247,6 +1262,24 @@ func enraizado() -> bool:
 		if bool(e.d.get("enraiza", false)):
 			return true
 	return false
+
+
+# ¿Puede llegar a dar un golpe AHORA MISMO? Junta las dos cosas que se lo impiden:
+#   - lo que te quita el turno: Aturdido y Miedo (los dos llevan is_stun)
+#   - lo que te clava al suelo: Enraizado
+# El SILENCIO no cuenta: te corta las jugadas, no el brazo, y el golpe basico te lo deja.
+#
+# No lo usan los turnos normales (el del jugador y el del bicho se apoyan en el flag que devuelve
+# tick_statuses, que es donde ademas se tira la disipacion del Miedo). Esto es para los golpes que
+# saltan FUERA de tu turno -- hoy el ataque de seguimiento de la Escolta --, que no pasan por ningun
+# tick y por tanto no se enteraban de nada: entrabas a pegar aturdido, con miedo o enraizado.
+func puede_atacar() -> bool:
+	if enraizado():
+		return false
+	for e in statuses:
+		if e.is_stun():
+			return false
+	return true
 
 # Multiplicador de la prob. de aturdir que RECIBE este combatiente. Lo SUBE el estado RAYO
 # (x1.5) y lo BAJA la afinidad de Rayo (cuerpo imbuido: resistente al aturdimiento, no inmune).
