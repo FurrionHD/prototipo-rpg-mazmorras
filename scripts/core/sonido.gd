@@ -25,6 +25,24 @@ const VOCES := 12
 
 const CARPETA := "res://audio/sfx/"
 
+# LOS VOLUMENES QUE SE PUEDEN TOCAR. La clave es la que se guarda en disco y la que pide la UI; el
+# valor, el bus del AudioServer. "general" es el Master, o sea que baja TODO de golpe -- los otros
+# dos cuelgan de el y se multiplican con el, que es justo lo que espera cualquiera.
+#
+# MUSICA todavia no la usa nadie (no hay musica), y esta a proposito: el dia que la haya, el mando
+# ya existe y viene con el volumen que el jugador dejo puesto.
+#
+# LOS BUSES VIVEN EN default_bus_layout.tres, en la raiz, y NO hay ni una linea en project.godot que
+# lo diga: esa ruta es la que Godot busca por defecto, asi que al importar BORRA el ajuste por
+# redundante. Si algun dia el fichero se mueve o se renombra, los buses desaparecen sin avisar y
+# esto se queda mudo -- get_bus_index devolveria -1 para SFX y MUSICA.
+const BUSES := {"general": "Master", "efectos": "SFX", "musica": "MUSICA"}
+
+# Los ajustes son de la MAQUINA, no de la partida: se quedan igual cambies de ranura o de mundo, y
+# por eso no viajan en el save. Mismo sitio y mismo formato que user://identidad.cfg.
+const RUTA_AJUSTES := "user://ajustes.cfg"
+const SECCION_VOL := "volumen"
+
 # LAS HABILIDADES QUE TIENEN SONIDO PROPIO. Todo lo que no este aqui suena por su estilo, que es lo
 # normal: una rata muerde igual le salga la tecnica o no.
 #
@@ -66,7 +84,13 @@ var _mudos: Dictionary = {}            # avisos ya dados, para no repetirlos cad
 var disparos: int = 0
 
 
+# Cuanto suena cada cosa, de 0.0 (mudo) a 1.0 (a tope). Se lee con volumen() y se toca con
+# fijar_volumen(); esto es solo el respaldo en memoria de lo que hay en disco.
+var _vol: Dictionary = {}
+
+
 func _ready() -> void:
+	_cargar_ajustes()
 	for i in VOCES:
 		var p := AudioStreamPlayer.new()
 		p.bus = "SFX"
@@ -97,11 +121,71 @@ func golpe(clave: String, estilo: int, peso: float = 1.0, crit: bool = false) ->
 	disparos += 1
 
 
+# UNA MUESTRA para oir como ha quedado el volumen que acabas de mover. Sin ella hay que salir del
+# menu y buscarse una pelea para enterarte de si te has pasado.
+#
+# Suena el mordisco porque es corto, seco y esta siempre (es un generico de familia, no depende de
+# que se haya elegido ninguna version). Se salta el antisolape a proposito: mover el mando dos veces
+# seguidas tiene que contestar las dos.
+func muestra() -> void:
+	_ultimo.erase(CARPETA + "sfx_mordisco.wav")
+	golpe("", CombatFX.Estilo.MORDISCO, 1.0, false)
+
+
 # La clave que corresponde a un indice del paquete de red. 0 = ninguna (suena el generico del
 # estilo). Fuera de rango tambien devuelve "": un compañero con una version mas nueva puede mandar
 # un indice que aqui todavia no existe, y eso tiene que quedarse en un sonido generico, no reventar.
 func clave_de(i: int) -> String:
 	return String(CLAVES[i - 1]) if i > 0 and i <= CLAVES.size() else ""
+
+
+# ============================================================
+#  VOLUMENES (los ajustes del jugador)
+# ============================================================
+
+# Lo que tiene puesto ese mando, de 0.0 a 1.0. Una clave que no existe devuelve 1.0 en vez de 0.0:
+# equivocarse de nombre tiene que sonar raro, no dejar el juego mudo sin decir nada.
+func volumen(clave: String) -> float:
+	return float(_vol.get(clave, 1.0))
+
+
+# Mueve un mando y se oye YA. NO guarda en disco: arrastrando un slider esto se llama en cada pixel
+# y serian cien escrituras por gesto. Guardar es cosa de guardar_ajustes(), al soltar.
+func fijar_volumen(clave: String, v: float) -> void:
+	if not BUSES.has(clave):
+		return
+	_vol[clave] = clampf(v, 0.0, 1.0)
+	_aplicar(clave)
+
+
+func guardar_ajustes() -> void:
+	var cfg := ConfigFile.new()
+	for clave in BUSES:
+		cfg.set_value(SECCION_VOL, clave, volumen(clave))
+	var err: int = cfg.save(RUTA_AJUSTES)
+	if err != OK:
+		push_warning("[sonido] no se pudo guardar %s (error %d)" % [RUTA_AJUSTES, err])
+
+
+func _cargar_ajustes() -> void:
+	var cfg := ConfigFile.new()
+	var err: int = cfg.load(RUTA_AJUSTES)
+	if err != OK and err != ERR_FILE_NOT_FOUND:
+		push_warning("[sonido] no se pudo leer %s (error %d): volumenes por defecto" % [RUTA_AJUSTES, err])
+	for clave in BUSES:
+		_vol[clave] = clampf(float(cfg.get_value(SECCION_VOL, clave, 1.0)), 0.0, 1.0)
+		_aplicar(clave)
+
+
+func _aplicar(clave: String) -> void:
+	var i: int = AudioServer.get_bus_index(String(BUSES[clave]))
+	if i < 0:
+		return
+	var v: float = volumen(clave)
+	# El MUTE aparte del volumen: linear_to_db(0.0) es -inf, y aunque el bus lo aguanta, dejarlo
+	# apagado de verdad es mas honesto que mandarle un numero infinito.
+	AudioServer.set_bus_mute(i, v <= 0.0)
+	AudioServer.set_bus_volume_db(i, linear_to_db(maxf(v, 0.0001)))
 
 
 # El peso (0.2 flojo .. 1.0 lleno .. 1.5 gordo) a decibelios, en dos tramos rectos. Nada de

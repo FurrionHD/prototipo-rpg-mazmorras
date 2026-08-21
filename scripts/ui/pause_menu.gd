@@ -13,9 +13,14 @@
 extends CanvasLayer
 
 const MENU_PRINCIPAL := "res://scenes/ui/main_menu.tscn"
+const AJUSTES := preload("res://scripts/ui/settings_menu.gd")
 
 var _root: Control = null
 var _aviso: Label = null
+# El menu de siempre y el de ajustes son hermanos y se turnan: se ve uno o se ve el otro, nunca los
+# dos. Asi los ajustes no heredan el ancho ni el alto de la lista de botones.
+var _menu: Control = null
+var _ajustes: Control = null
 
 
 func _ready() -> void:
@@ -37,6 +42,7 @@ func _ready() -> void:
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(center)
+	_menu = center
 
 	var panel := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
@@ -79,6 +85,9 @@ func _ready() -> void:
 	var en_mundo_compartido: bool = Mundos.abierto != "" or (Net.activo and Net.mundo_compartido)
 
 	_boton(vb, "Reanudar", _cerrar)
+	# AJUSTES va aqui arriba, lejos de los de guardar: entre "Guardar" y "Guardar y salir" era un
+	# boton mas donde ya se pulsa deprisa y sin mirar.
+	_boton(vb, "Ajustes", _abrir_ajustes)
 	# EL PANEL DE LAN es el de hostear/unirse por IP a mano, y dentro de un mundo compartido no pinta
 	# nada: ya estas conectado, y la partida esta abierta de base. Solo se ofrece jugando a solas.
 	# (El panel y el modo LAN de siempre siguen existiendo: lo que desaparece es la puerta.)
@@ -102,11 +111,18 @@ func _ready() -> void:
 		n.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
 		vb.add_child(n)
 
+	# Los ajustes se montan ya, no la primera vez que se abren: asi el panel existe desde el
+	# principio y no hay que preguntarse si esta creado cada vez que se pulsa el boton.
+	_ajustes = AJUSTES.new()
+	_ajustes.visible = false
+	_ajustes.cerrado.connect(_cerrar_ajustes)
+	_root.add_child(_ajustes)
+
 
 # 420x56 y no 260 de ancho por lo alto que salga: con el pulgar, un boton de 31 px de alto es una
-# loteria. Con los CINCO de un jugador (reanudar, LAN, guardar, guardar y salir, salir sin guardar)
-# son ~420 px de alto contando titulo y nota, que entran de sobra en los 720 de referencia; en un
-# mundo compartido son tres y sobra aire.
+# loteria. Con los SEIS de un jugador (reanudar, ajustes, LAN, guardar, guardar y salir, salir sin
+# guardar) son ~480 px de alto contando titulo y nota, que entran en los 720 de referencia; en un
+# mundo compartido son cuatro y sobra aire.
 const ANCHO_BOTON := 420.0
 const ALTO_BOTON := 56.0
 
@@ -124,6 +140,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	if not event.is_action_pressed(&"cancelar"):
+		return
+	# ESC dentro de los AJUSTES vuelve a la pausa, no cierra la pausa entera: si no, para salir de
+	# los ajustes habria que reabrir el menu.
+	if _root.visible and _ajustes != null and _ajustes.visible:
+		_ajustes.cerrar()
+		get_viewport().set_input_as_handled()
 		return
 	if not alternar():
 		return
@@ -152,10 +174,23 @@ func _set_open(abierto: bool) -> void:
 	Game.fijar_modal(Game.Modal.SISTEMA, self, abierto)
 	if abierto:
 		_aviso.text = ""
+	# Cerrando con los ajustes delante (el engranaje del HUD, por ejemplo): se cierran ellos primero
+	# -- que es lo que guarda lo tocado -- y la pausa vuelve a empezar por su lista de botones.
+	elif _ajustes != null and _ajustes.visible:
+		_ajustes.cerrar()
 
 
 func _cerrar() -> void:
 	_set_open(false)
+
+
+func _abrir_ajustes() -> void:
+	_menu.visible = false
+	_ajustes.abrir()
+
+
+func _cerrar_ajustes() -> void:
+	_menu.visible = true
 
 
 # Abre el panel de conexion LAN (multiplayer_panel.gd, hermano nuestro colgado del jugador).
