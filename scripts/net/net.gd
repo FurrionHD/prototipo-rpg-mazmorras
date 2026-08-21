@@ -35,7 +35,10 @@ const MAX_JUGADORES := 4
 # cliente (ver _PLAZO_SALUDO).
 # 3: el paquete de impactos estrena los bits 20-30 con el sonido de la habilidad. Un build del 2
 #    los lee como cero y oye el generico del estilo -- no revienta, pero se oye otra pelea.
-const PROTOCOLO := 3
+# 4: el estilo pasa de 6 a 8 bits (cabian 64 y hacen falta 104: cada arma y cada habilidad del
+#    jugador tienen dibujo propio). Peso, solo_dibujo y sonido se corren a la izquierda, asi que un
+#    build del 3 lee MAL los cuatro campos: ve otro efecto, otro peso y otro sonido.
+const PROTOCOLO := 4
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

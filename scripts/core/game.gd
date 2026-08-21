@@ -6043,6 +6043,10 @@ func _hand_from(w: WeaponData, slot: String, pj: PersonajeData = null) -> Dictio
 		# Energia que repone el basico con esta arma (0 = default global de combate). Las pesadas
 		# la suben (pegan menos veces). No la escala tier/rareza: es identidad del arma, no potencia.
 		"energia_regen": w.energia_ataque,
+		# QUE GESTO hace al pegar. Va POR MANO y no en el Combatant a secas porque en dual cada mano
+		# lleva su arma: con una daga y una espada corta, cada golpe tiene que verse el suyo. Lo
+		# reparte _apply_hand cuando toca esa mano (ver Combatant.advance_hand).
+		"fx": int(CombatFX.FX_ARMA.get(int(w.tipo), CombatFX.Estilo.MELEE)),
 	}
 
 

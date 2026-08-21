@@ -643,6 +643,10 @@ func _apply_hand(i: int) -> void:
 	dano_tipo = h["dano_tipo"]
 	aturdir_base = h["aturdir_base"]
 	energia_regen = h.get("energia_regen", 0.0)
+	# El GESTO del arma que lleva esta mano. Es el mismo campo por el que los bichos dicen como
+	# pegan, asi que el basico del jugador sale dibujado por el mismo camino que el de la rata
+	# (ver combat.gd._estilo_de_habilidad). Sin arma (-1) se queda como estaba: MELEE.
+	fx_basico = int(h.get("fx", -1))
 
 # Pasa a la siguiente mano (dual-wield: alterna principal <-> secundaria por golpe).
 # Con 1 mano no hace nada.

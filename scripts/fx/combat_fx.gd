@@ -49,10 +49,11 @@ signal apagar_ahora(bloque: Dictionary)
 # que lo recibe. Todos los demas son de hechizo y NINGUNO embiste -- el que lanza se queda en su
 # sitio y lo que viaja es el efecto, que es lo que diferencia lanzar un conjuro de dar un tajo.
 #
-# Caben SESENTA Y CUATRO: en la red viajan en 6 bits (ver _apuntar_impacto_red en combat.gd). Eran
-# ocho y tres bits, luego dieciseis y cuatro al añadir la EXPLOSION, y seis al entrar los mordiscos.
-# Hay que tocar las dos puntas a la vez o el compañero ve un efecto distinto al tuyo (y sin dar
-# ningun error).
+# Caben DOSCIENTOS CINCUENTA Y SEIS: en la red viajan en 8 bits (ver _apuntar_impacto_red en
+# combat.gd). Eran ocho y tres bits, luego dieciseis y cuatro al añadir la EXPLOSION, seis al entrar
+# los mordiscos y ocho al darle dibujo propio a cada arma y cada habilidad del jugador. Hay que
+# tocar las dos puntas a la vez o el compañero ve un efecto distinto al tuyo (y sin dar ningun
+# error).
 # Del 9 en adelante son los de los ENEMIGOS (los pide cada habilidad por su fx_estilo):
 #   SPLAT   cuerpo que cae gordo y redondo y se APLASTA al tocar (Reventon, Aplastamiento)
 #   ESCUPITAJO  bola pequeña con PARABOLA (Escupitajo toxico, Rociada, Escision)
@@ -85,6 +86,21 @@ signal apagar_ahora(bloque: Dictionary)
 #   RODADA    la carga, pero GIRANDO: una bola con estelas de rotacion
 #   MIRADA    un OJO que se abre en el lanzador y suelta una onda hacia el objetivo
 #   LATIGAZO  verdugones de azote que aparecen SOBRE EL GOLPEADO
+#
+# Y DEL 35 EN ADELANTE, LO DEL JUGADOR. Hasta ahora TODO lo suyo iba con MELEE, o sea sin dibujo:
+# daba lo mismo el arma que llevaras y la habilidad que gastaras, era el mismo empujon de tarjeta.
+# Cada arma tiene su gesto (lo pide su tipo, ver FX_ARMA) y cada habilidad puede pedir el suyo por
+# fx_estilo, igual que hacen los bichos.
+#
+# EL COLOR LO PONE LA IMBUICION. Estos se pintan en ACERO cuando no hay elemento (ver _color_golpe
+# en combat.gd), y cuando lo hay se tiñen: el mismo corte sale verde con veneno y naranja con fuego.
+# Por eso los painters dibujan la hoja en gris metal y usan el color SOLO en el filo y la estela --
+# si tiñeran el arma entera, un tajo envenenado parecia una espada de plastico verde.
+#   DAGA_CORTE   corte corto y rapido, de dos filos cruzados (el basico de la daga)
+#   DAGA_RAFAGA  dos cortes seguidos y nerviosos, el segundo cruzando al primero
+#   PUNALADA     APUÑALAMIENTO: la hoja entra recta y se hunde. No corta, atraviesa
+#   IMBUIR_FILO  adorno sobre uno mismo: la hoja se moja y gotea (Filo emponzoñado)
+#   DESVANECER   el corte sale de una sombra que se deshace (Desaparecer)
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -93,7 +109,28 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		GOLPETAZO = 23, RAICES = 24,
 		CAPARAZON = 25, MURALLA = 26, ESCUDO = 27,
 		PONZONA = 28, TELARANA = 29, ENROSQUE = 30, PATAS = 31, RODADA = 32,
-		MIRADA = 33, LATIGAZO = 34 }
+		MIRADA = 33, LATIGAZO = 34,
+		DAGA_CORTE = 35, DAGA_RAFAGA = 36, PUNALADA = 37, IMBUIR_FILO = 38,
+		DESVANECER = 39 }
+
+
+# QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
+#
+# Vive aqui y no en weapon_data.gd porque es una tabla de PRESENTACION, y aqui estan los estilos:
+# el .tres de un arma habla de daño, alcance y durabilidad, no de como se ve el mandoble.
+#
+# El que no este en la tabla se queda en MELEE (el empujon de tarjeta de siempre), asi que un arma
+# nueva no revienta -- simplemente no dibuja hasta que se le ponga aqui.
+const FX_ARMA := {
+	1: Estilo.DAGA_CORTE,   # DAGA
+}
+
+
+# LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
+# COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan
+# (ver _color_golpe en combat.gd), y sin esta lista los tajos salian del rojo de bicho.
+const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
+	Estilo.IMBUIR_FILO, Estilo.DESVANECER]
 
 # Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
@@ -136,6 +173,15 @@ const T_VUELO := {
 	# La MIRADA es de las pocas que de verdad VIAJA: el ojo se abre en el lanzador y la onda cruza,
 	# asi que necesita vuelo para que se vea salir. El LATIGAZO va con el golpe.
 	Estilo.MIRADA: 0.26, Estilo.LATIGAZO: 0.06,
+	# LO DEL JUGADOR. Ninguno viaja: la tarjeta embiste y el arma llega con ella, asi que el vuelo es
+	# solo el ADELANTO con el que empieza el gesto. La daga los tiene CORTOS a proposito -- es un arma
+	# rapida, y con adelantos largos el corte parecia un mandoble a camara lenta.
+	#
+	# La PUÑALADA lleva algo mas: la hoja se arma antes de entrar, y ese instante de espera es lo que
+	# la hace leerse como un golpe apuntado y no como un corte mas.
+	Estilo.DAGA_CORTE: 0.04, Estilo.DAGA_RAFAGA: 0.05, Estilo.PUNALADA: 0.09,
+	# IMBUIR_FILO no viaja (te la echas encima) y va largo: hay que ver la hoja mojarse.
+	Estilo.IMBUIR_FILO: 0.20, Estilo.DESVANECER: 0.10,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1009,7 +1055,10 @@ func arrancar_cola() -> float:
 const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estilo.COLMILLAZO,
 	Estilo.YUGULAR, Estilo.ZARPAZO, Estilo.PLACAJE, Estilo.CORNADA, Estilo.CARGA,
 	Estilo.PISOTON, Estilo.GOLPETAZO, Estilo.PONZONA, Estilo.ENROSQUE, Estilo.PATAS,
-	Estilo.RODADA, Estilo.LATIGAZO]
+	Estilo.RODADA, Estilo.LATIGAZO,
+	# Los del jugador van aqui por lo mismo que los mordiscos: para dar un tajo hay que LLEGAR, y es
+	# la embestida la que lleva el arma al sitio. El IMBUIR_FILO no, que es sobre uno mismo.
+	Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.DESVANECER]
 # NOTA: la CARGA esta en _ESTILOS_DE_GRUPO y aun asi embiste. No es contradictorio: embestir es del
 # ATACANTE (su tarjeta se lanza) y agruparse es del DIBUJO (uno solo para todo lo alcanzado).
 
@@ -1017,7 +1066,8 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # LOS QUE SE PINTAN SOBRE UNO MISMO. El bicho se echa la cosa ENCIMA (un aura, una coraza, un muro):
 # atacante y victima son el mismo y el dibujo va en SU tarjeta, no en la de enfrente. Los demas
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
-const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO]
+const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO,
+	Estilo.IMBUIR_FILO]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA]

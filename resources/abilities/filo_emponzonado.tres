@@ -9,6 +9,7 @@ precio = 2500
 coste_energia = 36
 cooldown = 5
 dano_mult = 0.0
+fx_estilo = 38
 imbue_estado = 0
 imbue_usos = 5
 imbue_prob = 0.6

@@ -76,12 +76,15 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 			# Del cielo: el origen es el techo de la pantalla, justo encima del objetivo.
 			e["a"] = Vector2(b.x + randf_range(-14.0, 14.0), FUERA)
 		CombatFX.Estilo.AURA, CombatFX.Estilo.CAPARAZON, CombatFX.Estilo.MURALLA, \
-		CombatFX.Estilo.ESCUDO:
-			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA).
+		CombatFX.Estilo.ESCUDO, CombatFX.Estilo.IMBUIR_FILO:
+			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA, y el
+			# picaro se unta el filo).
 			e["a"] = b
 		CombatFX.Estilo.MORDISCO, CombatFX.Estilo.COLMILLAZO, CombatFX.Estilo.YUGULAR, \
 		CombatFX.Estilo.ZARPAZO, CombatFX.Estilo.PLACAJE, CombatFX.Estilo.CORNADA, \
-		CombatFX.Estilo.PISOTON, CombatFX.Estilo.GOLPETAZO:
+		CombatFX.Estilo.PISOTON, CombatFX.Estilo.GOLPETAZO, \
+		CombatFX.Estilo.DAGA_CORTE, CombatFX.Estilo.DAGA_RAFAGA, \
+		CombatFX.Estilo.PUNALADA, CombatFX.Estilo.DESVANECER:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -205,6 +208,22 @@ func _vida(e: Dictionary) -> float:
 	# que ser EL MISMO.
 	if es == CombatFX.Estilo.AURA:
 		return float(e["dur"]) + 0.55
+	# LAS DEL JUGADOR. Los numeros tienen que ser LOS MISMOS que usan sus painters para dividir la
+	# coleta, por lo que le paso al aura ahi arriba.
+	#
+	# La daga va CORTA a proposito: es el arma rapida del juego, y una coleta larga la hacia parecer
+	# pesada. La RAFAGA todavia menos, que son dos tajos seguidos y con 0.26 el segundo entraba antes
+	# de que el primero se hubiera ido, y se veian pisados.
+	if es == CombatFX.Estilo.DAGA_CORTE:
+		return float(e["dur"]) + 0.24
+	if es == CombatFX.Estilo.DAGA_RAFAGA:
+		return float(e["dur"]) + 0.20
+	if es == CombatFX.Estilo.PUNALADA:
+		return float(e["dur"]) + 0.34   # entra, se hunde y se queda un momento clavada
+	if es == CombatFX.Estilo.DESVANECER:
+		return float(e["dur"]) + 0.30   # la sombra tarda en deshacerse
+	if es == CombatFX.Estilo.IMBUIR_FILO:
+		return float(e["dur"]) + 0.55   # es un buff: tiene que lucir, como el aura
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -253,6 +272,10 @@ func _draw() -> void:
 			CombatFX.Estilo.RODADA: _pintar_rodada(e)
 			CombatFX.Estilo.MIRADA: _pintar_mirada(e)
 			CombatFX.Estilo.LATIGAZO: _pintar_latigazo(e)
+			CombatFX.Estilo.DAGA_CORTE, CombatFX.Estilo.DAGA_RAFAGA: _pintar_daga_corte(e)
+			CombatFX.Estilo.PUNALADA: _pintar_punalada(e)
+			CombatFX.Estilo.IMBUIR_FILO: _pintar_imbuir_filo(e)
+			CombatFX.Estilo.DESVANECER: _pintar_desvanecer(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -1432,7 +1455,8 @@ func _pintar_caparazon(e: Dictionary) -> void:
 	# Baja desde arriba al cerrarse: es una tapa, no algo que crece.
 	var c: Vector2 = b + Vector2(0.0, -caja * 0.62 * (1.0 - k))
 	var rx: float = caja * 0.42
-	var largo: float = caja * 0.62      # de la junta hacia abajo (el elitro)
+	# Corta y con cuerpo: es una daga. Larga y fina se leia como un estoque.
+	var largo: float = caja * 0.44      # de la junta hacia abajo (el elitro)
 	var y0: float = c.y - largo * 0.30  # donde acaba el pronoto y empieza el elitro
 	# Negro charolado, pero NO negro puro: sobre una tarjeta oscura desaparecia. Y translucido,
 	# porque esto va sobre el nombre y la barra de vida -- mismo criterio que CapaEstado.
@@ -1868,3 +1892,322 @@ func _anillo(c: Vector2, rx: float, ry: float, col: Color, grosor: float) -> voi
 		var ang: float = TAU * float(i) / 32.0
 		pts.append(c + Vector2(cos(ang) * rx, sin(ang) * ry))
 	draw_polyline(pts, col, grosor, true)
+
+
+# ============================================================
+#  LAS ARMAS DEL JUGADOR
+# ============================================================
+# Hasta ahora todo lo del jugador iba con MELEE, o sea sin dibujo. Estos son los primeros gestos
+# suyos, y tienen una regla que los de los bichos no tienen: EL ACERO NO SE TIÑE ENTERO.
+#
+# El color que llega aqui es el de la IMBUICION (verde con veneno, naranja con fuego) o el acero de
+# _color_golpe si no hay ninguna. Si con eso se pintara la hoja entera, un tajo envenenado parecia
+# una espada de plastico verde. Asi que la hoja va SIEMPRE en metal y el color manda en el FILO y en
+# la estela, que es donde de verdad se ve el veneno: en el rastro que deja el corte.
+const _ACERO := Color(0.78, 0.82, 0.88)
+const _ACERO_OSCURO := Color(0.34, 0.38, 0.45)
+
+
+# ¿Lleva veneno/fuego encima, o es acero pelado? Se mira contra el gris de _color_golpe: cuando NO
+# hay imbuicion, el filo se pinta de un blanco frio en vez de "gris sobre gris", que no se veia.
+func _imbuido(col: Color) -> bool:
+	return absf(col.r - col.g) > 0.06 or absf(col.g - col.b) > 0.06
+
+
+# El color del FILO: el de la imbuicion si la hay, y si no un blanco frio de reflejo.
+func _filo_col(col: Color) -> Color:
+	return col if _imbuido(col) else Color(0.93, 0.97, 1.0)
+
+
+# UNA HOJA. Un huso afilado por un extremo y romo por el otro (el mango), en acero, con el filo
+# marcado a un lado. 'dir' es hacia donde APUNTA la punta.
+#
+# Es el ladrillo del que salen todos los cortes: cambiando largo/ancho/curva se pasa de una daga a
+# un mandoble sin escribir otro painter.
+func _hoja(p: Vector2, dir: Vector2, largo: float, ancho: float, col: Color, alfa: float,
+		curva: float = 0.0) -> void:
+	var lado := Vector2(-dir.y, dir.x)
+	var n: int = 10
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	for i in n + 1:
+		var s: float = float(i) / float(n)       # 0 = punta, 1 = mango
+		# El perfil: afilado del todo en la punta y con cuerpo en el resto. El pow bajo mantiene
+		# ancha la parte de atras, que es lo que hace que se lea como una hoja y no como una aguja.
+		var w: float = ancho * pow(s, 0.55) * (1.0 - 0.25 * s)
+		w = maxf(w, ancho * 0.04)
+		# La curva desplaza el lomo: con 0 sale recta (estoque, daga), con mas sale de sable.
+		var desvio: float = curva * largo * s * s * 0.5
+		var eje: Vector2 = p + dir * (-largo * s) + lado * desvio
+		izq.append(eje + lado * w)
+		der.append(eje - lado * w)
+	var pts := PackedVector2Array()
+	pts.append_array(izq)
+	for i in range(der.size() - 1, -1, -1):
+		pts.append(der[i])
+	draw_colored_polygon(pts, Color(_ACERO.r, _ACERO.g, _ACERO.b, alfa))
+	# EL CONTORNO OSCURO ES LO QUE LA HACE VERSE. Sin el, la hoja es acero claro encima de una estela
+	# clara y las dos se funden en una cinta: no se distinguia el arma del rastro que deja.
+	var cerrado := PackedVector2Array(pts)
+	cerrado.append(pts[0])
+	draw_polyline(cerrado, Color(_ENCIA.r, _ENCIA.g, _ENCIA.b, 0.75 * alfa),
+		maxf(1.0, ancho * 0.24), true)
+	# EL FILO, por un solo lado: es la linea que lleva el color de la imbuicion.
+	var f: Color = _filo_col(col)
+	draw_polyline(izq, Color(f.r, f.g, f.b, alfa), maxf(1.5, ancho * 0.34), true)
+	# Y el lomo, mas oscuro que la hoja, que es lo que le da grosor.
+	draw_polyline(der, Color(_ACERO_OSCURO.r, _ACERO_OSCURO.g, _ACERO_OSCURO.b, 0.9 * alfa),
+		maxf(1.0, ancho * 0.26), true)
+
+
+# EL TRAZO de un tajo: la cinta que deja el filo al CRUZAR, combada como el arco que describe un
+# brazo. Va de un lado al otro pasando por el centro de la tarjeta.
+#
+# EMPEZO SIENDO UN ARCO ALREDEDOR del objetivo (centro + radio), y estaba mal: el trazo orbitaba por
+# fuera de la tarjeta en vez de atravesarla, asi que el corte se veia AL LADO del bicho y no encima.
+# Un tajo cruza; lo que orbita es una honda.
+#
+# 'k' es cuanto lleva recorrido (0..1): la cabeza va en k y la cola se queda atras.
+# Devuelve [punto de la cabeza, tangente], que es donde va la hoja.
+func _tajo(centro: Vector2, ang: float, largo: float, comba: float, k: float,
+		col: Color, alfa: float, grosor: float) -> Array:
+	var dir := Vector2(cos(ang), sin(ang))
+	var lado := Vector2(-dir.y, dir.x)
+	var a: Vector2 = centro - dir * largo * 0.5
+	var b: Vector2 = centro + dir * largo * 0.5
+	# El punto de control saca la curva de la recta: es lo que convierte el corte en un arco de brazo.
+	var ctrl: Vector2 = centro + lado * comba * largo
+	var n: int = 14
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	var cabeza: Vector2 = a
+	var tang: Vector2 = dir
+	var kk: float = maxf(k, 0.001)
+	for i in n + 1:
+		var s: float = float(i) / float(n) * kk
+		var p: Vector2 = _bez(a, ctrl, b, s)
+		# La cinta es GORDA en la cabeza y se afila hacia la cola, que es lo que da la sensacion de
+		# velocidad: lo viejo del trazo ya se esta borrando.
+		var w: float = grosor * pow(float(i) / float(n), 1.1)
+		var t2: Vector2 = (_bez(a, ctrl, b, minf(s + 0.02, 1.0)) - p)
+		var d2: Vector2 = t2.normalized() if t2.length() > 0.01 else dir
+		var l2 := Vector2(-d2.y, d2.x)
+		izq.append(p + l2 * w)
+		der.append(p - l2 * w)
+		cabeza = p
+		tang = d2
+	if k > 0.02:
+		var pts := PackedVector2Array()
+		pts.append_array(izq)
+		for i in range(der.size() - 1, -1, -1):
+			pts.append(der[i])
+		var f: Color = _filo_col(col)
+		# El relleno va FLOJO: es aire cortado, no un objeto. Con mas cuerpo competia con la hoja y
+		# las dos se leian como una sola cinta gorda.
+		draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.26 * alfa))
+		# El canto, mas vivo y fino: es por donde ha pasado el filo.
+		draw_polyline(izq, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(1.5, grosor * 0.38), true)
+	return [cabeza, tang]
+
+
+# Bezier cuadratica. Godot trae la cubica en Vector2.bezier_interpolate, pero para una comba simple
+# la cuadratica es la que se controla con UN solo punto, que es justo lo que se quiere aqui.
+func _bez(a: Vector2, c: Vector2, b: Vector2, s: float) -> Vector2:
+	var u: float = 1.0 - s
+	return a * (u * u) + c * (2.0 * u * s) + b * (s * s)
+
+
+# CORTE DE DAGA. Un tajo corto y rapido: la hoja barre un arco pequeño y deja su estela, y donde ha
+# pasado queda el corte abierto. Lo usan el basico y la Rafaga (con la coleta mas corta: son dos
+# tajos seguidos y con la larga se pisaban).
+#
+# El angulo sale de la SEMILLA, asi que dos cortes seguidos caen cruzados sin tener que dibujar la X
+# a mano -- y en dual, cada mano trae el suyo.
+func _pintar_daga_corte(e: Dictionary) -> void:
+	var rapido: bool = int(e["estilo"]) == CombatFX.Estilo.DAGA_RAFAGA
+	var coleta: float = 0.20 if rapido else 0.24
+	var r0: Array = _golpe_cuerpo(e, coleta, 0.10)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# Diagonal con hasta medio radian de desvio, y a veces del otro lado: un picaro no repite el
+	# mismo tajo dos veces.
+	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
+	var ang: float = (-PI * 0.30 + sin(g * 3.3) * 0.35) * sentido
+	# El tajo CRUZA la tarjeta entera y se sale un poco por los lados: un corte que se queda dentro
+	# del recuadro parece un rasguño.
+	var largo: float = caja * (1.25 if rapido else 1.45)
+	var comba: float = 0.20 * sentido
+	# Entra de golpe y frena: 1-(1-v)^2 pone casi todo el recorrido al principio, que es como pasa
+	# una hoja de verdad -- rapidisima al cruzar y lenta al rematar.
+	var k: float = 1.0 - pow(1.0 - v, 2.0)
+	var r: Array = _tajo(b, ang, largo, comba, k, col, alfa, caja * 0.075)
+	# LA HOJA, en la cabeza del trazo y mirando hacia donde va: es lo que hace que se lea que CORTA
+	# en vez de arrastrarse de lado. Solo mientras cruza -- al final ya ha salido del cuadro.
+	# CORTA Y ANCHA, que es la proporcion de una daga. Con la hoja larga y fina se confundia con el
+	# propio trazo -- las dos eran cintas claras y curvas -- y no se distinguia el arma del rastro.
+	if k < 0.97:
+		_hoja(r[0], r[1], caja * 0.34, caja * 0.105, col, alfa, 0.18)
+	# EL CORTE que queda en la carne, cuando ya ha pasado la hoja. Dos lineas finas (labio y sombra)
+	# y no el huso dentado del zarpazo: una daga deja un tajo limpio, y con el dentado parecia una
+	# pluma pegada encima.
+	if v > 0.40:
+		var w: float = (v - 0.40) / 0.60
+		var f: Color = _filo_col(col) if _imbuido(col) else _HUESO
+		var dir := Vector2(cos(ang), sin(ang))
+		var lado := Vector2(-dir.y, dir.x)
+		# Sigue el eje del tajo y ocupa casi todo lo que barrio la hoja: una herida corta en mitad de
+		# un trazo largo se leia como una rayita suelta sin relacion con el corte.
+		var largo_h: float = largo * 0.80 * w
+		var c0: Vector2 = b - dir * largo_h * 0.5 + lado * comba * largo * 0.30
+		var c1: Vector2 = b + dir * largo_h * 0.5 + lado * comba * largo * 0.30
+		draw_line(c0, c1, Color(f.r, f.g, f.b, 0.95 * alfa), maxf(2.0, caja * 0.034), true)
+		draw_line(c0 + lado * caja * 0.028, c1 + lado * caja * 0.028,
+			Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.6 * alfa), maxf(1.5, caja * 0.020), true)
+
+
+# PUÑALADA. NO es un corte: la hoja se arma atras, entra RECTA y se hunde hasta el mango. Por eso no
+# tiene estela de arco -- lo que se ve es el retroceso, el pinchazo y la hoja clavada.
+func _pintar_punalada(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# Entra desde abajo-fuera, con el angulo desviado por la semilla.
+	var ang: float = -PI * 0.5 + sin(g * 2.9) * 0.7
+	var dir := Vector2(cos(ang), sin(ang))
+	var b: Vector2 = e["b"] + Vector2(cos(g * 2.1), sin(g * 1.7)) * caja * 0.10
+	# Corta y con cuerpo: es una daga. Larga y fina se leia como un estoque.
+	var largo: float = caja * 0.44
+	if t < dur:
+		# ARMANDO: la hoja espera echada atras, temblando. Este instante es lo que la separa de un
+		# tajo cualquiera -- se ve que va apuntada.
+		var w: float = clampf(t / dur, 0.0, 1.0)
+		var atras: float = caja * (0.75 - 0.15 * w) + sin(t * 40.0) * caja * 0.02
+		_hoja(b - dir * atras, dir, largo, caja * 0.085, col, 0.55 + 0.45 * w)
+		return
+	var v: float = clampf((t - dur) / 0.34, 0.0, 1.0)
+	var alfa: float = 1.0 if v < 0.62 else 1.0 - (v - 0.62) / 0.38
+	if alfa <= 0.0:
+		return
+	# LA ENTRADA: de golpe y hasta el fondo en el primer tercio.
+	var k: float = clampf(v / 0.30, 0.0, 1.0)
+	var hundido: float = 1.0 - pow(1.0 - k, 3.0)
+	var punta: Vector2 = b - dir * caja * 0.60 * (1.0 - hundido) + dir * caja * 0.28 * hundido
+	_hoja(punta, dir, largo, caja * 0.085, col, alfa)
+	# EL PINCHAZO donde entra. Una puñalada no abre un tajo: hace un AGUJERO, asi que va un ovalo
+	# oscuro con el borde del color y nada mas. Antes era el huso dentado del zarpazo y a tamaño real
+	# parecia una oruga pegada a la punta -- ese dentado es para algo que te ARRASTRA, no para algo
+	# que entra limpio.
+	if k > 0.5:
+		var w2: float = (k - 0.5) / 0.5
+		var f: Color = _filo_col(col)
+		var lado := Vector2(-dir.y, dir.x)
+		var rx: float = caja * 0.075 * w2
+		var pts := PackedVector2Array()
+		for i in 12:
+			var ang2: float = TAU * float(i) / 12.0
+			# Alargado en la direccion de entrada: por ahi ha metido la hoja.
+			pts.append(punta + lado * cos(ang2) * rx + dir * sin(ang2) * rx * 1.7)
+		draw_colored_polygon(pts, Color(_SANGRE.r * 0.5, _SANGRE.g * 0.3, _SANGRE.b * 0.3,
+			0.85 * alfa))
+		var cerrado := PackedVector2Array(pts)
+		cerrado.append(pts[0])
+		draw_polyline(cerrado, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(1.5, caja * 0.022), true)
+
+
+# FILO EMPONZOÑADO. Un adorno sobre uno mismo: la hoja se levanta delante de tu tarjeta y se moja,
+# y el veneno le resbala por el filo y gotea. Coleta larga -- es un buff y tiene que lucir.
+func _pintar_imbuir_filo(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# Sube en el vuelo y se queda puesta el resto.
+	var subir: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / 0.55, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.70 else 1.0 - (v - 0.70) / 0.30
+	if alfa <= 0.0:
+		return
+	# La hoja, VERTICAL y quieta, un poco ladeada. No es un golpe: es el gesto de untarla.
+	var dir := Vector2(sin(g) * 0.22, -1.0).normalized()
+	var p: Vector2 = b + Vector2(0.0, caja * (0.55 - 0.35 * subir))
+	_hoja(p, dir, caja * 0.78, caja * 0.06, col, alfa, 0.0)
+	# EL BAÑO: el veneno baja por el filo. Es una lengua que crece de la punta hacia el mango.
+	var lado := Vector2(-dir.y, dir.x)
+	var baja: float = clampf(v / 0.45, 0.0, 1.0) if v > 0.0 else 0.0
+	if baja > 0.0:
+		var n: int = 9
+		var pts := PackedVector2Array()
+		for i in n + 1:
+			var s: float = float(i) / float(n) * baja
+			var w: float = caja * 0.055 * (1.0 - s * 0.5) * (1.0 + 0.25 * sin(t * 9.0 + s * 7.0 + g))
+			pts.append(p + dir * (-caja * 0.78 * s) + lado * w)
+		for i in range(n, -1, -1):
+			var s2: float = float(i) / float(n) * baja
+			var w2: float = caja * 0.055 * (1.0 - s2 * 0.5)
+			pts.append(p + dir * (-caja * 0.78 * s2) - lado * w2 * 0.6)
+		draw_colored_polygon(pts, Color(col.r, col.g, col.b, 0.75 * alfa))
+	# Y LAS GOTAS que caen de la punta. Tres, desfasadas, cayendo y desapareciendo.
+	for i in 3:
+		var fase: float = fposmod(v * 1.6 + float(i) * 0.33 + g * 0.1, 1.0)
+		if v <= 0.0 or fase > 0.9:
+			continue
+		var caida: Vector2 = p + Vector2(sin(g + float(i) * 2.1) * caja * 0.06,
+			caja * 0.10 + fase * caja * 0.55)
+		draw_circle(caida, caja * 0.045 * (1.0 - fase * 0.4),
+			Color(col.r, col.g, col.b, 0.85 * alfa * (1.0 - fase)))
+
+
+# DESAPARECER. El corte sale de una sombra: primero se abre una mancha oscura sobre el objetivo, se
+# deshace en jirones, y de ahi sale el tajo. Es el golpe del que no te ves venir.
+func _pintar_desvanecer(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# LA SOMBRA se abre durante el vuelo y se deshace en la coleta.
+	var abre: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / 0.30, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.5 else 1.0 - (v - 0.5) / 0.5
+	if alfa <= 0.0:
+		return
+	# LA MANCHA. Muchos puntos y poca variacion: con once y un 45% de desvio salia una ESTRELLA de
+	# cinco puntas enorme tapando la tarjeta, porque los picos y los valles caian alternos. Una
+	# sombra es un borrón de bordes inquietos, no un pentagrama.
+	var n: int = 18
+	var pts := PackedVector2Array()
+	for i in n:
+		var ang: float = TAU * float(i) / float(n) + g
+		var jiron: float = 1.0 + 0.16 * sin(g * 2.3 + float(i) * 2.1) \
+			+ 0.08 * sin(g + float(i) * 5.3)
+		var r: float = caja * (0.26 + 0.14 * abre) * jiron * (1.0 + v * 0.5)
+		pts.append(b + Vector2(cos(ang) * r, sin(ang) * r * 0.78))
+	draw_colored_polygon(pts, Color(0.05, 0.04, 0.10, 0.6 * alfa * (1.0 - v * 0.8)))
+	# Y LOS JIRONES, aparte: hebras finas que salen despedidas al deshacerse. Van sueltas y no como
+	# picos del contorno, que es lo que convertia la mancha en una estrella.
+	if v > 0.0:
+		for i in 7:
+			var ang2: float = TAU * float(i) / 7.0 + g * 1.7
+			var largo2: float = caja * (0.20 + 0.42 * v) * (0.7 + 0.5 * absf(sin(g + float(i) * 3.7)))
+			var u2 := Vector2(cos(ang2), sin(ang2) * 0.78)
+			draw_line(b + u2 * caja * 0.20, b + u2 * (caja * 0.20 + largo2),
+				Color(0.06, 0.05, 0.12, 0.55 * alfa * (1.0 - v)), maxf(1.5, caja * 0.035), true)
+	if t < dur:
+		return
+	# Y EL TAJO que sale de dentro, ya con la sombra abierta.
+	var ang: float = -PI * 0.28 + sin(g * 3.3) * 0.35
+	var k: float = 1.0 - pow(1.0 - v, 2.0)
+	var r: Array = _tajo(b, ang, caja * 1.35, 0.18, k, col, alfa, caja * 0.075)
+	if k < 0.97:
+		_hoja(r[0], r[1], caja * 0.46, caja * 0.07, col, alfa, 0.30)

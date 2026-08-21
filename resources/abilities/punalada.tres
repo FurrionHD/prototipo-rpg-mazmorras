@@ -26,6 +26,7 @@ golpes_max = 1
 golpes_dual_min = 2
 golpes_dual_max = 2
 dano_mult = 2.4
+fx_estilo = 37
 redirige_al_morir = true
 efectos = [SubResource("SA_sang"), SubResource("SA_sang_crit")]
 efectos_por_golpe = true

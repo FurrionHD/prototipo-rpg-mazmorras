@@ -1180,10 +1180,10 @@ func _cod_combatiente(c: Combatant) -> int:
 #   1      evadido
 #   2      ABRE TANDA (este golpe empieza una tanda nueva; ver CombatFX.tanda)
 #   3-5    elemento + 1  (0..4)
-#   6-11   estilo        (CombatFX.Estilo; 6 bits = caben 64)
-#   12-18  peso x 64     (0..127 -> 0.00..1.98)
-#   19     SOLO DIBUJO   (un adorno, no un golpe: ver CombatFX.encolar)
-#   20-30  sonido + 1    (indice en Sonido.CLAVES; 0 = ninguno, suena el generico del estilo)
+#   6-13   estilo        (CombatFX.Estilo; 8 bits = caben 256)
+#   14-20  peso x 64     (0..127 -> 0.00..1.98)
+#   21     SOLO DIBUJO   (un adorno, no un golpe: ver CombatFX.encolar)
+#   22-30  sonido + 1    (indice en Sonido.CLAVES; 0 = ninguno, suena el generico del estilo)
 #   31     -             SIN USAR, y que siga asi: es el bit de signo del Int32 y un indice que lo
 #                        pisara llegaria al otro lado como un numero negativo.
 #
@@ -1191,10 +1191,11 @@ func _cod_combatiente(c: Combatant) -> int:
 # FAMILIA (un chillido), no QUIEN grita, asi que sin el indice el compañero oiria el generico de la
 # rata cuando el que berrea es el minotauro. Cabe en los bits que sobraban, sin un quinto entero.
 #
-# El estilo eran 3 bits (8 estilos justos), se ensancho a 4 al añadir la EXPLOSION y a 6 al entrar
-# los mordiscos de la familia ROEDOR, corriendo el peso a la izquierda cada vez. Se salto de 5 a 6
-# a proposito: quedan familias enteras de bichos por hacer (insectos, piedra, bestias, jefes) y con
-# 64 no hay que volver a tocarlo. Es un PackedInt32Array, asi que sitio sobra: viajan los mismos
+# El estilo eran 3 bits (8 estilos justos), se ensancho a 4 al añadir la EXPLOSION, a 6 al entrar
+# los mordiscos de la familia ROEDOR y a 8 al darle dibujo propio a CADA arma y CADA habilidad del
+# jugador, corriendo el peso a la izquierda cada vez. Con 6 no llegaba ni de lejos: 35 estilos de
+# bicho + 10 armas + 59 habilidades son 104, y en 64 no caben. Los 256 de ahora dan de sobra.
+# Es un PackedInt32Array, asi que sitio sobra: viajan los mismos
 # cuatro enteros por impacto. Si se toca una punta y no la otra NO SALTA NINGUN ERROR: el espejo
 # simplemente lee otro estilo y otro peso, y ve la pelea con efectos distintos a los tuyos. Las
 # mascaras de cada campo tienen que cuadrar aqui y en aplicar_impactos.
@@ -1215,10 +1216,10 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 	var abre: bool = t_ev != _ult_tanda_red
 	_ult_tanda_red = t_ev
 	var flags: int = (1 if crit else 0) | (2 if evadido else 0) | (4 if abre else 0) \
-		| (((elem + 1) & 7) << 3) | ((estilo & 63) << 6) \
-		| (clampi(roundi(peso * 64.0), 0, 127) << 12) \
-		| (524288 if solo_dibujo else 0) \
-		| (((Sonido.CLAVES.find(sfx) + 1) & 2047) << 20)
+		| (((elem + 1) & 7) << 3) | ((estilo & 255) << 6) \
+		| (clampi(roundi(peso * 64.0), 0, 127) << 14) \
+		| (2097152 if solo_dibujo else 0) \
+		| (((Sonido.CLAVES.find(sfx) + 1) & 511) << 22)
 	_impactos_red.append(ca)
 	_impactos_red.append(cv)
 	_impactos_red.append(roundi(minf(dmg, 3000.0) * 10.0))   # x10: un decimal, y cabe en el int
@@ -1261,8 +1262,8 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 		# Con MASCARA en cada campo: sin ella, el elemento se leia con los bits del estilo y del
 		# peso pegados detras y salia un numero absurdo.
 		_fx_golpe(_de_codigo(ca), victima, dmg, (flags & 1) != 0, (flags & 2) != 0,
-			((flags >> 3) & 7) - 1, (flags >> 6) & 63, float((flags >> 12) & 127) / 64.0,
-			(flags & 524288) != 0, Sonido.clave_de((flags >> 20) & 2047))
+			((flags >> 3) & 7) - 1, (flags >> 6) & 255, float((flags >> 14) & 127) / 64.0,
+			(flags & 2097152) != 0, Sonido.clave_de((flags >> 22) & 511))
 	_fx.arrancar_cola()
 
 
@@ -2667,9 +2668,26 @@ func _clave_sfx(ab: AbilityData) -> String:
 	return clave if Sonido.CLAVES.has(clave) else ""
 
 
+const ACERO := Color(0.72, 0.76, 0.82)
+
 func _color_golpe(atacante: Combatant, elem: int, estilo: int) -> Color:
 	if Elementos.tiene_color(elem):
 		return Elementos.color(elem)
+	# LAS ARMAS SON DE ACERO, y esto no es un detalle: color_visual vale ROJO por defecto (es el color
+	# con el que se tiñen los bichos), asi que sin esta rama todos los tajos del jugador saldrian
+	# rojizos, como si cada golpe fuera de fuego. El elemento sigue mandando por encima: con fuego el
+	# corte sale naranja, que es para lo que existen las imbuiciones del mago.
+	if CombatFX.FX_JUGADOR.has(estilo):
+		# EL VENENO NO ES UN ELEMENTO, es un ESTADO (ver elements.gd), asi que no llega por 'elem' y
+		# el Filo emponzoñado se veria de acero pelado. Se saca del arma imbuida del propio atacante:
+		# mientras le queden usos, el filo va tintado de su color. Es la misma via por la que un bicho
+		# saca su color_visual, y como el espejo tambien resuelve al atacante, tiñe igual en las dos
+		# pantallas... siempre que le haya llegado el imbue; si no, ve acero, que es lo de siempre.
+		if atacante != null and atacante.imbue_estado >= 0 and atacante.imbue_usos > 0:
+			var d: Dictionary = StatusEffects.def(atacante.imbue_estado)
+			if d.has("color"):
+				return d["color"]
+		return ACERO
 	if estilo != CombatFX.Estilo.MELEE and atacante != null:
 		return atacante.color_visual
 	return Color(1, 0.95, 0.9)
@@ -4756,11 +4774,14 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	# golpe, no un golpecito por bicho. La resolucion sigue yendo objetivo a objetivo; lo unico que
 	# se agrupa es como se ve (ver _fx_tanda).
 	_fx_tanda(i)
+	# Manda lo que pida la habilidad (fx_estilo) y, si no pide nada, el gesto del arma con la que
+	# esta pegando. Igual que la rata, que muerde le salga la tecnica o no.
+	var estilo_ab: int = _estilo_de_habilidad(ab, _player)
 	var result := StatsMath.resolve_attack(_player, objetivo, false, atk_ov)
 	if result.evaded:
 		r.evaded = true
 		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
-		_fx_golpe(_player, objetivo, 0.0, false, true)
+		_fx_golpe(_player, objetivo, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_ab)
 		return r
 	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala
 	r.dmg = dmg
@@ -4768,7 +4789,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
 	objetivo.take_damage(dmg)
 	_fx_golpe(_player, objetivo, dmg, result.crit, false,
-		_player.imbue_elemento if r.imbue > 0.0 else Elementos.Elemento.NINGUNO)
+		_player.imbue_elemento if r.imbue > 0.0 else Elementos.Elemento.NINGUNO, estilo_ab)
 	_apuntar_dano(objetivo, dmg, _player)   # contador oculto de Cazador
 	r.mana = _ganar_mana_golpe()       # cada golpe que conecta repone maná
 	if float(result.get("dmg_imbue", 0.0)) > 0.0:
@@ -4940,6 +4961,11 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# porque lo necesita la tirada de efectos, que ahora vive fuera (ver el bloque de EFECTOS mas
 	# abajo). Sin golpes se queda en false, que es lo correcto: una habilidad que no pega no critea.
 	var hubo_critico: bool = false
+	# LAS QUE NO PEGAN TAMBIEN SE VEN. Una habilidad con dano_mult 0 no entra en el reparto de golpes
+	# de aqui abajo, o sea que NO PASA POR _fx_golpe EN SU VIDA: sin esto, el Filo emponzoñado se
+	# aplicaria en silencio y sin dibujo. Es la gemela de la llamada que ya hacia la rama enemiga
+	# (ver _fx_adorno y _enemy_use_ability): el mismo agujero, en el otro bando.
+	_fx_adorno(_player, ab, _objetivo())
 	# GOLPES de daño (rango aleatorio; cada tajo con su ESQUIVA y CRITICO propios). Si
 	# efectos_por_golpe, cada tajo que acierta tira los efectos (sangrado 40%/hit).
 	# Las de UTILIDAD PURA (dano_mult 0, p.ej. Canalizar) NO golpean.
@@ -5432,14 +5458,18 @@ func _accion_atacar() -> void:
 	Game.ganar("fuerza", _reto(obj, pj_atacante) * arma_factor, Game.GAIN_FUERZA_ATAQUE,
 		Game.RETO_MAX_FISICO, pj_atacante)
 	var con_arma: String = _player.current_hand_name()
+	# EL GESTO DEL ARMA. Sale por el mismo camino que el basico de un bicho: sin habilidad, manda
+	# como pega el que pega (Combatant.fx_basico), que en el jugador lo pone la MANO ACTIVA. Por eso
+	# en dual cada golpe se ve con su arma sin tener que preguntarlo aqui.
+	var estilo_bas: int = _estilo_de_habilidad(null, _player)
 	if result.evaded:
 		_set_log("%s esquiva tu ataque (%s). 💨" % [_etq(obj), con_arma])
-		_fx_golpe(_player, obj, 0.0, false, true)
+		_fx_golpe(_player, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_bas)
 	else:
 		obj.take_damage(result.damage)
 		_fx_golpe(_player, obj, result.damage, result.crit, false,
 			_player.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
-			else Elementos.Elemento.NINGUNO)
+			else Elementos.Elemento.NINGUNO, estilo_bas)
 		_apuntar_dano(obj, result.damage, _player)   # contador oculto de Cazador
 		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).
 		if float(result.get("dmg_imbue", 0.0)) > 0.0:
@@ -5882,6 +5912,13 @@ func _enemy_turn(e: Combatant) -> void:
 # van en la tarjeta del propio bicho. El resto -un grito, una mirada- van sobre A QUIEN alcanzan, y
 # por eso se recorre la misma lista de objetivos que usaria si pegara: asi un grito que coge a tres
 # se funde en UNO solo (ver _ESTILOS_DE_GRUPO) igual que lo haria un area con daño.
+#
+# LA USAN LOS DOS BANDOS (el bicho desde _enemy_use_ability y el jugador desde _usar_habilidad), asi
+# que 'e' es "el que la lanza" y no "el bicho". OJO con el area: los objetivos salen de
+# _objetivos_area_aliados, o sea de la fila de los ALIADOS DEL JUGADOR. Para un bicho eso es a quien
+# ataca y para el jugador es a quien BUFA (Grito de guerra, Muro de aliados), que es justo lo que se
+# quiere en los dos casos. Una habilidad de jugador sin daño que apuntase a los ENEMIGOS en area se
+# pintaria en el sitio equivocado; hoy no existe ninguna, pero cuando la haya hay que partir esto.
 func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
 	if ab == null or ab.dano_mult > 0.0:
 		return
