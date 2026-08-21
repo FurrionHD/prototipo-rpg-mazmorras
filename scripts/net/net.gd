@@ -33,7 +33,9 @@ const MAX_JUGADORES := 4
 # el que entra se queda para siempre en "Validando codigo...". Con esto, el host puede decirle lo que
 # pasa; y si el que esta viejo es el host (y por tanto no conoce este campo), lo tapa el plazo del
 # cliente (ver _PLAZO_SALUDO).
-const PROTOCOLO := 2
+# 3: el paquete de impactos estrena los bits 20-30 con el sonido de la habilidad. Un build del 2
+#    los lee como cero y oye el generico del estilo -- no revienta, pero se oye otra pelea.
+const PROTOCOLO := 3
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

@@ -875,9 +875,12 @@ func tanda(n: int) -> void:
 # temblor, ni barra. Es como se pintan las cosas que no pegan -- el aura de un buff, las gotas del
 # Brote del Rey al desprenderse-- sin tener que inventarles un daño de cero, que sacaba un "0"
 # flotando y una sacudida por un golpe que no existe.
+#
+# 'sfx' = la clave del sonido PROPIO de la habilidad ("" = ninguna, y entonces suena el generico de
+# su estilo). Ver Sonido.golpe y el disparo en _process.
 func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bool,
 		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0,
-		solo_dibujo: bool = false) -> void:
+		solo_dibujo: bool = false, sfx: String = "") -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
 		_tanda_pedida = -1
 		return
@@ -891,6 +894,7 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		"evadido": evadido, "color": color_elem, "t": 0.0, "lanzado": false,
 		"estilo": estilo, "peso": clampf(peso, 0.2, 1.5), "fx_lanzado": false,
 		"tanda": t_ev, "solo_dibujo": solo_dibujo,
+		"sfx": sfx, "sfx_lanzado": false,
 	})
 	# LA VIDA NO PUEDE BAJAR ANTES QUE EL GOLPE. Se apunta AQUI, en el mismo instante en que el
 	# golpe se resuelve, y no al arrancar la cola: entre una cosa y otra combat.gd llama a
@@ -946,6 +950,7 @@ func arrancar_cola() -> float:
 		_cola[i]["pos_tanda"] = pos
 		_cola[i]["lanzado"] = false
 		_cola[i]["fx_lanzado"] = false
+		_cola[i]["sfx_lanzado"] = false
 	_marcar_efectos_de_grupo()
 	_t = 0.0
 	if magia:
@@ -1152,6 +1157,21 @@ func _process(delta: float) -> void:
 					destino.x = float(ev["centro_grupo"])
 					ancho = float(ev["ancho_grupo"])
 				_capa_fx.alta(estilo, _punto(ev["ba"]), destino, ev["color"], peso, vuelo, ancho)
+
+		# EL SONIDO, en el mismo frame que el dibujo. Tiene su propio guardian y NO copia el `if` de
+		# arriba, por tres motivos:
+		#
+		#   - SIN el `vuelo > 0.0`. Esa condicion es justo la que deja al MELEE sin dibujo, y un
+		#     puñetazo si tiene que sonar. Con vuelo 0 se queda en `_t >= t_imp`, o sea el instante
+		#     del impacto, que es cuando suena un golpe que no viaja.
+		#   - SI respeta 'sin_dibujo': de una marea que coge a cuatro suena UNA, igual que se dibuja
+		#     una sola (ver _marcar_efectos_de_grupo).
+		#   - Va ANTES del 'continue' de aqui abajo, porque los adornos -el Bramido, el Alarido, la
+		#     Ignicion, los caparazones- son precisamente los que mas piden sonido.
+		if not ev["sfx_lanzado"] and _t >= t_imp - vuelo:
+			ev["sfx_lanzado"] = true
+			if not bool(ev.get("sin_dibujo", false)):
+				Sonido.golpe(String(ev.get("sfx", "")), estilo, peso, bool(ev["crit"]))
 
 		# UN ADORNO no impacta: se ha pintado y ya. Ni numero, ni barra, ni sacudida (el 'continue'
 		# se salta tambien la embestida y el temblor de mas abajo). Ver 'solo_dibujo' en encolar.

@@ -1183,6 +1183,13 @@ func _cod_combatiente(c: Combatant) -> int:
 #   6-11   estilo        (CombatFX.Estilo; 6 bits = caben 64)
 #   12-18  peso x 64     (0..127 -> 0.00..1.98)
 #   19     SOLO DIBUJO   (un adorno, no un golpe: ver CombatFX.encolar)
+#   20-30  sonido + 1    (indice en Sonido.CLAVES; 0 = ninguno, suena el generico del estilo)
+#   31     -             SIN USAR, y que siga asi: es el bit de signo del Int32 y un indice que lo
+#                        pisara llegaria al otro lado como un numero negativo.
+#
+# EL SONIDO VIAJA POR EL MISMO SITIO QUE EL DIBUJO, y tiene que hacerlo: el estilo solo dice la
+# FAMILIA (un chillido), no QUIEN grita, asi que sin el indice el compañero oiria el generico de la
+# rata cuando el que berrea es el minotauro. Cabe en los bits que sobraban, sin un quinto entero.
 #
 # El estilo eran 3 bits (8 estilos justos), se ensancho a 4 al añadir la EXPLOSION y a 6 al entrar
 # los mordiscos de la familia ROEDOR, corriendo el peso a la izquierda cada vez. Se salto de 5 a 6
@@ -1193,7 +1200,7 @@ func _cod_combatiente(c: Combatant) -> int:
 # mascaras de cada campo tienen que cuadrar aqui y en aplicar_impactos.
 func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 		crit: bool, evadido: bool, elem: int, estilo: int, peso: float,
-		solo_dibujo: bool = false) -> void:
+		solo_dibujo: bool = false, sfx: String = "") -> void:
 	if _espejo or not Net.activo or _impactos_red.size() >= MAX_IMPACTOS_RED * 4:
 		return
 	var ca: int = _cod_combatiente(atacante)
@@ -1210,7 +1217,8 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 	var flags: int = (1 if crit else 0) | (2 if evadido else 0) | (4 if abre else 0) \
 		| (((elem + 1) & 7) << 3) | ((estilo & 63) << 6) \
 		| (clampi(roundi(peso * 64.0), 0, 127) << 12) \
-		| (524288 if solo_dibujo else 0)
+		| (524288 if solo_dibujo else 0) \
+		| (((Sonido.CLAVES.find(sfx) + 1) & 2047) << 20)
 	_impactos_red.append(ca)
 	_impactos_red.append(cv)
 	_impactos_red.append(roundi(minf(dmg, 3000.0) * 10.0))   # x10: un decimal, y cabe en el int
@@ -1254,7 +1262,7 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 		# peso pegados detras y salia un numero absurdo.
 		_fx_golpe(_de_codigo(ca), victima, dmg, (flags & 1) != 0, (flags & 2) != 0,
 			((flags >> 3) & 7) - 1, (flags >> 6) & 63, float((flags >> 12) & 127) / 64.0,
-			(flags & 524288) != 0)
+			(flags & 524288) != 0, Sonido.clave_de((flags >> 20) & 2047))
 	_fx.arrancar_cola()
 
 
@@ -2605,17 +2613,17 @@ func _fx_tanda(i: int) -> void:
 func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		evadido: bool, elem: int = Elementos.Elemento.NINGUNO,
 		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0,
-		solo_dibujo: bool = false) -> void:
+		solo_dibujo: bool = false, sfx: String = "") -> void:
 	if _fx == null:
 		return
 	var bv: Dictionary = _bloque_de(victima)
 	if bv.is_empty():
 		return
 	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido,
-		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo)
+		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx)
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
-	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo)
+	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo, sfx)
 
 
 # DE QUE COLOR sale un golpe. Manda el ELEMENTO cuando lo tiene (un rayo es amarillo lo lance quien
@@ -2644,6 +2652,19 @@ func _estilo_de_habilidad(ab: AbilityData, atacante: Combatant = null) -> int:
 	if atacante != null and atacante.fx_basico >= 0:
 		return atacante.fx_basico
 	return CombatFX.Estilo.MELEE
+
+
+# QUE SONIDO PROPIO pide esta habilidad, o "" si se conforma con el generico de su estilo. La clave
+# es el nombre de su .tres (minotauro_bramido -> sfx_minotauro_bramido.wav), que es la misma clave
+# estable que ya se usa para cooldowns y para mandar habilidades por red.
+#
+# Solo valen las que estan en Sonido.CLAVES, y no es por desconfianza: ese indice es lo que viaja en
+# el paquete de impactos, asi que una clave de fuera de la lista no podria llegarle al compañero.
+func _clave_sfx(ab: AbilityData) -> String:
+	if ab == null:
+		return ""
+	var clave: String = String(ab.resource_path).get_file().get_basename()
+	return clave if Sonido.CLAVES.has(clave) else ""
 
 
 func _color_golpe(atacante: Combatant, elem: int, estilo: int) -> Color:
@@ -5867,17 +5888,20 @@ func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
 	var estilo: int = _estilo_de_habilidad(ab, e)
 	if estilo == CombatFX.Estilo.MELEE:
 		return   # sin dibujo propio: un empujon de tarjeta sin golpe no se ve, y mejor asi
+	# Estas son las que MAS piden sonido: un bramido o un caparazon no hacen ni un punto de daño y
+	# aun asi tienen que oirse. Por eso CombatFX dispara el sonido ANTES de descartar los adornos.
+	var sfx: String = _clave_sfx(ab)
 	if CombatFX.SOBRE_SI_MISMO.has(estilo):
-		_fx_golpe(e, e, 0.0, false, false, e.elemento_ataque, estilo, 1.3, true)
+		_fx_golpe(e, e, 0.0, false, false, e.elemento_ataque, estilo, 1.3, true, sfx)
 		return
 	if obj == null:
 		return
 	if ab.es_area():
 		for o in _objetivos_area_aliados(ab, obj):
 			_fx_golpe(e, o["c"], 0.0, false, false, e.elemento_ataque, estilo,
-				float(o["escala"]), true)
+				float(o["escala"]), true, sfx)
 	else:
-		_fx_golpe(e, obj, 0.0, false, false, e.elemento_ataque, estilo, 1.0, true)
+		_fx_golpe(e, obj, 0.0, false, false, e.elemento_ataque, estilo, 1.0, true, sfx)
 
 
 func _invocacion_lista(e: Combatant) -> AbilityData:
@@ -6116,6 +6140,9 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	# en los que FALLAN, para que un escupitajo esquivado se vea salir y pasar de largo en vez de
 	# convertirse en un empujon de tarjeta.
 	var estilo_ab: int = _estilo_de_habilidad(ab, e)
+	# Y EL SONIDO igual: el suyo si lo tiene, y si no el generico de su estilo. Tambien fuera del
+	# bucle, y tambien en los que fallan -- un escupitajo esquivado se oye salir.
+	var sfx_ab: String = _clave_sfx(ab)
 	for i in n_golpes:
 		_fx_tanda(tanda_base + i)
 		var result := StatsMath.resolve_attack(e, t, defendiendo)
@@ -6124,7 +6151,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			Game.contar_esquiva(pj_t)   # contador oculto de Reflejos
 			esquivados += 1
 			rastro.append({"t": "falla", "c": t})
-			_fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_ab)
+			_fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab)
 			if t.en_guardia and permitir_contra and contra == "":
 				contra = _contraatacar(e, t)
 				if not e.is_alive():
@@ -6137,7 +6164,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			var dmg_bruto: float = float(result.get("dmg_sin_mitigar", result.damage)) \
 				* ab.dano_mult * escala * e.dummy_dmg_out_mult
 			t.take_damage(dmg)
-			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab)
+			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab)
 			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
 			# El tope por accion hace que una habilidad de cinco golpes cueste una, no cinco.
 			if t.resiste_por_afinidad(e.elemento_ataque):

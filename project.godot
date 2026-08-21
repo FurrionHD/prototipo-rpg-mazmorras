@@ -27,6 +27,13 @@ Net="*res://scripts/net/net.gd"
 Nube="*res://scripts/net/cloud.gd"
 Mundos="*res://scripts/core/mundos.gd"
 Tactil="*res://scripts/core/tactil.gd"
+Sonido="*res://scripts/core/sonido.gd"
+
+[audio]
+
+; El bus SFX cuelga del Master para poder bajarle el volumen a los efectos sin
+; tocar el resto. Ver scripts/core/sonido.gd.
+buses/default_bus_layout="res://default_bus_layout.tres"
 
 [debug]
 

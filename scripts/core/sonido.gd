@@ -1,0 +1,161 @@
+# ============================================================
+#  sonido.gd  (autoload "Sonido")
+#  El unico sitio que reproduce efectos de sonido.
+#
+#  QUE SUENA. Se busca primero el fichero de LA HABILIDAD y, si no existe, el de su ESTILO. Asi el
+#  bramido del minotauro suena distinto del chillido de la rata aunque compartan dibujo, y con solo
+#  tener el generico de la familia ya no hay nada mudo. Los nombres: sfx_<clave>.wav, donde la clave
+#  de una habilidad es el nombre de su .tres (minotauro_bramido) y la de un estilo es el nombre del
+#  enum en minusculas (chillido). Ver audio/sfx/LEEME.md.
+#
+#  POR QUE UNA PISCINA DE VOCES y no un solo reproductor: el Frenesi de la rata son SEIS impactos en
+#  dos segundos. Con un AudioStreamPlayer unico, cada mordisco cortaria al anterior y la racha se
+#  oiria como un solo golpe.
+#
+#  QUIEN LLAMA: CombatFX._process, en el mismo frame en que da de alta el dibujo, para que el sonido
+#  y el efecto caigan juntos. Nadie mas -- si algun dia hace falta sonido fuera del combate, que
+#  entre por aqui igual.
+# ============================================================
+
+extends Node
+
+# CUANTAS VOCES a la vez. Doce cubre de sobra el caso peor conocido (una tormenta de 32 impactos
+# topa en unas pocas tandas, y de una tanda de area suena UNA sola: ver 'sin_dibujo' en CombatFX).
+const VOCES := 12
+
+const CARPETA := "res://audio/sfx/"
+
+# LAS HABILIDADES QUE TIENEN SONIDO PROPIO. Todo lo que no este aqui suena por su estilo, que es lo
+# normal: una rata muerde igual le salga la tecnica o no.
+#
+# ESTE ORDEN VIAJA POR RED. El indice (+1) es lo que se mete en los bits 20-31 del paquete de
+# impactos (ver combat.gd._apuntar_impacto_red), asi que las claves nuevas se añaden AL FINAL y
+# nunca se reordena ni se quita ninguna sin subir Net.PROTOCOLO.
+const CLAVES := [
+	"aberracion_alarido", "aberracion_mirada", "bestia_carga", "coloso_pisoton",
+	"gargola_mirada", "gargola_picado", "golem_machaca", "minotauro_bramido",
+	"minotauro_cornada", "minotauro_pisoton", "rey_slime_aplastamiento",
+	"trent_ramazo", "trent_savia_corrosiva",
+]
+
+# CUANTO SE OYE segun el peso del golpe (la fraccion que se lleva ese objetivo: 1.0 el principal,
+# 0.5 un adyacente). El rango es corto a proposito -- un adyacente suena mas flojo, no lejano.
+const DB_FLOJO := -8.0     # peso 0.2
+const DB_LLENO := 0.0      # peso 1.0
+const DB_GORDO := 2.0      # peso 1.5
+const DB_CRITICO := 2.0
+
+# La misma muestra seis veces seguidas suena a metralleta. Un pelin de tono cada vez y la racha se
+# oye como seis mordiscos distintos.
+const TONO_MIN := 0.94
+const TONO_MAX := 1.06
+const TONO_CRITICO := 0.95   # el critico, un punto mas grave: pesa mas
+
+# Dos disparos del MISMO fichero mas juntos que esto son un error de conteo, no dos golpes. Es el
+# seguro por si alguna area se cuela sin marcar; el reparto bueno lo hace _marcar_efectos_de_grupo.
+const MS_ANTISOLAPE := 50
+
+var _voces: Array[AudioStreamPlayer] = []
+var _desde: Array[int] = []            # ms en que arranco cada voz, para robar la mas antigua
+var _cache: Dictionary = {}            # clave -> AudioStream (o null si no hay fichero)
+var _ultimo: Dictionary = {}           # clave resuelta -> ms del ultimo disparo
+var _mudos: Dictionary = {}            # avisos ya dados, para no repetirlos cada frame
+
+# Cuantos golpes se han llegado a REPRODUCIR (los mudos y los que corta el antisolape no cuentan).
+# Es para depurar: mirandolo se sabe si una racha de seis sono seis veces o una.
+var disparos: int = 0
+
+
+func _ready() -> void:
+	for i in VOCES:
+		var p := AudioStreamPlayer.new()
+		p.bus = "SFX"
+		# Los menus paran el arbol entero (ver game.abrir_menu). Una voz pausable se cortaria a
+		# media dentellada al abrir la ficha.
+		p.process_mode = Node.PROCESS_MODE_ALWAYS
+		add_child(p)
+		_voces.append(p)
+		_desde.append(0)
+
+
+# UN GOLPE. 'clave' es la de la habilidad ("" si no tiene sonido propio) y 'estilo' el CombatFX.Estilo
+# que hace de respaldo. 'peso' y 'crit' son los mismos que gobiernan el dibujo.
+func golpe(clave: String, estilo: int, peso: float = 1.0, crit: bool = false) -> void:
+	var stream: AudioStream = _resolver(clave, estilo)
+	if stream == null:
+		return
+	var ahora: int = Time.get_ticks_msec()
+	var ruta: String = stream.resource_path
+	if ahora - int(_ultimo.get(ruta, -99999)) < MS_ANTISOLAPE:
+		return
+	_ultimo[ruta] = ahora
+	var v: AudioStreamPlayer = _voz_libre(ahora)
+	v.stream = stream
+	v.volume_db = _db(peso) + (DB_CRITICO if crit else 0.0)
+	v.pitch_scale = randf_range(TONO_MIN, TONO_MAX) * (TONO_CRITICO if crit else 1.0)
+	v.play()
+	disparos += 1
+
+
+# La clave que corresponde a un indice del paquete de red. 0 = ninguna (suena el generico del
+# estilo). Fuera de rango tambien devuelve "": un compañero con una version mas nueva puede mandar
+# un indice que aqui todavia no existe, y eso tiene que quedarse en un sonido generico, no reventar.
+func clave_de(i: int) -> String:
+	return String(CLAVES[i - 1]) if i > 0 and i <= CLAVES.size() else ""
+
+
+# El peso (0.2 flojo .. 1.0 lleno .. 1.5 gordo) a decibelios, en dos tramos rectos. Nada de
+# linear_to_db: ese mandaria un adyacente de 0.2 a -14 dB, o sea a otra habitacion.
+func _db(peso: float) -> float:
+	var p: float = clampf(peso, 0.2, 1.5)
+	if p <= 1.0:
+		return lerpf(DB_FLOJO, DB_LLENO, (p - 0.2) / 0.8)
+	return lerpf(DB_LLENO, DB_GORDO, (p - 1.0) / 0.5)
+
+
+func _voz_libre(ahora: int) -> AudioStreamPlayer:
+	var viejo: int = 0
+	for i in _voces.size():
+		if not _voces[i].playing:
+			_desde[i] = ahora
+			return _voces[i]
+		if _desde[i] < _desde[viejo]:
+			viejo = i
+	# Todas ocupadas: se roba la que lleva mas tiempo sonando, que es la que menos se echa de menos.
+	_desde[viejo] = ahora
+	return _voces[viejo]
+
+
+func _resolver(clave: String, estilo: int) -> AudioStream:
+	if clave != "":
+		var propio: AudioStream = _stream(clave)
+		if propio != null:
+			return propio
+	var nombre: String = _nombre_estilo(estilo)
+	return _stream(nombre) if nombre != "" else null
+
+
+func _nombre_estilo(estilo: int) -> String:
+	var claves: Array = CombatFX.Estilo.keys()
+	return String(claves[estilo]).to_lower() if estilo >= 0 and estilo < claves.size() else ""
+
+
+func _stream(clave: String) -> AudioStream:
+	if _cache.has(clave):
+		return _cache[clave]
+	var res: AudioStream = null
+	var ruta: String = CARPETA + "sfx_" + clave + ".wav"
+	if ResourceLoader.exists(ruta):
+		res = load(ruta) as AudioStream
+	else:
+		# PUENTE TEMPORAL: 39 de los ficheros siguen con sufijo _vN porque falta elegir cual se
+		# queda (ver audio/sfx/LEEME.md). Mientras tanto suena la primera version. EN CUANTO ESTEN
+		# ELEGIDAS, BORRAR ESTAS TRES LINEAS: el nombre sin sufijo es el que busca el juego.
+		var v1: String = CARPETA + "sfx_" + clave + "_v1.wav"
+		if ResourceLoader.exists(v1):
+			res = load(v1) as AudioStream
+	_cache[clave] = res
+	if res == null and OS.is_debug_build() and not _mudos.has(clave):
+		_mudos[clave] = true
+		print("[Sonido] mudo: no hay sfx_%s.wav" % clave)
+	return res
