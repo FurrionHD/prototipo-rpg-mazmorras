@@ -8,7 +8,7 @@ script = ExtResource("2")
 estado = 22
 prob = 1.0
 en_objetivo = false
-turns = 3
+turns = 30
 
 [resource]
 script = ExtResource("1")

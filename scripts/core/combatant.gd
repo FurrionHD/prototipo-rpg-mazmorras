@@ -982,6 +982,20 @@ func regen_mana_turnos_pendientes() -> int:
 
 
 # --- Consultas / agregadores ---
+# Le quita un estado, esté como esté. Lo usa lo que se AGOTA por su cuenta y no por el reloj de
+# turnos (la Escolta al gastar su ultima carga). Devuelve si habia algo que quitar.
+#
+# No refresca cachés a proposito: es el mismo trato que consumir_amplificadores. Si algun dia se
+# quita por aqui un estado que toque stats, ahi si habra que refrescar la ficha a mano.
+func quitar_estado(id: int) -> bool:
+	var fuera: bool = false
+	for i in range(statuses.size() - 1, -1, -1):
+		if statuses[i].id() == id:
+			statuses.remove_at(i)
+			fuera = true
+	return fuera
+
+
 func has_status(id: int) -> bool:
 	for e in statuses:
 		if e.id() == id:

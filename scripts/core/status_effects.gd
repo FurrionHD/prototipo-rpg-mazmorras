@@ -251,9 +251,14 @@ static var _defs: Dictionary = {
 		"turns": 3, "hp_mult": 2.0, "dmg_taken_mult": 2.0,
 		"descripcion": "Aguantas el doble y te duele el doble. Quien pega, se acuerda de ti.",
 	},
+	# VA POR CARGAS, NO POR TURNOS: son CINCO entradas y se acaba, tarden lo que tarden en salir.
+	# Con turnos, la habilidad valia lo que valiera el ritmo de la pelea -- tres turnos de un grupo
+	# de cuatro daban el triple de golpes que tres turnos peleando solo --, y encima se te iba sin
+	# usarla si nadie atacaba. Los turnos siguen puestos como tope de arriba, largos, para que no se
+	# quede colgada la pelea entera si no llega a gastarse.
 	Id.ESCOLTA: {   # ATAQUE DE SEGUIMIENTO: pegas detras de cada ataque de un aliado
 		"id": Id.ESCOLTA, "nombre": "Escolta", "icono": "🗡", "color": Color(0.9, 0.8, 0.55),
-		"turns": 3, "seguimiento_pct": 0.5,
+		"turns": 30, "usos": 5, "seguimiento_pct": 0.5,
 		"descripcion": "Dejas de ir por tu cuenta: entras justo detrás del que abre el hueco.",
 	},
 
@@ -383,11 +388,27 @@ class Instance extends RefCounted:
 	# Va aparte de mult_override porque un plato toca VARIAS claves a la vez (+10% Fuerza y +5% daño)
 	# y el override las aplastaria todas al mismo numero.
 	var escala: float = 1.0
+	# CARGAS. Lo que le queda por GASTARSE, para los estados que no se miden en turnos sino en veces
+	# que se usan (la Escolta: cinco ataques de seguimiento y se acabo, duren lo que duren). 0 = este
+	# estado no va por cargas y vive por sus turnos, como todos los demas.
+	#
+	# Los turnos siguen contando ademas de las cargas: son el tope de arriba para que un estado con
+	# cargas sin gastar no se quede puesto la pelea entera.
+	var usos: int = 0
 
 	func _init(def_: Dictionary, turns_: int, stacks_: int = 1) -> void:
 		d = def_
 		turns = turns_
 		stacks = stacks_
+		usos = int(def_.get("usos", 0))
+
+	# Gasta una carga. Devuelve true si con esta se ha AGOTADO (quien lo llama tiene que quitarlo).
+	# Un estado sin cargas nunca se agota por aqui.
+	func gastar_uso() -> bool:
+		if usos <= 0:
+			return false
+		usos -= 1
+		return usos <= 0
 
 	func id() -> int:
 		return int(d.get("id", -1))
@@ -468,6 +489,11 @@ class Instance extends RefCounted:
 
 	# Lo que le queda, ya formateado segun el tipo de estado ("4t" o "19:32").
 	func duracion_texto() -> String:
+		# LO QUE DE VERDAD LE QUEDA. Un estado por cargas se acaba cuando se gastan, no cuando se
+		# cumple el plazo, asi que enseñar sus turnos seria mentir: la Escolta pondria "30t" y se te
+		# iria a la quinta entrada.
+		if usos > 0:
+			return "x%d" % usos
 		return tiempo_restante() if es_tiempo_real() else "%dt" % turns
 
 	# Multiplicador BASE del estado de stat (override o catalogo), SIN contar stacks.
@@ -517,7 +543,10 @@ class Instance extends RefCounted:
 		# frases cortas. Nada de parentesis explicando la mecanica por dentro: el tooltip se lee
 		# de un vistazo en mitad de un turno, no es documentacion.
 		var lineas: PackedStringArray = []
-		if es_tiempo_real():
+		if usos > 0:
+			lineas.append("%s  %s  ·  %d entrada%s" % [
+				str(d.get("icono", "?")), str(d.get("nombre", "?")), usos, "" if usos == 1 else "s"])
+		elif es_tiempo_real():
 			lineas.append("%s  %s  ·  quedan %s" % [
 				str(d.get("icono", "?")), str(d.get("nombre", "?")), tiempo_restante()])
 		else:
@@ -626,7 +655,8 @@ class Instance extends RefCounted:
 # que la gente lleva puestos y no hay dos versiones del mismo veneno.
 static func dict_de_instancia(inst) -> Dictionary:
 	return {"id": inst.id(), "turns": inst.turns, "stacks": inst.stacks,
-		"magnitude": inst.magnitude, "mult": inst.mult_override, "escala": inst.escala}
+		"magnitude": inst.magnitude, "mult": inst.mult_override, "escala": inst.escala,
+		"usos": inst.usos}
 
 
 # LOS ESTADOS QUE SALEN DE UNA PELEA, en dicts. Es la regla de QUE sobrevive a la pantalla de
@@ -677,6 +707,11 @@ static func instancia_de_dict(d: Dictionary):
 	# 'escala' con default 1.0: los dicts guardados ANTES de que existieran los platos no la traen
 	# y tienen que rehidratar neutros, no a cero (que apagaria el estado entero).
 	inst.escala = float(d.get("escala", 1.0))
+	# Las CARGAS que le quedaban. Un dict guardado antes de que existieran no la trae, y entonces se
+	# queda con las del catalogo (las que puso _init): estrenar cargas es mejor que quedarse a cero,
+	# que dejaria el estado puesto pero inutil.
+	if d.has("usos"):
+		inst.usos = int(d["usos"])
 	# 'fresh' NO viaja: existe para que un buff recien echado no se coma un turno antes de poder
 	# usarlo DENTRO de la pelea. Fuera no hay accion que proteger, y al volver a entrar en combate
 	# lo que queda es lo que queda.

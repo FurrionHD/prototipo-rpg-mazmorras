@@ -223,7 +223,7 @@ func _vida(e: Dictionary) -> float:
 	if es == CombatFX.Estilo.DESVANECER:
 		return float(e["dur"]) + 0.30   # la sombra tarda en deshacerse
 	if es == CombatFX.Estilo.IMBUIR_FILO:
-		return float(e["dur"]) + 0.55   # es un buff: tiene que lucir, como el aura
+		return float(e["dur"]) + COLETA_IMBUIR
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -1907,11 +1907,25 @@ func _anillo(c: Vector2, rx: float, ry: float, col: Color, grosor: float) -> voi
 const _ACERO := Color(0.78, 0.82, 0.88)
 const _ACERO_OSCURO := Color(0.34, 0.38, 0.45)
 
+# LO QUE DURA UNTAR LA HOJA, en tiempo de animacion (los segundos de reloj salen de dividirlo por
+# CombatFX.RITMO_BASE, o sea que 1.10 son ~1.6 s). Va LARGO a proposito: no es un golpe, es un gesto
+# que hay que ver entero -- el bote recorriendo la hoja y el veneno quedandose detras. Con la coleta
+# corta de un ataque, el frasco cruzaba de un lado a otro antes de que te diera tiempo a mirarlo.
+#
+# ESTE NUMERO Y EL DE _vida TIENEN QUE SER EL MISMO: por eso es una constante y no dos literales.
+# Descuadrarlos es lo que le corto la animacion al aura a un tercio (ver la nota en _vida).
+const COLETA_IMBUIR := 1.10
 
-# ¿Lleva veneno/fuego encima, o es acero pelado? Se mira contra el gris de _color_golpe: cuando NO
-# hay imbuicion, el filo se pinta de un blanco frio en vez de "gris sobre gris", que no se veia.
+
+# ¿Lleva veneno/fuego encima, o es acero pelado? Cuando NO hay imbuicion el filo se pinta de un
+# blanco frio en vez de "gris sobre gris", que no se veia.
+#
+# Se compara con el gris EXACTO que manda combat.gd. Antes se adivinaba por lo saturado que fuera el
+# color y ese mismo gris se colaba como imbuido por un error de coma flotante (ver CombatFX.ACERO):
+# el resultado era que la Puñalada sin imbuir destellaba en gris.
 func _imbuido(col: Color) -> bool:
-	return absf(col.r - col.g) > 0.06 or absf(col.g - col.b) > 0.06
+	var a: Color = CombatFX.ACERO
+	return absf(col.r - a.r) > 0.02 or absf(col.g - a.g) > 0.02 or absf(col.b - a.b) > 0.02
 
 
 # El color del FILO: el de la imbuicion si la hay, y si no un blanco frio de reflejo.
@@ -2108,6 +2122,23 @@ func _pintar_punalada(e: Dictionary) -> void:
 	if k > 0.5:
 		var w2: float = (k - 0.5) / 0.5
 		var f: Color = _filo_col(col)
+		# EL DESTELLO. Esta habilidad es la jugada gorda de la daga y tiene que lucir como tal, no
+		# quedarse en un agujerito. El color lo pone lo que lleve el arma: SANGRE a pelo, y el de la
+		# imbuicion cuando la hay -- verde con veneno, naranja con fuego.
+		# Sin imbuicion, ROJO VIVO y no el _SANGRE del catalogo: ese es un granate oscuro pensado para
+		# pintarse SOBRE algo (la linea de una herida), y como fogonazo sobre el fondo oscuro de la
+		# pelea no se veia -- solo quedaba el nucleo blanco y parecia un destello gris.
+		var fuera: Color = col if _imbuido(col) else Color(0.95, 0.22, 0.16)
+		var dentro: Color = Color(minf(1.0, fuera.r + 0.35), minf(1.0, fuera.g + 0.30),
+			minf(1.0, fuera.b + 0.25))
+		# Estalla EN LA PUNTA, no en el centro de la tarjeta: es el fogonazo de la hoja entrando.
+		# 'mordida_c' es el campo que _destello ya mira para eso (lo usan las dentelladas).
+		e["mordida_c"] = punta
+		# EL RELOJ DEL DESTELLO ES 'v', NO 'w2'. w2 sale de la profundidad de la hoja, que se satura a
+		# 1 en cuanto se hunde (v > 0.30) y ahi se queda: le llegaba siempre el final de la curva, o
+		# sea el fogonazo ya apagado, y no se veia mas que una crucecita suelta. Con 'v' entra por el
+		# 0.14 -- el pico de _destello -- justo al hundirse y se va apagando durante todo el resto.
+		_destello(e, 0.14 + v * 0.60, fuera, dentro, 0.95)
 		var lado := Vector2(-dir.y, dir.x)
 		var rx: float = caja * 0.075 * w2
 		var pts := PackedVector2Array()
@@ -2122,8 +2153,15 @@ func _pintar_punalada(e: Dictionary) -> void:
 		draw_polyline(cerrado, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(1.5, caja * 0.022), true)
 
 
-# FILO EMPONZOÑADO. Un adorno sobre uno mismo: la hoja se levanta delante de tu tarjeta y se moja,
-# y el veneno le resbala por el filo y gotea. Coleta larga -- es un buff y tiene que lucir.
+# FILO EMPONZOÑADO. La daga TUMBADA y un bote que la recorre de la guarda a la punta echandole el
+# veneno: por donde ya ha pasado, la hoja se queda verde.
+#
+# EMPEZO SIENDO una hoja vertical con el liquido resbalando y no valia: no se entendia de donde
+# salia el veneno ni por que la hoja cambiaba de color. Lo que lo cuenta es ver el BOTE moverse y el
+# color quedandose DETRAS de el, que es como se unta una hoja de verdad.
+#
+# El color sale de la imbuicion (verde el veneno), asi que si algun dia se emponzoña con otra cosa,
+# se tiñe de lo suyo sin tocar esto.
 func _pintar_imbuir_filo(e: Dictionary) -> void:
 	var t: float = float(e["t"])
 	var dur: float = float(e["dur"])
@@ -2131,40 +2169,99 @@ func _pintar_imbuir_filo(e: Dictionary) -> void:
 	var g: float = float(e["semilla"])
 	var b: Vector2 = e["b"]
 	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
-	# Sube en el vuelo y se queda puesta el resto.
-	var subir: float = clampf(t / dur, 0.0, 1.0)
-	var v: float = clampf((t - dur) / 0.55, 0.0, 1.0) if t > dur else 0.0
-	var alfa: float = 1.0 if v < 0.70 else 1.0 - (v - 0.70) / 0.30
+	var v: float = clampf((t - dur) / COLETA_IMBUIR, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.78 else 1.0 - (v - 0.78) / 0.22
 	if alfa <= 0.0:
 		return
-	# La hoja, VERTICAL y quieta, un poco ladeada. No es un golpe: es el gesto de untarla.
-	var dir := Vector2(sin(g) * 0.22, -1.0).normalized()
-	var p: Vector2 = b + Vector2(0.0, caja * (0.55 - 0.35 * subir))
-	_hoja(p, dir, caja * 0.78, caja * 0.06, col, alfa, 0.0)
-	# EL BAÑO: el veneno baja por el filo. Es una lengua que crece de la punta hacia el mango.
-	var lado := Vector2(-dir.y, dir.x)
-	var baja: float = clampf(v / 0.45, 0.0, 1.0) if v > 0.0 else 0.0
-	if baja > 0.0:
-		var n: int = 9
-		var pts := PackedVector2Array()
+	# La daga se presenta durante el vuelo (entra desde abajo) y ahi se queda quieta mientras la untan.
+	var entra: float = clampf(t / dur, 0.0, 1.0)
+	var centro: Vector2 = b + Vector2(0.0, caja * 0.30 * (1.0 - entra) + caja * 0.05)
+	var largo: float = caja * 0.92
+	var ancho: float = caja * 0.085
+	# De izquierda a derecha: mango, guarda y hoja.
+	var base := Vector2(centro.x - largo * 0.30, centro.y)      # donde acaba la guarda y empieza la hoja
+	var punta := Vector2(base.x + largo, base.y)
+	# EL AVANCE DEL BOTE. Se toma su tiempo en la primera mitad de la coleta y luego se queda: asi da
+	# tiempo a leer el recorrido y a ver la hoja entera ya verde antes de que se vaya.
+	var avance: float = clampf(v / 0.55, 0.0, 1.0)
+
+	# --- LA DAGA -------------------------------------------------------------------------------
+	# Mango y pomo, a la izquierda de la guarda.
+	var mango_a := Vector2(base.x - largo * 0.20, base.y)
+	draw_line(mango_a, base, Color(0.32, 0.24, 0.20, alfa), maxf(2.0, ancho * 0.85), true)
+	draw_circle(mango_a, maxf(2.0, ancho * 0.42), Color(0.42, 0.34, 0.26, alfa))
+	# La guarda: la cruz vertical entre el mango y la hoja.
+	draw_line(base + Vector2(0.0, -ancho * 1.5), base + Vector2(0.0, ancho * 1.5),
+		Color(_ACERO_OSCURO.r, _ACERO_OSCURO.g, _ACERO_OSCURO.b, alfa), maxf(2.0, ancho * 0.55), true)
+	# La hoja en acero, entera, y encima el tramo ya mojado.
+	_hoja_tumbada(base, punta, ancho, 0.0, 1.0, _ACERO, alfa, true)
+	if avance > 0.01:
+		_hoja_tumbada(base, punta, ancho, 0.0, avance, col, 0.92 * alfa, false)
+
+	# --- EL BOTE -------------------------------------------------------------------------------
+	# Va por delante del borde mojado, que es lo que hace que se lea que el color sale DE EL.
+	var bx: float = lerpf(base.x, punta.x, avance)
+	var bote := Vector2(bx, base.y - caja * 0.30)
+	var rb: float = caja * 0.11
+	# Cuerpo, cuello y tapon: un frasco de boticario, inclinado hacia la hoja.
+	var cuerpo := PackedVector2Array()
+	for i in 14:
+		var a: float = TAU * float(i) / 14.0
+		cuerpo.append(bote + Vector2(cos(a) * rb * 0.85, sin(a) * rb))
+	draw_colored_polygon(cuerpo, Color(0.30, 0.36, 0.30, 0.95 * alfa))
+	# El veneno que le queda dentro, por la mitad de abajo.
+	var dentro := PackedVector2Array()
+	for i in 9:
+		var a2: float = PI * float(i) / 8.0
+		dentro.append(bote + Vector2(cos(a2) * rb * 0.62, sin(a2) * rb * 0.72))
+	draw_colored_polygon(dentro, Color(col.r, col.g, col.b, 0.9 * alfa))
+	draw_line(bote + Vector2(0.0, rb * 0.6), bote + Vector2(0.0, rb * 1.5),
+		Color(0.30, 0.36, 0.30, 0.95 * alfa), maxf(2.0, rb * 0.5), true)
+
+	# --- EL CHORRO ------------------------------------------------------------------------------
+	# Del cuello del bote a la hoja, ondulando un poco. Solo mientras esta echando.
+	if avance > 0.0 and avance < 1.0:
+		var boca: Vector2 = bote + Vector2(0.0, rb * 1.5)
+		var n: int = 7
+		var hilo := PackedVector2Array()
 		for i in n + 1:
-			var s: float = float(i) / float(n) * baja
-			var w: float = caja * 0.055 * (1.0 - s * 0.5) * (1.0 + 0.25 * sin(t * 9.0 + s * 7.0 + g))
-			pts.append(p + dir * (-caja * 0.78 * s) + lado * w)
-		for i in range(n, -1, -1):
-			var s2: float = float(i) / float(n) * baja
-			var w2: float = caja * 0.055 * (1.0 - s2 * 0.5)
-			pts.append(p + dir * (-caja * 0.78 * s2) - lado * w2 * 0.6)
-		draw_colored_polygon(pts, Color(col.r, col.g, col.b, 0.75 * alfa))
-	# Y LAS GOTAS que caen de la punta. Tres, desfasadas, cayendo y desapareciendo.
-	for i in 3:
-		var fase: float = fposmod(v * 1.6 + float(i) * 0.33 + g * 0.1, 1.0)
-		if v <= 0.0 or fase > 0.9:
-			continue
-		var caida: Vector2 = p + Vector2(sin(g + float(i) * 2.1) * caja * 0.06,
-			caja * 0.10 + fase * caja * 0.55)
-		draw_circle(caida, caja * 0.045 * (1.0 - fase * 0.4),
-			Color(col.r, col.g, col.b, 0.85 * alfa * (1.0 - fase)))
+			var s: float = float(i) / float(n)
+			hilo.append(Vector2(
+				lerpf(boca.x, bx, s) + sin(t * 13.0 + s * 5.0 + g) * caja * 0.012,
+				lerpf(boca.y, base.y, s)))
+		draw_polyline(hilo, Color(col.r, col.g, col.b, 0.9 * alfa), maxf(1.5, caja * 0.022), true)
+		# Y la gota que salpica donde cae.
+		draw_circle(Vector2(bx, base.y), caja * 0.03 * (1.0 + 0.3 * sin(t * 16.0 + g)),
+			Color(col.r, col.g, col.b, 0.85 * alfa))
+
+
+# Media daga tumbada: el poligono de la hoja entre dos fracciones de su largo (s0..s1), para poder
+# pintar el trozo YA MOJADO encima del acero sin recortes ni mascaras.
+#
+# 'contorno' solo lo pide la pasada de acero: repetirlo en la del veneno dibujaba un borde oscuro en
+# mitad de la hoja, justo por donde iba el bote.
+func _hoja_tumbada(base: Vector2, punta: Vector2, ancho: float, s0: float, s1: float,
+		col: Color, alfa: float, contorno: bool) -> void:
+	var n: int = 12
+	var arriba := PackedVector2Array()
+	var abajo := PackedVector2Array()
+	for i in n + 1:
+		var s: float = lerpf(s0, s1, float(i) / float(n))
+		# Perfil: casi recto y solo se afila al final, que es lo que le da aire de hoja de daga.
+		var w: float = ancho * (1.0 - pow(s, 3.0)) * (0.75 + 0.25 * (1.0 - s))
+		var p: Vector2 = base.lerp(punta, s)
+		arriba.append(Vector2(p.x, p.y - w))
+		abajo.append(Vector2(p.x, p.y + w * 0.55))   # el filo va por abajo: mas plano
+	var pts := PackedVector2Array()
+	pts.append_array(arriba)
+	for i in range(abajo.size() - 1, -1, -1):
+		pts.append(abajo[i])
+	draw_colored_polygon(pts, Color(col.r, col.g, col.b, alfa))
+	if contorno:
+		var cerrado := PackedVector2Array(pts)
+		cerrado.append(pts[0])
+		draw_polyline(cerrado, Color(_ENCIA.r, _ENCIA.g, _ENCIA.b, 0.7 * alfa),
+			maxf(1.0, ancho * 0.22), true)
 
 
 # DESAPARECER. El corte sale de una sombra: primero se abre una mancha oscura sobre el objetivo, se

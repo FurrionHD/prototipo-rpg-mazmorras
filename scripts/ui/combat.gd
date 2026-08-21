@@ -2668,8 +2668,6 @@ func _clave_sfx(ab: AbilityData) -> String:
 	return clave if Sonido.CLAVES.has(clave) else ""
 
 
-const ACERO := Color(0.72, 0.76, 0.82)
-
 func _color_golpe(atacante: Combatant, elem: int, estilo: int) -> Color:
 	if Elementos.tiene_color(elem):
 		return Elementos.color(elem)
@@ -2687,7 +2685,7 @@ func _color_golpe(atacante: Combatant, elem: int, estilo: int) -> Color:
 			var d: Dictionary = StatusEffects.def(atacante.imbue_estado)
 			if d.has("color"):
 				return d["color"]
-		return ACERO
+		return CombatFX.ACERO
 	if estilo != CombatFX.Estilo.MELEE and atacante != null:
 		return atacante.color_visual
 	return Color(1, 0.95, 0.9)
@@ -6476,11 +6474,19 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 		if not obj.is_alive():
 			break
 		var pct: float = 0.0
+		var inst = null
 		for e in esc.statuses:
 			if e.id() == StatusEffects.Id.ESCOLTA:
 				pct = maxf(pct, float(e.d.get("seguimiento_pct", 0.0)))
+				inst = e
 		if pct <= 0.0:
 			continue
+		# SE PAGA UNA CARGA POR ENTRADA. La Escolta se mide en veces que entras, no en turnos: cada
+		# golpe de seguimiento gasta una y, cuando se acaban, el estado se va aunque le sobren turnos.
+		# Se cobra ANTES de resolver: entrar y fallar tambien es haber entrado.
+		if inst != null and inst.gastar_uso():
+			esc.quitar_estado(StatusEffects.Id.ESCOLTA)
+			_log_extra("%s se queda sin huecos que aprovechar." % esc.nombre)
 		# _player es "quien tiene el turno" en todo el motor de golpes, asi que se le presta un
 		# momento al escolta para que el golpe salga con SUS numeros, y se devuelve al acabar.
 		_player = esc

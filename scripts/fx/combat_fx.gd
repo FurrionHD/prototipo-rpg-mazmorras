@@ -132,6 +132,15 @@ const FX_ARMA := {
 const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.IMBUIR_FILO, Estilo.DESVANECER]
 
+# EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
+# como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
+#
+# Y SE COMPARA POR IGUALDAD, no "a ojo" por la saturacion del color. Se intento adivinar con un
+# `|g - b| > 0.06` y este mismo gris lo colaba como imbuido: 0.82 - 0.76 da 0.06000000000000005 en
+# coma flotante, o sea MAYOR que 0.06 por un pelo, y el fogonazo de la Puñalada salia gris en vez de
+# rojo. Comparar con el color exacto que manda combat.gd no tiene ese problema.
+const ACERO := Color(0.72, 0.76, 0.82)
+
 # Cuanto tarda cada efecto en llegar desde que nace. Se usa para dar de alta el dibujo ANTES del
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
 # sacudida: si el rayo llegara despues del temblor, se leeria al reves.
@@ -181,7 +190,7 @@ const T_VUELO := {
 	# la hace leerse como un golpe apuntado y no como un corte mas.
 	Estilo.DAGA_CORTE: 0.04, Estilo.DAGA_RAFAGA: 0.05, Estilo.PUNALADA: 0.09,
 	# IMBUIR_FILO no viaja (te la echas encima) y va largo: hay que ver la hoja mojarse.
-	Estilo.IMBUIR_FILO: 0.20, Estilo.DESVANECER: 0.10,
+	Estilo.IMBUIR_FILO: 0.30, Estilo.DESVANECER: 0.10,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
