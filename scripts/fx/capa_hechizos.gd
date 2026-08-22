@@ -2576,17 +2576,9 @@ func _pintar_estocada(e: Dictionary) -> void:
 			minf(1.0, fuera.b + 0.25))
 		e["mordida_c"] = punta
 		_destello(e, 0.14 + v * 0.60, fuera, dentro, 0.85)
-	# LA SEGUNDA FINTA: el mismo pinchazo, mas pequeño y desplazado, entrando cuando el primero ya
-	# esta dentro. Son dos amagos seguidos, no un golpe repetido.
-	if estilo == CombatFX.Estilo.FINTAS and v > 0.40:
-		var v2: float = (v - 0.40) / 0.60
-		var off: Vector2 = Vector2(cos(g * 3.7), sin(g * 3.1)) * caja * 0.26
-		var k2: float = clampf(v2 / 0.35, 0.0, 1.0)
-		var hund2: float = 1.0 - pow(1.0 - k2, 3.0)
-		var p2: Vector2 = punta + off - dir * caja * 0.55 * (1.0 - hund2)
-		_hoja(p2, dir, caja * LARGO_ESTOQUE * 0.85, caja * ANCHO_ESTOQUE, col, alfa * 0.95)
-		if k2 > 0.5:
-			_pinchazo(p2, dir, caja * 0.045 * ((k2 - 0.5) / 0.5), col, alfa)
+	# LAS FINTAS SON DOS GOLPES, y cada golpe trae UNA estocada: la segunda entra desplazada porque
+	# su evento tiene otra semilla. Antes este painter dibujaba las dos, asi que con los dos golpes
+	# de la habilidad salian CUATRO estoques.
 
 
 # EN GUARDIA. No es un golpe: es una POSTURA. La hoja se levanta delante de ti y se queda quieta,
@@ -2706,28 +2698,27 @@ func _pintar_danza_acero(e: Dictionary) -> void:
 	var alfa_g: float = 1.0 if v < 0.62 else 1.0 - (v - 0.62) / 0.38
 	if alfa_g <= 0.0:
 		return
-	for i in 3:
-		# ESCALONADAS: cada tiempo entra un poco despues del anterior. Si salieran a la vez seria un
-		# tridente, no tres tiempos.
-		var k: float = clampf((v - float(i) * 0.16) / 0.28, 0.0, 1.0)
-		if k <= 0.0:
-			continue
-		# EL ABANICO SE ABRE POR DONDE CLAVA, no por el mango. Girando la direccion desde un mismo
-		# punto, las tres puntas acababan JUNTAS arriba y los mangos abiertos abajo: salia un tripode
-		# con los tres pinchazos apilados en el mismo sitio. Lo que hace falta es al reves -- tres
-		# sitios distintos donde clavar, y las hojas entrando casi paralelas desde abajo.
-		var destino: Vector2 = b + Vector2((float(i) - 1.0) * caja * 0.30,
-			sin(g + float(i) * 2.1) * caja * 0.10)
-		var ang: float = -PI * 0.5 + (float(i) - 1.0) * 0.12 + sin(g + float(i)) * 0.05
-		var dir := Vector2(cos(ang), sin(ang))
-		var hundido: float = 1.0 - pow(1.0 - k, 3.0)
-		var punta: Vector2 = destino - dir * caja * 0.75 * (1.0 - hundido) \
-			+ dir * caja * 0.14 * hundido
-		# Cada tiempo se apaga por su cuenta: el primero ya se esta yendo cuando entra el tercero.
-		var alfa: float = alfa_g * (1.0 if k < 0.75 else 1.0 - (k - 0.75) / 0.25 * 0.45)
-		_hoja(punta, dir, caja * LARGO_ESTOQUE * 0.90, caja * ANCHO_ESTOQUE, col, alfa)
-		if k > 0.6:
-			_pinchazo(punta, dir, caja * 0.040 * ((k - 0.6) / 0.4), col, alfa)
+	# UN TIEMPO POR GOLPE. La habilidad pega TRES veces y cada una clava en su sitio del abanico.
+	# Pintando los tres tiempos en cada golpe salian NUEVE estocadas para una habilidad de tres.
+	var i: int = mini(int(e.get("golpe", 0)), 2)
+	var k: float = clampf(v / 0.28, 0.0, 1.0)
+	if k <= 0.0:
+		return
+	# EL ABANICO SE ABRE POR DONDE CLAVA, no por el mango. Girando la direccion desde un mismo
+	# punto, las tres puntas acababan JUNTAS arriba y los mangos abiertos abajo: salia un tripode
+	# con los tres pinchazos apilados en el mismo sitio. Lo que hace falta es al reves -- tres
+	# sitios distintos donde clavar, y las hojas entrando casi paralelas desde abajo.
+	var destino: Vector2 = b + Vector2((float(i) - 1.0) * caja * 0.30,
+		sin(g + float(i) * 2.1) * caja * 0.10)
+	var ang: float = -PI * 0.5 + (float(i) - 1.0) * 0.12 + sin(g + float(i)) * 0.05
+	var dir := Vector2(cos(ang), sin(ang))
+	var hundido: float = 1.0 - pow(1.0 - k, 3.0)
+	var punta: Vector2 = destino - dir * caja * 0.75 * (1.0 - hundido) \
+		+ dir * caja * 0.14 * hundido
+	var alfa: float = alfa_g * (1.0 if k < 0.75 else 1.0 - (k - 0.75) / 0.25 * 0.45)
+	_hoja(punta, dir, caja * LARGO_ESTOQUE * 0.90, caja * ANCHO_ESTOQUE, col, alfa)
+	if k > 0.6:
+		_pinchazo(punta, dir, caja * 0.040 * ((k - 0.6) / 0.4), col, alfa)
 
 
 # ============================================================
@@ -2847,6 +2838,9 @@ func _pintar_quebrantador(e: Dictionary) -> void:
 
 # SEÑALAR EL HUECO. Dos cortes EN EL MISMO SITIO -- no repartidos, insistiendo en el mismo punto -- y
 # una diana que se queda puesta encima: es una MARCA para los tuyos, no un golpe mas.
+#
+# UN CORTE POR GOLPE, como el Doble tajo: la habilidad pega dos veces y cada vez traza uno. Pintar
+# los dos en cada golpe sacaba cuatro cortes y dos dianas.
 func _pintar_senalar_hueco(e: Dictionary) -> void:
 	var t: float = float(e["t"])
 	var dur: float = float(e["dur"])
@@ -2862,17 +2856,15 @@ func _pintar_senalar_hueco(e: Dictionary) -> void:
 	# El punto EXACTO donde se insiste: siempre el mismo para los dos cortes.
 	var p: Vector2 = e["b"] + Vector2(cos(g * 2.1), sin(g * 1.7)) * caja * 0.14
 	var f: Color = _filo_col(col)
-	# LOS DOS CORTES, cruzados sobre ese punto y escalonados.
-	for i in 2:
-		var k: float = clampf((v - float(i) * 0.22) / 0.30, 0.0, 1.0)
-		if k <= 0.0:
-			continue
-		var ang: float = -PI * 0.25 + float(i) * PI * 0.5
-		var largo: float = caja * 0.85
-		_tajo(p, ang, largo, 0.03, k, col, alfa, caja * 0.075, int(e.get("elem", 0)), float(e["semilla"]))
-	# LA DIANA: dos anillos y una cruz sobre el punto. Entra al final y se queda -- es lo que ven
-	# los tuyos.
-	if v <= 0.45:
+	# EL CORTE QUE LE TOCA A ESTE GOLPE. El segundo cruza al primero sobre el mismo punto.
+	var segundo: bool = int(e.get("golpe", 0)) > 0
+	var k: float = clampf(v / 0.34, 0.0, 1.0)
+	var ang: float = -PI * 0.25 + (PI * 0.5 if segundo else 0.0)
+	_tajo(p, ang, caja * 0.85, 0.03, k, col, alfa, caja * 0.075,
+		int(e.get("elem", 0)), float(e["semilla"]))
+	# LA DIANA: dos anillos y una cruz sobre el punto. La pone el SEGUNDO corte, cuando ya se ha
+	# insistido -- es lo que ven los tuyos, y va una, no una por golpe.
+	if not segundo or v <= 0.45:
 		return
 	var w: float = clampf((v - 0.45) / 0.35, 0.0, 1.0)
 	var rr: float = caja * 0.30 * (1.4 - 0.4 * w)   # se cierra sobre el punto
@@ -3288,19 +3280,17 @@ func _pintar_molinete(e: Dictionary) -> void:
 	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
 	var largo: float = _radio_grupo(e, 1.15, caja * 1.40)
 	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
-	# DOS pasadas, en sentidos contrarios y a distinta altura: el espadon va y vuelve. La segunda
-	# entra cuando la primera lleva media vuelta, que es lo que lo lee como un molinete y no como dos
-	# tajos sueltos.
-	for i in 2:
-		var k: float = clampf((v - float(i) * 0.26) / 0.46, 0.0, 1.0)
-		if k <= 0.0:
-			continue
-		var lado: float = sentido if i == 0 else -sentido
-		var ang: float = (-0.16 + sin(g * 2.3 + float(i)) * 0.10) * lado
-		var alto: float = caja * (-0.16 if i == 0 else 0.18)
-		var c: Vector2 = b + Vector2(0.0, alto)
-		var kk: float = 1.0 - pow(1.0 - k, 2.0)
-		_tajo(c, ang, largo, 0.04 * lado, kk, col, alfa, caja * 0.125, int(e.get("elem", 0)), float(e["semilla"]))
+	# UN BARRIDO POR GOLPE. El espadon va y vuelve: el primer golpe cruza en un sentido y por arriba,
+	# el segundo en el contrario y mas abajo. Pintar las dos pasadas en cada golpe sacaba cuatro
+	# barridos para una habilidad que da dos.
+	var i: int = mini(int(e.get("golpe", 0)), 1)
+	var lado: float = sentido if i == 0 else -sentido
+	var ang: float = (-0.16 + sin(g * 2.3 + float(i)) * 0.10) * lado
+	var alto: float = caja * (-0.16 if i == 0 else 0.18)
+	var c: Vector2 = b + Vector2(0.0, alto)
+	var kk: float = 1.0 - pow(1.0 - clampf(v / 0.46, 0.0, 1.0), 2.0)
+	_tajo(c, ang, largo, 0.04 * lado, kk, col, alfa, caja * 0.125,
+		int(e.get("elem", 0)), float(e["semilla"]))
 
 
 # GRITO DE GUERRA. Igual que el CHILLIDO de los bichos, porque es lo mismo: la onda SALE DEL QUE
@@ -3358,8 +3348,11 @@ func _pintar_verdugo(e: Dictionary) -> void:
 	var k: float = clampf(v / 0.24, 0.0, 1.0)
 	var caida: float = 1.0 - pow(1.0 - k, 3.2)
 	var arriba: Vector2 = b - Vector2.DOWN * caja * 2.40
-	_tajo(arriba.lerp(b, 0.5), PI * 0.5, arriba.distance_to(b), 0.0, caida, col, alfa, caja * 0.24, int(e.get("elem", 0)), float(e["semilla"]))
+	# EL TRAZO DE LA CAIDA, y SOLO MIENTRAS CAE: en cuanto toca el suelo lo releva la columna de luz.
+	# Dejandolo puesto quedaba una raya fina de mas pegada a la columna, que no contaba nada.
 	if k < 1.0:
+		_tajo(arriba.lerp(b, 0.5), PI * 0.5, arriba.distance_to(b), 0.0, caida, col, alfa,
+			caja * 0.24, int(e.get("elem", 0)), float(e["semilla"]))
 		return   # sigue bajando: el reventon es AL LLEGAR
 	var w: float = clampf((v - 0.24) / 0.76, 0.0, 1.0)
 	var suelo: Vector2 = b + Vector2(0.0, caja * 0.30)
