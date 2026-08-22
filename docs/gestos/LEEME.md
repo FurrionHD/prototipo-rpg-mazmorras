@@ -4,9 +4,10 @@ Dos formas de verlos.
 
 ## 1. El VISOR, que es lo que quieres casi siempre
 
-```
-"C:\Users\dasui\AppData\Local\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.7-stable_win64.exe" --path . res://dev_gestos.tscn
-```
+**Doble clic en `ver_gestos.bat`**, en la raíz del proyecto. Y ya.
+
+Desde el editor de Godot es igual de rápido: abre `dev_gestos.tscn` y pulsa **F6** (*ejecutar la
+escena actual*). Con F5 arrancaría el juego entero, que no es lo que quieres aquí.
 
 Los lanza **en movimiento**, en bucle, cada repetición sobre un muñeco distinto, y tres veces
 seguidas cada uno para que dé tiempo a mirarlos.
