@@ -5211,6 +5211,9 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# efectos. Pintandolo antes, el Filo emponzoñado salia de acero -- el bote gris, el liquido gris y
 	# la hoja sin cambiar de color-- porque todavia no se habia envenenado nada.
 	_fx_adorno(_player, ab, _objetivo())
+	# Y LO QUE TE ECHAS TU ENCIMA (el Voto de guardia: pegas Y te cubres). Va aparte del adorno
+	# porque estas SI hacen daño, asi que su dibujo de golpe ya se ha pintado sobre el enemigo.
+	_fx_sobre_mi(ab)
 	_update_hp()
 	_fin_de_eleccion()
 	# A TODOS los alcanzados, no solo al objetivo principal (misma regla que la magia de area).
@@ -5929,6 +5932,19 @@ func _enemy_turn(e: Combatant) -> void:
 # ataca y para el jugador es a quien BUFA (Grito de guerra, Muro de aliados), que es justo lo que se
 # quiere en los dos casos. Una habilidad de jugador sin daño que apuntase a los ENEMIGOS en area se
 # pintaria en el sitio equivocado; hoy no existe ninguna, pero cuando la haya hay que partir esto.
+# LO QUE EL QUE ATACA SE ECHA ENCIMA (AbilityData.fx_sobre_mi): la postura del Voto de guardia y lo
+# que venga. Se pinta sobre SU tarjeta, no sobre la del enemigo, y en su propia tanda para que salga
+# DESPUES del golpe -- primero pegas, luego te cubres.
+#
+# Va como 'solo_dibujo': no es un impacto, no lleva numero ni temblor ni toca ninguna barra.
+func _fx_sobre_mi(ab: AbilityData) -> void:
+	if ab == null or ab.fx_sobre_mi < 0 or _fx == null:
+		return
+	_fx_tanda(_fx.ultima_tanda() + 1)
+	_fx_golpe(_player, _player, 0.0, false, false, Elementos.Elemento.NINGUNO,
+		ab.fx_sobre_mi, 1.3, true)
+
+
 func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
 	if ab == null or ab.dano_mult > 0.0:
 		return

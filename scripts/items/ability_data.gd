@@ -254,6 +254,20 @@ func secundario_para(n_enemigos: int) -> float:
 # tener que mandarlo por red, porque el espejo deriva el mismo color de su propio Combatant.
 @export var fx_estilo: int = -1
 
+# QUE TE ECHAS TU ENCIMA, aparte de lo que le hagas al enemigo. -1 = nada.
+#
+# Existe porque hay habilidades que hacen LAS DOS COSAS: el Voto de guardia pega un tajo Y te deja
+# en guardia. Con un solo campo no salia: el dibujo de una habilidad que hace daño se pinta sobre el
+# OBJETIVO, asi que poniendole aqui la postura defensiva, el escudo aparecia sobre el bicho -- como
+# si le estuvieras pegando con el escudo en vez de cubrirte tu.
+#
+# La lista CombatFX.SOBRE_SI_MISMO no basta: solo la mira _fx_adorno, que es la ruta de las que NO
+# hacen daño. Estas si lo hacen.
+#
+# El dibujo sale al FINAL de la accion (ver _fx_sobre_mi en combat.gd), que es el orden que se lee:
+# primero pegas, y despues te cubres.
+@export var fx_sobre_mi: int = -1
+
 # COOLDOWN (KAN-57): turnos que debes ESPERAR para volver a usarla. 0 = sin cooldown
 # (usable cada turno). N = tras usarla, no vuelve a estar disponible hasta N turnos
 # tuyos despues. El estado (turnos restantes) vive en el Combatant, no aqui (recurso
