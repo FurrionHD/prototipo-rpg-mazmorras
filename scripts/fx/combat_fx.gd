@@ -1515,7 +1515,27 @@ func _process(delta: float) -> void:
 				if ev.has("ancho_grupo"):
 					destino.x = float(ev["centro_grupo"])
 					ancho = float(ev["ancho_grupo"])
-				_capa_fx.alta(estilo, _punto(ev["ba"]), destino, ev["color"], peso, vuelo, ancho)
+				# EL ELEMENTO Y EL INDICE DE GOLPE, que estaban AQUI Y NO SE PASABAN. Los dos ultimos
+				# argumentos tienen valor por defecto, asi que la llamada corta compilaba y funcionaba
+				# -- solo que con elem 0 y golpe 0 SIEMPRE. Sin dar un error, eso apagaba dos cosas
+				# enteras en la partida de verdad:
+				#
+				#   - el COMPORTAMIENTO del elemento (el rayo que se quiebra, el fuego que ondea, el
+				#     agua que gotea): todo salia como si no hubiera elemento, solo con el tinte.
+				#   - y TODOS los gestos multi-golpe pintaban su primer golpe una y otra vez. El Doble
+				#     tajo no cerraba nunca la cruz, la Carniceria daba tres veces el mismo hachazo en
+				#     el mismo sitio, el Molinete repetia barrido, y el mazazo y el escudazo del
+				#     Aplastamiento volvian a caer uno encima del otro.
+				#
+				# En el VISOR se veian bien porque alli el indice se pasa a mano, que es justo la
+				# trampa que ya estaba apuntada para los colores: una tira de contactos no prueba el
+				# camino de verdad.
+				#
+				# 'tanda' ES el indice del golpe: _tanda_auto vuelve a -1 al cerrar cada accion (ver
+				# arrancar_cola) y _resolver_golpe_hab llama a _fx_tanda(i) con el indice antes de
+				# cada uno.
+				_capa_fx.alta(estilo, _punto(ev["ba"]), destino, ev["color"], peso, vuelo, ancho,
+					int(ev.get("elem", 0)), int(ev.get("tanda", 0)))
 
 		# EL SONIDO, en el mismo frame que el dibujo. Tiene su propio guardian y NO copia el `if` de
 		# arriba, por tres motivos:
