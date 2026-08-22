@@ -2932,6 +2932,14 @@ const COLETA_MARCIAL := 0.34
 const COLETA_VOZ := 0.55
 const COLETA_ESCUDAZO := 0.30
 
+# CUANTO SE APARTAN las dos manos, en fracciones de caja. El golpe de ARMA cae a un lado y el de
+# ESCUDO al otro, para que dos golpes de la misma habilidad no se pinten uno encima del otro.
+#
+# Es UNA constante y no dos literales porque los dos painters (_pintar_escudazo y el del arma que
+# toque) tienen que sumar y restar EXACTAMENTE lo mismo: descuadrarlos deja los golpes o pegados o
+# tan separados que se salen de la tarjeta.
+const DESVIO_MANO := 0.26
+
 const LARGO_LARGA := 0.78          # de caja: la hoja mas larga hasta ahora
 # 0.105 y no 0.155: con aquel, la hoja salia tan ancha respecto a su largo que parecia un cono
 # cayendo, no una espada. Una espada larga es larga, no gorda.
@@ -3110,6 +3118,16 @@ func _pintar_escudazo(e: Dictionary) -> void:
 	if alfa <= 0.0:
 		return
 	var b: Vector2 = e["b"] + Vector2(cos(g * 2.1), sin(g * 1.7)) * caja * 0.08
+	# EL ESCUDO ENTRA POR EL OTRO LADO. Un golpe de escudo nunca es el primero de su habilidad (lo
+	# pide escudo_desde_golpe, siempre despues del golpe de arma), y las dos manos no pegan en el
+	# mismo sitio: la del arma por un lado y la del escudo por el otro.
+	#
+	# Sin esto se SOLAPABAN. En el Aplastamiento el mazazo y el escudazo caian los dos en el centro de
+	# la tarjeta con dos decimas de diferencia, asi que el escudo entraba encima de la mancha del
+	# mazazo y no se leia que fueran dos golpes distintos -- que es justo lo que cuenta esa habilidad.
+	# Vale igual para la Guardia rota de la espada larga.
+	if int(e.get("golpe", 0)) > 0:
+		b.x += caja * DESVIO_MANO
 	# Entra de golpe desde abajo y rebota un poco: es un empujon, no un corte.
 	var k: float = clampf(v / 0.26, 0.0, 1.0)
 	var entra: float = 1.0 - pow(1.0 - k, 3.0)
@@ -3785,12 +3803,18 @@ func _pintar_aplastamiento(e: Dictionary) -> void:
 	var col: Color = e["col"]
 	var g: float = float(e["semilla"])
 	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# EL MAZAZO ENTRA POR SU LADO, el contrario del que usa el escudazo que viene detras (ver
+	# DESVIO_MANO): si no, los dos golpes de esta habilidad se pintan en el mismo punto con dos
+	# decimas de diferencia y se tapan el uno al otro.
+	b.x -= caja * DESVIO_MANO
 	var k: float = 1.0 - pow(1.0 - clampf(v / 0.20, 0.0, 1.0), 3.0)
 	var r: float = caja * 0.28 * (0.32 + 0.68 * k)
 	_porrazo(b, r, col, alfa, v, g, int(e.get("elem", 0)))
 	# LA GUARDIA REVENTANDO, con el mismo lenguaje que el Tajo quebrantador de la espada corta: es la
 	# misma jugada (abrirle la defensa) y tiene que leerse igual, la de un arma o la de la otra.
-	_guardia_rompiendose(b, caja * 0.62, _filo_col(col), alfa,
+	# Se queda CENTRADA en la tarjeta aunque el mazazo entre por un lado: lo que se rompe es la
+	# guardia del bicho, que esta donde esta, no donde le hayas pegado.
+	_guardia_rompiendose(e["b"], caja * 0.62, _filo_col(col), alfa,
 		clampf((v - 0.16) / 0.45, 0.0, 1.0), g, caja)
 
 

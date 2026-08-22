@@ -39,7 +39,8 @@ Cuatro instantes de cada gesto, una hoja por arma:
 - `gestos_5_mandobles.png`
 - `gestos_6_imbuiciones.png` — los mismos gestos con acero, veneno, fuego, agua y rayo
 - `gestos_7_maza_peq.png` — **cinco** instantes, ampliados ×1.75 y con el recuadro de la tarjeta
-  detrás, que es lo único con lo que se distingue una púa roma de una afilada
+  detrás, que es lo único con lo que se distingue una púa roma de una afilada. Las de **dos golpes**
+  (Aplastamiento, Guardia rota) salen con los dos puestos: es la única forma de ver si se solapan
 
 Se regeneran con el visor (`F12`) o volviendo a escribir el generador; son capturas, no hay que
 mantenerlas al día salvo que cambie un gesto.
