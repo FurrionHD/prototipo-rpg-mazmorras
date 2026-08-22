@@ -86,7 +86,9 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.GRITO_ALIENTO, CombatFX.Estilo.MURO_ALIADOS, \
 		CombatFX.Estilo.SED_SANGRE, CombatFX.Estilo.MARTILLO_EN_ALTO, \
 		CombatFX.Estilo.FOCO_ARCANO, CombatFX.Estilo.VELO_UMBRIO, \
-		CombatFX.Estilo.VIENTO_LIMPIO:
+		CombatFX.Estilo.VIENTO_LIMPIO, \
+		CombatFX.Estilo.PROVOCACION_FX, CombatFX.Estilo.GUARDIA_CARNE_FX, \
+		CombatFX.Estilo.COBERTURA:
 			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA, y el
 			# picaro se unta el filo).
 			e["a"] = b
@@ -117,7 +119,8 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.ONDA_EXPANSIVA, CombatFX.Estilo.ROMPECORAZAS, \
 		CombatFX.Estilo.MARTILLO_GUERRA, CombatFX.Estilo.TEMBLOR_SUELO, \
 		CombatFX.Estilo.BASTON_GOLPE, CombatFX.Estilo.BASTONAZO, \
-		CombatFX.Estilo.SELLO_ARCANO:
+		CombatFX.Estilo.SELLO_ARCANO, \
+		CombatFX.Estilo.PUNOS_GOLPE, CombatFX.Estilo.EMBESTIDA_ESCUDO:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -374,6 +377,17 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_VELO
 	if es == CombatFX.Estilo.VIENTO_LIMPIO:
 		return float(e["dur"]) + COLETA_VIENTO
+	# LOS PUÑOS Y EL RESTO DEL ESCUDO.
+	if es == CombatFX.Estilo.PUNOS_GOLPE:
+		return float(e["dur"]) + COLETA_PUNOS
+	if es == CombatFX.Estilo.EMBESTIDA_ESCUDO:
+		return float(e["dur"]) + COLETA_EMBESTIDA
+	if es == CombatFX.Estilo.PROVOCACION_FX:
+		return float(e["dur"]) + COLETA_PROVOCACION
+	if es == CombatFX.Estilo.GUARDIA_CARNE_FX:
+		return float(e["dur"]) + COLETA_GUARDIA_CARNE
+	if es == CombatFX.Estilo.COBERTURA:
+		return float(e["dur"]) + COLETA_COBERTURA
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -474,6 +488,11 @@ func _draw() -> void:
 			CombatFX.Estilo.SELLO_ARCANO: _pintar_sello_arcano(e)
 			CombatFX.Estilo.VELO_UMBRIO: _pintar_velo_umbrio(e)
 			CombatFX.Estilo.VIENTO_LIMPIO: _pintar_viento_limpio(e)
+			CombatFX.Estilo.PUNOS_GOLPE: _pintar_punos(e)
+			CombatFX.Estilo.EMBESTIDA_ESCUDO: _pintar_embestida_escudo(e)
+			CombatFX.Estilo.PROVOCACION_FX: _pintar_provocacion(e)
+			CombatFX.Estilo.GUARDIA_CARNE_FX: _pintar_guardia_carne(e)
+			CombatFX.Estilo.COBERTURA: _pintar_cobertura(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -5190,3 +5209,267 @@ func _pintar_viento_limpio(e: Dictionary) -> void:
 		draw_circle(b + Vector2(x2, y2 - caja * 0.10 * kk),
 			maxf(1.5, caja * 0.038 * (1.0 - kk * 0.6)),
 			Color(0.26, 0.21, 0.17, 0.9 * alfa * sin(PI * kk)))
+
+
+# ============================================================
+#  LOS PUÑOS Y EL RESTO DEL ESCUDO
+# ============================================================
+# LOS PUÑOS no tienen ni una habilidad: son el arma de cuando no llevas arma, asi que solo hay que
+# darles el basico. Y lo unico que tiene que decir ese basico es "vas a mano limpia", que se dice
+# haciendolo PEQUEÑO: al lado de cualquiera de los otros nueve gestos tiene que quedarse corto.
+#
+# DEL ESCUDO ya estaba el ESCUDAZO (60) -- que es el Golpe de escudo tal cual, y por eso esa
+# habilidad no pide dibujo propio: se queda con el respaldo. Faltaban sus otras cuatro, y tres de
+# ellas ni siquiera pegan: esta arma es la del que aguanta, no la del que reparte.
+const COLETA_PUNOS := 0.20             # lo mas corto del juego: es un puñetazo
+const COLETA_EMBESTIDA := 0.44
+const COLETA_PROVOCACION := 0.60
+const COLETA_GUARDIA_CARNE := 0.85     # es una postura: se queda puesta
+const COLETA_COBERTURA := 0.70
+
+
+# EL PUÑETAZO. Un porrazo pequeño y dos lineas de nudillo, y ya. Reusa el _porrazo de la maza porque
+# es lo mismo -- algo romo que entra -- solo que a la escala de una mano.
+#
+# Lo que lo separa del mazazo es el TAMAÑO y las dos rayitas: sin ellas, un puñetazo pequeño y un
+# mazazo pequeño son el mismo dibujo, y con ellas se lee que ha entrado un puño.
+func _pintar_punos(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_PUNOS, 0.14)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# Entra de golpe: un puñetazo es lo mas rapido que hay aqui.
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.16, 0.0, 1.0), 3.0)
+	_porrazo(b, caja * 0.155 * (0.35 + 0.65 * k), col, alfa, v, g, int(e.get("elem", 0)))
+	if v <= 0.18:
+		return
+	# LOS NUDILLOS: dos rayas cortas y paralelas junto al impacto, en la direccion del brazo. Es la
+	# unica pista de que esto lo ha dado una MANO.
+	var w: float = (v - 0.18) / 0.82
+	var f: Color = _filo_col(col)
+	var ang: float = -PI * 0.25 + sin(g * 3.3) * 0.5
+	var dir := Vector2(cos(ang), sin(ang))
+	var lado := Vector2(-dir.y, dir.x)
+	for i in 2:
+		var o: Vector2 = lado * (float(i) * 2.0 - 1.0) * caja * 0.055
+		draw_line(b + o - dir * caja * 0.20, b + o - dir * caja * (0.06 + 0.10 * w),
+			Color(f.r, f.g, f.b, 0.6 * alfa * (1.0 - w)), maxf(1.5, caja * 0.024), true)
+
+
+# EMBESTIDA. "Bajas el hombro detras del escudo y le entras encima." NO ES UN ESCUDAZO -- ese es el
+# empujon seco de la plancha, que ya tiene su gesto (ESCUDAZO, 60) y lo comparten media docena de
+# habilidades. Esto es una CARGA: lo que hace daño no es el escudo, es todo tu peso llegando.
+#
+# Y por eso existe AbilityData.es_toda_de_escudo: un golpe de escudo se dibuja como escudazo por
+# defecto, y esta habilidad necesitaba poder decir que no.
+#
+# Se cuenta con el RECORRIDO: lineas de velocidad que vienen de lejos, el escudo llegando de canto y
+# el impacto con el polvo saliendo hacia atras.
+func _pintar_embestida_escudo(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var b: Vector2 = e["b"] + Vector2(cos(g * 2.1), sin(g * 1.7)) * caja * 0.06
+	var f: Color = _filo_col(col)
+	var lado: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
+	# DURANTE EL VUELO: se ve VENIR. Es lo unico que la separa de un empujon, asi que el adelanto se
+	# usa entero para eso en vez de para armar el golpe.
+	if t < dur:
+		var u: float = clampf(t / dur, 0.0, 1.0)
+		var desde: Vector2 = b - Vector2(lado * caja * 1.30 * (1.0 - u), 0.0)
+		# El alfa aqui es 1: durante el vuelo todavia no hay coleta de la que sacarlo.
+		_escudo_cara(desde, caja * 0.30, col, 0.35 + 0.65 * u, -lado * 0.35)
+		# Las lineas de velocidad, detras y a distintas alturas.
+		for i in 4:
+			var y: float = (float(i) - 1.5) * caja * 0.16
+			var lg: float = caja * (0.25 + 0.45 * u) * (0.6 + 0.5 * absf(sin(g + float(i))))
+			draw_line(desde + Vector2(-lado * caja * 0.30, y),
+				desde + Vector2(-lado * (caja * 0.30 + lg), y),
+				Color(f.r, f.g, f.b, 0.35 * (0.3 + 0.7 * u)), maxf(1.5, caja * 0.020), true)
+		return
+	var v: float = clampf((t - dur) / COLETA_EMBESTIDA, 0.0, 1.0)
+	var alfa: float = 1.0 if v < 0.55 else 1.0 - (v - 0.55) / 0.45
+	if alfa <= 0.0:
+		return
+	# EL CHOQUE. El escudo llega, se para y rebota un poco.
+	var retro: float = 0.0 if v < 0.28 else minf((v - 0.28) / 0.40, 1.0) * 0.22
+	_escudo_cara(b - Vector2(lado * caja * retro, 0.0), caja * 0.34, col, alfa, -lado * 0.20)
+	# Y EL PESO que llega detras: un porrazo ancho y el polvo escapando hacia atras, que es por donde
+	# venia. Sin el polvo esto se queda en un escudo apoyado en el bicho.
+	_porrazo(b + Vector2(lado * caja * 0.20, 0.0), caja * 0.30 * (1.0 - v * 0.25), col, alfa, v, g,
+		int(e.get("elem", 0)))
+	for i in 7:
+		var a: float = PI * (0.5 if lado > 0.0 else -0.5) + (float(i) - 3.0) * 0.22
+		var u2 := Vector2(cos(a) * -lado, sin(a) * 0.5)
+		var d: float = caja * (0.20 + 0.85 * v) * (0.5 + 0.6 * absf(sin(g * 1.9 + float(i))))
+		draw_circle(b + u2 * d, maxf(1.0, caja * 0.030 * (1.0 - v)),
+			Color(0.70, 0.66, 0.60, 0.40 * alfa * (1.0 - v)))
+
+
+# PROVOCACION. "Golpeas el escudo y ruges, y te cubres tras el." Sobre TI, y con los tres tiempos
+# puestos: el golpe en la plancha, la onda del grito saliendo, y el escudo quedandose delante.
+#
+# La onda usa el mismo lenguaje que el Grito de guerra y el Chillido de los bichos -- anillos que
+# salen del que grita -- porque es lo mismo: algo que se oye. Lo que cambia es que aqui NO barre la
+# fila de enfrente, se queda alrededor tuyo: no ataca a nadie, solo llama la atencion.
+func _pintar_provocacion(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sale: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_PROVOCACION, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.68 else 1.0 - (v - 0.68) / 0.32
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# EL ESCUDO, delante de ti y temblando por el golpe que le acabas de dar. El temblor se apaga.
+	var tiembla: float = maxf(0.0, 1.0 - v / 0.30) * sale
+	var d := Vector2(sin(t * 34.0 + g), cos(t * 27.0 + g) * 0.5) * caja * 0.030 * tiembla
+	_escudo_cara(b + d, caja * 0.34, col, alfa, sin(g) * 0.10)
+	# LOS ANILLOS del grito, saliendo de ti y quedandose CERCA: cuatro, escalonados y muy achatados.
+	for i in 4:
+		var k: float = clampf(sale * 0.5 + v * 1.4 - float(i) * 0.15, 0.0, 1.0)
+		if k <= 0.0 or k >= 1.0:
+			continue
+		var rr: float = caja * (0.34 + 0.80 * k)
+		_anillo(b, rr, rr * 0.62, Color(f.r, f.g, f.b, 0.6 * alfa * (1.0 - k)),
+			maxf(2.0, caja * 0.034 * (1.0 - k * 0.5)))
+	# Y LAS MIRADAS QUE ATRAE: tres flechas cortas apuntandote desde fuera. Es lo unico que dice para
+	# que sirve esto -- sin ellas es un grito mas, y lo que hace es que le peguen A EL.
+	if v <= 0.20:
+		return
+	var w: float = clampf((v - 0.20) / 0.45, 0.0, 1.0)
+	for i in 3:
+		var a: float = -PI * 0.5 + (float(i) - 1.0) * 0.85 + sin(g + float(i)) * 0.12
+		var u := Vector2(cos(a), sin(a) * 0.7)
+		var d0: float = caja * (1.15 - 0.45 * w)
+		var punta: Vector2 = b + u * d0
+		draw_line(punta + u * caja * 0.26, punta, Color(f.r, f.g, f.b, 0.7 * alfa * w),
+			maxf(1.5, caja * 0.022), true)
+		var perp := Vector2(-u.y, u.x)
+		draw_colored_polygon(PackedVector2Array([punta, punta + u * caja * 0.11 + perp * caja * 0.055,
+			punta + u * caja * 0.11 - perp * caja * 0.055]),
+			Color(f.r, f.g, f.b, 0.85 * alfa * w))
+
+
+# GUARDIA DE CARNE. "Te abres la guardia a proposito y te plantas." Sobre TI, y es la unica del juego
+# que dibuja algo MALO para quien la usa: aguantas el doble y te duele el doble.
+#
+# Por eso el escudo se APARTA -- baja y se va a un lado -- y en su sitio quedan los pies clavados y
+# el pecho al descubierto. Es el espejo del Voto de guardia de la espada larga, que cierra la guardia
+# donde esta la abre; si las dos dibujaran una postura firme se leerian igual.
+func _pintar_guardia_carne(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var abre: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_GUARDIA_CARNE, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.80 else 1.0 - (v - 0.80) / 0.20
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# EL ESCUDO SE APARTA: baja y se va al lado, girando. Que se vea IRSE es medio gesto.
+	var fuera: Vector2 = Vector2(caja * 0.62 * abre, caja * 0.34 * abre)
+	_escudo_cara(b + fuera, caja * 0.28, col, alfa * (1.0 - abre * 0.45), 0.55 * abre)
+	# LOS PIES CLAVADOS: dos cuñas en el suelo, con unas rayas de agarre. "Te plantas".
+	var suelo: Vector2 = b + Vector2(0.0, caja * 0.44)
+	for i in 2:
+		var s: float = float(i) * 2.0 - 1.0
+		var x: float = s * caja * 0.18
+		var pie := PackedVector2Array([
+			suelo + Vector2(x - caja * 0.10, 0.0), suelo + Vector2(x + caja * 0.10, 0.0),
+			suelo + Vector2(x + caja * 0.055, -caja * 0.13),
+			suelo + Vector2(x - caja * 0.055, -caja * 0.13)])
+		draw_colored_polygon(pie, Color(f.r, f.g, f.b, 0.35 * alfa * abre))
+		var cerr := PackedVector2Array(pie)
+		cerr.append(pie[0])
+		draw_polyline(cerr, Color(f.r, f.g, f.b, 0.7 * alfa * abre), maxf(1.5, caja * 0.018), true)
+		# Las rayas de agarre, saliendo del pie hacia fuera.
+		for j in 2:
+			var y2: float = -caja * 0.02 - float(j) * caja * 0.05
+			draw_line(suelo + Vector2(x + s * caja * 0.11, y2),
+				suelo + Vector2(x + s * caja * (0.11 + 0.13 * abre), y2),
+				Color(f.r, f.g, f.b, 0.45 * alfa * abre), maxf(1.0, caja * 0.014), true)
+	# EL PECHO AL DESCUBIERTO: un arco ABIERTO por arriba, latiendo. Es lo contrario de la cupula
+	# cerrada de una postura defensiva -- ahi esta el aviso de que te va a doler el doble.
+	var pulso: float = 0.65 + 0.35 * sin(t * 4.5 + g)
+	for i in 2:
+		var s2: float = float(i) * 2.0 - 1.0
+		var rr: float = caja * (0.40 + 0.06 * float(i))
+		var arco := PackedVector2Array()
+		for j in 7:
+			# Media cupula por lado, y con un HUECO en el medio: la guardia no cierra.
+			var a: float = -PI * 0.5 + s2 * (0.30 + PI * 0.42 * float(j) / 6.0)
+			arco.append(b + Vector2(cos(a) * rr, sin(a) * rr * 0.92))
+		draw_polyline(arco, Color(f.r, f.g, f.b, 0.5 * alfa * abre * pulso),
+			maxf(1.5, caja * 0.024), true)
+
+
+# COBERTURA. "Adelantas el escudo lo justo para que quepan otros detras." Sobre CADA UNO DE LOS TUYOS.
+#
+# CUIDADO CON EL MURO DE ALIADOS de la maza (73): aplica EL MISMO estado (Baluarte) al MISMO grupo, o
+# sea que mecanicamente son gemelas y si se dibujaran parecido pareceria un fallo. Se separan por
+# QUIEN pone el hierro:
+#   MURO_ALIADOS  son VARIAS placas cerrando la formacion -- cada uno arrima la suya
+#   COBERTURA     es UN escudo, el tuyo, adelantado, y los demas metiendose detras
+# Por eso aqui hay una sola plancha y lo que se mueve son las siluetas que se refugian.
+func _pintar_cobertura(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var adelanta: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_COBERTURA, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.72 else 1.0 - (v - 0.72) / 0.28
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# LAS SILUETAS PRIMERO, que van DETRAS: dos figuras que se arriman al centro y se quedan. Se
+	# dibujan antes para que el escudo las tape, que es justo lo que cuenta la habilidad.
+	var mete: float = clampf(adelanta * 0.5 + v * 1.6, 0.0, 1.0)
+	for i in 2:
+		var s: float = float(i) * 2.0 - 1.0
+		# SE ARRIMAN, PERO ASOMAN. Con el destino en 0.26 acababan enteras detras de la plancha (que
+		# mide 0.46) y desaparecian: quedaba un escudo suelto y no se entendia que hubiera nadie
+		# refugiado. Media silueta fuera es lo que cuenta la habilidad -- caben, pero justo.
+		var x: float = s * caja * lerpf(0.78, 0.44, mete)
+		var alto: float = caja * 0.30
+		var fig := PackedVector2Array()
+		for j in 9:
+			var a: float = PI + PI * float(j) / 8.0
+			fig.append(b + Vector2(x + cos(a) * caja * 0.13, caja * 0.10 + sin(a) * alto * 0.55))
+		fig.append(b + Vector2(x + caja * 0.13, caja * 0.34))
+		fig.append(b + Vector2(x - caja * 0.13, caja * 0.34))
+		draw_colored_polygon(fig, Color(0.16, 0.17, 0.21, 0.85 * alfa))
+		var cerr := PackedVector2Array(fig)
+		cerr.append(fig[0])
+		draw_polyline(cerr, Color(f.r, f.g, f.b, 0.35 * alfa), maxf(1.0, caja * 0.014), true)
+	# EL ESCUDO, uno solo y GRANDE, adelantandose hacia el frente (hacia abajo, que es de donde viene
+	# lo que hay que parar).
+	var p: Vector2 = b + Vector2(0.0, caja * (0.02 + 0.20 * adelanta))
+	_escudo_cara(p, caja * 0.46, col, alfa, sin(g) * 0.06)
+	# Y EL HUECO que deja: dos rayas abriendose a los lados por debajo del escudo. "No paras sus
+	# golpes, pero les das donde meterse."
+	if v <= 0.18:
+		return
+	var w: float = clampf((v - 0.18) / 0.40, 0.0, 1.0)
+	for i in 2:
+		var s2: float = float(i) * 2.0 - 1.0
+		var y: float = p.y + caja * 0.30
+		draw_line(b + Vector2(s2 * caja * 0.22, y), b + Vector2(s2 * caja * (0.22 + 0.34 * w), y),
+			Color(f.r, f.g, f.b, 0.5 * alfa * (1.0 - w * 0.4)), maxf(1.5, caja * 0.020), true)

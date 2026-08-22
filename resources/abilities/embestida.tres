@@ -21,5 +21,6 @@ escudo_desde_golpe = 0
 dano_tipo_override = 1
 bloqueo_turnos = 1
 requiere_escudo = true
+fx_estilo = 95
 descripcion = "Bajas el hombro detrás del escudo y le entras encima. Todo el peso tuyo y del hierro, de una vez."
 efectos = [SubResource("SA_0")]

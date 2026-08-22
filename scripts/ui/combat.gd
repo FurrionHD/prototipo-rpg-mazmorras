@@ -4780,8 +4780,14 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	# veian dos tajos iguales -- justo lo contrario de lo que dice su ficha. Es la misma regla que ya
 	# sigue el DAÑO: el golpe de escudo pega con tu Defensa y no con el arma (ver atk_escudo), asi
 	# que tambien tiene que verse como lo que es.
-	var estilo_ab: int = CombatFX.Estilo.ESCUDAZO if ab.golpe_es_de_escudo(i) \
-		else _estilo_de_habilidad(ab, _player)
+	#
+	# Y CON UNA EXCEPCION A LA EXCEPCION: si la tecnica es ENTERA de escudo y pide dibujo propio, manda
+	# el suyo (ver AbilityData.es_toda_de_escudo). La Embestida se da toda con el escudo pero no es un
+	# escudazo -- es una carga con el hombro detras --, y sin esto no habia forma de que lo enseñara.
+	# El Golpe de escudo, que si es un escudazo y punto, no pide nada y se queda con el respaldo.
+	var estilo_ab: int = _estilo_de_habilidad(ab, _player)
+	if ab.golpe_es_de_escudo(i) and not (ab.es_toda_de_escudo() and ab.fx_estilo >= 0):
+		estilo_ab = CombatFX.Estilo.ESCUDAZO
 	var result := StatsMath.resolve_attack(_player, objetivo, false, atk_ov)
 	if result.evaded:
 		r.evaded = true

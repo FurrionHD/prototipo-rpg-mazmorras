@@ -220,6 +220,19 @@ signal apagar_ahora(bloque: Dictionary)
 #   SELLO_ARCANO   un signo trazado en el aire sobre el enemigo que se CIERRA de golpe (Silencio)
 #   VELO_UMBRIO    sobre TI: el manto de sombra que CAE y te tapa (Sigilo)
 #   VIENTO_LIMPIO  sobre LOS TUYOS: la corriente que los recorre y se lleva porqueria
+# LOS PUÑOS Y EL RESTO DEL ESCUDO, que es lo que quedaba suelto.
+#
+# Los puños NO TIENEN NI UNA HABILIDAD: son el arma de cuando no llevas arma, asi que su unico gesto
+# es el basico. Y tiene que verse pequeño y rapido -- lo unico que dice "vas a mano limpia" es que el
+# golpe ocupe mucho menos que cualquiera de los otros nueve.
+#
+# Del escudo ya estaba el ESCUDAZO (60), que es el Golpe de escudo tal cual. Lo que faltaba son sus
+# otras cuatro tecnicas, y tres de ellas ni siquiera pegan.
+#   PUNOS_GOLPE     el puñetazo (el basico de ir desarmado)
+#   EMBESTIDA_ESCUDO  el hombro detras del hierro: una CARGA, no un empujon de plancha
+#   PROVOCACION     sobre TI: golpeas el escudo, ruges y te cubres detras
+#   GUARDIA_CARNE   sobre TI: bajas la guardia A PROPOSITO y te plantas
+#   COBERTURA       sobre LOS TUYOS: adelantas el escudo para que quepan otros detras
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -246,7 +259,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		MARTILLO_GOLPE = 81, GOLPE_SISMICO = 82, ONDA_EXPANSIVA = 83, ROMPECORAZAS = 84,
 		MARTILLO_GUERRA = 85, MARTILLO_EN_ALTO = 86, TEMBLOR_SUELO = 87,
 		BASTON_GOLPE = 88, BASTONAZO = 89, FOCO_ARCANO = 90, SELLO_ARCANO = 91,
-		VELO_UMBRIO = 92, VIENTO_LIMPIO = 93 }
+		VELO_UMBRIO = 92, VIENTO_LIMPIO = 93,
+		PUNOS_GOLPE = 94, EMBESTIDA_ESCUDO = 95, PROVOCACION_FX = 96, GUARDIA_CARNE_FX = 97,
+		COBERTURA = 98 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -266,6 +281,7 @@ const FX_ARMA := {
 	6: Estilo.HACHA_TAJO,        # HACHA_GRANDE
 	8: Estilo.MARTILLO_GOLPE,    # MARTILLO_GRANDE
 	9: Estilo.BASTON_GOLPE,      # BASTON
+	0: Estilo.PUNOS_GOLPE,       # PUNOS (ir a mano limpia tambien tiene su dibujo)
 }
 
 
@@ -289,7 +305,9 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.MARTILLO_GOLPE, Estilo.GOLPE_SISMICO, Estilo.ONDA_EXPANSIVA, Estilo.ROMPECORAZAS,
 	Estilo.MARTILLO_GUERRA, Estilo.MARTILLO_EN_ALTO, Estilo.TEMBLOR_SUELO,
 	Estilo.BASTON_GOLPE, Estilo.BASTONAZO, Estilo.FOCO_ARCANO, Estilo.SELLO_ARCANO,
-	Estilo.VELO_UMBRIO, Estilo.VIENTO_LIMPIO]
+	Estilo.VELO_UMBRIO, Estilo.VIENTO_LIMPIO,
+	Estilo.PUNOS_GOLPE, Estilo.EMBESTIDA_ESCUDO, Estilo.PROVOCACION_FX, Estilo.GUARDIA_CARNE_FX,
+	Estilo.COBERTURA]
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
@@ -411,6 +429,13 @@ const T_VUELO := {
 	# verse CAER, o no se entiende que te tapa.
 	Estilo.SELLO_ARCANO: 0.24, Estilo.FOCO_ARCANO: 0.26, Estilo.VELO_UMBRIO: 0.28,
 	Estilo.VIENTO_LIMPIO: 0.22,
+	# LOS PUÑOS: el adelanto MAS CORTO del juego. No hay arma que llevar hasta alli, solo el brazo, y
+	# eso es medio gesto -- un puñetazo que se ve venir no es un puñetazo.
+	Estilo.PUNOS_GOLPE: 0.03,
+	# LA EMBESTIDA se ve VENIR (es una carga: lo que la hace temible es el trecho que recorre), y las
+	# tres que no pegan van largas porque hay que verlas montarse.
+	Estilo.EMBESTIDA_ESCUDO: 0.16, Estilo.PROVOCACION_FX: 0.20,
+	Estilo.GUARDIA_CARNE_FX: 0.24, Estilo.COBERTURA: 0.22,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1317,7 +1342,9 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	Estilo.MARTILLO_GUERRA, Estilo.TEMBLOR_SUELO,
 	# Los dos golpes del baston: para dar un palo tambien hay que llegar. Lo arcano NO embiste -- un
 	# mago no se lanza contra nadie, y ese contraste es medio kit del arma.
-	Estilo.BASTON_GOLPE, Estilo.BASTONAZO]
+	Estilo.BASTON_GOLPE, Estilo.BASTONAZO,
+	# Los puños son lo mas corto de alcance que hay, y la Embestida es literalmente ir hacia el.
+	Estilo.PUNOS_GOLPE, Estilo.EMBESTIDA_ESCUDO]
 # NOTA: la CARGA esta en _ESTILOS_DE_GRUPO y aun asi embiste. No es contradictorio: embestir es del
 # ATACANTE (su tarjeta se lanza) y agruparse es del DIBUJO (uno solo para todo lo alcanzado).
 
@@ -1328,7 +1355,8 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO,
 	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA, Estilo.ACERO_EN_ALTO,
 	Estilo.DESVANECER, Estilo.SED_SANGRE, Estilo.MARTILLO_EN_ALTO,
-	Estilo.FOCO_ARCANO, Estilo.VELO_UMBRIO]
+	Estilo.FOCO_ARCANO, Estilo.VELO_UMBRIO,
+	Estilo.PROVOCACION_FX, Estilo.GUARDIA_CARNE_FX]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA,

@@ -79,6 +79,21 @@ func golpe_es_de_escudo(i: int) -> bool:
 	return escudo_desde_golpe >= 0 and i >= escudo_desde_golpe
 
 
+# ¿TODOS sus golpes son de escudo? Es decir: ¿es una tecnica de escudo entera, y no un ataque de arma
+# que ademas remata con el?
+#
+# Solo lo mira el DIBUJO (ver _resolver_golpe_hab en combat.gd). Un golpe de escudo se pinta como un
+# ESCUDAZO por defecto, y esta bien para la Guardia rota o el Aplastamiento -- alli el golpe 0 es del
+# arma y el 1 del escudo, y con el estilo de la habilidad para los dos salian dos tajos iguales.
+#
+# Pero cuando la habilidad ENTERA se da con el escudo, ese respaldo estorba: la Embestida ("bajas el
+# hombro detras del escudo y le entras encima") no es un empujon de plancha, es una carga, y sin esto
+# no habia forma de que pidiera su propio gesto. La regla queda: el escudazo es el respaldo de un
+# golpe de escudo SUELTO; si la tecnica es toda suya y pide dibujo, manda el suyo.
+func es_toda_de_escudo() -> bool:
+	return escudo_desde_golpe == 0
+
+
 # ============================================================
 #  IMBUICION DESDE EL ARMA (el veneno de la daga)
 #  Hasta ahora solo imbuian los HECHIZOS (SpellData.imbue_*). Estos campos son su espejo, y
