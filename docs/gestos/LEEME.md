@@ -52,6 +52,12 @@ Cuatro instantes de cada gesto, una hoja por arma:
 - `gestos_11_punos_escudo.png` — cada gesto **al lado del que se le podía parecer**: el puñetazo
   junto al mazazo, la Embestida junto al escudazo, la Guardia de carne junto al Voto de guardia y la
   Cobertura junto al Muro de aliados (que aplican el mismo Baluarte al mismo grupo)
+- `gestos_12_varita.png` — el cierre. Con el Purificar junto al Viento limpio (uno se queda y el otro
+  pasa) y la Égida junto a los **otros dos Baluarte** del juego. La Chispa vinculada sale con la
+  tarjeta del que lanza debajo: es el único gesto del jugador que va **de ti a un compañero**
+
+**Ya están las diez armas, los escudos y la varita.** Lo único sin dibujo propio es *Oportunista* (la
+daga), que hereda el gesto del arma a propósito.
 
 Se regeneran con el visor (`F12`) o volviendo a escribir el generador; son capturas, no hay que
 mantenerlas al día salvo que cambie un gesto.

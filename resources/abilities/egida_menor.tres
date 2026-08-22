@@ -18,5 +18,6 @@ coste_energia = 34
 cooldown = 4
 dano_mult = 0.0
 objetivo_aliado = 1
+fx_estilo = 101
 descripcion = "Un escudo pequeño de luz, pegado a quien lo necesita. No es gran cosa, pero llega a tiempo."
 efectos = [SubResource("SA_0")]

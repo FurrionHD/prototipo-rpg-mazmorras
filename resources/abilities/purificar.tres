@@ -11,4 +11,5 @@ cooldown = 6
 dano_mult = 0.0
 objetivo_aliado = 1
 limpia_debuffs = 99
+fx_estilo = 99
 descripcion = "Le pones la varita encima y esperas a que se le pase todo. Cuesta caro y tarda, pero sale limpio."

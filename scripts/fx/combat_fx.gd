@@ -233,6 +233,14 @@ signal apagar_ahora(bloque: Dictionary)
 #   PROVOCACION     sobre TI: golpeas el escudo, ruges y te cubres detras
 #   GUARDIA_CARNE   sobre TI: bajas la guardia A PROPOSITO y te plantas
 #   COBERTURA       sobre LOS TUYOS: adelantas el escudo para que quepan otros detras
+# LA VARITA es SOPORTE PURO: sus cuatro tecnicas tienen dano_mult 0, ninguna toca a un enemigo. Es
+# la unica cosa del juego de la que no sale ni un golpe, y eso es lo que hay que dibujar.
+#
+# Su Foco arcano es literalmente el del baston (misma habilidad, menos cargas), asi que REUSA
+# FOCO_ARCANO en vez de tener un gemelo. Las otras tres si son suyas.
+#   PURIFICAR   sobre UN aliado: le sacas todo lo que lleva encima y se evapora
+#   CHISPA_VINCULADA  el unico que VIAJA de ti a un compañero: un hilo con gotas cayendo por el
+#   EGIDA_MENOR sobre UN aliado: un escudo pequeño de LUZ, pegado a el
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -261,7 +269,8 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		BASTON_GOLPE = 88, BASTONAZO = 89, FOCO_ARCANO = 90, SELLO_ARCANO = 91,
 		VELO_UMBRIO = 92, VIENTO_LIMPIO = 93,
 		PUNOS_GOLPE = 94, EMBESTIDA_ESCUDO = 95, PROVOCACION_FX = 96, GUARDIA_CARNE_FX = 97,
-		COBERTURA = 98 }
+		COBERTURA = 98,
+		PURIFICAR = 99, CHISPA_VINCULADA = 100, EGIDA_MENOR = 101 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -307,7 +316,8 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.BASTON_GOLPE, Estilo.BASTONAZO, Estilo.FOCO_ARCANO, Estilo.SELLO_ARCANO,
 	Estilo.VELO_UMBRIO, Estilo.VIENTO_LIMPIO,
 	Estilo.PUNOS_GOLPE, Estilo.EMBESTIDA_ESCUDO, Estilo.PROVOCACION_FX, Estilo.GUARDIA_CARNE_FX,
-	Estilo.COBERTURA]
+	Estilo.COBERTURA,
+	Estilo.PURIFICAR, Estilo.CHISPA_VINCULADA, Estilo.EGIDA_MENOR]
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
@@ -436,6 +446,10 @@ const T_VUELO := {
 	# tres que no pegan van largas porque hay que verlas montarse.
 	Estilo.EMBESTIDA_ESCUDO: 0.16, Estilo.PROVOCACION_FX: 0.20,
 	Estilo.GUARDIA_CARNE_FX: 0.24, Estilo.COBERTURA: 0.22,
+	# LA VARITA. Nada de esto es un golpe, asi que su "vuelo" es lo que tarda en MONTARSE, y va largo.
+	# La CHISPA es la unica que viaja de verdad -- de tu mano a la suya -- y por eso lleva el vuelo mas
+	# largo de las tres: es un trayecto, no un adelanto.
+	Estilo.PURIFICAR: 0.28, Estilo.CHISPA_VINCULADA: 0.32, Estilo.EGIDA_MENOR: 0.24,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------

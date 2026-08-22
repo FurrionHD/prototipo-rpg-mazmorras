@@ -88,7 +88,8 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.FOCO_ARCANO, CombatFX.Estilo.VELO_UMBRIO, \
 		CombatFX.Estilo.VIENTO_LIMPIO, \
 		CombatFX.Estilo.PROVOCACION_FX, CombatFX.Estilo.GUARDIA_CARNE_FX, \
-		CombatFX.Estilo.COBERTURA:
+		CombatFX.Estilo.COBERTURA, \
+		CombatFX.Estilo.PURIFICAR, CombatFX.Estilo.EGIDA_MENOR:
 			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA, y el
 			# picaro se unta el filo).
 			e["a"] = b
@@ -388,6 +389,13 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_GUARDIA_CARNE
 	if es == CombatFX.Estilo.COBERTURA:
 		return float(e["dur"]) + COLETA_COBERTURA
+	# LA VARITA.
+	if es == CombatFX.Estilo.PURIFICAR:
+		return float(e["dur"]) + COLETA_PURIFICAR
+	if es == CombatFX.Estilo.CHISPA_VINCULADA:
+		return float(e["dur"]) + COLETA_CHISPA
+	if es == CombatFX.Estilo.EGIDA_MENOR:
+		return float(e["dur"]) + COLETA_EGIDA
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -493,6 +501,9 @@ func _draw() -> void:
 			CombatFX.Estilo.PROVOCACION_FX: _pintar_provocacion(e)
 			CombatFX.Estilo.GUARDIA_CARNE_FX: _pintar_guardia_carne(e)
 			CombatFX.Estilo.COBERTURA: _pintar_cobertura(e)
+			CombatFX.Estilo.PURIFICAR: _pintar_purificar(e)
+			CombatFX.Estilo.CHISPA_VINCULADA: _pintar_chispa_vinculada(e)
+			CombatFX.Estilo.EGIDA_MENOR: _pintar_egida_menor(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -5473,3 +5484,168 @@ func _pintar_cobertura(e: Dictionary) -> void:
 		var y: float = p.y + caja * 0.30
 		draw_line(b + Vector2(s2 * caja * 0.22, y), b + Vector2(s2 * caja * (0.22 + 0.34 * w), y),
 			Color(f.r, f.g, f.b, 0.5 * alfa * (1.0 - w * 0.4)), maxf(1.5, caja * 0.020), true)
+
+
+# ============================================================
+#  LA VARITA: soporte puro
+# ============================================================
+# LA UNICA COSA DEL JUEGO DE LA QUE NO SALE NI UN GOLPE. Sus cuatro tecnicas tienen dano_mult 0 y
+# ninguna apunta a un enemigo: se las echas a los tuyos y ya. Eso es lo que hay que dibujar -- nada
+# de impactos, nada de cintas, nada que entre en nadie.
+#
+# Su Foco arcano REUSA el del baston (FOCO_ARCANO, 90): es la misma habilidad con menos cargas, y
+# tener dos gemelos con distinto numero solo sirve para que un dia se descuadren.
+const COLETA_PURIFICAR := 0.85     # "cuesta caro y TARDA": tiene que verse durar
+const COLETA_CHISPA := 0.70
+const COLETA_EGIDA := 0.70
+
+
+# PURIFICAR. "Le pones la varita encima y esperas a que se le pase todo." Sobre UN aliado, y limpia
+# los debuffs ENTEROS (99), no uno como el Viento limpio del baston.
+#
+# Se separan por eso mismo: el Viento PASA (rachas cruzando, se lleva algo de cada uno) y esto se
+# QUEDA (una columna quieta sobre uno solo hasta que sale limpio). Que uno cruce y el otro se pare es
+# lo que dice, sin leer nada, cual es el barato y cual el caro.
+func _pintar_purificar(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var baja: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_PURIFICAR, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.80 else 1.0 - (v - 0.80) / 0.20
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# LA COLUMNA: baja desde arriba y se queda puesta, respirando. No se abre ni se cierra -- es una
+	# luz sostenida, que es lo que hace un lanzador que espera a que se le pase.
+	var an: float = caja * 0.30 * (0.35 + 0.65 * baja)
+	var arriba: float = -caja * 0.72
+	var abajo: float = caja * 0.46
+	var resp: float = 0.88 + 0.12 * sin(t * 3.4 + g)
+	for capa in 3:
+		var m: float = (1.0 - float(capa) * 0.30) * resp
+		var pts := PackedVector2Array([
+			b + Vector2(-an * m * 0.72, arriba), b + Vector2(an * m * 0.72, arriba),
+			b + Vector2(an * m, abajo), b + Vector2(-an * m, abajo)])
+		draw_colored_polygon(pts, Color(f.r, f.g, f.b, (0.10 + 0.07 * float(2 - capa)) * alfa))
+	# LO QUE SE LE SACA: motas oscuras que SUBEN por la columna y se apagan arriba. Suben y no caen:
+	# lo que se va, se va. (En el Viento limpio salen de lado; aqui salen por arriba, que es la otra
+	# forma de decir lo mismo sin repetir el dibujo.)
+	for i in 7:
+		var kk: float = fposmod(baja * 0.4 + v * 1.25 + float(i) * 0.15, 1.0)
+		var x: float = sin(g + float(i) * 2.3) * an * 0.62
+		var y: float = lerpf(abajo, arriba, kk)
+		# Se van aclarando segun suben: salen sucias y se deshacen en luz.
+		var c: Color = Color(0.30, 0.26, 0.22).lerp(Color(f.r, f.g, f.b), kk)
+		draw_circle(b + Vector2(x, y), maxf(1.0, caja * 0.030 * (1.0 - kk * 0.6)),
+			Color(c.r, c.g, c.b, 0.85 * alfa * sin(PI * kk)))
+	# Y EL ANILLO a los pies, que es lo que ancla la columna al que la recibe.
+	_anillo(b + Vector2(0.0, abajo), an * 1.25 * resp, an * 0.32 * resp,
+		Color(f.r, f.g, f.b, 0.55 * alfa * baja), maxf(1.5, caja * 0.024))
+
+
+# CHISPA VINCULADA. "Un hilo fino de tu varita a la suya. Va goteando por el lo que a ti te sobra."
+#
+# EL UNICO GESTO DEL JUEGO QUE VIAJA DE TI A UN COMPAÑERO, y por eso es el unico del jugador que NO
+# esta en la lista de los que nacen sobre la tarjeta de destino: necesita los dos puntos, el tuyo y
+# el suyo, porque lo que se dibuja es justamente el trecho entre los dos.
+#
+# Lo que se ve es el HILO y lo que baja por el. Ni impacto ni destino: si al llegar reventara algo,
+# se leeria como que le has lanzado un hechizo encima.
+func _pintar_chispa_vinculada(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var a: Vector2 = e["a"]
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var tiende: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_CHISPA, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.74 else 1.0 - (v - 0.74) / 0.26
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# EL HILO. Se tiende de ti a el durante el vuelo y despues se queda. Va COMBADO -- cuelga un poco
+	# por su propio peso -- porque una recta entre dos tarjetas se lee como un rayo o como una linea
+	# de interfaz, y esto es un hilo.
+	var n: int = 15
+	var hilo := PackedVector2Array()
+	var caida: float = a.distance_to(b) * 0.14
+	for i in n:
+		var s: float = float(i) / float(n - 1) * tiende
+		var p: Vector2 = a.lerp(b, s)
+		p.y += sin(PI * s) * caida + sin(t * 2.4 + s * 5.0 + g) * caja * 0.02
+		hilo.append(p)
+	if hilo.size() >= 2:
+		draw_polyline(hilo, Color(f.r, f.g, f.b, 0.30 * alfa), maxf(2.0, caja * 0.030), true)
+		draw_polyline(hilo, Color(f.r, f.g, f.b, 0.85 * alfa), maxf(1.0, caja * 0.012), true)
+	# LAS GOTAS que bajan por el. Se calculan sobre la MISMA curva que el hilo (no en linea recta) o
+	# irian por su cuenta, al lado de la cuerda.
+	if tiende < 1.0:
+		return
+	for i in 4:
+		var kk: float = fposmod(v * 1.15 + float(i) * 0.25 + g * 0.1, 1.0)
+		var p2: Vector2 = a.lerp(b, kk)
+		p2.y += sin(PI * kk) * caida + sin(t * 2.4 + kk * 5.0 + g) * caja * 0.02
+		draw_circle(p2, maxf(1.5, caja * 0.030 * (0.6 + 0.4 * sin(PI * kk))),
+			Color(f.r, f.g, f.b, 0.9 * alfa))
+	# Y los dos extremos encendidos: tu punta y la suya. Es lo que dice que el hilo esta ATADO a algo
+	# por los dos lados y no colgando en el aire.
+	for p3 in [a, b]:
+		draw_circle(p3, maxf(1.5, caja * 0.045 * (0.85 + 0.15 * sin(t * 5.0 + g))),
+			Color(f.r, f.g, f.b, 0.55 * alfa))
+		draw_circle(p3, maxf(1.0, caja * 0.020), Color(1.0, 0.99, 0.96, 0.9 * alfa))
+
+
+# EGIDA MENOR. "Un escudo pequeño de luz, pegado a quien lo necesita."
+#
+# ES EL TERCER BALUARTE DEL JUEGO -- el mismo estado que el Muro de aliados (maza) y la Cobertura
+# (escudo) --, asi que hay que separarlo de los dos a la vez. Las tres se distinguen por DE QUE ESTAN
+# HECHAS y a cuantos van:
+#   MURO_ALIADOS  varias placas de hierro cerrando la formacion, a todo el grupo
+#   COBERTURA     una plancha, la tuya, adelantada, a todo el grupo
+#   EGIDA_MENOR   un hexagono de LUZ, pequeño, pegado a UNO solo
+# Nada de hierro aqui: esto lo pone un mago con una varita, y "no es gran cosa" -- lo dice su propia
+# ficha, asi que tiene que verse modesto al lado de los otros dos.
+func _pintar_egida_menor(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var monta: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_EGIDA, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.74 else 1.0 - (v - 0.74) / 0.26
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# LA PLACA DE LUZ: un hexagono achatado que se monta y se queda flotando delante, latiendo suave.
+	# Pequeño a proposito (0.34 de caja, contra el 0.46 de la Cobertura).
+	var r: float = caja * 0.34 * (0.45 + 0.55 * monta)
+	var pulso: float = 0.85 + 0.15 * sin(t * 3.2 + g)
+	var pts := PackedVector2Array()
+	for i in 6:
+		var ang: float = g * 0.3 + TAU * float(i) / 6.0 - PI * 0.5
+		pts.append(b + Vector2(cos(ang) * r * pulso, sin(ang) * r * 0.86 * pulso))
+	draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.16 * alfa * pulso))
+	var cerr := PackedVector2Array(pts)
+	cerr.append(pts[0])
+	draw_polyline(cerr, Color(f.r, f.g, f.b, 0.85 * alfa), maxf(2.0, caja * 0.024), true)
+	# LAS COSTURAS: los radios del hexagono, flojos. Es lo que lo hace una placa de luz y no un
+	# poligono suelto -- y lo que lo emparenta con el Sello y el Foco del baston, que es de donde
+	# viene esta arma.
+	for i in 6:
+		var a2: float = g * 0.3 + TAU * float(i) / 6.0 - PI * 0.5
+		draw_line(b, b + Vector2(cos(a2) * r * 0.9 * pulso, sin(a2) * r * 0.86 * 0.9 * pulso),
+			Color(f.r, f.g, f.b, 0.25 * alfa), maxf(1.0, caja * 0.012), true)
+	# Y EL DESTELLO de cuando termina de montarse, una vez.
+	if v <= 0.0 or v > 0.35:
+		return
+	var brillo: float = sin(PI * clampf(v / 0.35, 0.0, 1.0))
+	_estrella(b, r * 1.5 * brillo, r * 1.1 * brillo, 0.55,
+		Color(f.r, f.g, f.b, 0.5 * alfa * brillo))

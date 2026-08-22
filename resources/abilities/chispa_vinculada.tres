@@ -18,5 +18,6 @@ coste_energia = 30
 cooldown = 4
 dano_mult = 0.0
 objetivo_aliado = 1
+fx_estilo = 100
 descripcion = "Un hilo fino de tu varita a la suya. Va goteando por él lo que a ti te sobra."
 efectos = [SubResource("SA_0")]

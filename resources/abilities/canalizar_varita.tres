@@ -10,4 +10,5 @@ coste_energia = 40.0
 dano_mult = 0.0
 cooldown = 0
 foco_cargas = 1
+fx_estilo = 90
 descripcion = "Canalizas tu aguante en potencia mágica a través de la varita: versión de soporte, carga menos Foco que el bastón. No golpea ni da maná; alimenta tu próximo hechizo ofensivo."
