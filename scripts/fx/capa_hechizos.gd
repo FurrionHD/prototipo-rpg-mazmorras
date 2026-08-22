@@ -2040,12 +2040,23 @@ func _hoja(p: Vector2, dir: Vector2, largo: float, ancho: float, col: Color, alf
 # EL TRAZO de un tajo: la cinta que deja el filo al CRUZAR, combada como el arco que describe un
 # brazo. Va de un lado al otro pasando por el centro de la tarjeta.
 #
+# ESTO ES TODO LO QUE SE DIBUJA DE UN CORTE: la hoja NO se pinta. Se intento -- primero apuntando
+# hacia donde iba el trazo y despues de canto -- y las dos veces se veia raro: un arma entera
+# suspendida a mitad de un arco no se lee como un tajo, se lee como un objeto flotando, y encima
+# competia con la propia cinta (las dos son claras y curvas). Lo que cuenta un corte es POR DONDE HA
+# PASADO EL FILO. La hoja solo se dibuja donde el arma esta QUIETA y es la protagonista: untando el
+# veneno, en la postura de guardia o clavada al final de una estocada.
+#
 # EMPEZO SIENDO UN ARCO ALREDEDOR del objetivo (centro + radio), y estaba mal: el trazo orbitaba por
 # fuera de la tarjeta en vez de atravesarla, asi que el corte se veia AL LADO del bicho y no encima.
 # Un tajo cruza; lo que orbita es una honda.
 #
 # 'k' es cuanto lleva recorrido (0..1): la cabeza va en k y la cola se queda atras.
-# Devuelve [punto de la cabeza, tangente], que es donde va la hoja.
+#
+# Devuelve [cabeza, tangente, NORMAL]. La normal es la que hay que darle a _hoja: una espada que
+# BARRE va de canto -- la punta apunta hacia AFUERA del arco y lo que avanza es el filo. Poniendola
+# en la tangente (o sea apuntando hacia donde va) parecia una lanza volando de lado, y era justo lo
+# que hacia que los tajos se vieran raros: el dibujo iba en una direccion y el movimiento en otra.
 func _tajo(centro: Vector2, ang: float, largo: float, comba: float, k: float,
 		col: Color, alfa: float, grosor: float) -> Array:
 	var dir := Vector2(cos(ang), sin(ang))
@@ -2084,7 +2095,9 @@ func _tajo(centro: Vector2, ang: float, largo: float, comba: float, k: float,
 		draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.26 * alfa))
 		# El canto, mas vivo y fino: es por donde ha pasado el filo.
 		draw_polyline(izq, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(1.5, grosor * 0.38), true)
-	return [cabeza, tang]
+	# La normal apunta al lado de la COMBA, que es hacia donde se abre el arco.
+	var signo: float = 1.0 if comba >= 0.0 else -1.0
+	return [cabeza, tang, tang.rotated(PI * 0.5 * signo)]
 
 
 # Bezier cuadratica. Godot trae la cubica en Vector2.bezier_interpolate, pero para una comba simple
@@ -2123,13 +2136,11 @@ func _pintar_daga_corte(e: Dictionary) -> void:
 	# Entra de golpe y frena: 1-(1-v)^2 pone casi todo el recorrido al principio, que es como pasa
 	# una hoja de verdad -- rapidisima al cruzar y lenta al rematar.
 	var k: float = 1.0 - pow(1.0 - v, 2.0)
-	var r: Array = _tajo(b, ang, largo, comba, k, col, alfa, caja * 0.075)
+	_tajo(b, ang, largo, comba, k, col, alfa, caja * 0.075)
 	# LA HOJA, en la cabeza del trazo y mirando hacia donde va: es lo que hace que se lea que CORTA
 	# en vez de arrastrarse de lado. Solo mientras cruza -- al final ya ha salido del cuadro.
 	# CORTA Y ANCHA, que es la proporcion de una daga. Con la hoja larga y fina se confundia con el
 	# propio trazo -- las dos eran cintas claras y curvas -- y no se distinguia el arma del rastro.
-	if k < 0.97:
-		_hoja(r[0], r[1], caja * 0.34, caja * 0.105, col, alfa, 0.18)
 	# EL CORTE que queda en la carne, cuando ya ha pasado la hoja. Dos lineas finas (labio y sombra)
 	# y no el huso dentado del zarpazo: una daga deja un tajo limpio, y con el dentado parecia una
 	# pluma pegada encima.
@@ -2371,9 +2382,7 @@ func _pintar_desvanecer(e: Dictionary) -> void:
 	# Y EL TAJO que sale de dentro, ya con la sombra abierta.
 	var ang: float = -PI * 0.28 + sin(g * 3.3) * 0.35
 	var k: float = 1.0 - pow(1.0 - v, 2.0)
-	var r: Array = _tajo(b, ang, caja * 1.35, 0.18, k, col, alfa, caja * 0.075)
-	if k < 0.97:
-		_hoja(r[0], r[1], caja * 0.46, caja * 0.07, col, alfa, 0.30)
+	_tajo(b, ang, caja * 1.35, 0.18, k, col, alfa, caja * 0.075)
 
 
 # ============================================================
@@ -2680,9 +2689,7 @@ func _espada_tajo_base(e: Dictionary, coleta: float, largo_mult: float = 1.0) ->
 	var ang: float = (-PI * 0.28 + sin(g * 3.3) * 0.30) * sentido
 	var largo: float = caja * 1.55 * largo_mult
 	var k: float = 1.0 - pow(1.0 - v, 2.0)
-	var r: Array = _tajo(b, ang, largo, 0.16 * sentido, k, col, alfa, caja * 0.095)
-	if k < 0.97:
-		_hoja(r[0], r[1], caja * LARGO_ESPADA * largo_mult, caja * ANCHO_ESPADA, col, alfa, 0.22)
+	_tajo(b, ang, largo, 0.16 * sentido, k, col, alfa, caja * 0.095)
 	# La herida: dos lineas por el eje del tajo, como en la daga pero mas largas y mas gordas.
 	if v > 0.38:
 		var w: float = (v - 0.38) / 0.62
@@ -2796,9 +2803,7 @@ func _pintar_senalar_hueco(e: Dictionary) -> void:
 			continue
 		var ang: float = -PI * 0.25 + float(i) * PI * 0.5
 		var largo: float = caja * 0.85
-		var r: Array = _tajo(p, ang, largo, 0.10, k, col, alfa, caja * 0.075)
-		if k < 0.95:
-			_hoja(r[0], r[1], caja * LARGO_ESPADA * 0.9, caja * ANCHO_ESPADA, col, alfa, 0.20)
+		_tajo(p, ang, largo, 0.10, k, col, alfa, caja * 0.075)
 	# LA DIANA: dos anillos y una cruz sobre el punto. Entra al final y se queda -- es lo que ven
 	# los tuyos.
 	if v <= 0.45:
@@ -2833,9 +2838,7 @@ func _pintar_corte_tendones(e: Dictionary) -> void:
 	var f: Color = _filo_col(col) if _imbuido(col) else _HUESO
 	# El corte: casi horizontal y corto, de un lado al otro.
 	var k: float = 1.0 - pow(1.0 - v, 2.0)
-	var r: Array = _tajo(b, 0.12 + sin(g * 2.3) * 0.10, caja * 0.95, 0.07, k, col, alfa, caja * 0.070)
-	if k < 0.95:
-		_hoja(r[0], r[1], caja * LARGO_ESPADA * 0.85, caja * ANCHO_ESPADA, col, alfa, 0.18)
+	_tajo(b, 0.12 + sin(g * 2.3) * 0.10, caja * 0.95, 0.07, k, col, alfa, caja * 0.070)
 	if v <= 0.40:
 		return
 	# LOS TENDONES: tres hilos que se sueltan y se enrollan hacia abajo. Es lo que dice que lo que se
@@ -2891,29 +2894,28 @@ func _tajo_que_cae(e: Dictionary, coleta: float, largo_mult: float, alto: float)
 	# Cae casi vertical, con un poco de inclinacion segun la semilla (a veces de un lado, a veces
 	# del otro): un mandoble no barre de lado a lado, se deja caer.
 	var inclina: float = sin(g * 3.3) * 0.35
-	var ang: float = PI * 0.5 + inclina          # apuntando hacia ABAJO
+	# LA HOJA APUNTA HACIA DONDE CAE. Se calculaba el angulo por un lado (PI/2 + inclina) y la
+	# trayectoria por otro (sin(inclina), 1), y los dos NO COINCIDIAN: la X salia con el signo
+	# cambiado, asi que la espada apuntaba en diagonal hacia un lado mientras se desplazaba hacia el
+	# otro. Se veia rarisimo, y con razon. Ahora hay UNA sola direccion y de ella salen las dos cosas.
+	var dir_caida := Vector2(sin(inclina), 1.0).normalized()
+	var ang: float = dir_caida.angle()
 	var largo: float = caja * 1.30 * largo_mult
 	# La caida se come el primer tercio y frena de golpe al llegar: es un impacto, no un barrido.
 	var k: float = clampf(v / 0.34, 0.0, 1.0)
 	var caida: float = 1.0 - pow(1.0 - k, 2.6)
-	var arriba: Vector2 = b - Vector2(sin(inclina), 1.0).normalized() * caja * alto
+	var arriba: Vector2 = b - dir_caida * caja * alto
 	var p: Vector2 = arriba.lerp(b, caida)
-	# La ESTELA del filo cayendo, detras de la hoja.
-	if k < 1.0:
-		var f: Color = _filo_col(col)
-		var cinta := PackedVector2Array()
-		var lado := Vector2(cos(ang + PI * 0.5), sin(ang + PI * 0.5))
-		for i in 5:
-			var s: float = float(i) / 4.0
-			var q: Vector2 = arriba.lerp(p, s)
-			cinta.append(q + lado * caja * 0.05 * s)
-		for i in range(4, -1, -1):
-			var s2: float = float(i) / 4.0
-			var q2: Vector2 = arriba.lerp(p, s2)
-			cinta.append(q2 - lado * caja * 0.05 * s2)
-		draw_colored_polygon(cinta, Color(f.r, f.g, f.b, 0.28 * alfa))
-	_hoja(p, Vector2(cos(ang), sin(ang)), caja * LARGO_LARGA * largo_mult, caja * ANCHO_LARGA,
-		col, alfa, 0.10)
+	# EL TRAZO DEL FILO CAYENDO. Es el MISMO lenguaje que los tajos de arco: lo que se ve es por
+	# donde ha pasado el filo, no la espada flotando en el aire. Antes se dibujaba la hoja entera
+	# bajando y se leia como una cuchilla suspendida; ademas la estela quedaba tan floja que no
+	# contaba nada.
+	#
+	# Se reusa _tajo con la comba a cero: una caida es un tajo recto. El centro va a mitad de camino
+	# para que el trazo arranque arriba y su cabeza llegue justo al objetivo.
+	var recorrido: float = arriba.distance_to(b)
+	_tajo(arriba.lerp(b, 0.5), ang, recorrido, 0.0, caida, col, alfa,
+		caja * 0.10 * largo_mult)
 	# La herida: un corte VERTICAL, que es por donde ha entrado la hoja.
 	if v > 0.42:
 		var w: float = (v - 0.42) / 0.58
