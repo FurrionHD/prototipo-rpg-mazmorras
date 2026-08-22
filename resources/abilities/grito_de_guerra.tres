@@ -15,6 +15,7 @@ precio = 4000
 coste_energia = 64
 cooldown = 5
 dano_mult = 0.3
+fx_estilo = 64
 area_modo = 1
 area_max = 3
 area_secundario = 0.6

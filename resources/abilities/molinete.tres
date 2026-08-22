@@ -17,6 +17,7 @@ cooldown = 3
 golpes_min = 2
 golpes_max = 2
 dano_mult = 0.85
+fx_estilo = 63
 area_modo = 2
 area_max = 3
 area_falloff = 0.75

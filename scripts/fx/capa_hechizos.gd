@@ -87,7 +87,7 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.PUNALADA, CombatFX.Estilo.DESVANECER, \
 		CombatFX.Estilo.ESTOQUE_PUNZADA, CombatFX.Estilo.ESTOCADA_PENETRANTE, \
 		CombatFX.Estilo.FINTAS, CombatFX.Estilo.PASO_LIGERO, \
-		CombatFX.Estilo.PUNZADA_NERVIO, CombatFX.Estilo.DANZA_ACERO, 		CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.TAJO_QUEBRANTADOR, 		CombatFX.Estilo.DOBLE_TAJO, CombatFX.Estilo.CAMBIO_RITMO, 		CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.CORTE_TENDONES, 		CombatFX.Estilo.ESPADA_LARGA_TAJO, CombatFX.Estilo.TAJO_PESADO, 		CombatFX.Estilo.TAJO_DESARMANTE, CombatFX.Estilo.GUARDIA_ROTA, 		CombatFX.Estilo.ESTOCADA_MARCIAL, CombatFX.Estilo.ESCUDAZO:
+		CombatFX.Estilo.PUNZADA_NERVIO, CombatFX.Estilo.DANZA_ACERO, 		CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.TAJO_QUEBRANTADOR, 		CombatFX.Estilo.DOBLE_TAJO, CombatFX.Estilo.CAMBIO_RITMO, 		CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.CORTE_TENDONES, 		CombatFX.Estilo.ESPADA_LARGA_TAJO, CombatFX.Estilo.TAJO_PESADO, 		CombatFX.Estilo.TAJO_DESARMANTE, CombatFX.Estilo.GUARDIA_ROTA, 		CombatFX.Estilo.ESTOCADA_MARCIAL, CombatFX.Estilo.ESCUDAZO, 		CombatFX.Estilo.MANDOBLE_TAJO, CombatFX.Estilo.TAJO_DEVASTADOR, 		CombatFX.Estilo.MOLINETE, CombatFX.Estilo.GRITO_GUERRA, 		CombatFX.Estilo.TAJO_VERDUGO, CombatFX.Estilo.SEGAR:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -271,6 +271,19 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_VOZ
 	if es == CombatFX.Estilo.ESCUDAZO:
 		return float(e["dur"]) + COLETA_ESCUDAZO
+	# LOS MANDOBLES.
+	if es == CombatFX.Estilo.MANDOBLE_TAJO:
+		return float(e["dur"]) + COLETA_MANDOBLE
+	if es == CombatFX.Estilo.TAJO_DEVASTADOR:
+		return float(e["dur"]) + COLETA_DEVASTADOR
+	if es == CombatFX.Estilo.MOLINETE:
+		return float(e["dur"]) + COLETA_MOLINETE
+	if es == CombatFX.Estilo.GRITO_GUERRA:
+		return float(e["dur"]) + COLETA_GRITO
+	if es == CombatFX.Estilo.TAJO_VERDUGO:
+		return float(e["dur"]) + COLETA_VERDUGO
+	if es == CombatFX.Estilo.SEGAR:
+		return float(e["dur"]) + COLETA_SEGAR
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -339,6 +352,12 @@ func _draw() -> void:
 			CombatFX.Estilo.ESTOCADA_MARCIAL: _pintar_estocada_marcial(e)
 			CombatFX.Estilo.VOZ_MANDO: _pintar_voz_mando(e)
 			CombatFX.Estilo.ESCUDAZO: _pintar_escudazo(e)
+			CombatFX.Estilo.MANDOBLE_TAJO: _pintar_mandoble_tajo(e)
+			CombatFX.Estilo.TAJO_DEVASTADOR: _pintar_devastador(e)
+			CombatFX.Estilo.MOLINETE: _pintar_molinete(e)
+			CombatFX.Estilo.GRITO_GUERRA: _pintar_grito_guerra(e)
+			CombatFX.Estilo.TAJO_VERDUGO: _pintar_verdugo(e)
+			CombatFX.Estilo.SEGAR: _pintar_segar(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -3146,3 +3165,237 @@ func _pintar_estocada_marcial(e: Dictionary) -> void:
 	var k: float = clampf(v / 0.25, 0.0, 1.0)
 	if k > 0.5:
 		_pinchazo(punta, dir, caja * 0.062 * ((k - 0.5) / 0.5), col, alfa)
+
+
+# ============================================================
+#  LOS MANDOBLES: ancho y lento
+# ============================================================
+# El arma grande. Todo lo suyo es mas ancho, mas lento y con mas cola que las demas, y tres de sus
+# tecnicas cogen a VARIOS: esas usan e["ancho"], que en un estilo de grupo trae el ancho de TODO lo
+# alcanzado (ver _marcar_efectos_de_grupo). Por eso un molinete a tres sale grande de verdad y no
+# tres molinetes pequeños.
+const COLETA_MANDOBLE := 0.40
+const COLETA_DEVASTADOR := 0.52
+const COLETA_MOLINETE := 0.46
+const COLETA_GRITO := 0.44
+const COLETA_VERDUGO := 0.60      # el mas largo del juego: se anuncia y hay que verlo caer
+const COLETA_SEGAR := 0.44
+
+
+# El tajo del mandoble: el mismo trazo de siempre pero ENORME y con mucha comba, que es lo que hace
+# que se lea como un espadon y no como una espada mas.
+func _pintar_mandoble_tajo(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_MANDOBLE, 0.08)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
+	var ang: float = (-PI * 0.22 + sin(g * 3.3) * 0.24) * sentido
+	var k: float = 1.0 - pow(1.0 - v, 2.0)
+	_tajo(b, ang, caja * 2.05, 0.26 * sentido, k, col, alfa, caja * 0.135)
+	if v > 0.36:
+		var w: float = (v - 0.36) / 0.64
+		_herida_larga(b, ang, caja * 1.55 * w, caja, col, alfa, sentido * 0.26)
+
+
+# LA HERIDA de un tajo grande: la linea del corte y su sombra de sangre. Estaba repetida en cada
+# painter con los mismos dos draw_line; aqui se escribe una vez.
+func _herida_larga(b: Vector2, ang: float, largo: float, caja: float, col: Color, alfa: float,
+		desvio: float = 0.0) -> void:
+	var f: Color = _filo_col(col) if _imbuido(col) else _HUESO
+	var dir := Vector2(cos(ang), sin(ang))
+	var lado := Vector2(-dir.y, dir.x)
+	var c0: Vector2 = b - dir * largo * 0.5 + lado * caja * desvio * 0.5
+	var c1: Vector2 = b + dir * largo * 0.5 + lado * caja * desvio * 0.5
+	draw_line(c0, c1, Color(f.r, f.g, f.b, 0.95 * alfa), maxf(2.0, caja * 0.048), true)
+	draw_line(c0 + lado * caja * 0.038, c1 + lado * caja * 0.038,
+		Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.6 * alfa), maxf(1.5, caja * 0.030), true)
+
+
+# TAJO DEVASTADOR. El descendente con toda la masa del espadon. Cae a plomo y, al llegar, levanta
+# una onda gorda: es el golpe mas bruto del arsenal y tiene que verse el impacto, no solo el corte.
+func _pintar_devastador(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_DEVASTADOR, 0.06)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var inclina: float = sin(g * 3.3) * 0.28
+	var dir_caida := Vector2(sin(inclina), 1.0).normalized()
+	var k: float = clampf(v / 0.30, 0.0, 1.0)
+	var caida: float = 1.0 - pow(1.0 - k, 2.8)
+	var arriba: Vector2 = b - dir_caida * caja * 1.55
+	_tajo(arriba.lerp(b, 0.5), dir_caida.angle(), arriba.distance_to(b), 0.0, caida,
+		col, alfa, caja * 0.16)
+	if v <= 0.32:
+		return
+	var w: float = (v - 0.32) / 0.68
+	_herida_larga(b, dir_caida.angle(), caja * 1.05 * w, caja, col, alfa)
+	# LA ONDA del impacto: dos anillos bajos que se abren. Es lo que dice "esto ha pesado".
+	for i in 2:
+		var kk: float = clampf(w - float(i) * 0.22, 0.0, 1.0)
+		if kk <= 0.0:
+			continue
+		var rr: float = caja * (0.28 + 1.05 * kk)
+		_anillo(b + Vector2(0.0, caja * 0.24), rr, rr * 0.28,
+			Color(0.74, 0.70, 0.64, 0.5 * alfa * (1.0 - kk)),
+			maxf(1.5, caja * 0.034 * (1.0 - kk * 0.5)))
+
+
+# MOLINETE. Un giro COMPLETO del espadon: el trazo rodea a todo lo alcanzado en vez de cruzarlo.
+# Por eso es de grupo -- el ancho que llega aqui es el de TODOS los que coge.
+func _pintar_molinete(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_MOLINETE, 0.05)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# El radio sale del ANCHO DEL GRUPO: a uno solo le da un giro justo; a tres, uno que los rodea.
+	# 0.42 y no 0.58: con aquel, un molinete a tres dibujaba un aro tan alto que se salia de la fila
+	# por arriba y por abajo. Tiene que rodear a los alcanzados, no rodear la pantalla.
+	var rr: float = _radio_grupo(e, 0.42, caja * 0.58)
+	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
+	# Vuelta y cuarto, para que se vea que el giro se cierra y sigue.
+	var total: float = TAU * 1.25 * sentido
+	var k: float = 1.0 - pow(1.0 - v, 1.8)
+	var f: Color = _filo_col(col)
+	# La espiral del filo: se traza girando, y se va afinando por la cola.
+	var n: int = 30
+	var fuera := PackedVector2Array()
+	var dentro := PackedVector2Array()
+	for i in n + 1:
+		var s: float = float(i) / float(n)
+		var a: float = g + total * k * s
+		var w: float = caja * 0.13 * pow(s, 1.1)
+		# El radio se abre un pelin segun gira: un molinete no es un circulo perfecto.
+		var rad: float = rr * (0.86 + 0.18 * s)
+		# Bien achatado (0.52): la fila de enemigos es ANCHA y baja, y un giro redondo se le sale por
+		# arriba aunque el radio sea el correcto.
+		var u := Vector2(cos(a), sin(a) * 0.52)
+		fuera.append(b + u * (rad + w))
+		dentro.append(b + u * (rad - w))
+	var pts := PackedVector2Array()
+	pts.append_array(fuera)
+	for i in range(dentro.size() - 1, -1, -1):
+		pts.append(dentro[i])
+	draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.26 * alfa))
+	draw_polyline(fuera, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(2.0, caja * 0.055), true)
+	# Y las heridas: un corte por cada cuarto de vuelta recorrido, repartidos por el arco.
+	if v <= 0.40:
+		return
+	var w2: float = (v - 0.40) / 0.60
+	for i in 3:
+		var kk: float = clampf((w2 - float(i) * 0.14) / 0.4, 0.0, 1.0)
+		if kk <= 0.0:
+			continue
+		var a2: float = g + total * (0.35 + 0.28 * float(i))
+		var p: Vector2 = b + Vector2(cos(a2), sin(a2) * 0.52) * rr * 0.92
+		_herida_larga(p, a2 + PI * 0.5, caja * 0.55 * kk, caja * 0.8, col, alfa * 0.9)
+
+
+# GRITO DE GUERRA. El acero en alto y la onda que barre la fila. Pega poco a proposito: lo que hace
+# es que alguno decida que hoy no.
+func _pintar_grito_guerra(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var v: float = clampf((t - dur) / COLETA_GRITO, 0.0, 1.0) if t > dur else clampf(t / dur, 0.0, 1.0) * 0.0
+	var alfa: float = 1.0 if v < 0.55 else 1.0 - (v - 0.55) / 0.45
+	if t < dur:
+		# ARMANDO: el espadon subiendo por encima de la cabeza.
+		var w0: float = clampf(t / dur, 0.0, 1.0)
+		_hoja(b + Vector2(0.0, -caja * (0.30 + 0.35 * w0)), Vector2.UP,
+			caja * 0.95, caja * 0.10, col, 0.5 + 0.5 * w0, 0.0)
+		return
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# El acero sigue en alto mientras dura el grito.
+	_hoja(b + Vector2(0.0, -caja * 0.65), Vector2.UP, caja * 0.95, caja * 0.10, col, alfa * 0.9, 0.0)
+	# LA ONDA: anillos anchos que se abren por la fila. El ancho sale del grupo, como el molinete.
+	var rr_max: float = _radio_grupo(e, 0.62, caja * 0.70)
+	for i in 3:
+		var k: float = clampf((v - float(i) * 0.16) / 0.55, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		var rr: float = rr_max * (0.30 + 0.95 * k)
+		_anillo(b, rr, rr * 0.46, Color(f.r, f.g, f.b, 0.55 * alfa * (1.0 - k)),
+			maxf(1.5, caja * 0.038 * (1.0 - k * 0.5)))
+
+
+# TAJO DEL VERDUGO. Se anuncia un turno entero (carga_turnos) y cae desde MUY arriba. Es el golpe
+# mas gordo del juego y se dibuja como tal: el acero baja desde fuera de la pantalla y raja el suelo.
+func _pintar_verdugo(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_VERDUGO, 0.04)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# Cae RECTO, sin inclinacion: no hay finta que valga, viene de arriba y ya.
+	var dir_caida := Vector2.DOWN
+	var k: float = clampf(v / 0.26, 0.0, 1.0)
+	var caida: float = 1.0 - pow(1.0 - k, 3.2)
+	var arriba: Vector2 = b - dir_caida * caja * 2.30
+	_tajo(arriba.lerp(b, 0.5), PI * 0.5, arriba.distance_to(b), 0.0, caida, col, alfa, caja * 0.20)
+	if v <= 0.28:
+		return
+	var w: float = (v - 0.28) / 0.72
+	_herida_larga(b, PI * 0.5, caja * 1.35 * w, caja, col, alfa)
+	# EL SUELO RAJADO: grietas que salen del punto de impacto hacia los lados.
+	var f: Color = _filo_col(col)
+	for i in 5:
+		var lado: float = -1.0 if i % 2 == 0 else 1.0
+		var largo: float = caja * (0.30 + 0.75 * w) * (0.7 + 0.4 * absf(sin(g + float(i))))
+		var y: float = caja * 0.28
+		var grieta := PackedVector2Array()
+		for j in 4:
+			var s: float = float(j) / 3.0
+			grieta.append(b + Vector2(lado * largo * s * (0.6 + 0.4 * float(i) / 4.0),
+				y + sin(g + float(i) * 2.1 + s * 5.0) * caja * 0.05 * s))
+		draw_polyline(grieta, Color(f.r * 0.8, f.g * 0.8, f.b * 0.8, 0.6 * alfa * (1.0 - w * 0.6)),
+			maxf(1.5, caja * 0.030 * (1.0 - w * 0.4)), true)
+
+
+# SEGAR. Dos barridos BAJOS, a la altura de las piernas: el trazo va casi horizontal y muy abajo, y
+# cruza a todos los alcanzados de lado a lado.
+func _pintar_segar(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_SEGAR, 0.05)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# ABAJO del todo: esto va a las piernas, no al pecho.
+	var b: Vector2 = Vector2(float(e["b"].x), float(e["b"].y) + caja * 0.34)
+	# De lado a lado de TODO lo alcanzado (por eso es de grupo).
+	var largo: float = _radio_grupo(e, 1.05, caja * 1.30)
+	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
+	var ang: float = (0.10 + sin(g * 2.3) * 0.07) * sentido
+	var k: float = 1.0 - pow(1.0 - v, 2.0)
+	_tajo(b, ang, largo, 0.06 * sentido, k, col, alfa, caja * 0.135)
+	if v <= 0.38:
+		return
+	var w: float = (v - 0.38) / 0.62
+	_herida_larga(b, ang, largo * 0.80 * w, caja, col, alfa)

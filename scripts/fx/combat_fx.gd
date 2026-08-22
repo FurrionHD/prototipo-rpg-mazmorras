@@ -130,6 +130,15 @@ signal apagar_ahora(bloque: Dictionary)
 #   ESCUDAZO          el golpe con el ESCUDO. No es de un arma concreta: lo usa CUALQUIER golpe que
 #                     AbilityData marque como de escudo (escudo_desde_golpe), en la espada larga, en
 #                     la maza o donde sea. Ver _resolver_golpe_hab en combat.gd.
+# LOS MANDOBLES son el arma grande: todo lo suyo es ANCHO y LENTO, y tres de sus cinco tecnicas
+# alcanzan a VARIOS -- van en _ESTILOS_DE_GRUPO, o sea que de una tanda se dibuja UNO solo, tan
+# ancho como haga falta para cubrir a todos los que alcanza (ver _marcar_efectos_de_grupo).
+#   MANDOBLE_TAJO    el tajo enorme (el basico)
+#   TAJO_DEVASTADOR  el descendente con toda la masa del espadon, y la onda que levanta
+#   MOLINETE         un giro COMPLETO alrededor: el arco rodea a los alcanzados
+#   GRITO_GUERRA     el acero en alto y la onda del grito barriendo la fila
+#   TAJO_VERDUGO     el que se anuncia un turno: cae desde MUY arriba y parte el suelo
+#   SEGAR            dos barridos BAJOS, a la altura de las piernas, de lado a lado
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -146,7 +155,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		ESPADA_TAJO = 47, TAJO_QUEBRANTADOR = 48, DOBLE_TAJO = 49, CAMBIO_RITMO = 50,
 		SENALAR_HUECO = 51, CORTE_TENDONES = 52,
 		ESPADA_LARGA_TAJO = 53, TAJO_PESADO = 54, TAJO_DESARMANTE = 55, GUARDIA_ROTA = 56,
-		VOTO_GUARDIA = 57, ESTOCADA_MARCIAL = 58, VOZ_MANDO = 59, ESCUDAZO = 60 }
+		VOTO_GUARDIA = 57, ESTOCADA_MARCIAL = 58, VOZ_MANDO = 59, ESCUDAZO = 60,
+		MANDOBLE_TAJO = 61, TAJO_DEVASTADOR = 62, MOLINETE = 63, GRITO_GUERRA = 64,
+		TAJO_VERDUGO = 65, SEGAR = 66 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -161,6 +172,7 @@ const FX_ARMA := {
 	5: Estilo.ESTOQUE_PUNZADA,   # ESTOQUE
 	2: Estilo.ESPADA_TAJO,       # ESPADA_CORTA
 	3: Estilo.ESPADA_LARGA_TAJO, # ESPADA_LARGA
+	4: Estilo.MANDOBLE_TAJO,     # MANDOBLE
 }
 
 
@@ -174,7 +186,9 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.ESPADA_TAJO, Estilo.TAJO_QUEBRANTADOR, Estilo.DOBLE_TAJO, Estilo.CAMBIO_RITMO,
 	Estilo.SENALAR_HUECO, Estilo.CORTE_TENDONES,
 	Estilo.ESPADA_LARGA_TAJO, Estilo.TAJO_PESADO, Estilo.TAJO_DESARMANTE, Estilo.GUARDIA_ROTA,
-	Estilo.VOTO_GUARDIA, Estilo.ESTOCADA_MARCIAL, Estilo.VOZ_MANDO, Estilo.ESCUDAZO]
+	Estilo.VOTO_GUARDIA, Estilo.ESTOCADA_MARCIAL, Estilo.VOZ_MANDO, Estilo.ESCUDAZO,
+	Estilo.MANDOBLE_TAJO, Estilo.TAJO_DEVASTADOR, Estilo.MOLINETE, Estilo.GRITO_GUERRA,
+	Estilo.TAJO_VERDUGO, Estilo.SEGAR]
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
@@ -252,6 +266,11 @@ const T_VUELO := {
 	Estilo.GUARDIA_ROTA: 0.09, Estilo.ESTOCADA_MARCIAL: 0.11, Estilo.ESCUDAZO: 0.07,
 	# Los dos que no son golpes: la postura se monta y la orden sale de ti.
 	Estilo.VOTO_GUARDIA: 0.24, Estilo.VOZ_MANDO: 0.18,
+	# LOS MANDOBLES: los adelantos mas largos del juego. Este arma es LENTA y esa es su identidad --
+	# lo que la hace temible es que la ves venir. El VERDUGO se lleva el record: se anuncia un turno
+	# entero (carga_turnos) y encima tarda en bajar.
+	Estilo.MANDOBLE_TAJO: 0.13, Estilo.TAJO_DEVASTADOR: 0.20, Estilo.MOLINETE: 0.14,
+	Estilo.GRITO_GUERRA: 0.16, Estilo.TAJO_VERDUGO: 0.30, Estilo.SEGAR: 0.12,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1136,7 +1155,9 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	Estilo.ESPADA_TAJO, Estilo.TAJO_QUEBRANTADOR, Estilo.DOBLE_TAJO, Estilo.CAMBIO_RITMO,
 	Estilo.SENALAR_HUECO, Estilo.CORTE_TENDONES,
 	Estilo.ESPADA_LARGA_TAJO, Estilo.TAJO_PESADO, Estilo.TAJO_DESARMANTE, Estilo.GUARDIA_ROTA,
-	Estilo.ESTOCADA_MARCIAL, Estilo.ESCUDAZO]
+	Estilo.ESTOCADA_MARCIAL, Estilo.ESCUDAZO,
+	Estilo.MANDOBLE_TAJO, Estilo.TAJO_DEVASTADOR, Estilo.MOLINETE, Estilo.TAJO_VERDUGO,
+	Estilo.SEGAR]
 # NOTA: la CARGA esta en _ESTILOS_DE_GRUPO y aun asi embiste. No es contradictorio: embestir es del
 # ATACANTE (su tarjeta se lanza) y agruparse es del DIBUJO (uno solo para todo lo alcanzado).
 
@@ -1148,7 +1169,10 @@ const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.E
 	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
-	Estilo.CARGA]
+	Estilo.CARGA,
+	# Los del mandoble que alcanzan a varios: un molinete es UN giro que coge a tres, no tres
+	# molinetes pequeños; y lo mismo el barrido bajo de Segar y la onda del Grito.
+	Estilo.MOLINETE, Estilo.SEGAR, Estilo.GRITO_GUERRA]
 
 func _marcar_efectos_de_grupo() -> void:
 	var por_tanda: Dictionary = {}   # "tanda:estilo" -> [indices de la cola]

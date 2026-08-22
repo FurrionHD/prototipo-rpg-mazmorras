@@ -17,6 +17,7 @@ cooldown = 5
 golpes_min = 1
 golpes_max = 1
 dano_mult = 3.6
+fx_estilo = 65
 carga_turnos = 1
 descripcion = "Levantas el acero por encima de la cabeza y esperas. Todo el mundo ve lo que viene, y aun así hay que estar en otro sitio cuando baje."
 efectos = [SubResource("SA_0")]
