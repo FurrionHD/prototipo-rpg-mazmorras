@@ -2621,7 +2621,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	if bv.is_empty():
 		return
 	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido,
-		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx)
+		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx, elem)
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
 	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo, sfx)

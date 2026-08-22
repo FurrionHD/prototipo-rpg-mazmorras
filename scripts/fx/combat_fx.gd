@@ -100,7 +100,9 @@ signal apagar_ahora(bloque: Dictionary)
 #   DAGA_RAFAGA  dos cortes seguidos y nerviosos, el segundo cruzando al primero
 #   PUNALADA     APUÑALAMIENTO: la hoja entra recta y se hunde. No corta, atraviesa
 #   IMBUIR_FILO  adorno sobre uno mismo: la hoja se moja y gotea (Filo emponzoñado)
-#   DESVANECER   el corte sale de una sombra que se deshace (Desaparecer)
+#   DESVANECER   LA SOMBRA en la que te metes, sobre TI (Desaparecer). El corte de esa habilidad es
+#                un DAGA_CORTE normal contra el enemigo: el que desaparece eres TU, asi que el humo
+#                sale en tu tarjeta y no en la suya. Va por fx_sobre_mi.
 # EL ESTOQUE es todo de PUNTA, al reves que la daga: no corta, PINCHA. Su hoja es larga y fina y
 # entra en linea recta, asi que sus gestos se leen por la profundidad y por lo seco de la entrada.
 #   ESTOQUE_PUNZADA  la estocada de siempre: entra, pincha y sale (el basico)
@@ -1022,7 +1024,7 @@ func tanda(n: int) -> void:
 # su estilo). Ver Sonido.golpe y el disparo en _process.
 func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bool,
 		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0,
-		solo_dibujo: bool = false, sfx: String = "") -> void:
+		solo_dibujo: bool = false, sfx: String = "", elem: int = 0) -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
 		_tanda_pedida = -1
 		return
@@ -1037,6 +1039,11 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		"estilo": estilo, "peso": clampf(peso, 0.2, 1.5), "fx_lanzado": false,
 		"tanda": t_ev, "solo_dibujo": solo_dibujo,
 		"sfx": sfx, "sfx_lanzado": false,
+		# EL ELEMENTO, aparte del color. El color solo dice de que tono va; el elemento dice COMO SE
+		# COMPORTA: el rayo centellea y se quiebra, el fuego ondea y suelta chispas, el agua gotea.
+		# Pintar los tres del mismo modo y cambiarles el tinte no cuela -- no parecian ni fuego ni
+		# agua ni rayo, parecian el mismo tajo de tres colores.
+		"elem": elem,
 	})
 	# LA VIDA NO PUEDE BAJAR ANTES QUE EL GOLPE. Se apunta AQUI, en el mismo instante en que el
 	# golpe se resuelve, y no al arrancar la cola: entre una cosa y otra combat.gd llama a
@@ -1154,7 +1161,7 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	Estilo.RODADA, Estilo.LATIGAZO,
 	# Los del jugador van aqui por lo mismo que los mordiscos: para dar un tajo hay que LLEGAR, y es
 	# la embestida la que lleva el arma al sitio. El IMBUIR_FILO no, que es sobre uno mismo.
-	Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.DESVANECER,
+	Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	# El estoque tiene MAS alcance, pero sigue habiendo que llegar: embiste igual. El EN_GUARDIA no,
 	# que es una postura y va sobre uno mismo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
@@ -1173,7 +1180,8 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # atacante y victima son el mismo y el dibujo va en SU tarjeta, no en la de enfrente. Los demas
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
 const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO,
-	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA, Estilo.ACERO_EN_ALTO]
+	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA, Estilo.ACERO_EN_ALTO,
+	Estilo.DESVANECER]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA,
