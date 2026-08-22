@@ -21,6 +21,7 @@ golpes_max = 1
 golpes_dual_min = 2
 golpes_dual_max = 2
 dano_mult = 1.8
+fx_estilo = 41
 efectos = [SubResource("SA_vuln")]
 efectos_por_golpe = true
 descripcion = "Una estocada precisa que busca el hueco de la armadura y perfora la guardia del enemigo. Se apoya en el crítico alto del estoque."

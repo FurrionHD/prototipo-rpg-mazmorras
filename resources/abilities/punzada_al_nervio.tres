@@ -27,5 +27,6 @@ golpes_max = 1
 golpes_dual_min = 2
 golpes_dual_max = 2
 dano_mult = 0.9
+fx_estilo = 45
 descripcion = "No busca el órgano: busca el cable. Después de esto, ni pega igual ni llega a tiempo."
 efectos = [SubResource("SA_0"), SubResource("SA_1")]

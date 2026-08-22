@@ -8,6 +8,7 @@ nombre = "En guardia"
 precio = 2000
 coste_energia = 40.0
 dano_mult = 0.0
+fx_estilo = 43
 cooldown = 0
 postura_contraataque = true
 requiere_off_libre = true

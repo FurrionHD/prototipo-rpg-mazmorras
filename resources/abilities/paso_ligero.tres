@@ -22,6 +22,7 @@ golpes_max = 1
 golpes_dual_min = 2
 golpes_dual_max = 2
 dano_mult = 0.7
+fx_estilo = 44
 redirige_al_morir = true
 descripcion = "Una finta y dos pasos de lado. Sales del sitio donde te esperaban y llegas antes a todo."
 efectos = [SubResource("SA_0")]

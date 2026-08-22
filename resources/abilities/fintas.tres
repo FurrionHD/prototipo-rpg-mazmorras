@@ -14,6 +14,7 @@ golpes_max = 2
 golpes_dual_min = 3
 golpes_dual_max = 3
 dano_mult = 1.2
+fx_estilo = 42
 redirige_al_morir = true
 golpes_extra_por_enemigo = 0.7
 descripcion = "Serie de estocadas rápidas y precisas. Sin estados, pero se apoya en el crítico alto del estoque para hacer daño fiable. El pan de cada día del duelista."

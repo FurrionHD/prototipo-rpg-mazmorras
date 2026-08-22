@@ -101,6 +101,15 @@ signal apagar_ahora(bloque: Dictionary)
 #   PUNALADA     APUÑALAMIENTO: la hoja entra recta y se hunde. No corta, atraviesa
 #   IMBUIR_FILO  adorno sobre uno mismo: la hoja se moja y gotea (Filo emponzoñado)
 #   DESVANECER   el corte sale de una sombra que se deshace (Desaparecer)
+# EL ESTOQUE es todo de PUNTA, al reves que la daga: no corta, PINCHA. Su hoja es larga y fina y
+# entra en linea recta, asi que sus gestos se leen por la profundidad y por lo seco de la entrada.
+#   ESTOQUE_PUNZADA  la estocada de siempre: entra, pincha y sale (el basico)
+#   ESTOCADA_PENETRANTE  la que ATRAVIESA: entra hasta el fondo y sale por el otro lado
+#   FINTAS       dos pinchazos nerviosos con el amago dibujado antes de cada uno
+#   EN_GUARDIA   adorno sobre uno mismo: la punta en alto y el arco de la guardia
+#   PASO_LIGERO  la estocada se da MIENTRAS te apartas: deja el rastro del que ya no esta ahi
+#   PUNZADA_NERVIO  no busca el organo, busca el cable: pinchazo fino y un latigazo que recorre
+#   DANZA_ACERO  tres tiempos encadenados sin bajar la punta, en abanico
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -111,7 +120,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		PONZONA = 28, TELARANA = 29, ENROSQUE = 30, PATAS = 31, RODADA = 32,
 		MIRADA = 33, LATIGAZO = 34,
 		DAGA_CORTE = 35, DAGA_RAFAGA = 36, PUNALADA = 37, IMBUIR_FILO = 38,
-		DESVANECER = 39 }
+		DESVANECER = 39,
+		ESTOQUE_PUNZADA = 40, ESTOCADA_PENETRANTE = 41, FINTAS = 42, EN_GUARDIA = 43,
+		PASO_LIGERO = 44, PUNZADA_NERVIO = 45, DANZA_ACERO = 46 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -122,7 +133,8 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 # El que no este en la tabla se queda en MELEE (el empujon de tarjeta de siempre), asi que un arma
 # nueva no revienta -- simplemente no dibuja hasta que se le ponga aqui.
 const FX_ARMA := {
-	1: Estilo.DAGA_CORTE,   # DAGA
+	1: Estilo.DAGA_CORTE,        # DAGA
+	5: Estilo.ESTOQUE_PUNZADA,   # ESTOQUE
 }
 
 
@@ -130,7 +142,9 @@ const FX_ARMA := {
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan
 # (ver _color_golpe en combat.gd), y sin esta lista los tajos salian del rojo de bicho.
 const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
-	Estilo.IMBUIR_FILO, Estilo.DESVANECER]
+	Estilo.IMBUIR_FILO, Estilo.DESVANECER,
+	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.EN_GUARDIA,
+	Estilo.PASO_LIGERO, Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO]
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
@@ -191,6 +205,13 @@ const T_VUELO := {
 	Estilo.DAGA_CORTE: 0.04, Estilo.DAGA_RAFAGA: 0.05, Estilo.PUNALADA: 0.09,
 	# IMBUIR_FILO no viaja (te la echas encima) y va largo: hay que ver la hoja mojarse.
 	Estilo.IMBUIR_FILO: 0.30, Estilo.DESVANECER: 0.10,
+	# EL ESTOQUE. Su vuelo es el ARMADO: la punta se echa atras antes de salir disparada, y eso es
+	# justo lo que hace que una estocada se lea como apuntada y no como un manotazo. Las rapidas
+	# (basico, fintas, danza) apenas se arman; las gordas se toman su tiempo.
+	Estilo.ESTOQUE_PUNZADA: 0.07, Estilo.ESTOCADA_PENETRANTE: 0.13, Estilo.FINTAS: 0.06,
+	Estilo.PASO_LIGERO: 0.08, Estilo.PUNZADA_NERVIO: 0.10, Estilo.DANZA_ACERO: 0.06,
+	# La postura no viaja: se abre sobre uno mismo y hay que verla montarse.
+	Estilo.EN_GUARDIA: 0.22,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1067,7 +1088,11 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	Estilo.RODADA, Estilo.LATIGAZO,
 	# Los del jugador van aqui por lo mismo que los mordiscos: para dar un tajo hay que LLEGAR, y es
 	# la embestida la que lleva el arma al sitio. El IMBUIR_FILO no, que es sobre uno mismo.
-	Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.DESVANECER]
+	Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.DESVANECER,
+	# El estoque tiene MAS alcance, pero sigue habiendo que llegar: embiste igual. El EN_GUARDIA no,
+	# que es una postura y va sobre uno mismo.
+	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
+	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO]
 # NOTA: la CARGA esta en _ESTILOS_DE_GRUPO y aun asi embiste. No es contradictorio: embestir es del
 # ATACANTE (su tarjeta se lanza) y agruparse es del DIBUJO (uno solo para todo lo alcanzado).
 
@@ -1076,7 +1101,7 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # atacante y victima son el mismo y el dibujo va en SU tarjeta, no en la de enfrente. Los demas
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
 const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO,
-	Estilo.IMBUIR_FILO]
+	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA]

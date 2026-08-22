@@ -76,7 +76,7 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 			# Del cielo: el origen es el techo de la pantalla, justo encima del objetivo.
 			e["a"] = Vector2(b.x + randf_range(-14.0, 14.0), FUERA)
 		CombatFX.Estilo.AURA, CombatFX.Estilo.CAPARAZON, CombatFX.Estilo.MURALLA, \
-		CombatFX.Estilo.ESCUDO, CombatFX.Estilo.IMBUIR_FILO:
+		CombatFX.Estilo.ESCUDO, CombatFX.Estilo.IMBUIR_FILO, CombatFX.Estilo.EN_GUARDIA:
 			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA, y el
 			# picaro se unta el filo).
 			e["a"] = b
@@ -84,7 +84,10 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.ZARPAZO, CombatFX.Estilo.PLACAJE, CombatFX.Estilo.CORNADA, \
 		CombatFX.Estilo.PISOTON, CombatFX.Estilo.GOLPETAZO, \
 		CombatFX.Estilo.DAGA_CORTE, CombatFX.Estilo.DAGA_RAFAGA, \
-		CombatFX.Estilo.PUNALADA, CombatFX.Estilo.DESVANECER:
+		CombatFX.Estilo.PUNALADA, CombatFX.Estilo.DESVANECER, \
+		CombatFX.Estilo.ESTOQUE_PUNZADA, CombatFX.Estilo.ESTOCADA_PENETRANTE, \
+		CombatFX.Estilo.FINTAS, CombatFX.Estilo.PASO_LIGERO, \
+		CombatFX.Estilo.PUNZADA_NERVIO, CombatFX.Estilo.DANZA_ACERO:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -224,6 +227,22 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + 0.30   # la sombra tarda en deshacerse
 	if es == CombatFX.Estilo.IMBUIR_FILO:
 		return float(e["dur"]) + COLETA_IMBUIR
+	# EL ESTOQUE. Una estocada es SECA: entra y sale, asi que sus coletas son cortas. Las unicas
+	# largas son la que atraviesa (hay que ver la hoja al otro lado) y la postura, que es un buff.
+	if es == CombatFX.Estilo.ESTOQUE_PUNZADA:
+		return float(e["dur"]) + COLETA_ESTOCADA
+	if es == CombatFX.Estilo.FINTAS:
+		return float(e["dur"]) + COLETA_FINTAS
+	if es == CombatFX.Estilo.ESTOCADA_PENETRANTE:
+		return float(e["dur"]) + COLETA_PENETRANTE
+	if es == CombatFX.Estilo.PASO_LIGERO:
+		return float(e["dur"]) + COLETA_PASO
+	if es == CombatFX.Estilo.PUNZADA_NERVIO:
+		return float(e["dur"]) + COLETA_NERVIO
+	if es == CombatFX.Estilo.DANZA_ACERO:
+		return float(e["dur"]) + COLETA_DANZA
+	if es == CombatFX.Estilo.EN_GUARDIA:
+		return float(e["dur"]) + COLETA_GUARDIA
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -276,6 +295,12 @@ func _draw() -> void:
 			CombatFX.Estilo.PUNALADA: _pintar_punalada(e)
 			CombatFX.Estilo.IMBUIR_FILO: _pintar_imbuir_filo(e)
 			CombatFX.Estilo.DESVANECER: _pintar_desvanecer(e)
+			CombatFX.Estilo.ESTOQUE_PUNZADA, CombatFX.Estilo.FINTAS, \
+			CombatFX.Estilo.ESTOCADA_PENETRANTE: _pintar_estocada(e)
+			CombatFX.Estilo.EN_GUARDIA: _pintar_en_guardia(e)
+			CombatFX.Estilo.PASO_LIGERO: _pintar_paso_ligero(e)
+			CombatFX.Estilo.PUNZADA_NERVIO: _pintar_punzada_nervio(e)
+			CombatFX.Estilo.DANZA_ACERO: _pintar_danza_acero(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -2311,3 +2336,271 @@ func _pintar_desvanecer(e: Dictionary) -> void:
 	var r: Array = _tajo(b, ang, caja * 1.35, 0.18, k, col, alfa, caja * 0.075)
 	if k < 0.97:
 		_hoja(r[0], r[1], caja * 0.46, caja * 0.07, col, alfa, 0.30)
+
+
+# ============================================================
+#  EL ESTOQUE: todo de punta
+# ============================================================
+# La daga CORTA (arcos que cruzan) y el estoque PINCHA: su hoja entra en linea recta y lo que se lee
+# es la profundidad y lo seco de la entrada. Por eso ninguno de estos usa _tajo.
+#
+# LAS COLETAS VIVEN AQUI ARRIBA porque _vida tiene que devolver EXACTAMENTE lo mismo que use el
+# painter para dividir su reloj. Con dos literales sueltos, el dia que se toque uno el efecto se
+# corta a media animacion sin dar ningun error (le paso al aura, ver la nota en _vida).
+const COLETA_ESTOCADA := 0.26
+const COLETA_FINTAS := 0.30      # son dos pinchazos: hace falta sitio para los dos
+const COLETA_PENETRANTE := 0.42  # entra hasta el fondo y hay que verla salir por detras
+const COLETA_PASO := 0.34        # el rastro del que se aparta tarda en irse
+const COLETA_NERVIO := 0.38      # el latigazo recorre al bicho despues del pinchazo
+const COLETA_DANZA := 0.40       # tres tiempos encadenados
+const COLETA_GUARDIA := 0.85     # es una postura, no un golpe: tiene que quedarse puesta
+
+# La hoja del estoque: LARGA y FINA, al reves que la daga (corta y con cuerpo). Es lo que separa las
+# dos armas de un vistazo aunque las dos entren rectas.
+const LARGO_ESTOQUE := 1.15
+const ANCHO_ESTOQUE := 0.042
+
+
+# EL GESTO BASE DE TODA ESTOCADA: la punta se arma atras, sale disparada, se hunde y vuelve.
+# Devuelve [avance 0..1, alfa, punta, direccion] o avance < 0 si todavia se esta armando (en cuyo
+# caso ya ha pintado la hoja esperando).
+#
+# 'prof' = cuanto se hunde, en fracciones de la caja. 'coleta' tiene que ser la misma constante que
+# devuelva _vida para este estilo.
+func _estocada_base(e: Dictionary, coleta: float, prof: float, largo_mult: float = 1.0,
+		desvio_ang: float = 0.7) -> Array:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# Entra desde abajo, con el angulo desviado por la semilla: dos estocadas seguidas no caen
+	# calcadas una encima de otra.
+	var ang: float = -PI * 0.5 + sin(g * 2.9) * desvio_ang
+	var dir := Vector2(cos(ang), sin(ang))
+	var b: Vector2 = e["b"] + Vector2(cos(g * 2.1), sin(g * 1.7)) * caja * 0.09
+	var largo: float = caja * LARGO_ESTOQUE * largo_mult
+	var ancho: float = caja * ANCHO_ESTOQUE
+	if t < dur:
+		# ARMANDO: la hoja espera echada atras, temblando. Este instante es lo que hace que se lea
+		# como una estocada apuntada.
+		var w: float = clampf(t / dur, 0.0, 1.0)
+		var atras: float = caja * (0.85 - 0.20 * w) + sin(t * 44.0) * caja * 0.015
+		_hoja(b - dir * atras, dir, largo, ancho, col, 0.5 + 0.5 * w)
+		return [-1.0, 0.0, Vector2.ZERO, dir]
+	var v: float = clampf((t - dur) / coleta, 0.0, 1.0)
+	var alfa: float = 1.0 if v < 0.60 else 1.0 - (v - 0.60) / 0.40
+	if alfa <= 0.0:
+		return [-1.0, 0.0, Vector2.ZERO, dir]
+	# La entrada se come el primer cuarto y luego la hoja se queda clavada un momento.
+	var k: float = clampf(v / 0.25, 0.0, 1.0)
+	var hundido: float = 1.0 - pow(1.0 - k, 3.0)
+	var punta: Vector2 = b - dir * caja * 0.70 * (1.0 - hundido) + dir * caja * prof * hundido
+	_hoja(punta, dir, largo, ancho, col, alfa)
+	return [v, alfa, punta, dir]
+
+
+# EL AGUJERO que deja una punta. Un ovalo alargado en la direccion de entrada, oscuro por dentro y
+# con el borde del color de lo que lleve el arma. Lo comparten todas las del estoque.
+func _pinchazo(p: Vector2, dir: Vector2, r: float, col: Color, alfa: float) -> void:
+	var lado := Vector2(-dir.y, dir.x)
+	var pts := PackedVector2Array()
+	for i in 12:
+		var a: float = TAU * float(i) / 12.0
+		pts.append(p + lado * cos(a) * r + dir * sin(a) * r * 1.8)
+	draw_colored_polygon(pts, Color(_SANGRE.r * 0.5, _SANGRE.g * 0.3, _SANGRE.b * 0.3, 0.85 * alfa))
+	var f: Color = _filo_col(col)
+	var cerrado := PackedVector2Array(pts)
+	cerrado.append(pts[0])
+	draw_polyline(cerrado, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(1.5, r * 0.30), true)
+
+
+# ESTOCADA. Tres habilidades comparten painter porque las tres son la misma jugada con distinto
+# tamaño: el basico pincha, las Fintas pinchan dos veces seguidas y la Penetrante ATRAVIESA.
+func _pintar_estocada(e: Dictionary) -> void:
+	var estilo: int = int(e["estilo"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var coleta: float = COLETA_ESTOCADA
+	var prof: float = 0.24
+	var largo_mult: float = 1.0
+	if estilo == CombatFX.Estilo.FINTAS:
+		coleta = COLETA_FINTAS
+		prof = 0.18
+		largo_mult = 0.92
+	elif estilo == CombatFX.Estilo.ESTOCADA_PENETRANTE:
+		coleta = COLETA_PENETRANTE
+		prof = 0.62      # hasta el fondo: la punta sale por el otro lado
+		largo_mult = 1.15
+	var r0: Array = _estocada_base(e, coleta, prof, largo_mult)
+	var v: float = r0[0]
+	if v < 0.0:
+		return
+	var alfa: float = r0[1]
+	var punta: Vector2 = r0[2]
+	var dir: Vector2 = r0[3]
+	var k: float = clampf(v / 0.25, 0.0, 1.0)
+	if k > 0.5:
+		var w: float = (k - 0.5) / 0.5
+		_pinchazo(punta, dir, caja * 0.055 * w, col, alfa)
+	# LA PENETRANTE, ademas, revienta la guardia: un destello en el punto de entrada y la punta
+	# asomando por detras. Es la jugada gorda del estoque y tiene que verse como tal.
+	if estilo == CombatFX.Estilo.ESTOCADA_PENETRANTE and k > 0.4:
+		var fuera: Color = col if _imbuido(col) else Color(0.95, 0.22, 0.16)
+		var dentro: Color = Color(minf(1.0, fuera.r + 0.35), minf(1.0, fuera.g + 0.30),
+			minf(1.0, fuera.b + 0.25))
+		e["mordida_c"] = punta
+		_destello(e, 0.14 + v * 0.60, fuera, dentro, 0.85)
+	# LA SEGUNDA FINTA: el mismo pinchazo, mas pequeño y desplazado, entrando cuando el primero ya
+	# esta dentro. Son dos amagos seguidos, no un golpe repetido.
+	if estilo == CombatFX.Estilo.FINTAS and v > 0.40:
+		var v2: float = (v - 0.40) / 0.60
+		var off: Vector2 = Vector2(cos(g * 3.7), sin(g * 3.1)) * caja * 0.26
+		var k2: float = clampf(v2 / 0.35, 0.0, 1.0)
+		var hund2: float = 1.0 - pow(1.0 - k2, 3.0)
+		var p2: Vector2 = punta + off - dir * caja * 0.55 * (1.0 - hund2)
+		_hoja(p2, dir, caja * LARGO_ESTOQUE * 0.85, caja * ANCHO_ESTOQUE, col, alfa * 0.95)
+		if k2 > 0.5:
+			_pinchazo(p2, dir, caja * 0.045 * ((k2 - 0.5) / 0.5), col, alfa)
+
+
+# EN GUARDIA. No es un golpe: es una POSTURA. La hoja se levanta delante de ti y se queda quieta,
+# con el arco de la guardia abriendose alrededor. Se pinta sobre tu propia tarjeta.
+func _pintar_en_guardia(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var monta: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_GUARDIA, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.75 else 1.0 - (v - 0.75) / 0.25
+	if alfa <= 0.0:
+		return
+	# LA HOJA EN ALTO, apuntando arriba y un poco ladeada: la posicion de saludo del duelista.
+	var ang: float = -PI * 0.5 + 0.30 + sin(g) * 0.10
+	var dir := Vector2(cos(ang), sin(ang))
+	var p: Vector2 = b + Vector2(caja * 0.10, caja * (0.45 - 0.45 * monta))
+	_hoja(p, dir, caja * LARGO_ESTOQUE * 0.95, caja * ANCHO_ESTOQUE, col, alfa)
+	# EL ARCO DE LA GUARDIA: el semicirculo que barre la punta al cubrirse. Se abre al montar y
+	# respira mientras dura.
+	var f: Color = _filo_col(col)
+	var r: float = caja * (0.30 + 0.32 * monta) * (1.0 + 0.04 * sin(t * 5.0 + g))
+	var arco := PackedVector2Array()
+	for i in 17:
+		var a: float = PI * 1.15 + PI * 0.70 * float(i) / 16.0
+		arco.append(b + Vector2(cos(a) * r, sin(a) * r * 0.85))
+	draw_polyline(arco, Color(f.r, f.g, f.b, 0.55 * alfa), maxf(1.5, caja * 0.025), true)
+	# Y las dos marcas de los pies: el paso de duelo, uno delante y otro detras.
+	for i in 2:
+		var lado: float = 1.0 if i == 0 else -1.0
+		draw_line(b + Vector2(lado * caja * 0.22, caja * 0.62),
+			b + Vector2(lado * caja * 0.38, caja * 0.62),
+			Color(f.r, f.g, f.b, 0.35 * alfa * monta), maxf(1.5, caja * 0.02), true)
+
+
+# PASO LIGERO. La estocada se da MIENTRAS te apartas: se ve la silueta de la hoja donde estabas,
+# desvaneciendose, y la de verdad ya desplazada a un lado.
+func _pintar_paso_ligero(e: Dictionary) -> void:
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var r0: Array = _estocada_base(e, COLETA_PASO, 0.20, 0.95)
+	var v: float = r0[0]
+	if v < 0.0:
+		return
+	var alfa: float = r0[1]
+	var punta: Vector2 = r0[2]
+	var dir: Vector2 = r0[3]
+	# EL RASTRO: dos siluetas de la hoja detras, cada vez mas transparentes y mas atras, en la
+	# direccion del paso. Es lo que cuenta que te has movido.
+	var paso := Vector2(1.0 if sin(g * 5.7) > 0.0 else -1.0, -0.25).normalized()
+	for i in 2:
+		var d: float = caja * 0.22 * float(i + 1)
+		_hoja(punta - paso * d, dir, caja * LARGO_ESTOQUE * 0.95, caja * ANCHO_ESTOQUE,
+			col, alfa * (0.30 - 0.10 * float(i)))
+	var k: float = clampf(v / 0.25, 0.0, 1.0)
+	if k > 0.5:
+		_pinchazo(punta, dir, caja * 0.048 * ((k - 0.5) / 0.5), col, alfa)
+
+
+# PUNZADA AL NERVIO. No busca el organo, busca el cable: un pinchazo fino y, desde el, un latigazo
+# que recorre al bicho en zigzag -- el nervio que se dispara.
+func _pintar_punzada_nervio(e: Dictionary) -> void:
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var r0: Array = _estocada_base(e, COLETA_NERVIO, 0.26, 0.95, 0.45)
+	var v: float = r0[0]
+	if v < 0.0:
+		return
+	var alfa: float = r0[1]
+	var punta: Vector2 = r0[2]
+	var dir: Vector2 = r0[3]
+	var k: float = clampf(v / 0.25, 0.0, 1.0)
+	if k > 0.5:
+		_pinchazo(punta, dir, caja * 0.042 * ((k - 0.5) / 0.5), col, alfa)
+	# EL NERVIO: una linea quebrada que sale del pinchazo y sube, como una descarga. Crece por
+	# tramos, que es lo que hace que se lea como algo que RECORRE y no como un dibujo puesto.
+	if v <= 0.35:
+		return
+	var w: float = clampf((v - 0.35) / 0.45, 0.0, 1.0)
+	var f: Color = _filo_col(col)
+	var n: int = 7
+	var linea := PackedVector2Array()
+	for i in n + 1:
+		var s: float = float(i) / float(n) * w
+		# SUBE POR EL CUERPO del bicho, no por la hoja. Iba en la direccion de la estocada (o sea de
+		# vuelta hacia el mango) y el zigzag caia justo encima del arma: parecia que la hoja estaba
+		# rota, no que algo recorriera al que lo ha recibido.
+		linea.append(punta + Vector2(sin(g + s * 11.0) * caja * 0.13 * s, -caja * 0.75 * s))
+	if linea.size() >= 2:
+		draw_polyline(linea, Color(f.r, f.g, f.b, 0.85 * alfa), maxf(1.5, caja * 0.022), true)
+		# Los nudos del recorrido: donde el latigazo salta, un punto mas gordo.
+		for i in range(1, linea.size(), 2):
+			draw_circle(linea[i], caja * 0.022, Color(f.r, f.g, f.b, 0.7 * alfa))
+
+
+# DANZA DE ACERO. Tres tiempos encadenados sin bajar la punta: tres estocadas en abanico que entran
+# escalonadas, como las garras del zarpazo, pero de punta.
+func _pintar_danza_acero(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var b: Vector2 = e["b"]
+	if t < dur:
+		# Se arma UNA vez, apuntando al centro: las tres salen de la misma guardia.
+		var w0: float = clampf(t / dur, 0.0, 1.0)
+		_hoja(b + Vector2(0.0, caja * (0.90 - 0.20 * w0)), Vector2.UP,
+			caja * LARGO_ESTOQUE, caja * ANCHO_ESTOQUE, col, 0.5 + 0.5 * w0)
+		return
+	var v: float = clampf((t - dur) / COLETA_DANZA, 0.0, 1.0)
+	var alfa_g: float = 1.0 if v < 0.62 else 1.0 - (v - 0.62) / 0.38
+	if alfa_g <= 0.0:
+		return
+	for i in 3:
+		# ESCALONADAS: cada tiempo entra un poco despues del anterior. Si salieran a la vez seria un
+		# tridente, no tres tiempos.
+		var k: float = clampf((v - float(i) * 0.16) / 0.28, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		# EL ABANICO SE ABRE POR DONDE CLAVA, no por el mango. Girando la direccion desde un mismo
+		# punto, las tres puntas acababan JUNTAS arriba y los mangos abiertos abajo: salia un tripode
+		# con los tres pinchazos apilados en el mismo sitio. Lo que hace falta es al reves -- tres
+		# sitios distintos donde clavar, y las hojas entrando casi paralelas desde abajo.
+		var destino: Vector2 = b + Vector2((float(i) - 1.0) * caja * 0.30,
+			sin(g + float(i) * 2.1) * caja * 0.10)
+		var ang: float = -PI * 0.5 + (float(i) - 1.0) * 0.12 + sin(g + float(i)) * 0.05
+		var dir := Vector2(cos(ang), sin(ang))
+		var hundido: float = 1.0 - pow(1.0 - k, 3.0)
+		var punta: Vector2 = destino - dir * caja * 0.75 * (1.0 - hundido) \
+			+ dir * caja * 0.14 * hundido
+		# Cada tiempo se apaga por su cuenta: el primero ya se esta yendo cuando entra el tercero.
+		var alfa: float = alfa_g * (1.0 if k < 0.75 else 1.0 - (k - 0.75) / 0.25 * 0.45)
+		_hoja(punta, dir, caja * LARGO_ESTOQUE * 0.90, caja * ANCHO_ESTOQUE, col, alfa)
+		if k > 0.6:
+			_pinchazo(punta, dir, caja * 0.040 * ((k - 0.6) / 0.4), col, alfa)

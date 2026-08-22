@@ -22,6 +22,7 @@ golpes_max = 3
 golpes_dual_min = 4
 golpes_dual_max = 4
 dano_mult = 0.65
+fx_estilo = 46
 redirige_al_morir = true
 golpes_extra_por_enemigo = 0.7
 golpes_extra_por_enemigo_dual = 1.0
