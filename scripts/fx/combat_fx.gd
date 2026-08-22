@@ -139,7 +139,10 @@ signal apagar_ahora(bloque: Dictionary)
 #   MOLINETE         DOS barridos que cruzan la fila entera de lado a lado
 #   GRITO_GUERRA     la onda del grito barriendo la fila (el acero en alto va en fx_sobre_mi: se
 #                    levanta sobre TI, no sobre el que lo recibe)
-#   ACERO_EN_ALTO    lo que te echas encima al gritar: el espadon levantado
+#   ACERO_EN_ALTO    el arma levantada por encima de la cabeza, sobre uno mismo. SIN DUEÑO ahora
+#                    mismo: se hizo para el Grito de guerra y ahi sobraba (un grito no pega con el
+#                    arma). Se queda porque el martillo lo va a querer; el hueco del enum no se
+#                    puede reciclar de todas formas, que los numeros viajan por red.
 #   TAJO_VERDUGO     el que se anuncia un turno: cae desde MUY arriba y parte el suelo
 #   SEGAR            dos barridos BAJOS, a la altura de las piernas, de lado a lado
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
