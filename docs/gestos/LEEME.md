@@ -23,9 +23,10 @@ seguidas cada uno para que dé tiempo a mirarlos.
 | `F12` | guardar una captura |
 | `ESC` | salir |
 
-Los que alcanzan a varios (Molinete, Grito de guerra, Segar) salen contra la fila entera, y los que
-van sobre uno mismo (Filo emponzoñado, En guardia, Voto de guardia, Voz de mando) sobre el muñeco
-de abajo, que es el que ataca.
+Los que alcanzan a varios (Molinete, Grito de guerra, Segar) salen contra la fila entera; los que van
+sobre uno mismo (Filo emponzoñado, En guardia, Voto de guardia) sobre el muñeco de abajo, que es el
+que ataca; y los que se echan **a los tuyos** (Voz de mando, Grito de aliento, Muro de aliados) salen
+sobre los cuatro muñecos a la vez, que es como se ven en la pelea.
 
 ## 2. Las hojas de contactos
 
@@ -37,6 +38,8 @@ Cuatro instantes de cada gesto, una hoja por arma:
 - `gestos_4_espada_larga.png`
 - `gestos_5_mandobles.png`
 - `gestos_6_imbuiciones.png` — los mismos gestos con acero, veneno, fuego, agua y rayo
+- `gestos_7_maza_peq.png` — **cinco** instantes, ampliados ×1.75 y con el recuadro de la tarjeta
+  detrás, que es lo único con lo que se distingue una púa roma de una afilada
 
 Se regeneran con el visor (`F12`) o volviendo a escribir el generador; son capturas, no hay que
 mantenerlas al día salvo que cambie un gesto.

@@ -147,6 +147,28 @@ signal apagar_ahora(bloque: Dictionary)
 #                    puede reciclar de todas formas, que los numeros viajan por red.
 #   TAJO_VERDUGO     el que se anuncia un turno: cae desde MUY arriba y parte el suelo
 #   SEGAR            dos barridos BAJOS, a la altura de las piernas, de lado a lado
+# LA MAZA PEQUEÑA es la primera arma ROMA del jugador, y eso lo cambia todo: no hay filo, no hay
+# trazo y no hay estela. Un mazazo no deja "por donde ha pasado" nada -- deja UN PUNTO donde ha
+# reventado. Por eso ninguno de estos usa _tajo: usan _porrazo, que es la estrella corta y gorda del
+# GOLPETAZO de los bichos pasada a colores de jugador (acero o imbuicion).
+#
+# Y NO PINTAN NI UNA ESTRELLITA DE ATURDIMIENTO, aunque sea el arma que aturde. Eso YA lo cuenta el
+# juego: el estado Aturdido va en la familia "control" de las particulas (ver _FAMILIAS aqui abajo) y
+# saca el corro de estrellitas girando sobre la cabeza. Dibujarlas tambien en el golpe seria decir
+# dos veces lo mismo, y ademas mentir cuando el aturdir NO prende (es probabilidad, no seguro). Lo
+# que cuenta el gesto es el PESO: la onda que se abre y el impacto resonando.
+#
+# El ARMA NO SE DIBUJA (decidido con el usuario): solo la marca del porrazo, como en los tajos.
+#   MAZA_GOLPE       el porrazo de siempre (el basico). Corto y seco: sale mucho por pelea
+#   GOLPE_DEMOLEDOR  el mazazo concusivo: el porrazo GORDO y la resonancia -- anillos escalonados
+#                    saliendo del punto y el impacto vibrando, que es lo que dice "esto ha sonado"
+#   ROMPEPIERNAS     el mazazo BAJO, a lo que lo sostiene: el porrazo va abajo del todo y de el
+#                    salen las rayas del desplome (la pierna cede)
+#   APLASTAMIENTO    el que ROMPE LA GUARDIA: porrazo y el arco de la guardia partiendose. Su
+#                    SEGUNDO golpe no es esto -- es un ESCUDAZO, que lo pide escudo_desde_golpe
+#   GRITO_ALIENTO    adorno sobre LOS TUYOS: no es una orden (eso es VOZ_MANDO), es que se yerguen
+#   MURO_ALIADOS     adorno sobre LOS TUYOS: las placas cerrando la formacion hombro con hombro
+#   CULATAZO         con el MANGO y ALTO, a la cabeza: el porrazo mas pequeño y mas seco del arma
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -165,7 +187,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		ESPADA_LARGA_TAJO = 53, TAJO_PESADO = 54, TAJO_DESARMANTE = 55, GUARDIA_ROTA = 56,
 		VOTO_GUARDIA = 57, ESTOCADA_MARCIAL = 58, VOZ_MANDO = 59, ESCUDAZO = 60,
 		MANDOBLE_TAJO = 61, TAJO_DEVASTADOR = 62, MOLINETE = 63, GRITO_GUERRA = 64,
-		TAJO_VERDUGO = 65, SEGAR = 66, ACERO_EN_ALTO = 67 }
+		TAJO_VERDUGO = 65, SEGAR = 66, ACERO_EN_ALTO = 67,
+		MAZA_GOLPE = 68, GOLPE_DEMOLEDOR = 69, ROMPEPIERNAS = 70, APLASTAMIENTO = 71,
+		GRITO_ALIENTO = 72, MURO_ALIADOS = 73, CULATAZO = 74 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -181,6 +205,7 @@ const FX_ARMA := {
 	2: Estilo.ESPADA_TAJO,       # ESPADA_CORTA
 	3: Estilo.ESPADA_LARGA_TAJO, # ESPADA_LARGA
 	4: Estilo.MANDOBLE_TAJO,     # MANDOBLE
+	7: Estilo.MAZA_GOLPE,        # MAZA_PEQ
 }
 
 
@@ -196,7 +221,9 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.ESPADA_LARGA_TAJO, Estilo.TAJO_PESADO, Estilo.TAJO_DESARMANTE, Estilo.GUARDIA_ROTA,
 	Estilo.VOTO_GUARDIA, Estilo.ESTOCADA_MARCIAL, Estilo.VOZ_MANDO, Estilo.ESCUDAZO,
 	Estilo.MANDOBLE_TAJO, Estilo.TAJO_DEVASTADOR, Estilo.MOLINETE, Estilo.GRITO_GUERRA,
-	Estilo.TAJO_VERDUGO, Estilo.SEGAR, Estilo.ACERO_EN_ALTO]
+	Estilo.TAJO_VERDUGO, Estilo.SEGAR, Estilo.ACERO_EN_ALTO,
+	Estilo.MAZA_GOLPE, Estilo.GOLPE_DEMOLEDOR, Estilo.ROMPEPIERNAS, Estilo.APLASTAMIENTO,
+	Estilo.GRITO_ALIENTO, Estilo.MURO_ALIADOS, Estilo.CULATAZO]
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
@@ -280,6 +307,14 @@ const T_VUELO := {
 	Estilo.MANDOBLE_TAJO: 0.13, Estilo.TAJO_DEVASTADOR: 0.20, Estilo.MOLINETE: 0.14,
 	Estilo.GRITO_GUERRA: 0.16, Estilo.TAJO_VERDUGO: 0.30, Estilo.SEGAR: 0.12,
 	Estilo.ACERO_EN_ALTO: 0.20,
+	# LA MAZA PEQUEÑA. Su adelanto es lo que tarda la cabeza en LLEGAR, y en un arma roma eso pesa
+	# mas que en una espada corta (0.06) aunque las dos sean de una mano: lo que hace daño aqui es la
+	# masa, y la masa se ve venir. El CULATAZO es la excepcion y va el mas corto del arma -- es un
+	# mangazo seco a la cabeza, y con adelanto largo parecia otro mazazo mas.
+	Estilo.MAZA_GOLPE: 0.08, Estilo.GOLPE_DEMOLEDOR: 0.15, Estilo.ROMPEPIERNAS: 0.10,
+	Estilo.APLASTAMIENTO: 0.13, Estilo.CULATAZO: 0.05,
+	# Los dos que no son golpes: se los echas a LOS TUYOS y hay que verlos montarse.
+	Estilo.GRITO_ALIENTO: 0.18, Estilo.MURO_ALIADOS: 0.20,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1171,7 +1206,11 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	Estilo.ESPADA_LARGA_TAJO, Estilo.TAJO_PESADO, Estilo.TAJO_DESARMANTE, Estilo.GUARDIA_ROTA,
 	Estilo.ESTOCADA_MARCIAL, Estilo.ESCUDAZO,
 	Estilo.MANDOBLE_TAJO, Estilo.TAJO_DEVASTADOR, Estilo.MOLINETE, Estilo.TAJO_VERDUGO,
-	Estilo.SEGAR]
+	Estilo.SEGAR,
+	# La maza es de una mano y de alcance corto: para dar un mazazo hay que llegar mas que con
+	# ninguna. Los dos gritos NO -- esos se los echas a los tuyos desde donde estas.
+	Estilo.MAZA_GOLPE, Estilo.GOLPE_DEMOLEDOR, Estilo.ROMPEPIERNAS, Estilo.APLASTAMIENTO,
+	Estilo.CULATAZO]
 # NOTA: la CARGA esta en _ESTILOS_DE_GRUPO y aun asi embiste. No es contradictorio: embestir es del
 # ATACANTE (su tarjeta se lanza) y agruparse es del DIBUJO (uno solo para todo lo alcanzado).
 

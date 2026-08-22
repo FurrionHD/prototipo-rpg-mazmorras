@@ -19,5 +19,6 @@ coste_energia = 66
 cooldown = 6
 dano_mult = 0.0
 objetivo_aliado = 2
+fx_estilo = 73
 descripcion = "Cierras la formación a voces. Nadie se queda solo y todos aguantan mejor lo que venga."
 efectos = [SubResource("SA_0")]

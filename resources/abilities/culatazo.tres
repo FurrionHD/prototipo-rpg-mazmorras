@@ -22,5 +22,6 @@ golpes_dual_max = 2
 dano_mult = 1.0
 dano_tipo_override = 1
 redirige_al_morir = true
+fx_estilo = 74
 descripcion = "No con la cabeza de la maza: con el mango, corto y seco, donde se piensa. Poco daño y mucho aturdimiento."
 efectos = [SubResource("SA_0")]

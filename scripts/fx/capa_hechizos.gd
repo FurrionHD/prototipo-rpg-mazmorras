@@ -82,7 +82,8 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.AURA, CombatFX.Estilo.CAPARAZON, CombatFX.Estilo.MURALLA, \
 		CombatFX.Estilo.ESCUDO, CombatFX.Estilo.IMBUIR_FILO, CombatFX.Estilo.EN_GUARDIA, \
 		CombatFX.Estilo.VOTO_GUARDIA, CombatFX.Estilo.VOZ_MANDO, CombatFX.Estilo.ACERO_EN_ALTO, \
-		CombatFX.Estilo.DESVANECER:
+		CombatFX.Estilo.DESVANECER, \
+		CombatFX.Estilo.GRITO_ALIENTO, CombatFX.Estilo.MURO_ALIADOS:
 			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA, y el
 			# picaro se unta el filo).
 			e["a"] = b
@@ -102,7 +103,10 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.ESTOCADA_MARCIAL, CombatFX.Estilo.ESCUDAZO, \
 		CombatFX.Estilo.MANDOBLE_TAJO, CombatFX.Estilo.TAJO_DEVASTADOR, \
 		CombatFX.Estilo.MOLINETE, \
-		CombatFX.Estilo.TAJO_VERDUGO, CombatFX.Estilo.SEGAR:
+		CombatFX.Estilo.TAJO_VERDUGO, CombatFX.Estilo.SEGAR, \
+		CombatFX.Estilo.MAZA_GOLPE, CombatFX.Estilo.GOLPE_DEMOLEDOR, \
+		CombatFX.Estilo.ROMPEPIERNAS, CombatFX.Estilo.APLASTAMIENTO, \
+		CombatFX.Estilo.CULATAZO:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -303,6 +307,21 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_SEGAR
 	if es == CombatFX.Estilo.ACERO_EN_ALTO:
 		return float(e["dur"]) + COLETA_ACERO_ALTO
+	# LA MAZA PEQUEÑA.
+	if es == CombatFX.Estilo.MAZA_GOLPE:
+		return float(e["dur"]) + COLETA_MAZA
+	if es == CombatFX.Estilo.GOLPE_DEMOLEDOR:
+		return float(e["dur"]) + COLETA_DEMOLEDOR
+	if es == CombatFX.Estilo.ROMPEPIERNAS:
+		return float(e["dur"]) + COLETA_ROMPEPIERNAS
+	if es == CombatFX.Estilo.APLASTAMIENTO:
+		return float(e["dur"]) + COLETA_APLASTAMIENTO
+	if es == CombatFX.Estilo.CULATAZO:
+		return float(e["dur"]) + COLETA_CULATAZO
+	if es == CombatFX.Estilo.GRITO_ALIENTO:
+		return float(e["dur"]) + COLETA_ALIENTO
+	if es == CombatFX.Estilo.MURO_ALIADOS:
+		return float(e["dur"]) + COLETA_MURO
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -379,6 +398,12 @@ func _draw() -> void:
 			CombatFX.Estilo.TAJO_VERDUGO: _pintar_verdugo(e)
 			CombatFX.Estilo.SEGAR: _pintar_segar(e)
 			CombatFX.Estilo.ACERO_EN_ALTO: _pintar_acero_en_alto(e)
+			CombatFX.Estilo.MAZA_GOLPE, CombatFX.Estilo.CULATAZO: _pintar_maza_golpe(e)
+			CombatFX.Estilo.GOLPE_DEMOLEDOR: _pintar_demoledor(e)
+			CombatFX.Estilo.ROMPEPIERNAS: _pintar_rompepiernas(e)
+			CombatFX.Estilo.APLASTAMIENTO: _pintar_aplastamiento(e)
+			CombatFX.Estilo.GRITO_ALIENTO: _pintar_grito_aliento(e)
+			CombatFX.Estilo.MURO_ALIADOS: _pintar_muro_aliados(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -2807,33 +2832,10 @@ func _pintar_quebrantador(e: Dictionary) -> void:
 	var b: Vector2 = r[2]
 	var g: float = float(e["semilla"])
 	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
-	var f: Color = _filo_col(e["col"])
-	# LA GUARDIA: un arco por delante. Entero al principio, partido en dos mitades que se abren, y
-	# al final los cascotes saliendo despedidos.
-	var abre: float = clampf((v - 0.18) / 0.45, 0.0, 1.0)
-	var rr: float = caja * 0.62
-	for mitad in 2:
-		var lado: float = 1.0 if mitad == 0 else -1.0
-		var giro: float = lado * abre * 0.55
-		var desp: Vector2 = Vector2(lado * abre * caja * 0.30, -abre * caja * 0.10)
-		var arco := PackedVector2Array()
-		for i in 9:
-			# Media cupula por mitad: de la vertical hacia su lado.
-			var a: float = -PI * 0.5 + lado * PI * 0.42 * float(i) / 8.0 + giro
-			arco.append(b + desp + Vector2(cos(a) * rr, sin(a) * rr * 0.9))
-		draw_polyline(arco, Color(f.r, f.g, f.b, 0.55 * alfa * (1.0 - abre * 0.5)),
-			maxf(2.0, caja * 0.030), true)
-	# LOS CASCOTES: trocitos que salen despedidos del punto donde ha reventado.
-	if abre > 0.25:
-		var w: float = (abre - 0.25) / 0.75
-		for i in 6:
-			var ang: float = -PI * 0.5 + (float(i) - 2.5) * 0.42 + sin(g + float(i)) * 0.12
-			var d: float = rr * (0.45 + 0.9 * w)
-			var p: Vector2 = b + Vector2(cos(ang) * d, sin(ang) * d * 0.9)
-			var s: float = caja * 0.045 * (1.0 - w * 0.5)
-			var tri := PackedVector2Array([
-				p + Vector2(-s, s * 0.6), p + Vector2(s * 0.8, s * 0.2), p + Vector2(0.0, -s)])
-			draw_colored_polygon(tri, Color(f.r, f.g, f.b, 0.8 * alfa * (1.0 - w)))
+	# LA GUARDIA REVENTANDO. El dibujo vive en _guardia_rompiendose (mas abajo, con la maza): esta y
+	# el Aplastamiento hacen LA MISMA jugada -- abrirle la defensa -- y tienen que verse igual.
+	_guardia_rompiendose(b, caja * 0.62, _filo_col(e["col"]), alfa,
+		clampf((v - 0.18) / 0.45, 0.0, 1.0), g, caja)
 
 
 # SEÑALAR EL HUECO. Dos cortes EN EL MISMO SITIO -- no repartidos, insistiendo en el mismo punto -- y
@@ -3534,3 +3536,408 @@ func _pintar_acero_en_alto(e: Dictionary) -> void:
 		_estrella(b + Vector2(sin(g) * caja * 0.06, -alto - caja * 0.95),
 			caja * 0.30 * brillo, caja * 0.24 * brillo, 0.55,
 			Color(f.r, f.g, f.b, 0.8 * alfa * brillo))
+
+
+# ============================================================
+#  LA MAZA PEQUEÑA: lo romo
+# ============================================================
+# La primera arma del jugador que NO CORTA, y por eso es la primera que no usa _tajo ni una sola vez.
+# Un tajo se cuenta con POR DONDE HA PASADO el filo -- una cinta que cruza la tarjeta --, y un mazazo
+# no pasa por ningun sitio: llega a un punto, revienta ahi y se para. Lo suyo es el PUNTO, no la
+# linea.
+#
+# TAMPOCO DIBUJA EL ARMA (decidido con el usuario). Una maza si se para donde golpea, o sea que
+# entraria en la excepcion que ya admite la regla (la hoja untando veneno, la estocada clavada), pero
+# se ha dejado fuera: las cinco armas anteriores no enseñan acero y esta tampoco.
+#
+# Y NO PINTA NI UNA ESTRELLITA DE ATURDIMIENTO, que es lo primero que pide el cuerpo tratandose del
+# arma que aturde. Ya esta contado: el estado Aturdido saca el corro de estrellitas girando sobre la
+# cabeza (familia "control" de las particulas, ver CombatFX). Repetirlo aqui seria decirlo dos veces
+# -- y encima mentir las tres de cada cuatro veces que el aturdir NO prende, porque es probabilidad.
+# Lo que dice el gesto es el PESO.
+const COLETA_MAZA := 0.28            # el basico: sale mucho por pelea, corto y seco
+const COLETA_DEMOLEDOR := 0.46       # el gordo: hay que oir la resonancia entera
+const COLETA_ROMPEPIERNAS := 0.40    # el porrazo y luego la pierna cediendo
+const COLETA_APLASTAMIENTO := 0.42   # el porrazo y la guardia saltando
+const COLETA_CULATAZO := 0.22        # el mas corto del arma: es un mangazo, entra y se va
+const COLETA_ALIENTO := 0.55         # es un buff: tiene que quedarse puesto un rato
+const COLETA_MURO := 0.62            # y este mas, que las placas se cierran una a una
+
+
+# EL PORRAZO. El ladrillo de toda la maza: una estrella CORTA Y GORDA (nada de agujas: lo que ha
+# entrado es una masa, no una punta) con el nucleo encendido y un anillo APLASTADO abriendose.
+#
+# Es el mismo lenguaje del GOLPETAZO de los bichos -- un puño de piedra y una maza hacen lo mismo --
+# pero pasado a colores de jugador: alli el color es el del bicho y aqui sale de la imbuicion o del
+# acero (ver _filo_col). Se dejan los dos painters aparte a proposito: el del bicho tiene su propio
+# ritmo ya rodado y no compensa parametrizarlo para ahorrar quince lineas.
+#
+# 'v' es el avance (0..1) y gobierna cuanto se ha abierto el anillo; 'r' es el tamaño del golpe, que
+# es LO QUE SEPARA un mazazo del basico.
+func _porrazo(b: Vector2, r: float, col: Color, alfa: float, v: float, g: float,
+		elem: int = 0) -> void:
+	var f: Color = _filo_col(col)
+	var claro := Color(minf(1.0, f.r + 0.22), minf(1.0, f.g + 0.20), minf(1.0, f.b + 0.18))
+	# LA MANCHA ROMA. Lo que decide si esto se lee como una maza o como una estrella ninja son DOS
+	# numeros, y la primera version los tenia los dos mal (9 puas y valle 0.55): salia un shuriken de
+	# puntas largas, que es exactamente lo que NO hace un arma contundente.
+	#   - MUCHAS puas (13): pocas y separadas se leen como puntas; muchas y juntas, como un borde
+	#     irregular, que es lo que deja algo que revienta por igual en todas direcciones.
+	#   - Y el VALLE ALTO (0.70): es la profundidad de la muesca entre pua y pua. Con el valle bajo la
+	#     silueta baja hasta el centro y salen agujas; con el alto se queda una mancha compacta con el
+	#     borde picado.
+	# Los largos son desiguales -- sacados de la semilla, que es fija, no de randf(), o la forma
+	# cambiaria en cada frame -- pero MENOS que antes: mucha variacion tambien hace puntas.
+	var pts := PackedVector2Array()
+	var n: int = 13
+	for i in n:
+		var ang: float = g + TAU * float(i) / float(n)
+		var largo: float = r * (0.80 + 0.20 * sin(g * 1.7 + float(i) * 2.9))
+		pts.append(b + Vector2(cos(ang), sin(ang) * 0.80) * largo)
+		var med: float = ang + PI / float(n)
+		pts.append(b + Vector2(cos(med), sin(med) * 0.80) * largo * 0.70)
+	# Y el relleno va mas FLOJO (0.55): esto es el fogonazo del impacto, no una chapa blanca. Con 0.72
+	# tapaba lo que va encima -- la guardia del Aplastamiento y las patas del Rompepiernas quedaban
+	# detras de la mancha, que es lo unico que diferencia unos golpes de otros.
+	draw_colored_polygon(pts, Color(claro.r, claro.g, claro.b, 0.55 * alfa))
+	draw_circle(b, maxf(1.5, r * 0.20), Color(1.0, 0.99, 0.96, 0.85 * alfa))
+	# EL ANILLO: la onda del porrazo. Muy achatado -- recorre la fila, no se infla como una burbuja.
+	var rr: float = r * (0.95 + 0.75 * v)
+	_anillo(b, rr, rr * 0.58, Color(f.r, f.g, f.b, 0.42 * alfa * (1.0 - v)),
+		maxf(1.5, r * 0.11 * (1.0 - v)))
+	# EL ELEMENTO ES UN COMPORTAMIENTO, NO UN COLOR (la misma regla que _tajo). Aqui no hay trazo que
+	# quebrar ni borde que ondee, asi que se cuenta con lo que SALTA del punto de impacto.
+	if elem == Elementos.Elemento.RAYO:
+		# Ramitas quebradas saliendo del golpe, con el codo a media altura.
+		for i in 5:
+			var a: float = g * 1.3 + TAU * float(i) / 5.0
+			var u := Vector2(cos(a), sin(a) * 0.8)
+			var codo: Vector2 = b + u * r * 0.9 + Vector2(-u.y, u.x) * r * 0.28 * sin(g + float(i) * 3.1)
+			draw_polyline(PackedVector2Array([b + u * r * 0.4, codo, b + u * r * (1.5 + 0.5 * v)]),
+				Color(1.0, 0.99, 0.92, 0.75 * alfa * (1.0 - v)), maxf(1.0, r * 0.07), true)
+	elif elem == Elementos.Elemento.FUEGO:
+		# Chispas subiendo del punto: el calor tira hacia arriba, no se reparte en circulo.
+		for i in 7:
+			var a2: float = -PI * 0.5 + (float(i) - 3.0) * 0.26 + sin(g + float(i)) * 0.10
+			var d: float = r * (0.7 + 1.5 * v) * (0.6 + 0.6 * absf(sin(g * 2.0 + float(i))))
+			draw_circle(b + Vector2(cos(a2), sin(a2)) * d, maxf(1.0, r * 0.13 * (1.0 - v)),
+				Color(1.0, 0.72 + 0.2 * absf(sin(g + float(i))), 0.30, 0.85 * alfa * (1.0 - v)))
+	elif elem == Elementos.Elemento.AGUA:
+		# Y el agua SALPICA: gotas que salen y caen, con su hilillo detras.
+		for i in 6:
+			var a3: float = g + TAU * float(i) / 6.0
+			var u3 := Vector2(cos(a3), sin(a3) * 0.7)
+			var p3: Vector2 = b + u3 * r * (0.8 + 1.3 * v) + Vector2(0.0, r * 0.9 * v * v)
+			draw_line(b + u3 * r * 0.6, p3, Color(f.r, f.g, minf(1.0, f.b + 0.15), 0.4 * alfa),
+				maxf(1.0, r * 0.06), true)
+			draw_circle(p3, maxf(1.2, r * 0.14 * (1.0 - v * 0.5)),
+				Color(f.r, f.g, minf(1.0, f.b + 0.15), 0.85 * alfa * (1.0 - v)))
+
+
+# LA RESONANCIA: anillos concentricos escalonados saliendo del punto. Es lo que dice que el golpe ha
+# SONADO, y lo que separa un mazazo de los gordos del porrazo de todos los dias.
+#
+# Van muy achatados (0.5) por lo mismo que el anillo del porrazo: la fila de tarjetas es ancha y baja,
+# y un circulo redondo se sale por arriba aunque el radio horizontal este bien.
+func _resonancia(b: Vector2, r: float, f: Color, alfa: float, w: float, n: int) -> void:
+	for i in n:
+		var k: float = clampf((w - float(i) * 0.16) / 0.84, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		# 1.3 y no 2.1: con el radio viejo, a un demoledor con la caja grande los anillos le salian el
+		# doble de anchos que la tarjeta y parecian una onda de hechizo, no un golpe.
+		var rr: float = r * (0.5 + 1.3 * k)
+		_anillo(b, rr, rr * 0.50, Color(f.r, f.g, f.b, 0.5 * alfa * (1.0 - k)),
+			maxf(1.5, r * 0.10 * (1.0 - k * 0.6)))
+
+
+# EL BASICO Y EL CULATAZO. El mismo porrazo con dos tallas y dos alturas, que es toda la diferencia
+# que hay entre ellos: el basico cae al cuerpo y el Culatazo va ARRIBA, a la cabeza ("con el mango,
+# corto y seco, donde se piensa"), y es el mas pequeño del arma.
+#
+# Comparten painter porque son literalmente el mismo gesto a distinta escala. En cuanto uno de los
+# dos pida algo propio, se parten.
+func _pintar_maza_golpe(e: Dictionary) -> void:
+	var mango: bool = int(e["estilo"]) == CombatFX.Estilo.CULATAZO
+	var r0: Array = _golpe_cuerpo(e, COLETA_CULATAZO if mango else COLETA_MAZA, 0.09)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# EL CULATAZO VA ARRIBA. Es lo unico que lo hace legible como "a la cabeza": si cayera en el
+	# centro como el basico, dos gestos del mismo arma se verian iguales.
+	if mango:
+		b += Vector2(0.0, -caja * 0.30)
+	# Entra de golpe y se para: 1-(1-v)^3 mete casi todo el crecimiento en el primer tramo, que es
+	# como llega una masa -- de golpe, y ahi se queda.
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.22, 0.0, 1.0), 3.0)
+	var r: float = caja * (0.17 if mango else 0.26) * (0.35 + 0.65 * k)
+	_porrazo(b, r, e["col"], alfa, v, float(e["semilla"]), int(e.get("elem", 0)))
+
+
+# GOLPE DEMOLEDOR. El mazazo concusivo: el porrazo GORDO y, encima, la resonancia -- tres anillos
+# escalonados abriendose y el propio impacto VIBRANDO un par de veces.
+#
+# La vibracion es lo que mas cuenta y es tambien lo mas barato: el porrazo se pinta dos veces con un
+# desplazamiento minusculo que oscila rapido. A tamaño real no se lee como "hay dos dibujos", se lee
+# como metal resonando, que es exactamente lo que hace una maza al reventar contra algo.
+func _pintar_demoledor(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_DEMOLEDOR, 0.07)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var elem: int = int(e.get("elem", 0))
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.20, 0.0, 1.0), 3.0)
+	var r: float = caja * 0.40 * (0.30 + 0.70 * k)
+	# LA VIBRACION, solo mientras dura el golpe (primer tercio): despues el metal ya se ha calmado y
+	# dejarla puesta se veria como un dibujo mal centrado. El eco va en gris y flojo -- es el rastro
+	# de donde estaba, no un segundo golpe.
+	var tiembla: float = maxf(0.0, 1.0 - v / 0.34)
+	if tiembla > 0.0:
+		var d: Vector2 = Vector2(sin(v * 78.0 + g), cos(v * 61.0 + g) * 0.5) * caja * 0.030 * tiembla
+		_porrazo(b + d, r * 0.94, col, alfa * 0.42 * tiembla, v, g + 1.7, 0)
+	_porrazo(b, r, col, alfa, v, g, elem)
+	# Y LA RESONANCIA saliendo del punto, ya con el golpe dado.
+	if v <= 0.16:
+		return
+	_resonancia(b, r, _filo_col(col), alfa, (v - 0.16) / 0.84, 3)
+
+
+# ROMPEPIERNAS. El mazazo BAJO: el porrazo cae abajo del todo, el suelo se hunde bajo el golpe y el
+# polvo escapa a ras hacia los lados. Lo que ralentiza no es un hueso roto: es que te han CLAVADO.
+#
+# EL NOMBRE NO ES EL DIBUJO. Se intento primero con "el desplome" -- rayas cayendo desde el golpe, la
+# pierna cediendo -- y esta mal de raiz, no de estetica: la mitad de los bichos del juego no tienen
+# piernas. A un slime no se le rompe ninguna. "Rompepiernas" es el nombre de una jugada, igual que un
+# gancho no va a la barbilla de una gelatina, y el gesto tiene que valer para CUALQUIER cosa que se
+# coma el golpe. Lo que si vale para todos es el sitio (abajo) y el peso (hundir).
+#
+# Es el espejo romo del Corte de tendones (la espada corta): mismo sitio de la tarjeta, pero alli se
+# secciona algo y aqui se aplasta contra el suelo.
+func _pintar_rompepiernas(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_ROMPEPIERNAS, 0.07)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# ABAJO, pero no en el suelo: en el tercio de abajo de la tarjeta. Ahi es donde se lee "te ha
+	# pegado por debajo" sea lo que sea el bicho.
+	var b: Vector2 = Vector2(float(r0[2].x), float(e["b"].y) + caja * 0.44)
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.22, 0.0, 1.0), 3.0)
+	var r: float = caja * 0.25 * (0.35 + 0.65 * k)
+	_porrazo(b, r, col, alfa, v, g, int(e.get("elem", 0)))
+	if v <= 0.28:
+		return
+	var f: Color = _filo_col(col)
+	var w: float = (v - 0.28) / 0.72
+	var suelo: Vector2 = b + Vector2(0.0, caja * 0.16)
+	# LA HUELLA HUNDIDA: un arco combado HACIA ABAJO justo bajo el golpe, que se hunde mas segun pasa
+	# el tiempo. Es la abolladura que deja el peso, y funciona igual sobre un goblin que sobre un
+	# slime -- lo que se hunde es el suelo, no el bicho.
+	var hondo: float = caja * (0.06 + 0.10 * w)
+	var ancho_h: float = caja * (0.24 + 0.16 * w)
+	var huella := PackedVector2Array()
+	for i in 9:
+		var s: float = float(i) / 8.0
+		huella.append(suelo + Vector2((s - 0.5) * 2.0 * ancho_h, sin(PI * s) * hondo))
+	draw_polyline(huella, Color(0.12, 0.11, 0.13, 0.85 * alfa * (1.0 - w * 0.35)),
+		maxf(2.0, caja * 0.040 * (1.0 - w * 0.3)), true)
+	# EL POLVO ESCAPANDO A RAS, a los dos lados: es por donde ha salido lo que no cabia debajo, y lo
+	# que dice que el golpe ha ido hacia ABAJO y no hacia dentro.
+	for i in 6:
+		var lado: float = -1.0 if i % 2 == 0 else 1.0
+		var d: float = ancho_h * (0.9 + 1.5 * w) * (0.6 + 0.5 * absf(sin(g + float(i) * 1.9)))
+		var p: Vector2 = suelo + Vector2(lado * d, -caja * 0.03 * absf(sin(g * 2.1 + float(i))))
+		draw_line(p, p - Vector2(lado * caja * (0.06 + 0.05 * w), 0.0),
+			Color(f.r, f.g, f.b, 0.55 * alfa * (1.0 - w)), maxf(1.5, caja * 0.024), true)
+	# Y la onda a ras: el sitio donde ha ido a parar todo el peso.
+	var rr: float = caja * (0.20 + 0.75 * w)
+	_anillo(suelo, rr, rr * 0.18,
+		Color(0.74, 0.70, 0.64, 0.45 * alfa * (1.0 - w)), maxf(1.5, caja * 0.030 * (1.0 - w * 0.5)))
+
+
+# APLASTAMIENTO. El mazazo que ROMPE LA GUARDIA: el porrazo y, tras el, el arco de la guardia
+# partiendose en dos y saltando en pedazos.
+#
+# SOLO PINTA EL PRIMER GOLPE. La habilidad pega dos y el segundo es DE ESCUDO (escudo_desde_golpe =
+# 1): ese lo dibuja ESCUDAZO, que lo fuerza _resolver_golpe_hab en combat.gd igual que le fuerza a
+# pegar con la Defensa. Sin el corte de aqui saldrian dos mazazos y ningun escudo, que es justo al
+# reves de lo que dice la ficha.
+func _pintar_aplastamiento(e: Dictionary) -> void:
+	if int(e.get("golpe", 0)) > 0:
+		return
+	var r0: Array = _golpe_cuerpo(e, COLETA_APLASTAMIENTO, 0.07)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.20, 0.0, 1.0), 3.0)
+	var r: float = caja * 0.28 * (0.32 + 0.68 * k)
+	_porrazo(b, r, col, alfa, v, g, int(e.get("elem", 0)))
+	# LA GUARDIA REVENTANDO, con el mismo lenguaje que el Tajo quebrantador de la espada corta: es la
+	# misma jugada (abrirle la defensa) y tiene que leerse igual, la de un arma o la de la otra.
+	_guardia_rompiendose(b, caja * 0.62, _filo_col(col), alfa,
+		clampf((v - 0.16) / 0.45, 0.0, 1.0), g, caja)
+
+
+# LA GUARDIA QUE SE PARTE: un arco por delante, entero al principio, abriendose en dos mitades que
+# giran y se apartan, y al final los cascotes saliendo despedidos.
+#
+# Sacado de _pintar_quebrantador cuando el Aplastamiento pidio lo mismo. Es LA forma de decir "le has
+# abierto la defensa", y tiene que ser la misma la pegue quien la pegue.
+func _guardia_rompiendose(b: Vector2, rr: float, f: Color, alfa: float, abre: float, g: float,
+		caja: float) -> void:
+	if abre <= 0.0:
+		return
+	for mitad in 2:
+		var lado: float = 1.0 if mitad == 0 else -1.0
+		var giro: float = lado * abre * 0.55
+		var desp: Vector2 = Vector2(lado * abre * caja * 0.30, -abre * caja * 0.10)
+		var arco := PackedVector2Array()
+		for i in 9:
+			# Media cupula por mitad: de la vertical hacia su lado.
+			var a: float = -PI * 0.5 + lado * PI * 0.42 * float(i) / 8.0 + giro
+			arco.append(b + desp + Vector2(cos(a) * rr, sin(a) * rr * 0.9))
+		draw_polyline(arco, Color(f.r, f.g, f.b, 0.55 * alfa * (1.0 - abre * 0.5)),
+			maxf(2.0, caja * 0.030), true)
+	# LOS CASCOTES: trocitos que salen despedidos del punto donde ha reventado.
+	if abre <= 0.25:
+		return
+	var w: float = (abre - 0.25) / 0.75
+	for i in 6:
+		var ang: float = -PI * 0.5 + (float(i) - 2.5) * 0.42 + sin(g + float(i)) * 0.12
+		var d: float = rr * (0.45 + 0.9 * w)
+		var p: Vector2 = b + Vector2(cos(ang) * d, sin(ang) * d * 0.9)
+		var s: float = caja * 0.065 * (1.0 - w * 0.4)
+		var tri := PackedVector2Array([
+			p + Vector2(-s, s * 0.6), p + Vector2(s * 0.8, s * 0.2), p + Vector2(0.0, -s)])
+		draw_colored_polygon(tri, Color(f.r, f.g, f.b, 0.8 * alfa * (1.0 - w)))
+
+
+# GRITO DE ALIENTO. No es un golpe ni va contra nadie: se pinta sobre CADA UNO DE LOS TUYOS (llega
+# por _fx_adorno con la lista de aliados). "No das ninguna orden: solo haces saber que sigues de pie
+# delante" -- asi que lo que se ve no es una instruccion, es que el aliado SE YERGUE.
+#
+# Tiene que separarse de la VOZ DE MANDO de la espada larga, que es la otra que se echa a los tuyos:
+# aquella son arcos que se abren y una FLECHA (una orden, con su direccion). Esta son GALONES
+# subiendo por el cuerpo y el suelo empujando -- ningun icono de mando, solo empuje.
+func _pintar_grito_aliento(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sale: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_ALIENTO, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.62 else 1.0 - (v - 0.62) / 0.38
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# EL EMPUJE DEL SUELO: un arco bajo y ancho bajo los pies, que se enciende primero. De ahi sale
+	# todo lo demas, y es lo que hace que los galones se lean como "sube" y no como "cae".
+	var pie: Vector2 = b + Vector2(0.0, caja * 0.42)
+	var enc: float = maxf(0.0, 1.0 - v / 0.55) * (0.35 + 0.65 * sale)
+	if enc > 0.0:
+		_anillo(pie, caja * (0.30 + 0.22 * v), caja * 0.10,
+			Color(f.r, f.g, f.b, 0.55 * alfa * enc), maxf(1.5, caja * 0.032 * enc))
+	# LOS GALONES: tres uves invertidas que suben por el cuerpo, escalonadas, y se desvanecen arriba.
+	# Suben en fila india (cada una con su desfase) porque lo que hay que leer es el MOVIMIENTO hacia
+	# arriba; las tres a la vez se leerian como un adorno pintado encima y no como algo que pasa.
+	for i in 3:
+		var k: float = clampf((sale * 0.55 + v * 1.25 - float(i) * 0.20) / 0.70, 0.0, 1.0)
+		if k <= 0.0 or k >= 1.0:
+			continue
+		var y: float = caja * (0.34 - 1.00 * k)
+		var an: float = caja * (0.30 - 0.06 * k)
+		var alto: float = caja * 0.15
+		# Se apaga por los dos extremos: entra suave y sale suave.
+		var op: float = sin(PI * k)
+		var uve := PackedVector2Array([
+			b + Vector2(-an, y + alto), b + Vector2(0.0, y), b + Vector2(an, y + alto)])
+		draw_polyline(uve, Color(f.r, f.g, f.b, 0.8 * alfa * op), maxf(2.0, caja * 0.034 * op), true)
+	# Y unas chispas subiendo con ellos, para que el aire tambien se mueva.
+	for i in 5:
+		var kk: float = fposmod(v * 1.6 + float(i) * 0.21 + g * 0.1, 1.0)
+		var x: float = sin(g + float(i) * 2.7) * caja * 0.30
+		draw_circle(b + Vector2(x, caja * (0.40 - 1.05 * kk)),
+			maxf(1.0, caja * 0.022 * (1.0 - kk)),
+			Color(f.r, f.g, f.b, 0.7 * alfa * sin(PI * kk)))
+
+
+# MURO DE ALIADOS. El otro que se echa a los tuyos: "cierras la formacion a voces, nadie se queda
+# solo". Tres placas que BAJAN y se cierran solapandose delante del aliado, con la costura
+# encendiendose al juntarse, y dos trazos cortos hacia los lados -- los vecinos.
+#
+# Los trazos laterales son lo que lo separa de un escudo cualquiera (el ESCUDAZO, el Voto de
+# guardia): esos son UNO cubriendose y este es una FILA cerrandose. Sin ellos era otra plancha mas.
+func _pintar_muro_aliados(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var baja: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_MURO, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.68 else 1.0 - (v - 0.68) / 0.32
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# EL CIERRE se toma su tiempo. Con `baja + v*1.8` las placas nacian ya casi juntas y lo unico que
+	# hacia esta habilidad era estar ahi puesta: lo que hay que VER es la formacion cerrandose, asi que
+	# el vuelo solo las trae a medio camino y el resto pasa en la coleta.
+	var cerrado: float = clampf(baja * 0.45 + v * 1.30, 0.0, 1.0)
+	# LAS TRES PLACAS. Nacen separadas y arriba, y caen juntandose hasta solaparse. El ancho es el
+	# mismo para las tres: es una empalizada, no un escudo con forma.
+	var an: float = caja * 0.21
+	var alto: float = caja * 0.46
+	var cy: float = b.y + caja * 0.12
+	for i in 3:
+		var lado: float = float(i) - 1.0
+		# De fuera hacia dentro: empiezan a caja*0.34 de separacion y acaban solapadas (0.19).
+		var sep: float = caja * lerpf(0.34, 0.19, cerrado)
+		var cae: float = caja * 0.55 * (1.0 - cerrado)
+		var c := Vector2(b.x + lado * sep, cy - cae)
+		var pts := PackedVector2Array([
+			c + Vector2(-an * 0.5, -alto * 0.5), c + Vector2(an * 0.5, -alto * 0.5),
+			c + Vector2(an * 0.5, alto * 0.42), c + Vector2(0.0, alto * 0.5),
+			c + Vector2(-an * 0.5, alto * 0.42)])
+		draw_colored_polygon(pts, Color(_ACERO_OSCURO.r, _ACERO_OSCURO.g, _ACERO_OSCURO.b,
+			0.80 * alfa * (0.45 + 0.55 * cerrado)))
+		var borde := PackedVector2Array(pts)
+		borde.append(pts[0])
+		draw_polyline(borde, Color(f.r, f.g, f.b, 0.85 * alfa), maxf(1.5, caja * 0.024), true)
+	# LA COSTURA: cuando ya estan juntas, las dos junturas se encienden. Es el instante en que la
+	# formacion se cierra, y sin el las placas solo "estaban ahi".
+	if cerrado > 0.75:
+		var w: float = (cerrado - 0.75) / 0.25
+		for i in 2:
+			var x: float = b.x + (float(i) * 2.0 - 1.0) * caja * 0.095
+			draw_line(Vector2(x, cy - alto * 0.5), Vector2(x, cy + alto * 0.5),
+				Color(1.0, 0.99, 0.96, 0.75 * alfa * w * maxf(0.0, 1.0 - v / 0.6)),
+				maxf(1.5, caja * 0.020), true)
+	# LOS VECINOS: dos trazos cortos saliendo a los lados, a la altura del hombro. Nadie se queda
+	# solo -- la fila continua fuera de esta tarjeta.
+	var hom: float = cy - alto * 0.22
+	for i in 2:
+		var s: float = float(i) * 2.0 - 1.0
+		var d0: float = caja * 0.34
+		var d1: float = d0 + caja * (0.10 + 0.16 * cerrado)
+		draw_line(Vector2(b.x + s * d0, hom + sin(g + float(i)) * caja * 0.02),
+			Vector2(b.x + s * d1, hom),
+			Color(f.r, f.g, f.b, 0.6 * alfa * cerrado), maxf(1.5, caja * 0.026), true)

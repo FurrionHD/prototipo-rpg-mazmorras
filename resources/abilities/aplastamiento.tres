@@ -28,4 +28,5 @@ efectos = [SubResource("SA_stun"), SubResource("SA_vuln")]
 efectos_por_golpe = false
 bloqueo_turnos = 1
 requiere_escudo = true
+fx_estilo = 71
 descripcion = "Técnica de maza y escudo: un mazazo que le rompe la guardia y, tras él, un golpe de escudo que lo remata aturdido mientras tú quedas cubierto. El primer golpe es del arma; el segundo, del escudo, pega con tu defensa. El lockdown del mace & board."

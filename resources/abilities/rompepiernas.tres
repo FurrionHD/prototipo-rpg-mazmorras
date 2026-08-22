@@ -23,4 +23,5 @@ dano_mult = 1.8
 redirige_al_morir = true
 efectos = [SubResource("SA_lento")]
 efectos_por_golpe = true
+fx_estilo = 70
 descripcion = "Un mazazo bajo a las piernas que ralentiza al enemigo. Control sostenido: aunque no lo aturdas, le robas turnos de ATB."

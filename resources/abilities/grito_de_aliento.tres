@@ -20,5 +20,6 @@ coste_energia = 66
 cooldown = 6
 dano_mult = 0.0
 objetivo_aliado = 2
+fx_estilo = 72
 descripcion = "No das ninguna orden: sólo haces saber que sigues de pie delante. Con eso basta para que los demás empujen más fuerte."
 efectos = [SubResource("SA_0")]
