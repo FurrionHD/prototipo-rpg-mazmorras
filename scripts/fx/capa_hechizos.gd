@@ -4074,6 +4074,40 @@ func _salpicadura(p: Vector2, dir: Vector2, col: Color, alfa: float, w: float, c
 		draw_circle(q, maxf(1.2, r), Color(c.r, c.g, c.b, 0.9 * alfa * (1.0 - w * 0.75)))
 
 
+# UN FILAMENTO DE GRIETA: una linea QUEBRADA que sale de un punto, se va afinando y se BIFURCA. Es
+# lo que convierte un corte en una rasgadura -- la fuerza no se para en el borde, sigue agrietando
+# alrededor (sale de una referencia que mando el usuario: una raja en el cielo con el borde lleno de
+# ramitas).
+#
+# 'prof' es cuantas veces mas se puede bifurcar. Con 2 basta y sobra: a 3 ya no se distinguen las
+# ramas y el coste se dispara (cada nivel dobla las llamadas), y a 1 se ve un palo torcido y ya.
+#
+# El azar sale de la SEMILLA, nunca de randf(): _draw puede llamarse varias veces por frame y las
+# grietas bailarian.
+func _filamento(desde: Vector2, dir: Vector2, largo: float, sem: float, col: Color, alfa: float,
+		grosor: float, prof: int) -> void:
+	if largo < 1.5 or alfa <= 0.01:
+		return
+	var n: int = 4
+	var pts := PackedVector2Array([desde])
+	var p: Vector2 = desde
+	var d: Vector2 = dir.normalized()
+	for i in n:
+		# Se tuerce un poco en cada tramo, siempre para el mismo lado un rato y luego para el otro:
+		# eso es lo que hace que parezca una grieta y no un garabato.
+		d = d.rotated(sin(sem * 1.9 + float(i) * 2.3) * 0.55)
+		p += d * (largo / float(n))
+		pts.append(p)
+	draw_polyline(pts, Color(col.r, col.g, col.b, alfa), grosor, true)
+	if prof <= 0:
+		return
+	# LA BIFURCACION: sale de un punto intermedio, no de la punta. Saliendo de la punta serian ramas
+	# en Y todas iguales; saliendo del medio se lee como una grieta que se ha ido abriendo.
+	var i2: int = 1 + int(absf(sin(sem * 3.1)) * 2.0)
+	_filamento(pts[i2], (pts[i2] - pts[i2 - 1]).rotated(sin(sem * 2.7) * 0.9 + 0.5),
+		largo * 0.55, sem * 1.7 + 3.3, col, alfa * 0.8, maxf(1.0, grosor * 0.7), prof - 1)
+
+
 # EL HACHAZO BASICO. Entra en diagonal, se hunde y se para. Corto y gordo: lo contrario del barrido
 # largo y fino del mandoble.
 func _pintar_hacha_tajo(e: Dictionary) -> void:
@@ -4127,28 +4161,60 @@ func _pintar_hendedura(e: Dictionary) -> void:
 		return
 	var w: float = (v - 0.26) / 0.74
 	var f: Color = _filo_col(col)
-	# LA BRECHA. Se dibuja de una pieza: primero lo de dentro (oscuro) y encima los dos bordes. Con
-	# solo los bordes se leia como dos rayas paralelas y no como algo abierto.
+	# LA GRIETA. Sale de una referencia que mando el usuario -- una rasgadura vertical en el cielo --
+	# y de ella salen las TRES cosas que hacen que esto se lea como algo RAJADO y no como dos rayas:
 	#
-	# Es ANCHA POR ARRIBA (por donde ha entrado el hacha) y se cierra hacia abajo: eso es una cuña, y
-	# una cuña es lo unico que dice hacha en vez de espada.
-	var abre: float = caja * 0.075 * w
+	#  1. El borde va DENTADO, no liso, y los dos lados con su propio dentado. Dos curvas limpias y
+	#     paralelas son un dibujo tecnico; lo que rasga deja los bordes rotos.
+	#  2. De los bordes salen FILAMENTOS ramificandose hacia fuera. Es lo que mas cuenta de la
+	#     referencia: la fuerza no se para en el corte, sigue agrietando alrededor.
+	#  3. La abertura es un HUSO LARGO: ancha en el medio y en punta por los dos extremos. La version
+	#     anterior era una cuña (ancha arriba, cerrada abajo) y por eso parecia un trozo de pizza.
+	#
+	# Lo de dentro va OSCURO y el borde ENCENDIDO: aqui se raja carne, no el espacio, asi que el
+	# resplandor se queda en el filo de la herida en vez de salir de ella.
+	var largo_gr: float = caja * 1.05
+	# Lo bastante ancha para que se vea lo OSCURO de dentro: con menos, la grieta se lee como una
+	# raya brillante con pelos y se pierde que es una abertura.
+	var an_max: float = caja * 0.135 * w
+	var n: int = 15
 	var izq := PackedVector2Array()
 	var der := PackedVector2Array()
-	for i in 7:
-		var u: float = float(i) / 6.0
-		var eje: Vector2 = b + Vector2(sin(inclina) * caja * 0.55 * (u - 0.5) * 2.0,
-			caja * (-0.42 + 0.92 * u))
-		var an: float = abre * (1.0 - u * 0.85)
-		izq.append(eje + Vector2(an, 0.0))
-		der.append(eje - Vector2(an, 0.0))
+	for i in n:
+		var u: float = float(i) / float(n - 1)
+		var eje: Vector2 = b + Vector2(sin(inclina) * largo_gr * (u - 0.5),
+			largo_gr * (u - 0.5) * cos(inclina))
+		# pow 0.65 en vez de un seno pelado: aguanta ancha mas rato por el medio y se cierra de golpe
+		# en las puntas, que es como se abre algo desgarrado.
+		var perfil: float = pow(sin(PI * u), 0.65)
+		# Cada lado con SU dentado, y con dos frecuencias para que no salga un zigzag regular.
+		var d_i: float = 1.0 + 0.42 * sin(g * 3.1 + float(i) * 2.7) + 0.20 * sin(g + float(i) * 6.1)
+		var d_d: float = 1.0 + 0.42 * sin(g * 5.3 + float(i) * 3.1) + 0.20 * sin(g * 2.0 + float(i) * 5.7)
+		izq.append(eje + Vector2(an_max * perfil * d_i, 0.0))
+		der.append(eje - Vector2(an_max * perfil * d_d, 0.0))
 	var dentro := PackedVector2Array(izq)
 	for i in range(der.size() - 1, -1, -1):
 		dentro.append(der[i])
-	draw_colored_polygon(dentro, Color(0.10, 0.03, 0.05, 0.7 * alfa * w))
-	var borde: Color = Color(f.r, f.g, f.b, 0.8 * alfa * (1.0 - w * 0.3))
-	draw_polyline(izq, borde, maxf(1.5, caja * 0.026), true)
-	draw_polyline(der, borde, maxf(1.5, caja * 0.026), true)
+	draw_colored_polygon(dentro, Color(0.07, 0.02, 0.03, 0.85 * alfa))
+	# El borde, en dos pasadas: una gorda y floja (el resplandor) y otra fina y viva (el filo).
+	var halo: Color = Color(f.r, f.g, f.b, 0.30 * alfa)
+	draw_polyline(izq, halo, maxf(2.0, caja * 0.055), true)
+	draw_polyline(der, halo, maxf(2.0, caja * 0.055), true)
+	var borde: Color = Color(f.r, f.g, f.b, 0.9 * alfa)
+	draw_polyline(izq, borde, maxf(1.5, caja * 0.022), true)
+	draw_polyline(der, borde, maxf(1.5, caja * 0.022), true)
+	# LOS FILAMENTOS: salen de los dos bordes hacia fuera, se quiebran y se bifurcan. Van escalonados
+	# (los del medio salen antes y llegan mas lejos) para que la grieta parezca extenderse.
+	for i in range(1, n - 1, 2):
+		for lado2 in 2:
+			var desde: Vector2 = izq[i] if lado2 == 0 else der[i]
+			var s2: float = 1.0 if lado2 == 0 else -1.0
+			var centralidad: float = sin(PI * float(i) / float(n - 1))
+			var largo_f: float = caja * (0.12 + 0.42 * w) * centralidad \
+				* (0.5 + 0.7 * absf(sin(g * 1.7 + float(i) * 2.3 + float(lado2) * 4.1)))
+			_filamento(desde, Vector2(s2, 0.0).rotated(sin(g + float(i) * 1.9 + float(lado2)) * 0.7),
+				largo_f, g + float(i) * 3.7 + float(lado2) * 11.0, f, 0.55 * alfa * (1.0 - w * 0.3),
+				maxf(1.0, caja * 0.016), 2)
 	_salpicadura(p, Vector2(cos(ang), sin(ang)), col, alfa, w, caja, g, 9)
 
 
@@ -4205,18 +4271,28 @@ func _pintar_carniceria(e: Dictionary) -> void:
 	var b: Vector2 = Vector2(r0[2]) + Vector2(sitios[i]) * caja
 	var k: float = 1.0 - pow(1.0 - clampf(v / 0.30, 0.0, 1.0), 2.4)
 	# Cortos: son hachazos atropellados, no arcos completos.
-	var p: Vector2 = _mordisco_de_filo(b + Vector2(cos(ang), sin(ang)) * caja * 0.22, ang,
-		caja * 0.85, k, col, alfa, caja * 0.062, int(e.get("elem", 0)), g + float(i) * 3.1, 0.04)
+	# GRANDES. La primera version los hizo cortos "porque son atropellados" y quedaron en tres
+	# rayitas: repartir a lo bestia con un hacha de dos manos no es dar hachazos pequeños, es dar
+	# hachazos enteros sin apuntar. Lo que dice el atropello es que van desordenados (angulos y sitios
+	# distintos, y el adelanto mas corto del juego), no que sean chicos.
+	var p: Vector2 = _mordisco_de_filo(b + Vector2(cos(ang), sin(ang)) * caja * 0.26, ang,
+		caja * 1.15, k, col, alfa, caja * 0.088, int(e.get("elem", 0)), g + float(i) * 3.1, 0.04)
 	if v > 0.24:
 		_salpicadura(p, Vector2(cos(ang), sin(ang)), col, alfa, (v - 0.24) / 0.76, caja,
 			g + float(i) * 3.1, 5)
 
 
-# DESGARRO. "Entra y tira hacia fuera." Dos tiempos, y los dos tienen que verse: primero el filo
-# ENTRA (un mordisco corto) y despues TIRA -- el punto de entrada se arrastra hacia fuera y detras se
-# queda la brecha abierta, que es la Herida profunda.
+# DESGARRO. "Entra y tira hacia fuera." Dos tiempos y DOS TRAZOS: el filo entra (mordisco) y despues
+# cambia de direccion y sale tirando. Los dos juntos hacen un GANCHO, y un gancho es lo unico que se
+# lee como arrancar en vez de como cortar.
 #
-# El tiron va hacia AFUERA de la tarjeta y hacia arriba: es el gesto de arrancar, no el de cortar.
+# ANTES ERA UNA BRECHA y estaba mal. El tiron se pintaba como un huso oscuro -- ancho en el medio y
+# cerrado en los dos extremos, para que "se leyera como algo abierto" -- y lo que salia delante del
+# tajo era un OJO. Un huso simetrico es una hoja o un ojo, nunca una herida, y encima incumplia lo de
+# no pintar marcas de herida aparte del trazo.
+#
+# Lo que cuenta el gesto es el RECORRIDO, no una forma pegada al final: el filo va por un sitio, se
+# para, y sale por otro. Eso se dice con dos trazos y ya esta.
 func _pintar_desgarro(e: Dictionary) -> void:
 	var r0: Array = _golpe_cuerpo(e, COLETA_DESGARRO, 0.07)
 	var v: float = r0[0]
@@ -4235,29 +4311,21 @@ func _pintar_desgarro(e: Dictionary) -> void:
 		caja * 0.80, k, col, alfa, caja * 0.075, int(e.get("elem", 0)), g, 0.04 * lado)
 	if v <= 0.24:
 		return
-	# SEGUNDO TIEMPO: tira. El arrastre va hacia fuera y hacia arriba, acelerando (w*w).
-	var w: float = (v - 0.24) / 0.76
-	var f: Color = _filo_col(col)
-	var fin: Vector2 = b + Vector2(lado * caja * 0.62, -caja * 0.34) * (w * w)
-	var nrm: Vector2 = (fin - b).normalized() if fin.distance_to(b) > 1.0 else Vector2(lado, 0.0)
-	var perp := Vector2(-nrm.y, nrm.x)
-	# LA BRECHA que deja el tiron, del punto de entrada al punto al que ha llegado el filo. Ancha en
-	# el medio y cerrada en los dos extremos: asi se lee como algo que se ha ABIERTO y no como una
-	# cinta de ancho constante, que es lo que parecen los trazos de las demas armas.
-	var an: float = caja * 0.115 * w
-	var bordes := PackedVector2Array()
-	for i in 7:
-		var s: float = float(i) / 6.0
-		bordes.append(b.lerp(fin, s) + perp * an * sin(PI * s))
-	for i in range(6, -1, -1):
-		var s2: float = float(i) / 6.0
-		bordes.append(b.lerp(fin, s2) - perp * an * sin(PI * s2))
-	draw_colored_polygon(bordes, Color(0.10, 0.03, 0.05, 0.72 * alfa))
-	var cerr := PackedVector2Array(bordes)
-	cerr.append(bordes[0])
-	draw_polyline(cerr, Color(f.r, f.g, f.b, 0.75 * alfa), maxf(1.5, caja * 0.022), true)
-	# Y lo que se lleva por delante, saliendo despedido en la direccion del tiron.
-	_salpicadura(fin, nrm, col, alfa, w, caja, g, 8)
+	# SEGUNDO TIEMPO: tira. Sale del punto donde se quedo clavado el filo y va hacia AFUERA de la
+	# tarjeta y hacia arriba -- el gesto de arrancar, no el de cortar. Y va CASI PERPENDICULAR al de
+	# entrada: si saliera por donde entro seria el mismo hachazo mas largo, y lo que hace que se lea
+	# el tiron es justo el quiebro entre los dos.
+	var w: float = clampf((v - 0.24) / 0.55, 0.0, 1.0)
+	var tiron := Vector2(lado, -0.75).normalized()  # hacia fuera y hacia arriba
+	var largo_t: float = caja * 0.95
+	# El trazo del tiron ARRANCA en 'p' (donde se paro el filo), asi que su centro va medio largo por
+	# delante. Crece con w, o sea que se ve salir en vez de aparecer entero.
+	var centro_t: Vector2 = p + tiron * largo_t * 0.5
+	# Acelera (w*w): un tiron empieza costando y acaba saliendo de golpe.
+	_tajo(centro_t, tiron.angle(), largo_t, 0.05 * lado, w * w, col, alfa, caja * 0.085,
+		int(e.get("elem", 0)), g + 1.7)
+	# Y lo que se lleva por delante, saliendo despedido por donde ha salido el filo.
+	_salpicadura(p + tiron * largo_t * w * w, tiron, col, alfa, w, caja, g, 8)
 
 
 # SED DE SANGRE. Se pinta sobre TI, no sobre el bicho (llega por fx_sobre_mi): el hachazo es un
