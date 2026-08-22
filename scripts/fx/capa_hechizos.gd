@@ -53,7 +53,7 @@ func _init() -> void:
 # un rebote), 'b' = donde impacta. 'dur' es el tiempo de vuelo que le ha reservado la cola, para
 # que el impacto aterrice justo cuando salen el numero y el temblor.
 func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: float,
-		ancho_destino: float, elem: int = 0) -> void:
+		ancho_destino: float, elem: int = 0, golpe: int = 0) -> void:
 	var e: Dictionary = _pool.pop_back() if not _pool.is_empty() else {}
 	e.clear()
 	e["estilo"] = estilo
@@ -67,6 +67,9 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 	e["r"] = lerpf(7.0, 16.0, clampf(peso, 0.0, 1.5) / 1.5)
 	e["ancho"] = ancho_destino
 	e["elem"] = elem
+	# QUE GOLPE de la accion es este (0 el primero). Casi ningun gesto lo mira; los que encadenan una
+	# figura entre varios golpes, si.
+	e["golpe"] = golpe
 	e["zig"] = PackedVector2Array()
 	e["prox"] = 0.0
 	e["curva"] = false
@@ -3450,11 +3453,12 @@ func _pintar_segar(e: Dictionary) -> void:
 	_tajo(b, ang, largo, 0.03 * sentido, k, col, alfa, caja * 0.135, int(e.get("elem", 0)), float(e["semilla"]))
 
 
-# DOBLE TAJO. Los dos cortes NO son dos tajos sueltos que pasan y se van: el primero se queda
-# puesto, entra el segundo cruzandolo, y cuando la cruz se cierra DESTELLA entera.
+# DOBLE TAJO. La habilidad pega DOS golpes y cada golpe es UNO de los dos cortes: el primero deja
+# su corte puesto, el segundo entra cruzandolo y, al cerrarse la cruz, DESTELLA. Una sola estrella
+# por habilidad, no una por golpe.
 #
-# Es el unico gesto que se queda quieto a media animacion, y por eso funciona: los demas son un
-# movimiento, este es una FIGURA que se dibuja delante de ti y luego revienta.
+# Antes cada golpe pintaba la cruz entera con su destello, asi que salian dos aspas y dos estrellas
+# encima -- justo el doble de lo que hace la habilidad.
 func _pintar_doble_tajo(e: Dictionary) -> void:
 	var t: float = float(e["t"])
 	var dur: float = float(e["dur"])
@@ -3468,31 +3472,25 @@ func _pintar_doble_tajo(e: Dictionary) -> void:
 	var alfa: float = 1.0 if v < 0.72 else 1.0 - (v - 0.72) / 0.28
 	if alfa <= 0.0:
 		return
+	# CUAL DE LOS DOS ES. El segundo cruza al primero y es el que remata con el destello.
+	var segundo: bool = int(e.get("golpe", 0)) > 0
 	var f: Color = _filo_col(col)
 	var largo: float = caja * 1.60
-	# LOS DOS CORTES, en aspa. El primero entra ya; el segundo, a media animacion. Cada uno se
-	# TRAZA (no aparece de golpe) y se queda puesto.
-	var angs := [-PI * 0.28 + sin(g * 3.3) * 0.10, PI * 0.28 + sin(g * 2.1) * 0.10]
-	for i in 2:
-		var k: float = clampf((v - float(i) * 0.24) / 0.30, 0.0, 1.0)
-		if k <= 0.0:
-			continue
-		var kk: float = 1.0 - pow(1.0 - k, 2.2)
-		# Casi recto: un corte que atraviesa no describe curvas.
-		_tajo(b, float(angs[i]), largo, 0.03 * (1.0 if i == 0 else -1.0), kk, col, alfa,
-			caja * 0.090, int(e.get("elem", 0)), float(e["semilla"]))
-	# EL DESTELLO, cuando la cruz ya esta cerrada: el aspa entera se enciende y suelta las agujas de
-	# luz por los cuatro brazos.
-	if v <= 0.52:
+	var ang: float = (PI * 0.28 if segundo else -PI * 0.28) + sin(g * 3.3) * 0.06
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.34, 0.0, 1.0), 2.2)
+	_tajo(b, ang, largo, 0.03 * (-1.0 if segundo else 1.0), k, col, alfa, caja * 0.090,
+		int(e.get("elem", 0)), g)
+	# EL DESTELLO lo suelta SOLO el segundo, cuando el aspa ya esta cerrada.
+	if not segundo or v <= 0.42:
 		return
-	var w: float = clampf((v - 0.52) / 0.30, 0.0, 1.0)
-	# Entra de golpe y se apaga: 1-(1-w)^2 al subir, y la cola se la come el alfa general.
+	var w: float = clampf((v - 0.42) / 0.30, 0.0, 1.0)
 	var brillo: float = (w / 0.22) if w < 0.22 else maxf(0.0, 1.0 - (w - 0.22) / 0.78)
 	if brillo <= 0.0:
 		return
-	# Las dos barras del aspa, ahora anchas y blancas: es la cruz encendida.
+	# Las dos barras del aspa encendidas: la cruz entera, aunque este golpe solo haya trazado una.
 	for i in 2:
-		var dir := Vector2(cos(float(angs[i])), sin(float(angs[i])))
+		var a2: float = (-PI * 0.28 if i == 0 else PI * 0.28) + sin(g * 3.3) * 0.06
+		var dir := Vector2(cos(a2), sin(a2))
 		var lado := Vector2(-dir.y, dir.x)
 		var ancho: float = caja * 0.115 * brillo
 		var pts := PackedVector2Array([
@@ -3505,9 +3503,7 @@ func _pintar_doble_tajo(e: Dictionary) -> void:
 		draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.55 * alfa * brillo))
 		draw_line(b - dir * largo * 0.5, b + dir * largo * 0.5,
 			Color(1.0, 0.99, 0.96, 0.95 * alfa * brillo), maxf(2.0, caja * 0.045 * brillo), true)
-	# EL NUCLEO y las agujas: el fogonazo del centro, donde se cruzan los dos filos. GRANDE: en la
-	# referencia la cruz revienta y las agujas se salen del cuadro; con un destello discreto no se
-	# entiende que esto es el remate de la habilidad.
+	# El nucleo y las agujas, donde se cruzan los dos filos.
 	_estrella(b, caja * 1.45 * brillo, caja * 1.15 * brillo, 0.38,
 		Color(f.r, f.g, f.b, 0.55 * alfa * brillo))
 	_estrella(b, caja * 0.72 * brillo, caja * 0.58 * brillo, 0.62,
