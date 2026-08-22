@@ -6328,6 +6328,29 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 	return out
 
 
+# LOS CONTRAATAQUES SE VEN AL FINAL, no en mitad del golpe del bicho. El riposte se RESUELVE en el
+# instante de la esquiva (tiene que ser asi: el bicho puede morirse y dejar de pegar), pero su
+# DIBUJO se guarda aqui y se suelta cuando la accion enemiga ha terminado.
+#
+# Sin esto se encolaba en la misma tanda que el golpe que acababa de esquivar y las dos cosas caian
+# juntas: no se leia "me ataca, lo esquivo, le devuelvo", se veia un unico borron. Y no basta con
+# darle un numero de tanda alto -- CombatFX ordena las tandas por el ORDEN EN QUE APARECEN en la
+# cola, no por su numero (ver arrancar_cola) --, hay que encolarlo de verdad mas tarde.
+var _contras_pendientes: Array = []
+
+
+# Suelta los dibujos guardados, cada uno en su propia tanda, DETRAS de todo lo del bicho.
+func _soltar_contraataques() -> void:
+	if _contras_pendientes.is_empty() or _fx == null:
+		return
+	for c in _contras_pendientes:
+		# Una tanda nueva por contraataque: caen uno detras de otro, no todos a la vez.
+		_fx_tanda(_fx.ultima_tanda() + 1)
+		_fx_golpe(c["a"], c["v"], float(c["dmg"]), bool(c["crit"]), bool(c["evadido"]),
+			int(c["elem"]), int(c["estilo"]))
+	_contras_pendientes.clear()
+
+
 # CONTRAATAQUE del estoque (KAN-57): al esquivar en guardia, devuelves el golpe con el arma
 # principal (el estoque). Aplica el daño al enemigo y devuelve el texto para el log.
 # 'atacante' es QUIEN TE HA GOLPEADO, y no tu objetivo seleccionado: el riposte responde al
@@ -6337,17 +6360,25 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 # turno: el enemigo pega a cualquiera de los tuyos y el riposte es de quien encaja el golpe.
 func _contraatacar(atacante: Combatant, quien: Combatant) -> String:
 	quien.set_active_hand(0)   # el estoque va en la mano principal
+	# EL GESTO DEL ARMA que contraataca. Se lee DESPUES de fijar la mano principal, que es la que
+	# devuelve el golpe. Sin esto, el riposte caia en el MELEE de siempre, o sea que no dibujaba
+	# NADA: el bicho fallaba, se comia un contraataque y en pantalla no pasaba nada.
+	var estilo: int = _estilo_de_habilidad(null, quien)
 	var result := StatsMath.resolve_attack(quien, atacante, false)
 	_debug_ataque(quien, atacante, result, false)
 	if result.evaded:
-		_fx_golpe(quien, atacante, 0.0, false, true)
+		_contras_pendientes.append({"a": quien, "v": atacante, "dmg": 0.0, "crit": false,
+			"evadido": true, "elem": Elementos.Elemento.NINGUNO, "estilo": estilo})
 		return "%s esquiva y contraataca, pero %s lo esquiva. 💨" % [quien.nombre, atacante.nombre]
 	var dmg: float = result.damage * quien.guardia_contra_mult
 	atacante.take_damage(dmg)
 	# Golpe INVERTIDO: aqui el que embiste es el tuyo y el que tiembla es el bicho, en mitad de la
 	# accion del bicho. Sale solo porque se pasan los dos combatientes y la direccion la calcula
 	# CombatFX de los centros reales de las dos tarjetas.
-	_fx_golpe(quien, atacante, dmg, result.crit, false)
+	_contras_pendientes.append({"a": quien, "v": atacante, "dmg": dmg, "crit": result.crit,
+		"evadido": false, "estilo": estilo,
+		"elem": quien.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
+			else Elementos.Elemento.NINGUNO})
 	_apuntar_dano(atacante, dmg, quien)   # contador oculto de Cazador
 	_dps_add("Contraataque", dmg)
 	_ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
@@ -6364,6 +6395,9 @@ func _contraatacar(atacante: Combatant, quien: Combatant) -> String:
 # los que traen golpes se llevan la animacion, y los que no (aturdido, invocacion, un debuff a
 # secas) se llevan su pausa corta de lectura.
 func _pausa_lectura() -> void:
+	# LOS CONTRAATAQUES, LOS ULTIMOS. Se encolan aqui, con todos los golpes del bicho ya dentro, para
+	# que se vean DESPUES de su ataque y no encima. Ver _soltar_contraataques.
+	_soltar_contraataques()
 	# La cola se suelta ANTES del _update_hp: asi lo primero que se ve es la embestida, y la vida
 	# baja detras, mientras la tarjeta vuelve a su sitio.
 	var dur: float = _fx.arrancar_cola() if _fx != null else 0.0
@@ -6613,6 +6647,11 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	# cancela nada -- la animacion se queda corriendo sobre la pantalla de resultado, que es
 	# justo lo que se quiere ver. Lo unico que no puede pasar es que se quede sin mandar a los
 	# espejos, de ahi el volcado de impactos.
+	# EL RIPOSTE QUE REMATA tambien se ve. Los contraataques se guardan para soltarlos al final de la
+	# accion enemiga (ver _soltar_contraataques), y si el que mata al ultimo bicho es uno de ellos, la
+	# pelea se cierra por aqui sin pasar por _pausa_lectura: sin esta linea, el golpe que gana el
+	# combate era justo el unico que no se veia.
+	_soltar_contraataques()
 	if _fx != null:
 		_fx.arrancar_cola()
 	_soltar_impactos_red()
