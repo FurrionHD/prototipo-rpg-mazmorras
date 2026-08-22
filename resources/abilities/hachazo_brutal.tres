@@ -11,4 +11,5 @@ cooldown = 4
 golpes_min = 1
 golpes_max = 1
 dano_mult = 2.45
+fx_estilo = 77
 descripcion = "Un hachazo salvaje con todo el cuerpo, daño puro. El remate del hacha: brutal tras abrir la guardia con Hendedura."

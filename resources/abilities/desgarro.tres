@@ -23,5 +23,6 @@ cooldown = 4
 golpes_min = 1
 golpes_max = 1
 dano_mult = 1.1
+fx_estilo = 79
 descripcion = "Entra y tira hacia fuera. Esa herida ya no cierra sola, y lo que le echen encima tampoco le va a servir de mucho."
 efectos = [SubResource("SA_0"), SubResource("SA_1")]

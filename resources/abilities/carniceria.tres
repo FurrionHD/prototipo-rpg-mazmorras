@@ -19,5 +19,6 @@ golpes_max = 3
 dano_mult = 0.7
 redirige_al_morir = true
 efectos_por_golpe = true
+fx_estilo = 78
 descripcion = "Dejas de buscar el golpe bueno y empiezas a repartir. Ninguno es limpio; todos abren."
 efectos = [SubResource("SA_0")]

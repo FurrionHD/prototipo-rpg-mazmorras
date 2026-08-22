@@ -169,6 +169,22 @@ signal apagar_ahora(bloque: Dictionary)
 #   GRITO_ALIENTO    adorno sobre LOS TUYOS: no es una orden (eso es VOZ_MANDO), es que se yerguen
 #   MURO_ALIADOS     adorno sobre LOS TUYOS: las placas cerrando la formacion hombro con hombro
 #   CULATAZO         con el MANGO y ALTO, a la cabeza: el porrazo mas pequeño y mas seco del arma
+# EL HACHA GRANDE es a dos manos y la mas lenta del arsenal (velocidad 0.72), pero NO es un mandoble
+# mas pequeño: un mandoble ATRAVIESA y un hacha MUERDE. Ese contraste es todo lo que hay que dibujar,
+# y se dice con el trazo -- el del mandoble cruza la tarjeta de lado a lado y el del hacha entra, se
+# hunde y SE PARA a media tarjeta, gordo en la cabeza y cortado en seco.
+#
+# Y SANGRA: tres de sus cinco tecnicas dejan Sangrado o Herida profunda. Por eso es la primera arma
+# con SALPICADURA (_salpicadura): gotas que salen despedidas siguiendo la marcha del filo. No es una
+# marca de herida -- eso ya se probo y sobra (ver la nota de _tajo) -- es lo que SALE VOLANDO, y es
+# lo que la separa de las cuatro armas de corte que ya habia.
+#   HACHA_TAJO      el hachazo de siempre (el basico): entra en diagonal y se para dentro
+#   HENDEDURA       el que RAJA: cae en vertical y parte, y dos labios se separan por donde ha entrado
+#   HACHAZO_BRUTAL  el mas gordo del arma (x2.45): un arco enorme con todo el cuerpo detras
+#   CARNICERIA      TRES hachazos sucios, uno por golpe, cada uno por su lado y ninguno limpio
+#   DESGARRO        entra y TIRA HACIA FUERA: engancha, arrastra y se lleva algo consigo
+#   SED_SANGRE      sobre TI (va por fx_sobre_mi): el hachazo es un HACHA_TAJO normal contra el bicho
+#                   y lo que se te suelta por dentro se pinta en TU tarjeta
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -189,7 +205,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		MANDOBLE_TAJO = 61, TAJO_DEVASTADOR = 62, MOLINETE = 63, GRITO_GUERRA = 64,
 		TAJO_VERDUGO = 65, SEGAR = 66, ACERO_EN_ALTO = 67,
 		MAZA_GOLPE = 68, GOLPE_DEMOLEDOR = 69, ROMPEPIERNAS = 70, APLASTAMIENTO = 71,
-		GRITO_ALIENTO = 72, MURO_ALIADOS = 73, CULATAZO = 74 }
+		GRITO_ALIENTO = 72, MURO_ALIADOS = 73, CULATAZO = 74,
+		HACHA_TAJO = 75, HENDEDURA = 76, HACHAZO_BRUTAL = 77, CARNICERIA = 78,
+		DESGARRO = 79, SED_SANGRE = 80 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -206,6 +224,7 @@ const FX_ARMA := {
 	3: Estilo.ESPADA_LARGA_TAJO, # ESPADA_LARGA
 	4: Estilo.MANDOBLE_TAJO,     # MANDOBLE
 	7: Estilo.MAZA_GOLPE,        # MAZA_PEQ
+	6: Estilo.HACHA_TAJO,        # HACHA_GRANDE
 }
 
 
@@ -223,7 +242,9 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.MANDOBLE_TAJO, Estilo.TAJO_DEVASTADOR, Estilo.MOLINETE, Estilo.GRITO_GUERRA,
 	Estilo.TAJO_VERDUGO, Estilo.SEGAR, Estilo.ACERO_EN_ALTO,
 	Estilo.MAZA_GOLPE, Estilo.GOLPE_DEMOLEDOR, Estilo.ROMPEPIERNAS, Estilo.APLASTAMIENTO,
-	Estilo.GRITO_ALIENTO, Estilo.MURO_ALIADOS, Estilo.CULATAZO]
+	Estilo.GRITO_ALIENTO, Estilo.MURO_ALIADOS, Estilo.CULATAZO,
+	Estilo.HACHA_TAJO, Estilo.HENDEDURA, Estilo.HACHAZO_BRUTAL, Estilo.CARNICERIA,
+	Estilo.DESGARRO, Estilo.SED_SANGRE]
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
@@ -315,6 +336,17 @@ const T_VUELO := {
 	Estilo.APLASTAMIENTO: 0.13, Estilo.CULATAZO: 0.05,
 	# Los dos que no son golpes: se los echas a LOS TUYOS y hay que verlos montarse.
 	Estilo.GRITO_ALIENTO: 0.18, Estilo.MURO_ALIADOS: 0.20,
+	# EL HACHA GRANDE. Adelantos largos: es la mas lenta del arsenal (velocidad 0.72) y su gracia,
+	# como la del mandoble, es que la ves venir. El BRUTAL se lleva el mas largo del arma -- es su
+	# golpe gordo y hay que verlo cargar.
+	#
+	# LA CARNICERIA ES LA EXCEPCION y va la mas corta de TODO el juego (0.04): son tres hachazos
+	# atropellados, y con el adelanto largo del resto del arma se veian venir uno a uno, o sea
+	# ordenados. Lo que cuenta esa habilidad es justo que ha dejado de apuntar.
+	Estilo.HACHA_TAJO: 0.12, Estilo.HENDEDURA: 0.17, Estilo.HACHAZO_BRUTAL: 0.22,
+	Estilo.CARNICERIA: 0.04, Estilo.DESGARRO: 0.13,
+	# Lo que se te suelta por dentro no viaja: nace sobre ti y hay que verlo subir.
+	Estilo.SED_SANGRE: 0.20,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1210,7 +1242,11 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	# La maza es de una mano y de alcance corto: para dar un mazazo hay que llegar mas que con
 	# ninguna. Los dos gritos NO -- esos se los echas a los tuyos desde donde estas.
 	Estilo.MAZA_GOLPE, Estilo.GOLPE_DEMOLEDOR, Estilo.ROMPEPIERNAS, Estilo.APLASTAMIENTO,
-	Estilo.CULATAZO]
+	Estilo.CULATAZO,
+	# El hacha es a dos manos y de alcance corto: hay que echarse encima. La Sed de sangre NO -- eso
+	# es lo que te pasa a TI, y va sobre tu tarjeta.
+	Estilo.HACHA_TAJO, Estilo.HENDEDURA, Estilo.HACHAZO_BRUTAL, Estilo.CARNICERIA,
+	Estilo.DESGARRO]
 # NOTA: la CARGA esta en _ESTILOS_DE_GRUPO y aun asi embiste. No es contradictorio: embestir es del
 # ATACANTE (su tarjeta se lanza) y agruparse es del DIBUJO (uno solo para todo lo alcanzado).
 
@@ -1220,7 +1256,7 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
 const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO,
 	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA, Estilo.ACERO_EN_ALTO,
-	Estilo.DESVANECER]
+	Estilo.DESVANECER, Estilo.SED_SANGRE]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA,

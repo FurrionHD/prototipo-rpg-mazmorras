@@ -83,7 +83,7 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.ESCUDO, CombatFX.Estilo.IMBUIR_FILO, CombatFX.Estilo.EN_GUARDIA, \
 		CombatFX.Estilo.VOTO_GUARDIA, CombatFX.Estilo.VOZ_MANDO, CombatFX.Estilo.ACERO_EN_ALTO, \
 		CombatFX.Estilo.DESVANECER, \
-		CombatFX.Estilo.GRITO_ALIENTO, CombatFX.Estilo.MURO_ALIADOS:
+		CombatFX.Estilo.GRITO_ALIENTO, CombatFX.Estilo.MURO_ALIADOS, 		CombatFX.Estilo.SED_SANGRE:
 			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA, y el
 			# picaro se unta el filo).
 			e["a"] = b
@@ -106,7 +106,7 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.TAJO_VERDUGO, CombatFX.Estilo.SEGAR, \
 		CombatFX.Estilo.MAZA_GOLPE, CombatFX.Estilo.GOLPE_DEMOLEDOR, \
 		CombatFX.Estilo.ROMPEPIERNAS, CombatFX.Estilo.APLASTAMIENTO, \
-		CombatFX.Estilo.CULATAZO:
+		CombatFX.Estilo.CULATAZO, 		CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, 		CombatFX.Estilo.HACHAZO_BRUTAL, CombatFX.Estilo.CARNICERIA, 		CombatFX.Estilo.DESGARRO:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -322,6 +322,19 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_ALIENTO
 	if es == CombatFX.Estilo.MURO_ALIADOS:
 		return float(e["dur"]) + COLETA_MURO
+	# EL HACHA GRANDE.
+	if es == CombatFX.Estilo.HACHA_TAJO:
+		return float(e["dur"]) + COLETA_HACHA
+	if es == CombatFX.Estilo.HENDEDURA:
+		return float(e["dur"]) + COLETA_HENDEDURA
+	if es == CombatFX.Estilo.HACHAZO_BRUTAL:
+		return float(e["dur"]) + COLETA_BRUTAL
+	if es == CombatFX.Estilo.CARNICERIA:
+		return float(e["dur"]) + COLETA_CARNICERIA
+	if es == CombatFX.Estilo.DESGARRO:
+		return float(e["dur"]) + COLETA_DESGARRO
+	if es == CombatFX.Estilo.SED_SANGRE:
+		return float(e["dur"]) + COLETA_SED
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -404,6 +417,12 @@ func _draw() -> void:
 			CombatFX.Estilo.APLASTAMIENTO: _pintar_aplastamiento(e)
 			CombatFX.Estilo.GRITO_ALIENTO: _pintar_grito_aliento(e)
 			CombatFX.Estilo.MURO_ALIADOS: _pintar_muro_aliados(e)
+			CombatFX.Estilo.HACHA_TAJO: _pintar_hacha_tajo(e)
+			CombatFX.Estilo.HENDEDURA: _pintar_hendedura(e)
+			CombatFX.Estilo.HACHAZO_BRUTAL: _pintar_hachazo_brutal(e)
+			CombatFX.Estilo.CARNICERIA: _pintar_carniceria(e)
+			CombatFX.Estilo.DESGARRO: _pintar_desgarro(e)
+			CombatFX.Estilo.SED_SANGRE: _pintar_sed_sangre(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -3965,3 +3984,343 @@ func _pintar_muro_aliados(e: Dictionary) -> void:
 		draw_line(Vector2(b.x + s * d0, hom + sin(g + float(i)) * caja * 0.02),
 			Vector2(b.x + s * d1, hom),
 			Color(f.r, f.g, f.b, 0.6 * alfa * cerrado), maxf(1.5, caja * 0.026), true)
+
+
+# ============================================================
+#  EL HACHA GRANDE: muerde y sangra
+# ============================================================
+# NO ES UN MANDOBLE MAS PEQUEÑO, y ese es todo el problema de esta arma: las dos son a dos manos,
+# las dos son lentas y las dos cortan, asi que si sus trazos se dibujan igual son la misma arma con
+# otro nombre. Lo que las separa es COMO ACABA EL GOLPE:
+#
+#   el mandoble ATRAVIESA -- su trazo cruza la tarjeta entera y sale por el otro lado
+#   el hacha MUERDE       -- el suyo entra y SE PARA dentro, gordo en la cabeza y cortado en seco
+#
+# Eso lo hace _mordisco_de_filo, que no es mas que _tajo colocado de forma que el FINAL del recorrido
+# caiga dentro de la tarjeta en vez de fuera. No hay dibujo nuevo: hay un sitio distinto donde parar.
+#
+# Y SANGRA. Tres de sus cinco tecnicas dejan Sangrado o Herida profunda, asi que es la primera con
+# _salpicadura. Ojo con lo que NO es: no es una marca de herida pintada sobre el bicho (eso se probo
+# en la daga y sobra, ver la nota larga de _tajo) -- es lo que sale VOLANDO cuando el filo frena.
+const COLETA_HACHA := 0.34
+const COLETA_HENDEDURA := 0.44      # hay que ver la brecha abrirse
+const COLETA_BRUTAL := 0.52         # el golpe gordo del arma
+const COLETA_CARNICERIA := 0.42     # tres hachazos encadenados
+const COLETA_DESGARRO := 0.46       # entra, tira, y lo que arranca tarda en caer
+const COLETA_SED := 0.60            # es un buff: se queda puesto
+
+# LO QUE HACE QUE UN TRAZO SE LEA COMO UN CORTE ES SU PROPORCION, no su tamaño. Esto costo dos
+# intentos:
+#   1.15 de largo con 0.150 de grosor -> el trazo TERMINA en la tarjeta, asi que toda la cinta queda
+#        por detras y cruzaba el fondo entero: salia un triangulo gigante y ni un hachazo.
+#   0.78 con 0.115 -> ya cabia, pero la proporcion quedo en 1:3 y una cinta tan corta y tan ancha
+#        tampoco es un corte: es una cuña maciza. (El mandoble va a 1:7,6, y por eso el suyo si se
+#        lee como un filo pasando.)
+# La solucion no era acortar el trazo sino mover DONDE PARA: el filo recorre casi toda la tarjeta
+# -- largo de mandoble, proporcion de mandoble -- pero se queda dentro en vez de salir por el otro
+# lado. Eso es morder: no es un golpe corto, es un golpe que no termina de salir.
+const LARGO_HACHA := 1.20
+const GROSOR_HACHA := 0.105
+# Hasta donde llega el filo, medido desde el centro de la tarjeta en la direccion del golpe. Positivo
+# = pasa del centro y se para antes del borde. El mandoble, para comparar, sale mas de medio ancho
+# POR FUERA.
+const HASTA_HACHA := 0.30
+
+
+# EL MORDISCO DEL FILO. Un _tajo normal, pero colocado para que el recorrido TERMINE en el punto que
+# se le da en vez de pasar por ahi de largo: el filo entra desde fuera y se queda dentro.
+#
+# _tajo centra el trazo en el punto que recibe y lo extiende medio largo a cada lado, asi que para
+# que el final caiga donde toca hay que retrasar el centro medio largo. Con el centro puesto en la
+# tarjeta (que es lo que hacen todas las demas armas) el trazo la cruzaba y salia por el otro lado,
+# o sea: salia un mandoble.
+#
+# Devuelve donde esta la cabeza del filo AHORA (k es cuanto lleva recorrido), que es de donde sale
+# todo lo demas: la salpicadura, la brecha, el tiron del Desgarro.
+func _mordisco_de_filo(donde: Vector2, ang: float, largo: float, k: float, col: Color,
+		alfa: float, grosor: float, elem: int, sem: float, comba: float = 0.05) -> Vector2:
+	var dir := Vector2(cos(ang), sin(ang))
+	var centro: Vector2 = donde - dir * largo * 0.5
+	_tajo(centro, ang, largo, comba, k, col, alfa, grosor, elem, sem)
+	return centro - dir * largo * 0.5 + dir * largo * k
+
+
+# LA SALPICADURA. Gotas que salen despedidas del punto donde el filo ha frenado, abiertas en abanico
+# hacia donde iba el golpe. Es la firma del hacha: es la unica arma que sangra de serie.
+#
+# Van en SANGRE cuando no hay imbuicion y del color de lo que lleve el arma cuando la hay -- un hacha
+# envenenada salpica verde, que es lo que se espera. Y cada gota lleva su hilillo, igual que las del
+# agua en _tajo: sin el, las motas sueltas parecen confeti.
+func _salpicadura(p: Vector2, dir: Vector2, col: Color, alfa: float, w: float, caja: float,
+		sem: float, n: int = 7) -> void:
+	if w <= 0.0:
+		return
+	# ROJO OSCURO, no rojo vivo: a tamaño real las gotas claras y gordas se leian como confeti pegado
+	# encima del bicho en vez de como sangre saliendo de el.
+	var c: Color = col if _imbuido(col) else Color(0.60, 0.07, 0.08)
+	for i in n:
+		# El abanico se abre alrededor de la marcha del filo: lo que salta, salta hacia donde iba.
+		var a: float = dir.angle() + (float(i) - float(n - 1) * 0.5) * 0.30 \
+			+ sin(sem * 1.7 + float(i) * 2.3) * 0.12
+		var u := Vector2(cos(a), sin(a))
+		var d: float = caja * (0.10 + 0.62 * w) * (0.5 + 0.7 * absf(sin(sem + float(i) * 1.9)))
+		# CAEN mientras vuelan: sin la parabola las gotas salen en linea recta y parecen chispas.
+		var q: Vector2 = p + u * d + Vector2(0.0, caja * 0.30 * w * w)
+		# Pequeñas: 0.026 de caja eran bolas de 2-3 px de radio a tamaño real y de 4-5 ampliadas, o sea
+		# lunares. Lo que se lee como sangre es MUCHAS y CHICAS, no pocas y gordas.
+		var r: float = caja * 0.020 * (0.6 + 0.7 * absf(sin(sem * 2.1 + float(i)))) * (1.0 - w * 0.45)
+		draw_line(p + u * caja * 0.04, q, Color(c.r, c.g, c.b, 0.30 * alfa * (1.0 - w)),
+			maxf(1.0, r * 0.8), true)
+		draw_circle(q, maxf(1.2, r), Color(c.r, c.g, c.b, 0.9 * alfa * (1.0 - w * 0.75)))
+
+
+# EL HACHAZO BASICO. Entra en diagonal, se hunde y se para. Corto y gordo: lo contrario del barrido
+# largo y fino del mandoble.
+func _pintar_hacha_tajo(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_HACHA, 0.08)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
+	# Baja en diagonal: un hacha se lleva arriba y cae, no barre en horizontal.
+	var ang: float = (PI * 0.30 + sin(g * 3.3) * 0.18) * sentido
+	# Frena de golpe al final (pow 2.6): eso es el hundirse. Con la salida suave del mandoble parecia
+	# que el filo seguia de largo.
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.34, 0.0, 1.0), 2.6)
+	var dir := Vector2(cos(ang), sin(ang))
+	var p: Vector2 = _mordisco_de_filo(b + dir * caja * HASTA_HACHA, ang, caja * LARGO_HACHA, k,
+		col, alfa, caja * GROSOR_HACHA, int(e.get("elem", 0)), g, 0.05 * sentido)
+	# La sangre sale CUANDO FRENA, no mientras entra.
+	if v > 0.26:
+		_salpicadura(p, dir, col, alfa, (v - 0.26) / 0.74, caja, g)
+
+
+# HENDEDURA. El que RAJA: cae en VERTICAL -- es el unico del arma que no entra en diagonal -- y por
+# donde ha pasado el filo se separan dos labios. Eso es lo que deja al bicho expuesto (Vulnerable),
+# y por eso la brecha se queda abierta en vez de cerrarse.
+#
+# LOS DOS LABIOS SON EL PROPIO CORTE, no una marca encima: es el mismo corte pintado por sus dos
+# bordes, apartandose uno del otro. La regla de "un corte es una sola linea" se sigue cumpliendo
+# mientras lo que se separa sea el corte y no un adorno pegado al lado.
+func _pintar_hendedura(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_HENDEDURA, 0.06)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var inclina: float = sin(g * 3.3) * 0.16
+	var ang: float = PI * 0.5 + inclina
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.30, 0.0, 1.0), 2.8)
+	# Cae desde arriba y se para en el centro: parte por la mitad, no atraviesa.
+	var p: Vector2 = _mordisco_de_filo(b + Vector2(0.0, caja * (0.10 + HASTA_HACHA)), ang,
+		caja * 1.30, k, col, alfa, caja * 0.115, int(e.get("elem", 0)), g, 0.0)
+	if v <= 0.26:
+		return
+	var w: float = (v - 0.26) / 0.74
+	var f: Color = _filo_col(col)
+	# LA BRECHA. Se dibuja de una pieza: primero lo de dentro (oscuro) y encima los dos bordes. Con
+	# solo los bordes se leia como dos rayas paralelas y no como algo abierto.
+	#
+	# Es ANCHA POR ARRIBA (por donde ha entrado el hacha) y se cierra hacia abajo: eso es una cuña, y
+	# una cuña es lo unico que dice hacha en vez de espada.
+	var abre: float = caja * 0.075 * w
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	for i in 7:
+		var u: float = float(i) / 6.0
+		var eje: Vector2 = b + Vector2(sin(inclina) * caja * 0.55 * (u - 0.5) * 2.0,
+			caja * (-0.42 + 0.92 * u))
+		var an: float = abre * (1.0 - u * 0.85)
+		izq.append(eje + Vector2(an, 0.0))
+		der.append(eje - Vector2(an, 0.0))
+	var dentro := PackedVector2Array(izq)
+	for i in range(der.size() - 1, -1, -1):
+		dentro.append(der[i])
+	draw_colored_polygon(dentro, Color(0.10, 0.03, 0.05, 0.7 * alfa * w))
+	var borde: Color = Color(f.r, f.g, f.b, 0.8 * alfa * (1.0 - w * 0.3))
+	draw_polyline(izq, borde, maxf(1.5, caja * 0.026), true)
+	draw_polyline(der, borde, maxf(1.5, caja * 0.026), true)
+	_salpicadura(p, Vector2(cos(ang), sin(ang)), col, alfa, w, caja, g, 9)
+
+
+# HACHAZO BRUTAL. El golpe gordo del arma (x2.45) y el mas salvaje del juego: no hay tecnica, hay
+# todo el cuerpo detras. Arco enorme, el trazo mas grueso, y la sangre saliendo por los dos lados.
+#
+# Es el UNICO del hacha que si cruza la tarjeta entera. No es una incoherencia con lo de "el hacha
+# muerde": es la excepcion que hace que se note: cuatro de sus cinco se quedan dentro y esta se lleva
+# por delante todo lo que habia. Si se parase como las demas seria un hachazo basico mas gordo.
+func _pintar_hachazo_brutal(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_BRUTAL, 0.07)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
+	var ang: float = (PI * 0.26 + sin(g * 3.3) * 0.14) * sentido
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.32, 0.0, 1.0), 2.2)
+	var dir := Vector2(cos(ang), sin(ang))
+	_tajo(b, ang, caja * 2.05, 0.06 * sentido, k, col, alfa, caja * 0.150,
+		int(e.get("elem", 0)), g)
+	if v <= 0.22:
+		return
+	var w: float = (v - 0.22) / 0.78
+	# Por los DOS extremos del arco: ha entrado por un lado y ha salido por el otro.
+	_salpicadura(b + dir * caja * 0.55, dir, col, alfa, w, caja, g, 9)
+	_salpicadura(b - dir * caja * 0.55, -dir, col, alfa, w, caja, g + 2.1, 6)
+
+
+# CARNICERIA. Tres hachazos y ninguno limpio: "dejas de buscar el golpe bueno y empiezas a repartir".
+#
+# UN HACHAZO POR GOLPE (mira e["golpe"]), que si no salen nueve. Y lo que dice que es un reparto y no
+# una combinacion ensayada es que cada uno va POR SU LADO: el angulo y el sitio salen del INDICE del
+# golpe y no de la semilla, asi que los tres caen desordenados a proposito y siempre distintos entre
+# si. Sacandolos de la semilla los tres salian parecidos, o sea: ordenados.
+func _pintar_carniceria(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_CARNICERIA, 0.04)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var i: int = clampi(int(e.get("golpe", 0)), 0, 2)
+	# Tres angulos bien distintos y tres sitios distintos de la tarjeta.
+	var angs := [PI * 0.32, -PI * 0.28, PI * 0.62]
+	var sitios := [Vector2(-0.16, -0.14), Vector2(0.18, 0.06), Vector2(-0.06, 0.20)]
+	var ang: float = float(angs[i]) + sin(g * 2.3 + float(i) * 1.7) * 0.12
+	var b: Vector2 = Vector2(r0[2]) + Vector2(sitios[i]) * caja
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.30, 0.0, 1.0), 2.4)
+	# Cortos: son hachazos atropellados, no arcos completos.
+	var p: Vector2 = _mordisco_de_filo(b + Vector2(cos(ang), sin(ang)) * caja * 0.22, ang,
+		caja * 0.85, k, col, alfa, caja * 0.062, int(e.get("elem", 0)), g + float(i) * 3.1, 0.04)
+	if v > 0.24:
+		_salpicadura(p, Vector2(cos(ang), sin(ang)), col, alfa, (v - 0.24) / 0.76, caja,
+			g + float(i) * 3.1, 5)
+
+
+# DESGARRO. "Entra y tira hacia fuera." Dos tiempos, y los dos tienen que verse: primero el filo
+# ENTRA (un mordisco corto) y despues TIRA -- el punto de entrada se arrastra hacia fuera y detras se
+# queda la brecha abierta, que es la Herida profunda.
+#
+# El tiron va hacia AFUERA de la tarjeta y hacia arriba: es el gesto de arrancar, no el de cortar.
+func _pintar_desgarro(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_DESGARRO, 0.07)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var lado: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
+	var ang: float = PI * 0.38 * lado
+	# PRIMER TIEMPO: entra. Se para pronto (0.22) porque lo que cuenta viene despues.
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.22, 0.0, 1.0), 2.6)
+	var p: Vector2 = _mordisco_de_filo(b + Vector2(cos(ang), sin(ang)) * caja * 0.18, ang,
+		caja * 0.80, k, col, alfa, caja * 0.075, int(e.get("elem", 0)), g, 0.04 * lado)
+	if v <= 0.24:
+		return
+	# SEGUNDO TIEMPO: tira. El arrastre va hacia fuera y hacia arriba, acelerando (w*w).
+	var w: float = (v - 0.24) / 0.76
+	var f: Color = _filo_col(col)
+	var fin: Vector2 = b + Vector2(lado * caja * 0.62, -caja * 0.34) * (w * w)
+	var nrm: Vector2 = (fin - b).normalized() if fin.distance_to(b) > 1.0 else Vector2(lado, 0.0)
+	var perp := Vector2(-nrm.y, nrm.x)
+	# LA BRECHA que deja el tiron, del punto de entrada al punto al que ha llegado el filo. Ancha en
+	# el medio y cerrada en los dos extremos: asi se lee como algo que se ha ABIERTO y no como una
+	# cinta de ancho constante, que es lo que parecen los trazos de las demas armas.
+	var an: float = caja * 0.115 * w
+	var bordes := PackedVector2Array()
+	for i in 7:
+		var s: float = float(i) / 6.0
+		bordes.append(b.lerp(fin, s) + perp * an * sin(PI * s))
+	for i in range(6, -1, -1):
+		var s2: float = float(i) / 6.0
+		bordes.append(b.lerp(fin, s2) - perp * an * sin(PI * s2))
+	draw_colored_polygon(bordes, Color(0.10, 0.03, 0.05, 0.72 * alfa))
+	var cerr := PackedVector2Array(bordes)
+	cerr.append(bordes[0])
+	draw_polyline(cerr, Color(f.r, f.g, f.b, 0.75 * alfa), maxf(1.5, caja * 0.022), true)
+	# Y lo que se lleva por delante, saliendo despedido en la direccion del tiron.
+	_salpicadura(fin, nrm, col, alfa, w, caja, g, 8)
+
+
+# SED DE SANGRE. Se pinta sobre TI, no sobre el bicho (llega por fx_sobre_mi): el hachazo es un
+# HACHA_TAJO normal contra el enemigo y esto es lo que se te suelta por dentro al notar que ha
+# entrado.
+#
+# NI ARMA NI GOLPE NI UNA SOLA GOTA DE SANGRE. Lo primero que pide el nombre es salpicar tu tarjeta,
+# y eso diria justo lo contrario: que el herido eres tu. Lo que se pinta es un LATIDO -- un
+# resplandor que sube desde abajo y pulsa cada vez mas rapido.
+func _pintar_sed_sangre(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sube: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_SED, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.66 else 1.0 - (v - 0.66) / 0.34
+	if alfa <= 0.0:
+		return
+	# EL COLOR es el de la imbuicion si la hay y ROJO VIVO si no. No el _SANGRE del catalogo: ese es
+	# un granate pensado para pintarse SOBRE algo, y aqui va sobre el fondo oscuro de la pelea (el
+	# mismo motivo por el que la Puñalada no lo usa para su fogonazo).
+	var c: Color = col if _imbuido(col) else Color(0.90, 0.16, 0.14)
+	# EL LATIDO, ACELERANDO. Un parpadeo a ritmo constante se lee como un aura cualquiera; uno que va
+	# a mas se lee como algo que se te esta subiendo, que es lo que dice la ficha.
+	var ritmo: float = t * (7.0 + 9.0 * v)
+	var pulso: float = 0.55 + 0.45 * pow(absf(sin(ritmo)), 3.0)
+	# ES LA TARJETA LA QUE LATE, no una forma puesta encima. Dos intentos fallidos antes de dar con
+	# esto, los dos por el mismo motivo -- dibujar un OBJETO sobre el personaje:
+	#   1. Tres poligonos macizos subiendo del suelo -> una CUPULA roja opaca tapando media tarjeta.
+	#      Parecia una gelatina puesta encima de el, no algo que le pasa por dentro.
+	#   2. Los mismos, huecos -> tres arcos concentricos, o sea un arcoiris. Peor: ya ni se sabia que
+	#      era.
+	# Lo que le pasa al personaje se dice encendiendo AL PERSONAJE. El borde de su recuadro se pone al
+	# rojo y late: no tapa nada, se ve quien lo lleva, y a un vistazo en plena pelea se lee al
+	# instante -- ese de ahi esta encendido.
+	var w2: float = float(e["ancho"])
+	var h2: float = w2 * 1.33          # la proporcion de las tarjetas de combate
+	var media := Vector2(w2, h2) * 0.5
+	# El resplandor va HACIA DENTRO desde el borde: tres marcos cada vez mas pequeños y mas flojos.
+	# Crece con 'sube' (mientras se te sube) y respira con el pulso.
+	for capa in 3:
+		var dentro: float = float(capa) * w2 * 0.050 * (0.6 + 0.6 * pulso)
+		var m: Vector2 = media - Vector2(dentro, dentro)
+		if m.x <= 2.0 or m.y <= 2.0:
+			continue
+		var marco := PackedVector2Array([
+			b + Vector2(-m.x, -m.y), b + Vector2(m.x, -m.y),
+			b + Vector2(m.x, m.y), b + Vector2(-m.x, m.y), b + Vector2(-m.x, -m.y)])
+		var op: float = (0.50 - 0.13 * float(capa)) * alfa * pulso * (0.35 + 0.65 * sube)
+		draw_polyline(marco, Color(c.r, c.g, c.b, op),
+			maxf(1.5, w2 * 0.020 * (0.7 + 0.5 * pulso)), true)
+	# Y las vetas que trepan con el y se apagan arriba.
+	for i in 4:
+		var kk: float = fposmod(v * 1.5 + float(i) * 0.26 + g * 0.1, 1.0)
+		var x: float = sin(g + float(i) * 2.3) * caja * 0.26
+		var y0: float = caja * (0.40 - 1.00 * kk)
+		var hilo := PackedVector2Array()
+		for j in 5:
+			var s: float = float(j) / 4.0
+			hilo.append(b + Vector2(x + sin(g * 1.7 + float(i) + s * 4.0) * caja * 0.05,
+				y0 + s * caja * 0.16))
+		draw_polyline(hilo, Color(c.r, c.g, c.b, 0.45 * alfa * sin(PI * kk) * pulso),
+			maxf(1.0, caja * 0.014), true)

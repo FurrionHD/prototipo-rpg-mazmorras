@@ -41,6 +41,9 @@ Cuatro instantes de cada gesto, una hoja por arma:
 - `gestos_7_maza_peq.png` — **cinco** instantes, ampliados ×1.75 y con el recuadro de la tarjeta
   detrás, que es lo único con lo que se distingue una púa roma de una afilada. Las de **dos golpes**
   (Aplastamiento, Guardia rota) salen con los dos puestos: es la única forma de ver si se solapan
+- `gestos_8_hacha_grande.png` — con la Carnicería enseñando sus **tres** hachazos y, abajo del todo,
+  el tajo del **mandoble** de comparación: el hacha se diseñó contra él (uno muerde, el otro
+  atraviesa), así que "¿se distinguen?" se contesta mirándolos juntos y no de memoria
 
 Se regeneran con el visor (`F12`) o volviendo a escribir el generador; son capturas, no hay que
 mantenerlas al día salvo que cambie un gesto.

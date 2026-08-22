@@ -23,4 +23,5 @@ area_max = 2
 area_secundario = 0.6
 efectos = [SubResource("SA_vuln")]
 efectos_por_golpe = false
+fx_estilo = 76
 descripcion = "Un hachazo que raja armadura y carne y deja al enemigo muy expuesto. El abridor del hacha: raja para que el siguiente golpe duela más."
