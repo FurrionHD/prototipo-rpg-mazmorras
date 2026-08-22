@@ -22,5 +22,6 @@ dano_tipo_override = 1
 area_modo = 1
 area_secundario = 0.7
 area_secundario_decay = 0.05
+fx_estilo = 87
 descripcion = "Golpeas el suelo y no paras: el temblor se va abriendo y a todos les cuesta el doble mantener el paso."
 efectos = [SubResource("SA_0")]

@@ -44,6 +44,8 @@ Cuatro instantes de cada gesto, una hoja por arma:
 - `gestos_8_hacha_grande.png` — con la Carnicería enseñando sus **tres** hachazos y, abajo del todo,
   el tajo del **mandoble** de comparación: el hacha se diseñó contra él (uno muerde, el otro
   atraviesa), así que "¿se distinguen?" se contesta mirándolos juntos y no de memoria
+- `gestos_9_martillo_grande.png` — con el porrazo de la **maza** abajo de comparación, por lo mismo:
+  la maza pega al bicho y el martillo al suelo
 
 Se regeneran con el visor (`F12`) o volviendo a escribir el generador; son capturas, no hay que
 mantenerlas al día salvo que cambie un gesto.

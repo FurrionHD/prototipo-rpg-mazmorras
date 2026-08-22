@@ -27,4 +27,5 @@ area_max = 3
 area_secundario = 0.45
 efectos = [SubResource("SA_stun"), SubResource("SA_lento")]
 efectos_por_golpe = false
+fx_estilo = 83
 descripcion = "Un martillazo al suelo que sacude al enemigo: primero le quita el turno, luego lo deja lento. Control más frecuente."

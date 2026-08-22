@@ -185,6 +185,26 @@ signal apagar_ahora(bloque: Dictionary)
 #   DESGARRO        entra y TIRA HACIA FUERA: engancha, arrastra y se lleva algo consigo
 #   SED_SANGRE      sobre TI (va por fx_sobre_mi): el hachazo es un HACHA_TAJO normal contra el bicho
 #                   y lo que se te suelta por dentro se pinta en TU tarjeta
+# EL MARTILLO GRANDE es el arma mas lenta y la que mas aturde, y comparte con la maza que es ROMA:
+# reusa su _porrazo. Lo que las separa NO es el tamaño (eso solo daria "una maza mas grande"), es
+# CONTRA QUE PEGAN:
+#
+#   la maza    golpea AL BICHO -- el porrazo pasa en su tarjeta y ahi se acaba
+#   el martillo golpea EL SUELO -- revienta abajo y lo que hace daño es lo que SE PROPAGA
+#
+# Tres de sus cinco (Sismico, Onda expansiva, Temblor) son de area y ninguna de las tres toca a
+# nadie: sacuden el suelo. Por eso van en _ESTILOS_DE_GRUPO -- un terremoto es UNO, no uno por bicho.
+# El lenguaje de lo que pasa abajo esta en _reventon_de_suelo (crater, esquirlas, cascotes), sacado
+# del Tajo del verdugo justo para esto.
+#   MARTILLO_GOLPE   el mazazo de siempre (el basico): revienta y el suelo se resiente
+#   GOLPE_SISMICO    el que parte el suelo y sacude a todo lo que hay alrededor
+#   ONDA_EXPANSIVA   martillazo al suelo y la onda BARRIENDO la fila entera
+#   ROMPECORAZAS     no busca la carne, busca la chapa: el unico que pega ARRIBA y al cuerpo
+#   MARTILLO_GUERRA  se anuncia un turno y cae desde muy arriba (el verdugo del martillo)
+#   MARTILLO_EN_ALTO lo que se echa encima el que carga: el martillo aguantado sobre la cabeza
+#   TEMBLOR_SUELO    no es un golpe: el suelo NO PARA de temblar y se va abriendo. Se llama asi y no
+#                    TEMBLOR porque el enum ya se lee suelto en muchos sitios y "Temblor" a secas no
+#                    dice de que va
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -207,7 +227,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		MAZA_GOLPE = 68, GOLPE_DEMOLEDOR = 69, ROMPEPIERNAS = 70, APLASTAMIENTO = 71,
 		GRITO_ALIENTO = 72, MURO_ALIADOS = 73, CULATAZO = 74,
 		HACHA_TAJO = 75, HENDEDURA = 76, HACHAZO_BRUTAL = 77, CARNICERIA = 78,
-		DESGARRO = 79, SED_SANGRE = 80 }
+		DESGARRO = 79, SED_SANGRE = 80,
+		MARTILLO_GOLPE = 81, GOLPE_SISMICO = 82, ONDA_EXPANSIVA = 83, ROMPECORAZAS = 84,
+		MARTILLO_GUERRA = 85, MARTILLO_EN_ALTO = 86, TEMBLOR_SUELO = 87 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -225,6 +247,7 @@ const FX_ARMA := {
 	4: Estilo.MANDOBLE_TAJO,     # MANDOBLE
 	7: Estilo.MAZA_GOLPE,        # MAZA_PEQ
 	6: Estilo.HACHA_TAJO,        # HACHA_GRANDE
+	8: Estilo.MARTILLO_GOLPE,    # MARTILLO_GRANDE
 }
 
 
@@ -244,7 +267,9 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.MAZA_GOLPE, Estilo.GOLPE_DEMOLEDOR, Estilo.ROMPEPIERNAS, Estilo.APLASTAMIENTO,
 	Estilo.GRITO_ALIENTO, Estilo.MURO_ALIADOS, Estilo.CULATAZO,
 	Estilo.HACHA_TAJO, Estilo.HENDEDURA, Estilo.HACHAZO_BRUTAL, Estilo.CARNICERIA,
-	Estilo.DESGARRO, Estilo.SED_SANGRE]
+	Estilo.DESGARRO, Estilo.SED_SANGRE,
+	Estilo.MARTILLO_GOLPE, Estilo.GOLPE_SISMICO, Estilo.ONDA_EXPANSIVA, Estilo.ROMPECORAZAS,
+	Estilo.MARTILLO_GUERRA, Estilo.MARTILLO_EN_ALTO, Estilo.TEMBLOR_SUELO]
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
@@ -347,6 +372,18 @@ const T_VUELO := {
 	Estilo.CARNICERIA: 0.04, Estilo.DESGARRO: 0.13,
 	# Lo que se te suelta por dentro no viaja: nace sobre ti y hay que verlo subir.
 	Estilo.SED_SANGRE: 0.20,
+	# EL MARTILLO GRANDE: los adelantos mas largos del juego junto con el mandoble, porque es el arma
+	# mas lenta que hay (velocidad 0.68). Las tres de suelo llevan ademas el tiempo de que la cabeza
+	# LLEGUE abajo, que es de donde sale todo lo demas.
+	Estilo.MARTILLO_GOLPE: 0.15, Estilo.GOLPE_SISMICO: 0.20, Estilo.ONDA_EXPANSIVA: 0.18,
+	# El Rompecorazas es el rapido del arma: es un golpe seco y apuntado a la chapa, no una demolicion.
+	Estilo.ROMPECORAZAS: 0.12,
+	# El Martillo de guerra empata con el Tajo del verdugo: los dos se anuncian un turno entero
+	# (carga_turnos) y encima tardan en bajar.
+	Estilo.MARTILLO_GUERRA: 0.30, Estilo.MARTILLO_EN_ALTO: 0.24,
+	# El Temblor va largo porque lo suyo es que NO PARA: el adelanto es el primer martillazo y el
+	# resto pasa en la coleta, que es la mas larga del arma.
+	Estilo.TEMBLOR_SUELO: 0.16,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1246,7 +1283,11 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	# El hacha es a dos manos y de alcance corto: hay que echarse encima. La Sed de sangre NO -- eso
 	# es lo que te pasa a TI, y va sobre tu tarjeta.
 	Estilo.HACHA_TAJO, Estilo.HENDEDURA, Estilo.HACHAZO_BRUTAL, Estilo.CARNICERIA,
-	Estilo.DESGARRO]
+	Estilo.DESGARRO,
+	# El martillo tambien hay que llevarlo hasta alli, incluidas las que pegan al suelo: el suelo que
+	# revientas es el de DEBAJO del bicho.
+	Estilo.MARTILLO_GOLPE, Estilo.GOLPE_SISMICO, Estilo.ONDA_EXPANSIVA, Estilo.ROMPECORAZAS,
+	Estilo.MARTILLO_GUERRA, Estilo.TEMBLOR_SUELO]
 # NOTA: la CARGA esta en _ESTILOS_DE_GRUPO y aun asi embiste. No es contradictorio: embestir es del
 # ATACANTE (su tarjeta se lanza) y agruparse es del DIBUJO (uno solo para todo lo alcanzado).
 
@@ -1256,13 +1297,16 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
 const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO,
 	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA, Estilo.ACERO_EN_ALTO,
-	Estilo.DESVANECER, Estilo.SED_SANGRE]
+	Estilo.DESVANECER, Estilo.SED_SANGRE, Estilo.MARTILLO_EN_ALTO]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA,
 	# Los del mandoble que alcanzan a varios: un molinete es UN giro que coge a tres, no tres
 	# molinetes pequeños; y lo mismo el barrido bajo de Segar y la onda del Grito.
-	Estilo.MOLINETE, Estilo.SEGAR, Estilo.GRITO_GUERRA]
+	Estilo.MOLINETE, Estilo.SEGAR, Estilo.GRITO_GUERRA,
+	# Las tres del martillo que sacuden el SUELO. Un terremoto es UNO y coge a los que coge: pintar
+	# uno por bicho serian tres temblores pequeños al lado, que es justo lo contrario.
+	Estilo.GOLPE_SISMICO, Estilo.ONDA_EXPANSIVA, Estilo.TEMBLOR_SUELO]
 
 func _marcar_efectos_de_grupo() -> void:
 	var por_tanda: Dictionary = {}   # "tanda:estilo" -> [indices de la cola]

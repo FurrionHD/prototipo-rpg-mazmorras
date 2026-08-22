@@ -83,7 +83,8 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.ESCUDO, CombatFX.Estilo.IMBUIR_FILO, CombatFX.Estilo.EN_GUARDIA, \
 		CombatFX.Estilo.VOTO_GUARDIA, CombatFX.Estilo.VOZ_MANDO, CombatFX.Estilo.ACERO_EN_ALTO, \
 		CombatFX.Estilo.DESVANECER, \
-		CombatFX.Estilo.GRITO_ALIENTO, CombatFX.Estilo.MURO_ALIADOS, 		CombatFX.Estilo.SED_SANGRE:
+		CombatFX.Estilo.GRITO_ALIENTO, CombatFX.Estilo.MURO_ALIADOS, \
+		CombatFX.Estilo.SED_SANGRE, CombatFX.Estilo.MARTILLO_EN_ALTO:
 			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA, y el
 			# picaro se unta el filo).
 			e["a"] = b
@@ -106,7 +107,13 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.TAJO_VERDUGO, CombatFX.Estilo.SEGAR, \
 		CombatFX.Estilo.MAZA_GOLPE, CombatFX.Estilo.GOLPE_DEMOLEDOR, \
 		CombatFX.Estilo.ROMPEPIERNAS, CombatFX.Estilo.APLASTAMIENTO, \
-		CombatFX.Estilo.CULATAZO, 		CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, 		CombatFX.Estilo.HACHAZO_BRUTAL, CombatFX.Estilo.CARNICERIA, 		CombatFX.Estilo.DESGARRO:
+		CombatFX.Estilo.CULATAZO, \
+		CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, \
+		CombatFX.Estilo.HACHAZO_BRUTAL, CombatFX.Estilo.CARNICERIA, \
+		CombatFX.Estilo.DESGARRO, \
+		CombatFX.Estilo.MARTILLO_GOLPE, CombatFX.Estilo.GOLPE_SISMICO, \
+		CombatFX.Estilo.ONDA_EXPANSIVA, CombatFX.Estilo.ROMPECORAZAS, \
+		CombatFX.Estilo.MARTILLO_GUERRA, CombatFX.Estilo.TEMBLOR_SUELO:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -335,6 +342,21 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_DESGARRO
 	if es == CombatFX.Estilo.SED_SANGRE:
 		return float(e["dur"]) + COLETA_SED
+	# EL MARTILLO GRANDE.
+	if es == CombatFX.Estilo.MARTILLO_GOLPE:
+		return float(e["dur"]) + COLETA_MARTILLO
+	if es == CombatFX.Estilo.GOLPE_SISMICO:
+		return float(e["dur"]) + COLETA_SISMICO
+	if es == CombatFX.Estilo.ONDA_EXPANSIVA:
+		return float(e["dur"]) + COLETA_ONDA
+	if es == CombatFX.Estilo.ROMPECORAZAS:
+		return float(e["dur"]) + COLETA_ROMPECORAZAS
+	if es == CombatFX.Estilo.MARTILLO_GUERRA:
+		return float(e["dur"]) + COLETA_MARTILLO_GUERRA
+	if es == CombatFX.Estilo.MARTILLO_EN_ALTO:
+		return float(e["dur"]) + COLETA_MARTILLO_ALTO
+	if es == CombatFX.Estilo.TEMBLOR_SUELO:
+		return float(e["dur"]) + COLETA_TEMBLOR
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -423,6 +445,13 @@ func _draw() -> void:
 			CombatFX.Estilo.CARNICERIA: _pintar_carniceria(e)
 			CombatFX.Estilo.DESGARRO: _pintar_desgarro(e)
 			CombatFX.Estilo.SED_SANGRE: _pintar_sed_sangre(e)
+			CombatFX.Estilo.MARTILLO_GOLPE: _pintar_martillo_golpe(e)
+			CombatFX.Estilo.GOLPE_SISMICO: _pintar_golpe_sismico(e)
+			CombatFX.Estilo.ONDA_EXPANSIVA: _pintar_onda_expansiva(e)
+			CombatFX.Estilo.TEMBLOR_SUELO: _pintar_temblor(e)
+			CombatFX.Estilo.ROMPECORAZAS: _pintar_rompecorazas(e)
+			CombatFX.Estilo.MARTILLO_GUERRA: _pintar_martillo_guerra(e)
+			CombatFX.Estilo.MARTILLO_EN_ALTO: _pintar_martillo_en_alto(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -3410,41 +3439,70 @@ func _pintar_verdugo(e: Dictionary) -> void:
 				suelo + Vector2(ancho * m * 0.35, -alto),
 				suelo + Vector2(ancho * m, 0.0)])
 			draw_colored_polygon(pts, c)
+	# Y TODO LO DEMAS -- el anillo, el crater, las esquirlas y los cascotes -- es el lenguaje de "algo
+	# enorme ha caido aqui", que no es de esta habilidad: lo comparte con el martillo entero.
+	_reventon_de_suelo(suelo, caja, f, alfa, w, g, 1.0)
+	# Y EL FOGONAZO en la base, que es de donde sale todo. Este si es suyo: va con la columna.
+	if brillo > 0.0:
+		_estrella(suelo, caja * 0.85 * brillo, caja * 0.30 * brillo, 0.45,
+			Color(f.r, f.g, f.b, 0.7 * alfa * brillo))
+		draw_circle(suelo, maxf(2.0, caja * 0.14 * brillo), Color(1.0, 1.0, 0.98, alfa * brillo))
+
+
+# ALGO ENORME HA CAIDO AQUI: el anillo de choque a ras, el crater agrietado, las esquirlas subiendo y
+# los cascotes saltando en parabola. Todo lo que pasa EN EL SUELO cuando le llega un golpe que pesa.
+#
+# Nacio dentro del Tajo del verdugo y se saco aqui al llegar el MARTILLO GRANDE, que es el arma que
+# vive de esto: tres de sus cinco tecnicas (Golpe sismico, Onda expansiva, Temblor) no golpean al
+# bicho, golpean el suelo y se propagan. Es justo lo que lo separa de la maza -- la maza pega al
+# CUERPO y el martillo al SUELO.
+#
+# NO INCLUYE la columna de luz ni el fogonazo: esos se quedan en el verdugo, que es su firma.
+#
+# 'esc' escala el alcance: 1.0 es el reventon del verdugo y valores mayores lo abren mas (un temblor
+# que coge a cuatro tiene que llegar a los cuatro).
+func _reventon_de_suelo(suelo: Vector2, caja: float, f: Color, alfa: float, w: float, g: float,
+		esc: float) -> void:
 	# EL ANILLO DE CHOQUE a ras de suelo: dos elipses abriendose, la de dentro mas viva.
 	for i in 2:
 		var kk: float = clampf((w - float(i) * 0.10) / 0.80, 0.0, 1.0)
 		if kk <= 0.0:
 			continue
-		var rr: float = caja * (0.25 + 1.85 * kk)
+		var rr: float = caja * (0.25 + 1.85 * kk) * esc
 		_anillo(suelo, rr, rr * 0.26,
 			Color(f.r, f.g, f.b, (0.75 if i == 0 else 0.45) * alfa * (1.0 - kk)),
 			maxf(2.0, caja * 0.055 * (1.0 - kk * 0.55)))
 	# EL CRATER: grietas gordas y negras saliendo del punto de impacto.
 	for i in 6:
 		var lado: float = -1.0 if i % 2 == 0 else 1.0
-		var largo: float = caja * (0.50 + 1.15 * w) * (0.6 + 0.5 * absf(sin(g + float(i) * 1.7)))
+		var largo: float = caja * (0.50 + 1.15 * w) * esc * (0.6 + 0.5 * absf(sin(g + float(i) * 1.7)))
 		var grieta := PackedVector2Array()
 		for j in 5:
 			var s: float = float(j) / 4.0
 			grieta.append(suelo + Vector2(
 				lado * largo * s * (0.55 + 0.45 * float(i) / 5.0),
 				sin(g + float(i) * 2.1 + s * 6.0) * caja * 0.07 * s))
+		# El grosor NO se escala con 'esc': si no, un temblor que coge a cuatro pinta grietas de 30 px
+		# de gruesas y parecen vigas. (El mismo tope que ya lleva el pisoton de los bichos.)
 		draw_polyline(grieta, Color(0.09, 0.08, 0.10, 0.9 * alfa * (1.0 - w * 0.3)),
 			maxf(2.0, caja * 0.045 * (1.0 - w * 0.35)), true)
 	# LAS ESQUIRLAS: agujas finas que salen despedidas hacia arriba desde el crater.
 	for i in 9:
 		var ang: float = -PI * 0.5 + (float(i) - 4.0) * 0.19 + sin(g + float(i)) * 0.07
 		var u := Vector2(cos(ang), sin(ang))
-		var d0: float = caja * (0.20 + 1.10 * w)
-		var d1: float = d0 + caja * (0.22 + 0.30 * (1.0 - w)) * (0.6 + 0.6 * absf(sin(g * 2.0 + float(i))))
+		# EL ALCANCE VERTICAL TAMBIEN VA POR 'esc'. Sin escalarlo, un mazazo normal lanzaba esquirlas a
+		# 1,5 cajas de altura -- o sea muy por encima de la tarjeta -- porque estos numeros salieron del
+		# Tajo del verdugo, que es un espectaculo y se lo puede permitir.
+		var d0: float = caja * (0.20 + 1.10 * w) * esc
+		var d1: float = d0 + caja * (0.22 + 0.30 * (1.0 - w)) * esc 			* (0.6 + 0.6 * absf(sin(g * 2.0 + float(i))))
 		draw_line(suelo + u * d0, suelo + u * d1,
 			Color(f.r, f.g, f.b, 0.85 * alfa * (1.0 - w)), maxf(1.5, caja * 0.020), true)
 	# LOS CASCOTES: trozos GORDOS de suelo levantados, subiendo y cayendo en parabola.
 	for i in 7:
 		var ang2: float = -PI * 0.5 + (float(i) - 3.0) * 0.26 + sin(g * 1.7 + float(i)) * 0.10
 		var u2 := Vector2(cos(ang2), sin(ang2))
-		var d: float = caja * (0.28 + 1.35 * w)
-		var p: Vector2 = suelo + u2 * d + Vector2(0.0, caja * 0.70 * w * w)
+		var d: float = caja * (0.28 + 1.35 * w) * esc
+		var p: Vector2 = suelo + u2 * d + Vector2(0.0, caja * 0.70 * w * w * esc)
 		var tam: float = caja * 0.085 * (1.0 - w * 0.35) * (0.7 + 0.5 * absf(sin(g + float(i) * 3.1)))
 		var giro: float = w * 5.0 * (1.0 if i % 2 == 0 else -1.0)
 		var roca := PackedVector2Array()
@@ -3457,11 +3515,6 @@ func _pintar_verdugo(e: Dictionary) -> void:
 		cerr.append(roca[0])
 		draw_polyline(cerr, Color(0.10, 0.09, 0.11, 0.8 * alfa * (1.0 - w * 0.8)),
 			maxf(1.0, tam * 0.20), true)
-	# Y EL FOGONAZO en la base, que es de donde sale todo.
-	if brillo > 0.0:
-		_estrella(suelo, caja * 0.85 * brillo, caja * 0.30 * brillo, 0.45,
-			Color(f.r, f.g, f.b, 0.7 * alfa * brillo))
-		draw_circle(suelo, maxf(2.0, caja * 0.14 * brillo), Color(1.0, 1.0, 0.98, alfa * brillo))
 
 
 # SEGAR. Dos barridos BAJOS, a la altura de las piernas: el trazo va casi horizontal y muy abajo, y
@@ -4392,3 +4445,378 @@ func _pintar_sed_sangre(e: Dictionary) -> void:
 				y0 + s * caja * 0.16))
 		draw_polyline(hilo, Color(c.r, c.g, c.b, 0.45 * alfa * sin(PI * kk) * pulso),
 			maxf(1.0, caja * 0.014), true)
+
+
+# ============================================================
+#  EL MARTILLO GRANDE: lo suyo pasa en el suelo
+# ============================================================
+# COMPARTE ARMA CON LA MAZA -- las dos son romas y las dos usan _porrazo -- asi que el peligro aqui
+# es sacar "una maza mas grande". No se separan por el tamaño, se separan por CONTRA QUE PEGAN:
+#
+#   la maza     golpea AL BICHO   -- el porrazo pasa en su tarjeta y ahi se acaba
+#   el martillo golpea EL SUELO   -- revienta abajo y lo que hace daño es lo que SE PROPAGA
+#
+# Por eso casi todos sus gestos nacen ABAJO (en `suelo`, no en el centro de la tarjeta) y tiran de
+# _reventon_de_suelo, que se saco del Tajo del verdugo justo para esta arma. Y por eso tres de las
+# cinco son de grupo: un terremoto es UNO.
+#
+# LA UNICA QUE PEGA ARRIBA es el Rompecorazas, y es a proposito: "no busca la carne, busca la chapa".
+# Que sea la excepcion es lo que la hace reconocible entre cuatro demoliciones.
+const COLETA_MARTILLO := 0.42          # el basico, y aun asi mas largo que el de la maza
+const COLETA_SISMICO := 0.56
+const COLETA_ONDA := 0.50
+const COLETA_ROMPECORAZAS := 0.36      # el seco del arma
+const COLETA_MARTILLO_GUERRA := 0.62   # empata con el Tajo del verdugo
+const COLETA_MARTILLO_ALTO := 0.62     # el martillo se queda arriba mientras dura la carga
+const COLETA_TEMBLOR := 0.66           # la mas larga: lo suyo es que NO PARA
+
+# DONDE ESTA EL SUELO, en fracciones de caja por debajo del centro de la tarjeta. Una constante y no
+# un literal repetido en seis painters: si el suelo de un gesto cae dos pixeles mas abajo que el de
+# otro, la misma arma parece pegar a dos alturas distintas.
+const SUELO_MARTILLO := 0.34
+
+
+# LA CABEZA DEL MARTILLO, para los dos gestos en los que el arma esta QUIETA y es la protagonista (la
+# carga del Martillo de guerra). En los golpes NO se dibuja: ahi vale la misma regla que en la maza,
+# solo la marca del impacto.
+#
+# Un rectangulo con el mango: no hace falta mas, y cualquier detalle de mas a este tamaño se
+# convierte en ruido. El contorno oscuro es obligatorio o se funde con su propio resplandor.
+func _cabeza_martillo(c: Vector2, dir: Vector2, tam: float, col: Color, alfa: float) -> void:
+	var lado := Vector2(-dir.y, dir.x)
+	# EL MANGO sale por detras de la cabeza, en la direccion contraria a donde apunta. GORDO y oscuro:
+	# fino y claro parecia el palo de un cartel, y con el la cabeza pasaba a ser el cartel.
+	draw_line(c - dir * tam * 0.30, c - dir * tam * 2.6,
+		Color(0.26, 0.18, 0.13, alfa), maxf(3.0, tam * 0.42), true)
+	# LA CABEZA ES UN BLOQUE RECTANGULAR, ancho y chato: 0.95 a lo ancho por 0.42 a lo largo del
+	# mango. Dos intentos antes de esto y los dos por la SILUETA:
+	#   medidas parecidas -> un cuadrado con un palo, o sea una pala o un cartel;
+	#   estrechandose por detras -> un trapecio con un palo, o sea una COPA.
+	# Un rectangulo limpio y ancho no se parece a nada mas.
+	var cuerpo := PackedVector2Array([
+		c + dir * tam * 0.42 + lado * tam * 0.95,
+		c + dir * tam * 0.42 - lado * tam * 0.95,
+		c - dir * tam * 0.42 - lado * tam * 0.95,
+		c - dir * tam * 0.42 + lado * tam * 0.95])
+	# Y EN ACERO MEDIO, no en el _ACERO claro de las hojas: a este tamaño una mancha casi blanca se
+	# lee como papel. Una masa de hierro es oscura y lo que brilla es el reflejo.
+	draw_colored_polygon(cuerpo, Color(0.46, 0.49, 0.55, alfa))
+	var cerr := PackedVector2Array(cuerpo)
+	cerr.append(cuerpo[0])
+	draw_polyline(cerr, Color(_ENCIA.r, _ENCIA.g, _ENCIA.b, 0.9 * alfa), maxf(2.0, tam * 0.20), true)
+	# EL REFLEJO: una banda clara cruzando el bloque por el medio. Es lo que dice metal, y ademas
+	# marca por donde entra el mango.
+	var f: Color = _filo_col(col)
+	draw_line(c - dir * tam * 0.42 + lado * tam * 0.30, c + dir * tam * 0.42 + lado * tam * 0.30,
+		Color(_ACERO.r, _ACERO.g, _ACERO.b, 0.85 * alfa), maxf(2.0, tam * 0.22), true)
+	# LA CARA que golpea, del color de la imbuicion: la unica parte que se tiñe, igual que el filo de
+	# las armas de corte (el acero no se tiñe entero).
+	draw_line(c + dir * tam * 0.42 + lado * tam * 0.95, c + dir * tam * 0.42 - lado * tam * 0.95,
+		Color(f.r, f.g, f.b, alfa), maxf(2.0, tam * 0.24), true)
+
+
+# EL MAZAZO BASICO. Revienta abajo: el porrazo va en el suelo, no en el pecho, y de el sale el
+# reventon. Es lo mismo que hace la maza pero UNA FILA MAS ABAJO, y esa diferencia de altura es la
+# que dice de un vistazo cual de las dos armas llevas.
+func _pintar_martillo_golpe(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_MARTILLO, 0.06)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var suelo := Vector2(float(r0[2].x), float(e["b"].y) + caja * SUELO_MARTILLO)
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.20, 0.0, 1.0), 3.0)
+	_porrazo(suelo, caja * 0.34 * (0.32 + 0.68 * k), col, alfa, v, g, int(e.get("elem", 0)))
+	if v <= 0.14:
+		return
+	_reventon_de_suelo(suelo, caja, _filo_col(col), alfa, (v - 0.14) / 0.86, g, 0.55)
+
+
+# GOLPE SISMICO. "Revienta el suelo y sacude a todo lo que hay alrededor": el mismo reventon pero
+# ANCHO, cubriendo a todos los alcanzados.
+#
+# Es de grupo, asi que e["ancho"] trae el ancho de TODO lo alcanzado: de ahi sale el alcance (ver
+# _radio_grupo). Un sismico a tres tiene que partir el suelo bajo los tres, no tres veces bajo uno.
+func _pintar_golpe_sismico(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_SISMICO, 0.04)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var suelo := Vector2(float(r0[2].x), float(e["b"].y) + caja * SUELO_MARTILLO)
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.18, 0.0, 1.0), 3.0)
+	_porrazo(suelo, caja * 0.44 * (0.30 + 0.70 * k), col, alfa, v, g, int(e.get("elem", 0)))
+	if v <= 0.12:
+		return
+	# El alcance sale de LO ALCANZADO, no del daño: el 0.5 es medio ancho del grupo, que es el radio
+	# justo para taparlo entero (el mismo criterio que el pisoton de los bichos).
+	var esc: float = maxf(0.8, _radio_grupo(e, 0.5, caja) / caja)
+	_reventon_de_suelo(suelo, caja, _filo_col(col), alfa, (v - 0.12) / 0.88, g, esc)
+
+
+# ONDA EXPANSIVA. Un martillazo al suelo y lo que cuenta es lo que sale de el: anillos BAJOS que se
+# abren y barren la fila. Casi no hay crater -- aqui no se rompe el suelo, se sacude.
+#
+# Se separa del Sismico porque son la misma jugada con distinto reparto (aquel pega y esto controla):
+# el Sismico es CRATER (grietas, cascotes) y este es ONDA (anillos que se van). Sin ese contraste
+# eran dos terremotos iguales con distinto nombre.
+func _pintar_onda_expansiva(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_ONDA, 0.04)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var f: Color = _filo_col(col)
+	var suelo := Vector2(float(r0[2].x), float(e["b"].y) + caja * SUELO_MARTILLO)
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.16, 0.0, 1.0), 3.0)
+	_porrazo(suelo, caja * 0.30 * (0.32 + 0.68 * k), col, alfa, v, g, int(e.get("elem", 0)))
+	# LAS ONDAS: cuatro anillos escalonados, MUY achatados, que llegan hasta el borde de lo alcanzado.
+	# Achatados de verdad (0.16) porque van A RAS: redondos se leerian como burbujas subiendo.
+	# El suelo va a caja*1.25 y no a 0.9: contra UN solo bicho la onda tiene que salirse de su
+	# tarjeta igual, o no se lee que barre nada.
+	var alcance: float = _radio_grupo(e, 0.62, caja * 1.25)
+	for i in 4:
+		var kk: float = clampf((v - float(i) * 0.13) / 0.72, 0.0, 1.0)
+		if kk <= 0.0:
+			continue
+		var rr: float = alcance * kk
+		_anillo(suelo, rr, rr * 0.16, Color(f.r, f.g, f.b, 0.70 * alfa * (1.0 - kk)),
+			maxf(2.0, caja * 0.060 * (1.0 - kk * 0.6)))
+	# Y el polvo que levanta cada onda al pasar, a los dos lados.
+	if v <= 0.20:
+		return
+	var w: float = (v - 0.20) / 0.80
+	for i in 8:
+		var lado: float = -1.0 if i % 2 == 0 else 1.0
+		var d: float = alcance * (0.25 + 0.75 * w) * (0.4 + 0.6 * absf(sin(g + float(i) * 1.9)))
+		var p: Vector2 = suelo + Vector2(lado * d, -caja * 0.10 * sin(PI * w) \
+			* (0.5 + 0.7 * absf(sin(g * 2.1 + float(i)))))
+		draw_circle(p, maxf(1.0, caja * 0.030 * (1.0 - w)),
+			Color(0.74, 0.70, 0.64, 0.45 * alfa * (1.0 - w)))
+
+
+# TEMBLOR. "Golpeas el suelo y NO PARAS." Es la unica del arma que no es un golpe sino una duracion:
+# tres martillazos seguidos, cada uno con su onda, y las grietas abriendose un poco mas en cada uno.
+#
+# Lo que la separa de la Onda expansiva es justo eso -- aquella es UN martillazo y su onda; esta
+# insiste. Y por eso tiene la coleta mas larga del arma: si durara lo mismo, seria la misma.
+func _pintar_temblor(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_TEMBLOR, 0.03)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var f: Color = _filo_col(col)
+	var alcance: float = _radio_grupo(e, 0.58, caja * 0.9)
+	# LOS TRES MARTILLAZOS. Cada uno cae en un sitio distinto a lo largo de la fila y en su momento:
+	# repartidos en el espacio y en el tiempo es lo que dice "no para", frente a uno solo mas gordo.
+	for i in 3:
+		var t_i: float = float(i) * 0.22
+		if v < t_i:
+			continue
+		var vi: float = (v - t_i) / maxf(1.0 - t_i, 0.01)
+		var x: float = (float(i) - 1.0) * alcance * 0.42 + sin(g + float(i) * 2.7) * caja * 0.10
+		var suelo := Vector2(float(e["b"].x) + x, float(e["b"].y) + caja * SUELO_MARTILLO)
+		var k: float = 1.0 - pow(1.0 - clampf(vi / 0.16, 0.0, 1.0), 3.0)
+		_porrazo(suelo, caja * 0.24 * (0.32 + 0.68 * k), col, alfa * (1.0 - vi * 0.35), vi,
+			g + float(i) * 3.1, int(e.get("elem", 0)))
+		# Su onda, baja y corta: son tres sacudidas, no tres explosiones.
+		for j in 2:
+			var kk: float = clampf((vi - float(j) * 0.14) / 0.62, 0.0, 1.0)
+			if kk <= 0.0:
+				continue
+			var rr: float = alcance * 0.52 * kk
+			_anillo(suelo, rr, rr * 0.18, Color(f.r, f.g, f.b, 0.45 * alfa * (1.0 - kk)),
+				maxf(1.5, caja * 0.032 * (1.0 - kk * 0.6)))
+	# LA GRIETA QUE SE VA ABRIENDO a lo largo de toda la fila, y que crece con el gesto entero (no con
+	# cada martillazo): es el hilo que ata los tres y lo que dice que esto sigue pasando.
+	var abre: float = clampf(v / 0.72, 0.0, 1.0)
+	var y0: float = float(e["b"].y) + caja * SUELO_MARTILLO
+	# VA A TROMPICONES, no ondulando. La primera version la trazaba con dos senos y salia una linea
+	# lisa y gruesa serpenteando: un CABLE tirado por el suelo. Una grieta cambia de direccion de
+	# golpe y no vuelve atras -- pocos puntos, quiebros secos y el grosor bajando hacia las puntas.
+	var n: int = 9
+	var grieta := PackedVector2Array()
+	for i in n:
+		var u: float = float(i) / float(n - 1)
+		# El quiebro alterna de lado (i % 2) con magnitud desigual: eso es lo que lo hace roto en vez
+		# de zigzag de dibujo animado.
+		var quiebro: float = (1.0 if i % 2 == 0 else -1.0) 			* caja * 0.055 * (0.4 + 0.9 * absf(sin(g * 2.3 + float(i) * 1.9)))
+		grieta.append(Vector2(
+			float(e["b"].x) + (u - 0.5) * 2.0 * alcance * abre,
+			y0 + quiebro * sin(PI * u)))
+	draw_polyline(grieta, Color(0.08, 0.07, 0.09, 0.85 * alfa * (1.0 - v * 0.25)),
+		maxf(2.0, caja * 0.030 * (1.0 - v * 0.3)), true)
+	# Y las ramitas que salen de ella, que es lo que la separa de una raya: el suelo se agrieta hacia
+	# los lados segun se abre.
+	for i in range(1, n - 1, 2):
+		var lado2: float = 1.0 if i % 4 == 1 else -1.0
+		_filamento(grieta[i], Vector2(sin(g + float(i)) * 0.5, lado2),
+			caja * 0.22 * abre * (0.5 + 0.6 * absf(sin(g * 1.7 + float(i)))),
+			g + float(i) * 4.3, Color(0.08, 0.07, 0.09), 0.7 * alfa * (1.0 - v * 0.3),
+			maxf(1.0, caja * 0.016), 1)
+
+
+# ROMPECORAZAS. "No busca la carne, busca la chapa." LA UNICA DEL ARMA QUE PEGA ARRIBA, al pecho, y
+# la unica que no toca el suelo: ser la excepcion es lo que la hace reconocible entre cuatro
+# demoliciones que se parecen.
+#
+# Lo que se ve no es la armadura sino LO QUE LE PASA: el porrazo arriba, las abolladuras hundiendose
+# alrededor y los pedazos PLANOS de chapa saltando. La Corrosion que deja (el estado) es eso -- la
+# chapa sigue puesta pero ya no sirve.
+func _pintar_rompecorazas(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_ROMPECORAZAS, 0.07)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var f: Color = _filo_col(col)
+	# ARRIBA, a la altura del pecho.
+	var p: Vector2 = b + Vector2(0.0, -caja * 0.14)
+	# NO SE DIBUJA LA PIEZA DE ARMADURA, y eso costo dos intentos. Un trapecio grande parecia una
+	# PANTALLA plantada delante del bicho, y al darle forma de peto (hombros arriba, punta abajo) pasó
+	# a ser un ESCUDO HERALDICO -- que encima ya es otra cosa en este juego (ver _escudo_cara).
+	#
+	# La chapa no hace falta pintarla: se cuenta con LO QUE LE PASA. Un porrazo arriba, en el pecho,
+	# las ABOLLADURAS hundiendose alrededor y los pedazos PLANOS saltando. Eso dice "le has reventado
+	# la coraza" sin plantar ningun objeto nuevo en pantalla que se pueda confundir con otro.
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.24, 0.0, 1.0), 3.0)
+	_porrazo(p, caja * 0.26 * (0.32 + 0.68 * k), col, alfa, v, g, int(e.get("elem", 0)))
+	if v <= 0.22:
+		return
+	var w: float = (v - 0.22) / 0.78
+	# LAS ABOLLADURAS: dos arcos que se cierran sobre el punto en vez de abrirse. Al reves que la onda
+	# de un porrazo normal -- aqui la chapa se mete HACIA DENTRO, no sale nada.
+	for i in 2:
+		var kk: float = clampf(w - float(i) * 0.18, 0.0, 1.0)
+		if kk <= 0.0:
+			continue
+		var rr: float = caja * (0.34 - 0.10 * kk) * (1.0 - float(i) * 0.30)
+		var arco := PackedVector2Array()
+		for j in 9:
+			var a: float = PI * 0.15 + PI * 0.70 * float(j) / 8.0
+			arco.append(p + Vector2(cos(a) * rr, sin(a) * rr * 0.62 - caja * 0.04 * kk))
+		draw_polyline(arco, Color(_ACERO_OSCURO.r, _ACERO_OSCURO.g, _ACERO_OSCURO.b,
+			0.85 * alfa * kk), maxf(2.0, caja * 0.026), true)
+	# Y LA GRIETA en la chapa, ramificandose desde el golpe (el mismo _filamento de la Hendedura: lo
+	# que se raja se raja igual sea carne o sea metal).
+	for i in 3:
+		var a2: float = -PI * 0.5 + (float(i) - 1.0) * 1.15 + sin(g + float(i)) * 0.25
+		_filamento(p, Vector2(cos(a2), sin(a2)), caja * 0.30 * w, g + float(i) * 5.1, f,
+			0.6 * alfa * (1.0 - w * 0.4), maxf(1.0, caja * 0.016), 1)
+	# Y LOS PEDAZOS de chapa saltando. Van PLANOS y girando, no redondos: es metal arrancado, no
+	# cascotes de suelo (esos son de las otras cuatro, y tienen que distinguirse).
+	for i in 5:
+		var ang: float = -PI * 0.5 + (float(i) - 2.0) * 0.44 + sin(g + float(i)) * 0.14
+		var u2 := Vector2(cos(ang), sin(ang))
+		var d: float = caja * (0.20 + 0.60 * w)
+		var q: Vector2 = p + u2 * d + Vector2(0.0, caja * 0.45 * w * w)
+		var tam: float = caja * 0.070 * (1.0 - w * 0.4)
+		var giro: float = w * 6.0 * (1.0 if i % 2 == 0 else -1.0) + g
+		var d1 := Vector2(cos(giro), sin(giro))
+		var d2 := Vector2(-d1.y, d1.x)
+		var trozo := PackedVector2Array([
+			q + d1 * tam + d2 * tam * 0.22, q - d1 * tam + d2 * tam * 0.30,
+			q - d1 * tam - d2 * tam * 0.22, q + d1 * tam - d2 * tam * 0.30])
+		draw_colored_polygon(trozo, Color(_ACERO_OSCURO.r, _ACERO_OSCURO.g, _ACERO_OSCURO.b,
+			0.9 * alfa * (1.0 - w * 0.8)))
+		draw_line(q + d1 * tam, q - d1 * tam, Color(f.r, f.g, f.b, 0.7 * alfa * (1.0 - w)),
+			maxf(1.0, tam * 0.22), true)
+
+
+# MARTILLO DE GUERRA. El verdugo del martillo: se anuncia un TURNO ENTERO (carga_turnos) y cae desde
+# muy arriba. x3.2 de daño, el golpe mas gordo del arma.
+#
+# Reusa el reventon de suelo como el Tajo del verdugo, pero SIN la columna de luz: esa se queda en el
+# verdugo, que es lo suyo. Aqui lo que sube del crater es POLVO, que es lo que levanta una masa de
+# hierro y no una hoja mistica -- y de paso los dos golpes gordos del juego no se confunden.
+func _pintar_martillo_guerra(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_MARTILLO_GUERRA, 0.03)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var f: Color = _filo_col(col)
+	var suelo := Vector2(b.x, float(e["b"].y) + caja * SUELO_MARTILLO)
+	# LA CAIDA. Aqui SI se dibuja la cabeza: es lo unico que baja, y sin ella caeria una raya suelta.
+	# El arma esta sola en pantalla y es la protagonista, que es la excepcion de siempre.
+	var k: float = clampf(v / 0.26, 0.0, 1.0)
+	if k < 1.0:
+		var cae: float = 1.0 - pow(1.0 - k, 3.2)
+		var desde: Vector2 = suelo - Vector2(0.0, caja * 2.30)
+		_cabeza_martillo(desde.lerp(suelo, cae), Vector2.DOWN, caja * 0.30, col, alfa)
+		# Las lineas de velocidad detras, que es lo que dice cuanto pesa lo que viene.
+		for i in 3:
+			var x: float = (float(i) - 1.0) * caja * 0.22
+			var p0: Vector2 = desde.lerp(suelo, cae) + Vector2(x, -caja * (0.45 + 0.5 * cae))
+			draw_line(p0, p0 + Vector2(0.0, -caja * 0.55 * cae),
+				Color(f.r, f.g, f.b, 0.35 * alfa), maxf(1.5, caja * 0.020), true)
+		return   # sigue bajando: el reventon es AL LLEGAR
+	var w: float = clampf((v - 0.26) / 0.74, 0.0, 1.0)
+	_porrazo(suelo, caja * 0.52 * (1.0 - w * 0.25), col, alfa, w, g, int(e.get("elem", 0)))
+	_reventon_de_suelo(suelo, caja, f, alfa, w, g, 1.15)
+	# EL POLVO: nubes que suben del crater y se abren. Es el relevo de la columna de luz del verdugo,
+	# y lo que separa "ha caido una masa de hierro" de "ha caido algo mistico".
+	for i in 7:
+		var kk: float = clampf(w - float(i) * 0.045, 0.0, 1.0)
+		if kk <= 0.0:
+			continue
+		var ang: float = -PI * 0.5 + (float(i) - 3.0) * 0.30 + sin(g + float(i) * 1.7) * 0.12
+		var u := Vector2(cos(ang), sin(ang))
+		var d: float = caja * (0.20 + 1.35 * kk)
+		var r: float = caja * (0.14 + 0.26 * kk) * (0.6 + 0.5 * absf(sin(g * 2.3 + float(i))))
+		draw_circle(suelo + u * d, r, Color(0.62, 0.58, 0.53, 0.30 * alfa * (1.0 - kk)))
+
+
+# EL MARTILLO EN ALTO. Lo que se echa encima el que carga (por fx_sobre_mi): el martillo levantado
+# con las dos manos y aguantado ahi, temblando por el peso.
+#
+# ES EL PRIMO DEL ACERO_EN_ALTO (67) DE LOS MANDOBLES, y se hizo aparte en vez de reusarlo por una
+# razon tonta pero definitiva: aquel dibuja una HOJA. Un espadon levantado sobre la cabeza de alguien
+# que lleva un martillo se lee como que ha cambiado de arma.
+func _pintar_martillo_en_alto(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sube: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_MARTILLO_ALTO, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.72 else 1.0 - (v - 0.72) / 0.28
+	if alfa <= 0.0:
+		return
+	# Sube durante el vuelo y se queda arriba TEMBLANDO. El temblor no es un adorno: es lo que dice
+	# que eso pesa y que aguantarlo cuesta, o sea por que la habilidad tarda un turno.
+	var alto: float = caja * (0.15 + 0.72 * sube)
+	var tiembla := Vector2(sin(t * 11.0 + g), cos(t * 8.0 + g) * 0.5) * caja * 0.022 * sube
+	_cabeza_martillo(b + Vector2(0.0, -alto) + tiembla, Vector2.UP, caja * 0.32, col, alfa)
+	# Y el peso que se junta arriba: un resplandor que crece mientras aguanta.
+	if v <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	var brillo: float = sin(PI * clampf(v / 0.9, 0.0, 1.0))
+	if brillo > 0.0:
+		_estrella(b + Vector2(0.0, -alto - caja * 0.32) + tiembla,
+			caja * 0.42 * brillo, caja * 0.30 * brillo, 0.55,
+			Color(f.r, f.g, f.b, 0.55 * alfa * brillo))

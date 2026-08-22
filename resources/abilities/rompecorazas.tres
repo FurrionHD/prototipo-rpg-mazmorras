@@ -19,5 +19,6 @@ golpes_min = 1
 golpes_max = 1
 dano_mult = 1.5
 dano_tipo_override = 1
+fx_estilo = 84
 descripcion = "No busca la carne, busca la chapa. Después de esto la armadura sigue puesta, pero ya no sirve para lo que servía."
 efectos = [SubResource("SA_0")]

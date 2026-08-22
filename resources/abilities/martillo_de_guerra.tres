@@ -19,5 +19,7 @@ golpes_max = 1
 dano_mult = 3.2
 carga_turnos = 1
 dano_tipo_override = 1
+fx_estilo = 85
+fx_sobre_mi = 86
 descripcion = "Echas el martillo atrás con las dos manos y aguantas ahí un momento que se hace largo. Lo que toque cuando baje no se levanta igual."
 efectos = [SubResource("SA_0")]
