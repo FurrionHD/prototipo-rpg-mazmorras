@@ -1194,7 +1194,7 @@ func tanda(n: int) -> void:
 # su estilo). Ver Sonido.golpe y el disparo en _process.
 func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bool,
 		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0,
-		solo_dibujo: bool = false, sfx: String = "", elem: int = 0) -> void:
+		solo_dibujo: bool = false, sfx: String = "", elem: int = 0, escudo: int = -1) -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
 		_tanda_pedida = -1
 		return
@@ -1214,6 +1214,10 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		# Pintar los tres del mismo modo y cambiarles el tinte no cuela -- no parecian ni fuego ni
 		# agua ni rayo, parecian el mismo tajo de tres colores.
 		"elem": elem,
+		# QUE ESCUDO lleva el que pega (ShieldData.Tamano, -1 = ninguno). Lo miran los gestos que
+		# dibujan una chapa: el escudazo, la Provocacion, la Cobertura... Sin esto los tres escudos
+		# del juego salian con la misma silueta, cuando el tamaño es justo lo que los diferencia.
+		"escudo": escudo,
 	})
 	# LA VIDA NO PUEDE BAJAR ANTES QUE EL GOLPE. Se apunta AQUI, en el mismo instante en que el
 	# golpe se resuelve, y no al arrancar la cola: entre una cosa y otra combat.gd llama a
@@ -1535,7 +1539,7 @@ func _process(delta: float) -> void:
 				# arrancar_cola) y _resolver_golpe_hab llama a _fx_tanda(i) con el indice antes de
 				# cada uno.
 				_capa_fx.alta(estilo, _punto(ev["ba"]), destino, ev["color"], peso, vuelo, ancho,
-					int(ev.get("elem", 0)), int(ev.get("tanda", 0)))
+					int(ev.get("elem", 0)), int(ev.get("tanda", 0)), int(ev.get("escudo", -1)))
 
 		# EL SONIDO, en el mismo frame que el dibujo. Tiene su propio guardian y NO copia el `if` de
 		# arriba, por tres motivos:

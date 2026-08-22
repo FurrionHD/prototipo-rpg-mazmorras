@@ -212,6 +212,15 @@ var centrado_en_fila: bool = false
 # resto del turno. -1 = MELEE de siempre. Igual que color_visual, es dato de PRESENTACION que
 # viaja aqui porque la pantalla de combate solo ve Combatants.
 var fx_basico: int = -1
+# QUE ESCUDO LLEVA, para dibujarlo: un ShieldData.Tamano (-1 = ninguno). Los tres escudos del juego
+# se distinguen por el TAMAÑO -- es su eje de balance, el bloqueo va por ahi y ni el tier ni la
+# rareza lo tocan -- asi que tienen que distinguirse tambien de un vistazo, y hasta ahora los tres
+# pintaban la misma chapa.
+#
+# Va aqui por lo mismo que fx_basico y color_visual: la pantalla de combate solo ve Combatants, y
+# ademas asi NO hay que mandarlo por red -- el espejo resuelve al atacante con _de_codigo y ese
+# Combatant ya trae el suyo, igual que ya pasa con el color.
+var fx_escudo: int = -1
 # FRANJA de la afinidad: 1.0 = PURO (una criatura hecha del elemento: ×0.5 / ×1.5), menos =
 # mas suave. Un cuerpo imbuido va a INTENSIDAD_IMBUIDO (0.4 -> ×0.8 / ×1.2): no es lo mismo
 # SER de fuego que haberte echado un manto por encima. No afecta a inmunidades (son binarias).

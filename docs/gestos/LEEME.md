@@ -56,6 +56,10 @@ Cuatro instantes de cada gesto, una hoja por arma:
   pasa) y la Égida junto a los **otros dos Baluarte** del juego. La Chispa vinculada sale con la
   tarjeta del que lanza debajo: es el único gesto del jugador que va **de ti a un compañero**
 
+- `gestos_13_escudos.png` — **el mismo gesto con cada tamaño de escudo**. Los tres se distinguen por
+  la silueta (rodela redonda / heater en punta / torre alta), no por ser más grandes: a tamaño de
+  tarjeta eso no se lee. La última columna es el respaldo de cuando no se sabe qué escudo lleva
+
 **Ya están las diez armas, los escudos y la varita.** Lo único sin dibujo propio es *Oportunista* (la
 daga), que hereda el gesto del arma a propósito.
 

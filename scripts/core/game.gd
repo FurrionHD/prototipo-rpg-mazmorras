@@ -5848,6 +5848,10 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# va tapado y plantado delante se come mas golpes). defend_defense > 0 <=> hay escudo en la off.
 	# La Provocacion multiplica esto durante unos turnos. Ver combat.gd._elegir_objetivo_enemigo.
 	c.aggro_base = Combatant.AGGRO_ESCUDO if float(m["defend_defense"]) > 0.0 else 1.0
+	# QUE ESCUDO SE LE DIBUJA. Sale del objeto y no de los mods porque es el TAMAÑO, que no lo toca
+	# ni el tier ni la rareza (ver ShieldData.Tamano): un escudo pequeño mejorado sigue siendo
+	# pequeño, y tiene que seguir viendose redondo.
+	c.fx_escudo = int((p.equipped_off as ShieldData).tamano) if p.equipped_off is ShieldData else -1
 
 	# Armadura: DEF plana aditiva + % de reduccion (media ponderada, acotada) +
 	# velocidad + esquiva (Evasion) + resist. criticos (ResistCrit).

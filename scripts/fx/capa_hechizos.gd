@@ -53,7 +53,7 @@ func _init() -> void:
 # un rebote), 'b' = donde impacta. 'dur' es el tiempo de vuelo que le ha reservado la cola, para
 # que el impacto aterrice justo cuando salen el numero y el temblor.
 func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: float,
-		ancho_destino: float, elem: int = 0, golpe: int = 0) -> void:
+		ancho_destino: float, elem: int = 0, golpe: int = 0, escudo: int = -1) -> void:
 	var e: Dictionary = _pool.pop_back() if not _pool.is_empty() else {}
 	e.clear()
 	e["estilo"] = estilo
@@ -70,6 +70,9 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 	# QUE GOLPE de la accion es este (0 el primero). Casi ningun gesto lo mira; los que encadenan una
 	# figura entre varios golpes, si.
 	e["golpe"] = golpe
+	# QUE ESCUDO lleva el que pega (ShieldData.Tamano; -1 = ninguno, y entonces se dibuja el mediano
+	# por defecto). Lo miran los gestos que pintan una chapa.
+	e["escudo"] = escudo
 	e["zig"] = PackedVector2Array()
 	e["prox"] = 0.0
 	e["curva"] = false
@@ -3162,7 +3165,7 @@ func _pintar_voto_guardia(e: Dictionary) -> void:
 		col, alfa * 0.85, 0.0)
 	# EL ESCUDO: sube desde abajo hasta cubrirte. Es la forma de _escudo_cara, comun con el ESCUDAZO.
 	var c: Vector2 = b + Vector2(0.0, caja * (0.50 - 0.50 * monta))
-	_escudo_cara(c, caja * 0.46, col, alfa)
+	_escudo_cara(c, caja * 0.46, col, alfa, 0.0, int(e.get("escudo", -1)))
 	# LOS PIES CLAVADOS: dos marcas gordas debajo, y unas rayas de que no se mueve de ahi.
 	for i in 2:
 		var lado: float = 1.0 if i == 0 else -1.0
@@ -3179,12 +3182,44 @@ func _pintar_voto_guardia(e: Dictionary) -> void:
 	_anillo(b, rr, rr * 0.52, Color(f.r, f.g, f.b, 0.30 * alfa * monta), maxf(1.5, caja * 0.022))
 
 
-# LA CARA DE UN ESCUDO: un heater shield (recto arriba, en punta abajo) con su reborde y su blason.
-# Lo comparten el Voto de guardia y el ESCUDAZO.
-func _escudo_cara(c: Vector2, r: float, col: Color, alfa: float, giro: float = 0.0) -> void:
+# EL PERFIL DE CADA ESCUDO, en fracciones de su radio. Los tres del juego se distinguen por el
+# TAMAÑO -- es su eje de balance: el bloqueo va por ahi y ni el tier ni la rareza lo tocan --, asi
+# que tienen que distinguirse tambien de un vistazo, y durante mucho tiempo los tres pintaron la
+# misma chapa.
+#
+# No basta con hacerlos mas grandes o mas pequeños: a tamaño de tarjeta esa diferencia no se lee, y
+# ademas cada gesto ya escala el suyo por su cuenta. Lo que se lee es la SILUETA:
+#   PEQUENO  RODELA: redondo. Es el de esquivar y responder, no el de taparse
+#   NORMAL   HEATER: recto arriba y en punta abajo, el escudo de caballero de toda la vida
+#   GRANDE   TORRE: un rectangulo alto, casi una puerta. El del que se planta y no se mueve
+# DOCE vertices y no ocho: con ocho sale un OCTOGONO, y un octogono no es un escudo redondo -- se
+# lee como una señal de trafico. A partir de doce el ojo ya lo da por circular.
+const _PERFIL_RODELA := [Vector2(0.0, -1.0), Vector2(0.50, -0.87), Vector2(0.87, -0.50),
+	Vector2(1.0, 0.0), Vector2(0.87, 0.50), Vector2(0.50, 0.87), Vector2(0.0, 1.0),
+	Vector2(-0.50, 0.87), Vector2(-0.87, 0.50), Vector2(-1.0, 0.0), Vector2(-0.87, -0.50),
+	Vector2(-0.50, -0.87)]
+const _PERFIL_HEATER := [Vector2(-1.0, -0.85), Vector2(1.0, -0.85), Vector2(1.0, 0.05),
+	Vector2(0.72, 0.62), Vector2(0.0, 1.0), Vector2(-0.72, 0.62), Vector2(-1.0, 0.05)]
+# La TORRE va mas estrecha (0.82) y mucho mas alta (1.30) que las otras dos: lo que la hace enorme
+# no es ocupar mas a lo ancho -- eso se sale de la tarjeta -- sino tapar de arriba abajo.
+const _PERFIL_TORRE := [Vector2(-0.82, -1.30), Vector2(-0.62, -1.42), Vector2(0.62, -1.42),
+	Vector2(0.82, -1.30), Vector2(0.82, 1.22), Vector2(0.62, 1.34), Vector2(-0.62, 1.34),
+	Vector2(-0.82, 1.22)]
+
+
+# LA CARA DE UN ESCUDO, con su reborde y su blason. La comparten el Voto de guardia, el ESCUDAZO, la
+# Provocacion, la Guardia de carne, la Cobertura y la Embestida.
+#
+# 'tam' es un ShieldData.Tamano y viene del que pega (Combatant.fx_escudo). -1 = no se sabe o no
+# lleva escudo: se queda con el heater, que es el de en medio y el que menos chirria.
+func _escudo_cara(c: Vector2, r: float, col: Color, alfa: float, giro: float = 0.0,
+		tam: int = -1) -> void:
+	var perfil: Array = _PERFIL_HEATER
+	if tam == 0:
+		perfil = _PERFIL_RODELA
+	elif tam == 2:
+		perfil = _PERFIL_TORRE
 	var pts := PackedVector2Array()
-	var perfil: Array = [Vector2(-1.0, -0.85), Vector2(1.0, -0.85), Vector2(1.0, 0.05),
-		Vector2(0.72, 0.62), Vector2(0.0, 1.0), Vector2(-0.72, 0.62), Vector2(-1.0, 0.05)]
 	for q in perfil:
 		var p: Vector2 = (q as Vector2) * r
 		pts.append(c + p.rotated(giro))
@@ -3194,10 +3229,24 @@ func _escudo_cara(c: Vector2, r: float, col: Color, alfa: float, giro: float = 0
 	# El REBORDE lleva el color del arma: si vas imbuido, el escudo tambien va.
 	var f: Color = _filo_col(col)
 	draw_polyline(cerrado, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(2.0, r * 0.10), true)
-	# El blason: una banda cruzada, para que no sea una plancha lisa.
-	draw_line(c + Vector2(-r * 0.75, -r * 0.30).rotated(giro),
-		c + Vector2(r * 0.75, r * 0.10).rotated(giro),
-		Color(f.r, f.g, f.b, 0.45 * alfa), maxf(1.5, r * 0.11), true)
+	# EL BLASON, distinto por escudo: es lo que remata la lectura cuando la silueta se ve pequeña.
+	if tam == 0:
+		# La rodela lleva BOLLON (el chichon central) y un aro: es lo que la hace redonda de verdad
+		# y no un circulo pelado.
+		_anillo(c, r * 0.62, r * 0.62, Color(f.r, f.g, f.b, 0.40 * alfa), maxf(1.5, r * 0.08))
+		draw_circle(c, maxf(2.0, r * 0.26), Color(f.r, f.g, f.b, 0.55 * alfa))
+	elif tam == 2:
+		# La torre lleva REFUERZOS verticales, como los tablones de una puerta.
+		for i in 2:
+			var x: float = (float(i) * 2.0 - 1.0) * r * 0.34
+			draw_line(c + Vector2(x, -r * 1.30).rotated(giro),
+				c + Vector2(x, r * 1.22).rotated(giro),
+				Color(f.r, f.g, f.b, 0.35 * alfa), maxf(1.5, r * 0.09), true)
+	else:
+		# Y el heater, la banda cruzada de siempre.
+		draw_line(c + Vector2(-r * 0.75, -r * 0.30).rotated(giro),
+			c + Vector2(r * 0.75, r * 0.10).rotated(giro),
+			Color(f.r, f.g, f.b, 0.45 * alfa), maxf(1.5, r * 0.11), true)
 
 
 # ESCUDAZO. El golpe con el escudo: el canto entra de frente, sin filo ni estela -- es una plancha
@@ -3235,7 +3284,7 @@ func _pintar_escudazo(e: Dictionary) -> void:
 	var p: Vector2 = b + Vector2(0.0, caja * (0.70 * (1.0 - entra) + retro))
 	# 0.36 y no 0.42: la plancha se comia su propio impacto -- el anillo y las rayas quedaban DEBAJO
 	# del escudo y solo asomaban por el borde.
-	_escudo_cara(p, caja * 0.36, col, alfa, sin(g) * 0.12)
+	_escudo_cara(p, caja * 0.36, col, alfa, sin(g) * 0.12, int(e.get("escudo", -1)))
 	# EL PORRAZO: anillo romo y corto, nada de filos. Y unas rayas de impacto.
 	if k <= 0.55:
 		return
@@ -5296,7 +5345,8 @@ func _pintar_embestida_escudo(e: Dictionary) -> void:
 		var u: float = clampf(t / dur, 0.0, 1.0)
 		var desde: Vector2 = b - Vector2(lado * caja * 1.30 * (1.0 - u), 0.0)
 		# El alfa aqui es 1: durante el vuelo todavia no hay coleta de la que sacarlo.
-		_escudo_cara(desde, caja * 0.30, col, 0.35 + 0.65 * u, -lado * 0.35)
+		_escudo_cara(desde, caja * 0.30, col, 0.35 + 0.65 * u, -lado * 0.35,
+			int(e.get("escudo", -1)))
 		# Las lineas de velocidad, detras y a distintas alturas.
 		for i in 4:
 			var y: float = (float(i) - 1.5) * caja * 0.16
@@ -5311,7 +5361,8 @@ func _pintar_embestida_escudo(e: Dictionary) -> void:
 		return
 	# EL CHOQUE. El escudo llega, se para y rebota un poco.
 	var retro: float = 0.0 if v < 0.28 else minf((v - 0.28) / 0.40, 1.0) * 0.22
-	_escudo_cara(b - Vector2(lado * caja * retro, 0.0), caja * 0.34, col, alfa, -lado * 0.20)
+	_escudo_cara(b - Vector2(lado * caja * retro, 0.0), caja * 0.34, col, alfa, -lado * 0.20,
+		int(e.get("escudo", -1)))
 	# Y EL PESO que llega detras: un porrazo ancho y el polvo escapando hacia atras, que es por donde
 	# venia. Sin el polvo esto se queda en un escudo apoyado en el bicho.
 	_porrazo(b + Vector2(lado * caja * 0.20, 0.0), caja * 0.30 * (1.0 - v * 0.25), col, alfa, v, g,
@@ -5346,7 +5397,7 @@ func _pintar_provocacion(e: Dictionary) -> void:
 	# EL ESCUDO, delante de ti y temblando por el golpe que le acabas de dar. El temblor se apaga.
 	var tiembla: float = maxf(0.0, 1.0 - v / 0.30) * sale
 	var d := Vector2(sin(t * 34.0 + g), cos(t * 27.0 + g) * 0.5) * caja * 0.030 * tiembla
-	_escudo_cara(b + d, caja * 0.34, col, alfa, sin(g) * 0.10)
+	_escudo_cara(b + d, caja * 0.34, col, alfa, sin(g) * 0.10, int(e.get("escudo", -1)))
 	# LOS ANILLOS del grito, saliendo de ti y quedandose CERCA: cuatro, escalonados y muy achatados.
 	for i in 4:
 		var k: float = clampf(sale * 0.5 + v * 1.4 - float(i) * 0.15, 0.0, 1.0)
@@ -5394,7 +5445,8 @@ func _pintar_guardia_carne(e: Dictionary) -> void:
 	var f: Color = _filo_col(col)
 	# EL ESCUDO SE APARTA: baja y se va al lado, girando. Que se vea IRSE es medio gesto.
 	var fuera: Vector2 = Vector2(caja * 0.62 * abre, caja * 0.34 * abre)
-	_escudo_cara(b + fuera, caja * 0.28, col, alfa * (1.0 - abre * 0.45), 0.55 * abre)
+	_escudo_cara(b + fuera, caja * 0.28, col, alfa * (1.0 - abre * 0.45), 0.55 * abre,
+		int(e.get("escudo", -1)))
 	# LOS PIES CLAVADOS: dos cuñas en el suelo, con unas rayas de agarre. "Te plantas".
 	var suelo: Vector2 = b + Vector2(0.0, caja * 0.44)
 	for i in 2:
@@ -5473,7 +5525,7 @@ func _pintar_cobertura(e: Dictionary) -> void:
 	# EL ESCUDO, uno solo y GRANDE, adelantandose hacia el frente (hacia abajo, que es de donde viene
 	# lo que hay que parar).
 	var p: Vector2 = b + Vector2(0.0, caja * (0.02 + 0.20 * adelanta))
-	_escudo_cara(p, caja * 0.46, col, alfa, sin(g) * 0.06)
+	_escudo_cara(p, caja * 0.46, col, alfa, sin(g) * 0.06, int(e.get("escudo", -1)))
 	# Y EL HUECO que deja: dos rayas abriendose a los lados por debajo del escudo. "No paras sus
 	# golpes, pero les das donde meterse."
 	if v <= 0.18:

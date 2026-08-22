@@ -2620,8 +2620,12 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	var bv: Dictionary = _bloque_de(victima)
 	if bv.is_empty():
 		return
+	# EL ESCUDO que lleva el que pega, para que se dibuje EL SUYO. No viaja por red y no hace falta:
+	# el espejo resuelve al atacante con _de_codigo y ese Combatant ya trae su fx_escudo, igual que
+	# el color y el gesto del arma.
 	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido,
-		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx, elem)
+		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx, elem,
+		atacante.fx_escudo if atacante != null else -1)
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
 	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo, sfx)
