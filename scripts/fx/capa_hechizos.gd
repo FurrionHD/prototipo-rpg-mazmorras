@@ -2171,15 +2171,13 @@ func _pintar_daga_corte(e: Dictionary) -> void:
 	# El tajo CRUZA la tarjeta entera y se sale un poco por los lados: un corte que se queda dentro
 	# del recuadro parece un rasguño.
 	var largo: float = caja * (1.25 if rapido else 1.45)
-	var comba: float = 0.20 * sentido
+	# 0.05 como el resto: un corte que atraviesa va recto. Esta se quedo en 0.20 cuando se
+	# enderezaron los demas porque la comba iba en una VARIABLE y el barrido buscaba numeros sueltos.
+	var comba: float = 0.05 * sentido
 	# Entra de golpe y frena: 1-(1-v)^2 pone casi todo el recorrido al principio, que es como pasa
 	# una hoja de verdad -- rapidisima al cruzar y lenta al rematar.
 	var k: float = 1.0 - pow(1.0 - v, 2.0)
 	_tajo(b, ang, largo, comba, k, col, alfa, caja * 0.075, clampf((v - 0.40) / 0.60, 0.0, 1.0))
-	# LA HOJA, en la cabeza del trazo y mirando hacia donde va: es lo que hace que se lea que CORTA
-	# en vez de arrastrarse de lado. Solo mientras cruza -- al final ya ha salido del cuadro.
-	# CORTA Y ANCHA, que es la proporcion de una daga. Con la hoja larga y fina se confundia con el
-	# propio trazo -- las dos eran cintas claras y curvas -- y no se distinguia el arma del rastro.
 	# EL CORTE que queda en la carne, cuando ya ha pasado la hoja. Dos lineas finas (labio y sombra)
 	# y no el huso dentado del zarpazo: una daga deja un tajo limpio, y con el dentado parecia una
 	# pluma pegada encima.
