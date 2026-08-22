@@ -17,5 +17,6 @@ precio = 2500
 coste_energia = 34
 cooldown = 5
 dano_mult = 0.0
+fx_estilo = 92
 descripcion = "Te echas encima un poco de la oscuridad de al lado. Sigues ahí, pero dejas de ser lo primero que miran."
 efectos = [SubResource("SA_0")]

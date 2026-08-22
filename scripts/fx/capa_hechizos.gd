@@ -84,7 +84,9 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.VOTO_GUARDIA, CombatFX.Estilo.VOZ_MANDO, CombatFX.Estilo.ACERO_EN_ALTO, \
 		CombatFX.Estilo.DESVANECER, \
 		CombatFX.Estilo.GRITO_ALIENTO, CombatFX.Estilo.MURO_ALIADOS, \
-		CombatFX.Estilo.SED_SANGRE, CombatFX.Estilo.MARTILLO_EN_ALTO:
+		CombatFX.Estilo.SED_SANGRE, CombatFX.Estilo.MARTILLO_EN_ALTO, \
+		CombatFX.Estilo.FOCO_ARCANO, CombatFX.Estilo.VELO_UMBRIO, \
+		CombatFX.Estilo.VIENTO_LIMPIO:
 			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA, y el
 			# picaro se unta el filo).
 			e["a"] = b
@@ -113,7 +115,9 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.DESGARRO, \
 		CombatFX.Estilo.MARTILLO_GOLPE, CombatFX.Estilo.GOLPE_SISMICO, \
 		CombatFX.Estilo.ONDA_EXPANSIVA, CombatFX.Estilo.ROMPECORAZAS, \
-		CombatFX.Estilo.MARTILLO_GUERRA, CombatFX.Estilo.TEMBLOR_SUELO:
+		CombatFX.Estilo.MARTILLO_GUERRA, CombatFX.Estilo.TEMBLOR_SUELO, \
+		CombatFX.Estilo.BASTON_GOLPE, CombatFX.Estilo.BASTONAZO, \
+		CombatFX.Estilo.SELLO_ARCANO:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -357,6 +361,19 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_MARTILLO_ALTO
 	if es == CombatFX.Estilo.TEMBLOR_SUELO:
 		return float(e["dur"]) + COLETA_TEMBLOR
+	# EL BASTON.
+	if es == CombatFX.Estilo.BASTON_GOLPE:
+		return float(e["dur"]) + COLETA_BASTON
+	if es == CombatFX.Estilo.BASTONAZO:
+		return float(e["dur"]) + COLETA_BASTONAZO
+	if es == CombatFX.Estilo.FOCO_ARCANO:
+		return float(e["dur"]) + COLETA_FOCO
+	if es == CombatFX.Estilo.SELLO_ARCANO:
+		return float(e["dur"]) + COLETA_SELLO
+	if es == CombatFX.Estilo.VELO_UMBRIO:
+		return float(e["dur"]) + COLETA_VELO
+	if es == CombatFX.Estilo.VIENTO_LIMPIO:
+		return float(e["dur"]) + COLETA_VIENTO
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -452,6 +469,11 @@ func _draw() -> void:
 			CombatFX.Estilo.ROMPECORAZAS: _pintar_rompecorazas(e)
 			CombatFX.Estilo.MARTILLO_GUERRA: _pintar_martillo_guerra(e)
 			CombatFX.Estilo.MARTILLO_EN_ALTO: _pintar_martillo_en_alto(e)
+			CombatFX.Estilo.BASTON_GOLPE, CombatFX.Estilo.BASTONAZO: _pintar_bastonazo(e)
+			CombatFX.Estilo.FOCO_ARCANO: _pintar_foco_arcano(e)
+			CombatFX.Estilo.SELLO_ARCANO: _pintar_sello_arcano(e)
+			CombatFX.Estilo.VELO_UMBRIO: _pintar_velo_umbrio(e)
+			CombatFX.Estilo.VIENTO_LIMPIO: _pintar_viento_limpio(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -4820,3 +4842,351 @@ func _pintar_martillo_en_alto(e: Dictionary) -> void:
 		_estrella(b + Vector2(0.0, -alto - caja * 0.32) + tiembla,
 			caja * 0.42 * brillo, caja * 0.30 * brillo, 0.55,
 			Color(f.r, f.g, f.b, 0.55 * alfa * brillo))
+
+
+# ============================================================
+#  EL BASTON: barre romo, y lo demas es arcano
+# ============================================================
+# NO SE PARECE A NINGUNA DE LAS OCHO ANTERIORES, y no por capricho: es el arma del mago y lo suyo
+# casi no es pegar. motion_value 0.4, el mas flojo del juego. Eso hay que dibujarlo -- sus dos golpes
+# tienen que verse POCA COSA al lado de un hachazo, porque es lo que son.
+#
+# El problema al empezar era que no cabia en ninguno de los dos lenguajes que ya habia:
+#   con el trazo de las armas de corte (_tajo) sale un canto brillante y pasa a ser una ESPADA;
+#   con el porrazo de la maza (_porrazo) sale una masa que revienta y pasa a ser un MAZAZO.
+# Un palo es lo de en medio: BARRE, pero no corta. De ahi _barrido_romo -- la misma cinta pero mate,
+# sin canto -- y una marquita al final.
+#
+# La otra mitad del kit es ARCANA y no toca a nadie: el Foco, el Sello, el Velo y el Viento. Ninguna
+# embiste (un mago no se lanza contra nadie) y esa quietud es la mitad de su personalidad.
+const COLETA_BASTON := 0.24        # corto y sin gracia: es lo que es
+const COLETA_BASTONAZO := 0.34
+const COLETA_FOCO := 0.75          # hay que ver los signos juntarse
+const COLETA_SELLO := 0.55         # trazar el signo y cerrarlo de golpe
+const COLETA_VELO := 0.80          # es un buff largo: el velo se queda puesto
+const COLETA_VIENTO := 0.60
+
+
+# UNA CINTA MATE. Lo mismo que _tajo pero SIN el canto vivo: es por donde ha pasado un palo, no un
+# filo. La diferencia son dos lineas de codigo y es lo que separa el baston de una espada.
+#
+# Tampoco lleva el comportamiento del elemento (ni chispas, ni goteo, ni zigzag): un baston imbuido
+# sigue siendo un palo. El color solo tiñe la cinta, y flojito.
+func _barrido_romo(centro: Vector2, ang: float, largo: float, comba: float, k: float,
+		col: Color, alfa: float, grosor: float) -> void:
+	if k <= 0.02:
+		return
+	var dir := Vector2(cos(ang), sin(ang))
+	var lado := Vector2(-dir.y, dir.x)
+	var a: Vector2 = centro - dir * largo * 0.5
+	var b: Vector2 = centro + dir * largo * 0.5
+	var ctrl: Vector2 = centro + lado * comba * largo
+	var n: int = 14
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	for i in n + 1:
+		var s: float = float(i) / float(n) * k
+		var p: Vector2 = _bez(a, ctrl, b, s)
+		var t2: Vector2 = _bez(a, ctrl, b, minf(s + 0.02, 1.0)) - p
+		var d2: Vector2 = t2.normalized() if t2.length() > 0.01 else dir
+		var l2 := Vector2(-d2.y, d2.x)
+		# Gorda en la cabeza y afilandose hacia la cola, igual que el tajo: lo viejo del trazo se
+		# borra. Lo que cambia es como se remata, no como se mueve.
+		var w: float = grosor * pow(float(i) / float(n), 1.1)
+		izq.append(p + l2 * w)
+		der.append(p - l2 * w)
+	var pts := PackedVector2Array(izq)
+	for i in range(der.size() - 1, -1, -1):
+		pts.append(der[i])
+	var f: Color = _filo_col(col)
+	# MATE: el relleno un poco mas fuerte que en un tajo (0.34) para que se vea la cinta, y el borde
+	# APAGADO en vez del canto vivo. Con el canto brillante esto era un espadazo, sin mas.
+	draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.34 * alfa))
+	draw_polyline(izq, Color(f.r * 0.7, f.g * 0.7, f.b * 0.72, 0.45 * alfa),
+		maxf(1.0, grosor * 0.22), true)
+
+
+# EL BASTONAZO. Los dos golpes del arma: el basico y la tecnica, que es el mismo gesto con ganas.
+# Barrido romo que cruza y una marquita al final, y ya. Se queda corto a proposito.
+func _pintar_bastonazo(e: Dictionary) -> void:
+	var fuerte: bool = int(e["estilo"]) == CombatFX.Estilo.BASTONAZO
+	var r0: Array = _golpe_cuerpo(e, COLETA_BASTONAZO if fuerte else COLETA_BASTON, 0.08)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
+	# Tirando a horizontal -- un palo se maneja a dos manos y se barre de lado -- pero NO plano. La
+	# primera version iba a 9-19 grados y la cinta salia tan tumbada y tan fina que parecia una raya
+	# de interfaz cruzando la tarjeta, no un golpe. Con algo de diagonal ya se lee el gesto.
+	var ang: float = (0.34 + sin(g * 3.3) * 0.20) * sentido
+	var k: float = 1.0 - pow(1.0 - clampf(v / 0.30, 0.0, 1.0), 2.4)
+	var largo: float = caja * (1.55 if fuerte else 1.20)
+	_barrido_romo(b, ang, largo, 0.05 * sentido, k, col, alfa, caja * (0.105 if fuerte else 0.078))
+	if v <= 0.24:
+		return
+	var w: float = (v - 0.24) / 0.76
+	# La marca del palo: un porrazo PEQUEÑO donde ha llegado. Nada de crateres -- esto no pesa.
+	var dir := Vector2(cos(ang), sin(ang))
+	_porrazo(b + dir * largo * 0.30, caja * (0.21 if fuerte else 0.15) * (1.0 - w * 0.3),
+		col, alfa * (1.0 - w * 0.4), w, g, int(e.get("elem", 0)))
+	# Y SOLO EL FUERTE deja al bicho frenandose: tres rayas cortas tirando hacia atras, que es el
+	# Lento que aplica. El basico no lo aplica y por eso no las tiene.
+	if not fuerte or w <= 0.2:
+		return
+	var f: Color = _filo_col(col)
+	# Van pegadas al bicho y ALARGANDOSE hacia atras, con la de en medio la mas larga: es el rastro de
+	# algo que se ha quedado frenado. Sueltas y del mismo largo parecian tres rectangulos flotando.
+	for i in 3:
+		var y: float = (float(i) - 1.0) * caja * 0.18
+		var lg: float = caja * (0.34 + 0.30 * w) * (1.0 if i == 1 else 0.65)
+		var x0: float = -dir.x * caja * 0.16
+		draw_line(b + Vector2(x0, y), b + Vector2(x0 - dir.x * lg, y),
+			Color(f.r, f.g, f.b, 0.6 * alfa * (1.0 - w * 0.7)), maxf(1.5, caja * 0.018), true)
+
+
+# UN SIGNO ARCANO: un poligono regular con su circulo y unos radios. El ladrillo de lo arcano del
+# baston, que es medio kit.
+#
+# 'lados' cambia el signo entero sin tocar nada mas: 5 para el Foco (una estrella cerrada, algo que
+# se junta) y 6 para el Sello (un candado, algo que se cierra sobre otro). Que no sean el mismo
+# poligono es lo unico que impide que las dos habilidades se lean igual.
+func _signo(c: Vector2, r: float, lados: int, giro: float, col: Color, alfa: float,
+		grosor: float) -> void:
+	if r < 2.0 or alfa <= 0.01:
+		return
+	var pts := PackedVector2Array()
+	for i in lados:
+		var a: float = giro + TAU * float(i) / float(lados) - PI * 0.5
+		# Achatado: la fila de tarjetas es ancha y baja, y un signo redondo se sale por arriba.
+		pts.append(c + Vector2(cos(a) * r, sin(a) * r * 0.78))
+	var cerr := PackedVector2Array(pts)
+	cerr.append(pts[0])
+	draw_polyline(cerr, Color(col.r, col.g, col.b, alfa), grosor, true)
+	_anillo(c, r * 1.18, r * 1.18 * 0.78, Color(col.r, col.g, col.b, 0.55 * alfa),
+		maxf(1.0, grosor * 0.7))
+	# Los radios, del centro a cada vertice: es lo que lo hace un SIGNO y no un poligono suelto.
+	for i in lados:
+		var a2: float = giro + TAU * float(i) / float(lados) - PI * 0.5
+		draw_line(c, c + Vector2(cos(a2) * r * 0.92, sin(a2) * r * 0.78 * 0.92),
+			Color(col.r, col.g, col.b, 0.40 * alfa), maxf(1.0, grosor * 0.6), true)
+
+
+# FOCO ARCANO. Sobre TI: "canalizas tu aguante fisico en potencia magica". Los signos aparecen
+# alrededor, se ENCOGEN hacia ti y se meten dentro. Nada sale: todo entra, que es justo lo contrario
+# de lo que hace cualquier otra cosa de este archivo.
+func _pintar_foco_arcano(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sale: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_FOCO, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.74 else 1.0 - (v - 0.74) / 0.26
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# TRES SIGNOS, escalonados, cada uno cerrandose sobre ti. El escalonado es lo que hace que se lea
+	# como algo que se ACUMULA (son dos cargas de Foco) y no como un aura puesta de golpe.
+	for i in 3:
+		var k: float = clampf((sale * 0.5 + v * 1.35 - float(i) * 0.20) / 0.70, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		var r: float = caja * (0.62 - 0.46 * k)          # se encoge: entra hacia ti
+		var op: float = sin(PI * clampf(k, 0.0, 1.0))     # aparece y se apaga con el recorrido
+		_signo(b, r, 5, g + float(i) * 0.7 + k * 1.2, f, 0.75 * alfa * op,
+			maxf(1.5, caja * 0.020))
+	# LAS MOTAS que caen hacia dentro con ellos. Van del borde al centro, al reves que las chispas de
+	# todo lo demas.
+	for i in 7:
+		var kk: float = fposmod(sale * 0.6 + v * 1.5 + float(i) * 0.14, 1.0)
+		var a: float = g + TAU * float(i) / 7.0
+		var r2: float = caja * 0.70 * (1.0 - kk)
+		draw_circle(b + Vector2(cos(a) * r2, sin(a) * r2 * 0.78),
+			maxf(1.0, caja * 0.022 * kk), Color(f.r, f.g, f.b, 0.8 * alfa * sin(PI * kk)))
+	# Y el nucleo encendiendose segun se llena.
+	var carga: float = clampf(sale * 0.4 + v * 0.9, 0.0, 1.0)
+	draw_circle(b, maxf(1.5, caja * 0.10 * carga), Color(f.r, f.g, f.b, 0.55 * alfa * carga))
+	draw_circle(b, maxf(1.0, caja * 0.045 * carga), Color(1.0, 0.99, 0.96, 0.9 * alfa * carga))
+
+
+# SELLO ARCANO. "Trazas un signo en el aire y lo cierras de golpe. Lo que iba a decir se queda
+# dentro." Va sobre el ENEMIGO (hace daño, 0.5) y tiene dos tiempos que hay que ver los dos: el signo
+# TRAZANDOSE despacio y el CIERRE, seco.
+#
+# Se distingue del Foco por el poligono (seis lados, no cinco), por donde se pinta (encima del bicho,
+# no de ti) y sobre todo por la direccion: el Foco se encoge hacia dentro y este se cierra sobre
+# OTRO. Y el cierre es de golpe -- un candado no se cierra despacio.
+func _pintar_sello_arcano(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var b: Vector2 = e["b"]
+	var f: Color = _filo_col(col)
+	# PRIMER TIEMPO, durante el vuelo: el signo se traza. Se dibuja creciendo en radio y girando.
+	if t < dur:
+		var u: float = clampf(t / dur, 0.0, 1.0)
+		_signo(b, caja * 0.52 * u, 6, g + u * 1.6, f, 0.75 * u, maxf(1.5, caja * 0.022))
+		return
+	var v: float = clampf((t - dur) / COLETA_SELLO, 0.0, 1.0)
+	var alfa: float = 1.0 if v < 0.66 else 1.0 - (v - 0.66) / 0.34
+	if alfa <= 0.0:
+		return
+	# SEGUNDO TIEMPO: se cierra. El radio cae de golpe (pow 4) y el signo se queda pequeño y apretado
+	# sobre el bicho. Ese frenazo es todo el gesto.
+	var cierra: float = 1.0 - pow(1.0 - clampf(v / 0.22, 0.0, 1.0), 4.0)
+	var r: float = caja * (0.52 - 0.30 * cierra)
+	_signo(b, r, 6, g + 1.6 + cierra * 0.5, f, 0.9 * alfa, maxf(2.0, caja * 0.026))
+	# EL FOGONAZO del cierre, corto y seco.
+	if cierra > 0.5:
+		var br: float = maxf(0.0, 1.0 - (v - 0.11) / 0.30)
+		if br > 0.0:
+			_estrella(b, caja * 0.40 * br, caja * 0.30 * br, 0.62,
+				Color(f.r, f.g, f.b, 0.7 * alfa * br))
+	if v <= 0.26:
+		return
+	# LAS BARRAS DEL CANDADO: dos trazos cruzados dentro del signo, que se quedan puestos. Es lo que
+	# dice que eso esta CERRADO y no solo dibujado -- y es lo que se lee como Silencio de un vistazo.
+	var w: float = clampf((v - 0.26) / 0.30, 0.0, 1.0)
+	for i in 2:
+		var a: float = (-PI * 0.25 if i == 0 else PI * 0.25)
+		var u2 := Vector2(cos(a), sin(a) * 0.78)
+		draw_line(b - u2 * r * 0.92 * w, b + u2 * r * 0.92 * w,
+			Color(f.r, f.g, f.b, 0.85 * alfa), maxf(2.0, caja * 0.026), true)
+
+
+# VELO UMBRIO. Sobre TI: "te echas encima un poco de la oscuridad de al lado".
+#
+# CUIDADO CON EL DESVANECER de la daga (39), que aplica el MISMO estado (Sigilo) y por tanto es el
+# que se puede confundir. Se separan por como llega la sombra:
+#   DESVANECER  es un BORRON que te envuelve y se deshace -- te esfumas tu
+#   VELO_UMBRIO es un MANTO que CAE desde arriba y se queda puesto -- te tapas con algo de fuera
+# Por eso este se dibuja como una cortina bajando y con el borde de abajo ondeando, y aquel como una
+# mancha de bordes inquietos.
+func _pintar_velo_umbrio(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var cae: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_VELO, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.76 else 1.0 - (v - 0.76) / 0.24
+	if alfa <= 0.0:
+		return
+	# LA CORTINA. Nace por encima de la tarjeta y baja tapandola. El borde de abajo ondea, que es lo
+	# unico que la separa de un rectangulo gris.
+	var an: float = caja * 0.52
+	var techo: float = -caja * 0.62
+	# Baja hasta cubrir y despues respira un poco: un velo puesto no se queda tieso.
+	var hasta: float = lerpf(techo, caja * 0.46, cae) + sin(t * 2.6 + g) * caja * 0.02 * (1.0 - cae * 0.5)
+	# TODAVIA NO HA BAJADO NADA. Con la tela a altura cero todos los vertices caen en la misma linea y
+	# el poligono no se puede triangular ("Invalid polygon data"): no se pinta y ademas escupe dos
+	# errores por frame. Es el mismo caso que ya tenia _estrella al apagarse.
+	if hasta - techo < 3.0:
+		return
+	# LOS LADOS TAMBIEN SE MUEVEN. La primera version tenia los cantos rectos y el techo de borde a
+	# borde: salia un RECTANGULO NEGRO plantado sobre la tarjeta, o sea una caja, no una tela. Una
+	# tela colgada no tiene ni un lado recto.
+	var n: int = 13
+	var pts := PackedVector2Array()
+	pts.append(b + Vector2(-an * 0.82, techo))
+	pts.append(b + Vector2(an * 0.82, techo))
+	# Los lados van por DENTRO del recorrido, sin tocar ni el techo ni el suelo (s de 0.25 a 0.75).
+	# Llegando a los extremos, el ultimo punto del lado izquierdo caia justo encima del primero del
+	# poligono y el contorno RETROCEDIA sobre si mismo: Godot no puede triangular eso ("Invalid
+	# polygon data") y el velo no se pintaba, escupiendo dos errores por frame.
+	for i in 3:
+		var s2: float = 0.25 + 0.25 * float(i)
+		pts.append(b + Vector2(an * (0.82 + 0.22 * sin(PI * s2) + 0.06 * sin(t * 2.3 + g)),
+			lerpf(techo, hasta, s2)))
+	for i in n:
+		var u: float = 1.0 - float(i) / float(n - 1)
+		var x: float = lerpf(-an, an, u)
+		# El ondeo va con el tiempo real y desfasado por la x: una tela que se mueve, no una linea.
+		var onda: float = sin(t * 3.1 + u * 6.4 + g) * caja * 0.055 * (0.4 + 0.6 * cae)
+		pts.append(b + Vector2(x, hasta + onda))
+	# Y el izquierdo, subiendo (igual: sin llegar al techo).
+	for i in 3:
+		var s3: float = 0.75 - 0.25 * float(i)
+		pts.append(b + Vector2(-an * (0.82 + 0.22 * sin(PI * s3) + 0.06 * sin(t * 2.7 + g)),
+			lerpf(techo, hasta, s3)))
+	# MENOS OPACO (0.52): un velo tapa pero tiene que dejar ver QUIEN lo lleva. A 0.62 el personaje
+	# desaparecia debajo y esto pasaba a ser un agujero en la pantalla.
+	draw_colored_polygon(pts, Color(0.05, 0.04, 0.08, 0.52 * alfa))
+	# El borde de abajo, un poco mas claro: es donde se ve que es una tela y no un agujero.
+	var borde := PackedVector2Array()
+	for i in n:
+		var u2: float = float(i) / float(n - 1)
+		borde.append(b + Vector2(lerpf(-an, an, u2),
+			hasta + sin(t * 3.1 + u2 * 6.4 + g) * caja * 0.055 * (0.4 + 0.6 * cae)))
+	draw_polyline(borde, Color(0.34, 0.30, 0.44, 0.55 * alfa), maxf(1.5, caja * 0.022), true)
+	# LOS PLIEGUES: tres lineas verticales que bajan por la tela. Es lo que dice que hay un paño ahi
+	# y no una mancha -- y a la vez deja ver que lo de detras sigue existiendo.
+	for i in 3:
+		var x3: float = (float(i) - 1.0) * an * 0.52 + sin(g + float(i) * 2.1) * caja * 0.03
+		var pl := PackedVector2Array()
+		for j in 5:
+			var s4: float = float(j) / 4.0
+			pl.append(b + Vector2(x3 + sin(t * 2.4 + g + float(i) + s4 * 3.0) * caja * 0.022 * s4,
+				lerpf(techo, hasta, s4)))
+		draw_polyline(pl, Color(0.20, 0.17, 0.26, 0.45 * alfa), maxf(1.0, caja * 0.014), true)
+	# Y unos jirones desprendiendose por debajo, que es lo que dice que la sombra sigue viva.
+	for i in 4:
+		var kk: float = fposmod(v * 1.2 + float(i) * 0.27 + g * 0.1, 1.0)
+		var x2: float = sin(g + float(i) * 2.3) * an * 0.75
+		draw_circle(b + Vector2(x2, hasta + caja * 0.20 * kk),
+			maxf(1.0, caja * 0.030 * (1.0 - kk)),
+			Color(0.10, 0.08, 0.14, 0.5 * alfa * sin(PI * kk)))
+
+
+# VIENTO LIMPIO. Sobre CADA UNO DE LOS TUYOS (llega por _fx_adorno con la lista de aliados): "una
+# corriente de aire limpio los recorre y se lleva algo de encima de cada uno".
+#
+# Lo que hay que leer es que ALGO SE VA, no que llegue nada. Por eso las rachas cruzan de lado a lado
+# y arrastran motas oscuras HACIA FUERA de la tarjeta: si las motas entraran o se quedaran, parecia
+# que le estabas echando algo encima en vez de quitandoselo.
+func _pintar_viento_limpio(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sale: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_VIENTO, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.64 else 1.0 - (v - 0.64) / 0.36
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# LAS RACHAS: cinco lineas horizontales que cruzan la tarjeta a distintas alturas y en distinto
+	# momento. Cada una es un trazo CORTO que se desplaza, no una raya de lado a lado: lo que se ve
+	# pasar es el aire, y el aire no es una regla.
+	for i in 5:
+		var k: float = clampf(sale * 0.45 + v * 1.5 - float(i) * 0.11, 0.0, 1.0)
+		if k <= 0.0 or k >= 1.0:
+			continue
+		var y: float = (float(i) - 2.0) * caja * 0.22 + sin(g + float(i) * 1.7) * caja * 0.04
+		# LARGAS Y MARCADAS. Cortas y tenues no se leia que pasara nada: parecian motas de polvo.
+		var largo: float = caja * (0.52 + 0.22 * sin(g * 2.1 + float(i)))
+		var x: float = lerpf(-caja * 0.85, caja * 0.85, k)
+		var op: float = sin(PI * k)
+		draw_line(b + Vector2(x - largo, y + caja * 0.03), b + Vector2(x, y),
+			Color(f.r, f.g, f.b, 0.95 * alfa * op), maxf(2.0, caja * 0.028), true)
+	# LO QUE SE LLEVA: motas OSCURAS despegandose y saliendo por el lado, siempre hacia fuera. Son la
+	# porqueria que tenia encima, asi que van en sucio y no del color del viento.
+	for i in 6:
+		var kk: float = fposmod(sale * 0.5 + v * 1.35 + float(i) * 0.17, 1.0)
+		var y2: float = (float(i) - 2.5) * caja * 0.18 + sin(g * 1.3 + float(i)) * caja * 0.05
+		var x2: float = lerpf(-caja * 0.15, caja * 0.95, kk)
+		draw_circle(b + Vector2(x2, y2 - caja * 0.10 * kk),
+			maxf(1.5, caja * 0.038 * (1.0 - kk * 0.6)),
+			Color(0.26, 0.21, 0.17, 0.9 * alfa * sin(PI * kk)))

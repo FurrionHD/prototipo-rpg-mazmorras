@@ -11,4 +11,5 @@ cooldown = 5
 dano_mult = 0.0
 objetivo_aliado = 2
 limpia_debuffs = 1
+fx_estilo = 93
 descripcion = "Una corriente de aire limpio recorre a los tuyos. No lo cura todo, pero se lleva algo de encima de cada uno."

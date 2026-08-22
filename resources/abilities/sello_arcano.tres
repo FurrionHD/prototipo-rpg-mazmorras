@@ -18,5 +18,6 @@ cooldown = 5
 golpes_min = 1
 golpes_max = 1
 dano_mult = 0.5
+fx_estilo = 91
 descripcion = "Trazas un signo en el aire y lo cierras de golpe. Lo que iba a decir se queda dentro."
 efectos = [SubResource("SA_0")]

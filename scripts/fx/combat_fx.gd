@@ -205,6 +205,21 @@ signal apagar_ahora(bloque: Dictionary)
 #   TEMBLOR_SUELO    no es un golpe: el suelo NO PARA de temblar y se va abriendo. Se llama asi y no
 #                    TEMBLOR porque el enum ya se lee suelto en muchos sitios y "Temblor" a secas no
 #                    dice de que va
+# EL BASTON es el arma del MAGO y no se parece a ninguna de las ocho anteriores, porque lo suyo casi
+# no es pegar: motion_value 0.4, el mas flojo del juego. Eso es lo que hay que dibujar -- sus dos
+# golpes tienen que verse POCA COSA al lado de un hachazo, que es exactamente lo que son.
+#
+# Barre ROMO (_barrido_romo): una cinta mate sin canto brillante. Un palo no tiene filo, asi que
+# usar el trazo de las armas de corte lo convertiria en una espada; y no tiene masa, asi que el
+# porrazo seco de la maza lo convertiria en un mazazo. Es lo de en medio: barre, pero no corta.
+#
+# Y lo demas es ARCANO, que en esta arma es la mitad del kit.
+#   BASTON_GOLPE   el bastonazo de siempre (el basico): flojo y corto
+#   BASTONAZO      el mismo golpe con ganas, y el enemigo frenandose detras
+#   FOCO_ARCANO    sobre TI: los signos que se juntan y se meten en el baston
+#   SELLO_ARCANO   un signo trazado en el aire sobre el enemigo que se CIERRA de golpe (Silencio)
+#   VELO_UMBRIO    sobre TI: el manto de sombra que CAE y te tapa (Sigilo)
+#   VIENTO_LIMPIO  sobre LOS TUYOS: la corriente que los recorre y se lleva porqueria
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -229,7 +244,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		HACHA_TAJO = 75, HENDEDURA = 76, HACHAZO_BRUTAL = 77, CARNICERIA = 78,
 		DESGARRO = 79, SED_SANGRE = 80,
 		MARTILLO_GOLPE = 81, GOLPE_SISMICO = 82, ONDA_EXPANSIVA = 83, ROMPECORAZAS = 84,
-		MARTILLO_GUERRA = 85, MARTILLO_EN_ALTO = 86, TEMBLOR_SUELO = 87 }
+		MARTILLO_GUERRA = 85, MARTILLO_EN_ALTO = 86, TEMBLOR_SUELO = 87,
+		BASTON_GOLPE = 88, BASTONAZO = 89, FOCO_ARCANO = 90, SELLO_ARCANO = 91,
+		VELO_UMBRIO = 92, VIENTO_LIMPIO = 93 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -248,6 +265,7 @@ const FX_ARMA := {
 	7: Estilo.MAZA_GOLPE,        # MAZA_PEQ
 	6: Estilo.HACHA_TAJO,        # HACHA_GRANDE
 	8: Estilo.MARTILLO_GOLPE,    # MARTILLO_GRANDE
+	9: Estilo.BASTON_GOLPE,      # BASTON
 }
 
 
@@ -269,7 +287,9 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.HACHA_TAJO, Estilo.HENDEDURA, Estilo.HACHAZO_BRUTAL, Estilo.CARNICERIA,
 	Estilo.DESGARRO, Estilo.SED_SANGRE,
 	Estilo.MARTILLO_GOLPE, Estilo.GOLPE_SISMICO, Estilo.ONDA_EXPANSIVA, Estilo.ROMPECORAZAS,
-	Estilo.MARTILLO_GUERRA, Estilo.MARTILLO_EN_ALTO, Estilo.TEMBLOR_SUELO]
+	Estilo.MARTILLO_GUERRA, Estilo.MARTILLO_EN_ALTO, Estilo.TEMBLOR_SUELO,
+	Estilo.BASTON_GOLPE, Estilo.BASTONAZO, Estilo.FOCO_ARCANO, Estilo.SELLO_ARCANO,
+	Estilo.VELO_UMBRIO, Estilo.VIENTO_LIMPIO]
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
@@ -384,6 +404,13 @@ const T_VUELO := {
 	# El Temblor va largo porque lo suyo es que NO PARA: el adelanto es el primer martillazo y el
 	# resto pasa en la coleta, que es la mas larga del arma.
 	Estilo.TEMBLOR_SUELO: 0.16,
+	# EL BASTON. Sus dos golpes van CORTOS: es un palo, no pesa, y con los adelantos largos de las
+	# armas grandes parecian solemnes -- justo lo contrario de lo que son.
+	Estilo.BASTON_GOLPE: 0.06, Estilo.BASTONAZO: 0.09,
+	# Lo arcano va LARGO, que es lo contrario: un signo hay que verlo trazarse. Y el velo tiene que
+	# verse CAER, o no se entiende que te tapa.
+	Estilo.SELLO_ARCANO: 0.24, Estilo.FOCO_ARCANO: 0.26, Estilo.VELO_UMBRIO: 0.28,
+	Estilo.VIENTO_LIMPIO: 0.22,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1287,7 +1314,10 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	# El martillo tambien hay que llevarlo hasta alli, incluidas las que pegan al suelo: el suelo que
 	# revientas es el de DEBAJO del bicho.
 	Estilo.MARTILLO_GOLPE, Estilo.GOLPE_SISMICO, Estilo.ONDA_EXPANSIVA, Estilo.ROMPECORAZAS,
-	Estilo.MARTILLO_GUERRA, Estilo.TEMBLOR_SUELO]
+	Estilo.MARTILLO_GUERRA, Estilo.TEMBLOR_SUELO,
+	# Los dos golpes del baston: para dar un palo tambien hay que llegar. Lo arcano NO embiste -- un
+	# mago no se lanza contra nadie, y ese contraste es medio kit del arma.
+	Estilo.BASTON_GOLPE, Estilo.BASTONAZO]
 # NOTA: la CARGA esta en _ESTILOS_DE_GRUPO y aun asi embiste. No es contradictorio: embestir es del
 # ATACANTE (su tarjeta se lanza) y agruparse es del DIBUJO (uno solo para todo lo alcanzado).
 
@@ -1297,7 +1327,8 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
 const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO,
 	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA, Estilo.ACERO_EN_ALTO,
-	Estilo.DESVANECER, Estilo.SED_SANGRE, Estilo.MARTILLO_EN_ALTO]
+	Estilo.DESVANECER, Estilo.SED_SANGRE, Estilo.MARTILLO_EN_ALTO,
+	Estilo.FOCO_ARCANO, Estilo.VELO_UMBRIO]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA,

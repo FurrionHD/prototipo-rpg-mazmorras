@@ -18,4 +18,5 @@ golpes_min = 1
 golpes_max = 1
 dano_mult = 1.6
 efectos = [SubResource("SA_lento")]
+fx_estilo = 89
 descripcion = "Un golpe seco con el bastón para ganar algo de tiempo. La opción física del mago cuando anda corto de maná."

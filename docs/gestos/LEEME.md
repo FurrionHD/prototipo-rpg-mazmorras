@@ -46,6 +46,9 @@ Cuatro instantes de cada gesto, una hoja por arma:
   atraviesa), así que "¿se distinguen?" se contesta mirándolos juntos y no de memoria
 - `gestos_9_martillo_grande.png` — con el porrazo de la **maza** abajo de comparación, por lo mismo:
   la maza pega al bicho y el martillo al suelo
+- `gestos_10_baston.png` — con **dos** comparaciones: el Desaparecer de la daga (el otro Sigilo, que
+  se podía confundir con el Velo umbrío) y un tajo de mandoble, para ver que el barrido del bastón
+  es mate y no tiene canto
 
 Se regeneran con el visor (`F12`) o volviendo a escribir el generador; son capturas, no hay que
 mantenerlas al día salvo que cambie un gesto.
