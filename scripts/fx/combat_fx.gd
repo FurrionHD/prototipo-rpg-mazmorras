@@ -114,7 +114,8 @@ signal apagar_ahora(bloque: Dictionary)
 # menos nerviosos. Donde la daga da un arañazo rapido, esta abre.
 #   ESPADA_TAJO       el tajo de siempre (el basico)
 #   TAJO_QUEBRANTADOR el que ABRE LA GUARDIA: el tajo revienta un arco que salta en pedazos
-#   DOBLE_TAJO        dos tajos encadenados, el segundo cruzando al primero
+#   DOBLE_TAJO        los dos cortes se quedan puestos formando una CRUZ y, cuando se cierra,
+#                     destella entera
 #   CAMBIO_RITMO      un tajo corto y las marcas del compas que se rompe
 #   SENALAR_HUECO     dos cortes EN EL MISMO SITIO y una diana que se queda puesta
 #   CORTE_TENDONES    corte BAJO, a lo que lo sostiene: la herida va abajo y el bicho cede
@@ -135,8 +136,10 @@ signal apagar_ahora(bloque: Dictionary)
 # ancho como haga falta para cubrir a todos los que alcanza (ver _marcar_efectos_de_grupo).
 #   MANDOBLE_TAJO    el tajo enorme (el basico)
 #   TAJO_DEVASTADOR  el descendente con toda la masa del espadon, y la onda que levanta
-#   MOLINETE         un giro COMPLETO alrededor: el arco rodea a los alcanzados
-#   GRITO_GUERRA     el acero en alto y la onda del grito barriendo la fila
+#   MOLINETE         DOS barridos que cruzan la fila entera de lado a lado
+#   GRITO_GUERRA     la onda del grito barriendo la fila (el acero en alto va en fx_sobre_mi: se
+#                    levanta sobre TI, no sobre el que lo recibe)
+#   ACERO_EN_ALTO    lo que te echas encima al gritar: el espadon levantado
 #   TAJO_VERDUGO     el que se anuncia un turno: cae desde MUY arriba y parte el suelo
 #   SEGAR            dos barridos BAJOS, a la altura de las piernas, de lado a lado
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
@@ -157,7 +160,7 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		ESPADA_LARGA_TAJO = 53, TAJO_PESADO = 54, TAJO_DESARMANTE = 55, GUARDIA_ROTA = 56,
 		VOTO_GUARDIA = 57, ESTOCADA_MARCIAL = 58, VOZ_MANDO = 59, ESCUDAZO = 60,
 		MANDOBLE_TAJO = 61, TAJO_DEVASTADOR = 62, MOLINETE = 63, GRITO_GUERRA = 64,
-		TAJO_VERDUGO = 65, SEGAR = 66 }
+		TAJO_VERDUGO = 65, SEGAR = 66, ACERO_EN_ALTO = 67 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -188,7 +191,7 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.ESPADA_LARGA_TAJO, Estilo.TAJO_PESADO, Estilo.TAJO_DESARMANTE, Estilo.GUARDIA_ROTA,
 	Estilo.VOTO_GUARDIA, Estilo.ESTOCADA_MARCIAL, Estilo.VOZ_MANDO, Estilo.ESCUDAZO,
 	Estilo.MANDOBLE_TAJO, Estilo.TAJO_DEVASTADOR, Estilo.MOLINETE, Estilo.GRITO_GUERRA,
-	Estilo.TAJO_VERDUGO, Estilo.SEGAR]
+	Estilo.TAJO_VERDUGO, Estilo.SEGAR, Estilo.ACERO_EN_ALTO]
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
@@ -271,6 +274,7 @@ const T_VUELO := {
 	# entero (carga_turnos) y encima tarda en bajar.
 	Estilo.MANDOBLE_TAJO: 0.13, Estilo.TAJO_DEVASTADOR: 0.20, Estilo.MOLINETE: 0.14,
 	Estilo.GRITO_GUERRA: 0.16, Estilo.TAJO_VERDUGO: 0.30, Estilo.SEGAR: 0.12,
+	Estilo.ACERO_EN_ALTO: 0.20,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1166,7 +1170,7 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # atacante y victima son el mismo y el dibujo va en SU tarjeta, no en la de enfrente. Los demas
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
 const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO,
-	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA]
+	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA, Estilo.ACERO_EN_ALTO]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA,

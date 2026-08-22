@@ -76,7 +76,7 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 			# Del cielo: el origen es el techo de la pantalla, justo encima del objetivo.
 			e["a"] = Vector2(b.x + randf_range(-14.0, 14.0), FUERA)
 		CombatFX.Estilo.AURA, CombatFX.Estilo.CAPARAZON, CombatFX.Estilo.MURALLA, \
-		CombatFX.Estilo.ESCUDO, CombatFX.Estilo.IMBUIR_FILO, CombatFX.Estilo.EN_GUARDIA, 		CombatFX.Estilo.VOTO_GUARDIA, CombatFX.Estilo.VOZ_MANDO:
+		CombatFX.Estilo.ESCUDO, CombatFX.Estilo.IMBUIR_FILO, CombatFX.Estilo.EN_GUARDIA, 		CombatFX.Estilo.VOTO_GUARDIA, CombatFX.Estilo.VOZ_MANDO, CombatFX.Estilo.ACERO_EN_ALTO:
 			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA, y el
 			# picaro se unta el filo).
 			e["a"] = b
@@ -246,8 +246,10 @@ func _vida(e: Dictionary) -> float:
 	# LA ESPADA CORTA. Mas larga que la de la daga: el trazo es mas amplio y tiene que recorrerse.
 	if es == CombatFX.Estilo.ESPADA_TAJO:
 		return float(e["dur"]) + COLETA_ESPADA
-	if es == CombatFX.Estilo.DOBLE_TAJO or es == CombatFX.Estilo.CAMBIO_RITMO:
+	if es == CombatFX.Estilo.CAMBIO_RITMO:
 		return float(e["dur"]) + COLETA_ESPADA_RAPIDA
+	if es == CombatFX.Estilo.DOBLE_TAJO:
+		return float(e["dur"]) + COLETA_DOBLE_TAJO
 	if es == CombatFX.Estilo.TAJO_QUEBRANTADOR:
 		return float(e["dur"]) + COLETA_QUEBRANTADOR
 	if es == CombatFX.Estilo.SENALAR_HUECO:
@@ -284,6 +286,8 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_VERDUGO
 	if es == CombatFX.Estilo.SEGAR:
 		return float(e["dur"]) + COLETA_SEGAR
+	if es == CombatFX.Estilo.ACERO_EN_ALTO:
+		return float(e["dur"]) + COLETA_ACERO_ALTO
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -342,7 +346,8 @@ func _draw() -> void:
 			CombatFX.Estilo.PASO_LIGERO: _pintar_paso_ligero(e)
 			CombatFX.Estilo.PUNZADA_NERVIO: _pintar_punzada_nervio(e)
 			CombatFX.Estilo.DANZA_ACERO: _pintar_danza_acero(e)
-			CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.DOBLE_TAJO, 			CombatFX.Estilo.CAMBIO_RITMO: _pintar_espada_tajo(e)
+			CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.CAMBIO_RITMO: _pintar_espada_tajo(e)
+			CombatFX.Estilo.DOBLE_TAJO: _pintar_doble_tajo(e)
 			CombatFX.Estilo.TAJO_QUEBRANTADOR: _pintar_quebrantador(e)
 			CombatFX.Estilo.SENALAR_HUECO: _pintar_senalar_hueco(e)
 			CombatFX.Estilo.CORTE_TENDONES: _pintar_corte_tendones(e)
@@ -358,6 +363,7 @@ func _draw() -> void:
 			CombatFX.Estilo.GRITO_GUERRA: _pintar_grito_guerra(e)
 			CombatFX.Estilo.TAJO_VERDUGO: _pintar_verdugo(e)
 			CombatFX.Estilo.SEGAR: _pintar_segar(e)
+			CombatFX.Estilo.ACERO_EN_ALTO: _pintar_acero_en_alto(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -2056,8 +2062,13 @@ func _hoja(p: Vector2, dir: Vector2, largo: float, ancho: float, col: Color, alf
 		maxf(1.0, ancho * 0.26), true)
 
 
-# EL TRAZO de un tajo: la cinta que deja el filo al CRUZAR, combada como el arco que describe un
-# brazo. Va de un lado al otro pasando por el centro de la tarjeta.
+# EL TRAZO de un tajo: la cinta que deja el filo al CRUZAR. Va de un lado al otro pasando por el
+# centro de la tarjeta, y va CASI RECTA.
+#
+# La comba empezo siendo generosa ("el arco que describe el brazo") y estaba mal: nadie corta a
+# traves de algo describiendo una curva. El brazo gira, pero el filo que ATRAVIESA entra y sale por
+# una linea. Ahora las combas son de 0.03-0.07, lo justo para que el trazo no sea una regla, y la
+# unica caida recta del todo es la del Tajo del verdugo, que baja a plomo.
 #
 # ESTO ES TODO LO QUE SE DIBUJA DE UN CORTE: la hoja NO se pinta. Se intento -- primero apuntando
 # hacia donde iba el trazo y despues de canto -- y las dos veces se veia raro: un arma entera
@@ -2077,7 +2088,7 @@ func _hoja(p: Vector2, dir: Vector2, largo: float, ancho: float, col: Color, alf
 # en la tangente (o sea apuntando hacia donde va) parecia una lanza volando de lado, y era justo lo
 # que hacia que los tajos se vieran raros: el dibujo iba en una direccion y el movimiento en otra.
 func _tajo(centro: Vector2, ang: float, largo: float, comba: float, k: float,
-		col: Color, alfa: float, grosor: float) -> Array:
+		col: Color, alfa: float, grosor: float, sangre: float = 0.0) -> Array:
 	var dir := Vector2(cos(ang), sin(ang))
 	var lado := Vector2(-dir.y, dir.x)
 	var a: Vector2 = centro - dir * largo * 0.5
@@ -2114,6 +2125,15 @@ func _tajo(centro: Vector2, ang: float, largo: float, comba: float, k: float,
 		draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.26 * alfa))
 		# El canto, mas vivo y fino: es por donde ha pasado el filo.
 		draw_polyline(izq, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(1.5, grosor * 0.38), true)
+		# LA MARCA que queda. Va SOBRE EL PROPIO TRAZO, no como una linea aparte: antes la herida se
+		# dibujaba recta por su cuenta mientras el tajo iba curvo, y se veian dos rayas que no
+		# pegaban ni unían. Lo que corta y lo que queda cortado son la misma linea.
+		if sangre > 0.0:
+			var eje := PackedVector2Array()
+			for i in izq.size():
+				eje.append((izq[i] + der[i]) * 0.5)
+			draw_polyline(eje, Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.75 * alfa * sangre),
+				maxf(1.5, grosor * 0.30), true)
 	# La normal apunta al lado de la COMBA, que es hacia donde se abre el arco.
 	var signo: float = 1.0 if comba >= 0.0 else -1.0
 	return [cabeza, tang, tang.rotated(PI * 0.5 * signo)]
@@ -2155,7 +2175,7 @@ func _pintar_daga_corte(e: Dictionary) -> void:
 	# Entra de golpe y frena: 1-(1-v)^2 pone casi todo el recorrido al principio, que es como pasa
 	# una hoja de verdad -- rapidisima al cruzar y lenta al rematar.
 	var k: float = 1.0 - pow(1.0 - v, 2.0)
-	_tajo(b, ang, largo, comba, k, col, alfa, caja * 0.075)
+	_tajo(b, ang, largo, comba, k, col, alfa, caja * 0.075, clampf((v - 0.40) / 0.60, 0.0, 1.0))
 	# LA HOJA, en la cabeza del trazo y mirando hacia donde va: es lo que hace que se lea que CORTA
 	# en vez de arrastrarse de lado. Solo mientras cruza -- al final ya ha salido del cuadro.
 	# CORTA Y ANCHA, que es la proporcion de una daga. Con la hoja larga y fina se confundia con el
@@ -2163,19 +2183,6 @@ func _pintar_daga_corte(e: Dictionary) -> void:
 	# EL CORTE que queda en la carne, cuando ya ha pasado la hoja. Dos lineas finas (labio y sombra)
 	# y no el huso dentado del zarpazo: una daga deja un tajo limpio, y con el dentado parecia una
 	# pluma pegada encima.
-	if v > 0.40:
-		var w: float = (v - 0.40) / 0.60
-		var f: Color = _filo_col(col) if _imbuido(col) else _HUESO
-		var dir := Vector2(cos(ang), sin(ang))
-		var lado := Vector2(-dir.y, dir.x)
-		# Sigue el eje del tajo y ocupa casi todo lo que barrio la hoja: una herida corta en mitad de
-		# un trazo largo se leia como una rayita suelta sin relacion con el corte.
-		var largo_h: float = largo * 0.80 * w
-		var c0: Vector2 = b - dir * largo_h * 0.5 + lado * comba * largo * 0.30
-		var c1: Vector2 = b + dir * largo_h * 0.5 + lado * comba * largo * 0.30
-		draw_line(c0, c1, Color(f.r, f.g, f.b, 0.95 * alfa), maxf(2.0, caja * 0.034), true)
-		draw_line(c0 + lado * caja * 0.028, c1 + lado * caja * 0.028,
-			Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.6 * alfa), maxf(1.5, caja * 0.020), true)
 
 
 # PUÑALADA. NO es un corte: la hoja se arma atras, entra RECTA y se hunde hasta el mango. Por eso no
@@ -2401,7 +2408,7 @@ func _pintar_desvanecer(e: Dictionary) -> void:
 	# Y EL TAJO que sale de dentro, ya con la sombra abierta.
 	var ang: float = -PI * 0.28 + sin(g * 3.3) * 0.35
 	var k: float = 1.0 - pow(1.0 - v, 2.0)
-	_tajo(b, ang, caja * 1.35, 0.18, k, col, alfa, caja * 0.075)
+	_tajo(b, ang, caja * 1.35, 0.05, k, col, alfa, caja * 0.075, clampf((v - 0.40) / 0.60, 0.0, 1.0))
 
 
 # ============================================================
@@ -2682,7 +2689,8 @@ func _pintar_danza_acero(e: Dictionary) -> void:
 # Las coletas, en constantes, porque _vida tiene que devolver EXACTAMENTE lo mismo que divida el
 # painter (ver la nota del aura en _vida).
 const COLETA_ESPADA := 0.30
-const COLETA_ESPADA_RAPIDA := 0.24   # Doble tajo y Cambio de ritmo: encadenan, no pueden pisarse
+const COLETA_ESPADA_RAPIDA := 0.24   # Cambio de ritmo: encadena, no puede pisarse
+const COLETA_DOBLE_TAJO := 0.52      # los dos cortes, la cruz cerrandose y el destello
 const COLETA_QUEBRANTADOR := 0.42    # hay que ver saltar la guardia
 const COLETA_SENALAR := 0.40         # los dos cortes y la diana que se queda
 const COLETA_TENDONES := 0.36
@@ -2708,19 +2716,7 @@ func _espada_tajo_base(e: Dictionary, coleta: float, largo_mult: float = 1.0) ->
 	var ang: float = (-PI * 0.28 + sin(g * 3.3) * 0.30) * sentido
 	var largo: float = caja * 1.55 * largo_mult
 	var k: float = 1.0 - pow(1.0 - v, 2.0)
-	_tajo(b, ang, largo, 0.16 * sentido, k, col, alfa, caja * 0.095)
-	# La herida: dos lineas por el eje del tajo, como en la daga pero mas largas y mas gordas.
-	if v > 0.38:
-		var w: float = (v - 0.38) / 0.62
-		var f: Color = _filo_col(col) if _imbuido(col) else _HUESO
-		var dir := Vector2(cos(ang), sin(ang))
-		var lado := Vector2(-dir.y, dir.x)
-		var lh: float = largo * 0.78 * w
-		var c0: Vector2 = b - dir * lh * 0.5 + lado * 0.16 * largo * 0.30 * sentido
-		var c1: Vector2 = b + dir * lh * 0.5 + lado * 0.16 * largo * 0.30 * sentido
-		draw_line(c0, c1, Color(f.r, f.g, f.b, 0.95 * alfa), maxf(2.0, caja * 0.040), true)
-		draw_line(c0 + lado * caja * 0.032, c1 + lado * caja * 0.032,
-			Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.6 * alfa), maxf(1.5, caja * 0.024), true)
+	_tajo(b, ang, largo, 0.05 * sentido, k, col, alfa, caja * 0.095, clampf((v - 0.38) / 0.62, 0.0, 1.0))
 	return [v, alfa, b, ang, sentido]
 
 
@@ -2822,7 +2818,7 @@ func _pintar_senalar_hueco(e: Dictionary) -> void:
 			continue
 		var ang: float = -PI * 0.25 + float(i) * PI * 0.5
 		var largo: float = caja * 0.85
-		_tajo(p, ang, largo, 0.10, k, col, alfa, caja * 0.075)
+		_tajo(p, ang, largo, 0.03, k, col, alfa, caja * 0.075, k)
 	# LA DIANA: dos anillos y una cruz sobre el punto. Entra al final y se queda -- es lo que ven
 	# los tuyos.
 	if v <= 0.45:
@@ -2857,7 +2853,7 @@ func _pintar_corte_tendones(e: Dictionary) -> void:
 	var f: Color = _filo_col(col) if _imbuido(col) else _HUESO
 	# El corte: casi horizontal y corto, de un lado al otro.
 	var k: float = 1.0 - pow(1.0 - v, 2.0)
-	_tajo(b, 0.12 + sin(g * 2.3) * 0.10, caja * 0.95, 0.07, k, col, alfa, caja * 0.070)
+	_tajo(b, 0.12 + sin(g * 2.3) * 0.10, caja * 0.95, 0.03, k, col, alfa, caja * 0.070, clampf((v - 0.40) / 0.60, 0.0, 1.0))
 	if v <= 0.40:
 		return
 	# LOS TENDONES: tres hilos que se sueltan y se enrollan hacia abajo. Es lo que dice que lo que se
@@ -2934,18 +2930,7 @@ func _tajo_que_cae(e: Dictionary, coleta: float, largo_mult: float, alto: float)
 	# para que el trazo arranque arriba y su cabeza llegue justo al objetivo.
 	var recorrido: float = arriba.distance_to(b)
 	_tajo(arriba.lerp(b, 0.5), ang, recorrido, 0.0, caida, col, alfa,
-		caja * 0.10 * largo_mult)
-	# La herida: un corte VERTICAL, que es por donde ha entrado la hoja.
-	if v > 0.42:
-		var w: float = (v - 0.42) / 0.58
-		var f2: Color = _filo_col(col) if _imbuido(col) else _HUESO
-		var dir := Vector2(cos(ang), sin(ang))
-		var lado2 := Vector2(-dir.y, dir.x)
-		var lh: float = caja * 0.80 * w
-		draw_line(b - dir * lh * 0.5, b + dir * lh * 0.5,
-			Color(f2.r, f2.g, f2.b, 0.95 * alfa), maxf(2.0, caja * 0.045), true)
-		draw_line(b - dir * lh * 0.5 + lado2 * caja * 0.034, b + dir * lh * 0.5 + lado2 * caja * 0.034,
-			Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.6 * alfa), maxf(1.5, caja * 0.026), true)
+		caja * 0.10 * largo_mult, clampf((v - 0.42) / 0.58, 0.0, 1.0))
 	return [v, alfa, b]
 
 
@@ -3180,6 +3165,7 @@ const COLETA_MOLINETE := 0.46
 const COLETA_GRITO := 0.44
 const COLETA_VERDUGO := 0.60      # el mas largo del juego: se anuncia y hay que verlo caer
 const COLETA_SEGAR := 0.44
+const COLETA_ACERO_ALTO := 0.60   # el acero se queda en alto mientras dura el grito
 
 
 # El tajo del mandoble: el mismo trazo de siempre pero ENORME y con mucha comba, que es lo que hace
@@ -3197,24 +3183,7 @@ func _pintar_mandoble_tajo(e: Dictionary) -> void:
 	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
 	var ang: float = (-PI * 0.22 + sin(g * 3.3) * 0.24) * sentido
 	var k: float = 1.0 - pow(1.0 - v, 2.0)
-	_tajo(b, ang, caja * 2.05, 0.26 * sentido, k, col, alfa, caja * 0.135)
-	if v > 0.36:
-		var w: float = (v - 0.36) / 0.64
-		_herida_larga(b, ang, caja * 1.55 * w, caja, col, alfa, sentido * 0.26)
-
-
-# LA HERIDA de un tajo grande: la linea del corte y su sombra de sangre. Estaba repetida en cada
-# painter con los mismos dos draw_line; aqui se escribe una vez.
-func _herida_larga(b: Vector2, ang: float, largo: float, caja: float, col: Color, alfa: float,
-		desvio: float = 0.0) -> void:
-	var f: Color = _filo_col(col) if _imbuido(col) else _HUESO
-	var dir := Vector2(cos(ang), sin(ang))
-	var lado := Vector2(-dir.y, dir.x)
-	var c0: Vector2 = b - dir * largo * 0.5 + lado * caja * desvio * 0.5
-	var c1: Vector2 = b + dir * largo * 0.5 + lado * caja * desvio * 0.5
-	draw_line(c0, c1, Color(f.r, f.g, f.b, 0.95 * alfa), maxf(2.0, caja * 0.048), true)
-	draw_line(c0 + lado * caja * 0.038, c1 + lado * caja * 0.038,
-		Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.6 * alfa), maxf(1.5, caja * 0.030), true)
+	_tajo(b, ang, caja * 2.05, 0.07 * sentido, k, col, alfa, caja * 0.135, clampf((v - 0.36) / 0.64, 0.0, 1.0))
 
 
 # TAJO DEVASTADOR. El descendente con toda la masa del espadon. Cae a plomo y, al llegar, levanta
@@ -3235,12 +3204,11 @@ func _pintar_devastador(e: Dictionary) -> void:
 	var caida: float = 1.0 - pow(1.0 - k, 2.8)
 	var arriba: Vector2 = b - dir_caida * caja * 1.55
 	_tajo(arriba.lerp(b, 0.5), dir_caida.angle(), arriba.distance_to(b), 0.0, caida,
-		col, alfa, caja * 0.16)
+		col, alfa, caja * 0.16, clampf((v - 0.32) / 0.68, 0.0, 1.0))
+	# LA ONDA del impacto: dos anillos bajos que se abren. Es lo que dice "esto ha pesado".
 	if v <= 0.32:
 		return
 	var w: float = (v - 0.32) / 0.68
-	_herida_larga(b, dir_caida.angle(), caja * 1.05 * w, caja, col, alfa)
-	# LA ONDA del impacto: dos anillos bajos que se abren. Es lo que dice "esto ha pesado".
 	for i in 2:
 		var kk: float = clampf(w - float(i) * 0.22, 0.0, 1.0)
 		if kk <= 0.0:
@@ -3251,8 +3219,12 @@ func _pintar_devastador(e: Dictionary) -> void:
 			maxf(1.5, caja * 0.034 * (1.0 - kk * 0.5)))
 
 
-# MOLINETE. Un giro COMPLETO del espadon: el trazo rodea a todo lo alcanzado en vez de cruzarlo.
-# Por eso es de grupo -- el ancho que llega aqui es el de TODOS los que coge.
+# MOLINETE. DOS barridos que cruzan la fila entera de lado a lado. Empezo siendo un giro completo
+# alrededor de los alcanzados y, aunque el aro quedaba vistoso, no se entendia lo que hacia: un
+# molinete reparte TAJOS por delante, y lo que se tiene que ver es el filo pasando por encima de
+# todos, no un circulo rodeandolos.
+#
+# Es de grupo, asi que e["ancho"] trae el ancho de TODO lo alcanzado: los barridos lo cruzan entero.
 func _pintar_molinete(e: Dictionary) -> void:
 	var r0: Array = _golpe_cuerpo(e, COLETA_MOLINETE, 0.05)
 	var v: float = r0[0]
@@ -3263,47 +3235,21 @@ func _pintar_molinete(e: Dictionary) -> void:
 	var col: Color = e["col"]
 	var g: float = float(e["semilla"])
 	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
-	# El radio sale del ANCHO DEL GRUPO: a uno solo le da un giro justo; a tres, uno que los rodea.
-	# 0.42 y no 0.58: con aquel, un molinete a tres dibujaba un aro tan alto que se salia de la fila
-	# por arriba y por abajo. Tiene que rodear a los alcanzados, no rodear la pantalla.
-	var rr: float = _radio_grupo(e, 0.42, caja * 0.58)
+	var largo: float = _radio_grupo(e, 1.15, caja * 1.40)
 	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
-	# Vuelta y cuarto, para que se vea que el giro se cierra y sigue.
-	var total: float = TAU * 1.25 * sentido
-	var k: float = 1.0 - pow(1.0 - v, 1.8)
-	var f: Color = _filo_col(col)
-	# La espiral del filo: se traza girando, y se va afinando por la cola.
-	var n: int = 30
-	var fuera := PackedVector2Array()
-	var dentro := PackedVector2Array()
-	for i in n + 1:
-		var s: float = float(i) / float(n)
-		var a: float = g + total * k * s
-		var w: float = caja * 0.13 * pow(s, 1.1)
-		# El radio se abre un pelin segun gira: un molinete no es un circulo perfecto.
-		var rad: float = rr * (0.86 + 0.18 * s)
-		# Bien achatado (0.52): la fila de enemigos es ANCHA y baja, y un giro redondo se le sale por
-		# arriba aunque el radio sea el correcto.
-		var u := Vector2(cos(a), sin(a) * 0.52)
-		fuera.append(b + u * (rad + w))
-		dentro.append(b + u * (rad - w))
-	var pts := PackedVector2Array()
-	pts.append_array(fuera)
-	for i in range(dentro.size() - 1, -1, -1):
-		pts.append(dentro[i])
-	draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.26 * alfa))
-	draw_polyline(fuera, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(2.0, caja * 0.055), true)
-	# Y las heridas: un corte por cada cuarto de vuelta recorrido, repartidos por el arco.
-	if v <= 0.40:
-		return
-	var w2: float = (v - 0.40) / 0.60
-	for i in 3:
-		var kk: float = clampf((w2 - float(i) * 0.14) / 0.4, 0.0, 1.0)
-		if kk <= 0.0:
+	# DOS pasadas, en sentidos contrarios y a distinta altura: el espadon va y vuelve. La segunda
+	# entra cuando la primera lleva media vuelta, que es lo que lo lee como un molinete y no como dos
+	# tajos sueltos.
+	for i in 2:
+		var k: float = clampf((v - float(i) * 0.26) / 0.46, 0.0, 1.0)
+		if k <= 0.0:
 			continue
-		var a2: float = g + total * (0.35 + 0.28 * float(i))
-		var p: Vector2 = b + Vector2(cos(a2), sin(a2) * 0.52) * rr * 0.92
-		_herida_larga(p, a2 + PI * 0.5, caja * 0.55 * kk, caja * 0.8, col, alfa * 0.9)
+		var lado: float = sentido if i == 0 else -sentido
+		var ang: float = (-0.16 + sin(g * 2.3 + float(i)) * 0.10) * lado
+		var alto: float = caja * (-0.16 if i == 0 else 0.18)
+		var c: Vector2 = b + Vector2(0.0, alto)
+		var kk: float = 1.0 - pow(1.0 - k, 2.0)
+		_tajo(c, ang, largo, 0.04 * lado, kk, col, alfa, caja * 0.125, clampf((k - 0.55) / 0.45, 0.0, 1.0))
 
 
 # GRITO DE GUERRA. El acero en alto y la onda que barre la fila. Pega poco a proposito: lo que hace
@@ -3317,17 +3263,12 @@ func _pintar_grito_guerra(e: Dictionary) -> void:
 	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
 	var v: float = clampf((t - dur) / COLETA_GRITO, 0.0, 1.0) if t > dur else clampf(t / dur, 0.0, 1.0) * 0.0
 	var alfa: float = 1.0 if v < 0.55 else 1.0 - (v - 0.55) / 0.45
-	if t < dur:
-		# ARMANDO: el espadon subiendo por encima de la cabeza.
-		var w0: float = clampf(t / dur, 0.0, 1.0)
-		_hoja(b + Vector2(0.0, -caja * (0.30 + 0.35 * w0)), Vector2.UP,
-			caja * 0.95, caja * 0.10, col, 0.5 + 0.5 * w0, 0.0)
-		return
-	if alfa <= 0.0:
+	if t < dur or alfa <= 0.0:
 		return
 	var f: Color = _filo_col(col)
-	# El acero sigue en alto mientras dura el grito.
-	_hoja(b + Vector2(0.0, -caja * 0.65), Vector2.UP, caja * 0.95, caja * 0.10, col, alfa * 0.9, 0.0)
+	# AQUI NO SE DIBUJA NINGUNA ESPADA. Esto se pinta sobre EL QUE RECIBE el grito, asi que un
+	# espadon en alto encima de su cabeza parecia que le estabas pegando con el arma. El acero
+	# levantado es del que GRITA y va por fx_sobre_mi (ver ACERO_EN_ALTO).
 	# LA ONDA: anillos anchos que se abren por la fila. El ancho sale del grupo, como el molinete.
 	var rr_max: float = _radio_grupo(e, 0.62, caja * 0.70)
 	for i in 3:
@@ -3339,8 +3280,12 @@ func _pintar_grito_guerra(e: Dictionary) -> void:
 			maxf(1.5, caja * 0.038 * (1.0 - k * 0.5)))
 
 
-# TAJO DEL VERDUGO. Se anuncia un turno entero (carga_turnos) y cae desde MUY arriba. Es el golpe
-# mas gordo del juego y se dibuja como tal: el acero baja desde fuera de la pantalla y raja el suelo.
+# TAJO DEL VERDUGO. Se anuncia un TURNO ENTERO y es lo mas gordo del mandoble, asi que no corta:
+# REVIENTA. La referencia es el impacto de manga -- la columna de luz bajando, el anillo de choque
+# abriendose a ras de suelo, los cascotes gordos saltando y las esquirlas subiendo del crater.
+#
+# LO MISMO VALE PARA EL MARTILLO (Golpe sismico, Temblor): esto es el lenguaje de "algo enorme ha
+# caido aqui", no un adorno de esta habilidad. Cuando toque el martillo, se saca a un helper.
 func _pintar_verdugo(e: Dictionary) -> void:
 	var r0: Array = _golpe_cuerpo(e, COLETA_VERDUGO, 0.04)
 	var v: float = r0[0]
@@ -3351,29 +3296,84 @@ func _pintar_verdugo(e: Dictionary) -> void:
 	var col: Color = e["col"]
 	var g: float = float(e["semilla"])
 	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
-	# Cae RECTO, sin inclinacion: no hay finta que valga, viene de arriba y ya.
-	var dir_caida := Vector2.DOWN
-	var k: float = clampf(v / 0.26, 0.0, 1.0)
-	var caida: float = 1.0 - pow(1.0 - k, 3.2)
-	var arriba: Vector2 = b - dir_caida * caja * 2.30
-	_tajo(arriba.lerp(b, 0.5), PI * 0.5, arriba.distance_to(b), 0.0, caida, col, alfa, caja * 0.20)
-	if v <= 0.28:
-		return
-	var w: float = (v - 0.28) / 0.72
-	_herida_larga(b, PI * 0.5, caja * 1.35 * w, caja, col, alfa)
-	# EL SUELO RAJADO: grietas que salen del punto de impacto hacia los lados.
 	var f: Color = _filo_col(col)
-	for i in 5:
+	# LA CAIDA: recta, sin inclinacion. No hay finta que valga.
+	var k: float = clampf(v / 0.24, 0.0, 1.0)
+	var caida: float = 1.0 - pow(1.0 - k, 3.2)
+	var arriba: Vector2 = b - Vector2.DOWN * caja * 2.40
+	_tajo(arriba.lerp(b, 0.5), PI * 0.5, arriba.distance_to(b), 0.0, caida, col, alfa, caja * 0.24,
+		clampf((v - 0.24) / 0.76, 0.0, 1.0))
+	if k < 1.0:
+		return   # sigue bajando: el reventon es AL LLEGAR
+	var w: float = clampf((v - 0.24) / 0.76, 0.0, 1.0)
+	var suelo: Vector2 = b + Vector2(0.0, caja * 0.30)
+	# LA COLUMNA DE LUZ. Lo que mas cuenta de todo: una barra vertical enorme que sube del crater y
+	# se estrecha arriba. Entra de golpe y se apaga.
+	var brillo: float = (w / 0.16) if w < 0.16 else maxf(0.0, 1.0 - (w - 0.16) / 0.84)
+	if brillo > 0.0:
+		var alto: float = caja * 3.4 * (0.55 + 0.45 * brillo)
+		var ancho: float = caja * 0.30 * brillo
+		for capa in 3:
+			var m: float = 1.0 - float(capa) * 0.32
+			var c: Color = Color(f.r, f.g, f.b, 0.35 * alfa * brillo) if capa == 0 				else Color(1.0, 0.99, 0.95, (0.65 if capa == 1 else 1.0) * alfa * brillo)
+			var pts := PackedVector2Array([
+				suelo + Vector2(-ancho * m, 0.0),
+				suelo + Vector2(-ancho * m * 0.35, -alto),
+				suelo + Vector2(ancho * m * 0.35, -alto),
+				suelo + Vector2(ancho * m, 0.0)])
+			draw_colored_polygon(pts, c)
+	# EL ANILLO DE CHOQUE a ras de suelo: dos elipses abriendose, la de dentro mas viva.
+	for i in 2:
+		var kk: float = clampf((w - float(i) * 0.10) / 0.80, 0.0, 1.0)
+		if kk <= 0.0:
+			continue
+		var rr: float = caja * (0.25 + 1.85 * kk)
+		_anillo(suelo, rr, rr * 0.26,
+			Color(f.r, f.g, f.b, (0.75 if i == 0 else 0.45) * alfa * (1.0 - kk)),
+			maxf(2.0, caja * 0.055 * (1.0 - kk * 0.55)))
+	# EL CRATER: grietas gordas y negras saliendo del punto de impacto.
+	for i in 6:
 		var lado: float = -1.0 if i % 2 == 0 else 1.0
-		var largo: float = caja * (0.30 + 0.75 * w) * (0.7 + 0.4 * absf(sin(g + float(i))))
-		var y: float = caja * 0.28
+		var largo: float = caja * (0.50 + 1.15 * w) * (0.6 + 0.5 * absf(sin(g + float(i) * 1.7)))
 		var grieta := PackedVector2Array()
-		for j in 4:
-			var s: float = float(j) / 3.0
-			grieta.append(b + Vector2(lado * largo * s * (0.6 + 0.4 * float(i) / 4.0),
-				y + sin(g + float(i) * 2.1 + s * 5.0) * caja * 0.05 * s))
-		draw_polyline(grieta, Color(f.r * 0.8, f.g * 0.8, f.b * 0.8, 0.6 * alfa * (1.0 - w * 0.6)),
-			maxf(1.5, caja * 0.030 * (1.0 - w * 0.4)), true)
+		for j in 5:
+			var s: float = float(j) / 4.0
+			grieta.append(suelo + Vector2(
+				lado * largo * s * (0.55 + 0.45 * float(i) / 5.0),
+				sin(g + float(i) * 2.1 + s * 6.0) * caja * 0.07 * s))
+		draw_polyline(grieta, Color(0.09, 0.08, 0.10, 0.9 * alfa * (1.0 - w * 0.3)),
+			maxf(2.0, caja * 0.045 * (1.0 - w * 0.35)), true)
+	# LAS ESQUIRLAS: agujas finas que salen despedidas hacia arriba desde el crater.
+	for i in 9:
+		var ang: float = -PI * 0.5 + (float(i) - 4.0) * 0.19 + sin(g + float(i)) * 0.07
+		var u := Vector2(cos(ang), sin(ang))
+		var d0: float = caja * (0.20 + 1.10 * w)
+		var d1: float = d0 + caja * (0.22 + 0.30 * (1.0 - w)) * (0.6 + 0.6 * absf(sin(g * 2.0 + float(i))))
+		draw_line(suelo + u * d0, suelo + u * d1,
+			Color(f.r, f.g, f.b, 0.85 * alfa * (1.0 - w)), maxf(1.5, caja * 0.020), true)
+	# LOS CASCOTES: trozos GORDOS de suelo levantados, subiendo y cayendo en parabola.
+	for i in 7:
+		var ang2: float = -PI * 0.5 + (float(i) - 3.0) * 0.26 + sin(g * 1.7 + float(i)) * 0.10
+		var u2 := Vector2(cos(ang2), sin(ang2))
+		var d: float = caja * (0.28 + 1.35 * w)
+		var p: Vector2 = suelo + u2 * d + Vector2(0.0, caja * 0.70 * w * w)
+		var tam: float = caja * 0.085 * (1.0 - w * 0.35) * (0.7 + 0.5 * absf(sin(g + float(i) * 3.1)))
+		var giro: float = w * 5.0 * (1.0 if i % 2 == 0 else -1.0)
+		var roca := PackedVector2Array()
+		for j in 5:
+			var a: float = TAU * float(j) / 5.0 + giro
+			var rad: float = tam * (0.75 + 0.35 * absf(sin(g + float(i) + float(j) * 2.3)))
+			roca.append(p + Vector2(cos(a) * rad, sin(a) * rad))
+		draw_colored_polygon(roca, Color(0.34, 0.31, 0.29, 0.95 * alfa * (1.0 - w * 0.8)))
+		var cerr := PackedVector2Array(roca)
+		cerr.append(roca[0])
+		draw_polyline(cerr, Color(0.10, 0.09, 0.11, 0.8 * alfa * (1.0 - w * 0.8)),
+			maxf(1.0, tam * 0.20), true)
+	# Y EL FOGONAZO en la base, que es de donde sale todo.
+	if brillo > 0.0:
+		_estrella(suelo, caja * 0.85 * brillo, caja * 0.30 * brillo, 0.45,
+			Color(f.r, f.g, f.b, 0.7 * alfa * brillo))
+		draw_circle(suelo, maxf(2.0, caja * 0.14 * brillo), Color(1.0, 1.0, 0.98, alfa * brillo))
 
 
 # SEGAR. Dos barridos BAJOS, a la altura de las piernas: el trazo va casi horizontal y muy abajo, y
@@ -3394,8 +3394,101 @@ func _pintar_segar(e: Dictionary) -> void:
 	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
 	var ang: float = (0.10 + sin(g * 2.3) * 0.07) * sentido
 	var k: float = 1.0 - pow(1.0 - v, 2.0)
-	_tajo(b, ang, largo, 0.06 * sentido, k, col, alfa, caja * 0.135)
-	if v <= 0.38:
+	_tajo(b, ang, largo, 0.03 * sentido, k, col, alfa, caja * 0.135, clampf((v - 0.38) / 0.62, 0.0, 1.0))
+
+
+# DOBLE TAJO. Los dos cortes NO son dos tajos sueltos que pasan y se van: el primero se queda
+# puesto, entra el segundo cruzandolo, y cuando la cruz se cierra DESTELLA entera.
+#
+# Es el unico gesto que se queda quieto a media animacion, y por eso funciona: los demas son un
+# movimiento, este es una FIGURA que se dibuja delante de ti y luego revienta.
+func _pintar_doble_tajo(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	if t < dur:
 		return
-	var w: float = (v - 0.38) / 0.62
-	_herida_larga(b, ang, largo * 0.80 * w, caja, col, alfa)
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var b: Vector2 = e["b"] + Vector2(cos(g * 2.1), sin(g * 1.7)) * caja * 0.08
+	var v: float = clampf((t - dur) / COLETA_DOBLE_TAJO, 0.0, 1.0)
+	var alfa: float = 1.0 if v < 0.72 else 1.0 - (v - 0.72) / 0.28
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	var largo: float = caja * 1.60
+	# LOS DOS CORTES, en aspa. El primero entra ya; el segundo, a media animacion. Cada uno se
+	# TRAZA (no aparece de golpe) y se queda puesto.
+	var angs := [-PI * 0.28 + sin(g * 3.3) * 0.10, PI * 0.28 + sin(g * 2.1) * 0.10]
+	for i in 2:
+		var k: float = clampf((v - float(i) * 0.24) / 0.30, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		var kk: float = 1.0 - pow(1.0 - k, 2.2)
+		# Casi recto: un corte que atraviesa no describe curvas.
+		_tajo(b, float(angs[i]), largo, 0.03 * (1.0 if i == 0 else -1.0), kk, col, alfa,
+			caja * 0.090, clampf((k - 0.5) / 0.5, 0.0, 1.0))
+	# EL DESTELLO, cuando la cruz ya esta cerrada: el aspa entera se enciende y suelta las agujas de
+	# luz por los cuatro brazos.
+	if v <= 0.52:
+		return
+	var w: float = clampf((v - 0.52) / 0.30, 0.0, 1.0)
+	# Entra de golpe y se apaga: 1-(1-w)^2 al subir, y la cola se la come el alfa general.
+	var brillo: float = (w / 0.22) if w < 0.22 else maxf(0.0, 1.0 - (w - 0.22) / 0.78)
+	if brillo <= 0.0:
+		return
+	# Las dos barras del aspa, ahora anchas y blancas: es la cruz encendida.
+	for i in 2:
+		var dir := Vector2(cos(float(angs[i])), sin(float(angs[i])))
+		var lado := Vector2(-dir.y, dir.x)
+		var ancho: float = caja * 0.115 * brillo
+		var pts := PackedVector2Array([
+			b + dir * largo * 0.5 + lado * ancho * 0.25,
+			b + lado * ancho,
+			b - dir * largo * 0.5 + lado * ancho * 0.25,
+			b - dir * largo * 0.5 - lado * ancho * 0.25,
+			b - lado * ancho,
+			b + dir * largo * 0.5 - lado * ancho * 0.25])
+		draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.55 * alfa * brillo))
+		draw_line(b - dir * largo * 0.5, b + dir * largo * 0.5,
+			Color(1.0, 0.99, 0.96, 0.95 * alfa * brillo), maxf(2.0, caja * 0.045 * brillo), true)
+	# EL NUCLEO y las agujas: el fogonazo del centro, donde se cruzan los dos filos. GRANDE: en la
+	# referencia la cruz revienta y las agujas se salen del cuadro; con un destello discreto no se
+	# entiende que esto es el remate de la habilidad.
+	_estrella(b, caja * 1.45 * brillo, caja * 1.15 * brillo, 0.38,
+		Color(f.r, f.g, f.b, 0.55 * alfa * brillo))
+	_estrella(b, caja * 0.72 * brillo, caja * 0.58 * brillo, 0.62,
+		Color(f.r, f.g, f.b, 0.85 * alfa * brillo))
+	_estrella(b, caja * 0.34 * brillo, caja * 0.28 * brillo, 1.15,
+		Color(1.0, 0.99, 0.96, alfa * brillo))
+	draw_circle(b, maxf(2.0, caja * 0.085 * brillo), Color(1.0, 1.0, 1.0, alfa * brillo))
+
+
+# EL ACERO EN ALTO. Lo que se echa encima el que grita (Grito de guerra, por fx_sobre_mi): el
+# espadon levantado por encima de la cabeza. Va sobre SU tarjeta -- dibujarlo sobre el que recibe el
+# grito parecia que le estabas pegando con el arma, que es justo lo que no hace esta habilidad.
+func _pintar_acero_en_alto(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sube: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_ACERO_ALTO, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.70 else 1.0 - (v - 0.70) / 0.30
+	if alfa <= 0.0:
+		return
+	# Sube durante el vuelo y se queda arriba, temblando un poco: el brazo aguanta el peso.
+	var alto: float = caja * (0.10 + 0.62 * sube) + sin(t * 9.0 + g) * caja * 0.02 * sube
+	_hoja(b + Vector2(sin(g) * caja * 0.06, -alto), Vector2.UP,
+		caja * 1.05, caja * 0.105, col, alfa, 0.0)
+	# El destello del filo al levantarlo, que es lo que hace que se lea el gesto.
+	if v <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	var brillo: float = maxf(0.0, 1.0 - v / 0.5)
+	if brillo > 0.0:
+		_estrella(b + Vector2(sin(g) * caja * 0.06, -alto - caja * 0.95),
+			caja * 0.30 * brillo, caja * 0.24 * brillo, 0.55,
+			Color(f.r, f.g, f.b, 0.8 * alfa * brillo))
