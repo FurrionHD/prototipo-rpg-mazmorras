@@ -4774,7 +4774,14 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	_fx_tanda(i)
 	# Manda lo que pida la habilidad (fx_estilo) y, si no pide nada, el gesto del arma con la que
 	# esta pegando. Igual que la rata, que muerde le salga la tecnica o no.
-	var estilo_ab: int = _estilo_de_habilidad(ab, _player)
+	#
+	# CON UNA EXCEPCION: un golpe DE ESCUDO se ve como un escudazo, pegue lo que pegue la habilidad.
+	# Guardia rota es un tajo Y un golpe de escudo, y con el estilo de la habilidad para los dos se
+	# veian dos tajos iguales -- justo lo contrario de lo que dice su ficha. Es la misma regla que ya
+	# sigue el DAÑO: el golpe de escudo pega con tu Defensa y no con el arma (ver atk_escudo), asi
+	# que tambien tiene que verse como lo que es.
+	var estilo_ab: int = CombatFX.Estilo.ESCUDAZO if ab.golpe_es_de_escudo(i) \
+		else _estilo_de_habilidad(ab, _player)
 	var result := StatsMath.resolve_attack(_player, objetivo, false, atk_ov)
 	if result.evaded:
 		r.evaded = true

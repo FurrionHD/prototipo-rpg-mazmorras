@@ -11,4 +11,5 @@ cooldown = 5
 golpes_min = 1
 golpes_max = 1
 dano_mult = 2.75
+fx_estilo = 54
 descripcion = "Un mandoble descendente con todo el peso de la hoja. Daño puro, sin adornos: el mazazo de la espada larga."

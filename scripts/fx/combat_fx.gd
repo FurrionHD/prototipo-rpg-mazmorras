@@ -118,6 +118,18 @@ signal apagar_ahora(bloque: Dictionary)
 #   CAMBIO_RITMO      un tajo corto y las marcas del compas que se rompe
 #   SENALAR_HUECO     dos cortes EN EL MISMO SITIO y una diana que se queda puesta
 #   CORTE_TENDONES    corte BAJO, a lo que lo sostiene: la herida va abajo y el bicho cede
+# LA ESPADA LARGA pesa de verdad: sus tajos CAEN, no barren. Y viene con escudo, asi que aqui entra
+# tambien el gesto que faltaba para TODAS las armas: el escudazo.
+#   ESPADA_LARGA_TAJO el tajo con peso (el basico)
+#   TAJO_PESADO       el mandoble descendente: cae a plomo de arriba abajo y levanta polvo
+#   TAJO_DESARMANTE   tajo al BRAZO ARMADO: el corte alto y el arma del bicho saltando
+#   GUARDIA_ROTA      el tajo que abre la guardia (su segundo golpe es de escudo: ver ESCUDAZO)
+#   VOTO_GUARDIA      postura sobre uno mismo: los pies clavados y la guardia cerrada
+#   ESTOCADA_MARCIAL  una punta limpia por encima del escudo
+#   VOZ_MANDO         adorno sobre LOS TUYOS: la orden que los mueve antes de pensarla
+#   ESCUDAZO          el golpe con el ESCUDO. No es de un arma concreta: lo usa CUALQUIER golpe que
+#                     AbilityData marque como de escudo (escudo_desde_golpe), en la espada larga, en
+#                     la maza o donde sea. Ver _resolver_golpe_hab en combat.gd.
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -132,7 +144,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		ESTOQUE_PUNZADA = 40, ESTOCADA_PENETRANTE = 41, FINTAS = 42, EN_GUARDIA = 43,
 		PASO_LIGERO = 44, PUNZADA_NERVIO = 45, DANZA_ACERO = 46,
 		ESPADA_TAJO = 47, TAJO_QUEBRANTADOR = 48, DOBLE_TAJO = 49, CAMBIO_RITMO = 50,
-		SENALAR_HUECO = 51, CORTE_TENDONES = 52 }
+		SENALAR_HUECO = 51, CORTE_TENDONES = 52,
+		ESPADA_LARGA_TAJO = 53, TAJO_PESADO = 54, TAJO_DESARMANTE = 55, GUARDIA_ROTA = 56,
+		VOTO_GUARDIA = 57, ESTOCADA_MARCIAL = 58, VOZ_MANDO = 59, ESCUDAZO = 60 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -146,6 +160,7 @@ const FX_ARMA := {
 	1: Estilo.DAGA_CORTE,        # DAGA
 	5: Estilo.ESTOQUE_PUNZADA,   # ESTOQUE
 	2: Estilo.ESPADA_TAJO,       # ESPADA_CORTA
+	3: Estilo.ESPADA_LARGA_TAJO, # ESPADA_LARGA
 }
 
 
@@ -157,7 +172,9 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.EN_GUARDIA,
 	Estilo.PASO_LIGERO, Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO,
 	Estilo.ESPADA_TAJO, Estilo.TAJO_QUEBRANTADOR, Estilo.DOBLE_TAJO, Estilo.CAMBIO_RITMO,
-	Estilo.SENALAR_HUECO, Estilo.CORTE_TENDONES]
+	Estilo.SENALAR_HUECO, Estilo.CORTE_TENDONES,
+	Estilo.ESPADA_LARGA_TAJO, Estilo.TAJO_PESADO, Estilo.TAJO_DESARMANTE, Estilo.GUARDIA_ROTA,
+	Estilo.VOTO_GUARDIA, Estilo.ESTOCADA_MARCIAL, Estilo.VOZ_MANDO, Estilo.ESCUDAZO]
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
@@ -229,6 +246,12 @@ const T_VUELO := {
 	# arrancar. El QUEBRANTADOR es el que mas, porque hay que ver venir el golpe que abre la guardia.
 	Estilo.ESPADA_TAJO: 0.06, Estilo.TAJO_QUEBRANTADOR: 0.11, Estilo.DOBLE_TAJO: 0.05,
 	Estilo.CAMBIO_RITMO: 0.06, Estilo.SENALAR_HUECO: 0.07, Estilo.CORTE_TENDONES: 0.07,
+	# LA ESPADA LARGA. Los adelantos mas largos de todas las armas hasta ahora: la hoja pesa y hay que
+	# verla CAER. El TAJO_PESADO es el que mas, que es literalmente su gracia.
+	Estilo.ESPADA_LARGA_TAJO: 0.09, Estilo.TAJO_PESADO: 0.16, Estilo.TAJO_DESARMANTE: 0.10,
+	Estilo.GUARDIA_ROTA: 0.09, Estilo.ESTOCADA_MARCIAL: 0.11, Estilo.ESCUDAZO: 0.07,
+	# Los dos que no son golpes: la postura se monta y la orden sale de ti.
+	Estilo.VOTO_GUARDIA: 0.24, Estilo.VOZ_MANDO: 0.18,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1111,7 +1134,9 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO,
 	Estilo.ESPADA_TAJO, Estilo.TAJO_QUEBRANTADOR, Estilo.DOBLE_TAJO, Estilo.CAMBIO_RITMO,
-	Estilo.SENALAR_HUECO, Estilo.CORTE_TENDONES]
+	Estilo.SENALAR_HUECO, Estilo.CORTE_TENDONES,
+	Estilo.ESPADA_LARGA_TAJO, Estilo.TAJO_PESADO, Estilo.TAJO_DESARMANTE, Estilo.GUARDIA_ROTA,
+	Estilo.ESTOCADA_MARCIAL, Estilo.ESCUDAZO]
 # NOTA: la CARGA esta en _ESTILOS_DE_GRUPO y aun asi embiste. No es contradictorio: embestir es del
 # ATACANTE (su tarjeta se lanza) y agruparse es del DIBUJO (uno solo para todo lo alcanzado).
 
@@ -1120,7 +1145,7 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # atacante y victima son el mismo y el dibujo va en SU tarjeta, no en la de enfrente. Los demas
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
 const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO,
-	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA]
+	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA]

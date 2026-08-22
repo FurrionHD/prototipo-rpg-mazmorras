@@ -19,5 +19,6 @@ cooldown = 4
 golpes_min = 1
 golpes_max = 1
 dano_mult = 1.9
+fx_estilo = 58
 descripcion = "Una punta limpia por encima del escudo. Donde entra, la guardia deja de cerrar bien."
 efectos = [SubResource("SA_0")]

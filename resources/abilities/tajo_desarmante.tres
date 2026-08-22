@@ -17,5 +17,6 @@ cooldown = 5
 golpes_min = 1
 golpes_max = 1
 dano_mult = 2
+fx_estilo = 55
 efectos = [SubResource("SA_debil")]
 descripcion = "Un tajo al brazo armado del enemigo que debilita sus golpes. Setup defensivo, ideal con escudo."

@@ -76,7 +76,7 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 			# Del cielo: el origen es el techo de la pantalla, justo encima del objetivo.
 			e["a"] = Vector2(b.x + randf_range(-14.0, 14.0), FUERA)
 		CombatFX.Estilo.AURA, CombatFX.Estilo.CAPARAZON, CombatFX.Estilo.MURALLA, \
-		CombatFX.Estilo.ESCUDO, CombatFX.Estilo.IMBUIR_FILO, CombatFX.Estilo.EN_GUARDIA:
+		CombatFX.Estilo.ESCUDO, CombatFX.Estilo.IMBUIR_FILO, CombatFX.Estilo.EN_GUARDIA, 		CombatFX.Estilo.VOTO_GUARDIA, CombatFX.Estilo.VOZ_MANDO:
 			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA, y el
 			# picaro se unta el filo).
 			e["a"] = b
@@ -87,7 +87,7 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.PUNALADA, CombatFX.Estilo.DESVANECER, \
 		CombatFX.Estilo.ESTOQUE_PUNZADA, CombatFX.Estilo.ESTOCADA_PENETRANTE, \
 		CombatFX.Estilo.FINTAS, CombatFX.Estilo.PASO_LIGERO, \
-		CombatFX.Estilo.PUNZADA_NERVIO, CombatFX.Estilo.DANZA_ACERO, 		CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.TAJO_QUEBRANTADOR, 		CombatFX.Estilo.DOBLE_TAJO, CombatFX.Estilo.CAMBIO_RITMO, 		CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.CORTE_TENDONES:
+		CombatFX.Estilo.PUNZADA_NERVIO, CombatFX.Estilo.DANZA_ACERO, 		CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.TAJO_QUEBRANTADOR, 		CombatFX.Estilo.DOBLE_TAJO, CombatFX.Estilo.CAMBIO_RITMO, 		CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.CORTE_TENDONES, 		CombatFX.Estilo.ESPADA_LARGA_TAJO, CombatFX.Estilo.TAJO_PESADO, 		CombatFX.Estilo.TAJO_DESARMANTE, CombatFX.Estilo.GUARDIA_ROTA, 		CombatFX.Estilo.ESTOCADA_MARCIAL, CombatFX.Estilo.ESCUDAZO:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -254,6 +254,23 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_SENALAR
 	if es == CombatFX.Estilo.CORTE_TENDONES:
 		return float(e["dur"]) + COLETA_TENDONES
+	# LA ESPADA LARGA (y el escudo).
+	if es == CombatFX.Estilo.ESPADA_LARGA_TAJO:
+		return float(e["dur"]) + COLETA_LARGA
+	if es == CombatFX.Estilo.TAJO_PESADO:
+		return float(e["dur"]) + COLETA_PESADO
+	if es == CombatFX.Estilo.TAJO_DESARMANTE:
+		return float(e["dur"]) + COLETA_DESARMANTE
+	if es == CombatFX.Estilo.GUARDIA_ROTA:
+		return float(e["dur"]) + COLETA_GUARDIA_ROTA
+	if es == CombatFX.Estilo.VOTO_GUARDIA:
+		return float(e["dur"]) + COLETA_VOTO
+	if es == CombatFX.Estilo.ESTOCADA_MARCIAL:
+		return float(e["dur"]) + COLETA_MARCIAL
+	if es == CombatFX.Estilo.VOZ_MANDO:
+		return float(e["dur"]) + COLETA_VOZ
+	if es == CombatFX.Estilo.ESCUDAZO:
+		return float(e["dur"]) + COLETA_ESCUDAZO
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -316,6 +333,12 @@ func _draw() -> void:
 			CombatFX.Estilo.TAJO_QUEBRANTADOR: _pintar_quebrantador(e)
 			CombatFX.Estilo.SENALAR_HUECO: _pintar_senalar_hueco(e)
 			CombatFX.Estilo.CORTE_TENDONES: _pintar_corte_tendones(e)
+			CombatFX.Estilo.ESPADA_LARGA_TAJO, CombatFX.Estilo.TAJO_PESADO, 			CombatFX.Estilo.GUARDIA_ROTA: _pintar_espada_larga(e)
+			CombatFX.Estilo.TAJO_DESARMANTE: _pintar_desarmante(e)
+			CombatFX.Estilo.VOTO_GUARDIA: _pintar_voto_guardia(e)
+			CombatFX.Estilo.ESTOCADA_MARCIAL: _pintar_estocada_marcial(e)
+			CombatFX.Estilo.VOZ_MANDO: _pintar_voz_mando(e)
+			CombatFX.Estilo.ESCUDAZO: _pintar_escudazo(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -2830,3 +2853,294 @@ func _pintar_corte_tendones(e: Dictionary) -> void:
 		draw_polyline(hilo, Color(f.r, f.g, f.b, 0.85 * alfa), maxf(1.5, caja * 0.020), true)
 		draw_circle(hilo[hilo.size() - 1], caja * 0.018,
 			Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.7 * alfa))
+
+
+# ============================================================
+#  LA ESPADA LARGA (y el escudo)
+# ============================================================
+# Los tajos de la espada larga CAEN, no barren: pesan, y lo que se lee es la caida. Por eso casi
+# todos van de arriba abajo en vez de cruzar en diagonal como los de la corta.
+const COLETA_LARGA := 0.34
+const COLETA_PESADO := 0.46        # tiene que verse caer, y el polvo se queda
+const COLETA_DESARMANTE := 0.40
+const COLETA_GUARDIA_ROTA := 0.34
+const COLETA_VOTO := 0.85          # postura: se queda puesta
+const COLETA_MARCIAL := 0.34
+const COLETA_VOZ := 0.55
+const COLETA_ESCUDAZO := 0.30
+
+const LARGO_LARGA := 0.78          # de caja: la hoja mas larga hasta ahora
+# 0.105 y no 0.155: con aquel, la hoja salia tan ancha respecto a su largo que parecia un cono
+# cayendo, no una espada. Una espada larga es larga, no gorda.
+const ANCHO_LARGA := 0.105
+
+
+# EL TAJO QUE CAE. Base del basico, del Tajo pesado y del Desarmante: los tres son la misma hoja
+# cayendo con distinta fuerza. 'alto' = desde donde arranca (1.0 = por encima de la tarjeta).
+# Devuelve [avance, alfa, centro] o avance < 0 si aun no toca.
+func _tajo_que_cae(e: Dictionary, coleta: float, largo_mult: float, alto: float) -> Array:
+	var r0: Array = _golpe_cuerpo(e, coleta, 0.08)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return [-1.0, 0.0, Vector2.ZERO]
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# Cae casi vertical, con un poco de inclinacion segun la semilla (a veces de un lado, a veces
+	# del otro): un mandoble no barre de lado a lado, se deja caer.
+	var inclina: float = sin(g * 3.3) * 0.35
+	var ang: float = PI * 0.5 + inclina          # apuntando hacia ABAJO
+	var largo: float = caja * 1.30 * largo_mult
+	# La caida se come el primer tercio y frena de golpe al llegar: es un impacto, no un barrido.
+	var k: float = clampf(v / 0.34, 0.0, 1.0)
+	var caida: float = 1.0 - pow(1.0 - k, 2.6)
+	var arriba: Vector2 = b - Vector2(sin(inclina), 1.0).normalized() * caja * alto
+	var p: Vector2 = arriba.lerp(b, caida)
+	# La ESTELA del filo cayendo, detras de la hoja.
+	if k < 1.0:
+		var f: Color = _filo_col(col)
+		var cinta := PackedVector2Array()
+		var lado := Vector2(cos(ang + PI * 0.5), sin(ang + PI * 0.5))
+		for i in 5:
+			var s: float = float(i) / 4.0
+			var q: Vector2 = arriba.lerp(p, s)
+			cinta.append(q + lado * caja * 0.05 * s)
+		for i in range(4, -1, -1):
+			var s2: float = float(i) / 4.0
+			var q2: Vector2 = arriba.lerp(p, s2)
+			cinta.append(q2 - lado * caja * 0.05 * s2)
+		draw_colored_polygon(cinta, Color(f.r, f.g, f.b, 0.28 * alfa))
+	_hoja(p, Vector2(cos(ang), sin(ang)), caja * LARGO_LARGA * largo_mult, caja * ANCHO_LARGA,
+		col, alfa, 0.10)
+	# La herida: un corte VERTICAL, que es por donde ha entrado la hoja.
+	if v > 0.42:
+		var w: float = (v - 0.42) / 0.58
+		var f2: Color = _filo_col(col) if _imbuido(col) else _HUESO
+		var dir := Vector2(cos(ang), sin(ang))
+		var lado2 := Vector2(-dir.y, dir.x)
+		var lh: float = caja * 0.80 * w
+		draw_line(b - dir * lh * 0.5, b + dir * lh * 0.5,
+			Color(f2.r, f2.g, f2.b, 0.95 * alfa), maxf(2.0, caja * 0.045), true)
+		draw_line(b - dir * lh * 0.5 + lado2 * caja * 0.034, b + dir * lh * 0.5 + lado2 * caja * 0.034,
+			Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.6 * alfa), maxf(1.5, caja * 0.026), true)
+	return [v, alfa, b]
+
+
+func _pintar_espada_larga(e: Dictionary) -> void:
+	var estilo: int = int(e["estilo"])
+	var coleta: float = COLETA_LARGA
+	var largo_mult: float = 1.0
+	var alto: float = 0.95
+	if estilo == CombatFX.Estilo.TAJO_PESADO:
+		coleta = COLETA_PESADO
+		largo_mult = 1.15
+		alto = 1.35        # arranca MUY arriba: es lo que le da el peso
+	elif estilo == CombatFX.Estilo.GUARDIA_ROTA:
+		coleta = COLETA_GUARDIA_ROTA
+		largo_mult = 0.95
+	var r: Array = _tajo_que_cae(e, coleta, largo_mult, alto)
+	var v: float = r[0]
+	if v < 0.0 or estilo != CombatFX.Estilo.TAJO_PESADO:
+		return
+	# EL TAJO PESADO levanta polvo al llegar: una onda baja a ras, como la del pisoton. Es lo que
+	# cuenta que ha caido con todo el peso y no es un tajo mas.
+	#
+	# EMPIEZA EN 0.36 y no antes: la caida termina en 0.34 (ver _tajo_que_cae), asi que con el 0.30
+	# el polvo se levantaba ANTES de que la hoja llegara al suelo.
+	if v <= 0.36:
+		return
+	var alfa: float = r[1]
+	var b: Vector2 = r[2]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var w: float = (v - 0.36) / 0.64
+	var rr: float = caja * (0.25 + 0.85 * w)
+	_anillo(b + Vector2(0.0, caja * 0.20), rr, rr * 0.26,
+		Color(0.72, 0.68, 0.62, 0.55 * alfa * (1.0 - w)), maxf(1.5, caja * 0.030 * (1.0 - w * 0.6)))
+
+
+# TAJO DESARMANTE. El corte va ALTO, al brazo con el que sujeta el arma, y del golpe sale despedida
+# el arma del bicho: eso es lo que dice "ahora pega menos".
+func _pintar_desarmante(e: Dictionary) -> void:
+	var r: Array = _tajo_que_cae(e, COLETA_DESARMANTE, 0.95, 0.85)
+	var v: float = r[0]
+	if v < 0.0 or v <= 0.32:
+		return
+	var alfa: float = r[1]
+	var b: Vector2 = r[2]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var col: Color = e["col"]
+	# EL ARMA QUE SALTA: una hoja pequeña girando y cayendo hacia un lado.
+	var w: float = (v - 0.32) / 0.68
+	var lado: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
+	# Parabola: sale hacia arriba y se cae.
+	var p: Vector2 = b + Vector2(lado * caja * 0.85 * w,
+		-caja * 0.55 * sin(w * PI) + caja * 0.20 * w)
+	var giro: float = w * 7.0 * lado
+	_hoja(p, Vector2(cos(giro), sin(giro)), caja * 0.42, caja * 0.075,
+		col, alfa * (1.0 - w * 0.6), 0.15)
+
+
+# VOTO DE GUARDIA. Clavas los pies y cierras: no es un ataque. Un escudo grande delante de tu propia
+# tarjeta, las marcas de los pies clavados y la espada apoyada detras.
+func _pintar_voto_guardia(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var monta: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_VOTO, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.78 else 1.0 - (v - 0.78) / 0.22
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# LA ESPADA, apoyada en vertical por detras del escudo.
+	_hoja(b + Vector2(caja * 0.30, -caja * 0.10), Vector2.UP, caja * LARGO_LARGA, caja * ANCHO_LARGA,
+		col, alfa * 0.85, 0.0)
+	# EL ESCUDO: sube desde abajo hasta cubrirte. Es la forma de _escudo_cara, comun con el ESCUDAZO.
+	var c: Vector2 = b + Vector2(0.0, caja * (0.50 - 0.50 * monta))
+	_escudo_cara(c, caja * 0.46, col, alfa)
+	# LOS PIES CLAVADOS: dos marcas gordas debajo, y unas rayas de que no se mueve de ahi.
+	for i in 2:
+		var lado: float = 1.0 if i == 0 else -1.0
+		var p: Vector2 = b + Vector2(lado * caja * 0.30, caja * 0.66)
+		draw_line(p - Vector2(caja * 0.10, 0.0), p + Vector2(caja * 0.10, 0.0),
+			Color(f.r, f.g, f.b, 0.7 * alfa * monta), maxf(2.0, caja * 0.030), true)
+		for j in 2:
+			var d: float = caja * (0.05 + 0.05 * float(j))
+			draw_line(p + Vector2(lado * (caja * 0.12 + d), -caja * 0.03),
+				p + Vector2(lado * (caja * 0.12 + d), caja * 0.03),
+				Color(f.r, f.g, f.b, 0.35 * alfa * monta), maxf(1.0, caja * 0.016), true)
+	# Y un aro de "por aqui no pasa nadie" que respira.
+	var rr: float = caja * 0.62 * (1.0 + 0.03 * sin(t * 4.0 + g))
+	_anillo(b, rr, rr * 0.52, Color(f.r, f.g, f.b, 0.30 * alfa * monta), maxf(1.5, caja * 0.022))
+
+
+# LA CARA DE UN ESCUDO: un heater shield (recto arriba, en punta abajo) con su reborde y su blason.
+# Lo comparten el Voto de guardia y el ESCUDAZO.
+func _escudo_cara(c: Vector2, r: float, col: Color, alfa: float, giro: float = 0.0) -> void:
+	var pts := PackedVector2Array()
+	var perfil: Array = [Vector2(-1.0, -0.85), Vector2(1.0, -0.85), Vector2(1.0, 0.05),
+		Vector2(0.72, 0.62), Vector2(0.0, 1.0), Vector2(-0.72, 0.62), Vector2(-1.0, 0.05)]
+	for q in perfil:
+		var p: Vector2 = (q as Vector2) * r
+		pts.append(c + p.rotated(giro))
+	draw_colored_polygon(pts, Color(0.42, 0.45, 0.52, 0.95 * alfa))
+	var cerrado := PackedVector2Array(pts)
+	cerrado.append(pts[0])
+	# El REBORDE lleva el color del arma: si vas imbuido, el escudo tambien va.
+	var f: Color = _filo_col(col)
+	draw_polyline(cerrado, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(2.0, r * 0.10), true)
+	# El blason: una banda cruzada, para que no sea una plancha lisa.
+	draw_line(c + Vector2(-r * 0.75, -r * 0.30).rotated(giro),
+		c + Vector2(r * 0.75, r * 0.10).rotated(giro),
+		Color(f.r, f.g, f.b, 0.45 * alfa), maxf(1.5, r * 0.11), true)
+
+
+# ESCUDAZO. El golpe con el escudo: el canto entra de frente, sin filo ni estela -- es una plancha
+# que se estampa. Y suelta el anillo de impacto de un golpe romo.
+#
+# NO ES DE NINGUN ARMA: lo pide cualquier golpe que la habilidad marque como de escudo (la Guardia
+# rota de la espada larga, el Aplastamiento de la maza, los Golpes de escudo...). Ver combat.gd.
+func _pintar_escudazo(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	if t < dur:
+		return
+	var v: float = clampf((t - dur) / COLETA_ESCUDAZO, 0.0, 1.0)
+	var alfa: float = 1.0 if v < 0.55 else 1.0 - (v - 0.55) / 0.45
+	if alfa <= 0.0:
+		return
+	var b: Vector2 = e["b"] + Vector2(cos(g * 2.1), sin(g * 1.7)) * caja * 0.08
+	# Entra de golpe desde abajo y rebota un poco: es un empujon, no un corte.
+	var k: float = clampf(v / 0.26, 0.0, 1.0)
+	var entra: float = 1.0 - pow(1.0 - k, 3.0)
+	var retro: float = 0.0 if v < 0.30 else minf((v - 0.30) / 0.40, 1.0) * 0.22
+	var p: Vector2 = b + Vector2(0.0, caja * (0.70 * (1.0 - entra) + retro))
+	# 0.36 y no 0.42: la plancha se comia su propio impacto -- el anillo y las rayas quedaban DEBAJO
+	# del escudo y solo asomaban por el borde.
+	_escudo_cara(p, caja * 0.36, col, alfa, sin(g) * 0.12)
+	# EL PORRAZO: anillo romo y corto, nada de filos. Y unas rayas de impacto.
+	if k <= 0.55:
+		return
+	var w: float = (k - 0.55) / 0.45
+	var f: Color = _filo_col(col)
+	# El anillo arranca ya POR FUERA del escudo (0.38) y se abre desde ahi: asi el porrazo se ve
+	# alrededor de la plancha en vez de por debajo.
+	var rr: float = caja * (0.38 + 0.55 * w)
+	_anillo(b, rr, rr * 0.62, Color(f.r, f.g, f.b, 0.75 * alfa * (1.0 - w)),
+		maxf(1.5, caja * 0.034 * (1.0 - w * 0.5)))
+	for i in 5:
+		var a: float = -PI * 0.5 + (float(i) - 2.0) * 0.42 + sin(g + float(i)) * 0.10
+		var u := Vector2(cos(a), sin(a))
+		draw_line(b + u * rr * 0.80, b + u * rr * (1.15 + 0.25 * w),
+			Color(f.r, f.g, f.b, 0.6 * alfa * (1.0 - w)), maxf(1.5, caja * 0.024), true)
+
+
+# VOZ DE MANDO. No es un golpe ni va contra nadie: es una orden, y se pinta sobre LOS TUYOS (llega
+# por _fx_adorno con la lista de aliados). Dos arcos que salen hacia arriba y una flecha corta que
+# los empuja: los pies se mueven antes de pensarla.
+func _pintar_voz_mando(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sale: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_VOZ, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.55 else 1.0 - (v - 0.55) / 0.45
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# LOS ARCOS de la voz: tres, saliendo de abajo y abriendose hacia arriba, escalonados.
+	for i in 3:
+		var k: float = clampf((sale + v * 1.4 - float(i) * 0.22) / 0.6, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		var rr: float = caja * (0.20 + 0.42 * k)
+		var arco := PackedVector2Array()
+		for j in 9:
+			var a: float = PI * 1.18 + PI * 0.64 * float(j) / 8.0
+			arco.append(b + Vector2(0.0, caja * 0.34) + Vector2(cos(a) * rr, sin(a) * rr * 0.75))
+		draw_polyline(arco, Color(f.r, f.g, f.b, 0.55 * alfa * (1.0 - k * 0.55)),
+			maxf(1.5, caja * 0.026 * (1.0 - k * 0.4)), true)
+	# LA FLECHA que empuja: corta, hacia arriba, con la punta bien marcada.
+	if v <= 0.15:
+		return
+	var w: float = clampf((v - 0.15) / 0.45, 0.0, 1.0)
+	var subida: float = caja * (0.30 - 0.55 * w) + sin(g) * caja * 0.03
+	var punta: Vector2 = b + Vector2(0.0, subida)
+	draw_line(punta + Vector2(0.0, caja * 0.34), punta,
+		Color(f.r, f.g, f.b, 0.9 * alfa), maxf(2.0, caja * 0.032), true)
+	var tri := PackedVector2Array([punta + Vector2(0.0, -caja * 0.12),
+		punta + Vector2(caja * 0.11, caja * 0.06), punta + Vector2(-caja * 0.11, caja * 0.06)])
+	draw_colored_polygon(tri, Color(f.r, f.g, f.b, 0.95 * alfa))
+
+
+# ESTOCADA MARCIAL. Una punta limpia POR ENCIMA del escudo: es la unica de la espada larga que no
+# cae, sino que entra recta. Reusa la maquinaria del estoque -- la jugada es la misma-- pero con la
+# hoja gorda de esta arma, que es lo que la separa de un estoquazo.
+func _pintar_estocada_marcial(e: Dictionary) -> void:
+	var col: Color = e["col"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var r0: Array = _estocada_base(e, COLETA_MARCIAL, 0.26, 0.80, 0.35)
+	var v: float = r0[0]
+	if v < 0.0:
+		return
+	var alfa: float = r0[1]
+	var punta: Vector2 = r0[2]
+	var dir: Vector2 = r0[3]
+	# La hoja del estoque que ha pintado _estocada_base es fina; encima va la de espada larga, mas
+	# ancha, para que se lea el arma que de verdad esta entrando.
+	_hoja(punta, dir, caja * LARGO_LARGA * 0.80, caja * ANCHO_LARGA * 0.80, col, alfa, 0.06)
+	var k: float = clampf(v / 0.25, 0.0, 1.0)
+	if k > 0.5:
+		_pinchazo(punta, dir, caja * 0.062 * ((k - 0.5) / 0.5), col, alfa)

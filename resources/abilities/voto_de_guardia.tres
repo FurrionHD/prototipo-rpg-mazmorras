@@ -19,6 +19,7 @@ cooldown = 4
 golpes_min = 1
 golpes_max = 1
 dano_mult = 0.7
+fx_estilo = 57
 bloqueo_turnos = 1
 descripcion = "Clavas los pies y cierras la guardia. No es un ataque: es decidir que por aquí no pasa nadie."
 efectos = [SubResource("SA_0")]
