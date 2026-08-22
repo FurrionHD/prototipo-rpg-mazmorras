@@ -21,6 +21,7 @@ golpes_max = 2
 golpes_dual_min = 3
 golpes_dual_max = 3
 dano_mult = 0.8
+fx_estilo = 51
 redirige_al_morir = true
 descripcion = "Dos cortes en el mismo sitio, sin disimulo. Más que herirlo, es enseñarle a los tuyos por dónde se entra."
 efectos = [SubResource("SA_0")]

@@ -87,7 +87,7 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.PUNALADA, CombatFX.Estilo.DESVANECER, \
 		CombatFX.Estilo.ESTOQUE_PUNZADA, CombatFX.Estilo.ESTOCADA_PENETRANTE, \
 		CombatFX.Estilo.FINTAS, CombatFX.Estilo.PASO_LIGERO, \
-		CombatFX.Estilo.PUNZADA_NERVIO, CombatFX.Estilo.DANZA_ACERO:
+		CombatFX.Estilo.PUNZADA_NERVIO, CombatFX.Estilo.DANZA_ACERO, 		CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.TAJO_QUEBRANTADOR, 		CombatFX.Estilo.DOBLE_TAJO, CombatFX.Estilo.CAMBIO_RITMO, 		CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.CORTE_TENDONES:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -243,6 +243,17 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_DANZA
 	if es == CombatFX.Estilo.EN_GUARDIA:
 		return float(e["dur"]) + COLETA_GUARDIA
+	# LA ESPADA CORTA. Mas larga que la de la daga: el trazo es mas amplio y tiene que recorrerse.
+	if es == CombatFX.Estilo.ESPADA_TAJO:
+		return float(e["dur"]) + COLETA_ESPADA
+	if es == CombatFX.Estilo.DOBLE_TAJO or es == CombatFX.Estilo.CAMBIO_RITMO:
+		return float(e["dur"]) + COLETA_ESPADA_RAPIDA
+	if es == CombatFX.Estilo.TAJO_QUEBRANTADOR:
+		return float(e["dur"]) + COLETA_QUEBRANTADOR
+	if es == CombatFX.Estilo.SENALAR_HUECO:
+		return float(e["dur"]) + COLETA_SENALAR
+	if es == CombatFX.Estilo.CORTE_TENDONES:
+		return float(e["dur"]) + COLETA_TENDONES
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -301,6 +312,10 @@ func _draw() -> void:
 			CombatFX.Estilo.PASO_LIGERO: _pintar_paso_ligero(e)
 			CombatFX.Estilo.PUNZADA_NERVIO: _pintar_punzada_nervio(e)
 			CombatFX.Estilo.DANZA_ACERO: _pintar_danza_acero(e)
+			CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.DOBLE_TAJO, 			CombatFX.Estilo.CAMBIO_RITMO: _pintar_espada_tajo(e)
+			CombatFX.Estilo.TAJO_QUEBRANTADOR: _pintar_quebrantador(e)
+			CombatFX.Estilo.SENALAR_HUECO: _pintar_senalar_hueco(e)
+			CombatFX.Estilo.CORTE_TENDONES: _pintar_corte_tendones(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -2604,3 +2619,214 @@ func _pintar_danza_acero(e: Dictionary) -> void:
 		_hoja(punta, dir, caja * LARGO_ESTOQUE * 0.90, caja * ANCHO_ESTOQUE, col, alfa)
 		if k > 0.6:
 			_pinchazo(punta, dir, caja * 0.040 * ((k - 0.6) / 0.4), col, alfa)
+
+
+# ============================================================
+#  LA ESPADA CORTA: cortar con cuerpo
+# ============================================================
+# Corta como la daga, pero la hoja pesa: trazos mas amplios, mas anchos y menos nerviosos. Reusa el
+# mismo _tajo (la cinta combada que cruza la tarjeta) con otros numeros -- que es justo para lo que
+# se hizo parametrizable.
+#
+# Las coletas, en constantes, porque _vida tiene que devolver EXACTAMENTE lo mismo que divida el
+# painter (ver la nota del aura en _vida).
+const COLETA_ESPADA := 0.30
+const COLETA_ESPADA_RAPIDA := 0.24   # Doble tajo y Cambio de ritmo: encadenan, no pueden pisarse
+const COLETA_QUEBRANTADOR := 0.42    # hay que ver saltar la guardia
+const COLETA_SENALAR := 0.40         # los dos cortes y la diana que se queda
+const COLETA_TENDONES := 0.36
+
+const LARGO_ESPADA := 0.52    # de caja: casi el doble que la daga (0.34)
+const ANCHO_ESPADA := 0.135
+
+
+# EL TAJO DE ESPADA. Lo comparten el basico, el Doble tajo y el Cambio de ritmo: los tres son el
+# mismo corte con distinto tempo. Devuelve [avance, alfa, centro, angulo, sentido] para que las
+# habilidades le puedan añadir lo suyo encima sin recalcularlo.
+func _espada_tajo_base(e: Dictionary, coleta: float, largo_mult: float = 1.0) -> Array:
+	var r0: Array = _golpe_cuerpo(e, coleta, 0.09)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return [-1.0, 0.0, Vector2.ZERO, 0.0, 1.0]
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var sentido: float = 1.0 if sin(g * 5.7) > 0.0 else -1.0
+	var ang: float = (-PI * 0.28 + sin(g * 3.3) * 0.30) * sentido
+	var largo: float = caja * 1.55 * largo_mult
+	var k: float = 1.0 - pow(1.0 - v, 2.0)
+	var r: Array = _tajo(b, ang, largo, 0.16 * sentido, k, col, alfa, caja * 0.095)
+	if k < 0.97:
+		_hoja(r[0], r[1], caja * LARGO_ESPADA * largo_mult, caja * ANCHO_ESPADA, col, alfa, 0.22)
+	# La herida: dos lineas por el eje del tajo, como en la daga pero mas largas y mas gordas.
+	if v > 0.38:
+		var w: float = (v - 0.38) / 0.62
+		var f: Color = _filo_col(col) if _imbuido(col) else _HUESO
+		var dir := Vector2(cos(ang), sin(ang))
+		var lado := Vector2(-dir.y, dir.x)
+		var lh: float = largo * 0.78 * w
+		var c0: Vector2 = b - dir * lh * 0.5 + lado * 0.16 * largo * 0.30 * sentido
+		var c1: Vector2 = b + dir * lh * 0.5 + lado * 0.16 * largo * 0.30 * sentido
+		draw_line(c0, c1, Color(f.r, f.g, f.b, 0.95 * alfa), maxf(2.0, caja * 0.040), true)
+		draw_line(c0 + lado * caja * 0.032, c1 + lado * caja * 0.032,
+			Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.6 * alfa), maxf(1.5, caja * 0.024), true)
+	return [v, alfa, b, ang, sentido]
+
+
+func _pintar_espada_tajo(e: Dictionary) -> void:
+	var estilo: int = int(e["estilo"])
+	var coleta: float = COLETA_ESPADA
+	var largo_mult: float = 1.0
+	if estilo == CombatFX.Estilo.DOBLE_TAJO or estilo == CombatFX.Estilo.CAMBIO_RITMO:
+		coleta = COLETA_ESPADA_RAPIDA
+		largo_mult = 0.88
+	var r: Array = _espada_tajo_base(e, coleta, largo_mult)
+	var v: float = r[0]
+	if v < 0.0:
+		return
+	# CAMBIO DE RITMO: el compas que se rompe. Cuatro marcas en fila que se van juntando -- la
+	# cadencia acelerando-- y la ultima adelantada del todo. No hace daño de verdad; lo que cuenta
+	# es que se lea "he cambiado el tempo".
+	if estilo != CombatFX.Estilo.CAMBIO_RITMO:
+		return
+	var alfa: float = r[1]
+	var b: Vector2 = r[2]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var f: Color = _filo_col(e["col"])
+	var w2: float = clampf(v / 0.55, 0.0, 1.0)
+	for i in 4:
+		# Las marcas se acercan entre si segun avanza: empiezan repartidas y acaban apretadas.
+		var sep: float = lerpf(0.30, 0.13, w2)
+		var x: float = (float(i) - 1.5) * caja * sep
+		var alt: float = caja * (0.16 + 0.06 * float(i % 2))
+		var y: float = -caja * 0.62
+		var a2: float = alfa * clampf((w2 - float(i) * 0.12) / 0.3, 0.0, 1.0)
+		if a2 <= 0.0:
+			continue
+		draw_line(b + Vector2(x, y - alt * 0.5), b + Vector2(x, y + alt * 0.5),
+			Color(f.r, f.g, f.b, 0.8 * a2), maxf(1.5, caja * 0.022), true)
+
+
+# TAJO QUEBRANTADOR. El tajo entra y REVIENTA LA GUARDIA: delante del bicho hay un arco -- su
+# defensa-- que se raja y salta en pedazos. Es lo que cuenta que ha quedado expuesto.
+func _pintar_quebrantador(e: Dictionary) -> void:
+	var r: Array = _espada_tajo_base(e, COLETA_QUEBRANTADOR, 1.12)
+	var v: float = r[0]
+	if v < 0.0:
+		return
+	var alfa: float = r[1]
+	var b: Vector2 = r[2]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var f: Color = _filo_col(e["col"])
+	# LA GUARDIA: un arco por delante. Entero al principio, partido en dos mitades que se abren, y
+	# al final los cascotes saliendo despedidos.
+	var abre: float = clampf((v - 0.18) / 0.45, 0.0, 1.0)
+	var rr: float = caja * 0.62
+	for mitad in 2:
+		var lado: float = 1.0 if mitad == 0 else -1.0
+		var giro: float = lado * abre * 0.55
+		var desp: Vector2 = Vector2(lado * abre * caja * 0.30, -abre * caja * 0.10)
+		var arco := PackedVector2Array()
+		for i in 9:
+			# Media cupula por mitad: de la vertical hacia su lado.
+			var a: float = -PI * 0.5 + lado * PI * 0.42 * float(i) / 8.0 + giro
+			arco.append(b + desp + Vector2(cos(a) * rr, sin(a) * rr * 0.9))
+		draw_polyline(arco, Color(f.r, f.g, f.b, 0.55 * alfa * (1.0 - abre * 0.5)),
+			maxf(2.0, caja * 0.030), true)
+	# LOS CASCOTES: trocitos que salen despedidos del punto donde ha reventado.
+	if abre > 0.25:
+		var w: float = (abre - 0.25) / 0.75
+		for i in 6:
+			var ang: float = -PI * 0.5 + (float(i) - 2.5) * 0.42 + sin(g + float(i)) * 0.12
+			var d: float = rr * (0.45 + 0.9 * w)
+			var p: Vector2 = b + Vector2(cos(ang) * d, sin(ang) * d * 0.9)
+			var s: float = caja * 0.045 * (1.0 - w * 0.5)
+			var tri := PackedVector2Array([
+				p + Vector2(-s, s * 0.6), p + Vector2(s * 0.8, s * 0.2), p + Vector2(0.0, -s)])
+			draw_colored_polygon(tri, Color(f.r, f.g, f.b, 0.8 * alfa * (1.0 - w)))
+
+
+# SEÑALAR EL HUECO. Dos cortes EN EL MISMO SITIO -- no repartidos, insistiendo en el mismo punto -- y
+# una diana que se queda puesta encima: es una MARCA para los tuyos, no un golpe mas.
+func _pintar_senalar_hueco(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	if t < dur:
+		return
+	var v: float = clampf((t - dur) / COLETA_SENALAR, 0.0, 1.0)
+	var alfa: float = 1.0 if v < 0.62 else 1.0 - (v - 0.62) / 0.38
+	if alfa <= 0.0:
+		return
+	# El punto EXACTO donde se insiste: siempre el mismo para los dos cortes.
+	var p: Vector2 = e["b"] + Vector2(cos(g * 2.1), sin(g * 1.7)) * caja * 0.14
+	var f: Color = _filo_col(col)
+	# LOS DOS CORTES, cruzados sobre ese punto y escalonados.
+	for i in 2:
+		var k: float = clampf((v - float(i) * 0.22) / 0.30, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		var ang: float = -PI * 0.25 + float(i) * PI * 0.5
+		var largo: float = caja * 0.85
+		var r: Array = _tajo(p, ang, largo, 0.10, k, col, alfa, caja * 0.075)
+		if k < 0.95:
+			_hoja(r[0], r[1], caja * LARGO_ESPADA * 0.9, caja * ANCHO_ESPADA, col, alfa, 0.20)
+	# LA DIANA: dos anillos y una cruz sobre el punto. Entra al final y se queda -- es lo que ven
+	# los tuyos.
+	if v <= 0.45:
+		return
+	var w: float = clampf((v - 0.45) / 0.35, 0.0, 1.0)
+	var rr: float = caja * 0.30 * (1.4 - 0.4 * w)   # se cierra sobre el punto
+	_anillo(p, rr, rr * 0.9, Color(f.r, f.g, f.b, 0.9 * alfa * w), maxf(1.5, caja * 0.026))
+	_anillo(p, rr * 0.55, rr * 0.5, Color(f.r, f.g, f.b, 0.7 * alfa * w), maxf(1.5, caja * 0.020))
+	for i in 4:
+		var a: float = TAU * float(i) / 4.0
+		var u := Vector2(cos(a), sin(a))
+		draw_line(p + u * rr * 1.05, p + u * rr * 1.45,
+			Color(f.r, f.g, f.b, 0.85 * alfa * w), maxf(1.5, caja * 0.022), true)
+
+
+# CORTE DE TENDONES. No busca el pecho: busca lo que lo sostiene. El corte va ABAJO, corto y seco, y
+# de el cuelgan los tendones cortados.
+func _pintar_corte_tendones(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	if t < dur:
+		return
+	var v: float = clampf((t - dur) / COLETA_TENDONES, 0.0, 1.0)
+	var alfa: float = 1.0 if v < 0.58 else 1.0 - (v - 0.58) / 0.42
+	if alfa <= 0.0:
+		return
+	# ABAJO del todo de la tarjeta: a la altura de las piernas, no del pecho.
+	var b: Vector2 = e["b"] + Vector2(sin(g) * caja * 0.10, caja * 0.52)
+	var f: Color = _filo_col(col) if _imbuido(col) else _HUESO
+	# El corte: casi horizontal y corto, de un lado al otro.
+	var k: float = 1.0 - pow(1.0 - v, 2.0)
+	var r: Array = _tajo(b, 0.12 + sin(g * 2.3) * 0.10, caja * 0.95, 0.07, k, col, alfa, caja * 0.070)
+	if k < 0.95:
+		_hoja(r[0], r[1], caja * LARGO_ESPADA * 0.85, caja * ANCHO_ESPADA, col, alfa, 0.18)
+	if v <= 0.40:
+		return
+	# LOS TENDONES: tres hilos que se sueltan y se enrollan hacia abajo. Es lo que dice que lo que se
+	# ha cortado es lo que lo sostenia.
+	var w: float = (v - 0.40) / 0.60
+	for i in 3:
+		var x: float = (float(i) - 1.0) * caja * 0.20 + sin(g + float(i) * 2.7) * caja * 0.04
+		var largo: float = caja * (0.16 + 0.14 * w)
+		var hilo := PackedVector2Array()
+		for j in 6:
+			var s: float = float(j) / 5.0
+			# Se riza al soltarse: la punta se va para un lado.
+			hilo.append(b + Vector2(x + sin(g + float(i) + s * 4.5) * caja * 0.05 * s * w,
+				largo * s))
+		draw_polyline(hilo, Color(f.r, f.g, f.b, 0.85 * alfa), maxf(1.5, caja * 0.020), true)
+		draw_circle(hilo[hilo.size() - 1], caja * 0.018,
+			Color(_SANGRE.r, _SANGRE.g, _SANGRE.b, 0.7 * alfa))

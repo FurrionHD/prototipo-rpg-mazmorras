@@ -110,6 +110,14 @@ signal apagar_ahora(bloque: Dictionary)
 #   PASO_LIGERO  la estocada se da MIENTRAS te apartas: deja el rastro del que ya no esta ahi
 #   PUNZADA_NERVIO  no busca el organo, busca el cable: pinchazo fino y un latigazo que recorre
 #   DANZA_ACERO  tres tiempos encadenados sin bajar la punta, en abanico
+# LA ESPADA CORTA corta como la daga pero con CUERPO: hoja mas larga y ancha, trazos mas amplios y
+# menos nerviosos. Donde la daga da un arañazo rapido, esta abre.
+#   ESPADA_TAJO       el tajo de siempre (el basico)
+#   TAJO_QUEBRANTADOR el que ABRE LA GUARDIA: el tajo revienta un arco que salta en pedazos
+#   DOBLE_TAJO        dos tajos encadenados, el segundo cruzando al primero
+#   CAMBIO_RITMO      un tajo corto y las marcas del compas que se rompe
+#   SENALAR_HUECO     dos cortes EN EL MISMO SITIO y una diana que se queda puesta
+#   CORTE_TENDONES    corte BAJO, a lo que lo sostiene: la herida va abajo y el bicho cede
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -122,7 +130,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		DAGA_CORTE = 35, DAGA_RAFAGA = 36, PUNALADA = 37, IMBUIR_FILO = 38,
 		DESVANECER = 39,
 		ESTOQUE_PUNZADA = 40, ESTOCADA_PENETRANTE = 41, FINTAS = 42, EN_GUARDIA = 43,
-		PASO_LIGERO = 44, PUNZADA_NERVIO = 45, DANZA_ACERO = 46 }
+		PASO_LIGERO = 44, PUNZADA_NERVIO = 45, DANZA_ACERO = 46,
+		ESPADA_TAJO = 47, TAJO_QUEBRANTADOR = 48, DOBLE_TAJO = 49, CAMBIO_RITMO = 50,
+		SENALAR_HUECO = 51, CORTE_TENDONES = 52 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -135,6 +145,7 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 const FX_ARMA := {
 	1: Estilo.DAGA_CORTE,        # DAGA
 	5: Estilo.ESTOQUE_PUNZADA,   # ESTOQUE
+	2: Estilo.ESPADA_TAJO,       # ESPADA_CORTA
 }
 
 
@@ -144,7 +155,9 @@ const FX_ARMA := {
 const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.IMBUIR_FILO, Estilo.DESVANECER,
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.EN_GUARDIA,
-	Estilo.PASO_LIGERO, Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO]
+	Estilo.PASO_LIGERO, Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO,
+	Estilo.ESPADA_TAJO, Estilo.TAJO_QUEBRANTADOR, Estilo.DOBLE_TAJO, Estilo.CAMBIO_RITMO,
+	Estilo.SENALAR_HUECO, Estilo.CORTE_TENDONES]
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
@@ -212,6 +225,10 @@ const T_VUELO := {
 	Estilo.PASO_LIGERO: 0.08, Estilo.PUNZADA_NERVIO: 0.10, Estilo.DANZA_ACERO: 0.06,
 	# La postura no viaja: se abre sobre uno mismo y hay que verla montarse.
 	Estilo.EN_GUARDIA: 0.22,
+	# LA ESPADA CORTA. Un pelin mas de adelanto que la daga: la hoja pesa mas y el brazo tarda mas en
+	# arrancar. El QUEBRANTADOR es el que mas, porque hay que ver venir el golpe que abre la guardia.
+	Estilo.ESPADA_TAJO: 0.06, Estilo.TAJO_QUEBRANTADOR: 0.11, Estilo.DOBLE_TAJO: 0.05,
+	Estilo.CAMBIO_RITMO: 0.06, Estilo.SENALAR_HUECO: 0.07, Estilo.CORTE_TENDONES: 0.07,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1092,7 +1109,9 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	# El estoque tiene MAS alcance, pero sigue habiendo que llegar: embiste igual. El EN_GUARDIA no,
 	# que es una postura y va sobre uno mismo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
-	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO]
+	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO,
+	Estilo.ESPADA_TAJO, Estilo.TAJO_QUEBRANTADOR, Estilo.DOBLE_TAJO, Estilo.CAMBIO_RITMO,
+	Estilo.SENALAR_HUECO, Estilo.CORTE_TENDONES]
 # NOTA: la CARGA esta en _ESTILOS_DE_GRUPO y aun asi embiste. No es contradictorio: embestir es del
 # ATACANTE (su tarjeta se lanza) y agruparse es del DIBUJO (uno solo para todo lo alcanzado).
 

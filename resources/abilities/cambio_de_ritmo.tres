@@ -14,6 +14,7 @@ golpes_max = 1
 golpes_dual_min = 2
 golpes_dual_max = 2
 dano_mult = 0.75
+fx_estilo = 50
 reduce_cooldowns = 1
 redirige_al_morir = true
 descripcion = "Rompes la cadencia a media pelea. No hace gran cosa por sí solo, pero te deja las manos listas antes de tiempo."

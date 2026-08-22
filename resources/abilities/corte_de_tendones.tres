@@ -27,6 +27,7 @@ golpes_max = 1
 golpes_dual_min = 2
 golpes_dual_max = 2
 dano_mult = 0.85
+fx_estilo = 52
 redirige_al_morir = true
 descripcion = "No busca el pecho: busca lo que lo sostiene y lo que lo repara. Después de esto se mueve peor y se recompone aún peor."
 efectos = [SubResource("SA_0"), SubResource("SA_1")]
