@@ -319,6 +319,28 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.COBERTURA,
 	Estilo.PURIFICAR, Estilo.CHISPA_VINCULADA, Estilo.EGIDA_MENOR]
 
+# LO QUE **NO** TIÑE LA IMBUICION. La regla es: si en el dibujo aparece TU metal -- el arma o el
+# escudo --, lleva el elemento; si no, no.
+#
+# Existe porque _color_golpe teñia CUALQUIER estilo de FX_JUGADOR, o sea los 67: con la daga
+# emponzoñada se te ponian verdes el Voto de guardia, el Muro de aliados, el Sello arcano, los gritos
+# y la Cobertura. El veneno esta en el filo, no en tu voz.
+#
+# QUE SE QUEDA FUERA y por que:
+#   los GRITOS y las ondas          no son metal, son aire
+#   el MURO DE ALIADOS              son las placas de LOS DEMAS, no las tuyas
+#   lo ARCANO del baston y la varita  un signo no es la punta del palo
+#   las SOMBRAS y la SED DE SANGRE  ya llevan su propio color a mano
+#
+# Y lo que NO esta aqui -- los golpes, el Filo emponzoñado, las posturas que enseñan el arma y todo
+# lo que pinta TU escudo -- si se tiñe, y ademas el elemento se le COMPORTA encima (ver
+# CapaHechizos._elemento_en_metal).
+const FX_SIN_IMBUICION := [Estilo.GRITO_GUERRA, Estilo.VOZ_MANDO, Estilo.GRITO_ALIENTO,
+	Estilo.MURO_ALIADOS, Estilo.SED_SANGRE, Estilo.DESVANECER, Estilo.VELO_UMBRIO,
+	Estilo.FOCO_ARCANO, Estilo.SELLO_ARCANO, Estilo.VIENTO_LIMPIO,
+	Estilo.PURIFICAR, Estilo.CHISPA_VINCULADA, Estilo.EGIDA_MENOR]
+
+
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
 # como color del golpe y CapaHechizos lo compara para saber si el arma lleva algo encima o no.
 #

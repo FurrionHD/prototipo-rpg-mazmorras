@@ -2680,6 +2680,11 @@ func _color_golpe(atacante: Combatant, elem: int, estilo: int) -> Color:
 	# rojizos, como si cada golpe fuera de fuego. El elemento sigue mandando por encima: con fuego el
 	# corte sale naranja, que es para lo que existen las imbuiciones del mago.
 	if CombatFX.FX_JUGADOR.has(estilo):
+		# PERO LA IMBUICION SOLO TIÑE TU METAL. Un grito, un signo arcano, una sombra o las placas de
+		# tus compañeros no tienen por que ponerse verdes porque lleves veneno en la daga -- y se
+		# ponian, porque aqui entraban los 67 estilos del jugador. Ver CombatFX.FX_SIN_IMBUICION.
+		if CombatFX.FX_SIN_IMBUICION.has(estilo):
+			return CombatFX.ACERO
 		# EL VENENO NO ES UN ELEMENTO, es un ESTADO (ver elements.gd), asi que no llega por 'elem' y
 		# el Filo emponzoñado se veria de acero pelado. Se saca del arma imbuida del propio atacante:
 		# mientras le queden usos, el filo va tintado de su color. Es la misma via por la que un bicho
@@ -5947,11 +5952,26 @@ func _enemy_turn(e: Combatant) -> void:
 # DESPUES del golpe -- primero pegas, luego te cubres.
 #
 # Va como 'solo_dibujo': no es un impacto, no lleva numero ni temblor ni toca ninguna barra.
+# EL ELEMENTO QUE LLEVA ENCIMA el que lanza, para los dibujos que NO son un golpe (una postura, un
+# escudo adelantado, un adorno). Sin esto las dos rutas de adorno pasaban NINGUNO -- una a pelo y la
+# otra por elemento_ataque, que en el jugador es siempre NINGUNO --, asi que el arma en alto y el
+# escudo salian con el COLOR de la imbuicion pero sin que el elemento hiciera nada encima.
+#
+# Vale para los dos bandos: los bichos llevan imbue_usos a 0 y se quedan con su elemento_ataque de
+# siempre.
+func _elem_encima(e: Combatant) -> int:
+	if e == null:
+		return Elementos.Elemento.NINGUNO
+	if e.imbue_usos > 0 and e.imbue_elemento != Elementos.Elemento.NINGUNO:
+		return e.imbue_elemento
+	return e.elemento_ataque
+
+
 func _fx_sobre_mi(ab: AbilityData) -> void:
 	if ab == null or ab.fx_sobre_mi < 0 or _fx == null:
 		return
 	_fx_tanda(_fx.ultima_tanda() + 1)
-	_fx_golpe(_player, _player, 0.0, false, false, Elementos.Elemento.NINGUNO,
+	_fx_golpe(_player, _player, 0.0, false, false, _elem_encima(_player),
 		ab.fx_sobre_mi, 1.3, true)
 
 
@@ -5964,17 +5984,18 @@ func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
 	# Estas son las que MAS piden sonido: un bramido o un caparazon no hacen ni un punto de daño y
 	# aun asi tienen que oirse. Por eso CombatFX dispara el sonido ANTES de descartar los adornos.
 	var sfx: String = _clave_sfx(ab)
+	var el: int = _elem_encima(e)
 	if CombatFX.SOBRE_SI_MISMO.has(estilo):
-		_fx_golpe(e, e, 0.0, false, false, e.elemento_ataque, estilo, 1.3, true, sfx)
+		_fx_golpe(e, e, 0.0, false, false, el, estilo, 1.3, true, sfx)
 		return
 	if obj == null:
 		return
 	if ab.es_area():
 		for o in _objetivos_area_aliados(ab, obj):
-			_fx_golpe(e, o["c"], 0.0, false, false, e.elemento_ataque, estilo,
+			_fx_golpe(e, o["c"], 0.0, false, false, el, estilo,
 				float(o["escala"]), true, sfx)
 	else:
-		_fx_golpe(e, obj, 0.0, false, false, e.elemento_ataque, estilo, 1.0, true, sfx)
+		_fx_golpe(e, obj, 0.0, false, false, el, estilo, 1.0, true, sfx)
 
 
 func _invocacion_lista(e: Combatant) -> AbilityData:

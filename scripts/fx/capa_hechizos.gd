@@ -2126,6 +2126,159 @@ func _anillo(c: Vector2, rx: float, ry: float, col: Color, grosor: float) -> voi
 
 
 # ============================================================
+#  EL ELEMENTO SOBRE EL METAL
+# ============================================================
+# LA IMBUICION NO ES UN TINTE, ES ALGO QUE PASA ENCIMA DEL ARMA. Durante mucho tiempo llevar fuego,
+# agua o rayo consistia en que el borde de la hoja o del escudo salia de otro color, y eso se veia
+# exactamente igual de flojo con los cuatro: "un borde de color y ya". La regla que ya estaba escrita
+# para los trazos (EL ELEMENTO ES UN COMPORTAMIENTO, ver _tajo) no habia llegado al metal.
+#
+# Esto viste una silueta YA DIBUJADA: se le pasa su contorno cerrado y le pone encima lo que haga el
+# elemento. Lo usan los cuatro sitios que pintan metal -- _hoja, _hoja_tumbada, _escudo_cara y
+# _cabeza_martillo --, con lo que cubre de una vez el arma en la mano, todas las estocadas y los
+# siete gestos de escudo.
+#
+# EL VENENO TAMBIEN CUENTA, aunque no sea un elemento sino un estado: no llega por 'elem' (ver
+# _color_golpe), asi que se reconoce por descarte -- sin elemento pero con el color cambiado. Antes
+# se quedaba "verde y limpio" a proposito; ahora chorrea como los demas, que es lo unico que hace que
+# se note que la daga lleva algo encima.
+#
+# 'esc' es el tamaño de referencia de la pieza (media anchura, radio del escudo...): de ahi salen
+# todos los tamaños, para que una daga y una torre no lleven las mismas llamas.
+func _elemento_en_metal(contorno: PackedVector2Array, elem: int, col: Color, alfa: float,
+		t: float, sem: float, esc: float) -> void:
+	if contorno.size() < 3 or alfa <= 0.02 or esc < 2.0:
+		return
+	var f: Color = _filo_col(col)
+	var n: int = contorno.size()
+	# El centro de la pieza: hace falta para saber que es "hacia fuera" y que es "el borde de abajo".
+	var cen := Vector2.ZERO
+	for q in contorno:
+		cen += q
+	cen /= float(n)
+
+	match elem:
+		Elementos.Elemento.FUEGO:
+			# LENGUAS SUELTAS, NO UN CONTORNO. El primer intento fue un poligono desplazado que
+			# abrazaba la silueta, y eso se lee SIEMPRE como un borde de color por muy grueso que sea
+			# -- que es justo la queja que habia. El fuego se lee por lo irregular: lenguas separadas,
+			# de largos muy distintos, con HUECOS entre ellas y sobresaliendo de verdad.
+			var brasa := Color(1.0, 0.42, 0.10)
+			for i in range(0, n, 2):
+				var p: Vector2 = contorno[i]
+				var nr: Vector2 = (p - cen).normalized()
+				if nr.length() < 0.01:
+					continue
+				var lat := Vector2(-nr.y, nr.x)
+				# Largos MUY desiguales (0.3 a 1.6) y cada una con su fase: si van parejas parece que
+				# la pieza late en vez de arder.
+				var fase: float = t * 7.0 + float(i) * 1.7 + sem
+				var lg: float = esc * (0.30 + 1.30 * absf(sin(fase)) * (0.45 + 0.55 * absf(sin(sem + float(i)))))
+				# La lengua se tuerce: la punta se va de lado y el fuego sube.
+				var punta: Vector2 = p + nr * lg + lat * sin(fase * 1.6) * esc * 0.35 					- Vector2(0.0, lg * 0.35)
+				var med: Vector2 = p + nr * lg * 0.45 + lat * sin(fase) * esc * 0.18
+				var an: float = esc * 0.42
+				draw_colored_polygon(PackedVector2Array([p + lat * an, med + lat * an * 0.45,
+					punta, med - lat * an * 0.45, p - lat * an]),
+					Color(brasa.r, brasa.g, brasa.b, 0.55 * alfa))
+				# El corazon de la llama, mas corto y mas claro: es lo que le da temperatura.
+				draw_colored_polygon(PackedVector2Array([p + lat * an * 0.5,
+					med.lerp(punta, 0.25), p - lat * an * 0.5]),
+					Color(1.0, 0.86, 0.45, 0.65 * alfa))
+			# Y las CHISPAS, que son lo unico que se despega de la pieza.
+			for i in 5:
+				var q2: Vector2 = contorno[(i * 3) % n]
+				var sub: float = fposmod(t * 1.7 + float(i) * 0.31 + sem * 0.1, 1.0)
+				draw_circle(q2 + Vector2(sin(sem + float(i) * 2.3) * esc * 0.5, -esc * 2.0 * sub),
+					maxf(1.0, esc * 0.16 * (1.0 - sub)),
+					Color(1.0, 0.74, 0.32, 0.9 * alfa * (1.0 - sub)))
+		Elementos.Elemento.AGUA:
+			# LA PELICULA: la misma silueta translucida. Sutil a proposito -- lo que se ve del agua es
+			# lo que CAE, no un tinte azul encima del metal.
+			draw_colored_polygon(contorno, Color(0.35, 0.68, 1.0, 0.20 * alfa))
+			# LOS REGUEROS: hilos que resbalan por la cara hacia abajo, desde arriba. Es lo que dice
+			# que la pieza esta chorreando y no simplemente pintada de azul.
+			for i in 3:
+				var arr: Vector2 = cen + Vector2((float(i) - 1.0) * esc * 0.7, -esc * 0.8)
+				var lgr: float = esc * (1.0 + 0.8 * absf(sin(t * 1.1 + float(i) + sem)))
+				var reg := PackedVector2Array()
+				for j in 5:
+					var u: float = float(j) / 4.0
+					reg.append(arr + Vector2(sin(t * 1.4 + u * 3.0 + float(i) + sem) * esc * 0.14,
+						lgr * u))
+				draw_polyline(reg, Color(0.55, 0.82, 1.0, 0.40 * alfa), maxf(1.0, esc * 0.14), true)
+			# Y LAS GOTAS que se sueltan del borde de abajo. GORDAS y pocas: muchas y pequeñas se
+			# leian como ruido.
+			var puestas: int = 0
+			for i in n:
+				if puestas >= 4:
+					break
+				var q3: Vector2 = contorno[i]
+				if q3.y < cen.y + esc * 0.20:
+					continue
+				puestas += 1
+				var cae: float = fposmod(t * 1.15 + float(i) * 0.29 + sem * 0.1, 1.0)
+				var d: Vector2 = q3 + Vector2(0.0, esc * 2.2 * cae * cae)
+				draw_line(q3, d, Color(0.45, 0.75, 1.0, 0.30 * alfa * (1.0 - cae)),
+					maxf(1.0, esc * 0.10), true)
+				draw_circle(d, maxf(1.5, esc * 0.26 * (1.0 - cae * 0.45)),
+					Color(0.58, 0.85, 1.0, 0.95 * alfa * (1.0 - cae * 0.6)))
+		Elementos.Elemento.RAYO:
+			# EL RAYO SALTA, NO BORDEA. Tambien empezo pegado al contorno y salia -- otra vez -- un
+			# borde de color. Un arco electrico va de un punto del metal a OTRO por fuera, cortando el
+			# aire, y encima parpadea a tirones.
+			var brillo: float = 0.35 + 0.65 * pow(absf(sin(t * 23.0 + sem)), 0.6)
+			for k in 3:
+				var i0: int = int(fposmod(sem * 3.1 + float(k) * 2.7 + t * 3.0, float(n)))
+				var i1: int = (i0 + 3 + k) % n
+				var a0: Vector2 = contorno[i0]
+				var a1: Vector2 = contorno[i1]
+				# El arco se abomba HACIA FUERA de la pieza y se quiebra por el camino.
+				var med2: Vector2 = a0.lerp(a1, 0.5)
+				var fuera: Vector2 = (med2 - cen).normalized() * esc * (0.9 + 0.7 * absf(sin(sem + float(k))))
+				var arco := PackedVector2Array()
+				for j in 6:
+					var u2: float = float(j) / 5.0
+					var base: Vector2 = a0.lerp(a1, u2) + fuera * sin(PI * u2)
+					arco.append(base + Vector2(sin(t * 41.0 + float(j) * 2.3 + float(k)),
+						cos(t * 37.0 + float(j) * 1.9)) * esc * 0.22 * sin(PI * u2))
+				draw_polyline(arco, Color(f.r, f.g, f.b, 0.65 * alfa * brillo),
+					maxf(1.5, esc * 0.20), true)
+				draw_polyline(arco, Color(1.0, 0.99, 0.92, 0.9 * alfa * brillo),
+					maxf(1.0, esc * 0.08), true)
+			# Y un chisporroteo pegado al metal, que es lo que ata los arcos a la pieza.
+			for i in 4:
+				var q4: Vector2 = contorno[(i * 4 + int(t * 9.0)) % n]
+				draw_circle(q4, maxf(1.0, esc * 0.13 * brillo),
+					Color(1.0, 1.0, 0.94, 0.8 * alfa * brillo))
+		_:
+			# SIN ELEMENTO. Con el acero no se pinta nada; si el color ha cambiado es un ESTADO -- hoy
+			# solo el veneno -- y ese CHORREA.
+			if not _imbuido(col):
+				return
+			# LA CAPA QUE LO CUBRE. FLOJA de verdad (0.18): a 0.30 el escudo y la hoja salian verdes
+			# macizos y desaparecia el metal de debajo -- volvia a ser un tinte, que es lo que se
+			# estaba quitando. Lo que tiene que verse del veneno son los CHURRETONES.
+			draw_colored_polygon(contorno, Color(col.r, col.g, col.b, 0.18 * alfa))
+			var hechas: int = 0
+			for i in n:
+				if hechas >= 4:
+					break
+				var q5: Vector2 = contorno[i]
+				if q5.y < cen.y + esc * 0.15:
+					continue
+				hechas += 1
+				# ESPESO: baja DESPACIO (0.45) y la gota ENGORDA en la punta. Eso es lo que separa el
+				# veneno del agua, que cae ligera y se suelta enseguida.
+				var baja: float = fposmod(t * 0.45 + float(i) * 0.23 + sem * 0.1, 1.0)
+				var d2: Vector2 = q5 + Vector2(sin(sem + float(i)) * esc * 0.10, esc * 1.9 * baja)
+				draw_line(q5, d2, Color(col.r, col.g, col.b, 0.8 * alfa),
+					maxf(1.5, esc * 0.20 * (1.0 - baja * 0.35)), true)
+				draw_circle(d2, maxf(1.5, esc * 0.30 * (0.40 + 0.60 * baja)),
+					Color(col.r, col.g, col.b, 0.95 * alfa))
+
+
+# ============================================================
 #  LAS ARMAS DEL JUGADOR
 # ============================================================
 # Hasta ahora todo lo del jugador iba con MELEE, o sea sin dibujo. Estos son los primeros gestos
@@ -2170,7 +2323,7 @@ func _filo_col(col: Color) -> Color:
 # Es el ladrillo del que salen todos los cortes: cambiando largo/ancho/curva se pasa de una daga a
 # un mandoble sin escribir otro painter.
 func _hoja(p: Vector2, dir: Vector2, largo: float, ancho: float, col: Color, alfa: float,
-		curva: float = 0.0) -> void:
+		curva: float = 0.0, elem: int = 0, t: float = 0.0) -> void:
 	var lado := Vector2(-dir.y, dir.x)
 	var n: int = 10
 	var izq := PackedVector2Array()
@@ -2203,6 +2356,9 @@ func _hoja(p: Vector2, dir: Vector2, largo: float, ancho: float, col: Color, alf
 	# Y el lomo, mas oscuro que la hoja, que es lo que le da grosor.
 	draw_polyline(der, Color(_ACERO_OSCURO.r, _ACERO_OSCURO.g, _ACERO_OSCURO.b, 0.9 * alfa),
 		maxf(1.0, ancho * 0.26), true)
+	# Y LO QUE LLEVE ENCIMA. Aqui es donde la imbuicion deja de ser "el filo de otro color" y pasa a
+	# arder, chorrear o chisporrotear sobre la hoja (ver _elemento_en_metal).
+	_elemento_en_metal(pts, elem, col, alfa, t, largo * 0.31 + ancho, ancho * 0.90)
 
 
 # EL TRAZO de un tajo: la cinta que deja el filo al CRUZAR. Va de un lado al otro pasando por el
@@ -2386,7 +2542,8 @@ func _pintar_punalada(e: Dictionary) -> void:
 		# tajo cualquiera -- se ve que va apuntada.
 		var w: float = clampf(t / dur, 0.0, 1.0)
 		var atras: float = caja * (0.75 - 0.15 * w) + sin(t * 40.0) * caja * 0.02
-		_hoja(b - dir * atras, dir, largo, caja * 0.085, col, 0.55 + 0.45 * w)
+		_hoja(b - dir * atras, dir, largo, caja * 0.085, col, 0.55 + 0.45 * w, 0.0,
+			int(e.get("elem", 0)), t)
 		return
 	var v: float = clampf((t - dur) / 0.34, 0.0, 1.0)
 	var alfa: float = 1.0 if v < 0.62 else 1.0 - (v - 0.62) / 0.38
@@ -2396,7 +2553,7 @@ func _pintar_punalada(e: Dictionary) -> void:
 	var k: float = clampf(v / 0.30, 0.0, 1.0)
 	var hundido: float = 1.0 - pow(1.0 - k, 3.0)
 	var punta: Vector2 = b - dir * caja * 0.60 * (1.0 - hundido) + dir * caja * 0.28 * hundido
-	_hoja(punta, dir, largo, caja * 0.085, col, alfa)
+	_hoja(punta, dir, largo, caja * 0.085, col, alfa, 0.0, int(e.get("elem", 0)), t)
 	# EL PINCHAZO donde entra. Una puñalada no abre un tajo: hace un AGUJERO, asi que va un ovalo
 	# oscuro con el borde del color y nada mas. Antes era el huso dentado del zarpazo y a tamaño real
 	# parecia una oruga pegada a la punta -- ese dentado es para algo que te ARRASTRA, no para algo
@@ -2478,7 +2635,8 @@ func _pintar_imbuir_filo(e: Dictionary) -> void:
 	# La hoja en acero, entera, y encima el tramo ya mojado.
 	_hoja_tumbada(base, punta, ancho, 0.0, 1.0, _ACERO, alfa, true)
 	if avance > 0.01:
-		_hoja_tumbada(base, punta, ancho, 0.0, avance, col, 0.92 * alfa, false)
+		_hoja_tumbada(base, punta, ancho, 0.0, avance, col, 0.92 * alfa, false,
+			int(e.get("elem", 0)), t)
 
 	# --- EL BOTE -------------------------------------------------------------------------------
 	# Va por delante del borde mojado, que es lo que hace que se lea que el color sale DE EL.
@@ -2526,7 +2684,7 @@ func _pintar_imbuir_filo(e: Dictionary) -> void:
 # 'contorno' solo lo pide la pasada de acero: repetirlo en la del veneno dibujaba un borde oscuro en
 # mitad de la hoja, justo por donde iba el bote.
 func _hoja_tumbada(base: Vector2, punta: Vector2, ancho: float, s0: float, s1: float,
-		col: Color, alfa: float, contorno: bool) -> void:
+		col: Color, alfa: float, contorno: bool, elem: int = 0, t: float = -1.0) -> void:
 	var n: int = 12
 	var arriba := PackedVector2Array()
 	var abajo := PackedVector2Array()
@@ -2547,6 +2705,10 @@ func _hoja_tumbada(base: Vector2, punta: Vector2, ancho: float, s0: float, s1: f
 		cerrado.append(pts[0])
 		draw_polyline(cerrado, Color(_ENCIA.r, _ENCIA.g, _ENCIA.b, 0.7 * alfa),
 			maxf(1.0, ancho * 0.22), true)
+	# El reloj a -1 = no vestir. Lo pide la pasada de ACERO de esta misma hoja: el elemento tiene que
+	# ir SOBRE el trozo ya mojado, no sobre el metal limpio de debajo.
+	if t >= 0.0:
+		_elemento_en_metal(pts, elem, col, alfa, t, base.x * 0.05, ancho * 0.95)
 
 
 # DESAPARECER: LA SOMBRA, y solo la sombra. Se pinta sobre TI -- el que se esfuma es el que ataca --
@@ -2610,7 +2772,48 @@ const COLETA_GUARDIA := 0.85     # es una postura, no un golpe: tiene que quedar
 # La hoja del estoque: LARGA y FINA, al reves que la daga (corta y con cuerpo). Es lo que separa las
 # dos armas de un vistazo aunque las dos entren rectas.
 const LARGO_ESTOQUE := 1.15
-const ANCHO_ESTOQUE := 0.042
+# 0.075 y no 0.042. Con el ancho viejo la hoja medía unos 3,6 px de medio ancho a tamaño de tarjeta:
+# una raya gris. Y como el resto del gesto era un ovalito con el borde teñido, la queja fue exacta --
+# "un borde de color y ya". Sigue siendo la hoja MAS FINA del juego (la daga va a 0.085 y la espada
+# larga a 0.105), que es lo que la separa de las demas; pero ya se ve.
+const ANCHO_ESTOQUE := 0.075
+
+
+# LA ESTELA DE LA PUNTA: por donde acaba de pasar el acero. Es el equivalente de _tajo para algo que
+# PINCHA -- una cinta estrecha y RECTA en la direccion de entrada, gorda en la punta y afilandose
+# hacia atras.
+#
+# Sin esto el estoque era lo unico del juego sin movimiento: una hoja quieta que cambiaba de sitio de
+# un frame al siguiente. Los tajos se ven bien porque lo que se pinta es el RASTRO, no el arma; aqui
+# faltaba justo eso.
+#
+# NO CRUZA NI SE CURVA, que es lo que la mantiene siendo una estocada y no un tajo fino: entra recta
+# y se acaba donde esta la punta.
+func _estela_punta(punta: Vector2, dir: Vector2, largo: float, col: Color, alfa: float,
+		grosor: float, elem: int, sem: float) -> void:
+	if largo < 2.0 or alfa <= 0.02:
+		return
+	var lado := Vector2(-dir.y, dir.x)
+	var f: Color = _filo_col(col)
+	var n: int = 10
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	for i in n + 1:
+		var s: float = float(i) / float(n)          # 0 = cola, 1 = punta
+		var p: Vector2 = punta - dir * largo * (1.0 - s)
+		# Se afila hacia la cola con el mismo perfil que la cinta de un tajo: lo viejo ya se borra.
+		var w: float = grosor * pow(s, 1.2)
+		izq.append(p + lado * w)
+		der.append(p - lado * w)
+	var pts := PackedVector2Array(izq)
+	for i in range(der.size() - 1, -1, -1):
+		pts.append(der[i])
+	draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.30 * alfa))
+	draw_polyline(izq, Color(f.r, f.g, f.b, 0.75 * alfa), maxf(1.0, grosor * 0.45), true)
+	draw_polyline(der, Color(f.r, f.g, f.b, 0.55 * alfa), maxf(1.0, grosor * 0.35), true)
+	# EL ELEMENTO tambien en la estela, no solo en la hoja: es la mitad del recorrido y dejarla limpia
+	# hacia que el fuego se quedase pegado al acero y no acompañase al golpe.
+	_elemento_en_metal(pts, elem, col, 0.75 * alfa, sem, sem * 0.7, grosor * 1.1)
 
 
 # EL GESTO BASE DE TODA ESTOCADA: la punta se arma atras, sale disparada, se hunde y vuelve.
@@ -2638,7 +2841,8 @@ func _estocada_base(e: Dictionary, coleta: float, prof: float, largo_mult: float
 		# como una estocada apuntada.
 		var w: float = clampf(t / dur, 0.0, 1.0)
 		var atras: float = caja * (0.85 - 0.20 * w) + sin(t * 44.0) * caja * 0.015
-		_hoja(b - dir * atras, dir, largo, ancho, col, 0.5 + 0.5 * w)
+		_hoja(b - dir * atras, dir, largo, ancho, col, 0.5 + 0.5 * w, 0.0,
+			int(e.get("elem", 0)), t)
 		return [-1.0, 0.0, Vector2.ZERO, dir]
 	var v: float = clampf((t - dur) / coleta, 0.0, 1.0)
 	var alfa: float = 1.0 if v < 0.60 else 1.0 - (v - 0.60) / 0.40
@@ -2648,7 +2852,17 @@ func _estocada_base(e: Dictionary, coleta: float, prof: float, largo_mult: float
 	var k: float = clampf(v / 0.25, 0.0, 1.0)
 	var hundido: float = 1.0 - pow(1.0 - k, 3.0)
 	var punta: Vector2 = b - dir * caja * 0.70 * (1.0 - hundido) + dir * caja * prof * hundido
-	_hoja(punta, dir, largo, ancho, col, alfa)
+	# LA ESTELA, mientras la punta se mueve: es lo que le faltaba a esta arma para tener gesto. Se
+	# mide desde donde arranco, asi que crece con la entrada y se queda quieta al clavarse.
+	var recorrido: float = caja * (0.70 + prof) * hundido
+	# MAS ANCHA QUE LA HOJA (0.14 contra los 0.075 de ANCHO_ESTOQUE), o no se ve: con el mismo ancho
+	# quedaba exactamente DEBAJO del acero, tapada de punta a cola. Sobresaliendo por los lados hace
+	# de halo del recorrido, que es lo que da la sensacion de velocidad.
+	_estela_punta(punta, dir, recorrido, col, alfa * (1.0 - k * 0.45), caja * 0.14,
+		int(e.get("elem", 0)), g)
+	# Y LA HOJA. Mientras VUELA va medio borrada (lo que se lee es la estela, no el arma) y al pararse
+	# queda nitida: es la regla de siempre -- el arma se dibuja donde esta QUIETA.
+	_hoja(punta, dir, largo, ancho, col, alfa * (0.45 + 0.55 * k), 0.0, int(e.get("elem", 0)), t)
 	return [v, alfa, punta, dir]
 
 
@@ -2656,15 +2870,30 @@ func _estocada_base(e: Dictionary, coleta: float, prof: float, largo_mult: float
 # con el borde del color de lo que lleve el arma. Lo comparten todas las del estoque.
 func _pinchazo(p: Vector2, dir: Vector2, r: float, col: Color, alfa: float) -> void:
 	var lado := Vector2(-dir.y, dir.x)
-	var pts := PackedVector2Array()
+	var f: Color = _filo_col(col)
+	# EL FOGONAZO DE LA ENTRADA, alargado en el eje por el que ha entrado el acero. Es lo que hace que
+	# el pinchazo se lea: antes esto era SOLO el agujero -- un ovalo diminuto con el borde teñido --,
+	# que a tamaño real parecia una cuenta pegada a la punta.
+	var destello := PackedVector2Array()
 	for i in 12:
 		var a: float = TAU * float(i) / 12.0
-		pts.append(p + lado * cos(a) * r + dir * sin(a) * r * 1.8)
+		# Muy estirado a lo largo (3.4) y estrecho a lo ancho: por ahi ha entrado algo fino y rapido.
+		destello.append(p + lado * cos(a) * r * 0.55 + dir * sin(a) * r * 3.4)
+	draw_colored_polygon(destello, Color(f.r, f.g, f.b, 0.40 * alfa))
+	# LA ONDA, corta y PERPENDICULAR al eje: es el unico trazo que se abre a lo ancho y por eso marca
+	# el punto exacto de la entrada.
+	draw_line(p - lado * r * 1.5, p + lado * r * 1.5, Color(f.r, f.g, f.b, 0.55 * alfa),
+		maxf(1.0, r * 0.28), true)
+	# Y EL AGUJERO, que sigue siendo el centro de todo pero ahora con algo alrededor.
+	var pts := PackedVector2Array()
+	for i in 12:
+		var a2: float = TAU * float(i) / 12.0
+		pts.append(p + lado * cos(a2) * r + dir * sin(a2) * r * 1.8)
 	draw_colored_polygon(pts, Color(_SANGRE.r * 0.5, _SANGRE.g * 0.3, _SANGRE.b * 0.3, 0.85 * alfa))
-	var f: Color = _filo_col(col)
 	var cerrado := PackedVector2Array(pts)
 	cerrado.append(pts[0])
 	draw_polyline(cerrado, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(1.5, r * 0.30), true)
+	draw_circle(p, maxf(1.0, r * 0.45), Color(1.0, 0.99, 0.96, 0.85 * alfa))
 
 
 # ESTOCADA. Tres habilidades comparten painter porque las tres son la misma jugada con distinto
@@ -2727,7 +2956,8 @@ func _pintar_en_guardia(e: Dictionary) -> void:
 	var ang: float = -PI * 0.5 + 0.30 + sin(g) * 0.10
 	var dir := Vector2(cos(ang), sin(ang))
 	var p: Vector2 = b + Vector2(caja * 0.10, caja * (0.45 - 0.45 * monta))
-	_hoja(p, dir, caja * LARGO_ESTOQUE * 0.95, caja * ANCHO_ESTOQUE, col, alfa)
+	_hoja(p, dir, caja * LARGO_ESTOQUE * 0.95, caja * ANCHO_ESTOQUE, col, alfa, 0.0,
+		int(e.get("elem", 0)), float(e["t"]))
 	# EL ARCO DE LA GUARDIA: el semicirculo que barre la punta al cubrirse. Se abre al montar y
 	# respira mientras dura.
 	var f: Color = _filo_col(col)
@@ -2764,7 +2994,7 @@ func _pintar_paso_ligero(e: Dictionary) -> void:
 	for i in 2:
 		var d: float = caja * 0.22 * float(i + 1)
 		_hoja(punta - paso * d, dir, caja * LARGO_ESTOQUE * 0.95, caja * ANCHO_ESTOQUE,
-			col, alfa * (0.30 - 0.10 * float(i)))
+			col, alfa * (0.30 - 0.10 * float(i)))   # sin elemento: es un rastro, no la hoja
 	var k: float = clampf(v / 0.25, 0.0, 1.0)
 	if k > 0.5:
 		_pinchazo(punta, dir, caja * 0.048 * ((k - 0.5) / 0.5), col, alfa)
@@ -2820,7 +3050,8 @@ func _pintar_danza_acero(e: Dictionary) -> void:
 		# Se arma UNA vez, apuntando al centro: las tres salen de la misma guardia.
 		var w0: float = clampf(t / dur, 0.0, 1.0)
 		_hoja(b + Vector2(0.0, caja * (0.90 - 0.20 * w0)), Vector2.UP,
-			caja * LARGO_ESTOQUE, caja * ANCHO_ESTOQUE, col, 0.5 + 0.5 * w0)
+			caja * LARGO_ESTOQUE, caja * ANCHO_ESTOQUE, col, 0.5 + 0.5 * w0, 0.0,
+			int(e.get("elem", 0)), t)
 		return
 	var v: float = clampf((t - dur) / COLETA_DANZA, 0.0, 1.0)
 	var alfa_g: float = 1.0 if v < 0.62 else 1.0 - (v - 0.62) / 0.38
@@ -2844,7 +3075,8 @@ func _pintar_danza_acero(e: Dictionary) -> void:
 	var punta: Vector2 = destino - dir * caja * 0.75 * (1.0 - hundido) \
 		+ dir * caja * 0.14 * hundido
 	var alfa: float = alfa_g * (1.0 if k < 0.75 else 1.0 - (k - 0.75) / 0.25 * 0.45)
-	_hoja(punta, dir, caja * LARGO_ESTOQUE * 0.90, caja * ANCHO_ESTOQUE, col, alfa)
+	_hoja(punta, dir, caja * LARGO_ESTOQUE * 0.90, caja * ANCHO_ESTOQUE, col, alfa, 0.0,
+		int(e.get("elem", 0)), float(e["t"]))
 	if k > 0.6:
 		_pinchazo(punta, dir, caja * 0.040 * ((k - 0.6) / 0.4), col, alfa)
 
@@ -3141,6 +3373,8 @@ func _pintar_desarmante(e: Dictionary) -> void:
 	var p: Vector2 = b + Vector2(lado * caja * 0.85 * w,
 		-caja * 0.55 * sin(w * PI) + caja * 0.20 * w)
 	var giro: float = w * 7.0 * lado
+	# SIN ELEMENTO, y no por descuido: esta hoja es la DEL ENEMIGO saliendo despedida, no la tuya. Si
+	# tu veneno chorreara por el arma que le acabas de arrancar, se leeria como que la imbuida es ella.
 	_hoja(p, Vector2(cos(giro), sin(giro)), caja * 0.42, caja * 0.075,
 		col, alfa * (1.0 - w * 0.6), 0.15)
 
@@ -3162,10 +3396,11 @@ func _pintar_voto_guardia(e: Dictionary) -> void:
 	var f: Color = _filo_col(col)
 	# LA ESPADA, apoyada en vertical por detras del escudo.
 	_hoja(b + Vector2(caja * 0.30, -caja * 0.10), Vector2.UP, caja * LARGO_LARGA, caja * ANCHO_LARGA,
-		col, alfa * 0.85, 0.0)
+		col, alfa * 0.85, 0.0, int(e.get("elem", 0)), t)
 	# EL ESCUDO: sube desde abajo hasta cubrirte. Es la forma de _escudo_cara, comun con el ESCUDAZO.
 	var c: Vector2 = b + Vector2(0.0, caja * (0.50 - 0.50 * monta))
-	_escudo_cara(c, caja * 0.46, col, alfa, 0.0, int(e.get("escudo", -1)))
+	_escudo_cara(c, caja * 0.46, col, alfa, 0.0, int(e.get("escudo", -1)),
+		int(e.get("elem", 0)), t)
 	# LOS PIES CLAVADOS: dos marcas gordas debajo, y unas rayas de que no se mueve de ahi.
 	for i in 2:
 		var lado: float = 1.0 if i == 0 else -1.0
@@ -3213,7 +3448,7 @@ const _PERFIL_TORRE := [Vector2(-0.82, -1.30), Vector2(-0.62, -1.42), Vector2(0.
 # 'tam' es un ShieldData.Tamano y viene del que pega (Combatant.fx_escudo). -1 = no se sabe o no
 # lleva escudo: se queda con el heater, que es el de en medio y el que menos chirria.
 func _escudo_cara(c: Vector2, r: float, col: Color, alfa: float, giro: float = 0.0,
-		tam: int = -1) -> void:
+		tam: int = -1, elem: int = 0, t: float = 0.0) -> void:
 	var perfil: Array = _PERFIL_HEATER
 	if tam == 0:
 		perfil = _PERFIL_RODELA
@@ -3223,12 +3458,39 @@ func _escudo_cara(c: Vector2, r: float, col: Color, alfa: float, giro: float = 0
 	for q in perfil:
 		var p: Vector2 = (q as Vector2) * r
 		pts.append(c + p.rotated(giro))
-	draw_colored_polygon(pts, Color(0.42, 0.45, 0.52, 0.95 * alfa))
+	# VOLUMEN, que antes no habia: la cara era UN poligono gris plano y con el reborde teñido se
+	# quedaba en "un borde de color y ya". Ahora son dos tonos -- clara arriba, oscura abajo -- mas un
+	# bisel por dentro, que es lo que la hace leerse como una chapa con forma y no como una pegatina.
+	draw_colored_polygon(pts, Color(0.30, 0.33, 0.39, 0.95 * alfa))
+	var media_y: float = 0.0
+	for q2 in pts:
+		media_y += q2.y
+	media_y /= float(pts.size())
+	var arriba := PackedVector2Array()
+	for q3 in pts:
+		# La mitad de arriba, aplastada contra la linea media: es el trozo que da la luz.
+		arriba.append(Vector2(q3.x, minf(q3.y, media_y)))
+	draw_colored_polygon(arriba, Color(0.52, 0.56, 0.63, 0.9 * alfa))
 	var cerrado := PackedVector2Array(pts)
 	cerrado.append(pts[0])
-	# El REBORDE lleva el color del arma: si vas imbuido, el escudo tambien va.
+	# El CONTORNO va oscuro y grueso: es lo que despega la chapa del fondo.
+	draw_polyline(cerrado, Color(_ENCIA.r, _ENCIA.g, _ENCIA.b, 0.85 * alfa), maxf(2.5, r * 0.14), true)
+	# EL REBORDE, FINO Y FRIO. Antes iba grueso y del color de la imbuicion, y era literalmente lo que
+	# el usuario llamo "un borde guarro": el escudo entero se resolvia repintandole el canto de
+	# naranja. Ahora es solo el brillo del metal; el color lo mete el ELEMENTO por encima, y si no hay
+	# imbuicion no hay color y punto.
 	var f: Color = _filo_col(col)
-	draw_polyline(cerrado, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(2.0, r * 0.10), true)
+	draw_polyline(cerrado, Color(0.86, 0.90, 0.96, 0.75 * alfa), maxf(1.5, r * 0.055), true)
+	# EL BISEL: el mismo contorno encogido hacia dentro, claro. Da el grosor de la plancha.
+	var bisel := PackedVector2Array()
+	var cen := Vector2.ZERO
+	for q4 in pts:
+		cen += q4
+	cen /= float(pts.size())
+	for q5 in pts:
+		bisel.append(cen + (q5 - cen) * 0.80)
+	bisel.append(bisel[0])
+	draw_polyline(bisel, Color(0.72, 0.76, 0.83, 0.35 * alfa), maxf(1.0, r * 0.045), true)
 	# EL BLASON, distinto por escudo: es lo que remata la lectura cuando la silueta se ve pequeña.
 	if tam == 0:
 		# La rodela lleva BOLLON (el chichon central) y un aro: es lo que la hace redonda de verdad
@@ -3247,6 +3509,10 @@ func _escudo_cara(c: Vector2, r: float, col: Color, alfa: float, giro: float = 0
 		draw_line(c + Vector2(-r * 0.75, -r * 0.30).rotated(giro),
 			c + Vector2(r * 0.75, r * 0.10).rotated(giro),
 			Color(f.r, f.g, f.b, 0.45 * alfa), maxf(1.5, r * 0.11), true)
+	# EL ESCUDO TAMBIEN VA IMBUIDO, y no con el borde de otro color: con el elemento haciendo lo suyo
+	# encima de la chapa (arder, chorrear, chisporrotear). Es lo mismo que ya hacen los golpes del
+	# martillo contra el suelo, que es de donde salio la idea.
+	_elemento_en_metal(pts, elem, col, alfa, t, c.x * 0.05 + giro, r * 0.28)
 
 
 # ESCUDAZO. El golpe con el escudo: el canto entra de frente, sin filo ni estela -- es una plancha
@@ -3284,7 +3550,8 @@ func _pintar_escudazo(e: Dictionary) -> void:
 	var p: Vector2 = b + Vector2(0.0, caja * (0.70 * (1.0 - entra) + retro))
 	# 0.36 y no 0.42: la plancha se comia su propio impacto -- el anillo y las rayas quedaban DEBAJO
 	# del escudo y solo asomaban por el borde.
-	_escudo_cara(p, caja * 0.36, col, alfa, sin(g) * 0.12, int(e.get("escudo", -1)))
+	_escudo_cara(p, caja * 0.36, col, alfa, sin(g) * 0.12, int(e.get("escudo", -1)),
+		int(e.get("elem", 0)), t)
 	# EL PORRAZO: anillo romo y corto, nada de filos. Y unas rayas de impacto.
 	if k <= 0.55:
 		return
@@ -3358,7 +3625,8 @@ func _pintar_estocada_marcial(e: Dictionary) -> void:
 	var dir: Vector2 = r0[3]
 	# La hoja del estoque que ha pintado _estocada_base es fina; encima va la de espada larga, mas
 	# ancha, para que se lea el arma que de verdad esta entrando.
-	_hoja(punta, dir, caja * LARGO_LARGA * 0.80, caja * ANCHO_LARGA * 0.80, col, alfa, 0.06)
+	_hoja(punta, dir, caja * LARGO_LARGA * 0.80, caja * ANCHO_LARGA * 0.80, col, alfa, 0.06,
+		int(e.get("elem", 0)), float(e["t"]))
 	var k: float = clampf(v / 0.25, 0.0, 1.0)
 	if k > 0.5:
 		_pinchazo(punta, dir, caja * 0.062 * ((k - 0.5) / 0.5), col, alfa)
@@ -3717,7 +3985,7 @@ func _pintar_acero_en_alto(e: Dictionary) -> void:
 	# Sube durante el vuelo y se queda arriba, temblando un poco: el brazo aguanta el peso.
 	var alto: float = caja * (0.10 + 0.62 * sube) + sin(t * 9.0 + g) * caja * 0.02 * sube
 	_hoja(b + Vector2(sin(g) * caja * 0.06, -alto), Vector2.UP,
-		caja * 1.05, caja * 0.105, col, alfa, 0.0)
+		caja * 1.05, caja * 0.105, col, alfa, 0.0, int(e.get("elem", 0)), t)
 	# El destello del filo al levantarlo, que es lo que hace que se lea el gesto.
 	if v <= 0.0:
 		return
@@ -4583,7 +4851,8 @@ const SUELO_MARTILLO := 0.34
 #
 # Un rectangulo con el mango: no hace falta mas, y cualquier detalle de mas a este tamaño se
 # convierte en ruido. El contorno oscuro es obligatorio o se funde con su propio resplandor.
-func _cabeza_martillo(c: Vector2, dir: Vector2, tam: float, col: Color, alfa: float) -> void:
+func _cabeza_martillo(c: Vector2, dir: Vector2, tam: float, col: Color, alfa: float,
+		elem: int = 0, t: float = 0.0) -> void:
 	var lado := Vector2(-dir.y, dir.x)
 	# EL MANGO sale por detras de la cabeza, en la direccion contraria a donde apunta. GORDO y oscuro:
 	# fino y claro parecia el palo de un cartel, y con el la cabeza pasaba a ser el cartel.
@@ -4614,6 +4883,8 @@ func _cabeza_martillo(c: Vector2, dir: Vector2, tam: float, col: Color, alfa: fl
 	# las armas de corte (el acero no se tiñe entero).
 	draw_line(c + dir * tam * 0.42 + lado * tam * 0.95, c + dir * tam * 0.42 - lado * tam * 0.95,
 		Color(f.r, f.g, f.b, alfa), maxf(2.0, tam * 0.24), true)
+	# Y lo que lleve encima, sobre el bloque entero.
+	_elemento_en_metal(cuerpo, elem, col, alfa, t, c.x * 0.05, tam * 0.42)
 
 
 # EL MAZAZO BASICO. Revienta abajo: el porrazo va en el suelo, no en el pecho, y de el sale el
@@ -4865,7 +5136,8 @@ func _pintar_martillo_guerra(e: Dictionary) -> void:
 	if k < 1.0:
 		var cae: float = 1.0 - pow(1.0 - k, 3.2)
 		var desde: Vector2 = suelo - Vector2(0.0, caja * 2.30)
-		_cabeza_martillo(desde.lerp(suelo, cae), Vector2.DOWN, caja * 0.30, col, alfa)
+		_cabeza_martillo(desde.lerp(suelo, cae), Vector2.DOWN, caja * 0.30, col, alfa,
+			int(e.get("elem", 0)), float(e["t"]))
 		# Las lineas de velocidad detras, que es lo que dice cuanto pesa lo que viene.
 		for i in 3:
 			var x: float = (float(i) - 1.0) * caja * 0.22
@@ -4911,7 +5183,8 @@ func _pintar_martillo_en_alto(e: Dictionary) -> void:
 	# que eso pesa y que aguantarlo cuesta, o sea por que la habilidad tarda un turno.
 	var alto: float = caja * (0.15 + 0.72 * sube)
 	var tiembla := Vector2(sin(t * 11.0 + g), cos(t * 8.0 + g) * 0.5) * caja * 0.022 * sube
-	_cabeza_martillo(b + Vector2(0.0, -alto) + tiembla, Vector2.UP, caja * 0.32, col, alfa)
+	_cabeza_martillo(b + Vector2(0.0, -alto) + tiembla, Vector2.UP, caja * 0.32, col, alfa,
+		int(e.get("elem", 0)), t)
 	# Y el peso que se junta arriba: un resplandor que crece mientras aguanta.
 	if v <= 0.0:
 		return
@@ -5346,7 +5619,7 @@ func _pintar_embestida_escudo(e: Dictionary) -> void:
 		var desde: Vector2 = b - Vector2(lado * caja * 1.30 * (1.0 - u), 0.0)
 		# El alfa aqui es 1: durante el vuelo todavia no hay coleta de la que sacarlo.
 		_escudo_cara(desde, caja * 0.30, col, 0.35 + 0.65 * u, -lado * 0.35,
-			int(e.get("escudo", -1)))
+			int(e.get("escudo", -1)), int(e.get("elem", 0)), t)
 		# Las lineas de velocidad, detras y a distintas alturas.
 		for i in 4:
 			var y: float = (float(i) - 1.5) * caja * 0.16
@@ -5362,7 +5635,7 @@ func _pintar_embestida_escudo(e: Dictionary) -> void:
 	# EL CHOQUE. El escudo llega, se para y rebota un poco.
 	var retro: float = 0.0 if v < 0.28 else minf((v - 0.28) / 0.40, 1.0) * 0.22
 	_escudo_cara(b - Vector2(lado * caja * retro, 0.0), caja * 0.34, col, alfa, -lado * 0.20,
-		int(e.get("escudo", -1)))
+		int(e.get("escudo", -1)), int(e.get("elem", 0)), t)
 	# Y EL PESO que llega detras: un porrazo ancho y el polvo escapando hacia atras, que es por donde
 	# venia. Sin el polvo esto se queda en un escudo apoyado en el bicho.
 	_porrazo(b + Vector2(lado * caja * 0.20, 0.0), caja * 0.30 * (1.0 - v * 0.25), col, alfa, v, g,
@@ -5397,7 +5670,8 @@ func _pintar_provocacion(e: Dictionary) -> void:
 	# EL ESCUDO, delante de ti y temblando por el golpe que le acabas de dar. El temblor se apaga.
 	var tiembla: float = maxf(0.0, 1.0 - v / 0.30) * sale
 	var d := Vector2(sin(t * 34.0 + g), cos(t * 27.0 + g) * 0.5) * caja * 0.030 * tiembla
-	_escudo_cara(b + d, caja * 0.34, col, alfa, sin(g) * 0.10, int(e.get("escudo", -1)))
+	_escudo_cara(b + d, caja * 0.34, col, alfa, sin(g) * 0.10, int(e.get("escudo", -1)),
+		int(e.get("elem", 0)), t)
 	# LOS ANILLOS del grito, saliendo de ti y quedandose CERCA: cuatro, escalonados y muy achatados.
 	for i in 4:
 		var k: float = clampf(sale * 0.5 + v * 1.4 - float(i) * 0.15, 0.0, 1.0)
@@ -5446,7 +5720,7 @@ func _pintar_guardia_carne(e: Dictionary) -> void:
 	# EL ESCUDO SE APARTA: baja y se va al lado, girando. Que se vea IRSE es medio gesto.
 	var fuera: Vector2 = Vector2(caja * 0.62 * abre, caja * 0.34 * abre)
 	_escudo_cara(b + fuera, caja * 0.28, col, alfa * (1.0 - abre * 0.45), 0.55 * abre,
-		int(e.get("escudo", -1)))
+		int(e.get("escudo", -1)), int(e.get("elem", 0)), t)
 	# LOS PIES CLAVADOS: dos cuñas en el suelo, con unas rayas de agarre. "Te plantas".
 	var suelo: Vector2 = b + Vector2(0.0, caja * 0.44)
 	for i in 2:
@@ -5525,7 +5799,8 @@ func _pintar_cobertura(e: Dictionary) -> void:
 	# EL ESCUDO, uno solo y GRANDE, adelantandose hacia el frente (hacia abajo, que es de donde viene
 	# lo que hay que parar).
 	var p: Vector2 = b + Vector2(0.0, caja * (0.02 + 0.20 * adelanta))
-	_escudo_cara(p, caja * 0.46, col, alfa, sin(g) * 0.06, int(e.get("escudo", -1)))
+	_escudo_cara(p, caja * 0.46, col, alfa, sin(g) * 0.06, int(e.get("escudo", -1)),
+		int(e.get("elem", 0)), t)
 	# Y EL HUECO que deja: dos rayas abriendose a los lados por debajo del escudo. "No paras sus
 	# golpes, pero les das donde meterse."
 	if v <= 0.18:

@@ -60,6 +60,11 @@ Cuatro instantes de cada gesto, una hoja por arma:
   la silueta (rodela redonda / heater en punta / torre alta), no por ser más grandes: a tamaño de
   tarjeta eso no se lee. La última columna es el respaldo de cuando no se sabe qué escudo lleva
 
+- `gestos_14_imbuiciones.png` — **las cinco imbuiciones (acero, veneno, fuego, agua, rayo) gesto a
+  gesto**. Es la hoja donde se juzga si el elemento se COMPORTA o solo tiñe un borde. Ojo: aquí el
+  color se pasa a mano, así que **no** sirve para comprobar QUÉ se tiñe y qué no — eso lo decide
+  `_color_golpe` con `CombatFX.FX_SIN_IMBUICION`
+
 **Ya están las diez armas, los escudos y la varita.** Lo único sin dibujo propio es *Oportunista* (la
 daga), que hereda el gesto del arma a propósito.
 
