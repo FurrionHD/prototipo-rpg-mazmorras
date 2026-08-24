@@ -64,6 +64,10 @@ const GRIETA_HUNDE := 1.2
 const PIERNA_X := 4.6
 const PIERNA_R := Vector3(2.9, 2.9, 6.0)
 const PIERNA_Z := 6.5
+# CUANTO ADELANTA Y LEVANTA cada pie al dar el paso. Corto y bajo a proposito: tiene Agilidad 10 y
+# tiene que leerse como que arrastra los pies, no como que trota.
+const PASO_LARGO := 2.8
+const PASO_ALZA := 1.2
 # RAICES-PIE: matas de raices abiertas en el suelo. Cada pie son varias puntas alrededor.
 #
 # EL ANILLO VA CEÑIDO A LA PIERNA, no abierto. Abierto a 3.6 las raices solapaban con la pierna
@@ -233,7 +237,7 @@ static func generar(color: Color = Color(0.35, 0.5, 0.25), escala: float = 1.0) 
 static func _montar_idle(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return {"avance": 0.0, "mece": 0.5 * sin(TAU * t), "balanceo": 0.0,
-			"brazos": 0.25 * sin(TAU * t + 0.8), "alza": 0.0}
+			"brazos": 0.25 * sin(TAU * t + 0.8), "alza": 0.0, "patas": 0.0}
 	_montar_animacion(anims, esc, "idle", true, 3.0, pose, false)
 
 
@@ -242,7 +246,7 @@ static func _montar_idle(anims: Array, esc: float) -> void:
 static func _montar_walk(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return {"avance": 0.0, "mece": 0.9 * sin(TAU * t), "balanceo": sin(TAU * t),
-			"brazos": 0.8 * sin(TAU * t), "alza": 0.0}
+			"brazos": 0.8 * sin(TAU * t), "alza": 0.0, "patas": sin(TAU * t)}
 	_montar_animacion(anims, esc, "walk", true, 5.0, pose, false)
 
 
@@ -256,7 +260,9 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return {"avance": SpriteLienzo.tramos(t, avance_keys) * (LUNGE_DIST / 3.8),
 			"mece": SpriteLienzo.tramos(t, mece_keys), "balanceo": 0.0,
-			"brazos": 0.0, "alza": SpriteLienzo.tramos(t, alza_keys)}
+			"brazos": 0.0, "alza": SpriteLienzo.tramos(t, alza_keys),
+			# Al descargar el ramazo PLANTA los pies y no da paso: el golpe sale del tronco.
+			"patas": 0.0}
 	_montar_animacion(anims, esc, "embestida", false, 8.0, pose, true)
 
 
@@ -361,12 +367,27 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	poner.call(Vector3(0.0, 0.0, 0.0), Vector3(TRONCO_R.x * 1.25, TRONCO_R.y * 1.25, 0.0),
 		Tono.SOMBRA_SUELO, [], false)
 
-	# 2. RAICES-PIE: una mata de puntas alrededor de cada pie. Van primero porque estan en el suelo.
+	# LOS PIES, calculados una vez porque los usan las raices y las piernas.
+	#
+	# GIRAN CON EL BICHO (a diferencia del tronco y la copa, que son redondos y no giran) y DAN EL
+	# PASO: uno adelante y otro atras, en contrafase. Estaban puestos sin girar y sin ciclo, o sea
+	# clavados a los lados mirara a donde mirara y quietos mientras andaba -- un arbol deslizandose.
+	# El que va adelantado se LEVANTA un poco; poco, que esto pesa y arrastra mas que pisa.
+	var fase_patas: float = float(pose["patas"])
+	var pies: Array = []
 	for lado in [-1.0, 1.0]:
+		var swing: float = fase_patas * lado
+		pies.append(Vector3(lado * PIERNA_X, swing * PASO_LARGO,
+			PIERNA_Z + maxf(0.0, swing) * PASO_ALZA))
+
+	# 2. RAICES-PIE: una mata de puntas alrededor de cada pie, y se va CON el (si no, el pie da el
+	#    paso y sus raices se quedan atras).
+	for k2 in pies.size():
+		var pie: Vector3 = pies[k2]
 		for k in RAICES_POR_PIE:
-			var a: float = TAU * float(k) / float(RAICES_POR_PIE) + (0.4 if lado > 0.0 else 0.0)
-			poner.call(Vector3(lado * PIERNA_X + cos(a) * RAIZ_RADIO, sin(a) * RAIZ_RADIO, 1.0),
-				RAIZ_R, Tono.RAIZ, [], false)
+			var a: float = TAU * float(k) / float(RAICES_POR_PIE) + (0.4 if k2 == 1 else 0.0)
+			poner.call(Vector3(pie.x + cos(a) * RAIZ_RADIO, pie.y + sin(a) * RAIZ_RADIO,
+				pie.z - PIERNA_Z + 1.0), RAIZ_R, Tono.RAIZ)
 
 	# 3. EL BRAZO DE DETRAS. Cual es cual sale de su Y YA GIRADA -- una prueba de profundidad de
 	#    verdad, no una tabla por direccion que haya que mantener.
@@ -380,10 +401,9 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		if not bool(b["delante"]):
 			_rama(poner, b, fase_brazos, alza, DETRAS_ESC, Tono.CORTEZA_OSC)
 
-	# 4. PIERNAS-TRONCO: cortas y gruesas.
-	for lado in [-1.0, 1.0]:
-		poner.call(Vector3(lado * PIERNA_X, 0.0, PIERNA_Z), PIERNA_R,
-			Tono.CORTEZA_OSC, [], false)
+	# 4. PIERNAS-TRONCO: cortas y gruesas, cada una sobre su pie.
+	for pie in pies:
+		poner.call(pie, PIERNA_R, Tono.CORTEZA_OSC)
 
 	# 5. EL TRONCO, entero en penumbra...
 	poner.call(TRONCO, TRONCO_R, Tono.CORTEZA_OSC, [], false)
