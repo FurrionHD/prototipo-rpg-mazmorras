@@ -5,7 +5,8 @@
 #     mazmorra entera.
 #   - SUBIR: en la sala de entrada, y solo a partir del piso 2. En el piso 1 ese sitio lo
 #     ocupa la puerta al pueblo: el pueblo esta en la BOCA de la mazmorra, no en cada piso.
-#  Aspecto placeholder por codigo; el arte va al final.
+#  El aspecto lo dibuja PropSprites: un hueco con peldaños. Se distinguen por a donde va la luz
+#  (bajando se hunde hacia lo oscuro, subiendo sale hacia la boca iluminada), no por el color.
 # ============================================================
 
 extends Node2D
@@ -41,13 +42,11 @@ func interact_with_player() -> void:
 
 
 func _crear_aspecto() -> void:
-	var cr := ColorRect.new()
-	cr.color = Color(0.55, 0.8, 0.35) if sube else Color(0.1, 0.7, 0.85)
-	cr.offset_left = -18.0
-	cr.offset_top = -18.0
-	cr.offset_right = 18.0
-	cr.offset_bottom = 18.0
-	add_child(cr)
+	var s := Sprite2D.new()
+	s.texture = PropSprites.textura("escalera_sube" if sube else "escalera_baja")
+	# POR NODO, que el proyecto no lo pone globalmente (misma nota que en enemy.gd).
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_child(s)
 
 	var lbl := Label.new()
 	lbl.text = "↑ SUBIR\n[F]" if sube else "↓ BAJAR\n[F]"

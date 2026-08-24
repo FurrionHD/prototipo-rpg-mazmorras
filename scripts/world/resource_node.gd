@@ -106,6 +106,58 @@ func agotar() -> void:
 func _crear_aspecto() -> void:
 	var color: Color = material_data.color if material_data != null else Color(0.7, 0.7, 0.7)
 
+	if _crear_sprite(color):
+		return
+	_crear_aspecto_placeholder(color)
+
+
+# EL SPRITE de verdad (RecolectableSprites). Son DOS Sprite2D, uno encima del otro:
+#   CUERPO -> la roca / el tronco / las hojas. Neutro, nunca se tiñe.
+#   TINTE  -> solo el mineral (o el fruto), modulado con material_data.color.
+# Sin esa separacion, tintar el sprite entero convertia cada veta en un manchurron del color del
+# metal y la roca de alrededor tambien salia cobriza.
+#
+# El MODELO sale de la celda, no de un randf: asi la misma veta se ve igual cada vez que se
+# reconstruye el piso, y en multijugador el invitado ve la misma que el host sin que viaje nada.
+func _crear_sprite(color: Color) -> bool:
+	var fam: String = _familia_sprite()
+	if fam == "":
+		return false
+	var modelo: int = RecolectableSprites.modelo_de(celda)
+	var t: Vector2i = RecolectableSprites.lienzo(fam)
+	for tinte in [false, true]:
+		var s := Sprite2D.new()
+		s.texture = RecolectableSprites.textura(fam, modelo, tinte)
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		# El sprite se apoya con el PIE en la celda: estas cosas se plantan EN el suelo, y
+		# centradas se quedan flotando.
+		s.centered = false
+		s.position = Vector2(-float(t.x) * 0.5, -float(t.y) + 6.0)
+		if tinte:
+			s.modulate = color
+		add_child(s)
+	_crear_destellos(Vector2(t), Vector2(-float(t.x) * 0.5, -float(t.y) + 6.0))
+	return true
+
+
+func _familia_sprite() -> String:
+	match tipo:
+		Tipo.SAL:
+			return "sal"
+		Tipo.HUERTO:
+			return "huerto"
+		Tipo.MADERA:
+			return "madera"
+		Tipo.PLANTA:
+			return "planta"
+		Tipo.VETA:
+			return "veta"
+	return ""
+
+
+# El rectangulo de color de toda la vida. Se queda como RESPALDO: si algun dia entra un tipo de
+# nodo sin sprite (o se toca el generador y falla), sigue viendose algo en vez de nada.
+func _crear_aspecto_placeholder(color: Color) -> void:
 	var tam: Vector2
 	var esquina: Vector2
 	if tipo == Tipo.SAL:

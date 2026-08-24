@@ -8,3 +8,7 @@ dev_*.gd
 dev_*.tscn
 dev_*.uid
 dev_*.png
+
+# Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
+# arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.
+tools/salida/

@@ -404,6 +404,9 @@ func _construir(por_la_bajada: bool = false) -> void:
 	# charco al minotauro, y _crear_zonas necesita saber ya cual es la del estanque para frenarle el
 	# ritmo de partos.
 	_elegir_estanque()
+	# DESPUES del estanque a proposito: el riachuelo tiene que saber donde esta el lago para poder
+	# desembocar en el (ver _trazar_agua).
+	_decorar()
 	_crear_zonas()
 	# DIFERIDO, por lo mismo que poblar() (ver _crear_zonas): al construir el piso desde
 	# _ready, el nodo padre (Main) aun esta montando sus hijos y Godot RECHAZA cualquier
@@ -435,10 +438,30 @@ func _semilla_del_piso() -> int:
 
 # ------------------------------------------------------------
 #  GEOMETRIA
-#  Ni un nodo por celda: las celdas contiguas se fusionan en tramos horizontales (Rect2i)
-#  y cada tramo es UN ColorRect. La colision entera vive en un solo StaticBody2D con una
-#  forma por tramo de muro.
+#
+#  LO QUE SE VE va en TileMapLayer (uno por capa de TerrenoSprites); LO QUE CHOCA sigue siendo el
+#  mismo StaticBody2D de siempre, con una forma por TRAMO FUSIONADO. Son dos cosas distintas y se
+#  separan a proposito:
+#    - la colision quiere POCAS formas gordas (por eso los tramos fusionados de gen.muros_fusionados)
+#    - el dibujo quiere variedad POR CELDA (si no, una pared larga es la misma baldosa clonada y se
+#      ve la cuadricula)
+#  Fusionar el dibujo era justo lo que impedia darle variedad, y un TileMapLayer ya batchea el
+#  dibujado por dentro, asi que no se pierde nada por pintar celda a celda.
+#
+#  Antes esto eran ColorRect de un color plano. La colision NO ha cambiado ni una linea.
 # ------------------------------------------------------------
+
+# Los TileMapLayer por capa (ver TerrenoSprites.CAPAS_ORDEN). Cuelgan de _geo, asi que se los
+# lleva por delante el queue_free de _limpiar como todo lo demas.
+var _tm: Dictionary = {}
+
+# Lo que hay pintado de cada capa de adorno: { celda: true }. Hace falta guardarlo porque la
+# MASCARA de una celda se calcula mirando a sus vecinas de la MISMA capa.
+var _celdas_musgo: Dictionary = {}
+var _celdas_agua: Dictionary = {}
+var _celdas_sumidero: Dictionary = {}
+
+
 func _construir_geometria() -> void:
 	var celda: float = float(DungeonGenerator.CELDA)
 
@@ -446,37 +469,91 @@ func _construir_geometria() -> void:
 	_geo.name = "Geo"
 	add_child(_geo)
 
-	# Fondo: la roca maciza (lo que hay detras de las paredes).
+	# Fondo: la roca maciza (lo que hay detras de las paredes). Sigue siendo un ColorRect: no se
+	# ve NUNCA (solo se dibujan los muros que tocan suelo) y ademas con la oscuridad menos.
 	var fondo := ColorRect.new()
 	fondo.color = color_roca
 	fondo.size = gen.tam_px()
 	_geo.add_child(fondo)
 
-	# Suelo pisable.
-	for r in gen.suelos_fusionados():
-		var cr := ColorRect.new()
-		cr.color = color_suelo
-		cr.position = Vector2(r.position) * celda
-		cr.size = Vector2(r.size) * celda
-		_geo.add_child(cr)
+	_tm.clear()
+	_celdas_musgo.clear()
+	_celdas_agua.clear()
+	_celdas_sumidero.clear()
+	var ts: TileSet = TerrenoSprites.tileset_de(TerrenoSprites.tramo_de(_piso_construido))
+	for capa in TerrenoSprites.CAPAS_ORDEN:
+		var tml := TileMapLayer.new()
+		tml.name = "TM_" + capa
+		tml.tile_set = ts
+		# POR NODO, que el proyecto no lo pone globalmente (misma nota que en enemy.gd).
+		tml.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_geo.add_child(tml)
+		_tm[capa] = tml
 
-	# Muros: color + colision. Solo la roca que TOCA suelo (al resto no llegas nunca).
+	# --- Suelo y muro, celda a celda ---
+	var sem: int = _semilla_del_piso()
+	var suelo: TileMapLayer = _tm["suelo"]
+	var muro: TileMapLayer = _tm["muro"]
+	for y in gen.alto:
+		for x in gen.ancho:
+			var c := Vector2i(x, y)
+			if gen.es_suelo(c):
+				suelo.set_cell(c, 0, TerrenoSprites.celda_para("suelo", c, 0, sem))
+			elif Decorado.muro_visible(gen, c):
+				# La MASCARA (por que lados esta expuesto) sale de la MISMA regla que usa el
+				# musgo para trepar, y por eso vive en Decorado: si aqui y alli no contaran la
+				# roca igual, el verde treparia por muros que no existen.
+				var m: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool:
+					return Decorado.es_roca(gen, v))
+				muro.set_cell(c, 0, TerrenoSprites.celda_para("muro", c, m, sem))
+
+	# --- Colision: EXACTAMENTE lo de antes ---
 	var cuerpo := StaticBody2D.new()
 	cuerpo.name = "Muros"
 	_geo.add_child(cuerpo)
 	for r in gen.muros_fusionados():
-		var cr := ColorRect.new()
-		cr.color = color_muro
-		cr.position = Vector2(r.position) * celda
-		cr.size = Vector2(r.size) * celda
-		cuerpo.add_child(cr)
-
 		var forma := RectangleShape2D.new()
 		forma.size = Vector2(r.size) * celda
 		var col := CollisionShape2D.new()
 		col.shape = forma
 		col.position = (Vector2(r.position) + Vector2(r.size) * 0.5) * celda
 		cuerpo.add_child(col)
+
+
+
+# ------------------------------------------------------------
+#  ADORNO: MUSGO Y AGUA
+#
+#  QUE celdas llevan cada cosa lo decide Decorado, que son datos puros y se puede mirar sin
+#  arrancar una partida (ver tools/ver_terreno.gd). Aqui solo se PINTA lo que aquel decide.
+#
+#  Va APARTE de _construir_geometria y DESPUES de _elegir_estanque, y no es capricho de orden: el
+#  riachuelo tiene que saber donde esta el lago para poder desembocar en el, y el estanque se
+#  elige mas tarde (necesita saber antes cual es la sala del jefe).
+# ------------------------------------------------------------
+func _decorar() -> void:
+	var sem: int = _semilla_del_piso()
+	var d := Decorado.new()
+	d.generar(gen, _celda_estanque, ESTANQUE_CELDAS, sem)
+	_celdas_musgo = d.musgo
+	_celdas_agua = d.agua
+	_celdas_sumidero = d.sumidero
+	_pintar_capa("agua", _celdas_agua, sem)
+	_pintar_capa("sumidero", _celdas_sumidero, sem)
+	_pintar_capa("musgo", _celdas_musgo, sem)
+
+
+# Vuelca un conjunto de celdas en su TileMapLayer, calculando la mascara de cada una contra las
+# OTRAS DE SU MISMA CAPA (que es lo que hace que la mancha tenga orilla y el riachuelo, cauce).
+func _pintar_capa(capa: String, celdas: Dictionary, sem: int) -> void:
+	var tml: TileMapLayer = _tm.get(capa, null)
+	if tml == null or celdas.is_empty():
+		return
+	var soy := func(v: Vector2i) -> bool: return celdas.has(v)
+	for c in celdas:
+		var m: int = TerrenoSprites.mascara(c, soy)
+		tml.set_cell(c, 0, TerrenoSprites.celda_para(capa, c, m, sem))
+
 
 
 # ------------------------------------------------------------
@@ -741,6 +818,13 @@ func _colocar_recolectables() -> void:
 
 	# El charco PRIMERO: reserva sus celdas en _ocupada antes de que nadie reparta vetas.
 	_crear_estanque()
+	# Y el CAUCE igual: por el riachuelo corre agua, asi que ahi no crece un arbol ni asoma una
+	# veta. Sin esto salian matas y troncos plantados en mitad de la corriente.
+	# No gasta ni una tirada del rng, asi que no le corre el sitio a nada de lo de abajo.
+	for c in _celdas_agua:
+		_ocupada[c] = true
+	for c in _celdas_sumidero:
+		_ocupada[c] = true
 
 	var plantas: int = _colocar_en_pasillos(rng, tabla_plantas, max_plantas_piso, 1)
 	var maderas: int = _colocar_en_pasillos(rng, tabla_maderas, max_madera_piso, 2)

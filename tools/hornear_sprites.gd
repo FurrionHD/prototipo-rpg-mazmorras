@@ -66,4 +66,50 @@ func _ready() -> void:
 		(Time.get_ticks_msec() - t0) / 1000.0])
 	print("Estan en %s -- ABRE GODOT UNA VEZ para que los importe antes de jugar." %
 		SpriteLienzo.CARPETA_HORNO)
+
+	_hornear_terreno()
+	_hornear_recolectables()
+	_hornear_props()
 	get_tree().quit()
+
+
+func _hornear_props() -> void:
+	print("")
+	print("=== PROPS ===")
+	for clave in PropSprites.PROPS:
+		var n: int = PropSprites.hornear(String(clave))
+		if n <= 0:
+			push_error("[horno] no pude escribir el prop %s" % clave)
+			continue
+		print("  %-20s %.1f KB" % [clave, n / 1024.0])
+
+
+# El TERRENO va en el mismo horno y no en uno aparte: se toca por lo mismo (mirar como queda y
+# volver a dibujar) y asi no hay dos .bat que acordarse de pasar.
+func _hornear_terreno() -> void:
+	print("")
+	print("=== TERRENO ===")
+	var bytes: int = 0
+	for t in TerrenoSprites.TRAMOS:
+		var clave: String = String(t["clave"])
+		var n: int = TerrenoSprites.hornear(clave)
+		if n <= 0:
+			push_error("[horno] no pude escribir el terreno %s" % clave)
+			continue
+		bytes += n
+		print("  terreno_%-16s %.1f KB" % [clave, n / 1024.0])
+	print("%.2f MB en %s" % [bytes / 1048576.0, TerrenoSprites.CARPETA])
+
+
+func _hornear_recolectables() -> void:
+	print("")
+	print("=== RECOLECTABLES ===")
+	var bytes: int = 0
+	for fam in RecolectableSprites.FAMILIAS:
+		var n: int = RecolectableSprites.hornear(String(fam))
+		if n <= 0:
+			push_error("[horno] no pude escribir el recolectable %s" % fam)
+			continue
+		bytes += n
+		print("  %-20s %.1f KB" % [fam, n / 1024.0])
+	print("%.2f MB en %s" % [bytes / 1048576.0, RecolectableSprites.CARPETA])
