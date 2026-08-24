@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"carbon_anillado"
+nombre = "Carbon anillado"
+descripcion = "De madera anillada, la mas densa que da el primer tramo. Prende peor y por eso mismo dura mas: la llama va lenta y no se altera con la corriente."
+familia = 0
+tipo = 11
+tier = 1
+exigencia = 60.0
+peso_base = 0.0
+valor_base = 26
+mejora_min = 9
+mejora_max = 15
+color = Color(0.2, 0.18, 0.17, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

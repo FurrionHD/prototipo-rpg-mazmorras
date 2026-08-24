@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"carbon_duro"
+nombre = "Carbon duro"
+descripcion = "Ya no es lena de pasillo: madera dura de los pisos hondos, hecha brasa. Pesa lo mismo que la de arriba y alumbra la mitad de rato mas."
+familia = 0
+tipo = 11
+tier = 2
+exigencia = 60.0
+peso_base = 0.0
+valor_base = 38
+mejora_min = 0
+mejora_max = 3
+color = Color(0.19, 0.17, 0.16, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

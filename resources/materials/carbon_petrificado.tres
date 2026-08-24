@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"carbon_petrificado"
+nombre = "Carbon petrificado"
+descripcion = "Madera a medio hacerse piedra. Cuesta prenderla y no hay corriente que la apague; es lo mas cerca del carbon de veta que se puede llegar quemando lena."
+familia = 0
+tipo = 11
+tier = 2
+exigencia = 60.0
+peso_base = 0.0
+valor_base = 66
+mejora_min = 9
+mejora_max = 15
+color = Color(0.15, 0.14, 0.16, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

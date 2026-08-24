@@ -103,10 +103,23 @@ static func radio(pot: float, piso: int) -> float:
 # dejaba de ser una decision: lo llevabas y te olvidabas. A 2 y 5 tienes que contar cuanto te
 # queda, y quedarte a oscuras en el piso 6 es un riesgo real, que es justo lo que le da sentido a
 # picar carbon abajo en vez de bajar con la mochila llena de otra cosa.
+#
+# LA ESCALERA VEGETAL TIENE TECHO, Y ES LA REGLA QUE LA ORDENA: el mejor carbon que puedes
+# FABRICAR (el negro, 4:30) se queda por debajo del peor que hay que BAJAR A PICAR (el mineral,
+# 5:00). Si el vegetal alcanzara al mineral, la veta de carbon sobraria y no habria razon para
+# arriesgarse abajo a por combustible: te quedarias en el pueblo quemando lena.
 const DURACION := {
-	&"carbon_vegetal": 120.0,     # 2 min
-	&"carbon_mineral": 300.0,     # 5 min
-	&"antracita": 700.0,          # ~12 min (T2, con los pisos 7+)
+	# Vegetal: se hace en la carbonera del carpintero, uno por cada madera.
+	&"carbon_vegetal": 120.0,       # 2:00   madera comun        (T1 base)
+	&"carbon_veta": 150.0,          # 2:30   madera de veta      (T1 +1)
+	&"carbon_anillado": 180.0,      # 3:00   madera anillada     (T1 +2)
+	&"carbon_duro": 200.0,          # 3:20   madera dura         (T2 base)
+	&"carbon_ferreo": 220.0,        # 3:40   madera ferrea       (T2 +1)
+	&"carbon_petrificado": 240.0,   # 4:00   madera petrificada  (T2 +2)
+	&"carbon_negro": 270.0,         # 4:30   madera negra        (T3)  <- el techo de lo fabricable
+	# Mineral: se pica en la mazmorra. Empieza donde acaba el vegetal.
+	&"carbon_mineral": 300.0,       # 5:00
+	&"antracita": 700.0,            # ~12 min (T2, con los pisos 7+)
 }
 
 # Y la CALIDAD del trozo lo estira o lo encoge. Se usa score_calidad() y NUNCA int(calidad):

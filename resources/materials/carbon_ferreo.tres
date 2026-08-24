@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"carbon_ferreo"
+nombre = "Carbon ferreo"
+descripcion = "La madera ferrea deja un carbon que suena a metal al partirlo. Arde con una llama corta y azulada que casi no parpadea."
+familia = 0
+tipo = 11
+tier = 2
+exigencia = 60.0
+peso_base = 0.0
+valor_base = 50
+mejora_min = 3
+mejora_max = 9
+color = Color(0.17, 0.16, 0.17, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

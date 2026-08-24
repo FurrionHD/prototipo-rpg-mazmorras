@@ -35,12 +35,15 @@ extends CanvasLayer
 # dispatch. La etiqueta visible sale de TAB_LABEL.
 const TAB_LABEL := {
 	"fundir": "Fundir", "chapas": "Chapas", "hebillas": "Hebillas", "tablones": "Tablones",
+	"carbonera": "Carbonera",
 	"forjar": "Forjar", "herramientas": "Herramientas",
 	"mejorar": "Mejorar", "deshacer": "Deshacer", "reparar": "Reparar",
 }
 const TABS_HERRERO := ["fundir", "chapas", "hebillas", "forjar", "herramientas", "mejorar", "deshacer", "reparar"]
-# El carpintero solo asierra tablones y forja armas magicas (bastones/varitas).
-const TABS_CARPINTERO := ["tablones", "forjar"]
+# El carpintero asierra tablones, QUEMA madera para hacer carbon y forja armas magicas.
+# Las dos primeras son la misma pantalla con otro destino: la madera tiene dos salidas, el mango
+# (caro) y la brasa (barata). Ver _build_madera.
+const TABS_CARPINTERO := ["tablones", "carbonera", "forjar"]
 # Las pestañas con CUADRICULA de piezas (las demas ocupan el ancho entero).
 const TABS_CON_GRID := ["forjar", "mejorar", "deshacer"]
 # Los tres refinados de metal comparten pantalla (_build_refinar): solo cambian de que salen,
@@ -310,7 +313,8 @@ func _rebuild_real() -> void:
 		"fundir": _build_refinar(Refinado.LINGOTE)    # mineral -> lingote
 		"chapas": _build_refinar(Refinado.CHAPA)      # lingote -> chapa (armaduras)
 		"hebillas": _build_refinar(Refinado.HEBILLAS) # lingote -> hebillas (mochilas)
-		"tablones": _build_aserrar()                  # madera -> tablon (carpintero)
+		"tablones": _build_madera(false)              # madera -> tablon (carpintero)
+		"carbonera": _build_madera(true)              # madera -> carbon (carpintero)
 		"forjar": _build_forjar()
 		"herramientas": _build_herramientas()
 		"mejorar": _build_mejorar()
@@ -661,9 +665,28 @@ func _estado_oficio(vb: VBoxContainer, nombre: String, activa: bool, que_hace: S
 #  (refinar), pero con maderas y con el oficio de Carpinteria.
 # ============================================================
 
-func _build_aserrar() -> void:
+# LAS DOS SALIDAS DE LA MADERA, en una sola pantalla. Aserrar y carbonizar son el mismo gesto
+# (coges madera de una gama y una calidad, y sale otra cosa de esa misma gama y calidad), asi
+# que comparten builder: lo unico que cambia es el destino y cuanta madera se come.
+#
+#   quemar = false -> TABLONES, el mango del arma. Caro: 3 maderas.
+#   quemar = true  -> CARBON, el combustible del farolillo. Barato: 2 maderas.
+func _build_madera(quemar: bool) -> void:
 	# Solo las maderas que CONOCES (T1 siempre; T2/T3 al descubrirlas), como el metal del herrero.
 	var maderas: Array = Game.maderas_conocidas()
+
+	if quemar:
+		_title(_header, "CARBONERA")
+		_note(_header, ("%d maderas de la MISMA calidad = 1 carbon. Cuanto mas densa la madera, "
+			+ "mas rato aguanta la brasa. El carbon NO va al almacen: va con el farolillo, y no pesa. "
+			+ "Ojo, tiene techo: ni el mejor carbon vegetal llega al mineral que se pica abajo.")
+			% Forge.MADERA_POR_CARBON)
+		_header.add_child(HSeparator.new())
+		if maderas.is_empty():
+			_note(_content, "No conoces ninguna madera todavia. Tala arboles en la mazmorra y vuelve.")
+			return
+		_carbonera(maderas)
+		return
 
 	_title(_header, "ASERRAR TABLONES")
 	_note(_header, "%d maderas de la MISMA calidad = 1 tablón de esa calidad. El tablón es el mango del arma; la madera cruda ya no va directa a la forja. No se mezclan calidades: solo la Carpintería puede regalarte un escalón." % Forge.MADERA_POR_TABLON)
@@ -743,6 +766,14 @@ func _madera_elegida() -> MaterialData:
 
 
 func _on_aserrar(cal: int, veces: int) -> void:
+	_refinar_madera(cal, veces, false)
+
+
+func _on_carbonizar(cal: int, veces: int) -> void:
+	_refinar_madera(cal, veces, true)
+
+
+func _refinar_madera(cal: int, veces: int, quemar: bool) -> void:
 	var origen: MaterialData = _madera_elegida()
 	if origen == null:
 		return
@@ -750,14 +781,62 @@ func _on_aserrar(cal: int, veces: int) -> void:
 		_ocupado()
 		_rebuild()
 		return
-	var n: int = Game.aserrar(origen, cal, veces)
+	var n: int = Game.carbonizar(origen, cal, veces) if quemar else Game.aserrar(origen, cal, veces)
 	if Net.activo:
 		Net.cerrar_taller()
 	if n > 0:
-		_decir("Sacas %d x %s de calidad %s." % [n, Game.tablon_de(origen).nombre.to_lower(), _cal_txt(cal).to_lower()])
+		var sale: MaterialData = Game.carbon_de(origen) if quemar else Game.tablon_de(origen)
+		_decir("Sacas %d x %s de calidad %s." % [n, sale.nombre.to_lower(), _cal_txt(cal).to_lower()])
 	else:
 		_decir("No te llega el material.", false)
 	_rebuild()
+
+
+# LA CARBONERA. Es la gemela de aserrar y por eso repite su forma (selector de gama, una fila
+# por calidad), pero no puede compartir el cuerpo entero: lo que sale no se mide en unidades de
+# forja sino en MINUTOS DE LUZ, y no acaba en el almacen sino en la carbonera. Enseñar aqui
+# "unidades de forja" de un carbon seria mentir sobre para que sirve.
+func _carbonera(maderas: Array) -> void:
+	var origen: MaterialData = MenuScaffold.selector_material(_content, maderas, "Madera",
+		_madera_tier, _madera_idx, _on_madera_tier, _on_madera)
+	if origen == null:
+		return
+	var destino: MaterialData = Game.carbon_de(origen)
+	_content.add_child(HSeparator.new())
+	if destino == null:
+		_note(_content, "Esta madera no tiene carbon definido.")
+		return
+	var seg: int = int(Lampara.DURACION.get(destino.id, 0.0))
+	_row(_content, "Sale", "%s  ·  %d:%02d de llama" % [destino.nombre, seg / 60, seg % 60])
+
+	var por_uno: int = Forge.MADERA_POR_CARBON
+	var tengo_algo: bool = false
+	for cal in CALIDADES:
+		var tengo: int = Game.disponible_calidad_en_hogar(origen, int(cal))
+		if int(cal) == MaterialItem.Calidad.PURO and tengo <= 0:
+			continue
+		tengo_algo = tengo_algo or tengo > 0
+		var salen: int = tengo / maxi(1, por_uno)
+		var c: int = int(cal)
+		MenuScaffold.fila_refino(_content, "%s  ·  tienes %d  (max %d)" % [_cal_txt(c), tengo, salen],
+			salen, func(n: int) -> void: _on_carbonizar(c, n))
+	if not tengo_algo:
+		_note(_content, "No tienes %s en el Hogar. Tala arboles en la mazmorra y guardalo al volver."
+			% origen.nombre.to_lower())
+
+	_content.add_child(HSeparator.new())
+	_title(_content, "En la carbonera")
+	var trozos: int = Game.carbon.size()
+	if trozos == 0:
+		_note(_content, "No te queda carbon.")
+	else:
+		var minutos: float = 0.0
+		for m in Game.carbon:
+			minutos += Lampara.duracion(m) / 60.0
+		_row(_content, "Llevas", "%d trozos  ·  %.0f minutos de luz en total" % [trozos, minutos])
+
+	_estado_oficio(_content, "Carpinteria", Game.tiene_desarrollo("carpinteria"),
+		"Al quemar, tira por sacar el carbon un escalon por encima de la madera que metas.")
 
 
 # ============================================================

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"carbon_negro"
+nombre = "Carbon negro"
+descripcion = "De madera negra. Es el techo de lo que se puede fabricar: cuatro minutos y medio de llama quieta. Para mas hay que bajar a picar la veta."
+familia = 0
+tipo = 11
+tier = 3
+exigencia = 60.0
+peso_base = 0.0
+valor_base = 92
+mejora_min = 0
+mejora_max = 0
+color = Color(0.09, 0.09, 0.11, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

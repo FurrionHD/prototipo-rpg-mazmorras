@@ -33,10 +33,17 @@ func _initialize() -> void:
 	_pieza("T3 pristino, acero, +15", 3, Upgrades.Rareza.PRISTINO, 9, 15)
 
 	print("")
-	print("DURACION DE LA LLAMA (minutos, calidad NORMAL):")
+	print("DURACION DE LA LLAMA.  'base' = calidad Rota; la calidad la estira hasta un +50%.")
+	print("  %-20s %8s %8s %8s" % ["carbon", "base", "normal", "puro"])
 	for id in Lampara.DURACION:
-		print("  %-18s %.0f min" % [id, float(Lampara.DURACION[id]) / 60.0 * 1.25])
+		var b: float = float(Lampara.DURACION[id])
+		# Los mismos multiplicadores que Lampara.duracion: 1 + CALIDAD_MULT * score_calidad()
+		print("  %-20s %8s %8s %8s" % [id, _ms(b), _ms(b * 1.25), _ms(b * 1.75)])
 	quit()
+
+
+func _ms(seg: float) -> String:
+	return "%d:%02d" % [int(seg) / 60, int(seg) % 60]
 
 
 func _pieza(que: String, tier: int, rareza: int, banda: int, mejoras: int) -> void:

@@ -2225,6 +2225,7 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	crystals.assign(jd.crystals)
 	materiales.assign(jd.materiales)
 	carbon.assign(jd.carbon)
+	_migrar_carbon()
 	consumables.clear()
 	for ruta in jd.consumibles:
 		var c: Resource = load(ruta)
@@ -2432,6 +2433,7 @@ func importar_partida(d: SaveData) -> void:
 	crystals.assign(d.crystals)
 	materiales.assign(d.materiales)
 	carbon.assign(d.carbon)
+	_migrar_carbon()
 	almacen_materiales.assign(d.almacen_materiales)
 	bote_dinero = d.bote_dinero
 	cofre_equipo = d.cofre_equipo.duplicate(true)
@@ -2989,6 +2991,26 @@ var carbon: Array[MaterialItem] = []
 # EL EMBUDO. Todo lo que entra en tus manos recolectando pasa por aqui, y aqui se decide en que
 # contenedor cae. Antes cada minijuego hacia su propio materiales.append(), asi que un tipo de
 # material con otro destino obligaba a acordarse de los cuatro sitios.
+# MIGRACION de las partidas anteriores a la carbonera. Antes el carbon vivia en la bolsa (y desde
+# ahi se colaba en el almacen al guardar materiales en casa), asi que al cargar hay que recogerlo
+# de los dos sitios y traerlo aqui. Sin esto te encuentras el carbon en la bolsa, el farolillo
+# diciendo "0 trozos" y ninguna forma de relacionar una cosa con la otra.
+func _migrar_carbon() -> void:
+	var movidos: int = 0
+	for lista in [materiales, almacen_materiales]:
+		for i in range(lista.size() - 1, -1, -1):
+			var m: MaterialItem = lista[i]
+			if m == null or m.data == null:
+				continue
+			if int(m.data.tipo) != MaterialData.Tipo.COMBUSTIBLE:
+				continue
+			carbon.append(m)
+			lista.remove_at(i)
+			movidos += 1
+	if movidos > 0:
+		print("[carbonera] %d de carbon recogidos de la bolsa/almacen de una partida anterior." % movidos)
+
+
 func guardar_material(m: MaterialItem) -> void:
 	if m == null:
 		return
@@ -7872,7 +7894,14 @@ func refinar(origen: MaterialData, destino: MaterialData, cal: int, veces: int, 
 			cal_final = MaterialItem.subir_calidad(cal)
 			if cal_final != cal:
 				subidos += 1
-		almacen_materiales.append(MaterialItem.crear(destino, cal_final))
+		# EL COMBUSTIBLE VA A LA CARBONERA, no al almacen: el carbon no es material de oficio y no
+		# tiene que aparecer entre los lingotes y los tablones (ver Game.carbon). Es la misma
+		# regla que aplica guardar_material a lo que recolectas, aqui a lo que fabricas.
+		var salida: MaterialItem = MaterialItem.crear(destino, cal_final)
+		if int(destino.tipo) == MaterialData.Tipo.COMBUSTIBLE:
+			carbon.append(salida)
+		else:
+			almacen_materiales.append(salida)
 		descubrir(destino)
 		if randf() < prob_dev:
 			almacen_materiales.append(MaterialItem.crear(origen, cal))
@@ -7901,6 +7930,43 @@ func curtir(cal: int, veces: int, crudo: MaterialData = null) -> int:
 # Aserrar: N maderas -> 1 tablon (mismo tier, misma calidad). Oficio del CARPINTERO.
 func aserrar(madera: MaterialData, cal: int, veces: int) -> int:
 	return refinar(madera, tablon_de(madera), cal, veces, Forge.MADERA_POR_TABLON, "carpinteria")
+
+# --- LA CARBONERA: madera -> carbon vegetal. El otro destino de la madera, y el barato. ---
+# Hermana de _TABLONES y en el mismo orden que _MADERAS: cada madera tiene SU carbon, emparejado
+# por tier y banda igual que su tablon. El carbon MINERAL no esta en esta lista a proposito -- se
+# pica, no se fabrica, y ademas comparte tier y banda con el vegetal (los emparejaria mal).
+const _CARBONES: Array = [
+	"res://resources/materials/carbon_vegetal.tres",        # T1 base   (madera comun)
+	"res://resources/materials/carbon_veta.tres",           # T1 +1     (madera de veta)
+	"res://resources/materials/carbon_anillado.tres",       # T1 +2     (madera anillada)
+	"res://resources/materials/carbon_duro.tres",           # T2 base   (madera dura)
+	"res://resources/materials/carbon_ferreo.tres",         # T2 +1     (madera ferrea)
+	"res://resources/materials/carbon_petrificado.tres",    # T2 +2     (madera petrificada)
+	"res://resources/materials/carbon_negro.tres",          # T3        (madera negra)
+]
+
+func carbones_forja() -> Array:
+	var out: Array = []
+	for r in _CARBONES:
+		var m: MaterialData = load(r) as MaterialData
+		if m != null:
+			out.append(m)
+	return out
+
+# El carbon que sale de ESTA madera. Mismo emparejado que tablon_de: tier y banda.
+func carbon_de(madera: MaterialData) -> MaterialData:
+	if madera == null:
+		return null
+	for c in carbones_forja():
+		var cd: MaterialData = c as MaterialData
+		if cd != null and int(cd.tier) == int(madera.tier) 				and int(cd.mejora_min) == int(madera.mejora_min):
+			return cd
+	return null
+
+# Carbonizar: N maderas -> 1 carbon (mismo tier, misma banda, misma calidad). Oficio del CARPINTERO,
+# el mismo que el aserrado: es la misma habilidad trabajando la misma madera.
+func carbonizar(madera: MaterialData, cal: int, veces: int) -> int:
+	return refinar(madera, carbon_de(madera), cal, veces, Forge.MADERA_POR_CARBON, "carpinteria")
 
 # Las dos piezas de la MOCHILA: el metal las hace el herrero, la piel el peletero.
 func hacer_hebillas(lingote: MaterialData, cal: int, veces: int) -> int:

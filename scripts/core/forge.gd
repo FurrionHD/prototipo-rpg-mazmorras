@@ -29,6 +29,10 @@ class_name Forge
 const MINERAL_POR_LINGOTE := 2
 const LINGOTE_POR_CHAPA := 1     # un lingote batido da una chapa (mismo metal, misma calidad)
 const MADERA_POR_TABLON := 3     # tres maderas aserradas dan un tablon (mismo tier, misma calidad)
+# CARBONERA: dos maderas quemadas dan un carbon. MENOS que el tablon a proposito -- si costara lo
+# mismo, quemar lena competiria de tu a tu con el mango de las armas y nadie haria carbon. El
+# carbon es el destino BARATO de la madera; lo caro es el tablon.
+const MADERA_POR_CARBON := 2
 const CUERO_POR_CURTIDO := 2
 # Piezas de la MOCHILA. Las hebillas salen caras en metal (3 lingotes por juego): son un puñado
 # de herrajes pequeños, pero hay que hacerlos de uno en uno.
