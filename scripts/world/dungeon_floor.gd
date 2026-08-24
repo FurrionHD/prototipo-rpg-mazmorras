@@ -405,8 +405,9 @@ func _construir(por_la_bajada: bool = false) -> void:
 	# ritmo de partos.
 	_elegir_estanque()
 	# DESPUES del estanque a proposito: el riachuelo tiene que saber donde esta el lago para poder
-	# desembocar en el (ver _trazar_agua).
+	# desembocar en el (ver Decorado._trazar_agua).
 	_decorar()
+	_apagar_la_luz()
 	_crear_zonas()
 	# DIFERIDO, por lo mismo que poblar() (ver _crear_zonas): al construir el piso desde
 	# _ready, el nodo padre (Main) aun esta montando sus hijos y Godot RECHAZA cualquier
@@ -531,6 +532,23 @@ func _construir_geometria() -> void:
 #  riachuelo tiene que saber donde esta el lago para poder desembocar en el, y el estanque se
 #  elige mas tarde (necesita saber antes cual es la sala del jefe).
 # ------------------------------------------------------------
+# ------------------------------------------------------------
+#  LA OSCURIDAD
+#
+#  El nodo de niebla NO cuelga de _geo: _geo se tira entero en cada regenerar() y la niebla tiene
+#  que sobrevivir al cambio de piso (si no, cada bajada crearia otra capa encima de la anterior).
+#  Se crea una sola vez y en cada piso se le pasa la rejilla nueva.
+# ------------------------------------------------------------
+var _niebla: Node2D = null
+
+func _apagar_la_luz() -> void:
+	if _niebla == null or not is_instance_valid(_niebla):
+		_niebla = (load("res://scripts/world/niebla.gd") as Script).new()
+		_niebla.name = "Niebla"
+		add_child(_niebla)
+	_niebla.preparar(gen)
+
+
 func _decorar() -> void:
 	var sem: int = _semilla_del_piso()
 	var d := Decorado.new()

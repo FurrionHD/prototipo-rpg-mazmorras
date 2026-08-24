@@ -6,6 +6,12 @@ const SCRIPTS := [
 	"res://scripts/fx/terreno_sprites.gd",
 	"res://scripts/fx/recolectable_sprites.gd",
 	"res://scripts/world/decorado.gd",
+	"res://scripts/world/vision.gd",
+	"res://scripts/world/niebla.gd",
+	"res://scripts/fx/prop_sprites.gd",
+	"res://scripts/town/door.gd",
+	"res://scripts/world/dungeon_exit.gd",
+	"res://scripts/world/stairs.gd",
 	"res://scripts/world/dungeon_floor.gd",
 	"res://scripts/world/resource_node.gd",
 ]

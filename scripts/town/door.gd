@@ -16,6 +16,30 @@ func _ready() -> void:
 	# su celda cae fuera del mapa, la libreta la descarta sola y no hace falta comprobarlo aqui.
 	add_to_group("salida_pueblo")
 	_detectar_destino()
+	_vestir()
+
+
+# El ColorRect marron de la escena pasa a ser la puerta dibujada, PERO solo en la mazmorra: ahi
+# esta puerta es la SALIDA al pueblo. En el pueblo la misma escena usa este script para la puerta
+# de ENTRADA a la mazmorra, que pide otro dibujo (y el pase visual del pueblo va aparte).
+func _vestir() -> void:
+	if _destination != town_path:
+		return
+	var viejo: ColorRect = get_node_or_null("Sprite") as ColorRect
+	if viejo == null:
+		return
+	var t: Vector2i = PropSprites.tam("puerta_pueblo")
+	var s := Sprite2D.new()
+	s.texture = PropSprites.textura("puerta_pueblo")
+	# POR NODO, que el proyecto no lo pone globalmente (misma nota que en enemy.gd).
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	s.centered = false
+	# Se apoya donde se apoyaba el rectangulo viejo: mismo pie, mismo centro. Asi no se mueve
+	# respecto a la celda ni respecto al Label, que sigue colgando del padre.
+	s.position = Vector2(-float(t.x) * 0.5, viejo.offset_bottom - float(t.y))
+	add_child(s)
+	# El Label cuelga del ColorRect, asi que este se queda (invisible) para no dejarlo huerfano.
+	viejo.color = Color(0, 0, 0, 0)
 
 
 func _detectar_destino() -> void:

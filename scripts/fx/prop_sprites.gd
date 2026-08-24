@@ -20,11 +20,18 @@ class_name PropSprites
 
 const CARPETA := "res://assets/sprites/props/"
 
-# 48 y no 32: la escalera tiene que leerse como un hueco en el suelo, y a una celda justa los
-# peldaños salen de 3 px y se emborronan.
+# 48 y no 32 en la escalera: tiene que leerse como un hueco en el suelo, y a una celda justa los
+# peldaños salen de 3 px y se emborronan. Cada prop lleva SU lienzo: una puerta es alta y estrecha
+# y una escalera es un cuadrado, forzarlas al mismo tamaño solo deja aire alrededor.
 const LADO := 48
 
-const PROPS := ["escalera_baja", "escalera_sube"]
+const TAM := {
+	"escalera_baja": Vector2i(48, 48),
+	"escalera_sube": Vector2i(48, 48),
+	"puerta_pueblo": Vector2i(40, 52),
+}
+
+const PROPS := ["escalera_baja", "escalera_sube", "puerta_pueblo"]
 
 const PELDANOS := 6
 
@@ -33,6 +40,9 @@ enum {
 	BORDE,
 	HUECO,          # el negro del fondo del hueco
 	PIEDRA_OSC, PIEDRA, PIEDRA_CLARA, PIEDRA_LUZ,
+	MADERA_OSC, MADERA, MADERA_CLARA,
+	HIERRO,
+	LUZ,            # la luz calida que se cuela por debajo de la puerta
 }
 
 const PAL := [
@@ -43,7 +53,16 @@ const PAL := [
 	Color(0.28, 0.27, 0.33),
 	Color(0.40, 0.38, 0.46),
 	Color(0.56, 0.54, 0.62),
+	Color(0.20, 0.12, 0.07),
+	Color(0.33, 0.20, 0.11),
+	Color(0.45, 0.29, 0.16),
+	Color(0.16, 0.15, 0.17),
+	Color(1.00, 0.84, 0.52),
 ]
+
+
+static func tam(clave: String) -> Vector2i:
+	return TAM.get(clave, Vector2i(LADO, LADO))
 
 
 static func _rnd(x: int, y: int, s: int) -> float:
@@ -52,9 +71,74 @@ static func _rnd(x: int, y: int, s: int) -> float:
 	return float((n ^ (n >> 16)) & 0xFFFF) / 65535.0
 
 
+static func _dibujar(clave: String) -> PackedByteArray:
+	if clave == "puerta_pueblo":
+		return _puerta()
+	return _escalera(clave == "escalera_baja")
+
+
+# ============================================================
+#  LA PUERTA DEL PUEBLO
+# ============================================================
+# Un arco de sillares con su puerta de tablones. Lo que la convierte en un FARO -- y mas ahora que
+# la mazmorra se va a jugar a oscuras -- es la luz calida que se cuela por las rendijas: es el
+# unico sitio del piso con luz de dia, asi que el ojo la busca sola desde el otro lado de la sala.
+static func _puerta() -> PackedByteArray:
+	var t: Vector2i = TAM["puerta_pueblo"]
+	var w: int = t.x
+	var h: int = t.y
+	var p := PackedByteArray()
+	p.resize(w * h)
+	var cx: float = float(w) * 0.5
+	var arranque: float = 20.0        # altura a la que el arco deja de ser recto y curva
+	var grosor: float = 5.0           # sillares del marco
+	for y in h:
+		for x in w:
+			var i: int = y * w + x
+			# --- silueta del arco: rectangulo abajo, semicirculo arriba ---
+			var dx: float = absf(float(x) + 0.5 - cx)
+			var limite: float = float(w) * 0.5 - 1.0
+			if float(y) < arranque:
+				var dy: float = arranque - float(y)
+				var r: float = limite * limite - dy * dy
+				limite = sqrt(r) if r > 0.0 else -1.0
+			if limite < 0.0 or dx > limite:
+				continue
+			# --- marco o vano ---
+			if dx > limite - grosor or y >= h - 2:
+				# SILLARES: juntas horizontales cada 7 px y verticales alternadas, para que se lea
+				# como piedra puesta a mano y no como un tubo.
+				var junta: bool = (y % 7 == 0) or (int((float(x) + float(y / 7) * 4.0) / 9.0) \
+					!= int((float(x) + float(y / 7) * 4.0 + 1.0) / 9.0))
+				var v: float = 0.55 + _rnd(x, y, 13) * 0.3
+				p[i] = PIEDRA_OSC if junta else (PIEDRA_CLARA if v > 0.70 else PIEDRA)
+				continue
+			# --- la hoja de la puerta: tablones verticales ---
+			var col: int = MADERA
+			if (x + 1) % 7 == 0:
+				col = MADERA_OSC                       # junta entre tablones
+			elif _rnd(x, y, 29) > 0.72:
+				col = MADERA_CLARA                     # veta
+			# herrajes
+			if y == 24 or y == 25 or y == 38 or y == 39:
+				col = HIERRO
+			# el aro de la manilla
+			var mx: float = float(x) - (cx + 6.0)
+			var my: float = float(y) - 32.0
+			var d: float = sqrt(mx * mx + my * my)
+			if d > 2.2 and d < 4.0:
+				col = HIERRO
+			# LA RENDIJA: la luz del pueblo por debajo y por los lados de la hoja
+			if y >= h - 5 or dx > limite - grosor - 1.0:
+				col = LUZ
+			p[i] = col
+	SpriteLienzo.contornear(p, Rect2i(1, 1, w - 2, h - 2), w, h, BORDE, VACIO, VACIO)
+	return p
+
+
 # El hueco es un rectangulo con el marco de piedra. Dentro, PELDANOS bandas horizontales: la de
 # mas abajo es la mas cercana al jugador. 'baja' invierte hacia donde va la luz.
-static func _dibujar(baja: bool) -> PackedByteArray:
+static func _escalera(baja: bool) -> PackedByteArray:
 	var p := PackedByteArray()
 	p.resize(LADO * LADO)
 	var marco: int = 4                       # px de brocal de piedra alrededor del hueco
@@ -108,9 +192,10 @@ static func _dibujar(baja: bool) -> PackedByteArray:
 
 
 static func generar(clave: String) -> Image:
-	var p: PackedByteArray = _dibujar(clave == "escalera_baja")
+	var t: Vector2i = tam(clave)
+	var p: PackedByteArray = _dibujar(clave)
 	var datos := PackedByteArray()
-	datos.resize(LADO * LADO * 4)
+	datos.resize(t.x * t.y * 4)
 	for i in p.size():
 		var c: Color = PAL[p[i]]
 		if c.a <= 0.0:
@@ -120,7 +205,7 @@ static func generar(clave: String) -> Image:
 		datos[o + 1] = int(c.g * 255.0)
 		datos[o + 2] = int(c.b * 255.0)
 		datos[o + 3] = 255
-	return Image.create_from_data(LADO, LADO, false, Image.FORMAT_RGBA8, datos)
+	return Image.create_from_data(t.x, t.y, false, Image.FORMAT_RGBA8, datos)
 
 
 static func hornear(clave: String) -> int:
