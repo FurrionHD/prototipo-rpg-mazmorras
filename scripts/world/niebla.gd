@@ -78,6 +78,11 @@ func preparar(gen: DungeonGenerator) -> void:
 
 
 func _process(delta: float) -> void:
+	# El carbon se quema AQUI, en un _process normal y sin process_mode = ALWAYS. Los menus paran
+	# el arbol a proposito (ver Game.abrir_menu), asi que con ALWAYS revisar el inventario o
+	# pararte en la forja te iria quemando el carbon: cobrarte luz por no estar jugando.
+	Game.gastar_llama(delta)
+
 	_t += delta
 	if _t < CADA:
 		# La CAMARA si se refresca cada frame: si no, la niebla se arrastra por detras del
@@ -136,14 +141,11 @@ func _focos(jugador: Node2D) -> Array:
 	return out
 
 
-# EL RADIO, en celdas. Hoy, SIN NADA EQUIPADO, es el suelo duro pelado: el farolillo, el carbon y
-# el requisito por piso son el siguiente bloque de trabajo, y son ellos los que tienen que subirlo
-# a partir de aqui. Se deja en UNA funcion para que enchufarlos sea cambiar esta linea.
-#
-# Llevaba un x1.6 de mas y con el ya se veia media sala a pelo: si sin farolillo ves de sobra, el
-# farolillo no resuelve ningun problema y el carbon es un impuesto sin contrapartida.
+# EL RADIO, en celdas. Sale del farolillo equipado, de si le queda carbon y de la profundidad del
+# piso (ver Lampara). Sin farolillo, apagado o sin carbon devuelve el suelo duro: ves tu corro y
+# nada mas, que es la promesa de que la oscuridad no te deja ciego del todo.
 func radio_actual() -> float:
-	return Vision.RADIO_MINIMO
+	return Game.radio_lampara()
 
 
 # ------------------------------------------------------------

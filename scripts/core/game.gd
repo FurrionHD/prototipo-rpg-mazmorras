@@ -1904,6 +1904,7 @@ func exportar_partida() -> SaveData:
 	d.tool_hoz = equipped_hoz
 	d.tool_hacha = equipped_hacha
 	d.tool_cana = equipped_cana
+	d.tool_lampara = equipped_lampara
 	d.materiales_vistos = materiales_vistos.duplicate()
 	d.registro_pesca = registro_pesca.duplicate(true)
 
@@ -1998,6 +1999,7 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.equipped_hoz = equipped_hoz
 	jd.equipped_hacha = equipped_hacha
 	jd.equipped_cana = equipped_cana
+	jd.equipped_lampara = equipped_lampara
 	jd.registro_pesca = registro_pesca.duplicate(true)
 	jd.mezcla_exp = mezcla_exp
 	jd.metalurgia_exp = metalurgia_exp
@@ -2232,6 +2234,7 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	equipped_hoz = jd.equipped_hoz as ToolData
 	equipped_hacha = jd.equipped_hacha as ToolData
 	equipped_cana = jd.equipped_cana as ToolData
+	equipped_lampara = jd.equipped_lampara as ToolData
 	# El libro del Pescador viaja CON LA PERSONA (como las herramientas): tus records son tuyos,
 	# no del mundo en el que los sacaste.
 	registro_pesca = (jd.registro_pesca as Dictionary).duplicate(true)
@@ -2504,11 +2507,12 @@ func importar_partida(d: SaveData) -> void:
 	equipped_hoz = d.tool_hoz as ToolData
 	equipped_hacha = d.tool_hacha as ToolData
 	equipped_cana = d.tool_cana as ToolData
+	equipped_lampara = d.tool_lampara as ToolData
 	registro_pesca = (d.registro_pesca as Dictionary).duplicate(true)
 	# Una equipada que NO este en el baul es una herramienta huerfana: no se puede cambiar desde el
 	# inventario (que lista owned_tools) y ademas se quedaria fuera del baul para siempre. Godot
 	# conserva la identidad al cargar, asi que no deberia pasar; si pasa, se adopta.
-	for eq in [equipped_pico, equipped_hoz, equipped_hacha, equipped_cana]:
+	for eq in [equipped_pico, equipped_hoz, equipped_hacha, equipped_cana, equipped_lampara]:
 		if eq != null and not owned_tools.has(eq):
 			owned_tools.append(eq as ToolData)
 
@@ -3823,6 +3827,7 @@ var equipped_pico: ToolData = null
 var equipped_hoz: ToolData = null
 var equipped_hacha: ToolData = null
 var equipped_cana: ToolData = null
+var equipped_lampara: ToolData = null
 
 func pico() -> ToolData:
 	return equipped_pico if equipped_pico != null else (PICO_BASICO as ToolData)
@@ -3839,6 +3844,14 @@ func hacha() -> ToolData:
 # PLANTILLA de forja (HERRAMIENTA_BASE), no como regalo de salida.
 func cana() -> ToolData:
 	return equipped_cana
+
+# El FAROLILLO tampoco tiene respaldo automatico, por la misma razon que la caña: si sin llevarlo
+# alumbraras igual, el sistema entero sobra. Sin farolillo te quedas en Vision.RADIO_MINIMO, que
+# es el suelo duro. El .tres basico SI se regala, pero en el pack inicial de la tienda (ver
+# reclamar_pack_inicial) y no aqui: asi es un objeto que TIENES, con su ranura y su ficha, y no
+# una excepcion escondida en un getter.
+func lampara() -> ToolData:
+	return equipped_lampara
 
 # ¿Esta herramienta salio de la FORJA? Las tres basicas son los .tres COMPARTIDOS del proyecto
 # (preload de arriba) y nunca pasan por crear_item, asi que nunca tienen entrada en item_meta.
@@ -3866,6 +3879,7 @@ func herramienta_de_tipo(tipo: int) -> ToolData:
 		ToolData.Tipo.PICO: return pico()
 		ToolData.Tipo.HOZ: return hoz()
 		ToolData.Tipo.CANA: return cana()
+		ToolData.Tipo.LAMPARA: return lampara()
 		_: return hacha()
 
 # Equipar / quitar. Trivial como equipar_mochila: no tiene dueño (es del GRUPO, no de un
@@ -3877,6 +3891,7 @@ func equipar_herramienta(t: ToolData) -> void:
 		ToolData.Tipo.PICO: equipped_pico = t
 		ToolData.Tipo.HOZ: equipped_hoz = t
 		ToolData.Tipo.CANA: equipped_cana = t
+		ToolData.Tipo.LAMPARA: equipped_lampara = t
 		_: equipped_hacha = t
 
 func desequipar_herramienta(tipo: int) -> void:
@@ -3884,12 +3899,94 @@ func desequipar_herramienta(tipo: int) -> void:
 		ToolData.Tipo.PICO: equipped_pico = null
 		ToolData.Tipo.HOZ: equipped_hoz = null
 		ToolData.Tipo.CANA: equipped_cana = null
+		ToolData.Tipo.LAMPARA: equipped_lampara = null
 		_: equipped_hacha = null
+
+# ============================================================
+#  EL FAROLILLO: LA LLAMA Y EL CARBON
+# ============================================================
+# Segundos que le quedan de arder al trozo que hay puesto AHORA. No se guarda que trozo es: cuando
+# se acaba, se coge el siguiente de la bolsa. Un trozo empezado se pierde al cerrar el juego, y es
+# deliberado -- guardar "medio carbon" obligaria a serializar de que material era y con que
+# calidad, para una diferencia de minutos.
+var lampara_llama: float = 0.0
+
+# El carbon SOLO arde en la mazmorra. En el pueblo apagas y punto: si consumiera ahi, cada rato
+# muerto en la tienda o en la forja te costaria luz, que es cobrar por no jugar.
+#
+# OJO CON LOS MENUS: quien llama a esto tiene que hacerlo desde un _process NORMAL, sin
+# process_mode = ALWAYS. Los menus paran el arbol a proposito (ver abrir_menu/cerrar_menu), asi
+# que con ALWAYS revisar el inventario te quemaria el carbon.
+func gastar_llama(delta: float) -> void:
+	if current_floor <= 0 or equipped_lampara == null:
+		return
+	lampara_llama -= delta
+	if lampara_llama > 0.0:
+		return
+	lampara_llama = 0.0
+	_prender_siguiente_carbon()
+
+
+# Enciende el siguiente trozo. Coge EL DE MENOS DURACION primero: asi la antracita se te queda
+# para lo hondo, que es donde hace falta, sin que tengas que administrarla a mano.
+func _prender_siguiente_carbon() -> bool:
+	var mejor: int = -1
+	var mejor_dur: float = INF
+	for i in materiales.size():
+		var m: MaterialItem = materiales[i]
+		if not Lampara.es_combustible(m):
+			continue
+		var d: float = Lampara.duracion(m)
+		if d < mejor_dur:
+			mejor_dur = d
+			mejor = i
+	if mejor < 0:
+		return false
+	materiales.remove_at(mejor)
+	lampara_llama = mejor_dur
+	return true
+
+
+# ¿Esta dando luz ahora mismo? Necesita farolillo Y llama. Si se te acaba el carbon te quedas con
+# el suelo duro de Vision: ves tu corro y nada mas.
+func lampara_encendida() -> bool:
+	if equipped_lampara == null:
+		return false
+	if lampara_llama > 0.0:
+		return true
+	# Sin llama pero con carbon en la bolsa: se prende solo. Se hace aqui y no solo en gastar_llama
+	# para que al ENTRAR a la mazmorra ya vayas alumbrando, sin esperar al primer tic.
+	return _prender_siguiente_carbon()
+
+
+func carbon_en_bolsa() -> int:
+	var n: int = 0
+	for m in materiales:
+		if Lampara.es_combustible(m):
+			n += 1
+	return n
+
+
+# EL RADIO DE VISION, en celdas, para un piso dado. Es la union de las tres piezas: el objeto
+# (tier/rareza/banda/mejoras), el combustible y la profundidad.
+#
+# 'piso' entra como parametro para que la ficha pueda enseñar "en el piso 9 tendrias X" sin que
+# estes en el 9, igual que hace la recoleccion con la exigencia del material.
+func radio_lampara(piso: int = -1) -> float:
+	var p: int = current_floor if piso < 0 else piso
+	if not lampara_encendida():
+		return Vision.RADIO_MINIMO
+	var m: Dictionary = item_meta.get(equipped_lampara, {})
+	var mejoras: int = int((m.get("mejoras", {}) as Dictionary).get(Upgrades.LUMINOSIDAD, 0))
+	var pot: float = Lampara.potencia(int(m.get("tier", 1)),
+		int(m.get("rareza", Upgrades.Rareza.COMUN)), int(m.get("banda", 0)), mejoras)
+	return Lampara.radio(pot, maxi(1, p))
+
 
 # ¿La llevas puesta? Lo consultan la UI (para el boton Equipar/Quitar) y la venta.
 func herramienta_equipada(t: ToolData) -> bool:
 	return t != null and (t == equipped_pico or t == equipped_hoz or t == equipped_hacha
-		or t == equipped_cana)
+		or t == equipped_cana or t == equipped_lampara)
 
 # --- Equipamiento: loadout de DOS manos (arma principal + secundaria) ---
 # La secundaria puede ser otra WeaponData (dual-wield), un ShieldData o null.
@@ -6245,6 +6342,13 @@ func peso_actual() -> float:
 	for c in crystals:
 		w += c.peso()
 	for m in materiales:
+		# EL CARBON NO PESA. Se queda en la bolsa como todo lo demas (con su calidad, su pila y su
+		# minijuego), pero la balanza no lo mira: la luz no es equipo opcional sino el requisito
+		# para ver, asi que cobrar carga por llevar con que ver seria cobrar dos veces por lo
+		# mismo. Se excluye por TIPO y no sacandolo de 'materiales', que es lo que romperia todo
+		# lo demas. Ver MaterialData.Tipo.COMBUSTIBLE.
+		if int(m.data.tipo) == MaterialData.Tipo.COMBUSTIBLE:
+			continue
 		w += m.peso()
 	return w
 
@@ -7055,6 +7159,14 @@ const PACK_ARMAS: Array[String] = [
 const PACK_POCION := "res://resources/consumables/pocion_menor.tres"
 const PACK_POCIONES_N := 3
 
+# Y EL FAROLILLO, que desde que la mazmorra esta a oscuras es tan red de seguridad como el arma:
+# sin el no se ve, y sin carbon el farolillo no alumbra. Va el mas rancio que hay (T1 Comun, sin
+# mejoras) y tres carbones vegetales -- unos 15 minutos de luz, que dan para los primeros pisos y
+# se acaban. A partir de ahi, o picas carbon o lo haces en la carpinteria.
+const PACK_LAMPARA := "res://resources/tools/farolillo_basico.tres"
+const PACK_CARBON := "res://resources/materials/carbon_vegetal.tres"
+const PACK_CARBON_N := 3
+
 func reclamar_pack_inicial(base_arma: Resource) -> bool:
 	if pack_inicial_reclamado or base_arma == null:
 		return false
@@ -7062,9 +7174,21 @@ func reclamar_pack_inicial(base_arma: Resource) -> bool:
 	var pocion: Resource = load(PACK_POCION)
 	if pocion != null:
 		add_consumable(pocion as ConsumableData, PACK_POCIONES_N)
+	# El farolillo pasa por crear_item como cualquier pieza forjada: asi tiene su entrada en
+	# item_meta (T1, Comun, banda 0) y radio_lampara puede leerla. Sin meta seria "no forjada" y
+	# no alumbraria mas que el suelo duro.
+	var base_lampara: Resource = load(PACK_LAMPARA)
+	if base_lampara != null:
+		var farol: Resource = crear_item(base_lampara, 1, Upgrades.Rareza.COMUN, {})
+		equipar_herramienta(farol as ToolData)
+	var carbon: Resource = load(PACK_CARBON)
+	if carbon != null:
+		for i in PACK_CARBON_N:
+			materiales.append(MaterialItem.crear(carbon as MaterialData,
+				MaterialItem.Calidad.NORMAL))
 	pack_inicial_reclamado = true
-	print("[tienda] Reclamas el pack inicial: %s + %d pociones menores." % [
-		item_display_name(arma), PACK_POCIONES_N])
+	print("[tienda] Reclamas el pack inicial: %s + %d pociones + farolillo y %d carbones." % [
+		item_display_name(arma), PACK_POCIONES_N, PACK_CARBON_N])
 	return true
 
 

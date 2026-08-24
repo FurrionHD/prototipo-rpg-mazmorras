@@ -33,7 +33,13 @@ enum Familia { CORRIENTE, NUCLEO }
 #   marca la RECETA nombrando el material, no un enum. Ojo: el tipo NO dice con que se saca —la sal
 #   se pica con el pico y el puerro se corta con la hoz siendo los dos DESPENSA—; quien decide la
 #   herramienta es el NODO del mapa (ver ResourceNode.Tipo), no esto.
-enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA, TABLON, CARNE, PESCADO, DESPENSA }
+#   COMBUSTIBLE es lo que ARDE en el farolillo: el carbon. Tiene una particularidad que no tiene
+#   ningun otro material -- NO PESA (ver Game.peso_actual) --, y no por capricho: la luz no es
+#   equipo opcional sino el requisito para ver, asi que cobrar carga por llevar con que ver seria
+#   cobrar dos veces por lo mismo. Vive igual en la bolsa que el resto (con su calidad, su
+#   minijuego y su pila); lo unico que cambia es que la balanza no lo mira.
+enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA, TABLON, CARNE, PESCADO, DESPENSA,
+	COMBUSTIBLE }
 # A QUE se le puede meter este nucleo. Los del slime van al ARMA; el de la rata, a la
 # ARMADURA. CUALQUIERA = comodin (no lo usa ningun nucleo hoy, pero el campo lo admite).
 enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }

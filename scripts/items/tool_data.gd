@@ -36,7 +36,12 @@
 extends Resource
 class_name ToolData
 
-enum Tipo { PICO, HOZ, HACHA, CANA }
+#  La LAMPARA es la quinta y la mas rara de todas: no tiene minijuego. No ahorra golpes ni abre
+#  ventanas -- lo que da es RANGO DE VISION (ver Lampara.radio), y quema CARBON para darlo. Entra
+#  aqui y no en el equipo de combate porque comparte todo lo que define a una herramienta: slot
+#  propio, no ocupa mano, no pesa, no entra en la pelea y su identidad vive en item_meta.
+#  Es ademas la primera herramienta MEJORABLE (ver Upgrades.LUMINOSIDAD).
+enum Tipo { PICO, HOZ, HACHA, CANA, LAMPARA }
 
 @export var tipo: Tipo = Tipo.PICO
 @export var nombre: String = "Herramienta"
@@ -60,12 +65,16 @@ func es_hacha() -> bool:
 func es_cana() -> bool:
 	return tipo == Tipo.CANA
 
+func es_lampara() -> bool:
+	return tipo == Tipo.LAMPARA
+
 
 func tipo_texto() -> String:
 	match tipo:
 		Tipo.PICO: return "Pico"
 		Tipo.HOZ: return "Hoz"
 		Tipo.CANA: return "Caña"
+		Tipo.LAMPARA: return "Farolillo"
 		_: return "Hacha"
 
 

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"carbon_mineral"
+nombre = "Carbon mineral"
+descripcion = "Vetas negras y lustrosas en la roca. Arde el doble de rato que el vegetal y con una llama mas quieta, que es lo que se le pide a algo de lo que depende que veas."
+familia = 0
+tipo = 11
+tier = 1
+exigencia = 170.0
+peso_base = 0.0
+valor_base = 34
+mejora_min = 0
+mejora_max = 0
+color = Color(0.12, 0.11, 0.13, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

@@ -49,6 +49,7 @@ class_name JugadorData
 @export var equipped_hoz: Resource = null
 @export var equipped_hacha: Resource = null
 @export var equipped_cana: Resource = null
+@export var equipped_lampara: Resource = null
 # El LIBRO DEL PESCADOR: id del pez -> {capturas, cm_min, cm_max}. Es del jugador por el mismo
 # motivo que las herramientas: el record de la lubina de 61 cm lo sacaste TU, no el mundo.
 @export var registro_pesca: Dictionary = {}

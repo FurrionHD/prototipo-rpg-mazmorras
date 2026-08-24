@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ToolData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/tool_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+tipo = 4
+nombre = "Farolillo abollado"
+descripcion = "Hojalata torcida y un cristal rajado por el que se escapa media luz. Alumbra lo justo para no partirte la crisma, y ni eso cuando la mazmorra se pone honda."
+tier = 1
+valor_base = 60
+metadata/_custom_type_script = "res://scripts/items/tool_data.gd"

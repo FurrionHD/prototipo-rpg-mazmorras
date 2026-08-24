@@ -91,6 +91,11 @@ const RESISTENCIA := "resistencia"    # -prob. de estados alterados (KAN-58, act
 const REFUERZO := "refuerzo"          # +bloqueo del escudo (la unica via para subirlo)
 # Generica (arma y armadura):
 const DURABILIDAD := "durabilidad"    # ACTIVA: sube el maximo de durabilidad (mantenimiento)
+# FAROLILLO (la primera herramienta mejorable). Es la UNICA categoria de su pieza y por eso el
+# farolillo se mejora "a secas": no hay nada que elegir, cada punto sube la potencia de luz. Se
+# implementa como categoria (y no como un contador aparte) para heredar tal cual todo el aparato
+# que ya existe -- el tope por rareza, el coste en nucleos, deshacer y reparar.
+const LUMINOSIDAD := "luminosidad"
 
 # Nombres legibles para la UI.
 const CAT_NOMBRE := {
@@ -99,6 +104,7 @@ const CAT_NOMBRE := {
 	"dureza": "Dureza", "evasion": "Evasion", "resist_crit": "Resist. criticos",
 	"resistencia": "Resistencia (estados)", "durabilidad": "Durabilidad",
 	"refuerzo": "Refuerzo (bloqueo)",
+	"luminosidad": "Luminosidad",
 }
 
 # --- Steps de cada categoria (extra DECRECIENTE por punto) ---

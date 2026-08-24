@@ -680,6 +680,10 @@ static func filas_herramienta(t: ToolData) -> Array:
 	var m: Dictionary = Game.tool_mods(t)
 	var meta: Dictionary = Game.item_meta.get(t, {})
 	var filas: Array = [["Tipo", t.tipo_texto()], ["Sirve para", TOOL_PARA[int(t.tipo)]]]
+	# EL FAROLILLO se sale del molde de las otras cuatro: no tiene minijuego, asi que ni afinidad
+	# ni golpes ahorrados. Lo que da es RANGO DE VISION, y lo gasta en CARBON.
+	if t.es_lampara():
+		return filas + _filas_farolillo(t, meta)
 	if not Game.es_herramienta_forjada(t):
 		filas.append(["Ayuda", "ninguna: es la de serie"])
 		return filas
@@ -697,12 +701,41 @@ static func filas_herramienta(t: ToolData) -> Array:
 			n, t.unidad_golpes(n)]])
 	return filas
 
+# LA FICHA DEL FAROLILLO. Enseña el radio EN EL PISO EN QUE ESTAS y en el siguiente tramo, porque
+# la gracia del sistema es justo esa: el mismo farolillo alumbra menos cuanto mas bajas, y hay que
+# poder verlo venir antes de plantarte abajo a ciegas.
+#
+# Los numeros son los que se juegan, derivados de Lampara: aqui no se reescribe ni una cuenta (ver
+# la regla de no hardcodear numeros en los textos).
+static func _filas_farolillo(t: ToolData, meta: Dictionary) -> Array:
+	if not Game.es_herramienta_forjada(t):
+		return [["Luz", "ninguna: no esta forjado"]]
+	var mejoras: int = int((meta.get("mejoras", {}) as Dictionary).get(Upgrades.LUMINOSIDAD, 0))
+	var pot: float = Lampara.potencia(int(meta.get("tier", 1)),
+		int(meta.get("rareza", Upgrades.Rareza.COMUN)), int(meta.get("banda", 0)), mejoras)
+	var piso: int = maxi(1, Game.current_floor)
+	var filas: Array = [
+		["Metal", "T%d  ·  %s" % [int(meta.get("tier", 1)),
+			TOOL_VETA[Upgrades.banda_columna(int(meta.get("banda", 0)))]]],
+		["Potencia", "%.0f  (tier, rareza, veta y mejoras)" % pot],
+		["Alcance aqui", "%.1f casillas  (piso %d)" % [Lampara.radio(pot, piso), piso]],
+		["Alcance 5 pisos mas abajo", "%.1f casillas" % Lampara.radio(pot, piso + 5)],
+	]
+	# El suelo duro merece decirse: es la promesa de que la oscuridad no te deja ciego del todo.
+	filas.append(["Sin carbón", "%.1f casillas (el minimo, siempre)" % Vision.RADIO_MINIMO])
+	if Game.equipped_lampara == t:
+		filas.append(["Llama", "%d:%02d restantes" % [int(Game.lampara_llama) / 60,
+			int(Game.lampara_llama) % 60]])
+		filas.append(["Carbón en la bolsa", "%d" % Game.carbon_en_bolsa()])
+	return filas
+
+
 # Lo que alarga la ventana del tiron cada punto de 'golpes_menos' de la caña. Copia del mismo numero
 # en fishing_spot.gd (que es quien lo aplica) para que la ficha no mienta.
 const VENTANA_TIRON_POR_PUNTO := 0.15
 
 const TOOL_PARA := ["Vetas de mineral  ·  Fuerza", "Plantas  ·  Destreza", "Madera  ·  Agilidad",
-	"Estanques  ·  Resistencia"]
+	"Estanques  ·  Resistencia", "Ver en la oscuridad  ·  quema carbón"]
 const TOOL_VETA := ["en bruto", "veteado", "profundo"]
 
 

@@ -285,6 +285,7 @@ const VERSION_MUNDO := 1
 @export var tool_hoz: Resource = null
 @export var tool_hacha: Resource = null
 @export var tool_cana: Resource = null
+@export var tool_lampara: Resource = null
 
 # El LIBRO DEL PESCADOR: id del pez -> {capturas, cm_min, cm_max}. Ver Game.registro_pesca.
 @export var registro_pesca: Dictionary = {}
