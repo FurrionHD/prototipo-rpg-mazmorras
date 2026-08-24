@@ -189,6 +189,14 @@ static func dimensiona_por_escala() -> bool:
 	return true
 
 
+# El CUERPO en planta (ancho, largo) en unidades de mundo, para que enemy.gd le haga una colision a
+# su medida. El slime es REDONDO en planta, asi que los dos valen lo mismo: no importa por donde
+# mire, ocupa igual. (Lo que se achata es el DIBUJO, para que no se lea como un macaron -- ver
+# CUERPO_R --, pero eso es cosa de la camara, no de cuanto sitio ocupa en el suelo.)
+static func tam_cuerpo(escala: float = 1.0) -> Vector2:
+	return Vector2(DIAMETRO_MUNDO, DIAMETRO_MUNDO) * escala
+
+
 # Cuantas celdas mide el lienzo para una escala dada.
 static func _lienzo(escala: float) -> Vector2i:
 	var u: float = DIAMETRO_MUNDO * escala / SpriteLienzo.UNIDADES_POR_CELDA

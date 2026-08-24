@@ -121,6 +121,19 @@ static func dimensiona_por_escala() -> bool:
 	return true
 
 
+# El CUERPO en planta (ancho, largo) en unidades de mundo: con esto enemy.gd le hace una colision a
+# su medida en vez de la caja de 32x32 de siempre. Es la MEDIDA DEL BICHO, no la del dibujo:
+#   * LA COLA NO CUENTA. Es un hilo que se menea, y meterla en la colision haria que la rata chocara
+#     con las paredes por algo que ni se ve. Por eso tampoco vale LARGO_MUNDO, que si la incluye.
+#   * El ancho lo marcan las PATAS (van mas abiertas que el cuerpo), no el lomo.
+# Sale rectangular y alargada a proposito: una rata es un bicho estrecho y largo, y asi es como
+# tiene que estorbar en un pasillo -- de lado ocupa, de frente casi no.
+static func tam_cuerpo(escala: float = 1.0) -> Vector2:
+	var ancho: float = (PATA_X + PATA_R.x) * 2.0
+	var largo: float = (HOCICO.y + HOCICO_R.y) + CUERPO_R.y
+	return Vector2(ancho, largo) * escala
+
+
 # Cuantas celdas de lado necesita el lienzo para una escala dada. CUADRADO y holgado: al girar, lo
 # que manda es la DIAGONAL de la figura (cuerpo + cola), y ademas la embestida la desplaza.
 static func _celdas(escala: float) -> int:

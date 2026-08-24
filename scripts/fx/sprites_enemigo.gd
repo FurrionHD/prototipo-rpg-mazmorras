@@ -78,6 +78,21 @@ static func hay_que_estirar(ed: EnemyData) -> bool:
 	return not g.dimensiona_por_escala() if g != null else false
 
 
+# El CUERPO de este enemigo en planta (ancho, largo) en unidades de mundo, o Vector2.ZERO si no se
+# sabe -- que es el caso de los ~15 que siguen siendo un ColorRect y el del arte de verdad, que no
+# declara su geometria. Quien pregunte tiene que tratar el ZERO como "usa la caja de siempre".
+#
+# Existe porque la colision era 32x32 PARA TODOS, escalada con escala_visual, y eso solo le queda
+# bien a un bicho macizo y redondo como el slime. La rata es estrecha y larga: media 8,7 unidades de
+# ancho vista de frente dentro de una caja de 27, o sea que chocaba con las paredes por un cuerpo
+# que no tiene. Ahora cada uno choca por lo que ocupa de verdad.
+static func tam_cuerpo(ed: EnemyData) -> Vector2:
+	if ed == null or ed.sprite_frames != null:
+		return Vector2.ZERO
+	var g = _generador(ed)
+	return g.tam_cuerpo(ed.escala_visual) if g != null else Vector2.ZERO
+
+
 # Zoom para que el bicho ocupe 'ancho_pantalla' en el visor. Va por generador Y por escala, porque
 # cada rejilla es distinta: la rata es mas ancha que el slime, y un rey se dibuja con mas celdas que
 # uno normal. Con una constante, unos se verian enormes y otros diminutos.

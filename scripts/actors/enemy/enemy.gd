@@ -175,6 +175,11 @@ var _sprite_base_scale: float = 1.0   # ver _ready: la textura generada no es 1p
 # true = a este sprite hay que aplicarle escala_visual desde aqui (arte de verdad, que viene a un
 # tamaño fijo). false = el generador ya lo dibujo del tamaño que toca, con mas celdas.
 var _sprite_escala_propia: bool = false
+# El cuerpo real de este bicho en planta (ancho, largo), o ZERO si no lo declara y hay que usar la
+# caja de 32x32 de siempre. Ver _aplicar_colision.
+var _tam_cuerpo: Vector2 = Vector2.ZERO
+# true = su colision es alargada y tiene que girar con el (ver _aplicar_colision).
+var _colision_gira: bool = false
 
 
 func _ready() -> void:
@@ -221,6 +226,9 @@ func _ready() -> void:
 			_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			_anim_actual = "idle_0"
 			_sprite.play(_anim_actual)
+		# La forma de su cuerpo, para que la colision sea a su medida y no una caja de 32x32. Va
+		# ANTES de _aplicar_escala, que es quien la monta.
+		_tam_cuerpo = SpritesEnemigo.tam_cuerpo(data)
 		_aplicar_escala(data.escala_visual)   # los elites se ven mas grandes en el mapa
 		# Un bicho ELEMENTAL emana lo mismo que tu cuando te imbuyes de ese elemento: el slime de
 		# fuego echa los mismos cuadraditos naranjas que un Manto de Brasas. Es a proposito -- el
@@ -261,12 +269,14 @@ func _crear_fx_elemental() -> void:
 
 
 # Escala el cuerpo (ColorRect) y su colision. El cuerpo base es 32x32 centrado.
-# OJO: la RectangleShape2D viene del .tscn y se COMPARTE entre instancias -> hay que
-# duplicarla antes de tocarla, o cambiaria el tamaño de TODOS los enemigos.
 func _aplicar_escala(escala: float) -> void:
 	var s: float = maxf(0.1, escala)
+	_aplicar_colision(s)     # SIEMPRE, aunque la escala sea 1: la FORMA puede no ser la de siempre
 	if is_equal_approx(s, 1.0):
 		return
+	# radio_extra se queda midiendose con escala_visual y NO con la forma de abajo, a proposito: no
+	# es el tamaño del cuerpo sino cuanto hay que descontar en los ALCANCES (atacar, extraerle el
+	# cristal). Atarlo a una forma alargada daria un alcance distinto segun por donde te pongas.
 	radio_extra = 16.0 * (s - 1.0)
 	var medio: float = 16.0 * s
 	_color_rect.offset_left = -medio
@@ -278,10 +288,30 @@ func _aplicar_escala(escala: float) -> void:
 	# hacia que el Rey Slime y el Rey Rata salieran con unos pixelotes enormes.
 	if _sprite.visible and _sprite_escala_propia:
 		_sprite.scale = Vector2.ONE * _sprite_base_scale * s
+
+
+# La colision, a la medida DEL BICHO y no una caja de 32x32 para todos.
+#
+# Antes era siempre cuadrada, y eso solo le queda bien a un bicho macizo y redondo como el slime.
+# La rata mide 8,7 unidades de ancho vista de frente y chocaba con las paredes por un cuerpo que no
+# tiene. Los que todavia son un ColorRect no declaran forma (tam_cuerpo devuelve ZERO) y se quedan
+# con la caja de siempre.
+#
+# OJO: la RectangleShape2D viene del .tscn y se COMPARTE entre instancias -> hay que duplicarla
+# antes de tocarla, o cambiaria el tamaño de TODOS los enemigos.
+func _aplicar_colision(s: float) -> void:
 	var col: CollisionShape2D = get_node_or_null("CollisionShape2D")
-	if col != null and col.shape is RectangleShape2D:
-		col.shape = col.shape.duplicate()   # instancia propia: no tocar la de los demas
-		(col.shape as RectangleShape2D).size = Vector2(32.0 * s, 32.0 * s)
+	if col == null or not (col.shape is RectangleShape2D):
+		return
+	col.shape = col.shape.duplicate()   # instancia propia: no tocar la de los demas
+	var tam: Vector2 = _tam_cuerpo if _tam_cuerpo != Vector2.ZERO else Vector2(32.0 * s, 32.0 * s)
+	(col.shape as RectangleShape2D).size = tam
+	# ALARGADO = la colision GIRA con el bicho. Una rata de lado ocupa el triple que de frente, y sin
+	# esto un cuerpo largo y fijo la haria chocar de costado por donde de verdad cabe. Los redondos
+	# no giran: no serviria de nada y girar una forma pegada a una pared la empuja.
+	_colision_gira = maxf(tam.x, tam.y) / maxf(1.0, minf(tam.x, tam.y)) >= 1.3
+	# El largo va en +Y local, que es hacia donde mira con _facing = abajo (dir 0 = S).
+	col.rotation = (_facing.angle() - PI * 0.5) if _colision_gira else 0.0
 
 
 # _facing (screen: +Y abajo) a uno de los 8 sectores de SlimeSprites: 0=S 1=SE 2=E 3=NE 4=N 5=NW
@@ -1115,6 +1145,11 @@ func morir() -> void:
 	set_physics_process(false)  # detiene la IA
 	velocity = Vector2.ZERO
 	_color_rect.color = Color(0.4, 0.4, 0.4)  # cuerpo gris/apagado
+	# El sprite tambien se apaga. Y no es solo estetica: aqui se para el _physics_process, o sea que
+	# _actualizar_indicadores ya no vuelve a correr -- si moria justo mientras avisaba el golpe, se
+	# quedaba de cadaver con el tinte rojo del aviso puesto para siempre.
+	if _sprite.visible:
+		_sprite.modulate = Color(0.45, 0.45, 0.45)
 	if _facing_line != null:
 		_facing_line.visible = false   # un cadaver ya no mira a ningun sitio
 	remove_from_group("enemy")  # ya no es un enemigo activo
@@ -1605,8 +1640,17 @@ func reanudar_tras_combate(hp: float = -1.0, estados: Array = []) -> void:
 #
 # OJO: esto es solo el DIBUJO. La deteccion no se ha tocado — el cono sigue existiendo en
 # vision_range / vision_half_angle_deg y en _ve_u_oye_a, con su linea de vision contra la roca.
+# El palo amarillo de "hacia donde miro" es un APAÑO PARA LOS CUADRADOS: un ColorRect no tiene cara,
+# asi que sin el no habria forma de jugar al sigilo. En cuanto un bicho tiene sprite sobra -- se le
+# ven los ojos, y ademas el palo mide 26 unidades FIJAS, con lo que en una rata parecia un mastil
+# (mas largo que ella) y dentro del Rey Slime no se veia.
+#
+# Pero el palo hacia DOS cosas, y la segunda no la cuenta el sprite: se ponia ROJO para telegrafiar
+# el golpe. Eso no se puede perder -- un bicho que ataca sin avisar es injusto --, asi que los que
+# tienen sprite lo avisan TIÑENDOSE (ver _actualizar_indicadores).
 func _crear_indicadores() -> void:
-	# Linea de direccion (hacia donde mira).
+	if _sprite.visible:
+		return
 	_facing_line = Line2D.new()
 	_facing_line.add_point(Vector2.ZERO)
 	_facing_line.add_point(Vector2(26.0, 0.0))
@@ -1615,8 +1659,21 @@ func _crear_indicadores() -> void:
 	add_child(_facing_line)
 
 
+# Color del bicho mientras avisa el golpe. Es el rojo/naranja que tenia la linea, para que el aviso
+# se lea igual lo dibuje quien lo dibuje.
+const _AVISO_TINTE := Color(1.0, 0.45, 0.30)
+
+
 func _actualizar_indicadores() -> void:
+	# La colision alargada gira con el (una rata de lado ocupa el triple que de frente).
+	if _colision_gira:
+		var col: CollisionShape2D = get_node_or_null("CollisionShape2D")
+		if col != null:
+			col.rotation = _facing.angle() - PI * 0.5
 	if _facing_line == null:
+		# Tiene sprite: el aviso del golpe va por el tinte, que es lo que sustituye al palo rojo.
+		if _sprite.visible:
+			_sprite.modulate = _AVISO_TINTE if _winding else Color.WHITE
 		return
 	_facing_line.rotation = _facing.angle()
 	# Rojo/naranja mientras avisa el ataque (telegrafia el golpe).
