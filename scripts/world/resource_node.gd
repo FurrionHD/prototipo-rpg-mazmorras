@@ -28,7 +28,11 @@ extends Node2D
 # que los hace distintos de una veta o una planta es que tienen su PROPIA tabla y su propio cupo (asi
 # no le quitan sitio al mineral de forjar) y que tardan el DOBLE en volver (ver
 # Game.RESPAWN_LENTO_SEGUNDOS): son el grifo de la comida.
-enum Tipo { VETA, PLANTA, MADERA, SAL, HUERTO }
+# CARBON va el ULTIMO, como todo valor nuevo: este enum viaja por RED como numero (ver Net) y se
+# guarda en el save. Es roca, asi que se pica con el pico y comparte el minijuego de la veta; lo
+# que lo separa es que tiene TABLA y CUPO propios -- si saliera de la tabla de vetas, cada carbon
+# seria un mineral de forjar que no sale, y el carbon no es opcional: es con lo que se ve.
+enum Tipo { VETA, PLANTA, MADERA, SAL, HUERTO, CARBON }
 
 var tipo: int = Tipo.VETA
 # OJO con el nombre: NO puede llamarse 'material'. Esto es un Node2D, y CanvasItem ya tiene
@@ -56,7 +60,7 @@ func _ready() -> void:
 
 # Se pica con el PICO: la veta de mineral y la piedra de sal (que tambien es roca).
 func es_veta() -> bool:
-	return tipo == Tipo.VETA or tipo == Tipo.SAL
+	return tipo == Tipo.VETA or tipo == Tipo.SAL or tipo == Tipo.CARBON
 
 func es_madera() -> bool:
 	return tipo == Tipo.MADERA
@@ -152,6 +156,8 @@ func _familia_sprite() -> String:
 			return "planta"
 		Tipo.VETA:
 			return "veta"
+		Tipo.CARBON:
+			return "carbon"
 	return ""
 
 

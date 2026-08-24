@@ -98,10 +98,15 @@ static func radio(pot: float, piso: int) -> float:
 #
 # La escalera esta pensada para que llevar del bueno se note pero el barato nunca sea inutil: el
 # vegetal se fabrica gratis en la carpinteria con madera, el mineral hay que picarlo.
+#
+# CORTAS a proposito. Con 5 y 12 minutos una expedicion entera se hacia con dos trozos y el carbon
+# dejaba de ser una decision: lo llevabas y te olvidabas. A 2 y 5 tienes que contar cuanto te
+# queda, y quedarte a oscuras en el piso 6 es un riesgo real, que es justo lo que le da sentido a
+# picar carbon abajo en vez de bajar con la mochila llena de otra cosa.
 const DURACION := {
-	&"carbon_vegetal": 300.0,     # 5 min
-	&"carbon_mineral": 720.0,     # 12 min
-	&"antracita": 1500.0,         # 25 min (T2, con los pisos 7+)
+	&"carbon_vegetal": 120.0,     # 2 min
+	&"carbon_mineral": 300.0,     # 5 min
+	&"antracita": 700.0,          # ~12 min (T2, con los pisos 7+)
 }
 
 # Y la CALIDAD del trozo lo estira o lo encoge. Se usa score_calidad() y NUNCA int(calidad):

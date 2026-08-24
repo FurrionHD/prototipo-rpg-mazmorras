@@ -54,6 +54,11 @@ class_name DungeonFloor
 # proposito: si compartieran los de la forja, cada cebolla seria un mineral que no sale.
 @export var tabla_sal: MaterialTable = preload("res://resources/world/sal.tres")
 @export var tabla_silvestres: MaterialTable = preload("res://resources/world/silvestres.tres")
+# El CARBON: tabla y cupo propios por lo mismo que la despensa. Es roca (se pica con el pico y va
+# con el minijuego de mineria), pero si saliera de la tabla de vetas cada carbon seria un mineral
+# de forjar que no sale -- y desde que la mazmorra esta a oscuras el carbon no es un extra: es con
+# lo que se ve.
+@export var tabla_carbon: MaterialTable = preload("res://resources/world/carbon.tres")
 # Cuantas celdas de pasillo por planta, y cuantas plantas aguanta un pasillo.
 @export var celdas_por_planta: int = 18
 @export var max_plantas_pasillo: int = 3
@@ -76,6 +81,10 @@ class_name DungeonFloor
 @export var sal_max_piso: int = 2
 @export var silvestres_min_piso: int = 2
 @export var silvestres_max_piso: int = 3
+# El carbon va igual: contado. Dos por piso como mucho, con el respawn lento de la despensa. Es
+# lo que obliga a bajar con el deposito hecho en vez de vivir del carbon que encuentres.
+@export var carbon_min_piso: int = 1
+@export var carbon_max_piso: int = 2
 
 # Cada cuanto se mira si a algun nodo picado le toca ya reaparecer. No hace falta afinar mas:
 # el respawn son minutos, y barrer el diccionario de agotados cada frame seria tirar CPU.
@@ -859,9 +868,16 @@ func _colocar_recolectables() -> void:
 		rng.randi_range(sal_min_piso, sal_max_piso), 1, 1)
 	var silvestres: int = _colocar_en_pasillos(rng, tabla_silvestres,
 		rng.randi_range(silvestres_min_piso, silvestres_max_piso), 4, false)
+	# EL CARBON, EL ULTIMO DE TODOS. No es preferencia estetica: todas estas tiradas salen del
+	# MISMO rng, asi que meterlo en medio le habria corrido el sitio a las vetas (y a la sal) de
+	# las partidas que YA EXISTEN. Puesto al final, el piso de siempre sigue siendo el de siempre
+	# y esto solo AÑADE. Quien meta un recolectable nuevo, que lo ponga detras de este.
+	var carbon: int = _colocar_en_salas(rng, tabla_carbon, 5,
+		rng.randi_range(carbon_min_piso, carbon_max_piso), 1, 1)
 	print("[mazmorra] recolectables: ", vetas, " vetas, ", plantas, " plantas y ",
 		maderas, " enredaderas (", _agotados.size(), " ya recolectadas)")
 	print("[mazmorra] despensa: ", sal, " de sal y ", silvestres, " silvestres")
+	print("[mazmorra] carbon: ", carbon, " vetas")
 	if tabla_vetas != null:
 		print("[mazmorra] vetas del piso: ", tabla_vetas.resumen(Game.current_floor))
 	if tabla_plantas != null:
@@ -1054,6 +1070,7 @@ func _tabla_de_tipo(tipo: int) -> MaterialTable:
 		2: return tabla_maderas
 		3: return tabla_sal
 		4: return tabla_silvestres
+		5: return tabla_carbon
 	return null
 
 

@@ -1706,6 +1706,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 
 	crystals.clear()
 	materiales.clear()
+	carbon.clear()
 	almacen_materiales.clear()
 	bote_dinero = 0
 	cofre_equipo.clear()
@@ -1852,6 +1853,7 @@ func exportar_partida() -> SaveData:
 
 	d.crystals = crystals.duplicate()
 	d.materiales = materiales.duplicate()
+	d.carbon = carbon.duplicate()
 	d.almacen_materiales = almacen_materiales.duplicate()
 	d.bote_dinero = bote_dinero
 	d.cofre_equipo = cofre_equipo.duplicate(true)
@@ -1987,6 +1989,7 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.dinero = money
 	jd.crystals = crystals.duplicate()
 	jd.materiales = materiales.duplicate()
+	jd.carbon = carbon.duplicate()
 	jd.consumibles = {}
 	for c in consumables:
 		if c != null and c.resource_path != "":
@@ -2221,6 +2224,7 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	money = jd.dinero
 	crystals.assign(jd.crystals)
 	materiales.assign(jd.materiales)
+	carbon.assign(jd.carbon)
 	consumables.clear()
 	for ruta in jd.consumibles:
 		var c: Resource = load(ruta)
@@ -2427,6 +2431,7 @@ func importar_partida(d: SaveData) -> void:
 
 	crystals.assign(d.crystals)
 	materiales.assign(d.materiales)
+	carbon.assign(d.carbon)
 	almacen_materiales.assign(d.almacen_materiales)
 	bote_dinero = d.bote_dinero
 	cofre_equipo = d.cofre_equipo.duplicate(true)
@@ -2965,6 +2970,32 @@ var materiales: Array[MaterialItem] = []
 
 # --- BAUL DEL HOGAR: materiales ya guardados en casa. No pesan.
 var almacen_materiales: Array[MaterialItem] = []
+
+# --- CARBONERA: el combustible del farolillo, APARTE de la bolsa.
+#
+# Es un MaterialItem como cualquier otro (con su calidad, que estira la llama), pero NO vive en
+# 'materiales', y esa separacion es deliberada por dos motivos:
+#   1. En la bolsa se colaria en 'guardar materiales en el hogar' y acabaria mezclado en el almacen
+#      con el mineral de forjar. El carbon no es material de oficio: es el consumible de VER.
+#   2. No pesa. Estando fuera de 'materiales' eso sale solo, sin excepciones repartidas por el
+#      calculo de carga.
+# Va con el FAROLILLO en la interfaz (misma pestaña), porque juntos son una sola cosa: la luz.
+#
+# Todo lo que se recolecte de tipo COMBUSTIBLE aterriza aqui, y de eso se encarga guardar_material()
+# -- que es el UNICO sitio que decide a que contenedor va cada cosa.
+var carbon: Array[MaterialItem] = []
+
+
+# EL EMBUDO. Todo lo que entra en tus manos recolectando pasa por aqui, y aqui se decide en que
+# contenedor cae. Antes cada minijuego hacia su propio materiales.append(), asi que un tipo de
+# material con otro destino obligaba a acordarse de los cuatro sitios.
+func guardar_material(m: MaterialItem) -> void:
+	if m == null:
+		return
+	if int(m.data.tipo) == MaterialData.Tipo.COMBUSTIBLE:
+		carbon.append(m)
+		return
+	materiales.append(m)
 
 # ============================================================
 #  REGISTRO DE PESCA: el libro del Pescador
@@ -3932,17 +3963,14 @@ func gastar_llama(delta: float) -> void:
 func _prender_siguiente_carbon() -> bool:
 	var mejor: int = -1
 	var mejor_dur: float = INF
-	for i in materiales.size():
-		var m: MaterialItem = materiales[i]
-		if not Lampara.es_combustible(m):
-			continue
-		var d: float = Lampara.duracion(m)
+	for i in carbon.size():
+		var d: float = Lampara.duracion(carbon[i])
 		if d < mejor_dur:
 			mejor_dur = d
 			mejor = i
 	if mejor < 0:
 		return false
-	materiales.remove_at(mejor)
+	carbon.remove_at(mejor)
 	lampara_llama = mejor_dur
 	return true
 
@@ -3959,12 +3987,9 @@ func lampara_encendida() -> bool:
 	return _prender_siguiente_carbon()
 
 
-func carbon_en_bolsa() -> int:
-	var n: int = 0
-	for m in materiales:
-		if Lampara.es_combustible(m):
-			n += 1
-	return n
+# Cuantos trozos te quedan en la carbonera (sin contar el que esta ardiendo).
+func carbon_restante() -> int:
+	return carbon.size()
 
 
 # EL RADIO DE VISION, en celdas, para un piso dado. Es la union de las tres piezas: el objeto
@@ -7181,10 +7206,10 @@ func reclamar_pack_inicial(base_arma: Resource) -> bool:
 	if base_lampara != null:
 		var farol: Resource = crear_item(base_lampara, 1, Upgrades.Rareza.COMUN, {})
 		equipar_herramienta(farol as ToolData)
-	var carbon: Resource = load(PACK_CARBON)
-	if carbon != null:
+	var brasa: Resource = load(PACK_CARBON)
+	if brasa != null:
 		for i in PACK_CARBON_N:
-			materiales.append(MaterialItem.crear(carbon as MaterialData,
+			guardar_material(MaterialItem.crear(brasa as MaterialData,
 				MaterialItem.Calidad.NORMAL))
 	pack_inicial_reclamado = true
 	print("[tienda] Reclamas el pack inicial: %s + %d pociones + farolillo y %d carbones." % [
@@ -9990,7 +10015,7 @@ func _botin_extra_reco(pasiva_id: String, data: MaterialData, calidad: int) -> i
 	if bool(d.get("puro", false)) and calidad == int(MaterialItem.Calidad.INTACTO) \
 			and randf() < PASIVA_RECO_PURO:
 		cal = int(MaterialItem.Calidad.PURO)
-	materiales.append(MaterialItem.crear(data, cal as MaterialItem.Calidad))
+	guardar_material(MaterialItem.crear(data, cal as MaterialItem.Calidad))
 	if cal == int(MaterialItem.Calidad.PURO):
 		print("[pasiva] ¡%s sale PURO por '%s'!" % [data.nombre, str(d.get("nombre", pasiva_id))])
 	else:
@@ -11322,7 +11347,7 @@ func _on_mineria_finished(item: MaterialItem, progreso: float, nodo) -> void:
 	if item == null:
 		return
 	if not item.se_pierde():
-		materiales.append(item)
+		guardar_material(item)
 		descubrir(item.data)
 		# Pasiva RNG: +1 al botin, y esa pieza extra puede salir PURA si la recogida fue perfecta.
 		var cal_extra: int = _botin_extra_reco("reco_mineria", item.data, int(item.calidad))
@@ -11383,7 +11408,7 @@ func _on_herboristeria_finished(item: MaterialItem, progreso: float, nodo) -> vo
 	if item == null:
 		return
 	if not item.se_pierde():
-		materiales.append(item)
+		guardar_material(item)
 		descubrir(item.data)
 		# Pasiva RNG: +1 al botin, y esa pieza extra puede salir PURA si la recogida fue perfecta.
 		var cal_extra: int = _botin_extra_reco("reco_herboristeria", item.data, int(item.calidad))
@@ -11447,7 +11472,7 @@ func _on_talado_finished(item: MaterialItem, progreso: float, nodo) -> void:
 	if item == null:
 		return
 	if not item.se_pierde():
-		materiales.append(item)
+		guardar_material(item)
 		descubrir(item.data)
 		# Pasiva RNG: +1 al botin, y esa pieza extra puede salir PURA si la recogida fue perfecta.
 		var cal_extra: int = _botin_extra_reco("reco_talado", item.data, int(item.calidad))
@@ -11554,7 +11579,7 @@ func _embolsar_pez(data: MaterialData, cm: float) -> void:
 	# La CORONA es lo gordo y va primero: es un premio permanente de la especie, no un "por ahora".
 	var nueva: bool = corona != MaterialData.Corona.NINGUNA and not tiene_corona(data.id, corona)
 	apuntar_corona(data.id, corona)
-	materiales.append(item)
+	guardar_material(item)
 	descubrir(data)
 	_aviso_recogida(item.nombre(), 1, "%.1f cm" % cm)
 	if corona != MaterialData.Corona.NINGUNA:

@@ -214,6 +214,9 @@ const VERSION_MUNDO := 1
 # --- Cosas ---
 @export var crystals: Array = []            # Cristal (runtime -> se incrustan)
 @export var materiales: Array = []          # MaterialItem de la BOLSA (runtime)
+# LA CARBONERA: el combustible del farolillo. Va aparte de materiales a proposito (ver Game.carbon):
+# no pesa y no se mezcla con el material de oficio al guardar en el hogar.
+@export var carbon: Array = []
 @export var almacen_materiales: Array = []  # MaterialItem guardados en el Hogar
 # ALMACEN del hogar (baul de equipo + hucha de dinero). Persisten SIEMPRE (solo y multi). Campos
 # nuevos con default vacio: los saves viejos cargan solos sin migracion ni subir la version.

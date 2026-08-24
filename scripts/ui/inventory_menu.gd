@@ -386,16 +386,19 @@ func _confirmar_soltar(cant: int) -> void:
 # porque _rebuild() despacha por INDICE contra TABS: meter una pestaña nueva en medio desordena el
 # match entero. Y ademas las dos cosas son lo mismo conceptualmente — equipo del GRUPO que no es de
 # combate: no lo lleva un personaje, no pesa y no entra en el loadout.
-const SUBS_EQUIPO := ["Mochila", "Herramientas"]
+# El FAROLILLO tiene hueco propio y no va con las otras cuatro herramientas: no comparte NADA con
+# ellas -- no tiene minijuego, no ahorra golpes, y ademas gasta un consumible. Su pantalla enseña
+# el farolillo Y el carbon juntos, porque son una sola cosa: la luz.
+const SUBS_EQUIPO := ["Mochila", "Herramientas", "Farolillo"]
 var _sub_equipo: int = 0
 
 func _build_equipo() -> void:
 	MenuScaffold.pestanas(_header, SUBS_EQUIPO, _sub_equipo, _on_sub_equipo)
 	_header.add_child(HSeparator.new())
-	if _sub_equipo == 0:
-		_build_mochila()
-	else:
-		_build_herramientas()
+	match _sub_equipo:
+		0: _build_mochila()
+		2: _build_farolillo()
+		_: _build_herramientas()
 
 
 func _on_sub_equipo(i: int) -> void:
@@ -474,6 +477,10 @@ func _build_herramientas() -> void:
 
 	_stacks = []
 	for t in Game.owned_tools:
+		# Los farolillos tienen su propia pestaña: aqui estorbarian y su ficha no habla de nada de
+		# lo que esta pantalla promete (afinidad y golpes ahorrados).
+		if (t as ToolData).es_lampara():
+			continue
 		_stacks.append({"modelo": t, "cantidad": 1})
 	if _stacks.is_empty():
 		_note(_content, "Todavía no has forjado ninguna. El herrero las hace con metal y un tablón; "
@@ -484,6 +491,64 @@ func _build_herramientas() -> void:
 		var t: ToolData = s["modelo"]
 		labels.append(Game.item_display_name(t)
 			+ ("\n(puesta)" if Game.herramienta_equipada(t) else ""))
+	_grid_detail(labels, _preview_herramienta)
+
+
+# --- FAROLILLO: la luz y su combustible, juntos ---
+func _build_farolillo() -> void:
+	_title(_header, "FAROLILLO  (del equipo)")
+	_note(_header, "La mazmorra está a oscuras: solo ves lo que alumbra tu farolillo (o el de un "
+		+ "compañero) y a lo que tengas línea recta. Cuanto más hondo bajas, menos alumbra el mismo "
+		+ "farolillo. Sin él, o sin carbón, te queda el mínimo y nada más.")
+	var puesto: ToolData = Game.equipped_lampara
+	var cab := Label.new()
+	if puesto == null:
+		cab.text = "Sin farolillo  ·  alcance %.1f casillas (el mínimo)" % Vision.RADIO_MINIMO
+	else:
+		cab.text = "%s  ·  alcance %.1f casillas  ·  llama %d:%02d  ·  %d de carbón" % [
+			Game.item_display_name(puesto), Game.radio_lampara(),
+			int(Game.lampara_llama) / 60, int(Game.lampara_llama) % 60, Game.carbon_restante()]
+	cab.add_theme_color_override("font_color", Color(0.98, 0.85, 0.55))
+	_header.add_child(cab)
+
+	# EL CARBON. Va aqui y no en la bolsa a proposito: no pesa y no se mezcla con el material de
+	# oficio al guardar en casa (ver Game.carbon).
+	var por_tipo: Dictionary = {}
+	for m in Game.carbon:
+		var id: StringName = m.data.id
+		por_tipo[id] = int(por_tipo.get(id, 0)) + 1
+	if por_tipo.is_empty():
+		_note(_header, "No te queda carbón. Se pica en las vetas negras de la mazmorra, y el "
+			+ "carpintero hace carbón vegetal con madera.")
+	else:
+		var trozos: PackedStringArray = []
+		for id in por_tipo:
+			var uno: MaterialItem = null
+			for m2 in Game.carbon:
+				if m2.data.id == id:
+					uno = m2
+					break
+			trozos.append("%s x%d  (%.0f min cada uno)" % [uno.data.nombre, int(por_tipo[id]),
+				Lampara.duracion(uno) / 60.0])
+		_note(_header, "Carbón:   " + "   ·   ".join(trozos))
+	if not Game.en_pueblo():
+		_note(_header, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
+	_header.add_child(HSeparator.new())
+
+	_stacks = []
+	for t in Game.owned_tools:
+		if (t as ToolData).es_lampara():
+			_stacks.append({"modelo": t, "cantidad": 1})
+	if _stacks.is_empty():
+		_note(_content, "No tienes ningún farolillo. Los forja el herrero, en Herramientas, "
+			+ "con metal y unas hebillas.")
+		return
+	var labels: Array = []
+	for s in _stacks:
+		var t: ToolData = s["modelo"]
+		labels.append(Game.item_display_name(t)
+			+ ("
+(puesto)" if Game.herramienta_equipada(t) else ""))
 	_grid_detail(labels, _preview_herramienta)
 
 

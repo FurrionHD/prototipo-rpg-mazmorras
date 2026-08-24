@@ -36,6 +36,8 @@ class_name JugadorData
 @export var dinero: int = 0
 @export var crystals: Array = []
 @export var materiales: Array = []
+# La carbonera es SUYA, como las herramientas: el carbon que picaste lo picaste tu.
+@export var carbon: Array = []
 @export var consumibles: Dictionary = {}      # ruta del .tres de la pocion -> cuantas
 @export var cebo: String = ""                 # el cebo puesto en el anzuelo ("" = a pelo)
 @export var owned_mochilas: Array = []

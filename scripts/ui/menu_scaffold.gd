@@ -726,7 +726,7 @@ static func _filas_farolillo(t: ToolData, meta: Dictionary) -> Array:
 	if Game.equipped_lampara == t:
 		filas.append(["Llama", "%d:%02d restantes" % [int(Game.lampara_llama) / 60,
 			int(Game.lampara_llama) % 60]])
-		filas.append(["Carbón en la bolsa", "%d" % Game.carbon_en_bolsa()])
+		filas.append(["Carbón", "%d trozos" % Game.carbon_restante()])
 	return filas
 
 
