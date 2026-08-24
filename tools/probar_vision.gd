@@ -100,11 +100,13 @@ func _caso_radio_minimo() -> int:
 	var yo := Vector2i(10, 13)
 	# radio 0: aunque el requisito del piso sea absurdo, RADIO_MINIMO manda
 	v.calcular([{"pos": _px(yo), "radio": 0.0}], _px(yo))
+	# Ojo con los limites: a RADIO_MINIMO celdas exactas estas EN el borde, y ahi el desvanecido
+	# ya ha llevado la luz a cero. Se comprueba dentro (2) y fuera (6), no justo en el filo.
 	var fallos: int = 0
-	fallos += _esperar("con radio 0 sigo viendo a 3 celdas",
-		v.luz_en(_px(yo + Vector2i(3, 0))) > 0.1, true)
-	fallos += _esperar("pero no a 12 celdas",
-		v.luz_en(_px(yo + Vector2i(12, 0))) > 0.1, false)
+	fallos += _esperar("con radio 0 sigo viendo a 2 celdas",
+		v.luz_en(_px(yo + Vector2i(2, 0))) > 0.1, true)
+	fallos += _esperar("pero no a 6 celdas",
+		v.luz_en(_px(yo + Vector2i(6, 0))) > 0.1, false)
 	return fallos
 
 

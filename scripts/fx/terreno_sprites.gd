@@ -66,25 +66,44 @@ enum Clase { BASE, MASCARA }
 # arriba, o sea que un horneado viejo de otra capa sigue valiendo mientras se desarrolla.
 const CAPAS_ORDEN := ["suelo", "muro", "musgo", "agua", "sumidero"]
 
-# 'variantes' es LO QUE SEPARA una mazmorra que se ve bien de una que se ve como una hoja de
-# calculo. Con una sola baldosa por mascara, un marco de roca es la MISMA imagen repetida cien
-# veces y el ojo lo pilla al instante -- se ve la cuadricula aunque la textura sea buena. Cada
-# celda del mapa elige su variante por hash de la celda, asi que la repeticion se rompe y ademas
-# es ESTABLE: la misma pared se ve igual cada vez, y el invitado ve la del host sin que viaje nada.
+# ------------------------------------------------------------
+#  'bloque': POR QUE LA TEXTURA NO SE VE A CUADROS
+# ------------------------------------------------------------
+# El primer intento fue "varias variantes por mascara, elegidas por hash de la celda". No basta, y
+# el motivo es de fondo: el ruido de una baldosa es PERIODICO DENTRO DE ELLA (tiene que serlo,
+# para que su borde derecho case con su propio borde izquierdo). Eso hace que dos baldosas
+# IGUALES casen perfectamente... y que dos DISTINTAS no casen en absoluto. Con variantes al azar,
+# casi todas las juntas son entre baldosas distintas, asi que el dibujo se corta en seco cada 32
+# px y sale una rejilla marcada -- justo lo que las variantes venian a evitar.
+#
+# La solucion es dejar de pensar en baldosas sueltas y pensar en un TAPIZ: se dibuja una textura
+# continua de 'bloque' x 'bloque' baldosas (4x4 = 128 px), periodica en ese tamaño, y se trocea.
+# Cada trozo va SIEMPRE en la misma posicion del tapiz -- la celda (x,y) usa el trozo
+# (x mod 4, y mod 4) -- asi que las juntas son las que ya tenia el tapiz por dentro: ninguna.
+# Y de propina la repeticion pasa de notarse cada 32 px a cada 128, que ya no se ve.
+#
+# Consecuencia: 'variantes' NO se elige, sale de bloque² (16 trozos por mascara). Y la variante
+# deja de ser aleatoria: es la POSICION en el tapiz. Sigue siendo estable y sigue saliendo igual
+# en la maquina del invitado, ahora sin depender ni del hash.
 const CAPAS := {
 	# El relleno pisable. Sin bordes: lo que dibuja la silueta de una sala es el MURO.
-	"suelo": {"clase": Clase.BASE, "variantes": 12, "frames": 1, "overlay": false},
+	"suelo": {"clase": Clase.BASE, "bloque": 4, "frames": 1, "overlay": false},
 	# La roca. Su 'mascara' no es una orilla: es por donde el bloque esta EXPUESTO al suelo, y de
 	# ahi salen la cara vista y el filo de la coronacion.
-	"muro": {"clase": Clase.MASCARA, "variantes": 3, "frames": 1, "overlay": false},
+	"muro": {"clase": Clase.MASCARA, "bloque": 4, "frames": 1, "overlay": false},
 	# Superposiciones. Se pintan encima y sus bordes mueren en alfa.
-	"musgo": {"clase": Clase.MASCARA, "variantes": 3, "frames": 1, "overlay": true},
-	"agua": {"clase": Clase.MASCARA, "variantes": 2, "frames": 4, "overlay": true},
+	"musgo": {"clase": Clase.MASCARA, "bloque": 4, "frames": 1, "overlay": true},
+	# El agua va a bloque 2 y no 4: son CUATRO frames por baldosa, asi que subirla a 16 trozos
+	# multiplicaria el atlas por cuatro. Y se le nota menos: la corriente ya esta moviendose.
+	"agua": {"clase": Clase.MASCARA, "bloque": 2, "frames": 4, "overlay": true},
 	# EL DESAGUE. Existe por una regla de diseño: el agua NUNCA puede terminar en seco. Un
 	# riachuelo sale de una pared y tiene que acabar en el lago, meterse en otra pared o colarse
 	# por un sumidero. Sin esta pieza, la tercera salida no existe y el trazado se queda sin
 	# manera de cerrar el recorrido cuando no hay lago cerca. Ver dungeon_floor._trazar_agua.
-	"sumidero": {"clase": Clase.BASE, "variantes": 2, "frames": 1, "overlay": true},
+	#
+	# Bloque 1: es una pieza SUELTA (hay uno por piso como mucho), no un tapiz. No tiene vecinos
+	# con los que casar, asi que no necesita el tratamiento de los demas.
+	"sumidero": {"clase": Clase.BASE, "bloque": 1, "frames": 1, "overlay": true},
 }
 
 
@@ -96,15 +115,20 @@ static func frames_de(capa: String) -> int:
 	return int((CAPAS[capa] as Dictionary)["frames"])
 
 
+static func bloque_de(capa: String) -> int:
+	return int((CAPAS[capa] as Dictionary)["bloque"])
+
+
+# Trozos del tapiz. NO se elige: es bloque al cuadrado (ver la nota de 'bloque' arriba).
 static func variantes_de(capa: String) -> int:
-	return int((CAPAS[capa] as Dictionary)["variantes"])
+	var b: int = bloque_de(capa)
+	return b * b
 
 
 # Cuantas baldosas distintas tiene la capa en total.
 static func _cuantas(capa: String) -> int:
-	var d: Dictionary = CAPAS[capa]
-	var v: int = int(d["variantes"])
-	return v if int(d["clase"]) == Clase.BASE else 16 * v
+	var v: int = variantes_de(capa)
+	return v if int((CAPAS[capa] as Dictionary)["clase"]) == Clase.BASE else 16 * v
 
 
 # ============================================================
@@ -210,11 +234,17 @@ static func celda_de(capa: String, i: int) -> Vector2i:
 	return (_plano()["celdas"][capa] as Dictionary)[posmod(i, _cuantas(capa))]
 
 
-# Atajo: la celda que le toca a una posicion del mapa. La variante sale de la CELDA y de la
-# semilla del piso, nunca de un randf(): asi la misma pared se ve igual cada vez que se
-# reconstruye el piso y el invitado ve la del host sin que viaje nada por la red.
-static func celda_para(capa: String, celda: Vector2i, mask: int, semilla: int) -> Vector2i:
-	var v: int = posmod(hash(Vector3i(celda.x, celda.y, semilla + hash(capa))), variantes_de(capa))
+# La celda del atlas que le toca a una posicion del mapa.
+#
+# El trozo del tapiz sale de la POSICION, no de un hash y desde luego no de un randf(): la celda
+# (x,y) usa siempre el trozo (x mod bloque, y mod bloque), que es LO QUE HACE QUE NO SE VEAN LAS
+# JUNTAS -- dos celdas vecinas reciben trozos vecinos del mismo dibujo continuo. De propina sale
+# gratis lo de siempre: es estable entre reconstrucciones del piso y el invitado ve lo mismo que
+# el host sin que viaje nada por la red. La 'semilla' ya no hace falta para elegir (el tapiz es el
+# que es), pero se conserva en la firma porque el dia que haya varios tapices por tramo hara falta.
+static func celda_para(capa: String, celda: Vector2i, mask: int, _semilla: int = 0) -> Vector2i:
+	var b: int = bloque_de(capa)
+	var v: int = posmod(celda.y, b) * b + posmod(celda.x, b)
 	return celda_de(capa, indice(capa, mask, v))
 
 
@@ -234,16 +264,35 @@ static func celda_para(capa: String, celda: Vector2i, mask: int, semilla: int) -
 # La reticula de una octava solo tiene 'per x per' valores distintos (16 para la octava gorda, 256
 # para la fina) y se repiten para los 1024 pixeles. Asi que se calcula la TABLA una vez y luego el
 # campo entero se interpola leyendo de ella. De doce hashes por pixel se pasa a ninguno.
-static func _campo(per: int, semilla: int, ox: float = 0.0, oy: float = 0.0,
-		sx: float = 1.0) -> PackedFloat32Array:
-	var tabla := PackedFloat32Array()
-	tabla.resize(per * per)
-	for j in per:
-		for i in per:
+# La tabla de la reticula, CACHEADA. Los 16 trozos de un tapiz comparten exactamente la misma
+# reticula (son ventanas distintas del mismo dibujo), asi que calcularla una vez por trozo seria
+# hacer el mismo trabajo dieciseis veces.
+static var _tablas: Dictionary = {}
+
+static func _tabla(lado: int, semilla: int) -> PackedFloat32Array:
+	var clave: int = lado * 1000003 + semilla
+	if _tablas.has(clave):
+		return _tablas[clave]
+	var t := PackedFloat32Array()
+	t.resize(lado * lado)
+	for j in lado:
+		for i in lado:
 			var n: int = i * 374761393 + j * 668265263 + semilla * 1013904223
 			n = (n ^ (n >> 13)) * 1274126177
-			tabla[j * per + i] = float((n ^ (n >> 16)) & 0xFFFF) / 65535.0
+			t[j * lado + i] = float((n ^ (n >> 16)) & 0xFFFF) / 65535.0
+	_tablas[clave] = t
+	return t
 
+
+# Un campo de ruido del tamaño de UNA baldosa, recortado del tapiz.
+#   'per'    = nodos de reticula por baldosa (2 = manchas gordas, 16 = grano fino)
+#   'bloque' = tamaño del tapiz en baldosas. La reticula se hace periodica en per*bloque, que es
+#              lo que hace que el tapiz entero case consigo mismo y no cada baldosa por su cuenta.
+#   'ox/oy'  = donde cae esta baldosa DENTRO del tapiz, en px.
+static func _campo(per: int, semilla: int, ox: float = 0.0, oy: float = 0.0,
+		sx: float = 1.0, bloque: int = 1) -> PackedFloat32Array:
+	var lado: int = per * bloque
+	var tabla: PackedFloat32Array = _tabla(lado, semilla)
 	var paso: float = float(LADO) / float(per)
 	var out := PackedFloat32Array()
 	out.resize(LADO * LADO)
@@ -254,16 +303,16 @@ static func _campo(per: int, semilla: int, ox: float = 0.0, oy: float = 0.0,
 		# smoothstep en los dos ejes: con interpolacion lineal a secas se ven los rombos de la
 		# reticula
 		ty = ty * ty * (3.0 - 2.0 * ty)
-		var fa: int = posmod(y0, per) * per
-		var fb: int = posmod(y0 + 1, per) * per
+		var fa: int = posmod(y0, lado) * lado
+		var fb: int = posmod(y0 + 1, lado) * lado
 		var fila: int = y * LADO
 		for x in LADO:
 			var fx: float = (float(x) * sx + ox) / paso
 			var x0: int = int(floor(fx))
 			var tx: float = fx - float(x0)
 			tx = tx * tx * (3.0 - 2.0 * tx)
-			var xa: int = posmod(x0, per)
-			var xb: int = posmod(x0 + 1, per)
+			var xa: int = posmod(x0, lado)
+			var xb: int = posmod(x0 + 1, lado)
 			out[fila + x] = lerpf(lerpf(tabla[fa + xa], tabla[fa + xb], tx),
 				lerpf(tabla[fb + xa], tabla[fb + xb], tx), ty)
 	return out
@@ -273,10 +322,10 @@ static func _campo(per: int, semilla: int, ox: float = 0.0, oy: float = 0.0,
 # mandando el resultado, cada baldosa sale con dos o tres manchas grandes de silueta muy
 # reconocible; puesta cien veces en una pared, el ojo las empareja al instante y se ve la
 # cuadricula por encima de lo bien dibujada que este la piedra. El grano fino no se empareja.
-static func _piedra(semilla: int) -> PackedFloat32Array:
-	var a: PackedFloat32Array = _campo(4, semilla)
-	var b: PackedFloat32Array = _campo(8, semilla + 77)
-	var c: PackedFloat32Array = _campo(16, semilla + 151)
+static func _piedra(semilla: int, ox: float, oy: float, bl: int) -> PackedFloat32Array:
+	var a: PackedFloat32Array = _campo(4, semilla, ox, oy, 1.0, bl)
+	var b: PackedFloat32Array = _campo(8, semilla + 77, ox, oy, 1.0, bl)
+	var c: PackedFloat32Array = _campo(16, semilla + 151, ox, oy, 1.0, bl)
 	var out := PackedFloat32Array()
 	out.resize(LADO * LADO)
 	for i in LADO * LADO:
@@ -332,10 +381,10 @@ static func _dentro(x: int, y: int, mask: int) -> float:
 # -- es el fondo sobre el que tiene que destacar todo lo demas, y ademas la mazmorra se juega a
 # oscuras, asi que un suelo claro se comeria el contraste del farolillo.
 static func _pintar_suelo(d: PackedByteArray, W: int, o: Vector2i, rampa: Array,
-		sem: int) -> void:
-	var base: PackedFloat32Array = _piedra(sem)
-	var grieta: PackedFloat32Array = _campo(4, sem + 311)
-	var mota: PackedFloat32Array = _campo(16, sem + 909)
+		sem: int, ox: float, oy: float, bl: int) -> void:
+	var base: PackedFloat32Array = _piedra(sem, ox, oy, bl)
+	var grieta: PackedFloat32Array = _campo(4, sem + 311, ox, oy, 1.0, bl)
+	var mota: PackedFloat32Array = _campo(16, sem + 909, ox, oy, 1.0, bl)
 	for y in LADO:
 		for x in LADO:
 			var i: int = y * LADO + x
@@ -365,14 +414,14 @@ const CRESTA_ALTO := 3    # px del filo norte
 const CHAFLAN := 3        # px de los chaflanes este/oeste
 
 static func _pintar_muro(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, mask: int,
-		sem: int) -> void:
+		sem: int, ox: float, oy: float, bl: int) -> void:
 	var n: bool = (mask & 1) != 0
 	var e: bool = (mask & 2) != 0
 	var s: bool = (mask & 4) != 0
 	var w: bool = (mask & 8) != 0
 	var negro := Color(0.02, 0.02, 0.03)
-	var base: PackedFloat32Array = _piedra(sem)
-	var veta: PackedFloat32Array = _campo(6, sem + 41)
+	var base: PackedFloat32Array = _piedra(sem, ox, oy, bl)
+	var veta: PackedFloat32Array = _campo(6, sem + 41, ox, oy, 1.0, bl)
 	for y in LADO:
 		for x in LADO:
 			var i: int = y * LADO + x
@@ -404,9 +453,9 @@ static func _pintar_muro(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, 
 const MUSGO_ORILLA := 11.0
 
 static func _pintar_musgo(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, mask: int,
-		sem: int) -> void:
-	var gordo: PackedFloat32Array = _campo(5, sem)
-	var fino: PackedFloat32Array = _campo(11, sem + 55)
+		sem: int, ox: float, oy: float, bl: int) -> void:
+	var gordo: PackedFloat32Array = _campo(5, sem, ox, oy, 1.0, bl)
+	var fino: PackedFloat32Array = _campo(11, sem + 55, ox, oy, 1.0, bl)
 	for y in LADO:
 		for x in LADO:
 			var i: int = y * LADO + x
@@ -435,12 +484,12 @@ static func _pintar_musgo(d: PackedByteArray, W: int, o: Vector2i, rampa: Array,
 const AGUA_ORILLA := 7.0
 
 static func _pintar_agua(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, mask: int,
-		sem: int, fase: float) -> void:
+		sem: int, fase: float, ox: float, oy: float, bl: int) -> void:
 	var corre: float = fase * float(LADO)
 	# Dos capas a distinta velocidad: es lo que da sensacion de profundidad y no de textura que se
 	# arrastra en bloque.
-	var a: PackedFloat32Array = _campo(6, sem, 0.0, -corre)
-	var b: PackedFloat32Array = _campo(10, sem + 21, 0.0, -corre * 0.55, 1.3)
+	var a: PackedFloat32Array = _campo(6, sem, ox, oy - corre, 1.0, bl)
+	var b: PackedFloat32Array = _campo(10, sem + 21, ox, oy - corre * 0.55, 1.3, bl)
 	var espuma := Color(0.78, 0.88, 0.95)
 	for y in LADO:
 		for x in LADO:
@@ -480,17 +529,19 @@ static func _pintar_sumidero(d: PackedByteArray, W: int, o: Vector2i, rampa: Arr
 				_poner(d, W, o.x + x, o.y + y, negro.lerp(rampa[0], f * f))
 
 
+# 'ox/oy' es DONDE CAE esta baldosa dentro del tapiz (en px) y 'bl' el tamaño del tapiz. Con eso,
+# cada trozo mira su ventana del mismo dibujo continuo y las juntas desaparecen.
 static func _pintar(d: PackedByteArray, W: int, capa: String, o: Vector2i, rampa: Array,
-		mask: int, sem: int, fase: float) -> void:
+		mask: int, sem: int, fase: float, ox: float, oy: float, bl: int) -> void:
 	match capa:
 		"suelo":
-			_pintar_suelo(d, W, o, rampa, sem)
+			_pintar_suelo(d, W, o, rampa, sem, ox, oy, bl)
 		"muro":
-			_pintar_muro(d, W, o, rampa, mask, sem)
+			_pintar_muro(d, W, o, rampa, mask, sem, ox, oy, bl)
 		"musgo":
-			_pintar_musgo(d, W, o, rampa, mask, sem)
+			_pintar_musgo(d, W, o, rampa, mask, sem, ox, oy, bl)
 		"agua":
-			_pintar_agua(d, W, o, rampa, mask, sem, fase)
+			_pintar_agua(d, W, o, rampa, mask, sem, fase, ox, oy, bl)
 		"sumidero":
 			_pintar_sumidero(d, W, o, rampa, sem)
 
@@ -510,15 +561,18 @@ static func generar(tramo: String) -> Image:
 		var v: int = variantes_de(capa)
 		var rampa: Array = _rampa(tramo, capa)
 		var sem: int = base + hash(capa)
+		var bl: int = bloque_de(capa)
 		for i in _cuantas(capa):
 			var c: Vector2i = celda_de(capa, i)
-			# Cada VARIANTE lleva su propia semilla: es lo unico que las hace distintas, porque el
-			# dibujo es el mismo codigo. Sin esto las tres variantes de una mascara salen
-			# identicas y no sirven de nada.
-			var sv: int = sem + int(i % v) * 104729
+			# Las variantes de una misma mascara comparten SEMILLA y solo cambian de VENTANA: son
+			# trozos del mismo tapiz, no dibujos distintos. (Antes cada variante llevaba su propia
+			# semilla, que es justo lo que hacia que no casaran entre ellas.)
+			var trozo: int = i % v
+			var ox: float = float(trozo % bl) * float(LADO)
+			var oy: float = float(trozo / bl) * float(LADO)
 			for k in f:
 				_pintar(datos, ancho, capa, Vector2i((c.x + k) * LADO, c.y * LADO), rampa,
-					int(i / v), sv, float(k) / float(f))
+					int(i / v), sem, float(k) / float(f), ox, oy, bl)
 	return Image.create_from_data(ancho, alto, false, Image.FORMAT_RGBA8, datos)
 
 

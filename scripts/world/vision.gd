@@ -49,11 +49,17 @@ const SUB := 2
 # El SUELO DURO del radio de luz, en celdas. Pase lo que pase -- sin farolillo, apagado, sin
 # carbon o con el requisito del piso por las nubes -- SIEMPRE ves este corro a tu alrededor. Es
 # una promesa al jugador: la oscuridad puede dejarte casi ciego, nunca ciego del todo.
-const RADIO_MINIMO := 4.5
+#
+# 3 celdas = 96 px, o sea tres veces tu propio cuerpo. A ojo parece poquisimo escrito aqui, pero
+# en pantalla (zoom 1.8) es un corro de unos 350 px de ancho: ves donde pisas y poco mas. Estaba
+# en 4.5 y con eso el corro se comia media sala, con lo que el farolillo no habria hecho falta
+# para nada -- y el farolillo es justo el sistema que esto viene a sostener.
+const RADIO_MINIMO := 3.0
 
 # Lo ultimo del radio se apaga en degradado en vez de cortarse en seco: es el "difuminado tipo
-# niebla" del dibujo. 0.25 = el 25% final del alcance.
-const DESVANECIDO := 0.25
+# niebla" del dibujo. 0.35 = el 35% final del alcance. Cuanto mas corto es el radio, mas
+# proporcion tiene que ocupar el desvanecido, o el corro se lee como un circulo recortado.
+const DESVANECIDO := 0.35
 
 var ancho: int = 0          # en subceldas
 var alto: int = 0
