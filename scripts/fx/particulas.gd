@@ -527,6 +527,23 @@ static func textura_gota() -> ImageTexture:
 	return _tex_gota
 
 
+# MARCA EN EL SUELO: una gota que se queda CLAVADA en el sitio (no viaja con quien la deja, al
+# reves que chorretones/destellos) y se desvanece sola. Es el rastro de baba del slime al andar.
+# 'padre' tiene que ser algo del MUNDO (la escena actual), no el bicho: si colgara de el, la marca
+# se moveria con el y dejaria de parecer un rastro.
+static func marca_en_suelo(padre: Node, pos: Vector2, color: Color, radio := 5.0, vida := 1.3) -> void:
+	var s := Sprite2D.new()
+	s.texture = textura_gota()
+	s.modulate = Color(color.r, color.g, color.b, 0.6)
+	s.scale = Vector2.ONE * (radio / 4.0)   # textura_gota() es de 8x8; radio es en pixeles finales
+	var jitter := Vector2(randf_range(-3.0, 3.0), randf_range(-3.0, 3.0))
+	s.position = pos + jitter
+	padre.add_child(s)
+	var t := padre.create_tween()
+	t.tween_property(s, "modulate:a", 0.0, vida)
+	t.tween_callback(s.queue_free)
+
+
 # --- interno ---
 
 # Baba: entra rapido, se queda OPACA casi toda la vida y se va al final. Nada de parpadeo -- lo

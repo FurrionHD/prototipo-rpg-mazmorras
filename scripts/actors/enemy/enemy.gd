@@ -165,6 +165,16 @@ var _facing_line: Line2D = null
 var _fx_elem: CPUParticles2D = null
 
 @onready var _color_rect: ColorRect = $ColorRect
+@onready var _sprite: AnimatedSprite2D = $AnimatedSprite
+
+# RASTRO DE BABA (solo slimes, ver data.es_slime): cada cuanto deja una marca mientras anda.
+const RASTRO_INTERVALO := 0.35
+var _rastro_timer: float = 0.0
+var _anim_actual: String = ""
+var _sprite_base_scale: float = 1.0   # ver _ready: la textura generada no es 1px = 1 unidad
+# true = a este sprite hay que aplicarle escala_visual desde aqui (arte de verdad, que viene a un
+# tamaño fijo). false = el generador ya lo dibujo del tamaño que toca, con mas celdas.
+var _sprite_escala_propia: bool = false
 
 
 func _ready() -> void:
@@ -193,6 +203,24 @@ func _ready() -> void:
 	if data != null:
 		# Color base + tinte por 't' (los mas fuertes de su franja salen mas claros).
 		_color_rect.color = data.color_visual(current_t)
+		# SPRITE ANIMADO: quien lo dibuja lo decide SpritesEnemigo (el arte de verdad manda; si no,
+		# el generador de su familia; si no hay ninguno, se queda el ColorRect de siempre). La regla
+		# vive alli y no aqui porque el visor de animaciones tiene que usar EXACTAMENTE la misma.
+		var frames: SpriteFrames = SpritesEnemigo.frames_de(data, current_t)
+		if frames != null:
+			_color_rect.visible = false
+			_sprite.visible = true
+			_sprite.sprite_frames = frames
+			# La textura generada NO es 1 pixel = 1 unidad de mundo: cada generador tiene su propia
+			# rejilla y dice cuanto hay que escalarla.
+			_sprite_base_scale = SpritesEnemigo.escala_de(data)
+			_sprite_escala_propia = SpritesEnemigo.hay_que_estirar(data)
+			_sprite.scale = Vector2.ONE * _sprite_base_scale
+			# El sprite generado va a 1 celda = 1 pixel y lo AMPLIA este nodo: sin filtro NEAREST el
+			# escalado lo interpola y el pixel-art sale borroso.
+			_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			_anim_actual = "idle_0"
+			_sprite.play(_anim_actual)
 		_aplicar_escala(data.escala_visual)   # los elites se ven mas grandes en el mapa
 		# Un bicho ELEMENTAL emana lo mismo que tu cuando te imbuyes de ese elemento: el slime de
 		# fuego echa los mismos cuadraditos naranjas que un Manto de Brasas. Es a proposito -- el
@@ -245,10 +273,52 @@ func _aplicar_escala(escala: float) -> void:
 	_color_rect.offset_top = -medio
 	_color_rect.offset_right = medio
 	_color_rect.offset_bottom = medio
+	# El SPRITE no se estira: los generadores ya dibujan al bicho grande con MAS CELDAS, para que el
+	# pixel mida siempre lo mismo (ver SpriteLienzo.UNIDADES_POR_CELDA). Estirarlo aqui es lo que
+	# hacia que el Rey Slime y el Rey Rata salieran con unos pixelotes enormes.
+	if _sprite.visible and _sprite_escala_propia:
+		_sprite.scale = Vector2.ONE * _sprite_base_scale * s
 	var col: CollisionShape2D = get_node_or_null("CollisionShape2D")
 	if col != null and col.shape is RectangleShape2D:
 		col.shape = col.shape.duplicate()   # instancia propia: no tocar la de los demas
 		(col.shape as RectangleShape2D).size = Vector2(32.0 * s, 32.0 * s)
+
+
+# _facing (screen: +Y abajo) a uno de los 8 sectores de SlimeSprites: 0=S 1=SE 2=E 3=NE 4=N 5=NW
+# 6=W 7=SW, que es el mismo orden en que SlimeSprites nombra sus animaciones.
+func _dir8(dir: Vector2) -> int:
+	var ang: float = dir.angle()   # 0 = derecha (E), crece en sentido horario (Y abajo)
+	var sector: int = int(round((PI / 2.0 - ang) / (PI / 4.0)))
+	return ((sector % 8) + 8) % 8
+
+
+# Traduce estado + movimiento a la animacion que toca y la reproduce (solo si cambia: reiniciarla
+# cada frame le cortaria el ciclo antes de que se llegue a ver).
+func _actualizar_animacion() -> void:
+	if not _sprite.visible:
+		return
+	var base: String = "idle"
+	if _state == State.EMBESTIDA:
+		base = "embestida"
+	elif velocity.length() > 2.0:
+		base = "walk"
+	var nombre: String = "%s_%d" % [base, _dir8(_facing)]
+	if nombre != _anim_actual:
+		_anim_actual = nombre
+		_sprite.play(nombre)
+
+
+# Deja una gota de baba cada RASTRO_INTERVALO mientras el slime esta EN MARCHA. Va en el arbol
+# actual (no en el propio bicho) para que se quede clavada en el suelo, ver Particulas.marca_en_suelo.
+func _actualizar_rastro(delta: float) -> void:
+	if data == null or not data.es_slime or velocity.length() <= 1.0:
+		_rastro_timer = 0.0
+		return
+	_rastro_timer -= delta
+	if _rastro_timer > 0.0:
+		return
+	_rastro_timer = RASTRO_INTERVALO
+	Particulas.marca_en_suelo(get_tree().current_scene, global_position, data.color_visual(current_t))
 
 
 func _physics_process(delta: float) -> void:
@@ -340,6 +410,8 @@ func _physics_process(delta: float) -> void:
 	if velocity.length() > 1.0:
 		_facing = velocity.normalized()
 	_actualizar_indicadores()
+	_actualizar_animacion()
+	_actualizar_rastro(delta)
 
 	_vigilar_atasco(delta, antes)
 

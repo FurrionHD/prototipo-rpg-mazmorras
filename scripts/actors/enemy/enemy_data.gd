@@ -22,6 +22,20 @@ enum Familia { NINGUNA, SLIME, ROEDOR, INSECTO, PIEDRA, BESTIA, HUMANOIDE }
 # TAMAÑO en el mapa (fuera de combate): multiplica el cuerpo y su colision. 1.0 = normal
 # (32x32). Los ELITES (slimes elementales) van mas grandes para que se les vea venir.
 @export var escala_visual: float = 1.0
+# SPRITE ANIMADO real (arte de verdad, aun por hacer para casi todos los bichos). Si esta vacio,
+# enemy.gd cae al ColorRect de siempre -- salvo los slimes, que mientras tanto usan un sprite
+# GENERADO por codigo (ver SlimeSprites.generar()). En cuanto este campo se rellene con arte de
+# verdad, gana el a lo generado sin tocar enemy.gd.
+@export var sprite_frames: SpriteFrames = null
+# CORONA en vez de orejas en el sprite generado (solo aplica si es_slime y no hay sprite_frames de
+# verdad): el Rey Slime la lleva hecha de su propio gel (ver SlimeSprites._corona_para). false = las
+# dos orejitas de un slime normal.
+@export var corona_slime: bool = false
+# VARIANTE del sprite generado, para los bichos que tienen una version "especial" del mismo dibujo
+# (hoy: &"rey" en el Rey Rata, que lleva la cola anudada y una oreja rasgada). Es una etiqueta
+# generica a proposito: el generador de cada familia decide que hace con ella, asi no hace falta un
+# booleano nuevo en esta ficha por cada bicho que estrene un adorno.
+@export var sprite_variante: StringName = &""
 # FAMILIA slime: marca a toda la estirpe (normal, elementales, profundo, abisal y el propio Rey).
 # Lo usa la mecanica de sequito del Rey Slime: cada slime VIVO que le acompañe en combate le da
 # reduccion de daño. Aqui es solo la etiqueta; la reduccion la configuran los campos de abajo.
