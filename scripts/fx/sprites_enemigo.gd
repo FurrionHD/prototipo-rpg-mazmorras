@@ -72,7 +72,29 @@ static func frames_de(ed: EnemyData, t: float) -> SpriteFrames:
 	if ed.sprite_frames != null:
 		return ed.sprite_frames
 	var g = _generador(ed)
-	return g.generar_de(ed, t) if g != null else null
+	if g == null:
+		return null
+	# EL HORNEADO MANDA. Si esta variante ya esta en disco (ver hornear_sprites.bat), se carga y listo:
+	# son milisegundos, contra los ~0,3-1,2 s que cuesta dibujarla. Y si NO esta -- porque acabas de
+	# tocar un generador y aun no has horneado --, se genera al vuelo como siempre. Esa caida es
+	# deliberada: sin ella, cada retoque de un sprite obligaria a hornear antes de poder probarlo.
+	var clave: String = g.clave_de(ed, t)
+	if not _horneado.has(clave):
+		_horneado[clave] = SpriteLienzo.cargar_horneado(clave)
+	if _horneado[clave] != null:
+		return _horneado[clave]
+	return g.generar_de(ed, t)
+
+
+# Lo ya leido de disco, por clave. null = se miro y no estaba (no se vuelve a mirar en cada bicho).
+static var _horneado: Dictionary = {}
+
+
+# La CLAVE de la variante que le toca a este enemigo con esta 't'. La usa el horno para saber que
+# nombre poner al fichero, y el juego para saber cual buscar: tienen que salir del MISMO sitio.
+static func clave_de(ed: EnemyData, t: float) -> String:
+	var g = _generador(ed)
+	return String(g.clave_de(ed, t)) if g != null else ""
 
 
 # Cuanto hay que escalar el nodo. Las texturas generadas van a 1 celda = 1 pixel y las amplia el

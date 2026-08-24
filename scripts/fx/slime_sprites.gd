@@ -98,7 +98,9 @@ const SOMBRA_R := Vector3(12.0, 7.0, 0.0)
 # CUERNOS: dos pinchos de gel denso, arriba y un poco adelantados.
 const CUERNO_DIR := Vector3(0.50, 0.12, 0.86)
 const CUERNO_R := Vector3(3.8, 3.8, 5.0)
-const CUERNO_HUNDE := 0.5          # cuanto se mete la BASE del pincho bajo la superficie
+# La base BIEN metida: rozando la superficie, el cuerno se despegaba en el frame de mas estiron de
+# la embestida (el cuerpo se alarga y el adorno se queda). Un solape de una celda no aguanta nada.
+const CUERNO_HUNDE := 2.2          # cuanto se mete la BASE del pincho bajo la superficie
 # OJOS: en la CARA, o sea bien adelantados en Y y no muy arriba.
 # LA SEPARACION ANGULAR ES LO QUE MANDA, no la que se ve de frente. Con la primera version
 # (0.35, 0.53) cada ojo caia a 45 grados del morro, o sea 90 grados el uno del otro: en pantalla se
@@ -176,6 +178,18 @@ static func generar_de(ed: EnemyData, t: float) -> SpriteFrames:
 	return generar(ed.color_visual(t), ed.corona_slime, ed.escala_visual)
 
 
+# La CLAVE de esta variante: la misma que usa el cache y la que da nombre al fichero horneado (ver
+# SpriteLienzo.hornear). Es publica porque el horno y el juego tienen que llegar al MISMO nombre --
+# si no coincidieran, el juego generaria al vuelo un PNG que ya esta en disco y nadie se enteraria.
+static func clave_de(ed: EnemyData, t: float) -> String:
+	return _clave(SpriteLienzo.cuantizar_hsv(ed.color_visual(t), COLOR_PASOS),
+		ed.corona_slime, snappedf(ed.escala_visual, 0.05))
+
+
+static func _clave(col: Color, corona: bool, esc: float) -> String:
+	return "slime_%s_%.2f%s" % [col.to_html(false), esc, "_corona" if corona else ""]
+
+
 # El pixel mide lo mismo para TODOS los bichos: el tamaño sale de cuantas celdas ocupa cada uno.
 static func escala_base() -> float:
 	return SpriteLienzo.UNIDADES_POR_CELDA
@@ -226,7 +240,7 @@ static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false,
 	# puro, con el canal rojo clavado en 1.
 	var col: Color = SpriteLienzo.cuantizar_hsv(color, COLOR_PASOS)
 	var esc: float = snappedf(escala, 0.05)      # se cuantiza tambien, o el cache no acierta
-	var clave: String = "%s_%.2f%s" % [col.to_html(false), esc, "_corona" if corona else ""]
+	var clave: String = _clave(col, corona, esc)
 	if _cache.has(clave):
 		return _cache[clave]
 	# Las tres animaciones se recolectan primero y se montan de una vez: asi TODOS los frames caben

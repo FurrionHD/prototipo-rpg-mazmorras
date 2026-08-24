@@ -273,6 +273,102 @@ static func montar_frames(anims: Array, pal: PackedByteArray, w: int, h: int) ->
 	return sf
 
 
+# ============================================================
+#  HORNEAR: dejar el atlas en disco como un PNG normal y corriente
+# ============================================================
+# Generar los sprites cuesta ~3 s por partida y obliga a precalentarlos antes de que nazca nadie.
+# Guardados en disco no cuesta NADA: cargar un PNG son milisegundos, Godot los importa con
+# compresion de textura (que una imagen creada en runtime no puede aprovechar) y ademas se pueden
+# abrir y retocar a mano. Y ocupan una miseria: los diez enemigos dibujados, con todas sus variantes
+# de color, son 1,5 MB -- el pixel-art con pocos colores comprime muchisimo.
+#
+# El generador NO se tira: pasa de ejecutarse en cada partida a ser la herramienta que produce el
+# PNG. Y si el horneado no esta (porque estas tocando un generador), SpritesEnemigo genera al vuelo
+# como siempre, asi que el desarrollo no se rompe.
+#
+# Se guardan DOS ficheros por variante: el .png con el atlas y un .json con donde cae cada frame.
+# El json y no un SpriteFrames .tres porque un .tres con AtlasTexture apuntando a una textura recien
+# creada obliga a reimportar a media herramienta; con el json se controla todo y no hay bailes.
+
+const CARPETA_HORNO := "res://assets/sprites/enemigos/"
+
+
+# Los datos de un SpriteFrames hecho con montar_frames, listos para guardar como json.
+static func describir(sf: SpriteFrames) -> Dictionary:
+	var anims: Array = []
+	var w: int = 0
+	var h: int = 0
+	var nombres: PackedStringArray = sf.get_animation_names()
+	nombres.sort()
+	for a in nombres:
+		var marcos: Array = []
+		for i in sf.get_frame_count(a):
+			var at: AtlasTexture = sf.get_frame_texture(a, i) as AtlasTexture
+			if at == null:
+				continue
+			marcos.append([int(at.region.position.x), int(at.region.position.y),
+				int(at.region.size.x), int(at.region.size.y),
+				int(at.margin.position.x), int(at.margin.position.y)])
+			w = int(at.region.size.x + at.margin.size.x)
+			h = int(at.region.size.y + at.margin.size.y)
+		anims.append({"n": a, "loop": sf.get_animation_loop(a), "fps": sf.get_animation_speed(a),
+			"f": marcos})
+	return {"w": w, "h": h, "anims": anims}
+
+
+# Escribe el par .png + .json de una variante ya generada. Devuelve los bytes del png, o 0 si falla.
+static func hornear(sf: SpriteFrames, clave: String) -> int:
+	var at: AtlasTexture = sf.get_frame_texture(sf.get_animation_names()[0], 0) as AtlasTexture
+	if at == null:
+		return 0
+	DirAccess.make_dir_recursive_absolute(CARPETA_HORNO)
+	var png: String = CARPETA_HORNO + clave + ".png"
+	if at.atlas.get_image().save_png(ProjectSettings.globalize_path(png)) != OK:
+		return 0
+	var f := FileAccess.open(CARPETA_HORNO + clave + ".json", FileAccess.WRITE)
+	if f == null:
+		return 0
+	f.store_string(JSON.stringify(describir(sf)))
+	f.close()
+	var g := FileAccess.open(png, FileAccess.READ)
+	var n: int = g.get_length() if g != null else 0
+	if g != null:
+		g.close()
+	return n
+
+
+# Reconstruye el SpriteFrames desde el horneado, o null si esa variante no esta en disco.
+static func cargar_horneado(clave: String) -> SpriteFrames:
+	var png: String = CARPETA_HORNO + clave + ".png"
+	var js: String = CARPETA_HORNO + clave + ".json"
+	if not ResourceLoader.exists(png) or not FileAccess.file_exists(js):
+		return null
+	var hoja: Texture2D = load(png) as Texture2D
+	if hoja == null:
+		return null
+	var f := FileAccess.open(js, FileAccess.READ)
+	if f == null:
+		return null
+	var d = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(d) != TYPE_DICTIONARY:
+		return null
+	var sf := SpriteFrames.new()
+	sf.remove_animation("default")
+	for a in d["anims"]:
+		sf.add_animation(a["n"])
+		sf.set_animation_loop(a["n"], bool(a["loop"]))
+		sf.set_animation_speed(a["n"], float(a["fps"]))
+		for m in a["f"]:
+			var at := AtlasTexture.new()
+			at.atlas = hoja
+			at.region = Rect2(m[0], m[1], m[2], m[3])
+			at.margin = Rect2(m[4], m[5], int(d["w"]) - int(m[2]), int(d["h"]) - int(m[3]))
+			at.filter_clip = true
+			sf.add_frame(a["n"], at)
+	return sf
+
+
 # ------------------------------------------------------------
 #  Formas
 # ------------------------------------------------------------

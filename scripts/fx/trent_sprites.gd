@@ -65,9 +65,14 @@ const PIERNA_X := 4.6
 const PIERNA_R := Vector3(2.9, 2.9, 6.0)
 const PIERNA_Z := 6.5
 # RAICES-PIE: matas de raices abiertas en el suelo. Cada pie son varias puntas alrededor.
+#
+# EL ANILLO VA CEÑIDO A LA PIERNA, no abierto. Abierto a 3.6 las raices solapaban con la pierna
+# 0,8 unidades: a la resolucion vieja era casi una celda y a la nueva, ninguna -- y las matas
+# aparecian SUELTAS bajo el bicho, flotando, en 188 de los 192 frames. Mismo fallo que los cuernos.
+# Un solape de una celda no es un solape.
 const RAICES_POR_PIE := 5
-const RAIZ_RADIO := 3.6
-const RAIZ_R := Vector3(1.5, 1.5, 1.1)
+const RAIZ_RADIO := 2.4
+const RAIZ_R := Vector3(2.0, 2.0, 1.3)
 
 # BRAZOS-RAMA: dos, largos y CAIDOS, colgando a los lados. Se hacen en cadena de segmentos (como la
 # cola de la rata): una sola pieza alargada no se curva, y una rama recta parece un palo clavado.
@@ -79,18 +84,27 @@ const BRAZO_SEGMENTOS := 6
 # EL PASO TIENE QUE SER MENOR QUE EL GROSOR o el brazo sale a TROZOS SUELTOS -- una hilera de
 # bolitas flotando al lado del bicho. Es la misma trampa que ya mordio la cola de la rata. Ojo: lo
 # que cuenta es el paso EFECTIVO, o sea PASO * hipotenusa(ABRE, CAIDA), no el PASO a secas.
-const BRAZO_PASO := 2.6
+const BRAZO_PASO := 2.3
 const BRAZO_R0 := 2.1
 const BRAZO_R1 := 1.15
 const BRAZO_ABRE := 0.50           # cuanto se separa del tronco cada segmento
 const BRAZO_CAIDA := 0.78          # y cuanto baja: CUELGA, no sale en horizontal
 
 # CUERNOS-RAMA: ramas retorcidas que salen de lo alto de la copa.
+#
+# VAN MUY HUNDIDOS, y no es capricho. Antes rozaban la copa: el de atras solapaba con ella UNA sola
+# unidad de mundo. A la resolucion vieja eso eran dos celdas y colaba; al engordar el pixel se quedo
+# en una, el redondeo se la comio, y los cuatro cuernos aparecieron FLOTANDO sobre la copa en 188 de
+# los 192 frames.
+#
+# La leccion general: un solape de una o dos celdas no es un solape, es una casualidad. Lo que une
+# dos piezas tiene que medir varias celdas para que aguante un cambio de resolucion. Y hay un test
+# que lo caza solo -- contar islas de pixeles, ver dev_islas.gd.
 const CUERNOS := 4
 const CUERNO_ANILLO := 0.72
-const CUERNO_ALTO := 0.80
-const CUERNO_R := Vector3(1.5, 1.5, 4.6)
-const CUERNO_HUNDE := 1.8
+const CUERNO_ALTO := 0.62          # mas bajo en la copa: nace de la masa, no de la coronilla
+const CUERNO_R := Vector3(1.5, 1.5, 6.0)
+const CUERNO_HUNDE := 4.5          # la base bien METIDA en la fronda
 
 # OJOS: dos puntos claros dentro de la sombra de la copa. Son LO QUE LO HACE CRIATURA -- sin ellos
 # es un arbusto con brazos. Van bajos en la copa, o sea asomando por debajo de la fronda.
@@ -146,6 +160,16 @@ static func generar_de(ed: EnemyData, t: float) -> SpriteFrames:
 	return generar(ed.color_visual(t), ed.escala_visual)
 
 
+# La CLAVE de esta variante: la del cache y la del fichero horneado (ver SpriteLienzo.hornear).
+static func clave_de(ed: EnemyData, t: float) -> String:
+	return _clave(SpriteLienzo.cuantizar_hsv(ed.color_visual(t), COLOR_PASOS),
+		snappedf(ed.escala_visual, 0.05))
+
+
+static func _clave(col: Color, esc: float) -> String:
+	return "trent_%s_%.2f" % [col.to_html(false), esc]
+
+
 static func escala_base() -> float:
 	return SpriteLienzo.UNIDADES_POR_CELDA
 
@@ -188,7 +212,7 @@ static func generar(color: Color = Color(0.35, 0.5, 0.25), escala: float = 1.0) 
 	# cuantizar_hsv: el verde del trent es apagado y redondear canal a canal le cambiaria el TONO.
 	var col: Color = SpriteLienzo.cuantizar_hsv(color, COLOR_PASOS)
 	var esc: float = snappedf(escala, 0.05)
-	var clave: String = "%s_%.2f" % [col.to_html(false), esc]
+	var clave: String = _clave(col, esc)
 	if _cache.has(clave):
 		return _cache[clave]
 	# Todo en UN atlas recortado (ver SpriteLienzo.montar_frames): dos tercios de cada frame del

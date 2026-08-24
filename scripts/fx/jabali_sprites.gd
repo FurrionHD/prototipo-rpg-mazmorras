@@ -52,9 +52,9 @@ const OJO_R := Vector3(0.8, 0.8, 0.8)
 # COLMILLOS: nacen a los lados del hocico y suben CURVANDOSE hacia atras. Se hacen con una cadena
 # corta de bolitas, como la cola de la rata: una sola pieza alargada no se curva.
 const COLMILLO_BASE := Vector3(2.5, 14.6, 3.6)
-const COLMILLO_SEGMENTOS := 4
+const COLMILLO_SEGMENTOS := 5
 const COLMILLO_R0 := 1.05
-const COLMILLO_R1 := 0.55
+const COLMILLO_R1 := 0.72
 
 # PATAS: cortas, gruesas y CASI NEGRAS. En la referencia son la unica parte oscura de todo el bicho.
 const PATA_X := 5.2
@@ -106,6 +106,16 @@ static func generar_de(ed: EnemyData, t: float) -> SpriteFrames:
 	return generar(ed.color_visual(t), ed.escala_visual)
 
 
+# La CLAVE de esta variante: la del cache y la del fichero horneado (ver SpriteLienzo.hornear).
+static func clave_de(ed: EnemyData, t: float) -> String:
+	return _clave(SpriteLienzo.cuantizar_hsv(ed.color_visual(t), COLOR_PASOS),
+		snappedf(ed.escala_visual, 0.05))
+
+
+static func _clave(col: Color, esc: float) -> String:
+	return "jabali_%s_%.2f" % [col.to_html(false), esc]
+
+
 static func escala_base() -> float:
 	return SpriteLienzo.UNIDADES_POR_CELDA
 
@@ -138,7 +148,7 @@ static func generar(color: Color = Color(0.35, 0.26, 0.22), escala: float = 1.0)
 	# gris o un oliva. Le paso lo mismo al Rey rata en su dia.
 	var col: Color = SpriteLienzo.cuantizar_hsv(color, COLOR_PASOS)
 	var esc: float = snappedf(escala, 0.05)      # se cuantiza tambien, o el cache no acierta
-	var clave: String = "%s_%.2f" % [col.to_html(false), esc]
+	var clave: String = _clave(col, esc)
 	if _cache.has(clave):
 		return _cache[clave]
 	# Todo en UN atlas recortado (ver SpriteLienzo.montar_frames): en el jabali, el 84% de cada frame

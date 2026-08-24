@@ -61,10 +61,13 @@ const PATA_Z := 0.7
 # EL PASO TIENE QUE SER MENOR QUE EL GROSOR o la cola sale a TROZOS SUELTOS flotando detras del
 # bicho. Y ojo: al serpear, dos segmentos seguidos se separan ademas de lado, asi que el paso
 # efectivo es mayor que COLA_PASO -- por eso va holgado.
-const COLA_SEGMENTOS := 13
-const COLA_PASO := 0.85
+# Y con el pixel mas gordo hay que ser MAS generoso todavia: 0,85 de paso contra 0,66 de radio de
+# punta daba un diametro de poco mas de una celda, y al serpear la punta se soltaba en el idle. El
+# paso baja y la punta engorda.
+const COLA_SEGMENTOS := 14
+const COLA_PASO := 0.72
 const COLA_R0 := 1.25
-const COLA_R1 := 0.66
+const COLA_R1 := 0.82
 # La cola SALE A LA ALTURA DEL CUERPO y va CAYENDO hasta el suelo. No es un adorno: naciendo ya a
 # ras de suelo se DESPEGABA del cuerpo en cuanto se veia de perfil, porque al proyectar, lo que
 # esta alto sube en pantalla y lo que esta bajo no -- y entre la grupa (elevada) y el arranque de
@@ -110,6 +113,16 @@ static func generar_de(ed: EnemyData, t: float) -> SpriteFrames:
 	return generar(ed.color_visual(t), ed.sprite_variante == &"rey", ed.escala_visual)
 
 
+# La CLAVE de esta variante: la del cache y la del fichero horneado (ver SpriteLienzo.hornear).
+static func clave_de(ed: EnemyData, t: float) -> String:
+	return _clave(SpriteLienzo.cuantizar_hsv(ed.color_visual(t), COLOR_PASOS),
+		ed.sprite_variante == &"rey", snappedf(ed.escala_visual, 0.05))
+
+
+static func _clave(col: Color, rey: bool, esc: float) -> String:
+	return "rata_%s_%.2f%s" % [col.to_html(false), esc, "_rey" if rey else ""]
+
+
 # El pixel mide lo mismo para TODOS los bichos: el tamaño sale de cuantas celdas ocupa cada uno.
 static func escala_base() -> float:
 	return SpriteLienzo.UNIDADES_POR_CELDA
@@ -153,7 +166,7 @@ static func generar(color: Color = Color(0.5, 0.42, 0.34), rey: bool = false,
 	# redondear canal a canal le igualaba el rojo con el verde -> el Rey salia VERDE OLIVA.
 	var col: Color = SpriteLienzo.cuantizar_hsv(color, COLOR_PASOS)
 	var esc: float = snappedf(escala, 0.05)      # se cuantiza tambien, o el cache no acierta
-	var clave: String = "%s_%.2f%s" % [col.to_html(false), esc, "_rey" if rey else ""]
+	var clave: String = _clave(col, rey, esc)
 	if _cache.has(clave):
 		return _cache[clave]
 	# Todo en UN atlas recortado (ver SpriteLienzo.montar_frames): 192 texturas del tamaño del
