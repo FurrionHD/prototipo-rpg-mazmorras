@@ -331,6 +331,12 @@ static func tirar_rareza(score: float) -> int:
 static func nucleos_para_mejora(mejoras_actuales: int, nucleo: MaterialData = null, item: Resource = null) -> int:
 	var desde: int = 0 if nucleo == null else maxi(0, nucleo.mejora_min)
 	var base: int = maxi(1, mejoras_actuales + 1 - desde)
+	# EL FAROLILLO NO ESCALA: 1 de cada rama en todos los niveles. Ya paga por otro lado -- pide
+	# DOS nucleos en vez de uno --, asi que encarecerlo ademas dentro de la banda lo dejaria
+	# fuera de precio. Es la misma decision que en la armadura (plano a 1) y por el mismo
+	# motivo: cuando una pieza ya multiplica el coste por otro concepto, el escalon sobra.
+	if item is ToolData:
+		return 1
 	if item is ArmorData:
 		return 1
 	if item is WeaponData and (item as WeaponData).dos_manos:
@@ -416,6 +422,12 @@ static func nucleo_vale(nucleo: MaterialData, item: Resource, item_tier: int = -
 	# Gate por TIER: un nucleo de T1 no mejora equipo T2 (ni al reves). tier_equipo 0 = comodin.
 	if item_tier >= 0 and nucleo.tier_equipo > 0 and nucleo.tier_equipo != item_tier:
 		return false
+	# EL FAROLILLO ADMITE LAS DOS RAMAS, y es la unica pieza del juego que lo hace. No es un
+	# descuido de la separacion arma/armadura: es que su mejora PIDE UNA DE CADA (ver
+	# Game.puede_mejorar), asi que aqui las dos tienen que pasar el filtro. Es tambien lo que
+	# le da por fin un destino comun a las dos escaleras de nucleos y salida a los repetidos.
+	if item is ToolData and (item as ToolData).es_lampara():
+		return true
 	match int(nucleo.uso_mejora):
 		MaterialData.UsoMejora.ARMA:
 			return not (item is ArmorData)
@@ -423,6 +435,35 @@ static func nucleo_vale(nucleo: MaterialData, item: Resource, item_tier: int = -
 			return item is ArmorData
 		_:
 			return true   # CUALQUIERA
+
+
+# LA PAREJA de un nucleo: el de la OTRA rama que cubre su misma banda. Lo usa el farolillo, que
+# pide uno de cada (slime+rata, venenoso+rey rata, fuego+jabali...).
+#
+# Se empareja por BANDA y no por una tabla escrita a mano: asi, el dia que entren los nucleos
+# T2, se emparejan solos con solo declararles su banda.
+static func pareja_nucleo(nucleo: MaterialData, candidatos: Array) -> MaterialData:
+	if nucleo == null:
+		return null
+	# UN COMODIN ES SU PROPIA PAREJA. Los nucleos de jefe (rey slime, minotauro) son CUALQUIERA y
+	# son los UNICOS de su banda, asi que buscarle la otra rama no devuelve nada -- y con eso el
+	# ultimo tramo de mejoras del farolillo quedaba imposible sin que nada lo dijera: solo se veia
+	# el boton en gris. Devolviendose a si mismo hace los dos papeles, y quien lo gasta ya sabe que
+	# entonces cuenta como uno solo (ver Game.mejorar_item).
+	if int(nucleo.uso_mejora) == MaterialData.UsoMejora.CUALQUIERA:
+		return nucleo
+	var quiero: int = MaterialData.UsoMejora.ARMADURA \
+		if int(nucleo.uso_mejora) == MaterialData.UsoMejora.ARMA \
+		else MaterialData.UsoMejora.ARMA
+	for c in candidatos:
+		var m: MaterialData = c as MaterialData
+		if m == null or m == nucleo:
+			continue
+		if int(m.uso_mejora) != quiero:
+			continue
+		if int(m.mejora_min) == int(nucleo.mejora_min) and int(m.tier_equipo) == int(nucleo.tier_equipo):
+			return m
+	return null
 
 
 # --- FUNDIR EQUIPO: deshacer una pieza y recuperar la mitad ---

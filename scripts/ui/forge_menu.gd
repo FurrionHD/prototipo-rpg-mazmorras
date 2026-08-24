@@ -449,7 +449,7 @@ func _slot_de(item: Resource) -> String:
 	if item is BackpackData:
 		return "mochila"
 	if item is ToolData:
-		return "herramienta"
+		return "farolillo" if (item as ToolData).es_lampara() else "herramienta"
 	if item is ShieldData or item is WandData:
 		return "off"
 	return "main"
@@ -1361,7 +1361,10 @@ func _on_forjar() -> void:
 func _build_herramientas() -> void:
 	_title(_header, "FORJAR UNA HERRAMIENTA")
 	_note(_header, "El pico, la hoz y el hacha no te entrenan más rápido: hacen el trabajo menos hostil y te dejan sacar más material por rato. Cuenta el TIER del metal y también su VETA (en bruto, veteado, profundo): las dos suben lo que te ayuda, y la veta además te ahorra golpes. Es lo único que se forja con veta — en un arma, el cobre profundo haría exactamente la misma espada.")
-	_note(_header, "El mango va a juego con la cabeza: cobre en bruto pide tablón común, veteado pide tablón de veta y profundo pide tablón anillado. No se elige.")
+	if _es_farol():
+		_note(_header, "El FAROLILLO es la excepción: no lleva mango sino armazón, así que pide HEBILLAS en vez de tablón. Y lo que sube no son golpes ahorrados sino el ALCANCE de la luz, que además se encoge cuanto más hondo bajas.")
+	else:
+		_note(_header, "El mango va a juego con la cabeza: cobre en bruto pide tablón común, veteado pide tablón de veta y profundo pide tablón anillado. No se elige.")
 	_header.add_child(HSeparator.new())
 
 	var lingotes: Array = Game.lingotes_herramienta()
@@ -1371,7 +1374,8 @@ func _build_herramientas() -> void:
 
 	# --- QUE herramienta ---
 	_title(_content, "Qué forjas", 13)
-	var tipos: Array = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA, ToolData.Tipo.CANA]
+	var tipos: Array = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA,
+		ToolData.Tipo.CANA, ToolData.Tipo.LAMPARA]
 	var etq_t: Array = []
 	var pistas_t: Array = []
 	for tp in tipos:
@@ -1379,7 +1383,7 @@ func _build_herramientas() -> void:
 		etq_t.append(b.tipo_texto() if b != null else "?")
 		pistas_t.append(_para_que(int(tp)))
 	MenuScaffold.cuadricula(_content, etq_t, tipos.find(_herr_tipo), _on_herr_tipo,
-		4, MenuScaffold.TAM_SELECTOR, [], [], pistas_t)
+		5, MenuScaffold.TAM_SELECTOR, [], [], pistas_t)
 
 	# --- CON QUE metal: DOS niveles (gama -> veta) ---
 	# El tier y la veta son dos preguntas distintas y responden a dos cosas distintas (el tier pone la
@@ -1397,10 +1401,11 @@ func _build_herramientas() -> void:
 
 	var tier: int = Forge.tier_de_metal(lingote)
 	var banda: int = int(lingote.mejora_min)
-	var tab: MaterialData = Game.tablon_de_herramienta(lingote)
+	var tab: MaterialData = Game.complemento_de_herramienta(_herr_tipo, lingote)
 	if tab == null:
-		_note(_content, "No hay tablón a juego con ese metal: el mango tiene que ser de la misma veta que la cabeza.")
+		_note(_content, "No hay %s a juego con ese metal." % ("hebillas" if _es_farol() else "tablón"))
 		return
+	var cst: Dictionary = Game.coste_herramienta(_herr_tipo)
 
 	# --- Los dos ingredientes ---
 	_content.add_child(HSeparator.new())
@@ -1412,10 +1417,10 @@ func _build_herramientas() -> void:
 	_sumar_claim_herr(claim, tab, _sel_herr_tab)
 	_claim_reserva = claim
 	# CUANTAS herramientas salen con lo elegido: los contadores cuentan la TANDA entera.
-	var piezas: int = Game.piezas_de_seleccion_herramienta(lingote, _sel_herr_met, _sel_herr_tab)
+	var piezas: int = Game.piezas_de_seleccion_herramienta(_herr_tipo, lingote, _sel_herr_met, _sel_herr_tab)
 	var cuantas: int = maxi(1, piezas)
-	_contadores(_content, lingote, _sel_herr_met, int(Game.HERRAMIENTA_COSTE["metal"]) * cuantas)
-	_contadores(_content, tab, _sel_herr_tab, int(Game.HERRAMIENTA_COSTE["tablon"]) * cuantas)
+	_contadores(_content, lingote, _sel_herr_met, int(cst["metal"]) * cuantas)
+	_contadores(_content, tab, _sel_herr_tab, int(cst["tablon"]) * cuantas)
 	_note(_content, "Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la herramienta: mejora la RAREZA, y con ella los golpes que te ahorras.")
 
 	# --- Rareza EN VIVO, con lo que daria cada una CON ESTA VETA ---
@@ -1427,9 +1432,9 @@ func _build_herramientas() -> void:
 	if piezas > 1:
 		var materiales: Array = []
 		for lote in Game.lotes_de_seleccion([
-				Game.recortar_seleccion(_sel_herr_met, int(Game.HERRAMIENTA_COSTE["metal"]) * piezas),
-				Game.recortar_seleccion(_sel_herr_tab, int(Game.HERRAMIENTA_COSTE["tablon"]) * piezas)],
-				[int(Game.HERRAMIENTA_COSTE["metal"]), int(Game.HERRAMIENTA_COSTE["tablon"])], piezas):
+				Game.recortar_seleccion(_sel_herr_met, int(cst["metal"]) * piezas),
+				Game.recortar_seleccion(_sel_herr_tab, int(cst["tablon"]) * piezas)],
+				[int(cst["metal"]), int(cst["tablon"])], piezas):
 			materiales.append(Game.score_uds(lote))
 		var tramos: Array = MenuScaffold.tramos_por_calidad(materiales, MAX_COLUMNAS_RAREZA)
 		if tramos.size() > 1:
@@ -1454,11 +1459,13 @@ func _build_herramientas() -> void:
 		var p: float = float(probs[i])
 		if p <= 0.0:
 			continue
-		var md: Dictionary = Upgrades.tool_mods(_herr_tipo, tier, i, banda)
-		var n: int = int(md["golpes_menos"])
-		var efecto: String = "afinidad +%.0f" % float(md["afinidad"])
-		if n > 0:
-			efecto += ",  -%d %s" % [n, base_t.unidad_golpes(n)]
+		var efecto: String = _alcance_rareza(tier, banda, i)
+		if not _es_farol():
+			var md: Dictionary = Upgrades.tool_mods(_herr_tipo, tier, i, banda)
+			var n: int = int(md["golpes_menos"])
+			efecto = "afinidad +%.0f" % float(md["afinidad"])
+			if n > 0:
+				efecto += ",  -%d %s" % [n, base_t.unidad_golpes(n)]
 		_row(_content, Upgrades.rareza_nombre(i), "%s%%   →  %s" % [
 			str(snappedf(p * 100.0, 0.1)), efecto], Upgrades.rareza_color(i))
 	_herr_llevas(base_t)
@@ -1467,8 +1474,25 @@ func _build_herramientas() -> void:
 
 # Lo que da cada rareza CON ESTA VETA, indexado por rareza: las dos cosas que suben con la tirada,
 # la afinidad y los golpes que te ahorras. Es la ultima columna de la rejilla de una tanda.
+# EL FAROLILLO no mide en golpes ahorrados: mide en CASILLAS que alcanzas. Y se enseña el
+# alcance en el piso donde estas, no un numero abstracto, porque el mismo farolillo da menos
+# cuanto mas bajas -- que es justo lo que hay que entender antes de gastarse el metal.
+func _es_farol() -> bool:
+	return _herr_tipo == ToolData.Tipo.LAMPARA
+
+
+func _alcance_rareza(tier: int, banda: int, i: int) -> String:
+	var piso: int = maxi(1, Game.current_floor)
+	var pot: float = Lampara.potencia(tier, i, banda, 0)
+	return "alcance %.1f casillas (piso %d)" % [Lampara.radio(pot, piso), piso]
+
+
 func _efectos_herramienta(tier: int, banda: int, base_t: ToolData) -> Array:
 	var out: Array = []
+	if _es_farol():
+		for i in Upgrades.RAREZA_NOMBRE.size():
+			out.append(_alcance_rareza(tier, banda, i))
+		return out
 	for i in Upgrades.RAREZA_NOMBRE.size():
 		var md: Dictionary = Upgrades.tool_mods(_herr_tipo, tier, i, banda)
 		var n: int = int(md["golpes_menos"])
@@ -1481,6 +1505,9 @@ func _efectos_herramienta(tier: int, banda: int, base_t: ToolData) -> Array:
 
 func _herr_llevas(base_t: ToolData) -> void:
 	var puesta: ToolData = Game.herramienta_de_tipo(_herr_tipo)
+	if _es_farol():
+		_row(_content, "Llevas ahora", "alcance %.1f casillas" % Game.radio_lampara())
+		return
 	var pm: Dictionary = Game.tool_mods(puesta)
 	_row(_content, "Llevas ahora", "afinidad +%.0f, -%d %s" % [
 		float(pm["afinidad"]), int(pm["golpes_menos"]),
@@ -1535,8 +1562,9 @@ func _on_auto_herr(mejor_primero: bool) -> void:
 	if lingote == null or tab == null:
 		return
 	var veces: int = maxi(1, _cantidad)
-	_sel_herr_met = _auto_sel(lingote, int(Game.HERRAMIENTA_COSTE["metal"]) * veces, mejor_primero)
-	_sel_herr_tab = _auto_sel(tab, int(Game.HERRAMIENTA_COSTE["tablon"]) * veces, mejor_primero)
+	var cst: Dictionary = Game.coste_herramienta(_herr_tipo)
+	_sel_herr_met = _auto_sel(lingote, int(cst["metal"]) * veces, mejor_primero)
+	_sel_herr_tab = _auto_sel(tab, int(cst["tablon"]) * veces, mejor_primero)
 	_rebuild()
 
 
@@ -1550,11 +1578,13 @@ func _para_que(tipo: int) -> String:
 		ToolData.Tipo.PICO: return "Vetas de mineral  ·  entrena Fuerza"
 		ToolData.Tipo.HOZ: return "Plantas  ·  entrena Destreza"
 		ToolData.Tipo.CANA: return "Estanques  ·  entrena Resistencia"
+		ToolData.Tipo.LAMPARA: return "Ver en la oscuridad  ·  quema carbón"
 		_: return "Madera  ·  entrena Agilidad"
 
 
 func _on_herr_tipo(i: int) -> void:
-	_herr_tipo = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA, ToolData.Tipo.CANA][clampi(i, 0, 3)]
+	_herr_tipo = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA,
+		ToolData.Tipo.CANA, ToolData.Tipo.LAMPARA][clampi(i, 0, 4)]
 	_rebuild()
 
 
@@ -1627,7 +1657,7 @@ func _on_forjar_herramienta() -> void:
 		return
 	# TANDA: se forjan todas las que cubra lo elegido, cada una con su lote de material y su tirada.
 	var items: Array = Game.fabricar_herramienta_tanda(_herr_tipo, lingote, _sel_herr_met,
-		_sel_herr_tab, Game.piezas_de_seleccion_herramienta(lingote, _sel_herr_met, _sel_herr_tab))
+		_sel_herr_tab, Game.piezas_de_seleccion_herramienta(_herr_tipo, lingote, _sel_herr_met, _sel_herr_tab))
 	if Net.activo:
 		Net.cerrar_taller()
 		Net.liberar_mis_reservas()
@@ -1652,6 +1682,10 @@ func _slots_sub(con_mochila: bool) -> Array:
 	var out: Array = []
 	for s in Game.EQUIP_SLOTS:
 		out.append(s)
+	# EL FAROLILLO tiene seccion propia en MEJORAR (es la unica herramienta mejorable), y no
+	# entra en el grupo "herramienta" para no mezclarlo con los picos y las hoces, que ahi solo
+	# se listan para deshacer y reparar.
+	out.append("farolillo")
 	if con_mochila:
 		out.append("mochila")
 		out.append("herramienta")
@@ -1931,6 +1965,7 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 	# El nucleo YA NO se elige a mano: lo pone el sistema segun el +N (cada nucleo cubre su tramo).
 	# nucleo_auto devuelve el que TOCA aunque no lo tengas, para poder decir cual falta y en rojo.
 	var nucleo: MaterialData = Game.nucleo_auto(item)
+	var es_farol: bool = Game.es_lampara_item(item)
 	var al_tope: bool = actuales >= por_rareza or nucleo == null
 	var cuesta: int = 0
 	if nucleo != null:
@@ -1938,6 +1973,16 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 		var tengo_n: int = Game.nucleos_en_hogar(nucleo)
 		_row(vb, "Núcleo", "%d × %s  (tienes %d)" % [cuesta, nucleo.nombre, tengo_n],
 			ROJO if tengo_n < cuesta else VERDE)
+		# EL FAROLILLO pide UNO DE CADA RAMA. Se enseña la pareja en su propia fila y en rojo si
+		# falta: si no, la mejora se quedaria bloqueada sin decir por que.
+		if es_farol:
+			var otro: MaterialData = Game.pareja_de_nucleo(nucleo)
+			if otro == null:
+				_row(vb, "Núcleo (pareja)", "— no existe la pareja de esa banda", ROJO)
+			else:
+				var tengo_o: int = Game.nucleos_en_hogar(otro)
+				_row(vb, "Núcleo (pareja)", "1 × %s  (tienes %d)" % [otro.nombre, tengo_o],
+					ROJO if tengo_o < 1 else VERDE)
 	else:
 		_row(vb, "Núcleo", "— (la pieza ya está al máximo de su rareza)")
 
@@ -1949,12 +1994,19 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 	for clave in ["metal", "fibra"]:
 		var m: MaterialData = mats[clave]
 		if m == null:
-			_row(vb, "Material", "no existe a este tier: esta pieza no se puede reforzar")
+			# El farolillo NO lleva fibra (es hojalata y cristal, no tiene mango ni forro), asi que
+			# ahi el null es lo normal y no un aviso de que la pieza no se pueda reforzar.
+			if not (es_farol and clave == "fibra"):
+				_row(vb, "Material", "no existe a este tier: esta pieza no se puede reforzar")
 			continue
-		var necesita: int = int(cmat[clave])
+		var necesita: int = Game.LAMPARA_MEJORA_METAL if es_farol else int(cmat[clave])
 		var tengo: int = Game.disponible_unidades_material_en_hogar(m)   # resta lo reservado por el otro
 		_row(vb, m.nombre, "%d uds  (tienes %d)" % [necesita, tengo],
 			ROJO if tengo < necesita else VERDE)
+	if es_farol:
+		_note(vb, "El farolillo se mejora A SECAS: no hay categorías que elegir, cada mejora sube la potencia de la luz y ya. Pide UN núcleo de cada rama (uno de arma y uno de armadura) de la banda que le toque, más un poco de metal, y el coste NO sube con el nivel. Cuántas mejoras admite lo decide su rareza.")
+		_farol_boton(vb, item, nucleo, al_tope)
+		return
 	_note(vb, "El núcleo lo elige el sistema por el nivel de la pieza: cada uno cubre su tramo de mejoras y dentro de él cada mejora cuesta un núcleo más que la anterior. El núcleo es el permiso, pero la pieza hay que rehacerla: gasta también material de su tier, y del peor que tengas (la rareza ya está echada y no se toca).")
 
 	vb.add_child(HSeparator.new())
@@ -2015,8 +2067,54 @@ func _preview_mejorar(vb: VBoxContainer) -> void:
 	_boton(vb, txt, _on_mejorar, puede)
 
 
+# EL BOTON DEL FAROLILLO. Uno solo, porque no hay categoria que elegir: cada mejora sube la luz.
+# Enseña el ALCANCE que ganaria, que es lo unico que le importa al jugador, y no un "+1" abstracto.
+func _farol_boton(vb: VBoxContainer, item: Resource, nucleo: MaterialData, al_tope: bool) -> void:
+	var meta: Dictionary = Game.meta_de(item)
+	var mej: int = int((meta["mejoras"] as Dictionary).get(Upgrades.LUMINOSIDAD, 0))
+	var piso: int = maxi(1, Game.current_floor)
+	var tier: int = int(meta["tier"])
+	var rar: int = int(meta["rareza"])
+	var banda: int = int(meta.get("banda", 0))
+	var ahora: float = Lampara.radio(Lampara.potencia(tier, rar, banda, mej), piso)
+	var luego: float = Lampara.radio(Lampara.potencia(tier, rar, banda, mej + 1), piso)
+	_row(vb, "Luz  (+%d)" % mej, "%.1f casillas en el piso %d" % [ahora, piso])
+	vb.add_child(HSeparator.new())
+	var puede: bool = nucleo != null and Game.puede_mejorar(item, nucleo)
+	var txt: String = "Al máximo que permite la rareza (+%d)" % Upgrades.rareza_slots(rar)
+	if not al_tope:
+		txt = "Mejorar  ->  %.1f casillas" % luego
+		if not puede:
+			txt = "Te falta material o alguno de los dos núcleos"
+	_boton(vb, txt, _on_mejorar_farol, puede)
+
+
+func _on_mejorar_farol() -> void:
+	var item: Resource = _stacks[_sel]["modelo"]
+	var nucleo: MaterialData = Game.nucleo_auto(item)
+	if nucleo == null:
+		_decir("No se pudo mejorar.", false)
+		return
+	if Net.activo and not await Net.abrir_taller():
+		_ocupado()
+		_rebuild()
+		return
+	# La categoria va fijada: el farolillo solo tiene una (ver Upgrades.LUMINOSIDAD).
+	var ok: bool = Game.mejorar_item(item, Upgrades.LUMINOSIDAD, nucleo)
+	if Net.activo:
+		Net.cerrar_taller()
+	if ok:
+		_decir("El %s alumbra más: %.1f casillas." % [str(item.get("nombre")).to_lower(),
+			Game.radio_lampara()])
+	else:
+		_decir("No se pudo mejorar.", false)
+	_rebuild()
+
+
 # Categorias que admite la pieza (Upgrades ya sabe cuales, por tipo de arma/armadura/escudo).
 func _categorias(item: Resource) -> Array:
+	if Game.es_lampara_item(item):
+		return [Upgrades.LUMINOSIDAD]
 	if item is ArmorData:
 		return Upgrades.armor_categories(item as ArmorData)
 	if item is WandData:

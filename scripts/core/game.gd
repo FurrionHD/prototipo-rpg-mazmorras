@@ -8511,10 +8511,20 @@ const HERRAMIENTA_BASE := {
 	ToolData.Tipo.HOZ: "res://resources/tools/hoz_basica.tres",
 	ToolData.Tipo.HACHA: "res://resources/tools/hacha_basica.tres",
 	ToolData.Tipo.CANA: "res://resources/tools/cana_basica.tres",
+	ToolData.Tipo.LAMPARA: "res://resources/tools/farolillo_basico.tres",
 }
 # En unidades (puro 4 / intacto 3 / normal 2 / dañado 1), como el resto del crafteo. 6 en total
 # frente a las 12 de la mochila: es lo primero que se craftea y no puede pedir una expedicion entera.
+#
+# El FAROLILLO cuesta un pelin menos de metal (3) porque su segunda pieza son HEBILLAS, que ya
+# salen de fundir metal: pedirle 4 seria cobrarle el metal dos veces.
 const HERRAMIENTA_COSTE := {"metal": 4, "tablon": 2}
+const LAMPARA_COSTE := {"metal": 3, "tablon": 2}
+
+# El coste de ESTE tipo de herramienta. La clave sigue llamandose "tablon" para no tocar a los
+# ocho sitios que la leen; lo que cambia es QUE material es (ver complemento_de_herramienta).
+func coste_herramienta(tipo: int) -> Dictionary:
+	return LAMPARA_COSTE if tipo == ToolData.Tipo.LAMPARA else HERRAMIENTA_COSTE
 
 func herramienta_base(tipo: int) -> ToolData:
 	var ruta: String = str(HERRAMIENTA_BASE.get(tipo, ""))
@@ -8532,6 +8542,25 @@ func herramienta_base(tipo: int) -> ToolData:
 # La escalera cuadra 1:1 en los tres tiers, asi que la pareja SIEMPRE existe; si algun dia se mete
 # un metal sin su madera, esto devuelve null y herramienta_valida lo corta con un aviso, que es el
 # mismo freno que ya tienen la armadura sin cuero y la mochila sin correa.
+# LA SEGUNDA PIEZA de la herramienta, que no es la misma para todas:
+#   pico / hoz / hacha / caña -> TABLON, y a juego con la cabeza (mismo tier Y misma banda).
+#   farolillo                 -> HEBILLAS del mismo tier.
+#
+# El farolillo no lleva mango: lleva armazon y un asa. Y las hebillas NO tienen sub-tier a
+# proposito (ver hebillas_forja), asi que emparejan solo por tier -- lo cual encaja: la banda
+# del metal ya decide la potencia de la luz, no hace falta que la pida dos veces.
+func complemento_de_herramienta(tipo: int, lingote: MaterialData) -> MaterialData:
+	if lingote == null:
+		return null
+	if tipo == ToolData.Tipo.LAMPARA:
+		for h in hebillas_forja():
+			var hd: MaterialData = h as MaterialData
+			if hd != null and int(hd.tier) == Forge.tier_de_metal(lingote):
+				return hd
+		return null
+	return tablon_de_herramienta(lingote)
+
+
 func tablon_de_herramienta(lingote: MaterialData) -> MaterialData:
 	if lingote == null:
 		return null
@@ -8549,16 +8578,18 @@ func score_herramienta(lingote: MaterialData, sel_met: Dictionary, sel_tab: Dict
 	return Forge.score_final(score_seleccion([sel_met, sel_tab]),
 		Forge.bonus_herreria(herreria_activa()), Forge.bonus_metal_veta(lingote))
 
-func herramienta_valida(lingote: MaterialData, sel_met: Dictionary, sel_tab: Dictionary) -> bool:
+func herramienta_valida(tipo: int, lingote: MaterialData, sel_met: Dictionary,
+		sel_tab: Dictionary) -> bool:
 	if lingote == null:
 		return false
-	var tab: MaterialData = tablon_de_herramienta(lingote)
+	var tab: MaterialData = complemento_de_herramienta(tipo, lingote)
 	if tab == null:
-		return false   # a ese tier aun no le existe su tablon
+		return false   # a ese tier aun no le existe su tablon (o sus hebillas)
 	if not _sel_disponible(lingote, sel_met) or not _sel_disponible(tab, sel_tab):
 		return false
-	return uds_seleccion(sel_met) >= int(HERRAMIENTA_COSTE["metal"]) \
-		and uds_seleccion(sel_tab) >= int(HERRAMIENTA_COSTE["tablon"])
+	var c: Dictionary = coste_herramienta(tipo)
+	return uds_seleccion(sel_met) >= int(c["metal"]) \
+		and uds_seleccion(sel_tab) >= int(c["tablon"])
 
 func fabricar_herramienta(tipo: int, lingote: MaterialData, sel_met: Dictionary,
 		sel_tab: Dictionary) -> Resource:
@@ -8567,13 +8598,14 @@ func fabricar_herramienta(tipo: int, lingote: MaterialData, sel_met: Dictionary,
 
 
 # ¿Para cuantas herramientas llega lo elegido? (ver piezas_de_coste)
-func piezas_de_seleccion_herramienta(lingote: MaterialData, sel_met: Dictionary,
+func piezas_de_seleccion_herramienta(tipo: int, lingote: MaterialData, sel_met: Dictionary,
 		sel_tab: Dictionary) -> int:
-	var tab: MaterialData = tablon_de_herramienta(lingote)
+	var tab: MaterialData = complemento_de_herramienta(tipo, lingote)
 	if lingote == null or tab == null:
 		return 0
+	var c: Dictionary = coste_herramienta(tipo)
 	return piezas_de_coste([lingote, tab], [sel_met, sel_tab],
-		[int(HERRAMIENTA_COSTE["metal"]), int(HERRAMIENTA_COSTE["tablon"])])
+		[int(c["metal"]), int(c["tablon"])])
 
 
 # FORJA hasta `n` herramientas de una tacada. Como forjar_tanda: el consumo sale del total recortado
@@ -8581,12 +8613,13 @@ func piezas_de_seleccion_herramienta(lingote: MaterialData, sel_met: Dictionary,
 func fabricar_herramienta_tanda(tipo: int, lingote: MaterialData, sel_met: Dictionary,
 		sel_tab: Dictionary, n: int) -> Array:
 	var base: ToolData = herramienta_base(tipo)
-	var tab: MaterialData = tablon_de_herramienta(lingote)
+	var tab: MaterialData = complemento_de_herramienta(tipo, lingote)
 	if base == null or lingote == null or tab == null:
 		return []
 	var mats: Array = [lingote, tab]
 	var sels: Array = [sel_met, sel_tab]
-	var uds: Array = [int(HERRAMIENTA_COSTE["metal"]), int(HERRAMIENTA_COSTE["tablon"])]
+	var cst: Dictionary = coste_herramienta(tipo)
+	var uds: Array = [int(cst["metal"]), int(cst["tablon"])]
 	var piezas: int = mini(maxi(0, n), piezas_de_coste(mats, sels, uds))
 	if piezas < 1:
 		return []
@@ -8662,9 +8695,36 @@ func materiales_mejora(item: Resource) -> Dictionary:
 	var nivel: int = mejoras_actuales(item)
 	var metales: Array = chapas_forja() if item is ArmorData else lingotes_forja()
 	var metal: MaterialData = _material_de(metales, tier, nivel)
+	# EL FAROLILLO NO LLEVA FIBRA. Un arma pide madera y una armadura cuero porque tienen mango o
+	# forro; un farolillo es hojalata y cristal. Pedirle madera seria inventarle una pieza que no
+	# tiene solo para que encajara en el molde.
+	if item is ToolData and (item as ToolData).es_lampara():
+		return {"metal": metal, "fibra": null}
 	# La fibra se busca con el metal de la MISMA banda; si no hay metal a esa altura tampoco hay
 	# pieza que mejorar, y el null se propaga solo (puede_mejorar lo corta).
 	return {"metal": metal, "fibra": fibra_de_forja(item, metal, nivel)}
+
+
+# Lo que cuesta de METAL cada mejora del farolillo, en unidades. Plano: el nivel no lo sube.
+const LAMPARA_MEJORA_METAL := 2
+
+func es_lampara_item(item: Resource) -> bool:
+	return item is ToolData and (item as ToolData).es_lampara()
+
+# Todos los nucleos del juego, cargados. Hermana de escalera_nucleos pero SIN filtrar por pieza:
+# la pareja se busca por BANDA, no por si el nucleo vale para lo que estas mejorando.
+func todos_los_nucleos() -> Array:
+	var out: Array = []
+	for ruta in _NUCLEOS:
+		var n: MaterialData = load(ruta) as MaterialData
+		if n != null:
+			out.append(n)
+	return out
+
+# La pareja del nucleo en la OTRA rama (slime<->rata, venenoso<->rey rata...). La pide el
+# farolillo, que es la unica pieza que gasta una de cada.
+func pareja_de_nucleo(nucleo: MaterialData) -> MaterialData:
+	return Forge.pareja_nucleo(nucleo, todos_los_nucleos())
 
 
 func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
@@ -8682,7 +8742,21 @@ func puede_mejorar(item: Resource, nucleo: MaterialData) -> bool:
 	# Y el material de refuerzo (ver materiales_mejora). Los materiales van A Forge, no solo salen de
 	# el: el coste se reparte dentro de la BANDA de ese material (sub-tier), y sin ellos no la sabe.
 	var mats: Dictionary = materiales_mejora(item)
-	if mats["metal"] == null or mats["fibra"] == null:
+	if mats["metal"] == null:
+		return false
+	# EL FAROLILLO: uno de CADA rama y un poco de metal, plano. La pareja tiene que estar tambien
+	# en el baul, y ese es el freno de verdad -- obliga a matar de las dos familias, no a farmear
+	# la misma cien veces.
+	if es_lampara_item(item):
+		var otro: MaterialData = pareja_de_nucleo(nucleo)
+		if otro == null:
+			return false
+		# Si la pareja es EL MISMO nucleo, es un comodin haciendo los dos papeles: cuenta como uno
+		# y basta con tener ese. Pedir dos de un nucleo de jefe seria otro precio, no este.
+		if otro != nucleo and nucleos_en_hogar(otro) < 1:
+			return false
+		return unidades_material_en_hogar(mats["metal"]) >= LAMPARA_MEJORA_METAL
+	if mats["fibra"] == null:
 		return false
 	var c: Dictionary = Forge.material_para_mejora(mejoras_actuales(item), item,
 		mats["metal"], mats["fibra"])
@@ -8696,8 +8770,20 @@ func mejorar_item(item: Resource, cat: String, nucleo: MaterialData) -> bool:
 	if not puede_mejorar(item, nucleo):
 		return false
 	var nivel: int = mejoras_actuales(item)
-	var cuesta: int = Forge.nucleos_para_mejora(nivel, nucleo, item)
 	var mats: Dictionary = materiales_mejora(item)
+	if es_lampara_item(item):
+		var otro: MaterialData = pareja_de_nucleo(nucleo)
+		_consumir_nucleos(nucleo, 1)
+		if otro != nucleo:
+			_consumir_nucleos(otro, 1)
+		_consumir_unidades(mats["metal"], LAMPARA_MEJORA_METAL)
+		var mjf: Dictionary = meta_de(item)["mejoras"]
+		mjf[Upgrades.LUMINOSIDAD] = int(mjf.get(Upgrades.LUMINOSIDAD, 0)) + 1
+		print("[herrero] Mejoras %s con 1 x %s + 1 x %s + %d uds de %s -> luz +%d" % [
+			str(item.get("nombre")), nucleo.nombre, otro.nombre, LAMPARA_MEJORA_METAL,
+			(mats["metal"] as MaterialData).nombre, int(mjf[Upgrades.LUMINOSIDAD])])
+		return true
+	var cuesta: int = Forge.nucleos_para_mejora(nivel, nucleo, item)
 	var c: Dictionary = Forge.material_para_mejora(nivel, item, mats["metal"], mats["fibra"])
 	_consumir_nucleos(nucleo, cuesta)
 	_consumir_unidades(mats["metal"], int(c["metal"]))
