@@ -41,7 +41,17 @@ const VACIO := 0
 # CONSECUENCIA para quien escriba un generador: 'escala_base()' devuelve SIEMPRE esto (no depende
 # del bicho), y es la GEOMETRIA la que se multiplica por escala_visual, junto con el tamaño del
 # lienzo. Y enemy.gd NO debe volver a escalar el sprite: eso solo vale para la caja de colision.
-const UNIDADES_POR_CELDA := 0.62
+# 1.15: el pixel-art tiene que LEERSE como pixel-art. Nacio en 0.62 -- copiado del tamaño que le
+# quedaba bien a la rata -- y con el los bichos salian tan finos que se perdia el estilo: "se ven
+# poco pixelados". 1.15 es, casi clavado, el grosor que ya tenia el slime antes de su rework, o sea
+# el aspecto conocido, pero ahora igual para TODOS.
+#
+# Y no es solo estetica: la memoria y el tiempo de generacion van con el CUADRADO de este numero.
+# Medido con los diez tipos dibujados de hoy:
+#     0.62 -> 231,7 MB de VRAM y 9,1 s de generar todo
+#     1.15 ->  66,8 MB           y 2,9 s
+# Ese es el margen que hace viable precargarlo todo de una vez.
+const UNIDADES_POR_CELDA := 1.15
 
 
 # ============================================================
@@ -132,6 +142,135 @@ static func a_textura(celdas: PackedByteArray, pal: PackedByteArray, w: int, h: 
 		datos[o + 3] = pal[p + 3]
 	return ImageTexture.create_from_image(
 		Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, datos))
+
+
+# ============================================================
+#  EL ATLAS: un SpriteFrames entero en UNA textura
+# ============================================================
+# Antes cada frame era su propia ImageTexture del tamaño del lienzo completo. Y el lienzo es
+# necesariamente GRANDE -- tiene que dar para las 8 direcciones y para el desplazamiento de la
+# embestida --, pero un frame concreto solo usa una esquina de el. Medido: entre el 62% y el 86% de
+# cada frame era aire transparente, y se subia a la tarjeta igual.
+#
+# Los numeros de antes de esto, MEDIDOS con el monitor del motor (no calculados): los sprites de
+# cinco enemigos ocupaban 387 MB de VRAM. Recortando cada frame a su caja real: 86 MB. Y ojo, el
+# driver cobra ~33% MAS de lo que sale de multiplicar ancho x alto x 4, asi que la cuenta a mano se
+# quedaba corta.
+#
+# Aqui cada SpriteFrames pasa a ser UNA sola imagen con todos sus frames recortados y empaquetados,
+# y cada frame es un AtlasTexture que apunta a su trozo. El 'margin' del AtlasTexture es lo que
+# devuelve el hueco recortado, asi que el sprite se sigue dibujando EXACTAMENTE donde estaba y nadie
+# mas se entera del cambio.
+
+# Caja de las celdas NO vacias de una plantilla. Es lo que de verdad ocupa este frame.
+static func _caja_usada(celdas: PackedByteArray, w: int, h: int) -> Rect2i:
+	var x0: int = w
+	var y0: int = h
+	var x1: int = -1
+	var y1: int = -1
+	for y in h:
+		var fila: int = y * w
+		for x in w:
+			if celdas[fila + x] == VACIO:
+				continue
+			if x < x0:
+				x0 = x
+			if x > x1:
+				x1 = x
+			if y < y0:
+				y0 = y
+			if y > y1:
+				y1 = y
+	if x1 < 0:
+		return Rect2i(0, 0, 0, 0)     # frame entero vacio (no deberia pasar, pero no revienta)
+	return Rect2i(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
+
+
+# Monta un SpriteFrames completo a partir de sus plantillas, empaquetado en un solo atlas.
+#
+# 'anims' = [{"nombre": String, "loop": bool, "fps": float, "plantillas": Array[PackedByteArray]}]
+# Todas las plantillas son del mismo lienzo (w x h), que es el tamaño que el sprite debe APARENTAR.
+static func montar_frames(anims: Array, pal: PackedByteArray, w: int, h: int) -> SpriteFrames:
+	# 1. Medir cada frame y ordenarlos por alto: empaquetar por ESTANTES (una fila tras otra) deja
+	#    mucho menos hueco si los de altura parecida van juntos.
+	var trozos: Array = []
+	for a in anims:
+		for i in a["plantillas"].size():
+			var celdas: PackedByteArray = a["plantillas"][i]
+			trozos.append({"celdas": celdas, "caja": _caja_usada(celdas, w, h),
+				"anim": a["nombre"], "idx": i})
+	var orden: Array = trozos.duplicate()
+	orden.sort_custom(func(p, q): return int(p["caja"].size.y) > int(q["caja"].size.y))
+
+	# 2. Colocarlos por estantes en una hoja lo mas cuadrada posible.
+	var area: int = 0
+	for t in orden:
+		area += int(t["caja"].size.x) * int(t["caja"].size.y)
+	var ancho_hoja: int = maxi(w, int(ceil(sqrt(float(area)) * 1.15)))
+	var cx: int = 0
+	var cy: int = 0
+	var alto_estante: int = 0
+	for t in orden:
+		var c: Rect2i = t["caja"]
+		if c.size.x <= 0:
+			t["en"] = Vector2i.ZERO
+			continue
+		if cx + c.size.x > ancho_hoja:
+			cx = 0
+			cy += alto_estante
+			alto_estante = 0
+		t["en"] = Vector2i(cx, cy)
+		cx += c.size.x
+		alto_estante = maxi(alto_estante, c.size.y)
+	var alto_hoja: int = maxi(1, cy + alto_estante)
+
+	# 3. Pintar. Se escribe DIRECTO sobre los bytes de la hoja, sin crear una imagen por frame.
+	var datos := PackedByteArray()
+	datos.resize(ancho_hoja * alto_hoja * 4)
+	for t in orden:
+		var c: Rect2i = t["caja"]
+		if c.size.x <= 0:
+			continue
+		var celdas: PackedByteArray = t["celdas"]
+		var en: Vector2i = t["en"]
+		for y in c.size.y:
+			var origen: int = (c.position.y + y) * w + c.position.x
+			var destino: int = ((en.y + y) * ancho_hoja + en.x) * 4
+			for x in c.size.x:
+				var tono: int = celdas[origen + x]
+				if tono == VACIO:
+					continue
+				var o: int = destino + x * 4
+				var p: int = tono * 4
+				datos[o] = pal[p]
+				datos[o + 1] = pal[p + 1]
+				datos[o + 2] = pal[p + 2]
+				datos[o + 3] = pal[p + 3]
+	var hoja := ImageTexture.create_from_image(
+		Image.create_from_data(ancho_hoja, alto_hoja, false, Image.FORMAT_RGBA8, datos))
+
+	# 4. Un AtlasTexture por frame. El 'margin' repone el hueco que se recorto, asi que la textura
+	#    sigue midiendo w x h y dibujandose donde estaba: quien la use no nota nada.
+	var sf := SpriteFrames.new()
+	sf.remove_animation("default")
+	for a in anims:
+		sf.add_animation(a["nombre"])
+		sf.set_animation_loop(a["nombre"], a["loop"])
+		sf.set_animation_speed(a["nombre"], a["fps"])
+	for t in trozos:
+		var c: Rect2i = t["caja"]
+		var at := AtlasTexture.new()
+		at.atlas = hoja
+		at.region = Rect2(t["en"].x, t["en"].y, c.size.x, c.size.y)
+		# OJO CON ESTO: el tamaño final de un AtlasTexture es region.size + margin.SIZE, y
+		# margin.POSITION es donde empieza a dibujarse. O sea que el size del margen es el hueco
+		# TOTAL que falta (w - recorte), no "lo que sobra por el otro lado". Restandole ademas la
+		# posicion, la textura salia mas pequeña de lo que debia y el bicho aparecia CORTADO EN SECO
+		# por abajo y por la derecha.
+		at.margin = Rect2(c.position.x, c.position.y, w - c.size.x, h - c.size.y)
+		at.filter_clip = true     # sin esto, al ampliar se cuela el pixel del frame vecino
+		sf.add_frame(t["anim"], at)
+	return sf
 
 
 # ------------------------------------------------------------

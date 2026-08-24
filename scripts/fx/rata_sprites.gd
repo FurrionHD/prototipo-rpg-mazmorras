@@ -156,35 +156,39 @@ static func generar(color: Color = Color(0.5, 0.42, 0.34), rey: bool = false,
 	var clave: String = "%s_%.2f%s" % [col.to_html(false), esc, "_rey" if rey else ""]
 	if _cache.has(clave):
 		return _cache[clave]
-	var sf := SpriteFrames.new()
-	sf.remove_animation("default")
-	_montar_idle(sf, col, rey, esc)
-	_montar_walk(sf, col, rey, esc)
-	_montar_embestida(sf, col, rey, esc)
+	# Todo en UN atlas recortado (ver SpriteLienzo.montar_frames): 192 texturas del tamaño del
+	# lienzo entero eran casi todo aire -- en la rata, un 86%.
+	var anims: Array = []
+	_montar_idle(anims, rey, esc)
+	_montar_walk(anims, rey, esc)
+	_montar_embestida(anims, rey, esc)
+	var lado: int = _celdas(esc)
+	var sf: SpriteFrames = SpriteLienzo.montar_frames(
+		anims, SpriteLienzo.paleta(_colores(col, rey)), lado, lado)
 	_cache[clave] = sf
 	return sf
 
 
 # Quieta: respira y menea la cola despacio. Nada de desplazamiento.
-static func _montar_idle(sf: SpriteFrames, color: Color, rey: bool, esc: float) -> void:
+static func _montar_idle(anims: Array, rey: bool, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return {"avance": 0.0, "estira": 1.0 + 0.025 * sin(TAU * t),
 			"cola": 0.45 * sin(TAU * t), "patas": 0.0, "agacha": 0.0}
-	_montar_animacion(sf, color, rey, esc, "idle", true, 5.0, pose, false)
+	_montar_animacion(anims, rey, esc, "idle", true, 5.0, pose, false)
 
 
 # Andando: las patas alternan, el cuerpo se mece y la cola serpea con ganas. A 10 fps (el slime va
 # a 8): es un bicho rapido y el paso tiene que leerse nervioso, no de paseo.
-static func _montar_walk(sf: SpriteFrames, color: Color, rey: bool, esc: float) -> void:
+static func _montar_walk(anims: Array, rey: bool, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return {"avance": 0.0, "estira": 1.0 + 0.05 * sin(TAU * t * 2.0),
 			"cola": 1.0 * sin(TAU * t), "patas": sin(TAU * t), "agacha": 0.0}
-	_montar_animacion(sf, color, rey, esc, "walk", true, 10.0, pose, false)
+	_montar_animacion(anims, rey, esc, "walk", true, 10.0, pose, false)
 
 
 # Agazaparse -> lanzarse -> chocar -> recomponerse. NO es periodica, asi que va por TRAMOS.
 # Encaja con su Frenesi de dentelladas, que ya tiene una pose de carga de un turno en su .tres.
-static func _montar_embestida(sf: SpriteFrames, color: Color, rey: bool, esc: float) -> void:
+static func _montar_embestida(anims: Array, rey: bool, esc: float) -> void:
 	var avance_keys := [[0.0, 0.0], [0.25, -1.2], [0.55, 5.0], [0.75, 5.8], [1.0, 4.0]]
 	var estira_keys := [[0.0, 1.0], [0.25, 0.82], [0.55, 1.2], [0.75, 0.9], [1.0, 1.0]]
 	var agacha_keys := [[0.0, 0.0], [0.25, 1.0], [0.55, 0.0], [0.75, 0.35], [1.0, 0.1]]
@@ -193,19 +197,14 @@ static func _montar_embestida(sf: SpriteFrames, color: Color, rey: bool, esc: fl
 			"estira": SpriteLienzo.tramos(t, estira_keys),
 			"cola": 1.4 * sin(TAU * t * 1.5), "patas": 0.0,
 			"agacha": SpriteLienzo.tramos(t, agacha_keys)}
-	_montar_animacion(sf, color, rey, esc, "embestida", false, 11.0, pose, true)
+	_montar_animacion(anims, rey, esc, "embestida", false, 11.0, pose, true)
 
 
-static func _montar_animacion(sf: SpriteFrames, color: Color, rey: bool, esc: float, nombre: String,
+static func _montar_animacion(anims: Array, rey: bool, esc: float, nombre: String,
 		loop: bool, fps: float, pose_fn: Callable, ultimo_incluido: bool) -> void:
 	var divisor: float = float(FRAMES - 1) if ultimo_incluido else float(FRAMES)
-	var paleta: PackedByteArray = SpriteLienzo.paleta(_colores(color, rey))
-	var lado: int = _celdas(esc)
 	for dir in 8:
-		var anim: String = "%s_%d" % [nombre, dir]
-		sf.add_animation(anim)
-		sf.set_animation_loop(anim, loop)
-		sf.set_animation_speed(anim, fps)
+		var plantillas: Array = []
 		for i in FRAMES:
 			# La GEOMETRIA se cachea por (animacion, frame, direccion, rey, escala) y NO por color:
 			# otra rata de otro tono reusa estas plantillas y solo repinta. Es lo que evita que
@@ -215,7 +214,9 @@ static func _montar_animacion(sf: SpriteFrames, color: Color, rey: bool, esc: fl
 			if plant.is_empty():
 				plant = _plantilla(dir, pose_fn.call(float(i) / divisor), rey, esc)
 				_cache_plantillas[clave] = plant
-			sf.add_frame(anim, SpriteLienzo.a_textura(plant, paleta, lado, lado))
+			plantillas.append(plant)
+		anims.append({"nombre": "%s_%d" % [nombre, dir], "loop": loop, "fps": fps,
+			"plantillas": plantillas})
 
 
 # Los colores de cada Tono, EN EL ORDEN DEL ENUM (contrato con SpriteLienzo.paleta).

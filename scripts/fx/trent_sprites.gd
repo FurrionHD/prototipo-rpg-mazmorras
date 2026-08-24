@@ -162,7 +162,11 @@ static func dimensiona_por_escala() -> bool:
 # la cola de la rata no cuenta -- lo que estorba de un arbol es el tronco, no lo que le cuelga.
 # Redondo, asi que su colision no necesita girar.
 static func tam_cuerpo(escala: float = 1.0) -> Vector2:
-	var lado: float = maxf(TRONCO_R.x, PIERNA_X + PIERNA_R.x + RAIZ_RADIO * 0.5) * 2.0
+	# LAS RAICES NO CUENTAN, igual que no cuenta la cola de la rata: son adorno pegado al suelo, y
+	# metiendolas el trent medía 33,5 de lado -- mas que la CELDA de 32 px de la mazmorra, o sea que
+	# no cabia por un pasillo de una celda y se quedaba trabado. Lo que estorba es el tronco y las
+	# piernas.
+	var lado: float = maxf(TRONCO_R.x, PIERNA_X + PIERNA_R.x) * 2.0
 	return Vector2(lado, lado) * escala
 
 
@@ -187,37 +191,41 @@ static func generar(color: Color = Color(0.35, 0.5, 0.25), escala: float = 1.0) 
 	var clave: String = "%s_%.2f" % [col.to_html(false), esc]
 	if _cache.has(clave):
 		return _cache[clave]
-	var sf := SpriteFrames.new()
-	sf.remove_animation("default")
-	_montar_idle(sf, col, esc)
-	_montar_walk(sf, col, esc)
-	_montar_embestida(sf, col, esc)
+	# Todo en UN atlas recortado (ver SpriteLienzo.montar_frames): dos tercios de cada frame del
+	# lienzo completo eran aire transparente.
+	var anims: Array = []
+	_montar_idle(anims, esc)
+	_montar_walk(anims, esc)
+	_montar_embestida(anims, esc)
+	var lz: Vector2i = _lienzo(esc)
+	var sf: SpriteFrames = SpriteLienzo.montar_frames(
+		anims, SpriteLienzo.paleta(_colores(col)), lz.x, lz.y)
 	_cache[clave] = sf
 	return sf
 
 
 # Quieto: la copa se mece, muy despacio. A 3 fps -- el mas lento del juego, y a proposito: tiene
 # Agilidad 10 y tiene que LEERSE lento antes de que te des cuenta mirando su barra.
-static func _montar_idle(sf: SpriteFrames, color: Color, esc: float) -> void:
+static func _montar_idle(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return {"avance": 0.0, "mece": 0.5 * sin(TAU * t), "balanceo": 0.0,
 			"brazos": 0.25 * sin(TAU * t + 0.8), "alza": 0.0}
-	_montar_animacion(sf, color, esc, "idle", true, 3.0, pose, false)
+	_montar_animacion(anims, esc, "idle", true, 3.0, pose, false)
 
 
 # Andando: NADA DE BOTE. Un arbol no salta; se BALANCEA de un lado al otro y arrastra el peso de un
 # pie al otro. El balanceo lateral es lo que hace que se lea como un paso pesado.
-static func _montar_walk(sf: SpriteFrames, color: Color, esc: float) -> void:
+static func _montar_walk(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return {"avance": 0.0, "mece": 0.9 * sin(TAU * t), "balanceo": sin(TAU * t),
 			"brazos": 0.8 * sin(TAU * t), "alza": 0.0}
-	_montar_animacion(sf, color, esc, "walk", true, 5.0, pose, false)
+	_montar_animacion(anims, esc, "walk", true, 5.0, pose, false)
 
 
 # ALZA LOS BRAZOS Y DESCARGA. No es una carga a la carrera como la del jabali -- este bicho no corre
 # -- sino el ramazo de su habilidad: "gira medio cuerpo y te barre con una rama". Se echa atras,
 # levanta las ramas y las deja caer hacia delante.
-static func _montar_embestida(sf: SpriteFrames, color: Color, esc: float) -> void:
+static func _montar_embestida(anims: Array, esc: float) -> void:
 	var alza_keys := [[0.0, 0.0], [0.35, 1.0], [0.55, -0.9], [0.75, -0.4], [1.0, 0.0]]
 	var avance_keys := [[0.0, 0.0], [0.35, -1.0], [0.55, 3.4], [0.75, 3.8], [1.0, 2.4]]
 	var mece_keys := [[0.0, 0.0], [0.35, -1.2], [0.55, 1.6], [0.75, 0.8], [1.0, 0.2]]
@@ -225,19 +233,14 @@ static func _montar_embestida(sf: SpriteFrames, color: Color, esc: float) -> voi
 		return {"avance": SpriteLienzo.tramos(t, avance_keys) * (LUNGE_DIST / 3.8),
 			"mece": SpriteLienzo.tramos(t, mece_keys), "balanceo": 0.0,
 			"brazos": 0.0, "alza": SpriteLienzo.tramos(t, alza_keys)}
-	_montar_animacion(sf, color, esc, "embestida", false, 8.0, pose, true)
+	_montar_animacion(anims, esc, "embestida", false, 8.0, pose, true)
 
 
-static func _montar_animacion(sf: SpriteFrames, color: Color, esc: float, nombre: String,
+static func _montar_animacion(anims: Array, esc: float, nombre: String,
 		loop: bool, fps: float, pose_fn: Callable, ultimo_incluido: bool) -> void:
 	var divisor: float = float(FRAMES - 1) if ultimo_incluido else float(FRAMES)
-	var paleta: PackedByteArray = SpriteLienzo.paleta(_colores(color))
-	var lz: Vector2i = _lienzo(esc)
 	for dir in 8:
-		var anim: String = "%s_%d" % [nombre, dir]
-		sf.add_animation(anim)
-		sf.set_animation_loop(anim, loop)
-		sf.set_animation_speed(anim, fps)
+		var plantillas: Array = []
 		for i in FRAMES:
 			# La GEOMETRIA se cachea por (animacion, frame, direccion, escala) y NO por color.
 			var clave: String = "%s_%d_%d_%.2f" % [nombre, i, dir, esc]
@@ -245,7 +248,9 @@ static func _montar_animacion(sf: SpriteFrames, color: Color, esc: float, nombre
 			if plant.is_empty():
 				plant = _plantilla(dir, pose_fn.call(float(i) / divisor), esc)
 				_cache_plantillas[clave] = plant
-			sf.add_frame(anim, SpriteLienzo.a_textura(plant, paleta, lz.x, lz.y))
+			plantillas.append(plant)
+		anims.append({"nombre": "%s_%d" % [nombre, dir], "loop": loop, "fps": fps,
+			"plantillas": plantillas})
 
 
 # Los colores de cada Tono, EN EL ORDEN DEL ENUM (contrato con SpriteLienzo.paleta).

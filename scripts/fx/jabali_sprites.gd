@@ -141,37 +141,41 @@ static func generar(color: Color = Color(0.35, 0.26, 0.22), escala: float = 1.0)
 	var clave: String = "%s_%.2f" % [col.to_html(false), esc]
 	if _cache.has(clave):
 		return _cache[clave]
-	var sf := SpriteFrames.new()
-	sf.remove_animation("default")
-	_montar_idle(sf, col, esc)
-	_montar_walk(sf, col, esc)
-	_montar_embestida(sf, col, esc)
+	# Todo en UN atlas recortado (ver SpriteLienzo.montar_frames): en el jabali, el 84% de cada frame
+	# del lienzo completo era aire transparente.
+	var anims: Array = []
+	_montar_idle(anims, esc)
+	_montar_walk(anims, esc)
+	_montar_embestida(anims, esc)
+	var lado: int = _celdas(esc)
+	var sf: SpriteFrames = SpriteLienzo.montar_frames(
+		anims, SpriteLienzo.paleta(_colores(col)), lado, lado)
 	_cache[clave] = sf
 	return sf
 
 
 # Quieto: resopla. Respira hondo y mueve poco la cabeza -- es un bicho pesado, no uno nervioso.
-static func _montar_idle(sf: SpriteFrames, color: Color, esc: float) -> void:
+static func _montar_idle(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return {"avance": 0.0, "estira": 1.0 + 0.02 * sin(TAU * t), "patas": 0.0,
 			"agacha": 0.0, "cabeza": 0.35 * sin(TAU * t), "escarba": 0.0}
-	_montar_animacion(sf, color, esc, "idle", true, 5.0, pose, false)
+	_montar_animacion(anims, esc, "idle", true, 5.0, pose, false)
 
 
 # Andando: trote corto y pesado. A 8 fps -- ni el paseo del slime ni el nervio de la rata (que va a
 # 10): anda a 40-65, o sea rapido para lo que pesa, pero el paso es corto porque las patas lo son.
-static func _montar_walk(sf: SpriteFrames, color: Color, esc: float) -> void:
+static func _montar_walk(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return {"avance": 0.0, "estira": 1.0 + 0.03 * sin(TAU * t * 2.0), "patas": sin(TAU * t),
 			"agacha": 0.06 * (1.0 - cos(TAU * t)), "cabeza": 0.9 * sin(TAU * t), "escarba": 0.0}
-	_montar_animacion(sf, color, esc, "walk", true, 8.0, pose, false)
+	_montar_animacion(anims, esc, "walk", true, 8.0, pose, false)
 
 
 # ESCARBAR -> lanzarse -> impacto -> recuperar. Es la unica embestida del juego que empieza
 # escarbando, y es literalmente lo que dice su habilidad: "baja la cabeza, escarba una vez y se te
 # viene encima". La rata se agazapa; este avisa raspando el suelo, que da mas miedo.
 # NO es periodica, asi que va por TRAMOS.
-static func _montar_embestida(sf: SpriteFrames, color: Color, esc: float) -> void:
+static func _montar_embestida(anims: Array, esc: float) -> void:
 	var avance_keys := [[0.0, 0.0], [0.30, -1.6], [0.62, 6.5], [0.80, 7.4], [1.0, 5.2]]
 	var estira_keys := [[0.0, 1.0], [0.30, 0.94], [0.62, 1.14], [0.80, 0.92], [1.0, 1.0]]
 	# 'agacha' baja el cuerpo Y la cabeza. En el tramo de vuelo va a tope: embiste con la testuz.
@@ -184,19 +188,14 @@ static func _montar_embestida(sf: SpriteFrames, color: Color, esc: float) -> voi
 			"agacha": SpriteLienzo.tramos(t, agacha_keys),
 			"cabeza": -1.8 * SpriteLienzo.tramos(t, agacha_keys),
 			"escarba": SpriteLienzo.tramos(t, escarba_keys)}
-	_montar_animacion(sf, color, esc, "embestida", false, 11.0, pose, true)
+	_montar_animacion(anims, esc, "embestida", false, 11.0, pose, true)
 
 
-static func _montar_animacion(sf: SpriteFrames, color: Color, esc: float, nombre: String,
+static func _montar_animacion(anims: Array, esc: float, nombre: String,
 		loop: bool, fps: float, pose_fn: Callable, ultimo_incluido: bool) -> void:
 	var divisor: float = float(FRAMES - 1) if ultimo_incluido else float(FRAMES)
-	var paleta: PackedByteArray = SpriteLienzo.paleta(_colores(color))
-	var lado: int = _celdas(esc)
 	for dir in 8:
-		var anim: String = "%s_%d" % [nombre, dir]
-		sf.add_animation(anim)
-		sf.set_animation_loop(anim, loop)
-		sf.set_animation_speed(anim, fps)
+		var plantillas: Array = []
 		for i in FRAMES:
 			# La GEOMETRIA se cachea por (animacion, frame, direccion, escala) y NO por color: otro
 			# jabali de otro tono reusa estas plantillas y solo repinta. Es lo que evita que entrar a
@@ -206,7 +205,9 @@ static func _montar_animacion(sf: SpriteFrames, color: Color, esc: float, nombre
 			if plant.is_empty():
 				plant = _plantilla(dir, pose_fn.call(float(i) / divisor), esc)
 				_cache_plantillas[clave] = plant
-			sf.add_frame(anim, SpriteLienzo.a_textura(plant, paleta, lado, lado))
+			plantillas.append(plant)
+		anims.append({"nombre": "%s_%d" % [nombre, dir], "loop": loop, "fps": fps,
+			"plantillas": plantillas})
 
 
 # El marron del jabali es tan apagado que, cuantizado, se le va el tono y sale un GRIS de raton.

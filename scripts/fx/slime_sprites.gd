@@ -47,6 +47,11 @@ const FRAMES := 8
 # +Y hacia donde mira, +Z hacia arriba). Diametro 34: es el tamaño que ya tenia en pantalla, y
 # respetarlo es lo que hace que este rework no lo agrande ni lo encoja. ---
 const DIAMETRO_MUNDO := 34.0
+# Y lo que CHOCA, que no es lo mismo. Una celda de la mazmorra mide 32 px justos
+# (DungeonGenerator.CELDA), asi que ese es el techo para cualquier bicho que tenga que pasar por un
+# pasillo de una celda. El dibujo puede sobresalir de su caja -- de hecho lo hace a proposito --,
+# pero la caja no puede pasarse del hueco por el que tiene que caber.
+const CUERPO_COLISION := 32.0
 
 # CUERPO: una bola apoyada. El centro esta a su propio semialto, o sea que la bola TOCA el suelo
 # exactamente -- de ahi salen a la vez la coronilla redonda y la base cerrada en ovalo, sin ningun
@@ -191,7 +196,11 @@ static func dimensiona_por_escala() -> bool:
 # mire, ocupa igual. (Lo que se achata es el DIBUJO, para que no se lea como un macaron -- ver
 # CUERPO_R --, pero eso es cosa de la camara, no de cuanto sitio ocupa en el suelo.)
 static func tam_cuerpo(escala: float = 1.0) -> Vector2:
-	return Vector2(DIAMETRO_MUNDO, DIAMETRO_MUNDO) * escala
+	# CUERPO_COLISION y no DIAMETRO_MUNDO: el slime se DIBUJA a 34 (un pelin mas grande que su caja,
+	# que es como se ve un charco asomando por los bordes de su hitbox), pero un pasillo de la
+	# mazmorra mide UNA CELDA = 32 px exactos. Con 34 no cabia: los slimes se quedaban trabados en
+	# las esquinas sin poder salir. Lo que se dibuja puede sobresalir; lo que CHOCA, no.
+	return Vector2(CUERPO_COLISION, CUERPO_COLISION) * escala
 
 
 # Cuantas celdas mide el lienzo para una escala dada.
@@ -220,38 +229,43 @@ static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false,
 	var clave: String = "%s_%.2f%s" % [col.to_html(false), esc, "_corona" if corona else ""]
 	if _cache.has(clave):
 		return _cache[clave]
-	var sf := SpriteFrames.new()
-	sf.remove_animation("default")
-	_montar_idle(sf, col, corona, esc)
-	_montar_walk(sf, col, corona, esc)
-	_montar_embestida(sf, col, corona, esc)
+	# Las tres animaciones se recolectan primero y se montan de una vez: asi TODOS los frames caben
+	# en un solo atlas recortado (ver SpriteLienzo.montar_frames), en vez de 192 texturas del tamaño
+	# del lienzo entero -- que era casi todo aire.
+	var anims: Array = []
+	_montar_idle(anims, corona, esc)
+	_montar_walk(anims, corona, esc)
+	_montar_embestida(anims, corona, esc)
+	var lz: Vector2i = _lienzo(esc)
+	var sf: SpriteFrames = SpriteLienzo.montar_frames(
+		anims, SpriteLienzo.paleta(_colores(col, corona)), lz.x, lz.y)
 	_cache[clave] = sf
 	return sf
 
 
 # Quieto: respira. El aplastado oscila muy poco y no se mueve del sitio.
-static func _montar_idle(sf: SpriteFrames, color: Color, corona: bool, esc: float) -> void:
+static func _montar_idle(anims: Array, corona: bool, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return {"squash": 1.0 + 0.03 * sin(TAU * t), "avance": 0.0, "bote": 0.0}
-	_montar_animacion(sf, color, corona, esc, "idle", true, 4.0, pose, false)
+	_montar_animacion(anims, corona, esc, "idle", true, 4.0, pose, false)
 
 
 # Andando: aplastado al tocar suelo (t=0), estirado en el aire (t=0.5). El bote vertical usa la
 # MISMA fase, asi que el cuerpo esta mas alto justo cuando esta mas estirado -- es lo que lo hace
 # leer como un salto y no como un cuadrado respirando. Y como la sombra de contacto se queda en el
 # suelo, la separacion entre las dos vende el salto sola.
-static func _montar_walk(sf: SpriteFrames, color: Color, corona: bool, esc: float) -> void:
+static func _montar_walk(anims: Array, corona: bool, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return {"squash": 1.0 - 0.17 * cos(TAU * t), "avance": 0.0,
 			"bote": BOTE * sin(PI * t)}
-	_montar_animacion(sf, color, corona, esc, "walk", true, 8.0, pose, false)
+	_montar_animacion(anims, corona, esc, "walk", true, 8.0, pose, false)
 
 
 # Agazapar -> lanzar -> impacto -> recuperar. NO es periodica (no vuelve al punto de partida), asi
 # que va por TRAMOS en vez de una formula trigonometrica. El avance va en el eje LOCAL +Y, o sea
 # hacia donde mira: al proyectar, ir hacia el norte sube menos en pantalla que ir hacia el este se
 # desplaza de lado, y eso es justo lo correcto.
-static func _montar_embestida(sf: SpriteFrames, color: Color, corona: bool, esc: float) -> void:
+static func _montar_embestida(anims: Array, corona: bool, esc: float) -> void:
 	var squash_keys := [[0.0, 1.0], [0.25, 0.60], [0.55, 1.25], [0.75, 0.70], [1.0, 0.95]]
 	var avance_keys := [[0.0, 0.0], [0.25, 0.0], [0.55, 0.90], [0.75, 0.95], [1.0, 0.70]]
 	var bote_keys := [[0.0, 0.0], [0.25, 0.0], [0.55, 1.0], [0.75, 0.15], [1.0, 0.0]]
@@ -259,19 +273,14 @@ static func _montar_embestida(sf: SpriteFrames, color: Color, corona: bool, esc:
 		return {"squash": SpriteLienzo.tramos(t, squash_keys),
 			"avance": SpriteLienzo.tramos(t, avance_keys) * LUNGE_DIST,
 			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE * 1.4}
-	_montar_animacion(sf, color, corona, esc, "embestida", false, 10.0, pose, true)
+	_montar_animacion(anims, corona, esc, "embestida", false, 10.0, pose, true)
 
 
-static func _montar_animacion(sf: SpriteFrames, color: Color, corona: bool, esc: float,
+static func _montar_animacion(anims: Array, corona: bool, esc: float,
 		nombre: String, loop: bool, fps: float, pose_fn: Callable, ultimo_incluido: bool) -> void:
 	var divisor: float = float(FRAMES - 1) if ultimo_incluido else float(FRAMES)
-	var paleta: PackedByteArray = SpriteLienzo.paleta(_colores(color, corona))
-	var lz: Vector2i = _lienzo(esc)
 	for dir in 8:
-		var anim: String = "%s_%d" % [nombre, dir]
-		sf.add_animation(anim)
-		sf.set_animation_loop(anim, loop)
-		sf.set_animation_speed(anim, fps)
+		var plantillas: Array = []
 		for i in FRAMES:
 			# La GEOMETRIA se cachea por (animacion, frame, direccion, corona, escala) y NO por color:
 			# otro slime de otro tono reusa estas plantillas y solo repinta. Es lo que evita que
@@ -281,7 +290,9 @@ static func _montar_animacion(sf: SpriteFrames, color: Color, corona: bool, esc:
 			if plant.is_empty():
 				plant = _plantilla(dir, pose_fn.call(float(i) / divisor), corona, esc)
 				_cache_plantillas[clave] = plant
-			sf.add_frame(anim, SpriteLienzo.a_textura(plant, paleta, lz.x, lz.y))
+			plantillas.append(plant)
+		anims.append({"nombre": "%s_%d" % [nombre, dir], "loop": loop, "fps": fps,
+			"plantillas": plantillas})
 
 
 # Los colores de cada Tono, EN EL ORDEN DEL ENUM (contrato con SpriteLienzo.paleta).
