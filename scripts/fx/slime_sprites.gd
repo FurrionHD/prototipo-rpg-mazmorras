@@ -41,10 +41,7 @@ class_name SlimeSprites
 
 const FRAMES := 8
 
-# --- Camara. Los mismos 45 grados que la rata: ni cenital pura (se lee como un mapa) ni de perfil.
-const CAMARA_GRADOS := 45.0
-const COS_CAM := cos(deg_to_rad(CAMARA_GRADOS))   # cuanto se encoge la PROFUNDIDAD
-const SIN_CAM := sin(deg_to_rad(CAMARA_GRADOS))   # cuanto sube en pantalla la ALTURA
+# La camara (45 grados) vive en el motor: es UNA para todos los bichos, ver SpriteLienzo.COS_CAM.
 
 # --- El slime mirando al SUR, en unidades de MUNDO (origen = el punto en que TOCA EL SUELO,
 # +Y hacia donde mira, +Z hacia arriba). Diametro 34: es el tamaño que ya tenia en pantalla, y
@@ -373,16 +370,11 @@ static func _piezas(dir: int, pose: Dictionary, corona: bool, esc: float) -> Arr
 		# LA PROYECCION: la profundidad se encoge por cos(45) y la altura SUBE por sin(45). Ese "- z"
 		# es lo que pone la coronilla por encima de la base y hace que se le vea el costado.
 		var sx: float = origen.x + rot.x * u
-		var sy: float = origen.y + (rot.y * escorzo * COS_CAM - z * SIN_CAM) * u
-		# El aplastado en pantalla de una pieza NO es un numero a ojo: una elipsoide de semiejes
-		# (ry, rz) proyectada sobre el eje (cos45, -sin45) mide sqrt(ry²cos² + rz²sin²). De ahi salen
-		# solos los dos casos limite que la rata tenia como constantes: una cosa PLANA (rz=0) sale en
-		# cos(45)=0.707, y una ESFERA (ry=rz) en 1.0, o sea circulo mire por donde se mire.
+		var sy: float = origen.y + (rot.y * escorzo * SpriteLienzo.COS_CAM - z * SpriteLienzo.SIN_CAM) * u
+		# El aplastado en pantalla sale de la geometria, no de un numero a ojo: ver persp_de.
 		var ry: float = r.y * ancho
-		var rz: float = r.z * alto
-		var vert: float = sqrt(ry * ry * COS_CAM * COS_CAM + rz * rz * SIN_CAM * SIN_CAM)
 		piezas.append({"pos": Vector2(sx, sy), "radio": Vector2(r.x * ancho * u, ry * u),
-			"persp": vert / maxf(0.01, ry), "tono": tono, "solo_sobre": solo_sobre})
+			"persp": SpriteLienzo.persp_de(ry, r.z * alto), "tono": tono, "solo_sobre": solo_sobre})
 
 	# 1. SOMBRA DE CONTACTO. Acompaña al bicho por el suelo cuando se lanza (pasa por 'avance') pero
 	#    NO sube con el: z = 0 y 'sube' = false.
@@ -512,52 +504,11 @@ static func _plantilla(dir: int, pose: Dictionary, corona: bool, esc: float) -> 
 		SpriteLienzo.elipse(plant, lz.x, lz.y, pos.x, pos.y, r.x, r.y, int(p["tono"]),
 			0.0, p["solo_sobre"], float(p["persp"]))
 
-	# CONTORNO al final, sobre la silueta ya completa: hay que perfilar la forma ENTERA ya fusionada
-	# -- pieza a pieza, cada elipse traeria su propio circulito marcado por dentro, y los cuernos
-	# dejarian de leerse como parte del bicho.
-	_contornear(plant, _caja_de(piezas, lz), lz)
+	# CONTORNO al final, sobre la silueta ya completa (ver SpriteLienzo.contornear). La sombra del
+	# suelo cuenta como hueco: es una mancha translucida, no parte del bicho, y perfilarla la
+	# convertiria en un charco con borde.
+	SpriteLienzo.contornear(plant, SpriteLienzo.caja_de_piezas(piezas, lz.x, lz.y), lz.x, lz.y,
+		Tono.BORDE, Tono.VACIO, Tono.SOMBRA_SUELO)
 	return plant
 
 
-# Caja que envuelve a todas las piezas, con aire para el contorno.
-static func _caja_de(piezas: Array, lz: Vector2i) -> Rect2i:
-	var x0 := INF
-	var y0 := INF
-	var x1 := -INF
-	var y1 := -INF
-	for p in piezas:
-		var pos: Vector2 = p["pos"]
-		var r: Vector2 = p["radio"]
-		var rv: float = r.y * float(p["persp"])
-		x0 = minf(x0, pos.x - r.x)
-		x1 = maxf(x1, pos.x + r.x)
-		y0 = minf(y0, pos.y - rv)
-		y1 = maxf(y1, pos.y + rv)
-	return SpriteLienzo.caja(x0, y0, x1, y1, lz.x, lz.y)
-
-
-# Repasa la silueta y convierte en BORDE las celdas que tocan el vacio. Trabaja sobre una COPIA
-# porque, si no, el borde recien puesto contaria como relleno para su vecino y la linea se comeria
-# la figura hacia dentro.
-static func _contornear(plant: PackedByteArray, caja: Rect2i, lz: Vector2i) -> void:
-	var copia := plant.duplicate()
-	for gy in range(caja.position.y, caja.end.y):
-		var fila: int = gy * lz.x
-		for gx in range(caja.position.x, caja.end.x):
-			var idx: int = fila + gx
-			var t: int = copia[idx]
-			if t == Tono.VACIO or t == Tono.SOMBRA_SUELO:
-				continue
-			# El test de hueco va EN LINEA, sin llamada a funcion: son cuatro vecinos por celda y
-			# decenas de miles de celdas por frame x 192 frames, o sea millones de llamadas. Es el
-			# mismo motivo por el que el slime ya lo tenia asi antes del rework.
-			var a: int = copia[idx + 1]
-			var b: int = copia[idx - 1]
-			var c: int = copia[idx + lz.x]
-			var d: int = copia[idx - lz.x]
-			if gx <= 0 or gx >= lz.x - 1 or gy <= 0 or gy >= lz.y - 1 \
-					or a == Tono.VACIO or a == Tono.SOMBRA_SUELO \
-					or b == Tono.VACIO or b == Tono.SOMBRA_SUELO \
-					or c == Tono.VACIO or c == Tono.SOMBRA_SUELO \
-					or d == Tono.VACIO or d == Tono.SOMBRA_SUELO:
-				plant[idx] = Tono.BORDE

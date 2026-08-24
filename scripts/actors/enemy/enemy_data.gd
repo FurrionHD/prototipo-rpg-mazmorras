@@ -36,6 +36,13 @@ enum Familia { NINGUNA, SLIME, ROEDOR, INSECTO, PIEDRA, BESTIA, HUMANOIDE }
 # generica a proposito: el generador de cada familia decide que hace con ella, asi no hace falta un
 # booleano nuevo en esta ficha por cada bicho que estrene un adorno.
 @export var sprite_variante: StringName = &""
+# QUE GENERADOR le dibuja, cuando no basta con su familia. Vacio = se despacha por familia, que es lo
+# normal y lo que hacen slimes y roedores (ver SpritesEnemigo.GENERADORES).
+#
+# Hace falta porque la familia es una etiqueta de JUEGO, no de dibujo, y hay familias con bichos que
+# no se parecen en nada: BESTIA son el Jabali y el Acechador de las simas, y NINGUNA son el Trent y
+# la Aberracion. Despachando solo por familia, el Acechador saldria con forma de jabali.
+@export var sprite_gen: StringName = &""
 # FAMILIA slime: marca a toda la estirpe (normal, elementales, profundo, abisal y el propio Rey).
 # Lo usa la mecanica de sequito del Rey Slime: cada slime VIVO que le acompañe en combate le da
 # reduccion de daño. Aqui es solo la etiqueta; la reduccion la configuran los campos de abajo.

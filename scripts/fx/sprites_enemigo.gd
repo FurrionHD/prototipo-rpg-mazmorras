@@ -38,10 +38,28 @@ static var GENERADORES := {
 	EnemyData.Familia.ROEDOR: RataSprites,
 }
 
+# Y los que NO se pueden despachar por familia, POR NOMBRE (EnemyData.sprite_gen).
+#
+# Despachar por familia funcionaba con dos generadores y deja de funcionar con cuatro: la familia es
+# una etiqueta de JUEGO (la usan las pasivas slayer), no de dibujo, y hay familias que juntan bichos
+# que no se parecen en nada. BESTIA son el Jabali y el Acechador de las simas; NINGUNA son el Trent
+# y la Aberracion de la sima. Registrando BESTIA -> JabaliSprites, el Acechador saldria con forma de
+# jabali.
+#
+# El nombre gana a la familia, asi que un bicho puede salirse del dibujo de los suyos sin tocar nada
+# mas. Y NO se toco el enum Familia para meter una PLANTA: eso es un cambio de juego (las slayer),
+# no de dibujo.
+static var GENERADORES_POR_NOMBRE := {
+	&"jabali": JabaliSprites,
+	&"trent": TrentSprites,
+}
+
 
 static func _generador(ed: EnemyData):
 	if ed == null:
 		return null
+	if ed.sprite_gen != &"":
+		return GENERADORES_POR_NOMBRE.get(ed.sprite_gen, null)
 	return GENERADORES.get(ed.familia, null)
 
 

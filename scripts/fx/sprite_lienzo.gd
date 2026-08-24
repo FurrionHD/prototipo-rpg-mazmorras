@@ -44,6 +44,35 @@ const VACIO := 0
 const UNIDADES_POR_CELDA := 0.62
 
 
+# ============================================================
+#  LA CAMARA ES UNA PARA TODO EL JUEGO: 45 GRADOS
+# ============================================================
+# Todos los bichos se ven desde el mismo sitio, y ese sitio se decide AQUI. Cada pieza vive en 3D
+# (x a lo ancho, y a lo largo, z de altura) y se proyecta:
+#       pantalla_x = x
+#       pantalla_y = y * COS_CAM - z * SIN_CAM
+# Ese "- z" es lo que pone el lomo por encima de las patas y hace que de perfil se vea el COSTADO y
+# no la planta. Ni cenital pura (que se lee como un mapa y queda rara) ni de perfil.
+#
+# Estaba declarado por separado en cada generador. Con dos aun colaba; en cuanto son cuatro, una de
+# las copias se queda atras y ese bicho pasa a verse desde otro sitio que el resto -- que es
+# exactamente el problema que este rework vino a arreglar.
+const CAMARA_GRADOS := 45.0
+const COS_CAM := cos(deg_to_rad(CAMARA_GRADOS))   # cuanto se encoge la PROFUNDIDAD
+const SIN_CAM := sin(deg_to_rad(CAMARA_GRADOS))   # cuanto sube en pantalla la ALTURA
+
+
+# Cuanto se aplasta en pantalla una pieza de semiejes (ry a lo largo, rz de alto): el valor que hay
+# que pasarle a 'elipse' como 'persp'. NO es un numero a ojo -- un elipsoide proyectado sobre el eje
+# (cos45, -sin45) mide sqrt(ry²cos² + rz²sin²) -- y de ahi salen solos los dos casos limite:
+#   * una cosa PLANA tumbada en el suelo (rz = 0) sale en cos(45) = 0.707;
+#   * una ESFERA (ry == rz) sale en 1.0, o sea circulo mire por donde se mire.
+# Con esto no hacen falta las constantes a ojo por tipo de pieza que llevaba la rata.
+static func persp_de(ry: float, rz: float) -> float:
+	var r: float = maxf(0.01, ry)
+	return sqrt(r * r * COS_CAM * COS_CAM + rz * rz * SIN_CAM * SIN_CAM) / r
+
+
 # ------------------------------------------------------------
 #  Color y paleta
 # ------------------------------------------------------------
@@ -212,6 +241,60 @@ static func caja(x0: float, y0: float, x1: float, y1: float, w: int, h: int) -> 
 	var iy0: int = clampi(int(floor(y0)) - 1, 0, h - 1)
 	var iy1: int = clampi(int(ceil(y1)) + 2, 0, h)
 	return Rect2i(ix0, iy0, maxi(0, ix1 - ix0), maxi(0, iy1 - iy0))
+
+
+# Caja que envuelve a un array de piezas {pos: Vector2, radio: Vector2, persp: float}, con aire para
+# el contorno. Cada generador la repetia igual.
+static func caja_de_piezas(piezas: Array, w: int, h: int) -> Rect2i:
+	var x0 := INF
+	var y0 := INF
+	var x1 := -INF
+	var y1 := -INF
+	for p in piezas:
+		var pos: Vector2 = p["pos"]
+		var r: Vector2 = p["radio"]
+		# Si la pieza GIRA, el radio que manda es el mayor de los dos (puede caer en cualquier eje);
+		# si solo esta aplastada, la vertical es su radio por la perspectiva.
+		var rx: float = maxf(r.x, r.y) if bool(p.get("gira_forma", false)) else r.x
+		var ry: float = maxf(r.x, r.y) if bool(p.get("gira_forma", false)) \
+			else r.y * float(p.get("persp", 1.0))
+		x0 = minf(x0, pos.x - rx)
+		x1 = maxf(x1, pos.x + rx)
+		y0 = minf(y0, pos.y - ry)
+		y1 = maxf(y1, pos.y + ry)
+	return caja(x0, y0, x1, y1, w, h)
+
+
+# Repasa la silueta y convierte en 'borde' las celdas que tocan el vacio.
+#
+# Trabaja sobre una COPIA porque, si no, el borde recien puesto contaria como relleno para su vecino
+# y la linea se comeria la figura hacia dentro.
+#
+# Se perfila la forma ENTERA YA FUSIONADA, nunca pieza a pieza: si no, cada elipse traeria su propio
+# circulito marcado por dentro y los cuernos dejarian de leerse como parte del bicho.
+#
+# 'hueco_a' y 'hueco_b' son los dos tonos que cuentan como "fuera" (normalmente VACIO y la sombra
+# del suelo, que no debe llevar contorno). Van como enteros sueltos y el test va EN LINEA a
+# proposito: son cuatro vecinos por celda y decenas de miles de celdas por frame x 192 frames, o sea
+# millones de comprobaciones. Una llamada a funcion por vecino aqui se nota en segundos.
+static func contornear(plant: PackedByteArray, cj: Rect2i, w: int, h: int, borde: int,
+		hueco_a: int, hueco_b: int) -> void:
+	var copia := plant.duplicate()
+	for gy in range(cj.position.y, cj.end.y):
+		var fila: int = gy * w
+		for gx in range(cj.position.x, cj.end.x):
+			var idx: int = fila + gx
+			var t: int = copia[idx]
+			if t == hueco_a or t == hueco_b:
+				continue
+			var a: int = copia[idx + 1]
+			var b: int = copia[idx - 1]
+			var c: int = copia[idx + w]
+			var d: int = copia[idx - w]
+			if gx <= 0 or gx >= w - 1 or gy <= 0 or gy >= h - 1 \
+					or a == hueco_a or a == hueco_b or b == hueco_a or b == hueco_b \
+					or c == hueco_a or c == hueco_b or d == hueco_a or d == hueco_b:
+				plant[idx] = borde
 
 
 # ------------------------------------------------------------

@@ -18,6 +18,7 @@ prob = 0.2
 script = ExtResource("1_g8nro")
 familia = 5
 enemy_name = "Jabalí"
+sprite_gen = &"jabali"
 color = Color(0.35, 0.26, 0.22, 1)
 escala_visual = 1.7
 fuerza = 42

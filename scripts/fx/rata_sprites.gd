@@ -77,7 +77,11 @@ const COLA_DESFASE := 0.75
 # Una cosa PLANA tumbada en el suelo se ve con todo el escorzo de la camara -> cos(45) = 0.707.
 # Una ESFERA se proyecta como un circulo mire por donde se mire -> casi 1.
 # El cuerpo esta en medio: es alargado y tumbado, pero tiene lomo, asi que se queda entre los dos.
-const CHATO_TUMBADO := COS_CAM
+#
+# Estan A OJO, y se quedan asi: el motor tiene SpriteLienzo.persp_de(), que saca el valor EXACTO de
+# los semiejes de la pieza, pero cambiarlos ahora le moveria pixeles a una rata que ya esta dada por
+# buena. Los bichos nuevos si usan persp_de.
+const CHATO_TUMBADO := SpriteLienzo.COS_CAM
 const CHATO_CUERPO := 0.88
 const CHATO_REDONDO := 0.95
 const CHATO_OREJA := 0.92
@@ -273,9 +277,11 @@ static func _piezas(dir: int, pose: Dictionary, rey: bool, esc: float) -> Array:
 		# sin(45). Ese "- z" es lo que pone el lomo y las orejas por encima de las patas, y por
 		# tanto lo que hace que de perfil se le vea el COSTADO y no la planta.
 		var sx: float = centro + rot.x * u
-		var sy: float = centro + (rot.y * COS_CAM - z * SIN_CAM) * u
+		var sy: float = centro + (rot.y * SpriteLienzo.COS_CAM - z * SpriteLienzo.SIN_CAM) * u
+		# 'gira_forma': la ELIPSE de la rata gira sobre si misma (lleva 'ang'), asi que para encerrarla
+		# hay que contar con su radio mayor en los DOS ejes -- puede caer en cualquiera de ellos.
 		piezas.append({"pos": Vector2(sx, sy),
-			"radio": Vector2(r.x * ancho * u, r.y * largo * u),
+			"radio": Vector2(r.x * ancho * u, r.y * largo * u), "gira_forma": true,
 			"tono": tono, "ang": ang, "chato": chato, "solo_sobre": solo_sobre})
 
 	# SOMBRA DE CONTACTO, lo primero de todo (va debajo). Se pone a ALTURA CERO: asi acompaña al
@@ -380,48 +386,8 @@ static func _plantilla(dir: int, pose: Dictionary, rey: bool, esc: float) -> Pac
 		SpriteLienzo.elipse(plant, lado, lado, pos.x, pos.y, r.x, r.y, int(p["tono"]),
 			float(p["ang"]), p["solo_sobre"], float(p["chato"]))
 
-	# CONTORNO al final, sobre la silueta ya completa: hay que perfilar la forma ENTERA ya
-	# fusionada -- pieza a pieza, cada elipse traeria su propio circulito marcado por dentro.
-	_contornear(plant, _caja_de(piezas, lado), lado)
+	# CONTORNO al final, sobre la silueta ya completa (ver SpriteLienzo.contornear). La sombra del
+	# suelo cuenta como hueco: es una mancha translucida, no parte del bicho.
+	SpriteLienzo.contornear(plant, SpriteLienzo.caja_de_piezas(piezas, lado, lado), lado, lado,
+		Tono.BORDE, Tono.VACIO, Tono.SOMBRA_SUELO)
 	return plant
-
-
-# Caja que envuelve a todas las piezas, con aire para el contorno. El lienzo va MUY holgado (tiene
-# que dar para la diagonal y para el salto de la embestida), asi que la rata ocupa una fraccion.
-static func _caja_de(piezas: Array, lado: int) -> Rect2i:
-	var x0 := INF
-	var y0 := INF
-	var x1 := -INF
-	var y1 := -INF
-	for p in piezas:
-		var pos: Vector2 = p["pos"]
-		var r: Vector2 = p["radio"]
-		var m: float = maxf(r.x, r.y)     # girada, manda el radio mayor
-		x0 = minf(x0, pos.x - m)
-		x1 = maxf(x1, pos.x + m)
-		y0 = minf(y0, pos.y - m)
-		y1 = maxf(y1, pos.y + m)
-	return SpriteLienzo.caja(x0, y0, x1, y1, lado, lado)
-
-
-# Repasa la silueta y convierte en BORDE las celdas que tocan el vacio. Trabaja sobre una COPIA
-# porque, si no, el borde recien puesto contaria como relleno para su vecino y la linea se comeria
-# la figura hacia dentro.
-static func _contornear(plant: PackedByteArray, caja: Rect2i, lado: int) -> void:
-	var copia := plant.duplicate()
-	for gy in range(caja.position.y, caja.end.y):
-		var fila: int = gy * lado
-		for gx in range(caja.position.x, caja.end.x):
-			var idx: int = fila + gx
-			var t: int = copia[idx]
-			if t == Tono.VACIO or t == Tono.SOMBRA_SUELO:
-				continue
-			if gx <= 0 or gx >= lado - 1 or gy <= 0 or gy >= lado - 1 \
-					or _hueco(copia, idx + 1) or _hueco(copia, idx - 1) \
-					or _hueco(copia, idx + lado) or _hueco(copia, idx - lado):
-				plant[idx] = Tono.BORDE
-
-
-static func _hueco(copia: PackedByteArray, idx: int) -> bool:
-	var t: int = copia[idx]
-	return t == Tono.VACIO or t == Tono.SOMBRA_SUELO
