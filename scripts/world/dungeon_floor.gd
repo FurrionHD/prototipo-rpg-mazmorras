@@ -1272,6 +1272,15 @@ func _crear_zonas() -> void:
 	# expediciones viejas de ESTA maquina). En sesion, la memoria que se restaura la siembra Net
 	# con la FOTO del piso (ver Net._viaje_ok), asi que 'recordado' ya sale bien.
 	# hay_sitio() ya corta, pero saltarselo ahorra el trabajo entero.
+	# LOS SPRITES, ANTES DE QUE NAZCA NADIE. Generarlos cuesta de 0,2 a 1,2 s por tipo, y se pagaba
+	# en el _ready del bicho: o sea la primera vez que una pared paria un jabali, en mitad de la
+	# partida, se congelaba el juego casi un segundo -- y un BROTE de cinco podia irse a mas de uno.
+	# Aqui el tiron cae donde ya se espera, montando el piso, y ademas solo la PRIMERA vez que sale
+	# cada tipo en toda la sesion: el cache es estatico (ver SpritesEnemigo.precalentar).
+	#
+	# Va tambien cuando el piso viene RECORDADO: los bichos restaurados necesitan su sprite igual.
+	_precalentar_sprites()
+
 	var simulo_bichos: bool = Net.simulo_mi_piso()
 	if not recordado and simulo_bichos:
 		_poblar_el_piso(zona_entrada)
@@ -1281,6 +1290,28 @@ func _crear_zonas() -> void:
 	if recordado and simulo_bichos:
 		call_deferred("_restaurar_estado")
 	call_deferred("_log_poblacion", recordado)
+
+
+# Deja generados los sprites de TODO lo que puede salir en este piso, jefe incluido.
+#
+# La lista sale de la propia tabla de spawns (aplanar ya resuelve las familias anidadas), asi que no
+# hay una segunda lista que mantener: si mañana entra un bicho nuevo en la tabla, se precalienta
+# solo. Lo que no tiene generador (los que aun son un ColorRect) no cuesta nada.
+func _precalentar_sprites() -> void:
+	var datas: Array = []
+	if spawn_table != null:
+		for e in spawn_table.aplanar(Game.current_floor):
+			datas.append(e["data"])
+	# El jefe va aparte: no esta en la tabla de partos, y es justo el mas caro de generar.
+	var jefe: EnemyData = Game.boss_del_piso(Game.current_floor)
+	if jefe != null:
+		datas.append(jefe)
+	if datas.is_empty():
+		return
+	var ms: int = SpritesEnemigo.precalentar(datas)
+	if ms > 0:
+		print("[mazmorra] sprites listos para el piso ", Game.current_floor, ": ",
+			datas.size(), " tipos en ", ms, " ms")
 
 
 # POBLACION INICIAL: la fraccion del TOPE DEL PISO que ya esta deambulando cuando llegas.

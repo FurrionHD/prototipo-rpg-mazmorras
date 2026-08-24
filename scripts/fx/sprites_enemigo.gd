@@ -96,6 +96,68 @@ static func hay_que_estirar(ed: EnemyData) -> bool:
 	return not g.dimensiona_por_escala() if g != null else false
 
 
+# ============================================================
+#  QUE ANIMACION TOCA
+# ============================================================
+# Vive aqui, y no en enemy.gd, por el mismo motivo que el registro de generadores: la regla la
+# necesitan DOS sitios -- el bicho que se simula (enemy.gd) y su espejo en la maquina del otro
+# jugador (remote_enemy.gd) --, y dos copias de la misma regla divergen. Si divergen, cada jugador
+# ve al mismo bicho haciendo cosas distintas, que en un juego donde el sigilo es medio juego no es
+# un detalle estetico.
+
+# Una direccion de pantalla (+Y abajo) a uno de los 8 sectores: 0=S 1=SE 2=E 3=NE 4=N 5=NW 6=W 7=SW,
+# que es el orden en que TODOS los generadores nombran sus animaciones.
+static func dir8(dir: Vector2) -> int:
+	var ang: float = dir.angle()   # 0 = derecha (E), crece en sentido horario (Y abajo)
+	var sector: int = int(round((PI / 2.0 - ang) / (PI / 4.0)))
+	return ((sector % 8) + 8) % 8
+
+
+# El nombre de la animacion que toca, a partir de hacia donde mira y que esta haciendo.
+static func animacion(mirada: Vector2, embistiendo: bool, moviendose: bool) -> String:
+	var base: String = "embestida" if embistiendo else ("walk" if moviendose else "idle")
+	return "%s_%d" % [base, dir8(mirada)]
+
+
+# ============================================================
+#  PRECALENTAR: generar los sprites ANTES de que nazca el bicho
+# ============================================================
+# Generar los 192 frames de un enemigo cuesta lo suyo (medido: 0,17 s un slime, 0,77 s el jabali,
+# 1,17 s el Rey Slime), y hasta ahora se pagaba EN EL _ready DEL BICHO -- o sea, en mitad de la
+# partida, la primera vez que a una pared le daba por parir uno de ese tipo. Y no una vez por tipo:
+# el color sale de color_visual(t) con 't' aleatorio por bicho, asi que tras cuantizar quedan 3-4
+# variantes y cada una es su propia generacion. Un BROTE de cinco podia comerse mas de un segundo
+# de golpe, justo cuando estas jugando.
+#
+# Con el cache caliente, en cambio, un nacimiento cuesta CERO (medido: 50 seguidos, 0 ms). Asi que
+# el arreglo no es generar mas rapido, es generar ANTES: aqui, mientras se monta el piso.
+#
+# El cache es ESTATICO y va por (color cuantizado, escala, variante), asi que esto solo se paga la
+# PRIMERA vez que aparece cada tipo en toda la sesion; volver a bajar al mismo piso es gratis.
+
+# Cuantas 't' se prueban por enemigo. No hace falta afinar: 't' solo entra por color_visual, que es
+# monotona, y tras cuantizar deja 3-4 escalones. Con 24 muestras se cubren todos de sobra, y las que
+# repiten clave salen gratis (el cache acierta).
+const _MUESTRAS_T := 24
+
+
+# Deja listos los sprites de estos EnemyData. Devuelve los milisegundos que ha costado, para poder
+# medirlo desde fuera sin instrumentar esto.
+static func precalentar(datas: Array) -> int:
+	var t0: int = Time.get_ticks_msec()
+	var vistos := {}
+	for d in datas:
+		var ed: EnemyData = d as EnemyData
+		if ed == null or vistos.has(ed):
+			continue
+		vistos[ed] = true
+		if _generador(ed) == null:
+			continue      # sigue siendo un ColorRect: no hay nada que generar
+		for i in _MUESTRAS_T:
+			frames_de(ed, float(i) / float(_MUESTRAS_T - 1))
+	return Time.get_ticks_msec() - t0
+
+
 # El CUERPO de este enemigo en planta (ancho, largo) en unidades de mundo, o Vector2.ZERO si no se
 # sabe -- que es el caso de los ~15 que siguen siendo un ColorRect y el del arte de verdad, que no
 # declara su geometria. Quien pregunte tiene que tratar el ZERO como "usa la caja de siempre".

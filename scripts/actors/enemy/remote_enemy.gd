@@ -49,6 +49,19 @@ const COLOR_LINEA_AVISO := Color(1.0, 0.3, 0.1)
 var _linea: Line2D = null
 var _mira: float = 0.0            # ultimo angulo recibido
 var _avisando: bool = false       # esta telegrafiando el golpe
+
+# --- SPRITE (el mismo que ve quien simula el piso) --------------------------------------------
+# Este espejo naciO siendo un ColorRect a proposito, cuando TODOS los bichos lo eran. En cuanto los
+# enemigos pasaron a dibujarse por codigo eso dejo de valer: el anfitrion veia slimes, ratas,
+# jabalies y trents, y el invitado cuadrados de colores. Mismo bicho, dos juegos distintos.
+#
+# No hace falta mandar nada nuevo por el cable: el alta ya trae la RUTA del .tres y la 't' (ver
+# Net._datos_enemigo), que es exactamente lo que necesita el generador para sacar el MISMO sprite,
+# pixel por pixel, en las dos maquinas.
+var _sprite: AnimatedSprite2D = null
+var _anim_actual: String = ""
+var _mov: bool = false            # se esta moviendo (se deduce de los paquetes de posicion)
+const _AVISO_TINTE := Color(1.0, 0.45, 0.30)     # el mismo que enemy.gd
 # --- EL CONTRATO DEL GRUPO "enemy" -----------------------------------------------------------
 # Todo esto se llama igual que en enemy.gd A PROPOSITO. Al entrar en el grupo "enemy" hay que
 # cumplir su contrato ENTERO, porque varios sistemas recorren el grupo y leen estos campos a pelo:
@@ -75,6 +88,13 @@ func _ready() -> void:
 	_cuerpo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_cuerpo)
 	_redimensionar(32.0)
+
+	_sprite = AnimatedSprite2D.new()
+	_sprite.visible = false
+	# El sprite generado va a 1 celda = 1 pixel y lo AMPLIA este nodo: sin filtro NEAREST el
+	# escalado lo interpola y el pixel-art sale borroso.
+	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_child(_sprite)
 
 	# Linea de direccion (hacia donde mira), delante del cuerpo.
 	_linea = Line2D.new()
@@ -121,10 +141,38 @@ func aplicar_datos(ruta: String, t: float, ya_muerto: bool, _vision: float = 130
 	if not ruta.is_empty():
 		data = load(ruta) as EnemyData
 	current_t = t
+	_montar_sprite()
 	if ya_muerto:
 		marcar_cadaver()
 	else:
 		add_to_group("enemy")
+
+
+# El sprite, con la MISMA receta que enemy.gd: quien dibuja a quien lo decide SpritesEnemigo (el
+# arte de verdad manda; si no, el generador de su familia o de su sprite_gen; si no hay ninguno, se
+# queda el ColorRect de siempre). Y como el color y la 't' son los del host, sale identico.
+func _montar_sprite() -> void:
+	if data == null or _sprite == null:
+		return
+	var frames: SpriteFrames = SpritesEnemigo.frames_de(data, current_t)
+	if frames == null:
+		return
+	_cuerpo.visible = false
+	_sprite.visible = true
+	_sprite.sprite_frames = frames
+	# La textura generada NO es 1 pixel = 1 unidad de mundo: cada generador dice cuanto escalarla.
+	# Y NO se vuelve a estirar con escala_visual: los generadores ya dibujan al bicho grande con mas
+	# celdas, que es lo que mantiene el pixel del mismo tamaño para todos.
+	var esc: float = SpritesEnemigo.escala_de(data)
+	if SpritesEnemigo.hay_que_estirar(data):
+		esc *= maxf(0.1, data.escala_visual)
+	_sprite.scale = Vector2.ONE * esc
+	# La linea amarilla es el apaño de los CUADRADOS: quien tiene cara no la necesita, y ademas mide
+	# 26 unidades fijas (un mastil en una rata, invisible dentro del Rey Slime). El aviso del golpe,
+	# que es lo OTRO que contaba la linea, pasa al tinte -- igual que en enemy.gd.
+	if _linea != null:
+		_linea.visible = false
+	_actualizar_animacion()
 
 
 # Hacia donde mira y si esta avisando el golpe. Llega en cada tick de posiciones.
@@ -133,9 +181,27 @@ func aplicar_estado_visual(ang: float, avisando: bool) -> void:
 	_avisando = avisando
 	if muerto:
 		return
+	if _sprite != null and _sprite.visible:
+		_sprite.modulate = _AVISO_TINTE if avisando else Color.WHITE
+		_actualizar_animacion()
+		return
 	if _linea != null:
 		_linea.rotation = ang
 		_linea.default_color = COLOR_LINEA_AVISO if avisando else COLOR_LINEA
+
+
+# La animacion que toca. La REGLA la decide SpritesEnemigo, la misma que usa el bicho de verdad:
+# dos copias divergen y entonces cada jugador ve al mismo bicho haciendo cosas distintas.
+#
+# 'embistiendo' se toma del aviso: el espejo no conoce los estados de la IA del host, pero el aviso
+# del golpe SI viaja, y es justo el momento en que el bicho se lanza.
+func _actualizar_animacion() -> void:
+	if _sprite == null or not _sprite.visible:
+		return
+	var nombre: String = SpritesEnemigo.animacion(Vector2.RIGHT.rotated(_mira), _avisando, _mov)
+	if nombre != _anim_actual:
+		_anim_actual = nombre
+		_sprite.play(nombre)
 
 
 # Lo mismo que enemy.poder_normalizado(): donde cae dentro de su franja. Lo pide la extraccion
@@ -233,6 +299,11 @@ func marcar_cadaver() -> void:
 	muerto = true
 	if _cuerpo != null:
 		_cuerpo.color = Color(0.4, 0.4, 0.4)
+	# El sprite se apaga en gris, igual que el cuerpo y que en enemy.morir. Y ademas se le quita el
+	# tinte: si moria justo mientras avisaba el golpe, se quedaba de cadaver en naranja para siempre.
+	if _sprite != null and _sprite.visible:
+		_sprite.modulate = Color(0.45, 0.45, 0.45)
+		_sprite.pause()
 	# Un cadaver ya no mira a ningun sitio: fuera la linea (igual que enemy.morir).
 	if _linea != null:
 		_linea.visible = false
@@ -260,4 +331,16 @@ func ir_a(pos: Vector2) -> void:
 func _physics_process(delta: float) -> void:
 	if _objetivo == Vector2.INF:
 		return
+	var antes: Vector2 = global_position
 	global_position = global_position.lerp(_objetivo, 1.0 - exp(-SUAVIZADO * delta))
+	# ANDA O NO ANDA. El espejo no conoce la IA del host, asi que se deduce de lo que se mueve entre
+	# frames: mientras siga persiguiendo su objetivo interpolado, esta andando. El umbral va en
+	# distancia AL OBJETIVO y no en lo recorrido este frame, porque el lerp se frena al llegar y si
+	# no el bicho se quedaba tieso un instante antes de pararse de verdad.
+	if not muerto:
+		var mov: bool = global_position.distance_to(_objetivo) > 1.5
+		if mov != _mov:
+			_mov = mov
+			_actualizar_animacion()
+	if antes == global_position:
+		return

@@ -314,25 +314,17 @@ func _aplicar_colision(s: float) -> void:
 	col.rotation = (_facing.angle() - PI * 0.5) if _colision_gira else 0.0
 
 
-# _facing (screen: +Y abajo) a uno de los 8 sectores de SlimeSprites: 0=S 1=SE 2=E 3=NE 4=N 5=NW
-# 6=W 7=SW, que es el mismo orden en que SlimeSprites nombra sus animaciones.
-func _dir8(dir: Vector2) -> int:
-	var ang: float = dir.angle()   # 0 = derecha (E), crece en sentido horario (Y abajo)
-	var sector: int = int(round((PI / 2.0 - ang) / (PI / 4.0)))
-	return ((sector % 8) + 8) % 8
-
-
 # Traduce estado + movimiento a la animacion que toca y la reproduce (solo si cambia: reiniciarla
 # cada frame le cortaria el ciclo antes de que se llegue a ver).
+#
+# QUE animacion toca lo decide SpritesEnemigo, no esto: la misma regla la necesita el espejo de la
+# otra maquina (remote_enemy.gd), y dos copias acaban divergiendo -- con lo que cada jugador veria
+# al mismo bicho haciendo cosas distintas.
 func _actualizar_animacion() -> void:
 	if not _sprite.visible:
 		return
-	var base: String = "idle"
-	if _state == State.EMBESTIDA:
-		base = "embestida"
-	elif velocity.length() > 2.0:
-		base = "walk"
-	var nombre: String = "%s_%d" % [base, _dir8(_facing)]
+	var nombre: String = SpritesEnemigo.animacion(
+		_facing, _state == State.EMBESTIDA, velocity.length() > 2.0)
 	if nombre != _anim_actual:
 		_anim_actual = nombre
 		_sprite.play(nombre)
