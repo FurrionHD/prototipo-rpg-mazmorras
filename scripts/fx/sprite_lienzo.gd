@@ -90,6 +90,11 @@ static func a_textura(celdas: PackedByteArray, pal: PackedByteArray, w: int, h: 
 	var datos := PackedByteArray()
 	datos.resize(w * h * 4)
 	for i in celdas.size():
+		# El VACIO se salta: 'resize' ya deja los bytes a cero, que es exactamente el transparente que
+		# le tocaria. En un lienzo con margen la mayoria de las celdas estan fuera del bicho, asi que
+		# esto se ahorra ocho indexaciones en la mayor parte del recorrido.
+		if celdas[i] == VACIO:
+			continue
 		var o: int = i * 4
 		var p: int = int(celdas[i]) * 4
 		datos[o] = pal[p]
@@ -160,6 +165,32 @@ static func elipse(plant: PackedByteArray, w: int, h: int, cx: float, cy: float,
 	var y0: int = maxi(0, int(floor(cy - ey)))
 	var y1: int = mini(h - 1, int(ceil(cy + ey)))
 	var filtra: bool = not solo_sobre.is_empty()
+
+	# RUTA POR FILAS, para la elipse SIN GIRAR (aunque este en perspectiva). Sin giro los ejes de la
+	# elipse son los de la rejilla, asi que el semiancho es el mismo en toda la fila: sale de UN sqrt
+	# por fila y el tramo se rellena de un tiron, sin preguntar celda por celda ni llamar a nadie.
+	#
+	# No es un adorno. El slime dibuja cuatro elipses del tamaño del bicho entero, y por la ruta
+	# general -- una llamada a en_elipse_rot por celda -- generar sus sprites pasaba de 0,1 a 1,1
+	# segundos, y los del Rey Slime a SIETE. Es exactamente el mismo truco que ya se le hizo en su dia
+	# al cuerpo del slime cuando se calculaba a mano.
+	if is_zero_approx(ang):
+		var ryp: float = ry * persp
+		for gy in range(y0, y1 + 1):
+			var dy: float = (float(gy) + 0.5 - cy) / ryp
+			if absf(dy) > 1.0:
+				continue
+			var half: float = rx * sqrt(1.0 - dy * dy)
+			var fila: int = gy * w
+			var gx0: int = maxi(x0, int(ceil(cx - half - 0.5)))
+			var gx1: int = mini(x1, int(floor(cx + half - 0.5)))
+			for gx in range(gx0, gx1 + 1):
+				var idx: int = fila + gx
+				if filtra and not (int(plant[idx]) in solo_sobre):
+					continue
+				plant[idx] = tono
+		return
+
 	for gy in range(y0, y1 + 1):
 		var fila: int = gy * w
 		for gx in range(x0, x1 + 1):

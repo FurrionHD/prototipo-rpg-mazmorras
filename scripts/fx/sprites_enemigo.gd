@@ -17,8 +17,8 @@
 #         true  = el generador YA dibuja al bicho grande con mas celdas (lo correcto: el pixel mide
 #                 siempre igual). Nadie debe volver a estirar el sprite.
 #         false = genera siempre del mismo tamaño y hay que estirarlo con escala_visual, con lo que
-#                 al bicho grande le salen los pixeles gordos. Es lo que hace todavia el slime,
-#                 pendiente de arreglarse en su rework.
+#                 al bicho grande le salen los pixeles gordos. Hoy no lo hace ninguno: lo unico que
+#                 vuelve por ahi es el arte de verdad, que si viene a un tamaño fijo.
 #
 #  OJO con las capas: este archivo conoce a los generadores y ellos conocen a SpriteLienzo, pero
 #  SpriteLienzo no conoce a nadie. Meter este registro dentro del motor haria un ciclo.
