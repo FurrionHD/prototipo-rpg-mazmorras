@@ -36,12 +36,14 @@ const ANCHO_MUNDO := 26.0
 
 # TRONCO: el cuerpo. Va INCLINADO hacia delante (su centro cae adelantado respecto a los pies), que
 # es lo que da la postura encorvada. Redondo en planta -- por eso el cuerpo no necesita girar.
-const TRONCO := Vector3(0.0, 1.6, 19.0)
-const TRONCO_R := Vector3(6.2, 5.4, 13.0)
+# La base del tronco esta ALTA a proposito (centro 21 menos semialto 11 = empieza en z 10): bajando
+# hasta 6 se comia las piernas enteras y el bicho no tenia patas, solo un pilon.
+const TRONCO := Vector3(0.0, 1.6, 20.0)
+const TRONCO_R := Vector3(5.6, 5.0, 12.0)
 # Para CLAVAR los adornos hace falta un radio redondo en planta: si se usara el del dibujo, un
 # tronco con menos fondo que ancho pondria los brazos a distinta distancia segun hacia donde mire y
 # entrarian y saldrian del cuerpo al girar.
-const TRONCO_ANCLA_R := Vector3(6.2, 6.2, 13.0)
+const TRONCO_ANCLA_R := Vector3(5.6, 5.6, 12.0)
 # COPA: la masa de hojas. Va ARRIBA y ADELANTADA -- cuelga por delante, como una cabeza pesada.
 # Menos ancha y mas alta que el primer intento: con 13 de radio salia un CHAMPIÑON -- una seta con
 # patas -- y se comia el tronco entero. La copa tiene que dejar ver el arbol que hay debajo.
@@ -61,12 +63,15 @@ const GRIETA_R := Vector3(2.3, 2.3, 5.6)
 const GRIETA_HUNDE := 1.2
 
 # PIERNAS-TRONCO: dos, cortas y gruesas. El trent no tiene piernas largas: es un tocon que anda.
-const PIERNA_X := 4.6
-const PIERNA_R := Vector3(2.9, 2.9, 6.0)
-const PIERNA_Z := 6.5
+const PIERNA_X := 4.8              # mas abiertas que el ancho del tronco: si no, no asoman
+# LARGAS HACIA ARRIBA: tienen que METERSE varias celdas dentro del tronco, no rozarlo. Al subir la
+# base del tronco se quedaron solapando 1,2 unidades -- una celda -- y con el paso se despegaban en
+# las direcciones de hacia arriba. Es el mismo fallo de las raices y de los cuernos, por tercera vez.
+const PIERNA_R := Vector3(2.4, 2.4, 6.5)
+const PIERNA_Z := 5.5
 # CUANTO ADELANTA Y LEVANTA cada pie al dar el paso. Corto y bajo a proposito: tiene Agilidad 10 y
 # tiene que leerse como que arrastra los pies, no como que trota.
-const PASO_LARGO := 2.8
+const PASO_LARGO := 2.2
 const PASO_ALZA := 1.2
 # RAICES-PIE: matas de raices abiertas en el suelo. Cada pie son varias puntas alrededor.
 #
@@ -146,8 +151,8 @@ const LIENZO_ARRIBA := 2.10        # del suelo (el origen) hacia arriba: es un b
 const LIENZO_ABAJO := 0.40
 
 # TONOS propios. El motor no sabe que es cada uno; solo mapea indice -> color (ver _colores).
-enum Tono { VACIO, SOMBRA_SUELO, BORDE, RAIZ, CORTEZA_OSC, CORTEZA, FRONDA_OSC, FRONDA, FRONDA_CLARA,
-	GRIETA_T, SAVIA, OJO_T }
+enum Tono { VACIO, SOMBRA_SUELO, BORDE, RAIZ, PIERNA_OSC, PIERNA, CORTEZA_OSC, CORTEZA,
+	FRONDA_OSC, FRONDA, FRONDA_CLARA, GRIETA_T, SAVIA, OJO_T }
 
 const DIR_VECS := [
 	Vector2(0, 1), Vector2(0.7, 0.7), Vector2(1, 0), Vector2(0.7, -0.7),
@@ -295,7 +300,14 @@ static func _colores(color: Color) -> Array:
 		Color(0, 0, 0, 0),                    # VACIO
 		Color(0, 0, 0, 0.24),                 # SOMBRA_SUELO
 		madera.darkened(0.70),                # BORDE
-		madera.darkened(0.42),                # RAIZ (lo que arrastra por el suelo, sucio)
+		madera.darkened(0.52),                # RAIZ (lo que arrastra por el suelo, sucio)
+		# LAS PIERNAS TIENEN TONO PROPIO, y no es un capricho de paleta: llevaban el mismo que el
+		# tronco (CORTEZA_OSC) y la luz del tronco se pinta 'solo_sobre' ese tono, asi que las
+		# REPINTABA y desaparecian -- todo el bajo del bicho era una masa marron sin piernas ni pies.
+		# Ademas van mas oscuras (estan abajo, a la sombra de la copa) y la de delante mas clara que
+		# la de atras, que es lo que hace legible el paso.
+		madera.darkened(0.44),                # PIERNA_OSC (la de detras)
+		madera.darkened(0.30),                # PIERNA (la adelantada, le da mas luz)
 		madera.darkened(0.24),                # CORTEZA_OSC (el costado del tronco, en penumbra)
 		madera,                               # CORTEZA
 		color.darkened(0.34),                 # FRONDA_OSC (la hoja en sombra, bajo la copa)
@@ -401,9 +413,11 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		if not bool(b["delante"]):
 			_rama(poner, b, fase_brazos, alza, DETRAS_ESC, Tono.CORTEZA_OSC)
 
-	# 4. PIERNAS-TRONCO: cortas y gruesas, cada una sobre su pie.
-	for pie in pies:
-		poner.call(pie, PIERNA_R, Tono.CORTEZA_OSC)
+	# 4. PIERNAS-TRONCO: cortas y gruesas, cada una sobre su pie. La que va ADELANTADA en tono mas
+	#    claro: es lo que deja ver de un vistazo cual de las dos ha dado el paso.
+	for k3 in pies.size():
+		poner.call(pies[k3], PIERNA_R,
+			Tono.PIERNA if pies[k3].y >= pies[1 - k3].y else Tono.PIERNA_OSC)
 
 	# 5. EL TRONCO, entero en penumbra...
 	poner.call(TRONCO, TRONCO_R, Tono.CORTEZA_OSC, [], false)
