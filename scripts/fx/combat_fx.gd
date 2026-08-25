@@ -1395,6 +1395,9 @@ const T_SALTO_VUELTA := 0.32
 # Hasta cuanto puede hincharse para cubrir a los suyos. Sin tope, cuatro objetivos separados de
 # punta a punta lo convertirian en una mancha que ocupa la pantalla.
 const INFLADO_MAX := 2.4
+# Que parte de "coger aire" se le va en hincharse. El resto lo pasa quieto y ya gordo, a punto de
+# saltar: es lo que separa el hincharse del saltar en vez de que parezcan la misma cosa.
+const INFLADO_TRAMO := 0.62
 # Lo alto que sube antes de dejarse caer.
 const SALTO_ALTURA := 90.0
 # EL GESTO DE ATACAR de toda la vida: cuanto antes del golpe arranca (el brazo que se echa atras)
@@ -1642,8 +1645,16 @@ func _aplicar_gestos(mov: Dictionary, esc: Dictionary, zorden: Dictionary) -> vo
 				if _t < t_aire:
 					# COGIENDO AIRE, en su sitio: no se mueve y va hinchandose. Lo que se ve
 					# deformarse es la animacion 'inflar'; esto es el tamaño.
+					#
+					# TERMINA DE HINCHARSE ANTES DE DESPEGAR: el inflado se completa en la primera
+					# parte (INFLADO_TRAMO) y el resto se queda quieto y ya gordo, cogiendo impulso.
+					# Repartido por toda la fase -y encima con una curva que acelera al final- lo
+					# que se veia era al bicho hinchandose MIENTRAS saltaba, que no es la idea:
+					# primero se hincha en su sitio, y luego salta.
 					var a: float = (_t - t_ini) / maxf(t_aire - t_ini, 0.001)
-					esc[v] = Vector2.ONE.lerp(Vector2.ONE * crece, a * a)
+					var k: float = clampf(a / INFLADO_TRAMO, 0.0, 1.0)
+					k = 1.0 - (1.0 - k) * (1.0 - k)   # rapido al principio y asentandose al final
+					esc[v] = Vector2.ONE.lerp(Vector2.ONE * crece, k)
 				elif _t < t_imp:
 					# EN EL AIRE: sube y cruza a la vez, cayendo sobre el centro de lo que alcanza.
 					var c: float = (_t - t_aire) / maxf(t_imp - t_aire, 0.001)
