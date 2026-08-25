@@ -250,6 +250,7 @@ static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false,
 	_montar_idle(anims, corona, esc)
 	_montar_walk(anims, corona, esc)
 	_montar_embestida(anims, corona, esc)
+	_montar_inflar(anims, corona, esc)
 	var lz: Vector2i = _lienzo(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col, corona)), lz.x, lz.y)
@@ -288,6 +289,26 @@ static func _montar_embestida(anims: Array, corona: bool, esc: float) -> void:
 			"avance": SpriteLienzo.tramos(t, avance_keys) * LUNGE_DIST,
 			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE * 1.4}
 	_montar_animacion(anims, corona, esc, "embestida", false, 10.0, pose, true)
+
+
+# COGER AIRE E HINCHARSE: lo que hace antes de dejarse caer encima de todo el grupo. Se agacha
+# aplastandose contra el suelo -que es como se lee "tomando impulso"-, se estira hacia arriba
+# tragando aire y se queda hinchado y a punto de saltar.
+#
+# LO QUE CRECE DE VERDAD NO ES ESTO. Aqui solo va la deformacion: el tamaño al que llega -que
+# depende de a cuantos tenga que cubrir- se lo pone el combate escalando la figura entera (ver
+# CombatFX, gesto SALTO). Dibujarlo aqui obligaria a una animacion por cada numero de objetivos.
+#
+# El ultimo frame se queda HINCHADO a proposito (no vuelve al reposo): es la pose con la que sale
+# disparado hacia arriba, y el salto empalma justo ahi.
+static func _montar_inflar(anims: Array, corona: bool, esc: float) -> void:
+	var squash_keys := [[0.0, 1.0], [0.30, 0.68], [0.62, 1.32], [0.82, 1.16], [1.0, 1.24]]
+	var bote_keys := [[0.0, 0.0], [0.30, -0.25], [0.62, 0.35], [0.82, 0.20], [1.0, 0.55]]
+	var pose := func(t: float) -> Dictionary:
+		return {"squash": SpriteLienzo.tramos(t, squash_keys),
+			"avance": 0.0,   # no se mueve: coge aire en el sitio
+			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
+	_montar_animacion(anims, corona, esc, "inflar", false, 9.0, pose, true)
 
 
 static func _montar_animacion(anims: Array, corona: bool, esc: float,

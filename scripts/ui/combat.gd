@@ -2337,11 +2337,14 @@ func _sprite_de(b: Dictionary) -> AnimatedSprite2D:
 # sale el speed_scale. Hay que hacerlo asi porque un AnimatedSprite2D corre con el reloj del motor,
 # mientras que el gesto corre con el de CombatFX (escala_tiempo) -- a velocidad x2 el cuerpo iria
 # al doble y el dibujo a ritmo normal, cada uno por su lado.
-func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float) -> void:
+func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, inflando: bool = false) -> void:
 	var sp: AnimatedSprite2D = _sprite_de(b)
 	if sp == null or sp.sprite_frames == null:
 		return   # sin sprite el gesto sigue valiendo: lo que se mueve es la figura
-	var anim := StringName("embestida_%d" % dir)
+	# COGER AIRE tiene animacion propia (solo el slime, de momento); lo demas ataca con su embestida.
+	var anim := StringName("inflar_%d" % dir) if inflando else StringName("embestida_%d" % dir)
+	if not sp.sprite_frames.has_animation(anim):
+		anim = StringName("embestida_%d" % dir)
 	if not sp.sprite_frames.has_animation(anim):
 		return
 	var fps: float = maxf(sp.sprite_frames.get_animation_speed(anim), 0.1)
@@ -2413,6 +2416,7 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 		if img != null and img.get_height() > 0:
 			alto_px = float(img.get_height())
 			dentro = alto_px
+			fig.set_meta("ancho_base", float(img.get_width()))
 			var at := tex as AtlasTexture
 			if at != null:
 				dentro += at.margin.position.y
@@ -2461,6 +2465,10 @@ func _ajustar_zoom_sprites() -> void:
 		var sp2: AnimatedSprite2D = fig2.get_meta("sprite")
 		if sp2 != null and is_instance_valid(sp2):
 			sp2.scale = Vector2.ONE * factor
+			# LO ANCHO QUE SE VE ESTE BICHO, en pixeles de pantalla. Se publica en el bloque porque
+			# lo necesita CombatFX para saber cuanto tiene que hincharse el que se deja caer encima
+			# de un grupo -- y se actualiza aqui, que es el unico sitio que cambia esa escala.
+			b["ancho_dibujo"] = float(fig2.get_meta("ancho_base", LADO_FIGURA)) * factor
 
 
 # Estilo del bloque: seleccionado = borde blanco alrededor de todo, normal = borde transparente.

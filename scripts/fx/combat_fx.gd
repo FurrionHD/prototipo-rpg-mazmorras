@@ -48,7 +48,7 @@ signal apagar_ahora(bloque: Dictionary)
 # EL CUERPO EMPIEZA (y termina) SU GESTO. Lo escucha combat.gd, que es el dueño de los sprites:
 # aqui solo se lleva el reloj. 'dir' es la direccion del sprite (0 = mirando a camara) y 'dur' lo
 # que dura el gesto EN SEGUNDOS REALES, para que la animacion se ajuste a el y no al reves.
-signal gesto_iniciado(bloque: Dictionary, dir: int, dur: float)
+signal gesto_iniciado(bloque: Dictionary, dir: int, dur: float, inflando: bool)
 signal gesto_terminado(bloque: Dictionary)
 
 # COMO se presenta un impacto. MELEE es lo de siempre: la tarjeta del que pega EMBISTE a la del
@@ -1385,6 +1385,16 @@ const Z_VIAJE := 5
 # Tope de lo que un gesto puede alargar el turno. Es el cinturon: un plan mal calculado no puede
 # dejar la pelea colgada esperando a un bicho.
 const TOPE_GESTO := 1.20
+# EL SALTO: lo que tarda en coger aire, en caer y en recogerse. Coger aire es lo mas largo a
+# proposito -- es la parte que avisa de que viene el pepino, y un ataque asi tiene que verse venir.
+const T_SALTO_AIRE := 0.55
+const T_SALTO_CAIDA := 0.20
+const T_SALTO_VUELTA := 0.32
+# Hasta cuanto puede hincharse para cubrir a los suyos. Sin tope, cuatro objetivos separados de
+# punta a punta lo convertirian en una mancha que ocupa la pantalla.
+const INFLADO_MAX := 2.4
+# Lo alto que sube antes de dejarse caer.
+const SALTO_ALTURA := 90.0
 
 
 func _marcar_gestos() -> void:
@@ -1395,8 +1405,12 @@ func _marcar_gestos() -> void:
 	# victimas, y un plan por cada uno mandaria al bicho de una punta a otra de la fila.
 	# Se queda el PRIMER impacto de cada atacante, que es el que marca cuando empieza la accion.
 	var vistos: Dictionary = {}
-	for ev in _cola:
+	for i_ev in _cola.size():
+		var ev: Dictionary = _cola[i_ev]
 		var g: int = int(ev.get("gesto", -1))
+		if g == AbilityData.Gesto.SALTO:
+			_plan_salto(ev, vistos)
+			continue
 		if g != AbilityData.Gesto.VIAJE:
 			continue   # los demas tipos aun no ponen movimiento propio
 		var pa: Control = _visual(ev["ba"])
@@ -1426,6 +1440,53 @@ func _marcar_gestos() -> void:
 			"ini_lanzado": false,
 			"fin_lanzado": false,
 		})
+
+
+# EL SALTO: coger aire, hincharse hasta cubrir a todos los que va a golpear, y dejarse caer encima.
+#
+# El plan se monta con la HUELLA de la accion entera -no con la victima de este impacto-, que es
+# justo lo que hace falta: el Rey Slime tiene que aterrizar en el CENTRO de lo que alcanza y ser lo
+# bastante grande para taparlo. Como el cuerpo ES el golpe, sus impactos se marcan sin_dibujo: el
+# efecto ya no se pinta, seria contar el mismo porrazo dos veces.
+func _plan_salto(ev: Dictionary, vistos: Dictionary) -> void:
+	var pa: Control = _visual(ev["ba"])
+	if pa == null or vistos.has(pa):
+		return
+	# TODOS los impactos de esta accion, que son los que definen la huella.
+	var idx: Array = []
+	for i in _cola.size():
+		if _cola[i]["ba"] == ev["ba"] \
+				and int(_cola[i].get("gesto", -1)) == AbilityData.Gesto.SALTO:
+			idx.append(i)
+			# El cuerpo sustituye al dibujo (ver arriba).
+			_cola[i]["sin_dibujo"] = true
+	if idx.is_empty():
+		return
+	vistos[pa] = true
+	var h: Dictionary = _huella(idx)
+	var desde: Vector2 = _punto(ev["ba"])
+	# ADONDE CAE: al centro de la huella, y a la altura de la fila que golpea.
+	var alto_destino: float = _punto(_cola[idx[0]]["bv"]).y
+	var destino := Vector2(float(h["centro"]) - desde.x, alto_destino - desde.y)
+	# CUANTO SE HINCHA: lo que le falte para cubrir el ancho de lo que alcanza. Nunca encoge
+	# (minimo 1.0) y tiene tope, o con cuatro objetivos separados saldria una mancha absurda.
+	var mio: float = float((ev["ba"] as Dictionary).get("ancho_dibujo", 120.0))
+	var crece: float = clampf(float(h["ancho"]) / maxf(mio, 1.0), 1.0, INFLADO_MAX)
+	var t_imp: float = float(ev["t"])
+	_gestos.append({
+		"actor": pa,
+		"bloque": ev["ba"],
+		"tipo": AbilityData.Gesto.SALTO,
+		"t_ini": maxf(t_imp - T_SALTO_AIRE - T_SALTO_CAIDA, 0.0),
+		"t_aire": maxf(t_imp - T_SALTO_CAIDA, 0.0),   # cuando deja de coger aire y despega
+		"t_imp": t_imp,
+		"t_fin": t_imp + T_SALTO_VUELTA,
+		"destino": destino,
+		"crece": crece,
+		"dir8": 0,   # cae de frente, mirando a camara
+		"ini_lanzado": false,
+		"fin_lanzado": false,
+	})
 
 
 # Cuanto ADELANTO necesita el gesto mas lento antes de su primer impacto. Es lo que hay que
@@ -1473,8 +1534,12 @@ func _aplicar_gestos(mov: Dictionary, esc: Dictionary, zorden: Dictionary) -> vo
 		# corre con el reloj del motor, no con el nuestro (ver escala_tiempo).
 		if not bool(p["ini_lanzado"]) and _t >= t_ini:
 			p["ini_lanzado"] = true
+			# El SALTO usa su propia animacion (coger aire) y solo dura hasta que despega: a partir
+			# de ahi lo que se ve es el cuerpo hinchado volando, y ya no hay nada que deformar.
+			var es_salto: bool = int(p["tipo"]) == AbilityData.Gesto.SALTO
+			var hasta: float = float(p["t_aire"]) if es_salto else t_fin
 			gesto_iniciado.emit(p["bloque"], int(p["dir8"]),
-				(t_fin - t_ini) / maxf(escala_tiempo, 0.01))
+				(hasta - t_ini) / maxf(escala_tiempo, 0.01), es_salto)
 		if not bool(p["fin_lanzado"]) and _t >= t_fin:
 			p["fin_lanzado"] = true
 			gesto_terminado.emit(p["bloque"])
@@ -1497,6 +1562,58 @@ func _aplicar_gestos(mov: Dictionary, esc: Dictionary, zorden: Dictionary) -> vo
 				# por DEBAJO de las figuras de enfrente (su banda esta antes en el arbol).
 				if u > 0.02:
 					zorden[v] = Z_VIAJE
+
+			AbilityData.Gesto.SALTO:
+				var dd: Vector2 = p["destino"]
+				var t_aire: float = float(p["t_aire"])
+				var crece: float = float(p["crece"])
+				if _t < t_aire:
+					# COGIENDO AIRE, en su sitio: no se mueve y va hinchandose. Lo que se ve
+					# deformarse es la animacion 'inflar'; esto es el tamaño.
+					var a: float = (_t - t_ini) / maxf(t_aire - t_ini, 0.001)
+					esc[v] = Vector2.ONE.lerp(Vector2.ONE * crece, a * a)
+				elif _t < t_imp:
+					# EN EL AIRE: sube y cruza a la vez, cayendo sobre el centro de lo que alcanza.
+					var c: float = (_t - t_aire) / maxf(t_imp - t_aire, 0.001)
+					# Parabola: sube al principio y baja de golpe al final, que es lo que hace que
+					# se lea "se ha dejado caer" y no "ha planeado".
+					var salto: float = SALTO_ALTURA * sin(PI * c) * -1.0
+					mov[v] = Vector2(dd.x * c, dd.y * c * c + salto)
+					esc[v] = Vector2.ONE * crece
+					zorden[v] = Z_VIAJE
+				else:
+					# APLASTADO encima y volviendo. Se queda hinchado mientras aplasta y se recoge.
+					var w2: float = (_t - t_imp) / maxf(t_fin - t_imp, 0.001)
+					mov[v] = dd * (1.0 - w2 * w2)
+					esc[v] = Vector2.ONE.lerp(Vector2.ONE * crece, 1.0 - w2)
+					zorden[v] = Z_VIAJE
+
+
+# LA HUELLA de un puñado de impactos: de donde a donde llega lo que alcanzan, en X. 'idx' son
+# posiciones dentro de la cola.
+#
+# Sale de aqui y no de dos cuentas parecidas porque lo miran DOS cosas que tienen que coincidir: lo
+# ancho que se pinta un efecto de area (una ola, un chillido) y lo que tiene que hincharse el que se
+# deja caer encima. Con dos cuentas por separado, el cuerpo del Rey Slime y su salpicadura acabarian
+# midiendo distinto el dia que alguna de las dos cambie.
+#
+# Se mide el HUECO reservado de cada objetivo y no su figura: la figura es mas estrecha que su
+# sitio, y con ella el area se quedaba corta por los lados.
+func _huella(idx: Array) -> Dictionary:
+	var izq: float = INF
+	var der: float = -INF
+	for i in idx:
+		var b: Dictionary = _cola[i]["bv"]
+		if _visual(b) == null:
+			continue
+		var c: Vector2 = _punto(b)
+		var w: float = _ancho_tarjeta(b)
+		izq = minf(izq, c.x - w * 0.5)
+		der = maxf(der, c.x + w * 0.5)
+	if izq > der:
+		return {"izq": 0.0, "der": 0.0, "centro": 0.0, "ancho": 1.0}
+	return {"izq": izq, "der": der, "centro": (izq + der) * 0.5,
+		"ancho": maxf(der - izq, 1.0)}
 
 
 # ¿Este impacto lleva un gesto propio que sustituya a la embestida de siempre? AUTO (-1) y PASO
@@ -1624,21 +1741,18 @@ func _marcar_efectos_de_grupo() -> void:
 			var b: Dictionary = _cola[i]["bv"]
 			if _visual(b) == null:
 				continue
-			var c: Vector2 = _punto(b)
-			var w: float = _ancho_tarjeta(b)
-			izq = minf(izq, c.x - w * 0.5)
-			der = maxf(der, c.x + w * 0.5)
 			# La portadora es la de MAS A LA IZQUIERDA: da igual cual sea mientras sea estable, pero
 			# asi el centro cae donde tiene que caer aunque solo haya una.
-			if portadora < 0 or c.x < _punto(_cola[portadora]["bv"]).x:
+			if portadora < 0 or _punto(b).x < _punto(_cola[portadora]["bv"]).x:
 				portadora = i
 		if portadora < 0:
 			continue
 		for i in idx:
 			if i != portadora:
 				_cola[i]["sin_dibujo"] = true
-		_cola[portadora]["ancho_grupo"] = maxf(der - izq, 1.0)
-		_cola[portadora]["centro_grupo"] = (izq + der) * 0.5
+		var h: Dictionary = _huella(idx)
+		_cola[portadora]["ancho_grupo"] = h["ancho"]
+		_cola[portadora]["centro_grupo"] = h["centro"]
 
 
 # La tanda del ULTIMO golpe encolado, o -1 si no hay ninguno. La pregunta combat.gd justo despues
