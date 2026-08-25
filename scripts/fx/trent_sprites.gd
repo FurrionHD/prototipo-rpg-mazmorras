@@ -146,9 +146,21 @@ const LUNGE_DIST := 5.0            # se mueve poco: es lentisimo
 # --- EL LIENZO, en multiplos del ancho de la copa. Rectangular y con el origen BAJO, porque el
 # origen es el punto que toca el suelo y todo el bicho crece hacia arriba. Los tres numeros salen de
 # MEDIR la caja real de los 192 frames, no de calcularla a mano.
-const LIENZO_ANCHO := 1.62
+# AMPLIADO PARA QUE QUEPA TUMBADO. De pie le bastaba 1.62 de ancho y 0.40 por debajo del suelo,
+# pero un arbol de 44 unidades de alto, caido, ocupa esas 44 EN HORIZONTAL: hacen falta 55 a cada
+# lado contando la copa. Y por abajo tambien, porque el cadaver del mapa se dibuja en las ocho
+# direcciones y en algunas cae hacia la camara, o sea hacia abajo en pantalla.
+#
+# ES MAS BARATO DE LO QUE PARECE, y por eso se puede hacer: el horno RECORTA cada fotograma a su
+# dibujo real y guarda el hueco como un margen (ver SpriteLienzo.montar_frames), asi que un lienzo
+# mas grande NO engorda los fotogramas que no lo aprovechan. El trent de pie sigue ocupando lo
+# mismo; solo pesan mas los de la caida, que son los que de verdad necesitan el sitio.
+#
+# Y NO TIENE NADA QUE VER CON LA HITBOX: la colision sale de tam_cuerpo(), que es otra funcion y no
+# se toca. El dibujo puede ser todo lo grande que quiera sin que el bicho estorbe mas al andar.
+const LIENZO_ANCHO := 5.40
 const LIENZO_ARRIBA := 2.10        # del suelo (el origen) hacia arriba: es un bicho ALTO
-const LIENZO_ABAJO := 0.40
+const LIENZO_ABAJO := 1.70         # y caido hacia la camara baja bastante por debajo del suelo
 
 # TONOS propios. El motor no sabe que es cada uno; solo mapea indice -> color (ver _colores).
 enum Tono { VACIO, SOMBRA_SUELO, BORDE, RAIZ, PIERNA_OSC, PIERNA, CORTEZA_OSC, CORTEZA,
@@ -293,30 +305,36 @@ static func _montar_raices(anims: Array, esc: float) -> void:
 	_montar_animacion(anims, esc, "raices", false, 7.0, pose, true)
 
 
-# MORIRSE: SE VIENE ABAJO. Ocho fotogramas en UNA sola direccion -- la muerte solo se ve en la
-# pantalla de combate, y ahi al bicho se le mira siempre de frente.
+# MORIRSE: SE CAE COMO UN ARBOL. Ocho fotogramas en UNA sola direccion -- la muerte solo se ve en
+# la pantalla de combate, y ahi al bicho se le mira siempre de frente.
 #
-# NO CAE COMO UN TRONCO TALADO: no cabe en su lienzo (ver 'derrumbe' en _piezas). Lo que hace es
-# desmoronarse -- cruje, se inclina, y se viene abajo sobre sus propias raices hasta quedar en un
-# monton ancho y bajo, con las ramas descolgadas.
+# CAE DE VERDAD, no se hunde sobre si mismo. La primera version se venia abajo en el sitio (porque
+# tumbado no cabia en su lienzo) y el resultado se leia como que el trent SE DERRETIA, que es lo del
+# slime y no lo suyo. Ahora el lienzo da sitio (ver LIENZO_ANCHO) y lo que hace es lo que hace un
+# arbol: cruje, se inclina, y a partir de cierto punto ya no hay vuelta -- se desploma de lado
+# ACELERANDO, porque lo que lo tira es su propio peso.
 #
-# LA INCLINACION VA PRIMERO Y EL DESPLOME DESPUES. Es lo que separa "un arbol que se derrumba" de
-# "un arbol que encoge": si las dos cosas van a la vez, el trent se hace pequeño en el sitio y
-# parece que se aleja, no que se cae.
+# El derrumbe se queda, pero pequeño: es lo que hace que al tocar el suelo se ASIENTE en vez de
+# quedarse tieso como una viga, y que la copa se aplaste un poco contra el suelo.
 static func _pose_muerte(t: float) -> Dictionary:
-	# Cruje hacia un lado, se va al otro y ya no se recupera: el meceo no vuelve a cero, se queda
-	# torcido. Un monton simetrico se lee como un arbusto, no como un derrumbe.
-	var mece_keys := [[0.0, 0.0], [0.14, -0.9], [0.28, 1.4], [0.45, 1.9],
-		[0.62, 1.6], [0.78, 1.3], [1.0, 1.2]]
-	# Las ramas se descuelgan y se quedan colgando: 'alza' negativo es hacia abajo (lo usan las
-	# raices, que hunden las ramas en el suelo).
-	var alza_keys := [[0.0, 0.0], [0.14, 0.5], [0.28, -0.9], [0.45, -1.5], [1.0, -1.7]]
-	var derr_keys := [[0.0, 0.0], [0.14, 0.0], [0.28, 0.18], [0.45, 0.50],
-		[0.62, 0.76], [0.78, 0.92], [0.90, 0.99], [1.0, 1.0]]
+	# LA CAIDA ACELERA: apenas se mueve en el primer tercio (cruje y se inclina) y luego se va de
+	# golpe. Repartida por igual parecia una barrera de paso a nivel bajando.
+	var tumba_keys := [[0.0, 0.0], [0.14, 0.06], [0.28, 0.20], [0.45, 0.52],
+		[0.62, 0.84], [0.78, 1.02], [0.90, 0.97], [1.0, 1.0]]
+	# Y al final rebota un pelin: un tronco que cae no se queda clavado en seco.
+	var apoyo_keys := [[0.0, 0.0], [0.28, 0.5], [0.62, 2.6], [0.78, 4.2], [0.90, 3.6], [1.0, 3.9]]
+	# Un cruji­do hacia el lado contrario antes de irse: es el aviso de que se cae.
+	var mece_keys := [[0.0, 0.0], [0.14, -0.8], [0.28, -0.4], [0.45, 0.0], [1.0, 0.0]]
+	# Las ramas se descuelgan y se quedan colgando ('alza' negativo es hacia abajo).
+	var alza_keys := [[0.0, 0.0], [0.14, 0.4], [0.28, -0.7], [0.62, -1.3], [1.0, -1.5]]
+	# Poco derrumbe, y solo al final: es el asiento contra el suelo, no un derretimiento.
+	var derr_keys := [[0.0, 0.0], [0.62, 0.0], [0.78, 0.16], [1.0, 0.22]]
 	return {"avance": 0.0,
 		"mece": SpriteLienzo.tramos(t, mece_keys), "balanceo": 0.0,
 		"brazos": 0.0, "alza": SpriteLienzo.tramos(t, alza_keys),
 		"patas": 0.0,
+		"tumba": SpriteLienzo.tramos(t, tumba_keys),
+		"apoyo": SpriteLienzo.tramos(t, apoyo_keys),
 		"derrumbe": SpriteLienzo.tramos(t, derr_keys)}
 
 
@@ -327,13 +345,11 @@ static func _montar_muerte(anims: Array, esc: float) -> void:
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
-# 'muerte' (ocho fotogramas en una sola). No es un capricho de reparto, es lo que pide cada sitio:
-# en combate al bicho se le ve morir de frente y una vez; en el mapa no se le ve morir -- se entra a
-# la sala y ya esta tirado --, pero puede haber caido mirando a cualquier lado.
+# 'muerte' (ocho fotogramas en una sola). En el mapa no se ve morir a nadie -- se entra a la sala y
+# el arbol ya esta tumbado --, pero pudo caer mirando a cualquier lado.
 #
-# Es EXACTAMENTE la pose final de la muerte, sacada de la misma funcion: escribir los numeros otra
-# vez aqui es garantizar que el dia que se retoque la muerte el cadaver se quede como estaba, y que
-# el bicho pegue un salto al pasar de una a otro.
+# Es EXACTAMENTE la pose final de la muerte, sacada de la misma funcion: repetir los numeros aqui
+# garantizaria que el dia que se retoque la caida el cadaver se quede como estaba.
 static func _montar_cadaver(anims: Array, esc: float) -> void:
 	var pose := func(_t: float) -> Dictionary:
 		return _pose_muerte(1.0)
@@ -458,8 +474,21 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# viene abajo, se aplasta contra el suelo y se desparrama a lo ancho. Que tambien es lo que hace
 	# un arbol podrido de verdad, mas que caer entero de una pieza.
 	var derrumbe: float = clampf(float(pose.get("derrumbe", 0.0)), 0.0, 1.0)
+	# TUMBARSE: cuartos de vuelta alrededor de la BASE del tronco, en el plano ancho-altura. 1.0 = el
+	# arbol tumbado del todo, con la copa en el suelo a un lado. Con default, o sea que las poses de
+	# siempre no lo notan.
+	#
+	# Es lo que hace un arbol al caer, y es DISTINTO del derrumbe de aqui arriba: aquel se viene
+	# abajo sobre si mismo (y se leia como que el trent se derretia, que es cosa del slime); este
+	# CAE. Se puede hacer porque el lienzo ya da sitio para ello -- ver LIENZO_ANCHO.
+	var tumba: float = clampf(float(pose.get("tumba", 0.0)), 0.0, 1.2) * PI * 0.5
+	var ct: float = cos(tumba)
+	var st: float = sin(tumba)
 	# Cuanto se viene abajo y cuanto se derrama. El ensanchado tiene tope: 1.5 deja la copa en 15,7
 	# unidades contra las 17 que da el lienzo, y por ahi no se puede pasar.
+	# Y cuanto hay que SUBIRLO despues de tumbarlo para que apoye en el suelo en vez de quedarse
+	# medio enterrado: caido sobre su costado, el tronco descansa sobre su propio grosor.
+	var apoyo: float = float(pose.get("apoyo", 0.0))
 	var baja: float = 1.0 - 0.74 * derrumbe
 	# 0.34 y no 0.50: con medio derrame los BRAZOS -- que giran con la direccion, al contrario que la
 	# copa -- se salian del lienzo en las direcciones de lado, y ahi el dibujo se corta en seco.
@@ -489,15 +518,29 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		# se abre a lo ancho, que es lo que convierte un arbol en un monton. Bajando sin ensanchar
 		# salia un arbol ENANO -- el mismo dibujo mas pequeño --, no uno derrumbado.
 		var lz: float = local.z * baja
-		var p := Vector2(local.x * derrama, local.y * derrama)
-		var alto: float = clampf(local.z / COPA.z, 0.0, 1.4)
+		var lx: float = local.x * derrama
+		# LA CAIDA, alrededor de la base: lo que estaba arriba se va de lado. Gira DESPUES del
+		# derrumbe a proposito, para que las dos cosas se puedan combinar -- primero cede, luego cae.
+		if tumba != 0.0:
+			var nx: float = lx * ct + lz * st
+			lz = -lx * st + lz * ct
+			lx = nx
+		var p := Vector2(lx, local.y * derrama)
+		# El meceo se dobla por la altura ORIGINAL, no por la de despues de caer: es la cizalla del
+		# tronco, y un tronco ya tumbado no se mece.
+		var alto: float = clampf(local.z / COPA.z, 0.0, 1.4) * (1.0 - clampf(tumba / PI, 0.0, 1.0))
 		var rot: Vector2 = (p.rotated(ang) if gira else p) + desp + mece_v * alto
 		var sx: float = origen.x + rot.x * u
 		var sy: float = origen.y + (rot.y * SpriteLienzo.COS_CAM
-			- lz * SpriteLienzo.SIN_CAM) * u
+			- (lz + apoyo) * SpriteLienzo.SIN_CAM) * u
+		# EL RADIO TAMBIEN GIRA: al caer, el semieje a lo ANCHO pasa a ser el vertical y al reves.
+		# Sin esto el tronco tumbado sale igual de grueso que de pie y la copa deja de ser redonda.
+		var mez: float = absf(st)
+		var rx: float = lerpf(r.x, r.z, mez) * derrama
+		var rz: float = lerpf(r.z, r.x, mez) * baja
 		piezas.append({"pos": Vector2(sx, sy),
-			"radio": Vector2(r.x * derrama * u, r.y * derrama * u),
-			"persp": SpriteLienzo.persp_de(r.y * derrama, r.z * baja),
+			"radio": Vector2(rx * u, r.y * derrama * u),
+			"persp": SpriteLienzo.persp_de(r.y * derrama, rz),
 			"tono": tono, "solo_sobre": solo_sobre})
 
 	# 1. SOMBRA DE CONTACTO, a ras de suelo.

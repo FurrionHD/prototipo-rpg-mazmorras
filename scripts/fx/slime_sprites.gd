@@ -146,6 +146,10 @@ const BOTE := 3.1                  # cuanto se despega del suelo en el punto alt
 # a proposito: el encaje tiene que leerse como una SACUDIDA, no como un desplazamiento, porque en
 # combate la figura entera ya se mueve por su cuenta y dos desplazamientos a la vez se pelean.
 const ENCAJE_RETRO := 3.4
+# MORIRSE: cuanto se le quita del ensanchado al charco. El cuerpo aplastado quiere abrirse 1,54
+# veces y el lienzo solo da 1,66 contando el contorno y la sombra, asi que sin esto los frames
+# finales salen cortados por los dos lados. Ver 'ancho' en _piezas.
+const ENCAJE_CHARCO_ANCHO := 0.80
 
 # --- EL LIENZO, en multiplos del diametro del cuerpo. Los tres numeros salen de MEDIR la caja real
 # de los 192 frames (ver dev_test_slime.gd) y dejar el minimo que no recorta ni uno; calcular a mano
@@ -486,6 +490,13 @@ static func _piezas(dir: int, pose: Dictionary, corona: bool, esc: float) -> Arr
 	# Aplastado/estirado conservando el volumen a ojo: lo que se pierde de alto se gana de ancho.
 	var alto: float = squash
 	var ancho: float = 1.0 / sqrt(maxf(0.2, squash))
+	# PERO UN CHARCO NO CONSERVA EL VOLUMEN: la baba se escurre y se mete entre las piedras. Al
+	# derretirse se le quita parte de ese ensanchado, y no es un apaño estetico -- es lo unico que
+	# hace que quepa. El aplastado de morirse (0.42) pide 1,54 veces el ancho, y el lienzo da 1,66
+	# contando el contorno: el charco salia CORTADO EN SECO por los dos lados y por abajo, en las 19
+	# variantes de slime. Y por abajo tambien, porque este 'ancho' se aplica igual a la PROFUNDIDAD,
+	# asi que hincharlo baja el borde de la silueta ademas de abrirla.
+	ancho *= lerpf(1.0, ENCAJE_CHARCO_ANCHO, derretido)
 
 	var piezas: Array = []
 	# local (x ancho, y largo, z altura, en unidades de mundo) -> celda de pantalla.
@@ -523,9 +534,9 @@ static func _piezas(dir: int, pose: Dictionary, corona: bool, esc: float) -> Arr
 
 	# 1. SOMBRA DE CONTACTO. Acompaña al bicho por el suelo cuando se lanza (pasa por 'avance') pero
 	#    NO sube con el: z = 0 y 'sube' = false.
-	# Al derretirse se ensancha: es la baba escurriendose. NO se pasa de 1.9 -- el Rey Slime va a
-	# escala 2.6 y con mas se le sale la mancha por los lados del lienzo, cortada en seco.
-	poner.call(Vector3.ZERO, SOMBRA_R * (1.0 + 0.9 * derretido), Tono.SOMBRA_SUELO, [], false, false)
+	# Al derretirse se ensancha un poco: es la baba escurriendose. Con 1.9 se salia del lienzo -- la
+	# mancha es lo que MAS asoma cuando el cuerpo ya esta plano, asi que es la primera en cortarse.
+	poner.call(Vector3.ZERO, SOMBRA_R * (1.0 + 0.45 * derretido), Tono.SOMBRA_SUELO, [], false, false)
 
 	# 2 y 5. ORNAMENTOS. Los que quedan DETRAS van antes del cuerpo (que los tapa) y en tono apagado;
 	#    los de delante, despues. Cual es cual sale de su Y YA GIRADA -- una prueba de profundidad de

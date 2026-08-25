@@ -37,6 +37,7 @@ func _ready() -> void:
 	var total: int = 0
 	var bytes: int = 0
 	var t0: int = Time.get_ticks_msec()
+	var recortados: int = 0
 	for ruta in rutas:
 		var ed: EnemyData = load(ruta) as EnemyData
 		if ed == null or SpritesEnemigo.clave_de(ed, 0.5) == "":
@@ -60,10 +61,16 @@ func _ready() -> void:
 				continue
 			bytes += n
 			total += 1
+			recortados += _avisar_recortes(sf, clave)
 		print("  %-24s %d variantes" % [ruta.get_file(), hechas.size()])
 	print("")
 	print("%d ficheros, %.2f MB, en %.1f s" % [total, bytes / 1048576.0,
 		(Time.get_ticks_msec() - t0) / 1000.0])
+	if recortados > 0:
+		print("")
+		print("  !! %d fotogramas TOCAN EL BORDE de su lienzo (ver arriba cuales): a esos el dibujo"
+			% recortados)
+		print("     se les corta en seco. O la pose se pasa, o ese bicho necesita un lienzo mayor.")
 	print("Estan en %s -- ABRE GODOT UNA VEZ para que los importe antes de jugar." %
 		SpriteLienzo.CARPETA_HORNO)
 
@@ -113,3 +120,33 @@ func _hornear_recolectables() -> void:
 		bytes += n
 		print("  %-20s %.1f KB" % [fam, n / 1024.0])
 	print("%.2f MB en %s" % [bytes / 1048576.0, RecolectableSprites.CARPETA])
+
+
+# ¿SE LE SALE EL DIBUJO DEL LIENZO? Devuelve cuantos fotogramas tocan el borde, y dice cuales.
+#
+# Esta aqui porque es el fallo de arte que MAS caro sale de encontrar: no da error, no rompe nada,
+# y lo unico que pasa es que a la figura le falta un trozo -- una sombra cortada en seco por una
+# linea recta. Se ve mirando, si a uno le da por mirar ese bicho, en esa animacion, en esa
+# direccion. Con 34 variantes por 40 animaciones cada una, eso es no verlo.
+#
+# El AtlasTexture recortado es justo lo que hace falta para detectarlo: 'margin' dice donde cae el
+# recorte dentro del lienzo entero, asi que si el recorte llega al borde es que el dibujo llegaba
+# mas alla y se quedo fuera. (Ojo: puede haber falsos positivos si una pose ROZA el borde sin
+# pasarse, pero es lo bastante raro como para que merezca la pena mirarlo igualmente.)
+func _avisar_recortes(sf: SpriteFrames, clave: String) -> int:
+	var malos: int = 0
+	for anim in sf.get_animation_names():
+		for i in sf.get_frame_count(anim):
+			var at: AtlasTexture = sf.get_frame_texture(anim, i) as AtlasTexture
+			if at == null:
+				continue
+			var w: int = int(at.region.size.x + at.margin.size.x)
+			var h: int = int(at.region.size.y + at.margin.size.y)
+			var x0: int = int(at.margin.position.x)
+			var y0: int = int(at.margin.position.y)
+			if x0 > 0 and y0 > 0 and x0 + int(at.region.size.x) < w 					and y0 + int(at.region.size.y) < h:
+				continue
+			malos += 1
+			if malos <= 3:   # con avisar de los primeros basta: siempre van en racha
+				print("     !! %s %s f%d se sale del lienzo (%dx%d)" % [clave, anim, i, w, h])
+	return malos

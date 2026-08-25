@@ -73,7 +73,18 @@ func _tira(sf: SpriteFrames, nom: String) -> Image:
 	var w: int = int(uno.region.size.x + uno.margin.size.x)
 	var h: int = int(uno.region.size.y + uno.margin.size.y)
 
-	var out := Image.create((w * ZOOM + HUECO) * n + HUECO, h * ZOOM + HUECO * 2,
+	# EL RECORTE COMUN A TODOS LOS FOTOGRAMAS: la caja que los contiene a todos, y no el lienzo
+	# entero. El lienzo lleva el aire que necesitan las animaciones mas amplias -- el trent, que se
+	# dibuja tumbado, es cuatro veces mas ancho que el arbol --, asi que enseñandolo entero el bicho
+	# sale de miniatura en mitad de un fondo vacio. Se recorta a la vez para todos, no uno a uno,
+	# porque lo que hay que poder juzgar aqui es cuanto se mueve de un fotograma al siguiente.
+	var caja := Rect2i(w, h, 0, 0)
+	for i in n:
+		var a0: AtlasTexture = sf.get_frame_texture(nom, i) as AtlasTexture
+		var r0 := Rect2i(Vector2i(a0.margin.position), Vector2i(a0.region.size))
+		caja = r0 if i == 0 else caja.merge(r0)
+	caja = caja.grow(2).intersection(Rect2i(0, 0, w, h))
+	var out := Image.create((caja.size.x * ZOOM + HUECO) * n + HUECO, caja.size.y * ZOOM + HUECO * 2,
 		false, Image.FORMAT_RGBA8)
 	out.fill(FONDO)
 	for i in n:
@@ -83,9 +94,9 @@ func _tira(sf: SpriteFrames, nom: String) -> Image:
 		var src: Image = at.atlas.get_image()
 		src.convert(Image.FORMAT_RGBA8)
 		lienzo.blit_rect(src, Rect2i(at.region), Vector2i(at.margin.position))
-		var amp: Image = lienzo.duplicate()
-		amp.resize(w * ZOOM, h * ZOOM, Image.INTERPOLATE_NEAREST)
-		var x0: int = HUECO + i * (w * ZOOM + HUECO)
+		var amp: Image = lienzo.get_region(caja)
+		amp.resize(caja.size.x * ZOOM, caja.size.y * ZOOM, Image.INTERPOLATE_NEAREST)
+		var x0: int = HUECO + i * (caja.size.x * ZOOM + HUECO)
 		# El fondo debajo de cada frame, para que las zonas transparentes no salgan negras.
 		out.blend_rect(amp, Rect2i(0, 0, amp.get_width(), amp.get_height()), Vector2i(x0, HUECO))
 	return out

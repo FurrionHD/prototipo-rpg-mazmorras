@@ -214,4 +214,20 @@ static func zoom_visor(ed: EnemyData, ancho_pantalla: float) -> float:
 	if ed == null or ed.sprite_frames != null:
 		return 1.0
 	var g = _generador(ed)
-	return ancho_pantalla / float(g.ancho_px(ed.escala_visual)) if g != null else 1.0
+	if g == null:
+		return 1.0
+	# LO QUE MIDE EL BICHO, no lo que mide su lienzo. No es lo mismo ni de lejos: el lienzo lleva
+	# ademas todo el aire que necesitan sus animaciones mas amplias, y en el trent -- que hay que
+	# poder dibujar TUMBADO, o sea de largo en horizontal -- ese aire es tres cuartas partes del
+	# ancho. Midiendo el lienzo, el visor lo enseñaba como una miniatura en mitad de la pantalla,
+	# justo la herramienta con la que se juzga si el dibujo esta bien.
+	#
+	# El ancho real sale del recorte del frame de reposo, que es lo que hace tambien el combate para
+	# repartir el zoom entre los bichos de la fila (ver combat._poner_sprite).
+	var frames: SpriteFrames = frames_de(ed, 1.0)
+	if frames != null and frames.has_animation(&"idle_0"):
+		var tex: Texture2D = frames.get_frame_texture(&"idle_0", 0)
+		var img: Image = tex.get_image() if tex != null else null
+		if img != null and img.get_width() > 0:
+			return ancho_pantalla / float(img.get_width())
+	return ancho_pantalla / float(g.ancho_px(ed.escala_visual))
