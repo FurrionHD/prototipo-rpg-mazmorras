@@ -299,11 +299,22 @@ func marcar_cadaver() -> void:
 	muerto = true
 	if _cuerpo != null:
 		_cuerpo.color = Color(0.4, 0.4, 0.4)
-	# El sprite se apaga en gris, igual que el cuerpo y que en enemy.morir. Y ademas se le quita el
-	# tinte: si moria justo mientras avisaba el golpe, se quedaba de cadaver en naranja para siempre.
+	# EL SPRITE PASA A SU POSE DE CADAVER, mirando adonde estaba, exactamente igual que en
+	# enemy.morir() y por la MISMA funcion (SpritesEnemigo.cadaver): si cada punta decidiera la pose
+	# por su cuenta, el bicho acabaria tirado mirando a un lado en una pantalla y a otro en la otra.
+	#
+	# El modulate a blanco a mano, y el gris solo para quien no tenga la pose (los enemigos que
+	# siguen siendo un cuadrado de color): si moria justo mientras avisaba el golpe se quedaba de
+	# cadaver en naranja para siempre.
 	if _sprite != null and _sprite.visible:
-		_sprite.modulate = Color(0.45, 0.45, 0.45)
-		_sprite.pause()
+		var pose: String = SpritesEnemigo.cadaver(Vector2.RIGHT.rotated(_mira))
+		if _sprite.sprite_frames != null and _sprite.sprite_frames.has_animation(pose):
+			_sprite.modulate = Color.WHITE
+			_anim_actual = pose
+			_sprite.play(pose)
+		else:
+			_sprite.modulate = Color(0.45, 0.45, 0.45)
+			_sprite.pause()
 	# Un cadaver ya no mira a ningun sitio: fuera la linea (igual que enemy.morir).
 	if _linea != null:
 		_linea.visible = false

@@ -522,12 +522,21 @@ static func contornear(plant: PackedByteArray, cj: Rect2i, w: int, h: int, borde
 			var t: int = copia[idx]
 			if t == hueco_a or t == hueco_b:
 				continue
+			# EL BORDE DEL LIENZO SE MIRA ANTES DE LEER A LOS VECINOS, y no a la vez.
+			#
+			# Estaban en el mismo 'or', asi que los cuatro vecinos se leian SIEMPRE -- tambien en la
+			# ultima fila, donde 'idx + w' ya esta fuera del array. Nunca habia saltado porque las
+			# figuras no llegaban a tocar el borde exacto del lienzo (todos estan medidos con holgura),
+			# pero en cuanto una lo toca, revienta con un 'Out of bounds' que no dice de que bicho es.
+			# El resultado no cambia: estar en el borde ya contaba como tocar el vacio.
+			if gx <= 0 or gx >= w - 1 or gy <= 0 or gy >= h - 1:
+				plant[idx] = borde
+				continue
 			var a: int = copia[idx + 1]
 			var b: int = copia[idx - 1]
 			var c: int = copia[idx + w]
 			var d: int = copia[idx - w]
-			if gx <= 0 or gx >= w - 1 or gy <= 0 or gy >= h - 1 \
-					or a == hueco_a or a == hueco_b or b == hueco_a or b == hueco_b \
+			if a == hueco_a or a == hueco_b or b == hueco_a or b == hueco_b \
 					or c == hueco_a or c == hueco_b or d == hueco_a or d == hueco_b:
 				plant[idx] = borde
 

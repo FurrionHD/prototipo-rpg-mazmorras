@@ -232,6 +232,8 @@ static func generar(color: Color = Color(0.35, 0.5, 0.25), escala: float = 1.0) 
 	_montar_embestida(anims, esc)
 	_montar_raices(anims, esc)
 	_montar_encaje(anims, esc)
+	_montar_muerte(anims, esc)
+	_montar_cadaver(anims, esc)
 	var lz: Vector2i = _lienzo(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col)), lz.x, lz.y)
@@ -289,6 +291,55 @@ static func _montar_raices(anims: Array, esc: float) -> void:
 			"brazos": 0.0, "alza": SpriteLienzo.tramos(t, alza_keys),
 			"patas": 0.0}
 	_montar_animacion(anims, esc, "raices", false, 7.0, pose, true)
+
+
+# MORIRSE: SE VIENE ABAJO. Ocho fotogramas en UNA sola direccion -- la muerte solo se ve en la
+# pantalla de combate, y ahi al bicho se le mira siempre de frente.
+#
+# NO CAE COMO UN TRONCO TALADO: no cabe en su lienzo (ver 'derrumbe' en _piezas). Lo que hace es
+# desmoronarse -- cruje, se inclina, y se viene abajo sobre sus propias raices hasta quedar en un
+# monton ancho y bajo, con las ramas descolgadas.
+#
+# LA INCLINACION VA PRIMERO Y EL DESPLOME DESPUES. Es lo que separa "un arbol que se derrumba" de
+# "un arbol que encoge": si las dos cosas van a la vez, el trent se hace pequeño en el sitio y
+# parece que se aleja, no que se cae.
+static func _pose_muerte(t: float) -> Dictionary:
+	# Cruje hacia un lado, se va al otro y ya no se recupera: el meceo no vuelve a cero, se queda
+	# torcido. Un monton simetrico se lee como un arbusto, no como un derrumbe.
+	var mece_keys := [[0.0, 0.0], [0.14, -0.9], [0.28, 1.4], [0.45, 1.9],
+		[0.62, 1.6], [0.78, 1.3], [1.0, 1.2]]
+	# Las ramas se descuelgan y se quedan colgando: 'alza' negativo es hacia abajo (lo usan las
+	# raices, que hunden las ramas en el suelo).
+	var alza_keys := [[0.0, 0.0], [0.14, 0.5], [0.28, -0.9], [0.45, -1.5], [1.0, -1.7]]
+	var derr_keys := [[0.0, 0.0], [0.14, 0.0], [0.28, 0.18], [0.45, 0.50],
+		[0.62, 0.76], [0.78, 0.92], [0.90, 0.99], [1.0, 1.0]]
+	return {"avance": 0.0,
+		"mece": SpriteLienzo.tramos(t, mece_keys), "balanceo": 0.0,
+		"brazos": 0.0, "alza": SpriteLienzo.tramos(t, alza_keys),
+		"patas": 0.0,
+		"derrumbe": SpriteLienzo.tramos(t, derr_keys)}
+
+
+static func _montar_muerte(anims: Array, esc: float) -> void:
+	var pose := func(t: float) -> Dictionary:
+		return _pose_muerte(t)
+	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
+
+
+# EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
+# 'muerte' (ocho fotogramas en una sola). No es un capricho de reparto, es lo que pide cada sitio:
+# en combate al bicho se le ve morir de frente y una vez; en el mapa no se le ve morir -- se entra a
+# la sala y ya esta tirado --, pero puede haber caido mirando a cualquier lado.
+#
+# Es EXACTAMENTE la pose final de la muerte, sacada de la misma funcion: escribir los numeros otra
+# vez aqui es garantizar que el dia que se retoque la muerte el cadaver se quede como estaba, y que
+# el bicho pegue un salto al pasar de una a otro.
+static func _montar_cadaver(anims: Array, esc: float) -> void:
+	var pose := func(_t: float) -> Dictionary:
+		return _pose_muerte(1.0)
+	# ultimo_incluido = false y NO true: con un solo marco, el divisor de _montar_animacion
+	# seria (1 - 1) = 0 y el reparto de t saldria NaN. La pose se pide fija, asi que da igual.
+	_montar_animacion(anims, esc, "cadaver", false, 1.0, pose, false, 8, 1)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente)
@@ -398,6 +449,21 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var fase_brazos: float = float(pose["brazos"])
 	var alza: float = float(pose["alza"])
 	var avance: float = float(pose["avance"])
+	# DERRUMBARSE (0..1). Con default, o sea que las cuatro poses de siempre no lo notan.
+	#
+	# EL TRENT NO SE CAE COMO UN TRONCO TALADO, y no es una decision de gusto sino de sitio: su copa
+	# llega a 44 unidades de alto y su lienzo solo da 17 a cada lado, asi que tumbado se saldria por
+	# los bordes -- cortado en seco -- y para que cupiera habria que agrandarle el lienzo, o sea
+	# engordar sus 200 y pico fotogramas. Lo que hace en su lugar es DESPLOMARSE SOBRE SI MISMO: se
+	# viene abajo, se aplasta contra el suelo y se desparrama a lo ancho. Que tambien es lo que hace
+	# un arbol podrido de verdad, mas que caer entero de una pieza.
+	var derrumbe: float = clampf(float(pose.get("derrumbe", 0.0)), 0.0, 1.0)
+	# Cuanto se viene abajo y cuanto se derrama. El ensanchado tiene tope: 1.5 deja la copa en 15,7
+	# unidades contra las 17 que da el lienzo, y por ahi no se puede pasar.
+	var baja: float = 1.0 - 0.74 * derrumbe
+	# 0.34 y no 0.50: con medio derrame los BRAZOS -- que giran con la direccion, al contrario que la
+	# copa -- se salian del lienzo en las direcciones de lado, y ahi el dibujo se corta en seco.
+	var derrama: float = 1.0 + 0.34 * derrumbe
 
 	var piezas: Array = []
 	# El avance se rota UNA vez y lo llevan todas las piezas por igual: sumarlo a la Y local antes de
@@ -419,14 +485,20 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var mece_v := Vector2(balanceo * 1.6, mece * 1.5)
 	var poner := func(local: Vector3, r: Vector3, tono: int, solo_sobre: Array = [],
 			gira: bool = true) -> void:
-		var p := Vector2(local.x, local.y)
+		# EL DERRUMBE SE APLICA AQUI, a la altura y al radio a la vez: todo baja hacia el suelo y todo
+		# se abre a lo ancho, que es lo que convierte un arbol en un monton. Bajando sin ensanchar
+		# salia un arbol ENANO -- el mismo dibujo mas pequeño --, no uno derrumbado.
+		var lz: float = local.z * baja
+		var p := Vector2(local.x * derrama, local.y * derrama)
 		var alto: float = clampf(local.z / COPA.z, 0.0, 1.4)
 		var rot: Vector2 = (p.rotated(ang) if gira else p) + desp + mece_v * alto
 		var sx: float = origen.x + rot.x * u
 		var sy: float = origen.y + (rot.y * SpriteLienzo.COS_CAM
-			- local.z * SpriteLienzo.SIN_CAM) * u
-		piezas.append({"pos": Vector2(sx, sy), "radio": Vector2(r.x * u, r.y * u),
-			"persp": SpriteLienzo.persp_de(r.y, r.z), "tono": tono, "solo_sobre": solo_sobre})
+			- lz * SpriteLienzo.SIN_CAM) * u
+		piezas.append({"pos": Vector2(sx, sy),
+			"radio": Vector2(r.x * derrama * u, r.y * derrama * u),
+			"persp": SpriteLienzo.persp_de(r.y * derrama, r.z * baja),
+			"tono": tono, "solo_sobre": solo_sobre})
 
 	# 1. SOMBRA DE CONTACTO, a ras de suelo.
 	poner.call(Vector3(0.0, 0.0, 0.0), Vector3(TRONCO_R.x * 1.25, TRONCO_R.y * 1.25, 0.0),

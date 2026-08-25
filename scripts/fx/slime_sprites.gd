@@ -256,6 +256,8 @@ static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false,
 	_montar_embestida(anims, corona, esc)
 	_montar_inflar(anims, corona, esc)
 	_montar_encaje(anims, corona, esc)
+	_montar_muerte(anims, corona, esc)
+	_montar_cadaver(anims, corona, esc)
 	var lz: Vector2i = _lienzo(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col, corona)), lz.x, lz.y)
@@ -314,6 +316,55 @@ static func _montar_inflar(anims: Array, corona: bool, esc: float) -> void:
 			"avance": 0.0,   # no se mueve: coge aire en el sitio
 			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
 	_montar_animacion(anims, corona, esc, "inflar", false, 9.0, pose, true)
+
+
+# MORIRSE: SE DERRITE EN UN CHARCO. Ocho fotogramas en UNA sola direccion -- la muerte solo se ve
+# en la pantalla de combate, y ahi al bicho se le mira siempre de frente. Para el mapa esta
+# 'cadaver', que es al reves (un marco, ocho direcciones).
+#
+# No hace falta tumbarlo como a la rata o al jabali: una bola de gel no se cae de lado, se DESHACE.
+# Coge un ultimo respingo (se hincha), y a partir de ahi se va escurriendo hasta quedar en una
+# mancha con dos brillos.
+#
+# EL TOPE ES 0.42 DE SQUASH Y NO ES NEGOCIABLE: el cuerpo se ensancha como 1/sqrt(squash), asi que
+# a 0.42 mide ya 1,54 veces lo suyo, y el lienzo solo da para 1,66. Por debajo de ~0.38 el charco
+# sale CORTADO EN SECO por los lados -- y en el Rey Slime igual, porque su lienzo crece con el.
+static func _pose_muerte(t: float) -> Dictionary:
+	var squash_keys := [[0.0, 1.0], [0.14, 1.16], [0.28, 0.92], [0.45, 0.72],
+		[0.62, 0.58], [0.78, 0.48], [0.90, 0.43], [1.0, 0.42]]
+	# El derretido va POR DETRAS del aplastado a proposito: primero se desinfla (sigue siendo un
+	# bicho aplastado, con sus cuernos) y solo despues pierde la forma. Yendo a la vez parecia que se
+	# le caian los cuernos antes de empezar a morirse.
+	var derr_keys := [[0.0, 0.0], [0.14, 0.0], [0.28, 0.12], [0.45, 0.38],
+		[0.62, 0.64], [0.78, 0.86], [0.90, 0.97], [1.0, 1.0]]
+	# Un ultimo bote al recibir el golpe, y ya nada mas: lo que queda no se despega del suelo.
+	var bote_keys := [[0.0, 0.0], [0.14, 0.45], [0.28, 0.0], [1.0, 0.0]]
+	return {"squash": SpriteLienzo.tramos(t, squash_keys),
+		"avance": 0.0,   # no se va a ninguna parte: se deshace donde esta
+		"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE,
+		"derretido": SpriteLienzo.tramos(t, derr_keys)}
+
+
+static func _montar_muerte(anims: Array, corona: bool, esc: float) -> void:
+	var pose := func(t: float) -> Dictionary:
+		return _pose_muerte(t)
+	_montar_animacion(anims, corona, esc, "muerte", false, 10.0, pose, true, 1, 8)
+
+
+# EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
+# 'muerte' (ocho fotogramas en una sola). No es un capricho de reparto, es lo que pide cada sitio:
+# en combate al bicho se le ve morir de frente y una vez; en el mapa no se le ve morir -- se entra a
+# la sala y ya esta tirado --, pero puede haber caido mirando a cualquier lado.
+#
+# Es EXACTAMENTE la pose final de la muerte, sacada de la misma funcion: escribir los numeros otra
+# vez aqui es garantizar que el dia que se retoque la muerte el cadaver se quede como estaba, y que
+# el bicho pegue un salto al pasar de una a otro.
+static func _montar_cadaver(anims: Array, corona: bool, esc: float) -> void:
+	var pose := func(_t: float) -> Dictionary:
+		return _pose_muerte(1.0)
+	# ultimo_incluido = false y NO true: con un solo marco, el divisor de _montar_animacion
+	# seria (1 - 1) = 0 y el reparto de t saldria NaN. La pose se pide fija, asi que da igual.
+	_montar_animacion(anims, corona, esc, "cadaver", false, 1.0, pose, false, 8, 1)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion: en la pantalla de combate al enemigo
@@ -422,6 +473,15 @@ static func _piezas(dir: int, pose: Dictionary, corona: bool, esc: float) -> Arr
 	var squash: float = float(pose["squash"])
 	var avance: float = float(pose["avance"])
 	var bote: float = float(pose["bote"])
+	# DERRETIRSE (0..1). Con default, o sea que las cuatro poses de siempre no lo notan.
+	#
+	# Es el UNICO campo que hacia falta para que el slime pueda morirse, y hacia falta porque
+	# aplastarlo a secas NO da un charco: _piezas dibuja siempre los ornamentos, asi que salia una
+	# torta con los dos cuernos y los dos ojos encima, tan tiesos como en vida. Lo que hace este
+	# campo es lo otro: encoge cuernos y ojos hasta quitarlos, ensancha la mancha del suelo y aplana
+	# la cupula iluminada, que es lo que borra el filo de panza en sombra. Lo demas -- que se
+	# extienda a lo ancho -- ya lo da el squash solo.
+	var derretido: float = clampf(float(pose.get("derretido", 0.0)), 0.0, 1.0)
 
 	# Aplastado/estirado conservando el volumen a ojo: lo que se pierde de alto se gana de ancho.
 	var alto: float = squash
@@ -463,12 +523,18 @@ static func _piezas(dir: int, pose: Dictionary, corona: bool, esc: float) -> Arr
 
 	# 1. SOMBRA DE CONTACTO. Acompaña al bicho por el suelo cuando se lanza (pasa por 'avance') pero
 	#    NO sube con el: z = 0 y 'sube' = false.
-	poner.call(Vector3.ZERO, SOMBRA_R, Tono.SOMBRA_SUELO, [], false, false)
+	# Al derretirse se ensancha: es la baba escurriendose. NO se pasa de 1.9 -- el Rey Slime va a
+	# escala 2.6 y con mas se le sale la mancha por los lados del lienzo, cortada en seco.
+	poner.call(Vector3.ZERO, SOMBRA_R * (1.0 + 0.9 * derretido), Tono.SOMBRA_SUELO, [], false, false)
 
 	# 2 y 5. ORNAMENTOS. Los que quedan DETRAS van antes del cuerpo (que los tapa) y en tono apagado;
 	#    los de delante, despues. Cual es cual sale de su Y YA GIRADA -- una prueba de profundidad de
 	#    verdad, no una tabla por direccion que haya que mantener a mano.
-	var ornamentos: Array = _ornamentos(corona)
+	# DERRETIDO, LOS ORNAMENTOS SE VAN. Un charco no tiene cuernos tiesos ni corona en pie: se hunden
+	# con el resto del gel. Por debajo de un pelin ya no se dibujan, en vez de quedarse como dos
+	# chinchetas clavadas en la mancha.
+	var orn_esc: float = 1.0 - derretido
+	var ornamentos: Array = ([] if orn_esc < 0.12 else _ornamentos(corona))
 	var delante: Array = []
 	for orn in ornamentos:
 		var base: Vector3 = orn["base"]
@@ -476,20 +542,23 @@ static func _piezas(dir: int, pose: Dictionary, corona: bool, esc: float) -> Arr
 			delante.append(orn)
 			continue
 		# El de detras, mas pequeño: sin eso los dos asoman iguales por la coronilla y parecen gemelos.
-		_pincho(poner, orn, ORNAMENTO_DETRAS_ESC, Tono.DETRAS, Tono.DETRAS)
+		_pincho(poner, orn, ORNAMENTO_DETRAS_ESC * orn_esc, Tono.DETRAS, Tono.DETRAS)
 
 	# 3. EL CUERPO, entero en SOMBRA...
 	poner.call(CUERPO, CUERPO_R, Tono.SOMBRA, [], false)
 	# 4. ...y encima la misma bola algo menor y SUBIDA, en BASE. Lo que se queda sin cubrir por abajo
 	#    es la panza en penumbra, y la frontera entre las dos sale curvada sola.
-	poner.call(Vector3(CUERPO.x, CUERPO.y, CUERPO.z + CUERPO_R.z * CUPULA_SUBE),
-		CUERPO_R * CUPULA_ESC, Tono.BASE, [Tono.SOMBRA], false)
+	# Al derretirse la cupula BAJA hasta centrarse: el filo de panza en penumbra se cierra y lo que
+	# queda es una mancha de un solo tono, que es como se lee un charco. Con la cupula en su sitio,
+	# el charco seguia teniendo una banda oscura debajo y parecia un cuerpo aplastado, no baba.
+	poner.call(Vector3(CUERPO.x, CUERPO.y, CUERPO.z + CUERPO_R.z * CUPULA_SUBE * (1.0 - derretido)),
+		CUERPO_R * lerpf(CUPULA_ESC, 1.0, derretido), Tono.BASE, [Tono.SOMBRA], false)
 
 	# 5. Los ornamentos de DELANTE, ya sobre el cuerpo. Sin contorno propio contra el: se probo para
 	#    "recortarlos" y queda peor -- como el cuerno nace justo en el filo de la cabeza, esa linea lo
 	#    convierte en una pastilla suelta pegada al costado. El contorno va SOLO contra el vacio.
 	for orn in delante:
-		_pincho(poner, orn, 1.0, Tono.ORNAMENTO, Tono.GEMA)
+		_pincho(poner, orn, orn_esc, Tono.ORNAMENTO, Tono.GEMA)
 
 	# 6. BRILLOS especulares: dos manchas claras en la cresta. NO giran (la luz esta clavada en el
 	#    mundo, no en el bicho) y van 'solo_sobre' BASE para no derramarse sobre los cuernos ni el
@@ -500,8 +569,10 @@ static func _piezas(dir: int, pose: Dictionary, corona: bool, esc: float) -> Arr
 	# 7. OJOS. Van adelantados en Y, asi que al girar se van solos al otro lado del cuerpo: basta con
 	#    no dibujar los que quedan detras. De espaldas no se le ve ninguno -- se lee de un vistazo si
 	#    viene o si huye -- y de perfil, uno.
+	# Y LOS OJOS SE APAGAN CON EL RESTO. Dos ojos abiertos flotando sobre un charco es la imagen mas
+	# rara de todo esto: parece que el bicho sigue mirandote desde dentro del suelo.
 	var ojos: Array = []
-	for l in [-1.0, 1.0]:
+	for l in ([] if derretido > 0.55 else [-1.0, 1.0]):
 		var d := Vector3(l * OJO_DIR.x, OJO_DIR.y, OJO_DIR.z)
 		var fondo: float = Vector2(d.x, d.y).rotated(ang).y
 		if fondo > OJO_VISIBLE:
@@ -512,7 +583,7 @@ static func _piezas(dir: int, pose: Dictionary, corona: bool, esc: float) -> Arr
 	if absf(DIR_VECS[dir].x) >= 0.9 and ojos.size() == 2:
 		ojos = [ojos[0] if float(ojos[0]["fondo"]) > float(ojos[1]["fondo"]) else ojos[1]]
 	for o in ojos:
-		poner.call(o["pos"], OJO_R, Tono.OJO_T, [], true, true, OJO_ESCORZO)
+		poner.call(o["pos"], OJO_R * (1.0 - derretido * 1.6), Tono.OJO_T, [], true, true, OJO_ESCORZO)
 
 	return piezas
 

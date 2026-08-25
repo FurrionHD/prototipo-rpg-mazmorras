@@ -2322,6 +2322,33 @@ func _montar_figura(actor: Control, c: Combatant, numero: int) -> ColorRect:
 	return fig
 
 
+# LO QUE DURA MORIRSE, en segundos de animacion. Es la duracion natural de la animacion 'muerte' de
+# los generadores (8 marcos a 10 fps), y cuadrandolas el sprite va a su ritmo en vez de estirado.
+const T_MUERTE := 0.80
+
+
+# ARRANCA LA MUERTE del que acaba de caer. Devuelve si de verdad se le ve morir: los que no tienen
+# la animacion horneada (los aliados, los enemigos que son un cuadrado de color) siguen por el
+# camino de siempre, o sea el gris.
+#
+# EN SEGUNDOS REALES, que es el detalle que se paga caro si se olvida: un AnimatedSprite2D corre con
+# el reloj del motor y el combate con el suyo (CombatFX.escala_tiempo). A velocidad x2 el bicho se
+# desvaneceria a medio derretir, porque la columna se retira con el reloj rapido y el dibujo iba con
+# el lento.
+func _arrancar_muerte(b: Dictionary, sp: AnimatedSprite2D) -> bool:
+	if sp == null or sp.sprite_frames == null or not sp.sprite_frames.has_animation(&"muerte_0"):
+		return false
+	var esc: float = 1.0
+	if _fx != null:
+		esc = maxf(_fx.escala_tiempo, 0.01)
+	var dur: float = T_MUERTE / esc
+	_pose_ajustar(sp, &"muerte_0", dur)
+	# Lo que le queda por morirse. Lo descuenta _avanzar_retiradas, que es quien decide cuando se
+	# desvanece la columna: sin esto la tarjeta se iria con el bicho a medio caer.
+	b["muerte_queda"] = dur
+	return true
+
+
 # EL SPRITE DE UN BLOQUE, o null si ese combatiente no tiene (los aliados y los ~15 enemigos que
 # siguen siendo una figura de color).
 func _sprite_de(b: Dictionary) -> AnimatedSprite2D:
@@ -2654,9 +2681,22 @@ func _avanzar_retiradas(delta: float) -> void:
 		if col == null or not is_instance_valid(col) or not col.visible:
 			_retirando.remove_at(i)
 			continue
+		# LO QUE LE QUEDA DE MORIRSE SE DESCUENTA SIEMPRE, y va ANTES de mirar la barra a proposito.
+		#
+		# Las dos esperas tienen que correr EN PARALELO: la muerte arranca cuando aterriza el golpe
+		# letal y la barra sale viajando en ese mismo instante, asi que para cuando la vida llega a
+		# cero el bicho ya lleva medio derretido. Puesto DESPUES del 'continue' de la barra, el reloj
+		# de la muerte no empezaba a correr hasta que la barra terminaba -- las dos esperas se
+		# SUMABAN, y un bicho con mucha vida se quedaba plantado casi un segundo de mas.
+		var muerte: float = float(b.get("muerte_queda", 0.0))
+		if muerte > 0.0:
+			muerte -= delta
+			b["muerte_queda"] = muerte
 		var bar: ProgressBar = b.get("hp")
 		if bar != null and is_instance_valid(bar) and bar.value > 0.01:
 			continue   # aun le queda vida que bajar: que se vea
+		if muerte > 0.0:
+			continue   # y que se le vea morir entero antes de desvanecerse
 		var t: float = float(b.get("retirada_t", 0.0)) + delta
 		b["retirada_t"] = t
 		col.modulate.a = 1.0 - clampf(t / T_RETIRADA, 0.0, 1.0)
@@ -2665,6 +2705,7 @@ func _avanzar_retiradas(delta: float) -> void:
 		col.visible = false
 		col.modulate.a = 1.0   # el alpha se deja limpio por si el hueco se reestrena
 		b.erase("retirada_t")
+		b.erase("muerte_queda")
 		_retirando.remove_at(i)
 		recomponer = true
 	if recomponer:
@@ -2773,18 +2814,27 @@ func _apagar_visual(b: Dictionary, es_aliado: bool) -> void:
 	var panel: Control = b.get("panel")
 	if panel == null or not is_instance_valid(panel):
 		return
-	# EL GRIS VA EN LA COLUMNA, no en la tarjeta: asi cae sobre la ficha Y sobre la figura del
-	# escenario de una vez. Y no puede ir en la figura misma, que es de CombatFX -- su modulate se
-	# reescribe cada frame (ver _aplicar) y se comeria el gris al instante.
-	var col: Control = b.get("columna")
-	if col != null and is_instance_valid(col):
-		col.modulate = Color(0.4, 0.4, 0.4)
-	# Y EL SPRITE SE QUEDA MUERTO, pase lo que pase despues. Sin esta marca, un bicho que caiga
+	# EL SPRITE SE QUEDA MUERTO, pase lo que pase despues. Sin esta marca, un bicho que caiga
 	# mientras atacaba resucita al cerrarse la cola (ver _on_gesto_terminado), y hasta un golpe de
 	# area que le entrara ya cadaver le haria sacudir la cabeza. Ver PoseSprite.
 	var sp_muerto: AnimatedSprite2D = _sprite_de(b)
 	if sp_muerto != null:
 		_pose_marcar(sp_muerto, PoseSprite.MUERTE)
+	# Y AQUI ES DONDE SE MUERE. Este es el momento exacto: _apagar_diferido ya ha esperado a que
+	# aterrice el golpe que lo mata (señal apagar_ahora), asi que la muerte empieza justo cuando le
+	# entra el ultimo porrazo y no antes.
+	var muriendo: bool = _arrancar_muerte(b, sp_muerto)
+	# EL GRIS VA EN LA COLUMNA, no en la tarjeta: asi cae sobre la ficha Y sobre la figura del
+	# escenario de una vez. Y no puede ir en la figura misma, que es de CombatFX -- su modulate se
+	# reescribe cada frame (ver _aplicar) y se comeria el gris al instante.
+	#
+	# Y NO SE PONE SI SE LE VE MORIR: el gris existe para decir "este ya no esta", y cuando el bicho
+	# se derrite o se desploma delante de ti eso ya esta dicho. Se queda de respaldo para los aliados,
+	# para los enemigos que siguen siendo una figura de color y para cualquiera cuyo horneado no
+	# traiga la animacion.
+	var col: Control = b.get("columna")
+	if col != null and is_instance_valid(col) and not muriendo:
+		col.modulate = Color(0.4, 0.4, 0.4)
 	if not es_aliado:
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		# Y su figura tampoco: a un cadaver no se le apunta por ninguna de las dos vias.
@@ -2930,6 +2980,9 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 	# sabe que dentro hay otro bicho. Ver _avanzar_retiradas.
 	_retirando.erase(b)
 	b.erase("retirada_t")
+	# Y la cuenta atras de morirse, o el hueco reestrenado nace esperando a un muerto: el refuerzo
+	# entraria vivo pero con la columna bloqueada, sin desvanecerse ni terminar de aparecer.
+	b.erase("muerte_queda")
 	var col: Control = b.get("columna")
 	if col != null and is_instance_valid(col):
 		col.visible = true

@@ -182,6 +182,7 @@ static func generar(color: Color = Color(0.5, 0.42, 0.34), rey: bool = false,
 	_montar_embestida(anims, rey, esc)
 	_montar_encaje(anims, rey, esc)
 	_montar_muerte(anims, rey, esc)
+	_montar_cadaver(anims, rey, esc)
 	var lado: int = _celdas(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col, rey)), lado, lado)
@@ -231,7 +232,7 @@ static func _montar_embestida(anims: Array, rey: bool, esc: float) -> void:
 # idea cuesta un numero: 'tumba' a 1.0 en vez de a 2.0 la deja de costado.
 #
 # El ultimo frame se queda quieto: es la pose en la que se la ve mientras la columna se desvanece.
-static func _montar_muerte(anims: Array, rey: bool, esc: float) -> void:
+static func _pose_muerte(t: float) -> Dictionary:
 	# Da un ultimo respingo hacia arriba antes de volcar, y al caer REBOTA un poco (se pasa de 2.0 y
 	# vuelve). Sin ese rebote la vuelta se lee como un giro de maquina, no como un cuerpo que cae.
 	var tumba_keys := [[0.0, 0.0], [0.14, 0.0], [0.28, 0.45], [0.45, 1.25],
@@ -249,16 +250,36 @@ static func _montar_muerte(anims: Array, rey: bool, esc: float) -> void:
 	# la vez que la vuelta y va un poco por delante, que es lo que hace un cuerpo al desplomarse: no
 	# cae en el mismo plano en el que estaba.
 	var rumbo_keys := [[0.0, 0.0], [0.14, 0.10], [0.28, 0.45], [0.45, 0.80], [0.62, 0.95], [1.0, 1.0]]
+	return {"avance": 0.0,
+		"estira": SpriteLienzo.tramos(t, estira_keys),
+		# La cola se queda tiesa a mitad de la caida y ya no vuelve a serpear.
+		"cola": 0.9 * (1.0 - clampf(t * 2.2, 0.0, 1.0)), "patas": 0.0,
+		"agacha": SpriteLienzo.tramos(t, agacha_keys),
+		"tumba": SpriteLienzo.tramos(t, tumba_keys),
+		"rumbo": SpriteLienzo.tramos(t, rumbo_keys) * PI * 0.5,
+		"apoyo": SpriteLienzo.tramos(t, apoyo_keys)}
+
+
+static func _montar_muerte(anims: Array, rey: bool, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
-		return {"avance": 0.0,
-			"estira": SpriteLienzo.tramos(t, estira_keys),
-			# La cola se queda tiesa a mitad de la caida y ya no vuelve a serpear.
-			"cola": 0.9 * (1.0 - clampf(t * 2.2, 0.0, 1.0)), "patas": 0.0,
-			"agacha": SpriteLienzo.tramos(t, agacha_keys),
-			"tumba": SpriteLienzo.tramos(t, tumba_keys),
-			"rumbo": SpriteLienzo.tramos(t, rumbo_keys) * PI * 0.5,
-			"apoyo": SpriteLienzo.tramos(t, apoyo_keys)}
+		return _pose_muerte(t)
 	_montar_animacion(anims, rey, esc, "muerte", false, 10.0, pose, true, 1, 8)
+
+
+# EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
+# 'muerte' (ocho fotogramas en una sola). No es un capricho de reparto, es lo que pide cada sitio:
+# en combate al bicho se le ve morir de frente y una vez; en el mapa no se le ve morir -- se entra a
+# la sala y ya esta tirado --, pero puede haber caido mirando a cualquier lado.
+#
+# Es EXACTAMENTE la pose final de la muerte, sacada de la misma funcion: escribir los numeros otra
+# vez aqui es garantizar que el dia que se retoque la muerte el cadaver se quede como estaba, y que
+# el bicho pegue un salto al pasar de una a otro.
+static func _montar_cadaver(anims: Array, rey: bool, esc: float) -> void:
+	var pose := func(_t: float) -> Dictionary:
+		return _pose_muerte(1.0)
+	# ultimo_incluido = false y NO true: con un solo marco, el divisor de _montar_animacion
+	# seria (1 - 1) = 0 y el reparto de t saldria NaN. La pose se pide fija, asi que da igual.
+	_montar_animacion(anims, rey, esc, "cadaver", false, 1.0, pose, false, 8, 1)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate al bicho se le ve siempre de

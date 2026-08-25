@@ -162,6 +162,7 @@ static func generar(color: Color = Color(0.35, 0.26, 0.22), escala: float = 1.0)
 	_montar_embestida(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
+	_montar_cadaver(anims, esc)
 	var lado: int = _celdas(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col)), lado, lado)
@@ -217,7 +218,7 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 # queda de canto y no se sabe si esta tumbado o agachado. Pasado un poco, el lomo mira al suelo, las
 # patas quedan al aire hacia la camara y se lee de un vistazo. Ademas es lo que activa el reordenado
 # del dibujo (ver el final de _piezas), sin el cual las patas de arriba salen tapadas por el barril.
-static func _montar_muerte(anims: Array, esc: float) -> void:
+static func _pose_muerte(t: float) -> Dictionary:
 	var tumba_keys := [[0.0, 0.0], [0.14, 0.05], [0.28, 0.22], [0.45, 0.62],
 		[0.62, 1.02], [0.78, 1.20], [0.90, 1.08], [1.0, 1.12]]
 	# El apoyo acompaña a la vuelta: sin el, el bicho se gira dentro del suelo en vez de sobre el.
@@ -231,15 +232,35 @@ static func _montar_muerte(anims: Array, esc: float) -> void:
 	# GIRA A PERFIL MIENTRAS CAE. Sin esto no se ve NADA: de frente, el eje sobre el que vuelca apunta
 	# a la camara (ver 'rumbo' en _piezas).
 	var rumbo_keys := [[0.0, 0.0], [0.14, 0.08], [0.28, 0.38], [0.45, 0.74], [0.62, 0.94], [1.0, 1.0]]
+	return {"avance": 0.0, "estira": 1.0, "patas": 0.0,
+		"agacha": SpriteLienzo.tramos(t, agacha_keys),
+		"cabeza": SpriteLienzo.tramos(t, cabeza_keys),
+		"escarba": 0.0,
+		"tumba": SpriteLienzo.tramos(t, tumba_keys),
+		"rumbo": SpriteLienzo.tramos(t, rumbo_keys) * PI * 0.5,
+		"apoyo": SpriteLienzo.tramos(t, apoyo_keys)}
+
+
+static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
-		return {"avance": 0.0, "estira": 1.0, "patas": 0.0,
-			"agacha": SpriteLienzo.tramos(t, agacha_keys),
-			"cabeza": SpriteLienzo.tramos(t, cabeza_keys),
-			"escarba": 0.0,
-			"tumba": SpriteLienzo.tramos(t, tumba_keys),
-			"rumbo": SpriteLienzo.tramos(t, rumbo_keys) * PI * 0.5,
-			"apoyo": SpriteLienzo.tramos(t, apoyo_keys)}
+		return _pose_muerte(t)
 	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
+
+
+# EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
+# 'muerte' (ocho fotogramas en una sola). No es un capricho de reparto, es lo que pide cada sitio:
+# en combate al bicho se le ve morir de frente y una vez; en el mapa no se le ve morir -- se entra a
+# la sala y ya esta tirado --, pero puede haber caido mirando a cualquier lado.
+#
+# Es EXACTAMENTE la pose final de la muerte, sacada de la misma funcion: escribir los numeros otra
+# vez aqui es garantizar que el dia que se retoque la muerte el cadaver se quede como estaba, y que
+# el bicho pegue un salto al pasar de una a otro.
+static func _montar_cadaver(anims: Array, esc: float) -> void:
+	var pose := func(_t: float) -> Dictionary:
+		return _pose_muerte(1.0)
+	# ultimo_incluido = false y NO true: con un solo marco, el divisor de _montar_animacion
+	# seria (1 - 1) = 0 y el reparto de t saldria NaN. La pose se pide fija, asi que da igual.
+	_montar_animacion(anims, esc, "cadaver", false, 1.0, pose, false, 8, 1)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente)

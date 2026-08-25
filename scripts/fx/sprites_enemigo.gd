@@ -137,8 +137,20 @@ static func dir8(dir: Vector2) -> int:
 
 # El nombre de la animacion que toca, a partir de hacia donde mira y que esta haciendo.
 static func animacion(mirada: Vector2, embistiendo: bool, moviendose: bool) -> String:
-	var base: String = "embestida" if embistiendo else ("walk" if moviendose else "idle")
-	return "%s_%d" % [base, dir8(mirada)]
+	return "%s_%d" % ["embestida" if embistiendo else ("walk" if moviendose else "idle"),
+		dir8(mirada)]
+
+
+# Y LA POSE DE CADAVER, hermana de la de arriba. Vive aqui, y no en enemy.gd, porque la necesitan
+# DOS sitios -- el bicho de esta partida y el que refleja el compañero en multijugador (remote_enemy)
+# --, y dos copias de la misma regla acaban divergiendo: en una pantalla el muerto se queda mirando
+# adonde estaba y en la otra al sur.
+#
+# UN fotograma por direccion, al reves que la animacion de morir (ocho fotogramas, una direccion):
+# en el mapa no se ve morir a nadie -- se entra a la sala y el bicho ya esta tirado --, pero pudo
+# caer mirando a cualquier lado.
+static func cadaver(mirada: Vector2) -> String:
+	return "cadaver_%d" % dir8(mirada)
 
 
 # ============================================================

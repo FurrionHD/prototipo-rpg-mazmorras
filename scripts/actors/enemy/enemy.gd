@@ -1137,11 +1137,25 @@ func morir() -> void:
 	set_physics_process(false)  # detiene la IA
 	velocity = Vector2.ZERO
 	_color_rect.color = Color(0.4, 0.4, 0.4)  # cuerpo gris/apagado
-	# El sprite tambien se apaga. Y no es solo estetica: aqui se para el _physics_process, o sea que
-	# _actualizar_indicadores ya no vuelve a correr -- si moria justo mientras avisaba el golpe, se
-	# quedaba de cadaver con el tinte rojo del aviso puesto para siempre.
+	# EL SPRITE PASA A SU POSE DE CADAVER: tirado en el suelo y MIRANDO ADONDE ESTABA. Es un solo
+	# fotograma por direccion (ver SpritesEnemigo.cadaver) porque aqui nadie ve morir a nadie: se
+	# entra a la sala y el bicho ya esta ahi.
+	#
+	# EL MODULATE SE PONE A BLANCO A MANO, y hace falta: aqui se para el _physics_process, o sea que
+	# _actualizar_indicadores ya no vuelve a correr -- un bicho que muriera justo mientras avisaba el
+	# golpe se quedaba de cadaver con el tinte ROJO del aviso puesto para siempre.
+	#
+	# Y el gris solo se le echa a quien NO tiene pose de cadaver (los enemigos que siguen siendo un
+	# cuadrado de color): teniendola, ya se ve que esta muerto por como esta, y ademas el gris se
+	# comeria el dibujo que se acaba de hacer para eso.
 	if _sprite.visible:
-		_sprite.modulate = Color(0.45, 0.45, 0.45)
+		var pose: String = SpritesEnemigo.cadaver(_facing)
+		if _sprite.sprite_frames != null and _sprite.sprite_frames.has_animation(pose):
+			_sprite.modulate = Color.WHITE
+			_anim_actual = pose
+			_sprite.play(pose)
+		else:
+			_sprite.modulate = Color(0.45, 0.45, 0.45)
 	if _facing_line != null:
 		_facing_line.visible = false   # un cadaver ya no mira a ningun sitio
 	remove_from_group("enemy")  # ya no es un enemigo activo
