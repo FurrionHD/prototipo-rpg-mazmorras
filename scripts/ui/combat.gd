@@ -3530,12 +3530,17 @@ func _on_continue_pressed() -> void:
 	# combatientes son maniquies que traen lo que se ve y nada mas. Todo lo de abajo (arrastrar el
 	# goteo de las pociones, tirar por las pasivas slayer de cada bicho abatido, decir con cuanta
 	# vida sale cada uno) lo resuelve el ANFITRION, que es quien lleva la pelea. Ejecutarlo aqui
-	# seria repartir premios dos veces y sobre datos que no son. Lo unico que hace el espejo al
-	# pulsar Continuar es cerrar su pantalla; el fin de verdad llega por Net (_fin_espejo).
+	# seria repartir premios dos veces y sobre datos que no son.
+	#
+	# Lo unico que hace el espejo al pulsar Continuar es CERRAR SU PANTALLA, y cerrarla de verdad:
+	# antes se quedaba con un "esperando..." y el boton apagado hasta que el anfitrion pulsaba el
+	# suyo, o sea que el final de la pelea lo decidia otro por ti. Lo que vivieron tus personajes
+	# viene igual, por el camino de siempre (Net.salir_del_espejo se lo pide al anfitrion y llega en
+	# _devolver_desgaste); no hace falta seguir mirando la pantalla para cobrarlo.
 	if _espejo:
-		_ocultar_cajas()
-		_set_log("Esperando a que termine quien lleva la pelea...")
-		_continue_button.disabled = true
+		combat_finished.emit(false, [], [], [], [], [], [], [])
+		if not _injected:
+			queue_free()
 		return
 	# Si sobrevives, la cura/maná de poción que quedaba a medias se arrastra a fuera de
 	# combate (no se malgasta). Si caiste, no hay nada que arrastrar. (KAN-57)

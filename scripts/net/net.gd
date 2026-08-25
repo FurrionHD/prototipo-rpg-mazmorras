@@ -144,6 +144,11 @@ var _dobles: Dictionary = {}
 # ESPEJO: los personajes MIOS que estan en la pelea que sigo.
 var _mis_en_pelea: Array = []      # los que ofreci al unirme, en orden de formacion
 var _mis_huecos: Dictionary = {}   # hueco en la fila de aliados -> mi PersonajeData
+# ME HE SALIDO del espejo por mi cuenta y el anfitrion todavia no me ha devuelto lo que vivieron
+# mis personajes (ver salir_del_espejo). Mientras esto este en pie NO puedo meterme en otra pelea:
+# _devolver_desgaste ASIGNA sobre la ficha, asi que el lote que viene de camino le pisaria a la
+# ficha lo que hubiera hecho en la pelea nueva.
+var _desgaste_pendiente: bool = false
 # FOTO de los pisos sin nadie dentro: el piso se congela tal cual (bichos y cadaveres) y se
 # restaura al volver, como en solitario. Vive en la SESION (host), no en el save de nadie: asi las
 # dos maquinas no divergen y el save del cliente sigue sin tocarse.
@@ -459,6 +464,7 @@ func desconectar() -> void:
 	_pelea_anfitrion = 0
 	_mis_en_pelea.clear()
 	_mis_huecos.clear()
+	_desgaste_pendiente = false   # se cae la sesion: ese lote ya no va a llegar nunca
 	semilla_host = 0
 	tienda_t2_host = false
 	pisos_host.clear()
@@ -4214,6 +4220,7 @@ func _anfitrion_perdido() -> void:
 	_pelea_anfitrion = 0
 	_mis_en_pelea.clear()
 	_mis_huecos.clear()
+	_desgaste_pendiente = false   # se fue con el: no hay lote que esperar
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("cerrar_espejo"):
 		p.cerrar_espejo()
@@ -4247,6 +4254,40 @@ func sacar_de_la_pelea(peer: int) -> void:
 		_dobles.erase(peer)
 	_fin_espejo.rpc_id(peer)
 	_pelea_participantes.erase(peer)
+
+
+# ME SALGO YO del espejo, por mi cuenta: he pulsado "Continuar" con la pelea ya terminada y no
+# quiero quedarme mirando hasta que el anfitrion pulse el suyo.
+#
+# La pantalla se recoge AQUI MISMO, pero la red no se cierra del todo, y ese es el detalle que
+# importa: lo que vivieron mis personajes (vida, mana y LA EXCELIA GANADA) lo tiene el anfitrion y
+# vuelve en un lote aparte, _devolver_desgaste, que cruza por uid contra _mis_en_pelea. Si aqui se
+# hiciera cerrar_pelea() -que lo vacia- ese lote llegaria sin dueño, se descartaria entero y me
+# saldria de la pelea con lo que entre: sin la excelia y curado gratis.
+#
+# Asi que se apaga lo que tiene que apagarse ya (dejo de espejar: no quiero que los bichos que me
+# alcancen se cuelen en una pelea que ya no veo) y se CONSERVA _mis_en_pelea hasta que llegue el
+# desgaste. Para que no se haga esperar, se le avisa al anfitrion de que me saque: reutiliza
+# sacar_de_la_pelea, el mismo camino que la huida individual, asi el lote sale ya y no cuando el
+# otro decida cerrar.
+func salir_del_espejo() -> void:
+	if _pelea_sigo == 0:
+		return   # el cierre no es mio: ya lo han apagado _fin_espejo, _moriste o el anfitrion caido
+	if _pelea_anfitrion != 0:
+		_salgo_de_la_pelea.rpc_id(_pelea_anfitrion)
+		_desgaste_pendiente = true
+	_pelea_sigo = 0
+	_pelea_anfitrion = 0
+	_mis_huecos.clear()
+	# _mis_en_pelea NO se toca: es donde _devolver_desgaste busca por uid. Lo suelta _fin_espejo.
+
+
+# Corre en EL ANFITRION: uno de los que estaban en mi pelea ha cerrado su pantalla por su cuenta.
+# Es exactamente una huida individual, salvo que la pelea ya ha terminado: se le devuelve lo suyo
+# y se le cierra el espejo.
+@rpc("any_peer", "call_remote", "reliable")
+func _salgo_de_la_pelea() -> void:
+	sacar_de_la_pelea(multiplayer.get_remote_sender_id())
 
 
 # 'derrotados' = peers cuyo grupo ENTERO cayo: en vez de devolverles el desgaste y cerrarles el
@@ -4286,6 +4327,8 @@ func _moriste() -> void:
 	_pelea_anfitrion = 0
 	_mis_en_pelea.clear()
 	_mis_huecos.clear()
+	# Morir NO devuelve desgaste (morir_jugador reinicia las fichas): no hay lote que esperar.
+	_desgaste_pendiente = false
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("cerrar_espejo"):
 		p.cerrar_espejo()   # -> Game._on_combate_espejo_cerrado: recoge la capa y el modal
@@ -4311,6 +4354,9 @@ func _devolver_desgaste(lote: Array) -> void:
 			push_warning("[multi] desgaste sin dueño (uid '%s'): se descarta" % String(d.get("uid", "")))
 			continue
 		aplicar_desgaste(pj, d)
+	# Ya tengo lo mio: si me habia salido del espejo por mi cuenta, se acabo la espera y puedo
+	# volver a meterme en peleas (ver salir_del_espejo).
+	_desgaste_pendiente = false
 
 
 # El personaje MIO con ese uid, entre los que mande a la pelea. Se busca en _mis_en_pelea y no en la
@@ -4329,6 +4375,14 @@ func espejando() -> bool:
 	return _pelea_sigo != 0
 
 
+# ¿Me tiene pillado una pelea? Es espejando() MAS el rato en el que ya me he salido pero todavia
+# me debe el desgaste (ver salir_del_espejo). Lo consultan los caminos que ABREN pelea, que son los
+# que no pueden correr en ese hueco; espejando() a secas sigue valiendo para lo demas (redirigir un
+# refuerzo, por ejemplo, que ahi si quiero haber dejado de espejar).
+func ocupado_en_pelea() -> bool:
+	return _pelea_sigo != 0 or _desgaste_pendiente
+
+
 # Le he pegado a un bicho que YA esta en una pelea: quiero entrar a ayudar. Quien sabe de quien es
 # esa pelea es el DUEÑO del piso (lleva las reservas), asi que si no lo soy, se lo pregunto por la
 # via de siempre —solicitar_pelea ya devuelve el anfitrion al que unirse—.
@@ -4336,7 +4390,7 @@ func unirme_a_la_pelea_de(id: int) -> void:
 	if not activo:
 		return
 	# Ya estoy en una pelea (la mia o espejando otra): una pantalla de combate por maquina.
-	if Game.combate_activo() or espejando():
+	if Game.combate_activo() or ocupado_en_pelea():
 		return
 	if not _soy_dueno:
 		solicitar_pelea(id)   # el dueño del piso sabe de quien es esa pelea y me lo dira
@@ -4720,7 +4774,7 @@ func _fundir_maximo(mio_, suyo_) -> Dictionary:
 
 # La llama el jugador al querer meterse en la pelea de un compañero que tiene al lado.
 func solicitar_unirse(anfitrion: int) -> void:
-	if not activo or anfitrion == 0 or Game.combate_activo() or espejando():
+	if not activo or anfitrion == 0 or Game.combate_activo() or ocupado_en_pelea():
 		return
 	if anfitrion == multiplayer.get_unique_id():
 		return
@@ -4825,7 +4879,7 @@ func _union_denegada(motivo: String = "Esa pelea ya no está disponible.") -> vo
 # que mande las fichas. Con ellos se sabe a quien muevo yo cuando el anfitrion pide una accion.
 @rpc("any_peer", "call_remote", "reliable")
 func _union_ok(id: int, roster: Dictionary, idxs: Array) -> void:
-	if Game.combate_activo() or espejando():
+	if Game.combate_activo() or ocupado_en_pelea():
 		return
 	if Game.abrir_combate_espejo(roster) == null:
 		return
@@ -5056,6 +5110,16 @@ func _accion_elegida(accion: Dictionary) -> void:
 # El anfitrion cierra: los espejos se cierran con el.
 @rpc("any_peer", "call_remote", "reliable")
 func _fin_espejo() -> void:
+	# LA LIMPIEZA VA SIEMPRE, aunque ya no espeje. Antes esto lo remataba cerrar_pelea() al recoger
+	# la pantalla, pero desde salir_del_espejo hay un caso en el que la pantalla ya no esta y
+	# _mis_en_pelea sigue en pie a proposito, esperando el desgaste: este aviso es justo el "ya no
+	# viene nada mas". Sin esto _mis_en_pelea se quedaria lleno para siempre.
+	#
+	# El orden con _devolver_desgaste esta garantizado: los dos van por rpc_id fiable y por el mismo
+	# canal, y el anfitrion manda SIEMPRE el lote antes que esto (ver sacar_de_la_pelea).
+	_mis_en_pelea.clear()
+	_mis_huecos.clear()
+	_desgaste_pendiente = false
 	if _pelea_sigo == 0:
 		return
 	_pelea_sigo = 0

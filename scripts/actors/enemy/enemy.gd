@@ -1561,6 +1561,17 @@ func _start_combat(enemy_initiated: bool) -> void:
 		velocity = Vector2.ZERO
 		_cancelar_aviso()
 		return
+	# EL JUGADOR ACABA DE SALIRSE de una pelea (Continuar en el espejo) y el anfitrion aun le debe lo
+	# que vivieron sus personajes. Abrir otra pelea ahora es perderlo: el lote que viene de camino
+	# ASIGNA sobre la ficha y le pisaria lo que hiciera en esta.
+	#
+	# Quieto y sin marcar nada: esto son milisegundos (el lote sale en cuanto el anfitrion recibe el
+	# aviso, ver Net.salir_del_espejo) y el contacto vuelve a llamar aqui al frame siguiente. NO se
+	# usa _esperando_hueco, que es para una pelea LLENA y ademas se suelta solo en cuanto no hay
+	# pantalla delante -y aqui justo acaba de cerrarse-, asi que solo haria que parpadeara.
+	if Net.ocupado_en_pelea():
+		velocity = Vector2.ZERO
+		return
 	# Hay una PANTALLA delante que NO es una pelea: un minijuego de recoleccion (extraer un cristal,
 	# picar, recolectar, talar). Game.start_combat la rechaza en seco (`if _active_layer != null:
 	# return`), asi que seguir adelante congelaba al grupo entero SIN abrir pelea: se quedaban de

@@ -11120,13 +11120,20 @@ func abrir_combate_espejo(roster: Dictionary) -> Node:
 # El espejo se cierra: NO hay resultados que volcar (los personajes que peleaban de verdad los
 # lleva quien ejecuta la pelea, y sus vidas vuelven por el camino de siempre). Solo se recoge la
 # pantalla y se devuelve el mundo.
+#
+# El desenganche de la red lo lleva Net.salir_del_espejo y NO cerrar_pelea, que es lo que habia
+# aqui. La diferencia importa solo en un caso -cuando el que cierra soy YO, pulsando Continuar
+# antes que el anfitrion-, pero en ese caso cerrar_pelea vaciaba _mis_en_pelea y tiraba a la basura
+# el desgaste que venia de camino: salias de la pelea sin la excelia que habias ganado. Los demas
+# cierres (el anfitrion cierra, me muero, se cae el anfitrion) ya llegan aqui con la red apagada
+# por su cuenta, y para ellos salir_del_espejo no hace nada.
 func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en := [],
 		_muertos := [], _ehp := [], _duenos := [], _eest := []) -> void:
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()
 	Net.avisar_combate(false)
-	Net.cerrar_pelea()
+	Net.salir_del_espejo()
 	if is_instance_valid(_active_layer):
 		_active_layer.queue_free()
 	_active_layer = null
