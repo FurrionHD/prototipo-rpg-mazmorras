@@ -206,6 +206,15 @@ var color_visual: Color = Color(0.9, 0.35, 0.3)
 # JEFE que se queda SIEMPRE en el centro de la fila (ver EnemyData.centrado_en_fila). Como el
 # color, es dato de PRESENTACION que viaja aqui porque la pantalla de combate solo ve Combatants.
 var centrado_en_fila: bool = false
+# DE DONDE SACAR SU SPRITE: la ruta del .tres de su EnemyData, y la 't' con la que se genero (que
+# es la que decide su variante, ver SpritesEnemigo.clave_de). Vacia = sin sprite, se queda con la
+# figura de color.
+#
+# Va la RUTA y no el recurso porque esto tiene que cruzar la red: el espejo monta maniquis que
+# nunca han visto un EnemyData, asi que con la ruta la carga el solo y ve los mismos bichos que
+# quien lleva la pelea. Mismo motivo que color_visual y fx_basico para vivir aqui.
+var sprite_res: String = ""
+var sprite_t: float = 0.5
 # COMO PEGA cuando NO usa habilidad. Las habilidades piden su dibujo por AbilityData.fx_estilo,
 # pero el ataque basico no pasa por ninguna habilidad, asi que su aspecto tiene que venir del
 # propio bicho: sin esto una rata lanza dentelladas al usar tecnica y da empujones de tarjeta el

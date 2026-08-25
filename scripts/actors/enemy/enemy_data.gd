@@ -345,6 +345,10 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	# Combatants (no el EnemyData), y necesita pintar su marcador en la barra de accion.
 	c.color_visual = color_visual(t)
 	c.centrado_en_fila = centrado_en_fila
+	# De donde saldra su sprite en la pantalla de combate. Se guarda la RUTA y la 't', que juntas
+	# identifican la variante exacta (ver SpritesEnemigo.clave_de): la misma que se ve en el mapa.
+	c.sprite_res = resource_path
+	c.sprite_t = t
 	c.fx_basico = fx_basico
 	return c
 

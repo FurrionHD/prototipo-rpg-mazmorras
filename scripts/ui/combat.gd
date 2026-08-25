@@ -556,6 +556,10 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 	c.max_energy = float(d.get("max_en", 0.0))
 	c.current_energy = float(d.get("en", 0.0))
 	c.color_visual = d.get("color", Color.WHITE)
+	# De donde sale su sprite. Un roster de una version anterior no lo trae, y entonces se queda
+	# con la figura de color de siempre en vez de reventar.
+	c.sprite_res = String(d.get("spr", ""))
+	c.sprite_t = float(d.get("spr_t", 0.5))
 	# Su cara, para el marcador de turnos: se monta aqui una vez y se cachea por maniqui.
 	var png: PackedByteArray = d.get("imagen", PackedByteArray())
 	var metal: float = float(d.get("metal", 0.0))
@@ -590,7 +594,11 @@ func _fila_de_roster(lista: Array) -> Array:
 			"imagen": pj.imagen if pj != null else PackedByteArray(),
 			"max_hp": c.max_hp, "hp": c.current_hp,
 			"max_mp": c.max_mp, "mp": c.current_mp,
-			"max_en": c.max_energy, "en": c.current_energy})
+			"max_en": c.max_energy, "en": c.current_energy,
+			# DE DONDE SACAR SU SPRITE. Viaja la ruta de su .tres y la 't' de su variante, que son
+			# dos datos minusculos y con eso el compañero carga el mismo bicho por su cuenta. Sin
+			# esto, en su pantalla la pelea entera serian cuadrados de color.
+			"spr": c.sprite_res, "spr_t": c.sprite_t})
 	return out
 
 
@@ -1670,15 +1678,22 @@ func _ready() -> void:
 		_player = _aliados[0]
 		var colores: Array[Color] = [Color(0.9, 0.3, 0.3), Color(0.4, 0.8, 0.4),
 			Color(0.5, 0.5, 0.95), Color(0.9, 0.8, 0.35), Color(0.7, 0.45, 0.9)]
+		# Uno de cada de los que ya tienen sprite, para que la prueba enseñe el escenario de verdad
+		# y no cinco cuadrados. Los .tres son los de siempre: de ahi salen el aspecto y el nombre.
+		var muestras: Array[String] = ["res://scenes/actors/enemy/slime.tres",
+			"res://scenes/actors/enemy/rata.tres", "res://scenes/actors/enemy/jabali.tres",
+			"res://scenes/actors/enemy/trent.tres", "res://scenes/actors/enemy/slime_veneno.tres"]
 		for i in MAX_ENEMIGOS:
 			var eab := Abilities.new()
 			eab.fuerza = 80; eab.resistencia = 70; eab.destreza = 30
 			eab.agilidad = 40 + i * 20   # velocidades distintas: se ve el orden de turnos moverse
 			eab.magia = 0
-			# Todos "Slime" a secas, sin numerar: los de verdad tampoco llevan numero en el nombre
-			# (ese lo pone la tarjeta), y numerandolos aqui la prueba enseñaba el numero dos veces.
-			var e := Combatant.new("Slime", 1, eab, 40, 4, 5, 4)
+			var ed: EnemyData = load(muestras[i]) as EnemyData
+			var e := Combatant.new(ed.enemy_name if ed != null else "Slime", 1, eab, 40, 4, 5, 4)
 			e.color_visual = colores[i]
+			if ed != null:
+				e.sprite_res = muestras[i]
+				e.sprite_t = 0.5
 			_enemies.append(e)
 
 	# La barra de TODOS: los tuyos y los de enfrente, en la misma linea de salida. Nadie arranca a
@@ -1946,6 +1961,8 @@ func _setup_ui() -> void:
 	for i in _aliados.size():
 		_anadir_bloque_aliado(_aliados[i])
 	_seleccionar(0)
+	# Ya estan todos: ahora se sabe cual es el mas grande y se puede repartir el tamaño.
+	_ajustar_zoom_sprites()
 	_update_hp()
 	_continue_button.visible = false
 	_ocultar_cajas()
@@ -2122,8 +2139,12 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 			actor.size = sitio.size)
 	var figura: ColorRect = _montar_figura(actor, c, numero)
 
-	# LA MARCA DE OBJETIVO: una flecha encima del enemigo apuntado. Cuelga del SITIO y no de la
-	# figura para que no se vaya con ella en las embestidas -- señala el puesto, no al que se mueve.
+	# LA MARCA DE OBJETIVO: una flecha encima del enemigo apuntado.
+	#
+	# Cuelga del HUECO, arriba del todo. No de la figura, porque el sprite crece hacia arriba
+	# saliendose de ella y la flecha le quedaba dentro; y no del nodo que mueve CombatFX, porque
+	# entonces se iria de paseo con cada embestida -- señala el puesto, no al que se mueve.
+	#
 	# Y es un nodo aparte, no un tinte: modulate de la figura es de CombatFX (se reescribe cada
 	# frame) y el de la columna lleva el gris del cadaver, asi que cualquiera de los dos se lo
 	# comeria al instante.
@@ -2133,14 +2154,14 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 		cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cursor.visible = false
 		cursor.set_anchors_preset(Control.PRESET_TOP_WIDE)
-		cursor.offset_top = -18.0
-		cursor.offset_bottom = -4.0
+		cursor.offset_top = 0.0
+		cursor.offset_bottom = 14.0
 		cursor.draw.connect(func() -> void:
 			var w: float = cursor.size.x
 			cursor.draw_colored_polygon(PackedVector2Array([
 				Vector2(w * 0.5 - 9.0, 0.0), Vector2(w * 0.5 + 9.0, 0.0),
 				Vector2(w * 0.5, 12.0)]), Color(1, 1, 1, 0.9)))
-		sitio.add_child(cursor)
+		actor_wrap.add_child(cursor)
 
 	# ENVOLTORIO DE LA TARJETA. La tarjeta va DENTRO de un Control pelado, y es el envoltorio -no el
 	# panel- el que entra en la columna. Motivo: un Container reescribe la 'position' de sus hijos en
@@ -2278,9 +2299,109 @@ func _montar_figura(actor: Control, c: Combatant, numero: int) -> ColorRect:
 	# Llena a su actor, que ya viene con el tamaño y apoyado en el suelo (ver _crear_bloque).
 	fig.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	actor.add_child(fig)
+	if numero > 0:
+		_poner_sprite(fig, c)
 	# El numero NO se repite aqui: cada figura tiene su tarjeta justo encima y ya lo lleva, asi que
 	# ponerlo tambien en el escenario es decir dos veces lo mismo en dos sitios que se miran.
 	return fig
+
+
+# EL SPRITE del enemigo encima de su figura, si es de los que ya tienen uno. Los que no (hoy la
+# mayoria: solo hay generador para slime, rata, jabali y trent) se quedan con el cuadrado de color,
+# que es exactamente lo que habia y no molesta.
+#
+# Se usa 'idle' MIRANDO A CAMARA (la direccion 0 = S), que es la vista frontal que hace falta aqui:
+# las ocho direcciones del mapa son isometricas y solo esa mira de frente. El cuadrado de color se
+# apaga cuando hay sprite, pero el ColorRect se queda: es el que lleva el tamaño y el que colorean
+# la seleccion y el resto de la UI.
+func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
+	if c.sprite_res == "" or not ResourceLoader.exists(c.sprite_res):
+		return
+	var ed: EnemyData = load(c.sprite_res) as EnemyData
+	if ed == null:
+		return
+	var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, c.sprite_t)
+	if frames == null:
+		return
+	var anim: StringName = &"idle_0"
+	if not frames.has_animation(anim):
+		return
+	var sp := AnimatedSprite2D.new()
+	sp.sprite_frames = frames
+	sp.animation = anim
+	sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sp.centered = true
+	# APOYADO EN EL SUELO de la figura y centrado a lo ancho, que es donde esta el pivote de los
+	# golpes (ver CombatFX._aplicar): asi un aplastado lo hunde en vez de dejarlo flotando.
+	sp.position = Vector2(LADO_FIGURA * 0.5, LADO_FIGURA)
+	# EL TAMAÑO NO SE DECIDE AQUI. Se apunta cuanto mide este bicho "de fabrica" y lo reparte
+	# despues _ajustar_zoom_sprites, que necesita ver a TODOS los de la pelea para saber cual es el
+	# mas grande. Ver alli por que.
+	var alto_base: float = 1.0
+	var tex: Texture2D = frames.get_frame_texture(anim, 0)
+	if tex != null and tex.get_height() > 0:
+		# LO QUE MIDE EL BICHO DIBUJADO, no su frame. Los frames traen bastante aire transparente
+		# arriba (el sitio que necesitan las animaciones que dan saltos), asi que midiendo el frame
+		# entero todos salian a la mitad del tamaño que les cabia.
+		# LO QUE MIDE EL BICHO y DONDE ESTA dentro de su frame. Los frames del horno son mas grandes
+		# que el dibujo (el sitio que necesitan las animaciones que se mueven), y ese aire viaja en
+		# el 'margin' del AtlasTexture: get_height() devuelve el frame inflado y get_image() solo el
+		# recorte de verdad. Midiendo el frame, todos salian a la mitad de lo que les cabia; y
+		# apoyandolos por el borde del frame, los que llevan mas aire abajo (el jabali) flotaban.
+		var alto_px: float = float(tex.get_height())
+		var dentro: float = float(tex.get_height())   # donde acaba el dibujo dentro del frame
+		var img: Image = tex.get_image()
+		if img != null and img.get_height() > 0:
+			alto_px = float(img.get_height())
+			dentro = alto_px
+			var at := tex as AtlasTexture
+			if at != null:
+				dentro += at.margin.position.y
+		sp.offset.y = tex.get_height() * 0.5 - dentro
+		alto_base = alto_px * SpritesEnemigo.escala_de(ed)
+		if SpritesEnemigo.hay_que_estirar(ed):
+			alto_base *= ed.escala_visual
+	fig.set_meta("sprite", sp)
+	fig.set_meta("alto_base", alto_base)
+	fig.add_child(sp)
+	sp.play()
+	fig.color = Color(0, 0, 0, 0)   # manda el sprite; el rect se queda solo como caja
+
+
+# EL TAMAÑO DE LOS SPRITES, en relacion AL MAS GRANDE de la pelea: el mayor llena su hueco de
+# arriba abajo y todos los demas se escalan con SU MISMO factor.
+#
+# Se hace asi, y de una vez para toda la fila, porque las dos alternativas obvias fallan:
+#   - Un zoom fijo no sirve: cada piso trae bichos de tamaños muy distintos, y el que le viene
+#     bien a un slime deja al trent saliendose por arriba (o al reves, cuatro ratas diminutas).
+#   - Escalar a cada uno para que llene su hueco (SpritesEnemigo.zoom_visor) IGUALA a todos, que
+#     es justo lo que no se quiere: una rata acabaria del tamaño de un trent.
+# Con un factor comun sacado del mayor, se aprovecha todo el alto disponible Y un trent sigue
+# siendo el doble de alto que un slime, que es lo que dicen sus dibujos (60 px contra 27).
+#
+# Hay que rehacerlo cada vez que cambia QUIEN esta en la fila: si entra un refuerzo mas grande que
+# los que habia, encoge a todos los demas para dejarle sitio.
+func _ajustar_zoom_sprites() -> void:
+	var mayor: float = 0.0
+	for b in _bloques:
+		var fig: ColorRect = b.get("figura")
+		if fig == null or not is_instance_valid(fig) or not fig.has_meta("alto_base"):
+			continue
+		# Los muertos no cuentan: un jefe caido no puede seguir achicando a los que quedan vivos.
+		var i: int = int(b.get("idx", -1))
+		if i >= 0 and i < _enemies.size() and not _enemies[i].is_alive():
+			continue
+		mayor = maxf(mayor, float(fig.get_meta("alto_base")))
+	if mayor <= 0.0:
+		return
+	var factor: float = ALTO_ACTOR / mayor
+	for b in _bloques:
+		var fig2: ColorRect = b.get("figura")
+		if fig2 == null or not is_instance_valid(fig2) or not fig2.has_meta("sprite"):
+			continue
+		var sp2: AnimatedSprite2D = fig2.get_meta("sprite")
+		if sp2 != null and is_instance_valid(sp2):
+			sp2.scale = Vector2.ONE * factor
 
 
 # Estilo del bloque: seleccionado = borde blanco alrededor de todo, normal = borde transparente.
@@ -2406,6 +2527,8 @@ func _recomponer_fila_enemigos() -> void:
 			visibles.append(b)
 	_reajustar_anchos(visibles, visibles.size())
 	_ordenar_fila_enemigos()
+	# La fila ha cambiado: puede haber entrado uno mas grande, o haberse ido el que mandaba.
+	_ajustar_zoom_sprites()
 
 
 # EL JEFE, SIEMPRE EN EL CENTRO. Los invocados entran en el primer hueco libre y se añaden al final,
@@ -2652,11 +2775,21 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 		# modulate ENTERO y no solo el alpha: ahi vive tambien el gris del cadaver (ver
 		# _apagar_visual), asi que devolviendo solo la opacidad el refuerzo entraba en gris.
 		col.modulate = Color.WHITE
-	# El color del que ESTRENA el hueco: la figura la creo el cadaver anterior y se quedaria con
-	# su color (y con su sprite, cuando los haya).
+	# EL ASPECTO del que ESTRENA el hueco: la figura la creo el cadaver anterior, asi que sin esto
+	# un slime invocado en el hueco de una rata seguiria siendo una rata.
 	var fig: ColorRect = b.get("figura")
 	if fig != null and is_instance_valid(fig):
+		# remove_child ADEMAS del queue_free: liberar solo deja al viejo colgando hasta el final
+		# del frame, y _poner_sprite habria montado el nuevo encima -- se verian los dos bichos.
+		for hijo in fig.get_children():
+			fig.remove_child(hijo)
+			hijo.queue_free()
+		if fig.has_meta("sprite"):
+			fig.remove_meta("sprite")
+		if fig.has_meta("alto_base"):
+			fig.remove_meta("alto_base")
 		fig.color = c.color_visual
+		_poner_sprite(fig, c)
 	# EL APAGADO PENDIENTE DEL CADAVER ANTERIOR, FUERA. Es lo que dejaba GRIS al refuerzo que entra en
 	# el hueco de un muerto: _apagar_diferido no apaga en el acto si quedan golpes por aterrizar, deja
 	# b["fx_apagar"] = true y lo consume despues _saldar_barras, que recorre TODAS las tarjetas. Si
