@@ -48,7 +48,7 @@ signal apagar_ahora(bloque: Dictionary)
 # EL CUERPO EMPIEZA (y termina) SU GESTO. Lo escucha combat.gd, que es el dueño de los sprites:
 # aqui solo se lleva el reloj. 'dir' es la direccion del sprite (0 = mirando a camara) y 'dur' lo
 # que dura el gesto EN SEGUNDOS REALES, para que la animacion se ajuste a el y no al reves.
-signal gesto_iniciado(bloque: Dictionary, dir: int, dur: float, inflando: bool)
+signal gesto_iniciado(bloque: Dictionary, dir: int, dur: float, anim: StringName)
 signal gesto_terminado(bloque: Dictionary)
 
 # COMO se presenta un impacto. MELEE es lo de siempre: la tarjeta del que pega EMBISTE a la del
@@ -1238,7 +1238,7 @@ func tanda(n: int) -> void:
 func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bool,
 		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0,
 		solo_dibujo: bool = false, sfx: String = "", elem: int = 0, escudo: int = -1,
-		gesto: int = -1) -> void:
+		gesto: int = -1, anim: StringName = &"") -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
 		_tanda_pedida = -1
 		return
@@ -1266,6 +1266,8 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		# _marcar_gestos al arrancar la cola, que es cuando ya se sabe a quienes alcanza la accion
 		# entera y se puede decidir adonde va el bicho.
 		"gesto": gesto,
+		# QUE ANIMACION pide (vacio = su gesto de atacar de siempre). Ver AbilityData.fx_anim.
+		"anim": anim,
 	})
 	# LA VIDA NO PUEDE BAJAR ANTES QUE EL GOLPE. Se apunta AQUI, en el mismo instante en que el
 	# golpe se resuelve, y no al arrancar la cola: entre una cosa y otra combat.gd llama a
@@ -1395,6 +1397,10 @@ const T_SALTO_VUELTA := 0.32
 const INFLADO_MAX := 2.4
 # Lo alto que sube antes de dejarse caer.
 const SALTO_ALTURA := 90.0
+# EL GESTO DE ATACAR de toda la vida: cuanto antes del golpe arranca (el brazo que se echa atras)
+# y cuanto tarda en recogerse despues del ultimo.
+const T_ANIM_ADELANTO := 0.16
+const T_ANIM_COLA := 0.18
 
 
 func _marcar_gestos() -> void:
@@ -1412,7 +1418,8 @@ func _marcar_gestos() -> void:
 			_plan_salto(ev, vistos)
 			continue
 		if g != AbilityData.Gesto.VIAJE:
-			continue   # los demas tipos aun no ponen movimiento propio
+			_plan_animar(ev, vistos)
+			continue
 		var pa: Control = _visual(ev["ba"])
 		var pv: Control = _visual(ev["bv"])
 		if pa == null or pv == null or pa == pv or vistos.has(pa):
@@ -1437,9 +1444,59 @@ func _marcar_gestos() -> void:
 			# que un gesto vaya de lado (barrer la fila), el bicho mirara hacia donde va sin tocar
 			# nada mas. Hacia abajo en pantalla = sur = mirando a camara.
 			"dir8": SpritesEnemigo.dir8(d),
+			"anim": ev.get("anim", &""),
 			"ini_lanzado": false,
 			"fin_lanzado": false,
 		})
+
+
+# TODO EL QUE ATACA HACE SU GESTO DE ATACAR, aunque su habilidad no pida nada especial. Este es el
+# plan de los que solo necesitan eso: el cuerpo no va a ninguna parte (de moverlo, si toca, se
+# encarga la embestida de siempre) pero el sprite deja de estar de brazos cruzados.
+#
+# Sin esto solo animaban los tres gestos con nombre, y el resto -el ataque basico de cualquier
+# bicho, la Cornada, el Ramazo, los escupitajos- soltaba su efecto mientras el que lo lanzaba se
+# quedaba en la pose de reposo, como si el golpe no fuera suyo.
+#
+# UNA VEZ POR GOLPE, no una por accion: el Frenesi son seis mordiscos y la rata tiene que morder
+# seis veces. De ahi la lista de instantes en vez de un t_imp suelto.
+func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
+	var pa: Control = _visual(ev["ba"])
+	if pa == null or vistos.has(pa):
+		return
+	# Un ataque a uno mismo (un aura, un buff) no es un golpe: ahi no hay gesto de atacar.
+	if pa == _visual(ev["bv"]):
+		return
+	var cuando: Array[float] = []
+	for i in _cola.size():
+		if _cola[i]["ba"] != ev["ba"] or bool(_cola[i].get("solo_dibujo", false)):
+			continue
+		# Solo los que se ven: de la 7ª tanda en adelante ya no se anima nadie, igual que la
+		# embestida, o con una racha larga el bicho se convierte en un parpadeo.
+		if int(_cola[i].get("pos_tanda", 0)) >= MAX_IMPACTOS_ANIMADOS:
+			continue
+		cuando.append(float(_cola[i]["t"]))
+	if cuando.is_empty():
+		return
+	cuando.sort()
+	vistos[pa] = true
+	# Empieza un poco ANTES del golpe: es el brazo que se echa atras. Y termina al ultimo impacto
+	# mas lo que dure recogerse.
+	var dir: Vector2 = _direccion(pa, _visual(ev["bv"]))
+	_gestos.append({
+		"actor": pa,
+		"bloque": ev["ba"],
+		"tipo": AbilityData.Gesto.EN_SITIO,
+		"t_ini": maxf(cuando[0] - T_ANIM_ADELANTO, 0.0),
+		"t_imp": cuando[0],
+		"t_fin": cuando[cuando.size() - 1] + T_ANIM_COLA,
+		"golpes": cuando,
+		"sig": 0,
+		"dir8": SpritesEnemigo.dir8(dir),
+		"anim": ev.get("anim", &""),
+		"ini_lanzado": false,
+		"fin_lanzado": false,
+	})
 
 
 # EL SALTO: coger aire, hincharse hasta cubrir a todos los que va a golpear, y dejarse caer encima.
@@ -1484,6 +1541,7 @@ func _plan_salto(ev: Dictionary, vistos: Dictionary) -> void:
 		"destino": destino,
 		"crece": crece,
 		"dir8": 0,   # cae de frente, mirando a camara
+		"anim": ev.get("anim", &""),
 		"ini_lanzado": false,
 		"fin_lanzado": false,
 	})
@@ -1512,6 +1570,13 @@ func _cola_de_gestos() -> float:
 # _process, y _process deja de mirarlos en cuanto la cola termina o se corta (tecla P, fin de la
 # pelea): sin esto, ese bicho se quedaria congelado en el ultimo frame de su animacion de ataque
 # -- que ademas es 'loop = false', asi que ahi se queda para siempre.
+# Avisa de que el cuerpo hace su gesto, con la animacion que pida y el tiempo que tiene para ella.
+# En SEGUNDOS REALES: quien la reproduce corre con el reloj del motor, no con el nuestro.
+func _avisar_gesto(p: Dictionary, dur_anim: float) -> void:
+	gesto_iniciado.emit(p["bloque"], int(p["dir8"]),
+		dur_anim / maxf(escala_tiempo, 0.01), StringName(p.get("anim", "")))
+
+
 func _cerrar_gestos() -> void:
 	for p in _gestos:
 		if not bool(p["fin_lanzado"]):
@@ -1534,12 +1599,19 @@ func _aplicar_gestos(mov: Dictionary, esc: Dictionary, zorden: Dictionary) -> vo
 		# corre con el reloj del motor, no con el nuestro (ver escala_tiempo).
 		if not bool(p["ini_lanzado"]) and _t >= t_ini:
 			p["ini_lanzado"] = true
-			# El SALTO usa su propia animacion (coger aire) y solo dura hasta que despega: a partir
-			# de ahi lo que se ve es el cuerpo hinchado volando, y ya no hay nada que deformar.
-			var es_salto: bool = int(p["tipo"]) == AbilityData.Gesto.SALTO
-			var hasta: float = float(p["t_aire"]) if es_salto else t_fin
-			gesto_iniciado.emit(p["bloque"], int(p["dir8"]),
-				(hasta - t_ini) / maxf(escala_tiempo, 0.01), es_salto)
+			# El SALTO solo anima hasta que despega: a partir de ahi lo que se ve es el cuerpo
+			# hinchado volando, y ya no hay nada que deformar.
+			var hasta: float = float(p.get("t_aire", t_fin))
+			_avisar_gesto(p, hasta - t_ini)
+		# UNA VEZ POR GOLPE. La rata muerde seis veces en un Frenesi, asi que su gesto se repite
+		# seis veces; sin esto atacaba una y se quedaba quieta mientras caian los otros cinco.
+		var golpes: Array = p.get("golpes", [])
+		var sig: int = int(p.get("sig", 0))
+		if sig < golpes.size() and _t >= float(golpes[sig]):
+			p["sig"] = sig + 1
+			if sig > 0:   # el primero ya lo lanzo el arranque de arriba
+				var hueco: float = float(golpes[sig]) - float(golpes[sig - 1])
+				_avisar_gesto(p, hueco)
 		if not bool(p["fin_lanzado"]) and _t >= t_fin:
 			p["fin_lanzado"] = true
 			gesto_terminado.emit(p["bloque"])

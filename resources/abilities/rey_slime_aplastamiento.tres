@@ -17,6 +17,7 @@ prob = 0.6
 script = ExtResource("1")
 fx_estilo = 9
 gesto = 4
+fx_anim = &"inflar"
 nombre = "Aplastamiento"
 descripcion = "Se alza hasta rozar el techo de la sala y se deja caer entero. Lo que pilla debajo deja de moverse un rato."
 coste_energia = 0.0

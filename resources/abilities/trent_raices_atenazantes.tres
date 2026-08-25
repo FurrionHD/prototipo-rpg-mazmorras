@@ -16,4 +16,5 @@ coste_energia = 0.0
 dano_mult = 0.8
 efectos = [SubResource("SA_raiz")]
 fx_estilo = 24
+fx_anim = &"raices"
 cooldown = 4

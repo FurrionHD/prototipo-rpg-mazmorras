@@ -230,6 +230,7 @@ static func generar(color: Color = Color(0.35, 0.5, 0.25), escala: float = 1.0) 
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_raices(anims, esc)
 	var lz: Vector2i = _lienzo(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col)), lz.x, lz.y)
@@ -269,6 +270,24 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 			# Al descargar el ramazo PLANTA los pies y no da paso: el golpe sale del tronco.
 			"patas": 0.0}
 	_montar_animacion(anims, esc, "embestida", false, 8.0, pose, true)
+
+
+# CLAVA LAS RAMAS EN EL SUELO: lo que hace antes de que las raices broten bajo tus pies. Se echa
+# atras tomando aire, descarga las dos ramas contra el suelo y AHI SE QUEDA, agarrado, mientras el
+# ataque sale por debajo.
+#
+# Es hermana del ramazo pero al reves de intencion: aquel levanta y BARRE hacia delante, este
+# levanta y HUNDE. Por eso el 'alza' se va mucho mas abajo que en la embestida (-1.8 contra -0.9) y
+# no vuelve al reposo: el ultimo frame es el trent enganchado al suelo con las dos ramas dentro.
+static func _montar_raices(anims: Array, esc: float) -> void:
+	var alza_keys := [[0.0, 0.0], [0.28, 0.95], [0.52, -1.8], [0.74, -1.6], [1.0, -1.5]]
+	var mece_keys := [[0.0, 0.0], [0.28, -0.9], [0.52, 1.6], [0.74, 1.3], [1.0, 1.15]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": 0.0,   # no da un paso: se agarra donde esta
+			"mece": SpriteLienzo.tramos(t, mece_keys), "balanceo": 0.0,
+			"brazos": 0.0, "alza": SpriteLienzo.tramos(t, alza_keys),
+			"patas": 0.0}
+	_montar_animacion(anims, esc, "raices", false, 7.0, pose, true)
 
 
 static func _montar_animacion(anims: Array, esc: float, nombre: String,

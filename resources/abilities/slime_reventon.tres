@@ -5,6 +5,8 @@
 [resource]
 script = ExtResource("1")
 fx_estilo = 9
+gesto = 4
+fx_anim = &"inflar"
 coste_energia = 0.0
 nombre = "Reventón"
 cooldown = 4

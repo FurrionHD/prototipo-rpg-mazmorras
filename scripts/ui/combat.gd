@@ -2337,14 +2337,17 @@ func _sprite_de(b: Dictionary) -> AnimatedSprite2D:
 # sale el speed_scale. Hay que hacerlo asi porque un AnimatedSprite2D corre con el reloj del motor,
 # mientras que el gesto corre con el de CombatFX (escala_tiempo) -- a velocidad x2 el cuerpo iria
 # al doble y el dibujo a ritmo normal, cada uno por su lado.
-func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, inflando: bool = false) -> void:
+func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = &"") -> void:
 	var sp: AnimatedSprite2D = _sprite_de(b)
 	if sp == null or sp.sprite_frames == null:
 		return   # sin sprite el gesto sigue valiendo: lo que se mueve es la figura
-	# COGER AIRE tiene animacion propia (solo el slime, de momento); lo demas ataca con su embestida.
-	var anim := StringName("inflar_%d" % dir) if inflando else StringName("embestida_%d" % dir)
-	if not sp.sprite_frames.has_animation(anim):
-		anim = StringName("embestida_%d" % dir)
+	# LA QUE PIDA LA HABILIDAD, y si no la tiene (o no pide ninguna), su gesto de atacar de siempre.
+	# Pedir una animacion que ese bicho no tenga no rompe nada: ataca como cualquier otro dia.
+	var anim := StringName("embestida_%d" % dir)
+	if pide != &"":
+		var propia := StringName("%s_%d" % [pide, dir])
+		if sp.sprite_frames.has_animation(propia):
+			anim = propia
 	if not sp.sprite_frames.has_animation(anim):
 		return
 	var fps: float = maxf(sp.sprite_frames.get_animation_speed(anim), 0.1)
@@ -3024,7 +3027,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		evadido: bool, elem: int = Elementos.Elemento.NINGUNO,
 		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0,
 		solo_dibujo: bool = false, sfx: String = "",
-		gesto: int = AbilityData.Gesto.AUTO) -> void:
+		gesto: int = AbilityData.Gesto.AUTO, anim: StringName = &"") -> void:
 	if _fx == null:
 		return
 	var bv: Dictionary = _bloque_de(victima)
@@ -3040,7 +3043,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	# estoque haciendo el salto del Rey Slime.
 	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido,
 		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx, elem,
-		atacante.fx_escudo if atacante != null else -1, gesto)
+		atacante.fx_escudo if atacante != null else -1, gesto, anim)
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
 	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo, sfx)
@@ -6677,6 +6680,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	# (el Frenesi es una racha de seis mordiscos, pero la rata ataca desde su sitio UNA vez, no seis
 	# veces cada una a su aire).
 	var gesto_ab: int = _gesto_de_habilidad(ab)
+	var anim_ab: StringName = ab.fx_anim if ab != null else &""
 	for i in n_golpes:
 		_fx_tanda(tanda_base + i)
 		var result := StatsMath.resolve_attack(e, t, defendiendo)
@@ -6685,7 +6689,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			Game.contar_esquiva(pj_t)   # contador oculto de Reflejos
 			esquivados += 1
 			rastro.append({"t": "falla", "c": t})
-			_fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab, gesto_ab)
+			_fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab, gesto_ab, anim_ab)
 			if t.en_guardia and permitir_contra and contra == "":
 				contra = _contraatacar(e, t)
 				if not e.is_alive():
@@ -6698,7 +6702,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			var dmg_bruto: float = float(result.get("dmg_sin_mitigar", result.damage)) \
 				* ab.dano_mult * escala * e.dummy_dmg_out_mult
 			t.take_damage(dmg)
-			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab, gesto_ab)
+			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab, gesto_ab, anim_ab)
 			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
 			# El tope por accion hace que una habilidad de cinco golpes cueste una, no cinco.
 			if t.resiste_por_afinidad(e.elemento_ataque):

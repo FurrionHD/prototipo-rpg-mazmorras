@@ -293,6 +293,16 @@ func secundario_para(n_enemigos: int) -> float:
 enum Gesto { AUTO = -1, QUIETO, EN_SITIO, PASO, VIAJE, SALTO, ATRAVESAR }
 @export var gesto: int = Gesto.AUTO
 
+# QUE ANIMACION del bicho se reproduce al hacerlo. Vacio = "embestida", que es el gesto de atacar
+# que tienen todos. Se pide por nombre porque hay habilidades que necesitan la SUYA: el Rey Slime
+# coge aire antes de saltar ("inflar"), el trent clava los brazos en el suelo antes de que broten
+# las raices ("raices"). El nombre es el de la animacion en el generador del bicho, sin la
+# direccion (el "_0" lo pone el combate segun hacia donde mire).
+#
+# Si el bicho no tiene esa animacion se cae a su embestida, asi que pedir una que no existe no
+# rompe nada: simplemente ataca como siempre.
+@export var fx_anim: StringName = &""
+
 # QUE TE ECHAS TU ENCIMA, aparte de lo que le hagas al enemigo. -1 = nada.
 #
 # Existe porque hay habilidades que hacen LAS DOS COSAS: el Voto de guardia pega un tajo Y te deja
