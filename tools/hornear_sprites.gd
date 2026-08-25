@@ -38,6 +38,7 @@ func _ready() -> void:
 	var bytes: int = 0
 	var t0: int = Time.get_ticks_msec()
 	var recortados: int = 0
+	var sueltas: int = 0
 	for ruta in rutas:
 		var ed: EnemyData = load(ruta) as EnemyData
 		if ed == null or SpritesEnemigo.clave_de(ed, 0.5) == "":
@@ -62,6 +63,7 @@ func _ready() -> void:
 			bytes += n
 			total += 1
 			recortados += _avisar_recortes(sf, clave)
+			sueltas += _avisar_islas(sf, clave)
 		print("  %-24s %d variantes" % [ruta.get_file(), hechas.size()])
 	print("")
 	print("%d ficheros, %.2f MB, en %.1f s" % [total, bytes / 1048576.0,
@@ -71,6 +73,10 @@ func _ready() -> void:
 		print("  !! %d fotogramas TOCAN EL BORDE de su lienzo (ver arriba cuales): a esos el dibujo"
 			% recortados)
 		print("     se les corta en seco. O la pose se pasa, o ese bicho necesita un lienzo mayor.")
+	if sueltas > 0:
+		print("")
+		print("  !! %d fotogramas tienen TROZOS SUELTOS separados del cuerpo." % sueltas)
+		print("     Alguna pieza se ha quedado atras: se ve como un cacho de bicho tirado al lado.")
 	print("Estan en %s -- ABRE GODOT UNA VEZ para que los importe antes de jugar." %
 		SpriteLienzo.CARPETA_HORNO)
 
@@ -150,3 +156,83 @@ func _avisar_recortes(sf: SpriteFrames, clave: String) -> int:
 			if malos <= 3:   # con avisar de los primeros basta: siempre van en racha
 				print("     !! %s %s f%d se sale del lienzo (%dx%d)" % [clave, anim, i, w, h])
 	return malos
+
+
+# ¿SE LE HA QUEDADO ALGUN TROZO SUELTO? Cuenta las manchas separadas del dibujo y avisa de las que
+# tengan mas de una.
+#
+# Es el hermano de _avisar_recortes y existe por lo mismo: no da error y no rompe nada, simplemente
+# el bicho aparece con un cacho de si mismo tirado al lado. Paso con el trent al caerse -- sus
+# raices se quedaron donde estaban mientras el tronco se iba de lado -- y se vio de casualidad, en
+# una captura, en UNA de las ocho direcciones.
+#
+# SOLO en 'muerte' y 'cadaver', y no en todas las animaciones, por dos motivos: es donde las poses
+# mueven el cuerpo de forma mas bruta (y por tanto donde se despegan las cosas), y porque hay
+# animaciones en las que separarse es CORRECTO -- un slime en el aire deja su sombra en el suelo.
+#
+# La sombra de contacto no cuenta como cuerpo: va translucida (alpha 0.22), asi que basta con mirar
+# solo los pixeles opacos.
+const ANIMS_DE_UNA_PIEZA := ["muerte", "cadaver"]
+
+func _avisar_islas(sf: SpriteFrames, clave: String) -> int:
+	var malos: int = 0
+	for anim in sf.get_animation_names():
+		if not ANIMS_DE_UNA_PIEZA.has(String(anim).rsplit("_", true, 1)[0]):
+			continue
+		for i in sf.get_frame_count(anim):
+			var tex: Texture2D = sf.get_frame_texture(anim, i)
+			var img: Image = tex.get_image() if tex != null else null
+			if img == null:
+				continue
+			# EL TAMAÑO DE CADA TROZO, no solo cuantos hay: no es lo mismo que se le haya quedado
+			# atras media pata que la punta de una rama asomando por un pixel. El primero es un fallo
+			# y el segundo es pixel-art.
+			var trozos: Array = _manchas(img)
+			if trozos.size() <= 1:
+				continue
+			trozos.sort()
+			trozos.reverse()
+			# Todo lo que no sea el cuerpo principal, y solo cuenta si tiene entidad.
+			var sueltos: Array = trozos.slice(1).filter(func(px: int) -> bool: return px >= 4)
+			if sueltos.is_empty():
+				continue
+			malos += 1
+			if malos <= 3:
+				print("     !! %s %s f%d: %d trozo(s) suelto(s) de %s px (cuerpo: %d)"
+					% [clave, anim, i, sueltos.size(), str(sueltos), int(trozos[0])])
+	return malos
+
+
+# El tamaño en pixeles de cada mancha OPACA separada (vecindad de 4). Inundacion iterativa con una
+# pila propia: recursiva se sale de la pila de GDScript en cuanto la figura es grande.
+func _manchas(img: Image) -> Array:
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	var visto := PackedByteArray()
+	visto.resize(w * h)
+	var tam: Array = []
+	for y in h:
+		for x in w:
+			var i0: int = y * w + x
+			if visto[i0] == 1 or img.get_pixel(x, y).a <= 0.5:
+				continue
+			var px: int = 1
+			var pila: Array[int] = [i0]
+			visto[i0] = 1
+			while not pila.is_empty():
+				var i: int = pila.pop_back()
+				var cx: int = i % w
+				var cy: int = i / w
+				for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+					var nx: int = cx + d.x
+					var ny: int = cy + d.y
+					if nx < 0 or ny < 0 or nx >= w or ny >= h:
+						continue
+					var j: int = ny * w + nx
+					if visto[j] == 1 or img.get_pixel(nx, ny).a <= 0.5:
+						continue
+					visto[j] = 1
+					px += 1
+					pila.append(j)
+			tam.append(px)
+	return tam

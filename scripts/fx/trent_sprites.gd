@@ -323,10 +323,15 @@ static func _pose_muerte(t: float) -> Dictionary:
 		[0.62, 0.84], [0.78, 1.02], [0.90, 0.97], [1.0, 1.0]]
 	# Y al final rebota un pelin: un tronco que cae no se queda clavado en seco.
 	var apoyo_keys := [[0.0, 0.0], [0.28, 0.5], [0.62, 2.6], [0.78, 4.2], [0.90, 3.6], [1.0, 3.9]]
+	# Los pies se recogen hacia el tronco al mismo ritmo que cae: es el arbol arrancandose de raiz.
+	# Sin esto, las raices se quedan tiradas donde estaban y parecen dos leños sueltos en el suelo.
+	var recoge_keys := [[0.0, 0.0], [0.28, 1.2], [0.62, 5.0], [0.78, 7.0], [1.0, 7.2]]
 	# Un cruji­do hacia el lado contrario antes de irse: es el aviso de que se cae.
 	var mece_keys := [[0.0, 0.0], [0.14, -0.8], [0.28, -0.4], [0.45, 0.0], [1.0, 0.0]]
 	# Las ramas se descuelgan y se quedan colgando ('alza' negativo es hacia abajo).
-	var alza_keys := [[0.0, 0.0], [0.14, 0.4], [0.28, -0.7], [0.62, -1.3], [1.0, -1.5]]
+	# LAS RAMAS NO SE DESCUELGAN MUCHO: pasado -1.0 sus puntas se despegan del tronco y quedan como
+	# motas sueltas alrededor del arbol caido. Lo justo para que se vean vencidas.
+	var alza_keys := [[0.0, 0.0], [0.14, 0.3], [0.28, -0.3], [0.62, -0.45], [1.0, -0.5]]
 	# Poco derrumbe, y solo al final: es el asiento contra el suelo, no un derretimiento.
 	var derr_keys := [[0.0, 0.0], [0.62, 0.0], [0.78, 0.16], [1.0, 0.22]]
 	return {"avance": 0.0,
@@ -335,6 +340,7 @@ static func _pose_muerte(t: float) -> Dictionary:
 		"patas": 0.0,
 		"tumba": SpriteLienzo.tramos(t, tumba_keys),
 		"apoyo": SpriteLienzo.tramos(t, apoyo_keys),
+		"recoge": SpriteLienzo.tramos(t, recoge_keys),
 		"derrumbe": SpriteLienzo.tramos(t, derr_keys)}
 
 
@@ -519,17 +525,34 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		# salia un arbol ENANO -- el mismo dibujo mas pequeño --, no uno derrumbado.
 		var lz: float = local.z * baja
 		var lx: float = local.x * derrama
-		# LA CAIDA, alrededor de la base: lo que estaba arriba se va de lado. Gira DESPUES del
-		# derrumbe a proposito, para que las dos cosas se puedan combinar -- primero cede, luego cae.
-		if tumba != 0.0:
-			var nx: float = lx * ct + lz * st
-			lz = -lx * st + lz * ct
-			lx = nx
 		var p := Vector2(lx, local.y * derrama)
 		# El meceo se dobla por la altura ORIGINAL, no por la de despues de caer: es la cizalla del
 		# tronco, y un tronco ya tumbado no se mece.
 		var alto: float = clampf(local.z / COPA.z, 0.0, 1.4) * (1.0 - clampf(tumba / PI, 0.0, 1.0))
-		var rot: Vector2 = (p.rotated(ang) if gira else p) + desp + mece_v * alto
+		# AL CAER GIRA TODO, tambien lo que normalmente no gira. El tronco y la copa van con
+		# 'gira = false' porque un arbol se ve igual desde los ocho lados, y de pie eso es cierto y
+		# ademas gratis: estan centrados en el eje, asi que rotarlos no los mueve.
+		#
+		# TUMBADO DEJA DE SER CIERTO. La caida los desplaza mucho hacia un lado, y ese desplazamiento
+		# SI tiene direccion: sin rotarlo, el tronco y la copa se iban siempre hacia el mismo lado de
+		# la pantalla mientras los brazos y las raices se iban hacia donde de verdad miraba el bicho.
+		# El arbol caido se partia en dos mitades separadas -- y solo en tres de las ocho direcciones,
+		# que es como para no verlo nunca.
+		var gira_ya: bool = gira or tumba != 0.0
+		var rot: Vector2 = (p.rotated(ang) if gira_ya else p) + desp + mece_v * alto
+		# LA CAIDA VA AQUI, DESPUES DE ORIENTAR AL BICHO, y es lo que hace que se vea igual de bien
+		# desde los ocho lados: el arbol se desploma siempre hacia el mismo lado DE LA PANTALLA.
+		#
+		# Aplicandola antes -- en coordenadas del bicho -- la caida giraba con la direccion, asi que
+		# en dos de las ocho el arbol se desplomaba HACIA LA CAMARA: y en profundidad todo se comprime
+		# por el escorzo (ver COS_CAM), asi que en vez de un tronco tumbado se veia un bulto apilado.
+		# Un cadaver tiene que leerse igual mire adonde mire, y hacia donde apunte no importa.
+		#
+		# Y como es la MISMA transformacion para todas las piezas, ninguna se puede quedar atras.
+		if tumba != 0.0:
+			var nx: float = rot.x * ct + lz * st
+			lz = -rot.x * st + lz * ct
+			rot.x = nx
 		var sx: float = origen.x + rot.x * u
 		var sy: float = origen.y + (rot.y * SpriteLienzo.COS_CAM
 			- (lz + apoyo) * SpriteLienzo.SIN_CAM) * u
@@ -554,11 +577,21 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# clavados a los lados mirara a donde mirara y quietos mientras andaba -- un arbol deslizandose.
 	# El que va adelantado se LEVANTA un poco; poco, que esto pesa y arrastra mas que pisa.
 	var fase_patas: float = float(pose["patas"])
+	# CUANTO SE RECOGEN LOS PIES hacia el tronco (unidades de mundo hacia arriba). Con default 0, o
+	# sea que andando no cambia nada.
+	#
+	# Hace falta al CAER, y es un problema que solo aparece al tumbarse: los pies y las raices estan
+	# a ras de suelo, asi que al girar el arbol alrededor de su base se quedan casi en el origen,
+	# mientras el tronco -- que no empieza hasta 8 unidades mas arriba -- se va de lado. Entre los dos
+	# se abria un HUECO, y las raices se veian como dos trozos de madera sueltos tirados al lado del
+	# arbol. Recogiendolas hacia el tronco mientras cae, se van con el: el arbol se arranca de raiz,
+	# que ademas es justo lo que le pasa.
+	var recoge: float = float(pose.get("recoge", 0.0))
 	var pies: Array = []
 	for lado in [-1.0, 1.0]:
 		var swing: float = fase_patas * lado
 		pies.append(Vector3(lado * PIERNA_X, swing * PASO_LARGO,
-			PIERNA_Z + maxf(0.0, swing) * PASO_ALZA))
+			PIERNA_Z + recoge + maxf(0.0, swing) * PASO_ALZA))
 
 	# 2. RAICES-PIE: una mata de puntas alrededor de cada pie, y se va CON el (si no, el pie da el
 	#    paso y sus raices se quedan atras).
