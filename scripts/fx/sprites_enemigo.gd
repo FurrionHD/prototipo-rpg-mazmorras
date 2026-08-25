@@ -129,10 +129,12 @@ static func hay_que_estirar(ed: EnemyData) -> bool:
 
 # Una direccion de pantalla (+Y abajo) a uno de los 8 sectores: 0=S 1=SE 2=E 3=NE 4=N 5=NW 6=W 7=SW,
 # que es el orden en que TODOS los generadores nombran sus animaciones.
+#
+# LA CUENTA YA NO ESTA AQUI: se subio a SpriteLienzo al entrar el jugador, porque la convencion de
+# direcciones es del juego entera y no solo de los bichos. Esto se queda como delegado para no tocar
+# a los que ya llamaban por aqui (combat_fx.gd, los visores).
 static func dir8(dir: Vector2) -> int:
-	var ang: float = dir.angle()   # 0 = derecha (E), crece en sentido horario (Y abajo)
-	var sector: int = int(round((PI / 2.0 - ang) / (PI / 4.0)))
-	return ((sector % 8) + 8) % 8
+	return SpriteLienzo.dir8(dir)
 
 
 # El nombre de la animacion que toca, a partir de hacia donde mira y que esta haciendo.

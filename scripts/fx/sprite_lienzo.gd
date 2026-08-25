@@ -290,6 +290,10 @@ static func montar_frames(anims: Array, pal: PackedByteArray, w: int, h: int) ->
 # El json y no un SpriteFrames .tres porque un .tres con AtlasTexture apuntando a una textura recien
 # creada obliga a reimportar a media herramienta; con el json se controla todo y no hay bailes.
 
+# La carpeta POR DEFECTO. Va como argumento opcional en 'hornear' y 'cargar_horneado' porque el
+# jugador se hornea en la suya (assets/sprites/player/): son ~35 capas que no pintan nada mezcladas
+# con los bichos, y separarlas deja ver de un vistazo cuanto ocupa cada cosa. Con el valor por
+# defecto puesto, los cuatro generadores de bichos no se enteran del cambio.
 const CARPETA_HORNO := "res://assets/sprites/enemigos/"
 
 
@@ -317,15 +321,15 @@ static func describir(sf: SpriteFrames) -> Dictionary:
 
 
 # Escribe el par .png + .json de una variante ya generada. Devuelve los bytes del png, o 0 si falla.
-static func hornear(sf: SpriteFrames, clave: String) -> int:
+static func hornear(sf: SpriteFrames, clave: String, carpeta: String = CARPETA_HORNO) -> int:
 	var at: AtlasTexture = sf.get_frame_texture(sf.get_animation_names()[0], 0) as AtlasTexture
 	if at == null:
 		return 0
-	DirAccess.make_dir_recursive_absolute(CARPETA_HORNO)
-	var png: String = CARPETA_HORNO + clave + ".png"
+	DirAccess.make_dir_recursive_absolute(carpeta)
+	var png: String = carpeta + clave + ".png"
 	if at.atlas.get_image().save_png(ProjectSettings.globalize_path(png)) != OK:
 		return 0
-	var f := FileAccess.open(CARPETA_HORNO + clave + ".json", FileAccess.WRITE)
+	var f := FileAccess.open(carpeta + clave + ".json", FileAccess.WRITE)
 	if f == null:
 		return 0
 	f.store_string(JSON.stringify(describir(sf)))
@@ -338,9 +342,9 @@ static func hornear(sf: SpriteFrames, clave: String) -> int:
 
 
 # Reconstruye el SpriteFrames desde el horneado, o null si esa variante no esta en disco.
-static func cargar_horneado(clave: String) -> SpriteFrames:
-	var png: String = CARPETA_HORNO + clave + ".png"
-	var js: String = CARPETA_HORNO + clave + ".json"
+static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO) -> SpriteFrames:
+	var png: String = carpeta + clave + ".png"
+	var js: String = carpeta + clave + ".json"
 	if not ResourceLoader.exists(png) or not FileAccess.file_exists(js):
 		return null
 	var hoja: Texture2D = load(png) as Texture2D
@@ -544,6 +548,20 @@ static func contornear(plant: PackedByteArray, cj: Rect2i, w: int, h: int, borde
 # ------------------------------------------------------------
 #  Animacion
 # ------------------------------------------------------------
+
+# UNA DIRECCION DE PANTALLA (+Y abajo) A UNO DE LOS 8 SECTORES:
+#     0=S 1=SE 2=E 3=NE 4=N 5=NW 6=W 7=SW
+# que es el orden en que TODO lo que se dibuja por codigo nombra sus animaciones.
+#
+# Vivia en SpritesEnemigo, y se subio aqui al entrar el jugador: la convencion de direcciones es del
+# JUEGO, no de los bichos. El jugador y el enemigo se cruzan en el mapa y tienen que mirarse a la
+# cara, asi que no puede haber dos funciones que traduzcan un vector a un sector -- el dia que una
+# se corrigiera medio sector, el bicho miraria a un sitio y el jugador a otro y nadie sabria cual de
+# los dos esta mal. SpritesEnemigo la conserva como delegado para no tocar a quien ya la llamaba.
+static func dir8(dir: Vector2) -> int:
+	var ang: float = dir.angle()   # 0 = derecha (E), crece en sentido horario (Y abajo)
+	var sector: int = int(round((PI / 2.0 - ang) / (PI / 4.0)))
+	return ((sector % 8) + 8) % 8
 
 # Interpolacion lineal entre puntos clave [t, valor] ordenados por t. Fuera del rango se queda con
 # el extremo mas cercano (no extrapola). Para movimientos que NO son periodicos -- una embestida es

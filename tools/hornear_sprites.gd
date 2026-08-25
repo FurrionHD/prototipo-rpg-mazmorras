@@ -83,7 +83,81 @@ func _ready() -> void:
 	_hornear_terreno()
 	_hornear_recolectables()
 	_hornear_props()
+	_hornear_jugador()
 	get_tree().quit()
+
+
+# EL PERSONAJE. Va en el mismo horno que todo lo demas y no en un .bat aparte: se toca por lo mismo
+# (mirar como queda y volver a dibujar) y dos herramientas que hay que acordarse de pasar acaban
+# siendo una que se pasa y otra que no.
+#
+# Sus capas se hornean CADA UNA POR SU LADO, que es la idea entera: no hay una imagen del personaje
+# con placas y mandoble, hay una del cuerpo, una del peto de placas y una del mandoble. Por eso esto
+# no depende de cuantas combinaciones existan sino de cuantas piezas hay.
+func _hornear_jugador() -> void:
+	print("")
+	print("=== JUGADOR ===")
+	var bytes: int = 0
+	var recortados: int = 0
+	var sueltas: int = 0
+	var t0: int = Time.get_ticks_msec()
+	for c in JugadorSprites.CAPAS:
+		var g = c["gen"]
+		# generar y no frames: aqui hay que DIBUJARLA siempre, aunque haya un horneado viejo en disco.
+		var sf: SpriteFrames = g.generar(1.0)
+		var clave: String = String(c["clave"])
+		var n: int = CapaJugador.hornear(sf, clave, 1.0)
+		if n <= 0:
+			push_error("[horno] no pude escribir la capa %s" % clave)
+			continue
+		bytes += n
+		recortados += _avisar_recortes(sf, clave)
+		sueltas += _avisar_islas_capa(sf, clave, int(c["piezas"]))
+		print("  %-20s %.1f KB · %d animaciones" % [clave, n / 1024.0, sf.get_animation_names().size()])
+	print("%.2f MB en %s (%.1f s)" % [bytes / 1048576.0, CapaJugador.CARPETA,
+		(Time.get_ticks_msec() - t0) / 1000.0])
+	if recortados > 0:
+		print("  !! %d fotogramas TOCAN EL BORDE del lienzo: sube PoseJugador.LIENZO_FACTOR."
+			% recortados)
+	if sueltas > 0:
+		print("  !! %d fotogramas tienen MAS TROZOS de los declarados en JugadorSprites.CAPAS."
+			% sueltas)
+		print("     O se ha despegado algo, o esa capa tiene mas piezas de las que dice.")
+
+
+# EL VALIDADOR DE ISLAS DEL JUGADOR. Es el mismo que el de los bichos con dos diferencias, y las dos
+# importan:
+#
+#  1. MIRA TODAS LAS ANIMACIONES, no solo morir. En un bicho las poses brutas son las de la muerte;
+#     en el personaje el fallo tipico esta en ANDAR -- la mano se va por delante del cuerpo, el
+#     antebrazo queda tapado por el pecho y lo que se ve es un puntito flotando al lado. Limitarlo a
+#     'muerte' aqui seria no mirar donde pasa.
+#  2. CADA CAPA DICE DE CUANTOS TROZOS CONSTA. Unas botas son dos piezas y no hay nada que arreglar;
+#     el cuerpo es una y dos significa que se ha soltado algo. Sin esto, la mitad de los avisos
+#     serian correctos-por-diseño y el aviso entero dejaria de leerse, que es como muere un
+#     validador.
+func _avisar_islas_capa(sf: SpriteFrames, clave: String, esperadas: int) -> int:
+	var malos: int = 0
+	for anim in sf.get_animation_names():
+		for i in sf.get_frame_count(anim):
+			var tex: Texture2D = sf.get_frame_texture(anim, i)
+			var img: Image = tex.get_image() if tex != null else null
+			if img == null:
+				continue
+			var trozos: Array = _manchas(img)
+			if trozos.size() <= esperadas:
+				continue
+			trozos.sort()
+			trozos.reverse()
+			# Media mano suelta es un fallo; un pixel asomando es pixel-art.
+			var sueltos: Array = trozos.slice(esperadas).filter(func(px: int) -> bool: return px >= 4)
+			if sueltos.is_empty():
+				continue
+			malos += 1
+			if malos <= 4:
+				print("     !! %s %s f%d: %d trozo(s) de mas, de %s px (mayor: %d)"
+					% [clave, anim, i, sueltos.size(), str(sueltos), int(trozos[0])])
+	return malos
 
 
 func _hornear_props() -> void:
