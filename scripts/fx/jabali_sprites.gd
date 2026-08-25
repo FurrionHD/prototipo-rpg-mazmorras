@@ -161,6 +161,7 @@ static func generar(color: Color = Color(0.35, 0.26, 0.22), escala: float = 1.0)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
 	_montar_encaje(anims, esc)
+	_montar_muerte(anims, esc)
 	var lado: int = _celdas(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col)), lado, lado)
@@ -203,6 +204,42 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 			"cabeza": -1.8 * SpriteLienzo.tramos(t, agacha_keys),
 			"escarba": SpriteLienzo.tramos(t, escarba_keys)}
 	_montar_animacion(anims, esc, "embestida", false, 11.0, pose, true)
+
+
+# MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
+# ahi al bicho se le mira siempre de frente. Para el mapa esta 'cadaver', que es lo contrario.
+#
+# SE DESPLOMA DE COSTADO, que es como cae una mole: las patas se le doblan, el barril vence hacia un
+# lado y el peso hace el resto. No se dobla despacio ni se sienta -- doscientos kilos que pierden las
+# patas caen de golpe, y por eso el volcado se acelera en vez de ir a velocidad constante.
+#
+# Y CAE UN PELIN MAS ALLA DEL COSTADO (1.12 y no 1.0): con el costado exacto la cresta del espinazo
+# queda de canto y no se sabe si esta tumbado o agachado. Pasado un poco, el lomo mira al suelo, las
+# patas quedan al aire hacia la camara y se lee de un vistazo. Ademas es lo que activa el reordenado
+# del dibujo (ver el final de _piezas), sin el cual las patas de arriba salen tapadas por el barril.
+static func _montar_muerte(anims: Array, esc: float) -> void:
+	var tumba_keys := [[0.0, 0.0], [0.14, 0.05], [0.28, 0.22], [0.45, 0.62],
+		[0.62, 1.02], [0.78, 1.20], [0.90, 1.08], [1.0, 1.12]]
+	# El apoyo acompaña a la vuelta: sin el, el bicho se gira dentro del suelo en vez de sobre el.
+	# Los numeros salen de mirar la tira -- lo que sobresale por abajo cambia de pieza segun el angulo.
+	var apoyo_keys := [[0.0, 0.0], [0.14, 0.0], [0.28, 0.8], [0.45, 2.6],
+		[0.62, 4.4], [0.78, 5.2], [0.90, 4.9], [1.0, 5.0]]
+	# Las patas ceden primero: se hunde antes de volcar. Es lo que cuenta que cae por su peso.
+	var agacha_keys := [[0.0, 0.10], [0.14, 0.55], [0.28, 0.85], [0.45, 0.60], [1.0, 0.35]]
+	# Y la cabeza se descuelga: en vida la lleva colgando bajo la cruz, y muerto pesa mas todavia.
+	var cabeza_keys := [[0.0, 0.0], [0.14, -0.6], [0.45, -1.4], [1.0, -1.6]]
+	# GIRA A PERFIL MIENTRAS CAE. Sin esto no se ve NADA: de frente, el eje sobre el que vuelca apunta
+	# a la camara (ver 'rumbo' en _piezas).
+	var rumbo_keys := [[0.0, 0.0], [0.14, 0.08], [0.28, 0.38], [0.45, 0.74], [0.62, 0.94], [1.0, 1.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": 0.0, "estira": 1.0, "patas": 0.0,
+			"agacha": SpriteLienzo.tramos(t, agacha_keys),
+			"cabeza": SpriteLienzo.tramos(t, cabeza_keys),
+			"escarba": 0.0,
+			"tumba": SpriteLienzo.tramos(t, tumba_keys),
+			"rumbo": SpriteLienzo.tramos(t, rumbo_keys) * PI * 0.5,
+			"apoyo": SpriteLienzo.tramos(t, apoyo_keys)}
+	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente)
@@ -298,7 +335,11 @@ static func _colores(color: Color) -> Array:
 # pintan en ese orden y las ultimas tapan a las primeras, asi que va de lo mas bajo (sombra, patas)
 # a lo mas alto y cercano (cerdas, cabeza, colmillos, ojos).
 static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
-	var ang: float = DIR_VECS[dir].angle() - DIR_VECS[0].angle()
+	# RUMBO: un giro EXTRA en planta, encima del de la direccion (default 0.0, o sea que las poses de
+	# siempre no lo notan). Hace falta para morir: el eje sobre el que un bicho se tumba es el que va
+	# del morro a la grupa, y de frente ese eje apunta justo a la camara -- girar alrededor de la
+	# linea de vision no cambia la silueta. Hay que ponerlo antes de perfil para que la vuelta se vea.
+	var ang: float = DIR_VECS[dir].angle() - DIR_VECS[0].angle() + float(pose.get("rumbo", 0.0))
 	var u: float = esc / SpriteLienzo.UNIDADES_POR_CELDA    # unidades de mundo -> celdas
 	var centro: float = float(_celdas(esc)) * 0.5
 	var estira: float = float(pose["estira"])
@@ -307,6 +348,13 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var fase_patas: float = float(pose["patas"])
 	var cabeza_y: float = float(pose["cabeza"])
 	var escarba: float = float(pose["escarba"])
+	# TUMBARSE, en cuartos de vuelta sobre el eje que va del morro a la grupa: 1.0 = de costado.
+	# Y 'apoyo', lo que hay que subirlo despues para que acabe SOBRE el suelo y no medio enterrado.
+	# Los dos con default, para que las tres poses de siempre no paguen ni una operacion.
+	var tumba: float = float(pose.get("tumba", 0.0)) * PI * 0.5
+	var apoyo: float = float(pose.get("apoyo", 0.0))
+	var ct: float = cos(tumba)
+	var st: float = sin(tumba)
 
 	# Agazapado = mas bajo y algo mas largo (se estira hacia delante al bajar la testuz).
 	var largo: float = estira * (1.0 + 0.06 * agacha)
@@ -328,22 +376,37 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# las ocho se apilaban en una raya vertical saliendo por encima de la cabeza -- una antena, no un
 	# espinazo. Comprimido, la cresta se lee como una linea de puas desde los ocho lados.
 	var poner := func(local: Vector3, r: Vector3, tono: int, solo_sobre: Array = [],
-			escorzo: float = 1.0) -> void:
-		var p := Vector2(local.x * ancho, local.y * largo)
+			escorzo: float = 1.0, en_suelo: bool = false) -> void:
+		# TUMBAR, lo primero: gira el punto alrededor del eje morro-grupa, o sea en el plano
+		# ANCHO-ALTURA. Lo que era el costado pasa a mirar al cielo.
+		# 'en_suelo' se lo salta: es para la sombra de contacto, que es una mancha en el suelo, y el
+		# suelo ni se tumba ni se sube.
+		var lx: float = local.x
+		var lz: float = local.z
+		if tumba != 0.0 and not en_suelo:
+			lx = local.x * ct + local.z * st
+			lz = -local.x * st + local.z * ct
+		var p := Vector2(lx * ancho, local.y * largo)
 		var rot: Vector2 = p.rotated(ang) + desp
-		var z: float = local.z * alto
+		var z: float = lz * alto + (0.0 if en_suelo else apoyo)
 		var sx: float = centro + rot.x * u
 		var sy: float = centro + (rot.y * escorzo * SpriteLienzo.COS_CAM
 			- z * SpriteLienzo.SIN_CAM) * u
 		var ry: float = r.y * largo
-		piezas.append({"pos": Vector2(sx, sy), "radio": Vector2(r.x * ancho * u, ry * u),
+		# EL RADIO TAMBIEN GIRA: al tumbarse, el semieje a lo ANCHO pasa a ser el vertical y al reves.
+		# Sin esto un jabali de costado sale igual de gordo que de pie, que es lo que delata el truco.
+		# Con |sen| como mezcla, media vuelta no cambia la forma -- que es justo lo correcto.
+		var mezcla: float = absf(st)
+		var rx: float = r.x if en_suelo else lerpf(r.x, r.z, mezcla)
+		var rz: float = r.z if en_suelo else lerpf(r.z, r.x, mezcla)
+		piezas.append({"pos": Vector2(sx, sy), "radio": Vector2(rx * ancho * u, ry * u),
 			"gira_forma": true, "tono": tono, "ang": ang,
-			"persp": SpriteLienzo.persp_de(ry, r.z * alto), "solo_sobre": solo_sobre})
+			"persp": SpriteLienzo.persp_de(ry, rz * alto), "solo_sobre": solo_sobre})
 
 	# SOMBRA DE CONTACTO, lo primero (va debajo). A ALTURA CERO: acompaña al bicho por el suelo
 	# cuando se lanza, pero no sube con el, y esa separacion es lo que se lee como estar en el aire.
 	poner.call(Vector3(0.0, CUERPO.y, 0.0),
-		Vector3(CUERPO_R.x * 1.05, CUERPO_R.y * 1.05, 0.0), Tono.SOMBRA_SUELO)
+		Vector3(CUERPO_R.x * 1.05, CUERPO_R.y * 1.05, 0.0), Tono.SOMBRA_SUELO, [], 1.0, true)
 
 	# PATAS: cortas y oscuras. Al trotar, delanteras y traseras van en contrafase. La DELANTERA
 	# ademas ESCARBA en el aviso de la embestida: raspa hacia atras y se hunde un poco.
@@ -422,6 +485,32 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# OJOS, con la misma regla.
 	for l in lados:
 		poner.call(Vector3(l * OJO.x, OJO.y, OJO.z + cabeza_y), OJO_R, Tono.OJO_T)
+
+	# VOLCADO, DOS PIEZAS CAMBIAN DE LADO. El orden de esta lista ES la profundidad -- aqui no hay
+	# z-buffer -- y esta cableado para un bicho DE PIE: las patas primero (el barril las tapa) y la
+	# cresta al final (es lo mas alto). Tumbado, esos dos son justo al reves: las patas quedan al aire
+	# y la cresta mirando al suelo.
+	#
+	# SE MUEVEN SOLO ESAS DOS, y no se invierte la lista entera, que fue el primer intento: invertir
+	# tambien le da la vuelta al orden de piezas que se distinguen por DONDE ESTAN A LO LARGO del
+	# bicho y no por su altura, y el jabali se quedaba SIN CABEZA en los ultimos fotogramas -- el
+	# barril pintado encima del morro. Ademas rompe los 'solo_sobre': el lomo se pinta sobre BASE, y
+	# pintado antes que el cuerpo no encuentra nada sobre lo que ir.
+	if tumba > PI * 0.5:
+		var antes: Array = []
+		var enmedio: Array = []
+		var despues: Array = []
+		for pz in piezas:
+			var tn: int = int(pz["tono"])
+			if tn == Tono.PATA:
+				despues.append(pz)          # al aire: ahora van encima
+			elif tn == Tono.CERDA:
+				antes.append(pz)            # el espinazo mira al suelo
+			else:
+				enmedio.append(pz)
+		# La sombra de contacto tiene que seguir siendo la primera de todas: es una mancha en el
+		# suelo, y el suelo no se vuelca.
+		piezas = enmedio.slice(0, 1) + antes + enmedio.slice(1) + despues
 
 	return piezas
 
