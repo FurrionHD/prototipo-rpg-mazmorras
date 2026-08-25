@@ -269,6 +269,30 @@ func secundario_para(n_enemigos: int) -> float:
 # tener que mandarlo por red, porque el espejo deriva el mismo color de su propio Combatant.
 @export var fx_estilo: int = -1
 
+# QUE HACE EL CUERPO del que ataca. Hermano de fx_estilo: aquel dice que se DIBUJA, este dice como se
+# MUEVE el bicho. Son cosas distintas y hasta ahora solo existia la primera, asi que un mordisco, una
+# embestida y un aplastamiento eran el mismo empujoncito de 26 px.
+#
+#   AUTO      lo de siempre: un paso adelante si el estilo es cuerpo a cuerpo, y quieto si no. Es el
+#             valor por defecto A PROPOSITO -- asi las ~70 habilidades que ya existen y todo el
+#             camino del jugador siguen viendose exactamente igual sin tocar un solo .tres.
+#   QUIETO    no se mueve nada (lo que sale de el ya viaja solo: escupitajos, auras).
+#   EN_SITIO  hace el gesto de atacar, UNA VEZ POR GOLPE, pero sin ir a por nadie. Es lo que pide el
+#             Frenesi de dentelladas: muerde seis veces desde su puesto. Con el paso de siempre se
+#             teletransportaba a cada victima, que es lo que se veia raro.
+#   PASO      el empujon de 26 px hacia la victima.
+#   VIAJE     va HASTA la victima y vuelve (la Embestida del jabali).
+#   SALTO     coge aire, se infla hasta cubrir a los que va a golpear, salta y cae encima
+#             (el Aplastamiento del Rey Slime).
+#   ATRAVESAR reservado: cruzar la fila golpeando a varios de paso (la Embestida acorazada, que
+#             todavia no tiene sprite). Declarado para que el diseño lo admita; sin implementar.
+#
+# Los gestos que SUSTITUYEN al dibujo de su estilo son SALTO y ATRAVESAR: ahi lo que te golpea es el
+# cuerpo, asi que pintar ademas el efecto seria contar el mismo golpe dos veces. Los demas conviven
+# con el suyo -- los mordiscos del Frenesi siguen saliendo igual.
+enum Gesto { AUTO = -1, QUIETO, EN_SITIO, PASO, VIAJE, SALTO, ATRAVESAR }
+@export var gesto: int = Gesto.AUTO
+
 # QUE TE ECHAS TU ENCIMA, aparte de lo que le hagas al enemigo. -1 = nada.
 #
 # Existe porque hay habilidades que hacen LAS DOS COSAS: el Voto de guardia pega un tajo Y te deja

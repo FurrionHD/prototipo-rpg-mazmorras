@@ -1231,7 +1231,8 @@ func tanda(n: int) -> void:
 # su estilo). Ver Sonido.golpe y el disparo en _process.
 func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bool,
 		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0,
-		solo_dibujo: bool = false, sfx: String = "", elem: int = 0, escudo: int = -1) -> void:
+		solo_dibujo: bool = false, sfx: String = "", elem: int = 0, escudo: int = -1,
+		gesto: int = -1) -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
 		_tanda_pedida = -1
 		return
@@ -1255,6 +1256,10 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		# dibujan una chapa: el escudazo, la Provocacion, la Cobertura... Sin esto los tres escudos
 		# del juego salian con la misma silueta, cuando el tamaño es justo lo que los diferencia.
 		"escudo": escudo,
+		# QUE HACE EL CUERPO del que pega (AbilityData.Gesto; -1 = AUTO, lo de siempre). Lo lee
+		# _marcar_gestos al arrancar la cola, que es cuando ya se sabe a quienes alcanza la accion
+		# entera y se puede decidir adonde va el bicho.
+		"gesto": gesto,
 	})
 	# LA VIDA NO PUEDE BAJAR ANTES QUE EL GOLPE. Se apunta AQUI, en el mismo instante en que el
 	# golpe se resuelve, y no al arrancar la cola: entre una cosa y otra combat.gd llama a
@@ -1312,6 +1317,10 @@ func arrancar_cola() -> float:
 		_cola[i]["fx_lanzado"] = false
 		_cola[i]["sfx_lanzado"] = false
 	_marcar_efectos_de_grupo()
+	# LOS GESTOS DEL CUERPO, aqui y no antes: es el primer punto en el que la cola esta COMPLETA, o
+	# sea en el que se sabe a quienes alcanza la accion entera. Un salto que tiene que caer sobre
+	# cuatro necesita saberlo para elegir adonde va y cuanto se infla.
+	_marcar_gestos()
 	_t = 0.0
 	if magia:
 		_dur = minf(arranque + T_PUM + extra + T_COLA_MAGIA, TOPE_TOTAL_MAGIA)
@@ -1323,6 +1332,32 @@ func arrancar_cola() -> float:
 	_activa = true
 	# En SEGUNDOS DE VERDAD: _dur esta en tiempo de animacion y _process avanza a escala_tiempo.
 	return _dur / maxf(escala_tiempo, 0.01)
+
+
+# ============================================================
+#  LOS GESTOS DEL CUERPO
+# ------------------------------------------------------------
+# Que hace el bicho al atacar: quedarse, dar un paso, ir hasta la victima, saltarle encima. Lo pide
+# la habilidad (AbilityData.Gesto) y llega en cada impacto.
+#
+# SE CALCULA UN PLAN POR ATACANTE Y ACCION, no uno por impacto, y ese es el punto entero de que esto
+# viva aparte de la cola. Con reparto_por_golpe hay seis impactos con seis victimas distintas: la
+# regla de la embestida de siempre -que se queda con el desplazamiento MAS LARGO- haria dar tumbos
+# al bicho de una punta a otra de la fila. Un plan por accion decide UNA vez adonde va.
+var _gestos: Array[Dictionary] = []
+
+
+func _marcar_gestos() -> void:
+	_gestos.clear()
+	# De momento solo hay tipos que QUITAN movimiento (ver _gesto_manda); los que lo ponen entran
+	# aqui uno a uno, cada uno con su plan.
+
+
+# ¿Este impacto lleva un gesto propio que sustituya a la embestida de siempre? AUTO (-1) y PASO
+# dejan que mande la regla de _CUERPO_A_CUERPO; los demas se hacen cargo ellos.
+func _gesto_manda(ev: Dictionary) -> bool:
+	var g: int = int(ev.get("gesto", -1))
+	return g >= 0 and g != AbilityData.Gesto.PASO
 
 
 # UN SOLO EFECTO POR TANDA para los estilos que son UNA COSA GRANDE, no un proyectil por cabeza.
@@ -1620,8 +1655,13 @@ func _process(delta: float) -> void:
 		# Quien EMBISTE sale de _CUERPO_A_CUERPO: son los estilos en los que el bicho tiene que
 		# llegar hasta ti (morder, cornear, placar, pisar), y de hecho es la embestida la que lleva
 		# el efecto al sitio -- por eso su T_VUELO es casi cero.
+		# Y NO SI SU HABILIDAD PIDE OTRA COSA: un gesto propio manda sobre esto. El Frenesi es el
+		# caso: su estilo es MORDISCO, que es cuerpo a cuerpo, asi que la rata daba un paso hacia
+		# CADA una de sus seis victimas -- se teletransportaba de una punta a otra de la fila a cada
+		# bocado. Con EN_SITIO muerde desde su puesto.
 		if pa != null and is_instance_valid(pa) and pa != pv \
 				and _CUERPO_A_CUERPO.has(estilo) \
+				and not _gesto_manda(ev) \
 				and int(ev.get("pos_tanda", i)) < MAX_IMPACTOS_ANIMADOS:
 			var dir: Vector2 = _direccion(pa, pv)
 			var d: float = 0.0

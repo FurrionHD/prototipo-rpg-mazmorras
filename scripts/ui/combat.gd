@@ -1674,6 +1674,11 @@ func _ready() -> void:
 			var aliado := Combatant.new(nombres[j], 1, pab, 50, 5, 5, 5)
 			aliado.max_energy = 100.0
 			aliado.current_energy = 100.0
+			# CON ARMA, cada uno la suya. Sin esto pegan a puño limpio, que es MELEE, y MELEE tiene
+			# T_VUELO 0 -> no dibuja NADA: la prueba enseñaba los golpes de los bichos pero del lado
+			# de aca solo salia el numero, como si los gestos del jugador no existieran.
+			aliado.fx_basico = [CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.DAGA_CORTE,
+				CombatFX.Estilo.MANDOBLE_TAJO, CombatFX.Estilo.MAZA_GOLPE][j]
 			_aliados.append(aliado)
 		_player = _aliados[0]
 		var colores: Array[Color] = [Color(0.9, 0.3, 0.3), Color(0.4, 0.8, 0.4),
@@ -1684,16 +1689,22 @@ func _ready() -> void:
 			"res://scenes/actors/enemy/rata.tres", "res://scenes/actors/enemy/jabali.tres",
 			"res://scenes/actors/enemy/trent.tres", "res://scenes/actors/enemy/slime_veneno.tres"]
 		for i in MAX_ENEMIGOS:
-			var eab := Abilities.new()
-			eab.fuerza = 80; eab.resistencia = 70; eab.destreza = 30
-			eab.agilidad = 40 + i * 20   # velocidades distintas: se ve el orden de turnos moverse
-			eab.magia = 0
 			var ed: EnemyData = load(muestras[i]) as EnemyData
-			var e := Combatant.new(ed.enemy_name if ed != null else "Slime", 1, eab, 40, 4, 5, 4)
-			e.color_visual = colores[i]
+			var e: Combatant = null
 			if ed != null:
-				e.sprite_res = muestras[i]
-				e.sprite_t = 0.5
+				# EL BICHO DE VERDAD, con su fabrica de siempre: asi sale con SUS habilidades, su
+				# elemento y su fx_basico. Construyendolo a mano se quedaba sin nada de eso y pegaba
+				# como MELEE, que tiene T_VUELO 0 y por tanto NO DIBUJA: la prueba enseñaba enemigos
+				# que golpeaban sin que se viera un solo efecto.
+				e = ed.crear_combatant(0.5)
+			if e == null:
+				var eab := Abilities.new()
+				eab.fuerza = 80; eab.resistencia = 70; eab.destreza = 30
+				eab.magia = 0
+				e = Combatant.new("Slime", 1, eab, 40, 4, 5, 4)
+			# Velocidades distintas, para que se vea moverse el orden de turnos.
+			e.abilities.agilidad = 40 + i * 20
+			e.color_visual = colores[i]
 			_enemies.append(e)
 
 	# La barra de TODOS: los tuyos y los de enfrente, en la misma linea de salida. Nadie arranca a
@@ -2956,7 +2967,8 @@ func _fx_tanda(i: int) -> void:
 func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		evadido: bool, elem: int = Elementos.Elemento.NINGUNO,
 		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0,
-		solo_dibujo: bool = false, sfx: String = "") -> void:
+		solo_dibujo: bool = false, sfx: String = "",
+		gesto: int = AbilityData.Gesto.AUTO) -> void:
 	if _fx == null:
 		return
 	var bv: Dictionary = _bloque_de(victima)
@@ -2965,9 +2977,14 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	# EL ESCUDO que lleva el que pega, para que se dibuje EL SUYO. No viaja por red y no hace falta:
 	# el espejo resuelve al atacante con _de_codigo y ese Combatant ya trae su fx_escudo, igual que
 	# el color y el gesto del arma.
+	#
+	# EL GESTO va por PARAMETRO y no como estado pegajoso (a diferencia de la tanda). Dos motivos: el
+	# espejo llama tambien aqui, asi que se enchufa solo; y sobre todo, los contraataques que
+	# _pausa_lectura encola al final heredarian el gesto del que acaba de atacar -- un riposte de
+	# estoque haciendo el salto del Rey Slime.
 	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido,
 		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx, elem,
-		atacante.fx_escudo if atacante != null else -1)
+		atacante.fx_escudo if atacante != null else -1, gesto)
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
 	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo, sfx)
@@ -2999,6 +3016,15 @@ func _estilo_de_habilidad(ab: AbilityData, atacante: Combatant = null) -> int:
 	if atacante != null and atacante.fx_basico >= 0:
 		return atacante.fx_basico
 	return CombatFX.Estilo.MELEE
+
+
+# QUE HACE EL CUERPO al lanzar esta habilidad. Hermano del de arriba, y por el mismo motivo: un solo
+# sitio para que el ataque basico y las habilidades no se contesten distinto.
+#
+# El ataque basico no tiene AbilityData, asi que se queda en AUTO -- que es exactamente el
+# comportamiento de siempre. Solo lo cambia quien lo pida en su .tres.
+func _gesto_de_habilidad(ab: AbilityData) -> int:
+	return ab.gesto if ab != null else AbilityData.Gesto.AUTO
 
 
 # QUE SONIDO PROPIO pide esta habilidad, o "" si se conforma con el generico de su estilo. La clave
@@ -6591,6 +6617,10 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	# Y EL SONIDO igual: el suyo si lo tiene, y si no el generico de su estilo. Tambien fuera del
 	# bucle, y tambien en los que fallan -- un escupitajo esquivado se oye salir.
 	var sfx_ab: String = _clave_sfx(ab)
+	# QUE HACE SU CUERPO. Tambien fuera del bucle: el gesto es de la ACCION entera, no de cada golpe
+	# (el Frenesi es una racha de seis mordiscos, pero la rata ataca desde su sitio UNA vez, no seis
+	# veces cada una a su aire).
+	var gesto_ab: int = _gesto_de_habilidad(ab)
 	for i in n_golpes:
 		_fx_tanda(tanda_base + i)
 		var result := StatsMath.resolve_attack(e, t, defendiendo)
@@ -6599,7 +6629,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			Game.contar_esquiva(pj_t)   # contador oculto de Reflejos
 			esquivados += 1
 			rastro.append({"t": "falla", "c": t})
-			_fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab)
+			_fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab, gesto_ab)
 			if t.en_guardia and permitir_contra and contra == "":
 				contra = _contraatacar(e, t)
 				if not e.is_alive():
@@ -6612,7 +6642,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			var dmg_bruto: float = float(result.get("dmg_sin_mitigar", result.damage)) \
 				* ab.dano_mult * escala * e.dummy_dmg_out_mult
 			t.take_damage(dmg)
-			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab)
+			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab, gesto_ab)
 			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
 			# El tope por accion hace que una habilidad de cinco golpes cueste una, no cinco.
 			if t.resiste_por_afinidad(e.elemento_ataque):

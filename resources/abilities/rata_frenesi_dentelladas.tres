@@ -21,4 +21,5 @@ efectos = [SubResource("SA_sang")]
 efectos_por_golpe = true
 carga_turnos = 1
 fx_estilo = 14
+gesto = 1
 cooldown = 4
