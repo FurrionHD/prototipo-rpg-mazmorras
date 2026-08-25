@@ -65,12 +65,17 @@ const R_CADERA := Vector3(4.4, 3.1, 3.0)
 # hombro. Peor aun, la mano (que va mas clara) quedaba como un puntito suelto al lado del cuerpo,
 # porque lo que deberia unirla se dibujaba con la anchura justa para desaparecer entre dos celdas.
 # Por debajo de kilo y medio de radio no hay miembro que valga.
-const R_MUSLO := 2.2
-const R_PANTORRILLA := 1.75
-const R_PIE := Vector3(1.7, 2.6, 1.15)
-const R_BRAZO := 1.9
-const R_ANTEBRAZO := 1.6
-const R_MANO := 1.7
+#
+# Y el minimo real es MAS ALTO de lo que parece por el contorno: un miembro de tres pixeles de ancho
+# es todo contorno y nada de relleno (ver 'colores'), asi que ademas de leerse fino se lee NEGRO. Se
+# vio arrancando el juego, no en las hojas de contacto: en gris sobre fondo oscuro pasaba por una
+# linea de dibujo, y teñido ya no.
+const R_MUSLO := 2.35
+const R_PANTORRILLA := 1.95
+const R_PIE := Vector3(1.8, 2.7, 1.2)
+const R_BRAZO := 2.15
+const R_ANTEBRAZO := 1.8
+const R_MANO := 1.85
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---
@@ -89,16 +94,26 @@ static func clave() -> String:
 # Los grises de cada tono, EN EL ORDEN DEL ENUM. La piel va mas clara que la ropa: es lo unico que
 # las separa cuando el tinte es el mismo para las dos.
 static func colores() -> Array:
+	# EL CONTORNO NO PUEDE SER NEGRO, y eso solo se ve en el juego. 'contornear' marca toda celda que
+	# toque el vacio, asi que en una pieza GRUESA -- un slime -- el contorno es una linea alrededor de
+	# mucho relleno, pero en un brazo de tres pixeles de ancho son DOS de contorno y uno de relleno:
+	# el miembro entero se vuelve del color del contorno. Con el contorno en casi negro, el personaje
+	# salia como un tronco gris con cuatro palos negros colgando.
+	#
+	# La escala va ademas apretada alrededor de 0,62, que es el tono medio de referencia del shader
+	# (ver capa_jugador.gdshader): lo que este por debajo saldra mas oscuro que tu color y lo que este
+	# por encima, mas claro. Estirarla mas hace que con un color claro la piel se queme a blanco y con
+	# uno oscuro la ropa se hunda a negro.
 	return [
 		Color(0, 0, 0, 0),                # VACIO
 		Color(0, 0, 0, 0.20),             # SOMBRA_SUELO
-		Color(0.16, 0.16, 0.16),          # BORDE
-		Color(0.34, 0.34, 0.34),          # ROPA_S
-		Color(0.48, 0.48, 0.48),          # ROPA
-		Color(0.60, 0.60, 0.60),          # ROPA_L
-		Color(0.74, 0.74, 0.74),          # PIEL_S
-		Color(0.87, 0.87, 0.87),          # PIEL
-		Color(0.97, 0.97, 0.97),          # LUZ
+		Color(0.30, 0.30, 0.30),          # BORDE
+		Color(0.44, 0.44, 0.44),          # ROPA_S
+		Color(0.56, 0.56, 0.56),          # ROPA
+		Color(0.68, 0.68, 0.68),          # ROPA_L
+		Color(0.79, 0.79, 0.79),          # PIEL_S
+		Color(0.90, 0.90, 0.90),          # PIEL
+		Color(1.00, 1.00, 1.00),          # LUZ
 	]
 
 

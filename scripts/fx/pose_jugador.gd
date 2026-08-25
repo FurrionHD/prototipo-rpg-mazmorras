@@ -203,6 +203,34 @@ static func origen(esc: float = 1.0) -> Vector2:
 	return Vector2(l * 0.5, l * 0.80)
 
 
+# A que altura del NODO caen los pies, en pixeles de mundo.
+#
+# El nodo del personaje esta en el centro de su caja de colision de 32x32, y esa caja es el sitio
+# que ocupa EN EL SUELO. Los pies no van en el centro de esa caja sino cerca de su borde de abajo:
+# asi el cuerpo queda por encima del hueco que ocupa, que es como se lee la profundidad en una vista
+# a 45 grados. Puestos en el centro, el personaje parece hundido hasta las rodillas en su propia
+# casilla; puestos en el borde justo, flota.
+#
+# Los bichos hacen lo mismo, solo que a la callada: cada generador lo mete en la proporcion de su
+# lienzo (el slime deja un 40% de aire por debajo del origen). Aqui va como un numero con nombre
+# porque lo comparten las ~35 capas y una capa que lo entienda distinto se dibuja desplazada.
+const PIES_BAJO_NODO := 14.0
+
+
+# Lo que hay que ponerle de 'offset' al nodo del sprite (con centered = false) para que los pies
+# caigan donde tienen que caer. En celdas, que es en lo que trabaja el offset antes de escalar.
+static func offset_sprite(esc: float = 1.0) -> Vector2:
+	var o: Vector2 = origen(esc)
+	return Vector2(-o.x, -o.y + PIES_BAJO_NODO / SpriteLienzo.UNIDADES_POR_CELDA)
+
+
+# Cuanto hay que escalar la textura para que una celda mida lo que debe. Es el mismo numero para
+# todo el juego (ver SpriteLienzo.UNIDADES_POR_CELDA): un personaje mas grande se dibujaria con mas
+# celdas, nunca con celdas mas gordas.
+static func escala_sprite() -> float:
+	return SpriteLienzo.UNIDADES_POR_CELDA
+
+
 # Unidades de mundo -> celdas. El tamaño del pixel es el mismo para todo el juego: un personaje mas
 # grande se dibuja con MAS CELDAS, nunca con celdas mas gordas.
 static func u(esc: float = 1.0) -> float:

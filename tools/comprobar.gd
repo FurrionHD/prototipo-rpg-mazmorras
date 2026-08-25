@@ -3,6 +3,16 @@
 extends SceneTree
 
 const SCRIPTS := [
+	# El personaje dibujado por capas, de abajo arriba de la pila de clases: el esqueleto, la
+	# fabrica, una capa, el registro y el compositor. Y los tres cuerpos que lo usan.
+	"res://scripts/fx/pose_jugador.gd",
+	"res://scripts/fx/capa_jugador.gd",
+	"res://scripts/fx/cuerpo_sprites.gd",
+	"res://scripts/fx/jugador_sprites.gd",
+	"res://scripts/fx/muneco_jugador.gd",
+	"res://scripts/actors/player/player.gd",
+	"res://scripts/actors/player/companion.gd",
+	"res://scripts/actors/player/remote_player.gd",
 	"res://scripts/fx/terreno_sprites.gd",
 	"res://scripts/fx/recolectable_sprites.gd",
 	"res://scripts/world/decorado.gd",

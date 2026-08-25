@@ -57,6 +57,9 @@ var _ruido_pico_dur: float = 0.0
 # Direccion a la que "mira" el jugador (ultimo movimiento), para atacar.
 var _facing: Vector2 = Vector2.DOWN
 
+# El cuerpo dibujado: la pila de capas (ver muneco_jugador.gd). Null hasta _pintar_cuerpo.
+var _muneco: MunecoJugador = null
+
 # Ataque para INICIAR combate, hacia delante. El numero es de CENTRO A CENTRO, pero lo que se filtra
 # es el HUECO entre los dos cuerpos (ver _enemigos_a_tiro): attack_range - 32 = 12 px de hueco.
 #
@@ -369,6 +372,10 @@ func _physics_process(delta: float) -> void:
 
 	velocity = direction * speed
 	move_and_slide()
+
+	# La animacion va DESPUES de mover, con lo que de verdad ha pasado. Puesta antes, un personaje
+	# empotrado contra una pared seguiria haciendo el paso: se mueve el que EMPUJA, no el que avanza.
+	_actualizar_animacion(velocity.length() > 2.0)
 
 	# ALBOROTO: la mazmorra te oye. Correr mete ruido (llena el medidor de los brotes), ir en
 	# sigilo lo baja. El modo ya esta calculado arriba (0 sigilo, 1 andar, 2 correr).
@@ -811,15 +818,40 @@ func _barra_col(raiz: Control, y: float, alto: float, color: Color) -> ProgressB
 	return b
 
 
-# El cuerpo es un ColorRect mientras no haya arte; el brillo metalico y la imagen los pinta un
-# shader por encima de ese color (null = mate y sin imagen).
+# EL CUERPO. Desde que hay arte es un MunecoJugador: la pila de capas (cuerpo, armadura, armas) que
+# se tiñe con tu color. El ColorRect de player.tscn se queda de RESPALDO y solo se ve si el muñeco
+# no ha podido montarse -- igual que un bicho sin generador sigue saliendo como un cuadrado. Vale la
+# pena: si algun dia falta un horneado, el juego se ve raro pero se juega, en vez de moverse un
+# personaje invisible.
 func _pintar_cuerpo() -> void:
 	var cuerpo := get_node_or_null("ColorRect") as ColorRect
-	if cuerpo == null:
-		return
-	cuerpo.color = Game.player_color
-	cuerpo.material = Game.material_cuerpo()
+	if _muneco == null:
+		_muneco = MunecoJugador.new()
+		add_child(_muneco)
+	_muneco.montar(Game.lider())
+	if _muneco.hay_dibujo():
+		# El tinte y el metal son los MISMOS que ya elegiste: no hay ajuste nuevo que tocar, solo
+		# que ahora en vez de pintar un cuadrado pintan una persona.
+		_muneco.tenir(Game.player_color, Game.player_metalico)
+		_muneco.animar(PoseJugador.animacion(_facing, movement_mode, false))
+		if cuerpo != null:
+			cuerpo.visible = false
+	elif cuerpo != null:
+		cuerpo.visible = true
+		cuerpo.color = Game.player_color
+		cuerpo.material = Game.material_cuerpo()
 	_pintar_imbue()
+
+
+# Traduce el estado del movimiento a la animacion que toca. Quien decide QUE animacion es
+# PoseJugador, no esto -- la misma regla la necesitan el compañero, el jugador remoto y el visor.
+#
+# Se llama en cada frame de fisica y solo hace algo cuando la animacion CAMBIA (lo filtra el propio
+# muñeco): reiniciarla cada frame la dejaria congelada en el primer fotograma.
+func _actualizar_animacion(moviendose: bool) -> void:
+	if _muneco == null or not _muneco.hay_dibujo():
+		return
+	_muneco.animar(PoseJugador.animacion(_facing, movement_mode, moviendose))
 
 
 # RASTRO de la imbuicion: cuadraditos del color del elemento que suben y se quedan atras al andar.

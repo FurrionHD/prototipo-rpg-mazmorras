@@ -45,6 +45,10 @@ var pj: PersonajeData = null
 var _cuerpo: ColorRect = null
 # Rastro de SU imbuicion (null = no lleva ninguna). Ver _pintar_imbue.
 var _fx_imbue: CPUParticles2D = null
+# Su cuerpo dibujado (ver muneco_jugador.gd) y hacia donde mira. El rastro no le dice a donde
+# mirar, solo a donde ir, asi que la mirada se deduce de por donde se esta moviendo.
+var _muneco: MunecoJugador = null
+var _facing: Vector2 = Vector2.DOWN
 
 
 func _ready() -> void:
@@ -88,8 +92,19 @@ func pintar(nuevo: PersonajeData) -> void:
 	pj = nuevo
 	if _cuerpo == null or pj == null:
 		return
-	_cuerpo.color = pj.color
-	_cuerpo.material = Game.material_de(pj)
+	if _muneco == null:
+		_muneco = MunecoJugador.new()
+		add_child(_muneco)
+	_muneco.montar(pj)
+	if _muneco.hay_dibujo():
+		# SU color y SU metal, no los del lider: distinguirlos de un vistazo es justo para lo que
+		# esta el aspecto, y en un grupo de cuatro es la unica forma de saber a quien estas mirando.
+		_muneco.tenir(pj.color, pj.metalico)
+		_cuerpo.visible = false
+	else:
+		_cuerpo.visible = true
+		_cuerpo.color = pj.color
+		_cuerpo.material = Game.material_de(pj)
 	refrescar_imbue()
 
 
@@ -133,9 +148,25 @@ func seguir(destino: Vector2, delta: float) -> void:
 		return
 	if delta <= 0.0 or falta.length() < 0.5:
 		velocity = Vector2.ZERO
+		_animar(false)
 		return
 	velocity = (falta / delta).limit_length(VEL_MAX)
 	move_and_slide()
+	if velocity.length() > 2.0:
+		_facing = velocity.normalized()
+	_animar(velocity.length() > 2.0)
+
+
+# VA AL PASO DEL LIDER, y por eso le pregunta a el en que modo va en vez de deducirlo de su propia
+# velocidad. El grupo entero anda, corre o se agazapa a la vez (es lo que ya hacia el calculo de
+# velocidad de player.gd), asi que un compañero corriendo detras de un lider agachado seria mentira
+# -- y encima delataria el sigilo, que es medio juego.
+func _animar(moviendose: bool) -> void:
+	if _muneco == null or not _muneco.hay_dibujo():
+		return
+	var lider: Node = get_tree().get_first_node_in_group("player")
+	var modo: int = int(lider.get("movement_mode")) if lider != null else 1
+	_muneco.animar(PoseJugador.animacion(_facing, modo, moviendose))
 
 
 # Colocacion DURA (cambio de piso, cambio de lider): aqui no se anda, se aparece.

@@ -27,6 +27,9 @@ const SALTO := 200.0
 var _objetivo := Vector2.INF   # ultimo destino recibido; INF = aun no ha llegado ninguno
 var _cuerpo: ColorRect = null
 var _nombre: Label = null
+# Su cuerpo dibujado (ver muneco_jugador.gd) y hacia donde mira, deducido de su movimiento.
+var _muneco: MunecoJugador = null
+var _facing: Vector2 = Vector2.DOWN
 # Rastro de SU imbuicion (null = no lleva ninguna). Ver aplicar_imbue.
 var _fx_imbue: CPUParticles2D = null
 # Su bocadillo mientras canta un hechizo en el mapa (null = no esta cantando). Ver cantar().
@@ -77,7 +80,20 @@ func _ready() -> void:
 # ya recortado a 128x128 en el handshake y se convierte a textura aqui.
 func aplicar_aspecto(color: Color, metal: float, nombre: String,
 		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0) -> void:
-	if _cuerpo != null:
+	if _muneco == null:
+		_muneco = MunecoJugador.new()
+		add_child(_muneco)
+	# SIN PersonajeData: de el solo llega el aspecto por la red, no su ficha. Por eso se monta con
+	# null -- que hoy da el cuerpo desnudo -- y su equipo entrara por el canal propio de la fase de
+	# red, no por aqui. La alternativa (mandar la ficha entera) reenviaria su PNG de 128x128 cada vez
+	# que se cambia de arma.
+	_muneco.montar(null)
+	if _muneco.hay_dibujo():
+		_muneco.tenir(Color(color.r, color.g, color.b, 1.0), metal)
+		if _cuerpo != null:
+			_cuerpo.visible = false
+	elif _cuerpo != null:
+		_cuerpo.visible = true
 		# OPACO: el shader multiplica por COLOR.a, asi que un color con alpha < 1 (translucido)
 		# atenuaria el cuerpo entero. El color va SIEMPRE opaco; la opacidad SOBRE la imagen la
 		# lleva 'alpha' (color_alpha del shader), no el alpha del Color.
@@ -141,3 +157,16 @@ func _physics_process(delta: float) -> void:
 	# velocity.length() (ver enemy._detecta_a), asi que sin esto un jugador remoto seria
 	# COMPLETAMENTE silencioso y solo lo detectarian por el cono de vision.
 	velocity = (global_position - antes) / delta
+
+	# HACIA DONDE MIRA: se deduce de por donde se mueve y NO se usa el '_facing' que ya viaja en el
+	# paquete de posicion. Suena al reves, y tiene su motivo: ese facing es el de su ULTIMO
+	# movimiento con teclas, asi que al soltarlas se queda apuntando a un sitio mientras el cuerpo
+	# aun se desliza hacia el ultimo destino recibido. Se le veria andar de lado. Aqui se dibuja lo
+	# que se ve hacer, que es lo que tiene que casar con la interpolacion.
+	if velocity.length() > 6.0:
+		_facing = velocity.normalized()
+	if _muneco != null and _muneco.hay_dibujo():
+		# Modo 1 (andar) siempre: su sigilo y su carrera no viajan hoy. Es una mentira consciente y
+		# pequeña -- se le vera andar mientras corre -- y esta apuntada para la fase de red, donde ya
+		# hay que abrir un canal para el equipo que lleva puesto y el modo cabe de propina.
+		_muneco.animar(PoseJugador.animacion(_facing, 1, velocity.length() > 6.0))

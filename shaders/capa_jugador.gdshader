@@ -31,6 +31,16 @@ uniform float velocidad : hint_range(0.0, 2.0) = 0.30;
 // Cuanto se separa la luz de la sombra al volverse metalico.
 uniform float contraste : hint_range(1.0, 3.0) = 1.55;
 
+// EL TONO MEDIO DE REFERENCIA: que gris del horneado tiene que salir EXACTAMENTE del color elegido.
+// Lo mas claro sale mas claro que ese color y lo mas oscuro, mas oscuro.
+//
+// Sin esto, teñir multiplicando OSCURECE SIEMPRE: un gris de 0,48 por un color medio de 0,45 da
+// 0,21, o sea casi negro. Al probarlo en el juego el personaje salia como una silueta con la cara
+// blanca, y no porque los grises estuvieran mal elegidos sino porque multiplicar dos numeros
+// menores que uno da algo menor que los dos. Dividiendo por la referencia, el gris de la ropa cae
+// justo en tu color y la piel queda por encima -- que es lo que se dibujo.
+uniform float base : hint_range(0.05, 1.0) = 0.62;
+
 void fragment() {
 	vec4 tex = texture(TEXTURE, UV);
 	// El recorte lo manda SIEMPRE la textura. Sin esta salida temprana, el aire de alrededor del
@@ -45,8 +55,9 @@ void fragment() {
 		float destello = smoothstep(0.72, 0.96, l) * metal
 			* (0.5 + 0.5 * sin(TIME * velocidad * 6.2831853));
 
-		// El color del nodo (modulate) MULTIPLICA, que es lo que conserva el sombreado horneado.
-		vec3 c = tex.rgb * (lf / max(0.001, l)) * COLOR.rgb;
+		// El color del nodo (modulate) MULTIPLICA, que es lo que conserva el sombreado horneado, y
+		// se reparte alrededor del tono medio para que no oscurezca.
+		vec3 c = tex.rgb * (lf / max(0.001, l)) * COLOR.rgb / base;
 		c += vec3(destello * 0.40);
 		COLOR = vec4(clamp(c, 0.0, 1.0), tex.a * COLOR.a);
 	}
