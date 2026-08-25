@@ -1,0 +1,7 @@
+[gd_scene load_steps=3 format=3]
+[ext_resource type="PackedScene" uid="uid://b3cucc2ofeiwt" path="res://scenes/levels/sandbox.tscn" id="1"]
+[ext_resource type="Script" path="res://tools/ver_jugador_juego.gd" id="2"]
+[node name="VerJugadorJuego" type="Node2D"]
+[node name="Sandbox" parent="." instance=ExtResource("1")]
+[node name="Foto" type="Node" parent="."]
+script = ExtResource("2")

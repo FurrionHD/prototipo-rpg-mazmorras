@@ -139,8 +139,17 @@ static func pintar(esq: Dictionary, piezas: Array) -> void:
 	var brazo_der_prof: float = PoseJugador.profundidad(esq, PoseJugador.P_HOMBRO_DER)
 
 	# 1. El brazo del fondo, lo primero de todo: lo tapa hasta el tronco.
-	var brazo_fondo: bool = brazo_izq_prof < brazo_der_prof
-	_brazo(piezas, esq, not brazo_fondo)
+	#
+	# EL ORDEN ESTUVO INVERTIDO, y el sintoma no se parecia en nada a la causa: se veia un brazo
+	# larguisimo cruzando el cuerpo por delante y el otro CORTADO POR EL CODO. Lo que pasaba es que el
+	# brazo de delante se pintaba primero (o sea, debajo del tronco, y de el solo asomaba el antebrazo
+	# por fuera de la silueta = el "cortado") y el del fondo se pintaba encima de todo, tapando el
+	# pecho de lado a lado = el "larguisimo". Ninguno de los dos brazos estaba mal dibujado.
+	#
+	# 'izq_al_fondo' se llama asi y no 'brazo_fondo' por eso mismo: el nombre anterior no decia si era
+	# un lado o una profundidad, y leyendolo se colaba la negacion sin que cantara.
+	var izq_al_fondo: bool = brazo_izq_prof < brazo_der_prof
+	_brazo(piezas, esq, izq_al_fondo, false)
 
 	# 2. Las piernas, la del fondo primero.
 	if pierna_izq_prof < pierna_der_prof:
@@ -180,7 +189,7 @@ static func pintar(esq: Dictionary, piezas: Array) -> void:
 		{"solo_sobre": [Tono.PIEL]})
 
 	# 5. Y el brazo de delante, al final: tapa al tronco, que es lo que le toca.
-	_brazo(piezas, esq, brazo_fondo)
+	_brazo(piezas, esq, not izq_al_fondo, true)
 
 
 # Una pierna: muslo, pantorrilla y pie. La cadena de elipses la hace PoseJugador, que ya sabe que el
@@ -211,7 +220,14 @@ static func _pierna(piezas: Array, esq: Dictionary, izq: bool) -> void:
 # de delante desaparecia dentro del pecho -- estaba dibujado, se fusionaba con el, y el contorno solo
 # perfila la silueta de fuera, asi que no habia nada que lo separase. Lo que se veia entonces era el
 # antebrazo claro flotando al lado del cuerpo, como si el brazo empezara en el codo.
-static func _brazo(piezas: Array, esq: Dictionary, izq: bool) -> void:
+#
+# 'perfilar' es para el brazo de DELANTE, el que se dibuja encima del tronco: se le pinta antes una
+# cadena un pelin mas gorda en tono de contorno, o sea su propia linea. Sin ella, de perfil el brazo
+# cae justo sobre el pecho y, siendo los dos tela, se funden: lo que se ve es un tronco con una mano
+# pegada, sin brazo. El contorno general no ayuda ahi porque solo marca lo que toca el VACIO, y este
+# brazo no toca vacio por dentro -- toca cuerpo. Es la linea interior de toda la vida del pixel-art,
+# y el de detras no la lleva a proposito: ese tiene que fundirse, para eso esta detras.
+static func _brazo(piezas: Array, esq: Dictionary, izq: bool, perfilar: bool = false) -> void:
 	var p: Dictionary = esq["puntos"]
 	var hombro: Vector3 = p[PoseJugador.P_HOMBRO_IZQ if izq else PoseJugador.P_HOMBRO_DER]
 	var codo: Vector3 = p[PoseJugador.P_CODO_IZQ if izq else PoseJugador.P_CODO_DER]
@@ -224,6 +240,18 @@ static func _brazo(piezas: Array, esq: Dictionary, izq: bool) -> void:
 	# flotando al lado del personaje. Lo caza el validador de islas del horno, y el arreglo es el
 	# mismo que ya tenian los muslos: meter el arranque dentro de la pieza que lo sujeta.
 	var arranque := Vector3(hombro.x * 0.72, hombro.y, hombro.z - 1.6)
+	# LA MANGA LLEGA HASTA LA MUÑECA, y solo la mano va en piel. El primer intento dejaba el antebrazo
+	# en carne, y en gris colaba; teñido, no: la piel esta muy por encima de la ropa en la escala de
+	# valores, asi que el antebrazo salia como un brochazo claro. Y como en las diagonales el brazo
+	# cae justo por delante del pecho, ese brochazo cruzaba el cuerpo de arriba abajo -- se leia como
+	# una mancha, no como un brazo. Un miembro oscuro entero que acaba en un puntito claro se lee como
+	# un brazo con una mano al momento, ademas de ser lo que deja sitio a un guantelete.
+	if perfilar:
+		var g: float = 0.85     # lo que sobresale la linea. Mas, y el brazo se queda sin relleno.
+		PoseJugador.cadena(piezas, esq, arranque, codo, R_BRAZO + g, R_ANTEBRAZO + g, Tono.BORDE)
+		PoseJugador.cadena(piezas, esq, codo, mano, R_ANTEBRAZO + g, R_ANTEBRAZO * 0.92 + g,
+			Tono.BORDE)
+		PoseJugador.poner(piezas, esq, mano, Vector3(R_MANO + g, R_MANO + g, R_MANO + g), Tono.BORDE)
 	PoseJugador.cadena(piezas, esq, arranque, codo, R_BRAZO, R_ANTEBRAZO, Tono.ROPA_S)
-	PoseJugador.cadena(piezas, esq, codo, mano, R_ANTEBRAZO, R_ANTEBRAZO * 0.9, Tono.PIEL_S)
-	PoseJugador.poner(piezas, esq, mano, Vector3(R_MANO, R_MANO, R_MANO), Tono.PIEL)
+	PoseJugador.cadena(piezas, esq, codo, mano, R_ANTEBRAZO, R_ANTEBRAZO * 0.92, Tono.ROPA_S)
+	PoseJugador.poner(piezas, esq, mano, Vector3(R_MANO, R_MANO, R_MANO), Tono.PIEL_S)
