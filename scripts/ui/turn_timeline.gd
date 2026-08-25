@@ -1,8 +1,14 @@
 # ============================================================
 #  turn_timeline.gd  (Control)
-#  Linea de ORDEN DE TURNOS estilo Epic Seven: una barra horizontal con los
-#  "iconos" de los combatientes, que avanzan segun su velocidad hacia el
-#  punto de accion (derecha). Al llegar, ese actua y su icono vuelve al principio.
+#  Linea de ORDEN DE TURNOS estilo Epic Seven: una barra con los "iconos" de los
+#  combatientes, que avanzan segun su velocidad hacia el punto de accion. Al
+#  llegar, ese actua y su icono vuelve al principio.
+#
+#  Va en DOS ORIENTACIONES (ver 'vertical'): tumbada, con el punto de accion a la
+#  derecha, o de pie pegada al lateral, con el punto de accion ARRIBA y los
+#  marcadores subiendo. Toda la diferencia esta en _punto_de(): el resto del
+#  fichero -dar de alta, quitar, colocar, la profundidad por avance- no sabe en
+#  que orientacion esta.
 #
 #  Los marcadores son NODOS HIJO (ColorRect), no dibujos del _draw(). Tiene que ser asi:
 #  el marcador del jugador lleva SU aspecto (color, imagen y shader de metal del cuerpo), y
@@ -17,6 +23,11 @@ extends Control
 
 const MARGEN := 40.0    # margen a los lados de la linea
 const RADIO := 16.0     # medio lado del marcador (cuadrado de 32x32)
+
+# DE PIE en vez de tumbada. Lo pone quien la monta (ver combat._crear_timeline), antes de dar de
+# alta a nadie. En vertical el ratio 0 esta ABAJO y el punto de accion ARRIBA: se lee como una
+# cuenta atras que sube, y deja el ancho de la pantalla libre para el escenario.
+var vertical: bool = false
 
 # Combatant -> {rect: ColorRect, ratio: float}. La clave es el propio Combatant (el mismo
 # dominio que el _gauge del combate): evita inventarse un segundo sistema de indices.
@@ -62,6 +73,16 @@ func quitar(c: Combatant) -> void:
 	_marcadores.erase(c)
 
 
+# EL PUNTO de la linea para un avance 'r' (0 = salida, 1 = le toca). Es lo UNICO que sabe en que
+# orientacion estamos: colocar marcadores y dibujar la barra salen los dos de aqui, asi que no
+# pueden acabar diciendo cosas distintas.
+func _punto_de(r: float) -> Vector2:
+	if vertical:
+		# r=0 abajo, r=1 arriba: la cuenta SUBE hacia el punto de accion.
+		return Vector2(size.x * 0.5, (size.y - MARGEN) - r * (size.y - MARGEN * 2.0))
+	return Vector2(MARGEN + r * (size.x - MARGEN * 2.0), size.y * 0.5)
+
+
 # ratios: Combatant -> 0..1 (cuanto lleno tiene su turno). Coloca cada marcador y ordena la
 # profundidad por avance, para que el que va en cabeza se vea encima de los que le pisan.
 func set_ratios(ratios: Dictionary) -> void:
@@ -70,21 +91,24 @@ func set_ratios(ratios: Dictionary) -> void:
 		var m: Dictionary = _marcadores[c]
 		m["ratio"] = r
 		var rect: ColorRect = m["rect"]
-		var x0: float = MARGEN
-		var x1: float = size.x - MARGEN
-		rect.position = Vector2(x0 + r * (x1 - x0) - RADIO, size.y * 0.5 - RADIO)
+		rect.position = _punto_de(r) - Vector2(RADIO, RADIO)
 		rect.z_index = int(r * 100.0)
 	queue_redraw()
 
 
 func _draw() -> void:
-	var y: float = size.y * 0.5
-	var x0: float = MARGEN
-	var x1: float = size.x - MARGEN
+	var a: Vector2 = _punto_de(0.0)
+	var b: Vector2 = _punto_de(1.0)
+	var font: Font = ThemeDB.fallback_font
 
 	# Linea de la barra.
-	draw_line(Vector2(x0, y), Vector2(x1, y), Color(0.45, 0.45, 0.5), 3.0)
-	# Punto de accion (derecha).
-	draw_line(Vector2(x1, y - 16.0), Vector2(x1, y + 16.0), Color(1, 1, 1), 2.0)
-	var font: Font = ThemeDB.fallback_font
-	draw_string(font, Vector2(x1 - 30.0, y - 22.0), "ACCION", HORIZONTAL_ALIGNMENT_LEFT, -1, 12)
+	draw_line(a, b, Color(0.45, 0.45, 0.5), 3.0)
+	# Punto de accion: una marca ATRAVESADA en el extremo de llegada, y su etiqueta al lado de
+	# fuera (en vertical, encima; tumbada, por encima de la linea como siempre).
+	if vertical:
+		draw_line(b - Vector2(16.0, 0.0), b + Vector2(16.0, 0.0), Color(1, 1, 1), 2.0)
+		draw_string(font, b + Vector2(-size.x * 0.5, -10.0), "ACCION",
+			HORIZONTAL_ALIGNMENT_CENTER, size.x, 12)
+	else:
+		draw_line(b - Vector2(0.0, 16.0), b + Vector2(0.0, 16.0), Color(1, 1, 1), 2.0)
+		draw_string(font, b + Vector2(-30.0, -22.0), "ACCION", HORIZONTAL_ALIGNMENT_LEFT, -1, 12)

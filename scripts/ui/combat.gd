@@ -108,11 +108,11 @@ var _aliados_box: HBoxContainer = null
 # Que ya tenga su tamaño definitivo evita que el dia que entre el primer aliado se recoloque
 # todo de golpe.
 const ANCHO_BLOQUE := 216.0
-# ...pero eso ya NO es el ancho de la pantalla. El log se mudo a una columna de la derecha, asi que
-# los bloques viven en lo que queda (viewport - ANCHO_LOG - margenes), y ahi 5 x 216 no entran: la
-# fila esta CENTRADA, asi que lo que sobraba se salia por los dos lados y el bicho nº1 se quedaba
-# medio fuera de la pantalla. Cuando no caben a su ancho preferido se encogen a partes iguales,
-# hasta este minimo (donde todavia se leen el numero y la barra de vida).
+# ...pero eso ya NO es el ancho de la pantalla. Las tarjetas viven en lo que queda entre la barra
+# de accion y la columna de la derecha (ver _ancho_bloque), y ahi 5 x 216 no entran: la banda esta
+# CENTRADA, asi que lo que sobraba se salia por los dos lados y el bicho nº1 se quedaba medio fuera
+# de la pantalla. Cuando no caben a su ancho preferido se encogen a partes iguales, hasta este
+# minimo (donde todavia se leen el numero y la barra de vida).
 #
 # Encogerlos y no partirlos en dos filas: la fila ES la numeracion que usa la barra de accion (el
 # nº2 es el 2º empezando por la izquierda), y en dos filas eso deja de leerse de un vistazo.
@@ -123,6 +123,41 @@ const SEP_BLOQUES := 8.0
 # Dos filas y no una porque en un bloque de 260 px solo caben ~3 chips por fila, y un bicho
 # bien castigado (veneno + quemadura + pegajoso + imbuicion) pasa de eso con facilidad.
 const ALTO_CHIPS := 56.0
+
+# --- EL REPARTO DE LA PANTALLA ---------------------------------------------------------------
+# La pelea se lee en tres franjas verticales:
+#
+#   [barra de accion] [       EL ESCENARIO       ] [registro + botones]
+#
+# El ESCENARIO es el hueco del medio, y es lo que manda: ahi es donde van los combatientes y donde
+# caen los golpes, los numeros y los efectos. Cada combatiente es una COLUMNA con su tarjeta y su
+# sitio de sprite pegados, los de enfrente colgando de arriba y los tuyos apoyados abajo, asi que
+# la ficha de cada uno esta siempre junto a QUIEN es y no en una fila aparte que hay que cruzar
+# con la vista.
+const ANCHO_COL_DER := 460.0      # la columna de la derecha: registro arriba, botones abajo
+const ANCHO_TIMELINE := 88.0      # la barra de accion, de pie y pegada al lateral izquierdo
+const MARGEN_UI := 16.0
+# El SITIO del sprite dentro de la columna. Solo fija el ALTO: el ancho lo hereda de la columna,
+# que lo marca la tarjeta.
+#
+# Y tiene que ser asi. Con un ancho minimo propio, la columna no podia encoger por debajo de el:
+# al tope de cinco enemigos la tarjeta se aprieta a 130 px, el hueco del sprite seguia exigiendo
+# 136, y las cinco columnas ya no cabian entre la barra de accion y el registro -- la quinta se
+# metia por debajo del panel de la derecha.
+const ALTO_ACTOR := 172.0
+# EL PRESUPUESTO VERTICAL, que va justo y hay que cuadrarlo a mano. Cada banda se ancla a SU borde
+# con una altura fija; si se dejara que la marcara el contenido, un Container anclado por un solo
+# lado se queda con altura cero y se va de la pantalla (la banda de abajo desaparecia entera).
+#
+#   16 + 300 (ellos) + ... 40 de aire ... + 348 (los tuyos) + 16 = 720
+#
+# Las tarjetas: la enemiga son ~124 px (nombre + dos filas de chips + vida) y la tuya ~172, que
+# lleva ademas las barras de energia y maná. Si alguna crece, lo que se come es el aire del medio.
+const ALTO_TARJETA_ENE := 124.0
+const ALTO_TARJETA_ALI := 172.0
+const SEP_COLUMNA := 4.0
+const ALTO_BANDA_ENE := ALTO_TARJETA_ENE + SEP_COLUMNA + ALTO_ACTOR
+const ALTO_BANDA_ALI := ALTO_TARJETA_ALI + SEP_COLUMNA + ALTO_ACTOR
 
 # Sistema de ACCIONES (KAN-55): barra con Atacar / Magia / Defender / Huir. Se
 # genera por codigo (convencion: UI por codigo por ahora) y es de datos, asi
@@ -594,7 +629,7 @@ func aplicar_roster(roster: Dictionary) -> void:
 			_enemies.append(c)
 			var b: Dictionary = _crear_bloque(c, i + 1, i)
 			_bloques.append(b)
-			_bloques_box.add_child(b["wrap"])
+			_bloques_box.add_child(b["columna"])
 		_gauge[c] = 0.0
 		if _timeline != null:
 			_timeline.anadir(c, c.color_visual, null, str(i + 1))
@@ -1611,24 +1646,27 @@ func _ready() -> void:
 	_montar_columna()  # el combate pasa a una columna de ancho fijo, centrada
 
 	if not _injected:
-		# Combatientes de PRUEBA (para abrir combat.tscn directamente con F6). Se montan TRES
-		# aliados y TRES slimes de distinta velocidad: asi F6 sirve para probar el combate en grupo
-		# (turnos de cada uno, numeracion, seleccion por clic) sin bajar a la mazmorra.
-		for j in 3:
+		# Combatientes de PRUEBA (para abrir combat.tscn directamente con F6). Se monta EL CASO
+		# PEOR: MAX_ALIADOS contra MAX_ENEMIGOS, con velocidades distintas. Al tope es cuando la
+		# pantalla aprieta -las tarjetas se encogen, la barra de accion se llena de marcadores-,
+		# asi que es el caso que hay que poder mirar de un vistazo.
+		var nombres: Array[String] = ["Heroe", "Bibi", "Coco", "Dado"]
+		for j in MAX_ALIADOS:
 			var pab := Abilities.new()
 			pab.fuerza = 120; pab.resistencia = 90; pab.destreza = 60
-			pab.agilidad = 110 - j * 25   # velocidades distintas: los turnos se alternan
+			pab.agilidad = 110 - j * 20   # velocidades distintas: los turnos se alternan
 			pab.magia = 20
-			var aliado := Combatant.new(["Heroe", "Bibi", "Coco"][j], 1, pab, 50, 5, 5, 5)
+			var aliado := Combatant.new(nombres[j], 1, pab, 50, 5, 5, 5)
 			aliado.max_energy = 100.0
 			aliado.current_energy = 100.0
 			_aliados.append(aliado)
 		_player = _aliados[0]
-		var colores: Array[Color] = [Color(0.9, 0.3, 0.3), Color(0.4, 0.8, 0.4), Color(0.5, 0.5, 0.95)]
-		for i in 3:
+		var colores: Array[Color] = [Color(0.9, 0.3, 0.3), Color(0.4, 0.8, 0.4),
+			Color(0.5, 0.5, 0.95), Color(0.9, 0.8, 0.35), Color(0.7, 0.45, 0.9)]
+		for i in MAX_ENEMIGOS:
 			var eab := Abilities.new()
 			eab.fuerza = 80; eab.resistencia = 70; eab.destreza = 30
-			eab.agilidad = 40 + i * 30   # velocidades distintas: se ve el orden de turnos moverse
+			eab.agilidad = 40 + i * 20   # velocidades distintas: se ve el orden de turnos moverse
 			eab.magia = 0
 			var e := Combatant.new("Slime %d" % (i + 1), 1, eab, 40, 4, 5, 4)
 			e.color_visual = colores[i]
@@ -1700,10 +1738,13 @@ func _ready() -> void:
 # Encaja solo porque ya se pintaban a dos columnas (ver _rejilla_submenu): al abrir uno se sustituye
 # una rejilla de 2 por otra de 2 en el MISMO sitio, asi que la pantalla no salta ni hay que
 # rediseñarlos.
-# La rejilla ocupa TODO el ancho que queda a la izquierda del log, en 3 columnas x 2 filas: con las
-# 2x3 de antes, el panel media 360 px y dejaba media franja de abajo sin usar.
-const COLUMNAS_ACCION := 3
-const ANCHO_BOTON_ACCION := 168.0   # minimo; los botones se reparten el ancho sobrante
+# La rejilla va a DOS columnas x tres filas, dentro de la columna de la derecha. Antes eran tres
+# columnas, porque los botones ocupaban la franja de abajo a lo ancho de la pantalla; en 460 px
+# esas tres NO CABEN y, lo que es peor, un GridContainer no encoge por debajo del minimo de sus
+# hijos: 3 x 168 + separaciones son 524 px de minimo, o sea que se saldrian por la derecha.
+const COLUMNAS_ACCION := 2
+const FILAS_ACCION := 3.0           # las que ocupan las seis acciones a COLUMNAS_ACCION columnas
+const ANCHO_BOTON_ACCION := 200.0   # minimo; los botones se reparten el ancho sobrante
 const ALTO_BOTON_ACCION := 76.0
 # Las FRASES del recitado van una por fila (el texto es largo y necesita el ancho entero), asi que
 # son mas bajas que un boton de accion: cuatro de 76 + el Volver no caben en pantalla. 60 px sigue
@@ -1713,31 +1754,28 @@ const ALTO_BOTON_VOLVER := 56.0
 # Las FRASES del recitado van a DOS columnas (las acciones y los submenus van a tres): lo que llevan
 # dentro es una frase entera, no el nombre corto de un hechizo.
 const COLUMNAS_FRASES := 2
-# Hasta donde puede crecer el panel hacia ARRIBA. Por encima de esto se comeria los bloques del
-# grupo (que acaban hacia la mitad de la pantalla).
-const ALTO_PANEL_MAX := 420.0
-# La linea de accion (turn_timeline) se come los ultimos 80 px de la pantalla. Todo lo de abajo
-# tiene que quedarse por encima de ella.
-const HUECO_TIMELINE := 96.0
+# Hasta donde puede crecer el panel hacia ARRIBA. Con las acciones a tres filas y los submenus
+# largos (diez hechizos a dos columnas son cinco filas: 5 x 76 + separaciones + el Volver, casi
+# 490 px) el tope de 420 de antes recortaba la lista por abajo.
+const ALTO_PANEL_MAX := 520.0
 
 
 func _crear_acciones() -> void:
-	# ABAJO A LA IZQUIERDA, donde antes estaba el historial. El log se ha ido al otro lado: los
-	# botones son lo que se toca y van al alcance del pulgar, el texto es lo que se lee y va a la
-	# columna de la derecha.
+	# ABAJO A LA DERECHA, en la columna que comparte con el registro: el registro arriba (es lo que
+	# se lee) y los botones abajo (es lo que se toca, al alcance del pulgar). El centro de la
+	# pantalla se queda libre para la pelea.
 	_panel_acciones = VBoxContainer.new()
-	_panel_acciones.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_panel_acciones.offset_left = 16.0 + Tactil.borde.x
-	# Hasta donde empieza la columna del log: la franja de abajo entera es suya.
-	_panel_acciones.offset_right = -ANCHO_LOG - 32.0 - Tactil.borde.x
-	_panel_acciones.offset_bottom = -HUECO_TIMELINE - Tactil.borde.y
-	_panel_acciones.offset_top = _panel_acciones.offset_bottom - ALTO_BOTON_ACCION * 2.0 - 20.0
+	_panel_acciones.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_panel_acciones.offset_left = -ANCHO_COL_DER - MARGEN_UI - Tactil.borde.x
+	_panel_acciones.offset_right = -MARGEN_UI - Tactil.borde.x
+	_panel_acciones.offset_bottom = -MARGEN_UI - Tactil.borde.y
+	_panel_acciones.offset_top = _panel_acciones.offset_bottom - ALTO_BOTON_ACCION * FILAS_ACCION - 20.0
 	_panel_acciones.alignment = BoxContainer.ALIGNMENT_END
 	_panel_acciones.add_theme_constant_override("separation", 8)
 	_panel_acciones.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(_panel_acciones)
 
-	# Los seis, en rejilla de 3x2 y repartiendose el ancho.
+	# Los seis, en rejilla de 2x3 y repartiendose el ancho.
 	_actions_box = GridContainer.new()
 	(_actions_box as GridContainer).columns = COLUMNAS_ACCION
 	_actions_box.add_theme_constant_override("h_separation", 10)
@@ -1824,18 +1862,27 @@ func _celda_submenu(b: Button) -> void:
 # movil eso es fallar la frase sin querer.
 #
 # El panel esta anclado ABAJO, asi que mover offset_top solo le da sitio; los botones no se mueven de
-# donde estaban. Quien abre un submenu pide su alto; _ocultar_cajas lo devuelve a las dos filas.
+# donde estaban. Quien abre un submenu pide su alto; _ocultar_cajas lo devuelve a la rejilla pelada.
+#
+# El SUELO del clamp son las FILAS_ACCION que ocupa la rejilla de seis. Tiene que seguir a
+# COLUMNAS_ACCION: con el 2.0 fijo que habia aqui, pasar la rejilla a dos columnas dejaba el panel
+# a la altura de dos filas y la tercera (Defender / Objeto / Huir) quedaba cortada por abajo.
 func _alto_panel(alto: float) -> void:
 	if _panel_acciones == null:
 		return
 	_panel_acciones.offset_top = _panel_acciones.offset_bottom \
-		- clampf(alto, ALTO_BOTON_ACCION * 2.0, ALTO_PANEL_MAX) - 20.0
+		- clampf(alto, ALTO_BOTON_ACCION * FILAS_ACCION, ALTO_PANEL_MAX) - 20.0
 
 
 # Cierra un submenu: le pone el "◄ Volver" a lo ancho, ajusta el alto del panel a lo que ocupa su
-# rejilla y lo enseña. 'n' = cuantos botones lleva la rejilla (de ahi salen las filas), 'al' = a
-# donde vuelve el boton. Los seis submenus repetian estas cuatro lineas a mano.
-func _cerrar_submenu(caja: VBoxContainer, n: int, al: Callable) -> void:
+# rejilla y lo enseña. 'n' = cuantos botones lleva la rejilla, 'cols' = a cuantas columnas se pinto
+# (de esos dos salen las filas), 'al' = a donde vuelve el boton.
+#
+# 'cols' viene por parametro y no de COLUMNAS_ACCION porque no todas las rejillas usan esa: el
+# recitado se pinta a las suyas (ver _pintar_test). Leyendo la constante, un submenu con otro
+# numero de columnas pedia un alto que no era el suyo y se cortaba solo.
+func _cerrar_submenu(caja: VBoxContainer, n: int, al: Callable,
+		cols: int = COLUMNAS_ACCION) -> void:
 	# Separacion entre la rejilla y el Volver: pegado a las celdas se pulsa por accidente.
 	caja.add_theme_constant_override("separation", 12)
 	var volver := Button.new()
@@ -1845,60 +1892,51 @@ func _cerrar_submenu(caja: VBoxContainer, n: int, al: Callable) -> void:
 	volver.add_theme_font_size_override("font_size", 18)
 	volver.pressed.connect(al)
 	caja.add_child(volver)
-	var filas: int = maxi(1, ceili(n / float(COLUMNAS_ACCION)))
+	var filas: int = maxi(1, ceili(n / float(maxi(1, cols))))
 	_alto_panel(filas * ALTO_BOTON_ACCION + (filas - 1) * 10.0 + 12.0 + ALTO_BOTON_VOLVER)
 	caja.visible = true
 
 
 # Oculta las cajas del turno del jugador (acciones / submenu magia / recitado / habilidades /
-# objetos). Y por defecto DEVUELVE el historial: ocultar las cajas = volver al estado "mirando el
-# log". Los submenus que quieran ocupar el sitio del log (magia, frases, habilidades, objetos) se
-# encargan de ocultarlo DESPUES con _ocultar_log(), asi el log solo desaparece mientras eliges y
-# vuelve solo al acabar el turno (todos los cierres pasan por aqui: _fin_de_eleccion, etc.).
+# objetos). Todos los cierres pasan por aqui (_fin_de_eleccion, etc.).
+#
+# YA NO toca la visibilidad del registro. Cuando el log era un Label suelto, esto lo devolvia a la
+# vista con `_log.visible = true`; ahora el registro es un panel propio con su boton, y forzarlo
+# desde aqui significaba ESTIRARLO solo cada vez que se cerraba un submenu.
 func _ocultar_cajas() -> void:
 	if _actions_box != null: _actions_box.visible = false
 	if _spell_box != null: _spell_box.visible = false
 	if _cast_box != null: _cast_box.visible = false
 	if _ability_box != null: _ability_box.visible = false
 	if _objeto_box != null: _objeto_box.visible = false
-	if _log != null: _log.visible = true
-	_alto_panel(0.0)   # vuelve a las dos filas de la rejilla de acciones (el clamp lo sube al minimo)
+	_alto_panel(0.0)   # vuelve a la rejilla de acciones pelada (el clamp lo sube al minimo)
 
 
-# YA NO ESCONDE NADA, y se queda como un sitio al que llamar por si algun dia hace falta.
+# RECOGE el registro si estaba estirado. Lo llaman los submenus altos (magia, frases, habilidades,
+# objetos) antes de abrirse: un registro a pantalla completa les taparia la lista justo cuando hay
+# que elegir. Recogido a sus LOG_LINEAS no estorba a nadie, asi que no hace falta cerrarlo del todo.
 #
-# Cuando los submenus vivian debajo del log, abrir uno le quitaba el sitio al historial: seis lineas
-# de alto fijo no caben con una lista de hechizos debajo. Desde que los submenus estan en el panel de
-# la derecha, ese conflicto no existe — y el historial tiene que verse SIEMPRE, que es justo lo que
-# uno quiere leer mientras elige que hacer.
+# Antes esto era un no-op (el log vivia en su columna y no le quitaba sitio a nada). Se ha quedado
+# con el nombre y con sus mismas llamadas, que siguen queriendo decir exactamente lo mismo.
 func _ocultar_log() -> void:
-	pass
+	if _log_abierto:
+		_alternar_log()
 
 
 func _setup_ui() -> void:
-	# Un bloque por enemigo, EN FILA y en el orden de _enemies -> ese orden es la numeracion que
+	# Una columna por enemigo, EN FILA y en el orden de _enemies -> ese orden es la numeracion que
 	# se ve (el 1º empezando por la izquierda = marcador "1" en la barra de accion).
+	# Ya no hace falta separador entre las dos bandas: estan en extremos opuestos de la pantalla.
 	for i in _enemies.size():
 		var b: Dictionary = _crear_bloque(_enemies[i], i + 1, i)
 		_bloques.append(b)
-		_bloques_box.add_child(b["wrap"])
-	# Separador para que tu fila no se confunda con la de enfrente. IGNORE: un Control es STOP
-	# por defecto y esta franja se comeria los clics que caigan en ella.
-	var sep := Control.new()
-	sep.custom_minimum_size = Vector2(0, 12)
-	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_col.add_child(sep)
-	_col.move_child(sep, 1)
-	# TU FILA: un bloque por miembro del grupo, construidos igual que los enemigos (numero 0 = sin
-	# numerar y sin clic: a los tuyos no hace falta apuntarles). Cada uno lleva sus tres barras
-	# (vida, energia y maná), porque cada uno gasta las suyas.
-	_aliados_box = _crear_fila_bloques()
-	_col.move_child(_aliados_box, 2)
+		_bloques_box.add_child(b["columna"])
+	# LOS TUYOS: una columna por miembro del grupo, construidas igual que las de enfrente (numero
+	# 0 = sin numerar y sin clic: a los tuyos no hace falta apuntarles). Cada uno lleva sus tres
+	# barras (vida, energia y maná), porque cada uno gasta las suyas.
 	for i in _aliados.size():
 		_anadir_bloque_aliado(_aliados[i])
 	_seleccionar(0)
-	# El log lo configura _montar_log (columna derecha, con las frases partidas en varias lineas).
-	# Aqui ya NO se le pone clip_text: recortar era de cuando vivia en una linea por frase.
 	_update_hp()
 	_continue_button.visible = false
 	_ocultar_cajas()
@@ -1911,7 +1949,7 @@ func _anadir_bloque_aliado(c: Combatant) -> void:
 	var ba: Dictionary = _crear_bloque(c, 0, -1)
 	_crear_barras_aliado(ba, c)
 	_bloques_aliados.append(ba)
-	_aliados_box.add_child(ba["wrap"])
+	_aliados_box.add_child(ba["columna"])
 	# La fila acaba de crecer: puede que lo que cabia antes ya no quepa (ver _ancho_bloque).
 	_reajustar_anchos(_bloques_aliados, _bloques_aliados.size())
 
@@ -2002,9 +2040,42 @@ func _hay_aliado_llamado(nombre: String, salvo: Combatant) -> bool:
 #   idx = indice en _enemies (-1 para el jugador).
 # Devuelve {panel, vbox, nombre, chips, hp, hp_lbl}.
 func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
-	# ENVOLTORIO. La tarjeta va DENTRO de un Control pelado, y es el envoltorio -no el panel- el
-	# que entra en la fila. Motivo: un Container reescribe la 'position' de sus hijos en cada
-	# re-layout, y aqui hay re-layouts a punta pala (_refrescar_chips borra y recrea los chips en
+	# LA COLUMNA de este combatiente: su tarjeta y su sitio en el escenario, pegados. Es lo que
+	# entra en la banda, y va en el orden de cada bando -los de enfrente con la ficha ARRIBA y su
+	# sprite colgando hacia el centro, los tuyos al reves- para que las dos fichas queden en los
+	# bordes de la pantalla y los dos sprites se miren en el medio.
+	#
+	# Que tarjeta y sprite vayan en el MISMO nodo no es cosmetico: si fueran dos bandas separadas,
+	# cada alta, cada muerte y cada reordenacion (el jefe al centro) habria que hacerla dos veces y
+	# en el mismo orden, y el dia que una se olvidara tendrias la ficha de un bicho encima de otro.
+	var columna := VBoxContainer.new()
+	columna.add_theme_constant_override("separation", 4)
+	columna.mouse_filter = Control.MOUSE_FILTER_PASS
+	# Contra el borde del que cuelga su banda: los enemigos crecen desde el techo, los tuyos desde
+	# el suelo. Asi una tarjeta mas alta (mas chips) no descoloca a sus vecinas.
+	columna.alignment = BoxContainer.ALIGNMENT_BEGIN if numero > 0 else BoxContainer.ALIGNMENT_END
+
+	# EL SITIO DEL SPRITE. De momento va vacio: lo que importa ahora es que el hueco este reservado
+	# y con el tamaño definitivo, para que el reparto de la pantalla sea el de verdad.
+	var actor_wrap := Control.new()
+	actor_wrap.custom_minimum_size = Vector2(0, ALTO_ACTOR)   # el ancho, el de la columna
+	actor_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actor_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	actor_wrap.clip_contents = false
+	# El de dentro es el que MUEVE CombatFX (embestidas, sacudidas, el destello al recibir). Mismo
+	# reparto que wrap/panel y por el mismo motivo: el Container escribe la position del de fuera,
+	# asi que la del de dentro se queda libre.
+	var actor := Control.new()
+	actor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	actor.clip_contents = false
+	actor_wrap.add_child(actor)
+	actor_wrap.resized.connect(func() -> void:
+		if is_instance_valid(actor):
+			actor.size = actor_wrap.size)
+
+	# ENVOLTORIO DE LA TARJETA. La tarjeta va DENTRO de un Control pelado, y es el envoltorio -no el
+	# panel- el que entra en la columna. Motivo: un Container reescribe la 'position' de sus hijos en
+	# cada re-layout, y aqui hay re-layouts a punta pala (_refrescar_chips borra y recrea los chips en
 	# CADA _update_hp). Sin esto, la embestida de una tarjeta se deshacia a mitad de golpe.
 	# Con el envoltorio, el HBox coloca el envoltorio y el panel queda fuera del alcance de
 	# cualquier Container: su position, su scale y su rotation son de CombatFX.
@@ -2101,7 +2172,16 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 	if numero > 0:
 		panel.gui_input.connect(_on_bloque_gui_input.bind(idx))
 
-	var bloque: Dictionary = {"wrap": wrap, "panel": panel, "vbox": vb, "nombre": nombre,
+	# La ficha en el borde de la pantalla y el sprite hacia el centro, cada bando en su orden.
+	if numero > 0:
+		columna.add_child(wrap)
+		columna.add_child(actor_wrap)
+	else:
+		columna.add_child(actor_wrap)
+		columna.add_child(wrap)
+
+	var bloque: Dictionary = {"columna": columna, "wrap": wrap, "panel": panel, "vbox": vb,
+		"actor_wrap": actor_wrap, "actor": actor, "nombre": nombre,
 		"chips": chips, "hp": hp, "hp_lbl": hp_lbl, "idx": idx}
 	# Le cuelga su capa de efectos (particulas de estado) y lo da de alta para las animaciones.
 	if _fx != null:
@@ -2190,10 +2270,12 @@ func _avanzar_retiradas(delta: float) -> void:
 	var recomponer: bool = false
 	for i in range(_retirando.size() - 1, -1, -1):
 		var b: Dictionary = _retirando[i]
-		var wrap: Control = b.get("wrap")
+		# Se desvanece LA COLUMNA entera (su tarjeta y su sprite): es la que ocupa el hueco en la
+		# banda, y es toda su presencia en pantalla lo que tiene que irse.
+		var col: Control = b.get("columna")
 		# Si el hueco se ha reestrenado mientras se iba (un refuerzo entra en el slot del muerto),
 		# _revivir_bloque ya lo ha sacado de la lista. Esto cubre el resto de casos raros.
-		if wrap == null or not is_instance_valid(wrap) or not wrap.visible:
+		if col == null or not is_instance_valid(col) or not col.visible:
 			_retirando.remove_at(i)
 			continue
 		var bar: ProgressBar = b.get("hp")
@@ -2201,11 +2283,11 @@ func _avanzar_retiradas(delta: float) -> void:
 			continue   # aun le queda vida que bajar: que se vea
 		var t: float = float(b.get("retirada_t", 0.0)) + delta
 		b["retirada_t"] = t
-		wrap.modulate.a = 1.0 - clampf(t / T_RETIRADA, 0.0, 1.0)
+		col.modulate.a = 1.0 - clampf(t / T_RETIRADA, 0.0, 1.0)
 		if t < T_RETIRADA:
 			continue
-		wrap.visible = false
-		wrap.modulate.a = 1.0   # el alpha se deja limpio por si el hueco se reestrena
+		col.visible = false
+		col.modulate.a = 1.0   # el alpha se deja limpio por si el hueco se reestrena
 		b.erase("retirada_t")
 		_retirando.remove_at(i)
 		recomponer = true
@@ -2219,8 +2301,8 @@ func _avanzar_retiradas(delta: float) -> void:
 func _recomponer_fila_enemigos() -> void:
 	var visibles: Array = []
 	for b in _bloques:
-		var wrap: Control = b.get("wrap")
-		if wrap != null and is_instance_valid(wrap) and wrap.visible:
+		var col: Control = b.get("columna")
+		if col != null and is_instance_valid(col) and col.visible:
 			visibles.append(b)
 	_reajustar_anchos(visibles, visibles.size())
 	_ordenar_fila_enemigos()
@@ -2240,15 +2322,17 @@ func _ordenar_fila_enemigos() -> void:
 	var resto: Array = []
 	var ocultos: Array = []
 	for i in _bloques.size():
-		var wrap: Control = _bloques[i].get("wrap")
-		if wrap == null or not is_instance_valid(wrap):
+		# LA COLUMNA, que lleva la tarjeta y el sprite pegados: recolocandola se mueven los dos a
+		# la vez y no pueden acabar en sitios distintos.
+		var col: Control = _bloques[i].get("columna")
+		if col == null or not is_instance_valid(col):
 			continue
-		if not wrap.visible:
-			ocultos.append(wrap)
+		if not col.visible:
+			ocultos.append(col)
 		elif i < _enemies.size() and _enemies[i].centrado_en_fila:
-			jefes.append(wrap)
+			jefes.append(col)
 		else:
-			resto.append(wrap)
+			resto.append(col)
 	if jefes.is_empty():
 		return   # sin jefe no hay nada que recolocar: se respeta el orden del array
 	# Los jefes se meten JUSTO EN MEDIO de los demas. Con 2 secuaces queda [s, REY, s]; con 1,
@@ -2271,10 +2355,10 @@ func _fila_visual_enemigos() -> Array[Combatant]:
 	for i in _bloques.size():
 		if i >= _enemies.size() or not _enemies[i].is_alive():
 			continue
-		var wrap: Control = _bloques[i].get("wrap")
-		if wrap == null or not is_instance_valid(wrap) or not wrap.visible:
+		var col: Control = _bloques[i].get("columna")
+		if col == null or not is_instance_valid(col) or not col.visible:
 			continue
-		pares.append([wrap.get_index(), _enemies[i]])
+		pares.append([col.get_index(), _enemies[i]])
 	pares.sort_custom(func(x, y): return int(x[0]) < int(y[0]))
 	var out: Array[Combatant] = []
 	for p in pares:
@@ -2405,7 +2489,7 @@ func _meter_enemigo(c: Combatant, es_invocado: bool) -> int:
 		_enemies.append(c)
 		var b: Dictionary = _crear_bloque(c, idx + 1, idx)
 		_bloques.append(b)
-		_bloques_box.add_child(b["wrap"])
+		_bloques_box.add_child(b["columna"])
 	# La fila ha cambiado (uno mas, o un hueco reestrenado): repartir el ancho entre los VISIBLES y
 	# devolver al jefe al centro. VA EN LOS DOS CAMINOS -- reestrenar un hueco tambien saca una
 	# tarjeta de la nada, y por el camino de arriba se quedaba sin recolocar.
@@ -2446,10 +2530,10 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 	# sabe que dentro hay otro bicho. Ver _avanzar_retiradas.
 	_retirando.erase(b)
 	b.erase("retirada_t")
-	var wrap: Control = b.get("wrap")
-	if wrap != null and is_instance_valid(wrap):
-		wrap.visible = true
-		wrap.modulate.a = 1.0
+	var col: Control = b.get("columna")
+	if col != null and is_instance_valid(col):
+		col.visible = true
+		col.modulate.a = 1.0
 	# EL APAGADO PENDIENTE DEL CADAVER ANTERIOR, FUERA. Es lo que dejaba GRIS al refuerzo que entra en
 	# el hueco de un muerto: _apagar_diferido no apaga en el acto si quedan golpes por aterrizar, deja
 	# b["fx_apagar"] = true y lo consume despues _saldar_barras, que recorre TODAS las tarjetas. Si
@@ -2527,9 +2611,11 @@ func _update_hp() -> void:
 		# pintaba llena como si fuera 75.
 		# La barra se DESLIZA hasta la vida nueva (lo mueve CombatFX) y EL NUMERO VIAJA CON ELLA.
 		_fijar_barra_num(b, "hp", e.current_hp, e.max_hp, "%.2f / %.2f")
-		# La etiqueta se queda SOLO con el nombre y el nivel; los estados van en su fila de
-		# chips, porque ahi cada uno se puede señalar y explicarse solo.
-		b["nombre"].text = "%s  (Nv.%d)" % [e.nombre, e.level]
+		# La etiqueta se queda SOLO con el nombre; los estados van en su fila de chips, porque ahi
+		# cada uno se puede señalar y explicarse solo. El nivel se cayo de aqui: en una tarjeta que
+		# al tope se aprieta a 130 px se comia el sitio del nombre, que es lo unico que hay que
+		# poder leer de un vistazo para saber a quien estas apuntando.
+		b["nombre"].text = e.nombre
 		if e.is_alive():
 			_refrescar_chips(e, b, i)
 
@@ -2547,7 +2633,7 @@ func _update_hp() -> void:
 		_fijar_barra_num(b, "mp", c.current_mp, c.max_mp, "MP  %.2f / %.2f")
 		# La coronita marca a QUIEN LE TOCA: con tres bloques iguales hace falta saber de un
 		# vistazo de quien es la accion que estas eligiendo.
-		b["nombre"].text = "%s%s  (Nv.%d)" % [("▶ " if c == _player else ""), c.nombre, c.level]
+		b["nombre"].text = "%s%s" % [("▶ " if c == _player else ""), c.nombre]
 		if c.is_alive():
 			_refrescar_chips(c, b, -1)
 
@@ -5721,9 +5807,10 @@ func _retirar_aliado(c: Combatant) -> void:
 		# entrar se saldria de la pantalla. Su entrada se queda en _bloques_aliados para no
 		# descuadrar los indices, que se cruzan con _aliados.
 		#
-		# Se esconde el ENVOLTORIO y no el panel: el envoltorio es quien ocupa el hueco en la fila
-		# (el panel va dentro de el), asi que ocultando solo el panel el sitio seguia pillado.
-		b["wrap"].visible = false
+		# Se esconde LA COLUMNA y no el panel: la columna es quien ocupa el hueco en la banda (y
+		# lleva dentro la tarjeta y el sprite), asi que ocultando solo el panel el sitio seguia
+		# pillado y el sprite se quedaba plantado ahi.
+		b["columna"].visible = false
 
 
 # Empieza una accion enemiga: se abre el cupo de gasto DEFENSIVO de las imbuiciones. Cada accion
@@ -6786,11 +6873,13 @@ func _end(player_won: bool, fled: bool = false) -> void:
 # sobrescribia y no daba tiempo a leer los DoT / lo que aplicabas). Evita duplicar la misma
 # consecutiva.
 #
-# LOG_MAX son FRASES guardadas, no lineas pintadas: desde que el log vive en su columna, cada frase
-# ocupa las lineas que necesite y lo que sobra por arriba lo recorta la caja (ver _montar_log). Se
-# guardan de sobra —el limite de verdad es el sitio— y ya no hace falta rellenar con lineas vacias
-# para cuadrar un alto fijo.
-const LOG_MAX := 20
+# LOG_MAX son FRASES guardadas, no lineas pintadas: cada frase ocupa las lineas que necesite.
+#
+# Antes eran 20, porque lo que se salia por arriba se PERDIA y guardar mas no servia de nada. Desde
+# que el registro tiene scroll (ver _montar_log), lo viejo no se pierde: se sube a buscarlo. Y con
+# 20 frases no habria practicamente nada que buscar -una Descarga sobre cuatro enemigos son 18
+# impactos, o sea que un solo turno se comia el historial entero-.
+const LOG_MAX := 200
 var _log_lines: Array[String] = []
 
 func _set_log(texto: String) -> void:
@@ -6800,7 +6889,9 @@ func _set_log(texto: String) -> void:
 	while _log_lines.size() > LOG_MAX:
 		_log_lines.pop_front()
 	_log.text = "\n".join(_log_lines)
-	_recolocar_log()
+	# A lo ultimo que ha pasado, que es lo que hay que estar viendo. Quien quiera mirar atras sube
+	# con la rueda; el siguiente golpe le devolvera al final, que es donde esta la pelea.
+	_log_al_final()
 
 
 # Aplica el aturdir a un objetivo y devuelve el texto para el log. Dos niveles (KAN-58):
@@ -6913,13 +7004,15 @@ func _material_de(c: Combatant) -> ShaderMaterial:
 
 func _crear_timeline() -> void:
 	_timeline = preload("res://scripts/ui/turn_timeline.gd").new()
-	# Anclada ABAJO DEL TODO (full width, ultimos 80 px) para no pisar la zona de botones.
-	_timeline.anchor_left = 0.0
-	_timeline.anchor_right = 1.0
-	_timeline.anchor_top = 1.0
-	_timeline.anchor_bottom = 1.0
-	_timeline.offset_top = -80.0
-	_timeline.offset_bottom = 0.0
+	# DE PIE y pegada al lateral izquierdo, de arriba abajo entera: los turnos suben hacia el punto
+	# de accion. Tumbada abajo se comia una franja del ancho de la pantalla que ahora es del
+	# escenario, y ahi es donde tienen que caber los combatientes.
+	_timeline.vertical = true
+	_timeline.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+	_timeline.offset_left = Tactil.borde.x
+	_timeline.offset_right = Tactil.borde.x + ANCHO_TIMELINE
+	_timeline.offset_top = Tactil.borde.y
+	_timeline.offset_bottom = -Tactil.borde.y
 	# Solo dibuja -> IGNORE (que no robe clics a lo que quede por encima).
 	_timeline.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_timeline)
@@ -6996,13 +7089,9 @@ const DEV_ESTADOS_CATS: Array = [
 # En la pelea de OTRO sale apagado: la velocidad la manda su dueño (ver _vel_pelea).
 func _crear_boton_velocidad() -> void:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(64, 40)
+	b.custom_minimum_size = Vector2(48, 28)
 	b.flat = true
 	b.focus_mode = Control.FOCUS_NONE
-	b.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	b.offset_right = -12
-	b.offset_top = 10
-	b.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	b.disabled = _espejo
 	b.tooltip_text = ("La velocidad la marca quien lleva esta pelea" if _espejo
 		else "Velocidad del combate: toda la pelea, barra de acción incluida")
@@ -7019,7 +7108,12 @@ func _crear_boton_velocidad() -> void:
 		icono.queue_redraw()
 		# Que le llegue YA al compañero, sin esperar al proximo cambio de vida.
 		_difundir())
-	add_child(b)
+	# Al lado del boton del registro, arriba de la columna derecha. Suelto en la esquina se
+	# quedaba ENCIMA del registro, que ahora vive justo ahi.
+	if _log_fila != null and is_instance_valid(_log_fila):
+		_log_fila.add_child(b)
+	else:
+		add_child(b)
 	_boton_vel = icono
 
 
@@ -7058,20 +7152,24 @@ func _crear_estados_dev() -> void:
 	toggle.text = "ESTADOS (dev)"
 	toggle.toggle_mode = true
 	toggle.button_pressed = false   # arranca CERRADO (el tester lo abre si lo necesita)
-	toggle.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	toggle.offset_right = -8
-	toggle.offset_bottom = -88   # por ENCIMA de la barra ATB del fondo (80 px + 8 de margen)
-	toggle.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	toggle.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	# EL TOGGLE, en la fila de herramientas de arriba (con el registro y la velocidad). Suelto en
+	# una esquina no le queda ninguna libre: abajo-dcha son los botones de accion y abajo-izda es
+	# la tarjeta del primero de los tuyos, que es justo la que tapaba.
+	toggle.text = "⚙"
+	toggle.custom_minimum_size = Vector2(36, 28)
+	toggle.focus_mode = Control.FOCUS_NONE
+	toggle.tooltip_text = "Panel de pruebas de estados (dev)"
 	toggle.toggled.connect(func(on: bool): _estados_panel.visible = on)
-	add_child(toggle)
+	if _log_fila != null and is_instance_valid(_log_fila):
+		_log_fila.add_child(toggle)
+	else:
+		add_child(toggle)
 
-	# Panel anclado ABAJO-dcha; crece hacia ARRIBA (encima del toggle). No tapa el HP.
+	# Panel anclado ABAJO-izda; crece hacia ARRIBA (encima del toggle).
 	_estados_panel = PanelContainer.new()
-	_estados_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	_estados_panel.offset_right = -8
-	_estados_panel.offset_bottom = -120   # justo encima del boton toggle (que ahora esta a -88)
-	_estados_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_estados_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	_estados_panel.offset_left = ANCHO_TIMELINE + 8.0
+	_estados_panel.offset_bottom = -40   # justo encima del boton toggle
 	_estados_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_estados_panel.custom_minimum_size = Vector2(260, 0)
 	_estados_panel.visible = false   # cerrado de base (coincide con el toggle sin pulsar)
@@ -7224,26 +7322,30 @@ func _anadir_fondo() -> void:
 	move_child(bg, 0)  # al fondo (los hermanos siguientes se dibujan encima)
 
 
-# Prepara la columna: la fila de enemigos va arriba del todo, antes del log y de los botones.
-# La columna sigue ocupando la pantalla ENTERA (como siempre): lo que tiene ancho fijo son los
-# BLOQUES de enemigo, no el escenario.
+# Prepara las dos BANDAS de combatientes: los de enfrente colgando del techo, los tuyos apoyados
+# en el suelo, y el escenario entre medias.
+#
+# Ya NO hay una columna que lo envuelva todo. El $VBox de la escena existia para apilar
+# enemigos-separador-aliados cuando las dos filas iban seguidas; ahora estan en extremos opuestos
+# de la pantalla y un contenedor de por medio solo estorbaria (y su offset_right, calculado a
+# mano, era justo lo que habia que dejar de hacer). Se queda vacio y sin pintar.
 func _montar_columna() -> void:
 	_col = $VBox
-	_col.mouse_filter = Control.MOUSE_FILTER_PASS
-	# Se le deja libre a la derecha el ancho de la columna del log. El borde seguro del aparato va
-	# aparte (ver Tactil.borde).
-	_col.offset_right = -ANCHO_LOG - 32.0 - Tactil.borde.x
-	_col.offset_left = Tactil.borde.x
-	_col.offset_top = Tactil.borde.y
-	# Dos filas simetricas, ellos arriba y los tuyos debajo. Centradas: con 1 o 2 bloques la fila
-	# queda en medio de la pantalla en vez de pegada a la izquierda con un hueco raro al lado.
-	_bloques_box = _crear_fila_bloques()
-	_col.move_child(_bloques_box, 0)
+	_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_col.visible = false
+
+	# ELLOS ARRIBA. Cada hijo es la COLUMNA de un enemigo (tarjeta + su sitio de sprite debajo),
+	# ver _crear_bloque. Centradas: con uno o dos, la banda queda en medio de la pantalla en vez
+	# de pegada a la izquierda con un hueco raro al lado.
+	_bloques_box = _crear_fila_bloques(true)
+	# LOS TUYOS ABAJO, en espejo: su sprite arriba y la tarjeta apoyada en el suelo.
+	_aliados_box = _crear_fila_bloques(false)
+
 	_montar_log()
 
-	# LOS NUMEROS DE DAÑO van en su propia capa, por encima de todo (se añade la ULTIMA, despues
-	# del log). No pueden colgar de la tarjeta: la zona de chips va con clip_contents y el numero
-	# tiene que poder salirse de la caja hacia arriba, que es justo lo que hace.
+	# LOS NUMEROS DE DAÑO van en su propia capa, por encima de todo (se añade la ULTIMA). No pueden
+	# colgar de la tarjeta: la zona de chips va con clip_contents y el numero tiene que poder
+	# salirse de la caja hacia arriba, que es justo lo que hace.
 	_capa_numeros = Control.new()
 	_capa_numeros.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_capa_numeros.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -7254,87 +7356,153 @@ func _montar_columna() -> void:
 		_fx.capa_numeros = _capa_numeros
 
 
-# EL HISTORIAL, en una columna a la derecha. Antes vivia abajo a la izquierda, en una linea por
-# frase recortada a lo que cupiera, y con un alto fijo de LOG_MAX lineas para que los botones no
-# bailaran debajo. Ahora que los botones estan en la otra esquina, nada de eso hace falta:
+# Una de las dos bandas de combatientes, anclada al techo o al suelo y ocupando lo que queda entre
+# la barra de accion y la columna de la derecha.
+func _crear_fila_bloques(arriba: bool) -> HBoxContainer:
+	var banda := HBoxContainer.new()
+	banda.add_theme_constant_override("separation", SEP_BLOQUES)
+	banda.alignment = BoxContainer.ALIGNMENT_CENTER
+	banda.mouse_filter = Control.MOUSE_FILTER_PASS
+	# Cada banda se ancla a SU borde y con una ALTURA FIJA (ver ALTO_BANDA_*). Nada de dejar que la
+	# marque el contenido: un Container anclado por un solo lado se queda a altura cero, y asi la
+	# banda de abajo se salia entera de la pantalla sin dar el menor error.
+	banda.set_anchors_preset(Control.PRESET_TOP_WIDE if arriba else Control.PRESET_BOTTOM_WIDE)
+	banda.offset_left = ANCHO_TIMELINE + MARGEN_UI + Tactil.borde.x
+	banda.offset_right = -ANCHO_COL_DER - MARGEN_UI * 2.0 - Tactil.borde.x
+	if arriba:
+		banda.offset_top = MARGEN_UI + Tactil.borde.y
+		banda.offset_bottom = banda.offset_top + ALTO_BANDA_ENE
+	else:
+		banda.offset_bottom = -MARGEN_UI - Tactil.borde.y
+		banda.offset_top = banda.offset_bottom - ALTO_BANDA_ALI
+	add_child(banda)
+	return banda
+
+
+# EL REGISTRO, arriba de la columna derecha y SIEMPRE a la vista.
 #
-#   - Cada frase se PARTE en las lineas que necesite (autowrap) en vez de recortarse. Lo que decia
-#     un golpe entero se lee entero.
-#   - El limite ya no son 6 lineas, es EL SITIO: la columna llega desde arriba hasta un poco por
-#     encima de la linea de accion.
-#   - El texto se pega ABAJO y crece hacia arriba, con la caja recortando por el techo: lo ultimo
-#     que ha pasado esta siempre a la vista, y lo viejo se va por arriba solo.
-const ANCHO_LOG := 460.0
-var _log_caja: Control = null
+# Antes era un Label pegado al suelo de su caja, creciendo hacia arriba y recortado por el techo
+# con clip_contents: lo viejo no se ocultaba, se PERDIA. Se hacia asi porque un Label con autowrap
+# calcula su alto a partir de su ancho, y con los anclajes de abajo el ancho no estaba resuelto
+# cuando Godot pedia la altura (salia un alto absurdo, medido: 22907 px con ocho frases).
+#
+# Un ScrollContainer resuelve eso de raiz -es el quien mide y el quien recorta- y ademas trae lo
+# que faltaba: poder VOLVER atras y leer lo que se fue. Se ve a ALTO_LOG_LINEAS de alto, con el
+# boton de al lado para estirarlo cuando quieres leer la pelea entera.
+const ALTO_LINEA_LOG := 24.0    # lo que ocupa una linea a tamaño 18
+const LOG_LINEAS := 6           # las que se ven de un vistazo, sin estirar
+var _log_caja: PanelContainer = null
+var _log_scroll: ScrollContainer = null
+var _log_fila: HBoxContainer = null
+var _log_boton: Button = null
+var _log_abierto: bool = false
 
 
 func _montar_log() -> void:
-	_log_caja = Control.new()
-	_log_caja.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-	_log_caja.offset_left = -ANCHO_LOG - 16.0 - Tactil.borde.x
-	_log_caja.offset_right = -16.0 - Tactil.borde.x
-	_log_caja.offset_top = 16.0 + Tactil.borde.y
-	_log_caja.offset_bottom = -HUECO_TIMELINE - Tactil.borde.y
-	# Lo que se sale por arriba se CORTA (no se dibuja encima de los bloques): es lo que deja que el
-	# texto crezca hacia arriba sin limite aparente y que lo viejo se pierda solo.
-	_log_caja.clip_contents = true
-	_log_caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_log_caja = PanelContainer.new()
+	_log_caja.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_log_caja.offset_left = -ANCHO_COL_DER - MARGEN_UI - Tactil.borde.x
+	_log_caja.offset_right = -MARGEN_UI - Tactil.borde.x
+	_log_caja.offset_top = MARGEN_UI + Tactil.borde.y
+	# FONDO OPACO: el registro ya no vive sobre el negro del fondo, se superpone al escenario.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.08, 0.11, 0.92)
+	sb.set_corner_radius_all(4)
+	for lado in ["left", "right", "top", "bottom"]:
+		sb.set("content_margin_" + lado, 8.0)
+	_log_caja.add_theme_stylebox_override("panel", sb)
 	add_child(_log_caja)
 
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 4)
+	_log_caja.add_child(vb)
+
+	# La fila de arriba: el boton de estirar y, a su lado, el de velocidad (lo mete despues
+	# _crear_boton_velocidad). Los dos son comodidades, no acciones de la pelea, asi que van
+	# pequeños y juntos en vez de competir en tamaño con los seis botones de abajo.
+	_log_fila = HBoxContainer.new()
+	_log_fila.add_theme_constant_override("separation", 6)
+	vb.add_child(_log_fila)
+
+	_log_boton = Button.new()
+	_log_boton.text = "📜 Registro  ▼"
+	_log_boton.custom_minimum_size = Vector2(0, 28)
+	_log_boton.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_log_boton.add_theme_font_size_override("font_size", 14)
+	_log_boton.focus_mode = Control.FOCUS_NONE   # o se queda con el foco y el teclado deja de ir al combate
+	_log_boton.pressed.connect(_alternar_log)
+	_log_fila.add_child(_log_boton)
+
+	_log_scroll = ScrollContainer.new()
+	_log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_log_scroll.custom_minimum_size = Vector2(0, ALTO_LINEA_LOG * float(LOG_LINEAS))
+	vb.add_child(_log_scroll)
+
 	_log.get_parent().remove_child(_log)
-	_log_caja.add_child(_log)
-	_log.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_log.offset_left = 0.0
-	_log.offset_right = 0.0
+	_log_scroll.add_child(_log)
+	# El Label ocupa el ancho del scroll y crece hacia abajo lo que haga falta: de medirlo se
+	# encarga el ScrollContainer, que para eso esta.
+	_log.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_log.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_log.clip_text = false
 	_log.add_theme_font_size_override("font_size", 18)
 	_log.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Al cambiar el tamaño de la ventana el ancho cambia, y con el las lineas que ocupa cada frase.
-	_log_caja.resized.connect(_recolocar_log)
 
 
-# Pega el texto al SUELO de su caja y lo deja crecer hacia arriba. Se hace a mano y no con anclajes
-# porque un Label con autowrap calcula su alto a partir de su ANCHO, y con los anclajes de abajo el
-# ancho todavia no estaba resuelto cuando Godot pedia la altura: salia un alto absurdo (medido:
-# 22907 px con ocho frases) y el texto se iba de la pantalla.
-func _recolocar_log() -> void:
-	if _log == null or _log_caja == null or _log_caja.size.x < 10.0:
+# Estirar / recoger el registro. Estirado llega hasta donde empiezan los botones, que es todo el
+# sitio que hay sin taparlos: leer la pelea entera no puede costarte el turno.
+func _alternar_log() -> void:
+	_log_abierto = not _log_abierto
+	_log_boton.text = "📜 Registro  ▲" if _log_abierto else "📜 Registro  ▼"
+	var alto: float = ALTO_LINEA_LOG * float(LOG_LINEAS)
+	if _log_abierto:
+		var tope: float = get_viewport_rect().size.y - _alto_zona_botones() \
+			- MARGEN_UI * 3.0 - Tactil.borde.y * 2.0 - 28.0
+		alto = maxf(alto, tope)
+	_log_scroll.custom_minimum_size.y = alto
+	# El alto acaba de cambiar: hay que volver a pegarse al final o se queda mirando a media pelea.
+	_log_al_final()
+
+
+# Lo que ocupa la zona de botones de abajo, para no meterse debajo de ella al estirar el registro.
+func _alto_zona_botones() -> float:
+	if _panel_acciones == null:
+		return ALTO_BOTON_ACCION * FILAS_ACCION
+	return _panel_acciones.size.y
+
+
+# Pega la vista al ULTIMO renglon. Se llama tras cada linea nueva: lo que acaba de pasar es lo que
+# hay que estar viendo. Con un frame de espera porque el ScrollContainer no conoce su alto nuevo
+# hasta que el Label se ha vuelto a medir.
+func _log_al_final() -> void:
+	if _log_scroll == null:
 		return
-	var alto: float = _log.get_combined_minimum_size().y
-	_log.offset_top = _log_caja.size.y - alto
-	_log.offset_bottom = _log_caja.size.y
+	await get_tree().process_frame
+	if not is_instance_valid(_log_scroll):
+		return
+	_log_scroll.scroll_vertical = int(_log_scroll.get_v_scroll_bar().max_value)
 
 
-# Una fila de bloques de combatiente (enemigos o tuyos), colgada de la columna.
-# Lo que mide cada bloque cuando hay 'n' en su fila. A su ancho preferido mientras quepan, y
-# encogiendose a partes iguales cuando no. El sitio disponible se calcula igual que los offsets de
-# la columna (ver _montar_columna): la pantalla menos la columna del log y los margenes.
+# Lo que mide cada tarjeta cuando hay 'n' en su banda. A su ancho preferido mientras quepan, y
+# encogiendose a partes iguales cuando no. El sitio disponible es el mismo que el de las bandas
+# (ver _crear_fila_bloques): la pantalla menos la barra de accion, la columna derecha y los margenes.
 func _ancho_bloque(n: int) -> float:
 	if n <= 1:
 		return ANCHO_BLOQUE
-	var disponible: float = get_viewport_rect().size.x - ANCHO_LOG - 32.0 \
-		- Tactil.borde.x * 2.0 - 16.0
+	var disponible: float = get_viewport_rect().size.x - ANCHO_COL_DER - ANCHO_TIMELINE \
+		- MARGEN_UI * 3.0 - Tactil.borde.x * 2.0
 	return clampf((disponible - SEP_BLOQUES * float(n - 1)) / float(n),
 		ANCHO_BLOQUE_MIN, ANCHO_BLOQUE)
 
 
-# Reajusta el ancho de los bloques de una fila. Hace falta porque la fila CRECE a mitad de pelea:
-# entran refuerzos, se une el compañero... y lo que cabia con tres deja de caber con cinco.
+# Reajusta el ancho de las tarjetas de una banda. Hace falta porque la banda CRECE a mitad de
+# pelea: entran refuerzos, se une el compañero... y lo que cabia con tres deja de caber con cinco.
 func _reajustar_anchos(bloques: Array, n: int) -> void:
 	var ancho: float = _ancho_bloque(n)
 	for b in bloques:
-		# El ancho lo lleva el ENVOLTORIO, que es el que esta dentro de la fila; el panel se
+		# El ancho lo lleva el ENVOLTORIO, que es el que esta dentro de la columna; el panel se
 		# limita a copiarle el tamaño (ver _crear_bloque).
 		var wrap: Control = b.get("wrap")
 		if wrap != null and is_instance_valid(wrap):
 			wrap.custom_minimum_size.x = ancho
-
-
-func _crear_fila_bloques() -> HBoxContainer:
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", SEP_BLOQUES)
-	fila.alignment = BoxContainer.ALIGNMENT_CENTER
-	fila.mouse_filter = Control.MOUSE_FILTER_PASS
-	_col.add_child(fila)
-	return fila
