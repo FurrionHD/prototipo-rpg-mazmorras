@@ -461,7 +461,10 @@ func _slot_de(item: Resource) -> String:
 func _subpestanas_slot(slots: Array) -> void:
 	var labels: Array = []
 	for s in slots:
-		var etq: String = "Arma" if s == "main" else 			("Mochila" if s == "mochila" else ("Herram." if s == "herramienta" else SLOT_NOMBRES[s]))
+		# Con get() y no con [], por lo que dice la nota de SLOT_NOMBRES: una clave que falte tiene
+		# que salir como un boton raro, no llevarse por delante la fila entera de subpestañas.
+		var etq: String = "Arma" if s == "main" else \
+			("Herram." if s == "herramienta" else String(SLOT_NOMBRES.get(s, s)))
 		labels.append(etq)
 	MenuScaffold.cuadricula(_header, labels, _sub, _on_sub, 4, Vector2(0, 30))
 	_header.add_child(HSeparator.new())
@@ -1824,8 +1827,13 @@ func _on_deshacer() -> void:
 #  El precio sube con el % roto (y un poco con tier / nº de mejoras). Ver Game.precio_reparar.
 # ============================================================
 
+# OJO: TODA ranura que pueda salir en _slots_sub tiene que estar aqui. _subpestanas_slot lee
+# SLOT_NOMBRES[s] directo, asi que una clave que falte no da un hueco vacio: revienta ANTES de
+# dibujar la fila, y entonces desaparecen TODAS las subpestañas y el menu se queda clavado en la
+# primera. Paso justo eso al meter el farolillo: parecia que "solo se podian mejorar las armas".
 const SLOT_NOMBRES := {"main": "Arma principal", "off": "Secundaria", "casco": "Casco",
-	"pecho": "Pecho", "manos": "Manos", "pantalones": "Pantalones", "botas": "Botas"}
+	"pecho": "Pecho", "manos": "Manos", "pantalones": "Pantalones", "botas": "Botas",
+	"farolillo": "Farolillo", "mochila": "Mochila", "herramienta": "Herramienta"}
 
 
 # UNA FILA de pieza: nombre a la izquierda, estado en su columna, y el boton SIEMPRE a la derecha.

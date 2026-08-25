@@ -34,9 +34,37 @@ func _initialize() -> void:
 			mal += 1
 		else:
 			print("  ok  %s" % r)
+	mal += _comprobar_slots()
 	# Y de paso que el TileSet se monte de verdad (create_tile con celdas repetidas revienta).
 	var ts: TileSet = TerrenoSprites.tileset_de("roca")
 	var src := ts.get_source(0) as TileSetAtlasSource
 	print("TileSet: %d baldosas, atlas %s" % [src.get_tiles_count(), str(src.texture.get_size())])
 	print("FIN, %d errores" % mal)
 	quit(mal)
+
+
+# TODA ranura que pueda salir en las subpestañas del herrero tiene que tener nombre. Si falta una,
+# forge_menu revienta al pedirla y desaparece la fila ENTERA de subpestañas: el menu se queda
+# clavado en la primera y parece que "solo se pueden mejorar las armas". Paso de verdad al meter
+# el farolillo, y desde el codigo no se ve -- solo jugando, y ni eso: no da error a la vista.
+func _comprobar_slots() -> int:
+	var fm = load("res://scripts/ui/forge_menu.gd")
+	var g = load("res://scripts/core/game.gd")
+	if fm == null or g == null:
+		return 0
+	var nombres: Dictionary = fm.get_script_constant_map().get("SLOT_NOMBRES", {})
+	var equipo: Array = g.get_script_constant_map().get("EQUIP_SLOTS", [])
+	var faltan: Array = []
+	for s2 in equipo:
+		if not nombres.has(s2):
+			faltan.append(s2)
+	# Las tres que añade _slots_sub por su cuenta y no salen de EQUIP_SLOTS.
+	for s2 in ["farolillo", "mochila", "herramienta"]:
+		if not nombres.has(s2):
+			faltan.append(s2)
+	if faltan.is_empty():
+		print("  ok  SLOT_NOMBRES cubre las %d ranuras" % (equipo.size() + 3))
+		return 0
+	push_error("SLOT_NOMBRES no tiene: %s" % str(faltan))
+	print("  FALLO  a SLOT_NOMBRES le faltan: %s" % str(faltan))
+	return 1
