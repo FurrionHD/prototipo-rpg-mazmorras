@@ -16,4 +16,5 @@ coste_energia = 0.0
 dano_mult = 1.75
 efectos = [SubResource("SA_stun")]
 fx_estilo = 21
+gesto = 3
 cooldown = 3

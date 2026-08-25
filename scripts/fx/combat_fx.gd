@@ -1321,11 +1321,29 @@ func arrancar_cola() -> float:
 	# sea en el que se sabe a quienes alcanza la accion entera. Un salto que tiene que caer sobre
 	# cuatro necesita saberlo para elegir adonde va y cuanto se infla.
 	_marcar_gestos()
+	# EL SITIO QUE PIDE EL GESTO. Se retrasan TODOS los impactos por igual, asi que los tiempos
+	# relativos entre tandas quedan intactos; y va DESPUES del bucle de arriba a proposito, porque
+	# tocar los 't' antes descuadraria pos_tanda y el reparto de sin_dibujo.
+	var desfase: float = maxf(_adelanto_de_gestos() - arranque, 0.0)
+	if desfase > 0.0:
+		desfase = minf(desfase, TOPE_GESTO)
+		for i in n:
+			_cola[i]["t"] = float(_cola[i]["t"]) + desfase
+		for p in _gestos:
+			p["t_ini"] = float(p["t_ini"]) + desfase
+			p["t_imp"] = float(p["t_imp"]) + desfase
+			p["t_fin"] = float(p["t_fin"]) + desfase
 	_t = 0.0
 	if magia:
 		_dur = minf(arranque + T_PUM + extra + T_COLA_MAGIA, TOPE_TOTAL_MAGIA)
 	else:
 		_dur = minf(arranque + T_PUM + extra + T_VUELTA, TOPE_TOTAL)
+	# EL TOPE DE ARRIBA ES PARA LA CADENA DE IMPACTOS, no para el gesto. Existe para que 32 golpes
+	# de una tormenta no duren cinco segundos, y por eso se aplica ANTES de sumar nada del cuerpo:
+	# si el gesto entrara en el recorte, el Rey Slime saltaria, el turno se cortaria a los 2 s y el
+	# ATB reanudaria con el bicho todavia en el aire.
+	_dur += desfase
+	_dur = maxf(_dur, _cola_de_gestos() + T_PUM)
 	# La accion se ha cerrado: la numeracion de tandas empieza de cero en la siguiente.
 	_tanda_auto = -1
 	_tanda_pedida = -1
@@ -1346,11 +1364,106 @@ func arrancar_cola() -> float:
 # al bicho de una punta a otra de la fila. Un plan por accion decide UNA vez adonde va.
 var _gestos: Array[Dictionary] = []
 
+# EL VIAJE: cuanto ANTES del impacto sale el que va a por ti, y cuanto tarda en volver. Mas largo
+# que la embestida de siempre (T_IDA) porque hay bastante mas camino que recorrer.
+const T_VIAJE_IDA := 0.42
+const T_VIAJE_VUELTA := 0.30
+# Donde se planta: no encima de la victima, sino un poco antes. Pegarse del todo tapa a quien
+# recibe el golpe, que es justo lo que hay que poder ver.
+const VIAJE_MARGEN := 46.0
+# Lo que ya avanza el bicho DENTRO de su propia animacion horneada (el jabali ~13 px de textura,
+# que con el zoom del escenario son unos 40 en pantalla). Se descuenta del viaje o se pasa de largo.
+const VIAJE_DESCUENTO := 40.0
+# Por encima de la fila de enfrente mientras dura el viaje.
+const Z_VIAJE := 5
+# Tope de lo que un gesto puede alargar el turno. Es el cinturon: un plan mal calculado no puede
+# dejar la pelea colgada esperando a un bicho.
+const TOPE_GESTO := 1.20
+
 
 func _marcar_gestos() -> void:
 	_gestos.clear()
-	# De momento solo hay tipos que QUITAN movimiento (ver _gesto_manda); los que lo ponen entran
-	# aqui uno a uno, cada uno con su plan.
+	if _cola.is_empty():
+		return
+	# UN PLAN POR ATACANTE, no uno por impacto: con reparto_por_golpe hay seis impactos con seis
+	# victimas, y un plan por cada uno mandaria al bicho de una punta a otra de la fila.
+	# Se queda el PRIMER impacto de cada atacante, que es el que marca cuando empieza la accion.
+	var vistos: Dictionary = {}
+	for ev in _cola:
+		var g: int = int(ev.get("gesto", -1))
+		if g != AbilityData.Gesto.VIAJE:
+			continue   # los demas tipos aun no ponen movimiento propio
+		var pa: Control = _visual(ev["ba"])
+		var pv: Control = _visual(ev["bv"])
+		if pa == null or pv == null or pa == pv or vistos.has(pa):
+			continue
+		vistos[pa] = true
+		# ADONDE VA: hasta la victima, quedandose un poco antes para no taparla, y descontando lo
+		# que el propio dibujo ya se desplaza.
+		var desde: Vector2 = _punto(ev["ba"])
+		var hasta: Vector2 = _punto(ev["bv"])
+		var d: Vector2 = hasta - desde
+		var largo: float = maxf(d.length() - VIAJE_MARGEN - VIAJE_DESCUENTO, 0.0)
+		var t_imp: float = float(ev["t"])
+		_gestos.append({
+			"actor": pa,
+			"tipo": g,
+			"t_ini": maxf(t_imp - T_VIAJE_IDA, 0.0),
+			"t_imp": t_imp,
+			"t_fin": t_imp + T_VIAJE_VUELTA,
+			"destino": d.normalized() * largo,
+			"dir8": SpritesEnemigo.dir8(d),
+		})
+
+
+# Cuanto ADELANTO necesita el gesto mas lento antes de su primer impacto. Es lo que hay que
+# regalarle al principio del turno para que le de tiempo a salir: sin esto, un viaje de 0,42 s
+# contra un arranque de 0,22 empezaria con el bicho ya a medio camino.
+func _adelanto_de_gestos() -> float:
+	var mas: float = 0.0
+	for p in _gestos:
+		mas = maxf(mas, float(p["t_imp"]) - float(p["t_ini"]))
+	return mas
+
+
+# Lo que tarda en recogerse el gesto que acabe mas tarde. El turno no puede cerrarse antes: el
+# bicho se quedaria plantado en la fila de enfrente y el siguiente le montaria su turno encima.
+func _cola_de_gestos() -> float:
+	var mas: float = 0.0
+	for p in _gestos:
+		mas = maxf(mas, float(p["t_fin"]))
+	return mas
+
+
+# UN FRAME de los gestos en curso. Escribe en los MISMOS diccionarios que el bucle de la cola y con
+# la MISMA clave (el Control que devuelve _visual), porque quien los consume es el mismo _aplicar.
+func _aplicar_gestos(mov: Dictionary, esc: Dictionary, zorden: Dictionary) -> void:
+	for p in _gestos:
+		var v: Control = p["actor"]
+		if v == null or not is_instance_valid(v):
+			continue
+		var t_ini: float = float(p["t_ini"])
+		var t_imp: float = float(p["t_imp"])
+		var t_fin: float = float(p["t_fin"])
+		if _t < t_ini or _t > t_fin:
+			continue
+		match int(p["tipo"]):
+			AbilityData.Gesto.VIAJE:
+				var d: Vector2 = p["destino"]
+				var u: float = 0.0
+				if _t < t_imp:
+					# YENDO: arranca despacio y llega lanzado (u*u), igual que la embestida corta.
+					u = (_t - t_ini) / maxf(t_imp - t_ini, 0.001)
+					u = u * u
+				else:
+					# VOLVIENDO a su sitio, sin prisa: el golpe ya esta dado.
+					var w: float = (_t - t_imp) / maxf(t_fin - t_imp, 0.001)
+					u = 1.0 - w * w
+				mov[v] = d * u
+				# Mientras esta fuera de su fila se dibuja por delante de todo el mundo, o pasaria
+				# por DEBAJO de las figuras de enfrente (su banda esta antes en el arbol).
+				if u > 0.02:
+					zorden[v] = Z_VIAJE
 
 
 # ¿Este impacto lleva un gesto propio que sustituya a la embestida de siempre? AUTO (-1) y PASO
@@ -1540,6 +1653,10 @@ func _reposo(bloque: Dictionary) -> void:
 	v.position = Vector2.ZERO
 	v.scale = Vector2.ONE
 	v.rotation = 0.0
+	# EL ORDEN DE DIBUJO tambien vuelve a cero. Lo sube el que VIAJA, para pasar por delante de la
+	# fila de enfrente; si se quedara puesto al cortar una animacion (tecla P, fin de pelea), ese
+	# bicho se quedaria pintado por encima de la interfaz para el resto de la partida.
+	v.z_index = 0
 	# modulate y NO self_modulate: ver la nota de _aplicar.
 	v.modulate = Color.WHITE
 
@@ -1567,6 +1684,12 @@ func _process(delta: float) -> void:
 	var flash: Dictionary = {}    # figura -> float 0..1
 	var punch: Dictionary = {}    # figura -> float 0..1
 	var aura: Dictionary = {}     # figura -> [Color, float 0..1]: el brillo del que CANALIZA
+	var esc: Dictionary = {}      # figura -> Vector2: lo que la infla su gesto
+	var zorden: Dictionary = {}   # figura -> int: por delante de quien se dibuja
+
+	# LOS GESTOS PRIMERO, antes de la cola: quien tiene plan propio no pasa por la embestida de
+	# siempre (la salta con _gesto_manda), asi que lo que escriba aqui es lo unico que le mueve.
+	_aplicar_gestos(mov, esc, zorden)
 
 	for i in _cola.size():
 		var ev: Dictionary = _cola[i]
@@ -1717,7 +1840,7 @@ func _process(delta: float) -> void:
 			if _t < t_imp + t_punch:
 				punch[pv] = (1.0 - (_t - t_imp) / t_punch) * peso
 
-	_aplicar(mov, flash, punch, aura)
+	_aplicar(mov, flash, punch, aura, esc, zorden)
 
 	if _t >= _dur:
 		_activa = false
@@ -1729,12 +1852,16 @@ func _process(delta: float) -> void:
 
 # Un frame de animacion sobre las figuras. Las que no participan vuelven a reposo: es lo que
 # garantiza que nadie se quede torcido si una racha se corta a medias.
-func _aplicar(mov: Dictionary, flash: Dictionary, punch: Dictionary, aura: Dictionary) -> void:
+func _aplicar(mov: Dictionary, flash: Dictionary, punch: Dictionary, aura: Dictionary,
+		esc: Dictionary, zorden: Dictionary) -> void:
 	for b in _tarjetas:
 		var v: Control = _visual(b)
 		if v == null:
 			continue
 		v.position = mov.get(v, Vector2.ZERO)
+		# EL ORDEN DE DIBUJO: lo sube el que sale de su fila (ver _marcar_gestos). Va aqui, con lo
+		# demas, para que se resetee solo en cuanto el gesto termina.
+		v.z_index = int(zorden.get(v, 0))
 		var f: float = flash.get(v, 0.0)
 		# modulate y NO self_modulate. Cuando esto se pintaba sobre la TARJETA valia self_modulate,
 		# porque un PanelContainer se dibuja a si mismo (y ademas habia que dejarle modulate al gris
@@ -1750,15 +1877,21 @@ func _aplicar(mov: Dictionary, flash: Dictionary, punch: Dictionary, aura: Dicti
 		if aura.has(v):
 			col = col.lerp((aura[v][0] as Color) * 1.35, 0.35 * float(aura[v][1]))
 		v.modulate = col
+		# EL PIVOTE, EN LOS PIES, SIEMPRE. La figura esta apoyada en el suelo del escenario, asi que
+		# cualquier escalado tiene que hundirla o estirarla desde ahi, no desde su centro. Estaba
+		# dentro del 'if p > 0.0' de abajo, y con eso un inflado SIN golpe (el del Aplastamiento)
+		# encontraba el pivote en la esquina y el bicho crecia en diagonal.
+		v.pivot_offset = Vector2(v.size.x * 0.5, v.size.y)
 		var p: float = punch.get(v, 0.0)
+		# LA ESCALA DEL GESTO MULTIPLICA, no se pisa con la del golpe: el que se ha inflado para
+		# caerte encima sigue inflado mientras encaja el porrazo. La rama 'else' ponia Vector2.ONE
+		# a secas y se comia el inflado entero.
+		var e: Vector2 = esc.get(v, Vector2.ONE)
 		if p > 0.0:
-			# El pivote, EN LOS PIES: la figura esta apoyada en el suelo del escenario, asi que un
-			# achatado tiene que hundirla, no encogerla hacia su centro dejandola flotando.
-			v.pivot_offset = Vector2(v.size.x * 0.5, v.size.y)
-			v.scale = Vector2.ONE * (1.0 + 0.06 * p)
+			v.scale = e * (1.0 + 0.06 * p)
 			v.rotation = deg_to_rad(1.5 * p)
 		else:
-			v.scale = Vector2.ONE
+			v.scale = e
 			v.rotation = 0.0
 
 
