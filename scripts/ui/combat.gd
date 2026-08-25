@@ -152,6 +152,10 @@ const MARGEN_UI := 16.0
 # 136, y las cinco columnas ya no cabian entre la barra de accion y el registro -- la quinta se
 # metia por debajo del panel de la derecha.
 const ALTO_ACTOR := 208.0
+# EL AIRE que se le deja a cada bicho a los lados dentro de su columna. Sin el, dos que llenen su
+# hueco justo se tocan y se lee como un solo borron; con el, siempre hay una linea de fondo que los
+# separa. Ver _ajustar_zoom_sprites.
+const MARGEN_SPRITE := 8.0
 # EL PRESUPUESTO VERTICAL, que va justo y hay que cuadrarlo a mano. Cada banda se ancla a SU borde
 # con una altura fija; si se dejara que la marcara el contenido, un Container anclado por un solo
 # lado se queda con altura cero y se va de la pantalla (la banda de abajo desaparecia entera).
@@ -2561,6 +2565,8 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 # los que habia, encoge a todos los demas para dejarle sitio.
 func _ajustar_zoom_sprites() -> void:
 	var mayor: float = 0.0
+	var mas_ancho: float = 0.0
+	var vivos: int = 0
 	for b in _bloques:
 		var fig: ColorRect = b.get("figura")
 		if fig == null or not is_instance_valid(fig) or not fig.has_meta("alto_base"):
@@ -2570,9 +2576,29 @@ func _ajustar_zoom_sprites() -> void:
 		if i >= 0 and i < _enemies.size() and not _enemies[i].is_alive():
 			continue
 		mayor = maxf(mayor, float(fig.get_meta("alto_base")))
+		# Y EL MAS ANCHO, que no tiene por que ser el mismo bicho: el trent es alto y estrecho, el
+		# slime bajo y ancho. Como el factor es UNO para toda la fila, tiene que valerle a los dos.
+		mas_ancho = maxf(mas_ancho, float(fig.get_meta("ancho_base", LADO_FIGURA)))
+		vivos += 1
 	if mayor <= 0.0:
 		return
+	# LLENAR EL ALTO ES LA INTENCION, PERO EL ANCHO MANDA CUANDO NO DA. El factor salia solo del
+	# alto, y con cinco enemigos en la fila las columnas se estrechan mientras el zoom sigue siendo
+	# el mismo: los slimes -- que son anchos y bajos, o sea los que peor lo llevan -- se salian de su
+	# columna y se pisaban unos a otros.
+	#
+	# Se cuenta con TODAS las tarjetas de la banda y no solo con las que tienen sprite: el ancho de
+	# columna lo reparte _ancho_bloque entre todas las que se ven (ver _recomponer_fila_enemigos), asi
+	# que es ese mismo numero el que hay que darle o el reparto no cuadra.
+	var visibles: int = 0
+	for b2 in _bloques:
+		var col: Control = b2.get("columna")
+		if col != null and is_instance_valid(col) and col.visible:
+			visibles += 1
+	var hueco: float = _ancho_bloque(maxi(visibles, vivos)) - MARGEN_SPRITE * 2.0
 	var factor: float = ALTO_ACTOR / mayor
+	if mas_ancho > 0.0:
+		factor = minf(factor, hueco / mas_ancho)
 	for b in _bloques:
 		var fig2: ColorRect = b.get("figura")
 		if fig2 == null or not is_instance_valid(fig2) or not fig2.has_meta("sprite"):
