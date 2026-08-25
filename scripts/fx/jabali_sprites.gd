@@ -202,11 +202,20 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 
 
 static func _montar_animacion(anims: Array, esc: float, nombre: String,
-		loop: bool, fps: float, pose_fn: Callable, ultimo_incluido: bool) -> void:
-	var divisor: float = float(FRAMES - 1) if ultimo_incluido else float(FRAMES)
-	for dir in 8:
+		loop: bool, fps: float,
+		pose_fn: Callable, ultimo_incluido: bool, dirs: int = 8, marcos: int = FRAMES) -> void:
+	# 'dirs' y 'marcos' van al final y con el valor de siempre a proposito: las animaciones que ya
+	# existen no se enteran. Estan para las que NO necesitan las ocho direcciones ni los ocho
+	# fotogramas -- en la pantalla de combate al bicho solo se le ve de frente, asi que morir son 8
+	# marcos en UNA direccion; y el cadaver del mapa es UN marco por direccion, porque ahi solo tiene
+	# que aparecer ya tirado en el suelo mirando adonde estaba.
+	#
+	# La clave de la cache de plantillas no cambia: ya lleva el nombre de la animacion, y cuantos
+	# marcos tiene es cosa del nombre, asi que dos animaciones distintas no pueden pisarse.
+	var divisor: float = float(marcos - 1) if ultimo_incluido else float(marcos)
+	for dir in dirs:
 		var plantillas: Array = []
-		for i in FRAMES:
+		for i in marcos:
 			# La GEOMETRIA se cachea por (animacion, frame, direccion, escala) y NO por color: otro
 			# jabali de otro tono reusa estas plantillas y solo repinta. Es lo que evita que entrar a
 			# un piso lleno de bichos congele el juego.
