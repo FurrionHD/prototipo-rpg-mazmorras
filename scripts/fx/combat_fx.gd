@@ -51,6 +51,15 @@ signal apagar_ahora(bloque: Dictionary)
 signal gesto_iniciado(bloque: Dictionary, dir: int, dur: float, anim: StringName)
 signal gesto_terminado(bloque: Dictionary)
 
+# LA OTRA MITAD DEL GOLPE: al que se lo comen tambien se le mueve el cuerpo. Va APARTE de los
+# gestos, y no es un detalle de implementacion: un plan de gesto es por ATACANTE Y ACCION (uno
+# decide adonde va y cuanto se hincha), mientras que esto es por VICTIMA Y GOLPE. Una racha del
+# Frenesi es UN gesto de la rata y SEIS encajes del que los recibe.
+#
+# No cuesta ni un byte de red: el compañero llega al mismo encolar() por aplicar_impactos, asi que
+# lo deriva de lo que ya recibe.
+signal golpe_encajado(bloque: Dictionary, dur: float)
+
 # COMO se presenta un impacto. MELEE es lo de siempre: la tarjeta del que pega EMBISTE a la del
 # que lo recibe. Todos los demas son de hechizo y NINGUNO embiste -- el que lanza se queda en su
 # sitio y lo que viaja es el efecto, que es lo que diferencia lanzar un conjuro de dar un tajo.
@@ -1329,6 +1338,9 @@ func arrancar_cola() -> float:
 	# sea en el que se sabe a quienes alcanza la accion entera. Un salto que tiene que caer sobre
 	# cuatro necesita saberlo para elegir adonde va y cuanto se infla.
 	_marcar_gestos()
+	# Los encajes del turno anterior no cuentan: _t vuelve a cero aqui abajo, asi que una marca vieja
+	# de 0,9 s contra un _t nuevo de 0,05 daria un hueco NEGATIVO y se tragaria el primer golpe.
+	_ult_encaje.clear()
 	# EL SITIO QUE PIDE EL GESTO. Se retrasan TODOS los impactos por igual, asi que los tiempos
 	# relativos entre tandas quedan intactos; y va DESPUES del bucle de arriba a proposito, porque
 	# tocar los 't' antes descuadraria pos_tanda y el reparto de sin_dibujo.
@@ -1578,6 +1590,43 @@ func _cola_de_gestos() -> float:
 func _avisar_gesto(p: Dictionary, dur_anim: float) -> void:
 	gesto_iniciado.emit(p["bloque"], int(p["dir8"]),
 		dur_anim / maxf(escala_tiempo, 0.01), StringName(p.get("anim", "")))
+
+
+# ============================================================
+#  ENCAJAR EL GOLPE
+# ------------------------------------------------------------
+# Lo que dura la sacudida del que recibe, en tiempo de animacion. Es la duracion NATURAL de la
+# animacion 'encaje' de los generadores (4 marcos a 18 fps); ponerla aqui tambien es lo que permite
+# que un bicho cuyo horneado no la traiga no cambie de ritmo.
+const T_ENCAJE := 0.22
+# Dos golpes a la misma victima mas juntos que esto cuentan como uno. Sin esto, una habilidad de
+# area que reparte ocho impactos en el MISMO frame reiniciaria la animacion ocho veces y lo que se
+# veria es el primer fotograma congelado. Una racha del Frenesi va muy por encima de este hueco, asi
+# que sus seis mordiscos siguen siendo seis sacudidas -- que es justo lo que hay que poder leer.
+const ENCAJE_HUECO_MIN := 0.06
+
+# Cuando encajo cada victima por ultima vez, para el hueco de arriba. La clave es el Control y no el
+# bloque: un Dictionary de GDScript se hashea por CONTENIDO, asi que un bloque al que le cambie un
+# campo (y le cambian todo el rato) seria una clave distinta cada frame.
+var _ult_encaje: Dictionary = {}
+
+
+# UN GOLPE ATERRIZA sobre alguien. Se llama desde el bucle de la cola, en el instante exacto en que
+# sale el numero -- o sea el mismo que ya usan el flash y la sacudida de la figura.
+func _encajar(ev: Dictionary) -> void:
+	# Un golpe esquivado no se encaja: no le ha dado. Es la misma condicion que ya se salta la
+	# sacudida y el flash mas abajo.
+	if bool(ev["evadido"]):
+		return
+	var pv: Control = _visual(ev["bv"])
+	if pv == null:
+		return
+	if _ult_encaje.has(pv) and _t - float(_ult_encaje[pv]) < ENCAJE_HUECO_MIN:
+		return
+	_ult_encaje[pv] = _t
+	# EN SEGUNDOS REALES, igual que los gestos: quien reproduce la animacion corre con el reloj del
+	# motor y no con el nuestro. A velocidad x2 la pelea va al doble y la sacudida tambien.
+	golpe_encajado.emit(ev["bv"], T_ENCAJE / maxf(escala_tiempo, 0.01))
 
 
 func _cerrar_gestos() -> void:
@@ -1995,6 +2044,10 @@ func _process(delta: float) -> void:
 		# EL IMPACTO: se dispara una vez, justo al cruzar su instante.
 		if not ev["lanzado"] and _t >= t_imp:
 			ev["lanzado"] = true
+			# EL ENCAJE VA ANTES DE _descontar, y el orden importa: es este mismo golpe el que puede
+			# matarlo. Con la muerte disparandose despues, la prioridad la resuelve sola (la muerte
+			# pisa al encaje); al reves, el bicho moriria y DESPUES sacudiria la cabeza.
+			_encajar(ev)
 			_soltar_numero_de(ev)
 			# Y ESTE golpe le quita SU parte a la barra, justo ahora: lo que baja la vida es
 			# exactamente el numero que acaba de salir volando.

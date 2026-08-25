@@ -1653,6 +1653,7 @@ func _ready() -> void:
 	# esta pantalla, asi que el cambio de animacion se hace aqui.
 	_fx.gesto_iniciado.connect(_on_gesto_iniciado)
 	_fx.gesto_terminado.connect(_on_gesto_terminado)
+	_fx.golpe_encajado.connect(_on_golpe_encajado)
 	# El gris del cadaver espera a que se vea el golpe que lo mata (ver _apagar_diferido).
 	_fx.apagar_ahora.connect(func(b: Dictionary) -> void:
 		_apagar_visual(b, bool(b.get("fx_apagar_aliado", false))))
@@ -2331,6 +2332,84 @@ func _sprite_de(b: Dictionary) -> AnimatedSprite2D:
 	return sp if sp != null and is_instance_valid(sp) else null
 
 
+# QUIEN MANDA SOBRE EL SPRITE. Tres cosas quieren mover al mismo bicho a la vez -- ataca, le pegan,
+# y se muere-- y sin una regla se pisan en el peor momento posible: justo en el golpe que lo mata,
+# que es cuando pasan las tres.
+#
+# LA REGLA ES EL ORDEN DE ESTE ENUM, de menos a mas: MUERTE > GESTO > ENCAJE > REPOSO.
+#   * Un GESTO pisa un ENCAJE porque el ataque que el bicho tenia planificado tiene que verse; el
+#     golpe que le acaba de entrar ya se lee por el destello y la sacudida de la figura, que no
+#     dependen del sprite.
+#   * La MUERTE lo pisa todo y no la levanta nadie.
+# El estado vive en el SPRITE y no en el bloque a proposito: al reestrenar un hueco, _revivir_bloque
+# tira el sprite viejo y monta otro (ver alli), asi que el estado se limpia solo y un refuerzo no
+# puede nacer heredando la muerte del cadaver cuyo sitio ocupa.
+enum PoseSprite { REPOSO, ENCAJE, GESTO, MUERTE }
+
+
+func _pose_estado(sp: AnimatedSprite2D) -> int:
+	return int(sp.get_meta("pose_estado", PoseSprite.REPOSO))
+
+
+func _pose_marcar(sp: AnimatedSprite2D, estado: int) -> void:
+	sp.set_meta("pose_estado", estado)
+
+
+# A REPOSO. Un solo sitio, porque llegan aqui los dos finales (el del gesto y el del encaje) y el
+# speed_scale hay que devolverlo en los dos: se toca para ajustar la animacion al tiempo que tiene.
+func _pose_reposo(sp: AnimatedSprite2D) -> void:
+	_pose_marcar(sp, PoseSprite.REPOSO)
+	sp.speed_scale = 1.0
+	if sp.sprite_frames != null and sp.sprite_frames.has_animation(&"idle_0"):
+		sp.animation = &"idle_0"
+		sp.frame = 0
+		sp.play()
+
+
+# LA VUELTA A REPOSO DESPUES DE ENCAJAR. Se engancha UNA VEZ POR SPRITE (en _poner_sprite) y solo
+# actua si el bicho estaba encajando: nunca para un GESTO -- hay animaciones que acaban sostenidas a
+# proposito, 'inflar' se queda hinchada esperando el salto y 'raices' agarrada al suelo, y
+# devolverlas a reposo aqui las cortaria justo antes de su remate -- ni para la MUERTE.
+func _on_anim_sprite_terminada(sp: AnimatedSprite2D) -> void:
+	if sp == null or not is_instance_valid(sp):
+		return
+	if _pose_estado(sp) != PoseSprite.ENCAJE:
+		return
+	_pose_reposo(sp)
+
+
+# LE ENTRA UN GOLPE: el cuerpo lo acusa. Es la otra mitad de gesto_iniciado -- aquel es del que
+# pega, este del que lo recibe-- y llega UNA VEZ POR GOLPE, no una por accion.
+#
+# Un encaje SI pisa a otro encaje: seis mordiscos de un Frenesi tienen que leerse como seis
+# sacudidas, no como un temblor continuo. Lo que no puede es pisar a algo de mas rango.
+func _on_golpe_encajado(b: Dictionary, dur: float) -> void:
+	var sp: AnimatedSprite2D = _sprite_de(b)
+	if sp == null or sp.sprite_frames == null:
+		return
+	if _pose_estado(sp) >= PoseSprite.GESTO:
+		return
+	# Una sola direccion: en combate al bicho se le ve siempre de frente (ver los generadores). El
+	# que no la tenga horneada se queda como hasta ahora, con el destello y la sacudida de la figura.
+	var anim := &"encaje_0"
+	if not sp.sprite_frames.has_animation(anim):
+		return
+	_pose_marcar(sp, PoseSprite.ENCAJE)
+	_pose_ajustar(sp, anim, dur)
+
+
+# Ajusta la animacion al TIEMPO QUE TIENE y la arranca. 'dur' viene en segundos reales: un
+# AnimatedSprite2D corre con el reloj del motor y el combate con el suyo (CombatFX.escala_tiempo),
+# asi que a x2 el cuerpo iria al doble y el dibujo a ritmo normal, cada uno por su lado.
+func _pose_ajustar(sp: AnimatedSprite2D, anim: StringName, dur: float) -> void:
+	var fps: float = maxf(sp.sprite_frames.get_animation_speed(anim), 0.1)
+	var natural: float = float(sp.sprite_frames.get_frame_count(anim)) / fps
+	sp.speed_scale = clampf(natural / maxf(dur, 0.05), 0.25, 6.0)
+	sp.animation = anim
+	sp.frame = 0
+	sp.play()
+
+
 # EMPIEZA EL GESTO: el bicho pasa a su animacion de ataque, mirando hacia donde va.
 #
 # La animacion se ajusta al TIEMPO DEL GESTO y no al reves: 'dur' viene en segundos reales y de ahi
@@ -2341,6 +2420,9 @@ func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = 
 	var sp: AnimatedSprite2D = _sprite_de(b)
 	if sp == null or sp.sprite_frames == null:
 		return   # sin sprite el gesto sigue valiendo: lo que se mueve es la figura
+	# Un muerto no ataca. Ver PoseSprite: la muerte lo pisa todo.
+	if _pose_estado(sp) == PoseSprite.MUERTE:
+		return
 	# LA QUE PIDA LA HABILIDAD, y si no la tiene (o no pide ninguna), su gesto de atacar de siempre.
 	# Pedir una animacion que ese bicho no tenga no rompe nada: ataca como cualquier otro dia.
 	var anim := StringName("embestida_%d" % dir)
@@ -2350,25 +2432,24 @@ func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = 
 			anim = propia
 	if not sp.sprite_frames.has_animation(anim):
 		return
-	var fps: float = maxf(sp.sprite_frames.get_animation_speed(anim), 0.1)
-	var natural: float = float(sp.sprite_frames.get_frame_count(anim)) / fps
-	sp.speed_scale = clampf(natural / maxf(dur, 0.05), 0.25, 6.0)
-	sp.animation = anim
-	sp.frame = 0
-	sp.play()
+	_pose_marcar(sp, PoseSprite.GESTO)
+	_pose_ajustar(sp, anim, dur)
 
 
 # Y AL ACABAR, a reposo. Sin esto se queda clavado en el ultimo frame del ataque: 'embestida' es
 # loop = false, asi que se congela ahi y el bicho pasa el resto de la pelea con la pose del golpe.
+#
+# EL QUE ESTA MURIENDO SE SALTA ESTO, y no es un caso raro: al cerrar la cola (_cerrar_gestos) se
+# avisa del final a TODOS los planes vivos, asi que un bicho que muera mientras atacaba pasaria por
+# aqui y resucitaria visualmente -- vuelto a su idle, tan tranquilo, al final de la racha que lo
+# acababa de matar.
 func _on_gesto_terminado(b: Dictionary) -> void:
 	var sp: AnimatedSprite2D = _sprite_de(b)
 	if sp == null or sp.sprite_frames == null:
 		return
-	sp.speed_scale = 1.0
-	if sp.sprite_frames.has_animation(&"idle_0"):
-		sp.animation = &"idle_0"
-		sp.frame = 0
-		sp.play()
+	if _pose_estado(sp) == PoseSprite.MUERTE:
+		return
+	_pose_reposo(sp)
 
 
 # EL SPRITE del enemigo encima de su figura, si es de los que ya tienen uno. Los que no (hoy la
@@ -2429,6 +2510,10 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 			alto_base *= ed.escala_visual
 	fig.set_meta("sprite", sp)
 	fig.set_meta("alto_base", alto_base)
+	# LA VUELTA A REPOSO, enganchada UNA SOLA VEZ y aqui, que es donde nace el sprite. Conectarla
+	# cada vez que se encaja un golpe la acumularia: seis mordiscos dejarian seis conexiones y el
+	# septimo llamaria siete veces. Ver _on_anim_sprite_terminada para quien la aprovecha.
+	sp.animation_finished.connect(_on_anim_sprite_terminada.bind(sp))
 	fig.add_child(sp)
 	sp.play()
 	fig.color = Color(0, 0, 0, 0)   # manda el sprite; el rect se queda solo como caja
@@ -2694,6 +2779,12 @@ func _apagar_visual(b: Dictionary, es_aliado: bool) -> void:
 	var col: Control = b.get("columna")
 	if col != null and is_instance_valid(col):
 		col.modulate = Color(0.4, 0.4, 0.4)
+	# Y EL SPRITE SE QUEDA MUERTO, pase lo que pase despues. Sin esta marca, un bicho que caiga
+	# mientras atacaba resucita al cerrarse la cola (ver _on_gesto_terminado), y hasta un golpe de
+	# area que le entrara ya cadaver le haria sacudir la cabeza. Ver PoseSprite.
+	var sp_muerto: AnimatedSprite2D = _sprite_de(b)
+	if sp_muerto != null:
+		_pose_marcar(sp_muerto, PoseSprite.MUERTE)
 	if not es_aliado:
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		# Y su figura tampoco: a un cadaver no se le apunta por ninguna de las dos vias.
@@ -2847,6 +2938,10 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 		col.modulate = Color.WHITE
 	# EL ASPECTO del que ESTRENA el hueco: la figura la creo el cadaver anterior, asi que sin esto
 	# un slime invocado en el hueco de una rata seguiria siendo una rata.
+	#
+	# Y de paso se lleva por delante el estado del sprite (ver PoseSprite): el viejo se tira ENTERO y
+	# el nuevo nace en REPOSO, asi que el refuerzo no puede heredar la MUERTE del que ocupaba el
+	# sitio y quedarse plantado sin animarse el resto de la pelea.
 	var fig: ColorRect = b.get("figura")
 	if fig != null and is_instance_valid(fig):
 		# remove_child ADEMAS del queue_free: liberar solo deja al viejo colgando hasta el final
