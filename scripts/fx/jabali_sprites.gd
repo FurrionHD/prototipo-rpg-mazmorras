@@ -81,6 +81,9 @@ const COLA := Vector3(0.0, -10.2, 7.4)
 const COLA_R := Vector3(1.1, 2.2, 1.1)
 
 const LUNGE_DIST := 9.0            # cuanto viaja en la embestida, en unidades de mundo
+# ENCAJAR UN GOLPE: que FRACCION de su embestida lo empuja hacia atras el impacto. Bajo a proposito
+# -- pesa 55 de vida y tiene que notarse: a un jabali no lo mueves de un mandoble.
+const ENCAJE_RETRO := 0.20
 
 # Lienzo CUADRADO y holgado: el bicho gira, asi que lo que manda es su DIAGONAL, y ademas la
 # embestida lo desplaza. El numero sale de MEDIR la caja real de los 192 frames, no de calcularla.
@@ -157,6 +160,7 @@ static func generar(color: Color = Color(0.35, 0.26, 0.22), escala: float = 1.0)
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_encaje(anims, esc)
 	var lado: int = _celdas(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col)), lado, lado)
@@ -199,6 +203,33 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 			"cabeza": -1.8 * SpriteLienzo.tramos(t, agacha_keys),
 			"escarba": SpriteLienzo.tramos(t, escarba_keys)}
 	_montar_animacion(anims, esc, "embestida", false, 11.0, pose, true)
+
+
+# ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente)
+# y EMPEZANDO YA GOLPEADO: el frame 0 es el impacto, no la pose de reposo. Un golpe no tiene
+# anticipacion, y con cuatro marcos un fotograma de espera se comeria la animacion entera.
+#
+# ESTE APENAS SE MUEVE, y es justo lo que tiene que contar: es una mole. Donde la rata sale
+# despedida, aqui el cuerpo acusa poco y lo que se sacude es LA CABEZA -- un testarazo devuelto. Con
+# el mismo retroceso que la rata parecia un bicho de papel.
+static func _montar_encaje(anims: Array, esc: float) -> void:
+	# 'agacha' se queda en 0.60: baja el cuerpo Y la cabeza, y su propia embestida no pasa de 0.85.
+	# Por encima de 1.0 la altura se vuelve negativa y las piezas dejan de pintarse SIN DAR ERROR.
+	var agacha_keys := [[0.0, 0.78], [0.34, 0.16], [0.67, 0.05], [1.0, 0.0]]
+	var estira_keys := [[0.0, 0.86], [0.34, 1.08], [0.67, 0.97], [1.0, 1.0]]
+	var retro_keys := [[0.0, 1.0], [0.34, 0.45], [0.67, 0.12], [1.0, 0.0]]
+	# La cabeza SUBE de golpe (positivo) en vez de bajar: en la embestida va a negativo porque embiste
+	# con la testuz, y aqui es al reves -- se la levantan de un tortazo.
+	var cabeza_keys := [[0.0, 2.4], [0.34, -0.7], [0.67, 0.3], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": -SpriteLienzo.tramos(t, retro_keys) * (LUNGE_DIST * ENCAJE_RETRO),
+			"estira": SpriteLienzo.tramos(t, estira_keys), "patas": 0.0,
+			"agacha": SpriteLienzo.tramos(t, agacha_keys),
+			"cabeza": SpriteLienzo.tramos(t, cabeza_keys),
+			"escarba": 0.0}   # escarbar es un AVISO de que va a atacar: aqui no pinta nada
+	# LOS CUATRO BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE, y cuadrando
+	# las dos el sprite va a su velocidad natural en vez de estirado por _pose_ajustar.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
 
 
 static func _montar_animacion(anims: Array, esc: float, nombre: String,

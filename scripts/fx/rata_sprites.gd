@@ -93,6 +93,11 @@ const CHATO_OREJA := 0.92
 # mundo. Sirve para dimensionar el lienzo.
 const LARGO_MUNDO := 24.0
 
+# ENCAJAR UN GOLPE: cuanto la empuja hacia atras el impacto (unidades de mundo, eje local -Y). Su
+# embestida se lanza 5.8 hacia delante, asi que esto es como un tercio: la sacudida tiene que
+# leerse como un golpe encajado, no como una segunda embestida al reves.
+const ENCAJE_RETRO := 1.9
+
 # TONOS propios (el motor no sabe que es cada uno; solo mapea indice -> color, ver _colores).
 enum Tono { VACIO, SOMBRA_SUELO, BORDE, SOMBRA, BASE, LOMO, OREJA_INT, OJO_T, COLA, CICATRIZ }
 
@@ -175,6 +180,7 @@ static func generar(color: Color = Color(0.5, 0.42, 0.34), rey: bool = false,
 	_montar_idle(anims, rey, esc)
 	_montar_walk(anims, rey, esc)
 	_montar_embestida(anims, rey, esc)
+	_montar_encaje(anims, rey, esc)
 	var lado: int = _celdas(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col, rey)), lado, lado)
@@ -211,6 +217,31 @@ static func _montar_embestida(anims: Array, rey: bool, esc: float) -> void:
 			"cola": 1.4 * sin(TAU * t * 1.5), "patas": 0.0,
 			"agacha": SpriteLienzo.tramos(t, agacha_keys)}
 	_montar_animacion(anims, rey, esc, "embestida", false, 11.0, pose, true)
+
+
+# ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate al bicho se le ve siempre de
+# frente) y EMPEZANDO YA GOLPEADA: el frame 0 es el impacto, no la pose de reposo. Un golpe no tiene
+# anticipacion, y con cuatro marcos un fotograma de espera se comeria la animacion entera.
+#
+# LA RATA SALE DESPEDIDA, que es lo suyo: pesa poco. Se encoge contra el suelo, retrocede y da un
+# latigazo de cola. Es la que mas se mueve de los cuatro; el jabali, que es una mole, apenas se
+# inmuta.
+static func _montar_encaje(anims: Array, rey: bool, esc: float) -> void:
+	# 'agacha' no pasa de 1.0 en ninguna pose del juego, y no es casualidad: por encima la altura se
+	# vuelve negativa y las piezas dejan de pintarse SIN DAR ERROR -- la rata desaparece a trozos.
+	var agacha_keys := [[0.0, 0.85], [0.34, 0.20], [0.67, 0.06], [1.0, 0.0]]
+	var estira_keys := [[0.0, 0.80], [0.34, 1.10], [0.67, 0.96], [1.0, 1.0]]
+	var retro_keys := [[0.0, 1.0], [0.34, 0.52], [0.67, 0.16], [1.0, 0.0]]
+	var cola_keys := [[0.0, 1.6], [0.34, -0.9], [0.67, 0.4], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": -SpriteLienzo.tramos(t, retro_keys) * ENCAJE_RETRO,
+			"estira": SpriteLienzo.tramos(t, estira_keys),
+			"cola": SpriteLienzo.tramos(t, cola_keys), "patas": 0.0,
+			"agacha": SpriteLienzo.tramos(t, agacha_keys)}
+	# LOS CUATRO BICHOS ENCAJAN A 18 fps, aunque sus otras animaciones vayan cada una a lo suyo. Es
+	# la duracion que espera CombatFX.T_ENCAJE, y cuadrando las dos el sprite se reproduce a su
+	# velocidad natural en vez de estirado o comprimido por _pose_ajustar.
+	_montar_animacion(anims, rey, esc, "encaje", false, 18.0, pose, true, 1, 4)
 
 
 static func _montar_animacion(anims: Array, rey: bool, esc: float, nombre: String,

@@ -231,6 +231,7 @@ static func generar(color: Color = Color(0.35, 0.5, 0.25), escala: float = 1.0) 
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
 	_montar_raices(anims, esc)
+	_montar_encaje(anims, esc)
 	var lz: Vector2i = _lienzo(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col)), lz.x, lz.y)
@@ -288,6 +289,30 @@ static func _montar_raices(anims: Array, esc: float) -> void:
 			"brazos": 0.0, "alza": SpriteLienzo.tramos(t, alza_keys),
 			"patas": 0.0}
 	_montar_animacion(anims, esc, "raices", false, 7.0, pose, true)
+
+
+# ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente)
+# y EMPEZANDO YA GOLPEADO: el frame 0 es el impacto, no la pose de reposo. Un golpe no tiene
+# anticipacion, y con cuatro marcos un fotograma de espera se comeria la animacion entera.
+#
+# ESTE NO RETROCEDE. Es lo que lo separa de los otros tres: un arbol esta PLANTADO, no lo empujas.
+# Lo que se le sacude es la copa, y se sacude como se sacude un arbol al que le arrean -- una
+# oscilacion que se pasa de largo hacia el otro lado y se va amortiguando. De ahi que 'mece' cambie
+# de signo dos veces en cuatro fotogramas: sin ese rebote seria un arbol INCLINANDOSE, que se lee
+# como que empieza a caerse, no como que ha encajado algo.
+static func _montar_encaje(anims: Array, esc: float) -> void:
+	# 'mece' negativo = hacia atras (en la embestida se echa atras a -1.2 antes de descargar).
+	var mece_keys := [[0.0, -1.9], [0.34, 1.0], [0.67, -0.4], [1.0, 0.0]]
+	# Las ramas acusan el golpe medio tiempo por detras de la copa: es lo que le da el peso.
+	var alza_keys := [[0.0, 0.30], [0.34, -0.35], [0.67, 0.12], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": 0.0,   # plantado: ver arriba
+			"mece": SpriteLienzo.tramos(t, mece_keys), "balanceo": 0.0,
+			"brazos": 0.0, "alza": SpriteLienzo.tramos(t, alza_keys),
+			"patas": 0.0}   # no da un paso
+	# LOS CUATRO BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE, y cuadrando
+	# las dos el sprite va a su velocidad natural en vez de estirado por _pose_ajustar.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
 
 
 static func _montar_animacion(anims: Array, esc: float, nombre: String,
