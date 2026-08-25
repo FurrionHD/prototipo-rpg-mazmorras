@@ -1649,6 +1649,10 @@ func _ready() -> void:
 	_fx = CombatFX.new()
 	add_child(_fx)
 	_fx.tinte_cambiado.connect(_on_tinte_cambiado)
+	# EL SPRITE SE MUEVE CON EL CUERPO. CombatFX lleva el reloj y avisa; el dueño de los sprites es
+	# esta pantalla, asi que el cambio de animacion se hace aqui.
+	_fx.gesto_iniciado.connect(_on_gesto_iniciado)
+	_fx.gesto_terminado.connect(_on_gesto_terminado)
 	# El gris del cadaver espera a que se vea el golpe que lo mata (ver _apagar_diferido).
 	_fx.apagar_ahora.connect(func(b: Dictionary) -> void:
 		_apagar_visual(b, bool(b.get("fx_apagar_aliado", false))))
@@ -2315,6 +2319,50 @@ func _montar_figura(actor: Control, c: Combatant, numero: int) -> ColorRect:
 	# El numero NO se repite aqui: cada figura tiene su tarjeta justo encima y ya lo lleva, asi que
 	# ponerlo tambien en el escenario es decir dos veces lo mismo en dos sitios que se miran.
 	return fig
+
+
+# EL SPRITE DE UN BLOQUE, o null si ese combatiente no tiene (los aliados y los ~15 enemigos que
+# siguen siendo una figura de color).
+func _sprite_de(b: Dictionary) -> AnimatedSprite2D:
+	var fig: ColorRect = b.get("figura")
+	if fig == null or not is_instance_valid(fig) or not fig.has_meta("sprite"):
+		return null
+	var sp: AnimatedSprite2D = fig.get_meta("sprite")
+	return sp if sp != null and is_instance_valid(sp) else null
+
+
+# EMPIEZA EL GESTO: el bicho pasa a su animacion de ataque, mirando hacia donde va.
+#
+# La animacion se ajusta al TIEMPO DEL GESTO y no al reves: 'dur' viene en segundos reales y de ahi
+# sale el speed_scale. Hay que hacerlo asi porque un AnimatedSprite2D corre con el reloj del motor,
+# mientras que el gesto corre con el de CombatFX (escala_tiempo) -- a velocidad x2 el cuerpo iria
+# al doble y el dibujo a ritmo normal, cada uno por su lado.
+func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float) -> void:
+	var sp: AnimatedSprite2D = _sprite_de(b)
+	if sp == null or sp.sprite_frames == null:
+		return   # sin sprite el gesto sigue valiendo: lo que se mueve es la figura
+	var anim := StringName("embestida_%d" % dir)
+	if not sp.sprite_frames.has_animation(anim):
+		return
+	var fps: float = maxf(sp.sprite_frames.get_animation_speed(anim), 0.1)
+	var natural: float = float(sp.sprite_frames.get_frame_count(anim)) / fps
+	sp.speed_scale = clampf(natural / maxf(dur, 0.05), 0.25, 6.0)
+	sp.animation = anim
+	sp.frame = 0
+	sp.play()
+
+
+# Y AL ACABAR, a reposo. Sin esto se queda clavado en el ultimo frame del ataque: 'embestida' es
+# loop = false, asi que se congela ahi y el bicho pasa el resto de la pelea con la pose del golpe.
+func _on_gesto_terminado(b: Dictionary) -> void:
+	var sp: AnimatedSprite2D = _sprite_de(b)
+	if sp == null or sp.sprite_frames == null:
+		return
+	sp.speed_scale = 1.0
+	if sp.sprite_frames.has_animation(&"idle_0"):
+		sp.animation = &"idle_0"
+		sp.frame = 0
+		sp.play()
 
 
 # EL SPRITE del enemigo encima de su figura, si es de los que ya tienen uno. Los que no (hoy la

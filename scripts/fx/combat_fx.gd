@@ -45,6 +45,12 @@ signal tinte_cambiado(bloque: Dictionary)
 # le llegaba volando el hechizo que lo mataba.
 signal apagar_ahora(bloque: Dictionary)
 
+# EL CUERPO EMPIEZA (y termina) SU GESTO. Lo escucha combat.gd, que es el dueño de los sprites:
+# aqui solo se lleva el reloj. 'dir' es la direccion del sprite (0 = mirando a camara) y 'dur' lo
+# que dura el gesto EN SEGUNDOS REALES, para que la animacion se ajuste a el y no al reves.
+signal gesto_iniciado(bloque: Dictionary, dir: int, dur: float)
+signal gesto_terminado(bloque: Dictionary)
+
 # COMO se presenta un impacto. MELEE es lo de siempre: la tarjeta del que pega EMBISTE a la del
 # que lo recibe. Todos los demas son de hechizo y NINGUNO embiste -- el que lanza se queda en su
 # sitio y lo que viaja es el efecto, que es lo que diferencia lanzar un conjuro de dar un tajo.
@@ -1407,12 +1413,18 @@ func _marcar_gestos() -> void:
 		var t_imp: float = float(ev["t"])
 		_gestos.append({
 			"actor": pa,
+			"bloque": ev["ba"],
 			"tipo": g,
 			"t_ini": maxf(t_imp - T_VIAJE_IDA, 0.0),
 			"t_imp": t_imp,
 			"t_fin": t_imp + T_VIAJE_VUELTA,
 			"destino": d.normalized() * largo,
+			# La direccion a la que MIRA el sprite. Sale de la del viaje y no de un 0 a pelo: el dia
+			# que un gesto vaya de lado (barrer la fila), el bicho mirara hacia donde va sin tocar
+			# nada mas. Hacia abajo en pantalla = sur = mirando a camara.
 			"dir8": SpritesEnemigo.dir8(d),
+			"ini_lanzado": false,
+			"fin_lanzado": false,
 		})
 
 
@@ -1435,6 +1447,18 @@ func _cola_de_gestos() -> float:
 	return mas
 
 
+# CIERRA a la fuerza los gestos que quedaran a medias. Hace falta porque los avisos salen desde
+# _process, y _process deja de mirarlos en cuanto la cola termina o se corta (tecla P, fin de la
+# pelea): sin esto, ese bicho se quedaria congelado en el ultimo frame de su animacion de ataque
+# -- que ademas es 'loop = false', asi que ahi se queda para siempre.
+func _cerrar_gestos() -> void:
+	for p in _gestos:
+		if not bool(p["fin_lanzado"]):
+			p["fin_lanzado"] = true
+			gesto_terminado.emit(p["bloque"])
+	_gestos.clear()
+
+
 # UN FRAME de los gestos en curso. Escribe en los MISMOS diccionarios que el bucle de la cola y con
 # la MISMA clave (el Control que devuelve _visual), porque quien los consume es el mismo _aplicar.
 func _aplicar_gestos(mov: Dictionary, esc: Dictionary, zorden: Dictionary) -> void:
@@ -1445,6 +1469,15 @@ func _aplicar_gestos(mov: Dictionary, esc: Dictionary, zorden: Dictionary) -> vo
 		var t_ini: float = float(p["t_ini"])
 		var t_imp: float = float(p["t_imp"])
 		var t_fin: float = float(p["t_fin"])
+		# EL AVISO AL SPRITE, en los dos flancos. En segundos REALES: quien reproduce la animacion
+		# corre con el reloj del motor, no con el nuestro (ver escala_tiempo).
+		if not bool(p["ini_lanzado"]) and _t >= t_ini:
+			p["ini_lanzado"] = true
+			gesto_iniciado.emit(p["bloque"], int(p["dir8"]),
+				(t_fin - t_ini) / maxf(escala_tiempo, 0.01))
+		if not bool(p["fin_lanzado"]) and _t >= t_fin:
+			p["fin_lanzado"] = true
+			gesto_terminado.emit(p["bloque"])
 		if _t < t_ini or _t > t_fin:
 			continue
 		match int(p["tipo"]):
@@ -1624,6 +1657,7 @@ func ocupado() -> bool:
 # animacion y punto.
 func cancelar() -> void:
 	_cola.clear()
+	_cerrar_gestos()   # lo mismo que al terminar de forma normal: nadie se queda a medio ataque
 	_activa = false
 	_t = 0.0
 	_dur = 0.0
@@ -1845,6 +1879,7 @@ func _process(delta: float) -> void:
 	if _t >= _dur:
 		_activa = false
 		_cola.clear()
+		_cerrar_gestos()   # que nadie se quede congelado en su pose de ataque
 		_saldar_barras()
 		for b in _tarjetas:
 			_reposo(b)
