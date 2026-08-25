@@ -118,11 +118,18 @@ const ANCHO_BLOQUE := 216.0
 # nº2 es el 2º empezando por la izquierda), y en dos filas eso deja de leerse de un vistazo.
 const ANCHO_BLOQUE_MIN := 118.0
 const SEP_BLOQUES := 8.0
-# Alto RESERVADO para los estados: dos filas de chips. Se reserva SIEMPRE, haya estados o no,
-# para que entrar o salir uno no mueva de sitio la barra de vida ni nada de lo que hay debajo.
-# Dos filas y no una porque en un bloque de 260 px solo caben ~3 chips por fila, y un bicho
-# bien castigado (veneno + quemadura + pegajoso + imbuicion) pasa de eso con facilidad.
-const ALTO_CHIPS := 56.0
+# Alto RESERVADO para los estados. Se reserva SIEMPRE, haya estados o no, para que entrar o salir
+# uno no mueva de sitio la barra de vida ni nada de lo que hay debajo.
+#
+# UNA fila. Eran dos porque el chip llevaba escrito dentro el icono, la magnitud y los turnos, y
+# asi solo cabian ~3 por fila. Desde que el chip es SOLO EL ICONO (ver StatusChip) cabe de sobra
+# el veneno + quemadura + pegajoso + imbuicion del bicho mas castigado, y la fila que sobraba se
+# la queda el escenario, que es donde hace falta el sitio.
+const ALTO_CHIPS := 26.0
+# Las barras: estrechas. El numero va DENTRO y se lee igual con 16 px que con 24, asi que cada
+# pixel de mas era sitio robado al centro de la pantalla (y son hasta tres barras por aliado).
+const ALTO_BARRA_HP := 17.0
+const ALTO_BARRA_MENOR := 13.0   # energia y maná
 
 # --- EL REPARTO DE LA PANTALLA ---------------------------------------------------------------
 # La pelea se lee en tres franjas verticales:
@@ -144,17 +151,17 @@ const MARGEN_UI := 16.0
 # al tope de cinco enemigos la tarjeta se aprieta a 130 px, el hueco del sprite seguia exigiendo
 # 136, y las cinco columnas ya no cabian entre la barra de accion y el registro -- la quinta se
 # metia por debajo del panel de la derecha.
-const ALTO_ACTOR := 172.0
+const ALTO_ACTOR := 208.0
 # EL PRESUPUESTO VERTICAL, que va justo y hay que cuadrarlo a mano. Cada banda se ancla a SU borde
 # con una altura fija; si se dejara que la marcara el contenido, un Container anclado por un solo
 # lado se queda con altura cero y se va de la pantalla (la banda de abajo desaparecia entera).
 #
-#   16 + 300 (ellos) + ... 40 de aire ... + 348 (los tuyos) + 16 = 720
+#   16 + 306 (ellos) + ... 44 de aire ... + 338 (los tuyos) + 16 = 720
 #
-# Las tarjetas: la enemiga son ~124 px (nombre + dos filas de chips + vida) y la tuya ~172, que
+# Las tarjetas: la enemiga son ~94 px (nombre + una fila de estados + vida) y la tuya ~126, que
 # lleva ademas las barras de energia y maná. Si alguna crece, lo que se come es el aire del medio.
-const ALTO_TARJETA_ENE := 124.0
-const ALTO_TARJETA_ALI := 172.0
+const ALTO_TARJETA_ENE := 94.0
+const ALTO_TARJETA_ALI := 126.0
 const SEP_COLUMNA := 4.0
 const ALTO_BANDA_ENE := ALTO_TARJETA_ENE + SEP_COLUMNA + ALTO_ACTOR
 const ALTO_BANDA_ALI := ALTO_TARJETA_ALI + SEP_COLUMNA + ALTO_ACTOR
@@ -1668,7 +1675,9 @@ func _ready() -> void:
 			eab.fuerza = 80; eab.resistencia = 70; eab.destreza = 30
 			eab.agilidad = 40 + i * 20   # velocidades distintas: se ve el orden de turnos moverse
 			eab.magia = 0
-			var e := Combatant.new("Slime %d" % (i + 1), 1, eab, 40, 4, 5, 4)
+			# Todos "Slime" a secas, sin numerar: los de verdad tampoco llevan numero en el nombre
+			# (ese lo pone la tarjeta), y numerandolos aqui la prueba enseñaba el numero dos veces.
+			var e := Combatant.new("Slime", 1, eab, 40, 4, 5, 4)
 			e.color_visual = colores[i]
 			_enemies.append(e)
 
@@ -2060,18 +2069,78 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 	var actor_wrap := Control.new()
 	actor_wrap.custom_minimum_size = Vector2(0, ALTO_ACTOR)   # el ancho, el de la columna
 	actor_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actor_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Al enemigo se le puede APUNTAR clicando su figura, que es lo natural cuando estas mirando el
+	# escenario. La ficha de arriba sigue valiendo igual (y es la comoda en el movil, donde las
+	# figuras se aprietan): el clic entra por el hueco, no por la figura, asi el area que responde
+	# es la celda entera y es predecible.
+	actor_wrap.mouse_filter = Control.MOUSE_FILTER_STOP if numero > 0 \
+		else Control.MOUSE_FILTER_IGNORE
+	if numero > 0:
+		actor_wrap.gui_input.connect(_on_bloque_gui_input.bind(idx))
 	actor_wrap.clip_contents = false
-	# El de dentro es el que MUEVE CombatFX (embestidas, sacudidas, el destello al recibir). Mismo
-	# reparto que wrap/panel y por el mismo motivo: el Container escribe la position del de fuera,
-	# asi que la del de dentro se queda libre.
+	# EL SITIO exacto de la figura dentro del hueco: centrada a lo ancho y en el extremo del hueco
+	# que da AL CENTRO DE LA PANTALLA -- los de enfrente abajo del suyo y los tuyos arriba del tuyo,
+	# porque los huecos estan en lados opuestos de su tarjeta. Asi los dos bandos se miran a la
+	# misma distancia y cada figura deja el mismo aire con su ficha.
+	#
+	# Mide lo que la figura y no el hueco entero porque de este rectangulo salen el punto al que van
+	# los golpes y donde nacen los numeros; con el tamaño del hueco, ese centro caia muy por encima
+	# de la figura y los numeros salian flotando en el aire.
+	var sitio := Control.new()
+	sitio.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sitio.clip_contents = false
+	sitio.anchor_left = 0.5
+	sitio.anchor_right = 0.5
+	sitio.offset_left = -LADO_FIGURA * 0.5
+	sitio.offset_right = LADO_FIGURA * 0.5
+	if numero > 0:
+		sitio.anchor_top = 1.0
+		sitio.anchor_bottom = 1.0
+		sitio.offset_top = -LADO_FIGURA
+		sitio.offset_bottom = 0.0
+	else:
+		sitio.anchor_top = 0.0
+		sitio.anchor_bottom = 0.0
+		sitio.offset_top = 0.0
+		sitio.offset_bottom = LADO_FIGURA
+	actor_wrap.add_child(sitio)
+
+	# Y DENTRO, el que mueve CombatFX (embestidas, sacudidas, el destello al recibir).
+	#
+	# Hacen falta los dos niveles, igual que wrap/panel y por el mismo motivo: CombatFX escribe la
+	# position ENTERA cada frame (position = el desplazamiento del golpe, o cero en reposo), asi que
+	# ese nodo no puede ser ademas el que este colocado en su sitio -- el cero le borraria la
+	# colocacion y la figura se iria a la esquina de su hueco. Uno coloca, el otro se mueve.
 	var actor := Control.new()
 	actor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	actor.clip_contents = false
-	actor_wrap.add_child(actor)
-	actor_wrap.resized.connect(func() -> void:
+	sitio.add_child(actor)
+	# El tamaño se copia A MANO y no con anclajes, que recalculan tambien la position.
+	actor.size = sitio.size
+	sitio.resized.connect(func() -> void:
 		if is_instance_valid(actor):
-			actor.size = actor_wrap.size)
+			actor.size = sitio.size)
+	var figura: ColorRect = _montar_figura(actor, c, numero)
+
+	# LA MARCA DE OBJETIVO: una flecha encima del enemigo apuntado. Cuelga del SITIO y no de la
+	# figura para que no se vaya con ella en las embestidas -- señala el puesto, no al que se mueve.
+	# Y es un nodo aparte, no un tinte: modulate de la figura es de CombatFX (se reescribe cada
+	# frame) y el de la columna lleva el gris del cadaver, asi que cualquiera de los dos se lo
+	# comeria al instante.
+	var cursor: Control = null
+	if numero > 0:
+		cursor = Control.new()
+		cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cursor.visible = false
+		cursor.set_anchors_preset(Control.PRESET_TOP_WIDE)
+		cursor.offset_top = -18.0
+		cursor.offset_bottom = -4.0
+		cursor.draw.connect(func() -> void:
+			var w: float = cursor.size.x
+			cursor.draw_colored_polygon(PackedVector2Array([
+				Vector2(w * 0.5 - 9.0, 0.0), Vector2(w * 0.5 + 9.0, 0.0),
+				Vector2(w * 0.5, 12.0)]), Color(1, 1, 1, 0.9)))
+		sitio.add_child(cursor)
 
 	# ENVOLTORIO DE LA TARJETA. La tarjeta va DENTRO de un Control pelado, y es el envoltorio -no el
 	# panel- el que entra en la columna. Motivo: un Container reescribe la 'position' de sus hijos en
@@ -2161,7 +2230,7 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 	var hp := ProgressBar.new()
 	hp.max_value = c.max_hp
 	hp.show_percentage = false
-	hp.custom_minimum_size = Vector2(0, 24)
+	hp.custom_minimum_size = Vector2(0, ALTO_BARRA_HP)
 	hp.self_modulate = Color(1.0, 0.4, 0.4)
 	# PASS y no el STOP por defecto: la barra ocupa media caja, y en STOP se tragaria el clic
 	# de seleccion en toda esa mitad.
@@ -2181,12 +2250,37 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 		columna.add_child(wrap)
 
 	var bloque: Dictionary = {"columna": columna, "wrap": wrap, "panel": panel, "vbox": vb,
-		"actor_wrap": actor_wrap, "actor": actor, "nombre": nombre,
-		"chips": chips, "hp": hp, "hp_lbl": hp_lbl, "idx": idx}
+		"actor_wrap": actor_wrap, "actor": actor, "figura": figura, "cursor": cursor,
+		"nombre": nombre, "chips": chips, "hp": hp, "hp_lbl": hp_lbl, "idx": idx}
 	# Le cuelga su capa de efectos (particulas de estado) y lo da de alta para las animaciones.
 	if _fx != null:
 		_fx.registrar(bloque)
 	return bloque
+
+
+# LA FIGURA de un combatiente en el escenario. De momento es un placeholder: los tuyos con su
+# aspecto del mapa (color, foto y metal, via material_de) y los de enfrente con su color. Los
+# sprites de verdad entran aqui mismo, en la siguiente tanda.
+#
+# Va anclada a los PIES (abajo y centrada), no al centro del hueco, y no es un detalle: "recibir un
+# golpe" es un aplastado en Y con el pivote en el suelo, y con la figura centrada cualquier escalado
+# la hunde o la levanta en el aire. Anclada abajo, crece y encoge apoyada.
+#
+# CUADRADA a proposito: el shader del cuerpo mapea la imagen por UV del rect, asi que uno no
+# cuadrado deformaria la foto del personaje (mismo motivo que en turn_timeline).
+const LADO_FIGURA := 124.0
+
+func _montar_figura(actor: Control, c: Combatant, numero: int) -> ColorRect:
+	var fig := ColorRect.new()
+	fig.color = _color_de(c) if numero <= 0 else c.color_visual
+	fig.material = _material_de(c) if numero <= 0 else null
+	fig.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Llena a su actor, que ya viene con el tamaño y apoyado en el suelo (ver _crear_bloque).
+	fig.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	actor.add_child(fig)
+	# El numero NO se repite aqui: cada figura tiene su tarjeta justo encima y ya lo lleva, asi que
+	# ponerlo tambien en el escenario es decir dos veces lo mismo en dos sitios que se miran.
+	return fig
 
 
 # Estilo del bloque: seleccionado = borde blanco alrededor de todo, normal = borde transparente.
@@ -2239,8 +2333,14 @@ func _seleccionar(idx: int) -> void:
 	_target_idx = idx
 	for i in _bloques.size():
 		var vivo: bool = _enemies[i].is_alive()
+		var es: bool = vivo and i == idx
 		_bloques[i]["panel"].add_theme_stylebox_override("panel",
-			_sb_bloque(vivo and i == idx, _bloques[i].get("tinte", Color.WHITE)))
+			_sb_bloque(es, _bloques[i].get("tinte", Color.WHITE)))
+		# Y la marca sobre la FIGURA, que es donde estas mirando cuando eliges: el borde de la
+		# ficha queda arriba del todo y no dice a cual de los del escenario estas apuntando.
+		var cur: Control = _bloques[i].get("cursor")
+		if cur != null and is_instance_valid(cur):
+			cur.visible = es
 
 
 # --- RETIRADA DE CADAVERES (SOLO la fila de enfrente) ----------------------------------------
@@ -2395,9 +2495,21 @@ func _apagar_visual(b: Dictionary, es_aliado: bool) -> void:
 	var panel: Control = b.get("panel")
 	if panel == null or not is_instance_valid(panel):
 		return
-	panel.modulate = Color(0.4, 0.4, 0.4)
+	# EL GRIS VA EN LA COLUMNA, no en la tarjeta: asi cae sobre la ficha Y sobre la figura del
+	# escenario de una vez. Y no puede ir en la figura misma, que es de CombatFX -- su modulate se
+	# reescribe cada frame (ver _aplicar) y se comeria el gris al instante.
+	var col: Control = b.get("columna")
+	if col != null and is_instance_valid(col):
+		col.modulate = Color(0.4, 0.4, 0.4)
 	if not es_aliado:
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Y su figura tampoco: a un cadaver no se le apunta por ninguna de las dos vias.
+		var hueco: Control = b.get("actor_wrap")
+		if hueco != null and is_instance_valid(hueco):
+			hueco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var cur: Control = b.get("cursor")
+		if cur != null and is_instance_valid(cur):
+			cur.visible = false
 	panel.add_theme_stylebox_override("panel", _sb_bloque(false))
 	b["chips"].visible = false
 	# Un cadaver no arde ni centellea. Hay que apagarlo A MANO porque _update_hp se salta los
@@ -2522,6 +2634,10 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 	b["panel"].modulate = Color(1, 1, 1)
 	b["panel"].mouse_filter = Control.MOUSE_FILTER_STOP
 	b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
+	# Al que estrena el hueco se le vuelve a poder apuntar TAMBIEN por su figura (ver _apagar_visual).
+	var hueco_vivo: Control = b.get("actor_wrap")
+	if hueco_vivo != null and is_instance_valid(hueco_vivo):
+		hueco_vivo.mouse_filter = Control.MOUSE_FILTER_STOP
 	b["chips"].visible = true
 	b["hp"].max_value = c.max_hp
 	# EL HUECO SE REESTRENA: la tarjeta del cadaver estaba oculta (o desvaneciendose), asi que hay
@@ -2533,7 +2649,14 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 	var col: Control = b.get("columna")
 	if col != null and is_instance_valid(col):
 		col.visible = true
-		col.modulate.a = 1.0
+		# modulate ENTERO y no solo el alpha: ahi vive tambien el gris del cadaver (ver
+		# _apagar_visual), asi que devolviendo solo la opacidad el refuerzo entraba en gris.
+		col.modulate = Color.WHITE
+	# El color del que ESTRENA el hueco: la figura la creo el cadaver anterior y se quedaria con
+	# su color (y con su sprite, cuando los haya).
+	var fig: ColorRect = b.get("figura")
+	if fig != null and is_instance_valid(fig):
+		fig.color = c.color_visual
 	# EL APAGADO PENDIENTE DEL CADAVER ANTERIOR, FUERA. Es lo que dejaba GRIS al refuerzo que entra en
 	# el hueco de un muerto: _apagar_diferido no apaga en el acto si quedan golpes por aterrizar, deja
 	# b["fx_apagar"] = true y lo consume despues _saldar_barras, que recorre TODAS las tarjetas. Si
@@ -2561,7 +2684,7 @@ func _crear_barras_aliado(bloque: Dictionary, c: Combatant) -> void:
 		var en := ProgressBar.new()
 		en.show_percentage = false
 		en.max_value = c.max_energy
-		en.custom_minimum_size = Vector2(0, 16)
+		en.custom_minimum_size = Vector2(0, ALTO_BARRA_MENOR)
 		en.self_modulate = Color(0.95, 0.85, 0.3)   # energia = amarillo
 		en.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vb.add_child(en)
@@ -2571,7 +2694,7 @@ func _crear_barras_aliado(bloque: Dictionary, c: Combatant) -> void:
 		var mp := ProgressBar.new()
 		mp.show_percentage = false
 		mp.max_value = c.max_mp
-		mp.custom_minimum_size = Vector2(0, 16)
+		mp.custom_minimum_size = Vector2(0, ALTO_BARRA_MENOR)
 		mp.self_modulate = Color(0.4, 0.6, 1.0)     # mana = azul
 		mp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vb.add_child(mp)
@@ -2862,7 +2985,13 @@ func _refrescar_chips(c: Combatant, bloque: Dictionary, idx: int) -> void:
 		# Se mira el tamaño y no el tipo para que un espejo con la instantanea vieja (pares de 2) no
 		# reviente al llegar: la red manda estos mismos arrays.
 		var col: Color = (par[3] as Color) if par.size() > 3 else CHIP_NEUTRO
-		_chip(box, String(par[0]), String(par[1]), idx, col)
+		# SOLO EL ICONO cuando lo hay (par[2], que lo separa chip_de_grupo). Los chips de mecanica
+		# vienen como pares de 2 y se quedan con su texto, que ya es corto y dice algo que no cabe
+		# en un icono ("frase 2 de 3"). Lo demas -magnitud, turnos, que hace- esta en el tooltip.
+		var visible_txt: String = String(par[2]) if par.size() > 2 and String(par[2]) != "" \
+			else String(par[0])
+		var ultimo: bool = par.size() > 4 and bool(par[4])
+		_chip(box, visible_txt, String(par[1]), idx, col, ultimo)
 	box.visible = box.get_child_count() > 0
 
 
@@ -2976,9 +3105,9 @@ const CHIP_NEUTRO := Color(0.78, 0.80, 0.86)
 # El chip se monta en StatusChip, el mismo sitio que usa el HUD del mapa: asi un veneno se ve igual
 # en la pelea y andando por el pasillo. Clicar el de un enemigo lo SELECCIONA, como antes.
 func _chip(box: Container, texto: String, tooltip: String, idx: int = -1,
-		color: Color = CHIP_NEUTRO) -> void:
+		color: Color = CHIP_NEUTRO, parpadea: bool = false) -> void:
 	var clic: Callable = _seleccionar.bind(idx) if idx >= 0 else Callable()
-	box.add_child(StatusChip.crear(texto, color, tooltip, clic))
+	box.add_child(StatusChip.crear(texto, color, tooltip, clic, parpadea))
 
 
 # Teclas de DESARROLLO DENTRO del combate. El combate corre con el arbol en PAUSA, asi

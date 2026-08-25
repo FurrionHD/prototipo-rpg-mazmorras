@@ -790,16 +790,21 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 # Sangrado) crean una Instance por aplicacion, asi que la UI pintaba cuatro iconos iguales en fila
 # y no habia forma de saber cuanto le quedaba a cada uno.
 #
-# 'insts' = todas las instancias del MISMO estado. Devuelve [etiqueta, tooltip, icono, color]:
+# 'insts' = todas las instancias del MISMO estado. Devuelve
+# [etiqueta, tooltip, icono, color, ultimo_turno]:
 #   - etiqueta: los stacks SUMADOS y los turnos del que MAS le queda (el estado no se te va hasta
 #     que caduca el ultimo), y en los DoT el daño total de todas juntas.
 #   - tooltip: la ficha de la instancia mas larga + una linea con lo que le queda a cada una, que
 #     es justo el dato que se perdia al agrupar.
-#   - icono y color: para pintarlo como CHIP con recuadro (ver scripts/ui/status_chip.gd). Van al
-#     final para que quien solo queria [etiqueta, tooltip] siga funcionando sin tocar nada.
+#   - icono y color: para pintarlo como CHIP con recuadro (ver scripts/ui/status_chip.gd).
+#   - ultimo_turno: le queda UN turno y se va. La UI lo hace parpadear, que es como se avisa de
+#     que se acaba desde que el chip no lleva escrito lo que le queda.
+#
+# Los tres ultimos van al final para que quien solo queria [etiqueta, tooltip] siga funcionando
+# sin tocar nada (los espejos leen estos mismos arrays y comprueban el size()).
 static func chip_de_grupo(insts: Array) -> Array:
 	if insts.is_empty():
-		return ["", "", "", Color.WHITE]
+		return ["", "", "", Color.WHITE, false]
 	var larga: Instance = insts[0]
 	var stacks_tot: int = 0
 	var dot_tot: float = 0.0
@@ -812,12 +817,15 @@ static func chip_de_grupo(insts: Array) -> Array:
 		turnos.append(e.duracion_texto())
 	var ic: String = str(larga.d.get("icono", "?"))
 	var col: Color = larga.d.get("color", Color.WHITE)
+	# Se mira el que MAS le queda, igual que la etiqueta: mientras siga vivo uno, el estado sigue
+	# puesto. Los permanentes (turns < 0) no parpadean nunca: no se van solos.
+	var ultimo: bool = larga.turns == 1
 	if insts.size() == 1:
-		return [larga.etiqueta(), larga.resumen(), ic, col]
+		return [larga.etiqueta(), larga.resumen(), ic, col, ultimo]
 
 	# Mismo formato corto que etiqueta(): icono, stacks y lo que le queda. El daño total de todas
 	# las instancias juntas y el desglose por aplicacion van al tooltip, aqui debajo.
 	var etq: String = "%sx%d %s" % [ic, stacks_tot, larga.duracion_texto()]
 	var tip: String = larga.resumen() + "\n\n%d aplicaciones: %s" % [
 		insts.size(), ", ".join(turnos)]
-	return [etq, tip, ic, col]
+	return [etq, tip, ic, col, ultimo]

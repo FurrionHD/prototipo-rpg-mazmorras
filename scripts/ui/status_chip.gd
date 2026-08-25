@@ -25,17 +25,29 @@ const FUENTE := 12
 
 
 # Un chip listo para meter en un contenedor.
-#   etiqueta: el texto ya montado por StatusEffects (icono + magnitud + lo que le queda).
+#   etiqueta: lo que se VE. Normalmente el icono a secas: lo demas (magnitud, cuanto le queda, que
+#             hace) esta en el tooltip, que es donde se mira cuando de verdad quieres el detalle.
+#             Escrito en el chip ocupaba el triple y obligaba a dos filas de estados por tarjeta.
 #   color:    el del estado en el catalogo. Tiñe el fondo y el texto.
 #   tooltip:  la ficha completa ("" = sin tooltip).
 #   clic:     opcional; sin ella el chip no roba clics a lo que tenga debajo.
+#   parpadea: le queda UN turno. Como el chip ya no dice cuanto le queda, esto es lo que avisa de
+#             que se acaba -- y se ve por el rabillo del ojo, que es mas de lo que conseguia un
+#             "1t" escrito en letra de 12.
 static func crear(etiqueta: String, color: Color, tooltip: String,
-		clic: Callable = Callable()) -> Button:
+		clic: Callable = Callable(), parpadea: bool = false) -> Button:
 	var b: Button = preload("res://scripts/ui/tooltip_button.gd").new()
 	b.text = etiqueta
 	b.tooltip_text = tooltip
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", FUENTE)
+	if parpadea:
+		# El Tween cuelga del propio boton, asi que se va con el. Los chips se recrean a cada
+		# refresco de la tarjeta y con ellos el parpadeo, que por eso es rapido: si fuera lento no
+		# llegaria a completar un ciclo entre refresco y refresco.
+		var tw: Tween = b.create_tween().set_loops()
+		tw.tween_property(b, "modulate:a", 0.25, 0.35)
+		tw.tween_property(b, "modulate:a", 1.0, 0.35)
 	# Texto SUBIDO de brillo y fondo BAJADO, los dos del mismo color: el chip se identifica por su
 	# color de un vistazo y el texto sigue leyendose. Con el color a pelo en los dos, un veneno verde
 	# claro sobre verde claro no se lee.

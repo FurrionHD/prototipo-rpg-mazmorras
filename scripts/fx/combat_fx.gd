@@ -690,6 +690,21 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
+# EL NODO SOBRE EL QUE OCURRE TODO: de donde salen los golpes, adonde llegan, quien embiste, quien
+# se sacude y donde nacen los numeros. Es la FIGURA del escenario, no la tarjeta: los porrazos se
+# ven encima del enemigo, que es donde uno esta mirando, y no encima de su ficha.
+#
+# Sin fallback a "la tarjeta si no hay figura" a proposito. Un fallback deja dos caminos, uno de
+# ellos casi nunca recorrido: al primer combatiente que se quedara sin figura, sus golpes se irian
+# a la ficha y nadie se enteraria hasta verlo en la pantalla. Todos tienen figura (ver
+# combat._crear_bloque), aunque de momento sea un placeholder.
+func _visual(bloque: Dictionary) -> Control:
+	if bloque.is_empty():
+		return null
+	var v: Control = bloque.get("actor")
+	return v if v != null and is_instance_valid(v) else null
+
+
 # ============================================================
 #  TARJETAS
 # ============================================================
@@ -1426,8 +1441,7 @@ func _marcar_efectos_de_grupo() -> void:
 		var portadora: int = -1
 		for i in idx:
 			var b: Dictionary = _cola[i]["bv"]
-			var p: Control = b.get("panel")
-			if p == null or not is_instance_valid(p):
+			if _visual(b) == null:
 				continue
 			var c: Vector2 = _punto(b)
 			var w: float = _ancho_tarjeta(b)
@@ -1485,13 +1499,14 @@ func diagnostico() -> String:
 
 
 func _reposo(bloque: Dictionary) -> void:
-	var panel: Control = bloque.get("panel")
-	if panel == null or not is_instance_valid(panel):
+	var v: Control = _visual(bloque)
+	if v == null:
 		return
-	panel.position = Vector2.ZERO
-	panel.scale = Vector2.ONE
-	panel.rotation = 0.0
-	panel.self_modulate = Color.WHITE
+	v.position = Vector2.ZERO
+	v.scale = Vector2.ONE
+	v.rotation = 0.0
+	# modulate y NO self_modulate: ver la nota de _aplicar.
+	v.modulate = Color.WHITE
 
 
 func _process(delta: float) -> void:
@@ -1505,21 +1520,26 @@ func _process(delta: float) -> void:
 		return
 	_t += dt
 
-	# Lo que le toca a cada panel ESTE frame. Se acumula en un diccionario y se aplica al final:
+	# Lo que le toca a cada figura ESTE frame. Se acumula en un diccionario y se aplica al final:
 	# un mismo atacante puede tener varios impactos solapados y hay que quedarse con uno, no
 	# sumarlos (se iria a tomar viento).
-	var mov: Dictionary = {}      # panel -> Vector2
-	var flash: Dictionary = {}    # panel -> float 0..1
-	var punch: Dictionary = {}    # panel -> float 0..1
-	var aura: Dictionary = {}     # panel -> [Color, float 0..1]: el brillo del que CANALIZA
+	#
+	# OJO CON LA CLAVE: estos diccionarios los teclea ESTE bucle y los lee _aplicar. Son las dos
+	# mitades de lo mismo, asi que el nodo tiene que salir del mismo sitio (_visual) en las dos. Si
+	# una se cambiara sin la otra, los get() de _aplicar fallarian y el movimiento, el destello y
+	# el punch DESAPARECERIAN ENTEROS sin dar un solo error.
+	var mov: Dictionary = {}      # figura -> Vector2
+	var flash: Dictionary = {}    # figura -> float 0..1
+	var punch: Dictionary = {}    # figura -> float 0..1
+	var aura: Dictionary = {}     # figura -> [Color, float 0..1]: el brillo del que CANALIZA
 
 	for i in _cola.size():
 		var ev: Dictionary = _cola[i]
 		var t_imp: float = ev["t"]
 		var estilo: int = int(ev.get("estilo", Estilo.MELEE))
 		var peso: float = float(ev.get("peso", 1.0))
-		var pa: Control = ev["ba"].get("panel") if not ev["ba"].is_empty() else null
-		var pv: Control = ev["bv"].get("panel")
+		var pa: Control = _visual(ev["ba"])
+		var pv: Control = _visual(ev["bv"])
 		if pv == null or not is_instance_valid(pv):
 			continue
 
@@ -1667,52 +1687,63 @@ func _process(delta: float) -> void:
 			_reposo(b)
 
 
-# Un frame de animacion sobre los paneles. Los que no participan vuelven a reposo: es lo que
+# Un frame de animacion sobre las figuras. Las que no participan vuelven a reposo: es lo que
 # garantiza que nadie se quede torcido si una racha se corta a medias.
 func _aplicar(mov: Dictionary, flash: Dictionary, punch: Dictionary, aura: Dictionary) -> void:
 	for b in _tarjetas:
-		var panel: Control = b.get("panel")
-		if panel == null or not is_instance_valid(panel):
+		var v: Control = _visual(b)
+		if v == null:
 			continue
-		panel.position = mov.get(panel, Vector2.ZERO)
-		var f: float = flash.get(panel, 0.0)
-		# self_modulate y NO modulate: modulate es de _apagar_bloque (el gris del cadaver) y
-		# pisarlo resucitaria visualmente a los muertos cada vez que les pegan.
+		v.position = mov.get(v, Vector2.ZERO)
+		var f: float = flash.get(v, 0.0)
+		# modulate y NO self_modulate. Cuando esto se pintaba sobre la TARJETA valia self_modulate,
+		# porque un PanelContainer se dibuja a si mismo (y ademas habia que dejarle modulate al gris
+		# del cadaver). La figura no dibuja nada: lo dibuja su hijo, y self_modulate NO baja a los
+		# hijos -- se quedaria sin destellar y sin un solo error. El gris del cadaver y el
+		# desvanecido de la retirada se han mudado un nivel por encima, a la columna, asi que
+		# modulate aqui es solo nuestro.
 		#
 		# El aura del que canaliza se pliega AQUI, en la misma expresion, y no se escribe aparte:
-		# esta linea corre cada frame para todas las tarjetas, asi que cualquier otro que tocara
-		# self_modulate por su cuenta se lo comeria al frame siguiente.
+		# esta linea corre cada frame para todas las figuras, asi que cualquier otro que tocara
+		# modulate por su cuenta se lo comeria al frame siguiente.
 		var col: Color = Color(1.0 + 0.6 * f, 1.0 + 0.6 * f, 1.0 + 0.6 * f)
-		if aura.has(panel):
-			col = col.lerp((aura[panel][0] as Color) * 1.35, 0.35 * float(aura[panel][1]))
-		panel.self_modulate = col
-		var p: float = punch.get(panel, 0.0)
+		if aura.has(v):
+			col = col.lerp((aura[v][0] as Color) * 1.35, 0.35 * float(aura[v][1]))
+		v.modulate = col
+		var p: float = punch.get(v, 0.0)
 		if p > 0.0:
-			panel.pivot_offset = panel.size * 0.5
-			panel.scale = Vector2.ONE * (1.0 + 0.06 * p)
-			panel.rotation = deg_to_rad(1.5 * p)
+			# El pivote, EN LOS PIES: la figura esta apoyada en el suelo del escenario, asi que un
+			# achatado tiene que hundirla, no encogerla hacia su centro dejandola flotando.
+			v.pivot_offset = Vector2(v.size.x * 0.5, v.size.y)
+			v.scale = Vector2.ONE * (1.0 + 0.06 * p)
+			v.rotation = deg_to_rad(1.5 * p)
 		else:
-			panel.scale = Vector2.ONE
-			panel.rotation = 0.0
+			v.scale = Vector2.ONE
+			v.rotation = 0.0
 
 
-# El centro de una tarjeta en coordenadas de la capa de efectos. Si el bloque esta vacio (un
-# hechizo que "cae del cielo" no tiene tarjeta de origen) devuelve un punto por encima del techo,
-# que es justo de donde tiene que venir.
+# El centro de una figura en coordenadas de la capa de efectos. Si el bloque esta vacio (un
+# hechizo que "cae del cielo" no tiene origen) devuelve un punto por encima del techo, que es justo
+# de donde tiene que venir.
 func _punto(bloque: Dictionary) -> Vector2:
 	if bloque.is_empty() or capa_numeros == null or not is_instance_valid(capa_numeros):
 		return Vector2.ZERO
-	var p: Control = bloque.get("panel")
-	if p == null or not is_instance_valid(p):
+	var v: Control = _visual(bloque)
+	if v == null:
 		return Vector2.ZERO
-	return p.get_global_rect().get_center() - capa_numeros.global_position
+	return v.get_global_rect().get_center() - capa_numeros.global_position
 
 
+# Lo ANCHO que es un objetivo, que es de donde sale el tamaño de los efectos de area (la ola, el
+# splat: ver _marcar_efectos_de_grupo). Se mide el HUECO reservado en la columna y no la figura:
+# la figura es bastante mas estrecha que su sitio, y midiendola los barridos y los pisotones
+# encogian hasta parecer otro efecto.
 func _ancho_tarjeta(bloque: Dictionary) -> float:
-	var p: Control = bloque.get("panel")
-	if p == null or not is_instance_valid(p):
-		return 120.0
-	return p.size.x
+	var hueco: Control = bloque.get("actor_wrap")
+	if hueco != null and is_instance_valid(hueco) and hueco.size.x > 1.0:
+		return hueco.size.x
+	var v: Control = _visual(bloque)
+	return v.size.x if v != null else 120.0
 
 
 # Hacia donde se lanza el que pega. La horizontal sale de los centros reales de las dos tarjetas;
@@ -1734,8 +1765,8 @@ func _direccion(pa: Control, pv: Control) -> Vector2:
 func _soltar_numero_de(ev: Dictionary) -> void:
 	if capa_numeros == null or not is_instance_valid(capa_numeros):
 		return
-	var pv: Control = ev["bv"].get("panel")
-	if pv == null or not is_instance_valid(pv):
+	var pv: Control = _visual(ev["bv"])
+	if pv == null:
 		return
 	var crit: bool = bool(ev["crit"])
 	var evadido: bool = bool(ev["evadido"])
@@ -1753,9 +1784,8 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 		lbl.add_theme_color_override("font_color", ev["color"])
 		lbl.add_theme_font_size_override("font_size", 28 if crit else 19)
 
-	# El sitio: DENTRO de la tarjeta que lo come, en su tercio alto, no pegado a su borde de
-	# arriba. La fila de enemigos esta casi tocando el techo de la pantalla, asi que naciendo en
-	# el borde y subiendo 26 px, sus numeros se salian por arriba y no se leian.
+	# El sitio: SOBRE LA FIGURA que lo come, en su tercio alto, no pegado a su borde de arriba
+	# (naciendo en el borde y subiendo 26 px, los de la fila de arriba se salian de la pantalla).
 	var r: Rect2 = pv.get_global_rect()
 	var base: Vector2 = r.get_center() - capa_numeros.global_position
 	base.y = (r.position.y + r.size.y * 0.34) - capa_numeros.global_position.y
