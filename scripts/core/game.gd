@@ -405,7 +405,21 @@ var ability_base_nivel: Dictionary:
 # alla de C sigue decayendo hasta DIMINISH_FLOOR.
 const ABILITY_CAP := 999.0
 const DIMINISH_POWER := 0.8        # <1 = curva mas suave (aguanta mas arriba)
-const DIMINISH_FLOOR := 0.15       # suelo: cerca de 999 sigues subiendo (lento, no 0)
+const DIMINISH_FLOOR := 0.15       # suelo de la zona media-alta
+# Y EL ULTIMO TRAMO, EL DE RANGO S, ES OTRA HISTORIA. El suelo de arriba era PLANO hasta el infinito:
+# a partir del punto en que la curva lo tocaba (~906) el ritmo se quedaba clavado en el 15% y ya no
+# bajaba nunca mas. Resultado: el tramo 900-999 costaba lo mismo que cualquier otro tramo de 99
+# puntos, y ademas nada frenaba al pasarse del tope -- el usuario se planto en 1024 de Resistencia
+# "sin hacer tantisimo".
+#
+# Ahora, desde ese mismo punto, el factor baja EN LINEA RECTA hasta DIMINISH_FIN al llegar a 999.
+# Dos propiedades que importan:
+#   - EL TRAMO 0-906 NO CAMBIA NI UN DECIMAL. El punto de corte no es un numero a ojo: se calcula
+#     como el sitio exacto donde la curva vale DIMINISH_FLOOR, asi que las dos mitades empalman sin
+#     escalon y toda la calibracion anterior sigue en pie (ver la memoria del ajuste holistico).
+#   - No llega a cero: rematar una habilidad tiene que ser duro, no imposible.
+# Cuesta unas 2,7 veces mas que antes recorrer el ultimo tramo.
+const DIMINISH_FIN := 0.02
 
 # --- SUBIR DE NIVEL ---
 const NIVEL_SPIKE := 0.10          # +10% al bakear las stats en la base (para que el salto se note)
@@ -9674,6 +9688,23 @@ func agilidad_speed_mult(pj: PersonajeData = null, piso: int = -1) -> float:
 # 'pj' = QUIEN entrena (null = el lider). En el combate en grupo cada uno entrena LO SUYO: el que
 # pega sube su Fuerza y el que encaja el golpe su Resistencia, aunque no sea el que llevas delante.
 # Sin el parametro, todo lo que hicieran los companeros engordaria la ficha del lider.
+# EL RITMO AL QUE SE APRENDE, segun lo que llevas avanzado EN ESTE NIVEL. Publica y en su propia
+# funcion porque la usan dos sitios que tienen que decir LO MISMO: ganar() (que es quien la aplica) y
+# cualquier herramienta que quiera dibujar la curva para calibrarla.
+#
+# Dos tramos que empalman sin escalon (ver DIMINISH_FIN):
+#   0 .. x_suelo   la curva de siempre, (1 - x)^POWER, de 1.00 hasta DIMINISH_FLOOR
+#   x_suelo .. 1   recta desde DIMINISH_FLOOR hasta DIMINISH_FIN: el tramo de rango S se gana
+func diminish_factor(del_nivel: float) -> float:
+	var x: float = clampf(del_nivel / ABILITY_CAP, 0.0, 1.0)
+	# DONDE EMPALMAN, calculado y no a ojo: el punto en que (1 - x)^POWER vale exactamente el suelo.
+	# Sacandolo de las propias constantes, tocar FLOOR o POWER no puede abrir un escalon por descuido.
+	var x_suelo: float = 1.0 - pow(DIMINISH_FLOOR, 1.0 / DIMINISH_POWER)
+	if x <= x_suelo:
+		return pow(1.0 - x, DIMINISH_POWER)
+	return lerpf(DIMINISH_FLOOR, DIMINISH_FIN, (x - x_suelo) / maxf(1.0 - x_suelo, 0.0001))
+
+
 func ganar(abil: String, reto_val: float, base: float, max_reto: float = RETO_MAX,
 		pj: PersonajeData = null) -> void:
 	var p: PersonajeData = pj if pj != null else lider()
@@ -9681,8 +9712,7 @@ func ganar(abil: String, reto_val: float, base: float, max_reto: float = RETO_MA
 		return
 	var interno: float = p.ability_internal[abil]
 	var del_nivel: float = maxf(0.0, interno - float(p.ability_base_nivel[abil]))
-	var factor: float = maxf(DIMINISH_FLOOR,
-		pow(clampf(1.0 - del_nivel / ABILITY_CAP, 0.0, 1.0), DIMINISH_POWER))
+	var factor: float = diminish_factor(del_nivel)
 	var gain: float = base * clampf(reto_val, 0.0, max_reto) * factor * desarrollo_gain_mult(abil, p)
 	p.ability_internal[abil] = interno + gain
 
@@ -9881,7 +9911,15 @@ func _derivar_visible(pj: PersonajeData = null) -> void:
 # pendiente hasta que descanses.
 func _visible_nivel(s: String, pj: PersonajeData = null) -> int:
 	var p: PersonajeData = pj if pj != null else lider()
-	return maxi(0, floori(float(p.ability_consolidado[s]) - float(p.ability_base_nivel[s])))
+	# CAPADO A 999, que es el tope de verdad y no una forma de hablar: la escala visible ES la de las
+	# letras (900-999 = S, ver Abilities.rango), asi que un 1024 no tiene rango que enseñar -- salia
+	# como S igualmente porque rango() capa por su cuenta, y la ficha cantaba un numero imposible.
+	#
+	# Aqui solo se capa lo VISIBLE. El interno sigue creciendo sin tope a proposito: es el total de
+	# por vida y es la fuente de verdad del reto y de la excelia (ver stat_total), asi que capar ahi
+	# haria que al llegar al tope de un nivel dejaras de "saber mas" para lo que viene despues.
+	return clampi(floori(float(p.ability_consolidado[s]) - float(p.ability_base_nivel[s])),
+		0, int(ABILITY_CAP))
 
 # TOTAL acumulado (oculto) de una habilidad: el interno, lo ganado hasta el ultimo golpe, este o no
 # consolidado. Es la de RETO y EXCELIA, y SOLO esa — lo que mide cuanto te queda por aprender.
