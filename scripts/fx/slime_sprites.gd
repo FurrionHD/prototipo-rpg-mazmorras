@@ -142,6 +142,10 @@ const BRILLO_B := Vector3(0.30, -0.46, 0.14)
 
 const LUNGE_DIST := 8.0            # cuanto viaja el cuerpo en la embestida, en unidades de mundo
 const BOTE := 3.1                  # cuanto se despega del suelo en el punto alto del walk
+# ENCAJAR UN GOLPE: cuanto lo empuja hacia atras el impacto (unidades de mundo, eje local -Y). Poco
+# a proposito: el encaje tiene que leerse como una SACUDIDA, no como un desplazamiento, porque en
+# combate la figura entera ya se mueve por su cuenta y dos desplazamientos a la vez se pelean.
+const ENCAJE_RETRO := 3.4
 
 # --- EL LIENZO, en multiplos del diametro del cuerpo. Los tres numeros salen de MEDIR la caja real
 # de los 192 frames (ver dev_test_slime.gd) y dejar el minimo que no recorta ni uno; calcular a mano
@@ -251,6 +255,7 @@ static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false,
 	_montar_walk(anims, corona, esc)
 	_montar_embestida(anims, corona, esc)
 	_montar_inflar(anims, corona, esc)
+	_montar_encaje(anims, corona, esc)
 	var lz: Vector2i = _lienzo(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col, corona)), lz.x, lz.y)
@@ -309,6 +314,31 @@ static func _montar_inflar(anims: Array, corona: bool, esc: float) -> void:
 			"avance": 0.0,   # no se mueve: coge aire en el sitio
 			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
 	_montar_animacion(anims, corona, esc, "inflar", false, 9.0, pose, true)
+
+
+# ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion: en la pantalla de combate al enemigo
+# se le ve siempre de frente, asi que las otras siete serian 28 imagenes que no mira nadie. Pedida
+# desde otra direccion degrada sola a la embestida (ver _on_gesto_iniciado en CombatFX).
+#
+# EMPIEZA YA GOLPEADO -- el frame 0 es el aplaston, no la pose de reposo. Un impacto no tiene
+# anticipacion: si el primer fotograma es el slime quieto, lo que se ve es un retardo, y con cuatro
+# marcos el retardo se come la animacion entera. De ahi sale por rebote (se estira pasandose), un
+# temblor corto de vuelta, y el ultimo frame ya en reposo.
+#
+# El empujon va en -Y LOCAL, o sea hacia atras de donde mira: en combate el que pega esta enfrente.
+static func _montar_encaje(anims: Array, corona: bool, esc: float) -> void:
+	# Nada baja de 0.38 de squash: por debajo el cuerpo se ensancha como 1/sqrt(squash) y el charco
+	# sale CORTADO EN SECO por los lados del lienzo (y en el Rey Slime igual, que va a escala 2.6).
+	var squash_keys := [[0.0, 0.64], [0.34, 1.18], [0.67, 0.93], [1.0, 1.0]]
+	var retro_keys := [[0.0, 1.0], [0.34, 0.55], [0.67, 0.18], [1.0, 0.0]]
+	var bote_keys := [[0.0, 0.0], [0.34, 0.45], [0.67, 0.0], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"squash": SpriteLienzo.tramos(t, squash_keys),
+			"avance": -SpriteLienzo.tramos(t, retro_keys) * ENCAJE_RETRO,
+			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
+	# 18 fps para 4 marcos = 0,22 s. Tiene que caber DENTRO de un golpe: una rafaga de seis mordiscos
+	# se ha de leer como seis sacudidas, no como un temblor continuo.
+	_montar_animacion(anims, corona, esc, "encaje", false, 18.0, pose, true, 1, 4)
 
 
 static func _montar_animacion(anims: Array, corona: bool, esc: float,
