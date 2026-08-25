@@ -59,6 +59,11 @@ var _facing: Vector2 = Vector2.DOWN
 
 # El cuerpo dibujado: la pila de capas (ver muneco_jugador.gd). Null hasta _pintar_cuerpo.
 var _muneco: MunecoJugador = null
+# Lo que le queda al espadazo del mapa. Mientras corre, manda sobre andar y sobre estar quieto.
+# Los 8 fotogramas de 'golpe' a 12 fps duran esto exacto: si se acortara, la animacion se cortaria a
+# medio tajo, y si se alargara, el personaje se quedaria clavado en el ultimo fotograma.
+const DUR_GOLPE := 8.0 / 12.0
+var _golpe_t: float = 0.0
 
 # Ataque para INICIAR combate, hacia delante. El numero es de CENTRO A CENTRO, pero lo que se filtra
 # es el HUECO entre los dos cuerpos (ver _enemigos_a_tiro): attack_range - 32 = 12 px de hueco.
@@ -375,7 +380,7 @@ func _physics_process(delta: float) -> void:
 
 	# La animacion va DESPUES de mover, con lo que de verdad ha pasado. Puesta antes, un personaje
 	# empotrado contra una pared seguiria haciendo el paso: se mueve el que EMPUJA, no el que avanza.
-	_actualizar_animacion(velocity.length() > 2.0)
+	_actualizar_animacion(velocity.length() > 2.0, delta)
 
 	# ALBOROTO: la mazmorra te oye. Correr mete ruido (llena el medidor de los brotes), ir en
 	# sigilo lo baja. El modo ya esta calculado arriba (0 sigilo, 1 andar, 2 correr).
@@ -848,10 +853,12 @@ func _pintar_cuerpo() -> void:
 #
 # Se llama en cada frame de fisica y solo hace algo cuando la animacion CAMBIA (lo filtra el propio
 # muñeco): reiniciarla cada frame la dejaria congelada en el primer fotograma.
-func _actualizar_animacion(moviendose: bool) -> void:
+func _actualizar_animacion(moviendose: bool, delta: float) -> void:
+	if _golpe_t > 0.0:
+		_golpe_t -= delta
 	if _muneco == null or not _muneco.hay_dibujo():
 		return
-	_muneco.animar(PoseJugador.animacion(_facing, movement_mode, moviendose))
+	_muneco.animar(PoseJugador.animacion(_facing, movement_mode, moviendose, _golpe_t > 0.0))
 
 
 # RASTRO de la imbuicion: cuadraditos del color del elemento que suben y se quedan atras al andar.
@@ -1168,6 +1175,11 @@ func _tick_ataque(delta: float) -> void:
 		return
 	if atk and not _attack_was:
 		_atk_hold = 0.0
+		# EL ESPADAZO SE VE AUNQUE NO ACIERTE, y ese es justo el caso que importa: si acierta, el
+		# combate se lleva la escena y no da tiempo a ver nada. Golpear al aire, en cambio, es lo que
+		# el jugador necesita distinguir de "el boton no ha respondido" -- que era exactamente la
+		# queja que llevo a que este boton avise por texto cuando el bicho esta lejos.
+		_golpe_t = DUR_GOLPE
 		if not _try_attack():
 			_atk_buffer = ATK_BUFFER
 			# Toque corto a distancia de CONJURO: no ha llegado el espadazo, pero algo se puede

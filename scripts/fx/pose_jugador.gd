@@ -52,7 +52,7 @@ const ALTO_MUNDO := 37.0
 # El lienzo es CUADRADO y del mismo lado para TODAS las capas. Cuadrado porque al girar manda la
 # diagonal, y del mismo lado porque si no, no se pueden apilar.
 #
-# El 1.45 sale de medir, no de calcular: tiene que caber el personaje entero con el arma mas larga
+# Sale de MEDIR, no de calcular: tiene que caber el personaje entero con el arma mas larga
 # (el mandoble en alto), girado en diagonal, desplazado por el paso adelante del golpe y volcado en
 # la caida de la muerte. El validador de recortes de hornear_sprites.gd es el que dice si se queda
 # corto, y avisa por capa.
@@ -262,12 +262,20 @@ static func esqueleto(anim: String, marco: int, dir: int, esc: float = 1.0) -> D
 # pedir poses a medias (con la 't' en un valor cualquiera) sin pasar por la rejilla de fotogramas.
 static func montar(pose: Dictionary, dir: int, esc: float = 1.0) -> Dictionary:
 	var agacha: float = float(pose.get("agacha", 0.0))
+	# LOS MIEMBROS SE MUEVEN EN ANGULO, EN RADIANES, Y NO EN DISTANCIA.
+	#
+	# El primer intento balanceaba los brazos moviendo la MANO hacia delante y hacia atras. Parece lo
+	# mismo y no lo es: el hombro se queda donde esta, asi que adelantar la mano cuatro unidades
+	# ALARGA el brazo y atrasarla lo encoge. Andando de lado se veia clarisimo -- un brazo un 16% mas
+	# largo que el otro, y el adelantado casi tan largo como una pierna. Girando sobre el hombro la
+	# longitud se conserva sola, no hay nada que compensar, y de propina la mano describe un arco y
+	# sube un poco al final del recorrido, que es lo que hace de verdad un brazo.
+	#
+	# Positivo = hacia DELANTE, igual que 'inclina' y 'caida'. Las piernas, lo mismo sobre la cadera.
 	var paso: float = float(pose.get("paso", 0.0))
 	var brazo: float = float(pose.get("brazo", 0.0))
 	var brazo_der: float = float(pose.get("brazo_der", brazo))
 	var brazo_izq: float = float(pose.get("brazo_izq", -brazo))
-	var alza_der: float = float(pose.get("alza_der", 0.0))
-	var alza_izq: float = float(pose.get("alza_izq", 0.0))
 	var bote: float = float(pose.get("bote", 0.0))
 	var avance: float = float(pose.get("avance", 0.0))
 	var inclina: float = float(pose.get("inclina", 0.0))
@@ -286,22 +294,37 @@ static func montar(pose: Dictionary, dir: int, esc: float = 1.0) -> Dictionary:
 	# Las piernas van en contrafase entre si, y los brazos en contrafase con las piernas: es lo que
 	# hace que andar se lea como andar y no como un muñeco deslizandose.
 	var p: Dictionary = {}
-	p[P_PIE_IZQ] = Vector3(PIE.x, PIE.y + paso * 3.6, PIE.z + maxf(0.0, paso) * 1.5)
-	p[P_PIE_DER] = Vector3(-PIE.x, PIE.y - paso * 3.6, PIE.z + maxf(0.0, -paso) * 1.5)
-	p[P_RODILLA_IZQ] = Vector3(RODILLA.x, RODILLA.y + paso * 1.7, RODILLA.z)
-	p[P_RODILLA_DER] = Vector3(-RODILLA.x, RODILLA.y - paso * 1.7, RODILLA.z)
 	p[P_CADERA] = CADERA
 	p[P_TORSO] = TORSO
-	p[P_HOMBRO_IZQ] = Vector3(HOMBRO.x, HOMBRO.y, HOMBRO.z)
-	p[P_HOMBRO_DER] = Vector3(-HOMBRO.x, HOMBRO.y, HOMBRO.z)
-	p[P_CODO_IZQ] = Vector3(CODO.x, CODO.y + brazo_izq * 2.2, CODO.z + alza_izq * 3.0)
-	p[P_CODO_DER] = Vector3(-CODO.x, CODO.y + brazo_der * 2.2, CODO.z + alza_der * 3.0)
-	# 'alza' sube la mano MUCHO mas que el codo (el brazo se dobla, no se desplaza entero): es lo que
-	# convierte el balanceo de andar en un arma levantada por encima del hombro.
-	p[P_MANO_IZQ] = Vector3(MANO.x, MANO.y + brazo_izq * 4.4, MANO.z + alza_izq * 11.0)
-	p[P_MANO_DER] = Vector3(-MANO.x, MANO.y + brazo_der * 4.4, MANO.z + alza_der * 11.0)
 	p[P_CUELLO] = CUELLO
 	p[P_CABEZA] = CABEZA
+
+	# LOS BRAZOS: giran RIGIDOS sobre su hombro. Rigidos (codo y mano giran lo mismo) y no articulados
+	# porque a este tamaño de pixel un codo doblado son dos celdas de diferencia que nadie ve, y a
+	# cambio la longitud queda garantizada por construccion en vez de depender de que los numeros
+	# cuadren. Un brazo que cambia de largo es lo primero que se nota, y no hay forma de no verlo una
+	# vez visto.
+	for lado in 2:
+		var s: float = 1.0 if lado == 0 else -1.0          # 0 = izquierdo (+x), 1 = derecho (-x)
+		var a: float = brazo_izq if lado == 0 else brazo_der
+		var hombro := Vector3(s * HOMBRO.x, HOMBRO.y, HOMBRO.z)
+		p[P_HOMBRO_IZQ if lado == 0 else P_HOMBRO_DER] = hombro
+		p[P_CODO_IZQ if lado == 0 else P_CODO_DER] = _girar_miembro(
+			Vector3(s * CODO.x, CODO.y, CODO.z), hombro, a)
+		p[P_MANO_IZQ if lado == 0 else P_MANO_DER] = _girar_miembro(
+			Vector3(s * MANO.x, MANO.y, MANO.z), hombro, a)
+
+	# LAS PIERNAS: lo mismo sobre la cadera de su lado. Y aqui la rotacion trae de regalo algo que
+	# antes habia que falsear a mano: el pie SUBE al final de la zancada, porque va por un arco y no
+	# por una linea recta. Estaba puesto con un 'maxf(0, paso) * 1.5' que era justo eso, aproximado.
+	for lado in 2:
+		var s2: float = 1.0 if lado == 0 else -1.0
+		var a2: float = paso if lado == 0 else -paso
+		var cad := Vector3(s2 * PIE_X, 0.0, CADERA.z)
+		p[P_RODILLA_IZQ if lado == 0 else P_RODILLA_DER] = _girar_miembro(
+			Vector3(s2 * RODILLA.x, RODILLA.y, RODILLA.z), cad, a2)
+		p[P_PIE_IZQ if lado == 0 else P_PIE_DER] = _girar_miembro(
+			Vector3(s2 * PIE.x, PIE.y, PIE.z), cad, a2)
 
 	# --- Deformaciones que afectan al cuerpo entero ---
 	# INCLINARSE es una vuelta del TRONCO sobre la cadera; CAERSE es una vuelta de TODO sobre los
@@ -362,6 +385,20 @@ static func montar(pose: Dictionary, dir: int, esc: float = 1.0) -> Dictionary:
 # la cuenta salio de copiar una rotacion estandar sin pensar que aqui +Y es "hacia donde mira" -- y
 # el resultado fue que el personaje corria echado hacia ATRAS, con el pecho sacado. Se ve enseguida
 # cuando lo sabes y no se ve en absoluto cuando no: parece una postura rara y no un signo cambiado.
+# Lo mismo, pero para un MIEMBRO QUE CUELGA, y con el signo puesto del derecho.
+#
+# Existe por una trampa de signos que garantiza un fallo si no se le pone nombre: 'girar_yz' gira el
+# cuerpo rigido alrededor del pivote, asi que un angulo positivo lleva hacia delante lo que esta
+# ARRIBA del pivote (el tronco sobre la cadera, que es para lo que nacio). Un brazo cuelga POR
+# DEBAJO del hombro, asi que ese mismo angulo positivo le manda la mano hacia ATRAS. Es correcto y
+# es lo contrario de lo que espera quien escribe una pose.
+#
+# Aqui positivo = la mano o el pie van HACIA DELANTE, que es lo unico que se quiere pensar al
+# escribir un ciclo de andar.
+static func _girar_miembro(v: Vector3, pivote: Vector3, ang: float) -> Vector3:
+	return _girar_yz(v, pivote, -ang)
+
+
 static func _girar_yz(v: Vector3, pivote: Vector3, ang: float) -> Vector3:
 	var dy: float = v.y - pivote.y
 	var dz: float = v.z - pivote.z
@@ -524,7 +561,7 @@ static func _pose(anim: String, t: float) -> Dictionary:
 # Quieto: respira. Nada mas. La tentacion es animarlo mas, y es un error -- el idle es lo que mas
 # tiempo esta en pantalla y cualquier gesto llamativo cansa en diez segundos.
 static func _pose_idle(t: float) -> Dictionary:
-	return {"bote": 0.22 * sin(TAU * t), "brazo": 0.06 * sin(TAU * t),
+	return {"bote": 0.22 * sin(TAU * t), "brazo": 0.035 * sin(TAU * t),
 		"inclina": 0.02 * sin(TAU * t)}
 
 
@@ -546,13 +583,13 @@ static func _pose_idle(t: float) -> Dictionary:
 # "sigilo" es el conjunto bajando, no la postura forzada.
 static func _pose_sigilo(t: float) -> Dictionary:
 	return {"agacha": 0.44, "inclina": 0.18, "bote": 0.08 * sin(TAU * t),
-		"paso": 0.40 * sin(TAU * t), "brazo": 0.18 * sin(TAU * t)}
+		"paso": 0.20 * sin(TAU * t), "brazo": 0.10 * sin(TAU * t)}
 
 
 # Andando. Los brazos van en contrafase con las piernas y el cuerpo sube dos veces por ciclo (una
 # por pisada), no una: es lo que separa un paso de un balanceo de barca.
 static func _pose_walk(t: float) -> Dictionary:
-	return {"paso": sin(TAU * t), "brazo": sin(TAU * t),
+	return {"paso": 0.42 * sin(TAU * t), "brazo": 0.30 * sin(TAU * t),
 		"bote": 0.34 * absf(sin(TAU * t)), "inclina": 0.05}
 
 
@@ -560,9 +597,9 @@ static func _pose_walk(t: float) -> Dictionary:
 # Poner la animacion de andar a x1.7 se ve mal y ademas miente sobre lo que estas haciendo -- correr
 # gasta aguante y hace ruido, asi que tiene que notarse.
 static func _pose_correr(t: float) -> Dictionary:
-	# El brazo se queda por debajo de la zancada: pasado de 1.0, la mano sube por encima del hombro y
-	# lo que se ve es alguien haciendo aspavientos, no corriendo. Las piernas si pueden abrirse.
-	return {"paso": 1.45 * sin(TAU * t), "brazo": 0.95 * sin(TAU * t),
+	# El brazo se queda por debajo de la zancada: pasado de medio radian la mano sube por encima del
+	# hombro y lo que se ve es alguien haciendo aspavientos, no corriendo. Las piernas si se abren.
+	return {"paso": 0.62 * sin(TAU * t), "brazo": 0.48 * sin(TAU * t),
 		"bote": 0.70 * absf(sin(TAU * t)), "inclina": 0.26,
 		"agacha": 0.08 + 0.05 * sin(TAU * t * 2.0)}
 
@@ -576,13 +613,15 @@ static func _pose_correr(t: float) -> Dictionary:
 # El paso adelante es corto y vuelve: el jugador no se desplaza de verdad al atacar -- lo hace el
 # cono de ataque de player.gd --, asi que la animacion no puede dejarlo descolocado al acabar.
 static func _pose_golpe(t: float) -> Dictionary:
-	var alza_keys := [[0.0, 0.0], [0.30, 1.0], [0.45, 0.95], [0.62, -0.55], [0.80, -0.30], [1.0, 0.0]]
-	var brazo_keys := [[0.0, 0.0], [0.30, -0.85], [0.45, -0.70], [0.62, 1.30], [0.80, 0.70], [1.0, 0.0]]
+	# EN RADIANES, y con un recorrido MUCHO mayor que el de andar: el brazo se va hacia atras y hacia
+	# arriba (negativo, casi un cuarto de vuelta larga) y de ahi baja de golpe hacia delante. Con el
+	# giro no hay que subir la mano a mano como antes: levantarla ES el mismo angulo pasado de largo.
+	var brazo_keys := [[0.0, 0.0], [0.30, -2.35], [0.45, -2.15], [0.62, 0.95], [0.80, 0.55], [1.0, 0.0]]
 	var avance_keys := [[0.0, 0.0], [0.30, -0.8], [0.45, -0.6], [0.62, 2.2], [0.80, 1.4], [1.0, 0.0]]
 	var inclina_keys := [[0.0, 0.05], [0.30, -0.16], [0.45, -0.12], [0.62, 0.34], [0.80, 0.22], [1.0, 0.05]]
-	return {"alza_der": SpriteLienzo.tramos(t, alza_keys),
-		"brazo_der": SpriteLienzo.tramos(t, brazo_keys),
-		"brazo_izq": -0.15 * SpriteLienzo.tramos(t, brazo_keys),
+	return {"brazo_der": SpriteLienzo.tramos(t, brazo_keys),
+		# El izquierdo apenas acompaña: es el que sujeta el escudo.
+		"brazo_izq": -0.08 * SpriteLienzo.tramos(t, brazo_keys),
 		"avance": SpriteLienzo.tramos(t, avance_keys),
 		"inclina": SpriteLienzo.tramos(t, inclina_keys),
 		"agacha": 0.10}
@@ -601,8 +640,8 @@ static func _pose_encaje(t: float) -> Dictionary:
 	return {"avance": -SpriteLienzo.tramos(t, retro_keys) * 2.2,
 		"agacha": SpriteLienzo.tramos(t, agacha_keys),
 		"inclina": SpriteLienzo.tramos(t, incl_keys),
-		"brazo_der": 0.5 * SpriteLienzo.tramos(t, retro_keys),
-		"brazo_izq": 0.5 * SpriteLienzo.tramos(t, retro_keys)}
+		"brazo_der": -0.35 * SpriteLienzo.tramos(t, retro_keys),
+		"brazo_izq": -0.35 * SpriteLienzo.tramos(t, retro_keys)}
 
 
 # MORIRSE. Ocho marcos en UNA direccion (en combate se te ve de frente).
@@ -649,5 +688,5 @@ static func _pose_muerte(t: float) -> Dictionary:
 		"apoyo": SpriteLienzo.tramos(t, apoyo_keys),
 		"agacha": SpriteLienzo.tramos(t, agacha_keys),
 		"rumbo": SpriteLienzo.tramos(t, rumbo_keys) * PI * 0.5,
-		"brazo_der": -0.7 * (1.0 - flojo), "brazo_izq": -0.5 * (1.0 - flojo),
-		"paso": 0.35 * flojo}
+		"brazo_der": -0.45 * (1.0 - flojo), "brazo_izq": -0.32 * (1.0 - flojo),
+		"paso": 0.22 * flojo}
