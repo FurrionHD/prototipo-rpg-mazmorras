@@ -94,17 +94,22 @@ const LIENZO_FACTOR := 1.60
 # se cuelga de HOMBRO y una bota de PIE. Cambiar un numero de aqui mueve el cuerpo Y todo lo que
 # lleve puesto a la vez, que es justo lo que se quiere.
 #
-# EL REPARTO ES CABEZON, no anatomico: la cabeza se lleva el 35% de arriba (de 39 a 60) y en el 60%
-# que queda entran un tronco corto y unas piernas cortas. Es la proporcion de las referencias del
+# EL REPARTO ES CABEZON, no anatomico, y esta MEDIDO de las referencias (ver dev_medir_ref.gd):
+#
+#     cabeza 43%   ·   tronco 22%   ·   piernas 35%
+#
+# LAS PIERNAS SON LA MITAD DEL CUERPO, y eso es lo que se hacia mal: estaban en el 25% con un tronco
+# del 33%, o sea justo al reves, y el personaje salia rechoncho -- una cabeza enorme sobre un barril
+# con dos muñones. En este estilo el tronco es CORTO y las piernas LARGAS. Es la proporcion de las referencias del
 # genero, y no es un capricho de estilo -- a este tamaño de pixel la cabeza es lo unico que
 # identifica al personaje desde arriba, asi que darle sitio a ella y quitarselo al tronco es repartir
 # los pixeles donde se miran.
 
-const PIE_X := 3.4                                  # separacion de cada pie respecto al eje
+const PIE_X := 3.0                                  # separacion de cada pie respecto al eje
 const PIE := Vector3(PIE_X, 1.2, 2.4)
-const RODILLA := Vector3(PIE_X, 0.0, 11.0)
-const CADERA := Vector3(0.0, 0.0, 22.0)             # el pivote de todo el tronco
-const TORSO := Vector3(0.0, 0.0, 31.0)
+const RODILLA := Vector3(PIE_X, 0.0, 12.0)
+const CADERA := Vector3(0.0, 0.0, 24.0)             # el pivote de todo el tronco
+const TORSO := Vector3(0.0, 0.0, 28.5)
 # LOS HOMBROS VAN JUSTO POR FUERA DEL ANCHO DEL PECHO, y esto ESTUVO AL REVES.
 #
 # La version anterior los metia DENTRO (4.9 de hombro contra 5.1 de medio pecho) para que los brazos
@@ -113,12 +118,12 @@ const TORSO := Vector3(0.0, 0.0, 31.0)
 # trozo distinto en cada fotograma. El sintoma no se parecia a la causa -- se leia como "el brazo de
 # atras cambia de largo", cuando lo que cambiaba era cuanto se lo tragaba el pecho.
 #
-# Con el hombro un pelin por fuera del pecho (8.8 contra 6.8 de CuerpoSprites.R_TORSO.x, o sea DOS unidades por fuera), el brazo
+# Con el hombro un pelin por fuera del pecho (9.8 contra 8.8 de CuerpoSprites.R_TORSO.x), el brazo
 # asoma SIEMPRE por el costado y su longitud visible deja de depender de la pose. Lo que hacia falta
 # para poder permitirselo era el tamaño: a 37 unidades ese margen medio era medio pixel y no separaba
 # nada.
-const HOMBRO := Vector3(8.8, 0.0, 37.0)
-const CODO := Vector3(9.0, 0.8, 31.0)
+const HOMBRO := Vector3(9.8, 0.0, 32.5)
+const CODO := Vector3(10.2, 0.8, 26.5)
 # La mano en reposo cae por delante del cuerpo, no pegada al muslo: es de donde cuelga el arma, y
 # pegada al costado el arma se metia DENTRO de la pierna en cuanto el personaje se giraba de lado.
 #
@@ -132,7 +137,7 @@ const CODO := Vector3(9.0, 0.8, 31.0)
 # pixel entre las dos. Lo que se veia no era un hueco sino UNA MOTA OSCURA en cada cadera -- porque
 # 'contornear' rodea de borde todo agujero, y un agujero de un pixel es un punto negro. Parecian dos
 # lunares simetricos y eran dos manos sin agarrar.
-const MANO := Vector3(7.4, 2.6, 24.0)
+const MANO := Vector3(8.6, 2.6, 21.5)
 # EL CUELLO ES CASI TODO INTERIOR: solo asoman dos unidades entre el pecho y la barbilla.
 #
 # ASOMABA SEIS Y ERA UN CUELLO DE JIRAFA. Los hombros estaban en 33 y la barbilla en 39,4, o sea que
@@ -144,9 +149,9 @@ const MANO := Vector3(7.4, 2.6, 24.0)
 # centesimas del pecho -- solidos en el papel, un pixel de aire en la pantalla --, y al correr, con
 # el tronco inclinado, ese pixel se abria y la cabeza se iba flotando. Sale en el validador de islas
 # del horno como un trozo suelto, que es la cabeza entera. Tiene que SOLAPAR, no rozar.
-const CUELLO := Vector3(0.0, 0.0, 38.0)
-const CABEZA := Vector3(0.0, 0.5, 49.5)
-# LA CABEZA SE LLEVA EL 35% DEL ALTO. Una persona de verdad es un septimo; esto son DOS CABEZAS Y
+const CUELLO := Vector3(0.0, 0.0, 34.0)
+const CABEZA := Vector3(0.0, 0.5, 47.2)
+# LA CABEZA SE LLEVA EL 43% DEL ALTO. Una persona de verdad es un septimo; esto son DOS CABEZAS Y
 # MEDIA de cuerpo, o sea proporcion de muñeco. Es deliberado y por tres motivos que apuntan al mismo
 # sitio:
 #   * es lo que IDENTIFICA al personaje en el mapa, donde de un vistazo solo se ve la coronilla;
@@ -154,14 +159,25 @@ const CABEZA := Vector3(0.0, 0.5, 49.5)
 #   * es donde ira el pelo y el casco, que es de donde sacan su silueta los personajes de este
 #     estilo -- en las referencias, el volumen de la cabeza es sobre todo PELO.
 #
-# VA EN EL 35% Y NO EN EL 40% QUE MIDEN LAS REFERENCIAS, y es por eso ultimo: en ellas ese 40% ya
-# incluye el pelo, y aqui el pelo todavia no existe. Una bola de piel del 40% sin nada encima no se
-# lee como una cabeza grande, se lee como un huevo. Cuando entre la capa de pelo, el volumen que
-# falta lo pone ella y la proporcion llega sola a la de las referencias.
+# EL 43% NO ES A OJO: ESTA MEDIDO. Se pasaron cuatro hojas de referencia del estilo que se busca
+# (cuerpos base desnudos, sin pelo ni ropa) y se midieron una a una:
+#
+#     vista        alto    ancho   cabeza
+#     3/4          60 px   25 px    42%
+#     de frente    63 px   31 px    43%
+#     de perfil    54 px   24 px    43%
+#     de frente    51 px   28 px    47%
+#
+# Antes esto estaba en el 35%, con el razonamiento de que las referencias llegan al 40% "porque
+# incluyen el PELO" y aqui el pelo no existe todavia. Era falso, y medirlo lo dejo claro: esas
+# referencias son cuerpos DESNUDOS y aun asi van al 43%. El pelo suma volumen por encima, no
+# sustituye a la cabeza.
+#
+# Moraleja para la proxima: una referencia se MIDE (ver dev_medir_ref.gd), no se estima mirandola.
 #
 # Y es lo que permite que el cuerpo entero sea mas pequeño sin perder nada (ver ALTO_MUNDO): la
 # cabeza a 12 de radio sobre 60 es MAS grande en pixeles que la de 9.2 sobre 74.
-const CABEZA_R := 10.5                              # 49.5 + 10.5 = 60.0, o sea ALTO_MUNDO
+const CABEZA_R := 12.8                              # 47.2 + 12.8 = 60.0, o sea ALTO_MUNDO
 
 # Nombres de los puntos que publica 'esqueleto'. Van como StringName y no como texto suelto para
 # que una errata sea un fallo al momento y no un punto en el (0,0,0) -- que es lo que se ve cuando

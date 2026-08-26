@@ -67,23 +67,24 @@ const CLAVE := "cuerpo"
 # tamaño de pixel, lo fiel se lee peor que lo legible.
 const R_CUELLO := 2.8
 const R_CABEZA := PoseJugador.CABEZA_R
-# EL PECHO ES MAS ESTRECHO QUE LOS HOMBROS (6.8 contra los 8.8 de PoseJugador.HOMBRO.x), y eso es
+# EL PECHO ES MAS ESTRECHO QUE LOS HOMBROS (8.8 contra los 9.8 de PoseJugador.HOMBRO.x), y eso es
 # deliberado, y por DOS unidades enteras y no por un pelo: con el hombro justo en el filo del pecho
 # el brazo se quedaba medio enterrado dentro del tronco y lo que se veia era un bulto con manchas a
 # los lados. Tiene que COLGAR por fuera, como en las referencias.
 # Ver la nota de HOMBRO en pose_jugador.gd -- el brazo tiene que asomar por el costado SIEMPRE, y su
 # largo visible no puede depender de cuanto se lo trague el pecho en esta pose.
 #
-# Y MAS ESTRECHO QUE LA CABEZA (13,6 de ancho contra 21). Es lo que hace que la proporcion se lea como
+# Y MAS ESTRECHO QUE LA CABEZA (17,6 de ancho contra 25,6), que es lo medido en las referencias:
+# de frente, el tronco es poco mas de la mitad del ancho de la cabeza. Es lo que hace que la proporcion se lea como
 # cabezona en vez de como un saco: la cabeza manda y el cuerpo cuelga de ella. Un intento anterior
 # puso el pecho practicamente del ancho de la cabeza y el resultado era un bulto uniforme del que
 # salian cuatro cosas.
-const R_TORSO := Vector3(6.8, 5.0, 6.2)      # el pecho: ancho, de fondo, de alto
+const R_TORSO := Vector3(8.8, 5.6, 5.5)      # el pecho: ancho, de fondo, de alto
 # LA CADERA VA CLARAMENTE MAS ESTRECHA QUE EL PECHO, y hace falta decirlo porque un intento la puso
 # casi igual y el resultado era un personaje SIN CINTURA: las dos elipses se solapaban en un unico
 # bulto que iba del cuello a los muslos, y de lejos se leia como un saco. Que se estreche por en
 # medio es lo que dice que eso es un torso y no un tonel.
-const R_CADERA := Vector3(5.8, 4.2, 4.6)
+const R_CADERA := Vector3(6.6, 4.6, 4.0)
 #
 # Y LOS MIEMBROS TIENEN UN GROSOR MINIMO QUE NO ES ANATOMICO, ES DE PIXELES. Una celda mide 1,15
 # unidades de mundo, asi que un brazo de radio 1,15 se dibuja con DOS pixeles de ancho: no se lee
@@ -94,14 +95,14 @@ const R_CADERA := Vector3(5.8, 4.2, 4.6)
 # Y el minimo real es MAS ALTO de lo que parece por el contorno: un miembro de tres pixeles de ancho
 # es TODO CONTORNO Y NADA DE RELLENO (ver 'colores'), asi que ademas de leerse fino se lee del color
 # del borde. Ese es el motivo de fondo por el que el personaje crecio: a 37 unidades de alto no
-# habia numero que arreglara esto. Con R_BRAZO = 3.6 el brazo mide seis celdas de ancho, o sea dos
-# de contorno y CUATRO de carne. Menos que eso y la linea interior se come el relleno.
+# habia numero que arreglara esto. Con R_BRAZO = 3.0 el brazo mide cinco celdas de ancho, o sea dos
+# de contorno y TRES de carne, que es lo que miden los brazos de las hojas de referencia.
 const R_MUSLO := 3.2
-const R_PANTORRILLA := 2.6
+const R_PANTORRILLA := 2.8
 const R_PIE := Vector3(2.0, 3.2, 1.5)
-const R_BRAZO := 3.6
-const R_ANTEBRAZO := 3.0
-const R_MANO := 3.1
+const R_BRAZO := 3.0
+const R_ANTEBRAZO := 2.6
+const R_MANO := 2.8
 
 # Cuanta diferencia de profundidad tiene que haber entre los dos hombros para dar por hecho que UNO
 # ESTA DELANTE DEL OTRO y pintarlos de tonos distintos. En unidades de mundo.
@@ -119,6 +120,16 @@ const SEPARACION_BRAZOS := 2.0
 # literalmente su grosor. TIENE QUE PASAR DE UNA CELDA (1,15): con 0,9 el anillo mide menos de un
 # pixel y la rejilla lo dibuja A TROZOS -- el brazo salia con un borde dentado, como una cremallera.
 const LINEA := 1.2
+# DONDE EMPIEZA la linea del brazo, en fraccion del tramo hombro->codo.
+#
+# NO EN EL HOMBRO, Y ESTE ES EL NUMERO QUE MAS SE NOTA. Un anillo que rodea el brazo ENTERO le pinta
+# una raya por el sitio exacto donde deberia estar pegado al cuerpo, y el resultado es un brazo
+# CORTADO: parece una pieza suelta apoyada en el hombro en vez de un brazo que sale de el.
+#
+# En las hojas de referencia la linea acompaña el contorno del brazo pero se abre arriba y deja la
+# juntura limpia. Empezando a media manga se consigue lo mismo: el brazo se distingue del pecho y
+# ademas nace de el.
+const LINEA_DESDE := 0.5
 # La mano crece MENOS que el resto del brazo. Es lo mas gordo de la cadena y cae justo a la altura
 # de la cadera, que es la parte estrecha del cuerpo: con el crecimiento entero, su anillo se leia
 # como un manchurron en cada cadera en vez de como el canto de una mano.
@@ -141,28 +152,29 @@ static func clave() -> String:
 # El color de cada tono, EN EL ORDEN DEL ENUM. Estos son los colores DEFINITIVOS: esta capa no se
 # tiñe (ver la cabecera), asi que lo que se hornea aqui es lo que se ve en pantalla.
 static func colores() -> Array:
-	# EL CONTORNO NO PUEDE SER NEGRO, y eso solo se ve en el juego. 'contornear' marca toda celda que
-	# toque el vacio, asi que en una pieza GRUESA -- un slime -- el contorno es una linea alrededor de
-	# mucho relleno, pero en un miembro fino son dos celdas de contorno y una de relleno: el brazo
-	# entero se vuelve del color del contorno. Con el contorno en casi negro, el personaje salia como
-	# un tronco con cuatro palos negros colgando.
+	# ESTOS COLORES ESTAN MEDIDOS, NO ELEGIDOS. Salen de contar pixeles en las hojas de referencia del
+	# estilo que se busca (ver dev_paleta_ref.gd): en ellas el 77% del dibujo son seis colores, y estos
+	# son esos seis. Antes estaban puestos a ojo y el personaje se veia LAVADO -- el contorno era tres
+	# veces mas claro que el de la referencia y la sombra apenas bajaba del tono base.
 	#
-	# Va MARRON CALIDO y no gris por lo mismo que en cualquier dibujo de piel: un contorno neutro al
-	# lado de la carne se lee sucio, como si el personaje estuviera manchado de hollin. Es el mismo
-	# color de la piel llevado a oscuro, no un negro rebajado.
-	# LA LINEA INTERIOR (SOMBRA) VA CERCA DEL CONTORNO, NO CERCA DE LA PIEL. En las referencias del
-	# genero la raya que separa el brazo del pecho es claramente oscura: es una linea de dibujo, no un
-	# sombreado. Puesta suave no separa nada y sobra; puesta en el tono del BORDE se lee como un
-	# garabato negro cruzando el cuerpo (ya paso). Este es el primer numero a mover si sale dura.
+	# La escalera de luminancia, que es lo que de verdad importa:
+	#     BORDE 0,09  ·  CALZADO 0,24  ·  SOMBRA 0,40  ·  PIEL_S 0,58  ·  PIEL 0,78  ·  PIEL_L 0,84
+	#
+	# EL CONTORNO SI PUEDE SER CASI NEGRO, y aqui habia escrito lo contrario. La nota decia que un
+	# borde oscuro se come los miembros finos, y era CIERTA -- cuando el personaje media 37 unidades y
+	# un brazo salia de tres pixeles, todo el brazo era contorno. Pero el arreglo de aquello no era
+	# aclarar el borde, era engordar el brazo: con cinco pixeles de ancho hay dos de contorno y tres de
+	# carne, y entonces el borde oscuro es justo lo que hace que la silueta se lea. Las referencias lo
+	# confirman: usan casi negro.
 	return [
 		Color(0, 0, 0, 0),                # VACIO
 		Color(0, 0, 0, 0.20),             # SOMBRA_SUELO
-		Color(0.42, 0.24, 0.22),          # BORDE
-		Color(0.45, 0.28, 0.22),          # CALZADO
-		Color(0.62, 0.36, 0.32),          # SOMBRA
-		Color(0.87, 0.62, 0.55),          # PIEL_S
-		Color(0.96, 0.75, 0.67),          # PIEL
-		Color(1.00, 0.85, 0.78),          # PIEL_L
+		Color(0.18, 0.07, 0.05),          # BORDE     #2E1210
+		Color(0.35, 0.20, 0.12),          # CALZADO   #593320
+		Color(0.58, 0.33, 0.27),          # SOMBRA    #955446  (la linea interior)
+		Color(0.78, 0.52, 0.40),          # PIEL_S    #C88466
+		Color(0.97, 0.72, 0.55),          # PIEL      #F8B88C
+		Color(0.99, 0.81, 0.64),          # PIEL_L    #FCCEA4
 	]
 
 
@@ -205,14 +217,19 @@ static func pintar(esq: Dictionary, piezas: Array) -> void:
 	# Mirando al sur (o al norte) los dos hombros estan a la misma distancia de la camara -- los brazos
 	# cuelgan uno a cada lado, ninguno tapa al otro --, y ahi pintar uno claro y otro oscuro seria el
 	# fallo que ya se arreglo una vez: el personaje con un brazo distinto del otro sin ningun motivo.
-	# Asi que los DOS van a PIEL_S, un escalon por debajo del tronco: simetricos y separados.
+	# Asi que de frente los DOS van del MISMO tono que el tronco, y lo que los separa es su LINEA
+	# INTERIOR. Es lo que hacen las hojas de referencia: de frente el brazo y el pecho son la misma
+	# carne, y entre medias solo hay una raya.
 	#
-	# (Lo que NO vale es dejarlos en PIEL, el tono del tronco. Se probo con el razonamiento "de frente
-	# lo que los separa es que ASOMAN por fuera", y era falso: asoman tres pixeles, y de frente el
-	# brazo desaparecia dentro del pecho.)
+	# SE PROBARON LOS DOS EXTREMOS Y LOS DOS SE VEN MAL, asi que conviene dejarlo escrito:
+	#   * los dos brazos en PIEL sin linea -> desaparecen dentro del pecho (asoman tres pixeles, y
+	#     tres pixeles de bulto no dicen "brazo");
+	#   * los dos en PIEL_S, un escalon por debajo del tronco -> se leen como DOS BULTOS OSCUROS
+	#     pegados a los costados, y el personaje parece llevar algo colgado en vez de tener brazos.
+	# Lo que funciona es el mismo tono + la raya, que es justo lo que hace la referencia.
 	var de_lado: bool = absf(brazo_izq_prof - brazo_der_prof) > SEPARACION_BRAZOS
 	var tono_fondo: int = Tono.PIEL_S
-	var tono_frente: int = Tono.PIEL_L if de_lado else Tono.PIEL_S
+	var tono_frente: int = Tono.PIEL_L if de_lado else Tono.PIEL
 
 	# 1. EL BRAZO DEL FONDO, cuando de verdad hay uno al fondo. Va antes que todo porque lo tapa hasta
 	#    el tronco, y por eso NO lleva linea interior: no se le ve el borde contra nada.
@@ -239,8 +256,12 @@ static func pintar(esq: Dictionary, piezas: Array) -> void:
 	# 4. Cuello y cabeza.
 	# El cuello va LARGO a proposito (ver PoseJugador.CUELLO): tiene que solapar de verdad con el
 	# pecho por abajo y con la cabeza por arriba, no rozarlos.
+	# EL CUELLO VA DEL MISMO TONO QUE EL TRONCO. En PIEL_S se leia como una BANDA OSCURA entre la
+	# cabeza y el cuerpo -- una juntura dura, como si la cabeza fuera una pieza encajada. En las
+	# referencias no hay tono de cuello: la cabeza y el cuerpo son la misma carne y lo unico que los
+	# separa es el estrechamiento de la silueta.
 	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CUELLO],
-		Vector3(R_CUELLO, R_CUELLO, 3.0), Tono.PIEL_S)
+		Vector3(R_CUELLO, R_CUELLO, 3.0), Tono.PIEL)
 	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CABEZA],
 		Vector3(R_CABEZA, R_CABEZA * 0.90, R_CABEZA * 0.96), Tono.PIEL)
 	# NO LLEVA REALCE EN LA CORONILLA, y esto se probo y se quito.
@@ -350,8 +371,10 @@ static func _brazo(piezas: Array, esq: Dictionary, izq: bool, tono: int,
 	var arranque := Vector3(hombro.x * 0.88, hombro.y, hombro.z - 2.0)
 	if linea and not sobre.is_empty():
 		var o := {"solo_sobre": sobre}
-		PoseJugador.cadena(piezas, esq, arranque, codo,
-			R_BRAZO + LINEA, R_ANTEBRAZO + LINEA, Tono.SOMBRA, o)
+		# Desde media manga, NO desde el hombro: ver LINEA_DESDE. Cerrarla arriba corta el brazo.
+		var desde: Vector3 = arranque.lerp(codo, LINEA_DESDE)
+		PoseJugador.cadena(piezas, esq, desde, codo,
+			lerpf(R_BRAZO, R_ANTEBRAZO, LINEA_DESDE) + LINEA, R_ANTEBRAZO + LINEA, Tono.SOMBRA, o)
 		PoseJugador.cadena(piezas, esq, codo, mano,
 			R_ANTEBRAZO + LINEA, R_ANTEBRAZO * 0.92 + LINEA, Tono.SOMBRA, o)
 		var m: float = R_MANO + LINEA_MANO
