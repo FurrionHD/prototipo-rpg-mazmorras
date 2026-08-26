@@ -381,6 +381,21 @@ func _physics_process(delta: float) -> void:
 	# invariante de que correr es siempre mas rapido que andar, lleves lo que lleves encima.
 	speed *= Game.estados_speed_mult_grupo()
 
+	# PLANTADO MIENTRAS DAS EL ESPADAZO. Dar y andar a la vez no es que quede feo: es que MIENTE.
+	# La animacion de golpe ocupa el cuerpo entero (ver PoseJugador.animacion, que devuelve "golpe_N"
+	# y pisa al "walk_N"), asi que mientras atacabas las piernas se quedaban quietas y el personaje se
+	# deslizaba por el suelo como si patinara.
+	#
+	# Se planta el cuerpo entero y no solo las piernas porque la otra salida -- dejar que las piernas
+	# sigan andando durante el golpe -- pide una animacion que no existe: son ocho fotogramas de
+	# cuerpo completo, no un tren de arriba y otro de abajo.
+	#
+	# CUESTA DUR_GOLPE (0,67 s) Y SE PAGA TAMBIEN AL FALLAR, que es lo que hay que vigilar al jugarlo:
+	# si al golpear al aire se siente pegajoso, el numero a mover son los fps de la animacion 'golpe'
+	# en PoseJugador.ANIMS (y DUR_GOLPE con ellos, que es su duracion exacta).
+	if _golpe_t > 0.0:
+		direction = Vector2.ZERO
+
 	velocity = direction * speed
 	move_and_slide()
 
