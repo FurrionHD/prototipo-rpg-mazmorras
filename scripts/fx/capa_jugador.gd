@@ -170,6 +170,6 @@ static func grises(borde := 0.20, sombra := 0.42, base := 0.62, luz := 0.80, bri
 #
 # No lleva escorzo a mano: con altura cero, la proyeccion de PoseJugador.poner ya la deja aplastada
 # en cos(45), que es exactamente lo que le toca a una mancha tumbada en el suelo.
-static func sombra_suelo(piezas: Array, esq: Dictionary, rx: float = 5.6, ry: float = 3.4) -> void:
+static func sombra_suelo(piezas: Array, esq: Dictionary, rx: float = 11.2, ry: float = 6.8) -> void:
 	PoseJugador.poner(piezas, esq, Vector3.ZERO, Vector3(rx, ry, 0.0), T_SOMBRA_SUELO,
 		{"en_suelo": true, "gira": false})

@@ -120,9 +120,10 @@ var _barras: Array = []
 # menus son muchos y cualquiera que se olvidara de llamar dejaria el sequito o las barras a medias.
 var _grupo_visto: Array = []
 
-# Lado del cuerpo en px (el ColorRect de player.tscn va de -16 a 16). Lo usa el rastro de la
-# imbuicion para saber a que altura llegan los cuadraditos.
-const LADO_CUERPO := 32.0
+# Alto del cuerpo DIBUJADO en px (ver PoseJugador.ALTO_MUNDO). Lo usa el rastro de la imbuicion para
+# saber hasta donde suben los cuadraditos: iba en 32 cuando el personaje era un ColorRect de 32x32, y
+# con el dibujo al doble el rastro le llegaba por la cintura.
+const LADO_CUERPO := 74.0
 # Emisor del rastro de imbuicion del LIDER (null = no lleva ninguna).
 var _fx_imbue: CPUParticles2D = null
 # Los elementos imbuidos de TODO el grupo, en orden, tal y como estaban en el ultimo repintado. Es
@@ -838,6 +839,11 @@ func _pintar_cuerpo() -> void:
 		# El tinte y el metal son los MISMOS que ya elegiste: no hay ajuste nuevo que tocar, solo
 		# que ahora en vez de pintar un cuadrado pintan una persona.
 		_muneco.tenir(Game.player_color, Game.player_metalico)
+		# TU IMAGEN, EN LA CABEZA. Es la misma que ya se pintaba en el ColorRect de respaldo (la
+		# linea de abajo), solo que ahora va donde tiene que ir. Sin esta llamada el muñeco tapa el
+		# ColorRect y tu retrato deja de verse en el mapa sin que nada de errores: eso es lo que
+		# pasaba desde que entro el arte.
+		_muneco.poner_cara(Game.textura_cuerpo())
 		_muneco.animar(PoseJugador.animacion(_facing, movement_mode, false))
 		if cuerpo != null:
 			cuerpo.visible = false
@@ -1250,7 +1256,11 @@ func _enemigos_a_tiro(alcance: float = -1.0) -> Array:
 		# de lo que era attack_range (44) -> estabas pegado al slime y no podias pegarle. Con un elite
 		# (1.6x de tamaño) la esquina son ~59 px: era intocable en diagonal. Ver enemy.hueco_hasta().
 		var hueco: float = _hueco_hasta(e)
-		if hueco > rango - 32.0:
+		# 'rango' es de CENTRO A CENTRO y 'hueco' es entre cuerpos, asi que hay que descontar los dos
+		# medios cuerpos para poder compararlos. Va con MEDIO_CUERPO.x y no con un 32 escrito a mano
+		# como estaba: escrito a mano, el dia que cambie el cuerpo del jugador este filtro se queda
+		# con el numero viejo y el alcance del espadazo se desplaza sin que nadie lo pida.
+		if hueco > rango - (PoseJugador.MEDIO_CUERPO.x + 16.0):
 			continue
 		# El CONO sigue mandando: atacar exige mirar al bicho, es una accion deliberada.
 		if absf(_facing.angle_to(to_e / dist)) > deg_to_rad(attack_half_angle_deg):
@@ -1383,16 +1393,32 @@ func _avisar_no_puedo_entrar() -> void:
 		hud.mostrar_toast("No puedes entrar en esa pelea ahora mismo.")
 
 
+# EL BULTO CON EL QUE SE PELEA, no la caja de colision de player.tscn (esa es la HUELLA DE LOS PIES,
+# con la que se choca contra los muros). Son dos cosas distintas a proposito: ver la nota de los dos
+# cuerpos en pose_jugador.gd, que es donde viven los numeros.
+#
+# Va como METODO y no como constante porque es lo que pregunta el enemigo (Enemy.hueco_hasta hace
+# has_method("medio_cuerpo")): asi el bicho no tiene que saber si lo que tiene delante es el
+# jugador, un compañero o el otro humano, solo que sabe decir cuanto ocupa. Lo que no lo sabe decir
+# se queda con el cuerpo base de 32x32.
+func medio_cuerpo() -> Vector2:
+	return PoseJugador.MEDIO_CUERPO
+
+
 # Hueco entre el cuerpo del jugador y el de 'otro' (0 = tocandose, de lado o de esquina).
 # Descuenta lo que sobresale un elite (radio_extra), igual que hace la interaccion con los
 # cadaveres en _mas_cercano_en_grupo.
+#
+# POR EJE, no con un solo numero: el jugador es mas alto que ancho (ver MEDIO_CUERPO) y con una suma
+# unica se estaria peleando con un cuadrado que no existe.
 func _hueco_hasta(otro: Node) -> float:
 	if not (otro is Node2D):
 		return INF
 	var d: Vector2 = ((otro as Node2D).global_position - global_position).abs()
 	var extra: float = float(otro.radio_extra) if "radio_extra" in otro else 0.0
-	var suma: float = 32.0 + extra   # medio jugador (16) + medio bicho (16) + lo que sobresale el elite
-	return maxf(d.x - suma, d.y - suma)
+	# medio jugador + medio bicho (16, el cuerpo base) + lo que sobresale el elite
+	var suma: Vector2 = PoseJugador.MEDIO_CUERPO + Vector2(16.0 + extra, 16.0 + extra)
+	return maxf(d.x - suma.x, d.y - suma.y)
 
 
 # INTERACTUAR (F). El orden NO es por distancia entre categorias, es por lo EFIMERO que es cada

@@ -21,11 +21,20 @@
 extends Node
 
 const SALIDA := "res://tools/salida/"
-const ZOOM := 5
-const LADO := 56
+const ZOOM := 3
+# El recorte alrededor del personaje, en pixeles de pantalla. Tiene que caber el cuerpo entero con
+# margen: el personaje mide 74 px de alto (PoseJugador.ALTO_MUNDO) y la camara del juego va a zoom
+# 1.8, asi que en pantalla ocupa ~133. Quedandose corto no da error, simplemente sale decapitado --
+# que es lo que pasaba con el 56 de cuando el personaje era la mitad de alto.
+const LADO := 176
 const FONDO := Color(0.11, 0.12, 0.15)
 # El color con el que se tiñe. Uno CUALQUIERA menos el blanco: en blanco el tinte no multiplica nada
 # y la hoja seria la gris otra vez, que es justo la que no queremos duplicar.
+#
+# OJO: DESDE QUE EL CUERPO VA EN COLOR DE PIEL, ESTE ROJO YA NO PINTA NADA. La capa del cuerpo lleva
+# "tinte": false (ver JugadorSprites.CAPAS) y el tinte se la salta a proposito. No esta roto: esta
+# herramienta seguira siendo la que juzgue el tinte cuando existan las capas de ROPA, que son las que
+# se tiñen. Hasta entonces, lo que enseña de util es el shader (que no queme la piel) y la CARA.
 const TINTE := Color(0.85, 0.25, 0.22)
 
 
@@ -46,6 +55,8 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	Game.player_color = TINTE
+	if not Game.tiene_imagen_cuerpo():
+		Game.set_imagen_cuerpo(_cara_de_prueba())
 	p._pintar_cuerpo()
 	# EL JUGADOR REIMPONE SU ANIMACION EN CADA FRAME DE FISICA (ver player._actualizar_animacion), asi
 	# que sin pararlo esto captura ocho veces el idle y parece que las direcciones no cambian. Costo
@@ -77,7 +88,10 @@ func _ready() -> void:
 			var img: Image = get_viewport().get_texture().get_image()
 			var cx: int = img.get_width() / 2
 			var cy: int = img.get_height() / 2
-			var trozo: Image = img.get_region(Rect2i(cx - LADO / 2, cy - LADO / 2 - 8, LADO, LADO))
+			# El -24 sube el recorte: el nodo del jugador esta a la altura de sus PIES (ver
+			# PoseJugador.PIES_BAJO_NODO), asi que centrandolo en el nodo el cuerpo queda en la mitad
+			# de arriba y sobra medio recorte de suelo vacio.
+			var trozo: Image = img.get_region(Rect2i(cx - LADO / 2, cy - LADO / 2 - 24, LADO, LADO))
 			var en := Vector2i(i * LADO, 0) if una_sola else Vector2i(f * LADO, i * LADO)
 			out.blit_rect(trozo, Rect2i(0, 0, LADO, LADO), en)
 	out.resize(out.get_width() * ZOOM, out.get_height() * ZOOM, Image.INTERPOLATE_NEAREST)
@@ -87,3 +101,24 @@ func _ready() -> void:
 	print("[ver jugador juego] %s · direcciones %s" % [anim, str(dirs)])
 	print("[ver jugador juego] ", ProjectSettings.globalize_path(ruta))
 	get_tree().quit()
+
+
+# UNA CARA DE MENTIRA para cuando la partida no tiene imagen, que es lo normal en esta herramienta:
+# arranca sin cargar ninguna, asi que sin esto la capa de la cara no se monta y la hoja no sirve
+# para juzgar lo unico nuevo que hay que juzgar.
+#
+# NO ES UN RETRATO: es un patron a proposito -- fondo de un color, dos ojos y una boca, y una franja
+# en la esquina. Lo que hay que poder ver de un vistazo es (a) que la imagen cae DENTRO de la cabeza,
+# (b) que se recorta en circulo y no queda cuadrada, y (c) que no sale girada ni del reves. Con una
+# foto de verdad, lo tercero no se notaria.
+func _cara_de_prueba() -> PackedByteArray:
+	var n: int = Game.IMAGEN_CUERPO_MAX
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.25, 0.45, 0.80))
+	# La franja de arriba: dice para donde esta el "arriba" de la imagen.
+	img.fill_rect(Rect2i(0, 0, n, n / 8), Color(0.95, 0.85, 0.25))
+	var ojo: int = n / 10
+	img.fill_rect(Rect2i(n / 4 - ojo / 2, n / 2 - ojo, ojo, ojo), Color.BLACK)
+	img.fill_rect(Rect2i(3 * n / 4 - ojo / 2, n / 2 - ojo, ojo, ojo), Color.BLACK)
+	img.fill_rect(Rect2i(n / 3, 2 * n / 3, n / 3, n / 12), Color(0.85, 0.2, 0.2))
+	return img.save_png_to_buffer()

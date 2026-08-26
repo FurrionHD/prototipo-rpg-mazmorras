@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://desf3fdl85pxp" path="res://scripts/actors/player/player.gd" id="1_wmv1v"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_x7qdl"]
-size = Vector2(32, 32)
+size = Vector2(34, 18)
 
 [node name="Player" type="CharacterBody2D" unique_id=283709743 groups=["player"]]
 script = ExtResource("1_wmv1v")
@@ -15,6 +15,7 @@ offset_right = 16.0
 offset_bottom = 16.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=457845239]
+position = Vector2(0, 8)
 shape = SubResource("RectangleShape2D_x7qdl")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1382173583]

@@ -31,9 +31,18 @@ class_name JugadorSprites
 # validador daria un aviso por cada fotograma de cada bota del juego y acabaria ignorandose.
 enum Ranura { CUERPO, PANTALONES, BOTAS, PECHO, MANOS, CARA, CASCO, MANO_DER, MANO_IZQ }
 
+# 'tinte' = si esta capa se pinta con el color del personaje (ver MunecoJugador.tenir). Casi todas
+# lo haran: una armadura de hierro y una epica son el mismo dibujo con otro tinte, y de ahi sale que
+# haya ~35 atlas en vez de miles.
+#
+# EL CUERPO ES LA EXCEPCION Y VA EN false. La carne tiene su color y no es el que elegiste: teñida,
+# la piel salia del color del personaje entero y lo que se veia no era alguien vestido de azul sino
+# una estatua azul. Se hornea ya en color de piel y se deja pasar tal cual (ver la cabecera de
+# cuerpo_sprites.gd). El color que elegiste no se pierde: pasa a ser el de la ROPA, en cuanto existan
+# las capas que la dibujan.
 static var CAPAS := [
 	{"ranura": Ranura.CUERPO, "clave": "cuerpo", "gen": CuerpoSprites, "piezas": 1,
-		"ancla": PoseJugador.P_CADERA},
+		"ancla": PoseJugador.P_CADERA, "tinte": false},
 ]
 
 
@@ -47,7 +56,7 @@ static func capas_de(_pj: PersonajeData) -> Array:
 	for c in CAPAS:
 		var g = c["gen"]
 		out.append({"clave": c["clave"], "ranura": c["ranura"], "ancla": c["ancla"],
-			"frames": g.frames(1.0)})
+			"tinte": bool(c.get("tinte", true)), "frames": g.frames(1.0)})
 	return out
 
 

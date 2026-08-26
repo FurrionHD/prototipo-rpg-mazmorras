@@ -43,11 +43,26 @@ class_name PoseJugador
 # ============================================================
 #  EL TAMAÑO
 # ============================================================
-# De la planta a la coronilla, en unidades de mundo. Referencias para no perder el sitio: el slime
-# mide 34 de diametro y el jabali 28 de largo. Un humano de pie tiene que leerse mas ALTO que ancho
-# es un slime, y ademas necesita alto de sobra para que las cinco piezas de armadura se distingan:
-# a menos de esto, el peto y los pantalones se tocan y no hay quien vea donde acaba uno.
-const ALTO_MUNDO := 37.0
+# De la planta a la coronilla, en unidades de mundo. Referencias para no perder el sitio: la rata
+# mide 24 de largo, el jabali 28 y el slime 34 de diametro.
+#
+# EMPEZO EN 37 Y SE DOBLO, y las dos razones que lo movieron son la misma cosa vista de dos lados:
+#
+#   1. A 37, EL PERSONAJE NO ERA MAS GRANDE QUE UNA RATA. Una rata de 24 unidades de largo, tumbada
+#      y vista a 45 grados, ocupa en pantalla casi lo mismo que una persona de 37 de pie. El bicho
+#      dejaba de leerse como un bicho: parecia otro humanoide. El tamaño relativo es informacion de
+#      juego -- dice si lo que se te acerca es una alimaña o un rival --, y estaba mintiendo.
+#
+#   2. A 37, NO CABIA EL DIBUJO. 37 unidades son 32 celdas de alto, y de ahi un brazo salia de tres
+#      o cuatro pixeles de ancho: todo contorno y nada de relleno (ver cuerpo_sprites.gd). No es que
+#      los brazos estuvieran mal dibujados, es que a esa resolucion no hay brazo que dibujar. Al
+#      doble, un brazo mide siete celdas y tiene por fin un dentro y un fuera.
+#
+# EL PIXEL NO CRECE, CRECE LA REJILLA. Es la regla de todo el proyecto (ver
+# SpriteLienzo.UNIDADES_POR_CELDA y la cabecera de rata_sprites.gd): un personaje mas grande se
+# dibuja con MAS CELDAS, nunca con celdas mas gordas. Por eso 'escala_sprite' no se toca al doblar
+# esto: lo unico que cambia es que el lienzo pasa de 52x52 celdas a 104x104.
+const ALTO_MUNDO := 74.0
 
 # El lienzo es CUADRADO y del mismo lado para TODAS las capas. Cuadrado porque al girar manda la
 # diagonal, y del mismo lado porque si no, no se pueden apilar.
@@ -66,16 +81,25 @@ const LIENZO_FACTOR := 1.60
 # se cuelga de HOMBRO y una bota de PIE. Cambiar un numero de aqui mueve el cuerpo Y todo lo que
 # lleve puesto a la vez, que es justo lo que se quiere.
 
-const PIE_X := 3.5                                  # separacion de los pies (medio paso de ancho)
-const PIE := Vector3(PIE_X, 0.6, 1.7)
-const RODILLA := Vector3(PIE_X, 0.0, 8.4)
-const CADERA := Vector3(0.0, 0.0, 15.4)             # el pivote de todo el tronco
-const TORSO := Vector3(0.0, 0.0, 21.8)
-# LOS HOMBROS VAN DENTRO DEL ANCHO DEL PECHO, no fuera. Puestos por fuera, los brazos salian como
-# dos apendices pegados de canto y el personaje se leia con los codos separados del cuerpo -- que
-# ademas es la silueta que menos sitio deja para una hombrera.
-const HOMBRO := Vector3(4.9, 0.0, 26.9)
-const CODO := Vector3(5.4, 0.5, 21.9)
+const PIE_X := 6.4                                  # separacion de los pies (medio paso de ancho)
+const PIE := Vector3(PIE_X, 1.4, 3.4)
+const RODILLA := Vector3(PIE_X, 0.0, 17.0)
+const CADERA := Vector3(0.0, 0.0, 30.0)             # el pivote de todo el tronco
+const TORSO := Vector3(0.0, 0.0, 43.0)
+# LOS HOMBROS VAN JUSTO POR FUERA DEL ANCHO DEL PECHO, y esto ESTUVO AL REVES.
+#
+# La version anterior los metia DENTRO (4.9 de hombro contra 5.1 de medio pecho) para que los brazos
+# no salieran como dos apendices pegados de canto. Lo que conseguia de verdad era que el brazo del
+# fondo quedara ENTERRADO en la elipse del tronco: en reposo no se veia, y al andar iba asomando un
+# trozo distinto en cada fotograma. El sintoma no se parecia a la causa -- se leia como "el brazo de
+# atras cambia de largo", cuando lo que cambiaba era cuanto se lo tragaba el pecho.
+#
+# Con el hombro un pelin por fuera del pecho (8.2 contra 7.4 de CuerpoSprites.R_TORSO.x), el brazo
+# asoma SIEMPRE por el costado y su longitud visible deja de depender de la pose. Lo que hacia falta
+# para poder permitirselo era el tamaño: a 37 unidades ese margen medio era medio pixel y no separaba
+# nada, al doble es una celda entera.
+const HOMBRO := Vector3(8.2, 0.0, 52.5)
+const CODO := Vector3(8.4, 1.0, 43.0)
 # La mano en reposo cae por delante del cuerpo, no pegada al muslo: es de donde cuelga el arma, y
 # pegada al costado el arma se metia DENTRO de la pierna en cuanto el personaje se giraba de lado.
 #
@@ -83,19 +107,28 @@ const CODO := Vector3(5.4, 0.5, 21.9)
 # codo y el costado, y eso, dibujado, es UN PIXEL de fondo entre el brazo y el tronco -- o sea un
 # brazo suelto flotando al lado del personaje. No hay termino medio a esta escala: o toca o esta
 # despegado. Asi que la mano va mas metida de lo que estaria en una persona de verdad.
-const MANO := Vector3(5.4, 1.9, 17.4)
+#
+# Y "casi toca" ES ESTAR DESPEGADO, con un sintoma que no se parece a la causa: la mano cae a la
+# altura de la CADERA, que es la parte estrecha del tronco, asi que quedaba un hueco de menos de un
+# pixel entre las dos. Lo que se veia no era un hueco sino UNA MOTA OSCURA en cada cadera -- porque
+# 'contornear' rodea de borde todo agujero, y un agujero de un pixel es un punto negro. Parecian dos
+# lunares simetricos y eran dos manos sin agarrar.
+const MANO := Vector3(7.0, 3.4, 33.5)
 # EL CUELLO VA BAJO Y LARGO, metido dentro del pecho. Puesto donde estaria en una persona, su parte
 # de abajo quedaba a seis centesimas de unidad de la parte de arriba del pecho -- solidos en el
 # papel, un pixel de aire en la pantalla --, y al correr, con el tronco inclinado, ese pixel se
 # abria: la cabeza y el cuello se iban flotando por encima de los hombros. Sale en el validador de
 # islas del horno como un trozo suelto de 34 px, que es la cabeza entera.
-const CUELLO := Vector3(0.0, 0.0, 28.5)
-const CABEZA := Vector3(0.0, 0.3, 32.9)
-# La cabeza es GRANDE en proporcion a lo que seria una persona (4.0 de radio sobre 37 de alto es
-# casi un quinto del cuerpo, y una persona es un septimo). Es deliberado: a este tamaño de pixel la
-# cabeza es lo que identifica al personaje en el mapa, ademas de donde va tu icono y el casco.
-# Bajarla a proporciones reales deja una bolita de tres pixeles donde no cabe nada.
-const CABEZA_R := 4.0                               # 32.9 + 4.0 = 36.9, o sea ALTO_MUNDO
+const CUELLO := Vector3(0.0, 0.0, 56.0)
+const CABEZA := Vector3(0.0, 0.6, 64.6)
+# La cabeza es GRANDE en proporcion a lo que seria una persona: 9.2 de radio sobre 74 de alto es un
+# cuarto del cuerpo, y una persona de verdad es un septimo. Es deliberado y por tres motivos que
+# apuntan al mismo sitio:
+#   * es lo que IDENTIFICA al personaje en el mapa, donde de un vistazo solo se ve la coronilla;
+#   * es donde va TU IMAGEN (ver MunecoJugador.poner_cara), y en un circulo pequeño no se ve nada;
+#   * es donde ira el casco, que necesita sitio para no quedarse en una banda de dos pixeles.
+# Bajarla a proporciones reales deja una bolita donde no cabe nada de eso.
+const CABEZA_R := 9.2                               # 64.6 + 9.2 = 73.8, o sea ALTO_MUNDO
 
 # Nombres de los puntos que publica 'esqueleto'. Van como StringName y no como texto suelto para
 # que una errata sea un fallo al momento y no un punto en el (0,0,0) -- que es lo que se ve cuando
@@ -215,6 +248,48 @@ static func origen(esc: float = 1.0) -> Vector2:
 # lienzo (el slime deja un 40% de aire por debajo del origen). Aqui va como un numero con nombre
 # porque lo comparten las ~35 capas y una capa que lo entienda distinto se dibuja desplazada.
 const PIES_BAJO_NODO := 14.0
+
+
+# ============================================================
+#  LOS DOS CUERPOS: la huella y el bulto
+# ============================================================
+# El personaje tiene DOS tamaños de colision y no uno, porque en una vista a 45 grados chocar con
+# una pared y recibir un golpe no son el mismo problema:
+#
+#   * LA HUELLA es lo que ocupa EN EL SUELO: con eso se choca contra los muros. Va baja y pegada a
+#     los pies, asi que la cabeza y el tronco pueden solaparse con lo que hay detras -- que es
+#     justo lo que se lee como profundidad. Si la huella fuera el cuerpo entero, el personaje se
+#     quedaria clavado un palmo antes de tocar la pared y todo pareceria de goma.
+#   * EL BULTO es el cuerpo entero: contra eso te pegan. Ojo, NO ES UN NODO -- en todo el proyecto
+#     no hay un solo Area2D, y el contacto se resuelve con una caja calculada desde el centro (ver
+#     Enemy.hueco_hasta). Este es el numero del que sale esa caja.
+#
+# Viven aqui, y no en player.gd, porque los comparten los TRES cuerpos que hay de una persona: el
+# que llevas, los compañeros del sequito y el otro humano en multijugador. Con una copia en cada
+# uno, el mismo pasillo se pasaria o no segun quien lo intentase, y a un compañero le pegarian
+# desde mas lejos que a ti.
+#
+# LA HUELLA NO SE PUEDE DOBLAR AUNQUE EL DIBUJO SE HAYA DOBLADO, y es un tope duro del mapa: los
+# pasillos miden 3 celdas (96 px, ver DungeonFloor.ancho_pasillo) y existen para que "quepais tu y
+# un bicho, y puedas esquivarlo". Con 64 px de huella quedan 32 libres, o sea que un enemigo normal
+# tapona el pasillo -- y el Rey Slime, que mide 83, lo hace intransitable.
+const HUELLA := Vector2(34.0, 18.0)
+# Cuanto se baja la huella respecto al centro del nodo, para caer donde estan los pies del dibujo.
+const HUELLA_Y := 8.0
+
+# El medio cuerpo para PELEAR, por eje. No es cuadrado: una persona es mas alta que ancha.
+#
+# EL ANCHO APENAS SE MUEVE RESPECTO AL 16 DE SIEMPRE, y es a proposito: el alcance del espadazo
+# (Player.attack_range = 44), el hueco de cuerpo a cuerpo (12), el alcance de la F (40) y el margen
+# de ataque de los bichos estan TODOS calibrados contra ese 16. Moverlo los mueve a todos a la vez,
+# y ninguno de esos numeros se estaba tocando aqui. Lo que crece es el ALTO, que es donde crecio el
+# dibujo.
+#
+# Y NO SUBE A LOS 37 DEL SPRITE ENTERO aunque el sprite mida eso: a 45 grados "mas alto en pantalla"
+# es "mas lejos en profundidad", asi que un cuerpo de 74 px de alto dejaria que te pegaran desde mas
+# de una casilla por arriba. 24 es el numero a mover si al jugar los bichos conectan antes o despues
+# de lo que se ve.
+const MEDIO_CUERPO := Vector2(17.0, 24.0)
 
 
 # Lo que hay que ponerle de 'offset' al nodo del sprite (con centered = false) para que los pies
@@ -443,6 +518,26 @@ static func _girar_yz(v: Vector3, pivote: Vector3, ang: float) -> Vector3:
 # asi que no necesita ni un caso aparte ni una constante a ojo.
 static func poner(piezas: Array, esq: Dictionary, local: Vector3, r: Vector3, tono: int,
 		opts: Dictionary = {}) -> void:
+	var pr: Dictionary = proyectar(esq, local, r, opts)
+	piezas.append({
+		"pos": pr["pos"], "radio": pr["radio"],
+		"persp": 1.0, "tono": tono, "ang": 0.0, "gira_forma": false,
+		"solo_sobre": opts.get("solo_sobre", []),
+	})
+
+
+# DONDE CAE EN PANTALLA un punto del cuerpo, y CUANTO OCUPA ahi. Devuelve {pos, radio} en CELDAS.
+#
+# Es la cuenta de arriba, sacada de 'poner' para poder preguntarla sin dibujar nada. La necesita
+# MunecoJugador para pegar tu imagen a la cabeza: la cara no es una elipse horneada sino un PNG que
+# se recoloca en el juego, asi que tiene que saber donde esta la cabeza en ESTE fotograma.
+#
+# Y esta separada en vez de copiada porque copiar la proyeccion es exactamente el fallo que la
+# cabecera de este archivo dice que hay que evitar: dos versiones de la camara se separan en cuanto
+# alguien toque una, y el sintoma seria que tu cara flota medio pixel por delante de tu cabeza en
+# algunas direcciones y no en otras.
+static func proyectar(esq: Dictionary, local: Vector3, r: Vector3,
+		opts: Dictionary = {}) -> Dictionary:
 	var org: Vector2 = esq["origen"]
 	var uu: float = esq["u"]
 	var ang: float = esq["ang"]
@@ -490,11 +585,10 @@ static func poner(piezas: Array, esq: Dictionary, local: Vector3, r: Vector3, to
 
 	var sx: float = org.x + rot.x * uu
 	var sy: float = org.y + (rot.y * SpriteLienzo.COS_CAM - z * SpriteLienzo.SIN_CAM) * uu
-	piezas.append({
-		"pos": Vector2(sx, sy), "radio": Vector2(maxf(0.02, ex * uu), maxf(0.02, ey * uu)),
-		"persp": 1.0, "tono": tono, "ang": 0.0, "gira_forma": false,
-		"solo_sobre": opts.get("solo_sobre", []),
-	})
+	return {
+		"pos": Vector2(sx, sy),
+		"radio": Vector2(maxf(0.02, ex * uu), maxf(0.02, ey * uu)),
+	}
 
 
 # Une dos puntos con una cadena de elipses. Es lo que dibuja un brazo, una pierna o la hoja de una
@@ -531,6 +625,15 @@ static func profundidad(esq: Dictionary, punto: StringName) -> float:
 # Una funcion por animacion. Las CICLICAS van con sin(TAU*t) -- se repiten y tienen que empalmar sin
 # salto --, y las que NO son periodicas van por TRAMOS: un golpe es tomar impulso, descargar y
 # recomponerse, no una onda.
+#
+# CUIDADO CON LAS UNIDADES, que aqui conviven dos y no se distinguen mirandolas:
+#   * 'paso', 'brazo', 'inclina', 'caida' y 'rumbo' van en RADIANES, y 'agacha' en fraccion. Son
+#     independientes del tamaño del personaje: un brazo que gira un cuarto de vuelta gira lo mismo
+#     mida lo que mida.
+#   * 'bote', 'avance' y 'apoyo' van en UNIDADES DE MUNDO. Esas SI escalan con ALTO_MUNDO, y hay que
+#     acordarse de ellas el dia que se toque el tamaño: al doblarlo, un bote de 0,34 se queda en la
+#     mitad de alto relativo y el paso deja de notarse. Los numeros de abajo estan a escala de
+#     ALTO_MUNDO = 74.
 
 static func _anim(nombre: String) -> Dictionary:
 	for a in ANIMS:
@@ -561,7 +664,7 @@ static func _pose(anim: String, t: float) -> Dictionary:
 # Quieto: respira. Nada mas. La tentacion es animarlo mas, y es un error -- el idle es lo que mas
 # tiempo esta en pantalla y cualquier gesto llamativo cansa en diez segundos.
 static func _pose_idle(t: float) -> Dictionary:
-	return {"bote": 0.22 * sin(TAU * t), "brazo": 0.035 * sin(TAU * t),
+	return {"bote": 0.44 * sin(TAU * t), "brazo": 0.035 * sin(TAU * t),
 		"inclina": 0.02 * sin(TAU * t)}
 
 
@@ -582,7 +685,7 @@ static func _pose_idle(t: float) -> Dictionary:
 # como alguien agachado para leerse como un ganso. Poco agachado y poco inclinado; lo que dice
 # "sigilo" es el conjunto bajando, no la postura forzada.
 static func _pose_sigilo(t: float) -> Dictionary:
-	return {"agacha": 0.44, "inclina": 0.18, "bote": 0.08 * sin(TAU * t),
+	return {"agacha": 0.44, "inclina": 0.18, "bote": 0.16 * sin(TAU * t),
 		"paso": 0.20 * sin(TAU * t), "brazo": 0.10 * sin(TAU * t)}
 
 
@@ -590,7 +693,7 @@ static func _pose_sigilo(t: float) -> Dictionary:
 # por pisada), no una: es lo que separa un paso de un balanceo de barca.
 static func _pose_walk(t: float) -> Dictionary:
 	return {"paso": 0.42 * sin(TAU * t), "brazo": 0.30 * sin(TAU * t),
-		"bote": 0.34 * absf(sin(TAU * t)), "inclina": 0.05}
+		"bote": 0.68 * absf(sin(TAU * t)), "inclina": 0.05}
 
 
 # Corriendo. No es "andar mas rapido": el tronco se echa adelante, la zancada se abre y el bote sube.
@@ -600,7 +703,7 @@ static func _pose_correr(t: float) -> Dictionary:
 	# El brazo se queda por debajo de la zancada: pasado de medio radian la mano sube por encima del
 	# hombro y lo que se ve es alguien haciendo aspavientos, no corriendo. Las piernas si se abren.
 	return {"paso": 0.62 * sin(TAU * t), "brazo": 0.48 * sin(TAU * t),
-		"bote": 0.70 * absf(sin(TAU * t)), "inclina": 0.26,
+		"bote": 1.40 * absf(sin(TAU * t)), "inclina": 0.26,
 		"agacha": 0.08 + 0.05 * sin(TAU * t * 2.0)}
 
 
@@ -617,7 +720,7 @@ static func _pose_golpe(t: float) -> Dictionary:
 	# arriba (negativo, casi un cuarto de vuelta larga) y de ahi baja de golpe hacia delante. Con el
 	# giro no hay que subir la mano a mano como antes: levantarla ES el mismo angulo pasado de largo.
 	var brazo_keys := [[0.0, 0.0], [0.30, -2.35], [0.45, -2.15], [0.62, 0.95], [0.80, 0.55], [1.0, 0.0]]
-	var avance_keys := [[0.0, 0.0], [0.30, -0.8], [0.45, -0.6], [0.62, 2.2], [0.80, 1.4], [1.0, 0.0]]
+	var avance_keys := [[0.0, 0.0], [0.30, -1.6], [0.45, -1.2], [0.62, 4.4], [0.80, 2.8], [1.0, 0.0]]
 	var inclina_keys := [[0.0, 0.05], [0.30, -0.16], [0.45, -0.12], [0.62, 0.34], [0.80, 0.22], [1.0, 0.05]]
 	return {"brazo_der": SpriteLienzo.tramos(t, brazo_keys),
 		# El izquierdo apenas acompaña: es el que sujeta el escudo.
@@ -637,7 +740,7 @@ static func _pose_encaje(t: float) -> Dictionary:
 	var retro_keys := [[0.0, 1.0], [0.34, 0.52], [0.67, 0.16], [1.0, 0.0]]
 	var agacha_keys := [[0.0, 0.55], [0.34, 0.24], [0.67, 0.08], [1.0, 0.0]]
 	var incl_keys := [[0.0, -0.38], [0.34, -0.16], [0.67, 0.06], [1.0, 0.0]]
-	return {"avance": -SpriteLienzo.tramos(t, retro_keys) * 2.2,
+	return {"avance": -SpriteLienzo.tramos(t, retro_keys) * 4.4,
 		"agacha": SpriteLienzo.tramos(t, agacha_keys),
 		"inclina": SpriteLienzo.tramos(t, incl_keys),
 		"brazo_der": -0.35 * SpriteLienzo.tramos(t, retro_keys),
@@ -666,21 +769,21 @@ static func _pose_muerte(t: float) -> Dictionary:
 		[0.66, -0.94], [0.80, -1.08], [0.90, -0.97], [1.0, -1.0]]
 	# El apoyo es lo que hay que subirlo para que acabe TUMBADO SOBRE el suelo y no medio enterrado.
 	# Va a mano y no calculado: lo que sobresale por abajo cambia de pieza segun el angulo.
-	var apoyo_keys := [[0.0, 0.0], [0.14, 0.0], [0.30, 1.0], [0.48, 2.6],
-		[0.66, 3.6], [0.80, 4.1], [0.90, 3.9], [1.0, 4.0]]
+	var apoyo_keys := [[0.0, 0.0], [0.14, 0.0], [0.30, 2.0], [0.48, 5.2],
+		[0.66, 7.2], [0.80, 8.2], [0.90, 7.8], [1.0, 8.0]]
 	var agacha_keys := [[0.0, 0.10], [0.14, 0.55], [0.30, 0.30], [0.48, 0.05], [1.0, 0.0]]
 	var rumbo_keys := [[0.0, 0.0], [0.14, 0.12], [0.30, 0.48], [0.48, 0.82], [0.66, 0.96], [1.0, 1.0]]
 	# Y SE RECOLOCA MIENTRAS CAE, que no es un adorno sino lo que hace que quepa en el lienzo.
 	#
 	# El giro es sobre los PIES, asi que al acabar tumbado la cabeza queda a la altura entera del
-	# cuerpo -- 33 unidades, o sea 29 celdas -- de un solo lado del origen, mientras que a cada lado
+	# cuerpo -- 65 unidades, o sea 57 celdas -- de un solo lado del origen, mientras que a cada lado
 	# solo hay medio lienzo. El cadaver se salia por la izquierda y se le cortaba la cabeza en seco
 	# (lo caza el validador de recortes del horno, que es de donde salio esto).
 	#
 	# Se podia arreglar agrandando el lienzo, pero el lienzo lo pagan las ~35 capas y su coste va con
 	# el CUADRADO del lado. Desplazar el cuerpo media longitud segun se tumba cuesta un numero y
 	# ademas se ve mejor: un cuerpo que se desploma no se queda con los pies clavados donde estaban.
-	var avance_keys := [[0.0, 0.0], [0.30, 1.5], [0.48, 6.0], [0.66, 11.5], [1.0, 16.4]]
+	var avance_keys := [[0.0, 0.0], [0.30, 3.0], [0.48, 12.0], [0.66, 23.0], [1.0, 32.8]]
 	# Los brazos se quedan flojos: dejan de acompañar en cuanto empieza la caida.
 	var flojo: float = 1.0 - clampf(t * 2.0, 0.0, 1.0)
 	return {"caida": SpriteLienzo.tramos(t, caida_keys) * PI * 0.5,
@@ -690,3 +793,4 @@ static func _pose_muerte(t: float) -> Dictionary:
 		"rumbo": SpriteLienzo.tramos(t, rumbo_keys) * PI * 0.5,
 		"brazo_der": -0.45 * (1.0 - flojo), "brazo_izq": -0.32 * (1.0 - flojo),
 		"paso": 0.22 * flojo}
+

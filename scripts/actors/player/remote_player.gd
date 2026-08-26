@@ -18,7 +18,7 @@
 
 extends CharacterBody2D
 
-const LADO := 32.0        # mismo cuerpo de 32x32 que player.tscn / companion.gd
+const LADO := 32.0        # el ColorRect de respaldo, igual que en companion.gd
 const SUAVIZADO := 14.0   # rapidez del lerp hacia el objetivo (mas alto = mas pegado, mas jitter)
 # Si el objetivo esta lejisimos (primer paquete, o teletransporte del otro), no cruzar el mapa
 # deslizandose: aparecer alli directamente. Mismo espiritu que el RESCATE del companion.
@@ -59,10 +59,14 @@ func _ready() -> void:
 	_cuerpo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_cuerpo)
 
+	# La misma HUELLA DE LOS PIES que el jugador y el compañero (ver PoseJugador.HUELLA y la nota de
+	# companion.gd): sale de un solo sitio para que los tres pasen exactamente por donde pasan los
+	# otros dos.
 	var col := CollisionShape2D.new()
 	var forma := RectangleShape2D.new()
-	forma.size = Vector2(LADO, LADO)
+	forma.size = PoseJugador.HUELLA
 	col.shape = forma
+	col.position = Vector2(0.0, PoseJugador.HUELLA_Y)
 	add_child(col)
 
 	_nombre = Label.new()
@@ -70,7 +74,9 @@ func _ready() -> void:
 	_nombre.add_theme_font_size_override("font_size", 11)
 	_nombre.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	_nombre.add_theme_constant_override("outline_size", 3)
-	_nombre.position = Vector2(-60, -LADO * 0.5 - 20)
+	# Por encima de la CABEZA, no del ColorRect de respaldo: el cuerpo dibujado sube mucho mas que
+	# los 32 px de antes (ver PoseJugador.ALTO_MUNDO) y la etiqueta le quedaba tapada por el pecho.
+	_nombre.position = Vector2(-60, -PoseJugador.ALTO_MUNDO + PoseJugador.PIES_BAJO_NODO - 18)
 	_nombre.size = Vector2(120, 16)
 	add_child(_nombre)
 
@@ -90,6 +96,10 @@ func aplicar_aspecto(color: Color, metal: float, nombre: String,
 	_muneco.montar(null)
 	if _muneco.hay_dibujo():
 		_muneco.tenir(Color(color.r, color.g, color.b, 1.0), metal)
+		# Su cara sale de los MISMOS bytes que ya llegan en el handshake, convertidos a textura por
+		# el camino de siempre. No hace falta ningun mensaje nuevo: la imagen ya viajaba, lo que
+		# faltaba era donde pegarla.
+		_muneco.poner_cara(Game.textura_de_png(imagen))
 		if _cuerpo != null:
 			_cuerpo.visible = false
 	elif _cuerpo != null:
@@ -119,7 +129,10 @@ func aplicar_imbue(elem: int) -> void:
 			_fx_imbue = null
 		return
 	if _fx_imbue == null:
-		_fx_imbue = Particulas.ascendentes(self, Elementos.color(elem), 1.0, LADO)
+		# Con el ALTO del cuerpo dibujado, no con el del ColorRect: el rastro tiene que subir por el
+		# personaje entero, y con 32 le llegaba por la cintura.
+		_fx_imbue = Particulas.ascendentes(self, Elementos.color(elem), 1.0,
+			PoseJugador.ALTO_MUNDO)
 	else:
 		Particulas.repintar(_fx_imbue, Elementos.color(elem))
 
@@ -170,3 +183,10 @@ func _physics_process(delta: float) -> void:
 		# pequeña -- se le vera andar mientras corre -- y esta apuntada para la fase de red, donde ya
 		# hay que abrir un canal para el equipo que lleva puesto y el modo cabe de propina.
 		_muneco.animar(PoseJugador.animacion(_facing, 1, velocity.length() > 6.0))
+
+
+# Lo mismo que el compañero y por lo mismo: el otro humano se dibuja con el mismo cuerpo, asi que
+# tiene que recibir los golpes con el mismo. Ver Companion.medio_cuerpo y la nota de los dos cuerpos
+# en pose_jugador.gd.
+func medio_cuerpo() -> Vector2:
+	return PoseJugador.MEDIO_CUERPO

@@ -25,7 +25,7 @@
 
 extends CharacterBody2D
 
-const LADO := 32.0
+const LADO := 32.0    # el ColorRect de respaldo, para cuando no hay dibujo
 # Tope de velocidad al perseguir su punto del rastro. Normalmente va exactamente al ritmo del
 # lider (el punto se mueve con el), asi que esto solo actua cuando se ha quedado atras: tras
 # engancharse en una esquina, o al cambiar de lider. Por encima de la velocidad MAXIMA del lider
@@ -64,6 +64,7 @@ func _ready() -> void:
 	add_to_group("aliado")
 
 	# El cuerpo del jugador comparte capa con la roca: se le excluye para poder atravesarlo.
+	# (ver medio_cuerpo() al final: es lo que hace que a un compañero le peguen igual que a ti)
 	var lider: Node = get_tree().get_first_node_in_group("player")
 	if lider is CollisionObject2D:
 		add_collision_exception_with(lider)
@@ -76,10 +77,15 @@ func _ready() -> void:
 	_cuerpo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_cuerpo)
 
+	# LA HUELLA DE LOS PIES, la misma que la del jugador (ver PoseJugador.HUELLA): baja y pegada al
+	# suelo, para que a 45 grados solo los pies choquen con el muro. Sale de alli y no de un numero
+	# propio porque si los tres cuerpos no coinciden, el mismo pasillo se pasa o no segun quien lo
+	# intente -- y el sequito va justo detras de ti, por el sitio que acabas de pasar tu.
 	var col := CollisionShape2D.new()
 	var forma := RectangleShape2D.new()
-	forma.size = Vector2(LADO, LADO)
+	forma.size = PoseJugador.HUELLA
 	col.shape = forma
+	col.position = Vector2(0.0, PoseJugador.HUELLA_Y)
 	add_child(col)
 
 	if pj != null:
@@ -100,6 +106,8 @@ func pintar(nuevo: PersonajeData) -> void:
 		# SU color y SU metal, no los del lider: distinguirlos de un vistazo es justo para lo que
 		# esta el aspecto, y en un grupo de cuatro es la unica forma de saber a quien estas mirando.
 		_muneco.tenir(pj.color, pj.metalico)
+		# Y SU cara, por lo mismo: en una fila de cuatro, la imagen es lo que dice quien es quien.
+		_muneco.poner_cara(pj.textura())
 		_cuerpo.visible = false
 	else:
 		_cuerpo.visible = true
@@ -124,7 +132,10 @@ func refrescar_imbue() -> void:
 			_fx_imbue = null
 		return
 	if _fx_imbue == null:
-		_fx_imbue = Particulas.ascendentes(self, Elementos.color(elem), 1.0, LADO)
+		# El ALTO del cuerpo dibujado y no el del ColorRect (ver la misma nota en remote_player.gd):
+		# el rastro sube por el personaje entero, y con 32 se quedaba a media altura.
+		_fx_imbue = Particulas.ascendentes(self, Elementos.color(elem), 1.0,
+			PoseJugador.ALTO_MUNDO)
 	else:
 		Particulas.repintar(_fx_imbue, Elementos.color(elem))
 
@@ -173,3 +184,13 @@ func _animar(moviendose: bool) -> void:
 func plantar(pos: Vector2) -> void:
 	global_position = pos
 	velocity = Vector2.ZERO
+
+
+# Cuanto ocupa su cuerpo PARA PELEAR, por eje. Lo pregunta el enemigo (Enemy.hueco_hasta) por
+# has_method, asi que basta con tenerlo para que le peguen igual que al lider.
+#
+# SIN ESTO, A UN COMPAÑERO LE PEGABAN DESDE MAS CERCA QUE A TI y no habria dado ningun error: el
+# bicho se queda con el cuerpo base de 32x32 para todo el que no sepa contestar, asi que el mismo
+# ataque conectaba contigo y no con el de al lado. Ver la nota de los dos cuerpos en pose_jugador.gd.
+func medio_cuerpo() -> Vector2:
+	return PoseJugador.MEDIO_CUERPO
