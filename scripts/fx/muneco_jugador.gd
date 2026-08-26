@@ -55,7 +55,11 @@ const CARA_DE_LA_CABEZA := 0.80
 #
 # De frente va a cero y de perfil se adelanta media cabeza: centrada, la cara de perfil se leeria
 # como alguien mirando a camara con el cuerpo de lado -- la postura del muñeco de escaparate.
-const CARA_DIRS := {0: 0.0, 1: 0.30, 2: 0.52, 6: 0.52, 7: 0.30}
+# LOS NUMEROS BAJARON AL ENTRAR EL PELO. Iban a 0,30 y 0,52 y con la cabeza pelada colaban; con pelo
+# no, porque el pelo dice DONDE ESTA la cabeza -- y ahi se veia que la cara adelantada se salia del
+# craneo por el costado, como una pegatina despegada. Adelantada la mitad sigue leyendose "de lado" y
+# ya no se sale.
+const CARA_DIRS := {0: 0.0, 1: 0.10, 2: 0.20, 6: 0.20, 7: 0.10}
 
 var _capas: Array = []          # [{clave, ranura, ancla, tinte, nodo: AnimatedSprite2D}]
 # La cara: un Sprite2D con tu PNG, o null si este personaje no tiene imagen.
@@ -90,10 +94,18 @@ func _ready() -> void:
 func montar(pj: PersonajeData) -> void:
 	var quiere: Array = JugadorSprites.capas_de(pj)
 	# Reconstruir solo si ha cambiado la LISTA. Un cambio de color o de tinte no toca los nodos.
+	#
+	# PERO SI REPINTA: en la pantalla de creacion se toca el ColorPicker sin parar y ahi la lista de
+	# claves no cambia nunca. Volviendo en seco, arrastrar el color no hacia nada hasta que cambiabas
+	# de modelo.
 	var firma: String = ""
 	for c in quiere:
 		firma += String(c["clave"]) + "|"
 	if firma == _firma_actual():
+		for i in mini(_capas.size(), quiere.size()):
+			_capas[i]["color"] = quiere[i].get("color", null)
+			_capas[i]["metal"] = quiere[i].get("metal", null)
+		_pintar_capas()
 		return
 	for c in _capas:
 		c["nodo"].queue_free()
@@ -111,7 +123,9 @@ func montar(pj: PersonajeData) -> void:
 		s.material = _material(bool(c.get("tinte", true)))
 		add_child(s)
 		_capas.append({"clave": c["clave"], "ranura": c["ranura"], "ancla": c["ancla"],
-			"tinte": bool(c.get("tinte", true)), "nodo": s})
+			"tinte": bool(c.get("tinte", true)), "z": int(c.get("z", 0)),
+			"color": c.get("color", null), "metal": c.get("metal", null), "nodo": s})
+	_pintar_capas()
 	if _anim != "":
 		_aplicar_anim(_anim, true)
 
@@ -246,14 +260,38 @@ func _material(tinte: bool) -> ShaderMaterial:
 # en el tuyo (ver JugadorSprites.CAPAS). Se les deja el modulate en BLANCO explicitamente en vez de
 # no tocarlas -- si se hubieran teñido antes de que alguien cambiara el flag, no tocarlas dejaria el
 # color viejo pegado.
+#
+# ESTO ES EL COLOR POR DEFECTO, NO EL DE TODOS. Cada pieza del aspecto trae el suyo (una camisa azul
+# con un pelo castaño), y esas capas se pintan con el que traen. Este es para las que no traen
+# ninguno, y para quien todavia llama con un solo color (el respaldo del jugador remoto).
+var _color_defecto: Color = Color.WHITE
+var _metal_defecto: float = 0.0
+
 func tenir(color: Color, metal: float = 0.0) -> void:
+	_color_defecto = Color(color.r, color.g, color.b, 1.0)
+	_metal_defecto = metal
+	_pintar_capas()
+
+
+# Pone en cada capa SU color: el que trae la pieza si lo trae, y si no el de 'tenir'.
+func _pintar_capas() -> void:
 	for c in _capas:
 		var s: AnimatedSprite2D = c["nodo"]
-		var pinta: bool = bool(c.get("tinte", true))
-		s.modulate = Color(color.r, color.g, color.b, 1.0) if pinta else Color.WHITE
+		if not bool(c.get("tinte", true)):
+			s.modulate = Color.WHITE
+			var m0: ShaderMaterial = s.material as ShaderMaterial
+			if m0 != null:
+				m0.set_shader_parameter("metal", 0.0)
+			continue
+		var col: Color = _color_defecto
+		if c.get("color") != null:
+			var p: Color = c["color"]
+			col = Color(p.r, p.g, p.b, 1.0)
+		s.modulate = col
 		var m: ShaderMaterial = s.material as ShaderMaterial
 		if m != null:
-			m.set_shader_parameter("metal", metal if pinta else 0.0)
+			m.set_shader_parameter("metal",
+				float(c["metal"]) if c.get("metal") != null else _metal_defecto)
 
 
 # ============================================================
@@ -359,6 +397,12 @@ func _ordenar() -> void:
 	var esq: Dictionary = PoseJugador.esqueleto(_base_de(_anim), 0, d, 1.0)
 	for i in _capas.size():
 		var c: Dictionary = _capas[i]
+		# CAPA CON Z PROPIO: no entra en el reparto. Hoy es el PELO, y por el mismo motivo que la cara
+		# (ver abajo): cuelga de la cabeza, que esta en x=0, asi que su profundidad es casi cero en las
+		# ocho direcciones y quien decidiria delante/detras seria el redondeo.
+		if int(c.get("z", 0)) != 0:
+			c["nodo"].z_index = int(c["z"])
+			continue
 		var prof: float = PoseJugador.profundidad(esq, c["ancla"])
 		# El orden de la lista (JugadorSprites.CAPAS) sigue mandando entre capas que estan a la
 		# misma profundidad: el peto va SIEMPRE por encima del torso, este donde este. La

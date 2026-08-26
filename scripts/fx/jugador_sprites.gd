@@ -31,33 +31,143 @@ class_name JugadorSprites
 # validador daria un aviso por cada fotograma de cada bota del juego y acabaria ignorandose.
 enum Ranura { CUERPO, PANTALONES, BOTAS, PECHO, MANOS, CARA, CASCO, MANO_DER, MANO_IZQ }
 
-# 'tinte' = si esta capa se pinta con el color del personaje (ver MunecoJugador.tenir). Casi todas
-# lo haran: una armadura de hierro y una epica son el mismo dibujo con otro tinte, y de ahi sale que
+# 'tinte' = si esta capa se pinta con un color de fuera (ver MunecoJugador.tenir). Casi todas lo
+# haran: una armadura de hierro y una epica son el mismo dibujo con otro tinte, y de ahi sale que
 # haya ~35 atlas en vez de miles.
 #
 # EL CUERPO ES LA EXCEPCION Y VA EN false. La carne tiene su color y no es el que elegiste: teñida,
 # la piel salia del color del personaje entero y lo que se veia no era alguien vestido de azul sino
 # una estatua azul. Se hornea ya en color de piel y se deja pasar tal cual (ver la cabecera de
-# cuerpo_sprites.gd). El color que elegiste no se pierde: pasa a ser el de la ROPA, en cuanto existan
-# las capas que la dibujan.
+# cuerpo_sprites.gd). El color que elegiste no se pierde: es el de la ROPA.
 static var CAPAS := [
 	{"ranura": Ranura.CUERPO, "clave": "cuerpo", "gen": CuerpoSprites, "piezas": 1,
 		"ancla": PoseJugador.P_CADERA, "tinte": false},
 ]
 
-
-# Los SpriteFrames de todas las capas que le tocan a este personaje, ya en orden de apilado.
-# Devuelve [{clave, frames, ancla, ...}] para que el compositor no tenga que saber de generadores.
+# ============================================================
+#  LOS CATALOGOS: que MODELOS hay para cada pieza que se elige
+# ============================================================
+# Una pieza del aspecto (ver PersonajeData.PIEZAS) tiene varios modelos, y el jugador escoge uno en
+# la pantalla de creacion. Todos los modelos de una pieza comparten generador y ancla: lo unico que
+# cambia es COMO se dibuja, y eso lo decide el propio generador segun el nombre del modelo.
 #
-# HOY SOLO DEVUELVE EL CUERPO: la armadura y las armas entran en las fases siguientes. La firma ya
-# recibe el PersonajeData a proposito, para que enchufarlas no obligue a tocar a los que llaman.
-static func capas_de(_pj: PersonajeData) -> Array:
+# 'piezas' es POR MODELO y no por ranura, y esa es la diferencia que hace que el validador de islas
+# del horno siga sirviendo: una melena es un trozo y una coleta son dos, y sin declararlo cada
+# fotograma de cada peinado soltaria un aviso hasta que nadie los leyera.
+#
+# 'nombre' es como se llama en la pantalla de creacion, y vive AQUI y no en el menu: la lista de lo
+# que se puede elegir tiene que salir del mismo sitio que la lista de lo que se sabe dibujar, o el
+# dia que se añada un peinado habra que acordarse de dos sitios y el menu enseñara seis de siete.
+# La opcion "no llevar nada" no esta en la tabla: es el modelo vacio, y lo pone la pantalla.
+#
+# 'clave' de la capa = "<pieza>_<modelo>" ("pelo_coleta"), que es tambien el nombre del atlas en
+# disco. El modelo vacio ("") es "no lleva nada" y no genera capa ni atlas.
+static var CATALOGO := {
+	"piernas": {
+		"ranura": Ranura.PANTALONES, "gen": RopaSprites, "ancla": PoseJugador.P_CADERA,
+		"z": 0, "titulo": "Pantalón", "sin_nada": "Sin nada",
+		"modelos": {
+			"pantalon": {"piezas": 1, "nombre": "Pantalón"},
+			"bombacho": {"piezas": 1, "nombre": "Bombacho"},
+			"faldon": {"piezas": 1, "nombre": "Faldón"},
+		},
+	},
+	"torso": {
+		"ranura": Ranura.PECHO, "gen": RopaSprites, "ancla": PoseJugador.P_TORSO,
+		"z": 0, "titulo": "Camisa", "sin_nada": "Sin nada",
+		"modelos": {
+			"camisa": {"piezas": 1, "nombre": "Camisa"},
+			"tunica": {"piezas": 1, "nombre": "Túnica"},
+			"chaleco": {"piezas": 1, "nombre": "Chaleco"},
+		},
+	},
+	"pelo": {
+		"ranura": Ranura.CASCO, "gen": PeloSprites, "ancla": PoseJugador.P_CABEZA,
+		"titulo": "Pelo", "sin_nada": "Calvo",
+		# EL PELO NO SE ORDENA POR PROFUNDIDAD, y no es un atajo: la cabeza esta en x=0, asi que su
+		# profundidad es casi cero en las ocho direcciones y el signo lo decidiria el redondeo -- se
+		# veria el pelo por detras de la propia cabeza en unas direcciones y no en otras. Es el mismo
+		# motivo por el que la cara lleva z fijo (ver MunecoJugador._ordenar).
+		# 2047 = justo POR DEBAJO de la cara (2048). Se probo al reves -- el flequillo cayendo sobre
+		# tu foto, que es lo que hace un flequillo de verdad -- y es peor: la cara es un circulo del
+		# 80% de la cabeza, asi que cualquier pelo que baje lo suficiente para leerse como flequillo
+		# se come los ojos. Por debajo, el pelo ENMARCA la foto (queda el anillo de alrededor), que es
+		# como lo resuelven los sprites del genero. Godot solo acepta hasta 4096 y pasarse no recorta,
+		# rechaza.
+		"z": 2047,
+		"modelos": {
+			"rapado": {"piezas": 1, "nombre": "Rapado"},
+			"corto": {"piezas": 1, "nombre": "Corto"},
+			"bob": {"piezas": 1, "nombre": "Media melena"},
+			# DOS TROZOS: el atado de la coleta es fino y en algunas poses la cola se separa del
+			# casquete por una celda. Sin declararlo, el validador de islas del horno soltaria un
+			# aviso por fotograma hasta que nadie lo leyera.
+			"coleta": {"piezas": 2, "nombre": "Coleta"},
+			"largo": {"piezas": 1, "nombre": "Largo"},
+			"mono": {"piezas": 1, "nombre": "Moño"},
+		},
+	},
+}
+
+
+# Los SpriteFrames de todas las capas que le tocan a ESTE personaje, ya en orden de apilado, con su
+# color y su acabado. Devuelve [{clave, frames, ancla, color, metal, ...}] para que el compositor no
+# tenga que saber ni de generadores ni de catalogos.
+#
+# 'pj' puede ser null (el jugador remoto antes de que llegue su ficha): sale el cuerpo desnudo, que
+# es mejor que no dibujar a nadie.
+static func capas_de(pj: PersonajeData) -> Array:
 	var out: Array = []
 	for c in CAPAS:
 		var g = c["gen"]
 		out.append({"clave": c["clave"], "ranura": c["ranura"], "ancla": c["ancla"],
-			"tinte": bool(c.get("tinte", true)), "frames": g.frames(1.0)})
+			"tinte": bool(c.get("tinte", true)), "z": 0, "frames": g.frames(1.0)})
+	if pj == null:
+		return out
+	for nombre in PersonajeData.PIEZAS:
+		var cat: Dictionary = CATALOGO.get(nombre, {})
+		if cat.is_empty():
+			continue
+		var p: Dictionary = pj.pieza(nombre)
+		var modelo: String = String(p["modelo"])
+		# Un modelo que no existe se trata como "no lleva nada" y NO como un error que revienta: por
+		# aqui pasan partidas viejas y personajes que llegan por red desde otro build.
+		if modelo == "" or not (cat["modelos"] as Dictionary).has(modelo):
+			continue
+		out.append({"clave": "%s_%s" % [nombre, modelo], "ranura": cat["ranura"],
+			"ancla": cat["ancla"], "tinte": true, "z": int(cat.get("z", 0)),
+			"color": p["color"], "metal": p["metal"],
+			"frames": cat["gen"].frames(modelo, 1.0)})
 	return out
+
+
+# TODAS las capas que existen, para el horno. No es lo mismo que 'capas_de': aquella son las de UN
+# personaje (las que lleva puestas) y esta son todas las que hay que hornear, lleve alguien lo que
+# lleve. Confundirlas significa que solo se hornea el traje del ultimo que se creo.
+#
+# NO GENERA LOS DIBUJOS: devuelve la RECETA de cada capa y quien la quiera llama a 'generar_capa'.
+# Cada capa son 41 animaciones de imagenes, y devolverlas ya montadas obligaria a tener las trece en
+# memoria a la vez para hornearlas de una en una.
+static func todas_las_capas() -> Array:
+	var out: Array = []
+	for c in CAPAS:
+		out.append({"clave": c["clave"], "piezas": int(c["piezas"]), "gen": c["gen"], "modelo": ""})
+	for nombre in CATALOGO:
+		var cat: Dictionary = CATALOGO[nombre]
+		for modelo in (cat["modelos"] as Dictionary):
+			out.append({"clave": "%s_%s" % [nombre, modelo],
+				"piezas": int((cat["modelos"][modelo] as Dictionary)["piezas"]),
+				"gen": cat["gen"], "modelo": String(modelo)})
+	return out
+
+
+# Dibuja una capa de las de arriba. 'generar' y no 'frames' a proposito: quien llama a esto (el
+# horno, el visor) quiere el dibujo de AHORA, no el horneado viejo que hay en disco.
+static func generar_capa(receta: Dictionary, esc: float = 1.0) -> SpriteFrames:
+	var g = receta["gen"]
+	if String(receta.get("modelo", "")) == "":
+		return g.generar(esc)
+	return g.generar(String(receta["modelo"]), esc)
 
 
 # Que animacion toca. Delega en PoseJugador, que es donde vive la regla: aqui solo se reexporta para

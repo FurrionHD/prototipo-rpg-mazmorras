@@ -36,7 +36,10 @@ func _ready() -> void:
 		ZOOM = clampi(int(args[1]), 1, 16)
 	DirAccess.make_dir_recursive_absolute(SALIDA)
 
-	var capas: Array = _capas()
+	var modelos := PackedStringArray()
+	for i in range(2, args.size()):
+		modelos.append(args[i])
+	var capas: Array = _capas(modelos)
 	if que == "todas":
 		_hoja_animaciones(capas)
 	else:
@@ -44,10 +47,31 @@ func _ready() -> void:
 	get_tree().quit()
 
 
-# Las capas que se apilan, de abajo arriba. Hoy solo esta el cuerpo; segun entren la armadura y las
-# armas se añaden aqui y la herramienta no cambia.
-func _capas() -> Array:
-	return [CuerpoSprites.generar(1.0)]
+# Las capas que se apilan, de abajo arriba. El cuerpo siempre; el pelo y la ropa, los que se pidan
+# por argumento:
+#
+#     ver_jugador.bat idle 6 coleta camisa pantalon
+#
+# Sin argumentos sale el cuerpo desnudo, que es como estaba antes. Los nombres son los modelos de
+# JugadorSprites.CATALOGO y se aceptan en cualquier orden: cada uno cae en su pieza solo.
+#
+# Se APILAN, que es para lo que existe de verdad esta herramienta: una capa suelta puede estar
+# perfecta y aun asi no encajar con las de debajo.
+func _capas(modelos: PackedStringArray) -> Array:
+	var pedidos := {}
+	for m in modelos:
+		for pieza in JugadorSprites.CATALOGO:
+			if (JugadorSprites.CATALOGO[pieza]["modelos"] as Dictionary).has(m):
+				pedidos[pieza] = m
+	var out: Array = [CuerpoSprites.generar(1.0)]
+	# En el ORDEN DE APILADO de verdad (PersonajeData.PIEZAS), no en el que se hayan escrito los
+	# argumentos: si no, escribir el pelo antes que la camisa lo pintaria debajo de ella.
+	for pieza in PersonajeData.PIEZAS:
+		if not pedidos.has(pieza):
+			continue
+		var cat: Dictionary = JugadorSprites.CATALOGO[pieza]
+		out.append(cat["gen"].generar(String(pedidos[pieza]), 1.0))
+	return out
 
 
 # UNA ANIMACION, LAS OCHO DIRECCIONES. Una fila por direccion. Es la hoja con la que se juzga si el

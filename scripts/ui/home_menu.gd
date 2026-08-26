@@ -1075,7 +1075,7 @@ func _boton_aspecto(pj: PersonajeData) -> Button:
 	var b := Button.new()
 	b.text = "Aspecto"
 	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	b.tooltip_text = "Cambia su cara, su color y su brillo. Ni su progreso ni su equipo se tocan."
+	b.tooltip_text = "Cambia su cara, su pelo y su ropa. Ni su progreso ni su equipo se tocan."
 	b.pressed.connect(func(): _editar_aspecto(pj))
 	return b
 
@@ -1085,14 +1085,12 @@ func _editar_aspecto(pj: PersonajeData) -> void:
 		"Solo cambia cómo se ve. Su progreso y su equipo no se tocan.",
 		"Guardar cambios",
 		{"nombre": pj.nombre, "color": pj.color, "metalico": pj.metalico,
-			"color_alpha": pj.color_alpha, "imagen": pj.imagen},
-		func(nombre: String, color: Color, metalico: float, tinte: float, png: PackedByteArray):
+			"color_alpha": pj.color_alpha, "imagen": pj.imagen,
+			"piezas": pj.aspecto_completo()["piezas"]},
+		func(nombre: String, asp: Dictionary):
 			var limpio: String = nombre.strip_edges()
 			pj.nombre = limpio if limpio != "" else pj.nombre
-			pj.color = color
-			pj.metalico = clampf(metalico, 0.0, 1.0)
-			pj.color_alpha = clampf(tinte, 0.0, 1.0)
-			pj.set_imagen(png)
+			pj.aplicar_aspecto(asp)
 			# Repintar el cuerpo y el sequito: si no, el cambio no se ve hasta cambiar de escena.
 			var jugador: Node = get_tree().get_first_node_in_group("player")
 			if jugador != null and jugador.has_method("refrescar_grupo"):

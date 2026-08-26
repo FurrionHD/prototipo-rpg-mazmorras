@@ -41,6 +41,13 @@ const TINTE := Color(0.85, 0.25, 0.22)
 func _ready() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	var anim: String = args[0] if args.size() > 0 else "walk"
+	# UNA FILA POR MODELO de una pieza que se elige, en cuatro direcciones. Es la hoja con la que se
+	# decide un peinado: los seis hay que verlos JUNTOS o cada uno parece bien por su cuenta y luego
+	# resulta que tres se leen igual. Es la misma idea que las filas de comparacion de dev_gestos.
+	if anim in JugadorSprites.CATALOGO:
+		await _hoja_modelos(anim)
+		get_tree().quit()
+		return
 	var dirs: Array = []
 	if args.size() > 1 and args[1].contains(","):
 		for s in args[1].split(","):
@@ -101,6 +108,52 @@ func _ready() -> void:
 	print("[ver jugador juego] %s · direcciones %s" % [anim, str(dirs)])
 	print("[ver jugador juego] ", ProjectSettings.globalize_path(ruta))
 	get_tree().quit()
+
+
+# Una fila por modelo, cuatro direcciones por fila (de frente, en diagonal, de perfil y de espaldas,
+# que son las cuatro que de verdad se diferencian).
+const DIRS_MODELOS := [0, 1, 2, 4]
+
+func _hoja_modelos(pieza: String) -> void:
+	var p: Node2D = get_tree().get_first_node_in_group("player")
+	if p == null:
+		push_error("[ver jugador juego] no hay Player en la escena")
+		return
+	if not Game.tiene_imagen_cuerpo():
+		Game.set_imagen_cuerpo(_cara_de_prueba())
+	p.set_physics_process(false)
+	var modelos: Array = []
+	for m in (JugadorSprites.CATALOGO[pieza]["modelos"] as Dictionary):
+		modelos.append(String(m))
+	modelos.sort()
+	modelos.append("")   # y el "sin nada", que tambien es una opcion del menu
+	var out := Image.create(DIRS_MODELOS.size() * LADO, modelos.size() * LADO, false,
+		Image.FORMAT_RGBA8)
+	out.fill(FONDO)
+	var pj: PersonajeData = Game.lider()
+	for i in modelos.size():
+		var previo: Dictionary = pj.pieza(pieza)
+		pj.poner_pieza(pieza, String(modelos[i]), previo["color"], previo["metal"])
+		# Remonta la pila de capas: el muñeco solo reconstruye si cambia la lista de claves, y aqui
+		# cambia justo eso.
+		p._pintar_cuerpo()
+		var m2 = p._muneco
+		for j in DIRS_MODELOS.size():
+			var nom: String = "%s_%d" % ["idle", int(DIRS_MODELOS[j])]
+			m2.animar(nom)
+			m2.fijar(nom, 2)
+			await RenderingServer.frame_post_draw
+			await RenderingServer.frame_post_draw
+			var img: Image = get_viewport().get_texture().get_image()
+			var trozo: Image = img.get_region(Rect2i(img.get_width() / 2 - LADO / 2,
+				img.get_height() / 2 - LADO / 2 - 24, LADO, LADO))
+			out.blit_rect(trozo, Rect2i(0, 0, LADO, LADO), Vector2i(j * LADO, i * LADO))
+	out.resize(out.get_width() * ZOOM, out.get_height() * ZOOM, Image.INTERPOLATE_NEAREST)
+	DirAccess.make_dir_recursive_absolute(SALIDA)
+	var ruta: String = "%smodelos_%s.png" % [SALIDA, pieza]
+	out.save_png(ruta)
+	print("[ver jugador juego] %s: %s" % [pieza, str(modelos)])
+	print("[ver jugador juego] ", ProjectSettings.globalize_path(ruta))
 
 
 # UNA CARA DE MENTIRA para cuando la partida no tiene imagen, que es lo normal en esta herramienta:

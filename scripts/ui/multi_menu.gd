@@ -423,12 +423,15 @@ func _crear_mundo() -> void:
 	CreadorPersonaje.abrir(_encima, "NUEVO MUNDO COMPARTIDO",
 		"Ponle nombre e imagen para reconocerlo en tu lista. Después crearás tu personaje.",
 		"Siguiente: tu personaje",
-		{"nombre": "", "color": AZUL,
+		# 'personaje': false -> la pantalla SIMPLE, sin fases ni muñeco. Aqui no se esta creando a
+		# nadie: se le pone nombre y color a un MUNDO, y un personaje girando no diria nada.
+		{"nombre": "", "color": AZUL, "personaje": false,
 			"etiqueta_nombre": "Nombre del mundo", "nombre_defecto": MUNDO_POR_DEFECTO},
-		func(nombre: String, color: Color, _metalico: float, _tinte: float, png: PackedByteArray):
+		func(nombre: String, asp: Dictionary):
 			# Si lo deja en blanco vale el del hueco: lo prometia el placeholder.
 			var n: String = nombre.strip_edges()
-			_pedir_contrasena(n if n != "" else MUNDO_POR_DEFECTO, color, png))
+			_pedir_contrasena(n if n != "" else MUNDO_POR_DEFECTO, asp.get("color", AZUL),
+				asp.get("imagen", PackedByteArray())))
 
 
 func _pedir_contrasena(nombre: String, color: Color, png: PackedByteArray) -> void:
@@ -468,8 +471,8 @@ func _crear_de_verdad(nombre: String, color: Color, png: PackedByteArray, pass_:
 		"Este personaje vive DENTRO del mundo, a tu nombre: te lo encontrarás igual quien lo abra.\n"
 		+ "O puedes IMPORTAR uno de tus partidas, con sus acompañantes y lo que lleve en la bolsa.",
 		"Empezar la aventura", previo,
-		func(n: String, c: Color, m: float, tinte: float, imagen: PackedByteArray):
-			Game.nueva_partida(n, c, m, imagen, tinte)
+		func(n: String, asp: Dictionary):
+			Game.nueva_partida(n, asp)
 			if not Mundos.estrenar(clave):
 				_decir("No se pudo guardar el mundo.", false)
 				return
@@ -579,8 +582,8 @@ func _abrir(clave: String, pass_: String, forzar_build := false) -> void:
 			CreadorPersonaje.abrir(_encima, "TU PERSONAJE",
 				"Este personaje vive dentro del mundo, a tu nombre.", "Empezar la aventura",
 				{"color": Color(0.45, 0.72, 1.0)},
-				func(n: String, c: Color, m: float, tinte: float, imagen: PackedByteArray):
-					Game.nueva_partida(n, c, m, imagen, tinte)
+				func(n: String, asp: Dictionary):
+					Game.nueva_partida(n, asp)
 					if Mundos.estrenar(clave):
 						get_tree().change_scene_to_file(PUEBLO))
 		_:
@@ -644,15 +647,13 @@ func _crear_mi_personaje_en_mundo_ajeno(nombre_mundo: String) -> void:
 		+ "la próxima vez que entres, entrarás con él.\n"
 		+ "O puedes IMPORTAR uno de tus partidas, con sus acompañantes y lo que lleve en la bolsa.",
 		"Entrar en el mundo", previo,
-		func(n: String, c: Color, m: float, tinte: float, imagen: PackedByteArray):
+		func(n: String, asp: Dictionary):
 			# Se arma un PersonajeData con lo elegido y se manda: el ANFITRION es quien lo guarda en
 			# el mundo (es suyo mientras tenga el cerrojo) y me lo devuelve ya empaquetado.
 			var pj := PersonajeData.new()
 			pj.nombre = n.strip_edges() if n.strip_edges() != "" else Game.NOMBRE_POR_DEFECTO
-			pj.color = c
-			pj.metalico = m
-			pj.color_alpha = tinte
-			pj.imagen = imagen
+			pj.aspecto = PersonajeData.aspecto_nuevo(asp.get("color", pj.color))
+			pj.aplicar_aspecto(asp)
 			# EL UID, A MANO. Este personaje no pasa por Game.fichar(), que es el unico sitio que lo
 			# pone, asi que salia con uid "" y llegaba asi al mundo del host. Un uid vacio es un
 			# personaje FANTASMA: no se le puede mirar si esta de encargo (uid_de_encargo("") = 0), no

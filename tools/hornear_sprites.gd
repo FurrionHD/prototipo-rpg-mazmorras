@@ -101,10 +101,13 @@ func _hornear_jugador() -> void:
 	var recortados: int = 0
 	var sueltas: int = 0
 	var t0: int = Time.get_ticks_msec()
-	for c in JugadorSprites.CAPAS:
-		var g = c["gen"]
-		# generar y no frames: aqui hay que DIBUJARLA siempre, aunque haya un horneado viejo en disco.
-		var sf: SpriteFrames = g.generar(1.0)
+	# TODAS LAS CAPAS QUE EXISTEN, no las del personaje de turno. 'JugadorSprites.CAPAS' son solo las
+	# fijas (el cuerpo); lo que se elige -- pelo y ropa -- vive en los CATALOGOS, y hornear solo lo
+	# que lleva puesto alguien significaria que el resto de peinados se dibujan al vuelo en el juego.
+	# 'todas_las_capas' ya las genera (generar y no frames: aqui hay que DIBUJARLAS siempre, aunque
+	# haya un horneado viejo en disco, o rehornear tras tocar un generador no serviria de nada).
+	for c in JugadorSprites.todas_las_capas():
+		var sf: SpriteFrames = JugadorSprites.generar_capa(c, 1.0)
 		var clave: String = String(c["clave"])
 		var n: int = CapaJugador.hornear(sf, clave, 1.0)
 		if n <= 0:

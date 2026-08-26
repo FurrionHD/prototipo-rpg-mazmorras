@@ -279,17 +279,16 @@ func precio_fichar() -> int:
 # (En el futuro podra haber fichajes especiales que lleguen ya con nivel, stats o desarrollos
 # propios; por eso esto solo construye el personaje y no asume que siempre sea un novato.)
 # Devuelve el PersonajeData fichado, o null si no llega el dinero.
-func fichar_en_taberna(nombre_: String, color_: Color, metalico_: float,
-		png_: PackedByteArray, tinte_: float) -> PersonajeData:
+func fichar_en_taberna(nombre_: String, asp: Dictionary) -> PersonajeData:
 	var precio: int = precio_fichar()
 	if not gastar(precio):
 		return null
 	var pj := PersonajeData.new()
 	pj.nombre = nombre_.strip_edges() if nombre_.strip_edges() != "" else NOMBRE_POR_DEFECTO
-	pj.color = color_
-	pj.metalico = clampf(metalico_, 0.0, 1.0)
-	pj.color_alpha = clampf(tinte_, 0.0, 1.0)
-	pj.set_imagen(png_)
+	# El aspecto entero de una vez (ver PersonajeData.aspecto_completo), y el traje por defecto con
+	# SU color: en el _init del Resource el color todavia era blanco.
+	pj.aspecto = PersonajeData.aspecto_nuevo(asp.get("color", pj.color))
+	pj.aplicar_aspecto(asp)
 	fichar(pj)
 	print("[taberna] %s se une al grupo por %d monedas." % [pj.nombre, precio])
 	return pj
@@ -1647,9 +1646,11 @@ func material_de(pj: PersonajeData) -> ShaderMaterial:
 
 # Empieza una partida DE CERO (menu -> Nueva partida). Mundo nuevo y personaje a estrenar,
 # con el nombre, el color, el acabado y la imagen que haya elegido en la pantalla de creacion.
-func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1, 1, 1),
-		metalico_: float = 0.0, imagen_png_: PackedByteArray = PackedByteArray(),
-		color_alpha_: float = 1.0) -> void:
+# EL ASPECTO VIAJA COMO UN DICT (ver PersonajeData.aspecto_completo) y no como cuatro argumentos
+# sueltos: desde que cada pieza -- pelo, camisa, pantalon -- lleva su propio color y su propio
+# acabado, la lista de argumentos crecia con cada cosa que se pudiera elegir, y con ella las siete
+# firmas por las que pasa. Vacio = personaje por defecto.
+func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -> void:
 	# Empiezas SOLO: una plantilla de una persona, a estrenar (los companeros se contratan en la
 	# taberna). Va lo primero porque todo lo que viene despues escribe en el lider.
 	var yo := PersonajeData.new()
@@ -1672,10 +1673,13 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, color_: Color = Color(1
 	player_nombre = nombre_.strip_edges()
 	if player_nombre == "":
 		player_nombre = NOMBRE_POR_DEFECTO   # sin nombre te llamas Aventurero, no ""
-	player_color = color_
-	player_metalico = clampf(metalico_, 0.0, 1.0)
-	player_color_alpha = clampf(color_alpha_, 0.0, 1.0)
-	set_imagen_cuerpo(imagen_png_)
+	# El aspecto ENTERO de una vez: color, acabado, foto y las piezas que lleva puestas. Sin dict, el
+	# personaje nace con el traje por defecto (que es lo que hace la partida de prueba de multi_menu).
+	#
+	# El traje por defecto se rehace con SU color antes de aplicar el dict: 'aspecto_nuevo' viste al
+	# personaje de su propio color, y en el _init del Resource ese color todavia era blanco.
+	yo.aspecto = PersonajeData.aspecto_nuevo(asp.get("color", yo.color))
+	yo.aplicar_aspecto(asp)
 
 	player_level = 1
 	ability_internal = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}

@@ -228,13 +228,12 @@ func _nueva(slot: int) -> void:
 
 # ============================================================
 #  PERSONAJE NUEVO: nombre + aspecto, y al aceptar arranca una partida de cero.
-#  El aspecto son cuatro cosas, y las cuatro van al SaveData de ESA ranura (no al perfil): cada
-#  partida es un personaje distinto.
-#    - COLOR:   el cuerpo, si no pones imagen.
+#  El aspecto entero viaja en UN dict (ver PersonajeData.aspecto_completo) y va al SaveData de ESA
+#  ranura (no al perfil): cada partida es un personaje distinto.
+#    - PIEZAS:  el pelo y la ropa, cada una con su modelo y su color. De ahi sale tu color.
 #    - IMAGEN:  opcional, tuya, del disco. La encuadras en un CUADRADO (zoom + arrastre) y se
 #      guarda ya recortada DENTRO de la partida (ver Game.png_cuadrado).
-#    - TINTE:   cuanto se ve el color por encima de esa imagen. Sin imagen no pinta nada.
-#    - METAL:   el brillo, que va SIEMPRE lo ultimo: barniza tambien tu imagen.
+#    - TINTE y METAL: los dos son de ESA imagen, y de nada mas (ver creador_personaje.gd).
 #
 #  Esta pantalla tenia tambien un modo EDITAR, que llegaba desde un boton "Editar" de cada fila.
 #  Ya no: cambiar el nombre y la cara se hace desde el HOGAR, que ademas deja hacerlo con
@@ -247,18 +246,17 @@ func _crear_personaje(slot: int) -> void:
 		"",
 		"Empezar la aventura",
 		{"color": COLOR_INICIAL},
-		func(nombre: String, color: Color, metalico: float, tinte: float, png: PackedByteArray):
-			_empezar(slot, nombre, color, metalico, tinte, png))
+		func(nombre: String, asp: Dictionary):
+			_empezar(slot, nombre, asp))
 
 
 # Color de salida de la creacion (uno cualquiera, ya lo cambiara).
 const COLOR_INICIAL := Color(0.45, 0.72, 1.0)
 
 
-func _empezar(slot: int, nombre: String, color: Color, metalico: float, tinte: float,
-		png: PackedByteArray) -> void:
+func _empezar(slot: int, nombre: String, asp: Dictionary) -> void:
 	# el nombre vacio lo resuelve Game (NOMBRE_POR_DEFECTO)
-	Game.nueva_partida(nombre, color, metalico, png, tinte)
+	Game.nueva_partida(nombre, asp)
 	Perfil.ranura_actual = slot
 	Perfil.guardar(slot)   # la ranura queda ocupada desde el minuto uno, ya con nombre y aspecto
 	get_tree().change_scene_to_file(PUEBLO)

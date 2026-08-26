@@ -25,9 +25,100 @@ class_name PersonajeData
 # --- Identidad y aspecto (lo que se ve por el mapa; ver Game.material_cuerpo) ---
 @export var nombre: String = "Aventurero"
 @export var color: Color = Color(1, 1, 1)
+# METALICO y COLOR_ALPHA son SOLO DE LA IMAGEN DE LA CARA. Nacieron cuando el cuerpo era un
+# ColorRect de 32x32 y tiñendolo se pintaba al personaje entero; desde que hay capas, cada pieza
+# lleva su propio color y su propio acabado dentro de `aspecto`, y estos dos se quedan con lo unico
+# que no es una capa horneada: el PNG que te pones de cara.
 @export var metalico: float = 0.0
 @export var imagen: PackedByteArray = PackedByteArray()
 @export var color_alpha: float = 1.0
+
+# --- EL ASPECTO: que lleva puesto y de que color, PIEZA A PIEZA ---
+# Formato: {"pelo": {"modelo": String, "color": Color, "metal": float}, "torso": {...}, ...}
+# 'modelo' vacio = esa pieza no se lleva (calvo, torso desnudo). Las claves son las de PIEZAS y las
+# resuelve JugadorSprites.capas_de para montar la pila de sprites.
+#
+# VA COMO UN SOLO CAMPO Y NO COMO DIEZ VARIABLES SUELTAS. El aspecto viaja por seis sitios (el save,
+# ficha_a_dict de los mundos compartidos, tres RPC del saludo y nueva_partida) y hasta hoy lo hacia
+# de una variable en una variable: cada pieza nueva eran seis firmas que tocar y seis oportunidades
+# de dejarse una punta -- que es exactamente como se pierden cosas SOLO en multijugador.
+#
+# UN DICT VACIO ES LO NORMAL, NO UN FALLO: es lo que traen todas las partidas anteriores a esto. Por
+# eso nadie lo lee a pelo y todo el mundo pasa por 'pieza()', que rellena lo que falte.
+@export var aspecto: Dictionary = {}
+
+# Las piezas que hay hoy, EN ORDEN DE APILADO (de abajo arriba). El arma y la armadura equipada
+# entraran por su propio camino: no se eligen, se llevan puestas.
+const PIEZAS := ["piernas", "torso", "pelo"]
+
+# Con que nace un personaje a estrenar. El color de la ropa es EL SUYO -- es lo que hace que el
+# color que eliges al crear la partida por fin se vea, ahora que la piel no se tiñe.
+static func aspecto_nuevo(col: Color = Color(0.45, 0.72, 1.0)) -> Dictionary:
+	return {
+		"piernas": {"modelo": "pantalon", "color": col.darkened(0.35), "metal": 0.0},
+		"torso": {"modelo": "camisa", "color": col, "metal": 0.0},
+		"pelo": {"modelo": "corto", "color": Color(0.24, 0.15, 0.10), "metal": 0.0},
+	}
+
+
+# UNA pieza del aspecto, siempre valida. Es la unica puerta de entrada: una partida vieja tiene el
+# dict vacio y un personaje traido por red puede llegar a medias, asi que aqui se rellena lo que
+# falte en vez de repartir 'get' con defaults por todo el proyecto.
+func pieza(clave: String) -> Dictionary:
+	var d: Dictionary = aspecto.get(clave, {})
+	var base: Dictionary = aspecto_nuevo(color).get(clave, {})
+	return {
+		"modelo": String(d.get("modelo", base.get("modelo", ""))),
+		"color": Color(d.get("color", base.get("color", color))),
+		"metal": clampf(float(d.get("metal", base.get("metal", 0.0))), 0.0, 1.0),
+	}
+
+
+# Cambia una pieza sin pisar las demas. Lo usan el creador y la pantalla de aspecto del hogar.
+func poner_pieza(clave: String, modelo: String, col: Color, metal: float = 0.0) -> void:
+	if aspecto.is_empty():
+		aspecto = aspecto_nuevo(color)
+	aspecto[clave] = {"modelo": modelo, "color": col, "metal": clampf(metal, 0.0, 1.0)}
+
+
+# ============================================================
+#  EL ASPECTO COMPLETO: como viaja de una pantalla a otra
+# ============================================================
+# TODO lo que se ve de una persona en un solo dict: los cuatro campos de la cara y las piezas.
+#
+# Existe para que la pantalla de creacion, 'Game.nueva_partida', la taberna y la red hablen el MISMO
+# idioma. Antes esto eran cuatro argumentos sueltos repetidos en siete firmas, y cada pieza nueva
+# eran siete sitios que tocar -- que es como se pierde una punta y algo se ve solo en multijugador.
+func aspecto_completo() -> Dictionary:
+	var pz := {}
+	for k in PIEZAS:
+		pz[k] = pieza(k)
+	return {"color": color, "metalico": metalico, "imagen": imagen,
+		"color_alpha": color_alpha, "piezas": pz}
+
+
+# Lo contrario. Lo que no venga se queda como esta: asi una pantalla puede tocar solo el pelo sin
+# tener que reenviar la foto entera.
+func aplicar_aspecto(d: Dictionary) -> void:
+	if d.has("color"):
+		color = d["color"]
+	if d.has("metalico"):
+		metalico = clampf(float(d["metalico"]), 0.0, 1.0)
+	if d.has("color_alpha"):
+		color_alpha = clampf(float(d["color_alpha"]), 0.0, 1.0)
+	if d.has("imagen"):
+		set_imagen(d["imagen"])
+	var pz: Dictionary = d.get("piezas", {})
+	if pz.is_empty():
+		return
+	if aspecto.is_empty():
+		aspecto = aspecto_nuevo(color)
+	for k in pz:
+		if not PIEZAS.has(k):
+			continue
+		var p: Dictionary = pz[k]
+		poner_pieza(String(k), String(p.get("modelo", "")),
+			Color(p.get("color", color)), float(p.get("metal", 0.0)))
 # ROL con el que salio de la taberna ("guerrero" | "tanque" | "mago"). No cambia nada mecanico:
 # decide el kit inicial y el texto de la ficha. El jugador no tiene rol ("").
 @export var rol: String = ""
@@ -221,6 +312,7 @@ func _init() -> void:
 	habilidades_aprendidas = []
 	loadout_habilidades = {}
 	equip_meta = meta_vacia()
+	aspecto = aspecto_nuevo(color)
 
 
 static func _cero_abilities() -> Dictionary:

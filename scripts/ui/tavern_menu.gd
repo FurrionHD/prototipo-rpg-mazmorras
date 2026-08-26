@@ -162,8 +162,8 @@ func _abrir_creador() -> void:
 	CreadorPersonaje.abrir(self, "CONTRATAR  ·  %d monedas" % precio,
 		"Llega a nivel 1, sin habilidades y sin equipo. Lo demás lo pones tú.",
 		"Contratar", {"color": CreadorPersonaje.COLOR_INICIAL},
-		func(nombre: String, color: Color, metalico: float, tinte: float, png: PackedByteArray):
-			var pj: PersonajeData = Game.fichar_en_taberna(nombre, color, metalico, png, tinte)
+		func(nombre: String, asp: Dictionary):
+			var pj: PersonajeData = Game.fichar_en_taberna(nombre, asp)
 			if pj == null:
 				_aviso = "No te llega el dinero."
 				_aviso_ok = false
