@@ -238,9 +238,19 @@ static func pintar(esq: Dictionary, piezas: Array) -> void:
 
 	# 2. Las piernas, la del fondo primero. La de DELANTE lleva linea, y contra la de atras: es lo
 	#    unico que las separa cuando se cruzan al andar (van juntas, ver PoseJugador.PIE_X).
+	#
+	#    Y EL TONO DE LA DE ATRAS DEPENDE DE LA DIRECCION, no de la zancada. Es el mismo criterio que
+	#    los brazos y por el mismo motivo: DE FRENTE Y DE ESPALDAS LAS DOS PIERNAS VAN IGUALES.
+	#
+	#    Antes la de atras iba siempre en PIEL_S, y de frente eso se veia como UNA PIERNA MARRON Y LA
+	#    OTRA DE COLOR CARNE -- que ademas cambiaba de lado en cada paso, porque quien va detras se
+	#    alterna con la zancada. No tenia ningun sentido: de frente las dos estan a la misma distancia
+	#    de la camara. De perfil si (ahi una tapa a la otra de verdad, y las referencias tambien la
+	#    oscurecen), asi que de perfil se mantiene.
 	var izq_pierna_al_fondo: bool = pierna_izq_prof < pierna_der_prof
-	_pierna(piezas, esq, izq_pierna_al_fondo, Tono.PIEL_S, [])
-	_pierna(piezas, esq, not izq_pierna_al_fondo, Tono.PIEL, [Tono.PIEL_S])
+	var tono_pierna_fondo: int = Tono.PIEL_S if de_lado else Tono.PIEL
+	_pierna(piezas, esq, izq_pierna_al_fondo, tono_pierna_fondo, [])
+	_pierna(piezas, esq, not izq_pierna_al_fondo, Tono.PIEL, [tono_pierna_fondo])
 
 	# 3. El tronco. La cadera antes que el pecho: asi el pecho tapa la junta y no se ve el corte.
 	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CADERA], R_CADERA, Tono.PIEL_S)
