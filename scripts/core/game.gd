@@ -3781,6 +3781,16 @@ var debug_dummy_hp: float = 500.0
 # escribir en los campos sin que WASD lo muevan). Lo consulta player.gd.
 var debug_panel_open: bool = false
 
+# VER LAS CAJAS por encima del mapa (ver visor_hitboxes.gd). Lo enciende el panel de debug.
+#
+# Vive AQUI y no en el visor porque el visor muere con la escena -- lo crea el jugador, igual que el
+# panel de debug --, asi que guardado en el se apagaria solo cada vez que bajas un piso o entras al
+# pueblo. Lo que hay que recordar entre escenas es el interruptor, no quien dibuja.
+#
+# NO SE GUARDA EN LA PARTIDA a proposito: es un instrumento de una sesion, y dejarselo encendido a
+# alguien que abre su save mañana seria un fallo que parece un fallo del juego.
+var dev_hitboxes: bool = false
+
 # La ayuda (F1) se abre SOLA la primera vez que arrancas el juego, para que un tester que
 # no ha visto nunca esto sepa que teclas tiene. Solo la primera: vive aqui (en el autoload)
 # y no en el panel porque el panel lo crea el jugador y se reconstruye en CADA escena; si

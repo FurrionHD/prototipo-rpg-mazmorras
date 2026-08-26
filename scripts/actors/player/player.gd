@@ -206,6 +206,11 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/retorno_menu.gd").new())    # oferta de subirse a la piedra de otro (multi)
 	add_child(preload("res://scripts/ui/desarrollo_menu.gd").new()) # selector de desarrollo (subir de nivel)
 	add_child(preload("res://scripts/ui/debug_panel.gd").new())  # panel de debug (cualquier sala)
+	# El visor de cajas (dev). Cuelga del jugador como el panel -- muere y renace con la escena --,
+	# pero va en top_level, o sea en coordenadas de MUNDO: colgado de verdad, todo lo que dibuja
+	# saldria girado y desplazado con el jugador. El interruptor vive en Game.dev_hitboxes, que es
+	# lo unico que tiene que sobrevivir al cambio de piso.
+	add_child(preload("res://scripts/fx/visor_hitboxes.gd").new())
 	add_child(preload("res://scripts/ui/spawner.gd").new())      # spawner de enemigos (dev/test)
 	add_child(preload("res://scripts/ui/material_spawner.gd").new())  # spawner de vetas/plantas (dev/test)
 	add_child(preload("res://scripts/ui/keys_help.gd").new())    # ayuda de teclas en pantalla (F1)

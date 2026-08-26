@@ -200,6 +200,34 @@ func _build_atajos(vb: VBoxContainer) -> void:
 	inf.pressed.connect(Game.dev_informe)
 	vb.add_child(inf)
 
+	_build_hitboxes(vb)
+
+
+# VER LAS CAJAS. Va con leyenda porque son CUATRO cosas de colores y sin ella el mapa se llena de
+# rayas que no dicen nada.
+#
+# El interruptor esta aqui y no en una tecla por lo mismo que los demas atajos: una tecla suelta se
+# pulsa sin querer, y ademas esto hay que poder dejarlo encendido un rato mientras se juega, que es
+# justo lo contrario de un atajo de una pulsacion.
+func _build_hitboxes(vb: VBoxContainer) -> void:
+	var cb := CheckButton.new()
+	cb.text = "Ver las cajas (hitboxes)"
+	cb.tooltip_text = "Dibuja las dos cajas de cada personaje y el hueco hasta cada enemigo.\n" \
+		+ "El visor de colisiones de Godot NO sirve aquí: la caja con la que te pegan " \
+		+ "no es un nodo, es un rectángulo calculado."
+	cb.set_pressed_no_signal(Game.dev_hitboxes)
+	cb.toggled.connect(func(on: bool): Game.dev_hitboxes = on)
+	vb.add_child(cb)
+
+	var leyenda := Label.new()
+	leyenda.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	leyenda.add_theme_font_size_override("font_size", 11)
+	leyenda.text = "Cian: la huella de los pies (choca con muros).  " \
+		+ "Rosa: el cuerpo con el que te pegan, y el hueco en px (rojo = tocándose).  " \
+		+ "Amarillo: el cono del espadazo.  Verde: alcance de la F.  Gris: la roca."
+	leyenda.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
+	vb.add_child(leyenda)
+
 
 func _atajo(fila: HBoxContainer, txt: String, ayuda: String, accion: Callable) -> void:
 	var b := Button.new()
