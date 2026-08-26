@@ -2,6 +2,48 @@
 
 ---
 
+# v0.10.1 — «Te ves entero»
+
+El personaje era la mitad de grande de lo que pedía su propio dibujo. Ahora mide el doble.
+
+---
+
+## 🧍 El personaje, al doble
+
+**Se ve el doble de grande.** Y no es un zoom: se dibuja con el doble de píxeles, así que lo
+que hay es más detalle, no más borroso.
+
+**Con eso, los enemigos vuelven a su sitio.** Una rata medía casi lo mismo que tú y dejaba de
+leerse como una alimaña: parecía otro humanoide. Ahora te llega por el tobillo, el slime por
+la rodilla y el Rey Slime te saca de ancho.
+
+**Los dos brazos ya son iguales.** Uno salía más gordo que el otro, y al girar parecía cambiar
+de brazo. También se ha acabado el de atrás que unas veces era corto y otras largo: quedaba
+enterrado dentro del pecho y asomaba un trozo distinto en cada paso.
+
+**El cuerpo va en color carne**, no del color que elegiste. Ese color no se pierde: pasará a
+ser el de la ropa cuando la haya. Elegir el tono de piel llegará más adelante.
+
+**Y vuelves a tener tu cara.** Tu imagen se pegó a la cabeza — se te ve de frente y de perfil,
+y desaparece cuando andas de espaldas. Desde que el personaje dejó de ser un cuadrado, tu
+retrato había dejado de verse en el mapa.
+
+---
+
+## 🚶 Lo que ocupas al andar
+
+Ahora son **dos cosas distintas**, que es como debía haber sido siempre:
+
+- **Contra las paredes chocas con los pies**, no con el cuerpo entero. Por eso la cabeza y los
+  hombros pueden pasar por delante de lo que hay detrás, que es lo que hace que el mapa se lea
+  con profundidad. Lo que ocupas en el suelo es prácticamente lo de antes: los pasillos se
+  cruzan igual.
+- **Los golpes te alcanzan en todo el cuerpo.** Eres más alto que ancho, y eso ya cuenta.
+
+> Los compañeros del séquito **se separan más** para no metérsete dentro.
+
+---
+
 # v0.10.0 — «Se apaga la luz»
 
 *74 commits desde la v0.9.6.* La versión más grande hasta ahora: la mazmorra se queda a

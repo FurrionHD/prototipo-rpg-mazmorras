@@ -47,15 +47,31 @@ Motor: **Godot 4.7** (GDScript), renderizador **GL Compatibility**.
   - Escena: `scenes/actors/player/player.tscn`
   - Script: `scripts/actors/player/player.gd`
 
-### Al SUBIR de versión hay que tocar TRES sitios
+### Al SUBIR de versión hay que tocar CINCO sitios
 
 La fuente de verdad es `project.godot` → `config/version` (de ahí la lee `Game.VERSION`), pero el
-export **no puede leer los ajustes del proyecto**, así que hay dos copias a mano en
-`export_presets.cfg`. Al cambiar de versión:
+export **no puede leer los ajustes del proyecto**, así que hay copias a mano en
+`export_presets.cfg` — y desde que existe el preset de Android son el doble. Al cambiar de versión:
 
 1. `project.godot` → `config/version` ← **la fuente**
-2. `export_presets.cfg` → `export_path` (`build/Dungeon Oratoria X.Y.Z.zip`)
-3. `export_presets.cfg` → `application/file_version` y `application/product_version` (`X.Y.Z.0`)
+
+En `export_presets.cfg`, preset **`[preset.0]` (Windows)**:
+
+2. `export_path` (`build/Dungeon Oratoria X.Y.Z.zip`)
+3. `application/file_version` y `application/product_version` (`X.Y.Z.0`)
+
+En `export_presets.cfg`, preset **`[preset.1]` (Android)**:
+
+4. `export_path` (`build/DungeonOratoria-X.Y.Z.apk`)
+5. `version/name` (`X.Y.Z`) y `version/code`
+
+El `.0` del final de las de Windows es exigencia del sistema (los metadatos del `.exe` piden cuatro
+componentes); no confundirlo con la versión del juego, que es SemVer de TRES números.
+
+**`version/code` es un entero, no la versión.** Android lo usa para saber qué build es más nueva y
+**solo le importa que suba**: se niega a instalar encima de una con un código igual o mayor. Va
+`minor*10 + patch` (0.10.0 → 100, 0.10.1 → 101), que es lo que se venía haciendo, pero lo que no es
+negociable es que no baje ni se repita.
 
 Los metadatos del export (`product_name`, `company_name`, `file_description`, `copyright`) están
 rellenos para que el `.exe` no salga anónimo: un binario grande y sin metadatos es justo el perfil
