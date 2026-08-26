@@ -1035,23 +1035,17 @@ const _MEDIO_CUERPO := 16.0   # el cuerpo base es 32x32 (bicho normal)
 
 # Cuanto SEPARA a los dos cuerpos. 0 = tocandose (de lado o de esquina); < 0 = solapados.
 #
-# EL OTRO PUEDE NO SER CUADRADO, y el jugador ya no lo es: su cuerpo es mas alto que ancho desde que
-# el dibujo se doblo (ver Player.MEDIO_CUERPO). Si lo tiene, se le pregunta; si no -- otro bicho, o
-# cualquier Node2D --, se supone el cuerpo base de 32x32 de siempre.
+# LA CUENTA VIVE EN Cuerpos, no aqui. El otro puede no ser un cuadrado ni estar centrado en su nodo:
+# el jugador tiene el cuerpo mas alto que ancho Y desplazado hacia arriba, porque su dibujo cae casi
+# entero por encima del nodo (ver PoseJugador.CAJA_CUERPO). Con eso la cuenta pasa a ser un AABB
+# contra AABB, y tenerla en dos sitios -- aqui y en Player._hueco_hasta -- garantizaba que se
+# separaran; de hecho ya lo estaban.
 #
 # Esto es lo que hace que "los enemigos peguen al cuerpo entero": no hay ningun Area2D ni ninguna
 # hitbox de mas, es esta cuenta la que decide si te alcanzan. La caja fisica de player.tscn solo
 # sirve para chocar con las paredes.
 func hueco_hasta(otro: Node2D) -> float:
-	if otro == null or not is_instance_valid(otro):
-		return INF
-	var d: Vector2 = (otro.global_position - global_position).abs()
-	var medio_otro := Vector2(_MEDIO_CUERPO, _MEDIO_CUERPO)
-	if otro.has_method("medio_cuerpo"):
-		medio_otro = otro.medio_cuerpo()
-	# medio bicho (+ lo que sobresale el elite) + medio del otro
-	var suma: Vector2 = medio_otro + Vector2(_MEDIO_CUERPO + radio_extra, _MEDIO_CUERPO + radio_extra)
-	return maxf(d.x - suma.x, d.y - suma.y)
+	return Cuerpos.hueco(self, otro)
 
 
 # Margen de alcance REAL: el attack_range de siempre era "32 px de cuerpos + margen", asi que

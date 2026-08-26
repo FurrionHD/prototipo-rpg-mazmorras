@@ -172,4 +172,32 @@ func _apagar_lo_que_no_se_ve() -> void:
 			var nodo := n as Node2D
 			if nodo == null or not is_instance_valid(nodo):
 				continue
-			nodo.visible = vision.luz_en(nodo.global_position) > LUZ_MINIMA
+			nodo.visible = _le_llega_luz(nodo)
+
+
+# ¿Le llega luz a este nodo? Para casi todos es una sola muestra en su centro, que es lo correcto:
+# una veta o un cadaver ocupan poco mas que un punto.
+#
+# PERO UN NODO GRANDE NO SE PUEDE DECIDIR POR SU CENTRO, y eso costo un fallo que no se parecia a su
+# causa. El charco de pescar mide 160x128 px (cinco celdas por cuatro) y esta en este mismo grupo, y
+# ademas monta un muro invisible alrededor que impide acercarse a menos de dos celdas y media de su
+# centro -- con el radio minimo de luz en tres celdas, te plantabas en la orilla, con la orilla
+# perfectamente iluminada, y el centro seguia a oscuras: el charco ENTERO desaparecia. Lo que se veia
+# no era un charco a oscuras sino el riachuelo desembocando en la nada.
+#
+# Asi que a quien sabe decir cuanto ocupa se le muestrean tambien las cuatro esquinas, y basta con
+# que a UNA le llegue luz. Que se encienda entero viendo solo un borde no queda mal: es una mancha
+# plana y el shader la oscurece por pixel igual que al suelo, asi que el fondo se sigue viendo a
+# oscuras. Lo que se arregla es que deje de existir de golpe.
+func _le_llega_luz(nodo: Node2D) -> bool:
+	if vision.luz_en(nodo.global_position) > LUZ_MINIMA:
+		return true
+	if not nodo.has_method("tam_px"):
+		return false
+	var media: Vector2 = (nodo.tam_px() as Vector2) * 0.5
+	if media.x <= 0.0 or media.y <= 0.0:
+		return false
+	for e in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		if vision.luz_en(nodo.global_position + media * e) > LUZ_MINIMA:
+			return true
+	return false

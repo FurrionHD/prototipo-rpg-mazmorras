@@ -171,20 +171,18 @@ func _cajas_de(raiz: Node, centro: Vector2, color: Color, grosor: float) -> void
 # ============================================================
 #  EL BULTO: el rectangulo que NO existe como nodo
 # ============================================================
-# Se pregunta igual que lo pregunta el enemigo -- por has_method("medio_cuerpo") --, y quien no sepa
-# contestar se dibuja con el cuerpo base de 32x32. Eso NO es un atajo: es exactamente el fallo que
-# este visor tiene que poder enseñar. Si un aliado nuevo se olvida de ese metodo, aqui se le vera el
-# bulto mas pequeño que a los demas, que es la pinta que tiene "a este le pegan desde mas cerca".
+# Se pide a Cuerpos, que es EL MISMO sitio del que la saca el juego para decidir si te pegan. No se
+# recalcula aqui a proposito: un visor que dibuje su propia version de la caja puede enseñar que
+# todo esta bien mientras el juego usa otra.
+#
+# Quien no sepa contestar se dibuja con el cuerpo base de 32x32, y eso NO es un atajo: es
+# exactamente el fallo que este visor tiene que poder enseñar. Si un aliado nuevo se olvida del
+# metodo, aqui se le vera el bulto mas pequeño que a los demas, que es la pinta que tiene "a este le
+# pegan desde mas cerca".
 func _bulto_de(a: Node2D) -> void:
-	var medio := Vector2(MEDIO_BASE, MEDIO_BASE)
-	if a.has_method("medio_cuerpo"):
-		medio = a.medio_cuerpo()
-	# Lo que sobresale un elite por encima del cuerpo base (ver Enemy.radio_extra).
-	if "radio_extra" in a:
-		var extra: float = float(a.radio_extra)
-		medio += Vector2(extra, extra)
+	var caja: Rect2 = Cuerpos.caja_de(a)
 	var p: Vector2 = a.global_position
-	draw_rect(Rect2(p - medio, medio * 2.0), C_BULTO, false, 2.0)
+	draw_rect(caja, C_BULTO, false, 2.0)
 	# El CENTRO, que es de donde se miden todas las distancias del juego. Verlo importa: el nodo
 	# esta a la altura de los pies, no en mitad del dibujo, y esa diferencia es la que hace que un
 	# golpe "de arriba" conecte antes de lo que parece.

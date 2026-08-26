@@ -67,6 +67,8 @@ var _cerrado: bool = false
 
 var _panel: VBoxContainer = null
 var _globo: Node2D = null
+# La capa donde vive el bocadillo, por encima de la oscuridad. Ver _ready.
+var _capa_globo: CanvasLayer = null
 # Los botones de las OPCIONES de la frase actual. Se guardan porque se apagan y se encienden solos
 # segun puedas recitar o no (ver _refrescar_bloqueo). El "◄ Volver" NO entra en la lista: cancelar
 # tiene que poder hacerse siempre, tambien corriendo y con una pared en medio.
@@ -104,11 +106,30 @@ func _ready() -> void:
 	_panel.add_theme_constant_override("separation", 12)
 	add_child(_panel)
 
-	# El bocadillo cuelga del JUGADOR (no de esta capa): asi lo sigue solo, sin recolocarlo cada
-	# frame ni convertir coordenadas del mundo a pantalla.
+	# EL BOCADILLO VA EN SU PROPIA CAPA, NO COLGADO DEL JUGADOR, y cuesta explicarlo pero es la unica
+	# forma de que se vea.
+	#
+	# Colgado del jugador vivia en el MUNDO, o sea en la capa 0. Y la oscuridad de la mazmorra es un
+	# CanvasLayer con layer = 3 (ver niebla.gd). En Godot, cualquier CanvasLayer por encima de 0 se
+	# pinta encima de TODO el mundo pase lo que pase con el z_index -- no compiten, no juegan en la
+	# misma liga --, asi que el rectangulo negro tapaba el bocadillo a media frase.
+	#
+	# La capa 4 es el hueco que dejo libre a proposito el comentario de niebla.gd: por encima de la
+	# oscuridad (3) y por debajo del HUD (5), para no tapar la vida ni el mapa.
+	#
+	# LO QUE SE PAGA por esto es recolocarlo cada frame (ver _process) y ponerle la escala de la
+	# camara: en el mundo la camara lo ampliaba y en una capa no, asi que sin eso saldria a la mitad
+	# de tamaño. A cambio, el texto se dibuja a resolucion de pantalla y sale mas limpio.
+	#
+	# El bocadillo del jugador REMOTO (ver remote_player.gd) sigue en el mundo a proposito: que la
+	# oscuridad lo tape es la mecanica, no un fallo. Lo que tiene que verse siempre es TU interfaz.
 	if is_instance_valid(_jugador):
+		_capa_globo = CanvasLayer.new()
+		_capa_globo.layer = 4
+		add_child(_capa_globo)
 		_globo = GloboCasteoS.new()
-		_jugador.add_child(_globo)
+		_capa_globo.add_child(_globo)
+		set_process(true)
 
 	_menu_hechizos()
 
@@ -312,6 +333,27 @@ func _process(delta: float) -> void:
 		return
 	Game.sumar_alboroto(ALBOROTO_CANTANDO * delta)
 	_refrescar_bloqueo()
+	_seguir_al_jugador()
+
+
+# Deja el bocadillo sobre la cabeza del jugador. Hace falta porque vive en su propia capa y no
+# colgado de el (ver _ready): en una capa las coordenadas son de PANTALLA, asi que hay que traducir.
+#
+# EL PUNTO SE CALCULA EN EL MUNDO Y SE TRADUCE ENTERO, no al reves. La altura del bocadillo
+# (GloboCasteo.ALTURA) esta en unidades de mundo, asi que restarsela ya en pantalla lo dejaria a otra
+# altura segun el zoom de la camara -- y ademas cambiaria sola si algun dia el zoom se toca.
+func _seguir_al_jugador() -> void:
+	if not is_instance_valid(_globo) or not is_instance_valid(_jugador):
+		return
+	var vp: Viewport = get_viewport()
+	if vp == null:
+		return
+	var ct: Transform2D = vp.get_canvas_transform()
+	_globo.position = ct * _jugador.global_position
+	# Y LA ESCALA DE LA CAMARA, o el bocadillo saldria a 1x. En el mundo lo ampliaba la camara; aqui
+	# no hay camara que valga, asi que se le pone a mano el mismo aumento. Sale del transform y no de
+	# la camara directamente para que valga aunque el zoom cambie o no haya camara.
+	_globo.escala_base = Vector2(ct.x.length(), ct.y.length())
 
 
 # ¿SE PUEDE RECITAR AHORA MISMO? Devuelve el motivo por el que NO ("" = si se puede).

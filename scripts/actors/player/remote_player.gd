@@ -186,7 +186,7 @@ func _physics_process(delta: float) -> void:
 
 
 # Lo mismo que el compañero y por lo mismo: el otro humano se dibuja con el mismo cuerpo, asi que
-# tiene que recibir los golpes con el mismo. Ver Companion.medio_cuerpo y la nota de los dos cuerpos
+# tiene que recibir los golpes con el mismo. Ver Companion.caja_cuerpo y la nota de los dos cuerpos
 # en pose_jugador.gd.
-func medio_cuerpo() -> Vector2:
-	return PoseJugador.MEDIO_CUERPO
+func caja_cuerpo() -> Rect2:
+	return PoseJugador.CAJA_CUERPO

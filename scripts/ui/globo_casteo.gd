@@ -14,8 +14,24 @@
 extends Node2D
 class_name GloboCasteo
 
-# A que altura flota sobre el centro del cuerpo (el cuerpo va de -16 a 16).
-const ALTURA := 34.0
+# A que altura flota sobre el NODO del personaje, en unidades de mundo.
+#
+# Iba en 34 con el comentario "el cuerpo va de -16 a 16": era una sobra de cuando el personaje era
+# un ColorRect de 32x32. Hoy el cuerpo dibujado sube hasta 46 px por encima del nodo (ver
+# PoseJugador.ALTO_MUNDO y PIES_BAJO_NODO), asi que con 34 el bocadillo flotaba POR DENTRO del
+# personaje y le cruzaba el pecho.
+const ALTURA := 54.0
+
+# Un aumento extra que se le aplica ENCIMA del latido. Existe porque el bocadillo del jugador local
+# ya no vive en el mundo sino en un CanvasLayer (ver casteo_mapa.gd), donde la camara no lo amplia:
+# quien lo pone ahi le pasa el zoom para que se vea del mismo tamaño que siempre.
+#
+# Va por aqui y no escribiendo 'scale' desde fuera porque este nodo YA escribe 'scale' cada frame
+# para el latido -- desde fuera se pisarian el uno al otro y el globo daria tirones.
+var escala_base := Vector2.ONE:
+	set(v):
+		escala_base = v
+		_aplicar_escala()
 # Latido: cuanto crece y cuantas veces por segundo. Suave a proposito — es un adorno que va a estar
 # en pantalla varios segundos seguidos y un rebote fuerte marea.
 const LATIDO_AMPLITUD := 0.05
@@ -61,10 +77,16 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 	_t += delta
-	# El latido va en la ESCALA del nodo entero, no en el tamaño de la caja: cambiar el tamaño cada
-	# frame obligaria a recolocar el Label y el texto bailaria dentro del globo.
+	_aplicar_escala()
+
+
+# El latido va en la ESCALA del nodo entero, no en el tamaño de la caja: cambiar el tamaño cada
+# frame obligaria a recolocar el Label y el texto bailaria dentro del globo. Y va MULTIPLICADO por
+# 'escala_base' en vez de sustituirla, que es lo que deja convivir el latido con el zoom de la
+# camara cuando el globo vive en una capa.
+func _aplicar_escala() -> void:
 	var s: float = 1.0 + LATIDO_AMPLITUD * sin(_t * LATIDO_VEL)
-	scale = Vector2(s, s)
+	scale = escala_base * s
 
 
 # La caja se ajusta al texto y se centra sobre la cabeza. El ancho tiene tope: con un nombre de

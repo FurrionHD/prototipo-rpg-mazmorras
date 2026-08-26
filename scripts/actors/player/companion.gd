@@ -64,7 +64,7 @@ func _ready() -> void:
 	add_to_group("aliado")
 
 	# El cuerpo del jugador comparte capa con la roca: se le excluye para poder atravesarlo.
-	# (ver medio_cuerpo() al final: es lo que hace que a un compañero le peguen igual que a ti)
+	# (ver caja_cuerpo() al final: es lo que hace que a un compañero le peguen igual que a ti)
 	var lider: Node = get_tree().get_first_node_in_group("player")
 	if lider is CollisionObject2D:
 		add_collision_exception_with(lider)
@@ -186,11 +186,11 @@ func plantar(pos: Vector2) -> void:
 	velocity = Vector2.ZERO
 
 
-# Cuanto ocupa su cuerpo PARA PELEAR, por eje. Lo pregunta el enemigo (Enemy.hueco_hasta) por
-# has_method, asi que basta con tenerlo para que le peguen igual que al lider.
+# La caja con la que se PELEA, relativa a su nodo. La pregunta Cuerpos.caja_de por has_method, asi
+# que basta con tenerla para que le peguen igual que al lider.
 #
 # SIN ESTO, A UN COMPAÑERO LE PEGABAN DESDE MAS CERCA QUE A TI y no habria dado ningun error: el
 # bicho se queda con el cuerpo base de 32x32 para todo el que no sepa contestar, asi que el mismo
 # ataque conectaba contigo y no con el de al lado. Ver la nota de los dos cuerpos en pose_jugador.gd.
-func medio_cuerpo() -> Vector2:
-	return PoseJugador.MEDIO_CUERPO
+func caja_cuerpo() -> Rect2:
+	return PoseJugador.CAJA_CUERPO

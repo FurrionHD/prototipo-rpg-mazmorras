@@ -27,15 +27,15 @@ const PASO := 6.0
 # A que distancia (en pixeles de recorrido, no en linea recta) va cada companero.
 #
 # Iba a 34 px, que era "lo justo para no solaparse con el lider, que mide 32". Ese 32 era el ColorRect
-# de antes; el cuerpo DIBUJADO mide 74 de alto, asi que con 34 el de detras se te metia dentro --
-# literalmente: en un pasillo vertical se veian dos personajes ocupando el mismo sitio. Va a 52, que
-# no es el alto entero a proposito: separarlos 74 px deja la fila tan estirada que en una sala normal
+# de antes; el cuerpo DIBUJADO mide 60 de alto, asi que con 34 el de detras se te metia dentro --
+# literalmente: en un pasillo vertical se veian dos personajes ocupando el mismo sitio. Va a 44, que
+# no es el alto entero a proposito: separarlos 60 px deja la fila tan estirada que en una sala normal
 # el ultimo del grupo se queda fuera de la pantalla.
-const SEPARACION := 52.0
+const SEPARACION := 44.0
 # Cuanto rastro se guarda. Da para PARTY_MAX-1 companeros con holgura de sobra.
 const RASTRO_MAX := 256
 
-const LADO := 74.0   # el cuerpo mide lo mismo que el del jugador (ver PoseJugador.ALTO_MUNDO)
+const LADO := 60.0   # el cuerpo mide lo mismo que el del jugador (ver PoseJugador.ALTO_MUNDO)
 
 const CompanionScript := preload("res://scripts/actors/player/companion.gd")
 

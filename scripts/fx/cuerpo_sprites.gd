@@ -35,7 +35,7 @@ class_name CuerpoSprites
 # Los tonos de ESTA capa, a partir del primer indice libre (los tres de abajo son fijos para todas,
 # ver CapaJugador). El orden es el contrato con la paleta.
 #
-# EL ORDEN DE LOS VALORES SIGUE IMPORTANDO aunque ya no haya tinte: de PIEL_S a LUZ el brillo sube
+# EL ORDEN DE LOS VALORES SIGUE IMPORTANDO aunque ya no haya tinte: de PIEL_S a PIEL_L el brillo sube
 # monotono, y ahi no puede colarse nada. El primer intento puso el realce del pecho MAS CLARO que la
 # cara, y el resultado fue que el pecho se leia como lo mas iluminado del personaje y la cabeza
 # desaparecia encima de el -- de lejos parecia un muñeco decapitado.
@@ -45,10 +45,10 @@ class_name CuerpoSprites
 enum Tono {
 	VACIO = 0, SOMBRA_SUELO = 1, BORDE = 2,
 	CALZADO,     # los pies. Lo unico que no es piel, y lo unico que se ve entero desde arriba
-	PIEL_S,      # la carne en penumbra: el brazo del fondo, el cuello, el costado
-	PIEL,        # la carne: tronco, piernas, el brazo de delante, la cara
-	PIEL_L,      # el realce del pecho, donde da la luz
-	LUZ,         # la coronilla, lo mas alto y lo unico que se ve desde arriba
+	SOMBRA,      # la LINEA INTERIOR: donde una pieza se apoya en otra (ver '_linea')
+	PIEL_S,      # la carne en penumbra: la extremidad del fondo, el cuello, la cadera
+	PIEL,        # la carne: tronco, pierna de delante
+	PIEL_L,      # el realce del pecho y el brazo de delante
 }
 
 const CLAVE := "cuerpo"
@@ -65,22 +65,25 @@ const CLAVE := "cuerpo"
 # que el pecho ASOME por detras del brazo. Es la misma trampa que se permitieron las orejas de la
 # rata (redondas en los tres ejes para que no se vieran de canto) y por el mismo motivo: a este
 # tamaño de pixel, lo fiel se lee peor que lo legible.
-const R_CUELLO := 3.4
+const R_CUELLO := 2.8
 const R_CABEZA := PoseJugador.CABEZA_R
-# EL PECHO ES MAS ESTRECHO QUE LOS HOMBROS (7.4 contra los 8.2 de PoseJugador.HOMBRO.x), y eso es
-# nuevo y deliberado: antes era al reves y por eso el brazo del fondo desaparecia dentro del tronco.
+# EL PECHO ES MAS ESTRECHO QUE LOS HOMBROS (6.8 contra los 8.8 de PoseJugador.HOMBRO.x), y eso es
+# deliberado, y por DOS unidades enteras y no por un pelo: con el hombro justo en el filo del pecho
+# el brazo se quedaba medio enterrado dentro del tronco y lo que se veia era un bulto con manchas a
+# los lados. Tiene que COLGAR por fuera, como en las referencias.
 # Ver la nota de HOMBRO en pose_jugador.gd -- el brazo tiene que asomar por el costado SIEMPRE, y su
 # largo visible no puede depender de cuanto se lo trague el pecho en esta pose.
-# EL PECHO TIENE QUE SER MAS ESTRECHO QUE LA CABEZA. Es la proporcion que hace que un personaje asi
-# se lea como una persona y no como un saco: la cabeza manda, y el cuerpo cuelga de ella. Al primer
-# intento el pecho medida 8,8 contra los 9,2 de la cabeza -- practicamente lo mismo -- y el resultado
-# era un bulto uniforme del que salian cuatro cosas. Hoy va en 7.4 contra los 9.2 de la cabeza.
-const R_TORSO := Vector3(7.4, 5.6, 8.4)      # el pecho: ancho, de fondo, de alto
-# LA CADERA VA CLARAMENTE MAS ESTRECHA QUE EL PECHO, y hace falta decirlo porque el primer intento
-# la puso casi igual que el pecho y el resultado era un personaje SIN CINTURA: las dos elipses se
-# solapaban en un unico bulto que iba del cuello a los muslos, y de lejos se leia como un saco. Que
-# se estreche por en medio es lo que dice que eso es un torso y no un tonel.
-const R_CADERA := Vector3(6.2, 4.6, 5.6)
+#
+# Y MAS ESTRECHO QUE LA CABEZA (13,6 de ancho contra 21). Es lo que hace que la proporcion se lea como
+# cabezona en vez de como un saco: la cabeza manda y el cuerpo cuelga de ella. Un intento anterior
+# puso el pecho practicamente del ancho de la cabeza y el resultado era un bulto uniforme del que
+# salian cuatro cosas.
+const R_TORSO := Vector3(6.8, 5.0, 6.2)      # el pecho: ancho, de fondo, de alto
+# LA CADERA VA CLARAMENTE MAS ESTRECHA QUE EL PECHO, y hace falta decirlo porque un intento la puso
+# casi igual y el resultado era un personaje SIN CINTURA: las dos elipses se solapaban en un unico
+# bulto que iba del cuello a los muslos, y de lejos se leia como un saco. Que se estreche por en
+# medio es lo que dice que eso es un torso y no un tonel.
+const R_CADERA := Vector3(5.8, 4.2, 4.6)
 #
 # Y LOS MIEMBROS TIENEN UN GROSOR MINIMO QUE NO ES ANATOMICO, ES DE PIXELES. Una celda mide 1,15
 # unidades de mundo, asi que un brazo de radio 1,15 se dibuja con DOS pixeles de ancho: no se lee
@@ -90,16 +93,15 @@ const R_CADERA := Vector3(6.2, 4.6, 5.6)
 #
 # Y el minimo real es MAS ALTO de lo que parece por el contorno: un miembro de tres pixeles de ancho
 # es TODO CONTORNO Y NADA DE RELLENO (ver 'colores'), asi que ademas de leerse fino se lee del color
-# del borde. Ese es el motivo de fondo por el que el personaje se doblo de tamaño: a 37 unidades de
-# alto no habia numero que arreglara esto -- el brazo mas gordo que admite un cuerpo de esa altura
-# sigue siendo demasiado fino para tener un dentro. Con R_BRAZO = 4.0 sobre 74 el brazo mide siete
-# celdas de ancho, o sea dos de contorno y CINCO de carne.
-const R_MUSLO := 4.0
-const R_PANTORRILLA := 3.2
-const R_PIE := Vector3(2.9, 4.3, 1.9)
-const R_BRAZO := 4.0
-const R_ANTEBRAZO := 3.3
-const R_MANO := 3.4
+# del borde. Ese es el motivo de fondo por el que el personaje crecio: a 37 unidades de alto no
+# habia numero que arreglara esto. Con R_BRAZO = 3.6 el brazo mide seis celdas de ancho, o sea dos
+# de contorno y CUATRO de carne. Menos que eso y la linea interior se come el relleno.
+const R_MUSLO := 3.2
+const R_PANTORRILLA := 2.6
+const R_PIE := Vector3(2.0, 3.2, 1.5)
+const R_BRAZO := 3.6
+const R_ANTEBRAZO := 3.0
+const R_MANO := 3.1
 
 # Cuanta diferencia de profundidad tiene que haber entre los dos hombros para dar por hecho que UNO
 # ESTA DELANTE DEL OTRO y pintarlos de tonos distintos. En unidades de mundo.
@@ -107,9 +109,20 @@ const R_MANO := 3.4
 # Existe porque de frente y de espaldas los dos hombros estan a la MISMA distancia de la camara, y
 # ahi cualquier regla que elija "el de delante" elige por el redondeo: sale un brazo claro y otro
 # oscuro sin ningun motivo, que es justo lo que se veia mal. En las seis direcciones restantes la
-# diferencia es de once unidades o mas, asi que este numero solo tiene que separar el cero del resto
+# diferencia es de diez unidades o mas, asi que este numero solo tiene que separar el cero del resto
 # -- no es un ajuste fino y no hay que buscarle el valor bueno.
 const SEPARACION_BRAZOS := 2.0
+
+# CUANTO CRECE UNA PIEZA PARA DIBUJAR SU LINEA INTERIOR, en unidades de mundo.
+#
+# La linea es el anillo que queda entre la pieza crecida y la pieza de verdad, asi que esto es
+# literalmente su grosor. TIENE QUE PASAR DE UNA CELDA (1,15): con 0,9 el anillo mide menos de un
+# pixel y la rejilla lo dibuja A TROZOS -- el brazo salia con un borde dentado, como una cremallera.
+const LINEA := 1.2
+# La mano crece MENOS que el resto del brazo. Es lo mas gordo de la cadena y cae justo a la altura
+# de la cadera, que es la parte estrecha del cuerpo: con el crecimiento entero, su anillo se leia
+# como un manchurron en cada cadera en vez de como el canto de una mano.
+const LINEA_MANO := 0.8
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---
@@ -137,15 +150,19 @@ static func colores() -> Array:
 	# Va MARRON CALIDO y no gris por lo mismo que en cualquier dibujo de piel: un contorno neutro al
 	# lado de la carne se lee sucio, como si el personaje estuviera manchado de hollin. Es el mismo
 	# color de la piel llevado a oscuro, no un negro rebajado.
+	# LA LINEA INTERIOR (SOMBRA) VA CERCA DEL CONTORNO, NO CERCA DE LA PIEL. En las referencias del
+	# genero la raya que separa el brazo del pecho es claramente oscura: es una linea de dibujo, no un
+	# sombreado. Puesta suave no separa nada y sobra; puesta en el tono del BORDE se lee como un
+	# garabato negro cruzando el cuerpo (ya paso). Este es el primer numero a mover si sale dura.
 	return [
 		Color(0, 0, 0, 0),                # VACIO
 		Color(0, 0, 0, 0.20),             # SOMBRA_SUELO
 		Color(0.42, 0.24, 0.22),          # BORDE
 		Color(0.45, 0.28, 0.22),          # CALZADO
+		Color(0.62, 0.36, 0.32),          # SOMBRA
 		Color(0.87, 0.62, 0.55),          # PIEL_S
 		Color(0.96, 0.75, 0.67),          # PIEL
 		Color(1.00, 0.85, 0.78),          # PIEL_L
-		Color(1.00, 0.91, 0.85),          # LUZ
 	]
 
 
@@ -182,26 +199,31 @@ static func pintar(esq: Dictionary, piezas: Array) -> void:
 	# un lado o una profundidad, y leyendolo se colaba la negacion sin que cantara.
 	var izq_al_fondo: bool = brazo_izq_prof < brazo_der_prof
 	# Y EL TONO DE CADA BRAZO SE DECIDE AQUI, con la misma pregunta, porque necesita saber de los DOS.
-	# Ver la cabecera de '_brazo': el del fondo va oscuro y el de delante claro, PERO SOLO CUANDO DE
-	# VERDAD HAY UNO DELANTE Y OTRO DETRAS.
+	# El del fondo va oscuro y el de delante claro, PERO SOLO CUANDO DE VERDAD HAY UNO DELANTE Y OTRO
+	# DETRAS.
 	#
 	# Mirando al sur (o al norte) los dos hombros estan a la misma distancia de la camara -- los brazos
-	# cuelgan uno a cada lado, ninguno tapa al otro --, y ahi pintar uno claro y otro oscuro es
-	# exactamente el fallo que se estaba arreglando: el personaje sale con un brazo distinto del otro
-	# sin ningun motivo. De frente los dos van del tono base y lo que los separa del tronco es que
-	# ASOMAN por fuera de el, que es como se lee un brazo en cualquier dibujo de frente.
-	var sep: float = absf(brazo_izq_prof - brazo_der_prof)
-	var tono_fondo: int = Tono.PIEL_S if sep > SEPARACION_BRAZOS else Tono.PIEL
-	var tono_frente: int = Tono.PIEL_L if sep > SEPARACION_BRAZOS else Tono.PIEL
-	_brazo(piezas, esq, izq_al_fondo, tono_fondo)
+	# cuelgan uno a cada lado, ninguno tapa al otro --, y ahi pintar uno claro y otro oscuro seria el
+	# fallo que ya se arreglo una vez: el personaje con un brazo distinto del otro sin ningun motivo.
+	# Asi que los DOS van a PIEL_S, un escalon por debajo del tronco: simetricos y separados.
+	#
+	# (Lo que NO vale es dejarlos en PIEL, el tono del tronco. Se probo con el razonamiento "de frente
+	# lo que los separa es que ASOMAN por fuera", y era falso: asoman tres pixeles, y de frente el
+	# brazo desaparecia dentro del pecho.)
+	var de_lado: bool = absf(brazo_izq_prof - brazo_der_prof) > SEPARACION_BRAZOS
+	var tono_fondo: int = Tono.PIEL_S
+	var tono_frente: int = Tono.PIEL_L if de_lado else Tono.PIEL_S
 
-	# 2. Las piernas, la del fondo primero.
-	if pierna_izq_prof < pierna_der_prof:
-		_pierna(piezas, esq, true)
-		_pierna(piezas, esq, false)
-	else:
-		_pierna(piezas, esq, false)
-		_pierna(piezas, esq, true)
+	# 1. EL BRAZO DEL FONDO, cuando de verdad hay uno al fondo. Va antes que todo porque lo tapa hasta
+	#    el tronco, y por eso NO lleva linea interior: no se le ve el borde contra nada.
+	if de_lado:
+		_brazo(piezas, esq, izq_al_fondo, tono_fondo, false)
+
+	# 2. Las piernas, la del fondo primero. La de DELANTE lleva linea, y contra la de atras: es lo
+	#    unico que las separa cuando se cruzan al andar (van juntas, ver PoseJugador.PIE_X).
+	var izq_pierna_al_fondo: bool = pierna_izq_prof < pierna_der_prof
+	_pierna(piezas, esq, izq_pierna_al_fondo, Tono.PIEL_S, [])
+	_pierna(piezas, esq, not izq_pierna_al_fondo, Tono.PIEL, [Tono.PIEL_S])
 
 	# 3. El tronco. La cadera antes que el pecho: asi el pecho tapa la junta y no se ve el corte.
 	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CADERA], R_CADERA, Tono.PIEL_S)
@@ -218,27 +240,45 @@ static func pintar(esq: Dictionary, piezas: Array) -> void:
 	# El cuello va LARGO a proposito (ver PoseJugador.CUELLO): tiene que solapar de verdad con el
 	# pecho por abajo y con la cabeza por arriba, no rozarlos.
 	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CUELLO],
-		Vector3(R_CUELLO, R_CUELLO, 6.0), Tono.PIEL_S)
+		Vector3(R_CUELLO, R_CUELLO, 3.0), Tono.PIEL_S)
 	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CABEZA],
 		Vector3(R_CABEZA, R_CABEZA * 0.90, R_CABEZA * 0.96), Tono.PIEL)
-	# La coronilla iluminada. Es lo mas alto del personaje y lo que primero se ve en el mapa, asi que
-	# sin este realce la cabeza se lee como una bola plana desde arriba.
+	# NO LLEVA REALCE EN LA CORONILLA, y esto se probo y se quito.
 	#
-	# PEQUEÑA, y ahi esta la gracia: al primer intento se comia media cabeza, y como la luz y la piel
-	# solo se llevan un escalon de valor, lo que quedaba arriba era una mancha uniforme -- una cabeza
-	# sin forma, que de lejos se lee como un cuadrado. Un realce solo dice "esto es redondo" si deja
-	# ver el tono de debajo alrededor.
-	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CABEZA] + Vector3(0.0, -0.8, R_CABEZA * 0.62),
-		Vector3(R_CABEZA * 0.52, R_CABEZA * 0.44, R_CABEZA * 0.34), Tono.LUZ,
-		{"solo_sobre": [Tono.PIEL]})
+	# Habia una elipse clara en lo alto de la cabeza, heredada de cuando el personaje se miraba casi
+	# desde arriba y una cabeza plana se leia como un cuadrado. Con la proporcion cabezona la cabeza
+	# es lo mas grande del dibujo, y ese realce la convertia en UNA BOLA BRILLANTE: se leia como una
+	# pelota, no como una cabeza.
+	#
+	# Y ademas es lo que hacen las referencias del genero: en ellas la cabeza desnuda va PLANA, y el
+	# volumen de arriba lo pone el PELO. O sea que esto no es una pieza que falte, es una pieza que le
+	# toca a otra capa.
 
-	# 5. Y el brazo de delante, al final: tapa al tronco, que es lo que le toca.
-	_brazo(piezas, esq, not izq_al_fondo, tono_frente)
+	# 5. LOS BRAZOS QUE VAN POR DELANTE DEL TRONCO, al final y CON LINEA.
+	#
+	# Tienen que ir despues del tronco por dos motivos que se refuerzan: porque lo tapan (es lo que
+	# les toca) y porque la linea interior se dibuja con 'solo_sobre', que mira lo que YA hay pintado
+	# -- un brazo dibujado antes que el pecho no tendria contra que hacer su linea.
+	#
+	# Y DE FRENTE Y DE ESPALDAS VAN LOS DOS AQUI, no uno. Es la diferencia que arregla la queja: con
+	# uno solo al final, solo uno podia llevar linea, o sea otra vez un brazo distinto del otro.
+	# Ninguno de los dos tapa al otro (cuelgan uno a cada lado), asi que dibujarlos los dos al final
+	# no cambia nada salvo que ahora los dos pueden marcarse.
+	var sobre_el_cuerpo := [Tono.PIEL_S, Tono.PIEL, Tono.PIEL_L]
+	if de_lado:
+		_brazo(piezas, esq, not izq_al_fondo, tono_frente, true, sobre_el_cuerpo)
+	else:
+		_brazo(piezas, esq, true, tono_frente, true, sobre_el_cuerpo)
+		_brazo(piezas, esq, false, tono_frente, true, sobre_el_cuerpo)
 
 
 # Una pierna: muslo, pantorrilla y pie. La cadena de elipses la hace PoseJugador, que ya sabe que el
 # paso tiene que ser menor que el grosor -- si no, la pierna sale a trozos sueltos flotando.
-static func _pierna(piezas: Array, esq: Dictionary, izq: bool) -> void:
+#
+# 'sobre' es contra que tonos se dibuja su LINEA INTERIOR (vacio = sin linea). La de delante la lleva
+# contra la de atras, y no es un adorno: con las piernas juntas (ver PoseJugador.PIE_X) se solapan de
+# verdad al andar, y sin la linea la zancada se lee como un solo bulto que se ensancha.
+static func _pierna(piezas: Array, esq: Dictionary, izq: bool, tono: int, sobre: Array) -> void:
 	var p: Dictionary = esq["puntos"]
 	var rodilla: Vector3 = p[PoseJugador.P_RODILLA_IZQ if izq else PoseJugador.P_RODILLA_DER]
 	var pie: Vector3 = p[PoseJugador.P_PIE_IZQ if izq else PoseJugador.P_PIE_DER]
@@ -246,10 +286,17 @@ static func _pierna(piezas: Array, esq: Dictionary, izq: bool) -> void:
 	# El muslo arranca del LATERAL de la cadera, no de su centro: naciendo en el centro las dos
 	# piernas salian del mismo punto y de frente se veia un solo tronco que se bifurcaba muy abajo.
 	var arranque := Vector3((1.0 if izq else -1.0) * PoseJugador.PIE_X * 0.82,
-		cadera.y, cadera.z - 2.4)
-	PoseJugador.cadena(piezas, esq, arranque, rodilla, R_MUSLO, R_PANTORRILLA, Tono.PIEL)
-	PoseJugador.cadena(piezas, esq, rodilla, pie + Vector3(0.0, 0.0, R_PIE.z),
-		R_PANTORRILLA, R_PANTORRILLA * 0.85, Tono.PIEL)
+		cadera.y, cadera.z - 2.0)
+	var tobillo: Vector3 = pie + Vector3(0.0, 0.0, R_PIE.z)
+	if not sobre.is_empty():
+		var o := {"solo_sobre": sobre}
+		PoseJugador.cadena(piezas, esq, arranque, rodilla,
+			R_MUSLO + LINEA, R_PANTORRILLA + LINEA, Tono.SOMBRA, o)
+		PoseJugador.cadena(piezas, esq, rodilla, tobillo,
+			R_PANTORRILLA + LINEA, R_PANTORRILLA * 0.85 + LINEA, Tono.SOMBRA, o)
+	PoseJugador.cadena(piezas, esq, arranque, rodilla, R_MUSLO, R_PANTORRILLA, tono)
+	PoseJugador.cadena(piezas, esq, rodilla, tobillo,
+		R_PANTORRILLA, R_PANTORRILLA * 0.85, tono)
 	# El pie es una pieza aparte y ALARGADA hacia donde se mira: sin el, la pierna acaba en un
 	# muñon redondo y el personaje parece de puntillas.
 	# Va OSCURO (y con tono propio, no con el del contorno como antes): unas botas oscuras son lo que
@@ -259,31 +306,31 @@ static func _pierna(piezas: Array, esq: Dictionary, izq: bool) -> void:
 
 
 # Un brazo: hombro, antebrazo y mano. LOS DOS BRAZOS SE DIBUJAN EXACTAMENTE IGUAL DE GORDOS. Lo que
-# los distingue es el TONO (el del fondo en penumbra, el de delante iluminado), nunca el tamaño.
+# los distingue es el TONO y su LINEA INTERIOR, nunca el tamaño.
 #
-# ESO ESTUVO MAL Y ERA LA QUEJA NUMERO UNO: "un brazo mas gordo que el otro". La version anterior le
-# pintaba al brazo de DELANTE una linea de contorno propia dibujando una cadena de radio +0,85
-# alrededor de el. Esa linea hacia su trabajo -- separarlo del pecho, contra el que se funde --, pero
-# lo hacia ENGORDANDO LA SILUETA: el brazo de delante medida casi un pixel mas por cada lado que el
-# del fondo, en todos los fotogramas. Y como cual de los dos va delante cambia con la direccion, al
-# girar el personaje parecia cambiar de brazo gordo.
+# EL TAMAÑO FUE LA QUEJA NUMERO UNO -- "un brazo mas gordo que el otro" -- y su causa era esta misma
+# linea, mal hecha: se dibujaba una cadena mas gorda alrededor del brazo de delante SIN LIMITARLA AL
+# CUERPO, asi que tambien se pintaba contra el aire y le engordaba la silueta. Como cual de los dos
+# va delante cambia con la direccion, al girar el personaje parecia cambiar de brazo gordo.
 #
-# EL ARREGLO NO ES OTRA LINEA MEJOR: ES QUITARLA. Se probaron las dos variantes intermedias y las
-# dos se ven mal, cada una a su manera, y merece la pena dejarlo escrito para que nadie las repita:
+# LA LINEA VUELVE, PERO CON 'solo_sobre'. Es un ANILLO: se dibuja la cadena crecida en Tono.SOMBRA
+# limitada a los tonos del cuerpo, y encima el brazo de verdad. El anillo solo aparece DONDE HAY
+# CUERPO DEBAJO, nunca contra el aire, asi que la silueta exterior de los dos brazos es identica
+# hasta la ultima celda.
 #
-#   * Linea limitada al cuerpo con 'solo_sobre' y brazo del mismo tono que el pecho: del brazo solo
-#     quedaba su contorno, y lo que se veia era UN GARABATO OSCURO cruzando el pecho. Un contorno
-#     dice donde acaba algo, no que hay dentro.
-#   * Lo mismo pero con el brazo un tono mas claro: ahi el brazo ya se veia, pero la linea se sumaba
-#     al contorno general justo donde el brazo sale del cuerpo y de frente quedaba un manchurron
-#     oscuro a la altura de la cadera (la mano, que es lo mas gordo de la cadena, con su anillo).
+# Y TIENE QUE SER UN ANILLO, NO UNA SOMBRA A UN LADO. Segun la direccion el contacto cae en un sitio
+# distinto: de frente el brazo toca el tronco por el costado, y de perfil cae ENCIMA del pecho y lo
+# toca por los cuatro lados. Una sombra desplazada serviria de frente y no de perfil, que es la
+# mitad del problema.
 #
-# LO QUE SEPARA LOS BRAZOS DEL TRONCO ES EL VALOR, y con eso basta: el del fondo va un escalon mas
-# oscuro (PIEL_S) y el de delante un escalon mas claro (PIEL_L) que el pecho. Ademas de separarlos,
-# eso cuenta la profundidad solo -- lo que esta lejos se apaga, lo que esta cerca recibe la luz --,
-# es como se dibuja de verdad, y no le añade ni un pixel a la silueta de ninguno de los dos. Los dos
-# brazos son ahora identicos hasta la ultima celda.
-static func _brazo(piezas: Array, esq: Dictionary, izq: bool, tono: int) -> void:
+# LOS DOS INTENTOS QUE SE VIERON MAL, para que nadie los repita:
+#   * Anillo en Tono.BORDE (casi negro) con el brazo del MISMO tono que el pecho: del brazo solo
+#     quedaba la raya, y se leia como un garabato cruzando el cuerpo. Un contorno dice donde ACABA
+#     algo, no que hay dentro -- hace falta que el brazo tenga ademas su escalon de valor.
+#   * Anillo de 0,9: menos de una celda, asi que la rejilla lo dibujaba a trozos y el brazo salia
+#     con el borde dentado, como una cremallera. Ver LINEA.
+static func _brazo(piezas: Array, esq: Dictionary, izq: bool, tono: int,
+		linea: bool = false, sobre: Array = []) -> void:
 	var p: Dictionary = esq["puntos"]
 	var hombro: Vector3 = p[PoseJugador.P_HOMBRO_IZQ if izq else PoseJugador.P_HOMBRO_DER]
 	var codo: Vector3 = p[PoseJugador.P_CODO_IZQ if izq else PoseJugador.P_CODO_DER]
@@ -300,7 +347,15 @@ static func _brazo(piezas: Array, esq: Dictionary, izq: bool, tono: int) -> void
 	# el pecho se tragaba media manga: el brazo del fondo asomaba un trozo distinto en cada
 	# fotograma, que es la otra mitad de "el de atras o es muy corto o muy largo". Con los hombros ya
 	# por fuera del pecho (ver PoseJugador.HOMBRO), 0,88 basta para agarrarse.
-	var arranque := Vector3(hombro.x * 0.88, hombro.y, hombro.z - 2.5)
+	var arranque := Vector3(hombro.x * 0.88, hombro.y, hombro.z - 2.0)
+	if linea and not sobre.is_empty():
+		var o := {"solo_sobre": sobre}
+		PoseJugador.cadena(piezas, esq, arranque, codo,
+			R_BRAZO + LINEA, R_ANTEBRAZO + LINEA, Tono.SOMBRA, o)
+		PoseJugador.cadena(piezas, esq, codo, mano,
+			R_ANTEBRAZO + LINEA, R_ANTEBRAZO * 0.92 + LINEA, Tono.SOMBRA, o)
+		var m: float = R_MANO + LINEA_MANO
+		PoseJugador.poner(piezas, esq, mano, Vector3(m, m, m), Tono.SOMBRA, o)
 	# TODO EL BRAZO ES PIEL, incluida la mano. Antes el brazo iba en tono de tela y solo la mano en
 	# carne (era una manga), y con la capa del cuerpo teñida tenia sentido; ahora el cuerpo va
 	# desnudo y una manga aqui seria ropa que no llevas puesta. La ropa la traeran sus capas.
