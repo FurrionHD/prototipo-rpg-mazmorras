@@ -103,10 +103,14 @@ static func _torso(piezas: Array, esq: Dictionary, manga: float, bajo: float) ->
 	PoseJugador.poner(piezas, esq, p[PoseJugador.P_TORSO],
 		CuerpoSprites.R_TORSO + Vector3(TELA, TELA, TELA), Tono.TELA)
 	# El realce del pecho, como en el cuerpo: mas alto que su eje, porque la luz viene de arriba.
-	var alto: Vector3 = p[PoseJugador.P_TORSO] + Vector3(0.0, 0.0, CuerpoSprites.R_TORSO.z * 0.62)
+	#
+	# VA PEQUEÑO. Con el ancho del cuerpo (0,70 del pecho y 0,55 de alto) no se leia como luz sino
+	# como un BABERO: una mancha clara y redonda en mitad del pecho, y encima justo donde cae el
+	# escote. Un realce de tela es una banda estrecha por el hombro, no un plastron.
+	var alto: Vector3 = p[PoseJugador.P_TORSO] + Vector3(0.0, 0.0, CuerpoSprites.R_TORSO.z * 0.72)
 	PoseJugador.poner(piezas, esq, alto,
-		Vector3(CuerpoSprites.R_TORSO.x * 0.70, CuerpoSprites.R_TORSO.y * 0.88,
-			CuerpoSprites.R_TORSO.z * 0.55), Tono.TELA_L, {"solo_sobre": [Tono.TELA]})
+		Vector3(CuerpoSprites.R_TORSO.x * 0.62, CuerpoSprites.R_TORSO.y * 0.72,
+			CuerpoSprites.R_TORSO.z * 0.34), Tono.TELA_L, {"solo_sobre": [Tono.TELA]})
 	# EL ESCOTE: lo unico que dice donde acaba la prenda y empieza el cuello. Sin el, la camisa sube
 	# hasta la barbilla y el personaje parece llevar un jersey de cuello alto en los seis modelos.
 	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CUELLO] + Vector3(0.0, 1.2, -2.2),
@@ -204,11 +208,16 @@ static func _faldon(piezas: Array, esq: Dictionary) -> void:
 	var p: Dictionary = esq["puntos"]
 	var cadera: Vector3 = p[PoseJugador.P_CADERA]
 	var rod: Vector3 = p[PoseJugador.P_RODILLA_IZQ].lerp(p[PoseJugador.P_RODILLA_DER], 0.5)
-	var fin: Vector3 = cadera.lerp(rod, 1.15)
+	# HASTA LA RODILLA Y CON POCO VUELO. La primera version bajaba a 1,15 del tramo (o sea por debajo
+	# de la rodilla) y se abria a 1,35 del ancho de la cadera: lo que salia no era una falda sino una
+	# BOLA que se comia las dos piernas enteras -- por debajo no asomaba nada y el personaje parecia
+	# un escarabajo. Una falda se lee porque las piernas siguen ahi debajo.
+	var fin: Vector3 = cadera.lerp(rod, 0.92)
 	PoseJugador.cadena(piezas, esq, cadera, fin,
-		CuerpoSprites.R_CADERA.x * 0.95, CuerpoSprites.R_CADERA.x * 1.35, Tono.TELA)
-	# El bajo, en sombra: es lo que le da vuelo y lo que dice que hay una abertura, no un cilindro.
-	PoseJugador.poner(piezas, esq, fin,
-		Vector3(CuerpoSprites.R_CADERA.x * 1.35, CuerpoSprites.R_CADERA.y * 1.25, 1.6),
+		CuerpoSprites.R_CADERA.x * 0.92, CuerpoSprites.R_CADERA.x * 1.12, Tono.TELA)
+	# El bajo: un anillo FINO de sombra en el borde, no una tapa. Tapando el bajo entero, la falda se
+	# cerraba por debajo y volvia a ser un cuerpo solido.
+	PoseJugador.poner(piezas, esq, fin + Vector3(0.0, 0.0, -0.6),
+		Vector3(CuerpoSprites.R_CADERA.x * 1.12, CuerpoSprites.R_CADERA.y * 1.05, 1.0),
 		Tono.TELA_S, {"solo_sobre": [Tono.TELA]})
 	_cintura(piezas, esq)

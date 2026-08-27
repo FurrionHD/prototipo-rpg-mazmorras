@@ -117,7 +117,11 @@ static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
 		"largo":
 			_casquete(piezas, esq, cab, 1.0, 0.55)
 			_flequillo(piezas, esq, cab, 1.1)
-			_melena(piezas, esq, cab, cab.z - hombro.z + R * 0.55, 1.15)
+			# HASTA EL PECHO Y NO MAS. Iba a "de la cabeza al hombro mas medio radio" y con el ancho
+			# de la melena eso salia una CORTINA hasta los pies que tapaba el cuerpo entero: no se
+			# veia ni la ropa. Un pelo largo se lee por donde ACABA, y acabando en el pecho ya no hay
+			# ninguno mas largo con el que confundirlo.
+			_melena(piezas, esq, cab, (cab.z - hombro.z) * 0.95, 1.0)
 		"mono":
 			_casquete(piezas, esq, cab, 1.0, 0.30)
 			_flequillo(piezas, esq, cab, 0.85)
@@ -179,9 +183,13 @@ static func _flequillo(piezas: Array, esq: Dictionary, cab: Vector3, largo: floa
 # hombros enteros. Lo que se lee como melena es que ENMARQUE la cara.
 static func _melena(piezas: Array, esq: Dictionary, cab: Vector3, baja: float,
 		ancho: float) -> void:
+	# LA MASA DE DETRAS VA ESTRECHA, y este es el numero que convirtio el pelo largo en una cortina:
+	# iba a 0,92 del radio de la CABEZA, o sea que la melena sola medía casi tanto de ancho como el
+	# personaje entero. Lo que enmarca la cara son las dos cadenas laterales de abajo; esta solo
+	# rellena entre ellas.
 	var abajo: Vector3 = cab + Vector3(0.0, -ATRAS * 1.2, -baja)
 	PoseJugador.cadena(piezas, esq, cab + Vector3(0.0, -ATRAS, ARRIBA * 0.5), abajo,
-		R * 0.92 * ancho, R * 0.80 * ancho, Tono.PELO_S)
+		R * 0.62 * ancho, R * 0.52 * ancho, Tono.PELO_S)
 	for lado in 2:
 		var s: float = 1.0 if lado == 0 else -1.0
 		var alto: Vector3 = cab + Vector3(s * R * 0.86, -0.8, R * 0.25)
@@ -197,8 +205,22 @@ static func _melena(piezas: Array, esq: Dictionary, cab: Vector3, baja: float,
 # del horno suelte un aviso por fotograma hasta que nadie lo lea.
 static func _cola(piezas: Array, esq: Dictionary, cab: Vector3, vaiven: float) -> void:
 	var nudo: Vector3 = cab + Vector3(0.0, -R * 0.86, R * 0.30)
-	var medio: Vector3 = nudo + Vector3(vaiven * R * 0.55, -R * 0.55, -R * 0.20)
-	var punta: Vector3 = nudo + Vector3(vaiven * R * 0.95, -R * 0.75, -R * 1.30)
+	# LA COLA NO PUEDE SER MAS LARGA QUE ESTO. Iba a 1,30 radios y el validador del horno la cazo
+	# saliendose del lienzo en la MUERTE: al desplomarse, el cuerpo gira sobre los pies y lo que
+	# estaba detras de la nuca se va al extremo del cuadro. Lo que se ve cuando eso pasa es la coleta
+	# CORTADA EN SECO por una linea recta, y no da ningun error.
+	# LA COLA SE RECOGE AL CAERSE, y no es un adorno: es lo que la mete dentro del lienzo. Tiesa,
+	# con el cuerpo tumbado la cola queda extendida en horizontal y llega al borde del cuadro -- el
+	# validador de recortes del horno la cazaba en 'muerte' f4 y f5, y lo que se ve cuando eso pasa
+	# es la coleta CORTADA EN SECO por una linea recta, sin ningun error de por medio.
+	# Ademas es lo que hace un pelo de verdad: tumbado se apelmaza contra el suelo, no se queda tieso.
+	var tumbado: float = clampf(absf(float(esq.get("caida", 0.0))) / (PI * 0.5), 0.0, 1.0)
+	# Con raiz: se recoge DESDE EL PRIMER GRADO de caida y no a mitad de la animacion. Lineal seguia
+	# saliendose en el fotograma de en medio, que es donde el cuerpo esta a 45 grados -- justo el
+	# angulo en el que mas se proyecta hacia el lado.
+	var largo: float = lerpf(1.0, 0.42, sqrt(tumbado))
+	var medio: Vector3 = nudo + Vector3(vaiven * R * 0.50, -R * 0.45 * largo, -R * 0.18 * largo)
+	var punta: Vector3 = nudo + Vector3(vaiven * R * 0.80, -R * 0.62 * largo, -R * 0.98 * largo)
 	PoseJugador.poner(piezas, esq, nudo, Vector3(R * 0.34, R * 0.34, R * 0.34), Tono.PELO)
 	PoseJugador.cadena(piezas, esq, nudo, medio, R * 0.30, R * 0.34, Tono.PELO_S)
 	PoseJugador.cadena(piezas, esq, medio, punta, R * 0.34, R * 0.16, Tono.PELO_S)
@@ -206,11 +228,20 @@ static func _cola(piezas: Array, esq: Dictionary, cab: Vector3, vaiven: float) -
 
 # EL MOÑO: un bulto alto y hacia atras. Es el peinado que mas cambia la SILUETA vista desde arriba,
 # que es como se ve al personaje andando por el mapa.
+#
+# TIENE QUE ASOMAR POR ENCIMA DE LA CABEZA O NO EXISTE. El primer intento lo puso a 0,92 radios de
+# alto con 0,48 de tamaño: la cabeza mide 20 celdas en pantalla y el moño quedaba DENTRO de su
+# silueta, asi que en la hoja el moño y el corto eran el mismo dibujo. Sube a radio y medio y
+# engorda: lo que se juzga no es el moño, es la silueta con moño.
 static func _mono(piezas: Array, esq: Dictionary, cab: Vector3) -> void:
-	PoseJugador.poner(piezas, esq, cab + Vector3(0.0, -R * 0.55, R * 0.92),
-		Vector3(R * 0.48, R * 0.46, R * 0.44), Tono.PELO)
-	PoseJugador.poner(piezas, esq, cab + Vector3(0.0, -R * 0.62, R * 0.98),
-		Vector3(R * 0.30, R * 0.28, R * 0.26), Tono.PELO_L)
+	var centro: Vector3 = cab + Vector3(0.0, -R * 0.30, R * 1.42)
+	PoseJugador.poner(piezas, esq, centro, Vector3(R * 0.62, R * 0.58, R * 0.56), Tono.PELO)
+	# El pelo recogido que SUBE hasta el moño: sin este trozo, el bulto flota por encima de la cabeza
+	# como una pelota aparte. Va antes en la lista pero se dibuja igual (los dos son tono de pelo).
+	PoseJugador.cadena(piezas, esq, cab + Vector3(0.0, -R * 0.20, R * 0.55), centro,
+		R * 0.40, R * 0.34, Tono.PELO_S)
+	PoseJugador.poner(piezas, esq, centro + Vector3(0.0, R * 0.10, R * 0.16),
+		Vector3(R * 0.34, R * 0.30, R * 0.24), Tono.PELO_L)
 
 
 # EL BRILLO. Va SIEMPRE, en todos los modelos: es lo que dice que eso es pelo y no un casco. Una

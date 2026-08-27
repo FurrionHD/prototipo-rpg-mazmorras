@@ -85,15 +85,22 @@ func _ready() -> void:
 # jugador local (Game.material_aspecto), asi que se le ve igual que se ve a si mismo. El PNG llega
 # ya recortado a 128x128 en el handshake y se convierte a textura aqui.
 func aplicar_aspecto(color: Color, metal: float, nombre: String,
-		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0) -> void:
+		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0,
+		piezas: Dictionary = {}) -> void:
 	if _muneco == null:
 		_muneco = MunecoJugador.new()
 		add_child(_muneco)
-	# SIN PersonajeData: de el solo llega el aspecto por la red, no su ficha. Por eso se monta con
-	# null -- que hoy da el cuerpo desnudo -- y su equipo entrara por el canal propio de la fase de
-	# red, no por aqui. La alternativa (mandar la ficha entera) reenviaria su PNG de 128x128 cada vez
-	# que se cambia de arma.
-	_muneco.montar(null)
+	# UN PersonajeData DE USAR Y TIRAR, montado con lo que ha llegado por la red. De el no tenemos su
+	# ficha (ni falta: mandarla entera reenviaria su PNG de 128x128 cada vez que cambia de arma),
+	# pero el muñeco necesita una para saber que pelo y que ropa lleva. Sin esto se montaba con null
+	# y el compañero se veia DESNUDO Y CALVO en la pantalla del otro, que es la version de "lo que no
+	# escribes en las dos puntas se pierde solo en multijugador".
+	var pj := PersonajeData.new()
+	pj.color = Color(color.r, color.g, color.b, 1.0)
+	pj.aspecto = PersonajeData.aspecto_nuevo(pj.color)
+	if not piezas.is_empty():
+		pj.aplicar_aspecto({"piezas": piezas})
+	_muneco.montar(pj)
 	if _muneco.hay_dibujo():
 		_muneco.tenir(Color(color.r, color.g, color.b, 1.0), metal)
 		# Su cara sale de los MISMOS bytes que ya llegan en el handshake, convertidos a textura por

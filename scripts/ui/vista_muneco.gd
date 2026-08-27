@@ -31,7 +31,7 @@ const FONDO := Color(0.10, 0.11, 0.14)
 const BORDE := Color(0.30, 0.33, 0.40)
 # Cuanto del alto del recuadro ocupa el personaje. Deja aire arriba (el pelo alto y el arma que
 # algun dia se levante) y abajo (la sombra de contacto).
-const OCUPA := 0.74
+const OCUPA := 0.86
 
 var _muneco: MunecoJugador = null
 var _dir: int = 0                 # 0 = S, en el orden de SpriteLienzo.dir8
@@ -39,7 +39,7 @@ var _andando: bool = false
 
 
 func _init() -> void:
-	custom_minimum_size = Vector2(220, 260)
+	custom_minimum_size = Vector2(240, 300)
 	clip_contents = true
 	# Los menus pausan el arbol: sin esto la vista previa sale congelada (ver la cabecera).
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -116,9 +116,21 @@ func _refrescar_anim() -> void:
 
 # El muñeco se dibuja en unidades de mundo con los pies en su nodo, asi que se le pone la escala que
 # llene el recuadro y se le planta el nodo donde tienen que caer los pies.
+#
+# LOS PIES SE COLOCAN A MANO, y no centrando el cuerpo: el personaje esta casi entero POR ENCIMA de
+# su nodo (la coronilla a -46 y los pies a +14, ver PoseJugador.CAJA_CUERPO), asi que centrarlo lo
+# hunde -- se salia por debajo del recuadro y la barra de mandos le cruzaba las piernas.
+#
+# El hueco de abajo es de la BARRA (34 px) mas un respiro para la sombra de contacto.
+const HUECO_BARRA := 44.0
+
 func _recolocar() -> void:
 	if _muneco == null:
 		return
-	var esc: float = maxf(1.0, size.y * OCUPA / PoseJugador.ALTO_MUNDO)
+	var util: float = maxf(40.0, size.y - HUECO_BARRA)
+	var esc: float = maxf(1.0, util * OCUPA / PoseJugador.ALTO_MUNDO)
 	_muneco.scale = Vector2.ONE * esc
-	_muneco.position = Vector2(size.x * 0.5, size.y * 0.5 + PoseJugador.ALTO_MUNDO * esc * 0.42)
+	# Los pies, justo encima de la barra. Lo que sobra queda de aire por arriba, que es donde hace
+	# falta: ahi es donde crecen el pelo alto y (algun dia) el arma en alto.
+	_muneco.position = Vector2(size.x * 0.5,
+		util - PoseJugador.PIES_BAJO_NODO * esc * 0.5)

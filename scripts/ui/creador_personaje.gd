@@ -318,21 +318,33 @@ func _fase_ropa() -> Control:
 
 
 # LA PANTALLA SIMPLE: nombre, color e imagen, sin fases ni muñeco. Es la de bautizar un MUNDO.
+#
+# VA EN DOS COLUMNAS, y no es decorativo: en vertical NO CABE. El ColorPicker es lo mas alto que hay
+# (ya se le quitaron el cuadrado HSV, el cuentagotas, el hex y las paletas) y puesto debajo del
+# nombre, la muestra y los tres sliders se salia por abajo con los botones de Aceptar y Cancelar
+# detras. Al personaje eso se lo arreglan las fases; aqui no hay fases, asi que van columnas.
 func _fase_simple(previo: Dictionary) -> Control:
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	v.add_child(_fase_quien(previo))
-	v.add_child(_bloque_imagen(true))
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 24)
+	var izq := VBoxContainer.new()
+	izq.add_theme_constant_override("separation", 8)
+	izq.add_child(_fase_quien(previo))
+	izq.add_child(_bloque_imagen(true))
+	h.add_child(izq)
+
+	var der := VBoxContainer.new()
+	der.add_theme_constant_override("separation", 8)
 	var lbl := Label.new()
 	lbl.text = "Su color"
-	v.add_child(lbl)
+	der.add_child(lbl)
 	var picker := _picker()
 	picker.color = _pj.color
 	picker.color_changed.connect(func(c: Color):
 		_pj.color = c
 		_refrescar())
-	v.add_child(picker)
-	return v
+	der.add_child(picker)
+	h.add_child(der)
+	return h
 
 
 # ============================================================
