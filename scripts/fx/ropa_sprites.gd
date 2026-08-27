@@ -55,6 +55,9 @@ const TELA := 1.3
 # Vale igual para la armadura que viene: un peto que suba de aqui tapara la cara, y no dara ningun
 # error. Las medidas de referencia (con ALTO_MUNDO = 60):
 #     pecho del cuerpo 34,0   ·   cabeza (borde de abajo) 34,9   ·   hombro con manga 34,8
+# CUANTO BAJA LA PRENDA por debajo de donde le tocaria, para dejar el cuello al aire. Es el numero a
+# mover si la camisa vuelve a comerse la barbilla (subirlo) o si se le ve demasiado pecho (bajarlo).
+const ESCOTE_BAJA := 1.5
 # La manga corta acaba a esta fraccion del tramo hombro->codo.
 const MANGA_CORTA := 0.62
 # El bajo de una tunica, en fraccion del tramo cadera->rodilla.
@@ -117,25 +120,31 @@ static func _torso(piezas: Array, esq: Dictionary, manga: float, bajo: float) ->
 	# 3. El tronco: cadera y pecho, un pelo mas gordos que el cuerpo, PERO SIN SUBIR (ver ARRIBA_TELA).
 	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CADERA] - Vector3(0.0, 0.0, TELA * 0.6),
 		CuerpoSprites.R_CADERA + Vector3(TELA, TELA, TELA * 0.6), Tono.TELA_S)
-	PoseJugador.poner(piezas, esq, p[PoseJugador.P_TORSO] - Vector3(0.0, 0.0, TELA),
+	# EL PECHO BAJA 'ESCOTE_BAJA' DE MAS. Con solo el crecimiento compensado, el borde de arriba de la
+	# camisa quedaba a la altura del cuello y lo tapaba entero: entre la barbilla y la prenda no se
+	# veia nada de carne y la cabeza parecia apoyada sobre la camiseta. Una camisa empieza POR DEBAJO
+	# del cuello.
+	PoseJugador.poner(piezas, esq, p[PoseJugador.P_TORSO] - Vector3(0.0, 0.0, TELA + ESCOTE_BAJA),
 		CuerpoSprites.R_TORSO + Vector3(TELA, TELA, TELA), Tono.TELA)
-	# El realce del pecho, como en el cuerpo: mas alto que su eje, porque la luz viene de arriba.
+	# El realce del pecho: la luz viene de arriba, asi que va por encima de su eje.
 	#
-	# VA PEQUEÑO. Con el ancho del cuerpo (0,70 del pecho y 0,55 de alto) no se leia como luz sino
-	# como un BABERO: una mancha clara y redonda en mitad del pecho, y encima justo donde cae el
-	# escote. Un realce de tela es una banda estrecha por el hombro, no un plastron.
-	var alto: Vector3 = p[PoseJugador.P_TORSO] + Vector3(0.0, 0.0, CuerpoSprites.R_TORSO.z * 0.55)
+	# VA BAJO Y PLANO, y las dos cosas son correcciones de algo que se vio:
+	#   * con el ancho del cuerpo (0,70 del pecho, 0,55 de alto) se leia como un BABERO;
+	#   * puesto arriba del todo se comia el sitio del escote, y el escote encima suyo quedaba como un
+	#     OVALO OSCURO DENTRO de una mancha clara -- que es exactamente "se ve el cuello de la
+	#     camiseta por dentro". Los dos no caben en el mismo palmo: el escote arriba, la luz debajo.
+	var alto: Vector3 = p[PoseJugador.P_TORSO] + Vector3(0.0, 0.0, CuerpoSprites.R_TORSO.z * 0.20)
 	PoseJugador.poner(piezas, esq, alto,
-		Vector3(CuerpoSprites.R_TORSO.x * 0.62, CuerpoSprites.R_TORSO.y * 0.72,
-			CuerpoSprites.R_TORSO.z * 0.34), Tono.TELA_L, {"solo_sobre": [Tono.TELA]})
-	# EL ESCOTE es el BORDE DE ARRIBA DE LA PROPIA CAMISA, no una pieza a la altura del cuello.
+		Vector3(CuerpoSprites.R_TORSO.x * 0.66, CuerpoSprites.R_TORSO.y * 0.74,
+			CuerpoSprites.R_TORSO.z * 0.26), Tono.TELA_L, {"solo_sobre": [Tono.TELA]})
+	# EL ESCOTE es el BORDE DE ARRIBA DE LA PROPIA CAMISA: una banda ANCHA Y PLANA pegada a su canto,
+	# no un ovalo en mitad del pecho. Es la diferencia entre "el cuello de la prenda" y "un agujero".
 	#
-	# Puesto en el cuello volvia a chocar con la barbilla por otro camino: el cuello esta a 34 y la
-	# cabeza empieza a 34,9, asi que cualquier cosa dibujada ahi se mete en la cara. Aqui se pinta
-	# sobre el propio pecho ya dibujado ('solo_sobre'), o sea que no puede salirse de la prenda.
+	# Va con 'solo_sobre', asi que no puede salirse de la camisa por mucho que se acerque al cuello.
 	PoseJugador.poner(piezas, esq,
-		p[PoseJugador.P_TORSO] + Vector3(0.0, 1.6, CuerpoSprites.R_TORSO.z * 0.42),
-		Vector3(3.6, 2.4, 1.6), Tono.TELA_S, {"solo_sobre": [Tono.TELA, Tono.TELA_L]})
+		p[PoseJugador.P_TORSO] + Vector3(0.0, 1.0, CuerpoSprites.R_TORSO.z * 0.62 - ESCOTE_BAJA),
+		Vector3(CuerpoSprites.R_TORSO.x * 0.52, CuerpoSprites.R_TORSO.y * 0.60, 0.9),
+		Tono.TELA_S, {"solo_sobre": [Tono.TELA, Tono.TELA_L]})
 
 	# 4. Las mangas que van por delante del tronco, al final.
 	if manga <= 0.0:
