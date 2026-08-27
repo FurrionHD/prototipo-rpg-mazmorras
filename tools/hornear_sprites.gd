@@ -223,6 +223,13 @@ func _avisar_recortes(sf: SpriteFrames, clave: String) -> int:
 			var at: AtlasTexture = sf.get_frame_texture(anim, i) as AtlasTexture
 			if at == null:
 				continue
+			# UN FOTOGRAMA VACIO NO SE SALE DE NADA. Los que no dibujan nada (la cara mirando al
+			# norte: una nuca no tiene ojos) apuntan al pixel transparente que SpriteLienzo reserva al
+			# final de la hoja, y ese pixel esta pegado al borde por construccion -- con lo que el
+			# chequeo de abajo los daba TODOS por recortados. Fueron 370 avisos de golpe, que es la
+			# forma mas rapida de que un validador deje de leerse.
+			if at.region.size.x <= 1 and at.region.size.y <= 1:
+				continue
 			var w: int = int(at.region.size.x + at.margin.size.x)
 			var h: int = int(at.region.size.y + at.margin.size.y)
 			var x0: int = int(at.margin.position.x)

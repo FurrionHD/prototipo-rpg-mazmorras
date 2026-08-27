@@ -119,7 +119,12 @@ func _hoja_modelos(pieza: String) -> void:
 	if p == null:
 		push_error("[ver jugador juego] no hay Player en la escena")
 		return
-	if not Game.tiene_imagen_cuerpo():
+	# LA HOJA DE LA CARA VA SIN FOTO, obligatoriamente: los rasgos dibujados solo se montan cuando NO
+	# hay imagen (con foto, tu foto ES tu cara), asi que con la cara de prueba puesta las cuatro filas
+	# salian identicas y parecia que los estilos no hacian nada.
+	if pieza == "cara":
+		Game.set_imagen_cuerpo(PackedByteArray())
+	elif not Game.tiene_imagen_cuerpo():
 		Game.set_imagen_cuerpo(_cara_de_prueba())
 	p.set_physics_process(false)
 	var modelos: Array = []

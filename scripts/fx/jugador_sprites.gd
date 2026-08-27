@@ -39,9 +39,21 @@ enum Ranura { CUERPO, PANTALONES, BOTAS, PECHO, MANOS, CARA, CASCO, MANO_DER, MA
 # la piel salia del color del personaje entero y lo que se veia no era alguien vestido de azul sino
 # una estatua azul. Se hornea ya en color de piel y se deja pasar tal cual (ver la cabecera de
 # cuerpo_sprites.gd). El color que elegiste no se pierde: es el de la ROPA.
+# LOS 'z' SON FIJOS PARA TODO LO QUE VISTE EL EJE DEL CUERPO, y no un adorno: ver la nota larga de
+# MunecoJugador._ordenar. Resumen: el ancla de estas capas esta en x=0, asi que su profundidad es
+# cero -- hasta que la pose inclina el tronco y la vuelve negativa, y entonces la prenda se va DEBAJO
+# del cuerpo. Solo pasaba andando y de espaldas.
+#
+#   1 cuerpo  ·  2 piernas  ·  3 torso  ·  2047 pelo  ·  2048 cara  ·  2049 tu foto
+const Z_CUERPO := 1
+const Z_PIERNAS := 2
+const Z_TORSO := 3
+const Z_PELO := 2047
+const Z_CARA := 2048
+
 static var CAPAS := [
 	{"ranura": Ranura.CUERPO, "clave": "cuerpo", "gen": CuerpoSprites, "piezas": 1,
-		"ancla": PoseJugador.P_CADERA, "tinte": false},
+		"ancla": PoseJugador.P_CADERA, "tinte": false, "z": Z_CUERPO},
 ]
 
 # ============================================================
@@ -65,7 +77,7 @@ static var CAPAS := [
 static var CATALOGO := {
 	"piernas": {
 		"ranura": Ranura.PANTALONES, "gen": RopaSprites, "ancla": PoseJugador.P_CADERA,
-		"z": 0, "titulo": "Pantalón", "sin_nada": "Sin nada",
+		"z": Z_PIERNAS, "titulo": "Pantalón", "sin_nada": "Sin nada",
 		"modelos": {
 			"pantalon": {"piezas": 1, "nombre": "Pantalón"},
 			"bombacho": {"piezas": 1, "nombre": "Bombacho"},
@@ -74,7 +86,7 @@ static var CATALOGO := {
 	},
 	"torso": {
 		"ranura": Ranura.PECHO, "gen": RopaSprites, "ancla": PoseJugador.P_TORSO,
-		"z": 0, "titulo": "Camisa", "sin_nada": "Sin nada",
+		"z": Z_TORSO, "titulo": "Camisa", "sin_nada": "Sin nada",
 		"modelos": {
 			"camisa": {"piezas": 1, "nombre": "Camisa"},
 			"tunica": {"piezas": 1, "nombre": "Túnica"},
@@ -94,7 +106,7 @@ static var CATALOGO := {
 		# se come los ojos. Por debajo, el pelo ENMARCA la foto (queda el anillo de alrededor), que es
 		# como lo resuelven los sprites del genero. Godot solo acepta hasta 4096 y pasarse no recorta,
 		# rechaza.
-		"z": 2047,
+		"z": Z_PELO,
 		# 'cuelga' = este peinado tiene ademas una capa DETRAS del cuerpo (ver mas abajo).
 		"modelos": {
 			"rapado": {"piezas": 1, "nombre": "Rapado"},
@@ -103,6 +115,24 @@ static var CATALOGO := {
 			"coleta": {"piezas": 1, "nombre": "Coleta", "cuelga": true},
 			"largo": {"piezas": 1, "nombre": "Largo", "cuelga": true},
 			"mono": {"piezas": 1, "nombre": "Moño"},
+		},
+	},
+	# LA CARA: los ojos y la boca, dibujados como todo lo demas (ver cara_sprites.gd). Es una pieza
+	# del catalogo y no un caso aparte, asi que se elige en el creador, se hornea sola y sale en la
+	# hoja comparativa igual que un peinado.
+	#
+	# 'piezas' son los trozos SUELTOS que tiene: dos ojos, y una boca en los estilos que la llevan.
+	# Aqui son de verdad piezas separadas (una cara no es una silueta continua), asi que declararlo
+	# bien es lo unico que impide que el validador de islas del horno suelte un aviso por fotograma.
+	#
+	# NO SE TIÑE: unos ojos no son del color de tu ropa.
+	"cara": {
+		"ranura": Ranura.CARA, "gen": CaraSprites, "ancla": PoseJugador.P_CABEZA,
+		"z": Z_CARA, "tinte": false, "titulo": "Cara", "sin_nada": "Sin rasgos",
+		"modelos": {
+			"puntos": {"piezas": 2, "nombre": "Ojos simples"},
+			"chibi": {"piezas": 3, "nombre": "Con brillo"},
+			"linea": {"piezas": 3, "nombre": "Tranquilos"},
 		},
 	},
 }
@@ -150,6 +180,10 @@ static func capas_de(pj: PersonajeData) -> Array:
 		# aqui pasan partidas viejas y personajes que llegan por red desde otro build.
 		if modelo == "" or not (cat["modelos"] as Dictionary).has(modelo):
 			continue
+		# LOS RASGOS SOLO SI NO HAY FOTO: con imagen propia, tu imagen ES tu cara, y unos ojos
+		# dibujados asomarian por debajo de ella.
+		if nombre == "cara" and not pj.imagen.is_empty():
+			continue
 		# LA QUE CUELGA VA PRIMERO EN LA LISTA: el orden de 'out' desempata entre capas a la misma
 		# profundidad, y ademas asi el atlas de detras se monta antes que el de delante.
 		if bool((cat["modelos"][modelo] as Dictionary).get("cuelga", false)):
@@ -159,8 +193,8 @@ static func capas_de(pj: PersonajeData) -> Array:
 				"color": p["color"], "metal": p["metal"],
 				"frames": cat["gen"].frames(modelo + PeloSprites.SUFIJO_ATRAS, 1.0)})
 		out.append({"clave": "%s_%s" % [nombre, modelo], "ranura": cat["ranura"],
-			"ancla": cat["ancla"], "tinte": true, "z": int(cat.get("z", 0)),
-			"color": p["color"], "metal": p["metal"],
+			"ancla": cat["ancla"], "tinte": bool(cat.get("tinte", true)),
+			"z": int(cat["z"]), "color": p["color"], "metal": p["metal"],
 			"frames": cat["gen"].frames(modelo, 1.0)})
 	return out
 

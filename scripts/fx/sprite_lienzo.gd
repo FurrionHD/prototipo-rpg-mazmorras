@@ -110,6 +110,28 @@ static func cuantizar_hsv(c: Color, pasos: float = 6.0) -> Color:
 	return out
 
 
+# LA TEXTURA DE UN FOTOGRAMA VACIO: un pixel transparente, uno solo para todo el juego.
+#
+# Existe porque un fotograma sin nada dibujado NO puede ser un AtlasTexture. Se probaron las dos
+# formas de hacerlo con el atlas y las dos se ven:
+#   * region de tamaño CERO -> Godot no dibuja "nada", dibuja LA HOJA ENTERA. En pantalla es un
+#     cuadro de ruido de puntos (que son todos los fotogramas de la capa amontonados).
+#   * region de 1x1 sobre un pixel transparente reservado -> al ampliar x3 se cuela el borde de la
+#     hoja y queda una raya vertical al lado del personaje.
+# Con una textura propia no hay atlas del que colarse nada.
+#
+# Hasta ahora no hacia falta porque ninguna capa tenia fotogramas vacios; la CARA si (mirando al
+# norte no hay ojos que dibujar: es una nuca).
+static var _vacia: ImageTexture = null
+
+static func vacia() -> ImageTexture:
+	if _vacia == null:
+		var img := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0, 0, 0, 0))
+		_vacia = ImageTexture.create_from_image(img)
+	return _vacia
+
+
 # Colores (en el orden del enum de tonos del generador) -> bytes RGBA listos para el pintado.
 static func paleta(cols: Array) -> PackedByteArray:
 	var out := PackedByteArray()
@@ -128,10 +150,14 @@ static func paleta(cols: Array) -> PackedByteArray:
 static func a_textura(celdas: PackedByteArray, pal: PackedByteArray, w: int, h: int) -> ImageTexture:
 	var datos := PackedByteArray()
 	datos.resize(w * h * 4)
+	# EL 'fill' ES OBLIGATORIO, y aqui ponia lo contrario: 'resize' NO inicializa a cero, solo reserva
+	# sitio. Como abajo se saltan las celdas vacias, sin esto quedan con basura de memoria y el sprite
+	# sale rodeado de ruido -- unas veces si y otras no, segun lo que hubiera antes en ese bloque.
+	datos.fill(0)
 	for i in celdas.size():
-		# El VACIO se salta: 'resize' ya deja los bytes a cero, que es exactamente el transparente que
-		# le tocaria. En un lienzo con margen la mayoria de las celdas estan fuera del bicho, asi que
-		# esto se ahorra ocho indexaciones en la mayor parte del recorrido.
+		# El VACIO se salta: ya esta a cero, que es exactamente el transparente que le tocaria. En un
+		# lienzo con margen la mayoria de las celdas estan fuera del bicho, asi que esto se ahorra
+		# ocho indexaciones en la mayor parte del recorrido.
 		if celdas[i] == VACIO:
 			continue
 		var o: int = i * 4
@@ -206,6 +232,12 @@ static func montar_frames(anims: Array, pal: PackedByteArray, w: int, h: int) ->
 	var area: int = 0
 	for t in orden:
 		area += int(t["caja"].size.x) * int(t["caja"].size.y)
+	# UN PIXEL DE SEPARACION ENTRE FOTOGRAMAS. Sin el, al AMPLIAR el sprite en pantalla (la vista
+	# previa lo pone a x3,4) la GPU muestrea medio pixel de mas y se cuela el borde del fotograma
+	# vecino: se ve como una RAYA fina pegada al personaje. No sale en las hojas de contacto porque
+	# esas se componen leyendo las imagenes a mano, sin pasar por la GPU -- o sea que es un fallo que
+	# solo existe en el juego.
+	var SEP := 1
 	var ancho_hoja: int = maxi(w, int(ceil(sqrt(float(area)) * 1.15)))
 	var cx: int = 0
 	var cy: int = 0
@@ -217,16 +249,22 @@ static func montar_frames(anims: Array, pal: PackedByteArray, w: int, h: int) ->
 			continue
 		if cx + c.size.x > ancho_hoja:
 			cx = 0
-			cy += alto_estante
+			cy += alto_estante + SEP
 			alto_estante = 0
 		t["en"] = Vector2i(cx, cy)
-		cx += c.size.x
+		cx += c.size.x + SEP
 		alto_estante = maxi(alto_estante, c.size.y)
-	var alto_hoja: int = maxi(1, cy + alto_estante)
+	var alto_hoja: int = maxi(1, cy + alto_estante + SEP)
 
 	# 3. Pintar. Se escribe DIRECTO sobre los bytes de la hoja, sin crear una imagen por frame.
 	var datos := PackedByteArray()
 	datos.resize(ancho_hoja * alto_hoja * 4)
+	# 'resize' NO PONE CEROS: reserva sitio y deja lo que hubiera en esa memoria. Aqui solo se
+	# escriben las celdas que NO son vacio, asi que sin este 'fill' todo el hueco de la hoja -- entre
+	# fotograma y fotograma, y el margen del empaquetado -- queda con basura. Se ve como ruido de
+	# puntos blancos y negros alrededor de los sprites, y aparece o no segun lo que el proceso tuviera
+	# antes en esa memoria: o sea que un dia se ve y otro no.
+	datos.fill(0)
 	for t in orden:
 		var c: Rect2i = t["caja"]
 		if c.size.x <= 0:
@@ -261,6 +299,10 @@ static func montar_frames(anims: Array, pal: PackedByteArray, w: int, h: int) ->
 		var c: Rect2i = t["caja"]
 		var at := AtlasTexture.new()
 		at.atlas = hoja
+		# UN FOTOGRAMA VACIO NO USA EL ATLAS: lleva su propia textura transparente (ver 'vacia').
+		if c.size.x <= 0 or c.size.y <= 0:
+			sf.add_frame(t["anim"], vacia())
+			continue
 		at.region = Rect2(t["en"].x, t["en"].y, c.size.x, c.size.y)
 		# OJO CON ESTO: el tamaño final de un AtlasTexture es region.size + margin.SIZE, y
 		# margin.POSITION es donde empieza a dibujarse. O sea que el size del margen es el hueco
@@ -308,7 +350,12 @@ static func describir(sf: SpriteFrames) -> Dictionary:
 		var marcos: Array = []
 		for i in sf.get_frame_count(a):
 			var at: AtlasTexture = sf.get_frame_texture(a, i) as AtlasTexture
+			# LOS FOTOGRAMAS VACIOS NO SON AtlasTexture (ver 'vacia'), y aqui se SALTABAN: eso los
+			# borraba del horneado, asi que al cargarlo la animacion venia con menos fotogramas que
+			# antes y todo lo posterior se corria un sitio. Se guardan con tamaño cero, que es como
+			# vuelven a reconocerse.
 			if at == null:
+				marcos.append([0, 0, 0, 0, 0, 0])
 				continue
 			marcos.append([int(at.region.position.x), int(at.region.position.y),
 				int(at.region.size.x), int(at.region.size.y),
@@ -364,6 +411,10 @@ static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO) -> S
 		sf.set_animation_loop(a["n"], bool(a["loop"]))
 		sf.set_animation_speed(a["n"], float(a["fps"]))
 		for m in a["f"]:
+			# Fotograma vacio: se guardo con tamaño cero y vuelve como la textura transparente.
+			if int(m[2]) <= 0 or int(m[3]) <= 0:
+				sf.add_frame(a["n"], vacia())
+				continue
 			var at := AtlasTexture.new()
 			at.atlas = hoja
 			at.region = Rect2(m[0], m[1], m[2], m[3])

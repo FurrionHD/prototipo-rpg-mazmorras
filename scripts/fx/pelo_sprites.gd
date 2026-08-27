@@ -56,6 +56,9 @@ const ARRIBA := 5.6
 const GROSOR := 1.6
 # LO PLANO QUE ES EL CASQUETE, en fraccion del radio de la cabeza. Es lo que lo convierte de bola en
 # gorro: con el alto entero, el pelo vuelve a bajar hasta la barbilla por mucho que se suba.
+# SUBIRLO MAS NO ES LA SOLUCION, y esta escrito porque se probo: a 7 de 'arriba' con 0,50 de alto el
+# casquete SE DESPEGA del craneo y queda como un bloque flotando encima -- un sombrero mal puesto,
+# con una franja de piel entre el pelo y la cara. Lo que tapaba los ojos no era este, era la NUCA.
 const CASQUETE_ALTO := 0.60
 
 # --- El flequillo ---
@@ -170,9 +173,13 @@ static func _casquete(piezas: Array, esq: Dictionary, cab: Vector3, grueso: floa
 	# LA NUCA ESCALA CON 'grueso', y esto es lo que separa el rapado del corto: sin ello los dos
 	# llevaban exactamente la misma masa por detras y en la hoja de contacto se leian igual. Un
 	# rapado es pelo PEGADO al craneo por todos lados, no solo por arriba.
-	PoseJugador.poner(piezas, esq, cab + Vector3(0.0, -R * 0.28 * grueso, R * 0.10),
+	# VA BIEN ATRAS Y NO MUY ALTA, y esto se midio: puesta a 0,28 radios detras, de frente su borde de
+	# abajo caia por debajo de los ojos -- o sea que la nuca tapaba la CARA. Con el pelo por delante,
+	# dos ojos casi negros sobre pelo castaño no se ven, asi que el sintoma no era "hay una pieza mal
+	# puesta" sino "el personaje no tiene cara".
+	PoseJugador.poner(piezas, esq, cab + Vector3(0.0, -R * 0.55 * grueso, R * 0.16),
 		Vector3(R * (0.62 + 0.18 * grueso), R * (0.44 + 0.14 * grueso),
-			R * (0.48 + 0.14 * grueso)), Tono.PELO_S)
+			R * (0.40 + 0.12 * grueso)), Tono.PELO_S)
 	PoseJugador.poner(piezas, esq, cab + Vector3(0.0, -ATRAS, ARRIBA),
 		Vector3(R + g, R * 0.90 + g, R * CASQUETE_ALTO + g * 0.5), Tono.PELO)
 	if patillas <= 0.0:

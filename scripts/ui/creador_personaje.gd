@@ -260,10 +260,20 @@ func _fase_quien(previo: Dictionary) -> Control:
 	return v
 
 
-# LA CARA: la imagen y los dos mandos que solo le afectan a ella.
+# LA CARA: los rasgos dibujados, la imagen y los dos mandos que solo le afectan a ella.
 func _fase_cara() -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
+	v.add_child(_selector_modelo("cara"))
+	# LOS RASGOS SOLO SE VEN SIN FOTO, y hay que decirlo aqui: si no, eliges unos ojos, pones tu
+	# imagen encima y parece que el selector no hace nada.
+	var nota := Label.new()
+	nota.text = "Solo se ven si no pones imagen."
+	nota.add_theme_font_size_override("font_size", 11)
+	nota.add_theme_color_override("font_color", GRIS)
+	nota.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nota.custom_minimum_size = Vector2(280, 0)
+	v.add_child(nota)
 	v.add_child(_bloque_imagen(true))
 	return v
 
@@ -438,8 +448,10 @@ func _bloque_imagen(con_mandos: bool) -> Control:
 	# OJO con el SHRINK_CENTER: un Control dentro de un VBoxContainer se estira a lo ANCHO de la
 	# columna, y custom_minimum_size solo pone un minimo -> sin esto la muestra sale rectangular por
 	# mucho que pidas un cuadrado.
+	# 128 y no mas: con la fase Cara llevando ademas los cuatro estilos de ojos, la columna se salia
+	# por abajo de la pantalla y los botones de Aceptar y Cancelar quedaban cortados.
 	var muestra := ColorRect.new()
-	muestra.custom_minimum_size = Vector2(160, 160)
+	muestra.custom_minimum_size = Vector2(128, 128)
 	muestra.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	muestra.color = _pj.color
 	v.add_child(muestra)

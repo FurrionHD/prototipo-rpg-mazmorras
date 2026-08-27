@@ -101,6 +101,14 @@ static func plantilla(pintor: Callable, anim: String, marco: int, dir: int,
 	var lz: Vector2i = PoseJugador.lienzo(esc)
 	var plant := PackedByteArray()
 	plant.resize(lz.x * lz.y)
+	# EL 'resize' NO PONE CEROS: reserva sitio y deja lo que hubiera en esa memoria. Sin este 'fill',
+	# toda celda que la capa no pinte sale con BASURA -- y se ve, literalmente, como ruido de puntos
+	# blancos y negros por todo el lienzo. Aparecio en la capa de la cara mirando al norte, que es un
+	# fotograma en el que no se dibuja nada (una nuca no tiene ojos): el fotograma entero era ruido.
+	#
+	# En las demas capas colaba de milagro, porque casi siempre la memoria recien pedida viene a cero;
+	# es un fallo latente que se despierta en cuanto el proceso recicla un bloque usado.
+	plant.fill(0)
 	var esq: Dictionary = PoseJugador.esqueleto(anim, marco, dir, esc)
 	var piezas: Array = []
 	pintor.call(esq, piezas)
