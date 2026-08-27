@@ -63,7 +63,18 @@ func _capas(modelos: PackedStringArray) -> Array:
 		for pieza in JugadorSprites.CATALOGO:
 			if (JugadorSprites.CATALOGO[pieza]["modelos"] as Dictionary).has(m):
 				pedidos[pieza] = m
-	var out: Array = [CuerpoSprites.generar(1.0)]
+	var out: Array = []
+	# LO QUE CUELGA (la melena, la cola de la coleta) va DEBAJO del cuerpo, que es donde se pinta en
+	# el juego mirando de frente. En el juego eso lo decide la direccion (ver JugadorSprites); aqui se
+	# pone fijo detras, porque la hoja de contacto se mira sobre todo de frente.
+	for pieza in PersonajeData.PIEZAS:
+		if not pedidos.has(pieza):
+			continue
+		var c: Dictionary = JugadorSprites.CATALOGO[pieza]
+		var m: String = String(pedidos[pieza])
+		if bool((c["modelos"][m] as Dictionary).get("cuelga", false)):
+			out.append(c["gen"].generar(m + PeloSprites.SUFIJO_ATRAS, 1.0))
+	out.append(CuerpoSprites.generar(1.0))
 	# En el ORDEN DE APILADO de verdad (PersonajeData.PIEZAS), no en el que se hayan escrito los
 	# argumentos: si no, escribir el pelo antes que la camisa lo pintaria debajo de ella.
 	for pieza in PersonajeData.PIEZAS:

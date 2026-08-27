@@ -178,6 +178,16 @@ static func colores() -> Array:
 	]
 
 
+# EL COLOR DE LA CARNE, para quien tenga que pintar piel FUERA de esta capa. Hoy lo usa la CARA LISA
+# (ver MunecoJugador.poner_cara): cuando no hay imagen, en la cabeza se pinta un ovalo de este color.
+#
+# Se pide aqui en vez de copiarlo alla por lo de siempre: una segunda copia del color de la piel es
+# lo que se queda desfasado el dia que se toque la paleta, y el sintoma seria una cara de un tono y
+# unas manos de otro.
+static func color_piel() -> Color:
+	return colores()[Tono.PIEL]
+
+
 # ============================================================
 #  EL PINTOR
 # ============================================================

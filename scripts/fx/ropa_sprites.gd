@@ -38,6 +38,23 @@ enum Tono {
 # (1,15) o la ropa se queda POR DENTRO del cuerpo en la mitad de los fotogramas y lo que se ve es la
 # piel asomando a trozos, como si la camisa parpadeara.
 const TELA := 1.3
+
+# ============================================================
+#  LA REGLA QUE MAS IMPORTA AQUI: LA ROPA NO PUEDE INVADIR LA CABEZA
+# ============================================================
+# La tela crece HACIA ABAJO Y A LOS LADOS, nunca hacia arriba: cada elipse que engorda baja su centro
+# lo mismo que crece su radio, asi que su borde de arriba se queda donde lo tiene el cuerpo y lo que
+# gana se lo lleva la cintura -- que es hacia donde cae una camisa.
+#
+# POR QUE NO ES UN DETALLE: la cabeza vive en la capa del CUERPO, que va DEBAJO de la ropa, asi que
+# no tiene forma de taparla. Creciendo en los tres ejes, el pecho de la camisa llegaba a 35,3 y la
+# cabeza empieza a 34,9 -- la camisa se metia unidad y media dentro de la cara y se le comia la
+# barbilla. En el cuerpo eso no pasa porque alli la cabeza se pinta DESPUES del pecho, en la misma
+# capa; entre capas no hay ese arreglo.
+#
+# Vale igual para la armadura que viene: un peto que suba de aqui tapara la cara, y no dara ningun
+# error. Las medidas de referencia (con ALTO_MUNDO = 60):
+#     pecho del cuerpo 34,0   ·   cabeza (borde de abajo) 34,9   ·   hombro con manga 34,8
 # La manga corta acaba a esta fraccion del tramo hombro->codo.
 const MANGA_CORTA := 0.62
 # El bajo de una tunica, en fraccion del tramo cadera->rodilla.
@@ -97,24 +114,28 @@ static func _torso(piezas: Array, esq: Dictionary, manga: float, bajo: float) ->
 	if bajo > 0.0:
 		_faldilla(piezas, esq, bajo)
 
-	# 3. El tronco: cadera y pecho, un pelo mas gordos que el cuerpo.
-	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CADERA],
+	# 3. El tronco: cadera y pecho, un pelo mas gordos que el cuerpo, PERO SIN SUBIR (ver ARRIBA_TELA).
+	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CADERA] - Vector3(0.0, 0.0, TELA * 0.6),
 		CuerpoSprites.R_CADERA + Vector3(TELA, TELA, TELA * 0.6), Tono.TELA_S)
-	PoseJugador.poner(piezas, esq, p[PoseJugador.P_TORSO],
+	PoseJugador.poner(piezas, esq, p[PoseJugador.P_TORSO] - Vector3(0.0, 0.0, TELA),
 		CuerpoSprites.R_TORSO + Vector3(TELA, TELA, TELA), Tono.TELA)
 	# El realce del pecho, como en el cuerpo: mas alto que su eje, porque la luz viene de arriba.
 	#
 	# VA PEQUEÑO. Con el ancho del cuerpo (0,70 del pecho y 0,55 de alto) no se leia como luz sino
 	# como un BABERO: una mancha clara y redonda en mitad del pecho, y encima justo donde cae el
 	# escote. Un realce de tela es una banda estrecha por el hombro, no un plastron.
-	var alto: Vector3 = p[PoseJugador.P_TORSO] + Vector3(0.0, 0.0, CuerpoSprites.R_TORSO.z * 0.72)
+	var alto: Vector3 = p[PoseJugador.P_TORSO] + Vector3(0.0, 0.0, CuerpoSprites.R_TORSO.z * 0.55)
 	PoseJugador.poner(piezas, esq, alto,
 		Vector3(CuerpoSprites.R_TORSO.x * 0.62, CuerpoSprites.R_TORSO.y * 0.72,
 			CuerpoSprites.R_TORSO.z * 0.34), Tono.TELA_L, {"solo_sobre": [Tono.TELA]})
-	# EL ESCOTE: lo unico que dice donde acaba la prenda y empieza el cuello. Sin el, la camisa sube
-	# hasta la barbilla y el personaje parece llevar un jersey de cuello alto en los seis modelos.
-	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CUELLO] + Vector3(0.0, 1.2, -2.2),
-		Vector3(3.4, 2.6, 1.4), Tono.TELA_S, {"solo_sobre": [Tono.TELA, Tono.TELA_L]})
+	# EL ESCOTE es el BORDE DE ARRIBA DE LA PROPIA CAMISA, no una pieza a la altura del cuello.
+	#
+	# Puesto en el cuello volvia a chocar con la barbilla por otro camino: el cuello esta a 34 y la
+	# cabeza empieza a 34,9, asi que cualquier cosa dibujada ahi se mete en la cara. Aqui se pinta
+	# sobre el propio pecho ya dibujado ('solo_sobre'), o sea que no puede salirse de la prenda.
+	PoseJugador.poner(piezas, esq,
+		p[PoseJugador.P_TORSO] + Vector3(0.0, 1.6, CuerpoSprites.R_TORSO.z * 0.42),
+		Vector3(3.6, 2.4, 1.6), Tono.TELA_S, {"solo_sobre": [Tono.TELA, Tono.TELA_L]})
 
 	# 4. Las mangas que van por delante del tronco, al final.
 	if manga <= 0.0:
@@ -133,7 +154,10 @@ static func _manga(piezas: Array, esq: Dictionary, izq: bool, largo: float, tono
 	var hombro: Vector3 = p[PoseJugador.P_HOMBRO_IZQ if izq else PoseJugador.P_HOMBRO_DER]
 	var codo: Vector3 = p[PoseJugador.P_CODO_IZQ if izq else PoseJugador.P_CODO_DER]
 	var mano: Vector3 = p[PoseJugador.P_MANO_IZQ if izq else PoseJugador.P_MANO_DER]
-	var arranque := Vector3(hombro.x * 0.88, hombro.y, hombro.z - 2.0)
+	# BAJA MAS QUE EL BRAZO DEL CUERPO (que arranca en hombro.z - 2.0): la manga es mas gorda, y con
+	# el mismo arranque su borde de arriba llegaba a 34,8, o sea contra la cabeza (ver la nota de
+	# TELA). Bajarla lo que engorda deja el hombro vestido justo donde estaba el desnudo.
+	var arranque := Vector3(hombro.x * 0.88, hombro.y, hombro.z - 2.0 - TELA)
 	# El largo se mide sobre la cadena entera hombro->codo->mano, para que "1" sea la muñeca y no el
 	# codo. Por debajo de 1 la manga acaba en el brazo; a 1 llega hasta la mano.
 	if largo <= 0.62:

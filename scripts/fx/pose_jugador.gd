@@ -196,6 +196,19 @@ const P_MANO_IZQ := &"mano_izq"
 const P_MANO_DER := &"mano_der"
 const P_CUELLO := &"cuello"
 const P_CABEZA := &"cabeza"
+# LA NUCA: la cabeza, pero por DETRAS. No es una parte del cuerpo que dibuje nadie -- es un punto de
+# ANCLAJE, y existe por una razon muy concreta.
+#
+# Una capa se ordena delante o detras del cuerpo por la profundidad de su ancla (ver
+# MunecoJugador._ordenar), y la cabeza esta en x=0, y=0.5: su profundidad es casi cero en las ocho
+# direcciones, asi que quien cuelgue de ella se ordena por el redondeo. Eso vale para lo que va
+# PEGADO al craneo (el casquete del pelo, y manda su z a mano), pero no para lo que CUELGA: una
+# melena tiene que irse por la espalda cuando miras de frente y verse encima cuando miras de espaldas.
+# Colgandola de aqui, esa regla sale sola y sin un caso por direccion.
+#
+# La querran tambien la capucha y el casco con cola, y por eso vive en el esqueleto y no calculada a
+# ojo dentro de una capa: el esqueleto es el contrato.
+const P_NUCA := &"nuca"
 
 
 # ============================================================
@@ -431,6 +444,9 @@ static func montar(pose: Dictionary, dir: int, esc: float = 1.0) -> Dictionary:
 	p[P_TORSO] = TORSO
 	p[P_CUELLO] = CUELLO
 	p[P_CABEZA] = CABEZA
+	# Detras de la cabeza, a ocho decimos de su radio: lo justo para que su profundidad tenga SIGNO
+	# claro en las ocho direcciones (ver P_NUCA). No se dibuja nada ahi.
+	p[P_NUCA] = CABEZA - Vector3(0.0, CABEZA_R * 0.8, 0.0)
 
 	# LOS BRAZOS: giran RIGIDOS sobre su hombro. Rigidos (codo y mano giran lo mismo) y no articulados
 	# porque a este tamaño de pixel un codo doblado son dos celdas de diferencia que nadie ve, y a

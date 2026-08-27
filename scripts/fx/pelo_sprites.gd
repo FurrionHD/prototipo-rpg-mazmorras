@@ -71,15 +71,28 @@ const FLEQUILLO_BAJA := 0.22
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---
 static func frames(modelo: String, esc: float = 1.0) -> SpriteFrames:
+	if modelo.ends_with(SUFIJO_ATRAS):
+		var m: String = modelo.trim_suffix(SUFIJO_ATRAS)
+		return CapaJugador.frames(clave(modelo), pintar_atras.bind(m), colores(), esc)
 	return CapaJugador.frames(clave(modelo), pintar.bind(modelo), colores(), esc)
 
 
 static func generar(modelo: String, esc: float = 1.0) -> SpriteFrames:
+	if modelo.ends_with(SUFIJO_ATRAS):
+		var m: String = modelo.trim_suffix(SUFIJO_ATRAS)
+		return CapaJugador.generar(clave(modelo), pintar_atras.bind(m), colores(), esc)
 	return CapaJugador.generar(clave(modelo), pintar.bind(modelo), colores(), esc)
 
 
 static func clave(modelo: String) -> String:
 	return "%s_%s" % [PIEZA, modelo]
+
+
+# EL PELO SON DOS CAPAS, y esta es la que las separa: "largo" es lo pegado al craneo y "largo_atras"
+# lo que CUELGA. El sufijo va en el nombre del modelo (y por tanto en la clave del atlas) para que
+# todo lo demas -- el catalogo, el horno, el visor -- las trate como dos capas normales y no haya que
+# escribir un caso especial en cada sitio.
+const SUFIJO_ATRAS := "_atras"
 
 
 static func colores() -> Array:
@@ -95,10 +108,6 @@ static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
 	var p: Dictionary = esq["puntos"]
 	var cab: Vector3 = p[PoseJugador.P_CABEZA]
 	var hombro: Vector3 = p[PoseJugador.P_HOMBRO_IZQ]
-	# EL BAMBOLEO SALE DE LA POSE, no de un reloj propio. 'paso' es el balanceo de las piernas en
-	# radianes, asi que una coleta que lo siga se mueve al ritmo al que anda el personaje y se para
-	# cuando el se para -- sin sincronizar nada y sin un caso por animacion.
-	var vaiven: float = float((esq["pose"] as Dictionary).get("paso", 0.0))
 
 	match modelo:
 		"rapado":
@@ -109,19 +118,15 @@ static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
 		"bob":
 			_casquete(piezas, esq, cab, 1.0, 0.55)
 			_flequillo(piezas, esq, cab, 1.15)
-			_melena(piezas, esq, cab, R * 1.05, 0.9)
+			_mechones(piezas, esq, cab, R * 1.05)
 		"coleta":
 			_casquete(piezas, esq, cab, 1.0, 0.45)
 			_flequillo(piezas, esq, cab, 1.0)
-			_cola(piezas, esq, cab, vaiven)
+			_nudo(piezas, esq, cab)
 		"largo":
 			_casquete(piezas, esq, cab, 1.0, 0.55)
 			_flequillo(piezas, esq, cab, 1.1)
-			# HASTA EL PECHO Y NO MAS. Iba a "de la cabeza al hombro mas medio radio" y con el ancho
-			# de la melena eso salia una CORTINA hasta los pies que tapaba el cuerpo entero: no se
-			# veia ni la ropa. Un pelo largo se lee por donde ACABA, y acabando en el pecho ya no hay
-			# ninguno mas largo con el que confundirlo.
-			_melena(piezas, esq, cab, (cab.z - hombro.z) * 0.95, 1.0)
+			_mechones(piezas, esq, cab, (cab.z - hombro.z) * 0.95)
 		"mono":
 			_casquete(piezas, esq, cab, 1.0, 0.30)
 			_flequillo(piezas, esq, cab, 0.85)
@@ -129,6 +134,25 @@ static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
 		_:
 			_casquete(piezas, esq, cab, 1.0, 0.55)
 	_brillo(piezas, esq, cab)
+
+
+# LO QUE CUELGA POR DETRAS, y que por tanto se ordena delante o detras del cuerpo segun la direccion
+# (ver JugadorSprites.CATALOGO y MunecoJugador._ordenar). Es la mitad del peinado que ESTABA MAL: al
+# ir en la misma capa que el casquete -- que va por encima de todo a la fuerza --, la melena se
+# pintaba sobre el pecho mirases hacia donde mirases. Por eso de frente y de espaldas se veian
+# iguales, y por eso se comia la camisa.
+static func pintar_atras(esq: Dictionary, piezas: Array, modelo: String) -> void:
+	var p: Dictionary = esq["puntos"]
+	var cab: Vector3 = p[PoseJugador.P_CABEZA]
+	var hombro: Vector3 = p[PoseJugador.P_HOMBRO_IZQ]
+	var vaiven: float = float((esq["pose"] as Dictionary).get("paso", 0.0))
+	match modelo:
+		"bob":
+			_masa(piezas, esq, cab, R * 1.05, 0.9)
+		"largo":
+			_masa(piezas, esq, cab, (cab.z - hombro.z) * 0.95, 1.0)
+		"coleta":
+			_cola(piezas, esq, cab, vaiven)
 
 
 # LA MASA DE ARRIBA. 'grueso' es cuanto sobresale de la cabeza (1 = GROSOR entero, 0.55 = pegado al
@@ -175,21 +199,12 @@ static func _flequillo(piezas: Array, esq: Dictionary, cab: Vector3, largo: floa
 		Vector3(R * 0.88, R * 0.44, R * 0.26 + baja * 0.5), Tono.PELO)
 
 
-# LO QUE CUELGA POR DETRAS Y POR LOS LADOS. 'baja' es cuanto desciende desde el centro de la cabeza
-# y 'ancho' cuanto se separa del craneo.
+# LOS MECHONES QUE ENMARCAN LA CARA: los dos que caen por los lados, por DELANTE de los hombros.
+# Van en la capa de arriba, con el casquete, porque son justo lo que tiene que verse por delante.
 #
-# La melena va en DOS cadenas laterales mas una masa central por detras, y no en una sola pieza
-# ancha: una pieza ancha vista de perfil es un ladrillo pegado a la nuca, y vista de frente tapa los
-# hombros enteros. Lo que se lee como melena es que ENMARQUE la cara.
-static func _melena(piezas: Array, esq: Dictionary, cab: Vector3, baja: float,
-		ancho: float) -> void:
-	# LA MASA DE DETRAS VA ESTRECHA, y este es el numero que convirtio el pelo largo en una cortina:
-	# iba a 0,92 del radio de la CABEZA, o sea que la melena sola medía casi tanto de ancho como el
-	# personaje entero. Lo que enmarca la cara son las dos cadenas laterales de abajo; esta solo
-	# rellena entre ellas.
-	var abajo: Vector3 = cab + Vector3(0.0, -ATRAS * 1.2, -baja)
-	PoseJugador.cadena(piezas, esq, cab + Vector3(0.0, -ATRAS, ARRIBA * 0.5), abajo,
-		R * 0.62 * ancho, R * 0.52 * ancho, Tono.PELO_S)
+# Son lo que hace que una melena se lea como melena: sin ellos, lo que cuelga por detras no se ve de
+# frente y el peinado parece un corte corto.
+static func _mechones(piezas: Array, esq: Dictionary, cab: Vector3, baja: float) -> void:
 	for lado in 2:
 		var s: float = 1.0 if lado == 0 else -1.0
 		var alto: Vector3 = cab + Vector3(s * R * 0.86, -0.8, R * 0.25)
@@ -197,18 +212,33 @@ static func _melena(piezas: Array, esq: Dictionary, cab: Vector3, baja: float,
 		PoseJugador.cadena(piezas, esq, alto, bajo, R * 0.34, R * 0.30, Tono.PELO)
 
 
-# LA COLETA: sale de la nuca, sube un poco y cae. 'vaiven' viene del balanceo de la pose, asi que se
-# mece al andar y se queda quieta al pararse.
+# LA MASA QUE CAE POR LA ESPALDA. Va en la capa de ATRAS (ver 'pintar_atras'), asi que de frente se
+# pinta por debajo del cuerpo -- que es donde esta una melena cuando miras a alguien de cara.
 #
-# SON DOS PIEZAS DECLARADAS (ver JugadorSprites.CATALOGO) porque el atado es fino y en algunas poses
-# la cola se separa del casquete por una celda. Declararlo es lo que evita que el validador de islas
-# del horno suelte un aviso por fotograma hasta que nadie lo lea.
+# VA ESTRECHA: iba a 0,92 del radio de la CABEZA y eso convirtio el pelo largo en una cortina tan
+# ancha como el personaje entero. Lo que enmarca la cara son los mechones de arriba; esta solo
+# rellena entre ellos.
+static func _masa(piezas: Array, esq: Dictionary, cab: Vector3, baja: float, ancho: float) -> void:
+	var abajo: Vector3 = cab + Vector3(0.0, -ATRAS * 1.2, -baja)
+	PoseJugador.cadena(piezas, esq, cab + Vector3(0.0, -ATRAS, ARRIBA * 0.5), abajo,
+		R * 0.62 * ancho, R * 0.52 * ancho, Tono.PELO_S)
+
+
+# EL NUDO de la coleta: la bolita de la nuca. Va en la capa de ARRIBA aunque la cola vaya en la de
+# atras, y a proposito: es lo unico de la coleta que se ve de frente, y sin el, mirando al sur, no
+# habria ni rastro de que el personaje lleva coleta.
+static func _nudo(piezas: Array, esq: Dictionary, cab: Vector3) -> void:
+	PoseJugador.poner(piezas, esq, cab + Vector3(0.0, -R * 0.86, R * 0.30),
+		Vector3(R * 0.34, R * 0.34, R * 0.34), Tono.PELO)
+
+
+# LA COLA: sale del nudo y cae. 'vaiven' viene del balanceo de la pose, asi que se mece al andar y se
+# queda quieta al pararse.
+#
+# Vive en la capa de ATRAS: una coleta se va por la espalda, y estando en la de arriba se dibujaba
+# por delante del cuerpo tambien mirando de frente.
 static func _cola(piezas: Array, esq: Dictionary, cab: Vector3, vaiven: float) -> void:
 	var nudo: Vector3 = cab + Vector3(0.0, -R * 0.86, R * 0.30)
-	# LA COLA NO PUEDE SER MAS LARGA QUE ESTO. Iba a 1,30 radios y el validador del horno la cazo
-	# saliendose del lienzo en la MUERTE: al desplomarse, el cuerpo gira sobre los pies y lo que
-	# estaba detras de la nuca se va al extremo del cuadro. Lo que se ve cuando eso pasa es la coleta
-	# CORTADA EN SECO por una linea recta, y no da ningun error.
 	# LA COLA SE RECOGE AL CAERSE, y no es un adorno: es lo que la mete dentro del lienzo. Tiesa,
 	# con el cuerpo tumbado la cola queda extendida en horizontal y llega al borde del cuadro -- el
 	# validador de recortes del horno la cazaba en 'muerte' f4 y f5, y lo que se ve cuando eso pasa
@@ -221,7 +251,6 @@ static func _cola(piezas: Array, esq: Dictionary, cab: Vector3, vaiven: float) -
 	var largo: float = lerpf(1.0, 0.42, sqrt(tumbado))
 	var medio: Vector3 = nudo + Vector3(vaiven * R * 0.50, -R * 0.45 * largo, -R * 0.18 * largo)
 	var punta: Vector3 = nudo + Vector3(vaiven * R * 0.80, -R * 0.62 * largo, -R * 0.98 * largo)
-	PoseJugador.poner(piezas, esq, nudo, Vector3(R * 0.34, R * 0.34, R * 0.34), Tono.PELO)
 	PoseJugador.cadena(piezas, esq, nudo, medio, R * 0.30, R * 0.34, Tono.PELO_S)
 	PoseJugador.cadena(piezas, esq, medio, punta, R * 0.34, R * 0.16, Tono.PELO_S)
 

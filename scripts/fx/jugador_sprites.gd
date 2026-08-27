@@ -95,19 +95,35 @@ static var CATALOGO := {
 		# como lo resuelven los sprites del genero. Godot solo acepta hasta 4096 y pasarse no recorta,
 		# rechaza.
 		"z": 2047,
+		# 'cuelga' = este peinado tiene ademas una capa DETRAS del cuerpo (ver mas abajo).
 		"modelos": {
 			"rapado": {"piezas": 1, "nombre": "Rapado"},
 			"corto": {"piezas": 1, "nombre": "Corto"},
-			"bob": {"piezas": 1, "nombre": "Media melena"},
-			# DOS TROZOS: el atado de la coleta es fino y en algunas poses la cola se separa del
-			# casquete por una celda. Sin declararlo, el validador de islas del horno soltaria un
-			# aviso por fotograma hasta que nadie lo leyera.
-			"coleta": {"piezas": 2, "nombre": "Coleta"},
-			"largo": {"piezas": 1, "nombre": "Largo"},
+			"bob": {"piezas": 1, "nombre": "Media melena", "cuelga": true},
+			"coleta": {"piezas": 1, "nombre": "Coleta", "cuelga": true},
+			"largo": {"piezas": 1, "nombre": "Largo", "cuelga": true},
 			"mono": {"piezas": 1, "nombre": "Moño"},
 		},
 	},
 }
+
+# LO QUE CUELGA DEL PELO VA EN SU PROPIA CAPA, Y ESA SI SE ORDENA POR PROFUNDIDAD.
+#
+# El casquete tiene que ir por encima de todo a la fuerza (cuelga de la cabeza, que esta en x=0, y
+# ordenarlo por profundidad lo dejaria al azar del redondeo). Pero UNA MELENA NO ES UN CASQUETE: cae
+# casi en el plano central del cuerpo, asi que con el mismo z se pintaba sobre el pecho MIRASES HACIA
+# DONDE MIRASES. De ahi salian las dos quejas a la vez -- "el pelo largo se ve igual delante que
+# detras" y "la camisa solo se ve de frente" --, que eran el mismo fallo.
+#
+# Esta capa se ancla a la NUCA (PoseJugador.P_NUCA) y de ahi sale la regla sola: de frente la nuca
+# queda al fondo -> se pinta DEBAJO del cuerpo; de espaldas queda delante -> se pinta ENCIMA. Sin un
+# caso por direccion.
+#
+# LOS DOS Z SON FIJOS Y NO SALEN DE LA FORMULA de MunecoJugador._ordenar (prof x 4 x 16): la nuca
+# esta a diez unidades del eje, asi que esa formula daria z de +-600 -- y estas capas van en z
+# ABSOLUTO, o sea que un -600 se cuela por debajo del suelo del piso (z_index -1).
+const Z_CUELGA_DELANTE := 2046   # justo por debajo del casquete (2047) y de la cara (2048)
+const Z_CUELGA_DETRAS := -1      # entre el suelo del piso y el cuerpo (que va a 0)
 
 
 # Los SpriteFrames de todas las capas que le tocan a ESTE personaje, ya en orden de apilado, con su
@@ -134,6 +150,14 @@ static func capas_de(pj: PersonajeData) -> Array:
 		# aqui pasan partidas viejas y personajes que llegan por red desde otro build.
 		if modelo == "" or not (cat["modelos"] as Dictionary).has(modelo):
 			continue
+		# LA QUE CUELGA VA PRIMERO EN LA LISTA: el orden de 'out' desempata entre capas a la misma
+		# profundidad, y ademas asi el atlas de detras se monta antes que el de delante.
+		if bool((cat["modelos"][modelo] as Dictionary).get("cuelga", false)):
+			out.append({"clave": "%s_%s_atras" % [nombre, modelo], "ranura": cat["ranura"],
+				"ancla": PoseJugador.P_NUCA, "tinte": true,
+				"z": Z_CUELGA_DELANTE, "z_atras": Z_CUELGA_DETRAS,
+				"color": p["color"], "metal": p["metal"],
+				"frames": cat["gen"].frames(modelo + PeloSprites.SUFIJO_ATRAS, 1.0)})
 		out.append({"clave": "%s_%s" % [nombre, modelo], "ranura": cat["ranura"],
 			"ancla": cat["ancla"], "tinte": true, "z": int(cat.get("z", 0)),
 			"color": p["color"], "metal": p["metal"],
@@ -158,6 +182,10 @@ static func todas_las_capas() -> Array:
 			out.append({"clave": "%s_%s" % [nombre, modelo],
 				"piezas": int((cat["modelos"][modelo] as Dictionary)["piezas"]),
 				"gen": cat["gen"], "modelo": String(modelo)})
+			# Y su capa de detras, si la tiene: es un atlas mas, con su propia cuenta de trozos.
+			if bool((cat["modelos"][modelo] as Dictionary).get("cuelga", false)):
+				out.append({"clave": "%s_%s_atras" % [nombre, modelo], "piezas": 1,
+					"gen": cat["gen"], "modelo": String(modelo) + PeloSprites.SUFIJO_ATRAS})
 	return out
 
 

@@ -122,9 +122,12 @@ func montar(pj: PersonajeData) -> void:
 		s.z_as_relative = true
 		s.material = _material(bool(c.get("tinte", true)))
 		add_child(s)
-		_capas.append({"clave": c["clave"], "ranura": c["ranura"], "ancla": c["ancla"],
+		var cap := {"clave": c["clave"], "ranura": c["ranura"], "ancla": c["ancla"],
 			"tinte": bool(c.get("tinte", true)), "z": int(c.get("z", 0)),
-			"color": c.get("color", null), "metal": c.get("metal", null), "nodo": s})
+			"color": c.get("color", null), "metal": c.get("metal", null), "nodo": s}
+		if c.has("z_atras"):
+			cap["z_atras"] = int(c["z_atras"])
+		_capas.append(cap)
 	_pintar_capas()
 	if _anim != "":
 		_aplicar_anim(_anim, true)
@@ -141,11 +144,14 @@ func montar(pj: PersonajeData) -> void:
 # (ver '_recolocar_cara'), que es lo que las capas horneadas se ahorran por venir ya dibujadas en su
 # sitio.
 func poner_cara(tex: Texture2D) -> void:
+	# SIN IMAGEN NO SE QUITA LA CAPA: se pone una CARA LISA de color carne.
+	#
+	# Quitandola, lo que quedaba en la cabeza era el pelo -- el casquete cubre dos tercios de la cara,
+	# asi que de la piel solo asomaba la barbilla y el personaje parecia un peinado con cuerpo. Con
+	# foto no se notaba porque la foto se pinta encima. Ahora el hueco de la cara existe siempre y el
+	# pelo lo ENMARCA, lleves foto o no.
 	if tex == null:
-		if _cara != null:
-			_cara.queue_free()
-			_cara = null
-		return
+		tex = _cara_lisa()
 	if _cara == null:
 		_cara = Sprite2D.new()
 		_cara.centered = true
@@ -162,6 +168,25 @@ func poner_cara(tex: Texture2D) -> void:
 	if _anim != "":
 		_ordenar()
 		_recolocar_cara(_marco_actual())
+
+
+# LA CARA DE QUIEN NO TIENE FOTO: un cuadradito liso del color de la carne, que el shader de la cara
+# recorta en circulo y le oscurece el reborde. Ese reborde es lo que hace que se lea como una cara
+# DENTRO de la cabeza: sin el, un disco de piel sobre piel no se ve.
+#
+# UNA SOLA, COMPARTIDA por todo el que la necesite (tu, el sequito, el otro humano y la vista previa
+# del creador): es la misma imagen para todos y crear una por personaje seria una textura por cara
+# del grupo entero.
+#
+# El color sale de CuerpoSprites, no escrito aqui: ver la nota de 'color_piel'.
+static var _cara_lisa_tex: Texture2D = null
+
+static func _cara_lisa() -> Texture2D:
+	if _cara_lisa_tex == null:
+		var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+		img.fill(CuerpoSprites.color_piel())
+		_cara_lisa_tex = ImageTexture.create_from_image(img)
+	return _cara_lisa_tex
 
 
 # Deja la cara donde caiga la cabeza en ESTE fotograma, con el tamaño que tenga ahi.
@@ -400,8 +425,18 @@ func _ordenar() -> void:
 		# CAPA CON Z PROPIO: no entra en el reparto. Hoy es el PELO, y por el mismo motivo que la cara
 		# (ver abajo): cuelga de la cabeza, que esta en x=0, asi que su profundidad es casi cero en las
 		# ocho direcciones y quien decidiria delante/detras seria el redondeo.
+		#
+		# Y SI ADEMAS TRAE 'z_atras', ES UNA CAPA DE DOS POSICIONES: delante del cuerpo o detras, segun
+		# de que lado caiga su ancla. Es lo que necesita el pelo que CUELGA -- una melena va por la
+		# espalda cuando miras de frente y por encima cuando miras de espaldas --, y no se resuelve con
+		# la formula de abajo por un motivo practico: la nuca esta a diez unidades del eje, asi que
+		# 'prof x 4 x 16' daria z de +-600, y estas capas van en z ABSOLUTO (ver _ready). Un -600 se
+		# cuela por debajo del suelo del piso, que va a z_index -1.
 		if int(c.get("z", 0)) != 0:
-			c["nodo"].z_index = int(c["z"])
+			var z: int = int(c["z"])
+			if c.has("z_atras"):
+				z = z if PoseJugador.profundidad(esq, c["ancla"]) > 0.0 else int(c["z_atras"])
+			c["nodo"].z_index = z
 			continue
 		var prof: float = PoseJugador.profundidad(esq, c["ancla"])
 		# El orden de la lista (JugadorSprites.CAPAS) sigue mandando entre capas que estan a la

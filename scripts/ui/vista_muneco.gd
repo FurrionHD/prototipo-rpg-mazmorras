@@ -31,7 +31,7 @@ const FONDO := Color(0.10, 0.11, 0.14)
 const BORDE := Color(0.30, 0.33, 0.40)
 # Cuanto del alto del recuadro ocupa el personaje. Deja aire arriba (el pelo alto y el arma que
 # algun dia se levante) y abajo (la sombra de contacto).
-const OCUPA := 0.86
+const OCUPA := 0.80
 
 var _muneco: MunecoJugador = null
 var _dir: int = 0                 # 0 = S, en el orden de SpriteLienzo.dir8
@@ -130,7 +130,10 @@ func _recolocar() -> void:
 	var util: float = maxf(40.0, size.y - HUECO_BARRA)
 	var esc: float = maxf(1.0, util * OCUPA / PoseJugador.ALTO_MUNDO)
 	_muneco.scale = Vector2.ONE * esc
-	# Los pies, justo encima de la barra. Lo que sobra queda de aire por arriba, que es donde hace
-	# falta: ahi es donde crecen el pelo alto y (algun dia) el arma en alto.
+	# EL DIBUJO SE CENTRA EN EL HUECO, y hay que hacer la cuenta entera: el personaje va de
+	# -(ALTO_MUNDO - PIES_BAJO_NODO) a +PIES_BAJO_NODO respecto a su nodo, o sea que su nodo NO es su
+	# centro. Aqui habia media PIES_BAJO_NODO en vez del alto entero y a esta escala eso son 40 px de
+	# mas hacia abajo: los pies se metian detras de la barra de mandos.
+	var alto: float = PoseJugador.ALTO_MUNDO * esc
 	_muneco.position = Vector2(size.x * 0.5,
-		util - PoseJugador.PIES_BAJO_NODO * esc * 0.5)
+		(util - alto) * 0.5 + (PoseJugador.ALTO_MUNDO - PoseJugador.PIES_BAJO_NODO) * esc)
