@@ -14,9 +14,11 @@
 #
 #  Necesita VENTANA (con --headless no se dibuja nada), asi que va por ver_jugador_juego.bat.
 #
-#    ver_jugador_juego.bat [animacion] [direcciones]
-#    ver_jugador_juego.bat walk 8        las ocho, un fotograma cada una
-#    ver_jugador_juego.bat walk 1,2,3    esas tres, con todos sus fotogramas
+#    ver_jugador_juego.bat [animacion] [direcciones] [arma]
+#    ver_jugador_juego.bat walk 8               las ocho, un fotograma cada una
+#    ver_jugador_juego.bat walk 1,2,3           esas tres, con todos sus fotogramas
+#    ver_jugador_juego.bat guardia 8 espada_larga   con esa arma equipada
+#    ver_jugador_juego.bat golpe_2m 8 mandoble
 # ============================================================
 extends Node
 
@@ -64,6 +66,8 @@ func _ready() -> void:
 	Game.player_color = TINTE
 	if not Game.tiene_imagen_cuerpo():
 		Game.set_imagen_cuerpo(_cara_de_prueba())
+	if args.size() > 2:
+		_equipar_para_ver(String(args[2]))
 	p._pintar_cuerpo()
 	# EL JUGADOR REIMPONE SU ANIMACION EN CADA FRAME DE FISICA (ver player._actualizar_animacion), asi
 	# que sin pararlo esto captura ocho veces el idle y parece que las direcciones no cambian. Costo
@@ -169,6 +173,38 @@ func _hoja_modelos(pieza: String) -> void:
 # en la esquina. Lo que hay que poder ver de un vistazo es (a) que la imagen cae DENTRO de la cabeza,
 # (b) que se recorta en circulo y no queda cuadrada, y (c) que no sale girada ni del reves. Con una
 # foto de verdad, lo tercero no se notaria.
+# Equipa un arma (o dos: "daga+daga") por nombre de Tipo, para ver como queda dibujada. Busca el
+# .tres cuyo WeaponData.tipo coincide.
+func _equipar_para_ver(spec: String) -> void:
+	var partes: PackedStringArray = spec.split("+", false)
+	var main_tn: String = partes[0] if partes.size() > 0 else ""
+	var off_tn: String = partes[1] if partes.size() > 1 else ""
+	var pj: PersonajeData = Game.lider()
+	var m: WeaponData = _arma_de_tipo(main_tn)
+	if m != null:
+		pj.equipped_main = m
+	var o: WeaponData = _arma_de_tipo(off_tn) if off_tn != "" else null
+	if o != null:
+		pj.equipped_off = o
+	print("[ver jugador juego] arma: %s%s" % [main_tn, (" + " + off_tn) if off_tn != "" else ""])
+
+
+func _arma_de_tipo(tn: String) -> WeaponData:
+	if tn == "" or not ArmaSprites.TIPO_NOMBRE.has(tn):
+		return null
+	var idx: int = ArmaSprites.TIPO_NOMBRE.find(tn)
+	var d := DirAccess.open("res://resources/weapons/")
+	if d == null:
+		return null
+	for f in d.get_files():
+		if not f.ends_with(".tres"):
+			continue
+		var w := load("res://resources/weapons/" + f) as WeaponData
+		if w != null and int(w.tipo) == idx:
+			return w
+	return null
+
+
 func _cara_de_prueba() -> PackedByteArray:
 	var n: int = Game.IMAGEN_CUERPO_MAX
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)

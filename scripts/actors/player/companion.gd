@@ -177,7 +177,10 @@ func _animar(moviendose: bool) -> void:
 		return
 	var lider: Node = get_tree().get_first_node_in_group("player")
 	var modo: int = int(lider.get("movement_mode")) if lider != null else 1
-	_muneco.animar(PoseJugador.animacion(_facing, modo, moviendose))
+	# Desenvaina cuando el lider desenvaina: el grupo entra en guardia a la vez, como va al mismo
+	# paso. El compañero no ataca en el mapa, asi que la variante de golpe se queda en 0.
+	var desenv: bool = bool(lider.get("_desenvainado")) if lider != null else false
+	_muneco.animar(PoseJugador.animacion(_facing, modo, moviendose, false, desenv, 0))
 
 
 # Colocacion DURA (cambio de piso, cambio de lider): aqui no se anda, se aparece.

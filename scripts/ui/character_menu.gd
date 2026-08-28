@@ -164,6 +164,14 @@ func _cerrar() -> void:
 	_set_open(false)
 
 
+# Repinta el cuerpo del jugador en el mapa: al cambiar de arma o armadura, la pila de capas del
+# muñeco cambia y hay que remontarla (MunecoJugador.montar se salta el trabajo si no ha cambiado).
+func _refrescar_mundo() -> void:
+	var pl: Node = get_tree().get_first_node_in_group("player")
+	if pl != null and pl.has_method("refrescar_grupo"):
+		pl.refrescar_grupo()
+
+
 func _set_open(open: bool) -> void:
 	_root.visible = open
 	Game.fijar_modal(Game.Modal.PERSONAJE, self, open)
@@ -964,7 +972,8 @@ func _equipar_arma() -> void:
 		else:
 			Game.equipar_secundaria(item, _pj())
 		_arma_change = ""
-		_rebuild())
+		_rebuild()
+		_refrescar_mundo())
 
 
 # Construye el panel de stats del candidato de arma (derecha de la cuadricula).

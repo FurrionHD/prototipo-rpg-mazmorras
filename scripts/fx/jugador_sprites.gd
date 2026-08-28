@@ -29,7 +29,8 @@ class_name JugadorSprites
 # validador de islas del horno sirva para algo. El cuerpo es UNA pieza siempre -- si sale en dos, se
 # ha despegado algo --, pero unas botas son DOS y unos guanteletes tambien, y sin declararlo el
 # validador daria un aviso por cada fotograma de cada bota del juego y acabaria ignorandose.
-enum Ranura { CUERPO, PANTALONES, BOTAS, PECHO, MANOS, CARA, CASCO, MANO_DER, MANO_IZQ }
+enum Ranura { CUERPO, PANTALONES, BOTAS, PECHO, MANOS, CARA, CASCO, MANO_DER, MANO_IZQ,
+	ARMA_CADERA, ARMA_ESPALDA }
 
 # 'tinte' = si esta capa se pinta con un color de fuera (ver MunecoJugador.tenir). Casi todas lo
 # haran: una armadura de hierro y una epica son el mismo dibujo con otro tinte, y de ahi sale que
@@ -50,6 +51,18 @@ const Z_PIERNAS := 2
 const Z_TORSO := 3
 const Z_PELO := 2047
 const Z_CARA := 2048
+
+# EL ARMA A LA ESPALDA es de DOS POSICIONES, como el pelo que cuelga (ver _ordenar): de frente va
+# por detras del cuerpo, de espaldas por encima. Los dos z son fijos y no salen de la formula de
+# profundidad por lo mismo que el pelo -- el ancla esta lejos del eje y la formula daria z de
+# cientos, y estas capas van en z ABSOLUTO (un -600 se cuela bajo el suelo del piso).
+const Z_ARMA_ESPALDA_DELANTE := 2050   # por ENCIMA del pelo (2047) y la cara (2048): de espaldas
+                                      # el mandoble va sobre todo lo demas
+const Z_ARMA_ESPALDA_DETRAS := -1      # entre el suelo del piso y el cuerpo
+# EL ARMA A LA CADERA (envainada, una mano). Dos posiciones como el arma a la espalda: en la
+# cadera de delante cuando te ve, detras del cuerpo cuando le das la espalda.
+const Z_ARMA_CADERA_DELANTE := 5       # justo por encima de la ropa (torso va a 3)
+const Z_ARMA_CADERA_DETRAS := -1
 
 static var CAPAS := [
 	{"ranura": Ranura.CUERPO, "clave": "cuerpo", "gen": CuerpoSprites, "piezas": 1,
@@ -196,7 +209,68 @@ static func capas_de(pj: PersonajeData) -> Array:
 			"ancla": cat["ancla"], "tinte": bool(cat.get("tinte", true)),
 			"z": int(cat["z"]), "color": p["color"], "metal": p["metal"],
 			"frames": cat["gen"].frames(modelo, 1.0)})
+	out.append_array(_capas_arma(pj))
 	return out
+
+
+# LAS CAPAS DEL ARMA que lleva este personaje. Salen de equipped_main / equipped_off (ver
+# PersonajeData), no del catalogo: el arma es equipo, no aspecto. Se montan SIEMPRE las dos
+# versiones (en mano y envainada) porque envainar en el juego solo cambia el nombre de la
+# animacion, no la lista de capas -- si dependiera de la lista, el muñeco se reconstruiria cada vez
+# que te acercas a un enemigo.
+static func _capas_arma(pj: PersonajeData) -> Array:
+	var out: Array = []
+	_arma_de(out, pj.equipped_main, 0)
+	_arma_de(out, pj.equipped_off, 1)
+	return out
+
+
+# 'lado': 0 = mano/cadera derecha (principal), 1 = izquierda (secundaria).
+static func _arma_de(out: Array, item, lado: int) -> void:
+	if item == null:
+		return
+	var tn := ""
+	var dos_manos := false
+	if item is WeaponData:
+		if int(item.tipo) == WeaponData.Tipo.PUNOS:
+			return
+		tn = ArmaSprites.TIPO_NOMBRE[int(item.tipo)]
+		dos_manos = bool(item.dos_manos)
+	elif item is WandData:
+		tn = "varita"
+	else:
+		return   # ShieldData u otro: fuera de este plan
+
+	var suf_mano := "der" if lado == 0 else "izq"
+	var ancla_mano: StringName = PoseJugador.P_EMPUNADURA_DER if lado == 0 else PoseJugador.P_EMPUNADURA_IZQ
+	var ancla_cadera: StringName = PoseJugador.P_CADERA_DER if lado == 0 else PoseJugador.P_CADERA_IZQ
+
+	if tn == "varita":
+		# La varita solo cuelga de la cadera: no se desenvaina en el mapa.
+		out.append({"clave": "arma_varita_cadera_izq", "ranura": Ranura.ARMA_CADERA,
+			"ancla": PoseJugador.P_CADERA_IZQ, "tinte": false,
+			"z": Z_ARMA_CADERA_DELANTE, "z_atras": Z_ARMA_CADERA_DETRAS,
+			"frames": ArmaSprites.frames("arma_varita_cadera_izq", 1.0)})
+		return
+
+	if dos_manos:
+		out.append({"clave": "arma_%s_mano_der" % tn, "ranura": Ranura.MANO_DER,
+			"ancla": PoseJugador.P_EMPUNADURA_DER, "tinte": false,
+			"frames": ArmaSprites.frames("arma_%s_mano_der" % tn, 1.0)})
+		out.append({"clave": "arma_%s_espalda" % tn, "ranura": Ranura.ARMA_ESPALDA,
+			"ancla": PoseJugador.P_ESPALDA, "tinte": false,
+			"z": Z_ARMA_ESPALDA_DELANTE, "z_atras": Z_ARMA_ESPALDA_DETRAS,
+			"frames": ArmaSprites.frames("arma_%s_espalda" % tn, 1.0)})
+		return
+
+	out.append({"clave": "arma_%s_mano_%s" % [tn, suf_mano],
+		"ranura": Ranura.MANO_DER if lado == 0 else Ranura.MANO_IZQ,
+		"ancla": ancla_mano, "tinte": false,
+		"frames": ArmaSprites.frames("arma_%s_mano_%s" % [tn, suf_mano], 1.0)})
+	out.append({"clave": "arma_%s_cadera_%s" % [tn, suf_mano], "ranura": Ranura.ARMA_CADERA,
+		"ancla": ancla_cadera, "tinte": false,
+		"z": Z_ARMA_CADERA_DELANTE, "z_atras": Z_ARMA_CADERA_DETRAS,
+		"frames": ArmaSprites.frames("arma_%s_cadera_%s" % [tn, suf_mano], 1.0)})
 
 
 # TODAS las capas que existen, para el horno. No es lo mismo que 'capas_de': aquella son las de UN
@@ -220,6 +294,10 @@ static func todas_las_capas() -> Array:
 			if bool((cat["modelos"][modelo] as Dictionary).get("cuelga", false)):
 				out.append({"clave": "%s_%s_atras" % [nombre, modelo], "piezas": 1,
 					"gen": cat["gen"], "modelo": String(modelo) + PeloSprites.SUFIJO_ATRAS})
+	# Las capas de arma: una por (arma, sitio, mano). El horno las dibuja como cualquier otra.
+	# 2 piezas: la guarda / cabeza puede quedar como isla propia en algunos angulos (hoja + guarda).
+	for clave in ArmaSprites.todas_las_claves():
+		out.append({"clave": clave, "piezas": 2, "gen": ArmaSprites, "modelo": clave})
 	return out
 
 
@@ -234,8 +312,9 @@ static func generar_capa(receta: Dictionary, esc: float = 1.0) -> SpriteFrames:
 
 # Que animacion toca. Delega en PoseJugador, que es donde vive la regla: aqui solo se reexporta para
 # que quien use este registro no tenga que conocer dos clases.
-static func animacion(mirada: Vector2, modo: int, moviendose: bool, golpeando: bool = false) -> String:
-	return PoseJugador.animacion(mirada, modo, moviendose, golpeando)
+static func animacion(mirada: Vector2, modo: int, moviendose: bool, golpeando: bool = false,
+		desenvainado: bool = false, golpe_variante: int = 0) -> String:
+	return PoseJugador.animacion(mirada, modo, moviendose, golpeando, desenvainado, golpe_variante)
 
 
 static func cadaver(mirada: Vector2) -> String:

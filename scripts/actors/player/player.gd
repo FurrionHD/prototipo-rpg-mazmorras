@@ -63,7 +63,22 @@ var _muneco: MunecoJugador = null
 # Los 8 fotogramas de 'golpe' a 12 fps duran esto exacto: si se acortara, la animacion se cortaria a
 # medio tajo, y si se alargara, el personaje se quedaria clavado en el ultimo fotograma.
 const DUR_GOLPE := 8.0 / 12.0
+# El de dos manos va mas lento (8 fotogramas a 10 fps): un hacha no se blande a la misma cadencia.
+const DUR_GOLPE_2M := 8.0 / 10.0
 var _golpe_t: float = 0.0
+# El golpe del mapa alterna de mano con el dual: 0 derecha, 1 izquierda, 2 a dos manos.
+var _golpe_variante: int = 0
+var _ultima_mano_golpe: int = 1
+
+# EL ARMA FUERA. Cerca de un enemigo el personaje desenvaina y anda en guardia; al alejarse la
+# envaina en seco (te estas yendo, no se ve el gesto). Histeresis de dos radios para que no
+# parpadee justo en el borde. '_desenv_t' bloquea la anim mientras corre el gesto de sacarla,
+# igual que '_golpe_t' con el espadazo.
+var _desenvainado: bool = false
+var _desenv_t: float = 0.0
+const _ARMA_RANGE := 340.0         # entra en guardia con un enemigo VISIBLE a menos de esto
+const _ARMA_RANGE_SALIR := 460.0   # y solo la envaina al pasar de esto
+const _DESENVAINAR_DUR := 5.0 / 14.0   # los 5 fotogramas de 'desenvainar' a 14 fps
 
 # Ataque para INICIAR combate, hacia delante. El numero es de CENTRO A CENTRO, pero lo que se filtra
 # es el HUECO entre los dos cuerpos (ver _enemigos_a_tiro): attack_range - 32 = 12 px de hueco.
@@ -329,14 +344,15 @@ func _physics_process(delta: float) -> void:
 	else:
 		movement_mode = 1
 
-	# Enemigo mas cercano. Solo hace falta si corremos: es lo unico que mira los radios. Se calcula
-	# UNA vez y lo reaprovecha tambien la Excelia de Agilidad, mas abajo.
-	var enemigo_cerca: Node = null
-	var dist_enemigo: float = INF
-	if running:
-		var cercano: Array = _enemigo_mas_cercano()
-		enemigo_cerca = cercano[0]
-		dist_enemigo = float(cercano[1])
+	# Enemigo mas cercano. Se calcula UNA vez por frame y lo comparten el aguante, la Excelia de
+	# Agilidad y el desenvainar. Antes solo se miraba al correr; ahora el arma tambien lo necesita.
+	var cercano: Array = _enemigo_mas_cercano()
+	var enemigo_cerca: Node = cercano[0]
+	var dist_enemigo: float = float(cercano[1])
+
+	# DESENVAINAR / ENVAINAR segun tengas un enemigo cerca y a la vista. Histeresis: entras dentro
+	# de _ARMA_RANGE, sales al pasar de _ARMA_RANGE_SALIR.
+	_tick_arma(enemigo_cerca, dist_enemigo)
 
 	# Aguante: baja al correr, pero SOLO con un enemigo dentro del radio de peligro. Correr por el
 	# pueblo o por un pasillo vacio ya no cansa (y encima regenera). Ir a por un bicho sigue
@@ -882,9 +898,52 @@ func _pintar_cuerpo() -> void:
 func _actualizar_animacion(moviendose: bool, delta: float) -> void:
 	if _golpe_t > 0.0:
 		_golpe_t -= delta
+	if _desenv_t > 0.0:
+		_desenv_t -= delta
 	if _muneco == null or not _muneco.hay_dibujo():
 		return
-	_muneco.animar(PoseJugador.animacion(_facing, movement_mode, moviendose, _golpe_t > 0.0))
+	# El gesto de sacar el arma manda mientras dura (como el golpe): es una transicion, no se elige
+	# desde PoseJugador.animacion.
+	if _desenv_t > 0.0:
+		_muneco.animar("desenvainar_%d" % SpriteLienzo.dir8(_facing))
+		return
+	_muneco.animar(PoseJugador.animacion(_facing, movement_mode, moviendose,
+		_golpe_t > 0.0, _desenvainado, _golpe_variante))
+
+
+# ¿Lleva un arma que pintar / desenvainar? Puños no cuenta; un escudo en la otra mano tampoco lo
+# desenvaina (eso es futuro).
+func _arma_equipada() -> bool:
+	var m = Game.equipped_main
+	if m is WeaponData and int(m.tipo) != WeaponData.Tipo.PUNOS:
+		return true
+	return Game.equipped_off is WeaponData
+
+
+# LA MAQUINA DE ESTADO DEL ARMA. Con un enemigo VIVO, VISIBLE (sin pared en medio) y a tiro, el
+# personaje desenvaina; se aleja lo bastante y la envaina. En sigilo nunca la saca (PoseJugador
+# devuelve 'sigilo' aunque _desenvainado sea true), asi que aqui no hace falta un caso aparte.
+func _tick_arma(enemigo: Node, dist: float) -> void:
+	if not _arma_equipada():
+		if _desenvainado:
+			_desenvainado = false
+		return
+	var visible: bool = enemigo != null and is_instance_valid(enemigo) \
+		and _vision_libre((enemigo as Node2D).global_position)
+	var quiere: bool
+	if _desenvainado:
+		quiere = visible and dist <= _ARMA_RANGE_SALIR
+	else:
+		quiere = visible and dist <= _ARMA_RANGE
+	# No cambiar de estado en mitad de un gesto (sacar el arma o dar el golpe).
+	if _desenv_t > 0.0 or _golpe_t > 0.0:
+		return
+	if quiere and not _desenvainado:
+		_desenvainado = true
+		_desenv_t = _DESENVAINAR_DUR
+		_ultima_mano_golpe = 1   # el proximo golpe empieza por la derecha
+	elif not quiere and _desenvainado:
+		_desenvainado = false
 
 
 # RASTRO de la imbuicion: cuadraditos del color del elemento que suben y se quedan atras al andar.
@@ -1192,6 +1251,19 @@ func _nivel_enemigo_nodo(e: Node) -> int:
 # pegado, la pulsacion ya se ha gastado en pegarle.
 const CASTEO_MANTENER := 1.0   # segundos aguantando el boton para sacar los hechizos
 
+# QUE GOLPE toca: a dos manos si el arma principal es de dos manos; si llevas arma en la otra mano
+# (dual) alterna derecha/izquierda golpe a golpe; si no, siempre la derecha. Es solo el DIBUJO --
+# el cono y el daño de _try_attack no cambian (el combate va aparte).
+func _elegir_golpe() -> int:
+	var m = Game.equipped_main
+	if m is WeaponData and bool(m.dos_manos):
+		return 2
+	if Game.equipped_off is WeaponData:
+		_ultima_mano_golpe = 1 - _ultima_mano_golpe
+		return _ultima_mano_golpe
+	return 0
+
+
 func _tick_ataque(delta: float) -> void:
 	var atk: bool = Input.is_action_pressed(&"atacar")
 	# Mientras recitas, el boton no hace nada mas: las frases se tocan en la banda de abajo.
@@ -1205,7 +1277,8 @@ func _tick_ataque(delta: float) -> void:
 		# combate se lleva la escena y no da tiempo a ver nada. Golpear al aire, en cambio, es lo que
 		# el jugador necesita distinguir de "el boton no ha respondido" -- que era exactamente la
 		# queja que llevo a que este boton avise por texto cuando el bicho esta lejos.
-		_golpe_t = DUR_GOLPE
+		_golpe_variante = _elegir_golpe()
+		_golpe_t = DUR_GOLPE_2M if _golpe_variante == 2 else DUR_GOLPE
 		if not _try_attack():
 			_atk_buffer = ATK_BUFFER
 			# Toque corto a distancia de CONJURO: no ha llegado el espadazo, pero algo se puede

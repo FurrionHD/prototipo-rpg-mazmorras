@@ -15,4 +15,4 @@ if not exist "%GODOT%" (
     pause
     exit /b 1
 )
-"%GODOT%" --path "%~dp0." res://tools/ver_jugador_juego.tscn -- %1 %2
+"%GODOT%" --path "%~dp0." res://tools/ver_jugador_juego.tscn -- %1 %2 %3

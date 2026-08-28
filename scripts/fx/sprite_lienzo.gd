@@ -369,7 +369,19 @@ static func describir(sf: SpriteFrames) -> Dictionary:
 
 # Escribe el par .png + .json de una variante ya generada. Devuelve los bytes del png, o 0 si falla.
 static func hornear(sf: SpriteFrames, clave: String, carpeta: String = CARPETA_HORNO) -> int:
-	var at: AtlasTexture = sf.get_frame_texture(sf.get_animation_names()[0], 0) as AtlasTexture
+	# El PRIMER fotograma real (un AtlasTexture): solo hace falta para llegar a 'at.atlas', la hoja
+	# compartida. No se puede coger el frame 0 de la primera animacion a ciegas -- una capa cuya
+	# primera animacion (por orden alfabetico) esta vacia lo tiene como textura transparente suelta,
+	# no como AtlasTexture. Pasa con las capas de arma en mano, que no dibujan nada en 'cadaver'.
+	var at: AtlasTexture = null
+	for _an in sf.get_animation_names():
+		for _i in sf.get_frame_count(_an):
+			var _t := sf.get_frame_texture(_an, _i) as AtlasTexture
+			if _t != null:
+				at = _t
+				break
+		if at != null:
+			break
 	if at == null:
 		return 0
 	DirAccess.make_dir_recursive_absolute(carpeta)

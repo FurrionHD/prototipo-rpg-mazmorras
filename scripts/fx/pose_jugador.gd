@@ -210,6 +210,25 @@ const P_CABEZA := &"cabeza"
 # ojo dentro de una capa: el esqueleto es el contrato.
 const P_NUCA := &"nuca"
 
+# LOS PUNTOS DEL ARMA. Solo anclaje, como la nuca: aqui no se dibuja ninguna espada -- eso es la
+# capa ArmaSprites. Lo que vive aqui es DONDE se agarra el arma y HACIA DONDE apunta en este
+# fotograma, para que la capa cuelgue su hoja de ahi sin recalcular la pose.
+#
+#   EMPUNADURA / PUNTA  el arma EMPUÑADA: la empuñadura cae dentro del puño y la "punta" es un
+#                       punto de referencia en la direccion del antebrazo (la hoja apunta por ahi).
+#   CADERA_DER/IZQ      el arma ENVAINADA al costado (las de una mano). La derecha del personaje
+#                       es -X, ojo con el signo.
+#   ESPALDA / ESPALDA_PUNTA   el arma colgada a la ESPALDA (las de dos manos): un punto detras del
+#                       torso y su extremo lejano, para la direccion.
+const P_EMPUNADURA_DER := &"empunadura_der"
+const P_EMPUNADURA_IZQ := &"empunadura_izq"
+const P_PUNTA_DER := &"punta_der"
+const P_PUNTA_IZQ := &"punta_izq"
+const P_CADERA_DER := &"cadera_der"
+const P_CADERA_IZQ := &"cadera_izq"
+const P_ESPALDA := &"espalda"
+const P_ESPALDA_PUNTA := &"espalda_punta"
+
 
 # ============================================================
 #  LAS OCHO DIRECCIONES
@@ -244,6 +263,16 @@ const ANIMS := [
 	{"n": "walk", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "correr", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "golpe", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	# CON EL ARMA FUERA (cerca de un enemigo). 'guardia*' son idle/andar/correr con el arma en alto,
+	# NO se bifurca idle/walk/correr para no doblar el atlas del cuerpo y la ropa. 'desenvainar' es
+	# la transicion (envaina -> mano). 'golpe_izq' es el golpe con la mano mala (dual), 'golpe_2m'
+	# el tajo con las dos manos (hacha/martillo/mandoble).
+	{"n": "guardia", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar", "loop": false, "fps": 14.0, "dirs": 8, "marcos": 5, "ultimo": true},
+	{"n": "golpe_izq", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "golpe_2m", "loop": false, "fps": 10.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	{"n": "encaje", "loop": false, "fps": 18.0, "dirs": 1, "marcos": 4, "ultimo": true},
 	{"n": "muerte", "loop": false, "fps": 10.0, "dirs": 1, "marcos": 8, "ultimo": true},
 	{"n": "cadaver", "loop": false, "fps": 1.0, "dirs": 8, "marcos": 1, "ultimo": false},
@@ -256,16 +285,24 @@ const ANIMS := [
 # pantalla el personaje corre y en la otra pasea.
 #
 # 'modo' es el movement_mode de player.gd: 0 sigilo, 1 andar, 2 correr.
-static func animacion(mirada: Vector2, modo: int, moviendose: bool, golpeando: bool = false) -> String:
+# 'desenvainado' = lleva el arma FUERA (hay un enemigo cerca). 'golpe_variante': 0 mano derecha,
+# 1 mano izquierda (dual), 2 a dos manos.
+static func animacion(mirada: Vector2, modo: int, moviendose: bool, golpeando: bool = false,
+		desenvainado: bool = false, golpe_variante: int = 0) -> String:
 	var d: int = SpriteLienzo.dir8(mirada)
 	if golpeando:
-		return "golpe_%d" % d
-	if not moviendose:
-		# Agachado quieto SIGUE agachado. Poner el idle de pie al pararte delataba el sigilo: se te
-		# veia levantarte cada vez que soltabas la tecla.
-		return "sigilo_%d" % d if modo == 0 else "idle_%d" % d
+		return "%s_%d" % [["golpe", "golpe_izq", "golpe_2m"][clampi(golpe_variante, 0, 2)], d]
+	# Agachado manda sobre todo lo demas: en sigilo el arma se queda envainada (no delatas la
+	# silueta de guardia) y la pose es la de siempre. Poner el idle de pie al pararte delataba el
+	# sigilo: se te veia levantarte cada vez que soltabas la tecla.
 	if modo == 0:
 		return "sigilo_%d" % d
+	if desenvainado:
+		if not moviendose:
+			return "guardia_%d" % d
+		return "guardia_cor_%d" % d if modo == 2 else "guardia_and_%d" % d
+	if not moviendose:
+		return "idle_%d" % d
 	return "correr_%d" % d if modo == 2 else "walk_%d" % d
 
 
@@ -401,7 +438,12 @@ static func esqueleto(anim: String, marco: int, dir: int, esc: float = 1.0) -> D
 	var divisor: float = float(marcos - 1) if bool(fila["ultimo"]) else float(marcos)
 	var t: float = 0.0 if divisor <= 0.0 else float(marco) / divisor
 	var pose: Dictionary = _pose(anim, t)
-	return montar(pose, dir, esc)
+	var d: Dictionary = montar(pose, dir, esc)
+	# El NOMBRE BASE de la animacion ("idle", "golpe_2m"), para las capas que dibujan distinto
+	# segun la anim -- hoy solo el arma (ArmaSprites): envainada en 'idle', en mano en 'guardia'.
+	# 'montar' no lo recibe (el visor le pasa poses sueltas sin anim), asi que se pone aqui.
+	d["anim"] = anim
+	return d
 
 
 # El esqueleto a partir de una pose ya calculada. Separado de 'esqueleto' para que el visor pueda
@@ -474,6 +516,28 @@ static func montar(pose: Dictionary, dir: int, esc: float = 1.0) -> Dictionary:
 			Vector3(s2 * RODILLA.x, RODILLA.y, RODILLA.z), cad, a2)
 		p[P_PIE_IZQ if lado == 0 else P_PIE_DER] = _girar_miembro(
 			Vector3(s2 * PIE.x, PIE.y, PIE.z), cad, a2)
+
+	# --- Puntos de anclaje del ARMA ---
+	# Van AQUI, antes del bucle de deformaciones de abajo, para que hereden inclina / caida /
+	# ancho / alto / avance como cualquier otro punto: una espada envainada tiene que tumbarse con
+	# el cadaver, no quedarse flotando de pie. La empuñadura cae dentro del puño (un pelo adelante y
+	# abajo); la "punta" es un punto en la direccion del antebrazo -> de ahi saca la capa hacia
+	# donde mira la hoja. Envainadas: a la cadera de su lado y a la espalda para las de dos manos.
+	p[P_EMPUNADURA_IZQ] = p[P_MANO_IZQ] + Vector3(0.0, 1.0, -0.6)
+	p[P_EMPUNADURA_DER] = p[P_MANO_DER] + Vector3(0.0, 1.0, -0.6)
+	var _d_izq: Vector3 = (p[P_MANO_IZQ] - p[P_CODO_IZQ])
+	var _d_der: Vector3 = (p[P_MANO_DER] - p[P_CODO_DER])
+	_d_izq = _d_izq.normalized() if _d_izq.length() > 0.01 else Vector3(0.0, 1.0, -0.3)
+	_d_der = _d_der.normalized() if _d_der.length() > 0.01 else Vector3(0.0, 1.0, -0.3)
+	p[P_PUNTA_IZQ] = p[P_EMPUNADURA_IZQ] + _d_izq * 4.0
+	p[P_PUNTA_DER] = p[P_EMPUNADURA_DER] + _d_der * 4.0
+	p[P_CADERA_DER] = Vector3(-(PIE_X + 3.0), 1.5, CADERA.z + 1.0)
+	p[P_CADERA_IZQ] = Vector3(PIE_X + 3.0, 1.5, CADERA.z + 1.0)
+	# A LA ESPALDA: la empuñadura asoma por encima del hombro derecho y la hoja cruza en diagonal
+	# hacia la cadera izquierda. Recta y centrada quedaba escondida entre el cuerpo (delante) y el
+	# pelo (mas delante todavia): no se veia por ningun lado.
+	p[P_ESPALDA] = Vector3(-4.0, -4.0, 34.0)
+	p[P_ESPALDA_PUNTA] = p[P_ESPALDA] + Vector3(9.0, 0.0, -22.0)
 
 	# --- Deformaciones que afectan al cuerpo entero ---
 	# INCLINARSE es una vuelta del TRONCO sobre la cadera; CAERSE es una vuelta de TODO sobre los
@@ -694,6 +758,40 @@ static func profundidad(esq: Dictionary, punto: StringName) -> float:
 
 
 # ============================================================
+#  DONDE VA EL ARMA (lo unico que sabe de armas este archivo)
+# ============================================================
+# Devuelve donde se agarra el arma y hacia donde apunta, EN EL SISTEMA DEL CUERPO (sin girar por la
+# direccion -- de eso se encarga 'poner' cuando la capa del arma coloca sus elipses).
+#
+#   mano:   0 = derecha, 1 = izquierda, 2 = las dos (arma a dos manos)
+#   estado: "mano" (empuñada), "cadera" (envainada al costado), "espalda" (colgada a la espalda)
+#
+# 'atras' dice si el agarre queda por detras del cuerpo (para que la capa se ordene detras). La
+# capa ArmaSprites es la unica que llama aqui.
+static func agarre_arma(esq: Dictionary, mano: int, estado: String) -> Dictionary:
+	var p: Dictionary = esq["puntos"]
+	match estado:
+		"cadera":
+			var emp: Vector3 = p[P_CADERA_DER] if mano == 0 else p[P_CADERA_IZQ]
+			# Empuñadura arriba, hoja cayendo por el muslo y un pelo hacia delante.
+			return {"empunadura": emp, "eje": Vector3(0.0, 0.35, -1.0).normalized(), "atras": false}
+		"espalda":
+			return {"empunadura": p[P_ESPALDA],
+				"eje": (p[P_ESPALDA_PUNTA] - p[P_ESPALDA]).normalized(), "atras": true}
+		_:
+			# "mano": empuñada. A dos manos el agarre es el punto medio de las dos manos y el eje
+			# sale del brazo derecho (los brazos giran cada uno sobre SU hombro, asi que las dos
+			# manos no caen exactamente sobre el mismo punto del astil -- se coge una referencia).
+			if mano == 2:
+				var medio: Vector3 = p[P_EMPUNADURA_DER].lerp(p[P_EMPUNADURA_IZQ], 0.5)
+				return {"empunadura": medio,
+					"eje": (p[P_PUNTA_DER] - p[P_EMPUNADURA_DER]).normalized(), "atras": false}
+			var e: Vector3 = p[P_EMPUNADURA_DER] if mano == 0 else p[P_EMPUNADURA_IZQ]
+			var pu: Vector3 = p[P_PUNTA_DER] if mano == 0 else p[P_PUNTA_IZQ]
+			return {"empunadura": e, "eje": (pu - e).normalized(), "atras": false}
+
+
+# ============================================================
 #  LAS POSES
 # ============================================================
 # Una funcion por animacion. Las CICLICAS van con sin(TAU*t) -- se repiten y tienen que empalmar sin
@@ -723,6 +821,12 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"walk": return _pose_walk(t)
 		"correr": return _pose_correr(t)
 		"golpe": return _pose_golpe(t)
+		"golpe_izq": return _pose_golpe_izq(t)
+		"golpe_2m": return _pose_golpe_2m(t)
+		"guardia": return _pose_guardia(t)
+		"guardia_and": return _pose_guardia_and(t)
+		"guardia_cor": return _pose_guardia_cor(t)
+		"desenvainar": return _pose_desenvainar(t)
 		"encaje": return _pose_encaje(t)
 		"muerte": return _pose_muerte(t)
 		"cadaver":
@@ -802,6 +906,78 @@ static func _pose_golpe(t: float) -> Dictionary:
 		"avance": SpriteLienzo.tramos(t, avance_keys),
 		"inclina": SpriteLienzo.tramos(t, inclina_keys),
 		"agacha": 0.10}
+
+
+# EL GOLPE CON LA MANO IZQUIERDA. Espejo EXACTO de _pose_golpe: el arco grande se lo lleva el
+# brazo izquierdo y el derecho hace de acompañante. Es la mano "mala" del dual -- se alterna con la
+# principal golpe a golpe (ver player.gd._elegir_golpe y AbilityData.plan_golpes).
+static func _pose_golpe_izq(t: float) -> Dictionary:
+	var brazo_keys := [[0.0, 0.0], [0.30, -2.35], [0.45, -2.15], [0.62, 0.95], [0.80, 0.55], [1.0, 0.0]]
+	var avance_keys := [[0.0, 0.0], [0.30, -1.3], [0.45, -1.0], [0.62, 3.6], [0.80, 2.3], [1.0, 0.0]]
+	var inclina_keys := [[0.0, 0.05], [0.30, -0.16], [0.45, -0.12], [0.62, 0.34], [0.80, 0.22], [1.0, 0.05]]
+	return {"brazo_izq": SpriteLienzo.tramos(t, brazo_keys),
+		"brazo_der": -0.08 * SpriteLienzo.tramos(t, brazo_keys),
+		"avance": SpriteLienzo.tramos(t, avance_keys),
+		"inclina": SpriteLienzo.tramos(t, inclina_keys),
+		"agacha": 0.10}
+
+
+# EL TAJO A DOS MANOS (hacha grande / martillo grande / mandoble). Los DOS brazos van juntos, con
+# las manos en el astil, y el golpe cae de arriba abajo: se arma alto y se descarga.
+#
+# EL PICO SE QUEDA EN -2.15 y no en el -2.35 del golpe a una mano: un arma a dos manos es la mas
+# larga del juego y, levantada del todo en diagonal, se salia del lienzo (lo canta
+# hornear_sprites._avisar_recortes). El 'avance' tambien va mas corto por lo mismo.
+static func _pose_golpe_2m(t: float) -> Dictionary:
+	var brazo_keys := [[0.0, -0.35], [0.32, -1.90], [0.50, -1.75], [0.68, 0.75], [0.85, 0.40], [1.0, -0.35]]
+	var avance_keys := [[0.0, 0.0], [0.32, -0.8], [0.50, -0.5], [0.68, 2.0], [0.85, 1.2], [1.0, 0.0]]
+	var inclina_keys := [[0.0, 0.06], [0.32, -0.12], [0.50, -0.08], [0.68, 0.28], [0.85, 0.18], [1.0, 0.06]]
+	var b: float = SpriteLienzo.tramos(t, brazo_keys)
+	return {"brazo_der": b, "brazo_izq": b,
+		"avance": SpriteLienzo.tramos(t, avance_keys),
+		"inclina": SpriteLienzo.tramos(t, inclina_keys),
+		"agacha": 0.12}
+
+
+# EN GUARDIA: con el arma fuera pero sin atacar. Como el idle (respira) pero con los dos brazos
+# recogidos en alto -- el derecho lleva el arma o es la mano principal del dual, el izquierdo
+# equilibra o empuña la segunda. Un pelo agachado: peso repartido, listo para soltar el golpe.
+static func _pose_guardia(t: float) -> Dictionary:
+	return {"bote": 0.30 * sin(TAU * t),
+		"brazo_der": -0.55 + 0.05 * sin(TAU * t),
+		"brazo_izq": -0.30 + 0.05 * sin(TAU * t),
+		"inclina": 0.08, "agacha": 0.10}
+
+
+# ANDAR CON EL ARMA FUERA. El ciclo de piernas de andar, pero los brazos NO bracean sueltos: se
+# quedan recogidos en la guardia mientras las piernas hacen su trabajo.
+static func _pose_guardia_and(t: float) -> Dictionary:
+	return {"paso": 0.40 * sin(TAU * t), "bote": 0.55 * absf(sin(TAU * t)),
+		"brazo_der": -0.55 + 0.10 * sin(TAU * t),
+		"brazo_izq": -0.30 + 0.10 * sin(TAU * t),
+		"inclina": 0.10, "agacha": 0.06}
+
+
+# CORRER CON EL ARMA FUERA.
+static func _pose_guardia_cor(t: float) -> Dictionary:
+	return {"paso": 0.60 * sin(TAU * t), "bote": 1.05 * absf(sin(TAU * t)),
+		"brazo_der": -0.60 + 0.12 * sin(TAU * t),
+		"brazo_izq": -0.35 + 0.12 * sin(TAU * t),
+		"inclina": 0.24, "agacha": 0.10}
+
+
+# SACAR EL ARMA. Cinco marcos: la mano va al costado (o por encima del hombro, para el arma a la
+# espalda), agarra y tira hasta dejarla en guardia. 'sacando' (0..1) se lo pasa a la capa del arma
+# para que interpole el agarre entre "envainada" y "en mano" -- el hueso no sabe de armas, solo
+# publica el reloj.
+static func _pose_desenvainar(t: float) -> Dictionary:
+	var brazo_keys := [[0.0, 0.15], [0.35, 0.55], [0.60, -0.20], [1.0, -0.55]]
+	var izq_keys := [[0.0, 0.0], [0.50, 0.10], [1.0, -0.30]]
+	var incl_keys := [[0.0, 0.0], [0.40, 1.0], [1.0, 0.4]]
+	return {"brazo_der": SpriteLienzo.tramos(t, brazo_keys),
+		"brazo_izq": SpriteLienzo.tramos(t, izq_keys),
+		"inclina": 0.06 + 0.06 * SpriteLienzo.tramos(t, incl_keys),
+		"agacha": 0.10, "sacando": t}
 
 
 # ENCAJAR UN GOLPE. Cuatro marcos, una direccion, y EMPEZANDO YA GOLPEADO: el frame 0 es el impacto,
