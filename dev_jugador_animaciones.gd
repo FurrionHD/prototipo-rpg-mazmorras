@@ -104,10 +104,17 @@ func _ready() -> void:
 func _tanda_de_fotos() -> void:
 	DirAccess.make_dir_recursive_absolute("user://capturas")
 	_auto = false
+	# [arma, anim, dir, dual, frac_fotograma]. frac 0..1 sobre los marcos de la anim (el tajo cae
+	# hacia 0.68).
 	var casos := [
-		["sin arma", "walk", 0], ["espada_larga", "guardia", 2], ["espada_larga", "golpe", 2],
-		["mandobles", "golpe_2m", 1], ["mandobles", "walk", 4], ["daga", "desenvainar", 0],
-		["baston", "guardia", 0], ["hacha_grande", "golpe_2m", 2],
+		["daga", "golpe_izq", 1, true, 0.7], ["daga", "golpe_izq", 2, true, 0.7],
+		["daga", "golpe_izq", 6, true, 0.7], ["daga", "golpe_izq", 0, true, 0.7],
+		["mandobles", "golpe_2m", 0, false, 0.68], ["mandobles", "golpe_2m", 2, false, 0.68],
+		["mandobles", "golpe_2m", 4, false, 0.68], ["mandobles", "golpe_2m", 0, false, 0.4],
+		["hacha_grande", "golpe_2m", 2, false, 0.68], ["baston", "golpe_2m", 0, false, 0.68],
+		["mandobles", "encaje", 4, false, 0.0], ["espada_larga", "encaje", 4, false, 0.0],
+		["mandobles", "muerte", 4, false, 0.9], ["sin arma", "muerte", 4, false, 0.5],
+		["espada_larga", "golpe", 2, false, 0.68], ["mandobles", "walk", 4, false, 0.5],
 	]
 	for c in casos:
 		for i in _armas.size():
@@ -119,7 +126,9 @@ func _tanda_de_fotos() -> void:
 				_anim_i = j
 				break
 		_dir = int(c[2])
-		_frame = int(PoseJugador.ANIMS[_anim_i]["marcos"]) / 2
+		_dual = bool(c[3])
+		var marcos: int = int(PoseJugador.ANIMS[_anim_i]["marcos"])
+		_frame = clampi(int(round(float(c[4]) * (marcos - 1))), 0, marcos - 1)
 		_reequipar()
 		_mostrar()
 		await RenderingServer.frame_post_draw
@@ -258,7 +267,7 @@ func _reiniciar() -> void:
 func _nombre_anim() -> String:
 	var base: String = String(PoseJugador.ANIMS[_anim_i]["n"])
 	var dirs: int = int(PoseJugador.ANIMS[_anim_i]["dirs"])
-	var d: int = _dir if dirs > 1 else 0
+	var d: int = _dir if dirs > 1 else PoseJugador.ancla_de(base)
 	return "%s_%d" % [base, d]
 
 
@@ -294,7 +303,8 @@ func _foto() -> void:
 	DirAccess.make_dir_recursive_absolute("user://capturas")
 	var img: Image = get_viewport().get_texture().get_image()
 	var nom: String = String(_armas[_arma_i]["nombre"]).replace(" ", "_")
-	var f: String = "user://capturas/jug_%s_%s_%s.png" % [
-		String(PoseJugador.ANIMS[_anim_i]["n"]), nom, DIR_NOMBRES[_dir]]
+	var f: String = "user://capturas/jug_%s_%s_%s_f%d%s.png" % [
+		String(PoseJugador.ANIMS[_anim_i]["n"]), nom, DIR_NOMBRES[_dir], _frame,
+		"_dual" if _dual else ""]
 	img.save_png(f)
 	print("[visor jugador] ", ProjectSettings.globalize_path(f))

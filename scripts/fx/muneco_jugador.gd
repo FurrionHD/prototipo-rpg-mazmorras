@@ -62,6 +62,14 @@ const CARA_DE_LA_CABEZA := 0.80
 const CARA_DIRS := {0: 0.0, 1: 0.10, 2: 0.20, 6: 0.20, 7: 0.10}
 
 var _capas: Array = []          # [{clave, ranura, ancla, tinte, nodo: AnimatedSprite2D}]
+# Indices de las capas del ARMA EN MANO (arma_*_mano_der / _izq). Se les recalcula el z POR
+# FOTOGRAMA durante los golpes (ver _reordenar_arma_mano): un tajo es justo la pose en la que la
+# mano cruza de detras del cuerpo a delante, y _ordenar -- que congela el z en el frame 0 -- dejaba
+# el arma detras toda la animacion. Las de cadera/espalda NO entran: llevan z fijo.
+var _idx_arma_mano: PackedInt32Array = []
+# Solo en estas: son golpes de un solo barrido (la mano cruza el eje UNA vez, volteo limpio). En
+# guardia* el brazo oscila con sin(TAU*t) y reordenar por fotograma daria tembleque de +-16.
+const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m"]
 # La cara: un Sprite2D con tu PNG, o null si este personaje no tiene imagen.
 var _cara: Sprite2D = null
 # El esqueleto de cada (animacion, fotograma) ya montado. 'esqueleto' construye un diccionario
@@ -106,6 +114,7 @@ func montar(pj: PersonajeData) -> void:
 			_capas[i]["color"] = quiere[i].get("color", null)
 			_capas[i]["metal"] = quiere[i].get("metal", null)
 		_pintar_capas()
+		_reindexar_arma_mano()
 		return
 	for c in _capas:
 		c["nodo"].queue_free()
@@ -134,8 +143,20 @@ func montar(pj: PersonajeData) -> void:
 			cap["z_atras"] = int(c["z_atras"])
 		_capas.append(cap)
 	_pintar_capas()
+	_reindexar_arma_mano()
 	if _anim != "":
 		_aplicar_anim(_anim, true)
+
+
+# Cachea que capas son "arma en mano" para el reordenado por fotograma. Se llama al final de cada
+# 'montar' (la lista de capas puede haber cambiado: equipar/desequipar un arma).
+func _reindexar_arma_mano() -> void:
+	_idx_arma_mano.clear()
+	for i in _capas.size():
+		var clave: String = String(_capas[i]["clave"])
+		if clave.begins_with("arma_") and not _capas[i].has("z") \
+				and (clave.ends_with("_mano_der") or clave.ends_with("_mano_izq")):
+			_idx_arma_mano.append(i)
 
 
 # ============================================================
@@ -367,8 +388,10 @@ func _que_anim(sf: SpriteFrames, nombre: String) -> String:
 		return ""
 	if sf.has_animation(nombre):
 		return nombre
+	# La anim solo existe en su direccion ANCLA (0 = sur salvo encaje/muerte, que van al norte).
 	var base: String = nombre.rsplit("_", true, 1)[0]
-	return base + "_0" if sf.has_animation(base + "_0") else ""
+	var anc: String = "%s_%d" % [base, PoseJugador.ancla_de(base)]
+	return anc if sf.has_animation(anc) else ""
 
 
 func _process(delta: float) -> void:
@@ -388,10 +411,26 @@ func _escribir(i: int) -> void:
 		var s: AnimatedSprite2D = c["nodo"]
 		if s.visible and i < s.sprite_frames.get_frame_count(s.animation):
 			s.frame = i
+	# El arma en mano se reordena por fotograma DURANTE LOS GOLPES: el tajo la lleva de detras del
+	# cuerpo a delante y _ordenar (frame 0) la dejaba plantada detras todo el rato.
+	_reordenar_arma_mano(i)
 	# La cara va enganchada al MISMO contador que las capas, y no a un reloj suyo. Es el punto 1 de
 	# la cabecera de este archivo: dos relojes se separan, y aqui separarse significa que tu cara va
 	# un fotograma por detras de tu cabeza y flota al andar.
 	_recolocar_cara(i)
+
+
+# El z de las capas 'arma_*_mano_*' para el fotograma i. Misma formula y mismo desempate ('+ k')
+# que _ordenar -- solo cambia que aqui el esqueleto es el del fotograma ACTUAL, no el 0. Solo corre
+# en los golpes de _BASES_REORDEN_ARMA; fuera de ahi manda lo que dejo _ordenar.
+func _reordenar_arma_mano(i: int) -> void:
+	if _idx_arma_mano.is_empty() or not _BASES_REORDEN_ARMA.has(_base_de(_anim)):
+		return
+	var esq: Dictionary = _esqueleto_de(_base_de(_anim), i, _dir_de(_anim))
+	for k in _idx_arma_mano:
+		var c: Dictionary = _capas[k]
+		var prof: float = PoseJugador.profundidad(esq, c["ancla"])
+		c["nodo"].z_index = int(round(prof * 4.0)) * 16 + k
 
 
 # ============================================================

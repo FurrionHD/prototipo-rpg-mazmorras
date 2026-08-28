@@ -78,7 +78,11 @@ static func generar(clave: String, pintor: Callable, colores: Array, esc: float 
 		var nombre: String = a["n"]
 		var dirs: int = int(a["dirs"])
 		var marcos: int = int(a["marcos"])
-		for dir in dirs:
+		# 'ancla' desplaza que direcciones se hornean: una anim de 'dirs': 1 con 'ancla': 4 se hornea
+		# solo al norte (encaje/muerte). Las de 8 direcciones van con ancla 0 y no cambian.
+		var anc: int = int(a.get("ancla", 0))
+		for k in dirs:
+			var dir: int = (anc + k) % 8
 			var plantillas: Array = []
 			for i in marcos:
 				var pk: String = "%s_%s_%d_%d_%.2f" % [clave, nombre, i, dir, e]

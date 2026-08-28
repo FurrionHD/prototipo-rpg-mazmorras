@@ -273,8 +273,11 @@ const ANIMS := [
 	{"n": "desenvainar", "loop": false, "fps": 14.0, "dirs": 8, "marcos": 5, "ultimo": true},
 	{"n": "golpe_izq", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	{"n": "golpe_2m", "loop": false, "fps": 10.0, "dirs": 8, "marcos": 8, "ultimo": true},
-	{"n": "encaje", "loop": false, "fps": 18.0, "dirs": 1, "marcos": 4, "ultimo": true},
-	{"n": "muerte", "loop": false, "fps": 10.0, "dirs": 1, "marcos": 8, "ultimo": true},
+	# 'ancla': la unica direccion que se hornea de una anim de 'dirs': 1. Encaje y muerte van al
+	# NORTE (4, de espaldas): en combate el jugador mira a los enemigos, no a la camara. Sin 'ancla'
+	# la de una direccion es la 0 (sur), que es lo que valia cuando "se te veia de frente".
+	{"n": "encaje", "loop": false, "fps": 18.0, "dirs": 1, "ancla": 4, "marcos": 4, "ultimo": true},
+	{"n": "muerte", "loop": false, "fps": 10.0, "dirs": 1, "ancla": 4, "marcos": 8, "ultimo": true},
 	{"n": "cadaver", "loop": false, "fps": 1.0, "dirs": 8, "marcos": 1, "ultimo": false},
 ]
 
@@ -779,13 +782,15 @@ static func agarre_arma(esq: Dictionary, mano: int, estado: String) -> Dictionar
 			return {"empunadura": p[P_ESPALDA],
 				"eje": (p[P_ESPALDA_PUNTA] - p[P_ESPALDA]).normalized(), "atras": true}
 		_:
-			# "mano": empuñada. A dos manos el agarre es el punto medio de las dos manos y el eje
-			# sale del brazo derecho (los brazos giran cada uno sobre SU hombro, asi que las dos
-			# manos no caen exactamente sobre el mismo punto del astil -- se coge una referencia).
+			# "mano": empuñada. A dos manos el agarre es el punto medio de las dos manos, y el eje va
+			# del HOMBRO derecho a la mano: la palanca larga (hombro->mano) barre un arco mucho mas
+			# amplio que el antebrazo (codo->mano), asi el hachazo se lee de arriba abajo y no como un
+			# meneo corto. Como brazo_izq == brazo_der en el golpe_2m, esa recta sigue pasando por los
+			# dos puños, no se despega del astil.
 			if mano == 2:
 				var medio: Vector3 = p[P_EMPUNADURA_DER].lerp(p[P_EMPUNADURA_IZQ], 0.5)
 				return {"empunadura": medio,
-					"eje": (p[P_PUNTA_DER] - p[P_EMPUNADURA_DER]).normalized(), "atras": false}
+					"eje": (p[P_MANO_DER] - p[P_HOMBRO_DER]).normalized(), "atras": false}
 			var e: Vector3 = p[P_EMPUNADURA_DER] if mano == 0 else p[P_EMPUNADURA_IZQ]
 			var pu: Vector3 = p[P_PUNTA_DER] if mano == 0 else p[P_PUNTA_IZQ]
 			return {"empunadura": e, "eje": (pu - e).normalized(), "atras": false}
@@ -812,6 +817,12 @@ static func _anim(nombre: String) -> Dictionary:
 		if a["n"] == nombre:
 			return a
 	return ANIMS[0]
+
+
+# La direccion en la que se hornea una anim de una sola direccion (0 = sur salvo que la fila diga
+# otra). La usan el horno (CapaJugador.generar), el fallback de MunecoJugador y el visor.
+static func ancla_de(base: String) -> int:
+	return int(_anim(base).get("ancla", 0))
 
 
 static func _pose(anim: String, t: float) -> Dictionary:
@@ -908,34 +919,52 @@ static func _pose_golpe(t: float) -> Dictionary:
 		"agacha": 0.10}
 
 
-# EL GOLPE CON LA MANO IZQUIERDA. Espejo EXACTO de _pose_golpe: el arco grande se lo lleva el
-# brazo izquierdo y el derecho hace de acompañante. Es la mano "mala" del dual -- se alterna con la
+# EL GOLPE CON LA MANO IZQUIERDA. Espejo de _pose_golpe: el arco grande se lo lleva el brazo
+# izquierdo y el derecho hace de acompañante. Es la mano "mala" del dual -- se alterna con la
 # principal golpe a golpe (ver player.gd._elegir_golpe y AbilityData.plan_golpes).
+#
+# Y CON 'rumbo': el brazo malo es el que queda en el lado LEJANO a la camara (mirando al este, el
+# costado izquierdo mira al norte), asi que el tajo pasaba por detras del tronco y la daga -- que es
+# corta -- se escorzaba a nada. Un cuarto de radian de torsion lleva el hombro que golpea hacia la
+# camara y el arma se ve. Rampado (0 en las puntas) para empalmar con la guardia.
 static func _pose_golpe_izq(t: float) -> Dictionary:
 	var brazo_keys := [[0.0, 0.0], [0.30, -2.35], [0.45, -2.15], [0.62, 0.95], [0.80, 0.55], [1.0, 0.0]]
 	var avance_keys := [[0.0, 0.0], [0.30, -1.3], [0.45, -1.0], [0.62, 3.6], [0.80, 2.3], [1.0, 0.0]]
 	var inclina_keys := [[0.0, 0.05], [0.30, -0.16], [0.45, -0.12], [0.62, 0.34], [0.80, 0.22], [1.0, 0.05]]
+	var rumbo_keys := [[0.0, 0.0], [0.30, 0.20], [0.62, 0.34], [1.0, 0.0]]
 	return {"brazo_izq": SpriteLienzo.tramos(t, brazo_keys),
 		"brazo_der": -0.08 * SpriteLienzo.tramos(t, brazo_keys),
 		"avance": SpriteLienzo.tramos(t, avance_keys),
 		"inclina": SpriteLienzo.tramos(t, inclina_keys),
+		"rumbo": SpriteLienzo.tramos(t, rumbo_keys),
 		"agacha": 0.10}
 
 
 # EL TAJO A DOS MANOS (hacha grande / martillo grande / mandoble). Los DOS brazos van juntos, con
 # las manos en el astil, y el golpe cae de arriba abajo: se arma alto y se descarga.
 #
-# EL PICO SE QUEDA EN -2.15 y no en el -2.35 del golpe a una mano: un arma a dos manos es la mas
-# larga del juego y, levantada del todo en diagonal, se salia del lienzo (lo canta
+# EL PICO DEL WINDUP SE QUEDA EN -1.90 y no en el -2.35 del golpe a una mano: un arma a dos manos es
+# la mas larga del juego y, levantada del todo en diagonal, se salia del lienzo (lo canta
 # hornear_sprites._avisar_recortes). El 'avance' tambien va mas corto por lo mismo.
+#
+# LA DESCARGA, EN CAMBIO, BAJA HASTA CASI VERTICAL (+1.45): el hachazo tiene que LEERSE de arriba
+# abajo. Con el +0.75 de antes el brazo se quedaba a mitad y el arco salia "de reves" (arma detras,
+# por el z de _ordenar, + brazo que no acaba de bajar). Abajo-delante el arma NO recorta (compacto);
+# el limite del horno es el extremo ATRAS-ARRIBA.
+#
+# Y UN 'rumbo' PEQUEÑO, RAMPADO: mirando al sur el plano del tajo queda de canto a la camara y se
+# escorza a nada (misma trampa que _pose_muerte). Un cuarto de radian largo lo saca de ahi. Rampado
+# (0 en las puntas) para no dar un tiron al entrar/salir desde guardia.
 static func _pose_golpe_2m(t: float) -> Dictionary:
-	var brazo_keys := [[0.0, -0.35], [0.32, -1.90], [0.50, -1.75], [0.68, 0.75], [0.85, 0.40], [1.0, -0.35]]
+	var brazo_keys := [[0.0, -0.35], [0.32, -1.90], [0.50, -1.75], [0.68, 1.45], [0.85, 0.75], [1.0, -0.35]]
 	var avance_keys := [[0.0, 0.0], [0.32, -0.8], [0.50, -0.5], [0.68, 2.0], [0.85, 1.2], [1.0, 0.0]]
-	var inclina_keys := [[0.0, 0.06], [0.32, -0.12], [0.50, -0.08], [0.68, 0.28], [0.85, 0.18], [1.0, 0.06]]
+	var inclina_keys := [[0.0, 0.06], [0.32, -0.12], [0.50, -0.08], [0.68, 0.30], [0.85, 0.20], [1.0, 0.06]]
+	var rumbo_keys := [[0.0, 0.0], [0.32, 0.22], [0.68, 0.28], [1.0, 0.0]]
 	var b: float = SpriteLienzo.tramos(t, brazo_keys)
 	return {"brazo_der": b, "brazo_izq": b,
 		"avance": SpriteLienzo.tramos(t, avance_keys),
 		"inclina": SpriteLienzo.tramos(t, inclina_keys),
+		"rumbo": SpriteLienzo.tramos(t, rumbo_keys),
 		"agacha": 0.12}
 
 
