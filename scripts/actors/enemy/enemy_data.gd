@@ -18,6 +18,10 @@ enum Familia { NINGUNA, SLIME, ROEDOR, INSECTO, PIEDRA, BESTIA, HUMANOIDE }
 
 # --- Identidad ---
 @export var enemy_name: String = "Slime"
+# LORE del enemigo, para la pestaña "Historia" de la ficha de detalle en combate. Vacio = la
+# ficha muestra "Sin historia todavia." Es SABOR: nunca cifras (ver la regla de no hardcodear
+# numeros en los textos). Terminologia propia del juego, sin referencias externas.
+@export_multiline var historia: String = ""
 @export var color: Color = Color(1.0, 0.2, 0.2)  # color del placeholder
 # TAMAÑO en el mapa (fuera de combate): multiplica el cuerpo y su colision. 1.0 = normal
 # (32x32). Los ELITES (slimes elementales) van mas grandes para que se les vea venir.

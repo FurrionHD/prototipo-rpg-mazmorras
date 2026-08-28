@@ -230,6 +230,16 @@ var _player: Combatant
 # Quien SI se filtra es _gauge (orden de turnos) y _vivos().
 var _enemies: Array[Combatant] = []
 var _target_idx: int = 0
+
+# FICHA DE DETALLE (estilo HSR): se crea a la primera y se reusa. Y el contador del "mantener
+# pulsado" que la abre sobre un combatiente (1 s quieto, como ficha_tactil pero con mas margen).
+var _detalle: CombateDetalle = null
+var _boton_detalle: Button = null
+var _hold_c: Combatant = null
+var _hold_t: float = 0.0
+var _hold_pos: Vector2 = Vector2.ZERO
+const HOLD_DETALLE := 1.0
+const HOLD_MOV_MAX := 14.0
 var _gauge: Dictionary = {}   # SOLO vivos: al morir uno se le hace erase (sale del orden de turnos)
 # INVOCADOS (Rey Slime): indices de _enemies que son slimes INVOCADOS a mitad de combate. No tienen
 # nodo en la mazmorra (existen solo en la pelea), asi que al cerrar se reportan SIEMPRE como muertos
@@ -1954,6 +1964,13 @@ func _ocultar_cajas() -> void:
 	if _ability_box != null: _ability_box.visible = false
 	if _objeto_box != null: _objeto_box.visible = false
 	_alto_panel(0.0)   # vuelve a la rejilla de acciones pelada (el clamp lo sube al minimo)
+	# El boton "i" y el mantener pulsado solo valen en tu turno: al ocultar la barra de acciones
+	# (animacion, turno de otro) se apaga el boton y se corta cualquier hold a medias.
+	_hold_c = null
+	if _boton_detalle != null and is_instance_valid(_boton_detalle):
+		_boton_detalle.disabled = true
+	if _detalle != null and is_instance_valid(_detalle) and _detalle.abierta():
+		_detalle.cerrar()
 
 
 # RECOGE el registro si estaba estirado. Lo llaman los submenus altos (magia, frases, habilidades,
@@ -2670,6 +2687,62 @@ func _seleccionar(idx: int) -> void:
 		var cur: Control = _bloques[i].get("cursor")
 		if cur != null and is_instance_valid(cur):
 			cur.visible = es
+
+
+# ¿Se puede abrir la ficha de detalle AHORA MISMO? Solo en TU turno: cuando la barra de acciones
+# propia esta a la vista esperando que elijas. En una animacion, el turno de un enemigo o -en
+# multi- el de un aliado, esa barra esta oculta (_ocultar_cajas), asi que este chequeo cubre
+# todos los casos: no queremos un menu abierto con el combate corriendo por detras.
+func _puedo_inspeccionar() -> bool:
+	return _state != State.FINISHED and _actions_box != null and _actions_box.visible
+
+
+# Abre la ficha de detalle. 'c' == null -> primer personaje de tu formacion.
+func _abrir_detalle(c: Combatant = null) -> void:
+	if not _puedo_inspeccionar():
+		return
+	if _detalle == null or not is_instance_valid(_detalle):
+		_detalle = preload("res://scripts/ui/combate_detalle.gd").new()
+		_detalle.preparar(self)
+		add_child(_detalle)
+	if c == null and not _aliados.is_empty():
+		c = _aliados[0]
+	_detalle.abrir(c)
+
+
+# El combatiente VIVO cuya columna (tarjeta + figura) esta bajo 'pos_global'. Para el mantener
+# pulsado: sale gratis mirar los dos bandos sin cablear el gui_input de cada bloque.
+func _combatiente_bajo(pos_global: Vector2) -> Combatant:
+	for i in _bloques.size():
+		if i >= _enemies.size() or not _enemies[i].is_alive():
+			continue
+		var col: Control = _bloques[i].get("columna")
+		if col != null and is_instance_valid(col) and col.visible \
+				and col.get_global_rect().has_point(pos_global):
+			return _enemies[i]
+	for i in _bloques_aliados.size():
+		if i >= _aliados.size() or not _aliados[i].is_alive():
+			continue
+		var col2: Control = _bloques_aliados[i].get("columna")
+		if col2 != null and is_instance_valid(col2) and col2.visible \
+				and col2.get_global_rect().has_point(pos_global):
+			return _aliados[i]
+	return null
+
+
+# Cuenta el "mantener pulsado" que abre la ficha. Lo llama _process.
+func _tick_hold_detalle(delta: float) -> void:
+	if _hold_c == null:
+		return
+	if not _puedo_inspeccionar() or (_detalle != null and is_instance_valid(_detalle) and _detalle.abierta()):
+		_hold_c = null
+		return
+	_hold_t += delta
+	if _hold_t < HOLD_DETALLE:
+		return
+	var c: Combatant = _hold_c
+	_hold_c = null
+	_abrir_detalle(c)
 
 
 # --- RETIRADA DE CADAVERES (SOLO la fila de enfrente) ----------------------------------------
@@ -3511,6 +3584,21 @@ func _chip(box: Container, texto: String, tooltip: String, idx: int = -1,
 func _input(event: InputEvent) -> void:
 	if _state == State.FINISHED:
 		return
+	# MANTENER PULSADO sobre un combatiente -> ficha de detalle (solo en tu turno). El contador
+	# lo lleva _process; aqui solo se arma, se cancela si el puntero se va, y se suelta al levantar.
+	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var mb := event as InputEventMouseButton
+		if mb.pressed and _puedo_inspeccionar():
+			_hold_c = _combatiente_bajo(mb.position)
+			_hold_t = 0.0
+			_hold_pos = mb.position
+		elif not mb.pressed:
+			_hold_c = null
+		return
+	if event is InputEventMouseMotion:
+		if _hold_c != null and (event as InputEventMouseMotion).position.distance_to(_hold_pos) > HOLD_MOV_MAX:
+			_hold_c = null
+		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	# Se MARCA COMO CONSUMIDA la que atendemos aqui. Game escucha las suyas en _unhandled_key_input,
@@ -3808,6 +3896,7 @@ func _process(delta: float) -> void:
 	if _espejo:
 		_interpolar_atb_espejo(delta)
 	_update_timeline()  # refleja el orden de turnos siempre
+	_tick_hold_detalle(delta)   # el "mantener pulsado" que abre la ficha de detalle
 	# Los cadaveres de enfrente que se estan yendo. VA AQUI ARRIBA, antes del return del espejo y de
 	# los de PAUSED/ADVANCING: en el espejo tambien se muere gente, y una tarjeta a medio desvanecer
 	# durante la pausa de lectura se quedaria congelada a medio alpha.
@@ -4057,6 +4146,8 @@ func _refresh_actions() -> void:
 	# corta justo lo que necesitas para poder Defender, asi que no puedes ni salir del apuro solo.
 	if _action_buttons.has(Action.ATTACK):
 		_action_buttons[Action.ATTACK].text = "Pasar" if _pasa_el_turno() else "Atacar"
+	if _boton_detalle != null and is_instance_valid(_boton_detalle):
+		_boton_detalle.disabled = not _puedo_inspeccionar()
 
 
 func _motivo_bloqueo(id: int) -> String:
@@ -7958,6 +8049,18 @@ func _montar_log() -> void:
 	_log_boton.focus_mode = Control.FOCUS_NONE   # o se queda con el foco y el teclado deja de ir al combate
 	_log_boton.pressed.connect(_alternar_log)
 	_log_fila.add_child(_log_boton)
+
+	# BOTON "i": abre la ficha de detalle en el primer personaje de tu formacion. Comodidad, como
+	# el de velocidad, asi que va aqui y pequeño. Solo activo en tu turno (_refresh_actions lo
+	# vuelve a evaluar); el mantener pulsado sobre un combatiente hace lo mismo pero directo a el.
+	_boton_detalle = Button.new()
+	_boton_detalle.text = "ⓘ"
+	_boton_detalle.custom_minimum_size = Vector2(34, 28)
+	_boton_detalle.flat = true
+	_boton_detalle.focus_mode = Control.FOCUS_NONE
+	_boton_detalle.tooltip_text = "Detalles de los combatientes (en tu turno)"
+	_boton_detalle.pressed.connect(_abrir_detalle.bind(null))
+	_log_fila.add_child(_boton_detalle)
 
 	_log_scroll = ScrollContainer.new()
 	_log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
