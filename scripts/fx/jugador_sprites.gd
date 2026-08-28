@@ -52,17 +52,12 @@ const Z_TORSO := 3
 const Z_PELO := 2047
 const Z_CARA := 2048
 
-# EL ARMA A LA ESPALDA es de DOS POSICIONES, como el pelo que cuelga (ver _ordenar): de frente va
-# por detras del cuerpo, de espaldas por encima. Los dos z son fijos y no salen de la formula de
-# profundidad por lo mismo que el pelo -- el ancla esta lejos del eje y la formula daria z de
-# cientos, y estas capas van en z ABSOLUTO (un -600 se cuela bajo el suelo del piso).
-const Z_ARMA_ESPALDA_DELANTE := 2050   # por ENCIMA del pelo (2047) y la cara (2048): de espaldas
-                                      # el mandoble va sobre todo lo demas
-const Z_ARMA_ESPALDA_DETRAS := -1      # entre el suelo del piso y el cuerpo
-# EL ARMA A LA CADERA (envainada, una mano). Dos posiciones como el arma a la espalda: en la
-# cadera de delante cuando te ve, detras del cuerpo cuando le das la espalda.
+# EL ARMA ENVAINADA (espalda o cadera). NO lleva doble posicion de z: ArmaSprites decide por
+# DIRECCION si se dibuja o no (ver _visible_envainada), y cuando se dibuja va SIEMPRE delante del
+# cuerpo. Por debajo del pelo que cuelga (2046): de espaldas, la melena tapa la parte alta del
+# mandoble, que es lo que hace de verdad.
+const Z_ARMA_ESPALDA_DELANTE := 2043
 const Z_ARMA_CADERA_DELANTE := 5       # justo por encima de la ropa (torso va a 3)
-const Z_ARMA_CADERA_DETRAS := -1
 
 static var CAPAS := [
 	{"ranura": Ranura.CUERPO, "clave": "cuerpo", "gen": CuerpoSprites, "piezas": 1,
@@ -249,7 +244,7 @@ static func _arma_de(out: Array, item, lado: int) -> void:
 		# La varita solo cuelga de la cadera: no se desenvaina en el mapa.
 		out.append({"clave": "arma_varita_cadera_izq", "ranura": Ranura.ARMA_CADERA,
 			"ancla": PoseJugador.P_CADERA_IZQ, "tinte": false,
-			"z": Z_ARMA_CADERA_DELANTE, "z_atras": Z_ARMA_CADERA_DETRAS,
+			"z": Z_ARMA_CADERA_DELANTE,
 			"frames": ArmaSprites.frames("arma_varita_cadera_izq", 1.0)})
 		return
 
@@ -259,7 +254,7 @@ static func _arma_de(out: Array, item, lado: int) -> void:
 			"frames": ArmaSprites.frames("arma_%s_mano_der" % tn, 1.0)})
 		out.append({"clave": "arma_%s_espalda" % tn, "ranura": Ranura.ARMA_ESPALDA,
 			"ancla": PoseJugador.P_ESPALDA, "tinte": false,
-			"z": Z_ARMA_ESPALDA_DELANTE, "z_atras": Z_ARMA_ESPALDA_DETRAS,
+			"z": Z_ARMA_ESPALDA_DELANTE,
 			"frames": ArmaSprites.frames("arma_%s_espalda" % tn, 1.0)})
 		return
 
@@ -269,7 +264,7 @@ static func _arma_de(out: Array, item, lado: int) -> void:
 		"frames": ArmaSprites.frames("arma_%s_mano_%s" % [tn, suf_mano], 1.0)})
 	out.append({"clave": "arma_%s_cadera_%s" % [tn, suf_mano], "ranura": Ranura.ARMA_CADERA,
 		"ancla": ancla_cadera, "tinte": false,
-		"z": Z_ARMA_CADERA_DELANTE, "z_atras": Z_ARMA_CADERA_DETRAS,
+		"z": Z_ARMA_CADERA_DELANTE,
 		"frames": ArmaSprites.frames("arma_%s_cadera_%s" % [tn, suf_mano], 1.0)})
 
 

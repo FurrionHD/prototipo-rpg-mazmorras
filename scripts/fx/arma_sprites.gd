@@ -145,6 +145,18 @@ static func _dibuja_en(anim: String, tipo: String, estado: String) -> bool:
 	return (_ANIM_MANO_2H if tipo in DOS_MANOS else _ANIM_MANO_1H).has(anim)
 
 
+# Direcciones en las que se ve el arma ENVAINADA, por sitio. En el resto el cuerpo la tapa entera.
+# dir: 0=S 1=SE 2=E 3=NE 4=N 5=NW 6=W 7=SW (SpriteLienzo.dir8).
+const _DIRS_ESPALDA := [3, 4, 5]        # de espaldas
+const _DIRS_CADERA_DER := [0, 1, 2]     # el costado derecho (-X) mira a la cámara
+const _DIRS_CADERA_IZQ := [0, 6, 7]     # el costado izquierdo (+X) mira a la cámara
+
+static func _visible_envainada(estado: String, mano: int, dir: int) -> bool:
+	if estado == "espalda":
+		return _DIRS_ESPALDA.has(dir)
+	return (_DIRS_CADERA_IZQ if mano == 1 else _DIRS_CADERA_DER).has(dir)
+
+
 # ============================================================
 #  EL PINTOR
 # ============================================================
@@ -159,6 +171,18 @@ static func pintar(esq: Dictionary, piezas: Array, clave: String) -> void:
 	if not _dibuja_en(anim, tipo, estado):
 		return
 
+	# 'sacando' (0..1): durante el gesto de desenvainar la capa envainada viaja de la vaina a la
+	# mano. -1 = no se está desenvainando.
+	var sac: float = float((esq.get("pose", {}) as Dictionary).get("sacando", -1.0))
+
+	# ENVAINADA: solo se dibuja en las direcciones donde ESE lado del cuerpo mira a la cámara. En el
+	# resto no vale con mandarla "detrás" -- una hoja larga asoma por los lados de la silueta --, así
+	# que ni se dibuja. Mismo criterio que MunecoJugador.CARA_DIRS con la cara. Durante 'desenvainar'
+	# se dibuja siempre: el arma está viajando a la mano.
+	if estado != "mano" and sac < 0.0 \
+			and not _visible_envainada(estado, int(info["mano"]), int(esq.get("dir", 0))):
+		return
+
 	var mano: int = int(info["mano"])
 	if estado == "mano" and tipo in DOS_MANOS:
 		mano = 2
@@ -167,10 +191,6 @@ static func pintar(esq: Dictionary, piezas: Array, clave: String) -> void:
 	var grip: Vector3 = ag["empunadura"]
 	var eje: Vector3 = ag["eje"]
 
-	# DESENVAINAR: la capa envainada viaja de la vaina a la mano. 'sacando' (0..1) lo publica
-	# _pose_desenvainar. La de mano no se pinta durante 'desenvainar' (lo hace esta), así no hay
-	# doble dibujo.
-	var sac: float = float((esq.get("pose", {}) as Dictionary).get("sacando", -1.0))
 	if sac >= 0.0 and estado != "mano":
 		var m2: int = 2 if tipo in DOS_MANOS else 0
 		var agm: Dictionary = PoseJugador.agarre_arma(esq, m2, "mano")
