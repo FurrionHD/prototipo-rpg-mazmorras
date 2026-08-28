@@ -4547,6 +4547,30 @@ const COBERTURA_MANOS := 0.125
 const COBERTURA_PANTALONES := 0.20
 const COBERTURA_BOTAS := 0.125
 
+# La cobertura POR NOMBRE DE SLOT, en un solo sitio. Existe porque la ficha de una pieza tiene que
+# poder decir lo que esa pieza aporta DE VERDAD a la reduccion (su % x su cobertura), y hasta ahora
+# las coberturas solo vivian dentro de la tabla de armor_mods: la ficha ensenaba "Reduccion 11%" y
+# el jugador leia que llevar SOLO el peto le daba un 11%, cuando le da un 3.85%.
+# El orden del diccionario es el mismo que el de ArmorData.Slot (ver cobertura_de_pieza).
+const COBERTURA_SLOT := {
+	"casco": COBERTURA_CASCO, "pecho": COBERTURA_PECHO, "manos": COBERTURA_MANOS,
+	"pantalones": COBERTURA_PANTALONES, "botas": COBERTURA_BOTAS,
+}
+
+
+func cobertura_slot(slot: String) -> float:
+	return float(COBERTURA_SLOT.get(slot, 0.0))
+
+
+# La cobertura de una PIEZA, que sabe su propio slot (ArmorData.Slot). Las claves de COBERTURA_SLOT
+# van en el mismo orden que el enum, asi que basta con indexar.
+func cobertura_de_pieza(a: ArmorData) -> float:
+	if a == null:
+		return 0.0
+	var nombres: Array = COBERTURA_SLOT.keys()
+	var i: int = int(a.slot)
+	return float(COBERTURA_SLOT[nombres[i]]) if i >= 0 and i < nombres.size() else 0.0
+
 # PRUEBAS: cambiar loadout en caliente (K = arma principal, L = mano secundaria).
 # Es tambien el catalogo de la FORJA del panel de debug. Los PUÑOS no estan y no deben
 # estar: no son un arma que se cree ni se mejore (para ir a puños, DESEQUIPA la principal).
@@ -6319,20 +6343,19 @@ func armor_mods(pj: PersonajeData = null) -> Dictionary:
 	var resist_estados := 0.0  # resist. a estados alterados (mejora Resistencia, KAN-58)
 	var rareza_max := 0        # la mejor rareza entre las piezas: escala los topes agregados
 	var slots := [
-		[p.equipped_casco, COBERTURA_CASCO, "casco"],
-		[p.equipped_pecho, COBERTURA_PECHO, "pecho"],
-		[p.equipped_manos, COBERTURA_MANOS, "manos"],
-		[p.equipped_pantalones, COBERTURA_PANTALONES, "pantalones"],
-		[p.equipped_botas, COBERTURA_BOTAS, "botas"],
+		[p.equipped_casco, "casco"], [p.equipped_pecho, "pecho"], [p.equipped_manos, "manos"],
+		[p.equipped_pantalones, "pantalones"], [p.equipped_botas, "botas"],
 	]
 	for s in slots:
 		var pieza: ArmorData = s[0]
-		var cob: float = float(s[1])
+		# La cobertura sale de cobertura_slot y no de una constante escrita aqui: la ficha de la
+		# pieza usa esa misma funcion para decir lo que aporta, y con dos copias podrian discrepar.
+		var cob: float = cobertura_slot(str(s[1]))
 		if pieza == null:
 			# Slot vacio: bonus de ir ligero (ponderado por cobertura).
 			vel_delta += cob * (SIN_ARMADURA_VEL_MULT - 1.0)
 			continue
-		var slot: String = s[2]
+		var slot: String = str(s[1])
 		rareza_max = maxi(rareza_max, equip_rareza(slot, p))
 		var pm := Upgrades.armor_piece_mods(pieza, tier_mult(equip_tier(slot, p)),
 			equip_rareza(slot, p), equip_mejoras(slot, p))

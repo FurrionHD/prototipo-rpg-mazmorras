@@ -536,6 +536,20 @@ func atk() -> float:
 #
 # La constante convierte una escala en la otra (defensa y ataque no viven en el mismo rango).
 # Ver StatsMath.ESCUDO_DEF_A_ATAQUE y AbilityData.escudo_desde_golpe.
+# EL CRIT DEL ARMA promediado sobre las MANOS. En dual cada mano conserva su propio critico (la
+# afinidad va por arma), asi que el campo suelto `crit_bonus` no representa lo que criteas: hay que
+# promediar. Vive aqui y no en un menu porque `hands` es de aqui, y porque lo piden las DOS fichas
+# (la del menu de personaje y la de detalle del combate) — con una copia en cada una podian
+# discrepar justo en el numero que se compara entre pantallas.
+func crit_bonus_promedio() -> float:
+	if hands.is_empty():
+		return crit_bonus
+	var total: float = 0.0
+	for h in hands:
+		total += float(h.get("crit_bonus", 0.0))
+	return total / float(hands.size())
+
+
 func atk_escudo() -> float:
 	return (def_value() + defend_defense) * StatsMath.ESCUDO_DEF_A_ATAQUE * status_atk_mult()
 

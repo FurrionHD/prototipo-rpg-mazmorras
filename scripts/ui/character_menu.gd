@@ -778,14 +778,10 @@ func _sin_habilidad(ab: Abilities, cual: String) -> Abilities:
 	z.set(cual, 0)
 	return z
 
-# Media del crit_bonus del arma sobre las manos (afinidad).
+# Media del crit_bonus del arma sobre las manos (afinidad). La cuenta vive en Combatant: la
+# comparte con la ficha de detalle del combate para que las dos pantallas no puedan discrepar.
 func _crit_bonus_promedio(c: Combatant) -> float:
-	if c.hands.is_empty():
-		return c.crit_bonus
-	var total: float = 0.0
-	for h in c.hands:
-		total += float(h.get("crit_bonus", 0.0))
-	return total / float(c.hands.size())
+	return c.crit_bonus_promedio()
 
 
 # ============================================================
@@ -1045,6 +1041,9 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 	var tipo: String = WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)]
 	_row(vb, "  Tipo", tipo + ("  (magia)" if w.es_magica else ""))
 	_row(vb, "  Ataque", _con_mejoras("%.1f", float(base["raw"]), float(mods["raw"])))
+	# LO QUE TE DA A TI: el ataque del arma entra en (base + arma) × tu factor de Fuerza, asi que
+	# el numero de arriba no es lo que suma en tu personaje. Misma fuente que la ficha de combate.
+	_filas_para_ti(vb, w, mods)
 	_row(vb, "  Motion value", "×%.2f" % w.motion_value)
 	_row(vb, "  Velocidad", _con_mejoras("×%.2f",
 		w.velocidad_mult * float(base["vel_mult"]), w.velocidad_mult * float(mods["vel_mult"])))
@@ -1096,6 +1095,9 @@ func _shield_stats(vb: VBoxContainer, sh: ShieldData, tier: int, rareza: int, me
 		% String(tamanos[clampi(int(sh.tamano), 0, tamanos.size() - 1)]).to_lower())
 	# Lo primero, la DEFENSA: es lo que crece con tier, rareza y mejoras. Y solo cuenta al Defender.
 	_row(vb, "  Defensa al bloquear", _con_mejoras("%.1f", float(base["def"]), float(mods["def"])))
+	# Y el aviso de que esta es PLANA: se suma despues del multiplicador de Resistencia, al reves
+	# que la armadura. Sin decirlo, uno da por hecho que escala igual y no escala.
+	_filas_para_ti(vb, sh, mods)
 	# El bloqueo NO lleva tier ni rareza (es del tamaño): lo unico que lo sube es el Refuerzo, y
 	# eso es justo lo que enseña el parentesis.
 	_row(vb, "  Bloqueo", _con_mejoras_pct(float(base["bloqueo"]), float(mods["bloqueo"])))
@@ -1113,6 +1115,10 @@ func _shield_stats(vb: VBoxContainer, sh: ShieldData, tier: int, rareza: int, me
 func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base: float, cast_base: float) -> void:
 	_row(vb, "  Amplif. magia", _con_mejoras("×%.2f",
 		float(mgb["magic_amp"]), float(mg["magic_amp"])))
+	# La amplificacion sola no dice nada: multiplica TU Magia, asi que el mismo baston rinde una
+	# cosa en un mago y otra en un guerrero. Esto es lo que sale al juntarlo contigo.
+	for f in MenuScaffold.fila_poder_magico(float(mg["magic_amp"]), _pj()):
+		_row(vb, "  " + str(f[0]), str(f[1]))
 	# Regen PLANO por turno. El "base" ya lleva el tier y la rareza de ESTE item; el parentesis es
 	# lo que ponen las mejoras. La nota dice lo que significa el numero, que es lo que se pregunta
 	# el jugador: un hechizo corto cuesta 6 y tarda 2 turnos en salir.
@@ -1370,35 +1376,35 @@ func _preview_armor(vb: VBoxContainer) -> void:
 	_armor_stats(vb, a)
 
 
-# Ficha de una pieza de armadura. Como en las armas: los numeros son los REALES (con su tier,
-# rareza y mejoras) y la DEFENSA se desglosa en "base + lo que suman las mejoras", donde el
-# base ya lleva dentro el tier y la rareza de ESTA pieza.
+# Ficha de una pieza de armadura. Las filas salen de MenuScaffold.filas_armadura, que es la MISMA
+# fuente que usa la ficha de detalle del combate: antes esto era la unica copia y las dos pantallas
+# podian (y llegaron a) decir numeros distintos de la misma pieza.
+#
+# Se le pasan la DURABILIDAD y el factor de Resistencia del personaje que la esta mirando, que es lo
+# que convierte la defensa de la pieza en la defensa que de verdad te da a ti.
 func _armor_stats(vb: VBoxContainer, a: ArmorData) -> void:
 	if a == null:
 		return
 	var am: Dictionary = Game.meta_de(a)
-	var tier: int = int(am["tier"])
-	var rareza: int = int(am["rareza"])
 	var mejoras: Dictionary = am["mejoras"]
-	var tm: float = Game.tier_mult(tier)
-	var mods: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, mejoras)
-	var base: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, {})
-
-	# DOS decimales: la DEF de una pieza es un numero pequeño (un peto de cuero son 0.25), y con
-	# uno solo se redondea a "0.3" y parece otra cosa.
-	_row(vb, "  Defensa", _con_mejoras("%.2f", float(base["def"]), float(mods["def"])))
-	_row(vb, "  Reducción", _fmt_pct(float(mods["reduccion"])))
-	_row(vb, "  Velocidad", "×%.2f" % float(mods["vel_mult"]))
-	if float(mods["evasion"]) > 0.0:
-		_row(vb, "  Evasión", "+%s" % _fmt_pct(float(mods["evasion"])))
-	if float(mods["crit_resist"]) > 0.0:
-		_row(vb, "  Resist. crítico", "+%s" % _fmt_pct(float(mods["crit_resist"])))
-	if float(mods["resist_estados"]) > 0.0:
-		_row(vb, "  Resist. estados", "+%s" % _fmt_pct(float(mods["resist_estados"])))
-	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
+	for f in MenuScaffold.filas_armadura(a, int(am["tier"]), int(am["rareza"]), mejoras,
+			Game.durabilidad_item(a), _factor_resistencia()):
+		_row(vb, "  " + str(f[0]), str(f[1]))
 	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
 	if not mejoras.is_empty():
 		_note(vb, "    " + _lista_mejoras(mejoras))
+
+
+# El multiplicador que tu Resistencia le aplica a TODA la defensa (la tuya y la de la armadura).
+func _factor_resistencia() -> float:
+	return MenuScaffold.factor_resistencia(_pj())
+
+
+# Las filas de "lo que esta pieza te da A TI", pintadas. La cuenta vive en MenuScaffold para que la
+# ficha del menu C y la de detalle del combate no puedan decir numeros distintos de la misma pieza.
+func _filas_para_ti(vb: VBoxContainer, item: Resource, mods: Dictionary) -> void:
+	for f in MenuScaffold.filas_para_ti(item, mods, _pj(), Game.durabilidad_item(item)):
+		_row(vb, "  " + str(f[0]), str(f[1]))
 
 
 # ============================================================

@@ -617,16 +617,20 @@ static func pestanas(vb: BoxContainer, nombres: Array, activa: int, pulsado: Cal
 const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "Mandoble",
 	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
 
-static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionary) -> Array:
+# 'pj' opcional: con dueño se añade la fila de lo que el arma te da A TI (su ataque ya multiplicado
+# por tu Fuerza). Sin él —tienda, baúl— se omite: ahí no hay un "a ti" que calcular.
+static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionary,
+		pj: PersonajeData = null) -> Array:
 	var m: Dictionary = Upgrades.weapon_mods(w, Game.tier_mult(tier), rareza, mejoras)
 	var filas: Array = [
 		["Tipo", WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)]
 			+ ("  ·  magia" if w.es_magica else "")],
 		["Manejo", "Dos manos" if w.dos_manos else "Una mano"],
 		["Ataque", "%.1f" % float(m["raw"])],
-		["Motion value", "×%.2f" % w.motion_value],
-		["Velocidad", "×%.2f" % (w.velocidad_mult * float(m["vel_mult"]))],
 	]
+	filas += filas_para_ti(w, m, pj)
+	filas.append(["Motion value", "×%.2f" % w.motion_value])
+	filas.append(["Velocidad", "×%.2f" % (w.velocidad_mult * float(m["vel_mult"]))])
 	if float(m["crit"]) != 0.0:
 		filas.append(["Crítico", "%+.0f%%" % (float(m["crit"]) * 100.0)])
 	# Daño critico: el multiplicador REAL de esta arma (base + su crit_dmg, que ya lleva rareza y
@@ -646,6 +650,7 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 		# un baston T3 legendario como uno de madera. Ahora sale lo REAL, igual que el menu C.
 		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, Game.tier_mult(tier), rareza, mejoras)
 		filas.append(["Amplif. magia", "×%.2f" % float(mg["magic_amp"])])
+		filas += fila_poder_magico(float(mg["magic_amp"]), pj)
 		filas.append(["Regen maná", "%.2f/turno" % (w.mp_regen_turno * float(mg["regen_mult"]))])
 		filas.append(["Vel. casteo", "×%.2f" % (w.cast_vel_mult + float(mg["cast_vel_add"]))])
 		if float(mg["mana_reduccion"]) > 0.0:
@@ -744,7 +749,8 @@ const SHIELD_TAMANO_LABELS := ["Pequeño", "Normal", "Grande"]
 # La ficha del ESCUDO, por la misma via que la del arma (Upgrades -> la math del combate). Estaba
 # copiada a pelo en el menu de personaje, el inventario y la tienda, y las tres leian el .tres
 # CRUDO: enseñaban el mismo bloqueo para un T1 comun que para un T3 pristino. Ahora sale de aqui.
-static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictionary) -> Array:
+static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictionary,
+		pj: PersonajeData = null) -> Array:
 	var m: Dictionary = Upgrades.shield_mods(sh, Game.tier_mult(tier), rareza, mejoras)
 	var filas: Array = [
 		["Tipo", "Escudo %s  ·  mano secundaria"
@@ -752,13 +758,182 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 		# Lo primero es la DEFENSA: es el numero que crece con tier, rareza y mejoras, o sea lo que
 		# distingue a este escudo de otro igual peor. Y solo cuenta al Defender: hay que decirlo.
 		["Defensa al bloquear", "+%.1f" % float(m["def"])],
-		["Bloqueo", "%.0f%%" % (float(m["bloqueo"]) * 100.0)],
 	]
+	filas += filas_para_ti(sh, m, pj)
+	filas.append(["Bloqueo", "%.0f%%" % (float(m["bloqueo"]) * 100.0)])
 	if float(m["resist_estados"]) > 0.0:
 		filas.append(["Resist. estados", "+%.0f%%" % (float(m["resist_estados"]) * 100.0)])
 	filas.append(["Velocidad", "×%.2f" % float(m["vel_mult"])])
 	filas.append(["Penal. esquiva", "-%.0f%%" % (float(m["evasion_penal"]) * 100.0)])
 	return filas
+
+
+# ============================================================
+#  FICHA DE ARMADURA compartida
+#  La armadura era la UNICA categoria sin su filas_*: vivia dentro de character_menu._armor_stats,
+#  que ademas PINTA en vez de devolver, asi que la pantalla de combate no podia reusarla. Y esa
+#  copia unica decia DOS cosas que no eran verdad, que es lo que se arregla aqui:
+#
+#    1) Ensenaba los valores A ESTRENAR. Upgrades.armor_piece_mods no sabe nada de durabilidad
+#       (el desgaste lo aplica Game.armor_mods), asi que un peto al 60% ponia "21.87 de defensa"
+#       cuando de verdad daba 19.68, y "11% de reduccion" cuando daba 9.9%. De ahi la sensacion
+#       de que los numeros del personaje no cuadraban con los de las piezas.
+#    2) La DEFENSA de una pieza no es lo que te da a TI. Combatant.def_value mete la defensa de la
+#       armadura DENTRO de la base que multiplica tu Resistencia, asi que la misma pieza rinde
+#       muchisimo mas en un tanque que en un mago (medido: x5.12 con Resistencia ~1030). Por eso
+#       'Defensa para ti' es una fila aparte y no un adorno: es el numero que de verdad importa.
+#
+#  'durabilidad' 0..1 (1.0 = a estrenar) y 'factor_res' = el multiplicador de Resistencia de quien
+#  la lleva. factor_res <= 0 -> no se pinta la fila personal (tienda, baul: ahi no hay un dueno).
+# ============================================================
+
+const ARMOR_SLOT_LABELS := {
+	ArmorData.Slot.CASCO: "Casco", ArmorData.Slot.PECHO: "Pecho",
+	ArmorData.Slot.MANOS: "Manos", ArmorData.Slot.PANTALONES: "Pantalones",
+	ArmorData.Slot.BOTAS: "Botas",
+}
+
+static func filas_armadura(a: ArmorData, tier: int, rareza: int, mejoras: Dictionary,
+		durabilidad: float = 1.0, factor_res: float = 0.0) -> Array:
+	if a == null:
+		return []
+	var tm: float = Game.tier_mult(tier)
+	var mods: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, mejoras)
+	var base: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, {})
+	# El MISMO desgaste que aplica Game.armor_mods, no una cuenta paralela.
+	var dur: float = Game.durabilidad_mult(clampf(durabilidad, 0.0, 1.0))
+	var def_estreno: float = float(mods["def"])
+	var def_real: float = def_estreno * dur
+
+	var filas: Array = [
+		["Ranura", str(ARMOR_SLOT_LABELS.get(int(a.slot), "?"))],
+		# DOS decimales: la DEF de una pieza es un numero pequeño (un peto de cuero son 0.25), y con
+		# uno solo se redondea a "0.3" y parece otra cosa.
+		["Defensa de la pieza", _con_mejoras("%.2f", float(base["def"]), def_estreno)],
+	]
+	if absf(def_real - def_estreno) >= 0.005:
+		filas.append(["   · con su desgaste", "%.2f" % def_real])
+	if factor_res > 0.0:
+		# LO QUE TE DA A TI. Va con un decimal (aqui ya son cientos) y con el factor escrito al
+		# lado, que es la pieza de informacion que faltaba en todas las pantallas.
+		filas.append(["Defensa para ti", "%.1f   (×%.2f por tu Resistencia)" % [
+			def_real * factor_res, factor_res]])
+
+	# La reduccion se desglosa igual que la defensa, y con UN DECIMAL a proposito: al redondear a
+	# entero, un 9.9% se lee "10%" y parece que la pieza da menos de su 11% por arte de magia. Ese
+	# redondeo fue parte de la confusion que abrio todo esto.
+	var red_estreno: float = float(mods["reduccion"])
+	filas.append(["Reducción de la pieza", _pct1(red_estreno)])
+	if absf(red_estreno * dur - red_estreno) >= 0.0005:
+		filas.append(["   · con su desgaste", _pct1(red_estreno * dur)])
+	# LO QUE APORTA DE VERDAD a tu reduccion: se PROMEDIA por cobertura de slot (ver
+	# Game.armor_mods), asi que llevar solo el peto no te da su 11%, te da un 3.5%. Sin esta fila
+	# el jugador lee el 11% y no entiende por que su total es mucho menor.
+	var cob: float = Game.cobertura_de_pieza(a)
+	if cob > 0.0:
+		filas.append(["   · a tu reducción total", "+%s   (cubre el %s de ti)" % [
+			_pct1(red_estreno * dur * cob), _pct(cob)]])
+
+	filas.append(["Velocidad", "×%.2f" % float(mods["vel_mult"])])
+	if float(mods["evasion"]) > 0.0:
+		filas.append(["Evasión", "+%s" % _pct(float(mods["evasion"]))])
+	if float(mods["crit_resist"]) > 0.0:
+		filas.append(["Resist. crítico", "+%s" % _pct(float(mods["crit_resist"]))])
+	if float(mods["resist_estados"]) > 0.0:
+		filas.append(["Resist. estados", "+%s" % _pct(float(mods["resist_estados"]))])
+	filas.append(["Mejoras", "%d / %d" % [
+		Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)]])
+	return filas
+
+
+# ============================================================
+#  "LO QUE ESTA PIEZA TE DA A TI"
+#  La ficha de un objeto enseña el numero del OBJETO, y ese numero casi NUNCA es lo que suma en tu
+#  personaje. Es la queja que abrio esto, y pasa en las cuatro familias por motivos distintos:
+#
+#    ARMA     - el ataque del arma entra en (base + arma) x factor_Fuerza. Con Fuerza alta, un arma
+#               de "42 de ataque" te pone muchisimo mas de 42.
+#    ARMADURA - igual con la Resistencia (ver filas_armadura), y encima con el desgaste restando.
+#    ESCUDO   - AL REVES, y por eso hay que decirlo: su defensa se suma DESPUES de def_value()
+#               (StatsMath.resolve_attack), asi que es PLANA y tu Resistencia no la toca. Sin
+#               avisar, uno da por hecho que escala como la armadura y no escala.
+#    MAGICAS  - la amplificacion es un multiplicador de tu propia Magia, asi que sola no dice nada:
+#               lo que importa es el poder magico que sale al juntarla contigo.
+#
+#  Devuelve filas [etiqueta, valor] listas para pintar, o [] si no hay dueño (tienda, baul: ahi no
+#  hay un "a ti" que calcular). 'mods' son los mods YA resueltos de la pieza, para no calcularlos
+#  dos veces en el sitio que llama.
+# ============================================================
+
+static func filas_para_ti(item: Resource, mods: Dictionary, pj: PersonajeData,
+		durabilidad: float = 1.0) -> Array:
+	if item == null or pj == null:
+		return []
+	var filas: Array = []
+	if item is WeaponData:
+		var ff: float = StatsMath.fuerza_factor(float(pj.fuerza))
+		# El raw del arma ya multiplicado por tu Fuerza: lo que de verdad suma a tu ataque total,
+		# ANTES del motion value (ese lo aplica cada golpe, y ya sale en su propia fila).
+		# Lo MAGICO no va aqui: su amplificacion sale de Upgrades.magic_mods, no de weapon_mods, y
+		# leerla de este dict daria el valor CRUDO del .tres. La pone fila_poder_magico, en el
+		# bloque de magia, que es donde ese numero ya esta resuelto.
+		filas.append(["   · ataque para ti", "%.1f   (×%.2f por tu Fuerza)" % [
+			float(mods.get("raw", 0.0)) * ff, ff]])
+	elif item is ShieldData:
+		# PLANA a proposito: se suma despues del multiplicador de Resistencia. Lo que pone la ficha
+		# del escudo YA es lo que te da, y eso -que parece que no hace falta decirlo- es justo lo
+		# que hay que decir cuando la pieza de al lado si escala.
+		# No se repite el numero: es EL MISMO. Lo que hay que decir es POR QUE es el mismo, porque
+		# la pieza de al lado (la armadura) si escala y uno da por hecho que esta tambien.
+		filas.append(["   · para ti", "esa misma: es plana, tu Resistencia no la multiplica"])
+	elif item is ArmorData:
+		var fr: float = factor_resistencia(pj)
+		var real: float = float(mods.get("def", 0.0)) * Game.durabilidad_mult(
+			clampf(durabilidad, 0.0, 1.0))
+		filas.append(["   · defensa para ti", "%.1f   (×%.2f por tu Resistencia)" % [
+			real * fr, fr]])
+	return filas
+
+
+# EL PODER MAGICO que sale de juntar esta pieza CONTIGO. La amplificacion sola no dice nada: es un
+# multiplicador de tu Magia, asi que "×1.70" rinde una cosa en un mago y otra en un guerrero.
+# Misma cuenta que Game.poder_magico, pero con la amplificacion de ESTA pieza y no con la del arma
+# que llevas puesta: esta ficha puede ser la de un candidato de la tienda.
+# 'amp' tiene que venir YA resuelto por Upgrades.magic_mods (con su tier, rareza y mejoras).
+static func fila_poder_magico(amp: float, pj: PersonajeData) -> Array:
+	if pj == null:
+		return []
+	var poder: float = StatsMath.magia_factor(float(pj.magia)) * pj.base_magia_factor * amp
+	return [["   · poder mágico contigo", "×%.2f" % poder]]
+
+
+# El multiplicador que la Resistencia de 'pj' aplica a TODA la defensa (la suya y la de la
+# armadura). La formula no se reescribe: defense_jugador con base 1.0 devuelve ese factor.
+static func factor_resistencia(pj: PersonajeData) -> float:
+	if pj == null:
+		return 0.0
+	var ab := Abilities.new()
+	ab.resistencia = int(pj.resistencia)
+	return StatsMath.defense_jugador(ab, 1.0)
+
+
+# "14.5 + (6.1) = 20.6". El BASE ya lleva dentro el tier y la rareza de ESTE objeto (no es el
+# numero del .tres); lo que va ENTRE PARENTESIS es lo que ponen las mejoras. Sin mejoras, el
+# numero a secas. Copia de character_menu._con_mejoras, que delega aqui.
+static func _con_mejoras(fmt: String, base: float, total: float) -> String:
+	if absf(total - base) < 0.005:
+		return fmt % total
+	return "%s + (%s) = %s" % [fmt % base, fmt % (total - base), fmt % total]
+
+
+static func _pct(x: float) -> String:
+	return "%.0f%%" % (x * 100.0)
+
+
+# Con UN decimal. Para la reduccion de daño, donde el redondeo a entero convertia un 9.9% en un
+# "10%" y hacia imposible cuadrarlo con el 11% que dice la pieza.
+static func _pct1(x: float) -> String:
+	return "%.1f%%" % (x * 100.0)
 
 
 # Filas de ATRIBUTO para el PREVIEW de mejora (pestaña Mejorar del herrero): la MISMA math del
