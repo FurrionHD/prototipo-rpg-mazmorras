@@ -9,12 +9,13 @@ dev_*.tscn
 dev_*.uid
 dev_*.png
 
-# ...MENOS los tres visores que son utillaje del repo y no una prueba de una tarde. Se les nota en
+# ...MENOS los visores que son utillaje del repo y no una prueba de una tarde. Se les nota en
 # que tienen su lanzador (ver_*.bat) en la raiz -- y ESE si estaba commiteado, asi que quien clonara
 # el repo se encontraba el .bat sin el visor al que llama: un doble clic y un error.
 !dev_gestos.*
 !dev_enemigos_animaciones.*
 !dev_enemigos_ataques.*
+!dev_jugador_animaciones.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
 # arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.
