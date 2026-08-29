@@ -45,6 +45,22 @@ var _tabs_box: HBoxContainer = null
 var _panel: VBoxContainer = null         # cuerpo de la pestaña (derecha, con scroll)
 var _modal: Control = null               # sub-overlay "Informacion de los atributos"
 
+# LA FIGURA DEL CENTRO, guardada para poder RECOLOCARLA cuando el hueco cambie de tamaño (ver
+# _recolocar_figura). Solo uno de los dos esta puesto a la vez: muñeco para los tuyos, sprite para
+# los de enfrente.
+var _fig_muneco: MunecoJugador = null
+var _fig_sprite: AnimatedSprite2D = null
+var _fig_rect: Rect2i = Rect2i()         # del sprite del enemigo: el pixel PINTADO de su fotograma
+var _fig_marco: Vector2 = Vector2.ZERO   # del sprite del enemigo: el fotograma entero, con su aire
+
+# Cuanto del hueco llena la figura. El aire que queda es para el pelo alto, el arma levantada y la
+# sombra de contacto -- llenarlo al 100% le corta la coronilla en cuanto una animacion sube.
+const OCUPA_FIG := 0.80
+# Y UN TOPE EN PIXELES, porque el hueco crece con la pantalla y solo con la proporcion un Trent
+# ocupaba media ventana en 1080p. Manda el mas pequeño de los dos: llena el hueco cuando es chico,
+# y se planta cuando el hueco es enorme.
+const ALTO_FIG_MAX := 320.0
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -121,6 +137,10 @@ func _construir() -> void:
 	_figura_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_figura_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_figura_host.clip_contents = true
+	# EL HUECO NO SABE SU TAMAÑO HASTA QUE EL CONTENEDOR REPARTE. Todo el colocado de la figura sale
+	# de _figura_host.size, que al construir vale (0,0): sin esto la figura se pinta una vez contra un
+	# hueco de cero y ya no se entera de nada.
+	_figura_host.resized.connect(_recolocar_figura)
 	hb.add_child(_figura_host)
 
 	# --- Columna 3: pestañas + panel ---
@@ -293,6 +313,8 @@ func _pintar_tira() -> void:
 			tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			_encajar(tr)
 			b.add_child(tr)
+		elif not _es_enemigo() and pj != null and _muneco_retrato(b, pj):
+			pass   # el muñeco entero, para los tuyos que no tienen foto puesta
 		else:
 			var cr := ColorRect.new()
 			cr.color = c.color_visual if _es_enemigo() else _combat._color_de(c)
@@ -309,6 +331,62 @@ func _pintar_tira() -> void:
 		_tira.add_child(b)
 
 
+# DEVUELVE EL MUÑECO AL Z RELATIVO, que es lo unico que hace falta para que se VEA aqui dentro.
+# MunecoJugador nace con z_as_relative = false a proposito (en el mapa sus capas se ordenan contra el
+# mundo, no contra el cuerpo que las lleva), pero esta pantalla va a z_index 4096 para taparlo todo:
+# con z absoluto el muñeco se dibuja en el z ~0 de sus capas, o sea DEBAJO del fondo de la ficha.
+#
+# Y HAY QUE ESPERAR A SU _ready SI TODAVIA NO HA CORRIDO: ahi es donde el muñeco pone el false. En la
+# tira eso pasa siempre (el boton se cuelga de la tira despues de montarle dentro el muñeco), y
+# ponerlo antes no vale de nada -- se veia el retrato vacio aunque el muñeco estuviera puesto.
+func _z_relativo(m: MunecoJugador) -> void:
+	m.z_as_relative = true
+	m.z_index = 0
+	if m.is_node_ready():
+		return
+	m.ready.connect(func() -> void:
+		m.z_as_relative = true
+		m.z_index = 0, CONNECT_ONE_SHOT)
+
+
+# EL MUÑECO COMO RETRATO, para los tuyos que no tienen foto puesta: sin esto eran un cuadrado de
+# color, que es lo mismo para los cuatro y no deja reconocer a nadie de un vistazo. Devuelve si ha
+# podido montarlo (si no, quien llama se queda con el cuadrado de siempre).
+#
+# Va DENTRO de un hueco propio con recorte, y no colgando del boton: el muñeco se dibuja en unidades
+# de mundo y se saldria del marco. Y se recoloca por 'resized' porque el boton no sabe lo que mide
+# hasta que la tira reparte (la misma trampa que la figura grande).
+func _muneco_retrato(b: Button, pj: PersonajeData) -> bool:
+	var m := MunecoJugador.new()
+	m.montar(pj)
+	m.tenir(pj.color, 0.0)
+	m.poner_cara(pj.textura())
+	if not m.hay_dibujo():
+		m.queue_free()
+		return false
+	m.animar("idle_0")
+	var hueco := Control.new()
+	hueco.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hueco.clip_contents = true
+	_encajar(hueco)
+	b.add_child(hueco)
+	hueco.add_child(m)
+	_z_relativo(m)   # mismo motivo que en la figura grande: esta pantalla va a z 4096
+	var colocar := func() -> void:
+		var z: Vector2 = hueco.size
+		if z.x <= 1.0 or z.y <= 1.0:
+			return
+		var esc: float = minf(z.y / PoseJugador.ALTO_MUNDO,
+			z.x / (PoseJugador.ALTO_MUNDO * 0.55))
+		m.scale = Vector2.ONE * esc
+		var alto: float = PoseJugador.ALTO_MUNDO * esc
+		m.position = Vector2(z.x * 0.5, (z.y - alto) * 0.5
+			+ (PoseJugador.ALTO_MUNDO - PoseJugador.PIES_BAJO_NODO) * esc)
+	hueco.resized.connect(colocar)
+	colocar.call()
+	return true
+
+
 # Mete el retrato DENTRO del marco del boton, dejando ver su borde (el anillo del elegido).
 func _encajar(n: Control) -> void:
 	n.offset_left = 4
@@ -318,63 +396,118 @@ func _encajar(n: Control) -> void:
 	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
+# LA FIGURA CUELGA DIRECTAMENTE DEL HUECO, sin ningun Control intermedio, y ese es el arreglo: antes
+# iba dentro de un 'host' de 260x260 que NUNCA recibia ese tamaño (un Control suelto no es hijo de un
+# contenedor, asi que nadie le reparte y se queda en 0x0). Al muñeco ademas se le ponia clip_contents
+# encima, y un recorte de tamaño cero no deja ver NADA: por eso el enemigo se veia (a el no se le
+# recortaba) y tu personaje era un hueco negro.
+#
+# Aqui solo se MONTA. El tamaño y la posicion los pone _recolocar_figura, porque dependen de
+# _figura_host.size y ese dato todavia no existe la primera vez (ver la conexion a 'resized').
 func _pintar_figura(c: Combatant) -> void:
 	for h in _figura_host.get_children():
 		h.queue_free()
-	var lado: float = 260.0
-	var host := Control.new()
-	host.custom_minimum_size = Vector2(lado, lado)
-	host.set_anchors_preset(Control.PRESET_CENTER)
-	host.position = Vector2(-lado * 0.5, -lado * 0.5)
-	host.anchor_left = 0.5
-	host.anchor_top = 0.5
-	host.anchor_right = 0.5
-	host.anchor_bottom = 0.5
-	_figura_host.add_child(host)
+	_fig_muneco = null
+	_fig_sprite = null
 
 	var sp: AnimatedSprite2D = _sprite_enemigo(c) if _es_enemigo() else null
 	if sp != null:
-		sp.position = Vector2(lado * 0.5, lado * 0.9)
-		host.add_child(sp)
+		_fig_sprite = sp
+		_figura_host.add_child(sp)
+		_recolocar_figura()
 		return
 
 	# EL MUÑECO DE VERDAD, para los tuyos con ficha detrás -- calco de VistaMuneco.mostrar(), que es
-	# el mismo problema (encajar el muñeco en un Control cuadrado). Mira al SUR (de cara, un
-	# retrato): lo CONTRARIO del escenario de combate (combat.gd, que mira al norte porque ahí el
-	# jugador da la espalda a la cámara para mirar a los enemigos) -- las dos direcciones van a
-	# propósito por separado.
+	# el mismo problema (encajar el muñeco en un Control). Mira al SUR (de cara, un retrato): lo
+	# CONTRARIO del escenario de combate (combat.gd, que mira al norte porque ahí el jugador da la
+	# espalda a la cámara para mirar a los enemigos) -- las dos direcciones van a propósito por
+	# separado.
 	if not _es_enemigo():
 		var pj: PersonajeData = Game.pj_de_combatant(c)
 		if pj != null:
-			host.clip_contents = true   # un Node2D dentro de un Control no se recorta solo
 			var m := MunecoJugador.new()
 			m.montar(pj)
 			m.tenir(pj.color, 0.0)
 			m.poner_cara(pj.textura())
 			if m.hay_dibujo():
-				# Mismo cálculo que VistaMuneco._recolocar (sin su hueco de barra de mandos: aquí no
-				# hay ninguna) -- centrado en el hueco, con los pies un poco por debajo del centro.
-				var esc: float = maxf(1.0, lado * 0.80 / PoseJugador.ALTO_MUNDO)
-				m.scale = Vector2.ONE * esc
-				var alto: float = PoseJugador.ALTO_MUNDO * esc
-				m.position = Vector2(lado * 0.5, (lado - alto) * 0.5
-					+ (PoseJugador.ALTO_MUNDO - PoseJugador.PIES_BAJO_NODO) * esc)
 				m.animar("idle_0")
-				host.add_child(m)
+				_fig_muneco = m
+				_figura_host.add_child(m)
+				# EL Z, VUELTO A RELATIVO, y sin esto no se ve NADA. MunecoJugador nace con
+				# z_as_relative = false a propósito (en el mapa sus capas tienen que ordenarse contra
+				# el mundo, no contra el cuerpo que las lleva), pero esta pantalla va a z_index 4096
+				# para taparlo todo: con z absoluto el muñeco se dibujaba en el z ~0 de sus capas, o
+				# sea DEBAJO del fondo de la propia ficha. El sprite del enemigo no sufría esto
+				# porque un AnimatedSprite2D sí es relativo, y por eso el bicho se veía y tú no.
+				_z_relativo(m)
+				_recolocar_figura()
 				return
 			m.queue_free()   # sin capas de verdad (raro): se cae al cuadrado de siempre, como abajo
 
 	# CUADRADO, como en el combate: color + shader de la cara para los tuyos, color plano
-	# para un enemigo sin sprite.
+	# para un enemigo sin sprite. Cuadrado de verdad (no estirado al hueco): la cara va en un shader
+	# pensado para un cuadrado, y deformarla la parte.
 	var fig := ColorRect.new()
-	fig.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fig.set_anchors_preset(Control.PRESET_CENTER)
 	fig.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _es_enemigo():
 		fig.color = c.color_visual
 	else:
 		fig.color = _combat._color_de(c)
 		fig.material = _combat._material_de(c)
-	host.add_child(fig)
+	_figura_host.add_child(fig)
+	_recolocar_figura()
+
+
+# LLENAR EL HUECO, sea lo que sea lo que haya dentro. Se llama al montar y cada vez que el hueco
+# cambia de tamaño (otra resolucion, otra ventana), y es el unico sitio donde se decide cuanto mide
+# la figura: el enemigo y el muñeco median antes por su cuenta con numeros fijos (210 px el bicho,
+# 0.80 de 260 el muñeco) y salian los dos como una mota en el centro de una columna enorme.
+func _recolocar_figura() -> void:
+	var zona: Vector2 = _figura_host.size
+	if zona.x <= 1.0 or zona.y <= 1.0:
+		return   # todavia sin repartir: ya volvera por 'resized'
+
+	if _fig_sprite != null:
+		# SE MIDE EL PIXEL PINTADO, no el fotograma: los del horno traen mucho aire alrededor (el
+		# sitio que necesitan las animaciones que se mueven), y escalando por el fotograma entero el
+		# bicho se queda pequeño en medio de su propio margen. Es la misma cuenta que ya hacia la
+		# miniatura de la tira (ver _miniatura_enemigo).
+		var pint := Vector2(maxf(float(_fig_rect.size.x), 1.0), maxf(float(_fig_rect.size.y), 1.0))
+		var esc: float = minf(zona.y * OCUPA_FIG / pint.y, zona.x * OCUPA_FIG / pint.x)
+		esc = minf(esc, minf(ALTO_FIG_MAX / pint.y, ALTO_FIG_MAX / pint.x))
+		_fig_sprite.scale = Vector2.ONE * esc
+		# SE CENTRA EL FOTOGRAMA, no el pixel pintado dentro de el. Los del horno ya vienen colocados
+		# en su cuadro (es lo mismo que hace el escenario de combate, que los planta sin compensar
+		# nada): descontar ahi el aire los descolgaba hacia abajo, porque ese aire es justo el sitio
+		# que el bicho necesita para las animaciones que se mueven.
+		_fig_sprite.position = zona * 0.5
+		return
+
+	if _fig_muneco != null:
+		# Mismo cálculo que VistaMuneco._recolocar (sin su hueco de barra de mandos: aquí no hay
+		# ninguna), mas un tope por ANCHO: la columna puede ser mas estrecha que alta y escalando solo
+		# por el alto el muñeco se sale por los lados. El 0.55 es el ancho del muñeco en proporción a
+		# su alto, el mismo numero que usa combat.gd para repartir el zoom.
+		var esc_m: float = minf(zona.y * OCUPA_FIG / PoseJugador.ALTO_MUNDO,
+			zona.x * OCUPA_FIG / (PoseJugador.ALTO_MUNDO * 0.55))
+		esc_m = minf(esc_m, ALTO_FIG_MAX / PoseJugador.ALTO_MUNDO)
+		_fig_muneco.scale = Vector2.ONE * esc_m
+		var alto: float = PoseJugador.ALTO_MUNDO * esc_m
+		# EL DIBUJO SE CENTRA EN EL HUECO: el personaje va de -(ALTO_MUNDO - PIES_BAJO_NODO) a
+		# +PIES_BAJO_NODO respecto a su nodo, o sea que su nodo NO es su centro.
+		_fig_muneco.position = Vector2(zona.x * 0.5, (zona.y - alto) * 0.5
+			+ (PoseJugador.ALTO_MUNDO - PoseJugador.PIES_BAJO_NODO) * esc_m)
+		return
+
+	# El cuadrado de respaldo: el mayor que quepa, centrado.
+	for h in _figura_host.get_children():
+		var cr := h as ColorRect
+		if cr == null:
+			continue
+		var lado: float = minf(zona.x, zona.y) * OCUPA_FIG
+		cr.size = Vector2(lado, lado)
+		cr.position = (zona - cr.size) * 0.5
 
 
 # El primer fotograma del enemigo, para la tira de retratos. Devuelve null si no tiene sprite
@@ -421,13 +554,19 @@ func _sprite_enemigo(c: Combatant) -> AnimatedSprite2D:
 	sp.animation = &"idle_0"
 	sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sp.centered = true
+	# CUANTO MIDE DE VERDAD, para que _recolocar_figura lo llene al hueco: el fotograma entero (con su
+	# aire) y, dentro, la caja del pixel pintado. La escala NO se decide aqui.
+	_fig_rect = Rect2i()
+	_fig_marco = Vector2.ZERO
 	var tex: Texture2D = frames.get_frame_texture(&"idle_0", 0)
 	if tex != null and tex.get_height() > 0:
-		var alto: float = float(tex.get_height())
+		_fig_marco = tex.get_size()
+		_fig_rect = Rect2i(Vector2i.ZERO, Vector2i(tex.get_size()))
 		var img: Image = tex.get_image()
 		if img != null and img.get_height() > 0:
-			alto = float(img.get_height())
-		sp.scale = Vector2.ONE * clampf(210.0 / maxf(alto, 1.0), 0.5, 6.0)
+			var usado: Rect2i = img.get_used_rect()
+			if usado.size.x > 0 and usado.size.y > 0:
+				_fig_rect = usado
 	sp.play()
 	return sp
 
