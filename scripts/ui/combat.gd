@@ -8162,11 +8162,21 @@ func _montar_columna() -> void:
 	# LOS NUMEROS DE DAÑO van en su propia capa, por encima de todo (se añade la ULTIMA). No pueden
 	# colgar de la tarjeta: la zona de chips va con clip_contents y el numero tiene que poder
 	# salirse de la caja hacia arriba, que es justo lo que hace.
+	#
+	# "AÑADIRSE LA ULTIMA" YA NO BASTA desde que el jugador es un MunecoJugador: sus capas llevan
+	# z_index ABSOLUTO (heredado del mapa, donde compiten con otros cuerpos a distinta profundidad;
+	# ver la cabecera de muneco_jugador.gd) y llegan hasta ~2560 (el arma forzada delante en
+	# golpe_2m). El orden por arbol solo desempata entre nodos del MISMO z_index -- con esta capa a
+	# 0 y el muñeco por encima de 2000, un golpe que te encajaban salia dibujado DETRAS de tu propio
+	# personaje: se veia el destello y el numero tapados por tu cuerpo. Con z_index bien por encima
+	# de lo maximo que hornea el muñeco (y lejos del tope de Godot, +-4096) los ataques y los
+	# numeros vuelven a verse SIEMPRE, sea cual sea el z que traiga la capa que dibuje debajo.
 	_capa_numeros = Control.new()
 	_capa_numeros.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_capa_numeros.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_capa_numeros.clip_contents = false
 	_capa_numeros.process_mode = Node.PROCESS_MODE_ALWAYS
+	_capa_numeros.z_index = 4000
 	add_child(_capa_numeros)
 	if _fx != null:
 		_fx.capa_numeros = _capa_numeros
