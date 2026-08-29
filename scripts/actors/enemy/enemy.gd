@@ -115,10 +115,14 @@ const CONTACTO := 2.0
 # a _start_combat EN EL MISMO FOTOGRAMA -- la pantalla de combate se llevaba la escena a mitad del
 # lunge y no daba tiempo a ver nada, la misma trampa que ya tenia el golpe del jugador (ver
 # player._tick_ataque). Ahora conectar arma _impacto_t (ver _iniciar_impacto) y el bicho se queda
-# PARALIZADO en el sitio ese rato antes de cortar -- lo que dura verse el golpe. Es a ojo: el tiempo
-# real de "verse la embestida" no esta atado a ningun contador de fotogramas en el mapa (el sprite
-# de embestida no tiene una duracion fija como el 'golpe' del jugador), asi que se ajusta jugando.
-const EMBESTIDA_IMPACTO := 0.22
+# PARALIZADO en el sitio ese rato antes de cortar -- lo que dura verse el golpe.
+#
+# MISMA DURACION que el espadazo del jugador (player.DUR_GOLPE = 8 fotogramas a 12 fps), a
+# proposito: que el bicho parezca mas brusco o mas lento que tu al entrar en combate se nota en
+# seguida, aunque las dos animaciones no compartan nada de codigo (no hay class_name en player.gd
+# para referenciar la constante de verdad, asi que el numero va duplicado -- si se toca uno, tocar
+# el otro).
+const EMBESTIDA_IMPACTO := 8.0 / 12.0
 
 signal combat_started(enemy_data: EnemyData, enemy_initiated: bool)
 
@@ -417,13 +421,18 @@ func _physics_process(delta: float) -> void:
 	# windup+embestida que ya existen en _chase/_embestida hacen el resto solos (el contacto, que ya
 	# es cierto -- estan tocandose --, dispara el impacto de arriba casi al instante). Asi CUALQUIER
 	# enganche pasa por la misma embestida telegrafiada, sin atajos instantaneos.
+	#
+	# SIN 'return': si ya estaba en CHASE/EMBESTIDA (el toque se repite fotograma a fotograma
+	# mientras los cuerpos siguen tocandose -- la colision no los separa) hay que dejar que el
+	# despacho de mas abajo siga llamando a _chase()/_embestida(), o el windup no avanza NUNCA y el
+	# bicho se queda parado en el sitio para siempre sin llegar a atacar. Volvia aqui cada
+	# fotograma y cortaba el paso antes del 'match' -- por eso los enemigos habian dejado de poder
+	# entrar en combate ellos primero.
 	var pegado: Node2D = _aliado_en_contacto()
-	if pegado != null:
+	if pegado != null and _state != State.CHASE and _state != State.EMBESTIDA:
 		_objetivo = pegado
-		if _state != State.CHASE and _state != State.EMBESTIDA:
-			_olvidar_orbita()   # mismo alta que _try_detect al entrar en CHASE
-			_state = State.CHASE
-		return
+		_olvidar_orbita()   # mismo alta que _try_detect al entrar en CHASE
+		_state = State.CHASE
 
 	# Si no estamos ya persiguiendo (ni embistiendo), miramos si vemos u oimos a alguno.
 	if _state != State.CHASE and _state != State.EMBESTIDA:
