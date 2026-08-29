@@ -6891,6 +6891,21 @@ func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
 	if CombatFX.SOBRE_SI_MISMO.has(estilo):
 		_fx_golpe(e, e, 0.0, false, false, el, estilo, 1.3, true, sfx)
 		return
+	# LAS DE APOYO (objetivo_aliado ALIADO/GRUPO -- Muro de aliados, Grito de aliento, Purificar...)
+	# van sobre QUIEN LAS RECIBE, no sobre 'obj'. 'obj' es el enemigo que tengas seleccionado (el que
+	# usaría un ataque normal), y una habilidad de apoyo no depende de eso para nada -- se puede
+	# lanzar con cualquier enemigo marcado, o ninguno. Sin este gate caía en el 'else' de mas abajo
+	# y el adorno (el muro, el grito) se dibujaba encima del ENEMIGO, que es justo el sitio contrario
+	# al que dice la propia descripcion de la habilidad. Estas NO pasan por _objetivos_area_aliados
+	# porque esa reparte SEGUN LA HUELLA de un area (adyacentes al principal); un apoyo de grupo no
+	# tiene "principal" que golpear, va a TODOS por igual.
+	if ab.objetivo_aliado == AbilityData.Objetivo.GRUPO:
+		for al in _aliados_vivos():
+			_fx_golpe(e, al, 0.0, false, false, el, estilo, 1.0, true, sfx)
+		return
+	if ab.objetivo_aliado == AbilityData.Objetivo.ALIADO:
+		_fx_golpe(e, _hab_objetivo_aliado(), 0.0, false, false, el, estilo, 1.0, true, sfx)
+		return
 	if obj == null:
 		return
 	if ab.es_area():
