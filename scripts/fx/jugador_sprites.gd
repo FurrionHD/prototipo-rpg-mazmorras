@@ -224,6 +224,9 @@ static func _capas_arma(pj: PersonajeData) -> Array:
 static func _arma_de(out: Array, item, lado: int) -> void:
 	if item == null:
 		return
+	if item is ShieldData:
+		_escudo_de(out, item as ShieldData)
+		return
 	var tn := ""
 	var dos_manos := false
 	if item is WeaponData:
@@ -234,7 +237,7 @@ static func _arma_de(out: Array, item, lado: int) -> void:
 	elif item is WandData:
 		tn = "varita"
 	else:
-		return   # ShieldData u otro: fuera de este plan
+		return   # otro Resource desconocido: no hay nada que dibujar
 
 	var suf_mano := "der" if lado == 0 else "izq"
 	var ancla_mano: StringName = PoseJugador.P_EMPUNADURA_DER if lado == 0 else PoseJugador.P_EMPUNADURA_IZQ
@@ -268,6 +271,22 @@ static func _arma_de(out: Array, item, lado: int) -> void:
 		"frames": ArmaSprites.frames("arma_%s_cadera_%s" % [tn, suf_mano], 1.0)})
 
 
+# LAS CAPAS DEL ESCUDO. Solo dos, y ninguna con 'lado' -- un escudo siempre va en la mano
+# secundaria (equipped_off), nunca en la principal. Envainado comparte P_ESPALDA con las armas a
+# dos manos: nunca chocan, porque equipped_off tiene que ser null si el arma principal es a dos
+# manos (ver Game._secundaria_valida) -- por eso reutiliza Z_ARMA_ESPALDA_DELANTE tal cual.
+static func _escudo_de(out: Array, sh: ShieldData) -> void:
+	var tn: String = EscudoSprites.TAMANO_NOMBRE[clampi(int(sh.tamano), 0,
+		EscudoSprites.TAMANO_NOMBRE.size() - 1)]
+	out.append({"clave": "escudo_%s_mano_izq" % tn, "ranura": Ranura.MANO_IZQ,
+		"ancla": PoseJugador.P_EMPUNADURA_IZQ, "tinte": false,
+		"frames": EscudoSprites.frames("escudo_%s_mano_izq" % tn, 1.0)})
+	out.append({"clave": "escudo_%s_espalda" % tn, "ranura": Ranura.ARMA_ESPALDA,
+		"ancla": PoseJugador.P_ESPALDA, "tinte": false,
+		"z": Z_ARMA_ESPALDA_DELANTE,
+		"frames": EscudoSprites.frames("escudo_%s_espalda" % tn, 1.0)})
+
+
 # TODAS las capas que existen, para el horno. No es lo mismo que 'capas_de': aquella son las de UN
 # personaje (las que lleva puestas) y esta son todas las que hay que hornear, lleve alguien lo que
 # lleve. Confundirlas significa que solo se hornea el traje del ultimo que se creo.
@@ -293,6 +312,10 @@ static func todas_las_capas() -> Array:
 	# 2 piezas: la guarda / cabeza puede quedar como isla propia en algunos angulos (hoja + guarda).
 	for clave in ArmaSprites.todas_las_claves():
 		out.append({"clave": clave, "piezas": 2, "gen": ArmaSprites, "modelo": clave})
+	# Las capas del escudo: 2 piezas (el aro puede quedar como isla propia del cuerpo en algunos
+	# angulos, igual que la guarda de un arma).
+	for clave in EscudoSprites.todas_las_claves():
+		out.append({"clave": clave, "piezas": 2, "gen": EscudoSprites, "modelo": clave})
 	return out
 
 

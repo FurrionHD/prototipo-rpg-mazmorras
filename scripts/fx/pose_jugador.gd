@@ -796,6 +796,20 @@ static func agarre_arma(esq: Dictionary, mano: int, estado: String) -> Dictionar
 			return {"empunadura": e, "eje": (pu - e).normalized(), "atras": false}
 
 
+# Donde va el ESCUDO. Mismo espiritu que agarre_arma (mismas claves 'empunadura'/'eje', para poder
+# reusar tal cual su interpolacion de 'sac' al desenvainar), pero mas simple: el escudo solo tiene
+# dos sitios -- "espalda" (envainado, comparte P_ESPALDA con las armas a dos manos: nunca chocan,
+# equipped_off es null si el arma principal es a dos manos) y "mano" (el antebrazo izquierdo,
+# SIEMPRE -- un escudo nunca va en la mano principal). La capa EscudoSprites es la unica que llama
+# aqui.
+static func agarre_escudo(esq: Dictionary, estado: String) -> Dictionary:
+	var p: Dictionary = esq["puntos"]
+	if estado == "espalda":
+		return {"empunadura": p[P_ESPALDA], "eje": (p[P_ESPALDA_PUNTA] - p[P_ESPALDA]).normalized()}
+	# "mano": en el antebrazo, de pie sobre el (eje casi vertical, un pelo hacia delante).
+	return {"empunadura": p[P_EMPUNADURA_IZQ], "eje": Vector3(0.0, 0.15, 1.0).normalized()}
+
+
 # ============================================================
 #  LAS POSES
 # ============================================================

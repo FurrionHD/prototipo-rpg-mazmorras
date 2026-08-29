@@ -24,6 +24,7 @@
 #    A / D         girar la direccion (una de las 8)
 #    B / V         siguiente / anterior ARMA equipada  (incluye "sin arma")
 #    N             dual on/off  (segunda arma de una mano en la otra mano)
+#    M             siguiente escudo (sin escudo / pequeño / normal / grande)
 #    P             parar / seguir el avance de fotograma
 #    , / .         fotograma anterior / siguiente (con la animacion en pausa)
 #    +/-           mas lento / mas rapido
@@ -47,6 +48,10 @@ var _flecha: Line2D
 # Cada arma: {nombre, res}. res == null es "sin arma" (puños).
 var _armas: Array = []
 var _arma_i := 0
+# Cada escudo: {nombre, res}. res == null es "sin escudo". Excluyente con _dual -- igual que en el
+# juego, equipped_off es UN campo (arma dual / escudo / varita / null), nunca dos a la vez.
+var _escudos: Array = []
+var _escudo_i := 0
 var _dir := 0
 var _anim_i := 0
 var _vel := 1.0
@@ -58,6 +63,7 @@ var _dual := false
 
 func _ready() -> void:
 	_cargar_armas()
+	_cargar_escudos()
 
 	var fondo := ColorRect.new()
 	fondo.size = Vector2(1280, 720)
@@ -85,7 +91,7 @@ func _ready() -> void:
 	_titulo = _label(Vector2(24, 20), 30, Color(0.95, 0.92, 0.84))
 	_sub = _label(Vector2(24, 60), 17, Color(0.70, 0.74, 0.82))
 	_ayuda = _label(Vector2(24, 690), 15, Color(0.55, 0.58, 0.66))
-	_ayuda.text = "ESPACIO/→ animacion   ← anterior   A/D direccion   B/V arma   N dual   P pausa   ,/. fotograma   +/- velocidad"
+	_ayuda.text = "ESPACIO/→ animacion   ← anterior   A/D direccion   B/V arma   N dual   M escudo   P pausa   ,/. fotograma   +/- velocidad"
 
 	_flecha = Line2D.new()
 	_flecha.width = 3.0
@@ -104,8 +110,8 @@ func _ready() -> void:
 func _tanda_de_fotos() -> void:
 	DirAccess.make_dir_recursive_absolute("user://capturas")
 	_auto = false
-	# [arma, anim, dir, dual, frac_fotograma]. frac 0..1 sobre los marcos de la anim (el tajo cae
-	# hacia 0.68).
+	# [arma, anim, dir, dual, frac_fotograma, escudo]. frac 0..1 sobre los marcos de la anim (el
+	# tajo cae hacia 0.68). 'escudo' es opcional (nombre del .tres, "" = sin escudo).
 	var casos := [
 		["daga", "golpe_izq", 1, true, 0.7], ["daga", "golpe_izq", 2, true, 0.7],
 		["daga", "golpe_izq", 6, true, 0.7], ["daga", "golpe_izq", 0, true, 0.7],
@@ -116,6 +122,12 @@ func _tanda_de_fotos() -> void:
 		["mandobles", "encaje", 4, false, 0.0], ["espada_larga", "encaje", 4, false, 0.0],
 		["mandobles", "muerte", 4, false, 0.9], ["sin arma", "muerte", 4, false, 0.5],
 		["espada_larga", "golpe", 2, false, 0.68], ["mandobles", "walk", 4, false, 0.5],
+		["espada_corta", "guardia", 0, false, 0.0, "escudo_normal"],
+		["espada_corta", "guardia", 2, false, 0.0, "escudo_normal"],
+		["espada_corta", "golpe", 2, false, 0.68, "escudo_normal"],
+		["sin arma", "idle", 4, false, 0.0, "escudo_grande"],
+		["sin arma", "idle", 0, false, 0.0, "escudo_pequeno"],
+		["espada_corta", "desenvainar", 1, false, 0.5, "escudo_normal"],
 	]
 	for c in casos:
 		for i in _armas.size():
@@ -128,6 +140,12 @@ func _tanda_de_fotos() -> void:
 				break
 		_dir = int(c[2])
 		_dual = bool(c[3])
+		_escudo_i = 0
+		if c.size() > 5:
+			for k in _escudos.size():
+				if String(_escudos[k]["nombre"]) == String(c[5]):
+					_escudo_i = k
+					break
 		var marcos: int = int(PoseJugador.ANIMS[_anim_i]["marcos"])
 		_frame = clampi(int(round(float(c[4]) * (marcos - 1))), 0, marcos - 1)
 		_reequipar()
@@ -171,16 +189,40 @@ func _cargar_armas() -> void:
 				_armas.append({"nombre": n.trim_suffix(".tres"), "res": r})
 
 
-# Deja en el lider el arma elegida (y su copia en la otra mano si 'dual'), y remonta el muñeco.
+# Los 3 ShieldData de resources/shields/. El primero es "sin escudo".
+func _cargar_escudos() -> void:
+	_escudos.append({"nombre": "sin escudo", "res": null})
+	var d := DirAccess.open("res://resources/shields/")
+	if d == null:
+		return
+	var archivos: Array = []
+	for f in d.get_files():
+		var n: String = f.trim_suffix(".remap")
+		if n.ends_with(".tres"):
+			archivos.append(n)
+	archivos.sort()
+	for n in archivos:
+		var r = load("res://resources/shields/" + n)
+		if r is ShieldData:
+			_escudos.append({"nombre": n.trim_suffix(".tres"), "res": r})
+
+
+# Deja en el lider el arma elegida (y su copia en la otra mano si 'dual', o el escudo si hay uno
+# elegido -- son excluyentes, igual que en el juego: equipped_off es UN solo campo) y remonta el
+# muñeco.
 func _reequipar() -> void:
 	var pj: PersonajeData = Game.lider()
 	var item = _armas[_arma_i]["res"]
 	pj.equipped_main = item
-	# Dual: solo tiene sentido con un arma de una mano de verdad (ni 2 manos, ni varita, ni la larga,
-	# que no va en dual). Se mete la MISMA en la otra mano -- es un visor, no importa cual.
-	var puede_dual: bool = item is WeaponData and not bool(item.dos_manos) \
-		and int(item.tipo) != WeaponData.Tipo.ESPADA_LARGA
-	pj.equipped_off = item if (_dual and puede_dual) else null
+	var escudo = _escudos[_escudo_i]["res"]
+	if escudo != null:
+		pj.equipped_off = escudo
+	else:
+		# Dual: solo tiene sentido con un arma de una mano de verdad (ni 2 manos, ni varita, ni la
+		# larga, que no va en dual). Se mete la MISMA en la otra mano -- es un visor, no importa cual.
+		var puede_dual: bool = item is WeaponData and not bool(item.dos_manos) \
+			and int(item.tipo) != WeaponData.Tipo.ESPADA_LARGA
+		pj.equipped_off = item if (_dual and puede_dual) else null
 	_muneco.montar(pj)
 
 
@@ -228,6 +270,14 @@ func _unhandled_input(ev: InputEvent) -> void:
 		_mostrar()
 	elif k == KEY_N:
 		_dual = not _dual
+		if _dual:
+			_escudo_i = 0   # excluyentes: dual apaga el escudo, igual que en el juego
+		_reequipar()
+		_mostrar()
+	elif k == KEY_M:
+		_escudo_i = (_escudo_i + 1) % _escudos.size()
+		if _escudo_i != 0:
+			_dual = false   # excluyentes: un escudo apaga el dual
 		_reequipar()
 		_mostrar()
 	elif k == KEY_P:
@@ -295,6 +345,8 @@ func _mostrar() -> void:
 	_titulo.text = "%s  ·  %s (%s)" % [_armas[_arma_i]["nombre"], base,
 		"—" if una_dir else DIR_NOMBRES[_dir]]
 	var flags: String = "  [DUAL]" if _dual else ""
+	if _escudo_i != 0:
+		flags += "  [%s]" % String(_escudos[_escudo_i]["nombre"]).to_upper()
 	_sub.text = "arma %d/%d   ·   fotograma %d/%d   ·   x%.2f%s%s" % [
 		_arma_i + 1, _armas.size(), _frame + 1, marcos, _vel,
 		"   (PAUSA)" if not _auto else "", flags]
@@ -304,8 +356,10 @@ func _foto() -> void:
 	DirAccess.make_dir_recursive_absolute("user://capturas")
 	var img: Image = get_viewport().get_texture().get_image()
 	var nom: String = String(_armas[_arma_i]["nombre"]).replace(" ", "_")
+	var extra: String = "_dual" if _dual else ""
+	if _escudo_i != 0:
+		extra += "_" + String(_escudos[_escudo_i]["nombre"]).replace(" ", "_")
 	var f: String = "user://capturas/jug_%s_%s_%s_f%d%s.png" % [
-		String(PoseJugador.ANIMS[_anim_i]["n"]), nom, DIR_NOMBRES[_dir], _frame,
-		"_dual" if _dual else ""]
+		String(PoseJugador.ANIMS[_anim_i]["n"]), nom, DIR_NOMBRES[_dir], _frame, extra]
 	img.save_png(f)
 	print("[visor jugador] ", ProjectSettings.globalize_path(f))
