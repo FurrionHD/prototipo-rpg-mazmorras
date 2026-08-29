@@ -424,12 +424,29 @@ func _escribir(i: int) -> void:
 # que _ordenar -- solo cambia que aqui el esqueleto es el del fotograma ACTUAL, no el 0. Solo corre
 # en los golpes de _BASES_REORDEN_ARMA; fuera de ahi manda lo que dejo _ordenar.
 func _reordenar_arma_mano(i: int) -> void:
-	if _idx_arma_mano.is_empty() or not _BASES_REORDEN_ARMA.has(_base_de(_anim)):
+	var base: String = _base_de(_anim)
+	if _idx_arma_mano.is_empty() or not _BASES_REORDEN_ARMA.has(base):
 		return
-	var esq: Dictionary = _esqueleto_de(_base_de(_anim), i, _dir_de(_anim))
+	var esq: Dictionary = _esqueleto_de(base, i, _dir_de(_anim))
+	# EL HACHAZO A DOS MANOS, EN LA DESCARGA, SE FUERZA DELANTE. El golpe empuja la empuñadura
+	# hacia +Y ("hacia donde mira" el cuerpo): mirando al sur eso es "hacia la camara" y se ve solo;
+	# mirando al norte ese mismo "hacia delante" es "lejos de la camara" -- oclusion geometrica de
+	# verdad, no un fallo de este reordenado (profundidad sale con el signo exactamente cambiado).
+	# Y al norte es donde MAS se pega en combate (el enemigo esta arriba), asi que en vez de dejar
+	# que desaparezca entera se le pone un minimo hacia delante a partir de la descarga (mitad
+	# tardia de los fotogramas: el windup se queda con su profundidad real, recogido detras del
+	# hombro tiene que poder ocultarse igual que al sur).
+	var forzar: bool = base == "golpe_2m" and i >= _marcos / 2
 	for k in _idx_arma_mano:
 		var c: Dictionary = _capas[k]
 		var prof: float = PoseJugador.profundidad(esq, c["ancla"])
+		if forzar:
+			# NO BASTA CON "delante del cuerpo": mirando al norte el pelo que cuelga TAMBIEN se pone
+			# delante (te tapa la espalda, JugadorSprites.Z_CUELGA_DELANTE = 2046 -- correcto, es tu
+			# espalda). Un empujon pequeño (prof ~ pocas unidades, z de unos pocos cientos) dejaba el
+			# arma detras del pelo igual. 40 da z ~2560: por delante de TODO menos la cara (2048, que
+			# aqui no se dibuja -- de espaldas no hay cara), y lejos del tope de Godot (+-4096).
+			prof = maxf(prof, 40.0)
 		c["nodo"].z_index = int(round(prof * 4.0)) * 16 + k
 
 

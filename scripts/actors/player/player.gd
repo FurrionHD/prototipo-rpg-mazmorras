@@ -1318,7 +1318,11 @@ func _try_attack() -> bool:
 		# pulsacion se daba por gastada aunque el otro lado no hubiera hecho NADA (el caso tipico: un
 		# espejo que se niega). Y como se salia del bucle, ni se probaba el siguiente: por eso "entrar
 		# en una pelea ya empezada" obligaba a recolocarse y repulsar hasta acertar.
-		if bool(e.atacado_por_jugador()):
+		#
+		# _golpe_t: lo que queda del espadazo en el mapa. El bicho se paraliza ese rato antes de que
+		# la pantalla de combate se lleve la escena -- antes se cortaba el mismo fotograma y el
+		# espadazo (que YA se planta y dura lo suyo, ver _tick_ataque) no se llegaba a ver nunca.
+		if bool(e.atacado_por_jugador(_golpe_t)):
 			return true
 	# Habia bichos a tiro pero ninguno ha admitido la pelea: decirlo. Callarse era lo que dejaba al
 	# jugador pensando que estaba mal colocado.

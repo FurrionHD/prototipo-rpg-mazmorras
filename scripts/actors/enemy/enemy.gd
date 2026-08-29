@@ -111,6 +111,14 @@ const EMBESTIDA_ESPERA := 0.6      # descanso tras fallar, antes de poder volver
 # el companero y no "conectaba" nunca: el bicho se quedaba empotrado repitiendo aviso -> embestida
 # -> fallo, sin entrar en combate.
 const CONTACTO := 2.0
+# EL INSTANTE DEL IMPACTO. Antes, en cuanto la embestida (o un espadazo tuyo) conectaba, se llamaba
+# a _start_combat EN EL MISMO FOTOGRAMA -- la pantalla de combate se llevaba la escena a mitad del
+# lunge y no daba tiempo a ver nada, la misma trampa que ya tenia el golpe del jugador (ver
+# player._tick_ataque). Ahora conectar arma _impacto_t (ver _iniciar_impacto) y el bicho se queda
+# PARALIZADO en el sitio ese rato antes de cortar -- lo que dura verse el golpe. Es a ojo: el tiempo
+# real de "verse la embestida" no esta atado a ningun contador de fotogramas en el mapa (el sprite
+# de embestida no tiene una duracion fija como el 'golpe' del jugador), asi que se ajusta jugando.
+const EMBESTIDA_IMPACTO := 0.22
 
 signal combat_started(enemy_data: EnemyData, enemy_initiated: bool)
 
@@ -146,6 +154,11 @@ var _winding: bool = false       # true mientras hace el aviso de ataque
 var _embiste_dir: Vector2 = Vector2.ZERO
 var _embiste_t: float = 0.0
 var _embiste_espera: float = 0.0
+# EL IMPACTO (ver _iniciar_impacto): -1 = nada pendiente. Mientras cuenta, el bicho esta parado y
+# _start_combat todavia NO se ha llamado -- se llama solo (con 'enemy_initiated' ya decidido) al
+# llegar a 0.
+var _impacto_t: float = -1.0
+var _impacto_enemy_initiated: bool = false
 var _combat_triggered: bool = false
 # ESPERANDO HUECO (hito 5.4): alcance a alguien que ya peleaba pero la pelea estaba llena. Me quedo
 # plantado al lado y lo reintento; en cuanto muera uno de los que pelean, entro en su hueco. Asi
@@ -379,14 +392,37 @@ func _physics_process(delta: float) -> void:
 	if _objetivo == null or not is_instance_valid(_objetivo):
 		_objetivo = _aliado_mas_cercano()
 
-	# TOCAR = COMBATE, en el estado que sea. Un bicho no puede estar empotrado contra ti (o contra un
-	# companero) y seguir a lo suyo. Va ANTES que todo lo demas y no depende de que te haya visto:
-	# cubre el caso de deambular y chocarse de morros en la oscuridad, que con la deteccion por vista
-	# y oido no se disparaba nunca (un companero parado no hace ruido y puede estar fuera del cono).
+	# EL IMPACTO: ya he conectado (mi embestida o tu espadazo) y estoy parado viendose el golpe.
+	# _start_combat NO se ha llamado todavia -- se llama solo, con el 'enemy_initiated' que se
+	# decidio al conectar, cuando el reloj llega a 0 (ver _iniciar_impacto). Va ANTES que el toque
+	# de mas abajo: mientras esto cuenta no hay que mirar nada mas.
+	if _impacto_t >= 0.0:
+		if _dead:
+			_impacto_t = -1.0
+			return
+		velocity = Vector2.ZERO
+		_impacto_t -= delta
+		if _impacto_t <= 0.0:
+			_impacto_t = -1.0
+			_start_combat(_impacto_enemy_initiated)
+		return
+
+	# TOCAR = ENGANCHARSE, en el estado que sea. Un bicho no puede estar empotrado contra ti (o
+	# contra un companero) y seguir a lo suyo. Va ANTES que todo lo demas y no depende de que te
+	# haya visto: cubre el caso de deambular y chocarse de morros en la oscuridad, que con la
+	# deteccion por vista y oido no se disparaba nunca (un companero parado no hace ruido y puede
+	# estar fuera del cono).
+	#
+	# YA NO ES COMBATE INSTANTANEO: pasa a perseguir/plantarse como si te hubiera visto, y el
+	# windup+embestida que ya existen en _chase/_embestida hacen el resto solos (el contacto, que ya
+	# es cierto -- estan tocandose --, dispara el impacto de arriba casi al instante). Asi CUALQUIER
+	# enganche pasa por la misma embestida telegrafiada, sin atajos instantaneos.
 	var pegado: Node2D = _aliado_en_contacto()
 	if pegado != null:
 		_objetivo = pegado
-		_start_combat(not _es_contra(pegado))
+		if _state != State.CHASE and _state != State.EMBESTIDA:
+			_olvidar_orbita()   # mismo alta que _try_detect al entrar en CHASE
+			_state = State.CHASE
 		return
 
 	# Si no estamos ya persiguiendo (ni embistiendo), miramos si vemos u oimos a alguno.
@@ -985,7 +1021,7 @@ func _embestida(delta: float) -> void:
 			_objetivo = n
 			# Iniciativa del enemigo: te ha embestido... SALVO que tu ya tuvieras el golpe puesto y le
 			# estuvieras mirando. Entonces es un CONTRA y la media barra de ATB es tuya (ver _es_contra).
-			_start_combat(not _es_contra(n))
+			_iniciar_impacto(not _es_contra(n))
 			return
 	# Se estampo contra una pared: la carga muere ahi.
 	var choco: bool = get_slide_collision_count() > 0
@@ -993,6 +1029,16 @@ func _embestida(delta: float) -> void:
 		_embiste_espera = EMBESTIDA_ESPERA
 		_state = State.CHASE
 		velocity = Vector2.ZERO
+
+
+# EL IMPACTO: arma el reloj de EMBESTIDA_IMPACTO (o la duracion que se le pase -- el jugador manda
+# la de SU espadazo) y deja al bicho parado donde ha conectado. NO llama a _start_combat: eso lo
+# hace el bloque de _physics_process cuando el reloj llega a 0, para que la pantalla de combate no
+# se lleve la escena a mitad del golpe/la carga.
+func _iniciar_impacto(enemy_initiated: bool, dur: float = -1.0) -> void:
+	velocity = Vector2.ZERO
+	_impacto_t = dur if dur > 0.0 else EMBESTIDA_IMPACTO
+	_impacto_enemy_initiated = enemy_initiated
 
 
 # ¿Estoy persiguiendo a ESTE de ahi? Lo pregunta el jugador para saber si esta HUYENDO de verdad
@@ -1079,13 +1125,20 @@ func recolocar(pos: Vector2) -> void:
 	_pick_wander_target()
 
 
-# Lo llama el JUGADOR cuando te ataca de cerca: combate con su iniciativa.
+# Lo llama el JUGADOR cuando te ataca de cerca: combate con su iniciativa. 'golpe_dur' es lo que
+# le queda de espadazo en el mapa (player._golpe_t) -- el bicho se paraliza ESE rato antes de que
+# la pantalla de combate se lleve la escena, para que de tiempo a verlo (ver _iniciar_impacto).
 # Devuelve si la pulsacion ha SERVIDO de algo: se ha abierto pelea, o se ha pedido entrar en una. El
 # jugador lo necesita para no dar por gastado el espacio cuando aqui no pasa nada (ver
 # player._try_attack): antes esto no devolvia nada y la pulsacion se perdia igual.
-func atacado_por_jugador() -> bool:
+func atacado_por_jugador(golpe_dur: float = -1.0) -> bool:
 	if _dead:
 		return false
+	# Ya hay un golpe en curso con este bicho (esta en el impacto). La pulsacion CUENTA -- no hay
+	# que decirle al jugador que no ha pasado nada -- pero no reinicia el reloj: si no, machacar el
+	# boton contra el mismo bicho alargaria la espera para siempre y nunca se cortaria a combate.
+	if _impacto_t >= 0.0:
+		return true
 	# Ya esta metido en una pelea. Antes esto era un callejon sin salida: le dabas y no pasaba
 	# NADA. Ahora es la via para ECHAR UNA MANO: se pide entrar en esa pelea (hito 5.4-C).
 	if _combat_triggered:
@@ -1101,7 +1154,7 @@ func atacado_por_jugador() -> bool:
 	var yo: Node = get_tree().get_first_node_in_group("player")
 	if yo != null:
 		_objetivo = yo
-	_start_combat(false)
+	_iniciar_impacto(false, golpe_dur)
 	return true
 
 

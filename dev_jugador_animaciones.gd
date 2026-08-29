@@ -111,6 +111,7 @@ func _tanda_de_fotos() -> void:
 		["daga", "golpe_izq", 6, true, 0.7], ["daga", "golpe_izq", 0, true, 0.7],
 		["mandobles", "golpe_2m", 0, false, 0.68], ["mandobles", "golpe_2m", 2, false, 0.68],
 		["mandobles", "golpe_2m", 4, false, 0.68], ["mandobles", "golpe_2m", 0, false, 0.4],
+		["mandobles", "golpe_2m", 3, false, 0.68], ["mandobles", "golpe_2m", 4, false, 0.85],
 		["hacha_grande", "golpe_2m", 2, false, 0.68], ["baston", "golpe_2m", 0, false, 0.68],
 		["mandobles", "encaje", 4, false, 0.0], ["espada_larga", "encaje", 4, false, 0.0],
 		["mandobles", "muerte", 4, false, 0.9], ["sin arma", "muerte", 4, false, 0.5],
