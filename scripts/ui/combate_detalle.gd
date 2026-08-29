@@ -431,8 +431,8 @@ func _tab_detalles(c: Combatant) -> void:
 		elem = "  %s %s" % [Elementos.icono(c.elemento), Elementos.nombre(c.elemento)]
 	MenuScaffold.titulo(_panel, "%s   ·   Niv. %d%s" % [c.nombre, c.level, elem], 18)
 
-	# Barra de vida grande.
-	_barra_vida(c)
+	# Vida, energia y maná: las tres arriba y grandes, que es donde se miran.
+	_barras(c)
 
 	# Debilidades / resistencias elementales (derivadas, nunca escritas a mano).
 	if _es_enemigo():
@@ -458,10 +458,18 @@ func _tab_detalles(c: Combatant) -> void:
 	# chips sinteticos -guardia, defender, foco, casteo...- y los estados del catalogo, y
 	# funciona igual en el espejo con los pares pre-resueltos).
 	_panel.add_child(HSeparator.new())
-	var pos_neg: Vector2i = _contar_efectos(c)
-	MenuScaffold.titulo(_panel, "Estados   ·   positivos %d   ·   negativos %d" % [
-		pos_neg.x, pos_neg.y], 15)
 	var chips: Array = _combat._chips_de(c)
+	# EN EL ESPEJO no hay motor detras (los combatientes son maniquies y los chips llegan ya
+	# resueltos por red), asi que no se puede saber el signo de cada uno: se enseña el total pelado
+	# en vez de un "positivos 0 · negativos 0" que seria mentira.
+	if _combat._espejo:
+		MenuScaffold.titulo(_panel, "Estados   ·   %d" % chips.size(), 15)
+	else:
+		var cuenta: Vector3i = _contar_efectos(c)
+		var cab: String = "Estados   ·   positivos %d   ·   negativos %d" % [cuenta.x, cuenta.y]
+		if cuenta.z > 0:
+			cab += "   ·   en curso %d" % cuenta.z
+		MenuScaffold.titulo(_panel, cab, 15)
 	if chips.is_empty():
 		MenuScaffold.nota(_panel, "Sin estado.")
 	else:
@@ -491,35 +499,20 @@ func _tab_detalles(c: Combatant) -> void:
 			_panel.add_child(caja)
 
 
-func _barra_vida(c: Combatant) -> void:
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 8)
-	var pb := ProgressBar.new()
-	pb.max_value = maxf(c.max_hp, 1.0)
-	pb.value = clampf(c.current_hp, 0.0, c.max_hp)
-	pb.show_percentage = false
-	pb.custom_minimum_size = Vector2(0, 22)
-	# El tema del proyecto no viste la ProgressBar, asi que sin esto la barra salia gris sobre
-	# gris y no se leia cuanta vida queda, que es lo primero que se mira aqui.
-	var fondo := StyleBoxFlat.new()
-	fondo.bg_color = Color(0.16, 0.10, 0.11, 1.0)
-	fondo.set_corner_radius_all(3)
-	pb.add_theme_stylebox_override("background", fondo)
-	var relleno := StyleBoxFlat.new()
-	var frac: float = pb.value / maxf(pb.max_value, 1.0)
-	# Verde con vida, ambar a media y rojo en las ultimas: el mismo semaforo de las barras del combate.
-	relleno.bg_color = Color(0.85, 0.25, 0.25) if frac < 0.25 \
-		else (Color(0.9, 0.7, 0.3) if frac < 0.6 else Color(0.35, 0.8, 0.4))
-	relleno.set_corner_radius_all(3)
-	pb.add_theme_stylebox_override("fill", relleno)
-	pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fila.add_child(pb)
-	var lbl := Label.new()
-	lbl.text = "%d / %d" % [roundi(c.current_hp), roundi(c.max_hp)]
-	lbl.custom_minimum_size = Vector2(110, 0)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	fila.add_child(lbl)
-	_panel.add_child(fila)
+# LAS TRES BARRAS: vida, energia y mana, con los MISMOS colores que la tarjeta del combate (salen
+# de MenuScaffold, que es donde viven ahora). Una barra tiene que significar lo mismo en las dos
+# pantallas, y ademas asi la vida, el mana y la energia ya no hacen falta como filas en la lista.
+#
+# Energia y mana solo si las tiene, igual que combat._crear_barras_aliado: un enemigo va a cero en
+# las dos y pintarselas seria enseñar dos barras vacias que no significan nada.
+func _barras(c: Combatant) -> void:
+	MenuScaffold.barra(_panel, MenuScaffold.COLOR_VIDA, c.current_hp, c.max_hp, "%.0f / %.0f", 22, 14)
+	if c.max_energy > 0.0:
+		MenuScaffold.barra(_panel, MenuScaffold.COLOR_ENERGIA, c.current_energy, c.max_energy,
+			"EN  %.0f / %.0f", 15, 11)
+	if c.max_mp > 0.0:
+		MenuScaffold.barra(_panel, MenuScaffold.COLOR_MANA, c.current_mp, c.max_mp,
+			"MP  %.0f / %.0f", 15, 11)
 
 
 # Ataque total (raw, sin motion value: ese se aplica por golpe) igual que la ficha del menu C.
@@ -557,32 +550,38 @@ func _factor_resistencia(c: Combatant) -> float:
 	return StatsMath.defense_jugador(ab, 1.0)
 
 
-# La rejilla de un aliado: el total y, en azul, lo que pone el equipo.
+# LA REJILLA de un aliado. Cada stat fisica con su gemela magica JUSTO DEBAJO (ataque/ataque
+# magico, defensa/defensa magica, velocidad/vel. recitado) en vez de un bloque "Magia" aparte al
+# final: asi se comparan de un vistazo y el mago no tiene que bajar a buscar sus numeros.
+#
+# El desglose "del equipo" ya no sale aqui -- se mira el total y punto; el reparto sigue estando en
+# la lupa. Y la vida tampoco: la enseña la barra de arriba.
+#
+# NADA puede quedar por debajo del boton de la lupa: es el final de la lista.
 func _rejilla_stats(c: Combatant) -> void:
-	_fila_stat("Ataque", _atk_total(c), _atk_arma(c))
-	var def_equipo: float = _def_del_equipo(c)
-	_fila_stat("Defensa", c.def_value(), def_equipo)
-	var fr: float = _factor_resistencia(c)
-	if fr > 1.01:
-		# La explicacion del numero grande, donde se mira. Sin esto, ver "+504 del equipo" con una
-		# coraza que en su ficha pone 98 no hay quien lo entienda.
-		MenuScaffold.nota(_panel, "Tu Resistencia multiplica ×%.2f toda la defensa, la de la "
-			% fr + "armadura incluida: por eso una pieza rinde mucho más en ti que en otro.")
-	_fila_stat("Velocidad", c.spd(), 0.0)
-	_fila_stat("Vida máx.", c.max_hp, 0.0)
+	var pj: PersonajeData = Game.pj_de_combatant(c)
+	MenuScaffold.fila(_panel, "Ataque", "%.0f" % _atk_total(c))
+	if pj != null:
+		MenuScaffold.fila(_panel, "Ataque mágico", "%.0f" % MenuScaffold.dano_magico(pj))
+	MenuScaffold.fila(_panel, "Defensa", "%.0f" % c.def_value())
+	MenuScaffold.fila(_panel, "Defensa mágica", "%.0f" % StatsMath.magic_jugador(
+		c.abilities_eff(), c.base_magic))
+	MenuScaffold.fila(_panel, "Velocidad", "%.0f" % c.spd())
+	MenuScaffold.fila(_panel, "Vel. recitado", "%.1f" % c.cast_spd())
 	# CRITICO FISICO Y MAGICO POR SEPARADO: son cuatro campos distintos en Combatant y el arma
 	# magica solo toca los suyos. Con uno solo, un mago no tenia forma de ver su critico de verdad.
 	MenuScaffold.fila(_panel, "Prob. crítico", _pct(_crit_fisico(c)))
 	MenuScaffold.fila(_panel, "Daño crítico", _crit_dmg_txt(c.crit_dmg))
 	MenuScaffold.fila(_panel, "Prob. crít. mágico", _pct(_crit_magico(c)))
 	MenuScaffold.fila(_panel, "Daño crít. mágico", _crit_dmg_txt(c.crit_dmg_magico))
+	if c.mp_regen_turno > 0.0:
+		MenuScaffold.fila(_panel, "Regen maná", "%.2f/turno" % c.mp_regen_turno)
 	var lupa := Button.new()
 	lupa.text = "⌕  Información de los atributos"
 	lupa.focus_mode = Control.FOCUS_NONE
 	lupa.custom_minimum_size = Vector2(0, 36)
 	lupa.pressed.connect(_abrir_modal_atributos.bind(c))
 	_panel.add_child(lupa)
-	_bloque_magia(c)
 
 
 # El critico es un CONTEST (tu Destreza contra la Agilidad de quien recibe el golpe); aqui no hay
@@ -609,58 +608,42 @@ func _pct(x: float) -> String:
 	return "%.1f%%" % (x * 100.0)
 
 
-# LA MITAD MAGICA, espejo de la fisica. Se pinta SIEMPRE y no solo a los magos, por lo mismo que
-# en character_menu._bloque_magia: los hechizos se aprenden de los libros, no del arma, asi que
-# cualquiera puede lanzarlos; y las filas a cero no son ruido, son la respuesta ("no regeneras
-# maná porque no llevas arma mágica").
-func _bloque_magia(c: Combatant) -> void:
-	_panel.add_child(HSeparator.new())
-	MenuScaffold.titulo(_panel, "Magia", 15)
-	var pj: PersonajeData = Game.pj_de_combatant(c)
-	if pj != null:
-		var lm: Dictionary = Game.loadout_mods(pj)
-		var amp: float = float(lm["magic_amp"])
-		MenuScaffold.fila(_panel, "Poder mágico", "×%.2f" % Game.poder_magico(pj))
-		if absf(amp - 1.0) > 0.001:
-			# Las DOS mitades o ninguna: con una sola no se sabe si el total ya la lleva dentro.
-			var por_magia: float = StatsMath.magia_factor(float(c.abilities.magia)) * c.magia_base_factor
-			MenuScaffold.fila(_panel, "   · tu Magia", "×%.2f" % por_magia)
-			MenuScaffold.fila(_panel, "   · el arma", "×%.2f" % amp)
-		if float(lm["mana_reduccion"]) > 0.0:
-			MenuScaffold.fila(_panel, "Coste de maná", "-%.0f%%" % (float(lm["mana_reduccion"]) * 100.0))
-	# La defensa MAGICA es para todo el mundo: es lo que te protege cuando el que lanza es el otro.
-	MenuScaffold.fila(_panel, "Defensa mágica", "%.1f" % StatsMath.magic_jugador(
-		c.abilities_eff(), c.base_magic))
-	if c.max_mp > 0.0:
-		MenuScaffold.fila(_panel, "Maná máx.", "%.0f" % c.max_mp)
-	MenuScaffold.fila(_panel, "Regen maná", "%.2f/turno" % c.mp_regen_turno)
-	MenuScaffold.fila(_panel, "Vel. recitado", "%.1f" % c.cast_spd())
-
-
-func _fila_stat(etiqueta: String, base: float, bonus: float) -> void:
-	var valor: String = "%d" % roundi(base)
-	MenuScaffold.fila(_panel, etiqueta, valor)
-	if absf(bonus) >= 0.5:
-		# Se pinta en su propia fila, en azul: es el "+1446" de la captura.
-		MenuScaffold.fila(_panel, "   · del equipo", "+%d" % roundi(bonus), 170, AZUL_EQUIPO)
-
-
-# Cuenta cruda de efectos: negativos = debuff del catalogo o daño por turno; el resto,
-# positivos (mas los buffs sinteticos del combate). En el espejo, si no hay motor, sale 0.
-func _contar_efectos(c: Combatant) -> Vector2i:
+# CUENTA DE EFECTOS. Tiene que cuadrar con las tarjetas que se pintan justo debajo: si sale
+# "positivos 0" con una Imbuicion en pantalla, el contador esta mintiendo.
+#
+# Y ese fue el fallo: contaba SOLO c.statuses (los del catalogo) mas tres sinteticos elegidos a
+# mano, mientras que _chips_de pinta ademas la imbuicion, el agotamiento, la provocacion, la carga
+# y el casteo. Dos listas paralelas que se separan en cuanto se añade un chip a una sola.
+#
+# Ahora se enumeran TODOS los que pinta _chips_de, y el total tiene que dar su mismo tamaño (la
+# tercera cuenta, 'neutro', es la que lo cuadra: cargar y recitar no son ni bueno ni malo, son
+# cosas que estas haciendo). Devuelve (positivos, negativos, neutros).
+func _contar_efectos(c: Combatant) -> Vector3i:
 	var pos: int = 0
 	var neg: int = 0
+	var neu: int = 0
+	# Los del CATALOGO: el propio estado dice si es un debuff, y el que hace daño por turno lo es
+	# aunque no lo diga. Se agrupan por id, igual que los chips (un Sangrado x3 es UN chip).
+	var vistos: Dictionary = {}
 	for e in c.statuses:
-		var d: Dictionary = e.d
-		if bool(d.get("debuff", false)) or e.dot_damage() > 0.0:
+		if vistos.has(e.id()):
+			continue
+		vistos[e.id()] = true
+		if bool(e.d.get("debuff", false)) or e.dot_damage() > 0.0:
 			neg += 1
 		else:
 			pos += 1
+	# Los SINTETICOS, en el mismo orden que _chips_de para poder cotejarlos de un vistazo.
+	if c.charging != null: neu += 1              # te esta preparando algo: ni bueno ni malo
+	if _combat._casteos.has(c): neu += 1         # recitando
+	if c.provocar_turnos > 0: pos += 1
+	if c.imbue_etiqueta() != "": pos += 1        # imbuicion (la que faltaba)
 	if c.en_guardia: pos += 1
-	if c.foco_cargas > 0: pos += 1
 	if bool(_combat._defendiendo.get(c, false)) or (c == _combat._player and _combat._player_defending):
 		pos += 1
-	return Vector2i(pos, neg)
+	if int(_combat._lentas.get(c, 0)) > 0: neg += 1   # sin fuelle
+	if c.foco_cargas > 0: pos += 1
+	return Vector3i(pos, neg, neu)
 
 
 # --- Pestaña: Habilidades -----------------------------------------------
@@ -799,15 +782,15 @@ func _ficha_pieza(res: Resource, pj: PersonajeData) -> void:
 		filas = MenuScaffold.filas_armadura(res as ArmorData, tier, rareza, mejoras,
 			Game.durabilidad_item(res), MenuScaffold.factor_resistencia(pj))
 	elif res is WeaponData:
-		filas = MenuScaffold.filas_arma(res as WeaponData, tier, rareza, mejoras, pj)
+		filas = MenuScaffold.filas_arma(res as WeaponData, tier, rareza, mejoras, pj,
+			Game.durabilidad_item(res))
 	elif res is ShieldData:
 		filas = MenuScaffold.filas_escudo(res as ShieldData, tier, rareza, mejoras, pj)
 	elif res is WandData:
 		var wd := res as WandData
 		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(tier), rareza, mejoras)
 		filas = [["Tipo", "Varita  ·  mano secundaria"],
-			["Amplif. magia", "×%.2f" % float(mg["magic_amp"])]]
-		filas += MenuScaffold.fila_poder_magico(float(mg["magic_amp"]), pj)
+			["Ataque mágico", "%.1f" % MenuScaffold.dano_magico(pj, float(mg["magic_amp"]))]]
 		filas += MenuScaffold.filas_critico_magico(mg, wd.crit_bonus)
 	var caja := PanelContainer.new()
 	var vb := VBoxContainer.new()
@@ -880,16 +863,28 @@ func _abrir_modal_atributos(c: Combatant) -> void:
 	vb.add_child(cab)
 	vb.add_child(HSeparator.new())
 
+	# LA LUPA SI mantiene el desglose "lo que pone el equipo", que es justo para lo que existe: la
+	# rejilla de fuera se quedo con el total pelado.
+	var pj_l: PersonajeData = Game.pj_de_combatant(c)
 	MenuScaffold.titulo(vb, "Básicos", 14, GRIS)
 	_fila_modal(vb, "PV", "%d" % roundi(c.max_hp), 0.0)
 	_fila_modal(vb, "ATQ", "%d" % roundi(_atk_total(c)), _atk_arma(c),
 		"El raw antes del motion value: cada golpe le aplica su %. Tu Fuerza lo multiplica, "
 		+ "así que el arma pone más de lo que dice su ficha.")
+	if pj_l != null:
+		_fila_modal(vb, "ATQ mágico", "%d" % roundi(MenuScaffold.dano_magico(pj_l)), 0.0,
+			"Medido con el hechizo más básico, para que se pueda comparar con el ataque físico. "
+			+ "Un hechizo mejor pega más, en la misma proporción.")
 	# El bonus va medido POR DIFERENCIA (lo que de verdad aporta el equipo), no leyendo el campo
 	# crudo: la Resistencia multiplica tambien la defensa de la armadura. Ver _def_del_equipo.
 	_fila_modal(vb, "DEF", "%d" % roundi(c.def_value()), _def_del_equipo(c),
 		"Tu Resistencia multiplica TODA la defensa, la de la armadura incluida.")
+	_fila_modal(vb, "DEF mágica", "%d" % roundi(StatsMath.magic_jugador(
+		c.abilities_eff(), c.base_magic)), 0.0,
+		"Lo que te protege cuando el que lanza el hechizo es el otro.")
 	_fila_modal(vb, "VEL", "%d" % roundi(c.spd()), 0.0)
+	_fila_modal(vb, "VEL recitado", "%.1f" % c.cast_spd(), 0.0,
+		"Lo rápido que recitas, que no es lo rápido que blandes.")
 	vb.add_child(HSeparator.new())
 	MenuScaffold.titulo(vb, "Atributos avanzados", 14, GRIS)
 	# FISICO Y MAGICO POR SEPARADO, y con el MISMO formato que la rejilla de fuera: antes esta
@@ -906,19 +901,15 @@ func _abrir_modal_atributos(c: Combatant) -> void:
 	if c.crit_resist > 0.001:
 		_fila_modal(vb, "Resist. crítico", _pct(c.crit_resist), 0.0)
 	_fila_modal(vb, "Resist. estados", _pct(c.resist_estados()), 0.0)
-	var pj: PersonajeData = Game.pj_de_combatant(c)
-	if pj != null:
-		_fila_modal(vb, "Poder mágico", "×%.2f" % Game.poder_magico(pj), 0.0,
-			"Multiplica el daño que pone la ficha del hechizo, como el ataque al golpe físico.")
-	_fila_modal(vb, "Defensa mágica", "%.1f" % StatsMath.magic_jugador(
-		c.abilities_eff(), c.base_magic), 0.0,
-		"Lo que te protege cuando el que lanza el hechizo es el otro.")
+	# El multiplicador crudo se queda SOLO aqui: fuera se enseña ya convertido a daño (ATQ mágico).
+	if pj_l != null:
+		_fila_modal(vb, "Poder mágico", "×%.2f" % Game.poder_magico(pj_l), 0.0,
+			"El multiplicador en crudo. Es lo que convierte el daño de la ficha de un hechizo "
+			+ "en el que haces tú.")
 	if c.max_mp > 0.0:
 		_fila_modal(vb, "Maná máximo", "%.0f" % c.max_mp, 0.0)
 	_fila_modal(vb, "Regen. maná", "%.2f/turno" % c.mp_regen_turno, 0.0,
 		"Solo con arma mágica o pociones: el maná no se regenera solo.")
-	_fila_modal(vb, "Vel. recitado", "%.1f" % c.cast_spd(), 0.0,
-		"Lo rápido que recitas, que no es lo rápido que blandes.")
 	_fila_modal(vb, "Energía máxima", "%d" % roundi(c.max_energy), 0.0,
 		"Las habilidades y Defender la gastan; el ataque básico la recupera.")
 

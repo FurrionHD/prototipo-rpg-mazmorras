@@ -1040,11 +1040,14 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 
 	var tipo: String = WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)]
 	_row(vb, "  Tipo", tipo + ("  (magia)" if w.es_magica else ""))
-	_row(vb, "  Ataque", _con_mejoras("%.1f", float(base["raw"]), float(mods["raw"])))
-	# LO QUE TE DA A TI: el ataque del arma entra en (base + arma) × tu factor de Fuerza, asi que
-	# el numero de arriba no es lo que suma en tu personaje. Misma fuente que la ficha de combate.
-	_filas_para_ti(vb, w, mods)
-	_row(vb, "  Motion value", "×%.2f" % w.motion_value)
+	# EL DAÑO APLICADO POR GOLPE, no el raw: el raw ya lo multiplican tu Fuerza y el motion value
+	# antes de llegar al enemigo, asi que enseñarlo pelado no decia lo que el arma pega. El motion
+	# value ya no tiene fila propia porque va dentro de este numero. Entre parentesis, lo que
+	# ponen las mejoras (tambien aplicado, para que las dos mitades esten en la misma moneda).
+	var dur_w: float = Game.durabilidad_item(w)
+	_row(vb, "  Ataque", _con_mejoras("%.1f",
+		MenuScaffold.dano_arma(w, float(base["raw"]), _pj(), dur_w),
+		MenuScaffold.dano_arma(w, float(mods["raw"]), _pj(), dur_w)))
 	_row(vb, "  Velocidad", _con_mejoras("×%.2f",
 		w.velocidad_mult * float(base["vel_mult"]), w.velocidad_mult * float(mods["vel_mult"])))
 	# crit/aturdir/evasion ya vienen RESUELTOS de weapon_mods (base × rareza + mejoras). El
@@ -1094,10 +1097,9 @@ func _shield_stats(vb: VBoxContainer, sh: ShieldData, tier: int, rareza: int, me
 	_row(vb, "  Tipo", "Escudo %s  ·  mano secundaria"
 		% String(tamanos[clampi(int(sh.tamano), 0, tamanos.size() - 1)]).to_lower())
 	# Lo primero, la DEFENSA: es lo que crece con tier, rareza y mejoras. Y solo cuenta al Defender.
+	# Esta defensa es PLANA (se suma despues del multiplicador de Resistencia, al reves que la
+	# armadura), asi que el numero YA es lo que te da: no hace falta una fila "para ti".
 	_row(vb, "  Defensa al bloquear", _con_mejoras("%.1f", float(base["def"]), float(mods["def"])))
-	# Y el aviso de que esta es PLANA: se suma despues del multiplicador de Resistencia, al reves
-	# que la armadura. Sin decirlo, uno da por hecho que escala igual y no escala.
-	_filas_para_ti(vb, sh, mods)
 	# El bloqueo NO lleva tier ni rareza (es del tamaño): lo unico que lo sube es el Refuerzo, y
 	# eso es justo lo que enseña el parentesis.
 	_row(vb, "  Bloqueo", _con_mejoras_pct(float(base["bloqueo"]), float(mods["bloqueo"])))
@@ -1113,12 +1115,12 @@ func _shield_stats(vb: VBoxContainer, sh: ShieldData, tier: int, rareza: int, me
 # Las lineas magicas (baston y varita comparten math: Upgrades.magic_mods). 'mg' = con mejoras,
 # 'mgb' = el mismo item SIN ellas (su base con tier y rareza).
 func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base: float, cast_base: float) -> void:
-	_row(vb, "  Amplif. magia", _con_mejoras("×%.2f",
-		float(mgb["magic_amp"]), float(mg["magic_amp"])))
-	# La amplificacion sola no dice nada: multiplica TU Magia, asi que el mismo baston rinde una
-	# cosa en un mago y otra en un guerrero. Esto es lo que sale al juntarlo contigo.
-	for f in MenuScaffold.fila_poder_magico(float(mg["magic_amp"]), _pj()):
-		_row(vb, "  " + str(f[0]), str(f[1]))
+	# EL ATAQUE MAGICO, no la amplificacion. "×11.82" no se puede comparar con un ataque y ademas
+	# rinde una cosa en un mago y otra en un guerrero (multiplica TU Magia): se convierte a daño
+	# con el hechizo de referencia, que es la misma moneda que el ataque fisico de arriba.
+	_row(vb, "  Ataque mágico", _con_mejoras("%.1f",
+		MenuScaffold.dano_magico(_pj(), float(mgb["magic_amp"])),
+		MenuScaffold.dano_magico(_pj(), float(mg["magic_amp"]))))
 	# Regen PLANO por turno. El "base" ya lleva el tier y la rareza de ESTE item; el parentesis es
 	# lo que ponen las mejoras. La nota dice lo que significa el numero, que es lo que se pregunta
 	# el jugador: un hechizo corto cuesta 6 y tarda 2 turnos en salir.
@@ -1400,11 +1402,6 @@ func _factor_resistencia() -> float:
 	return MenuScaffold.factor_resistencia(_pj())
 
 
-# Las filas de "lo que esta pieza te da A TI", pintadas. La cuenta vive en MenuScaffold para que la
-# ficha del menu C y la de detalle del combate no puedan decir numeros distintos de la misma pieza.
-func _filas_para_ti(vb: VBoxContainer, item: Resource, mods: Dictionary) -> void:
-	for f in MenuScaffold.filas_para_ti(item, mods, _pj(), Game.durabilidad_item(item)):
-		_row(vb, "  " + str(f[0]), str(f[1]))
 
 
 # ============================================================

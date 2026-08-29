@@ -761,7 +761,11 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		# y el menu de personaje, con el tier/rareza/mejoras REALES de esta pieza (antes se
 		# enseñaban los valores base a secas, ignorando las mejoras y sin la evasion).
 		var meta: Dictionary = Game.meta_de(w)
-		for fila in MenuScaffold.filas_arma(w, int(meta["tier"]), int(meta["rareza"]), meta["mejoras"]):
+		# La DURABILIDAD de ESTA arma entra en la cuenta: aqui se mira una pieza concreta del baul,
+		# no un modelo de catalogo, y decir "20 de ataque" con la fila de abajo marcando un 60% de
+		# desgaste es contar dos cosas que no casan (el combate ya le aplica el ×0.90).
+		for fila in MenuScaffold.filas_arma(w, int(meta["tier"]), int(meta["rareza"]),
+				meta["mejoras"], null, Game.durabilidad_item(w)):
 			_row(vb, fila[0], fila[1])
 		_row(vb, "Durabilidad", Game.durabilidad_txt_item(w), Game.durabilidad_color(w))
 	elif item is ShieldData:
