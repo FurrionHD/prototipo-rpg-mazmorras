@@ -95,9 +95,15 @@ static var CATALOGO := {
 	"torso": {
 		"ranura": Ranura.PECHO, "gen": RopaSprites, "ancla": PoseJugador.P_TORSO,
 		"z": Z_TORSO, "titulo": "Camisa", "sin_nada": "Sin nada",
+		# DOS PIEZAS Y NO UNA: la prenda recorta de si misma el hueco de la cabeza (ver
+		# RopaSprites.HUECO_CABEZA), y en el golpe a dos manos el brazo del fondo cruza la cabeza, asi
+		# que la manga queda partida en dos. Eso es lo correcto -- un brazo por detras de la cabeza se
+		# ve cortado por ella --, pero con 1 declarado el validador de islas del horno lo cantaba en
+		# ocho fotogramas. El chaleco no tiene mangas y siempre es uno, y no pasa nada: 'piezas' es el
+		# TOPE que se admite sin avisar, no una cuenta exacta.
 		"modelos": {
-			"camisa": {"piezas": 1, "nombre": "Camisa"},
-			"tunica": {"piezas": 1, "nombre": "Túnica"},
+			"camisa": {"piezas": 2, "nombre": "Camisa"},
+			"tunica": {"piezas": 2, "nombre": "Túnica"},
 			"chaleco": {"piezas": 1, "nombre": "Chaleco"},
 		},
 	},

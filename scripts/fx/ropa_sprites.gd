@@ -55,6 +55,13 @@ const TELA := 1.3
 # Vale igual para la armadura que viene: un peto que suba de aqui tapara la cara, y no dara ningun
 # error. Las medidas de referencia (con ALTO_MUNDO = 60):
 #     pecho del cuerpo 34,0   ·   cabeza (borde de abajo) 34,9   ·   hombro con manga 34,8
+#
+# PERO ESAS MEDIDAS SON ALTURAS CRUDAS, Y ESO SOLO VALE PARA LO QUE ESTA EN EL EJE. Con esta camara
+# COS_CAM y SIN_CAM valen los dos 0,7071: PROFUNDIDAD Y ALTURA SON EL MISMO EJE DE PANTALLA. Una
+# pieza que se va 6,9 unidades hacia atras SUBE 6,9 unidades en pantalla, igual que si la hubieran
+# levantado. El hombro esta a 9,8 de X, asi que mirando en diagonal esa X se convierte en
+# profundidad -- y el margen de una decima que dicen los numeros de arriba deja de existir.
+# Es exactamente lo que le pasaba a la manga del fondo: ver HUECO_CABEZA.
 # CUANTO BAJA LA PRENDA por debajo de donde le tocaria, para dejar el cuello al aire. Es el numero a
 # mover si la camisa vuelve a comerse la barbilla (subirlo) o si se le ve demasiado pecho (bajarlo).
 const ESCOTE_BAJA := 1.5
@@ -94,6 +101,49 @@ const ESCOTE_ALTO := 2.6
 # CUANTO SUBE EL RECORTE por encima del cuello para meterse detras de la cabeza. ES EL NUMERO A
 # MOVER: si aparece un hueco oscuro bajo la barbilla, subirlo.
 const ESCOTE_SUBE := 4.2
+
+# ============================================================
+#  LA CABEZA SE RECORTA DE LA TELA: LA RED DE SEGURIDAD
+# ============================================================
+# EL SINTOMA ERA "LE HAN PEGADO UN MORDISCO EN LA CARA", y solo mirando en diagonal (SE y SW). La
+# culpable era la MANGA DEL FONDO, que solo se pinta cuando 'de_lado' -- falso de frente, cierto en
+# las diagonales: ese era el interruptor que encendia el fallo justo ahi y lo apagaba en el resto.
+#
+# Por que sube tanto: ver la nota de las alturas crudas de ESCOTE_BAJA. En SE el hombro del fondo
+# esta 6,93 unidades mas lejos, o sea 6,93 unidades MAS ARRIBA en pantalla, y la bola de arranque de
+# la manga (radio R_BRAZO + TELA) se metia SEIS CELDAS dentro de la silueta de la cabeza, entre el
+# cuello y la mejilla. De frente esa misma bola invade 0,6 celdas y no se ve.
+#
+# Y NO SE ARREGLA MOVIENDO LA MANGA, que fue lo primero que se probo. Bajar el arranque no vale:
+# para compensar 6 celdas de pantalla habria que bajarlo casi diez unidades, o sea por debajo de la
+# cintura. Y alejarlo del cuello hacia el codo (se probo a 0,30 y a 0,58 del tramo) TAMPOCO quita el
+# mordisco: no es solo la bola del arranque, es el tramo entero de la manga, que en diagonal se
+# proyecta encima de la cara. Ninguna de las dos se quedo en el codigo.
+#
+# ASI QUE SE HACE COMO EL CUERPO. Alli este mismo choque no se ve porque la cabeza se pinta DESPUES
+# del brazo, en la misma capa (ver cuerpo_sprites.gd). Entre capas no hay z-buffer, pero SI se puede
+# borrar: se recorta de la tela el hueco de la cabeza, al final del todo. El efecto es el mismo --
+# la cabeza gana siempre -- y no hace falta ni un caso por direccion.
+#
+# VA AL FINAL DEL TODO, despues de las mangas, porque la que muerde es una manga. Cualquier pieza
+# que se añada aqui y se pinte con TELA_S hereda gratis la garantia de que no puede comerse la cara.
+#
+# SOLO MUERDE 'TELA_S', Y ESO ES DELIBERADO. Se probo sobre los tres tonos y de espaldas destapaba la
+# NUCA: el pecho de la prenda (TELA) tapa el cuello por detras, que es lo que hace una camiseta de
+# verdad, y borrarlo dejaba un arco de carne desnuda bajo el pelo. La tela que se sube a la cara es
+# la de la manga del fondo, y esa va en TELA_S. Si algun dia una pieza de TELA vuelve a invadir la
+# cabeza, la solucion NO es añadir TELA a esta lista sin mirar el norte.
+#
+# VA UN PELIN MAS GRANDE QUE LA CABEZA. A ras exacto queda un hilo de tela entre el recorte y el
+# contorno de la cabeza -- un pixel suelto siguiendo la mandibula, que se lee como un halo sucio.
+#
+# LO QUE CUESTA, Y ES A PROPOSITO: en el golpe a dos manos el brazo del fondo CRUZA la cabeza, asi
+# que el hueco lo parte y la manga se ve en dos trozos (8 fotogramas de 98, entre camisa y tunica).
+# Eso es lo que de verdad pasa -- un brazo por detras de la cabeza se ve partido por ella --, pero el
+# validador de islas del horno lo cuenta como un trozo de mas, y por eso el torso esta declarado con
+# DOS piezas en JugadorSprites.CATALOGO. No se pudo evitar recortando menos: el brazo cruza a la
+# altura de la mandibula, que es exactamente donde hay que recortar para quitar el mordisco.
+const HUECO_CABEZA := 1.06
 # La manga corta acaba a esta fraccion del tramo hombro->codo.
 const MANGA_CORTA := 0.62
 # El bajo de una tunica, en fraccion del tramo cadera->rodilla.
@@ -179,14 +229,30 @@ static func _torso(piezas: Array, esq: Dictionary, manga: float, bajo: float) ->
 		Vector3(CuerpoSprites.R_CUELLO * ESCOTE_R, CuerpoSprites.R_CUELLO * ESCOTE_R, ESCOTE_ALTO),
 		Tono.VACIO, {"solo_sobre": [Tono.TELA, Tono.TELA_L, Tono.TELA_S]})
 
-	# 4. Las mangas que van por delante del tronco, al final.
-	if manga <= 0.0:
-		return
-	if de_lado:
-		_manga(piezas, esq, not izq_al_fondo, manga, Tono.TELA)
-	else:
-		_manga(piezas, esq, true, manga, Tono.TELA)
-		_manga(piezas, esq, false, manga, Tono.TELA)
+	# 4. Las mangas que van por delante del tronco.
+	if manga > 0.0:
+		if de_lado:
+			_manga(piezas, esq, not izq_al_fondo, manga, Tono.TELA)
+		else:
+			_manga(piezas, esq, true, manga, Tono.TELA)
+			_manga(piezas, esq, false, manga, Tono.TELA)
+
+	# 5. Y AL FINAL DEL TODO, el hueco de la cabeza (ver la nota larga de HUECO_CABEZA). Tiene que ir
+	# despues de las mangas -- la del fondo es justo la que se comia la cara --, asi que esta funcion
+	# no puede salirse antes por ningun lado: el chaleco (manga = 0) tambien pasa por aqui.
+	_hueco_cabeza(piezas, esq)
+
+
+# EL HUECO DE LA CABEZA. Borra de la tela lo que caiga donde va la cabeza, que es como el cuerpo
+# resuelve lo mismo pintandola la ultima (ver la nota larga de HUECO_CABEZA).
+#
+# Los radios salen de la cabeza que dibuja CuerpoSprites, no de numeros a mano: si algun dia cambia
+# la forma de la cabeza, el hueco la sigue solo.
+static func _hueco_cabeza(piezas: Array, esq: Dictionary) -> void:
+	var r: Vector3 = Vector3(CuerpoSprites.R_CABEZA, CuerpoSprites.R_CABEZA * 0.90,
+		CuerpoSprites.R_CABEZA * 0.96) * HUECO_CABEZA
+	PoseJugador.poner(piezas, esq, esq["puntos"][PoseJugador.P_CABEZA], r,
+		Tono.VACIO, {"solo_sobre": [Tono.TELA_S]})
 
 
 # Una manga. Arranca dentro del pecho (como el brazo del cuerpo, por el mismo motivo: agarrada por
