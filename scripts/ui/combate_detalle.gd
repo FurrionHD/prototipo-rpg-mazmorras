@@ -15,8 +15,10 @@
 #    - boton "i" arriba a la derecha  -> abre en el primer personaje de tu formacion.
 #    - mantener pulsado 1 s sobre una tarjeta/figura -> abre en ESE combatiente.
 #
-#  El jugador se sigue viendo como un CUADRADO (igual que en el combate): el MunecoJugador
-#  del escenario de combate es tarea aparte.
+#  El jugador y sus compañeros ya se ven con el MunecoJugador de verdad (ver _pintar_figura),
+#  mirando al SUR (de cara, como un retrato) -- lo contrario del escenario de combate, que
+#  mira al norte. Se cae al cuadrado de color solo si no hay ficha detras (combate suelto de
+#  pruebas, o un compañero espejado en red antes de que llegue su roster).
 # ============================================================
 
 extends Control
@@ -335,6 +337,32 @@ func _pintar_figura(c: Combatant) -> void:
 		sp.position = Vector2(lado * 0.5, lado * 0.9)
 		host.add_child(sp)
 		return
+
+	# EL MUÑECO DE VERDAD, para los tuyos con ficha detrás -- calco de VistaMuneco.mostrar(), que es
+	# el mismo problema (encajar el muñeco en un Control cuadrado). Mira al SUR (de cara, un
+	# retrato): lo CONTRARIO del escenario de combate (combat.gd, que mira al norte porque ahí el
+	# jugador da la espalda a la cámara para mirar a los enemigos) -- las dos direcciones van a
+	# propósito por separado.
+	if not _es_enemigo():
+		var pj: PersonajeData = Game.pj_de_combatant(c)
+		if pj != null:
+			host.clip_contents = true   # un Node2D dentro de un Control no se recorta solo
+			var m := MunecoJugador.new()
+			m.montar(pj)
+			m.tenir(pj.color, 0.0)
+			m.poner_cara(pj.textura())
+			if m.hay_dibujo():
+				# Mismo cálculo que VistaMuneco._recolocar (sin su hueco de barra de mandos: aquí no
+				# hay ninguna) -- centrado en el hueco, con los pies un poco por debajo del centro.
+				var esc: float = maxf(1.0, lado * 0.80 / PoseJugador.ALTO_MUNDO)
+				m.scale = Vector2.ONE * esc
+				var alto: float = PoseJugador.ALTO_MUNDO * esc
+				m.position = Vector2(lado * 0.5, (lado - alto) * 0.5
+					+ (PoseJugador.ALTO_MUNDO - PoseJugador.PIES_BAJO_NODO) * esc)
+				m.animar("idle_0")
+				host.add_child(m)
+				return
+			m.queue_free()   # sin capas de verdad (raro): se cae al cuadrado de siempre, como abajo
 
 	# CUADRADO, como en el combate: color + shader de la cara para los tuyos, color plano
 	# para un enemigo sin sprite.

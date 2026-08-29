@@ -400,6 +400,7 @@ var _turnos_enemigo: int = 0
 var _defendiendo: Dictionary = {}   # Combatant -> bool (dura hasta SU proximo turno)
 var _casteos: Dictionary = {}       # Combatant -> {"spell": SpellData, "idx": int}
 var _lentas: Dictionary = {}        # Combatant -> acciones lentas que le quedan por agotamiento
+var _golpe_mano: Dictionary = {}    # Combatant -> 0/1, la ULTIMA mano usada en dual (ver _anim_golpe_de)
 
 # true si elegiste Defender con el que tiene el turno (dura hasta su proxima accion)
 var _player_defending: bool:
@@ -2338,9 +2339,77 @@ func _montar_figura(actor: Control, c: Combatant, numero: int) -> ColorRect:
 	actor.add_child(fig)
 	if numero > 0:
 		_poner_sprite(fig, c)
+	else:
+		_poner_muneco(fig, c)
 	# El numero NO se repite aqui: cada figura tiene su tarjeta justo encima y ya lo lleva, asi que
 	# ponerlo tambien en el escenario es decir dos veces lo mismo en dos sitios que se miran.
 	return fig
+
+
+# EL MUÑECO DE VERDAD encima de la figura del jugador/compañero -- calco de _poner_sprite, pero
+# montando el cuerpo entero (arma, escudo, ropa, cara) en vez de un AnimatedSprite2D de bicho.
+#
+# SIN FICHA, NO HAY MUÑECO. Un combate suelto de pruebas (F6) o un compañero espejado en red antes
+# de que llegue su roster no tienen PersonajeData detrás -- MunecoJugador.montar() necesita uno de
+# verdad, así que en esos casos no se toca nada y se queda el ColorRect tintado de _montar_figura
+# (que ya sabe degradar: mira Game.pj_de_combatant en _color_de/_material_de).
+#
+# MIRA AL NORTE (dir 4, de espaldas a cámara): en combate el jugador mira a los enemigos. Es la
+# dirección CONTRARIA a la ficha de detalle (combate_detalle.gd, que lo enseña de cara) -- las dos
+# van a propósito por separado, no las unifiques en una constante compartida.
+func _poner_muneco(fig: ColorRect, c: Combatant) -> void:
+	var pj: PersonajeData = Game.pj_de_combatant(c)
+	if pj == null:
+		return
+	var m := MunecoJugador.new()
+	m.montar(pj)
+	m.tenir(pj.color, 0.0)
+	m.poner_cara(pj.textura())
+	if not m.hay_dibujo():
+		m.queue_free()
+		return
+	# Apoyado en el suelo de la figura (los pies del muñeco son su propio origen, sin offset que
+	# calcular) y escalado para ocupar la caja -- mismo espíritu que VistaMuneco._recolocar, sin su
+	# hueco de barra de mandos (aquí no hay ninguna).
+	var esc: float = LADO_FIGURA * 0.85 / PoseJugador.ALTO_MUNDO
+	m.scale = Vector2.ONE * esc
+	m.position = Vector2(LADO_FIGURA * 0.5, LADO_FIGURA)
+	m.animar("idle_4")
+	fig.set_meta("muneco", m)
+	# LA VUELTA A REPOSO, enganchada UNA SOLA VEZ aquí, que es donde nace el muñeco -- mismo motivo
+	# que _poner_sprite con animation_finished (conectarla en cada encaje la acumularía).
+	m.finished.connect(_on_anim_muneco_terminada.bind(m))
+	fig.add_child(m)
+	fig.color = Color(0, 0, 0, 0)   # manda el muñeco; el rect se queda solo como caja
+
+
+# EL Combatant de un bloque ALIADO. NO se puede leer de b["idx"]: en los bloques de aliado ese
+# campo va siempre a -1 (_anadir_bloque_aliado llama a _crear_bloque(c, 0, -1) -- es un resto del
+# mismo parametro que en los de enemigo SÍ es su hueco en _enemies). _bloques_aliados en cambio SÍ
+# va en el mismo orden que _aliados (ver su declaracion), así que se busca la POSICION del bloque
+# ahí, no un campo suyo.
+func _combatant_de_bloque_aliado(b: Dictionary) -> Combatant:
+	var i: int = _bloques_aliados.find(b)
+	return _aliados[i] if i >= 0 and i < _aliados.size() else null
+
+
+# QUE ANIMACION DE GOLPE le toca a ESTE combatiente ahora mismo. Calco de player._elegir_golpe(),
+# pero por PersonajeData en vez de Game.equipped_main/equipped_off -- ese par es SOLO del líder, y
+# aqui puede tocarle a cualquiera del grupo. "golpe_2m" si el arma principal es a dos manos; si
+# tiene secundaria de una mano, alterna de mano golpe a golpe (igual que en el mapa, ver
+# _golpe_mano); si no, siempre la derecha.
+func _anim_golpe_de(c: Combatant) -> String:
+	var pj: PersonajeData = Game.pj_de_combatant(c)
+	if pj == null:
+		return "golpe"
+	var main = pj.equipped_main
+	if main is WeaponData and bool(main.dos_manos):
+		return "golpe_2m"
+	if pj.equipped_off is WeaponData:
+		var mano: int = 1 - int(_golpe_mano.get(c, 0))
+		_golpe_mano[c] = mano
+		return "golpe_izq" if mano == 1 else "golpe"
+	return "golpe"
 
 
 # LO QUE DURA MORIRSE, en segundos de animacion. Es la duracion natural de la animacion 'muerte' de
@@ -2356,7 +2425,14 @@ const T_MUERTE := 0.80
 # el reloj del motor y el combate con el suyo (CombatFX.escala_tiempo). A velocidad x2 el bicho se
 # desvaneceria a medio derretir, porque la columna se retira con el reloj rapido y el dibujo iba con
 # el lento.
-func _arrancar_muerte(b: Dictionary, sp: AnimatedSprite2D) -> bool:
+func _arrancar_muerte(b: Dictionary, nodo: Node) -> bool:
+	if nodo is MunecoJugador:
+		# El jugador SIEMPRE tiene 'muerte' horneada. Sin 'muerte_queda': ese contador es solo para
+		# _avanzar_retiradas, que retira la columna del enemigo muerto de la fila -- los ALIADOS
+		# nunca se retiran (se quedan en su sitio a propósito, ver _apagar_visual), así que no aplica.
+		(nodo as MunecoJugador).animar("muerte_4")
+		return true
+	var sp := nodo as AnimatedSprite2D
 	if sp == null or sp.sprite_frames == null or not sp.sprite_frames.has_animation(&"muerte_0"):
 		return false
 	var esc: float = 1.0
@@ -2380,6 +2456,29 @@ func _sprite_de(b: Dictionary) -> AnimatedSprite2D:
 	return sp if sp != null and is_instance_valid(sp) else null
 
 
+# EL MUÑECO de un bloque (jugador/compañero), o null si sigue siendo un cuadrado de color. Hermano
+# de _sprite_de -- clave de metadata DISTINTA ("muneco", no "sprite") a propósito: _ajustar_zoom_sprites
+# solo mira "sprite"/"alto_base", así que con esto YA lo ignora sin tocar esa función.
+func _muneco_de(b: Dictionary) -> MunecoJugador:
+	var fig: ColorRect = b.get("figura")
+	if fig == null or not is_instance_valid(fig) or not fig.has_meta("muneco"):
+		return null
+	var m: MunecoJugador = fig.get_meta("muneco")
+	return m if m != null and is_instance_valid(m) else null
+
+
+# EL NODO QUE LLEVA LA POSE de este bloque, sea cual sea (AnimatedSprite2D de un enemigo o
+# MunecoJugador de un aliado). null si sigue siendo un cuadrado de color liso. Es el único sitio
+# donde los disparadores de más abajo (_on_gesto_iniciado, _on_golpe_encajado...) deciden CUÁL de
+# los dos hay -- a partir de ahí branchean por tipo, nunca duplican la función entera (ver memoria
+# ramas-espejo-jugador-enemigo: ya mordió una vez en este archivo).
+func _nodo_pose_de(b: Dictionary) -> Node:
+	var sp: AnimatedSprite2D = _sprite_de(b)
+	if sp != null:
+		return sp
+	return _muneco_de(b)
+
+
 # QUIEN MANDA SOBRE EL SPRITE. Tres cosas quieren mover al mismo bicho a la vez -- ataca, le pegan,
 # y se muere-- y sin una regla se pisan en el peor momento posible: justo en el golpe que lo mata,
 # que es cuando pasan las tres.
@@ -2395,23 +2494,32 @@ func _sprite_de(b: Dictionary) -> AnimatedSprite2D:
 enum PoseSprite { REPOSO, ENCAJE, GESTO, MUERTE }
 
 
-func _pose_estado(sp: AnimatedSprite2D) -> int:
-	return int(sp.get_meta("pose_estado", PoseSprite.REPOSO))
+# 'nodo' es un AnimatedSprite2D (enemigo) o un MunecoJugador (jugador/compañero) -- get_meta/
+# set_meta son de Node, así que la precedencia MUERTE>GESTO>ENCAJE>REPOSO vale para los dos sin
+# ninguna copia.
+func _pose_estado(nodo: Node) -> int:
+	return int(nodo.get_meta("pose_estado", PoseSprite.REPOSO))
 
 
-func _pose_marcar(sp: AnimatedSprite2D, estado: int) -> void:
-	sp.set_meta("pose_estado", estado)
+func _pose_marcar(nodo: Node, estado: int) -> void:
+	nodo.set_meta("pose_estado", estado)
 
 
-# A REPOSO. Un solo sitio, porque llegan aqui los dos finales (el del gesto y el del encaje) y el
-# speed_scale hay que devolverlo en los dos: se toca para ajustar la animacion al tiempo que tiene.
-func _pose_reposo(sp: AnimatedSprite2D) -> void:
-	_pose_marcar(sp, PoseSprite.REPOSO)
-	sp.speed_scale = 1.0
-	if sp.sprite_frames != null and sp.sprite_frames.has_animation(&"idle_0"):
-		sp.animation = &"idle_0"
-		sp.frame = 0
-		sp.play()
+# A REPOSO. Un solo sitio, porque llegan aqui los dos finales (el del gesto y el del encaje) -- y
+# ahora los dos tipos de nodo, sprite de bicho o muñeco de jugador.
+func _pose_reposo(nodo: Node) -> void:
+	_pose_marcar(nodo, PoseSprite.REPOSO)
+	if nodo is AnimatedSprite2D:
+		var sp: AnimatedSprite2D = nodo
+		# El speed_scale hay que devolverlo aqui: se toca para ajustar la animacion al tiempo que
+		# tiene (ver _pose_ajustar) y si no se resetea se queda pegado al ritmo del ultimo gesto.
+		sp.speed_scale = 1.0
+		if sp.sprite_frames != null and sp.sprite_frames.has_animation(&"idle_0"):
+			sp.animation = &"idle_0"
+			sp.frame = 0
+			sp.play()
+	elif nodo is MunecoJugador:
+		(nodo as MunecoJugador).animar("idle_4")
 
 
 # LA VUELTA A REPOSO DESPUES DE ENCAJAR. Se engancha UNA VEZ POR SPRITE (en _poner_sprite) y solo
@@ -2426,24 +2534,46 @@ func _on_anim_sprite_terminada(sp: AnimatedSprite2D) -> void:
 	_pose_reposo(sp)
 
 
+# HERMANA de la de arriba, para el muñeco -- NO es la misma rama espejo que se evitó en el resto de
+# este archivo: están enganchadas a DOS SEÑALES DE DOS TIPOS DE NODO distintos en el momento de
+# conectar (animation_finished del sprite en _poner_sprite, finished del muñeco en _poner_muneco),
+# así que hacen falta dos puntos de conexión -- pero las dos llaman a la MISMA _pose_reposo por
+# dentro, que es donde vive la lógica de verdad.
+func _on_anim_muneco_terminada(m: MunecoJugador) -> void:
+	if m == null or not is_instance_valid(m):
+		return
+	if _pose_estado(m) != PoseSprite.ENCAJE:
+		return
+	_pose_reposo(m)
+
+
 # LE ENTRA UN GOLPE: el cuerpo lo acusa. Es la otra mitad de gesto_iniciado -- aquel es del que
 # pega, este del que lo recibe-- y llega UNA VEZ POR GOLPE, no una por accion.
 #
 # Un encaje SI pisa a otro encaje: seis mordiscos de un Frenesi tienen que leerse como seis
 # sacudidas, no como un temblor continuo. Lo que no puede es pisar a algo de mas rango.
 func _on_golpe_encajado(b: Dictionary, dur: float) -> void:
-	var sp: AnimatedSprite2D = _sprite_de(b)
-	if sp == null or sp.sprite_frames == null:
+	var nodo: Node = _nodo_pose_de(b)
+	if nodo == null:
 		return
-	if _pose_estado(sp) >= PoseSprite.GESTO:
+	if _pose_estado(nodo) >= PoseSprite.GESTO:
 		return
-	# Una sola direccion: en combate al bicho se le ve siempre de frente (ver los generadores). El
-	# que no la tenga horneada se queda como hasta ahora, con el destello y la sacudida de la figura.
-	var anim := &"encaje_0"
-	if not sp.sprite_frames.has_animation(anim):
-		return
-	_pose_marcar(sp, PoseSprite.ENCAJE)
-	_pose_ajustar(sp, anim, dur)
+	if nodo is AnimatedSprite2D:
+		var sp: AnimatedSprite2D = nodo
+		if sp.sprite_frames == null:
+			return
+		# Una sola direccion: en combate al bicho se le ve siempre de frente (ver los generadores).
+		# El que no la tenga horneada se queda como hasta ahora, con el destello y la sacudida.
+		var anim := &"encaje_0"
+		if not sp.sprite_frames.has_animation(anim):
+			return
+		_pose_marcar(sp, PoseSprite.ENCAJE)
+		_pose_ajustar(sp, anim, dur)
+	else:
+		# El jugador SIEMPRE tiene 'encaje' horneado (viene con el muñeco de fábrica) -- a diferencia
+		# del bicho, aqui no hace falta comprobar que exista.
+		_pose_marcar(nodo, PoseSprite.ENCAJE)
+		(nodo as MunecoJugador).animar("encaje_4")
 
 
 # Ajusta la animacion al TIEMPO QUE TIENE y la arranca. 'dur' viene en segundos reales: un
@@ -2465,23 +2595,37 @@ func _pose_ajustar(sp: AnimatedSprite2D, anim: StringName, dur: float) -> void:
 # mientras que el gesto corre con el de CombatFX (escala_tiempo) -- a velocidad x2 el cuerpo iria
 # al doble y el dibujo a ritmo normal, cada uno por su lado.
 func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = &"") -> void:
-	var sp: AnimatedSprite2D = _sprite_de(b)
-	if sp == null or sp.sprite_frames == null:
-		return   # sin sprite el gesto sigue valiendo: lo que se mueve es la figura
+	var nodo: Node = _nodo_pose_de(b)
+	if nodo == null:
+		return   # sin sprite/muñeco el gesto sigue valiendo: lo que se mueve es la figura
 	# Un muerto no ataca. Ver PoseSprite: la muerte lo pisa todo.
-	if _pose_estado(sp) == PoseSprite.MUERTE:
+	if _pose_estado(nodo) == PoseSprite.MUERTE:
 		return
-	# LA QUE PIDA LA HABILIDAD, y si no la tiene (o no pide ninguna), su gesto de atacar de siempre.
-	# Pedir una animacion que ese bicho no tenga no rompe nada: ataca como cualquier otro dia.
-	var anim := StringName("embestida_%d" % dir)
-	if pide != &"":
-		var propia := StringName("%s_%d" % [pide, dir])
-		if sp.sprite_frames.has_animation(propia):
-			anim = propia
-	if not sp.sprite_frames.has_animation(anim):
-		return
-	_pose_marcar(sp, PoseSprite.GESTO)
-	_pose_ajustar(sp, anim, dur)
+	if nodo is AnimatedSprite2D:
+		var sp: AnimatedSprite2D = nodo
+		if sp.sprite_frames == null:
+			return
+		# LA QUE PIDA LA HABILIDAD, y si no la tiene (o no pide ninguna), su gesto de atacar de
+		# siempre. Pedir una animacion que ese bicho no tenga no rompe nada: ataca como cualquier
+		# otro dia.
+		var anim := StringName("embestida_%d" % dir)
+		if pide != &"":
+			var propia := StringName("%s_%d" % [pide, dir])
+			if sp.sprite_frames.has_animation(propia):
+				anim = propia
+		if not sp.sprite_frames.has_animation(anim):
+			return
+		_pose_marcar(sp, PoseSprite.GESTO)
+		_pose_ajustar(sp, anim, dur)
+	else:
+		# El jugador no tiene "embestida": golpe/golpe_izq/golpe_2m segun lo que lleve equipado (ver
+		# _anim_golpe_de), siempre mirando al norte -- 'dir' no se usa aqui, el jugador solo tiene
+		# horneada esa direccion para los golpes en combate.
+		var c: Combatant = _combatant_de_bloque_aliado(b)
+		if c == null:
+			return
+		_pose_marcar(nodo, PoseSprite.GESTO)
+		(nodo as MunecoJugador).animar("%s_4" % _anim_golpe_de(c))
 
 
 # Y AL ACABAR, a reposo. Sin esto se queda clavado en el ultimo frame del ataque: 'embestida' es
@@ -2492,12 +2636,12 @@ func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = 
 # aqui y resucitaria visualmente -- vuelto a su idle, tan tranquilo, al final de la racha que lo
 # acababa de matar.
 func _on_gesto_terminado(b: Dictionary) -> void:
-	var sp: AnimatedSprite2D = _sprite_de(b)
-	if sp == null or sp.sprite_frames == null:
+	var nodo: Node = _nodo_pose_de(b)
+	if nodo == null:
 		return
-	if _pose_estado(sp) == PoseSprite.MUERTE:
+	if _pose_estado(nodo) == PoseSprite.MUERTE:
 		return
-	_pose_reposo(sp)
+	_pose_reposo(nodo)
 
 
 # EL SPRITE del enemigo encima de su figura, si es de los que ya tienen uno. Los que no (hoy la
@@ -2913,16 +3057,16 @@ func _apagar_visual(b: Dictionary, es_aliado: bool) -> void:
 	var panel: Control = b.get("panel")
 	if panel == null or not is_instance_valid(panel):
 		return
-	# EL SPRITE SE QUEDA MUERTO, pase lo que pase despues. Sin esta marca, un bicho que caiga
+	# EL SPRITE/MUÑECO SE QUEDA MUERTO, pase lo que pase despues. Sin esta marca, un bicho que caiga
 	# mientras atacaba resucita al cerrarse la cola (ver _on_gesto_terminado), y hasta un golpe de
 	# area que le entrara ya cadaver le haria sacudir la cabeza. Ver PoseSprite.
-	var sp_muerto: AnimatedSprite2D = _sprite_de(b)
-	if sp_muerto != null:
-		_pose_marcar(sp_muerto, PoseSprite.MUERTE)
+	var nodo_muerto: Node = _nodo_pose_de(b)
+	if nodo_muerto != null:
+		_pose_marcar(nodo_muerto, PoseSprite.MUERTE)
 	# Y AQUI ES DONDE SE MUERE. Este es el momento exacto: _apagar_diferido ya ha esperado a que
 	# aterrice el golpe que lo mata (señal apagar_ahora), asi que la muerte empieza justo cuando le
 	# entra el ultimo porrazo y no antes.
-	var muriendo: bool = _arrancar_muerte(b, sp_muerto)
+	var muriendo: bool = _arrancar_muerte(b, nodo_muerto)
 	# EL GRIS VA EN LA COLUMNA, no en la tarjeta: asi cae sobre la ficha Y sobre la figura del
 	# escenario de una vez. Y no puede ir en la figura misma, que es de CombatFX -- su modulate se
 	# reescribe cada frame (ver _aplicar) y se comeria el gris al instante.

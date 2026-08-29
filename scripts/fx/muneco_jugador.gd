@@ -85,6 +85,17 @@ var _marcos: int = 1
 # deja de correr hasta que alguien vuelva a pedir una animacion.
 var _fijo: int = -1
 
+# AVISA CUANDO UNA ANIMACION DE UN SOLO TIRO LLEGA A SU ULTIMO FOTOGRAMA (golpe, encaje, muerte,
+# desenvainar...). Es lo que le falta a este nodo para engancharse donde hoy solo engancha
+# AnimatedSprite2D.animation_finished (la pantalla de combate, ver combat.gd). NO ES LO MISMO que
+# esa señal de Godot: esa dispara en CADA vuelta de una animacion en bucle, y esta SOLO dispara una
+# vez por animacion de un solo tiro -- a proposito, porque es lo unico que necesita combate (saber
+# cuando el golpe/encaje/muerte del jugador ha terminado, nunca "el idle ha vuelto a empezar"). Si
+# algun dia hiciera falta el otro comportamiento, que sea una señal nueva, no que esta cambie de
+# sitio.
+signal finished
+var _fin_emitido: bool = false
+
 
 func _ready() -> void:
 	# Z ABSOLUTO. El muñeco cuelga de un cuerpo que puede estar a cualquier z (el sequito va a -1),
@@ -351,6 +362,7 @@ func fijar(nombre: String, marco: int) -> void:
 func _aplicar_anim(nombre: String, reinicia: bool) -> void:
 	_anim = nombre
 	_fijo = -1
+	_fin_emitido = false
 	if reinicia:
 		_reloj = 0.0
 	# Los datos de ritmo salen de la PRIMERA capa que tenga esta animacion. Todas tienen las mismas
@@ -401,8 +413,18 @@ func _process(delta: float) -> void:
 	var i: int = int(_reloj * _fps)
 	if _loop:
 		i = i % _marcos
-	elif i >= _marcos:
+		_escribir(i)
+		return
+	if i >= _marcos - 1:
 		i = _marcos - 1     # las que no repiten se quedan en el ultimo fotograma
+		_escribir(i)
+		# SOLO UNA VEZ: sin este guarda, cada fotograma que sigue pasando (la animacion terminada se
+		# queda clavada en el ultimo) volveria a emitir. 'finished' DESPUES de escribir, para que
+		# quien la escuche vea ya el ultimo fotograma puesto (igual que animation_finished de Godot).
+		if not _fin_emitido:
+			_fin_emitido = true
+			finished.emit()
+		return
 	_escribir(i)
 
 
