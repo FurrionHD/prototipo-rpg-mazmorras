@@ -2016,6 +2016,9 @@ func _anadir_bloque_aliado(c: Combatant) -> void:
 	_aliados_box.add_child(ba["columna"])
 	# La fila acaba de crecer: puede que lo que cabia antes ya no quepa (ver _ancho_bloque).
 	_reajustar_anchos(_bloques_aliados, _bloques_aliados.size())
+	# Y puede que el que se une sea mas grande (o mas pequeño) que el resto de la pelea -- el factor
+	# de zoom es compartido con los enemigos, ver _ajustar_zoom_sprites.
+	_ajustar_zoom_sprites()
 
 
 # UN ALIADO MAS en la pelea en curso (hito 5.4-C): entra el personaje de otro humano que se une.
@@ -2368,14 +2371,23 @@ func _poner_muneco(fig: ColorRect, c: Combatant) -> void:
 	if not m.hay_dibujo():
 		m.queue_free()
 		return
-	# Apoyado en el suelo de la figura (los pies del muñeco son su propio origen, sin offset que
-	# calcular) y escalado para ocupar la caja -- mismo espíritu que VistaMuneco._recolocar, sin su
-	# hueco de barra de mandos (aquí no hay ninguna).
-	var esc: float = LADO_FIGURA * 0.85 / PoseJugador.ALTO_MUNDO
-	m.scale = Vector2.ONE * esc
+	# Apoyado en el suelo de la figura, igual que _poner_sprite -- los pies del muñeco son su propio
+	# origen (sin offset que calcular).
 	m.position = Vector2(LADO_FIGURA * 0.5, LADO_FIGURA)
 	m.animar("idle_4")
+	# EL TAMAÑO NO SE DECIDE AQUI, igual que con el sprite del enemigo: se apunta cuanto "mide de
+	# fabrica" (a escala 1.0, en las MISMAS unidades que 'alto_base'/'ancho_base' del enemigo --
+	# ver _poner_sprite -- porque ALTO_MUNDO ya esta en pixeles de pantalla a esa escala) y lo
+	# reparte despues _ajustar_zoom_sprites, que mira a TODOS -- los tuyos y los de enfrente -- para
+	# saber quien es el mas grande de la pelea entera. Un jefe gigante tiene que verse gigante junto
+	# a tu personaje, no que cada fila se las arregle con su propio zoom.
+	#
+	# El ancho es a ojo (0.55×ALTO_MUNDO): a diferencia del bicho, que mide el pixel pintado de
+	# verdad de su primer fotograma, el muñeco es una pila de ~10 capas y sacar el ancho pintado de
+	# la pila entera no compensa para esto -- solo entra como tope de columna, y de sobra.
 	fig.set_meta("muneco", m)
+	fig.set_meta("alto_base", PoseJugador.ALTO_MUNDO)
+	fig.set_meta("ancho_base", PoseJugador.ALTO_MUNDO * 0.55)
 	# LA VUELTA A REPOSO, enganchada UNA SOLA VEZ aquí, que es donde nace el muñeco -- mismo motivo
 	# que _poner_sprite con animation_finished (conectarla en cada encaje la acumularía).
 	m.finished.connect(_on_anim_muneco_terminada.bind(m))
@@ -2711,10 +2723,13 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 	fig.color = Color(0, 0, 0, 0)   # manda el sprite; el rect se queda solo como caja
 
 
-# EL TAMAÑO DE LOS SPRITES, en relacion AL MAS GRANDE de la pelea: el mayor llena su hueco de
-# arriba abajo y todos los demas se escalan con SU MISMO factor.
+# EL TAMAÑO DE TODOS -- enemigos Y los tuyos --, en relacion AL MAS GRANDE DE LA PELEA ENTERA: el
+# mayor llena su hueco de arriba abajo y todos los demas se escalan con SU MISMO factor. UN SOLO
+# factor para las dos filas: si el jefe es del doble de alto que tu personaje, tiene que VERSE del
+# doble de alto que tu personaje, no que cada fila se las arregle sola y el tamaño relativo entre
+# bandas salga de la nada.
 #
-# Se hace asi, y de una vez para toda la fila, porque las dos alternativas obvias fallan:
+# Se hace asi, y de una vez para toda la pelea, porque las dos alternativas obvias fallan:
 #   - Un zoom fijo no sirve: cada piso trae bichos de tamaños muy distintos, y el que le viene
 #     bien a un slime deja al trent saliendose por arriba (o al reves, cuatro ratas diminutas).
 #   - Escalar a cada uno para que llene su hueco (SpritesEnemigo.zoom_visor) IGUALA a todos, que
@@ -2722,12 +2737,13 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 # Con un factor comun sacado del mayor, se aprovecha todo el alto disponible Y un trent sigue
 # siendo el doble de alto que un slime, que es lo que dicen sus dibujos (60 px contra 27).
 #
-# Hay que rehacerlo cada vez que cambia QUIEN esta en la fila: si entra un refuerzo mas grande que
-# los que habia, encoge a todos los demas para dejarle sitio.
+# Hay que rehacerlo cada vez que cambia QUIEN esta en cualquiera de las dos filas: si entra un
+# refuerzo (o un compañero) mas grande que los que habia, encoge a todos los demas para dejarle
+# sitio -- en las DOS filas, porque el factor es compartido.
 func _ajustar_zoom_sprites() -> void:
 	var mayor: float = 0.0
 	var mas_ancho: float = 0.0
-	var vivos: int = 0
+	var vivos_enemigos: int = 0
 	for b in _bloques:
 		var fig: ColorRect = b.get("figura")
 		if fig == null or not is_instance_valid(fig) or not fig.has_meta("alto_base"):
@@ -2737,29 +2753,54 @@ func _ajustar_zoom_sprites() -> void:
 		if i >= 0 and i < _enemies.size() and not _enemies[i].is_alive():
 			continue
 		mayor = maxf(mayor, float(fig.get_meta("alto_base")))
-		# Y EL MAS ANCHO, que no tiene por que ser el mismo bicho: el trent es alto y estrecho, el
-		# slime bajo y ancho. Como el factor es UNO para toda la fila, tiene que valerle a los dos.
+		# Y EL MAS ANCHO, que no tiene por que ser el mismo que el mas alto: el trent es alto y
+		# estrecho, el slime bajo y ancho. Como el factor es UNO para toda la pelea, tiene que
+		# valerle a todos.
 		mas_ancho = maxf(mas_ancho, float(fig.get_meta("ancho_base", LADO_FIGURA)))
-		vivos += 1
+		vivos_enemigos += 1
+	# LOS TUYOS cuentan IGUAL para decidir quien es "el mas grande" -- ver la cabecera. 'alto_base'/
+	# 'ancho_base' de un muñeco los deja puestos _poner_muneco, en las mismas unidades (pixeles de
+	# pantalla a escala 1.0) que usan los bichos, asi que se comparan sin convertir nada.
+	var vivos_aliados: int = 0
+	for ba in _bloques_aliados:
+		var figa: ColorRect = ba.get("figura")
+		if figa == null or not is_instance_valid(figa) or not figa.has_meta("alto_base"):
+			continue
+		var ca: Combatant = _combatant_de_bloque_aliado(ba)
+		if ca != null and not ca.is_alive():
+			continue
+		mayor = maxf(mayor, float(figa.get_meta("alto_base")))
+		mas_ancho = maxf(mas_ancho, float(figa.get_meta("ancho_base", LADO_FIGURA)))
+		vivos_aliados += 1
 	if mayor <= 0.0:
 		return
 	# LLENAR EL ALTO ES LA INTENCION, PERO EL ANCHO MANDA CUANDO NO DA. El factor salia solo del
-	# alto, y con cinco enemigos en la fila las columnas se estrechan mientras el zoom sigue siendo
-	# el mismo: los slimes -- que son anchos y bajos, o sea los que peor lo llevan -- se salian de su
-	# columna y se pisaban unos a otros.
+	# alto, y con cinco en la fila las columnas se estrechan mientras el zoom sigue siendo el
+	# mismo: los anchos y bajos -- los que peor lo llevan -- se salian de su columna y se pisaban
+	# unos a otros. CADA FILA TIENE SU PROPIO HUECO (el ancho de columna se reparte por separado en
+	# cada banda, pueden tener distinto numero de miembros), asi que las dos limitan el MISMO factor.
 	#
-	# Se cuenta con TODAS las tarjetas de la banda y no solo con las que tienen sprite: el ancho de
-	# columna lo reparte _ancho_bloque entre todas las que se ven (ver _recomponer_fila_enemigos), asi
-	# que es ese mismo numero el que hay que darle o el reparto no cuadra.
-	var visibles: int = 0
+	# Se cuenta con TODAS las tarjetas de cada banda y no solo con las que tienen sprite/muñeco: el
+	# ancho de columna lo reparte _ancho_bloque entre todas las que se ven, asi que es ese mismo
+	# numero el que hay que darle o el reparto no cuadra.
+	var visibles_enemigos: int = 0
 	for b2 in _bloques:
 		var col: Control = b2.get("columna")
 		if col != null and is_instance_valid(col) and col.visible:
-			visibles += 1
-	var hueco: float = _ancho_bloque(maxi(visibles, vivos)) - MARGEN_SPRITE * 2.0
+			visibles_enemigos += 1
+	var visibles_aliados: int = 0
+	for ba2 in _bloques_aliados:
+		var cola: Control = ba2.get("columna")
+		if cola != null and is_instance_valid(cola) and cola.visible:
+			visibles_aliados += 1
 	var factor: float = ALTO_ACTOR / mayor
 	if mas_ancho > 0.0:
-		factor = minf(factor, hueco / mas_ancho)
+		if vivos_enemigos > 0:
+			var hueco_e: float = _ancho_bloque(maxi(visibles_enemigos, vivos_enemigos)) - MARGEN_SPRITE * 2.0
+			factor = minf(factor, hueco_e / mas_ancho)
+		if vivos_aliados > 0:
+			var hueco_a: float = _ancho_bloque(maxi(visibles_aliados, vivos_aliados)) - MARGEN_SPRITE * 2.0
+			factor = minf(factor, hueco_a / mas_ancho)
 	for b in _bloques:
 		var fig2: ColorRect = b.get("figura")
 		if fig2 == null or not is_instance_valid(fig2) or not fig2.has_meta("sprite"):
@@ -2771,6 +2812,14 @@ func _ajustar_zoom_sprites() -> void:
 			# lo necesita CombatFX para saber cuanto tiene que hincharse el que se deja caer encima
 			# de un grupo -- y se actualiza aqui, que es el unico sitio que cambia esa escala.
 			b["ancho_dibujo"] = float(fig2.get_meta("ancho_base", LADO_FIGURA)) * factor
+	for ba3 in _bloques_aliados:
+		var figm: ColorRect = ba3.get("figura")
+		if figm == null or not is_instance_valid(figm) or not figm.has_meta("muneco"):
+			continue
+		var m3: MunecoJugador = figm.get_meta("muneco")
+		if m3 != null and is_instance_valid(m3):
+			m3.scale = Vector2.ONE * factor
+			ba3["ancho_dibujo"] = float(figm.get_meta("ancho_base", LADO_FIGURA)) * factor
 
 
 # Estilo del bloque: seleccionado = borde blanco alrededor de todo, normal = borde transparente.
@@ -3097,6 +3146,12 @@ func _apagar_visual(b: Dictionary, es_aliado: bool) -> void:
 	# quedan en su sitio a proposito). Ver _avanzar_retiradas.
 	if not es_aliado and not _retirando.has(b):
 		_retirando.append(b)
+		# Un enemigo muerto ya no cuenta para el zoom compartido -- para los de enfrente esto llega
+		# solo, mas tarde, via _recomponer_fila_enemigos cuando se retira de verdad. Para un ALIADO,
+		# que se queda en su sitio y nunca dispara esa recomposicion, hay que pedirlo aqui: si era el
+		# mas grande de la pelea, el resto no puede seguir encogido por un cadaver.
+	elif es_aliado:
+		_ajustar_zoom_sprites()
 
 
 # UN ALIADO CAE (KO). No es una derrota: sale del orden de turnos, se le apaga el bloque y la
