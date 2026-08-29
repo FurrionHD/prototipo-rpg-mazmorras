@@ -51,12 +51,35 @@ const R := PoseJugador.CABEZA_R
 # MEDIDO, no a ojo: el pelo tapa la cabeza hasta unas tres celdas por debajo de su centro, y la
 # barbilla acaba diez mas abajo. Los ojos van en medio de esa franja -- que es la unica cara que se
 # ve -- y no en el centro de la cabeza, que queda debajo del pelo.
-const OJO_ALTO := -0.18          # respecto al centro de la cabeza
+#
+# BAJARON DE -0,18 A -0,26 cuando se midio de verdad donde acaba el pelo. A -0,18 el ojo caia entre
+# las celdas 25,3 y 20,7 de pantalla y el casquete llegaba a la 23,9: el pelo se comia la MITAD DE
+# ARRIBA de los dos ojos, y por eso el personaje se leia como una franja de piel y nada mas. La otra
+# mitad del arreglo esta en PeloSprites.ARRIBA -- se tocan las dos o no vale ninguna.
+const OJO_ALTO := -0.11          # respecto al centro de la cabeza
 const OJO_SEPARACION := 0.34
 # CUANTO SE ADELANTAN sobre el eje del cuerpo. Tiene que quedar DENTRO del fondo de la cabeza (0,90
 # del radio) o los ojos asoman por delante de la silueta y se ven flotando junto a la cara.
 const OJO_FONDO := 0.58
-const BOCA_ALTO := -0.42
+# DE PERFIL LOS RASGOS SE METEN HACIA DENTRO. Girada la cabeza 90 grados, este "hacia delante" deja
+# de ser profundidad y pasa a ser LO ADELANTADO QUE ESTA EN PANTALLA: con 0,58 el ojo caia justo en
+# el filo de la cara y se leia como una mancha negra cortada por el borde, no como un ojo. Es la
+# misma trampa que se comio el flequillo y las patillas en PeloSprites, vista desde la otra capa.
+const OJO_FONDO_PERFIL := 0.38
+# LA BOCA VA JUSTO DEBAJO DEL OJO y no a media cara: la cara util son seis celdas y media entre el
+# pelo y la barbilla (ver OJO_ALTO), asi que no hay sitio para el hueco de una cara real. Bajo de
+# -0,56 se sale por la barbilla.
+const BOCA_ALTO := -0.43
+# CUANTO SE VA LA BOCA HACIA EL MORRO DE PERFIL. Antes de perfil no se dibujaba boca ninguna, y el
+# resultado era un personaje con ojos y sin cara en cuatro de las ocho direcciones. Puesta en el eje
+# cae sobre la mejilla, asi que se corre hacia el lado al que mira.
+const BOCA_PERFIL := 0.30
+
+# NARIZ Y CEJAS: PROBADAS Y DESCARTADAS, y queda escrito para que no se vuelvan a intentar a ciegas.
+# La cara util son seis celdas de alto entre el pelo y la barbilla, y ahi un cuarto rasgo no cabe: la
+# ceja se pega al ojo y los dos se leen como un manchon -- en "Tranquilos", donde el ojo ya es una
+# raya, lo que salia era un ANTIFAZ. Si algun dia se reintenta, hace falta primero mas cara, no
+# rasgos mas finos.
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---
@@ -104,18 +127,20 @@ static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
 		lados = [1.0] if d == 6 else [-1.0]
 
 	match modelo:
-		"puntos": _puntos(piezas, esq, cab, lados)
+		"puntos": _puntos(piezas, esq, cab, lados, de_perfil)
 		"chibi": _chibi(piezas, esq, cab, lados, de_perfil)
 		"linea": _linea(piezas, esq, cab, lados, de_perfil)
 
 
-# EL MAS SIMPLE: dos ovalos y nada mas. Es lo que hace la mayoria del genero a este tamaño, y tiene
-# una ventaja que no se ve hasta que lo comparas: sin boca, la cara no tiene EXPRESION, asi que no
-# choca con lo que este pasando en pantalla.
-static func _puntos(piezas: Array, esq: Dictionary, cab: Vector3, lados: Array) -> void:
+# EL MAS SIMPLE: dos ovalos pequeños. Lo que lo separa de los otros dos es el TAMAÑO del ojo, no que
+# le falten rasgos: una cara con ojos y sin boca no es un estilo, es una cara a medio dibujar (y a
+# este tamaño se lee como una linea y ya).
+static func _puntos(piezas: Array, esq: Dictionary, cab: Vector3, lados: Array,
+		de_perfil: bool) -> void:
 	for s in lados:
-		PoseJugador.poner(piezas, esq, _ojo(cab, float(s)),
+		PoseJugador.poner(piezas, esq, _ojo(cab, float(s), de_perfil),
 			Vector3(R * 0.15, R * 0.12, R * 0.20), Tono.OJO)
+	_boca(piezas, esq, cab, _boca_dx(lados, de_perfil), de_perfil)
 
 
 # CON BRILLO Y BOCA: el ojo mas grande, con un punto de luz arriba. El brillo es lo que separa un ojo
@@ -123,15 +148,16 @@ static func _puntos(piezas: Array, esq: Dictionary, cab: Vector3, lados: Array) 
 static func _chibi(piezas: Array, esq: Dictionary, cab: Vector3, lados: Array,
 		de_perfil: bool) -> void:
 	for s in lados:
-		var c: Vector3 = _ojo(cab, float(s))
-		PoseJugador.poner(piezas, esq, c, Vector3(R * 0.17, R * 0.13, R * 0.26), Tono.OJO)
+		var c: Vector3 = _ojo(cab, float(s), de_perfil)
+		# ACHATADO A 0,21: con 0,26 el ojo medía CUATRO de las seis celdas de cara que hay entre el pelo
+		# y la barbilla, y los dos juntos se leian como unas gafas. La boca no tenia donde caer.
+		PoseJugador.poner(piezas, esq, c, Vector3(R * 0.17, R * 0.13, R * 0.21), Tono.OJO)
 		# El brillo, arriba y hacia el centro de la cara: la luz de este mundo viene de arriba (es la
 		# misma direccion que el realce del pecho y el del pelo).
 		PoseJugador.poner(piezas, esq,
 			c + Vector3(-float(s) * R * 0.045, 0.0, R * 0.075),
 			Vector3(R * 0.055, R * 0.05, R * 0.07), Tono.BRILLO, {"solo_sobre": [Tono.OJO]})
-	if not de_perfil:
-		_boca(piezas, esq, cab, 0.0)
+	_boca(piezas, esq, cab, _boca_dx(lados, de_perfil), de_perfil)
 
 
 # LOS OJOS COMO RAYAS: la cara tranquila. Se separa de las otras dos por la FORMA y no por el tamaño
@@ -139,20 +165,33 @@ static func _chibi(piezas: Array, esq: Dictionary, cab: Vector3, lados: Array,
 static func _linea(piezas: Array, esq: Dictionary, cab: Vector3, lados: Array,
 		de_perfil: bool) -> void:
 	for s in lados:
-		PoseJugador.poner(piezas, esq, _ojo(cab, float(s)),
+		PoseJugador.poner(piezas, esq, _ojo(cab, float(s), de_perfil),
 			Vector3(R * 0.20, R * 0.14, R * 0.075), Tono.OJO)
-	if not de_perfil:
-		_boca(piezas, esq, cab, 0.0)
+	_boca(piezas, esq, cab, _boca_dx(lados, de_perfil), de_perfil)
 
 
 # Donde cae un ojo. 's' es +1 el izquierdo y -1 el derecho, como en todo el cuerpo.
-static func _ojo(cab: Vector3, s: float) -> Vector3:
-	return cab + Vector3(s * R * OJO_SEPARACION, R * OJO_FONDO, R * OJO_ALTO)
+static func _ojo(cab: Vector3, s: float, de_perfil: bool = false) -> Vector3:
+	return cab + Vector3(s * R * OJO_SEPARACION, R * _fondo(de_perfil), R * OJO_ALTO)
 
 
-# La boca: una raya corta. NO se dibuja de perfil -- ahi caeria sobre la mejilla, porque a esta
-# escala no hay sitio para desplazarla hasta el borde de la cara sin que se salga.
-static func _boca(piezas: Array, esq: Dictionary, cab: Vector3, dx: float) -> void:
+# Lo adelantados que van los rasgos, que no es lo mismo de frente que de perfil (ver OJO_FONDO_PERFIL).
+static func _fondo(de_perfil: bool) -> float:
+	return OJO_FONDO_PERFIL if de_perfil else OJO_FONDO
+
+
+# La boca: una raya corta. VA SIEMPRE, tambien de perfil (ver BOCA_PERFIL): de los tres modelos, dos
+# se quedaban sin ella en las cuatro direcciones de perfil y el otro no la tenia nunca.
+static func _boca(piezas: Array, esq: Dictionary, cab: Vector3, dx: float,
+		de_perfil: bool = false) -> void:
 	PoseJugador.poner(piezas, esq,
-		cab + Vector3(dx, R * OJO_FONDO, R * BOCA_ALTO),
+		cab + Vector3(dx, R * _fondo(de_perfil), R * BOCA_ALTO),
 		Vector3(R * 0.11, R * 0.10, R * 0.04), Tono.BOCA)
+
+
+# CUANTO SE CORRE LA BOCA. De frente va en el eje; de perfil, hacia el lado al que mira la cara --
+# que es el mismo lado del unico ojo que se dibuja (ver el punto 2 de la cabecera).
+static func _boca_dx(lados: Array, de_perfil: bool) -> float:
+	if not de_perfil:
+		return 0.0
+	return -float(lados[0]) * R * BOCA_PERFIL

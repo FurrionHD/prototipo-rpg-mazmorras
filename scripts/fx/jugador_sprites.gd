@@ -138,7 +138,9 @@ static var CATALOGO := {
 		"ranura": Ranura.CARA, "gen": CaraSprites, "ancla": PoseJugador.P_CABEZA,
 		"z": Z_CARA, "tinte": false, "titulo": "Cara", "sin_nada": "Sin rasgos",
 		"modelos": {
-			"puntos": {"piezas": 2, "nombre": "Ojos simples"},
+			# LOS TRES LLEVAN BOCA, asi que los tres son 3 trozos: dos ojos y una raya. "puntos" estaba
+			# declarado con 2 porque era el unico sin boca, y eso ya no es un estilo (ver CaraSprites).
+			"puntos": {"piezas": 3, "nombre": "Ojos simples"},
 			"chibi": {"piezas": 3, "nombre": "Con brillo"},
 			"linea": {"piezas": 3, "nombre": "Tranquilos"},
 		},

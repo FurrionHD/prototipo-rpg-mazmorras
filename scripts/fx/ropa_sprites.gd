@@ -58,6 +58,42 @@ const TELA := 1.3
 # CUANTO BAJA LA PRENDA por debajo de donde le tocaria, para dejar el cuello al aire. Es el numero a
 # mover si la camisa vuelve a comerse la barbilla (subirlo) o si se le ve demasiado pecho (bajarlo).
 const ESCOTE_BAJA := 1.5
+
+# ============================================================
+#  EL CUELLO DE LA PRENDA NO SE PINTA: SE RECORTA
+# ============================================================
+# Antes era una elipse de TELA_S pegada al canto de arriba de la camisa, o sea una BANDA MACIZA
+# cruzando el pecho. Mirando de frente (y en SE/SW, que es donde mas se ve) eso no tiene sentido
+# fisico: por el cuello de una camiseta pasa el CUELLO DE CARNE, y lo que hay detras es la cabeza.
+# Pintar tela ahi es dibujar el agujero tapado, y ademas se comia la franja de piel entre la prenda y
+# la barbilla -- con lo que la cara se quedaba en una linea.
+#
+# Ahora se hace al reves y sale gratis, porque el motor ya da las dos mitades:
+#   * pintar con Tono.VACIO BORRA (SpriteLienzo.elipse escribe el tono sin excepciones), y la ropa va
+#     en su propia capa POR ENCIMA del cuerpo -- asi que lo que aqui se borra enseña la carne;
+#   * el contorno se calcula AL FINAL sobre la silueta ya fusionada (ver CapaJugador.plantilla), asi
+#     que el agujero se rodea solo de borde oscuro: ESE BORDE ES EL CUELLO DE LA PRENDA.
+#
+# Y va anclado en P_CUELLO, no en el torso: asi el escote sigue al cuello en las OCHO direcciones sin
+# un solo caso por direccion (de espaldas asoma la nuca, que es lo correcto y ademas lo tapa el pelo).
+#
+# LO QUE NO ES OBVIO Y HAY QUE MEDIR ANTES DE TOCAR ESTO: DE FRENTE, EL CUELLO NO SE VE. Con esta
+# camara (45 grados, una celda = 1,15) la cabeza baja en pantalla hasta 18,6 celdas y el cuello de
+# carne entero cae entre 18,4 y 23,4 -- o sea que LA CABEZA LO TAPA. Por el agujero de una camiseta
+# no asoma carne: asoma la barbilla, que es lo que hay justo detras.
+#
+# De ahi sale la calibracion: el recorte tiene que quedarse DENTRO de la silueta de la cabeza. Si
+# baja de la barbilla no enseña cuello -- enseña EL FONDO, un boquete negro en mitad del pecho, que
+# es peor que la banda que veniamos a quitar. Lo que se ve al final es la camisa acabando en un arco
+# limpio bajo la barbilla, que es como acaba una camiseta mirandola de frente.
+#
+# El ancho no puede acercarse al del pecho (10,1) o parte la camisa en dos islas, y el alto tampoco
+# importa mucho: lo que manda es SUBE.
+const ESCOTE_R := 1.55
+const ESCOTE_ALTO := 2.6
+# CUANTO SUBE EL RECORTE por encima del cuello para meterse detras de la cabeza. ES EL NUMERO A
+# MOVER: si aparece un hueco oscuro bajo la barbilla, subirlo.
+const ESCOTE_SUBE := 4.2
 # La manga corta acaba a esta fraccion del tramo hombro->codo.
 const MANGA_CORTA := 0.62
 # El bajo de una tunica, en fraccion del tramo cadera->rodilla.
@@ -128,23 +164,20 @@ static func _torso(piezas: Array, esq: Dictionary, manga: float, bajo: float) ->
 		CuerpoSprites.R_TORSO + Vector3(TELA, TELA, TELA), Tono.TELA)
 	# El realce del pecho: la luz viene de arriba, asi que va por encima de su eje.
 	#
-	# VA BAJO Y PLANO, y las dos cosas son correcciones de algo que se vio:
-	#   * con el ancho del cuerpo (0,70 del pecho, 0,55 de alto) se leia como un BABERO;
-	#   * puesto arriba del todo se comia el sitio del escote, y el escote encima suyo quedaba como un
-	#     OVALO OSCURO DENTRO de una mancha clara -- que es exactamente "se ve el cuello de la
-	#     camiseta por dentro". Los dos no caben en el mismo palmo: el escote arriba, la luz debajo.
+	# VA BAJO Y PLANO, y las dos cosas son correcciones de algo que se vio: con el ancho del cuerpo
+	# (0,70 del pecho, 0,55 de alto) se leia como un BABERO.
 	var alto: Vector3 = p[PoseJugador.P_TORSO] + Vector3(0.0, 0.0, CuerpoSprites.R_TORSO.z * 0.20)
 	PoseJugador.poner(piezas, esq, alto,
 		Vector3(CuerpoSprites.R_TORSO.x * 0.66, CuerpoSprites.R_TORSO.y * 0.74,
 			CuerpoSprites.R_TORSO.z * 0.26), Tono.TELA_L, {"solo_sobre": [Tono.TELA]})
-	# EL ESCOTE es el BORDE DE ARRIBA DE LA PROPIA CAMISA: una banda ANCHA Y PLANA pegada a su canto,
-	# no un ovalo en mitad del pecho. Es la diferencia entre "el cuello de la prenda" y "un agujero".
+	# EL ESCOTE: se RECORTA la tela por donde pasa el cuello (ver la nota larga de ESCOTE_R). Va aqui,
+	# despues del pecho y su realce pero ANTES DE LAS MANGAS: las mangas se pintan al final y, con el
+	# orden al reves, volverian a rellenar el agujero.
 	#
-	# Va con 'solo_sobre', asi que no puede salirse de la camisa por mucho que se acerque al cuello.
-	PoseJugador.poner(piezas, esq,
-		p[PoseJugador.P_TORSO] + Vector3(0.0, 1.0, CuerpoSprites.R_TORSO.z * 0.62 - ESCOTE_BAJA),
-		Vector3(CuerpoSprites.R_TORSO.x * 0.52, CuerpoSprites.R_TORSO.y * 0.60, 0.9),
-		Tono.TELA_S, {"solo_sobre": [Tono.TELA, Tono.TELA_L]})
+	# El 'solo_sobre' es lo que impide que el recorte muerda nada que no sea tela ya pintada.
+	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CUELLO] + Vector3(0.0, 0.0, ESCOTE_SUBE),
+		Vector3(CuerpoSprites.R_CUELLO * ESCOTE_R, CuerpoSprites.R_CUELLO * ESCOTE_R, ESCOTE_ALTO),
+		Tono.VACIO, {"solo_sobre": [Tono.TELA, Tono.TELA_L, Tono.TELA_S]})
 
 	# 4. Las mangas que van por delante del tronco, al final.
 	if manga <= 0.0:

@@ -49,8 +49,14 @@ const R := PoseJugador.CABEZA_R
 # direcciones por igual, pero 'atras' lo desplaza HACIA LA NUCA, y de perfil eso se ve como que el
 # pelo y la cara son dos cosas distintas separandose. Asi que el trabajo de destapar la cara lo hace
 # sobre todo ARRIBA, y ATRAS se queda en lo justo para que la coronilla no salga plana.
-const ATRAS := 1.6
-const ARRIBA := 5.6
+const ATRAS := 2.6
+# SUBIO DE 5,6 A 7,6, y esto sale de una medida y no de una impresion. Con 5,6 el borde de abajo del
+# casquete caia en la celda 23,9 de pantalla y la barbilla en la 18,6: la cara entera eran CINCO
+# CELDAS, y el ojo (que mide cuatro y media) no cabia -- se le comia la mitad de arriba el pelo. Lo
+# que se veia era lo que se dijo: una linea naranja entre el pelo y la camisa, sin ojos.
+# Con 7,6 la franja pasa a seis y media y ahi ya caben ojos y boca (ver CaraSprites.OJO_ALTO, que se
+# bajo a la vez: las dos mitades del mismo arreglo).
+const ARRIBA := 7.6
 # Cuanto mas gordo que la cabeza. Tiene que pasar de una celda (1,15) o el pelo aparece a trozos
 # entre los pixeles de la cabeza, como una caspa.
 const GROSOR := 1.6
@@ -59,7 +65,7 @@ const GROSOR := 1.6
 # SUBIRLO MAS NO ES LA SOLUCION, y esta escrito porque se probo: a 7 de 'arriba' con 0,50 de alto el
 # casquete SE DESPEGA del craneo y queda como un bloque flotando encima -- un sombrero mal puesto,
 # con una franja de piel entre el pelo y la cara. Lo que tapaba los ojos no era este, era la NUCA.
-const CASQUETE_ALTO := 0.60
+const CASQUETE_ALTO := 0.44
 
 # --- El flequillo ---
 # CUANTO BAJA POR LA FRENTE, en fraccion del radio de la cabeza.
@@ -177,11 +183,20 @@ static func _casquete(piezas: Array, esq: Dictionary, cab: Vector3, grueso: floa
 	# abajo caia por debajo de los ojos -- o sea que la nuca tapaba la CARA. Con el pelo por delante,
 	# dos ojos casi negros sobre pelo castaño no se ven, asi que el sintoma no era "hay una pieza mal
 	# puesta" sino "el personaje no tiene cara".
+	# Y AQUI OTRA VEZ EL FONDO: de perfil la nuca se pone de canto y su Y pasa a ser lo que tapa en
+	# pantalla. Con 0,58 llegaba hasta el centro de la cara y la cortaba en vertical -- de lado la cara
+	# no se leia redonda, se leia partida. A 0,44 se queda donde le toca, por detras de la oreja.
 	PoseJugador.poner(piezas, esq, cab + Vector3(0.0, -R * 0.55 * grueso, R * 0.16),
-		Vector3(R * (0.62 + 0.18 * grueso), R * (0.44 + 0.14 * grueso),
+		Vector3(R * (0.62 + 0.18 * grueso), R * (0.34 + 0.10 * grueso),
 			R * (0.40 + 0.12 * grueso)), Tono.PELO_S)
+	# EL FONDO DEL CASQUETE (0,90 -> 0,62) ES LO QUE LE DA CARA AL PERFIL. Girado 90 grados, esta Y es
+	# el ancho que el pelo tapa en pantalla: a 0,90 el casquete llegaba justo al morro (cubria de -14,7
+	# a +11,5 y la cabeza acaba en 11,5), asi que de lado no quedaba cara, quedaba una RENDIJA con el
+	# ojo pegado al borde. A 0,62 deja tres celdas de cara por delante.
+	# De frente esto no se pierde: alli la Y es profundidad, y lo unico que hace es que el casquete
+	# baje un pelin menos -- o sea, todavia mas cara. Lo que enmarca la cabeza de frente es la X.
 	PoseJugador.poner(piezas, esq, cab + Vector3(0.0, -ATRAS, ARRIBA),
-		Vector3(R + g, R * 0.90 + g, R * CASQUETE_ALTO + g * 0.5), Tono.PELO)
+		Vector3(R + g, R * 0.62 + g, R * CASQUETE_ALTO + g * 0.5), Tono.PELO)
 	if patillas <= 0.0:
 		return
 	# Las patillas bajan por delante de las orejas: son lo que enmarca la cara por los lados, y sin
@@ -189,9 +204,13 @@ static func _casquete(piezas: Array, esq: Dictionary, cab: Vector3, grueso: floa
 	# dos manchas oscuras a los lados de la cabeza, que es lo que se veia en la primera hoja).
 	for lado in 2:
 		var s: float = 1.0 if lado == 0 else -1.0
+		# MISMA TRAMPA QUE EL FLEQUILLO: de perfil la patilla se pone de canto y su FONDO pasa a ser el
+		# ancho que tapa. A 0,56 y centrada en -0,8 cubria de la nuca al morro y no dejaba cara. Baja a
+		# 0,38 y se echa atras (-2,4), que ademas es donde va una patilla: por delante de la oreja, no
+		# por delante del ojo.
 		PoseJugador.poner(piezas, esq,
-			cab + Vector3(s * R * 0.84, -0.8, -R * 0.16 * patillas),
-			Vector3(R * 0.24, R * 0.56, R * (0.34 + 0.40 * patillas)), Tono.PELO)
+			cab + Vector3(s * R * 0.84, -2.4, -R * 0.16 * patillas),
+			Vector3(R * 0.24, R * 0.38, R * (0.34 + 0.40 * patillas)), Tono.PELO)
 
 
 # EL FLEQUILLO: la unica pieza que se pone POR DELANTE de la cara, y por eso es la que hay que
@@ -201,9 +220,14 @@ static func _casquete(piezas: Array, esq: Dictionary, cab: Vector3, grueso: floa
 # este tamaño la diferencia entre las dos cosas son dos celdas de alto.
 static func _flequillo(piezas: Array, esq: Dictionary, cab: Vector3, largo: float) -> void:
 	var baja: float = R * FLEQUILLO_BAJA * largo
+	# EL FONDO (la Y) ES LO QUE SE VE DE PERFIL, y por eso bajo de 0,44 a 0,30. De frente la Y del
+	# flequillo es profundidad y no se nota; girado 90 grados pasa a ser SU ANCHO EN PANTALLA, y con
+	# 0,44 el flequillo se comia la cara de lado hasta dejarla en una rendija de dos pixeles -- el
+	# personaje de perfil parecia tener la cara CORTADA en vez de redonda. Lo que enmarca la frente de
+	# frente es la X (0,88), que no se toca.
 	PoseJugador.poner(piezas, esq,
 		cab + Vector3(0.0, R * 0.30, R * 0.80 - baja),
-		Vector3(R * 0.88, R * 0.44, R * 0.26 + baja * 0.5), Tono.PELO)
+		Vector3(R * 0.88, R * 0.30, R * 0.26 + baja * 0.5), Tono.PELO)
 
 
 # LOS MECHONES QUE ENMARCAN LA CARA: los dos que caen por los lados, por DELANTE de los hombros.
