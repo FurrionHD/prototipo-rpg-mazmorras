@@ -54,6 +54,6 @@ enum Slot { CASCO, PECHO, MANOS, PANTALONES, BOTAS }
 # cobertura en Game.armor_mods() y afecta al ATB de combate y al movimiento en mapa.
 @export var velocidad_mult: float = 1.0
 
-# PRECIO base (ver WeaponData.valor_base). La tienda NO vende armaduras todavia, pero SI te
-# compra las que traigas: por eso necesitan precio.
+# PRECIO base (ver WeaponData.valor_base). La tienda las vende (mostradores T1 y T2, siempre a
+# rareza comun) y tambien te compra las que traigas del baul.
 @export var valor_base: int = 300

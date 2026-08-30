@@ -29,7 +29,11 @@ class_name JugadorSprites
 # validador de islas del horno sirva para algo. El cuerpo es UNA pieza siempre -- si sale en dos, se
 # ha despegado algo --, pero unas botas son DOS y unos guanteletes tambien, y sin declararlo el
 # validador daria un aviso por cada fotograma de cada bota del juego y acabaria ignorandose.
-enum Ranura { CUERPO, PANTALONES, BOTAS, PECHO, MANOS, CARA, CASCO, MANO_DER, MANO_IZQ,
+# PELO Y CASCO SON RANURAS DISTINTAS, y hubo que separarlas: el pelo vivia en 'CASCO' de cuando no
+# habia cascos, y al entrar los de verdad los dos querian la misma. No es solo un nombre -- lo que
+# hay debajo es que un casco NO sustituye al pelo entero (la melena sigue saliendo), asi que las dos
+# capas coexisten y necesitan cada una la suya.
+enum Ranura { CUERPO, PANTALONES, BOTAS, PECHO, MANOS, CARA, PELO, CASCO, MANO_DER, MANO_IZQ,
 	ARMA_CADERA, ARMA_ESPALDA }
 
 # 'tinte' = si esta capa se pinta con un color de fuera (ver MunecoJugador.tenir). Casi todas lo
@@ -113,7 +117,7 @@ static var CATALOGO := {
 		},
 	},
 	"pelo": {
-		"ranura": Ranura.CASCO, "gen": PeloSprites, "ancla": PoseJugador.P_CABEZA,
+		"ranura": Ranura.PELO, "gen": PeloSprites, "ancla": PoseJugador.P_CABEZA,
 		"titulo": "Pelo", "sin_nada": "Calvo",
 		# EL PELO NO SE ORDENA POR PROFUNDIDAD, y no es un atajo: la cabeza esta en x=0, asi que su
 		# profundidad es casi cero en las ocho direcciones y el signo lo decidiria el redondeo -- se
@@ -177,6 +181,25 @@ const Z_CUELGA_DELANTE := 2046   # justo por debajo del casquete (2047) y de la 
 const Z_CUELGA_DETRAS := -1      # entre el suelo del piso y el cuerpo (que va a 0)
 
 
+# ============================================================
+#  LOS DOS Z DEL CASCO
+# ============================================================
+# No hizo falta renumerar nada, y eso no es suerte: es que el casco ocupa EL SITIO QUE DEJA EL PELO.
+# Con casco puesto no se pide el casquete (ver capas_de), asi que 2047 esta libre.
+#
+#   2046/-1 melena  ·  2047 casco abierto  ·  2048 rasgos  ·  2049 tu foto  ·  2050 casco cerrado
+#
+# UN CASCO ABIERTO (cuero, hierro) va por DEBAJO de la cara: se te ve, y se te ve tu foto si la
+# llevas. Por encima de la melena, que es lo correcto -- el pelo sale por debajo del casco, no por
+# encima.
+const Z_CASCO_ABIERTO := 2047
+# UN CASCO CERRADO (hierro completo, placas) va por ENCIMA DE TODO, tu foto incluida. Asi tapa la
+# cara SIN que haya que apagarla: los rasgos son una capa que se podria quitar de la lista, pero la
+# foto es un Sprite2D aparte que monta MunecoJugador, y alcanzarla desde aqui seria meter una
+# excepcion en dos sitios. Tapandola por z, el mismo numero resuelve las dos.
+const Z_CASCO_CERRADO := 2050
+
+
 # Los SpriteFrames de todas las capas que le tocan a ESTE personaje, ya en orden de apilado, con su
 # color y su acabado. Devuelve [{clave, frames, ancla, color, metal, ...}] para que el compositor no
 # tenga que saber ni de generadores ni de catalogos.
@@ -213,12 +236,77 @@ static func capas_de(pj: PersonajeData) -> Array:
 				"z": Z_CUELGA_DELANTE, "z_atras": Z_CUELGA_DETRAS,
 				"color": p["color"], "metal": p["metal"],
 				"frames": cat["gen"].frames(modelo + PeloSprites.SUFIJO_ATRAS, 1.0)})
+		# EL CASQUETE DEL PELO SE APAGA CON EL CASCO PUESTO, y se apaga AQUI y no en el pintor porque
+		# aqui es donde se sabe: cada capa se hornea sola y no puede ver a las demas, asi que un casco
+		# NO tiene forma de recortar el pelo. Lo unico que se puede hacer es no pedirlo.
+		#
+		# Y solo se apaga el casquete: la capa de arriba se salta, pero la de atras (la melena, la
+		# coleta) ya se ha metido unas lineas mas arriba y se queda. Eso es lo que hace que con casco
+		# el pelo largo siga saliendo por detras y el rapado no enseñe nada, sin una tabla de que
+		# peinado convive con que casco: lo decide el propio peinado por su flag 'cuelga'.
+		if nombre == "pelo" and pj.equipped_casco != null:
+			continue
 		out.append({"clave": "%s_%s" % [nombre, modelo], "ranura": cat["ranura"],
 			"ancla": cat["ancla"], "tinte": bool(cat.get("tinte", true)),
 			"z": int(cat["z"]), "color": p["color"], "metal": p["metal"],
 			"frames": cat["gen"].frames(modelo, 1.0)})
+	out.append_array(_capas_armadura(pj))
 	out.append_array(_capas_arma(pj))
 	return out
+
+
+# LAS CAPAS DE ARMADURA que lleva puestas este personaje. Salen de equipped_casco y sus cuatro
+# hermanas (ver PersonajeData), igual que el arma sale de equipped_main: es equipo, no aspecto.
+#
+# VA ANTES QUE EL ARMA en la lista, y no da igual: el orden de 'out' desempata entre capas que caen a
+# la misma profundidad (ver MunecoJugador._ordenar), y lo que se lleva en la mano tiene que poder
+# taparse a si mismo contra el cuerpo.
+#
+# DE LAS CINCO RANURAS SOLO SE DIBUJA LA QUE TENGA PINTOR (ArmaduraSprites.SLOTS_HECHOS). Las otras
+# cuatro ya se pueden equipar y ya dan defensa desde hace tiempo -- lo que falta es el dibujo --, asi
+# que llevarlas puestas sin que se vean es el estado normal y no un error: se salta y ya.
+static func _capas_armadura(pj: PersonajeData) -> Array:
+	var out: Array = []
+	for i in ArmaduraSprites.SLOT_NOMBRE.size():
+		var slot: String = ArmaduraSprites.SLOT_NOMBRE[i]
+		if not ArmaduraSprites.SLOTS_HECHOS.has(slot):
+			continue
+		var pieza = pj.get("equipped_" + slot)
+		if pieza == null or not (pieza is ArmorData):
+			continue
+		var ti: int = clampi(int(pieza.tipo), 0, ArmaduraSprites.TIPO_NOMBRE.size() - 1)
+		var tipo: String = ArmaduraSprites.TIPO_NOMBRE[ti]
+		out.append({"clave": ArmaduraSprites.clave(tipo, slot), "ranura": _ranura_de(slot),
+			"ancla": _ancla_de(slot), "tinte": false,
+			"z": _z_de(slot, tipo),
+			"frames": ArmaduraSprites.frames(ArmaduraSprites.clave(tipo, slot), 1.0)})
+	return out
+
+
+# Los tres datos que cambian por ranura. Van en funciones y no en una tabla al lado de SLOT_NOMBRE
+# porque el z del casco depende ademas del TIPO (abierto o cerrado), y una tabla que solo sirve para
+# cuatro de las cinco entradas miente mas de lo que ayuda.
+static func _ranura_de(slot: String) -> int:
+	match slot:
+		"casco": return Ranura.CASCO
+		"pecho": return Ranura.PECHO
+		"manos": return Ranura.MANOS
+		"pantalones": return Ranura.PANTALONES
+		_: return Ranura.BOTAS
+
+
+static func _ancla_de(slot: String) -> StringName:
+	match slot:
+		"casco": return PoseJugador.P_CABEZA
+		"pecho": return PoseJugador.P_TORSO
+		_: return PoseJugador.P_CADERA
+
+
+static func _z_de(slot: String, tipo: String) -> int:
+	if slot == "casco":
+		return Z_CASCO_CERRADO if ArmaduraSprites.cerrado(tipo) else Z_CASCO_ABIERTO
+	# Las demas van justo por encima de la ropa que sustituyen (piernas 2, torso 3).
+	return Z_TORSO + 1
 
 
 # LAS CAPAS DEL ARMA que lleva este personaje. Salen de equipped_main / equipped_off (ver
@@ -329,6 +417,11 @@ static func todas_las_capas() -> Array:
 	# angulos, igual que la guarda de un arma).
 	for clave in EscudoSprites.todas_las_claves():
 		out.append({"clave": clave, "piezas": 2, "gen": EscudoSprites, "modelo": clave})
+	# Las capas de armadura: una por (tipo, ranura), y solo de las ranuras que ya tienen pintor.
+	# 1 pieza: un casco es una masa sola. Si al meter guanteletes o botas eso deja de ser verdad (son
+	# DOS, una por mano), la cuenta se pone por clave y no aqui de golpe.
+	for clave in ArmaduraSprites.todas_las_claves():
+		out.append({"clave": clave, "piezas": 1, "gen": ArmaduraSprites, "modelo": clave})
 	return out
 
 

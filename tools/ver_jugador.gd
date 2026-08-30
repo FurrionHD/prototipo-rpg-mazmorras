@@ -59,7 +59,18 @@ func _ready() -> void:
 # perfecta y aun asi no encajar con las de debajo.
 func _capas(modelos: PackedStringArray) -> Array:
 	var pedidos := {}
+	var armaduras: Array = []
 	for m in modelos:
+		# LA ARMADURA NO ESTA EN EL CATALOGO, porque no es aspecto: es equipo, y sale de lo que lleves
+		# puesto. Pero sin poder pedirla aqui no hay forma de sacar una hoja de contacto con un casco,
+		# y sin hoja de contacto no se puede juzgar el dibujo. Se pide por TIPO y RANURA con un guion:
+		#     ver_jugador.bat idle 6 casco_placas largo
+		if "_" in m and ArmaduraSprites.SLOT_NOMBRE.has(m.get_slice("_", 0)):
+			var slot: String = m.get_slice("_", 0)
+			var tipo: String = m.trim_prefix(slot + "_")
+			if ArmaduraSprites.TIPO_NOMBRE.has(tipo):
+				armaduras.append(ArmaduraSprites.clave(tipo, slot))
+				continue
 		for pieza in JugadorSprites.CATALOGO:
 			if (JugadorSprites.CATALOGO[pieza]["modelos"] as Dictionary).has(m):
 				pedidos[pieza] = m
@@ -80,9 +91,29 @@ func _capas(modelos: PackedStringArray) -> Array:
 	for pieza in PersonajeData.PIEZAS:
 		if not pedidos.has(pieza):
 			continue
+		# CON CASCO NO SE PINTA EL CASQUETE DEL PELO, igual que en el juego (ver JugadorSprites.capas_de).
+		# Si aqui saliera y en el juego no, la hoja de contacto estaria mintiendo justo sobre lo que se
+		# viene a mirar.
+		if pieza == "pelo" and not armaduras.is_empty():
+			continue
+		# Y LOS CASCOS ABIERTOS VAN JUSTO ANTES DE LA CARA, que es el orden que les da su z (2047 contra
+		# 2048): se les ve la cara por debajo. Los cerrados van al final del todo, encima de todo.
+		if pieza == "cara":
+			_apilar_armaduras(out, armaduras, false)
 		var cat: Dictionary = JugadorSprites.CATALOGO[pieza]
 		out.append(cat["gen"].generar(String(pedidos[pieza]), 1.0))
+	if not pedidos.has("cara"):
+		_apilar_armaduras(out, armaduras, false)
+	_apilar_armaduras(out, armaduras, true)
 	return out
+
+
+func _apilar_armaduras(out: Array, claves: Array, cerrados: bool) -> void:
+	for clave in claves:
+		var tipo: String = String(ArmaduraSprites._parse(clave).get("tipo", ""))
+		if ArmaduraSprites.cerrado(tipo) != cerrados:
+			continue
+		out.append(ArmaduraSprites.generar(clave, 1.0))
 
 
 # UNA ANIMACION, LAS OCHO DIRECCIONES. Una fila por direccion. Es la hoja con la que se juzga si el
