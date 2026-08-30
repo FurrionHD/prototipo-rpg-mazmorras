@@ -185,3 +185,88 @@ static func grises(borde := 0.20, sombra := 0.42, base := 0.62, luz := 0.80, bri
 static func sombra_suelo(piezas: Array, esq: Dictionary, rx: float = 8.5, ry: float = 5.2) -> void:
 	PoseJugador.poner(piezas, esq, Vector3.ZERO, Vector3(rx, ry, 0.0), T_SOMBRA_SUELO,
 		{"en_suelo": true, "gira": false})
+
+
+# ============================================================
+#  EL HUECO DEL BRAZO: LO NECESITA TODA CAPA QUE VISTA EL TRONCO
+# ============================================================
+# EL SINTOMA, cuando falta, son dos quejas que parecen cosas distintas: "de perfil no tiene brazo" y
+# "el pantalon se pinta encima del brazo". Es la misma causa. Las capas se apilan con un z FIJO
+# (cuerpo 1 · piernas 2 · torso 3, ver JugadorSprites) y NO hay z-buffer por profundidad, asi que lo
+# que viste gana siempre al cuerpo -- tambien cuando el brazo esta claramente DELANTE.
+#
+# Y EL Z FIJO NO SE PUEDE TOCAR: ordenar estas capas por profundidad es lo que hacia desaparecer la
+# camisa entera de espaldas al andar (ver la nota de MunecoJugador._ordenar). O sea que el arreglo no
+# es reordenar, es RECORTAR.
+#
+# VIVE AQUI Y NO EN LA ROPA porque lo necesitan las dos: la camisa se comia el brazo de perfil y el
+# peto de armadura se lo comeria igual, por el mismo z y con la misma forma. Tenerlo dos veces era
+# garantizar que el dia que se corrigiera uno, el otro se quedara con el fallo -- y que nadie lo
+# notara hasta ponerse esa pieza concreta y mirar de perfil.
+#
+# LOS TONOS VAN POR PARAMETRO, y por eso esto puede ser comun: cada capa numera los suyos a partir de
+# T_PRIMER_LIBRE, asi que "el tono base" no es el mismo numero en todas. Lo que si es comun es el
+# VACIO (contrato de SpriteLienzo), que es lo que de verdad hace el recorte.
+#
+# EL GUARDARRAIL DE PROFUNDIDAD NO ES OPCIONAL. Este recorte muerde el tono base, no solo el de
+# fondo, porque el brazo de delante se proyecta sobre el pecho iluminado. Sin comprobar que el brazo
+# esta de verdad DELANTE, de espaldas se abriria un boquete en mitad de la prenda por donde no hay
+# nada.
+#
+# Los radios salen del brazo que dibuja CuerpoSprites, no de numeros a mano, y con un pelin de mas
+# ('holgura'): a ras exacto queda un hilo de prenda entre el recorte y el contorno del brazo, que se
+# lee como un halo sucio pegado al codo. En la capa de las piernas hace falta MAS holgura, porque
+# alli el corte cae en el canto de la cinturilla y a ras dejaba una mota suelta de cuatro pixeles.
+#
+# 'desde' RECORTA MENOS BRAZO, empezando esa fraccion mas abajo del tramo hombro->codo. Lo necesita
+# quien lleve HOMBRERA: una hombrera va encima del brazo, asi que el recorte no puede llegar hasta el
+# hombro o le corta el enganche con el peto y la deja FLOTANDO -- un trozo suelto en el validador de
+# islas y, a la vista, una hombrera partida en dos al correr. Una prenda sin hombrera (la camisa) lo
+# deja en 0 y recorta el brazo entero, que es lo que le toca.
+static func hueco_brazo(piezas: Array, esq: Dictionary, izq: bool, tonos: Array,
+		holgura: float = 1.06, desde: float = 0.0) -> void:
+	var p: Dictionary = esq["puntos"]
+	var id_mano: StringName = PoseJugador.P_MANO_IZQ if izq else PoseJugador.P_MANO_DER
+	if PoseJugador.profundidad(esq, id_mano) <= PoseJugador.profundidad(esq, PoseJugador.P_TORSO):
+		return
+	var hombro: Vector3 = p[PoseJugador.P_HOMBRO_IZQ if izq else PoseJugador.P_HOMBRO_DER]
+	var codo: Vector3 = p[PoseJugador.P_CODO_IZQ if izq else PoseJugador.P_CODO_DER]
+	var mano: Vector3 = p[id_mano]
+	var o := {"solo_sobre": tonos}
+	# El mismo arranque que el brazo del cuerpo (metido dentro del pecho), o el recorte deja un medio
+	# pixel de prenda justo en la juntura del hombro.
+	var arranque := Vector3(hombro.x * 0.88, hombro.y, hombro.z - 2.0)
+	# El radio del arranque se estrecha con el, o el recorte volveria a llegar al hombro por lo gordo
+	# aunque empiece mas abajo -- y con el la hombrera se soltaria otra vez.
+	var r0: float = CuerpoSprites.R_BRAZO
+	if desde > 0.0:
+		arranque = arranque.lerp(codo, desde)
+		r0 = lerpf(CuerpoSprites.R_BRAZO, CuerpoSprites.R_ANTEBRAZO, desde)
+	PoseJugador.cadena(piezas, esq, arranque, codo,
+		r0 * holgura, CuerpoSprites.R_ANTEBRAZO * holgura, T_VACIO, o)
+	PoseJugador.cadena(piezas, esq, codo, mano,
+		CuerpoSprites.R_ANTEBRAZO * holgura, CuerpoSprites.R_ANTEBRAZO * 0.92 * holgura, T_VACIO, o)
+	var m: float = CuerpoSprites.R_MANO * holgura
+	PoseJugador.poner(piezas, esq, mano, Vector3(m, m, m), T_VACIO, o)
+
+
+# EL HUECO DE LA CABEZA: lo mismo que el del brazo y por el mismo motivo, pero arriba.
+#
+# LA CARA VA SIEMPRE CERRADA POR SU LINEA NEGRA. La cabeza vive en la capa del cuerpo y su contorno
+# se dibuja ahi; lo que viste el tronco va POR ENCIMA, asi que toda pieza que se proyecte sobre la
+# barbilla TAPA ESA LINEA y la cara se queda sin cerrar por abajo. Se nota de frente (la prenda asoma
+# por encima de la mandibula) y sobre todo en SE y SW, donde ademas le corta un trozo de mejilla.
+#
+# VA AL FINAL DEL TODO en el pintor que lo use, despues de mangas y hombreras: la pieza que se sube a
+# la cara suele ser justo la ultima que se dibujo.
+#
+# Los radios salen de la cabeza que dibuja CuerpoSprites, no de numeros a mano: si algun dia cambia
+# la forma de la cabeza, el hueco la sigue solo. Y va A RAS (holgura 1.0): con holgura de mas queda
+# un anillo de piel entre las dos lineas negras y el cuello de la prenda se lee como una BARRA gruesa
+# cruzando el pecho en vez de como un arco.
+static func hueco_cabeza(piezas: Array, esq: Dictionary, tonos: Array,
+		holgura: float = 1.0) -> void:
+	var r: Vector3 = Vector3(CuerpoSprites.R_CABEZA, CuerpoSprites.R_CABEZA * 0.90,
+		CuerpoSprites.R_CABEZA * 0.96) * holgura
+	PoseJugador.poner(piezas, esq, esq["puntos"][PoseJugador.P_CABEZA], r,
+		T_VACIO, {"solo_sobre": tonos})

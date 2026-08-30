@@ -69,51 +69,75 @@ func _capas(modelos: PackedStringArray) -> Array:
 			var slot: String = m.get_slice("_", 0)
 			var tipo: String = m.trim_prefix(slot + "_")
 			if ArmaduraSprites.TIPO_NOMBRE.has(tipo):
-				armaduras.append(ArmaduraSprites.clave(tipo, slot))
+				# Los guanteletes son dos capas (una por mano): pedir "manos_placas" trae las dos, que
+				# es lo que se lleva puesto de verdad.
+				if ArmaduraSprites.SLOTS_POR_MANO.has(slot):
+					armaduras.append(ArmaduraSprites.clave(tipo, slot) + "_der")
+					armaduras.append(ArmaduraSprites.clave(tipo, slot) + "_izq")
+				else:
+					armaduras.append(ArmaduraSprites.clave(tipo, slot))
 				continue
 		for pieza in JugadorSprites.CATALOGO:
 			if (JugadorSprites.CATALOGO[pieza]["modelos"] as Dictionary).has(m):
 				pedidos[pieza] = m
-	var out: Array = []
-	# LO QUE CUELGA (la melena, la cola de la coleta) va DEBAJO del cuerpo, que es donde se pinta en
-	# el juego mirando de frente. En el juego eso lo decide la direccion (ver JugadorSprites); aqui se
-	# pone fijo detras, porque la hoja de contacto se mira sobre todo de frente.
+	# SE APILA POR Z, EL MISMO QUE USA EL JUEGO, y no por un orden escrito aqui. Antes era una lista a
+	# mano y aguanto mientras solo habia ropa y pelo; con la armadura hay piezas que se cuelan ENTRE
+	# las de ropa (las grebas van sobre el pantalon pero bajo el peto) y un orden propio se habria
+	# desincronizado del de verdad a la primera. Lo que se ve aqui tiene que ser lo que se ve jugando,
+	# o esta herramienta miente justo sobre lo que se viene a mirar.
+	var pila: Array = []   # [{z, sf}]
 	for pieza in PersonajeData.PIEZAS:
 		if not pedidos.has(pieza):
 			continue
 		var c: Dictionary = JugadorSprites.CATALOGO[pieza]
 		var m: String = String(pedidos[pieza])
+		# LO QUE CUELGA (la melena, la cola de la coleta) va DEBAJO del cuerpo, que es donde se pinta
+		# en el juego mirando de frente. En el juego lo decide la direccion (ver JugadorSprites); aqui
+		# se clava detras, porque la hoja de contacto se mira sobre todo de frente. Es la unica capa
+		# cuyo sitio aqui NO es el del juego, y por eso de espaldas esta hoja no sirve para juzgarla.
 		if bool((c["modelos"][m] as Dictionary).get("cuelga", false)):
-			out.append(c["gen"].generar(m + PeloSprites.SUFIJO_ATRAS, 1.0))
-	out.append(CuerpoSprites.generar(1.0))
-	# En el ORDEN DE APILADO de verdad (PersonajeData.PIEZAS), no en el que se hayan escrito los
-	# argumentos: si no, escribir el pelo antes que la camisa lo pintaria debajo de ella.
+			pila.append({"z": -1, "sf": c["gen"].generar(m + PeloSprites.SUFIJO_ATRAS, 1.0)})
+	pila.append({"z": JugadorSprites.Z_CUERPO, "sf": CuerpoSprites.generar(1.0)})
+
 	for pieza in PersonajeData.PIEZAS:
 		if not pedidos.has(pieza):
 			continue
-		# CON CASCO NO SE PINTA EL CASQUETE DEL PELO, igual que en el juego (ver JugadorSprites.capas_de).
-		# Si aqui saliera y en el juego no, la hoja de contacto estaria mintiendo justo sobre lo que se
-		# viene a mirar.
-		if pieza == "pelo" and not armaduras.is_empty():
+		# Lo que la armadura apaga se apaga tambien aqui: el casquete bajo el casco, la camisa bajo el
+		# peto y el pantalon bajo las grebas.
+		if _apagada_por_armadura(pieza, armaduras):
 			continue
-		# Y LOS CASCOS ABIERTOS VAN JUSTO ANTES DE LA CARA, que es el orden que les da su z (2047 contra
-		# 2048): se les ve la cara por debajo. Los cerrados van al final del todo, encima de todo.
-		if pieza == "cara":
-			_apilar_armaduras(out, armaduras, false)
 		var cat: Dictionary = JugadorSprites.CATALOGO[pieza]
-		out.append(cat["gen"].generar(String(pedidos[pieza]), 1.0))
-	if not pedidos.has("cara"):
-		_apilar_armaduras(out, armaduras, false)
-	_apilar_armaduras(out, armaduras, true)
+		pila.append({"z": int(cat["z"]), "sf": cat["gen"].generar(String(pedidos[pieza]), 1.0)})
+
+	for clave in armaduras:
+		pila.append({"z": _z_armadura(clave), "sf": ArmaduraSprites.generar(clave, 1.0)})
+
+	pila.sort_custom(func(a, b): return int(a["z"]) < int(b["z"]))
+	var out: Array = []
+	for c in pila:
+		out.append(c["sf"])
 	return out
 
 
-func _apilar_armaduras(out: Array, claves: Array, cerrados: bool) -> void:
-	for clave in claves:
-		var tipo: String = String(ArmaduraSprites._parse(clave).get("tipo", ""))
-		if ArmaduraSprites.cerrado(tipo) != cerrados:
-			continue
-		out.append(ArmaduraSprites.generar(clave, 1.0))
+# El z que le tocaria a esta pieza de armadura en el juego. Los guanteletes no llevan z fijo alli (los
+# ordena la profundidad de la mano), asi que aqui se les da uno por encima del peto: mirando de frente
+# las manos van por delante, que es la vista con la que se juzga esta hoja.
+func _z_armadura(clave: String) -> int:
+	var info: Dictionary = ArmaduraSprites._parse(clave)
+	var slot: String = String(info.get("slot", ""))
+	if slot == "manos":
+		return JugadorSprites.Z_ARMADURA_PECHO + 1
+	return JugadorSprites._z_de(slot, String(info.get("tipo", "")))
+
+
+func _apagada_por_armadura(pieza: String, armaduras: Array) -> bool:
+	for clave in armaduras:
+		var slot: String = String(ArmaduraSprites._parse(clave).get("slot", ""))
+		if slot == "casco" and pieza == "pelo":
+			return true
+		if JugadorSprites.ROPA_QUE_TAPA.get(slot, "") == pieza:
+			return true
+	return false
 
 
 # UNA ANIMACION, LAS OCHO DIRECCIONES. Una fila por direccion. Es la hoja con la que se juzga si el

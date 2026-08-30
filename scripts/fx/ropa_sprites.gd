@@ -247,74 +247,35 @@ static func _torso(piezas: Array, esq: Dictionary, manga: float, bajo: float) ->
 	_hueco_cabeza(piezas, esq)
 
 
-# EL HUECO DE LA CABEZA. Borra de la tela lo que caiga donde va la cabeza, que es como el cuerpo
-# resuelve lo mismo pintandola la ultima (ver la nota larga de HUECO_CABEZA).
-#
-# Los radios salen de la cabeza que dibuja CuerpoSprites, no de numeros a mano: si algun dia cambia
-# la forma de la cabeza, el hueco la sigue solo.
+# EL HUECO DE LA CABEZA. La explicacion esta en CapaJugador.hueco_cabeza -- lo necesitan por igual la
+# camisa y el peto de armadura. Aqui solo queda contra que tonos muerde esta capa.
 static func _hueco_cabeza(piezas: Array, esq: Dictionary) -> void:
-	var r: Vector3 = Vector3(CuerpoSprites.R_CABEZA, CuerpoSprites.R_CABEZA * 0.90,
-		CuerpoSprites.R_CABEZA * 0.96) * HUECO_CABEZA
-	PoseJugador.poner(piezas, esq, esq["puntos"][PoseJugador.P_CABEZA], r,
-		Tono.VACIO, {"solo_sobre": [Tono.TELA, Tono.TELA_L, Tono.TELA_S]})
+	CapaJugador.hueco_cabeza(piezas, esq, [Tono.TELA, Tono.TELA_L, Tono.TELA_S], HUECO_CABEZA)
 
 
 # ============================================================
-#  EL HUECO DEL BRAZO: LO MISMO QUE EL DE LA CABEZA, Y POR EL MISMO MOTIVO
+#  EL HUECO DEL BRAZO
 # ============================================================
-# LOS SINTOMAS ERAN DOS Y PARECIAN COSAS DISTINTAS: "de perfil no tiene brazo" y "el pantalon se
-# pinta encima del brazo". Es la misma causa. Las capas se apilan con un z FIJO
-# (cuerpo 1 · piernas 2 · torso 3, ver JugadorSprites) y NO hay z-buffer por profundidad, asi que la
-# ropa gana siempre al cuerpo -- tambien cuando el brazo esta claramente DELANTE de la prenda.
+# La explicacion entera esta en CapaJugador.hueco_brazo, que es donde vive el recorte: lo necesitan
+# igual la camisa y el peto de armadura, y tenerlo dos veces era garantizar que un dia se corrigiera
+# uno solo. Aqui queda lo que es de la ropa: contra que tonos muerde y cuanta holgura le hace falta a
+# cada capa.
 #
-# Y EL Z FIJO NO SE PUEDE TOCAR: ordenar estas capas por profundidad es lo que hacia desaparecer la
-# camisa entera de espaldas al andar (ver la nota de MunecoJugador._ordenar). O sea que el arreglo no
-# es reordenar, es RECORTAR -- exactamente lo que ya se hacia con la cabeza.
-#
-# Donde se nota cada uno:
+# Donde se notaba, para no perder el rastro:
 #   * la CAMISA se comia el brazo de perfil, donde el brazo cae por delante del pecho;
 #   * el PANTALON se comia la MANO, que cuelga a la altura de la cadera (MANO.z 21,5 contra los 24
 #     de la cadera) y cae justo encima de la cinturilla.
 #
-# EL GUARDARRAIL DE PROFUNDIDAD NO ES OPCIONAL. Este recorte muerde el tono base (TELA), no solo el
-# de fondo como el de la cabeza, porque el brazo de delante se proyecta sobre el pecho iluminado. Sin
-# comprobar que el brazo esta de verdad delante, DE ESPALDAS se abriria un boquete en mitad de la
-# prenda por donde no hay nada -- que es la misma trampa en la que ya se cayo una vez con la nuca
-# (ver HUECO_CABEZA).
-#
-# Los radios salen del brazo que dibuja CuerpoSprites, no de numeros a mano, y con un pelin de mas:
-# a ras exacto queda un hilo de tela entre el recorte y el contorno del brazo, que se lee como un
-# halo sucio pegado al codo.
-#
-# Y EN LA CAPA DE LAS PIERNAS VA MAS HOLGADO (ver HUECO_BRAZO_PIERNAS), porque alli el recorte cae
-# justo en el canto de la cinturilla: a ras del brazo dejaba una MOTA de cuatro o cinco pixeles
-# colgando por fuera de la mano -- el trozo de cinturilla que quedaba al otro lado del corte. Lo
-# cazaba el validador de islas del horno en cuatro fotogramas de correr y de guardia. Con holgura, la
-# mota se la lleva el propio recorte, y lo que asoma de mas es cuerpo, no fondo: la capa de debajo
-# esta ahi.
+# Y EN LA CAPA DE LAS PIERNAS VA MAS HOLGADO, porque alli el recorte cae justo en el canto de la
+# cinturilla: a ras del brazo dejaba una MOTA de cuatro o cinco pixeles colgando por fuera de la mano
+# -- el trozo de cinturilla que quedaba al otro lado del corte. Lo cazaba el validador de islas del
+# horno en cuatro fotogramas de correr y de guardia.
 const HUECO_BRAZO := 1.06
 const HUECO_BRAZO_PIERNAS := 1.3
 
 static func _hueco_brazo(piezas: Array, esq: Dictionary, izq: bool,
 		holgura: float = HUECO_BRAZO) -> void:
-	var p: Dictionary = esq["puntos"]
-	var id_mano: StringName = PoseJugador.P_MANO_IZQ if izq else PoseJugador.P_MANO_DER
-	if PoseJugador.profundidad(esq, id_mano) <= PoseJugador.profundidad(esq, PoseJugador.P_TORSO):
-		return
-	var hombro: Vector3 = p[PoseJugador.P_HOMBRO_IZQ if izq else PoseJugador.P_HOMBRO_DER]
-	var codo: Vector3 = p[PoseJugador.P_CODO_IZQ if izq else PoseJugador.P_CODO_DER]
-	var mano: Vector3 = p[id_mano]
-	var o := {"solo_sobre": [Tono.TELA, Tono.TELA_L, Tono.TELA_S]}
-	# El mismo arranque que el brazo del cuerpo (metido dentro del pecho), o el recorte deja un
-	# medio pixel de tela justo en la juntura del hombro.
-	var arranque := Vector3(hombro.x * 0.88, hombro.y, hombro.z - 2.0)
-	PoseJugador.cadena(piezas, esq, arranque, codo,
-		CuerpoSprites.R_BRAZO * holgura, CuerpoSprites.R_ANTEBRAZO * holgura, Tono.VACIO, o)
-	PoseJugador.cadena(piezas, esq, codo, mano,
-		CuerpoSprites.R_ANTEBRAZO * holgura, CuerpoSprites.R_ANTEBRAZO * 0.92 * holgura,
-		Tono.VACIO, o)
-	var m: float = CuerpoSprites.R_MANO * holgura
-	PoseJugador.poner(piezas, esq, mano, Vector3(m, m, m), Tono.VACIO, o)
+	CapaJugador.hueco_brazo(piezas, esq, izq, [Tono.TELA, Tono.TELA_L, Tono.TELA_S], holgura)
 
 
 # Una manga. Arranca dentro del pecho (como el brazo del cuerpo, por el mismo motivo: agarrada por

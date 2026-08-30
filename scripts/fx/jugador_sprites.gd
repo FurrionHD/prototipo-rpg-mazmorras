@@ -199,6 +199,18 @@ const Z_CASCO_ABIERTO := 2047
 # excepcion en dos sitios. Tapandola por z, el mismo numero resuelve las dos.
 const Z_CASCO_CERRADO := 2050
 
+# LAS PIEZAS DE ARMADURA DEL CUERPO, por encima de la ropa que sustituyen (piernas 2, torso 3).
+#
+# GREBAS Y BOTAS COMPARTEN Z (4) y no chocan: unas cubren del muslo al tobillo y las otras del
+# tobillo abajo, y donde se rozan gana la que va despues en la lista, que son las botas -- que es lo
+# correcto, la bota se calza SOBRE la greba.
+#
+# EL PETO VA A 6 Y NO A 5, dejando el 5 al arma envainada en la cadera (Z_ARMA_CADERA_DELANTE): una
+# espada colgada del cinto se ve por delante del faldar, no por detras. Con el peto en 5 se tapaban
+# entre si segun el orden de la lista, que es justo lo que no se quiere que decida esto.
+const Z_ARMADURA_PIERNAS := 4
+const Z_ARMADURA_PECHO := 6
+
 
 # Los SpriteFrames de todas las capas que le tocan a ESTE personaje, ya en orden de apilado, con su
 # color y su acabado. Devuelve [{clave, frames, ancla, color, metal, ...}] para que el compositor no
@@ -246,6 +258,11 @@ static func capas_de(pj: PersonajeData) -> Array:
 		# peinado convive con que casco: lo decide el propio peinado por su flag 'cuelga'.
 		if nombre == "pelo" and pj.equipped_casco != null:
 			continue
+		# Y LO MISMO CON LA ROPA QUE TAPA UNA PIEZA DE ARMADURA (ver ROPA_QUE_TAPA): el peto sustituye
+		# a la camisa y las grebas al pantalon. Se apaga aqui por el mismo motivo que el casquete --
+		# una capa no puede recortar a otra, asi que lo unico que se puede hacer es no pedirla.
+		if _tapada_por_armadura(pj, nombre):
+			continue
 		out.append({"clave": "%s_%s" % [nombre, modelo], "ranura": cat["ranura"],
 			"ancla": cat["ancla"], "tinte": bool(cat.get("tinte", true)),
 			"z": int(cat["z"]), "color": p["color"], "metal": p["metal"],
@@ -267,8 +284,7 @@ static func capas_de(pj: PersonajeData) -> Array:
 # que llevarlas puestas sin que se vean es el estado normal y no un error: se salta y ya.
 static func _capas_armadura(pj: PersonajeData) -> Array:
 	var out: Array = []
-	for i in ArmaduraSprites.SLOT_NOMBRE.size():
-		var slot: String = ArmaduraSprites.SLOT_NOMBRE[i]
+	for slot in ArmaduraSprites.SLOT_NOMBRE:
 		if not ArmaduraSprites.SLOTS_HECHOS.has(slot):
 			continue
 		var pieza = pj.get("equipped_" + slot)
@@ -276,10 +292,20 @@ static func _capas_armadura(pj: PersonajeData) -> Array:
 			continue
 		var ti: int = clampi(int(pieza.tipo), 0, ArmaduraSprites.TIPO_NOMBRE.size() - 1)
 		var tipo: String = ArmaduraSprites.TIPO_NOMBRE[ti]
-		out.append({"clave": ArmaduraSprites.clave(tipo, slot), "ranura": _ranura_de(slot),
+		var base: String = ArmaduraSprites.clave(tipo, slot)
+		# LOS GUANTELETES SON DOS CAPAS, una por mano, y SIN z: van ancladas a su empuñadura y las
+		# ordena la profundidad, igual que el arma en mano. Ver ArmaduraSprites.SLOTS_POR_MANO.
+		if ArmaduraSprites.SLOTS_POR_MANO.has(slot):
+			for lado in [["der", PoseJugador.P_MANO_DER, Ranura.MANO_DER],
+					["izq", PoseJugador.P_MANO_IZQ, Ranura.MANO_IZQ]]:
+				out.append({"clave": "%s_%s" % [base, lado[0]], "ranura": lado[2],
+					"ancla": lado[1], "tinte": false,
+					"frames": ArmaduraSprites.frames("%s_%s" % [base, lado[0]], 1.0)})
+			continue
+		out.append({"clave": base, "ranura": _ranura_de(slot),
 			"ancla": _ancla_de(slot), "tinte": false,
 			"z": _z_de(slot, tipo),
-			"frames": ArmaduraSprites.frames(ArmaduraSprites.clave(tipo, slot), 1.0)})
+			"frames": ArmaduraSprites.frames(base, 1.0)})
 	return out
 
 
@@ -303,10 +329,33 @@ static func _ancla_de(slot: String) -> StringName:
 
 
 static func _z_de(slot: String, tipo: String) -> int:
-	if slot == "casco":
-		return Z_CASCO_CERRADO if ArmaduraSprites.cerrado(tipo) else Z_CASCO_ABIERTO
-	# Las demas van justo por encima de la ropa que sustituyen (piernas 2, torso 3).
-	return Z_TORSO + 1
+	match slot:
+		"casco": return Z_CASCO_CERRADO if ArmaduraSprites.cerrado(tipo) else Z_CASCO_ABIERTO
+		"pecho": return Z_ARMADURA_PECHO
+		_: return Z_ARMADURA_PIERNAS
+
+
+# QUE PIEZA DE ROPA APAGA CADA RANURA DE ARMADURA. La armadura SUSTITUYE a la ropa, no se pone encima:
+# un peto sobre una camisa serian dos siluetas peleandose por el mismo sitio, y la de debajo no se
+# veria mas que asomando a trozos por los bordes.
+#
+# Botas y guanteletes NO apagan nada, y no es un olvido: manos y pies se pintan en la capa del CUERPO,
+# que no se puede apagar. Se dibujan encima y ya -- por eso sus radios van a ras del cuerpo.
+const ROPA_QUE_TAPA := {"pecho": "torso", "pantalones": "piernas"}
+
+# ¿Lleva puesta una pieza de armadura que sustituya a esta pieza de ropa? Mira ademas que la ranura
+# tenga pintor: una armadura que todavia no se sabe dibujar NO puede apagar la ropa, o el personaje
+# se quedaria desnudo por equiparse algo que no se ve.
+static func _tapada_por_armadura(pj: PersonajeData, pieza_ropa: String) -> bool:
+	for slot in ROPA_QUE_TAPA:
+		if String(ROPA_QUE_TAPA[slot]) != pieza_ropa:
+			continue
+		if not ArmaduraSprites.SLOTS_HECHOS.has(slot):
+			continue
+		var p = pj.get("equipped_" + slot)
+		if p != null and p is ArmorData:
+			return true
+	return false
 
 
 # LAS CAPAS DEL ARMA que lleva este personaje. Salen de equipped_main / equipped_off (ver
@@ -418,10 +467,13 @@ static func todas_las_capas() -> Array:
 	for clave in EscudoSprites.todas_las_claves():
 		out.append({"clave": clave, "piezas": 2, "gen": EscudoSprites, "modelo": clave})
 	# Las capas de armadura: una por (tipo, ranura), y solo de las ranuras que ya tienen pintor.
-	# 1 pieza: un casco es una masa sola. Si al meter guanteletes o botas eso deja de ser verdad (son
-	# DOS, una por mano), la cuenta se pone por clave y no aqui de golpe.
+	#
+	# LA CUENTA DE TROZOS ES POR RANURA, no una para todas: un casco es una masa sola, pero unas
+	# GREBAS son dos perneras y unas BOTAS son dos botas -- dos trozos y no hay nada que arreglar. El
+	# peto va con dos porque el recorte del brazo puede partirlo, igual que le pasa a la camisa.
 	for clave in ArmaduraSprites.todas_las_claves():
-		out.append({"clave": clave, "piezas": 1, "gen": ArmaduraSprites, "modelo": clave})
+		out.append({"clave": clave, "piezas": ArmaduraSprites.trozos_de(clave),
+			"gen": ArmaduraSprites, "modelo": clave})
 	return out
 
 
