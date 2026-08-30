@@ -1358,7 +1358,12 @@ func _equipar_armor() -> void:
 	# Si la pieza la lleva otro, se pregunta antes (mismo criterio que con las armas).
 	_confirmar_robo(elegido, func():
 		Game.equipar_armadura(slot, elegido as ArmorData, _pj())
-		_rebuild())   # se queda en el slot; la recien equipada queda marcada
+		_rebuild()   # se queda en el slot; la recien equipada queda marcada
+		# Y REPINTAR EL MUÑECO, igual que hace _equipar_arma. Faltaba, y el sintoma era raro de atar
+		# al cambio: la armadura nueva no se veia hasta que el cuerpo se remontaba POR OTRO MOTIVO
+		# --entrar en la mazmorra, guardar y volver--, asi que parecia cosa del guardado. No lo era:
+		# el muñeco solo se rehace cuando alguien lo pide, y aqui nadie lo pedia.
+		_refrescar_mundo())
 
 
 # Panel de stats de la pieza candidata (derecha de la cuadricula).

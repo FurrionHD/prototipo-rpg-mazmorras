@@ -4136,7 +4136,8 @@ func tier_mult(tier: int) -> float:
 
 # --- Armadura: loadout de 5 piezas (ArmorData o null en cada slot) ---
 # Cada pieza aporta DEF plana (aditiva) + % de reduccion (se PROMEDIA) + peso.
-# Ver armor_mods(). Interfaz por codigo/DEV keys de momento (tecla J cicla sets).
+# Ver armor_mods(). Se equipa desde la ficha de personaje (CharacterMenu, pestaña Armadura), que es
+# el UNICO sitio que llama a equipar_armadura. La tecla J de DEV que decia esta nota ya no existe.
 var equipped_casco: ArmorData:
 	get: return lider().equipped_casco as ArmorData
 	set(v): lider().equipped_casco = v
