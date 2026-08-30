@@ -5443,7 +5443,14 @@ func _pintar_velo_umbrio(e: Dictionary) -> void:
 	# TODAVIA NO HA BAJADO NADA. Con la tela a altura cero todos los vertices caen en la misma linea y
 	# el poligono no se puede triangular ("Invalid polygon data"): no se pinta y ademas escupe dos
 	# errores por frame. Es el mismo caso que ya tenia _estrella al apagarse.
-	if hasta - techo < 3.0:
+	# La guarda va contra la ONDA, no contra un 3.0 fijo. Con la tela recien empezando a bajar, la
+	# caida (hasta - techo) es de unos pocos pixeles y la onda del borde de abajo mide caja*0.055,
+	# que puede ser mas: el borde inferior SUBIA por encima de los puntos del lateral, el contorno se
+	# pisaba a si mismo y Godot no podia triangularlo ("Invalid polygon data", dos errores por frame
+	# y el velo sin pintar). Con esto no se dibuja hasta que la tela ha bajado lo bastante como para
+	# que la onda no pueda invertir el recorrido.
+	var onda_max: float = caja * 0.055
+	if hasta - techo < maxf(3.0, onda_max * 4.0):
 		return
 	# LOS LADOS TAMBIEN SE MUEVEN. La primera version tenia los cantos rectos y el techo de borde a
 	# borde: salia un RECTANGULO NEGRO plantado sobre la tarjeta, o sea una caja, no una tela. Una
@@ -5464,7 +5471,12 @@ func _pintar_velo_umbrio(e: Dictionary) -> void:
 		var u: float = 1.0 - float(i) / float(n - 1)
 		var x: float = lerpf(-an, an, u)
 		# El ondeo va con el tiempo real y desfasado por la x: una tela que se mueve, no una linea.
-		var onda: float = sin(t * 3.1 + u * 6.4 + g) * caja * 0.055 * (0.4 + 0.6 * cae)
+		#
+		# Y SE AMORTIGUA EN LAS DOS PUNTAS (el sin(PI*u) vale 0 en u=0 y u=1). Son las esquinas donde
+		# el borde de abajo se junta con los laterales: si ahi la onda tiene amplitud, el contorno
+		# puede retroceder y el poligono deja de ser simple. Ademas queda mejor -- una tela colgada
+		# esta sujeta por los lados y ondea por el medio, no por los bordes.
+		var onda: float = sin(t * 3.1 + u * 6.4 + g) * onda_max * (0.4 + 0.6 * cae) * sin(PI * u)
 		pts.append(b + Vector2(x, hasta + onda))
 	# Y el izquierdo, subiendo (igual: sin llegar al techo).
 	for i in 3:
@@ -5478,8 +5490,10 @@ func _pintar_velo_umbrio(e: Dictionary) -> void:
 	var borde := PackedVector2Array()
 	for i in n:
 		var u2: float = float(i) / float(n - 1)
+		# LA MISMA onda que el poligono, amortiguacion incluida: si las dos no coinciden clavadas, el
+		# borde se despega de la tela y se ve una linea flotando por debajo.
 		borde.append(b + Vector2(lerpf(-an, an, u2),
-			hasta + sin(t * 3.1 + u2 * 6.4 + g) * caja * 0.055 * (0.4 + 0.6 * cae)))
+			hasta + sin(t * 3.1 + u2 * 6.4 + g) * onda_max * (0.4 + 0.6 * cae) * sin(PI * u2)))
 	draw_polyline(borde, Color(0.34, 0.30, 0.44, 0.55 * alfa), maxf(1.5, caja * 0.022), true)
 	# LOS PLIEGUES: tres lineas verticales que bajan por la tela. Es lo que dice que hay un paño ahi
 	# y no una mancha -- y a la vez deja ver que lo de detras sigue existiendo.

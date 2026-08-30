@@ -47,16 +47,31 @@ calcado las tres veces que lo lanzas en una pelea. Hoy hay 18 claves con varias.
 anfitrión al resolver el golpe y que viaja en el paquete de impactos (quinto entero, ver
 `combat._apuntar_impacto_red`). Sin eso, el mismo mandoble sonaría distinto en cada pantalla.
 
-## El volumen está igualado
+## El volumen: tres pasos, en este orden
 
-Todos los ficheros de `audio/sfx/` pasan por `igualar()` (guión de preparación): se mide el **RMS
-de la ventana más fuerte** — la sonoridad, no el pico — y se lleva a un objetivo común, con techo
-de pico y tope de ganancia. Venían con hasta **12 dB de diferencia** entre unos y otros, y eso
-pisaba el sistema del juego, que ya sube y baja cada golpe según su peso y si es crítico
-(`Sonido._db`). La música y los bucles largos se igualan con `loudnorm` de ffmpeg (EBU R128).
+1. **Realce de graves** (`REALCE`, solo para los pisotones y mazazos). Medidos, esos golpes tienen
+   el **97-100 % de su energía por debajo de 500 Hz**: son retumbe puro, y un altavoz de portátil
+   no baja de ~150 Hz. Por eso el Pisotón atronador "no se escuchaba nada" — no le faltaba nivel,
+   le faltaba una frecuencia que el altavoz no sabe dar. Se les fabrica el armónico que falta
+   (paso-bajo → saturación → paso-alto de **seis polos**) y el oído reconstruye el grave a partir
+   de él. Sube del 1,7 % al 12 % de energía audible. Con un solo polo no servía de nada: el
+   fundamental seguía mandando.
+2. **Igualar** (`igualar`). Se mide la sonoridad **ponderada K** (norma EBU R128 / ITU-R BS.1770),
+   no el RMS pelado. Esto no es un detalle fino: en RMS, el martillo grande medía *exactamente*
+   igual que un espadazo y se oía a la mitad, porque el oído es mucho menos sensible a los graves
+   a igual energía.
+3. **La mezcla a mano** (`GANANCIAS`). Igualar deja todo al mismo nivel, y eso no es lo que se
+   quiere para todo: un pisotón de jefe tiene que pesar más que un mordisco de rata. Aquí van esos
+   dB de decisión artística, aplicados con **limitador** para que subir 7 dB no sature.
+
+La música y los bucles largos se igualan con `loudnorm` de ffmpeg (EBU R128), a -16 LUFS la música
+y -22 el ambiente.
 
 **No editar un .wav de aquí a mano**: lo pisa el siguiente `preparar_sonidos.py`. Se edita el
-original de `Descargas` y se vuelve a lanzar.
+original de `Descargas` y se vuelve a lanzar. **Los 61 de enemigos también se regeneran** desde
+`Descargas/sonidos para los ataques de los enemigos/recortados/` (con su tabla de renombres): sin
+eso, el realce de graves se aplicaba encima del resultado de la pasada anterior y se iba
+acumulando.
 
 ## Sonido fuera del combate
 

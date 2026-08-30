@@ -35,6 +35,35 @@ DESCARGAS = os.path.join(os.path.expanduser("~"), "Downloads")
 ORIG_SFX = os.path.join(DESCARGAS, "sonidos para los ataques de los personajes")
 ORIG_AMB = os.path.join(DESCARGAS, "Sonidos ambiente")
 ORIG_MUS = os.path.join(DESCARGAS, "Musicas")
+# Los de enemigos son de una tanda anterior y ya vienen recortados: de ahi la subcarpeta.
+ORIG_ENE = os.path.join(DESCARGAS, "sonidos para los ataques de los enemigos", "recortados")
+
+# COMO SE LLAMABAN Y COMO SE LLAMAN. Los sonidos de enemigos se generaron con el nombre del prompt
+# ("pisoton atronador") y el juego los busca por la clave de la habilidad o del estilo
+# ("minotauro_pisoton"). Lo que no esta aqui se copia con su nombre tal cual.
+RENOMBRES = {
+	"sfx_alarido.wav": "sfx_aberracion_alarido.wav",
+	"sfx_mirada_vacio_v1.wav": "sfx_aberracion_mirada_v1.wav",
+	"sfx_mirada_vacio_v2.wav": "sfx_aberracion_mirada_v2.wav",
+	"sfx_mirada_vacio_v3.wav": "sfx_aberracion_mirada_v3.wav",
+	"sfx_carga_acorazada.wav": "sfx_bestia_carga.wav",
+	"sfx_pisoton_sismico.wav": "sfx_coloso_pisoton.wav",
+	"sfx_mirada_petrea_v1.wav": "sfx_gargola_mirada_v1.wav",
+	"sfx_mirada_petrea_v2.wav": "sfx_gargola_mirada_v2.wav",
+	"sfx_picado.wav": "sfx_gargola_picado.wav",
+	"sfx_machaca.wav": "sfx_golem_machaca.wav",
+	"sfx_bramido.wav": "sfx_minotauro_bramido.wav",
+	"sfx_cornada_minotauro.wav": "sfx_minotauro_cornada.wav",
+	"sfx_pisoton_atronador_v1.wav": "sfx_minotauro_pisoton_v1.wav",
+	"sfx_pisoton_atronador_v2.wav": "sfx_minotauro_pisoton_v2.wav",
+	"sfx_aplastamiento_v1.wav": "sfx_rey_slime_aplastamiento_v1.wav",
+	"sfx_aplastamiento_v2.wav": "sfx_rey_slime_aplastamiento_v2.wav",
+	"sfx_aplastamiento_v3.wav": "sfx_rey_slime_aplastamiento_v3.wav",
+	"sfx_aplastamiento_v4.wav": "sfx_rey_slime_aplastamiento_v4.wav",
+	"sfx_ramazo_v1.wav": "sfx_trent_ramazo_v1.wav",
+	"sfx_ramazo_v2.wav": "sfx_trent_ramazo_v2.wav",
+	"sfx_savia.wav": "sfx_trent_savia_corrosiva.wav",
+}
 
 DEST_SFX = os.path.join(RAIZ, "audio", "sfx")
 DEST_AMB = os.path.join(RAIZ, "audio", "ambiente")
@@ -390,6 +419,60 @@ VENTANA_RMS = 0.2       # segundos: el cuerpo del golpe
 #   2. paso-alto a ~38 Hz, que quita el retumbe que no se oye pero si se mide
 # Los coeficientes NO se pueden reescalar a otra frecuencia de muestreo a ojo: si algun dia entra un
 # fichero que no sea de 48 kHz, `igualar` lo mide sin ponderar y lo dice.
+# ============================================================
+#  LA MEZCLA A MANO
+#
+#  dB que se le SUMAN a una clave despues de igualarla. Igualar deja todo al mismo nivel, que es lo
+#  correcto de partida, pero "al mismo nivel" no es lo que se quiere para todo: un pisoton de jefe
+#  TIENE que pesar mas que un mordisco de rata. Esto es la mezcla, y son decisiones de oido del
+#  usuario, no una medida.
+#
+#  Se aplica con LIMITADOR (ver `_limitar`), asi que subir 7 dB no satura: lo que se lleva el
+#  limitador son las puntas, y en un golpe grave -- que tiene mucho pico y poco cuerpo -- eso es
+#  justo lo que hace que se OIGA mas sin sonar mas alto.
+#
+#  La clave es la del fichero sin 'sfx_' ni '_vN': vale para todas las versiones de una vez.
+GANANCIAS = {
+	# Los golpes de suelo. Son los que mas sufren la igualacion: al oido pesan por el retumbe, y el
+	# retumbe es justo lo que la ponderacion K descuenta.
+	"golpe_sismico": 6.0,
+	"martillo_golpe": 6.0,        # el basico del martillo grande
+	"temblor_suelo": 3.0,
+	"coloso_pisoton": 7.0,
+	"minotauro_pisoton": 7.0,     # el Pisoton atronador: no se oia
+	# El Endurecerse del golem suena por el generico de ESCUDO.
+	"escudo": 3.0,
+}
+
+# El limitador empieza a apretar a partir de esta fraccion del techo. Por debajo no toca nada.
+RODILLA = 0.6
+
+# ============================================================
+#  REALCE DE GRAVES  (cuanto armonico se le añade a una clave, 0..1)
+#
+#  EL PROBLEMA. Medidos, estos golpes tienen el 97-100% de su energia POR DEBAJO DE 500 Hz: son
+#  retumbe puro. Un altavoz de portatil o de monitor no baja de ~150 Hz, asi que ahi literalmente
+#  no suenan -- y subirles el volumen no arregla nada, porque lo que falta no es nivel, es una
+#  frecuencia que el altavoz no sabe dar. Es exactamente el sintoma que se describio como "el
+#  Pisoton atronador no se escucha nada".
+#
+#  LA SOLUCION es la de siempre en audio: si no puedes dar el fundamental, da sus ARMONICOS. El
+#  oido reconstruye el tono grave a partir de ellos (el "fundamental ausente"), asi que el golpe se
+#  oye grave en un altavoz que no puede reproducir ni una nota de esa zona. Se saca el grave, se
+#  rectifica -- que es lo que fabrica el armonico -- y se mezcla por encima.
+#
+#  NO ES SUBIR EL VOLUMEN: el nivel lo sigue poniendo `igualar` despues, sobre el resultado.
+REALCE = {
+	"minotauro_pisoton": 0.30,
+	"coloso_pisoton": 0.28,
+	"golpe_sismico": 0.25,
+	"martillo_golpe": 0.22,
+	"temblor_suelo": 0.20,
+	"golem_machaca": 0.12,
+	"pisoton": 0.15,          # el generico de PISOTON (el del jabali)
+}
+
+
 K_BIQUADS = [
 	([1.53512485958697, -2.69169618940638, 1.19839281085285],
 	 [1.0, -1.69065929318241, 0.73248077421585]),
@@ -426,8 +509,78 @@ def ponderar_k(muestras, fr):
 	return y
 
 
-def igualar(muestras, fr):
-	"""Escala las muestras para que TODAS suenen igual de fuertes. Devuelve (muestras, dB movidos)."""
+def _un_polo(x, fr, hz, paso_alto=False):
+	"""Filtro de un polo. Basta y sobra aqui: no hace falta corte fino, hace falta separar bandas."""
+	a = 1.0 - math.exp(-2.0 * math.pi * hz / fr)
+	y = 0.0
+	fuera = [0.0] * len(x)
+	for i in range(len(x)):
+		y += a * (x[i] - y)
+		fuera[i] = (x[i] - y) if paso_alto else y
+	return fuera
+
+
+def realzar_graves(muestras, fr, cantidad):
+	"""Le añade a un golpe grave los armonicos que le faltan para oirse. Ver REALCE.
+
+	`cantidad` es la fraccion de ENERGIA del original que va a aportar el armonico: 0.30 significa
+	que se le suma un 30% de energia nueva, toda ella en la zona que el altavoz si reproduce.
+
+	TRES PASOS Y LOS TRES IMPORTAN:
+	  1. paso-bajo a 150 Hz para quedarse con el retumbe SOLO;
+	  2. un tanh que lo satura: saturar una onda le fabrica armonicos (3f, 5f...), que es de donde
+	     va a salir lo que se oye;
+	  3. paso-alto EMPINADO -- seis polos -- para quedarse unicamente con esos armonicos.
+
+	El paso 3 es el que costo. Con UN polo (6 dB/octava) el fundamental de 60 Hz salia solo 12 dB
+	por debajo y seguia mandando: el realce sonaba a "mas grave" en vez de a "mas claro", y medido
+	no movia nada (1,7% -> 2,1% de energia por encima de 400 Hz). Con seis polos sube al 12%.
+
+	No se normaliza el resultado a lo que era: de eso se encarga `igualar` justo despues, que es
+	quien decide el nivel final. Aqui solo se baja si se ha salido del techo.
+	"""
+	if cantidad <= 0.0 or not muestras:
+		return muestras
+	x = [m / 32768.0 for m in muestras]
+	energia = sum(v * v for v in x)
+	if energia <= 0.0:
+		return muestras
+	bajo = _un_polo(x, fr, 150.0)
+	pb = max((abs(v) for v in bajo), default=0.0)
+	if pb <= 0.0:
+		return muestras
+	arm = [math.tanh(8.0 * v / pb) for v in bajo]
+	for _ in range(6):
+		arm = _un_polo(arm, fr, 300.0, True)
+	ea = sum(v * v for v in arm)
+	if ea <= 0.0:
+		return muestras
+	g = math.sqrt(cantidad * energia / ea)
+	y = [x[i] + arm[i] * g for i in range(len(x))]
+	pico = max((abs(v) for v in y), default=0.0)
+	if pico > PICO_TECHO:
+		k = PICO_TECHO / pico
+		y = [v * k for v in y]
+	for i in range(len(muestras)):
+		muestras[i] = max(-32768, min(32767, int(y[i] * 32768.0)))
+	return muestras
+
+
+def _limitar(a, techo):
+	"""Aprieta lo que pasa de la rodilla en vez de recortarlo. `a` es el valor absoluto, 0..N."""
+	rodilla = techo * RODILLA
+	if a <= rodilla:
+		return a
+	return rodilla + (techo - rodilla) * math.tanh((a - rodilla) / (techo - rodilla))
+
+
+def igualar(muestras, fr, extra_db=0.0):
+	"""Escala las muestras para que TODAS suenen igual de fuertes. Devuelve (muestras, dB movidos).
+
+	`extra_db` es el retoque de mezcla de GANANCIAS: se suma DESPUES de igualar, que es lo que hace
+	que sea una decision legible ("el pisoton del coloso, 7 dB por encima de la media") y no un
+	numero perdido dentro de un fichero de audio.
+	"""
 	n = max(1, int(fr * VENTANA_RMS))
 	if len(muestras) == 0:
 		return muestras, 0.0
@@ -452,14 +605,16 @@ def igualar(muestras, fr):
 		return muestras, 0.0
 	g = RMS_OBJETIVO / mejor
 	g = max(1.0 / GANANCIA_TOPE, min(GANANCIA_TOPE, g))
-	# El techo de pico manda sobre todo lo demas: antes saturar no, gracias.
-	pico = max(abs(x) for x in muestras) / 32768.0
-	if pico * g > PICO_TECHO:
-		g = PICO_TECHO / pico
+	# Y encima, el retoque de mezcla. Este NO se recorta contra el techo de pico: para eso esta el
+	# limitador. Bajar la ganancia hasta que el pico quepa era justo lo que impedia subir estos
+	# golpes -- les quedaba 1 dB de margen y el +6 se quedaba en +1.
+	g *= pow(10.0, extra_db / 20.0)
 	if abs(g - 1.0) < 0.02:
 		return muestras, 0.0
 	for i in range(len(muestras)):
-		muestras[i] = max(-32768, min(32767, int(muestras[i] * g)))
+		v = muestras[i] * g / 32768.0
+		v = math.copysign(_limitar(abs(v), PICO_TECHO), v)
+		muestras[i] = max(-32768, min(32767, int(v * 32768.0)))
 	return muestras, 20.0 * math.log10(g)
 
 
@@ -596,6 +751,39 @@ def hacer_ambiente(informe, solo_cortos=False):
 			informe.append("  %-28s %6.1f KB  %s" % (nombre, os.path.getsize(dest) / 1024.0, sub))
 
 
+def hacer_enemigos(informe):
+	"""Vuelve a traer los 61 sonidos de enemigos desde su carpeta de originales.
+
+	POR QUE HACE FALTA. Estos ya venian recortados de antes de que existiera este guion, asi que
+	estaban solo en audio/sfx y no se regeneraban: cada pasada les aplicaba el realce de graves
+	OTRA VEZ sobre el resultado de la anterior, y eso no converge -- el armonico se iba acumulando.
+	Trayendolos del original en cada pasada, todo audio/sfx sale siempre del mismo sitio y relanzar
+	el guion mil veces da mil veces lo mismo, que es lo que promete el LEEME.
+
+	No se recortan: los originales de `recortados/` ya lo estan. Solo se pasan a mono y se renombran.
+	"""
+	if not os.path.isdir(ORIG_ENE):
+		informe.append("  !! falta %s (los de enemigos se quedan como esten)" % ORIG_ENE)
+		return
+	n = 0
+	for dp, _, fs in os.walk(ORIG_ENE):
+		for f in sorted(fs):
+			if not f.lower().endswith(".wav"):
+				continue
+			destino = RENOMBRES.get(f, f)
+			m, fr = leer_mono(os.path.join(dp, f))
+			escribir_mono(os.path.join(DEST_SFX, destino), m, fr)
+			n += 1
+			if destino != f:
+				informe.append("  %-34s -> %s" % (f, destino))
+	# El aura no tiene sonido propio todavia: es una copia del arrastre. Se rehace aqui para que no
+	# se quede atras cuando el arrastre cambie.
+	copia = os.path.join(DEST_SFX, "sfx_arrastre_v1.wav")
+	if os.path.isfile(copia):
+		shutil.copyfile(copia, os.path.join(DEST_SFX, "sfx_aura.wav"))
+	informe.append("  %d ficheros traidos de %s" % (n, os.path.basename(ORIG_ENE)))
+
+
 def igualar_todo(informe):
 	"""Iguala audio/sfx ENTERO, incluidos los sonidos de enemigos que se prepararon antes.
 
@@ -611,12 +799,24 @@ def igualar_todo(informe):
 		if not f.endswith(".wav"):
 			continue
 		ruta = os.path.join(DEST_SFX, f)
+		# La clave, para buscarle su retoque de mezcla: sfx_X.wav y sfx_X_v3.wav son los dos "X".
+		clave = f[4:-4] if f.startswith("sfx_") else f[:-4]
+		if "_v" in clave and clave.rsplit("_v", 1)[1].isdigit():
+			clave = clave.rsplit("_v", 1)[0]
+		extra = float(GANANCIAS.get(clave, 0.0))
+		realce = float(REALCE.get(clave, 0.0))
 		m, fr = leer_mono(ruta)
-		m, db = igualar(m, fr)
-		if db == 0.0:
+		# EL REALCE VA ANTES DE IGUALAR: añade armonicos, o sea que cambia la sonoridad medida. Al
+		# reves, el nivel saldria del sonido de antes de retocarlo.
+		if realce > 0.0:
+			m = realzar_graves(m, fr, realce)
+		m, db = igualar(m, fr, extra)
+		if db == 0.0 and realce <= 0.0:
 			continue
 		escribir_mono(ruta, m, fr)
-		informe.append("  %-28s %+5.1f dB" % (f, db))
+		informe.append("  %-28s %+5.1f dB%s%s" % (f, db,
+			"   mezcla %+.0f" % extra if extra != 0.0 else "",
+			"   realce %.2f" % realce if realce > 0.0 else ""))
 
 
 def hacer_musica(informe):
