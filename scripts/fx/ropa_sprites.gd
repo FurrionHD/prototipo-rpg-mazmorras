@@ -70,38 +70,31 @@ enum Tono {
 # ============================================================
 #  EL CUELLO DE LA PRENDA NO SE PINTA: SE RECORTA
 # ============================================================
-# Antes era una elipse de TELA_S pegada al canto de arriba de la camisa, o sea una BANDA MACIZA
-# cruzando el pecho. Mirando de frente (y en SE/SW, que es donde mas se ve) eso no tiene sentido
-# fisico: por el cuello de una camiseta pasa el CUELLO DE CARNE, y lo que hay detras es la cabeza.
-# Pintar tela ahi es dibujar el agujero tapado, y ademas se comia la franja de piel entre la prenda y
-# la barbilla -- con lo que la cara se quedaba en una linea.
+# La regla sigue en pie y es de las importantes, pero YA NO TIENE PIEZA PROPIA: la hace entera el
+# hueco de la cabeza (ver HUECO_CABEZA). Merece la pena dejar escrito el camino, porque es el mismo
+# que va a recorrer cualquier casco o gorjal que se añada.
 #
-# Ahora se hace al reves y sale gratis, porque el motor ya da las dos mitades:
+# Al principio el cuello era una elipse de TELA_S pegada al canto de arriba de la camisa, o sea una
+# BANDA MACIZA cruzando el pecho. Mirando de frente (y en SE/SW, que es donde mas se ve) eso no tiene
+# sentido fisico: por el cuello de una camiseta pasa el CUELLO DE CARNE, y lo que hay detras es la
+# cabeza. Pintar tela ahi es dibujar el agujero tapado.
+#
+# Asi que se hizo al reves, y sale gratis porque el motor ya da las dos mitades:
 #   * pintar con Tono.VACIO BORRA (SpriteLienzo.elipse escribe el tono sin excepciones), y la ropa va
 #     en su propia capa POR ENCIMA del cuerpo -- asi que lo que aqui se borra enseña la carne;
 #   * el contorno se calcula AL FINAL sobre la silueta ya fusionada (ver CapaJugador.plantilla), asi
 #     que el agujero se rodea solo de borde oscuro: ESE BORDE ES EL CUELLO DE LA PRENDA.
 #
-# Y va anclado en P_CUELLO, no en el torso: asi el escote sigue al cuello en las OCHO direcciones sin
-# un solo caso por direccion (de espaldas asoma la nuca, que es lo correcto y ademas lo tapa el pelo).
+# Durante un tiempo hubo DOS recortes haciendo esto mismo: un escote propio anclado en P_CUELLO y el
+# hueco de la cabeza. Cuando el hueco de la cabeza paso a morder tambien el pecho (que es lo que
+# garantiza la linea negra de la cara), los dos se pisaban en el mismo sitio y sumaban sus dos bordes
+# negros: el cuello de la camisa se leia como una BARRA gruesa cruzando el pecho en vez de como un
+# arco. El escote se quito entero -- el hueco de la cabeza ya recorta la cabeza en las ocho
+# direcciones, que es de lo que iba el escote desde el principio.
 #
-# LO QUE NO ES OBVIO Y HAY QUE MEDIR ANTES DE TOCAR ESTO: DE FRENTE, EL CUELLO NO SE VE. Con esta
-# camara (45 grados, una celda = 1,15) la cabeza baja en pantalla hasta 18,6 celdas y el cuello de
-# carne entero cae entre 18,4 y 23,4 -- o sea que LA CABEZA LO TAPA. Por el agujero de una camiseta
-# no asoma carne: asoma la barbilla, que es lo que hay justo detras.
-#
-# De ahi sale la calibracion: el recorte tiene que quedarse DENTRO de la silueta de la cabeza. Si
-# baja de la barbilla no enseña cuello -- enseña EL FONDO, un boquete negro en mitad del pecho, que
-# es peor que la banda que veniamos a quitar. Lo que se ve al final es la camisa acabando en un arco
-# limpio bajo la barbilla, que es como acaba una camiseta mirandola de frente.
-#
-# El ancho no puede acercarse al del pecho (10,1) o parte la camisa en dos islas, y el alto tampoco
-# importa mucho: lo que manda es SUBE.
-const ESCOTE_R := 1.55
-const ESCOTE_ALTO := 2.6
-# CUANTO SUBE EL RECORTE por encima del cuello para meterse detras de la cabeza. ES EL NUMERO A
-# MOVER: si aparece un hueco oscuro bajo la barbilla, subirlo.
-const ESCOTE_SUBE := 4.2
+# SI ALGUN DIA HACE FALTA UN CUELLO DE VERDAD (un gorjal, el cuello alto de una capa), la pieza va
+# aqui y NO como un segundo recorte: se pinta tela, y el hueco de la cabeza -- que va al final del
+# todo -- se encarga de que no invada la cara.
 
 # ============================================================
 #  LA CABEZA SE RECORTA DE LA TELA: LA RED DE SEGURIDAD
@@ -129,11 +122,21 @@ const ESCOTE_SUBE := 4.2
 # VA AL FINAL DEL TODO, despues de las mangas, porque la que muerde es una manga. Cualquier pieza
 # que se añada aqui y se pinte con TELA_S hereda gratis la garantia de que no puede comerse la cara.
 #
-# SOLO MUERDE 'TELA_S', Y ESO ES DELIBERADO. Se probo sobre los tres tonos y de espaldas destapaba la
-# NUCA: el pecho de la prenda (TELA) tapa el cuello por detras, que es lo que hace una camiseta de
-# verdad, y borrarlo dejaba un arco de carne desnuda bajo el pelo. La tela que se sube a la cara es
-# la de la manga del fondo, y esa va en TELA_S. Si algun dia una pieza de TELA vuelve a invadir la
-# cabeza, la solucion NO es añadir TELA a esta lista sin mirar el norte.
+# MUERDE LOS TRES TONOS, Y ESO CAMBIO. Antes solo mordia 'TELA_S' (la manga del fondo), porque
+# mordiendo los tres DE ESPALDAS se destapaba la NUCA: la prenda inflada subia tanto por detras que
+# el recorte le abria un arco de carne bajo el pelo. Con la ropa ya al tamaño exacto del cuerpo eso
+# no pasa -- el pecho de la prenda acaba a 34,0 y la cabeza empieza a 34,9, o sea que el hueco solo
+# le raspa el canto de arriba -- y en cambio hacia falta mordiendo el pecho:
+#
+#   LA CARA TIENE QUE IR SIEMPRE DELIMITADA POR SU LINEA NEGRA. La cabeza vive en la capa del cuerpo
+#   y su contorno se dibuja ahi; la prenda va POR ENCIMA (z 3 contra 1), asi que toda tela que se
+#   proyecte sobre la barbilla TAPA ESA LINEA y la cara se queda sin cerrar por abajo. Se veia de
+#   frente (la camiseta asomaba por encima de la mandibula) y sobre todo en SE y SW, donde ademas le
+#   cortaba un trozo de mejilla.
+#
+# El recorte lo arregla de una vez y para todas las direcciones: la tela se para justo fuera de la
+# cabeza, asi que se ve el contorno de la cabeza Y el borde propio del agujero, que al calcularse
+# sobre la silueta ya fusionada sale negro solo (ver CapaJugador.plantilla).
 #
 # VA UN PELIN MAS GRANDE QUE LA CABEZA. A ras exacto queda un hilo de tela entre el recorte y el
 # contorno de la cabeza -- un pixel suelto siguiendo la mandibula, que se lee como un halo sucio.
@@ -144,7 +147,7 @@ const ESCOTE_SUBE := 4.2
 # validador de islas del horno lo cuenta como un trozo de mas, y por eso el torso esta declarado con
 # DOS piezas en JugadorSprites.CATALOGO. No se pudo evitar recortando menos: el brazo cruza a la
 # altura de la mandibula, que es exactamente donde hay que recortar para quitar el mordisco.
-const HUECO_CABEZA := 1.06
+const HUECO_CABEZA := 1.0
 # La manga corta acaba a esta fraccion del tramo hombro->codo.
 const MANGA_CORTA := 0.62
 # El bajo de una tunica, en fraccion del tramo cadera->rodilla.
@@ -221,14 +224,8 @@ static func _torso(piezas: Array, esq: Dictionary, manga: float, bajo: float) ->
 	PoseJugador.poner(piezas, esq, alto,
 		Vector3(CuerpoSprites.R_TORSO.x * 0.55, CuerpoSprites.R_TORSO.y * 0.70,
 			CuerpoSprites.R_TORSO.z * 0.26), Tono.TELA_L, {"solo_sobre": [Tono.TELA]})
-	# EL ESCOTE: se RECORTA la tela por donde pasa el cuello (ver la nota larga de ESCOTE_R). Va aqui,
-	# despues del pecho y su realce pero ANTES DE LAS MANGAS: las mangas se pintan al final y, con el
-	# orden al reves, volverian a rellenar el agujero.
-	#
-	# El 'solo_sobre' es lo que impide que el recorte muerda nada que no sea tela ya pintada.
-	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CUELLO] + Vector3(0.0, 0.0, ESCOTE_SUBE),
-		Vector3(CuerpoSprites.R_CUELLO * ESCOTE_R, CuerpoSprites.R_CUELLO * ESCOTE_R, ESCOTE_ALTO),
-		Tono.VACIO, {"solo_sobre": [Tono.TELA, Tono.TELA_L, Tono.TELA_S]})
+	# AQUI IBA EL ESCOTE, y ya no hace falta: lo hace el hueco de la cabeza del paso 5, que ademas lo
+	# hace mejor porque sigue a la cabeza entera y no solo al cuello. Ver la nota de arriba.
 
 	# 4. Las mangas que van por delante del tronco.
 	if manga > 0.0:
@@ -259,7 +256,7 @@ static func _hueco_cabeza(piezas: Array, esq: Dictionary) -> void:
 	var r: Vector3 = Vector3(CuerpoSprites.R_CABEZA, CuerpoSprites.R_CABEZA * 0.90,
 		CuerpoSprites.R_CABEZA * 0.96) * HUECO_CABEZA
 	PoseJugador.poner(piezas, esq, esq["puntos"][PoseJugador.P_CABEZA], r,
-		Tono.VACIO, {"solo_sobre": [Tono.TELA_S]})
+		Tono.VACIO, {"solo_sobre": [Tono.TELA, Tono.TELA_L, Tono.TELA_S]})
 
 
 # ============================================================
