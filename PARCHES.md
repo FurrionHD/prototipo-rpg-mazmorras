@@ -2,6 +2,63 @@
 
 ---
 
+# v0.11.0 — «Se oye»
+
+Hasta ahora solo hacían ruido los enemigos. Ahora suena el juego entero: tus armas, tus
+hechizos, la mazmorra y la música.
+
+---
+
+## ⚔️ Tus golpes suenan
+
+**Cada arma tiene su sonido y cada habilidad el suyo.** Las diez armas, sus habilidades, las
+magias y la varita. Un mandoble no suena como una daga, y el Grito de guerra no suena como el
+Molinete.
+
+**Y no suenan siempre igual.** Donde hay varias grabaciones se sortea una en cada golpe, así
+que lanzar tres veces el mismo grito en una pelea no se oye como un disco rayado.
+
+**El arma imbuida chisporrotea.** Fuego, agua y rayo se montan encima del golpe: el mismo tajo
+suena distinto según con qué lo hayas cargado.
+
+**También fuera del combate.** Tu espadazo se oye aunque no le des a nada, y el bicho que te
+embiste se oye antes de que se abra la pelea.
+
+## 🎵 Música
+
+**Nueve momentos, con varias piezas cada uno**: menú, pueblo, mazmorra, combate, jefe, victoria,
+derrota y el golpe de bajar un piso.
+
+**La mazmorra vuelve por donde iba.** Al salir de una pelea no empieza de cero: retoma la pieza
+justo donde se quedó, así que se llegan a oír enteras.
+
+**La victoria suena mientras lees el resultado**, no al darle a Continuar.
+
+## 🌒 La mazmorra suena a mazmorra
+
+**Un fondo constante** y, cada tanto, algo suelto: una gota, un hueso, un crujido, algo que
+respira muy hondo. Lo que se oye depende del piso.
+
+**El agua se oye al acercarte** al charco, y tu farolillo chisporrotea mientras alumbra.
+
+**En combate se calla**, que ahí ya estás en otro sitio.
+
+## 🔊 Y se oyen todos igual
+
+**Los volúmenes están igualados** uno por uno: ya no hay un golpe que reviente y otro que no se
+entere. Los mazazos y los pisotones pesan más que lo demás, a propósito.
+
+**Los golpes de suelo se oyen de verdad.** El Pisotón atronador del minotauro era retumbe puro
+y en un altavoz normal no sonaba nada; ahora tiene cuerpo.
+
+**El volumen se puede tocar en mitad de una pelea**, con ESC, sin salir de ella.
+
+## 🐛 Arreglos
+
+- El **Velo umbrío** no se pintaba: la tela salía mal formada y el efecto desaparecía.
+
+---
+
 # v0.10.1 — «Te ves entero»
 
 El personaje era la mitad de grande de lo que pedía su propio dibujo. Ahora mide el doble.
