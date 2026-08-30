@@ -283,7 +283,7 @@ func _ready() -> void:
 	_crear_aspecto()
 	# EL AGUA SE OYE al acercarte. Va colgado del charco y no de una capa global a proposito: es lo
 	# que hace que se note DONDE esta sin tener que verlo.
-	Ambiente.pegar(self, "charco", -14.0, 260.0)
+	Ambiente.pegar(self, "charco", -3.0, 340.0)
 	# MULTI: Net necesita saber cual es el charco de este piso para encaminarle los paquetes.
 	Net.registrar_charco(self)
 	# El ESPEJO no puebla: sus peces llegan en la primera foto del dueño. Poblar aqui crearia peces

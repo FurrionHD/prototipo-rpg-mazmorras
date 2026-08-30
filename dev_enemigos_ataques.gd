@@ -47,6 +47,7 @@ var _lista: Array = []
 var _capa: CapaHechizos
 var _titulo: Label
 var _sub: Label
+var _sfx_txt: Label   # que fichero de sonido suena (ver Sonido.info)
 var _ayuda: Label
 var _victimas: Array = []   # tu grupo, abajo
 var _fila: Array = []       # la fila de bichos, arriba
@@ -114,6 +115,11 @@ func _ready() -> void:
 	_sub.add_theme_font_size_override("font_size", 17)
 	_sub.add_theme_color_override("font_color", Color(0.70, 0.74, 0.82))
 	add_child(_sub)
+	_sfx_txt = Label.new()
+	_sfx_txt.position = Vector2(24, 84)
+	_sfx_txt.add_theme_font_size_override("font_size", 15)
+	_sfx_txt.add_theme_color_override("font_color", Color(0.87, 0.72, 0.40))
+	add_child(_sfx_txt)
 	_ayuda = Label.new()
 	_ayuda.position = Vector2(24, 668)
 	_ayuda.add_theme_font_size_override("font_size", 15)
@@ -252,6 +258,16 @@ func _clave() -> String:
 # ============================================================
 # COMO PEGA: manda la habilidad si pide dibujo y, si no, como pega el bicho. Es lo mismo que hace
 # combat.gd._estilo_de_habilidad, que es el UNICO sitio del juego donde se decide esto.
+# LA CLAVE DE SONIDO de la habilidad en curso, por el mismo criterio que combat.gd._sfx_de_habilidad:
+# el nombre de su .tres, y solo si esta en Sonido.CLAVES. Lo que no esta ahi suena por su estilo.
+func _sfx_hab() -> String:
+	var ab: AbilityData = _lista[_idx][1]
+	if ab == null or ab.resource_path == "":
+		return ""
+	var clave: String = ab.resource_path.get_file().get_basename()
+	return clave if Sonido.CLAVES.has(clave) else ""
+
+
 func _estilo(ed, ab: AbilityData) -> int:
 	if ab != null and ab.fx_estilo >= 0:
 		return ab.fx_estilo
@@ -303,6 +319,9 @@ func _lanzar() -> void:
 		golpes, "" if golpes == 1 else "s", "   (adorno, sin daño)" if adorno else "",
 		"el fuerte de su franja" if _t_franja > 0.5 else "el débil de su franja",
 		_rep + 1, REPETICIONES, _vel, "" if _auto else "   (PAUSA)", aviso]
+	# QUE FICHERO SUENA, escrito en pantalla. Es la mitad del trabajo: oir que algo suena mal no
+	# sirve de nada si luego hay que adivinar cual de los 154 ficheros es.
+	_sfx_txt.text = "🔊 " + Sonido.info(_sfx_hab(), est)
 	_capa.escala_tiempo = 1.0
 	_capa.limpiar()
 	_serie += 1
@@ -391,6 +410,11 @@ func _sobre_mi(ed, est: int) -> void:
 # sale del bicho y el indice de golpe es el del golpe en curso, igual que hace la cola de combat_fx.
 # El escudo va a -1 a proposito: los bichos no llevan ninguno (Combatant.fx_escudo).
 func _alta(ed, est: int, destino: Vector2, ancho: float) -> void:
+	# EL SONIDO, y ANTES del corte por vuelo. En la partida el sonido NO depende de T_VUELO (ver
+	# CombatFX._process): un puñetazo no dibuja nada y suena igual. Ponerlo detras del return dejaria
+	# mudos en el visor justo los ataques que en la pelea si se oyen, que es el peor error posible en
+	# una herramienta que existe para decidir si un sonido esta bien.
+	Sonido.golpe(_sfx_hab(), est, 1.0, false, _elem(ed))
 	var vuelo: float = float(CombatFX.T_VUELO.get(est, 0.0))
 	if vuelo <= 0.0:
 		return   # sin vuelo no hay dibujo, igual que en la partida

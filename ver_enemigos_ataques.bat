@@ -1,6 +1,8 @@
 @echo off
 REM Doble clic aqui para ver los ataques de los ENEMIGOS en movimiento.
 REM Teclas: ESPACIO siguiente, B/V cambiar de enemigo, T debil/fuerte, P pausa, R repetir, +/- velocidad, ESC salir.
+REM Suena el sonido de cada ataque y en pantalla pone QUE FICHERO es (audio/sfx/...): asi se puede
+REM decidir cual hay que retocar sin adivinar.
 set GODOT=%LOCALAPPDATA%\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.7-stable_win64.exe
 if not exist "%GODOT%" (
     echo No encuentro Godot en:

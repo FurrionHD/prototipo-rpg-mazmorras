@@ -66,6 +66,19 @@ const DUR_GOLPE := 8.0 / 12.0
 # El de dos manos va mas lento (8 fotogramas a 10 fps): un hacha no se blande a la misma cadencia.
 const DUR_GOLPE_2M := 8.0 / 10.0
 var _golpe_t: float = 0.0
+# EN QUE PUNTO DEL GESTO CONTACTA el arma, como fraccion de la animacion. No son numeros a ojo:
+# salen de las claves de PoseJugador._pose_golpe, donde el brazo se echa atras hasta 0.45 y de ahi
+# cae hasta 0.62 (a dos manos, 0.50 -> 0.68).
+#
+# El filo pasa por delante DURANTE la bajada, no al final: el 0.62 ya es el remate del arco, la
+# inercia. Por eso se pone a media descarga y no en la clave de abajo -- ahi el sonido llega tarde
+# y se oye despegado del gesto.
+const CONTACTO_GOLPE := 0.55
+const CONTACTO_GOLPE_2M := 0.60
+# Lo que falta para que el arma contacte, o -1 si no hay golpe en curso. Es el reloj del SONIDO: el
+# espadazo no puede sonar al pulsar (ahi el brazo aun se esta echando hacia atras), tiene que sonar
+# cuando el filo llega. Ver _tick_ataque.
+var _golpe_sfx_t: float = -1.0
 # El golpe del mapa alterna de mano con el dual: 0 derecha, 1 izquierda, 2 a dos manos.
 var _golpe_variante: int = 0
 var _ultima_mano_golpe: int = 1
@@ -192,7 +205,7 @@ func _ready() -> void:
 	add_to_group("aliado")
 	# EL FUEGO DEL FAROLILLO. No hay antorchas puestas por la mazmorra: la luz la llevas TU, asi que
 	# el chisporroteo va colgado de ti. Muy flojo, que es un fondo constante y no un efecto.
-	Ambiente.pegar(self, "antorcha", -22.0, 200.0)
+	Ambiente.pegar(self, "antorcha", -14.0, 220.0)
 	_crear_capa_barras()
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD (barras, peso, piso, ayudas)
 	if Tactil.activo:
@@ -901,6 +914,13 @@ func _pintar_cuerpo() -> void:
 func _actualizar_animacion(moviendose: bool, delta: float) -> void:
 	if _golpe_t > 0.0:
 		_golpe_t -= delta
+	# EL SONIDO DEL ESPADAZO, en el instante en que el arma contacta y no al pulsar (ver
+	# _tick_ataque). Va aqui, pegado al reloj de la animacion, porque es lo que lo hace caer en el
+	# fotograma correcto: el gesto y el golpe van al mismo compas.
+	if _golpe_sfx_t >= 0.0:
+		_golpe_sfx_t -= delta
+		if _golpe_sfx_t < 0.0:
+			Sonido.golpe("", _estilo_del_golpe())
 	if _desenv_t > 0.0:
 		_desenv_t -= delta
 	if _muneco == null or not _muneco.hay_dibujo():
@@ -1295,9 +1315,14 @@ func _tick_ataque(delta: float) -> void:
 		_golpe_variante = _elegir_golpe()
 		_golpe_t = DUR_GOLPE_2M if _golpe_variante == 2 else DUR_GOLPE
 		# EL ESPADAZO SE OYE AUNQUE NO ACIERTE, por lo mismo que se VE: golpear al aire tiene que
-		# distinguirse de "el boton no ha respondido". Y va AQUI y no dentro de _try_attack para que
-		# suene tambien el que no toca a nadie.
-		Sonido.golpe("", _estilo_del_golpe())
+		# distinguirse de "el boton no ha respondido". Por eso se arma AQUI y no dentro de
+		# _try_attack, que solo pasa cuando hay alguien delante.
+		#
+		# Pero NO suena todavia: aqui el brazo apenas ha empezado a echarse hacia atras. Se apunta
+		# CUANDO tiene que sonar -- el instante en que el filo llega -- y lo suelta el reloj de
+		# _actualizar_animacion. Sonando en la pulsacion se oye el impacto antes de que el arma se
+		# haya movido, y se nota enseguida: parece el clic de un boton, no un tajo.
+		_golpe_sfx_t = _golpe_t * (CONTACTO_GOLPE_2M if _golpe_variante == 2 else CONTACTO_GOLPE)
 		if not _try_attack():
 			_atk_buffer = ATK_BUFFER
 			# Toque corto a distancia de CONJURO: no ha llegado el espadazo, pero algo se puede

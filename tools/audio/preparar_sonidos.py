@@ -363,18 +363,39 @@ def recortar(muestras, fr, modo):
 #  10 dB mas alta, ese trabajo no sirve de nada.
 #
 #  SE MIDE LA SONORIDAD, NO EL PICO. Normalizar por pico deja igual de "alto" un chasquido seco y
-#  un grito sostenido, y al oido el grito suena el triple. Se mide el RMS de la VENTANA MAS FUERTE
-#  (el cuerpo del golpe, no la cola) y se lleva a un mismo objetivo.
+#  un grito sostenido, y al oido el grito suena el triple. Se mide la VENTANA MAS FUERTE (el cuerpo
+#  del golpe, no la cola) y se lleva a un mismo objetivo.
+#
+#  Y SE MIDE PONDERADO, NO EN RMS PELADO. Esto no es un detalle fino: con RMS a secas, el martillo
+#  grande y el Golpe sismico salian medidos EXACTAMENTE al mismo nivel que un espadazo y aun asi se
+#  oian a la mitad. El motivo es que son graves, y el oido es mucho menos sensible a los graves a
+#  igual energia. La ponderacion K de la norma EBU R128 / ITU-R BS.1770 es justo la correccion de
+#  eso: un filtro paso-alto y una repisa de agudos ANTES de medir. Es lo mismo que hace el
+#  `loudnorm` de ffmpeg con la musica; aqui va a mano porque estos ficheros duran decimas de
+#  segundo y loudnorm necesita bloques de 400 ms para dar un numero fiable.
 #
 #  Con dos frenos:
 #    - un TECHO DE PICO, para que subir el volumen no sature.
 #    - un TOPE A LA GANANCIA, para no levantar 30 dB el siseo de fondo de una muestra casi vacia.
 # ============================================================
 
-RMS_OBJETIVO = 0.16     # ~ -16 dBFS. El punto donde ninguno se come a los demas
+RMS_OBJETIVO = 0.16     # nivel ponderado K objetivo. El punto donde ninguno se come a los demas
 PICO_TECHO = 0.89       # ~ -1 dBFS. Margen para que el tono aleatorio del juego no rompa
-GANANCIA_TOPE = 4.0     # ni x4 ni /4: mas alla de eso la muestra tiene otro problema
+GANANCIA_TOPE = 6.0     # los graves necesitan mas recorrido que el x4 de antes (ver K_BIQUADS)
 VENTANA_RMS = 0.2       # segundos: el cuerpo del golpe
+
+# LA PONDERACION K, tal cual la define ITU-R BS.1770, para 48 kHz (todos los ficheros del juego lo
+# son: lo comprueba `igualar`). Dos biquads en serie:
+#   1. repisa de agudos (+4 dB por encima de ~1.5 kHz), que es la "cabeza" del oyente
+#   2. paso-alto a ~38 Hz, que quita el retumbe que no se oye pero si se mide
+# Los coeficientes NO se pueden reescalar a otra frecuencia de muestreo a ojo: si algun dia entra un
+# fichero que no sea de 48 kHz, `igualar` lo mide sin ponderar y lo dice.
+K_BIQUADS = [
+	([1.53512485958697, -2.69169618940638, 1.19839281085285],
+	 [1.0, -1.69065929318241, 0.73248077421585]),
+	([1.0, -2.0, 1.0],
+	 [1.0, -1.99004745483398, 0.99007225036621]),
+]
 
 # Para lo largo (musica y bucles) la sonoridad la mide ffmpeg en LUFS. El ambiente va mas bajo a
 # proposito: es fondo, no tiene que competir con nada.
@@ -382,22 +403,51 @@ LUFS_MUSICA = -16
 LUFS_AMBIENTE = -22
 
 
+def _biquad(x, b, a):
+	"""Un biquad de forma directa I. Sencillo a proposito: se pasa una vez por fichero corto."""
+	y = [0.0] * len(x)
+	x1 = x2 = y1 = y2 = 0.0
+	for i in range(len(x)):
+		xi = x[i]
+		yi = b[0] * xi + b[1] * x1 + b[2] * x2 - a[1] * y1 - a[2] * y2
+		y[i] = yi
+		x2, x1 = x1, xi
+		y2, y1 = y1, yi
+	return y
+
+
+def ponderar_k(muestras, fr):
+	"""Las muestras pasadas por el filtro K de BS.1770, en float. Sin 48 kHz devuelve None."""
+	if fr != 48000:
+		return None
+	y = [m / 32768.0 for m in muestras]
+	for b, a in K_BIQUADS:
+		y = _biquad(y, b, a)
+	return y
+
+
 def igualar(muestras, fr):
 	"""Escala las muestras para que TODAS suenen igual de fuertes. Devuelve (muestras, dB movidos)."""
 	n = max(1, int(fr * VENTANA_RMS))
 	if len(muestras) == 0:
 		return muestras, 0.0
-	# El RMS de la ventana mas fuerte, recorrida a saltos de media ventana.
+	# SE MIDE SOBRE LA SENAL PONDERADA y se aplica la ganancia sobre la ORIGINAL: el filtro es para
+	# medir como oye una persona, no para cambiar el sonido.
+	medir = ponderar_k(muestras, fr)
+	if medir is None:
+		print("  !! %d Hz: no es 48 kHz, se mide sin ponderar (ver K_BIQUADS)" % fr)
+		medir = [m / 32768.0 for m in muestras]
+	# El nivel de la ventana mas fuerte, recorrida a saltos de media ventana.
 	mejor = 0.0
 	paso = max(1, n // 2)
-	for i in range(0, max(1, len(muestras) - 1), paso):
-		trozo = muestras[i:i + n]
+	for i in range(0, max(1, len(medir) - 1), paso):
+		trozo = medir[i:i + n]
 		if not trozo:
 			break
-		suma = 0
+		suma = 0.0
 		for x in trozo:
 			suma += x * x
-		mejor = max(mejor, math.sqrt(suma / len(trozo)) / 32768.0)
+		mejor = max(mejor, math.sqrt(suma / len(trozo)))
 	if mejor <= 0.0:
 		return muestras, 0.0
 	g = RMS_OBJETIVO / mejor

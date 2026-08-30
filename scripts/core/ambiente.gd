@@ -27,13 +27,19 @@ const CARPETA := "res://audio/ambiente/"
 const TOPE_VERSIONES := 9
 
 const CRUCE := 2.0               # segundos de cambio de un fondo a otro
-const DB_FONDO := -12.0          # de fondo es de fondo: por debajo de todo
-const DB_GOLPE := -9.0           # los sueltos, un poco mas presentes; son los que se notan
+# De fondo es de fondo, pero los ficheros ya vienen igualados a -22 LUFS (6 dB por debajo de la
+# musica), asi que no hace falta bajarlo tanto aqui: se sumaban las dos cosas y no se oia.
+const DB_FONDO := -6.0
+const DB_GOLPE := -4.0           # los sueltos, mas presentes: son los que hacen levantar la cabeza
 
 const ESPERA_MIN := 12.0         # segundos entre golpes sueltos
 const ESPERA_MAX := 30.0
 
 const VOCES := 3                 # de sobra: no caen dos a la vez casi nunca
+
+# Los bucles pegados al mundo van a un grupo para poder pausarlos todos de golpe al entrar en
+# combate. Los crea `pegar` y viven colgados del nodo al que se pegaron, no de aqui.
+const GRUPO_POSICIONAL := &"ambiente_posicional"
 
 # QUE SUELTOS valen en cada sitio. La mazmorra los tiene casi todos; el pueblo, los que pegan a
 # cielo abierto. Los que dependen del piso se anaden aparte (ver _sueltos_de).
@@ -61,6 +67,7 @@ var _mudos: Dictionary = {}
 var _contexto: String = ""
 var _cruce: float = 0.0
 var _espera: float = 0.0
+var _pausado: bool = false
 
 
 func _ready() -> void:
@@ -95,6 +102,12 @@ func _exit_tree() -> void:
 	for v in _voces:
 		v.stop()
 		v.stream = null
+	# Y los posicionales, que no cuelgan de aqui sino del charco y del jugador.
+	if get_tree() != null:
+		for p in get_tree().get_nodes_in_group(GRUPO_POSICIONAL):
+			if p is AudioStreamPlayer2D:
+				(p as AudioStreamPlayer2D).stop()
+				(p as AudioStreamPlayer2D).stream = null
 	_cache.clear()
 
 
@@ -106,7 +119,7 @@ func _process(delta: float) -> void:
 		_fondo[1 - _cual].volume_db = lerpf(DB_FONDO, -80.0, k)
 		if _cruce <= 0.0:
 			_fondo[1 - _cual].stop()
-	if _contexto == "":
+	if _contexto == "" or _pausado:
 		return
 	_espera -= delta
 	if _espera <= 0.0:
@@ -144,6 +157,27 @@ func callar() -> void:
 	for p in _fondo:
 		p.stop()
 	_cruce = 0.0
+
+
+# EL COMBATE TAPA EL AMBIENTE. Mientras peleas no estas oyendo la mazmorra: estas dentro de la
+# pelea, con su musica y sus golpes. El goteo y el crujido de fondo ahi sobran.
+#
+# Y ES POR MAQUINA, no por partida: si tu compañero sigue fuera, EL si oye la mazmorra. Por eso se
+# mira si hay pantalla de combate AQUI y no se manda nada por red.
+#
+# Se PAUSA, no se apaga: los bucles posicionales (el charco, tu farolillo) y la pista de fondo
+# retoman donde estaban al salir, en vez de dar un salto.
+func pausar(si: bool) -> void:
+	if _pausado == si:
+		return
+	_pausado = si
+	for p in _fondo:
+		p.stream_paused = si
+	for v in _voces:
+		v.stream_paused = si
+	for p2 in get_tree().get_nodes_in_group(GRUPO_POSICIONAL):
+		if p2 is AudioStreamPlayer2D:
+			(p2 as AudioStreamPlayer2D).stream_paused = si
 
 
 # ============================================================
@@ -199,6 +233,8 @@ func pegar(nodo: Node2D, clave: String, db: float = -14.0, distancia: float = 22
 	p.stream = s
 	p.volume_db = db
 	p.max_distance = distancia
+	p.add_to_group(GRUPO_POSICIONAL)
+	p.stream_paused = _pausado   # nacido en combate (el charco de un piso al que entras peleando)
 	# Cada uno arranca por un sitio distinto del bucle: si no, dos antorchas en la misma sala
 	# chisporrotean a la vez y se oye el eco de un solo fuego, no dos.
 	nodo.add_child(p)

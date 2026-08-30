@@ -186,6 +186,21 @@ func muestra() -> void:
 # La clave que corresponde a un indice del paquete de red. 0 = ninguna (suena el generico del
 # estilo). Fuera de rango tambien devuelve "": un compañero con una version mas nueva puede mandar
 # un indice que aqui todavia no existe, y eso tiene que quedarse en un sonido generico, no reventar.
+# QUE FICHERO va a sonar, en texto y para leerlo en pantalla. Lo usan los visores
+# (dev_gestos, dev_enemigos_ataques): sin esto, "esta habilidad no suena" obliga a adivinar si el
+# problema es que falta el fichero, que la clave no es la que crees o que suena y es flojo.
+func info(clave: String, estilo: int) -> String:
+	var resuelta: String = _resolver(clave, estilo)
+	if resuelta == "":
+		var n: String = _nombre_estilo(estilo)
+		return "MUDO (ni sfx_%s ni sfx_%s)" % [clave if clave != "" else "-", n if n != "" else "-"]
+	var cuantas: int = _streams(resuelta).size()
+	var propio: bool = resuelta == clave and clave != ""
+	return "sfx_%s%s  [%s]" % [resuelta,
+		"" if cuantas == 1 else " (%d versiones)" % cuantas,
+		"habilidad" if propio else "estilo"]
+
+
 func clave_de(i: int) -> String:
 	return String(CLAVES[i - 1]) if i > 0 and i <= CLAVES.size() else ""
 

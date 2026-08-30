@@ -44,14 +44,20 @@ const POR_ESCENA := {
 const TOPE_PISTAS := 32          # tope de la busqueda por numero; se para en el primer hueco
 
 const CRUCE := 1.5               # segundos que tarda un contexto en dar paso al siguiente
-const DB_FONDO := -6.0           # la musica va POR DEBAJO de los golpes, no compitiendo con ellos
+# La musica va POR DEBAJO de los golpes y del ambiente, no compitiendo con ellos. Los ficheros ya
+# vienen igualados a -16 LUFS y los del ambiente a -22, o sea que la musica parte 6 dB por encima:
+# esto es lo que lo compensa. Estaba en -6 y el charco no se oia al lado de ella.
+const DB_FONDO := -11.0
 const DB_REMATE := -3.0          # el remate si manda: es el unico momento en que la musica habla
 
 var _fondo: Array[AudioStreamPlayer] = []
 var _cual: int = 0               # cual de los dos reproductores lleva el fondo ahora mismo
 var _remate: AudioStreamPlayer = null
 
-var _pila: Array[String] = []    # contextos apilados; el ultimo es el que suena
+# LA PILA. Cada entrada es {contexto, pista, pos}: al apilar algo encima se apunta POR DONDE IBA la
+# de debajo, y al desapilar se retoma justo ahi. Sin el 'pos', salir de cada pelea reiniciaba la
+# musica de mazmorra y no se llegaba a oir ninguna entera: siempre los mismos veinte segundos.
+var _pila: Array[Dictionary] = []
 var _listas: Dictionary = {}     # contexto -> Array[AudioStream], ya barajado
 var _siguiente: Dictionary = {}  # contexto -> por que pista va
 var _mudos: Dictionary = {}      # avisos ya dados
@@ -99,7 +105,7 @@ func _process(delta: float) -> void:
 			_fondo[1 - _cual].stop()
 	# LA PISTA SE ACABO: la siguiente de la lista, sin cruce (son del mismo contexto y encadenan).
 	elif not _pila.is_empty() and not _fondo[_cual].playing:
-		_arrancar(_pila[-1], false)
+		_arrancar(contexto(), false)
 
 
 # ¿HA CAMBIADO LA PANTALLA? Se mira en cada frame en vez de engancharse a los change_scene_to_file
@@ -125,42 +131,69 @@ func _mirar_escena() -> void:
 #  LA PILA DE CONTEXTOS
 # ============================================================
 
+func contexto() -> String:
+	return String(_pila[-1]["contexto"]) if not _pila.is_empty() else ""
+
+
 # EL CONTEXTO DE FONDO, el que manda mientras no pase nada. Cambiar de pueblo a mazmorra es esto:
 # no se apila, se sustituye la base entera (y con ella todo lo que hubiera encima).
-func poner(contexto: String) -> void:
-	if _pila.size() == 1 and _pila[0] == contexto:
+func poner(nombre: String) -> void:
+	if _pila.size() == 1 and contexto() == nombre:
 		return
-	_pila = [contexto]
-	_arrancar(contexto, true)
+	_pila = [{"contexto": nombre, "pista": null, "pos": 0.0}]
+	_arrancar(nombre, true)
 
 
-# ALGO SE PONE POR ENCIMA sin borrar lo de debajo: una pelea, un jefe. Al desapilar vuelve lo otro.
-func apilar(contexto: String) -> void:
-	if not _pila.is_empty() and _pila[-1] == contexto:
+# ALGO SE PONE POR ENCIMA sin borrar lo de debajo: una pelea, un jefe. Al desapilar vuelve lo otro
+# POR DONDE IBA, que es lo que se apunta aqui antes de cambiar.
+func apilar(nombre: String) -> void:
+	if contexto() == nombre:
 		return
-	_pila.append(contexto)
-	_arrancar(contexto, true)
+	_marcar_donde_va()
+	_pila.append({"contexto": nombre, "pista": null, "pos": 0.0})
+	_arrancar(nombre, true)
 
 
-# SE ACABO lo que estaba encima. Vuelve el de debajo; si no queda ninguno, silencio.
+# SE ACABO lo que estaba encima. Vuelve el de debajo, retomando su pista donde se quedo.
+#
+# Y SE CORTA EL REMATE: al salir del combate, la fanfarria de victoria se acaba ahi. Ya ha sonado
+# mientras leias el resultado, que es para lo que estaba.
 func desapilar() -> void:
+	_remate.stop()
 	if _pila.size() <= 1:
 		return
 	_pila.pop_back()
-	_arrancar(_pila[-1], true)
+	var e: Dictionary = _pila[-1]
+	var pista: AudioStream = e.get("pista")
+	if pista == null:
+		_arrancar(String(e["contexto"]), true)
+		return
+	_cual = 1 - _cual
+	_cruce = CRUCE
+	_fondo[_cual].stream = pista
+	_fondo[_cual].play(float(e.get("pos", 0.0)))
 
 
 func callar() -> void:
 	_pila.clear()
+	_remate.stop()
 	for p in _fondo:
 		p.stop()
 	_cruce = 0.0
 
 
+# Apunta en la entrada de arriba de la pila que pista suena y por que segundo va.
+func _marcar_donde_va() -> void:
+	if _pila.is_empty() or not _fondo[_cual].playing:
+		return
+	_pila[-1]["pista"] = _fondo[_cual].stream
+	_pila[-1]["pos"] = _fondo[_cual].get_playback_position()
+
+
 # UN REMATE: victoria, derrota, bajar un piso. Suena ENCIMA del fondo y se va solo. No entra en la
 # pila porque no sustituye a nada -- la musica de mazmorra sigue sonando por debajo.
-func remate(contexto: String) -> void:
-	var pista: AudioStream = _siguiente_pista(contexto)
+func remate(nombre: String) -> void:
+	var pista: AudioStream = _siguiente_pista(nombre)
 	if pista == null:
 		return
 	_remate.stream = pista

@@ -11098,6 +11098,9 @@ func _montar_pantalla_combate(combat: Node) -> void:
 	# Se APILA en vez de ponerse: al acabar, la de mazmorra vuelve donde estaba en vez de empezar
 	# de cero cada vez que matas una rata.
 	Musica.apilar("jefe" if _hay_jefe_en_pelea() else "combate")
+	# Y el ambiente de la mazmorra se calla mientras dure. Es POR MAQUINA: el compañero que se quede
+	# fuera lo sigue oyendo, que es lo correcto -- el sigue ahi.
+	Ambiente.pausar(true)
 	# Si estabas recitando en el mapa, el canto se lo lleva la pelea por delante: el conjuro se
 	# pierde y NO se cobra (ver casteo_mapa.interrumpir). Va aqui, en el sitio por el que pasan
 	# TODAS las peleas —la tuya, la del espejo, la que te embiste—, y no en start_combat.
@@ -11987,11 +11990,10 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		duenos: Array = [], enemy_estados_left: Array = []) -> void:
 	# Se acabo la pelea: vuelve la musica de debajo y suena el remate encima. La huida no lleva
 	# remate -- no has ganado, pero tampoco es para tocar la marcha funebre.
-	# La musica de pelea se va y vuelve la de debajo. El remate de VICTORIA suena encima; el de
-	# derrota va mas abajo, en cuanto se sabe si cayo tu grupo entero (huir no es perder).
+	# Se pulso Continuar: se corta el remate y vuelve la musica de debajo POR DONDE IBA. El remate
+	# ya sono al aparecer el boton, no aqui (ver combat._end).
 	Musica.desapilar()
-	if player_won:
-		Musica.remate("victoria")
+	Ambiente.pausar(false)
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
@@ -12041,10 +12043,6 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 			guardar_estados_en_ficha(_active_player_cs[i], pj)
 	# ¿Cayo mi propio grupo (dueño 0)? Y ¿que PEERS cayeron enteros? (para mandarlos al pueblo).
 	var anfitrion_derrotado: bool = existe_dueno.has(0) and not vivo_por_dueno.has(0)
-	# EL REMATE DE DERROTA, ahora que se sabe. No vale mirar `player_won`: huir tambien lo deja en
-	# false y huir no es perder.
-	if anfitrion_derrotado:
-		Musica.remate("derrota")
 	var peers_derrotados: Array = []
 	for dn in existe_dueno:
 		if dn != 0 and not vivo_por_dueno.has(dn):

@@ -7705,6 +7705,15 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	_continue_button.visible = true
 	_continue_button.disabled = false
 	_continue_button.text = "Continuar"
+	# EL REMATE SUENA AQUI, con el "Continuar" en pantalla, que es cuando el jugador esta leyendo el
+	# resultado. Estaba en Game._on_combat_finished, o sea al PULSAR el boton: la fanfarria empezaba
+	# justo cuando te ibas y se quedaba sonando encima del mapa. Al pulsar se corta (Musica.desapilar).
+	#
+	# HUIR NO LLEVA REMATE: no has ganado, pero tampoco es para tocar la marcha funebre.
+	if player_won:
+		Musica.remate("victoria")
+	elif not fled:
+		Musica.remate("derrota")
 	if player_won:
 		# MANÁ AL MATAR: el nucleo de CADA enemigo se disuelve en ti, asi que va POR BICHO caido
 		# (si ganaste, han caido todos: _enemies los guarda a todos, vivos y muertos) y escala con

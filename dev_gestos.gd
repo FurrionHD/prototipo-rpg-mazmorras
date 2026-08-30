@@ -108,6 +108,7 @@ const A_UN_MIO := ["PURIFICAR", "CHISPA_VINCULADA", "EGIDA_MENOR"]
 
 var _capa: CapaHechizos
 var _titulo: Label
+var _sfx_txt: Label   # que fichero de sonido suena (ver Sonido.info)
 var _ayuda: Label
 var _tarjetas: Array = []   # los enemigos
 var _mios: Array = []       # los tuyos
@@ -179,6 +180,11 @@ func _ready() -> void:
 	_titulo.add_theme_font_size_override("font_size", 30)
 	_titulo.add_theme_color_override("font_color", Color(0.95, 0.92, 0.84))
 	add_child(_titulo)
+	_sfx_txt = Label.new()
+	_sfx_txt.position = Vector2(24, 62)
+	_sfx_txt.add_theme_font_size_override("font_size", 15)
+	_sfx_txt.add_theme_color_override("font_color", Color(0.87, 0.72, 0.40))
+	add_child(_sfx_txt)
 	_ayuda = Label.new()
 	_ayuda.position = Vector2(24, 668)
 	_ayuda.add_theme_font_size_override("font_size", 15)
@@ -289,6 +295,9 @@ func _lanzar() -> void:
 	_titulo.text = "%s  ·  %s        [%s]   %d golpe%s   %d/%d      x%.2f%s" % [arma,
 		nombre.to_lower(), _nombres_col[_imb], golpes, "" if golpes == 1 else "s",
 		_rep + 1, REPETICIONES, _vel, "" if _auto else "   (PAUSA)"]
+	# QUE FICHERO SUENA, escrito en pantalla. Oir que algo suena mal no sirve de nada si luego hay
+	# que adivinar cual de los 154 ficheros hay que retocar.
+	_sfx_txt.text = "🔊 " + Sonido.info("", est)
 	_capa.escala_tiempo = 1.0
 	_capa.limpiar()
 	_serie += 1
@@ -318,6 +327,9 @@ func _lanzar() -> void:
 
 # Un golpe suelto, ya con el objetivo elegido.
 func _soltar(est: int, nombre: String) -> void:
+	# EL SONIDO, para poder juzgarlo aqui igual que se juzga el dibujo. Va con el elemento de la
+	# imbuicion elegida (teclas 1-5), asi que tambien se oye la capa de fuego / agua / rayo encima.
+	Sonido.golpe("", est, 1.0, false, _elems[_imb])
 	var col: Color = _colores[_imb]
 	var dur: float = float(CombatFX.T_VUELO.get(est, 0.1))
 	var origen: Vector2 = _yo.position + _yo.size * 0.5
