@@ -164,6 +164,40 @@ static func hornear(sf: SpriteFrames, clave: String, esc: float = 1.0) -> int:
 # El valor medio va en 0.62 y no en 0.5 porque metal.gdshader mezcla hacia el tinte
 # (mix(textura, color, alpha)) y ademas le suma un bisel: partiendo de un gris medio de verdad, todo
 # salia apagado. Con la escala un poco alta, el tinte queda con el brillo que se espera.
+# ============================================================
+#  LA RAMPA DE INDICES: para las capas cuyo color se decide EN EL JUEGO
+# ============================================================
+# Las capas de EQUIPO (armas, escudos, armaduras) no se hornean con sus colores de verdad: se hornean
+# con esta rampa, que es una escala de grises exactos donde el gris ES el numero de tono. Luego
+# paleta_equipo.gdshader deshace la cuenta y saca el color de una tabla.
+#
+# POR QUE, Y ES LA DECISION DE FONDO DE TODO ESTO: el color de una pieza de equipo depende de su
+# material, y el material depende del tier y del nivel de mejora -- tres familias por tres tiers por
+# tres bandas, veintisiete. Hornear una copia por combinacion es lo que hacen los bichos
+# (RataSprites._clave mete el color en el nombre del fichero), y a ellos les sale barato porque un
+# bicho tiene tres colores en toda su vida. Aqui serian 57 capas x 27 = mas de mil quinientos atlas.
+#
+# Y TEÑIR NO VALE, que es el otro camino que ya existe: el tinte MULTIPLICA por un solo color, asi que
+# la pieza entera acaba de un matiz y el oro de una cresta deja de ser oro. Para el pelo y la ropa eso
+# esta bien (una camisa es de un color); para el equipo era justo lo que no se queria perder.
+#
+# La rampa deja los tonos en i/(n-1), separados de sobra para que el redondeo del PNG (enteros de 8
+# bits) no confunda uno con el vecino: con 16 tonos hay 17 valores de diferencia entre dos, y el
+# horneado es PNG sin perdida.
+#
+# EL TONO 1 (la sombra de suelo) AQUI ES UN GRIS OPACO MAS, no un negro semitransparente: su
+# transparencia la pone la tabla de colores. Si se dejara semitransparente, su luminancia dejaria de
+# ser la del indice y el shader lo leeria como otro tono.
+const RAMPA_TONOS := 16
+
+static func rampa_indices(n: int) -> Array:
+	var out: Array = [Color(0, 0, 0, 0)]
+	for i in range(1, n):
+		var g: float = float(i) / float(RAMPA_TONOS - 1)
+		out.append(Color(g, g, g, 1.0))
+	return out
+
+
 static func grises(borde := 0.20, sombra := 0.42, base := 0.62, luz := 0.80, brillo := 0.94) -> Array:
 	return [
 		Color(0, 0, 0, 0),                      # T_VACIO

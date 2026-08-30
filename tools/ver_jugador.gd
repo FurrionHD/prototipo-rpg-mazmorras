@@ -57,6 +57,10 @@ func _ready() -> void:
 #
 # Se APILAN, que es para lo que existe de verdad esta herramienta: una capa suelta puede estar
 # perfecta y aun asi no encajar con las de debajo.
+# La paleta de la ultima pieza de armadura pedida. Es una herramienta: se asume que todas las piezas
+# que pides son del mismo juego (un set entero de placas a +10), que es como se miran.
+var _paleta_actual: Array = []
+
 func _capas(modelos: PackedStringArray) -> Array:
 	var pedidos := {}
 	var armaduras: Array = []
@@ -65,10 +69,26 @@ func _capas(modelos: PackedStringArray) -> Array:
 		# puesto. Pero sin poder pedirla aqui no hay forma de sacar una hoja de contacto con un casco,
 		# y sin hoja de contacto no se puede juzgar el dibujo. Se pide por TIPO y RANURA con un guion:
 		#     ver_jugador.bat idle 6 casco_placas largo
+		# El tier y la mejora van pegados con @ y + ("casco_placas@2+10"), porque el color depende de
+		# los dos y sin poder pedirlos no hay forma de comparar los peldaños.
+		var tier: int = 1
+		var mejora: int = 0
+		if "@" in m:
+			var cola: String = m.get_slice("@", 1)
+			m = m.get_slice("@", 0)
+			tier = maxi(int(cola.get_slice("+", 0)), 1)
+			if "+" in cola:
+				mejora = int(cola.get_slice("+", 1))
 		if "_" in m and ArmaduraSprites.SLOT_NOMBRE.has(m.get_slice("_", 0)):
 			var slot: String = m.get_slice("_", 0)
 			var tipo: String = m.trim_prefix(slot + "_")
 			if ArmaduraSprites.TIPO_NOMBRE.has(tipo):
+				# LA PALETA HAY QUE APLICARLA A MANO AQUI. En el juego la pone un shader, pero esta
+				# herramienta compone las capas mezclando IMAGENES -- no hay nodo, no hay material y no
+				# hay shader --, asi que sin esto la hoja de contacto saldria en los grises del
+				# horneado y no serviria para juzgar ningun color.
+				_paleta_actual = PaletaEquipo.colores_de(ArmaduraSprites.ROLES,
+					ArmaduraSprites.familia_de(tipo), tier, mejora)
 				# Los guanteletes son dos capas (una por mano): pedir "manos_placas" trae las dos, que
 				# es lo que se lleva puesto de verdad.
 				if ArmaduraSprites.SLOTS_POR_MANO.has(slot):
@@ -97,7 +117,7 @@ func _capas(modelos: PackedStringArray) -> Array:
 		# cuyo sitio aqui NO es el del juego, y por eso de espaldas esta hoja no sirve para juzgarla.
 		if bool((c["modelos"][m] as Dictionary).get("cuelga", false)):
 			pila.append({"z": -1, "sf": c["gen"].generar(m + PeloSprites.SUFIJO_ATRAS, 1.0)})
-	pila.append({"z": JugadorSprites.Z_CUERPO, "sf": CuerpoSprites.generar(1.0)})
+	pila.append({"z": JugadorSprites.Z_CUERPO, "sf": CuerpoSprites.generar(1.0), "paleta": null})
 
 	for pieza in PersonajeData.PIEZAS:
 		if not pedidos.has(pieza):
@@ -110,13 +130,11 @@ func _capas(modelos: PackedStringArray) -> Array:
 		pila.append({"z": int(cat["z"]), "sf": cat["gen"].generar(String(pedidos[pieza]), 1.0)})
 
 	for clave in armaduras:
-		pila.append({"z": _z_armadura(clave), "sf": ArmaduraSprites.generar(clave, 1.0)})
+		pila.append({"z": _z_armadura(clave), "sf": ArmaduraSprites.generar(clave, 1.0),
+			"paleta": _paleta_actual})
 
 	pila.sort_custom(func(a, b): return int(a["z"]) < int(b["z"]))
-	var out: Array = []
-	for c in pila:
-		out.append(c["sf"])
-	return out
+	return pila
 
 
 # El z que le tocaria a esta pieza de armadura en el juego.
@@ -218,7 +236,8 @@ func _hoja_animaciones(capas: Array) -> void:
 # Un fotograma con TODAS las capas apiladas, recortado a la caja comun y ampliado.
 func _componer(capas: Array, nom: String, i: int, caja: Rect2i) -> Image:
 	var lienzo: Image = null
-	for sf in capas:
+	for c in capas:
+		var sf: SpriteFrames = c["sf"]
 		if not sf.has_animation(nom) or i >= sf.get_frame_count(nom):
 			continue
 		var at: AtlasTexture = sf.get_frame_texture(nom, i) as AtlasTexture
@@ -231,6 +250,8 @@ func _componer(capas: Array, nom: String, i: int, caja: Rect2i) -> Image:
 			lienzo.fill(Color(0, 0, 0, 0))
 		var src: Image = at.atlas.get_image()
 		src.convert(Image.FORMAT_RGBA8)
+		if c.get("paleta") != null:
+			src = _colorear(src, c["paleta"])
 		# blend y no blit: las capas de arriba tienen que dejar ver lo de debajo por sus huecos.
 		lienzo.blend_rect(src, Rect2i(at.region), Vector2i(at.margin.position))
 	if lienzo == null:
@@ -240,12 +261,31 @@ func _componer(capas: Array, nom: String, i: int, caja: Rect2i) -> Image:
 	return amp
 
 
+# EL MISMO INTERCAMBIO DE PALETA QUE HACE EL SHADER, pero a mano sobre la imagen: aqui no hay nodo ni
+# material donde colgar uno. La cuenta tiene que ser LA MISMA que la de paleta_equipo.gdshader (gris x
+# (tonos-1), redondeado) o la hoja de contacto enseñaria unos colores y el juego otros.
+func _colorear(src: Image, paleta: Array) -> Image:
+	var out: Image = src.duplicate()
+	var n: float = float(CapaJugador.RAMPA_TONOS - 1)
+	for y in out.get_height():
+		for x in out.get_width():
+			var p: Color = out.get_pixel(x, y)
+			if p.a < 0.004:
+				continue
+			var idx: int = int(round(p.v * n))
+			if idx >= 0 and idx < paleta.size():
+				var c: Color = paleta[idx]
+				out.set_pixel(x, y, Color(c.r, c.g, c.b, p.a * c.a))
+	return out
+
+
 # La caja que contiene a TODOS los fotogramas de las animaciones pedidas. Se recorta a la vez para
 # todos, y no uno a uno, porque lo que hay que poder juzgar es cuanto se mueve entre fotogramas.
 func _caja_comun(capas: Array, anims: Array) -> Rect2i:
 	var caja := Rect2i()
 	var primero := true
-	for sf in capas:
+	for c in capas:
+		var sf: SpriteFrames = c["sf"]
 		for base in anims:
 			for nom in sf.get_animation_names():
 				if not str(nom).begins_with(str(base) + "_"):

@@ -76,16 +76,36 @@ static func generar(clave: String, esc: float = 1.0) -> SpriteFrames:
 
 
 static func colores() -> Array:
-	return [
-		Color(0, 0, 0, 0),               # VACIO
-		Color(0, 0, 0, 0.20),            # SOMBRA_SUELO
-		Color(0.09, 0.09, 0.11),        # BORDE
-		Color(0.26, 0.18, 0.11),        # MANGO_S   cuero/madera oscura
-		Color(0.42, 0.29, 0.17),        # MANGO
-		Color(0.40, 0.44, 0.50),        # METAL_S
-		Color(0.66, 0.70, 0.77),        # METAL
-		Color(0.88, 0.92, 0.98),        # METAL_L
-	]
+	return CapaJugador.rampa_indices(ROLES.size())
+
+
+# QUE PAPEL HACE CADA TONO. El arma se hornea con la rampa de indices y el color lo pone PaletaEquipo
+# en el juego, segun el tier y la mejora del arma que lleves.
+#
+# LA HOJA Y EL MANGO VAN POR SEPARADO, y es la gracia de hacerlo por papeles: la hoja sigue al METAL
+# de su tier (cobre, hierro, acero) y el mango al CUERO, que tiene su propia escala. Una espada de
+# tier 2 muy mejorada sale de hierro negro con el mango de cuero placado -- que es como se forja de
+# verdad, con dos materiales distintos.
+#
+# El indice de este array ES el numero de tono, asi que su orden sigue al del enum Tono.
+const ROLES := [
+	PaletaEquipo.Rol.BORDE,        # 0 VACIO
+	PaletaEquipo.Rol.SOMBRA,       # 1 SOMBRA_SUELO
+	PaletaEquipo.Rol.BORDE,        # 2 BORDE
+	PaletaEquipo.Rol.CUERO_S,      # 3 MANGO_S
+	PaletaEquipo.Rol.CUERO,        # 4 MANGO
+	PaletaEquipo.Rol.MATERIAL_S,   # 5 METAL_S
+	PaletaEquipo.Rol.MATERIAL,     # 6 METAL
+	PaletaEquipo.Rol.MATERIAL_L,   # 7 METAL_L
+]
+
+const CLAVE_ROLES := "arma"
+
+
+# LA FAMILIA DEL MATERIAL de un arma. Un baston y una varita son de MADERA -- su "hoja" es el asta --,
+# el resto son de metal. Sin esto, un baston de tier 3 saldria de acero blanco.
+static func familia_de(tn: String) -> String:
+	return PaletaEquipo.LEÑO if tn in ["baston", "varita"] else PaletaEquipo.METAL
 
 
 # ============================================================

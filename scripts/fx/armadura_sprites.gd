@@ -126,11 +126,11 @@ const _DIRS_CARA := [0, 1, 2, 6, 7]
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---
 static func frames(clave: String, esc: float = 1.0) -> SpriteFrames:
-	return CapaJugador.frames(clave, pintar.bind(clave), colores(clave), esc)
+	return CapaJugador.frames(clave, pintar.bind(clave), colores(), esc)
 
 
 static func generar(clave: String, esc: float = 1.0) -> SpriteFrames:
-	return CapaJugador.generar(clave, pintar.bind(clave), colores(clave), esc)
+	return CapaJugador.generar(clave, pintar.bind(clave), colores(), esc)
 
 
 static func clave(tipo: String, slot: String) -> String:
@@ -150,50 +150,37 @@ static func cerrado(tipo: String) -> bool:
 #
 # El BORDE es casi negro en los cuatro, como en el resto del personaje: es lo que hace que la silueta
 # se lea contra el fondo de la mazmorra.
-static func colores(clave: String) -> Array:
-	var tipo: String = String(_parse(clave).get("tipo", "hierro"))
-	match tipo:
-		"cuero":
-			return [
-				Color(0, 0, 0, 0), Color(0, 0, 0, 0.20),
-				Color(0.10, 0.06, 0.04),           # BORDE
-				Color(0.30, 0.19, 0.11),           # MAT_S
-				Color(0.44, 0.29, 0.17),           # MAT
-				Color(0.58, 0.41, 0.25),           # MAT_L
-				Color(0.16, 0.10, 0.06),           # OSCURO
-				Color(0.68, 0.52, 0.32),           # ACENTO
-			]
-		"hierro_completo":
-			return [
-				Color(0, 0, 0, 0), Color(0, 0, 0, 0.20),
-				Color(0.07, 0.07, 0.09),           # BORDE
-				Color(0.33, 0.35, 0.40),           # MAT_S
-				Color(0.50, 0.53, 0.59),           # MAT
-				Color(0.72, 0.76, 0.83),           # MAT_L
-				Color(0.10, 0.10, 0.13),           # OSCURO
-				Color(0.60, 0.55, 0.38),           # ACENTO (laton en las juntas)
-			]
-		"placas":
-			return [
-				Color(0, 0, 0, 0), Color(0, 0, 0, 0.20),
-				Color(0.08, 0.08, 0.11),           # BORDE
-				Color(0.46, 0.49, 0.56),           # MAT_S
-				Color(0.68, 0.72, 0.78),           # MAT
-				Color(0.92, 0.95, 0.99),           # MAT_L
-				Color(0.11, 0.11, 0.15),           # OSCURO
-				Color(0.78, 0.66, 0.36),           # ACENTO (el oro de la cresta)
-			]
-		_:
-			# hierro, y tambien el que se pida mal: mejor un casco de hierro que ninguno.
-			return [
-				Color(0, 0, 0, 0), Color(0, 0, 0, 0.20),
-				Color(0.08, 0.08, 0.10),           # BORDE
-				Color(0.36, 0.37, 0.41),           # MAT_S
-				Color(0.55, 0.57, 0.62),           # MAT
-				Color(0.76, 0.79, 0.84),           # MAT_L
-				Color(0.11, 0.11, 0.14),           # OSCURO
-				Color(0.64, 0.66, 0.70),           # ACENTO
-			]
+static func colores() -> Array:
+	return CapaJugador.rampa_indices(ROLES.size())
+
+
+# QUE PAPEL HACE CADA TONO. Aqui ya no hay colores: la armadura se hornea con la rampa de indices y el
+# color lo pone PaletaEquipo en el juego, segun el tier y la mejora de la pieza que lleves puesta.
+#
+# ANTES HABIA CUATRO PALETAS AQUI, una por tipo (cuero marron, placas blanco-azulado), y era lo que
+# decia "esto es cuero" o "esto es acero". No se ha perdido: se ha MOVIDO. El tipo sigue eligiendo la
+# familia de material (ver familia_de), asi que un peto de cuero sigue saliendo de cuero -- solo que
+# ahora tambien sabe de que cuero, y cambia al mejorarlo.
+#
+# El indice de este array ES el numero de tono, asi que su orden tiene que seguir al del enum Tono.
+const ROLES := [
+	PaletaEquipo.Rol.BORDE,        # 0 VACIO (no se pinta, pero ocupa su hueco)
+	PaletaEquipo.Rol.SOMBRA,       # 1 SOMBRA_SUELO
+	PaletaEquipo.Rol.BORDE,        # 2 BORDE
+	PaletaEquipo.Rol.MATERIAL_S,   # 3 MAT_S
+	PaletaEquipo.Rol.MATERIAL,     # 4 MAT
+	PaletaEquipo.Rol.MATERIAL_L,   # 5 MAT_L
+	PaletaEquipo.Rol.OSCURO,       # 6 OSCURO
+	PaletaEquipo.Rol.ACENTO,       # 7 ACENTO
+]
+
+const CLAVE_ROLES := "armadura"
+
+
+# DE QUE FAMILIA ES EL MATERIAL de esta pieza. Es lo unico que sobrevive de las cuatro paletas viejas,
+# y es lo que hace que un peto de cuero y uno de placas del mismo tier NO salgan del mismo color.
+static func familia_de(tipo: String) -> String:
+	return PaletaEquipo.FIBRA if tipo == "cuero" else PaletaEquipo.METAL
 
 
 # ============================================================

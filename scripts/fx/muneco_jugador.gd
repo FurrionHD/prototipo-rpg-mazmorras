@@ -33,6 +33,9 @@ class_name MunecoJugador
 
 const SHADER: Shader = preload("res://shaders/capa_jugador.gdshader")
 const SHADER_CARA: Shader = preload("res://shaders/cara_jugador.gdshader")
+# El de las piezas de EQUIPO: sustituye tono por tono en vez de multiplicar, para que el color pueda
+# cambiar con el tier y la mejora sin aplanar la pieza a un solo matiz (ver _material).
+const SHADER_PALETA: Shader = preload("res://shaders/paleta_equipo.gdshader")
 
 # QUE PARTE DE LA CABEZA OCUPA TU IMAGEN, en fraccion de su diametro. Por debajo de 1 a proposito:
 # el anillo de piel que queda alrededor es lo que hace que la cara se lea DENTRO de la cabeza y no
@@ -124,6 +127,10 @@ func montar(pj: PersonajeData) -> void:
 		for i in mini(_capas.size(), quiere.size()):
 			_capas[i]["color"] = quiere[i].get("color", null)
 			_capas[i]["metal"] = quiere[i].get("metal", null)
+			# Y LA PALETA, que si no MEJORAR UN ARMA NO SE VERIA: subir de +3 a +4 cambia el material y
+			# por tanto el color, pero no cambia ni una clave de capa -- la firma es identica y se
+			# entra por aqui. Es exactamente la trampa que ya escondio la armadura de los companeros.
+			_capas[i]["paleta"] = quiere[i].get("paleta", null)
 		_pintar_capas()
 		_reindexar_arma_mano()
 		return
@@ -140,11 +147,12 @@ func montar(pj: PersonajeData) -> void:
 		# interpola y el pixel-art sale borroso -- la misma nota que lleva enemy.gd.
 		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		s.z_as_relative = true
-		s.material = _material(bool(c.get("tinte", true)))
+		s.material = _material(bool(c.get("tinte", true)), c.get("paleta", null))
 		add_child(s)
 		var cap := {"clave": c["clave"], "ranura": c["ranura"], "ancla": c["ancla"],
 			"tinte": bool(c.get("tinte", true)),
-			"color": c.get("color", null), "metal": c.get("metal", null), "nodo": s}
+			"color": c.get("color", null), "metal": c.get("metal", null),
+			"paleta": c.get("paleta", null), "nodo": s}
 		# 'z' solo si la capa lo trae: tenerlo o no es lo que distingue "va siempre aqui" de "se
 		# ordena por profundidad" (ver _ordenar). Un 0 por defecto haria pasar a las segundas por
 		# primeras.
@@ -285,8 +293,18 @@ func _firma_actual() -> String:
 # se ACLARA un 60% y se quema. La piel salia casi blanca y parecia que los colores estaban mal
 # elegidos, cuando lo que pasaba es que se estaban dividiendo por un numero que ya no aplicaba. Con
 # base = 1.0 la textura pasa tal cual, que es lo unico que se le pide a una capa ya coloreada.
-func _material(tinte: bool) -> ShaderMaterial:
+#
+# Y HAY UN TERCER CASO, que no es ni teñir ni dejar pasar: las piezas de EQUIPO. Su color no lo
+# elegiste tu ni viene horneado -- depende del material, o sea del tier y del nivel de mejora --, asi
+# que van con otro shader que SUSTITUYE cada tono en vez de multiplicar (ver paleta_equipo.gdshader).
+# Se reconocen porque la capa trae una 'paleta'.
+func _material(tinte: bool, paleta: Texture2D = null) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
+	if paleta != null:
+		m.shader = SHADER_PALETA
+		m.set_shader_parameter("paleta", paleta)
+		m.set_shader_parameter("tonos", float(CapaJugador.RAMPA_TONOS))
+		return m
 	m.shader = SHADER
 	m.set_shader_parameter("base", 0.62 if tinte else 1.0)
 	return m
@@ -327,7 +345,16 @@ func _pintar_capas() -> void:
 			s.modulate = Color.WHITE
 			var m0: ShaderMaterial = s.material as ShaderMaterial
 			if m0 != null:
-				m0.set_shader_parameter("metal", 0.0)
+				# EL EQUIPO SI LLEVA METAL. Antes esta rama lo forzaba a cero para todo lo que no se
+				# tiñe, y como la armadura entera cae aqui, unas placas de acero salian tan mates como
+				# el cuero -- con el shader sabiendo hacer metal desde el principio. Ahora el brillo lo
+				# trae la capa, y sube con el nivel de mejora (ver PaletaEquipo.metal_de).
+				m0.set_shader_parameter("metal",
+					float(c["metal"]) if c.get("metal") != null else 0.0)
+				# La paleta se vuelve a poner en cada repintado y no solo al crear el material: es lo
+				# unico que cambia cuando mejoras una pieza sin cambiar de pieza.
+				if c.get("paleta") != null:
+					m0.set_shader_parameter("paleta", c["paleta"])
 			continue
 		var col: Color = _color_defecto
 		if c.get("color") != null:

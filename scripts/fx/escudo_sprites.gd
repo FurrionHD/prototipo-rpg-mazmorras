@@ -62,16 +62,26 @@ static func generar(clave: String, esc: float = 1.0) -> SpriteFrames:
 
 
 static func colores() -> Array:
-	return [
-		Color(0, 0, 0, 0),                # VACIO
-		Color(0, 0, 0, 0.20),              # SOMBRA_SUELO
-		Color(0.09, 0.09, 0.11),           # BORDE
-		Color(0.32, 0.20, 0.12),           # MADERA_S
-		Color(0.46, 0.30, 0.17),           # MADERA
-		Color(0.62, 0.44, 0.27),           # MADERA_L
-		Color(0.62, 0.65, 0.70),           # METAL
-		Color(0.88, 0.91, 0.95),           # METAL_L
-	]
+	return CapaJugador.rampa_indices(ROLES.size())
+
+
+# QUE PAPEL HACE CADA TONO. Un escudo es lo mas claro de todo esto: el cuerpo es MADERA y el aro que
+# lo bordea es METAL, y cada uno sigue su propia escala de tier y mejora. Un escudo de tier 2 muy
+# mejorado sale de madera petrificada con el aro de hierro negro.
+#
+# El indice de este array ES el numero de tono, asi que su orden sigue al del enum Tono.
+const ROLES := [
+	PaletaEquipo.Rol.BORDE,        # 0 VACIO
+	PaletaEquipo.Rol.SOMBRA,       # 1 SOMBRA_SUELO
+	PaletaEquipo.Rol.BORDE,        # 2 BORDE
+	PaletaEquipo.Rol.MADERA_S,     # 3 MADERA_S
+	PaletaEquipo.Rol.MADERA,       # 4 MADERA
+	PaletaEquipo.Rol.MADERA_L,     # 5 MADERA_L
+	PaletaEquipo.Rol.MATERIAL,     # 6 METAL
+	PaletaEquipo.Rol.MATERIAL_L,   # 7 METAL_L
+]
+
+const CLAVE_ROLES := "escudo"
 
 
 # ============================================================

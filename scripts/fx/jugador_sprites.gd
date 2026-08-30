@@ -315,18 +315,26 @@ static func _capas_armadura(pj: PersonajeData) -> Array:
 		var ti: int = clampi(int(pieza.tipo), 0, ArmaduraSprites.TIPO_NOMBRE.size() - 1)
 		var tipo: String = ArmaduraSprites.TIPO_NOMBRE[ti]
 		var base: String = ArmaduraSprites.clave(tipo, slot)
+		# El color de ESTA pieza: su familia la decide el tipo (un peto de cuero va de cuero), y el
+		# peldaño dentro de la familia lo deciden su tier y su +N.
+		var fam: String = ArmaduraSprites.familia_de(tipo)
+		var tier: int = _tier_de(pj, slot)
+		var mej: int = _mejoras_de(pj, slot)
+		var pal: ImageTexture = PaletaEquipo.lut(ArmaduraSprites.CLAVE_ROLES,
+			ArmaduraSprites.ROLES, fam, tier, mej)
+		var met: float = PaletaEquipo.metal_de(fam, mej)
 		# LOS GUANTELETES SON DOS CAPAS, una por mano (ver ArmaduraSprites.SLOTS_POR_MANO), y cada una
 		# con SUS DOS POSICIONES de z segun por donde le caiga la mano (ver Z_ARMADURA_MANOS).
 		if ArmaduraSprites.SLOTS_POR_MANO.has(slot):
 			for lado in [["der", PoseJugador.P_MANO_DER, Ranura.MANO_DER],
 					["izq", PoseJugador.P_MANO_IZQ, Ranura.MANO_IZQ]]:
 				out.append({"clave": "%s_%s" % [base, lado[0]], "ranura": lado[2],
-					"ancla": lado[1], "tinte": false,
+					"ancla": lado[1], "tinte": false, "paleta": pal, "metal": met,
 					"z": Z_ARMADURA_MANOS, "z_atras": Z_ARMADURA_MANOS_DETRAS,
 					"frames": ArmaduraSprites.frames("%s_%s" % [base, lado[0]], 1.0)})
 			continue
 		out.append({"clave": base, "ranura": _ranura_de(slot),
-			"ancla": _ancla_de(slot), "tinte": false,
+			"ancla": _ancla_de(slot), "tinte": false, "paleta": pal, "metal": met,
 			"z": _z_de(slot, tipo),
 			"frames": ArmaduraSprites.frames(base, 1.0)})
 	return out
@@ -356,6 +364,42 @@ static func _z_de(slot: String, tipo: String) -> int:
 		"casco": return Z_CASCO_CERRADO if ArmaduraSprites.cerrado(tipo) else Z_CASCO_ABIERTO
 		"pecho": return Z_ARMADURA_PECHO
 		_: return Z_ARMADURA_PIERNAS
+
+
+# ============================================================
+#  EL COLOR DE UNA PIEZA DE EQUIPO: SU TIER Y SU MEJORA
+# ============================================================
+# Una pieza recien forjada y esa misma a +15 eran el mismo dibujo del mismo color. Ahora el color sale
+# del material que le toca (ver PaletaEquipo, que es donde esta la tabla y el por que).
+#
+# EL DATO SE SACA DE 'pj', NO DEL AUTOLOAD 'Game', y es deliberado: esta capa no referencia a Game en
+# ninguna linea, y hay escenas de dev (dev_capas, ver_jugador) que llaman a capas_de sin partida
+# cargada. Yendo por 'pj.equip_meta' funcionan las dos cosas sin un caso especial.
+#
+# Y SI NO HAY META, sale el peldaño base (tier 1, +0) en vez de reventar: por aqui pasan partidas
+# viejas, el compañero que llega por red -- que no trae equip_meta -- y las hojas de contacto.
+static func _meta_equipo(pj: PersonajeData, slot: String) -> Dictionary:
+	if pj == null:
+		return {}
+	var m = pj.get("equip_meta")
+	if m == null or not (m is Dictionary):
+		return {}
+	var s = (m as Dictionary).get(slot, {})
+	return s if s is Dictionary else {}
+
+
+static func _tier_de(pj: PersonajeData, slot: String) -> int:
+	return maxi(int(_meta_equipo(pj, slot).get("tier", 1)), 1)
+
+
+static func _mejoras_de(pj: PersonajeData, slot: String) -> int:
+	var mj = _meta_equipo(pj, slot).get("mejoras", {})
+	if not (mj is Dictionary):
+		return 0
+	var n: int = 0
+	for k in (mj as Dictionary):
+		n += int((mj as Dictionary)[k])
+	return n
 
 
 # QUE PIEZA DE ROPA APAGA CADA RANURA DE ARMADURA. La armadura SUSTITUYE a la ropa, no se pone encima:
@@ -388,17 +432,28 @@ static func _tapada_por_armadura(pj: PersonajeData, pieza_ropa: String) -> bool:
 # que te acercas a un enemigo.
 static func _capas_arma(pj: PersonajeData) -> Array:
 	var out: Array = []
-	_arma_de(out, pj.equipped_main, 0)
-	_arma_de(out, pj.equipped_off, 1)
+	_arma_de(out, pj.equipped_main, 0, pj)
+	_arma_de(out, pj.equipped_off, 1, pj)
 	return out
 
 
+# LA PALETA DE UN ARMA O UN ESCUDO: las dos claves que hay que añadirle a cada capa suya para que se
+# pinte con el material de su tier y su mejora. Se calcula una vez por arma y se reparte entre sus
+# capas (la de mano y la envainada son la misma arma).
+static func _pintura_arma(pj: PersonajeData, slot: String, familia: String,
+		clave_roles: String, roles: Array) -> Dictionary:
+	var tier: int = _tier_de(pj, slot)
+	var mej: int = _mejoras_de(pj, slot)
+	return {"paleta": PaletaEquipo.lut(clave_roles, roles, familia, tier, mej),
+		"metal": PaletaEquipo.metal_de(familia, mej)}
+
+
 # 'lado': 0 = mano/cadera derecha (principal), 1 = izquierda (secundaria).
-static func _arma_de(out: Array, item, lado: int) -> void:
+static func _arma_de(out: Array, item, lado: int, pj: PersonajeData) -> void:
 	if item == null:
 		return
 	if item is ShieldData:
-		_escudo_de(out, item as ShieldData)
+		_escudo_de(out, item as ShieldData, pj)
 		return
 	var tn := ""
 	var dos_manos := false
@@ -415,49 +470,58 @@ static func _arma_de(out: Array, item, lado: int) -> void:
 	var suf_mano := "der" if lado == 0 else "izq"
 	var ancla_mano: StringName = PoseJugador.P_EMPUNADURA_DER if lado == 0 else PoseJugador.P_EMPUNADURA_IZQ
 	var ancla_cadera: StringName = PoseJugador.P_CADERA_DER if lado == 0 else PoseJugador.P_CADERA_IZQ
+	# La paleta de ESTE arma, la misma para todas sus capas. La familia la decide el tipo: un baston es
+	# de madera y una espada de metal, aunque las dos sean del mismo tier.
+	var pin: Dictionary = _pintura_arma(pj, "main" if lado == 0 else "off",
+		ArmaSprites.familia_de(tn), ArmaSprites.CLAVE_ROLES, ArmaSprites.ROLES)
 
 	if tn == "varita":
 		# La varita solo cuelga de la cadera: no se desenvaina en el mapa.
 		out.append({"clave": "arma_varita_cadera_izq", "ranura": Ranura.ARMA_CADERA,
 			"ancla": PoseJugador.P_CADERA_IZQ, "tinte": false,
 			"z": Z_ARMA_CADERA_DELANTE,
-			"frames": ArmaSprites.frames("arma_varita_cadera_izq", 1.0)})
+			"frames": ArmaSprites.frames("arma_varita_cadera_izq", 1.0)}.merged(pin))
 		return
 
 	if dos_manos:
 		out.append({"clave": "arma_%s_mano_der" % tn, "ranura": Ranura.MANO_DER,
 			"ancla": PoseJugador.P_EMPUNADURA_DER, "tinte": false,
-			"frames": ArmaSprites.frames("arma_%s_mano_der" % tn, 1.0)})
+			"frames": ArmaSprites.frames("arma_%s_mano_der" % tn, 1.0)}.merged(pin))
 		out.append({"clave": "arma_%s_espalda" % tn, "ranura": Ranura.ARMA_ESPALDA,
 			"ancla": PoseJugador.P_ESPALDA, "tinte": false,
 			"z": Z_ARMA_ESPALDA_DELANTE,
-			"frames": ArmaSprites.frames("arma_%s_espalda" % tn, 1.0)})
+			"frames": ArmaSprites.frames("arma_%s_espalda" % tn, 1.0)}.merged(pin))
 		return
 
 	out.append({"clave": "arma_%s_mano_%s" % [tn, suf_mano],
 		"ranura": Ranura.MANO_DER if lado == 0 else Ranura.MANO_IZQ,
 		"ancla": ancla_mano, "tinte": false,
-		"frames": ArmaSprites.frames("arma_%s_mano_%s" % [tn, suf_mano], 1.0)})
+		"frames": ArmaSprites.frames("arma_%s_mano_%s" % [tn, suf_mano], 1.0)}.merged(pin))
 	out.append({"clave": "arma_%s_cadera_%s" % [tn, suf_mano], "ranura": Ranura.ARMA_CADERA,
 		"ancla": ancla_cadera, "tinte": false,
 		"z": Z_ARMA_CADERA_DELANTE,
-		"frames": ArmaSprites.frames("arma_%s_cadera_%s" % [tn, suf_mano], 1.0)})
+		"frames": ArmaSprites.frames("arma_%s_cadera_%s" % [tn, suf_mano], 1.0)}.merged(pin))
 
 
 # LAS CAPAS DEL ESCUDO. Solo dos, y ninguna con 'lado' -- un escudo siempre va en la mano
 # secundaria (equipped_off), nunca en la principal. Envainado comparte P_ESPALDA con las armas a
 # dos manos: nunca chocan, porque equipped_off tiene que ser null si el arma principal es a dos
 # manos (ver Game._secundaria_valida) -- por eso reutiliza Z_ARMA_ESPALDA_DELANTE tal cual.
-static func _escudo_de(out: Array, sh: ShieldData) -> void:
+static func _escudo_de(out: Array, sh: ShieldData, pj: PersonajeData) -> void:
 	var tn: String = EscudoSprites.TAMANO_NOMBRE[clampi(int(sh.tamano), 0,
 		EscudoSprites.TAMANO_NOMBRE.size() - 1)]
+	# Un escudo va SIEMPRE en la secundaria, asi que su meta es la del slot "off". Su cuerpo es madera
+	# y su aro metal (ver EscudoSprites.ROLES): la familia que se pasa aqui es la del ARO, que es la
+	# que manda en el brillo.
+	var pin: Dictionary = _pintura_arma(pj, "off", PaletaEquipo.METAL,
+		EscudoSprites.CLAVE_ROLES, EscudoSprites.ROLES)
 	out.append({"clave": "escudo_%s_mano_izq" % tn, "ranura": Ranura.MANO_IZQ,
 		"ancla": PoseJugador.P_EMPUNADURA_IZQ, "tinte": false,
-		"frames": EscudoSprites.frames("escudo_%s_mano_izq" % tn, 1.0)})
+		"frames": EscudoSprites.frames("escudo_%s_mano_izq" % tn, 1.0)}.merged(pin))
 	out.append({"clave": "escudo_%s_espalda" % tn, "ranura": Ranura.ARMA_ESPALDA,
 		"ancla": PoseJugador.P_ESPALDA, "tinte": false,
 		"z": Z_ARMA_ESPALDA_DELANTE,
-		"frames": EscudoSprites.frames("escudo_%s_espalda" % tn, 1.0)})
+		"frames": EscudoSprites.frames("escudo_%s_espalda" % tn, 1.0)}.merged(pin))
 
 
 # TODAS las capas que existen, para el horno. No es lo mismo que 'capas_de': aquella son las de UN
