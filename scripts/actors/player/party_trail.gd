@@ -82,11 +82,19 @@ func refrescar() -> void:
 		c.plantar(_punto_a_distancia(SEPARACION * float(_cuerpos.size() + 1)))
 		_cuerpos.append(c)
 		_pintados.append(null)
-	# Y el aspecto de cada uno, solo si ha cambiado de dueño.
+	# Y el aspecto de cada uno, SIEMPRE, no solo si ha cambiado de dueño.
+	#
+	# Ese candado era la causa de "la armadura solo se le ve al lider": equiparle un peto a un
+	# companero no cambia QUIEN ocupa el hueco de la fila, asi que no se repintaba y su cuerpo
+	# seguia siendo el de antes hasta que cambiabas el grupo o volvias a entrar en la mazmorra.
+	#
+	# Y quitarlo no cuesta nada, porque el candado de verdad esta una capa mas abajo: MunecoJugador
+	# .montar compara la FIRMA de las capas y se sale sin hacer nada si no ha cambiado ninguna (ver
+	# su nota). Este de aqui solo tapaba ese, y ademas tapaba de menos -- por eso hubo que inventar
+	# refrescar_imbue() aparte, que era este mismo problema con la imbuicion.
 	for i in comps.size():
-		if _pintados[i] != comps[i]:
-			_pintados[i] = comps[i]
-			_cuerpos[i].pintar(comps[i])
+		_pintados[i] = comps[i]
+		_cuerpos[i].pintar(comps[i])
 
 
 # Solo los rastros de imbuicion de la fila. Hace falta APARTE de refrescar() porque aquella se salta
