@@ -30,8 +30,8 @@ const MANDOS := [
 	{"clave": "musica", "titulo": "Música"},
 ]
 
-# Lo que suena al soltar el mando, para oir como queda. La musica no tiene muestra: cuando la haya,
-# se le pone aqui.
+# Lo que suena al soltar el mando, para oir como queda. La MUSICA no lleva muestra y no le hace
+# falta: ya esta sonando: mover el mando se oye solo.
 const MUESTRA := {"general": true, "efectos": true, "musica": false}
 
 var _cifras: Dictionary = {}   # clave -> Label del porcentaje

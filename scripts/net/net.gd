@@ -38,7 +38,11 @@ const MAX_JUGADORES := 4
 # 4: el estilo pasa de 6 a 8 bits (cabian 64 y hacen falta 104: cada arma y cada habilidad del
 #    jugador tienen dibujo propio). Peso, solo_dibujo y sonido se corren a la izquierda, asi que un
 #    build del 3 lee MAL los cuatro campos: ve otro efecto, otro peso y otro sonido.
-const PROTOCOLO := 5
+# 6: cada impacto pasa de CUATRO enteros a CINCO. El quinto es la semilla con la que se sortean la
+#    version del fichero de sonido y su tono, para que el golpe suene identico en las dos pantallas
+#    en vez de que cada maquina se saque la suya. Un build del 5 lee el paquete CORRIDO desde el
+#    segundo impacto: victimas, daños y efectos inventados, y sin dar ni un error.
+const PROTOCOLO := 6
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

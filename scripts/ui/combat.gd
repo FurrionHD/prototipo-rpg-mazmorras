@@ -235,6 +235,9 @@ var _target_idx: int = 0
 # pulsado" que la abre sobre un combatiente (1 s quieto, como ficha_tactil pero con mas margen).
 var _detalle: CombateDetalle = null
 var _boton_detalle: Button = null
+# El panel de volumen que abre la ESC (ver _alternar_ajustes). Se monta la primera vez que se pide.
+var _ajustes: Control = null
+
 var _hold_c: Combatant = null
 var _hold_t: float = 0.0
 var _hold_pos: Vector2 = Vector2.ZERO
@@ -1240,6 +1243,13 @@ func _cod_combatiente(c: Combatant) -> int:
 	return 100 + i if i >= 0 else -1
 
 
+# CADA IMPACTO SON CINCO ENTEROS: atacante, victima, daño x10, flags y SEMILLA DE SONIDO. El
+# quinto entro al darle varias versiones a cada sonido: la version y el tono se sortean con esa
+# semilla, asi que mandandola el golpe suena identico en todas las pantallas en vez de que cada
+# maquina se saque el suyo. En los flags no cabia (estan los 31 bits utiles cogidos), y cambiar el
+# paso de 4 a 5 es justo lo que obliga a subir Net.PROTOCOLO: una punta vieja leeria el paquete
+# corrido y veria una pelea inventada, sin dar ni un error.
+#
 # El reparto de bits de 'flags', que hay que leer igual en las dos puntas:
 #   0      critico
 #   1      evadido
@@ -1266,8 +1276,8 @@ func _cod_combatiente(c: Combatant) -> int:
 # mascaras de cada campo tienen que cuadrar aqui y en aplicar_impactos.
 func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 		crit: bool, evadido: bool, elem: int, estilo: int, peso: float,
-		solo_dibujo: bool = false, sfx: String = "") -> void:
-	if _espejo or not Net.activo or _impactos_red.size() >= MAX_IMPACTOS_RED * 4:
+		solo_dibujo: bool = false, sfx: String = "", semilla: int = 0) -> void:
+	if _espejo or not Net.activo or _impactos_red.size() >= MAX_IMPACTOS_RED * 5:
 		return
 	var ca: int = _cod_combatiente(atacante)
 	var cv: int = _cod_combatiente(victima)
@@ -1289,6 +1299,7 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 	_impactos_red.append(cv)
 	_impactos_red.append(roundi(minf(dmg, 3000.0) * 10.0))   # x10: un decimal, y cabe en el int
 	_impactos_red.append(flags)
+	_impactos_red.append(semilla)
 
 
 # Suelta lo apuntado. Se llama al cerrar CADA accion (la del enemigo en _pausa_lectura, la tuya en
@@ -1310,12 +1321,13 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 		return
 	var j: int = 0
 	var tanda: int = -1
-	while j + 3 < datos.size():
+	while j + 4 < datos.size():
 		var ca: int = datos[j]
 		var cv: int = datos[j + 1]
 		var dmg: float = float(datos[j + 2]) / 10.0
 		var flags: int = datos[j + 3]
-		j += 4
+		var semilla: int = datos[j + 4]
+		j += 5
 		# El bit de "abre tanda" se lee SIEMPRE, aunque la victima ya no exista en esta pantalla:
 		# el contador tiene que seguir el mismo compas que el del anfitrion pase lo que pase.
 		if (flags & 4) != 0:
@@ -1328,7 +1340,11 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 		# peso pegados detras y salia un numero absurdo.
 		_fx_golpe(_de_codigo(ca), victima, dmg, (flags & 1) != 0, (flags & 2) != 0,
 			((flags >> 3) & 7) - 1, (flags >> 6) & 255, float((flags >> 14) & 127) / 64.0,
-			(flags & 2097152) != 0, Sonido.clave_de((flags >> 22) & 511))
+			(flags & 2097152) != 0, Sonido.clave_de((flags >> 22) & 511),
+			# El gesto y la animacion van por su valor de siempre (no viajan: el Combatant del
+			# atacante ya los trae). La SEMILLA si viaja, y se pasa TAL CUAL: es lo que hace que
+			# el golpe suene con la misma version y el mismo tono que en la pantalla del que pega.
+			AbilityData.Gesto.AUTO, &"", semilla)
 	_fx.arrancar_cola()
 
 
@@ -3473,12 +3489,20 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		evadido: bool, elem: int = Elementos.Elemento.NINGUNO,
 		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0,
 		solo_dibujo: bool = false, sfx: String = "",
-		gesto: int = AbilityData.Gesto.AUTO, anim: StringName = &"") -> void:
+		gesto: int = AbilityData.Gesto.AUTO, anim: StringName = &"",
+		semilla: int = 0) -> void:
 	if _fx == null:
 		return
 	var bv: Dictionary = _bloque_de(victima)
 	if bv.is_empty():
 		return
+	# LA SEMILLA DEL SONIDO. La tira quien RESUELVE (o sea, aqui, salvo en el espejo, que la recibe
+	# hecha) y no Sonido al reproducir, porque de ella salen la version del fichero y el tono: si
+	# cada maquina sorteara lo suyo, el mismo golpe sonaria distinto en cada pantalla.
+	#
+	# Nunca 0: ese valor significa "no viene de red, sortea tu".
+	if semilla == 0:
+		semilla = (randi() & 0x3FFFFFFF) | 1
 	# EL ESCUDO que lleva el que pega, para que se dibuje EL SUYO. No viaja por red y no hace falta:
 	# el espejo resuelve al atacante con _de_codigo y ese Combatant ya trae su fx_escudo, igual que
 	# el color y el gesto del arma.
@@ -3489,10 +3513,11 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	# estoque haciendo el salto del Rey Slime.
 	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido,
 		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx, elem,
-		atacante.fx_escudo if atacante != null else -1, gesto, anim)
+		atacante.fx_escudo if atacante != null else -1, gesto, anim, semilla)
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
-	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo, sfx)
+	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo,
+		sfx, semilla)
 
 
 # DE QUE COLOR sale un golpe. Manda el ELEMENTO cuando lo tiene (un rayo es amarillo lo lance quien
@@ -3800,6 +3825,14 @@ func _input(event: InputEvent) -> void:
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
+	# ESC = LOS AJUSTES. El menu de pausa no se abre con una pelea delante (ahi no se guarda: ver
+	# pause_menu.alternar), y eso dejaba el volumen sin tocar justo donde mas se nota, que es donde
+	# suenan los golpes. Asi que aqui se abre el MISMO panel de ajustes, el solo, sin guardar ni
+	# salir: es el unico trozo de la pausa que tiene sentido en mitad de un combate.
+	if event.is_action_pressed(&"cancelar"):
+		_alternar_ajustes()
+		get_viewport().set_input_as_handled()
+		return
 	# Se MARCA COMO CONSUMIDA la que atendemos aqui. Game escucha las suyas en _unhandled_key_input,
 	# que corre DESPUES de este _input: sin esto, en multi (donde el arbol no se pausa) una P dentro
 	# del combate disparaba ademas el test de spawns de Game, y una H la cura del mundo.
@@ -3815,6 +3848,37 @@ func _input(event: InputEvent) -> void:
 		_:
 			return
 	get_viewport().set_input_as_handled()
+
+
+# Abre o cierra el panel de volumen. Se monta la primera vez que hace falta y se queda: es un
+# Control con tres mandos, no cuesta nada tenerlo ahi.
+#
+# EN SU PROPIA CanvasLayer y por encima de la del combate (100), o saldria por debajo del tablero y
+# no se veria. Y con PROCESS_MODE_ALWAYS, como todo lo que tiene que responder con el arbol parado.
+func _alternar_ajustes() -> void:
+	if _ajustes == null:
+		var capa := CanvasLayer.new()
+		capa.layer = 110
+		capa.process_mode = Node.PROCESS_MODE_ALWAYS
+		add_child(capa)
+		_ajustes = preload("res://scripts/ui/settings_menu.gd").new()
+		# EL PANEL NACE VISIBLE (settings_menu no lo esconde en su _ready: de eso se encarga quien
+		# lo cuelga). Sin esta linea, la primera ESC lo encontraba ya abierto y lo CERRABA -- o sea
+		# que la tecla no hacia nada la primera vez.
+		_ajustes.visible = false
+		# El mismo velo oscuro que el menu de pausa. El panel es opaco y se leeria igual, pero sin
+		# el velo no queda claro que el resto de la pantalla esta esperando.
+		var velo := ColorRect.new()
+		velo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		velo.color = Color(0.0, 0.0, 0.0, 0.65)
+		velo.mouse_filter = Control.MOUSE_FILTER_STOP
+		_ajustes.add_child(velo)
+		_ajustes.move_child(velo, 0)   # por DEBAJO de los mandos, o los tapa
+		capa.add_child(_ajustes)
+	if _ajustes.visible:
+		_ajustes.cerrar()   # es quien escribe en disco lo que hayas movido
+	else:
+		_ajustes.abrir()
 
 
 # TECLA P: el combate se queda a veces sin pasar turno y no hay forma de saber por que. Esto

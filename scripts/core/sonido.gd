@@ -8,6 +8,10 @@
 #  de una habilidad es el nombre de su .tres (minotauro_bramido) y la de un estilo es el nombre del
 #  enum en minusculas (chillido). Ver audio/sfx/LEEME.md.
 #
+#  Y CADA CLAVE PUEDE TENER VARIAS VERSIONES: sfx_X_v1.wav, _v2, _v3... Se sortea una en cada
+#  disparo. Es lo que hace que el Grito de guerra no suene calcado las tres veces que lo lanzas en
+#  una pelea. Una sola version se llama sfx_X.wav a secas, sin sufijo.
+#
 #  POR QUE UNA PISCINA DE VOCES y no un solo reproductor: el Frenesi de la rata son SEIS impactos en
 #  dos segundos. Con un AudioStreamPlayer unico, cada mordisco cortaria al anterior y la racha se
 #  oiria como un solo golpe.
@@ -24,6 +28,10 @@ extends Node
 const VOCES := 12
 
 const CARPETA := "res://audio/sfx/"
+
+# Hasta que version se busca. Se para en el primer hueco, asi que esto es solo el tope de la
+# busqueda: seis es el maximo que hay hoy (los caparazones) y sobra sitio.
+const TOPE_VERSIONES := 9
 
 # LOS VOLUMENES QUE SE PUEDEN TOCAR. La clave es la que se guarda en disco y la que pide la UI; el
 # valor, el bus del AudioServer. "general" es el Master, o sea que baja TODO de golpe -- los otros
@@ -63,6 +71,22 @@ const DB_LLENO := 0.0      # peso 1.0
 const DB_GORDO := 2.0      # peso 1.5
 const DB_CRITICO := 2.0
 
+# LA CAPA DEL ELEMENTO suena ENCIMA del golpe, no en su lugar: el mandoble sigue sonando a mandoble
+# y el fuego se le monta. Por eso va mas floja -- si compitiera de tu a tu con el golpe, todas las
+# armas imbuidas sonarian igual.
+const DB_ELEMENTO := -6.0
+
+# Como se llama el fichero de cada elemento; la clave es Elements.Elemento. NINGUNO (0) no esta a
+# proposito. Un elemento sin fichero se queda sin capa y ya: el golpe suena igual.
+#
+# NO HAY VENENO aqui porque el veneno NO es un elemento, es un estado (ver elements.gd). Existe un
+# audio/sfx/sfx_elem_veneno.wav sin usar, esperando a que alguna vez lo sea.
+const ELEMENTOS := {
+	Elementos.Elemento.FUEGO: "fuego",
+	Elementos.Elemento.AGUA: "agua",
+	Elementos.Elemento.RAYO: "rayo",
+}
+
 # La misma muestra seis veces seguidas suena a metralleta. Un pelin de tono cada vez y la racha se
 # oye como seis mordiscos distintos.
 const TONO_MIN := 0.94
@@ -75,7 +99,7 @@ const MS_ANTISOLAPE := 50
 
 var _voces: Array[AudioStreamPlayer] = []
 var _desde: Array[int] = []            # ms en que arranco cada voz, para robar la mas antigua
-var _cache: Dictionary = {}            # clave -> AudioStream (o null si no hay fichero)
+var _cache: Dictionary = {}            # clave -> Array[AudioStream] (vacio si no hay fichero)
 var _ultimo: Dictionary = {}           # clave resuelta -> ms del ultimo disparo
 var _mudos: Dictionary = {}            # avisos ya dados, para no repetirlos cada frame
 
@@ -103,22 +127,49 @@ func _ready() -> void:
 
 
 # UN GOLPE. 'clave' es la de la habilidad ("" si no tiene sonido propio) y 'estilo' el CombatFX.Estilo
-# que hace de respaldo. 'peso' y 'crit' son los mismos que gobiernan el dibujo.
-func golpe(clave: String, estilo: int, peso: float = 1.0, crit: bool = false) -> void:
-	var stream: AudioStream = _resolver(clave, estilo)
-	if stream == null:
+# que hace de respaldo. 'peso' y 'crit' son los mismos que gobiernan el dibujo, y 'elem' el
+# Elementos.Elemento con el que va imbuido (0 = ninguno).
+func golpe(clave: String, estilo: int, peso: float = 1.0, crit: bool = false, elem: int = 0,
+		semilla: int = 0) -> void:
+	var resuelta: String = _resolver(clave, estilo)
+	if resuelta == "":
 		return
 	var ahora: int = Time.get_ticks_msec()
-	var ruta: String = stream.resource_path
-	if ahora - int(_ultimo.get(ruta, -99999)) < MS_ANTISOLAPE:
+	# EL ANTISOLAPE VA POR CLAVE, NO POR FICHERO. Con varias versiones por clave, dos disparos
+	# pegados caerian en versiones distintas y el guardian no veria la repeticion: sonaria la
+	# metralleta que esto existe para evitar.
+	if ahora - int(_ultimo.get(resuelta, -99999)) < MS_ANTISOLAPE:
 		return
-	_ultimo[ruta] = ahora
+	_ultimo[resuelta] = ahora
+
+	# TODO LO QUE SE SORTEA SALE DE LA MISMA SEMILLA: la version y la pizca de tono. Cuando viene de
+	# red es la que tiro el anfitrion, asi que el golpe suena IGUAL en todas las pantallas -- si
+	# cada maquina sorteara lo suyo, el mismo mandoble seria un sonido distinto en cada una. Sin
+	# red (semilla 0) se sortea aqui y da lo mismo.
+	var rng := RandomNumberGenerator.new()
+	if semilla != 0:
+		rng.seed = semilla
+	else:
+		rng.randomize()
+	var tono: float = rng.randf_range(TONO_MIN, TONO_MAX) * (TONO_CRITICO if crit else 1.0)
+	var db: float = _db(peso) + (DB_CRITICO if crit else 0.0)
+	_soltar(_una_version(resuelta, rng), db, tono, ahora)
+	disparos += 1
+
+	# LA CAPA DEL ELEMENTO, en su propia voz y a la vez. Comparte tono con el golpe para que se oigan
+	# como una sola cosa y no como dos sonidos sueltos que coinciden.
+	if ELEMENTOS.has(elem):
+		_soltar(_una_version("elem_" + String(ELEMENTOS[elem]), rng), db + DB_ELEMENTO, tono, ahora)
+
+
+func _soltar(stream: AudioStream, db: float, tono: float, ahora: int) -> void:
+	if stream == null:
+		return
 	var v: AudioStreamPlayer = _voz_libre(ahora)
 	v.stream = stream
-	v.volume_db = _db(peso) + (DB_CRITICO if crit else 0.0)
-	v.pitch_scale = randf_range(TONO_MIN, TONO_MAX) * (TONO_CRITICO if crit else 1.0)
+	v.volume_db = db
+	v.pitch_scale = tono
 	v.play()
-	disparos += 1
 
 
 # UNA MUESTRA para oir como ha quedado el volumen que acabas de mover. Sin ella hay que salir del
@@ -128,7 +179,7 @@ func golpe(clave: String, estilo: int, peso: float = 1.0, crit: bool = false) ->
 # que se haya elegido ninguna version). Se salta el antisolape a proposito: mover el mando dos veces
 # seguidas tiene que contestar las dos.
 func muestra() -> void:
-	_ultimo.erase(CARPETA + "sfx_mordisco.wav")
+	_ultimo.erase("mordisco")
 	golpe("", CombatFX.Estilo.MORDISCO, 1.0, false)
 
 
@@ -210,13 +261,20 @@ func _voz_libre(ahora: int) -> AudioStreamPlayer:
 	return _voces[viejo]
 
 
-func _resolver(clave: String, estilo: int) -> AudioStream:
-	if clave != "":
-		var propio: AudioStream = _stream(clave)
-		if propio != null:
-			return propio
+# La clave que de verdad va a sonar: la de la habilidad si tiene fichero propio y, si no, la de su
+# estilo. Devuelve "" si no hay ni una cosa ni la otra (queda mudo).
+func _resolver(clave: String, estilo: int) -> String:
+	if clave != "" and not _streams(clave).is_empty():
+		return clave
 	var nombre: String = _nombre_estilo(estilo)
-	return _stream(nombre) if nombre != "" else null
+	if nombre != "" and not _streams(nombre).is_empty():
+		return nombre
+	return ""
+
+
+func _una_version(clave: String, rng: RandomNumberGenerator) -> AudioStream:
+	var v: Array = _streams(clave)
+	return v[rng.randi() % v.size()] if not v.is_empty() else null
 
 
 func _nombre_estilo(estilo: int) -> String:
@@ -224,22 +282,24 @@ func _nombre_estilo(estilo: int) -> String:
 	return String(claves[estilo]).to_lower() if estilo >= 0 and estilo < claves.size() else ""
 
 
-func _stream(clave: String) -> AudioStream:
+# TODAS las versiones de una clave, cargadas una vez y guardadas. Vacio = esa clave esta muda.
+#
+# SE BUSCA PROBANDO NOMBRES, no listando la carpeta: DirAccess sobre res:// no es de fiar dentro
+# del .pck exportado, y ahi lo unico seguro es preguntar por un recurso concreto.
+func _streams(clave: String) -> Array:
 	if _cache.has(clave):
 		return _cache[clave]
-	var res: AudioStream = null
-	var ruta: String = CARPETA + "sfx_" + clave + ".wav"
-	if ResourceLoader.exists(ruta):
-		res = load(ruta) as AudioStream
-	else:
-		# PUENTE TEMPORAL: 39 de los ficheros siguen con sufijo _vN porque falta elegir cual se
-		# queda (ver audio/sfx/LEEME.md). Mientras tanto suena la primera version. EN CUANTO ESTEN
-		# ELEGIDAS, BORRAR ESTAS TRES LINEAS: el nombre sin sufijo es el que busca el juego.
-		var v1: String = CARPETA + "sfx_" + clave + "_v1.wav"
-		if ResourceLoader.exists(v1):
-			res = load(v1) as AudioStream
+	var res: Array = []
+	var pelado: String = CARPETA + "sfx_" + clave + ".wav"
+	if ResourceLoader.exists(pelado):
+		res.append(load(pelado))
+	for i in range(1, TOPE_VERSIONES + 1):
+		var ruta: String = CARPETA + "sfx_%s_v%d.wav" % [clave, i]
+		if not ResourceLoader.exists(ruta):
+			break
+		res.append(load(ruta))
 	_cache[clave] = res
-	if res == null and OS.is_debug_build() and not _mudos.has(clave):
+	if res.is_empty() and OS.is_debug_build() and not _mudos.has(clave):
 		_mudos[clave] = true
 		print("[Sonido] mudo: no hay sfx_%s.wav" % clave)
 	return res

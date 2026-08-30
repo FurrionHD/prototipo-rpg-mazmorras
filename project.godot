@@ -28,6 +28,8 @@ Nube="*res://scripts/net/cloud.gd"
 Mundos="*res://scripts/core/mundos.gd"
 Tactil="*res://scripts/core/tactil.gd"
 Sonido="*res://scripts/core/sonido.gd"
+Musica="*res://scripts/core/musica.gd"
+Ambiente="*res://scripts/core/ambiente.gd"
 
 [debug]
 

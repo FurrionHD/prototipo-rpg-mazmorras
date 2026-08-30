@@ -1048,6 +1048,14 @@ func _iniciar_impacto(enemy_initiated: bool, dur: float = -1.0) -> void:
 	velocity = Vector2.ZERO
 	_impacto_t = dur if dur > 0.0 else EMBESTIDA_IMPACTO
 	_impacto_enemy_initiated = enemy_initiated
+	# EL BICHO SUENA AL EMBESTIR, en el mapa y antes de que se abra la pelea. Suena con su golpe de
+	# siempre (EnemyData.fx_basico), el mismo que dentro del combate, asi que el minotauro embiste
+	# con su cornada y la rata con su mordisco.
+	#
+	# Solo cuando embiste EL: si el impacto lo abriste tu (atacado_por_jugador), el que suena es tu
+	# arma, y ya lo hace player._tick_ataque. Sonarian los dos y seria un ruido.
+	if enemy_initiated and data != null:
+		Sonido.golpe("", data.fx_basico if data.fx_basico >= 0 else CombatFX.Estilo.MELEE)
 
 
 # ¿Estoy persiguiendo a ESTE de ahi? Lo pregunta el jugador para saber si esta HUYENDO de verdad

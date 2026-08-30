@@ -2910,6 +2910,9 @@ func _cambiar_piso(nuevo: int, por_la_bajada: bool) -> void:
 	# el mapa salia "sin cartografiar" del piso 2 en adelante.
 	capturar_mapa()
 	current_floor = maxi(1, nuevo)
+	# EL REMATE DE PISO NUEVO. Suena encima de la musica de mazmorra, que sigue como estaba: bajar
+	# no cambia de sitio, solo lo hace mas hondo.
+	Musica.remate("piso")
 	var band: Vector2 = enemy_ability_sum_band(current_floor)
 	print("[mazmorra] piso ", current_floor,
 		" | stat base x", snappedf(enemy_floor_stat_factor(), 0.01),
@@ -11088,6 +11091,13 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 # Cuelga la pantalla de combate y deja el mundo en modo "estoy peleando". Se saco de start_combat
 # porque el ESPEJO (hito 5.4-C) monta exactamente lo mismo: misma capa, mismo modal, mismo aviso.
 func _montar_pantalla_combate(combat: Node) -> void:
+	# LA MUSICA DE PELEA. Va AQUI y no en start_combat porque por aqui pasan TODAS las peleas: la
+	# tuya, la del espejo que se une a la de otro y la que te embiste. Enganchandola arriba, el que
+	# se une entraria a pelear con la musica de la mazmorra puesta.
+	#
+	# Se APILA en vez de ponerse: al acabar, la de mazmorra vuelve donde estaba en vez de empezar
+	# de cero cada vez que matas una rata.
+	Musica.apilar("jefe" if _hay_jefe_en_pelea() else "combate")
 	# Si estabas recitando en el mapa, el canto se lo lleva la pelea por delante: el conjuro se
 	# pierde y NO se cobra (ver casteo_mapa.interrumpir). Va aqui, en el sitio por el que pasan
 	# TODAS las peleas —la tuya, la del espejo, la que te embiste—, y no en start_combat.
@@ -11965,9 +11975,23 @@ func dev_curva_drops(pisos: Array = [1, 2, 3, 4, 6, 8, 10, 12]) -> void:
 
 # Los tres primeros arrays vienen POR ALIADO, en el orden en que se le pasaron a la pantalla
 # (el lider el primero): con quE vida, maná y energia sale cada uno.
+func _hay_jefe_en_pelea() -> bool:
+	for n in _active_enemies:
+		if is_instance_valid(n) and n.get("es_boss"):
+			return true
+	return false
+
+
 func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array = [],
 		energy_left: Array = [], muertos: Array = [], enemy_hp_left: Array = [],
 		duenos: Array = [], enemy_estados_left: Array = []) -> void:
+	# Se acabo la pelea: vuelve la musica de debajo y suena el remate encima. La huida no lleva
+	# remate -- no has ganado, pero tampoco es para tocar la marcha funebre.
+	# La musica de pelea se va y vuelve la de debajo. El remate de VICTORIA suena encima; el de
+	# derrota va mas abajo, en cuanto se sabe si cayo tu grupo entero (huir no es perder).
+	Musica.desapilar()
+	if player_won:
+		Musica.remate("victoria")
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
@@ -12017,6 +12041,10 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 			guardar_estados_en_ficha(_active_player_cs[i], pj)
 	# ¿Cayo mi propio grupo (dueño 0)? Y ¿que PEERS cayeron enteros? (para mandarlos al pueblo).
 	var anfitrion_derrotado: bool = existe_dueno.has(0) and not vivo_por_dueno.has(0)
+	# EL REMATE DE DERROTA, ahora que se sabe. No vale mirar `player_won`: huir tambien lo deja en
+	# false y huir no es perder.
+	if anfitrion_derrotado:
+		Musica.remate("derrota")
 	var peers_derrotados: Array = []
 	for dn in existe_dueno:
 		if dn != 0 and not vivo_por_dueno.has(dn):

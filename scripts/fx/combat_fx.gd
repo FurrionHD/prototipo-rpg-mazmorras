@@ -1247,7 +1247,7 @@ func tanda(n: int) -> void:
 func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bool,
 		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0,
 		solo_dibujo: bool = false, sfx: String = "", elem: int = 0, escudo: int = -1,
-		gesto: int = -1, anim: StringName = &"") -> void:
+		gesto: int = -1, anim: StringName = &"", semilla: int = 0) -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
 		_tanda_pedida = -1
 		return
@@ -1262,6 +1262,12 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		"estilo": estilo, "peso": clampf(peso, 0.2, 1.5), "fx_lanzado": false,
 		"tanda": t_ev, "solo_dibujo": solo_dibujo,
 		"sfx": sfx, "sfx_lanzado": false,
+		# LA SEMILLA DEL SONIDO. Una clave puede tener varias versiones y cada disparo lleva ademas
+		# su pizca de tono; las dos cosas salen de AQUI y no de un randf en Sonido, porque si no
+		# cada maquina sortearia lo suyo y el mismo mandoble sonaria distinto en cada pantalla. La
+		# tira el anfitrion, viaja en el paquete de impactos y el espejo la reproduce tal cual.
+		# 0 = no viene de red, que la sortee Sonido.
+		"semilla": semilla,
 		# EL ELEMENTO, aparte del color. El color solo dice de que tono va; el elemento dice COMO SE
 		# COMPORTA: el rayo centellea y se quiebra, el fuego ondea y suelta chispas, el agua gotea.
 		# Pintar los tres del mismo modo y cambiarles el tinte no cuela -- no parecian ni fuego ni
@@ -2034,7 +2040,10 @@ func _process(delta: float) -> void:
 		if not ev["sfx_lanzado"] and _t >= t_imp - vuelo:
 			ev["sfx_lanzado"] = true
 			if not bool(ev.get("sin_dibujo", false)):
-				Sonido.golpe(String(ev.get("sfx", "")), estilo, peso, bool(ev["crit"]))
+				# El ELEMENTO va tambien: Sonido le monta encima su capa (el chisporroteo del
+				# fuego, el chapoteo del agua). Es el mismo dato que el dibujo usa mas arriba.
+				Sonido.golpe(String(ev.get("sfx", "")), estilo, peso, bool(ev["crit"]),
+					int(ev.get("elem", 0)), int(ev.get("semilla", 0)))
 
 		# UN ADORNO no impacta: se ha pintado y ya. Ni numero, ni barra, ni sacudida (el 'continue'
 		# se salta tambien la embestida y el temblor de mas abajo). Ver 'solo_dibujo' en encolar.

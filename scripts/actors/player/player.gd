@@ -190,6 +190,9 @@ func _ready() -> void:
 	# companeros (companion.gd), asi que el bicho no tiene que distinguir quien lleva la corona:
 	# va a por el que tenga mas a mano.
 	add_to_group("aliado")
+	# EL FUEGO DEL FAROLILLO. No hay antorchas puestas por la mazmorra: la luz la llevas TU, asi que
+	# el chisporroteo va colgado de ti. Muy flojo, que es un fondo constante y no un efecto.
+	Ambiente.pegar(self, "antorcha", -22.0, 200.0)
 	_crear_capa_barras()
 	add_child(preload("res://scripts/ui/hud.gd").new())  # HUD (barras, peso, piso, ayudas)
 	if Tactil.activo:
@@ -1264,6 +1267,18 @@ func _elegir_golpe() -> int:
 	return 0
 
 
+# CON QUE SUENA el espadazo del mapa: el gesto del arma de la mano que pega, por la MISMA tabla
+# (CombatFX.FX_ARMA) con la que se decide dentro del combate. Sin arma, MELEE -- el puñetazo.
+#
+# Se mira _golpe_variante porque en dual las dos manos pueden llevar armas distintas: el golpe de
+# la izquierda tiene que sonar a lo que hay en la izquierda.
+func _estilo_del_golpe() -> int:
+	var arma = Game.equipped_off if _golpe_variante == 1 else Game.equipped_main
+	if not (arma is WeaponData):
+		return CombatFX.Estilo.MELEE
+	return int(CombatFX.FX_ARMA.get(int(arma.tipo), CombatFX.Estilo.MELEE))
+
+
 func _tick_ataque(delta: float) -> void:
 	var atk: bool = Input.is_action_pressed(&"atacar")
 	# Mientras recitas, el boton no hace nada mas: las frases se tocan en la banda de abajo.
@@ -1279,6 +1294,10 @@ func _tick_ataque(delta: float) -> void:
 		# queja que llevo a que este boton avise por texto cuando el bicho esta lejos.
 		_golpe_variante = _elegir_golpe()
 		_golpe_t = DUR_GOLPE_2M if _golpe_variante == 2 else DUR_GOLPE
+		# EL ESPADAZO SE OYE AUNQUE NO ACIERTE, por lo mismo que se VE: golpear al aire tiene que
+		# distinguirse de "el boton no ha respondido". Y va AQUI y no dentro de _try_attack para que
+		# suene tambien el que no toca a nadie.
+		Sonido.golpe("", _estilo_del_golpe())
 		if not _try_attack():
 			_atk_buffer = ATK_BUFFER
 			# Toque corto a distancia de CONJURO: no ha llegado el espadazo, pero algo se puede
