@@ -211,6 +211,28 @@ const Z_CASCO_CERRADO := 2050
 const Z_ARMADURA_PIERNAS := 4
 const Z_ARMADURA_PECHO := 6
 
+# ============================================================
+#  LOS GUANTELETES: DOS POSICIONES, Y NINGUNA POR DEBAJO DEL CUERPO
+# ============================================================
+# EL SINTOMA ERA "al norte no se ven los guantes, se ve color piel". Iban SIN z, ordenados por la
+# profundidad de la mano como el arma que se empuña -- y al norte la mano cae por detras del plano
+# del cuerpo (MANO.y = 2,6 mirando al sur se vuelve -2,6 mirando al norte), asi que la capa entera se
+# iba DEBAJO del cuerpo y lo que se veia era el brazo desnudo.
+#
+# Y ESE ORDEN ES CORRECTO PARA UN ARMA Y FALSO PARA UN GUANTELETE. Una espada se SOSTIENE: puede
+# quedar por detras de ti y esta bien que se tape. Un guantelete se LLEVA PUESTO -- va pegado a un
+# brazo que el cuerpo dibuja siempre encima de si mismo --, asi que no puede caer por debajo del
+# cuerpo en ninguna direccion.
+#
+# Se arregla con el mecanismo que ya existe para la melena (z + z_atras, ver MunecoJugador._ordenar):
+# dos posiciones fijas, y la de atras TAMBIEN por encima del cuerpo.
+#   * delante (7): por encima del peto, que es donde va la mano que te queda de cara.
+#   * detras (2): por encima del cuerpo pero por DEBAJO de la ropa, las grebas y el peto. Asi la mano
+#     del fondo se ve donde asoma por el costado y se tapa donde el tronco la cubre, que es
+#     exactamente lo que hace el brazo de carne.
+const Z_ARMADURA_MANOS := 7
+const Z_ARMADURA_MANOS_DETRAS := 2
+
 
 # Los SpriteFrames de todas las capas que le tocan a ESTE personaje, ya en orden de apilado, con su
 # color y su acabado. Devuelve [{clave, frames, ancla, color, metal, ...}] para que el compositor no
@@ -293,13 +315,14 @@ static func _capas_armadura(pj: PersonajeData) -> Array:
 		var ti: int = clampi(int(pieza.tipo), 0, ArmaduraSprites.TIPO_NOMBRE.size() - 1)
 		var tipo: String = ArmaduraSprites.TIPO_NOMBRE[ti]
 		var base: String = ArmaduraSprites.clave(tipo, slot)
-		# LOS GUANTELETES SON DOS CAPAS, una por mano, y SIN z: van ancladas a su empuñadura y las
-		# ordena la profundidad, igual que el arma en mano. Ver ArmaduraSprites.SLOTS_POR_MANO.
+		# LOS GUANTELETES SON DOS CAPAS, una por mano (ver ArmaduraSprites.SLOTS_POR_MANO), y cada una
+		# con SUS DOS POSICIONES de z segun por donde le caiga la mano (ver Z_ARMADURA_MANOS).
 		if ArmaduraSprites.SLOTS_POR_MANO.has(slot):
 			for lado in [["der", PoseJugador.P_MANO_DER, Ranura.MANO_DER],
 					["izq", PoseJugador.P_MANO_IZQ, Ranura.MANO_IZQ]]:
 				out.append({"clave": "%s_%s" % [base, lado[0]], "ranura": lado[2],
 					"ancla": lado[1], "tinte": false,
+					"z": Z_ARMADURA_MANOS, "z_atras": Z_ARMADURA_MANOS_DETRAS,
 					"frames": ArmaduraSprites.frames("%s_%s" % [base, lado[0]], 1.0)})
 			continue
 		out.append({"clave": base, "ranura": _ranura_de(slot),

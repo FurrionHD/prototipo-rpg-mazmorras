@@ -119,14 +119,18 @@ func _capas(modelos: PackedStringArray) -> Array:
 	return out
 
 
-# El z que le tocaria a esta pieza de armadura en el juego. Los guanteletes no llevan z fijo alli (los
-# ordena la profundidad de la mano), asi que aqui se les da uno por encima del peto: mirando de frente
-# las manos van por delante, que es la vista con la que se juzga esta hoja.
+# El z que le tocaria a esta pieza de armadura en el juego.
+#
+# LOS GUANTELETES TIENEN DOS EN EL JUEGO (delante o detras, segun por donde caiga la mano) y aqui se
+# clava el de DELANTE. Es la misma mentira que ya cuenta esta hoja con la melena, y por el mismo
+# motivo: una hoja de contacto tiene UN orden de apilado para las ocho direcciones. O sea que la
+# posicion de atras -- la de la mano del fondo de perfil, y la de las dos al norte -- NO se puede
+# juzgar aqui. Eso hay que verlo en el juego.
 func _z_armadura(clave: String) -> int:
 	var info: Dictionary = ArmaduraSprites._parse(clave)
 	var slot: String = String(info.get("slot", ""))
 	if slot == "manos":
-		return JugadorSprites.Z_ARMADURA_PECHO + 1
+		return JugadorSprites.Z_ARMADURA_MANOS
 	return JugadorSprites._z_de(slot, String(info.get("tipo", "")))
 
 
