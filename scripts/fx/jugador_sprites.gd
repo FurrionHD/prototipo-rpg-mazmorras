@@ -86,10 +86,13 @@ static var CATALOGO := {
 	"piernas": {
 		"ranura": Ranura.PANTALONES, "gen": RopaSprites, "ancla": PoseJugador.P_CADERA,
 		"z": Z_PIERNAS, "titulo": "Pantalón", "sin_nada": "Sin nada",
+		# DOS PIEZAS: el pantalon recorta de si mismo el hueco de la mano cuando esta le cae por
+		# delante (ver RopaSprites._hueco_brazo), y en algunas poses ese mordisco parte la cinturilla.
+		# 'piezas' es el TOPE que se admite sin avisar, no una cuenta exacta.
 		"modelos": {
-			"pantalon": {"piezas": 1, "nombre": "Pantalón"},
-			"bombacho": {"piezas": 1, "nombre": "Bombacho"},
-			"faldon": {"piezas": 1, "nombre": "Faldón"},
+			"pantalon": {"piezas": 2, "nombre": "Pantalón"},
+			"bombacho": {"piezas": 2, "nombre": "Bombacho"},
+			"faldon": {"piezas": 2, "nombre": "Faldón"},
 		},
 	},
 	"torso": {
@@ -104,7 +107,9 @@ static var CATALOGO := {
 		"modelos": {
 			"camisa": {"piezas": 2, "nombre": "Camisa"},
 			"tunica": {"piezas": 2, "nombre": "Túnica"},
-			"chaleco": {"piezas": 1, "nombre": "Chaleco"},
+			# El chaleco no tiene mangas, asi que devuelve el brazo recortandolo de si mismo
+			# (RopaSprites._hueco_brazo): de perfil ese recorte lo parte en dos.
+			"chaleco": {"piezas": 2, "nombre": "Chaleco"},
 		},
 	},
 	"pelo": {

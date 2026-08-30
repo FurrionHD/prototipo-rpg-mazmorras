@@ -34,37 +34,38 @@ enum Tono {
 	TELA_L,     # por donde da la luz
 }
 
-# CUANTO SOBRESALE LA TELA del cuerpo que viste, en unidades de mundo. Tiene que pasar de una celda
-# (1,15) o la ropa se queda POR DENTRO del cuerpo en la mitad de los fotogramas y lo que se ve es la
-# piel asomando a trozos, como si la camisa parpadeara.
-const TELA := 1.3
-
 # ============================================================
-#  LA REGLA QUE MAS IMPORTA AQUI: LA ROPA NO PUEDE INVADIR LA CABEZA
+#  LA REGLA QUE MAS IMPORTA AQUI: LA ROPA NO ENGORDA EL CUERPO, LO RECOLOREA
 # ============================================================
-# La tela crece HACIA ABAJO Y A LOS LADOS, nunca hacia arriba: cada elipse que engorda baja su centro
-# lo mismo que crece su radio, asi que su borde de arriba se queda donde lo tiene el cuerpo y lo que
-# gana se lo lleva la cintura -- que es hacia donde cae una camisa.
+# NO HAY CONSTANTE 'TELA'. Cada elipse de una prenda usa EL PUNTO Y EL RADIO EXACTOS de la pieza del
+# cuerpo que viste: la camisa es literalmente el pecho pintado de otro color, y la pernera es el
+# muslo pintado de otro color.
 #
-# POR QUE NO ES UN DETALLE: la cabeza vive en la capa del CUERPO, que va DEBAJO de la ropa, asi que
-# no tiene forma de taparla. Creciendo en los tres ejes, el pecho de la camisa llegaba a 35,3 y la
-# cabeza empieza a 34,9 -- la camisa se metia unidad y media dentro de la cara y se le comia la
-# barbilla. En el cuerpo eso no pasa porque alli la cabeza se pinta DESPUES del pecho, en la misma
-# capa; entre capas no hay ese arreglo.
+# Hubo una 'TELA = 1.3' que hacia crecer todo, porque una camisa de verdad tiene grosor. El concepto
+# es correcto y el resultado era malo, y conviene saber por que para no volver a intentarlo: a este
+# tamaño de pixel UNA UNIDAD DE MAS EN EL RADIO ES UNA SILUETA DISTINTA. El pecho mide 8,8 de ancho y
+# con la tela pasaba a 10,1, o sea que el chaleco dejaba de leerse como una prenda y se leia como un
+# CIRCULO pintado alrededor del personaje. Y no era solo el ancho: al engordar, cada pieza tenia que
+# bajar su centro para no invadir la cabeza, con lo que la prenda entera se descolgaba del cuerpo.
 #
-# Vale igual para la armadura que viene: un peto que suba de aqui tapara la cara, y no dara ningun
-# error. Las medidas de referencia (con ALTO_MUNDO = 60):
-#     pecho del cuerpo 34,0   ·   cabeza (borde de abajo) 34,9   ·   hombro con manga 34,8
+# LO QUE SE PIERDE Y COMO SE RECUPERA: el volumen de una prenda ahora lo pone LA PALETA, no el radio.
+# Un peto se lee como metal por su franja de luz dura y su sombra, no por sobresalir. Las hombreras,
+# las hebillas y los cuellos altos -- lo que de verdad tiene que salirse de la silueta -- son PIEZAS
+# PROPIAS con su forma, no el cuerpo inflado.
+#
+# LO QUE SIGUE SIENDO VERDAD Y HAY QUE TENER PRESENTE PARA LAS ARMADURAS: la cabeza vive en la capa
+# del CUERPO, que va DEBAJO de la ropa, asi que la ropa no tiene forma de dejarla pasar por encima.
+# Cualquier pieza que suba por encima del pecho le comera la cara, y sin dar ningun error. Medidas de
+# referencia (con ALTO_MUNDO = 60):
+#     pecho 34,0 (borde de arriba)   ·   cabeza 34,9 (borde de abajo)
 #
 # PERO ESAS MEDIDAS SON ALTURAS CRUDAS, Y ESO SOLO VALE PARA LO QUE ESTA EN EL EJE. Con esta camara
 # COS_CAM y SIN_CAM valen los dos 0,7071: PROFUNDIDAD Y ALTURA SON EL MISMO EJE DE PANTALLA. Una
 # pieza que se va 6,9 unidades hacia atras SUBE 6,9 unidades en pantalla, igual que si la hubieran
 # levantado. El hombro esta a 9,8 de X, asi que mirando en diagonal esa X se convierte en
 # profundidad -- y el margen de una decima que dicen los numeros de arriba deja de existir.
-# Es exactamente lo que le pasaba a la manga del fondo: ver HUECO_CABEZA.
-# CUANTO BAJA LA PRENDA por debajo de donde le tocaria, para dejar el cuello al aire. Es el numero a
-# mover si la camisa vuelve a comerse la barbilla (subirlo) o si se le ve demasiado pecho (bajarlo).
-const ESCOTE_BAJA := 1.5
+# Es exactamente lo que le pasaba a la manga del fondo: ver HUECO_CABEZA. Y es tambien lo que hacia
+# que el pantalon subiera hasta el cuello: ver CINTURA_CORTE.
 
 # ============================================================
 #  EL CUELLO DE LA PRENDA NO SE PINTA: SE RECORTA
@@ -109,7 +110,7 @@ const ESCOTE_SUBE := 4.2
 # culpable era la MANGA DEL FONDO, que solo se pinta cuando 'de_lado' -- falso de frente, cierto en
 # las diagonales: ese era el interruptor que encendia el fallo justo ahi y lo apagaba en el resto.
 #
-# Por que sube tanto: ver la nota de las alturas crudas de ESCOTE_BAJA. En SE el hombro del fondo
+# Por que sube tanto: ver la nota de las alturas crudas de la cabecera. En SE el hombro del fondo
 # esta 6,93 unidades mas lejos, o sea 6,93 unidades MAS ARRIBA en pantalla, y la bola de arranque de
 # la manga (radio R_BRAZO + TELA) se metia SEIS CELDAS dentro de la silueta de la cabeza, entre el
 # cuello y la mejilla. De frente esa misma bola invade 0,6 celdas y no se ve.
@@ -203,22 +204,22 @@ static func _torso(piezas: Array, esq: Dictionary, manga: float, bajo: float) ->
 	if bajo > 0.0:
 		_faldilla(piezas, esq, bajo)
 
-	# 3. El tronco: cadera y pecho, un pelo mas gordos que el cuerpo, PERO SIN SUBIR (ver ARRIBA_TELA).
-	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CADERA] - Vector3(0.0, 0.0, TELA * 0.6),
-		CuerpoSprites.R_CADERA + Vector3(TELA, TELA, TELA * 0.6), Tono.TELA_S)
-	# EL PECHO BAJA 'ESCOTE_BAJA' DE MAS. Con solo el crecimiento compensado, el borde de arriba de la
-	# camisa quedaba a la altura del cuello y lo tapaba entero: entre la barbilla y la prenda no se
-	# veia nada de carne y la cabeza parecia apoyada sobre la camiseta. Una camisa empieza POR DEBAJO
-	# del cuello.
-	PoseJugador.poner(piezas, esq, p[PoseJugador.P_TORSO] - Vector3(0.0, 0.0, TELA + ESCOTE_BAJA),
-		CuerpoSprites.R_TORSO + Vector3(TELA, TELA, TELA), Tono.TELA)
+	# 3. El tronco: cadera y pecho, EXACTAMENTE donde y como los tiene el cuerpo (ver la regla de
+	#    arriba). Los mismos puntos y los mismos radios que CuerpoSprites.pintar, no numeros propios:
+	#    el dia que cambie la forma del torso, la camisa la sigue sola.
+	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CADERA],
+		CuerpoSprites.R_CADERA, Tono.TELA_S)
+	PoseJugador.poner(piezas, esq, p[PoseJugador.P_TORSO],
+		CuerpoSprites.R_TORSO, Tono.TELA)
 	# El realce del pecho: la luz viene de arriba, asi que va por encima de su eje.
 	#
 	# VA BAJO Y PLANO, y las dos cosas son correcciones de algo que se vio: con el ancho del cuerpo
-	# (0,70 del pecho, 0,55 de alto) se leia como un BABERO.
+	# (0,70 del pecho, 0,55 de alto) se leia como un BABERO. Ahora que la camisa ya no engorda, el
+	# pecho tiene menos celdas de relleno (el contorno se come las de fuera), asi que el realce se
+	# estrecha otro poco para que quede tela base a los lados y no se coma la prenda entera.
 	var alto: Vector3 = p[PoseJugador.P_TORSO] + Vector3(0.0, 0.0, CuerpoSprites.R_TORSO.z * 0.20)
 	PoseJugador.poner(piezas, esq, alto,
-		Vector3(CuerpoSprites.R_TORSO.x * 0.66, CuerpoSprites.R_TORSO.y * 0.74,
+		Vector3(CuerpoSprites.R_TORSO.x * 0.55, CuerpoSprites.R_TORSO.y * 0.70,
 			CuerpoSprites.R_TORSO.z * 0.26), Tono.TELA_L, {"solo_sobre": [Tono.TELA]})
 	# EL ESCOTE: se RECORTA la tela por donde pasa el cuello (ver la nota larga de ESCOTE_R). Va aqui,
 	# despues del pecho y su realce pero ANTES DE LAS MANGAS: las mangas se pintan al final y, con el
@@ -232,10 +233,16 @@ static func _torso(piezas: Array, esq: Dictionary, manga: float, bajo: float) ->
 	# 4. Las mangas que van por delante del tronco.
 	if manga > 0.0:
 		if de_lado:
-			_manga(piezas, esq, not izq_al_fondo, manga, Tono.TELA)
+			_manga(piezas, esq, not izq_al_fondo, manga, Tono.TELA, true)
 		else:
-			_manga(piezas, esq, true, manga, Tono.TELA)
-			_manga(piezas, esq, false, manga, Tono.TELA)
+			_manga(piezas, esq, true, manga, Tono.TELA, true)
+			_manga(piezas, esq, false, manga, Tono.TELA, true)
+	else:
+		# SIN MANGAS HAY QUE DEVOLVER EL BRAZO. Con manga, el brazo de delante lo pinta la propia
+		# manga; sin ella (el chaleco) la prenda se lo tragaba entero -- de perfil el personaje se
+		# quedaba SIN BRAZO. Ver la nota larga de _hueco_brazo.
+		_hueco_brazo(piezas, esq, true)
+		_hueco_brazo(piezas, esq, false)
 
 	# 5. Y AL FINAL DEL TODO, el hueco de la cabeza (ver la nota larga de HUECO_CABEZA). Tiene que ir
 	# despues de las mangas -- la del fondo es justo la que se comia la cara --, asi que esta funcion
@@ -255,29 +262,112 @@ static func _hueco_cabeza(piezas: Array, esq: Dictionary) -> void:
 		Tono.VACIO, {"solo_sobre": [Tono.TELA_S]})
 
 
+# ============================================================
+#  EL HUECO DEL BRAZO: LO MISMO QUE EL DE LA CABEZA, Y POR EL MISMO MOTIVO
+# ============================================================
+# LOS SINTOMAS ERAN DOS Y PARECIAN COSAS DISTINTAS: "de perfil no tiene brazo" y "el pantalon se
+# pinta encima del brazo". Es la misma causa. Las capas se apilan con un z FIJO
+# (cuerpo 1 · piernas 2 · torso 3, ver JugadorSprites) y NO hay z-buffer por profundidad, asi que la
+# ropa gana siempre al cuerpo -- tambien cuando el brazo esta claramente DELANTE de la prenda.
+#
+# Y EL Z FIJO NO SE PUEDE TOCAR: ordenar estas capas por profundidad es lo que hacia desaparecer la
+# camisa entera de espaldas al andar (ver la nota de MunecoJugador._ordenar). O sea que el arreglo no
+# es reordenar, es RECORTAR -- exactamente lo que ya se hacia con la cabeza.
+#
+# Donde se nota cada uno:
+#   * la CAMISA se comia el brazo de perfil, donde el brazo cae por delante del pecho;
+#   * el PANTALON se comia la MANO, que cuelga a la altura de la cadera (MANO.z 21,5 contra los 24
+#     de la cadera) y cae justo encima de la cinturilla.
+#
+# EL GUARDARRAIL DE PROFUNDIDAD NO ES OPCIONAL. Este recorte muerde el tono base (TELA), no solo el
+# de fondo como el de la cabeza, porque el brazo de delante se proyecta sobre el pecho iluminado. Sin
+# comprobar que el brazo esta de verdad delante, DE ESPALDAS se abriria un boquete en mitad de la
+# prenda por donde no hay nada -- que es la misma trampa en la que ya se cayo una vez con la nuca
+# (ver HUECO_CABEZA).
+#
+# Los radios salen del brazo que dibuja CuerpoSprites, no de numeros a mano, y con un pelin de mas:
+# a ras exacto queda un hilo de tela entre el recorte y el contorno del brazo, que se lee como un
+# halo sucio pegado al codo.
+#
+# Y EN LA CAPA DE LAS PIERNAS VA MAS HOLGADO (ver HUECO_BRAZO_PIERNAS), porque alli el recorte cae
+# justo en el canto de la cinturilla: a ras del brazo dejaba una MOTA de cuatro o cinco pixeles
+# colgando por fuera de la mano -- el trozo de cinturilla que quedaba al otro lado del corte. Lo
+# cazaba el validador de islas del horno en cuatro fotogramas de correr y de guardia. Con holgura, la
+# mota se la lleva el propio recorte, y lo que asoma de mas es cuerpo, no fondo: la capa de debajo
+# esta ahi.
+const HUECO_BRAZO := 1.06
+const HUECO_BRAZO_PIERNAS := 1.3
+
+static func _hueco_brazo(piezas: Array, esq: Dictionary, izq: bool,
+		holgura: float = HUECO_BRAZO) -> void:
+	var p: Dictionary = esq["puntos"]
+	var id_mano: StringName = PoseJugador.P_MANO_IZQ if izq else PoseJugador.P_MANO_DER
+	if PoseJugador.profundidad(esq, id_mano) <= PoseJugador.profundidad(esq, PoseJugador.P_TORSO):
+		return
+	var hombro: Vector3 = p[PoseJugador.P_HOMBRO_IZQ if izq else PoseJugador.P_HOMBRO_DER]
+	var codo: Vector3 = p[PoseJugador.P_CODO_IZQ if izq else PoseJugador.P_CODO_DER]
+	var mano: Vector3 = p[id_mano]
+	var o := {"solo_sobre": [Tono.TELA, Tono.TELA_L, Tono.TELA_S]}
+	# El mismo arranque que el brazo del cuerpo (metido dentro del pecho), o el recorte deja un
+	# medio pixel de tela justo en la juntura del hombro.
+	var arranque := Vector3(hombro.x * 0.88, hombro.y, hombro.z - 2.0)
+	PoseJugador.cadena(piezas, esq, arranque, codo,
+		CuerpoSprites.R_BRAZO * holgura, CuerpoSprites.R_ANTEBRAZO * holgura, Tono.VACIO, o)
+	PoseJugador.cadena(piezas, esq, codo, mano,
+		CuerpoSprites.R_ANTEBRAZO * holgura, CuerpoSprites.R_ANTEBRAZO * 0.92 * holgura,
+		Tono.VACIO, o)
+	var m: float = CuerpoSprites.R_MANO * holgura
+	PoseJugador.poner(piezas, esq, mano, Vector3(m, m, m), Tono.VACIO, o)
+
+
 # Una manga. Arranca dentro del pecho (como el brazo del cuerpo, por el mismo motivo: agarrada por
 # medio pixel se despega al correr) y acaba donde diga 'largo'.
-static func _manga(piezas: Array, esq: Dictionary, izq: bool, largo: float, tono: int) -> void:
+#
+# 'linea' es EL ANILLO INTERIOR, y hace falta por lo mismo que en el cuerpo: la manga y el pecho van
+# del MISMO tono, asi que sin una raya entre medias no hay nada que los separe. Con la ropa engordada
+# colaba de milagro (la manga sobresalia del pecho y la silueta hacia de linea); pintando la prenda al
+# tamaño exacto del cuerpo, DE PERFIL el brazo se fundia con la camisa y el personaje volvia a
+# quedarse sin brazo -- el mismo sintoma que se venia a arreglar, por otro camino.
+#
+# Se calca de CuerpoSprites._brazo hasta en las constantes (LINEA, LINEA_DESDE): tiene que caer en el
+# MISMO sitio que la raya de la piel, o vestido y desnudo no serian el mismo personaje.
+static func _manga(piezas: Array, esq: Dictionary, izq: bool, largo: float, tono: int,
+		linea: bool = false) -> void:
 	var p: Dictionary = esq["puntos"]
 	var hombro: Vector3 = p[PoseJugador.P_HOMBRO_IZQ if izq else PoseJugador.P_HOMBRO_DER]
 	var codo: Vector3 = p[PoseJugador.P_CODO_IZQ if izq else PoseJugador.P_CODO_DER]
 	var mano: Vector3 = p[PoseJugador.P_MANO_IZQ if izq else PoseJugador.P_MANO_DER]
-	# BAJA MAS QUE EL BRAZO DEL CUERPO (que arranca en hombro.z - 2.0): la manga es mas gorda, y con
-	# el mismo arranque su borde de arriba llegaba a 34,8, o sea contra la cabeza (ver la nota de
-	# TELA). Bajarla lo que engorda deja el hombro vestido justo donde estaba el desnudo.
-	var arranque := Vector3(hombro.x * 0.88, hombro.y, hombro.z - 2.0 - TELA)
+	# EL MISMO ARRANQUE QUE EL BRAZO DEL CUERPO, ni una decima mas abajo: la manga es el brazo pintado
+	# de otro color, asi que si arranca en otro sitio asoma un anillo de piel en el hombro.
+	var arranque := Vector3(hombro.x * 0.88, hombro.y, hombro.z - 2.0)
+	if linea:
+		# Solo contra tela ya pintada, NUNCA contra el aire: dibujado a pelo, el anillo engorda la
+		# silueta de esta manga y no la de la otra, y al girar el personaje parece cambiar de brazo
+		# gordo. Es literalmente la queja numero uno que ya tuvo el cuerpo (ver CuerpoSprites._brazo).
+		var o := {"solo_sobre": [Tono.TELA, Tono.TELA_L, Tono.TELA_S]}
+		var desde: Vector3 = arranque.lerp(codo, CuerpoSprites.LINEA_DESDE)
+		var fin_l: Vector3 = codo if largo > 0.62 else arranque.lerp(codo, largo / 0.62)
+		PoseJugador.cadena(piezas, esq, desde, fin_l,
+			lerpf(CuerpoSprites.R_BRAZO, CuerpoSprites.R_ANTEBRAZO, CuerpoSprites.LINEA_DESDE)
+				+ CuerpoSprites.LINEA,
+			CuerpoSprites.R_ANTEBRAZO + CuerpoSprites.LINEA, Tono.TELA_S, o)
+		if largo > 0.62:
+			var f_l: float = (largo - 0.62) / 0.38
+			PoseJugador.cadena(piezas, esq, codo, codo.lerp(mano, f_l),
+				CuerpoSprites.R_ANTEBRAZO + CuerpoSprites.LINEA,
+				CuerpoSprites.R_ANTEBRAZO * 0.92 + CuerpoSprites.LINEA, Tono.TELA_S, o)
 	# El largo se mide sobre la cadena entera hombro->codo->mano, para que "1" sea la muñeca y no el
 	# codo. Por debajo de 1 la manga acaba en el brazo; a 1 llega hasta la mano.
 	if largo <= 0.62:
 		var fin: Vector3 = arranque.lerp(codo, largo / 0.62)
 		PoseJugador.cadena(piezas, esq, arranque, fin,
-			CuerpoSprites.R_BRAZO + TELA, CuerpoSprites.R_ANTEBRAZO + TELA * 0.9, tono)
+			CuerpoSprites.R_BRAZO, CuerpoSprites.R_ANTEBRAZO, tono)
 		return
 	PoseJugador.cadena(piezas, esq, arranque, codo,
-		CuerpoSprites.R_BRAZO + TELA, CuerpoSprites.R_ANTEBRAZO + TELA * 0.9, tono)
+		CuerpoSprites.R_BRAZO, CuerpoSprites.R_ANTEBRAZO, tono)
 	var f: float = (largo - 0.62) / 0.38
 	PoseJugador.cadena(piezas, esq, codo, codo.lerp(mano, f),
-		CuerpoSprites.R_ANTEBRAZO + TELA * 0.9, CuerpoSprites.R_ANTEBRAZO + TELA * 0.7, tono)
+		CuerpoSprites.R_ANTEBRAZO, CuerpoSprites.R_ANTEBRAZO * 0.92, tono)
 
 
 # La falda de una tunica: una masa que cuelga de la cadera y se abre un poco hacia abajo.
@@ -305,6 +395,9 @@ static func _piernas(piezas: Array, esq: Dictionary, largo: float) -> void:
 	_pernera(piezas, esq, not izq_al_fondo, largo, Tono.TELA)
 	# La cintura, al final: tapa el arranque de las dos perneras, que es donde se ve el corte.
 	_cintura(piezas, esq)
+	# Y despues de la cintura, las manos: es la cinturilla la que se las traga (ver _hueco_brazo).
+	_hueco_brazo(piezas, esq, true, HUECO_BRAZO_PIERNAS)
+	_hueco_brazo(piezas, esq, false, HUECO_BRAZO_PIERNAS)
 
 
 static func _pernera(piezas: Array, esq: Dictionary, izq: bool, largo: float, tono: int) -> void:
@@ -315,23 +408,70 @@ static func _pernera(piezas: Array, esq: Dictionary, izq: bool, largo: float, to
 	var arranque := Vector3((1.0 if izq else -1.0) * PoseJugador.PIE_X * 0.82,
 		cadera.y, cadera.z - 2.0)
 	var tobillo: Vector3 = pie + Vector3(0.0, 0.0, CuerpoSprites.R_PIE.z)
+	# Los mismos radios que la pierna desnuda de CuerpoSprites._pierna, tramo por tramo.
 	if largo <= 0.5:
 		var f: float = largo / 0.5
 		PoseJugador.cadena(piezas, esq, arranque, arranque.lerp(rodilla, f),
-			CuerpoSprites.R_MUSLO + TELA, CuerpoSprites.R_PANTORRILLA + TELA, tono)
+			CuerpoSprites.R_MUSLO, CuerpoSprites.R_PANTORRILLA, tono)
 		return
 	PoseJugador.cadena(piezas, esq, arranque, rodilla,
-		CuerpoSprites.R_MUSLO + TELA, CuerpoSprites.R_PANTORRILLA + TELA * 0.9, tono)
+		CuerpoSprites.R_MUSLO, CuerpoSprites.R_PANTORRILLA, tono)
 	var f2: float = (largo - 0.5) / 0.5
 	PoseJugador.cadena(piezas, esq, rodilla, rodilla.lerp(tobillo, f2),
-		CuerpoSprites.R_PANTORRILLA + TELA * 0.9, CuerpoSprites.R_PANTORRILLA * 0.85 + TELA * 0.8,
-		tono)
+		CuerpoSprites.R_PANTORRILLA, CuerpoSprites.R_PANTORRILLA * 0.85, tono)
 
+
+# ============================================================
+#  LA CINTURA: EL CANTO DE ARRIBA NO SE PINTA, SE RECORTA
+# ============================================================
+# EL SINTOMA ERA "EL PANTALON ESTA SUBIDO HASTA EL CUELLO", y de espaldas "cierra en un circulo muy
+# redondo hacia arriba". Las dos cosas son la misma, y NO se arreglan bajando la cintura: la cadera
+# esta donde tiene que estar.
+#
+# Lo que pasa es la camara. Con COS_CAM = SIN_CAM = 0,7071 la PROFUNDIDAD DE UNA PIEZA SE CONVIERTE
+# EN ALTURA DE PANTALLA, asi que el semieje vertical de cualquier bulto solido sale de su fondo:
+#     ey = raiz(fondo² · COS² + rz² · SIN²)
+# Para la cadera (fondo 4,6 · alto 4,0) eso son 4,3 unidades de pantalla POR ENCIMA de su centro, o
+# sea seis unidades de altura equivalente: el pantalon llegaba al pecho. Con la 'TELA' vieja encima
+# llegaba a la barbilla, que es lo que se veia.
+#
+# Y ESE CANTO DE ARRIBA ES EL BORDE DE ATRAS DE LA CINTURILLA. Por eso se lee como un circulo que
+# cierra hacia arriba: es el aro de la cintura visto desde arriba, su mitad lejana. Con la camisa
+# puesta no se nota, porque el pecho lo tapa; sin camisa no hay nada que lo tape y queda un globo.
+#
+# EL ARREGLO ES QUITAR ESA MITAD LEJANA, no encoger la pieza (encogerla adelgaza la cadera entera y
+# el personaje se queda sin culo). Se borra el casquete de arriba con Tono.VACIO, igual que el escote
+# borra el cuello, y entonces el borde visible pasa a ser LA MITAD CERCANA del aro -- que cierra
+# hacia abajo. Que es exactamente la curva que toca por perspectiva.
+#
+# EL BORRADOR VA REDONDO EN X E Y (rx = ry) A PROPOSITO: asi su proyeccion no cambia con la
+# direccion y el corte queda a la misma altura en las ocho, sin un solo caso por direccion.
+#
+# CINTURA_CORTE es EL NUMERO A MOVER, y esta en unidades de PANTALLA por encima del centro de la
+# cadera (una celda = 1,15). Subirlo deja mas pantalon; bajarlo lo baja. Sin camisa se ve tal cual;
+# con camisa da igual, porque la camisa cae por encima y lo tapa.
+const CINTURA_CORTE := -1.0
+# EL ANCHO DEL BORRADOR ES LO QUE DECIDE CUANTO SE CURVA EL CORTE, y hay que pasarse: el borde que
+# queda es el canto de ABAJO del borrador, o sea un arco, y cuanto mas estrecho sea el borrador mas
+# cerrado es ese arco. A ras del cuerpo (8,0) las esquinas de la cinturilla se quedaban DOS CUERNOS
+# apuntando hacia arriba y el pantalon parecia un cubo con asas. Ancho de sobra = un arco casi
+# horizontal con una caida suave en el medio, que es la curva que toca por perspectiva.
+const CINTURA_R_CORTE := 11.0
+# Alto del borrador: solo tiene que tapar de sobra hacia arriba, no se ve.
+const CINTURA_ALTO_CORTE := 6.0
 
 static func _cintura(piezas: Array, esq: Dictionary) -> void:
 	var p: Dictionary = esq["puntos"]
-	PoseJugador.poner(piezas, esq, p[PoseJugador.P_CADERA],
-		CuerpoSprites.R_CADERA + Vector3(TELA, TELA, TELA * 0.4), Tono.TELA)
+	var cadera: Vector3 = p[PoseJugador.P_CADERA]
+	PoseJugador.poner(piezas, esq, cadera, CuerpoSprites.R_CADERA, Tono.TELA)
+	# El borrador se coloca por su BORDE DE ABAJO, no por su centro: lo que importa es donde corta.
+	# Con rx = ry el semieje vertical es 0,7071 · raiz(r² + rz²), asi que para que su canto de abajo
+	# caiga a 'CINTURA_CORTE' de pantalla sobre la cadera hay que subir el centro esto:
+	var sube: float = CINTURA_CORTE / SpriteLienzo.SIN_CAM \
+		+ sqrt(CINTURA_R_CORTE * CINTURA_R_CORTE + CINTURA_ALTO_CORTE * CINTURA_ALTO_CORTE)
+	PoseJugador.poner(piezas, esq, cadera + Vector3(0.0, 0.0, sube),
+		Vector3(CINTURA_R_CORTE, CINTURA_R_CORTE, CINTURA_ALTO_CORTE), Tono.VACIO,
+		{"solo_sobre": [Tono.TELA, Tono.TELA_L, Tono.TELA_S]})
 
 
 # EL FALDON: una sola masa acampanada de la cintura a media pantorrilla, sin perneras. Es lo que lo
@@ -353,3 +493,5 @@ static func _faldon(piezas: Array, esq: Dictionary) -> void:
 		Vector3(CuerpoSprites.R_CADERA.x * 1.12, CuerpoSprites.R_CADERA.y * 1.05, 1.0),
 		Tono.TELA_S, {"solo_sobre": [Tono.TELA]})
 	_cintura(piezas, esq)
+	_hueco_brazo(piezas, esq, true, HUECO_BRAZO_PIERNAS)
+	_hueco_brazo(piezas, esq, false, HUECO_BRAZO_PIERNAS)
