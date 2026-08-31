@@ -9,7 +9,7 @@
 #  NECESITA VENTANA: con --headless no se dibuja nada y las capturas salen en negro (misma nota que
 #  ver_jugador_juego.gd).
 #
-#    ver_creador.bat
+#    herramientas/ver_creador.bat
 # ============================================================
 extends Node
 
@@ -19,7 +19,7 @@ const SALIDA := "res://tools/salida/"
 func _ready() -> void:
 	# Una partida de mentira para que Game.lider() exista y el creador tenga con que arrancar.
 	Game.nueva_partida("Prueba", {"color": Color(0.35, 0.62, 0.95)})
-	# 'ver_creador.bat mundo' abre el MODO SIMPLE (el de bautizar un mundo compartido): sin fases,
+	# 'herramientas/ver_creador.bat mundo' abre el MODO SIMPLE (el de bautizar un mundo compartido): sin fases,
 	# sin muñeco. Esta aqui porque es el camino que nadie mira y el que se rompe al tocar el otro.
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	var simple: bool = args.size() > 0 and args[0] == "mundo"

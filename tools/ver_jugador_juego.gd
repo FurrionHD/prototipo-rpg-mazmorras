@@ -2,7 +2,7 @@
 #  ver_jugador_juego.gd  --  HERRAMIENTA, no parte del juego.
 #
 #  Saca una hoja del personaje TAL CUAL SE VE EN LA PARTIDA: montado por MunecoJugador, teñido con
-#  su color y pasado por capa_jugador.gdshader. Es el hermano de ver_jugador.bat, que enseña el
+#  su color y pasado por capa_jugador.gdshader. Es el hermano de herramientas/ver_jugador.bat, que enseña el
 #  horneado en gris.
 #
 #  Y NO SOBRA, aunque parezca lo mismo. Los fallos que ha encontrado esta y no la otra:
@@ -12,13 +12,13 @@
 #  Todos son de COLOR, y en una hoja gris no existen. La regla que sale de ahi: lo que se juzga en
 #  gris es la silueta y el movimiento; lo que se juzga teñido es si se entiende.
 #
-#  Necesita VENTANA (con --headless no se dibuja nada), asi que va por ver_jugador_juego.bat.
+#  Necesita VENTANA (con --headless no se dibuja nada), asi que va por herramientas/ver_jugador_juego.bat.
 #
-#    ver_jugador_juego.bat [animacion] [direcciones] [arma]
-#    ver_jugador_juego.bat walk 8               las ocho, un fotograma cada una
-#    ver_jugador_juego.bat walk 1,2,3           esas tres, con todos sus fotogramas
-#    ver_jugador_juego.bat guardia 8 espada_larga   con esa arma equipada
-#    ver_jugador_juego.bat golpe_2m 8 mandoble
+#    herramientas/ver_jugador_juego.bat [animacion] [direcciones] [arma]
+#    herramientas/ver_jugador_juego.bat walk 8               las ocho, un fotograma cada una
+#    herramientas/ver_jugador_juego.bat walk 1,2,3           esas tres, con todos sus fotogramas
+#    herramientas/ver_jugador_juego.bat guardia 8 espada_larga   con esa arma equipada
+#    herramientas/ver_jugador_juego.bat golpe_2m 8 mandoble
 # ============================================================
 extends Node
 

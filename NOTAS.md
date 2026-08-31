@@ -80,14 +80,37 @@ aviso de SmartScreen** — eso solo lo quita firmar el binario con un certificad
 reputación de descargas. `application/icon` sigue vacío a propósito: necesita un `.ico` de verdad y
 solo hay `icon.svg` (va en el pase visual).
 
-## Estructura de carpetas (objetivo)
+## Estructura de carpetas
 
 ```
-assets/        arte y sonido en crudo (sprites/, tilesets/, audio/)
 scenes/        escenas .tscn (actors/, levels/, ui/)
-scripts/       lógica .gd, espejando scenes/
-resources/     datos como .tres (items, enemigos, dificultad)
+scripts/       lógica .gd, espejando scenes/ (core/, actors/, fx/, ui/, world/, town/, items/, net/)
+resources/     datos como .tres (armas, habilidades, materiales, hechizos...)
+assets/        arte horneado a PNG (sprites/, tilesets/)
+audio/         sonido ya preparado (sfx/, ambiente/, musica/) — ver audio/sfx/LEEME.md
+shaders/       .gdshader
+balance/       tablas de balance en .csv/.xlsx, para mirar números sin abrir el juego
+docs/          documentación larga y material de referencia
+tools/         utillaje que se ejecuta a mano; tools/visores/ son los cuatro visores con ventana
+herramientas/  los .bat de doble clic que lanzan lo de tools/
+build/         lo que sale del export (ignorado por git)
 ```
+
+**En la raíz solo vive lo que Godot exige que esté ahí**, más los dos documentos que se leen:
+
+| Fichero | Por qué está ahí |
+|---|---|
+| `project.godot` | la definición del proyecto; también es **la fuente de la versión** |
+| `export_presets.cfg` | los presets de exportación (Windows y Android) |
+| `icon.svg` (+ `.import`) | el icono del proyecto |
+| `default_bus_layout.tres` | **esa ruta exacta es la que Godot busca por defecto** para los buses de audio. Si se mueve o se renombra, los buses SFX y MUSICA desaparecen sin avisar y el juego se queda mudo |
+| `NOTAS.md`, `PARCHES.md` | el cuaderno de trabajo y el changelog del jugador |
+
+Y una excepción que conviene conocer: **los bancos de prueba `dev_*.gd` se escriben en la raíz**,
+porque un script suelto necesita estar dentro de `res://` para ver los autoloads y los `class_name`
+(ver el `.gitignore`). Están ignorados por git y **se borran al terminar la tarea**; el 31/08/2026
+se limpiaron 32 que llevaban meses ahí. Los cuatro que sí son utillaje permanente viven en
+`tools/visores/`.
 
 ---
 

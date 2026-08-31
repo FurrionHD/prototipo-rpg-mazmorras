@@ -9,7 +9,7 @@
 #
 #  ES UNA CAPA NORMAL, con su atlas y su sitio en el catalogo, asi que hereda todo lo que ya funciona:
 #  las 41 animaciones, el giro por direccion, el horneado y la hoja de contactos comparativa
-#  (ver_jugador_juego.bat cara). No hay ningun camino especial para la cara.
+#  (herramientas/ver_jugador_juego.bat cara). No hay ningun camino especial para la cara.
 #
 #  SOLO SE MONTA SI NO LLEVAS FOTO. Con imagen propia, tu imagen ES tu cara y estos rasgos
 #  asomarian por debajo (ver JugadorSprites.capas_de).

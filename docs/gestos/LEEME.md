@@ -4,9 +4,9 @@ Dos formas de verlos.
 
 ## 1. El VISOR, que es lo que quieres casi siempre
 
-**Doble clic en `ver_gestos.bat`**, en la raíz del proyecto. Y ya.
+**Doble clic en `herramientas/ver_gestos.bat`**. Y ya.
 
-Desde el editor de Godot es igual de rápido: abre `dev_gestos.tscn` y pulsa **F6** (*ejecutar la
+Desde el editor de Godot es igual de rápido: abre `tools/visores/dev_gestos.tscn` y pulsa **F6** (*ejecutar la
 escena actual*). Con F5 arrancaría el juego entero, que no es lo que quieres aquí.
 
 Los lanza **en movimiento**, en bucle, cada repetición sobre un muñeco distinto, y tres veces

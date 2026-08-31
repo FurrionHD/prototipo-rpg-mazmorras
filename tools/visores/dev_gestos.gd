@@ -4,7 +4,7 @@
 #  muñeco distinto, para poder mirarlos de verdad en vez de en capturas sueltas.
 #
 #  Se lanza con:
-#    Godot_v4.7-stable_win64.exe --path . res://dev_gestos.tscn
+#    Godot_v4.7-stable_win64.exe --path . res://tools/visores/dev_gestos.tscn
 #
 #  TECLAS
 #    ESPACIO / →   siguiente gesto            ←   el anterior

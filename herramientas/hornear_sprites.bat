@@ -13,10 +13,10 @@ if not exist "%GODOT%" (
     pause
     exit /b 1
 )
-"%GODOT%" --headless --path "%~dp0." res://tools/hornear_sprites.tscn
+"%GODOT%" --headless --path "%~dp0.." res://tools/hornear_sprites.tscn
 echo.
 echo Ahora se importan los PNG nuevos...
-"%GODOT%" --headless --path "%~dp0." --import
+"%GODOT%" --headless --path "%~dp0.." --import
 echo.
 echo Listo.
 pause

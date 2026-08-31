@@ -10,8 +10,8 @@ set GODOT=%LOCALAPPDATA%\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Micro
 if not exist "%GODOT%" (
     echo No encuentro Godot en:
     echo   %GODOT%
-    echo Abre el proyecto en Godot, selecciona dev_jugador_animaciones.tscn y pulsa F6.
+    echo Abre el proyecto en Godot, selecciona tools/visores/dev_jugador_animaciones.tscn y pulsa F6.
     pause
     exit /b 1
 )
-"%GODOT%" --path "%~dp0." res://dev_jugador_animaciones.tscn
+"%GODOT%" --path "%~dp0.." res://tools/visores/dev_jugador_animaciones.tscn

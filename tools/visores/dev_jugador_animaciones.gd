@@ -1,7 +1,7 @@
 # ============================================================
 #  dev_jugador_animaciones.gd  -- EL VISOR DE ANIMACIONES DEL JUGADOR
 #  El hermano de dev_enemigos_animaciones.gd, pero para el muñeco del personaje. Escena VIVA (no una
-#  captura que se cierra sola, como ver_jugador.bat / ver_jugador_juego.bat): se recorre la lista
+#  captura que se cierra sola, como herramientas/ver_jugador.bat / herramientas/ver_jugador_juego.bat): se recorre la lista
 #  entera de PoseJugador.ANIMS -- idle, sigilo, walk, correr, golpe, guardia*, desenvainar,
 #  golpe_izq, golpe_2m, encaje, muerte, cadaver -- en las 8 direcciones, con el arma equipada que
 #  se quiera y en dual.
@@ -16,8 +16,8 @@
 #  divergiendo y estaria enseñando algo que jugando no se ve.
 #
 #  Se lanza con:
-#    Godot_v4.7-stable_win64.exe --path . res://dev_jugador_animaciones.tscn
-#  o doble clic en ver_jugador_animaciones.bat.
+#    Godot_v4.7-stable_win64.exe --path . res://tools/visores/dev_jugador_animaciones.tscn
+#  o doble clic en herramientas/ver_jugador_animaciones.bat.
 #
 #  TECLAS
 #    ESPACIO / →   siguiente animacion    ←   la anterior

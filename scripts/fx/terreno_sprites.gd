@@ -38,7 +38,7 @@
 #  Godot las pasa solo (set_tile_animation_frames_count). El agua corre de verdad, no es un
 #  degradado quieto.
 #
-#  SE HORNEA con hornear_sprites.bat, igual que los bichos. Si el horneado no esta, se dibuja al
+#  SE HORNEA con herramientas/hornear_sprites.bat, igual que los bichos. Si el horneado no esta, se dibuja al
 #  vuelo: son unas pocas decenas de baldosas y cuesta milisegundos, asi que tocar los colores no
 #  rompe el desarrollo.
 # ============================================================

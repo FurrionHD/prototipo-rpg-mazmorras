@@ -6,8 +6,8 @@
 #  movimiento, es que las OCHO DIRECCIONES se lean como el mismo cuerpo girando.
 #
 #  Dos modos:
-#      ver_jugador.bat [animacion]     una hoja con las 8 direcciones (filas) x los fotogramas
-#      ver_jugador.bat todas           una hoja con TODAS las animaciones, una por fila
+#      herramientas/ver_jugador.bat [animacion]     una hoja con las 8 direcciones (filas) x los fotogramas
+#      herramientas/ver_jugador.bat todas           una hoja con TODAS las animaciones, una por fila
 #
 #  Cada fotograma se compone en su LIENZO ENTERO (region + margin), no en su recorte: pegando los
 #  recortes a secas cada uno saldria centrado en si mismo y la hoja mentiria justo sobre lo unico
@@ -50,7 +50,7 @@ func _ready() -> void:
 # Las capas que se apilan, de abajo arriba. El cuerpo siempre; el pelo y la ropa, los que se pidan
 # por argumento:
 #
-#     ver_jugador.bat idle 6 coleta camisa pantalon
+#     herramientas/ver_jugador.bat idle 6 coleta camisa pantalon
 #
 # Sin argumentos sale el cuerpo desnudo, que es como estaba antes. Los nombres son los modelos de
 # JugadorSprites.CATALOGO y se aceptan en cualquier orden: cada uno cae en su pieza solo.
@@ -68,7 +68,7 @@ func _capas(modelos: PackedStringArray) -> Array:
 		# LA ARMADURA NO ESTA EN EL CATALOGO, porque no es aspecto: es equipo, y sale de lo que lleves
 		# puesto. Pero sin poder pedirla aqui no hay forma de sacar una hoja de contacto con un casco,
 		# y sin hoja de contacto no se puede juzgar el dibujo. Se pide por TIPO y RANURA con un guion:
-		#     ver_jugador.bat idle 6 casco_placas largo
+		#     herramientas/ver_jugador.bat idle 6 casco_placas largo
 		# El tier y la mejora van pegados con @ y + ("casco_placas@2+10"), porque el color depende de
 		# los dos y sin poder pedirlos no hay forma de comparar los peldaños.
 		var tier: int = 1

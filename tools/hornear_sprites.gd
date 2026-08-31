@@ -5,7 +5,7 @@
 #  assets/sprites/enemigos/. A partir de ahi el juego los CARGA en vez de dibujarlos, que es la
 #  diferencia entre milisegundos y ~3 segundos por partida.
 #
-#  SE EJECUTA A MANO, con hornear_sprites.bat, y hay que volver a pasarlo CADA VEZ que se toque un
+#  SE EJECUTA A MANO, con herramientas/hornear_sprites.bat, y hay que volver a pasarlo CADA VEZ que se toque un
 #  generador de sprites o SpriteLienzo.UNIDADES_POR_CELDA. Si se olvida no se rompe nada: el juego
 #  detecta que falta esa variante y la dibuja al vuelo como siempre (ver SpritesEnemigo.frames_de),
 #  solo que pagando el rato de generarla.

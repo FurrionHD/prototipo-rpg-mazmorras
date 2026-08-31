@@ -11,4 +11,4 @@ if not exist "%GODOT%" (
     pause
     exit /b 1
 )
-"%GODOT%" --path "%~dp0." res://tools/ver_creador.tscn -- %1
+"%GODOT%" --path "%~dp0.." res://tools/ver_creador.tscn -- %1

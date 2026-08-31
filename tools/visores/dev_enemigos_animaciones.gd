@@ -6,7 +6,7 @@
 #  otro bicho tenga sprite_frames (real o generado), sale aqui solo.
 #
 #  Se lanza con:
-#    Godot_v4.7-stable_win64.exe --path . res://dev_enemigos_animaciones.tscn
+#    Godot_v4.7-stable_win64.exe --path . res://tools/visores/dev_enemigos_animaciones.tscn
 #
 #  TECLAS
 #    ESPACIO / →   siguiente animacion (la lista entera, la tenga este bicho o no)   ←   la anterior

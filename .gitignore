@@ -3,15 +3,17 @@
 /android/
 
 # Bancos de pruebas temporales (dev_*): se crean para verificar algo y se borran al terminar.
-# Van ignorados para que un `git add -A` a media sesion no los cuele en un commit.
+# Van ignorados para que un `git add -A` a media sesion no los cuele en un commit. Se escriben en la
+# RAIZ (tienen que estar dentro de res:// para ver los autoloads y los class_name) y se borran ahi
+# mismo; el 31/08/2026 se limpiaron 32 que llevaban meses acumulandose.
 dev_*.gd
 dev_*.tscn
 dev_*.uid
 dev_*.png
 
-# ...MENOS los visores que son utillaje del repo y no una prueba de una tarde. Se les nota en
-# que tienen su lanzador (ver_*.bat) en la raiz -- y ESE si estaba commiteado, asi que quien clonara
-# el repo se encontraba el .bat sin el visor al que llama: un doble clic y un error.
+# ...MENOS los cuatro VISORES, que son utillaje del repo y no una prueba de una tarde. Viven en
+# tools/visores/ y cada uno tiene su lanzador en herramientas/ -- y ESE si estaba commiteado, asi que
+# quien clonara el repo se encontraba el .bat sin el visor al que llama: un doble clic y un error.
 !dev_gestos.*
 !dev_enemigos_animaciones.*
 !dev_enemigos_ataques.*

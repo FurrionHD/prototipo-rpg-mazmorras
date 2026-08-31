@@ -14,4 +14,4 @@ if not exist "%GODOT%" (
     pause
     exit /b 1
 )
-"%GODOT%" --headless --path "%~dp0." res://tools/ver_animacion.tscn -- %1 %2 %3
+"%GODOT%" --headless --path "%~dp0.." res://tools/ver_animacion.tscn -- %1 %2 %3

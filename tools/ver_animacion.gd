@@ -2,7 +2,7 @@
 #  ver_animacion.gd  --  HERRAMIENTA, no parte del juego.
 #
 #  Saca una TIRA PNG con los fotogramas de una animacion, uno al lado del otro y ampliados, para
-#  poder MIRARLA. El visor con ventana (ver_enemigos_animaciones.bat) sirve para ver el movimiento;
+#  poder MIRARLA. El visor con ventana (herramientas/ver_enemigos_animaciones.bat) sirve para ver el movimiento;
 #  esto sirve para lo otro: juzgar frame a frame, que es lo que hace falta cuando se esta dibujando
 #  una animacion nueva y hay que decidir si un aplaston se pasa o se queda corto.
 #
@@ -10,9 +10,9 @@
 #  si se pegaran los recortes a secas, cada uno saldria centrado en si mismo y la tira mentiria
 #  justo sobre lo unico que importa aqui -- cuanto se mueve el bicho de un frame al siguiente.
 #
-#  Se lanza con ver_animacion.bat [enemigo] [anim] [dir], p.ej.:
-#      ver_animacion.bat slime encaje
-#      ver_animacion.bat rey_slime muerte
+#  Se lanza con herramientas/ver_animacion.bat [enemigo] [anim] [dir], p.ej.:
+#      herramientas/ver_animacion.bat slime encaje
+#      herramientas/ver_animacion.bat rey_slime muerte
 #  No toca nada del juego: solo escribe en tools/salida/.
 #
 #  Va como ESCENA (Node) y no como script suelto de SceneTree: con '--script' Godot no arranca los

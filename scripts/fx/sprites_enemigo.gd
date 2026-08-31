@@ -74,7 +74,7 @@ static func frames_de(ed: EnemyData, t: float) -> SpriteFrames:
 	var g = _generador(ed)
 	if g == null:
 		return null
-	# EL HORNEADO MANDA. Si esta variante ya esta en disco (ver hornear_sprites.bat), se carga y listo:
+	# EL HORNEADO MANDA. Si esta variante ya esta en disco (ver herramientas/hornear_sprites.bat), se carga y listo:
 	# son milisegundos, contra los ~0,3-1,2 s que cuesta dibujarla. Y si NO esta -- porque acabas de
 	# tocar un generador y aun no has horneado --, se genera al vuelo como siempre. Esa caida es
 	# deliberada: sin ella, cada retoque de un sprite obligaria a hornear antes de poder probarlo.
