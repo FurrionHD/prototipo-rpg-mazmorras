@@ -19,6 +19,7 @@ familia = 3
 enemy_name = "Escarabajo de hierro"
 color = Color(0.3, 0.4, 0.28, 1)
 escala_visual = 1.5
+sprite_gen = &"escarabajo"
 fuerza = 35
 resistencia = 55
 agilidad = 15

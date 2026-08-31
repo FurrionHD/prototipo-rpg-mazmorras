@@ -17,6 +17,7 @@ const SCRIPTS := [
 	"res://scripts/fx/sprite_lienzo.gd",
 	"res://scripts/fx/sprites_enemigo.gd",
 	"res://scripts/fx/arana_sprites.gd",
+	"res://scripts/fx/escarabajo_sprites.gd",
 	"res://scripts/fx/terreno_sprites.gd",
 	"res://scripts/fx/recolectable_sprites.gd",
 	"res://scripts/world/decorado.gd",
