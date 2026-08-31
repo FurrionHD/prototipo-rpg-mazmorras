@@ -20,6 +20,7 @@ familia = 3
 enemy_name = "Ciempiés carmesí"
 color = Color(0.6, 0.15, 0.12, 1)
 escala_visual = 1.55
+sprite_gen = &"ciempies"
 fuerza = 45
 resistencia = 30
 destreza = 35

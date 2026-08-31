@@ -59,6 +59,7 @@ static var GENERADORES_POR_NOMBRE := {
 	&"trent": TrentSprites,
 	&"arana": AranaSprites,
 	&"escarabajo": EscarabajoSprites,
+	&"ciempies": CiempiesSprites,
 }
 
 
