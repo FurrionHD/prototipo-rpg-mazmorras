@@ -13,6 +13,10 @@ const SCRIPTS := [
 	"res://scripts/actors/player/player.gd",
 	"res://scripts/actors/player/companion.gd",
 	"res://scripts/actors/player/remote_player.gd",
+	# Los bichos dibujados por codigo: el motor, el registro que reparte y los generadores.
+	"res://scripts/fx/sprite_lienzo.gd",
+	"res://scripts/fx/sprites_enemigo.gd",
+	"res://scripts/fx/arana_sprites.gd",
 	"res://scripts/fx/terreno_sprites.gd",
 	"res://scripts/fx/recolectable_sprites.gd",
 	"res://scripts/world/decorado.gd",

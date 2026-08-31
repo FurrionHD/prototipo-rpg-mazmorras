@@ -49,9 +49,15 @@ static var GENERADORES := {
 # El nombre gana a la familia, asi que un bicho puede salirse del dibujo de los suyos sin tocar nada
 # mas. Y NO se toco el enum Familia para meter una PLANTA: eso es un cambio de juego (las slayer),
 # no de dibujo.
+#
+# LOS INSECTOS VAN TODOS POR AQUI, y no es que no tengan familia: es que la comparten. Araña,
+# escarabajo y ciempies son los tres familia INSECTO, asi que despachar por familia les daria a los
+# tres el MISMO dibujo -- y una araña, un escarabajo y un ciempies no se parecen en nada. Es el
+# mismo caso del Jabali y el Acechador, pero desde dentro de una sola familia.
 static var GENERADORES_POR_NOMBRE := {
 	&"jabali": JabaliSprites,
 	&"trent": TrentSprites,
+	&"arana": AranaSprites,
 }
 
 
