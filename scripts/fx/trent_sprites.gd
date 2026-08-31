@@ -95,7 +95,12 @@ const BRAZO_SEGMENTOS := 6
 # que cuenta es el paso EFECTIVO, o sea PASO * hipotenusa(ABRE, CAIDA), no el PASO a secas.
 const BRAZO_PASO := 2.3
 const BRAZO_R0 := 2.1
-const BRAZO_R1 := 1.15
+# LA PUNTA, ENGORDADA (1,15 -> 1,35) PARA QUE AGUANTE ESTIRADA. La cuenta del paso hay que hacerla
+# en la pose PEOR, no en reposo: al morir, 'alza' negativo multiplica la caida por 1,275 y el paso
+# efectivo sube de 2,17 a 2,59 -- por encima del grosor de 2,30 que tenia la punta. Por eso el horno
+# avisaba de un trozo suelto en el cadaver (dirs 3 y 7) desde que existe el bicho: eran las dos
+# ultimas bolitas del brazo despegadas. Con 1,35 el grosor es 2,70 y la cadena aguanta el estiron.
+const BRAZO_R1 := 1.35
 const BRAZO_ABRE := 0.50           # cuanto se separa del tronco cada segmento
 const BRAZO_CAIDA := 0.78          # y cuanto baja: CUELGA, no sale en horizontal
 

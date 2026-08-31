@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dhh8qvvc44jdn"
-path="res://.godot/imported/trent_598040_1.80.png-1ebce198765d2a38371b5d6535ad0123.ctex"
+uid="uid://dhl31umwsled1"
+path="res://.godot/imported/trent_88aa71_2.50.png-dfcb8172333380cd4bf3015f2869af11.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/enemigos/trent_598040_1.80.png"
-dest_files=["res://.godot/imported/trent_598040_1.80.png-1ebce198765d2a38371b5d6535ad0123.ctex"]
+source_file="res://assets/sprites/enemigos/trent_88aa71_2.50.png"
+dest_files=["res://.godot/imported/trent_88aa71_2.50.png-dfcb8172333380cd4bf3015f2869af11.ctex"]
 
 [params]
 
