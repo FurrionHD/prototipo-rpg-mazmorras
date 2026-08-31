@@ -177,12 +177,12 @@ const NUDILLO_R := 1.05
 #
 # Y aqui SI se puede bajar de las 3 celdas de la regla del contorno, porque estas piezas van DENTRO
 # del cuerpo: 'contornear' solo perfila lo que toca el vacio, o sea la silueta de fuera.
-const GRIETA_DIR := Vector3(0.34, 0.86, 0.42)
+const GRIETA_DIR := Vector3(0.34, 0.84, 0.58)
 const GRIETA_HUNDE := 1.4
-const GRIETA_TROZOS := 5
+const GRIETA_TROZOS := 4
 const GRIETA_R0 := 1.15
 const GRIETA_R1 := 0.80
-const GRIETA_BAJA := 2.3           # cuanto cae cada trozo respecto al anterior
+const GRIETA_BAJA := 2.1           # cuanto cae cada trozo respecto al anterior
 const GRIETA_ABRE := 1.0           # y cuanto se desvia de lado: la grieta serpentea
 
 # OJOS: dos puntos claros hundidos en la sombra de la cabeza. Son LO QUE LO HACE CRIATURA.
@@ -659,32 +659,31 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# 6. HOMBROS: dos bultos que ensanchan la silueta por arriba. Sin ellos el torso se estrecha
 	#    hacia la cabeza y el golem parece un huevo.
 	#
-	#    NO GIRAN, y eso es lo primero. Girando -- que es lo que parece correcto, porque el brazo que
-	#    cuelga de ellos si gira -- de PERFIL se van uno hacia la camara y otro al fondo, o sea uno
-	#    ARRIBA y otro ABAJO en pantalla (7,2 unidades de profundidad son 12 celdas de altura con la
-	#    camara a 45): con la cabeza en medio, el golem de perfil salia como un MUÑECO DE NIEVE, tres
-	#    bolas apiladas. Un hombro de barro no es una pieza colgada del cuerpo, es que el pegote es
-	#    mas ancho ahi -- y eso se ve igual desde los ocho lados, exactamente como el torso.
+	#    GIRAN, como todo lo que esta a un lado del cuerpo, y VAN JUSTO ANTES DE LA CABEZA. Las dos
+	#    cosas juntas, porque cada una arregla el problema que crea la otra:
 	#
-	#    Y VAN AQUI, ENTRE LA SOMBRA DEL TORSO Y SU LUZ, que es lo segundo. Puestos DESPUES de la luz
-	#    hay que darles una luz propia, y una pieza con luz propia se lee como una pieza APARTE: con
-	#    la cabeza en medio salian tres bolas en fila -- dos hombreras de armadura, o sea justo lo
-	#    del coloso y justo lo que este no es. Metidos ANTES, la luz del torso (que va 'solo_sobre'
-	#    la penumbra) los barre por dentro hasta x 7,8 y les deja en sombra los 3,6 de fuera: ocho
-	#    celdas de penumbra en el borde, que es exactamente lo que hace el costado de un bulto.
+	#    - Girando, de perfil uno se va hacia la camara y el otro al fondo, o sea uno ABAJO y otro
+	#      ARRIBA en pantalla (7,2 unidades de profundidad son 12 celdas de altura con la camara a
+	#      45). El de arriba cae justo a la altura de la cabeza, y los tres bultos en columna salian
+	#      como un MUÑECO DE NIEVE.
+	#    - Pero la CABEZA se pinta despues y mide 10,7 celdas de radio: TAPA al hombro del fondo casi
+	#      entero. Lo que queda es el hombro de delante, bajo y adelantado, que es exactamente donde
+	#      tiene que estar visto de canto.
 	#
-	#    Esto solo funciona porque NO GIRAN: cuando giraban, en las direcciones de perfil se metian
-	#    en el centro del cuerpo y la luz se los tragaba enteros.
-	for lado in [-1.0, 1.0]:
-		poner.call(Vector3(lado * HOMBRO_X, HOMBRO_Y, HOMBRO_Z), HOMBRO_R, Tono.BARRO_OSC, [], false)
-
-	# 7. ...y encima el torso otra vez, algo menor y subido, a plena luz. Lo que queda sin cubrir por
-	#    abajo es la barriga en sombra, y la frontera sale curvada sola (es una elipse en
-	#    perspectiva). Barre tambien la mitad de dentro de los hombros: ver arriba.
+	#    Sin girar tampoco vale, aunque de frente quede igual: de perfil se quedan los dos clavados a
+	#    los lados y el golem enseña dos hombros donde deberia enseñar uno. El usuario lo caza a ojo.
 	poner.call(Vector3(TORSO.x, TORSO.y, TORSO.z + TORSO_R.z * 0.20), TORSO_R * 0.98,
 		Tono.BARRO, [Tono.BARRO_OSC], false)
 	poner.call(Vector3(TORSO.x, TORSO.y - TORSO_R.y * 0.20, TORSO.z + TORSO_R.z * 0.50),
 		TORSO_R * 0.52, Tono.BARRO_CLARO, [Tono.BARRO], false)
+	for b in brazos:
+		var h: Vector3 = b["hombro"]
+		poner.call(h, HOMBRO_R, Tono.BARRO_OSC)
+		# La luz del hombro: PEGADA a su centro. Subida (0,35 del semialto) dejaba un canto
+		# horizontal limpio cruzando el bulto y los hombros se leian como dos PLATOS de canto, o sea
+		# hombreras de armadura -- justo lo del coloso y justo lo que este no es.
+		poner.call(Vector3(h.x, h.y, h.z + HOMBRO_R.z * 0.16), HOMBRO_R * 0.78,
+			Tono.BARRO, [Tono.BARRO_OSC])
 
 	# 7. LAS GRIETAS: cadenas de trozos bajando por el frente del torso, con el barro cocido dentro.
 	#    GIRAN, o un golem visto de espaldas seguiria enseñandolas por la grupa.
@@ -693,14 +692,32 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# van los dos a la vez y de golpe (no es un degradado: son tonos de paleta, no colores), a mitad
 	# del derrumbe, que es cuando ya no hay vuelta atras.
 	var encendido: bool = derrumbe < 0.45
-	var g_dir := Vector3(GRIETA_DIR.x, GRIETA_DIR.y, GRIETA_DIR.z)
-	if Vector2(g_dir.x, g_dir.y).rotated(ang).y > 0.0:
-		_grieta(poner, _en_la_pieza(g_dir, GRIETA_HUNDE, TORSO, TORSO_ANCLA_R), 1.0, encendido)
+	# LA GRIETA SE QUEDA EN EL PECHO AUNQUE EL GOLEM GIRE, y eso hay que hacerlo a mano.
+	#
+	# El torso NO gira (es redondo en planta, se ve igual desde los ocho lados) pero la grieta SI --
+	# tiene que hacerlo, o de espaldas se le seguiria viendo por la grupa. El problema es lo que pasa
+	# entre medias: con la camara a 45 grados la altura en pantalla sale de (y - z), asi que al girar
+	# cambia la Y de la grieta y la grieta SE DESLIZA hacia abajo por un cuerpo que no se ha movido.
+	# Del sur al norte son 18 celdas de recorrido: la grieta baja del pecho a la barriga ella sola.
+	#
+	# La cuenta: como COS_CAM y SIN_CAM son iguales a 45 grados, la altura en pantalla es
+	# proporcional a (y - z) A SECAS. Basta con corregir la z en lo mismo que ha cambiado la y para
+	# que (y - z) no se mueva, y entonces la grieta solo se desplaza a lo ANCHO -- que es justo lo
+	# que hace una marca en el costado de una pieza redonda al darse la vuelta.
+	#
+	# Por eso el anclaje se rota AQUI y se le pasa a 'poner' con gira = false: ya viene girado.
+	var anclar := func(d: Vector3) -> Array:
+		var a: Vector3 = _en_la_pieza(d, GRIETA_HUNDE, TORSO, TORSO_ANCLA_R)
+		var r: Vector2 = Vector2(a.x, a.y).rotated(ang)
+		return [Vector3(r.x, r.y, a.z + (r.y - a.y)), r.y]
+	var g1: Array = anclar.call(GRIETA_DIR)
+	if float(g1[1]) > 0.0:
+		_grieta(poner, g1[0], 1.0, encendido)
 	# La segunda, al otro lado y MAS BAJA (z negativo en la direccion = por debajo del ecuador del
 	# torso), para que las dos no salgan gemelas ni se junten en el mismo sitio.
-	var g_dir2 := Vector3(-GRIETA_DIR.x * 1.4, GRIETA_DIR.y, -GRIETA_DIR.z * 0.5)
-	if Vector2(g_dir2.x, g_dir2.y).rotated(ang).y > 0.0:
-		_grieta(poner, _en_la_pieza(g_dir2, GRIETA_HUNDE, TORSO, TORSO_ANCLA_R), -0.8, encendido)
+	var g2: Array = anclar.call(Vector3(-GRIETA_DIR.x * 1.4, GRIETA_DIR.y, -GRIETA_DIR.z * 0.5))
+	if float(g2[1]) > 0.0:
+		_grieta(poner, g2[0], -0.8, encendido)
 
 	# 8. LA CABEZA, hundida entre los hombros. Cae hacia delante con 'cabeza' (al descargar el
 	#    machacazo, y sobre todo al morirse). No gira: es un pegote redondo.
@@ -819,6 +836,10 @@ static func _brazo(poner: Callable, b: Dictionary, fase: float, alza: float,
 # UNA GRIETA: cadena de trozos cada vez menores bajando en diagonal, con el barro cocido dentro.
 # Una raya recta parece una junta; serpenteando y adelgazando parece que la arcilla se ha partido.
 #
+# 'arriba' YA VIENE GIRADO Y COMPENSADO por quien llama (ver el anclaje en _piezas), asi que todo lo
+# de aqui va con gira = false: volver a girarlo desharia la compensacion que mantiene la grieta a la
+# altura del pecho.
+#
 # 'sentido' es hacia que lado se desvia (y su magnitud, para que las dos grietas no sean gemelas).
 static func _grieta(poner: Callable, arriba: Vector3, sentido: float, encendido: bool) -> void:
 	for k in GRIETA_TROZOS:
@@ -828,14 +849,14 @@ static func _grieta(poner: Callable, arriba: Vector3, sentido: float, encendido:
 			arriba.x + sentido * GRIETA_ABRE * sin(f * 3.1),
 			arriba.y,
 			arriba.z - GRIETA_BAJA * float(k))
-		poner.call(p, Vector3(r, r, r), Tono.GRIETA_T)
+		poner.call(p, Vector3(r, r, r), Tono.GRIETA_T, [], false)
 		# EL COCIDO VA DESPUES Y MAS PEQUEÑO: se pinta DENTRO del tajo, asi que la grieta le queda
 		# como un reborde oscuro por los cuatro lados. Pintado antes, el tajo lo taparia entero.
 		# Y solo en los dos primeros trozos: hacia la punta la grieta es demasiado fina para que
 		# quepa nada dentro (regla de los tres pixeles) y el naranja saldria como una mota suelta.
 		if k < 2:
 			poner.call(Vector3(p.x, p.y - r * 0.35, p.z), Vector3(r, r, r) * 0.48,
-				Tono.COCIDO if encendido else Tono.APAGADO, [Tono.GRIETA_T])
+				Tono.COCIDO if encendido else Tono.APAGADO, [Tono.GRIETA_T], false)
 
 
 # La plantilla de un frame: que tono le toca a cada celda.
