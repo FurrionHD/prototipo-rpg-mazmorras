@@ -60,6 +60,10 @@ static var GENERADORES_POR_NOMBRE := {
 	&"arana": AranaSprites,
 	&"escarabajo": EscarabajoSprites,
 	&"ciempies": CiempiesSprites,
+	# LOS CONSTRUCTOS, IGUAL: golem, gargola y coloso son los tres familia PIEDRA -- y tambien lo es
+	# la Bestia acorazada --, asi que por familia les tocaria a los cuatro el MISMO dibujo. Y un
+	# pegote de barro, una estatua con alas y una torre andante no se parecen en nada.
+	&"golem": GolemSprites,
 }
 
 
