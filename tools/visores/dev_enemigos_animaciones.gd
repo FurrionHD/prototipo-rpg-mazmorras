@@ -1,7 +1,9 @@
 # ============================================================
 #  dev_enemigos_animaciones.gd  -- EL VISOR DE ANIMACIONES DE MOVIMIENTO
 #  El hermano de dev_enemigos_ataques.gd (que enseña los GOLPES): este enseña como se ve el
-#  enemigo ANDANDO por el mapa -- idle, deambular/perseguir y la embestida, en las 8 direcciones.
+#  enemigo ANDANDO por el mapa -- idle, deambular/perseguir y la embestida, en las 8 direcciones --
+#  y ademas COMO ENCAJA Y COMO MUERE, que son las que menos se ven jugando y las que mas falta hace
+#  poder mirar despacio. Las que no son ciclicas se repiten solas tras una pausa.
 #  Nace con los slimes (SlimeSprites, dibujado por codigo) pero lee TODOS los EnemyData: en cuanto
 #  otro bicho tenga sprite_frames (real o generado), sale aqui solo.
 #
@@ -21,10 +23,21 @@ extends Node2D
 
 const DIR_ENEMIGOS := "res://scenes/actors/enemy"
 # TODAS las animaciones que puede traer un enemigo, tenga las 8 direcciones o no. La lista es comun
-# a los cuatro generadores y ninguno las tiene todas: las que le falten al de turno se avisan en el
+# a todos los generadores y ninguno las tiene todas: las que le falten al de turno se avisan en el
 # subtitulo en vez de dejar la anterior puesta, que era lo que pasaba antes (y hacia creer que un
 # bicho tenia una animacion que no tiene).
-const ANIMS := ["idle", "walk", "embestida", "inflar", "raices", "encaje"]
+#
+# MUERTE y CADAVER estan aqui aunque no sean animaciones de MOVIMIENTO, que es lo que dice el nombre
+# de este visor. Se meten porque son las que mas falta hace mirar y las que menos se ven jugando: la
+# muerte pasa una vez, deprisa y en mitad de un combate, y el cadaver solo aparece si vuelves a una
+# sala. Este es el unico sitio donde se pueden juzgar.
+const ANIMS := ["idle", "walk", "embestida", "inflar", "raices", "encaje", "muerte", "cadaver"]
+
+# Lo que espera antes de repetir una animacion que NO es ciclica (embestida, encaje, muerte...).
+# Sin esto se quedan clavadas en su ultimo fotograma y hay que cambiar de animacion y volver para
+# verlas otra vez -- justo en las que hay que mirar varias veces porque duran medio segundo. La
+# pausa existe para que dé tiempo a ver la pose final antes de que vuelva a empezar.
+const PAUSA_REPETIR := 0.7
 const DIR_NOMBRES := ["S", "SE", "E", "NE", "N", "NW", "W", "SW"]
 const DIR_VECS := [
 	Vector2(0, 1), Vector2(0.7, 0.7), Vector2(1, 0), Vector2(0.7, -0.7),
@@ -46,6 +59,9 @@ var _titulo: Label
 var _sub: Label
 var _ayuda: Label
 var _rastro_timer: float = 0.0
+# Cuenta atras para volver a lanzar una animacion no ciclica que ya ha terminado. <= 0 = nada que
+# repetir (o esta corriendo una ciclica, que no termina nunca).
+var _repetir_en: float = 0.0
 
 const CENTRO := Vector2(640, 340)
 
@@ -74,6 +90,9 @@ func _ready() -> void:
 	# de un factor fijo: si SlimeSprites cambia de resolucion, esto no se descuadra.
 	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST   # o el pixel-art sale borroso
 	add_child(_sprite)   # el zoom se pone por bicho en _mostrar: cada uno tiene su propia rejilla
+	# Las animaciones ciclicas NO emiten esto nunca, asi que la repeticion solo la arrancan las que
+	# terminan de verdad: embestida, encaje, muerte, cadaver.
+	_sprite.animation_finished.connect(func() -> void: _repetir_en = PAUSA_REPETIR)
 
 	_flecha = Line2D.new()
 	_flecha.width = 3.0
@@ -128,6 +147,12 @@ func _frames_de(ed: EnemyData) -> SpriteFrames:
 func _process(delta: float) -> void:
 	if not _auto or not _sprite.visible:
 		return
+	# REPETIR las que no son ciclicas, pasada su pausa (ver PAUSA_REPETIR).
+	if _repetir_en > 0.0:
+		_repetir_en -= delta
+		if _repetir_en <= 0.0 and _sprite.sprite_frames != null \
+				and _sprite.sprite_frames.has_animation(_sprite.animation):
+			_sprite.play(_sprite.animation)
 	if ANIMS[_anim_i] == "walk":
 		_rastro_timer -= delta * _vel
 		if _rastro_timer <= 0.0:
@@ -195,6 +220,7 @@ func _mostrar() -> void:
 			anim = "%s_0" % ANIMS[_anim_i]
 			nota = "   (una sola direccion)" if frames.has_animation(anim) else ""
 		if frames.has_animation(anim):
+			_repetir_en = 0.0
 			_sprite.play(anim)
 		else:
 			_sprite.stop()
