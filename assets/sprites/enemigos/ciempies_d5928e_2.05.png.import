@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://da2vyskgimefw"
-path="res://.godot/imported/ciempies_aa5a55_1.55.png-7ac93904cd0738231f10a81602f342b5.ctex"
+uid="uid://x30irfdokbem"
+path="res://.godot/imported/ciempies_d5928e_2.05.png-88409545e2f8ba63b732fb6becd18e27.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/enemigos/ciempies_aa5a55_1.55.png"
-dest_files=["res://.godot/imported/ciempies_aa5a55_1.55.png-7ac93904cd0738231f10a81602f342b5.ctex"]
+source_file="res://assets/sprites/enemigos/ciempies_d5928e_2.05.png"
+dest_files=["res://.godot/imported/ciempies_d5928e_2.05.png-88409545e2f8ba63b732fb6becd18e27.ctex"]
 
 [params]
 

@@ -30,7 +30,7 @@ const FRAMES := 8
 
 # --- El ciempies mirando al SUR, en unidades de MUNDO (origen = donde toca el suelo, +Y hacia la
 # cabeza, +Z hacia arriba). ---
-const LARGO_MUNDO := 30.0
+const LARGO_MUNDO := 34.0
 
 # LA CADENA: cuantos anillos y cuanto hay de uno al siguiente. El anillo 0 es la CABEZA.
 #
@@ -38,13 +38,13 @@ const LARGO_MUNDO := 30.0
 # cuerpo sale como un tubo liso, sin costuras. La segmentacion NO la hacen los huecos entre anillos
 # -- la hacen las PLACAS del lomo, que si van separadas (ver PLACA_R). Al reves, con anillos
 # separados, el bicho sale como un collar de cuentas.
-const SEGMENTOS := 11
+const SEGMENTOS := 15
 const PASO := 1.55
 const CUERPO_Y0 := 8.6              # donde cae el anillo 0 (la cabeza)
 const CUERPO_Z := 2.0               # va PEGADO al suelo: es un bicho plano
 # El grosor de cada anillo, de la cabeza a la cola: gordo delante y afilandose al final.
 const ANILLO_R0 := Vector3(2.90, 2.40, 2.10)
-const ANILLO_R1 := Vector3(1.50, 1.35, 1.15)
+const ANILLO_R1 := Vector3(1.35, 1.20, 1.05)
 # LAS PLACAS del lomo, una por anillo. CORTAS, para que entre una y otra quede hueco: ese hueco ES
 # la segmentacion del bicho.
 # Y CORTAS DE VERDAD: con 0,70 de largo el hueco contra el paso de 1,55 era de 0,15 unidades, o sea
@@ -106,8 +106,8 @@ const ALZA_ALTO := 5.5
 
 # ENROSCARSE al morir: la espiral. El radio se cierra de fuera adentro y el paso angular reparte
 # algo mas de una vuelta completa entre los once anillos.
-const ESPIRAL_R := 6.2
-const ESPIRAL_PASO_ANG := 0.62
+const ESPIRAL_R := 7.6
+const ESPIRAL_PASO_ANG := 0.48
 const ESPIRAL_ANG0 := 0.5
 
 const LUNGE_DIST := 8.5
@@ -167,9 +167,14 @@ static func dimensiona_por_escala() -> bool:
 # el suelo a los lados -- eso si es sitio ocupado. Fuera quedan las ANTENAS y los CERCOS, que son
 # pelos.
 #
-# Y el largo esta calculado para quedar por debajo de las 32 unidades de vano de un pasillo (sale
-# 31,5 a su escala de ficha): un ciempies mas largo se quedaria trabado al girar en un cruce, que es
-# la leccion del trent. Es lo que fija cuantos anillos caben y a que paso.
+# EL LARGO NO LO CAPA EL PASILLO, y esto se creyo al reves durante todo el primer intento: se cablo
+# el bicho a 31,5 unidades para no pasar de "las 32 de vano de un pasillo", que es lo que decia la
+# nota del trent. Pero los pasillos se cavan con ancho_pasillo = 3 CELDAS (ver
+# DungeonGenerator._cavar_h): son 96 px, no 32. El ciempies salio corto -- y por tanto con pocos
+# anillos y poco detalle -- por un techo que no existia.
+#
+# Con 96 de vano hay sitio de sobra hasta girando en un cruce, asi que lo que fija el largo es el
+# DIBUJO: cuantos anillos hacen falta para que se lea como un ciempies y no como un gusano.
 static func tam_cuerpo(escala: float = 1.0) -> Vector2:
 	var ancho: float = maxf(ANILLO_R0.x, PATA_X + PATA_ALCANCE) * 2.0
 	var largo: float = ANILLO_R0.y * 2.0 + float(SEGMENTOS - 1) * PASO
