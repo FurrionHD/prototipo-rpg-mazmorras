@@ -65,6 +65,7 @@ static var GENERADORES_POR_NOMBRE := {
 	# pegote de barro, una estatua con alas y una torre andante no se parecen en nada.
 	&"golem": GolemSprites,
 	&"gargola": GargolaSprites,
+	&"coloso": ColosoSprites,
 }
 
 

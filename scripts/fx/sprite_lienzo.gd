@@ -535,6 +535,88 @@ static func elipse(plant: PackedByteArray, w: int, h: int, cx: float, cy: float,
 			plant[idx] = tono
 
 
+# ------------------------------------------------------------
+#  BLOQUE: la hermana rectangular de 'elipse'
+# ------------------------------------------------------------
+# Marca un RECTANGULO (girado y en perspectiva, como la elipse) en la plantilla. Misma firma y mismo
+# contrato que 'elipse' punto por punto, para que un generador pueda cambiar una llamada por la otra
+# sin tocar nada mas.
+#
+# EXISTE PORQUE EL MOTOR NO SABIA HACER ESQUINAS. Todos los bichos dibujados hasta ahora son
+# organicos -- slimes, ratas, insectos, un arbol, un pegote de barro -- y con elipses sobra. El
+# COLOSO no: es una estatua LABRADA, y lo que la separa de un golem grande es justo que tiene
+# aristas. Con elipses no hay forma de dibujar un sillar.
+#
+# (Ojo: 'caja' de aqui abajo NO dibuja cajas, devuelve el rectangulo de TRABAJO del contorno. Nombre
+# desafortunado, pero es anterior y lo usan todos los generadores.)
+#
+# 'chaflan' (0..1) corta las cuatro esquinas a 45 grados: 0 = arista viva, 1 = la esquina cortada
+# hasta el centro de los lados (un rombo). Un poco de chaflan es lo que hace que un bloque se lea
+# como piedra TALLADA y no como un pixel gordo -- y ademas evita que el contorno marque una esquina
+# de una sola celda, que se ve como una mota suelta.
+static func bloque(plant: PackedByteArray, w: int, h: int, cx: float, cy: float,
+		rx: float, ry: float, tono: int, ang: float = 0.0, solo_sobre: Array = [],
+		persp: float = 1.0, chaflan: float = 0.0) -> void:
+	if rx <= 0.01 or ry <= 0.01:
+		return
+	var cos_a: float = cos(ang)
+	var sin_a: float = sin(ang)
+	var deformada: bool = not is_zero_approx(ang)
+	var pp: float = maxf(0.05, persp)
+	# Caja envolvente: girado, un rectangulo llega hasta la suma de las proyecciones de sus dos
+	# semiejes (que es mas que en la elipse: sus esquinas sobresalen del elipsoide inscrito).
+	var ex: float = rx
+	var ey: float = ry
+	if deformada:
+		ex = absf(rx * cos_a) + absf(ry * sin_a)
+		ey = absf(rx * sin_a) + absf(ry * cos_a)
+	ey *= pp
+	var x0: int = maxi(0, int(floor(cx - ex)))
+	var x1: int = mini(w - 1, int(ceil(cx + ex)))
+	var y0: int = maxi(0, int(floor(cy - ey)))
+	var y1: int = mini(h - 1, int(ceil(cy + ey)))
+	var filtra: bool = not solo_sobre.is_empty()
+	# El chaflan como recta: |dx| + |dy| <= limite, con dx y dy ya normalizados a 0..1.
+	var limite: float = 2.0 - clampf(chaflan, 0.0, 1.0)
+
+	# RUTA POR FILAS cuando no hay giro, igual que en 'elipse' y por lo mismo: sin giro los lados son
+	# los de la rejilla, el tramo de cada fila sale de una resta y se rellena de un tiron, sin
+	# preguntar celda por celda. Aqui es todavia mas barato que en la elipse -- no hace falta ni un
+	# sqrt -- y el coloso dibuja MUCHOS bloques del tamaño del bicho entero.
+	if not deformada:
+		for gy in range(y0, y1 + 1):
+			var dy: float = absf(float(gy) + 0.5 - cy) / (ry * pp)
+			if dy > 1.0:
+				continue
+			# Con chaflan, el semiancho de la fila se estrecha cerca de los extremos.
+			var mitad: float = rx * minf(1.0, limite - dy)
+			if mitad <= 0.0:
+				continue
+			var fila: int = gy * w
+			var gx0: int = maxi(x0, int(ceil(cx - mitad - 0.5)))
+			var gx1: int = mini(x1, int(floor(cx + mitad - 0.5)))
+			for gx in range(gx0, gx1 + 1):
+				var idx: int = fila + gx
+				if filtra and not (int(plant[idx]) in solo_sobre):
+					continue
+				plant[idx] = tono
+		return
+
+	for gy in range(y0, y1 + 1):
+		var fila2: int = gy * w
+		for gx in range(x0, x1 + 1):
+			var px: float = float(gx) + 0.5 - cx
+			var py: float = (float(gy) + 0.5 - cy) / pp
+			var dx: float = absf(px * cos_a + py * sin_a) / rx
+			var dy2: float = absf(-px * sin_a + py * cos_a) / ry
+			if dx > 1.0 or dy2 > 1.0 or dx + dy2 > limite:
+				continue
+			var idx2: int = fila2 + gx
+			if filtra and not (int(plant[idx2]) in solo_sobre):
+				continue
+			plant[idx2] = tono
+
+
 # Caja de trabajo recortada al lienzo, con una celda de aire alrededor (el contorno mira a los
 # vecinos, asi que hace falta sitio para ese vecino vacio).
 static func caja(x0: float, y0: float, x1: float, y1: float, w: int, h: int) -> Rect2i:
