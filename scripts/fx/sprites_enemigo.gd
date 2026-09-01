@@ -64,6 +64,7 @@ static var GENERADORES_POR_NOMBRE := {
 	# la Bestia acorazada --, asi que por familia les tocaria a los cuatro el MISMO dibujo. Y un
 	# pegote de barro, una estatua con alas y una torre andante no se parecen en nada.
 	&"golem": GolemSprites,
+	&"gargola": GargolaSprites,
 }
 
 
