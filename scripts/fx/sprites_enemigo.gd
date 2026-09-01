@@ -56,6 +56,11 @@ static var GENERADORES := {
 # mismo caso del Jabali y el Acechador, pero desde dentro de una sola familia.
 static var GENERADORES_POR_NOMBRE := {
 	&"jabali": JabaliSprites,
+	# Y aqui esta el Acechador, que es el ejemplo del parrafo de arriba hecho realidad: comparte la
+	# familia BESTIA con el Jabali y comparte hasta el esqueleto de cuadrupedo, pero es su lectura
+	# CONTRARIA -- alto y estrecho contra bajo y ancho, grupa alta contra cruz alta, morro largo
+	# contra hocico romo. Por familia le habria tocado salir con forma de jabali.
+	&"acechador": AcechadorSprites,
 	&"trent": TrentSprites,
 	&"arana": AranaSprites,
 	&"escarabajo": EscarabajoSprites,
@@ -238,12 +243,27 @@ static func zoom_visor(ed: EnemyData, ancho_pantalla: float) -> float:
 	# ancho. Midiendo el lienzo, el visor lo enseñaba como una miniatura en mitad de la pantalla,
 	# justo la herramienta con la que se juzga si el dibujo esta bien.
 	#
-	# El ancho real sale del recorte del frame de reposo, que es lo que hace tambien el combate para
-	# repartir el zoom entre los bichos de la fila (ver combat._poner_sprite).
+	# Y SE MIDEN LAS OCHO DIRECCIONES, Y TANTO EL ANCHO COMO EL ALTO. Antes se miraba solo el ANCHO de
+	# 'idle_0', o sea el bicho visto DE FRENTE, y eso solo funciona con los que son igual de anchos por
+	# todos lados (el slime, el golem). Un cuadrupedo alargado visto de frente es justo su medida mas
+	# PEQUEÑA -- el acechador mide 17 px de frente y 66 de perfil --, asi que le tocaba un zoom de x24
+	# y llenaba la pantalla con un trozo de costado: el visor dejaba de servir para lo unico que sirve.
+	#
+	# Se coge el mayor de los 16 numeros (8 direcciones x 2 ejes), asi que 'ancho_pantalla' es en
+	# realidad el LADO del cuadro en el que tiene que caber el bicho, se ponga como se ponga. Y se mide
+	# sobre 'idle' y no sobre todas las animaciones a proposito: el salto y la muerte desplazan el
+	# dibujo muchisimo, y encajando ESO el bicho se veria diminuto estando quieto.
 	var frames: SpriteFrames = frames_de(ed, 1.0)
-	if frames != null and frames.has_animation(&"idle_0"):
-		var tex: Texture2D = frames.get_frame_texture(&"idle_0", 0)
-		var img: Image = tex.get_image() if tex != null else null
-		if img != null and img.get_width() > 0:
-			return ancho_pantalla / float(img.get_width())
+	var lado: int = 0
+	if frames != null:
+		for d in 8:
+			var anim := StringName("idle_%d" % d)
+			if not frames.has_animation(anim):
+				continue
+			var tex: Texture2D = frames.get_frame_texture(anim, 0)
+			var img: Image = tex.get_image() if tex != null else null
+			if img != null:
+				lado = maxi(lado, maxi(img.get_width(), img.get_height()))
+	if lado > 0:
+		return ancho_pantalla / float(lado)
 	return ancho_pantalla / float(g.ancho_px(ed.escala_visual))

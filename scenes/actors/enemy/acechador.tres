@@ -19,6 +19,7 @@ familia = 5
 enemy_name = "Acechador de las simas"
 color = Color(0.3, 0.27, 0.24, 1)
 escala_visual = 1.8
+sprite_gen = &"acechador"
 fuerza = 58
 resistencia = 40
 destreza = 30
