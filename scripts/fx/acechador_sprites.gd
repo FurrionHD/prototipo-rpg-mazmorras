@@ -57,8 +57,17 @@ const PECHO := Vector3(0.0, 5.2, 13.2)
 const PECHO_R := Vector3(4.5, 5.4, 3.9)
 const TRONCO := Vector3(0.0, -1.4, 15.2)
 const TRONCO_R := Vector3(4.2, 7.6, 3.5)
-const GRUPA := Vector3(0.0, -9.0, 18.0)
-const GRUPA_R := Vector3(4.7, 5.0, 4.3)
+# LA GRUPA BAJA Y ENSANCHA para alcanzar a las patas traseras. Estaba en z 18,0 con 4,7 de semiancho,
+# y a la altura del muslo (x = 3,2) la elipse ya solo bajaba hasta z 14,85 contra un muslo que llega
+# a 16,4: **1,5 unidades de solape, dos celdas**. El test de islas daba 0 porque TOCAN -- pero dos
+# celdas no se leen como una pata pegada al cuerpo, se leen como una pata volando, y eso lo canto el
+# usuario en el visor. A 17,0 con 5,0 de semiancho el solape sube a 3,1 unidades y la grupa sigue muy
+# por encima del pecho (13,2), que es lo que dibuja la postura de acecho.
+#
+# MORALEJA: el test de islas es un suelo, no un techo. Contesta "¿se toca?" y la pregunta de verdad
+# es "¿se lee pegado?" -- y esa solo la contesta mirar el bicho.
+const GRUPA := Vector3(0.0, -9.0, 17.0)
+const GRUPA_R := Vector3(5.0, 5.0, 4.8)
 
 # ESCAPULAS: los omoplatos, a los lados del pecho. Un cuadrupedo de patas largas los saca por encima
 # de la linea del lomo al andar, y ese sube-y-baja alternado es la mitad de lo que se lee como
@@ -187,7 +196,7 @@ const PATA_ENCOGE := 1.8
 # De pie aguantaba y al tumbarse se soltaba -- las 8 islas que quedaban eran todas de muerte y
 # cadaver. Es exactamente el mismo error que el de PATA_X, cometido dos veces en el mismo bicho.
 const COLA_SEGMENTOS := 11
-const COLA_BASE := Vector3(0.0, -12.8, 14.6)
+const COLA_BASE := Vector3(0.0, -12.8, 15.4)
 const COLA_PASO := 1.2             # menor que el diametro mas fino (2 x 0,8 = 1,6): SOBRA
 # SALE YA CAYENDO (0,55 rad y no 0,15), y esto es lo que se vio mirando la tira: casi horizontal, la
 # cola se iba hacia atras, o sea hacia ARRIBA en pantalla, y salia como una ANTENA fina por encima
@@ -202,7 +211,16 @@ const COLA_BARRE := 2.6            # cuanto la mueve de lado a lado
 # de piezas a lo largo del eje de profundidad, asi que mirando al norte o al sur la de mas atras sube
 # en pantalla mucho mas que la de delante y las ocho se apilan en una raya vertical. Comprimido, la
 # cola se lee como una cola desde los ocho lados.
-const COLA_ESCORZO := 0.80
+#
+# Y VALE 1,0, o sea NO SE COMPRIME. Se probo a 0,80 y el usuario lo caza en el visor mirando al NW:
+# la cola salia despegada de la grupa. Es el mismo fallo que ya obligo a soltar el escorzo al volcar,
+# solo que este se ve tambien de pie -- comprimir la profundidad de UNA pieza y no la del cuerpo del
+# que cuelga las desplaza en pantalla por formulas distintas, y la junta se abre. El escorzo sirve
+# para una fila de piezas SUELTAS (las cerdas del jabali, que no cuelgan de nada); una cola nace de
+# un sitio concreto y tiene que quedarse ahi.
+#
+# Lo que evita que salga como una antena no es el escorzo: es que CAIGA de verdad (ver COLA_ANG0).
+const COLA_ESCORZO := 1.0
 
 # EL SALTO: su embestida NO es una carga escarbando como la del jabali -- es un salto. Tiene agilidad
 # 45 y chase_speed_mult 3,2, el mas rapido del juego, y eso hay que verlo.
@@ -591,9 +609,30 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		var mezcla: float = absf(st)
 		var rx: float = r.x if en_suelo else lerpf(r.x, r.z, mezcla)
 		var rz: float = r.z if en_suelo else lerpf(r.z, r.x, mezcla)
-		piezas.append({"pos": Vector2(sx, sy), "radio": Vector2(rx * ancho * u, ry * u),
+		# LA PERSPECTIVA SE MIDE SOBRE EL RADIO YA ROTADO, y esto es lo que arreglo las patas traseras.
+		#
+		# El motor aplasta el eje VERTICAL DE PANTALLA por 'persp' DESPUES de girar la elipse, pero
+		# 'persp_de' recibe 'ry' -- el radio a lo LARGO del bicho. Las dos cosas solo coinciden cuando
+		# el bicho mira al SUR: girado 90 grados, el que cae en vertical es el radio a lo ANCHO, no el
+		# largo. Con el muslo (1,6 de ancho, 2,9 de largo, 5,4 de alto) mirando al este le tocaban 2,39
+		# de semialtura donde le corresponden 3,98: **perdia el 40%**, se quedaba corto y se soltaba de
+		# la grupa. Por eso el usuario lo veia "mal en todas las posiciones MENOS en S" -- que es
+		# exactamente la firma de un fallo que depende del giro, y lo que lo delato.
+		#
+		# El radio que de verdad cae en vertical tras girar es sqrt(rx²sen² + ry²cos²), que es la misma
+		# expresion que usa 'elipse' para su caja envolvente. Pasandole ESE a persp_de, el sur no se
+		# mueve ni un pixel y las otras siete quedan bien.
+		#
+		# OJO: el sesgo esta en el MOTOR y lo tienen todos los bichos; se corrige aqui y no alli porque
+		# tocar 'persp_de' cambiaria los diez sprites ya aprobados y horneados. Solo se nota en piezas
+		# MUY asimetricas entre ancho y largo, que es justo lo que son estas patas.
+		var rxm: float = rx * ancho
+		var s_a: float = sin(ang)
+		var c_a: float = cos(ang)
+		var ry_rot: float = sqrt(rxm * rxm * s_a * s_a + ry * ry * c_a * c_a)
+		piezas.append({"pos": Vector2(sx, sy), "radio": Vector2(rxm * u, ry * u),
 			"gira_forma": true, "tono": tono, "ang": ang,
-			"persp": SpriteLienzo.persp_de(ry, rz * alto), "solo_sobre": solo_sobre})
+			"persp": SpriteLienzo.persp_de(ry_rot, rz * alto), "solo_sobre": solo_sobre})
 
 	# SOMBRA DE CONTACTO, lo primero (va debajo). A ALTURA CERO y con 'en_suelo': acompaña al bicho
 	# por el suelo cuando salta, pero NO sube con el. Y se encoge un poco con el alza, que es lo que
