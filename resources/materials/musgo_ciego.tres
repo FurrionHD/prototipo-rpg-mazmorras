@@ -4,18 +4,18 @@
 
 [resource]
 script = ExtResource("1")
-id = &"madera_negra"
-nombre = "Madera negra"
-descripcion = "Pesa como el metal y no flota. Nadie sabe de qué se alimenta ahí abajo, y el corte huele a algo que estuvo vivo hace mucho y no era un árbol."
+id = &"musgo_ciego"
+nombre = "Musgo ciego"
+descripcion = "Crece donde no ha llegado nunca la luz, tan pálido que casi no se ve contra la piedra. No necesita ver para saber por dónde trepar."
 familia = 0
-tipo = 6
+tipo = 1
 tier = 3
 exigencia = 750.0
-peso_base = 2.1
-valor_base = 110
+peso_base = 1.2
+valor_base = 120
 mejora_min = 0
 mejora_max = 3
-color = Color(0.16, 0.14, 0.15, 1)
+color = Color(0.55, 0.58, 0.52, 1)
 piso_min = 13
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"

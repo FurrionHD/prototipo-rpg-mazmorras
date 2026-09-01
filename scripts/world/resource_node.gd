@@ -128,17 +128,35 @@ func _crear_sprite(color: Color) -> bool:
 	if fam == "":
 		return false
 	var modelo: int = RecolectableSprites.modelo_de(celda)
+	# El SUB-TIER entra en la silueta, no solo en el tinte: cobre bruto, veteado y profundo son tres
+	# dibujos distintos (veta/carbon/madera lo usan; el resto ignora la forma por ahora).
+	var forma: int = material_data.forma_recolectable() if material_data != null else 0
+	# La MADERA ademas cruza la ESPECIE (pino/roble/cipres), que sale del TIER y no del sub-tier:
+	# resource_node es quien conoce la familia, asi que el cruce se hace aqui y no en
+	# RecolectableSprites (que solo sabe indexar por 'forma', sea lo que sea que signifique).
+	# La PLANTA y la VETA usan el mismo indice (tier-1)*3+subtier, pero cada una de las 9
+	# combinaciones es una especie/mineral con nombre propio (ver RecolectableSprites._planta()/
+	# _veta()), no una formula compartida. "carbon" se queda fuera: sus 10 materiales no forman
+	# un 3x3 limpio, asi que sigue con las 3 formas genericas de siempre.
+	if (fam == "madera" or fam == "planta" or fam == "veta") and material_data != null:
+		forma = (clampi(material_data.tier, 1, 3) - 1) * 3 + forma
 	var t: Vector2i = RecolectableSprites.lienzo(fam)
 	for tinte in [false, true]:
 		var s := Sprite2D.new()
-		s.texture = RecolectableSprites.textura(fam, modelo, tinte)
+		s.texture = RecolectableSprites.textura(fam, forma, modelo, tinte)
 		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		# El sprite se apoya con el PIE en la celda: estas cosas se plantan EN el suelo, y
 		# centradas se quedan flotando.
 		s.centered = false
 		s.position = Vector2(-float(t.x) * 0.5, -float(t.y) + 6.0)
-		if tinte:
-			s.modulate = color
+		# El TINTE (mineral/fruto) lleva el color a saco; el CUERPO (roca/tronco) solo un lavado
+		# suave -- si no, dos sub-tiers "profundos" con la matriz casi toda oscura se leen igual
+		# de un vistazo por mucho que el mineral suelto sea de otro color.
+		s.modulate = color if tinte else RecolectableSprites.tinte_cuerpo(color)
+		# Brillo metalico SOLO en el tinte del mineral de verdad (familia "veta": cobre/hierro/
+		# acero). Ni el carbon (roca, no metal) ni la roca que lo rodea destellan.
+		if tinte and fam == "veta":
+			s.material = RecolectableSprites.material_metal()
 		add_child(s)
 	_crear_destellos(Vector2(t), Vector2(-float(t.x) * 0.5, -float(t.y) + 6.0))
 	return true

@@ -9,6 +9,8 @@
 [ext_resource type="Resource" path="res://resources/materials/madera_ferrea.tres" id="7_ferrea"]
 [ext_resource type="Resource" path="res://resources/materials/madera_petrificada.tres" id="8_petrificada"]
 [ext_resource type="Resource" path="res://resources/materials/madera_negra.tres" id="9_negra"]
+[ext_resource type="Resource" path="res://resources/materials/madera_calcinada.tres" id="10_calcinada"]
+[ext_resource type="Resource" path="res://resources/materials/madera_latente.tres" id="11_latente"]
 
 [sub_resource type="Resource" id="E_comun"]
 script = ExtResource("2_entrada")
@@ -58,10 +60,28 @@ piso_pleno = 12
 [sub_resource type="Resource" id="E_negra"]
 script = ExtResource("2_entrada")
 material = ExtResource("9_negra")
-peso = 12.0
+peso = 100.0
+peso_pleno = 8.0
+piso_debut = 13
+piso_pleno = 18
+
+[sub_resource type="Resource" id="E_calcinada"]
+script = ExtResource("2_entrada")
+material = ExtResource("10_calcinada")
+peso_pleno = 48.0
+piso_debut = 14
+piso_pleno = 16
+
+[sub_resource type="Resource" id="E_latente"]
+script = ExtResource("2_entrada")
+material = ExtResource("11_latente")
+peso = 11.0
+peso_pleno = 55.0
+piso_debut = 16
+piso_pleno = 18
 
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Maderas"
-entradas = Array[ExtResource("2_entrada")]([SubResource("E_comun"), SubResource("E_veta"), SubResource("E_anillada"), SubResource("E_dura"), SubResource("E_ferrea"), SubResource("E_petrificada"), SubResource("E_negra")])
+entradas = Array[ExtResource("2_entrada")]([SubResource("E_comun"), SubResource("E_veta"), SubResource("E_anillada"), SubResource("E_dura"), SubResource("E_ferrea"), SubResource("E_petrificada"), SubResource("E_negra"), SubResource("E_calcinada"), SubResource("E_latente")])
 metadata/_custom_type_script = "res://scripts/world/material_table.gd"

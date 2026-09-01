@@ -4,18 +4,18 @@
 
 [resource]
 script = ExtResource("1")
-id = &"lingote_hierro_negro"
-nombre = "Lingote de hierro negro"
-descripcion = "Fundido y colado en barra. La forma en que el metal deja de ser piedra y empieza a ser herramienta."
+id = &"carbon_latente"
+nombre = "Carbón de madera latente"
+descripcion = "Sigue caliente al sacarlo del horno mucho después de que debiera haberse enfriado."
 familia = 0
-tipo = 5
-tier = 2
-exigencia = 0.0
-peso_base = 2.8
-valor_base = 400
+tipo = 11
+tier = 3
+exigencia = 60.0
+peso_base = 0.0
+valor_base = 156
 mejora_min = 9
 mejora_max = 15
-color = Color(0.16, 0.17, 0.2, 1)
+color = Color(0.05, 0.05, 0.06, 1)
 piso_min = 1
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"

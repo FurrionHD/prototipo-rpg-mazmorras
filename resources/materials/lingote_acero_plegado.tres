@@ -4,18 +4,18 @@
 
 [resource]
 script = ExtResource("1")
-id = &"lingote_hierro_negro"
-nombre = "Lingote de hierro negro"
-descripcion = "Fundido y colado en barra. La forma en que el metal deja de ser piedra y empieza a ser herramienta."
+id = &"lingote_acero_plegado"
+nombre = "Lingote de acero plegado"
+descripcion = "Cuela más despacio que el acero corriente, y sale del molde con las capas ya marcadas por dentro."
 familia = 0
 tipo = 5
-tier = 2
+tier = 3
 exigencia = 0.0
-peso_base = 2.8
-valor_base = 400
-mejora_min = 9
-mejora_max = 15
-color = Color(0.16, 0.17, 0.2, 1)
+peso_base = 3.2
+valor_base = 530
+mejora_min = 3
+mejora_max = 9
+color = Color(0.38, 0.42, 0.53, 1)
 piso_min = 1
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"

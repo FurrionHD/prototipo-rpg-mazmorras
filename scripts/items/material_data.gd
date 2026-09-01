@@ -143,6 +143,19 @@ func es_planta() -> bool:
 func es_madera() -> bool:
 	return tipo == Tipo.MADERA
 
+# SUB-TIER para el DIBUJO del nodo en el mapa (ver RecolectableSprites._veta): 0 bruto, 1 veteado,
+# 2 profundo. Sale de la banda de mejora, que reinicia en cada tier (cobre 0/3/9 igual que hierro
+# 0/3/9), asi que mide "cual de los tres" y no la profundidad. Sin banda (mejora_max <= 0) = base
+# de su tier = forma 0. Es la misma particion que rango_color() para el mineral.
+func forma_recolectable() -> int:
+	if mejora_max <= 0:
+		return 0
+	if mejora_min >= 9:
+		return 2
+	if mejora_min >= 3:
+		return 1
+	return 0
+
 # ¿Con la CAÑA? El pescado no se recolecta de un nodo del mapa: se saca del estanque.
 func es_pescado() -> bool:
 	return tipo == Tipo.PESCADO

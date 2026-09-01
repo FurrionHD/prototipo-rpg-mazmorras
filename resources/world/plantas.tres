@@ -8,6 +8,9 @@
 [ext_resource type="Resource" path="res://resources/materials/moho_simas.tres" id="6_moho"]
 [ext_resource type="Resource" path="res://resources/materials/raiz_umbria.tres" id="7_umbria"]
 [ext_resource type="Resource" path="res://resources/materials/liquen_abisal.tres" id="8_liquen"]
+[ext_resource type="Resource" path="res://resources/materials/musgo_ciego.tres" id="9_musgo"]
+[ext_resource type="Resource" path="res://resources/materials/zarza_retorcida.tres" id="10_zarza"]
+[ext_resource type="Resource" path="res://resources/materials/flor_de_sima.tres" id="11_flor"]
 
 [sub_resource type="Resource" id="E_hierba"]
 script = ExtResource("2_entrada")
@@ -54,8 +57,31 @@ peso_pleno = 55.0
 piso_debut = 10
 piso_pleno = 12
 
+[sub_resource type="Resource" id="E_musgo"]
+script = ExtResource("2_entrada")
+material = ExtResource("9_musgo")
+peso = 100.0
+peso_pleno = 8.0
+piso_debut = 13
+piso_pleno = 18
+
+[sub_resource type="Resource" id="E_zarza"]
+script = ExtResource("2_entrada")
+material = ExtResource("10_zarza")
+peso_pleno = 48.0
+piso_debut = 14
+piso_pleno = 16
+
+[sub_resource type="Resource" id="E_flor"]
+script = ExtResource("2_entrada")
+material = ExtResource("11_flor")
+peso = 11.0
+peso_pleno = 55.0
+piso_debut = 16
+piso_pleno = 18
+
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Plantas"
-entradas = Array[ExtResource("2_entrada")]([SubResource("E_hierba"), SubResource("E_raiz"), SubResource("E_sangre"), SubResource("E_moho"), SubResource("E_umbria"), SubResource("E_liquen")])
+entradas = Array[ExtResource("2_entrada")]([SubResource("E_hierba"), SubResource("E_raiz"), SubResource("E_sangre"), SubResource("E_moho"), SubResource("E_umbria"), SubResource("E_liquen"), SubResource("E_musgo"), SubResource("E_zarza"), SubResource("E_flor")])
 metadata/_custom_type_script = "res://scripts/world/material_table.gd"

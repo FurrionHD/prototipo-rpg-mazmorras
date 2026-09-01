@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"carbon_calcinada"
+nombre = "Carbón de madera calcinada"
+descripcion = "Prende sin yesca, como si ya llevara la chispa puesta desde antes de cortarla."
+familia = 0
+tipo = 11
+tier = 3
+exigencia = 60.0
+peso_base = 0.0
+valor_base = 120
+mejora_min = 3
+mejora_max = 9
+color = Color(0.07, 0.07, 0.09, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

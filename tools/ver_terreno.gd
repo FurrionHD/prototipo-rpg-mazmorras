@@ -125,12 +125,13 @@ func _escena(atlas: Image) -> Image:
 	var fx: int = 17
 	var fy: int = 13
 	for fam in RecolectableSprites.FAMILIAS:
-		for m in RecolectableSprites.MODELOS:
-			_nodo(img, String(fam), m, Vector2i(fx, fy))
-			fx += 1
-			if fx >= ANCHO - 2:
-				fx = 17
-				fy -= 4
+		for f in RecolectableSprites.formas_de(String(fam)):
+			for m in RecolectableSprites.MODELOS:
+				_nodo(img, String(fam), f, m, Vector2i(fx, fy))
+				fx += 1
+				if fx >= ANCHO - 2:
+					fx = 17
+					fy -= 4
 	return img
 
 
@@ -144,17 +145,18 @@ func _baldosa(img: Image, atlas: Image, celda: Vector2i, en: Vector2i) -> void:
 
 
 # El nodo se apoya con el PIE en la celda y centrado, que es como lo coloca resource_node.
-func _nodo(img: Image, familia: String, modelo: int, celda: Vector2i) -> void:
+func _nodo(img: Image, familia: String, forma: int, modelo: int, celda: Vector2i) -> void:
 	var L: int = TerrenoSprites.LADO
 	var t: Vector2i = RecolectableSprites.lienzo(familia)
 	var hoja: Image = _hojas[familia]
+	var col: int = RecolectableSprites._columna(familia, forma, modelo)
 	var en := Vector2i(celda.x * L + L / 2 - t.x / 2, celda.y * L + L - t.y)
 	# cuerpo
-	img.blend_rect(hoja, Rect2i(Vector2i(modelo * t.x, 0), t), en)
+	img.blend_rect(hoja, Rect2i(Vector2i(col * t.x, 0), t), en)
 	# tinte, modulado a mano con un color de material cualquiera para ver que el tinte funciona
 	var tint := Color.from_hsv(fmod(float(modelo) * 0.17 + float(hash(familia) % 100) * 0.01, 1.0),
 		0.65, 0.95)
-	var capa: Image = hoja.get_region(Rect2i(Vector2i(modelo * t.x, t.y), t))
+	var capa: Image = hoja.get_region(Rect2i(Vector2i(col * t.x, t.y), t))
 	for y in t.y:
 		for x in t.x:
 			var c: Color = capa.get_pixel(x, y)

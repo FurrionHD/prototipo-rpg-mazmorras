@@ -6653,15 +6653,22 @@ func _ruta_plantilla_valida(r: String) -> bool:
 const _CARPETA_MATERIALES := "res://resources/materials"
 const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/aceite.tres", "res://resources/materials/acero.tres",
+	"res://resources/materials/acero_pavonado.tres", "res://resources/materials/acero_plegado.tres",
 	"res://resources/materials/ajo.tres", "res://resources/materials/anguila_pozo.tres",
 	"res://resources/materials/baba_abisal.tres",
 	"res://resources/materials/baba_fuego.tres", "res://resources/materials/baba_profunda.tres",
 	"res://resources/materials/baba_rey_slime.tres", "res://resources/materials/baba_slime.tres",
 	"res://resources/materials/baba_venenosa.tres", "res://resources/materials/bagre_legamo.tres",
+	"res://resources/materials/carbon_anillado.tres", "res://resources/materials/carbon_calcinada.tres",
+	"res://resources/materials/carbon_duro.tres", "res://resources/materials/carbon_ferreo.tres",
+	"res://resources/materials/carbon_latente.tres", "res://resources/materials/carbon_mineral.tres",
+	"res://resources/materials/carbon_negro.tres", "res://resources/materials/carbon_petrificado.tres",
+	"res://resources/materials/carbon_vegetal.tres", "res://resources/materials/carbon_veta.tres",
 	"res://resources/materials/carne_bestia.tres", "res://resources/materials/carne_insecto.tres",
 	"res://resources/materials/carne_jabali.tres", "res://resources/materials/carne_rata.tres",
 	"res://resources/materials/cebolla.tres",
 	"res://resources/materials/chapa_acero.tres",
+	"res://resources/materials/chapa_acero_pavonado.tres", "res://resources/materials/chapa_acero_plegado.tres",
 	"res://resources/materials/chapa_cobre.tres", "res://resources/materials/chapa_cobre_profundo.tres",
 	"res://resources/materials/chapa_cobre_veteado.tres", "res://resources/materials/chapa_hierro.tres",
 	"res://resources/materials/chapa_hierro_negro.tres", "res://resources/materials/chapa_hierro_templado.tres",
@@ -6675,7 +6682,8 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/curtido_curado.tres", "res://resources/materials/curtido_endurecido.tres",
 	"res://resources/materials/curtido_placado.tres", "res://resources/materials/curtido_reforzado.tres",
 	"res://resources/materials/espejo_abisal.tres",
-	"res://resources/materials/esquirla_basalto.tres", "res://resources/materials/gobio_palido.tres",
+	"res://resources/materials/esquirla_basalto.tres",
+	"res://resources/materials/flor_de_sima.tres", "res://resources/materials/gobio_palido.tres",
 	"res://resources/materials/hebillas_acero.tres",
 	"res://resources/materials/hebillas_cobre.tres", "res://resources/materials/hebillas_hierro.tres",
 	"res://resources/materials/hierba_palida.tres", "res://resources/materials/hierro.tres",
@@ -6683,15 +6691,19 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/hongo_azufre.tres",
 	"res://resources/materials/icor.tres", "res://resources/materials/lechuga.tres",
 	"res://resources/materials/lingote_acero.tres",
+	"res://resources/materials/lingote_acero_pavonado.tres", "res://resources/materials/lingote_acero_plegado.tres",
 	"res://resources/materials/lingote_cobre.tres", "res://resources/materials/lingote_cobre_profundo.tres",
 	"res://resources/materials/lingote_cobre_veteado.tres", "res://resources/materials/lingote_hierro.tres",
 	"res://resources/materials/lingote_hierro_negro.tres", "res://resources/materials/lingote_hierro_templado.tres",
 	"res://resources/materials/liquen_abisal.tres", "res://resources/materials/lubina_mazmorra.tres",
 	"res://resources/materials/madera_anillada.tres",
+	"res://resources/materials/madera_calcinada.tres",
 	"res://resources/materials/madera_comun.tres", "res://resources/materials/madera_de_veta.tres",
 	"res://resources/materials/madera_dura.tres", "res://resources/materials/madera_ferrea.tres",
+	"res://resources/materials/madera_latente.tres",
 	"res://resources/materials/madera_negra.tres", "res://resources/materials/madera_petrificada.tres",
-	"res://resources/materials/moho_simas.tres", "res://resources/materials/nucleo_aberracion.tres",
+	"res://resources/materials/moho_simas.tres", "res://resources/materials/musgo_ciego.tres",
+	"res://resources/materials/nucleo_aberracion.tres",
 	"res://resources/materials/nucleo_arana.tres", "res://resources/materials/nucleo_bestia.tres",
 	"res://resources/materials/nucleo_ciempies.tres", "res://resources/materials/nucleo_coloso.tres",
 	"res://resources/materials/nucleo_escarabajo.tres", "res://resources/materials/nucleo_fuego.tres",
@@ -6708,11 +6720,14 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/raiz_umbria.tres", "res://resources/materials/runa_arcilla.tres",
 	"res://resources/materials/sanguinaria.tres", "res://resources/materials/seta_simas.tres",
 	"res://resources/materials/tablon_anillada.tres",
+	"res://resources/materials/tablon_calcinada.tres",
 	"res://resources/materials/tablon_comun.tres", "res://resources/materials/tablon_de_veta.tres",
 	"res://resources/materials/tablon_duro.tres", "res://resources/materials/tablon_ferrea.tres",
+	"res://resources/materials/tablon_latente.tres",
 	"res://resources/materials/tablon_negro.tres", "res://resources/materials/tablon_petrificada.tres",
 	"res://resources/materials/tomate.tres", "res://resources/materials/tuberculo_palido.tres",
 	"res://resources/materials/veneno_insecto.tres", "res://resources/materials/zanahoria.tres",
+	"res://resources/materials/zarza_retorcida.tres",
 ]
 const _CARPETA_ENEMIGOS := "res://scenes/actors/enemy"
 const _MANIFIESTO_ENEMIGOS := [
@@ -7502,7 +7517,15 @@ const _FORJA_METALES: Array = [
 	["res://resources/materials/acero.tres",
 		"res://resources/materials/lingote_acero.tres",
 		"res://resources/materials/chapa_acero.tres",
-		"res://resources/materials/hebillas_acero.tres"],                    # T3
+		"res://resources/materials/hebillas_acero.tres"],                    # T3 base
+	["res://resources/materials/acero_plegado.tres",
+		"res://resources/materials/lingote_acero_plegado.tres",
+		"res://resources/materials/chapa_acero_plegado.tres",
+		"res://resources/materials/hebillas_acero.tres"],            # T3 +1
+	["res://resources/materials/acero_pavonado.tres",
+		"res://resources/materials/lingote_acero_pavonado.tres",
+		"res://resources/materials/chapa_acero_pavonado.tres",
+		"res://resources/materials/hebillas_acero.tres"],           # T3 +2
 ]
 const _CUERO_CRUDO := "res://resources/materials/cuero_simple.tres"
 const _CUERO_CURTIDO := "res://resources/materials/cuero_curtido.tres"
@@ -7555,7 +7578,9 @@ const _MADERAS: Array = [
 	"res://resources/materials/madera_dura.tres",          # T2 base
 	"res://resources/materials/madera_ferrea.tres",        # T2 +1
 	"res://resources/materials/madera_petrificada.tres",   # T2 +2
-	"res://resources/materials/madera_negra.tres",         # T3
+	"res://resources/materials/madera_negra.tres",         # T3 base
+	"res://resources/materials/madera_calcinada.tres",     # T3 +1
+	"res://resources/materials/madera_latente.tres",       # T3 +2
 ]
 # Los TABLONES, por tier, indexados igual que _MADERAS: la madera CRUDA se recolecta y se asierra
 # (carpintero) en el tablon del MISMO tier, que es lo que va de verdad al mango del arma.
@@ -7566,7 +7591,9 @@ const _TABLONES: Array = [
 	"res://resources/materials/tablon_duro.tres",           # T2 base
 	"res://resources/materials/tablon_ferrea.tres",         # T2 +1
 	"res://resources/materials/tablon_petrificada.tres",    # T2 +2
-	"res://resources/materials/tablon_negro.tres",          # T3
+	"res://resources/materials/tablon_negro.tres",          # T3 base
+	"res://resources/materials/tablon_calcinada.tres",      # T3 +1
+	"res://resources/materials/tablon_latente.tres",        # T3 +2
 ]
 
 # {mineral, lingote, chapa, hebillas} de cada metal (para los menus del herrero).
@@ -7997,7 +8024,9 @@ const _CARBONES: Array = [
 	"res://resources/materials/carbon_duro.tres",           # T2 base   (madera dura)
 	"res://resources/materials/carbon_ferreo.tres",         # T2 +1     (madera ferrea)
 	"res://resources/materials/carbon_petrificado.tres",    # T2 +2     (madera petrificada)
-	"res://resources/materials/carbon_negro.tres",          # T3        (madera negra)
+	"res://resources/materials/carbon_negro.tres",          # T3 base   (madera negra)
+	"res://resources/materials/carbon_calcinada.tres",      # T3 +1     (madera calcinada)
+	"res://resources/materials/carbon_latente.tres",        # T3 +2     (madera latente)
 ]
 
 func carbones_forja() -> Array:

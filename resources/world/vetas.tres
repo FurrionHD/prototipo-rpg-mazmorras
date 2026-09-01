@@ -9,6 +9,8 @@
 [ext_resource type="Resource" path="res://resources/materials/hierro_templado.tres" id="7_hierro1"]
 [ext_resource type="Resource" path="res://resources/materials/hierro_negro.tres" id="8_hierro2"]
 [ext_resource type="Resource" path="res://resources/materials/acero.tres" id="9_acero"]
+[ext_resource type="Resource" path="res://resources/materials/acero_plegado.tres" id="10_acero1"]
+[ext_resource type="Resource" path="res://resources/materials/acero_pavonado.tres" id="11_acero2"]
 
 [sub_resource type="Resource" id="E_cobre"]
 script = ExtResource("2_entrada")
@@ -58,10 +60,28 @@ piso_pleno = 12
 [sub_resource type="Resource" id="E_acero"]
 script = ExtResource("2_entrada")
 material = ExtResource("9_acero")
-peso = 12.0
+peso = 100.0
+peso_pleno = 8.0
+piso_debut = 13
+piso_pleno = 18
+
+[sub_resource type="Resource" id="E_acero1"]
+script = ExtResource("2_entrada")
+material = ExtResource("10_acero1")
+peso_pleno = 48.0
+piso_debut = 14
+piso_pleno = 16
+
+[sub_resource type="Resource" id="E_acero2"]
+script = ExtResource("2_entrada")
+material = ExtResource("11_acero2")
+peso = 11.0
+peso_pleno = 55.0
+piso_debut = 16
+piso_pleno = 18
 
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Vetas"
-entradas = Array[ExtResource("2_entrada")]([SubResource("E_cobre"), SubResource("E_cobre1"), SubResource("E_cobre2"), SubResource("E_hierro"), SubResource("E_hierro1"), SubResource("E_hierro2"), SubResource("E_acero")])
+entradas = Array[ExtResource("2_entrada")]([SubResource("E_cobre"), SubResource("E_cobre1"), SubResource("E_cobre2"), SubResource("E_hierro"), SubResource("E_hierro1"), SubResource("E_hierro2"), SubResource("E_acero"), SubResource("E_acero1"), SubResource("E_acero2")])
 metadata/_custom_type_script = "res://scripts/world/material_table.gd"
