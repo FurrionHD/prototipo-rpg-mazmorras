@@ -62,6 +62,10 @@ static var GENERADORES_POR_NOMBRE := {
 	# contra hocico romo. Por familia le habria tocado salir con forma de jabali.
 	&"acechador": AcechadorSprites,
 	&"trent": TrentSprites,
+	# Y la Aberracion, que es el otro caso de familia NINGUNA: la comparte con el Trent, o sea con un
+	# ARBOL. Ahi ni siquiera hay una familia mal elegida que aprovechar -- NINGUNA quiere decir
+	# literalmente que no se parece a nada, asi que por fuerza va por nombre.
+	&"aberracion": AberracionSprites,
 	&"arana": AranaSprites,
 	&"escarabajo": EscarabajoSprites,
 	&"ciempies": CiempiesSprites,
