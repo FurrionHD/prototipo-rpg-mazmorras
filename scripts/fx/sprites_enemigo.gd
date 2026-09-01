@@ -67,10 +67,16 @@ static var GENERADORES_POR_NOMBRE := {
 	&"ciempies": CiempiesSprites,
 	# LOS CONSTRUCTOS, IGUAL: golem, gargola y coloso son los tres familia PIEDRA -- y tambien lo es
 	# la Bestia acorazada --, asi que por familia les tocaria a los cuatro el MISMO dibujo. Y un
-	# pegote de barro, una estatua con alas y una torre andante no se parecen en nada.
+	# pegote de barro, una estatua con alas y una mole labrada no se parecen en nada.
 	&"golem": GolemSprites,
 	&"gargola": GargolaSprites,
 	&"coloso": ColosoSprites,
+	# Y LA BESTIA ACORAZADA ES EL CASO MAS EXTREMO DE TODA ESTA LISTA: comparte la familia PIEDRA con
+	# los tres de arriba y NO ES DE PIEDRA. Lo que suelta al morir lo dice -- cuero, carne y un nucleo
+	# de BESTIA --, asi que se dibuja como un animal blindado, con el esqueleto de cuadrupedo del
+	# jabali y del acechador y con la carne a la vista bajo el caparazon. Por familia le habria tocado
+	# salir hecha de granito.
+	&"bestia_acorazada": BestiaAcorazadaSprites,
 }
 
 
