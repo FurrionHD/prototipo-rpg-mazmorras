@@ -367,6 +367,54 @@ static func describir(sf: SpriteFrames) -> Dictionary:
 	return {"w": w, "h": h, "anims": anims}
 
 
+# LO QUE SE HA ESCRITO EN ESTA PASADA DEL HORNO, por ruta. Lo lleva 'hornear' y lo consume
+# 'limpiar_huerfanos': ver alli por que hace falta.
+static var _escritos: Dictionary = {}
+
+
+# BORRA DE ESTAS CARPETAS TODO LO QUE ESTA PASADA NO HAYA ESCRITO. Devuelve cuantos ficheros ha
+# quitado.
+#
+# EXISTE PORQUE EL HORNO NUNCA BORRABA, y eso deja basura para siempre: la clave de un horneado
+# lleva dentro el COLOR y la ESCALA del bicho (ver 'clave_de'), asi que en cuanto se toca cualquiera
+# de los dos, el fichero pasa a llamarse de otra forma y el viejo se queda en disco -- y en el repo
+# -- sin que nada pueda cargarlo nunca mas. Se encontro asi: al subir el Rey Slime de escala 2,60 a
+# 2,80 quedaron 9 ficheros huerfanos (440 KB) commiteados durante dos dias. Con cada retoque de
+# tamaño o de color habria mas.
+#
+# SOLO LIMPIA LAS CARPETAS QUE HAN RECIBIDO ALGO en esta pasada. Es la guarda que impide que un
+# horneado parcial (o uno que aborte a la mitad) se lleve por delante lo que no ha llegado a
+# regenerar.
+static func limpiar_huerfanos(carpetas: Array) -> int:
+	var fuera: int = 0
+	for c in carpetas:
+		var carpeta: String = String(c)
+		var toco: bool = false
+		for r in _escritos:
+			if String(r).begins_with(carpeta):
+				toco = true
+				break
+		if not toco:
+			continue
+		var d := DirAccess.open(carpeta)
+		if d == null:
+			continue
+		for f in d.get_files():
+			# El .import lo regenera Godot solo, asi que se va detras de su png y no se mira aparte.
+			if not (f.ends_with(".png") or f.ends_with(".json")):
+				continue
+			if _escritos.has(carpeta + f):
+				continue
+			print("     -- sobra y se borra: %s" % f)
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(carpeta + f))
+			if f.ends_with(".png"):
+				var imp: String = ProjectSettings.globalize_path(carpeta + f + ".import")
+				if FileAccess.file_exists(imp):
+					DirAccess.remove_absolute(imp)
+			fuera += 1
+	return fuera
+
+
 # Escribe el par .png + .json de una variante ya generada. Devuelve los bytes del png, o 0 si falla.
 static func hornear(sf: SpriteFrames, clave: String, carpeta: String = CARPETA_HORNO) -> int:
 	# El PRIMER fotograma real (un AtlasTexture): solo hace falta para llegar a 'at.atlas', la hoja
@@ -393,6 +441,10 @@ static func hornear(sf: SpriteFrames, clave: String, carpeta: String = CARPETA_H
 		return 0
 	f.store_string(JSON.stringify(describir(sf)))
 	f.close()
+	# Apuntado como ESCRITO EN ESTA PASADA, para que 'limpiar_huerfanos' sepa distinguir lo que se
+	# acaba de generar de lo que sobro de una escala o un color anteriores.
+	_escritos[png] = true
+	_escritos[carpeta + clave + ".json"] = true
 	var g := FileAccess.open(png, FileAccess.READ)
 	var n: int = g.get_length() if g != null else 0
 	if g != null:

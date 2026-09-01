@@ -84,6 +84,17 @@ func _ready() -> void:
 	_hornear_recolectables()
 	_hornear_props()
 	_hornear_jugador()
+
+	# Y LO ULTIMO, TIRAR LO QUE YA NO SE GENERA. La clave de un horneado lleva dentro el color y la
+	# escala del bicho, asi que tocar cualquiera de los dos lo renombra y deja el anterior en disco
+	# para siempre: sin esto, cada retoque de tamaño deja basura commiteada (ver
+	# SpriteLienzo.limpiar_huerfanos).
+	var fuera: int = SpriteLienzo.limpiar_huerfanos([
+		SpriteLienzo.CARPETA_HORNO, CapaJugador.CARPETA, TerrenoSprites.CARPETA,
+		RecolectableSprites.CARPETA, PropSprites.CARPETA])
+	if fuera > 0:
+		print("")
+		print("  Se han borrado %d ficheros que ya no genera nadie." % fuera)
 	get_tree().quit()
 
 
