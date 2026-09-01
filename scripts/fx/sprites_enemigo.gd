@@ -81,6 +81,12 @@ static var GENERADORES_POR_NOMBRE := {
 	# jabali y del acechador y con la carne a la vista bajo el caparazon. Por familia le habria tocado
 	# salir hecha de granito.
 	&"bestia_acorazada": BestiaAcorazadaSprites,
+	# EL MINOTAURO es el unico de familia HUMANOIDE, asi que podria ir por familia -- pero va por
+	# nombre igual, y a proposito: el dia que haya un segundo humanoide (un bandido, un gigante, lo
+	# que sea) no se va a parecer a el en nada, y entonces habria que mover esta linea de sitio
+	# justo cuando lo que se esta haciendo es otra cosa. Una familia con un solo miembro es una
+	# coincidencia, no una regla.
+	&"minotauro": MinotauroSprites,
 }
 
 
