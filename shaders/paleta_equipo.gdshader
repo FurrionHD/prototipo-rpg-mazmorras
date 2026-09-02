@@ -58,16 +58,31 @@ uniform float metal : hint_range(0.0, 1.0) = 0.0;
 // que canse.
 uniform float espera : hint_range(1.0, 60.0) = 15.0;
 uniform float vaiven : hint_range(0.0, 30.0) = 5.0;
-// Lo que tarda la linea en cruzar la pieza. Corto: es un reflejo, no un foco.
-uniform float barrido : hint_range(0.1, 3.0) = 0.9;
+// Lo que tarda la linea en hacer TODO su recorrido.
+//
+// OJO: NO ES LO QUE DURA EL DESTELLO QUE SE VE. La linea entra y sale por fuera de la pieza, asi que
+// parte de este tiempo se lo lleva el aire de los lados; lo que se ve es la fraccion que cae encima
+// de la armadura, y eso lo decide 'recorrido'. Con 0,9 y un recorrido de 55, el barrido visible se
+// quedaba en tres decimas de segundo -- pasaba de refilon.
+//
+// Y EL NUMERO ESTA MEDIDO, NO CALCULADO. Se estimo primero sobre el papel (contando que un peto ocupa
+// unos 27 px de diagonal) y salia mas del doble de lo que luego se veia: capturando cada 0,12 s, con
+// 1,6 el destello aparecia en cinco capturas, o sea 0,6 s. La cuenta a mano no sirve porque la pieza
+// no es un cuadrado lleno -- es una silueta con hombros y hueco -- y la linea la roza antes de
+// cruzarla de verdad. Con 2,6 se pone en el segundo largo que se buscaba.
+uniform float barrido : hint_range(0.1, 6.0) = 2.6;
 // CUANTO CAMINO RECORRE la linea, en pixeles de la pieza, contando de un lado al otro.
 //
-// TIENE QUE PARECERSE AL TAMAÑO DE LA PIEZA. Al principio iba de -100 a +100 "para cubrir de sobra"
-// el fotograma de 84, y lo que pasaba es que un peto ocupa unos 27 px de esa diagonal: la linea se
-// pasaba el 85% del barrido volando por fuera de la armadura y solo se veia una decima de segundo.
-// Un destello que dura un fotograma es un parpadeo, no un reflejo. Con 55 la linea entra por fuera,
-// cruza despacio y sale por fuera, que es lo que se quiere ver.
-uniform float recorrido : hint_range(10.0, 200.0) = 55.0;
+// TIENE QUE PARECERSE AL TAMAÑO DE LA PIEZA, y es la mitad de lo que dura el destello. Al principio
+// iba de -100 a +100 "para cubrir de sobra" el fotograma de 84, y un peto ocupa unos 27 px de esa
+// diagonal: la linea se pasaba el 85% del barrido volando por fuera de la armadura y se veia una
+// decima de segundo. Un destello que dura un fotograma es un parpadeo, no un reflejo.
+//
+// EL SUELO ES 34 Y NO SE PUEDE BAJAR DE AHI: la linea tiene que ARRANCAR fuera de la pieza (27 de
+// media diagonal mas los 7 de grosor). Por debajo aparece ya encendida en mitad de la armadura, que
+// se lee como un fogonazo y no como algo que cruza. Con 38 hay margen justo y el 89% del recorrido
+// cae sobre la pieza.
+uniform float recorrido : hint_range(10.0, 200.0) = 38.0;
 // Lo gorda que es la linea, en pixeles de la pieza.
 uniform float grosor : hint_range(1.0, 40.0) = 7.0;
 // Cuanto se separa la luz de la sombra al volverse metalico.
