@@ -259,6 +259,8 @@ static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false,
 	_montar_walk(anims, corona, esc)
 	_montar_embestida(anims, corona, esc)
 	_montar_inflar(anims, corona, esc)
+	_montar_ignicion(anims, corona, esc)
+	_montar_brote(anims, corona, esc)
 	_montar_encaje(anims, corona, esc)
 	_montar_muerte(anims, corona, esc)
 	_montar_cadaver(anims, corona, esc)
@@ -320,6 +322,68 @@ static func _montar_inflar(anims: Array, corona: bool, esc: float) -> void:
 			"avance": 0.0,   # no se mueve: coge aire en el sitio
 			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
 	_montar_animacion(anims, corona, esc, "inflar", false, 9.0, pose, true)
+
+
+# LA IGNICION del slime de fuego: se pone al rojo. No toca a nadie -- es un buff sobre si mismo --
+# asi que el cuerpo no puede ir a ningun sitio.
+#
+# HASTA AHORA REPRODUCIA LA EMBESTIDA, o sea que el slime se abalanzaba sobre ti para PRENDERSE
+# FUEGO A SI MISMO. Su efecto (el aura, que se queda en su tarjeta latiendo) se mantiene: eso es lo
+# que dice que se ha encendido. Lo que sobraba era el placaje.
+#
+# UN SLIME TIENE DOS PALANCAS Y NADA MAS -- 'squash' y 'bote' --, asi que el gesto no puede salir de
+# la forma: sale del RITMO. Aqui late DEPRISA y sin descanso (cambia de sentido en cada fotograma) y
+# eso, al lado del vaiven lento y limpio del idle, se lee como algo que hierve. Y va CRECIENDO: cada
+# pico es mas alto que el anterior, que es lo que lo separa de un temblor y lo convierte en algo que
+# se esta cargando.
+static func _montar_ignicion(anims: Array, corona: bool, esc: float) -> void:
+	# Alterna en CADA fotograma, que es la unica manera de que ocho marcos parezcan deprisa. Un seno
+	# de tres ciclos daria lo mismo sobre el papel y en la rejilla de ocho sale un solape feo (ver la
+	# regla de las claves en los tiempos de los fotogramas).
+	var squash_keys := [[0.0, 1.0], [0.143, 0.90], [0.286, 1.14], [0.429, 0.88], [0.571, 1.20],
+		[0.714, 0.90], [0.857, 1.16], [1.0, 1.06]]
+	var bote_keys := [[0.0, 0.0], [0.143, -0.10], [0.286, 0.16], [0.429, -0.08], [0.571, 0.22],
+		[0.714, 0.0], [0.857, 0.18], [1.0, 0.08]]
+	var pose := func(t: float) -> Dictionary:
+		return {"squash": SpriteLienzo.tramos(t, squash_keys),
+			"avance": 0.0,
+			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente. Y ademas esto lo monta
+	# TODO slime (el generador es comun), asi que ocho direcciones serian ocho veces el coste para
+	# seis bichos que ni siquiera tienen la habilidad.
+	_montar_animacion(anims, corona, esc, "ignicion", false, 12.0, pose, true, 1, 8)
+
+
+# EL BROTE del Rey Slime: se estira hacia arriba y SE DESPLOMA, expulsando a las crias.
+#
+# HASTA AHORA NO TENIA NI EFECTO NI ANIMACION: su .tres es el unico del juego sin 'fx_estilo', asi
+# que caia al fx_basico del Rey Slime, que es PLACAJE -- o sea que el jefe hacia un placaje entero,
+# con su dibujo y todo, para invocar. Aqui se le da la animacion; el efecto se le pone en el .tres.
+#
+# ES EL REVES DE 'inflar', y esa es toda la idea. El Aplastamiento coge aire hacia ABAJO (squash a
+# 0,68: se achata para saltar) y aqui se estira hacia ARRIBA y se deja caer. Las dos usan las mismas
+# dos palancas, asi que si el reparto no fuera opuesto se leerian igual.
+#
+# EL TOPE LO PONE EL LIENZO DEL REY, y esta MEDIDO: 'squash' 1,40 con 'bote' 0,60 sacaba el fotograma
+# 3 fuera del lienzo -- pero SOLO en la variante con corona, porque el Rey es el mas grande de los
+# seis y el lienzo se le queda mas justo. El aviso del horno lo canta ("se sale del lienzo"), y por
+# eso los numeros de aqui no pasan de los del 'inflar' (1,32 de estiron y 0,35 de bote), que es la
+# pose mas alta que ya se sabe que cabe.
+#
+# Y ademas conviene por dibujo: el cuerpo se ensancha como 1/sqrt(squash), asi que estirarse lo
+# ADELGAZA, y pasado ese punto el Rey Slime se convierte en un huso y deja de leerse como una gota.
+static func _montar_brote(anims: Array, corona: bool, esc: float) -> void:
+	var squash_keys := [[0.0, 1.0], [0.143, 0.90], [0.286, 1.22], [0.429, 1.32], [0.571, 0.74],
+		[0.714, 0.90], [0.857, 1.08], [1.0, 1.0]]
+	# Se eleva con el estiron y toca fondo al expulsar: el golpe contra el suelo es lo que echa fuera
+	# a las crias.
+	var bote_keys := [[0.0, 0.0], [0.143, -0.20], [0.286, 0.24], [0.429, 0.35], [0.571, -0.15],
+		[0.714, 0.05], [0.857, 0.12], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"squash": SpriteLienzo.tramos(t, squash_keys),
+			"avance": 0.0,
+			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
+	_montar_animacion(anims, corona, esc, "brote", false, 10.0, pose, true, 1, 8)
 
 
 # MORIRSE: SE DERRITE EN UN CHARCO. Ocho fotogramas en UNA sola direccion -- la muerte solo se ve

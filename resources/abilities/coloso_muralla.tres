@@ -15,5 +15,6 @@ descripcion = "Junta los brazos, hunde los pies en la roca y se planta como un m
 coste_energia = 0.0
 dano_mult = 0.0
 efectos = [SubResource("SA_fort")]
+fx_anim = &"muralla"
 fx_estilo = 26
 cooldown = 5

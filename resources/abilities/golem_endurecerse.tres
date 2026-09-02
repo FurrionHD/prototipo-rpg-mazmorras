@@ -15,5 +15,15 @@ descripcion = "La arcilla se le cuece por dentro hasta quedar como piedra cocida
 coste_energia = 0.0
 dano_mult = 0.0
 efectos = [SubResource("SA_fort")]
-fx_estilo = 27
+# QUIETO (0) Y NO AUTO. Es la contrapartida de haber puesto fx_estilo = 0: AUTO da un paso adelante
+# "si el estilo es cuerpo a cuerpo", y MELEE lo es -- estaria deshaciendo justo lo que se busca, que
+# la tarjeta deje de lanzarse por un buff que no toca a nadie. Con el estilo anterior no hacia falta
+# porque aquel no estaba en _CUERPO_A_CUERPO y AUTO ya lo dejaba quieto.
+gesto = 0
+fx_anim = &"endurecerse"
+# SIN EFECTO DIBUJADO. 0 es MELEE, cuyo tiempo de vuelo es 0.0, y un estilo a 0.0 no llega a darse
+# de alta (ver CombatFX: "CERO SIGNIFICA NO SE DIBUJA NADA"). Ojo: -1 NO vale, cae al fx_basico del
+# bicho. El efecto ESCUDO pintaba la arcilla acartonandose ENCIMA del golem y ahora eso lo hace el
+# cuerpo: dibujarlo ademas seria contar la misma cosa dos veces.
+fx_estilo = 0
 cooldown = 5

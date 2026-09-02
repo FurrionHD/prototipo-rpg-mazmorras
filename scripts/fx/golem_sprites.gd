@@ -339,6 +339,7 @@ static func generar(color: Color = Color(0.6, 0.45, 0.3), escala: float = 1.0) -
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_endurecerse(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -410,10 +411,54 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 		p["mece"] = SpriteLienzo.tramos(t, mece_keys)
 		p["avance"] = SpriteLienzo.tramos(t, avance_keys) * (LUNGE_DIST / 4.6)
 		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
-		# Mira el golpe: al descargar baja la cabeza.
+		# Mira el golpe: al descargar baja la cabeza. (sigue abajo)
 		p["cabeza"] = maxf(0.0, SpriteLienzo.tramos(t, alza_keys) * -0.6)
 		return p
 	_montar_animacion(anims, esc, "embestida", false, 10.0, pose, true)
+
+
+# ENDURECERSE: se APELMAZA. Recoge los puños contra el pecho, hunde la cabeza y se comprime sobre las
+# piernas, y ahi se queda hecho un bloque.
+#
+# HASTA AHORA REPRODUCIA LA MACHACA, o sea que el golem alzaba los dos puños por encima de la cabeza
+# y los estampaba contra el suelo... para ponerse un buff que no toca a nadie.
+#
+# Y ES LA UNICA DE LAS SIETE QUE TIENE QUE CONTARLO ELLA SOLA, porque a esta se le QUITA el efecto
+# dibujado (fx_estilo 0 en su .tres). El efecto ESCUDO pintaba "la propia arcilla que se acartona"
+# encima del golem: con el cuerpo haciendo ya eso mismo, es contar la misma cosa dos veces. Asi que
+# aqui la pose no puede ser sutil -- tiene que verse desde la otra punta de la pantalla que el bicho
+# se ha vuelto un pedrusco.
+#
+# LO QUE LO CUENTA ES LA PROPORCION, no el gesto. De frente, unos puños que se meten hacia el pecho
+# recorren cuatro pixeles; lo que si se ve es que el bicho se APLASTE Y SE ENSANCHE, y eso ya lo hace
+# 'agacha' (baja un 16% y ensancha un 5%). Llevandolo a 1,0 y dejandolo ahi, la silueta pasa de
+# pegote alto a pedrusco chato, que es exactamente lo que dice la habilidad.
+static func _montar_endurecerse(anims: Array, esc: float) -> void:
+	# Coge aire estirandose un pelin y SE DESPLOMA sobre si mismo. Sin el pico de 0,143 en negativo,
+	# comprimirse no tiene de donde salir y parece que se va desinflando.
+	var agacha_keys := [[0.0, 0.0], [0.143, -0.20], [0.286, 0.55], [0.429, 0.90], [0.571, 1.0],
+		[0.714, 1.0], [0.857, 0.96], [1.0, 0.92]]
+	# Los puños suben un poco y se recogen. NO pasan de 0,45: por ahi arriba ya es la Machaca, y estas
+	# dos animaciones no se pueden parecer. Y en el golem 'alza' bajo ademas CIERRA el codo (el codo va
+	# por 1-alza), asi que quedarse bajo es justo lo que mete los brazos hacia el cuerpo.
+	var alza_keys := [[0.0, 0.0], [0.143, 0.30], [0.286, 0.45], [0.429, 0.34], [0.571, 0.26],
+		[0.714, 0.26], [0.857, 0.26], [1.0, 0.24]]
+	# La cabeza se hunde entre los hombros hasta casi desaparecer.
+	var cabeza_keys := [[0.0, 0.0], [0.143, -0.2], [0.286, 0.5], [0.429, 0.9], [0.571, 1.1],
+		[0.714, 1.1], [0.857, 1.0], [1.0, 0.95]]
+	# Un temblor corto al apelmazarse y luego QUIETO: lo que dice que ha cuajado es que deje de
+	# moverse. Se apaga del todo a partir de 0,571.
+	var mece_keys := [[0.0, 0.0], [0.143, -0.7], [0.286, 0.9], [0.429, -0.4], [0.571, 0.0],
+		[0.714, 0.0], [0.857, 0.0], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["alza"] = SpriteLienzo.tramos(t, alza_keys)
+		p["cabeza"] = SpriteLienzo.tramos(t, cabeza_keys)
+		p["mece"] = SpriteLienzo.tramos(t, mece_keys)
+		return p
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
+	_montar_animacion(anims, esc, "endurecerse", false, 9.0, pose, true, 1, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA direccion y EMPEZANDO YA GOLPEADO: el frame 0 es el

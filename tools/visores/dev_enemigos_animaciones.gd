@@ -31,8 +31,49 @@ const DIR_ENEMIGOS := "res://scenes/actors/enemy"
 # de este visor. Se meten porque son las que mas falta hace mirar y las que menos se ven jugando: la
 # muerte pasa una vez, deprisa y en mitad de un combate, y el cadaver solo aparece si vuelves a una
 # sala. Este es el unico sitio donde se pueden juzgar.
-const ANIMS := ["idle", "walk", "embestida", "cornada", "pisoton", "bramido", "inflar", "raices",
-	"encaje", "muerte", "cadaver"]
+#
+# SE SACA DE LOS PROPIOS BICHOS Y YA NO SE MANTIENE A MANO. Estaba escrita aqui, y una lista escrita
+# a mano en la herramienta de mirar es la peor de todas: cuando alguien añade una animacion a un
+# generador, el sitio donde iria a comprobar que ha quedado bien es JUSTAMENTE el que no la conoce --
+# el bicho la tiene, el juego la reproduce, y el visor la esconde. Ya paso con las tres del
+# Minotauro, y quedan diez por delante.
+#
+# El ORDEN de ORDEN_BASE es el que importa (idle y walk primero, muerte y cadaver al final); lo que
+# aparezca en algun bicho y no este ahi se añade detras, ordenado, para que un nombre nuevo salga
+# solo el dia que se cree.
+const ORDEN_BASE := ["idle", "walk", "embestida", "encaje", "muerte", "cadaver"]
+var ANIMS: Array = []
+
+
+# Recorre todos los enemigos y junta los nombres de sus animaciones, sin la direccion (el "_3" del
+# final). Se llama una vez, al arrancar.
+func _censar_anims() -> void:
+	var vistas: Dictionary = {}
+	for ed in _lista:
+		var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5)
+		if frames == null:
+			continue
+		for a in frames.get_animation_names():
+			# "embestida_3" -> "embestida". Se corta por el ULTIMO guion bajo y solo si lo que hay
+			# detras es un numero: si no, un nombre con guion bajo dentro se quedaria a medias.
+			var n: String = String(a)
+			var i: int = n.rfind("_")
+			if i > 0 and n.substr(i + 1).is_valid_int():
+				n = n.substr(0, i)
+			vistas[n] = true
+	var extra: Array = []
+	for n in vistas:
+		if not ORDEN_BASE.has(n):
+			extra.append(n)
+	extra.sort()
+	ANIMS = []
+	# Las de siempre en su orden, pero solo las que exista alguien que las tenga.
+	for n in ORDEN_BASE:
+		if vistas.has(n):
+			ANIMS.append(n)
+	ANIMS.append_array(extra)
+	if ANIMS.is_empty():
+		ANIMS = ORDEN_BASE.duplicate()
 
 # Lo que espera antes de repetir una animacion que NO es ciclica (embestida, encaje, muerte...).
 # Sin esto se quedan clavadas en su ultimo fotograma y hay que cambiar de animacion y volver para
@@ -73,6 +114,7 @@ func _ready() -> void:
 		push_error("[visor animaciones] no he encontrado ningun EnemyData en %s" % DIR_ENEMIGOS)
 		get_tree().quit()
 		return
+	_censar_anims()
 
 	var fondo := ColorRect.new()
 	fondo.size = Vector2(1280, 720)

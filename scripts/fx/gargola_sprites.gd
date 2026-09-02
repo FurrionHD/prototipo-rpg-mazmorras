@@ -281,6 +281,7 @@ static func generar(color: Color = Color(0.4, 0.42, 0.45), escala: float = 1.0) 
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_mirada(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -360,6 +361,46 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 		p["cola"] = -0.8 * SpriteLienzo.tramos(t, vuela_keys) / 2.6
 		return p
 	_montar_animacion(anims, esc, "embestida", false, 12.0, pose, true)
+
+
+# LA MIRADA PETREA: se yergue, despliega las alas y SE QUEDA CLAVADA mirandote.
+#
+# ES LO CONTRARIO DE SU PICADO, y ese contraste es todo lo que hay que acertar. Hasta ahora esta
+# habilidad reproducia la embestida, o sea que la gargola DESPEGABA, se elevaba y se dejaba caer
+# encima... para mirarte fijamente y no tocarte. Aqui NO hay 'vuela' ni 'avance': las patas no se
+# despegan del suelo en ningun fotograma.
+#
+# LO QUE SE LEE DESDE EL SUR ES LA ENVERGADURA. De frente, un cuello que se adelanta esta escorzado y
+# no recorre nada; lo que si se ve es que el bicho se ENSANCHE de golpe, asi que el gesto lo cuentan
+# las alas abriendose (a lo ancho) y el cuerpo irguiendose (a lo alto). 0,70 de 'abre' y no 1,0: del
+# todo es la pose del picado, y esta no puede confundirse con aquella.
+#
+# Y SE QUEDA QUIETA EN MEDIO (0,571 a 0,714 con los mismos valores). La quietud es el gesto: un bicho
+# que te petrifica con la vista no se agita, se PARA -- y dos fotogramas identicos seguidos, en una
+# tira donde todo lo demas se mueve, se leen como que se ha detenido.
+static func _montar_mirada(anims: Array, esc: float) -> void:
+	# Un tanteo corto de cabeza al principio y luego se centra: es "te ha encontrado".
+	var cabeza_keys := [[0.0, 0.10], [0.143, 0.38], [0.286, 0.16], [0.429, 0.0], [0.571, 0.0],
+		[0.714, 0.0], [0.857, 0.05], [1.0, 0.10]]
+	# Se agazapa un instante antes de erguirse: sin ese valle, estirarse no tiene de donde salir.
+	var agacha_keys := [[0.0, 0.0], [0.143, 0.16], [0.286, -0.10], [0.429, -0.20], [0.571, -0.24],
+		[0.714, -0.22], [0.857, -0.10], [1.0, 0.0]]
+	var abre_keys := [[0.0, 0.10], [0.143, 0.06], [0.286, 0.40], [0.429, 0.62], [0.571, 0.70],
+		[0.714, 0.70], [0.857, 0.42], [1.0, 0.14]]
+	# La cola TIESA y levantada, no ondulando: en el idle se mueve despacio, y aqui pararla es parte
+	# de que el bicho entero se haya quedado rigido.
+	var cola_keys := [[0.0, 0.30], [0.143, 0.10], [0.286, -0.45], [0.429, -0.70], [0.571, -0.75],
+		[0.714, -0.75], [0.857, -0.40], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["cabeza"] = SpriteLienzo.tramos(t, cabeza_keys)
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["abre"] = SpriteLienzo.tramos(t, abre_keys)
+		p["cola"] = SpriteLienzo.tramos(t, cola_keys)
+		return p
+	# UNA SOLA DIRECCION: solo se ve en la pantalla de combate, y ahi se le mira de frente. El combate
+	# cae a "mirada_0" cuando la direccion que toca no existe (ver combat.gd:_on_gesto_iniciado).
+	_montar_animacion(anims, esc, "mirada", false, 8.0, pose, true, 1, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA direccion y EMPEZANDO YA GOLPEADA: el frame 0 es el

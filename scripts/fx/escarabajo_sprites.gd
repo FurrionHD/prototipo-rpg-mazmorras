@@ -170,6 +170,7 @@ static func generar(color: Color = Color(0.30, 0.40, 0.28), escala: float = 1.0)
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_caparazon(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -212,6 +213,48 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 			"estira": 1.0, "fase": 0.0, "paso": 0.0,
 			"agacha": SpriteLienzo.tramos(t, agacha_keys), "antena": 0.0, "tumba": 0.0}
 	_montar_animacion(anims, esc, "embestida", false, 10.0, pose, true)
+
+
+# EL CAPARAZON: mete las patas y la cabeza y se aplasta contra el suelo. Una chapa, y nada mas.
+#
+# HASTA AHORA REPRODUCIA LA EMBESTIDA, o sea que el escarabajo se agachaba y ARRASTRABA su peso
+# hacia delante para empujar con la pala... y no tocaba a nadie. Un ataque entero por un buff.
+#
+# NO HAY QUE INVENTAR NADA: las dos palancas que hacen falta ya existen y las puso la MUERTE.
+#   'encoge' repliega las patas hacia el cuerpo, y de paso (ver 'de_cara' en _piezas) le quita la
+#           cara en cuanto pasa de 0,5 -- que es exactamente "meter la cabeza".
+#   'agacha' aplasta el domo contra el suelo: baja un 26% y ensancha un 6%.
+# Es lo que suele pasar cuando una animacion nueva describe algo que el bicho YA sabe hacer por
+# otro motivo.
+#
+# Y A ESTA SE LE QUITA EL EFECTO DIBUJADO (fx_estilo 0 en su .tres). El efecto CAPARAZON pintaba
+# "el escarabajo visto DESDE ARRIBA cerrandose", o sea un segundo escarabajo encima del escarabajo:
+# con el bicho cerrandose de verdad, sobra. Asi que la pose tiene que contarlo ella sola, y por eso
+# 'encoge' y 'agacha' van los dos a TOPE y se quedan ahi -- la silueta pasa de bicho con patas a
+# PIEDRA LISA, que es lo que hay que leer desde lejos.
+static func _montar_caparazon(anims: Array, esc: float) -> void:
+	# Se alza un pelin (0,143 en negativo) antes de dejarse caer: sin ese respingo, cerrarse parece
+	# que se desinfla.
+	var agacha_keys := [[0.0, 0.0], [0.143, -0.12], [0.286, 0.55], [0.429, 0.88], [0.571, 1.0],
+		[0.714, 1.0], [0.857, 1.0], [1.0, 0.96]]
+	# Las patas se recogen un poco DESPUES de que empiece a bajar: primero se deja caer y luego se
+	# cierra. A la vez, las dos cosas se pisan y no se lee ninguna.
+	var encoge_keys := [[0.0, 0.0], [0.143, 0.0], [0.286, 0.30], [0.429, 0.75], [0.571, 1.0],
+		[0.714, 1.0], [0.857, 1.0], [1.0, 0.94]]
+	# Y se acorta a lo largo: un bicho que se cierra ocupa menos, no solo mas bajo.
+	var estira_keys := [[0.0, 1.0], [0.143, 1.02], [0.286, 0.95], [0.429, 0.90], [0.571, 0.88],
+		[0.714, 0.88], [0.857, 0.88], [1.0, 0.89]]
+	# Las antenas se guardan las primeras, que es lo que hace un bicho antes de cerrarse.
+	var antena_keys := [[0.0, 0.6], [0.143, 0.2], [0.286, 0.0], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": 0.0, "estira": SpriteLienzo.tramos(t, estira_keys),
+			"fase": 0.0, "paso": 0.0,
+			"agacha": SpriteLienzo.tramos(t, agacha_keys),
+			"antena": SpriteLienzo.tramos(t, antena_keys), "tumba": 0.0,
+			"encoge": SpriteLienzo.tramos(t, encoge_keys)}
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente. El combate cae a
+	# "caparazon_0" cuando la direccion que toca no existe.
+	_montar_animacion(anims, esc, "caparazon", false, 9.0, pose, true, 1, FRAMES)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y

@@ -178,6 +178,7 @@ static func generar(color: Color = Color(0.45, 0.2, 0.5), escala: float = 1.0) -
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_alarido(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -252,6 +253,44 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 		p["aplasta"] = 0.20 * maxf(0.0, -SpriteLienzo.tramos(t, azota_keys))
 		return p
 	_montar_animacion(anims, esc, "embestida", false, 12.0, pose, true)
+
+
+# EL ALARIDO DEMENTE: abre las fauces DEL TODO, se hincha y grita. No pega a nadie -- es un estado --
+# asi que el cuerpo no puede ir a ningun sitio.
+#
+# HASTA AHORA REPRODUCIA EL LATIGAZO, o sea que sacaba los tentaculos disparados y se abalanzaba un
+# palmo... para soltar un grito que no toca. Su efecto (los anillos que barren la fila) SE MANTIENE:
+# eso es el grito viajando, no es el cuerpo. Lo que sobraba era que el cuerpo atacara.
+#
+# LA BOCA ES TODO EL GESTO Y POR ESO SE LLEVA EL DOBLE DE RECORRIDO QUE EN EL LATIGAZO: alli sube a
+# 1,0 de pasada, en el mismo fotograma que salen los tentaculos y compartiendo la atencion con ellos;
+# aqui llega a 1,0 y SE QUEDA abierta tres fotogramas. Es la diferencia entre abrir la boca al pegar
+# y GRITAR.
+#
+# Y SE HINCHA EN VEZ DE ENCOGERSE. En el latigazo 'palpita' baja a -1,4 primero (recoge para soltar);
+# aqui no hay nada que soltar, asi que va directo hacia arriba y se queda inflada: lo que se ve desde
+# el sur es que el bicho CRECE, que es lo unico que un cuerpo sin miembros puede hacer para gritar.
+static func _montar_alarido(anims: Array, esc: float) -> void:
+	# Coge aire (se encoge un poco) y se hincha del todo. El valle de 0,143 es lo que le da el impulso.
+	var palpita_keys := [[0.0, 0.0], [0.143, -0.9], [0.286, 1.4], [0.429, 1.8], [0.571, 1.7],
+		[0.714, 1.5], [0.857, 0.7], [1.0, 0.0]]
+	# Las fauces: cerradas para coger aire y abiertas de par en par el resto.
+	var boca_keys := [[0.0, 0.15], [0.143, 0.05], [0.286, 0.90], [0.429, 1.0], [0.571, 1.0],
+		[0.714, 1.0], [0.857, 0.55], [1.0, 0.2]]
+	# La onda del cuerpo se acelera mientras grita: es lo que dice que la masa esta vibrando.
+	var onda_keys := [[0.0, 0.0], [0.143, 0.3], [0.286, -0.9], [0.429, 0.9], [0.571, -0.8],
+		[0.714, 0.7], [0.857, -0.3], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["palpita"] = SpriteLienzo.tramos(t, palpita_keys)
+		p["boca"] = SpriteLienzo.tramos(t, boca_keys)
+		p["onda"] = SpriteLienzo.tramos(t, onda_keys)
+		# El ojo ABIERTO todo el rato: 'parpado' a 0. Va escrito aunque _reposo ya lo deje en cero,
+		# porque aqui es una decision -- en el idle parpadea, y algo que chilla no parpadea.
+		p["parpado"] = 0.0
+		return p
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
+	_montar_animacion(anims, esc, "alarido", false, 9.0, pose, true, 1, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente) y

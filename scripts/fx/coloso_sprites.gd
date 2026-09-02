@@ -270,6 +270,7 @@ static func generar(color: Color = Color(0.45, 0.45, 0.5), escala: float = 1.0) 
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_muralla(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -341,6 +342,45 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 		p["brazos"] = 0.7 * SpriteLienzo.tramos(t, pisa_keys)
 		return p
 	_montar_animacion(anims, esc, "embestida", false, 9.0, pose, true)
+
+
+# LA MURALLA: se PLANTA. Baja los brazos, se asienta sobre las dos piernas y no se mueve mas.
+#
+# HASTA AHORA ESTA HABILIDAD REPRODUCIA LA EMBESTIDA, o sea que el coloso levantaba una pierna del
+# tamaño de una lapida y estampaba un PISOTON SISMICO... para ponerse un escudo. Es la mas ridicula
+# de las siete de daño cero, junto con la mirada de la gargola.
+#
+# LO CONTRARIO DEL PISOTON, punto por punto: alli levanta un pie ('pisa' a 1) y aqui NO se despega
+# ninguno del suelo; alli viaja 5,4 unidades y aqui no viaja nada; alli se hunde de golpe al estampar
+# y aqui BAJA DESPACIO y se queda. Su efecto (el muro de ladrillo) se mantiene: eso es magia, no es
+# el cuerpo -- lo que sobra es que el cuerpo haga un ataque.
+#
+# Y NO SE MECE. El 'mece' de la embestida es lo que le da el peso al golpe; aqui, un coloso que se
+# balancea es un coloso a punto de caerse, que es justo lo contrario de lo que promete la habilidad.
+# El unico movimiento del tramo largo es hundirse dos centesimas mas, y ni eso se ve: la gracia es
+# que se quede como un edificio.
+static func _montar_muralla(anims: Array, esc: float) -> void:
+	# Se asienta y AHI SE QUEDA: de 0,571 en adelante ya casi no cambia nada.
+	var agacha_keys := [[0.0, 0.0], [0.143, 0.10], [0.286, 0.30], [0.429, 0.42], [0.571, 0.48],
+		[0.714, 0.50], [0.857, 0.48], [1.0, 0.45]]
+	# Los brazos BAJAN (negativo) en vez de abrirse: se cierra sobre si mismo, no hace aspavientos.
+	var brazos_keys := [[0.0, 0.0], [0.143, -0.10], [0.286, -0.28], [0.429, -0.38], [0.571, -0.42],
+		[0.714, -0.42], [0.857, -0.40], [1.0, -0.38]]
+	# La cabeza se hunde entre las hombreras: es lo que le da la estampa de ponerse a cubierto.
+	var cabeza_keys := [[0.0, 0.0], [0.143, 0.06], [0.286, 0.18], [0.429, 0.26], [0.571, 0.30],
+		[0.714, 0.30], [0.857, 0.28], [1.0, 0.26]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["brazos"] = SpriteLienzo.tramos(t, brazos_keys)
+		p["cabeza"] = SpriteLienzo.tramos(t, cabeza_keys)
+		# Las dos rodillas por igual y poco: se acuclilla un pelin para agarrar el suelo. Con una sola
+		# se leeria como la muerte, que es justo la que va con las rodillas desiguales.
+		p["rodilla"] = 0.16 * SpriteLienzo.tramos(t, agacha_keys) / 0.50
+		p["rodilla2"] = p["rodilla"]
+		return p
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
+	_montar_animacion(anims, esc, "muralla", false, 8.0, pose, true, 1, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA direccion y EMPEZANDO YA GOLPEADO: el frame 0 es el
