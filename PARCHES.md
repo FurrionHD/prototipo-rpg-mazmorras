@@ -2,6 +2,63 @@
 
 ---
 
+# v0.11.1 — «Cada golpe el suyo»
+
+Los enemigos hacían todos sus ataques con la misma animación: la de su golpe estrella. Ahora
+cada habilidad se mueve como lo que es. Y el equipo de metal por fin reluce.
+
+---
+
+## ⚔️ Cada habilidad, su gesto
+
+Antes, cuando un bicho usaba una técnica, repetía su ataque de siempre. Salían cosas como
+éstas, y ninguna era a propósito:
+
+- La **gárgola** despegaba, se elevaba y se dejaba caer encima… **para mirarte fijamente**.
+- El **coloso** estampaba su Pisotón sísmico… **para ponerse un escudo**.
+- El **gólem** alzaba los dos puños y machacaba el suelo… **para endurecerse**.
+- El **Rey Slime** hacía un placaje entero… **para invocar**.
+
+Las **veintiocho** habilidades que lo necesitaban tienen ahora su propia animación.
+
+**El escarabajo rueda de verdad.** Su Embestida rodante era un dibujo de una bola girando
+pintado encima del bicho, que seguía andando debajo. Ahora se hace una bola y rueda.
+
+**El minotauro** deja de hacer la cornada para todo: tiene puñetazo, cornada, pisotón y
+bramido, y en el bramido echa la cabeza atrás hasta que el morro apunta al techo.
+
+**El ciempiés se enrosca**, en vez de alzarse y picar.
+
+## 🦴 Y se mueven como bichos
+
+**Brazos y piernas dejan de ser un bloque.** El minotauro, el gólem y el coloso tienen ahora
+codo y rodilla de verdad: antes el brazo no doblaba, se combaba entero.
+
+**El gólem ya no se aplana al morir.** Se deshacía como un slime; ahora se parte en terrones y
+se viene abajo, que es lo que le pasa a algo hecho de barro cocido.
+
+## ✨ El metal reluce
+
+**Las piezas de metal sueltan un destello que las cruza**, cada diez o veinte segundos. El
+brillo sube según lo mejorada que esté la pieza — y el cuero y la madera se quedan mates, que
+un peto de cuero reluciente parece de plástico.
+
+**El acero cambia de color.** Antes acababa casi negro, igual que el hierro; ahora va al revés
+y termina en **acero espejo**, casi blanco. Así se distinguen de un vistazo: el hierro es el
+metal oscuro y el acero el claro.
+
+## 🐛 Arreglos
+
+- El **brillo metálico del equipo no se veía nunca**. Estaba puesto desde hacía versiones, pero
+  se encendía solo en piezas ya muy claras y mejorar una pieza la oscurece: justo cuando el
+  brillo estaba a tope no quedaba nada que pudiera brillar.
+- **Mejorar una armadura la apagaba.** El acabado metálico hundía los tonos oscuros en vez de
+  darle rango, así que un peto muy mejorado se veía más apagado que uno recién forjado.
+- El **pisotón y el bramido** del minotauro solo se veían según hacia dónde mirase; el resto de
+  las veces hacía su embestida.
+
+---
+
 # v0.11.0 — «Se oye»
 
 Hasta ahora solo hacían ruido los enemigos. Ahora suena el juego entero: tus armas, tus
