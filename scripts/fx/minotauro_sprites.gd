@@ -82,7 +82,15 @@ const PECTORAL_R := Vector3(3.4, 2.6, 2.6)
 # la prueba que decide que brazo va delante es la Y del hombro YA GIRADA, y con la Y en CERO exacto
 # da falso para los DOS -- el bicho de frente dibujaria sus dos brazos como "el de detras",
 # escorzados y pegados al cuerpo. Es la trampa que ya mordieron el golem y el coloso.
-const HOMBRO_X := 8.2
+#
+# Y VAN POR FUERA DEL ANCHO DEL PECHO, QUE ESTUVO AL REVES. Estaban en 8,2 contra los 8,6 de
+# PECHO_R.x, o sea METIDOS: el brazo nacia DENTRO de la elipse del torso y de frente se lo tragaba
+# entero -- lo que se veia no era un bicho con los brazos pegados, era un bicho SIN BRAZOS, un bulto
+# con cuernos. Y como lo que asomaba dependia de la pose, el puñetazo no se leia por ningun lado.
+# Es literalmente la misma leccion que ya esta escrita en PoseJugador (hombro 9,8 contra medio pecho
+# 8,8): con el hombro un pelin por fuera, el brazo asoma SIEMPRE por el costado y su silueta deja de
+# depender de lo que haga el torso.
+const HOMBRO_X := 9.4
 const HOMBRO_Y := 0.9
 const HOMBRO_Z := 29.0
 const HOMBRO_R := Vector3(3.6, 3.4, 3.4)
@@ -110,9 +118,74 @@ const BRAZO_BAJA := 2.0            # nace por debajo del centro del hombro, o lo
 # alto" pasa por la HORIZONTAL y el bicho se queda EN CRUZ, ocupando el doble de ancho.
 const BRAZO_ANG_REPOSO := 0.12
 const BRAZO_ANG_ALTO := 2.35
-const BRAZO_CODO := 0.80
-const BRAZO_ABRE := 0.55           # cuanto se separa del cuerpo por cada segmento
+# --- POR QUE COLGABA COMO UN PALO ABIERTO, Y COMO SE ARREGLA.
+#
+# EL BRAZO SE ABRIA EN TODOS LOS SEGMENTOS. 'abre' estaba en 0,55 por paso y siempre hacia FUERA: a
+# los seis segmentos el puño acababa 5,8 unidades mas afuera que el hombro y, con los hombros ya a
+# 8,2, se plantaba a 14 del eje -- fuera del cuerpo. Por eso los brazos salian tiesos y en jarra en
+# vez de colgando: no era el codo, era que el brazo no BAJABA, se ALEJABA.
+#
+# LA FORMA BUENA ESTA EN EL PERSONAJE DEL JUGADOR, que es lo que pidio el usuario: mirando
+# PoseJugador, el hombro esta en x 9,8, el CODO en 10,2 y la MANO en 8,6. O sea que el brazo sale un
+# PELIN hacia fuera y el ANTEBRAZO SE VUELVE HACIA DENTRO, bastante mas de lo que salio -- la mano
+# acaba mas metida que el hombro, rozando la cadera. Eso es un brazo colgando; una linea que se abre
+# sin parar es un aspa.
+#
+# Aqui va lo mismo dicho en el idioma de la cadena: el desvio a lo ancho CAMBIA DE SIGNO en el codo.
+# Con estos dos numeros el puño acaba en x 6,4 -- por dentro del hombro y justo por fuera de la
+# cadera (5,6) --, que es el "roza el cuerpo" del jugador.
+const BRAZO_ABRE := 0.14           # el brazo, hacia FUERA
+# El antebrazo vuelve hacia dentro, pero SIN PASARSE: con 0,52 el puño acababa en x 6,4 y de frente
+# se metia detras de la cadera. Con 0,38 cae en 7,5 -- por fuera del taparrabos (5,9) y por dentro
+# del hombro --, que es el "roza el cuerpo" del jugador sin llegar a esconderse en el.
+const BRAZO_METE := 0.38
+# Cuanto tira el brazo hacia DELANTE por cada paso. Va DENTRO de la direccion, que se normaliza antes
+# de avanzar: asi BRAZO_PASO es una distancia de verdad y el presupuesto de solape de aqui abajo es
+# exacto. Antes el desvio a lo ancho se sumaba ENCIMA de un paso ya completo, o sea que el paso real
+# no era 2,4 sino 2,46 -- poco, pero era un numero que nadie controlaba.
+#
+# Y TIENE QUE LLEGAR: es el eje por el que el antebrazo se echa al frente en la pose armada (la 'L'
+# del puñetazo) y por el que sale el brazo entero al extenderlo. Corto, el codo se dobla pero el
+# antebrazo no va a ningun sitio y la L no se lee.
+const BRAZO_ADELANTA := 0.85
 const PUNO_R := Vector3(3.0, 2.9, 2.9)
+
+# --- EL CODO. Es UN SALTO DE ANGULO EN UNA JUNTA, no una curvatura repartida entre los seis
+# segmentos: repartida lo que sale es un ARCO, y un arco no dobla -- el brazo se comba entero y sigue
+# leyendose como un tubo tieso, que es justo de lo que se quejaba el bicho.
+#
+# SE PUEDE DOBLAR MUCHISIMO PORQUE EL PASO NO CAMBIA. Un salto de angulo D en una junta separa el
+# centro siguiente 2*PASO*sin(D/2): con D = 1,75 son 2*2,4*0,77 = 3,7 unidades, contra los 4,9 que
+# suman los radios de las dos piezas de esa junta (2,5 y 2,4). SOBRA, y sobraria igual con el codo
+# cerrado del todo. Esa es toda la ventaja de la cadena por pasos unitarios: doblarla por un sitio no
+# la descose mientras el paso siga siendo el mismo.
+const BRAZO_CODO_SEG := 3          # en que junta se dobla: mitad brazo, mitad antebrazo
+const BRAZO_CODO := 1.75           # cuanto se pliega con 'codo' = 1
+# Y VA DOBLADO DE PARTIDA. Un brazo colgando recto del todo es un palo; el codo suelto de algo que
+# pesa se queda siempre un poco cerrado, y esas dos decimas son la mitad de la sensacion de carne.
+const BRAZO_CODO_REPOSO := 0.22
+
+# --- EL PUÑETAZO (su golpe basico, fx_basico = GOLPETAZO). Pega SIEMPRE EL MISMO BRAZO del cuerpo y
+# no "el de delante": si cambiara de mano segun por donde se le mire, al girar el bicho el golpe
+# saltaria de un lado a otro. Es la misma razon por la que el hacha iba en un lado fijo.
+#
+# SON TRES POSES, Y LAS DIBUJO EL USUARIO: una raya vertical, una L, y una raya horizontal.
+#
+#   1. COLGANDO      brazo a plomo, codo casi suelto.        |
+#   2. ARMADO        el HOMBRO NO SE MUEVE: se dobla el       L    (codo a ~90, antebrazo al frente)
+#                    codo y el antebrazo se echa al frente.
+#   3. EXTENDIDO     ahora si sube el hombro, y el codo      ---   (todo el brazo al frente)
+#                    se estira: el brazo entero al frente.
+#
+# LO QUE LO HACE NATURAL ES QUE EL HOMBRO NO ENTRE HASTA EL FINAL. Moviendo hombro y codo a la vez
+# desde el principio, el brazo BARRE un arco y parece que empuja; doblando primero solo el codo y
+# estirando despues, primero se ARMA y luego SALE, que es como se tira un puñetazo.
+const GOLPE_LADO := 1.0
+# El hombro sube MUY POCO al armar -- lo que dobla es el codo, como en el dibujo --, pero algo sube:
+# a plomo del todo, la 'L' se forma a la altura de la cadera y de frente queda tapada por el
+# taparrabos. En 0,55 el antebrazo sale a la altura del pecho, que es donde se ve.
+const BRAZO_ANG_ARMADO := 0.55
+const BRAZO_ANG_GOLPE := 1.57      # extendido: el brazo entero horizontal hacia delante
 
 # CUELLO: corto y GRUESO. En un toro el cuello es mas ancho que la cabeza, y ese es medio bicho.
 # LA SEPARACION CABEZA-HOMBROS SE MIDE EN (y - z), NO EN ALTURA. Con la camara a 45 grados la altura
@@ -176,28 +249,10 @@ const FALDON_R := Vector3(2.6, 1.8, 2.4)
 const BRAZALETE_SEG := 4
 const BRAZALETE_R := Vector3(2.7, 2.6, 2.6)
 
-# --- EL HACHA. Es SOLO VISUAL: no es un arma equipada ni sale de su EnemyData -- el Minotauro pega
-# con la cornada y el pisoton --, pero en la referencia la lleva y sin ella el bicho se lee mas
-# desarmado de lo que es. Cuelga de una mano, apuntando al suelo.
-#
-# Va SIEMPRE EN EL MISMO LADO del cuerpo (el derecho), y no en "el brazo de delante": si cambiara de
-# mano segun por donde se le mire, al girar el bicho el hacha saltaria de un lado a otro.
-const HACHA_LADO := 1.0
-# TRES SEGMENTOS Y NO CINCO: con cinco el mango medía 10 unidades y la hoja acababa rozando el
-# SUELO, como si arrastrara el hacha. Cuelga de la mano, que ya esta baja de por si.
-const MANGO_SEGMENTOS := 3
-const MANGO_PASO := 2.0            # contra un radio de 0,85 (1,7): aqui NO sobra por grosor...
-const MANGO_R := 0.85
-# ...asi que el mango se cose con un SOLAPE POR SEPARADO: sus piezas son finas y muy juntas no se
-# leerian como un palo. Se compensa alargandolas en la direccion del mango (ver _piezas): una pieza
-# ALARGADA cubre el hueco que una redonda del mismo grosor no cubriria.
-const MANGO_LARGO := 1.5
-# GRANDE. Al primer intento medias 3,4 x 2,6 y en la tira era una CHINCHETA gris colgando de la
-# mano. El hacha de la referencia es casi tan alta como el torso del bicho: si no se lee como un
-# hacha desde lejos, no vale la pena dibujarla.
-const HOJA_ALTO := 5.2             # media altura de la hoja
-const HOJA_ANCHO := 4.0            # cuanto sobresale hacia fuera
-const HOJA_GRUESO := 1.1
+# EL HACHA SE FUE, y no por sitio: NO LA USABA. Ninguna de sus tres habilidades es un hachazo -- son
+# cornada, pisoton y bramido -- y un arma que el bicho no levanta nunca no cuenta lo que hace, solo
+# ocupa una mano y obliga a un lienzo mas ancho del que necesita. Lo que le da escala al bicho ya lo
+# hacen el taparrabos y los brazaletes (ver CUERO_T), que ademas no mienten sobre como pelea.
 
 # LA CORNADA: viaja lo suyo, pero menos que una carga de bestia -- es un jefe pesado.
 const LUNGE_DIST := 9.0
@@ -210,15 +265,82 @@ const ENCAJE_RETRO := 0.22
 # ANCHO lo manda la envergadura de brazos y cuernos; ARRIBA, los cuernos con el brazo en alto del
 # bramido; ABAJO, que al hincarse de rodillas se desparrama tambien en PROFUNDIDAD -- y la
 # profundidad BAJA en pantalla. Es la leccion del cadaver del golem.
-# El ANCHO lo manda el HACHA, no el bicho: cuelga por fuera del puño de un brazo ya abierto, y en la
-# cornada el avance la lleva todavia mas lejos del centro. Con 1,30 se salia en tres fotogramas.
-const LIENZO_ANCHO := 1.58
+# SIN EL HACHA, EL ANCHO LO MANDA LA CORNADA: es la que VIAJA (9 unidades), y en las diagonales ese
+# viaje se va entero a lo ancho -- 6,4 unidades de puro desplazamiento antes de contar el bicho. Con
+# el hacha hacian falta 1,58 porque colgaba por fuera del puño de un brazo ya abierto y el avance se
+# la llevaba todavia mas lejos.
+#
+# EL NUMERO ESTA MEDIDO, NO PUESTO A OJO: el horno avisa de que fotogramas TOCAN EL BORDE de su
+# lienzo, y a 1,34 se salian tres de la cornada (dirs 1 y 5, que son justo las diagonales). 1,46 los
+# mete todos con margen. Ver herramientas/hornear_sprites.bat.
+const LIENZO_ANCHO := 1.46
 const LIENZO_ARRIBA := 1.28
 const LIENZO_ABAJO := 0.34
 
 # TONOS propios (el motor no sabe que es cada uno; solo mapea indice -> color, ver _colores).
 enum Tono { VACIO, SOMBRA_SUELO, BORDE, PEZUNA_T, PIERNA_OSC, SOMBRA, BASE, CLARO, HOCICO_T,
-	CUERNO_T, ANILLA_T, OJO_T, CUERO_T, MANGO_T, HOJA_T, HOJA_CLARA }
+	CUERNO_T, ANILLA_T, OJO_T, CUERO_T }
+
+# --- LA PIERNA, PIEZA A PIEZA, con el reparto de CADA movimiento en columnas. Antes las cuatro
+# llamadas llevaban sus coeficientes escritos a mano en medio del dibujo (0,5 / 0,7 / 1 / 1 para la
+# zancada y nada para lo demas), y por eso la pierna era un BLOQUE: se desplazaba entera y no se
+# doblaba por ningun sitio. Es el patron del coloso (_pierna), donde cada sillar lleva su 'dobla' y
+# su 'alza'.
+#
+#   paso      -> cuanto le toca de la ZANCADA (adelante y atras al andar)
+#   alza      -> cuanto le toca de LEVANTAR EL PIE al andar
+#   alza_pisa -> y cuanto de levantar LA PIERNA ENTERA en el pisoton. Es una columna aparte y CASI
+#     UNIFORME a proposito, y ahi esta el truco del pisoton: lo que ata cuanto puede subir un pie no
+#     es el motor, es la DIFERENCIA de reparto entre dos piezas vecinas. Con el perfil de andar
+#     (0,10 a 1,00) la diferencia mayor es 0,40 y el pie no puede subir de 2,6 unidades -- siete
+#     pixeles, que en pantalla no es un pisoton, es un tropiezo. Subiendo la pierna casi RIGIDA
+#     desde la cadera la diferencia mayor baja a 0,45 contra la junta mas holgada y el pie sube 5,0.
+#     Y ademas es lo que hace de verdad un bicho que va a pisar fuerte: no dobla la rodilla, alza el
+#     muslo.
+#   dobla_y -> cuanto se va hacia ATRAS al doblarse la rodilla
+#   dobla_z -> y cuanto BAJA. Ojo: NO es monotono. Al hincarse, quien baja de verdad es el CORVEJON
+#     (-5,4); la pezuña casi no se mueve (-0,6) porque se queda apoyada en el suelo. Una escalera
+#     creciente aqui hundiria el pie bajo tierra, que es lo contrario de arrodillarse.
+#
+# LA JUNTA QUE MANDA ES CORVEJON-CAÑA y es la que ata todos estos numeros: sus centros estan a
+# sqrt(2,4² + 5,6²) = 6,09 y sus radios en Z suman 3,0 + 4,6 = 7,6, o sea SOLAPE 1,5. Cualquier
+# movimiento nuevo tiene que cumplir (diferencia de reparto) x amplitud <= 1,5 o la pierna se abre
+# por ahi. Ya se partio una vez por esto (ver el comentario del plegado, mas abajo).
+const PIERNA_PIEZAS := [
+	{"c": MUSLO, "r": MUSLO_R, "paso": 0.45, "alza": 0.10, "alza_pisa": 0.35,
+		"dobla_y": -0.6, "dobla_z": -4.2, "tono": -1},
+	{"c": CORVEJON, "r": CORVEJON_R, "paso": 0.70, "alza": 0.45, "alza_pisa": 0.80,
+		"dobla_y": -1.5, "dobla_z": -5.4, "tono": Tono.PIERNA_OSC},
+	{"c": CANA, "r": CANA_R, "paso": 1.00, "alza": 0.85, "alza_pisa": 0.95,
+		"dobla_y": -2.6, "dobla_z": -3.4, "tono": Tono.PIERNA_OSC},
+	{"c": PEZUNA, "r": PEZUNA_R, "paso": 1.00, "alza": 1.00, "alza_pisa": 1.00,
+		"dobla_y": -3.4, "dobla_z": -0.6, "tono": Tono.PEZUNA_T},
+]
+
+# EL PISOTON levanta UNA pierna sola, fuera del ciclo de andar, y SIEMPRE LA MISMA (por lo mismo que
+# el puñetazo: si cambiara de pata al girar, el bicho pisaria con una u otra segun por donde se le
+# mire).
+#
+# 5,0 Y NO MAS, y el numero sale de la columna 'alza_pisa': la diferencia mayor entre dos piezas
+# vecinas es 0,45 (muslo-corvejon) contra los 2,3 de solape de esa junta, o sea 0,45 x 5,0 = 2,25.
+# Entra justo. Y por arriba manda la CADERA, que no sube: el muslo se le despega si se aleja mas de
+# 3,8 unidades, y 0,35 x 5,0 = 1,75 deja margen de sobra.
+const PISA_LADO := 1.0
+const PISA_ALZA := 5.0
+
+# --- LA CABEZA GIRA SOBRE EL CUELLO. Hasta ahora 'cabeza' solo la SUBIA Y LA BAJABA en Z, y con eso
+# no hay bramido: para que el morro apunte al cielo la cabeza tiene que ROTAR, no ascender.
+#
+# EL PIVOTE ES LA BASE DEL CUELLO, no su centro: girando alrededor de su propio centro el cuello no
+# se movería y la junta con la cabeza se abriria el doble.
+#
+# Y EL GIRO SE REPARTE, como todo lo demas: el cuello se lleva TESTUZ_CUELLO y la cabeza va entera.
+# Sin reparto, el radio cuello-cabeza (4,95) contra el solape de esa junta (3,2 + 3,9 - 4,95 = 2,15)
+# limita el giro a 0,43 radianes, o sea 25 grados, que no es un bramido -- es mirar hacia arriba.
+# Repartiendo se llega a los 0,8 (46 grados) del bramido con 1,65 de margen todavia libre.
+const TESTUZ_PIVOTE := Vector3(0.0, 0.8, 31.0)
+const TESTUZ_CUELLO := 0.40
+const TESTUZ_MAX := 0.80
 
 # --- Vectores de las 8 direcciones (pantalla: +Y es hacia ABAJO). Mismo orden que los demas
 # generadores y que el _dir8 de enemy.gd: 0=S 1=SE 2=E 3=NE 4=N 5=NW 6=W 7=SW. ---
@@ -300,6 +422,9 @@ static func generar(color: Color = Color(0.55, 0.34, 0.2), escala: float = 1.0) 
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_cornada(anims, esc)
+	_montar_pisoton(anims, esc)
+	_montar_bramido(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -315,7 +440,8 @@ static func generar(color: Color = Color(0.55, 0.34, 0.2), escala: float = 1.0) 
 # sale a la cara en el dibujo, que es donde mas cuesta encontrarlo.
 static func _reposo() -> Dictionary:
 	return {"avance": 0.0, "resopla": 0.0, "patas": 0.0, "agacha": 0.0, "cabeza": 0.0,
-		"brazos": 0.0, "ladea": 0.0, "pisa": 0.0, "rodilla": 0.0, "vuelca": 0.0}
+		"brazos": 0.0, "codo": 0.0, "punetazo": 0.0, "ladea": 0.0, "pisa": 0.0, "rodilla": 0.0,
+		"rodilla_paso": 0.0, "testuz": 0.0, "vuelca": 0.0}
 
 
 # Quieto: RESUELLA. Un jefe parado tiene que dar la sensacion de que esta conteniendose, no de que
@@ -327,6 +453,9 @@ static func _montar_idle(anims: Array, esc: float) -> void:
 		p["resopla"] = sin(TAU * t)
 		p["cabeza"] = -0.25 + 0.3 * sin(TAU * t)
 		p["brazos"] = 0.03 * sin(TAU * t)
+		# El codo tambien respira. Un brazo que solo sube y baja desde el hombro se lee como un pendulo
+		# colgado; abriendo y cerrando un poco el codo a la vez, se lee como un brazo.
+		p["codo"] = 0.10 + 0.07 * sin(TAU * t)
 		return p
 	_montar_animacion(anims, esc, "idle", true, 3.0, pose, false)
 
@@ -341,21 +470,79 @@ static func _montar_walk(anims: Array, esc: float) -> void:
 		p["agacha"] = 0.05 * (1.0 - cos(TAU * t * 2.0))
 		p["ladea"] = 0.10 * sin(TAU * t)
 		p["cabeza"] = -0.2 + 0.35 * sin(TAU * t * 2.0)
+		# LOS CODOS EN CONTRAFASE CON SU PROPIO HOMBRO: el brazo que va hacia atras se cierra y el que
+		# va hacia delante se abre. Es lo que separa un brazo que ANDA de un brazo que oscila entero.
+		p["codo"] = 0.22 + 0.20 * sin(TAU * t)
+		# Y LA RODILLA DE LA PATA DE ATRAS SE DOBLA. Va por 'rodilla_paso' y no por 'rodilla' a
+		# proposito: 'rodilla' hunde el bicho entero (multiplica 'alto'), y aqui no se agacha -- se le
+		# dobla una pata mientras la otra empuja.
+		p["rodilla_paso"] = 0.22
 		return p
 	_montar_animacion(anims, esc, "walk", true, 5.0, pose, false)
+
+
+# EL PUÑETAZO: su ataque BASICO (fx_basico = GOLPETAZO), y la animacion 'embestida' -- que es el
+# nombre que el combate reproduce cuando nadie pide otra cosa (ver AbilityData.fx_anim).
+#
+# ANTES AQUI ESTABA LA CORNADA, y ese era el problema: como 'embestida' es el comodin, el bicho hacia
+# la cornada para TODO -- el golpe normal y sus tres habilidades --, asi que su ataque corriente
+# golpeaba de lado en vez de al frente. La cornada sigue estando, pero ahora con su nombre y solo
+# para su habilidad.
+#
+# PEGA UN BRAZO SOLO Y EL OTRO SE QUEDA EN GUARDIA, y el golpe sale del CODO tanto como del hombro:
+# se arma atras con el codo cerrado y lo suelta extendiendo los dos a la vez. Un brazo que solo rota
+# desde el hombro es una barrera girando, no un puñetazo.
+#
+# LOS PUNTOS CLAVE VAN EN LOS TIEMPOS DE LOS FOTOGRAMAS, Y ESTO NO ES UN DETALLE. Con ocho marcos y
+# 'ultimo_incluido', los unicos instantes que se DIBUJAN son 0, 1/7, 2/7 ... 1 -- o sea 0, 0,143,
+# 0,286, 0,429, 0,571, 0,714, 0,857 y 1. Un pico puesto en 0,78 cae ENTRE el sexto y el septimo y no
+# se dibuja jamas: lo unico que se ve son los dos valores interpolados de al lado, mas flojos. Asi
+# estaban las tres animaciones nuevas al primer intento, y por eso el golpe "no se notaba" aunque los
+# numeros fueran grandes. Los tramos siguen sirviendo para que el movimiento no sea lineal; lo que no
+# puede es tener el momento importante fuera de la rejilla.
+static func _montar_embestida(anims: Array, esc: float) -> void:
+	# 'punetazo' negativo = armado con el codo cerrado; positivo = extendido al frente.
+	var puno_keys := [[0.0, 0.0], [0.143, -0.60], [0.286, -1.0], [0.429, 0.20], [0.571, 1.0],
+		[0.714, 0.85], [0.857, 0.35], [1.0, 0.0]]
+	# Acompaña con el cuerpo: un paso corto al frente y se hunde sobre las piernas en el impacto. NO
+	# viaja como la cornada -- esto es un golpe, no una carga.
+	var avance_keys := [[0.0, 0.0], [0.143, -0.6], [0.286, -1.0], [0.429, 1.2], [0.571, 3.0],
+		[0.714, 2.6], [0.857, 1.8], [1.0, 1.2]]
+	var agacha_keys := [[0.0, 0.0], [0.143, 0.06], [0.286, 0.10], [0.429, 0.16], [0.571, 0.38],
+		[0.714, 0.30], [0.857, 0.16], [1.0, 0.06]]
+	# El torso rota un pelin CON el golpe (es de donde sale la fuerza), pero mucho menos que en la
+	# cornada: pasado de aqui vuelve a leerse como un golpe de costado.
+	# EL LADEO ES LO QUE SALVA EL PUÑETAZO DE FRENTE. En combate al bicho se le ve siempre desde el sur
+	# (dir 0) y ahi el brazo saliendo hacia el jugador esta escorzado: se mueve, pero en pantalla casi
+	# no recorre nada. Lo que si se ve desde ahi es lo que va DE LADO A LADO, asi que el torso rota con
+	# el golpe -- que ademas es de donde sale la fuerza de un puñetazo de verdad. Es el mismo truco por
+	# el que la cornada se lee: por el ladeo, no por el avance.
+	var ladea_keys := [[0.0, 0.0], [0.143, -0.25], [0.286, -0.38], [0.429, 0.05], [0.571, 0.45],
+		[0.714, 0.40], [0.857, 0.20], [1.0, 0.05]]
+	var cabeza_keys := [[0.0, -0.2], [0.143, 0.2], [0.286, 0.3], [0.429, -0.4], [0.571, -1.1],
+		[0.714, -0.9], [0.857, -0.5], [1.0, -0.25]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["punetazo"] = SpriteLienzo.tramos(t, puno_keys)
+		p["avance"] = SpriteLienzo.tramos(t, avance_keys)
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["ladea"] = SpriteLienzo.tramos(t, ladea_keys)
+		p["cabeza"] = SpriteLienzo.tramos(t, cabeza_keys)
+		# El brazo que NO pega se queda recogido, pero POCO: cerrandolo mucho se queda con el puño
+		# a la altura del pecho y de frente eso ya no es una guardia, es un brazo cortado.
+		p["codo"] = 0.30
+		return p
+	_montar_animacion(anims, esc, "embestida", false, 10.0, pose, true)
 
 
 # LA CORNADA: escarba -> baja el testuz -> embiste LADEADO -> engancha hacia arriba.
 # NO es periodica, asi que va por TRAMOS.
 #
-# Se dibuja la CORNADA y no el pisoton ni el bramido porque es su golpe iconico (x1.9 y sangrado), y
-# porque es la unica de las tres que se lee de un vistazo en ocho fotogramas.
-#
 # LO QUE LA HACE UNA CORNADA ES EL LADEO. Embistiendo de frente con la cabeza baja, lo que se ve es
 # un tio agachado corriendo; ladeando el torso y la cabeza, el cuerno de ese lado se adelanta y
 # apunta -- y al final del golpe el cuello ENGANCHA HACIA ARRIBA, que es lo que hace un toro de
 # verdad y lo que cuenta el sangrado de su habilidad.
-static func _montar_embestida(anims: Array, esc: float) -> void:
+static func _montar_cornada(anims: Array, esc: float) -> void:
 	var avance_keys := [[0.0, 0.0], [0.30, -1.8], [0.60, 5.4], [0.78, 9.0], [1.0, 6.4]]
 	var agacha_keys := [[0.0, 0.0], [0.30, 0.55], [0.60, 0.80], [0.78, 0.35], [1.0, 0.08]]
 	# El ladeo entra en el aviso y se mantiene durante el viaje: es la puntería del cuerno.
@@ -371,8 +558,93 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 		p["ladea"] = SpriteLienzo.tramos(t, ladea_keys)
 		p["cabeza"] = SpriteLienzo.tramos(t, cabeza_keys)
 		p["brazos"] = SpriteLienzo.tramos(t, brazos_keys)
+		# Corriendo se lleva los codos recogidos, no los brazos estirados hacia atras.
+		p["codo"] = 0.30 + 0.45 * clampf(t * 2.0, 0.0, 1.0)
 		return p
-	_montar_animacion(anims, esc, "embestida", false, 10.0, pose, true)
+	_montar_animacion(anims, esc, "cornada", false, 10.0, pose, true)
+
+
+# EL PISOTON ATRONADOR (x1,7, area_max 99). SE ACERCA Y PISA: da un paso corto hacia el objetivo,
+# levanta una pierna y la deja caer con todo el peso encima.
+#
+# UNA SOLA DIRECCION (el sur), como 'encaje' y 'muerte': las habilidades solo se ven en la pantalla
+# de combate, y ahi el bicho encara siempre al jugador. El escalon de degradacion de combat.gd se
+# encarga del resto.
+#
+# LO QUE LO HACE ALTO NO ES LA PATA, ES EL BICHO. La pezuña solo puede subir 2,6 unidades sin
+# descoser la pierna (ver PISA_ALZA), asi que el alzado se cuenta con 'agacha' NEGATIVO -- el
+# minotauro entero se estira antes de dejarse caer -- y con el hundimiento de golpe al pisar.
+static func _montar_pisoton(anims: Array, esc: float) -> void:
+	var avance_keys := [[0.0, 0.0], [0.143, 0.8], [0.286, 2.0], [0.429, 3.0], [0.571, 3.4],
+		[0.714, 3.4], [0.857, 3.4], [1.0, 3.4]]
+	# SE ENCOGE, SE ESTIRA Y SE DESPLOMA, y ese vaiven de altura es lo unico que de verdad se ve del
+	# pisoton desde el sur: la pata subiendo son trece pixeles, pero el bicho entero pasa del 109% de
+	# su altura al 83%, o sea treinta. El fotograma 4 es el impacto y va SOLO -- sin el valle previo
+	# del 3, un hundimiento no se lee como un golpe, se lee como agacharse.
+	var agacha_keys := [[0.0, 0.0], [0.143, 0.18], [0.286, -0.14], [0.429, -0.30], [0.571, 0.55],
+		[0.714, 0.34], [0.857, 0.18], [1.0, 0.08]]
+	var pisa_keys := [[0.0, 0.0], [0.143, 0.15], [0.286, 0.60], [0.429, 1.0], [0.571, 0.0],
+		[0.714, 0.0], [1.0, 0.0]]
+	# Los brazos se abren para hacer sitio y caen con el pisoton: es de donde sale el peso.
+	var brazos_keys := [[0.0, 0.0], [0.143, 0.10], [0.286, 0.30], [0.429, 0.44], [0.571, -0.16],
+		[0.714, -0.06], [1.0, 0.0]]
+	var codo_keys := [[0.0, 0.20], [0.143, 0.35], [0.286, 0.60], [0.429, 0.75], [0.571, 0.20],
+		[0.714, 0.26], [1.0, 0.30]]
+	var cabeza_keys := [[0.0, -0.2], [0.143, 0.3], [0.286, 0.8], [0.429, 1.1], [0.571, -1.8],
+		[0.714, -1.0], [0.857, -0.6], [1.0, -0.35]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["avance"] = SpriteLienzo.tramos(t, avance_keys)
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["pisa"] = SpriteLienzo.tramos(t, pisa_keys)
+		p["brazos"] = SpriteLienzo.tramos(t, brazos_keys)
+		p["codo"] = SpriteLienzo.tramos(t, codo_keys)
+		p["cabeza"] = SpriteLienzo.tramos(t, cabeza_keys)
+		return p
+	_montar_animacion(anims, esc, "pisoton", false, 12.0, pose, true, 1, FRAMES)
+
+
+# EL BRAMIDO EMBRAVECIDO (dano 0, furia sobre si mismo): PURO GESTO. Se yergue, echa la cabeza atras
+# hasta que el morro apunta al cielo y abre los brazos.
+#
+# LO QUE LO HACE UN BRAMIDO ES EL 'testuz', no la altura. Subiendo la cabeza en Z lo que sale es un
+# bicho mirando hacia arriba; lo que hace un toro que brama es GIRAR el craneo sobre el cuello hasta
+# que los cuernos se le van a la espalda y el hocico queda en alto. Eso es lo que se ve en la
+# referencia que paso el usuario, y es lo unico que hay que acertar aqui.
+#
+# Y VA LENTO -- 8 fps, lo mas lento del bicho -- porque no pega: si pasara rapido no se leeria como
+# un gesto, se leeria como un tic.
+static func _montar_bramido(anims: Array, esc: float) -> void:
+	# Coge aire (se encoge un poco) y ENTONCES se yergue. Sin ese hundimiento previo el estiramiento
+	# no tiene de donde salir.
+	var agacha_keys := [[0.0, 0.0], [0.143, 0.24], [0.286, -0.10], [0.429, -0.22], [0.571, -0.28],
+		[0.714, -0.26], [0.857, -0.10], [1.0, 0.0]]
+	# EL TOPE DEL BRAMIDO NO ES EL TOPE DE LA JUNTA. TESTUZ_MAX (0,80) es lo que aguanta el cuello sin
+	# descoserse, pero a 0,80 el craneo gira tanto que DE FRENTE LA CARA DESAPARECE: se ve la garganta
+	# y dos cuernos saliendo de los hombros, y eso no se lee como un bramido, se lee como un bicho sin
+	# cabeza. A 0,64 el morro ya apunta al cielo y los ojos siguen ahi, que es lo que hace falta ver.
+	# Lo que ata este numero es la CAMARA, no la geometria.
+	var testuz_keys := [[0.0, 0.0], [0.143, -0.14], [0.286, 0.32], [0.429, 0.55],
+		[0.571, 0.64], [0.714, 0.62], [0.857, 0.42], [1.0, 0.18]]
+	var cabeza_keys := [[0.0, -0.25], [0.143, -0.9], [0.286, 0.4], [0.429, 1.0], [0.571, 1.5],
+		[0.714, 1.4], [0.857, 0.8], [1.0, 0.2]]
+	# Brazos abiertos y en alto, pero CON EL CODO CERRADO: extendidos del todo se queda en cruz y
+	# ocupa el doble de ancho (ver el aviso de BRAZO_ANG_*). En jarra ocupa menos y amenaza mas.
+	var brazos_keys := [[0.0, 0.0], [0.143, -0.10], [0.286, 0.24], [0.429, 0.44], [0.571, 0.60],
+		[0.714, 0.58], [0.857, 0.36], [1.0, 0.14]]
+	var codo_keys := [[0.0, 0.25], [0.143, 0.45], [0.286, 0.68], [0.429, 0.82], [0.571, 0.90],
+		[0.714, 0.86], [0.857, 0.62], [1.0, 0.35]]
+	# Y TIEMBLA al bramar: el 'resopla' a tope y rapido, que es el que hincha y deshincha el cuerpo.
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["testuz"] = SpriteLienzo.tramos(t, testuz_keys)
+		p["cabeza"] = SpriteLienzo.tramos(t, cabeza_keys)
+		p["brazos"] = SpriteLienzo.tramos(t, brazos_keys)
+		p["codo"] = SpriteLienzo.tramos(t, codo_keys)
+		p["resopla"] = sin(TAU * t * 3.0) * clampf((t - 0.35) * 3.0, 0.0, 1.0)
+		return p
+	_montar_animacion(anims, esc, "bramido", false, 8.0, pose, true, 1, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente)
@@ -514,12 +786,6 @@ static func _colores(color: Color) -> Array:
 		# EL CUERO del taparrabos y los brazaletes: pardo MUY oscuro, casi el tono del borde. Tiene
 		# que leerse como una cosa puesta encima, asi que no puede ser una variacion de su piel.
 		Color(0.20, 0.13, 0.09),              # CUERO_T
-		Color(0.28, 0.19, 0.12),              # MANGO_T (madera)
-		# EL HACHA en GRIS FRIO, y es el unico gris del bicho: es lo que la separa del hueso de los
-		# cuernos (calido) y del laton de la anilla. Un metal que comparte tono con el cuerpo se lee
-		# como parte del cuerpo.
-		Color(0.42, 0.44, 0.48),              # HOJA_T
-		Color(0.68, 0.71, 0.75),              # HOJA_CLARA (el filo)
 	]
 
 
@@ -539,8 +805,13 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var agacha: float = float(pose["agacha"])
 	var cabeza_y: float = float(pose["cabeza"])
 	var brazos: float = float(pose["brazos"])
+	var codo: float = float(pose["codo"])
+	var punetazo: float = float(pose["punetazo"])
 	var ladea: float = float(pose["ladea"])
+	var pisa: float = float(pose["pisa"])
 	var rodilla: float = float(pose["rodilla"])
+	var rodilla_paso: float = float(pose["rodilla_paso"])
+	var testuz: float = clampf(float(pose["testuz"]), -0.35, TESTUZ_MAX)
 	var vuelca: float = float(pose["vuelca"])
 
 	# Agazapado = mas bajo. 'alto' multiplica TODAS las alturas, asi que agacharse hunde el bicho
@@ -605,8 +876,23 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		var y_off: float = swing * PASO_LARGO
 		# Al andar, la pierna adelantada tambien SE LEVANTA. Sin esto los pies patinan por el suelo.
 		var z_off: float = maxf(0.0, swing) * PASO_ALZA
+		# EL PISOTON: esta pata sube ENTERA -- por su propia columna de reparto, no por la del paso --,
+		# fuera del ciclo de andar y siempre la misma (PISA_LADO). Ver 'alza_pisa'.
+		var z_pisa: float = pisa * PISA_ALZA if is_equal_approx(lado, PISA_LADO) else 0.0
 		# De rodillas: esta pierna se pliega hacia atras y baja.
+		#
+		# 'rodilla' es el hincarse ENTERO (la muerte) y va para las dos patas con un desfase, que es lo
+		# que separa "se le parte una pierna" de "se sienta". 'rodilla_paso' es la flexion de UNA sola
+		# pata -- la de atras al andar, la que sube en el pisoton -- y NO toca 'alto': doblar una
+		# rodilla no puede hundir el bicho entero.
+		#
+		# LOS DOS TERMINOS SON EXCLUYENTES EN LA PRACTICA y por eso se suman sin mas: en el pisoton
+		# 'patas' vale cero (no anda mientras pisa) y al andar 'pisa' vale cero. Escribirlo con un
+		# if/else haria que la pata del pisoton no se doblara nunca al andar.
 		var rod: float = rodilla * (1.0 if lado > 0.0 else 0.82)
+		if is_equal_approx(lado, PISA_LADO):
+			rod += rodilla_paso * pisa
+		rod += rodilla_paso * maxf(0.0, -swing)
 		# EL PLEGADO DE LA RODILLA VA CORTO EN Y. Al primer intento el corvejon se iba 3,0 unidades
 		# hacia atras y la caña 4,6, y con el muslo casi quieto la distancia entre sus centros (5,6)
 		# superaba la SUMA DE SUS RADIOS (5,5): la pierna se partia en dos en el cadaver. Y encima
@@ -618,14 +904,20 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		# caen sobre el mismo eje de pantalla y en el mismo tono se leen como una sola pata gorda.
 		var pierna_fondo: bool = Vector2(lado * PIERNA_X, 0.0).rotated(ang).y <= 0.0
 		var tono_muslo: int = Tono.SOMBRA if pierna_fondo else Tono.BASE
-		poner.call(Vector3(lado * PIERNA_X, MUSLO.y + y_off * 0.5, MUSLO.z - rod * 4.2),
-			MUSLO_R, tono_muslo)
-		poner.call(Vector3(lado * PIERNA_X, CORVEJON.y + y_off * 0.7 - rod * 1.5,
-				CORVEJON.z - rod * 5.4), CORVEJON_R, Tono.PIERNA_OSC)
-		poner.call(Vector3(lado * PIERNA_X, CANA.y + y_off - rod * 2.6, CANA.z + z_off - rod * 3.4),
-			CANA_R, Tono.PIERNA_OSC)
-		poner.call(Vector3(lado * PIERNA_X, PEZUNA.y + y_off - rod * 3.4,
-				PEZUNA.z + z_off - rod * 0.4), PEZUNA_R, Tono.PEZUNA_T)
+		# CADA PIEZA CON SU REPARTO (ver PIERNA_PIEZAS). Antes los coeficientes iban escritos a mano
+		# aqui mismo y solo existian para la zancada, asi que la pierna se movia como un bloque; ahora
+		# cada una se lleva su parte de la zancada, del alzado del pie y del plegado de la rodilla, que
+		# es lo que hace que la pierna se DOBLE en vez de desplazarse entera.
+		for pz in PIERNA_PIEZAS:
+			var c: Vector3 = pz["c"]
+			var tono_pz: int = int(pz["tono"])
+			if tono_pz < 0:
+				tono_pz = tono_muslo
+			poner.call(Vector3(lado * PIERNA_X,
+					c.y + y_off * float(pz["paso"]) + rod * float(pz["dobla_y"]),
+					c.z + z_off * float(pz["alza"]) + z_pisa * float(pz["alza_pisa"])
+						+ rod * float(pz["dobla_z"])),
+				pz["r"], tono_pz)
 
 	# QUE BRAZO VA DELANTE sale de la Y del hombro YA GIRADA. Con HOMBRO_Y en cero exacto la prueba
 	# daria falso para los DOS y el bicho de frente dibujaria sus dos brazos como "el de detras".
@@ -638,11 +930,24 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		else:
 			detras.append(lado)
 
-	# Dibuja un brazo entero: cadena de piezas por PASOS UNITARIOS, con CODO, en el plano Y-Z.
+	# Dibuja un brazo entero: cadena de piezas por PASOS UNITARIOS, con un CODO de verdad -- un salto
+	# de angulo EN UNA JUNTA -- en el plano Y-Z.
 	var brazo := func(lado: float) -> void:
 		# 'brazos' > 0 lo sube por DELANTE (bramido, apoyo al morir); < 0 lo echa atras (correr).
 		var a: float = lerpf(BRAZO_ANG_REPOSO, BRAZO_ANG_ALTO, maxf(0.0, brazos)) \
 			+ minf(0.0, brazos) * 1.2
+		var flex: float = BRAZO_CODO_REPOSO + BRAZO_CODO * clampf(codo, 0.0, 1.0)
+		# EL PUÑETAZO, solo en el brazo que pega: 'punetazo' negativo lo arma por detras cerrando el
+		# codo, positivo lo extiende al frente abriendolo. El hombro y el codo van A LA VEZ, que es lo
+		# que convierte un brazo que rota en un brazo que GOLPEA.
+		if is_equal_approx(lado, GOLPE_LADO) and not is_zero_approx(punetazo):
+			# -1..1 -> 0..1 (armado arriba -> descargado abajo), y se MEZCLA con la pose normal por el
+			# valor absoluto: asi en 'punetazo' = 0 el brazo esta exactamente donde estaria sin golpe y
+			# no pega un salto al entrar y salir de la animacion.
+			var u01: float = punetazo * 0.5 + 0.5
+			var mez: float = absf(punetazo)
+			a = lerpf(a, lerpf(BRAZO_ANG_ARMADO, BRAZO_ANG_GOLPE, u01), mez)
+			flex = lerpf(flex, lerpf(BRAZO_CODO, BRAZO_CODO * 0.08, u01), mez)
 		var hz: float = HOMBRO_Z - BRAZO_BAJA
 		var al_fondo: bool = lado in detras
 		if al_fondo:
@@ -665,37 +970,24 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 			# si algun dia se mueve la cadena el brazalete la sigue solo.
 			if k == BRAZALETE_SEG:
 				poner.call(p3, BRAZALETE_R, Tono.CUERO_T, [Tono.BASE])
-			# POR PASOS UNITARIOS: se avanza BRAZO_PASO en la direccion actual y DESPUES se curva. El
-			# paso no cambia nunca, asi que dos piezas seguidas se solapan igual arriba que abajo --
-			# que es lo unico que permite curvar la cadena sin descoserla.
-			p3.y += sin(a) * BRAZO_PASO
-			p3.z -= cos(a) * BRAZO_PASO
-			p3.x += lado * BRAZO_ABRE
-			a += BRAZO_CODO / float(BRAZO_SEGMENTOS - 1)
+			# EL CODO, TODO DE GOLPE Y EN UNA SOLA JUNTA. Repartido entre los seis segmentos -- que es
+			# como estaba -- el brazo no dobla: se COMBA, y un brazo combado se sigue leyendo tieso.
+			if k == BRAZO_CODO_SEG - 1:
+				a += flex
+			# EL DESVIO A LO ANCHO CAMBIA DE SIGNO EN EL CODO: el brazo sale hacia fuera y el antebrazo
+			# se vuelve hacia dentro, como el del jugador (ver BRAZO_ABRE / BRAZO_METE). Es lo que hace
+			# que el brazo CUELGUE en vez de abrirse en aspa.
+			var lat: float = -BRAZO_METE if k >= BRAZO_CODO_SEG - 1 else BRAZO_ABRE
+			# POR PASOS UNITARIOS: se avanza BRAZO_PASO en la direccion actual, que va NORMALIZADA. El
+			# paso no cambia nunca, asi que dos piezas seguidas se solapan igual venga como venga el
+			# brazo -- que es lo unico que permite doblar la cadena sin descoserla.
+			#
+			# Y lo que se separa del cuerpo va DENTRO de la direccion, no sumado encima: sumandolo
+			# aparte el paso real era 2,46 y no 2,4, o sea que el presupuesto de solape del codo estaba
+			# calculado sobre un numero que no era el de verdad.
+			p3 += Vector3(lado * lat, sin(a) * BRAZO_ADELANTA, -cos(a)).normalized() * BRAZO_PASO
 		# EL PUÑO, colgando del ultimo segmento.
 		poner.call(p3, PUNO_R, tono_brazo)
-
-		# --- EL HACHA, colgando del puño de UNA mano. Cuelga a plomo (no sigue el arco del brazo):
-		# pesa, y lo que pesa apunta al suelo. Eso ademas hace que en el bramido -- con el brazo en
-		# alto -- el hacha quede levantada y siga colgando, que es exactamente lo que se quiere ver.
-		if is_equal_approx(lado, HACHA_LADO):
-			var mp := Vector3(p3.x + lado * 0.6, p3.y, p3.z - PUNO_R.z * 0.5)
-			for k in MANGO_SEGMENTOS:
-				# El mango es fino, asi que sus piezas van ALARGADAS en el eje del palo (r.z alto):
-				# redondas y del mismo grosor dejarian huecos entre ellas, y un mango con huecos no
-				# se lee como un palo.
-				poner.call(mp, Vector3(MANGO_R, MANGO_R, MANGO_LARGO), Tono.MANGO_T)
-				mp.z -= MANGO_PASO
-			# LA HOJA: una media luna abierta hacia FUERA, en tres piezas de altura decreciente. El
-			# filo va aparte y mas claro, en el canto de fuera: sin el, la hoja es una mancha gris.
-			var hx: float = mp.x + lado * HOJA_ANCHO * 0.45
-			poner.call(Vector3(hx, mp.y, mp.z + MANGO_PASO * 0.4),
-				Vector3(HOJA_ANCHO * 0.55, HOJA_GRUESO, HOJA_ALTO), Tono.HOJA_T)
-			poner.call(Vector3(mp.x + lado * HOJA_ANCHO, mp.y, mp.z + MANGO_PASO * 0.4),
-				Vector3(HOJA_ANCHO * 0.42, HOJA_GRUESO, HOJA_ALTO * 0.78), Tono.HOJA_T)
-			poner.call(Vector3(mp.x + lado * (HOJA_ANCHO + HOJA_ANCHO * 0.34), mp.y,
-					mp.z + MANGO_PASO * 0.4),
-				Vector3(HOJA_ANCHO * 0.20, HOJA_GRUESO * 0.8, HOJA_ALTO * 0.52), Tono.HOJA_CLARA)
 
 	# EL BRAZO DE DETRAS, antes que el torso: el cuerpo tiene que taparlo.
 	for lado in detras:
@@ -742,6 +1034,25 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	elif frente < -0.2:
 		lados = [signf(DIR_VECS[dir].x)]
 
+	# EL GIRO DEL TESTUZ: rota una pieza del grupo de la cabeza alrededor de la BASE DEL CUELLO, en el
+	# plano Y-Z. 'peso' es cuanto le toca del giro -- el cuello se lleva TESTUZ_CUELLO y todo lo que va
+	# montado en el craneo va entero.
+	#
+	# ES LO QUE HACE EL BRAMIDO. Subiendo la cabeza en Z sale un bicho MIRANDO hacia arriba; lo que
+	# hace un toro que brama es girar el craneo hasta que los cuernos se le van a la espalda y el
+	# morro queda apuntando al cielo. Lo mismo, en pequeño, le da al enganche de la cornada el gesto
+	# de levantar por debajo en vez de subir a plomo.
+	var testa := func(local: Vector3, peso: float) -> Vector3:
+		var th: float = testuz * peso
+		if is_zero_approx(th):
+			return local
+		var dy: float = local.y - TESTUZ_PIVOTE.y
+		var dz: float = local.z - TESTUZ_PIVOTE.z
+		var ct: float = cos(th)
+		var st: float = sin(th)
+		return Vector3(local.x, TESTUZ_PIVOTE.y + dy * ct - dz * st,
+			TESTUZ_PIVOTE.z + dy * st + dz * ct)
+
 	# --- LOS CUERNOS: cadena por pasos unitarios que sale hacia FUERA, sube y se curva hacia DELANTE.
 	# Se dibujan SIEMPRE, tambien de espaldas: son su silueta, y un minotauro de espaldas sigue
 	# teniendo cuernos.
@@ -752,7 +1063,10 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		var cv: float = 0.0
 		for k in CUERNO_SEGMENTOS:
 			var f: float = float(k) / float(CUERNO_SEGMENTOS - 1)
-			poner.call(cp, Vector3.ONE * lerpf(CUERNO_R0, CUERNO_R1, f), Tono.CUERNO_T)
+			# El cuerno se construye en local y se gira AL PONERLO, no antes: si se girase la base y se
+			# siguiera creciendo desde ahi, la cadena saldria del craneo en la direccion vieja.
+			poner.call(testa.call(cp, 1.0), Vector3.ONE * lerpf(CUERNO_R0, CUERNO_R1, f),
+				Tono.CUERNO_T)
 			cp.x += lado * cos(cv) * CUERNO_ABRE * CUERNO_PASO
 			cp.z += sin(cv + 0.55) * CUERNO_PASO
 			cp.y += (1.0 - cos(cv)) * CUERNO_PASO * 0.55
@@ -775,16 +1089,18 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 
 	# CUELLO y CABEZA. 'cabeza_y' las sube y las baja: al andar cabecea, en la cornada se hunde y en
 	# el enganche sube de golpe.
-	poner.call(Vector3(CUELLO.x, CUELLO.y, CUELLO.z + cabeza_y * 0.45), CUELLO_R, Tono.BASE)
-	poner.call(Vector3(CABEZA.x, CABEZA.y, CABEZA.z + cabeza_y), CABEZA_R, Tono.BASE)
+	poner.call(testa.call(Vector3(CUELLO.x, CUELLO.y, CUELLO.z + cabeza_y * 0.45), TESTUZ_CUELLO),
+		CUELLO_R, Tono.BASE)
+	poner.call(testa.call(Vector3(CABEZA.x, CABEZA.y, CABEZA.z + cabeza_y), 1.0), CABEZA_R, Tono.BASE)
 	# El HOCICO en su tono solo si se le ve la cara: de espaldas lo que asoma es la nuca, y una mancha
 	# oscura ahi canta como un borron en mitad del cogote.
-	poner.call(Vector3(HOCICO.x, HOCICO.y, HOCICO.z + cabeza_y), HOCICO_R,
+	poner.call(testa.call(Vector3(HOCICO.x, HOCICO.y, HOCICO.z + cabeza_y), 1.0), HOCICO_R,
 		Tono.HOCICO_T if not lados.is_empty() else Tono.SOMBRA)
 
 	# OREJAS, a los lados y hacia fuera. Estas SI se ven de espaldas: son parte de la silueta.
 	for lado in [-1.0, 1.0]:
-		poner.call(Vector3(lado * OREJA.x, OREJA.y, OREJA.z + cabeza_y), OREJA_R, Tono.SOMBRA)
+		poner.call(testa.call(Vector3(lado * OREJA.x, OREJA.y, OREJA.z + cabeza_y), 1.0), OREJA_R,
+			Tono.SOMBRA)
 
 	# EL CUERNO DE DELANTE, al final. El del fondo ya se dibujo antes de la cabeza (ver mas arriba):
 	# pintados los dos aqui, el del fondo se subia ENCIMA del craneo en vez de asomar por detras.
@@ -797,13 +1113,13 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		for k in ANILLA_SEGMENTOS:
 			var fa: float = float(k) / float(ANILLA_SEGMENTOS - 1)
 			var aa: float = PI * (0.12 + 0.76 * fa)      # medio arco, colgando hacia abajo
-			poner.call(Vector3(ANILLA.x + cos(aa) * ANILLA_R, ANILLA.y,
-					ANILLA.z + cabeza_y - sin(aa) * ANILLA_R),
+			poner.call(testa.call(Vector3(ANILLA.x + cos(aa) * ANILLA_R, ANILLA.y,
+					ANILLA.z + cabeza_y - sin(aa) * ANILLA_R), 1.0),
 				Vector3.ONE * ANILLA_GROSOR, Tono.ANILLA_T)
 
 	# OJOS, los ULTIMOS de la cara.
 	for l in lados:
-		poner.call(Vector3(l * OJO.x, OJO.y, OJO.z + cabeza_y), OJO_R, Tono.OJO_T)
+		poner.call(testa.call(Vector3(l * OJO.x, OJO.y, OJO.z + cabeza_y), 1.0), OJO_R, Tono.OJO_T)
 
 	# EL BRAZO DE DELANTE, al final del todo: va por encima del torso y de la cabeza.
 	for lado in delante:

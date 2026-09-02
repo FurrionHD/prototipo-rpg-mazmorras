@@ -18,5 +18,6 @@ golpes_max = 1
 dano_mult = 1.9
 efectos = [SubResource("SA_sangrado")]
 efectos_por_golpe = false
+fx_anim = &"cornada"
 fx_estilo = 20
 cooldown = 4

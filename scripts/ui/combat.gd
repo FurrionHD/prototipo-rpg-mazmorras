@@ -2639,6 +2639,14 @@ func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = 
 		var anim := StringName("embestida_%d" % dir)
 		if pide != &"":
 			var propia := StringName("%s_%d" % [pide, dir])
+			# Y SI ESA ANIMACION SOLO TIENE LA DIRECCION 0, VALE IGUAL. Hay habilidades que se dibujan
+			# en una sola direccion a proposito -- el pisoton y el bramido del Minotauro, igual que
+			# 'encaje' y 'muerte' -- porque en la pantalla de combate al bicho se le ve siempre de
+			# frente. Sin este escalon, esas animaciones solo aparecerian cuando 'dir' saliera 0 y el
+			# resto de las veces el bicho atacaria con su embestida: intermitentes, que es peor que no
+			# tenerlas. Es la misma degradacion que hace el visor de animaciones.
+			if not sp.sprite_frames.has_animation(propia):
+				propia = StringName("%s_0" % pide)
 			if sp.sprite_frames.has_animation(propia):
 				anim = propia
 		if not sp.sprite_frames.has_animation(anim):

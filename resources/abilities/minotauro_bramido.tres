@@ -26,5 +26,6 @@ dano_mult = 0.0
 efectos = [SubResource("SA_furia"), SubResource("SA_retraso")]
 area_modo = 1
 area_max = 99
+fx_anim = &"bramido"
 fx_estilo = 17
 cooldown = 5

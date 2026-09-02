@@ -31,7 +31,8 @@ const DIR_ENEMIGOS := "res://scenes/actors/enemy"
 # de este visor. Se meten porque son las que mas falta hace mirar y las que menos se ven jugando: la
 # muerte pasa una vez, deprisa y en mitad de un combate, y el cadaver solo aparece si vuelves a una
 # sala. Este es el unico sitio donde se pueden juzgar.
-const ANIMS := ["idle", "walk", "embestida", "inflar", "raices", "encaje", "muerte", "cadaver"]
+const ANIMS := ["idle", "walk", "embestida", "cornada", "pisoton", "bramido", "inflar", "raices",
+	"encaje", "muerte", "cadaver"]
 
 # Lo que espera antes de repetir una animacion que NO es ciclica (embestida, encaje, muerte...).
 # Sin esto se quedan clavadas en su ultimo fotograma y hay que cambiar de animacion y volver para
