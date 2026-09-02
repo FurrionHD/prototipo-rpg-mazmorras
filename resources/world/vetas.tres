@@ -10,7 +10,7 @@
 [ext_resource type="Resource" path="res://resources/materials/hierro_negro.tres" id="8_hierro2"]
 [ext_resource type="Resource" path="res://resources/materials/acero.tres" id="9_acero"]
 [ext_resource type="Resource" path="res://resources/materials/acero_plegado.tres" id="10_acero1"]
-[ext_resource type="Resource" path="res://resources/materials/acero_pavonado.tres" id="11_acero2"]
+[ext_resource type="Resource" path="res://resources/materials/acero_espejo.tres" id="11_acero2"]
 
 [sub_resource type="Resource" id="E_cobre"]
 script = ExtResource("2_entrada")

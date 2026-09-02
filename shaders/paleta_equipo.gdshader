@@ -37,6 +37,17 @@ uniform float metal : hint_range(0.0, 1.0) = 0.0;
 uniform float velocidad : hint_range(0.0, 2.0) = 0.30;
 // Cuanto se separa la luz de la sombra al volverse metalico.
 uniform float contraste : hint_range(1.0, 3.0) = 1.55;
+// LO CLARO QUE ES EL TONO DE LUZ DE ESTE MATERIAL (ver PaletaEquipo.luz_ref). Es el umbral del
+// destello, y tiene que venir de fuera porque el shader ve un pixel cada vez y no sabe cual es el
+// tono mas claro de la pieza.
+//
+// ANTES ERA UN UMBRAL FIJO (0.72) Y ASI EL BRILLO NO SE VEIA NUNCA: 'metal' sube con la mejora pero
+// la paleta OSCURECE con la mejora, asi que a +15 -- con el brillo a tope -- no quedaba ni un pixel
+// que pasara de 0.72. Un hierro negro no destellaba jamas. Relativo, destella la luz de cada
+// material sea clara u oscura, que es lo que hace el mineral en shaders/metal.gdshader.
+//
+// A cero se apaga el destello entero, que es lo que reciben el cuero y la madera.
+uniform float luz_ref : hint_range(0.0, 1.0) = 0.0;
 
 void fragment() {
 	vec4 tex = texture(TEXTURE, UV);
@@ -57,7 +68,11 @@ void fragment() {
 		float pl = dot(pal.rgb, vec3(0.299, 0.587, 0.114));
 		float lm = clamp((pl - 0.5) * contraste + 0.5, 0.0, 1.0);
 		float lf = mix(pl, lm, metal);
-		float destello = smoothstep(0.72, 0.96, pl) * metal
+		// El destello se reparte por CERCANIA AL TONO DE LUZ de este material, no por brillo absoluto:
+		// entra en el 86% de esa luz y llega a tope en ella. Asi destella SOLO la parte iluminada de la
+		// pieza -- que es lo que hace que se lea como un reflejo y no como que la pieza se enciende --
+		// pero lo hace igual en un acero espejo que en un hierro negro.
+		float destello = smoothstep(luz_ref * 0.86, luz_ref, pl) * metal
 			* (0.5 + 0.5 * sin(TIME * velocidad * 6.2831853));
 
 		vec3 c = pal.rgb * (lf / max(0.001, pl));

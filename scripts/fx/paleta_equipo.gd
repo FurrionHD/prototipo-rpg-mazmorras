@@ -9,12 +9,15 @@
 #  siempre tres peldaños por tier, con su banda de mejora declarada en el propio .tres
 #  (mejora_min / mejora_max), y son exactamente estos:
 #
-#      METAL   T1  cobre   ->  cobre veteado    ->  cobre profundo
-#              T2  hierro  ->  hierro templado  ->  hierro negro
-#      CUERO   T1  simple  ->  curado           ->  bruñido
-#              T2  reforzado -> endurecido      ->  placado
-#      MADERA  T1  comun   ->  de veta          ->  anillada
-#              T2  dura    ->  ferrea           ->  petrificada
+#      METAL   T1  cobre     ->  cobre veteado    ->  cobre profundo
+#              T2  hierro    ->  hierro templado  ->  hierro negro
+#              T3  acero     ->  acero plegado    ->  acero espejo
+#      CUERO   T1  simple    ->  curado           ->  bruñido
+#              T2  reforzado ->  endurecido       ->  placado
+#              T3  minotauro (SIN bandas: es el unico)
+#      MADERA  T1  comun     ->  de veta          ->  anillada
+#              T2  dura      ->  ferrea           ->  petrificada
+#              T3  negra     ->  calcinada        ->  latente
 #
 #  Asi que esto no es una escala nueva: es PINTAR la que ya se juega. Un arma de tier 1 a +10 se ve
 #  de cobre profundo porque esta hecha de cobre profundo.
@@ -34,7 +37,8 @@
 #  leerse, que es el que de verdad importa.
 #
 #  ESTA TABLA ES SOLO VISUAL. No crea materiales, no toca la forja y no hace forjable nada que hoy no
-#  lo sea. Por eso puede tener peldaños que como material todavia no existen (ver TIER 3).
+#  lo sea -- solo dice de que color se ve. Lo unico que tiene peldaños sin material detras es el
+#  CUERO T3, y van marcados uno por uno.
 # ============================================================
 
 extends RefCounted
@@ -71,8 +75,11 @@ const LEÑO := "madera"
 # (mejora_min / mejora_max): 0..3, 3..9, 9..15.
 #
 # ESTAN COPIADAS Y NO LEIDAS, y hay que saberlo: leerlas de los materiales seria mas seguro, pero el
-# TIER 3 no tiene bandas (ver abajo) y habria que inventarse el caso justo donde no hay dato. Si algun
-# dia se mueven alli, hay que moverlas aqui.
+# CUERO T3 no declara bandas y habria que inventarse el caso justo donde no hay dato. Si algun dia se
+# mueven alli, hay que moverlas aqui.
+#
+# (Este comentario decia "el TIER 3 no tiene bandas". Era falso para el metal y la madera, y esa
+# frase es la que hizo que nadie mirara si el acero salia del color de su material. No lo hacia.)
 const BANDAS := [3, 9]
 
 
@@ -82,15 +89,28 @@ const BANDAS := [3, 9]
 # El tono BASE de cada (familia, tier, banda). La sombra y la luz salen de el (ver _derivar), asi que
 # aqui hay un color por peldaño y no tres: tres a mano se descuadran en cuanto se retoca uno.
 #
-# EL TIER 3 LLEVA DOS PELDAÑOS QUE COMO MATERIAL NO EXISTEN TODAVIA. Hoy el acero, la madera negra y
-# el cuero de minotauro son la base de su tier y no tienen banda, asi que el juego no sabe forjar un
-# "acero pulido". Los colores estan puestos igual, y no es adelantarse: el equipo T3 tampoco se puede
-# mejorar hoy (no hay nucleo de tier 3), asi que estos dos peldaños son inalcanzables y no molestan.
-# El dia que se creen los materiales, ya tienen nombre y color elegidos.
+# EL TIER 3 SI TIENE PELDAÑOS, Y ESTE COMENTARIO DECIA LO CONTRARIO. Durante un tiempo puso que los
+# dos ultimos escalones del T3 eran inventados "porque como material no existen", y que daba igual
+# porque "el equipo T3 tampoco se puede mejorar (no hay nucleo de tier 3)". Las dos cosas eran falsas
+# y son las que taparon que el acero saliera de un color y su material de otro:
+#     acero -> acero plegado -> acero espejo          (resources/materials/, con sus bandas)
+#     madera negra -> calcinada -> latente
+#     nucleo_minotauro.tres cubre mejora_min 12 .. mejora_max 15
+# Un comentario que dice "esto no se puede ver" es la mejor manera de que nadie mire.
+#
+# EL UNICO QUE SIGUE SIN BANDAS ES EL CUERO T3: 'cuero_t3.tres' no declara mejora_min/max, asi que sus
+# dos escalones de aqui abajo si son inventados de verdad. Van marcados uno por uno.
 #
 # Y EL T3 VA AL REVES QUE LOS OTROS DOS: T1 y T2 se OSCURECEN al mejorar (cobre profundo, hierro
 # negro), pero por debajo del hierro negro no queda sitio -- "mas oscuro que negro" no se ve en
-# pantalla. El T3 ACLARA y se vuelve azulado, que ademas es lo que lo separa de un vistazo del T2.
+# pantalla. El T3 ACLARA, que ademas es lo que le da al acero una identidad propia frente al hierro:
+# uno acaba en negro y el otro en blanco. El material se cambio para que dijera lo mismo (el antiguo
+# "acero pavonado" -- pavonar es ennegrecer -- es ahora ACERO ESPEJO).
+#
+# OJO CON EL VECINO DE AL LADO, QUE HA CAMBIADO: antes el riesgo era que el T3 mejorado chocase con el
+# T2 mejorado (los dos oscuros). Ahora es al reves -- el acero espejo (casi blanco) contra el HIERRO
+# EN BRUTO (0,66 0,69 0,74, gris claro). Los separan el matiz (azul contra gris neutro), la luminancia
+# y sobre todo que solo el T3 llega a destellar.
 const TABLA := {
 	METAL: [
 		# T1 - COBRE: calido y anaranjado. Al mejorar se apaga y se vuelve rojizo.
@@ -106,9 +126,9 @@ const TABLA := {
 		# EL PRIMER PELDAÑO VA AZUL DE VERDAD y no gris claro, porque a ojo se confundia con el hierro
 		# en bruto del T2: los dos salian grises y el salto de tier -- que es el que de verdad importa
 		# -- no se leia. Y el ultimo se va a blanco puro por lo mismo, para separarse del de en medio.
-		[Color(0.52, 0.64, 0.82),   # acero
-		 Color(0.70, 0.84, 0.92),   # acero pulido      (INVENTADO: no existe como material)
-		 Color(0.95, 0.97, 1.00)],  # acero blanco      (INVENTADO: no existe como material)
+		[Color(0.52, 0.64, 0.82),   # acero en bruto
+		 Color(0.70, 0.84, 0.92),   # acero plegado
+		 Color(0.95, 0.97, 1.00)],  # acero espejo
 	],
 	FIBRA: [
 		# T1 - CUERO CLARO, que se curte y se oscurece.
@@ -120,9 +140,12 @@ const TABLA := {
 		 Color(0.36, 0.27, 0.26),   # cuero endurecido
 		 Color(0.28, 0.22, 0.24)],  # cuero placado
 		# T3 - ROJIZO, que es lo que lo separa del marron de los otros dos.
+		# EL UNICO TIER QUE DE VERDAD NO TIENE BANDAS: 'cuero_t3.tres' no declara mejora_min/max, asi
+		# que estos dos escalones no corresponden a ningun material y son inalcanzables. Aqui si vale
+		# lo que antes se decia de todo el T3.
 		[Color(0.52, 0.30, 0.30),   # cuero de minotauro
-		 Color(0.60, 0.34, 0.36),   # cuero sellado     (INVENTADO)
-		 Color(0.70, 0.44, 0.44)],  # cuero de escama   (INVENTADO)
+		 Color(0.60, 0.34, 0.36),   # cuero sellado     (INVENTADO: cuero_t3 no tiene bandas)
+		 Color(0.70, 0.44, 0.44)],  # cuero de escama   (INVENTADO: cuero_t3 no tiene bandas)
 	],
 	LEÑO: [
 		[Color(0.55, 0.42, 0.26),   # madera comun
@@ -131,9 +154,12 @@ const TABLA := {
 		[Color(0.40, 0.32, 0.24),   # madera dura
 		 Color(0.33, 0.28, 0.24),   # madera ferrea
 		 Color(0.26, 0.24, 0.24)],  # madera petrificada
-		[Color(0.24, 0.22, 0.26),   # madera negra
-		 Color(0.42, 0.28, 0.24),   # madera de brasa   (INVENTADO)
-		 Color(0.66, 0.62, 0.56)],  # madera de hueso   (INVENTADO)
+		# LA MADERA T3 VA AL REVES QUE EL ACERO, y esta bien asi: el acero es el eje CLARO del juego y
+		# la madera el OSCURO. Acababa en un hueso de 0,66 0,62 0,56 mientras su material acaba en
+		# 'madera latente', que es rojo BRASA -- se aclaraba justo donde el material se apaga.
+		[Color(0.26, 0.23, 0.24),   # madera negra
+		 Color(0.32, 0.27, 0.25),   # madera calcinada
+		 Color(0.34, 0.20, 0.19)],  # madera latente (el rescoldo: lo unico calido del tier)
 	],
 }
 
@@ -169,6 +195,34 @@ static func metal_de(familia: String, mejoras: int) -> float:
 	if familia != METAL:
 		return 0.0
 	return clampf(float(mejoras) / 15.0, 0.0, 1.0) * METAL_MAX
+
+
+# LO CLARO QUE ES EL TONO DE LUZ DE ESTE MATERIAL, que es lo que el shader necesita para saber DONDE
+# poner el destello.
+#
+# HACE FALTA PORQUE EL BRILLO NO SE VEIA NUNCA, y era el fallo mas gordo de todo esto: el shader
+# encendia el destello solo en pixeles que ya pasaban de 0,72 de luminancia (un umbral fijo), pero
+# 'metal' SUBE con la mejora y la paleta OSCURECE con la mejora. Las dos curvas iban en direcciones
+# contrarias y se cancelaban justo donde importa:
+#
+#     hierro en bruto (+0)   luz 0,89 -> pasa el umbral   pero metal 0,00
+#     hierro templado (+6)   luz 0,74 -> lo roza          y   metal 0,34   -> destello 0,007
+#     hierro negro   (+15)   luz 0,45 -> NO pasa          y   metal 0,85   -> destello CERO
+#
+# O sea que con el brillo a tope no quedaba ni un pixel bastante claro para destellar. Solo brillaba
+# el T3, que es claro.
+#
+# Con esto el umbral deja de ser absoluto y pasa a ser RELATIVO a la pieza: destella lo que es la luz
+# DE ESTE material, sea un acero espejo o un hierro negro. Es lo que hace el mineral, que suma su
+# barrido sin mirar lo oscura que sea la veta (ver shaders/metal.gdshader).
+#
+# Y SALE DE '_derivar' Y NO DE UNA COPIA DE LA FORMULA: si se escribiera el 1,24 otra vez aqui, el dia
+# que se retoque el tono de luz el destello se quedaria apuntando al brillo de ayer.
+static func luz_ref(familia: String, tier: int, mejoras: int) -> float:
+	if familia != METAL:
+		return 0.0
+	var luz: Color = _derivar(base(familia, tier, mejoras), 1.24, 0.68)
+	return luz.r * 0.299 + luz.g * 0.587 + luz.b * 0.114
 
 
 # ============================================================

@@ -15,10 +15,10 @@ area_max = 3
 area_secundario = 0.5
 carga_turnos = 1
 fx_anim = &"rodar"
-# SIN EFECTO DIBUJADO, que es el caso que estrena la regla. 0 es MELEE, cuyo tiempo de vuelo es 0.0,
-# y un estilo a 0.0 no llega a darse de alta (ver CombatFX: "CERO SIGNIFICA NO SE DIBUJA NADA"). Ojo:
-# -1 NO vale, cae al fx_basico. El efecto RODADA pintaba la bola girando con estelas y polvo ENCIMA
-# del escarabajo -- que es como se cuenta una rodada cuando el bicho no sabe rodar. Ahora rueda de
-# verdad, asi que el dibujo seria una segunda rodada encima de la primera.
+; SIN EFECTO DIBUJADO, que es el caso que estrena la regla. 0 es MELEE, cuyo tiempo de vuelo es 0.0,
+; y un estilo a 0.0 no llega a darse de alta (ver CombatFX: "CERO SIGNIFICA NO SE DIBUJA NADA"). Ojo:
+; -1 NO vale, cae al fx_basico. El efecto RODADA pintaba la bola girando con estelas y polvo ENCIMA
+; del escarabajo -- que es como se cuenta una rodada cuando el bicho no sabe rodar. Ahora rueda de
+; verdad, asi que el dibujo seria una segunda rodada encima de la primera.
 fx_estilo = 0
 cooldown = 4

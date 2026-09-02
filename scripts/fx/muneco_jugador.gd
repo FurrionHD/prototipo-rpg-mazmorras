@@ -351,6 +351,11 @@ func _pintar_capas() -> void:
 				# trae la capa, y sube con el nivel de mejora (ver PaletaEquipo.metal_de).
 				m0.set_shader_parameter("metal",
 					float(c["metal"]) if c.get("metal") != null else 0.0)
+				# Y DONDE cae ese brillo, que va con el material (ver PaletaEquipo.luz_ref). Se pone
+				# aqui al lado del 'metal' a proposito: son las dos mitades de la misma cosa, y el dia
+				# que alguien mueva una y se deje la otra el brillo se apaga entero sin dar error.
+				m0.set_shader_parameter("luz_ref",
+					float(c["luz_ref"]) if c.get("luz_ref") != null else 0.0)
 				# La paleta se vuelve a poner en cada repintado y no solo al crear el material: es lo
 				# unico que cambia cuando mejoras una pieza sin cambiar de pieza.
 				if c.get("paleta") != null:
@@ -365,6 +370,10 @@ func _pintar_capas() -> void:
 		if m != null:
 			m.set_shader_parameter("metal",
 				float(c["metal"]) if c.get("metal") != null else _metal_defecto)
+			# AQUI NO VA 'luz_ref', Y NO ES UN OLVIDO. Esta rama es la de las capas que SE TIÑEN (pelo,
+			# ropa, cuerpo) y esas van por capa_jugador.gdshader, que hace su metal multiplicando por
+			# un color y no tiene umbral de destello que ajustar. El uniform es de
+			# paleta_equipo.gdshader, o sea de la rama de arriba.
 
 
 # ============================================================

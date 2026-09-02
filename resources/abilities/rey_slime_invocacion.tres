@@ -15,16 +15,16 @@ dano_mult = 0.0
 invoca_pool = [ExtResource("2_slime"), ExtResource("3_veneno"), ExtResource("4_fuego"), ExtResource("5_abisal")]
 invoca_cantidad = 2
 fx_anim = &"brote"
-# SIN EFECTO DIBUJADO, y aqui es que NO HABIA NINGUNO: este .tres era el unico del juego sin
-# fx_estilo, y eso NO significa "no se dibuja nada" -- significa que cae al fx_basico del bicho, que
-# en el Rey Slime es PLACAJE. O sea que el jefe hacia un placaje entero, con su dibujo, para invocar.
-# Se pone a 0 (MELEE, vuelo 0.0) que si es "no se dibuja nada": lo que cuenta la habilidad son las
-# crias que aparecen, y un efecto encima solo taparia el momento en que salen.
+; SIN EFECTO DIBUJADO, y aqui es que NO HABIA NINGUNO: este .tres era el unico del juego sin
+; fx_estilo, y eso NO significa "no se dibuja nada" -- significa que cae al fx_basico del bicho, que
+; en el Rey Slime es PLACAJE. O sea que el jefe hacia un placaje entero, con su dibujo, para invocar.
+; Se pone a 0 (MELEE, vuelo 0.0) que si es "no se dibuja nada": lo que cuenta la habilidad son las
+; crias que aparecen, y un efecto encima solo taparia el momento en que salen.
 fx_estilo = 0
-# QUIETO (0) Y NO AUTO. Es la contrapartida de haber puesto fx_estilo = 0: AUTO da un paso adelante
-# "si el estilo es cuerpo a cuerpo", y MELEE lo es -- estaria deshaciendo justo lo que se busca, que
-# la tarjeta deje de lanzarse por un buff que no toca a nadie. Con el estilo anterior no hacia falta
-# porque aquel no estaba en _CUERPO_A_CUERPO y AUTO ya lo dejaba quieto.
+; QUIETO (0) Y NO AUTO. Es la contrapartida de haber puesto fx_estilo = 0: AUTO da un paso adelante
+; "si el estilo es cuerpo a cuerpo", y MELEE lo es -- estaria deshaciendo justo lo que se busca, que
+; la tarjeta deje de lanzarse por un buff que no toca a nadie. Con el estilo anterior no hacia falta
+; porque aquel no estaba en _CUERPO_A_CUERPO y AUTO ya lo dejaba quieto.
 gesto = 0
 carga_turnos = 1
 cooldown = 4

@@ -6653,7 +6653,7 @@ func _ruta_plantilla_valida(r: String) -> bool:
 const _CARPETA_MATERIALES := "res://resources/materials"
 const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/aceite.tres", "res://resources/materials/acero.tres",
-	"res://resources/materials/acero_pavonado.tres", "res://resources/materials/acero_plegado.tres",
+	"res://resources/materials/acero_espejo.tres", "res://resources/materials/acero_plegado.tres",
 	"res://resources/materials/ajo.tres", "res://resources/materials/anguila_pozo.tres",
 	"res://resources/materials/baba_abisal.tres",
 	"res://resources/materials/baba_fuego.tres", "res://resources/materials/baba_profunda.tres",
@@ -6668,7 +6668,7 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/carne_jabali.tres", "res://resources/materials/carne_rata.tres",
 	"res://resources/materials/cebolla.tres",
 	"res://resources/materials/chapa_acero.tres",
-	"res://resources/materials/chapa_acero_pavonado.tres", "res://resources/materials/chapa_acero_plegado.tres",
+	"res://resources/materials/chapa_acero_espejo.tres", "res://resources/materials/chapa_acero_plegado.tres",
 	"res://resources/materials/chapa_cobre.tres", "res://resources/materials/chapa_cobre_profundo.tres",
 	"res://resources/materials/chapa_cobre_veteado.tres", "res://resources/materials/chapa_hierro.tres",
 	"res://resources/materials/chapa_hierro_negro.tres", "res://resources/materials/chapa_hierro_templado.tres",
@@ -6691,7 +6691,7 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/hongo_azufre.tres",
 	"res://resources/materials/icor.tres", "res://resources/materials/lechuga.tres",
 	"res://resources/materials/lingote_acero.tres",
-	"res://resources/materials/lingote_acero_pavonado.tres", "res://resources/materials/lingote_acero_plegado.tres",
+	"res://resources/materials/lingote_acero_espejo.tres", "res://resources/materials/lingote_acero_plegado.tres",
 	"res://resources/materials/lingote_cobre.tres", "res://resources/materials/lingote_cobre_profundo.tres",
 	"res://resources/materials/lingote_cobre_veteado.tres", "res://resources/materials/lingote_hierro.tres",
 	"res://resources/materials/lingote_hierro_negro.tres", "res://resources/materials/lingote_hierro_templado.tres",
@@ -7522,9 +7522,9 @@ const _FORJA_METALES: Array = [
 		"res://resources/materials/lingote_acero_plegado.tres",
 		"res://resources/materials/chapa_acero_plegado.tres",
 		"res://resources/materials/hebillas_acero.tres"],            # T3 +1
-	["res://resources/materials/acero_pavonado.tres",
-		"res://resources/materials/lingote_acero_pavonado.tres",
-		"res://resources/materials/chapa_acero_pavonado.tres",
+	["res://resources/materials/acero_espejo.tres",
+		"res://resources/materials/lingote_acero_espejo.tres",
+		"res://resources/materials/chapa_acero_espejo.tres",
 		"res://resources/materials/hebillas_acero.tres"],           # T3 +2
 ]
 const _CUERO_CRUDO := "res://resources/materials/cuero_simple.tres"

@@ -4,9 +4,9 @@
 
 [resource]
 script = ExtResource("1")
-id = &"acero_pavonado"
-nombre = "Acero pavonado"
-descripcion = "Templado en algo que no es agua, y sale del baño casi negro. El herrero no dice en qué lo mete, y nadie insiste demasiado en preguntar."
+id = &"acero_espejo"
+nombre = "Acero espejo"
+descripcion = "Pulido hasta que te devuelve la cara. Sale de la veta ya casi blanco, y abajo, donde no llega ni un candil, se ve venir antes que al que lo lleva."
 familia = 0
 tipo = 2
 tier = 3
@@ -15,7 +15,7 @@ peso_base = 3.4
 valor_base = 230
 mejora_min = 9
 mejora_max = 15
-color = Color(0.09, 0.1, 0.14, 1)
+color = Color(0.88, 0.92, 0.98, 1)
 piso_min = 16
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"

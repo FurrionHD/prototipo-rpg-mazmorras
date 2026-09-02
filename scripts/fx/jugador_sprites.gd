@@ -323,18 +323,22 @@ static func _capas_armadura(pj: PersonajeData) -> Array:
 		var pal: ImageTexture = PaletaEquipo.lut(ArmaduraSprites.CLAVE_ROLES,
 			ArmaduraSprites.ROLES, fam, tier, mej)
 		var met: float = PaletaEquipo.metal_de(fam, mej)
+		# DONDE cae el destello, aparte de CUANTO (ver PaletaEquipo.luz_ref): el shader ve un pixel
+		# cada vez y no sabe cual es el tono claro de esta pieza, asi que el umbral tiene que venir de
+		# aqui. Sin el iba fijo en 0.72 y una armadura oscura no destellaba nunca.
+		var luz: float = PaletaEquipo.luz_ref(fam, tier, mej)
 		# LOS GUANTELETES SON DOS CAPAS, una por mano (ver ArmaduraSprites.SLOTS_POR_MANO), y cada una
 		# con SUS DOS POSICIONES de z segun por donde le caiga la mano (ver Z_ARMADURA_MANOS).
 		if ArmaduraSprites.SLOTS_POR_MANO.has(slot):
 			for lado in [["der", PoseJugador.P_MANO_DER, Ranura.MANO_DER],
 					["izq", PoseJugador.P_MANO_IZQ, Ranura.MANO_IZQ]]:
 				out.append({"clave": "%s_%s" % [base, lado[0]], "ranura": lado[2],
-					"ancla": lado[1], "tinte": false, "paleta": pal, "metal": met,
+					"ancla": lado[1], "tinte": false, "paleta": pal, "metal": met, "luz_ref": luz,
 					"z": Z_ARMADURA_MANOS, "z_atras": Z_ARMADURA_MANOS_DETRAS,
 					"frames": ArmaduraSprites.frames("%s_%s" % [base, lado[0]], 1.0)})
 			continue
 		out.append({"clave": base, "ranura": _ranura_de(slot),
-			"ancla": _ancla_de(slot), "tinte": false, "paleta": pal, "metal": met,
+			"ancla": _ancla_de(slot), "tinte": false, "paleta": pal, "metal": met, "luz_ref": luz,
 			"z": _z_de(slot, tipo),
 			"frames": ArmaduraSprites.frames(base, 1.0)})
 	return out
@@ -445,7 +449,10 @@ static func _pintura_arma(pj: PersonajeData, slot: String, familia: String,
 	var tier: int = _tier_de(pj, slot)
 	var mej: int = _mejoras_de(pj, slot)
 	return {"paleta": PaletaEquipo.lut(clave_roles, roles, familia, tier, mej),
-		"metal": PaletaEquipo.metal_de(familia, mej)}
+		"metal": PaletaEquipo.metal_de(familia, mej),
+		# El umbral del destello, que va con el material y no es un numero fijo del shader: ver
+		# PaletaEquipo.luz_ref. Sin esto una espada de hierro negro no reluce ni a +15.
+		"luz_ref": PaletaEquipo.luz_ref(familia, tier, mej)}
 
 
 # 'lado': 0 = mano/cadera derecha (principal), 1 = izquierda (secundaria).

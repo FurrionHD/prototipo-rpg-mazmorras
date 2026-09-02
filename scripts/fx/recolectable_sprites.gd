@@ -195,7 +195,7 @@ static func _veta(p: PackedByteArray, w: int, h: int, forma: int, modelo: int, s
 		7:
 			_acero_plegado(p, w, h, modelo, cx, pie)
 		_:
-			_acero_pavonado(p, w, h, modelo, cx, pie)
+			_acero_espejo(p, w, h, modelo, cx, pie)
 	_acabado_roca(p, w, h, sem, forma % 3 == 2)
 
 
@@ -352,7 +352,12 @@ static func _acero_plegado(p: PackedByteArray, w: int, h: int, modelo: int, cx: 
 # oscura, silueta puntiaguda y simetrica (distinta del bloque de esquirlas del hierro y del racimo
 # del cobre). Cada modelo cambia la altura de la aguja principal Y el abanico de las menores a lo
 # grande, no en pasos de 3 grados.
-static func _acero_pavonado(p: PackedByteArray, w: int, h: int, modelo: int, cx: float,
+#
+# LA SILUETA NO CAMBIO AL PASAR EL MATERIAL DE PAVONADO A ESPEJO, y no tenia por que: el color entra
+# aparte, por tinte (ver tinte_cuerpo), asi que aqui solo se dibuja la FORMA. Un racimo de agujas
+# facetadas es justo lo que pide un acero que ahora sale casi blanco -- lo que se movio fue el color
+# del .tres, no esto.
+static func _acero_espejo(p: PackedByteArray, w: int, h: int, modelo: int, cx: float,
 		pie: float) -> void:
 	SpriteLienzo.elipse(p, w, h, cx, pie - 3.0, 8.5, 3.5, ROCA_OSC)
 	var alto: float = [17.0, 22.0, 14.0, 19.0][modelo]
