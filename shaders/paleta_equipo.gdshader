@@ -18,10 +18,24 @@
 //  color a medio camino entre dos tonos -- un color que no eligio nadie -- y la pieza sale con el
 //  contorno de un marron sucio. Se pone al crear la textura, no aqui.
 //
-//  EL METAL es el mismo truco que capa_jugador.gdshader, copiado a proposito para que una armadura y
-//  el cuerpo brillen igual: no es un degradado por UV (con un AtlasTexture el UV recorre el atlas
-//  entero y el bisel sale cortado y bailando), sino estirar el contraste y encender lo que ya era
-//  luz, que es como se pinta el metal en pixel-art de verdad.
+//  EL METAL ES UNA BANDA QUE CRUZA LA PIEZA, la misma de shaders/metal.gdshader -- el que ya llevan
+//  las vetas de mineral. Que el equipo y la mena brillen igual no es un capricho: es lo que dice que
+//  la espada esta hecha de eso.
+//
+//  ANTES ERA UN PULSO y estaba mal. Toda la pieza subia y bajaba de brillo a la vez, asi que sobre una
+//  armadura oscura lo que se veia era parpadear entre oscuro y muy oscuro -- nunca una linea. Un pulso
+//  uniforme no puede leerse como metal: lo que dice "esto es pulido" es que el reflejo SE MUEVA por la
+//  superficie, porque una superficie mate no hace eso.
+//
+//  Y NO SE HIZO ANTES POR ESTE MOTIVO, QUE ERA CIERTO A MEDIAS: con un AtlasTexture el UV recorre el
+//  ATLAS ENTERO, asi que una banda calculada sobre UV sale cortada y bailando de un fotograma a otro.
+//  La salida es no usar UV: 'VERTEX' en la funcion vertex() son las coordenadas LOCALES del cuadro que
+//  se dibuja -- en pixeles de la pieza y sin saber nada del atlas -- y de ahi sale una banda que se
+//  queda quieta sobre la armadura mientras el personaje anda.
+//
+//  Y LA BANDA VA EN PIXELES, NO EN FRACCION DE LA PIEZA. Normalizando por su tamaño, un guantelete
+//  pequeño y un peto grande tendrian bandas de anchos distintos y no se leerian como el mismo metal.
+//  Con un periodo fijo en pixeles, todas las piezas del personaje comparten el mismo reflejo.
 // ============================================================
 shader_type canvas_item;
 
@@ -32,12 +46,18 @@ uniform sampler2D paleta : filter_nearest, repeat_disable;
 uniform float tonos : hint_range(2.0, 16.0) = 16.0;
 // Cuanto acabado metalico: 0 = mate (cuero, madera), 1 = a tope (placas muy mejoradas).
 uniform float metal : hint_range(0.0, 1.0) = 0.0;
-// Cada cuanto pasa el destello, en vueltas por segundo. Lento a proposito: en una fila de cuatro
-// personajes con armadura, un parpadeo rapido marea.
-// 0,45 -> el ciclo dura 2,2 segundos. A 0,30 eran 3,3 y el barrido tardaba tanto en volver que
-// parecia que la pieza estaba quieta; mas rapido de esto, una fila de cuatro personajes con armadura
-// parpadea y marea.
-uniform float velocidad : hint_range(0.0, 2.0) = 0.45;
+// Cada cuanto pasa la banda, en vueltas por segundo. Lento a proposito: en una fila de cuatro
+// personajes con armadura, un reflejo rapido marea. Es el mismo orden que el de las vetas (0,2).
+uniform float velocidad : hint_range(0.0, 2.0) = 0.28;
+// CADA CUANTOS PIXELES DE LA PIEZA se repite la banda.
+//
+// TIENE QUE SER MENOR QUE LA PIEZA, y ese es el numero que hay que acertar. Con 34 px la banda era
+// mas larga que un peto (que ocupa unos 30 px del fotograma de 84), asi que se pasaba la mayor parte
+// del ciclo FUERA de la armadura: el reflejo existia y no se veia nunca. A 18 px caben casi dos
+// pasadas en la pieza mas pequeña, o sea que siempre hay una cruzando.
+uniform float franja : hint_range(8.0, 128.0) = 18.0;
+// Lo ancha que es la banda, en fraccion del periodo. Estrecha = reflejo; ancha = la pieza encendida.
+uniform float ancho : hint_range(0.01, 0.4) = 0.13;
 // Cuanto se separa la luz de la sombra al volverse metalico.
 uniform float contraste : hint_range(1.0, 3.0) = 1.55;
 // LO CLARO QUE ES EL TONO DE LUZ DE ESTE MATERIAL (ver PaletaEquipo.luz_ref). Es el umbral del
@@ -51,6 +71,14 @@ uniform float contraste : hint_range(1.0, 3.0) = 1.55;
 //
 // A cero se apaga el destello entero, que es lo que reciben el cuero y la madera.
 uniform float luz_ref : hint_range(0.0, 1.0) = 0.0;
+
+// LAS COORDENADAS LOCALES DE LA PIEZA, en pixeles. Es lo que permite tener una banda que cruza sin
+// depender del UV (que en un AtlasTexture recorre el atlas entero, ver la cabecera).
+varying vec2 v_local;
+
+void vertex() {
+	v_local = VERTEX;
+}
 
 void fragment() {
 	vec4 tex = texture(TEXTURE, UV);
@@ -66,32 +94,56 @@ void fragment() {
 		float idx = floor(l * (tonos - 1.0) + 0.5);
 		vec4 pal = texture(paleta, vec2((idx + 0.5) / 16.0, 0.5));
 
-		// METAL: se estira el contraste alrededor del gris medio del COLOR YA SUSTITUIDO (no del gris
-		// del indice, que no significa brillo) y se enciende lo que ya era luz.
+		// METAL: se estira el contraste para separar la luz de la sombra. Es lo que hace que una pieza
+		// pulida tenga mas rango que una mate.
+		//
+		// EL PUNTO SOBRE EL QUE SE ESTIRA ES EL DEL MATERIAL, NO UN 0,5 FIJO, y esto estaba MAL y era
+		// medio problema. Con el pivote en 0,5, un material oscuro cae entero por debajo y el estiron
+		// lo HUNDE en vez de darle rango: en el hierro negro a +15 la sombra pasaba de 0,199 a 0,058
+		// de luminancia -- negro puro, y es el 38% del peto -- y el tono base de 0,329 a 0,249. O sea
+		// que subir el metal APAGABA la armadura. Eso es lo que se veia como "parpadea entre oscuro y
+		// muy oscuro".
+		//
+		// Pivotando en el tono base del propio material (que es ~0,76 de su tono de luz), el estiron
+		// hace lo que tiene que hacer: la sombra baja, la luz sube y el medio se queda donde estaba.
 		float pl = dot(pal.rgb, vec3(0.299, 0.587, 0.114));
-		float lm = clamp((pl - 0.5) * contraste + 0.5, 0.0, 1.0);
+		float pivote = max(0.05, luz_ref * 0.76);
+		float lm = clamp((pl - pivote) * contraste + pivote, 0.0, 1.0);
 		float lf = mix(pl, lm, metal);
-		// El destello se reparte por CERCANIA AL TONO DE LUZ de este material, no por brillo absoluto:
-		// asi destella igual un acero espejo que un hierro negro.
+		// LA BANDA, igual que en shaders/metal.gdshader: una franja diagonal que RECORRE la pieza.
+		// fract() la repite y los dos smoothstep la recortan a una linea con los bordes suaves.
+		// Va sobre las coordenadas LOCALES y en pixeles, no sobre el UV (ver la cabecera).
+		float d = fract((v_local.x + v_local.y) / max(1.0, franja) - TIME * velocidad);
+		// POR DISTANCIA AL CENTRO DE LA FRANJA, y NO con dos smoothstep enfrentados.
 		//
-		// Y ENTRA DESDE EL 0,60 Y NO DESDE EL 0,86, QUE ES LO QUE HACIA QUE NO SE VIERA. Con el listón
-		// alto solo participaba el tono de LUZ, y en una pieza de equipo ese tono son cuatro pixeles:
-		// el peto de placas tiene 204 pixeles opacos y solo 18 son MAT_L (un 8,8%), asi que el brillo
-		// caia sobre una brizna y desde la silla no existia. Bajando la entrada, el tono BASE -- que es
-		// otro 22% -- se lleva media racion y el de luz la entera: la pieza tiene un degradado que
-		// respira en vez de una mota que parpadea.
+		// El apaño clasico para recortar una banda es multiplicar smoothstep(0.5-a, 0.5, d) por
+		// smoothstep(0.5+a, 0.5, d) -- que es lo que hace shaders/metal.gdshader --, pero el segundo
+		// tiene el borde de ENTRADA por encima del de SALIDA, y con edge0 > edge1 el resultado de
+		// smoothstep esta INDEFINIDO segun la especificacion de GLSL. En la tarjeta con la que se
+		// probo funciona (devuelve la rampa espejada), asi que NO era el fallo que se estaba buscando
+		// -- pero depender de eso es apostar a que ninguna otra tarjeta lo lea distinto. Escrito por
+		// distancia al centro, esta definido en todas.
+		float banda = 1.0 - smoothstep(0.0, max(0.001, ancho), abs(d - 0.5));
+
+		// DONDE PUEDE CAER LA BANDA: sobre el METAL, y fuera del contorno y de los huecos.
 		//
-		// LA SOMBRA SIGUE FUERA, que es lo que lo mantiene como un reflejo y no como que la pieza se
-		// enciende: MAT_S vale 0,62 del tono base, o sea ~0,50 de la luz, y se queda por debajo de la
-		// entrada. Ese es el numero que no hay que bajar.
-		float destello = smoothstep(luz_ref * 0.60, luz_ref, pl) * metal
-			* (0.5 + 0.5 * sin(TIME * velocidad * 6.2831853));
+		// LA PUERTA VA BAJA (0,20 a 0,50 de la luz) Y ESO ES LO QUE FALTABA. Con 0,45 a 0,78 se quedaba
+		// fuera el tono de SOMBRA, que en un peto de placas es el 38% de la pieza -- o sea que la banda
+		// existia, cruzaba, y se apagaba justo en la mitad del cuerpo por la que pasaba. Se veia en el
+		// depurado: la franja caia entera sobre la zona excluida.
+		//
+		// Un reflejo recorre TODA la superficie, tambien la parte en penumbra -- lo que no puede tocar
+		// es el CONTORNO (una linea que cruza el borde deja la pieza calcada en neon) ni los huecos.
+		// Esos son casi negros (0,08 de luminancia) y con el suelo en luz_ref * 0,20 se quedan fuera
+		// solos, sea el material claro u oscuro. Ese es el numero que no hay que bajar.
+		float sitio = smoothstep(luz_ref * 0.20, luz_ref * 0.50, pl);
+		float destello = banda * sitio * metal;
 
 		vec3 c = pal.rgb * (lf / max(0.001, pl));
-		// 0,55 y no 0,40: sobre un hierro negro (luminancia 0,44) el 0,40 subia el pico a 0,61 y en una
-		// figura de 84 pixeles eso se pierde. Sigue estando por debajo de quemar a blanco porque el
-		// clamp de abajo lo recoge.
-		c += vec3(destello * 0.55);
+		// Lo que sube la banda al pasar. Va fuerte (0,75, como el de las vetas) porque ahora es una
+		// LINEA estrecha y no la pieza entera: subir mucho una franja de dos pixeles se lee como un
+		// reflejo, y subir poco la pieza entera se lee como que parpadea -- que es lo que pasaba antes.
+		c += vec3(destello * 0.75);
 		// El modulate sigue multiplicando, para que un aliado desvaido o un parpadeo de daño sigan
 		// funcionando sobre el equipo igual que sobre el resto del muñeco.
 		COLOR = vec4(clamp(c, 0.0, 1.0) * COLOR.rgb, tex.a * pal.a * COLOR.a);
