@@ -148,6 +148,9 @@ const BRAZO_BAJA := 2.6            # nace por debajo del centro de la hombrera, 
 const BRAZO_ANG_REPOSO := 0.10
 const BRAZO_ANG_ALTO := 2.60
 const BRAZO_CODO := 0.85
+# En que sillar se dobla: con siete, el cuarto deja mitad brazo y mitad antebrazo. Todo el pliegue va
+# AHI y no repartido (ver _brazo).
+const BRAZO_CODO_SEG := 4
 const BRAZO_ADELANTA := 0.85
 const BRAZO_ABRE := 0.11
 const BRAZO_SEPARA := 0.6
@@ -530,6 +533,8 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var ancho_f: float = 1.0 + 0.04 * agacha
 
 	var piezas: Array = []
+	var s_a: float = sin(ang)
+	var c_a: float = cos(ang)
 	# EL AVANCE SE ROTA UNA VEZ Y LO LLEVAN TODAS LAS PIEZAS POR IGUAL. Sumarlo a la Y local antes de
 	# rotar solo funcionaria si TODAS giraran, y aqui el torso NO gira: el bicho se partiria en dos
 	# mitades yendose a sitios distintos. Es la trampa del meceo del trent.
@@ -579,7 +584,17 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		var sy: float = origen.y + (rot.y * SpriteLienzo.COS_CAM - lz * SpriteLienzo.SIN_CAM) * u
 		piezas.append({"pos": Vector2(sx, sy),
 			"radio": Vector2(r.x * ancho_f * enc * u, r.y * enc * u),
-			"persp": SpriteLienzo.persp_de(r.y * enc, r.z * enc * alto_f), "tono": tono,
+			# LA PERSPECTIVA SE MIDE SOBRE EL RADIO YA ROTADO. El motor aplasta el eje VERTICAL DE
+			# PANTALLA por 'persp' DESPUES de girar la pieza, pero 'persp_de' recibe el radio a lo
+			# LARGO, y los dos solo coinciden mirando al SUR: girado 90 grados, el que cae en vertical
+			# es el radio a lo ANCHO. Sin esto las piezas pierden altura al girar y se sueltan del
+			# cuerpo en siete de las ocho direcciones -- el fallo de las patas del acechador, cuya
+			# firma era "mal en todas menos en S". Aqui estaba tapado porque el coloso es casi cuadrado
+			# en planta, asi que ry y rx se parecen y el error nunca llegaba a abrir una junta.
+			"persp": SpriteLienzo.persp_de(
+				sqrt(pow(r.x * ancho_f * enc, 2.0) * s_a * s_a + pow(r.y * enc, 2.0) * c_a * c_a)
+					if gira else r.y * enc,
+				r.z * enc * alto_f), "tono": tono,
 			"solo_sobre": solo_sobre, "caja": caja, "ang": ang_forma,
 			# Una pieza girada puede caer en cualquier eje, asi que su caja envolvente tiene que
 			# contar con el radio mayor por los dos lados (ver SpriteLienzo.caja_de_piezas).
@@ -787,7 +802,14 @@ static func _brazo(poner: Callable, b: Dictionary, fase: float, esc_detras: floa
 	for k in BRAZO_SEGMENTOS:
 		var f: float = float(k) / float(BRAZO_SEGMENTOS - 1)
 		if k > 0:
-			var a: float = BRAZO_ANG_REPOSO + BRAZO_CODO * pow(f, 1.3)
+			# EL CODO ES UNA JUNTA, NO UNA CURVA. Iba repartido (`BRAZO_CODO * pow(f, 1.3)`), un poco
+			# de pliegue en cada tramo, y eso no dobla: COMBA. El brazo salia como un arco y se leia
+			# tieso. Todo el pliegue en una junta parte el brazo en brazo y antebrazo, que ademas es lo
+			# que tiene que verse en algo hecho de SILLARES: una piedra no se curva, se articula.
+			#
+			# Y cabe de sobra porque el paso no cambia: un salto de angulo D separa el centro siguiente
+			# 2*PASO*sin(D/2) = 2*3,0*sin(0,43) = 2,5, contra los 4,8 que suman los radios de la junta.
+			var a: float = BRAZO_ANG_REPOSO + (BRAZO_CODO if k >= BRAZO_CODO_SEG else 0.0)
 			var d := Vector3(lado * BRAZO_ABRE, sin(a) * BRAZO_ADELANTA, -cos(a)).normalized()
 			eje += d * BRAZO_PASO
 		var p := Vector3(eje.x + lado * BRAZO_SEPARA * f, eje.y + fase * f * 2.4, eje.z)
