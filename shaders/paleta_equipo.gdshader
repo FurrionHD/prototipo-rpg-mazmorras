@@ -34,7 +34,10 @@ uniform float tonos : hint_range(2.0, 16.0) = 16.0;
 uniform float metal : hint_range(0.0, 1.0) = 0.0;
 // Cada cuanto pasa el destello, en vueltas por segundo. Lento a proposito: en una fila de cuatro
 // personajes con armadura, un parpadeo rapido marea.
-uniform float velocidad : hint_range(0.0, 2.0) = 0.30;
+// 0,45 -> el ciclo dura 2,2 segundos. A 0,30 eran 3,3 y el barrido tardaba tanto en volver que
+// parecia que la pieza estaba quieta; mas rapido de esto, una fila de cuatro personajes con armadura
+// parpadea y marea.
+uniform float velocidad : hint_range(0.0, 2.0) = 0.45;
 // Cuanto se separa la luz de la sombra al volverse metalico.
 uniform float contraste : hint_range(1.0, 3.0) = 1.55;
 // LO CLARO QUE ES EL TONO DE LUZ DE ESTE MATERIAL (ver PaletaEquipo.luz_ref). Es el umbral del
@@ -69,14 +72,26 @@ void fragment() {
 		float lm = clamp((pl - 0.5) * contraste + 0.5, 0.0, 1.0);
 		float lf = mix(pl, lm, metal);
 		// El destello se reparte por CERCANIA AL TONO DE LUZ de este material, no por brillo absoluto:
-		// entra en el 86% de esa luz y llega a tope en ella. Asi destella SOLO la parte iluminada de la
-		// pieza -- que es lo que hace que se lea como un reflejo y no como que la pieza se enciende --
-		// pero lo hace igual en un acero espejo que en un hierro negro.
-		float destello = smoothstep(luz_ref * 0.86, luz_ref, pl) * metal
+		// asi destella igual un acero espejo que un hierro negro.
+		//
+		// Y ENTRA DESDE EL 0,60 Y NO DESDE EL 0,86, QUE ES LO QUE HACIA QUE NO SE VIERA. Con el listón
+		// alto solo participaba el tono de LUZ, y en una pieza de equipo ese tono son cuatro pixeles:
+		// el peto de placas tiene 204 pixeles opacos y solo 18 son MAT_L (un 8,8%), asi que el brillo
+		// caia sobre una brizna y desde la silla no existia. Bajando la entrada, el tono BASE -- que es
+		// otro 22% -- se lleva media racion y el de luz la entera: la pieza tiene un degradado que
+		// respira en vez de una mota que parpadea.
+		//
+		// LA SOMBRA SIGUE FUERA, que es lo que lo mantiene como un reflejo y no como que la pieza se
+		// enciende: MAT_S vale 0,62 del tono base, o sea ~0,50 de la luz, y se queda por debajo de la
+		// entrada. Ese es el numero que no hay que bajar.
+		float destello = smoothstep(luz_ref * 0.60, luz_ref, pl) * metal
 			* (0.5 + 0.5 * sin(TIME * velocidad * 6.2831853));
 
 		vec3 c = pal.rgb * (lf / max(0.001, pl));
-		c += vec3(destello * 0.40);
+		// 0,55 y no 0,40: sobre un hierro negro (luminancia 0,44) el 0,40 subia el pico a 0,61 y en una
+		// figura de 84 pixeles eso se pierde. Sigue estando por debajo de quemar a blanco porque el
+		// clamp de abajo lo recoge.
+		c += vec3(destello * 0.55);
 		// El modulate sigue multiplicando, para que un aliado desvaido o un parpadeo de daño sigan
 		// funcionando sobre el equipo igual que sobre el resto del muñeco.
 		COLOR = vec4(clamp(c, 0.0, 1.0) * COLOR.rgb, tex.a * pal.a * COLOR.a);
