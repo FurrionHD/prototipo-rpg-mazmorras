@@ -171,6 +171,7 @@ static func generar(color: Color = Color(0.30, 0.40, 0.28), escala: float = 1.0)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
 	_montar_caparazon(anims, esc)
+	_montar_rodar(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -255,6 +256,76 @@ static func _montar_caparazon(anims: Array, esc: float) -> void:
 	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente. El combate cae a
 	# "caparazon_0" cuando la direccion que toca no existe.
 	_montar_animacion(anims, esc, "caparazon", false, 9.0, pose, true, 1, FRAMES)
+
+
+# CUANTO HAY QUE LEVANTAR AL ESCARABAJO PARA QUE RUEDE SOBRE EL SUELO Y NO DENTRO DE EL.
+#
+# La vuelta es alrededor del ORIGEN (z = 0, el punto que pisa), no del centro del bicho: girando 90
+# grados, el centro del caparazon -- que estaba a 4,6 de alto -- acaba a ras de suelo y media bola
+# queda enterrada. Hay que subirlo, y CUANTO depende del angulo:
+#   de pie (0 y 360)  el caparazon ya esta donde tiene que estar        -> nada
+#   de canto (90/270) lo que mira al suelo es el SEMIANCHO (8,2)        -> mucho
+#   boca arriba (180) el semialto (4,4), pero el centro esta a -4,6     -> lo maximo
+#
+# Al primer intento esto era una tabla de valores a ojo con un 6,2 constante, y se notaba: el bicho
+# salia FLOTANDO al empezar a rodar (donde sobraban dos unidades) y se hundia a media vuelta (donde
+# faltaban dos). Sacandolo del angulo cuadra en los ocho fotogramas y ademas se arregla solo el dia
+# que cambie el tamaño del caparazon.
+static func _apoyo_rodando(tumba_cuartos: float) -> float:
+	var th: float = tumba_cuartos * PI * 0.5
+	var c: float = cos(th)
+	var s: float = sin(th)
+	# Media altura del caparazon en la vertical DE AHORA, y donde ha quedado su centro.
+	var medio: float = sqrt(pow(ELITROS_R.x * s, 2.0) + pow(ELITROS_R.z * c, 2.0))
+	return maxf(0.0, medio - ELITROS.z * c)
+
+# LA EMBESTIDA RODANTE: se hace una bola y RUEDA hasta la victima.
+#
+# Y AQUI EL EFECTO DIBUJADO SE VA (fx_estilo 0 en su .tres). El efecto RODADA pintaba "la bola
+# girando con estelas circulares y polvo saliendo por debajo" ENCIMA del escarabajo, que es la manera
+# de contar una rodada cuando el bicho no sabe rodar. Ahora rueda de verdad, asi que el dibujo seria
+# una segunda rodada superpuesta a la primera. Es la regla que puso el usuario: lo que hace el
+# cuerpo, no se pinta ademas.
+#
+# RUEDA COMO UNA RUEDA, NO COMO UNA PEONZA, y eso es todo el truco. 'tumba' gira sobre el eje
+# morro-grupa, que de frente APUNTA A LA CAMARA: girando ahi sin mas, el escarabajo daria vueltas
+# como un plato sobre la pantalla. Con 'rumbo' se le pone el cuerpo de costado primero -- el eje pasa
+# a ser horizontal -- y entonces la misma vuelta se lee como algo que RUEDA hacia ti. Es exactamente
+# el mismo apaño que necesito la muerte para que se le viera la vuelta de campana.
+#
+# SE HACE BOLA ANTES DE RODAR ('encoge'), y no es adorno: es lo que hace un bicho que va a rodar, y
+# ademas mete las seis patas dentro, que si no van barriendo el aire en cada vuelta. Es la palanca
+# que ya usan la muerte (patas al cielo) y el caparazon.
+#
+# UNA VUELTA ENTERA Y NO DOS. Con ocho fotogramas, dos vueltas son 180 grados por marco: a partir de
+# ahi el ojo ya no sabe hacia donde gira -- es la rueda de carro del cine -- y puede leerse girando
+# al reves. Una vuelta deja 90 por marco, que se sigue leyendo.
+static func _montar_rodar(anims: Array, esc: float) -> void:
+	# Se agazapa y se pone de costado, rueda, y se planta. El avance es el de su embestida.
+	var avance_keys := [[0.0, 0.0], [0.143, -1.2], [0.286, 0.6], [0.429, 3.6], [0.571, 6.6],
+		[0.714, 9.5], [0.857, 8.6], [1.0, 7.4]]
+	# EN CUARTOS DE VUELTA: 4.0 es una vuelta completa. Arranca despacio (le cuesta) y se lanza.
+	var tumba_keys := [[0.0, 0.0], [0.143, 0.0], [0.286, 0.7], [0.429, 1.9], [0.571, 3.1],
+		[0.714, 4.0], [0.857, 4.0], [1.0, 4.0]]
+	# El giro en planta que pone el eje de costado. Entra en el agazapo y se deshace al frenar.
+	var rumbo_keys := [[0.0, 0.0], [0.143, 0.55], [0.286, 1.0], [0.714, 1.0], [0.857, 0.55],
+		[1.0, 0.0]]
+	var encoge_keys := [[0.0, 0.0], [0.143, 0.6], [0.286, 1.0], [0.714, 1.0], [0.857, 0.45],
+		[1.0, 0.0]]
+	var agacha_keys := [[0.0, 0.0], [0.143, 0.75], [0.286, 0.30], [0.714, 0.30], [0.857, 0.65],
+		[1.0, 0.15]]
+	var pose := func(t: float) -> Dictionary:
+		var tumba: float = SpriteLienzo.tramos(t, tumba_keys)
+		return {"avance": SpriteLienzo.tramos(t, avance_keys) * (LUNGE_DIST / 9.5),
+			"estira": 1.0, "fase": 0.0, "paso": 0.0,
+			"agacha": SpriteLienzo.tramos(t, agacha_keys), "antena": 0.0,
+			"tumba": tumba,
+			"rumbo": SpriteLienzo.tramos(t, rumbo_keys) * PI * 0.5,
+			# EL APOYO SALE DEL PROPIO ANGULO, no de una tabla a mano (ver _apoyo_rodando).
+			"apoyo": _apoyo_rodando(tumba),
+			"encoge": SpriteLienzo.tramos(t, encoge_keys)}
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
+	_montar_animacion(anims, esc, "rodar", false, 12.0, pose, true, 1, FRAMES)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
@@ -394,9 +465,17 @@ static func _curva(a: Vector3, codo: Vector3, b: Vector3, f: float) -> Vector3:
 # Las PIEZAS del escarabajo para una pose, ya proyectadas a pantalla. El orden ES la profundidad: de
 # lo mas bajo (sombra, patas) a lo mas alto (caparazon, costura, brillo, cabeza, antenas).
 static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
-	# RUMBO: un giro EXTRA en planta, encima del de la direccion. Solo lo usa la muerte, para que la
-	# vuelta de campana se vea (de frente, el eje sobre el que vuelca apunta a la camara).
-	var ang: float = DIR_VECS[dir].angle() - DIR_VECS[0].angle() + float(pose.get("rumbo", 0.0))
+	# RUMBO: un giro EXTRA en planta, encima del de la direccion. Lo usan la muerte -- para que la
+	# vuelta de campana se vea, porque de frente el eje sobre el que vuelca apunta a la camara -- y la
+	# embestida rodante, que necesita justo lo mismo para rodar como una RUEDA y no como una peonza.
+	#
+	# Y EL RUMBO NO PUEDE TORCER EL AVANCE. El desplazamiento se rota tambien por un angulo, y si
+	# fuera este el bicho se iria de LADO en cuanto girase en planta: la rodante avanzaria en diagonal
+	# hacia donde no esta nadie. Asi que son DOS angulos: 'ang' orienta el CUERPO y 'ang_avance'
+	# orienta el VIAJE. A la muerte le da igual (viaja cero), que es lo que permite separarlos sin
+	# tocar lo que ya estaba bien.
+	var ang_avance: float = DIR_VECS[dir].angle() - DIR_VECS[0].angle()
+	var ang: float = ang_avance + float(pose.get("rumbo", 0.0))
 	var u: float = esc / SpriteLienzo.UNIDADES_POR_CELDA
 	var centro: float = float(_celdas(esc)) * 0.5
 	var estira: float = float(pose["estira"])
@@ -421,7 +500,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var piezas: Array = []
 	# EL AVANCE SE ROTA UNA VEZ Y LO LLEVAN TODAS LAS PIEZAS POR IGUAL (ver la trampa del meceo del
 	# trent): sumarlo a la Y local antes de rotar solo funciona si TODAS las piezas giran.
-	var desp := Vector2(0.0, avance).rotated(ang)
+	var desp := Vector2(0.0, avance).rotated(ang_avance)
 
 	var poner := func(local: Vector3, r: Vector3, tono: int, solo_sobre: Array = [],
 			en_suelo: bool = false) -> void:
@@ -561,7 +640,13 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# tambien a las piezas que se distinguen por DONDE ESTAN A LO LARGO del bicho (el jabali se
 	# quedaba sin cabeza asi), y ademas rompe los 'solo_sobre' -- el lomo se pinta sobre BASE, y
 	# pintado antes que el caparazon no encuentra nada sobre lo que ir.
-	if tumba > PI * 0.5:
+	# EL ANGULO SE MIRA DADA LA VUELTA (fposmod), no en bruto. Con la muerte daba igual -- vuelca media
+	# vez y se queda ahi --, pero la embestida rodante da una vuelta ENTERA, y una vuelta entera acaba
+	# en 2*PI: en bruto eso es "mayor que medio cuarto de vuelta" y el bicho terminaba de rodar con las
+	# patas dibujadas por encima del caparazon, estando de pie. Lo que hay que preguntar es si esta
+	# boca arriba AHORA, no cuanto ha girado en total.
+	var tumba_vuelta: float = fposmod(tumba, TAU)
+	if tumba_vuelta > PI * 0.5 and tumba_vuelta < PI * 1.5:
 		var antes: Array = []
 		var enmedio: Array = []
 		var despues: Array = []

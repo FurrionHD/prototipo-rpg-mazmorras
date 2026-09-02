@@ -198,6 +198,7 @@ static func generar(color: Color = Color(0.60, 0.15, 0.12), escala: float = 1.0)
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_enrosque(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -238,6 +239,47 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 			"fase": 0.0, "onda": 0.55, "paso": 0.0,
 			"alza": SpriteLienzo.tramos(t, alza_keys), "enrosca": 0.0}
 	_montar_animacion(anims, esc, "embestida", false, 12.0, pose, true)
+
+
+# EL ENROSQUE: se lanza y se ENROLLA. No pica -- aprieta.
+#
+# HASTA AHORA REPRODUCIA LA EMBESTIDA, o sea que se alzaba y se dejaba caer con las forcipulas por
+# delante: el gesto de PICAR. Y esta habilidad es justo el otro: lo que hace daño no es la boca, es
+# que el cuerpo entero se cierre.
+#
+# LA PALANCA YA EXISTIA Y LA PUSO LA MUERTE. 'enrosca' cambia la TRAZA por la que se colocan los
+# anillos -- de linea que serpentea a espiral -- y por eso aqui no hay que mover ninguna pieza: se
+# pide media espiral y el bicho se enrolla solo. Es lo mismo que paso con el 'encoge' del escarabajo.
+#
+# Y NO PUEDE LLEGAR A 1,0, QUE ES SU MUERTE. La espiral cerrada del todo es la pose del cadaver, y si
+# el enrosque acabara ahi el jugador veria morirse al bicho cada vez que usa su habilidad. Se queda
+# en 0,62: enrollado de sobra para leerse, y a media vuelta de la espiral del muerto.
+#
+# EL EFECTO SE MANTIENE. Los anillos que aprietan se dibujan sobre LA VICTIMA, no sobre el ciempies,
+# asi que no duplican nada de lo que hace el cuerpo -- al reves que la rodada del escarabajo.
+static func _montar_enrosque(anims: Array, esc: float) -> void:
+	# Se estira hacia atras y SE LANZA, que es cuando empieza a enrollarse: primero llega, luego
+	# aprieta. Enroscandose antes de salir se leeria como que se acurruca en su sitio.
+	var avance_keys := [[0.0, 0.0], [0.143, -1.4], [0.286, 1.0], [0.429, 5.4], [0.571, 7.6],
+		[0.714, 7.6], [0.857, 6.8], [1.0, 5.4]]
+	var enrosca_keys := [[0.0, 0.0], [0.143, 0.0], [0.286, 0.10], [0.429, 0.34], [0.571, 0.56],
+		[0.714, 0.62], [0.857, 0.60], [1.0, 0.44]]
+	# La onda se apaga segun se enrolla: un cuerpo que aprieta esta TENSO, no serpenteando.
+	var onda_keys := [[0.0, 0.55], [0.143, 0.85], [0.286, 0.70], [0.429, 0.40], [0.571, 0.18],
+		[0.714, 0.10], [0.857, 0.16], [1.0, 0.40]]
+	# La cabeza se alza al lanzarse y baja al cerrar el nudo: la boca deja de mandar.
+	var alza_keys := [[0.0, 0.0], [0.143, 0.70], [0.286, 0.85], [0.429, 0.40], [0.571, 0.10],
+		[0.714, 0.0], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		var onda: float = SpriteLienzo.tramos(t, onda_keys)
+		return {"avance": SpriteLienzo.tramos(t, avance_keys) * (LUNGE_DIST / 8.5),
+			# La fase corre mientras se enrolla: los anillos se mueven a lo largo del cuerpo y es lo
+			# que hace que el nudo se APRIETE en vez de quedarse quieto en su sitio.
+			"fase": t * 1.3, "onda": onda, "paso": onda * 0.5,
+			"alza": SpriteLienzo.tramos(t, alza_keys),
+			"enrosca": SpriteLienzo.tramos(t, enrosca_keys)}
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
+	_montar_animacion(anims, esc, "enrosque", false, 11.0, pose, true, 1, FRAMES)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y

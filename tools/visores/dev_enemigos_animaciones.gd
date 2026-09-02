@@ -11,7 +11,7 @@
 #    Godot_v4.7-stable_win64.exe --path . res://tools/visores/dev_enemigos_animaciones.tscn
 #
 #  TECLAS
-#    ESPACIO / →   siguiente animacion (la lista entera, la tenga este bicho o no)   ←   la anterior
+#    ESPACIO / →   siguiente animacion (solo las que TIENE este bicho)   ←   la anterior
 #    A / D         girar la direccion (una de las 8)
 #    B / V         siguiente / anterior ENEMIGO (salta a los que tengan sprite)
 #    P             parar / seguir el avance de frame
@@ -22,58 +22,66 @@
 extends Node2D
 
 const DIR_ENEMIGOS := "res://scenes/actors/enemy"
-# TODAS las animaciones que puede traer un enemigo, tenga las 8 direcciones o no. La lista es comun
-# a todos los generadores y ninguno las tiene todas: las que le falten al de turno se avisan en el
-# subtitulo en vez de dejar la anterior puesta, que era lo que pasaba antes (y hacia creer que un
-# bicho tenia una animacion que no tiene).
+# LAS ANIMACIONES DE ESTE BICHO. No hay lista fija: se recalcula cada vez que se cambia de enemigo.
 #
 # MUERTE y CADAVER estan aqui aunque no sean animaciones de MOVIMIENTO, que es lo que dice el nombre
 # de este visor. Se meten porque son las que mas falta hace mirar y las que menos se ven jugando: la
 # muerte pasa una vez, deprisa y en mitad de un combate, y el cadaver solo aparece si vuelves a una
 # sala. Este es el unico sitio donde se pueden juzgar.
 #
-# SE SACA DE LOS PROPIOS BICHOS Y YA NO SE MANTIENE A MANO. Estaba escrita aqui, y una lista escrita
-# a mano en la herramienta de mirar es la peor de todas: cuando alguien añade una animacion a un
-# generador, el sitio donde iria a comprobar que ha quedado bien es JUSTAMENTE el que no la conoce --
-# el bicho la tiene, el juego la reproduce, y el visor la esconde. Ya paso con las tres del
-# Minotauro, y quedan diez por delante.
+# SE SACA DEL BICHO QUE SE ESTA MIRANDO, Y SOLO DE ESE. Antes era una lista escrita a mano aqui, y
+# una lista a mano en la herramienta de MIRAR es la peor de todas: cuando alguien añade una animacion
+# a un generador, el sitio donde iria a comprobar que ha quedado bien es justamente el que no la
+# conoce -- el bicho la tiene, el juego la reproduce, y el visor la esconde.
 #
-# El ORDEN de ORDEN_BASE es el que importa (idle y walk primero, muerte y cadaver al final); lo que
-# aparezca en algun bicho y no este ahi se añade detras, ordenado, para que un nombre nuevo salga
-# solo el dia que se cree.
+# PERO TAMPOCO VALE JUNTAR LAS DE TODOS. Se probo, y con veintitantos nombres en la lista comun había
+# que pasar por 'cornada', 'pisoton', 'brote', 'telarana'... para llegar a la muerte de un bicho que
+# tiene cinco animaciones. La pantalla avisaba de "este enemigo no tiene X", asi que no engañaba,
+# pero recorrer dieciocho carteles de error para ver cinco poses es peor herramienta que la de antes.
+#
+# El ORDEN de ORDEN_BASE es el que importa (idle y walk primero, muerte y cadaver al final); las
+# propias del bicho van detras, ordenadas, asi que una animacion nueva aparece sola el dia que se
+# crea y solo en el bicho que la tiene.
 const ORDEN_BASE := ["idle", "walk", "embestida", "encaje", "muerte", "cadaver"]
-var ANIMS: Array = []
+var ANIMS: Array = ORDEN_BASE.duplicate()
 
 
-# Recorre todos los enemigos y junta los nombres de sus animaciones, sin la direccion (el "_3" del
-# final). Se llama una vez, al arrancar.
+# Las animaciones de ESTE bicho, sin la direccion (el "_3" del final). Se recalcula al cambiar de
+# enemigo con B/V.
 func _censar_anims() -> void:
+	var frames: SpriteFrames = _frames_de(_lista[_idx])
+	if frames == null:
+		ANIMS = ORDEN_BASE.duplicate()      # sin sprite: la lista de siempre, para poder navegar
+		_anim_i = 0
+		return
 	var vistas: Dictionary = {}
-	for ed in _lista:
-		var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5)
-		if frames == null:
-			continue
-		for a in frames.get_animation_names():
-			# "embestida_3" -> "embestida". Se corta por el ULTIMO guion bajo y solo si lo que hay
-			# detras es un numero: si no, un nombre con guion bajo dentro se quedaria a medias.
-			var n: String = String(a)
-			var i: int = n.rfind("_")
-			if i > 0 and n.substr(i + 1).is_valid_int():
-				n = n.substr(0, i)
-			vistas[n] = true
+	for a in frames.get_animation_names():
+		# "embestida_3" -> "embestida". Se corta por el ULTIMO guion bajo y solo si lo que hay detras
+		# es un numero: si no, un nombre con guion bajo dentro se quedaria a medias.
+		var n: String = String(a)
+		var i: int = n.rfind("_")
+		if i > 0 and n.substr(i + 1).is_valid_int():
+			n = n.substr(0, i)
+		vistas[n] = true
 	var extra: Array = []
 	for n in vistas:
 		if not ORDEN_BASE.has(n):
 			extra.append(n)
 	extra.sort()
 	ANIMS = []
-	# Las de siempre en su orden, pero solo las que exista alguien que las tenga.
 	for n in ORDEN_BASE:
 		if vistas.has(n):
 			ANIMS.append(n)
 	ANIMS.append_array(extra)
 	if ANIMS.is_empty():
 		ANIMS = ORDEN_BASE.duplicate()
+	# AL CAMBIAR DE BICHO SE INTENTA SEGUIR EN LA MISMA ANIMACION. Comparando bichos se mira lo mismo
+	# en los dos (el andar de este contra el andar del otro), y volver a 'idle' en cada salto obliga a
+	# rehacer el camino cada vez. Si el nuevo no la tiene, al principio.
+	var antes: String = String(_anim_actual)
+	_anim_i = maxi(0, ANIMS.find(antes))
+	_anim_actual = ANIMS[_anim_i]
+
 
 # Lo que espera antes de repetir una animacion que NO es ciclica (embestida, encaje, muerte...).
 # Sin esto se quedan clavadas en su ultimo fotograma y hay que cambiar de animacion y volver para
@@ -91,6 +99,9 @@ var _lista: Array = []   # de EnemyData
 var _idx := 0
 var _dir := 0
 var _anim_i := 0
+# El NOMBRE de la animacion elegida, aparte del indice: al cambiar de bicho la lista cambia de
+# tamaño y de contenido, asi que el indice solo no dice en que estabas (ver _censar_anims).
+var _anim_actual: String = "idle"
 var _vel := 1.0
 var _auto := true
 
@@ -209,9 +220,11 @@ func _unhandled_input(ev: InputEvent) -> void:
 	var k: int = (ev as InputEventKey).keycode
 	if k == KEY_SPACE or k == KEY_RIGHT:
 		_anim_i = (_anim_i + 1) % ANIMS.size()
+		_anim_actual = ANIMS[_anim_i]
 		_mostrar()
 	elif k == KEY_LEFT:
 		_anim_i = (_anim_i - 1 + ANIMS.size()) % ANIMS.size()
+		_anim_actual = ANIMS[_anim_i]
 		_mostrar()
 	elif k == KEY_A:
 		_dir = (_dir - 1 + 8) % 8
@@ -221,9 +234,11 @@ func _unhandled_input(ev: InputEvent) -> void:
 		_mostrar()
 	elif k == KEY_B:
 		_idx = (_idx + 1) % _lista.size()
+		_censar_anims()
 		_mostrar()
 	elif k == KEY_V:
 		_idx = (_idx - 1 + _lista.size()) % _lista.size()
+		_censar_anims()
 		_mostrar()
 	elif k == KEY_P:
 		_auto = not _auto
@@ -273,7 +288,8 @@ func _mostrar() -> void:
 
 	_titulo.text = "%s  ·  %s (%s)" % [ed.enemy_name, ANIMS[_anim_i], DIR_NOMBRES[_dir]]
 	var aviso: String = nota if frames != null else "   ⚠ sin sprite: placeholder ColorRect (como en el mapa)"
-	_sub.text = "%d/%d      x%.2f%s%s" % [_idx + 1, _lista.size(), _vel, "" if _auto else "   (PAUSA)", aviso]
+	_sub.text = "bicho %d/%d   ·   anim %d/%d      x%.2f%s%s" % [_idx + 1, _lista.size(),
+		_anim_i + 1, ANIMS.size(), _vel, "" if _auto else "   (PAUSA)", aviso]
 
 
 func _foto() -> void:
