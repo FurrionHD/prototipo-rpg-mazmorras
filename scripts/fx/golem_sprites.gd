@@ -42,11 +42,29 @@ const ANCHO_MUNDO := 22.0
 # golem salia sin piernas -- un pegote apoyado en el suelo. Lo que se ve de una pierna es lo que
 # sobresale por debajo del bulto, no lo que mide.
 const PIERNA_X := 4.6
-const PIERNA_R := Vector3(3.4, 3.4, 7.4)
 const PIERNA_Z := 7.2              # centro: la pierna va de z 0 a z 14,6
 # Corto y bajo: tiene Agilidad 10 y arrastra los pies, no trota.
 const PASO_LARGO := 2.6
 const PASO_ALZA := 1.1
+# --- Y LA PIERNA VA EN TRES PIEZAS, NO EN UNA.
+#
+# ERA UN CILINDRO DE CATORCE UNIDADES (r 3,4 x 3,4 x 7,4) y por eso el golem andaba como un mueble:
+# no es que no doblara la rodilla, es que no TENIA rodilla -- la pierna entera se desplazaba de un
+# sitio a otro sin cambiar de forma. Partida en tres, con su reparto por pieza, la de atras se pliega
+# mientras la de delante empuja.
+#
+#   paso -> cuanto le toca de la zancada    dobla_* -> cuanto le toca de plegar la rodilla
+#
+# LA JUNTA MAS JUSTA ES MUSLO-RODILLA: centros a 4,2 y radios en Z que suman 6,8, o sea SOLAPE 2,6.
+# La diferencia de reparto mayor entre vecinas es 0,35, asi que ningun movimiento nuevo puede pasar
+# de 7,4 de amplitud. La zancada (2,6) y el plegado de aqui abajo entran de sobra.
+const PIERNA_PIEZAS := [
+	{"dz": 4.2, "r": Vector3(3.4, 3.4, 3.6), "paso": 0.35, "dobla_y": -0.5, "dobla_z": -2.6},
+	{"dz": 0.0, "r": Vector3(3.2, 3.2, 3.2), "paso": 0.70, "dobla_y": -1.4, "dobla_z": -3.4},
+	{"dz": -4.0, "r": Vector3(3.1, 3.1, 3.4), "paso": 1.00, "dobla_y": -2.2, "dobla_z": -1.8},
+]
+# Cuanto se pliega la rodilla de la pata de atras al andar. CORTO: esto arrastra los pies, no trota.
+const RODILLA_PASO := 0.30
 # PIES: una torta de barro aplastada bajo cada pierna. Lo que hace que no acabe en un muñon.
 const PIE_R := Vector3(4.2, 4.6, 1.8)
 
@@ -112,6 +130,8 @@ const BRAZO_R1 := 2.1              # en la muñeca
 # Se ANULA al alzar los puños (multiplica por 1-alza): un machacazo se descarga con el brazo
 # estirado, no doblado.
 const BRAZO_CODO := 1.05
+# En que junta se dobla: mitad brazo, mitad antebrazo. Todo el pliegue va AHI (ver _brazo).
+const BRAZO_CODO_SEG := 3
 # EL BRAZO NACE POR DEBAJO DEL CENTRO DEL HOMBRO. Naciendo en el centro, la primera bola del brazo
 # --- que es oscura y mide lo mismo que el bulto --- tapaba el hombro ENTERO y el golem se quedaba
 # sin la curva de arriba: dos barras oscuras de la cabeza al suelo. Bajandolo un par de unidades, el
@@ -223,6 +243,17 @@ const ENCAJE_RETRO := 0.30
 # el monton se va en la direccion a la que mira; en las ocho direcciones eso son 66 celdas en
 # cualquiera de ellas. Ampliar un lienzo es casi gratis (el horno recorta cada fotograma a su dibujo
 # y guarda el hueco como margen), asi que se le da de sobra y no se vuelve a mirar.
+# --- EL MONTON EN EL QUE ACABA. Mismos tres numeros que el coloso, pero es BARRO y no piedra, y eso
+# los cambia los tres:
+#   * SE DESPARRAMA MAS (6,8 contra 5,8): un cascote de granito rueda y se para, un terron de arcilla
+#     se abre. Y el golem es mucho mas ancho de partida.
+#   * EL MONTON QUEDA MAS BAJO (4,2 contra 5,6): la piedra se APILA, el barro se ASIENTA.
+#   * Y LOS TROZOS ENCOGEN MENOS (0,86 contra 0,74). Son TERRONES, no cascotes: si encogen mucho, lo
+#     que queda en el suelo es grava fina y no se lee como los pedazos de algo que era grande.
+const ESCOMBRO_RADIO := 6.8
+const ESCOMBRO_ALTO := 4.2
+const ESCOMBRO_ENCOGE := 0.86
+
 const LIENZO_ANCHO := 3.00
 const LIENZO_ARRIBA := 2.20
 const LIENZO_ABAJO := 1.05
@@ -275,7 +306,10 @@ static func dimensiona_por_escala() -> bool:
 # Sale REDONDO (17,2 de lado), o sea por debajo del 1.3 de proporcion con el que enemy.gd gira la
 # colision: es lo correcto, un pegote estorba lo mismo se ponga como se ponga.
 static func tam_cuerpo(escala: float = 1.0) -> Vector2:
-	var lado: float = maxf(TORSO_R.x, PIERNA_X + PIERNA_R.x) * 2.0
+	# El semiancho de la pierna sale de la tabla (la pieza de arriba, que es la mas gorda) y no de una
+	# constante suelta: la pierna se partio en tres y una copia del numero aqui se habria quedado
+	# valiendo lo de antes en silencio -- y esto es la COLISION, o sea el tamaño del bicho en el mapa.
+	var lado: float = maxf(TORSO_R.x, PIERNA_X + float(PIERNA_PIEZAS[0]["r"].x)) * 2.0
 	return Vector2(lado, lado) * escala
 
 
@@ -319,7 +353,7 @@ static func generar(color: Color = Color(0.6, 0.45, 0.3), escala: float = 1.0) -
 # que repetir doce claves en cada una (y para que añadir una clave nueva no obligue a tocarlas todas).
 static func _reposo() -> Dictionary:
 	return {"avance": 0.0, "mece": 0.0, "balanceo": 0.0, "brazos": 0.0, "alza": 0.0,
-		"patas": 0.0, "agacha": 0.0, "cabeza": 0.0, "derrumbe": 0.0, "apoyo": 0.0}
+		"patas": 0.0, "agacha": 0.0, "cabeza": 0.0, "desmorona": 0.0, "apoyo": 0.0}
 
 
 # Quieto: respira muy despacio y los brazos se balancean un pelin. A 3 fps, como el trent -- tiene
@@ -408,16 +442,25 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
 # ahi al bicho se le mira siempre de frente. Para el mapa esta 'cadaver'.
 #
-# SE DERRUMBA EN UN MONTON. Ni vuelca (escarabajo) ni cae de una pieza (trent): a un cuerpo de barro
-# se le van las piernas y se viene abajo SOBRE SI MISMO, desparramandose a lo ancho. El truco es
-# bajar y ENSANCHAR a la vez -- bajando sin ensanchar sale el mismo golem mas pequeño, o sea un
-# golem enano, no uno derrumbado. Es lo mismo que aprendio el trent.
+# SE PARTE EN TERRONES Y SE VIENE ABAJO. Ni vuelca (escarabajo) ni cae de una pieza (trent) ni se
+# hinca de rodillas (coloso): a un cuerpo de arcilla cocida se le va una pierna y se DESHACE.
+#
+# ANTES SE APLASTABA, Y ESO ESTABA MAL. El derrumbe viejo encogia el bicho en altura y lo ensanchaba
+# (x0,22 de alto, x1,42 de ancho), o sea que el golem no se rompia: se DEFORMABA, entero y en una
+# pieza, igual que un slime. Un slime puede aplastarse porque es gelatina; un golem de barro cocido
+# no se aplana, se PARTE. Ahora cada pieza se suelta por su cuenta y cae a su sitio del monton (ver
+# 'desmorona' en _piezas), que ademas es lo que ya hacia el coloso -- lo que los separa no es el
+# efecto, es de que estan hechos: al coloso le quedan CASCOTES y a este TERRONES.
 #
 # Y ARRANCA CON UN TEMBLOR: se le va una pierna, se tambalea y ahi ya no hay vuelta. Sin ese aviso
-# el derrumbe se lee como una interpolacion.
+# el desmoronamiento se lee como una interpolacion.
+#
+# EL DESHACERSE EMPIEZA TARDE Y ACELERA (nada hasta 0,32, y de ahi al final). Lo que se rompe no se
+# rompe despacio, y arrancando desde el fotograma 0 el bicho se disuelve antes de haberse caido: se
+# ve una nube de bolas, no un cuerpo viniendose abajo.
 static func _pose_muerte(t: float) -> Dictionary:
-	var derr_keys := [[0.0, 0.0], [0.16, 0.05], [0.32, 0.18], [0.50, 0.46],
-		[0.68, 0.78], [0.84, 0.95], [1.0, 1.0]]
+	var derr_keys := [[0.0, 0.0], [0.16, 0.0], [0.32, 0.10], [0.50, 0.38],
+		[0.68, 0.72], [0.84, 0.93], [1.0, 1.0]]
 	# El tambaleo del principio, y luego se vuelca hacia delante mientras se deshace.
 	var mece_keys := [[0.0, 0.0], [0.16, -1.1], [0.32, 0.6], [0.50, 1.4], [0.68, 1.8], [1.0, 1.9]]
 	var balan_keys := [[0.0, 0.0], [0.16, 0.9], [0.32, -0.7], [0.50, 0.3], [1.0, 0.0]]
@@ -433,7 +476,7 @@ static func _pose_muerte(t: float) -> Dictionary:
 	# Las piernas ceden desde el primer momento.
 	var agacha_keys := [[0.0, 0.0], [0.16, 0.35], [0.32, 0.70], [0.68, 1.0], [1.0, 1.0]]
 	var p: Dictionary = _reposo()
-	p["derrumbe"] = SpriteLienzo.tramos(t, derr_keys)
+	p["desmorona"] = SpriteLienzo.tramos(t, derr_keys)
 	p["mece"] = SpriteLienzo.tramos(t, mece_keys)
 	p["balanceo"] = SpriteLienzo.tramos(t, balan_keys)
 	p["alza"] = SpriteLienzo.tramos(t, alza_keys)
@@ -574,16 +617,18 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var agacha: float = float(pose["agacha"])
 	var cabeza_cae: float = float(pose["cabeza"])
 	var fase_patas: float = float(pose["patas"])
-	# DERRUMBARSE (0..1). Con default 0, o sea que las poses de siempre no lo notan.
-	var derrumbe: float = clampf(float(pose.get("derrumbe", 0.0)), 0.0, 1.0)
+	# DESMORONARSE (0..1). Con default 0, o sea que las poses de siempre no lo notan.
+	#
+	# ANTES ERA UN 'derrumbe' QUE APLASTABA Y ENSANCHABA EL BICHO ENTERO (baja x0,22, derrama x1,42) y
+	# eso NO es un cuerpo que se rompe, es un cuerpo que se DEFORMA: exactamente lo que hace un slime.
+	# Un golem de arcilla cocida no se aplana, SE PARTE EN TERRONES. Ahora cada pieza se suelta y cae a
+	# su sitio del monton, como los sillares del coloso.
+	var desmorona: float = clampf(float(pose.get("desmorona", 0.0)), 0.0, 1.0)
 
-	# Bajar y ENSANCHAR a la vez: eso es un monton de barro. Solo bajando saldria un golem enano.
-	var baja: float = 1.0 - 0.78 * derrumbe
-	var derrama: float = 1.0 + 0.42 * derrumbe
-	# Agachado = mas bajo y un pelin mas ancho, como el escarabajo. Cuenta aparte del derrumbe
-	# porque lo usan las cuatro animaciones de andar y pelear.
-	var alto_f: float = (1.0 - 0.16 * agacha) * baja
-	var ancho_f: float = (1.0 + 0.05 * agacha) * derrama
+	# Agachado = mas bajo y un pelin mas ancho, como el escarabajo. Lo usan las cuatro animaciones de
+	# andar y pelear.
+	var alto_f: float = 1.0 - 0.16 * agacha
+	var ancho_f: float = 1.0 + 0.05 * agacha
 
 	var piezas: Array = []
 	# EL AVANCE SE ROTA UNA VEZ Y LO LLEVAN TODAS LAS PIEZAS POR IGUAL. Sumarlo a la Y local antes de
@@ -598,21 +643,58 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# 'gira' = false para lo que se ve igual desde los ocho lados (torso, cabeza, la sombra): son
 	# redondos en planta y estan centrados en el eje, asi que rotarlos no los moveria -- y ademas
 	# ahorra el rotated().
+	var s_a: float = sin(ang)
+	var c_a: float = cos(ang)
 	var poner := func(local: Vector3, r: Vector3, tono: int, solo_sobre: Array = [],
 			gira: bool = true) -> void:
+		var lx: float = local.x * ancho_f
+		var ly: float = local.y
 		var lz: float = local.z * alto_f
-		var p := Vector2(local.x * ancho_f, local.y * derrama)
-		# El meceo se dobla por la altura ORIGINAL (no la de despues de derrumbarse): es la cizalla
-		# del cuerpo, y un cuerpo ya caido no se mece.
-		var alto: float = clampf(local.z / CABEZA.z, 0.0, 1.4)
+		var enc: float = 1.0
+
+		# DESMORONARSE: cada terron se suelta y cae a su sitio del monton.
+		#
+		# Donde acaba cada uno sale de un HASH DE SU PROPIA POSICION, ni de un randf ni del orden de
+		# dibujo. Las dos cosas importan: un randf cambiaria el monton en cada fotograma (los terrones
+		# bailarian en vez de caer) y ademas rompe que el generador sea determinista, que es lo que
+		# permite comprobar regresiones por huella. Y el orden tampoco vale: cambia con la direccion y
+		# con que brazo va delante, asi que un mismo terron saltaria de sitio entre fotogramas.
+		if desmorona > 0.0:
+			var sem: float = sin(local.x * 12.9898 + local.y * 78.233 + local.z * 37.719) * 43758.5453
+			var r1: float = fposmod(sem, 1.0) * 2.0 - 1.0
+			var r2: float = fposmod(sem * 1.37, 1.0) * 2.0 - 1.0
+			var tx: float = r1 * ESCOMBRO_RADIO
+			var ty: float = r2 * ESCOMBRO_RADIO * 0.78
+			# EL MONTON ES UN MONTON: mas alto en el centro y a ras por los bordes. Repartiendo la
+			# altura al azar saldria una alfombra de terrones, no un tumulo.
+			var d: float = clampf(sqrt(tx * tx + ty * ty) / ESCOMBRO_RADIO, 0.0, 1.0)
+			var tz: float = ESCOMBRO_ALTO * (1.0 - d * d) * (0.45 + 0.55 * fposmod(sem * 2.11, 1.0))
+			# La caida acelera y el reparto a lo ancho no: primero se abre y luego se desploma.
+			lx = lerpf(lx, tx, desmorona)
+			ly = lerpf(ly, ty, desmorona)
+			lz = lerpf(lz, tz, desmorona * desmorona)
+			enc = lerpf(1.0, ESCOMBRO_ENCOGE, desmorona)
+		# El meceo se dobla por la altura ORIGINAL (no la de despues de caer): es la cizalla del
+		# cuerpo, y un cuerpo ya deshecho no se mece. Y por eso mismo se APAGA al desmoronarse: sobre
+		# un monton de terrones desplazaria cada uno una cantidad distinta y lo abriria.
+		var alto: float = clampf(local.z / CABEZA.z, 0.0, 1.4) * (1.0 - desmorona)
+		var p := Vector2(lx, ly)
 		var rot: Vector2 = (p.rotated(ang) if gira else p) + desp + mece_v * alto
 		var sx: float = origen.x + rot.x * u
 		var sy: float = origen.y + (rot.y * SpriteLienzo.COS_CAM - lz * SpriteLienzo.SIN_CAM) * u
-		var rz: float = r.z * alto_f
-		var ry: float = r.y * derrama
+		var rz: float = r.z * alto_f * enc
+		var ry: float = r.y * enc
+		var rxm: float = r.x * ancho_f * enc
+		# LA PERSPECTIVA SE MIDE SOBRE EL RADIO YA ROTADO. El motor aplasta el eje VERTICAL DE PANTALLA
+		# por 'persp' DESPUES de girar la pieza, pero 'persp_de' recibe el radio a lo LARGO, y los dos
+		# solo coinciden mirando al SUR: girado 90 grados, el que cae en vertical es el radio a lo
+		# ANCHO. Sin esto las piezas pierden altura al girar y se sueltan del cuerpo en siete de las
+		# ocho direcciones. Es lo que le paso a las patas del acechador ("mal en todas menos en S") y
+		# aqui estaba igual de mal, solo que tapado porque casi todo el golem es redondo en planta.
+		var ry_rot: float = sqrt(rxm * rxm * s_a * s_a + ry * ry * c_a * c_a) if gira else ry
 		piezas.append({"pos": Vector2(sx, sy),
-			"radio": Vector2(r.x * ancho_f * u, ry * u),
-			"persp": SpriteLienzo.persp_de(ry, rz),
+			"radio": Vector2(rxm * u, ry * u),
+			"persp": SpriteLienzo.persp_de(ry_rot, rz),
 			"tono": tono, "solo_sobre": solo_sobre})
 
 	# 1. SOMBRA DE CONTACTO, lo primero (va debajo de todo). A ALTURA CERO y sin derrumbe en la
@@ -647,11 +729,22 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		if not bool(b["delante"]):
 			_brazo(poner, b, fase_brazos, alza, DETRAS_ESC, Tono.BRAZO_OSC, Tono.PUNO_OSC)
 
-	# 4. PIERNAS: cada una sobre su pie. La ADELANTADA en tono mas claro, que es lo que deja ver de
-	#    un vistazo cual de las dos ha dado el paso.
+	# 4. PIERNAS: tres piezas cada una, sobre su pie. La ADELANTADA en tono mas claro, que es lo que
+	#    deja ver de un vistazo cual de las dos ha dado el paso.
+	#
+	#    Y LA DE ATRAS DOBLA LA RODILLA. Es lo unico que hace falta para que deje de andar como un
+	#    mueble: la pata que empuja se pliega y la que llega va estirada. El reparto por pieza esta en
+	#    PIERNA_PIEZAS -- la zancada la lleva sobre todo la de abajo (el pie recorre el paso entero, la
+	#    cadera apenas se mueve) y el plegado baja sobre todo la de en medio, que es la rodilla.
 	for k in pies.size():
-		poner.call(pies[k], PIERNA_R,
-			Tono.PIERNA_T if pies[k].y >= pies[1 - k].y else Tono.PIERNA_OSC)
+		var pie: Vector3 = pies[k]
+		var adelantada: bool = pie.y >= pies[1 - k].y
+		var tono_p: int = Tono.PIERNA_T if adelantada else Tono.PIERNA_OSC
+		var rod: float = 0.0 if adelantada else RODILLA_PASO * absf(fase_patas)
+		for pz in PIERNA_PIEZAS:
+			var swing_y: float = pie.y * float(pz["paso"])
+			poner.call(Vector3(pie.x, swing_y + rod * float(pz["dobla_y"]),
+					pie.z + float(pz["dz"]) + rod * float(pz["dobla_z"])), pz["r"], tono_p)
 
 	# 5. EL TORSO, entero en penumbra...
 	poner.call(TORSO, TORSO_R, Tono.BARRO_OSC, [], false)
@@ -689,9 +782,9 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	#    GIRAN, o un golem visto de espaldas seguiria enseñandolas por la grupa.
 	# SE LE APAGA EL HORNO AL MORIR. Los ojos y el barro cocido son lo unico encendido del bicho, y
 	# un monton de barro que sigue mirando con los ojos amarillos no esta muerto, esta tumbado. Se
-	# van los dos a la vez y de golpe (no es un degradado: son tonos de paleta, no colores), a mitad
-	# del derrumbe, que es cuando ya no hay vuelta atras.
-	var encendido: bool = derrumbe < 0.45
+	# van los dos a la vez y de golpe (no es un degradado: son tonos de paleta, no colores), en cuanto
+	# empieza a deshacerse, que es cuando ya no hay vuelta atras.
+	var encendido: bool = desmorona < 0.20
 	# LA GRIETA SE QUEDA EN EL PECHO AUNQUE EL GOLEM GIRE, y eso hay que hacerlo a mano.
 	#
 	# El torso NO gira (es redondo en planta, se ve igual desde los ocho lados) pero la grieta SI --
@@ -790,9 +883,18 @@ static func _brazo(poner: Callable, b: Dictionary, fase: float, alza: float,
 	for k in BRAZO_SEGMENTOS:
 		var f: float = float(k) / float(BRAZO_SEGMENTOS - 1)
 		if k > 0:
-			# El angulo del tramo: 'th' en el hombro y abriendose hacia delante hacia la muñeca.
+			# El angulo del tramo: 'th' en el hombro, y a partir del CODO se le suma el pliegue.
 			# 0 = a plomo, PI/2 = hacia delante, 2,75 = por encima de la cabeza.
-			var a: float = th + codo * pow(f, 1.3)
+			#
+			# EL CODO ES UNA JUNTA, NO UNA CURVA. Antes iba repartido como `codo * pow(f, 1.3)`, o sea
+			# un poco en cada tramo: eso no es doblar, es COMBAR -- el brazo sale como un arco y se
+			# sigue leyendo tieso, que es lo mismo que le pasaba al minotauro. Todo el pliegue en una
+			# sola junta parte el brazo en brazo y antebrazo, que es lo que hay que ver.
+			#
+			# Y SE PUEDE DOBLAR ASI DE GOLPE porque el paso no cambia: un salto de angulo D separa el
+			# centro siguiente 2*PASO*sin(D/2), o sea 2*3,0*sin(0,52) = 3,0 con el codo entero, contra
+			# los 4,7 que suman los radios de esa junta. Sobra.
+			var a: float = th + (codo if k >= BRAZO_CODO_SEG else 0.0)
 			var d := Vector3(lado * BRAZO_ABRE, sin(a) * BRAZO_ADELANTA, -cos(a)).normalized()
 			eje += d * BRAZO_PASO
 		# El balanceo de andar mueve la punta hacia delante y atras, y crece hacia la mano: el hombro
