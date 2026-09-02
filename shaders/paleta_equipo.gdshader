@@ -46,18 +46,30 @@ uniform sampler2D paleta : filter_nearest, repeat_disable;
 uniform float tonos : hint_range(2.0, 16.0) = 16.0;
 // Cuanto acabado metalico: 0 = mate (cuero, madera), 1 = a tope (placas muy mejoradas).
 uniform float metal : hint_range(0.0, 1.0) = 0.0;
-// Cada cuanto pasa la banda, en vueltas por segundo. Lento a proposito: en una fila de cuatro
-// personajes con armadura, un reflejo rapido marea. Es el mismo orden que el de las vetas (0,2).
-uniform float velocidad : hint_range(0.0, 2.0) = 0.28;
-// CADA CUANTOS PIXELES DE LA PIEZA se repite la banda.
+// --- CADA CUANTO PASA EL REFLEJO ---
 //
-// TIENE QUE SER MENOR QUE LA PIEZA, y ese es el numero que hay que acertar. Con 34 px la banda era
-// mas larga que un peto (que ocupa unos 30 px del fotograma de 84), asi que se pasaba la mayor parte
-// del ciclo FUERA de la armadura: el reflejo existia y no se veia nunca. A 18 px caben casi dos
-// pasadas en la pieza mas pequeña, o sea que siempre hay una cruzando.
-uniform float franja : hint_range(8.0, 128.0) = 18.0;
-// Lo ancha que es la banda, en fraccion del periodo. Estrecha = reflejo; ancha = la pieza encendida.
-uniform float ancho : hint_range(0.01, 0.4) = 0.13;
+// ES UN DESTELLO DE VEZ EN CUANDO, NO UN BRILLO CONTINUO. Con una banda repitiendose sin parar la
+// armadura esta siempre encendida por algun sitio: satura la vista y, sobre todo, deja de leerse
+// como algo que PASA -- un reflejo que no para de haber es un material fosforescente, no metal.
+//
+// 'espera' es lo que se tarda de un destello al siguiente y 'vaiven' cuanto varia: con 15 y 5, el
+// hueco cae entre 10 y 20 segundos, y cada pasada elige el suyo. La variacion importa mas de lo que
+// parece: a intervalo exacto el ojo aprende el ritmo y empieza a esperarlo, que es otra manera de
+// que canse.
+uniform float espera : hint_range(1.0, 60.0) = 15.0;
+uniform float vaiven : hint_range(0.0, 30.0) = 5.0;
+// Lo que tarda la linea en cruzar la pieza. Corto: es un reflejo, no un foco.
+uniform float barrido : hint_range(0.1, 3.0) = 0.9;
+// CUANTO CAMINO RECORRE la linea, en pixeles de la pieza, contando de un lado al otro.
+//
+// TIENE QUE PARECERSE AL TAMAÑO DE LA PIEZA. Al principio iba de -100 a +100 "para cubrir de sobra"
+// el fotograma de 84, y lo que pasaba es que un peto ocupa unos 27 px de esa diagonal: la linea se
+// pasaba el 85% del barrido volando por fuera de la armadura y solo se veia una decima de segundo.
+// Un destello que dura un fotograma es un parpadeo, no un reflejo. Con 55 la linea entra por fuera,
+// cruza despacio y sale por fuera, que es lo que se quiere ver.
+uniform float recorrido : hint_range(10.0, 200.0) = 55.0;
+// Lo gorda que es la linea, en pixeles de la pieza.
+uniform float grosor : hint_range(1.0, 40.0) = 7.0;
 // Cuanto se separa la luz de la sombra al volverse metalico.
 uniform float contraste : hint_range(1.0, 3.0) = 1.55;
 // LO CLARO QUE ES EL TONO DE LUZ DE ESTE MATERIAL (ver PaletaEquipo.luz_ref). Es el umbral del
@@ -113,17 +125,34 @@ void fragment() {
 		// LA BANDA, igual que en shaders/metal.gdshader: una franja diagonal que RECORRE la pieza.
 		// fract() la repite y los dos smoothstep la recortan a una linea con los bordes suaves.
 		// Va sobre las coordenadas LOCALES y en pixeles, no sobre el UV (ver la cabecera).
-		float d = fract((v_local.x + v_local.y) / max(1.0, franja) - TIME * velocidad);
-		// POR DISTANCIA AL CENTRO DE LA FRANJA, y NO con dos smoothstep enfrentados.
+		// CUANDO toca el destello. Cada 'espera' segundos hay una pasada, y su momento exacto se
+		// desplaza un poco con un hash del numero de pasada: eso es lo que hace que el hueco caiga
+		// entre 10 y 20 en vez de ser siempre el mismo.
 		//
-		// El apaño clasico para recortar una banda es multiplicar smoothstep(0.5-a, 0.5, d) por
-		// smoothstep(0.5+a, 0.5, d) -- que es lo que hace shaders/metal.gdshader --, pero el segundo
-		// tiene el borde de ENTRADA por encima del de SALIDA, y con edge0 > edge1 el resultado de
-		// smoothstep esta INDEFINIDO segun la especificacion de GLSL. En la tarjeta con la que se
-		// probo funciona (devuelve la rampa espejada), asi que NO era el fallo que se estaba buscando
-		// -- pero depender de eso es apostar a que ninguna otra tarjeta lo lea distinto. Escrito por
-		// distancia al centro, esta definido en todas.
-		float banda = 1.0 - smoothstep(0.0, max(0.001, ancho), abs(d - 0.5));
+		// SE MIRAN DOS PASADAS, la de este hueco y la anterior. Si el desplazamiento manda una pasada
+		// al final de su hueco, el barrido se mete en el siguiente y se cortaria a la mitad; con las
+		// dos candidatas y quedandose con la que este en marcha, eso no puede pasar.
+		float n = floor(TIME / espera);
+		float p = 0.0;
+		for (float k = 0.0; k <= 1.0; k += 1.0) {
+			float m = n - k;
+			float salto = fract(sin(m * 12.9898) * 43758.5453) - 0.5;
+			float ini = m * espera + salto * vaiven;
+			float q = (TIME - ini) / barrido;
+			if (q >= 0.0 && q <= 1.0) { p = q; }
+		}
+
+		// DONDE esta la linea: cruza la diagonal de un lado al otro (ver 'recorrido'). Entra por fuera
+		// y sale por fuera, que es lo que hace que se vea CRUZAR en vez de aparecer y desaparecer
+		// dentro de la armadura.
+		//
+		// UNA SOLA LINEA Y NO UN fract() QUE SE REPITE: repetido hay siempre alguna banda encima de la
+		// pieza, que es justo lo que se queria quitar.
+		float pos = mix(-recorrido, recorrido, p);
+		float banda = 0.0;
+		if (p > 0.0) {
+			banda = 1.0 - smoothstep(0.0, max(0.5, grosor), abs((v_local.x + v_local.y) - pos));
+		}
 
 		// DONDE PUEDE CAER LA BANDA: sobre el METAL, y fuera del contorno y de los huecos.
 		//
