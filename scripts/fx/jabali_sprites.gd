@@ -160,6 +160,8 @@ static func generar(color: Color = Color(0.35, 0.26, 0.22), escala: float = 1.0)
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_cornada(anims, esc)
+	_montar_pisoton(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -205,6 +207,91 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 			"cabeza": -1.8 * SpriteLienzo.tramos(t, agacha_keys),
 			"escarba": SpriteLienzo.tramos(t, escarba_keys)}
 	_montar_animacion(anims, esc, "embestida", false, 11.0, pose, true)
+
+
+# LA CORNADA: engancha DE ABAJO ARRIBA con los colmillos. Es el mismo problema que tenia el Minotauro
+# -- embestida, cornada y pisoton haciendo las tres la carga escarbando --, y aqui ademas la
+# 'embestida' la usa tambien el ACECHADOR, que se lleva el arreglo de regalo.
+#
+# LO QUE LA SEPARA DE LA CARGA ES QUE NO VIAJA Y QUE LA CABEZA SUBE. La carga recorre nueve unidades
+# con la testuz baja todo el rato ('cabeza' va atada a -1,8 x 'agacha', o sea que cuanto mas agachado
+# mas baja la lleva); esto es un tiron corto -- tres unidades -- y la cabeza HACE LO CONTRARIO: se
+# hunde para armar y sube de golpe en el impacto. Un jabali no ensarta empujando, ensarta levantando.
+#
+# Y ESO ADEMAS ES LO UNICO QUE SE VE. De frente, las tres unidades que viaja son casi nada -- lo que
+# va hacia la camara esta escorzado --, pero la cabeza subiendo y bajando recorre pantalla de verdad.
+# Por eso el enganche va tan marcado.
+static func _montar_cornada(anims: Array, esc: float) -> void:
+	var avance_keys := [[0.0, 0.0], [0.143, -1.2], [0.286, -1.6], [0.429, 1.4], [0.571, 3.2],
+		[0.714, 3.0], [0.857, 2.2], [1.0, 1.4]]
+	# Se agazapa para armar y se ESTIRA hacia arriba al enganchar.
+	var agacha_keys := [[0.0, 0.0], [0.143, 0.55], [0.286, 0.80], [0.429, 0.30], [0.571, -0.15],
+		[0.714, -0.05], [0.857, 0.10], [1.0, 0.05]]
+	# EL ENGANCHE. Baja durante todo el armado y sube DE GOLPE en el impacto, que es el gesto entero.
+	# LOS RECORRIDOS VAN GRANDES PORQUE 'cabeza' ES SOLO UN DESPLAZAMIENTO EN Z, y con la camara a 45
+	# grados una unidad de altura son 0,7 de pantalla: en un bicho tan bajo, un vaiven de +-3 son tres
+	# pixeles y no se ve. La embestida se permite -1,5 porque ademas VIAJA nueve unidades y el viaje es
+	# lo que se lee; esta apenas se mueve del sitio, asi que todo lo tiene que contar el cuello.
+	var cabeza_keys := [[0.0, 0.0], [0.143, -2.6], [0.286, -4.0], [0.429, 1.4], [0.571, 7.6],
+		[0.714, 5.8], [0.857, 2.0], [1.0, 0.4]]
+	# Y EL LADEO, que es lo que de verdad la salva DE FRENTE. En combate al bicho se le ve desde el sur
+	# y ahi lo que va hacia delante esta escorzado; lo que si recorre pantalla es lo que se mueve DE
+	# LADO A LADO. Ladeandose, el colmillo de ese lado se adelanta y apunta -- que es ademas lo que
+	# hace un jabali de verdad, que engancha con UN colmillo y no con los dos. Es la misma leccion que
+	# hizo legible la cornada del Minotauro.
+	#
+	# 'tumba' va en CUARTOS DE VUELTA, asi que 0,30 son 27 grados: se nota y no llega ni de lejos al
+	# medio cuarto a partir del cual el motor reordena las piezas por estar el bicho boca arriba.
+	var tumba_keys := [[0.0, 0.0], [0.143, 0.10], [0.286, 0.22], [0.429, 0.30], [0.571, 0.24],
+		[0.714, 0.12], [0.857, 0.04], [1.0, 0.0]]
+	# El cuerpo se alarga al lanzar el cuello y se recoge despues.
+	var estira_keys := [[0.0, 1.0], [0.143, 0.94], [0.286, 0.92], [0.429, 1.08], [0.571, 1.12],
+		[0.714, 1.04], [0.857, 0.98], [1.0, 1.0]]
+	# Escarba UNA vez al principio: sigue siendo su aviso, igual que en la carga.
+	var escarba_keys := [[0.0, 0.0], [0.143, 0.9], [0.286, 0.2], [0.429, 0.0], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": SpriteLienzo.tramos(t, avance_keys),
+			"estira": SpriteLienzo.tramos(t, estira_keys), "patas": 0.0,
+			"agacha": SpriteLienzo.tramos(t, agacha_keys),
+			"cabeza": SpriteLienzo.tramos(t, cabeza_keys),
+			"tumba": SpriteLienzo.tramos(t, tumba_keys),
+			"escarba": SpriteLienzo.tramos(t, escarba_keys)}
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
+	_montar_animacion(anims, esc, "cornada", false, 11.0, pose, true, 1, FRAMES)
+
+
+# EL PISOTON: se alza sobre las traseras y estampa las manos.
+#
+# LA PATA SE ALZA CON 'escarba' EN NEGATIVO. Es la misma palanca que usa el aviso de la carga, del
+# reves: escarbando la pezuña raspa hacia atras, y al reves va hacia delante y ARRIBA (ver la nota
+# del coeficiente doble en _piezas -- alzar no es escarbar al reves, hay que subir mas de lo que
+# aquello baja, o sale una patada en vez de un pisoton).
+#
+# Y LO QUE DE VERDAD SE VE ES EL CUERPO. Igual que en el Minotauro: la pezuña sube unos pocos
+# pixeles, pero el bicho entero pasa de estirado ('agacha' a -0,30, o sea un 7% mas alto) a
+# desplomado (0,95) en un solo fotograma, y eso son treinta. El fotograma 4 es el impacto y va SOLO
+# -- sin el valle del 3, un hundimiento no se lee como un golpe sino como agacharse.
+static func _montar_pisoton(anims: Array, esc: float) -> void:
+	# Un paso corto para ponerse encima y ya no se mueve mas: pisa donde esta.
+	var avance_keys := [[0.0, 0.0], [0.143, 0.8], [0.286, 2.0], [0.429, 2.6], [0.571, 2.8],
+		[1.0, 2.8]]
+	var agacha_keys := [[0.0, 0.0], [0.143, 0.22], [0.286, -0.18], [0.429, -0.30], [0.571, 0.95],
+		[0.714, 0.55], [0.857, 0.28], [1.0, 0.10]]
+	# Negativo = la mano sube. Vuelve a cero DE GOLPE en el impacto: eso es la pezuña llegando.
+	var escarba_keys := [[0.0, 0.0], [0.143, -0.25], [0.286, -0.80], [0.429, -1.0], [0.571, 0.15],
+		[0.714, 0.05], [1.0, 0.0]]
+	# La cabeza se echa atras al alzarse y cae con el golpe.
+	# Recorrido grande por lo mismo que en la cornada: 'cabeza' es un desplazamiento en Z y en pantalla
+	# vale 0,7 de lo que mide.
+	var cabeza_keys := [[0.0, 0.0], [0.143, 1.2], [0.286, 3.4], [0.429, 4.4], [0.571, -3.6],
+		[0.714, -1.8], [0.857, -0.5], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": SpriteLienzo.tramos(t, avance_keys),
+			"estira": 1.0, "patas": 0.0,
+			"agacha": SpriteLienzo.tramos(t, agacha_keys),
+			"cabeza": SpriteLienzo.tramos(t, cabeza_keys),
+			"escarba": SpriteLienzo.tramos(t, escarba_keys)}
+	_montar_animacion(anims, esc, "pisoton", false, 12.0, pose, true, 1, FRAMES)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
@@ -438,7 +525,13 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 			var z: float = PATA_Z
 			if k == 0:
 				y -= escarba * 2.6           # la delantera va hacia atras al escarbar
-				z -= escarba * 0.7
+				# ESCARBAR Y ALZAR LA PATA NO SON EL MISMO MOVIMIENTO AL DERECHO Y AL REVES, y por eso
+				# la altura tiene dos coeficientes. Escarbando (positivo) la pezuña RASPA: va hacia
+				# atras mucho y se hunde un pelin, que es lo que hace un jabali avisando. Alzandola
+				# (negativo, el Pisoton) va sobre todo hacia ARRIBA -- con el 0,7 de escarbar, la pata
+				# se estiraba hacia delante siete unidades y subia una y media: no era un pisoton, era
+				# una patada de futbol.
+				z -= escarba * (0.7 if escarba > 0.0 else 4.6)
 			poner.call(Vector3(lado * PATA_X, y, z), PATA_R, Tono.PATA)
 
 	# COLA: un muñon.

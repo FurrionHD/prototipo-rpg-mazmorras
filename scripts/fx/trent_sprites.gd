@@ -247,6 +247,7 @@ static func generar(color: Color = Color(0.35, 0.5, 0.25), escala: float = 1.0) 
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_escupir(anims, esc)
 	_montar_raices(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
@@ -290,6 +291,44 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 			# Al descargar el ramazo PLANTA los pies y no da paso: el golpe sale del tronco.
 			"patas": 0.0}
 	_montar_animacion(anims, esc, "embestida", false, 8.0, pose, true)
+
+
+# ESCUPIR LA SAVIA: se echa atras, se dobla hacia delante y suelta. La Savia corrosiva es a distancia
+# (ESCUPITAJO), y hasta ahora reproducia el RAMAZO -- se abalanzaba tres unidades con las dos ramas
+# por delante para escupir algo que sale solo y viaja.
+#
+# ES EL RAMAZO SIN EL GOLPE. Mismo vaiven de tronco ('mece' atras y luego adelante) pero SIN 'avance'
+# y SIN la descarga de las ramas: aqui lo que sale disparado es la savia, no el brazo. Las ramas se
+# abren hacia los lados en vez de caer, que es lo que deja ver el tronco doblandose.
+static func _montar_escupir(anims: Array, esc: float) -> void:
+	# Se echa atras cogiendo aire y se vuelca al soltar. Sin 'avance': no se mueve del sitio.
+	var mece_keys := [[0.0, 0.0], [0.143, -1.4], [0.286, -2.2], [0.429, 2.0], [0.571, 2.6],
+		[0.714, 1.4], [0.857, 0.5], [1.0, 0.0]]
+	# EL BALANCEO ES LO QUE LO SALVA DE FRENTE, y al primer intento no estaba. 'mece' inclina el tronco
+	# hacia DELANTE y hacia atras, y de frente eso esta escorzado: el trent se doblaba entero y en
+	# pantalla no se movia -- los ocho fotogramas salian identicos. 'balanceo' lo inclina de LADO, que
+	# es el eje que si recorre pantalla desde el sur. Se ladea al armar y se endereza al soltar, que
+	# ademas es como se lanza algo con el cuerpo.
+	var balan_keys := [[0.0, 0.0], [0.143, -0.9], [0.286, -1.5], [0.429, 0.8], [0.571, 1.2],
+		[0.714, 0.6], [0.857, 0.2], [1.0, 0.0]]
+	# Las ramas suben al armar y BAJAN al soltar. El recorrido va grande a proposito: el ramazo se
+	# permite quedarse corto porque ademas VIAJA cuatro unidades, y esto no se mueve del sitio, asi que
+	# todo lo tiene que contar la copa. No llega al -0,9 del ramazo: aquello es una descarga contra
+	# algo, esto es soltar un escupitajo.
+	var alza_keys := [[0.0, 0.0], [0.143, 0.65], [0.286, 1.05], [0.429, 0.10], [0.571, -0.45],
+		[0.714, -0.30], [0.857, -0.12], [1.0, 0.0]]
+	# Y se abren a los lados, que es lo unico que se ve de la copa desde el sur.
+	var brazos_keys := [[0.0, 0.0], [0.143, 0.6], [0.286, 1.1], [0.429, 0.7], [0.571, 0.3],
+		[1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": 0.0,
+			"mece": SpriteLienzo.tramos(t, mece_keys),
+			"balanceo": SpriteLienzo.tramos(t, balan_keys),
+			"brazos": SpriteLienzo.tramos(t, brazos_keys),
+			"alza": SpriteLienzo.tramos(t, alza_keys),
+			"patas": 0.0}
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
+	_montar_animacion(anims, esc, "escupir", false, 10.0, pose, true, 1, FRAMES)
 
 
 # CLAVA LAS RAMAS EN EL SUELO: lo que hace antes de que las raices broten bajo tus pies. Se echa

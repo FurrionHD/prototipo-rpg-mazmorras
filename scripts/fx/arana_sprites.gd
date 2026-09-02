@@ -212,6 +212,7 @@ static func generar(color: Color = Color(0.30, 0.25, 0.40), escala: float = 1.0)
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_telarana(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -255,6 +256,35 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 			"agacha": SpriteLienzo.tramos(t, agacha_keys),
 			"alza": SpriteLienzo.tramos(t, alza_keys), "encoge": 0.0}
 	_montar_animacion(anims, esc, "embestida", false, 11.0, pose, true)
+
+
+# LA TELARAÑA: se planta, bombea el abdomen y dispara. No pica -- teje.
+#
+# HASTA AHORA REPRODUCIA SU EMBESTIDA, que es "se ALZA sobre las traseras enseñando los queliceros y
+# se echa encima": el gesto de MORDER, o sea justo el otro que tiene. Y ademas viajaba ocho unidades
+# para lanzar algo que sale disparado solo.
+#
+# ES LO CONTRARIO DE ALZARSE: aqui BAJA el cuerpo (se agarra al suelo para tener de donde tirar) y lo
+# que se mueve es el vientre. 'estira' escala el cuerpo a lo largo, asi que un tiron corto -- se
+# comprime y se suelta en un fotograma -- se lee como el abdomen bombeando. Las patas delanteras
+# levantan un pelin al final, que es como una araña remata el lance.
+static func _montar_telarana(anims: Array, esc: float) -> void:
+	# Se agacha y AHI SE QUEDA: el disparo no la mueve del sitio.
+	var agacha_keys := [[0.0, 0.0], [0.143, 0.35], [0.286, 0.60], [0.429, 0.55], [0.571, 0.40],
+		[0.714, 0.30], [0.857, 0.20], [1.0, 0.10]]
+	# EL BOMBEO. Se comprime a lo largo y se suelta de golpe en el 0,429: ese salto es el disparo.
+	var estira_keys := [[0.0, 1.0], [0.143, 0.94], [0.286, 0.86], [0.429, 1.14], [0.571, 1.06],
+		[0.714, 0.98], [0.857, 1.0], [1.0, 1.0]]
+	# Un tironcito de las delanteras al soltar, nada de alzarse (eso es el mordisco).
+	var alza_keys := [[0.0, 0.0], [0.143, 0.0], [0.286, 0.08], [0.429, 0.30], [0.571, 0.22],
+		[0.714, 0.10], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": 0.0,
+			"estira": SpriteLienzo.tramos(t, estira_keys), "fase": 0.0, "paso": 0.0,
+			"agacha": SpriteLienzo.tramos(t, agacha_keys),
+			"alza": SpriteLienzo.tramos(t, alza_keys), "encoge": 0.0}
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
+	_montar_animacion(anims, esc, "telarana", false, 12.0, pose, true, 1, FRAMES)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y

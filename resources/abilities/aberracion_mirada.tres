@@ -15,5 +15,6 @@ descripcion = "Algo dentro de esa masa te devuelve la mirada, y por un momento e
 coste_energia = 0.0
 dano_mult = 0.4
 efectos = [SubResource("SA_miedo")]
+fx_anim = &"mirada"
 fx_estilo = 33
 cooldown = 5

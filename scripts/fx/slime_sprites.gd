@@ -261,6 +261,7 @@ static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false,
 	_montar_inflar(anims, corona, esc)
 	_montar_ignicion(anims, corona, esc)
 	_montar_brote(anims, corona, esc)
+	_montar_escupir(anims, corona, esc)
 	_montar_encaje(anims, corona, esc)
 	_montar_muerte(anims, corona, esc)
 	_montar_cadaver(anims, corona, esc)
@@ -384,6 +385,33 @@ static func _montar_brote(anims: Array, corona: bool, esc: float) -> void:
 			"avance": 0.0,
 			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
 	_montar_animacion(anims, corona, esc, "brote", false, 10.0, pose, true, 1, 8)
+
+
+# ESCUPIR: se comprime y suelta por arriba. Lo usan las cinco habilidades de ESCUPITAJO del bloque de
+# los slimes (el toxico, la rociada, la salpicadura, la escision del Rey) y de rebote les vale a las
+# de VORTICE y a la Marea, que tampoco tocan a nadie con el cuerpo.
+#
+# HASTA AHORA TODAS REPRODUCIAN LA EMBESTIDA, o sea que el slime se lanzaba encima del jugador... para
+# escupirle desde su sitio. El efecto se queda -- el proyectil ES el ataque y hay que verlo salir --;
+# lo que sobraba era que el cuerpo fuera detras de el.
+#
+# NO VIAJA NADA ('avance' en cero todo el rato) y ese es el cambio entero. Lo demas es el latigazo de
+# la compresion: se achata cogiendo presion y se estira DE GOLPE en un solo fotograma, que es lo que
+# se lee como algo saliendo disparado. Va desfasado medio marco por delante del vuelo del escupitajo
+# (ESCUPITAJO sale con 0,26 de adelanto), asi que el cuerpo se estira y luego sale el chorro.
+static func _montar_escupir(anims: Array, corona: bool, esc: float) -> void:
+	var squash_keys := [[0.0, 1.0], [0.143, 0.88], [0.286, 0.76], [0.429, 1.30], [0.571, 1.16],
+		[0.714, 0.94], [0.857, 1.04], [1.0, 1.0]]
+	# Un respingo hacia arriba al soltar y nada mas: no despega, se sacude.
+	var bote_keys := [[0.0, 0.0], [0.143, -0.14], [0.286, -0.22], [0.429, 0.26], [0.571, 0.12],
+		[0.714, -0.06], [0.857, 0.04], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"squash": SpriteLienzo.tramos(t, squash_keys),
+			"avance": 0.0,
+			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
+	# UNA SOLA DIRECCION, y aqui pesa doble: esto lo monta TODO slime (el generador es comun a los
+	# seis), asi que ocho direcciones serian ocho veces el coste en cada uno.
+	_montar_animacion(anims, corona, esc, "escupir", false, 12.0, pose, true, 1, 8)
 
 
 # MORIRSE: SE DERRITE EN UN CHARCO. Ocho fotogramas en UNA sola direccion -- la muerte solo se ve

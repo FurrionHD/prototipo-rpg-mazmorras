@@ -16,6 +16,7 @@ stacks = 2
 
 [resource]
 script = ExtResource("1")
+fx_anim = &"escupir"
 fx_estilo = 12
 nombre = "Tromba abisal"
 descripcion = "Se descuelga sobre ti como una columna de agua negra. No pega fuerte de un golpe, pero te deja lastrado y sin pie: cuesta moverse después."

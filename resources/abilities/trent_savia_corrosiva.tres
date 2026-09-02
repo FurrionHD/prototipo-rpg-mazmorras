@@ -16,5 +16,6 @@ descripcion = "Escupe por una grieta de la corteza un chorro espeso que huele a 
 coste_energia = 0.0
 dano_mult = 1.0
 efectos = [SubResource("SA_ven")]
+fx_anim = &"escupir"
 fx_estilo = 10
 cooldown = 3

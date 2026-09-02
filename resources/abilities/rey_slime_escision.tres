@@ -10,6 +10,7 @@ prob = 0.3
 
 [resource]
 script = ExtResource("1")
+fx_anim = &"escupir"
 fx_estilo = 10
 nombre = "Escisión"
 descripcion = "Se parte en pedazos que te vienen encima desde todos los lados a la vez, y vuelve a juntarse detrás de ti."

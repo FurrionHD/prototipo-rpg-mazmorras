@@ -10,6 +10,7 @@ prob = 0.5
 
 [resource]
 script = ExtResource("1")
+fx_anim = &"escupir"
 fx_estilo = 10
 nombre = "Salpicadura ardiente"
 descripcion = "Sacude su masa incandescente y te rocía de gotas de lava. Cada salpicón puede prenderte."

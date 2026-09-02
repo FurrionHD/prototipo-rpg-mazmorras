@@ -180,6 +180,7 @@ static func generar(color: Color = Color(0.5, 0.42, 0.34), rey: bool = false,
 	_montar_idle(anims, rey, esc)
 	_montar_walk(anims, rey, esc)
 	_montar_embestida(anims, rey, esc)
+	_montar_chillido(anims, rey, esc)
 	_montar_encaje(anims, rey, esc)
 	_montar_muerte(anims, rey, esc)
 	_montar_cadaver(anims, rey, esc)
@@ -219,6 +220,37 @@ static func _montar_embestida(anims: Array, rey: bool, esc: float) -> void:
 			"cola": 1.4 * sin(TAU * t * 1.5), "patas": 0.0,
 			"agacha": SpriteLienzo.tramos(t, agacha_keys)}
 	_montar_animacion(anims, rey, esc, "embestida", false, 11.0, pose, true)
+
+
+# EL CHILLIDO del Rey rata: se yergue sobre las traseras y grita. No pega -- reparte estados en toda
+# la fila -- asi que el cuerpo no puede ir a por nadie.
+#
+# HASTA AHORA REPRODUCIA LA EMBESTIDA, o sea que la rata se agazapaba y SALTABA cinco unidades encima
+# del jugador para soltar un grito que barre a todo el grupo desde donde este. El efecto se queda
+# (los anillos que salen del que grita y cruzan la fila): eso es el grito viajando, no es el cuerpo.
+#
+# SE YERGUE, Y ESO AQUI ES 'agacha' EN NEGATIVO. La rata va pegada al suelo, asi que levantarse ya la
+# hace distinta a cualquier otra cosa que haga; ademas 'estira' la alarga, que es lo que remata la
+# postura de bicho empinado. Y la COLA azota: es lo unico largo que tiene y lo unico suyo que recorre
+# pantalla de lado a lado, que es el eje que se ve desde el sur.
+#
+# La monta CUALQUIER rata aunque solo la use el Rey. No pasa nada: el generador es comun a las dos y
+# una animacion de una sola direccion son ocho fotogramas.
+static func _montar_chillido(anims: Array, rey: bool, esc: float) -> void:
+	# Se agazapa medio fotograma y se empina: sin el valle, erguirse no tiene de donde salir.
+	var agacha_keys := [[0.0, 0.0], [0.143, 0.45], [0.286, -0.55], [0.429, -0.85], [0.571, -0.90],
+		[0.714, -0.80], [0.857, -0.40], [1.0, 0.0]]
+	var estira_keys := [[0.0, 1.0], [0.143, 0.88], [0.286, 1.14], [0.429, 1.22], [0.571, 1.20],
+		[0.714, 1.12], [0.857, 1.04], [1.0, 1.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": 0.0,
+			"estira": SpriteLienzo.tramos(t, estira_keys),
+			# La cola azota DEPRISA mientras chilla, y se calma al final.
+			"cola": 1.8 * sin(TAU * t * 2.0) * (1.0 - t * 0.5),
+			"patas": 0.0,
+			"agacha": SpriteLienzo.tramos(t, agacha_keys)}
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
+	_montar_animacion(anims, rey, esc, "chillido", false, 10.0, pose, true, 1, FRAMES)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y

@@ -179,6 +179,7 @@ static func generar(color: Color = Color(0.45, 0.2, 0.5), escala: float = 1.0) -
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
 	_montar_alarido(anims, esc)
+	_montar_mirada(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -291,6 +292,42 @@ static func _montar_alarido(anims: Array, esc: float) -> void:
 		return p
 	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
 	_montar_animacion(anims, esc, "alarido", false, 9.0, pose, true, 1, FRAMES)
+
+
+# LA MIRADA DEL VACIO: se yergue, ABRE EL OJO del todo y se queda clavada. Ni toca ni grita.
+#
+# HASTA AHORA REPRODUCIA EL LATIGAZO, igual que el alarido: sacaba los seis tentaculos disparados
+# para un ataque que viaja por la VISTA. Su efecto se queda (el ojo que se abre sobre la victima y la
+# onda que cruza): eso es la mirada viajando, no es el cuerpo.
+#
+# ES LA HERMANA QUIETA DEL ALARIDO, y esa pareja es la que hace que se distingan: aquel se hincha y
+# ABRE LAS FAUCES, este se hincha y ABRE EL OJO -- con la boca cerrada, que es lo que dice que no
+# esta gritando. Las dos empiezan igual (coge aire) y se separan en el fotograma 3, que es donde el
+# jugador tiene que poder decir cual de las dos le viene encima.
+#
+# Y SE QUEDA MAS QUIETA QUE EL ALARIDO: aquel vibra con la onda del cuerpo acelerando y aqui la onda
+# se APAGA. Lo que hace que algo se lea como que te esta mirando es que deje de moverse.
+static func _montar_mirada(anims: Array, esc: float) -> void:
+	# Se hincha, pero menos que gritando: un ojo que se abre no necesita que el bicho reviente.
+	var palpita_keys := [[0.0, 0.0], [0.143, -0.7], [0.286, 0.8], [0.429, 1.1], [0.571, 1.0],
+		[0.714, 0.9], [0.857, 0.4], [1.0, 0.0]]
+	# LA BOCA CASI CERRADA. Es lo unico que la separa del alarido de un vistazo.
+	var boca_keys := [[0.0, 0.15], [0.143, 0.08], [0.286, 0.10], [0.571, 0.10], [1.0, 0.15]]
+	# EL PARPADO: cierra el ojo un instante al coger aire y lo abre DE PAR EN PAR el resto. Un ojo que
+	# parpadea justo antes es lo que hace que el de despues se lea como abierto del todo.
+	var parpado_keys := [[0.0, 0.0], [0.143, 0.85], [0.286, 0.0], [1.0, 0.0]]
+	# La onda del cuerpo se apaga: se queda tiesa mirando.
+	var onda_keys := [[0.0, 0.0], [0.143, 0.6], [0.286, 0.3], [0.429, 0.10], [0.571, 0.0],
+		[0.714, 0.0], [0.857, 0.1], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["palpita"] = SpriteLienzo.tramos(t, palpita_keys)
+		p["boca"] = SpriteLienzo.tramos(t, boca_keys)
+		p["parpado"] = SpriteLienzo.tramos(t, parpado_keys)
+		p["onda"] = SpriteLienzo.tramos(t, onda_keys)
+		return p
+	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
+	_montar_animacion(anims, esc, "mirada", false, 9.0, pose, true, 1, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente) y
