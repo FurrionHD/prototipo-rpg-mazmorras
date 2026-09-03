@@ -261,6 +261,10 @@ var _sala_boss: int = -1
 # Donde se planta el jefe de este piso (INF = este piso no tiene). Se guarda porque tambien se usa
 # EN CALIENTE: si su reloj cumple mientras estas dentro, renace ahi mismo (ver _repoblar_boss).
 var _boss_pos: Vector2 = Vector2.INF
+# Cuanto se aleja el jefe de su sitio al MERODEAR. Se guarda junto a la posicion porque los dos
+# caminos que lo paren lo necesitan: el parto inicial y el respawn por reloj (_repoblar_boss), que
+# ya no tiene la sala a mano. 0 = jefe clavado, que es justo lo que habia y lo que se arregla.
+var _boss_radio: float = 0.0
 # Zona en la que ATERRIZA el jugador al construirse el piso. La fija _colocar_actores (que es
 # quien decide donde apareces) y la lee _crear_zonas para no poblarla. NO se puede dar por hecho
 # que sea la boca: por el atajo, o subiendo, apareces en el FONDO.
@@ -708,6 +712,7 @@ func _colocar_boss() -> void:
 	# escolta; con la mazmorra persistente eso pasaria casi siempre.
 	_sala_boss = gen.zona_en(sala.get_center())   # su zona NO parira bichos (ver _crear_zonas)
 	_boss_pos = gen.centro_px(sala.get_center())  # donde renace si su reloj cumple (ver _repoblar_boss)
+	_boss_radio = _radio_merodeo_boss(sala)
 
 	# Si el piso se RESTAURA de memoria, el boss ya vendra con los demas enemigos: no duplicar.
 	if Game.memoria_pisos.has(_piso_construido):
@@ -725,6 +730,18 @@ func _colocar_boss() -> void:
 	call_deferred("_parir_boss", data, gen.centro_px(sala.get_center()), _piso_construido)
 
 
+# Cuanto merodea el jefe dentro de su sala. MISMO criterio que las zonas normales (medio lado corto,
+# ver _crear_zonas) porque el problema es el mismo: que no se salga de lo suyo. Lo unico distinto es
+# el techo, mas alto: una zona corriente comparte sala con mas corros y el jefe tiene la suya
+# entera para el, asi que capandolo a lo mismo se quedaria dando vueltas en un pañuelo en el centro.
+#
+# Nace en el CENTRO de la sala (no pegado a una pared como la morralla), asi que un circulo a su
+# alrededor cae dentro de la sala y no hace falta darle la lista de celdas pisables.
+func _radio_merodeo_boss(sala: Rect2i) -> float:
+	var lado: float = float(mini(sala.size.x, sala.size.y)) * float(DungeonGenerator.CELDA)
+	return clampf(lado * 0.5, 64.0, 220.0)
+
+
 # El parto del boss, ya con el arbol montado. Lleva el piso al que pertenece: si entre el diferido y
 # esta llamada el piso ha cambiado, este jefe ya no es de aqui y no se planta.
 func _parir_boss(data: EnemyData, pos: Vector2, piso: int) -> void:
@@ -733,7 +750,9 @@ func _parir_boss(data: EnemyData, pos: Vector2, piso: int) -> void:
 	# t = 1.0 (el techo de su franja) y la mutacion A DADOS como cualquier otro (-1): un jefe TAMBIEN
 	# puede salir mutante, solo que con multiplicadores mucho mas suaves -- los suyos los elige
 	# EnemyData.mult_mutante por la bandera de jefe, que ya va puesta desde crear_enemigo.
-	var e = crear_enemigo(data, pos, 0.0, 1.0, -1, true)
+	# El RADIO es lo que le deja merodear por su sala. Estaba a 0, y por eso el Rey Slime se quedaba
+	# clavado en el centro y solo se movia para perseguirte: sin radio no hay a donde deambular.
+	var e = crear_enemigo(data, pos, _boss_radio, 1.0, -1, true)
 
 
 # La sala mas CENTRADA del mapa. El boss no se esconde en un rincon: se planta en medio y hay
@@ -1598,6 +1617,10 @@ func _restaurar_estado() -> void:
 		# y su muerte no abriria nada. Va COMO PARAMETRO (antes se asignaba despues) porque su
 		# _ready lo necesita para saber cuanto agrandarlo si venia mutado.
 		var era_boss: bool = data_boss != null and d["data"] == data_boss
+		# El jefe no tiene zona (su sala se excluye del spawn a proposito), asi que sin esto se
+		# quedaba con el radio de respaldo y volvia del piso anterior merodeando distinto.
+		if era_boss and _boss_radio > 0.0:
+			radio = _boss_radio
 		var e = crear_enemigo(d["data"], d["pos"], radio, float(d["t"]),
 			1 if bool(d.get("mut", false)) else 0, era_boss)
 		if e == null:
