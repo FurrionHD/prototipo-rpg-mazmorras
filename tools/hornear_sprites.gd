@@ -191,8 +191,9 @@ func _hornear_terreno() -> void:
 	print("")
 	print("=== TERRENO ===")
 	var bytes: int = 0
-	for t in TerrenoSprites.TRAMOS:
-		var clave: String = String(t["clave"])
+	# Los tramos Y sus escalones de mezcla (ver TerrenoSprites.claves_a_hornear): sin hornear las
+	# mezclas, el piso del corte tiene que dibujarse varios atlas al vuelo al entrar.
+	for clave in TerrenoSprites.claves_a_hornear():
 		var n: int = TerrenoSprites.hornear(clave)
 		if n <= 0:
 			push_error("[horno] no pude escribir el terreno %s" % clave)

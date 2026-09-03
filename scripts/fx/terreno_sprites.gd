@@ -64,7 +64,7 @@ enum Clase { BASE, MASCARA }
 # ============================================================
 # El orden de CAPAS_ORDEN fija el reparto del atlas. Añadir una capa AL FINAL no mueve a las de
 # arriba, o sea que un horneado viejo de otra capa sigue valiendo mientras se desarrolla.
-const CAPAS_ORDEN := ["suelo", "muro", "musgo", "agua", "sumidero", "columna"]
+const CAPAS_ORDEN := ["suelo", "muro", "musgo", "agua", "sumidero", "columna", "flor"]
 
 # ------------------------------------------------------------
 #  'bloque': POR QUE LA TEXTURA NO SE VE A CUADROS
@@ -112,6 +112,10 @@ const CAPAS := {
 	# Bloque 4 y no 1: son varias por sala y con una sola forma se veria el calco enseguida. Al ir
 	# por tapiz, la que toca sale de la posicion de la celda, asi que dos vecinas nunca son iguales.
 	"columna": {"clase": Clase.BASE, "bloque": 4, "frames": 1, "overlay": true},
+	# LA FLOR que alumbra. Va sobre una celda de musgo y son UNAS POCAS MOTAS, no la celda teñida:
+	# lo que brilla tiene que ser un punto concreto, porque de lo contrario el piso entero se
+	# ilumina y el farolillo deja de hacer falta.
+	"flor": {"clase": Clase.BASE, "bloque": 4, "frames": 1, "overlay": true},
 }
 
 
@@ -152,10 +156,29 @@ static func _cuantas(capa: String) -> int:
 # 'formaciones' = si en este tramo crecen columnas de piedra sueltas en medio de las salas (ver
 # DungeonFloor._sembrar_formaciones). La mazmorra de arriba esta picada por alguien y sus salas son
 # limpias; una cueva natural no.
+#
+# 'estilo' = QUE PINTORES usa. No basta con cambiar la paleta: probado y dicho por el usuario --
+# "no se nota nada, son la misma mierda; el suelo cambia de color pero de estilo no". Con el mismo
+# dibujo, un tramo nuevo es el de siempre con un filtro encima. Lo que hace que algo parezca una
+# cueva no es el tono: es que el borde de la roca ONDULE en vez de tener cantos rectos.
 const TRAMOS := [
-	{"desde": 1, "clave": "roca", "formaciones": false},
-	{"desde": 7, "clave": "cueva", "formaciones": true},
+	{"desde": 1, "clave": "roca", "formaciones": false, "estilo": "picada"},
+	{"desde": 7, "clave": "cueva", "formaciones": true, "estilo": "cueva"},
 ]
+
+
+# El estilo de dibujo de un tramo (ver TRAMOS). Se busca por CLAVE y no por piso porque quien
+# dibuja el atlas solo sabe de tramos.
+static func estilo_de(tramo: String) -> String:
+	# Una mezcla se dibuja con el estilo del tramo AL QUE VA: sus pintores saben hacerse a medias
+	# (reciben cuanta mezcla llevan), que es lo que hace continua la transicion.
+	var mez: Array = _partes_mezcla(tramo)
+	if not mez.is_empty():
+		return estilo_de(String(mez[1]))
+	for t in TRAMOS:
+		if String(t["clave"]) == tramo:
+			return String(t.get("estilo", "picada"))
+	return "picada"
 
 
 # ¿En el piso dado crecen formaciones de piedra?
@@ -222,10 +245,16 @@ const PALETAS := {
 			Color(0.092, 0.126, 0.160), Color(0.118, 0.158, 0.198),
 			Color(0.148, 0.194, 0.238),
 		],
+		# MEDIDO contra el de roca, porque "se ve distinto" no es una opinion: el primer intento se
+		# distinguia sobre todo por ser MAS OSCURO (rojo 0.30 -> 0.20) y apenas por ser mas azul, y a
+		# oscuras eso no se lee como otro material sino como la misma pared peor iluminada -- el
+		# usuario dijo directamente que las paredes eran "literal las del piso anterior". Ahora el
+		# azul casi DOBLA al rojo (antes lo pasaba en un 40%), que es lo que hace que cante como
+		# roca humeda y fria en vez de como piedra gris en penumbra.
 		"muro": [
-			Color(0.088, 0.122, 0.156), Color(0.140, 0.186, 0.230),
-			Color(0.200, 0.256, 0.310), Color(0.264, 0.328, 0.390),
-			Color(0.336, 0.408, 0.476),
+			Color(0.070, 0.108, 0.148), Color(0.115, 0.178, 0.235),
+			Color(0.165, 0.248, 0.322), Color(0.220, 0.325, 0.415),
+			Color(0.285, 0.410, 0.520),
 		],
 		# El musgo de aqui abajo tira a turquesa, no al verde hierba de arriba: prepara el ojo para
 		# el musgo que brilla, que es de esta misma familia de color.
@@ -240,6 +269,13 @@ const PALETAS := {
 			Color(0.155, 0.360, 0.305), Color(0.205, 0.450, 0.375),
 			Color(0.270, 0.560, 0.455),
 		],
+		# LA FLOR que alumbra: el mismo aire que el musgo de aqui, pero llevado hasta el cian casi
+		# blanco. Tiene que leerse como "ese musgo ha florecido" y a la vez cantar en la oscuridad.
+		"flor": [
+			Color(0.120, 0.420, 0.470), Color(0.180, 0.580, 0.640),
+			Color(0.280, 0.740, 0.810), Color(0.480, 0.880, 0.930),
+			Color(0.780, 0.985, 1.000),
+		],
 		# El agua, mas clara y mas viva que arriba: en una gruta es lo unico que refleja algo.
 		"agua": [
 			Color(0.042, 0.102, 0.148), Color(0.058, 0.145, 0.205),
@@ -250,7 +286,53 @@ const PALETAS := {
 }
 
 
+# ============================================================
+#  TRAMOS MEZCLADOS
+# ============================================================
+# En un piso de corte no se pasa de un estilo al otro de golpe. Con dos atlas y una frontera, el
+# cambio es UNA LINEA RECTA entre celda y celda: el usuario lo vio en cuanto lo jugo y lo llamo
+# "super cortante". Asi que entre los dos hay escalones INTERMEDIOS -- baldosas que ya llevan algo
+# del aspecto nuevo sin ser del todo el nuevo -- y la frontera pasa a ser una franja.
+#
+# Una mezcla se nombra "roca~cueva~2": los dos tramos y en que escalon esta. Se pinta con la paleta
+# INTERPOLADA entre las dos y con los rasgos del estilo nuevo aplicados a medias (el borde muerde
+# menos, las manchas de humedad son mas flojas...), asi que la transicion es continua de verdad y
+# no un degradado de color sobre el mismo dibujo.
+const MEZCLA_PASOS := 3      # escalones intermedios entre un tramo y el siguiente
+
+static func clave_mezcla(a: String, b: String, paso: int) -> String:
+	return "%s~%s~%d" % [a, b, paso]
+
+
+# Si la clave es una mezcla, devuelve [tramo_a, tramo_b, t]; si no, vacio.
+static func _partes_mezcla(clave: String) -> Array:
+	var p: PackedStringArray = clave.split("~")
+	if p.size() != 3:
+		return []
+	return [p[0], p[1], float(int(p[2])) / float(MEZCLA_PASOS + 1)]
+
+
+# Cuanto del estilo NUEVO lleva esta clave: 0 = el tramo tal cual, 1 = el nuevo entero.
+static func mezcla_de(clave: String) -> float:
+	var m: Array = _partes_mezcla(clave)
+	return float(m[2]) if not m.is_empty() else 1.0
+
+
 static func _rampa(tramo: String, capa: String) -> Array:
+	# Una mezcla usa la rampa interpolada entre las de sus dos tramos, color a color.
+	var mez: Array = _partes_mezcla(tramo)
+	if not mez.is_empty():
+		var ra: Array = _rampa(String(mez[0]), capa)
+		var rb: Array = _rampa(String(mez[1]), capa)
+		var t: float = float(mez[2])
+		var out: Array = []
+		for i in mini(ra.size(), rb.size()):
+			out.append((ra[i] as Color).lerp(rb[i] as Color, t))
+		return out
+	return _rampa_pura(tramo, capa)
+
+
+static func _rampa_pura(tramo: String, capa: String) -> Array:
 	var p: Dictionary = PALETAS.get(tramo, PALETAS["roca"])
 	# La COLUMNA es piedra: usa la rampa del muro salvo que su tramo le de una propia. Asi una
 	# estalagmita es del mismo material que las paredes de su cueva sin repetir cinco colores en
@@ -258,6 +340,8 @@ static func _rampa(tramo: String, capa: String) -> Array:
 	# ponerle su entrada).
 	if capa == "columna" and not p.has("columna"):
 		return p.get("muro", p["suelo"]) as Array
+	if capa == "flor" and not p.has("flor"):
+		return p.get("musgo", p["suelo"]) as Array
 	return p.get(capa, p["suelo"]) as Array
 
 
@@ -630,8 +714,8 @@ static func _pintar_columna(d: PackedByteArray, W: int, o: Vector2i, rampa: Arra
 				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
 				continue
 			# El perfil se estrecha hacia arriba, con el borde mordido por el ruido.
-			var medio: float = ancho_pie * 0.5 * (1.0 - t * t * 0.86) \
-				+ (forma[i] - 0.5) * 2.2 * (1.0 - t * 0.5)
+			var medio: float = ancho_pie * 0.5 * (1.0 - t * t * 0.78) \
+				+ (forma[i] - 0.5) * 2.6 * (1.0 - t * 0.5)
 			var dx: float = absf(float(x) + 0.5 - cx)
 			if dx > medio:
 				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
@@ -651,15 +735,138 @@ static func _pintar_columna(d: PackedByteArray, W: int, o: Vector2i, rampa: Arra
 			_poner(d, W, o.x + x, o.y + y, col)
 
 
+# FLOR LUMINISCENTE: cuatro o cinco motas brillantes sobre el musgo, con un halo corto alrededor.
+# Es lo unico del piso que da luz sin ser tuyo, asi que tiene que leerse como algo VIVO y pequeño y
+# no como una baldosa iluminada: por eso son motas sueltas con su nucleo casi blanco, y no una
+# mancha. El resplandor de verdad -- el que deja ver lo que hay al lado -- lo pone la niebla, no
+# este dibujo (ver Vision.poner_flores).
+static func _pintar_flor(d: PackedByteArray, W: int, o: Vector2i, rampa: Array,
+		sem: int, ox: float, oy: float, bl: int) -> void:
+	var donde: PackedFloat32Array = _campo(9, sem + 1907, ox, oy, 1.0, bl)
+	var nucleo: Color = rampa[rampa.size() - 1]
+	var borde: Color = rampa[maxi(0, rampa.size() - 3)]
+	for y in LADO:
+		for x in LADO:
+			var i: int = y * LADO + x
+			var v: float = donde[i]
+			if v > 0.93:
+				_poner(d, W, o.x + x, o.y + y, nucleo)          # el corazon de la flor
+			elif v > 0.86:
+				var c: Color = borde
+				c.a = 0.75
+				_poner(d, W, o.x + x, o.y + y, c)               # sus petalos
+			elif v > 0.80:
+				var h: Color = borde
+				h.a = 0.28
+				_poner(d, W, o.x + x, o.y + y, h)               # el resplandor pegado a ella
+			else:
+				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
+
+
+# ============================================================
+#  LOS PINTORES DE LA CUEVA
+# ============================================================
+# La mazmorra de arriba esta PICADA por alguien: sus paredes son bloques con la cara plana, el filo
+# recto y la coronacion marcada. Una cueva no la ha tallado nadie, y esa es toda la diferencia:
+#
+#   1) EL BORDE ONDULA. En vez de acabar en el canto de la celda, la roca entra y sale unos pixeles
+#      segun un ruido continuo. Es lo que mas se nota de lejos, y es lo que hacia que la primera
+#      version -- misma forma, otro color -- se leyera como "la misma pared peor iluminada".
+#      Como la roca deja de llenar su celda, hace falta suelo pintado debajo: lo pone
+#      DungeonFloor._construir_geometria en los tramos de cueva.
+#   2) ESTRATOS. Bandas horizontales onduladas de tono distinto, como la roca sedimentaria. La
+#      piedra picada no las tiene (se las lleva el cincel) y son lo que dice "esto es natural".
+#   3) NADA DE CRESTA NI CHAFLANES. Esos tres detalles son de canteria.
+
+# Cuanto muerde el borde hacia dentro, en px, y el tamaño de sus ondas.
+const CUEVA_MORDIDA := 5.0
+const CUEVA_ONDA := 5
+
+# 'mezcla' 0..1 = cuanto de este estilo se aplica. Un escalon intermedio de la transicion muerde el
+# borde a medias y marca menos los estratos, asi que la pared se va volviendo cueva en vez de
+# cambiar de golpe (ver clave_mezcla).
+static func _pintar_muro_cueva(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, mask: int,
+		sem: int, ox: float, oy: float, bl: int, mezcla: float = 1.0) -> void:
+	var base: PackedFloat32Array = _piedra(sem, ox, oy, bl)
+	var onda: PackedFloat32Array = _campo(CUEVA_ONDA, sem + 137, ox, oy, 1.0, bl)
+	var estrato: PackedFloat32Array = _campo(3, sem + 421, ox, oy * 0.35, 1.0, bl)
+	var negro := Color(0.02, 0.02, 0.03)
+	for y in LADO:
+		for x in LADO:
+			var i: int = y * LADO + x
+			# Hasta donde llega la roca por este lado: el borde entra y sale con el ruido.
+			var borde: float = (onda[i] - 0.35) * CUEVA_MORDIDA * mezcla
+			var dentro: float = _dentro(x, y, mask)
+			if dentro < borde:
+				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))   # aqui ya es suelo
+				continue
+			# EL VOLUMEN. Se ilumina la cara SUR -- la que mira al jugador -- y se apaga el filo
+			# NORTE, igual que en la piedra picada y por el mismo motivo: la camara mira desde el
+			# sur y desde arriba. Sin esto la pared queda plana y, con el borde ondulado, se lee
+			# antes como una mancha de agua que como roca levantada (probado y visto).
+			#
+			# Lo que cambia respecto a la canteria es que aqui la franja NO es recta: se mide desde
+			# el borde ondulado, asi que la banda de luz sube y baja con el.
+			var d_sur: float = float(LADO - 1 - y) if (mask & 4) != 0 else 999.0
+			var d_norte: float = float(y) if (mask & 1) != 0 else 999.0
+			var luz: float = clampf(1.0 - (d_sur - borde) / 14.0, 0.0, 1.0)
+			var v: float = base[i] * 0.5 + 0.16 + luz * 0.52
+			if d_norte < borde + 4.0:
+				v -= 0.30
+			# Estratos: bandas anchas y onduladas, muy suaves para que no rayen la pared.
+			v += (estrato[i] - 0.5) * 0.26 * mezcla
+			var col: Color = _escalon(clampf(v, 0.0, 0.999), rampa)
+			# El contorno: la primera fila de roca, sea donde sea que haya caido el borde ondulado.
+			if dentro < borde + 1.0:
+				col = negro
+			_poner(d, W, o.x + x, o.y + y, col)
+
+
+# SUELO de cueva: roca lisa mojada, no piedra picada. Sin grietas rectas ni guijarros sueltos --
+# eso es un suelo trabajado. Aqui hay manchas HUMEDAS: charcos finos mas oscuros y brillantes, que
+# es lo que cuenta que del techo gotea.
+static func _pintar_suelo_cueva(d: PackedByteArray, W: int, o: Vector2i, rampa: Array,
+		sem: int, ox: float, oy: float, bl: int, mezcla: float = 1.0) -> void:
+	var base: PackedFloat32Array = _piedra(sem, ox, oy, bl)
+	var humedad: PackedFloat32Array = _campo(4, sem + 733, ox, oy, 1.0, bl)
+	var brillo: PackedFloat32Array = _campo(11, sem + 155, ox, oy, 1.0, bl)
+	# Las grietas de la piedra picada, para los escalones intermedios. Se saca AQUI y no dentro del
+	# bucle: ahi serian mil campos de ruido por baldosa.
+	var grieta: PackedFloat32Array = _campo(4, sem + 311, ox, oy, 1.0, bl)
+	for y in LADO:
+		for x in LADO:
+			var i: int = y * LADO + x
+			var v: float = base[i] * 0.8 + 0.10
+			# Las manchas de humedad OSCURECEN (el agua fina apaga la piedra)...
+			var mojado: float = clampf((humedad[i] - 0.52) * 3.2, 0.0, 1.0) * mezcla
+			v -= mojado * 0.22
+			# En los escalones intermedios quedan restos de la piedra picada de arriba: sus grietas
+			# se van borrando segun avanza la mezcla, en vez de desaparecer de una celda a otra.
+			if absf(grieta[i] - 0.5) < 0.020 * (1.0 - mezcla):
+				v -= 0.26
+			# ...y justo en ellas aparece algun reflejo puntual, que es lo que las lee como agua y
+			# no como una sombra.
+			if mojado > 0.55 and brillo[i] > 0.90:
+				v += 0.60
+			_poner(d, W, o.x + x, o.y + y, _escalon(clampf(v, 0.0, 0.999), rampa))
+
+
 # 'ox/oy' es DONDE CAE esta baldosa dentro del tapiz (en px) y 'bl' el tamaño del tapiz. Con eso,
 # cada trozo mira su ventana del mismo dibujo continuo y las juntas desaparecen.
 static func _pintar(d: PackedByteArray, W: int, capa: String, o: Vector2i, rampa: Array,
-		mask: int, sem: int, fase: float, ox: float, oy: float, bl: int) -> void:
+		mask: int, sem: int, fase: float, ox: float, oy: float, bl: int,
+		estilo: String = "picada", mezcla: float = 1.0) -> void:
 	match capa:
 		"suelo":
-			_pintar_suelo(d, W, o, rampa, sem, ox, oy, bl)
+			if estilo == "cueva":
+				_pintar_suelo_cueva(d, W, o, rampa, sem, ox, oy, bl, mezcla)
+			else:
+				_pintar_suelo(d, W, o, rampa, sem, ox, oy, bl)
 		"muro":
-			_pintar_muro(d, W, o, rampa, mask, sem, ox, oy, bl)
+			if estilo == "cueva":
+				_pintar_muro_cueva(d, W, o, rampa, mask, sem, ox, oy, bl, mezcla)
+			else:
+				_pintar_muro(d, W, o, rampa, mask, sem, ox, oy, bl)
 		"musgo":
 			_pintar_musgo(d, W, o, rampa, mask, sem, ox, oy, bl)
 		"agua":
@@ -668,6 +875,8 @@ static func _pintar(d: PackedByteArray, W: int, capa: String, o: Vector2i, rampa
 			_pintar_sumidero(d, W, o, rampa, sem)
 		"columna":
 			_pintar_columna(d, W, o, rampa, sem, ox, oy, bl)
+		"flor":
+			_pintar_flor(d, W, o, rampa, sem, ox, oy, bl)
 
 
 # ============================================================
@@ -696,7 +905,8 @@ static func generar(tramo: String) -> Image:
 			var oy: float = float(trozo / bl) * float(LADO)
 			for k in f:
 				_pintar(datos, ancho, capa, Vector2i((c.x + k) * LADO, c.y * LADO), rampa,
-					int(i / v), sem, float(k) / float(f), ox, oy, bl)
+					int(i / v), sem, float(k) / float(f), ox, oy, bl,
+					estilo_de(tramo), mezcla_de(tramo))
 	return Image.create_from_data(ancho, alto, false, Image.FORMAT_RGBA8, datos)
 
 
@@ -704,9 +914,25 @@ static func generar(tramo: String) -> Image:
 # ============================================================
 #  HORNEADO
 # ============================================================
+# TODAS las claves que hay que hornear: los tramos y, en cada corte, sus escalones de mezcla. Si un
+# atlas de mezcla no esta horneado se dibuja al vuelo, y eso son varios atlas de golpe justo al
+# entrar en el piso del corte: un tiron al bajar la escalera.
+static func claves_a_hornear() -> PackedStringArray:
+	var out := PackedStringArray()
+	for t in TRAMOS:
+		out.append(String(t["clave"]))
+	for i in range(1, TRAMOS.size()):
+		var a: String = String(TRAMOS[i - 1]["clave"])
+		var b: String = String(TRAMOS[i]["clave"])
+		for k in range(1, MEZCLA_PASOS + 1):
+			out.append(clave_mezcla(a, b, k))
+	return out
+
+
 static func hornear(tramo: String) -> int:
 	DirAccess.make_dir_recursive_absolute(CARPETA)
-	var png: String = CARPETA + "terreno_" + tramo + ".png"
+	# El "~" de las mezclas no vale en un nombre de fichero de Godot (se lo come el importador).
+	var png: String = CARPETA + "terreno_" + tramo.replace("~", "_") + ".png"
 	if generar(tramo).save_png(ProjectSettings.globalize_path(png)) != OK:
 		return 0
 	var f := FileAccess.open(png, FileAccess.READ)
@@ -724,7 +950,10 @@ static func atlas_de(tramo: String) -> Texture2D:
 	if _cache.has(tramo):
 		return _cache[tramo]
 	var tex: Texture2D = null
-	var png: String = CARPETA + "terreno_" + tramo + ".png"
+	# El MISMO nombre de fichero que usa hornear(), con el "~" traducido. Cuando no coincidian, el
+	# horneado se escribia pero no lo encontraba nadie: los cuatro atlas de la transicion se
+	# dibujaban al vuelo al entrar en el piso 7 y eso eran 3 segundos clavados al bajar la escalera.
+	var png: String = CARPETA + "terreno_" + tramo.replace("~", "_") + ".png"
 	if ResourceLoader.exists(png):
 		tex = load(png) as Texture2D
 	if tex == null:
@@ -800,7 +1029,15 @@ static func hay_corte(piso: int) -> bool:
 static func tramos_de(piso: int) -> PackedStringArray:
 	if not hay_corte(piso):
 		return PackedStringArray([tramo_de(piso)])
-	return PackedStringArray([tramo_de(piso - 1), tramo_de(piso)])
+	var viejo: String = tramo_de(piso - 1)
+	var nuevo: String = tramo_de(piso)
+	# El viejo, los escalones intermedios y el nuevo. El indice de cada uno ES su id de fuente en el
+	# TileSet, asi que Transicion solo tiene que decir "esta celda va en el escalon N".
+	var out := PackedStringArray([viejo])
+	for i in range(1, MEZCLA_PASOS + 1):
+		out.append(clave_mezcla(viejo, nuevo, i))
+	out.append(nuevo)
+	return out
 
 
 # ============================================================

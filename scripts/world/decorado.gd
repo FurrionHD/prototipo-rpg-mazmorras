@@ -23,6 +23,9 @@ class_name Decorado
 var musgo: Dictionary = {}
 var agua: Dictionary = {}
 var sumidero: Dictionary = {}
+# Los musgos que han FLORECIDO: los unicos que dan luz. Es un subconjunto pequeño de `musgo`, no
+# otra capa aparte (ver _sembrar_flores).
+var flor: Dictionary = {}
 
 var _gen: DungeonGenerator = null
 var _estanque: Vector2i = Vector2i.MAX
@@ -30,16 +33,19 @@ var _estanque_tam: Vector2i = Vector2i.ZERO
 
 
 func generar(gen: DungeonGenerator, celda_estanque: Vector2i, tam_estanque: Vector2i,
-		sem: int) -> void:
+		sem: int, con_flores: bool = false) -> void:
 	_gen = gen
 	_estanque = celda_estanque
 	_estanque_tam = tam_estanque
 	musgo.clear()
 	agua.clear()
 	sumidero.clear()
+	flor.clear()
 	# EL AGUA PRIMERO: el musgo mira donde ha quedado el reguero para criar en sus orillas.
 	_trazar_agua(sem)
 	_sembrar_musgo(sem)
+	if con_flores:
+		_sembrar_flores(sem)
 
 
 # ============================================================
@@ -251,3 +257,33 @@ func _trazar_agua(sem: int) -> void:
 		c2 = padre[c2]
 	if por_sumidero:
 		sumidero[destino] = true
+
+
+# ============================================================
+#  LAS FLORES QUE ALUMBRAN
+# ============================================================
+# NO brilla el musgo: brillan unas FLORES que le salen a algunos musgos. La diferencia no es de
+# sabor -- si brillara el musgo entero, una sala forrada de verde seria de dia y el farolillo
+# sobraria; asi lo que alumbra son unos pocos puntos concretos y el farol sigue siendo el que te
+# deja ver.
+#
+# Se eligen por REJILLA y no celda a celda con un dado: por cada bloque de LUZ_REJILLA celdas sale
+# como mucho una flor, la del ruido mas alto del bloque. Eso hace dos cosas que un dado suelto no
+# hace: acota cuantas hay (no puede salir una sala llena por mala suerte) y garantiza que nunca
+# haya dos pegadas, o sea que sus halos no se suman.
+const LUZ_REJILLA := 6      # una flor como mucho cada 6x6 celdas
+const LUZ_PROB := 0.5       # y no en todos los bloques
+
+func _sembrar_flores(sem: int) -> void:
+	# El mejor candidato de cada bloque: { bloque -> [celda, cuanto puntua] }.
+	var mejor: Dictionary = {}
+	for c in musgo:
+		var b := Vector2i(int(c.x) / LUZ_REJILLA, int(c.y) / LUZ_REJILLA)
+		var v: float = _h01(int(c.x), int(c.y), sem + 1302)
+		if not mejor.has(b) or v > float(mejor[b][1]):
+			mejor[b] = [c, v]
+	for b in mejor:
+		# Y ni siquiera todos los bloques con musgo florecen.
+		if _h01(int(b.x), int(b.y), sem + 1301) >= LUZ_PROB:
+			continue
+		flor[mejor[b][0]] = true

@@ -20,6 +20,12 @@ class_name Transicion
 # espalda, ya estas dentro.
 const RADIO := 5.0
 
+# Ancho de la FRANJA de mezcla, en celdas, contando desde donde acaba el estilo viejo. Dentro de
+# ella el terreno va pasando por los escalones intermedios (ver TerrenoSprites.MEZCLA_PASOS) en vez
+# de cambiar de una celda a la siguiente: con dos estilos y una frontera, el corte era una linea
+# recta entre baldosa y baldosa y se veia a la legua.
+const FRANJA := 7.0
+
 # Cuanto se deforma el borde, en celdas (para arriba y para abajo). Sin esto la frontera es una
 # circunferencia de compas y se lee como un foco de luz, no como un cambio de terreno.
 const IRREGULAR := 2.6
@@ -57,13 +63,31 @@ func es_nuevo(c: Vector2i) -> bool:
 		return true
 	if d2 < (RADIO - IRREGULAR) * (RADIO - IRREGULAR):
 		return false
-	var r: float = RADIO + (Decorado.mancha(c, _sem + 4801, MANCHA_ESCALA) - 0.5) * 2.0 * IRREGULAR
-	return sqrt(d2) > r
+	return sqrt(d2) > _radio_en(c)
 
 
-# El id de fuente del TileSet para esta celda: 0 = tramo viejo, 1 = nuevo (ver
-# TerrenoSprites.tramos_de, que los devuelve en ese mismo orden). En un piso sin corte, siempre 0.
+# El id de fuente del TileSet para esta celda. Los ids van en el mismo orden que
+# TerrenoSprites.tramos_de: 0 = el tramo viejo, los de en medio los escalones de mezcla, y el
+# ultimo el nuevo. En un piso sin corte, siempre 0.
+#
+# La cuenta es la distancia al borde ONDULADO (el mismo que decide es_nuevo), repartida en la
+# franja: pegado al borde sale el primer escalon y al final de la franja, el tramo nuevo entero.
 func fuente(c: Vector2i) -> int:
 	if not activa:
 		return 0
-	return 1 if es_nuevo(c) else 0
+	var ultimo: int = TerrenoSprites.MEZCLA_PASOS + 1
+	var d: float = Vector2(c - ancla).length()
+	var r: float = _radio_en(c)
+	if d <= r:
+		return 0
+	var t: float = (d - r) / FRANJA
+	if t >= 1.0:
+		return ultimo
+	# +1 porque el escalon 0 es el tramo viejo, que ya se ha resuelto arriba.
+	return clampi(1 + int(t * float(ultimo)), 1, ultimo)
+
+
+# El radio del borde ondulado en la direccion de esta celda. Sale del mismo ruido que es_nuevo, asi
+# que la franja de mezcla ondula con el y no es un anillo de compas alrededor de un borde irregular.
+func _radio_en(c: Vector2i) -> float:
+	return RADIO + (Decorado.mancha(c, _sem + 4801, MANCHA_ESCALA) - 0.5) * 2.0 * IRREGULAR

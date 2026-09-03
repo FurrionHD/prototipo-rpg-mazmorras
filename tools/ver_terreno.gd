@@ -32,9 +32,10 @@ func _initialize() -> void:
 	# mirar la cueva de los pisos 7+, que es justo lo que hay que juzgar cuando se dibuja un tramo
 	# nuevo: si se lee como otro sitio o como el de siempre con un filtro de color encima.
 	var atlas_por_tramo: Dictionary = {}
+	for clave_h in TerrenoSprites.claves_a_hornear():
+		TerrenoSprites.hornear(clave_h)
 	for t in TerrenoSprites.TRAMOS:
 		var clave: String = String(t["clave"])
-		TerrenoSprites.hornear(clave)
 		atlas_por_tramo[clave] = TerrenoSprites.generar(clave)
 		_guardar(atlas_por_tramo[clave], "atlas_terreno_%s" % clave)
 	for fam in RecolectableSprites.FAMILIAS:
@@ -47,7 +48,8 @@ func _initialize() -> void:
 
 	# --- 2. El trozo de mazmorra montado, uno por tramo ---
 	for clave in atlas_por_tramo:
-		_guardar(_escena(atlas_por_tramo[clave]), "escena_%s" % clave)
+		_guardar(_escena(atlas_por_tramo[clave], TerrenoSprites.estilo_de(String(clave))),
+			"escena_%s" % clave)
 
 	# --- 3. LA TRANSICION: el mismo trozo, con la frontera entre dos tramos ---
 	# Es lo que hay que MIRAR de un piso de corte: si el borde se lee como un cambio de terreno o
@@ -69,7 +71,7 @@ func _guardar(img: Image, nombre: String) -> void:
 
 # Un mapa de juguete: una sala con un pasillo, una mancha de musgo en la pared del fondo y un
 # riachuelo que la cruza y desemboca en un charco. Es el caso que hay que saber dibujar.
-func _escena(atlas: Image) -> Image:
+func _escena(atlas: Image, estilo: String = "picada") -> Image:
 	var L: int = TerrenoSprites.LADO
 	var solido := []
 	var agua := []
@@ -117,12 +119,16 @@ func _escena(atlas: Image) -> Image:
 	for y in ALTO:
 		for x in ANCHO:
 			var c := Vector2i(x, y)
+			# En la cueva, SUELO TAMBIEN DEBAJO DEL MURO: su borde ondula y no llena la celda, asi
+			# que si no, por los huecos se ve el fondo. Es lo mismo que hace el juego (ver
+			# DungeonFloor._construir_geometria), y si aqui no se replicara, el render enseñaria
+			# unos agujeros negros que en la partida no existen.
+			if not solido[y][x] or estilo == "cueva":
+				_baldosa(img, atlas, TerrenoSprites.celda_para("suelo", c, 0, SEM), c)
 			if solido[y][x]:
 				var m: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool:
 					return _dentro(v) and solido[v.y][v.x])
 				_baldosa(img, atlas, TerrenoSprites.celda_para("muro", c, m, SEM), c)
-			else:
-				_baldosa(img, atlas, TerrenoSprites.celda_para("suelo", c, 0, SEM), c)
 	for y in ALTO:
 		for x in ANCHO:
 			var c := Vector2i(x, y)
@@ -195,16 +201,19 @@ func _nodo(img: Image, familia: String, forma: int, modelo: int, celda: Vector2i
 # elegir de que atlas se copia cada baldosa. La REGLA de que celda es de quien es la misma:
 # Transicion.es_nuevo.
 func _escena_transicion(atlas_por_tramo: Dictionary) -> Image:
-	var viejo: Image = atlas_por_tramo[String(TerrenoSprites.TRAMOS[0]["clave"])]
-	var nuevo: Image = atlas_por_tramo[String(TerrenoSprites.TRAMOS[1]["clave"])]
 	var piso: int = int(TerrenoSprites.TRAMOS[1]["desde"])
+	# Un atlas por ESCALON de la transicion, en el mismo orden que las fuentes del TileSet en el
+	# juego: asi el render usa exactamente el mismo reparto que la partida.
+	var por_escalon: Array = []
+	for clave in TerrenoSprites.tramos_de(piso):
+		por_escalon.append(TerrenoSprites.generar(clave))
 
 	# Un generador de mentira con una sola "sala" cuyo centro es el ancla, para poder usar la
 	# Transicion de verdad y no una copia de su cuenta.
 	var gen := DungeonGenerator.new()
 	gen.ancho = ANCHO
 	gen.alto = ALTO
-	gen.salas = [Rect2i(6, 5, 6, 6)] as Array[Rect2i]
+	gen.salas = [Rect2i(9, 6, 6, 6)] as Array[Rect2i]
 	var tr := Transicion.new()
 	tr.preparar(piso, gen, 20260907)
 
@@ -215,12 +224,11 @@ func _escena_transicion(atlas_por_tramo: Dictionary) -> Image:
 	for y in ALTO:
 		for x in ANCHO:
 			var c := Vector2i(x, y)
-			var atlas: Image = nuevo if tr.es_nuevo(c) else viejo
+			var atlas: Image = por_escalon[clampi(tr.fuente(c), 0, por_escalon.size() - 1)]
 			var roca: bool = x < 2 or y < 2 or x >= ANCHO - 2 or y >= ALTO - 2
+			_baldosa(img, atlas, TerrenoSprites.celda_para("suelo", c, 0, SEM), c)
 			if roca:
 				var m: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool:
 					return not (v.x >= 2 and v.y >= 2 and v.x < ANCHO - 2 and v.y < ALTO - 2))
 				_baldosa(img, atlas, TerrenoSprites.celda_para("muro", c, m, SEM), c)
-			else:
-				_baldosa(img, atlas, TerrenoSprites.celda_para("suelo", c, 0, SEM), c)
 	return img

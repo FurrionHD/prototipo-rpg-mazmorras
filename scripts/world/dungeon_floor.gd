@@ -534,6 +534,8 @@ var _celdas_formacion: Array[Vector2i] = []
 var _es_formacion: Dictionary = {}
 # Quien decide, celda a celda, que estilo le toca en un piso donde cambia el tramo (transicion.gd).
 var _trans := Transicion.new()
+# Si en este piso hay roca de estilo CUEVA (su borde ondula y no llena la celda).
+var _estilo_cueva: bool = false
 var _celdas_agua: Dictionary = {}
 var _celdas_sumidero: Dictionary = {}
 
@@ -560,6 +562,12 @@ func _construir_geometria() -> void:
 	# celda se pinta con la suya (ver Transicion). En un piso normal solo hay una y esto es lo de
 	# siempre.
 	_trans.preparar(_piso_construido, gen, _semilla_del_piso())
+	# En un piso de corte hay dos estilos; basta con saber si ALGUNO es de cueva para pintar suelo
+	# bajo los muros (a los de piedra picada les sobra, pero no les estorba).
+	_estilo_cueva = false
+	for t in TerrenoSprites.tramos_de(_piso_construido):
+		if TerrenoSprites.estilo_de(t) == "cueva":
+			_estilo_cueva = true
 	var ts: TileSet = TerrenoSprites.tileset_de_tramos(
 		TerrenoSprites.tramos_de(_piso_construido))
 	for capa in TerrenoSprites.CAPAS_ORDEN:
@@ -589,6 +597,13 @@ func _construir_geometria() -> void:
 			elif gen.es_suelo(c):
 				suelo.set_cell(c, fte, TerrenoSprites.celda_para("suelo", c, 0, sem))
 			elif Decorado.muro_visible(gen, c):
+				# EN LA CUEVA, SUELO TAMBIEN DEBAJO DEL MURO. Su roca no llena la celda: el borde
+				# ondula y deja pixeles transparentes (ver TerrenoSprites._pintar_muro_cueva), asi
+				# que sin esto por esos huecos se veria el fondo negro y la pared saldria con el
+				# canto comido. En la mazmorra picada de arriba la roca llena su celda y esto no
+				# hace falta.
+				if _estilo_cueva:
+					suelo.set_cell(c, fte, TerrenoSprites.celda_para("suelo", c, 0, sem))
 				# La MASCARA (por que lados esta expuesto) sale de la MISMA regla que usa el
 				# musgo para trepar, y por eso vive en Decorado: si aqui y alli no contaran la
 				# roca igual, el verde treparia por muros que no existen.
@@ -606,6 +621,17 @@ func _construir_geometria() -> void:
 		var col := CollisionShape2D.new()
 		col.shape = forma
 		col.position = (Vector2(r.position) + Vector2(r.size) * 0.5) * celda
+		# UNA ESTALAGMITA NO OCUPA SU CELDA ENTERA. Es una piedra en medio del suelo, no un trozo de
+		# pared: si su caja fuera la celda completa, chocarias con aire a media celda de distancia
+		# de ella -- se ve enseguida en cuanto la rodeas. Asi que a las formaciones (que salen del
+		# fusionado como rectangulos de 1x1, porque nacen aisladas) se les da una caja a la medida
+		# de lo que se dibuja: mas estrecha que alta y apoyada en el pie, que es donde esta la roca.
+		#
+		# La LUZ sigue tapandola entera, y es correcto: la sombra va por celdas (ver Vision) y una
+		# piedra de este tamaño tapa lo que hay detras.
+		if r.size == Vector2i.ONE and _es_formacion.has(r.position):
+			forma.size = Vector2(FORMACION_CAJA) 
+			col.position = (Vector2(r.position) + Vector2(0.5, 1.0)) * celda 				- Vector2(0.0, FORMACION_CAJA.y * 0.5 + FORMACION_PIE)
 		cuerpo.add_child(col)
 
 
@@ -835,6 +861,12 @@ const FORMACION_SEPARACION := 5
 # tamaño del charco mas cuatro), y reservarles el centro las dejaba sin un solo sitio valido.
 # Ese era el motivo de que salieran 2 columnas por PISO en vez de 1-2 por SALA.
 const FORMACION_CENTRO_LIBRE := Vector2i(8, 7)
+# La CAJA con la que se choca contra una estalagmita, en px, y cuanto se levanta del borde de
+# abajo de su celda. Sale de lo que dibuja TerrenoSprites._pintar_columna: si no coinciden, chocas
+# con aire. Es un pelin mas estrecha que el dibujo a proposito -- entre rozar una piedra que se ve
+# y quedarse trabado en uno que no, es mejor lo primero.
+const FORMACION_CAJA := Vector2(20.0, 22.0)
+const FORMACION_PIE := 3.0
 
 
 func _sembrar_formaciones() -> void:
