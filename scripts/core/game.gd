@@ -1030,9 +1030,20 @@ var enemigos_traspasados: Array = []
 
 # De quien es este combatiente. null si no es de los tuyos (un enemigo) o si el combate se abrio
 # suelto para probar (F6), que no tiene fichas detras.
+#
+# EN UN ESPEJO no hay _active_player_cs (los personajes de verdad los lleva la maquina que ejecuta
+# la pelea), asi que la busqueda de arriba siempre fallaba y TODO lo que depende de la ficha se
+# degradaba: el color, el material y sobre todo el muñeco, que no se pintaba en absoluto. Por eso el
+# que se unia a una pelea veia cuadrados de color en vez de a sus compañeros. La ficha de escaparate
+# la trae el roster y vale para pintar (aspecto + equipo); NO para nada de simulacion, que alli no
+# se tira ni un dado.
 func pj_de_combatant(c) -> PersonajeData:
 	var i: int = _active_player_cs.find(c)
-	return _active_player_pjs[i] if i >= 0 and i < _active_player_pjs.size() else null
+	if i >= 0 and i < _active_player_pjs.size():
+		return _active_player_pjs[i]
+	if c != null and c is Combatant and c.pj_escaparate is PersonajeData:
+		return c.pj_escaparate
+	return null
 
 
 # El inverso: que combatiente de la pelea corresponde a esa ficha. Lo usa el multijugador para
@@ -6853,6 +6864,66 @@ func deserializar_equipo(d: Dictionary, registrar: bool = true) -> Resource:
 	return item
 
 
+# ============================================================
+#  LA FICHA DE ESCAPARATE: como se manda a UNA PERSONA para DIBUJARLA
+# ============================================================
+# Aspecto (cara, color, ropa, pelo) + LO QUE LLEVA PUESTO, y nada mas. Es el tercer serializador de
+# personaje del proyecto y tiene su motivo:
+#   - ficha_a_dict (net.gd) manda el DOBLE que va a PELEAR: stats, hechizos, cooldowns, colas de
+#     pocion... muchisimo mas de lo que hace falta para pintar un muñeco.
+#   - jd_a_dict manda a una PERSONA a VIVIR en otro mundo: mas todavia.
+#   - esto manda lo que se VE, y va a dos sitios donde antes no viajaba NADA de equipo: el roster de
+#     un combate espejado (el aliado salia de cuadrado de color) y el saludo de red (el otro jugador
+#     se veia siempre sin armadura, sin arma y sin escudo por el mapa).
+#
+# El equipo va por serializar_equipo, o sea IDENTIDAD (ruta de la plantilla + tier/rareza/mejoras) y
+# no la copia del objeto: eso es lo que evita el problema de las listas congeladas, y ademas es lo
+# que JugadorSprites necesita para elegir la paleta (familia, tier y numero de mejoras).
+const RANURAS_A_LA_VISTA := ["equipped_main", "equipped_off", "equipped_casco", "equipped_pecho",
+	"equipped_manos", "equipped_pantalones", "equipped_botas"]
+
+
+func pj_a_dict(pj: PersonajeData) -> Dictionary:
+	if pj == null:
+		return {}
+	var d: Dictionary = pj.aspecto_completo()
+	var eq: Dictionary = {}
+	for r in RANURAS_A_LA_VISTA:
+		var pieza: Resource = pj.get(r)
+		if pieza == null:
+			continue   # ranura vacia: no se manda un {} por cada hueco
+		eq[r] = serializar_equipo(pieza)
+	d["equipo"] = eq
+	d["nombre"] = pj.nombre
+	return d
+
+
+# Lo contrario: una ficha SOLO PARA PINTAR. No es la persona -- no tiene stats, ni inventario, ni
+# uid, ni dueño -- y no debe usarse para nada que no sea dibujarla.
+#
+# 'registrar = false' en el equipo NO es opcional: esto reconstruye piezas de OTRA persona en cada
+# roster y en cada saludo, y registrarlas las metia en tu baul. Es el mismo cuidado que ficha_de_dict.
+func pj_de_dict(d: Dictionary) -> PersonajeData:
+	var pj := PersonajeData.new()
+	if d.is_empty():
+		return pj
+	pj.nombre = String(d.get("nombre", ""))
+	pj.aplicar_aspecto(d)
+	var eq: Dictionary = d.get("equipo", {})
+	for r in RANURAS_A_LA_VISTA:
+		if not eq.has(r):
+			continue
+		var item: Resource = deserializar_equipo(eq[r], false)
+		if item == null:
+			continue
+		pj.set(r, item)
+		# Y su meta EQUIPADA apuntando al MISMO dict que la del objeto: el tier y las mejoras -- que
+		# es de donde salen la paleta y el brillo de la pieza -- se leen por equip_meta[slot], no del
+		# objeto. Misma invariante que ficha_de_dict y _realinear_equip_meta.
+		pj.equip_meta[r.replace("equipped_", "")] = meta_de(item)
+	return pj
+
+
 # Saca una pieza de MI baul (owned_*) y olvida su meta. La usa el cofre al depositar. false si la
 # lleva alguien puesta (no se deposita equipo en uso).
 func sacar_de_baul(item: Resource) -> bool:
@@ -10973,7 +11044,7 @@ func unir_enemigo_al_combate(nodo: Node) -> bool:
 	var hp: float = float(nodo.hp_restante) if "hp_restante" in nodo else -1.0
 	# Los estados que traiga puestos entran con el (el veneno del que huiste y te ha vuelto a pillar).
 	var est: Array = nodo.estados_restantes if "estados_restantes" in nodo else []
-	var slot: int = combat.anadir_enemigo(nodo.data, t, hp, est)
+	var slot: int = combat.anadir_enemigo(nodo.data, t, hp, est, bool(nodo.get("es_boss")))
 	if slot < 0:
 		return false   # pelea llena: a la cola
 	if slot < _active_enemies.size():
@@ -10981,6 +11052,10 @@ func unir_enemigo_al_combate(nodo: Node) -> bool:
 		_active_enemies[slot] = nodo
 	else:
 		_active_enemies.append(nodo)
+	# UN JEFE QUE ENTRA A MITAD cambia la musica. Pasa de verdad: los refuerzos y el traspaso meten
+	# bichos en una pelea ya abierta, y el jefe podia aparecer con la pista de combate normal puesta.
+	if bool(nodo.get("es_boss")):
+		Musica.cambiar_cima("jefe")
 	return true
 
 
@@ -11059,6 +11134,9 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 		# Y LOS ESTADOS que se llevo de la ultima pelea, con lo que les quede de duracion: si huiste
 		# dejandolo envenenado, vuelve a la pelea envenenado. Igual que el grupo, por apply_status.
 		aplicar_estados_a_enemigo(ec, n)
+		# La bandera de jefe es del NODO (la reparte dungeon_floor), no del EnemyData: se copia aqui
+		# para que viaje en el roster y el espejo sepa que musica poner. Ver Combatant.es_jefe.
+		ec.es_jefe = bool(n.get("es_boss"))
 		enemy_cs.append(ec)
 
 	# MODO PRUEBA (dev): convierte en muñeco a TODOS los de la pelea, no solo al primero. Antes se
@@ -11119,14 +11197,20 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 
 # Cuelga la pantalla de combate y deja el mundo en modo "estoy peleando". Se saco de start_combat
 # porque el ESPEJO (hito 5.4-C) monta exactamente lo mismo: misma capa, mismo modal, mismo aviso.
-func _montar_pantalla_combate(combat: Node) -> void:
+#
+# 'jefe' se pasa desde fuera (−1 = deducelo tu). No se puede deducir SIEMPRE aqui: _active_enemies
+# son los bichos que simula ESTA maquina, y el que se une a la pelea de otro no tiene ninguno, asi
+# que el espejo se comia siempre la pista de "combate" aunque enfrente hubiera un jefe. El espejo la
+# saca del roster, que ya trae la bandera (ver combat._fila_de_roster).
+func _montar_pantalla_combate(combat: Node, jefe: int = -1) -> void:
 	# LA MUSICA DE PELEA. Va AQUI y no en start_combat porque por aqui pasan TODAS las peleas: la
 	# tuya, la del espejo que se une a la de otro y la que te embiste. Enganchandola arriba, el que
 	# se une entraria a pelear con la musica de la mazmorra puesta.
 	#
 	# Se APILA en vez de ponerse: al acabar, la de mazmorra vuelve donde estaba en vez de empezar
 	# de cero cada vez que matas una rata.
-	Musica.apilar("jefe" if _hay_jefe_en_pelea() else "combate")
+	var hay_jefe: bool = _hay_jefe_en_pelea() if jefe < 0 else jefe > 0
+	Musica.apilar("jefe" if hay_jefe else "combate")
 	# Y el ambiente de la mazmorra se calla mientras dure. Es POR MAQUINA: el compañero que se quede
 	# fuera lo sigue oyendo, que es lo correcto -- el sigue ahi.
 	Ambiente.pausar(true)
@@ -11231,8 +11315,17 @@ func abrir_combate_espejo(roster: Dictionary) -> Node:
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
 	combat.setup_espejo(roster)
 	combat.combat_finished.connect(_on_combate_espejo_cerrado)
-	_montar_pantalla_combate(combat)
+	# LA MUSICA SALE DEL ROSTER, no de _active_enemies: aqui no simulo ningun bicho, asi que la
+	# deduccion de siempre daba "no hay jefe" y unirse a la pelea del Rey Slime sonaba a pelea de rata.
+	_montar_pantalla_combate(combat, 1 if _hay_jefe_en_roster(roster) else 0)
 	return combat
+
+
+func _hay_jefe_en_roster(roster: Dictionary) -> bool:
+	for fila in roster.get("enemigos", []):
+		if bool((fila as Dictionary).get("jefe", false)):
+			return true
+	return false
 
 
 # El espejo se cierra: NO hay resultados que volcar (los personajes que peleaban de verdad los
@@ -11249,6 +11342,14 @@ func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en :=
 		_muertos := [], _ehp := [], _duenos := [], _eest := []) -> void:
 	salir_modal(_active_layer)
 	esconder_mundo(false)
+	# ⚠️ LO QUE APILO _montar_pantalla_combate HAY QUE DESAPILARLO AQUI TAMBIEN. El espejo monta la
+	# pantalla por el mismo sitio que una pelea de verdad, pero se cierra por OTRA funcion: como esto
+	# faltaba, al pulsar Continuar en el espejo la musica de combate (o la de jefe) se quedaba en lo
+	# alto de la pila para siempre y te seguia por la mazmorra, con el ambiente mudo encima. Bajar de
+	# piso no lo arregla: Musica.poner solo corta la pila al CAMBIAR DE ESCENA, y la mazmorra entera
+	# es la misma escena.
+	Musica.desapilar()
+	Ambiente.pausar(false)
 	_bloquear_interaccion_jugador()
 	Net.avisar_combate(false)
 	Net.salir_del_espejo()

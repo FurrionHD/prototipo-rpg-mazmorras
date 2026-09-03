@@ -3558,16 +3558,22 @@ func _reservar_grupo(nodo, id: int, quien: int) -> Array:
 # EMPUJE (hito 5.4): un bicho ha alcanzado el cuerpo de OTRO jugador. La pelea es SUYA, no mia
 # (yo solo simulo el piso). Se reserva el grupo y se le manda, CON emboscada: le han saltado
 # encima, no ha atacado el.
-func empujar_pelea(nodo: Node, peer: int) -> void:
+#
+# Devuelve si el empuje ha COLADO. Antes se iba en silencio cuando la reserva fallaba, y quien lo
+# llama (enemy._start_combat) se quedaba sin saberlo: el bicho seguia suelto, retrocedia, volvia a
+# embestir y volvia a sonar su golpe... indefinidamente, y encima con el dueño mirando su propia
+# pantalla de combate. Ese era el "los enemigos en cola se escuchan golpeando sin parar".
+func empujar_pelea(nodo: Node, peer: int) -> bool:
 	if not activo or not _soy_dueno or multiplayer.multiplayer_peer == null:
-		return
+		return false
 	if nodo == null or not nodo.has_meta("net_id"):
-		return
+		return false
 	var id: int = nodo.get_meta("net_id")
 	var ids: Array = _reservar_grupo(nodo, id, peer)
 	if ids.is_empty():
-		return
+		return false
 	_responder_pelea(peer, ids, true)
+	return true
 
 
 # La respuesta vuelve al destinatario; si yo soy un dueño CLIENTE, pasa por el host.

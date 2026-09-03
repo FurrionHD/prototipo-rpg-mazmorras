@@ -215,6 +215,17 @@ var centrado_en_fila: bool = false
 # quien lleva la pelea. Mismo motivo que color_visual y fx_basico para vivir aqui.
 var sprite_res: String = ""
 var sprite_t: float = 0.5
+# ES UN JEFE. Dato de presentacion, aqui por lo mismo que color_visual: lo pone Game al montar la
+# pelea desde el nodo del mundo (la bandera es del nodo, la reparte dungeon_floor). Existe porque la
+# MUSICA de jefe se decidia mirando _active_enemies, que en la maquina que solo ESPEJA la pelea esta
+# vacio: quien se unia a la pelea de un jefe la peleaba con la musica de rata. Viajando en el roster,
+# el espejo sabe a que se enfrenta.
+var es_jefe: bool = false
+# FICHA DE ESCAPARATE para pintar el muñeco de un aliado ESPEJADO. Solo la rellena combat.gd al
+# montar un maniqui desde el roster; en la maquina que ejecuta la pelea es null y el muñeco sale de
+# Game.pj_de_combatant, como siempre. Es Resource y no PersonajeData para no atar Combatant (que es
+# puro modelo de combate) a la ficha del jugador.
+var pj_escaparate: Resource = null
 # COMO PEGA cuando NO usa habilidad. Las habilidades piden su dibujo por AbilityData.fx_estilo,
 # pero el ataque basico no pasa por ninguna habilidad, asi que su aspecto tiene que venir del
 # propio bicho: sin esto una rata lanza dentelladas al usar tecnica y da empujones de tarjeta el

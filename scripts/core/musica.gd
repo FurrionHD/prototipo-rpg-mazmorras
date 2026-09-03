@@ -174,6 +174,18 @@ func desapilar() -> void:
 	_fondo[_cual].play(float(e.get("pos", 0.0)))
 
 
+# CAMBIA lo que hay ARRIBA sin tocar lo de debajo: la pelea normal se convierte en pelea de jefe
+# porque el jefe ha entrado de refuerzo a mitad. No vale apilar (dejaria "combate" debajo y al
+# desapilar volveria la pelea en vez de la mazmorra) ni poner (borraria la mazmorra de la base).
+#
+# Si la pila esta vacia (no estabas en nada apilado), no hay cima que cambiar: no se inventa una.
+func cambiar_cima(nombre: String) -> void:
+	if _pila.size() <= 1 or contexto() == nombre:
+		return
+	_pila[-1] = {"contexto": nombre, "pista": null, "pos": 0.0}
+	_arrancar(nombre, true)
+
+
 func callar() -> void:
 	_pila.clear()
 	_remate.stop()

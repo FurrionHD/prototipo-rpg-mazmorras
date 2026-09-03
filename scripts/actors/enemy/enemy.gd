@@ -123,6 +123,15 @@ const CONTACTO := 2.0
 # para referenciar la constante de verdad, asi que el numero va duplicado -- si se toca uno, tocar
 # el otro).
 const EMBESTIDA_IMPACTO := 8.0 / 12.0
+# DESCANSO TRAS UN REBOTE: la embestida conecto pero la pelea NO se abrio (el piso no es mio, el
+# empuje al otro humano no colo). Es mucho mas largo que EMBESTIDA_ESPERA a proposito -- ese es el
+# descanso de FALLAR el golpe, y aqui el golpe acerto: reintentarlo cada 0.6 s es lo que llenaba la
+# mazmorra de porrazos mientras el dueño estaba metido en su pantalla de combate.
+const REBOTE_ESPERA := 3.0
+# Y un suelo para la ventana del impacto: aunque la carga se haya comido el reloj entero, el porrazo
+# tiene que oirse y verse antes de que la pantalla se lleve la escena. Cortar a cero seria volver al
+# bug de "entro directo, sin animacion".
+const IMPACTO_MINIMO := 0.22
 
 signal combat_started(enemy_data: EnemyData, enemy_initiated: bool)
 
@@ -1044,9 +1053,24 @@ func _embestida(delta: float) -> void:
 # la de SU espadazo) y deja al bicho parado donde ha conectado. NO llama a _start_combat: eso lo
 # hace el bloque de _physics_process cuando el reloj llega a 0, para que la pantalla de combate no
 # se lleve la escena a mitad del golpe/la carga.
+#
+# ⚠️ LA VENTANA SE MIDE DESDE QUE ARRANCA LA CARGA, no desde que conecta. Es lo que la descuadraba de
+# la animacion: la embestida ya se ha visto entera (EMBESTIDA_DUR) y encima el bicho se quedaba
+# QUIETO, en idle y sin pasar nada, los 0,667 s enteros de EMBESTIDA_IMPACTO -- el "termina la
+# embestida y tarda un segundo mas en entrarte" del playtest. Ahora se descuenta lo que la carga ya
+# ha durado, asi que lo que se ve es: carga -> porrazo -> pantalla, seguido.
+#
+# Lo que manda el JUGADOR (su espadazo) NO se descuenta: ese golpe empieza en el momento en que se
+# llama aqui, no antes.
 func _iniciar_impacto(enemy_initiated: bool, dur: float = -1.0) -> void:
 	velocity = Vector2.ZERO
-	_impacto_t = dur if dur > 0.0 else EMBESTIDA_IMPACTO
+	if dur > 0.0:
+		_impacto_t = dur
+	else:
+		# Lo que lleva corriendo la carga = lo que le falta a _embiste_t para EMBESTIDA_DUR. Si esto no
+		# viene de una embestida (_embiste_t a 0), consumido = EMBESTIDA_DUR y queda el resto.
+		var consumido: float = clampf(EMBESTIDA_DUR - maxf(_embiste_t, 0.0), 0.0, EMBESTIDA_DUR)
+		_impacto_t = maxf(EMBESTIDA_IMPACTO - consumido, IMPACTO_MINIMO)
 	_impacto_enemy_initiated = enemy_initiated
 	# EL BICHO SUENA AL EMBESTIR, en el mapa y antes de que se abra la pelea. Suena con su golpe de
 	# siempre (EnemyData.fx_basico), el mismo que dentro del combate, asi que el minotauro embiste
@@ -1613,19 +1637,34 @@ func vecinos() -> Array:
 	return out
 
 
+# LA EMBESTIDA CONECTO PERO NO HAY PELEA. Se deja al bicho suelto (no esta en ninguna pelea, asi que
+# no se le puede marcar) pero SIN poder volver a cargar durante REBOTE_ESPERA. Sin esto reintentaba
+# al frame siguiente, y cada intento arrastra su porrazo (ver _iniciar_impacto): con el dueño del
+# piso metido en su pantalla de combate, eso son golpes sonando solos indefinidamente.
+func _rebotar() -> void:
+	velocity = Vector2.ZERO
+	_state = State.CHASE
+	# El descanso se pone DESPUES de cancelar: _cancelar_aviso pone _embiste_espera a 0 (deshace el
+	# aviso entero), asi que al reves se anulaba a si mismo y el rebote no servia de nada.
+	_cancelar_aviso()
+	_embiste_espera = REBOTE_ESPERA
+
+
 func _start_combat(enemy_initiated: bool) -> void:
 	if _combat_triggered:
 		return
 	# Solo monta peleas quien SIMULA este piso: los bichos espejados no tienen IA ni son autoridad
 	# de nada (ver Net y remote_enemy.gd).
 	if not Net.simulo_mi_piso():
+		_rebotar()
 		return
 	# He alcanzado el cuerpo de OTRO JUGADOR (hito 5.4): la pelea es SUYA, no mia — yo solo simulo
 	# el piso. Se le empuja con emboscada (le he saltado encima) y aqui no se abre nada.
 	if _objetivo != null and is_instance_valid(_objetivo) and _objetivo.has_meta("peer_id"):
 		# OJO: el congelado lo pone la RESERVA (Net._reservar_grupo), que ademas rechaza a los que
 		# ya lo tengan puesto. Marcarlo aqui antes haria que la reserva se rechazara a si misma.
-		Net.empujar_pelea(self, _objetivo.get_meta("peer_id"))
+		if not Net.empujar_pelea(self, _objetivo.get_meta("peer_id")):
+			_rebotar()   # no ha colado (ya lo pelea alguien, o el otro esta ocupado): no insistir
 		return
 	# Ya hay una pelea en marcha: en vez de rebotar, ME UNO a ella (hito 5.4). Si no cabe (tope de
 	# MAX_COMBATIENTES), me quedo ESPERANDO PEGADO y lo reintento: en cuanto muera uno, entro en su

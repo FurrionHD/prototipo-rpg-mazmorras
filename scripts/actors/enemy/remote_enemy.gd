@@ -72,6 +72,10 @@ const _AVISO_TINTE := Color(1.0, 0.45, 0.30)     # el mismo que enemy.gd
 # Si falta alguno, el juego revienta con "Invalid access to property" en cuanto alguien lo mire.
 var _combat_triggered: bool = false    # se la reservo el dueño y la estoy peleando yo
 var zona_idx: int = -1                 # no soy de ninguna sala: la ocupacion la lleva el dueño
+# Espadazo en curso contra este espejo: lo que queda para pedirle la pelea a su dueño (-1 = nada
+# pendiente). Ver atacado_por_jugador.
+var _peticion_t: float = -1.0
+var _pidiendo_pelea: bool = false
 # Rastro del elemento (null si no es elemental). Espejo de enemy._fx_elem.
 var _fx_elem: CPUParticles2D = null
 
@@ -231,17 +235,54 @@ func retirar() -> void:
 # Devuelve si la pulsacion ha SERVIDO de algo (ver enemy.atacado_por_jugador y player._try_attack):
 # antes no devolvia nada, asi que el jugador daba el espacio por gastado aunque aqui se saliera de
 # vacio — y con la salida de vacio de abajo eso era justo lo que pasaba al ir a ayudar al compañero.
-func atacado_por_jugador() -> bool:
+#
+# ⚠️ LA FIRMA TIENE QUE SER LA DE enemy.atacado_por_jugador. player._try_attack llama SIEMPRE con
+# 'golpe_dur' (lo que le queda al espadazo en el mapa) y no distingue un bicho de su espejo: mientras
+# aqui faltaba el parametro, la llamada reventaba en runtime, ningun candidato admitia la pelea y se
+# acababa en _avisar_no_puedo_entrar(). O sea: quien NO simulaba el piso no podia entrar en combate
+# pegando -- ni abrir una pelea, ni unirse a la del compañero-, solo si un bicho le embestia a el.
+# Ese era el fondo de "al segundo del piso no le deja entrar" y de "solo deja pegar al que la inicio".
+func atacado_por_jugador(golpe_dur: float = -1.0) -> bool:
 	if muerto or not has_meta("net_id"):
 		return false
+	# Machacar el boton contra el mismo bicho NO reinicia el reloj (igual que enemy.gd): la peticion
+	# ya esta en camino y volver a armarla solo retrasaria la pelea.
+	if _pidiendo_pelea:
+		return true
+	_pidiendo_pelea = true
+	# EL ESPADAZO SE VE ENTERO, tambien contra un espejo. La pelea se pide cuando el golpe termina,
+	# no en el mismo fotograma de la pulsacion: es el mismo respiro que se da el bicho de verdad en
+	# enemy._iniciar_impacto (_impacto_t), y sin el la pantalla de combate se llevaba la escena a
+	# mitad de la animacion. Ver _tick_peticion.
+	_peticion_t = golpe_dur if golpe_dur > 0.0 else 0.0
+	if _peticion_t <= 0.0:
+		_lanzar_peticion()
+	return true
+
+
+# Se acabo el espadazo: ahora si se le pide la pelea al dueño del piso.
+func _lanzar_peticion() -> void:
+	_peticion_t = -1.0
+	_pidiendo_pelea = false
+	if muerto or not has_meta("net_id"):
+		return
 	# YA lo esta peleando alguien. Esto era un callejon sin salida: el bicho de verdad si tenia la via
 	# para ECHAR UNA MANO (enemy.gd) y el espejo se la habia quedado sin ella, asi que si el piso lo
 	# simulaba tu compañero no habia forma de entrar en su pelea pegandole a un bicho.
 	if _combat_triggered:
 		Net.unirme_a_la_pelea_de(get_meta("net_id"))
-		return true
+		return
 	Net.solicitar_pelea(get_meta("net_id"))
-	return true
+
+
+# Corre SIEMPRE, tambien antes del primer paquete de posicion (por eso esta arriba del todo de
+# _physics_process, delante de la guarda de _objetivo).
+func _tick_peticion(delta: float) -> void:
+	if _peticion_t < 0.0:
+		return
+	_peticion_t -= delta
+	if _peticion_t <= 0.0:
+		_lanzar_peticion()
 
 
 # Lo llama Net cuando el dueño concede la pelea: a partir de aqui soy un combatiente.
@@ -340,6 +381,7 @@ func ir_a(pos: Vector2) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_tick_peticion(delta)
 	if _objetivo == Vector2.INF:
 		return
 	var antes: Vector2 = global_position

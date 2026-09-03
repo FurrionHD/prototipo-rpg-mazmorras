@@ -578,6 +578,14 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 	# con la figura de color de siempre en vez de reventar.
 	c.sprite_res = String(d.get("spr", ""))
 	c.sprite_t = float(d.get("spr_t", 0.5))
+	c.es_jefe = bool(d.get("jefe", false))
+	# LA FICHA DE ESCAPARATE del aliado (aspecto + equipo). No es un PersonajeData de verdad -- no
+	# tiene stats ni inventario --, solo lo justo para que JugadorSprites le monte las capas. Se
+	# cuelga del maniqui porque Game.pj_de_combatant no lo puede encontrar: en un espejo
+	# _active_player_cs esta vacio (los personajes de verdad los lleva quien ejecuta la pelea).
+	var pjd: Dictionary = d.get("pj", {})
+	if not pjd.is_empty():
+		c.pj_escaparate = Game.pj_de_dict(pjd)
 	# Su cara, para el marcador de turnos: se monta aqui una vez y se cachea por maniqui.
 	var png: PackedByteArray = d.get("imagen", PackedByteArray())
 	var metal: float = float(d.get("metal", 0.0))
@@ -616,7 +624,15 @@ func _fila_de_roster(lista: Array) -> Array:
 			# DE DONDE SACAR SU SPRITE. Viaja la ruta de su .tres y la 't' de su variante, que son
 			# dos datos minusculos y con eso el compañero carga el mismo bicho por su cuenta. Sin
 			# esto, en su pantalla la pelea entera serian cuadrados de color.
-			"spr": c.sprite_res, "spr_t": c.sprite_t})
+			"spr": c.sprite_res, "spr_t": c.sprite_t,
+			# SI ES UN JEFE: lo unico que necesita el espejo para poner la musica que toca. La deducia
+			# de sus propios _active_enemies, que estando de espejo estan vacios (los bichos los lleva
+			# la maquina que ejecuta), asi que unirse a la pelea de un jefe sonaba a pelea de rata.
+			"jefe": c.es_jefe,
+			# EL EQUIPO Y EL ASPECTO del aliado, para que el espejo pueda montarle el muñeco. Los
+			# enemigos viajan con su sprite (spr/spr_t) y por eso SI se veian; los aliados no llevaban
+			# nada y salian de cuadrado de color con la cara pegada. Ver Game.pj_de_dict.
+			"pj": Game.pj_a_dict(pj) if pj != null else {}})
 	return out
 
 
@@ -673,6 +689,13 @@ func aplicar_roster(roster: Dictionary) -> void:
 	# El roster puede haber traido bichos nuevos: si ya no caben a su ancho, se encogen todos.
 	_recomponer_fila_enemigos()
 	_update_hp()
+	# ...y uno de ellos puede ser un JEFE que entra a mitad. En la maquina que ejecuta la pelea de
+	# esto se encarga Game.unir_enemigo_al_combate; el espejo se entera por aqui, que es su UNICA via
+	# de altas.
+	for e in _enemies:
+		if e.es_jefe and e.is_alive():
+			Musica.cambiar_cima("jefe")
+			break
 
 
 # LA INSTANTANEA: lo que cambia turno a turno. Va del que ejecuta la pelea a los espejos. Solo
@@ -3126,10 +3149,21 @@ func _apagar_diferido(b: Dictionary, es_aliado: bool) -> void:
 
 # El apagado en si. Un solo sitio, porque lo llaman cuatro caminos (enemigo muerto, aliado KO, el
 # barrido de caidos del espejo, y el diferido de arriba) y antes estaba copiado en todos.
+#
+# SE APAGA UNA SOLA VEZ. En el ESPEJO esto se llamaba en CADA instantanea que llegara (ver
+# _apagar_caidos, que barre a los que estan a 0 y no sabe a quien ya barrio): la animacion de muerte
+# volvia a empezar desde el primer fotograma con cada paquete, o sea el bicho muriendose tres o
+# cuatro veces seguidas en bucle, y encima cada pasada reescribia 'muerte_queda' y alargaba la
+# retirada. El guard de _retirando que habia solo cubria la lista de retirada, no la animacion.
+# El flag va en el BLOQUE (no en el combatiente) porque es estado de pantalla, y _revivir_bloque -que
+# es lo unico que reestrena un hueco- lo limpia.
 func _apagar_visual(b: Dictionary, es_aliado: bool) -> void:
 	var panel: Control = b.get("panel")
 	if panel == null or not is_instance_valid(panel):
 		return
+	if bool(b.get("muerte_pintada", false)):
+		return
+	b["muerte_pintada"] = true
 	# EL SPRITE/MUÑECO SE QUEDA MUERTO, pase lo que pase despues. Sin esta marca, un bicho que caiga
 	# mientras atacaba resucita al cerrarse la cola (ver _on_gesto_terminado), y hasta un golpe de
 	# area que le entrara ya cadaver le haria sacudir la cabeza. Ver PoseSprite.
@@ -3218,10 +3252,14 @@ func _invocar_slime(data: EnemyData) -> Combatant:
 # se mete en la pelea. A diferencia de un invocado, este es un enemigo DE VERDAD: cuenta como kill,
 # da maná al morir y su cadaver es extraible, asi que NO lleva la marca de invocado.
 # Devuelve el indice del slot, o -1 si no cabe (entonces el que llama lo pone en cola).
-func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array = []) -> int:
+func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array = [],
+		es_jefe: bool = false) -> int:
 	if data == null or _state == State.FINISHED:
 		return -1   # la pelea ya acabo (o se esta cerrando): que se quede fuera
 	var c: Combatant = data.crear_combatant(t)
+	# Un JEFE puede entrar de refuerzo a una pelea ya empezada. Sin esto el roster salia sin bandera
+	# y los espejos seguian con la musica de rata (y esta pantalla tampoco cambiaba de pista).
+	c.es_jefe = es_jefe
 	# Vida arrastrada: si ya venia herido de otra pelea, entra con sus heridas (igual que el arranque).
 	if hp >= 0.0:
 		c.current_hp = clampf(hp, 1.0, c.max_hp)
@@ -3287,6 +3325,8 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 	if i < 0 or i >= _bloques.size():
 		return
 	var b: Dictionary = _bloques[i]
+	# El hueco se reestrena: al que entra hay que poder verle morir a EL (ver _apagar_visual).
+	b["muerte_pintada"] = false
 	b["panel"].modulate = Color(1, 1, 1)
 	b["panel"].mouse_filter = Control.MOUSE_FILTER_STOP
 	b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
