@@ -879,7 +879,14 @@ const FORMACION_CENTRO_LIBRE := Vector2i(8, 7)
 # abajo de su celda. Sale de lo que dibuja TerrenoSprites._pintar_columna: si no coinciden, chocas
 # con aire. Es un pelin mas estrecha que el dibujo a proposito -- entre rozar una piedra que se ve
 # y quedarse trabado en uno que no, es mejor lo primero.
-const FORMACION_CAJA := Vector2(20.0, 22.0)
+# MEDIDO contra los pixeles que de verdad dibuja TerrenoSprites._pintar_columna, no a ojo: sus
+# variantes ocupan x 9..23 (13-15 px de ancho) y llegan hasta y=28. La primera version tenia 20 px
+# de ancho, o sea TRES PIXELES DE AIRE A CADA LADO con los que se chocaba -- en una pared larga eso
+# no se nota, pero en una piedra suelta que rodeas de cerca es lo que hacia que pareciera rota.
+#
+# Va un pelin MAS ESTRECHA que el dibujo mas estrecho, a proposito: entre rozar visualmente una
+# piedra y quedarse trabado en aire, siempre lo primero.
+const FORMACION_CAJA := Vector2(13.0, 20.0)
 const FORMACION_PIE := 3.0
 
 
