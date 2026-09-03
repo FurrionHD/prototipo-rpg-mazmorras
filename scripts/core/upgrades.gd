@@ -141,7 +141,25 @@ const RAPIDEZ_ESCALA_MIN := 0.6   # topes por si algun dia entra un arma exagera
 const RAPIDEZ_ESCALA_MAX := 1.8
 const DUREZA_STEP := 0.05         # +DEF, en % de la base de la pieza (decreciente)
 const EVASION_STEP := 0.02        # +esquiva (ligeras/medias)
-const EVASION_CAP := 0.20         # tope del bonus de esquiva de armadura
+# TOPE DE ESQUIVA, POR CLASE DE ARMADURA. Era UNO SOLO para todas, y ahi estaba el problema: la
+# ligera (cuero) y la media (hierro) pueden mejorar Evasion las dos, asi que las dos llegaban al
+# MISMO 30% -- y el hierro encima tiene un 60% mas de defensa. Medido contra el Acechador del piso
+# 12, el cuero comia 19.7 de daño por turno y el hierro 14.8: la ligera estaba estrictamente
+# DOMINADA y no habia ninguna razon para llevarla.
+#
+# Con un tope por clase, la esquiva vuelve a ser la identidad de la ligera: el cuero llega al 30% y
+# el hierro se queda en la mitad. Indices = ArmorData.tipo (0 cuero, 1 hierro, 2 hierro completo,
+# 3 placas); las dos pesadas no tienen Evasion (su eje es Resist. criticos), por eso van a 0.
+const EVASION_CAP_TIPO := [0.20, 0.10, 0.0, 0.0]
+# Respaldo para quien pregunte el tope "en general" (la ficha de una pieza suelta).
+const EVASION_CAP := 0.20
+
+
+# El tope de esquiva de una CLASE de armadura (ArmorData.tipo). Fuera de rango -> 0.
+static func cap_evasion_tipo(tipo: int) -> float:
+	if tipo < 0 or tipo >= EVASION_CAP_TIPO.size():
+		return 0.0
+	return float(EVASION_CAP_TIPO[tipo])
 const RESIST_CRIT_STEP := 0.02    # -crit rival (pesadas)
 const RESIST_CRIT_CAP := 0.25     # tope de resistencia a criticos
 const RESISTENCIA_STEP := 0.03    # -prob. de que te apliquen un estado alterado (KAN-58)

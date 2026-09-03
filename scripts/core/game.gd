@@ -6398,6 +6398,9 @@ func armor_mods(pj: PersonajeData = null) -> Dictionary:
 	var crit_resist := 0.0   # resist. criticos (mejora ResistCrit, pesadas)
 	var resist_estados := 0.0  # resist. a estados alterados (mejora Resistencia, KAN-58)
 	var rareza_max := 0        # la mejor rareza entre las piezas: escala los topes agregados
+	# Tope de esquiva, ponderado por cobertura segun la CLASE de cada pieza (ver EVASION_CAP_TIPO).
+	# Un slot vacio no aporta tope: ir sin peto no te hace mas escurridizo que llevar cuero.
+	var cap_evasion := 0.0
 	var slots := [
 		[p.equipped_casco, "casco"], [p.equipped_pecho, "pecho"], [p.equipped_manos, "manos"],
 		[p.equipped_pantalones, "pantalones"], [p.equipped_botas, "botas"],
@@ -6422,12 +6425,16 @@ func armor_mods(pj: PersonajeData = null) -> Dictionary:
 		reduction += cob * float(pm["reduccion"]) * dur_mult # media ponderada (cobertura suma 1.0)
 		vel_delta += cob * (float(pm["vel_mult"]) - 1.0)     # velocidad ponderada
 		evasion += float(pm["evasion"])
+		cap_evasion += cob * Upgrades.cap_evasion_tipo(int(pieza.tipo))
 		crit_resist += float(pm["crit_resist"])
 		resist_estados += float(pm["resist_estados"])
 	# Los topes agregados suben con la MEJOR rareza equipada (la reduccion NO: es de tipo, y su
 	# techo es de balance, no de calidad).
 	reduction = clampf(reduction, 0.0, StatsMath.ARMOR_REDUCTION_MAX)
-	evasion = clampf(evasion, 0.0, Upgrades.cap_rareza(Upgrades.EVASION_CAP, rareza_max))
+	# El tope de esquiva depende de la CLASE de lo que llevas puesto (ver Upgrades.EVASION_CAP_TIPO),
+	# ponderado por cobertura: mezclar cuero y hierro da un tope intermedio en vez de regalarte el de
+	# la ligera por llevar un guantelete.
+	evasion = clampf(evasion, 0.0, Upgrades.cap_rareza(cap_evasion, rareza_max))
 	crit_resist = clampf(crit_resist, 0.0, Upgrades.cap_rareza(Upgrades.RESIST_CRIT_CAP, rareza_max))
 	# La resist. a ESTADOS NO SE CAPA, y es la excepcion de las cinco: con el cociente de
 	# StatusEffects.prob_final no hay ningun valor que haga inmune, asi que un techo solo serviria

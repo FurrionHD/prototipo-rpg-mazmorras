@@ -364,7 +364,7 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	var c := Combatant.new(enemy_name, level, crear_abilities(t),
 		base_hp * fstat,
 		base_attack * fstat,
-		base_defense * sqrt(fstat),
+		base_defense * fstat,
 		base_speed)
 	# Defensa MAGICA: escala con la profundidad igual (raiz) que la fisica, para que la magia
 	# no se despegue del resto a medida que bajas de piso.

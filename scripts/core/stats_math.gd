@@ -110,8 +110,21 @@ static func mp_por_kill(regen_turno: float, enemigos: int = 1) -> float:
 
 # Resto de stats: siguen el modelo "base + habilidad × coef" (coef crece con el
 # nivel). Numeros bajos a proposito: 999 no debe dar 999 de golpe.
-const DEF_COEF_BASE := 0.02
-const DEF_COEF_GROWTH := 0.006
+# DEFENSA DE LOS ENEMIGOS (solo ellos: el jugador va por defense_jugador/RES_DEF_DIV).
+#
+# SUBIDOS x2.4 el 03/09/2026. Medido en los pisos hondos, los enemigos no tenian defensa que valiera:
+# el Minotauro, jefe del piso 12, se quedaba en 26 contra los ~128 del jugador. Con MITIGATION_K = 30
+# eso significa que le entraba el 54% de tu ataque a pelo, o sea que su unica defensa de verdad era
+# tener 3.553 de vida. Y ese es el problema de fondo: si la unica forma de que un bicho hondo aguante
+# es inflarle la vida, las peleas se hacen LARGAS en vez de PELIGROSAS (el clasico saco de golpes).
+#
+# Con esto un bicho hondo mitiga de verdad, y su vida se puede recortar despues sin que el tiempo de
+# matarlo cambie -- pero el daño de cada golpe pasa a significar algo.
+#
+# En los pisos de arriba casi no se nota, y es lo que se busca: la parte que sube es la que va con la
+# Resistencia del bicho, y un slime del piso 1 apenas tiene.
+const DEF_COEF_BASE := 0.048
+const DEF_COEF_GROWTH := 0.0144
 const MAG_COEF_BASE := 0.02
 const MAG_COEF_GROWTH := 0.006
 const SPD_COEF_BASE := 0.02
