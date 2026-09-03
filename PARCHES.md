@@ -2,6 +2,80 @@
 
 ---
 
+# v0.11.2 — «La cueva»
+
+A partir del piso 7 la mazmorra deja de ser mazmorra. Y hay bichos que nacen con algo de más.
+
+---
+
+## 🕳️ Los pisos 7 en adelante son una cueva
+
+**No es la misma mazmorra pintada de otro color: está dibujada de otra manera.** Roca en vez
+de muro, suelo irregular, y salas que ya no parecen habitaciones.
+
+**No empieza de golpe.** El piso 7 se va transformando según te alejas de la entrada: sales de
+algo construido y te vas metiendo en la piedra sin que haya una línea que cruzar.
+
+**Estalagmitas** en las salas, que son roca de verdad —te chocas con ellas— y nunca se plantan
+tapando un paso.
+
+**Flores luminiscentes.** Del musgo salen flores que alumbran un poco: no es luz de farol, pero
+junto a una se distingue lo que hay.
+
+**Los pasillos se ensanchan cuanto más bajas.** Abajo hay sitio para pelear; arriba sigue todo
+igual de estrecho.
+
+## 🐗 Enemigos que nacen distintos
+
+**Mutantes.** Cualquier enemigo puede nacer buffeado, con sus propias stats. Es raro (1 de cada
+100), y cuando pasa se nota.
+
+**Los jefes también**, con su tabla aparte.
+
+**Y los jefes se mueven.** Ya no esperan clavados en el centro de su sala: merodean por ella.
+
+## 🏮 El farolillo
+
+**Está en el HUD**, con lo que le queda de carbón — y la duración que enseña es la de verdad.
+
+**La oscuridad ya no cuesta.** Alumbrar más te penalizaba en rendimiento (con el farol mejorado
+el juego daba tirones, sobre todo en móvil). Ahora la curva es plana: mejorarlo sale gratis.
+
+**Y al entrar en un piso ya se ve.** Estaba todo negro hasta que dabas el primer paso.
+
+## 🧪 Pociones, oficios y platos
+
+**Puedes soltar pociones al suelo** y pasárselas a un compañero. Los frascos cambian de forma
+según el tier.
+
+**Los oficios van por personaje**, y los platos se cocinan por reloj.
+
+## 🛡️ Aguantar los estados
+
+**Resistencia a efectos: un solo eje**, sin techo y sin inmunidades.
+
+**La armadura resiste por sí misma**, no solo si eliges esa mejora: ir desnudo daba lo mismo
+que llevar una T2 épica.
+
+**El Minotauro** aguantaba los estados como la morralla; ya no.
+
+**Repasados** la defensa de los enemigos, la esquiva por clase de armadura y la vida del Rey
+Slime.
+
+## 🌐 Jugando con otro
+
+**El segundo en entrar a un piso ya puede pelear.** No podía entrar en combate atacando —ni
+abrir una pelea ni unirse a la de su compañero—, solo si le embestían.
+
+**Se ve al otro con lo que lleva puesto**: su armadura, su arma y sus golpes.
+
+**Y ya no da el flashazo.** Al entrar en su piso, si llevaba una foto como cara, se veía un
+instante su imagen gigante antes de aparecer él.
+
+**La pesca en compañía**, arreglada.
+
+---
+
 # v0.11.1 — «Cada golpe el suyo»
 
 Los enemigos hacían todos sus ataques con la misma animación: la de su golpe estrella. Ahora
