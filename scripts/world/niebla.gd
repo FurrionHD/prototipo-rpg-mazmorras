@@ -52,19 +52,43 @@ var _piso: Node2D = null
 # Lo de la pasada anterior, para saltarse la siguiente si nada se ha movido (ver _process).
 var _ojo_previo := Vector2(INF, INF)
 var _focos_previos: Array = []
+var _vista_previa := Rect2(INF, INF, 0.0, 0.0)
 
 # Cuanto se puede mover algo sin que la mascara cambie: media subcelda. Por debajo de esto el
 # calculo daria exactamente lo mismo, porque la mascara no tiene mas resolucion que la subcelda.
 const HOLGURA := float(DungeonGenerator.CELDA) / float(Vision.SUB) * 0.5
 
 
+# Se me ha quedado la memoria de la pasada anterior sin valor: la siguiente se calcula SI O SI.
+# Lo llama preparar(). Ver la nota de ahi: es lo que impide que el atajo de "nadie se ha movido" se
+# coma la primera pasada de un piso nuevo.
+func _olvidar_pasada() -> void:
+	_ojo_previo = Vector2(INF, INF)
+	_focos_previos.clear()
+	_vista_previa = Rect2(INF, INF, 0.0, 0.0)
+
+
 # ¿Ha cambiado algo desde la ultima pasada? Cambia si te has movido, si un compañero se ha movido,
 # si ha entrado o salido alguien del grupo, o si el radio del farolillo ha variado (se acaba el
 # carbon, lo enciendes, bajas de piso).
-func _algo_se_movio(ojo: Vector2, focos: Array) -> bool:
+#
+# ⚠️ Esto solo mira A LA GENTE, no al MAPA. Un piso nuevo tiene otra roca y la mascara vieja no vale
+# aunque estes en las mismas coordenadas -- por eso preparar() llama a _olvidar_pasada().
+func _algo_se_movio(ojo: Vector2, focos: Array, vista: Rect2) -> bool:
 	if _focos_previos.size() != focos.size():
 		return true
 	if _ojo_previo.distance_squared_to(ojo) > HOLGURA * HOLGURA:
+		return true
+	# LA CAMARA CUENTA COMO MOVIMIENTO, aunque no se haya movido nadie. Fuera de 'vista' no se calcula
+	# nada (es el recorte que abarata la pasada), asi que si la ventana se desplaza, el trozo nuevo se
+	# queda a oscuras hasta que se rehaga. Y la camara SE MUEVE SOLA respecto al jugador: al aparecer
+	# en un piso nuevo va detras, persiguiendote. Ahi la mascara se calculaba alrededor de donde
+	# estaba la camara EN EL PISO ANTERIOR -- y como nadie se movia, no se volvia a calcular nunca:
+	# el piso entero NEGRO hasta que dabas un paso. Con la misma holgura que lo demas, o sea que
+	# quieto de verdad (camara quieta incluida) el atajo sigue valiendo igual.
+	if _vista_previa.position.distance_squared_to(vista.position) > HOLGURA * HOLGURA:
+		return true
+	if _vista_previa.size.distance_squared_to(vista.size) > HOLGURA * HOLGURA:
 		return true
 	for i in focos.size():
 		var a: Dictionary = focos[i]
@@ -120,6 +144,13 @@ func preparar(gen: DungeonGenerator) -> void:
 	_mat.set_shader_parameter("mapa_origen", Vector2.ZERO)
 	_mat.set_shader_parameter("mapa_tam", gen.tam_px())
 	_t = CADA      # que la primera pasada salga ya, sin un frame en negro
+	# ...y que esa primera pasada NO se la salte el atajo de "nadie se ha movido". Este nodo
+	# sobrevive al cambio de piso a proposito (ver dungeon_floor: no cuelga de _geo), asi que la
+	# memoria de la pasada anterior es la del piso que acabas de dejar. Si aparecias mas o menos
+	# donde estabas, se daba por bueno lo de antes y no se recalculaba nada -- pero la textura se
+	# acaba de tirar dos lineas mas arriba, o sea que no habia mascara: el piso entero en NEGRO
+	# hasta que dabas un paso.
+	_olvidar_pasada()
 
 
 func _process(delta: float) -> void:
@@ -148,11 +179,12 @@ func _process(delta: float) -> void:
 	#
 	# Se compara con la holgura de MEDIA SUBCELDA: por debajo de eso la mascara saldria idéntica
 	# (su resolucion es la subcelda), asi que no hay nada que ganar.
-	if not _algo_se_movio(jugador.global_position, focos):
+	if not _algo_se_movio(jugador.global_position, focos, vista):
 		_refrescar_camara()
 		return
 	_ojo_previo = jugador.global_position
 	_focos_previos = focos.duplicate(true)
+	_vista_previa = vista
 	vision.calcular(focos, jugador.global_position, vista)
 	_tex = vision.volcar(_tex)
 	_mat.set_shader_parameter("mascara", _tex)
