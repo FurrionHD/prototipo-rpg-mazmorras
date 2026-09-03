@@ -3758,11 +3758,16 @@ var money: int = 0
 # MEZCLA (調合): parametro OCULTO que sube cada vez que CRAFTEAS pociones (no al comprarlas).
 # Semilla de una futura habilidad de desarrollo estilo DanMachi: "Mezcla" mejora la calidad
 # al crear objetos. De momento solo se acumula y se guarda; el efecto se ajustara despues.
-var mezcla_exp: float = 0.0
+# DEL PERSONAJE que la prepara, no del grupo (ver metalurgia_exp para el porque).
+var mezcla_exp: float:
+	get: return lider().mezcla_exp
+	set(v): lider().mezcla_exp = v
 const MEZCLA_EXP_POR_POCION := 1.0
 # Lo mismo para el COCINERO. Contador propio y no compartido con Mezcla: son dos oficios, dos NPCs y
 # dos desarrollos, y hasta el 05/08 los platos alimentaban el de la boticaria.
-var cocina_exp: float = 0.0
+var cocina_exp: float:
+	get: return lider().cocina_exp
+	set(v): lider().cocina_exp = v
 const COCINA_EXP_POR_PLATO := 1.0
 # Lo que suma el rango de Cocina a la POTENCIA del plato (a rango S). Es el segundo efecto del
 # desarrollo, el hermano de la subida de escalon de la Mezcla: no se puede copiar esa porque los
@@ -4005,6 +4010,11 @@ func desequipar_herramienta(tipo: int) -> void:
 # deliberado -- guardar "medio carbon" obligaria a serializar de que material era y con que
 # calidad, para una diferencia de minutos.
 var lampara_llama: float = 0.0
+# Lo que duraba ENTERO ese mismo trozo. Solo sirve para pintar: el farol del HUD necesita una
+# FRACCION (cuanto le queda de lo que tenia) y con los segundos sueltos no se puede saber -- un
+# carbon vegetal a 60 s va por la mitad y una antracita a 60 s esta agonizando. Se pierde al salir,
+# igual que lampara_llama.
+var lampara_llama_total: float = 0.0
 
 # El carbon SOLO arde en la mazmorra. En el pueblo apagas y punto: si consumiera ahi, cada rato
 # muerto en la tienda o en la forja te costaria luz, que es cobrar por no jugar.
@@ -4036,6 +4046,7 @@ func _prender_siguiente_carbon() -> bool:
 		return false
 	carbon.remove_at(mejor)
 	lampara_llama = mejor_dur
+	lampara_llama_total = mejor_dur
 	return true
 
 
@@ -4054,6 +4065,24 @@ func lampara_encendida() -> bool:
 # Cuantos trozos te quedan en la carbonera (sin contar el que esta ardiendo).
 func carbon_restante() -> int:
 	return carbon.size()
+
+
+# LO QUE QUEDA DE LUZ EN TOTAL, en segundos: lo que le queda al trozo encendido mas lo que dura toda
+# la carbonera. Es EL numero que hay que saber para decidir si bajas otro piso o te vuelves, y hasta
+# ahora no estaba en ningun sitio: la pestaña del farolillo enseñaba la llama actual y el numero de
+# trozos por separado, y sumarlos era cosa tuya.
+func luz_total_restante() -> float:
+	var s: float = maxf(lampara_llama, 0.0)
+	for m in carbon:
+		s += Lampara.duracion(m)
+	return s
+
+
+# Y lo mismo en fraccion, para el farol del HUD: cuanto le queda al trozo EN CURSO. 0 = sin llama.
+func llama_fraccion() -> float:
+	if lampara_llama <= 0.0 or lampara_llama_total <= 0.0:
+		return 0.0
+	return clampf(lampara_llama / lampara_llama_total, 0.0, 1.0)
 
 
 # EL RADIO DE VISION, en celdas, para un piso dado. Es la union de las tres piezas: el objeto
@@ -7401,13 +7430,26 @@ func reclamar_pack_inicial(base_arma: Resource) -> bool:
 #     sobra, un intacto puede salir PURO, que es una calidad que no se recolecta).
 #   - Peleteria: lo mismo, con la piel.
 #   - Herreria: al forjar, empuja la tirada de rareza a tu favor.
-var metalurgia_exp: float = 0.0
-var peleteria_exp: float = 0.0
-var herreria_exp: float = 0.0
+#
+# SON DEL PERSONAJE, no del grupo. Estaban aqui como variables sueltas, o sea compartidas por todos:
+# el rango del desarrollo ya era individual (PersonajeData.desarrollos_rango) pero el contador que lo
+# desbloquea era comun, asi que un personaje se ganaba la Metalurgia con lo que habia fundido otro.
+# Ahora delegan en el lider, igual que los de combate: se lo lleva quien esta delante del yunque.
+var metalurgia_exp: float:
+	get: return lider().metalurgia_exp
+	set(v): lider().metalurgia_exp = v
+var peleteria_exp: float:
+	get: return lider().peleteria_exp
+	set(v): lider().peleteria_exp = v
+var herreria_exp: float:
+	get: return lider().herreria_exp
+	set(v): lider().herreria_exp = v
 # CARPINTERIA es una SOLA habilidad que hace lo de Metalurgia (empuja la calidad al ASERRAR
 # tablones) Y lo de Herreria (empuja la rareza al FORJAR armas magicas). Por eso un unico contador,
 # que sube con ambas acciones. Ver refinar() y el forjado magico.
-var carpinteria_exp: float = 0.0
+var carpinteria_exp: float:
+	get: return lider().carpinteria_exp
+	set(v): lider().carpinteria_exp = v
 
 # Los contadores ocultos de los perks de COMBATE. Misma idea que los de oficio: suben SOLOS
 # haciendo lo suyo, y son lo que decide si el perk te sale al subir de nivel (ver DESARROLLOS y
@@ -9661,7 +9703,11 @@ func soltar_item(modelo: Resource, cantidad: int) -> int:
 func embolsar(item: Resource) -> void:
 	if item is MaterialItem:
 		var m := item as MaterialItem
-		materiales.append(m)
+		# POR EL EMBUDO, no a 'materiales' a pelo: el COMBUSTIBLE va a la carbonera. Ahora que el
+		# carbon se puede soltar para pasarselo a un compañero, recogerlo por aqui lo metia en la
+		# bolsa -donde pesa, se guarda en el almacen y el farolillo no lo encuentra-, o sea que darle
+		# carbon a alguien se lo convertia en otra cosa.
+		guardar_material(m)
 		descubrir(m.data)
 		print("Recoges: ", m.nombre(), " (", m.calidad_texto(), "). Total materiales: ",
 			materiales.size())
@@ -9690,6 +9736,15 @@ func _sacar_de_bolsa(modelo: Resource) -> Resource:
 			if m.data == mm.data and m.calidad == mm.calidad:
 				materiales.remove_at(i)
 				return m
+		# Y LA CARBONERA, que es otro saco. El carbon vive fuera de 'materiales' (no pesa, no va al
+		# almacen: ver la nota de Game.carbon), asi que mirando solo ahi arriba soltar un carbon
+		# devolvia 0 EN SILENCIO -- no habia ningun filtro que lo prohibiera, simplemente no se le
+		# buscaba donde esta. Al recogerlo, guardar_material() ya lo devuelve solo a la carbonera.
+		for i in carbon.size():
+			var c2 := carbon[i]
+			if c2.data == mm.data and c2.calidad == mm.calidad:
+				carbon.remove_at(i)
+				return c2
 	return null
 
 
@@ -10534,8 +10589,9 @@ func _subir_rangos_desarrollo(pj: PersonajeData = null) -> void:
 		if d.is_empty():
 			continue
 		var umbral: float = float(d.get("umbral", 0.0))
-		# El contador de un perk de COMBATE es de la persona (esta en su PersonajeData); el de un
-		# OFICIO es del grupo y vive aqui, en Game. Se busca primero en la ficha y si no, aqui.
+		# TODOS los contadores son de la persona y viven en su PersonajeData, los de oficio incluidos
+		# (antes esos eran del grupo: ver metalurgia_exp). El respaldo por Game se queda para un
+		# contador que algun dia no este en la ficha, pero hoy no lo usa ninguno.
 		var nombre_cont: String = str(d.get("contador", ""))
 		var cont: float = float(p.get(nombre_cont)) if nombre_cont in p else float(get(nombre_cont))
 		var rango: int = int(p.desarrollos_rango[id])

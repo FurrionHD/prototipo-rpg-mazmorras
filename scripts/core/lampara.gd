@@ -130,7 +130,25 @@ const CALIDAD_MULT := 0.5     # un PURO dura un 50% mas que un ROTO
 static func duracion(m: MaterialItem) -> float:
 	if m == null or m.data == null:
 		return 0.0
-	var base: float = float(DURACION.get(m.data.id, 240.0))
+	return duracion_de(m.data, int(m.calidad))
+
+
+# LA MISMA CUENTA, pero sin necesitar el trozo en la mano: para un carbon que aun NO existe (lo que
+# va a salir de la carbonera del carpintero) o para una lista agrupada.
+#
+# Existe porque la UI leia Lampara.DURACION a pelo y enseñaba la duracion BASE, sin la calidad: el
+# carpintero decia "2:00 de llama" del mismo carbon que el inventario contaba como 3 min (uno
+# Intacto dura un tercio mas). Los dos numeros eran del mismo trozo y no cuadraban, que es
+# exactamente lo que hace que dejes de fiarte de los numeros de la pantalla.
+#
+# NUNCA int(calidad) para comparar: MaterialItem.Calidad no esta ordenado por calidad (PURO va el
+# ultimo). Se pasa por score_calidad, que es la unica tabla buena.
+static func duracion_de(d: MaterialData, calidad: int) -> float:
+	if d == null:
+		return 0.0
+	var base: float = float(DURACION.get(d.id, 240.0))
+	var m := MaterialItem.new()
+	m.calidad = calidad as MaterialItem.Calidad
 	return base * (1.0 + CALIDAD_MULT * m.score_calidad())
 
 

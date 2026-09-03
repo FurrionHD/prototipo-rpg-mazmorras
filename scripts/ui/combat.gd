@@ -4201,6 +4201,40 @@ func _dev_swap_weapon(main: bool) -> void:
 	_set_log("[dev] Cambiada %s → %s + %s" % [mano, mname, oname])
 
 
+# LOS PLATOS SE GASTAN POR RELOJ, tambien dentro de la pelea. Un plato se vende como "20 minutos" y
+# su duracion esta escrita como los turnos que caben en 20 min al ritmo de FUERA (5 s por turno,
+# Game.SEG_POR_TURNO_FUERA). Bajarselos por turno de combate rompia eso por partida doble:
+#   - un turno de pelea dura uno o dos segundos, no cinco: la comida se evaporaba;
+#   - y cada combatiente tiene los SUYOS, mas o menos seguidos segun su velocidad, asi que dos que
+#     comieron a la vez acababan con tiempos MUY distintos (medido en el playtest: a uno le quedaban
+#     6 minutos cuando al otro ya se le habia pasado).
+# Encima la velocidad de pelea x2 dobla los turnos, o sea que el ajuste del menu te comia la comida.
+#
+# Aqui va el reloj de VERDAD (delta pelado, sin _vel_pelea): un minuto de pelea gasta un minuto de
+# plato, igual que un minuto andando. Ver Combatant.tick_statuses, que ahora se los salta.
+var _t_plato: float = 0.0
+
+func _tick_platos(delta: float) -> void:
+	_t_plato += delta
+	if _t_plato < Game.SEG_POR_TURNO_FUERA:
+		return
+	_t_plato -= Game.SEG_POR_TURNO_FUERA
+	for c in _aliados + _enemies:
+		if not c.is_alive():
+			continue
+		# Sobre una COPIA: retirar_status toca el array de verdad, y recorrer el que se esta
+		# modificando se salta entradas.
+		for e in c.statuses.duplicate():
+			if not e.es_tiempo_real():
+				continue
+			e.turns -= 1
+			if e.turns > 0:
+				continue
+			c.retirar_status(e)
+			_set_log("A %s se le pasa el efecto de %s." % [_etq(c), str(e.d.get("nombre", "?"))])
+	_update_hp()
+
+
 func _process(delta: float) -> void:
 	# ESPEJO: acercar las barras a su objetivo ANTES de pintar, para que la linea de tiempo salga
 	# suave y no a escalones de 20 Hz.
@@ -4216,6 +4250,7 @@ func _process(delta: float) -> void:
 	# maquina. Ni ATB, ni turnos, ni resolucion: todo eso llega por instantaneas.
 	if _espejo:
 		return
+	_tick_platos(delta)   # los buffs de comida se gastan por RELOJ, no por turnos (ver mas abajo)
 	_difundir_atb(delta)
 	_heartbeat_remoto(delta)   # que un turno de otro no pueda quedarse colgado para siempre
 	# Pausa de lectura tras la accion del enemigo: cuenta atras y reanuda el ATB.

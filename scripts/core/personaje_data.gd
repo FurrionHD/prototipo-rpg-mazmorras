@@ -262,7 +262,7 @@ func imbue_elemento() -> int:
 # pasivas_rng y se te enseñan (ver Game.consolidar_pasivas). Es la misma idea que la excelia
 # pendiente: lo que haces cuenta desde el minuto uno, pero no se lee hasta que alguien te lo lee.
 @export var pasivas_pendientes: Dictionary = {}
-# Contadores OCULTOS de los perks de COMBATE (los de OFICIO son del grupo y viven en Game).
+# Contadores OCULTOS de los perks de COMBATE.
 @export var esquivas_exp: float = 0.0
 @export var hechizos_exp: float = 0.0
 @export var recitado_exp: float = 0.0
@@ -272,6 +272,19 @@ func imbue_elemento() -> int:
 # la Autorregeneracion desde que dejo de ir por dano_recibido_exp, que premiaba justo lo contrario:
 # cuanto mejor te defendias, mas despacio subia.
 @export var dano_bloqueado_exp: float = 0.0
+# Y los contadores OCULTOS de los OFICIOS. Vivian en Game, o sea COMPARTIDOS por todo el grupo, y no
+# tiene sentido: los desarrollos son de la persona -- su rango ya estaba aqui (desarrollos_rango),
+# solo el contador que los desbloquea andaba suelto. Con esto, funde el que funde: si el tanque se
+# pasa la tarde en la fragua, la Metalurgia se la gana EL, no la maga que estaba en casa.
+#
+# Quien se los lleva es quien va EN CABEZA al hacer el trabajo (es el que esta delante del yunque),
+# igual que los de combate.
+@export var metalurgia_exp: float = 0.0
+@export var peleteria_exp: float = 0.0
+@export var herreria_exp: float = 0.0
+@export var carpinteria_exp: float = 0.0
+@export var mezcla_exp: float = 0.0
+@export var cocina_exp: float = 0.0
 
 # --- Equipo (instancias del baul comun; la misma que esta en Game.owned_*) ---
 @export var equipped_main: Resource = null    # WeaponData | null (null = punos)

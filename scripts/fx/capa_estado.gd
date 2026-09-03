@@ -42,6 +42,9 @@ var raja: float = 0.0
 #   FUEGO   arde por abajo: lenguas de llama subiendo del borde inferior de la tarjeta.
 var color_fuego: Color = Color.TRANSPARENT
 var fuego: float = 0.0
+# UNA sola llama centrada en vez de la hoguera de dos hileras. Lo usa el farolillo del HUD
+# (cuadro_farol.gd): un farol tiene una mecha. La forma y el degradado son los mismos.
+var fuego_unica: bool = false
 #   RAICES  te tienen agarrado por los pies: raices que suben del borde de abajo, se ramifican y
 #           se quedan AHI mientras dure el Enraizado. Es lo que hace que el estado se lea sin
 #           mirar el chip -- ves que el bicho sigue atado.
@@ -159,12 +162,33 @@ func _dibujar_fuego() -> void:
 	# El resplandor de la base: sin el, las llamas parecen pegadas de canto sobre la nada.
 	_resplandor_fuego(size.y * 0.11)
 	var c := color_fuego
+	if fuego_unica:
+		_llama_unica(c)
+		return
 	# ATRAS: altas, estrechas y oscuras (tirando a rojo). Dan la silueta de la hoguera.
 	_hilera(FUEGO_FONDO, 0.5, 1.0, 0.34, 3.7,
 		Color(c.r, c.g * 0.55, c.b * 0.6, 0.34 * fuego), 0.0)
 	# DELANTE: mas cortas y mas vivas, con nucleo casi blanco dentro.
 	_hilera(FUEGO_FRENTE, 0.0, 0.62, 0.30, 1.3,
 		Color(c.r, c.g, c.b, 0.42 * fuego), 0.46)
+
+
+# UNA SOLA LLAMA, centrada y alta: la de un farolillo o una vela, no una hoguera. La forma, el
+# degradado y el nucleo son EXACTAMENTE los mismos que los de la Quemadura (misma _lengua): lo unico
+# que cambia es que aqui hay una en vez de trece, porque un farol tiene una mecha.
+#
+# Sigue habiendo DOS pasadas -- cuerpo y nucleo -- porque el nucleo casi blanco es lo que le da
+# temperatura; sin el la llama es una mancha naranja con forma de gota.
+func _llama_unica(c: Color) -> void:
+	var cx: float = size.x * 0.5
+	var alto_max: float = size.y * 0.94
+	# Dos senos que no cierran ciclo juntos, igual que en la hilera: con uno solo se ve el latido.
+	var late: float = 0.5 + 0.30 * sin(_t * 2.6 + _semilla) + 0.20 * sin(_t * 4.1 + _semilla * 1.7)
+	var alto: float = alto_max * (0.72 + 0.28 * clampf(late, 0.0, 1.0))
+	var vaiven: float = sin(_t * 1.7 + _semilla) * size.x * 0.07
+	_lengua(cx, size.x * 0.40, alto, vaiven, Color(c.r, c.g, c.b, 0.75 * fuego))
+	_lengua(cx, size.x * 0.20, alto * 0.55, vaiven * 0.6,
+		Color(1.0, minf(1.0, c.g + 0.42), 0.35, 0.75 * fuego))
 
 
 # UNA hilera de llamas. 'desfase' la corre por el eje X (media casilla = se enreda con la otra),

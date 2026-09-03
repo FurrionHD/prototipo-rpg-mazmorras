@@ -505,51 +505,84 @@ func _build_farolillo() -> void:
 	if puesto == null:
 		cab.text = "Sin farolillo  ·  alcance %.1f casillas (el mínimo)" % Vision.RADIO_MINIMO
 	else:
-		cab.text = "%s  ·  alcance %.1f casillas  ·  llama %d:%02d  ·  %d de carbón" % [
+		# LA LUZ TOTAL es el numero que decide si bajas otro piso o te vuelves, y antes no estaba en
+		# ningun sitio: habia que sumar a ojo la llama actual y los trozos que llevabas.
+		cab.text = "%s  ·  alcance %.1f casillas  ·  llama %s  ·  %s de luz en total" % [
 			Game.item_display_name(puesto), Game.radio_lampara(),
-			int(Game.lampara_llama) / 60, int(Game.lampara_llama) % 60, Game.carbon_restante()]
+			_mmss(Game.lampara_llama), _mmss(Game.luz_total_restante())]
 	cab.add_theme_color_override("font_color", Color(0.98, 0.85, 0.55))
 	_header.add_child(cab)
-
-	# EL CARBON. Va aqui y no en la bolsa a proposito: no pesa y no se mezcla con el material de
-	# oficio al guardar en casa (ver Game.carbon).
-	var por_tipo: Dictionary = {}
-	for m in Game.carbon:
-		var id: StringName = m.data.id
-		por_tipo[id] = int(por_tipo.get(id, 0)) + 1
-	if por_tipo.is_empty():
-		_note(_header, "No te queda carbón. Se pica en las vetas negras de la mazmorra, y el "
-			+ "carpintero hace carbón vegetal con madera.")
-	else:
-		var trozos: PackedStringArray = []
-		for id in por_tipo:
-			var uno: MaterialItem = null
-			for m2 in Game.carbon:
-				if m2.data.id == id:
-					uno = m2
-					break
-			trozos.append("%s x%d  (%.0f min cada uno)" % [uno.data.nombre, int(por_tipo[id]),
-				Lampara.duracion(uno) / 60.0])
-		_note(_header, "Carbón:   " + "   ·   ".join(trozos))
 	if not Game.en_pueblo():
 		_note(_header, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
 	_header.add_child(HSeparator.new())
 
+	# EL CARBON, EN LA REJILLA junto a los farolillos y no en una linea de texto del cabecero. Dos
+	# motivos: la linea AGRUPABA SOLO POR MATERIAL y cogia un trozo cualquiera de muestra para dar los
+	# minutos, asi que con calidades mezcladas mentia en dos de cada tres (un vegetal Intacto dura un
+	# tercio mas que uno Normal); y ademas asi se puede SELECCIONAR uno y soltarlo para pasarselo a un
+	# companero, que antes no habia forma.
+	#
+	# Va aqui y no en la bolsa a proposito: no pesa y no se mezcla con el material de oficio al
+	# guardar en casa (ver Game.carbon).
 	_stacks = []
 	for t in Game.owned_tools:
 		if (t as ToolData).es_lampara():
 			_stacks.append({"modelo": t, "cantidad": 1})
+	var carbones: Array = _agrupar(Game.carbon)   # por material Y calidad (ver _clave_item)
+	_stacks.append_array(carbones)
 	if _stacks.is_empty():
 		_note(_content, "No tienes ningún farolillo. Los forja el herrero, en Herramientas, "
 			+ "con metal y unas hebillas.")
 		return
+	if carbones.is_empty():
+		_note(_header, "No te queda carbón. Se pica en las vetas negras de la mazmorra, y el "
+			+ "carpintero hace carbón vegetal con madera.")
 	var labels: Array = []
 	for s in _stacks:
-		var t: ToolData = s["modelo"]
-		labels.append(Game.item_display_name(t)
-			+ ("
-(puesto)" if Game.herramienta_equipada(t) else ""))
-	_grid_detail(labels, _preview_herramienta)
+		var modelo: Resource = s["modelo"]
+		if modelo is ToolData:
+			labels.append(Game.item_display_name(modelo)
+				+ ("\n(puesto)" if Game.herramienta_equipada(modelo) else ""))
+		else:
+			var m := modelo as MaterialItem
+			labels.append("%s  x%d\n(%s · %s)" % [m.data.nombre, int(s["cantidad"]),
+				m.calidad_texto(), _mmss(Lampara.duracion(m))])
+	_grid_detail(labels, _preview_farolillo)
+
+
+# Segundos como "m:ss". Los escalones del carbon son de 30 s (2:00, 2:30, 3:00...), asi que
+# redondeando a minutos -que es lo que se hacia- tres carbones distintos salian con el mismo numero.
+func _mmss(seg: float) -> String:
+	var s: int = int(round(maxf(seg, 0.0)))
+	return "%d:%02d" % [s / 60, s % 60]
+
+
+# La rejilla del farolillo lleva DOS clases de cosa (lamparas y trozos de carbon), asi que la ficha
+# se reparte aqui en vez de tener dos rejillas separadas por una linea.
+func _preview_farolillo(vb: VBoxContainer) -> void:
+	if _stacks[_sel]["modelo"] is ToolData:
+		_preview_herramienta(vb)
+	else:
+		_preview_carbon(vb)
+
+
+func _preview_carbon(vb: VBoxContainer) -> void:
+	var s: Dictionary = _stacks[_sel]
+	var m: MaterialItem = s["modelo"]
+	var n: int = int(s["cantidad"])
+	_titulo_material(vb, m, m.data.nombre)
+	_row(vb, "Cantidad", str(n))
+	_row(vb, "Calidad", m.calidad_texto())
+	# Los DOS numeros: lo que dura uno y lo que dan todos juntos. El de arriba es el que compara
+	# carbones entre si; el de abajo, el que te dice cuanto aguantas con este monton.
+	_row(vb, "Llama", "%s cada uno" % _mmss(Lampara.duracion(m)))
+	_row(vb, "En total", _mmss(Lampara.duracion(m) * float(n)))
+	if m.data != null and m.data.descripcion != "":
+		_note(vb, m.data.descripcion)
+	vb.add_child(HSeparator.new())
+	MenuScaffold.boton(vb, "Soltar al suelo", _on_soltar)
+	_note(vb, "Lo que sueltes queda en el suelo a tus pies: es la forma de pasarle carbón a un "
+		+ "compañero. Se recoge otra vez con [F].")
 
 
 func _preview_herramienta(vb: VBoxContainer) -> void:

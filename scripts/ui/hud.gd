@@ -20,12 +20,19 @@ class_name Hud
 var _counts: Label = null
 var _peso_box: CuadroCarga = null # la mochila (deposito con agua) a la derecha de las barras
 var _peso_lbl: Label = null       # numero de peso encima del deposito
+# El FAROLILLO, a la derecha de la mochila: la llama que se consume, y al lado "xN" (trozos) y la
+# luz total que te queda. Ver cuadro_farol.gd.
+var _farol_box: CuadroFarol = null
+var _farol_lbl: Label = null
 # El deposito es CUADRADO, y su lado NO se escribe aqui: se lo pide a player.ALTO_EQUIPO, que es el
 # alto de los cuadros de equipo (del nombre al fondo de la barra de mana). Asi la mochila y los
 # cuadros comparten LA MISMA linea de abajo por construccion, y no por que alguien haya cuadrado dos
 # numeros a mano que mañana se separan. Esta constante es solo el respaldo de por si no hay jugador.
 const LADO_MOCHILA := 64.0
 const ALTO_MOCHILA := LADO_MOCHILA
+# Hueco entre la mochila y el farolillo. Pequeño a proposito: son dos cuadros de la misma fila, no
+# dos elementos sueltos del HUD.
+const SEPARACION_FAROL := 6.0
 # La caja de ayudas de teclas. Va debajo de las barras y no se mueve, pero se guarda por si algun
 # dia hay que recolocarla como al cuadrado del peso.
 var _caja_ayudas: PanelContainer = null
@@ -99,6 +106,23 @@ func _ready() -> void:
 	_peso_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_peso_box.add_child(_peso_lbl)
 
+	# EL FAROLILLO, al lado de la mochila: la llama que se apaga, y a su derecha cuantos carbones
+	# llevas y cuanta luz te queda EN TOTAL. Antes eso solo se sabia abriendo el inventario, y encima
+	# en dos numeros separados que tenias que sumar tu. Ver cuadro_farol.gd.
+	_farol_box = CuadroFarol.new()
+	_farol_box.position = Vector2(270, 16)
+	_farol_box.size = Vector2(LADO_MOCHILA, ALTO_MOCHILA)
+	add_child(_farol_box)
+
+	_farol_lbl = Label.new()
+	_farol_lbl.add_theme_font_size_override("font_size", 13)
+	_farol_lbl.add_theme_color_override("font_color", Color.WHITE)
+	_farol_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_farol_lbl.add_theme_constant_override("outline_size", 4)
+	_farol_lbl.add_theme_constant_override("line_spacing", 0)
+	_farol_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_farol_lbl)
+
 	# Feed de recogida, anclado a la izquierda a media altura (crece hacia abajo desde el centro).
 	_recogidas = VBoxContainer.new()
 	_recogidas.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
@@ -161,6 +185,16 @@ func recolocar() -> void:
 		_peso_box.scale = Vector2(f, f)
 		_peso_box.size = Vector2(lado, lado)   # cuadrada
 		_peso_box.position = Vector2(x * f, y0 * f)
+		# El farol va PEGADO a la mochila, con el mismo alto y la misma escala: los dos indicadores
+		# son pareja y tienen que leerse como una sola fila.
+		if _farol_box != null:
+			var xf: float = x + lado + SEPARACION_FAROL
+			_farol_box.scale = Vector2(f, f)
+			_farol_box.size = Vector2(lado, lado)
+			_farol_box.position = Vector2(xf * f, y0 * f)
+			if _farol_lbl != null:
+				_farol_lbl.scale = Vector2(f, f)
+				_farol_lbl.position = Vector2((xf + lado + 5.0) * f, (y0 + lado * 0.16) * f)
 	# Y la caja de ayudas, justo debajo del bloque de barras. Va aqui y no con una y fija porque
 	# el bloque crecio al meterle el nombre encima: con la 64 de antes se solapaban.
 	if _caja_ayudas != null:
@@ -471,6 +505,45 @@ func _montar_botonera() -> void:
 		_abrir_menu.bind("menu_pausa", "alternar"), ICONO_LADO))
 
 
+# EL FAROLILLO: la llama la pinta el cuadro solo con la fraccion del trozo en curso; aqui van los
+# dos numeros de al lado -- cuantos trozos quedan y CUANTA LUZ EN TOTAL, que es el que de verdad
+# decide si bajas otro piso o te vuelves.
+#
+# SIN FAROLILLO PUESTO NO SE ENSEÑA NADA. Un farol apagado permanente en pantalla es ruido para el
+# que aun no tiene lampara (o esta en el pueblo, donde el carbon ni siquiera arde).
+func _refrescar_farol() -> void:
+	if _farol_box == null:
+		return
+	var puesto: bool = Game.equipped_lampara != null
+	_farol_box.visible = puesto
+	_farol_lbl.visible = puesto
+	if not puesto:
+		return
+	_farol_box.hay_luz = Game.lampara_llama > 0.0
+	_farol_box.llama = Game.llama_fraccion()
+	var total: float = Game.luz_total_restante()
+	# "xN" arriba y la luz total debajo, como en el boceto. Los minutos van SIN segundos: es una
+	# magnitud para decidir de un vistazo, y un contador al segundo invita a mirarlo en vez de jugar.
+	_farol_lbl.text = "x%d\n%s" % [Game.carbon_restante(), _texto_luz(total)]
+	_farol_lbl.add_theme_color_override("font_color",
+		Color(1.0, 0.55, 0.45) if total < AVISO_LUZ else Color.WHITE)
+	_farol_lbl.tooltip_text = "Luz restante: %s\nCarbón: %d trozo%s\nAlcance: %.1f casillas" % [
+		_texto_luz(total), Game.carbon_restante(), "" if Game.carbon_restante() == 1 else "s",
+		Game.radio_lampara()]
+
+
+# Menos de esto y el numero se pone rojo: es lo que tarda en amargarte quedarte a oscuras hondo.
+const AVISO_LUZ := 180.0
+
+
+func _texto_luz(seg: float) -> String:
+	if seg <= 0.0:
+		return "sin luz"
+	if seg < 60.0:
+		return "<1 min"
+	return "%d min" % int(seg / 60.0)
+
+
 # Abre (o cierra) uno de los menus del jugador llamandole a su metodo. NO se finge la tecla:
 # Input.action_press no genera un evento de teclado y esos menus escuchan eventos, asi que por ahi
 # no se enterarian (ver inventory_menu.gd).
@@ -495,3 +568,5 @@ func _process(_delta: float) -> void:
 		roundi(Game.peso_actual()), roundi(Game.capacidad_carga()),
 		roundi(_peso_box.ratio * 100.0),
 		"\nVas SOBRECARGADO: andas más lento." if Game.esta_sobrecargado() else ""]
+
+	_refrescar_farol()

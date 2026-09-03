@@ -963,6 +963,18 @@ func tick_statuses() -> Dictionary:
 			e.fresh = false   # se salta el primer decremento: activo durante este turno
 			kept.append(e)
 			continue
+		# LOS PLATOS NO SE GASTAN POR TURNOS. Se venden como "20 minutos" y su duracion esta escrita
+		# como los turnos que caben en 20 min AL RELOJ DE FUERA (5 s por turno), pero aqui dentro un
+		# turno dura uno o dos segundos -- y encima cada combatiente tiene los SUYOS, mas o menos
+		# seguidos segun su velocidad. Resultado medido en el playtest: dos personajes comen a la vez
+		# y a uno le quedan 6 minutos cuando al otro ya se le ha acabado. Y con la velocidad de
+		# combate x2, mas rapido todavia.
+		#
+		# Se los gasta el reloj DE VERDAD (combat._tick_platos y Game.tick_estados), que corre igual
+		# para todos y no sabe de turnos ni de ATB.
+		if e.es_tiempo_real():
+			kept.append(e)
+			continue
 		e.turns -= 1
 		if e.turns <= 0:
 			expired.append(str(e.d.get("nombre", "?")))
@@ -1198,6 +1210,18 @@ var _abilities_eff = null   # cache; null = hay que recalcularla
 
 func _invalidar_hab() -> void:
 	_abilities_eff = null
+
+
+# RETIRA un estado desde fuera del tick de turnos. Lo usa el reloj de los platos (combat._tick_platos),
+# que los gasta por tiempo real y no por turnos: tiene que deshacer lo que el estado tocara (la vida
+# de la Guardia) y tirar la cache de habilidades igual que hace tick_statuses al expirar uno.
+func retirar_status(inst) -> void:
+	var i: int = statuses.find(inst)
+	if i < 0:
+		return
+	statuses.remove_at(i)
+	_al_quitar_status(inst)
+	_invalidar_hab()
 
 func hab(clave: String) -> float:
 	var base: float = float(abilities.get(clave))

@@ -799,6 +799,14 @@ func _refinar_madera(cal: int, veces: int, quemar: bool) -> void:
 # por calidad), pero no puede compartir el cuerpo entero: lo que sale no se mide en unidades de
 # forja sino en MINUTOS DE LUZ, y no acaba en el almacen sino en la carbonera. Enseñar aqui
 # "unidades de forja" de un carbon seria mentir sobre para que sirve.
+# Segundos como "m:ss". Va en minutos y segundos y no en "N min" a secas porque los escalones del
+# carbon son de 30 s (2:00, 2:30, 3:00...): redondeando a minutos, tres carbones distintos salen con
+# el mismo numero y la escalera entera deja de verse.
+func _mmss(seg: float) -> String:
+	var s: int = int(round(seg))
+	return "%d:%02d" % [s / 60, s % 60]
+
+
 func _carbonera(maderas: Array) -> void:
 	var origen: MaterialData = MenuScaffold.selector_material(_content, maderas, "Madera",
 		_madera_tier, _madera_idx, _on_madera_tier, _on_madera)
@@ -809,8 +817,11 @@ func _carbonera(maderas: Array) -> void:
 	if destino == null:
 		_note(_content, "Esta madera no tiene carbon definido.")
 		return
-	var seg: int = int(Lampara.DURACION.get(destino.id, 0.0))
-	_row(_content, "Sale", "%s  ·  %d:%02d de llama" % [destino.nombre, seg / 60, seg % 60])
+	# LA DURACION VA EN CADA FILA, no aqui arriba. Esto enseñaba la duracion BASE del carbon leyendo
+	# Lampara.DURACION a pelo, y la de verdad depende de la CALIDAD: el mismo carbon vegetal decia
+	# "2:00 de llama" en esta pantalla y "3 min" en el inventario, porque los que llevabas eran
+	# Intactos. Ver Lampara.duracion_de.
+	_row(_content, "Sale", destino.nombre)
 
 	var por_uno: int = Forge.MADERA_POR_CARBON
 	var tengo_algo: bool = false
@@ -821,7 +832,8 @@ func _carbonera(maderas: Array) -> void:
 		tengo_algo = tengo_algo or tengo > 0
 		var salen: int = tengo / maxi(1, por_uno)
 		var c: int = int(cal)
-		MenuScaffold.fila_refino(_content, "%s  ·  tienes %d  (max %d)" % [_cal_txt(c), tengo, salen],
+		MenuScaffold.fila_refino(_content, "%s  ·  %s de llama  ·  tienes %d  (max %d)" % [
+				_cal_txt(c), _mmss(Lampara.duracion_de(destino, c)), tengo, salen],
 			salen, func(n: int) -> void: _on_carbonizar(c, n))
 	if not tengo_algo:
 		_note(_content, "No tienes %s en el Hogar. Tala arboles en la mazmorra y guardalo al volver."
@@ -833,10 +845,8 @@ func _carbonera(maderas: Array) -> void:
 	if trozos == 0:
 		_note(_content, "No te queda carbon.")
 	else:
-		var minutos: float = 0.0
-		for m in Game.carbon:
-			minutos += Lampara.duracion(m) / 60.0
-		_row(_content, "Llevas", "%d trozos  ·  %.0f minutos de luz en total" % [trozos, minutos])
+		_row(_content, "Llevas", "%d trozos  ·  %s de luz en total" % [
+			trozos, _mmss(Game.luz_total_restante() - Game.lampara_llama)])
 
 	_estado_oficio(_content, "Carpinteria", Game.tiene_desarrollo("carpinteria"),
 		"Al quemar, tira por sacar el carbon un escalon por encima de la madera que metas.")
