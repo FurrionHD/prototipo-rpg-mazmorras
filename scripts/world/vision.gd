@@ -79,6 +79,13 @@ var _solido := PackedByteArray()
 # Con la memoria, cada subcelda paga su rayo UNA vez por pasada.
 var _visto := PackedByteArray()
 
+# Buffer de trabajo del sombreado por octantes: que subceldas alcanza el barrido que se esta
+# haciendo (255 = si). Se reutiliza para el ojo y para cada foco, uno detras de otro.
+var _campo := PackedByteArray()
+
+# La imagen del volcado, reusada entre pasadas (ver volcar).
+var _img: Image = null
+
 
 func preparar(gen: DungeonGenerator) -> void:
 	_gen = gen
@@ -87,6 +94,7 @@ func preparar(gen: DungeonGenerator) -> void:
 	mascara.resize(ancho * alto)
 	_solido.resize(ancho * alto)
 	_visto.resize(ancho * alto)
+	_campo.resize(ancho * alto)
 	for y in alto:
 		var fila: int = y * ancho
 		for x in ancho:
@@ -129,49 +137,179 @@ func calcular(focos: Array, ojo: Vector2, vista: Rect2 = Rect2()) -> void:
 		vx1 = mini(ancho, int(ceil(vista.end.x / px_sub)))
 		vy1 = mini(alto, int(ceil(vista.end.y / px_sub)))
 
+	# 1) ¿QUE VES TU desde donde estas? Un solo barrido desde el ojo sobre la ventana, en vez de un
+	#    rayo por subcelda. Sin tope de distancia (solo estorba la roca), asi que el alcance es lo
+	#    que quepa en la ventana: por eso el radio sale de su esquina mas lejana.
+	# Va directo a `_visto`, que es su sitio: asi no hace falta duplicar un array del tamaño del
+	# piso en cada pasada solo para guardarlo mientras `_campo` se reutiliza con los focos.
+	var alcance: int = int(ceil(maxf(
+		maxf(absf(ojo_s.x - float(vx0)), absf(ojo_s.x - float(vx1))),
+		maxf(absf(ojo_s.y - float(vy0)), absf(ojo_s.y - float(vy1)))) * 1.5)) + 2
+	_campo_del_ojo(int(ojo_s.x), int(ojo_s.y), alcance, vx0, vy0, vx1, vy1)
+
+	# 2) LA LUZ de cada farolillo, con su propio barrido. Una subcelda se ilumina si le llega la luz
+	#    Y la ves tu: las dos condiciones de la regla, ahora sin un solo rayo suelto.
 	for f in focos:
 		var pos: Vector2 = f["pos"]
-		var radio_sub: float = maxf(RADIO_MINIMO, float(f["radio"])) * float(SUB)
+		# El SUELO DURO solo vale para los farolillos de la gente. Un foco del mundo (el musgo que
+		# brilla) pide el radio que pide, y elevarselo a tres celdas lo convertiria en otro farol.
+		var radio_c: float = float(f["radio"])
+		if bool(f.get("personaje", true)):
+			radio_c = maxf(RADIO_MINIMO, radio_c)
+		var radio_sub: float = radio_c * float(SUB)
+		# Cuanto alumbra este foco como mucho (1.0 = un farolillo). Ver niebla.MUSGO_INTENSIDAD.
+		var intensidad: float = clampf(float(f.get("intensidad", 1.0)), 0.0, 1.0)
 		var centro := Vector2(pos.x / px_sub, pos.y / px_sub)
 		var r: int = int(ceil(radio_sub))
 		var cx: int = int(centro.x)
 		var cy: int = int(centro.y)
-		for y in range(maxi(vy0, cy - r), mini(vy1, cy + r + 1)):
+		var x0: int = maxi(vx0, cx - r)
+		var x1: int = mini(vx1, cx + r + 1)
+		var y0: int = maxi(vy0, cy - r)
+		var y1: int = mini(vy1, cy + r + 1)
+		if x0 >= x1 or y0 >= y1:
+			continue      # este foco no toca la ventana: no hay nada que pintar
+		# OJO: `_campo` NO se limpia entero aqui. Vaciar un array del piso por cada foco cuesta lo
+		# mismo lleve el foco un radio de 14 celdas o de 2, y con varios focos pequeños (el musgo
+		# que brilla, que son muchos y diminutos) esa limpieza pasaba a ser el gasto principal:
+		# medido, 12 focos de radio 2 costaban casi tanto como cuatro farolillos a tope. Como el
+		# barrido solo marca DENTRO de la ventana que se le da, basta con borrar esa ventana, y se
+		# hace en el mismo recorrido que ya la lee, justo debajo.
+		_campo_de_vision(cx, cy, r, x0, y0, x1, y1)
+		var tope: int = clampi(int(intensidad * 255.0), 0, 255)
+		var desde: float = radio_sub * (1.0 - DESVANECIDO)
+		for y in range(y0, y1):
 			var fila: int = y * ancho
-			for x in range(maxi(vx0, cx - r), mini(vx1, cx + r + 1)):
+			for x in range(x0, x1):
 				var idx: int = fila + x
-				# Ya iluminada por otro foco y a tope: no hay nada que ganar.
-				if mascara[idx] >= 255:
+				var alcanzada: bool = _campo[idx] != 0
+				_campo[idx] = 0      # limpieza para el foco siguiente
+				if not alcanzada or _visto[idx] == 0:
 					continue
-				var punto := Vector2(float(x) + 0.5, float(y) + 0.5)
-				var d: float = punto.distance_to(centro)
+				if mascara[idx] >= tope:
+					continue      # ya lo da otro foco igual o mejor
+				var d: float = Vector2(float(x) + 0.5, float(y) + 0.5).distance_to(centro)
 				if d > radio_sub:
-					continue
-				# 1) ¿le llega la luz de ESTE farolillo?
-				if not _linea(centro, punto):
-					continue
-				# 2) ¿la ves TU desde donde estas? Sin tope de distancia: solo estorba la roca.
-				#    Memorizado: el rayo del ojo no depende del farolillo (ver _visto).
-				var m: int = _visto[idx]
-				if m == 0:
-					m = 1 if _linea(ojo_s, punto) else 2
-					_visto[idx] = m
-				if m == 2:
-					continue
+					continue      # el barrido va por cuadrado; el alcance es redondo
 				# Caida suave en el ultimo tramo del alcance.
 				var t: float = 1.0
-				var desde: float = radio_sub * (1.0 - DESVANECIDO)
 				if d > desde:
 					t = 1.0 - (d - desde) / maxf(0.001, radio_sub - desde)
-				var v: int = clampi(int(t * 255.0), 0, 255)
+				var v: int = clampi(int(t * float(tope)), 0, 255)
 				if v > mascara[idx]:
 					mascara[idx] = v
+
+
+# ============================================================
+#  EL CAMPO DE VISION, POR OCTANTES
+# ============================================================
+# Lo que antes hacia el bucle de rayos: para cada subcelda de un disco, "¿tengo linea con el
+# centro?". Eso es un rayo POR SUBCELDA, y cada rayo cuesta tantos pasos como radio tenga el disco,
+# o sea que el coste sube con el CUBO del radio. Medido antes de cambiarlo, con un grupo de cuatro
+# en el piso 12:
+#
+#     radio  3 (sin farol) ->  0.46 ms      radio 10 (mejorado) ->  7.16 ms
+#     radio  7 (normal)    ->  3.75 ms      radio 14 (a tope)   -> 15.73 ms
+#
+# 15.7 ms es MAS que un frame entero a 60 fps, y eso en escritorio; en movil (que es donde el
+# usuario lo noto) es un tiron cada cuatro frames. Y el culpable no era la niebla ni el tamaño del
+# mapa -- que no influye, tambien medido -- sino el RADIO del farolillo: mejorarlo te penalizaba.
+#
+# El sombreado por octantes recorre el disco UNA vez, arrastrando el arco de sombra que proyecta
+# cada roca segun avanza. Cada subcelda se visita una sola vez y no lanza ningun rayo, asi que el
+# coste pasa a ser el AREA del disco: de radio³ a radio². La regla que dibuja es la misma (una
+# subcelda se ve si no hay roca por medio) y la promesa de la cara del muro tambien: la roca se
+# marca como vista y ES ahi donde se corta la luz, nunca antes.
+#
+# Se divide en ocho octantes porque el algoritmo solo sabe barrer un triangulo diagonal; los ocho
+# juntos cubren el disco. La matriz (xx, xy, yx, yy) es lo que gira ese triangulo a cada uno.
+const OCTANTES := [
+	[1, 0, 0, 1], [0, 1, 1, 0], [0, -1, 1, 0], [-1, 0, 0, 1],
+	[-1, 0, 0, -1], [0, -1, -1, 0], [0, 1, -1, 0], [1, 0, 0, -1],
+]
+
+
+# Marca en `_campo` (255) las subceldas visibles desde (cx, cy) hasta `radio` subceldas, sin salirse
+# de la ventana [vx0,vx1) x [vy0,vy1). El centro siempre se ve.
+func _campo_de_vision(cx: int, cy: int, radio: int,
+		vx0: int, vy0: int, vx1: int, vy1: int) -> void:
+	if cx >= vx0 and cx < vx1 and cy >= vy0 and cy < vy1:
+		_campo[cy * ancho + cx] = 255
+	for o in OCTANTES:
+		_barrer(cx, cy, radio, 1, 1.0, 0.0, o[0], o[1], o[2], o[3], vx0, vy0, vx1, vy1)
+
+
+# El campo del OJO, trasladado a `_visto`. Va en su funcion y no como parametro de la de arriba
+# porque en GDScript un PackedByteArray se pasa POR VALOR: escribir en el argumento no tocaria el
+# array de verdad y el ojo se quedaria a cero (todo negro) sin dar ningun error. Se copia solo la
+# ventana, no el piso entero.
+func _campo_del_ojo(cx: int, cy: int, radio: int,
+		vx0: int, vy0: int, vx1: int, vy1: int) -> void:
+	_campo_de_vision(cx, cy, radio, vx0, vy0, vx1, vy1)
+	for y in range(vy0, vy1):
+		var fila: int = y * ancho
+		for x in range(vx0, vx1):
+			var idx: int = fila + x
+			_visto[idx] = _campo[idx]
+			_campo[idx] = 0
+
+
+# Un octante. 'fila' = a que distancia del centro vamos; 'alta'/'baja' = las pendientes que
+# delimitan el arco todavia iluminado. Al topar con roca, el arco se parte: se sigue por la mitad de
+# arriba en una llamada nueva y se continua por la de abajo en esta.
+func _barrer(cx: int, cy: int, radio: int, fila: int, alta: float, baja: float,
+		xx: int, xy: int, yx: int, yy: int,
+		vx0: int, vy0: int, vx1: int, vy1: int) -> void:
+	if alta < baja:
+		return
+	var radio2: int = radio * radio
+	var tapado: bool = false
+	var j: int = fila
+	while j <= radio:
+		var dy: int = -j
+		var dx: int = -j - 1
+		var nueva_alta: float = alta
+		while dx <= 0:
+			dx += 1
+			var x: int = cx + dx * xx + dy * xy
+			var y: int = cy + dx * yx + dy * yy
+			# Pendientes de las dos esquinas de esta subcelda.
+			var p_izq: float = (float(dx) - 0.5) / (float(dy) + 0.5)
+			var p_der: float = (float(dx) + 0.5) / (float(dy) - 0.5)
+			if alta < p_der:
+				continue      # aun no hemos entrado en el arco
+			if baja > p_izq:
+				break         # ya lo hemos pasado de largo
+			var fuera: bool = x < 0 or y < 0 or x >= ancho or y >= alto
+			var roca: bool = true if fuera else _solido[y * ancho + x] != 0
+			if not fuera and dx * dx + dy * dy <= radio2 \
+					and x >= vx0 and x < vx1 and y >= vy0 and y < vy1:
+				_campo[y * ancho + x] = 255
+			if tapado:
+				if roca:
+					nueva_alta = p_der
+				else:
+					tapado = false
+					alta = nueva_alta
+			elif roca and j < radio:
+				# Empieza sombra: la parte del arco por ENCIMA de esta roca sigue viva aparte.
+				tapado = true
+				_barrer(cx, cy, radio, j + 1, alta, p_izq, xx, xy, yx, yy, vx0, vy0, vx1, vy1)
+				nueva_alta = p_der
+		if tapado:
+			return    # el arco se ha cerrado del todo: mas lejos ya no llega nada
+		j += 1
 
 
 # ------------------------------------------------------------
 #  LINEA DE VISION
 # ------------------------------------------------------------
 # Rayo por DDA sobre la rejilla de subceldas. Devuelve false si hay roca por medio.
+#
+# Ya no lo usa `calcular` (lo sustituyo el sombreado por octantes de arriba, que hace lo mismo para
+# un disco entero y sin un rayo por subcelda). Se queda porque sigue siendo la forma barata de
+# preguntar por UN punto suelto, y porque es con lo que se contrasta que el algoritmo nuevo dibuja
+# lo mismo que el viejo (ver tools/probar_vision.gd).
 #
 # La roca del DESTINO no corta: si no, la cara del muro nunca se iluminaria y las paredes serian
 # un agujero negro con el suelo brillando hasta el borde. Ves el muro, y AHI se corta la luz.
@@ -228,8 +366,14 @@ func luz_en(mundo: Vector2) -> float:
 # La mascara como imagen para el shader. Se REUSA la textura (update) en vez de crearla cada vez:
 # a quince veces por segundo, crear una ImageTexture nueva es basura para el recolector.
 func volcar(tex: ImageTexture) -> ImageTexture:
-	var img := Image.create_from_data(ancho, alto, false, Image.FORMAT_R8, mascara)
+	# La IMAGEN tambien se reusa, no solo la textura: `create_from_data` reservaba un Image nuevo
+	# quince veces por segundo (unos 47 KB en un piso hondo) y todos acababan en el recolector. En
+	# escritorio da igual; en movil, donde este sistema ya va justo, la basura se nota.
+	if _img == null or _img.get_width() != ancho or _img.get_height() != alto:
+		_img = Image.create_from_data(ancho, alto, false, Image.FORMAT_R8, mascara)
+	else:
+		_img.set_data(ancho, alto, false, Image.FORMAT_R8, mascara)
 	if tex == null:
-		return ImageTexture.create_from_image(img)
-	tex.update(img)
+		return ImageTexture.create_from_image(_img)
+	tex.update(_img)
 	return tex

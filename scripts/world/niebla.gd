@@ -48,6 +48,32 @@ var _tex: ImageTexture = null
 var _t: float = 0.0
 var _piso: Node2D = null
 
+# Lo de la pasada anterior, para saltarse la siguiente si nada se ha movido (ver _process).
+var _ojo_previo := Vector2(INF, INF)
+var _focos_previos: Array = []
+
+# Cuanto se puede mover algo sin que la mascara cambie: media subcelda. Por debajo de esto el
+# calculo daria exactamente lo mismo, porque la mascara no tiene mas resolucion que la subcelda.
+const HOLGURA := float(DungeonGenerator.CELDA) / float(Vision.SUB) * 0.5
+
+
+# ¿Ha cambiado algo desde la ultima pasada? Cambia si te has movido, si un compañero se ha movido,
+# si ha entrado o salido alguien del grupo, o si el radio del farolillo ha variado (se acaba el
+# carbon, lo enciendes, bajas de piso).
+func _algo_se_movio(ojo: Vector2, focos: Array) -> bool:
+	if _focos_previos.size() != focos.size():
+		return true
+	if _ojo_previo.distance_squared_to(ojo) > HOLGURA * HOLGURA:
+		return true
+	for i in focos.size():
+		var a: Dictionary = focos[i]
+		var b: Dictionary = _focos_previos[i]
+		if not is_equal_approx(float(a["radio"]), float(b["radio"])):
+			return true
+		if (a["pos"] as Vector2).distance_squared_to(b["pos"] as Vector2) > HOLGURA * HOLGURA:
+			return true
+	return false
+
 
 func _ready() -> void:
 	_piso = get_parent() as Node2D
@@ -93,11 +119,26 @@ func _process(delta: float) -> void:
 	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	if jugador == null:
 		return
-	vision.calcular(_focos(jugador), jugador.global_position, _vista())
+	var focos: Array = _focos(jugador)
+	var vista: Rect2 = _vista()
+	# SI NADA SE HA MOVIDO, NO SE RECALCULA. La pasada es lo caro de todo esto (ver Vision.calcular:
+	# el coste sube con el CUBO del radio del farolillo), y buena parte del tiempo de juego se pasa
+	# quieto: mirando el inventario no, que el arbol esta parado, pero si hablando con un oficio,
+	# pescando, picando una veta, leyendo un cartel o simplemente parado pensando. Ahi la mascara
+	# anterior sigue siendo exacta, asi que recalcularla es tirar el trabajo.
+	#
+	# Se compara con la holgura de MEDIA SUBCELDA: por debajo de eso la mascara saldria idéntica
+	# (su resolucion es la subcelda), asi que no hay nada que ganar.
+	if not _algo_se_movio(jugador.global_position, focos):
+		_refrescar_camara()
+		return
+	_ojo_previo = jugador.global_position
+	_focos_previos = focos.duplicate(true)
+	vision.calcular(focos, jugador.global_position, vista)
 	_tex = vision.volcar(_tex)
 	_mat.set_shader_parameter("mascara", _tex)
 	_refrescar_camara()
-	_apagar_lo_que_no_se_ve()
+	_apagar_lo_que_no_se_ve(vista)
 
 
 # Lo que se esta viendo, con un margen generoso. El margen no es un adorno: entre pasada y pasada
@@ -166,12 +207,29 @@ func _exit_tree() -> void:
 				nodo.visible = true
 
 
-func _apagar_lo_que_no_se_ve() -> void:
+# 'vista' = el mismo rectangulo con el que se calculo la mascara. Lo de fuera de ahi no se calcula
+# (ver Vision.calcular), asi que su luz es 0 por construccion y el resultado seria `visible = false`
+# igual: preguntarlo es gastar una consulta por nodo para llegar a la respuesta que ya sabemos. En
+# un piso poblado son cientos de nodos, quince veces por segundo, y la mayoria estan fuera de la
+# pantalla. Con un Rect2 vacio no se recorta nada (lo que quieren las pruebas).
+func _apagar_lo_que_no_se_ve(vista: Rect2 = Rect2()) -> void:
+	var recorta: bool = vista.size.x > 0.0
 	for grupo in GRUPOS_A_APAGAR:
 		for n in get_tree().get_nodes_in_group(grupo):
 			var nodo := n as Node2D
 			if nodo == null or not is_instance_valid(nodo):
 				continue
+			if recorta and not vista.has_point(nodo.global_position):
+				# Ojo con los GRANDES: el charco mide cinco celdas y su centro puede caer fuera de la
+				# ventana con media orilla dentro. A quien sabe decir cuanto ocupa se le da su margen
+				# antes de descartarlo, que es la misma cautela que ya tiene _le_llega_luz.
+				if not nodo.has_method("tam_px"):
+					nodo.visible = false
+					continue
+				var media: Vector2 = (nodo.tam_px() as Vector2) * 0.5
+				if not vista.grow(maxf(media.x, media.y)).has_point(nodo.global_position):
+					nodo.visible = false
+					continue
 			nodo.visible = _le_llega_luz(nodo)
 
 
