@@ -203,6 +203,13 @@ func poner_cara(tex: Texture2D) -> void:
 	if _cara == null:
 		_cara = Sprite2D.new()
 		_cara.centered = true
+		# NACE ESCONDIDA. Quien la enseña es _recolocar_cara, que es tambien quien la coloca y la
+		# encoge a la cabeza; hasta entonces este sprite lleva el PNG de 128x128 A TAMAÑO NATURAL,
+		# que es como quince veces la cabeza. Se veia en multijugador al entrar a un piso: al otro
+		# jugador le llega su aspecto ANTES que el primer paquete de postura, o sea que pasa varios
+		# fotogramas sin animacion -- y sin animacion _recolocar_cara se rinde y no toca la escala.
+		# Resultado: un FLASHAZO de su foto en grande antes de que apareciera el muñeco.
+		_cara.visible = false
 		# Tu PNG es de 128x128 y la cabeza mide ~16 px: se reduce muchisimo, y sin NEAREST el
 		# escalado lo interpola. Es la misma nota que llevan las capas horneadas, por el mismo
 		# motivo, solo que aqui se encoge en vez de ampliarse.
@@ -224,7 +231,12 @@ func poner_cara(tex: Texture2D) -> void:
 # capas para colocar sus elipses. Copiarla aqui seria garantizar que el dia que se toque la camara la
 # cara se quede medio pixel por delante de la cabeza en unas direcciones y no en otras.
 func _recolocar_cara(i: int) -> void:
-	if _cara == null or _cara.texture == null or _anim == "":
+	if _cara == null:
+		return
+	# TODAVIA NO SE PUEDE COLOCAR -> se queda escondida, nunca "donde estaba". Salir en seco dejaba
+	# el sprite tal cual: sin escalar (la foto entera) y en el origen del muñeco. Ver poner_cara.
+	if _cara.texture == null or _anim == "":
+		_cara.visible = false
 		return
 	var d: int = _dir_de(_anim)
 	if not CARA_DIRS.has(d):
