@@ -611,7 +611,10 @@ func _construir_geometria() -> void:
 				# roca igual, el verde treparia por muros que no existen.
 				var m: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool:
 					return Decorado.es_roca(gen, v))
-				muro.set_cell(c, 0, TerrenoSprites.celda_para("muro", c, m, sem))
+				# CON `fte`, no con 0. Estuvo con el 0 fijo y el resultado era que en el piso 7 el
+				# suelo era de cueva y las paredes seguian siendo las de la mazmorra de arriba: lo
+				# canto el usuario jugando, "es entera la pared de color de los pisos otros".
+				muro.set_cell(c, fte, TerrenoSprites.celda_para("muro", c, m, sem))
 
 	# --- Colision: EXACTAMENTE lo de antes ---
 	var cuerpo := StaticBody2D.new()
