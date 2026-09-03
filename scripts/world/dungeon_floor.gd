@@ -532,6 +532,8 @@ var _celdas_musgo: Dictionary = {}
 var _celdas_formacion: Array[Vector2i] = []
 # Las mismas, como diccionario, para preguntarlo rapido dentro del bucle que pinta el piso entero.
 var _es_formacion: Dictionary = {}
+# Quien decide, celda a celda, que estilo le toca en un piso donde cambia el tramo (transicion.gd).
+var _trans := Transicion.new()
 var _celdas_agua: Dictionary = {}
 var _celdas_sumidero: Dictionary = {}
 
@@ -554,7 +556,12 @@ func _construir_geometria() -> void:
 	_celdas_musgo.clear()
 	_celdas_agua.clear()
 	_celdas_sumidero.clear()
-	var ts: TileSet = TerrenoSprites.tileset_de(TerrenoSprites.tramo_de(_piso_construido))
+	# En un piso DE CORTE conviven dos estilos, asi que el TileSet lleva una fuente por tramo y cada
+	# celda se pinta con la suya (ver Transicion). En un piso normal solo hay una y esto es lo de
+	# siempre.
+	_trans.preparar(_piso_construido, gen, _semilla_del_piso())
+	var ts: TileSet = TerrenoSprites.tileset_de_tramos(
+		TerrenoSprites.tramos_de(_piso_construido))
 	for capa in TerrenoSprites.CAPAS_ORDEN:
 		var tml := TileMapLayer.new()
 		tml.name = "TM_" + capa
@@ -571,15 +578,16 @@ func _construir_geometria() -> void:
 	for y in gen.alto:
 		for x in gen.ancho:
 			var c := Vector2i(x, y)
+			var fte: int = _trans.fuente(c)
 			if _es_formacion.has(c):
 				# COLUMNA de la cueva: es roca en el generador (choca y tapa la luz), pero se dibuja
 				# como SUELO + una estalagmita encima, no como un trozo de pared. Pintada de muro
 				# salia un azulejo plano y claro que parecia un fallo grafico: una celda de pared con
 				# los cuatro lados expuestos no tiene forma de piedra suelta.
-				suelo.set_cell(c, 0, TerrenoSprites.celda_para("suelo", c, 0, sem))
-				_tm["columna"].set_cell(c, 0, TerrenoSprites.celda_para("columna", c, 0, sem))
+				suelo.set_cell(c, fte, TerrenoSprites.celda_para("suelo", c, 0, sem))
+				_tm["columna"].set_cell(c, fte, TerrenoSprites.celda_para("columna", c, 0, sem))
 			elif gen.es_suelo(c):
-				suelo.set_cell(c, 0, TerrenoSprites.celda_para("suelo", c, 0, sem))
+				suelo.set_cell(c, fte, TerrenoSprites.celda_para("suelo", c, 0, sem))
 			elif Decorado.muro_visible(gen, c):
 				# La MASCARA (por que lados esta expuesto) sale de la MISMA regla que usa el
 				# musgo para trepar, y por eso vive en Decorado: si aqui y alli no contaran la
@@ -650,7 +658,10 @@ func _pintar_capa(capa: String, celdas: Dictionary, sem: int) -> void:
 	var soy := func(v: Vector2i) -> bool: return celdas.has(v)
 	for c in celdas:
 		var m: int = TerrenoSprites.mascara(c, soy)
-		tml.set_cell(c, 0, TerrenoSprites.celda_para(capa, c, m, sem))
+		# Con la fuente de SU celda: en un piso de corte, el musgo y el agua que caen dentro de la
+		# burbuja de entrada tienen que salir del tramo viejo, o se veria musgo de cueva creciendo
+		# en una pared de mazmorra de piedra.
+		tml.set_cell(c, _trans.fuente(c), TerrenoSprites.celda_para(capa, c, m, sem))
 
 
 

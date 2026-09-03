@@ -745,26 +745,62 @@ static func atlas_de(tramo: String) -> Texture2D:
 const VELOCIDAD_ANIM := 6.0    # frames por segundo de las capas animadas
 
 static func tileset_de(tramo: String) -> TileSet:
+	return tileset_de_tramos(PackedStringArray([tramo]))
+
+
+# EL MISMO TileSet, pero con UNA FUENTE POR TRAMO. Es lo que permite que dos estilos convivan en el
+# mismo piso (la transicion del piso 7, ver Transicion): cada celda se pinta con la fuente del tramo
+# que le toque y todo lo demas -- las capas, las mascaras, la colision -- sigue exactamente igual.
+#
+# Sale casi gratis porque el REPARTO DEL ATLAS es identico en todos los tramos (lo decide _plano(),
+# que no sabe de tramos): la misma coordenada de baldosa vale para los dos, y lo unico que cambia es
+# de que textura se lee. Por eso NO puede haber un CAPAS distinto por tramo.
+static func tileset_de_tramos(tramos: PackedStringArray) -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(LADO, LADO)
-	var src := TileSetAtlasSource.new()
-	src.texture = atlas_de(tramo)
-	src.texture_region_size = Vector2i(LADO, LADO)
-	for capa in CAPAS_ORDEN:
-		var f: int = frames_de(capa)
-		for i in _cuantas(capa):
-			var c: Vector2i = celda_de(capa, i)
-			src.create_tile(c)
-			if f <= 1:
-				continue
-			# Los frames van SEGUIDOS a la derecha de la celda de la baldosa. 'columns' a 0 =
-			# todos en la misma fila, que es justo como los reparte _plano().
-			src.set_tile_animation_columns(c, 0)
-			src.set_tile_animation_frames_count(c, f)
-			for k in f:
-				src.set_tile_animation_frame_duration(c, k, 1.0 / VELOCIDAD_ANIM)
-	ts.add_source(src, 0)
+	for id in tramos.size():
+		var src := TileSetAtlasSource.new()
+		src.texture = atlas_de(tramos[id])
+		src.texture_region_size = Vector2i(LADO, LADO)
+		for capa in CAPAS_ORDEN:
+			var f: int = frames_de(capa)
+			for i in _cuantas(capa):
+				var c: Vector2i = celda_de(capa, i)
+				src.create_tile(c)
+				if f <= 1:
+					continue
+				# Los frames van SEGUIDOS a la derecha de la celda de la baldosa. 'columns' a 0 =
+				# todos en la misma fila, que es justo como los reparte _plano().
+				src.set_tile_animation_columns(c, 0)
+				src.set_tile_animation_frames_count(c, f)
+				for k in f:
+					src.set_tile_animation_frame_duration(c, k, 1.0 / VELOCIDAD_ANIM)
+		ts.add_source(src, id)
 	return ts
+
+
+# ============================================================
+#  CORTES DE TRAMO
+# ============================================================
+# Un piso es DE CORTE si es el primero de su tramo (y no del primer tramo de todos): ahi el estilo
+# cambia, y en vez de cambiar de golpe al cruzar la escalera, la entrada mantiene el estilo del piso
+# anterior y se transforma unas celdas mas adelante.
+#
+# Se DEDUCE de TRAMOS en vez de escribirse en una lista aparte: asi, el dia que se añada el tramo
+# del piso 13, su corte funciona sin tocar una linea mas.
+static func hay_corte(piso: int) -> bool:
+	for i in range(1, TRAMOS.size()):
+		if piso == int(TRAMOS[i]["desde"]):
+			return true
+	return false
+
+
+# Los tramos presentes en este piso, en orden: el indice de cada uno ES su id de fuente en el
+# TileSet (0 = el de siempre; en un piso de corte, 0 = el viejo y 1 = el nuevo).
+static func tramos_de(piso: int) -> PackedStringArray:
+	if not hay_corte(piso):
+		return PackedStringArray([tramo_de(piso)])
+	return PackedStringArray([tramo_de(piso - 1), tramo_de(piso)])
 
 
 # ============================================================
