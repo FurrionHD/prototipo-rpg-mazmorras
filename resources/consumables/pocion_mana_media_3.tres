@@ -13,3 +13,4 @@ turnos = 5
 segundos = 10.0
 descripcion = "Restaura 50 + 12% de tu maná máximo, repartido en el tiempo. El techo de la segunda ley: un depósito entero en un frasco, si sostienes los 5 turnos."
 valor_base = 2600
+tier = 2

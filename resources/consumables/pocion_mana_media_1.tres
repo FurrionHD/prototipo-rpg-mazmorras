@@ -13,3 +13,4 @@ turnos = 4
 segundos = 8.0
 descripcion = "Restaura 34 + 12% de tu maná máximo, repartido en el tiempo. Un paso más en la segunda ley: más maná, un turno más de sostener."
 valor_base = 1300
+tier = 2

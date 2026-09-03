@@ -81,6 +81,18 @@ class_name ConsumableData
 # los grimorios son el gasto gordo del principio.
 @export var valor_base: int = 100
 
+# TIER del objeto: 1 = las "menores" de la tienda T1, 2 = las "medias" del Rey Slime, y asi.
+#
+# Hoy solo se usa para el ASPECTO en el suelo (ver drop_pickup.gd): el tier decide la FORMA del
+# frasco -- una probeta estrecha las de tier 1, un matraz las de 2, un bulbo panzudo las de 3 --
+# mientras que el color lo decide lo que lleva dentro. Asi se distingue de un vistazo una menor de
+# una media, que es lo que no se veia teniendolo todo del mismo tamaño.
+#
+# Es un campo y no algo derivado de la potencia a proposito: la potencia de un tier y del siguiente
+# se solapan (la menor +3 cura 85 y la media 90), asi que adivinarlo por el numero fallaria justo en
+# el borde, que es donde importa.
+@export var tier: int = 1
+
 # COLOR del frasco cuando esta TIRADO EN EL SUELO (ver drop_pickup.gd). Se deja en transparente a
 # proposito: asi el color lo DERIVA color_suelo() del propio contenido y no hay que rellenarlo a
 # mano en cincuenta .tres (ni acordarse de tocarlo al crear el siguiente). Solo se pone aqui para

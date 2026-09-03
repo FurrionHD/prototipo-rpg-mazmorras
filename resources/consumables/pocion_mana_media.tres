@@ -13,3 +13,4 @@ turnos = 3
 segundos = 6.0
 descripcion = "Restaura 25 + 12% de tu maná máximo, repartido en el tiempo. La primera de segunda ley: la baba profunda concentra maná de otra manera."
 valor_base = 900
+tier = 2

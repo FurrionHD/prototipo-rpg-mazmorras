@@ -15,3 +15,4 @@ vuelve_al_pueblo = true
 piso_max_vuelta = 12
 valor_base = 4000
 descripcion = "La misma piedra, pero con la muesca rellena de algo que no es metal y no se deja rayar. Grita mas fuerte: la oyen desde donde la otra ya solo pesa en el bolsillo."
+tier = 2

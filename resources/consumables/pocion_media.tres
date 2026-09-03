@@ -11,3 +11,4 @@ turnos = 3
 segundos = 6.0
 descripcion = "Cura 90 + 12% de tu vida máxima, repartido en el tiempo. La primera de segunda ley: la baba del rey slime cunde de otra manera, y sus mejoras se disparan."
 valor_base = 380
+tier = 2

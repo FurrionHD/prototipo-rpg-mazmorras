@@ -63,23 +63,66 @@ func _draw() -> void:
 	if cd.es_plato():
 		_dibujar_plato(cd.color_suelo())
 		return
-	_dibujar_frasco(cd.color_suelo())
+	_dibujar_frasco(cd.color_suelo(), cd.tier)
 
 
-func _dibujar_frasco(col: Color) -> void:
-	var cristal := Color(0.86, 0.90, 0.92, 0.55)   # el vidrio, siempre igual sea lo que sea
-	var h := LADO * 0.5
-	# Cuerpo: la panza del frasco, con el liquido de su color.
-	draw_rect(Rect2(Vector2(-h * 0.75, -h * 0.15), Vector2(h * 1.5, h * 1.05)), col)
-	# Hombros: un escalon mas estrecho, para que no parezca una caja.
-	draw_rect(Rect2(Vector2(-h * 0.5, -h * 0.55), Vector2(h, h * 0.45)), col)
-	# Cuello de vidrio y tapon de corcho.
-	draw_rect(Rect2(Vector2(-h * 0.25, -h * 0.9), Vector2(h * 0.5, h * 0.4)), cristal)
-	draw_rect(Rect2(Vector2(-h * 0.35, -h * 1.15), Vector2(h * 0.7, h * 0.3)), Color(0.55, 0.40, 0.24))
-	# Brillo: una franja clara en el vidrio. Es lo que hace que se vea que es un frasco y no una
-	# mancha de color, sobre todo con las pociones oscuras.
-	draw_rect(Rect2(Vector2(-h * 0.6, -h * 0.05), Vector2(h * 0.22, h * 0.75)),
-		Color(1, 1, 1, 0.35))
+# ============================================================
+#  LOS FRASCOS, POR TIER
+#  El TIER cambia la FORMA y el contenido cambia el COLOR: son dos ejes independientes, asi que una
+#  poción de vida menor y una media se distinguen por el bulto aunque las dos sean rojas, y una de
+#  vida y una de maná del mismo tier se distinguen por el color aunque tengan el mismo bulto. Con
+#  todas del mismo tamaño, lo unico que quedaba era el tono, y "rojo oscuro" contra "rojo vivo" no
+#  se lee en mitad de una pelea.
+#
+#  Cada perfil es el SEMIANCHO de cada fila de pixeles, de arriba abajo (16 filas de 1 px). Se
+#  describe asi y no con rectangulos porque es lo unico que deja curvar los hombros y la panza: un
+#  bulbo hecho con tres rectangulos se ve como una escalera.
+# ============================================================
+
+# tier 1: probeta estrecha y alta. tier 2: matraz con hombros. tier 3: bulbo panzudo.
+const PERFILES := [
+	[0.0, 2.0, 2.0, 1.5, 1.5, 2.0, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.0, 0.0],
+	[0.0, 2.0, 2.0, 1.5, 1.5, 2.0, 3.0, 4.0, 4.5, 5.0, 5.0, 5.0, 5.0, 4.5, 3.5, 0.0],
+	[2.0, 2.0, 1.5, 1.5, 2.5, 4.0, 5.0, 6.0, 6.5, 6.5, 6.5, 6.0, 5.5, 4.5, 3.0, 0.0],
+]
+# Filas de TAPON y de CUELLO en cada perfil (el resto es cuerpo). El bulbo del tier 3 empieza una
+# fila mas arriba porque necesita el sitio para la panza.
+const TAPON_FILAS := [[1, 2], [1, 2], [0, 1]]
+const CUELLO_FILAS := [[3, 4], [3, 4], [2, 3]]
+# Primera fila con LIQUIDO: por encima queda aire, que es lo que hace que se lea como un frasco
+# medio lleno y no como un bloque de color.
+const NIVEL_FILA := [6, 6, 5]
+
+const CORCHO := Color(0.55, 0.40, 0.24)
+const VIDRIO := Color(0.86, 0.90, 0.92, 0.55)
+
+
+func _dibujar_frasco(col: Color, tier: int) -> void:
+	var i: int = clampi(tier - 1, 0, PERFILES.size() - 1)
+	var perfil: Array = PERFILES[i]
+	var tapon: Array = TAPON_FILAS[i]
+	var cuello: Array = CUELLO_FILAS[i]
+	var nivel: int = NIVEL_FILA[i]
+	var y0 := -LADO * 0.5
+	for fila in perfil.size():
+		var w: float = float(perfil[fila])
+		if w <= 0.0:
+			continue
+		var c: Color
+		if fila >= int(tapon[0]) and fila <= int(tapon[1]):
+			c = CORCHO
+		elif fila >= int(cuello[0]) and fila <= int(cuello[1]):
+			c = VIDRIO
+		elif fila < nivel:
+			c = VIDRIO                     # el aire de encima del liquido
+		else:
+			c = col
+		draw_rect(Rect2(Vector2(-w, y0 + float(fila)), Vector2(w * 2.0, 1.0)), c)
+	# Brillo: una columna de vidrio pegada al borde izquierdo del liquido. Es lo que hace que se
+	# vea vidrio y no una mancha, sobre todo con las pociones oscuras.
+	var alto: float = float(perfil.size() - 1 - nivel)
+	draw_rect(Rect2(Vector2(-float(perfil[nivel + 1]) + 1.0, y0 + float(nivel)),
+		Vector2(1.0, alto)), Color(1, 1, 1, 0.30))
 
 
 # EL LIBRO (grimorios). Tapa de su color, lomo mas oscuro a la izquierda y el canto de las hojas
