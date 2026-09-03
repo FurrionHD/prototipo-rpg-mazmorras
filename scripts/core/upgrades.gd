@@ -77,6 +77,10 @@ const AGUDEZA := "agudeza"
 const PRECISION := "precision"
 const PESO := "peso"
 const RAPIDEZ := "rapidez"
+# EFICACIA: lo contrario de la Resistencia de la armadura. Empuja TODOS los estados que metes --
+# venenos, sangrados, aturdimientos, debuffs-- contra la resistencia del de enfrente. Va en el arma
+# porque es el eje ofensivo del sistema de estados, y vale igual para melee y para magica.
+const EFICACIA := "eficacia"
 # Armas MAGICAS (baston/varita, KAN-95):
 const POTENCIA := "potencia"            # +daño magico directo (magic_amp), como Agudeza
 const EFICIENCIA := "eficiencia"        # -% coste de maná
@@ -102,7 +106,8 @@ const CAT_NOMBRE := {
 	"agudeza": "Agudeza", "precision": "Precision", "peso": "Peso", "rapidez": "Rapidez",
 	"potencia": "Potencia", "eficiencia": "Eficiencia", "celeridad": "Celeridad", "regeneracion": "Regeneracion",
 	"dureza": "Dureza", "evasion": "Evasion", "resist_crit": "Resist. criticos",
-	"resistencia": "Resistencia (estados)", "durabilidad": "Durabilidad",
+	"resistencia": "Resistencia (estados)", "eficacia": "Eficacia (estados)",
+	"durabilidad": "Durabilidad",
 	"refuerzo": "Refuerzo (bloqueo)",
 	"luminosidad": "Luminosidad",
 }
@@ -140,6 +145,31 @@ const EVASION_CAP := 0.20         # tope del bonus de esquiva de armadura
 const RESIST_CRIT_STEP := 0.02    # -crit rival (pesadas)
 const RESIST_CRIT_CAP := 0.25     # tope de resistencia a criticos
 const RESISTENCIA_STEP := 0.03    # -prob. de que te apliquen un estado alterado (KAN-58)
+# ============================================================
+#  EFICACIA: el espejo de la Resistencia, en el ARMA
+# ============================================================
+# La armadura te DEFIENDE de los estados; el arma te ayuda a METERLOS. Va por dos vias, y las dos
+# a proposito:
+#
+#  1) DE BASE, con la rareza y el nivel de mejora. Sin tener que elegir nada: un arma epica a +9
+#     mete estados mejor que una comun a +0, igual que pega mas fuerte. Es lo que hace que el arma
+#     que te acabas de forjar SE NOTE tambien en esto.
+#  2) Una mejora DEDICADA (EFICACIA) para quien quiera especializarse. Rinde bastante mas que la
+#     base, y compite por los mismos huecos que Agudeza o Precision.
+#
+# No lleva tope, igual que la Resistencia: son los dos lados de la misma balanza y el que uno crezca
+# sin techo mientras el otro lo tiene es exactamente como se rompe (ver StatusEffects.prob_final).
+const EFICACIA_BASE_POR_MEJORA := 0.012   # por cada +N del arma, sin elegir nada
+const EFICACIA_BASE_RAREZA := 0.10        # por escalon de rareza (comun 0, epica 3 -> +0.30)
+const EFICACIA_STEP := 0.05               # la mejora DEDICADA, decreciente como las demas
+
+
+# La eficacia que da un arma por su rareza y su nivel de mejora, sin contar la mejora dedicada.
+# Suelta porque la piden weapon_mods y magic_mods, y son la misma cuenta.
+static func eficacia_de_arma(rareza: int, mejoras: Dictionary) -> float:
+	var base: float = EFICACIA_BASE_RAREZA * float(maxi(rareza, 0)) \
+		+ EFICACIA_BASE_POR_MEJORA * float(mejoras_combate(mejoras))
+	return base + dim_sum(EFICACIA_STEP, _count(mejoras, EFICACIA)) * rareza_mult(rareza)
 # Tope de resistencia a estados. Era 0.50 y se sube al 100%: el techo artificial dejaba la mejora
 # Resistencia muerta en cuanto juntabas armadura mejorada + escudo, y a partir de ahi subirla no
 # hacia nada. Quien la deja de mandar es el RESISTENCIA_STEP (0.03 por punto, decreciente), que ya
@@ -378,12 +408,14 @@ static func weapon_categories(w: WeaponData) -> Array:
 		mcats.append(AGUDEZA)
 		if int(w.dano_tipo) == 1:  # CONTUNDENTE
 			mcats.append(PESO)
+		mcats.append(EFICACIA)    # vale igual para un baston: los hechizos tambien meten estados
 		mcats.append(DURABILIDAD)
 		return mcats
 	var cats: Array = [AGUDEZA, PRECISION]
 	if w != null and int(w.dano_tipo) == 1:  # CONTUNDENTE
 		cats.append(PESO)
 	cats.append(RAPIDEZ)
+	cats.append(EFICACIA)     # empuja los estados que metes (el espejo de Resistencia en la armadura)
 	cats.append(DURABILIDAD)  # sube el maximo de durabilidad
 	return cats
 
@@ -398,7 +430,7 @@ static func magic_categories() -> Array:
 
 # Categorias VALIDAS de una varita (magicas + durabilidad reservada).
 static func wand_categories() -> Array:
-	return magic_categories() + [DURABILIDAD]
+	return magic_categories() + [EFICACIA, DURABILIDAD]
 
 # Categorias VALIDAS de una pieza de armadura (GATING por clase):
 #  ligera(CUERO=0)/media(HIERRO=1) -> Evasion; pesada(HIERRO_COMPLETO=2/PLACAS=3) -> ResistCrit.
@@ -452,7 +484,8 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 			"precision": dim_sum(PRECISION_HIT_STEP, kp_mag) * rmult,
 			"crit_dmg": (CRIT_DMG_BASE + dim_sum(PRECISION_CRITDMG_STEP, kp_mag)) * rmult,
 			"aturdir": aturdir_mag, "evasion": w.evasion_bonus * rmult,
-			"bloqueo": w.bloqueo * rmult, "vel_mult": 1.0}
+			"bloqueo": w.bloqueo * rmult, "vel_mult": 1.0,
+			"eficacia": eficacia_de_arma(rareza, mejoras)}
 	var n := mejoras_combate(mejoras)   # la Durabilidad no cuenta para el +10% de daño
 	# +10% de la base por CADA mejora (universal) + extra de Agudeza (decreciente, tambien en %
 	# de la base). Todo sobre la base × rareza, y el conjunto × tier.
@@ -476,6 +509,9 @@ static func weapon_mods(w: WeaponData, tmult: float, rareza: int, mejoras: Dicti
 		"evasion": w.evasion_bonus * rmult,
 		"bloqueo": w.bloqueo * rmult,
 		"vel_mult": 1.0 + rapidez,
+		# EFICACIA: lo que empuja los estados que metes. De base por rareza y +N, mas la mejora
+		# dedicada si la eligio. Ver eficacia_de_arma.
+		"eficacia": eficacia_de_arma(rareza, mejoras),
 	}
 
 # Cuanto le rinde la mejora de RAPIDEZ a un arma segun lo rapida que YA sea: mas a las lentas,

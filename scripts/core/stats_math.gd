@@ -279,10 +279,11 @@ const DEFEND_CRIT_MULT := 0.5
 # plana NO tiene techo; el % SI). Ver Game.armor_mods() (media ponderada por slot).
 const ARMOR_REDUCTION_MAX := 0.20
 
-# Aturdir/retrasar con armas CONTUNDENTES (KAN-58 adelanto): la probabilidad =
-# aturdir_base × factor_relativo(media(Fuerza,Destreza) del atacante vs Fuerza
-# del defensor). Capada. Enemigo facil -> aturdes mas; fuerte -> casi nada.
-const ATURDIR_MAX := 0.6
+# El aturdir YA NO TIENE TOPE PROPIO. Tenia uno (0.6) porque corria por su carril: probabilidad del
+# arma x contest de Fuerza x su propia resistencia, sin pasar por la resistencia a efectos. Hoy va por
+# StatusEffects.prob_final como cualquier otro estado -- techo comun del 95% -- y lo que impide
+# encadenarlo es el DECAIMIENTO DE CONTROL (Combatant.decaimiento_control), que es una respuesta mejor:
+# el primero entra igual de bien, el cuarto no entra.
 
 # HUIR (KAN-55): probabilidad de escapar = CONTEST de Agilidad propia vs la del
 # rival (mismo modelo que esquiva/crit). 50% en igualdad; la ventaja de Agilidad
@@ -380,14 +381,19 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 		+ attacker.status_crit_flat() - defender.crit_resist, 0.0, 1.0)
 	if defending:
 		crit_p *= DEFEND_CRIT_MULT
-	# El aturdir depende de aturdir_base (ya viene promediado del loadout: en dual,
-	# una maza en la secundaria aporta aunque la principal sea de corte). El debuff de
-	# RAYO del defensor (KAN-58) MULTIPLICA esa probabilidad (x1.5, estilo MH), antes del cap.
+	# EL ATURDIR VA POR DONDE VAN TODOS LOS ESTADOS. Hasta ahora tenia carril propio -- su propio
+	# contest de Fuerza, su propia resistencia (stun_taken_mult) y su propio tope (ATURDIR_MAX) --, y
+	# eso era justo lo que lo hacia funcionar distinto a los demas y lo que dejaba a los jefes
+	# indefensos: ni la eficacia ni la resistencia a efectos le decian nada.
+	#
+	# Ahora `aturdir_base` es solo la PROBABILIDAD BASE que aporta el arma (su identidad: un martillo
+	# aturde y una daga no) y de ahi manda StatusEffects.prob_final, con la resistencia al control del
+	# defensor -- que ya incluye su stun_resist, su afinidad y el Rayo que lleve encima -- contra la
+	# eficacia del atacante. Lo que evita el encadenado ya no es un tope, es el decaimiento de control.
 	var aturde_p := 0.0
 	if attacker.aturdir_base > 0.0:
-		var stat := (attacker.hab("fuerza") + atk_dex) * 0.5
-		aturde_p = clampf(attacker.aturdir_base * _ratio_factor(stat, defender.hab("fuerza"))
-			* defender.stun_taken_mult(), 0.0, ATURDIR_MAX)
+		aturde_p = StatusEffects.prob_final(attacker.aturdir_base, attacker, defender,
+			StatusEffects.Id.ATURDIDO)
 
 	# 1) Esquiva: base − penalizacion de esquiva del defensor (escudo estorba).
 	if randf() < evade_p:

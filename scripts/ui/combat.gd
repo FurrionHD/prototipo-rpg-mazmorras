@@ -5651,13 +5651,10 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 				print("[estado] %s es INMUNE a %s" % [objetivo.nombre, nom])
 			continue
 		if al_enemigo:
-			# La resistencia a estados del objetivo baja la probabilidad efectiva.
-			var p: float = spell.efecto_prob(a) * (1.0 - objetivo.resist_estados())
-			if a.estado == StatusEffects.Id.ATURDIDO:
-				# El aturdir de un hechizo escala igual que el de un golpe fisico: x1.5 si el
-				# objetivo esta ELECTRIZADO, x0.6 si su afinidad es Rayo. Sin esto, electrizar
-				# con un golpe de rayo no serviria de nada para aturdir con los siguientes.
-				p = clampf(p * objetivo.stun_taken_mult(), 0.0, StatsMath.ATURDIR_MAX)
+			# Mi eficacia contra su resistencia, por la puerta comun. Lo del ATURDIDO ya va dentro:
+			# el x1.5 por estar ELECTRIZADO y el x0.6 de la afinidad Rayo entran como resistencia de
+			# familia (ver Combatant._resist_control_extra), no como un carril aparte.
+			var p: float = StatusEffects.prob_final(spell.efecto_prob(a), _player, objetivo, a.estado)
 			if randf() >= p:
 				if verboso and not silencioso:   # en multi-golpe callamos los fallos: serian 20 lineas de ruido
 					_set_log("… pero %s resiste el %s. (%.0f%%)" % [_etq(objetivo), nom, p * 100.0])
@@ -6455,15 +6452,15 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			# en los hechizos, ver _aplicar_estado_hechizo).
 			var p: float = a.prob
 			if al_enemigo:
-				p = a.prob * (1.0 - d.resist_estados()) * escala_prob
 				# ATURDIR: la probabilidad de la habilidad es solo la BASE; encima suma el aturdir
-				# del ARMA (que ya viene con Peso y rareza aplicados, ver Game._hand_from). Antes el
-				# aturdir del arma solo contaba en el golpe basico, asi que mejorar Peso no le hacia
-				# nada a Golpe sismico ni a Aplastamiento. Y pasa por stun_taken_mult como el resto
-				# de vias, para que cuenten su resistencia, su afinidad y el estado Rayo.
+				# del ARMA (que ya viene con Peso y rareza aplicados, ver Game._hand_from). Sin esto,
+				# mejorar Peso no le hacia nada a Golpe sismico ni a Aplastamiento.
+				var base: float = a.prob
 				if a.estado == StatusEffects.Id.ATURDIDO:
-					p = (a.prob + _player.aturdir_base) * (1.0 - d.resist_estados()) * escala_prob
-					p = clampf(p * d.stun_taken_mult(), 0.0, StatsMath.ATURDIR_MAX)
+					base += _player.aturdir_base
+				# Y de ahi a la puerta comun, como todo lo demas: la resistencia del bicho al control,
+				# su afinidad y el estado Rayo entran ya dentro (ver Combatant.resist_estados).
+				p = StatusEffects.prob_final(base * escala_prob, _player, d, a.estado)
 			if randf() >= p:
 				continue
 			var mag: float = StatusEffects.app_magnitude(a, _player.atk(), _player.motion_value) * escala_mag
@@ -7425,14 +7422,13 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 		# Solo los estados que te LANZAN a ti se resisten; los buffs propios siempre prenden.
 		# escala_prob < 1.0 en los SECUNDARIOS del area cuando la habilidad lo pide (el lento pilla
 		# menos a los lados). No toca a los buffs propios (siempre prenden).
-		var p: float = a.prob * (1.0 - victima.resist_estados()) * escala_prob if al_jugador else a.prob
-		# ATURDIR: escala igual que el de un golpe fisico o el de un hechizo (ver
-		# _aplicar_estado_hechizo). Faltaba SOLO aqui, que es justamente la unica via por la que los
-		# enemigos te aturden -- asi que ni la afinidad de Rayo ni stun_resist hacian nada en defensa.
+		var p: float = a.prob
 		var p_pelada: float = p   # la misma probabilidad SIN el descuento del manto
-		if al_jugador and a.estado == StatusEffects.Id.ATURDIDO:
-			p = clampf(p * victima.stun_taken_mult(), 0.0, StatsMath.ATURDIR_MAX)
-			p_pelada = clampf(p_pelada * victima.stun_taken_mult(false), 0.0, StatsMath.ATURDIR_MAX)
+		if al_jugador:
+			# Por la puerta comun, igual que las vias del jugador: la eficacia DEL BICHO contra tu
+			# resistencia. Su afinidad, tu stun_resist y el Rayo entran ya dentro.
+			p = StatusEffects.prob_final(a.prob * escala_prob, e, victima, a.estado)
+			p_pelada = StatusEffects.prob_final(a.prob * escala_prob, e, victima, a.estado, false)
 		var tirada: float = randf()
 		if tirada >= p:
 			# ¿Te ha salvado el manto? Solo si esta tirada HABRIA entrado sin su descuento.

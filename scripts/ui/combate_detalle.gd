@@ -1067,7 +1067,12 @@ func _abrir_modal_atributos(c: Combatant) -> void:
 		+ "así que un set incompleto reduce mucho menos, y el desgaste la baja.")
 	if c.crit_resist > 0.001:
 		_fila_modal(vb, "Resist. crítico", _pct(c.crit_resist), 0.0)
-	_fila_modal(vb, "Resist. estados", _pct(c.resist_estados()), 0.0)
+	# Ver la nota de character_menu: es un cociente, no un "% de veces que resistes".
+	_fila_modal(vb, "Resist. estados", "%s (×%.2f)" % [
+		_pct(c.resist_estados()), 1.0 / (1.0 + c.resist_estados())], 0.0)
+	if c.eficacia_estados() > 0.001:
+		_fila_modal(vb, "Eficacia (estados)", "%s (×%.2f)" % [
+			_pct(c.eficacia_estados()), 1.0 + c.eficacia_estados()], 0.0)
 	# El multiplicador crudo se queda SOLO aqui: fuera se enseña ya convertido a daño (ATQ mágico).
 	if pj_l != null:
 		_fila_modal(vb, "Poder mágico", "×%.2f" % Game.poder_magico(pj_l), 0.0,

@@ -75,6 +75,75 @@ static func sangrado_magnitude(applier_atk: float, motion_value: float = 1.0) ->
 	var mv: float = maxf(motion_value, 0.1)
 	return applier_atk * SANGRADO_FRACCION_ATK / pow(mv, 1.0 + SANGRADO_MV_EXP)
 
+
+# ============================================================
+#  ¿PRENDE O NO? — LA UNICA PUERTA
+# ============================================================
+# TODA probabilidad de meter un estado sale de aqui: golpes al_golpear, imbuiciones, hechizos,
+# habilidades del jugador, habilidades del enemigo y el aturdir del arma contundente. Eran SEIS
+# copias de la misma cuenta y cada una se habia desviado por su lado — el aturdir, de hecho, corria
+# por un carril entero aparte con su propia resistencia y su propio tope.
+#
+# LA FORMA ES UN COCIENTE, no una resta, y es lo que pediste: que la Resistencia a efectos siga
+# notandose por encima del 100% sin llegar nunca a la inmunidad.
+#
+#     p = prob_base × (1 + eficacia) / (1 + resistencia)
+#
+#   resistencia 0%    -> p = base          (parte de cero)
+#   resistencia 100%  -> p = base / 2
+#   resistencia 200%  -> p = base / 3
+#   resistencia 300%  -> p = base / 4      <- se sigue notando, y NO eres inmune
+#
+# Con una resta (lo de antes) el 100% ya era inmunidad y todo lo de mas arriba no valia nada: por eso
+# habia que caparlo al 95% y por eso una armadura T2 a tope ya se comia el juego. Asi la escalera
+# sigue abierta hasta las armaduras T10 sin romper nada, porque cada punto rinde menos que el
+# anterior (1/(1+r) es una hiperbola) pero ninguno rinde cero.
+#
+# La EFICACIA es su espejo exacto: multiplica por (1+ef), asi que 100% de eficacia contra 100% de
+# resistencia devuelve la probabilidad base. Nadie gana la carrera de forma definitiva.
+const PROB_TECHO := 0.95     # nunca es SEGURO meter un estado
+const PROB_SUELO_FRAC := 0.05  # ...ni imposible: la resistencia nunca quita mas del 95% de la tirada
+
+
+# 'id' importa: hay resistencias que solo valen para una FAMILIA (los de piedra aguantan el mazazo
+# pero no el veneno). 'atacante' puede ser null (efectos sin dueño: una trampa, un entorno).
+static func prob_final(prob_base: float, atacante, objetivo, id: int,
+		con_afinidad: bool = true) -> float:
+	if prob_base <= 0.0 or objetivo == null:
+		return 0.0
+	# INMUNE es inmune: binario y por delante de todo (afinidad elemental, inmunidad a medida del
+	# bicho, o un estado que lleve encima). Aqui no hay cociente que valga.
+	if objetivo.es_inmune(id):
+		return 0.0
+	# DECAIMIENTO DE CONTROL: el segundo aturdimiento seguido cuesta el doble y el cuarto no entra.
+	# Va al final, multiplicando: es un descuento sobre la tirada, no una resistencia mas.
+	var dr: float = objetivo.decaimiento_control(id)
+	if dr <= 0.0:
+		return 0.0
+	var ef: float = 0.0
+	if atacante != null:
+		ef = atacante.eficacia_estados()
+	# La resistencia puede ser NEGATIVA (Rayo te hace mas facil de aturdir). Con suelo, para que no
+	# se pueda dividir por cero ni por un numero minusculo.
+	var re: float = maxf(objetivo.resist_estados(id, con_afinidad), -0.9)
+	var p: float = prob_base * (1.0 + maxf(ef, 0.0)) / (1.0 + re)
+	return clampf(p, prob_base * PROB_SUELO_FRAC, PROB_TECHO) * dr
+
+
+# ============================================================
+#  FAMILIA DE CONTROL: lo que te quita el turno
+# ============================================================
+# Los que te impiden JUGAR, no los que te hacen daño o te bajan una stat. Son los unicos que llevan
+# decaimiento: encadenarlos es lo que convertia una pelea de jefe en "dos aturdimientos y a casa"
+# (el Rey Slime no llegaba a castear ni su invocacion ni su ola). Ver Combatant.decaimiento_control.
+#
+# El Enraizado NO esta: deja pegar y lanzar hechizos, es control PARCIAL. Si algun dia se le sube a
+# control total, entra aqui.
+const CONTROL := [Id.ATURDIDO, Id.MIEDO]
+
+static func es_control(id: int) -> bool:
+	return CONTROL.has(id)
+
 # Magnitud EFECTIVA de un StatusApplication segun el aplicador. Si trae magnitud fija
 # (>=0) se usa esa; si es Sangrado sin magnitud, escala con el ataque del aplicador
 # (con el motion_value del arma invertido, ver sangrado_magnitude); si no, -1 (que

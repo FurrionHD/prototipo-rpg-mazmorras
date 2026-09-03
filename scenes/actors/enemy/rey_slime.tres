@@ -53,5 +53,7 @@ drop_piso_pleno = 6
 al_golpear = [SubResource("SA_peg")]
 fx_basico = 19
 habilidades = [ExtResource("5_apl"), ExtResource("6_esc"), ExtResource("7_mar"), ExtResource("8_inv")]
+status_resist = 1.8
+eficacia = 1.5
 prob_habilidad = 0.7
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

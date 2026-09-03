@@ -39,6 +39,7 @@ al_golpear = [SubResource("SA_lento")]
 resist_elemental = {
 3: 0.5
 }
+inmune_estados = [0, 1]
 resist_aturdir = 0.6
 fx_basico = 23
 habilidades = [ExtResource("3_pis"), ExtResource("4_cor")]

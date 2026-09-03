@@ -6104,8 +6104,14 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# (mejora Resistencia, KAN-58) mas la del escudo, todo bajo el mismo tope global.
 	# El suelo va aqui y NO en Combatant: es del jugador y sus companeros, no de los bichos (ellos
 	# tienen su EnemyData.status_resist, que es un rasgo de diseño de cada uno).
-	c.status_resist = minf(Upgrades.RESISTENCIA_CAP, RESIST_ESTADOS_BASE
-		+ float(am["resist_estados"]) + float(m["resist_estados"]))
+	#
+	# SIN TOPE. Lo tenia porque la formula era una resta y el 100% era inmunidad literal; con el
+	# cociente de StatusEffects.prob_final la resistencia es ilimitada y nunca hace inmune, que es lo
+	# que deja la escalera abierta hasta las armaduras de tier alto sin romper nada.
+	c.status_resist = RESIST_ESTADOS_BASE + float(am["resist_estados"]) + float(m["resist_estados"])
+	# Y su espejo ofensivo: la EFICACIA que aporta el arma (rareza + nivel de mejora + la mejora
+	# dedicada). Ver Upgrades.eficacia_de_arma.
+	c.eficacia = float(m.get("eficacia", 0.0))
 	# La esquiva de armadura BAJA el evasion_penal (negativo = bonus de esquiva).
 	c.evasion_penal = float(m["evasion_penal"]) - float(am["evasion_bonus"])
 	# Magia del equipo (KAN-95): amplificador, regen extra, eficiencia y velocidad de
@@ -6150,6 +6156,10 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		# 0 = sin escudo (un arma no te tapa).
 		"defend_defense": 0.0,
 		"resist_estados": 0.0,
+		# EFICACIA del loadout: la mayor de las dos manos, NO la suma. Es una propiedad del golpe
+		# (con que fuerza empujas los estados), no algo que se acumule por llevar dos armas: sumandola
+		# el dual metia estados el doble de bien solo por serlo.
+		"eficacia": float(main_wm.get("eficacia", 0.0)),
 		# El arma principal define lo escurridizo que eres (daga = +esquiva). Un
 		# evasion_penal NEGATIVO = bonus de esquiva (los escudos suman penal, encima).
 		"evasion_penal": -float(main_wm["evasion"]),
@@ -6189,6 +6199,8 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		# RAPIDEZ de la secundaria, a mitad de peso (ver OFF_HAND_RAPIDEZ_PESO). Se guarda para
 		# aplicarlo abajo junto con el de la principal.
 		off_rapidez = 1.0 + (float(off_wm["vel_mult"]) - 1.0) * OFF_HAND_RAPIDEZ_PESO
+		# La eficacia del dual = la MEJOR de las dos manos (ver la nota de arriba).
+		m["eficacia"] = maxf(float(m["eficacia"]), float(off_wm.get("eficacia", 0.0)))
 		m["defend_block"] += float(off_wm["bloqueo"])   # bloqueo mediocre con arma
 		# Dual: la secundaria es la 2ª mano -> se alterna con la principal golpe a
 		# golpe. Cada arma conserva su MV/crit/aturdir propios (no se promedian).
@@ -6417,11 +6429,11 @@ func armor_mods(pj: PersonajeData = null) -> Dictionary:
 	reduction = clampf(reduction, 0.0, StatsMath.ARMOR_REDUCTION_MAX)
 	evasion = clampf(evasion, 0.0, Upgrades.cap_rareza(Upgrades.EVASION_CAP, rareza_max))
 	crit_resist = clampf(crit_resist, 0.0, Upgrades.cap_rareza(Upgrades.RESIST_CRIT_CAP, rareza_max))
-	# La resist. a ESTADOS es la excepcion: su techo es de BALANCE (como el de la reduccion), no de
-	# calidad. Lo pone crear_player_combatant sobre la SUMA de armadura + escudo, y crudo, para que
-	# armadura a tope + escudo a tope no te vuelvan inmune al veneno. Escalarlo aqui con la rareza
-	# era humo: el tope crudo de alla (0.50) siempre es mas bajo, asi que este nunca llegaba a morder.
-	resist_estados = clampf(resist_estados, 0.0, Upgrades.RESISTENCIA_CAP)
+	# La resist. a ESTADOS NO SE CAPA, y es la excepcion de las cinco: con el cociente de
+	# StatusEffects.prob_final no hay ningun valor que haga inmune, asi que un techo solo serviria
+	# para que a partir de cierto punto mejorar la armadura dejara de hacer nada. Cada punto rinde
+	# menos que el anterior por la propia formula (1/(1+r)), que es el freno bueno.
+	resist_estados = maxf(resist_estados, 0.0)
 	return {"def_bonus": def_bonus, "reduction": reduction, "velocidad_mult": 1.0 + vel_delta,
 		"evasion_bonus": evasion, "crit_resist": crit_resist, "resist_estados": resist_estados}
 

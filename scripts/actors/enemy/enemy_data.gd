@@ -237,11 +237,20 @@ func drop_factor_piso(piso: int) -> float:
 @export var elemento_intensidad: float = 1.0
 @export var resist_elemental: Dictionary = {}
 @export var inmune_estados: Array = []
-# RASGOS de resistencia (0..1). resist_aturdir: aguante al aturdir/retraso de las contundentes
-# (los de piedra apenas se inmutan con el martillo). status_resist: resistencia GENERAL a que le
-# prendan estados negativos (veneno, sangrado, debuffs). 0 = normal, 1 = casi inmune.
+# RASGOS de resistencia. resist_aturdir: aguante EXTRA al control (aturdir/miedo) por encima de su
+# resistencia general -- los de piedra apenas se inmutan con el martillo.
+#
+# status_resist y eficacia son AJUSTES SOBRE LA CURVA DEL PISO, no valores absolutos: lo que sale de
+# la profundidad (Enemigos.RESIST_POR_PISO) se multiplica por esto. 1.0 = lo normal de su piso; 1.6 =
+# un jefe, que aguanta y aplica bastante mejor que la morralla que lo acompaña; 0.7 = un bicho
+# blando. Asi los pisos nuevos escalan solos y solo hay que tocar el .tres de los que deban salirse.
+#
+# Antes status_resist era un 0..1 absoluto y casi ningun .tres lo ponia: el resultado era que un Rey
+# Slime resistia los estados EXACTAMENTE igual que la rata del piso 1, o sea nada, y por eso dos
+# aturdimientos le borraban el kit entero.
 @export_range(0.0, 1.0) var resist_aturdir: float = 0.0
-@export_range(0.0, 1.0) var status_resist: float = 0.0
+@export_range(0.0, 4.0) var status_resist: float = 1.0
+@export_range(0.0, 4.0) var eficacia: float = 1.0
 
 # --- HABILIDADES del enemigo (Array[AbilityData]) ---
 # Tecnicas que puede lanzar en combate ademas del ataque basico (multi-golpe, estados,
@@ -313,6 +322,43 @@ func suma_habilidades(t: float) -> int:
 # Crea el Combatant. Las HABILIDADES salen de la franja del piso (via 't'); las STATS
 # BASE son las PROPIAS de este enemigo y las escala la PROFUNDIDAD sin techo (obliga a
 # mejorar el equipo). La defensa escala mas suave (raiz) y la velocidad NO (ATB justo).
+# ============================================================
+#  RESISTENCIA A EFECTOS / EFICACIA POR PROFUNDIDAD
+# ============================================================
+# Los dos ejes del sistema de estados escalan con el piso, y no es adorno: sin esto, un veneno que
+# entra al 60% en el piso 1 entra al 60% en el 12, y una armadura de tier 2 a +9 volvia al jugador
+# intocable por los estados de todo lo que hay abajo.
+#
+# CALIBRADO contra los hitos de equipo reales (los dio el usuario):
+#   piso 1  -> una o dos piezas sueltas, sin mejorar   -> tu resistencia ~0.15 (solo la de la carne)
+#   piso 2  -> armadura completa, alguna al +1         -> ~0.30
+#   piso 6  -> completa, entre +6 y +9                 -> ~0.73  (con escudo)
+#   piso 12 -> tier 2 completa, entre +6 y +9          -> ~0.90
+# y tu EFICACIA, que sale del arma (rareza + nivel de mejora):
+#   piso 1 ~0.00   ·   piso 6 ~0.40   ·   piso 12 ~0.56
+#
+# De ahi salen los dos pasos: la resistencia del bicho persigue a tu eficacia (para que meterle
+# estados no se vuelva automatico segun te equipas) y su eficacia persigue a tu resistencia (para
+# que sus venenos sigan doliendo abajo). En los dos casos el jugador va ligeramente por delante si
+# se especializa, que es lo que tiene que premiar especializarse.
+# Los dos pasos van POR DEBAJO de lo que crece el jugador, y eso es deliberado: si el bicho escalara
+# al mismo ritmo que tu equipo, mejorar la armadura no se notaria NUNCA (el clasico treadmill), y con
+# un primer tanteo a 0.05/0.075 salia todavia peor -- en el piso 12 el veneno te entraba MAS que en el
+# 6, o sea que subir de tier te perjudicaba. Medido con la tabla de hitos:
+#   veneno del bicho sobre ti:  piso 1 ~52%  ->  piso 6 ~44%  ->  piso 12 ~42%
+#   tu aturdir sobre un bicho:  piso 1  25%  ->  piso 6  27%  ->  piso 12  28%
+# O sea: quien mantiene su equipo al dia GANA terreno poco a poco por los dos lados, y quien baja con
+# el equipo de hace tres pisos lo pierde. Nadie se vuelve inmune por el camino.
+const RESIST_POR_PISO := 0.035    # piso 1 -> 0.00 ; piso 6 -> 0.18 ; piso 12 -> 0.39
+const EFICACIA_POR_PISO := 0.03   # piso 1 -> 0.00 ; piso 6 -> 0.15 ; piso 12 -> 0.33
+
+static func resist_de_piso(piso: int) -> float:
+	return maxf(0.0, float(piso - 1)) * RESIST_POR_PISO
+
+static func eficacia_de_piso(piso: int) -> float:
+	return maxf(0.0, float(piso - 1)) * EFICACIA_POR_PISO
+
+
 func crear_combatant(t: float = 0.5) -> Combatant:
 	var fstat: float = Game.enemy_floor_stat_factor()
 	var c := Combatant.new(enemy_name, level, crear_abilities(t),
@@ -335,7 +381,11 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	c.inmune_estados = inmune_estados
 	# Rasgos de resistencia (piedra = aguanta stuns; alien = aguanta debuffs).
 	c.stun_resist = resist_aturdir
-	c.status_resist = status_resist
+	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
+	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo
+	# bien que TE mete a ti sus venenos y aturdimientos.
+	c.status_resist = resist_de_piso(Game.current_floor) * status_resist
+	c.eficacia = eficacia_de_piso(Game.current_floor) * eficacia
 	# Familia del bicho (para las pasivas slayer del jugador).
 	c.familia = int(familia)
 	# Sequito (Rey Slime): etiqueta de familia + config de la reduccion de daño por acompañantes.

@@ -577,7 +577,13 @@ func _build_stats_page() -> void:
 	# en el comparador de armadura, asi que era imposible saber cuanto llevabas EN TOTAL. Mismo
 	# wording que _armor_stats() para que la ficha y la pieza se lean igual.
 	_row(_content, "Reducción de daño", _fmt_pct(c.armor_reduction))
-	_row(_content, "Resist. estados", _fmt_pct(c.resist_estados()))
+	# LOS DOS EJES juntos. Ojo con la unidad: ya NO es "el % de veces que resistes" -- la formula es un
+	# cociente (ver StatusEffects.prob_final), asi que 100% quiere decir "me entran a la mitad" y
+	# puede pasar del 100% sin volverte inmune nunca. Por eso va el "×" al lado: es lo que multiplica.
+	_row(_content, "Resist. estados", "%s   (los recibes ×%.2f)" % [
+		_fmt_pct(c.resist_estados()), 1.0 / (1.0 + c.resist_estados())])
+	_row(_content, "Eficacia (estados)", "%s   (los aplicas ×%.2f)" % [
+		_fmt_pct(c.eficacia_estados()), 1.0 + c.eficacia_estados()])
 	if c.crit_resist > 0.001:
 		_row(_content, "Resist. crítico", _fmt_pct(c.crit_resist))
 	# La defensa MAGICA va aqui, con la fisica y la vida, y para TODO el mundo: no es una stat de

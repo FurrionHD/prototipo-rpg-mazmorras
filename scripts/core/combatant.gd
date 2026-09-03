@@ -475,9 +475,14 @@ func roll_imbue(target: Combatant) -> String:
 	# que envenena su daga no tiene Magia, asi que medirlo por Magia lo dejaba sin veneno.
 	var stat: float = float(abilities.destreza) if imbue_por_destreza else float(abilities.magia)
 	var rival: float = float(target.abilities.resistencia)
-	var resiste: float = 1.0 - target.resist_estados()
-	var p2: float = StatsMath.imbue_proc_chance(imbue_prob_doble, stat, rival, imbue_por_destreza) * resiste
-	var p1: float = StatsMath.imbue_proc_chance(imbue_prob, stat, rival, imbue_por_destreza) * resiste
+	# Por la puerta comun: eficacia mia contra su resistencia (ver StatusEffects.prob_final). Antes
+	# esto se restaba a mano aqui, que es como el aturdir acabo funcionando distinto a todo lo demas.
+	var p2: float = StatusEffects.prob_final(
+		StatsMath.imbue_proc_chance(imbue_prob_doble, stat, rival, imbue_por_destreza),
+		self, target, imbue_estado)
+	var p1: float = StatusEffects.prob_final(
+		StatsMath.imbue_proc_chance(imbue_prob, stat, rival, imbue_por_destreza),
+		self, target, imbue_estado)
 	# DOS ESCALONES en una sola tirada: el gordo primero. Asi "60% un stack, 10% dos" es exactamente
 	# eso -- 10% dos, 60% uno, 30% nada -- y no dos tiradas que se pisan.
 	var r: float = randf()
@@ -753,6 +758,11 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	if es_inmune(id):
 		print("[estado] %s es INMUNE a %s" % [nombre, String(d.get("nombre", "?"))])
 		return
+	# UN CONTROL QUE PRENDE gasta escalon del decaimiento (el siguiente costara el doble). Va aqui,
+	# en el choke point, y no en cada tirada: fallar NO gasta escalon -- si lo gastara, resistir un
+	# aturdimiento te haria mas resistente al siguiente sin haberte costado nada.
+	if StatusEffects.es_control(id):
+		anotar_control()
 	# FAMILIAS EXCLUYENTES: solo un estado de cada familia a la vez (hoy, los platos de cocina: no
 	# puedes ir comido de dos cosas). Va aqui y no en quien da de comer porque por aqui pasan las dos
 	# vias —comer en el mapa y comer en combate— y ademas la vuelta del combate
@@ -924,6 +934,7 @@ func _min_turns_status(id: int):
 # se saltan el PRIMER decremento (flag 'fresh'), asi un buff/debuff de 3 turnos sigue
 # activo durante la accion de los 3 turnos (si no, se "gasta" uno antes de poder usarlo).
 func tick_statuses() -> Dictionary:
+	enfriar_control()   # un turno mas sin que le prenda un control: el decaimiento se va soltando
 	var antes_de_tick: int = statuses.size()
 	var total_dmg: float = 0.0
 	var total_heal: float = 0.0
@@ -1176,8 +1187,101 @@ func status_evade_flat() -> float:
 # meter un estado se calcula en cinco puntos distintos (golpes, hechizos, habilidades del jugador,
 # habilidades enemigas, imbuiciones) y si uno se queda leyendo status_resist a pelo el plato
 # funciona a medias segun quien te ataque, que es justo el bug que no se ve.
-func resist_estados() -> float:
-	return clampf(status_resist + status_resist_flat(), 0.0, 0.95)
+# YA NO SE CAPA AL 95%. El tope existia porque la formula era una RESTA (1 - resistencia) y ahi el
+# 100% era inmunidad literal: habia que cortar antes de llegar. Con el cociente de
+# StatusEffects.prob_final la resistencia es ilimitada y nunca hace inmune, que es justo lo que hace
+# falta para que dentro de ocho tiers de armadura subirla siga significando algo. 3.0 = 300%.
+#
+# 'id' = para que estado se pregunta. Hay resistencias que solo valen para una FAMILIA: los enemigos
+# de piedra aguantan el mazazo (control) pero no el veneno. -1 = "en general", lo que pintan las
+# fichas.
+#
+# 'con_afinidad' = false devuelve lo mismo SIN el descuento del manto elemental. Sirve para saber si
+# ha sido la afinidad la que te ha librado (y cobrarle una carga solo entonces): es el mismo servicio
+# que daba stun_taken_mult(false).
+func resist_estados(id: int = -1, con_afinidad: bool = true) -> float:
+	var r: float = status_resist + status_resist_flat()
+	if id >= 0 and StatusEffects.es_control(id):
+		r += _resist_control_extra(con_afinidad)
+	return maxf(r, -0.9)
+
+
+# LO QUE SUMA (o resta) LA RESISTENCIA SOLO CONTRA EL CONTROL. Aqui es donde aterriza todo lo que
+# antes vivia en su propio carril multiplicativo (stun_taken_mult) y hacia que el aturdimiento
+# funcionara distinto a los demas estados. Se traduce a "resistencia" para que pase por la MISMA
+# formula, y la traduccion es exacta: un multiplicador m equivale a una resistencia de (1/m - 1).
+#
+#   stun_resist 0.5 (golem)      -> antes x0.5   -> ahora +1.0 de resistencia = mitad de prob.  ✔
+#   afinidad Rayo x0.8           -> antes x0.8   -> ahora +0.25                                  ✔
+#   estado RAYO encima x1.5      -> antes x1.5   -> ahora -0.33 (te aturden MAS facil)           ✔
+func _resist_control_extra(con_afinidad: bool = true) -> float:
+	var m: float = 1.0 - clampf(stun_resist, 0.0, 0.95)
+	if con_afinidad:
+		m *= Elementos.stun_taken_por_afinidad(elemento)
+	for e in statuses:
+		m *= e.stun_prob_mult()
+	return 1.0 / maxf(m, 0.05) - 1.0
+
+
+# EFICACIA: lo que empuja MIS estados sobre el de enfrente, el espejo exacto de la resistencia. 0 =
+# nada; 1.0 = +100%, que devuelve a la probabilidad base a alguien con 100% de resistencia.
+#
+# Sin tope por arriba, por lo mismo que la resistencia: es el eje que tiene que seguir creciendo
+# cuando el equipo llegue a tiers altos. Lo rellena Game al montar el combatiente (equipo) y
+# EnemyData (rasgo del bicho + curva del piso).
+var eficacia: float = 0.0
+
+func eficacia_estados() -> float:
+	return maxf(eficacia + _eficacia_flat(), 0.0)
+
+func _eficacia_flat() -> float:
+	var s: float = 0.0
+	for e in statuses:
+		s += e.flat_de("eficacia_flat")
+	return s
+
+
+# ============================================================
+#  DECAIMIENTO DE CONTROL
+# ============================================================
+# Cada control que PRENDE sobre este combatiente hace el siguiente mas caro: 100% / 50% / 25% y al
+# cuarto INMUNE. Se reinicia cuando pasan CONTROL_RESET turnos sin que le prenda ninguno.
+#
+# Existe porque sin esto un martillo con buena tirada convertia cualquier jefe en un muñeco: al Rey
+# Slime le metias dos aturdimientos y no llegaba a castear NI la invocacion ni la ola de babas, o
+# sea que su kit entero desaparecia. Con esto interrumpirle sigue siendo rentable —le come el
+# cooldown— pero no se puede encadenar hasta el final.
+#
+# Vale para los DOS lados: a ti tambien te protege de que un grupo de bichos te deje sin jugar.
+const CONTROL_ESCALERA := [1.0, 0.5, 0.25, 0.0]
+const CONTROL_RESET := 4   # turnos sin que prenda ninguno para volver a empezar
+
+var _control_n: int = 0        # cuantos controles seguidos han prendido
+var _control_frio: int = 0     # turnos que lleva sin que le prenda ninguno
+
+
+# El descuento que le toca al PROXIMO control. 0 = inmune ahora mismo.
+func decaimiento_control(id: int) -> float:
+	if not StatusEffects.es_control(id):
+		return 1.0
+	return CONTROL_ESCALERA[mini(_control_n, CONTROL_ESCALERA.size() - 1)]
+
+
+# Lo llama apply_status cuando un control PRENDE de verdad (no cuando se intenta): fallar no gasta
+# escalon, o resistir un aturdimiento te haria mas resistente al siguiente sin motivo.
+func anotar_control() -> void:
+	_control_n = mini(_control_n + 1, CONTROL_ESCALERA.size() - 1)
+	_control_frio = 0
+
+
+# Un turno mas sin que le prenda ningun control. Lo llama tick_statuses.
+func enfriar_control() -> void:
+	if _control_n <= 0:
+		return
+	_control_frio += 1
+	if _control_frio >= CONTROL_RESET:
+		_control_n = 0
+		_control_frio = 0
 
 func status_resist_flat() -> float:
 	var s: float = 0.0
@@ -1348,17 +1452,11 @@ func puede_atacar() -> bool:
 			return false
 	return true
 
-# Multiplicador de la prob. de aturdir que RECIBE este combatiente. Lo SUBE el estado RAYO
-# (x1.5) y lo BAJA la afinidad de Rayo (cuerpo imbuido: resistente al aturdimiento, no inmune).
-# 'con_afinidad' = false devuelve lo mismo SIN el descuento del manto: sirve para saber si ha sido
-# la afinidad la que te ha librado del aturdimiento (y cobrarle la carga solo entonces).
-func stun_taken_mult(con_afinidad: bool = true) -> float:
-	var m: float = 1.0 - clampf(stun_resist, 0.0, 1.0)
-	if con_afinidad:
-		m *= Elementos.stun_taken_por_afinidad(elemento)
-	for e in statuses:
-		m *= e.stun_prob_mult()
-	return m
+# NOTA: aqui vivia stun_taken_mult(), el multiplicador propio del aturdimiento. Se retiro al
+# unificar: su contenido (stun_resist, la afinidad y el estado Rayo) es ahora resistencia de FAMILIA
+# y se calcula en _resist_control_extra, para que el aturdir pase por la misma formula que todo lo
+# demas en vez de tener carril propio.
+
 
 # Tira los estados "al golpear" de este combatiente sobre 'target' (tras un golpe que
 # acierta). Cada uno con su propia probabilidad. Devuelve los NOMBRES aplicados (para
@@ -1375,8 +1473,8 @@ func roll_on_hit(target: Combatant) -> Array:
 	for a in on_hit:
 		if a.estado < 0:
 			continue
-		# La resistencia a estados del OBJETIVO baja la probabilidad de que prenda.
-		var p: float = a.prob * (1.0 - target.resist_estados())
+		# Mi eficacia contra su resistencia, por la puerta comun (ver StatusEffects.prob_final).
+		var p: float = StatusEffects.prob_final(a.prob, self, target, a.estado)
 		if randf() >= p:
 			continue
 		var mag: float = StatusEffects.app_magnitude(a, atk(), motion_value)   # sangrado escala con MI ataque (mv invertido)
