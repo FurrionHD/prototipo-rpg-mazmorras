@@ -294,6 +294,8 @@ func _nombre_item(it: Resource) -> String:
 		# nombre_mostrado() lleva ya la talla y la corona del record; en todo lo que no es pescado
 		# devuelve el nombre a secas.
 		return "%s\n(%s)" % [m.nombre_mostrado(), m.calidad_texto()]
+	if it is ConsumableData:
+		return (it as ConsumableData).nombre
 	return "?"
 
 
@@ -717,6 +719,14 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 			_note(vb, "Ya te sabes este hechizo: el libro no te dice nada nuevo.")
 		elif Game.hechizos_llenos():
 			_note(vb, "No te caben más de %d hechizos a la vez: tendrás que olvidar uno antes." % Game.MAX_HECHIZOS)
+
+	# SOLTAR. En un jugador es tirarla al suelo y volver a cogerla, poco mas; lo que arregla de
+	# verdad es el MULTIJUGADOR, donde hasta ahora no habia NINGUNA forma de pasarle una poción a
+	# otro: el que las llevaba encima se las quedaba aunque el que se estuviera muriendo fuera el
+	# otro. Vale para toda la pestaña (grimorios y platos incluidos) por lo mismo.
+	vb.add_child(HSeparator.new())
+	MenuScaffold.boton(vb, "Soltar al suelo", _on_soltar)
+	_note(vb, "Lo que sueltes queda a tus pies; lo puede recoger con [F] cualquiera del grupo.")
 
 
 func _on_usar(cons: ConsumableData, pj: PersonajeData = null) -> void:

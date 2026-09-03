@@ -9737,6 +9737,12 @@ func embolsar(item: Resource) -> void:
 		print("Recoges: Cristal Cat ", c.categoria, " (", c.calidad_texto(),
 			"). Total cristales: ", crystals.size())
 		_aviso_recogida("Cristal T%d" % c.categoria, 1, c.calidad_texto())
+	elif item is ConsumableData:
+		# Por el mismo embudo que las compra la tienda: es un contador, no una lista.
+		var cd := item as ConsumableData
+		add_consumable(cd, 1)
+		print("Recoges: ", cd.nombre, ". Total consumibles: ", consumibles_total())
+		_aviso_recogida(cd.nombre, 1, "")
 
 
 # Saca de la bolsa UNA unidad equivalente al modelo (y la devuelve). null si no queda.
@@ -9764,6 +9770,20 @@ func _sacar_de_bolsa(modelo: Resource) -> Resource:
 			if c2.data == mm.data and c2.calidad == mm.calidad:
 				carbon.remove_at(i)
 				return c2
+	elif modelo is ConsumableData:
+		# LAS POCIONES NO SON ITEMS: la bolsa las lleva como un contador por .tres
+		# (Game.consumables), asi que aqui no hay nada que "sacar" de un array -- se resta una y se
+		# devuelve el PROPIO recurso, que es lo unico que hace falta para saber que hay en el suelo.
+		# Como el .tres es compartido, el pickup no puede guardar estado por unidad; tampoco lo
+		# necesita.
+		var cd := modelo as ConsumableData
+		if quitar_consumible(cd, 1) <= 0:
+			return null
+		# Si sueltas el ultimo cebo, se queda tambien fuera del anzuelo: dejarlo puesto seguiria
+		# atrayendo peces con un cebo que ya no tienes.
+		if cd.es_cebo() and cebo_activo == cd and int(consumables.get(cd, 0)) <= 0:
+			cebo_activo = null
+		return cd
 	return null
 
 
@@ -9775,6 +9795,8 @@ func _nombre_item(item: Resource) -> String:
 	if item is MaterialItem:
 		var m := item as MaterialItem
 		return "%s (%s)" % [m.nombre(), m.calidad_texto()]
+	if item is ConsumableData:
+		return (item as ConsumableData).nombre
 	return "?"
 
 # Multiplicador de velocidad por sobrecarga (1.0 = normal). Baja cuanto mas te pasas del umbral,

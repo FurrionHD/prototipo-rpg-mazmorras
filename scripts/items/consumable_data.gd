@@ -81,6 +81,61 @@ class_name ConsumableData
 # los grimorios son el gasto gordo del principio.
 @export var valor_base: int = 100
 
+# COLOR del frasco cuando esta TIRADO EN EL SUELO (ver drop_pickup.gd). Se deja en transparente a
+# proposito: asi el color lo DERIVA color_suelo() del propio contenido y no hay que rellenarlo a
+# mano en cincuenta .tres (ni acordarse de tocarlo al crear el siguiente). Solo se pone aqui para
+# forzar un objeto concreto que no encaje en ninguna familia.
+@export var color_frasco: Color = Color(0, 0, 0, 0)
+
+
+# Color con el que se ve este consumible en el SUELO. Por familia, y dentro de la familia por
+# POTENCIA: una poción mayor de vida es un rojo mas vivo que una menor, asi que de un vistazo se
+# distingue lo que merece la pena agacharse a coger sin leer el nombre.
+#
+# El eje de potencia es lo que cura/da (`cura_total` / `mana_total`) medido contra un tope suave:
+# no hay tabla de tiers escrita a mano, o sea que una poción nueva se colorea sola.
+func color_suelo() -> Color:
+	if color_frasco.a > 0.0:
+		return color_frasco
+	if es_grimorio():
+		return Color(0.62, 0.42, 0.85)          # morado de libro
+	if es_plato():
+		return Color(0.92, 0.62, 0.28)          # naranja de guiso
+	if es_cebo():
+		return Color(0.55, 0.72, 0.32)          # verde de cebo
+	if es_vuelta_pueblo():
+		return Color(0.95, 0.85, 0.40)          # dorado de piedra
+	# Pociones: rojo (vida) o azul (maná), de un tono APAGADO a uno VIVO segun lo que lleven dentro.
+	# Una mixta tira al color de lo que mas aporte.
+	var vida: float = cura_total
+	var mana: float = mana_total
+	if vida >= mana:
+		return POCION_VIDA_FLOJA.lerp(POCION_VIDA_FUERTE, _t_potencia(vida, VIDA_BASE))
+	return POCION_MANA_FLOJA.lerp(POCION_MANA_FUERTE, _t_potencia(mana, MANA_BASE))
+
+
+# 0 = la poción mas floja de su familia, 1 = el tono mas vivo. La escala va por DUPLICACIONES y no
+# por un tope fijo, porque la vida y el maná viven en ordenes de magnitud distintos (la menor de
+# vida cura 23 y la de maná da 8): con un tope comun, las de maná se quedaban todas en el mismo
+# azul. Asi cada vez que una poción dobla a la anterior sube un escalon, den lo que den, y una de
+# un tier futuro se colorea sola sin tocar nada.
+func _t_potencia(v: float, base: float) -> float:
+	if v <= base:
+		return 0.0
+	return clampf(log(v / base) / log(2.0) / DOBLES_AL_TOPE, 0.0, 1.0)
+
+# La poción mas floja de cada familia (la "menor" de hoy) es el arranque de la escala.
+const VIDA_BASE := 20.0
+const MANA_BASE := 7.0
+# Cuantas veces tiene que DOBLAR la potencia para llegar al tono mas vivo. Cuatro deja sitio de
+# sobra: hoy la media es poco mas de dos dobles de la menor.
+const DOBLES_AL_TOPE := 4.0
+
+const POCION_VIDA_FLOJA := Color(0.52, 0.13, 0.16)
+const POCION_VIDA_FUERTE := Color(1.00, 0.33, 0.30)
+const POCION_MANA_FLOJA := Color(0.15, 0.21, 0.52)
+const POCION_MANA_FUERTE := Color(0.42, 0.66, 1.00)
+
 func es_grimorio() -> bool:
 	return spell != null
 

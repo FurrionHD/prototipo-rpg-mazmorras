@@ -2921,6 +2921,12 @@ func _item_a_dict(item: Resource) -> Dictionary:
 	if item is Cristal:
 		var c := item as Cristal
 		return {"t": "cri", "categoria": c.categoria, "calidad": int(c.calidad)}
+	if item is ConsumableData:
+		# Solo la RUTA: un consumible no tiene estado por unidad (la bolsa es un contador por .tres),
+		# asi que el .tres del proyecto ES el objeto. load() cachea, o sea que al rehidratarlo sale
+		# la MISMA instancia que usa Game.consumables como clave -- y por eso recogerlo suma en la
+		# pila que ya tenias en vez de abrir una segunda entrada con el mismo nombre.
+		return {"t": "con", "ruta": (item as ConsumableData).resource_path}
 	return {}
 
 
@@ -2935,6 +2941,8 @@ func _item_de_dict(d: Dictionary) -> Resource:
 		c.categoria = int(d["categoria"])
 		c.calidad = int(d["calidad"])
 		return c
+	if d.get("t") == "con":
+		return load(str(d["ruta"])) as ConsumableData
 	return null
 
 
