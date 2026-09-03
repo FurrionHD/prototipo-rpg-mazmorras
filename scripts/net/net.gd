@@ -535,6 +535,11 @@ func desconectar() -> void:
 # _peers y al reencontrarse pintaria datos rancios (el cuadrado blanco que se arreglo en 19f0aaa).
 # Solo la POSICION (60 Hz -> estrangulada a 20) se filtra por lugar.
 
+# Lo mismo, publico: lo pregunta el charco para no tratarse a si mismo como un pescador remoto.
+func mi_peer() -> int:
+	return _mi_id()
+
+
 # El id de este peer, para meterlo como "emisor" cuando difundo yo directamente (host).
 func _mi_id() -> int:
 	return multiplayer.get_unique_id()
@@ -547,8 +552,30 @@ func _mi_id() -> int:
 const _POS_TICK_MS := 50   # ~20 Hz, hermano de _ENEM_TICK (que va en segundos)
 var _pos_last_ms := 0
 
+# --- LA POSE, DENTRO DEL PAQUETE DE POSICION -------------------------------------------------
+# Lo que hace falta para dibujar a otro jugador HACIENDO cosas, y no solo andando: si va agachado o
+# corriendo, si lleva el arma en la mano, y si esta soltando un espadazo. Antes no viajaba NADA de
+# esto -- remote_player pintaba "modo andar" a pelo -- y por eso el compañero cruzaba la mazmorra sin
+# sacar el arma y sin dar un solo golpe visible.
+#
+# VA EMPAQUETADO EN UN INT y pegado a la posicion, no en un RPC aparte. Motivo: un golpe dura ~0,67 s
+# y el paquete sale a 20 Hz, asi que un espadazo cae dentro de ~13 paquetes seguidos. Aunque el canal
+# sea unreliable y se pierdan varios, el golpe se ve igual -- mientras que un aviso suelto que se
+# pierda no se ve NUNCA. El contador de golpes (que sube en cada espadazo) es lo que distingue "sigue
+# el mismo golpe" de "ha empezado otro".
+const POSE_MODO := 0b11          # bits 0-1: movement_mode (0 sigilo, 1 andar, 2 correr)
+const POSE_DESENV := 1 << 2      # bit 2: lleva el arma fuera
+const POSE_VARIANTE := 0b11 << 3 # bits 3-4: la mano del golpe (0 der, 1 izq, 2 dos manos)
+const POSE_SEQ := 0xFF << 5      # bits 5-12: contador de espadazos, da la vuelta solo
+
+
+static func empaquetar_pose(modo: int, desenvainado: bool, variante: int, seq: int) -> int:
+	return (clampi(modo, 0, 3)) | (POSE_DESENV if desenvainado else 0) \
+		| (clampi(variante, 0, 3) << 3) | ((seq & 0xFF) << 5)
+
+
 # La llama el Player LOCAL cada tick de fisica si Net.activo. Difunde su posicion a los de MI lugar.
-func enviar_estado(pos: Vector2, facing: Vector2, comps: Array = []) -> void:
+func enviar_estado(pos: Vector2, facing: Vector2, comps: Array = [], pose: int = 0) -> void:
 	if not activo or multiplayer.multiplayer_peer == null:
 		return
 	var ahora := Time.get_ticks_msec()
@@ -558,23 +585,23 @@ func enviar_estado(pos: Vector2, facing: Vector2, comps: Array = []) -> void:
 	if es_host:
 		for pid in _peers:
 			if _peers[pid].get("lugar", "") == _mi_lugar:
-				_recibir_estado.rpc_id(pid, _mi_id(), pos, facing, comps)
+				_recibir_estado.rpc_id(pid, _mi_id(), pos, facing, comps, pose)
 	else:
-		_rel_estado.rpc_id(1, pos, facing, comps)
+		_rel_estado.rpc_id(1, pos, facing, comps, pose)
 
 
 # Cliente -> host: reparte mi posicion a los de MI lugar (el host sabe donde esta cada cual).
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _rel_estado(pos: Vector2, facing: Vector2, comps: Array = []) -> void:
+func _rel_estado(pos: Vector2, facing: Vector2, comps: Array = [], pose: int = 0) -> void:
 	if not es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
 	var lugar: String = _peers.get(de, {}).get("lugar", "")
 	if _mi_lugar == lugar:
-		_recibir_estado(de, pos, facing, comps)
+		_recibir_estado(de, pos, facing, comps, pose)
 	for pid in _peers:
 		if pid != de and _peers[pid].get("lugar", "") == lugar:
-			_recibir_estado.rpc_id(pid, de, pos, facing, comps)
+			_recibir_estado.rpc_id(pid, de, pos, facing, comps, pose)
 
 
 # --- ¿QUIEN ESTA PELEANDO? (hito 5.3) --------------------------------------------------------
@@ -716,12 +743,14 @@ func _pintar_brote(paredes_px: Array, dur: float, amp: float, col: Color) -> voi
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _recibir_estado(emisor: int, pos: Vector2, _facing: Vector2, comps: Array = []) -> void:
+func _recibir_estado(emisor: int, pos: Vector2, _facing: Vector2, comps: Array = [],
+		pose: int = 0) -> void:
 	if _peers.has(emisor):
 		_peers[emisor]["pos"] = pos   # se recuerda: al reconstruir su avatar aparece donde iba
 	var a = _avatares.get(emisor)   # SIN tipar: puede ser una instancia ya liberada (ver nota abajo)
 	if a != null and is_instance_valid(a):
 		a.ir_a(pos)
+		a.aplicar_pose(pose)   # su modo de andar, el arma fuera y el espadazo (ver empaquetar_pose)
 	# Y sus acompañantes. Si aun no tengo tantos cuerpos como manda, se crean sobre la marcha (su
 	# aspecto llega aparte, por _set_grupo).
 	if not comps.is_empty():
@@ -765,7 +794,7 @@ func _crear_cuerpo_companero(peer_id: int, idx: int):
 		var d: Dictionary = comps[idx]
 		c.aplicar_aspecto(d.get("color", Color.WHITE), float(d.get("metal", 0.0)),
 			String(d.get("nombre", "")), d.get("imagen", PackedByteArray()),
-			float(d.get("alpha", 1.0)), d.get("piezas", {}))
+			float(d.get("alpha", 1.0)), d.get("piezas", {}), d.get("equipo", {}))
 	# Su imbuicion, de lo ultimo que anuncio. Sin esto un companero recreado (al viajar, o al
 	# entrar tu a la partida) nace sin rastro aunque su dueño lleve el manto puesto.
 	# +1 porque el hueco 0 del paquete es el LIDER (ver Net.anunciar_imbue).
@@ -787,16 +816,21 @@ func anunciar_aspecto() -> void:
 	# Y sus PIEZAS: el pelo y la ropa. Van aparte del color porque cada una lleva el suyo (ver
 	# PersonajeData.aspecto). Sin esto el compañero te ve calvo y desnudo, y no da ningun error.
 	var pz: Dictionary = Game.lider().aspecto_completo()["piezas"]
+	# Y LO QUE LLEVA PUESTO. Mismo motivo que las piezas, un escalon mas arriba: sin esto el otro
+	# jugador te ve sin armadura, sin arma y sin escudo llevaras lo que llevaras, porque las capas de
+	# equipo salen de los campos equipped_* de la ficha (ver JugadorSprites._capas_armadura). Viaja la
+	# IDENTIDAD de cada pieza (ruta + tier/rareza/mejoras), no el objeto: ver Game.pj_a_dict.
+	var eq: Dictionary = Game.pj_a_dict(Game.lider()).get("equipo", {})
 	if es_host:
 		for pid in _peers:
-			_set_aspecto.rpc_id(pid, _mi_id(), c, m, n, img, al, pz)
+			_set_aspecto.rpc_id(pid, _mi_id(), c, m, n, img, al, pz, eq)
 	else:
-		_rel_aspecto.rpc_id(1, c, m, n, img, al, pz)
+		_rel_aspecto.rpc_id(1, c, m, n, img, al, pz, eq)
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _set_aspecto(emisor: int, color: Color, metal: float, nombre: String, imagen: PackedByteArray,
-		alpha: float = 1.0, piezas: Dictionary = {}) -> void:
+		alpha: float = 1.0, piezas: Dictionary = {}, equipo: Dictionary = {}) -> void:
 	if not _peers.has(emisor):
 		return
 	_peers[emisor]["color"] = color
@@ -805,22 +839,23 @@ func _set_aspecto(emisor: int, color: Color, metal: float, nombre: String, image
 	_peers[emisor]["imagen"] = imagen
 	_peers[emisor]["alpha"] = alpha
 	_peers[emisor]["piezas"] = piezas
+	_peers[emisor]["equipo"] = equipo
 	# Repinta su avatar YA (si lo tengo delante): sin esto el cambio no se veria hasta reconstruir.
 	var a = _avatares.get(emisor)   # SIN tipar: puede estar liberado
 	if a != null and is_instance_valid(a) and a.has_method("aplicar_aspecto"):
-		a.aplicar_aspecto(color, metal, nombre, imagen, alpha, piezas)
+		a.aplicar_aspecto(color, metal, nombre, imagen, alpha, piezas, equipo)
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rel_aspecto(color: Color, metal: float, nombre: String, imagen: PackedByteArray,
-		alpha: float = 1.0, piezas: Dictionary = {}) -> void:
+		alpha: float = 1.0, piezas: Dictionary = {}, equipo: Dictionary = {}) -> void:
 	if not es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	_set_aspecto(de, color, metal, nombre, imagen, alpha, piezas)
+	_set_aspecto(de, color, metal, nombre, imagen, alpha, piezas, equipo)
 	for pid in _peers:
 		if pid != de:
-			_set_aspecto.rpc_id(pid, de, color, metal, nombre, imagen, alpha, piezas)
+			_set_aspecto.rpc_id(pid, de, color, metal, nombre, imagen, alpha, piezas, equipo)
 
 
 # --- ASPECTO DE MI GRUPO (hito 5.4) ----------------------------------------------------------
@@ -835,7 +870,10 @@ func anunciar_grupo() -> void:
 		# aqui es la que hace que el compañero se vea distinto en la pantalla del otro, y solo ahi.
 		datos.append({"color": pj.color, "metal": pj.metalico, "nombre": pj.nombre,
 			"imagen": pj.imagen, "alpha": pj.color_alpha,
-			"piezas": pj.aspecto_completo()["piezas"]})
+			"piezas": pj.aspecto_completo()["piezas"],
+			# Lo que lleva puesto, igual que el lider (ver anunciar_aspecto). Aqui sale gratis porque
+			# esto ya viajaba como diccionario.
+			"equipo": Game.pj_a_dict(pj).get("equipo", {})})
 	if es_host:
 		for pid in _peers:
 			_set_grupo.rpc_id(pid, _mi_id(), datos)
@@ -859,7 +897,7 @@ func _set_grupo(emisor: int, datos: Array) -> void:
 			var d: Dictionary = datos[i]
 			lista[i].aplicar_aspecto(d.get("color", Color.WHITE), float(d.get("metal", 0.0)),
 				String(d.get("nombre", "")), d.get("imagen", PackedByteArray()),
-				float(d.get("alpha", 1.0)), d.get("piezas", {}))
+				float(d.get("alpha", 1.0)), d.get("piezas", {}), d.get("equipo", {}))
 	_avatares_comp[emisor] = lista
 
 
@@ -3356,8 +3394,13 @@ func _rel_charco(lugar: String, snap: Dictionary) -> void:
 # not allowed", asi que el corcho del host NUNCA llegaba al dueño: veia los peces nadar, echaba el
 # sedal y no le picaba jamas. Si soy el host, el enrutado me lo hago en local pasandome como
 # pescador (yo soy el peer 1).
+#
+# LO PUBLICA TAMBIEN EL DUEÑO. Antes salia de vacio si el piso era mio -- logico cuando esto solo
+# servia para pedir mordidas, que el dueño se resuelve solo --, pero ahora tambien es lo que se PINTA:
+# callandolo, el dueño del piso era el unico al que nadie veia pescar. Su propio charco se ignora a si
+# mismo por peer id (ver fishing_spot.corcho_de).
 func publicar_corcho(pos: Vector2, esta_activo: bool) -> void:
-	if not activo or _soy_dueno or multiplayer.multiplayer_peer == null:
+	if not activo or multiplayer.multiplayer_peer == null:
 		return
 	if es_host:
 		_encaminar_corcho(1, _mi_lugar, pos, esta_activo)
@@ -3370,57 +3413,69 @@ func _corcho_pesca(lugar: String, pos: Vector2, esta_activo: bool) -> void:
 	_encaminar_corcho(multiplayer.get_remote_sender_id(), lugar, pos, esta_activo)
 
 
-# SOLO host (o el propio host haciendose de pescador): el corcho va a quien simule ese piso.
+# El corcho va a TODOS los que esten en ese piso, no solo a quien lo simula.
+#
+# Antes iba unicamente al dueño, porque lo unico que se hacia con el era resolver mordidas. Pero eso
+# dejaba la pesca en multi MUDA: no se veia a nadie pescar -- ni la caña, ni el hilo, ni el corcho en
+# el agua --, cada uno miraba su propio sedal y el charco parecia vacio. El dueño sigue siendo el
+# unico que DECIDE (ver fishing_spot.corcho_de); los demas solo lo PINTAN.
 func _encaminar_corcho(de: int, lugar: String, pos: Vector2, esta_activo: bool) -> void:
-	# Yo soy el dueño de ese piso: el corcho es para mi charco.
-	if _mi_lugar == lugar and _soy_dueno and _charco != null and is_instance_valid(_charco):
-		_charco.corcho_remoto(de, pos, esta_activo)
-		return
-	# No lo soy: si soy el host, se lo encamino a quien si.
+	if _mi_lugar == lugar and _charco != null and is_instance_valid(_charco):
+		_charco.corcho_de(de, pos, esta_activo)
 	if not es_host:
 		return
-	var dueno: int = _dueno_de(lugar)
-	if dueno != 0 and dueno != de:
-		_corcho_pesca_a.rpc_id(dueno, de, lugar, pos, esta_activo)
+	for peer_id in _peers:
+		if peer_id != de and _peers[peer_id].get("lugar", "") == lugar:
+			_corcho_pesca_a.rpc_id(peer_id, de, lugar, pos, esta_activo)
 
 
 @rpc("authority", "call_remote", "unreliable_ordered")
 func _corcho_pesca_a(de: int, lugar: String, pos: Vector2, esta_activo: bool) -> void:
-	if _mi_lugar == lugar and _soy_dueno and _charco != null and is_instance_valid(_charco):
-		_charco.corcho_remoto(de, pos, esta_activo)
+	if _mi_lugar == lugar and _charco != null and is_instance_valid(_charco):
+		_charco.corcho_de(de, pos, esta_activo)
+
+
+# El CUERPO de otro jugador en mi mundo, o null. Lo pide el charco para colgarle el sedal del sitio
+# correcto: un hilo que sale de la nada no dice quien esta pescando.
+func cuerpo_de(peer: int):
+	var a = _avatares.get(peer)
+	return a if a != null and is_instance_valid(a) else null
 
 
 # --- 3) LA MORDIDA: el dueño le dice a un pescador que ha picado, y cual ---
-# 'idx' es el indice del pez en el banco, que es la misma lista en las dos maquinas (va en el snap).
-func avisar_mordida(a_quien: int, idx: int) -> void:
+# Viaja el NONCE del pez, no su indice en el banco. El indice parecia valer (la lista va en el snap)
+# pero NO es la misma en las dos maquinas: si una fila del snap no se pudo reconstruir, el array del
+# espejo queda desplazado, y ademas el del dueño cambia entre foto y foto segun nacen y salen peces.
+# El nonce es la identidad del animal y sale del mismo sorteo en los dos lados (ver _nacer_pez).
+func avisar_mordida(a_quien: int, nonce: int) -> void:
 	if not activo or multiplayer.multiplayer_peer == null:
 		return
 	if es_host:
-		_pez_pica.rpc_id(a_quien, idx)
+		_pez_pica.rpc_id(a_quien, nonce)
 	else:
-		_rel_mordida.rpc_id(1, a_quien, idx)
+		_rel_mordida.rpc_id(1, a_quien, nonce)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rel_mordida(a_quien: int, idx: int) -> void:
+func _rel_mordida(a_quien: int, nonce: int) -> void:
 	if not es_host:
 		return
 	if a_quien == 1:
-		_pez_pica(idx)
+		_pez_pica(nonce)
 	else:
-		_pez_pica.rpc_id(a_quien, idx)
+		_pez_pica.rpc_id(a_quien, nonce)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pez_pica(idx: int) -> void:
+func _pez_pica(nonce: int) -> void:
 	if _charco != null and is_instance_valid(_charco):
-		_charco.me_ha_picado(idx)
+		_charco.me_ha_picado(nonce)
 
 
 # --- 4) EL RESULTADO: el pescador le dice al dueño como acabo ---
 # 'cobrado' true = me lo llevo (sale del banco y arranca su gate de 10 min); false = se escapo o
 # recogi el sedal (el pez vuelve a nadar y el banco no se toca).
-func resolver_pesca(idx: int, cobrado: bool) -> void:
+func resolver_pesca(nonce: int, cobrado: bool) -> void:
 	if not activo or multiplayer.multiplayer_peer == null:
 		return
 	if _soy_dueno:
@@ -3428,32 +3483,32 @@ func resolver_pesca(idx: int, cobrado: bool) -> void:
 	# Mismo caso que en publicar_corcho: el host que solo espeja el piso no puede mandarse el
 	# resultado a si mismo. Sin esto, el pez que pescaba el host no salia nunca del banco del dueño.
 	if es_host:
-		_encaminar_fin_pesca(1, _mi_lugar, idx, cobrado)
+		_encaminar_fin_pesca(1, _mi_lugar, nonce, cobrado)
 	else:
-		_fin_pesca.rpc_id(1, _mi_lugar, idx, cobrado)
+		_fin_pesca.rpc_id(1, _mi_lugar, nonce, cobrado)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _fin_pesca(lugar: String, idx: int, cobrado: bool) -> void:
-	_encaminar_fin_pesca(multiplayer.get_remote_sender_id(), lugar, idx, cobrado)
+func _fin_pesca(lugar: String, nonce: int, cobrado: bool) -> void:
+	_encaminar_fin_pesca(multiplayer.get_remote_sender_id(), lugar, nonce, cobrado)
 
 
 # SOLO host (o el propio host haciendose de pescador): el resultado va a quien simule ese piso.
-func _encaminar_fin_pesca(de: int, lugar: String, idx: int, cobrado: bool) -> void:
+func _encaminar_fin_pesca(de: int, lugar: String, nonce: int, cobrado: bool) -> void:
 	if _mi_lugar == lugar and _soy_dueno and _charco != null and is_instance_valid(_charco):
-		_charco.resolver_pez_remoto(de, idx, cobrado)
+		_charco.resolver_pez_remoto(de, nonce, cobrado)
 		return
 	if not es_host:
 		return
 	var dueno: int = _dueno_de(lugar)
 	if dueno != 0 and dueno != de:
-		_fin_pesca_a.rpc_id(dueno, de, lugar, idx, cobrado)
+		_fin_pesca_a.rpc_id(dueno, de, lugar, nonce, cobrado)
 
 
 @rpc("authority", "call_remote", "reliable")
-func _fin_pesca_a(de: int, lugar: String, idx: int, cobrado: bool) -> void:
+func _fin_pesca_a(de: int, lugar: String, nonce: int, cobrado: bool) -> void:
 	if _mi_lugar == lugar and _soy_dueno and _charco != null and is_instance_valid(_charco):
-		_charco.resolver_pez_remoto(de, idx, cobrado)
+		_charco.resolver_pez_remoto(de, nonce, cobrado)
 
 
 # Al desconectarse alguien, sus corchos y sus peces enganchados se sueltan: un pez reservado por un
@@ -5988,7 +6043,7 @@ func _crear_avatar_nodo(peer_id: int) -> void:
 	# meta, mismo patron que el net_id de bichos y drops.
 	av.set_meta("peer_id", peer_id)
 	av.aplicar_aspecto(p["color"], p["metal"], p["nombre"], p.get("imagen", PackedByteArray()),
-		float(p.get("alpha", 1.0)), p.get("piezas", {}))
+		float(p.get("alpha", 1.0)), p.get("piezas", {}), p.get("equipo", {}))
 	if p["pos"] != Vector2.INF:
 		av.ir_a(p["pos"])   # aparece donde iba, no en el origen
 	_avatares[peer_id] = av

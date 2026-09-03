@@ -24,7 +24,20 @@ const SUAVIZADO := 14.0   # rapidez del lerp hacia el objetivo (mas alto = mas p
 # deslizandose: aparecer alli directamente. Mismo espiritu que el RESCATE del companion.
 const SALTO := 200.0
 
+# Lo que dura un espadazo. Los MISMOS numeros que player.DUR_GOLPE/DUR_GOLPE_2M -- van duplicados
+# porque player.gd no tiene class_name y no se puede referenciar la constante de verdad (misma
+# situacion que enemy.EMBESTIDA_IMPACTO). Si se toca uno, tocar los tres.
+const DUR_GOLPE := 8.0 / 12.0
+const DUR_GOLPE_2M := 8.0 / 10.0
+
 var _objetivo := Vector2.INF   # ultimo destino recibido; INF = aun no ha llegado ninguno
+# LA POSE que llega por red (ver aplicar_pose). _golpe_seq = -1 hasta el primer paquete: asi el
+# estreno del cuerpo no se confunde con un golpe.
+var _modo: int = 1
+var _desenvainado: bool = false
+var _golpe_t: float = 0.0
+var _golpe_variante: int = 0
+var _golpe_seq: int = -1
 var _cuerpo: ColorRect = null
 var _nombre: Label = null
 # Su cuerpo dibujado (ver muneco_jugador.gd) y hacia donde mira, deducido de su movimiento.
@@ -86,7 +99,7 @@ func _ready() -> void:
 # ya recortado a 128x128 en el handshake y se convierte a textura aqui.
 func aplicar_aspecto(color: Color, metal: float, nombre: String,
 		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0,
-		piezas: Dictionary = {}) -> void:
+		piezas: Dictionary = {}, equipo: Dictionary = {}) -> void:
 	if _muneco == null:
 		_muneco = MunecoJugador.new()
 		add_child(_muneco)
@@ -95,7 +108,12 @@ func aplicar_aspecto(color: Color, metal: float, nombre: String,
 	# pero el muñeco necesita una para saber que pelo y que ropa lleva. Sin esto se montaba con null
 	# y el compañero se veia DESNUDO Y CALVO en la pantalla del otro, que es la version de "lo que no
 	# escribes en las dos puntas se pierde solo en multijugador".
-	var pj := PersonajeData.new()
+	#
+	# Y 'equipo' es la otra mitad de lo mismo: JugadorSprites saca las capas de armadura y de arma de
+	# los campos equipped_* de la ficha (ver _capas_armadura/_capas_arma), que en un PersonajeData
+	# recien estrenado son todos null. Por eso al otro jugador se le veia siempre sin peto, sin arma
+	# y sin escudo por la mazmorra, llevara lo que llevara. Ver Game.pj_de_dict.
+	var pj: PersonajeData = Game.pj_de_dict({"equipo": equipo})
 	pj.color = Color(color.r, color.g, color.b, 1.0)
 	pj.aspecto = PersonajeData.aspecto_nuevo(pj.color)
 	if not piezas.is_empty():
@@ -159,6 +177,28 @@ func cantar(texto: String, color: Color) -> void:
 	_globo.mostrar(texto, color)
 
 
+# LA POSE que viene pegada al paquete de posicion (ver Net.empaquetar_pose): como anda, si lleva el
+# arma fuera y si esta soltando un espadazo. Hasta esto, remote_player pintaba "modo andar" a pelo y
+# nada mas: al otro jugador se le veia cruzar la mazmorra sin desenvainar y sin dar un solo golpe,
+# aunque estuviera aporreando a un bicho delante de tus narices.
+#
+# El GOLPE se detecta por el contador, no por un flag: un flag "estoy golpeando" en un canal que
+# pierde paquetes se queda encendido o apagado de mas. El contador solo dice "ha empezado otro", y
+# el reloj de aqui es el que decide cuanto dura -- el mismo numero que usa el jugador local.
+func aplicar_pose(pose: int) -> void:
+	_modo = pose & Net.POSE_MODO
+	_desenvainado = (pose & Net.POSE_DESENV) != 0
+	var variante: int = (pose >> 3) & 0b11
+	var seq: int = (pose >> 5) & 0xFF
+	if seq != _golpe_seq:
+		# Un golpe nuevo. El primer paquete que llega tras crear el cuerpo NO cuenta como golpe: sin
+		# esto, cualquiera que se acabara de conectar arrancaba dando un espadazo al aire.
+		if _golpe_seq >= 0:
+			_golpe_variante = variante
+			_golpe_t = DUR_GOLPE_2M if variante == 2 else DUR_GOLPE
+		_golpe_seq = seq
+
+
 # Nuevo destino recibido de la red (lo llama Net al llegar cada paquete de posicion).
 func ir_a(pos: Vector2) -> void:
 	if _objetivo == Vector2.INF or global_position.distance_to(pos) > SALTO:
@@ -183,13 +223,18 @@ func _physics_process(delta: float) -> void:
 	# movimiento con teclas, asi que al soltarlas se queda apuntando a un sitio mientras el cuerpo
 	# aun se desliza hacia el ultimo destino recibido. Se le veria andar de lado. Aqui se dibuja lo
 	# que se ve hacer, que es lo que tiene que casar con la interpolacion.
-	if velocity.length() > 6.0:
+	var andando: bool = velocity.length() > 6.0
+	if andando:
 		_facing = velocity.normalized()
+	if _golpe_t > 0.0:
+		_golpe_t -= delta
+		# MIENTRAS PEGA, MIRA A DONDE PEGABA. Deducir el facing del movimiento (que es lo correcto
+		# andando, ver arriba) aqui no vale: se golpea PARADO, asi que la interpolacion no da
+		# direccion ninguna y el espadazo saldria siempre hacia el ultimo lado por el que se movio.
+		andando = false
 	if _muneco != null and _muneco.hay_dibujo():
-		# Modo 1 (andar) siempre: su sigilo y su carrera no viajan hoy. Es una mentira consciente y
-		# pequeña -- se le vera andar mientras corre -- y esta apuntada para la fase de red, donde ya
-		# hay que abrir un canal para el equipo que lleva puesto y el modo cabe de propina.
-		_muneco.animar(PoseJugador.animacion(_facing, 1, velocity.length() > 6.0))
+		_muneco.animar(PoseJugador.animacion(_facing, _modo, andando,
+			_golpe_t > 0.0, _desenvainado, _golpe_variante))
 
 
 # Lo mismo que el compañero y por lo mismo: el otro humano se dibuja con el mismo cuerpo, asi que

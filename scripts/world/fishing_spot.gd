@@ -803,6 +803,7 @@ func _process(delta: float) -> void:
 	if _soy_dueno():
 		_nadar(delta)
 		_reponer(delta)
+		_caducar_candados()
 		_mordidas_remotas()
 		_t_red += delta
 		if _t_red >= RED_TICK:
@@ -810,7 +811,11 @@ func _process(delta: float) -> void:
 			Net.difundir_charco(estado_red())
 	else:
 		_interpolar_peces(delta)
-		_publicar_mi_corcho(delta)
+	# EL CORCHO SE PUBLICA SIEMPRE, tambien si el piso es mio: es lo que los demas pintan para verme
+	# pescar (ver Net.publicar_corcho). Y los sedales ajenos se repintan siempre, este yo pescando o
+	# no: ver a tu compañero con la caña echada desde la orilla es medio motivo de que esto exista.
+	_publicar_mi_corcho(delta)
+	_pintar_sedales(delta)
 	if _estado == LIBRE:
 		return
 	# RECOGER EL SEDAL con la misma F con la que lo echaste. Mientras esperas estas dentro de un
@@ -1020,7 +1025,12 @@ func _quitar_pez(pescado: bool) -> void:
 	# el lo apunta en el de verdad (resolver_pez_remoto). Mi copia se limpia igual para que el
 	# minijuego siga su curso; la proxima foto la reconcilia.
 	if not _soy_dueno():
-		Net.resolver_pesca(_idx_enganchado if _idx_enganchado >= 0 else i, pescado)
+		# POR NONCE, no por indice. El indice es una posicion en un array que en el dueño cambia
+		# entre la foto y esta respuesta (un pez que sale, otro que nace), asi que llegaba apuntando
+		# a otro pez -o a ninguno- y el cobro se caia en silencio: la pieza se quedaba en el agua y
+		# en el banco. Eso es lo que hacia que los peces del invitado "se auto-sustituyeran". El nonce
+		# es la identidad del animal y no baila (ver _nacer_pez).
+		Net.resolver_pesca(int(_pez.get("nonce", 0)), pescado)
 		_pez = {}
 		_idx_enganchado = -1
 		_espero_mordida = false
@@ -1282,6 +1292,14 @@ func _pintar_corcho_en(pos: Vector2) -> void:
 # Color del pez que esta peleando OTRO. Mas claro que el resto: es la señal de "eso ya lo tiene tu
 # compañero". No hace falta mas: el charco es pequeño y el contraste con el agua ya canta.
 const COLOR_PEZ_OCUPADO := Color(0.35, 0.55, 0.70, 0.55)
+# El sedal de OTRO: mas apagado que el tuyo, para que de un vistazo sepas cual es el tuyo.
+const COLOR_HILO_AJENO := Color(0.75, 0.72, 0.60, 0.55)
+const CABECEO_VEL := 14.0    # rad/s del corcho ajeno cuando a ese le ha picado
+const CABECEO_ALTO := 2.5    # px de sube-y-baja
+
+# Los sedales de los demas pescadores: peer -> {hilo, corcho, pos}. Ver corcho_de.
+var _sedales: Dictionary = {}
+var _t_cabeceo: float = 0.0
 
 
 # El pez LIBRE que choca con un corcho puesto en 'donde' (coordenadas locales del charco), o null.
@@ -1313,8 +1331,9 @@ func _mordidas_remotas() -> void:
 		# Se le reserva AQUI, antes de avisarle. Si esperase a su respuesta, en ese viaje de ida y
 		# vuelta el mismo pez podria picarle tambien a otro.
 		p["de"] = peer
+		p["de_t"] = Game.tiempo_mazmorra   # cuando se le reservo (ver _caducar_candados)
 		c["activo"] = false   # ya tiene pieza: su corcho deja de pescar hasta que resuelva
-		Net.avisar_mordida(peer, _peces.find(p))
+		Net.avisar_mordida(peer, int(p.get("nonce", 0)))
 
 
 # ESPEJO: le mando al dueño donde tengo el corcho, y solo mientras de verdad este pescando. Fuera de
@@ -1327,6 +1346,11 @@ func _mordidas_remotas() -> void:
 # es unreliable: si se pierde el unico paquete del cambio, el dueño no sabria que estoy pescando.
 func _publicar_mi_corcho(delta: float) -> void:
 	var pescando: bool = _estado == ESPERA and _pez.is_empty() and not _espero_mordida
+	# NI PESCO NI PESCABA: no hay nada que contar. Sin esto, ahora que esto corre tambien para el dueño
+	# y con la pesca cerrada, cada charco del piso mandaria un "no estoy pescando" cada CORCHO_LATIDO
+	# para siempre.
+	if not pescando and not _corcho_ultimo_activo:
+		return
 	_t_corcho -= delta
 	if pescando == _corcho_ultimo_activo and _corcho_base.distance_to(_corcho_ultimo_pos) < 1.0 \
 			and _t_corcho > 0.0:
@@ -1337,7 +1361,97 @@ func _publicar_mi_corcho(delta: float) -> void:
 	Net.publicar_corcho(_corcho_base, pescando)
 
 
+# LA PUERTA UNICA del corcho de otro. Dos cosas distintas y no hay que confundirlas:
+#   - PINTARLO lo hace todo el mundo (asi se ve quien esta pescando y donde tiene el corcho).
+#   - DECIDIR con el (mordidas) solo el dueño del piso, ahi abajo en corcho_remoto.
+# Y el mio no cuenta por ninguna de las dos: ese lo pinta el sedal de siempre y sus mordidas las
+# resuelve _paso_espera.
+func corcho_de(peer: int, pos: Vector2, activo: bool) -> void:
+	if peer == Net.mi_peer():
+		return
+	_corcho_visual(peer, pos, activo)
+	corcho_remoto(peer, pos, activo)
+
+
+# EL SEDAL DE OTRO: su hilo y su corcho en el agua. Se guarda la posicion y se repinta cada frame en
+# _pintar_sedales, porque el ORIGEN (su cuerpo) se mueve aunque el corcho no.
+func _corcho_visual(peer: int, pos: Vector2, activo: bool) -> void:
+	if not activo:
+		var viejo: Dictionary = _sedales.get(peer, {})
+		if not viejo.is_empty():
+			(viejo["hilo"] as Node).queue_free()
+			(viejo["corcho"] as Node).queue_free()
+			_sedales.erase(peer)
+		return
+	if not _sedales.has(peer):
+		var hilo := Line2D.new()
+		hilo.width = 1.0
+		hilo.default_color = COLOR_HILO_AJENO
+		add_child(hilo)
+		var corcho := ColorRect.new()
+		corcho.size = Vector2(5.0, 5.0)
+		corcho.color = COLOR_HILO_AJENO
+		corcho.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(corcho)
+		_sedales[peer] = {"hilo": hilo, "corcho": corcho, "pos": pos}
+	_sedales[peer]["pos"] = pos
+
+
+# Repinta los sedales ajenos. El arco del hilo es el MISMO de _pintar_hilo (misma parabola de tres
+# puntos), solo que colgando de SU cuerpo en vez del mio.
+#
+# Y el corcho CABECEA cuando ese pescador tiene un pez enganchado -- se sabe sin mandar nada nuevo:
+# el 'de' de cada pez ya viaja en la foto del charco y es su peer id. Ese cabeceo es todo el aviso
+# visual de "a tu compañero le ha picado".
+func _pintar_sedales(delta: float) -> void:
+	if _sedales.is_empty():
+		return
+	_t_cabeceo += delta
+	for peer in _sedales:
+		var s: Dictionary = _sedales[peer]
+		var cuerpo = Net.cuerpo_de(peer)
+		var hilo: Line2D = s["hilo"]
+		var corcho: ColorRect = s["corcho"]
+		if cuerpo == null:
+			hilo.visible = false
+			corcho.visible = false
+			continue
+		hilo.visible = true
+		corcho.visible = true
+		var fin: Vector2 = s["pos"]
+		if _tiene_pieza(peer):
+			fin += Vector2(0.0, sin(_t_cabeceo * CABECEO_VEL) * CABECEO_ALTO)
+		var ini: Vector2 = to_local(cuerpo.global_position) + Vector2(0.0, -10.0)
+		var alto: Vector2 = (ini + fin) * 0.5 + Vector2(0.0, -ARCO_ALTO)
+		var pts := PackedVector2Array()
+		for i in range(9):
+			var u: float = float(i) / 8.0
+			pts.append(ini.lerp(alto, u).lerp(alto.lerp(fin, u), u))
+		hilo.points = pts
+		corcho.position = fin - corcho.size * 0.5
+
+
+# ¿Ese pescador tiene un pez enganchado? El 'de' de cada pez es su peer id y viaja en la foto, asi
+# que esto vale igual en el dueño y en un espejo.
+func _tiene_pieza(peer: int) -> bool:
+	for p in _peces:
+		if int(p.get("de", 0)) == peer:
+			return true
+	return false
+
+
 # DUEÑO: llega el corcho de un pescador remoto (o el aviso de que lo ha recogido).
+#
+# ⚠️ UN CORCHO INACTIVO NO SUELTA SUS PECES, y esto era EL bug de la pesca en multi. La secuencia:
+# le reservo el pez y le aviso -> en su maquina entra en PICANDO -> al frame siguiente su corcho ya
+# no esta "pescando" (correcto: no puede enganchar un segundo pez mientras pelea con este) y publica
+# activo=false -> y aqui se le soltaba el candado del pez que acababa de morder. A partir de ahi el
+# pez volvia a nadar en el dueño (por eso no se quedaba quieto en la caña), se lo podia enganchar
+# otro a la vez, y al cobrarlo resolver_pez_remoto lo rechazaba por 'de != peer': la pieza no salia
+# nunca del agua ni del banco, o sea el "se auto-sustituyen por ellos mismos".
+#
+# Soltar el candado es cosa de resolver_pez_remoto (acabo la pelea), de soltar_todo_de (se fue o se
+# desconecto) y del caducado de abajo (red de seguridad).
 func corcho_remoto(peer: int, pos: Vector2, activo: bool) -> void:
 	if not _soy_dueno():
 		return
@@ -1347,35 +1461,62 @@ func corcho_remoto(peer: int, pos: Vector2, activo: bool) -> void:
 		_corchos[peer] = {}
 	_corchos[peer]["pos"] = pos
 	_corchos[peer]["activo"] = activo
-	if not activo:
-		_soltar_peces_de(peer)
+
+
+# DUEÑO: red de seguridad de los candados. Un pez reservado a alguien que nunca contesta -su juego se
+# cerro a mitad de la pelea, o se perdio el aviso- se quedaria bloqueado para siempre: sin nadar,
+# sin poder pescarlo nadie y ocupando sitio en el aforo. Es el hermano de la reserva de bichos.
+const CANDADO_MAX := 180.0   # segundos de mazmorra; una pelea con un pez dura unos pocos
+
+
+func _caducar_candados() -> void:
+	for p in _peces:
+		if int(p.get("de", 0)) == 0:
+			continue
+		if Game.tiempo_mazmorra - float(p.get("de_t", 0.0)) > CANDADO_MAX:
+			p["de"] = 0
 
 
 # ESPEJO: el dueño me dice que me ha picado el pez 'idx'. A partir de aqui el minijuego es MIO y va
 # en local (el picoteo, el tiron y la barra de tension): lo unico que el dueño necesita saber es como
 # acaba, y eso se lo digo en Net.resolver_pesca.
-func me_ha_picado(idx: int) -> void:
+#
+# Llega el NONCE del pez, no su indice: el indice del dueño y el mio no tienen por que coincidir (una
+# fila que no se pudo reconstruir en aplicar_red desalinea el array entero), y el nonce es la
+# identidad del animal en las dos maquinas.
+func me_ha_picado(nonce: int) -> void:
 	if _soy_dueno() or _estado != ESPERA:
 		return
-	if idx < 0 or idx >= _peces.size():
+	var idx: int = _idx_por_nonce(nonce)
+	if idx < 0:
 		return
 	_idx_enganchado = idx
 	_espero_mordida = false
 	_morder(_peces[idx])
 
 
+func _idx_por_nonce(nonce: int) -> int:
+	for i in _peces.size():
+		if int(_peces[i].get("nonce", 0)) == nonce:
+			return i
+	return -1
+
+
 # DUEÑO: un pescador remoto ha terminado con su pez. Es el unico sitio donde el banco baja por culpa
 # de otro, y por eso pasa por aqui y no por _quitar_pez: el que cobra es EL, con su charco espejado;
 # aqui solo se apunta el resultado en el banco de verdad.
-func resolver_pez_remoto(peer: int, idx: int, cobrado: bool) -> void:
+# Cruza por NONCE (ver _quitar_pez): por indice llegaba apuntando a otro pez en cuanto el array del
+# dueño hubiera cambiado entre la foto y la respuesta, y el cobro se perdia sin decir nada.
+func resolver_pez_remoto(peer: int, nonce: int, cobrado: bool) -> void:
 	if not _soy_dueno():
 		return
-	if idx < 0 or idx >= _peces.size():
-		_soltar_peces_de(peer)   # el indice ya no vale: al menos que no se quede el candado puesto
+	var idx: int = _idx_por_nonce(nonce)
+	if idx < 0:
+		_soltar_peces_de(peer)   # ese pez ya no esta: al menos que no se quede ningun candado suyo
 		return
 	var p: Dictionary = _peces[idx]
 	if int(p.get("de", 0)) != peer:
-		return   # no era suyo: llega tarde (ya se lo solto la desconexion, o el indice ha bailado)
+		return   # no era suyo: llega tarde (ya se lo solto la desconexion o el caducado)
 	p["de"] = 0
 	if not cobrado:
 		return
@@ -1495,6 +1636,12 @@ func _interpolar_peces(delta: float) -> void:
 	var t: float = 1.0 - exp(-SUAVIZADO_RED * delta)
 	for i in mini(_peces.size(), _destinos.size()):
 		var p: Dictionary = _peces[i]
+		# EL QUE TENGO ENGANCHADO NO. Ese lo lleva el minijuego (esta clavado en la punta del sedal),
+		# y perseguir su destino de la foto era lo que le hacia pasearse por el charco mientras
+		# forcejeabas con el. Con el candado arreglado el dueño ya no lo mueve, pero la ultima foto
+		# antes de la mordida sigue de camino: esto lo remata.
+		if _pez_es(p):
+			continue
 		var destino: Vector2 = _destinos[i][0]
 		p["pos"] = (p["pos"] as Vector2).lerp(destino, t)
 		var rect: ColorRect = p["rect"]

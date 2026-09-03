@@ -81,6 +81,10 @@ const CONTACTO_GOLPE_2M := 0.60
 var _golpe_sfx_t: float = -1.0
 # El golpe del mapa alterna de mano con el dual: 0 derecha, 1 izquierda, 2 a dos manos.
 var _golpe_variante: int = 0
+# CUANTOS espadazos llevo dados. Solo lo usa la red: es lo que distingue "sigue el mismo golpe" de
+# "ha empezado otro" en un canal que pierde paquetes (ver _pose_red y remote_player.aplicar_pose).
+# Da la vuelta en 256 y da igual: lo unico que se mira es si ha CAMBIADO.
+var _golpe_seq: int = 0
 var _ultima_mano_golpe: int = 1
 
 # EL ARMA FUERA. Cerca de un enemigo el personaje desenvaina y anda en guardia; al alejarse la
@@ -321,7 +325,7 @@ func _physics_process(delta: float) -> void:
 		_refrescar_barras()
 		if Net.activo:
 			# Que el otro te vea QUIETO, no congelado. Con tu sequito: sus cuerpos tambien viajan.
-			Net.enviar_estado(global_position, _facing, _sequito.posiciones_red())
+			Net.enviar_estado(global_position, _facing, _sequito.posiciones_red(), _pose_red())
 		return
 
 	var direction: Vector2 = Input.get_vector(
@@ -483,7 +487,7 @@ func _physics_process(delta: float) -> void:
 	# MULTIJUGADOR (hito 1): si hay sesion de red, difunde donde estoy para que el otro me vea
 	# moverme. En un jugador (Net.activo == false) esto no hace nada.
 	if Net.activo:
-		Net.enviar_estado(global_position, _facing, _sequito.posiciones_red())
+		Net.enviar_estado(global_position, _facing, _sequito.posiciones_red(), _pose_red())
 
 
 # Aguante maximo segun la Resistencia y la Agilidad. Usa lo CONSOLIDADO (lo del ultimo altar), no
@@ -1277,6 +1281,14 @@ const CASTEO_MANTENER := 1.0   # segundos aguantando el boton para sacar los hec
 # QUE GOLPE toca: a dos manos si el arma principal es de dos manos; si llevas arma en la otra mano
 # (dual) alterna derecha/izquierda golpe a golpe; si no, siempre la derecha. Es solo el DIBUJO --
 # el cono y el daño de _try_attack no cambian (el combate va aparte).
+# LO QUE HAY QUE MANDAR PARA QUE ME DIBUJEN HACIENDO ALGO: como ando, si llevo el arma fuera y el
+# espadazo en curso. Va empaquetado en un int dentro del paquete de posicion (ver Net.empaquetar_pose
+# y remote_player.aplicar_pose): sin esto los demas me ven cruzar la mazmorra a paso de andar, sin
+# arma en la mano y sin dar un solo golpe.
+func _pose_red() -> int:
+	return Net.empaquetar_pose(movement_mode, _desenvainado, _golpe_variante, _golpe_seq)
+
+
 func _elegir_golpe() -> int:
 	var m = Game.equipped_main
 	if m is WeaponData and bool(m.dos_manos):
@@ -1314,6 +1326,7 @@ func _tick_ataque(delta: float) -> void:
 		# queja que llevo a que este boton avise por texto cuando el bicho esta lejos.
 		_golpe_variante = _elegir_golpe()
 		_golpe_t = DUR_GOLPE_2M if _golpe_variante == 2 else DUR_GOLPE
+		_golpe_seq = (_golpe_seq + 1) & 0xFF   # que los demas vean el espadazo (ver _pose_red)
 		# EL ESPADAZO SE OYE AUNQUE NO ACIERTE, por lo mismo que se VE: golpear al aire tiene que
 		# distinguirse de "el boton no ha respondido". Por eso se arma AQUI y no dentro de
 		# _try_attack, que solo pasa cuando hay alguien delante.
