@@ -820,8 +820,8 @@ static func filas_armadura(a: ArmorData, tier: int, rareza: int, mejoras: Dictio
 	if a == null:
 		return []
 	var tm: float = Game.tier_mult(tier)
-	var mods: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, mejoras)
-	var base: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, {})
+	var mods: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, mejoras, tier)
+	var base: Dictionary = Upgrades.armor_piece_mods(a, tm, rareza, {}, tier)
 	# El MISMO desgaste que aplica Game.armor_mods, no una cuenta paralela.
 	var dur: float = Game.durabilidad_mult(clampf(durabilidad, 0.0, 1.0))
 	var def_estreno: float = float(mods["def"])
@@ -851,7 +851,10 @@ static func filas_armadura(a: ArmorData, tier: int, rareza: int, mejoras: Dictio
 	if float(mods["crit_resist"]) > 0.0:
 		filas.append(["Resist. crítico", "+%s" % _pct(float(mods["crit_resist"]))])
 	if float(mods["resist_estados"]) > 0.0:
-		filas.append(["Resist. estados", "+%s" % _pct(float(mods["resist_estados"]))])
+		# PONDERADA POR COBERTURA, por lo mismo que la reduccion de arriba: lo que esta pieza le
+		# suma al conjunto es su parte, no el numero entero (que es "lo que daria si te cubriera de
+		# arriba abajo" y no se lo lleva nadie con una sola pieza). Ver Upgrades.resist_de_armadura.
+		filas.append(["Resist. estados", "+%s" % _pct1(float(mods["resist_estados"]) * cob)])
 	filas.append(["Mejoras", "%d / %d" % [
 		Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)]])
 	return filas
@@ -1027,8 +1030,8 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 				_d(float(a["resist_estados"]) * 100.0, float(b["resist_estados"]) * 100.0, "+%.0f%%"))
 	elif item is ArmorData:
 		var ar := item as ArmorData
-		var a := Upgrades.armor_piece_mods(ar, tm, rareza, mejoras)
-		var b := Upgrades.armor_piece_mods(ar, tm, rareza, despues)
+		var a := Upgrades.armor_piece_mods(ar, tm, rareza, mejoras, tier)
+		var b := Upgrades.armor_piece_mods(ar, tm, rareza, despues, tier)
 		_attr(filas, "Defensa", "%.1f" % float(a["def"]), _d(float(a["def"]), float(b["def"]), "+%.1f"))
 		if float(a["evasion"]) > 0.0 or float(b["evasion"]) > 0.0:
 			_attr(filas, "Evasión", "+%.0f%%" % (float(a["evasion"]) * 100.0),
@@ -1037,8 +1040,12 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 			_attr(filas, "Resist. crítico", "+%.0f%%" % (float(a["crit_resist"]) * 100.0),
 				_d(float(a["crit_resist"]) * 100.0, float(b["crit_resist"]) * 100.0, "+%.0f%%"))
 		if float(a["resist_estados"]) > 0.0 or float(b["resist_estados"]) > 0.0:
-			_attr(filas, "Resist. estados", "+%.0f%%" % (float(a["resist_estados"]) * 100.0),
-				_d(float(a["resist_estados"]) * 100.0, float(b["resist_estados"]) * 100.0, "+%.0f%%"))
+			# Ponderada por la cobertura de SU slot, como en filas_armadura: si no, el herrero
+			# prometeria una subida mucho mayor que la que se va a notar.
+			var cob_r: float = Game.cobertura_de_pieza(ar)
+			_attr(filas, "Resist. estados", "+%.1f%%" % (float(a["resist_estados"]) * cob_r * 100.0),
+				_d(float(a["resist_estados"]) * cob_r * 100.0,
+					float(b["resist_estados"]) * cob_r * 100.0, "+%.1f%%"))
 	return filas
 
 # La parte magica (baston y varita comparten): amplificacion, regen, casteo y coste de maná.

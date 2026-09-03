@@ -548,10 +548,16 @@ const GAIN_RESISTENCIA_BLOQUEO := 0.375   # (0.3 x1.25)
 # empujon MUCHO menor a proposito: ya entrena mas por FRECUENCIA (se come casi todos los golpes),
 # esto solo compensa que le lleguen mermados. Ver combat.gd._mult_resistencia_aggro.
 # SUELO de resistencia a estados de todo personaje, vaya como vaya vestido. Sin esto, ir sin
-# armadura (o con armadura sin la mejora Resistencia) significaba tragarse TODOS los estados que
-# te tirasen: cada veneno prendia, siempre, y no habia nada que jugarse. Un 15% no salva de nada
-# por si solo, solo abre la puerta a que a veces no te pegue. El tope sigue siendo RESISTENCIA_CAP.
-const RESIST_ESTADOS_BASE := 0.15
+# armadura significaba tragarse TODOS los estados que te tirasen: cada veneno prendia, siempre, y no
+# habia nada que jugarse. No salva de nada por si solo, solo abre la puerta a que a veces no te
+# pegue. El tope sigue siendo RESISTENCIA_CAP.
+#
+# BAJADO DE 0.15 A 0.05 al hacer que la armadura aporte siempre (ver Upgrades.resist_de_armadura).
+# Con el suelo en 0.15 y la armadura en 0, ir desnudo daba EXACTAMENTE la misma resistencia que una
+# armadura T2 epica a +9 completa: el suelo era toda la resistencia que existia, o sea que vestirse
+# no protegia de un veneno lo mas minimo. Ahora el grueso lo pone lo que llevas puesto y esto vuelve
+# a ser lo que dice ser: un suelo.
+const RESIST_ESTADOS_BASE := 0.05
 const RESIS_APORTE_EXP := 0.6     # rendimientos decrecientes del desvio
 const RESIS_COMPENSA_K := 0.657   # al que esquiva la atencion (grupo de 4: +25% / +50%)
 const RESIS_TANQUE_K := 0.25      # al que la atrae (grupo de 4: +14% sin provocar, +19% provocando)
@@ -6417,7 +6423,7 @@ func armor_mods(pj: PersonajeData = null) -> Dictionary:
 		var slot: String = str(s[1])
 		rareza_max = maxi(rareza_max, equip_rareza(slot, p))
 		var pm := Upgrades.armor_piece_mods(pieza, tier_mult(equip_tier(slot, p)),
-			equip_rareza(slot, p), equip_mejoras(slot, p))
+			equip_rareza(slot, p), equip_mejoras(slot, p), equip_tier(slot, p))
 		# DURABILIDAD: una pieza gastada protege menos (con tope), y rota se va a los suelos.
 		# Solo toca lo defensivo (DEF y reduccion), no la esquiva/velocidad/identidad.
 		var dur_mult: float = durabilidad_mult(durabilidad_slot(slot, p))
@@ -6427,7 +6433,10 @@ func armor_mods(pj: PersonajeData = null) -> Dictionary:
 		evasion += float(pm["evasion"])
 		cap_evasion += cob * Upgrades.cap_evasion_tipo(int(pieza.tipo))
 		crit_resist += float(pm["crit_resist"])
-		resist_estados += float(pm["resist_estados"])
+		# PONDERADA POR COBERTURA, como la reduccion: es lo que hace que la armadura completa valga
+		# mas que dos piezas sueltas. Sin esto, unos guanteletes rendian lo mismo que un peto y
+		# vestirse entero no se notaba en absoluto (ver Upgrades.resist_de_armadura).
+		resist_estados += cob * float(pm["resist_estados"])
 	# Los topes agregados suben con la MEJOR rareza equipada (la reduccion NO: es de tipo, y su
 	# techo es de balance, no de calidad).
 	reduction = clampf(reduction, 0.0, StatsMath.ARMOR_REDUCTION_MAX)

@@ -764,7 +764,8 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 		var a := base as ArmorData
 		# La DEF sale de la MISMA funcion que usa el combate: lo que ves es lo que te pones. La
 		# reduccion y la velocidad NO escalan con el tier (son de tipo/tamaño), por eso van crudas.
-		var pm := Upgrades.armor_piece_mods(a, Game.tier_mult(_tienda_tier), Upgrades.Rareza.COMUN, {})
+		var pm := Upgrades.armor_piece_mods(a, Game.tier_mult(_tienda_tier), Upgrades.Rareza.COMUN,
+			{}, _tienda_tier)
 		_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
 		_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, 3)])
 		_row(vb, "Defensa", "%.2f" % float(pm["def"]))

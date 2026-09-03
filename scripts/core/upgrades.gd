@@ -162,7 +162,51 @@ static func cap_evasion_tipo(tipo: int) -> float:
 	return float(EVASION_CAP_TIPO[tipo])
 const RESIST_CRIT_STEP := 0.02    # -crit rival (pesadas)
 const RESIST_CRIT_CAP := 0.25     # tope de resistencia a criticos
-const RESISTENCIA_STEP := 0.03    # -prob. de que te apliquen un estado alterado (KAN-58)
+const RESISTENCIA_STEP := 0.03    # -prob. de estados: la mejora dedicada en un ESCUDO (KAN-58)
+
+# ============================================================
+#  RESISTENCIA A ESTADOS DE LA ARMADURA
+# ============================================================
+# La armadura aporta resistencia SIEMPRE, con o sin la mejora dedicada. Antes no: `resist_estados`
+# salia solo de la categoria Resistencia, asi que una armadura T2 epica a +9 completa daba
+# exactamente lo mismo que ir DESNUDO (medido: los dos al 15%, que era el suelo de la carne). Un
+# equipo entero no puede valer cero en un eje del juego, y menos uno que se compra con el tier.
+#
+# Tres sumandos, y los tres se PONDERAN POR COBERTURA de slot en Game.armor_mods (igual que la
+# reduccion de daño). Eso es lo que hace que la armadura COMPLETA valga mas que dos piezas sueltas,
+# que es justo lo que no pasaba: sin ponderar, un guantelete con la mejora rendia como un peto.
+#
+#  1) Por LLEVARLA PUESTA. Cubrirte protege de que te prenda un veneno aunque la pieza sea comun.
+#  2) Por RAREZA. Espejo de la eficacia del arma (EFICACIA_BASE_RAREZA), a la mitad de ritmo: la
+#     armadura tiene cinco piezas donde el arma tiene una, asi que sube por mas sitios.
+#  3) Por cada +N, por lo mismo.
+#  4) Por TIER. Es el sumando gordo, y hace falta que lo sea: la eficacia de los bichos crece con
+#     la profundidad (EnemyData.EFICACIA_POR_PISO), asi que sin el, bajar al piso 12 con armadura
+#     T2 te dejaba PEOR contra los estados que estar en el 6 con T1 -- medido antes de meterlo. El
+#     tier es lo unico que puede compensar eso, porque la rareza y el +N los tienes igual arriba
+#     que abajo. Un tier pesa como tres escalones de rareza, en linea con lo que pesa en todo lo
+#     demas (TIER_GROWTH).
+const RESIST_BASE_COBERTURA := 0.10    # armadura completa, comun, sin mejorar
+const RESIST_BASE_RAREZA := 0.04       # por escalon de rareza (comun 0 ... pristino 7 -> +0.28)
+const RESIST_BASE_POR_MEJORA := 0.006  # por cada +N
+const RESIST_BASE_TIER := 0.12         # por cada tier POR ENCIMA del 1
+
+# La mejora DEDICADA en una pieza de armadura. Tiene step propio (y no el 0.03 del escudo) porque
+# ahora se pondera por cobertura: antes se sumaban las cinco piezas ENTERAS, o sea que 3 puntos en
+# cada pieza daban 5 x 8.5% = 42.5% de golpe -- un acantilado que hacia que el resto del eje diera
+# igual. Con la cobertura eso pasa a valer un quinto, y el step se sube para compensar: en el hito
+# de referencia (piso 6, completa +6 con 3 puntos) el total queda donde estaba calibrado.
+const RESISTENCIA_STEP_ARMADURA := 0.10
+
+
+# Lo que una PIEZA de armadura aporta de resistencia a estados SI CUBRIERA EL CUERPO ENTERO. Quien
+# la llama la pondera por la cobertura de su slot (Game.armor_mods, y la ficha en
+# MenuScaffold.filas_armadura): aqui no se puede hacer porque una pieza no sabe cuanto tapa.
+static func resist_de_armadura(rareza: int, mejoras: Dictionary, tier: int = 1) -> float:
+	var base: float = RESIST_BASE_COBERTURA + RESIST_BASE_RAREZA * float(maxi(rareza, 0)) \
+		+ RESIST_BASE_POR_MEJORA * float(mejoras_combate(mejoras)) \
+		+ RESIST_BASE_TIER * float(maxi(tier - 1, 0))
+	return base + dim_sum(RESISTENCIA_STEP_ARMADURA, _count(mejoras, RESISTENCIA)) * rareza_mult(rareza)
 # ============================================================
 #  EFICACIA: el espejo de la Resistencia, en el ARMA
 # ============================================================
@@ -590,7 +634,8 @@ static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dict
 # Agregados de una PIEZA de armadura. tmult = tier_mult(tier). La reduccion y la
 # velocidad de la pieza salen de la base (el tier/rareza/mejoras solo tocan DEF,
 # evasion y resist. criticos). game.gd combina las 5 piezas por cobertura.
-static func armor_piece_mods(a: ArmorData, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
+static func armor_piece_mods(a: ArmorData, tmult: float, rareza: int, mejoras: Dictionary,
+		tier: int = 1) -> Dictionary:
 	var n := mejoras_combate(mejoras)   # la Durabilidad no cuenta para el +10% de DEF
 	# Mismo modelo que el arma: la mejora sube un % de la DEF de ESTA pieza, no un flat. Asi un
 	# peto de cuero (base 0.25) y una coraza de placas (base 1.1) suben lo mismo EN PROPORCION,
@@ -606,8 +651,10 @@ static func armor_piece_mods(a: ArmorData, tmult: float, rareza: int, mejoras: D
 		evasion = dim_sum(EVASION_STEP, _count(mejoras, EVASION)) * rmult
 	else:
 		crit_resist = dim_sum(RESIST_CRIT_STEP, _count(mejoras, RESIST_CRIT)) * rmult
-	# Resistencia a ESTADOS alterados (KAN-58): disponible en TODA armadura.
-	var resist_estados := dim_sum(RESISTENCIA_STEP, _count(mejoras, RESISTENCIA)) * rmult
+	# Resistencia a ESTADOS alterados (KAN-58): la da TODA armadura por llevarla puesta, mas la
+	# rareza, el +N y la mejora dedicada. SIN ponderar por cobertura: eso lo hace quien la use
+	# (ver resist_de_armadura).
+	var resist_estados := resist_de_armadura(rareza, mejoras, tier)
 	return {
 		"def": deff,
 		"reduccion": a.reduccion,
