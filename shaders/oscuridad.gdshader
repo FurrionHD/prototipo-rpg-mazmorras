@@ -31,6 +31,14 @@ uniform vec2 pantalla = vec2(1280.0, 720.0);
 // Cuanto se ve en lo que NO esta iluminado. 0.0 = negro absoluto.
 uniform float negro : hint_range(0.0, 1.0) = 1.0;
 
+// CUANTA de la luz de cada sitio viene de una FLOR luminiscente (misma rejilla que la mascara).
+// Donde manda la flor, el velo deja de ser negro puro y pasa a ser un azul oscuro: lo que hay
+// debajo se sigue viendo a medias, pero teñido. Es la diferencia entre "esta a oscuras" y "esta
+// iluminado por algo azul".
+uniform sampler2D tinte : filter_linear, repeat_disable;
+uniform vec3 color_flor = vec3(0.20, 0.55, 0.85);
+uniform float fuerza_flor : hint_range(0.0, 2.0) = 0.9;
+
 // La niebla respira: un temblor lento en el borde para que no parezca un recorte de carton.
 uniform float ruido_fuerza : hint_range(0.0, 0.5) = 0.06;
 
@@ -69,5 +77,13 @@ void fragment() {
 	luz += (ruido_suave(mundo * 0.05 + vec2(TIME * 0.25, TIME * -0.19)) - 0.5)
 		* ruido_fuerza * borde;
 
-	COLOR = vec4(0.0, 0.0, 0.0, clamp((1.0 - luz) * negro, 0.0, 1.0));
+	// El velo: negro donde no llega nada, azul donde lo que llega es de una flor. La ALFA no la
+	// toca el tinte, asi que bajo el farolillo (luz 1, alfa 0) no hay tinte que valga: se comporta
+	// exactamente igual que antes.
+	float flor = 0.0;
+	if (uv.x >= 0.0 && uv.y >= 0.0 && uv.x <= 1.0 && uv.y <= 1.0) {
+		flor = texture(tinte, uv).r;
+	}
+	vec3 velo = color_flor * (flor * fuerza_flor);
+	COLOR = vec4(velo, clamp((1.0 - luz) * negro, 0.0, 1.0));
 }

@@ -527,6 +527,8 @@ var _tm: Dictionary = {}
 # Lo que hay pintado de cada capa de adorno: { celda: true }. Hace falta guardarlo porque la
 # MASCARA de una celda se calcula mirando a sus vecinas de la MISMA capa.
 var _celdas_musgo: Dictionary = {}
+# Los musgos que han florecido: los unicos que dan luz (ver Decorado._sembrar_flores).
+var _celdas_flor: Dictionary = {}
 # Las columnas de piedra de este piso (ver _sembrar_formaciones). Ya son roca en el generador; esta
 # lista existe para poder pintarlas distinto de una pared y para las pruebas.
 var _celdas_formacion: Array[Vector2i] = []
@@ -661,18 +663,27 @@ func _apagar_la_luz() -> void:
 		_niebla.name = "Niebla"
 		add_child(_niebla)
 	_niebla.preparar(gen)
+	# LAS FLORES, aqui y no en _decorar: alli la niebla puede no existir todavia (se crea en esta
+	# funcion, que corre justo despues). Van despues de preparar() porque el precalculo de su luz
+	# necesita la rejilla de roca ya cargada.
+	_niebla.poner_flores(_celdas_flor)
 
 
 func _decorar() -> void:
 	var sem: int = _semilla_del_piso()
 	var d := Decorado.new()
-	d.generar(gen, _celda_estanque, ESTANQUE_CELDAS, sem)
+	# Las FLORES que alumbran son cosa de la cueva: en la mazmorra picada de arriba no hay.
+	d.generar(gen, _celda_estanque, ESTANQUE_CELDAS, sem, _estilo_cueva)
 	_celdas_musgo = d.musgo
 	_celdas_agua = d.agua
 	_celdas_sumidero = d.sumidero
+	_celdas_flor = d.flor
 	_pintar_capa("agua", _celdas_agua, sem)
 	_pintar_capa("sumidero", _celdas_sumidero, sem)
 	_pintar_capa("musgo", _celdas_musgo, sem)
+	# La flor va DESPUES del musgo: crece en el.
+	_pintar_capa("flor", _celdas_flor, sem)
+
 
 
 # Vuelca un conjunto de celdas en su TileMapLayer, calculando la mascara de cada una contra las

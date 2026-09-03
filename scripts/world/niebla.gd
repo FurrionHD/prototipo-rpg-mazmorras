@@ -45,6 +45,7 @@ var _capa: CanvasLayer = null
 var _lienzo: ColorRect = null
 var _mat: ShaderMaterial = null
 var _tex: ImageTexture = null
+var _tex_tinte: ImageTexture = null
 var _t: float = 0.0
 var _piso: Node2D = null
 
@@ -94,10 +95,28 @@ func _ready() -> void:
 	_capa.add_child(_lienzo)
 
 
+# --- LAS FLORES QUE ALUMBRAN ---
+# Radio corto y luz FLOJA: junto a una flor se distingue lo que hay -- un bicho, una veta, el
+# suelo -- pero no con el detalle del farolillo, que es lo que pidio el usuario ("no solo teñir,
+# tambien iluminar un poco"). Y con esta intensidad el halo sigue por encima de LUZ_MINIMA hasta
+# casi el borde, o sea que los bichos que caigan dentro SE ENCIENDEN: si no, la flor teñiria el
+# suelo y lo que importa seguiria invisible, que es justo lo contrario de lo que se busca.
+# Medido con Vision.luz_en, que es como se calibra esto y no a ojo: a 0 celdas da 0,45 (el 45% de
+# lo que da el farolillo), a 1 celda 0,30 y a 2 celdas 0,15 -- todo por encima del 0,06 con el que
+# la niebla enciende a los bichos, o sea que lo que caiga dentro del halo SE VE. A 3 celdas, cero.
+# Con radio 2,2 el halo util era de una sola celda y se quedaba corto.
+const FLOR_RADIO := 3.0
+const FLOR_INTENSIDAD := 0.45
+
+func poner_flores(celdas: Dictionary) -> void:
+	vision.poner_flores(celdas, FLOR_RADIO, FLOR_INTENSIDAD)
+
+
 # Lo llama DungeonFloor cada vez que rehace el piso: la rejilla de roca es otra.
 func preparar(gen: DungeonGenerator) -> void:
 	vision.preparar(gen)
 	_tex = null
+	_tex_tinte = null
 	_mat.set_shader_parameter("mapa_origen", Vector2.ZERO)
 	_mat.set_shader_parameter("mapa_tam", gen.tam_px())
 	_t = CADA      # que la primera pasada salga ya, sin un frame en negro
@@ -137,6 +156,8 @@ func _process(delta: float) -> void:
 	vision.calcular(focos, jugador.global_position, vista)
 	_tex = vision.volcar(_tex)
 	_mat.set_shader_parameter("mascara", _tex)
+	_tex_tinte = vision.volcar_tinte(_tex_tinte)
+	_mat.set_shader_parameter("tinte", _tex_tinte)
 	_refrescar_camara()
 	_apagar_lo_que_no_se_ve(vista)
 
