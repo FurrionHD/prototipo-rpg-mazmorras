@@ -221,6 +221,12 @@ var sprite_t: float = 0.5
 # vacio: quien se unia a la pelea de un jefe la peleaba con la musica de rata. Viajando en el roster,
 # el espejo sabe a que se enfrenta.
 var es_jefe: bool = false
+# ES UN MUTANTE (el "mini-jefe"): el mismo bicho de siempre pero mucho mas bruto. Lo pone
+# EnemyData.crear_combatant desde la bandera del nodo del mundo, igual que es_jefe y por lo mismo
+# (el que solo ESPEJA la pelea no tiene el nodo). Sus multiplicadores ya vienen aplicados en las
+# stats; esto queda para lo que necesita saberlo DESPUES: cuanta excelia da (ver
+# combat._poder_enemigo) y como se presenta.
+var mutante: bool = false
 # FICHA DE ESCAPARATE para pintar el muñeco de un aliado ESPEJADO. Solo la rellena combat.gd al
 # montar un maniqui desde el roster; en la maquina que ejecuta la pelea es null y el muñeco sale de
 # Game.pj_de_combatant, como siempre. Es Resource y no PersonajeData para no atar Combatant (que es

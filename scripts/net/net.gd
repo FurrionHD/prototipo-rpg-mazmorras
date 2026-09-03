@@ -3109,6 +3109,10 @@ func _datos_enemigo(nodo: Node) -> Dictionary:
 	if ed != null:
 		d["ruta"] = String(ed.resource_path)
 	d["t"] = float(nodo.get("current_t"))
+	# MUTANTE (mini-jefe). Va en el ALTA como la 't' y por lo mismo: no se puede volver a tirar el
+	# dado en la otra maquina o cada uno tendria sus propios mini-jefes -- el invitado veria una rata
+	# normal donde el anfitrion pelea un mutante con el triple de vida.
+	d["mut"] = bool(nodo.get("mutante"))
 	if nodo.has_method("esta_muerto"):
 		d["muerto"] = bool(nodo.esta_muerto())
 	return d
@@ -3251,7 +3255,8 @@ func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void
 	cuerpo.configurar(d.get("color", Color.WHITE), float(d.get("lado", 32.0)),
 		int(d.get("elem", Elementos.Elemento.NINGUNO)), float(d.get("einten", 1.0)))
 	cuerpo.aplicar_datos(String(d.get("ruta", "")), float(d.get("t", 0.5)),
-		bool(d.get("muerto", false)), float(d.get("vis", 130.0)), float(d.get("ang", 50.0)))
+		bool(d.get("muerto", false)), float(d.get("vis", 130.0)), float(d.get("ang", 50.0)),
+		bool(d.get("mut", false)))
 	_enem_nodos[id] = cuerpo
 
 

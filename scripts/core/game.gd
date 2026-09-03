@@ -11150,7 +11150,8 @@ func unir_enemigo_al_combate(nodo: Node) -> bool:
 	var hp: float = float(nodo.hp_restante) if "hp_restante" in nodo else -1.0
 	# Los estados que traiga puestos entran con el (el veneno del que huiste y te ha vuelto a pillar).
 	var est: Array = nodo.estados_restantes if "estados_restantes" in nodo else []
-	var slot: int = combat.anadir_enemigo(nodo.data, t, hp, est, bool(nodo.get("es_boss")))
+	var slot: int = combat.anadir_enemigo(nodo.data, t, hp, est, bool(nodo.get("es_boss")),
+		bool(nodo.get("mutante")))
 	if slot < 0:
 		return false   # pelea llena: a la cola
 	if slot < _active_enemies.size():
@@ -11231,7 +11232,8 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 		var t: float = 0.5
 		if "current_t" in n:
 			t = n.current_t
-		var ec: Combatant = n.data.crear_combatant(t)
+		# La MUTACION, como la 't', es del NODO: el mismo .tres pare bichos normales y mini-jefes.
+		var ec: Combatant = n.data.crear_combatant(t, bool(n.get("mutante")))
 		# VIDA ARRASTRADA: si huiste de este bicho, sigue con las heridas que le dejaste. El
 		# Combatant nace siempre a tope (crear_combatant), asi que la vida guardada se aplica
 		# aqui encima. hp_restante < 0 = intacto (nunca ha peleado o ya se curo).
@@ -11495,6 +11497,13 @@ func start_extraction(corpse: Node) -> void:
 	if corpse.has_method("poder_normalizado"):
 		t = corpse.poder_normalizado()
 	var categoria: int = data.roll_crystal_category(t)
+	# MUTANTE (mini-jefe): su cristal sube UNA categoria por encima de lo que da su especie. Es la
+	# mitad de la recompensa (la otra es el x2 de botin en _tirar_drop), y es la que se nota de
+	# verdad: el valor de un cristal va al CUADRADO de su categoria, asi que un t3 en vez de un t2
+	# vale mas del doble. Se salta el crystal_category_max del bicho a proposito: la gracia del
+	# mini-jefe es sacarle algo que su especie normal no te va a dar nunca.
+	if bool(corpse.get("mutante")):
+		categoria += 1
 	# Destreza CONSOLIDADA (la del ultimo altar) y con el plato puesto si lo llevas: es la stat de
 	# efecto fuera de combate. No se endurece al subir de nivel (a diferencia de la visible, que cae
 	# a 0) y no se mueve con la excelia que aun no has descansado. Ver stat_consolidado_eff.
@@ -11669,7 +11678,12 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 	var suerte: float = lid.estados_drop_mult if lid != null else 1.0
 	var doble: float = lid.estados_drop_doble if lid != null else 0.0
 
-	var chance: float = 1.0 if dev_force_drop else clampf(data.drop_chance * f_piso * suerte + mas, 0.0, 1.0)
+	# MUTANTE (mini-jefe): suelta como dos. Se aplica a las dos tiradas de material y NO a la de
+	# cocina: lo que tiene que compensar de pelear un mini-jefe es su NUCLEO, que es lo que va al
+	# equipo; que un bicho enorme deje el doble de filetes no le interesa a nadie.
+	var mut: float = EnemyData.MUT_BOTIN if bool(corpse.get("mutante")) else 1.0
+
+	var chance: float = 1.0 if dev_force_drop else clampf(data.drop_chance * f_piso * suerte * mut + mas, 0.0, 1.0)
 	if data.drop_material != null and randf() < chance:
 		var cuantos: int = randi_range(maxi(1, data.drop_cantidad_min), maxi(1, data.drop_cantidad_max))
 		if doble > 0.0 and randf() < doble:
@@ -11677,7 +11691,7 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 		for _i in range(cuantos):
 			caidos.append(MaterialItem.crear(data.drop_material, _calidad_joyero(calidad, joyero)))
 
-	var chance_n: float = 1.0 if dev_force_drop else clampf(data.nucleo_chance * f_piso * suerte + mas_n, 0.0, 1.0)
+	var chance_n: float = 1.0 if dev_force_drop else clampf(data.nucleo_chance * f_piso * suerte * mut + mas_n, 0.0, 1.0)
 	if data.nucleo != null and randf() < chance_n:
 		caidos.append(MaterialItem.crear(data.nucleo, _calidad_joyero(calidad, joyero)))
 		# El nucleo tambien puede salir doble: es lo caro, y dejarlo fuera haria que el plato solo se

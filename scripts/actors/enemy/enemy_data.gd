@@ -359,16 +359,67 @@ static func eficacia_de_piso(piso: int) -> float:
 	return maxf(0.0, float(piso - 1)) * EFICACIA_POR_PISO
 
 
-func crear_combatant(t: float = 0.5) -> Combatant:
+# ============================================================
+#  MUTANTES  (los "mini-jefes")
+# ============================================================
+# CUALQUIER enemigo puede nacer MUTANTE, con una probabilidad pequeña y la misma para todos. No es
+# un bicho aparte con su .tres: es el mismo de siempre, mas grande y mucho mas bruto.
+#
+# Va asi y no como "un enemigo raro concreto por piso" porque de esta forma el juego entero tiene
+# mini-jefes desde el piso 1 sin escribir un solo enemigo nuevo, y cada familia hereda los suyos
+# sola: la rata mutante pelea como una rata (te sangra, es rapida) y el golem mutante como un golem.
+# Encontrarte uno es un acontecimiento y una decision -- pelearlo o rodearlo -- y no otro bicho mas
+# de la lista.
+#
+# Un JEFE DE PISO nunca muta: ya es el tope de su piso, y multiplicarlo otra vez lo volveria
+# imposible por sorteo (ver DungeonFloor._parir_boss, que le pasa la mutacion apagada).
+const MUTANTE_PROB := 0.01        # 1 de cada 100 bichos que nacen
+
+# Los multiplicadores, sobre lo que ese mismo bicho seria en ese mismo piso. AGUANTE muy arriba y
+# daño arriba pero menos: la gracia es que sea un muro que te obliga a sostener la pelea, no que te
+# reviente de un golpe (con el daño x2.6 seria el bicho lo mataria a uno del grupo antes de que te
+# diera tiempo a decidir si te vas).
+const MUT_HP := 2.60
+const MUT_ATAQUE := 1.45
+const MUT_DEFENSA := 1.60
+# Resiste y mete estados como si fuera de bastante mas abajo: un mutante al que le entra todo a la
+# primera no da ninguna sensacion de mini-jefe.
+const MUT_ESTADOS := 1.50
+# Se ve MAS GRANDE, que es el aviso honesto: hay que poder decidir si lo peleas ANTES de tocarlo.
+# x1.2 sobre la escala que YA tenga ese bicho, no un tamaño fijo: asi el rey rata mutante sigue
+# siendo mas grande que una rata mutante. Se estira el sprite que ya hay y no se dibuja uno nuevo:
+# es la excepcion consciente a lo de cuadrar los pixeles, porque un mutante es cualquiera de los
+# veinte enemigos del juego y serian veinte sprites para decir lo mismo que dice el tinte.
+const MUT_ESCALA := 1.20
+# Lo que suelta un mutante, sobre lo que soltaria ese mismo bicho normal.
+const MUT_BOTIN := 2.0
+# Lo que cuenta como RETO para la excelia. No es la media de los multiplicadores de arriba sino lo
+# que cuesta tumbarlo de verdad: aguanta casi tres veces mas turnos y en cada uno pega mas y encaja
+# menos. Se queda por debajo del x2 a proposito -- un mini-jefe entrena mejor que un bicho normal,
+# pero farmearlos no puede ser la via rapida para saltarse la curva de un piso.
+const MUT_PODER := 1.70
+
+
+# Como se llama en la barra de combate y en el log. "mutante" y no "mutado/a" a proposito: es
+# invariable en genero, asi que vale para la rata y para el slime sin una tabla de excepciones (y
+# el dia que haya un bicho con nombre compuesto tampoco hay que tocar nada).
+func nombre_mostrado(mutante: bool = false) -> String:
+	return ("%s mutante" % enemy_name) if mutante else enemy_name
+
+
+func crear_combatant(t: float = 0.5, mutante: bool = false) -> Combatant:
 	var fstat: float = Game.enemy_floor_stat_factor()
-	var c := Combatant.new(enemy_name, level, crear_abilities(t),
-		base_hp * fstat,
-		base_attack * fstat,
-		base_defense * fstat,
+	var m_hp: float = MUT_HP if mutante else 1.0
+	var m_atk: float = MUT_ATAQUE if mutante else 1.0
+	var m_def: float = MUT_DEFENSA if mutante else 1.0
+	var c := Combatant.new(nombre_mostrado(mutante), level, crear_abilities(t),
+		base_hp * fstat * m_hp,
+		base_attack * fstat * m_atk,
+		base_defense * fstat * m_def,
 		base_speed)
 	# Defensa MAGICA: escala con la profundidad igual (raiz) que la fisica, para que la magia
 	# no se despegue del resto a medida que bajas de piso.
-	c.base_magic = base_magic * sqrt(fstat)
+	c.base_magic = base_magic * sqrt(fstat) * (MUT_ATAQUE if mutante else 1.0)
 	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
 	c.on_hit = al_golpear
 	# Habilidades del enemigo (KAN-58): tecnicas que puede lanzar en combate.
@@ -384,8 +435,9 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo
 	# bien que TE mete a ti sus venenos y aturdimientos.
-	c.status_resist = resist_de_piso(Game.current_floor) * status_resist
-	c.eficacia = eficacia_de_piso(Game.current_floor) * eficacia
+	var m_est: float = MUT_ESTADOS if mutante else 1.0
+	c.status_resist = resist_de_piso(Game.current_floor) * status_resist * m_est
+	c.eficacia = eficacia_de_piso(Game.current_floor) * eficacia * m_est
 	# Familia del bicho (para las pasivas slayer del jugador).
 	c.familia = int(familia)
 	# Sequito (Rey Slime): etiqueta de familia + config de la reduccion de daño por acompañantes.
@@ -404,6 +456,7 @@ func crear_combatant(t: float = 0.5) -> Combatant:
 	c.sprite_res = resource_path
 	c.sprite_t = t
 	c.fx_basico = fx_basico
+	c.mutante = mutante
 	return c
 
 

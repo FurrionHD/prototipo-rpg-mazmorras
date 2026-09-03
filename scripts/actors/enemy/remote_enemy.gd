@@ -37,6 +37,10 @@ var radio_extra: float = 0.0   # los elites son mas gordos: se descuenta al medi
 # estos campos se puede pasar TAL CUAL a start_combat como si fuera un enemigo real.
 var hp_restante: float = -1.0
 var es_boss: bool = false
+# MUTANTE (mini-jefe). Parte del contrato del grupo "enemy" igual que es_boss: Game.start_combat lo
+# lee con get() para montarle sus multiplicadores, asi que sin esto el invitado pelearia una rata
+# normal donde el anfitrion tiene un mutante con el triple de vida. Llega en el alta (Net._datos_enemigo).
+var mutante: bool = false
 
 # --- DIRECCION (hito 5.4) ---------------------------------------------------------------------
 # Mismos numeros y colores que enemy.gd: lo que ve el que simula el piso y lo que ve el que solo
@@ -141,11 +145,13 @@ func _pintar_elemento(elem: int, einten: float, lado: float) -> void:
 # firma porque el alta que manda el dueño los sigue trayendo (ver Net._datos_enemigo) y quitarlos de
 # aqui obligaria a tocar el mensaje — y dos maquinas con builds distintas dejarian de entenderse.
 func aplicar_datos(ruta: String, t: float, ya_muerto: bool, _vision: float = 130.0,
-		_medio_angulo: float = 50.0) -> void:
+		_medio_angulo: float = 50.0, mut: bool = false) -> void:
 	if not ruta.is_empty():
 		data = load(ruta) as EnemyData
 	current_t = t
+	mutante = mut
 	_montar_sprite()
+	_marcar_mutante()
 	if ya_muerto:
 		marcar_cadaver()
 	else:
@@ -170,6 +176,11 @@ func _montar_sprite() -> void:
 	var esc: float = SpritesEnemigo.escala_de(data)
 	if SpritesEnemigo.hay_que_estirar(data):
 		esc *= maxf(0.1, data.escala_visual)
+	# El x1.2 del MUTANTE va aparte y SIEMPRE, estire o no el resto. Misma excepcion (y mismo
+	# porque) que en enemy._marcar_mutante: sin esto, el mini-jefe se veria del tamaño de siempre en
+	# la pantalla del invitado y solo el anfitrion sabria que es enorme.
+	if mutante:
+		esc *= EnemyData.MUT_ESCALA
 	_sprite.scale = Vector2.ONE * esc
 	# La linea amarilla es el apaño de los CUADRADOS: quien tiene cara no la necesita, y ademas mide
 	# 26 unidades fijas (un mastil en una rata, invisible dentro del Rey Slime). El aviso del golpe,
@@ -179,6 +190,32 @@ func _montar_sprite() -> void:
 	_actualizar_animacion()
 
 
+# El tinte y el aura roja del MUTANTE, calcados de enemy._marcar_mutante (constantes incluidas: se
+# leen de alli para que no puedan discrepar). Lo que ve el que simula el piso y lo que ve el que solo
+# lo espeja tiene que ser LO MISMO.
+const _ENEMY_GD := preload("res://scripts/actors/enemy/enemy.gd")
+
+func _marcar_mutante() -> void:
+	if not mutante:
+		return
+	_cuerpo.modulate = _tinte_reposo()
+	if _sprite != null:
+		_sprite.modulate = _tinte_reposo()
+	Particulas.ascendentes(self, _ENEMY_GD.MUT_AURA, 1.0,
+		32.0 * maxf(0.1, data.escala_visual * EnemyData.MUT_ESCALA) if data != null else 32.0)
+
+
+# El LATIDO del mutante, con la misma cuenta que enemy._tinte_reposo (las constantes salen de alli).
+# Aqui hace ademas la misma falta que alli: aplicar_estado_visual reescribe el modulate del sprite en
+# cada tick de posiciones, asi que un color puesto una sola vez al nacer se borra al primer paquete.
+func _tinte_reposo() -> Color:
+	if not mutante:
+		return Color.WHITE
+	var f: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.001 * TAU
+		/ _ENEMY_GD.MUT_LATIDO_SEG)
+	return _ENEMY_GD.MUT_TINTE.lerp(_ENEMY_GD.MUT_TINTE_PICO, f)
+
+
 # Hacia donde mira y si esta avisando el golpe. Llega en cada tick de posiciones.
 func aplicar_estado_visual(ang: float, avisando: bool) -> void:
 	_mira = ang
@@ -186,9 +223,13 @@ func aplicar_estado_visual(ang: float, avisando: bool) -> void:
 	if muerto:
 		return
 	if _sprite != null and _sprite.visible:
-		_sprite.modulate = _AVISO_TINTE if avisando else Color.WHITE
+		# En reposo, lo que diga _tinte_reposo (un mutante late en carmesi); el aviso manda por
+		# encima. Igual que en enemy._actualizar_indicadores, y por el mismo motivo.
+		_sprite.modulate = _AVISO_TINTE if avisando else _tinte_reposo()
 		_actualizar_animacion()
 		return
+	if mutante:
+		_cuerpo.modulate = _tinte_reposo()
 	if _linea != null:
 		_linea.rotation = ang
 		_linea.default_color = COLOR_LINEA_AVISO if avisando else COLOR_LINEA

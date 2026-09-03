@@ -730,7 +730,9 @@ func _colocar_boss() -> void:
 func _parir_boss(data: EnemyData, pos: Vector2, piso: int) -> void:
 	if piso != _piso_construido:
 		return
-	var e = crear_enemigo(data, pos, 0.0, 1.0)  # t = 1.0: el techo
+	# t = 1.0 (el techo de su franja) y SIN mutacion: el jefe ya es el tope del piso, y que el dado
+	# pudiera ascenderlo encima lo volveria imposible por sorteo.
+	var e = crear_enemigo(data, pos, 0.0, 1.0, 0)
 	if e != null:
 		e.es_boss = true
 
@@ -1549,6 +1551,10 @@ func _guardar_estado() -> void:
 				# el mismo slime reaparece con otras stats (mas flojo o mas bestia).
 				"t": e.current_t,
 				"zona": e.zona_idx,
+				# Si era MUTANTE. Por lo mismo que la 't': sin guardarlo, el mini-jefe del que te
+				# escapaste vuelve convertido en un bicho normal (o uno normal en mini-jefe) por el
+				# mero hecho de subir y bajar la escalera.
+				"mut": bool(e.get("mutante")),
 				"muerto": grupo == "corpse",
 				# Las HERIDAS que le dejaste al huir. Sin esto, subir y bajar la escalera curaba
 				# del todo al bicho del que acababas de escapar a duras penas.
@@ -1587,7 +1593,10 @@ func _restaurar_estado() -> void:
 		if zona == null and int(d["zona"]) < 0:
 			zona = _zona_mas_cercana(d["pos"])
 		var radio: float = zona.wander_radius if zona != null else 90.0
-		var e = crear_enemigo(d["data"], d["pos"], radio, float(d["t"]))
+		# La mutacion vuelve IMPUESTA (1/0) y no a dados: si no, cada vuelta al piso re-sortearia
+		# quien es mini-jefe. Las fotos viejas no la traen -> 0, o sea bicho normal.
+		var e = crear_enemigo(d["data"], d["pos"], radio, float(d["t"]),
+			1 if bool(d.get("mut", false)) else 0)
 		if e == null:
 			continue
 		e.zona_idx = int(d["zona"])
@@ -1752,7 +1761,7 @@ func _crear_capa_vinculos() -> void:
 # Instancia un enemigo. Mismo patron que el spawner de dev (scripts/ui/spawner.gd): el
 # 'data' se asigna ANTES de add_child (su _ready lo usa) y se le recoloca DESPUES para
 # re-fijar su "hogar" (si no, deambula hacia el (0,0) y cruza las paredes).
-func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0):
+func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0, mut: int = -1):
 	if data == null:
 		return null
 	var e = _enemy_scene.instantiate()
@@ -1761,6 +1770,10 @@ func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0)
 	# 't' impuesta (restaurando el piso): el bicho vuelve con las MISMAS stats que tenia.
 	# Va antes de add_child porque su _ready es quien la lee.
 	e.t_forzada = t
+	# Lo mismo con la MUTACION (-1 = que la tire el, que es lo normal): el jefe la trae apagada y
+	# un piso restaurado trae la que tenia. Va antes de add_child por lo mismo, y ademas antes de
+	# Net.registrar_enemigo, que la manda ya resuelta al otro lado.
+	e.mut_forzada = mut
 	# Cuelgan del PADRE del piso (junto al jugador) y no del piso: asi no heredan su
 	# z_index de -1 y no se dibujan por debajo del suelo.
 	var mundo: Node = get_parent()

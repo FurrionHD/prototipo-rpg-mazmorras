@@ -26,6 +26,18 @@ var current_t: float = 0.5
 # posicion dentro de la franja de habilidades del piso). -1 = tirala tu, como siempre.
 var t_forzada: float = -1.0
 
+# MUTANTE (el "mini-jefe"): el mismo bicho de siempre, mas grande y mucho mas bruto. Lo decide un
+# dado en _ready con EnemyData.MUTANTE_PROB. Ver la cabecera de MUTANTE_PROB para el porque.
+var mutante: bool = false
+
+# Mutacion IMPUESTA desde fuera: -1 = tirala tu (lo normal), 0 = no, 1 = si. Existe por dos
+# motivos, y los dos son bugs si falta:
+#   - el JEFE del piso la trae a 0: si no, el dado podria ascender al boss y volverlo imposible.
+#   - al RESTAURAR un piso hay que devolver la que tenia, igual que la 't': si no, el mutante del
+#     que te escapaste se convierte en un bicho normal (o al reves) por volver a bajar.
+# Se pone ANTES de add_child porque quien la lee es _ready.
+var mut_forzada: int = -1
+
 # Zona (sala/pasillo) a la que pertenece. La fija el piso al crearlo; sirve para devolverlo
 # a SU zona al restaurar el piso.
 var zona_idx: int = -1
@@ -230,6 +242,7 @@ func _ready() -> void:
 	# por piso la lleva la propia franja (EnemyData.sum_band), no un multiplicador.
 	# Si viene restaurado de la memoria del piso, se respeta la suya (mismas stats que tenia).
 	current_t = t_forzada if t_forzada >= 0.0 else randf()
+	mutante = (mut_forzada == 1) if mut_forzada >= 0 else (randf() < EnemyData.MUTANTE_PROB)
 
 	if data != null:
 		# Color base + tinte por 't' (los mas fuertes de su franja salen mas claros).
@@ -255,11 +268,15 @@ func _ready() -> void:
 		# La forma de su cuerpo, para que la colision sea a su medida y no una caja de 32x32. Va
 		# ANTES de _aplicar_escala, que es quien la monta.
 		_tam_cuerpo = SpritesEnemigo.tam_cuerpo(data)
-		_aplicar_escala(data.escala_visual)   # los elites se ven mas grandes en el mapa
+		# Un MUTANTE se ve mas grande, y eso no es un adorno: es el aviso. Tienes que poder decidir
+		# si lo peleas o lo rodeas ANTES de tocarlo, y la unica informacion que hay a distancia es su
+		# silueta. Por eso la escala va aqui, en la misma linea que la de los elites de siempre.
+		_aplicar_escala(data.escala_visual * (EnemyData.MUT_ESCALA if mutante else 1.0))
 		# Un bicho ELEMENTAL emana lo mismo que tu cuando te imbuyes de ese elemento: el slime de
 		# fuego echa los mismos cuadraditos naranjas que un Manto de Brasas. Es a proposito -- el
 		# mismo color quiere decir la misma cosa, la vengas tu de echar o la traiga el bicho puesta.
 		_crear_fx_elemental()
+		_marcar_mutante()
 		current_move_speed = randf_range(data.move_speed_min, data.move_speed_max)
 		var band: Vector2 = data.sum_band()
 		var ab: Abilities = data.crear_abilities(current_t)
@@ -292,6 +309,61 @@ func _crear_fx_elemental() -> void:
 		return
 	_fx_elem = Particulas.ascendentes(self, Elementos.color(data.elemento),
 		clampf(data.elemento_intensidad, 0.0, 1.0), 32.0 * maxf(0.1, data.escala_visual))
+
+
+# El tinte y los destellos del MUTANTE. El tamaño ya lo dice de lejos, pero dos bichos de la misma
+# familia pueden tener escalas distintas de fabrica (el rey rata ya es 1.68), asi que hace falta una
+# marca que no se pueda confundir con "es que este es de los grandes".
+#
+# El carmesi va como MODULATE y no cambiando su color base: asi funciona igual con el ColorRect de
+# los que no tienen sprite y con el arte de los que si, sin que cada familia tenga que saber nada.
+const MUT_TINTE := Color(1.35, 0.62, 0.66)
+const MUT_AURA := Color(0.95, 0.18, 0.22)
+
+func _marcar_mutante() -> void:
+	if not mutante:
+		return
+	_color_rect.modulate = MUT_TINTE
+	_sprite.modulate = MUT_TINTE
+	# EL TAMAÑO DEL SPRITE. _aplicar_escala ya recibio la escala con el x1.2 dentro, pero solo estira
+	# el sprite de los que declaran `hay_que_estirar` (arte de verdad): a los generados NO los toca,
+	# porque su generador dibuja al bicho grande con MAS CELDAS y estirarlos deforma el pixel.
+	#
+	# Para el mutante hay que estirarlos igualmente, y es una excepcion decidida: la alternativa era
+	# una version "mutante" del generador de cada uno de los veinte enemigos para decir exactamente lo
+	# mismo que ya dicen el tinte y el aura. El pixel sale un 20% mas gordo y se nota si lo buscas;
+	# a cambio, un mini-jefe se distingue de su especie a simple vista desde el otro lado de la sala.
+	if _sprite.visible and not _sprite_escala_propia:
+		_sprite.scale = Vector2.ONE * _sprite_base_scale * EnemyData.MUT_ESCALA
+	# EL AURA. Las mismas particulas ASCENDENTES que emana un bicho elemental (el slime de fuego
+	# humea naranja), aqui en rojo y a intensidad maxima: el mutante "arde" de rabia. Se usa ese
+	# sistema y no los destellos del botin a proposito -- los destellos dicen "cogeme" y esto tiene
+	# que decir "cuidado".
+	#
+	# Va DESPUES de _crear_fx_elemental, asi que un slime de fuego mutante lleva las dos: su humo
+	# naranja de siempre Y el aura roja. Es correcto y se lee bien: sigue siendo de fuego, y ademas
+	# esta mutado.
+	Particulas.ascendentes(self, MUT_AURA, 1.0,
+		32.0 * maxf(0.1, data.escala_visual * EnemyData.MUT_ESCALA))
+
+
+# EL LATIDO. El tinte carmesi funciona en un golem pardo o en un jabali marron, pero hay bichos que
+# YA son rojos -- el slime, sin ir mas lejos -- y sobre esos no dice nada: al lado del normal se ve
+# el mismo rojo un poco mas vivo, y eso no es un aviso. Un PULSO si: el ojo caza el movimiento
+# aunque el color sea el mismo, y ademas se lee como "esto esta acelerado", que es justo lo que es.
+#
+# El color de reposo de un mutante SALE DE AQUI y no de una asignacion suelta, y eso no es un
+# capricho: _actualizar_indicadores reescribe el modulate del sprite EN CADA FRAME (es donde vive el
+# aviso del golpe), asi que pintar el bicho de rojo una vez en _ready no dura ni un fotograma. Tiene
+# que haber una sola autoridad sobre el modulate, y es esa.
+const MUT_LATIDO_SEG := 0.55
+const MUT_TINTE_PICO := Color(1.75, 0.80, 0.84)
+
+func _tinte_reposo() -> Color:
+	if not mutante:
+		return Color.WHITE
+	var f: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.001 * TAU / MUT_LATIDO_SEG)
+	return MUT_TINTE.lerp(MUT_TINTE_PICO, f)
 
 
 # Escala el cuerpo (ColorRect) y su colision. El cuerpo base es 32x32 centrado.
@@ -1313,7 +1385,7 @@ func _tick_estados_fuera(delta: float) -> void:
 	# Sin vida arrastrada (nunca peleo) el DoT no tiene de donde morder: se le pone su vida entera y
 	# se le resta de ahi.
 	if hp_restante < 0.0:
-		hp_restante = float(data.crear_combatant(current_t).max_hp)
+		hp_restante = float(data.crear_combatant(current_t, mutante).max_hp)
 	hp_restante -= dano
 	print("[estado] %s sufre %.1f por el mapa | HP %.1f" % [data.enemy_name, dano, hp_restante])
 	if hp_restante <= 0.0:
@@ -1804,9 +1876,16 @@ func _actualizar_indicadores() -> void:
 			col.rotation = _facing.angle() - PI * 0.5
 	if _facing_line == null:
 		# Tiene sprite: el aviso del golpe va por el tinte, que es lo que sustituye al palo rojo.
+		# En reposo NO es blanco sino lo que diga _tinte_reposo: un mutante late en carmesi. El aviso
+		# sigue mandando por encima, que es lo que tiene que pasar -- que sea un mini-jefe no puede
+		# tapar la telegrafia de su golpe.
 		if _sprite.visible:
-			_sprite.modulate = _AVISO_TINTE if _winding else Color.WHITE
+			_sprite.modulate = _AVISO_TINTE if _winding else _tinte_reposo()
 		return
+	# Sin sprite (los que aun son un ColorRect): el latido va sobre el cuerpo, que aqui no lo pisa
+	# nadie. El aviso de esos sigue siendo el palo rojo de abajo.
+	if mutante:
+		_color_rect.modulate = _tinte_reposo()
 	_facing_line.rotation = _facing.angle()
 	# Rojo/naranja mientras avisa el ataque (telegrafia el golpe).
 	_facing_line.default_color = Color(1.0, 0.3, 0.1) if _winding else Color(1.0, 1.0, 0.0)

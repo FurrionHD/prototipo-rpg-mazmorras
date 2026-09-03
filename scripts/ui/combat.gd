@@ -3253,10 +3253,13 @@ func _invocar_slime(data: EnemyData) -> Combatant:
 # da maná al morir y su cadaver es extraible, asi que NO lleva la marca de invocado.
 # Devuelve el indice del slot, o -1 si no cabe (entonces el que llama lo pone en cola).
 func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array = [],
-		es_jefe: bool = false) -> int:
+		es_jefe: bool = false, mutante: bool = false) -> int:
 	if data == null or _state == State.FINISHED:
 		return -1   # la pelea ya acabo (o se esta cerrando): que se quede fuera
-	var c: Combatant = data.crear_combatant(t)
+	# La MUTACION viaja igual que la 't' y la bandera de jefe, y por el motivo de la nota de mas
+	# abajo: este es el SEGUNDO camino de entrada al combate. Sin pasarla aqui, un mini-jefe que
+	# llega de refuerzo entra con las stats de un bicho corriente.
+	var c: Combatant = data.crear_combatant(t, mutante)
 	# Un JEFE puede entrar de refuerzo a una pelea ya empezada. Sin esto el roster salia sin bandera
 	# y los espejos seguian con la musica de rata (y esta pantalla tampoco cambiaba de pista).
 	c.es_jefe = es_jefe
@@ -7930,7 +7933,13 @@ func _poder_enemigo(c: Combatant) -> float:
 	if c == null or c.abilities == null:
 		return 0.0
 	var a: Abilities = c.abilities
-	return float(a.fuerza + a.resistencia + a.destreza + a.agilidad + a.magia)
+	var suma: float = float(a.fuerza + a.resistencia + a.destreza + a.agilidad + a.magia)
+	# UN MUTANTE entrena mas, y hay que decirlo aqui porque sus habilidades son las MISMAS que las
+	# del bicho corriente: sus multiplicadores viven en la vida, el ataque y la defensa (ver
+	# EnemyData.MUT_*), asi que la suma de stats no se entera de que acabas de tumbar a un mini-jefe.
+	# Subirle las habilidades en su lugar no vale: el daño ya se calcula con ellas y se cobraria dos
+	# veces. El factor es lo que cuesta MATARLO, no lo que dice su ficha.
+	return suma * (EnemyData.MUT_PODER if c.mutante else 1.0)
 
 
 # Dificultad relativa contra ESTE bicho. Pasa su NIVEL (el tier del contenido, de EnemyData.level)
