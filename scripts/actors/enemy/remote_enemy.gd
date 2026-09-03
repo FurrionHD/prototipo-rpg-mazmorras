@@ -180,7 +180,7 @@ func _montar_sprite() -> void:
 	# porque) que en enemy._marcar_mutante: sin esto, el mini-jefe se veria del tamaño de siempre en
 	# la pantalla del invitado y solo el anfitrion sabria que es enorme.
 	if mutante:
-		esc *= EnemyData.MUT_ESCALA
+		esc *= float(EnemyData.mult_mutante(es_boss)["escala"])
 	_sprite.scale = Vector2.ONE * esc
 	# La linea amarilla es el apaño de los CUADRADOS: quien tiene cara no la necesita, y ademas mide
 	# 26 unidades fijas (un mastil en una rata, invisible dentro del Rey Slime). El aviso del golpe,
@@ -202,7 +202,8 @@ func _marcar_mutante() -> void:
 	if _sprite != null:
 		_sprite.modulate = _tinte_reposo()
 	Particulas.ascendentes(self, _ENEMY_GD.MUT_AURA, 1.0,
-		32.0 * maxf(0.1, data.escala_visual * EnemyData.MUT_ESCALA) if data != null else 32.0)
+		32.0 * maxf(0.1, data.escala_visual
+			* float(EnemyData.mult_mutante(es_boss)["escala"])) if data != null else 32.0)
 
 
 # El LATIDO del mutante, con la misma cuenta que enemy._tinte_reposo (las constantes salen de alli).

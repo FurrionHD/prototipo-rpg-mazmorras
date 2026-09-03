@@ -271,7 +271,8 @@ func _ready() -> void:
 		# Un MUTANTE se ve mas grande, y eso no es un adorno: es el aviso. Tienes que poder decidir
 		# si lo peleas o lo rodeas ANTES de tocarlo, y la unica informacion que hay a distancia es su
 		# silueta. Por eso la escala va aqui, en la misma linea que la de los elites de siempre.
-		_aplicar_escala(data.escala_visual * (EnemyData.MUT_ESCALA if mutante else 1.0))
+		# Un JEFE mutante se agranda menos (ya es enorme): la tabla la elige mult_mutante.
+		_aplicar_escala(data.escala_visual * _mut_escala())
 		# Un bicho ELEMENTAL emana lo mismo que tu cuando te imbuyes de ese elemento: el slime de
 		# fuego echa los mismos cuadraditos naranjas que un Manto de Brasas. Es a proposito -- el
 		# mismo color quiere decir la misma cosa, la vengas tu de echar o la traiga el bicho puesta.
@@ -320,6 +321,14 @@ func _crear_fx_elemental() -> void:
 const MUT_TINTE := Color(1.35, 0.62, 0.66)
 const MUT_AURA := Color(0.95, 0.18, 0.22)
 
+# Cuanto agranda LA MUTACION a este bicho (1.0 = no muto). Sale de la tabla que le toque: la de un
+# jefe es mas suave. Se lee de EnemyData y no se copia aqui para que no puedan discrepar.
+func _mut_escala() -> float:
+	if not mutante:
+		return 1.0
+	return float(EnemyData.mult_mutante(es_boss)["escala"])
+
+
 func _marcar_mutante() -> void:
 	if not mutante:
 		return
@@ -334,7 +343,7 @@ func _marcar_mutante() -> void:
 	# mismo que ya dicen el tinte y el aura. El pixel sale un 20% mas gordo y se nota si lo buscas;
 	# a cambio, un mini-jefe se distingue de su especie a simple vista desde el otro lado de la sala.
 	if _sprite.visible and not _sprite_escala_propia:
-		_sprite.scale = Vector2.ONE * _sprite_base_scale * EnemyData.MUT_ESCALA
+		_sprite.scale = Vector2.ONE * _sprite_base_scale * _mut_escala()
 	# EL AURA. Las mismas particulas ASCENDENTES que emana un bicho elemental (el slime de fuego
 	# humea naranja), aqui en rojo y a intensidad maxima: el mutante "arde" de rabia. Se usa ese
 	# sistema y no los destellos del botin a proposito -- los destellos dicen "cogeme" y esto tiene
@@ -344,7 +353,7 @@ func _marcar_mutante() -> void:
 	# naranja de siempre Y el aura roja. Es correcto y se lee bien: sigue siendo de fuego, y ademas
 	# esta mutado.
 	Particulas.ascendentes(self, MUT_AURA, 1.0,
-		32.0 * maxf(0.1, data.escala_visual * EnemyData.MUT_ESCALA))
+		32.0 * maxf(0.1, data.escala_visual * _mut_escala()))
 
 
 # EL LATIDO. El tinte carmesi funciona en un golem pardo o en un jabali marron, pero hay bichos que
@@ -1385,7 +1394,7 @@ func _tick_estados_fuera(delta: float) -> void:
 	# Sin vida arrastrada (nunca peleo) el DoT no tiene de donde morder: se le pone su vida entera y
 	# se le resta de ahi.
 	if hp_restante < 0.0:
-		hp_restante = float(data.crear_combatant(current_t, mutante).max_hp)
+		hp_restante = float(data.crear_combatant(current_t, mutante, es_boss).max_hp)
 	hp_restante -= dano
 	print("[estado] %s sufre %.1f por el mapa | HP %.1f" % [data.enemy_name, dano, hp_restante])
 	if hp_restante <= 0.0:

@@ -730,11 +730,10 @@ func _colocar_boss() -> void:
 func _parir_boss(data: EnemyData, pos: Vector2, piso: int) -> void:
 	if piso != _piso_construido:
 		return
-	# t = 1.0 (el techo de su franja) y SIN mutacion: el jefe ya es el tope del piso, y que el dado
-	# pudiera ascenderlo encima lo volveria imposible por sorteo.
-	var e = crear_enemigo(data, pos, 0.0, 1.0, 0)
-	if e != null:
-		e.es_boss = true
+	# t = 1.0 (el techo de su franja) y la mutacion A DADOS como cualquier otro (-1): un jefe TAMBIEN
+	# puede salir mutante, solo que con multiplicadores mucho mas suaves -- los suyos los elige
+	# EnemyData.mult_mutante por la bandera de jefe, que ya va puesta desde crear_enemigo.
+	var e = crear_enemigo(data, pos, 0.0, 1.0, -1, true)
 
 
 # La sala mas CENTRADA del mapa. El boss no se esconde en un rincon: se planta en medio y hay
@@ -1595,16 +1594,17 @@ func _restaurar_estado() -> void:
 		var radio: float = zona.wander_radius if zona != null else 90.0
 		# La mutacion vuelve IMPUESTA (1/0) y no a dados: si no, cada vuelta al piso re-sortearia
 		# quien es mini-jefe. Las fotos viejas no la traen -> 0, o sea bicho normal.
+		# Que el boss siga siendo el boss al volver al piso: si no, se lo llevaria el reciclador
+		# y su muerte no abriria nada. Va COMO PARAMETRO (antes se asignaba despues) porque su
+		# _ready lo necesita para saber cuanto agrandarlo si venia mutado.
+		var era_boss: bool = data_boss != null and d["data"] == data_boss
 		var e = crear_enemigo(d["data"], d["pos"], radio, float(d["t"]),
-			1 if bool(d.get("mut", false)) else 0)
+			1 if bool(d.get("mut", false)) else 0, era_boss)
 		if e == null:
 			continue
 		e.zona_idx = int(d["zona"])
 		# Vuelve con las heridas que le dejaste (los saves viejos no lo traen -> -1 = intacto).
 		e.hp_restante = float(d.get("hp", -1.0))
-		# Que el boss siga siendo el boss al volver al piso: si no, se lo llevaria el reciclador
-		# y su muerte no abriria nada.
-		e.es_boss = data_boss != null and d["data"] == data_boss
 		if bool(d["muerto"]):
 			# El sello va ANTES de morir(): morir() solo lo pone si venia a -1, justo para que
 			# revivir un cadaver de la foto no le regale otros cinco minutos. Saves viejos -> -1, y
@@ -1761,12 +1761,18 @@ func _crear_capa_vinculos() -> void:
 # Instancia un enemigo. Mismo patron que el spawner de dev (scripts/ui/spawner.gd): el
 # 'data' se asigna ANTES de add_child (su _ready lo usa) y se le recoloca DESPUES para
 # re-fijar su "hogar" (si no, deambula hacia el (0,0) y cruza las paredes).
-func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0, mut: int = -1):
+func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0, mut: int = -1,
+		boss: bool = false):
 	if data == null:
 		return null
 	var e = _enemy_scene.instantiate()
 	e.data = data
 	e.wander_radius = radio
+	# LA BANDERA DE JEFE VA AQUI, antes de add_child, y no despues como estaba: su _ready la
+	# necesita para saber cuanto agrandarlo si le ha tocado mutar (un jefe mutante se agranda menos,
+	# ver EnemyData.mult_mutante). Y de paso Net.registrar_enemigo, que se llama ahi abajo, ya la
+	# manda puesta en el alta.
+	e.es_boss = boss
 	# 't' impuesta (restaurando el piso): el bicho vuelve con las MISMAS stats que tenia.
 	# Va antes de add_child porque su _ready es quien la lee.
 	e.t_forzada = t

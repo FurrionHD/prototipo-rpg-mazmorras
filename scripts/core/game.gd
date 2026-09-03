@@ -11233,7 +11233,9 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 		if "current_t" in n:
 			t = n.current_t
 		# La MUTACION, como la 't', es del NODO: el mismo .tres pare bichos normales y mini-jefes.
-		var ec: Combatant = n.data.crear_combatant(t, bool(n.get("mutante")))
+		# La bandera de jefe va con ella porque un jefe mutante lleva multiplicadores mas suaves.
+		var ec: Combatant = n.data.crear_combatant(t, bool(n.get("mutante")),
+			bool(n.get("es_boss")))
 		# VIDA ARRASTRADA: si huiste de este bicho, sigue con las heridas que le dejaste. El
 		# Combatant nace siempre a tope (crear_combatant), asi que la vida guardada se aplica
 		# aqui encima. hp_restante < 0 = intacto (nunca ha peleado o ya se curo).
@@ -11681,7 +11683,8 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 	# MUTANTE (mini-jefe): suelta como dos. Se aplica a las dos tiradas de material y NO a la de
 	# cocina: lo que tiene que compensar de pelear un mini-jefe es su NUCLEO, que es lo que va al
 	# equipo; que un bicho enorme deje el doble de filetes no le interesa a nadie.
-	var mut: float = EnemyData.MUT_BOTIN if bool(corpse.get("mutante")) else 1.0
+	var mut: float = float(EnemyData.mult_mutante(bool(corpse.get("es_boss")))["botin"]) \
+		if bool(corpse.get("mutante")) else 1.0
 
 	var chance: float = 1.0 if dev_force_drop else clampf(data.drop_chance * f_piso * suerte * mut + mas, 0.0, 1.0)
 	if data.drop_material != null and randf() < chance:

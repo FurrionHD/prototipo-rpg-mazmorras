@@ -3113,6 +3113,10 @@ func _datos_enemigo(nodo: Node) -> Dictionary:
 	# dado en la otra maquina o cada uno tendria sus propios mini-jefes -- el invitado veria una rata
 	# normal donde el anfitrion pelea un mutante con el triple de vida.
 	d["mut"] = bool(nodo.get("mutante"))
+	# Y si es el JEFE del piso. Hace falta para el aspecto: un jefe mutante se agranda MENOS que un
+	# bicho mutante corriente (ver EnemyData.mult_mutante), asi que sin esto el espejo lo pintaria
+	# con la escala equivocada.
+	d["boss"] = bool(nodo.get("es_boss"))
 	if nodo.has_method("esta_muerto"):
 		d["muerto"] = bool(nodo.esta_muerto())
 	return d
@@ -3254,6 +3258,7 @@ func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void
 	cuerpo.set_meta("net_id", id)   # para pedir pelea/extraccion por el
 	cuerpo.configurar(d.get("color", Color.WHITE), float(d.get("lado", 32.0)),
 		int(d.get("elem", Elementos.Elemento.NINGUNO)), float(d.get("einten", 1.0)))
+	cuerpo.es_boss = bool(d.get("boss", false))   # antes de aplicar_datos: decide su escala si muto
 	cuerpo.aplicar_datos(String(d.get("ruta", "")), float(d.get("t", 0.5)),
 		bool(d.get("muerto", false)), float(d.get("vis", 130.0)), float(d.get("ang", 50.0)),
 		bool(d.get("mut", false)))

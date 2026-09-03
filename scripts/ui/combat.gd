@@ -3259,7 +3259,7 @@ func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array 
 	# La MUTACION viaja igual que la 't' y la bandera de jefe, y por el motivo de la nota de mas
 	# abajo: este es el SEGUNDO camino de entrada al combate. Sin pasarla aqui, un mini-jefe que
 	# llega de refuerzo entra con las stats de un bicho corriente.
-	var c: Combatant = data.crear_combatant(t, mutante)
+	var c: Combatant = data.crear_combatant(t, mutante, es_jefe)
 	# Un JEFE puede entrar de refuerzo a una pelea ya empezada. Sin esto el roster salia sin bandera
 	# y los espejos seguian con la musica de rata (y esta pantalla tampoco cambiaba de pista).
 	c.es_jefe = es_jefe
@@ -7939,7 +7939,9 @@ func _poder_enemigo(c: Combatant) -> float:
 	# EnemyData.MUT_*), asi que la suma de stats no se entera de que acabas de tumbar a un mini-jefe.
 	# Subirle las habilidades en su lugar no vale: el daño ya se calcula con ellas y se cobraria dos
 	# veces. El factor es lo que cuesta MATARLO, no lo que dice su ficha.
-	return suma * (EnemyData.MUT_PODER if c.mutante else 1.0)
+	if not c.mutante:
+		return suma
+	return suma * float(EnemyData.mult_mutante(c.es_jefe)["poder"])
 
 
 # Dificultad relativa contra ESTE bicho. Pasa su NIVEL (el tier del contenido, de EnemyData.level)

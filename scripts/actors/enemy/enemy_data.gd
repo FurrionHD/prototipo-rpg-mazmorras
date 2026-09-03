@@ -371,9 +371,11 @@ static func eficacia_de_piso(piso: int) -> float:
 # Encontrarte uno es un acontecimiento y una decision -- pelearlo o rodearlo -- y no otro bicho mas
 # de la lista.
 #
-# Un JEFE DE PISO nunca muta: ya es el tope de su piso, y multiplicarlo otra vez lo volveria
-# imposible por sorteo (ver DungeonFloor._parir_boss, que le pasa la mutacion apagada).
-const MUTANTE_PROB := 0.01        # 1 de cada 100 bichos que nacen
+# UN JEFE DE PISO TAMBIEN PUEDE MUTAR, pero con multiplicadores MUCHO mas suaves (MUT_JEFE_*). Un
+# jefe ya es el tope de su piso: aplicarle el x2.6 de vida de la morralla lo volveria imposible POR
+# SORTEO -- te tocaria un muro infranqueable o no, sin que tu hubieras hecho nada distinto. Con los
+# suaves sigue siendo el mismo jefe, una version dura, y ese es el punto.
+const MUTANTE_PROB := 0.01        # 1 de cada 100 bichos que nacen, jefes incluidos
 
 # Los multiplicadores, sobre lo que ese mismo bicho seria en ese mismo piso. AGUANTE muy arriba y
 # daño arriba pero menos: la gracia es que sea un muro que te obliga a sostener la pelea, no que te
@@ -399,6 +401,37 @@ const MUT_BOTIN := 2.0
 # pero farmearlos no puede ser la via rapida para saltarse la curva de un piso.
 const MUT_PODER := 1.70
 
+# --- LOS MISMOS, PARA UN JEFE DE PISO ---
+# Un jefe mutante existe (lo pidio el usuario: "que si que pueda salir pero que sea menos
+# busteado"), y va con su propia tabla por una razon de proporciones: el jefe ya viene con la vida y
+# el daño del techo de su piso, asi que el mismo x2.6 que hace interesante a una rata lo convierte
+# en un muro que no se puede tumbar con el equipo con el que se supone que llegas.
+#
+# Los numeros los dio el usuario (vida x1.65, ataque x1.15) y el resto se escala en la misma
+# proporcion respecto a la tabla normal, para que la sensacion sea la misma en menor grado.
+const MUT_JEFE_HP := 1.65
+const MUT_JEFE_ATAQUE := 1.15
+const MUT_JEFE_DEFENSA := 1.20
+const MUT_JEFE_ESTADOS := 1.20
+# Se agranda menos: un jefe ya es enorme de fabrica y un x1.2 encima se le sale de la sala. Con el
+# tinte, el aura y el latido se sigue viendo perfectamente que ese jefe viene torcido.
+const MUT_JEFE_ESCALA := 1.10
+const MUT_JEFE_BOTIN := 1.5
+const MUT_JEFE_PODER := 1.35
+
+
+# Los multiplicadores de la mutacion, segun sea un bicho corriente o el JEFE del piso. En un dict y
+# no en seis ifs sueltos porque los usan cuatro sitios distintos (las stats, el botin, el cristal y
+# la excelia) y separarlos es como se acaba con el jefe llevando el aguante del uno y el botin del
+# otro.
+static func mult_mutante(es_jefe: bool) -> Dictionary:
+	if es_jefe:
+		return {"hp": MUT_JEFE_HP, "atk": MUT_JEFE_ATAQUE, "def": MUT_JEFE_DEFENSA,
+			"est": MUT_JEFE_ESTADOS, "escala": MUT_JEFE_ESCALA, "botin": MUT_JEFE_BOTIN,
+			"poder": MUT_JEFE_PODER}
+	return {"hp": MUT_HP, "atk": MUT_ATAQUE, "def": MUT_DEFENSA, "est": MUT_ESTADOS,
+		"escala": MUT_ESCALA, "botin": MUT_BOTIN, "poder": MUT_PODER}
+
 
 # Como se llama en la barra de combate y en el log. "mutante" y no "mutado/a" a proposito: es
 # invariable en genero, asi que vale para la rata y para el slime sin una tabla de excepciones (y
@@ -407,11 +440,14 @@ func nombre_mostrado(mutante: bool = false) -> String:
 	return ("%s mutante" % enemy_name) if mutante else enemy_name
 
 
-func crear_combatant(t: float = 0.5, mutante: bool = false) -> Combatant:
+func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = false) -> Combatant:
 	var fstat: float = Game.enemy_floor_stat_factor()
-	var m_hp: float = MUT_HP if mutante else 1.0
-	var m_atk: float = MUT_ATAQUE if mutante else 1.0
-	var m_def: float = MUT_DEFENSA if mutante else 1.0
+	# 'es_jefe' solo se usa para elegir la TABLA de multiplicadores (un jefe mutante va mucho mas
+	# suave, ver mult_mutante). Sin mutacion no cambia nada, asi que pasarlo de mas es inofensivo.
+	var mm: Dictionary = mult_mutante(es_jefe)
+	var m_hp: float = float(mm["hp"]) if mutante else 1.0
+	var m_atk: float = float(mm["atk"]) if mutante else 1.0
+	var m_def: float = float(mm["def"]) if mutante else 1.0
 	var c := Combatant.new(nombre_mostrado(mutante), level, crear_abilities(t),
 		base_hp * fstat * m_hp,
 		base_attack * fstat * m_atk,
@@ -419,7 +455,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false) -> Combatant:
 		base_speed)
 	# Defensa MAGICA: escala con la profundidad igual (raiz) que la fisica, para que la magia
 	# no se despegue del resto a medida que bajas de piso.
-	c.base_magic = base_magic * sqrt(fstat) * (MUT_ATAQUE if mutante else 1.0)
+	c.base_magic = base_magic * sqrt(fstat) * m_atk
 	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
 	c.on_hit = al_golpear
 	# Habilidades del enemigo (KAN-58): tecnicas que puede lanzar en combate.
@@ -435,7 +471,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false) -> Combatant:
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo
 	# bien que TE mete a ti sus venenos y aturdimientos.
-	var m_est: float = MUT_ESTADOS if mutante else 1.0
+	var m_est: float = float(mm["est"]) if mutante else 1.0
 	c.status_resist = resist_de_piso(Game.current_floor) * status_resist * m_est
 	c.eficacia = eficacia_de_piso(Game.current_floor) * eficacia * m_est
 	# Familia del bicho (para las pasivas slayer del jugador).
