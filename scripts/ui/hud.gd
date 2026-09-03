@@ -23,7 +23,12 @@ var _peso_lbl: Label = null       # numero de peso encima del deposito
 # El FAROLILLO, a la derecha de la mochila: la llama que se consume, y al lado "xN" (trozos) y la
 # luz total que te queda. Ver cuadro_farol.gd.
 var _farol_box: CuadroFarol = null
-var _farol_lbl: Label = null
+var _farol_lbl: Label = null       # "xN" y la luz restante, a la derecha del cuadro
+# Lo que ocupa ese texto a lo ancho. Es una ESTIMACION generosa, no una medida: se necesita en
+# player.escala_fila ANTES de que la etiqueta tenga texto (y la fuente no esta cargada todavia al
+# arrancar). Pasarse un poco solo encoge la fila un pelin de mas; quedarse corto la deja solapada,
+# que es lo que no vale.
+const ANCHO_TEXTO_FAROL := 62.0
 # El deposito es CUADRADO, y su lado NO se escribe aqui: se lo pide a player.ALTO_EQUIPO, que es el
 # alto de los cuadros de equipo (del nombre al fondo de la barra de mana). Asi la mochila y los
 # cuadros comparten LA MISMA linea de abajo por construccion, y no por que alguien haya cuadrado dos
@@ -114,12 +119,18 @@ func _ready() -> void:
 	_farol_box.size = Vector2(LADO_MOCHILA, ALTO_MOCHILA)
 	add_child(_farol_box)
 
+	# Los dos numeros van A LA DERECHA del cuadro: los trozos arriba y la luz que queda debajo. Dentro
+	# del cuadro se probo y no vale -- en 64 px las dos lineas se comen el farol y la llama, que es
+	# justo lo que hay que ver de un vistazo, se queda en nada.
+	#
+	# Lo que ocupan SE CUENTA en player.escala_fila (ANCHO_TEXTO_FAROL): esa cuenta es la que decide
+	# cuanto encoge la fila del grupo, y como no los contaba, el farol y su texto se salian por la
+	# derecha y se metian debajo de la botonera.
 	_farol_lbl = Label.new()
 	_farol_lbl.add_theme_font_size_override("font_size", 13)
 	_farol_lbl.add_theme_color_override("font_color", Color.WHITE)
 	_farol_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	_farol_lbl.add_theme_constant_override("outline_size", 4)
-	_farol_lbl.add_theme_constant_override("line_spacing", 0)
 	_farol_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_farol_lbl)
 
@@ -194,7 +205,7 @@ func recolocar() -> void:
 			_farol_box.position = Vector2(xf * f, y0 * f)
 			if _farol_lbl != null:
 				_farol_lbl.scale = Vector2(f, f)
-				_farol_lbl.position = Vector2((xf + lado + 5.0) * f, (y0 + lado * 0.16) * f)
+				_farol_lbl.position = Vector2((xf + lado + 5.0) * f, (y0 + lado * 0.14) * f)
 	# Y la caja de ayudas, justo debajo del bloque de barras. Va aqui y no con una y fija porque
 	# el bloque crecio al meterle el nombre encima: con la 64 de antes se solapaban.
 	if _caja_ayudas != null:
@@ -522,8 +533,8 @@ func _refrescar_farol() -> void:
 	_farol_box.hay_luz = Game.lampara_llama > 0.0
 	_farol_box.llama = Game.llama_fraccion()
 	var total: float = Game.luz_total_restante()
-	# "xN" arriba y la luz total debajo, como en el boceto. Los minutos van SIN segundos: es una
-	# magnitud para decidir de un vistazo, y un contador al segundo invita a mirarlo en vez de jugar.
+	# "xN" arriba y la luz total abajo. Los minutos van SIN segundos: es una magnitud para decidir de
+	# un vistazo, y un contador al segundo invita a mirarlo en vez de jugar.
 	_farol_lbl.text = "x%d\n%s" % [Game.carbon_restante(), _texto_luz(total)]
 	_farol_lbl.add_theme_color_override("font_color",
 		Color(1.0, 0.55, 0.45) if total < AVISO_LUZ else Color.WHITE)

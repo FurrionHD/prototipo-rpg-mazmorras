@@ -1759,8 +1759,16 @@ func escala_fila() -> float:
 	if vp == null:
 		return 1.0
 	var disponible: float = float(vp.get_visible_rect().size.x) - Hud.ancho_botonera() - X_COL_BARRAS
-	# Lo que ocupa TODO: una columna por miembro del grupo mas la mochila del HUD detras.
-	var necesario: float = x_columna(maxi(Game.party.size(), 1)) + Hud.LADO_MOCHILA + 8.0
+	# Lo que ocupa TODO: una columna por miembro del grupo, mas la mochila del HUD detras, mas el
+	# FAROLILLO detras de ella.
+	#
+	# El farol hay que contarlo: sin el, la cuenta daba "cabe" con la fila a escala 1 y luego el
+	# cuadro se salia por la derecha, metiendose debajo de la botonera. Con 4 personajes la fila ya
+	# pide ~1227 de 1280, asi que 64 px mas no son un detalle -- se ve enseguida en movil, que es
+	# donde menos ancho sobra.
+	var necesario: float = x_columna(maxi(Game.party.size(), 1)) \
+		+ Hud.LADO_MOCHILA + Hud.SEPARACION_FAROL + Hud.LADO_MOCHILA \
+		+ Hud.ANCHO_TEXTO_FAROL + 8.0
 	if necesario <= 0.0:
 		return 1.0
 	return clampf(disponible / necesario, ESCALA_FILA_MIN, 1.0)
