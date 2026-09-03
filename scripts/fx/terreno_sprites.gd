@@ -64,7 +64,7 @@ enum Clase { BASE, MASCARA }
 # ============================================================
 # El orden de CAPAS_ORDEN fija el reparto del atlas. Añadir una capa AL FINAL no mueve a las de
 # arriba, o sea que un horneado viejo de otra capa sigue valiendo mientras se desarrolla.
-const CAPAS_ORDEN := ["suelo", "muro", "musgo", "agua", "sumidero"]
+const CAPAS_ORDEN := ["suelo", "muro", "musgo", "agua", "sumidero", "columna"]
 
 # ------------------------------------------------------------
 #  'bloque': POR QUE LA TEXTURA NO SE VE A CUADROS
@@ -104,6 +104,14 @@ const CAPAS := {
 	# Bloque 1: es una pieza SUELTA (hay uno por piso como mucho), no un tapiz. No tiene vecinos
 	# con los que casar, asi que no necesita el tratamiento de los demas.
 	"sumidero": {"clase": Clase.BASE, "bloque": 1, "frames": 1, "overlay": true},
+	# LA COLUMNA de la cueva: una estalagmita suelta en medio de una sala. Es roca de verdad (choca
+	# y tapa la luz), pero NO se dibuja como muro: probado, una celda de pared con los cuatro lados
+	# expuestos sale como un azulejo plano y claro que parece un fallo grafico, no una piedra. Asi
+	# que la celda se pinta de SUELO y encima va esta pieza con su forma.
+	#
+	# Bloque 4 y no 1: son varias por sala y con una sola forma se veria el calco enseguida. Al ir
+	# por tapiz, la que toca sale de la posicion de la celda, asi que dos vecinas nunca son iguales.
+	"columna": {"clase": Clase.BASE, "bloque": 4, "frames": 1, "overlay": true},
 }
 
 
@@ -140,10 +148,23 @@ static func _cuantas(capa: String) -> int:
 #
 # Los tramos de mas abajo caen en el ultimo hasta que se dibujen, asi que el juego se ve entero
 # desde el primer dia y meter el siguiente es añadir una entrada aqui con su paleta.
+#
+# 'formaciones' = si en este tramo crecen columnas de piedra sueltas en medio de las salas (ver
+# DungeonFloor._sembrar_formaciones). La mazmorra de arriba esta picada por alguien y sus salas son
+# limpias; una cueva natural no.
 const TRAMOS := [
-	{"desde": 1, "clave": "roca"},
-	{"desde": 7, "clave": "cueva"},
+	{"desde": 1, "clave": "roca", "formaciones": false},
+	{"desde": 7, "clave": "cueva", "formaciones": true},
 ]
+
+
+# ¿En el piso dado crecen formaciones de piedra?
+static func hay_formaciones(piso: int) -> bool:
+	var si: bool = false
+	for t in TRAMOS:
+		if piso >= int(t["desde"]):
+			si = bool(t.get("formaciones", false))
+	return si
 
 
 static func tramo_de(piso: int) -> String:
@@ -231,6 +252,12 @@ const PALETAS := {
 
 static func _rampa(tramo: String, capa: String) -> Array:
 	var p: Dictionary = PALETAS.get(tramo, PALETAS["roca"])
+	# La COLUMNA es piedra: usa la rampa del muro salvo que su tramo le de una propia. Asi una
+	# estalagmita es del mismo material que las paredes de su cueva sin repetir cinco colores en
+	# cada paleta (y si algun dia hay un tramo donde la piedra suelta sea de otra cosa, basta con
+	# ponerle su entrada).
+	if capa == "columna" and not p.has("columna"):
+		return p.get("muro", p["suelo"]) as Array
 	return p.get(capa, p["suelo"]) as Array
 
 
@@ -576,6 +603,54 @@ static func _pintar_sumidero(d: PackedByteArray, W: int, o: Vector2i, rampa: Arr
 				_poner(d, W, o.x + x, o.y + y, negro.lerp(rampa[0], f * f))
 
 
+# COLUMNA: una estalagmita, vista con la misma camara que todo lo demas (desde el sur y desde
+# arriba, ver _pintar_muro). Se dibuja sobre transparente porque va encima del suelo.
+#
+# La forma es un cono con la base ancha y la punta arriba, deformado por el ruido para que no sean
+# tres conos identicos, y con la MISMA gramatica de luz que el muro: la cara sur iluminada, el
+# canto de arriba oscuro y la linea negra de contorno. Es lo que hace que se lea como la misma
+# piedra que las paredes y no como un objeto pegado.
+static func _pintar_columna(d: PackedByteArray, W: int, o: Vector2i, rampa: Array,
+		sem: int, ox: float, oy: float, bl: int) -> void:
+	var forma: PackedFloat32Array = _campo(5, sem + 613, ox, oy, 1.0, bl)
+	var grano: PackedFloat32Array = _piedra(sem + 71, ox, oy, bl)
+	var negro := Color(0.02, 0.02, 0.03)
+	var cx: float = float(LADO) * 0.5
+	# Alto y anchura de ESTA columna, sacados del ruido de su sitio en el tapiz: asi cada una es
+	# distinta pero siempre la misma en el mismo sitio (determinista, requisito de multijugador).
+	var alto: float = lerpf(20.0, 28.0, forma[0])
+	var ancho_pie: float = lerpf(11.0, 15.0, forma[LADO * LADO - 1])
+	var base_y: float = float(LADO) - 3.0
+	for y in LADO:
+		for x in LADO:
+			var i: int = y * LADO + x
+			var fy: float = float(y) + 0.5
+			var t: float = clampf((base_y - fy) / alto, 0.0, 1.0)   # 0 al pie, 1 en la punta
+			if fy > base_y or t >= 1.0:
+				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
+				continue
+			# El perfil se estrecha hacia arriba, con el borde mordido por el ruido.
+			var medio: float = ancho_pie * 0.5 * (1.0 - t * t * 0.86) \
+				+ (forma[i] - 0.5) * 2.2 * (1.0 - t * 0.5)
+			var dx: float = absf(float(x) + 0.5 - cx)
+			if dx > medio:
+				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
+				continue
+			# Luz: mas clara abajo (la cara que mira al sur) y hacia el lado izquierdo, apagandose
+			# hacia la punta. El grano de piedra rompe la banda lisa.
+			#
+			# Va CLARA, en la mitad alta de la rampa. Con la piedra en tonos medios se leia como una
+			# sombra en el suelo: y con esto se choca, asi que hay que verla venir -- sobre todo aqui
+			# abajo, donde el suelo ya es oscuro y se juega con el farolillo.
+			var v: float = 0.46 + 0.44 * (1.0 - t) + (grano[i] - 0.5) * 0.28
+			v -= (dx / maxf(1.0, medio)) * 0.20
+			var col: Color = _escalon(clampf(v, 0.0, 0.999), rampa)
+			# Contorno: el borde del perfil y el pie. Sin el, la columna se funde con el suelo.
+			if dx > medio - 1.0 or fy > base_y - 1.0:
+				col = negro
+			_poner(d, W, o.x + x, o.y + y, col)
+
+
 # 'ox/oy' es DONDE CAE esta baldosa dentro del tapiz (en px) y 'bl' el tamaño del tapiz. Con eso,
 # cada trozo mira su ventana del mismo dibujo continuo y las juntas desaparecen.
 static func _pintar(d: PackedByteArray, W: int, capa: String, o: Vector2i, rampa: Array,
@@ -591,6 +666,8 @@ static func _pintar(d: PackedByteArray, W: int, capa: String, o: Vector2i, rampa
 			_pintar_agua(d, W, o, rampa, mask, sem, fase, ox, oy, bl)
 		"sumidero":
 			_pintar_sumidero(d, W, o, rampa, sem)
+		"columna":
+			_pintar_columna(d, W, o, rampa, sem, ox, oy, bl)
 
 
 # ============================================================

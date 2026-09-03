@@ -81,6 +81,11 @@ func _escena(atlas: Image) -> Image:
 			agua[y].append(false)
 			musgo[y].append(false)
 
+	# COLUMNAS SUELTAS de la cueva. NO se marcan como solido: en el juego lo son (chocas y tapan la
+	# luz) pero se DIBUJAN como suelo con una estalagmita encima, que es justo lo que hay que mirar
+	# aqui -- pintadas de muro salian como un azulejo plano.
+	var columnas := [Vector2i(19, 5), Vector2i(22, 12), Vector2i(26, 8), Vector2i(20, 13)]
+
 	# Riachuelo: baja por una columna y se abre en un charco al final.
 	for y in range(2, ALTO - 2):
 		if not solido[y][7]:
@@ -123,6 +128,9 @@ func _escena(atlas: Image) -> Image:
 				var m2: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool:
 					return _dentro(v) and agua[v.y][v.x])
 				_baldosa(img, atlas, TerrenoSprites.celda_para("agua", c, m2, SEM), c)
+	# Las columnas, encima del suelo (su capa va despues en CAPAS_ORDEN).
+	for col in columnas:
+		_baldosa(img, atlas, TerrenoSprites.celda_para("columna", col, 0, SEM), col)
 	# El sumidero: donde muere el riachuelo si no hay lago. Aqui se pone a mano para verlo.
 	_baldosa(img, atlas, TerrenoSprites.celda_para("sumidero", Vector2i(7, 3), 0, SEM),
 		Vector2i(24, 4))

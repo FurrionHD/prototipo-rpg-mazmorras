@@ -445,6 +445,11 @@ func _construir(por_la_bajada: bool = false) -> void:
 	var ancho_pas: int = _ancho_pasillo_piso()
 	gen.generar(w, h, _semilla_del_piso(),
 		salas, _sala_min_piso(ancho_pas), sala_max, ancho_pas)
+	# Las columnas de piedra van AQUI, pegadas al generador y antes que todo lo demas: convierten
+	# celdas en roca, y la geometria, la colision, la vision y las zonas de spawn se construyen
+	# despues leyendo esa rejilla. Puestas mas tarde, cada uno de esos sistemas tendria que
+	# enterarse por su cuenta.
+	_sembrar_formaciones()
 
 	# Lo que ya picaste en este piso, con el SELLO de tiempo de cuando lo picaste (para el
 	# respawn). Vive en mazmorra_persistente, que sobrevive a volver al pueblo: por eso picar un
@@ -522,6 +527,11 @@ var _tm: Dictionary = {}
 # Lo que hay pintado de cada capa de adorno: { celda: true }. Hace falta guardarlo porque la
 # MASCARA de una celda se calcula mirando a sus vecinas de la MISMA capa.
 var _celdas_musgo: Dictionary = {}
+# Las columnas de piedra de este piso (ver _sembrar_formaciones). Ya son roca en el generador; esta
+# lista existe para poder pintarlas distinto de una pared y para las pruebas.
+var _celdas_formacion: Array[Vector2i] = []
+# Las mismas, como diccionario, para preguntarlo rapido dentro del bucle que pinta el piso entero.
+var _es_formacion: Dictionary = {}
 var _celdas_agua: Dictionary = {}
 var _celdas_sumidero: Dictionary = {}
 
@@ -561,7 +571,14 @@ func _construir_geometria() -> void:
 	for y in gen.alto:
 		for x in gen.ancho:
 			var c := Vector2i(x, y)
-			if gen.es_suelo(c):
+			if _es_formacion.has(c):
+				# COLUMNA de la cueva: es roca en el generador (choca y tapa la luz), pero se dibuja
+				# como SUELO + una estalagmita encima, no como un trozo de pared. Pintada de muro
+				# salia un azulejo plano y claro que parecia un fallo grafico: una celda de pared con
+				# los cuatro lados expuestos no tiene forma de piedra suelta.
+				suelo.set_cell(c, 0, TerrenoSprites.celda_para("suelo", c, 0, sem))
+				_tm["columna"].set_cell(c, 0, TerrenoSprites.celda_para("columna", c, 0, sem))
+			elif gen.es_suelo(c):
 				suelo.set_cell(c, 0, TerrenoSprites.celda_para("suelo", c, 0, sem))
 			elif Decorado.muro_visible(gen, c):
 				# La MASCARA (por que lados esta expuesto) sale de la MISMA regla que usa el
@@ -778,6 +795,120 @@ func _colocar_boss() -> void:
 	# hijos y Godot RECHAZA el add_child: el boss se creaba y no entraba en la escena. Bajando por
 	# la escalera nunca se noto, porque regenerar() corre con todo montado.
 	call_deferred("_parir_boss", data, gen.centro_px(sala.get_center()), _piso_construido)
+
+
+# ============================================================
+#  FORMACIONES DE CUEVA
+#  Columnas de piedra sueltas en medio de las salas, a partir del tramo de cueva. Son ROCA DE
+#  VERDAD: chocas con ellas y TAPAN LA LUZ, asi que detras de una columna no se ve y puede haber
+#  algo esperando. Por eso se marcan en el generador y no como un adorno pintado encima: asi la
+#  colision, la vision, la IA y el aforo se enteran solos, sin que ninguno tenga que saber que
+#  existen las formaciones.
+#
+#  LA REGLA QUE NO SE PUEDE ROMPER: una columna NUNCA puede cerrar un paso. Una piedra en un
+#  pasillo o en la boca de una sala te deja sin poder bajar, y encima por sorteo. No se confia en
+#  que "casi nunca" pase: se comprueba.
+# ============================================================
+# Pocas: una o dos por sala, que es lo que rompe la sala vacia sin estorbar de verdad.
+const FORMACION_MIN := 1
+const FORMACION_MAX := 2
+# Celdas libres que se dejan hasta el borde de la sala. Una columna pegada a la pared estrangula la
+# boca del pasillo igual que una puesta dentro de el.
+const FORMACION_MARGEN := 2
+# Separacion minima entre dos formaciones: dos juntas hacen un tapon aunque cada una por separado
+# se pueda rodear.
+const FORMACION_SEPARACION := 5
+# Hueco central que se respeta en las salas donde CABE UN CHARCO, porque el estanque se elige mas
+# tarde -- cuando estas piedras ya estan puestas -- y siempre va al centro de su sala. En las salas
+# pequeñas no se respeta nada: ahi no puede caer un charco (ver _elegir_estanque, que exige el
+# tamaño del charco mas cuatro), y reservarles el centro las dejaba sin un solo sitio valido.
+# Ese era el motivo de que salieran 2 columnas por PISO en vez de 1-2 por SALA.
+const FORMACION_CENTRO_LIBRE := Vector2i(8, 7)
+
+
+func _sembrar_formaciones() -> void:
+	# LO PRIMERO, VACIAR: esto se llama en cada piso, y los dos "return" de abajo son lo normal en
+	# los pisos de arriba. Sin limpiar aqui, subir del 7 al 6 se traia las columnas del 7 puestas y
+	# se pintarian estalagmitas en celdas que ahi son suelo llano.
+	_celdas_formacion.clear()
+	_es_formacion.clear()
+	if gen == null or gen.salas.is_empty():
+		return
+	if not TerrenoSprites.hay_formaciones(_piso_construido):
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _semilla_del_piso() + 5501   # de la SEMILLA: host e invitado ven las mismas piedras
+
+	# Las tres salas con papel propio se quedan limpias: la boca (donde apareces), la del fondo
+	# (escalera y salida) y la del jefe.
+	var entrada: Rect2i = gen.salas[0]
+	var fondo: Rect2i = _sala_mas_lejana(entrada)
+	var central: Rect2i = _sala_central()
+
+	var referencia: Vector2i = entrada.get_center()
+	var antes: int = gen.alcanzables(referencia)
+	var puestas: Array[Vector2i] = []
+	for sala in gen.salas:
+		if sala == entrada or sala == fondo or sala == central:
+			continue
+		var cuantas: int = rng.randi_range(FORMACION_MIN, FORMACION_MAX)
+		for _i in range(cuantas):
+			var c: Vector2i = _sitio_para_formacion(sala, puestas, rng)
+			if c == Vector2i.MAX:
+				continue
+			gen.poner_roca(c)
+			# LA COMPROBACION: si al ponerla se puede llegar andando a menos sitios que antes, esa
+			# piedra tapaba el unico paso. Se retira y no se discute.
+			if gen.alcanzables(referencia) != antes - 1:
+				gen.solido[c.y * gen.ancho + c.x] = 0
+				gen.zona_de[c.y * gen.ancho + c.x] = gen.zona_en(sala.get_center())
+				(gen.zonas[gen.zona_en(sala.get_center())]["celdas"] as Array).append(c)
+				continue
+			antes -= 1        # esa celda ya no es suelo: el recuento baja con ella
+			puestas.append(c)
+	_celdas_formacion = puestas
+	_es_formacion.clear()
+	for c in puestas:
+		_es_formacion[c] = true
+	if not puestas.is_empty():
+		print("[mazmorra] piso %d: %d formaciones de piedra" % [_piso_construido, puestas.size()])
+
+
+# Un sitio valido para una columna dentro de esta sala, o Vector2i.MAX si no lo hay.
+func _sitio_para_formacion(sala: Rect2i, puestas: Array[Vector2i],
+		rng: RandomNumberGenerator) -> Vector2i:
+	var centro: Vector2i = sala.get_center()
+	for _intento in range(24):
+		var c := Vector2i(
+			rng.randi_range(sala.position.x + FORMACION_MARGEN,
+				sala.position.x + sala.size.x - FORMACION_MARGEN - 1),
+			rng.randi_range(sala.position.y + FORMACION_MARGEN,
+				sala.position.y + sala.size.y - FORMACION_MARGEN - 1))
+		# El centro libre, SOLO en las salas donde cabria un charco (ver FORMACION_CENTRO_LIBRE).
+		if sala.size.x >= ESTANQUE_CELDAS.x + 4 and sala.size.y >= ESTANQUE_CELDAS.y + 4:
+			if absi(c.x - centro.x) <= FORMACION_CENTRO_LIBRE.x / 2 \
+					and absi(c.y - centro.y) <= FORMACION_CENTRO_LIBRE.y / 2:
+				continue
+		# AISLADA: sus ocho vecinas tienen que ser suelo. Asi es una piedra en medio de la sala y no
+		# un bulto pegado a la pared, que es lo que estrecharia un paso sin parecerlo.
+		var libre: bool = true
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				if gen.es_solido(c + Vector2i(dx, dy)):
+					libre = false
+					break
+			if not libre:
+				break
+		if not libre:
+			continue
+		var lejos: bool = true
+		for p in puestas:
+			if absi(p.x - c.x) < FORMACION_SEPARACION and absi(p.y - c.y) < FORMACION_SEPARACION:
+				lejos = false
+				break
+		if lejos:
+			return c
+	return Vector2i.MAX
 
 
 # Cuanto merodea el jefe dentro de su sala. MISMO criterio que las zonas normales (medio lado corto,

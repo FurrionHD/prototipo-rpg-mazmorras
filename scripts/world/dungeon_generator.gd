@@ -131,6 +131,54 @@ func _excavar(c: Vector2i, zona: int) -> void:
 		(zonas[zona]["celdas"] as Array).append(c)
 
 
+# Vuelve a convertir en ROCA una celda ya excavada: es lo contrario de _excavar y lo usan las
+# FORMACIONES de la cueva (una columna de piedra en medio de una sala, ver
+# DungeonFloor._sembrar_formaciones).
+#
+# Quitarla de su zona no es un detalle: `zonas[z].celdas` es la lista por la que MERODEAN los
+# bichos de esa sala (ver DungeonFloor._crear_zonas). Si la celda se quedara en la lista, la IA
+# elegiria de vez en cuando como destino un sitio que ahora es piedra maciza y el bicho se pasaria
+# el rato empotrado contra ella.
+func poner_roca(c: Vector2i) -> void:
+	if c.x < 1 or c.y < 1 or c.x >= ancho - 1 or c.y >= alto - 1:
+		return
+	var i: int = c.y * ancho + c.x
+	if solido[i] == 1:
+		return
+	solido[i] = 1
+	var z: int = zona_de[i]
+	zona_de[i] = -1
+	if z >= 0 and z < zonas.size():
+		(zonas[z]["celdas"] as Array).erase(c)
+
+
+# Cuantas celdas de SUELO se pueden alcanzar andando desde 'desde'. Es la comprobacion de que una
+# formacion no ha partido el piso en dos: se cuenta antes y despues, y si el numero baja, esa
+# piedra tapaba el unico paso y se retira. Andar es en cruz (arriba/abajo/izquierda/derecha): en
+# diagonal no se puede colar nadie entre dos rocas que se tocan por la esquina.
+func alcanzables(desde: Vector2i) -> int:
+	if es_solido(desde):
+		return 0
+	var visto := PackedByteArray()
+	visto.resize(ancho * alto)
+	var cola: Array[Vector2i] = [desde]
+	visto[desde.y * ancho + desde.x] = 1
+	var n: int = 0
+	while not cola.is_empty():
+		var c: Vector2i = cola.pop_back()
+		n += 1
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var v: Vector2i = c + d
+			if v.x < 0 or v.y < 0 or v.x >= ancho or v.y >= alto:
+				continue
+			var j: int = v.y * ancho + v.x
+			if visto[j] != 0 or solido[j] == 1:
+				continue
+			visto[j] = 1
+			cola.append(v)
+	return n
+
+
 func _nueva_zona(tipo: String, rect: Rect2i) -> int:
 	zonas.append({"tipo": tipo, "rect": rect, "celdas": [] as Array})
 	return zonas.size() - 1
