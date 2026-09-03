@@ -206,6 +206,53 @@ func _factor_area_piso() -> float:
 func _factor_lineal_piso() -> float:
 	return sqrt(_factor_area_piso())
 
+
+# ------------------------------------------------------------
+#  ANCHO DE LOS PASILLOS POR PROFUNDIDAD
+#  Cada PASILLO_CADA_PISOS pisos, los pasillos ganan una celda de ancho: 3 en los pisos 1-6, 4 del 7
+#  al 12, 5 del 13 al 18, y asi. La razon no es estetica sino de SITIO: cuanto mas hondo, mas
+#  grandes son los bichos (y mas caben por zona, ver AFORO_ZONA_GROWTH), y un pasillo de 3 celdas
+#  con un coloso dentro no deja ni pasar ni rodearlo. Los enemigos grandes ya tienen su colision a
+#  medida (ver Enemy._aplicar_colision), asi que el que se queda corto es el hueco.
+#
+#  Crece a ESCALONES y no de forma continua a proposito: un pasillo mide celdas enteras, y asi el
+#  cambio se nota como "aqui abajo los tuneles son otra cosa" en vez de diluirse piso a piso.
+#
+#  Y los escalones SE VAN ESPACIANDO, como los pasos del area (ver _paso_area): el primero cuesta 6
+#  pisos y cada uno siguiente un 60% mas que el anterior. Si fuera cada 6 pisos fijos, el ancho
+#  crecería sin freno y en la profundidad los pasillos acabarian midiendo mas que las salas -- que
+#  es justo el mapa que no queremos, uno donde no se distingue un tunel de una habitacion. Asi el
+#  ensanche se nota pronto (donde hace falta) y se va calmando solo:
+#
+#      pasillo 3 -> pisos 1-6      pasillo 5 -> pisos 16-30
+#      pasillo 4 -> pisos 7-15     pasillo 6 -> pisos 31-55     pasillo 7 -> del 56 en adelante
+const PASILLO_PRIMER_ESCALON := 6.0    # pisos hasta el primer ensanche
+const PASILLO_ESCALON_CRECE := 1.6     # cada ensanche cuesta un 60% mas de pisos que el anterior
+const PASILLO_ANCHO_MAX := 7
+# Cuanto mas ancha que un pasillo tiene que ser, como minimo, una sala. Si no, en cuanto el pasillo
+# alcanza el lado corto de la sala mas pequeña el mapa deja de leerse como "salas unidas por
+# pasillos" y se convierte en una cueva sin forma: las salas dejan de distinguirse de los tuneles.
+const SALA_MARGEN_SOBRE_PASILLO := 2
+
+# El ancho de pasillo de ESTE piso. El @export `ancho_pasillo` es el del piso 1.
+func _ancho_pasillo_piso() -> int:
+	var piso: int = maxi(1, _piso_construido)
+	var w: int = ancho_pasillo
+	var coste: float = PASILLO_PRIMER_ESCALON   # lo que cuesta el PROXIMO ensanche
+	var acumulado: float = coste                # primer piso en el que ya toca
+	while w < PASILLO_ANCHO_MAX and float(piso) > acumulado:
+		w += 1
+		coste *= PASILLO_ESCALON_CRECE
+		acumulado += coste
+	return w
+
+
+# El tamaño minimo de sala de este piso: el del @export, pero nunca tan estrecho como para que una
+# sala no se distinga de un pasillo (ver SALA_MARGEN_SOBRE_PASILLO). Solo muerde en los pisos hondos.
+func _sala_min_piso(ancho_pas: int) -> Vector2i:
+	var suelo: int = ancho_pas + SALA_MARGEN_SOBRE_PASILLO
+	return Vector2i(maxi(sala_min.x, suelo), maxi(sala_min.y, suelo))
+
 # Vivos que aguanta ESTE piso (el @export es el del piso 1).
 func max_vivos() -> int:
 	return escalar_con_el_piso(max_vivos_piso)
@@ -391,10 +438,13 @@ func _construir(por_la_bajada: bool = false) -> void:
 	var h: int = roundi(float(alto_celdas) * fl)
 	var salas: int = roundi(float(max_salas) * _factor_area_piso())
 	if _piso_construido > 1:
-		print("[mazmorra] piso %d: %dx%d celdas · %d salas (x%.2f area)" % [
-			_piso_construido, w, h, salas, _factor_area_piso()])
+		print("[mazmorra] piso %d: %dx%d celdas · %d salas (x%.2f area) · pasillos de %d" % [
+			_piso_construido, w, h, salas, _factor_area_piso(), _ancho_pasillo_piso()])
+	# Los pasillos se ensanchan con la profundidad (ver _ancho_pasillo_piso) y la sala minima sube
+	# con ellos para que una sala nunca se confunda con un tunel.
+	var ancho_pas: int = _ancho_pasillo_piso()
 	gen.generar(w, h, _semilla_del_piso(),
-		salas, sala_min, sala_max, ancho_pasillo)
+		salas, _sala_min_piso(ancho_pas), sala_max, ancho_pas)
 
 	# Lo que ya picaste en este piso, con el SELLO de tiempo de cuando lo picaste (para el
 	# respawn). Vive en mazmorra_persistente, que sobrevive a volver al pueblo: por eso picar un
