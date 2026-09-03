@@ -134,11 +134,15 @@ static func _cuantas(capa: String) -> int:
 # ============================================================
 #  TRAMOS DE PISOS
 # ============================================================
-# Cada tramo de la mazmorra tiene su propio juego de baldosas. Hoy solo esta hecho el de ROCA
-# (pisos 1-6); los tramos de abajo caen en el mismo hasta que se dibujen, asi que el juego se ve
-# entero desde el primer dia y meter el siguiente es añadir una entrada aqui con su paleta.
+# Cada tramo de la mazmorra tiene su propio juego de baldosas, y el corte cae donde cambia lo que
+# te encuentras: los pisos 1-6 son la mazmorra de piedra de siempre y del 7 en adelante es una
+# CUEVA VIVA -- gruta humeda y fria, donde ya viven los insectos.
+#
+# Los tramos de mas abajo caen en el ultimo hasta que se dibujen, asi que el juego se ve entero
+# desde el primer dia y meter el siguiente es añadir una entrada aqui con su paleta.
 const TRAMOS := [
 	{"desde": 1, "clave": "roca"},
+	{"desde": 7, "clave": "cueva"},
 ]
 
 
@@ -177,6 +181,49 @@ const PALETAS := {
 			Color(0.055, 0.115, 0.190), Color(0.075, 0.165, 0.265),
 			Color(0.100, 0.225, 0.340), Color(0.145, 0.300, 0.420),
 			Color(0.230, 0.420, 0.530),
+		],
+	},
+	# CUEVA VIVA (pisos 7+). La de arriba es una mazmorra de piedra picada, gris y seca; esta es
+	# roca natural, humeda y FRIA. Tres decisiones deliberadas:
+	#
+	#  - Todo vira al AZUL VERDOSO. No es un filtro encima: la rampa entera esta corrida hacia el
+	#    cian, asi que el escalon mas claro de un muro de cueva sigue siendo mas frio que el mas
+	#    oscuro de uno de roca. Es lo que hace que al cruzar la frontera del piso 7 se note que has
+	#    cambiado de sitio y no de iluminacion.
+	#  - El SUELO es aun mas oscuro que arriba, por lo mismo que ya lo era alli (ver _pintar_suelo):
+	#    es el fondo sobre el que destaca todo lo demas, y esto se juega a oscuras.
+	#  - El MURO abre mas su rampa (del 0.09 al 0.52 frente al 0.15-0.44 de la roca). Una cueva es
+	#    irregular: con el recorrido corto salia una pared plana, y lo que la hace parecer roca
+	#    natural es que haya sombras hondas y cantos claros en la misma pared.
+	"cueva": {
+		"suelo": [
+			Color(0.048, 0.066, 0.088), Color(0.068, 0.094, 0.122),
+			Color(0.092, 0.126, 0.160), Color(0.118, 0.158, 0.198),
+			Color(0.148, 0.194, 0.238),
+		],
+		"muro": [
+			Color(0.088, 0.122, 0.156), Color(0.140, 0.186, 0.230),
+			Color(0.200, 0.256, 0.310), Color(0.264, 0.328, 0.390),
+			Color(0.336, 0.408, 0.476),
+		],
+		# El musgo de aqui abajo tira a turquesa, no al verde hierba de arriba: prepara el ojo para
+		# el musgo que brilla, que es de esta misma familia de color.
+		#
+		# Y va MAS CLARO Y MAS SATURADO que el de la roca, aunque parezca al reves de lo que pide
+		# una cueva mas oscura. El motivo salio de mirarlo: sobre la pared GRIS de arriba, un verde
+		# apagado destaca solo; sobre la pared AZUL de aqui, un turquesa apagado comparte tono con
+		# ella y el musgo desaparecia -- se veia una mancha algo mas oscura y ya. El contraste que
+		# alli daba el color, aqui hay que darlo con el brillo.
+		"musgo": [
+			Color(0.075, 0.190, 0.170), Color(0.110, 0.270, 0.235),
+			Color(0.155, 0.360, 0.305), Color(0.205, 0.450, 0.375),
+			Color(0.270, 0.560, 0.455),
+		],
+		# El agua, mas clara y mas viva que arriba: en una gruta es lo unico que refleja algo.
+		"agua": [
+			Color(0.042, 0.102, 0.148), Color(0.058, 0.145, 0.205),
+			Color(0.080, 0.196, 0.268), Color(0.115, 0.258, 0.342),
+			Color(0.180, 0.360, 0.455),
 		],
 	},
 }

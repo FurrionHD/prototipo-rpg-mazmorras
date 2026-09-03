@@ -28,10 +28,15 @@ func _initialize() -> void:
 
 	# --- 1. Hornear (si no, el PNG de disco se queda viejo y el TileSet pide baldosas que ya no
 	#        caben en el) y guardar las hojas tal cual, para ver baldosa a baldosa ---
+	# UN JUEGO DE PNG POR TRAMO, no solo el de "roca". Con el tramo fijado a mano no habia forma de
+	# mirar la cueva de los pisos 7+, que es justo lo que hay que juzgar cuando se dibuja un tramo
+	# nuevo: si se lee como otro sitio o como el de siempre con un filtro de color encima.
+	var atlas_por_tramo: Dictionary = {}
 	for t in TerrenoSprites.TRAMOS:
-		TerrenoSprites.hornear(String(t["clave"]))
-	var atlas: Image = TerrenoSprites.generar("roca")
-	_guardar(atlas, "atlas_terreno_roca")
+		var clave: String = String(t["clave"])
+		TerrenoSprites.hornear(clave)
+		atlas_por_tramo[clave] = TerrenoSprites.generar(clave)
+		_guardar(atlas_por_tramo[clave], "atlas_terreno_%s" % clave)
 	for fam in RecolectableSprites.FAMILIAS:
 		RecolectableSprites.hornear(String(fam))
 		_hojas[fam] = RecolectableSprites.generar(String(fam))
@@ -40,8 +45,9 @@ func _initialize() -> void:
 		PropSprites.hornear(String(prop))
 		_guardar(PropSprites.generar(String(prop)), "prop_%s" % prop)
 
-	# --- 2. El trozo de mazmorra montado ---
-	_guardar(_escena(atlas), "escena_roca")
+	# --- 2. El trozo de mazmorra montado, uno por tramo ---
+	for clave in atlas_por_tramo:
+		_guardar(_escena(atlas_por_tramo[clave]), "escena_%s" % clave)
 
 	print("Listo en %.1f s. Mira los PNG en %s" % [(Time.get_ticks_msec() - t0) / 1000.0, SALIDA])
 	quit()
