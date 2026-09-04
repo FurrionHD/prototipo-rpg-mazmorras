@@ -20,6 +20,7 @@ dev_*.png
 !dev_jugador_animaciones.*
 !dev_celdas.*
 !dev_inventario.*
+!dev_tiers.*
 !dev_personaje.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el

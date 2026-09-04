@@ -271,6 +271,76 @@ static func techo(item: Resource) -> int:
 	return 0
 
 
+# ============================================================
+#  LA ESCALERA DEL TIER
+#  El fondo de la celda dice la RAREZA. El tier no lo decia nada: habia que pulsar la pieza para
+#  enterarse, y cinco piezas de armadura seguidas se veian exactamente iguales.
+#
+#  TIENE QUE AGUANTAR T20 Y MAS. Hoy son tres, pero esto se puede alargar sin final, asi que una
+#  lista de tres colores escritos a mano no vale: el dia que llegue el T4 alguien tiene que
+#  acordarse de inventarse un color, y a partir del T8 ya no quedan colores que se distingan.
+#
+#  Por eso va en DOS EJES, que es lo unico que escala de verdad:
+#    - EL TONO da la posicion dentro de la vuelta (seis tonos bien separados en la rueda). Se repite
+#      cada TIER_POR_VUELTA, igual que se repiten las unidades al contar.
+#    - LA VUELTA sube el BRILLO y pinta un punto por cada una encima de la muesca. Asi un T2 y un T8
+#      comparten tono pero no se confunden: el segundo es mas claro y lleva un punto.
+#  Es leer un numero: el tono es la unidad y los puntos la decena. Con eso, T1..T6 son seis colores
+#  a secas —lo unico que hay hoy— y el sistema sigue valiendo en el T37 sin tocar nada.
+#
+#  Los tonos se eligieron para NO chocar con los ocho de rareza del fondo (ver Upgrades.RAREZA_COLOR):
+#  van mas oscuros y menos saturados, porque la muesca es pequeña y va SOBRE el fondo de rareza.
+# ============================================================
+
+const TIER_POR_VUELTA := 6
+const TIER_TONOS := [
+	Color(0.45, 0.49, 0.57),   # acero
+	Color(0.35, 0.66, 0.42),   # verde
+	Color(0.28, 0.70, 0.73),   # cian
+	Color(0.33, 0.54, 0.88),   # azul
+	Color(0.62, 0.44, 0.86),   # violeta
+	Color(0.86, 0.42, 0.45),   # carmesi
+]
+
+
+# El color de la muesca para ese tier. Nunca falla y nunca se queda sin colores: el tono da la
+# vuelta y el brillo sube.
+static func color_tier(tier: int) -> Color:
+	var t: int = maxi(tier, 1) - 1
+	var base: Color = TIER_TONOS[t % TIER_POR_VUELTA]
+	var vuelta: int = t / TIER_POR_VUELTA
+	if vuelta <= 0:
+		return base
+	# Cada vuelta ACLARA, con tope: sin el, a la cuarta vuelta todo seria blanco y dejarian de
+	# distinguirse los tonos entre si. El tope llega antes que el numero de puntos, que es el que
+	# sigue contando sin limite.
+	var subida: float = minf(0.12 * float(vuelta), 0.42)
+	return Color.from_hsv(base.h, maxf(base.s - subida * 0.5, 0.12),
+		minf(base.v + subida, 1.0), base.a)
+
+
+# Cuantas VUELTAS lleva dado este tier: 0 para T1..T6, 1 para T7..T12, etc. Son los puntos que se
+# pintan sobre la muesca, y es lo que separa un T2 de un T8.
+static func vueltas_tier(tier: int) -> int:
+	return (maxi(tier, 1) - 1) / TIER_POR_VUELTA
+
+
+# El TIER de un item, o 0 si eso no tiene tier (un cristal, una pocion sin tier). El equipo lo lleva
+# en su meta por instancia (una espada T2 y otra T3 son el mismo .tres); los materiales, en el .tres.
+static func tier_de(item: Resource) -> int:
+	if item is MaterialItem:
+		var d: MaterialData = (item as MaterialItem).data
+		return int(d.tier) if d != null else 0
+	if item is MaterialData:
+		return int((item as MaterialData).tier)
+	if item is ConsumableData:
+		return int((item as ConsumableData).tier)
+	if item is WeaponData or item is ShieldData or item is WandData or item is ArmorData \
+			or item is BackpackData or item is ToolData:
+		return int(Game.meta_de(item)["tier"])
+	return 0
+
+
 # Lo alto que esta en su escala, 0..1. Alimenta el BRILLO (el destello de la celda): un cobre
 # corriente apenas parpadea y un nucleo de boss centellea. Se normaliza contra el techo de SU eje,
 # que es lo que hace que el verde de un mineral y el verde de una espada brillen igual.

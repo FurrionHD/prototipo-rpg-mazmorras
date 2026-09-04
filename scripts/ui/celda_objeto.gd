@@ -44,6 +44,10 @@ const ALTO_BANDA := 0.21    # la franja oscura del pie, donde va la cantidad
 const LADO_ICONO := 0.52    # el cubo/frasco dentro de la celda
 const ALTO_LINEA := 0.035   # la linea de color que cierra por abajo
 const MARCA := 0.075        # lado de una marca de peldaño
+# Cuanto se mete hacia DENTRO la franja del tier, en proporcion a la muesca. El triangulo del
+# chaflan a secas son ~10 px en una celda de 96: se ve que hay color, pero no CUAL. Con la franja
+# hay superficie para distinguir el tono, y sigue sin llegar al icono (que empieza en 0.24).
+const BANDA_TIER := 0.62
 
 var item: Resource = null
 var texto_pie: String = ""      # lo que va en la banda: "x12", "+4", "Nv. 3"...
@@ -103,6 +107,15 @@ func _draw() -> void:
 		colores.append(oscuro.lerp(claro, t))
 	draw_polygon(borde, colores)
 
+	# 1b. LA MUESCA, DEL COLOR DEL TIER. El hueco que deja el chaflan estaba a oscuras y no decia
+	# nada: cinco piezas de armadura seguidas se veian iguales y habia que pulsarlas una a una para
+	# saber de que tier eran. Ahora ese triangulo es la respuesta, y no le quita sitio a nada porque
+	# ya estaba vacio.
+	#
+	# El fondo sigue diciendo la RAREZA y la muesca el TIER: dos ejes distintos en dos sitios
+	# distintos. Ver IconoItem.color_tier para por que el color da vueltas en vez de ser una lista.
+	_muesca_tier(w, h)
+
 	# 2. LA BANDA DEL PIE y su linea de color. Van dentro del contorno, asi que se recortan solas
 	# contra el chaflan de las esquinas de abajo -- por eso se dibujan como poligono y no como rect.
 	var y_banda: float = h * (1.0 - ALTO_BANDA)
@@ -151,6 +164,47 @@ func _draw() -> void:
 		draw_polyline(_cerrar(borde), Color(1, 1, 1, 0.45), maxf(1.5, w * 0.016))
 	if disabled:
 		draw_polygon(borde, PackedColorArray([Color(0.04, 0.05, 0.07, 0.55)]))
+
+
+# LA MUESCA PINTADA: el triangulo de la esquina superior izquierda, del color del tier, con un
+# punto por cada vuelta de la escalera (ver IconoItem.color_tier / vueltas_tier).
+#
+# Se dibuja DENTRO del hueco del chaflan y no encima del borde: el contorno ya deja ese triangulo
+# libre, asi que basta con rellenarlo y la silueta de la celda no cambia.
+func _muesca_tier(w: float, h: float) -> void:
+	var tier: int = IconoItem.tier_de(item) if item != null else 0
+	if tier <= 0:
+		return   # lo que no tiene tier (un cristal) deja la muesca a oscuras, como siempre
+	var m: float = minf(w, h) * MUESCA
+	var col: Color = IconoItem.color_tier(tier)
+	# EL TRIANGULO DEL CHAFLAN SOLO NO BASTA: en una celda de 96 son unos 10 px de color y a simple
+	# vista no se distingue un tono de otro -- medido en captura. Se le añade una FRANJA hacia dentro
+	# (el trapecio de debajo), que multiplica la superficie sin tocar la silueta de la celda: la
+	# muesca sigue siendo la misma, lo que cambia es que ahora esta pintada.
+	var f: float = m * BANDA_TIER
+	draw_colored_polygon(PackedVector2Array([
+		Vector2.ZERO, Vector2(m + f, 0.0), Vector2(0.0, m + f)]), col)
+	# Una linea mas clara en el canto de dentro: separa la franja del degradado del fondo, que en las
+	# rarezas claras tiran al mismo sitio y se comian el borde.
+	draw_line(Vector2(m + f, 0.0), Vector2(0.0, m + f), col.lightened(0.35), 2.0, true)
+
+	# LOS PUNTOS DE VUELTA, en la franja y siguiendo su diagonal: es la parte que sigue contando
+	# cuando el color ya ha dejado de aclararse (ver el tope de color_tier). Sin ellos, un T2 y un
+	# T14 acabarian pareciendose.
+	var vueltas: int = IconoItem.vueltas_tier(tier)
+	if vueltas <= 0:
+		return
+	var r: float = maxf(minf(w, h) * 0.028, 1.5)
+	# Contraste sobre el propio color: oscuro si la franja es clara, claro si es oscura.
+	var tinta: Color = Color(0.05, 0.05, 0.08, 0.92) if col.get_luminance() > 0.5 \
+		else Color(1, 1, 1, 0.92)
+	# Repartidos a lo largo de la diagonal, que es por donde la franja tiene sitio. Cuatro como mucho:
+	# a partir de ahi no se cuentan de un vistazo, y son 24 tiers de margen.
+	var largo: float = (m + f) * 0.72
+	var n: int = mini(vueltas, 4)
+	for i in n:
+		var t: float = (float(i) + 1.0) / float(n + 1)
+		draw_circle(Vector2(largo * t, largo * (1.0 - t)), r, tinta)
 
 
 # El contorno de la celda: rectangulo con la esquina superior izquierda MUY achaflanada (la muesca,
