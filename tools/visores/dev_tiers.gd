@@ -72,7 +72,68 @@ func _ready() -> void:
 	var ruta: String = SALIDA + "tiers.png"
 	get_viewport().get_texture().get_image().save_png(ruta)
 	print("[tiers] ", ProjectSettings.globalize_path(ruta))
+	_auditar_materiales()
 	get_tree().quit()
+
+
+# ¿ALGUN MATERIAL PINTA UN TIER QUE NO EXISTE? Esta comprobacion existe porque el fallo ya pasó: la
+# muesca leia MaterialData.tier, que NO es el tier de la mazmorra sino el GRADO del material, y los
+# nucleos llegan a grado 5. Resultado: un nucleo de gargola salia morado (T5) mientras su propia
+# ficha decia "armas T2", en un juego que solo tiene tres tiers.
+#
+# No se puede ver mirando una captura de la escalera -- alli los colores estan bien -- ni abriendo el
+# inventario, porque hay que saberse de memoria el tier de cada material. Se comprueba contra el
+# TOPE REAL del juego, que sale de los propios .tres del equipo y no de un numero escrito aqui.
+func _auditar_materiales() -> void:
+	var tope: int = _tope_real()
+	var malos: Array = []
+	var d := DirAccess.open("res://resources/materials/")
+	if d == null:
+		return
+	for f in d.get_files():
+		if not f.ends_with(".tres"):
+			continue
+		var m: MaterialData = load("res://resources/materials/" + f) as MaterialData
+		if m == null:
+			continue
+		var t: int = IconoItem.tier_de(m)
+		if t > tope:
+			malos.append("%s -> muesca T%d (grado %d, tier_equipo %d)" % [
+				m.nombre, t, m.tier, m.tier_equipo])
+	if malos.is_empty():
+		print("[tiers] OK: ningun material pinta por encima de T%d, que es el tope real." % tope)
+		return
+	printerr("[tiers] MAL: %d materiales pintan un tier que el juego no tiene (tope T%d):"
+		% [malos.size(), tope])
+	for s in malos:
+		printerr("   %s" % s)
+
+
+# El tier mas alto que existe DE VERDAD, mirando el equipo del proyecto. Se mide en vez de
+# escribirlo: el dia que entre el T4, esta comprobacion sube sola con el.
+func _tope_real() -> int:
+	var tope: int = 1
+	for carpeta in ["armor", "weapons"]:
+		var d := DirAccess.open("res://resources/%s/" % carpeta)
+		if d == null:
+			continue
+		for f in d.get_files():
+			if not f.ends_with(".tres"):
+				continue
+			var r: Resource = load("res://resources/%s/%s" % [carpeta, f])
+			if r != null and r.get("tier") != null:
+				tope = maxi(tope, int(r.get("tier")))
+	# Los materiales recolectables marcan el otro extremo del mismo eje: son los que fabrican el
+	# equipo, asi que su grado maximo (sin contar nucleos) es el tier mas alto que se puede forjar.
+	var dm := DirAccess.open("res://resources/materials/")
+	if dm != null:
+		for f in dm.get_files():
+			if not f.ends_with(".tres"):
+				continue
+			var m: MaterialData = load("res://resources/materials/" + f) as MaterialData
+			if m != null and m.familia != MaterialData.Familia.NUCLEO:
+				tope = maxi(tope, int(m.tier))
+	return tope
 
 
 # Una celda con un arma de verdad, forzada a ese tier y esa rareza. Se usa CeldaObjeto y no un

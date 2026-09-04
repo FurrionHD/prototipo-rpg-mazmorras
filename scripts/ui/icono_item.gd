@@ -327,18 +327,41 @@ static func vueltas_tier(tier: int) -> int:
 
 # El TIER de un item, o 0 si eso no tiene tier (un cristal, una pocion sin tier). El equipo lo lleva
 # en su meta por instancia (una espada T2 y otra T3 son el mismo .tres); los materiales, en el .tres.
+#
+# ⚠️ CUIDADO CON `MaterialData.tier`: NO es el tier de la mazmorra, es el GRADO del material -- el
+# eje de "de que profundidad viene esto", que sube el VALOR (ver el comentario de su @export). Los
+# nucleos llegan a grado 4 y 5, asi que leerlo como tier pintaba "T5" en un juego donde solo hay
+# tres tiers, y encima el nucleo de gargola salia morado (T5) mientras su ficha decia "armas T2".
+#
+# El eje bueno para un nucleo es `tier_equipo`: A QUE tier de equipo sirve, que es lo que la ficha
+# llama "armas T2" y lo unico que se puede comparar con el tier de una espada. Para los minerales y
+# las plantas no existe ese campo, pero ahi el grado SI es el tier que fabricas (cobre 1, acero 3,
+# ver el crafteo), asi que vale el mismo numero.
 static func tier_de(item: Resource) -> int:
 	if item is MaterialItem:
 		var d: MaterialData = (item as MaterialItem).data
-		return int(d.tier) if d != null else 0
+		return _tier_material(d) if d != null else 0
 	if item is MaterialData:
-		return int((item as MaterialData).tier)
+		return _tier_material(item as MaterialData)
 	if item is ConsumableData:
 		return int((item as ConsumableData).tier)
 	if item is WeaponData or item is ShieldData or item is WandData or item is ArmorData \
 			or item is BackpackData or item is ToolData:
 		return int(Game.meta_de(item)["tier"])
 	return 0
+
+
+# El tier de EQUIPO de un material: para lo que sirve, no lo hondo que viene. Ver tier_de.
+static func _tier_material(d: MaterialData) -> int:
+	if d == null:
+		return 0
+	# Los nucleos lo dicen explicitamente. 0 = comodin (sirve para cualquier tier), y entonces no hay
+	# tier que enseñar: la muesca se queda a oscuras en vez de inventarse uno.
+	if int(d.tier_equipo) > 0:
+		return int(d.tier_equipo)
+	if d.familia == MaterialData.Familia.NUCLEO:
+		return 0   # nucleo comodin: no esta atado a ningun tier
+	return int(d.tier)
 
 
 # Lo alto que esta en su escala, 0..1. Alimenta el BRILLO (el destello de la celda): un cobre
