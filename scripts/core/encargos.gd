@@ -654,7 +654,7 @@ static func poder_recolector_de(valores: Array, tipo: int, afinidad: float) -> f
 	# CANTIDAD si escala con el numero de personas (ver unidades()). Ese es el reparto: el
 	# especialista sube la calidad, la cuadrilla sube el volumen.
 	var stat: float = suma / float(valores.size())
-	return stat * Game.RECOLECCION_STAT_PESO + float(of["suelo"]) + afinidad
+	return stat * STAT_PESO_CALIDAD + float(of["suelo"]) + afinidad
 
 static func ratio_material(m: MaterialData, piso: int, poder_reco: float) -> float:
 	return poder_reco / maxf(1.0, Game._exigencia_material(m, piso))
@@ -687,6 +687,22 @@ static func margen_calidad(tipo: int, m: MaterialData, piso: int, poder_reco: fl
 # margen -50 -> unos 30 dañado / 50 normal / 20 intacto), asi que el tramo bajo no se mueve.
 # PURO no sale de un encargo (es el techo de Metalurgia) y ROTO tampoco se genera: fallar se modela
 # como cantidad perdida y calidad peor, no como piezas rotas invisibles.
+# CUANTO CUENTA LA STAT en la calidad. Es 0.8 y NO el 0.5 de Game.RECOLECCION_STAT_PESO, y la
+# diferencia no es un capricho: las dos formulas no hacen la misma operacion.
+#
+#   - Los minijuegos de la mazmorra usan un COCIENTE: exigencia / (stat*PESO + suelo). Ahi el 0.5
+#     aplana la PENDIENTE de mejora, que es justo lo que se buscaba ("picar se volvia trivial en
+#     cuanto subias un poco"). En un cociente, dividir la stat solo cambia lo rapido que mejoras.
+#   - La calidad de un encargo usa una RESTA: poder - exigencia. Ahi el mismo 0.5 no aplana nada:
+#     te quita 200 puntos de golpe. Con 400 de Fuerza medias 230 contra un hierro de 350, o sea
+#     que ibas 120 corto llevando MAS stat que la exigencia entera. Para el 100% de intacto en algo
+#     de 350 hacian falta 840 de stat, cerca del tope de 999, en un material del piso 7.
+#
+# Reutilizar el mismo numero en las dos era el error. Con 0.8, 400 de stat contra una exigencia de
+# 300 dan un margen de +50 -> ~74% de intacto, y contra el hierro de 350 se quedan a la par -> ~47%:
+# el cobre lo traes bien y el hierro se te resiste, que es lo que dice el piso.
+const STAT_PESO_CALIDAD := 0.8
+
 const MARGEN_PLENO := 100.0    # stat POR ENCIMA de la exigencia que da el 100% de intacto
 const MARGEN_NULO := -90.0     # por debajo de esto no sale nada intacto
 const MARGEN_MALO := 155.0     # cuanto por DEBAJO hace falta para el 75% de dañado
