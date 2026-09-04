@@ -3460,6 +3460,43 @@ func dev_terminar_encargo(id: int) -> bool:
 	return true
 
 
+# --- DEV: ¿traerlos a la mitad paga la mitad? ---
+#
+# Existe por el playtest: "los mande 8 horas, los devolvi a las 4 y me dio 1 en Fuerza". Leyendo el
+# codigo la proporcionalidad esta bien (traer_encargo ACORTA la duracion, y de las horas salen las
+# unidades, las peleas y la excelia), pero "esta bien" leyendo no es lo mismo que medido, y el
+# numero que se ve desde el mando es el de despues de la curva de aprendizaje, no la base.
+#
+# Esto resuelve EL MISMO encargo -misma semilla, misma gente- a su duracion entera y a la mitad, y
+# enseña las dos excelias al lado. Si la segunda es ~la mitad, no hay bug y lo que hay que mover son
+# las palancas de balance; si no lo es, el fallo esta ahi y se ve en una linea.
+#
+# NO aplica nada: solo llama a Encargos.resolver, que no toca Game.
+func dev_comparar_traer(id: int) -> void:
+	var e: Dictionary = encargo_por_id(id)
+	if e.is_empty():
+		print("[encargos] no hay encargo #%d" % id)
+		return
+	var pjs: Array = pjs_de_encargo(e)
+	var utiles: Array = _entradas_de_encargo(e)
+	var entera: int = int(e.get("duracion", 3600))
+	for parte in [entera, maxi(60, entera / 2)]:
+		var copia: Dictionary = e.duplicate(true)
+		copia["duracion"] = parte
+		var inf: Dictionary = Encargos.resolver(copia, pjs, utiles)
+		var total: Dictionary = {}
+		for g in (inf.get("excelia", []) as Array):
+			var d := g as Dictionary
+			var clave: String = "%s·%s" % [String(d.get("uid", "")), String(d.get("abil", ""))]
+			total[clave] = float(total.get(clave, 0.0)) + float(d.get("base", 0.0))
+		var suma: float = 0.0
+		for k in total:
+			suma += float(total[k])
+		print("[encargos] #%d a %d h: %s, %d unidades, base de excelia TOTAL %.2f" % [
+			id, parte / 3600, Encargos.NOMBRE_DESENLACE[int(inf.get("desenlace", 0))],
+			int(inf.get("trabajadas", 0)), suma])
+
+
 func dev_terminar_encargos() -> int:
 	var n: int = 0
 	for e_ in encargos.duplicate():
@@ -10011,6 +10048,19 @@ func ganar(abil: String, reto_val: float, base: float, max_reto: float = RETO_MA
 	var factor: float = diminish_factor(del_nivel)
 	var gain: float = base * clampf(reto_val, 0.0, max_reto) * factor * desarrollo_gain_mult(abil, p)
 	p.ability_internal[abil] = interno + gain
+	if desglose_excelia:
+		# LOS TRES FACTORES POR SEPARADO, que es lo unico que deja distinguir "esto es un bug" de
+		# "esto es la curva". Un encargo de 8 horas que paga +1 de Fuerza puede ser cualquiera de las
+		# dos cosas, y desde fuera se ven igual: la base es la que es, pero el reto la multiplica por
+		# 0.3 y los rendimientos decrecientes por otro 0.1, y el resultado son 20 puntos convertidos
+		# en uno. Sin verlo escrito no hay forma de saber cual de los dos numeros hay que mover.
+		print("[excelia] %s · %s: base %.2f × reto %.2f × dimin %.2f × desarrollo %.2f = +%.3f" % [
+			p.nombre, abil, base, clampf(reto_val, 0.0, max_reto), factor,
+			desarrollo_gain_mult(abil, p), gain])
+
+# ¿Se imprime el desglose de cada ganancia de excelia? Lo enciende la tecla de dev del panel (y las
+# herramientas de balance). Apagado por defecto: en combate esto son varias lineas por golpe.
+var desglose_excelia: bool = false
 
 
 # Fraccion de la excelia de un MINIJUEGO DE RECOLECCION que se llevan los que NO lo estan jugando.

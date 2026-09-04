@@ -262,13 +262,32 @@ func _build_encargos(vb: VBoxContainer) -> void:
 		var s := Button.new()
 		s.text = "+%d h" % horas
 		s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		s.tooltip_text = "Adelanta el reloj de los encargos %d hora(s). No resuelve nada: lo hace " \
-			% horas + "el repaso normal, igual que al volver de haber cerrado el juego."
+		s.tooltip_text = "Adelanta el reloj de pared %d hora(s). No resuelve nada: lo hace " \
+			% horas + "el repaso normal, igual que al volver de haber cerrado el juego.\n\n" \
+			+ "Mueve TODO lo que va por reloj real: los encargos, el respawn de los jefes, las " \
+			+ "vetas picadas y el banco de peces."
 		s.pressed.connect(func():
 			Encargos.desfase_prueba += horas * 3600
-			print("[dev] reloj de encargos +%d h (desfase total: %d h)" % [
+			print("[dev] reloj de pared +%d h (desfase total: %d h)" % [
 				horas, Encargos.desfase_prueba / 3600]))
 		row.add_child(s)
+
+	# ¿TRAERLOS A LA MITAD PAGA LA MITAD? La pregunta del playtest ("los mande 8 h, los devolvi a las
+	# 4 y me dio 1 de Fuerza"). Resuelve cada encargo dos veces -entero y a la mitad- sin aplicar
+	# nada, y de paso enciende el desglose de ganar() para ver los tres factores por separado.
+	var cmp := Button.new()
+	cmp.text = "Medir: encargo entero vs traído a la mitad"
+	cmp.tooltip_text = "No aplica nada ni toca los encargos: los resuelve aparte, con su misma " \
+		+ "semilla, a su duración entera y a la mitad. Si la segunda no es ~la mitad, ahí está el " \
+		+ "fallo.\n\nEnciende también el desglose de excelia (base × reto × rendimientos " \
+		+ "decrecientes) en la consola."
+	cmp.pressed.connect(func():
+		Game.desglose_excelia = true
+		for e_ in Game.encargos:
+			Game.dev_comparar_traer(int((e_ as Dictionary).get("id", 0)))
+		if Game.encargos.is_empty():
+			print("[dev] no hay encargos en marcha que medir."))
+	vb.add_child(cmp)
 
 
 func _build_desarrollo(vb: VBoxContainer) -> void:

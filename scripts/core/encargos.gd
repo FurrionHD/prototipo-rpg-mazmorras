@@ -777,11 +777,20 @@ static func repartir(n: int, tipos: Array) -> Dictionary:
 	var k: int = maxi(1, tipos.size())
 	var base: int = n / k
 	var resto: int = n % k
+	# EL REDONDEO SE ARRASTRA en vez de perderse tipo a tipo. Antes cada uno hacia su round() por su
+	# cuenta y en un encargo CORTO eso se notaba de verdad: partido entre los tipos marcados y luego
+	# multiplicado por una abundancia baja (COMIDA 0.22), la cuenta de un tipo caia por debajo de 0.5
+	# y se iba a CERO -- traias una expedicion entera sin una sola seta, y con otra hora mas traias
+	# dos. Guardando la fraccion que sobra y sumandola al siguiente, el total sale el que toca y solo
+	# cambia a QUIEN le cae la unidad suelta.
+	var arrastre: float = 0.0
 	for i in tipos.size():
 		# El reparto del RATO es a partes iguales, pero de un sitio del que solo salen cuatro setas
 		# no se vuelve con doscientas por mucho que esperes: se recorta por lo que hay en el piso.
-		out[int(tipos[i])] = int(round(float(base + (1 if i < resto else 0))
-			* abundancia(int(tipos[i]))))
+		var exacto: float = float(base + (1 if i < resto else 0)) * abundancia(int(tipos[i])) + arrastre
+		var entero: int = int(floor(exacto))
+		arrastre = exacto - float(entero)
+		out[int(tipos[i])] = entero
 	return out
 
 
@@ -1045,6 +1054,12 @@ static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Diction
 		# A DONDE va esa excelia lo decide la CLASE que le pusiste al mandarlo. Los pesos suman 1.0,
 		# asi que el total es el mismo de antes y solo cambia el reparto: un mago sale de ahi con
 		# magia y esquiva donde un guerrero pesado sale con brazos.
+		# EL 1 ES EL NIVEL (tier de contenido) DEL ENEMIGO, y hoy es correcto porque TODOS los bichos
+		# del juego son de nivel 1 (ver el comentario de Game.reto). Pero es un 1 escrito a mano,
+		# mientras que el combate de verdad pasa el nivel real del bicho (combat.gd: Game.reto(...,
+		# c.level, pj)). El dia que los enemigos tengan tiers por profundidad, ESTA LINEA se queda
+		# midiendo contra el denominador equivocado -el acumulado de por vida en vez del progreso de
+		# tu nivel- y los encargos dejaran de enseñar sin dar ningun error. Es el sitio a tocar.
 		var reto_c: float = Game.reto(req, 1, pj)
 		var base_c: float = peleas(duracion) * VALE_UNA_PELEA * mult * RENDIMIENTO
 		var pesos: Dictionary = pesos_clase_de(clase_de(miembros, pj.uid), pj)

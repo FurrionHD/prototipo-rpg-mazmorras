@@ -51,6 +51,7 @@ const SCRIPTS := [
 	"res://scripts/ui/casteo_mapa.gd",
 	"res://scripts/world/fishing_spot.gd",
 	"res://scripts/ui/map_menu.gd",
+	"res://scripts/ui/debug_panel.gd",
 ]
 
 func _initialize() -> void:
