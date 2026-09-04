@@ -162,6 +162,18 @@ func aplicar_imbue(elem: int) -> void:
 		Particulas.repintar(_fx_imbue, Elementos.color(elem))
 
 
+# LO QUE ALUMBRA SU FAROLILLO, en celdas. Se guarda a pelo (no dibuja nada por si mismo): quien lo
+# lee es niebla._focos(), que lo mete en la lista de focos con SU radio en vez de con el mio.
+#
+# El -1 de partida significa "todavia no me ha dicho nada": niebla usa entonces el suelo duro de
+# vision, no el radio del jugador local. Es el lado seguro del error -- un compañero recien conectado
+# se ve alumbrando poco durante un instante, que es mejor que verle alumbrando lo que no alumbra.
+var radio_luz: float = -1.0
+
+func aplicar_luz(radio: float) -> void:
+	radio_luz = radio
+
+
 # ESTA CANTANDO un hechizo en el mapa: le sale el mismo bocadillo que a ti (ver globo_casteo.gd).
 # Texto vacio = ha dejado de cantar. Es puro adorno, pero de los que importan: ver a tu compañero
 # recitando es lo que te dice que no le atropelles la pelea... o que corras a cubrirle.

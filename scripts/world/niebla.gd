@@ -220,19 +220,43 @@ func _refrescar_camara() -> void:
 # ------------------------------------------------------------
 #  QUIEN LLEVA FAROLILLO
 # ------------------------------------------------------------
-# De momento TODOS los aliados alumbran lo mismo. Cuando entre el farolillo de verdad (con su
-# tier, su rareza y su carbon) lo unico que cambia aqui es de donde sale 'radio': el tuyo de tu
-# equipo, y el de los demas de lo que anuncien por la red.
+# CADA UNO CON SU RADIO. Aqui habia un solo `radio_actual()` repartido a todos los del grupo
+# "aliado", y ese grupo incluye a los JUGADORES REMOTOS (net.gd reusa remote_player.gd tambien para
+# sus acompañantes): en multijugador el compañero alumbraba exactamente lo que alumbrabas tu, con su
+# farolillo apagado o con uno mejor. Se notaba justo cuando importa.
+#
+# El motor de vision ya sabia hacer esto (vision.gd lee 'radio' e 'intensidad' foco a foco); lo que
+# faltaba era rellenar la lista bien, y que el radio ajeno VIAJARA (ver Net.anunciar_luz).
 func _focos(jugador: Node2D) -> Array:
 	var r: float = radio_actual()
+	# Y de paso se lo cuento a los demas. Va aqui y no colgado de los seis sitios que mueven el radio
+	# (encender, acabarse el trozo, prender el siguiente, cambiar de farolillo, bajar un piso) porque
+	# a esa lista siempre se le olvida uno; anunciar_luz solo manda cuando el numero cambia de verdad.
+	if Net.activo:
+		Net.anunciar_luz()
 	var out: Array = [{"pos": jugador.global_position, "radio": r}]
 	# Los compañeros de tu grupo van pegados a ti, pero su luz cuenta: en una esquina, el que va
 	# detras te alumbra el trozo que tu ya has dejado atras.
 	for a in get_tree().get_nodes_in_group("aliado"):
 		var n := a as Node2D
-		if n != null and is_instance_valid(n):
-			out.append({"pos": n.global_position, "radio": r})
+		if n == null or not is_instance_valid(n):
+			continue
+		# EL JUGADOR LOCAL ESTA EN ESE GRUPO (ver player.gd), asi que entraba DOS veces. Con un radio
+		# comun daba igual -se combinan con MAX-, pero ahora ya no es el mismo numero para todos.
+		if n == jugador:
+			continue
+		out.append({"pos": n.global_position, "radio": _radio_de(n, r)})
 	return out
+
+
+# El radio de UN aliado. Los mios (acompañantes) van con mi farolillo, que es el que se equipa; los
+# de otro humano traen el suyo, anunciado por la red. Un remoto que aun no lo ha dicho (radio_luz
+# negativo) se pinta con el suelo duro de vision y no con el mio: es el lado seguro del error.
+func _radio_de(n: Node2D, mio: float) -> float:
+	if not ("radio_luz" in n):
+		return mio            # un acompañante de mi grupo: mi lampara es la suya
+	var suyo: float = float(n.radio_luz)
+	return suyo if suyo >= 0.0 else Vision.RADIO_MINIMO
 
 
 # EL RADIO, en celdas. Sale del farolillo equipado, de si le queda carbon y de la profundidad del

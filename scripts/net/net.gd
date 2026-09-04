@@ -782,6 +782,11 @@ func _mover_companeros(peer_id: int, posiciones: Array) -> void:
 		if c == null:
 			break
 		lista.append(c)
+		# El cuerpo nace AHORA (las posiciones llegan a 60 Hz, el farolillo solo cuando cambia), asi
+		# que hay que darle el ultimo radio anunciado o alumbraria el suelo duro hasta que a su dueño
+		# se le gastara el carbon. Mismo caso que la imbuicion en _montar_avatar.
+		if c.has_method("aplicar_luz"):
+			c.aplicar_luz(float(_peers[peer_id].get("luz", -1.0)))
 	_avatares_comp[peer_id] = lista
 	for i in mini(lista.size(), posiciones.size()):
 		if is_instance_valid(lista[i]):
@@ -986,6 +991,69 @@ func _rel_imbue(elems: PackedInt32Array) -> void:
 	for pid in _peers:
 		if pid != de:
 			_set_imbue.rpc_id(pid, de, elems)
+
+
+# --- EL FAROLILLO DE CADA UNO ------------------------------------------------------------------
+# Cuanto alumbra su lampara, en celdas. Canal propio y calcado del de las imbuiciones, por lo mismo:
+# es un numero minusculo que cambia a su ritmo (enciendes, se gasta el carbon, cambias de farolillo)
+# y no puede ir colgado de anunciar_aspecto, que arrastra el PNG del personaje.
+#
+# Antes NO viajaba nada de esto, y niebla._focos() le ponia a todos los aliados MI radio: en la
+# pantalla de cada uno, el compañero alumbraba exactamente lo que alumbrabas tu. Se veia raro
+# justamente cuando importa -- yo sin carbon y el otro con el farolillo bueno, y aun asi veia igual.
+#
+# Es SOLO del lider: los acompañantes van pegados a el y su luz es la misma (en local pasa igual,
+# ver _focos). Un solo float, y el que no lo anuncie se queda con el suelo duro de vision.
+#
+# SE LLAMA CADA FRAME (desde niebla._focos) y manda solo cuando el numero CAMBIA de verdad. Es a
+# proposito: el radio se mueve por media docena de motivos -enciendes, se acaba el trozo de carbon,
+# prende el siguiente, te cambias el farolillo, bajas un piso- y engancharse a los seis call sites
+# es la clase de lista a la que siempre se le olvida uno. Comparar un float por frame no cuesta nada
+# y no se puede olvidar ninguno.
+var _luz_anunciada: float = -1.0
+
+func anunciar_luz() -> void:
+	if not activo or multiplayer.multiplayer_peer == null:
+		return
+	var r: float = Game.radio_lampara()
+	if is_equal_approx(r, _luz_anunciada):
+		return
+	_luz_anunciada = r
+	if es_host:
+		for pid in _peers:
+			_set_luz.rpc_id(pid, _mi_id(), r)
+	else:
+		_rel_luz.rpc_id(1, r)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_luz(emisor: int, radio: float) -> void:
+	if not _peers.has(emisor):
+		return
+	# En _peers ADEMAS de en el avatar: quien entre despues -o vuelva a montar la vista al viajar-
+	# recrea los cuerpos desde aqui, y sin esto nacerian con el radio por defecto.
+	_peers[emisor]["luz"] = radio
+	_aplicar_luz_a_avatares(emisor, radio)
+
+
+func _aplicar_luz_a_avatares(emisor: int, radio: float) -> void:
+	var a = _avatares.get(emisor)   # SIN tipar: puede estar liberado
+	if a != null and is_instance_valid(a) and a.has_method("aplicar_luz"):
+		a.aplicar_luz(radio)
+	for c in _avatares_comp.get(emisor, []):
+		if is_instance_valid(c) and c.has_method("aplicar_luz"):
+			c.aplicar_luz(radio)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_luz(radio: float) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	_set_luz(de, radio)
+	for pid in _peers:
+		if pid != de:
+			_set_luz.rpc_id(pid, de, radio)
 
 
 # --- CANTAR HECHIZOS EN EL MAPA: lo que ven los demas ------------------------------------------
@@ -6116,6 +6184,11 @@ func _crear_avatar_nodo(peer_id: int) -> void:
 	# sin rastro a alguien que ya iba imbuido: el reparto en vivo (_set_imbue) solo alcanza a quien
 	# ya estaba escuchando.
 	_aplicar_imbue_a_avatares(peer_id, p.get("imbue", PackedInt32Array()))
+	# Y su FAROLILLO, por el mismo motivo y con la misma trampa: sin esto, quien entra a mitad de
+	# partida (o vuelve a montar la vista al viajar) pinta al compañero con el radio por defecto, que
+	# es el suelo duro -- se veria a alguien con un farol bueno alumbrando un palmo hasta que se le
+	# gastara el carbon y volviera a anunciar.
+	_aplicar_luz_a_avatares(peer_id, float(p.get("luz", -1.0)))
 
 
 func _on_peer_disconnected(id: int) -> void:
