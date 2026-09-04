@@ -1831,3 +1831,148 @@ static func pastilla(parent: Node, texto: String, al_pulsar: Callable,
 	estilo_pastilla(b, principal)
 	parent.add_child(b)
 	return b
+
+
+# ============================================================
+#  EL MODAL
+#  La caja centrada que tapa el menu: orden, filtros, "cuantas sueltas", confirmaciones.
+#
+#  Va por MODAL y no por desplegable abierto en sitio a proposito, y no es pereza: en movil un
+#  desplegable de doce opciones no cabe y hay que reimplementarlo como pantalla. Con modal, la
+#  misma pieza sirve en las dos y no hay codigo de mas por ser tactil.
+#
+#  Devuelve {capa, cuerpo, acciones}:
+#    capa      lo que hay que queue_free() para cerrarlo (y lo que come los clics de detras)
+#    cuerpo    donde va el contenido
+#    acciones  la fila de botones del pie, sobre su franja oscura
+#
+#  Ojo: quien lo abre se guarda 'capa' y la suelta el; esto no lleva la cuenta de modales abiertos.
+# ============================================================
+
+const ANCHO_MODAL := 620.0
+
+static func modal(root: Control, titulo: String, ancho: float = ANCHO_MODAL) -> Dictionary:
+	var capa := Control.new()
+	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(capa)
+
+	# El velo. STOP y no IGNORE: mientras el modal esta abierto, lo de debajo NO se pulsa -- que es
+	# justo lo que lo hace modal.
+	var velo := ColorRect.new()
+	velo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	velo.color = Color(0, 0, 0, 0.62)
+	velo.mouse_filter = Control.MOUSE_FILTER_STOP
+	capa.add_child(velo)
+
+	var centro := CenterContainer.new()
+	centro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	capa.add_child(centro)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(ancho, 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.10, 0.11, 0.15, 0.99)
+	sb.border_color = Color(1, 1, 1, 0.16)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(10)
+	panel.add_theme_stylebox_override("panel", sb)
+	centro.add_child(panel)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	panel.add_child(col)
+
+	var t := Label.new()
+	t.text = titulo
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.add_theme_font_size_override("font_size", 17)
+	t.add_theme_color_override("font_color", Color(0.94, 0.95, 0.98))
+	t.custom_minimum_size = Vector2(0, 46)
+	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	col.add_child(t)
+	col.add_child(HSeparator.new())
+
+	var margen := MarginContainer.new()
+	margen.add_theme_constant_override("margin_left", 18)
+	margen.add_theme_constant_override("margin_right", 18)
+	margen.add_theme_constant_override("margin_top", 14)
+	margen.add_theme_constant_override("margin_bottom", 16)
+	col.add_child(margen)
+	var cuerpo := VBoxContainer.new()
+	cuerpo.add_theme_constant_override("separation", 10)
+	margen.add_child(cuerpo)
+
+	# LA FRANJA DEL PIE, mas oscura que el panel. Separa "lo que eliges" de "lo que confirmas", que
+	# es lo unico que hace falta para que no se pulse Confirmar por error creyendo que es una opcion.
+	var pie := PanelContainer.new()
+	var sb2 := StyleBoxFlat.new()
+	sb2.bg_color = Color(0.05, 0.06, 0.08, 1.0)
+	sb2.corner_radius_bottom_left = 10
+	sb2.corner_radius_bottom_right = 10
+	sb2.content_margin_left = 18
+	sb2.content_margin_right = 18
+	sb2.content_margin_top = 12
+	sb2.content_margin_bottom = 12
+	pie.add_theme_stylebox_override("panel", sb2)
+	col.add_child(pie)
+	var acciones := HBoxContainer.new()
+	acciones.alignment = BoxContainer.ALIGNMENT_CENTER
+	acciones.add_theme_constant_override("separation", 12)
+	pie.add_child(acciones)
+
+	return {"capa": capa, "cuerpo": cuerpo, "acciones": acciones}
+
+
+# UN GRUPO DE OPCIONES del modal: el encabezado y su rejilla de chips. Lo usan tanto el orden (donde
+# solo se puede marcar una) como los filtros (donde se pueden marcar varias).
+#
+# 'marcadas' son los indices encendidos. 'al_pulsar' recibe el indice; quien llama decide si eso
+# enciende una y apaga las demas (orden) o alterna la suya (filtro).
+#
+# El RECUENTO de cada opcion va en la propia etiqueta ("Placas   4"), como en la referencia. Es lo
+# que deja saber si merece la pena filtrar ANTES de filtrar: un "0" ahorra el viaje.
+static func chips(vb: VBoxContainer, titulo: String, opciones: Array, marcadas: Array,
+		al_pulsar: Callable, columnas: int = 3) -> void:
+	if titulo != "":
+		var t := Label.new()
+		t.text = titulo
+		t.add_theme_font_size_override("font_size", 12)
+		t.add_theme_color_override("font_color", GRIS)
+		vb.add_child(t)
+	var grid := GridContainer.new()
+	grid.columns = maxi(1, columnas)
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_child(grid)
+	for i in opciones.size():
+		var o: Dictionary = opciones[i]
+		var b := Button.new()
+		var n: int = int(o.get("cuantos", -1))
+		b.text = String(o["nombre"]) + ("" if n < 0 else "   %d" % n)
+		b.toggle_mode = true
+		b.button_pressed = marcadas.has(i)
+		# Una opcion VACIA se deja pulsable igual (no disabled): apagarla haria que la fila bailase
+		# de aspecto segun lo que lleves encima, y ademas el propio 0 ya dice que no hay nada.
+		b.pressed.connect(al_pulsar.bind(i))
+		estilo_chip(b, marcadas.has(i))
+		grid.add_child(b)
+
+
+# El chip: pastilla baja, clara si esta marcada y hueca si no. Es la misma idea que estilo_pastilla
+# pero mas pequeña y pensada para verse en rejilla de tres o cuatro columnas.
+static func estilo_chip(b: Button, marcada: bool) -> void:
+	b.custom_minimum_size = Vector2(0, 32)
+	b.add_theme_font_size_override("font_size", 13)
+	var r := 8
+	if marcada:
+		_pastilla(b, "normal", AMBAR, Color(0.08, 0.07, 0.05), r)
+		_pastilla(b, "hover", AMBAR.lightened(0.15), Color(0.08, 0.07, 0.05), r)
+		_pastilla(b, "pressed", AMBAR.darkened(0.15), Color(0.08, 0.07, 0.05), r)
+		_pastilla(b, "focus", AMBAR, Color(0.08, 0.07, 0.05), r)
+	else:
+		_pastilla(b, "normal", Color(1, 1, 1, 0.07), Color(0.82, 0.85, 0.90), r)
+		_pastilla(b, "hover", Color(1, 1, 1, 0.15), Color(0.96, 0.97, 1.0), r)
+		_pastilla(b, "pressed", Color(1, 1, 1, 0.22), Color(1, 1, 1), r)
+		_pastilla(b, "focus", Color(1, 1, 1, 0.11), Color(0.90, 0.92, 0.96), r)
+	_pastilla(b, "disabled", Color(1, 1, 1, 0.04), Color(0.42, 0.44, 0.48), r)

@@ -65,6 +65,25 @@ func _ready() -> void:
 			inv._on_filtro_armadura(1)   # casco
 			await _captura("%d_armaduras_filtrada" % i)
 			inv._on_filtro_armadura(0)
+
+	# LOS DOS MODALES DE LA BARRA DE ABAJO. Se abren sobre la pestaña que mejor los enseña: el de
+	# orden sobre la BOLSA (que es la que tiene los criterios raros: peso y valor por peso) y el de
+	# filtros sobre ARMADURAS (que es la que mas grupos tiene y donde se ven los recuentos).
+	inv._on_tab(0)
+	inv._abrir_modal_orden()
+	await _captura("modal_orden")
+	inv._cerrar_modal_barra()
+
+	inv._on_tab(5)
+	inv._abrir_modal_filtros()
+	await _captura("modal_filtros")
+	inv._cerrar_modal_barra()
+
+	# Y una rejilla YA ORDENADA por valor por peso, que es el criterio propio: sin verla ordenada
+	# no se sabe si el orden hace algo.
+	inv._on_tab(0)
+	inv._pulsa_criterio(2)   # "Valor por peso"
+	await _captura("bolsa_por_valor_peso")
 	get_tree().quit()
 
 

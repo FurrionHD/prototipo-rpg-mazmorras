@@ -121,6 +121,11 @@ func _ready() -> void:
 	_barra_sub.add_theme_constant_override("separation", 14)
 	col_izq.add_child(_barra_sub)
 	col_izq.add_child(scroll)
+	# LA BARRA DE ABAJO (orden y filtros) va en esta columna y no cruzando la pantalla: manda sobre
+	# la REJILLA, no sobre la ficha, y ponerla debajo de las dos la desconectaria de lo que cambia.
+	_barra_pie = HBoxContainer.new()
+	_barra_pie.add_theme_constant_override("separation", 10)
+	col_izq.add_child(_barra_pie)
 
 	var barra_tabs: HBoxContainer = m["side"]
 	barra_tabs.add_theme_constant_override("separation", 14)
@@ -207,8 +212,12 @@ func _input(event: InputEvent) -> void:
 		return
 	if not event.is_action_pressed(&"cancelar"):
 		return
+	# Primero el modal que haya encima (cantidad, orden, filtros) y solo despues la bolsa: si no,
+	# el primer Esc cerraria el menu entero por debajo del modal.
 	if _modal != null:
-		_cerrar_modal()   # primero el modal de dentro (cantidad), luego la bolsa
+		_cerrar_modal()
+	elif _modal_capa != null:
+		_cerrar_modal_barra()
 	else:
 		_cerrar()
 	get_viewport().set_input_as_handled()
@@ -252,6 +261,7 @@ func _set_open(open: bool) -> void:
 		Game.cerrar_menu(self)
 	if not open:
 		_cerrar_modal()
+		_cerrar_modal_barra()
 		return
 	_tab = 0
 	_sel = 0
@@ -303,6 +313,9 @@ func _rebuild_real() -> void:
 		3: _build_materiales()
 		4: _build_armas()
 		5: _build_armaduras()
+	# AL FINAL: los recuentos del embudo salen de _stacks_sin_filtrar, que lo deja _aplicar() dentro
+	# del _build de la pestaña. Pintada antes, saldrian todos a cero.
+	_pintar_barra_pie()
 
 
 # El contador de arriba a la derecha: el estado del GRUPO en esta pestaña (peso de la bolsa, luz
@@ -594,7 +607,7 @@ func _build_bolsa() -> void:
 		items.append(c)
 	for m in Game.materiales:
 		items.append(m)
-	_stacks = _agrupar(items)
+	_stacks = _aplicar(_agrupar(items))
 	_grid_detail(_piezas_stacks(_stacks), _preview_bolsa)
 
 
@@ -862,11 +875,13 @@ func _preview_herramienta(vb: VBoxContainer) -> void:
 
 func _build_consumibles() -> void:
 
-	_stacks = []
+	var todos: Array = []
 	for c in Game.consumables.keys():
 		var n: int = int(Game.consumables[c])
 		if n > 0:
-			_stacks.append({"modelo": c, "cantidad": n})
+			todos.append({"modelo": c, "cantidad": n})
+	_stacks = _aplicar(todos)
+	_contador("%d de %d" % [_stacks.size(), todos.size()])
 	var piezas: Array = []
 	for s in _stacks:
 		var cd := s["modelo"] as ConsumableData
@@ -997,8 +1012,9 @@ func _on_usar(cons: ConsumableData, pj: PersonajeData = null) -> void:
 func _build_materiales() -> void:
 	# El HOGAR no pesa, asi que aqui no hay contador de carga; lo que si dice algo es CUANTO hay
 	# guardado, que es lo que se viene a mirar antes de bajar a por mas.
-	_contador("Guardados  %d" % Game.almacen_materiales.size())
-	_stacks = _agrupar(Game.almacen_materiales)
+	var todos_m: Array = _agrupar(Game.almacen_materiales)
+	_stacks = _aplicar(todos_m)
+	_contador("%d de %d montones" % [_stacks.size(), todos_m.size()])
 	_grid_detail(_piezas_stacks(_stacks), _preview_material)
 
 
@@ -1115,10 +1131,13 @@ func _build_armas() -> void:
 	if _filtro_armas > 0:
 		_titulo_seccion.text = String(FILTROS_ARMAS[_filtro_armas]["nombre"])
 	var filtro: Dictionary = FILTROS_ARMAS[_filtro_armas]
-	_stacks = []
+	var todas: Array = []
 	for w in Game.owned_weapons:
 		if _pasa_filtro_arma(w, filtro):
-			_stacks.append({"modelo": w, "cantidad": 1})
+			todas.append({"modelo": w, "cantidad": 1})
+	# El embudo y el orden se aplican SOBRE lo que dejo la fila de iconos, no sobre el baul entero:
+	# los dos filtros se suman, que es lo que espera cualquiera que ponga los dos.
+	_stacks = _aplicar(todas)
 	_contador("%d de %d" % [_stacks.size(), Game.owned_weapons.size()])
 	var piezas: Array = []
 	for s in _stacks:
@@ -1208,10 +1227,11 @@ func _build_armaduras() -> void:
 	if _filtro_armadura > 0:
 		_titulo_seccion.text = String(FILTROS_ARMADURA[_filtro_armadura]["nombre"])
 	var slot: int = int(FILTROS_ARMADURA[_filtro_armadura]["slot"])
-	_stacks = []
+	var todas_a: Array = []
 	for p in Game.owned_armor:
 		if slot < 0 or int((p as ArmorData).slot) == slot:
-			_stacks.append({"modelo": p, "cantidad": 1})
+			todas_a.append({"modelo": p, "cantidad": 1})
+	_stacks = _aplicar(todas_a)
 	_contador("%d de %d" % [_stacks.size(), Game.owned_armor.size()])
 	var piezas: Array = []
 	for s in _stacks:
@@ -1241,39 +1261,17 @@ func _preview_armadura(vb: VBoxContainer) -> void:
 
 func _abrir_modal_cantidad(maximo: int) -> void:
 	_cerrar_modal()
-	_modal = Control.new()
-	_modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.add_child(_modal)
-
-	var back := ColorRect.new()
-	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	back.color = Color(0, 0, 0, 0.6)
-	back.mouse_filter = Control.MOUSE_FILTER_STOP
-	_modal.add_child(back)
-
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_modal.add_child(center)
-
-	var panel := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.09, 0.12, 1.0)
-	sb.border_color = Color(0.87, 0.57, 0.26, 0.8)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(6)
-	sb.content_margin_left = 16
-	sb.content_margin_right = 16
-	sb.content_margin_top = 12
-	sb.content_margin_bottom = 12
-	panel.add_theme_stylebox_override("panel", sb)
-	center.add_child(panel)
-
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 8)
-	panel.add_child(vb)
+	# Por el MISMO armazon que orden y filtros (MenuScaffold.modal). Antes se montaba su propia caja
+	# a mano, con otro borde y otras esquinas, asi que en la misma pantalla habia dos clases de
+	# modal segun el boton que pulsaras.
+	var m: Dictionary = MenuScaffold.modal(_root, "¿Cuántas sueltas?", 420.0)
+	_modal = m["capa"]
+	var vb: VBoxContainer = m["cuerpo"]
 
 	var l := Label.new()
-	l.text = "¿Cuántas quieres soltar?  (máx. %d)" % maximo
+	l.text = "Tienes %d." % maximo
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_color_override("font_color", MenuScaffold.GRIS)
 	vb.add_child(l)
 
 	_modal_spin = SpinBox.new()
@@ -1287,24 +1285,13 @@ func _abrir_modal_cantidad(maximo: int) -> void:
 	_modal_spin.get_line_edit().text_submitted.connect(func(_t): _modal_aceptar())
 	_modal_spin.get_line_edit().call_deferred("grab_focus")
 
-	var acciones := HBoxContainer.new()
-	acciones.add_theme_constant_override("separation", 8)
-	var ok := Button.new()
-	ok.text = "Soltar"
-	ok.pressed.connect(_modal_aceptar)
-	acciones.add_child(ok)
+	var acciones: HBoxContainer = m["acciones"]
+	MenuScaffold.pastilla(acciones, "Cancelar", _cancelar_modal, false)
 	# El caso mas comun -y el que mas cansa de uno en uno- es vaciar el monton entero.
-	var todo := Button.new()
-	todo.text = "Todo (%d)" % maximo
-	todo.pressed.connect(func():
+	MenuScaffold.pastilla(acciones, "Todo (%d)" % maximo, func():
 		_cerrar_modal()
-		_confirmar_soltar(maximo))
-	acciones.add_child(todo)
-	var ca := Button.new()
-	ca.text = "Cancelar"
-	ca.pressed.connect(_cancelar_modal)
-	acciones.add_child(ca)
-	vb.add_child(acciones)
+		_confirmar_soltar(maximo), false)
+	MenuScaffold.pastilla(acciones, "Soltar", _modal_aceptar)
 
 
 # OJO CON EL SpinBox: lo que TECLEAS no llega a .value hasta que se confirma el texto (Enter o
@@ -1330,3 +1317,524 @@ func _cerrar_modal() -> void:
 		_modal.queue_free()
 		_modal = null
 	_modal_spin = null
+
+
+# ============================================================
+#  LA BARRA DE ABAJO: ORDEN Y FILTROS
+#
+#  El reparto es el de los menus de referencia y tiene su motivo:
+#    - la FILA DE ICONOS de arriba se queda el eje ESTRUCTURAL (que pieza es: daga, casco...),
+#      porque es el que se usa a todas horas y merece estar a un toque;
+#    - la BARRA DE ABAJO se queda todo lo demas, que se usa de vez en cuando y no merece robarle
+#      sitio a la rejilla.
+#
+#  El boton de orden lleva escrito EL ORDEN QUE HAY PUESTO ("Rareza ⇅"), no la palabra "Ordenar":
+#  asi se sabe como esta ordenada la rejilla sin abrir nada. Volver a elegir el mismo criterio le da
+#  la vuelta (asc/desc), que hace falta de verdad -- la durabilidad se mira de menor a mayor y el
+#  ataque al reves.
+#
+#  El EMBUDO solo sale donde hay un segundo eje que filtrar. En Mochila y Herramientas no aparece:
+#  ahi tienes cuatro piezas, y un filtro sobre cuatro cosas es un boton que estorba.
+# ============================================================
+
+# El estado va por PESTAÑA y no uno global: el orden que dejaste en armas tiene que seguir ahi al
+# volver de armaduras, igual que pasa con la fila de iconos.
+#   _orden[clave]   = {"campo": String, "desc": bool}
+#   _filtros[clave] = {grupo: [valores marcados]}   (grupo vacio o ausente = ese eje no filtra)
+var _orden: Dictionary = {}
+var _filtros: Dictionary = {}
+var _barra_pie: HBoxContainer = null
+var _boton_orden: Button = null
+var _boton_embudo: Button = null
+var _modal_capa: Control = null   # el modal de orden/filtros abierto (null = ninguno)
+
+
+# Que pestaña es a efectos de orden y filtros. Equipo cuenta como TRES: mochila, herramientas y
+# farolillo no comparten ni criterios ni contenido.
+func _clave_pestana() -> String:
+	if _tab == 1:
+		return "equipo_%d" % _sub_equipo
+	return String(TABS[clampi(_tab, 0, TABS.size() - 1)]).to_lower()
+
+
+# --- ORDEN -------------------------------------------------------------
+
+# Los criterios de la pestaña actual: [{nombre, campo}]. El campo "" es "Predeterminado", que NO
+# reordena nada: deja el orden en el que estan las cosas en la bolsa o en el baul, que es el orden
+# en el que las conseguiste.
+func _criterios_orden() -> Array:
+	match _clave_pestana():
+		"bolsa":
+			return [{"nombre": "Predeterminado", "campo": ""},
+				{"nombre": "Peso", "campo": "peso"},
+				{"nombre": "Valor por peso", "campo": "valor_peso"},
+				{"nombre": "Valor", "campo": "valor"},
+				{"nombre": "Rango", "campo": "rango"},
+				{"nombre": "Cantidad", "campo": "cantidad"},
+				{"nombre": "Nombre", "campo": "nombre"}]
+		"materiales":
+			return [{"nombre": "Predeterminado", "campo": ""},
+				{"nombre": "Rango", "campo": "rango"},
+				{"nombre": "Valor", "campo": "valor"},
+				{"nombre": "Cantidad", "campo": "cantidad"},
+				{"nombre": "Tier", "campo": "tier"},
+				{"nombre": "Nombre", "campo": "nombre"}]
+		"consumibles":
+			return [{"nombre": "Predeterminado", "campo": ""},
+				{"nombre": "Tier", "campo": "tier"},
+				{"nombre": "Cantidad", "campo": "cantidad"},
+				{"nombre": "Nombre", "campo": "nombre"}]
+		"armas":
+			return [{"nombre": "Predeterminado", "campo": ""},
+				{"nombre": "Rareza", "campo": "rareza"},
+				{"nombre": "Tier", "campo": "tier"},
+				{"nombre": "Mejoras", "campo": "mejoras"},
+				{"nombre": "Ataque", "campo": "ataque"},
+				{"nombre": "Velocidad", "campo": "velocidad"},
+				{"nombre": "Durabilidad", "campo": "durabilidad"},
+				{"nombre": "Nombre", "campo": "nombre"}]
+		"armaduras":
+			return [{"nombre": "Predeterminado", "campo": ""},
+				{"nombre": "Rareza", "campo": "rareza"},
+				{"nombre": "Tier", "campo": "tier"},
+				{"nombre": "Mejoras", "campo": "mejoras"},
+				{"nombre": "Defensa", "campo": "defensa"},
+				{"nombre": "Reducción", "campo": "reduccion"},
+				{"nombre": "Velocidad", "campo": "velocidad"},
+				{"nombre": "Durabilidad", "campo": "durabilidad"},
+				{"nombre": "Nombre", "campo": "nombre"}]
+		_:
+			# Mochila, herramientas y farolillo: cuatro o cinco piezas, con la rareza basta.
+			return [{"nombre": "Predeterminado", "campo": ""},
+				{"nombre": "Rareza", "campo": "rareza"},
+				{"nombre": "Nombre", "campo": "nombre"}]
+
+
+func _orden_actual() -> Dictionary:
+	var k: String = _clave_pestana()
+	if not _orden.has(k):
+		_orden[k] = {"campo": "", "desc": true}
+	return _orden[k]
+
+
+# El valor por el que se ordena un monton. Devuelve float SIEMPRE (los nombres se comparan aparte,
+# ver _ordenar): mezclar tipos en un sort_custom es la forma mas rapida de que Godot reviente.
+func _valor_orden(s: Dictionary, campo: String) -> float:
+	var m: Resource = s["modelo"]
+	var n: int = int(s["cantidad"])
+	match campo:
+		"cantidad":
+			return float(n)
+		"peso":
+			# EL PESO DEL MONTON ENTERO, no el de una unidad: lo que decide si sueltas algo es lo que
+			# te quitas de encima, y 40 piedras de 1 pesan mas que un lingote de 8.
+			if m is Cristal:
+				return (m as Cristal).peso() * float(n)
+			if m is MaterialItem:
+				return (m as MaterialItem).peso() * float(n)
+			return 0.0
+		"valor":
+			return float(_valor_unidad(m)) * float(n)
+		"valor_peso":
+			# LO QUE RENTA CADA KILO. Es la pregunta de verdad cuando vas sobrecargado: no "que vale
+			# mas" ni "que pesa mas", sino "que estoy cargando para nada". Ninguno de los otros dos
+			# la contesta -- lo caro puede pesar una barbaridad y lo barato ocupar sitio por nada.
+			# Peso 0 (el carbon no pesa) se manda arriba del todo: renta infinito, literalmente.
+			var p: float = _valor_orden(s, "peso")
+			if p <= 0.001:
+				return 1e9
+			return float(_valor_unidad(m)) * float(n) / p
+		"rango":
+			return float(IconoItem.escalon(m))
+		"tier":
+			if m is MaterialItem:
+				var d: MaterialData = (m as MaterialItem).data
+				return float(d.tier) if d != null else 0.0
+			if m is ConsumableData:
+				return float((m as ConsumableData).tier)
+			return float(Game.meta_de(m)["tier"])
+		"rareza":
+			return float(Game.meta_de(m)["rareza"])
+		"mejoras":
+			return float(Upgrades.total_mejoras(Game.meta_de(m)["mejoras"]))
+		"durabilidad":
+			return Game.durabilidad_item(m)
+		"ataque":
+			return (m as WeaponData).ataque_base * (m as WeaponData).motion_value if m is WeaponData else 0.0
+		"velocidad":
+			if m is WeaponData:
+				return (m as WeaponData).velocidad_mult
+			if m is ArmorData:
+				return (m as ArmorData).velocidad_mult
+			return 0.0
+		"defensa":
+			return (m as ArmorData).defensa_base * (m as ArmorData).motion_def if m is ArmorData else 0.0
+		"reduccion":
+			return (m as ArmorData).reduccion if m is ArmorData else 0.0
+	return 0.0
+
+
+func _valor_unidad(m: Resource) -> int:
+	if m is Cristal:
+		return (m as Cristal).valor_estimado()
+	if m is MaterialItem:
+		return (m as MaterialItem).valor_estimado()
+	return 0
+
+
+# El nombre por el que ordena "Nombre". Sale del mismo sitio que el tooltip de la celda, asi que
+# ordenar por nombre deja la rejilla en el orden en el que se leen los tooltips.
+func _nombre_orden(s: Dictionary) -> String:
+	var m: Resource = s["modelo"]
+	if m is MaterialItem or m is Cristal:
+		return _nombre_item(m).replace("\n", " ")
+	if m is ConsumableData:
+		return (m as ConsumableData).nombre
+	return Game.item_display_name(m)
+
+
+func _ordenar(stacks: Array) -> Array:
+	var o: Dictionary = _orden_actual()
+	var campo: String = String(o["campo"])
+	if campo == "":
+		return stacks   # Predeterminado: el orden en el que lo conseguiste. No se toca.
+	var desc: bool = bool(o["desc"])
+	var out: Array = stacks.duplicate()
+	if campo == "nombre":
+		out.sort_custom(func(a, b):
+			var na: String = _nombre_orden(a)
+			var nb: String = _nombre_orden(b)
+			return (na > nb) if desc else (na < nb))
+		return out
+	out.sort_custom(func(a, b):
+		var va: float = _valor_orden(a, campo)
+		var vb: float = _valor_orden(b, campo)
+		return (va > vb) if desc else (va < vb))
+	return out
+
+
+func _pulsa_criterio(i: int) -> void:
+	var crit: Array = _criterios_orden()
+	if i < 0 or i >= crit.size():
+		return
+	var o: Dictionary = _orden_actual()
+	var campo: String = String(crit[i]["campo"])
+	# EL MISMO criterio otra vez = darle la vuelta. Uno nuevo empieza siempre de mayor a menor, que
+	# es lo que se quiere el 90% de las veces (la rareza mas alta, el valor mas alto); para la
+	# durabilidad, que se mira al reves, esta el segundo toque.
+	if String(o["campo"]) == campo and campo != "":
+		o["desc"] = not bool(o["desc"])
+	else:
+		o["campo"] = campo
+		o["desc"] = true
+	_cerrar_modal_barra()
+	_rebuild()
+
+
+# --- FILTROS -----------------------------------------------------------
+
+# Los grupos de filtro de la pestaña actual: [{titulo, clave, opciones: [{nombre, valor}]}].
+# Vacio = esta pestaña no lleva embudo.
+func _grupos_filtro() -> Array:
+	match _clave_pestana():
+		"bolsa":
+			return [
+				{"titulo": "Clase", "clave": "clase", "opciones": [
+					{"nombre": "Cristales", "valor": 0}, {"nombre": "Materiales", "valor": 1}]},
+				{"titulo": "Rango", "clave": "rango", "opciones": _ops_rango()},
+				{"titulo": "Calidad", "clave": "calidad", "opciones": _ops_calidad()},
+			]
+		"materiales":
+			return [
+				{"titulo": "Tipo", "clave": "tipo_material", "opciones": _ops_tipo_material()},
+				{"titulo": "Rango", "clave": "rango", "opciones": _ops_rango()},
+				{"titulo": "Calidad", "clave": "calidad", "opciones": _ops_calidad()},
+			]
+		"consumibles":
+			return [{"titulo": "Clase", "clave": "clase_consumible", "opciones": [
+				{"nombre": "Poción de vida", "valor": 0}, {"nombre": "Poción de maná", "valor": 1},
+				{"nombre": "Grimorio", "valor": 2}, {"nombre": "Plato de cocina", "valor": 3},
+				{"nombre": "Cebo de pesca", "valor": 4}, {"nombre": "Otros", "valor": 5}]}]
+		"armas":
+			return [
+				{"titulo": "Rareza", "clave": "rareza", "opciones": _ops_rareza()},
+				{"titulo": "Tier", "clave": "tier", "opciones": _ops_tier()},
+				{"titulo": "Estado", "clave": "estado", "opciones": _ops_estado()},
+			]
+		"armaduras":
+			return [
+				{"titulo": "Material", "clave": "material", "opciones": _ops_material_armadura()},
+				{"titulo": "Rareza", "clave": "rareza", "opciones": _ops_rareza()},
+				{"titulo": "Tier", "clave": "tier", "opciones": _ops_tier()},
+				{"titulo": "Estado", "clave": "estado", "opciones": _ops_estado()},
+			]
+	return []
+
+
+func _ops_rareza() -> Array:
+	var out: Array = []
+	for r in Upgrades.RAREZA_NOMBRE.size():
+		out.append({"nombre": Upgrades.RAREZA_NOMBRE[r], "valor": r})
+	return out
+
+
+func _ops_tier() -> Array:
+	return [{"nombre": "T1", "valor": 1}, {"nombre": "T2", "valor": 2}, {"nombre": "T3", "valor": 3}]
+
+
+func _ops_estado() -> Array:
+	return [{"nombre": "La lleva alguien", "valor": 0}, {"nombre": "En el baúl", "valor": 1},
+		{"nombre": "Rota o casi", "valor": 2}]
+
+
+func _ops_material_armadura() -> Array:
+	var out: Array = []
+	for i in ARMOR_TIPO_LABELS.size():
+		out.append({"nombre": ARMOR_TIPO_LABELS[i], "valor": i})
+	return out
+
+
+func _ops_rango() -> Array:
+	var out: Array = []
+	for r in 5:
+		out.append({"nombre": Upgrades.RAREZA_NOMBRE[r], "valor": r})
+	return out
+
+
+func _ops_calidad() -> Array:
+	return [{"nombre": "Puro", "valor": int(MaterialItem.Calidad.PURO)},
+		{"nombre": "Intacto", "valor": int(MaterialItem.Calidad.INTACTO)},
+		{"nombre": "Normal", "valor": int(MaterialItem.Calidad.NORMAL)},
+		{"nombre": "Dañado", "valor": int(MaterialItem.Calidad.DANADO)}]
+
+
+const TIPO_MATERIAL_NOMBRE := ["Babas", "Plantas", "Minerales", "Cueros", "Núcleos", "Lingotes",
+	"Maderas", "Tablones", "Carnes", "Pescados", "Despensa", "Combustible"]
+
+func _ops_tipo_material() -> Array:
+	var out: Array = []
+	for i in TIPO_MATERIAL_NOMBRE.size():
+		out.append({"nombre": TIPO_MATERIAL_NOMBRE[i], "valor": i})
+	return out
+
+
+# El valor de este monton en el eje 'clave'. -9999 = "no aplica", y entonces el filtro de ese eje
+# no lo deja pasar nunca (un cristal no tiene tipo de material, asi que filtrar por tipo lo saca).
+func _valor_filtro(s: Dictionary, clave: String) -> int:
+	var m: Resource = s["modelo"]
+	match clave:
+		"clase":
+			return 0 if m is Cristal else (1 if m is MaterialItem else -9999)
+		"rango":
+			return IconoItem.escalon(m) if (m is MaterialItem) else -9999
+		"calidad":
+			return int((m as MaterialItem).calidad) if m is MaterialItem else -9999
+		"tipo_material":
+			var d: MaterialData = (m as MaterialItem).data if m is MaterialItem else null
+			return int(d.tipo) if d != null else -9999
+		"rareza":
+			return int(Game.meta_de(m)["rareza"])
+		"tier":
+			return int(Game.meta_de(m)["tier"])
+		"material":
+			return int((m as ArmorData).tipo) if m is ArmorData else -9999
+		"estado":
+			# ROTA O CASI manda sobre las otras dos: si te queda un 15% de durabilidad, lo que
+			# quieres saber es eso y no si la lleva puesta alguien.
+			if Game.durabilidad_item(m) <= UMBRAL_ROTA:
+				return 2
+			return 0 if Game.quien_lleva(m) != null else 1
+		"clase_consumible":
+			var c := m as ConsumableData
+			if c == null:
+				return -9999
+			if c.es_grimorio():
+				return 2
+			if c.es_plato():
+				return 3
+			if c.es_cebo():
+				return 4
+			if c.da_mana() and not c.cura_hp():
+				return 1
+			if c.cura_hp():
+				return 0
+			return 5
+	return -9999
+
+# Por debajo de esto una pieza se considera "rota o casi". Es el mismo escalon en el que
+# Game.durabilidad_color ya la pinta en rojo, para que el filtro y el color digan lo mismo.
+const UMBRAL_ROTA := 0.25
+
+
+func _filtros_actuales() -> Dictionary:
+	var k: String = _clave_pestana()
+	if not _filtros.has(k):
+		_filtros[k] = {}
+	return _filtros[k]
+
+
+func _hay_filtro() -> bool:
+	for g in _filtros_actuales().values():
+		if not (g as Array).is_empty():
+			return true
+	return false
+
+
+func _filtrar(stacks: Array) -> Array:
+	var f: Dictionary = _filtros_actuales()
+	if not _hay_filtro():
+		return stacks
+	var out: Array = []
+	for s in stacks:
+		var pasa: bool = true
+		for clave in f.keys():
+			var marcados: Array = f[clave]
+			if marcados.is_empty():
+				continue   # ese eje no filtra
+			# DENTRO de un grupo es "o" (cuero O placas) y ENTRE grupos es "y" (cuero Y del tier 2).
+			# Es lo que espera cualquiera que haya usado un filtro, y lo contrario no serviria: marcar
+			# dos rarezas para no ver ninguna no tendria sentido.
+			if not marcados.has(_valor_filtro(s, String(clave))):
+				pasa = false
+				break
+		if pasa:
+			out.append(s)
+	return out
+
+
+func _alterna_filtro(clave: String, valor: int) -> void:
+	var f: Dictionary = _filtros_actuales()
+	var lista: Array = f.get(clave, [])
+	if lista.has(valor):
+		lista.erase(valor)
+	else:
+		lista.append(valor)
+	f[clave] = lista
+	_sel = 0   # la lista cambia de largo: el indice viejo apunta a otra cosa
+	_refrescar_modal_filtros()
+	_rebuild()
+
+
+func _limpiar_filtros() -> void:
+	_filtros[_clave_pestana()] = {}
+	_sel = 0
+	_refrescar_modal_filtros()
+	_rebuild()
+
+
+# --- APLICAR -----------------------------------------------------------
+
+# Lo que llama cada pestaña justo despues de montar sus stacks. Filtra primero y ordena despues:
+# al reves se ordenaria una lista de la que luego se tira la mitad, que es trabajo tirado.
+#
+# Se guarda ademas la lista SIN FILTRAR, porque es contra la que se cuentan las opciones del embudo
+# ("Placas 4"): contra la filtrada, marcar un filtro pondria a cero todos los demas y no habria
+# forma de cambiar de idea.
+var _stacks_sin_filtrar: Array = []
+
+func _aplicar(stacks: Array) -> Array:
+	_stacks_sin_filtrar = stacks
+	return _ordenar(_filtrar(stacks))
+
+
+# --- LA BARRA ----------------------------------------------------------
+
+func _pintar_barra_pie() -> void:
+	MenuScaffold.vaciar(_barra_pie)
+	_boton_embudo = null
+	var grupos: Array = _grupos_filtro()
+	if not grupos.is_empty():
+		# El embudo se pinta AMBAR cuando hay algo filtrado. Sin eso, una rejilla a medias parece una
+		# rejilla vacia y no hay forma de saber que sobra un filtro puesto de hace dos pantallas.
+		_boton_embudo = MenuScaffold.pastilla(_barra_pie, "Filtros", _abrir_modal_filtros, false)
+		if _hay_filtro():
+			MenuScaffold.estilo_chip(_boton_embudo, true)
+			_boton_embudo.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_PASTILLA)
+
+	var o: Dictionary = _orden_actual()
+	var nombre: String = "Predeterminado"
+	for c in _criterios_orden():
+		if String(c["campo"]) == String(o["campo"]):
+			nombre = String(c["nombre"])
+	# La flecha dice el SENTIDO, y solo cuando hay criterio: en "Predeterminado" no hay nada que
+	# invertir, asi que una flecha ahi seria mentira.
+	var flecha: String = "" if String(o["campo"]) == "" else ("  ↓" if bool(o["desc"]) else "  ↑")
+	_boton_orden = MenuScaffold.pastilla(_barra_pie, nombre + flecha, _abrir_modal_orden, false)
+
+	var hueco := Control.new()
+	hueco.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_barra_pie.add_child(hueco)
+
+
+func _abrir_modal_orden() -> void:
+	_cerrar_modal_barra()
+	var m: Dictionary = MenuScaffold.modal(_root, "Orden")
+	_modal_capa = m["capa"]
+	var crit: Array = _criterios_orden()
+	var o: Dictionary = _orden_actual()
+	var marcadas: Array = []
+	for i in crit.size():
+		if String(crit[i]["campo"]) == String(o["campo"]):
+			marcadas.append(i)
+	MenuScaffold.chips(m["cuerpo"], "", crit, marcadas, _pulsa_criterio, 3)
+	var pista := Label.new()
+	pista.text = "Vuelve a pulsar el mismo criterio para invertirlo."
+	pista.add_theme_font_size_override("font_size", 11)
+	pista.add_theme_color_override("font_color", MenuScaffold.GRIS)
+	(m["cuerpo"] as VBoxContainer).add_child(pista)
+	MenuScaffold.pastilla(m["acciones"], "Cerrar", _cerrar_modal_barra, false)
+
+
+func _abrir_modal_filtros() -> void:
+	_cerrar_modal_barra()
+	var m: Dictionary = MenuScaffold.modal(_root, "Filtros")
+	_modal_capa = m["capa"]
+	_modal_cuerpo = m["cuerpo"]
+	_refrescar_modal_filtros()
+	MenuScaffold.pastilla(m["acciones"], "Quitar todo", _limpiar_filtros, false)
+	MenuScaffold.pastilla(m["acciones"], "Listo", _cerrar_modal_barra)
+
+
+var _modal_cuerpo: VBoxContainer = null
+
+# Repinta las opciones del modal de filtros con los RECUENTOS al dia. Se llama al abrirlo y cada vez
+# que se marca algo: los recuentos no cambian (van contra la lista sin filtrar) pero si cambia que
+# chips estan encendidos, y el modal se queda abierto mientras marcas.
+func _refrescar_modal_filtros() -> void:
+	if _modal_cuerpo == null or not is_instance_valid(_modal_cuerpo):
+		return
+	MenuScaffold.vaciar(_modal_cuerpo)
+	var f: Dictionary = _filtros_actuales()
+	for g in _grupos_filtro():
+		var clave: String = String(g["clave"])
+		var marcados: Array = f.get(clave, [])
+		var opciones: Array = []
+		var marcadas: Array = []
+		var i: int = 0
+		for op in g["opciones"]:
+			var valor: int = int(op["valor"])
+			opciones.append({"nombre": String(op["nombre"]),
+				"cuantos": _cuantos_con(clave, valor)})
+			if marcados.has(valor):
+				marcadas.append(i)
+			i += 1
+		var vals: Array = g["opciones"]
+		MenuScaffold.chips(_modal_cuerpo, String(g["titulo"]), opciones, marcadas,
+			func(idx: int): _alterna_filtro(clave, int(vals[idx]["valor"])), 4)
+
+
+# Cuantos montones de la pestaña tienen este valor en este eje. Va contra la lista SIN filtrar a
+# proposito (ver _aplicar).
+func _cuantos_con(clave: String, valor: int) -> int:
+	var n: int = 0
+	for s in _stacks_sin_filtrar:
+		if _valor_filtro(s, clave) == valor:
+			n += 1
+	return n
+
+
+func _cerrar_modal_barra() -> void:
+	if _modal_capa != null and is_instance_valid(_modal_capa):
+		_modal_capa.queue_free()
+	_modal_capa = null
+	_modal_cuerpo = null
