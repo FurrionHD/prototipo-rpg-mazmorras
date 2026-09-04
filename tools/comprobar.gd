@@ -35,6 +35,11 @@ const SCRIPTS := [
 	"res://scripts/world/dungeon_exit.gd",
 	"res://scripts/world/stairs.gd",
 	"res://scripts/ui/menu_scaffold.gd",
+	# El dibujo de un objeto y la celda que lo enseña. IconoItem lo comparten el SUELO y la
+	# cuadricula, asi que un error aqui rompe las dos cosas a la vez.
+	"res://scripts/ui/icono_item.gd",
+	"res://scripts/ui/celda_objeto.gd",
+	"res://scripts/items/drop_pickup.gd",
 	"res://scripts/ui/inventory_menu.gd",
 	"res://scripts/ui/shop_menu.gd",
 	"res://scripts/world/dungeon_floor.gd",
