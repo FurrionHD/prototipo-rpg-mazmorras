@@ -915,11 +915,9 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 	_banner(vb, cons, n, _clase_consumible(cons))
 	_row(vb, "Cantidad", str(n))
 
-	var sabido: bool = false
 	if cons.es_grimorio():
-		# Con grupo, el estado se mira contra el LIDER solo para la cabecera; abajo cada boton dice
-		# lo suyo, porque quien lo aprende lo eliges tu.
-		sabido = Game.lider().equipped_spells.has(cons.spell)
+		# La cuenta de hechizos que se enseña aqui es la del LIDER, solo como referencia: quien lo
+		# aprende de verdad lo eliges en el modal, y alli cada tarjeta lleva la suya.
 		_row(vb, "Enseña", cons.spell.nombre)
 		_row(vb, "Coste", "%d de maná" % cons.spell.coste_mana)
 		_row(vb, "Hechizos", "%d / %d aprendidos" % [Game.lider().equipped_spells.size(), Game.MAX_HECHIZOS])
@@ -938,58 +936,35 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		_note(vb, cons.descripcion)
 
 	vb.add_child(HSeparator.new())
-	# Una poción se le puede dar a CUALQUIERA del grupo, no solo al que va en cabeza: con varios
-	# en el equipo sale un boton por persona (con su vida/maná, para ver quien la necesita).
-	# Un GRIMORIO igual, y ademas es lo importante: el libro se GASTA al estudiarlo, asi que si iba
-	# siempre al lider y el que querias que lo aprendiera no era el lider, perdias el hechizo y el
-	# libro. Con uno solo en el grupo, el boton de siempre.
-	# Un PLATO de cocina, lo mismo y por el mismo motivo que el grimorio: se gasta al comerlo y el
-	# buff se lo queda SOLO quien lo come, asi que mandarlo siempre al lider seria perder el plato.
-	var por_persona: bool = (cons.cura_hp() or cons.da_mana() or cons.es_grimorio() or cons.es_plato()) \
-		and Game.party.size() > 1
-	if por_persona:
-		_note(vb, "¿Quién lo estudia?" if cons.es_grimorio() else (
-			"¿Quién se lo come?" if cons.es_plato() else "¿A quién se la das?"))
-		for pj in Game.party:
-			var b := Button.new()
-			var corona: String = "👑 " if pj == Game.lider() else ""
-			if cons.es_grimorio():
-				# Cada uno con SU cuenta de hechizos: uno puede tenerlo ya sabido y otro no, y uno
-				# puede tener el hueco lleno y otro libre. Se dice cual es el motivo en el boton.
-				var suyos: Array = pj.equipped_spells
-				var lo_sabe: bool = suyos.has(cons.spell)
-				var lleno: bool = suyos.size() >= Game.MAX_HECHIZOS
-				var estado: String = "ya lo sabe" if lo_sabe else (
-					"sin hueco" if lleno else "%d/%d hechizos" % [suyos.size(), Game.MAX_HECHIZOS])
-				b.text = "%s%s  (%s)" % [corona, pj.nombre, estado]
-				b.disabled = lo_sabe or lleno
-			elif cons.es_plato():
-				# Lo util aqui no es su vida: es SI YA VA COMIDO, porque el plato nuevo se lleva por
-				# delante al que llevara puesto y eso conviene saberlo ANTES de gastarlo.
-				var puesto: String = Game.plato_puesto(pj)
-				b.text = "%s%s  (%s)" % [corona, pj.nombre,
-					("lleva %s" % puesto) if puesto != "" else "sin comer"]
-			else:
-				var partes: Array = ["%.0f/%.0f ♥" % [Game.player_hp(pj), Game.player_max_hp(pj)]]
-				if cons.da_mana():
-					partes.append("%.0f/%.0f 🔷" % [Game.player_mp(pj), Game.player_max_mp(pj)])
-				b.text = "%s%s  (%s)" % [corona, pj.nombre, "  ".join(partes)]
-			b.pressed.connect(_on_usar.bind(cons, pj))
-			vb.add_child(b)
-	elif cons.es_cebo():
+	# UN CONSUMIBLE SE LE DA A ALGUIEN, y con grupo eso es una pregunta: la poción se la bebe quien
+	# tu digas, el grimorio se GASTA al estudiarlo (si iba siempre al lider, el que querias que lo
+	# aprendiera se quedaba sin el) y el plato se lo queda SOLO quien se lo come.
+	#
+	# Esa pregunta se hace en un modal con las tarjetas del grupo (ver _abrir_modal_usar), no con
+	# una pila de botones aqui dentro: con cuatro en el equipo eran cuatro lineas larguisimas que
+	# empujaban el resto de la ficha fuera de pantalla, y encima obligaban a LEER cuatro estados
+	# para contestar algo que es visual (quien esta mas tocado).
+	#
+	# Con UNO SOLO en el grupo no hay nada que preguntar: boton directo, y el motivo por el que no
+	# se puede -si no se puede- debajo. Sale de la MISMA funcion que usa el modal, asi que los dos
+	# caminos no pueden acabar diciendo cosas distintas.
+	var a_alguien: bool = cons.cura_hp() or cons.da_mana() or cons.es_grimorio() or cons.es_plato()
+	if cons.es_cebo():
 		# Un cebo NO se usa desde la bolsa: se pone en el anzuelo, y eso solo significa algo con el
 		# agua delante. En vez de un boton que no haria nada, se dice donde se pone.
 		_note(vb, "Los cebos se ponen en el estanque: ponte en la orilla y pulsa [F].")
+	elif a_alguien and Game.party.size() > 1:
+		MenuScaffold.pastilla(vb, _verbo_usar(cons), _abrir_modal_usar.bind(cons))
 	else:
-		MenuScaffold.pastilla(vb,
-			"Estudiar" if cons.es_grimorio() else ("Comer" if cons.es_plato() else "Usar"),
-			_on_usar.bind(cons), true,
-			not (cons.es_grimorio() and (sabido or Game.hechizos_llenos())))
-	if cons.es_grimorio() and not por_persona:
-		if sabido:
-			_note(vb, "Ya te sabes este hechizo: el libro no te dice nada nuevo.")
-		elif Game.hechizos_llenos():
-			_note(vb, "No te caben más de %d hechizos a la vez: tendrás que olvidar uno antes." % Game.MAX_HECHIZOS)
+		var solo: PersonajeData = Game.lider()
+		var motivo: String = _motivo_bloqueo(cons, solo) if a_alguien else ""
+		MenuScaffold.pastilla(vb, _verbo_usar(cons), _on_usar.bind(cons), true, motivo == "")
+		if motivo != "":
+			_note(vb, motivo)
+		else:
+			var aviso: String = _aviso_uso(cons, solo)
+			if aviso != "":
+				_note(vb, aviso)
 
 	# SOLTAR. En un jugador es tirarla al suelo y volver a cogerla, poco mas; lo que arregla de
 	# verdad es el MULTIJUGADOR, donde hasta ahora no habia NINGUNA forma de pasarle una poción a
@@ -1838,3 +1813,258 @@ func _cerrar_modal_barra() -> void:
 		_modal_capa.queue_free()
 	_modal_capa = null
 	_modal_cuerpo = null
+
+
+# ============================================================
+#  EL MODAL DE "¿A QUIEN SE LO DAS?"
+#
+#  Antes esto era una pila de botones dentro de la ficha, uno por compañero, con el estado metido
+#  en el propio texto del boton ("Fulano  (45/90 ♥  12/40 🔷)"). Con cuatro en el grupo eran cuatro
+#  botones larguisimos que empujaban al resto de la ficha fuera de pantalla, y ademas obligaban a
+#  LEER cuatro lineas para contestar una pregunta que es visual: quien esta mas tocado.
+#
+#  Ahora son tarjetas con el muñeco de cada uno y su barra de vida. La barra se compara de un
+#  vistazo; el numero sigue estando, pero ya no hace falta leerlo para decidir.
+#
+#  Y lo importante, que es lo que hace la referencia y aqui no habia: cuando NO se puede usar, se
+#  dice POR QUE en una franja roja sobre los botones y el de confirmar se apaga. Antes el boton
+#  salia en gris sin mas y no habia forma de saber si era porque estaba a tope de vida, porque ya
+#  se sabia el hechizo o porque no le cabian mas.
+# ============================================================
+
+var _usar_cons: ConsumableData = null   # el consumible del modal abierto
+var _usar_sel: int = 0                  # a quien apunta (indice en Game.party)
+
+
+# POR QUE no se le puede dar esto a esta persona. "" = si se puede.
+#
+# Es una sola funcion y no una rama por cada sitio a proposito: el motivo lo pintan el modal Y el
+# boton directo del grupo de uno, y si cada uno lo dedujera por su cuenta acabarian discrepando.
+func _motivo_bloqueo(c: ConsumableData, pj: PersonajeData) -> String:
+	if c.es_grimorio():
+		if pj.equipped_spells.has(c.spell):
+			return "%s ya se sabe este hechizo." % pj.nombre
+		if pj.equipped_spells.size() >= Game.MAX_HECHIZOS:
+			return "%s no puede aprender mas de %d hechizos." % [pj.nombre, Game.MAX_HECHIZOS]
+		return ""
+	if c.es_plato():
+		return ""   # un plato nuevo pisa al que llevara puesto: se avisa, pero no se prohibe
+	# POCIONES. Se bloquea solo si NO PUEDE HACER NADA: una que cura vida y da maná sigue valiendo
+	# con la vida llena si le falta maná, asi que se miran las dos y basta con que una sirva.
+	var sirve: bool = false
+	if c.cura_hp() and Game.player_hp(pj) < Game.player_max_hp(pj):
+		sirve = true
+	if c.da_mana() and Game.player_mp(pj) < Game.player_max_mp(pj):
+		sirve = true
+	if sirve or not (c.cura_hp() or c.da_mana()):
+		return ""
+	if c.cura_hp() and c.da_mana():
+		return "%s está a tope de vida y de maná." % pj.nombre
+	return "%s está a tope de %s." % [pj.nombre, "vida" if c.cura_hp() else "maná"]
+
+
+# Lo que conviene saber aunque NO bloquee (el plato que va a pisar al que lleva puesto).
+func _aviso_uso(c: ConsumableData, pj: PersonajeData) -> String:
+	if not c.es_plato():
+		return ""
+	var puesto: String = Game.plato_puesto(pj)
+	return "" if puesto == "" else "%s lleva %s: se le quitará." % [pj.nombre, puesto]
+
+
+func _verbo_usar(c: ConsumableData) -> String:
+	return "Estudiar" if c.es_grimorio() else ("Comer" if c.es_plato() else "Usar")
+
+
+func _abrir_modal_usar(c: ConsumableData) -> void:
+	_cerrar_modal_barra()
+	_usar_cons = c
+	# Arranca apuntando a quien MAS LO NECESITA, no al lider: con cuatro en el grupo, la respuesta
+	# correcta casi siempre es "el que esta peor", y dejarla ya elegida ahorra el paso mas comun.
+	_usar_sel = _mejor_objetivo(c)
+	_pintar_modal_usar()
+
+
+# A quien apunta el modal al abrirse. Para una poción, el que tenga la fraccion de vida (o de maná)
+# mas baja de los que PUEDEN recibirla; para un grimorio o un plato, el primero que pueda.
+func _mejor_objetivo(c: ConsumableData) -> int:
+	var mejor: int = 0
+	var peor_frac: float = 2.0
+	for i in Game.party.size():
+		var pj: PersonajeData = Game.party[i]
+		if _motivo_bloqueo(c, pj) != "":
+			continue
+		var frac: float = 1.0
+		if c.cura_hp():
+			frac = Game.player_hp(pj) / maxf(Game.player_max_hp(pj), 1.0)
+		elif c.da_mana():
+			frac = Game.player_mp(pj) / maxf(Game.player_max_mp(pj), 1.0)
+		if frac < peor_frac:
+			peor_frac = frac
+			mejor = i
+	return mejor
+
+
+# Se repinta ENTERO en cada toque (elegir a otro) en vez de retocar la tarjeta que cambia: son
+# cuatro tarjetas y se reconstruyen en nada, y asi no hay dos caminos que mantener sincronizados
+# -- el mismo error que ya se pago en la rejilla del herrero.
+func _pintar_modal_usar() -> void:
+	_cerrar_modal_barra()
+	var c: ConsumableData = _usar_cons
+	if c == null:
+		return
+	var quedan: int = int(Game.consumables.get(c, 0))
+	var m: Dictionary = MenuScaffold.modal(_root, c.nombre, 640.0)
+	_modal_capa = m["capa"]
+	var vb: VBoxContainer = m["cuerpo"]
+
+	var restantes := Label.new()
+	restantes.text = "Restantes:  %d" % quedan
+	restantes.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	restantes.add_theme_font_size_override("font_size", 12)
+	restantes.add_theme_color_override("font_color", AMBAR)
+	vb.add_child(restantes)
+
+	var fila := HBoxContainer.new()
+	fila.alignment = BoxContainer.ALIGNMENT_CENTER
+	fila.add_theme_constant_override("separation", 10)
+	vb.add_child(fila)
+	for i in Game.party.size():
+		_tarjeta_persona(fila, c, i)
+
+	# QUE HACE, una vez y en el centro, en vez de repetido en cada boton como antes.
+	var efecto := Label.new()
+	efecto.text = _texto_efecto(c)
+	efecto.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	efecto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	efecto.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92))
+	vb.add_child(efecto)
+
+	var pj: PersonajeData = Game.party[clampi(_usar_sel, 0, Game.party.size() - 1)]
+	var motivo: String = _motivo_bloqueo(c, pj)
+	var aviso: String = _aviso_uso(c, pj)
+	if motivo != "" or aviso != "":
+		_franja(vb, motivo if motivo != "" else aviso, motivo != "")
+
+	MenuScaffold.pastilla(m["acciones"], "Cancelar", _cerrar_modal_barra, false)
+	MenuScaffold.pastilla(m["acciones"], _verbo_usar(c), func():
+		_cerrar_modal_barra()
+		_on_usar(c, pj), true, motivo == "" and quedan > 0)
+
+
+# LA FRANJA DE MOTIVO, sobre los botones. Roja si impide usarlo, ambar si solo avisa. Va pegada al
+# pie del modal a proposito: es lo ultimo que se lee antes de pulsar Confirmar.
+func _franja(vb: VBoxContainer, texto: String, bloquea: bool) -> void:
+	var caja := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.55, 0.20, 0.22, 0.92) if bloquea else Color(0.45, 0.34, 0.12, 0.92)
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 7
+	sb.content_margin_bottom = 7
+	caja.add_theme_stylebox_override("panel", sb)
+	vb.add_child(caja)
+	var l := Label.new()
+	l.text = texto
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.add_theme_color_override("font_color", Color(1, 0.96, 0.94))
+	caja.add_child(l)
+
+
+func _texto_efecto(c: ConsumableData) -> String:
+	if c.es_grimorio():
+		return "Enseña %s  ·  %d de maná por lanzamiento." % [c.spell.nombre, c.spell.coste_mana]
+	if c.es_plato():
+		return c.resumen_plato()
+	return c.resumen(Game.player_max_hp(), Game.player_max_mp())
+
+
+const ANCHO_TARJETA := 116.0
+const ALTO_TARJETA := 182.0
+
+# UNA TARJETA: el muñeco del personaje, su nombre y sus barras. Es un Button para no reescribir el
+# foco ni el hover, con el estilo quitado y el dibujo a mano, igual que CeldaObjeto.
+func _tarjeta_persona(fila: HBoxContainer, c: ConsumableData, i: int) -> void:
+	var pj: PersonajeData = Game.party[i]
+	var motivo: String = _motivo_bloqueo(c, pj)
+	var elegida: bool = (i == _usar_sel)
+
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(ANCHO_TARJETA, ALTO_TARJETA)
+	b.clip_contents = true
+	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
+	# Una persona a la que NO se le puede dar se deja PULSABLE igual: al elegirla sale la franja
+	# roja diciendo por que. Apagarla dejaria la pregunta sin respuesta, que es justo lo que pasaba
+	# con el boton en gris de antes.
+	b.pressed.connect(func():
+		_usar_sel = i
+		_pintar_modal_usar())
+	fila.add_child(b)
+
+	b.draw.connect(func() -> void:
+		var w: float = b.size.x
+		var h: float = b.size.y
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.13, 0.14, 0.19, 1.0) if elegida else Color(0.08, 0.09, 0.12, 1.0)
+		sb.border_color = AMBAR if elegida else Color(1, 1, 1, 0.12)
+		sb.set_border_width_all(2 if elegida else 1)
+		sb.set_corner_radius_all(8)
+		b.draw_style_box(sb, Rect2(Vector2.ZERO, Vector2(w, h)))
+		var f: Font = b.get_theme_font(&"font")
+		# El nombre arriba, con la corona si es quien va en cabeza.
+		var nombre: String = ("* " if pj == Game.lider() else "") + pj.nombre
+		var an: float = f.get_string_size(nombre, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+		b.draw_string(f, Vector2((w - an) * 0.5, 18.0), nombre, HORIZONTAL_ALIGNMENT_LEFT, -1, 12,
+			AMBAR if elegida else Color(0.86, 0.89, 0.94))
+		# Las barras del pie.
+		var dos: bool = c.da_mana() or c.es_grimorio()
+		var y: float = h - (46.0 if dos else 26.0)
+		_barra(b, Rect2(10.0, y, w - 20.0, 8.0), Game.player_hp(pj), Game.player_max_hp(pj),
+			Color(0.85, 0.30, 0.32), f)
+		if dos:
+			_barra(b, Rect2(10.0, y + 22.0, w - 20.0, 8.0), Game.player_mp(pj),
+				Game.player_max_mp(pj), Color(0.32, 0.55, 0.92), f)
+		# Y el velo de "a este no": encima de todo, para que se vea que la tarjeta esta apagada sin
+		# dejar de poder pulsarla.
+		if motivo != "":
+			b.draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)), Color(0.05, 0.05, 0.07, 0.55)))
+
+	# EL MUÑECO, hijo del boton (asi se recorta con el y se mueve con el). Va DESPUES de conectar el
+	# draw: los hijos de un CanvasItem se dibujan despues del padre, o sea por encima del fondo de
+	# la tarjeta y por debajo de nada -- por eso el nombre y las barras se pintan en el draw del
+	# padre y quedarian TAPADOS. Se colocan fuera de la silueta a proposito (arriba del todo y en el
+	# pie), donde el muñeco no llega.
+	var m := MunecoJugador.new()
+	m.montar(pj)
+	m.tenir(pj.color, 0.0)
+	m.poner_cara(pj.textura())
+	if m.hay_dibujo():
+		# Escala para que quepa entre el nombre y las barras. Los pies del muñeco son su propio
+		# origen, asi que se apoya donde empiezan las barras.
+		var alto_util: float = ALTO_TARJETA - 84.0
+		m.scale = Vector2.ONE * (alto_util / PoseJugador.ALTO_MUNDO)
+		m.position = Vector2(ANCHO_TARJETA * 0.5, ALTO_TARJETA - 54.0)
+		m.animar("idle_4")
+		b.add_child(m)
+	else:
+		m.queue_free()
+
+
+# Una barra de N/M con su numero encima. Devuelve nada: se dibuja en el CanvasItem que se le pasa.
+func _barra(ci: CanvasItem, r: Rect2, valor: float, tope: float, col: Color, f: Font) -> void:
+	ci.draw_rect(r, Color(0.04, 0.05, 0.07, 0.95))
+	var frac: float = clampf(valor / maxf(tope, 1.0), 0.0, 1.0)
+	if frac > 0.0:
+		ci.draw_rect(Rect2(r.position, Vector2(r.size.x * frac, r.size.y)), col)
+	# El numero ENCIMA de la barra, con sombra. A cuerpo 9 y sin sombra no se leia: media cifra caia
+	# sobre el relleno rojo y la otra media sobre el hueco oscuro, y el ojo no separaba ninguna de
+	# las dos. La sombra lo despega de los dos fondos a la vez, que es lo que hacia falta.
+	var tam: int = 10
+	var txt: String = "%d/%d" % [roundi(valor), roundi(tope)]
+	var an: float = f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x
+	var p := Vector2(r.position.x + (r.size.x - an) * 0.5, r.position.y + r.size.y + float(tam) + 1.0)
+	ci.draw_string(f, p + Vector2(1, 1), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam,
+		Color(0, 0, 0, 0.85))
+	ci.draw_string(f, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam, Color(0.95, 0.96, 0.98))

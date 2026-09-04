@@ -84,6 +84,22 @@ func _ready() -> void:
 	inv._on_tab(0)
 	inv._pulsa_criterio(2)   # "Valor por peso"
 	await _captura("bolsa_por_valor_peso")
+
+	# EL MODAL DE "¿A QUIEN SE LO DAS?", en sus dos estados: apuntando a alguien a quien SI se le
+	# puede dar, y apuntando al que esta a tope de vida -- que es el que saca la franja roja y apaga
+	# el boton de confirmar. Sin las dos, la mitad de la pantalla no se ha mirado.
+	inv._on_tab(2)
+	for nombre in CONS:
+		var c: ConsumableData = load("res://resources/consumables/%s.tres" % nombre) as ConsumableData
+		if c == null or not c.cura_hp():
+			continue
+		inv._abrir_modal_usar(c)
+		await _captura("modal_usar")
+		inv._usar_sel = 0   # el lider va a tope de vida en los datos de prueba
+		inv._pintar_modal_usar()
+		await _captura("modal_usar_bloqueado")
+		inv._cerrar_modal_barra()
+		break
 	get_tree().quit()
 
 
@@ -147,6 +163,38 @@ func _llenar() -> void:
 	_armas()
 	_armaduras()
 	_equipo()
+	_grupo()
+
+
+# UN GRUPO DE CUATRO, con la vida a distintos niveles. Hace falta para el modal de "¿a quien se lo
+# das?": con uno solo el menu ni lo abre (no hay nada que preguntar), asi que sin esto la pantalla
+# que mas trabajo lleva es justo la que no se puede mirar.
+#
+# Las vidas van escalonadas a proposito -- uno a tope, uno tocado, uno muy tocado -- porque lo que
+# hay que juzgar es si las BARRAS se comparan de un vistazo, y con todos iguales no se ve nada. El
+# que esta a tope prueba ademas la franja roja de "esta a tope de vida, no se puede".
+func _grupo() -> void:
+	if Game.party.size() >= 4:
+		return
+	var base: PersonajeData = Game.lider()   # crea el original si aun no hay ninguno
+	var nombres := ["Sedaki", "Nurit", "Bram"]
+	var vidas := [1.0, 0.55, 0.18]
+	for i in nombres.size():
+		var pj: PersonajeData = base.duplicate(true) as PersonajeData
+		pj.nombre = nombres[i]
+		pj.es_original = false
+		pj.color = Color.from_hsv(0.12 + 0.28 * float(i), 0.55, 0.85)
+		Game.plantilla.append(pj)
+		Game.party.append(pj)
+	# Las vidas se ponen DESPUES de tener el grupo montado: player_max_hp mira las stats del
+	# personaje, y la vida actual se guarda como valor absoluto.
+	for i in Game.party.size():
+		var pj2: PersonajeData = Game.party[i]
+		var frac: float = 1.0 if i == 0 else float(vidas[mini(i - 1, vidas.size() - 1)])
+		# current_hp / current_mp son los campos de la ficha; Game.player_hp los lee de ahi y devuelve
+		# el maximo cuando valen -1 (o sea "a tope, sin tocar").
+		pj2.current_hp = Game.player_max_hp(pj2) * frac
+		pj2.current_mp = Game.player_max_mp(pj2) * clampf(frac + 0.15, 0.0, 1.0)
 
 
 # La pestaña EQUIPO: mochilas, las cuatro herramientas, farolillos y carbon. Con una puesta de cada
