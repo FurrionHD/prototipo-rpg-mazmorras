@@ -122,15 +122,29 @@ static func subir_calidad(cal: int) -> int:
 		_: return cal
 
 
-# El valor sube en CURVA con el grado (como el cristal con la categoria): los materiales
-# de arriba valen mucho mas, y no un poco mas.
-const VALOR_TIER_FACTOR := 0.35
+# CURVA DE PROFUNDIDAD: la aplicaba el codigo (1 + 0.35*(t-1)*t, o sea x8 a grado 5) ENCIMA de un
+# valor_base que YA la lleva escrita a mano — el nucleo de rata vale 70 y el de minotauro 900, que
+# son x13 solo en la tabla. Multiplicar las dos daba x104 entre los extremos y reventaba la
+# economia: un nucleo de trent (500 a mano) se vendia por 2600 en el piso 4, cuando el cristal de
+# ese mismo bicho paga 100. El botin valia x4 lo que el cristal en TODO el juego, y hasta x26 en
+# los jefes, con lo que los cristales — que son el ingreso que la tienda da por supuesto, ver el
+# comentario de T2_PRECIO_MULT en game.gd — no pintaban nada.
+#
+# La curva se queda SOLO en el valor_base, que es donde se puede afinar bicho a bicho. Este factor
+# en 0 no es "curva plana": es la curva contada una vez.
+const VALOR_TIER_FACTOR := 0.0
+
+# Un NUCLEO no es mercancia: es la pieza que mejora el equipo. Si venderlo da mas que usarlo, nadie
+# lo usa nunca — que es justo lo que pasaba. Al 25% vender un nucleo paga como un cristal de su
+# bicho, asi que llevarlo a la forja SIEMPRE renta mas que llevarlo al mostrador.
+const REVENTA_NUCLEO := 0.25
 
 func valor_estimado() -> int:
 	if data == null:
 		return 0
 	var tier_mult: float = 1.0 + VALOR_TIER_FACTOR * float(maxi(1, data.tier) - 1) * float(data.tier)
-	return int(round(float(data.valor_base) * tier_mult * multiplicador_calidad() * mult_talla()))
+	var nucleo_mult: float = REVENTA_NUCLEO if int(data.familia) == MaterialData.Familia.NUCLEO else 1.0
+	return int(round(float(data.valor_base) * tier_mult * nucleo_mult * multiplicador_calidad() * mult_talla()))
 
 
 # El PESCADO se paga por TAMAÑO: un ejemplar en el minimo de su especie vale la mitad y uno en el

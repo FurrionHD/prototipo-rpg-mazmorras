@@ -51,8 +51,10 @@ enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
 @export var familia: Familia = Familia.CORRIENTE
 @export var tipo: Tipo = Tipo.MINERAL
 
-# GRADO del material: sube el VALOR (en curva, ver MaterialItem.valor_estimado). Es el eje "de que
-# profundidad viene esto". El PESO no lo toca: ese sale de peso_base y la calidad, y nada mas.
+# GRADO del material: el eje "de que profundidad viene esto". El PESO no lo toca: ese sale de
+# peso_base y la calidad, y nada mas. Y el VALOR tampoco lo toca ya: la curva de profundidad vive
+# entera en `valor_base` (escrita a mano, material a material), porque aplicarla ademas aqui la
+# contaba DOS veces y disparaba los precios (ver MaterialItem.VALOR_TIER_FACTOR).
 #
 # ⚠️ EN UN MINERAL O UNA MADERA esto es ADEMAS su tier de crafteo, y de eso vive toda la forja
 # (Forge.tier_de_metal, las recetas, los puntos de oficio): cobre 1, acero 3. Ahi el numero es el
