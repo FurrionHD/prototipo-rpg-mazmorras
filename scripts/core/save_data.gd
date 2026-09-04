@@ -321,6 +321,11 @@ const VERSION_MUNDO := 1
 @export var mapa_trabajo: Dictionary = {}
 @export var vistas_baseline: Dictionary = {}
 @export var tiempo_mazmorra: float = 0.0
+# {piso: unix time en que cayo el jefe}. Va al save y NO a la RAM porque su reloj es el de PARED
+# (ver Game.bosses_sello): un jefe muerto sigue rehaciendose con el juego cerrado, asi que apagar y
+# volver a entrar ya no lo resucita de golpe. Con default {} no invalida partidas viejas -arrancan
+# con todos los jefes de pie, que es lo que pasaba antes al cerrar-, asi que no sube VERSION.
+@export var bosses_sello: Dictionary = {}
 
 
 # Resumen de una linea para la lista de ranuras.

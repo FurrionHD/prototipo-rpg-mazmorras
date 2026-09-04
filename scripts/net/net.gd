@@ -194,7 +194,7 @@ var _vetas_ocupadas: Dictionary = {}  # sitio -> peer_id que la trabaja (host)
 # tiempo_mazmorra ya va al save y sigue corriendo en el pueblo (que es lo que se quiere: si subes a
 # forjar, has esperado de verdad), asi que es el mismo criterio que en una partida de un jugador.
 var _agotados_sesion: Dictionary = {}
-# JEFES caidos de la sesion: piso -> momento (del reloj del host) en que cayo. Mismo mecanismo que
+# JEFES caidos de la sesion: piso -> unix time (reloj de pared) en que cayo. Mismo mecanismo que
 # _agotados_sesion y por la misma razon: el jefe reaparece por RELOJ (Game.BOSS_RESPAWN) y su cuenta
 # atras tiene que sobrevivir a que os subais todos al pueblo.
 #
@@ -1903,7 +1903,7 @@ func _pedir_sellar_boss(piso: int) -> void:
 func _sellar_boss_host(piso: int) -> void:
 	if not Game.BOSSES.has(piso):
 		return
-	_bosses_sello[piso] = Game.tiempo_mazmorra
+	_bosses_sello[piso] = float(Encargos.ahora())
 	_marcar_boss(piso, true)
 	_marcar_boss.rpc(piso, true)
 	print("[multi] jefe del piso %d abatido: vuelve en %d s" % [
@@ -1916,7 +1916,7 @@ func _marcar_boss(piso: int, muerto: bool) -> void:
 		# En el cliente el valor da igual (no compara relojes, ver _bosses_sello): lo que cuenta es
 		# que la clave este.
 		if not _bosses_sello.has(piso):
-			_bosses_sello[piso] = Game.tiempo_mazmorra
+			_bosses_sello[piso] = float(Encargos.ahora())
 	else:
 		_bosses_sello.erase(piso)
 
@@ -1933,7 +1933,14 @@ func _barrer_bosses() -> void:
 		return
 	for piso in _bosses_sello.keys():
 		var espera: float = float(Game.BOSS_RESPAWN.get(piso, 0.0))
-		if Game.tiempo_mazmorra - float(_bosses_sello[piso]) < espera:
+		# RELOJ DE PARED, el mismo que en solitario (ver Game.bosses_sello). Con tiempo_mazmorra el
+		# barrido iba al ritmo de los MENUS DEL HOST: si el anfitrion tenia el hogar abierto, el jefe
+		# no se rehacia para nadie. Era la mitad del "el Rey Slime tardo media hora".
+		var pasado: float = float(Encargos.ahora()) - float(_bosses_sello[piso])
+		if pasado < 0.0:
+			_bosses_sello[piso] = float(Encargos.ahora())   # el reloj se fue atras: se reinicia
+			continue
+		if pasado < espera:
 			continue
 		_bosses_sello.erase(piso)
 		_marcar_boss(piso, false)

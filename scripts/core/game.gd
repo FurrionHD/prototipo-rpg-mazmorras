@@ -1970,6 +1970,9 @@ func exportar_partida() -> SaveData:
 	d.mapa_trabajo = mapa_trabajo.duplicate(true)
 	d.vistas_baseline = _vistas_baseline.duplicate(true)
 	d.tiempo_mazmorra = tiempo_mazmorra
+	# Y los sellos de los jefes, que desde que van con el reloj de pared tienen sentido fuera de la
+	# sesion: si no se guardaran, cerrar el juego levantaria a todos los jefes al instante.
+	d.bosses_sello = bosses_sello.duplicate()
 
 	# Cabecera (lo que se ve en la lista de ranuras).
 	d.fecha = Time.get_datetime_string_from_system(false, true)
@@ -2581,6 +2584,7 @@ func importar_partida(d: SaveData) -> void:
 	mapa_trabajo = d.mapa_trabajo.duplicate(true)
 	_vistas_baseline = d.vistas_baseline.duplicate(true)
 	tiempo_mazmorra = d.tiempo_mazmorra
+	bosses_sello = d.bosses_sello.duplicate()
 	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
 
 	# La PLANTILLA (todos los contratados) y, de entre ellos, el EQUIPO que baja hoy. El equipo se
@@ -2801,21 +2805,27 @@ const BOSSES := {
 # {piso: true} de los bosses YA derrotados alguna vez en esta partida. Se guarda en SaveData.
 var bosses_derrotados: Dictionary = {}
 
-# --- RESPAWN de jefes POR RELOJ ---
+# --- RESPAWN de jefes POR RELOJ DE PARED ---
 # El jefe volvia porque la mazmorra se olvidaba al pasar por el pueblo: matabas al rey slime, salias
 # a vender y al bajar estaba de pie otra vez. Desde que la mazmorra NO se cierra (ver
 # olvidar_mazmorra) ese respawn de rebote desaparecio, asi que ahora es EXPLICITO y por tiempo.
 #
-# Cuenta con tiempo_mazmorra, que corre TAMBIEN en el pueblo: el jefe se rehace mientras compras, no
-# hace falta estar delante. Y el reloj no se detiene en combate, asi que una pelea larga tambien
-# cuenta. Segundos por piso, que no todos los jefes valen lo mismo.
+# VA CON EL RELOJ DE VERDAD (Encargos.ahora(), unix time), no con tiempo_mazmorra. Con aquel, en el
+# playtest el Rey Slime tardo CASI MEDIA HORA en volver con estos mismos 600 s: tiempo_mazmorra se
+# congela con cualquier menu abierto (ver _process: `if inventory_open: return`), y entre inventario,
+# ficha, mapa y tienda se van los minutos que faltan. Un reloj que se para cuando abres una pantalla
+# no es un reloj, es un cronometro de pasos.
+#
+# Diez minutos REALES para los dos. El Minotauro estaba en 900 y baja: la diferencia entre 10 y 15
+# no la nota nadie salvo el que espera plantado, y ese ya se comio la pelea.
 const BOSS_RESPAWN := {
-	6: 600.0,    # Rey Slime: 10 min
-	12: 900.0,   # Guardián/Minotauro: 15 min
+	6: 600.0,    # Rey Slime: 10 min de reloj
+	12: 600.0,   # Guardián/Minotauro: 10 min de reloj
 }
 
-# {piso: tiempo_mazmorra en que cayo}. Vive en RAM y es de SCOPE EXPEDICION, como memoria_pisos: no
-# se guarda en la partida (cerrar el juego levanta a los jefes) y olvidar_mazmorra lo limpia.
+# {piso: unix time en que cayo}. SE GUARDA en la partida: desde que el reloj es el de pared, un jefe
+# muerto se sigue rehaciendo con el juego cerrado, y dejarlo en RAM haria que apagar y volver a
+# entrar los resucitara a todos de golpe -- que es exactamente el atajo que este sistema quita.
 # Sin entrada = el jefe esta de pie.
 # En sesion la tabla que manda es la del HOST (ver Net.boss_disponible): aqui solo se lleva la del
 # mundo propio.
@@ -2826,8 +2836,8 @@ var bosses_sello: Dictionary = {}
 func sellar_boss_caido(piso: int) -> void:
 	if not BOSSES.has(piso):
 		return
-	bosses_sello[piso] = tiempo_mazmorra
-	print("[mazmorra] jefe del piso %d abatido: vuelve en %d s de reloj de mazmorra." % [
+	bosses_sello[piso] = Encargos.ahora()
+	print("[mazmorra] jefe del piso %d abatido: vuelve en %d s de reloj de pared." % [
 		piso, roundi(float(BOSS_RESPAWN.get(piso, 0.0)))])
 
 
@@ -2842,7 +2852,14 @@ func boss_disponible(piso: int) -> bool:
 		return Net.boss_disponible(piso)
 	if not bosses_sello.has(piso):
 		return true
-	return tiempo_mazmorra - float(bosses_sello[piso]) >= float(BOSS_RESPAWN.get(piso, 0.0))
+	# El reloj puede haber ido HACIA ATRAS (el jugador cambia la hora del sistema, o un cambio de
+	# huso): la resta saldria negativa y el jefe no volveria nunca. Mismo criterio que
+	# repasar_encargos: atrasar el reloj reinicia la cuenta, nunca la acelera.
+	var pasado: float = float(Encargos.ahora()) - float(bosses_sello[piso])
+	if pasado < 0.0:
+		bosses_sello[piso] = Encargos.ahora()
+		return false
+	return pasado >= float(BOSS_RESPAWN.get(piso, 0.0))
 
 func boss_del_piso(piso: int) -> EnemyData:
 	if not BOSSES.has(piso):
