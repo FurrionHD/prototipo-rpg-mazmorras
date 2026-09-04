@@ -30,6 +30,16 @@ const UMBRAL := 16.0
 const FRENO := 0.06
 const VEL_MINIMA := 12.0   # por debajo de esto se para del todo
 
+# MARCA de "este control se lleva el arrastre, no lo cojas". La pone quien tenga dentro del scroll
+# algo que se arrastra por su cuenta (hoy, las celdas del kit del menu de personaje: ver
+# celda_kit.gd). Sin esto, en MOVIL no se puede arrastrar nada dentro de una lista: el dedo mueve
+# mas del UMBRAL, este nodo se queda el gesto —corre en _input, ANTES que la GUI— y lo que sale es
+# un scroll en vez del arrastre. Con raton no pasaba, y por eso no se veia en las pruebas.
+#
+# Va como META y no como una comprobacion de clase para que ArrastreScroll no tenga que conocer a
+# nadie: cualquier Control puede pedir que le dejen su gesto.
+const META_ARRASTRE_PROPIO := "arrastre_propio"
+
 
 var _scroll: ScrollContainer = null
 var _dedo: int = -1              # indice del dedo, o -2 si manda el raton; -1 = nadie
@@ -125,6 +135,10 @@ func _empezar(idx: int, pos: Vector2) -> void:
 		return
 	if not _scroll.get_global_rect().has_point(pos):
 		return
+	# El dedo ha caido sobre algo que se arrastra solo: el gesto es SUYO. Ni se empieza, asi que
+	# tampoco se consume nada y la GUI lo recibe entero.
+	if _pide_su_gesto(_scroll, pos):
+		return
 	_dedo = idx
 	_origen = pos
 	_ultima_y = pos.y
@@ -132,6 +146,24 @@ func _empezar(idx: int, pos: Vector2) -> void:
 	_arrastrando = false
 	_hubo = false
 	_vel = 0.0
+
+
+# ¿Hay bajo 'pos' algun control marcado con META_ARRASTRE_PROPIO? Se busca por RECTANGULO y no
+# preguntandole al viewport quien esta bajo el raton: al EMPEZAR un gesto tactil el hover puede no
+# estar puesto todavia (el dedo aparece de la nada, no ha pasado por encima antes), y entonces la
+# respuesta llegaria tarde -- justo en el evento en el que hay que decidir.
+#
+# Se recorre el subarbol entero sin podar por rectangulo del padre: un hijo puede salirse de su
+# contenedor, y equivocarse aqui significa robarle el gesto a quien lo pedia.
+static func _pide_su_gesto(n: Node, pos: Vector2) -> bool:
+	for h in n.get_children():
+		var c := h as Control
+		if c != null and c.is_visible_in_tree() and c.has_meta(META_ARRASTRE_PROPIO) \
+				and c.get_global_rect().has_point(pos):
+			return true
+		if _pide_su_gesto(h, pos):
+			return true
+	return false
 
 
 func _mover(pos: Vector2) -> void:

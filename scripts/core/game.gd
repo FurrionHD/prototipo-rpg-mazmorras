@@ -5978,6 +5978,54 @@ func desequipar_habilidad(ab: AbilityData, pj: PersonajeData = null) -> void:
 		crudo[i] = null
 	p.loadout_habilidades[clave_loadout(p)] = crudo
 
+
+# ============================================================
+#  COLOCAR EN UN HUECO CONCRETO (arrastrar y soltar)
+#  equipar_habilidad() mete en el PRIMER hueco libre, que es lo que quiere un boton "Poner". Al
+#  arrastrar, en cambio, el jugador esta eligiendo EL SITIO: el orden de los cuatro es suyo y es
+#  parte de como se juega (el hueco 1 es el que tienes mas a mano en combate).
+# ============================================================
+
+# Deja 'ab' en el hueco 'hueco'. Lo que hubiera ahi se va (se queda sabido, pero sin poner), y si
+# 'ab' ya estaba en OTRO hueco, los dos se INTERCAMBIAN -- que es lo que espera quien arrastra una
+# encima de otra: cambiarlas de sitio, no perder una.
+func colocar_habilidad(ab: AbilityData, hueco: int, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	if ab == null or hueco < 0 or hueco >= MAX_HABILIDADES:
+		return false
+	if not habilidad_desbloqueada(ab, p) or not pool_habilidades(p).has(ab):
+		return false
+	var crudo: Array = _set_guardado(p)
+	var antes: int = crudo.find(ab)
+	var desplazada = crudo[hueco]
+	crudo[hueco] = ab
+	if antes >= 0 and antes != hueco:
+		crudo[antes] = desplazada   # venia de otro hueco: se cruzan
+	p.loadout_habilidades[clave_loadout(p)] = crudo
+	return true
+
+
+# Coloca un hechizo en la ranura 'pos'. Aqui la lista es COMPACTA (equipped_spells no guarda
+# huecos), asi que "poner en la ranura 5 teniendo 3" es simplemente ponerlo al final.
+func colocar_hechizo(s: SpellData, pos: int, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	if s == null or not hechizos_sabidos(p).has(s):
+		return false
+	var antes: int = p.equipped_spells.find(s)
+	var destino: int = clampi(pos, 0, MAX_HECHIZOS - 1)
+	if antes >= 0:
+		# Ya lo llevaba: es un cambio de ORDEN. Se saca y se vuelve a meter donde toque.
+		p.equipped_spells.remove_at(antes)
+		p.equipped_spells.insert(mini(destino, p.equipped_spells.size()), s)
+		return true
+	if destino < p.equipped_spells.size():
+		p.equipped_spells[destino] = s   # pisa al que estaba, que se queda solo sabido
+		return true
+	if p.equipped_spells.size() >= MAX_HECHIZOS:
+		return false
+	p.equipped_spells.append(s)
+	return true
+
 # --- Peso / capacidad de carga ---
 # De serie llevas un ZURRON pequeño (base_capacity). La Fuerza sube la capacidad.
 var base_capacity: float = 25.0        # zurron de serie

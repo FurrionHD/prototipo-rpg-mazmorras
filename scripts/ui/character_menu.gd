@@ -1207,6 +1207,7 @@ func _trazos_habilidades(pj: PersonajeData) -> void:
 	# El rotulo dice con QUE arma es este kit porque el set se guarda por TIPO de arma (ver
 	# Game.clave_loadout): cambiar de espada a hacha cambia lo que sale aqui, y es a proposito.
 	MenuScaffold.titulo(_lista, "Kit de %s" % tipo.to_lower(), 15)
+	_pista_arrastre()
 
 	# Lo que su equipo le PERMITE y ademas se sabe. El pool sale del arma y del escudo; el filtro de
 	# "desbloqueada" es lo que le ha enseñado el maestro (las `inicial` se saben siempre).
@@ -1230,6 +1231,7 @@ func _trazos_magias(pj: PersonajeData) -> void:
 	MenuScaffold.titulo(_lista, "Magias", 15)
 	MenuScaffold.nota(_lista, "Se lanzan RECITANDO su encantamiento: una frase por turno. Si fallas "
 		+ "una, el hechizo se te vuelve en contra.")
+	_pista_arrastre()
 	var puestas: Array = pj.equipped_spells
 	var disponibles: Array = []
 	for s in Game.hechizos_sabidos(pj):
@@ -1243,38 +1245,108 @@ func _trazos_magias(pj: PersonajeData) -> void:
 
 # Pinta las dos rejillas y deja '_kit' con lo que hay, en orden. 'puestas' son las que lleva,
 # 'disponibles' las que puede meter, 'topes' cuantas ranuras hay.
+#
+# Las celdas son CeldaKit y no botones normales: se pueden ARRASTRAR de un sitio a otro, que es la
+# unica forma comoda de decidir en que hueco va cada cosa (ver celda_kit.gd). El boton de la ficha
+# sigue estando para quien no descubra el gesto.
 func _pintar_kit(puestas: Array, disponibles: Array, topes: int, palabra: String,
 		titulo_pool: String, vacio_pool: String) -> void:
 	_kit = []
-	var labels: Array = []
-	var tips: Array = []
+	var grid := _rejilla_kit()
 	for i in topes:
 		var it: Resource = puestas[i] if i < puestas.size() else null
 		_kit.append({"item": it, "puesto": true})
-		labels.append(_nombre_kit(it) if it != null else "— %s %d —" % [palabra, i + 1])
-		tips.append(_nombre_kit(it) if it != null else "Ranura libre")
-	var grid := VBoxContainer.new()
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_lista.add_child(grid)
-	MenuScaffold.cuadricula(grid, labels, _sel, _pick, 2, Vector2(0, 62), [], [], tips)
+		_celda_kit(grid, it, i, true,
+			_nombre_kit(it) if it != null else "— %s %d —" % [palabra, i + 1])
 
 	_lista.add_child(HSeparator.new())
 	MenuScaffold.titulo(_lista, titulo_pool.to_upper(), 14)
 	if disponibles.is_empty():
 		MenuScaffold.nota(_lista, vacio_pool)
 	else:
-		var labels2: Array = []
-		for it2 in disponibles:
+		var grid2 := _rejilla_kit()
+		for j in disponibles.size():
+			var it2: Resource = disponibles[j]
 			_kit.append({"item": it2, "puesto": false})
-			labels2.append(_nombre_kit(it2))
-		var grid2 := VBoxContainer.new()
-		grid2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_lista.add_child(grid2)
-		# La seleccion del segundo bloque va CORRIDA por el tamaño del primero: los dos son el mismo
-		# indice de _kit, y sin restar el desfase se marcaba la celda equivocada.
-		MenuScaffold.cuadricula(grid2, labels2, _sel - topes, _pick_pool, 2, Vector2(0, 62),
-			[], [], labels2)
+			_celda_kit(grid2, it2, j, false, _nombre_kit(it2))
 	_sel = clampi(_sel, 0, maxi(_kit.size() - 1, 0))
+
+
+# El gesto hay que CONTARLO: arrastrar no se ve, y quien no lo sepa se queda con el boton de la
+# ficha —que funciona, pero mete siempre en el primer hueco libre y no deja ordenar—. Solo en el
+# pueblo, que es donde se puede tocar algo.
+func _pista_arrastre() -> void:
+	if Game.en_pueblo():
+		MenuScaffold.nota(_lista, "Arrastra para colocarlas donde quieras: una encima de otra las "
+			+ "cambia de sitio, y sacarla de su ranura la quita.")
+
+
+func _rejilla_kit() -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = 2
+	g.add_theme_constant_override("h_separation", 6)
+	g.add_theme_constant_override("v_separation", 6)
+	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lista.add_child(g)
+	return g
+
+
+# UNA celda del kit. 'pos' es su sitio dentro de SU bloque (el hueco si es ranura, el orden si es
+# del pool); el indice de _kit se calcula desde ahi para no llevar dos numeraciones a la vez.
+func _celda_kit(grid: GridContainer, it: Resource, pos: int, es_ranura: bool, txt: String) -> void:
+	var idx: int = pos if es_ranura else _topes_kit() + pos
+	var c := CeldaKit.new()
+	c.item = it
+	c.indice = pos
+	c.es_ranura = es_ranura
+	c.arrastrable = (it != null)   # de una ranura vacia no hay nada que coger
+	c.text = txt
+	c.clip_text = true
+	c.custom_minimum_size = Vector2(0, 62)
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.toggle_mode = true
+	c.button_pressed = (idx == _sel)
+	c.tooltip_text = txt if it != null else "Ranura libre  ·  arrastra una aquí"
+	c.pressed.connect(_pick.bind(idx))
+	c.al_soltar = _soltar_kit.bind(pos, es_ranura)
+	grid.add_child(c)
+
+
+# Cuantas RANURAS tiene la subpestaña abierta. Sale de la seccion y no de un parametro porque lo
+# preguntan tres sitios distintos y con tres copias acaban discrepando.
+func _topes_kit() -> int:
+	return Game.MAX_HECHIZOS if _es_magia() else Game.MAX_HABILIDADES
+
+
+func _es_magia() -> bool:
+	return _sec == SEC_HABILIDADES and _sub == 1
+
+
+# SE HA SOLTADO algo encima de la celda (destino_pos, destino_ranura). 'it' es lo que venia y
+# 'origen_ranura' dice de donde salio. Los cuatro casos:
+#
+#   pool  -> ranura : se coloca AHI (no en el primer hueco libre): el sitio lo eliges tu.
+#   ranura-> ranura : se cruzan, que es lo que espera quien arrastra una encima de otra.
+#   ranura-> pool   : se quita de las manos (sigue sabida).
+#   pool  -> pool   : nada. El monton de abajo no tiene orden que defender.
+func _soltar_kit(it: Resource, _origen_pos: int, origen_ranura: bool,
+		destino_pos: int, destino_ranura: bool) -> void:
+	if it == null or not Game.en_pueblo():
+		return
+	var pj: PersonajeData = _pj()
+	if destino_ranura:
+		if _es_magia():
+			Game.colocar_hechizo(it as SpellData, destino_pos, pj)
+		else:
+			Game.colocar_habilidad(it as AbilityData, destino_pos, pj)
+	elif origen_ranura:
+		if _es_magia():
+			Game.quitar_hechizo(it as SpellData, pj)
+		else:
+			Game.desequipar_habilidad(it as AbilityData, pj)
+	else:
+		return   # de abajo a abajo: no hay nada que cambiar
+	_rebuild()
 
 
 # El nombre corto de lo que va en una celda del kit: un hechizo lleva ademas su coste, que es lo
@@ -1285,13 +1357,6 @@ func _nombre_kit(it: Resource) -> String:
 	if it is SpellData:
 		return "%s\n%d MP" % [it.nombre, (it as SpellData).coste_mana]
 	return str(it.get("nombre"))
-
-
-# El pool empieza donde acaban las ranuras: aqui se le devuelve el desfase (ver _pintar_kit).
-func _pick_pool(i: int) -> void:
-	var topes: int = Game.MAX_HECHIZOS if (_sec == SEC_HABILIDADES and _sub == 1) \
-		else Game.MAX_HABILIDADES
-	_pick(topes + i)
 
 
 # LA FICHA de lo elegido en el kit, con su boton de poner o quitar.

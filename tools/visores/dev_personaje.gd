@@ -98,6 +98,21 @@ func _ready() -> void:
 	men._alternar_kit(men._kit[0]["item"], true, true)
 	await _captura("2_magia_quitada")
 
+	# ARRASTRAR: los tres casos que hacen algo. Se llama a _soltar_kit directamente porque el gesto
+	# lo lleva el motor y en una captura no hay raton que lo haga; lo que se comprueba aqui es la
+	# LOGICA (donde acaba cada cosa), que es lo unico que se puede romper solo.
+	#   1) del monton de abajo a una ranura CONCRETA -- no al primer hueco libre.
+	var suelta = men._kit[Game.MAX_HECHIZOS]["item"]
+	men._soltar_kit(suelta, 0, false, 5, true)
+	await _captura("2_arrastre_magia_a_ranura")
+	#   2) una ranura sobre OTRA: se cruzan.
+	men._soltar_kit(men._kit[0]["item"], 0, true, 2, true)
+	await _captura("2_arrastre_magia_cruzada")
+	#   3) sacarla de su ranura al monton: se quita.
+	men._soltar_kit(men._kit[2]["item"], 2, true, 0, false)
+	await _captura("2_arrastre_magia_fuera")
+	_comprobar_arrastre_tactil(men)
+
 	# 4) ARMADURA: los cinco slots y la rejilla de cambio de uno de ellos.
 	men._on_seccion(men.SEC_ARMADURA)
 	await _captura("3_armadura")
@@ -164,6 +179,66 @@ func refrescar_grupo() -> void:
 	n.set_script(sc)
 	n.add_to_group("player")
 	add_child(n)
+
+
+# ¿SE PUEDE ARRASTRAR CON EL DEDO? No se puede comprobar mirando una captura, asi que se comprueba
+# aqui: en movil el gesto se lo lleva ArrastreScroll (corre en _input, antes que la GUI) salvo que
+# la celda lo pida para si con META_ARRASTRE_PROPIO. Esto verifica las dos mitades:
+#   1) las celdas CON algo llevan la marca, y las ranuras vacias NO (ahi el dedo debe seguir
+#      deslizando la lista, como en el resto del menu);
+#   2) preguntando por el centro de una celda llena, ArrastreScroll cede el gesto de verdad.
+#
+# Si esto se rompe, en escritorio no se nota NADA -- el raton no pasa por ArrastreScroll -- y el
+# fallo solo sale con un movil en la mano. De ahi que sea una comprobacion y no una captura.
+func _comprobar_arrastre_tactil(men: Node) -> void:
+	var celdas: Array = []
+	_recoger(men, celdas)
+	if celdas.is_empty():
+		printerr("[arrastre] NO hay ninguna CeldaKit en pantalla: la comprobacion no vale.")
+		return
+	var con_marca: int = 0
+	var vacias_marcadas: int = 0
+	for c in celdas:
+		var marcada: bool = c.has_meta(ArrastreScroll.META_ARRASTRE_PROPIO)
+		if c.item != null and marcada:
+			con_marca += 1
+		elif c.item == null and marcada:
+			vacias_marcadas += 1
+	var llenas: int = 0
+	for c in celdas:
+		if c.item != null:
+			llenas += 1
+	if con_marca != llenas or vacias_marcadas > 0:
+		printerr("[arrastre] MAL: %d/%d celdas llenas marcadas y %d vacias marcadas (deberian ser 0)."
+			% [con_marca, llenas, vacias_marcadas])
+		return
+	# Y la otra mitad: que ArrastreScroll ceda de verdad al preguntarle por ese punto.
+	var una: Control = null
+	for c in celdas:
+		if c.item != null:
+			una = c
+			break
+	var centro: Vector2 = una.get_global_rect().get_center()
+	if not ArrastreScroll._pide_su_gesto(men._root, centro):
+		printerr("[arrastre] MAL: ArrastreScroll NO cede el gesto sobre una celda llena.")
+		return
+	# LA TERCERA PATA: el drag&drop de Godot (los _get_drag_data / _drop_data de Control) se mueve con
+	# eventos de RATON. En un movil solo llegan si el motor convierte el toque, y eso lo decide este
+	# ajuste. Viene puesto de serie, asi que no esta escrito en project.godot -- pero si alguien lo
+	# apaga algun dia, arrastrar dejaria de funcionar en el movil SIN UN SOLO ERROR por consola.
+	if not bool(ProjectSettings.get_setting("input_devices/pointing/emulate_mouse_from_touch", true)):
+		printerr("[arrastre] MAL: 'emulate_mouse_from_touch' esta APAGADO: en movil no se podra "
+			+ "arrastrar nada (el drag de Control necesita eventos de raton).")
+		return
+	print("[arrastre] OK: %d celdas arrastrables con el dedo, el scroll les cede el gesto y la "
+		% llenas + "emulacion de raton desde toque esta puesta.")
+
+
+func _recoger(n: Node, fuera: Array) -> void:
+	for h in n.get_children():
+		if h is CeldaKit:
+			fuera.append(h)
+		_recoger(h, fuera)
 
 
 func _captura(nombre: String) -> void:
