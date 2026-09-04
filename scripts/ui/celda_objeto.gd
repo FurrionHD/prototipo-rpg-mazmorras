@@ -47,15 +47,16 @@ const MARCA := 0.075        # lado de una marca de peldaño
 
 var item: Resource = null
 var texto_pie: String = ""      # lo que va en la banda: "x12", "+4", "Nv. 3"...
+var marca: String = ""          # etiqueta de esquina: "PUESTA", el nombre de quien lo lleva...
 var _hover := false
 
 
 # 'pie' vacio = la banda va sin texto (una pieza unica: un arma, una mochila). La banda se dibuja
 # igual, porque es lo que le da el suelo a la celda y sin ella la rejilla se descuadra.
-func configurar(objeto: Resource, pie: String = "") -> void:
+func configurar(objeto: Resource, pie: String = "", etiqueta: String = "") -> void:
 	item = objeto
 	texto_pie = pie
-	tooltip_text = tooltip_text   # lo pone quien construye la rejilla; aqui solo se respeta
+	marca = etiqueta
 	queue_redraw()
 
 
@@ -128,6 +129,19 @@ func _draw() -> void:
 		var centro_banda: float = y_banda + (h - y_banda - h * ALTO_LINEA) * 0.5
 		draw_string(fuente, Vector2((w - ancho) * 0.5, centro_banda + float(tam) * 0.36),
 			texto_pie, HORIZONTAL_ALIGNMENT_LEFT, -1, tam, Color(0.94, 0.95, 0.97))
+
+	# LA MARCA DE ESQUINA ("PUESTA", quien lo lleva). Va arriba a la DERECHA porque la izquierda se la
+	# come la muesca, y sobre su propia pastilla oscura: encima del degradado a pelo, la misma
+	# palabra se leia bien en las celdas oscuras y desaparecia en las claras.
+	if marca != "":
+		var f2: Font = get_theme_font(&"font")
+		var t2: int = maxi(8, int(h * 0.10))
+		var an: float = f2.get_string_size(marca, HORIZONTAL_ALIGNMENT_LEFT, -1, t2).x
+		var alto: float = float(t2) + 6.0
+		var caja := Rect2(Vector2(w - an - 12.0, 4.0), Vector2(an + 8.0, alto))
+		draw_rect(caja, Color(0.03, 0.04, 0.06, 0.82))
+		draw_string(f2, Vector2(caja.position.x + 4.0, caja.position.y + float(t2) + 1.0),
+			marca, HORIZONTAL_ALIGNMENT_LEFT, -1, t2, Color(0.96, 0.88, 0.62))
 
 	# EL ESTADO, siempre por encima de todo. Seleccionada = borde blanco grueso, que es lo unico que
 	# se lee de un vistazo en una rejilla donde TODAS las celdas tienen color.

@@ -203,9 +203,18 @@ static func color_de(item: Resource) -> Color:
 			Cristal.Calidad.INTACTO: return Color(0.4, 1.0, 0.9)   # cian brillante
 			Cristal.Calidad.NORMAL: return Color(0.5, 0.8, 0.85)   # cian apagado
 			_: return Color(0.45, 0.45, 0.55)                       # dañado: gris azulado
-	# Equipo: no tiene "color propio" (todavia no hay sprites), asi que se usa el de su rareza. El
-	# dia que las armas tengan dibujo, esto se cae solo.
-	return color_escala(item)
+	# EQUIPO: no tiene color propio (todavia no hay sprites), asi que va en ACERO, un neutro.
+	#
+	# Antes se le daba el color de su rareza, y eso era pintar el objeto del mismo tono que su fondo:
+	# un cubo morado sobre una celda morada casi no se veia, y el icono dejaba de decir "aqui hay una
+	# pieza" justo en las rarezas altas, que son las que mas se miran. El fondo ya dice lo buena que
+	# es; el icono solo tiene que destacar contra el.
+	return ACERO
+
+
+# El neutro del equipo sin sprite. Tira a frio y claro para que se vea sobre los ocho fondos de
+# rareza, incluido el blanco-cian del pristino.
+const ACERO := Color(0.78, 0.81, 0.86)
 
 
 # El color del PELDAÑO de este item en la escala de SU eje, que es lo que enmarca la celda:

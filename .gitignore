@@ -19,6 +19,7 @@ dev_*.png
 !dev_enemigos_ataques.*
 !dev_jugador_animaciones.*
 !dev_celdas.*
+!dev_inventario.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
 # arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.

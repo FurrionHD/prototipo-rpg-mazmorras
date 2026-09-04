@@ -1671,3 +1671,159 @@ static func fila_refino(parent: Node, etiqueta: String, salen: int, crear: Calla
 			crear.call(n))
 	row.add_child(b)
 	parent.add_child(row)
+
+
+# ============================================================
+#  LA CARA NUEVA (rework del inventario)
+#  Todo lo que hay de aqui abajo es AÑADIDO y no lo llama nadie salvo quien ya este migrado. Se
+#  monto asi a proposito: cuadricula() la llaman 15 veces desde 8 menus, y darle el aspecto nuevo
+#  ahi dentro habria cambiado la tienda, el herrero, el peletero y el hogar de golpe y sin verlos.
+#  Los menus se van pasando de uno en uno, mirando cada uno.
+# ============================================================
+
+# REJILLA DE OBJETOS: la cuadricula de celdas del inventario (ver celda_objeto.gd), que sustituye a
+# la de botones de texto. La diferencia no es de adorno -- en la de texto habia que LEER el nombre de
+# cada monton para encontrar algo, y con 40 montones eso es barrer la pantalla palabra por palabra.
+# Con celdas, el color dice la calidad y la forma dice la clase, asi que se busca con el ojo.
+#
+# 'piezas' es una lista de diccionarios, uno por celda:
+#     item     el objeto (lo pinta IconoItem)
+#     pie      lo que va en la banda de abajo: "x12", "+4", "" si no lleva nada
+#     tooltip  el texto largo (el nombre entero, la ficha corta)
+#     activo   false = apagada y no responde
+#
+# Van en un diccionario y no en cuatro arrays paralelos por lo mismo que colores_de(): cuatro listas
+# que hay que mantener alineadas a mano se descuelgan en cuanto alguien filtra una de ellas.
+static func rejilla_objetos(vb: VBoxContainer, piezas: Array, sel: int, pulsado: Callable,
+		columnas: int = 8, lado: float = 96.0) -> void:
+	var grid := GridContainer.new()
+	grid.columns = maxi(1, columnas)
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_child(grid)
+	for i in piezas.size():
+		var p: Dictionary = piezas[i]
+		var c := CeldaObjeto.new()
+		c.custom_minimum_size = Vector2(lado, lado)
+		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		c.button_pressed = (i == sel)
+		c.tooltip_text = String(p.get("tooltip", ""))
+		if bool(p.get("activo", true)):
+			c.pressed.connect(pulsado.bind(i))
+		else:
+			c.disabled = true
+		grid.add_child(c)
+		# DESPUES de meterla en el arbol: configurar() repinta, y repintar un nodo suelto no sirve
+		# de nada porque aun no tiene tamaño (ver el guardia de _draw).
+		c.configurar(p.get("item") as Resource, String(p.get("pie", "")), String(p.get("marca", "")))
+
+
+# EL BANNER DE LA FICHA: la tira ancha con el objeto en grande y su "x N", que es lo primero del
+# panel de detalle. Es el equivalente de la celda pero para UN objeto, y hace de puente: lo que
+# acabas de pulsar en la rejilla reaparece aqui mas grande, asi que no hay que comprobar si has
+# pulsado el que querias.
+#
+# Va con el color del PELDAÑO de fondo (como la celda) y no con el del objeto: el panel entero habla
+# de lo bueno que es, y el color del objeto ya lo pone el icono.
+static func banner_item(vb: VBoxContainer, item: Resource, pie: String, etiqueta: String = "") -> void:
+	if item == null:
+		return
+	var caja := Control.new()
+	caja.custom_minimum_size = Vector2(0, 118)
+	caja.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(caja)
+	caja.draw.connect(func() -> void:
+		var w: float = caja.size.x
+		var h: float = caja.size.y
+		if w <= 1.0:
+			return
+		var col: Color = IconoItem.color_escala(item)
+		# Degradado HORIZONTAL, no diagonal como la celda: la tira es tres veces mas ancha que alta y
+		# en diagonal el color se amontona en una esquina y la otra mitad sale plana.
+		var pts := PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h), Vector2(0, h)])
+		var izq: Color = col.darkened(0.62)
+		var der: Color = col.lerp(Color(1, 1, 1), 0.06).darkened(0.12)
+		caja.draw_polygon(pts, PackedColorArray([izq, der, der, izq]))
+		# El objeto GRANDE a la derecha; el texto respira a la izquierda.
+		IconoItem.pintar(caja, Vector2(w * 0.76, h * 0.5), h * 0.72, item, true)
+		var fuente: Font = caja.get_theme_font(&"font")
+		if etiqueta != "":
+			caja.draw_string(fuente, Vector2(16, 26), etiqueta, HORIZONTAL_ALIGNMENT_LEFT, -1, 12,
+				Color(1, 1, 1, 0.72))
+		if pie != "":
+			caja.draw_string(fuente, Vector2(16, h - 24), pie, HORIZONTAL_ALIGNMENT_LEFT, -1, 26,
+				Color(0.97, 0.98, 1.0)))
+	caja.resized.connect(caja.queue_redraw)
+
+
+# ============================================================
+#  BOTON PASTILLA
+#  El boton del tema (ver tema(), arriba) mide 44 de alto, lleva 2 px de borde y esquinas de 6: es
+#  un ladrillo. Funciona en una columna de pestañas, pero en una barra de acciones al pie de la
+#  pantalla se come el sitio y se ve tosco al lado de la rejilla nueva.
+#
+#  La pastilla es lo que usan los menus de referencia: baja, MUY redondeada (radio = la mitad del
+#  alto, o sea una capsula), clara y con la letra oscura. Sobre un menu oscuro es lo que mas destaca
+#  sin necesidad de borde, asi que ademas se queda sin el.
+#
+#  Va como funcion y NO metida en el tema: el tema se cuelga de la raiz del arbol (ver Game._ready) y
+#  cambiarlo ahi le cambiaria el aspecto al combate, la pausa, el HUD y los otros siete menus a la
+#  vez. Cuando esten todos migrados, esto sube al tema y las llamadas se borran.
+# ============================================================
+
+const ALTO_PASTILLA := 34.0
+
+static func estilo_pastilla(b: Button, principal: bool = true) -> Button:
+	b.custom_minimum_size = Vector2(0, ALTO_PASTILLA)
+	b.add_theme_font_size_override("font_size", 13)
+	var r: int = int(ALTO_PASTILLA * 0.5)
+	# Los CINCO estados, como en tema(): si falta uno, Godot lo rellena con su gris por defecto y el
+	# boton cambia de aspecto justo al tocarlo.
+	if principal:
+		_pastilla(b, "normal", Color(0.90, 0.91, 0.94, 0.95), Color(0.08, 0.09, 0.12), r)
+		_pastilla(b, "hover", Color(1.0, 1.0, 1.0, 1.0), Color(0.06, 0.07, 0.09), r)
+		_pastilla(b, "pressed", Color(0.74, 0.76, 0.80, 1.0), Color(0.06, 0.07, 0.09), r)
+		_pastilla(b, "focus", Color(0.96, 0.97, 1.0, 0.98), Color(0.08, 0.09, 0.12), r)
+	else:
+		# SECUNDARIA: hueca, del color del fondo con la letra clara. Es para lo que acompaña a la
+		# accion principal (Cancelar, Ordenar): dos pastillas blancas juntas compiten entre si y
+		# entonces ninguna de las dos dice "esta es la que quieres".
+		_pastilla(b, "normal", Color(1, 1, 1, 0.09), Color(0.88, 0.90, 0.94), r)
+		_pastilla(b, "hover", Color(1, 1, 1, 0.18), Color(0.97, 0.98, 1.0), r)
+		_pastilla(b, "pressed", Color(1, 1, 1, 0.26), Color(1, 1, 1), r)
+		_pastilla(b, "focus", Color(1, 1, 1, 0.14), Color(0.92, 0.94, 0.97), r)
+	_pastilla(b, "disabled", Color(1, 1, 1, 0.05), Color(0.45, 0.47, 0.52), r)
+	return b
+
+
+const _CLAVE_LETRA := {"normal": "font_color", "hover": "font_hover_color",
+	"pressed": "font_pressed_color", "focus": "font_focus_color",
+	"disabled": "font_disabled_color"}
+
+static func _pastilla(b: Button, estado: String, fondo: Color, letra: Color, radio: int) -> void:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = fondo
+	sb.set_corner_radius_all(radio)
+	sb.content_margin_left = 18
+	sb.content_margin_right = 18
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	b.add_theme_stylebox_override(estado, sb)
+	# El color de letra va POR ESTADO tambien: sin el, el tema pone su gris en hover/pressed y sobre
+	# una pastilla blanca eso es letra gris sobre blanco.
+	b.add_theme_color_override(String(_CLAVE_LETRA.get(estado, "font_color")), letra)
+
+
+# Crea una pastilla ya colgada de 'parent'. El atajo de siempre, para no repetir cuatro lineas.
+static func pastilla(parent: Node, texto: String, al_pulsar: Callable,
+		principal: bool = true, activo: bool = true) -> Button:
+	var b := Button.new()
+	b.text = texto
+	b.disabled = not activo
+	if activo and al_pulsar.is_valid():
+		b.pressed.connect(al_pulsar)
+	estilo_pastilla(b, principal)
+	parent.add_child(b)
+	return b

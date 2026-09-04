@@ -20,6 +20,17 @@
 extends CanvasLayer
 
 const TABS := ["Bolsa", "Equipo", "Consumibles", "Materiales", "Armas", "Armaduras"]
+
+# --- LA REJILLA ---
+# Lado de una celda. 96 en unidades logicas de 1280 es lo que deja 8-9 columnas con la ficha al
+# lado, y ademas es el minimo con el que la banda del pie sigue teniendo sitio para un "x1234".
+const LADO_CELDA := 96.0
+# Lo que se le reserva a la ficha de la derecha. Suficiente para una fila "etiqueta: valor" sin que
+# el valor se parta, y no mas: todo lo que sobre ahi se lo lleva la rejilla.
+const ANCHO_FICHA := 360.0
+# Minimo de la rejilla antes de que empiece a comerse a la ficha. Cuatro columnas: por debajo de eso
+# la cuadricula deja de leerse como cuadricula.
+const ANCHO_REJILLA_MIN := 420.0
 const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "Mandoble",
 	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
 const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
@@ -48,21 +59,52 @@ func _ready() -> void:
 	# es llamarle a _toggle() directamente.
 	add_to_group("menu_inventario")
 
-	var m: Dictionary = MenuScaffold.construir(self, "INVENTARIO", "", _cerrar, true)
+	# con_lateral = FALSE: las pestañas van en una FILA ARRIBA, no en una columna a la izquierda. Es
+	# la forma que tiene el menu en escritorio, y ademas devuelve a la rejilla los 230 px que se
+	# comia la columna -- con celdas de 96 eso es una columna entera de objetos mas.
+	# En movil la pantalla es la misma: lo unico que cambia entre las dos es donde van las pestañas.
+	var m: Dictionary = MenuScaffold.construir(self, "INVENTARIO", "", _cerrar, true, false)
 	_root = m["root"]
 	_header = m["header"]
 	_lista = m["lista"]
 	_content = m["content"]
 	_dinero_lbl = m["dinero"]
 
+	# EL REPARTO SE INVIERTE. Por defecto el esqueleto le da a la lista un ancho FIJO (330) y el
+	# resto al detalle, que es lo que quiere un menu de fichas largas. Aqui manda la REJILLA: es
+	# donde buscas, y cuantas mas columnas quepan menos hay que desplazarse. La ficha se queda con
+	# un ancho fijo, el justo para leer sin barrer la vista de un lado a otro.
+	var scroll: ScrollContainer = m["lista_scroll"]
+	scroll.custom_minimum_size = Vector2(ANCHO_REJILLA_MIN, 0)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.size_flags_horizontal = Control.SIZE_FILL
+	_content.custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	(_content.get_parent() as ScrollContainer).size_flags_horizontal = Control.SIZE_FILL
+	(_content.get_parent() as ScrollContainer).custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	scroll.resized.connect(_on_lista_redimensionada)
+
+	var barra_tabs: HBoxContainer = m["side"]
 	for i in TABS.size():
 		var b := Button.new()
 		b.text = TABS[i]
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
+		_estilo_pestana(b)
 		b.pressed.connect(_on_tab.bind(i))
-		(m["side"] as VBoxContainer).add_child(b)
+		barra_tabs.add_child(b)
 		_tab_buttons.append(b)
+
+	# LAS MONEDAS, A LA BARRA DE ARRIBA. El esqueleto las cuelga ANCLADAS bajo la esquina de la ✕,
+	# que es donde van cuando la ✕ flota sobre la pantalla; pero con la barra superior la ✕ vive
+	# dentro de la barra, asi que las monedas se quedaban solas flotando en mitad de la cabecera y en
+	# cuerpo 22, gritando. Aqui pasan a ser una pieza mas de la barra, al lado de la ✕.
+	var barra: Node = barra_tabs.get_parent()
+	_dinero_lbl.get_parent().remove_child(_dinero_lbl)
+	_dinero_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	_dinero_lbl.custom_minimum_size = Vector2.ZERO
+	_dinero_lbl.add_theme_font_size_override("font_size", 15)
+	barra.add_child(_dinero_lbl)
+	# Justo ANTES de la ✕, que es el ultimo hijo de la barra.
+	barra.move_child(_dinero_lbl, barra.get_child_count() - 2)
 
 
 # ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
@@ -191,6 +233,14 @@ func _titulo_rareza(vb: VBoxContainer, item: Resource, sufijo: String = "") -> v
 		Game.color_rareza_de(item), Game.intensidad_rareza_de(item))
 
 
+# EL BANNER de la ficha: el objeto en grande justo debajo de su nombre. Va SIEMPRE, en las ocho
+# pestañas, y es lo que hace de puente entre las dos mitades de la pantalla: la celda que acabas de
+# pulsar reaparece aqui a lo grande, asi que no hay que ir a comprobar a la rejilla si le has dado a
+# la que querias. La etiqueta de arriba dice de QUE tipo de cosa se trata, como en la referencia.
+func _banner(vb: VBoxContainer, item: Resource, cantidad: int, etiqueta: String) -> void:
+	MenuScaffold.banner_item(vb, item, ("× %d" % cantidad) if cantidad > 0 else "", etiqueta)
+
+
 # Lo mismo para un MATERIAL, con su color de RANGO en vez de rareza (ver MaterialData.rango_color):
 # gris/verde/azul para lo que se recolecta, hasta morado en las babas y amarillo en los nucleos.
 # Un cristal no entra: tiene su propia escala de categoria/calidad.
@@ -233,18 +283,87 @@ func _note(vb: VBoxContainer, txt: String) -> void:
 	vb.add_child(l)
 
 
+# PESTAÑA DE ARRIBA: sin caja, solo el texto, y un SUBRAYADO en la activa. El boton del tema es un
+# ladrillo de 44 px con borde, y seis de esos en fila parecen seis botones de accion en vez de seis
+# solapas de un archivador. Lo que dice cual esta abierta es la linea de abajo, como en un navegador.
+func _estilo_pestana(b: Button) -> void:
+	b.custom_minimum_size = Vector2(0, 36)
+	b.add_theme_font_size_override("font_size", 15)
+	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
+	b.add_theme_color_override("font_color", Color(0.62, 0.66, 0.74))
+	b.add_theme_color_override("font_hover_color", Color(0.92, 0.94, 0.98))
+	# La activa (que es la que esta 'pressed', porque son toggle) en ambar y con su linea.
+	b.add_theme_color_override("font_pressed_color", AMBAR)
+	b.add_theme_color_override("font_hover_pressed_color", AMBAR)
+	b.add_theme_color_override("font_focus_color", Color(0.92, 0.94, 0.98))
+	b.draw.connect(func() -> void:
+		if not b.button_pressed:
+			return
+		var y: float = b.size.y - 2.0
+		b.draw_rect(Rect2(Vector2(6, y), Vector2(b.size.x - 12.0, 2.0)), AMBAR))
+	# Un Button no se repinta al marcarse/desmarcarse, y aqui lo unico que cambia es lo que dibuja
+	# ese draw: sin esto, el subrayado se quedaba en la pestaña anterior.
+	b.toggled.connect(func(_on): b.queue_redraw())
+
+
+# Cuantas columnas caben en el ancho que tenga la rejilla AHORA MISMO. Se mide en vez de fijarla
+# porque el ancho depende de la ventana (y en movil, de la orientacion): con un numero fijo, o
+# sobraba media columna de hueco o la ultima se salia por el borde -- y el scroll horizontal esta
+# apagado, asi que salirse significa que no hay forma de llegar a esa columna.
+#
+# El 6.0 es la separacion entre celdas de rejilla_objetos. Se cuenta una de mas y se resta, que es
+# la cuenta de "n celdas y n-1 huecos" puesta del derecho.
+func _columnas() -> int:
+	var ancho: float = _lista.size.x
+	if ancho <= 1.0:
+		ancho = ANCHO_REJILLA_MIN   # primera pasada: aun no lo ha colocado el contenedor
+	return maxi(2, int(floorf((ancho + 6.0) / (LADO_CELDA + 6.0))))
+
+
+# Cuando la ventana cambia de ancho, la cuenta de columnas cambia con ella y hay que rehacer la
+# rejilla. Se reconstruye SOLO si el numero de columnas ha cambiado de verdad: 'resized' salta en
+# cada pixel de un arrastre de ventana, y reconstruir el menu entero 60 veces por segundo se nota.
+var _cols_pintadas: int = 0
+
+func _on_lista_redimensionada() -> void:
+	if not _root.visible:
+		return
+	if _columnas() == _cols_pintadas:
+		return
+	_rebuild()
+
+
 # La cuadricula va a la columna de la LISTA (con su scroll: la bolsa se llena) y la ficha al
 # panel de DETALLE (con el suyo). La cabecera se queda quieta arriba.
-func _grid_detail(labels: Array, preview: Callable) -> void:
-	if labels.is_empty():
+#
+# 'piezas' son los diccionarios que pide MenuScaffold.rejilla_objetos, y salen SIEMPRE de _stacks en
+# el mismo orden: es lo que garantiza que la celda que pulsas y la ficha que sale sean la misma cosa.
+func _grid_detail(piezas: Array, preview: Callable) -> void:
+	if piezas.is_empty():
 		_note(_content, "(vacío)")
 		return
-	_sel = clampi(_sel, 0, labels.size() - 1)
-	# Los colores salen de _stacks, la MISMA lista de la que salieron las etiquetas: asi no pueden
-	# desalinearse del nombre que acompañan (ver MenuScaffold.colores_de).
-	MenuScaffold.cuadricula(_lista, labels, _sel, _pick, 2, Vector2(150, 44),
-		MenuScaffold.colores_de(_stacks))
+	_sel = clampi(_sel, 0, piezas.size() - 1)
+	_cols_pintadas = _columnas()
+	MenuScaffold.rejilla_objetos(_lista, piezas, _sel, _pick, _cols_pintadas, LADO_CELDA)
 	preview.call(_content)
+
+
+# Una celda: el objeto, lo que va en su banda y el texto largo del tooltip. 'marca' es la etiqueta
+# de esquina (PUESTA, la que lleva un compañero...).
+func _pieza(modelo: Resource, pie: String, tooltip: String, marca: String = "") -> Dictionary:
+	return {"item": modelo, "pie": pie, "tooltip": tooltip, "marca": marca, "activo": true}
+
+
+# Las celdas de una lista de stacks {modelo, cantidad}: la banda lleva el "xN" y el tooltip el
+# nombre entero (que en la celda no cabe y en la rejilla vieja era lo unico que habia).
+func _piezas_stacks(stacks: Array) -> Array:
+	var out: Array = []
+	for s in stacks:
+		var n: int = int(s["cantidad"])
+		out.append(_pieza(s["modelo"], "x%d" % n,
+			"%s  x%d" % [_nombre_item(s["modelo"]).replace("\n", " "), n]))
+	return out
 
 
 func _pick(i: int) -> void:
@@ -299,13 +418,6 @@ func _nombre_item(it: Resource) -> String:
 	return "?"
 
 
-func _labels_stacks(stacks: Array) -> Array:
-	var labels: Array = []
-	for s in stacks:
-		labels.append("%s  x%d" % [_nombre_item(s["modelo"]), int(s["cantidad"])])
-	return labels
-
-
 # ============================================================
 #  Pestaña BOLSA
 # ============================================================
@@ -329,7 +441,7 @@ func _build_bolsa() -> void:
 	for m in Game.materiales:
 		items.append(m)
 	_stacks = _agrupar(items)
-	_grid_detail(_labels_stacks(_stacks), _preview_bolsa)
+	_grid_detail(_piezas_stacks(_stacks), _preview_bolsa)
 
 
 func _preview_bolsa(vb: VBoxContainer) -> void:
@@ -337,6 +449,7 @@ func _preview_bolsa(vb: VBoxContainer) -> void:
 	var modelo: Resource = s["modelo"]
 	var n: int = int(s["cantidad"])
 	_titulo_material(vb, modelo, _nombre_item(modelo).replace("\n", " "))
+	_banner(vb, modelo, n, "Cristal" if modelo is Cristal else "Material")
 	_row(vb, "Cantidad", str(n))
 	if modelo is Cristal:
 		var c := modelo as Cristal
@@ -355,7 +468,7 @@ func _preview_bolsa(vb: VBoxContainer) -> void:
 			_note(vb, m.data.descripcion)
 
 	vb.add_child(HSeparator.new())
-	MenuScaffold.boton(vb, "Soltar al suelo", _on_soltar)
+	MenuScaffold.pastilla(vb, "Soltar al suelo", _on_soltar, false)
 	_note(vb, "Lo que sueltes queda en el suelo a tus pies; puedes recogerlo otra vez con [F].")
 
 
@@ -425,11 +538,12 @@ func _build_mochila() -> void:
 	_stacks = []
 	for mo in Game.owned_mochilas:
 		_stacks.append({"modelo": mo, "cantidad": 1})
-	var labels: Array = []
+	var piezas: Array = []
 	for s in _stacks:
 		var mo: BackpackData = s["modelo"]
-		labels.append(Game.item_display_name(mo) + ("\n(puesta)" if mo == Game.mochila_equipo else ""))
-	_grid_detail(labels, _preview_mochila)
+		piezas.append(_pieza(mo, "", Game.item_display_name(mo),
+			"PUESTA" if mo == Game.mochila_equipo else ""))
+	_grid_detail(piezas, _preview_mochila)
 
 
 # Ficha de una MOCHILA: lo unico que hace es subir la carga, asi que se enseña lo que SUMA y lo que
@@ -440,6 +554,7 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 	var puesta: bool = m == Game.mochila_equipo
 	var meta: Dictionary = Game.meta_de(m)
 	_titulo_rareza(vb, m, "   [puesta]" if puesta else "")
+	_banner(vb, m, 0, "Mochila del equipo")
 	_row(vb, "Capacidad", "+%.0f de carga" % Game.capacidad_mochila(m))
 	_row(vb, "Llevaríais", "%.0f  (ahora: %.0f)" % [
 		Game.capacidad_con_mochila(m), Game.capacidad_carga()])
@@ -447,13 +562,9 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 		_note(vb, m.descripcion)
 
 	vb.add_child(HSeparator.new())
-	var b := Button.new()
-	b.text = "Quitar" if puesta else "Equipar"
-	b.disabled = not Game.en_pueblo()
-	b.pressed.connect(func():
+	MenuScaffold.pastilla(vb, "Quitar" if puesta else "Equipar", func():
 		Game.equipar_mochila(null if puesta else m)
-		_rebuild())
-	vb.add_child(b)
+		_rebuild(), not puesta, Game.en_pueblo())
 	if puesta:
 		_note(vb, "Al quitarla os quedáis con el zurrón de serie (25 de carga).")
 
@@ -488,12 +599,12 @@ func _build_herramientas() -> void:
 		_note(_content, "Todavía no has forjado ninguna. El herrero las hace con metal y un tablón; "
 			+ "el metal veteado o profundo da mejores herramientas que el cobre en bruto.")
 		return
-	var labels: Array = []
+	var piezas: Array = []
 	for s in _stacks:
 		var t: ToolData = s["modelo"]
-		labels.append(Game.item_display_name(t)
-			+ ("\n(puesta)" if Game.herramienta_equipada(t) else ""))
-	_grid_detail(labels, _preview_herramienta)
+		piezas.append(_pieza(t, t.tipo_texto(), Game.item_display_name(t),
+			"PUESTA" if Game.herramienta_equipada(t) else ""))
+	_grid_detail(piezas, _preview_herramienta)
 
 
 # --- FAROLILLO: la luz y su combustible, juntos ---
@@ -539,17 +650,21 @@ func _build_farolillo() -> void:
 	if carbones.is_empty():
 		_note(_header, "No te queda carbón. Se pica en las vetas negras de la mazmorra, y el "
 			+ "carpintero hace carbón vegetal con madera.")
-	var labels: Array = []
+	var piezas: Array = []
 	for s in _stacks:
 		var modelo: Resource = s["modelo"]
 		if modelo is ToolData:
-			labels.append(Game.item_display_name(modelo)
-				+ ("\n(puesto)" if Game.herramienta_equipada(modelo) else ""))
+			piezas.append(_pieza(modelo, "", Game.item_display_name(modelo),
+				"PUESTO" if Game.herramienta_equipada(modelo) else ""))
 		else:
+			# El CARBON lleva en la banda lo que dura UNO, que es el numero con el que se comparan
+			# entre si; la cantidad se va al tooltip. Al reves (la cantidad en la banda) la rejilla
+			# diria cuanto tienes pero no cual es mejor, que es a lo que se viene aqui.
 			var m := modelo as MaterialItem
-			labels.append("%s  x%d\n(%s · %s)" % [m.data.nombre, int(s["cantidad"]),
-				m.calidad_texto(), _mmss(Lampara.duracion(m))])
-	_grid_detail(labels, _preview_farolillo)
+			piezas.append(_pieza(m, _mmss(Lampara.duracion(m)),
+				"%s  x%d  (%s · %s cada uno)" % [m.data.nombre, int(s["cantidad"]),
+					m.calidad_texto(), _mmss(Lampara.duracion(m))]))
+	_grid_detail(piezas, _preview_farolillo)
 
 
 # Segundos como "m:ss". Los escalones del carbon son de 30 s (2:00, 2:30, 3:00...), asi que
@@ -573,6 +688,7 @@ func _preview_carbon(vb: VBoxContainer) -> void:
 	var m: MaterialItem = s["modelo"]
 	var n: int = int(s["cantidad"])
 	_titulo_material(vb, m, m.data.nombre)
+	_banner(vb, m, n, "Combustible")
 	_row(vb, "Cantidad", str(n))
 	_row(vb, "Calidad", m.calidad_texto())
 	# Los DOS numeros: lo que dura uno y lo que dan todos juntos. El de arriba es el que compara
@@ -582,7 +698,7 @@ func _preview_carbon(vb: VBoxContainer) -> void:
 	if m.data != null and m.data.descripcion != "":
 		_note(vb, m.data.descripcion)
 	vb.add_child(HSeparator.new())
-	MenuScaffold.boton(vb, "Soltar al suelo", _on_soltar)
+	MenuScaffold.pastilla(vb, "Soltar al suelo", _on_soltar, false)
 	_note(vb, "Lo que sueltes queda en el suelo a tus pies: es la forma de pasarle carbón a un "
 		+ "compañero. Se recoge otra vez con [F].")
 
@@ -591,6 +707,7 @@ func _preview_herramienta(vb: VBoxContainer) -> void:
 	var t: ToolData = _stacks[_sel]["modelo"]
 	var puesta: bool = Game.herramienta_equipada(t)
 	_titulo_rareza(vb, t, "   [puesta]" if puesta else "")
+	_banner(vb, t, 0, t.tipo_texto())
 	# Las filas salen de MenuScaffold, que las deriva de la MISMA math que usa el minijuego: lo que
 	# lees aqui es exactamente lo que vas a jugar.
 	for fila in MenuScaffold.filas_herramienta(t):
@@ -599,16 +716,12 @@ func _preview_herramienta(vb: VBoxContainer) -> void:
 		_note(vb, t.descripcion)
 
 	vb.add_child(HSeparator.new())
-	var b := Button.new()
-	b.text = "Quitar" if puesta else "Equipar"
-	b.disabled = not Game.en_pueblo()
-	b.pressed.connect(func():
+	MenuScaffold.pastilla(vb, "Quitar" if puesta else "Equipar", func():
 		if puesta:
 			Game.desequipar_herramienta(int(t.tipo))
 		else:
 			Game.equipar_herramienta(t)
-		_rebuild())
-	vb.add_child(b)
+		_rebuild(), not puesta, Game.en_pueblo())
 	if puesta:
 		if t.es_cana():
 			_note(vb, "Sin caña no puedes pescar: no hay una de serie a la que volver.")
@@ -631,16 +744,37 @@ func _build_consumibles() -> void:
 		var n: int = int(Game.consumables[c])
 		if n > 0:
 			_stacks.append({"modelo": c, "cantidad": n})
-	var labels: Array = []
+	var piezas: Array = []
 	for s in _stacks:
-		labels.append("%s\nx%d" % [(s["modelo"] as ConsumableData).nombre, int(s["cantidad"])])
-	_grid_detail(labels, _preview_consumible)
+		var cd := s["modelo"] as ConsumableData
+		var n: int = int(s["cantidad"])
+		piezas.append(_pieza(cd, "x%d" % n, "%s  x%d" % [cd.nombre, n],
+			"PUESTO" if Game.cebo_activo == cd else ""))
+	_grid_detail(piezas, _preview_consumible)
+
+
+# De QUE clase es un consumible, para la etiqueta del banner. La pestaña mezcla cinco cosas que no
+# se usan igual (una se bebe, otro se estudia, otro se come, otro se pone en el anzuelo), y el
+# nombre solo no siempre lo dice: "Rocío" puede ser una poción o un grimorio.
+func _clase_consumible(c: ConsumableData) -> String:
+	if c.es_grimorio():
+		return "Grimorio"
+	if c.es_plato():
+		return "Plato de cocina"
+	if c.es_cebo():
+		return "Cebo de pesca"
+	if c.da_mana() and not c.cura_hp():
+		return "Poción de maná"
+	if c.cura_hp():
+		return "Poción de vida"
+	return "Consumible"
 
 
 func _preview_consumible(vb: VBoxContainer) -> void:
 	var cons: ConsumableData = _stacks[_sel]["modelo"]
 	var n: int = int(_stacks[_sel]["cantidad"])
 	_title(vb, cons.nombre)
+	_banner(vb, cons, n, _clase_consumible(cons))
 	_row(vb, "Cantidad", str(n))
 
 	var sabido: bool = false
@@ -709,11 +843,10 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		# agua delante. En vez de un boton que no haria nada, se dice donde se pone.
 		_note(vb, "Los cebos se ponen en el estanque: ponte en la orilla y pulsa [F].")
 	else:
-		var usar := Button.new()
-		usar.text = "Estudiar" if cons.es_grimorio() else ("Comer" if cons.es_plato() else "Usar")
-		usar.disabled = cons.es_grimorio() and (sabido or Game.hechizos_llenos())
-		usar.pressed.connect(_on_usar.bind(cons))
-		vb.add_child(usar)
+		MenuScaffold.pastilla(vb,
+			"Estudiar" if cons.es_grimorio() else ("Comer" if cons.es_plato() else "Usar"),
+			_on_usar.bind(cons), true,
+			not (cons.es_grimorio() and (sabido or Game.hechizos_llenos())))
 	if cons.es_grimorio() and not por_persona:
 		if sabido:
 			_note(vb, "Ya te sabes este hechizo: el libro no te dice nada nuevo.")
@@ -725,7 +858,7 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 	# otro: el que las llevaba encima se las quedaba aunque el que se estuviera muriendo fuera el
 	# otro. Vale para toda la pestaña (grimorios y platos incluidos) por lo mismo.
 	vb.add_child(HSeparator.new())
-	MenuScaffold.boton(vb, "Soltar al suelo", _on_soltar)
+	MenuScaffold.pastilla(vb, "Soltar al suelo", _on_soltar, false)
 	_note(vb, "Lo que sueltes queda a tus pies; lo puede recoger con [F] cualquiera del grupo.")
 
 
@@ -743,13 +876,14 @@ func _build_materiales() -> void:
 	_note(_header, "Los materiales que has depositado en el Hogar del pueblo. No pesan. Los cristales no se guardan aquí: hay que venderlos en la tienda.")
 	_header.add_child(HSeparator.new())
 	_stacks = _agrupar(Game.almacen_materiales)
-	_grid_detail(_labels_stacks(_stacks), _preview_material)
+	_grid_detail(_piezas_stacks(_stacks), _preview_material)
 
 
 func _preview_material(vb: VBoxContainer) -> void:
 	var m: MaterialItem = _stacks[_sel]["modelo"]
 	var n: int = int(_stacks[_sel]["cantidad"])
 	_titulo_material(vb, m, m.nombre())
+	_banner(vb, m, n, "Material")
 	_row(vb, "Cantidad", str(n))
 	if m.data != null:
 		_row(vb, "Material", m.data.resumen())
@@ -770,10 +904,15 @@ func _build_armas() -> void:
 	_stacks = []
 	for w in Game.owned_weapons:
 		_stacks.append({"modelo": w, "cantidad": 1})
-	var labels: Array = []
+	var piezas: Array = []
 	for s in _stacks:
-		labels.append(_nombre_equipo(s["modelo"]))
-	_grid_detail(labels, _preview_arma)
+		var w: Resource = s["modelo"]
+		# La marca de esquina es QUIEN LA LLEVA, no un "[equipada]" a secas: con grupo, la misma
+		# espada puede estar puesta en cualquiera de los tuyos (ver _marca_dueno).
+		var dueno: PersonajeData = Game.quien_lleva(w)
+		piezas.append(_pieza(w, Game.item_plus(w), _nombre_equipo(w).replace("\n", " "),
+			"" if dueno == null else dueno.nombre))
+	_grid_detail(piezas, _preview_arma)
 
 
 func _nombre_equipo(item: Resource) -> String:
@@ -800,6 +939,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 	if item is WeaponData:
 		var w := item as WeaponData
 		_titulo_rareza(vb, w, equipada)
+		_banner(vb, w, 0, WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)])
 		# Ficha COMPARTIDA (MenuScaffold.filas_arma): las mismas stats resueltas que ve la tienda
 		# y el menu de personaje, con el tier/rareza/mejoras REALES de esta pieza (antes se
 		# enseñaban los valores base a secas, ignorando las mejoras y sin la evasion).
@@ -814,6 +954,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 	elif item is ShieldData:
 		var s := item as ShieldData
 		_titulo_rareza(vb, s, equipada)
+		_banner(vb, s, 0, "Escudo")
 		# Ficha COMPARTIDA, igual que el arma de arriba: antes se pintaba el .tres crudo y un T3
 		# pristino enseñaba (y rendia) exactamente lo mismo que uno comun.
 		var meta_s: Dictionary = Game.meta_de(s)
@@ -823,6 +964,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 	elif item is WandData:
 		var wd := item as WandData
 		_titulo_rareza(vb, wd, equipada)
+		_banner(vb, wd, 0, "Varita")
 		# Por su math (Upgrades.magic_mods) con el tier/rareza/mejoras REALES de esta varita, como
 		# el baston y el resto de equipo: antes se pintaba el .tres crudo (una varita T3 pristina
 		# amplificaba y regeneraba lo mismo que una comun).
@@ -850,16 +992,20 @@ func _build_armaduras() -> void:
 	_stacks = []
 	for p in Game.owned_armor:
 		_stacks.append({"modelo": p, "cantidad": 1})
-	var labels: Array = []
+	var piezas: Array = []
 	for s in _stacks:
 		var a: ArmorData = s["modelo"]
-		labels.append("%s%s\n(%s)" % [a.nombre, Game.item_plus(a), ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)]])
-	_grid_detail(labels, _preview_armadura)
+		var dueno_a: PersonajeData = Game.quien_lleva(a)
+		piezas.append(_pieza(a, ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)],
+			"%s%s" % [a.nombre, Game.item_plus(a)],
+			"" if dueno_a == null else dueno_a.nombre))
+	_grid_detail(piezas, _preview_armadura)
 
 
 func _preview_armadura(vb: VBoxContainer) -> void:
 	var a: ArmorData = _stacks[_sel]["modelo"]
 	_titulo_rareza(vb, a, _marca_dueno(a))
+	_banner(vb, a, 0, ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
 	_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
 	_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, 3)])
 	_row(vb, "Defensa base", "%.2f" % (a.defensa_base * a.motion_def))
