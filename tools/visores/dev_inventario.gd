@@ -45,13 +45,26 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(SALIDA)
 	for i in inv.TABS.size():
 		inv._on_tab(i)
-		await RenderingServer.frame_post_draw
-		await RenderingServer.frame_post_draw
-		var ruta: String = "%sinventario_%d_%s.png" % [SALIDA, i,
-			String(inv.TABS[i]).to_lower()]
-		get_viewport().get_texture().get_image().save_png(ruta)
-		print("[inventario] ", ProjectSettings.globalize_path(ruta))
+		# EQUIPO tiene tres SUBpestañas y son pantallas distintas: la del farolillo mezcla lamparas
+		# con carbon y es la que mas cabecera tenia. Sin recorrerlas, la captura de "Equipo" solo
+		# enseña una de las tres y las otras dos no las mira nadie.
+		if String(inv.TABS[i]) == "Equipo":
+			for j in inv.SUBS_EQUIPO.size():
+				inv._on_sub_equipo(j)
+				await _captura("%d_equipo_%s" % [i, String(inv.SUBS_EQUIPO[j]).to_lower()])
+			continue
+		await _captura("%d_%s" % [i, String(inv.TABS[i]).to_lower()])
 	get_tree().quit()
+
+
+func _captura(nombre: String) -> void:
+	# DOS frames: el primero coloca los contenedores (hasta entonces las celdas miden 0 y la rejilla
+	# aun no sabe cuantas columnas caben) y el segundo ya dibuja lo colocado.
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var ruta: String = "%sinventario_%s.png" % [SALIDA, nombre]
+	get_viewport().get_texture().get_image().save_png(ruta)
+	print("[inventario] ", ProjectSettings.globalize_path(ruta))
 
 
 # ============================================================
@@ -103,6 +116,48 @@ func _llenar() -> void:
 
 	_armas()
 	_armaduras()
+	_equipo()
+
+
+# La pestaña EQUIPO: mochilas, las cuatro herramientas, farolillos y carbon. Con una puesta de cada
+# clase, que es lo unico que enseña si la marca de esquina "PUESTA" se ve en la rejilla.
+func _equipo() -> void:
+	Game.owned_mochilas = []
+	var mo: BackpackData = load("res://resources/backpacks/mochila_basica.tres") as BackpackData
+	if mo != null:
+		for r in 4:
+			var c: BackpackData = mo.duplicate() as BackpackData
+			Game.item_meta[c] = {"tier": (r % 3) + 1, "rareza": r * 2, "mejoras": {},
+				"durabilidad": 1.0, "banda": 0}
+			Game.owned_mochilas.append(c)
+		Game.mochila_equipo = Game.owned_mochilas[2]
+
+	Game.owned_tools = []
+	var r2: int = 0
+	for id in ["pico_basico", "hoz_basica", "hacha_basica", "cana_basica", "farolillo_basico"]:
+		var t: ToolData = load("res://resources/tools/%s.tres" % id) as ToolData
+		if t == null:
+			continue
+		for k in 2:
+			var c2: ToolData = t.duplicate() as ToolData
+			Game.item_meta[c2] = {"tier": (r2 % 3) + 1, "rareza": (r2 * 3 + k) % 8, "mejoras": {},
+				"durabilidad": 1.0, "banda": 0}
+			Game.owned_tools.append(c2)
+		r2 += 1
+
+	# CARBON: dos calidades del mismo material, que es el caso que la cabecera vieja contaba mal
+	# (cogia un trozo de muestra y daba SUS minutos para todo el monton).
+	Game.carbon = []
+	for id in ["carbon_veta", "carbon_negro", "carbon_vegetal"]:
+		var d: MaterialData = load("res://resources/materials/%s.tres" % id) as MaterialData
+		if d == null:
+			continue
+		for cal in [MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL]:
+			for _n in 6:
+				var it := MaterialItem.new()
+				it.data = d
+				it.calidad = cal
+				Game.carbon.append(it)
 
 
 # Las armas con LAS OCHO RAREZAS repartidas, que es lo que no sale en una partida normal y es justo

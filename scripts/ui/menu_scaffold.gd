@@ -251,7 +251,8 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 		hueco.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		barra.add_child(hueco)
 
-		barra.add_child(BotonIcono.crear(Callable(Iconos, "equis"), al_cerrar, LADO_ICONO))
+		# Sin caja, igual que la ✕ anclada de equis_cerrar: son la misma ✕ en dos sitios distintos.
+		barra.add_child(BotonIcono.crear(Callable(Iconos, "equis"), al_cerrar, LADO_ICONO, false))
 		col.add_child(HSeparator.new())
 
 	# LA CABECERA ENTERA (aviso + titulo + pestañas) se para antes de la esquina de la ✕: es la unica
@@ -562,7 +563,10 @@ static func separador(padre: Node) -> MarginContainer:
 static func equis_cerrar(root: Control, al_cerrar: Callable, pista: String = "") -> Control:
 	var margen_x: float = 16.0 + Tactil.borde.x
 	var margen_y: float = 16.0 + Tactil.borde.y
-	var equis: Control = BotonIcono.crear(Callable(Iconos, "equis"), al_cerrar, LADO_ICONO)
+	# SIN CAJA: el aspa a pelo. El cuadro con borde es para los botones del HUD, que flotan sobre el
+	# mundo; aqui el fondo es el del menu, plano y oscuro, y el cuadro solo hacia que la esquina
+	# pesara mas que nada de lo que hay en la pantalla.
+	var equis: Control = BotonIcono.crear(Callable(Iconos, "equis"), al_cerrar, LADO_ICONO, false)
 	equis.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	equis.offset_left = -(margen_x + LADO_ICONO)
 	equis.offset_right = -margen_x

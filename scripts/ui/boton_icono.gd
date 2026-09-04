@@ -16,7 +16,14 @@ class_name BotonIcono
 
 # Crea el boton. 'dibujo' es una de las funciones de Iconos (se le pasa el CanvasItem, la esquina,
 # el lado y el color), y 'al_pulsar' lo que se llama al soltar dentro.
-static func crear(dibujo: Callable, al_pulsar: Callable, lado: float = 72.0) -> Control:
+# 'con_caja' = el cuadro de fondo con su borde. Los botones del HUD lo NECESITAN: flotan sobre el
+# mundo, y sin fondo un icono claro sobre un suelo claro deja de verse y de parecer pulsable.
+#
+# La ✕ de los menus va SIN el (ver MenuScaffold.equis_cerrar): ahi el fondo es el del propio menu,
+# plano y oscuro, asi que el aspa se ve sola -- y el cuadro solo conseguia que la esquina pesara.
+# Sin caja, el hundido se marca aclarando el aspa, que es lo unico que queda.
+static func crear(dibujo: Callable, al_pulsar: Callable, lado: float = 72.0,
+		con_caja: bool = true) -> Control:
 	var c := Control.new()
 	c.custom_minimum_size = Vector2(lado, lado)
 	c.size = Vector2(lado, lado)
@@ -24,13 +31,14 @@ static func crear(dibujo: Callable, al_pulsar: Callable, lado: float = 72.0) -> 
 	c.set_meta("hundido", false)
 
 	c.draw.connect(func() -> void:
-		var fondo := Color(0.10, 0.11, 0.14, 0.82)
-		if bool(c.get_meta("hundido")):
-			fondo = Color(0.30, 0.32, 0.40, 0.92)
-		c.draw_style_box(_caja(fondo), Rect2(Vector2.ZERO, c.size))
+		var hundido: bool = bool(c.get_meta("hundido"))
+		if con_caja:
+			c.draw_style_box(_caja(Color(0.30, 0.32, 0.40, 0.92) if hundido
+				else Color(0.10, 0.11, 0.14, 0.82)), Rect2(Vector2.ZERO, c.size))
 		# El icono, con un margen para que no toque el borde del cuadro.
 		var pad: float = lado * 0.18
-		dibujo.call(c, Vector2(pad, pad), lado - pad * 2.0, Color(0.90, 0.90, 0.94))
+		dibujo.call(c, Vector2(pad, pad), lado - pad * 2.0,
+			Color(1, 1, 1) if (hundido and not con_caja) else Color(0.90, 0.90, 0.94))
 	)
 
 	c.gui_input.connect(func(event: InputEvent) -> void:

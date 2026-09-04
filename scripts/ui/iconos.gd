@@ -122,6 +122,110 @@ static func pocion(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 	c.draw_arc(pos + Vector2(lado * 0.5, lado * 0.66), lado * 0.11, 0.0, TAU, 20, col, g * 0.8, true)
 
 
+# ============================================================
+#  LAS PESTAÑAS DEL INVENTARIO
+#  Van con icono y sin texto, como en los menus de referencia, asi que el dibujo tiene que decir
+#  la seccion el solo. Los seis se eligieron para que no se parezcan entre si EN SILUETA: a este
+#  tamaño el ojo separa un bulto redondo de uno anguloso mucho antes que dos objetos distintos.
+#  El nombre de la seccion sale ademas escrito arriba a la izquierda, que es el otro medio camino.
+# ============================================================
+
+# --- BOLSA (lo que llevas de expedicion): zurron con su cordon ---
+# Se distingue de la MOCHILA en que no tiene tirantes: la mochila es la pieza de equipo que sube la
+# carga y la bolsa es el contenido, y con el mismo dibujo las dos pestañas se confundian.
+static func bolsa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	var cx: float = pos.x + lado * 0.5
+	var r: float = lado * 0.28
+	var cy: float = pos.y + lado * 0.58
+	# LA PANZA: media circunferencia de ABAJO. Ojo con los angulos, que es donde se cayo la primera
+	# version: en Godot 2D el 0 es hacia la derecha y el angulo crece HACIA ABAJO (la Y va al reves
+	# que en matematicas), asi que el semicirculo de abajo es 0 -> PI. Con PI -> 2PI sale el de
+	# arriba y el saco queda del reves, como una herradura.
+	c.draw_arc(Vector2(cx, cy), r, 0.0, PI, 28, col, g, true)
+	# Los costados, del final de la panza hasta la boca. Se estrechan un poco: es lo que lo hace
+	# saco y no cubo.
+	c.draw_line(Vector2(cx - r, cy), pos + Vector2(lado * 0.28, lado * 0.34), col, g, true)
+	c.draw_line(Vector2(cx + r, cy), pos + Vector2(lado * 0.72, lado * 0.34), col, g, true)
+	# La boca, fruncida por el cordon.
+	c.draw_line(pos + Vector2(lado * 0.28, lado * 0.34), pos + Vector2(lado * 0.72, lado * 0.34),
+		col, g, true)
+	c.draw_line(pos + Vector2(lado * 0.38, lado * 0.20), pos + Vector2(lado * 0.62, lado * 0.20),
+		col, g * 0.8, true)
+	c.draw_line(pos + Vector2(lado * 0.38, lado * 0.20), pos + Vector2(lado * 0.30, lado * 0.34),
+		col, g * 0.7, true)
+	c.draw_line(pos + Vector2(lado * 0.62, lado * 0.20), pos + Vector2(lado * 0.70, lado * 0.34),
+		col, g * 0.7, true)
+
+
+# --- MATERIALES: un pedrusco con su veta ---
+static func mineral(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	# Silueta angulosa, que es lo que la separa de la pocion y de la bolsa (las dos redondas).
+	var p := PackedVector2Array([
+		pos + Vector2(lado * 0.50, lado * 0.16), pos + Vector2(lado * 0.82, lado * 0.42),
+		pos + Vector2(lado * 0.70, lado * 0.82), pos + Vector2(lado * 0.30, lado * 0.82),
+		pos + Vector2(lado * 0.18, lado * 0.42),
+	])
+	var cerrado := PackedVector2Array(p)
+	cerrado.append(p[0])
+	c.draw_polyline(cerrado, col, g, true)
+	# La veta de dentro: dos trazos desde el vertice de arriba, que es lo que lo hace mineral y no
+	# un pentagono suelto.
+	c.draw_line(p[0], pos + Vector2(lado * 0.38, lado * 0.55), col, g * 0.8, true)
+	c.draw_line(pos + Vector2(lado * 0.38, lado * 0.55), pos + Vector2(lado * 0.60, lado * 0.80),
+		col, g * 0.8, true)
+
+
+# --- ARMADURAS: coraza (peto con hombreras) ---
+static func coraza(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	var cx: float = pos.x + lado * 0.5
+	# El peto: ancho de hombros arriba y en punta abajo, como un escudo pero con el cuello marcado.
+	var p := PackedVector2Array([
+		pos + Vector2(lado * 0.20, lado * 0.26), pos + Vector2(lado * 0.40, lado * 0.20),
+		Vector2(cx, lado * 0.30 + pos.y), pos + Vector2(lado * 0.60, lado * 0.20),
+		pos + Vector2(lado * 0.80, lado * 0.26), pos + Vector2(lado * 0.74, lado * 0.66),
+		Vector2(cx, lado * 0.86 + pos.y), pos + Vector2(lado * 0.26, lado * 0.66),
+	])
+	var cerrado := PackedVector2Array(p)
+	cerrado.append(p[0])
+	c.draw_polyline(cerrado, col, g, true)
+	# La linea del esternon: sin ella el peto se lee como un escudo a secas.
+	c.draw_line(Vector2(cx, pos.y + lado * 0.36), Vector2(cx, pos.y + lado * 0.70), col, g * 0.7, true)
+
+
+# --- HERRAMIENTAS: un pico ---
+static func pico(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	# El mango, en diagonal.
+	c.draw_line(pos + Vector2(lado * 0.68, lado * 0.20), pos + Vector2(lado * 0.34, lado * 0.84),
+		col, g, true)
+	# La cabeza: un arco ancho cruzado al mango, que es lo que lo separa de la espada (recta con
+	# guarda) a este tamaño.
+	c.draw_arc(pos + Vector2(lado * 0.52, lado * 0.44), lado * 0.34, PI * 1.15, PI * 1.95, 20,
+		col, g, true)
+
+
+# --- FAROLILLO: la caja de la luz con su asa ---
+static func farol(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	var cx: float = pos.x + lado * 0.5
+	# El asa.
+	c.draw_arc(Vector2(cx, pos.y + lado * 0.26), lado * 0.15, PI, TAU, 16, col, g * 0.8, true)
+	# El cuerpo: caja con el techo y la base mas anchos, como un farol de mano.
+	c.draw_line(pos + Vector2(lado * 0.24, lado * 0.34), pos + Vector2(lado * 0.76, lado * 0.34),
+		col, g, true)
+	c.draw_line(pos + Vector2(lado * 0.30, lado * 0.34), pos + Vector2(lado * 0.30, lado * 0.76),
+		col, g, true)
+	c.draw_line(pos + Vector2(lado * 0.70, lado * 0.34), pos + Vector2(lado * 0.70, lado * 0.76),
+		col, g, true)
+	c.draw_line(pos + Vector2(lado * 0.24, lado * 0.76), pos + Vector2(lado * 0.76, lado * 0.76),
+		col, g, true)
+	# La llama de dentro, que es lo que lo hace farol y no jaula.
+	c.draw_arc(Vector2(cx, pos.y + lado * 0.57), lado * 0.11, 0.0, TAU, 16, col, g * 0.8, true)
+
+
 # --- CORRER: dos chevrones hacia delante ---
 static func correr(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 	var g: float = lado * 0.12

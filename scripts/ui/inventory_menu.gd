@@ -20,6 +20,11 @@
 extends CanvasLayer
 
 const TABS := ["Bolsa", "Equipo", "Consumibles", "Materiales", "Armas", "Armaduras"]
+# El icono de cada pestaña, en el mismo orden que TABS. Van con icono y SIN texto, como en los
+# menus de referencia: seis palabras en fila se leen una a una, seis siluetas se abarcan de un
+# vistazo. El nombre no se pierde -- sale escrito arriba a la izquierda, bajo "INVENTARIO", y en el
+# tooltip de cada una.
+const TAB_ICONOS := ["bolsa", "mochila", "pocion", "mineral", "espada", "coraza"]
 
 # --- LA REJILLA ---
 # Lado de una celda. 96 en unidades logicas de 1280 es lo que deja 8-9 columnas con la ficha al
@@ -41,6 +46,8 @@ var _header: VBoxContainer = null   # cabecera FIJA (titulo de la pestaña, peso
 var _lista: VBoxContainer = null    # cuadricula de stacks, con su propio scroll
 var _content: VBoxContainer = null  # ficha del item elegido, con el suyo
 var _dinero_lbl: Label = null       # monedas, arriba a la derecha
+var _contador_lbl: Label = null     # el "N / M" de la pestaña (peso, luz), al lado del dinero
+var _titulo_seccion: Label = null   # el nombre de la pestaña, bajo "Inventario"
 var _tab_buttons: Array = []
 var _modal: Control = null          # modal de cantidad (null = cerrado)
 var _modal_spin: SpinBox = null     # selector de cantidad del modal
@@ -70,6 +77,13 @@ func _ready() -> void:
 	_content = m["content"]
 	_dinero_lbl = m["dinero"]
 
+	# LA LINEA DE AVISO, FUERA. El esqueleto la reserva con 22 px de alto AUNQUE ESTE VACIA, a
+	# proposito: en los menus de oficio aparece y desaparece con cada mensaje ("Sacas 3 lingotes"),
+	# y si no ocupara sitio siempre, el menu entero pegaria un salto cada vez. Este menu no dice
+	# nada por ahi -- no llama a MenuScaffold.decir ni una vez --, asi que esos 22 px eran hueco
+	# muerto entre las pestañas de arriba y la rejilla.
+	(m["aviso"] as Control).visible = false
+
 	# EL REPARTO SE INVIERTE. Por defecto el esqueleto le da a la lista un ancho FIJO (330) y el
 	# resto al detalle, que es lo que quiere un menu de fichas largas. Aqui manda la REJILLA: es
 	# donde buscas, y cuantas mas columnas quepan menos hay que desplazarse. La ficha se queda con
@@ -84,27 +98,79 @@ func _ready() -> void:
 	scroll.resized.connect(_on_lista_redimensionada)
 
 	var barra_tabs: HBoxContainer = m["side"]
+	barra_tabs.add_theme_constant_override("separation", 14)
 	for i in TABS.size():
-		var b := Button.new()
-		b.text = TABS[i]
-		b.toggle_mode = true
-		_estilo_pestana(b)
+		var b: Button = _pestana_icono(TAB_ICONOS[i], TABS[i])
 		b.pressed.connect(_on_tab.bind(i))
 		barra_tabs.add_child(b)
 		_tab_buttons.append(b)
+
+	var barra: BoxContainer = barra_tabs.get_parent()
+
+	# EL TITULO EN DOS LINEAS: "Inventario" pequeño y gris encima del nombre de la seccion, grande.
+	# Es lo que sustituye a la cabecera que habia debajo de las pestañas -- alli el titulo de la
+	# pestaña ocupaba una linea entera de la pantalla para decir lo mismo. Y hace falta: con las
+	# pestañas en icono, este es el sitio donde pone en que seccion estas.
+	# La etiqueta que trae el esqueleto se esconde en vez de borrarse: un Control oculto no ocupa
+	# sitio en un contenedor, asi que basta con eso y no hay que tocar construir().
+	(barra.get_child(0) as Control).visible = false
+	var titulo := VBoxContainer.new()
+	titulo.add_theme_constant_override("separation", 0)
+	_titulo_seccion = Label.new()
+	var chico := Label.new()
+	chico.text = "Inventario"
+	chico.add_theme_font_size_override("font_size", 11)
+	chico.add_theme_color_override("font_color", MenuScaffold.GRIS)
+	titulo.add_child(chico)
+	_titulo_seccion.add_theme_font_size_override("font_size", 20)
+	_titulo_seccion.add_theme_color_override("font_color", AMBAR)
+	titulo.add_child(_titulo_seccion)
+	barra.add_child(titulo)
+	barra.move_child(titulo, 1)
+
+	# PESTAÑAS CENTRADAS DE VERDAD, EN LA MITAD DE LA PANTALLA.
+	#
+	# Dentro de la barra no se puede: la barra es [titulo][tabs][hueco][contador][dinero][✕], asi que
+	# "centrar" ahi dentro es centrar en el hueco que sobra entre el titulo y el dinero -- y como esos
+	# dos no miden lo mismo, la fila quedaba corrida a la izquierda. Y encima se movia sola: el
+	# contador cambia de ancho al cambiar de pestaña, asi que las pestañas BAILABAN de sitio al
+	# pulsarlas.
+	#
+	# Se sacan de la barra y se cuelgan de la raiz, en un CenterContainer que ocupa todo el ancho.
+	# Asi el centro es el de la pantalla, es el MISMO que el de las subpestañas de abajo (que ya
+	# estaban centradas a todo lo ancho: por eso las dos filas no coincidian), y no depende de lo
+	# que midan sus vecinos.
+	barra.remove_child(barra_tabs)
+	var centrador := CenterContainer.new()
+	centrador.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	centrador.offset_top = 16.0
+	centrador.offset_bottom = 16.0 + MenuScaffold.LADO_ICONO
+	# Que no robe los clics de lo que hay debajo (el CenterContainer ocupa todo el ancho): los
+	# botones de dentro los siguen recibiendo, porque un hijo con MOUSE_FILTER_STOP manda sobre el
+	# IGNORE del padre.
+	centrador.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(centrador)
+	centrador.add_child(barra_tabs)
+
+	# EL CONTADOR de la pestaña (peso de la bolsa, luz que queda). NO es informacion del objeto -- es
+	# del estado del grupo -- asi que no cabe en la ficha de la derecha; va arriba con el dinero,
+	# que es justo donde la referencia pone su "Cantidad de artefactos: 229/3000".
+	_contador_lbl = Label.new()
+	_contador_lbl.add_theme_font_size_override("font_size", 15)
+	_contador_lbl.add_theme_color_override("font_color", Color(0.78, 0.82, 0.90))
 
 	# LAS MONEDAS, A LA BARRA DE ARRIBA. El esqueleto las cuelga ANCLADAS bajo la esquina de la ✕,
 	# que es donde van cuando la ✕ flota sobre la pantalla; pero con la barra superior la ✕ vive
 	# dentro de la barra, asi que las monedas se quedaban solas flotando en mitad de la cabecera y en
 	# cuerpo 22, gritando. Aqui pasan a ser una pieza mas de la barra, al lado de la ✕.
-	var barra: Node = barra_tabs.get_parent()
 	_dinero_lbl.get_parent().remove_child(_dinero_lbl)
 	_dinero_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	_dinero_lbl.custom_minimum_size = Vector2.ZERO
 	_dinero_lbl.add_theme_font_size_override("font_size", 15)
-	barra.add_child(_dinero_lbl)
-	# Justo ANTES de la ✕, que es el ultimo hijo de la barra.
-	barra.move_child(_dinero_lbl, barra.get_child_count() - 2)
+	# Los dos, justo ANTES de la ✕, que es el ultimo hijo de la barra.
+	for l in [_contador_lbl, _dinero_lbl]:
+		barra.add_child(l)
+		barra.move_child(l, barra.get_child_count() - 2)
 
 
 # ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
@@ -189,6 +255,20 @@ func _rebuild() -> void:
 
 func _rebuild_real() -> void:
 	_dinero_lbl.text = "%d monedas" % Game.money
+	# El contador arranca VACIO en cada pasada: cada pestaña pone el suyo (o ninguno) llamando a
+	# _contador(). Si no se limpiara aqui, el peso de la bolsa se quedaria pegado arriba al pasarse
+	# a la pestaña de armas.
+	_contador("")
+	# El nombre de la seccion, arriba a la izquierda bajo "Inventario". Las subpestañas lo afinan
+	# despues (Equipo -> "Farolillo"), que es la unica forma de saber donde estas con las pestañas
+	# en icono.
+	_titulo_seccion.text = TABS[clampi(_tab, 0, TABS.size() - 1)]
+	# La fila de subpestañas cuelga de la RAIZ y no del header, asi que vaciar() no se la lleva: si
+	# no se suelta aqui, las tres de Equipo se quedaban flotando encima de la rejilla de la Bolsa.
+	# La pestaña que tenga subpestañas la vuelve a crear en su _build.
+	if _fila_sub != null and is_instance_valid(_fila_sub):
+		_fila_sub.queue_free()
+		_fila_sub = null
 	for zona in [_header, _lista, _content]:
 		MenuScaffold.vaciar(zona)
 	for i in _tab_buttons.size():
@@ -200,6 +280,16 @@ func _rebuild_real() -> void:
 		3: _build_materiales()
 		4: _build_armas()
 		5: _build_armaduras()
+
+
+# El contador de arriba a la derecha: el estado del GRUPO en esta pestaña (peso de la bolsa, luz
+# que queda), que no es de ningun objeto y por eso no cabe en la ficha. Texto vacio = no se enseña.
+# 'alerta' lo pinta en rojo (sobrecargado, sin caña, sin luz).
+func _contador(txt: String, alerta: bool = false) -> void:
+	_contador_lbl.text = txt
+	_contador_lbl.visible = txt != ""
+	_contador_lbl.add_theme_color_override("font_color",
+		Color(1.0, 0.52, 0.52) if alerta else Color(0.78, 0.82, 0.90))
 
 
 # ============================================================
@@ -258,6 +348,7 @@ func _row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Varia
 	var k := Label.new()
 	k.text = etiqueta
 	k.custom_minimum_size = Vector2(150, 0)
+	k.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	row.add_child(k)
 	var v := Label.new()
@@ -283,28 +374,96 @@ func _note(vb: VBoxContainer, txt: String) -> void:
 	vb.add_child(l)
 
 
-# PESTAÑA DE ARRIBA: sin caja, solo el texto, y un SUBRAYADO en la activa. El boton del tema es un
-# ladrillo de 44 px con borde, y seis de esos en fila parecen seis botones de accion en vez de seis
-# solapas de un archivador. Lo que dice cual esta abierta es la linea de abajo, como en un navegador.
-func _estilo_pestana(b: Button) -> void:
-	b.custom_minimum_size = Vector2(0, 36)
-	b.add_theme_font_size_override("font_size", 15)
+# ============================================================
+#  LAS PESTAÑAS
+#  Sin caja: solo el contenido y un SUBRAYADO en la activa. El boton del tema es un ladrillo de
+#  44 px con borde, y seis de esos en fila parecen seis botones de accion en vez de seis solapas de
+#  un archivador. Lo que dice cual esta abierta es la linea de abajo, como en un navegador.
+# ============================================================
+
+const TAB_APAGADA := Color(0.55, 0.59, 0.67)
+const LADO_TAB := 34.0
+# La fila de subpestañas flota sobre la raiz (ver _subpestanas), asi que su sitio va a mano: justo
+# debajo de la barra de arriba y de su linea separadora.
+const ALTO_SUBPESTANAS := 44.0
+const ALTO_SUBPESTANAS_Y := 78.0
+
+# La fila de subpestañas viva (cuelga de la raiz, no del header, asi que MenuScaffold.vaciar no la
+# barre: hay que soltarla a mano en cada pasada).
+var _fila_sub: Control = null
+
+# El armazon comun de las dos clases de pestaña (la de arriba, con icono; la de dentro, con texto).
+func _pestana_base(b: Button, alto: float) -> void:
+	b.toggle_mode = true
+	b.custom_minimum_size = Vector2(0, alto)
 	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
-	b.add_theme_color_override("font_color", Color(0.62, 0.66, 0.74))
-	b.add_theme_color_override("font_hover_color", Color(0.92, 0.94, 0.98))
-	# La activa (que es la que esta 'pressed', porque son toggle) en ambar y con su linea.
-	b.add_theme_color_override("font_pressed_color", AMBAR)
-	b.add_theme_color_override("font_hover_pressed_color", AMBAR)
-	b.add_theme_color_override("font_focus_color", Color(0.92, 0.94, 0.98))
 	b.draw.connect(func() -> void:
 		if not b.button_pressed:
 			return
 		var y: float = b.size.y - 2.0
-		b.draw_rect(Rect2(Vector2(6, y), Vector2(b.size.x - 12.0, 2.0)), AMBAR))
+		b.draw_rect(Rect2(Vector2(4, y), Vector2(b.size.x - 8.0, 2.0)), AMBAR))
 	# Un Button no se repinta al marcarse/desmarcarse, y aqui lo unico que cambia es lo que dibuja
 	# ese draw: sin esto, el subrayado se quedaba en la pestaña anterior.
 	b.toggled.connect(func(_on): b.queue_redraw())
+
+
+# PESTAÑA CON ICONO (la fila de arriba). El icono se dibuja encima del boton, no como textura: los
+# iconos del proyecto son funciones de dibujo (ver iconos.gd) para que se vean igual en Windows y en
+# el movil, sin depender de que el aparato tenga una fuente con emoji.
+#
+# El NOMBRE va en el tooltip y, sobre todo, escrito arriba a la izquierda bajo "Inventario": una
+# fila de seis iconos pelados sin ningun sitio donde leer que es cada uno seria un acertijo.
+func _pestana_icono(icono: String, nombre: String) -> Button:
+	var b := Button.new()
+	_pestana_base(b, LADO_TAB + 10.0)
+	b.custom_minimum_size.x = LADO_TAB + 14.0
+	b.tooltip_text = nombre
+	var dibujo := Callable(Iconos, icono)
+	b.draw.connect(func() -> void:
+		var pad: float = (b.size.x - LADO_TAB) * 0.5
+		dibujo.call(b, Vector2(pad, 3.0), LADO_TAB,
+			AMBAR if b.button_pressed else TAB_APAGADA))
+	return b
+
+
+# La fila de SUBpestañas, con icono igual que la de arriba y centrada en el mismo eje (las dos van
+# al centro de la pantalla entera, asi que caen una debajo de la otra). Va en el header, que es lo
+# unico que queda ahi dentro: el resto de la cabecera se fue a la ficha o al contador de arriba.
+#
+# El nombre de la subpestaña activa se lee arriba a la izquierda, donde el de la seccion: con las
+# dos filas en icono, ese rotulo es el unico sitio donde pone donde estas, y por eso lo pisa la
+# subpestaña (en Equipo, saber que estas en "Farolillo" dice mas que saber que estas en "Equipo").
+func _subpestanas(nombres: Array, iconos: Array, activa: int, pulsado: Callable) -> void:
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 14)
+	for i in nombres.size():
+		var b: Button = _pestana_icono(String(iconos[i]), String(nombres[i]))
+		b.button_pressed = (i == activa)
+		b.pressed.connect(pulsado.bind(i))
+		fila.add_child(b)
+
+	# Se centra COLGANDO DE LA RAIZ, igual que la fila de arriba, y no con un ALIGNMENT_CENTER
+	# dentro del header. Metida en el header se centraba en el ANCHO DEL HEADER, que no es el de la
+	# pantalla: los margenes del esqueleto son 8 por la izquierda y 16 por la derecha, asi que la
+	# fila caia 4 px a la izquierda de la de arriba. Con las dos colgadas de la raiz el eje es el
+	# mismo por construccion y no hay nada que cuadrar a mano.
+	if _fila_sub != null and is_instance_valid(_fila_sub):
+		_fila_sub.queue_free()
+	_fila_sub = CenterContainer.new()
+	_fila_sub.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_fila_sub.offset_top = ALTO_SUBPESTANAS_Y
+	_fila_sub.offset_bottom = ALTO_SUBPESTANAS_Y + ALTO_SUBPESTANAS
+	_fila_sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_fila_sub)
+	_fila_sub.add_child(fila)
+
+	# Y en el header se deja un hueco de su alto: la fila flota, asi que no empuja a la rejilla ella
+	# sola y sin esto la primera hilera de celdas se le metia debajo.
+	var hueco := Control.new()
+	hueco.custom_minimum_size = Vector2(0, ALTO_SUBPESTANAS)
+	hueco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_header.add_child(hueco)
 
 
 # Cuantas columnas caben en el ancho que tenga la rejilla AHORA MISMO. Se mide en vez de fijarla
@@ -423,17 +582,12 @@ func _nombre_item(it: Resource) -> String:
 # ============================================================
 
 func _build_bolsa() -> void:
-	_title(_header, "BOLSA  (expedición)")
-	var peso: float = Game.peso_actual()
-	var cap: float = Game.capacidad_carga()
-	var cab := Label.new()
-	cab.text = "Peso: %d / %d%s" % [roundi(peso), roundi(cap),
-		"    ¡SOBRECARGADO!" if Game.esta_sobrecargado() else ""]
-	cab.add_theme_color_override("font_color",
-		Color(1.0, 0.5, 0.5) if Game.esta_sobrecargado() else Color(0.85, 0.88, 0.92))
-	_header.add_child(cab)
-	_note(_header, "Lo que llevas encima. Los cristales solo salen vendiéndolos en la tienda; los materiales puedes guardarlos en el Hogar.")
-	_header.add_child(HSeparator.new())
+	# El PESO va arriba, con el dinero: es el estado de la bolsa, no de ningun objeto, y ahi esta
+	# siempre a la vista en vez de comerse una linea de la pantalla.
+	# Sin la palabra "SOBRECARGADO": los propios numeros ya lo dicen (el de la izquierda pasa al de
+	# la derecha) y ademas se pinta en rojo. La palabra doblaba el ancho del contador.
+	_contador("Peso  %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())],
+		Game.esta_sobrecargado())
 
 	var items: Array = []
 	for c in Game.crystals:
@@ -505,11 +659,13 @@ func _confirmar_soltar(cant: int) -> void:
 # ellas -- no tiene minijuego, no ahorra golpes, y ademas gasta un consumible. Su pantalla enseña
 # el farolillo Y el carbon juntos, porque son una sola cosa: la luz.
 const SUBS_EQUIPO := ["Mochila", "Herramientas", "Farolillo"]
+# Sus iconos, en el mismo orden (ver TAB_ICONOS para el porque de que vayan sin texto).
+const SUBS_EQUIPO_ICONOS := ["mochila", "pico", "farol"]
 var _sub_equipo: int = 0
 
 func _build_equipo() -> void:
-	MenuScaffold.pestanas(_header, SUBS_EQUIPO, _sub_equipo, _on_sub_equipo)
-	_header.add_child(HSeparator.new())
+	_subpestanas(SUBS_EQUIPO, SUBS_EQUIPO_ICONOS, _sub_equipo, _on_sub_equipo)
+	_titulo_seccion.text = SUBS_EQUIPO[clampi(_sub_equipo, 0, SUBS_EQUIPO.size() - 1)]
 	match _sub_equipo:
 		0: _build_mochila()
 		2: _build_farolillo()
@@ -523,17 +679,7 @@ func _on_sub_equipo(i: int) -> void:
 
 
 func _build_mochila() -> void:
-	_title(_header, "MOCHILA  (del equipo)")
-	var m: BackpackData = Game.mochila_equipo
-	_note(_header, "Una sola para todo el grupo: es lo único que sube la capacidad de carga. "
-		+ "Llevas puesta: %s" % (Game.item_display_name(m) if m != null else "ninguna (solo el zurrón de serie)"))
-	var cab := Label.new()
-	cab.text = "Peso: %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
-	cab.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92))
-	_header.add_child(cab)
-	if not Game.en_pueblo():
-		_note(_header, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
-	_header.add_child(HSeparator.new())
+	_contador("Peso  %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())])
 
 	_stacks = []
 	for mo in Game.owned_mochilas:
@@ -565,28 +711,20 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 	MenuScaffold.pastilla(vb, "Quitar" if puesta else "Equipar", func():
 		Game.equipar_mochila(null if puesta else m)
 		_rebuild(), not puesta, Game.en_pueblo())
+	if not Game.en_pueblo():
+		_note(vb, "Cambios de equipo solo en el pueblo.")
 	if puesta:
 		_note(vb, "Al quitarla os quedáis con el zurrón de serie (25 de carga).")
 
 
 # --- HERRAMIENTAS: pico, hoz, hacha y caña. Del grupo, como la mochila. ---
 func _build_herramientas() -> void:
-	_title(_header, "HERRAMIENTAS  (del equipo)")
-	_note(_header, "No te entrenan más rápido: hacen la recolección menos hostil y sacas más material por rato. "
-		+ "Una por tipo, para todo el grupo. Las forja el herrero.")
-	var puestas: PackedStringArray = []
-	for tipo in [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA, ToolData.Tipo.CANA]:
-		var t: ToolData = Game.herramienta_de_tipo(int(tipo))
-		# La CAÑA es la unica que puede venir NULL: sin caña forjada no se pesca, no hay "de serie".
-		if t == null:
-			puestas.append("Caña: ninguna (sin ella no se pesca)")
-			continue
-		puestas.append("%s: %s" % [t.tipo_texto(),
-			Game.item_display_name(t) if Game.es_herramienta_forjada(t) else "la de serie"])
-	_note(_header, "   ·   ".join(puestas))
-	if not Game.en_pueblo():
-		_note(_header, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
-	_header.add_child(HSeparator.new())
+	# La lista de "que llevas puesto de cada tipo" ya no hace falta escrita: la rejilla marca las
+	# puestas con su etiqueta de esquina, que es el mismo dato en el sitio donde se actua sobre el.
+	# La CAÑA es la unica que puede faltar del todo (sin caña forjada no se pesca, no hay una de
+	# serie a la que volver), asi que ESO si se avisa, porque no se deduce mirando la rejilla.
+	if Game.herramienta_de_tipo(int(ToolData.Tipo.CANA)) == null:
+		_contador("Sin caña", true)
 
 	_stacks = []
 	for t in Game.owned_tools:
@@ -609,25 +747,14 @@ func _build_herramientas() -> void:
 
 # --- FAROLILLO: la luz y su combustible, juntos ---
 func _build_farolillo() -> void:
-	_title(_header, "FAROLILLO  (del equipo)")
-	_note(_header, "La mazmorra está a oscuras: solo ves lo que alumbra tu farolillo (o el de un "
-		+ "compañero) y a lo que tengas línea recta. Cuanto más hondo bajas, menos alumbra el mismo "
-		+ "farolillo. Sin él, o sin carbón, te queda el mínimo y nada más.")
-	var puesto: ToolData = Game.equipped_lampara
-	var cab := Label.new()
-	if puesto == null:
-		cab.text = "Sin farolillo  ·  alcance %.1f casillas (el mínimo)" % Vision.RADIO_MINIMO
+	# LA LUZ TOTAL arriba, con el dinero: es el numero que decide si bajas otro piso o te vuelves, y
+	# no es de ningun objeto -- suma la llama que arde ahora y todos los trozos que llevas. El
+	# alcance y la llama de UN farolillo si son suyos, y por eso viven en su ficha.
+	if Game.equipped_lampara == null:
+		_contador("Sin farolillo", true)
 	else:
-		# LA LUZ TOTAL es el numero que decide si bajas otro piso o te vuelves, y antes no estaba en
-		# ningun sitio: habia que sumar a ojo la llama actual y los trozos que llevabas.
-		cab.text = "%s  ·  alcance %.1f casillas  ·  llama %s  ·  %s de luz en total" % [
-			Game.item_display_name(puesto), Game.radio_lampara(),
-			_mmss(Game.lampara_llama), _mmss(Game.luz_total_restante())]
-	cab.add_theme_color_override("font_color", Color(0.98, 0.85, 0.55))
-	_header.add_child(cab)
-	if not Game.en_pueblo():
-		_note(_header, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
-	_header.add_child(HSeparator.new())
+		var luz: float = Game.luz_total_restante()
+		_contador("Luz  %s" % _mmss(luz), luz <= 0.0)
 
 	# EL CARBON, EN LA REJILLA junto a los farolillos y no en una linea de texto del cabecero. Dos
 	# motivos: la linea AGRUPABA SOLO POR MATERIAL y cogia un trozo cualquiera de muestra para dar los
@@ -647,9 +774,6 @@ func _build_farolillo() -> void:
 		_note(_content, "No tienes ningún farolillo. Los forja el herrero, en Herramientas, "
 			+ "con metal y unas hebillas.")
 		return
-	if carbones.is_empty():
-		_note(_header, "No te queda carbón. Se pica en las vetas negras de la mazmorra, y el "
-			+ "carpintero hace carbón vegetal con madera.")
 	var piezas: Array = []
 	for s in _stacks:
 		var modelo: Resource = s["modelo"]
@@ -722,6 +846,8 @@ func _preview_herramienta(vb: VBoxContainer) -> void:
 		else:
 			Game.equipar_herramienta(t)
 		_rebuild(), not puesta, Game.en_pueblo())
+	if not Game.en_pueblo():
+		_note(vb, "Cambios de equipo solo en el pueblo.")
 	if puesta:
 		if t.es_cana():
 			_note(vb, "Sin caña no puedes pescar: no hay una de serie a la que volver.")
@@ -735,9 +861,6 @@ func _preview_herramienta(vb: VBoxContainer) -> void:
 # ============================================================
 
 func _build_consumibles() -> void:
-	_title(_header, "CONSUMIBLES")
-	_note(_header, "Selecciona una poción y elige a quién se la das. Cura por el tiempo (no de golpe).")
-	_header.add_child(HSeparator.new())
 
 	_stacks = []
 	for c in Game.consumables.keys():
@@ -872,9 +995,9 @@ func _on_usar(cons: ConsumableData, pj: PersonajeData = null) -> void:
 # ============================================================
 
 func _build_materiales() -> void:
-	_title(_header, "MATERIALES  (guardados en el Hogar)")
-	_note(_header, "Los materiales que has depositado en el Hogar del pueblo. No pesan. Los cristales no se guardan aquí: hay que venderlos en la tienda.")
-	_header.add_child(HSeparator.new())
+	# El HOGAR no pesa, asi que aqui no hay contador de carga; lo que si dice algo es CUANTO hay
+	# guardado, que es lo que se viene a mirar antes de bajar a por mas.
+	_contador("Guardados  %d" % Game.almacen_materiales.size())
 	_stacks = _agrupar(Game.almacen_materiales)
 	_grid_detail(_piezas_stacks(_stacks), _preview_material)
 
@@ -898,9 +1021,6 @@ func _preview_material(vb: VBoxContainer) -> void:
 # ============================================================
 
 func _build_armas() -> void:
-	_title(_header, "ARMAS  (tu baúl)")
-	_note(_header, "Lo que posees. Para equiparlo, abre el menú de personaje [C] en el pueblo.")
-	_header.add_child(HSeparator.new())
 	_stacks = []
 	for w in Game.owned_weapons:
 		_stacks.append({"modelo": w, "cantidad": 1})
@@ -986,9 +1106,6 @@ func _preview_arma(vb: VBoxContainer) -> void:
 # ============================================================
 
 func _build_armaduras() -> void:
-	_title(_header, "ARMADURAS  (tu baúl)")
-	_note(_header, "Lo que posees. Para equiparlo, abre el menú de personaje [C] en el pueblo.")
-	_header.add_child(HSeparator.new())
 	_stacks = []
 	for p in Game.owned_armor:
 		_stacks.append({"modelo": p, "cantidad": 1})
