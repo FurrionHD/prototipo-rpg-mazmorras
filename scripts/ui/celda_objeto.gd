@@ -166,8 +166,8 @@ func _draw() -> void:
 		draw_polygon(borde, PackedColorArray([Color(0.04, 0.05, 0.07, 0.55)]))
 
 
-# LA MUESCA PINTADA: el triangulo de la esquina superior izquierda, del color del tier, con un
-# punto por cada vuelta de la escalera (ver IconoItem.color_tier / vueltas_tier).
+# LA MUESCA PINTADA: el triangulo de la esquina superior izquierda, del color del tier y con el
+# NUMERO escrito dentro (ver IconoItem.color_tier).
 #
 # Se dibuja DENTRO del hueco del chaflan y no encima del borde: el contorno ya deja ese triangulo
 # libre, asi que basta con rellenarlo y la silueta de la celda no cambia.
@@ -188,23 +188,27 @@ func _muesca_tier(w: float, h: float) -> void:
 	# rarezas claras tiran al mismo sitio y se comian el borde.
 	draw_line(Vector2(m + f, 0.0), Vector2(0.0, m + f), col.lightened(0.35), 2.0, true)
 
-	# LOS PUNTOS DE VUELTA, en la franja y siguiendo su diagonal: es la parte que sigue contando
-	# cuando el color ya ha dejado de aclararse (ver el tope de color_tier). Sin ellos, un T2 y un
-	# T14 acabarian pareciendose.
-	var vueltas: int = IconoItem.vueltas_tier(tier)
-	if vueltas <= 0:
-		return
-	var r: float = maxf(minf(w, h) * 0.028, 1.5)
+	# EL NUMERO DEL TIER, escrito en la franja. El color agrupa de un vistazo (cuatro T2 seguidos se
+	# ven de golpe) y el numero lo remata sin dejar dudas, que era la pega del color solo: hay que
+	# aprenderselo. Van los dos porque responden a preguntas distintas.
+	#
+	# SIN LA "T": el numero esta dentro de la muesca del tier, asi que la letra no añade nada y a este
+	# tamaño le roba la mitad del sitio al digito.
+	#
+	# Y ya no hay puntos de vuelta: los puso el diseño de color para separar un T2 de un T8, y con el
+	# numero escrito eso lo dice el propio numero. Dos formas de contar lo mismo es una de mas.
+	var fuente: Font = get_theme_font(&"font")
+	var tam: int = maxi(int(minf(w, h) * 0.17), 8)
+	var txt: String = str(tier)
+	var an: float = fuente.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x
+	# En el CENTROIDE del triangulo (L/3, L/3), que es donde mas ancho tiene: pegado a la esquina se
+	# sale por el chaflan y pegado a la diagonal se come el borde.
+	var c3: float = (m + f) / 3.0
 	# Contraste sobre el propio color: oscuro si la franja es clara, claro si es oscura.
-	var tinta: Color = Color(0.05, 0.05, 0.08, 0.92) if col.get_luminance() > 0.5 \
-		else Color(1, 1, 1, 0.92)
-	# Repartidos a lo largo de la diagonal, que es por donde la franja tiene sitio. Cuatro como mucho:
-	# a partir de ahi no se cuentan de un vistazo, y son 24 tiers de margen.
-	var largo: float = (m + f) * 0.72
-	var n: int = mini(vueltas, 4)
-	for i in n:
-		var t: float = (float(i) + 1.0) / float(n + 1)
-		draw_circle(Vector2(largo * t, largo * (1.0 - t)), r, tinta)
+	var tinta: Color = Color(0.05, 0.05, 0.08, 0.95) if col.get_luminance() > 0.5 \
+		else Color(1, 1, 1, 0.95)
+	draw_string(fuente, Vector2(c3 - an * 0.5, c3 + float(tam) * 0.38), txt,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, tam, tinta)
 
 
 # El contorno de la celda: rectangulo con la esquina superior izquierda MUY achaflanada (la muesca,

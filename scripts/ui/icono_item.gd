@@ -280,13 +280,16 @@ static func techo(item: Resource) -> int:
 #  lista de tres colores escritos a mano no vale: el dia que llegue el T4 alguien tiene que
 #  acordarse de inventarse un color, y a partir del T8 ya no quedan colores que se distingan.
 #
-#  Por eso va en DOS EJES, que es lo unico que escala de verdad:
+#  Por eso el color va en DOS EJES, que es lo unico que escala de verdad:
 #    - EL TONO da la posicion dentro de la vuelta (seis tonos bien separados en la rueda). Se repite
 #      cada TIER_POR_VUELTA, igual que se repiten las unidades al contar.
-#    - LA VUELTA sube el BRILLO y pinta un punto por cada una encima de la muesca. Asi un T2 y un T8
-#      comparten tono pero no se confunden: el segundo es mas claro y lleva un punto.
-#  Es leer un numero: el tono es la unidad y los puntos la decena. Con eso, T1..T6 son seis colores
-#  a secas —lo unico que hay hoy— y el sistema sigue valiendo en el T37 sin tocar nada.
+#    - LA VUELTA sube el BRILLO, asi que un T2 y un T8 comparten tono pero el segundo es mas claro.
+#
+#  Y encima de todo eso, la celda escribe el NUMERO dentro de la muesca (ver CeldaObjeto). Los dos
+#  juntos porque responden a preguntas distintas: el color agrupa de un vistazo —cuatro T2 seguidos
+#  se ven de golpe, sin leer— y el numero quita la duda, que era la pega del color a solas: hay que
+#  aprenderselo. Con el numero puesto, el color ya no tiene que ser univoco para siempre; solo tiene
+#  que ayudar a ver bloques.
 #
 #  Los tonos se eligieron para NO chocar con los ocho de rareza del fondo (ver Upgrades.RAREZA_COLOR):
 #  van mas oscuros y menos saturados, porque la muesca es pequeña y va SOBRE el fondo de rareza.
@@ -317,12 +320,6 @@ static func color_tier(tier: int) -> Color:
 	var subida: float = minf(0.12 * float(vuelta), 0.42)
 	return Color.from_hsv(base.h, maxf(base.s - subida * 0.5, 0.12),
 		minf(base.v + subida, 1.0), base.a)
-
-
-# Cuantas VUELTAS lleva dado este tier: 0 para T1..T6, 1 para T7..T12, etc. Son los puntos que se
-# pintan sobre la muesca, y es lo que separa un T2 de un T8.
-static func vueltas_tier(tier: int) -> int:
-	return (maxi(tier, 1) - 1) / TIER_POR_VUELTA
 
 
 # El TIER de un item, o 0 si eso no tiene tier (un cristal, una pocion sin tier). El equipo lo lleva

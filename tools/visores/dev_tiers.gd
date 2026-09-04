@@ -41,8 +41,8 @@ func _ready() -> void:
 	add_child(col)
 
 	MenuScaffold.titulo(col, "LA ESCALERA DEL TIER  ·  T1 a T%d" % TIERS, 18)
-	MenuScaffold.nota(col, "El tono da la vuelta cada %d y los puntos cuentan las vueltas: el tono "
-		% IconoItem.TIER_POR_VUELTA + "es la unidad y los puntos la decena.")
+	MenuScaffold.nota(col, "El número lo dice sin dudas; el color agrupa de un vistazo (el tono da "
+		+ "la vuelta cada %d y cada vuelta aclara)." % IconoItem.TIER_POR_VUELTA)
 
 	# Cuatro filas de seis: cada fila es UNA vuelta entera, asi que las vueltas se comparan de un
 	# vistazo mirando de arriba abajo por la misma columna (T2 sobre T8 sobre T14 sobre T20).
