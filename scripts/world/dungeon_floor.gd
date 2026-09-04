@@ -91,6 +91,11 @@ class_name DungeonFloor
 const RESPAWN_CHECK_CADA := 2.0
 var _t_respawn: float = RESPAWN_CHECK_CADA
 var _t_boss: float = RESPAWN_CHECK_CADA   # el mismo latido, para el respawn del jefe
+# EL JEFE ESTA NACIENDO: su aviso tiembla en el suelo y todavia no hay bicho. Hace falta porque
+# _repoblar_boss late cada 2 s y el aviso dura 2.6: sin esto arrancaria un segundo temblor -y un
+# segundo jefe- en mitad del primero, ya que la comprobacion de "¿hay uno de pie?" mira el grupo
+# "enemy" y ahi aun no hay nadie.
+var _boss_naciendo: bool = false
 
 # --- RITMO de los partos (segundos). Franja ANCHA y LENTA a proposito: ver spawn_zone.gd ---
 # DOBLADOS (eran 25-70): con el aforo de la sala, los pasillos que desembocan en ella y los partos
@@ -427,6 +432,9 @@ func _construir(por_la_bajada: bool = false) -> void:
 	_salidas_puestas = false
 	_sala_boss = -1
 	_boss_pos = Vector2.INF
+	# Un aviso a medias del piso anterior no puede dejar el candado puesto: su await comprueba el
+	# piso y se va sin plantar nada, pero sin esto _repoblar_boss se quedaria mudo aqui para siempre.
+	_boss_naciendo = false
 	_zona_aterrizaje = -1
 	_zonas_seguras.clear()
 	_zona_estanque = -1
@@ -815,7 +823,13 @@ func _colocar_boss() -> void:
 	# solo espeja no lo coloca (lo ve por Net).
 	if not Net.simulo_mi_piso():
 		return
-	var data: EnemyData = Game.boss_del_piso(Game.current_floor)
+	# EL PISO QUE SE ESTA CONSTRUYENDO, no Game.current_floor. Era el unico sitio de todo el bloque
+	# del jefe que preguntaba por current_floor (los demas -las lineas de abajo, _repoblar_boss y la
+	# restauracion de memoria- ya usan _piso_construido), y los dos pueden ir desacompasados: una
+	# transicion de escalera, una construccion diferida desde _ready, o el piso de otro jugador en
+	# multi. Cuando divergen se planta el jefe EQUIVOCADO, o ninguno -- y como piso_bloqueado() cierra
+	# la bajada y la salida hasta que cae, el piso se queda en callejon sin salida.
+	var data: EnemyData = Game.boss_del_piso(_piso_construido)
 	if data == null:
 		return
 	var sala: Rect2i = _sala_central()
@@ -1401,8 +1415,8 @@ func _repoblar_agotados(delta: float) -> void:
 # Se aprovecha el mismo cronometro que el respawn de vetas (_t_respawn no, que ese ya lo consume la
 # otra: este lleva el suyo) y se comprueba lo minimo, que esto corre en cada frame.
 func _repoblar_boss(delta: float) -> void:
-	if _boss_pos == Vector2.INF:
-		return   # este piso no tiene jefe
+	if _boss_pos == Vector2.INF or _boss_naciendo:
+		return   # este piso no tiene jefe, o el suyo ya viene de camino (ver _anunciar_boss)
 	_t_boss -= delta
 	if _t_boss > 0.0:
 		return
@@ -1419,7 +1433,67 @@ func _repoblar_boss(delta: float) -> void:
 	if data == null:
 		return
 	print("[mazmorra] el jefe del piso ", _piso_construido, " vuelve a su sala")
-	_parir_boss(data, _boss_pos, _piso_construido)
+	_anunciar_boss(data)
+
+
+# ============================================================
+#  EL PARTO DEL JEFE, ANUNCIADO
+# ============================================================
+# Antes el jefe aparecia DE GOLPE en mitad de su sala: estabas dentro, parpadeabas y ya estaba ahi.
+# Ahora tiembla primero, como un brote de pared, pero MAS GORDO: mas rato y mas amplitud, y sobre un
+# corro de celdas en vez de un tramo de muro. Es la misma pieza que usa SpawnZone (WallBirthFx), asi
+# que el lenguaje visual es el que ya conoces -- "el suelo late, viene algo".
+#
+# LO QUE NO HACE ES EMBESTIR. El brote llama a nacer_embistiendo() y los bichos salen disparados
+# hacia ti; el jefe no. Nace y se queda merodeando su sala, como siempre: es el dueño del sitio, no
+# una emboscada. (Regla del usuario, y ademas su sala es lo bastante grande como para que salir
+# corriendo hacia el jugador fuese solo un susto barato.)
+const BOSS_AVISO_DUR := 2.6    # el brote gordo anda por 2.6 s (1.2 x 2.2); el jefe iguala y se queda
+const BOSS_AVISO_AMP := 9.0    # y tiembla mas: 3 x el brote normal (2.5 x 3.0 = 7.5)
+const BOSS_AVISO_RADIO := 2    # celdas a cada lado del centro: un corro de 5x5 alrededor del jefe
+const BOSS_AVISO_COLOR := Color(0.85, 0.15, 0.10)   # mas oscuro y mas rojo que el naranja del brote
+const _FX_PARTO := preload("res://scripts/world/wall_birth_fx.gd")
+
+
+func _anunciar_boss(data: EnemyData) -> void:
+	_boss_naciendo = true
+	# La inversa de centro_px: de pixeles a celda. floor() y no int(), que con coordenadas negativas
+	# int() trunca hacia cero y el corro saldria corrido una celda.
+	var centro := Vector2i(
+		int(floor(_boss_pos.x / float(DungeonGenerator.CELDA))),
+		int(floor(_boss_pos.y / float(DungeonGenerator.CELDA))))
+	var celdas: Array = []
+	for dy in range(-BOSS_AVISO_RADIO, BOSS_AVISO_RADIO + 1):
+		for dx in range(-BOSS_AVISO_RADIO, BOSS_AVISO_RADIO + 1):
+			celdas.append(gen.centro_px(centro + Vector2i(dx, dy)))
+	if celdas.is_empty():
+		celdas.append(_boss_pos)
+	var fx: Node2D = _FX_PARTO.new()
+	fx.position = celdas[0]
+	add_child(fx)
+	fx.iniciar_tramo(float(DungeonGenerator.CELDA), BOSS_AVISO_DUR, BOSS_AVISO_AMP,
+		BOSS_AVISO_COLOR, celdas)
+	# El que solo ESPEJA este piso no tiene nada de esto (los bichos no nacen en su maquina), asi que
+	# veria al jefe aparecer de la nada. Es puro FX y viaja por el mismo canal que el brote.
+	if Net.activo:
+		Net.anunciar_brote(celdas, BOSS_AVISO_DUR, BOSS_AVISO_AMP, BOSS_AVISO_COLOR)
+	# Y el jefe, cuando acaba el aviso. El piso viaja en la llamada por lo mismo que en _colocar_boss:
+	# si entre medias te has ido a otro piso, este jefe ya no es de aqui.
+	var piso: int = _piso_construido
+	await get_tree().create_timer(BOSS_AVISO_DUR).timeout
+	if not is_instance_valid(self):
+		return
+	_boss_naciendo = false
+	if piso != _piso_construido:
+		return
+	if is_instance_valid(fx):
+		fx.queue_free()
+	# Alguien pudo plantarlo mientras temblaba (otro jugador entrando al piso, una carga de memoria):
+	# se comprueba otra vez, que dos jefes en la misma sala no los quita nadie.
+	for n in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(n) and n.es_boss:
+			return
+	_parir_boss(data, _boss_pos, piso)
 
 
 # Hace BROTAR otra vez la celda: levanta el sello y planta el nodo con el material RE-TIRADO.
