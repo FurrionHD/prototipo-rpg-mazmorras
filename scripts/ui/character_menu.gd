@@ -32,14 +32,23 @@
 
 extends CanvasLayer
 
-# --- LAS SECCIONES (la fila de iconos de arriba) ---
-const SECCIONES := ["Detalles", "Arma", "Trazos", "Armadura", "Eidolon"]
+# --- LAS SECCIONES (la columna de la izquierda) ---
+#
+# LOS NOMBRES SON LOS DEL JUEGO, no los de la pantalla en la que nos fijamos para la FORMA. De ahi
+# se copia el reparto (columna de secciones a la izquierda, gente arriba, ficha a la derecha) y nada
+# mas: "Trazos" y "Eidolon" no significan nada aqui, y estuvieron puestos por copiarlos sin pensar.
+#
+# OJO con "Habilidades": aqui son las del ARMA (las que enseña el maestro). Las cinco de DanMachi
+# —Fuerza, Resistencia, Destreza, Agilidad, Magia— se llaman en todo el juego "habilidades BASICAS",
+# y asi se llama tambien su pagina dentro de Ficha. Dos cosas parecidas con el mismo nombre a secas
+# no las distingue nadie.
+const SECCIONES := ["Ficha", "Armas", "Habilidades", "Armadura", "Desarrollo"]
 const SECCION_ICONOS := ["persona", "espada", "trazos", "coraza", "eidolon"]
-const SEC_DETALLES := 0
-const SEC_ARMA := 1
-const SEC_TRAZOS := 2
+const SEC_FICHA := 0
+const SEC_ARMAS := 1
+const SEC_HABILIDADES := 2
 const SEC_ARMADURA := 3
-const SEC_EIDOLON := 4
+const SEC_DESARROLLO := 4
 
 const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas"]
 const ARMOR_SLOT_LABELS := {
@@ -56,16 +65,18 @@ const ANCHO_FICHA := 360.0
 const ANCHO_REJILLA_MIN := 420.0
 # Alto reservado al muñeco. Va FIJO y no expansivo: la columna vive dentro de un ScrollContainer, y
 # ahi un size_flags_vertical EXPAND no estira nada (no hay alto que repartir, lo pone el contenido).
-const ALTO_MUNECO := 340.0
-# TOPE de aumento del muñeco. El cuerpo se dibuja a PoseJugador.ALTO_MUNDO px (60), asi que estirarlo
-# al alto entero de la caja seria un x5: el sprite se ve reventado y la cabeza se come la columna.
-const ESCALA_MUNECO := 3.4
-# Cuanto se levantan los pies del borde de abajo de la caja. Lo usan el muñeco y la sombra: la misma
-# cuenta en los dos sitios, o la sombra se despega de los talones.
-const PIES_SOBRE_PIE := 34.0
-# Lado del retrato de la barra de arriba. Mas pequeño que la celda: son cuatro y comparten fila con
-# el titulo, el hueco y la ✕.
-const LADO_RETRATO := 52.0
+const ALTO_MUNECO := 430.0
+# TOPE de aumento del muñeco. El cuerpo se dibuja a PoseJugador.ALTO_MUNDO px (60), asi que sin tope
+# se estira a lo que mida la caja. Se sube hasta donde el sprite aguanta sin verse reventado: es el
+# protagonista de esta columna y a x3 se quedaba en un monigote en medio de un descampado.
+const ESCALA_MUNECO := 6.0
+# El aire que se le deja al muñeco por arriba y por abajo dentro de su caja.
+const MARGEN_MUNECO := 20.0
+# EL RETRATO de la fila de arriba: el cuadro donde se ve la cara, y el alto total contando el nombre
+# de debajo. Grande a proposito -- son la forma de elegir a quien miras, y a 52 px no se distinguia
+# uno de otro.
+const LADO_RETRATO := 74.0
+const ALTO_RETRATO := LADO_RETRATO + 20.0
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const GRIS := Color(0.6, 0.63, 0.7)
@@ -75,9 +86,9 @@ var _header: VBoxContainer = null
 var _lista: VBoxContainer = null      # la columna del centro (rejilla / muñeco)
 var _content: VBoxContainer = null    # la ficha de la derecha
 var _barra_sub: HBoxContainer = null  # la fila de subpestañas (vacia = no se ve)
-var _titulo_seccion: Label = null     # la SECCION abierta, en grande
-var _nombre_lbl: Label = null         # de quien es la ficha, pequeño y gris encima
+var _titulo_seccion: Label = null     # el NOMBRE de quien estas mirando, arriba de la columna
 var _fila_retratos: HBoxContainer = null
+var _scroll_retratos: ScrollContainer = null   # con toda la plantilla no cabe en una fila
 var _tab_buttons: Array = []
 var _modal: Control = null            # el modal de la lupa / de robo (null = ninguno)
 # La caja del muñeco, para poder ESCONDERLA mientras hay un modal abierto. Hace falta porque el
@@ -86,8 +97,12 @@ var _modal: Control = null            # el modal de la lupa / de robo (null = ni
 # hay un panel de UI por encima: la figura se dibujaba ENCIMA del modal de la lupa. Taparlo con un
 # velo mas opaco no serviria — el z manda sobre el orden del arbol.
 var _caja_muneco: Control = null
+# A que altura han quedado los PIES del muñeco dentro de su caja. Lo escribe la colocacion y lo lee
+# el dibujo de la sombra: son dos lambdas distintas y con dos cuentas parecidas la sombra acababa
+# flotando por debajo de los talones.
+var _pies_y: float = 0.0
 
-var _sec: int = SEC_DETALLES
+var _sec: int = SEC_FICHA
 # A QUIEN le estas mirando la ficha (indice en Game.party). Con companeros este menu deja de ser "tu
 # ficha" y pasa a ser la de cualquiera de los tuyos: la fila de retratos elige, y todo lo que se
 # pinta debajo sale de _pj().
@@ -104,10 +119,12 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # abrirlo pausa el arbol: hay que seguir respondiendo
 	add_to_group("menu_personaje")   # lo busca el boton de la barra tactil (ver hud.gd)
 
-	# con_lateral = FALSE: las secciones van en una FILA ARRIBA, no en una columna a la izquierda.
-	# Es lo que se pidio ("en PC los personajes salen arriba") y ademas devuelve al centro los 230 px
-	# que se comia la columna. En movil la pantalla es la misma.
-	var m: Dictionary = MenuScaffold.construir(self, "PERSONAJE", "", _cerrar, false, false)
+	# con_lateral = TRUE: las secciones van en COLUMNA A LA IZQUIERDA, con su icono y su NOMBRE
+	# escrito. Es el reparto de la pantalla de referencia, y aqui hace mas falta todavia que alli:
+	# cinco iconos pelados en fila no dicen cual es cual, y esta pantalla no es un catalogo que se
+	# hojea (donde el icono basta), sino cinco sitios distintos a los que se va a buscar algo
+	# concreto. Lo que va ARRIBA es la GENTE, que es la otra cosa que se elige.
+	var m: Dictionary = MenuScaffold.construir(self, "PERSONAJE", "", _cerrar, false, true)
 	_root = m["root"]
 	_header = m["header"]
 	_lista = m["lista"]
@@ -146,65 +163,61 @@ func _ready() -> void:
 	col_centro.add_child(_barra_sub)
 	col_centro.add_child(scroll)
 
-	# --- LA BARRA DE ARRIBA ---
-	var barra_tabs: HBoxContainer = m["side"]
-	barra_tabs.add_theme_constant_override("separation", 14)
+	# --- LA COLUMNA DE SECCIONES (izquierda) ---
+	var col_tabs: VBoxContainer = m["side"]
+	col_tabs.add_theme_constant_override("separation", 2)
 	for i in SECCIONES.size():
-		var b: Button = MenuScaffold.pestana_icono(SECCION_ICONOS[i], SECCIONES[i])
+		var b: Button = _pestana_lateral(SECCION_ICONOS[i], SECCIONES[i])
 		b.pressed.connect(_on_seccion.bind(i))
-		barra_tabs.add_child(b)
+		col_tabs.add_child(b)
 		_tab_buttons.append(b)
 
-	var barra: BoxContainer = barra_tabs.get_parent()
-
-	# EL TITULO EN DOS LINEAS, igual que el inventario ("Inventario / ARMAS"): arriba, pequeño y gris,
-	# DE QUIEN es la ficha; debajo y grande, en que seccion estas.
-	#
-	# En ese orden y no al reves: con las secciones en icono, este rotulo es el UNICO sitio donde pone
-	# como se llama la que tienes abierta, asi que la seccion se lleva la linea grande. El nombre no se
-	# pierde -- esta arriba siempre, y en Detalles ademas sale grande en la ficha de la derecha.
+	# EL TITULO DE LA COLUMNA, en dos lineas: "Personaje" pequeño y gris sobre el NOMBRE de quien
+	# tienes delante. El nombre y no la palabra "PERSONAJE": con un grupo, saber de quien es la ficha
+	# importa mas que saber que es una ficha. En que seccion estas ya lo dice la pestaña marcada.
 	# La etiqueta del esqueleto se esconde en vez de borrarse: un Control oculto no ocupa sitio en un
 	# contenedor, asi que basta con eso y no hay que tocar construir().
-	(barra.get_child(0) as Control).visible = false
+	var lateral: BoxContainer = col_tabs.get_parent()
+	(lateral.get_child(0) as Control).visible = false
 	var titulo := VBoxContainer.new()
 	titulo.add_theme_constant_override("separation", 0)
-	_nombre_lbl = Label.new()
-	_nombre_lbl.add_theme_font_size_override("font_size", 11)
-	_nombre_lbl.add_theme_color_override("font_color", GRIS)
-	titulo.add_child(_nombre_lbl)
+	var chico := Label.new()
+	chico.text = "Personaje"
+	chico.add_theme_font_size_override("font_size", 11)
+	chico.add_theme_color_override("font_color", GRIS)
+	titulo.add_child(chico)
 	_titulo_seccion = Label.new()
 	_titulo_seccion.add_theme_font_size_override("font_size", 20)
 	_titulo_seccion.add_theme_color_override("font_color", AMBAR)
-	# SIN clip_text, y no es un detalle: un Label con clip_text tiene tamaño MINIMO cero, asi que
-	# dentro de un HBox el contenedor le daba lo que sobraba y le cortaba el nombre a media letra
-	# ("ILYAN" se leia "ILYAI", y "CAMBIAR ARMA PRINCIPAL" se quedaba en "CAME"). Sin el pide lo que
-	# mide y el hueco expansivo de al lado se encarga de ceder el sitio.
+	# SIN clip_text: un Label con clip_text tiene tamaño MINIMO cero, asi que el contenedor le da lo
+	# que sobra y le corta el nombre a media letra ("CAMBIAR ARMA" se quedaba en "CAME").
 	titulo.add_child(_titulo_seccion)
-	barra.add_child(titulo)
-	barra.move_child(titulo, 1)
+	lateral.add_child(titulo)
+	lateral.move_child(titulo, 0)
 
-	# LAS SECCIONES, CENTRADAS DE VERDAD EN LA MITAD DE LA PANTALLA. Dentro de la barra no se puede:
-	# es [titulo][tabs][hueco][retratos][✕], asi que "centrar" ahi es centrar en el hueco que sobra
-	# entre el titulo y los retratos, y como no miden lo mismo la fila queda corrida. Colgandolas de
-	# la raiz, el centro es el de la pantalla — el MISMO que el de las subpestañas de abajo, que ya
-	# estaban centradas a todo lo ancho, asi que las dos filas caen una debajo de la otra.
-	barra.remove_child(barra_tabs)
-	var centrador := CenterContainer.new()
-	centrador.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	centrador.offset_top = 16.0
-	centrador.offset_bottom = 16.0 + MenuScaffold.LADO_ICONO
-	# Que no robe los clics de lo que hay debajo: los botones de dentro los siguen recibiendo, porque
-	# un hijo con MOUSE_FILTER_STOP manda sobre el IGNORE del padre.
-	centrador.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(centrador)
-	centrador.add_child(barra_tabs)
-
-	# LOS RETRATOS DEL GRUPO, al lado de la ✕. Es el "quien", y va arriba a la derecha porque es lo
-	# que menos cambia de toda la pantalla: eliges una vez y miras el resto del rato.
+	# --- LA GENTE, ARRIBA ---
+	# Va en el header (la banda que cruza por encima del centro y la ficha) y DENTRO DE UN SCROLL
+	# horizontal: aqui no sale solo el equipo, sale TODA la plantilla —los del hogar tambien—, para
+	# poder tocarle el equipo a cualquiera sin tener que rehacer el grupo antes. Con doce fichados no
+	# caben en una fila, asi que se desliza.
+	_scroll_retratos = ScrollContainer.new()
+	_scroll_retratos.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll_retratos.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_scroll_retratos.custom_minimum_size = Vector2(0, ALTO_RETRATO)
+	_scroll_retratos.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Un poco de aire por arriba: la linea de aviso del esqueleto va oculta en esta pantalla, asi que
+	# sin esto los retratos quedan pegados al canto de la ventana.
+	var hueco_arriba := MarginContainer.new()
+	hueco_arriba.add_theme_constant_override("margin_top", 8)
+	hueco_arriba.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_header.add_child(hueco_arriba)
+	hueco_arriba.add_child(_scroll_retratos)
 	_fila_retratos = HBoxContainer.new()
-	_fila_retratos.add_theme_constant_override("separation", 8)
-	barra.add_child(_fila_retratos)
-	barra.move_child(_fila_retratos, barra.get_child_count() - 2)
+	_fila_retratos.add_theme_constant_override("separation", 10)
+	_scroll_retratos.add_child(_fila_retratos)
+	# Deslizar con el dedo, igual que las dos columnas del esqueleto (ver MenuScaffold.construir).
+	if Tactil.activo:
+		ArrastreScroll.enganchar(_scroll_retratos)
 
 
 # ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
@@ -262,7 +275,7 @@ func _set_open(open: bool) -> void:
 	Game.fijar_modal(Game.Modal.PERSONAJE, self, open)
 	if open:
 		_cerrar_modal()
-		_sec = SEC_DETALLES
+		_sec = SEC_FICHA
 		_pj_sel = 0   # se abre siempre por el que va en cabeza
 		_pagina = 0
 		_reset_seccion()
@@ -278,12 +291,77 @@ func _reset_seccion() -> void:
 	_cambiando = false
 
 
-# El personaje cuya ficha se esta viendo. Con el equipo vacio (imposible en la practica) cae al
-# lider, que Game garantiza que existe siempre.
+# TODA la gente que tienes fichada: primero los que bajan hoy y detras los que se quedan en el hogar.
+#
+# Los del BANQUILLO salen aqui a proposito: si no, para cambiarle el arma a uno que hoy no baja
+# habia que meterlo en el equipo, cambiarsela y sacarlo otra vez. El equipo dice quien pelea, no a
+# quien puedes mirarle la ficha.
+#
+# El orden es fijo (Game.party y luego Game.en_el_banquillo(), que ya lo son) porque _pj_sel es un
+# INDICE en esta lista: si el orden bailara, cambiar de seccion te cambiaria de persona.
+func _gente() -> Array:
+	var out: Array = []
+	for p in Game.party:
+		out.append(p)
+	for p in Game.en_el_banquillo():
+		out.append(p)
+	if out.is_empty():
+		out.append(Game.lider())   # imposible en la practica; Game garantiza que el lider existe
+	return out
+
+
+# El personaje cuya ficha se esta viendo.
 func _pj() -> PersonajeData:
-	if _pj_sel < 0 or _pj_sel >= Game.party.size():
+	var todos: Array = _gente()
+	if _pj_sel < 0 or _pj_sel >= todos.size():
 		_pj_sel = 0
-	return Game.party[_pj_sel] if not Game.party.is_empty() else Game.lider()
+	return todos[_pj_sel]
+
+
+# ============================================================
+#  LA PESTAÑA LATERAL: icono + NOMBRE
+#  Con texto y no solo con el icono (como las del inventario): alli son seis secciones de un
+#  catalogo que se hojea y la silueta basta, aqui son cinco sitios distintos a los que vas a buscar
+#  algo concreto, y un icono pelado no dice a cual.
+#
+#  Sin caja, como las del inventario: lo que dice cual esta abierta es la BARRA de la izquierda y el
+#  color ambar, no un recuadro. Cinco botones con borde en columna parecen cinco acciones.
+# ============================================================
+
+const ALTO_TAB := 42.0
+const LADO_ICONO_TAB := 26.0
+
+func _pestana_lateral(icono: String, nombre: String) -> Button:
+	var b := Button.new()
+	b.toggle_mode = true
+	b.custom_minimum_size = Vector2(0, ALTO_TAB)
+	b.text = nombre
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.tooltip_text = nombre
+	# EL HUECO DEL ICONO se reserva con el margen del stylebox, NO metiendo espacios delante del
+	# texto: los espacios miden lo que mida el espacio de la fuente y el icono acababa pintado ENCIMA
+	# de la primera letra ("Ficha" se leia con el monigote sobre la F).
+	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var sb := StyleBoxEmpty.new()
+		sb.content_margin_left = LADO_ICONO_TAB + 20.0
+		b.add_theme_stylebox_override(estado, sb)
+	var dibujo := Callable(Iconos, icono)
+	b.draw.connect(func() -> void:
+		var col: Color = AMBAR if b.button_pressed else MenuScaffold.TAB_APAGADA
+		# La BARRA de la izquierda marca la activa: es lo que en la fila de arriba del inventario hace
+		# el subrayado, puesto de canto porque aqui la fila es una columna.
+		if b.button_pressed:
+			b.draw_rect(Rect2(Vector2(0, 6), Vector2(3, b.size.y - 12)), AMBAR)
+		dibujo.call(b, Vector2(10, (b.size.y - LADO_ICONO_TAB) * 0.5), LADO_ICONO_TAB, col))
+	# Un Button no se repinta al marcarse, y aqui lo unico que cambia es lo que dibuja ese draw.
+	b.toggled.connect(func(_on):
+		b.add_theme_color_override("font_color",
+			AMBAR if b.button_pressed else Color(0.82, 0.85, 0.90))
+		b.queue_redraw())
+	b.add_theme_color_override("font_color", Color(0.82, 0.85, 0.90))
+	b.add_theme_color_override("font_hover_color", Color(0.97, 0.98, 1.0))
+	b.add_theme_font_size_override("font_size", 15)
+	return b
 
 
 # Repinta el cuerpo del jugador en el mapa: al cambiar de arma o armadura, la pila de capas del
@@ -369,51 +447,57 @@ func _rebuild() -> void:
 
 func _rebuild_real() -> void:
 	_caja_muneco = null   # se va con el vaciado de abajo; la seccion que toque lo volvera a montar
-	MenuScaffold.vaciar(_header)
+	# El HEADER no se vacia: ahi vive la fila de retratos, que es de la PANTALLA y no de la seccion.
+	# Vaciarlo liberaba el scroll y su HBox, y el _pintar_retratos de dos lineas mas abajo se
+	# encontraba con nodos ya muertos. Los retratos se repintan solos (_pintar_retratos vacia SU fila).
 	MenuScaffold.vaciar(_lista)
 	MenuScaffold.vaciar(_content)
 	MenuScaffold.subpestanas(_barra_sub, [], [], 0, Callable())
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _sec)
 	_cols_pintadas = _columnas()
-	_nombre_lbl.text = _pj().nombre
-	# El nombre por defecto de la seccion. Las que tienen subpestañas (Trazos, Eidolon) o una
-	# pantalla dentro (Cambiar) lo pisan con el suyo: en "Equipo" saber que estas en "Magias" dice
-	# mas que saber que estas en "Trazos".
-	_titulo_seccion.text = String(SECCIONES[_sec]).to_upper()
+	# EL NOMBRE de quien estas mirando, arriba de la columna de secciones. En que seccion estas ya lo
+	# dice la pestaña marcada, asi que este rotulo es solo para el "de quien". Las pantallas de dentro
+	# (Cambiar) lo pisan con lo que estan haciendo.
+	_titulo_seccion.text = _pj().nombre.to_upper()
 	_pintar_retratos()
 
 	match _sec:
-		SEC_DETALLES: _sec_detalles()
-		SEC_ARMA: _sec_arma()
-		SEC_TRAZOS: _sec_trazos()
+		SEC_FICHA: _sec_detalles()
+		SEC_ARMAS: _sec_arma()
+		SEC_HABILIDADES: _sec_trazos()
 		SEC_ARMADURA: _sec_armadura()
-		SEC_EIDOLON: _sec_eidolon()
+		SEC_DESARROLLO: _sec_eidolon()
 
 
-# LA FILA DE RETRATOS. Con una sola persona no se pinta: seria un boton solo que no elige nada.
-#
-# El numero delante del nombre es el MISMO que la tecla que lo pone en cabeza (1/2/3), para que las
-# dos cosas se lean igual: el 2 de aqui es el 2 de alla.
+# LA FILA DE RETRATOS: TODA la plantilla, el equipo primero y el hogar detras, con una raya que
+# separa los dos grupos. Con una sola persona no se pinta: seria un boton solo que no elige nada.
 func _pintar_retratos() -> void:
 	MenuScaffold.vaciar(_fila_retratos)
-	if Game.party.size() <= 1:
+	var todos: Array = _gente()
+	if todos.size() <= 1:
 		return
-	for i in Game.party.size():
-		_retrato(i)
+	var en_equipo: int = Game.party.size()
+	for i in todos.size():
+		# LA RAYA entre el equipo y el hogar. Sin ella los doce se leen como una lista sola y no hay
+		# forma de saber cual de ellos baja hoy contigo.
+		if i == en_equipo and i > 0:
+			var sep := VSeparator.new()
+			sep.add_theme_constant_override("separation", 14)
+			_fila_retratos.add_child(sep)
+		_retrato(todos[i], i, i < en_equipo)
 
 
-# UN RETRATO: el muñeco de la persona dentro de un cuadro, con su numero. Es un Button con el estilo
-# quitado y el dibujo a mano, igual que CeldaObjeto y que las tarjetas del modal de "a quien se lo
-# das" del inventario.
-func _retrato(i: int) -> void:
-	var pj: PersonajeData = Game.party[i]
+# UN RETRATO: la CARA de la persona en un cuadro, con su nombre debajo. Es un Button con el estilo
+# quitado y el dibujo a mano, igual que CeldaObjeto.
+func _retrato(pj: PersonajeData, i: int, en_equipo: bool) -> void:
 	var elegido: bool = (i == _pj_sel)
 
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(LADO_RETRATO, LADO_RETRATO)
+	b.custom_minimum_size = Vector2(LADO_RETRATO, ALTO_RETRATO)
 	b.clip_contents = true
-	b.tooltip_text = "%d. %s%s" % [i + 1, "👑 " if pj == Game.lider() else "", pj.nombre]
+	b.tooltip_text = "%s%s  ·  %s" % ["👑 " if pj == Game.lider() else "", pj.nombre,
+		"en el equipo" if en_equipo else "en el hogar"]
 	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
 	b.pressed.connect(_pick_persona.bind(i))
@@ -421,37 +505,67 @@ func _retrato(i: int) -> void:
 
 	b.draw.connect(func() -> void:
 		var w: float = b.size.x
-		var h: float = b.size.y
+		var lado: float = LADO_RETRATO
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(0.13, 0.14, 0.19, 1.0) if elegido else Color(0.08, 0.09, 0.12, 1.0)
 		sb.border_color = AMBAR if elegido else Color(1, 1, 1, 0.14)
 		sb.set_border_width_all(2 if elegido else 1)
-		sb.set_corner_radius_all(int(w * 0.5))   # redondo, como en la referencia
-		b.draw_style_box(sb, Rect2(Vector2.ZERO, Vector2(w, h)))
-		# El numero abajo a la derecha, sobre su pastilla: es el atajo de teclado, y sin fondo se
-		# perdia contra el muñeco.
+		# Esquinas SUAVES y no un circulo: el recorte del marco es cuadrado (un Control no recorta en
+		# redondo), asi que con el cuadro redondo las esquinas del muñeco se salian por fuera y el
+		# circulo dejaba de leerse. Ademas es la misma forma que las celdas del inventario.
+		sb.set_corner_radius_all(10)
+		b.draw_style_box(sb, Rect2(Vector2.ZERO, Vector2(w, lado)))
 		var f: Font = b.get_theme_font(&"font")
-		var n: String = str(i + 1)
-		var an: float = f.get_string_size(n, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-		b.draw_circle(Vector2(w - 9.0, h - 9.0), 8.0, Color(0.03, 0.04, 0.06, 0.9))
-		b.draw_string(f, Vector2(w - 9.0 - an * 0.5, h - 5.0), n, HORIZONTAL_ALIGNMENT_LEFT, -1, 10,
-			AMBAR if elegido else Color(0.82, 0.85, 0.90)))
+		# EL NOMBRE DEBAJO, recortado si no cabe. Es lo que de verdad distingue a uno de otro: con
+		# cuatro muñecos del mismo tamaño y la misma pose, el color del pelo no llega.
+		var nom: String = pj.nombre
+		var an: float = f.get_string_size(nom, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		while an > w and nom.length() > 2:
+			nom = nom.substr(0, nom.length() - 1)
+			an = f.get_string_size(nom + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		if nom != pj.nombre:
+			nom += "…"
+		b.draw_string(f, Vector2((w - an) * 0.5, lado + 14.0), nom, HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
+			AMBAR if elegido else Color(0.82, 0.85, 0.90))
+		# La CORONA del que va en cabeza, arriba a la derecha del cuadro.
+		if pj == Game.lider():
+			b.draw_circle(Vector2(w - 11.0, 11.0), 7.0, Color(0.03, 0.04, 0.06, 0.9))
+			b.draw_string(f, Vector2(w - 14.0, 15.0), "★", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, AMBAR)
+		# Los del HOGAR, atenuados: siguen siendo tuyos y se les puede tocar el equipo, pero hoy no
+		# bajan. El velo lo dice sin quitarles el nombre ni apagar el boton.
+		if not en_equipo:
+			b.draw_rect(Rect2(Vector2.ZERO, Vector2(w, lado)), Color(0.05, 0.05, 0.07, 0.38)))
 
-	# EL MUÑECO, hijo del boton (se recorta con el y se mueve con el). Va DESPUES de conectar el draw:
-	# los hijos de un CanvasItem se dibujan despues del padre, o sea por encima de su fondo.
+	# EL MUÑECO va en SU PROPIO recuadro recortador, no colgado del boton: el boton mide mas que el
+	# cuadro (lleva el nombre debajo), asi que recortando con el la figura invadia el nombre y lo
+	# tapaba -- los hijos de un CanvasItem se dibujan DESPUES del padre.
+	var marco := Control.new()
+	marco.custom_minimum_size = Vector2(LADO_RETRATO, LADO_RETRATO)
+	marco.size = Vector2(LADO_RETRATO, LADO_RETRATO)
+	marco.clip_contents = true
+	marco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(marco)
+
 	var mu := MunecoJugador.new()
 	mu.montar(pj)
 	mu.tenir(pj.color, 0.0)
 	mu.poner_cara(pj.textura())
 	if mu.hay_dibujo():
-		# De la cabeza a las rodillas: es un RETRATO, no una figura entera. Los pies del muñeco son
-		# su propio origen, asi que se le baja el origen por debajo del borde y el recorte del boton
-		# hace el resto. La escala se mide contra PoseJugador.ALTO_MUNDO (60), que es lo que mide el
-		# cuerpo dibujado: con un numero a ojo, el dia que cambie el muñeco esto se descuadra solo.
-		mu.scale = Vector2.ONE * (LADO_RETRATO * 1.3 / PoseJugador.ALTO_MUNDO)
-		mu.position = Vector2(LADO_RETRATO * 0.5, LADO_RETRATO * 1.42)
-		mu.animar("idle_4")
-		b.add_child(mu)
+		# LA CARA, encuadrada. Mirando al SUR ("idle_0"): es la unica direccion en la que se te ve la
+		# cara de frente (ver MunecoJugador.CARA_DIRS, donde 0 = S y 4 = N). Un retrato de espaldas no
+		# es un retrato, y de espaldas es justo como estaba.
+		#
+		# Se escala grande y se baja el origen para que el recorte deje SOLO la cabeza y los hombros:
+		# el cuerpo entero en 74 px es un monigote en el que no se distingue quien es.
+		# EL ENCUADRE VA MEDIDO, no calculado con ALTO_MUNDO: el dibujo real no ocupa esos 60 px por
+		# encima del origen (el lienzo horneado tiene sus propios margenes), asi que la cuenta "teorica"
+		# dejaba fuera justo la cara. Estos dos numeros salen de mirar la captura: con esta escala, la
+		# cara cae en el centro del cuadro y se ven cabeza y hombros.
+		var esc: float = LADO_RETRATO * 2.1 / PoseJugador.ALTO_MUNDO
+		mu.scale = Vector2.ONE * esc
+		mu.position = Vector2(LADO_RETRATO * 0.5, LADO_RETRATO * 1.02)
+		mu.animar("idle_0")
+		marco.add_child(mu)
 	else:
 		mu.queue_free()
 
@@ -465,24 +579,10 @@ func _sec_detalles() -> void:
 	var c: Combatant = _combatiente()
 
 	# --- CENTRO: el muñeco y sus barras ---
+	# EL MUÑECO SOLO. Sin barras debajo: son NUMEROS, y los numeros van todos juntos en la ficha de la
+	# derecha (la vida y el maná estan ahi, con el resto). Aqui lo unico que se mira es a la persona,
+	# asi que se le deja la columna entera y se pinta lo mas grande que quepa.
 	_muneco_grande(pj)
-	# Las barras BAJO EL MUÑECO y de su ancho, no cruzando la columna entera: son suyas, y estiradas
-	# a todo lo ancho se leian como una barra de carga de la pantalla.
-	var bajo := CenterContainer.new()
-	bajo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_lista.add_child(bajo)
-	var col := VBoxContainer.new()
-	col.custom_minimum_size = Vector2(300, 0)
-	col.add_theme_constant_override("separation", 6)
-	bajo.add_child(col)
-	MenuScaffold.barra(col, MenuScaffold.COLOR_VIDA, Game.player_hp(pj), c.max_hp,
-		"Vida  %.0f / %.0f", 22, 14)
-	# La ENERGIA no lleva barra aqui, y no es un olvido: fuera del combate no existe una "energia
-	# actual" que enseñar (arranca a cero cada pelea), asi que una barra llena seria mentira y una
-	# vacia, ruido. Su maximo, que es lo unico que se puede saber, sale en la lupa.
-	if c.max_mp > 0.0:
-		MenuScaffold.barra(col, MenuScaffold.COLOR_MANA, Game.player_mp(pj), c.max_mp,
-			"Maná  %.0f / %.0f", 18, 12)
 
 	# --- DERECHA: nombre, nivel y las dos paginas ---
 	var cab := HBoxContainer.new()
@@ -506,7 +606,10 @@ func _sec_detalles() -> void:
 	paginas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_child(paginas)
 	for i in 2:
-		var txt: String = "Atributos" if i == 0 else "Habilidades"
+		# "Básicas" y no "Habilidades" a secas: en la columna de la izquierda hay una seccion que se
+		# llama asi (las del ARMA), y dos cosas distintas con el mismo nombre en la misma pantalla no
+		# las distingue nadie. Las cinco de DanMachi son las "habilidades basicas" en todo el juego.
+		var txt: String = "Atributos" if i == 0 else "Básicas"
 		var p: Button = MenuScaffold.pastilla(paginas, txt, _pagina_a.bind(i), i == _pagina)
 		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_child(HSeparator.new())
@@ -539,6 +642,11 @@ func _pagina_atributos(c: Combatant) -> void:
 	var pj: PersonajeData = _pj()
 	var magico: bool = Game.lleva_arma_magica(pj)
 	_row("Vida máx.", "%.0f" % c.max_hp)
+	# MANA Y ENERGIA aqui, con el resto de numeros: son atributos como los demas y las barras de
+	# debajo del muñeco se fueron (ver _sec_detalles). El maná solo si lo tiene.
+	if c.max_mp > 0.0:
+		_row("Maná máx.", "%.0f" % c.max_mp)
+	_row("Energía máx.", "%.0f" % _energia_max(pj))
 	if magico:
 		_row("Ataque mágico", "%.0f" % MenuScaffold.dano_magico(pj))
 	else:
@@ -556,23 +664,25 @@ func _pagina_atributos(c: Combatant) -> void:
 	if c.mp_regen_turno > 0.0:
 		_row("Regen maná", "%.2f/turno" % c.mp_regen_turno)
 
-	# LA LUPA. Nada puede quedar por debajo: es el final de la lista.
+	# LA LUPA. Nada puede quedar por debajo: es el final de la lista. Y sin coletilla debajo: lo que
+	# hace el boton se entiende pulsandolo, y un parrafo explicando el critico en cada apertura de la
+	# ficha es texto que se lee una vez y estorba las otras cien.
 	var lupa := HBoxContainer.new()
 	lupa.alignment = BoxContainer.ALIGNMENT_CENTER
 	_content.add_child(HSeparator.new())
 	_content.add_child(lupa)
 	var b: Button = MenuScaffold.pastilla(lupa, "⌕  Información", _abrir_modal_atributos, false)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_note(_pie_atributos(magico))
 
 
-func _pie_atributos(magico: bool) -> String:
-	if magico:
-		return "Llevas arma mágica, así que arriba salen tus números MÁGICOS. Los físicos siguen "\
-			+ "estando: los enseña la lupa, con todo lo demás."
-	return "El crítico es tu Destreza contra la Agilidad del que recibe el golpe: aquí se mide "\
-		+ "contra un maniquí con TUS mismas stats. Tu Agilidad no te baja el crítico, te sube la "\
-		+ "esquiva. Lo mágico y el resto, en la lupa."
+# LA ENERGIA MAXIMA no sale del Combatant: crear_player_combatant la deja a CERO y se la inyecta
+# start_combat leyendo el aguante del mapa (ver game.gd, donde se hace lo mismo para quien se une a
+# mitad de pelea). Por eso la lupa ponia siempre "0". Aqui se pide por la misma via.
+func _energia_max(pj: PersonajeData) -> float:
+	var pl: Node = get_tree().get_first_node_in_group("player")
+	if pl == null or not pl.has_method("aguante_de_grupo"):
+		return 0.0
+	return maxf(0.0, (pl.aguante_de_grupo(pj) as Vector2).y)
 
 
 # LAS 5 HABILIDADES, con su rango por letra y lo que aporta cada una AHORA MISMO.
@@ -590,8 +700,7 @@ func _pagina_habilidades(c: Combatant) -> void:
 	# total tiene por encima del raw pelado (base + arma).
 	_fila_habilidad("Fuerza", "fuerza", ab)
 	var atk_sin: float = (c.base_attack + c.ataque_arma) * c.status_atk_mult()
-	_note("Multiplica el daño físico (base + arma), así que cuanto mejor sea el arma más vale cada "
-		+ "punto. Ahora: +%.1f de ataque." % (_ataque_total(c) - atk_sin))
+	_aporte("+%.1f ataque" % (_ataque_total(c) - atk_sin))
 
 	# RESISTENCIA -> vida y defensa.
 	_fila_habilidad("Resistencia", "resistencia", ab)
@@ -600,16 +709,13 @@ func _pagina_habilidades(c: Combatant) -> void:
 	var def_base: float = c.base_defense + c.extra_defense
 	var def_de_res: float = (StatsMath.defense_jugador(ab, def_base)
 		- StatsMath.defense_jugador(ab_sin_res, def_base)) * c.status_def_mult()
-	_note("Aguante: sube vida máxima y defensa. Ahora: +%.1f vida y +%.1f defensa." % [
-		hp_de_res, def_de_res])
+	_aporte("+%.1f vida  ·  +%.1f defensa" % [hp_de_res, def_de_res])
 
-	# DESTREZA -> critico (y afina la recoleccion). El critico es un DUELO: tu Destreza contra la
-	# AGILIDAD del que recibe el golpe, asi que se mide contra un maniqui con tus mismas stats.
+	# DESTREZA -> critico. Es un DUELO (tu Destreza contra la Agilidad del que recibe el golpe), asi
+	# que sin rival delante se mide contra un maniqui con tus mismas stats.
 	_fila_habilidad("Destreza", "destreza", ab)
-	var crit_espejo: float = StatsMath.crit_chance(float(ab.destreza), float(ab.agilidad))
-	_note("Precisión: tu Destreza pelea contra la Agilidad del rival para critear (y te da mano "
-		+ "firme al recolectar). Contra un maniquí con tus mismas stats: ~%s de crítico."
-		% _fmt_pct(crit_espejo))
+	_aporte("~%s de crítico" % _fmt_pct(StatsMath.crit_chance(float(ab.destreza),
+		float(ab.agilidad))))
 
 	# AGILIDAD -> esquiva (el duelo espejo del critico) y velocidad de turno.
 	_fila_habilidad("Agilidad", "agilidad", ab)
@@ -620,9 +726,7 @@ func _pagina_habilidades(c: Combatant) -> void:
 	var spd_con: float = StatsMath.speed_jugador(ab, c.base_speed)
 	var spd_sin: float = StatsMath.speed_jugador(_sin_habilidad(ab, "agilidad"), c.base_speed)
 	var vel_de_agi: float = c.spd() * (1.0 - (spd_sin / spd_con if spd_con > 0.0 else 1.0))
-	_note("Reflejos: tu Agilidad esquiva la Destreza del rival y marca tu velocidad de turno. "
-		+ "Contra el mismo maniquí: ~%s de esquiva. Y ahora: +%.1f de velocidad."
-		% [_fmt_pct(evade_espejo), vel_de_agi])
+	_aporte("~%s de esquiva  ·  +%.1f velocidad" % [_fmt_pct(evade_espejo), vel_de_agi])
 
 	# MAGIA -> daño de hechizos, maná y defensa magica.
 	_fila_habilidad("Magia", "magia", ab)
@@ -630,13 +734,20 @@ func _pagina_habilidades(c: Combatant) -> void:
 	var mp_de_mag: float = c.max_mp - StatsMath.max_mp_jugador(ab_sin_mag, _pj().base_mp)
 	var mdef_de_mag: float = StatsMath.magic_jugador(ab, c.base_magic) \
 		- StatsMath.magic_jugador(ab_sin_mag, c.base_magic)
-	_note("Poder arcano: multiplica el daño de los hechizos, y sube el maná y la defensa mágica. "
-		+ "Ahora: ×%.2f a los hechizos, +%.1f de maná y +%.1f de defensa mágica." % [
+	_aporte("×%.2f a los hechizos  ·  +%.1f maná  ·  +%.1f def. mágica" % [
 		StatsMath.magia_factor(float(ab.magia)), mp_de_mag, mdef_de_mag])
 
-	_content.add_child(HSeparator.new())
-	_note("Las 5 habilidades (0–999) con su rango I→S. Suben con el uso y se aplican en el hogar. "
-		+ "Cada «Ahora» es lo que te está dando ESA habilidad, no tu total.")
+
+# LO QUE ESA HABILIDAD TE ESTA DANDO AHORA MISMO, en una linea y sin explicar de donde sale. La
+# version larga (un parrafo por habilidad contando que hace cada una) se leia una vez y estorbaba
+# las otras cien: lo que se viene a mirar aqui es el numero.
+func _aporte(txt: String) -> void:
+	var l := Label.new()
+	l.text = txt
+	l.add_theme_color_override("font_color", Color(0.55, 0.78, 0.6))
+	l.add_theme_font_size_override("font_size", 12)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(l)
 
 
 # Una fila de habilidad: el valor, su LETRA de rango y, si hay platos puestos, lo que suman entre
@@ -676,7 +787,7 @@ func _muneco_grande(pj: PersonajeData) -> void:
 		var h: float = caja.size.y
 		if w <= 1.0:
 			return
-		var pies: float = h - PIES_SOBRE_PIE
+		var pies: float = _pies_y if _pies_y > 0.0 else h - MARGEN_MUNECO
 		for i in 3:
 			var t: float = 1.0 - float(i) / 3.0
 			caja.draw_set_transform(Vector2(w * 0.5, pies), 0.0, Vector2(1.0, 0.22))
@@ -692,25 +803,27 @@ func _muneco_grande(pj: PersonajeData) -> void:
 		mu.queue_free()
 		return
 	caja.add_child(mu)
-	mu.animar("idle_4")
+	# MIRANDO AL SUR ("idle_0"). Es la unica dirección en la que se te ve la cara de frente: ver
+	# MunecoJugador.CARA_DIRS, donde 0 = S y 4 = N. Estaba puesto el 4, o sea de espaldas.
+	mu.animar("idle_0")
 	_caja_muneco = caja
 	# El tamaño real de la caja no se sabe hasta que el contenedor la coloca (mismo motivo por el que
 	# brillo_en se reajusta en resized), asi que la colocacion se rehace con el layout.
 	var colocar := func() -> void:
-		# CON TOPE. El cuerpo se dibuja a ALTO_MUNDO px (60) y estirarlo a los 300 de la caja es un
-		# x5: el sprite se ve reventado y, con la cabeza que gasta este muñeco, ocupa toda la columna
-		# sin que se le vean las piernas. ESCALA_MUNECO es lo que cabe entero y sigue leyendose.
-		var esc: float = minf(maxf(caja.size.y - 60.0, 120.0) / PoseJugador.ALTO_MUNDO, ESCALA_MUNECO)
+		# LA ESCALA SALE DE LO QUE MIDE EL DIBUJO ENTERO, no solo del cuerpo. El muñeco ocupa
+		# ALTO_MUNDO por encima de su origen y PIES_BAJO_NODO por debajo (ver pose_jugador.gd: lo
+		# comparten sus ~35 capas), asi que lo que tiene que caber son las dos cosas. Midiendo solo
+		# con ALTO_MUNDO, los pies se salian de la caja -- que recorta -- y la figura quedaba cortada
+		# por los tobillos.
+		var alto_dibujo: float = PoseJugador.ALTO_MUNDO + PoseJugador.PIES_BAJO_NODO
+		var esc: float = minf(maxf(caja.size.y - MARGEN_MUNECO * 2.0, 120.0) / alto_dibujo,
+			ESCALA_MUNECO)
 		mu.scale = Vector2.ONE * esc
-		# Apoyado justo en el suelo que pinta el draw de arriba: la MISMA cuenta (h - PIES_SOBRE_PIE),
-		# no dos numeros parecidos, o la sombra acaba flotando por debajo de los talones.
-		#
-		# Y con el descuento de PIES_BAJO_NODO: el dibujo del muñeco NO acaba en su origen, sigue 14
-		# unidades mas abajo (ver pose_jugador.gd, lo comparten sus ~35 capas). Sin restarlo, esos 14
-		# se multiplican por la escala —47 px a x3.4— y las piernas se quedaban FUERA de la caja, que
-		# recorta: la figura salia sin pies y apoyada en el aire.
-		mu.position = Vector2(caja.size.x * 0.5,
-			caja.size.y - PIES_SOBRE_PIE - PoseJugador.PIES_BAJO_NODO * esc)
+		# El ORIGEN (los pies) queda justo debajo del cuerpo: margen + lo que mide de origen hacia
+		# arriba. Asi la cabeza cae en el margen de arriba y los pies, con su cola, en el de abajo.
+		_pies_y = MARGEN_MUNECO + PoseJugador.ALTO_MUNDO * esc
+		mu.position = Vector2(caja.size.x * 0.5, _pies_y)
+		caja.queue_redraw()   # la sombra se pinta a la altura de los pies, que acaba de cambiar
 	caja.resized.connect(colocar)
 	colocar.call()
 
@@ -755,7 +868,9 @@ func _abrir_modal_atributos() -> void:
 	MenuScaffold.fila(vb, "  Vel. recitado", "%.1f" % c.cast_spd(), 200)
 	if c.max_mp > 0.0:
 		MenuScaffold.fila(vb, "  Maná máximo", "%.0f" % c.max_mp, 200)
-	MenuScaffold.fila(vb, "  Energía máxima", "%.0f" % c.max_energy, 200)
+	# Por _energia_max y NO por c.max_energy: el combatiente recien creado la trae a cero (se la
+	# inyecta start_combat), asi que esta fila ponia "0" siempre.
+	MenuScaffold.fila(vb, "  Energía máxima", "%.0f" % _energia_max(pj), 200)
 
 	vb.add_child(HSeparator.new())
 	MenuScaffold.titulo(vb, "Atributos avanzados", 13, GRIS)
@@ -784,26 +899,13 @@ func _abrir_modal_atributos() -> void:
 	MenuScaffold.fila(vb, "  Eficacia (estados)", "%s   (los aplicas ×%.2f)" % [
 		_fmt_pct(c.eficacia_estados()), 1.0 + c.eficacia_estados()], 200)
 	MenuScaffold.fila(vb, "  Regen maná", "%.2f/turno" % c.mp_regen_turno, 200)
-
-	vb.add_child(HSeparator.new())
-	MenuScaffold.titulo(vb, "Magia", 13, GRIS)
-	# PODER MAGICO: el multiplicador en crudo, desglosado en sus DOS mitades (tu Magia y el arma).
-	# Se enseñan LAS DOS o ninguna: el total ya lleva el arma dentro, y con una sola linea debajo no
-	# hay forma de saber si el numero de arriba la incluye o si hay que multiplicarla aparte.
+	# El COSTE DE MANA se queda (es un numero que te cambia lo que puedes lanzar), pero el bloque de
+	# "Poder mágico" y su desglose se fueron: el ataque mágico ya sale arriba en la misma moneda que
+	# el físico, y el multiplicador en crudo solo servia para explicar de donde salia ese numero.
 	var lm: Dictionary = Game.loadout_mods(pj)
-	var amp: float = float(lm["magic_amp"])
-	MenuScaffold.fila(vb, "  Poder mágico", "×%.2f" % Game.poder_magico(pj), 200)
-	if absf(amp - 1.0) > 0.001:
-		MenuScaffold.fila(vb, "     · tu Magia",
-			"×%.2f" % (StatsMath.magia_factor(float(c.abilities.magia)) * c.magia_base_factor), 200)
-		MenuScaffold.fila(vb, "     · el arma", "×%.2f" % amp, 200)
 	if float(lm["mana_reduccion"]) > 0.0:
 		MenuScaffold.fila(vb, "  Coste de maná",
 			"-%.0f%%" % (float(lm["mana_reduccion"]) * 100.0), 200)
-
-	MenuScaffold.nota(vb, "El ataque es el raw (base + arma) ANTES del motion value: cada golpe le "
-		+ "aplica su %. El ataque mágico se mide con el hechizo más básico, para poder compararlo "
-		+ "con el físico. El maná solo se regenera con arma mágica o pociones.")
 
 	MenuScaffold.pastilla(m["acciones"], "Cerrar", _cerrar_modal)
 
@@ -815,11 +917,15 @@ func _cerrar_modal() -> void:
 	_ver_muneco(true)
 
 
-# Esconde o enseña el muñeco. Ver _caja_muneco: su z_index es absoluto y se cuela por delante de
-# cualquier modal, asi que la unica forma de que no tape es no dibujarlo.
+# Esconde o enseña TODOS los muñecos de la pantalla: el grande y los de los retratos. Ver
+# _caja_muneco: su z_index es absoluto y se cuela por delante de cualquier modal, asi que la unica
+# forma de que no tapen es no dibujarlos. Los retratos entran por lo mismo -- se dibujaban encima de
+# la cabecera del modal de la lupa.
 func _ver_muneco(visible_: bool) -> void:
 	if _caja_muneco != null and is_instance_valid(_caja_muneco):
 		_caja_muneco.visible = visible_
+	if _scroll_retratos != null and is_instance_valid(_scroll_retratos):
+		_scroll_retratos.visible = visible_
 
 
 # ============================================================
@@ -1070,8 +1176,6 @@ func _sec_trazos() -> void:
 			_sub, _on_sub)
 	else:
 		_sub = 0
-	_titulo_seccion.text = "MAGIAS" if (con_magia and _sub == 1) else "TRAZOS"
-
 	if con_magia and _sub == 1:
 		_trazos_magias(pj)
 		return
@@ -1292,12 +1396,10 @@ func _sec_eidolon() -> void:
 		_sub = 1   # solo pasivas: se enseñan sin preguntar
 
 	if _sub == 1:
-		_titulo_seccion.text = "PASIVAS"
 		_eidolon_lista(pasivas, "HABILIDADES PASIVAS",
 			"No se eligen: aparecen solas al actualizar tu estado en el altar.",
 			"Ninguna. Caen por sí solas, muy de vez en cuando, haciendo lo que sea que las despierta.")
 		return
-	_titulo_seccion.text = "DESARROLLO"
 	_eidolon_lista(desarrollos, "HABILIDADES DE DESARROLLO",
 		"Eliges una al subir de nivel. Suben de rango (I → S) haciendo lo suyo.",
 		"Ninguna todavía. Se elige una al subir de nivel, en el altar.",

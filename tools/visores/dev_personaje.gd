@@ -35,6 +35,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	DisplayServer.window_set_size(Vector2i(1280, 720))
 	_llenar()
+	_falso_jugador()
 
 	var men: CanvasLayer = preload("res://scripts/ui/character_menu.gd").new()
 	add_child(men)
@@ -43,7 +44,7 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(SALIDA)
 
 	# 1) DETALLES, con arma NORMAL: la rama fisica de los atributos.
-	men._on_seccion(men.SEC_DETALLES)
+	men._on_seccion(men.SEC_FICHA)
 	await _captura("0_detalles_atributos")
 	men._pagina_a(1)
 	await _captura("0_detalles_habilidades")
@@ -54,7 +55,7 @@ func _ready() -> void:
 	men._cerrar_modal()
 
 	# 2) ARMA: las dos manos, y la rejilla del baul al pulsar Cambiar.
-	men._on_seccion(men.SEC_ARMA)
+	men._on_seccion(men.SEC_ARMAS)
 	await _captura("1_arma_principal")
 	men._pick(1)
 	await _captura("1_arma_secundaria")
@@ -65,7 +66,7 @@ func _ready() -> void:
 
 	# 3) TRAZOS, con y sin la subpestaña de magias. El personaje 0 lleva hechizos y el 3 no: es lo
 	# unico que enseña que la fila desaparece cuando no hay nada que elegir.
-	men._on_seccion(men.SEC_TRAZOS)
+	men._on_seccion(men.SEC_HABILIDADES)
 	await _captura("2_trazos_habilidades")
 	men._on_sub(1)
 	await _captura("2_trazos_magias")
@@ -80,7 +81,7 @@ func _ready() -> void:
 
 	# 5) EIDOLON: con las dos clases (subpestañas) y sin ninguna (el hueco vacio, que es justo lo
 	# que hay que comprobar que se explica solo).
-	men._on_seccion(men.SEC_EIDOLON)
+	men._on_seccion(men.SEC_DESARROLLO)
 	await _captura("4_eidolon_desarrollo")
 	men._on_sub(1)
 	await _captura("4_eidolon_pasivas")
@@ -88,26 +89,54 @@ func _ready() -> void:
 	# EL PERSONAJE 3 (pelado: sin hechizos, sin desarrollos, sin pasivas y con las manos vacias).
 	# Es la mitad de las ramas de esta pantalla, y es la que no se ve nunca en una partida madura.
 	men._pick_persona(3)
-	men._on_seccion(men.SEC_DETALLES)
+	men._on_seccion(men.SEC_FICHA)
 	await _captura("5_pelado_detalles")
-	men._on_seccion(men.SEC_TRAZOS)
+	men._on_seccion(men.SEC_HABILIDADES)
 	await _captura("5_pelado_trazos")
-	men._on_seccion(men.SEC_EIDOLON)
+	men._on_seccion(men.SEC_DESARROLLO)
 	await _captura("5_pelado_eidolon")
-	men._on_seccion(men.SEC_ARMA)
+	men._on_seccion(men.SEC_ARMAS)
 	await _captura("5_pelado_arma")
 
 	# EL MAGO: el personaje 1 lleva baston, asi que sus atributos principales son los MAGICOS
 	# (ataque magico, vel. recitado, criticos magicos). Es la bifurcacion que se pidio, y con el
 	# lider solo no se ve.
 	men._pick_persona(1)
-	men._on_seccion(men.SEC_DETALLES)
+	men._on_seccion(men.SEC_FICHA)
 	await _captura("6_mago_atributos")
 	men._abrir_modal_atributos()
 	await _captura("6_mago_lupa")
 	men._cerrar_modal()
 
 	get_tree().quit()
+
+
+# UN JUGADOR DE MENTIRA en el grupo "player", solo con lo que la ficha le pregunta.
+#
+# Hace falta porque la ENERGIA MAXIMA no vive en el Combatant: crear_player_combatant la deja a cero
+# y se la inyecta start_combat leyendo el aguante del mapa (ver game.gd). La ficha la pide por la
+# misma via, `player.aguante_de_grupo(pj)`, y aqui no hay jugador ninguno -- asi que sin esto la
+# fila salia "0" en la captura y no habia forma de saber si el arreglo funcionaba.
+func _falso_jugador() -> void:
+	# El script se monta ENTERO y se compila ANTES de colgarselo al nodo: un GDScript recien creado
+	# no tiene clase todavia, asi que `set_script` primero y `get_script().source_code` despues deja
+	# el script en Nil y no se aplica nada.
+	var sc := GDScript.new()
+	sc.source_code = """
+extends Node
+func aguante_de_grupo(pj) -> Vector2:
+	# Lo mismo que hace el jugador de verdad, en pequeño: el aguante sale de la Resistencia.
+	var tope := 60.0 + float(pj.resistencia) * 0.12
+	return Vector2(tope, tope)
+func refrescar_grupo() -> void:
+	pass
+"""
+	sc.reload()
+	var n := Node.new()
+	n.name = "JugadorDePrueba"
+	n.set_script(sc)
+	n.add_to_group("player")
+	add_child(n)
 
 
 func _captura(nombre: String) -> void:
