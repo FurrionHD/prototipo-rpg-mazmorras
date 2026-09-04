@@ -2,6 +2,62 @@
 
 ---
 
+# En curso — «El reloj de pared»
+
+La tanda que salió del playtest a dos del piso 1 al 7. Casi todo eran relojes que no eran relojes y
+pantallas que mentían.
+
+## ⏱️ Diez minutos son diez minutos
+
+**El Rey Slime tardaba media hora en volver.** El reloj con el que se contaban esos 10 minutos se
+**paraba con cualquier menú abierto** — inventario, ficha, mapa, tienda — y no existía con el juego
+cerrado. Ahora va con el **reloj de verdad**, y con él van también **las vetas picadas** y **el banco
+de peces** (que era el peor caso: pescar es estar quieto abriendo menús).
+
+**Los dos jefes vuelven en 10 minutos.** El Minotauro baja de 15. Y su cuenta atrás **se guarda en la
+partida**: cerrar el juego ya no los resucita de golpe.
+
+**Y ya no aparecen de la nada.** El suelo tiembla primero, como un brote de pared pero más gordo. No
+te embisten: el jefe nace y se queda merodeando su sala.
+
+## 🐛 Lo que rompía la partida
+
+**«No me entra en combate».** Si pulsabas Continuar en la pelea de tu compañero justo cuando él la
+cerraba, tu juego se quedaba esperando una respuesta que ya no iba a llegar — **y no volvías a poder
+pelear en toda la sesión**.
+
+**Huir y volver a entrar duplicaba tu grupo.** En tu pantalla salían con un «(2)» detrás; en la de tu
+compañero, dos veces cada uno. Ahora el que vuelve recupera su hueco.
+
+**La habilidad que se tiraba de básico.** No era aleatorio: al espejo no le llegaban las cargas de
+Foco, así que le pintaba habilitada una habilidad que el anfitrión iba a rechazar. Y cuando una
+habilidad no se puede lanzar, ahora **te dice por qué**.
+
+## 🏮 Cada uno con su farolillo
+
+En multijugador **todos alumbraban lo que alumbrabas tú**. Con el farol apagado o con uno mejor, daba
+igual. Ahora cada uno alumbra lo suyo.
+
+## 📜 Encargos
+
+**Mandar al que sabe ya sirve para algo.** Marcar el check te **penalizaba**: excluía al resto del
+cómputo, así que el especialista de 400 salía peor que no marcar a nadie. Ahora la calidad va por la
+**media de los que trabajan esa faena** — el especialista sube la calidad, la cuadrilla sube el
+volumen — y el check **se ve siempre**.
+
+**Y tu stat ya cuenta lo que vale.** Se estaba contando a la mitad por un número que venía de los
+minijuegos de la mazmorra: con 400 de Fuerza medías 230 contra un hierro de 350, e ir a por buen
+acero pedía casi el tope de la estadística. En el piso 7, un especialista de 400 pasa de traer
+chatarra a traer la mitad intacto.
+
+## 🔮 Imbuiciones fuera de combate
+
+**Ya puedes teñir el arma antes de la pelea**, que es cuando tiene sentido. Se elige **a quién** del
+grupo se la pones, y te dice la que ya lleva puesta. Antes hacía falta un enemigo delante… y salía
+disparada contra él.
+
+---
+
 # v0.11.2 — «La cueva»
 
 A partir del piso 7 la mazmorra deja de ser mazmorra. Y hay bichos que nacen con algo de más.
