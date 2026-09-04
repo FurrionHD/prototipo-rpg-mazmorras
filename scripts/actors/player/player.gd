@@ -1474,10 +1474,14 @@ func _abrir_casteo() -> void:
 	# El objetivo se fija AHORA (el mas cercano dentro del cono, sin pared) y ya no cambia: si
 	# pudiera cambiar a media cancion, acabarias lanzandole a otro por haberte girado.
 	var candidatos: Array = _enemigos_a_tiro(RANGO_CASTEO)
-	if candidatos.is_empty():
+	# SIN BICHO A TIRO EL PANEL SE ABRE IGUAL si llevas alguna IMBUICION. Esas no se disparan contra
+	# nadie: le tiñen el arma a uno de los tuyos, asi que exigir un enemigo delante era lo que hacia
+	# imposible prepararse ANTES de la pelea, que es justo cuando tiene sentido. Las de ataque salen
+	# apagadas dentro del panel, con su motivo (ver casteo_mapa._menu_hechizos).
+	if candidatos.is_empty() and not _lleva_imbuicion(pj):
 		_toast("No hay nada a tiro a lo que lanzarle un conjuro.")
 		return
-	var objetivo = candidatos[0][1]
+	var objetivo = candidatos[0][1] if not candidatos.is_empty() else null
 	var c: Node = CASTEO_MAPA.new()
 	c.setup(pj, self, objetivo)
 	c.lanzado.connect(_soltar_conjuro)
@@ -1487,9 +1491,24 @@ func _abrir_casteo() -> void:
 	_casteo = c
 
 
-# Cantado entero: sale el proyectil hacia el bicho. El mana ya lo cobro el panel.
-func _soltar_conjuro(spell: SpellData, objetivo: Node) -> void:
+# ¿Lleva equipada alguna imbuicion? Es lo que decide si el panel de recitado se abre sin bichos
+# delante. Se pregunta por el hechizo y no por el arma: una de CUERPO vale aunque vayas a puños.
+func _lleva_imbuicion(pj: PersonajeData) -> bool:
+	for sp in pj.equipped_spells:
+		if sp != null and sp.es_imbuicion() and not sp.frases.is_empty():
+			return true
+	return false
+
+
+# Cantado entero. El mana ya lo cobro el panel.
+#
+# 'destino' solo viene en las IMBUICIONES: entonces no sale proyectil ni se abre pelea, se le pone al
+# personaje elegido y ya. Es la diferencia entera entre las dos ramas -- una imbuicion no vuela.
+func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: PersonajeData = null) -> void:
 	_casteo = null
+	if destino != null:
+		_aplicar_imbuicion_mapa(spell, destino)
+		return
 	if not is_instance_valid(objetivo):
 		return
 	var color: Color = Elementos.color(spell.elemento) if Elementos.tiene_color(spell.elemento) \
@@ -1504,6 +1523,32 @@ func _soltar_conjuro(spell: SpellData, objetivo: Node) -> void:
 	mundo.add_child(p)
 	p.impacto.connect(_impacto_conjuro.bind(spell))
 	Net.anunciar_conjuro(objetivo, color, spell)   # que se vea volar EL MISMO en las otras pantallas
+
+
+# IMBUIR A UNO DE LOS TUYOS DESDE EL MAPA. Nada de proyectil ni de abrir pelea: se le pone y ya.
+#
+# Las cargas viven en el Combatant, que es de la pelea, pero la imbuicion PERSISTE entre combates por
+# diseño (ver Game.guardar_imbue_en_ficha) y la ficha tiene su hueco. Asi que el camino es el mismo
+# que usa el propio Game para pintarla en la hoja de personaje: un Combatant de usar y tirar que sabe
+# aplicarla, y de ahi a la ficha. Sin una segunda implementacion que se desincronice con la de
+# combat._aplicar_imbuicion, que es la que manda.
+func _aplicar_imbuicion_mapa(spell: SpellData, pj: PersonajeData) -> void:
+	var cuerpo: bool = spell.imbue_tipo == 2
+	var c := Combatant.new(pj.nombre, 1, Abilities.new(), 1.0, 0.0, 0.0, 0.0)
+	c.aplicar_imbue(spell.elemento, spell.imbue_pct, spell.imbue_usos, cuerpo,
+		spell.imbue_estado, spell.imbue_prob, spell.imbue_intensidad)
+	Game.guardar_imbue_en_ficha(c, pj)
+	var elem: String = Elementos.nombre(spell.elemento)
+	var usos_txt: String = "%d carga%s" % [spell.imbue_usos, "" if spell.imbue_usos == 1 else "s"]
+	print("[imbuicion] %s imbuye %s de %s a %s desde el mapa: +%d%% durante %s" % [
+		Game.lider().nombre, ("el CUERPO" if cuerpo else "el ARMA"), elem, pj.nombre,
+		roundi(spell.imbue_pct * 100.0), usos_txt])
+	var quien_txt: String = "tu" if pj == Game.lider() else pj.nombre
+	_toast("✨ %s: %s de %s (%s)." % [
+		quien_txt, ("cuerpo" if cuerpo else "arma"), elem, usos_txt])
+	# Y que se le vea el rastro a los demas: la imbuicion tiene su propio canal de red, y sin esto en
+	# la pantalla del compañero seguiria sin teñir hasta el siguiente combate.
+	Net.anunciar_imbue()
 
 
 # El conjuro ha llegado: se abre la pelea a mi nombre (con la iniciativa de siempre) y el hechizo
@@ -1611,6 +1656,12 @@ func hay_conjuro_a_tiro() -> bool:
 	var pj: PersonajeData = Game.lider()
 	if not Game.lleva_arma_magica(pj) or pj.equipped_spells.is_empty():
 		return false
+	# Con una IMBUICION equipada siempre hay algo que recitar, haya bichos o no: se la pones a los
+	# tuyos. Va aqui y no solo en _abrir_casteo porque un boton APAGADO no acepta el mantenido (ver
+	# touch_controls._conectar_mantener), asi que sin esto en el movil era imposible imbuirse sin un
+	# enemigo delante -- justo el momento en que quieres hacerlo.
+	if _lleva_imbuicion(pj):
+		return true
 	return not _enemigos_a_tiro(RANGO_CASTEO).is_empty()
 
 

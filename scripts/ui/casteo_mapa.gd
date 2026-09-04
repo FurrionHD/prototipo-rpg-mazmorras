@@ -26,7 +26,11 @@ class_name CasteoMapa
 const GloboCasteoS = preload("res://scripts/ui/globo_casteo.gd")
 
 # Se ha cantado entero: sale el conjuro. El mana YA esta cobrado.
-signal lanzado(spell: SpellData, objetivo: Node)
+#
+# 'destino' es a QUIEN de los tuyos va, y solo lo llevan las IMBUICIONES: esas no se disparan contra
+# nadie, se le ponen a un compañero (o a ti). Para el resto de hechizos es null y manda 'objetivo',
+# que es el bicho.
+signal lanzado(spell: SpellData, objetivo: Node, destino: PersonajeData)
 # Se ha fallado una frase: backfire ya aplicado (daño y mana). 'muerto' = te ha matado.
 signal fallado(spell: SpellData, dano: float, muerto: bool)
 # Se ha cerrado sin cantar nada (Volver, o interrumpido): no se ha cobrado nada.
@@ -62,6 +66,10 @@ var _pj: PersonajeData = null
 var _jugador: Node2D = null
 var _objetivo: Node = null          # el bicho al que va (se fija al empezar)
 var _spell: SpellData = null
+# A QUIEN DE LOS TUYOS va la imbuicion. null = el hechizo va contra el bicho de _objetivo, como
+# siempre. Se elige en un paso intermedio, entre escoger el hechizo y ponerse a recitar, igual que
+# en combate (ver combat._elegir_objetivo_aliado).
+var _destino_pj: PersonajeData = null
 var _frase: int = 0                 # por que frase vamos (0 = ninguna recitada aun)
 var _cerrado: bool = false
 
@@ -161,6 +169,19 @@ func _menu_hechizos() -> void:
 		elif sp.frases.is_empty():
 			# Un hechizo sin frases no se puede recitar: aqui no hay turnos que gastar en su lugar.
 			b.disabled = true
+		elif sp.es_imbuicion():
+			# LAS IMBUICIONES NO NECESITAN BICHO. No se disparan contra nadie: tiñen el arma (o el
+			# cuerpo) de uno de los tuyos, asi que se pueden recitar en el pasillo vacio o en el
+			# pueblo. Lo unico que hace falta es que haya a quien ponersela.
+			if _candidatos_imbue(sp).is_empty():
+				b.disabled = true
+				b.tooltip_text = "⛔ Nadie de tu grupo lleva arma que teñir\n\n%s" % b.tooltip_text
+		elif not is_instance_valid(_objetivo):
+			# Y las de ATAQUE si lo necesitan. Antes esto no se podia ni ver: sin bicho a tiro el panel
+			# no llegaba a abrirse (ver player._abrir_casteo), asi que no habia forma de imbuirse
+			# estando solo. Ahora se abre igual y son estas las que salen apagadas.
+			b.disabled = true
+			b.tooltip_text = "⛔ No hay nada a tiro a lo que lanzarlo\n\n%s" % b.tooltip_text
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, ALTO_BOTON)
 		b.clip_text = true
@@ -181,7 +202,78 @@ func _menu_hechizos() -> void:
 func _elegir(sp: SpellData) -> void:
 	_spell = sp
 	_frase = 0
+	_destino_pj = null
+	# Las imbuiciones preguntan A QUIEN antes de recitar. Con un solo candidato NO se pregunta y se va
+	# directo, igual que en combate (_elegir_objetivo_aliado): un menu de una sola opcion es un clic
+	# de peaje.
+	if sp.es_imbuicion():
+		var quienes: Array = _candidatos_imbue(sp)
+		if quienes.is_empty():
+			return
+		if quienes.size() == 1:
+			_destino_pj = quienes[0]
+			_mostrar_frase()
+			return
+		_menu_aliados(sp, quienes)
+		return
 	_mostrar_frase()
+
+
+# ------------------------------------------------------------
+#  PASO 1b (solo IMBUICIONES): a quien se la pones
+# ------------------------------------------------------------
+# A QUIEN se le puede poner esta imbuicion. Mismo criterio que en combate (ver _con_arma_vivos): las
+# de ARMA (imbue_tipo == 1) solo valen para quien lleve algo con lo que pegar -a manos vacias no hay
+# acero que teñir-, y las de CUERPO valen para cualquiera. Los KO no cuentan.
+func _candidatos_imbue(sp: SpellData) -> Array:
+	var out: Array = []
+	for pj in Game.party:
+		var p := pj as PersonajeData
+		if p == null or Game.player_hp(p) <= 0.0:
+			continue
+		if int(sp.imbue_tipo) == 1 and p.equipped_main == null:
+			continue
+		out.append(p)
+	return out
+
+
+func _menu_aliados(sp: SpellData, quienes: Array) -> void:
+	_vaciar()
+	var grid := _rejilla()
+	for pj_ in quienes:
+		var pj := pj_ as PersonajeData
+		var b := Button.new()
+		var corona: String = "👑 " if pj == Game.lider() else ""
+		b.text = "%s%s" % [corona, pj.nombre]
+		# LO QUE YA LLEVA PUESTO, porque la nueva SUSTITUYE a la de antes y eso hay que verlo antes de
+		# recitar tres frases. La etiqueta la sabe hacer el Combatant, asi que se monta uno de usar y
+		# tirar solo para preguntarle (mismo truco que Game usa para la ficha).
+		var puesta: String = _imbue_puesta(pj)
+		b.tooltip_text = ("Ahora lleva: %s\nLa nueva la sustituye." % puesta) if puesta != "" \
+			else "No lleva ninguna imbuición puesta."
+		if puesta != "":
+			b.text += "  (%s)" % puesta
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(0, ALTO_BOTON)
+		b.clip_text = true
+		b.pressed.connect(func() -> void:
+			_destino_pj = pj
+			_mostrar_frase())
+		grid.add_child(b)
+	_boton_ancho("◄ Volver", ALTO_BOTON_VOLVER, _menu_hechizos)
+	var filas: int = maxi(1, ceili(grid.get_child_count() / float(COLUMNAS)))
+	_panel.offset_top = _panel.offset_bottom \
+		- (filas * ALTO_BOTON + (filas - 1) * 10.0 + 12.0 + ALTO_BOTON_VOLVER) - 20.0
+	_globo_estado("🔮 %s · ¿a quién?" % sp.nombre, Color(0.75, 0.75, 0.9))
+
+
+# La imbuicion que ese personaje lleva AHORA, en corto ("" si ninguna). La ficha guarda el dict
+# crudo (PersonajeData.imbue) y quien sabe leerlo es Combatant, asi que se monta uno de usar y tirar
+# — es el mismo apaño que ya hace Game para pintarlo en la hoja de personaje.
+func _imbue_puesta(pj: PersonajeData) -> String:
+	var c := Combatant.new(pj.nombre, 1, Abilities.new(), 1.0, 0.0, 0.0, 0.0)
+	Game.restaurar_imbue_de_ficha(c, pj)
+	return c.imbue_etiqueta() if c.tiene_imbue() else ""
 
 
 # ------------------------------------------------------------
@@ -257,8 +349,9 @@ func _completar() -> void:
 	print("[casteo] %s lanza %s desde el mapa | -%.2f MP" % [_pj.nombre, _spell.nombre, coste])
 	var sp := _spell
 	var obj := _objetivo
+	var destino := _destino_pj
 	_cerrar()
-	lanzado.emit(sp, obj)
+	lanzado.emit(sp, obj, destino)
 
 
 # Fallar una frase EN EL MAPA. Mismo precio que en combate (mana + daño), pero aqui puede matarte y
@@ -328,7 +421,11 @@ func _process(delta: float) -> void:
 		return
 	# El objetivo se ha muerto o lo ha limpiado el reciclador mientras cantabas: el conjuro se queda
 	# sin a quien ir. Se cae SIN cobrar (aun no habias soltado nada).
-	if _objetivo != null and not is_instance_valid(_objetivo):
+	#
+	# Salvo si es una IMBUICION: esa va a alguien de tu grupo y le da igual lo que le pase al bicho
+	# que hubiera a tiro cuando abriste el panel. Si el bicho se muere a media frase, tu sigues
+	# cantando, que es exactamente lo que esperarias.
+	if _destino_pj == null and _objetivo != null and not is_instance_valid(_objetivo):
 		interrumpir()
 		return
 	Game.sumar_alboroto(ALBOROTO_CANTANDO * delta)
@@ -370,6 +467,11 @@ func _motivo_bloqueo() -> String:
 		return ""
 	if (_jugador.velocity as Vector2).length() > VEL_QUIETO:
 		return "quieto para recitar"
+	# LA LINEA DE VISION SOLO LA PIDE LO QUE VUELA. Una imbuicion se la pones a alguien de tu grupo,
+	# que va pegado a ti (ver party_trail): no hay nada que cruce la sala, asi que un muro entre tu y
+	# el bicho de turno no puede impedir que te tiñas la espada.
+	if _destino_pj != null:
+		return ""
 	if _objetivo is Node2D and _jugador.has_method("ve_a") \
 			and not _jugador.ve_a((_objetivo as Node2D).global_position):
 		return "sin línea de visión"
