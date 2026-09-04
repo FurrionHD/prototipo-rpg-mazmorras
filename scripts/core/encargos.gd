@@ -331,6 +331,11 @@ static func poder(pj: PersonajeData) -> float:
 # El del GRUPO: el que mas, entero, y los demas a fraccion. Es el hermano de RECO_REPARTO_GRUPO y
 # con el mismo motivo: cuatro clones valen x2.2, no x4. Mandar mas gente compensa, pero no convierte
 # a cuatro novatos en un veterano.
+#
+# OJO, ESTO ES SOLO PARA PELEAR. La CALIDAD de lo que recogen va por la MEDIA (ver
+# poder_recolector_de) y es a proposito: repartirse a cuatro los bichos que salen al paso ayuda de
+# verdad, pero cuatro pares de manos no pican mejor la veta que el mejor de ellos. Unificar las dos
+# es justo lo que hacia que marcar al especialista te penalizara.
 const REPARTO := 0.4
 
 static func poder_grupo(pjs: Array) -> float:
@@ -631,13 +636,24 @@ static func poder_recolector(pjs: Array, tipo: int, afinidad: float) -> float:
 # invitado recibe las stats del compañero dentro del roster, no sus PersonajeData.
 static func poder_recolector_de(valores: Array, tipo: int, afinidad: float) -> float:
 	var of: Dictionary = oficio_de(tipo)
+	if valores.is_empty():
+		return float(of["suelo"]) + afinidad
 	var suma: float = 0.0
-	var mejor: float = 0.0
 	for v in valores:
 		suma += float(v)
-		mejor = maxf(mejor, float(v))
-	# Mismo reparto que el combate: el que mas sabe lleva la voz cantante.
-	var stat: float = mejor + REPARTO * (suma - mejor)
+	# LA MEDIA de los que trabajan este tipo, no la suma ni "el mejor + un pico de los demas".
+	#
+	# Aqui habia un `mejor + REPARTO * (suma - mejor)` copiado del combate, y con la regla de que un
+	# tipo sin nadie marcado lo trabajan TODOS (ver uids_trabajando) hacia justo lo contrario de lo
+	# que promete la interfaz: marcar el check EXCLUIA a los demas del sumatorio, asi que mandar
+	# especificamente al bueno siempre salia PEOR que no marcar a nadie. En el playtest, el de 400 de
+	# Agilidad a por madera daba 0% intacto marcado y 70% sin marcar. El check era una penalizacion.
+	#
+	# Con la media, la calidad la decide LO BUENOS QUE SON los que van, no cuantos son: dos con 100 y
+	# 200 dan 150, y mandar solo al de 200 da 200. Y no se pierde nada por ir en grupo, porque la
+	# CANTIDAD si escala con el numero de personas (ver unidades()). Ese es el reparto: el
+	# especialista sube la calidad, la cuadrilla sube el volumen.
+	var stat: float = suma / float(valores.size())
 	return stat * Game.RECOLECCION_STAT_PESO + float(of["suelo"]) + afinidad
 
 static func ratio_material(m: MaterialData, piso: int, poder_reco: float) -> float:

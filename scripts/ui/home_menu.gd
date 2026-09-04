@@ -571,7 +571,12 @@ func _build_ordenes(caja: VBoxContainer, ficha: Dictionary) -> void:
 	# deja en 0 y que el EXPAND_FILL reparta lo que haya.
 	# A qué va es MULTISELECCIÓN, como el "Tipo de encargo" de la izquierda: a uno le puedes mandar a
 	# pescar Y a por bichos. Sin nada marcado va a lo que haga falta, que es lo de siempre.
-	if _enc_tipos.size() > 1:
+	# SALE SIEMPRE, tambien con un solo tipo marcado. Antes se escondia con uno solo porque "no hay
+	# nada que elegir", y con la vieja formula era verdad. Desde que la calidad va por la MEDIA de los
+	# que trabajan ese tipo (ver Encargos.poder_recolector_de), marcar decide QUIEN lo trabaja aunque
+	# el tipo sea uno: mandar a las vetas solo al fuerte sube la calidad del mineral, y dejarlo sin
+	# marcar la baja con la media de los cuatro. Es una decision de verdad y tiene que verse.
+	if not _enc_tipos.is_empty():
 		var suyas: Array = _enc_faena.get(uid, [])
 		var et: Array = []
 		var vals: Array = []
@@ -580,7 +585,7 @@ func _build_ordenes(caja: VBoxContainer, ficha: Dictionary) -> void:
 			var n: String = String(Encargos.NOMBRE_TIPO.get(int(t), "?"))
 			et.append("%s %s" % ["☑" if suyas.has(int(t)) else "☐", n])
 			vals.append(int(t))
-			tips_f.append("Trabaja %s." % n.to_lower())
+			tips_f.append("Trabaja %s. La calidad sale de la media de los que van a esto." % n.to_lower())
 		MenuScaffold.nota(caja, "A qué va" if not suyas.is_empty()
 			else "A qué va  ·  sin marcar nada, a lo que haga falta")
 		MenuScaffold.cuadricula(caja, et, -1, func(i: int):
