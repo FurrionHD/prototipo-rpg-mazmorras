@@ -7,8 +7,9 @@
 #      con Input.is_action_pressed(), asi que con esto funcionan los dos estilos SIN tocarlos:
 #      los de mantener (mineria, tension de la pesca) y los de tocar en el momento justo
 #      (tala, herboristeria, extraccion).
-#   2) Publica DONDE esta el dedo (x_norm, 0 = borde izquierdo, 1 = derecho). Solo lo usa la
-#      pesca, para apuntar la caña arrastrando en vez de con A/D.
+#   2) Publica DONDE esta el dedo, en pixeles de pantalla. Solo lo usa la pesca, que apunta AL
+#      SITIO que tocas. Y por eso existe tambien el modo apuntar_sin_pulsar: alli el toque elige
+#      el destino y NO carga nada, que de eso se encarga su boton de Lanzar.
 #
 #  Y monta la fila de botones de abajo a la derecha (Salir, Recoger...), que es la otra mitad del
 #  problema: cuatro de los cinco minijuegos no tenian NINGUNA forma de salirse.
@@ -32,7 +33,18 @@ var _zona: Control = null
 var _fila: HBoxContainer = null
 var _origen: String = ""      # "" | "dedo" | "raton": quien tiene el mando ahora mismo
 var _dedo_idx: int = -1
-var _x_norm: float = 0.5
+# DONDE tocaste por ultima vez, en pixeles de pantalla. Vector2.INF = todavia nadie ha tocado.
+# Lo usa la pesca para apuntar AL SITIO: tocas el trozo de agua al que quieres tirar y la caña mira
+# ahi. Se conserva al levantar el dedo, porque la direccion elegida tiene que quedarse puesta
+# mientras cargas la fuerza con el otro boton.
+var _pos_ultima: Vector2 = Vector2.INF
+# MODO APUNTAR: la zona de toque deja de pulsar la accion y solo dice DONDE tocas.
+#
+# Los otros cuatro minijuegos (y la lucha con el pez) son "tocar = actuar", asi que por defecto va
+# apagado. Pero apuntar la caña y cargar la fuerza son DOS decisiones, y con el mismo dedo para las
+# dos no se puede corregir la punteria sin lanzar: en cuanto tocabas para apuntar ya estabas
+# cargando. Con esto encendido, apuntas tocando y lanzas con su boton.
+var apuntar_sin_pulsar: bool = false
 
 
 func _init(accion: StringName = &"recolectar") -> void:
@@ -93,13 +105,25 @@ func anadir_boton(texto: String, color: Color = Color(0.20, 0.22, 0.28)) -> Butt
 	return b
 
 
-# Donde esta el dedo, de 0 (izquierda) a 1 (derecha). 0.5 si no hay ninguno puesto.
-func x_norm() -> float:
-	return _x_norm
-
-
 func hay_dedo() -> bool:
 	return _origen != ""
+
+
+# El ultimo punto tocado, en pixeles de pantalla. Vector2.INF si aun no se ha tocado nada.
+func pos_ultima() -> Vector2:
+	return _pos_ultima
+
+
+# Cambia entre "tocar = apuntar" y "tocar = actuar". Se suelta la accion al entrar en modo apuntar:
+# si el dedo estaba puesto cuando se cambia (justo lo que pasa al lanzar, que sueltas y el estado
+# cambia en el mismo frame), la accion se quedaria pulsada para siempre y el minijuego siguiente
+# arrancaria dandole al pico solo.
+func modo_apuntar(si: bool) -> void:
+	if si == apuntar_sin_pulsar:
+		return
+	apuntar_sin_pulsar = si
+	if si and _origen != "":
+		Tactil.soltar(_accion)
 
 
 func _on_zona_input(event: InputEvent) -> void:
@@ -131,7 +155,8 @@ func _tomar(origen: String, pos: Vector2) -> void:
 		return   # ya manda otro (el click emulado que viene detras del dedo)
 	_origen = origen
 	_apuntar(pos)
-	Tactil.pulsar(_accion)
+	if not apuntar_sin_pulsar:
+		Tactil.pulsar(_accion)
 
 
 func _soltar(origen: String) -> void:
@@ -139,10 +164,10 @@ func _soltar(origen: String) -> void:
 		return
 	_origen = ""
 	_dedo_idx = -1
-	Tactil.soltar(_accion)
+	if not apuntar_sin_pulsar:
+		Tactil.soltar(_accion)
 	dedo_soltado.emit()
 
 
 func _apuntar(pos: Vector2) -> void:
-	if size.x > 0.0:
-		_x_norm = clampf(pos.x / size.x, 0.0, 1.0)
+	_pos_ultima = pos

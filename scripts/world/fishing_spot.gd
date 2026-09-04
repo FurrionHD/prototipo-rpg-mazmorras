@@ -409,7 +409,11 @@ func _crear_mira() -> void:
 	_mira.add_child(_barra_relleno)
 
 	_mira_lbl = Label.new()
-	_mira_lbl.text = "A/D apunta  ·  MANTÉN ESPACIO  ·  F o ESC salen"
+	# Las cuatro, no A/D: la mira va hacia donde pulses, y cual manda depende de donde estes plantado
+	# (ver _paso_apuntando). Decir "A/D" mandaba a pelearse con la tecla que no hacia nada.
+	# Y en tactil no se dice ninguna tecla, que ahi no hay: se toca el agua y se mantiene Lanzar.
+	_mira_lbl.text = "Toca el agua  ·  MANTÉN LANZAR" if Tactil.activo \
+		else "WASD apunta  ·  MANTÉN ESPACIO  ·  F o ESC salen"
 	_mira_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mira_lbl.add_theme_font_size_override("font_size", 9)
 	_mira_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
@@ -754,22 +758,53 @@ func _paso_apuntando(delta: float) -> void:
 	# CORTA el agua: asi el corcho no puede caer fuera del charco ni recortandolo despues, que es lo
 	# que haria que la linea de puntos te mintiera.
 	if _pad != null and _pad.hay_dedo():
-		# Con los dedos se apunta ARRASTRANDO: donde tengas el dedo en horizontal es hacia donde mira
-		# la caña, de un extremo a otro de la apertura. La fuerza la sigue dando el rato que aguantes,
-		# asi que apuntar y cargar son el MISMO gesto, y sueltas cuando lo tengas.
-		var nuevo_t: float = _ang_base + (_pad.x_norm() * 2.0 - 1.0) * ANGULO_MAX
-		if _tramo_de_agua(nuevo_t).x >= 0.0:
-			_ang = nuevo_t
+		# CON EL DEDO SE APUNTA AL SITIO: tocas el trozo de agua al que quieres tirar y la caña mira
+		# ahi. Antes esto mapeaba la MITAD IZQUIERDA/DERECHA de la pantalla a los dos extremos de la
+		# apertura, que no se parece a nada: tocabas a la izquierda y la mira se iba a un sitio que no
+		# tenia que ver con tu dedo, y ademas el mismo toque ya cargaba la fuerza.
+		var destino: Vector2 = _mundo_desde_pantalla(_pad.pos_ultima())
+		if destino != Vector2.INF:
+			var nuevo_t: float = (to_local(destino) - _origen_hilo()).angle()
+			# Se recorta a la apertura en vez de descartarse: si tocas detras de ti, la caña se va al
+			# extremo de lo que puede y se queda ahi. Descartarlo dejaria la mira quieta sin decir por
+			# que, que desde el movil se lee como que el toque no ha entrado.
+			var fuera: float = angle_difference(_ang_base, nuevo_t)
+			nuevo_t = _ang_base + clampf(fuera, -ANGULO_MAX, ANGULO_MAX)
+			if _tramo_de_agua(nuevo_t).x >= 0.0:
+				_ang = nuevo_t
 	else:
-		var giro: float = 0.0
-		if Input.is_action_pressed(&"move_left"):
-			giro -= 1.0
-		if Input.is_action_pressed(&"move_right"):
-			giro += 1.0
-		if giro != 0.0:
-			var nuevo: float = _ang + giro * GIRO_MIRA * delta
-			if absf(angle_difference(_ang_base, nuevo)) <= ANGULO_MAX and _tramo_de_agua(nuevo).x >= 0.0:
-				_ang = nuevo
+		# LA MIRA VA HACIA DONDE PULSAS, se ponga uno donde se ponga. Antes A/D sumaban y restaban al
+		# angulo a pelo, y eso solo se lee bien desde UN lado del charco: plantado al norte, la mira
+		# apunta hacia abajo, y sumarle angulo la lleva hacia la IZQUIERDA de la pantalla. O sea que
+		# la D movia a la izquierda. Desde el sur iba bien. Un control que se invierte segun por donde
+		# llegues es imposible de aprender, porque no hay nada que aprender.
+		#
+		# Ahora las cuatro teclas son una DIRECCION EN PANTALLA y se proyecta sobre la tangente de la
+		# mira (hacia donde se mueve el punto de caida cuando el angulo crece). Sale solo:
+		#   - de pie al norte, la mira va hacia abajo -> su tangente es horizontal -> mandan A y D;
+		#   - de pie al este, la mira va hacia la izquierda -> la tangente es vertical -> mandan W y S.
+		# Y el signo siempre cuadra, porque es el que dice el producto escalar y no una tabla de casos
+		# con sus cuatro cuadrantes y sus costuras en las diagonales.
+		#
+		# La tecla que apunta A LO LARGO de la mira (W estando al norte) da escalar ~0 y no hace nada,
+		# que es lo correcto: acercar o alejar el corcho no es el angulo, es el medidor de fuerza.
+		var dir := Vector2(
+			Input.get_axis(&"move_left", &"move_right"),
+			Input.get_axis(&"move_up", &"move_down"))
+		if dir != Vector2.ZERO:
+			# LA TANGENTE: hacia donde se desplaza el punto de caida cuando el angulo CRECE. El escalar
+			# de tu direccion contra ella ES el sentido del giro, con su fuerza.
+			#
+			# OJO CON EL SIGNO: Vector2.orthogonal() devuelve (y, -x), que gira -90°, y el angulo al
+			# crecer gira +90° (la Y va hacia abajo). O sea que la tangente es orthogonal() CAMBIADA DE
+			# SIGNO. Sin este menos las cuatro teclas salen invertidas -- exactamente el bug que se
+			# venia a arreglar, pero ahora en los cuatro lados en vez de en dos.
+			var giro: float = dir.normalized().dot(-Vector2.from_angle(_ang).orthogonal())
+			if not is_zero_approx(giro):
+				var nuevo: float = _ang + giro * GIRO_MIRA * delta
+				if absf(angle_difference(_ang_base, nuevo)) <= ANGULO_MAX \
+						and _tramo_de_agua(nuevo).x >= 0.0:
+					_ang = nuevo
 
 	var pulsa: bool = Input.is_action_pressed(&"recolectar")
 	if not pulsa:
@@ -821,6 +856,11 @@ func _process(delta: float) -> void:
 	# no: ver a tu compañero con la caña echada desde la orilla es medio motivo de que esto exista.
 	_publicar_mi_corcho(delta)
 	_pintar_sedales(delta)
+	# QUE HACE EL DEDO depende de la fase, y las fases cambian desde media docena de sitios (lanzar,
+	# picar, recoger, volver a la mira tras cobrar un pez). Se refresca aqui, que es el unico punto
+	# por el que pasan todas: engancharlo a cada transicion es la clase de lista a la que se le
+	# escapa una, y la que se escape deja el dedo apuntando cuando tendria que estar peleando.
+	_refrescar_tactil()
 	if _estado == LIBRE:
 		return
 	# RECOGER EL SEDAL con la misma F con la que lo echaste. Mientras esperas estas dentro de un
@@ -1114,6 +1154,9 @@ func _volver_a_apuntar() -> void:
 const _TOUCH_PAD := preload("res://scripts/ui/touch_pad.gd")
 var _capa_tactil: CanvasLayer = null
 var _pad: Control = null
+# El boton de LANZAR (solo se ve apuntando; ver _refrescar_tactil). Se mantiene pulsado para cargar
+# la fuerza, igual que el ESPACIO en el teclado.
+var _boton_lanzar: Button = null
 
 
 func _montar_tactil() -> void:
@@ -1126,12 +1169,41 @@ func _montar_tactil() -> void:
 	get_tree().root.add_child(_capa_tactil)
 	_pad = _TOUCH_PAD.new()
 	_capa_tactil.add_child(_pad)
+	# LANZAR ES SU PROPIO BOTON, Y SE MANTIENE. Antes apuntar y cargar eran el MISMO dedo: tocabas
+	# para elegir a donde tirar y con ese mismo toque ya se estaba llenando el medidor, asi que no
+	# habia forma de corregir la punteria sin lanzar. Ahora son dos decisiones seguidas, que es como
+	# se lanza una caña: primero eliges el sitio, luego cargas.
+	#
+	# Va con button_down/button_up y no con 'pressed' porque la fuerza ES el rato que aguantas: el
+	# minijuego lee la accion "recolectar" con is_action_pressed, asi que se pulsa y se suelta a mano.
+	_boton_lanzar = _pad.anadir_boton("Lanzar", Color(0.22, 0.38, 0.26))
+	_boton_lanzar.button_down.connect(func(): Tactil.pulsar(&"recolectar"))
+	_boton_lanzar.button_up.connect(func(): Tactil.soltar(&"recolectar"))
 	_pad.anadir_boton("Recoger", Color(0.20, 0.30, 0.42)).pressed.connect(_recoger_sedal)
 	_pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_guardar_cana)
+	_refrescar_tactil()
+
+
+# QUE HACE EL DEDO EN CADA FASE. Apuntando, el toque elige el SITIO y no toca la accion (de cargar
+# se encarga el boton Lanzar). En cuanto el sedal esta en el agua se vuelve al modo de siempre, que
+# es lo que la lucha necesita: ahi mantener la pantalla ES la mecanica.
+func _refrescar_tactil() -> void:
+	if _pad == null:
+		return
+	var apuntando: bool = _estado == APUNTANDO
+	_pad.modo_apuntar(apuntando)
+	if is_instance_valid(_boton_lanzar):
+		_boton_lanzar.visible = apuntando
 
 
 func _quitar_tactil() -> void:
 	_pad = null
+	# El boton de Lanzar pulsa la accion a mano (button_down) y la suelta en button_up: si el pad se
+	# va con el dedo encima, ese button_up no llega nunca y la accion se queda pulsada para siempre.
+	# El jugador saldria al mapa dando espadazos solo. Es la misma red que TouchPad._exit_tree.
+	if is_instance_valid(_boton_lanzar) and _boton_lanzar.button_pressed:
+		Tactil.soltar(&"recolectar")
+	_boton_lanzar = null
 	if is_instance_valid(_capa_tactil):
 		_capa_tactil.queue_free()
 	_capa_tactil = null
@@ -1188,6 +1260,18 @@ func _cobrar() -> void:
 # ------------------------------------------------------------
 # La punta de la caña en coordenadas locales del charco: el jugador, subido un poco. De aqui salen
 # TANTO el hilo como la linea de puntos de la mira, para que apuntes desde donde luego sale.
+# De pixeles de PANTALLA a coordenadas del MUNDO. El pad vive en un CanvasLayer, asi que sus toques
+# vienen en coordenadas de pantalla y hay que deshacer la camara para saber a que trozo de agua
+# apuntan. Vector2.INF si no hay nada que tocar todavia (o no hay viewport).
+func _mundo_desde_pantalla(pos: Vector2) -> Vector2:
+	if pos == Vector2.INF:
+		return Vector2.INF
+	var vp: Viewport = get_viewport()
+	if vp == null:
+		return Vector2.INF
+	return vp.get_canvas_transform().affine_inverse() * pos
+
+
 func _origen_hilo() -> Vector2:
 	var jugador = get_tree().get_first_node_in_group("player")
 	if jugador == null:
