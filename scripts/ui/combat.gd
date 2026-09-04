@@ -757,12 +757,26 @@ func _cola_log() -> String:
 func _valores(lista: Array) -> Array:
 	var out: Array = []
 	for c in lista:
-		# El 8º campo son las CARGAS DE FOCO. Van aqui y no en el roster porque cambian turno a turno
-		# (se gastan al pegar), igual que la vida. Sin ellas el espejo pintaba habilitada una segunda
-		# habilidad de Foco, el anfitrion la rechazaba al ejecutarla y salia un BASICO: era el "uso
-		# una habilidad y se tira un basico" del playtest.
+		# Los campos 8 y 9 son las CARGAS DE FOCO y los COOLDOWNS. Van aqui y no en el roster porque
+		# cambian turno a turno (se ganan y se gastan peleando), igual que la vida. Son las otras dos
+		# puertas que mira la barra de habilidades, y sin ellas el espejo pintaba habilitado lo que el
+		# anfitrion iba a rechazar -> salia un BASICO. Era el "uso una habilidad y se tira un basico".
+		#
+		# Los cooldowns van por RUTA y solo los que estan corriendo: casi siempre es un dict vacio, asi
+		# que no engorda el paquete en el caso normal.
 		out.append([c.current_hp, c.current_mp, c.current_energy, _chips_de(c),
-			c.max_hp, c.max_mp, c.max_energy, c.foco_cargas])
+			c.max_hp, c.max_mp, c.max_energy, c.foco_cargas, _cds_activos(c)])
+	return out
+
+
+# Los cooldowns que estan CORRIENDO, por ruta. Los de 0 no se mandan: en el caso normal esto es un
+# dict vacio y no engorda la instantanea, que sale en cada repintado.
+func _cds_activos(c: Combatant) -> Dictionary:
+	var out: Dictionary = {}
+	for ab in c.ability_cooldowns:
+		var turnos: int = int(c.ability_cooldowns[ab])
+		if turnos > 0 and ab != null and not String(ab.resource_path).is_empty():
+			out[String(ab.resource_path)] = turnos
 	return out
 
 
@@ -822,7 +836,11 @@ func _volatil(c: Combatant) -> Dictionary:
 	for ab in c.ability_cooldowns:
 		if ab != null and not String(ab.resource_path).is_empty():
 			cds[String(ab.resource_path)] = int(c.ability_cooldowns[ab])
-	return {"hp": c.current_hp, "mp": c.current_mp, "en": c.current_energy,
+	# El FOCO tambien: se gana y se gasta dentro de la pelea, asi que no se puede deducir de la ficha
+	# —que es el criterio de esta funcion— y sin el, traspasar la pelea le regalaba al que la recoge
+	# las cargas que ya tenia puestas (o se las quitaba). Faltaba desde siempre; se vio tirando del
+	# hilo del "uso una habilidad y sale un basico", que era este mismo campo por otra puerta.
+	return {"hp": c.current_hp, "mp": c.current_mp, "en": c.current_energy, "foco": c.foco_cargas,
 		"provocar": c.provocar_turnos, "estados": estados, "cd": cds,
 		"carga": [String(c.charging.resource_path) if c.charging != null else "", c.charge_left],
 		"imbue": [c.imbue_elemento, c.imbue_pct, c.imbue_usos, c.imbue_cuerpo,
@@ -835,6 +853,7 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 	c.current_hp = float(v.get("hp", c.current_hp))
 	c.current_mp = float(v.get("mp", c.current_mp))
 	c.current_energy = float(v.get("en", c.current_energy))
+	c.foco_cargas = int(v.get("foco", c.foco_cargas))
 	c.provocar_turnos = int(v.get("provocar", 0))
 	c.statuses.clear()
 	for e in v.get("estados", []):
@@ -1017,7 +1036,6 @@ func turno_mio(idx: int, seq: int = 0) -> void:
 func _vestir_maniqui(m: Combatant, real: Combatant) -> void:
 	m.abilities_combate = real.abilities_combate
 	m.spells = real.spells
-	m.ability_cooldowns = real.ability_cooldowns
 	m.magic_amp = real.magic_amp
 	m.mana_reduccion = real.mana_reduccion
 	# Las MANOS del loadout (dual): set_hands va ANTES de motion_value porque activa la mano 0 y
@@ -1025,12 +1043,18 @@ func _vestir_maniqui(m: Combatant, real: Combatant) -> void:
 	m.set_hands(real.hands)
 	m.ability_hands = real.ability_hands
 	m.motion_value = real.motion_value
-	# LAS CARGAS DE FOCO NO SE COPIAN DE AQUI, y es a proposito: 'real' es un Combatant recien
-	# creado con la ficha, asi que su foco vale 0 igual que el del maniqui. El foco se gana y se
-	# gasta DENTRO de la pelea, o sea que es un numero que cambia turno a turno: viaja en la
-	# INSTANTANEA, como la vida (ver _valores, campo 8). Ese era el agujero por el que salia un
-	# BASICO al pulsar una habilidad -- el mismo error que el dual, pero en un campo que ademas no
-	# se puede arreglar aqui.
+	# LAS CARGAS DE FOCO Y LOS COOLDOWNS NO SE COPIAN DE AQUI, y es a proposito.
+	#
+	# 'real' es un Combatant recien creado con la ficha, o sea que su foco vale 0 y su tabla de
+	# cooldowns esta VACIA (crear_player_combatant no los siembra: los pone start_combat /
+	# unir_aliado_al_combate despues). Copiarlos de aqui no era medio arreglo, era pintar ceros:
+	# el espejo enseñaba TODAS las habilidades listas, pulsabas una que en el anfitrion estaba en
+	# cooldown, y alli se rechazaba y salia un BASICO. El mismo agujero que el dual y que el foco,
+	# tres veces seguidas y siempre igual: un campo que el maniqui no tiene devuelve su valor por
+	# defecto y MIENTE en silencio.
+	#
+	# Los dos se ganan y se gastan DENTRO de la pelea, asi que cambian turno a turno: viajan en la
+	# INSTANTANEA, como la vida (ver _valores, campos 8 y 9).
 
 
 # LE PIDO ALGO A UN REMOTO (su turno, una frase, el disparo) y me quedo esperando. Se recuerda QUE
@@ -1469,6 +1493,15 @@ func _volcar(lista: Array, valores: Array) -> void:
 		# Las cargas de FOCO: es lo que decide si el boton de otra habilidad de Foco sale apagado.
 		if v.size() > 7:
 			lista[i].foco_cargas = int(v[7])
+		# Y los COOLDOWNS, que son la otra puerta. Se reconstruyen enteros en vez de fusionar: lo que
+		# no viene en el paquete es que ya no esta corriendo, y dejarlo puesto apagaria un boton que
+		# el anfitrion ya considera listo.
+		if v.size() > 8:
+			lista[i].ability_cooldowns.clear()
+			for ruta in (v[8] as Dictionary):
+				var ab = load(String(ruta))
+				if ab != null:
+					lista[i].ability_cooldowns[ab] = int((v[8] as Dictionary)[ruta])
 
 
 # ESPEJO: los que han caido en la instantanea se apagan aqui igual que en la pantalla que ejecuta.
