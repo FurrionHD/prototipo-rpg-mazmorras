@@ -1,23 +1,46 @@
 # ============================================================
 #  character_menu.gd  (CanvasLayer creada por codigo desde el jugador)
-#  Menu de PERSONAJE a PANTALLA COMPLETA (estilo Genshin/Honkai), tecla C.
-#  Barra de pestañas VERTICAL a la izquierda + contenido a la derecha:
-#    1) PERSONAJE - stats de combate calculadas; el boton ⇄ alterna con las 5
-#                   habilidades DanMachi.
-#    2) ARMAS     - arma principal/secundaria equipadas y sus stats. Boton
-#                   "Cambiar" -> CUADRICULA de armas + panel de stats a la derecha
-#                   + "Equipar". Solo en el pueblo.
-#    3) ARMADURA  - 5 slots; entras en uno, ves stats/mejoras y "Cambiar" abre la
-#                   misma cuadricula con los materiales. Solo en el pueblo.
-#  Al entrar en "Cambiar", viene preseleccionado lo equipado (siempre hay stats).
-#  Pausa el juego mientras esta abierto. UI por codigo (placeholder).
+#  Menu de PERSONAJE a pantalla completa, tecla C. Rehecho con la misma forma que el inventario
+#  (ver inventory_menu.gd y las capturas de referencia):
+#
+#    [Personaje]        ( ⚔ ✦ ◈ 🛡 ✳ )        (◍)(◍)(◍)(◍)   ✕
+#    [ NOMBRE ]          las 5 secciones        el grupo
+#    ──────────────────────────────────────────────────────────
+#              ( subpestañas )        ┌──────────────────────┐
+#               el MUÑECO / la        │ la FICHA de lo que   │
+#               rejilla de la         │ tengas elegido       │
+#               seccion               └──────────────────────┘
+#
+#  LAS CINCO SECCIONES:
+#    1) DETALLES  - el muñeco y sus barras; a la derecha, [Atributos | Habilidades]. Los atributos
+#                   cambian segun el arma (con baston salen los MAGICOS), y la lupa abre el detalle
+#                   entero, fisico y magico, lleves lo que lleves.
+#    2) ARMA      - principal y secundaria. "Cambiar" abre la rejilla del baul.
+#    3) TRAZOS    - las habilidades que llevas equipadas por el arma. Con hechizos, subpestañas
+#                   [Habilidades | Magias]; sin ellos la fila no aparece.
+#    4) ARMADURA  - las 5 piezas. Igual que las armas: celda -> ficha -> Cambiar.
+#    5) EIDOLON   - desarrollos y pasivas. Subpestañas solo si tienes de las dos clases; sin nada,
+#                   sale Desarrollo vacio con su explicacion.
+#
+#  Cambiar de equipo, SOLO EN EL PUEBLO. Pausa el juego mientras esta abierto.
+#
+#  DONDE ESTAN LOS NUMEROS: en ningun sitio de aqui. Todo sale de Game.crear_player_combatant y de
+#  las filas_* de MenuScaffold, que es la MISMA fuente que la ficha de detalle del combate
+#  (combate_detalle.gd). Dos pantallas, un solo juego de formulas: si se reescribiera una cuenta
+#  aqui, las dos empezarian a decir cosas distintas del mismo personaje sin dar ningun error.
 # ============================================================
 
 extends CanvasLayer
 
-# Solo ARMADURA. La mochila estuvo aqui de prestado (se equipa parecido y era donde se iba a
-# buscar), pero es del GRUPO y no de un personaje: verla en una ficha personal, al lado de cinco
-# slots que si son de esa persona, hacia creer que cada uno llevaba la suya. Se mudo al inventario [I].
+# --- LAS SECCIONES (la fila de iconos de arriba) ---
+const SECCIONES := ["Detalles", "Arma", "Trazos", "Armadura", "Eidolon"]
+const SECCION_ICONOS := ["persona", "espada", "trazos", "coraza", "eidolon"]
+const SEC_DETALLES := 0
+const SEC_ARMA := 1
+const SEC_TRAZOS := 2
+const SEC_ARMADURA := 3
+const SEC_EIDOLON := 4
+
 const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas"]
 const ARMOR_SLOT_LABELS := {
 	"casco": "Casco", "pecho": "Pecho", "manos": "Manos",
@@ -25,101 +48,163 @@ const ARMOR_SLOT_LABELS := {
 const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "Mandoble",
 	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
 
-var _root: Control = null
-var _content: VBoxContainer = null        # cuerpo (derecha) que se reconstruye
-var _tab_buttons: Array = []              # botones de pestaña (izquierda)
+# --- MEDIDAS ---
+# Las mismas que el inventario, y por el mismo motivo: estan calibradas a las unidades logicas de
+# 1280x720 (ver project.godot) y las dos pantallas tienen que verse hermanas.
+const LADO_CELDA := 96.0
+const ANCHO_FICHA := 360.0
+const ANCHO_REJILLA_MIN := 420.0
+# Alto reservado al muñeco. Va FIJO y no expansivo: la columna vive dentro de un ScrollContainer, y
+# ahi un size_flags_vertical EXPAND no estira nada (no hay alto que repartir, lo pone el contenido).
+const ALTO_MUNECO := 340.0
+# TOPE de aumento del muñeco. El cuerpo se dibuja a PoseJugador.ALTO_MUNDO px (60), asi que estirarlo
+# al alto entero de la caja seria un x5: el sprite se ve reventado y la cabeza se come la columna.
+const ESCALA_MUNECO := 3.4
+# Cuanto se levantan los pies del borde de abajo de la caja. Lo usan el muñeco y la sombra: la misma
+# cuenta en los dos sitios, o la sombra se despega de los talones.
+const PIES_SOBRE_PIE := 34.0
+# Lado del retrato de la barra de arriba. Mas pequeño que la celda: son cuatro y comparten fila con
+# el titulo, el hueco y la ✕.
+const LADO_RETRATO := 52.0
 
-var _tab_box: VBoxContainer = null        # contenedor de los botones de pestaña
-var _tab: int = 0                         # indice dentro de _tab_nombres
-var _tab_nombres: Array = []              # los nombres de las pestañas que hay AHORA (ver _rebuild_tabs)
-# A QUIEN del equipo le estas mirando la ficha (indice en Game.party). 0 = el que va en cabeza.
-# Con companeros, este menu deja de ser "tu ficha" y pasa a ser la de cualquiera de los tuyos:
-# la fila de botones de arriba elige, y todo lo que se pinta debajo sale de _pj().
+const AMBAR := Color(0.95, 0.72, 0.36)
+const GRIS := Color(0.6, 0.63, 0.7)
+
+var _root: Control = null
+var _header: VBoxContainer = null
+var _lista: VBoxContainer = null      # la columna del centro (rejilla / muñeco)
+var _content: VBoxContainer = null    # la ficha de la derecha
+var _barra_sub: HBoxContainer = null  # la fila de subpestañas (vacia = no se ve)
+var _titulo_seccion: Label = null     # la SECCION abierta, en grande
+var _nombre_lbl: Label = null         # de quien es la ficha, pequeño y gris encima
+var _fila_retratos: HBoxContainer = null
+var _tab_buttons: Array = []
+var _modal: Control = null            # el modal de la lupa / de robo (null = ninguno)
+# La caja del muñeco, para poder ESCONDERLA mientras hay un modal abierto. Hace falta porque el
+# muñeco va con z_as_relative = false (ver muneco_jugador.gd: sus capas se ordenan entre si con
+# z_index absoluto, que es lo que las mantiene bien apiladas), y un z absoluto no se entera de que
+# hay un panel de UI por encima: la figura se dibujaba ENCIMA del modal de la lupa. Taparlo con un
+# velo mas opaco no serviria — el z manda sobre el orden del arbol.
+var _caja_muneco: Control = null
+
+var _sec: int = SEC_DETALLES
+# A QUIEN le estas mirando la ficha (indice en Game.party). Con companeros este menu deja de ser "tu
+# ficha" y pasa a ser la de cualquiera de los tuyos: la fila de retratos elige, y todo lo que se
+# pinta debajo sale de _pj().
 var _pj_sel: int = 0
-var _titulo_lbl: Label = null              # el nombre del personaje, arriba a la izquierda
-var _spell_sel: int = 0                   # hechizo seleccionado en la pestaña Hechizos
-var _char_page: int = 0                   # 0 stats, 1 habilidades
-var _arma_change: String = ""             # "" | "main" | "off"
-var _arma_cand: int = 0                   # indice del candidato en el catalogo
-var _armor_slot_sel: String = ""          # "" = lista de slots | slot abierto en cuadricula
-var _armor_cand: int = 0                  # indice de la pieza candidata en el catalogo del slot
+var _pagina: int = 0    # Detalles: 0 = atributos, 1 = habilidades
+var _sub: int = 0       # subpestaña de la seccion (Trazos: hab/magias; Eidolon: desarrollo/pasivas)
+var _sel: int = 0       # lo elegido en la rejilla del centro
+var _cambiando: bool = false   # Arma/Armadura: estas eligiendo pieza del baul
+var _cand: int = 0      # el candidato dentro de ese catalogo
 
 
 func _ready() -> void:
-	layer = 92
-	process_mode = Node.PROCESS_MODE_ALWAYS
-	add_to_group("menu_personaje")   # lo busca el boton de la barra tactil (ver inventory_menu)
+	layer = 92   # encima del inventario (91), debajo del combate (100)
+	process_mode = Node.PROCESS_MODE_ALWAYS   # abrirlo pausa el arbol: hay que seguir respondiendo
+	add_to_group("menu_personaje")   # lo busca el boton de la barra tactil (ver hud.gd)
 
-	_root = Control.new()
-	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.visible = false
-	add_child(_root)
+	# con_lateral = FALSE: las secciones van en una FILA ARRIBA, no en una columna a la izquierda.
+	# Es lo que se pidio ("en PC los personajes salen arriba") y ademas devuelve al centro los 230 px
+	# que se comia la columna. En movil la pantalla es la misma.
+	var m: Dictionary = MenuScaffold.construir(self, "PERSONAJE", "", _cerrar, false, false)
+	_root = m["root"]
+	_header = m["header"]
+	_lista = m["lista"]
+	_content = m["content"]
 
-	# Fondo opaco a pantalla completa.
-	var bg := ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.05, 0.06, 0.08, 1.0)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	_root.add_child(bg)
+	# LA LINEA DE AVISO, FUERA: el esqueleto le reserva 22 px aunque este vacia (para que los menus de
+	# oficio no peguen un salto cada vez que dicen algo), y esta pantalla no dice nada por ahi.
+	(m["aviso"] as Control).visible = false
 
-	var hb := HBoxContainer.new()
-	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hb.offset_left = 16
-	hb.offset_top = 16
-	hb.offset_right = -16
-	hb.offset_bottom = -16
-	hb.add_theme_constant_override("separation", 18)
-	_root.add_child(hb)
+	# EL REPARTO SE INVIERTE, igual que en el inventario: manda el centro (el muñeco, la rejilla) y la
+	# ficha se queda con un ancho fijo, el justo para leer una fila "etiqueta: valor" sin barrer la
+	# vista de un lado a otro.
+	var scroll: ScrollContainer = m["lista_scroll"]
+	scroll.custom_minimum_size = Vector2(ANCHO_REJILLA_MIN, 0)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.size_flags_horizontal = Control.SIZE_FILL
+	_content.custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	(_content.get_parent() as ScrollContainer).size_flags_horizontal = Control.SIZE_FILL
+	(_content.get_parent() as ScrollContainer).custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	scroll.resized.connect(_on_centro_redimensionado)
 
-	# --- Barra de pestañas VERTICAL a la izquierda ---
-	var side := VBoxContainer.new()
-	side.custom_minimum_size = Vector2(190, 0)
-	side.add_theme_constant_override("separation", 6)
-	hb.add_child(side)
+	# LA COLUMNA DEL CENTRO: la fila de subpestañas ENCIMA y FUERA del scroll (hermana suya, no hija),
+	# para que no se vaya con el contenido al desplazarse. Un selector que desaparece al bajar es un
+	# selector que hay que ir a buscar.
+	var split: BoxContainer = scroll.get_parent()
+	split.remove_child(scroll)
+	var col_centro := VBoxContainer.new()
+	col_centro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col_centro.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col_centro.add_theme_constant_override("separation", 4)
+	split.add_child(col_centro)
+	split.move_child(col_centro, 0)
+	_barra_sub = HBoxContainer.new()
+	_barra_sub.alignment = BoxContainer.ALIGNMENT_CENTER
+	_barra_sub.add_theme_constant_override("separation", 14)
+	col_centro.add_child(_barra_sub)
+	col_centro.add_child(scroll)
 
-	# El titulo es el NOMBRE de quien estas mirando, no la palabra "PERSONAJE": con un grupo,
-	# saber de quien es la ficha que tienes delante importa mas que saber que es una ficha.
-	_titulo_lbl = Label.new()
-	_titulo_lbl.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
-	_titulo_lbl.add_theme_font_size_override("font_size", 18)
-	_titulo_lbl.clip_text = true
-	side.add_child(_titulo_lbl)
-	side.add_child(HSeparator.new())
+	# --- LA BARRA DE ARRIBA ---
+	var barra_tabs: HBoxContainer = m["side"]
+	barra_tabs.add_theme_constant_override("separation", 14)
+	for i in SECCIONES.size():
+		var b: Button = MenuScaffold.pestana_icono(SECCION_ICONOS[i], SECCIONES[i])
+		b.pressed.connect(_on_seccion.bind(i))
+		barra_tabs.add_child(b)
+		_tab_buttons.append(b)
 
-	# Las pestañas se reconstruyen al ABRIR el menu (_rebuild_tabs): la de Hechizos solo
-	# aparece si el personaje conoce alguno.
-	_tab_box = VBoxContainer.new()
-	_tab_box.add_theme_constant_override("separation", 6)
-	side.add_child(_tab_box)
+	var barra: BoxContainer = barra_tabs.get_parent()
 
-	# El spacer mantiene las pestañas arriba. Cerrar es la ✕ de la esquina, la misma que el resto de
-	# pantallas (esta se monta su propio armazon, por eso se pide a mano; ver MenuScaffold.equis_cerrar).
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side.add_child(spacer)
-	MenuScaffold.equis_cerrar(_root, _cerrar, "Cerrar  (C)")
+	# EL TITULO EN DOS LINEAS, igual que el inventario ("Inventario / ARMAS"): arriba, pequeño y gris,
+	# DE QUIEN es la ficha; debajo y grande, en que seccion estas.
+	#
+	# En ese orden y no al reves: con las secciones en icono, este rotulo es el UNICO sitio donde pone
+	# como se llama la que tienes abierta, asi que la seccion se lleva la linea grande. El nombre no se
+	# pierde -- esta arriba siempre, y en Detalles ademas sale grande en la ficha de la derecha.
+	# La etiqueta del esqueleto se esconde en vez de borrarse: un Control oculto no ocupa sitio en un
+	# contenedor, asi que basta con eso y no hay que tocar construir().
+	(barra.get_child(0) as Control).visible = false
+	var titulo := VBoxContainer.new()
+	titulo.add_theme_constant_override("separation", 0)
+	_nombre_lbl = Label.new()
+	_nombre_lbl.add_theme_font_size_override("font_size", 11)
+	_nombre_lbl.add_theme_color_override("font_color", GRIS)
+	titulo.add_child(_nombre_lbl)
+	_titulo_seccion = Label.new()
+	_titulo_seccion.add_theme_font_size_override("font_size", 20)
+	_titulo_seccion.add_theme_color_override("font_color", AMBAR)
+	# SIN clip_text, y no es un detalle: un Label con clip_text tiene tamaño MINIMO cero, asi que
+	# dentro de un HBox el contenedor le daba lo que sobraba y le cortaba el nombre a media letra
+	# ("ILYAN" se leia "ILYAI", y "CAMBIAR ARMA PRINCIPAL" se quedaba en "CAME"). Sin el pide lo que
+	# mide y el hueco expansivo de al lado se encarga de ceder el sitio.
+	titulo.add_child(_titulo_seccion)
+	barra.add_child(titulo)
+	barra.move_child(titulo, 1)
 
-	# --- Contenido (derecha) ---
-	var margin := MarginContainer.new()
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_theme_constant_override("margin_left", 8)
-	hb.add_child(margin)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	margin.add_child(scroll)
-	_content = VBoxContainer.new()
-	_content.add_theme_constant_override("separation", 4)
-	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_content)
+	# LAS SECCIONES, CENTRADAS DE VERDAD EN LA MITAD DE LA PANTALLA. Dentro de la barra no se puede:
+	# es [titulo][tabs][hueco][retratos][✕], asi que "centrar" ahi es centrar en el hueco que sobra
+	# entre el titulo y los retratos, y como no miden lo mismo la fila queda corrida. Colgandolas de
+	# la raiz, el centro es el de la pantalla — el MISMO que el de las subpestañas de abajo, que ya
+	# estaban centradas a todo lo ancho, asi que las dos filas caen una debajo de la otra.
+	barra.remove_child(barra_tabs)
+	var centrador := CenterContainer.new()
+	centrador.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	centrador.offset_top = 16.0
+	centrador.offset_bottom = 16.0 + MenuScaffold.LADO_ICONO
+	# Que no robe los clics de lo que hay debajo: los botones de dentro los siguen recibiendo, porque
+	# un hijo con MOUSE_FILTER_STOP manda sobre el IGNORE del padre.
+	centrador.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(centrador)
+	centrador.add_child(barra_tabs)
 
-
-# El personaje cuya ficha se esta viendo. Con el equipo vacio (imposible en la practica) cae al
-# lider, que Game garantiza que existe siempre.
-func _pj() -> PersonajeData:
-	if _pj_sel < 0 or _pj_sel >= Game.party.size():
-		_pj_sel = 0
-	return Game.party[_pj_sel] if not Game.party.is_empty() else Game.lider()
+	# LOS RETRATOS DEL GRUPO, al lado de la ✕. Es el "quien", y va arriba a la derecha porque es lo
+	# que menos cambia de toda la pantalla: eliges una vez y miras el resto del rato.
+	_fila_retratos = HBoxContainer.new()
+	_fila_retratos.add_theme_constant_override("separation", 8)
+	barra.add_child(_fila_retratos)
+	barra.move_child(_fila_retratos, barra.get_child_count() - 2)
 
 
 # ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
@@ -131,7 +216,15 @@ func _input(event: InputEvent) -> void:
 		return
 	if not event.is_action_pressed(&"cancelar"):
 		return
-	_cerrar()
+	# Se sale de dentro a fuera: primero el modal que haya encima, luego la rejilla de cambiar equipo
+	# (que es una pantalla dentro de la seccion) y solo al final la ficha. Si no, el primer Esc
+	# cerraria el menu entero por debajo de lo que estas mirando.
+	if _modal != null:
+		_cerrar_modal()
+	elif _cambiando:
+		_cancelar_cambio()
+	else:
+		_cerrar()
 	get_viewport().set_input_as_handled()
 
 
@@ -164,6 +257,35 @@ func _cerrar() -> void:
 	_set_open(false)
 
 
+func _set_open(open: bool) -> void:
+	_root.visible = open
+	Game.fijar_modal(Game.Modal.PERSONAJE, self, open)
+	if open:
+		_cerrar_modal()
+		_sec = SEC_DETALLES
+		_pj_sel = 0   # se abre siempre por el que va en cabeza
+		_pagina = 0
+		_reset_seccion()
+		_rebuild()
+
+
+# Todo lo que es "lo que estabas haciendo" y no sobrevive a cambiar de seccion ni de persona: el slot
+# abierto, el candidato a medio elegir, la subpestaña. Son de SU catalogo, no del nuevo.
+func _reset_seccion() -> void:
+	_sub = 0
+	_sel = 0
+	_cand = 0
+	_cambiando = false
+
+
+# El personaje cuya ficha se esta viendo. Con el equipo vacio (imposible en la practica) cae al
+# lider, que Game garantiza que existe siempre.
+func _pj() -> PersonajeData:
+	if _pj_sel < 0 or _pj_sel >= Game.party.size():
+		_pj_sel = 0
+	return Game.party[_pj_sel] if not Game.party.is_empty() else Game.lider()
+
+
 # Repinta el cuerpo del jugador en el mapa: al cambiar de arma o armadura, la pila de capas del
 # muñeco cambia y hay que remontarla (MunecoJugador.montar se salta el trabajo si no ha cambiado).
 func _refrescar_mundo() -> void:
@@ -172,55 +294,67 @@ func _refrescar_mundo() -> void:
 		pl.refrescar_grupo()
 
 
-func _set_open(open: bool) -> void:
-	_root.visible = open
-	Game.fijar_modal(Game.Modal.PERSONAJE, self, open)
-	if open:
-		_tab = 0
-		_pj_sel = 0   # se abre siempre por el que va en cabeza
-		_char_page = 0
-		_arma_change = ""
-		_armor_slot_sel = ""
-		_spell_sel = 0
-		_rebuild_tabs()   # la pestaña de Hechizos aparece/desaparece segun lo que sepas
-		_rebuild()
-
-
-# Reconstruye la barra de pestañas. "Hechizos" SOLO si el personaje conoce alguno.
-#
-# El reparto se hace por NOMBRE y no por indice (ver _rebuild): con una pestaña opcional en medio,
-# atarse a "el 3 es Hechizos" es pedir que el dia que se añada otra se pinte la que no toca.
-func _rebuild_tabs() -> void:
-	MenuScaffold.vaciar(_tab_box)
-	_tab_buttons.clear()
-	# "Desarrollo y pasivas" y no "Habilidades" a secas: en este juego las HABILIDADES ya son las
-	# cinco de DanMachi (la pagina del ⇄ dentro de Personaje). Dos pestañas con el mismo nombre y
-	# cosas distintas dentro es peor que un nombre largo.
-	var nombres: Array = ["Personaje", "Desarrollo y pasivas", "Armas", "Armadura"]
-	if Game.tiene_hechizos(_pj()):
-		nombres.append("Hechizos")
-	_tab_nombres = nombres
-	if _tab >= nombres.size():
-		_tab = 0
-	for i in nombres.size():
-		var b := Button.new()
-		b.text = str(nombres[i])
-		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-		b.pressed.connect(_on_tab.bind(i))
-		_tab_box.add_child(b)
-		_tab_buttons.append(b)
-
-
-func _on_tab(i: int) -> void:
-	_tab = i
-	_arma_change = ""
-	_armor_slot_sel = ""
+func _on_seccion(i: int) -> void:
+	if i == _sec:
+		return
+	_sec = i
+	_reset_seccion()
 	_rebuild()
 
 
+func _on_sub(i: int) -> void:
+	if i == _sub:
+		return
+	_sub = i
+	_sel = 0
+	_rebuild()
+
+
+func _pick(i: int) -> void:
+	_sel = i
+	_rebuild()
+
+
+func _pick_persona(i: int) -> void:
+	if i == _pj_sel:
+		return
+	_pj_sel = i
+	# Cambiar de persona invalida lo que estuvieras haciendo con la anterior. Y la seccion se queda:
+	# lo normal es mirar lo mismo de otro, no volver al principio.
+	_reset_seccion()
+	_pagina = 0
+	_rebuild()
+
+
+# Cuando la ventana cambia de ancho, la cuenta de columnas de la rejilla cambia con ella. Se
+# reconstruye SOLO si el numero ha cambiado de verdad: 'resized' salta en cada pixel de un arrastre
+# de ventana, y reconstruir el menu entero 60 veces por segundo se nota.
+var _cols_pintadas: int = 0
+
+func _on_centro_redimensionado() -> void:
+	if not _root.visible:
+		return
+	if _columnas() == _cols_pintadas:
+		return
+	_rebuild()
+
+
+# Cuantas celdas caben en el ancho que tenga el centro AHORA MISMO. Se mide en vez de fijarla porque
+# depende de la ventana (y en movil, de la orientacion). El 6.0 es la separacion de rejilla_objetos:
+# se cuenta una celda de mas y se resta, que es la cuenta de "n celdas y n-1 huecos" del derecho.
+func _columnas() -> int:
+	var ancho: float = _lista.size.x
+	if ancho <= 1.0:
+		ancho = ANCHO_REJILLA_MIN   # primera pasada: aun no lo ha colocado el contenedor
+	return maxi(2, int(floorf((ancho + 6.0) / (LADO_CELDA + 6.0))))
+
+
+# ============================================================
+#  EL CICLO DE REPINTADO
+# ============================================================
+
 # Guardia de REENTRADA. Un _rebuild puede entrar mientras otro esta a medias (el focus_exited de un
-# stepper al liberarlo, las señales de red, un _on_* que espera en un await), y entonces el de dentro
+# campo al liberarlo, las señales de red, un _on_* que espera en un await), y entonces el de dentro
 # pinta su panel y el de fuera apila el suyo debajo: el menu salia DUPLICADO. Es el mismo guardia que
 # lleva el herrero desde que se cazo alli.
 var _reconstruyendo := false
@@ -234,399 +368,230 @@ func _rebuild() -> void:
 
 
 func _rebuild_real() -> void:
+	_caja_muneco = null   # se va con el vaciado de abajo; la seccion que toque lo volvera a montar
+	MenuScaffold.vaciar(_header)
+	MenuScaffold.vaciar(_lista)
 	MenuScaffold.vaciar(_content)
+	MenuScaffold.subpestanas(_barra_sub, [], [], 0, Callable())
 	for i in _tab_buttons.size():
-		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
-	if _titulo_lbl != null:
-		_titulo_lbl.text = _pj().nombre.to_upper()
-	_selector_personaje()
-	var cual: String = str(_tab_nombres[_tab]) if _tab < _tab_nombres.size() else "Personaje"
-	match cual:
-		"Personaje": _build_personaje()
-		"Desarrollo y pasivas": _build_perks()
-		"Armas": _build_armas()
-		"Armadura": _build_armadura()
-		"Hechizos": _build_hechizos()
+		(_tab_buttons[i] as Button).button_pressed = (i == _sec)
+	_cols_pintadas = _columnas()
+	_nombre_lbl.text = _pj().nombre
+	# El nombre por defecto de la seccion. Las que tienen subpestañas (Trazos, Eidolon) o una
+	# pantalla dentro (Cambiar) lo pisan con el suyo: en "Equipo" saber que estas en "Magias" dice
+	# mas que saber que estas en "Trazos".
+	_titulo_seccion.text = String(SECCIONES[_sec]).to_upper()
+	_pintar_retratos()
+
+	match _sec:
+		SEC_DETALLES: _sec_detalles()
+		SEC_ARMA: _sec_arma()
+		SEC_TRAZOS: _sec_trazos()
+		SEC_ARMADURA: _sec_armadura()
+		SEC_EIDOLON: _sec_eidolon()
 
 
-# La fila de arriba para elegir DE QUIEN es la ficha, con el mismo aspecto que los selectores de
-# los oficios. Con una sola persona no se pinta: seria un boton solo que no elige nada.
+# LA FILA DE RETRATOS. Con una sola persona no se pinta: seria un boton solo que no elige nada.
 #
-# El numero delante del nombre es el MISMO que la tecla que lo pone en cabeza (1/2/3), para que
-# las dos cosas se lean igual: el 2 de aqui es el 2 de alla.
-# Un hueco dentro de _content para UNA fila de las de arriba, apartada de la esquina donde vive la
-# ✕. Solo lo necesitan las que pueden quedar a su altura (el selector de personaje y la cabecera con
-# el ⇄): recortar _content ENTERO dejaba media pantalla de aire muerto a la derecha en todas las
-# filas de abajo, que es justo lo que no hace el resto de menus (ver MenuScaffold.construir, que
-# limita la cabecera y deja la lista y el detalle a todo lo ancho).
-func _fila_bajo_equis() -> VBoxContainer:
-	var m := MarginContainer.new()
-	m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	m.add_theme_constant_override("margin_right", int(MenuScaffold.hueco_equis()) - 16)
-	_content.add_child(m)
-	# Devuelve un VBox y no el MarginContainer: es lo que piden los helpers de MenuScaffold.
-	var v := VBoxContainer.new()
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	m.add_child(v)
-	return v
-
-
-func _selector_personaje() -> void:
+# El numero delante del nombre es el MISMO que la tecla que lo pone en cabeza (1/2/3), para que las
+# dos cosas se lean igual: el 2 de aqui es el 2 de alla.
+func _pintar_retratos() -> void:
+	MenuScaffold.vaciar(_fila_retratos)
 	if Game.party.size() <= 1:
 		return
-	var labels: Array = []
 	for i in Game.party.size():
-		var corona: String = "👑 " if Game.party[i] == Game.lider() else ""
-		labels.append("%d. %s%s" % [i + 1, corona, Game.party[i].nombre])
-	# Alto de dedo como el resto (era el unico sitio del proyecto con 32), y el nombre completo en el
-	# tooltip: la celda recorta, y un nombre largo se quedaba sin manera de leerse.
-	# Va en su envoltorio: es la fila de mas arriba y con cuatro personajes llega hasta la esquina.
-	MenuScaffold.cuadricula(_fila_bajo_equis(), labels, _pj_sel, _pick_personaje,
-		Game.PARTY_MAX, Vector2(150, MenuScaffold.ALTO_BOTON), [], [], labels)
-	# La linea de debajo del selector cae A LA ALTURA de la ✕ y le cruzaba por detras: este separador
-	# se corta solo cuando le toca ahi (ver MenuScaffold.separador).
-	MenuScaffold.separador(_content)
+		_retrato(i)
 
 
-func _pick_personaje(i: int) -> void:
-	if i == _pj_sel:
-		return
-	_pj_sel = i
-	# Cambiar de persona invalida lo que estuvieras haciendo con la anterior (a medio elegir un
-	# arma, con un slot de armadura abierto...): esas selecciones son de SU catalogo, no del nuevo.
-	_arma_change = ""
-	_armor_slot_sel = ""
-	_spell_sel = 0
-	_char_page = 0
-	_rebuild_tabs()   # la pestaña de Hechizos depende de si ESTE sabe alguno
-	if _tab >= _tab_buttons.size():
-		_tab = 0
-	_rebuild()
+# UN RETRATO: el muñeco de la persona dentro de un cuadro, con su numero. Es un Button con el estilo
+# quitado y el dibujo a mano, igual que CeldaObjeto y que las tarjetas del modal de "a quien se lo
+# das" del inventario.
+func _retrato(i: int) -> void:
+	var pj: PersonajeData = Game.party[i]
+	var elegido: bool = (i == _pj_sel)
 
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(LADO_RETRATO, LADO_RETRATO)
+	b.clip_contents = true
+	b.tooltip_text = "%d. %s%s" % [i + 1, "👑 " if pj == Game.lider() else "", pj.nombre]
+	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
+	b.pressed.connect(_pick_persona.bind(i))
+	_fila_retratos.add_child(b)
 
-# ============================================================
-#  ¿QUIEN LLEVA ESTO?
-#  El baul es COMUN a todo el grupo, asi que la misma espada aparece en el catalogo de los tres.
-#  Equiparsela a uno se la quita al otro (Game._quitar_a_los_demas): es lo que se quiere, pero
-#  tiene que VERSE antes de pulsar, o le dejas a alguien en pelotas sin enterarte.
-# ============================================================
+	b.draw.connect(func() -> void:
+		var w: float = b.size.x
+		var h: float = b.size.y
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.13, 0.14, 0.19, 1.0) if elegido else Color(0.08, 0.09, 0.12, 1.0)
+		sb.border_color = AMBAR if elegido else Color(1, 1, 1, 0.14)
+		sb.set_border_width_all(2 if elegido else 1)
+		sb.set_corner_radius_all(int(w * 0.5))   # redondo, como en la referencia
+		b.draw_style_box(sb, Rect2(Vector2.ZERO, Vector2(w, h)))
+		# El numero abajo a la derecha, sobre su pastilla: es el atajo de teclado, y sin fondo se
+		# perdia contra el muñeco.
+		var f: Font = b.get_theme_font(&"font")
+		var n: String = str(i + 1)
+		var an: float = f.get_string_size(n, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+		b.draw_circle(Vector2(w - 9.0, h - 9.0), 8.0, Color(0.03, 0.04, 0.06, 0.9))
+		b.draw_string(f, Vector2(w - 9.0 - an * 0.5, h - 5.0), n, HORIZONTAL_ALIGNMENT_LEFT, -1, 10,
+			AMBAR if elegido else Color(0.82, 0.85, 0.90)))
 
-# El companero que lleva PUESTO este objeto, o null si no lo lleva nadie mas. Nunca devuelve al
-# personaje que estas mirando: que lo lleve el no es un conflicto, es el estado normal.
-func _quien_lleva(item: Resource) -> PersonajeData:
-	var otro: PersonajeData = Game.quien_lleva(item)
-	return null if otro == _pj() else otro
-
-
-# El nombre del item para la cuadricula, con una marca de quien lo lleva. El candado dice de un
-# vistazo "esto se lo estas quitando a alguien" sin tener que leer el nombre entero.
-func _etiqueta_con_dueno(item: Resource, base: String) -> String:
-	var otro: PersonajeData = _quien_lleva(item)
-	return base if otro == null else "%s\n🔒 %s" % [base, otro.nombre]
-
-
-# Linea de aviso en la FICHA del objeto (arriba del todo, en rojo): quien lo lleva puesto. Va en
-# la ficha ademas de en la cuadricula porque la cuadricula solo tiene sitio para el candado, y
-# aqui es donde el jugador se para a mirar antes de pulsar Equipar.
-func _aviso_dueno(vb: VBoxContainer, item: Resource) -> void:
-	var otro: PersonajeData = _quien_lleva(item)
-	if otro == null:
-		return
-	var l := Label.new()
-	l.text = "🔒 Lo lleva puesto %s. Si lo equipas, se lo quitas." % otro.nombre
-	l.add_theme_color_override("font_color", Color(0.9, 0.5, 0.5))
-	l.add_theme_font_size_override("font_size", 12)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vb.add_child(l)
-
-
-# Modal de "esto lo lleva puesto Fulano, ¿se lo quito?". Es un si/no y no un aviso pasivo a
-# proposito: desnudar a un companero por un clic de mas es justo el error que hay que evitar, y
-# al volver a la mazmorra ya no hay forma de deshacerlo.
-func _confirmar_robo(item: Resource, al_aceptar: Callable) -> void:
-	var otro: PersonajeData = _quien_lleva(item)
-	if otro == null:
-		al_aceptar.call()   # no lo lleva nadie: no hay nada que preguntar
-		return
-
-	var capa := Control.new()
-	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	capa.process_mode = Node.PROCESS_MODE_ALWAYS
-	_root.add_child(capa)
-
-	var fondo := ColorRect.new()
-	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	fondo.color = Color(0.03, 0.03, 0.05, 0.85)
-	fondo.mouse_filter = Control.MOUSE_FILTER_STOP
-	capa.add_child(fondo)
-
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	capa.add_child(center)
-
-	var panel := PanelContainer.new()
-	center.add_child(panel)
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 10)
-	vb.custom_minimum_size = Vector2(420, 0)
-	panel.add_child(vb)
-
-	var t := Label.new()
-	t.text = "Lo lleva puesto %s" % otro.nombre
-	t.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
-	t.add_theme_font_size_override("font_size", 18)
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vb.add_child(t)
-
-	var d := Label.new()
-	d.text = "%s se lo quitará a %s, que se quedará con ese hueco vacío." % [
-		_pj().nombre, otro.nombre]
-	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	d.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
-	d.add_theme_font_size_override("font_size", 12)
-	vb.add_child(d)
-
-	var it := Label.new()
-	it.text = Game.item_display_name(item)
-	it.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	it.add_theme_color_override("font_color", Game.color_rareza_de(item))
-	vb.add_child(it)
-
-	var botones := HBoxContainer.new()
-	botones.add_theme_constant_override("separation", 8)
-	botones.alignment = BoxContainer.ALIGNMENT_CENTER
-	vb.add_child(botones)
-
-	var si := Button.new()
-	si.text = "Sí, quitárselo"
-	si.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	si.pressed.connect(func():
-		capa.queue_free()
-		al_aceptar.call())
-	botones.add_child(si)
-
-	var no := Button.new()
-	no.text = "Cancelar"
-	no.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	no.pressed.connect(capa.queue_free)
-	botones.add_child(no)
-
-
-# ============================================================
-#  Helpers de UI
-# ============================================================
-
-# AMBAR: el color de titulo de siempre, para lo que no tiene rareza.
-const AMBAR := Color(0.95, 0.72, 0.36)
-
-func _title(vb: VBoxContainer, txt: String, color: Color = AMBAR) -> void:
-	MenuScaffold.titulo(vb, txt, 16, color)
-
-func _row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Variant = null) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	var k := Label.new()
-	k.text = etiqueta
-	k.custom_minimum_size = Vector2(170, 0)
-	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
-	row.add_child(k)
-	var v := Label.new()
-	v.text = valor
-	if color_valor is Color:
-		v.add_theme_color_override("font_color", color_valor)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# Sin esto, un valor largo (la lista de mejoras, el desglose del ataque) se sale por el
-	# borde derecho en vez de partirse en dos lineas.
-	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row.add_child(v)
-	vb.add_child(row)
-
-func _note(vb: VBoxContainer, txt: String) -> void:
-	var l := Label.new()
-	l.text = txt
-	l.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
-	l.add_theme_font_size_override("font_size", 11)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	# Sin ancho MINIMO: en las columnas estrechas (el panel del candidato) empujaria el texto
-	# fuera de la pantalla en vez de partirlo.
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vb.add_child(l)
-
-func _fmt_pct(x: float) -> String:
-	return "%.0f%%" % (x * 100.0)
-
-
-# ============================================================
-#  Pestaña PERSONAJE
-# ============================================================
-
-func _build_personaje() -> void:
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 10)
-	var t := Label.new()
-	t.text = "%s  (Nv. %d)   —   %s" % [_pj().nombre,
-		_pj().level, "Estadísticas" if _char_page == 0 else "Habilidades"]
-	t.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
-	t.add_theme_font_size_override("font_size", 16)
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(t)
-	# Icono de intercambio ⇄: alterna stats <-> habilidades.
-	var swap := Button.new()
-	swap.text = "⇄"
-	swap.tooltip_text = "Cambiar vista (estadísticas / habilidades)"
-	swap.custom_minimum_size = Vector2(44, MenuScaffold.ALTO_BOTON)
-	swap.pressed.connect(_flip_char_page)
-	head.add_child(swap)
-	# Esta fila puede quedar la PRIMERA de todas (con un solo personaje no hay selector encima), y
-	# entonces el ⇄ cae justo donde esta la ✕. Ver _fila_bajo_equis.
-	_fila_bajo_equis().add_child(head)
-	# Con UN personaje no hay selector encima, asi que esta linea sube justo a la ✕: por eso tambien
-	# es de las que se cortan solas. Con mas personajes queda mas abajo y llega al borde como todas.
-	MenuScaffold.separador(_content)
-
-	if _char_page == 0:
-		_build_stats_page()
+	# EL MUÑECO, hijo del boton (se recorta con el y se mueve con el). Va DESPUES de conectar el draw:
+	# los hijos de un CanvasItem se dibujan despues del padre, o sea por encima de su fondo.
+	var mu := MunecoJugador.new()
+	mu.montar(pj)
+	mu.tenir(pj.color, 0.0)
+	mu.poner_cara(pj.textura())
+	if mu.hay_dibujo():
+		# De la cabeza a las rodillas: es un RETRATO, no una figura entera. Los pies del muñeco son
+		# su propio origen, asi que se le baja el origen por debajo del borde y el recorte del boton
+		# hace el resto. La escala se mide contra PoseJugador.ALTO_MUNDO (60), que es lo que mide el
+		# cuerpo dibujado: con un numero a ojo, el dia que cambie el muñeco esto se descuadra solo.
+		mu.scale = Vector2.ONE * (LADO_RETRATO * 1.3 / PoseJugador.ALTO_MUNDO)
+		mu.position = Vector2(LADO_RETRATO * 0.5, LADO_RETRATO * 1.42)
+		mu.animar("idle_4")
+		b.add_child(mu)
 	else:
-		_build_habilidades_page()
+		mu.queue_free()
 
 
-# DESARROLLO Y PASIVAS: las dos capas de perks de este personaje, cada una con su regla.
-#
-#   - DESARROLLO: lo eliges tu al subir de nivel, y sube de rango (I..S) solo, con su contador
-#     oculto. Se listan TODOS los del catalogo, tengas el que tengas: saber que existe la Metalurgia
-#     es parte de decidir a que dedicas la vida. Lo que NO se enseña nunca es cuanto te falta para
-#     desbloquear uno (ver el comentario de Game.DESARROLLOS): el contador es secreto a proposito.
-#   - PASIVAS: no se eligen. Caen solas, rarisimo, y solo aparecen al actualizar el estado en el
-#     altar. Aqui se ven las que YA tienes; las pendientes no salen, que para eso son pendientes.
-func _build_perks() -> void:
+# ============================================================
+#  1 · DETALLES
+# ============================================================
+
+func _sec_detalles() -> void:
 	var pj: PersonajeData = _pj()
+	var c: Combatant = _combatiente()
 
-	MenuScaffold.titulo(_content, "HABILIDADES DE DESARROLLO", 16)
-	MenuScaffold.nota(_content, "Eliges una al subir de nivel. Suben de rango (I → S) haciendo lo suyo.")
+	# --- CENTRO: el muñeco y sus barras ---
+	_muneco_grande(pj)
+	# Las barras BAJO EL MUÑECO y de su ancho, no cruzando la columna entera: son suyas, y estiradas
+	# a todo lo ancho se leian como una barra de carga de la pantalla.
+	var bajo := CenterContainer.new()
+	bajo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lista.add_child(bajo)
+	var col := VBoxContainer.new()
+	col.custom_minimum_size = Vector2(300, 0)
+	col.add_theme_constant_override("separation", 6)
+	bajo.add_child(col)
+	MenuScaffold.barra(col, MenuScaffold.COLOR_VIDA, Game.player_hp(pj), c.max_hp,
+		"Vida  %.0f / %.0f", 22, 14)
+	# La ENERGIA no lleva barra aqui, y no es un olvido: fuera del combate no existe una "energia
+	# actual" que enseñar (arranca a cero cada pelea), asi que una barra llena seria mentira y una
+	# vacia, ruido. Su maximo, que es lo unico que se puede saber, sale en la lupa.
+	if c.max_mp > 0.0:
+		MenuScaffold.barra(col, MenuScaffold.COLOR_MANA, Game.player_mp(pj), c.max_mp,
+			"Maná  %.0f / %.0f", 18, 12)
+
+	# --- DERECHA: nombre, nivel y las dos paginas ---
+	var cab := HBoxContainer.new()
+	cab.add_theme_constant_override("separation", 8)
+	var n := Label.new()
+	n.text = pj.nombre
+	n.add_theme_font_size_override("font_size", 20)
+	n.add_theme_color_override("font_color", Color(0.94, 0.95, 0.98))
+	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cab.add_child(n)
+	var nv := Label.new()
+	nv.text = "Nv. %d" % pj.level
+	nv.add_theme_font_size_override("font_size", 15)
+	nv.add_theme_color_override("font_color", AMBAR)
+	cab.add_child(nv)
+	_content.add_child(cab)
+
+	# Las dos pastillas, como en la referencia: la activa blanca y la otra hueca.
+	var paginas := HBoxContainer.new()
+	paginas.add_theme_constant_override("separation", 8)
+	paginas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(paginas)
+	for i in 2:
+		var txt: String = "Atributos" if i == 0 else "Habilidades"
+		var p: Button = MenuScaffold.pastilla(paginas, txt, _pagina_a.bind(i), i == _pagina)
+		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_child(HSeparator.new())
-	var alguno := false
-	for d in Game.DESARROLLOS:
-		var rango: int = Game.desarrollo_rango(str(d["id"]), pj)
-		if rango <= 0:
-			continue
-		alguno = true
-		_row(_content, str(d["nombre"]), "rango %s" % Game.letra_rango(rango))
-		MenuScaffold.nota(_content, str(d["desc"]))
-	if not alguno:
-		MenuScaffold.nota(_content, "Ninguna todavía. Se elige una al subir de nivel, en el altar.")
 
-	_content.add_child(HSeparator.new())
-	MenuScaffold.titulo(_content, "HABILIDADES PASIVAS", 16)
-	MenuScaffold.nota(_content, "No se eligen: aparecen solas al actualizar tu estado en el altar.")
-	_content.add_child(HSeparator.new())
-	var alguna := false
-	for p in Game.PASIVAS_RNG:
-		if not Game.tiene_pasiva(str(p["id"]), pj):
-			continue
-		alguna = true
-		# Amarillo legendario y centelleando, igual que cuando aparecio en el altar: es lo mas raro
-		# que hay en el juego y tiene que seguir cantando cada vez que abres la ficha.
-		MenuScaffold.titulo_item(_content, str(p["nombre"]), Upgrades.rareza_color(4), 1.0, 15)
-		MenuScaffold.nota(_content, Game.pasiva_desc(p))
-	if not alguna:
-		MenuScaffold.nota(_content, "Ninguna. Caen por sí solas, muy de vez en cuando, haciendo lo que sea que las despierta.")
+	if _pagina == 0:
+		_pagina_atributos(c)
+	else:
+		_pagina_habilidades(c)
 
 
-func _flip_char_page() -> void:
-	_char_page = 1 - _char_page
+func _pagina_a(i: int) -> void:
+	if i == _pagina:
+		return
+	_pagina = i
 	_rebuild()
 
 
-func _build_stats_page() -> void:
-	# crear_player_combatant() concreta el -1 (= "lleno") de vida/maná. Como aquí solo
-	# LEEMOS stats, guardamos y restauramos el sentinel para no mutar el estado persistente.
-	var hp_was: float = _pj().current_hp
-	var mp_was: float = _pj().current_mp
-	var c: Combatant = Game.crear_player_combatant(_pj())
-	_pj().current_hp = hp_was
-	_pj().current_mp = mp_was
-	_row(_content, "Ataque total", "%.1f" % _ataque_total(c))
-	_row(_content, "Velocidad", "%.1f" % c.spd())
-	# Critico contra un enemigo ESPEJO (tus mismas stats): tu Destreza vs tu Agilidad.
-	var crit_p: float = clampf(StatsMath.crit_chance(float(c.abilities.destreza),
-		float(c.abilities.agilidad)) + _crit_bonus_promedio(c), 0.0, 1.0)
-	_row(_content, "Prob. crítico", _fmt_pct(crit_p))
-	# Daño critico REAL: base + el crit_dmg del arma (base × rareza + Precision), no la constante.
-	var crit_mult: float = StatsMath.CRIT_MULT + c.crit_dmg
-	_row(_content, "Daño crítico", "×%.2f (+%d%%)" % [
-		crit_mult, roundi((crit_mult - 1.0) * 100.0)])
-	# Esquiva contra el mismo espejo: tu Agilidad vs tu Destreza, menos el penal (escudos) y mas
-	# el bonus de esquiva (daga/estoque + armaduras ligeras). Con bonus, el tope sube (EVADE_MAX_BUFF).
-	var evade_cap: float = StatsMath.EVADE_MAX_BUFF if c.evasion_bonus > 0.0 else StatsMath.EVADE_MAX
-	var evade_p: float = clampf(StatsMath.evade_chance(float(c.abilities.agilidad),
-		float(c.abilities.destreza)) - c.evasion_penal + c.evasion_bonus, 0.0, evade_cap)
-	_row(_content, "Prob. esquiva", _fmt_pct(evade_p))
-	# Desglose del EQUIPO: la esquiva de daga/estoque/armadura ligera va en evasion_penal (negativo
-	# = bonus); un escudo la resta (penal positivo). Sin esta línea el aporte del equipo quedaba
-	# invisible (se fundía en el total y, con Agilidad alta, el tope lo escondía). + suma, − estorba.
-	var esquiva_equipo: float = -c.evasion_penal
-	if absf(esquiva_equipo) > 0.001:
-		_row(_content, "   · del equipo", "%+.0f%%" % (esquiva_equipo * 100.0))
-	if c.evasion_bonus > 0.001:
-		_row(_content, "   · postura/buff", "+%.0f%%" % (c.evasion_bonus * 100.0))
+# LOS ATRIBUTOS PRINCIPALES, SEGUN EL ARMA. Con baston o varita no se enseña el ataque fisico ni el
+# critico fisico, sino sus gemelos MAGICOS: son los numeros con los que de verdad peleas, y el
+# "Ataque total" de un baston (motion value 0.4) no dice nada de lo que haces con el.
+#
+# Lo que NO se esconde nunca: vida, defensa y defensa magica. La defensa magica no es una stat de
+# mago -- es lo que te protege cuando el que lanza el hechizo es el otro.
+#
+# El resto (las cuatro filas de la otra mitad, la esquiva, los estados) sale en la LUPA, que las
+# enseña todas lleves lo que lleves: es el sitio donde el mago mira sus numeros fisicos.
+#
+# Cada cuenta es la MISMA llamada que hace combate_detalle._rejilla_stats. Ninguna se reescribe aqui.
+func _pagina_atributos(c: Combatant) -> void:
+	var pj: PersonajeData = _pj()
+	var magico: bool = Game.lleva_arma_magica(pj)
+	_row("Vida máx.", "%.0f" % c.max_hp)
+	if magico:
+		_row("Ataque mágico", "%.0f" % MenuScaffold.dano_magico(pj))
+	else:
+		_row("Ataque", "%.0f" % _ataque_total(c))
+	_row("Defensa", "%.0f" % c.def_value())
+	_row("Defensa mágica", "%.0f" % StatsMath.magic_jugador(c.abilities_eff(), c.base_magic))
+	if magico:
+		_row("Vel. recitado", "%.1f" % c.cast_spd())
+		_row("Prob. crít. mágico", _fmt_pct(_crit_magico(c)))
+		_row("Daño crít. mágico", _crit_dmg_txt(c.crit_dmg_magico))
+	else:
+		_row("Velocidad", "%.0f" % c.spd())
+		_row("Prob. crítico", _fmt_pct(_crit_fisico(c)))
+		_row("Daño crítico", _crit_dmg_txt(c.crit_dmg))
+	if c.mp_regen_turno > 0.0:
+		_row("Regen maná", "%.2f/turno" % c.mp_regen_turno)
+
+	# LA LUPA. Nada puede quedar por debajo: es el final de la lista.
+	var lupa := HBoxContainer.new()
+	lupa.alignment = BoxContainer.ALIGNMENT_CENTER
 	_content.add_child(HSeparator.new())
-	_row(_content, "Vida máx.", "%.1f" % c.max_hp)
-	_row(_content, "Defensa", "%.1f" % c.def_value())
-	# Las tres defensas PORCENTUALES. Se calculaban desde siempre pero solo se veian pieza a pieza
-	# en el comparador de armadura, asi que era imposible saber cuanto llevabas EN TOTAL. Mismo
-	# wording que _armor_stats() para que la ficha y la pieza se lean igual.
-	_row(_content, "Reducción de daño", _fmt_pct(c.armor_reduction))
-	# LOS DOS EJES juntos. Ojo con la unidad: ya NO es "el % de veces que resistes" -- la formula es un
-	# cociente (ver StatusEffects.prob_final), asi que 100% quiere decir "me entran a la mitad" y
-	# puede pasar del 100% sin volverte inmune nunca. Por eso va el "×" al lado: es lo que multiplica.
-	_row(_content, "Resist. estados", "%s   (los recibes ×%.2f)" % [
-		_fmt_pct(c.resist_estados()), 1.0 / (1.0 + c.resist_estados())])
-	_row(_content, "Eficacia (estados)", "%s   (los aplicas ×%.2f)" % [
-		_fmt_pct(c.eficacia_estados()), 1.0 + c.eficacia_estados()])
-	if c.crit_resist > 0.001:
-		_row(_content, "Resist. crítico", _fmt_pct(c.crit_resist))
-	# La defensa MAGICA va aqui, con la fisica y la vida, y para TODO el mundo: no es una stat de
-	# mago, es lo que te protege cuando el que lanza el hechizo es el otro. Estuvo un rato colgando
-	# del bloque de Magia y por tanto invisible justo para quien mas le importa: el que no lleva
-	# arma magica y no se entera de por que un hechizo le arrea mas o menos.
-	_row(_content, "Defensa mágica", "%.1f" % StatsMath.magic_jugador(c.abilities, c.base_magic))
-	if c.max_mp > 0.0:
-		_row(_content, "Maná máx.", "%.2f" % c.max_mp)
-	_bloque_magia(c)
-	# OJO con esta nota: el critico es un CONTEST (tu Destreza contra la Agilidad del que recibe
-	# el golpe). Como aqui no hay enemigo, se enseña contra un espejo de ti mismo, y por eso TU
-	# Agilidad sale en la cuenta... haciendo de la del rival. Tu Agilidad NO te baja el critico:
-	# te sube la esquiva. Decirlo mal era sembrar la duda de que la Agilidad te perjudica.
-	_note(_content, "Ataque total = raw (base + arma) × Fuerza, ANTES del motion value (cada golpe aplica su %). El crítico es tu Destreza contra la Agilidad del que recibe el golpe: aquí se muestra contra un maniquí con TUS mismas stats, así que un rival más ágil que tú te dará menos crítico, y uno más torpe, más. Tu Agilidad es la que te hace esquivar a ti.")
+	_content.add_child(lupa)
+	var b: Button = MenuScaffold.pastilla(lupa, "⌕  Información", _abrir_modal_atributos, false)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_note(_pie_atributos(magico))
 
 
-func _build_habilidades_page() -> void:
-	# Combatant real para DERIVAR el aporte de cada stat (nada hardcodeado). Guardamos/
-	# restauramos los sentinels de HP/MP: crear_player_combatant() concreta el -1 (= "lleno").
-	var hp_was: float = _pj().current_hp
-	var mp_was: float = _pj().current_mp
-	var c: Combatant = Game.crear_player_combatant(_pj())
-	_pj().current_hp = hp_was
-	_pj().current_mp = mp_was
+func _pie_atributos(magico: bool) -> String:
+	if magico:
+		return "Llevas arma mágica, así que arriba salen tus números MÁGICOS. Los físicos siguen "\
+			+ "estando: los enseña la lupa, con todo lo demás."
+	return "El crítico es tu Destreza contra la Agilidad del que recibe el golpe: aquí se mide "\
+		+ "contra un maniquí con TUS mismas stats. Tu Agilidad no te baja el crítico, te sube la "\
+		+ "esquiva. Lo mágico y el resto, en la lupa."
 
-	# Cada "Ahora:" dice lo que aporta ESA habilidad, no el total de la stat (que es lo que se
-	# enseñaba en velocidad y maná: el numero no se movia al mirar una habilidad u otra) y no un
-	# multiplicador abstracto (que es lo que se enseñaba en Fuerza: un "×1.01" no dice si eso son
-	# dos puntos de daño o veinte). Los numeros salen por DIFERENCIA; ver _sin_habilidad().
-	#
-	# Las EFECTIVAS (con los platos puestos) y no las crudas: es lo que el juego usa de verdad para
-	# vida, defensa, velocidad y maná, asi que si aqui se leyeran las crudas la ficha diria un numero
-	# y el combate haria otro. Ademas c.max_hp ya viene calculado con estas, y restarle un maximo
-	# crudo daria un aporte de Resistencia inflado.
+
+# LAS 5 HABILIDADES, con su rango por letra y lo que aporta cada una AHORA MISMO.
+#
+# Los aportes salen por DIFERENCIA (ver _sin_habilidad) y no reescribiendo formulas, que es de donde
+# venia el desfase viejo: la pagina calculaba con las formulas ADITIVAS (las de los enemigos) y el
+# jugador usa las MULTIPLICATIVAS. Por diferencia da igual cual sea la formula: sale la de verdad.
+#
+# Las EFECTIVAS (con los platos puestos) y no las crudas: es lo que el juego usa de verdad, asi que
+# si aqui se leyeran las crudas la ficha diria un numero y el combate haria otro.
+func _pagina_habilidades(c: Combatant) -> void:
 	var ab: Abilities = c.abilities_eff()
 
 	# FUERZA -> ataque fisico. Como fuerza_factor(0) == 1, lo que aporta es todo lo que el ataque
 	# total tiene por encima del raw pelado (base + arma).
 	_fila_habilidad("Fuerza", "fuerza", ab)
 	var atk_sin: float = (c.base_attack + c.ataque_arma) * c.status_atk_mult()
-	_note(_content, "Multiplica el daño físico (base + arma), así que cuanto mejor sea el arma más "
-		+ "vale cada punto. Ahora: +%.1f de ataque." % (_ataque_total(c) - atk_sin))
+	_note("Multiplica el daño físico (base + arma), así que cuanto mejor sea el arma más vale cada "
+		+ "punto. Ahora: +%.1f de ataque." % (_ataque_total(c) - atk_sin))
 
 	# RESISTENCIA -> vida y defensa.
 	_fila_habilidad("Resistencia", "resistencia", ab)
@@ -635,18 +600,15 @@ func _build_habilidades_page() -> void:
 	var def_base: float = c.base_defense + c.extra_defense
 	var def_de_res: float = (StatsMath.defense_jugador(ab, def_base)
 		- StatsMath.defense_jugador(ab_sin_res, def_base)) * c.status_def_mult()
-	_note(_content, "Aguante: sube vida máxima y defensa. Ahora: +%.1f vida y +%.1f defensa." % [
+	_note("Aguante: sube vida máxima y defensa. Ahora: +%.1f vida y +%.1f defensa." % [
 		hp_de_res, def_de_res])
 
 	# DESTREZA -> critico (y afina la recoleccion). El critico es un DUELO: tu Destreza contra la
-	# AGILIDAD del que recibe el golpe. Por eso se enseña contra un maniqui con tus mismas stats (no
-	# hay enemigo delante), y por eso hay que decir de QUIEN es cada stat: la frase de antes hablaba
-	# de "un rival igual de ágil" dentro de la linea de Destreza y parecia que la Destreza tuviera
-	# algo que ver con ser agil.
+	# AGILIDAD del que recibe el golpe, asi que se mide contra un maniqui con tus mismas stats.
 	_fila_habilidad("Destreza", "destreza", ab)
 	var crit_espejo: float = StatsMath.crit_chance(float(ab.destreza), float(ab.agilidad))
-	_note(_content, "Precisión: tu Destreza pelea contra la Agilidad del rival para critear (y te "
-		+ "da mano firme al recolectar). Contra un maniquí con tus mismas stats: ~%s de crítico."
+	_note("Precisión: tu Destreza pelea contra la Agilidad del rival para critear (y te da mano "
+		+ "firme al recolectar). Contra un maniquí con tus mismas stats: ~%s de crítico."
 		% _fmt_pct(crit_espejo))
 
 	# AGILIDAD -> esquiva (el duelo espejo del critico) y velocidad de turno.
@@ -658,929 +620,581 @@ func _build_habilidades_page() -> void:
 	var spd_con: float = StatsMath.speed_jugador(ab, c.base_speed)
 	var spd_sin: float = StatsMath.speed_jugador(_sin_habilidad(ab, "agilidad"), c.base_speed)
 	var vel_de_agi: float = c.spd() * (1.0 - (spd_sin / spd_con if spd_con > 0.0 else 1.0))
-	_note(_content, "Reflejos: tu Agilidad esquiva la Destreza del rival y marca tu velocidad de "
-		+ "turno. Contra el mismo maniquí: ~%s de esquiva. Y ahora: +%.1f de velocidad."
+	_note("Reflejos: tu Agilidad esquiva la Destreza del rival y marca tu velocidad de turno. "
+		+ "Contra el mismo maniquí: ~%s de esquiva. Y ahora: +%.1f de velocidad."
 		% [_fmt_pct(evade_espejo), vel_de_agi])
 
-	# MAGIA -> daño de hechizos, maná y defensa magica (las tres cosas, que la ultima acaba de salir
-	# a la ficha de Estadisticas y tambien sale de aqui).
+	# MAGIA -> daño de hechizos, maná y defensa magica.
 	_fila_habilidad("Magia", "magia", ab)
 	var ab_sin_mag: Abilities = _sin_habilidad(ab, "magia")
 	var mp_de_mag: float = c.max_mp - StatsMath.max_mp_jugador(ab_sin_mag, _pj().base_mp)
 	var mdef_de_mag: float = StatsMath.magic_jugador(ab, c.base_magic) \
 		- StatsMath.magic_jugador(ab_sin_mag, c.base_magic)
-	_note(_content, "Poder arcano: multiplica el daño de los hechizos, y sube el maná y la defensa "
-		+ "mágica. Ahora: ×%.2f a los hechizos, +%.1f de maná y +%.1f de defensa mágica." % [
+	_note("Poder arcano: multiplica el daño de los hechizos, y sube el maná y la defensa mágica. "
+		+ "Ahora: ×%.2f a los hechizos, +%.1f de maná y +%.1f de defensa mágica." % [
 		StatsMath.magia_factor(float(ab.magia)), mp_de_mag, mdef_de_mag])
 
-	_note(_content, "Las 5 habilidades (0–999). Suben con el uso y se aplican en el hogar. Cada "
-		+ "«Ahora» es lo que te está dando ESA habilidad, no tu total.")
-
-
-# La mitad MAGICA de la ficha, espejo de la fisica de arriba. Faltaba entera: podias ir con el
-# baston en la mano y la ficha solo te hablaba de "Ataque total" (que con un baston es ridiculo,
-# porque su motion value es 0.4), sin decir ni una palabra de lo que de verdad haces con el.
-#
-# Se pinta SIEMPRE, tambien sin arma magica. Al principio se ocultaba a quien no llevara baston,
-# pero eso es mirarlo al reves: los hechizos se aprenden de los libros, no del arma, asi que
-# cualquiera puede lanzarlos y a cualquiera le interesa saber con que fuerza. Y las filas que salen
-# a cero no son ruido, son la respuesta: "no regeneras mana porque no llevas arma magica".
-func _bloque_magia(c: Combatant) -> void:
-	var lm: Dictionary = Game.loadout_mods(_pj())
-	var amp: float = float(lm["magic_amp"])
 	_content.add_child(HSeparator.new())
-	_title(_content, "Magia")
-	# PODER MAGICO: lo que multiplica el daño del hechizo (el que sale en SU ficha), igual que
-	# "Ataque total" es el raw antes de que cada golpe le aplique su motion value.
-	#
-	# Es TUYO y solo tuyo: aqui NO entra StatsMath.SPELL_DAMAGE_MULT, que es un multiplicador global
-	# de todos los hechizos de todo el mundo y por tanto no dice nada de este personaje. Cuando
-	# entraba, un tio sin una gota de magia leia "×1.50" y parecia que tuviera un +50% arcano de la
-	# nada. Ahora ese factor va donde vive, en el daño que enseña el hechizo (SpellData.dano_mostrado),
-	# y un personaje pelado lee ×1.00, que es la verdad.
-	#
-	# Se desglosa en sus DOS mitades (tu Magia y el arma) y se enseñan LAS DOS, nunca una sola: el
-	# total ya lleva el arma dentro, y con una sola linea debajo no hay forma de saber si el numero
-	# de arriba la incluye o si hay que multiplicarla aparte. Viendo 1.21 y 1.70 se comprueba solo.
-	var por_magia: float = StatsMath.magia_factor(float(c.abilities.magia)) * c.magia_base_factor
-	_row(_content, "Poder mágico", "×%.2f" % Game.poder_magico(_pj()))
-	if absf(amp - 1.0) > 0.001:
-		_row(_content, "   · tu Magia", "×%.2f" % por_magia)
-		_row(_content, "   · el arma", "×%.2f" % amp)
-	# CRITICO MAGICO (29/07). Espejo exacto de las dos lineas fisicas de _build_stats_page: mismo
-	# contest (tu Destreza contra la Agilidad de un enemigo con tus mismas stats) porque el critico
-	# es el mismo sistema lo lances o lo blandas. Lo que cambia es el BONUS: aqui entra el del arma
-	# MAGICA (mejora de Precision del baston/varita), no el de las manos, y por eso hacen falta sus
-	# propias filas: sin ellas un mago no tenia forma de saber si su Precision estaba haciendo algo.
-	var crit_mag_p: float = clampf(StatsMath.crit_chance(float(c.abilities.destreza),
-		float(c.abilities.agilidad)) + c.crit_magico, 0.0, 1.0)
-	_row(_content, "Prob. crítico mágico", _fmt_pct(crit_mag_p))
-	var crit_mag_mult: float = StatsMath.CRIT_MULT + c.crit_dmg_magico
-	_row(_content, "Daño crít. mágico", "×%.2f (+%d%%)" % [
-		crit_mag_mult, roundi((crit_mag_mult - 1.0) * 100.0)])
-	# (La defensa MAGICA no esta aqui: va arriba con la fisica y la vida, que es donde se buscan
-	# las defensas y donde la ve tambien el que no lleva arma magica.)
-	# El regen a 0 se enseña igual: es la unica forma de enterarse de que el mana solo se recupera
-	# con arma magica o con pociones (la economia de mana es PLANA y sin regen no se sostiene).
-	_row(_content, "Regen maná", "%.2f/turno" % c.mp_regen_turno)
-	# Velocidad de CASTEO: lo rapido que recitas, que no es lo rapido que blandes (un baston recita
-	# mas rapido de lo que pega). Se enseña siempre, aunque coincida con la normal: si no, el mago
-	# no puede comparar su recitado con el de un compañero que no lleve baston.
-	_row(_content, "Vel. recitado", "%.1f" % c.cast_spd())
-	if float(lm["mana_reduccion"]) > 0.0:
-		_row(_content, "Coste de maná", "-%.0f%%" % (float(lm["mana_reduccion"]) * 100.0))
-	# La coletilla del desglose solo si el desglose SE HA PINTADO (sin arma mágica no hay dos
-	# líneas debajo a las que referirse, y la nota hablaba de unas filas que no existían).
-	var nota: String = "El poder mágico multiplica el daño que pone en la ficha del hechizo (como " \
-		+ "el Ataque total al golpe físico); luego lo frena la defensa mágica del que lo recibe."
-	if absf(amp - 1.0) > 0.001:
-		nota += " Las dos líneas de debajo son los factores que ya lleva dentro: se multiplican " \
-			+ "entre sí, no se suman."
-	_note(_content, nota)
+	_note("Las 5 habilidades (0–999) con su rango I→S. Suben con el uso y se aplican en el hogar. "
+		+ "Cada «Ahora» es lo que te está dando ESA habilidad, no tu total.")
 
 
-# Ataque TOTAL (raw): (base + arma) × factor_fuerza × estados, SIN el motion_value
-# (ese se aplica por golpe). c ya tiene activa la mano principal (0) tras crearlo.
-func _ataque_total(c: Combatant) -> float:
-	return (c.base_attack + c.ataque_arma) * StatsMath.fuerza_factor(float(c.abilities.fuerza)) * c.status_atk_mult()
-
-
-# COPIA de las habilidades con UNA puesta a cero. Sirve para medir lo que aporta esa habilidad por
-# DIFERENCIA: "lo que tienes" menos "lo que tendrias sin ella".
+# Una fila de habilidad: el valor, su LETRA de rango y, si hay platos puestos, lo que suman entre
+# parentesis ("180 (+18)  ·  H").
 #
-# Se hace asi y no reescribiendo cada formula en la ficha porque reescribirlas es justo de donde
-# venia el desfase: la pagina de habilidades calculaba los aportes con las formulas ADITIVAS (las de
-# los enemigos: HP_FROM_RES, _coef por nivel) mientras el jugador usa las MULTIPLICATIVAS
-# (StatsMath.*_jugador). Coinciden a nivel 1 con las bases de inicio -y por eso colaba-, pero en
-# cuanto el bakeo de subir de nivel infla las bases, cada punto vale mas de lo que decia la ficha.
-# Por diferencia da igual cual sea la formula: siempre sale la de verdad.
-# Una fila de habilidad con lo que le esta SUMANDO la comida entre parentesis: "180 (+18)".
-#
-# Existe porque no habia forma de saber si un plato hacia algo: te comias el de Fuerza, la ficha
-# seguia diciendo el mismo numero y solo cambiaba el peso que podias cargar. El parentesis es la
-# prueba de que el 10% esta puesto, y sale por DIFERENCIA contra la stat cruda para que no haya dos
-# formulas que puedan discrepar.
-#
-# Se pinta solo si hay diferencia: sin platos la ficha se ve exactamente igual que siempre. Y en
-# rojo si es negativa, porque por aqui pasan tambien los debuffs.
+# El parentesis existe porque no habia forma de saber si un plato hacia algo: te lo comias, la ficha
+# seguia diciendo el mismo numero y solo cambiaba el peso que podias cargar. Sale por DIFERENCIA
+# contra la stat cruda para que no haya dos formulas que puedan discrepar. Y en rojo si es negativa,
+# porque por aqui pasan tambien los debuffs.
 func _fila_habilidad(nombre: String, clave: String, ab_eff: Abilities) -> void:
 	var crudo: int = int(_pj().get(clave))
 	var eff: int = int(ab_eff.get(clave))
+	var rango: String = Abilities.rank_letter(eff)
 	if eff == crudo:
-		_row(_content, nombre, str(crudo))
+		_row(nombre, "%d   ·   %s" % [crudo, rango])
 		return
 	var delta: int = eff - crudo
-	_row(_content, nombre, "%d (%+d)" % [crudo, delta],
+	_row(nombre, "%d (%+d)   ·   %s" % [crudo, delta, rango],
 		Color(0.5, 0.9, 0.5) if delta > 0 else Color(0.95, 0.45, 0.45))
 
 
-func _sin_habilidad(ab: Abilities, cual: String) -> Abilities:
-	var z := Abilities.new()
-	z.fuerza = ab.fuerza
-	z.resistencia = ab.resistencia
-	z.destreza = ab.destreza
-	z.agilidad = ab.agilidad
-	z.magia = ab.magia
-	z.set(cual, 0)
-	return z
+# EL MUÑECO EN GRANDE, con su sombra. Es lo mismo que hacen las tarjetas del modal de "a quien se lo
+# das" del inventario, en grande: escala contra PoseJugador.ALTO_MUNDO y se apoya por los pies, que
+# son su propio origen.
+func _muneco_grande(pj: PersonajeData) -> void:
+	var caja := Control.new()
+	caja.custom_minimum_size = Vector2(0, ALTO_MUNECO)
+	caja.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caja.clip_contents = true
+	_lista.add_child(caja)
 
-# Media del crit_bonus del arma sobre las manos (afinidad). La cuenta vive en Combatant: la
-# comparte con la ficha de detalle del combate para que las dos pantallas no puedan discrepar.
-func _crit_bonus_promedio(c: Combatant) -> float:
-	return c.crit_bonus_promedio()
+	# El SUELO: una elipse tenue bajo los pies. Sin ella la figura flota en un rectangulo vacio y no
+	# hay forma de saber a que altura esta apoyada.
+	caja.draw.connect(func() -> void:
+		var w: float = caja.size.x
+		var h: float = caja.size.y
+		if w <= 1.0:
+			return
+		var pies: float = h - PIES_SOBRE_PIE
+		for i in 3:
+			var t: float = 1.0 - float(i) / 3.0
+			caja.draw_set_transform(Vector2(w * 0.5, pies), 0.0, Vector2(1.0, 0.22))
+			caja.draw_circle(Vector2.ZERO, w * 0.20 * (0.6 + t * 0.6), Color(0.55, 0.62, 0.80, 0.05))
+		caja.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE))
+	caja.resized.connect(caja.queue_redraw)
 
-
-# ============================================================
-#  Pestaña ARMAS
-# ============================================================
-
-func _build_armas() -> void:
-	if _arma_change != "":
-		_build_armas_cambiar()
+	var mu := MunecoJugador.new()
+	mu.montar(pj)
+	mu.tenir(pj.color, 0.0)
+	mu.poner_cara(pj.textura())
+	if not mu.hay_dibujo():
+		mu.queue_free()
 		return
+	caja.add_child(mu)
+	mu.animar("idle_4")
+	_caja_muneco = caja
+	# El tamaño real de la caja no se sabe hasta que el contenedor la coloca (mismo motivo por el que
+	# brillo_en se reajusta en resized), asi que la colocacion se rehace con el layout.
+	var colocar := func() -> void:
+		# CON TOPE. El cuerpo se dibuja a ALTO_MUNDO px (60) y estirarlo a los 300 de la caja es un
+		# x5: el sprite se ve reventado y, con la cabeza que gasta este muñeco, ocupa toda la columna
+		# sin que se le vean las piernas. ESCALA_MUNECO es lo que cabe entero y sigue leyendose.
+		var esc: float = minf(maxf(caja.size.y - 60.0, 120.0) / PoseJugador.ALTO_MUNDO, ESCALA_MUNECO)
+		mu.scale = Vector2.ONE * esc
+		# Apoyado justo en el suelo que pinta el draw de arriba: la MISMA cuenta (h - PIES_SOBRE_PIE),
+		# no dos numeros parecidos, o la sombra acaba flotando por debajo de los talones.
+		#
+		# Y con el descuento de PIES_BAJO_NODO: el dibujo del muñeco NO acaba en su origen, sigue 14
+		# unidades mas abajo (ver pose_jugador.gd, lo comparten sus ~35 capas). Sin restarlo, esos 14
+		# se multiplican por la escala —47 px a x3.4— y las piernas se quedaban FUERA de la caja, que
+		# recorta: la figura salia sin pies y apoyada en el aire.
+		mu.position = Vector2(caja.size.x * 0.5,
+			caja.size.y - PIES_SOBRE_PIE - PoseJugador.PIES_BAJO_NODO * esc)
+	caja.resized.connect(colocar)
+	colocar.call()
 
-	_title(_content, "ARMAS")
+
+# ============================================================
+#  LA LUPA: informacion de los atributos
+#  Aqui sale TODO -- fisico y magico --, lleves baston o no. La pagina de fuera enseña la mitad que
+#  te toca; esta es la otra respuesta: la del mago que quiere ver sus numeros fisicos y la del
+#  guerrero que quiere saber cuanto le entra un hechizo.
+#
+#  Es hermana de combate_detalle._abrir_modal_atributos y dice los MISMOS numeros con las MISMAS
+#  llamadas. Si se toca una cuenta, hay que tocar las dos.
+# ============================================================
+
+func _abrir_modal_atributos() -> void:
+	_cerrar_modal()
+	var pj: PersonajeData = _pj()
+	var c: Combatant = _combatiente()
+	var m: Dictionary = MenuScaffold.modal(_root, "Información de los atributos", 640.0)
+	_modal = m["capa"]
+	_ver_muneco(false)
+
+	# Con scroll: son mas de veinte filas y en una ventana baja no caben. El alto se acota para que
+	# el modal no crezca hasta comerse la pantalla entera.
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(0, 420)
+	(m["cuerpo"] as VBoxContainer).add_child(scroll)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 3)
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vb)
+
+	MenuScaffold.titulo(vb, "Atributos base", 13, GRIS)
+	MenuScaffold.fila(vb, "  Vida máxima", "%.0f" % c.max_hp, 200)
+	MenuScaffold.fila(vb, "  Ataque", "%.0f" % _ataque_total(c), 200)
+	MenuScaffold.fila(vb, "  Ataque mágico", "%.0f" % MenuScaffold.dano_magico(pj), 200)
+	MenuScaffold.fila(vb, "  Defensa", "%.0f" % c.def_value(), 200)
+	MenuScaffold.fila(vb, "  Defensa mágica",
+		"%.0f" % StatsMath.magic_jugador(c.abilities_eff(), c.base_magic), 200)
+	MenuScaffold.fila(vb, "  Velocidad", "%.0f" % c.spd(), 200)
+	MenuScaffold.fila(vb, "  Vel. recitado", "%.1f" % c.cast_spd(), 200)
+	if c.max_mp > 0.0:
+		MenuScaffold.fila(vb, "  Maná máximo", "%.0f" % c.max_mp, 200)
+	MenuScaffold.fila(vb, "  Energía máxima", "%.0f" % c.max_energy, 200)
+
+	vb.add_child(HSeparator.new())
+	MenuScaffold.titulo(vb, "Atributos avanzados", 13, GRIS)
+	MenuScaffold.fila(vb, "  Prob. crítico", _fmt_pct(_crit_fisico(c)), 200)
+	MenuScaffold.fila(vb, "  Daño crítico", _crit_dmg_txt(c.crit_dmg), 200)
+	MenuScaffold.fila(vb, "  Prob. crít. mágico", _fmt_pct(_crit_magico(c)), 200)
+	MenuScaffold.fila(vb, "  Daño crít. mágico", _crit_dmg_txt(c.crit_dmg_magico), 200)
+	# La esquiva contra el mismo espejo, con su tope: con bonus de esquiva el techo sube
+	# (StatsMath.EVADE_MAX_BUFF), y sin decirlo el numero parecia clavado.
+	var cap: float = StatsMath.EVADE_MAX_BUFF if c.evasion_bonus > 0.0 else StatsMath.EVADE_MAX
+	var evade: float = clampf(StatsMath.evade_chance(float(c.abilities.agilidad),
+		float(c.abilities.destreza)) - c.evasion_penal + c.evasion_bonus, 0.0, cap)
+	MenuScaffold.fila(vb, "  Prob. esquiva", _fmt_pct(evade), 200)
+	# El aporte del EQUIPO a la esquiva: va en evasion_penal (negativo = bonus de daga/estoque o de
+	# armadura ligera; positivo = lo que estorba un escudo). Sin esta linea se fundia en el total.
+	if absf(c.evasion_penal) > 0.001:
+		MenuScaffold.fila(vb, "     · del equipo", "%+.0f%%" % (-c.evasion_penal * 100.0), 200)
+	MenuScaffold.fila(vb, "  Reducción de daño", _fmt_pct(c.armor_reduction), 200)
+	if c.crit_resist > 0.001:
+		MenuScaffold.fila(vb, "  Resist. crítico", _fmt_pct(c.crit_resist), 200)
+	# OJO con la unidad: NO es "el % de veces que resistes". La formula es un cociente (ver
+	# StatusEffects.prob_final), asi que 100% quiere decir "me entran a la mitad" y puede pasar del
+	# 100% sin volverte inmune nunca. Por eso va el "×" al lado: es lo que multiplica.
+	MenuScaffold.fila(vb, "  Resist. estados", "%s   (los recibes ×%.2f)" % [
+		_fmt_pct(c.resist_estados()), 1.0 / (1.0 + c.resist_estados())], 200)
+	MenuScaffold.fila(vb, "  Eficacia (estados)", "%s   (los aplicas ×%.2f)" % [
+		_fmt_pct(c.eficacia_estados()), 1.0 + c.eficacia_estados()], 200)
+	MenuScaffold.fila(vb, "  Regen maná", "%.2f/turno" % c.mp_regen_turno, 200)
+
+	vb.add_child(HSeparator.new())
+	MenuScaffold.titulo(vb, "Magia", 13, GRIS)
+	# PODER MAGICO: el multiplicador en crudo, desglosado en sus DOS mitades (tu Magia y el arma).
+	# Se enseñan LAS DOS o ninguna: el total ya lleva el arma dentro, y con una sola linea debajo no
+	# hay forma de saber si el numero de arriba la incluye o si hay que multiplicarla aparte.
+	var lm: Dictionary = Game.loadout_mods(pj)
+	var amp: float = float(lm["magic_amp"])
+	MenuScaffold.fila(vb, "  Poder mágico", "×%.2f" % Game.poder_magico(pj), 200)
+	if absf(amp - 1.0) > 0.001:
+		MenuScaffold.fila(vb, "     · tu Magia",
+			"×%.2f" % (StatsMath.magia_factor(float(c.abilities.magia)) * c.magia_base_factor), 200)
+		MenuScaffold.fila(vb, "     · el arma", "×%.2f" % amp, 200)
+	if float(lm["mana_reduccion"]) > 0.0:
+		MenuScaffold.fila(vb, "  Coste de maná",
+			"-%.0f%%" % (float(lm["mana_reduccion"]) * 100.0), 200)
+
+	MenuScaffold.nota(vb, "El ataque es el raw (base + arma) ANTES del motion value: cada golpe le "
+		+ "aplica su %. El ataque mágico se mide con el hechizo más básico, para poder compararlo "
+		+ "con el físico. El maná solo se regenera con arma mágica o pociones.")
+
+	MenuScaffold.pastilla(m["acciones"], "Cerrar", _cerrar_modal)
+
+
+func _cerrar_modal() -> void:
+	if _modal != null and is_instance_valid(_modal):
+		_modal.queue_free()
+	_modal = null
+	_ver_muneco(true)
+
+
+# Esconde o enseña el muñeco. Ver _caja_muneco: su z_index es absoluto y se cuela por delante de
+# cualquier modal, asi que la unica forma de que no tape es no dibujarlo.
+func _ver_muneco(visible_: bool) -> void:
+	if _caja_muneco != null and is_instance_valid(_caja_muneco):
+		_caja_muneco.visible = visible_
+
+
+# ============================================================
+#  2 · ARMA   (las dos manos)
+# ============================================================
+
+func _sec_arma() -> void:
+	if _cambiando:
+		_cambiar_arma()
+		return
+	var pj: PersonajeData = _pj()
+	_sel = clampi(_sel, 0, 1)
+
+	# CENTRO: una celda por mano. Un hueco vacio se pinta igual (celda gris con su rotulo): es lo que
+	# dice que ahi CABE algo, que es justo lo que hay que ver para ir a ponerlo.
+	var piezas: Array = [
+		_celda_equipo(pj.equipped_main, "Principal", _main_nombre(pj.equipped_main)),
+		_celda_equipo(pj.equipped_off, "Secundaria", _off_nombre(pj.equipped_off)),
+	]
+	MenuScaffold.rejilla_objetos(_lista, piezas, _sel, _pick, _columnas(), LADO_CELDA)
+
+	# LA VELOCIDAD DEL CONJUNTO, que no es la de ninguna de las dos armas por separado: lleva dentro
+	# el bonus de ir a dual, lo que aporta la secundaria por su tamaño y las mejoras de Rapidez de las
+	# dos manos (la de la izquierda, a mitad). Sin esta linea el jugador ve dos fichas con dos numeros
+	# y ninguno es el que manda.
+	var lm: Dictionary = Game.loadout_mods(pj)
+	MenuScaffold.fila(_lista, "Velocidad del conjunto", "×%.2f" % float(lm["velocidad_mult"]))
+	if pj.equipped_off is WeaponData:
+		MenuScaffold.nota(_lista, "Vas a dos armas: se alternan golpe a golpe, cada una con su daño "
+			+ "y su crítico. La mejora de Rapidez de la secundaria cuenta la mitad que la de la "
+			+ "principal.")
+
+	# DERECHA: la ficha de la mano elegida.
+	var es_main: bool = (_sel == 0)
+	var item: Resource = pj.equipped_main if es_main else pj.equipped_off
+	if item == null:
+		_title("Principal" if es_main else "Secundaria")
+		_note("Sin arma: peleas a puños (poco daño, pero rápido y sin peso)." if es_main
+			else "Sin mano secundaria. Ahí caben otra arma, un escudo o una varita.")
+	else:
+		MenuScaffold.titulo_item(_content, Game.item_display_name(item),
+			Game.color_rareza_de(item), Game.intensidad_rareza_de(item), 17)
+		MenuScaffold.banner_item(_content, item, Game.item_plus(item),
+			"Principal" if es_main else "Secundaria")
+		if es_main:
+			_weapon_stats(_content, item as WeaponData)
+		else:
+			_off_stats(_content, item)
+
+	# El boton de cambiar. Con el arma principal a dos manos NO hay secundaria que cambiar: se dice y
+	# se apaga, en vez de dejar entrar a una rejilla donde nada se puede equipar.
+	var dos_manos: bool = Game.arma_main(pj).dos_manos and pj.equipped_main != null
+	var pueblo: bool = Game.en_pueblo()
+	_content.add_child(HSeparator.new())
+	if not es_main and dos_manos:
+		_note("El arma principal es a dos manos: no admite secundaria.")
+		return
+	if not pueblo:
+		_note("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
+	var fila := HBoxContainer.new()
+	fila.alignment = BoxContainer.ALIGNMENT_CENTER
+	_content.add_child(fila)
+	var b: Button = MenuScaffold.pastilla(fila, "Cambiar", _abrir_cambio, true, pueblo)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+func _abrir_cambio() -> void:
+	_cambiando = true
+	_cand = _indice_equipado()
+	_rebuild()
+
+
+func _cancelar_cambio() -> void:
+	_cambiando = false
+	_rebuild()
+
+
+func _pick_cand(i: int) -> void:
+	_cand = i
+	_rebuild()
+
+
+# El catalogo del que se elige AHORA: el del arma de la mano elegida, o el del slot de armadura. Es
+# UNA sola funcion para las dos secciones a proposito -- la mecanica (rejilla del baul, ficha,
+# equipar o desequipar) es identica, y tenerla dos veces es tenerla desincronizada.
+func _catalogo() -> Array:
+	if _sec == SEC_ARMADURA:
+		return Game.owned_armor_de_slot(ARMOR_SLOTS[clampi(_sel, 0, 4)])
+	if _sel == 0:
+		# Armas validas como PRINCIPAL: solo las WeaponData del baul.
+		var r: Array = []
+		for it in Game.owned_weapons:
+			if it is WeaponData:
+				r.append(it)
+		return r
+	# Manos SECUNDARIAS: todo el baul (la validez la filtra _secundaria_valida).
+	var todo: Array = []
+	for it in Game.owned_weapons:
+		todo.append(it)
+	return todo
+
+
+# Lo que llevas puesto AHORA en la mano / el slot elegido.
+func _equipado() -> Resource:
+	var pj: PersonajeData = _pj()
+	if _sec == SEC_ARMADURA:
+		return pj.get("equipped_" + ARMOR_SLOTS[clampi(_sel, 0, 4)]) as Resource
+	return (pj.equipped_main if _sel == 0 else pj.equipped_off) as Resource
+
+
+# Deja el candidato en lo que ya llevas puesto (o en lo primero del baul si no llevas nada), para que
+# la rejilla abra siempre con stats a la vista.
+func _indice_equipado() -> int:
+	var puesto: Resource = _equipado()
+	var cat: Array = _catalogo()
+	for i in cat.size():
+		if cat[i] == puesto:
+			return i
+	return 0
+
+
+# True si el candidato marcado ahora mismo es justo lo que ya llevas. Entonces el boton no equipa:
+# DESEQUIPA. Asi quedarse a puños (o sin pieza) no necesita una entrada falsa de "nada" en la
+# rejilla: es el mismo boton, que se da la vuelta.
+func _cand_equipado() -> bool:
+	var cat: Array = _catalogo()
+	if _cand < 0 or _cand >= cat.size():
+		return false
+	return cat[_cand] == _equipado()
+
+
+# LA PANTALLA DE CAMBIAR, comun a armas y armadura: la rejilla del baul a la izquierda y la ficha del
+# candidato con Equipar/Cancelar a la derecha. Es la forma de la captura "Cambiar cono de luz".
+func _cambiar_arma() -> void:
+	var pj: PersonajeData = _pj()
+	var es_armadura: bool = (_sec == SEC_ARMADURA)
+	var cat: Array = _catalogo()
+	var rotulo: String = ""
+	if es_armadura:
+		rotulo = ARMOR_SLOT_LABELS[ARMOR_SLOTS[clampi(_sel, 0, 4)]]
+	else:
+		rotulo = "Arma principal" if _sel == 0 else "Mano secundaria"
+	_titulo_seccion.text = "CAMBIAR: %s" % rotulo.to_upper()
+
+	if cat.is_empty():
+		_note_en(_lista, "No tienes nada de esto en el baúl.")
+		var f0 := HBoxContainer.new()
+		f0.alignment = BoxContainer.ALIGNMENT_CENTER
+		_content.add_child(f0)
+		MenuScaffold.pastilla(f0, "Volver", _cancelar_cambio, false)
+		return
+	_cand = clampi(_cand, 0, cat.size() - 1)
+
+	# La rejilla. El candado de la esquina dice "esto se lo estas quitando a alguien" sin tener que
+	# leer el nombre entero (ver _quien_lleva): desnudar a un companero por un clic de mas es el error
+	# que hay que evitar, y al volver a la mazmorra ya no hay forma de deshacerlo.
+	var piezas: Array = []
+	for i in cat.size():
+		var it: Resource = cat[i]
+		var otro: PersonajeData = Game.quien_lleva(it)
+		var activo: bool = true
+		# Las secundarias incompatibles con la principal se dejan VER pero no elegir.
+		if not es_armadura and _sel == 1 and not Game._secundaria_valida(pj.equipped_main, it):
+			activo = false
+		piezas.append({
+			"item": it, "pie": Game.item_plus(it),
+			"tooltip": _etiqueta_con_dueno(it, Game.item_display_name(it)),
+			"marca": "" if otro == null else otro.nombre, "activo": activo,
+		})
+	MenuScaffold.rejilla_objetos(_lista, piezas, _cand, _pick_cand, _columnas(), LADO_CELDA)
+
+	# La ficha del candidato.
+	var item: Resource = cat[_cand]
+	MenuScaffold.titulo_item(_content, Game.item_display_name(item),
+		Game.color_rareza_de(item), Game.intensidad_rareza_de(item), 17)
+	MenuScaffold.banner_item(_content, item, Game.item_plus(item), rotulo)
+	_aviso_dueno(item)
+	if es_armadura:
+		_armor_stats(_content, item as ArmorData)
+	elif _sel == 0:
+		_weapon_stats(_content, item as WeaponData)
+	else:
+		_off_stats(_content, item)
+
+	# Los avisos de "esto ya lo llevas" / "esto no encaja", que es lo que explica el boton de abajo.
+	if item == _equipado():
+		if es_armadura:
+			_note("Ya la llevas puesta: al quitarla vas ligero (+velocidad, 0 defensa).")
+		elif _sel == 0:
+			_note("Ya la llevas puesta: al desequiparla pelearás a puños.")
+		else:
+			_note("Ya la llevas puesta: al desequiparla te quedas con la mano libre.")
+	elif not es_armadura and _sel == 1:
+		if item == pj.equipped_main:
+			_note("Ya la llevas en la mano principal: necesitas otra igual para el dual.")
+		elif not Game._secundaria_valida(pj.equipped_main, item):
+			_note("No compatible con el arma principal actual.")
+
 	var pueblo: bool = Game.en_pueblo()
 	if not pueblo:
-		_note(_content, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
-
-	# --- Principal ---
+		_note("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
 	_content.add_child(HSeparator.new())
-	_bloque_arma("Principal", _main_nombre(_pj().equipped_main), pueblo, _abrir_cambio.bind("main"),
-		_pj().equipped_main)
-	if _pj().equipped_main == null:
-		_note(_content, "Sin arma: peleas a puños (poco daño, pero rápido y sin peso).")
-	_weapon_stats(_content, _pj().equipped_main)
-
-	# --- Secundaria ---
-	_content.add_child(HSeparator.new())
-	var dos_manos: bool = Game.arma_main(_pj()).dos_manos and _pj().equipped_main != null
-	_bloque_arma("Secundaria", _off_nombre(_pj().equipped_off), pueblo and not dos_manos,
-		_abrir_cambio.bind("off"), _pj().equipped_off)
-	if dos_manos:
-		_note(_content, "El arma principal es a dos manos: no admite secundaria.")
-	else:
-		_off_stats(_content, _pj().equipped_off)
-
-	# --- El conjunto ---
-	# La velocidad REAL con la que peleas, que no es la de ninguna de las dos armas por separado:
-	# lleva dentro el bonus de ir a dual, lo que aporta la secundaria por su tamaño y las mejoras de
-	# Rapidez de las dos manos (la de la izquierda, a mitad). Sin esta linea el jugador ve dos fichas
-	# con dos numeros y ninguno es el que manda.
-	_content.add_child(HSeparator.new())
-	var lm: Dictionary = Game.loadout_mods(_pj())
-	_row(_content, "Velocidad del conjunto", "×%.2f" % float(lm["velocidad_mult"]))
-	if _pj().equipped_off is WeaponData:
-		_note(_content, "Vas a dos armas: se alternan golpe a golpe, cada una con su daño y su "
-			+ "crítico. La mejora de Rapidez de la secundaria cuenta la mitad que la de la principal.")
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 8)
+	_content.add_child(fila)
+	var puede: bool = pueblo and (es_armadura or _sel == 0
+		or Game._secundaria_valida(pj.equipped_main, item) or item == _equipado())
+	var eq: Button = MenuScaffold.pastilla(fila,
+		"Desequipar" if _cand_equipado() else "Equipar", _equipar, true, puede)
+	eq.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var ca: Button = MenuScaffold.pastilla(fila, "Cancelar", _cancelar_cambio, false)
+	ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 
-# Cabecera de un bloque de arma: rol + nombre + boton Cambiar (si procede).
-#
-# El rol y el nombre van en DOS Labels y no en uno, aunque parezca una linea sola: el nombre lleva el
-# color de su RAREZA y la palabra "Principal:" no debe llevarlo (es una etiqueta, no una pieza). Con
-# un solo Label habria que elegir entre teñir las dos cosas o ninguna.
-#
-# `item` puede ser null (manos vacias / sin secundaria): entonces no hay rareza y el nombre se queda
-# en el verde de la etiqueta.
-func _bloque_arma(rol: String, nombre: String, permite_cambio: bool, on_cambiar: Callable,
-		item: Resource = null) -> void:
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 8)
-	var verde := Color(0.9, 0.95, 0.8)
-
-	var t := Label.new()
-	t.text = "%s:" % rol
-	t.add_theme_color_override("font_color", verde)
-	head.add_child(t)
-
-	var n := Label.new()
-	n.text = nombre
-	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	n.add_theme_color_override("font_color", verde if item == null else Game.color_rareza_de(item))
-	head.add_child(n)
-	# Y sus destellos: el arma que LLEVAS PUESTA es un objeto protagonista, igual que el de una ficha.
-	# Con las manos vacias no hay nada que brille.
-	if item != null:
-		MenuScaffold.brillo_en(n, Game.color_rareza_de(item), Game.intensidad_rareza_de(item))
-
-	if permite_cambio:
-		var b := MenuScaffold.boton(head, "Cambiar", on_cambiar)
-		b.custom_minimum_size = Vector2(130, MenuScaffold.ALTO_BOTON)
-	_content.add_child(head)
-
-
-# --- Catalogos: solo lo que TIENES en el baul (Game.owned_*) ---
-
-# Armas validas como PRINCIPAL: solo las WeaponData del baul. NO hay entrada de "nada": ir a
-# manos vacias no es equipar un objeto, es DESEQUIPAR el que llevas (ver _equipar_arma).
-func _catalogo_main() -> Array:
-	var r: Array = []
-	for it in Game.owned_weapons:
-		if it is WeaponData:
-			r.append(it)
-	return r
-
-
-# Nombre de una candidata a mano PRINCIPAL (null = manos vacias).
-func _main_nombre(item: Resource) -> String:
-	return "— (sin arma)" if item == null else Game.item_display_name(item)
-
-# Manos SECUNDARIAS posibles: todo el baul (la validez la filtra _secundaria_valida, que ya
-# descarta la que llevas en la principal). Sin entrada de "nada": se DESEQUIPA la que llevas.
-func _catalogo_off() -> Array:
-	var r: Array = []
-	for it in Game.owned_weapons:
-		r.append(it)
-	return r
-
-# Piezas del baul que encajan en el slot. Sin entrada de "nada": para ir sin pieza se
-# DESEQUIPA la que llevas puesta (el boton cambia solo).
-func _catalogo_armor(slot: String) -> Array:
-	var r: Array = []
-	for p in Game.owned_armor_de_slot(slot):
-		r.append(p)
-	return r
-
-
-func _abrir_cambio(slot: String) -> void:
-	_arma_change = slot
-	if slot == "main":
-		_arma_cand = _index_of_main()
-	else:
-		_arma_cand = _off_current_index(_catalogo_off())
-	_rebuild()
-
-
-func _build_armas_cambiar() -> void:
-	var es_main: bool = _arma_change == "main"
-	_title(_content, "Cambiar %s" % ("arma principal" if es_main else "mano secundaria"))
-	_content.add_child(HSeparator.new())
-
-	var catalogo: Array = _catalogo_main() if es_main else _catalogo_off()
-	if catalogo.is_empty():
-		_note(_content, "No tienes armas en el baúl.")
+# Equipar el candidato... o DESEQUIPAR, si es justo lo que ya llevas puesto.
+func _equipar() -> void:
+	var cat: Array = _catalogo()
+	if _cand < 0 or _cand >= cat.size():
 		return
-	var labels: Array = []
-	var disabled: Array = []
-	for i in catalogo.size():
-		var item: Resource = catalogo[i]
-		if es_main:
-			labels.append(_etiqueta_con_dueno(item, _main_nombre(item)))
+	var elegido: Resource = null if _cand_equipado() else cat[_cand]
+	var es_armadura: bool = (_sec == SEC_ARMADURA)
+	var slot: String = ARMOR_SLOTS[clampi(_sel, 0, 4)]
+	var es_main: bool = (_sel == 0)
+	# Si lo lleva otro, se pregunta antes: el modal llama a esto solo si dices que si.
+	_confirmar_robo(elegido, func():
+		if es_armadura:
+			Game.equipar_armadura(slot, elegido as ArmorData, _pj())
+		elif es_main:
+			Game.equipar_arma(elegido as WeaponData, _pj())
 		else:
-			labels.append(_etiqueta_con_dueno(item, _off_nombre(item)))
-			# Deshabilita las secundarias incompatibles con la principal actual.
-			if not Game._secundaria_valida(_pj().equipped_main, item):
-				disabled.append(i)
-
-	# Si el candidato es JUSTO lo que ya llevas puesto, el boton no equipa: DESEQUIPA. Asi
-	# quedarse sin arma (peleas a puños) o sin secundaria no necesita una entrada falsa de
-	# "nada" en la rejilla: es el mismo boton, que se da la vuelta.
-	_build_cambiar_layout(labels, _arma_cand, disabled, _pick_arma,
-		_preview_arma, _equipar_arma, _cancelar_arma,
-		"Desequipar" if _arma_cand_equipada() else "Equipar",
-		MenuScaffold.colores_de(catalogo), _intensidades_de(catalogo))
-
-
-# True si el arma marcada ahora mismo es la que ya llevas en esa mano.
-func _arma_cand_equipada() -> bool:
-	var es_main: bool = _arma_change == "main"
-	var cat: Array = _catalogo_main() if es_main else _catalogo_off()
-	if _arma_cand >= cat.size():
-		return false
-	return cat[_arma_cand] == (_pj().equipped_main if es_main else _pj().equipped_off)
-
-
-func _pick_arma(i: int) -> void:
-	_arma_cand = i
-	_rebuild()
-
-func _cancelar_arma() -> void:
-	_arma_change = ""
-	_rebuild()
-
-# Equipar el candidato... o DESEQUIPAR, si el candidato es lo que ya llevas puesto.
-func _equipar_arma() -> void:
-	var quitar: bool = _arma_cand_equipada()
-	var es_main: bool = _arma_change == "main"
-	var cat: Array = _catalogo_main() if es_main else _catalogo_off()
-	if _arma_cand >= cat.size():
-		return
-	var item: Resource = null if quitar else cat[_arma_cand]
-	# Si la lleva otro, se pregunta antes: el modal llama a esto solo si dices que si.
-	_confirmar_robo(item, func():
-		if es_main:
-			Game.equipar_arma(item as WeaponData, _pj())
-		else:
-			Game.equipar_secundaria(item, _pj())
-		_arma_change = ""
+			Game.equipar_secundaria(elegido, _pj())
+		_cambiando = false
 		_rebuild()
 		_refrescar_mundo())
 
 
-# Construye el panel de stats del candidato de arma (derecha de la cuadricula).
-func _preview_arma(vb: VBoxContainer) -> void:
-	if _arma_change == "main":
-		var cat: Array = _catalogo_main()
-		if _arma_cand >= cat.size():
-			return
-		var w: WeaponData = cat[_arma_cand]
-		MenuScaffold.titulo_item(vb, _main_nombre(w), Game.color_rareza_de(w),
-			Game.intensidad_rareza_de(w))
-		_aviso_dueno(vb, w)
-		_weapon_stats(vb, w)
-		if w == _pj().equipped_main:
-			_note(vb, "Ya la llevas puesta: al desequiparla pelearás a puños.")
-	else:
-		var cat_off: Array = _catalogo_off()
-		if _arma_cand >= cat_off.size():
-			return
-		var item: Resource = cat_off[_arma_cand]
-		MenuScaffold.titulo_item(vb, _off_nombre(item), Game.color_rareza_de(item),
-			Game.intensidad_rareza_de(item))
-		_aviso_dueno(vb, item)
-		_off_stats(vb, item)
-		if item != null and item == _pj().equipped_off:
-			_note(vb, "Ya la llevas puesta: al desequiparla te quedas con la mano libre.")
-		elif item != null and item == _pj().equipped_main:
-			_note(vb, "Ya la llevas en la mano principal: necesitas otra igual para el dual.")
-		elif item != null and not Game._secundaria_valida(_pj().equipped_main, item):
-			_note(vb, "No compatible con el arma principal actual.")
-
-
-func _index_of_main() -> int:
-	var cat: Array = _catalogo_main()
-	for i in cat.size():
-		if cat[i] == _pj().equipped_main:
-			return i
-	return 0
-
-
-func _off_current_index(list: Array) -> int:
-	for i in list.size():
-		if list[i] == _pj().equipped_off:
-			return i
-	return 0
-
-
-# --- Fichas de stats (reutilizadas por la vista normal y la preview) ---
-
-# Tier/rareza/mejoras salen del PROPIO objeto (Game.meta_de), no del slot: asi el panel del
-# candidato muestra sus datos aunque no lo lleves puesto.
-#
-# Y lo que se pinta son los numeros REALES (los mismos que usa el combate: Upgrades.*_mods con
-# el tier/rareza/mejoras del objeto), no los del .tres. Una daga T3 +3 NO pega lo que dice su
-# plantilla; entre parentesis va el valor de fabrica, para ver cuanto ha subido.
-func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
-	if w == null:
-		return
-	var m: Dictionary = Game.meta_de(w)
-	var tier: int = int(m["tier"])
-	var rareza: int = int(m["rareza"])
-	var mejoras: Dictionary = m["mejoras"]
-	var tmult: float = Game.tier_mult(tier)
-	var mods: Dictionary = Upgrades.weapon_mods(w, tmult, rareza, mejoras)
-	# El BASE de ESTA arma no es el del .tres: es el suyo con su tier y su rareza, sin las
-	# mejoras. Lo sacamos pidiendo los mismos mods con la lista de mejoras vacia.
-	var base: Dictionary = Upgrades.weapon_mods(w, tmult, rareza, {})
-
-	var tipo: String = WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)]
-	_row(vb, "  Tipo", tipo + ("  (magia)" if w.es_magica else ""))
-	# EL DAÑO APLICADO POR GOLPE, no el raw: el raw ya lo multiplican tu Fuerza y el motion value
-	# antes de llegar al enemigo, asi que enseñarlo pelado no decia lo que el arma pega. El motion
-	# value ya no tiene fila propia porque va dentro de este numero. Entre parentesis, lo que
-	# ponen las mejoras (tambien aplicado, para que las dos mitades esten en la misma moneda).
-	var dur_w: float = Game.durabilidad_item(w)
-	_row(vb, "  Ataque", _con_mejoras("%.1f",
-		MenuScaffold.dano_arma(w, float(base["raw"]), _pj(), dur_w),
-		MenuScaffold.dano_arma(w, float(mods["raw"]), _pj(), dur_w)))
-	_row(vb, "  Velocidad", _con_mejoras("×%.2f",
-		w.velocidad_mult * float(base["vel_mult"]), w.velocidad_mult * float(mods["vel_mult"])))
-	# crit/aturdir/evasion ya vienen RESUELTOS de weapon_mods (base × rareza + mejoras). El
-	# "base" (sin mejoras) es el mismo item con la lista de mejoras vacia -> lo que ponen las
-	# mejoras se ve entre parentesis.
-	var crit: float = float(mods["crit"])
-	if crit != 0.0:
-		_row(vb, "  Crítico", _con_mejoras_pct(float(base["crit"]), crit))
-	# Daño critico REAL de esta arma (base comun + rareza + Precision). Se enseña SIEMPRE, igual que
-	# en MenuScaffold.filas_arma: faltaba solo aqui, y era justo la ficha donde se mira el arma que
-	# llevas puesta para decidir si merece la pena otra mejora de Precision.
-	_row(vb, "  Daño crítico", _con_mejoras("×%.2f",
-		StatsMath.CRIT_MULT + float(base["crit_dmg"]), StatsMath.CRIT_MULT + float(mods["crit_dmg"])))
-	if float(mods["precision"]) > 0.0:
-		_row(vb, "  Precisión", "+%s" % _fmt_pct(float(mods["precision"])))
-	var evasion: float = float(mods["evasion"])
-	if evasion > 0.0:
-		_row(vb, "  Evasión", "+%s" % _fmt_pct(evasion))
-	var aturdir: float = float(mods["aturdir"])
-	if aturdir > 0.0:
-		_row(vb, "  Aturdir", _con_mejoras_pct(float(base["aturdir"]), aturdir))
-	if w.es_magica:
-		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras)
-		var mgb: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, {})
-		_magic_stats(vb, mg, mgb, w.mp_regen_turno, w.cast_vel_mult)
-	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
-	# DESGASTE: gastada pega menos y ROTA se va a los suelos. Se repara en el herrero.
-	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(w), Game.durabilidad_color(w))
-	# En QUE se gastaron, en su propia linea: con 12 huecos (obra maestra) la lista no cabe
-	# nunca al lado del contador.
-	if not mejoras.is_empty():
-		_note(vb, "    " + _lista_mejoras(mejoras))
-
-
-# La ficha del ESCUDO, hermana de _weapon_stats: mismos numeros REALES (Upgrades.shield_mods,
-# la math del combate) y el mismo desglose "base + (lo que ponen las mejoras) = total". Antes
-# tiraba de MenuScaffold.filas_escudo, que da el numero pelado: veias "Bloqueo 15%" y no habia
-# forma de saber que 5 de esos puntos los ponia el Refuerzo que acababas de forjar. El arma si
-# lo desglosaba, asi que mejorar un escudo era el unico sitio donde no veias lo que comprabas.
-func _shield_stats(vb: VBoxContainer, sh: ShieldData, tier: int, rareza: int, mejoras: Dictionary) -> void:
-	var tmult: float = Game.tier_mult(tier)
-	var mods: Dictionary = Upgrades.shield_mods(sh, tmult, rareza, mejoras)
-	# El BASE de ESTE escudo: el mismo, con su tier y su rareza, pero sin mejoras.
-	var base: Dictionary = Upgrades.shield_mods(sh, tmult, rareza, {})
-
-	var tamanos: Array = MenuScaffold.SHIELD_TAMANO_LABELS
-	_row(vb, "  Tipo", "Escudo %s  ·  mano secundaria"
-		% String(tamanos[clampi(int(sh.tamano), 0, tamanos.size() - 1)]).to_lower())
-	# Lo primero, la DEFENSA: es lo que crece con tier, rareza y mejoras. Y solo cuenta al Defender.
-	# Esta defensa es PLANA (se suma despues del multiplicador de Resistencia, al reves que la
-	# armadura), asi que el numero YA es lo que te da: no hace falta una fila "para ti".
-	_row(vb, "  Defensa al bloquear", _con_mejoras("%.1f", float(base["def"]), float(mods["def"])))
-	# El bloqueo NO lleva tier ni rareza (es del tamaño): lo unico que lo sube es el Refuerzo, y
-	# eso es justo lo que enseña el parentesis.
-	_row(vb, "  Bloqueo", _con_mejoras_pct(float(base["bloqueo"]), float(mods["bloqueo"])))
-	if float(mods["resist_estados"]) > 0.0:
-		_row(vb, "  Resist. estados",
-			_con_mejoras_pct(float(base["resist_estados"]), float(mods["resist_estados"])))
-	# Velocidad y penalizacion de esquiva salen del TAMAÑO y no las toca nada: sin desglose,
-	# porque no hay nada que desglosar (ver shield_mods).
-	_row(vb, "  Velocidad", "×%.2f" % float(mods["vel_mult"]))
-	_row(vb, "  Penal. esquiva", "-%s" % _fmt_pct(float(mods["evasion_penal"])))
-
-
-# Las lineas magicas (baston y varita comparten math: Upgrades.magic_mods). 'mg' = con mejoras,
-# 'mgb' = el mismo item SIN ellas (su base con tier y rareza).
-func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base: float, cast_base: float) -> void:
-	# EL ATAQUE MAGICO, no la amplificacion. "×11.82" no se puede comparar con un ataque y ademas
-	# rinde una cosa en un mago y otra en un guerrero (multiplica TU Magia): se convierte a daño
-	# con el hechizo de referencia, que es la misma moneda que el ataque fisico de arriba.
-	_row(vb, "  Ataque mágico", _con_mejoras("%.1f",
-		MenuScaffold.dano_magico(_pj(), float(mgb["magic_amp"])),
-		MenuScaffold.dano_magico(_pj(), float(mg["magic_amp"]))))
-	# Regen PLANO por turno. El "base" ya lleva el tier y la rareza de ESTE item; el parentesis es
-	# lo que ponen las mejoras. La nota dice lo que significa el numero, que es lo que se pregunta
-	# el jugador: un hechizo corto cuesta 6 y tarda 2 turnos en salir.
-	var regen_b: float = regen_base * float(mgb["regen_mult"])
-	var regen_t: float = regen_base * float(mg["regen_mult"])
-	_row(vb, "  Regen maná", _con_mejoras("%.2f", regen_b, regen_t) + " /turno")
-	_note(vb, "    Gotea también mientras recitas: un conjuro corto tarda 2 turnos, así que se paga %.2f de su maná él solo." % (regen_t * 2.0))
-	_row(vb, "  Vel. casteo", _con_mejoras("×%.2f",
-		cast_base + float(mgb["cast_vel_add"]), cast_base + float(mg["cast_vel_add"])))
-	if float(mg["mana_reduccion"]) > 0.0:
-		_row(vb, "  Coste de maná", "-%s" % _fmt_pct(float(mg["mana_reduccion"])))
-	# CRITICO MAGICO del arma (lo que aporta ELLA; la parte que pone tu Destreza va en el bloque
-	# Magia de la ficha). Es lo que sube la mejora de Precision en un baston o una varita.
-	if float(mg["crit_magico"]) != 0.0:
-		_row(vb, "  Crítico mágico", _con_mejoras_pct(float(mgb["crit_magico"]), float(mg["crit_magico"])))
-	_row(vb, "  Daño crít. mágico", _con_mejoras("×%.2f",
-		StatsMath.CRIT_MULT + float(mgb["crit_dmg_magico"]),
-		StatsMath.CRIT_MULT + float(mg["crit_dmg_magico"])))
-
-
-# "14.5 + (6.1) = 20.6". El BASE ya lleva dentro el tier y la rareza de ESTE objeto (no es el
-# numero del .tres); lo que va ENTRE PARENTESIS es lo que ponen las mejoras, para que se sepa
-# de donde sale. Sin mejoras, el numero a secas.
-func _con_mejoras(fmt: String, base: float, total: float) -> String:
-	if absf(total - base) < 0.005:
-		return fmt % total
-	return "%s + (%s) = %s" % [fmt % base, fmt % (total - base), fmt % total]
-
-
-# Igual pero en porcentaje (critico, aturdir).
-func _con_mejoras_pct(base: float, total: float) -> String:
-	if absf(total - base) < 0.0005:
-		return "+%s" % _fmt_pct(total)
-	return "%s + (%s) = %s" % [_fmt_pct(base), _fmt_pct(total - base), _fmt_pct(total)]
-
-
-# "Agudeza 2, Precision 1": en QUE se gastaron las mejoras (dos armas con el mismo +N pueden
-# ser cosas muy distintas).
-func _lista_mejoras(mejoras: Dictionary) -> String:
-	var partes: PackedStringArray = []
-	for cat in mejoras:
-		partes.append("%s %d" % [Upgrades.cat_nombre(str(cat)), int(mejoras[cat])])
-	return ", ".join(partes)
-
-
-func _off_stats(vb: VBoxContainer, item: Resource) -> void:
-	if item == null:
-		_note(vb, "  (sin mano secundaria)")
-		return
-	if item is WeaponData:
-		_weapon_stats(vb, item as WeaponData)
-		return
-	# Escudo y varita tambien tienen su tier/rareza/mejoras: hasta ahora se pintaban a pelo.
-	var m: Dictionary = Game.meta_de(item)
-	var tier: int = int(m["tier"])
-	var rareza: int = int(m["rareza"])
-	var mejoras: Dictionary = m["mejoras"]
-	if item is ShieldData:
-		_shield_stats(vb, item as ShieldData, tier, rareza, mejoras)
-	elif item is WandData:
-		var wd := item as WandData
-		var tm: float = Game.tier_mult(tier)
-		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, tm, rareza, mejoras)
-		var mgb: Dictionary = Upgrades.magic_mods(wd.magic_amp, tm, rareza, {})
-		_magic_stats(vb, mg, mgb, wd.mp_regen_turno, wd.cast_vel_mult)
-	_row(vb, "  Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
-	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
-	# En QUE se gastaron, en su propia linea: con 12 huecos (obra maestra) la lista no cabe
-	# nunca al lado del contador.
-	if not mejoras.is_empty():
-		_note(vb, "    " + _lista_mejoras(mejoras))
-
-
-# Nombre completo del item de la secundaria, con su tier/rareza/+N (Game.item_display_name),
-# que es lo que de verdad lo distingue de otra copia igual.
-func _off_nombre(item: Resource) -> String:
-	if item == null:
-		return "— (sin secundaria)"
-	return Game.item_display_name(item)
-
-
 # ============================================================
-#  Pestaña ARMADURA
+#  3 · TRAZOS   (las habilidades que llevas equipadas)
 # ============================================================
 
-func _build_armadura() -> void:
-	if _armor_slot_sel == "":
-		_build_armadura_lista()
+func _sec_trazos() -> void:
+	var pj: PersonajeData = _pj()
+	# LAS SUBPESTAÑAS SOLO SI HAY MAGIAS. Con una sola lista, una fila de un icono solo no elige
+	# nada: la fila entera desaparece y el kit del arma ocupa la pantalla.
+	var con_magia: bool = Game.tiene_hechizos(pj)
+	if con_magia:
+		MenuScaffold.subpestanas(_barra_sub, ["Habilidades", "Magias"], ["espada", "varita"],
+			_sub, _on_sub)
 	else:
-		_build_armadura_slot(_armor_slot_sel)
+		_sub = 0
+	_titulo_seccion.text = "MAGIAS" if (con_magia and _sub == 1) else "TRAZOS"
+
+	if con_magia and _sub == 1:
+		_trazos_magias(pj)
+		return
+	_trazos_habilidades(pj)
 
 
-func _build_armadura_lista() -> void:
-	_title(_content, "ARMADURA")
-	if not Game.en_pueblo():
-		_note(_content, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
-	_content.add_child(HSeparator.new())
-	for slot in ARMOR_SLOTS:
-		var pieza = _pj().get("equipped_" + slot)
-		var nombre: String = "(sin pieza)"
-		if pieza is ArmorData or pieza is BackpackData:
-			nombre = Game.item_display_name(pieza)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		# Slot y pieza en DOS Labels, por lo mismo que en _bloque_arma: el nombre lleva el color de su
-		# rareza y la palabra "Casco:" no, que es una etiqueta. Un hueco vacio se queda sin color.
-		var et := Label.new()
-		et.text = "%s:" % ARMOR_SLOT_LABELS[slot]
-		row.add_child(et)
-		var l := Label.new()
-		l.text = nombre
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(l)
-		# Las cinco piezas que llevas puestas brillan cada una por su rareza. Son cinco emisores, no
-		# los 20-40 de una rejilla, y son justo las piezas de las que va esta pantalla.
-		# Un hueco vacio ("(sin pieza)") se queda sin color y sin brillo.
-		if pieza is ArmorData or pieza is BackpackData:
-			l.add_theme_color_override("font_color", Game.color_rareza_de(pieza))
-			MenuScaffold.brillo_en(l, Game.color_rareza_de(pieza), Game.intensidad_rareza_de(pieza))
-			# LA DURABILIDAD, AQUI MISMO. Antes habia que entrar pieza a pieza para verla, y por eso
-			# un tanque jugo media expedicion con cuatro piezas rotas sin enterarse. Va en su propio
-			# Label porque lleva SU color (verde/ambar/rojo), no el de la rareza.
-			var dur := Label.new()
-			dur.text = Game.durabilidad_txt_item(pieza)
-			dur.add_theme_color_override("font_color", Game.durabilidad_color(pieza))
-			dur.custom_minimum_size = Vector2(70, 0)
-			dur.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			row.add_child(dur)
-		# El boton manda la fila entera: es lo unico que se pulsa aqui, asi que va a tamaño de dedo
-		# (era el de por defecto de Godot, una pastillita de 20 px imposible de acertar).
-		var ver := MenuScaffold.boton(row, "Ver ▶", _abrir_slot.bind(slot))
-		ver.custom_minimum_size = Vector2(110, MenuScaffold.ALTO_BOTON)
-		_content.add_child(row)
+# LOS CUATRO HUECOS DEL ARMA. El set se guarda por TIPO de arma (ver Game.clave_loadout), asi que
+# cambiar de espada a hacha cambia lo que sale aqui: es a proposito, y por eso el rotulo dice con
+# QUE arma es este kit.
+func _trazos_habilidades(pj: PersonajeData) -> void:
+	var equipadas: Array = Game.habilidades_equipadas(pj)
+	var arma: WeaponData = Game.arma_main(pj)
+	var tipo: String = WEAPON_TIPO_LABELS[clampi(int(arma.tipo), 0,
+		WEAPON_TIPO_LABELS.size() - 1)]
+	MenuScaffold.titulo(_lista, "Kit de %s" % tipo.to_lower(), 15)
+	MenuScaffold.nota(_lista, "Cada tipo de arma lleva su propio juego de %d huecos. Se cambian con "
+		% Game.MAX_HABILIDADES + "el maestro de armas.")
 
-
-func _abrir_slot(slot: String) -> void:
-	_armor_slot_sel = slot
-	_preseleccionar_equipada(slot)
-	_rebuild()
-
-func _cerrar_slot() -> void:
-	_armor_slot_sel = ""
-	_rebuild()
-
-# Salta al slot anterior/siguiente (Casco <-> Botas envuelve) sin volver a la lista.
-func _ciclar_slot(dir: int) -> void:
-	var i: int = ARMOR_SLOTS.find(_armor_slot_sel)
-	var slot: String = ARMOR_SLOTS[wrapi(i + dir, 0, ARMOR_SLOTS.size())]
-	_armor_slot_sel = slot
-	_preseleccionar_equipada(slot)
-	_rebuild()
-
-# Deja _armor_cand en la pieza equipada del slot (o en la primera del baul si no llevas
-# ninguna), para que la cuadricula abra siempre con stats a la vista.
-func _preseleccionar_equipada(slot: String) -> void:
-	var pieza = _pj().get("equipped_" + slot)
-	_armor_cand = 0
-	var cat: Array = _catalogo_armor(slot)
-	for i in cat.size():
-		if cat[i] == pieza:
-			_armor_cand = i
-			break
-
-
-# Vista de un slot: cabecera con flechas para cambiar de slot + cuadricula de piezas
-# del baul (equipada preseleccionada) + panel de stats y "Equipar". Solo en el pueblo.
-func _build_armadura_slot(slot: String) -> void:
-	# Cabecera: ◀  [Slot]  ▶ ......... Volver
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 8)
-	var prev := Button.new()
-	prev.text = "◀"
-	prev.custom_minimum_size = Vector2(MenuScaffold.ALTO_BOTON, MenuScaffold.ALTO_BOTON)
-	prev.pressed.connect(_ciclar_slot.bind(-1))
-	head.add_child(prev)
-	var t := Label.new()
-	t.text = ARMOR_SLOT_LABELS[slot]
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
-	t.add_theme_font_size_override("font_size", 16)
-	head.add_child(t)
-	var next := Button.new()
-	next.text = "▶"
-	next.custom_minimum_size = Vector2(MenuScaffold.ALTO_BOTON, MenuScaffold.ALTO_BOTON)
-	next.pressed.connect(_ciclar_slot.bind(1))
-	head.add_child(next)
-	var volver := Button.new()
-	volver.text = "Volver"
-	volver.custom_minimum_size = Vector2(110, MenuScaffold.ALTO_BOTON)
-	volver.pressed.connect(_cerrar_slot)
-	head.add_child(volver)
-	_content.add_child(head)
-
-	var pueblo: bool = Game.en_pueblo()
-	if not pueblo:
-		_note(_content, "Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
-	_content.add_child(HSeparator.new())
-
-	var cat: Array = _catalogo_armor(slot)
+	# Los huecos VACIOS se pintan igual: son los que dicen cuantas te faltan por poner, que es la
+	# unica manera de enterarse de que se pueden poner mas.
 	var labels: Array = []
-	for p in cat:
-		labels.append(_etiqueta_con_dueno(p, Game.item_display_name(p)))
-	if cat.is_empty():
-		_note(_content, "No tienes piezas de este slot en el baúl.")
-		return
-	# Fuera del pueblo: apagar solo "Equipar" (marcando el candidato como disabled, que es
-	# lo que mira _build_cambiar_layout). El resto de la cuadricula sigue navegable/consultable.
-	var disabled: Array = [_armor_cand] if not pueblo else []
-	_build_cambiar_layout(labels, _armor_cand, disabled, _pick_armor,
-		_preview_armor, _equipar_armor, _cerrar_slot,
-		"Desequipar" if _armor_cand_equipada() else "Equipar",
-		MenuScaffold.colores_de(cat), _intensidades_de(cat))
+	var tooltips: Array = []
+	for i in Game.MAX_HABILIDADES:
+		var h = equipadas[i] if i < equipadas.size() else null
+		labels.append(str(h.nombre) if h != null else "— hueco %d —" % (i + 1))
+		tooltips.append(str(h.nombre) if h != null else "Hueco libre")
+	_sel = clampi(_sel, 0, Game.MAX_HABILIDADES - 1)
+	var grid := VBoxContainer.new()
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lista.add_child(grid)
+	MenuScaffold.cuadricula(grid, labels, _sel, _pick, 2, Vector2(0, 66), [], [], tooltips)
 
-
-# True si la pieza marcada ahora mismo es la que ya llevas puesta en ese slot.
-func _armor_cand_equipada() -> bool:
-	var cat: Array = _catalogo_armor(_armor_slot_sel)
-	if _armor_cand >= cat.size():
-		return false
-	return cat[_armor_cand] == _pj().get("equipped_" + _armor_slot_sel)
-
-
-func _pick_armor(i: int) -> void:
-	_armor_cand = i
-	_rebuild()
-
-# Equipar la pieza marcada... o QUITARLA, si es justo la que ya llevas puesta.
-func _equipar_armor() -> void:
-	var slot: String = _armor_slot_sel
-	var cat: Array = _catalogo_armor(slot)
-	if _armor_cand >= cat.size():
-		return
-	var elegido: Resource = null if _armor_cand_equipada() else cat[_armor_cand]
-	# Si la pieza la lleva otro, se pregunta antes (mismo criterio que con las armas).
-	_confirmar_robo(elegido, func():
-		Game.equipar_armadura(slot, elegido as ArmorData, _pj())
-		_rebuild()   # se queda en el slot; la recien equipada queda marcada
-		# Y REPINTAR EL MUÑECO, igual que hace _equipar_arma. Faltaba, y el sintoma era raro de atar
-		# al cambio: la armadura nueva no se veia hasta que el cuerpo se remontaba POR OTRO MOTIVO
-		# --entrar en la mazmorra, guardar y volver--, asi que parecia cosa del guardado. No lo era:
-		# el muñeco solo se rehace cuando alguien lo pide, y aqui nadie lo pedia.
-		_refrescar_mundo())
-
-
-# Panel de stats de la pieza candidata (derecha de la cuadricula).
-func _preview_armor(vb: VBoxContainer) -> void:
-	var slot: String = _armor_slot_sel
-	var cat: Array = _catalogo_armor(slot)
-	if _armor_cand >= cat.size() or cat[_armor_cand] == null:
-		return
-	var a: ArmorData = cat[_armor_cand]
-	# El nombre lleva el color de su rareza, igual que en la ficha del inventario: es la misma
-	# pregunta ("que pieza es esta") hecha en otro menu.
-	MenuScaffold.titulo_item(vb, Game.item_display_name(a), Game.color_rareza_de(a),
-		Game.intensidad_rareza_de(a))
-	_aviso_dueno(vb, a)
-	if a == _pj().get("equipped_" + slot):
-		_note(vb, "Ya la llevas puesta: al quitarla vas ligero (+velocidad, 0 defensa).")
-	_armor_stats(vb, a)
-
-
-# Ficha de una pieza de armadura. Las filas salen de MenuScaffold.filas_armadura, que es la MISMA
-# fuente que usa la ficha de detalle del combate: antes esto era la unica copia y las dos pantallas
-# podian (y llegaron a) decir numeros distintos de la misma pieza.
-#
-# Se le pasan la DURABILIDAD y el factor de Resistencia del personaje que la esta mirando, que es lo
-# que convierte la defensa de la pieza en la defensa que de verdad te da a ti.
-func _armor_stats(vb: VBoxContainer, a: ArmorData) -> void:
-	if a == null:
-		return
-	var am: Dictionary = Game.meta_de(a)
-	var mejoras: Dictionary = am["mejoras"]
-	for f in MenuScaffold.filas_armadura(a, int(am["tier"]), int(am["rareza"]), mejoras,
-			Game.durabilidad_item(a), _factor_resistencia()):
-		_row(vb, "  " + str(f[0]), str(f[1]))
-	_row(vb, "  Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
-	if not mejoras.is_empty():
-		_note(vb, "    " + _lista_mejoras(mejoras))
-
-
-# El multiplicador que tu Resistencia le aplica a TODA la defensa (la tuya y la de la armadura).
-func _factor_resistencia() -> float:
-	return MenuScaffold.factor_resistencia(_pj())
-
-
-
-
-# ============================================================
-#  Cuadricula de seleccion + panel de stats a la derecha (comun armas/armadura)
-# ============================================================
-
-# 'equipar_txt' lo pasa quien llama: si el candidato es "nada", el boton dice DESEQUIPAR
-# (elegir "(nada)" en la principal = pelear a puños; en la armadura = quitarse la pieza).
-# Cuanto brilla cada pieza de la lista, en paralelo a colores_de(): las particulas de la celda salen
-# de aqui. Un comun apenas centellea y un pristino centellea de verdad (ver Upgrades.rareza_intensidad).
-func _intensidades_de(items: Array) -> Array:
-	var out: Array = []
-	for it in items:
-		out.append(Game.intensidad_rareza_de(it) if it != null else 0.0)
-	return out
-
-
-func _build_cambiar_layout(labels: Array, cand: int, disabled: Array,
-		on_pick: Callable, preview_builder: Callable,
-		on_equipar: Callable, on_cancel: Callable,
-		equipar_txt: String = "Equipar", colores: Array = [],
-		intensidades: Array = []) -> void:
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 20)
-	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.add_child(hb)
-
-	# Izquierda: cuadricula de botones (uno por item).
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	for i in labels.size():
-		# 160x58 y no 120x46: la etiqueta de un arma es "Daga +4  ·  T1 Comun" y, si la lleva otro del
-		# grupo, lleva ademas un "🔒 Fulano" en una segunda linea. Con 46 no cabian ni las dos lineas
-		# ni el nombre entero. Lo que siga sin caber se pasea (ver MenuScaffold.celda_item).
-		MenuScaffold.celda_item(grid, str(labels[i]), Vector2(160, 58), i == cand,
-			on_pick.bind(i), colores[i] if i < colores.size() else null,
-			float(intensidades[i]) if i < intensidades.size() else 0.0,
-			not disabled.has(i))
-	hb.add_child(grid)
-
-	# Derecha: stats del candidato + acciones.
-	var right := VBoxContainer.new()
-	right.add_theme_constant_override("separation", 4)
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hb.add_child(right)
-	preview_builder.call(right)
-
-	var actions := HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 8)
-	var eq := MenuScaffold.boton(actions, equipar_txt, on_equipar, not disabled.has(cand))
-	eq.custom_minimum_size = Vector2(150, MenuScaffold.ALTO_BOTON)
-	var ca := MenuScaffold.boton(actions, "Cancelar", on_cancel)
-	ca.custom_minimum_size = Vector2(150, MenuScaffold.ALTO_BOTON)
-	right.add_child(HSeparator.new())
-	right.add_child(actions)
-
-
-# ============================================================
-#  Pestaña HECHIZOS (solo si conoces alguno)
-#  Cuadricula de hechizos + ficha del seleccionado: que hace (todo DERIVADO de sus
-#  campos, ver SpellData.resumen) y su ENCANTAMIENTO (las frases que hay que recitar).
-# ============================================================
-
-func _build_hechizos() -> void:
-	_title(_content, "HECHIZOS")
-	_note(_content, "Se lanzan RECITANDO su encantamiento: una frase por turno. Si fallas una, el hechizo se te vuelve en contra.")
+	# La ficha de lo elegido. El ataque basico va SIEMPRE arriba: no ocupa hueco y es lo que haces
+	# cuando no haces nada, asi que callarlo dejaba la pantalla sin la mitad de lo que puedes hacer.
+	_title("Ataque básico")
+	_note("Golpe con lo que lleves en las manos. No cuesta energía: la recupera.")
 	_content.add_child(HSeparator.new())
-
-	var spells: Array = _pj().equipped_spells
-	if spells.is_empty():
-		_note(_content, "No conoces ningún hechizo.")
+	var hab = equipadas[_sel] if _sel < equipadas.size() else null
+	if hab == null:
+		_title("Hueco %d" % (_sel + 1))
+		_note("Vacío. El maestro de armas enseña habilidades nuevas y las coloca en los huecos.")
 		return
-	_spell_sel = clampi(_spell_sel, 0, spells.size() - 1)
-
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 20)
-	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.add_child(hb)
-
-	# Izquierda: cuadricula de hechizos.
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	for i in spells.size():
-		var s: SpellData = spells[i]
-		# La misma celda que la rejilla de armas (sin color: un hechizo no tiene rareza). Tener dos
-		# rejillas con distinto aspecto en el mismo menu no lo entiende nadie.
-		MenuScaffold.celda_item(grid, "%s\n%d MP" % [s.nombre, s.coste_mana], Vector2(160, 58),
-			i == _spell_sel, _pick_hechizo.bind(i))
-	hb.add_child(grid)
-
-	# Derecha: la ficha del seleccionado.
-	var right := VBoxContainer.new()
-	right.add_theme_constant_override("separation", 4)
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hb.add_child(right)
-	_ficha_hechizo(right, spells[_spell_sel])
+	_title(str(hab.nombre))
+	if hab.has_method("es_area"):
+		_row("Alcance", "Área" if hab.es_area() else "Individual")
+	var l := Label.new()
+	l.text = hab.resumen() if hab.has_method("resumen") else str(hab.get("descripcion"))
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(l)
 
 
-func _pick_hechizo(i: int) -> void:
-	_spell_sel = i
-	_rebuild()
+func _trazos_magias(pj: PersonajeData) -> void:
+	var spells: Array = pj.equipped_spells
+	MenuScaffold.titulo(_lista, "Magias equipadas", 15)
+	MenuScaffold.nota(_lista, "Se lanzan RECITANDO su encantamiento: una frase por turno. Si fallas "
+		+ "una, el hechizo se te vuelve en contra.")
+	if spells.is_empty():
+		MenuScaffold.nota(_lista, "Ninguna equipada.")
+		return
+	_sel = clampi(_sel, 0, spells.size() - 1)
+	var labels: Array = []
+	for s in spells:
+		labels.append("%s\n%d MP" % [s.nombre, s.coste_mana])
+	var grid := VBoxContainer.new()
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lista.add_child(grid)
+	MenuScaffold.cuadricula(grid, labels, _sel, _pick, 2, Vector2(0, 66), [], [], labels)
+	_ficha_hechizo(spells[_sel])
 
 
-# Ficha de un hechizo. TODO sale de sus campos: si tocas un numero en el .tres, esto se
-# actualiza solo (la 'descripcion' es solo SABOR y no repite ninguna cifra).
-func _ficha_hechizo(vb: VBoxContainer, s: SpellData) -> void:
-	_title(vb, s.nombre)
-	_row(vb, "  Encantamiento", "%s (%d frase%s)" % [
+# Ficha de un hechizo. TODO sale de sus campos: si tocas un numero en el .tres, esto se actualiza
+# solo (la 'descripcion' es solo SABOR y no repite ninguna cifra).
+func _ficha_hechizo(s: SpellData) -> void:
+	_title(str(s.nombre))
+	_row("Encantamiento", "%s (%d frase%s)" % [
 		s.longitud_texto(), s.longitud(), "" if s.longitud() == 1 else "s"])
-	_row(vb, "  Coste", "%d de maná" % s.coste_mana)
+	_row("Coste", "%d de maná" % s.coste_mana)
 	if s.elemento != Elementos.Elemento.NINGUNO:
-		_row(vb, "  Elemento", Elementos.nombre(s.elemento))
+		_row("Elemento", Elementos.nombre(s.elemento))
 
-	# DAÑO: el de ESTE personaje, ya multiplicado por su poder magico (su Magia + el bastón o la
-	# varita que lleve). Es el numero que va a salir en el combate, no una cifra de catalogo: antes
-	# se enseñaba el daño pelado del .tres con una coletilla de "esto luego escala", y tocaba
-	# multiplicar de cabeza para saber si el hechizo servia de algo.
-	# La etiqueta lleva el "(100%)" porque este numero es la REFERENCIA de la que salen todos los
-	# porcentajes de la frase de abajo (el papel que en Honkai hace el ATK del personaje), y NO el
-	# daño total que reparte el hechizo. Con un "Daño" a secas se lee como el total y no cuadra:
-	# la Andanada pone 43 y luego dice 150% + 75%, que suman bastante mas.
+	# DAÑO: el de ESTE personaje, ya multiplicado por su poder magico. Es el numero que va a salir en
+	# el combate, no una cifra de catalogo. La etiqueta lleva el "(100%)" porque este numero es la
+	# REFERENCIA de la que salen todos los porcentajes de la frase de abajo, y NO el daño total que
+	# reparte el hechizo (la Andanada pone 43 y luego dice 150% + 75%, que suman bastante mas).
 	var ref: float = s.dano_mostrado() * Game.poder_magico(_pj())
 	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
-		_row(vb, "  Daño (100%)", "%.0f" % ref)
+		_row("Daño (100%)", "%.0f" % ref)
 
-	# QUE HACE. Los porcentajes son de ese daño de arriba, y llevan al lado el numero real entre
-	# parentesis. Sustituye a la tabla de filas sueltas (Al objetivo / Alcance / Salpicón / Rebotes
-	# / Aplica), que daba los datos pero no contaba nunca lo que pasa al lanzarlo.
 	var mecanica: String = s.descripcion_mecanica(ref)
 	if mecanica != "":
-		vb.add_child(HSeparator.new())
+		_content.add_child(HSeparator.new())
 		var l := Label.new()
 		l.text = mecanica
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.custom_minimum_size = Vector2(420, 0)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		vb.add_child(l)
+		_content.add_child(l)
 	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
-		_note(vb, "El daño es el tuyo, con tu Magia y el arma que llevas ahora; luego lo frena la "
+		_note("El daño es el tuyo, con tu Magia y el arma que llevas ahora; luego lo frena la "
 			+ "defensa mágica del que lo recibe.")
 	# La AFINIDAD de un imbue de cuerpo sigue en tabla: son varios elementos con su multiplicador
 	# cada uno, y eso es una lista de verdad, no una frase.
 	if s.es_imbuicion() and s.imbue_tipo == 2:
-		_afinidad_hechizo(vb, s)
+		_afinidad_hechizo(s)
 
-	# EL ENCANTAMIENTO: las frases que hay que recitar, en orden.
-	vb.add_child(HSeparator.new())
-	_title(vb, "Encantamiento")
+	_content.add_child(HSeparator.new())
+	_title("Encantamiento")
 	for i in s.frases.size():
-		var l := Label.new()
-		l.text = "  %d. «%s»" % [i + 1, s.frases[i]]
-		l.add_theme_color_override("font_color", Color(0.85, 0.8, 0.95))
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.custom_minimum_size = Vector2(420, 0)
-		vb.add_child(l)
+		var f := Label.new()
+		f.text = "  %d. «%s»" % [i + 1, s.frases[i]]
+		f.add_theme_color_override("font_color", Color(0.85, 0.8, 0.95))
+		f.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		f.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_content.add_child(f)
 
 	if s.descripcion != "":
-		vb.add_child(HSeparator.new())
-		_note(vb, s.descripcion)
+		_content.add_child(HSeparator.new())
+		_note(s.descripcion)
 
 
-# Lo que te da y lo que te cuesta la afinidad de un imbue de CUERPO. Los % se DERIVAN de la
-# tabla y de la franja de intensidad del hechizo, asi que nunca mienten.
-func _afinidad_hechizo(vb: VBoxContainer, s: SpellData) -> void:
+# Lo que te da y lo que te cuesta la afinidad de un imbue de CUERPO. Los % se DERIVAN de la tabla y
+# de la franja de intensidad del hechizo, asi que nunca mienten.
+func _afinidad_hechizo(s: SpellData) -> void:
 	var resiste: Array = []
 	var debil: Array = []
 	for e in Elementos.PERFIL_DEFECTO.get(s.elemento, {}):
@@ -1592,14 +1206,512 @@ func _afinidad_hechizo(vb: VBoxContainer, s: SpellData) -> void:
 		elif m > 1.01:
 			debil.append("%s (+%d%% de daño)" % [Elementos.nombre(e), roundi((m - 1.0) * 100.0)])
 	if not resiste.is_empty():
-		_row(vb, "  🛡 Resistes", ", ".join(resiste))
+		_row("🛡 Resistes", ", ".join(resiste))
 	var inm: Array = []
 	for id in Elementos.inmunidades_de(s.elemento):
 		inm.append(String(StatusEffects.def(id).get("nombre", "?")))
 	if not inm.is_empty():
-		_row(vb, "  Inmune a", ", ".join(inm))
+		_row("Inmune a", ", ".join(inm))
 	var st: float = Elementos.stun_taken_por_afinidad(s.elemento)
 	if st < 0.99:
-		_row(vb, "  Aturdimiento", "te aturden un %d%% menos" % roundi((1.0 - st) * 100.0))
+		_row("Aturdimiento", "te aturden un %d%% menos" % roundi((1.0 - st) * 100.0))
 	if not debil.is_empty():
-		_row(vb, "  ⚠ Débil a", ", ".join(debil))
+		_row("⚠ Débil a", ", ".join(debil))
+
+
+# ============================================================
+#  4 · ARMADURA   (las cinco piezas)
+# ============================================================
+
+func _sec_armadura() -> void:
+	if _cambiando:
+		_cambiar_arma()   # la misma pantalla de cambiar que las armas
+		return
+	var pj: PersonajeData = _pj()
+	_sel = clampi(_sel, 0, ARMOR_SLOTS.size() - 1)
+
+	# CENTRO: una celda por slot. El baul es COMUN a todo el grupo, asi que la misma pieza aparece en
+	# el catalogo de los tres: por eso las celdas del cambio llevan el nombre de quien la lleva.
+	var piezas: Array = []
+	for slot in ARMOR_SLOTS:
+		var pieza: Resource = pj.get("equipped_" + slot) as Resource
+		piezas.append(_celda_equipo(pieza, ARMOR_SLOT_LABELS[slot],
+			Game.item_display_name(pieza) if pieza != null else "(sin pieza)"))
+	MenuScaffold.rejilla_objetos(_lista, piezas, _sel, _pick, _columnas(), LADO_CELDA)
+
+	# DERECHA: la pieza elegida.
+	var slot_sel: String = ARMOR_SLOTS[_sel]
+	var actual: Resource = pj.get("equipped_" + slot_sel) as Resource
+	if actual == null:
+		_title(ARMOR_SLOT_LABELS[slot_sel])
+		_note("Sin pieza. Vas ligero: más velocidad y ninguna defensa en esta ranura.")
+	else:
+		MenuScaffold.titulo_item(_content, Game.item_display_name(actual),
+			Game.color_rareza_de(actual), Game.intensidad_rareza_de(actual), 17)
+		MenuScaffold.banner_item(_content, actual, Game.item_plus(actual),
+			ARMOR_SLOT_LABELS[slot_sel])
+		_armor_stats(_content, actual as ArmorData)
+
+	var pueblo: bool = Game.en_pueblo()
+	_content.add_child(HSeparator.new())
+	if not pueblo:
+		_note("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
+	var fila := HBoxContainer.new()
+	fila.alignment = BoxContainer.ALIGNMENT_CENTER
+	_content.add_child(fila)
+	var b: Button = MenuScaffold.pastilla(fila, "Cambiar", _abrir_cambio, true, pueblo)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+# ============================================================
+#  5 · EIDOLON   (desarrollos y pasivas)
+#
+#  Las dos capas de perks de este personaje, cada una con su regla:
+#    - DESARROLLO: lo eliges tu al subir de nivel, y sube de rango (I..S) solo, con su contador
+#      OCULTO. Lo que NO se enseña nunca es cuanto te falta para desbloquear uno (ver el comentario
+#      de Game.DESARROLLOS): el contador es secreto a proposito.
+#    - PASIVAS: no se eligen. Caen solas, rarisimo, y solo aparecen al actualizar el estado en el
+#      altar. Aqui se ven las que YA tienes; las pendientes no salen, que para eso son pendientes.
+# ============================================================
+
+func _sec_eidolon() -> void:
+	var pj: PersonajeData = _pj()
+	var desarrollos: Array = _mis_desarrollos(pj)
+	var pasivas: Array = _mis_pasivas(pj)
+
+	# Las subpestañas SOLO si tienes de las dos clases. Con una sola, se ve esa; SIN NINGUNA sale
+	# Desarrollo vacio con su explicacion, que es lo que se pidio: el hueco tiene que decir que ahi
+	# va a haber algo algun dia.
+	var las_dos: bool = not desarrollos.is_empty() and not pasivas.is_empty()
+	if las_dos:
+		MenuScaffold.subpestanas(_barra_sub, ["Desarrollo", "Pasivas"], ["engranaje", "eidolon"],
+			_sub, _on_sub)
+	elif pasivas.is_empty():
+		_sub = 0
+	else:
+		_sub = 1   # solo pasivas: se enseñan sin preguntar
+
+	if _sub == 1:
+		_titulo_seccion.text = "PASIVAS"
+		_eidolon_lista(pasivas, "HABILIDADES PASIVAS",
+			"No se eligen: aparecen solas al actualizar tu estado en el altar.",
+			"Ninguna. Caen por sí solas, muy de vez en cuando, haciendo lo que sea que las despierta.")
+		return
+	_titulo_seccion.text = "DESARROLLO"
+	_eidolon_lista(desarrollos, "HABILIDADES DE DESARROLLO",
+		"Eliges una al subir de nivel. Suben de rango (I → S) haciendo lo suyo.",
+		"Ninguna todavía. Se elige una al subir de nivel, en el altar.",
+		"Sin nada elegido")
+
+
+# Los desarrollos que este personaje TIENE (rango > 0), cada uno ya con su rango leido.
+func _mis_desarrollos(pj: PersonajeData) -> Array:
+	var out: Array = []
+	for d in Game.DESARROLLOS:
+		var rango: int = Game.desarrollo_rango(str(d["id"]), pj)
+		if rango <= 0:
+			continue
+		out.append({"nombre": str(d["nombre"]), "desc": str(d["desc"]),
+			"pie": "rango %s" % Game.letra_rango(rango), "color": AMBAR, "brillo": 0.0})
+	return out
+
+
+func _mis_pasivas(pj: PersonajeData) -> Array:
+	var out: Array = []
+	for p in Game.PASIVAS_RNG:
+		if not Game.tiene_pasiva(str(p["id"]), pj):
+			continue
+		# Amarillo legendario y centelleando, igual que cuando aparecio en el altar: es lo mas raro
+		# que hay en el juego y tiene que seguir cantando cada vez que abres la ficha.
+		out.append({"nombre": str(p["nombre"]), "desc": Game.pasiva_desc(p),
+			"pie": "pasiva", "color": Upgrades.rareza_color(4), "brillo": 1.0})
+	return out
+
+
+# 'vacio' es la explicacion de por que no hay nada, y va SOLO en la columna del centro: repetirla en
+# la ficha de la derecha era decir dos veces la misma frase en la misma pantalla. La derecha se queda
+# con 'titulo_vacio', que dice OTRA cosa (que no hay nada elegido, no por que).
+func _eidolon_lista(nodos: Array, titulo: String, nota: String, vacio: String,
+		titulo_vacio: String = "Nada todavía") -> void:
+	MenuScaffold.titulo(_lista, titulo, 15)
+	MenuScaffold.nota(_lista, nota)
+	if nodos.is_empty():
+		MenuScaffold.nota(_lista, vacio)
+		_title(titulo_vacio)
+		return
+	_sel = clampi(_sel, 0, nodos.size() - 1)
+	var labels: Array = []
+	var colores: Array = []
+	var intens: Array = []
+	for n in nodos:
+		labels.append("%s\n%s" % [n["nombre"], n["pie"]])
+		colores.append(n["color"])
+		intens.append(float(n["brillo"]))
+	var grid := VBoxContainer.new()
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lista.add_child(grid)
+	# Con celda_item y no con cuadricula: estas llevan COLOR y BRILLO (una pasiva legendaria tiene
+	# que cantar), y eso es justo lo que celda_item añade encima de un boton normal.
+	var g := GridContainer.new()
+	g.columns = 2
+	g.add_theme_constant_override("h_separation", 6)
+	g.add_theme_constant_override("v_separation", 6)
+	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_child(g)
+	for i in labels.size():
+		MenuScaffold.celda_item(g, String(labels[i]), Vector2(0, 66), i == _sel, _pick.bind(i),
+			colores[i], float(intens[i]))
+
+	var nodo: Dictionary = nodos[_sel]
+	MenuScaffold.titulo_item(_content, String(nodo["nombre"]), nodo["color"],
+		float(nodo["brillo"]), 17)
+	_row("Estado", String(nodo["pie"]))
+	_content.add_child(HSeparator.new())
+	var l := Label.new()
+	l.text = String(nodo["desc"])
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(l)
+
+
+# ============================================================
+#  ¿QUIEN LLEVA ESTO?
+#  El baul es COMUN a todo el grupo, asi que la misma espada aparece en el catalogo de los tres.
+#  Equiparsela a uno se la quita al otro (Game._quitar_a_los_demas): es lo que se quiere, pero tiene
+#  que VERSE antes de pulsar, o le dejas a alguien en pelotas sin enterarte.
+# ============================================================
+
+# El companero que lleva PUESTO este objeto, o null si no lo lleva nadie mas. Nunca devuelve al
+# personaje que estas mirando: que lo lleve el no es un conflicto, es el estado normal.
+func _quien_lleva(item: Resource) -> PersonajeData:
+	var otro: PersonajeData = Game.quien_lleva(item)
+	return null if otro == _pj() else otro
+
+
+func _etiqueta_con_dueno(item: Resource, base: String) -> String:
+	var otro: PersonajeData = _quien_lleva(item)
+	return base if otro == null else "%s\n🔒 %s" % [base, otro.nombre]
+
+
+# Linea de aviso en la FICHA (en rojo): quien lo lleva puesto. Va en la ficha ademas de en la celda
+# porque la celda solo tiene sitio para el nombre, y aqui es donde el jugador se para a mirar antes
+# de pulsar Equipar.
+func _aviso_dueno(item: Resource) -> void:
+	var otro: PersonajeData = _quien_lleva(item)
+	if otro == null:
+		return
+	var l := Label.new()
+	l.text = "🔒 Lo lleva puesto %s. Si lo equipas, se lo quitas." % otro.nombre
+	l.add_theme_color_override("font_color", Color(0.9, 0.5, 0.5))
+	l.add_theme_font_size_override("font_size", 12)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(l)
+
+
+# Modal de "esto lo lleva puesto Fulano, ¿se lo quito?". Es un si/no y no un aviso pasivo a
+# proposito: desnudar a un companero por un clic de mas es justo el error que hay que evitar, y al
+# volver a la mazmorra ya no hay forma de deshacerlo.
+func _confirmar_robo(item: Resource, al_aceptar: Callable) -> void:
+	var otro: PersonajeData = _quien_lleva(item)
+	if otro == null:
+		al_aceptar.call()   # no lo lleva nadie: no hay nada que preguntar
+		return
+	_cerrar_modal()
+	var m: Dictionary = MenuScaffold.modal(_root, "Lo lleva puesto %s" % otro.nombre)
+	_modal = m["capa"]
+	_ver_muneco(false)
+	var cuerpo: VBoxContainer = m["cuerpo"]
+	var d := Label.new()
+	d.text = "%s se lo quitará a %s, que se quedará con ese hueco vacío." % [_pj().nombre, otro.nombre]
+	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	d.add_theme_color_override("font_color", GRIS)
+	cuerpo.add_child(d)
+	MenuScaffold.titulo_item(cuerpo, Game.item_display_name(item), Game.color_rareza_de(item),
+		Game.intensidad_rareza_de(item), 16)
+	MenuScaffold.pastilla(m["acciones"], "Cancelar", _cerrar_modal, false)
+	MenuScaffold.pastilla(m["acciones"], "Sí, quitárselo", func():
+		_cerrar_modal()
+		al_aceptar.call())
+
+
+# ============================================================
+#  FICHAS DE EQUIPO
+#  Los numeros REALES (los mismos que usa el combate: Upgrades.*_mods con el tier/rareza/mejoras del
+#  objeto), no los del .tres. Una daga T3 +3 NO pega lo que dice su plantilla; entre parentesis va lo
+#  que ponen las mejoras, para ver cuanto ha subido.
+# ============================================================
+
+func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
+	if w == null:
+		return
+	var m: Dictionary = Game.meta_de(w)
+	var tier: int = int(m["tier"])
+	var rareza: int = int(m["rareza"])
+	var mejoras: Dictionary = m["mejoras"]
+	var tmult: float = Game.tier_mult(tier)
+	var mods: Dictionary = Upgrades.weapon_mods(w, tmult, rareza, mejoras)
+	# El BASE de ESTA arma no es el del .tres: es el suyo con su tier y su rareza, sin las mejoras.
+	var base: Dictionary = Upgrades.weapon_mods(w, tmult, rareza, {})
+
+	var tipo: String = WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)]
+	_row_en(vb, "Tipo", tipo + ("  ·  magia" if w.es_magica else ""))
+	_row_en(vb, "Manejo", "Dos manos" if w.dos_manos else "Una mano")
+	# EL DAÑO APLICADO POR GOLPE, no el raw: el raw ya lo multiplican tu Fuerza y el motion value
+	# antes de llegar al enemigo. El motion value no tiene fila propia porque va dentro de este
+	# numero. El DESGASTE de ESTA pieza entra en la cuenta: decir "20 de ataque" con la fila de abajo
+	# marcando un 60% es contar dos cosas que no casan (el combate ya le aplica el ×0.90).
+	var dur: float = Game.durabilidad_item(w)
+	_row_en(vb, "Ataque", _con_mejoras("%.1f",
+		MenuScaffold.dano_arma(w, float(base["raw"]), _pj(), dur),
+		MenuScaffold.dano_arma(w, float(mods["raw"]), _pj(), dur)))
+	_row_en(vb, "Velocidad", _con_mejoras("×%.2f",
+		w.velocidad_mult * float(base["vel_mult"]), w.velocidad_mult * float(mods["vel_mult"])))
+	var crit: float = float(mods["crit"])
+	if crit != 0.0:
+		_row_en(vb, "Crítico", _con_mejoras_pct(float(base["crit"]), crit))
+	_row_en(vb, "Daño crítico", _con_mejoras("×%.2f",
+		StatsMath.CRIT_MULT + float(base["crit_dmg"]), StatsMath.CRIT_MULT + float(mods["crit_dmg"])))
+	if float(mods["precision"]) > 0.0:
+		_row_en(vb, "Precisión", "+%s" % _fmt_pct(float(mods["precision"])))
+	if float(mods["evasion"]) > 0.0:
+		_row_en(vb, "Evasión", "+%s" % _fmt_pct(float(mods["evasion"])))
+	if float(mods["aturdir"]) > 0.0:
+		_row_en(vb, "Aturdir", _con_mejoras_pct(float(base["aturdir"]), float(mods["aturdir"])))
+	if w.es_magica:
+		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras)
+		var mgb: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, {})
+		_magic_stats(vb, mg, mgb, w.mp_regen_turno, w.cast_vel_mult)
+	_pie_pieza(vb, w, mejoras, rareza)
+
+
+# La ficha del ESCUDO, hermana de _weapon_stats: mismos numeros REALES (Upgrades.shield_mods) y el
+# mismo desglose "base + (lo que ponen las mejoras) = total". Con el numero pelado veias "Bloqueo
+# 15%" y no habia forma de saber que 5 de esos puntos los ponia el Refuerzo que acababas de forjar.
+func _shield_stats(vb: VBoxContainer, sh: ShieldData, tier: int, rareza: int,
+		mejoras: Dictionary) -> void:
+	var tmult: float = Game.tier_mult(tier)
+	var mods: Dictionary = Upgrades.shield_mods(sh, tmult, rareza, mejoras)
+	var base: Dictionary = Upgrades.shield_mods(sh, tmult, rareza, {})
+	var tamanos: Array = MenuScaffold.SHIELD_TAMANO_LABELS
+	_row_en(vb, "Tipo", "Escudo %s  ·  mano secundaria"
+		% String(tamanos[clampi(int(sh.tamano), 0, tamanos.size() - 1)]).to_lower())
+	# Lo primero, la DEFENSA: es lo que crece con tier, rareza y mejoras. Y solo cuenta al Defender.
+	# Es PLANA (se suma DESPUES del multiplicador de Resistencia, al reves que la armadura), asi que
+	# el numero YA es lo que te da: no hace falta una fila "para ti".
+	_row_en(vb, "Defensa al bloquear", _con_mejoras("%.1f", float(base["def"]), float(mods["def"])))
+	# El bloqueo NO lleva tier ni rareza (es del tamaño): lo unico que lo sube es el Refuerzo, y eso
+	# es justo lo que enseña el parentesis.
+	_row_en(vb, "Bloqueo", _con_mejoras_pct(float(base["bloqueo"]), float(mods["bloqueo"])))
+	if float(mods["resist_estados"]) > 0.0:
+		_row_en(vb, "Resist. estados",
+			_con_mejoras_pct(float(base["resist_estados"]), float(mods["resist_estados"])))
+	_row_en(vb, "Velocidad", "×%.2f" % float(mods["vel_mult"]))
+	_row_en(vb, "Penal. esquiva", "-%s" % _fmt_pct(float(mods["evasion_penal"])))
+
+
+# Las lineas magicas (baston y varita comparten math: Upgrades.magic_mods). 'mg' = con mejoras,
+# 'mgb' = el mismo item SIN ellas (su base con tier y rareza).
+func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base: float,
+		cast_base: float) -> void:
+	# EL ATAQUE MAGICO, no la amplificacion. "×11.82" no se puede comparar con un ataque y ademas
+	# rinde una cosa en un mago y otra en un guerrero (multiplica TU Magia): se convierte a daño con
+	# el hechizo de referencia, que es la misma moneda que el ataque fisico de arriba.
+	_row_en(vb, "Ataque mágico", _con_mejoras("%.1f",
+		MenuScaffold.dano_magico(_pj(), float(mgb["magic_amp"])),
+		MenuScaffold.dano_magico(_pj(), float(mg["magic_amp"]))))
+	var regen_b: float = regen_base * float(mgb["regen_mult"])
+	var regen_t: float = regen_base * float(mg["regen_mult"])
+	_row_en(vb, "Regen maná", _con_mejoras("%.2f", regen_b, regen_t) + " /turno")
+	MenuScaffold.nota(vb, "Gotea también mientras recitas: un conjuro corto tarda 2 turnos, así que "
+		+ "se paga %.2f de su maná él solo." % (regen_t * 2.0))
+	_row_en(vb, "Vel. casteo", _con_mejoras("×%.2f",
+		cast_base + float(mgb["cast_vel_add"]), cast_base + float(mg["cast_vel_add"])))
+	if float(mg["mana_reduccion"]) > 0.0:
+		_row_en(vb, "Coste de maná", "-%s" % _fmt_pct(float(mg["mana_reduccion"])))
+	# CRITICO MAGICO del arma (lo que aporta ELLA; la parte que pone tu Destreza va en la lupa). Es
+	# lo que sube la mejora de Precision en un baston o una varita.
+	if float(mg["crit_magico"]) != 0.0:
+		_row_en(vb, "Crítico mágico",
+			_con_mejoras_pct(float(mgb["crit_magico"]), float(mg["crit_magico"])))
+	_row_en(vb, "Daño crít. mágico", _con_mejoras("×%.2f",
+		StatsMath.CRIT_MULT + float(mgb["crit_dmg_magico"]),
+		StatsMath.CRIT_MULT + float(mg["crit_dmg_magico"])))
+
+
+func _off_stats(vb: VBoxContainer, item: Resource) -> void:
+	if item == null:
+		MenuScaffold.nota(vb, "(sin mano secundaria)")
+		return
+	if item is WeaponData:
+		_weapon_stats(vb, item as WeaponData)
+		return
+	# Escudo y varita tambien tienen su tier/rareza/mejoras.
+	var m: Dictionary = Game.meta_de(item)
+	var tier: int = int(m["tier"])
+	var rareza: int = int(m["rareza"])
+	var mejoras: Dictionary = m["mejoras"]
+	if item is ShieldData:
+		_shield_stats(vb, item as ShieldData, tier, rareza, mejoras)
+	elif item is WandData:
+		var wd := item as WandData
+		var tm: float = Game.tier_mult(tier)
+		_magic_stats(vb, Upgrades.magic_mods(wd.magic_amp, tm, rareza, mejoras),
+			Upgrades.magic_mods(wd.magic_amp, tm, rareza, {}), wd.mp_regen_turno, wd.cast_vel_mult)
+	_pie_pieza(vb, item, mejoras, rareza)
+
+
+# Ficha de una pieza de armadura. Las filas salen de MenuScaffold.filas_armadura, que es la MISMA
+# fuente que usa la ficha de detalle del combate. Se le pasan la DURABILIDAD y el factor de
+# Resistencia de quien la esta mirando, que es lo que convierte la defensa de la pieza en la defensa
+# que de verdad te da a ti.
+func _armor_stats(vb: VBoxContainer, a: ArmorData) -> void:
+	if a == null:
+		return
+	var am: Dictionary = Game.meta_de(a)
+	var mejoras: Dictionary = am["mejoras"]
+	for f in MenuScaffold.filas_armadura(a, int(am["tier"]), int(am["rareza"]), mejoras,
+			Game.durabilidad_item(a), MenuScaffold.factor_resistencia(_pj())):
+		_row_en(vb, str(f[0]), str(f[1]))
+	_row_en(vb, "Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
+	if not mejoras.is_empty():
+		MenuScaffold.nota(vb, _lista_mejoras(mejoras))
+
+
+# El pie comun de toda pieza: en cuantos huecos de mejora va, cuanto le queda de vida y EN QUE se
+# gastaron. La lista de mejoras va en su propia linea porque con 12 huecos (obra maestra) no cabe
+# nunca al lado del contador.
+func _pie_pieza(vb: VBoxContainer, item: Resource, mejoras: Dictionary, rareza: int) -> void:
+	_row_en(vb, "Mejoras", "%d / %d" % [
+		Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
+	# DESGASTE: gastada pega menos y ROTA se va a los suelos. Se repara en el herrero.
+	_row_en(vb, "Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
+	if not mejoras.is_empty():
+		MenuScaffold.nota(vb, _lista_mejoras(mejoras))
+
+
+# "Agudeza 2, Precision 1": en QUE se gastaron las mejoras (dos armas con el mismo +N pueden ser
+# cosas muy distintas).
+func _lista_mejoras(mejoras: Dictionary) -> String:
+	var partes: PackedStringArray = []
+	for cat in mejoras:
+		partes.append("%s %d" % [Upgrades.cat_nombre(str(cat)), int(mejoras[cat])])
+	return ", ".join(partes)
+
+
+# "14.5 + (6.1) = 20.6". El BASE ya lleva dentro el tier y la rareza de ESTE objeto (no es el numero
+# del .tres); lo que va ENTRE PARENTESIS es lo que ponen las mejoras. Sin mejoras, el numero a secas.
+#
+# DELEGA en MenuScaffold: la ficha de armadura de alli usa la misma cuenta, y dos copias del mismo
+# formato acaban discrepando en el umbral (¿0.005 o 0.05?) el dia que alguien afine una sola.
+func _con_mejoras(fmt: String, base: float, total: float) -> String:
+	return MenuScaffold._con_mejoras(fmt, base, total)
+
+
+func _con_mejoras_pct(base: float, total: float) -> String:
+	if absf(total - base) < 0.0005:
+		return "+%s" % _fmt_pct(total)
+	return "%s + (%s) = %s" % [_fmt_pct(base), _fmt_pct(total - base), _fmt_pct(total)]
+
+
+func _main_nombre(item: Resource) -> String:
+	return "— (sin arma)" if item == null else Game.item_display_name(item)
+
+
+func _off_nombre(item: Resource) -> String:
+	return "— (sin secundaria)" if item == null else Game.item_display_name(item)
+
+
+# UNA CELDA de la rejilla de equipo: el objeto puesto en esa ranura, o la ranura vacia. El rotulo del
+# pie es el de la RANURA y no el del objeto, para que la rejilla se lea igual con o sin pieza.
+func _celda_equipo(item: Resource, ranura: String, nombre: String) -> Dictionary:
+	return {"item": item, "pie": ranura, "tooltip": "%s: %s" % [ranura, nombre], "marca": ""}
+
+
+# ============================================================
+#  Cuentas y helpers
+# ============================================================
+
+# El Combatant de quien estas mirando, que es de donde salen TODAS las stats de esta pantalla.
+#
+# crear_player_combatant() concreta el −1 (= "lleno") de vida/maná, asi que se guardan y se
+# restauran los sentinels: aqui solo se LEE, y mutar el estado persistente por abrir una ficha
+# curaria al personaje sin que nadie lo pidiera.
+func _combatiente() -> Combatant:
+	var pj: PersonajeData = _pj()
+	var hp_was: float = pj.current_hp
+	var mp_was: float = pj.current_mp
+	var c: Combatant = Game.crear_player_combatant(pj)
+	pj.current_hp = hp_was
+	pj.current_mp = mp_was
+	return c
+
+
+# Ataque TOTAL (raw): (base + arma) × factor_fuerza × estados, SIN el motion value (ese se aplica por
+# golpe). Es la misma cuenta que combate_detalle._atk_total.
+func _ataque_total(c: Combatant) -> float:
+	return (c.base_attack + c.ataque_arma) \
+		* StatsMath.fuerza_factor(float(c.abilities.fuerza)) * c.status_atk_mult()
+
+
+# El critico es un CONTEST (tu Destreza contra la Agilidad de quien recibe el golpe); aqui no hay
+# rival delante, asi que se mide contra un maniqui con TUS mismas stats.
+func _crit_fisico(c: Combatant) -> float:
+	return clampf(StatsMath.crit_chance(float(c.abilities.destreza),
+		float(c.abilities.agilidad)) + c.crit_bonus_promedio() + c.crit_flat, 0.0, 1.0)
+
+
+# El magico NO se promedia por manos: loadout_mods ya suma lo del baston y lo de la varita.
+func _crit_magico(c: Combatant) -> float:
+	return clampf(StatsMath.crit_chance(float(c.abilities.destreza),
+		float(c.abilities.agilidad)) + c.crit_magico, 0.0, 1.0)
+
+
+# UN SOLO formato para el daño critico en toda la pantalla, el mismo que la ficha de combate.
+func _crit_dmg_txt(extra: float) -> String:
+	var m: float = StatsMath.CRIT_MULT + extra
+	return "×%.2f (+%d%%)" % [m, roundi((m - 1.0) * 100.0)]
+
+
+# COPIA de las habilidades con UNA puesta a cero. Sirve para medir lo que aporta esa habilidad por
+# DIFERENCIA: "lo que tienes" menos "lo que tendrias sin ella". Se hace asi y no reescribiendo cada
+# formula porque reescribirlas es de donde venia el desfase (las aditivas de los enemigos frente a
+# las multiplicativas del jugador). Por diferencia da igual cual sea la formula: sale la de verdad.
+func _sin_habilidad(ab: Abilities, cual: String) -> Abilities:
+	var z := Abilities.new()
+	z.fuerza = ab.fuerza
+	z.resistencia = ab.resistencia
+	z.destreza = ab.destreza
+	z.agilidad = ab.agilidad
+	z.magia = ab.magia
+	z.set(cual, 0)
+	return z
+
+
+func _fmt_pct(x: float) -> String:
+	return "%.1f%%" % (x * 100.0)
+
+
+# --- Piezas de la ficha de la derecha (la columna estrecha) ---
+# El ancho de etiqueta es 150 y no los 170 de MenuScaffold.fila: la ficha mide ANCHO_FICHA, y con
+# 170 un valor largo ("14.5 + (6.1) = 20.6") se partia en dos lineas en casi todas las filas.
+
+func _title(txt: String) -> void:
+	MenuScaffold.titulo(_content, txt, 16, AMBAR)
+
+
+func _row(etiqueta: String, valor: String, color: Variant = null) -> void:
+	MenuScaffold.fila(_content, etiqueta, valor, 150, color)
+
+
+func _row_en(vb: VBoxContainer, etiqueta: String, valor: String, color: Variant = null) -> void:
+	MenuScaffold.fila(vb, etiqueta, valor, 150, color)
+
+
+func _note(txt: String) -> void:
+	MenuScaffold.nota(_content, txt)
+
+
+func _note_en(vb: VBoxContainer, txt: String) -> void:
+	MenuScaffold.nota(vb, txt)

@@ -500,3 +500,43 @@ static func varita(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 	for ang in [0.0, PI * 0.5, PI, PI * 1.5]:
 		var d := Vector2(cos(ang), sin(ang)) * (lado * 0.15)
 		c.draw_line(punta + d * 0.42, punta + d, col, g, true)
+
+
+# --- TRAZOS (el kit de habilidades): un nodo central y tres colgando ---
+# Es la forma del arbol de la pantalla de referencia reducida a lo minimo que se lee a 34 px: el
+# centro relleno (la habilidad que llevas) y tres ramas huecas saliendo de el. Con mas nodos, a este
+# tamaño, se convierte en una mancha.
+static func trazos(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.075
+	var centro: Vector2 = pos + Vector2(lado * 0.5, lado * 0.5)
+	var r_centro: float = lado * 0.13
+	var r_hoja: float = lado * 0.085
+	# Los tres brazos: arriba, abajo-izquierda y abajo-derecha (un trebol, no una cruz: asi no se
+	# confunde con el engranaje ni con una diana).
+	for ang in [-PI * 0.5, PI * 0.17, PI * 0.83]:
+		var d := Vector2(cos(ang), sin(ang))
+		var nodo: Vector2 = centro + d * (lado * 0.32)
+		# La rama arranca FUERA del circulo central y se para antes del nodo: una linea que entra en
+		# los dos circulos los emborrona y deja de leerse cuantos nodos hay.
+		c.draw_line(centro + d * (r_centro + g * 0.4), nodo - d * (r_hoja + g * 0.4), col, g * 0.7, true)
+		c.draw_arc(nodo, r_hoja, 0.0, TAU, 16, col, g * 0.8, true)
+	c.draw_circle(centro, r_centro, col)
+
+
+# --- EIDOLON (desarrollos y pasivas): la flor de petalos de la pantalla de referencia ---
+# Seis petalos en corona, uno relleno. El relleno no es adorno: dice que esto es algo que se
+# CONSIGUE de uno en uno, que es justo lo que son los desarrollos y las pasivas.
+static func eidolon(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.07
+	var centro: Vector2 = pos + Vector2(lado * 0.5, lado * 0.5)
+	var r: float = lado * 0.30    # a que distancia del centro va el corazon de cada petalo
+	var rp: float = lado * 0.135  # el petalo
+	for i in 6:
+		# Se empieza arriba (-PI/2) para que el petalo relleno quede en el pico, que es donde el ojo
+		# entra al icono.
+		var ang: float = -PI * 0.5 + TAU * float(i) / 6.0
+		var p: Vector2 = centro + Vector2(cos(ang), sin(ang)) * r
+		if i == 0:
+			c.draw_circle(p, rp, col)
+		else:
+			c.draw_arc(p, rp, 0.0, TAU, 18, col, g, true)

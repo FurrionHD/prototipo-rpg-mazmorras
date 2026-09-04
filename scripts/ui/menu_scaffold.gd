@@ -611,6 +611,72 @@ static func pestanas(vb: BoxContainer, nombres: Array, activa: int, pulsado: Cal
 
 
 # ============================================================
+#  PESTAÑAS EN ICONO
+#  Sin caja: solo el dibujo y un SUBRAYADO en la activa. El boton del tema es un ladrillo de 44 px
+#  con borde, y seis de esos en fila parecen seis botones de accion en vez de seis solapas de un
+#  archivador. Lo que dice cual esta abierta es la linea de abajo, como en un navegador.
+#
+#  Nacio dentro del inventario y vive aqui desde que hubo un segundo menu con la misma forma (el de
+#  personaje): dos copias de esto se separan a la primera que alguien afine el subrayado en una sola.
+#
+#  El NOMBRE no se pierde: va en el tooltip y, sobre todo, escrito arriba a la izquierda bajo el
+#  titulo del menu. Una fila de iconos pelados sin ningun sitio donde leer que es cada uno seria un
+#  acertijo.
+# ============================================================
+
+const TAB_APAGADA := Color(0.55, 0.59, 0.67)
+const LADO_TAB := 34.0
+
+# El armazon comun de las dos clases de pestaña (la de arriba, con icono; la de dentro, con texto).
+static func pestana_base(b: Button, alto: float) -> void:
+	b.toggle_mode = true
+	b.custom_minimum_size = Vector2(0, alto)
+	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
+	b.draw.connect(func() -> void:
+		if not b.button_pressed:
+			return
+		var y: float = b.size.y - 2.0
+		b.draw_rect(Rect2(Vector2(4, y), Vector2(b.size.x - 8.0, 2.0)), AMBAR))
+	# Un Button no se repinta al marcarse/desmarcarse, y aqui lo unico que cambia es lo que dibuja
+	# ese draw: sin esto, el subrayado se quedaba en la pestaña anterior.
+	b.toggled.connect(func(_on): b.queue_redraw())
+
+
+# PESTAÑA CON ICONO. El icono se dibuja encima del boton, no como textura: los iconos del proyecto
+# son funciones de dibujo (ver iconos.gd) para que se vean igual en Windows y en el movil, sin
+# depender de que el aparato tenga una fuente con emoji.
+static func pestana_icono(icono: String, nombre: String) -> Button:
+	var b := Button.new()
+	pestana_base(b, LADO_TAB + 10.0)
+	b.custom_minimum_size.x = LADO_TAB + 14.0
+	b.tooltip_text = nombre
+	var dibujo := Callable(Iconos, icono)
+	b.draw.connect(func() -> void:
+		var pad: float = (b.size.x - LADO_TAB) * 0.5
+		dibujo.call(b, Vector2(pad, 3.0), LADO_TAB,
+			AMBAR if b.button_pressed else TAB_APAGADA))
+	return b
+
+
+# Rellena una fila de SUBpestañas (con icono, igual que la de arriba). La vacia siempre, asi que una
+# seccion sin subpestañas simplemente no la llama y la fila desaparece: su contenedor se queda a cero
+# de alto y lo de debajo sube.
+static func subpestanas(fila: BoxContainer, nombres: Array, iconos: Array, activa: int,
+		pulsado: Callable) -> void:
+	if fila == null:
+		return
+	for b in fila.get_children():
+		fila.remove_child(b)
+		b.queue_free()
+	for i in nombres.size():
+		var b: Button = pestana_icono(String(iconos[i]), String(nombres[i]))
+		b.button_pressed = (i == activa)
+		b.pressed.connect(pulsado.bind(i))
+		fila.add_child(b)
+
+
+# ============================================================
 #  FICHA DE ARMA compartida
 #  Una SOLA fuente de verdad para las stats de un arma. La tienda, el pack, el inventario y el
 #  menu de personaje la pintaban cada uno por su cuenta, y al añadir una stat (la evasion) habia
