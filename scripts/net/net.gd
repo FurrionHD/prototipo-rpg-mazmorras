@@ -187,12 +187,13 @@ var _vetas_ocupadas: Dictionary = {}  # sitio -> peer_id que la trabaja (host)
 # sitio -> momento en que se pico. El VALOR es lo que permite el respawn: el host barre la tabla y
 # suelta lo que ya ha cumplido su tiempo (ver _barrer_respawns).
 #
-# EL RELOJ ES Game.tiempo_mazmorra DEL HOST, y tiene que ser ese y no otro. Antes habia un
-# `_reloj_expedicion` propio que nacia a cero con cada expedicion y moria con ella; el problema no
-# era el reloj en si, sino lo que arrastraba: como los sellos se apuntaban contra el, no podian
-# sobrevivir a que saliera el ultimo jugador, y al volver a bajar estaban TODAS las vetas otra vez.
-# tiempo_mazmorra ya va al save y sigue corriendo en el pueblo (que es lo que se quiere: si subes a
-# forjar, has esperado de verdad), asi que es el mismo criterio que en una partida de un jugador.
+# EL RELOJ ES EL DE PARED (Game.reloj_mundo, unix time), el mismo que en una partida de un jugador.
+# Hubo dos antes que este y los dos se rompian por el mismo sitio: un `_reloj_expedicion` propio, que
+# moria con la expedicion y al volver a bajar te encontrabas TODAS las vetas otra vez; y
+# tiempo_mazmorra, que ademas de eso se CONGELA con cualquier menu abierto -- y como aqui barre el
+# HOST, bastaba con que el anfitrion tuviera el hogar abierto para que las vetas no volvieran para
+# nadie. Con el reloj de pared no hay nada que congelar ni que se muera al salir: cinco minutos son
+# cinco minutos en las dos maquinas, aunque las dos esten en un menu.
 var _agotados_sesion: Dictionary = {}
 # JEFES caidos de la sesion: piso -> unix time (reloj de pared) en que cayo. Mismo mecanismo que
 # _agotados_sesion y por la misma razon: el jefe reaparece por RELOJ (Game.BOSS_RESPAWN) y su cuenta
@@ -1838,7 +1839,7 @@ func _pedir_agotar(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
 # ahi se vuelven a sembrar en la siguiente expedicion (ver _sembrar_agotados_del_save).
 func _registrar_agotado(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
 	var s: Vector3i = _sitio(piso, celda)
-	var sello: float = Game.tiempo_mazmorra + retraso
+	var sello: float = Game.reloj_mundo() + retraso
 	_vetas_ocupadas.erase(s)
 	_agotados_sesion[s] = sello
 	(Game.persistente_piso(piso)["agotados"] as Dictionary)[celda] = sello
@@ -1854,7 +1855,7 @@ func _registrar_agotado(celda: Vector2i, piso: int, retraso: float = 0.0) -> voi
 # sellar con el MISMO reloj o le pisaria el valor bueno al que se acaba de guardar en el save.
 @rpc("any_peer", "call_remote", "reliable")
 func _agotar_celda(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
-	_agotados_sesion[_sitio(piso, celda)] = Game.tiempo_mazmorra + retraso
+	_agotados_sesion[_sitio(piso, celda)] = Game.reloj_mundo() + retraso
 	if not _mi_lugar.begins_with("piso:") or Game.current_floor != piso:
 		return
 	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
@@ -1878,7 +1879,7 @@ func _barrer_respawns() -> void:
 	if _agotados_sesion.is_empty():
 		return
 	for s in _agotados_sesion.keys():
-		if Game.tiempo_mazmorra - float(_agotados_sesion[s]) < Game.RESPAWN_SEGUNDOS:
+		if Game.reloj_mundo() - float(_agotados_sesion[s]) < Game.RESPAWN_SEGUNDOS:
 			continue
 		_agotados_sesion.erase(s)
 		var celda := Vector2i(s.y, s.z)

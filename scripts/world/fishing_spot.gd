@@ -209,7 +209,7 @@ const COBRO_DUR := 0.55
 #  Los dos relojes:
 #    - REPONER (4 s reales): sale uno del banco al agua. RAPIDO a proposito -- dentro de una visita
 #      no quiero que estes mirando el agua vacia, quiero que el limite lo ponga el banco.
-#    - STOCK_REGEN (10 min de tiempo_mazmorra): cada pez PESCADO vuelve al banco, con SU PROPIO
+#    - STOCK_REGEN (10 min de reloj de pared): cada pez PESCADO vuelve al banco, con SU PROPIO
 #      contador. Diez minutos despues del ultimo que sacaste, el charco vuelve a estar lleno.
 #      Este es el gate de verdad, y usa el reloj de la mazmorra (que corre TAMBIEN en el pueblo,
 #      igual que el respawn de las vetas): irte a vender no lo congela.
@@ -222,7 +222,12 @@ const COBRO_DUR := 0.55
 #  las vetas agotadas. Sin eso el gate de 10 minutos no valdria nada: bastaria con bajar un piso y
 #  subir para encontrarte el charco lleno otra vez.
 const STOCK_MAX := 10
-const STOCK_REGEN := 600.0      # segundos de tiempo_mazmorra que tarda en volver UN pez pescado
+# RELOJ DE PARED los dos (Game.reloj_mundo), no tiempo_mazmorra. Aqui importaba mas que en ningun
+# otro sitio: pescar ES estar quieto abriendo menus, y tiempo_mazmorra se congela con cualquiera de
+# ellos, asi que el banco no se reponia justo mientras pescabas. Y el sorteo del aforo va sembrado
+# con el TRAMO de reloj para que las dos maquinas vean el mismo humor: con un reloj local eso no
+# podia funcionar (cada una lleva el suyo), con el de pared si.
+const STOCK_REGEN := 600.0      # segundos de reloj que tarda en volver UN pez pescado
 const AFORO_REVISION := 600.0   # cada cuanto el charco vuelve a sortear su aforo
 
 # Lo que tarda en salir al agua el siguiente pez del banco.
@@ -232,8 +237,8 @@ var _t_reponer: float = 0.0
 var _stock: int = STOCK_MAX
 # Cuantos se ven a la vez ahora mismo. Se re-sortea cada AFORO_REVISION.
 var _aforo: int = PECES_MIN
-var _t_aforo: float = 0.0       # tiempo_mazmorra del ultimo sorteo
-# Sellos de tiempo_mazmorra en los que vuelve al banco cada pez pescado. Uno por pieza: es lo que
+var _t_aforo: float = 0.0       # reloj de pared del ultimo sorteo
+# Sellos de reloj de pared en los que vuelve al banco cada pez pescado. Uno por pieza: es lo que
 # hace que diez capturas seguidas tarden diez minutos en volver y no diez veces diez.
 var _vuelven: Array = []
 # Contador de nacimientos, para sembrar cada pez nuevo (ver _rng_pez).
@@ -459,7 +464,7 @@ func _cargar_estado() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([_semilla(), Game.epoca_actual(), celda.x, celda.y])
 	_aforo = rng.randi_range(PECES_MIN, PECES_MAX)
-	_t_aforo = Game.tiempo_mazmorra
+	_t_aforo = Game.reloj_mundo()
 	_stock = STOCK_MAX
 	_vuelven = []
 
@@ -474,7 +479,7 @@ func _cargar_estado() -> void:
 	_stock = int(guardado.get("stock", STOCK_MAX))
 	_vuelven = (guardado.get("vuelven", []) as Array).duplicate()
 	_aforo = int(guardado.get("aforo", _aforo))
-	_t_aforo = float(guardado.get("t_aforo", Game.tiempo_mazmorra))
+	_t_aforo = float(guardado.get("t_aforo", Game.reloj_mundo()))
 	# Lo que haya vencido mientras no mirabas entra ahora: el reloj corre aunque no estes en el piso.
 	_cobrar_vueltas()
 	_revisar_aforo()
@@ -484,7 +489,7 @@ func _cargar_estado() -> void:
 func _cobrar_vueltas() -> void:
 	var quedan: Array = []
 	for t in _vuelven:
-		if Game.tiempo_mazmorra >= float(t):
+		if Game.reloj_mundo() >= float(t):
 			_stock = mini(STOCK_MAX, _stock + 1)
 		else:
 			quedan.append(t)
@@ -495,13 +500,13 @@ func _cobrar_vueltas() -> void:
 # baja, simplemente deja de reponer hasta que sobren. El sorteo va sembrado con el TRAMO de tiempo,
 # asi que los dos jugadores de una partida en red ven el mismo humor sin hablarse.
 func _revisar_aforo() -> void:
-	if Game.tiempo_mazmorra - _t_aforo < AFORO_REVISION:
+	if Game.reloj_mundo() - _t_aforo < AFORO_REVISION:
 		return
-	var tramo: int = int(Game.tiempo_mazmorra / AFORO_REVISION)
+	var tramo: int = int(Game.reloj_mundo() / AFORO_REVISION)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([_semilla(), Game.epoca_actual(), celda.x, celda.y, tramo, "aforo"])
 	_aforo = rng.randi_range(PECES_MIN, PECES_MAX)
-	_t_aforo = Game.tiempo_mazmorra
+	_t_aforo = Game.reloj_mundo()
 
 
 func _semilla() -> int:
@@ -1052,7 +1057,7 @@ func _cobrar_del_banco() -> void:
 	_stock = maxi(0, _stock - 1)
 	# SU propio sello, no uno compartido: diez capturas seguidas son diez vueltas escalonadas y
 	# no una sola espera. Es lo que hace que vaciar el charco cueste de verdad.
-	_vuelven.append(Game.tiempo_mazmorra + STOCK_REGEN)
+	_vuelven.append(Game.reloj_mundo() + STOCK_REGEN)
 	_guardar_estado()
 
 
@@ -1331,7 +1336,7 @@ func _mordidas_remotas() -> void:
 		# Se le reserva AQUI, antes de avisarle. Si esperase a su respuesta, en ese viaje de ida y
 		# vuelta el mismo pez podria picarle tambien a otro.
 		p["de"] = peer
-		p["de_t"] = Game.tiempo_mazmorra   # cuando se le reservo (ver _caducar_candados)
+		p["de_t"] = Game.reloj_mundo()   # cuando se le reservo (ver _caducar_candados)
 		c["activo"] = false   # ya tiene pieza: su corcho deja de pescar hasta que resuelva
 		Net.avisar_mordida(peer, int(p.get("nonce", 0)))
 
@@ -1466,14 +1471,14 @@ func corcho_remoto(peer: int, pos: Vector2, activo: bool) -> void:
 # DUEÑO: red de seguridad de los candados. Un pez reservado a alguien que nunca contesta -su juego se
 # cerro a mitad de la pelea, o se perdio el aviso- se quedaria bloqueado para siempre: sin nadar,
 # sin poder pescarlo nadie y ocupando sitio en el aforo. Es el hermano de la reserva de bichos.
-const CANDADO_MAX := 180.0   # segundos de mazmorra; una pelea con un pez dura unos pocos
+const CANDADO_MAX := 180.0   # segundos de reloj; una pelea con un pez dura unos pocos
 
 
 func _caducar_candados() -> void:
 	for p in _peces:
 		if int(p.get("de", 0)) == 0:
 			continue
-		if Game.tiempo_mazmorra - float(p.get("de_t", 0.0)) > CANDADO_MAX:
+		if Game.reloj_mundo() - float(p.get("de_t", 0.0)) > CANDADO_MAX:
 			p["de"] = 0
 
 

@@ -306,7 +306,7 @@ func _dibujar() -> void:
 		var e = agotados[celda]
 		# Saves viejos guardaban solo el sello (float); los nuevos, un dict con color y tipo.
 		var sello: float = float(e["t"]) if e is Dictionary else float(e)
-		var falta: float = Game.RESPAWN_SEGUNDOS - (Game.tiempo_mazmorra - sello)
+		var falta: float = Game.RESPAWN_SEGUNDOS - (Game.reloj_mundo() - sello)
 		if falta <= 0.0:
 			if e is Dictionary and e.has("color"):
 				_marca(offset, celda_px, celda, e["color"], int(e.get("tipo", -1)), 0.42)

@@ -461,7 +461,7 @@ func _construir(por_la_bajada: bool = false) -> void:
 
 	# Lo que ya picaste en este piso, con el SELLO de tiempo de cuando lo picaste (para el
 	# respawn). Vive en mazmorra_persistente, que sobrevive a volver al pueblo: por eso picar un
-	# nodo y salir/entrar ya no lo resetea. { celda: tiempo_mazmorra en que se pico }.
+	# nodo y salir/entrar ya no lo resetea. { celda: reloj de pared en que se pico }.
 	_agotados = (Game.persistente_piso(_piso_construido)["agotados"] as Dictionary).duplicate()
 	# Y con que nonce nacio lo que hay en cada sitio, que va en el mismo sitio y por lo mismo: sin
 	# esto, la veta que rebroto de estaño profundo volvia a ser cobre en cuanto rehacias la escena.
@@ -1277,10 +1277,10 @@ func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
 	# (p. ej. al bajar y volver a subir): el sello de sesion vive en Net, no en mi save.
 	if Net.activo and Net.celda_agotada_sesion(celda, _piso_construido):
 		return false
-	# ¿Agotada? Reaparece cuando han pasado RESPAWN_SEGUNDOS de JUEGO desde que la picaste. Si ya
+	# ¿Agotada? Reaparece cuando han pasado RESPAWN_SEGUNDOS de RELOJ DE PARED desde que la picaste.
 	# le toca, se limpia el sello y nace como nueva; si no, no nace todavia.
 	if _agotados.has(celda):
-		if Game.tiempo_mazmorra - float(_agotados[celda]) < Game.RESPAWN_SEGUNDOS:
+		if Game.reloj_mundo() - float(_agotados[celda]) < Game.RESPAWN_SEGUNDOS:
 			return false
 		_olvidar_agotado(celda)
 	var m: MaterialData = _material_del_sitio(celda, _nonce_del_sitio(celda))
@@ -1387,7 +1387,7 @@ func _olvidar_agotado(celda: Vector2i) -> void:
 # donde estaba, con el material RE-TIRADO (ver _material_del_sitio): la veta que picaste no tiene
 # por que volver siendo lo mismo.
 func _repoblar_agotados(delta: float) -> void:
-	# MULTIJUGADOR: el barrido NO se hace aqui, porque tiempo_mazmorra es un reloj LOCAL que diverge
+	# MULTIJUGADOR: el barrido NO se hace aqui, porque el sello es LOCAL y diverge
 	# entre maquinas (la veta reviviria en una y en la otra no). Lo lleva el HOST contra el reloj de
 	# la expedicion y lo anuncia por red: Net._barrer_respawns -> Net._revivir_celda -> revivir_celda.
 	if Net.activo:
@@ -1400,7 +1400,7 @@ func _repoblar_agotados(delta: float) -> void:
 		return
 	# Sobre una copia de las claves: _olvidar_agotado toca el diccionario que estamos recorriendo.
 	for celda in _agotados.keys():
-		if Game.tiempo_mazmorra - float(_agotados[celda]) < Game.RESPAWN_SEGUNDOS:
+		if Game.reloj_mundo() - float(_agotados[celda]) < Game.RESPAWN_SEGUNDOS:
 			continue
 		# Nonce al azar: en solitario no hay nadie con quien cuadrar, y lo que se quiere es que la
 		# veta que vuelve pueda traer otro sub-tier.
@@ -1579,7 +1579,7 @@ func material_de_sitio(celda: Vector2i) -> MaterialData:
 # vez de guardarse aparte para que las restas de ahi abajo no tengan que saber de tipos: ver
 # Game.RESPAWN_RETRASO_DESPENSA.
 func marcar_agotado(celda: Vector2i, retraso: float = 0.0) -> void:
-	var sello: float = Game.tiempo_mazmorra + retraso
+	var sello: float = Game.reloj_mundo() + retraso
 	_agotados[celda] = sello
 	# MULTIJUGADOR: NO se escribe en mazmorra_persistente (que va al SAVE). Estas jugando en el
 	# mundo del HOST: agotar una veta aqui no debe dejar sellos en el mundo PROPIO de tu save.

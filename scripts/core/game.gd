@@ -929,7 +929,39 @@ var mazmorra_persistente: Dictionary = {}
 
 # Reloj de EXPEDICION: corre mientras estas dentro de la mazmorra, INCLUIDO el tiempo de combate
 # y extraccion. Solo lo para un menu abierto. Lo tiquea Game._process (ver mas abajo).
+#
+# ⚠️ NO LO USES PARA ESPERAS QUE EL JUGADOR CUENTA EN MINUTOS. Se para con cualquier menu abierto y
+# no existe con el juego cerrado, asi que "5 minutos" se convierten en doce entre inventarios y
+# fichas. Fue el bug del respawn del Rey Slime (media hora para 600 s). Para eso esta reloj_mundo().
+# Este sigue valiendo para lo que de verdad es tiempo DE JUEGO -- lo que dura una expedicion.
 var tiempo_mazmorra: float = 0.0
+
+# EL RELOJ DE PARED, en segundos. Es el que gobierna todo lo que el jugador espera mirando el reloj:
+# los jefes, las vetas picadas y el banco de peces. Sale de Encargos.ahora() (unix time con su
+# desfase de pruebas) para que haya UNA sola fuente de hora real en el juego y las pruebas puedan
+# adelantarla desde un solo sitio.
+func reloj_mundo() -> float:
+	return float(Encargos.ahora())
+
+# PARTIDAS DE ANTES DEL RELOJ DE PARED. Los sellos de los nodos agotados se guardaban contra
+# tiempo_mazmorra, que arranca en 0 y llega a unos pocos miles; el reloj de pared anda por los
+# 1.7e9. Comparar los dos da una resta absurda y, aunque el resultado sea el bueno (todo ha
+# cumplido su tiempo, todo vuelve a nacer), dejar numeros de otra escala en el save es la clase de
+# cosa que muerde tres versiones despues. Se tiran: perder el sello solo significa que esa veta ya
+# esta de pie, que es justo lo que queremos al cargar una partida vieja.
+const _SELLO_UNIX_MIN := 1_000_000_000.0   # ~2001; por debajo de esto, es un sello de la escala vieja
+
+func _migrar_sellos_a_reloj_de_pared() -> void:
+	var limpiados: int = 0
+	for piso in mazmorra_persistente:
+		var d: Dictionary = mazmorra_persistente[piso]
+		var ag: Dictionary = d.get("agotados", {})
+		for celda in ag.keys():
+			if float(ag[celda]) < _SELLO_UNIX_MIN:
+				ag.erase(celda)
+				limpiados += 1
+	if limpiados > 0:
+		print("[mazmorra] %d sellos de la escala vieja: esos nodos vuelven a estar de pie." % limpiados)
 
 # Tiempo de JUEGO que tarda un nodo de recoleccion picado en reaparecer (~5 min). Vive AQUI y no
 # en DungeonFloor porque el mapa (tecla M) tambien lo necesita, y el mapa se abre en el PUEBLO,
@@ -2580,6 +2612,7 @@ func importar_partida(d: SaveData) -> void:
 	if d.en_mazmorra and d.memoria_pisos.has(d.current_floor):
 		memoria_pisos[d.current_floor] = (d.memoria_pisos[d.current_floor] as Dictionary).duplicate(true)
 	mazmorra_persistente = d.mazmorra_persistente.duplicate(true)
+	_migrar_sellos_a_reloj_de_pared()
 	mapa_snapshot = d.mapa_snapshot.duplicate(true)
 	mapa_trabajo = d.mapa_trabajo.duplicate(true)
 	_vistas_baseline = d.vistas_baseline.duplicate(true)
