@@ -11085,6 +11085,30 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
 			cd_carry[ab] = left
 	ability_cooldowns_persist[pj] = cd_carry
 	c.ability_cooldowns = cd_carry.duplicate()
+	# ¿VUELVE UNO QUE HUYO de esta misma pelea? Entonces no entra por el final: recupera SU hueco.
+	#
+	# Huir no saca a nadie de la fila de aliados (se cruza por INDICE con _active_player_pjs), asi que
+	# reentrar por append dejaba DOS entradas del mismo personaje: en el anfitrion se veia por el
+	# "(2)" que le pone _desambiguar, y en la pantalla del compañero directamente duplicado. La guarda
+	# de arriba no lo pilla porque compara identidad de objeto y el que reentra llega con un
+	# PersonajeData recien creado por Net.ficha_de_dict; la llave buena es el uid, que si viaja.
+	var hueco: int = -1
+	if combat.has_method("hueco_huido_de"):
+		hueco = int(combat.hueco_huido_de(pj.uid))
+	if hueco >= 0 and hueco < _active_player_cs.size() and hueco < _active_player_pjs.size():
+		var cs_viejo: Combatant = _active_player_cs[hueco]
+		var pj_viejo: PersonajeData = _active_player_pjs[hueco]
+		_active_player_cs[hueco] = c
+		_active_player_pjs[hueco] = pj
+		if combat.readmitir_aliado(hueco, c, bool(pj.get_meta("sin_fuelle", false))):
+			_soltar_hechizo_de_entrada(combat, pj)
+			_soltar_canto_a_medias(combat, pj)
+			return true
+		# No ha colado: se deshace, que dejar la fila apuntando a un combatiente que la pantalla no
+		# conoce es peor que no dejarle volver.
+		_active_player_cs[hueco] = cs_viejo
+		_active_player_pjs[hueco] = pj_viejo
+		return false
 	# A los DOS arrays y en el mismo orden ANTES de avisar al combate: anadir_aliado ya consulta
 	# pj_de_combatant para pintar su color en el marcador de turnos.
 	_active_player_cs.append(c)

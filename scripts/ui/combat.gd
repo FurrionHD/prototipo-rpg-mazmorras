@@ -612,6 +612,11 @@ func _fila_de_roster(lista: Array) -> Array:
 		# que se les ve en el mapa. Los enemigos no tienen ficha y usan su color_visual.
 		var pj: PersonajeData = Game.pj_de_combatant(c)
 		out.append({"nombre": c.nombre, "nivel": c.level, "uid": _uid_de(c),
+			# SI SE HA IDO POR SU PIE. En el anfitrion el bloque del que huye se esconde, pero el
+			# espejo no se enteraba (solo añade por el final) y seguia enseñando su tarjeta como si
+			# peleara. Con el reingreso por hueco ya no salen duplicados, pero un huido que se queda
+			# fuera tampoco puede seguir ocupando sitio en la fila del compañero.
+			"huido": _huidos.has(c),
 			"color": pj.color if pj != null else c.color_visual,
 			"metal": pj.metalico if pj != null else 0.0,
 			# La OPACIDAD del color sobre la imagen (color_alpha del shader). Sin ella el marcador
@@ -658,6 +663,27 @@ func aplicar_roster(roster: Dictionary) -> void:
 		_anadir_bloque_aliado(c)
 		if _timeline != null:
 			_timeline.anadir(c, _color_de(c), _material_de(c), "")
+	# LOS QUE SE HAN IDO POR SU PIE, fuera de la fila (y los que VUELVEN, de vuelta a ella). Aqui no
+	# hay motor de huidas que lo decida: llega resuelto del anfitrion, igual que los chips de estado.
+	# El maniqui tambien se cambia si el hueco lo estrena otro (un reingreso trae un Combatant nuevo,
+	# con su uid nuevo), que es lo que hace que el nombre vuelva a ser el suyo y no el "(2)" de antes.
+	for i in mini(_aliados.size(), mios.size()):
+		var d: Dictionary = mios[i]
+		if int(d.get("uid", 0)) != int(_uid.get(_aliados[i], -1)):
+			var nuevo: Combatant = _maniqui_de_fila(d)
+			_gauge.erase(_aliados[i])
+			_huidos.erase(_aliados[i])
+			_aliados[i] = nuevo
+			_gauge[nuevo] = 0.0
+		var fuera: bool = bool(d.get("huido", false))
+		if fuera:
+			_huidos[_aliados[i]] = true
+		else:
+			_huidos.erase(_aliados[i])
+		if i < _bloques_aliados.size():
+			var col: Control = (_bloques_aliados[i] as Dictionary).get("columna")
+			if col != null and is_instance_valid(col):
+				col.visible = not fuera
 	var filas: Array = roster.get("enemigos", [])
 	for i in filas.size():
 		var d: Dictionary = filas[i]
@@ -2096,16 +2122,101 @@ func anadir_aliado(c: Combatant, agotado: bool = false) -> bool:
 	_desambiguar(c)
 	_aliados.append(c)
 	_espera_refuerzo = false   # ya ha llegado
+	_alta_de_aliado(c, agotado)
+	_set_log("%s se une a la pelea." % c.nombre)
+	return true
+
+
+# EL HUECO QUE DEJO ESTE MISMO PERSONAJE AL HUIR, si es que huyo de esta pelea. Devuelve su indice
+# en _aliados, o -1.
+#
+# Existe por el bug de los DOBLES al huir y volver a entrar. Huir no saca a nadie de _aliados (ese
+# array se cruza por INDICE con Game._active_player_pjs, ver _retirar_aliado), asi que al reentrar
+# anadir_aliado hacia un append y en la pelea acababa habiendo DOS entradas del mismo personaje:
+# _desambiguar le ponia "(2)" al nuevo, y en el espejo -que no recibe quien ha huido y solo añade
+# por el final- se veian los dos bloques. La guarda de Game.unir_aliado_al_combate no lo pillaba
+# porque compara identidad de objeto, y el que reentra llega por Net.ficha_de_dict, que crea un
+# PersonajeData NUEVO cada vez.
+#
+# La llave es el UID de la ficha, que si sobrevive a ficha_de_dict (viaja como un campo mas).
+func hueco_huido_de(uid: String) -> int:
+	if uid.is_empty():
+		return -1
+	for i in _aliados.size():
+		var c: Combatant = _aliados[i]
+		if not _huidos.has(c):
+			continue
+		var pj: PersonajeData = Game.pj_de_combatant(c)
+		if pj != null and pj.uid == uid:
+			return i
+	return -1
+
+
+# VUELVE EL QUE HUYO, a su propio hueco. Es la gemela de anadir_aliado para un reingreso: en vez de
+# alargar _aliados, PISA la posicion que ya tenia. Asi el cruce por indice con _active_player_pjs
+# sigue valiendo (Game pisa la suya en el mismo indice), no hay dos entradas del mismo personaje y
+# el nombre vuelve a ser el suyo sin el "(2)".
+func readmitir_aliado(idx: int, c: Combatant, agotado: bool = false) -> bool:
+	if c == null or _state == State.FINISHED or idx < 0 or idx >= _aliados.size():
+		return false
+	var viejo: Combatant = _aliados[idx]
+	_huidos.erase(viejo)
+	_gauge.erase(viejo)
+	_defendiendo.erase(viejo)
+	_casteos.erase(viejo)
+	_lentas.erase(viejo)
+	_dueno_aliado.erase(viejo)
+	_aliados[idx] = c
+	_espera_refuerzo = false
+	# Su bloque sigue en _bloques_aliados (nunca se borro, solo se escondio): se reestrena en vez de
+	# crear otro, que es lo que descuadraria la alineacion por indice de la fila.
+	if idx < _bloques_aliados.size():
+		var b: Dictionary = _bloques_aliados[idx]
+		b["panel"].modulate = Color.WHITE
+		b["panel"].add_theme_stylebox_override("panel", _sb_bloque(false))
+		b["chips"].visible = true
+		b["nombre"].text = c.nombre
+		b["hp"].max_value = c.max_hp   # vuelve con otra vida: la barra medía contra el tope de antes
+		var col: Control = b.get("columna")
+		if col != null and is_instance_valid(col):
+			col.visible = true
+			col.modulate = Color.WHITE
+		# LA FIGURA es la que monto el Combatant de antes, y este es OTRO objeto: mientras estuvo
+		# fuera pudo cambiarse el arma o la armadura. Se tira entera y se monta de nuevo, igual que
+		# hace _revivir_bloque con el hueco de un cadaver, para que ademas nazca en REPOSO y no
+		# herede la pose con la que se fue.
+		var fig: ColorRect = b.get("figura")
+		if fig != null and is_instance_valid(fig):
+			for hijo in fig.get_children():
+				fig.remove_child(hijo)
+				hijo.queue_free()
+			if fig.has_meta("sprite"):
+				fig.remove_meta("sprite")
+			if fig.has_meta("alto_base"):
+				fig.remove_meta("alto_base")
+			fig.color = c.color_visual
+			_poner_sprite(fig, c)
+	_alta_de_aliado(c, agotado, false)
+	_set_log("%s vuelve a la pelea." % c.nombre)
+	return true
+
+
+# LO COMUN a entrar por primera vez y a volver: la barra, el agotamiento, el marcador de turnos y el
+# aviso a los espejos. Estaba solo en anadir_aliado y readmitir_aliado lo necesita igual; separarlo
+# evita que las dos ramas se desincronicen, que es como se rompen estas cosas sin dar error.
+#
+# 'bloque_nuevo' = hay que crear su caja en la fila. Al VOLVER no, que su caja sigue ahi de cuando
+# huyo: crear otra descuadraria la alineacion por indice entre _aliados y _bloques_aliados.
+func _alta_de_aliado(c: Combatant, agotado: bool, bloque_nuevo: bool = true) -> void:
 	_gauge[c] = 0.0          # entra con la barra a cero: unirse no regala un turno inmediato
 	if agotado:
 		_lentas[c] = EXHAUSTED_SLOW_ACTIONS
-	_anadir_bloque_aliado(c)
+	if bloque_nuevo:
+		_anadir_bloque_aliado(c)
 	if _timeline != null:
 		_timeline.anadir(c, _color_de(c), _material_de(c), "")
 	_alta_de_combatiente()
 	_update_hp()
-	_set_log("%s se une a la pelea." % c.nombre)
-	return true
 
 
 # Un combatiente MAS en la pelea. Sube la revision del roster y se lo manda a los espejos por canal
