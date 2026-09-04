@@ -43,16 +43,16 @@ const CUERO_POR_CORREA := 2
 # coraza de acero con la misma piel de rata que un chaleco de cobre, ni ponerle a una espada
 # de acero un mango de la madera que se cae de las paredes del primer piso.
 #
-# ARMADURA -> chapa + CUERO. Y aqui esta la gracia: hoy el unico cuero que existe es el de
-# rata (T1), asi que exigir esto deja la armadura T2 y T3 SIN FORJAR. Es a proposito, no es
-# un bug: esas piezas estaban absurdamente rotas para lo pronto que se conseguian. La
-# armadura T2 se desbloqueara sola el dia que un bicho hondo suelte una piel mejor, sin
-# tocar una linea de aqui.
+# ARMADURA -> chapa + CUERO. ARMA -> lingote + MADERA (el mango) + un poco de cuero. ESCUDO ->
+# metal + CUERO (las correas). En las TRES el cuero va del tier del metal. Durante un tiempo el
+# arma y el escudo lo pedian clavado a T1 con la excusa de que el mango y las correas son
+# "recubrimiento" y los forra cualquier piel; el efecto real era que una espada de acero T3 se
+# forjaba con la piel de una rata del piso 1, igual que la mochila T2 se cosia con correa T1
+# antes de partir _CORREAS por tier. Mismo agujero, misma solucion.
 #
-# ARMA -> lingote + MADERA (el mango). Las armas SI suben de tier, porque la madera si tiene
-# tres tiers y sale de la misma profundidad que el metal (madera dura y hierro, los dos en el
-# piso 7 y con la misma exigencia). Un arma buena pide bajar; una armadura buena, ademas, pide
-# un bicho que aun no existe.
+# Hoy hay cuero hasta T2 (araña / bestia acorazada / el de las simas), asi que lo unico que este
+# freno sigue dejando SIN FORJAR es el T3, y se desbloqueara solo el dia que se curta la piel de
+# minotauro, sin tocar una linea de aqui.
 static func cuero_vale_para(cuero: MaterialData, metal: MaterialData) -> bool:
 	return _acompana_a(cuero, metal)
 
@@ -188,7 +188,7 @@ const HERRERIA_POR_PIEZA := 1.0
 #                 para que sea comodo de empuñar).
 #   ARMA MAGICA (baston/varita) = casi toda MADERA + un poco de metal (la contera) + cuero del
 #                 mango. Un baston de mas hierro que madera no tenia ningun sentido.
-#   ESCUDO      = METAL + CUERO (las correas), sin mango de madera.
+#   ESCUDO      = METAL + CUERO (las correas), sin mango de madera. El cuero, del tier del metal.
 #   ARMADURA    = CHAPA + CUERO, en la proporcion de su tipo (la de cuero es casi toda piel; la
 #                 ligera de metal lleva mas cuero que metal; las placas, casi todo chapa).
 const MONEDAS_POR_UNIDAD := 90.0

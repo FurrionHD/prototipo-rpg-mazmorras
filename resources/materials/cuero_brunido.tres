@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = &"cuero_brunido"
-nombre = "Cuero bruñido"
+nombre = "Piel bruñida"
 descripcion = "Lomo de bestia, con la capa dura que le sale de restregarse contra la roca. Frotado queda liso y devuelve algo de luz."
 familia = 0
 tipo = 3

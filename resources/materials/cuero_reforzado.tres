@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 id = &"cuero_reforzado"
-nombre = "Cuero reforzado"
-descripcion = "Piel de bestia honda y seda de araña trenzadas en la misma pieza. Ya viene curtido de tan dura que es: aguanta una placa de hierro sin ceder."
+nombre = "Piel reforzada"
+descripcion = "Piel de bestia honda y seda de araña trenzadas en la misma pieza. Ya viene medio curtida de tan dura que es: aguanta una placa de hierro sin ceder."
 familia = 0
 tipo = 3
 tier = 2

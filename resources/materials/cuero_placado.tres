@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = &"cuero_placado"
-nombre = "Cuero placado"
+nombre = "Piel placada"
 descripcion = "Lleva placas oseas nacidas dentro de la propia piel. No se cose: se remacha, como si fuera media armadura de serie."
 familia = 0
 tipo = 3

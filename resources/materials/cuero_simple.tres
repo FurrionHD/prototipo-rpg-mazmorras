@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = &"cuero_simple"
-nombre = "Cuero simple"
+nombre = "Piel simple"
 descripcion = "Piel curtible de bicho pequeño: rata, rey rata, jabalí. Ninguna es gran cosa por separado, pero es lo que forra media mazmorra."
 familia = 0
 tipo = 3

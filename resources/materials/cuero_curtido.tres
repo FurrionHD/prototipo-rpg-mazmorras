@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = &"cuero_curtido"
-nombre = "Cuero curtido"
+nombre = "Cuero simple"
 descripcion = "Piel raspada, tratada y puesta a secar hasta que deja de ser un despojo y empieza a ser ropa."
 familia = 0
 tipo = 3

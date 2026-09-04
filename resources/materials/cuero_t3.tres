@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = &"cuero_t3"
-nombre = "Cuero de minotauro"
+nombre = "Piel de minotauro"
 descripcion = "Grueso, cerúleo, imposible de atravesar con un cuchillo normal. Curtirlo cuesta un día entero, pero la pieza que sale aguanta lo que ninguna otra."
 familia = 0
 tipo = 3

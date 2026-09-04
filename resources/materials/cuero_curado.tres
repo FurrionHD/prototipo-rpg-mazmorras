@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = &"cuero_curado"
-nombre = "Cuero curado"
+nombre = "Piel curada"
 descripcion = "Piel de bicho crecido, mas gruesa y con menos cicatrices que la de una rata cualquiera. Aguanta el raspado sin abrirse."
 familia = 0
 tipo = 3

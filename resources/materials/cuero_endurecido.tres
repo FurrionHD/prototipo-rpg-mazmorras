@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = &"cuero_endurecido"
-nombre = "Cuero endurecido"
+nombre = "Piel endurecida"
 descripcion = "Piel de las simas, tan correosa que hay que ablandarla antes de poder cortarla. La aguja pasa a la tercera."
 familia = 0
 tipo = 3

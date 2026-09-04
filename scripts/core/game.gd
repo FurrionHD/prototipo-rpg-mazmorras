@@ -7885,7 +7885,7 @@ const _CUEROS_CRUDOS: Array = [
 # su curtido.
 const _CORREAS: Array = [
 	"res://resources/materials/correa_cuero.tres",        # T1  <- cuero curtido
-	"res://resources/materials/correa_reforzada.tres",    # T2  <- cuero reforzado y tratado
+	"res://resources/materials/correa_reforzada.tres",    # T2  <- cuero reforzado (el curtido T2)
 ]
 # CUEROS de forja por TIER (la fibra que acompaña a la CHAPA en la armadura, como la madera al
 # lingote en el arma). T1 = cuero curtido (sale del peletero); T2 = cuero reforzado (viene ya
@@ -8026,8 +8026,9 @@ func curtido_de(crudo: MaterialData) -> MaterialData:
 			return md
 	return null
 
-# El cuero que pide la FORJA es el curtido: el crudo se queda en el peletero. (T1, para el peletero
-# y el recubrimiento de mango; la fibra de ARMADURA por tier la da cuero_de_tier.)
+# El cuero que pide la FORJA es el curtido: el crudo se queda en el peletero. Este es el T1 base, y
+# solo se usa como RESPALDO cuando algo no sabe de que tier tira; el cuero de cada pieza lo da
+# cuero_de_tier a la altura de su metal.
 func cuero_forja() -> MaterialData:
 	return load(_CUERO_CURTIDO) as MaterialData
 
@@ -8220,9 +8221,11 @@ func tablon_de(madera: MaterialData) -> MaterialData:
 # igual (no hay casos especiales repartidos). Siempre METAL; luego, segun la pieza:
 #   - MADERA del mango (armas), del MISMO tier que el metal (una espada de acero no lleva el palo
 #     que se cae de la pared del piso 1).
-#   - CUERO: en la armadura es ESTRUCTURAL y va del tier del metal (por eso hoy la armadura T2/T3
-#     esta bloqueada: no hay cuero que no sea el de rata). En un arma/escudo es RECUBRIMIENTO
-#     (mango, correas): cuero base, SIN tier, porque forrar un agarre lo hace cualquier piel.
+#   - CUERO, del MISMO tier que el metal en las TRES piezas. En la armadura es estructural y eso
+#     nunca se discutio; en el arma (recubrimiento del mango) y en el escudo (las correas) iba
+#     clavado a T1 "porque forrar un agarre lo hace cualquier piel", y el resultado era que una
+#     espada de acero T3 se forjaba con cuero de rata. Es el mismo agujero que ya se tapo en la
+#     MOCHILA (ver _CORREAS): subir de tier salia casi gratis por uno de los ingredientes.
 # Un material null en la lista = no forjable (lo frenan la UI y forja_valida).
 func ingredientes_forja(base: Resource, metal: MaterialData) -> Array:
 	var c: Dictionary = Forge.coste(base)
@@ -8232,24 +8235,19 @@ func ingredientes_forja(base: Resource, metal: MaterialData) -> Array:
 		# suelta deja de ir directa a la forja y no sobra a espuertas. Del mismo tier que el metal.
 		out.append({"material": tablon_de_tier(Forge.tier_de_metal(metal)), "uds": int(c["madera"])})
 	if int(c["cuero"]) > 0:
-		var cue: MaterialData
-		if base is ArmorData:
-			cue = cuero_de_tier(Forge.tier_de_metal(metal))   # cuero a la altura del metal (null = no forjable)
-		else:
-			cue = cuero_de_tier(1)   # recubrimiento del mango / correas: cuero base (T1)
-		out.append({"material": cue, "uds": int(c["cuero"])})
+		# A la altura del metal, sea arma, escudo o armadura. null = no hay cuero a ese tier, y eso
+		# es el FRENO, no un error. Tiene que decir lo mismo que fibra_de_forja.
+		out.append({"material": cuero_de_tier(Forge.tier_de_metal(metal)), "uds": int(c["cuero"])})
 	return out
 
 
 # La FIBRA que acompaña al metal en esta pieza: MADERA si es un arma (el mango), CUERO si es una
-# armadura (estructural) y CUERO BASE si es un escudo (las correas). Tiene que ser de la ALTURA
-# del metal salvo donde es un recubrimiento: una espada de acero no lleva el palo que se cae de la
-# pared del primer piso, pero unas correas las hace cualquier piel.
+# armadura (estructural) o un escudo (las correas). SIEMPRE de la ALTURA del metal: una espada de
+# acero no lleva el palo que se cae de la pared del primer piso, y un escudo de acero no se ata con
+# la piel de una rata (eso ultimo era lo que pasaba: las correas iban clavadas a T1).
 #
-# Devuelve null cuando no existe fibra a esa altura, y eso NO es un error: es el freno. Hoy el
-# unico cuero que hay es el de rata (T1), asi que una armadura de hierro o de acero devuelve null
-# y no se puede forjar. Es a proposito (ver Forge.cuero_vale_para). Las armas si suben, porque la
-# madera si tiene los tres tiers.
+# Devuelve null cuando no existe fibra a esa altura, y eso NO es un error: es el freno (ver
+# Forge.cuero_vale_para). Hoy hay cuero hasta T2, asi que lo que frena es el T3.
 #
 # Tiene que decir LO MISMO que ingredientes_forja, que es de donde sale el coste de forjar: si no,
 # mejorar una pieza te pide un material con el que no se fabrico. Es lo que pasaba con el ESCUDO:
@@ -8266,9 +8264,9 @@ func fibra_de_forja(base: Resource, metal: MaterialData, nivel: int = -1) -> Mat
 	if base is ArmorData:
 		return cuero_de_tier(tier, nivel)   # cuero del tier del metal; null = no hay a esa altura (freno)
 	if base is ShieldData:
-		# Correas: recubrimiento, cuero base sin tier (como al forjarlo). Tampoco tiene banda: forrar
-		# un agarre no se vuelve mas dificil porque el escudo este mas mejorado.
-		return cuero_de_tier(1)
+		# Correas: cuero del tier del metal, igual que al forjarlo. Y con banda, como la armadura: un
+		# escudo muy reforzado no se re-ata con la piel del primer piso.
+		return cuero_de_tier(tier, nivel)
 	# El MANGO del arma es un TABLON (madera aserrada), IGUAL que al forjarla: la madera cruda ya no
 	# va directa a la pieza, ni al hacerla ni al reforzarla. Del mismo tier que el metal.
 	return tablon_de_tier(tier, nivel)
