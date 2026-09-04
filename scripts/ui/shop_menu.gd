@@ -736,10 +736,13 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 			_row(vb, "Coste del hechizo", "%d de maná" % c.spell.coste_mana)
 			# QUIEN de los tuyos tiene hueco, no la cuenta del lider a secas: el libro lo estudia
 			# quien tu elijas en el inventario, asi que lo util aqui es saber si le sirve a ALGUIEN.
+			# Aprender ya NO tiene tope (solo lo tiene lo que se lleva puesto), asi que aqui basta con
+			# quien NO se lo sepa todavia. A quien tenga las manos llenas se le avisa en el inventario,
+			# al estudiarlo, que es donde importa.
 			var libres: Array = []
 			for pj in Game.party:
-				if not pj.equipped_spells.has(c.spell) and pj.equipped_spells.size() < Game.MAX_HECHIZOS:
-					libres.append("%s %d/%d" % [pj.nombre, pj.equipped_spells.size(), Game.MAX_HECHIZOS])
+				if not Game.hechizos_sabidos(pj).has(c.spell):
+					libres.append(pj.nombre)
 			_row(vb, "Puede aprenderlo", ", ".join(libres) if not libres.is_empty() else "nadie del grupo")
 		else:
 			_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))

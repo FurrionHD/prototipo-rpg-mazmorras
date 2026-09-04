@@ -920,7 +920,11 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		# aprende de verdad lo eliges en el modal, y alli cada tarjeta lleva la suya.
 		_row(vb, "Enseña", cons.spell.nombre)
 		_row(vb, "Coste", "%d de maná" % cons.spell.coste_mana)
-		_row(vb, "Hechizos", "%d / %d aprendidos" % [Game.lider().equipped_spells.size(), Game.MAX_HECHIZOS])
+		# Lo que el lider SABE y lo que lleva PUESTO, que ya no son lo mismo: aprender no tiene tope
+		# y el %d/%d es solo de las manos.
+		_row(vb, "Hechizos", "%d sabidos  ·  lleva %d / %d" % [
+			Game.hechizos_sabidos(Game.lider()).size(),
+			Game.lider().equipped_spells.size(), Game.MAX_HECHIZOS])
 	elif cons.es_plato():
 		# La ficha del plato ya trae QUE hace y CUANTO dura, todo derivado de sus efectos: aqui no se
 		# escribe ni un numero (ver ConsumableData.resumen_plato).
@@ -1842,10 +1846,11 @@ var _usar_sel: int = 0                  # a quien apunta (indice en Game.party)
 # boton directo del grupo de uno, y si cada uno lo dedujera por su cuenta acabarian discrepando.
 func _motivo_bloqueo(c: ConsumableData, pj: PersonajeData) -> String:
 	if c.es_grimorio():
-		if pj.equipped_spells.has(c.spell):
+		if Game.hechizos_sabidos(pj).has(c.spell):
 			return "%s ya se sabe este hechizo." % pj.nombre
-		if pj.equipped_spells.size() >= Game.MAX_HECHIZOS:
-			return "%s no puede aprender mas de %d hechizos." % [pj.nombre, Game.MAX_HECHIZOS]
+		# El tope YA NO BLOQUEA aprender: aprender no tiene limite, lo tiene lo que se lleva puesto
+		# (ver Game.aprender_de_grimorio). Con la cabeza llena se aprende igual y se coloca luego
+		# desde la ficha del personaje.
 		return ""
 	if c.es_plato():
 		return ""   # un plato nuevo pisa al que llevara puesto: se avisa, pero no se prohibe
@@ -1865,6 +1870,14 @@ func _motivo_bloqueo(c: ConsumableData, pj: PersonajeData) -> String:
 
 # Lo que conviene saber aunque NO bloquee (el plato que va a pisar al que lleva puesto).
 func _aviso_uso(c: ConsumableData, pj: PersonajeData) -> String:
+	# GRIMORIO con la cabeza llena: se aprende igual (aprender no tiene tope), pero no se coloca
+	# solo. Es un AVISO y no un bloqueo, y hay que darlo: si no, el libro se gasta y el hechizo no
+	# aparece en las manos, que parece que se ha perdido.
+	if c.es_grimorio():
+		if Game.hechizos_llenos(pj):
+			return "%s ya lleva %d magias puestas: la aprenderá, pero tendrá que colocarla en su ficha." % [
+				pj.nombre, Game.MAX_HECHIZOS]
+		return ""
 	if not c.es_plato():
 		return ""
 	var puesto: String = Game.plato_puesto(pj)

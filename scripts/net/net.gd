@@ -4822,6 +4822,14 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 		if s != null and not String(s.resource_path).is_empty():
 			hechizos.append(s.resource_path)
 	d["spells"] = hechizos
+	# Y los que SABE, que no son los mismos desde que aprender dejo de tener tope: sin mandarlos, al
+	# otro lado el doble llega sin lista de sabidos y su pantalla de magias sale vacia -- no podria
+	# volver a ponerse uno que se acaba de quitar. Es justo el fallo que solo se ve en multi.
+	var sabidos: Array = []
+	for s in Game.hechizos_sabidos(pj):
+		if s != null and not String(s.resource_path).is_empty():
+			sabidos.append(s.resource_path)
+	d["spells_sabidos"] = sabidos
 	# HABILIDADES de arma: lo que SABE y el set que lleva puesto POR TIPO DE ARMA. Sin esto el
 	# doble entraba a la pelea con el set por DEFECTO de su arma en vez de con el suyo, que es un
 	# bug de balance callado (el jugador ve otras cuatro habilidades y nadie avisa).
@@ -4882,6 +4890,14 @@ func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 		if s != null:
 			hechizos.append(s)
 	pj.equipped_spells = hechizos
+	# Los SABIDOS. Una ficha de una version anterior no trae la clave: se queda vacia y
+	# Game.hechizos_sabidos la reconstruye desde los equipados, que es lo que habia antes.
+	var sabidos: Array = []
+	for ruta in d.get("spells_sabidos", []):
+		var s2 = load(String(ruta))
+		if s2 != null:
+			sabidos.append(s2)
+	pj.hechizos_aprendidos = sabidos
 	# Habilidades de arma (ver ficha_a_dict). La clave del set vuelve a int: es el
 	# WeaponData.Tipo con el que la guardo Game.clave_loadout.
 	var sabidas: Array = []

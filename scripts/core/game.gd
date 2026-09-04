@@ -1788,6 +1788,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	consumables.clear()
 	cebo_activo = null
 	equipped_spells.clear()
+	lider().hechizos_aprendidos.clear()
 	lider().habilidades_aprendidas.clear()
 	lider().loadout_habilidades.clear()
 	item_meta.clear()
@@ -1959,6 +1960,7 @@ func exportar_partida() -> SaveData:
 	d.cebo = cebo_activo.resource_path if cebo_activo != null else ""
 
 	d.equipped_spells = equipped_spells.duplicate()
+	d.hechizos_aprendidos = hechizos_sabidos(lider()).duplicate()
 	d.habilidades_aprendidas = lider().habilidades_aprendidas.duplicate()
 	d.loadout_habilidades = lider().loadout_habilidades.duplicate(true)
 	d.tool_hit_reduction = tool_hit_reduction
@@ -2565,6 +2567,10 @@ func importar_partida(d: SaveData) -> void:
 	_cargar_cebo(d.cebo)
 
 	equipped_spells.assign(d.equipped_spells)
+	# Los SABIDOS. Una partida anterior al reparto llega con esto vacio, y entonces hechizos_sabidos()
+	# los reconstruye desde los equipados la primera vez que alguien pregunta (que es lo correcto:
+	# antes esa lista era la unica y por tanto era la de "lo que sabe").
+	lider().hechizos_aprendidos.assign(d.hechizos_aprendidos)
 	# Habilidades del lider. Una partida anterior al maestro no trae estos campos y llega con los
 	# defaults ([] / {}): eso es exactamente lo que queremos, porque habilidades_equipadas()
 	# autorrellena el set con las `inicial` del arma que lleve puesta.
@@ -4763,9 +4769,11 @@ var _dev_spells: Array[String] = [
 	"res://resources/spells/debilidad.tres",
 ]
 
+# ¿SABE alguno? Por los SABIDOS y no por los equipados: quien se sabe tres y hoy no lleva ninguno
+# puesto sigue siendo un mago, y su pantalla de magias tiene que aparecer para que pueda ponerselos.
 func tiene_hechizos(pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
-	return p.equipped_spells.size() > 0
+	return hechizos_sabidos(p).size() > 0
 
 # Mana maximo del jugador segun su Magia (para el HUD; en combate lo lleva el Combatant).
 # Con los ESTADOS puestos (abilities_eff_de): un plato de Magia sube el maná maximo de verdad.
@@ -5240,24 +5248,30 @@ func aceptar_oferta_retorno() -> bool:
 	Net.viajar_al_pueblo()
 	return true
 
-# Estudia un grimorio: aprendes su hechizo y el libro se gasta. Si ya te lo sabias o tienes
-# la cabeza llena (MAX_HECHIZOS), NO se gasta: un libro caro no se quema por un clic tonto.
+# Estudia un grimorio: aprendes su hechizo y el libro se gasta. Si YA te lo sabias no se gasta: un
+# libro caro no se quema por un clic tonto.
+#
+# LA CABEZA LLENA YA NO LO IMPIDE. Antes aprender y llevar puesto eran la misma lista, asi que con
+# seis hechizos el libro no se podia ni abrir; ahora se aprende siempre (sin tope) y el tope es solo
+# de lo que LLEVAS -- si no hay hueco, se queda aprendido y lo colocas cuando quieras desde la ficha
+# del personaje.
 func aprender_de_grimorio(c: ConsumableData, pj: PersonajeData = null) -> bool:
 	if c == null or not c.es_grimorio():
 		return false
 	var p: PersonajeData = pj if pj != null else lider()
-	if p.equipped_spells.has(c.spell):
+	if hechizos_sabidos(p).has(c.spell):
 		print("[grimorio] %s ya se sabe %s: no abre el libro." % [p.nombre, c.spell.nombre])
-		return false
-	if p.equipped_spells.size() >= MAX_HECHIZOS:
-		print("[grimorio] A %s no le caben mas de %d hechizos: que olvide uno antes." % [
-			p.nombre, MAX_HECHIZOS])
 		return false
 	if not gastar_consumible(c):
 		return false
-	equipar_hechizo(c.spell, p)
-	print("[grimorio] %s estudia %s y aprende %s (%d/%d hechizos)." % [
-		p.nombre, c.nombre, c.spell.nombre, p.equipped_spells.size(), MAX_HECHIZOS])
+	var hueco: bool = p.equipped_spells.size() < MAX_HECHIZOS
+	aprender_hechizo(c.spell, p)
+	if hueco:
+		print("[grimorio] %s estudia %s y aprende %s (lleva %d/%d)." % [
+			p.nombre, c.nombre, c.spell.nombre, p.equipped_spells.size(), MAX_HECHIZOS])
+	else:
+		print("[grimorio] %s aprende %s, pero ya lleva %d puestos: se queda sin equipar." % [
+			p.nombre, c.spell.nombre, MAX_HECHIZOS])
 	return true
 
 # BEBER una poción FUERA de combate: arranca la cura/maná-por-tiempo (heal-over-time) de QUIEN
@@ -5692,17 +5706,60 @@ func tick_mana_pocion(delta: float) -> void:
 # boton suelto. Con 6 el panel es siempre igual de alto y siempre cabe, se mire donde se mire.
 const MAX_HECHIZOS := 6
 
-func hechizos_llenos() -> bool:
-	return equipped_spells.size() >= MAX_HECHIZOS
+func hechizos_llenos(pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	return p.equipped_spells.size() >= MAX_HECHIZOS
 
-# Aprende un hechizo. false si ya lo sabias o si tienes la cabeza llena (MAX_HECHIZOS).
+
+# TODO lo que este personaje SABE lanzar, lleve puesto lo que lleve. Sin tope: aprender es para
+# siempre y un grimorio caro no se puede quedar sin abrir por no tener hueco.
+#
+# Migra al vuelo las partidas anteriores al reparto (ver PersonajeData.hechizos_aprendidos): antes
+# 'equipped_spells' era la lista UNICA, asi que lo que hubiera ahi es justo lo que se sabia. Se
+# repara aqui y no en un paso de carga aparte porque por aqui pasan TODOS los caminos -- el save
+# propio, la ficha que llega por red y el personaje reclutado -- y con un solo sitio no hay forma
+# de que a alguno se le olvide.
+func hechizos_sabidos(pj: PersonajeData = null) -> Array:
+	var p: PersonajeData = pj if pj != null else lider()
+	if p.hechizos_aprendidos.is_empty() and not p.equipped_spells.is_empty():
+		p.hechizos_aprendidos = p.equipped_spells.duplicate()
+	# Y al reves: un equipado que no figure como sabido (una ficha a medio migrar) se apunta. Un
+	# hechizo que puedes lanzar y que la pantalla no lista es peor que uno de mas.
+	for s in p.equipped_spells:
+		if s != null and not p.hechizos_aprendidos.has(s):
+			p.hechizos_aprendidos.append(s)
+	return p.hechizos_aprendidos
+
+
+# APRENDER: entra en la lista de sabidos y, si hay hueco, se equipa solo. Lo segundo es para que
+# leer un grimorio siga sintiendose igual que siempre mientras te caben; con la cabeza llena se
+# aprende igual y ya lo colocaras tu.
+# Devuelve false solo si ya te lo sabias.
+func aprender_hechizo(spell: SpellData, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	if spell == null or hechizos_sabidos(p).has(spell):
+		return false
+	p.hechizos_aprendidos.append(spell)
+	if p.equipped_spells.size() < MAX_HECHIZOS:
+		p.equipped_spells.append(spell)
+	return true
+
+
+# EQUIPAR uno que ya te sabes. false si no te lo sabes, si ya lo llevas o si no te caben mas.
 func equipar_hechizo(spell: SpellData, pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
-	if spell == null or p.equipped_spells.has(spell) or p.equipped_spells.size() >= MAX_HECHIZOS:
+	if spell == null or p.equipped_spells.has(spell):
+		return false
+	if not hechizos_sabidos(p).has(spell):
+		return false
+	if p.equipped_spells.size() >= MAX_HECHIZOS:
 		return false
 	p.equipped_spells.append(spell)
 	return true
 
+
+# QUITARLO DE LAS MANOS, que no es olvidarlo: sigue en la lista de sabidos y se puede volver a
+# poner cuando quieras.
 func quitar_hechizo(spell: SpellData, pj: PersonajeData = null) -> void:
 	var p: PersonajeData = pj if pj != null else lider()
 	p.equipped_spells.erase(spell)

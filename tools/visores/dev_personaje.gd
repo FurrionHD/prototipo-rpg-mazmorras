@@ -79,8 +79,24 @@ func _ready() -> void:
 	# unico que enseña que la fila desaparece cuando no hay nada que elegir.
 	men._on_seccion(men.SEC_HABILIDADES)
 	await _captura("2_trazos_habilidades")
+	# PONER una del pool y QUITAR una de las ranuras: es lo unico que comprueba que los botones
+	# hacen algo. Si tras pulsar la rejilla de arriba no cambia, el camino esta roto.
+	men._pick(Game.MAX_HABILIDADES)   # la primera del pool
+	await _captura("2_habilidad_pool")
+	if men._kit.size() > Game.MAX_HABILIDADES:
+		var h = men._kit[Game.MAX_HABILIDADES]["item"]
+		men._alternar_kit(h, false, false)
+		await _captura("2_habilidad_puesta")
 	men._on_sub(1)
 	await _captura("2_trazos_magias")
+	# LA CABEZA LLENA: el personaje 0 se sabe mas magias de las que caben (ver _hechizos), asi que
+	# esta es la pantalla donde se ve el bloque de "se las sabe pero no las lleva" y el aviso de que
+	# hay que quitar una antes. Es el caso que motivo todo el cambio.
+	men._pick(Game.MAX_HECHIZOS)
+	await _captura("2_magia_sin_ranura")
+	men._pick(0)
+	men._alternar_kit(men._kit[0]["item"], true, true)
+	await _captura("2_magia_quitada")
 
 	# 4) ARMADURA: los cinco slots y la rejilla de cambio de uno de ellos.
 	men._on_seccion(men.SEC_ARMADURA)
@@ -268,6 +284,7 @@ func _grupo() -> void:
 
 	_hechizos(Game.party[0])
 	_hechizos(Game.party[1])
+	_habilidades(Game.party[0])
 	_perks(Game.party[0])
 	_perks(Game.party[1])
 
@@ -301,16 +318,32 @@ func _equipar(i: int, main: String, off: String) -> void:
 				break
 
 
+# Le enseña TODOS los hechizos del proyecto y le equipa los que caben. Todos y no cuatro: desde que
+# aprender no tiene tope, el caso interesante es justo el de la cabeza llena -- se sabe mas de las
+# que puede llevar, y esa es la pantalla que hay que mirar.
 func _hechizos(pj: PersonajeData) -> void:
 	var d := DirAccess.open("res://resources/spells/")
 	if d == null:
 		return
 	for f in d.get_files():
-		if not f.ends_with(".tres") or pj.equipped_spells.size() >= 4:
+		if not f.ends_with(".tres"):
 			continue
 		var s: SpellData = load("res://resources/spells/" + f) as SpellData
 		if s != null:
-			pj.equipped_spells.append(s)
+			Game.aprender_hechizo(s, pj)   # equipa solo mientras quepan (ver Game)
+
+
+# Le enseña las tecnicas de TODAS las armas del baul, no solo las de la que lleva ahora: la
+# secuencia de capturas le cambia el arma a media pantalla, y con las de una sola el pool se
+# quedaba vacio justo despues de ese cambio.
+#
+# Hace falta porque sin aprender nada solo se sabe las `inicial` -- que ya van puestas -- y el
+# bloque de abajo sale vacio: justo la mitad que hay que mirar (poner una tecnica en un hueco).
+func _habilidades(pj: PersonajeData) -> void:
+	for it in Game.owned_weapons:
+		for ab in Game.habilidades_de_item(it):
+			if ab != null and not pj.habilidades_aprendidas.has(ab):
+				pj.habilidades_aprendidas.append(ab)
 
 
 # Desarrollos y pasivas: los tres primeros del catalogo con rangos distintos, y la primera pasiva.

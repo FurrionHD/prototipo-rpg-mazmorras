@@ -295,6 +295,14 @@ func imbue_elemento() -> int:
 @export var equipped_pantalones: Resource = null
 @export var equipped_botas: Resource = null
 # (La MOCHILA no esta aqui: es del GRUPO, como la bolsa. Vive en Game.mochila_equipo.)
+# --- MAGIAS: lo que SABE y lo que LLEVA PUESTO ---
+# Mismo reparto que las habilidades de arma de aqui abajo, y por el mismo motivo: SABER un hechizo
+# es para siempre (te lo enseño un grimorio y el libro se gasto), pero LLEVARLO es una eleccion de
+# antes de bajar, con su tope. Antes eran la misma lista: el tope de 6 se aplicaba al APRENDER, asi
+# que con la cabeza llena un grimorio no se podia ni abrir y el hechizo caro se quedaba en la bolsa.
+#
+# Los aprendidos NO tienen tope; los equipados, MAX_HECHIZOS (ver Game).
+@export var hechizos_aprendidos: Array = []
 @export var equipped_spells: Array = []
 # --- HABILIDADES de arma: lo que SABE y lo que LLEVA PUESTO (ver Game.habilidades_equipadas) ---
 # Las que le ha enseñado el maestro del pueblo (Array[AbilityData]). Las `inicial` NO estan aqui:
@@ -324,6 +332,7 @@ func _init() -> void:
 	desarrollos_rango = {}
 	pasivas_rng = {}
 	pasivas_pendientes = {}
+	hechizos_aprendidos = []
 	equipped_spells = []
 	habilidades_aprendidas = []
 	loadout_habilidades = {}

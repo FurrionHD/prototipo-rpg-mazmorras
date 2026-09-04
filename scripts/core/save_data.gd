@@ -260,7 +260,11 @@ const VERSION_MUNDO := 1
 # asi que no cabe en el diccionario de arriba. Las partidas anteriores a los cebos llegan con "".
 @export var cebo: String = ""
 
-@export var equipped_spells: Array = []     # .tres de hechizos (referencias)
+@export var equipped_spells: Array = []     # .tres de los hechizos que el lider LLEVA PUESTOS
+# Y los que SABE, que ya no son los mismos: aprender no tiene tope y llevar puesto si (MAX_HECHIZOS).
+# Las partidas anteriores al reparto llegan con esto vacio y se reparan solas al leerlas -- lo que
+# hubiera en equipped_spells era justo lo que se sabia (ver Game.hechizos_sabidos).
+@export var hechizos_aprendidos: Array = []
 # HABILIDADES de arma del LIDER (los compañeros las llevan dentro de su PersonajeData, que ya
 # viaja en `plantilla`). Ver PersonajeData.habilidades_aprendidas / loadout_habilidades.
 @export var habilidades_aprendidas: Array = []

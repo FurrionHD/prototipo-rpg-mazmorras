@@ -1182,69 +1182,182 @@ func _sec_trazos() -> void:
 	_trazos_habilidades(pj)
 
 
-# LOS CUATRO HUECOS DEL ARMA. El set se guarda por TIPO de arma (ver Game.clave_loadout), asi que
-# cambiar de espada a hacha cambia lo que sale aqui: es a proposito, y por eso el rotulo dice con
-# QUE arma es este kit.
+# ============================================================
+#  EL KIT: los huecos arriba y lo que puedes meter en ellos abajo
+#
+#  Las dos subpestañas (habilidades de arma y magias) son LA MISMA pantalla con dos listas
+#  distintas, y por eso comparten codigo: arriba las ranuras —vacias incluidas, que son las que
+#  dicen cuantas te faltan por poner— y debajo todo lo que puedes colocar. Pulsas una, la ficha
+#  sale a la derecha, y el boton de abajo la mete o la saca.
+#
+#  SOLO EN EL PUEBLO, como el resto del equipo: fuera se ve pero no se toca.
+#
+#  '_kit' es lo que hay pintado AHORA, en el mismo orden en que se pinto, y '_sel' es un indice
+#  suyo. Van juntos a proposito: es lo que garantiza que la celda que pulsas y la ficha que sale
+#  sean la misma cosa (misma regla que _stacks en el inventario).
+# ============================================================
+
+var _kit: Array = []
+
 func _trazos_habilidades(pj: PersonajeData) -> void:
-	var equipadas: Array = Game.habilidades_equipadas(pj)
+	var puestas: Array = Game.habilidades_equipadas(pj)
 	var arma: WeaponData = Game.arma_main(pj)
 	var tipo: String = WEAPON_TIPO_LABELS[clampi(int(arma.tipo), 0,
 		WEAPON_TIPO_LABELS.size() - 1)]
+	# El rotulo dice con QUE arma es este kit porque el set se guarda por TIPO de arma (ver
+	# Game.clave_loadout): cambiar de espada a hacha cambia lo que sale aqui, y es a proposito.
 	MenuScaffold.titulo(_lista, "Kit de %s" % tipo.to_lower(), 15)
-	MenuScaffold.nota(_lista, "Cada tipo de arma lleva su propio juego de %d huecos. Se cambian con "
-		% Game.MAX_HABILIDADES + "el maestro de armas.")
 
-	# Los huecos VACIOS se pintan igual: son los que dicen cuantas te faltan por poner, que es la
-	# unica manera de enterarse de que se pueden poner mas.
-	var labels: Array = []
-	var tooltips: Array = []
-	for i in Game.MAX_HABILIDADES:
-		var h = equipadas[i] if i < equipadas.size() else null
-		labels.append(str(h.nombre) if h != null else "— hueco %d —" % (i + 1))
-		tooltips.append(str(h.nombre) if h != null else "Hueco libre")
-	_sel = clampi(_sel, 0, Game.MAX_HABILIDADES - 1)
-	var grid := VBoxContainer.new()
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_lista.add_child(grid)
-	MenuScaffold.cuadricula(grid, labels, _sel, _pick, 2, Vector2(0, 66), [], [], tooltips)
+	# Lo que su equipo le PERMITE y ademas se sabe. El pool sale del arma y del escudo; el filtro de
+	# "desbloqueada" es lo que le ha enseñado el maestro (las `inicial` se saben siempre).
+	var disponibles: Array = []
+	for ab in Game.pool_habilidades(pj):
+		if not puestas.has(ab) and Game.habilidad_desbloqueada(ab, pj):
+			disponibles.append(ab)
+	_pintar_kit(puestas, disponibles, Game.MAX_HABILIDADES, "hueco",
+		"Lo que su equipo le permite", "Su arma no aporta ninguna técnica que sepa usar. "
+		+ "El maestro de armas enseña las que faltan.")
 
-	# La ficha de lo elegido. El ataque basico va SIEMPRE arriba: no ocupa hueco y es lo que haces
-	# cuando no haces nada, asi que callarlo dejaba la pantalla sin la mitad de lo que puedes hacer.
+	# LA FICHA. El ataque basico va SIEMPRE arriba: no ocupa hueco y es lo que haces cuando no haces
+	# nada, asi que callarlo dejaba la pantalla sin la mitad de lo que puedes hacer.
 	_title("Ataque básico")
 	_note("Golpe con lo que lleves en las manos. No cuesta energía: la recupera.")
 	_content.add_child(HSeparator.new())
-	var hab = equipadas[_sel] if _sel < equipadas.size() else null
-	if hab == null:
-		_title("Hueco %d" % (_sel + 1))
-		_note("Vacío. El maestro de armas enseña habilidades nuevas y las coloca en los huecos.")
-		return
-	_title(str(hab.nombre))
-	if hab.has_method("es_area"):
-		_row("Alcance", "Área" if hab.es_area() else "Individual")
-	var l := Label.new()
-	l.text = hab.resumen() if hab.has_method("resumen") else str(hab.get("descripcion"))
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.add_child(l)
+	_ficha_kit(pj, false)
 
 
 func _trazos_magias(pj: PersonajeData) -> void:
-	var spells: Array = pj.equipped_spells
-	MenuScaffold.titulo(_lista, "Magias equipadas", 15)
+	MenuScaffold.titulo(_lista, "Magias", 15)
 	MenuScaffold.nota(_lista, "Se lanzan RECITANDO su encantamiento: una frase por turno. Si fallas "
 		+ "una, el hechizo se te vuelve en contra.")
-	if spells.is_empty():
-		MenuScaffold.nota(_lista, "Ninguna equipada.")
-		return
-	_sel = clampi(_sel, 0, spells.size() - 1)
+	var puestas: Array = pj.equipped_spells
+	var disponibles: Array = []
+	for s in Game.hechizos_sabidos(pj):
+		if not puestas.has(s):
+			disponibles.append(s)
+	_pintar_kit(puestas, disponibles, Game.MAX_HECHIZOS, "ranura",
+		"Se las sabe, pero no las lleva",
+		"Se sabe todas las que lleva puestas. Los grimorios enseñan más.")
+	_ficha_kit(pj, true)
+
+
+# Pinta las dos rejillas y deja '_kit' con lo que hay, en orden. 'puestas' son las que lleva,
+# 'disponibles' las que puede meter, 'topes' cuantas ranuras hay.
+func _pintar_kit(puestas: Array, disponibles: Array, topes: int, palabra: String,
+		titulo_pool: String, vacio_pool: String) -> void:
+	_kit = []
 	var labels: Array = []
-	for s in spells:
-		labels.append("%s\n%d MP" % [s.nombre, s.coste_mana])
+	var tips: Array = []
+	for i in topes:
+		var it: Resource = puestas[i] if i < puestas.size() else null
+		_kit.append({"item": it, "puesto": true})
+		labels.append(_nombre_kit(it) if it != null else "— %s %d —" % [palabra, i + 1])
+		tips.append(_nombre_kit(it) if it != null else "Ranura libre")
 	var grid := VBoxContainer.new()
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_lista.add_child(grid)
-	MenuScaffold.cuadricula(grid, labels, _sel, _pick, 2, Vector2(0, 66), [], [], labels)
-	_ficha_hechizo(spells[_sel])
+	MenuScaffold.cuadricula(grid, labels, _sel, _pick, 2, Vector2(0, 62), [], [], tips)
+
+	_lista.add_child(HSeparator.new())
+	MenuScaffold.titulo(_lista, titulo_pool.to_upper(), 14)
+	if disponibles.is_empty():
+		MenuScaffold.nota(_lista, vacio_pool)
+	else:
+		var labels2: Array = []
+		for it2 in disponibles:
+			_kit.append({"item": it2, "puesto": false})
+			labels2.append(_nombre_kit(it2))
+		var grid2 := VBoxContainer.new()
+		grid2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_lista.add_child(grid2)
+		# La seleccion del segundo bloque va CORRIDA por el tamaño del primero: los dos son el mismo
+		# indice de _kit, y sin restar el desfase se marcaba la celda equivocada.
+		MenuScaffold.cuadricula(grid2, labels2, _sel - topes, _pick_pool, 2, Vector2(0, 62),
+			[], [], labels2)
+	_sel = clampi(_sel, 0, maxi(_kit.size() - 1, 0))
+
+
+# El nombre corto de lo que va en una celda del kit: un hechizo lleva ademas su coste, que es lo
+# que decide si lo puedes lanzar hoy.
+func _nombre_kit(it: Resource) -> String:
+	if it == null:
+		return ""
+	if it is SpellData:
+		return "%s\n%d MP" % [it.nombre, (it as SpellData).coste_mana]
+	return str(it.get("nombre"))
+
+
+# El pool empieza donde acaban las ranuras: aqui se le devuelve el desfase (ver _pintar_kit).
+func _pick_pool(i: int) -> void:
+	var topes: int = Game.MAX_HECHIZOS if (_sec == SEC_HABILIDADES and _sub == 1) \
+		else Game.MAX_HABILIDADES
+	_pick(topes + i)
+
+
+# LA FICHA de lo elegido en el kit, con su boton de poner o quitar.
+func _ficha_kit(pj: PersonajeData, es_magia: bool) -> void:
+	if _sel < 0 or _sel >= _kit.size():
+		return
+	var e: Dictionary = _kit[_sel]
+	var it: Resource = e["item"] as Resource
+	var puesto: bool = bool(e["puesto"])
+
+	if it == null:
+		_title("Ranura libre")
+		_note("Elige abajo una de las que se sabe y ponla aquí." if es_magia
+			else "Elige abajo una de las que su equipo le permite.")
+		return
+
+	if es_magia:
+		_ficha_hechizo(it as SpellData)
+	else:
+		_title(str(it.get("nombre")))
+		if it.has_method("es_area"):
+			_row("Alcance", "Área" if it.es_area() else "Individual")
+		var l := Label.new()
+		l.text = it.resumen(Game.manos_de(it, pj)) if it.has_method("resumen") \
+			else str(it.get("descripcion"))
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_content.add_child(l)
+
+	# EL BOTON. Solo en el pueblo, como el resto del equipo.
+	var pueblo: bool = Game.en_pueblo()
+	var lleno: bool = (pj.equipped_spells.size() >= Game.MAX_HECHIZOS) if es_magia \
+		else Game.habilidades_llenas(pj)
+	_content.add_child(HSeparator.new())
+	if not pueblo:
+		_note("Solo se cambia en el pueblo. Aquí es solo consulta.")
+	elif not puesto and lleno:
+		# El motivo, no un boton apagado a secas: con las ranuras llenas hay que decir QUE hacer.
+		_note("No le quedan ranuras libres: quítale una de arriba para poder poner ésta.")
+	var fila := HBoxContainer.new()
+	fila.alignment = BoxContainer.ALIGNMENT_CENTER
+	_content.add_child(fila)
+	var puede: bool = pueblo and (puesto or not lleno)
+	var b: Button = MenuScaffold.pastilla(fila, "Quitar" if puesto else "Poner",
+		_alternar_kit.bind(it, puesto, es_magia), true, puede)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+# Mete o saca lo elegido. Al hacerlo la lista cambia de tamaño, asi que la seleccion se lleva a la
+# ranura donde ha acabado (o a la primera): dejarla en el indice viejo apuntaba a otra cosa.
+func _alternar_kit(it: Resource, puesto: bool, es_magia: bool) -> void:
+	if it == null or not Game.en_pueblo():
+		return
+	var pj: PersonajeData = _pj()
+	if es_magia:
+		if puesto:
+			Game.quitar_hechizo(it as SpellData, pj)
+		else:
+			Game.equipar_hechizo(it as SpellData, pj)
+	else:
+		if puesto:
+			Game.desequipar_habilidad(it as AbilityData, pj)
+		else:
+			Game.equipar_habilidad(it as AbilityData, pj)
+	_sel = 0
+	_rebuild()
 
 
 # Ficha de un hechizo. TODO sale de sus campos: si tocas un numero en el .tres, esto se actualiza
