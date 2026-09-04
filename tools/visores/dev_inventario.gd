@@ -54,6 +54,17 @@ func _ready() -> void:
 				await _captura("%d_equipo_%s" % [i, String(inv.SUBS_EQUIPO[j]).to_lower()])
 			continue
 		await _captura("%d_%s" % [i, String(inv.TABS[i]).to_lower()])
+		# ARMAS y ARMADURAS llevan fila de filtros: se captura ademas UNO puesto, para ver que la
+		# rejilla se queda solo con lo suyo y que el subrayado se mueve. Con la de "todas" sola no
+		# se comprueba nada de eso.
+		if String(inv.TABS[i]) == "Armas":
+			inv._on_filtro_armas(11)   # escudo pequeño: ademas prueba la rama de otra clase
+			await _captura("%d_armas_filtrada" % i)
+			inv._on_filtro_armas(0)
+		elif String(inv.TABS[i]) == "Armaduras":
+			inv._on_filtro_armadura(1)   # casco
+			await _captura("%d_armaduras_filtrada" % i)
+			inv._on_filtro_armadura(0)
 	get_tree().quit()
 
 
@@ -165,15 +176,36 @@ func _equipo() -> void:
 func _armas() -> void:
 	Game.owned_weapons = []
 	var r: int = 0
+	# DOS de cada tipo: con una sola por tipo, al filtrar quedaba siempre una celda suelta y no se
+	# veia si la rejilla filtrada respira bien.
 	for id in ARMAS:
 		var w: WeaponData = load("res://resources/weapons/%s.tres" % id) as WeaponData
 		if w == null:
 			continue
-		var copia: WeaponData = w.duplicate() as WeaponData
-		Game.item_meta[copia] = {"tier": (r % 3) + 1, "rareza": r, "mejoras": {},
-			"durabilidad": 1.0 - float(r) * 0.09, "banda": 0}
-		Game.owned_weapons.append(copia)
+		for k in 2:
+			var copia: WeaponData = w.duplicate() as WeaponData
+			Game.item_meta[copia] = {"tier": (r % 3) + 1, "rareza": (r * 2 + k) % 8, "mejoras": {},
+				"durabilidad": 1.0 - float(r) * 0.09, "banda": 0}
+			Game.owned_weapons.append(copia)
 		r += 1
+	# ESCUDOS Y VARITAS viven en el mismo baul que las armas (Game.owned_weapons), asi que sin
+	# ellos las cuatro ultimas pestañas del filtro saldrian siempre vacias y no se veria si
+	# funcionan.
+	for carpeta in ["shields", "wands"]:
+		var d := DirAccess.open("res://resources/%s/" % carpeta)
+		if d == null:
+			continue
+		for f in d.get_files():
+			if not f.ends_with(".tres"):
+				continue
+			var it: Resource = load("res://resources/%s/%s" % [carpeta, f])
+			if it == null:
+				continue
+			var copia2: Resource = it.duplicate()
+			Game.item_meta[copia2] = {"tier": (r % 3) + 1, "rareza": r % 8, "mejoras": {},
+				"durabilidad": 1.0, "banda": 0}
+			Game.owned_weapons.append(copia2)
+			r += 1
 
 
 func _armaduras() -> void:

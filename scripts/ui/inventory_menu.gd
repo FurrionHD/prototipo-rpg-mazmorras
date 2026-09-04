@@ -97,6 +97,31 @@ func _ready() -> void:
 	(_content.get_parent() as ScrollContainer).custom_minimum_size = Vector2(ANCHO_FICHA, 0)
 	scroll.resized.connect(_on_lista_redimensionada)
 
+	# LA COLUMNA IZQUIERDA: la fila de subpestañas ENCIMA de la rejilla, dentro de su misma columna.
+	#
+	# Antes la fila iba en el header, que cruza la pantalla ENTERA por encima de las dos columnas.
+	# Eso tenia dos defectos: empujaba hacia abajo tambien a la ficha de la derecha (que se quedaba
+	# una linea por debajo del borde de arriba, con un palmo de nada encima), y la fila quedaba
+	# centrada respecto a rejilla + ficha, o sea corrida a la derecha respecto a la rejilla que
+	# filtra.
+	#
+	# Metiendola en la columna, la ficha sube hasta arriba del todo y la fila se centra sobre LO QUE
+	# FILTRA. Va FUERA del scroll (hermana suya, no hija) para que no se vaya con la rejilla al
+	# desplazarse: un filtro que desaparece al bajar es un filtro que hay que ir a buscar.
+	var split: BoxContainer = scroll.get_parent()
+	split.remove_child(scroll)
+	var col_izq := VBoxContainer.new()
+	col_izq.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col_izq.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col_izq.add_theme_constant_override("separation", 4)
+	split.add_child(col_izq)
+	split.move_child(col_izq, 0)
+	_barra_sub = HBoxContainer.new()
+	_barra_sub.alignment = BoxContainer.ALIGNMENT_CENTER
+	_barra_sub.add_theme_constant_override("separation", 14)
+	col_izq.add_child(_barra_sub)
+	col_izq.add_child(scroll)
+
 	var barra_tabs: HBoxContainer = m["side"]
 	barra_tabs.add_theme_constant_override("separation", 14)
 	for i in TABS.size():
@@ -263,12 +288,10 @@ func _rebuild_real() -> void:
 	# despues (Equipo -> "Farolillo"), que es la unica forma de saber donde estas con las pestañas
 	# en icono.
 	_titulo_seccion.text = TABS[clampi(_tab, 0, TABS.size() - 1)]
-	# La fila de subpestañas cuelga de la RAIZ y no del header, asi que vaciar() no se la lleva: si
-	# no se suelta aqui, las tres de Equipo se quedaban flotando encima de la rejilla de la Bolsa.
-	# La pestaña que tenga subpestañas la vuelve a crear en su _build.
-	if _fila_sub != null and is_instance_valid(_fila_sub):
-		_fila_sub.queue_free()
-		_fila_sub = null
+	# La fila de subpestañas vive fuera del header, asi que vaciar() no se la lleva: si no se vacia
+	# aqui, las tres de Equipo se quedaban encima de la rejilla de la Bolsa. La pestaña que tenga
+	# subpestañas la vuelve a poner en su _build.
+	_subpestanas([], [], -1, Callable())
 	for zona in [_header, _lista, _content]:
 		MenuScaffold.vaciar(zona)
 	for i in _tab_buttons.size():
@@ -383,14 +406,9 @@ func _note(vb: VBoxContainer, txt: String) -> void:
 
 const TAB_APAGADA := Color(0.55, 0.59, 0.67)
 const LADO_TAB := 34.0
-# La fila de subpestañas flota sobre la raiz (ver _subpestanas), asi que su sitio va a mano: justo
-# debajo de la barra de arriba y de su linea separadora.
-const ALTO_SUBPESTANAS := 44.0
-const ALTO_SUBPESTANAS_Y := 78.0
-
-# La fila de subpestañas viva (cuelga de la raiz, no del header, asi que MenuScaffold.vaciar no la
-# barre: hay que soltarla a mano en cada pasada).
-var _fila_sub: Control = null
+# La fila de subpestañas: vive en la columna IZQUIERDA, encima de la rejilla y fuera de su scroll
+# (ver el montaje en _ready). Se construye una vez y cada pestaña la rellena o la deja vacia.
+var _barra_sub: HBoxContainer = null
 
 # El armazon comun de las dos clases de pestaña (la de arriba, con icono; la de dentro, con texto).
 func _pestana_base(b: Button, alto: float) -> void:
@@ -434,36 +452,18 @@ func _pestana_icono(icono: String, nombre: String) -> Button:
 # El nombre de la subpestaña activa se lee arriba a la izquierda, donde el de la seccion: con las
 # dos filas en icono, ese rotulo es el unico sitio donde pone donde estas, y por eso lo pisa la
 # subpestaña (en Equipo, saber que estas en "Farolillo" dice mas que saber que estas en "Equipo").
+# Monta la fila de subpestañas de la columna izquierda. La vacia siempre, asi que una pestaña sin
+# subpestañas (la bolsa, los consumibles) simplemente no la llama y la fila desaparece: su
+# contenedor se queda a cero de alto y la rejilla sube.
 func _subpestanas(nombres: Array, iconos: Array, activa: int, pulsado: Callable) -> void:
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 14)
+	for b in _barra_sub.get_children():
+		_barra_sub.remove_child(b)
+		b.queue_free()
 	for i in nombres.size():
 		var b: Button = _pestana_icono(String(iconos[i]), String(nombres[i]))
 		b.button_pressed = (i == activa)
 		b.pressed.connect(pulsado.bind(i))
-		fila.add_child(b)
-
-	# Se centra COLGANDO DE LA RAIZ, igual que la fila de arriba, y no con un ALIGNMENT_CENTER
-	# dentro del header. Metida en el header se centraba en el ANCHO DEL HEADER, que no es el de la
-	# pantalla: los margenes del esqueleto son 8 por la izquierda y 16 por la derecha, asi que la
-	# fila caia 4 px a la izquierda de la de arriba. Con las dos colgadas de la raiz el eje es el
-	# mismo por construccion y no hay nada que cuadrar a mano.
-	if _fila_sub != null and is_instance_valid(_fila_sub):
-		_fila_sub.queue_free()
-	_fila_sub = CenterContainer.new()
-	_fila_sub.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_fila_sub.offset_top = ALTO_SUBPESTANAS_Y
-	_fila_sub.offset_bottom = ALTO_SUBPESTANAS_Y + ALTO_SUBPESTANAS
-	_fila_sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(_fila_sub)
-	_fila_sub.add_child(fila)
-
-	# Y en el header se deja un hueco de su alto: la fila flota, asi que no empuja a la rejilla ella
-	# sola y sin esto la primera hilera de celdas se le metia debajo.
-	var hueco := Control.new()
-	hueco.custom_minimum_size = Vector2(0, ALTO_SUBPESTANAS)
-	hueco.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_header.add_child(hueco)
+		_barra_sub.add_child(b)
 
 
 # Cuantas columnas caben en el ancho que tenga la rejilla AHORA MISMO. Se mide en vez de fijarla
@@ -1020,10 +1020,106 @@ func _preview_material(vb: VBoxContainer) -> void:
 #  Pestaña ARMAS (baul)
 # ============================================================
 
+# ============================================================
+#  LOS FILTROS DE ARMAS Y ARMADURAS
+#
+#  ARMAS va de LIGERA a PESADA y con los escudos al final. El orden no es un criterio inventado:
+#  sale de la velocidad real de cada tipo (velocidad_mult en su .tres -- daga 1.35, estoque 1.20,
+#  espada corta 1.10, ... martillo 0.68), que es la pregunta que uno se hace mirando un arma.
+#
+#  BASTON y VARITA van detras de todo lo fisico aunque el baston sea de los rapidos: lo que los
+#  separa del resto no es el peso, es que son de mago, y nadie los va a buscar entre las espadas
+#  por su velocidad.
+#
+#  PUÑOS no esta, y no es un olvido: pelear a puño limpio es NO llevar arma, asi que nunca hay una
+#  en el baul y esa pestaña no encontraria nada jamas.
+#
+#  Los ESCUDOS se parten por TAMAÑO porque es como los parte el juego (ShieldData.Tamano) y es lo
+#  unico que los diferencia de verdad.
+# ============================================================
+
+# 'tipo' = WeaponData.Tipo, 'clase' = otra cosa que no es un arma de mano. -1 / "" = no filtra.
+const FILTROS_ARMAS := [
+	{"nombre": "Todas", "icono": "todo", "tipo": -1, "clase": ""},
+	{"nombre": "Daga", "icono": "daga", "tipo": 1, "clase": ""},
+	{"nombre": "Estoque", "icono": "estoque", "tipo": 5, "clase": ""},
+	{"nombre": "Espada corta", "icono": "espada_corta", "tipo": 2, "clase": ""},
+	{"nombre": "Maza pequeña", "icono": "maza", "tipo": 7, "clase": ""},
+	{"nombre": "Espada larga", "icono": "espada_larga", "tipo": 3, "clase": ""},
+	{"nombre": "Mandoble", "icono": "mandoble", "tipo": 4, "clase": ""},
+	{"nombre": "Hacha grande", "icono": "hacha", "tipo": 6, "clase": ""},
+	{"nombre": "Martillo grande", "icono": "martillo", "tipo": 8, "clase": ""},
+	{"nombre": "Bastón", "icono": "baston", "tipo": 9, "clase": ""},
+	{"nombre": "Varita", "icono": "varita", "tipo": -1, "clase": "varita"},
+	{"nombre": "Escudo pequeño", "icono": "escudo_peq", "tipo": 0, "clase": "escudo"},
+	{"nombre": "Escudo normal", "icono": "escudo_med", "tipo": 1, "clase": "escudo"},
+	{"nombre": "Escudo grande", "icono": "escudo_gra", "tipo": 2, "clase": "escudo"},
+]
+
+# 'slot' = ArmorData.Slot, en el mismo orden que ARMOR_SLOT_LABELS. -1 = no filtra.
+const FILTROS_ARMADURA := [
+	{"nombre": "Todo", "icono": "todo", "slot": -1},
+	{"nombre": "Casco", "icono": "casco", "slot": 0},
+	{"nombre": "Pecho", "icono": "coraza", "slot": 1},
+	# MANOS reusa el icono de mano que ya existia (el del boton de interactuar). El guantelete
+	# dibujado a proposito salia como una cupula con una raya, o sea IGUAL que el casco, que esta
+	# dos posiciones antes en la misma fila. Una mano con dedos no se confunde con nada.
+	{"nombre": "Manos", "icono": "mano", "slot": 2},
+	{"nombre": "Pantalones", "icono": "pantalon", "slot": 3},
+	{"nombre": "Botas", "icono": "botas", "slot": 4},
+]
+
+# Uno por pestaña y NO uno solo compartido: el filtro que dejaste puesto en armas tiene que seguir
+# ahi al volver de armaduras, igual que la subpestaña de Equipo.
+var _filtro_armas: int = 0
+var _filtro_armadura: int = 0
+
+
+# Los nombres e iconos de una tabla de filtros, para pasarselos a _subpestanas.
+func _campos(tabla: Array, clave: String) -> Array:
+	var out: Array = []
+	for f in tabla:
+		out.append(f[clave])
+	return out
+
+
+# ¿Encaja esta pieza del baul de armas en el filtro elegido? La pestaña mezcla tres clases
+# distintas (armas de mano, varitas y escudos), asi que la prueba mira primero DE QUE clase es.
+func _pasa_filtro_arma(item: Resource, f: Dictionary) -> bool:
+	var clase: String = String(f["clase"])
+	if clase == "escudo":
+		return item is ShieldData and int((item as ShieldData).tamano) == int(f["tipo"])
+	if clase == "varita":
+		return item is WandData
+	if int(f["tipo"]) < 0:
+		return true   # "Todas"
+	return item is WeaponData and int((item as WeaponData).tipo) == int(f["tipo"])
+
+
+func _on_filtro_armas(i: int) -> void:
+	_filtro_armas = i
+	_sel = 0   # el indice viejo apunta a otra lista: sin esto la ficha enseñaba una pieza al azar
+	_rebuild()
+
+
+func _on_filtro_armadura(i: int) -> void:
+	_filtro_armadura = i
+	_sel = 0
+	_rebuild()
+
+
 func _build_armas() -> void:
+	_filtro_armas = clampi(_filtro_armas, 0, FILTROS_ARMAS.size() - 1)
+	_subpestanas(_campos(FILTROS_ARMAS, "nombre"), _campos(FILTROS_ARMAS, "icono"),
+		_filtro_armas, _on_filtro_armas)
+	if _filtro_armas > 0:
+		_titulo_seccion.text = String(FILTROS_ARMAS[_filtro_armas]["nombre"])
+	var filtro: Dictionary = FILTROS_ARMAS[_filtro_armas]
 	_stacks = []
 	for w in Game.owned_weapons:
-		_stacks.append({"modelo": w, "cantidad": 1})
+		if _pasa_filtro_arma(w, filtro):
+			_stacks.append({"modelo": w, "cantidad": 1})
+	_contador("%d de %d" % [_stacks.size(), Game.owned_weapons.size()])
 	var piezas: Array = []
 	for s in _stacks:
 		var w: Resource = s["modelo"]
@@ -1106,9 +1202,17 @@ func _preview_arma(vb: VBoxContainer) -> void:
 # ============================================================
 
 func _build_armaduras() -> void:
+	_filtro_armadura = clampi(_filtro_armadura, 0, FILTROS_ARMADURA.size() - 1)
+	_subpestanas(_campos(FILTROS_ARMADURA, "nombre"), _campos(FILTROS_ARMADURA, "icono"),
+		_filtro_armadura, _on_filtro_armadura)
+	if _filtro_armadura > 0:
+		_titulo_seccion.text = String(FILTROS_ARMADURA[_filtro_armadura]["nombre"])
+	var slot: int = int(FILTROS_ARMADURA[_filtro_armadura]["slot"])
 	_stacks = []
 	for p in Game.owned_armor:
-		_stacks.append({"modelo": p, "cantidad": 1})
+		if slot < 0 or int((p as ArmorData).slot) == slot:
+			_stacks.append({"modelo": p, "cantidad": 1})
+	_contador("%d de %d" % [_stacks.size(), Game.owned_armor.size()])
 	var piezas: Array = []
 	for s in _stacks:
 		var a: ArmorData = s["modelo"]

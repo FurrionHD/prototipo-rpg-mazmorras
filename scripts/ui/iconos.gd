@@ -208,22 +208,35 @@ static func pico(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 
 # --- FAROLILLO: la caja de la luz con su asa ---
+# PRIMERA VERSION: SE LEIA COMO UN CANDADO. Un asa en arco sobre una caja con un CIRCULO en medio
+# es exactamente el dibujo de un candado, y a 34 px nadie lo iba a leer de otra forma.
+#
+# Las tres cosas que lo arreglan, y son las tres a la vez:
+#   - el cuerpo es MAS ALTO QUE ANCHO (un candado es al reves);
+#   - el techo y la base SOBRESALEN por los lados, que es lo que hace "farol" y no "caja";
+#   - la llama es una GOTA con punta arriba, no un circulo. El circulo era el ojo del candado.
 static func farol(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
-	var g: float = lado * 0.09
+	var g: float = lado * 0.085
 	var cx: float = pos.x + lado * 0.5
-	# El asa.
-	c.draw_arc(Vector2(cx, pos.y + lado * 0.26), lado * 0.15, PI, TAU, 16, col, g * 0.8, true)
-	# El cuerpo: caja con el techo y la base mas anchos, como un farol de mano.
-	c.draw_line(pos + Vector2(lado * 0.24, lado * 0.34), pos + Vector2(lado * 0.76, lado * 0.34),
+	# El asa, pequeña y por encima del techo.
+	c.draw_arc(Vector2(cx, pos.y + lado * 0.16), lado * 0.11, PI, TAU, 16, col, g * 0.8, true)
+	# Techo y base, MAS ANCHOS que el cuerpo (vuelan por los lados).
+	c.draw_line(pos + Vector2(lado * 0.20, lado * 0.24), pos + Vector2(lado * 0.80, lado * 0.24),
+		col, g * 1.2, true)
+	c.draw_line(pos + Vector2(lado * 0.20, lado * 0.86), pos + Vector2(lado * 0.80, lado * 0.86),
+		col, g * 1.2, true)
+	# Los costados del vidrio, estrechos y altos.
+	c.draw_line(pos + Vector2(lado * 0.32, lado * 0.24), pos + Vector2(lado * 0.32, lado * 0.86),
 		col, g, true)
-	c.draw_line(pos + Vector2(lado * 0.30, lado * 0.34), pos + Vector2(lado * 0.30, lado * 0.76),
+	c.draw_line(pos + Vector2(lado * 0.68, lado * 0.24), pos + Vector2(lado * 0.68, lado * 0.86),
 		col, g, true)
-	c.draw_line(pos + Vector2(lado * 0.70, lado * 0.34), pos + Vector2(lado * 0.70, lado * 0.76),
-		col, g, true)
-	c.draw_line(pos + Vector2(lado * 0.24, lado * 0.76), pos + Vector2(lado * 0.76, lado * 0.76),
-		col, g, true)
-	# La llama de dentro, que es lo que lo hace farol y no jaula.
-	c.draw_arc(Vector2(cx, pos.y + lado * 0.57), lado * 0.11, 0.0, TAU, 16, col, g * 0.8, true)
+	# LA LLAMA: gota con la punta hacia arriba. Es lo unico que dice que dentro hay fuego.
+	var base: float = pos.y + lado * 0.68
+	c.draw_arc(Vector2(cx, base), lado * 0.10, 0.0, PI, 14, col, g * 0.85, true)
+	c.draw_line(Vector2(cx - lado * 0.10, base), pos + Vector2(lado * 0.5, lado * 0.42),
+		col, g * 0.85, true)
+	c.draw_line(Vector2(cx + lado * 0.10, base), pos + Vector2(lado * 0.5, lado * 0.42),
+		col, g * 0.85, true)
 
 
 # --- CORRER: dos chevrones hacia delante ---
@@ -286,3 +299,204 @@ static func _capsula(c: CanvasItem, a: Vector2, b: Vector2, grosor: float, col: 
 	c.draw_line(a, b, col, grosor * 2.0, true)
 	# El canto, un pelin mas oscuro, para que el rollo no se lea como una barra plana.
 	c.draw_line(a, b, Color(col.r * 0.45, col.g * 0.45, col.b * 0.45, col.a), borde * 0.5, true)
+
+
+# ============================================================
+#  LOS FILTROS DEL INVENTARIO
+#  La fila de subpestañas de Armas y Armaduras. Aqui la silueta tiene que decir el TIPO ella sola,
+#  asi que todas se dibujan sobre el mismo eje diagonal (empuñadura abajo-izquierda, punta
+#  arriba-derecha) y lo unico que cambia es lo que hay que mirar: el LARGO de la hoja, su ANCHO y la
+#  cabeza. Puestas en fila se comparan entre si, que es justo lo que se hace al filtrar.
+# ============================================================
+
+# --- TODO (el primero de cada fila de filtros): cuatro celdas, o sea "la rejilla entera" ---
+static func todo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	var l: float = lado * 0.26
+	var h: float = lado * 0.06
+	for celda in [Vector2(0.20, 0.20), Vector2(0.54, 0.20), Vector2(0.20, 0.54), Vector2(0.54, 0.54)]:
+		c.draw_rect(Rect2(pos + Vector2(lado * celda.x, lado * celda.y), Vector2(l, l)), col, false, g)
+		# Un puntito dentro: sin el, cuatro cuadrados vacios se leen como una ventana.
+		c.draw_rect(Rect2(pos + Vector2(lado * celda.x + l * 0.5 - h * 0.5,
+			lado * celda.y + l * 0.5 - h * 0.5), Vector2(h, h)), col, true)
+
+
+# ============================================================
+#  PIEZAS DE ARMADURA
+# ============================================================
+
+# --- CASCO: yelmo con visera ---
+static func casco(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	var cx: float = pos.x + lado * 0.5
+	# La boveda.
+	c.draw_arc(Vector2(cx, pos.y + lado * 0.52), lado * 0.28, PI, TAU, 24, col, g, true)
+	# Los carrilleras, bajando por los lados.
+	c.draw_line(pos + Vector2(lado * 0.22, lado * 0.52), pos + Vector2(lado * 0.26, lado * 0.78),
+		col, g, true)
+	c.draw_line(pos + Vector2(lado * 0.78, lado * 0.52), pos + Vector2(lado * 0.74, lado * 0.78),
+		col, g, true)
+	c.draw_line(pos + Vector2(lado * 0.26, lado * 0.78), pos + Vector2(lado * 0.74, lado * 0.78),
+		col, g, true)
+	# La ranura de los ojos, que es lo que lo hace yelmo y no gorro.
+	c.draw_line(pos + Vector2(lado * 0.30, lado * 0.60), pos + Vector2(lado * 0.70, lado * 0.60),
+		col, g * 0.8, true)
+
+
+# --- MANOS: guantelete ---
+# --- PANTALONES: dos perneras ---
+static func pantalon(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	# La cintura.
+	c.draw_line(pos + Vector2(lado * 0.26, lado * 0.22), pos + Vector2(lado * 0.74, lado * 0.22),
+		col, g, true)
+	# Las dos perneras, separandose hacia abajo desde la entrepierna.
+	for lado_x in [-1.0, 1.0]:
+		var x0: float = 0.5 + lado_x * 0.24
+		var x1: float = 0.5 + lado_x * 0.28
+		c.draw_line(pos + Vector2(lado * x0, lado * 0.22), pos + Vector2(lado * x1, lado * 0.82),
+			col, g, true)
+		c.draw_line(pos + Vector2(lado * (0.5 + lado_x * 0.06), lado * 0.52),
+			pos + Vector2(lado * (0.5 + lado_x * 0.10), lado * 0.82), col, g, true)
+		c.draw_line(pos + Vector2(lado * x1, lado * 0.82),
+			pos + Vector2(lado * (0.5 + lado_x * 0.10), lado * 0.82), col, g, true)
+	# La entrepierna, que es lo que junta las dos perneras y lo hace pantalon y no dos palos.
+	c.draw_line(pos + Vector2(lado * 0.44, lado * 0.52), pos + Vector2(lado * 0.56, lado * 0.52),
+		col, g * 0.7, true)
+
+
+# --- BOTAS: bota de perfil ---
+static func botas(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	# La caña y el pie, de una sola tirada: es la L lo que la hace bota.
+	var p := PackedVector2Array([
+		pos + Vector2(lado * 0.34, lado * 0.20), pos + Vector2(lado * 0.62, lado * 0.20),
+		pos + Vector2(lado * 0.62, lado * 0.58), pos + Vector2(lado * 0.84, lado * 0.66),
+		pos + Vector2(lado * 0.84, lado * 0.80), pos + Vector2(lado * 0.34, lado * 0.80),
+	])
+	var cerrado := PackedVector2Array(p)
+	cerrado.append(p[0])
+	c.draw_polyline(cerrado, col, g, true)
+	# La suela, mas gruesa.
+	c.draw_line(pos + Vector2(lado * 0.32, lado * 0.80), pos + Vector2(lado * 0.86, lado * 0.80),
+		col, g * 1.3, true)
+
+
+# ============================================================
+#  TIPOS DE ARMA
+#  Todas comparten el eje: mango en (0.24, 0.82) y punta hacia (0.80, 0.16). Lo que cambia es lo
+#  que hay que comparar de un vistazo -- largo, grosor y cabeza --, y por eso comparten helper.
+# ============================================================
+
+const _MANGO := Vector2(0.24, 0.82)
+const _PUNTA := Vector2(0.80, 0.16)
+
+# Una hoja recta desde el mango: 'largo' 0..1 de lo que recorre el eje, 'grosor' relativo, y la
+# guarda cruzada a 'guarda' del recorrido (0 = sin guarda).
+static func _hoja(c: CanvasItem, pos: Vector2, lado: float, col: Color,
+		largo: float, grosor: float, guarda: float, ancho_guarda: float) -> void:
+	var a: Vector2 = pos + _MANGO * lado
+	var b: Vector2 = pos + (_MANGO + (_PUNTA - _MANGO) * largo) * lado
+	c.draw_line(a, b, col, lado * grosor, true)
+	if guarda > 0.0:
+		var gpos: Vector2 = pos + (_MANGO + (_PUNTA - _MANGO) * guarda) * lado
+		var perp := Vector2(-1, -1).normalized() * (lado * ancho_guarda)
+		c.draw_line(gpos - perp, gpos + perp, col, lado * 0.075, true)
+
+
+static func daga(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_hoja(c, pos, lado, col, 0.55, 0.075, 0.24, 0.11)
+
+
+static func espada_corta(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_hoja(c, pos, lado, col, 0.78, 0.085, 0.22, 0.14)
+
+
+static func espada_larga(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_hoja(c, pos, lado, col, 1.0, 0.09, 0.20, 0.16)
+
+
+static func mandoble(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	# Hoja ANCHA y guarda mas arriba (empuñadura larga: se coge con las dos manos).
+	_hoja(c, pos, lado, col, 1.0, 0.15, 0.30, 0.20)
+
+
+static func estoque(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	# Hoja finisima y una cazoleta redonda en vez de guarda recta: es TODA la diferencia con la
+	# espada, asi que el aro tiene que verse.
+	_hoja(c, pos, lado, col, 1.0, 0.045, 0.0, 0.0)
+	var gpos: Vector2 = pos + (_MANGO + (_PUNTA - _MANGO) * 0.20) * lado
+	c.draw_arc(gpos, lado * 0.11, 0.0, TAU, 20, col, lado * 0.07, true)
+
+
+static func hacha(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.085
+	_hoja(c, pos, lado, col, 1.0, 0.08, 0.0, 0.0)
+	# La cabeza: una media luna colgada del extremo, hacia fuera del eje.
+	var cabeza: Vector2 = pos + (_MANGO + (_PUNTA - _MANGO) * 0.78) * lado
+	c.draw_arc(cabeza + Vector2(-lado * 0.10, -lado * 0.02), lado * 0.20,
+		PI * 1.55, PI * 2.55, 20, col, g * 1.6, true)
+
+
+static func maza(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	# Mango CORTO y una bola: pequeña, que es lo que la separa del martillo.
+	_hoja(c, pos, lado, col, 0.60, 0.08, 0.0, 0.0)
+	var cabeza: Vector2 = pos + (_MANGO + (_PUNTA - _MANGO) * 0.62) * lado
+	c.draw_arc(cabeza, lado * 0.13, 0.0, TAU, 20, col, lado * 0.085, true)
+
+
+static func martillo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	# Mango LARGO y una cabeza cuadrada y grande.
+	_hoja(c, pos, lado, col, 0.86, 0.09, 0.0, 0.0)
+	var cabeza: Vector2 = pos + (_MANGO + (_PUNTA - _MANGO) * 0.86) * lado
+	var perp := Vector2(-1, -1).normalized() * (lado * 0.19)
+	c.draw_line(cabeza - perp, cabeza + perp, col, lado * 0.20, true)
+
+
+static func baston(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	# Vara larga y fina con una piedra en la punta: el arma del mago.
+	_hoja(c, pos, lado, col, 0.92, 0.065, 0.0, 0.0)
+	var punta: Vector2 = pos + _PUNTA * lado
+	c.draw_arc(punta, lado * 0.13, 0.0, TAU, 20, col, lado * 0.075, true)
+
+
+# LOS TRES ESCUDOS. El juego los separa por TAMAÑO (ShieldData.Tamano), y es lo unico que los
+# separa: mismo dibujo, tres escalas. Cualquier otra diferencia inventada mentiria sobre el dato.
+# Van los tres juntos al final de la fila de filtros, que es lo que se pidio.
+static func _escudo(c: CanvasItem, pos: Vector2, lado: float, col: Color, escala: float) -> void:
+	var g: float = lado * 0.09 * (0.75 + escala * 0.35)
+	var centro: Vector2 = pos + Vector2(lado * 0.5, lado * 0.53)
+	# Escudo de gota: recto arriba y en punta abajo. Los puntos van en coordenadas RELATIVAS al
+	# centro y luego se escalan, que es lo que deja hacer las tres tallas con un solo perfil.
+	var perfil := PackedVector2Array([
+		Vector2(-0.28, -0.31), Vector2(0.28, -0.31), Vector2(0.24, 0.09),
+		Vector2(0.0, 0.31), Vector2(-0.24, 0.09),
+	])
+	var p := PackedVector2Array()
+	for v in perfil:
+		p.append(centro + v * lado * escala)
+	p.append(p[0])
+	c.draw_polyline(p, col, g, true)
+
+
+static func escudo_peq(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_escudo(c, pos, lado, col, 0.72)
+
+
+static func escudo_med(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_escudo(c, pos, lado, col, 1.0)
+
+
+static func escudo_gra(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_escudo(c, pos, lado, col, 1.28)
+
+
+static func varita(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	# Vara CORTA con destellos: lo mismo que el baston pero pequeño y con chispas, que es la
+	# diferencia que hay que ver en una fila donde los dos son "arma de mago".
+	_hoja(c, pos, lado, col, 0.58, 0.07, 0.0, 0.0)
+	var punta: Vector2 = pos + (_MANGO + (_PUNTA - _MANGO) * 0.62) * lado
+	var g: float = lado * 0.06
+	for ang in [0.0, PI * 0.5, PI, PI * 1.5]:
+		var d := Vector2(cos(ang), sin(ang)) * (lado * 0.15)
+		c.draw_line(punta + d * 0.42, punta + d, col, g, true)

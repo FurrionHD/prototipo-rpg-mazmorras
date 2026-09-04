@@ -39,7 +39,9 @@ const CONSUMIBLES := [
 
 
 func _ready() -> void:
-	DisplayServer.window_set_size(Vector2i(1280, 720))
+	# Alta a proposito: con 720 las filas de iconos de arma se salian por abajo y la captura las
+	# cortaba, que es justo lo que hay que mirar.
+	DisplayServer.window_set_size(Vector2i(1280, 1080))
 	var fondo := ColorRect.new()
 	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	fondo.color = MenuScaffold.FONDO
@@ -63,6 +65,7 @@ func _ready() -> void:
 
 	_rejilla(col, piezas)
 	_tira_suelo(col, piezas)
+	_tira_iconos(col)
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	DirAccess.make_dir_recursive_absolute(SALIDA)
@@ -126,6 +129,42 @@ func _tira_suelo(col: VBoxContainer, piezas: Array) -> void:
 		c.draw.connect(func():
 			c.draw_set_transform(Vector2(c.size.x * 0.5, c.size.y * 0.5), 0.0, Vector2(4.0, 4.0))
 			IconoItem.pintar(c, Vector2.ZERO, IconoItem.LADO_BASE, it))
+
+
+# LOS ICONOS DE LAS PESTAÑAS, en grande y en el mismo orden en que salen en el menu.
+#
+# En el inventario se ven a 34 px y ahi no hay forma de juzgarlos: la pregunta no es si son bonitos,
+# es si se DISTINGUEN ENTRE SI puestos en fila -- que es como se usan. Los de arma son diez
+# variaciones del mismo trazo diagonal, asi que es justo donde se rompe.
+const ICONOS_TAB := [
+	["bolsa", "mochila", "pocion", "mineral", "espada", "coraza"],
+	["mochila", "pico", "farol"],
+	["todo", "daga", "estoque", "espada_corta", "maza", "espada_larga", "mandoble", "hacha",
+		"martillo", "baston", "varita", "escudo_peq", "escudo_med", "escudo_gra"],
+	["todo", "casco", "coraza", "mano", "pantalon", "botas"],
+]
+# 96 y no 34 (el del menu): la pregunta aqui es si la FORMA esta bien dibujada, y un fallo de forma
+# a 34 px se ve como "una mancha rara" sin saber por que. La primera version del farolillo salia
+# igualita a un candado y a tamaño de menu no habia forma de darse cuenta.
+const LADO_ICONO_VISOR := 96.0
+
+func _tira_iconos(col: VBoxContainer) -> void:
+	var t := Label.new()
+	t.text = "  los iconos de las pestañas, a %d px (en el menu van a 34)" % int(LADO_ICONO_VISOR)
+	t.add_theme_font_size_override("font_size", 11)
+	t.add_theme_color_override("font_color", MenuScaffold.AMBAR)
+	col.add_child(t)
+	for grupo in ICONOS_TAB:
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 6)
+		col.add_child(fila)
+		for nombre in grupo:
+			var caja := Control.new()
+			caja.custom_minimum_size = Vector2(LADO_ICONO_VISOR, LADO_ICONO_VISOR)
+			fila.add_child(caja)
+			var dibujo := Callable(Iconos, String(nombre))
+			caja.draw.connect(func():
+				dibujo.call(caja, Vector2.ZERO, LADO_ICONO_VISOR, Color(0.90, 0.92, 0.96)))
 
 
 func _materiales() -> Array:
