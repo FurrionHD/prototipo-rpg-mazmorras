@@ -36,6 +36,11 @@ func _ready() -> void:
 	DisplayServer.window_set_size(Vector2i(1280, 720))
 	_llenar()
 	_falso_jugador()
+	# EL PUEBLO DE MENTIRA. Game.en_pueblo() mira si la escena actual es town.tscn, y el equipo SOLO
+	# se cambia alli. Sin esto el boton de Equipar sale apagado en todas las capturas y la mitad de
+	# las secciones de Armas y Armadura -- justo la que hace algo -- no se puede juzgar.
+	if get_tree().current_scene != null:
+		get_tree().current_scene.scene_file_path = "res://scenes/town.tscn"
 
 	var men: CanvasLayer = preload("res://scripts/ui/character_menu.gd").new()
 	add_child(men)
@@ -62,7 +67,13 @@ func _ready() -> void:
 	men._pick(0)
 	men._abrir_cambio()
 	await _captura("1_arma_cambiar")
-	men._cancelar_cambio()
+	# EQUIPAR DE VERDAD, que es lo unico que comprueba que el boton hace algo: se elige otra arma del
+	# baul, se pulsa Equipar y se captura la seccion YA con el arma nueva puesta. Si la ficha de la
+	# derecha no cambia, el camino esta roto.
+	men._pick_cand(3)
+	await _captura("1_arma_candidato")
+	men._equipar()
+	await _captura("1_arma_equipada")
 
 	# 3) TRAZOS, con y sin la subpestaña de magias. El personaje 0 lleva hechizos y el 3 no: es lo
 	# unico que enseña que la fila desaparece cuando no hay nada que elegir.

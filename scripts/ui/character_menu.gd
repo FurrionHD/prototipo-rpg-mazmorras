@@ -1273,9 +1273,8 @@ func _ficha_hechizo(s: SpellData) -> void:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_content.add_child(l)
-	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
-		_note("El daño es el tuyo, con tu Magia y el arma que llevas ahora; luego lo frena la "
-			+ "defensa mágica del que lo recibe.")
+	# (Sin coletilla de "el daño es el tuyo, con tu Magia y el arma": el numero de arriba YA es el
+	# suyo, y explicar de donde sale es lo que sobra.)
 	# La AFINIDAD de un imbue de cuerpo sigue en tabla: son varios elementos con su multiplicador
 	# cada uno, y eso es una lista de verdad, no una frase.
 	if s.es_imbuicion() and s.imbue_tipo == 2:
@@ -1467,7 +1466,8 @@ func _eidolon_lista(nodos: Array, titulo: String, nota: String, vacio: String,
 	var nodo: Dictionary = nodos[_sel]
 	MenuScaffold.titulo_item(_content, String(nodo["nombre"]), nodo["color"],
 		float(nodo["brillo"]), 17)
-	_row("Estado", String(nodo["pie"]))
+	# El rango NO se repite aqui: ya lo pone la celda que acabas de pulsar, y una fila "Estado: rango
+	# I" al lado de un boton que dice "rango I" es decir dos veces lo mismo en dos palmos.
 	_content.add_child(HSeparator.new())
 	var l := Label.new()
 	l.text = String(nodo["desc"])
