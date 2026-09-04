@@ -2,10 +2,50 @@
 
 ---
 
-# En curso — «El reloj de pared»
+# v0.11.3 — «Se ve de un vistazo»
 
-La tanda que salió del playtest a dos del piso 1 al 7. Casi todo eran relojes que no eran relojes y
-pantallas que mentían.
+Dos pantallas rehechas de arriba abajo —la bolsa y la ficha— y el reloj de pared, que salió del
+playtest a dos del piso 1 al 7. Casi todo eran relojes que no eran relojes y pantallas que mentían.
+
+## 🎒 La bolsa, de otra manera
+
+**Las cosas ya no son una lista de nombres.** Cada objeto es una celda con su color, y el color dice
+lo bueno que es sin tener que leer nada. Las secciones van arriba en iconos, y la ficha de lo que
+tocas ocupa la derecha entera.
+
+**Y se puede buscar.** Filtros por tipo, por rareza, por estado, y orden por lo que quieras — peso,
+valor, valor por peso, tier. Vuelve a pulsar el criterio y se da la vuelta.
+
+**Dar una poción a otro.** Sale el grupo entero en tarjetas, con su vida y su maná, y te avisa de a
+quién no le sirve **y por qué** en vez de apagar el botón sin decir nada.
+
+## 👤 La ficha del personaje
+
+**Todo lo tuyo en una pantalla:** tus atributos, tus cinco habilidades, las armas, la armadura, las
+técnicas y los desarrollos. Cada sección con su nombre a la izquierda y el personaje en grande en
+medio.
+
+**Los atributos miran lo que llevas en las manos.** Con bastón o varita ya no te enseña el ataque
+físico —que en un bastón no dice nada—, sino el **mágico**, la velocidad de recitado y los críticos
+mágicos. Lo demás no se pierde: está entero en la **lupa**.
+
+**Ahora sale todo el mundo, no solo los que bajan hoy.** Puedes tocarle el equipo a cualquiera de
+los tuyos sin tener que rehacer el grupo antes.
+
+## ✨ Las magias ya no se te llenan la cabeza
+
+**Aprender un hechizo ya no tiene tope.** Antes, con seis aprendidos, un grimorio nuevo **no se
+podía ni abrir**: el libro se quedaba en la bolsa. Ahora se aprenden todos los que quieras y eliges
+**cuáles seis llevas puestos**.
+
+**Y se colocan arrastrando**, así que el orden lo decides tú: una encima de otra las cambia de
+sitio, y sacarla de su ranura la quita. Vale igual para las técnicas del arma. En el pueblo, como
+todo el equipo.
+
+## 🔢 De qué tier es esto
+
+**Cinco piezas de armadura seguidas se veían exactamente iguales** y había que pulsarlas una a una
+para saber de cuál eran. Ahora la esquina de cada celda lleva **su número y su color**.
 
 ## ⏱️ Diez minutos son diez minutos
 
