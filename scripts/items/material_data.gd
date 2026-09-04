@@ -53,6 +53,14 @@ enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
 
 # GRADO del material: sube el VALOR (en curva, ver MaterialItem.valor_estimado). Es el eje "de que
 # profundidad viene esto". El PESO no lo toca: ese sale de peso_base y la calidad, y nada mas.
+#
+# ⚠️ EN UN MINERAL O UNA MADERA esto es ADEMAS su tier de crafteo, y de eso vive toda la forja
+# (Forge.tier_de_metal, las recetas, los puntos de oficio): cobre 1, acero 3. Ahi el numero es el
+# bueno y hay que seguir leyendolo tal cual.
+#
+# ⚠️ EN UN NUCLEO NO LO ES. Un nucleo de gargola es grado 5 porque viene de muy hondo y vale una
+# fortuna, pero solo mejora equipo T2 (eso lo dice tier_equipo). Para todo lo que COMPARE o ENSEÑE
+# tiers hay que usar tier_de_equipo(), nunca este campo a pelo.
 @export var tier: int = 1
 
 # Lo que CUESTA sacarlo del sitio: dureza de la veta (mineral) o fragilidad del tallo
@@ -86,6 +94,22 @@ enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
 # nucleos: un nucleo de T1 (slime, rata...) NO mejora una pieza T2, y al reves. 0 = comodin (sin
 # gate por tier, retrocompatible). Ver Forge.nucleo_vale.
 @export var tier_equipo: int = 0
+
+
+# EL TIER DE ESTE MATERIAL, el unico que se puede comparar con el de una espada y el unico que se
+# enseña o se ordena. Vive AQUI y no en cada pantalla a proposito: mientras la muesca de la celda lo
+# deducia por su cuenta y el orden del inventario leia 'tier' a pelo, las dos decian cosas distintas
+# del mismo monton -- la celda pintaba T2 y la lista lo ordenaba como si fuera T5.
+#
+#   - Nucleo: su tier_equipo, que es a lo que sirve ("armas T2" en su ficha). Un nucleo comodin
+#     (tier_equipo 0) no esta atado a ningun tier y devuelve 0: no hay tier que enseñar.
+#   - Lo demas (minerales, maderas, pieles, plantas): su 'tier', que ahi SI es el de crafteo.
+func tier_de_equipo() -> int:
+	if tier_equipo > 0:
+		return tier_equipo
+	if familia == Familia.NUCLEO:
+		return 0
+	return tier
 
 # Placeholder visual (el arte va al final): color del nodo en el mapa y del item del suelo.
 @export var color: Color = Color(0.7, 0.7, 0.75)

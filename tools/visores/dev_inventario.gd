@@ -85,6 +85,15 @@ func _ready() -> void:
 	inv._pulsa_criterio(2)   # "Valor por peso"
 	await _captura("bolsa_por_valor_peso")
 
+	# MATERIALES ORDENADOS POR TIER. Es la comprobacion de que el orden y la MUESCA de la celda dicen
+	# lo mismo: si al ordenar por tier los colores de las muescas no salen agrupados, es que cada uno
+	# esta leyendo un campo distinto -- que es justo lo que pasaba (el orden leia el GRADO del
+	# material, y los nucleos de grado 4 y 5 se iban al final como si fueran de un tier que no existe).
+	inv._on_tab(3)           # Materiales
+	inv._pulsa_criterio(4)   # "Tier"
+	await _captura("materiales_por_tier")
+	_comprobar_orden_tier(inv)
+
 	# EL MODAL DE "¿A QUIEN SE LO DAS?", en sus dos estados: apuntando a alguien a quien SI se le
 	# puede dar, y apuntando al que esta a tope de vida -- que es el que saca la franja roja y apaga
 	# el boton de confirmar. Sin las dos, la mitad de la pantalla no se ha mirado.
@@ -101,6 +110,27 @@ func _ready() -> void:
 		inv._cerrar_modal_barra()
 		break
 	get_tree().quit()
+
+
+# ¿EL ORDEN POR TIER ORDENA DE VERDAD? A ojo no se puede decir: la muesca son 20 px y hay que
+# saberse el tier de cada material de memoria. Se lee la lista ya ordenada y se comprueba que los
+# tiers van de mayor a menor sin saltos hacia arriba.
+#
+# Existe porque el orden y la muesca llegaron a leer campos DISTINTOS: la lista ordenaba por el
+# GRADO del material (un nucleo de gargola es grado 5) y la celda pintaba su tier de equipo (T2),
+# asi que la lista salia revuelta respecto a los colores que enseñaba.
+func _comprobar_orden_tier(inv: Node) -> void:
+	var tiers: Array = []
+	for s in inv._stacks:
+		tiers.append(IconoItem.tier_de(s["modelo"] as Resource))
+	if tiers.is_empty():
+		printerr("[orden] no hay materiales que comprobar.")
+		return
+	for i in range(1, tiers.size()):
+		if int(tiers[i]) > int(tiers[i - 1]):
+			printerr("[orden] MAL: ordenado por tier y sale %s" % str(tiers))
+			return
+	print("[orden] OK: materiales por tier -> %s" % str(tiers))
 
 
 func _captura(nombre: String) -> void:

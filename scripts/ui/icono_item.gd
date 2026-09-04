@@ -340,28 +340,15 @@ static func vueltas_tier(tier: int) -> int:
 static func tier_de(item: Resource) -> int:
 	if item is MaterialItem:
 		var d: MaterialData = (item as MaterialItem).data
-		return _tier_material(d) if d != null else 0
+		return d.tier_de_equipo() if d != null else 0
 	if item is MaterialData:
-		return _tier_material(item as MaterialData)
+		return (item as MaterialData).tier_de_equipo()
 	if item is ConsumableData:
 		return int((item as ConsumableData).tier)
 	if item is WeaponData or item is ShieldData or item is WandData or item is ArmorData \
 			or item is BackpackData or item is ToolData:
 		return int(Game.meta_de(item)["tier"])
 	return 0
-
-
-# El tier de EQUIPO de un material: para lo que sirve, no lo hondo que viene. Ver tier_de.
-static func _tier_material(d: MaterialData) -> int:
-	if d == null:
-		return 0
-	# Los nucleos lo dicen explicitamente. 0 = comodin (sirve para cualquier tier), y entonces no hay
-	# tier que enseñar: la muesca se queda a oscuras en vez de inventarse uno.
-	if int(d.tier_equipo) > 0:
-		return int(d.tier_equipo)
-	if d.familia == MaterialData.Familia.NUCLEO:
-		return 0   # nucleo comodin: no esta atado a ningun tier
-	return int(d.tier)
 
 
 # Lo alto que esta en su escala, 0..1. Alimenta el BRILLO (el destello de la celda): un cobre

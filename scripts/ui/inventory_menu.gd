@@ -1426,12 +1426,11 @@ func _valor_orden(s: Dictionary, campo: String) -> float:
 		"rango":
 			return float(IconoItem.escalon(m))
 		"tier":
-			if m is MaterialItem:
-				var d: MaterialData = (m as MaterialItem).data
-				return float(d.tier) if d != null else 0.0
-			if m is ConsumableData:
-				return float((m as ConsumableData).tier)
-			return float(Game.meta_de(m)["tier"])
+			# Por IconoItem.tier_de, que es la MISMA fuente que pinta la muesca de la celda. Antes
+			# esto leia el 'tier' del material a pelo -- que en un nucleo es su GRADO, no su tier --
+			# y entonces la lista ordenaba por un numero distinto del que enseñaba la celda: los
+			# nucleos de gargola se iban al final como si fueran T5.
+			return float(IconoItem.tier_de(m))
 		"rareza":
 			return float(Game.meta_de(m)["rareza"])
 		"mejoras":
@@ -1614,7 +1613,9 @@ func _valor_filtro(s: Dictionary, clave: String) -> int:
 		"rareza":
 			return int(Game.meta_de(m)["rareza"])
 		"tier":
-			return int(Game.meta_de(m)["tier"])
+			# Igual que el orden: por la fuente unica, no por la meta del equipo. Asi el filtro "T2"
+			# se queda con lo que la celda pinta como T2, materiales incluidos.
+			return IconoItem.tier_de(m)
 		"material":
 			return int((m as ArmorData).tipo) if m is ArmorData else -9999
 		"estado":
