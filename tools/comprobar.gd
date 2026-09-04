@@ -39,6 +39,16 @@ const SCRIPTS := [
 	"res://scripts/ui/shop_menu.gd",
 	"res://scripts/world/dungeon_floor.gd",
 	"res://scripts/world/resource_node.gd",
+	# Los cuatro modulos GORDOS, que eran justo los que no estaban aqui: un error de parseo en
+	# cualquiera de ellos no lo ve nadie hasta que arrancas una partida y llegas a esa pantalla
+	# --y el de red, hasta que ademas hay DOS maquinas delante--. Son los que mas se tocan.
+	"res://scripts/net/net.gd",
+	"res://scripts/ui/combat.gd",
+	"res://scripts/core/encargos.gd",
+	"res://scripts/ui/home_menu.gd",
+	"res://scripts/actors/enemy/enemy.gd",
+	"res://scripts/world/spawn_zone.gd",
+	"res://scripts/ui/casteo_mapa.gd",
 ]
 
 func _initialize() -> void:

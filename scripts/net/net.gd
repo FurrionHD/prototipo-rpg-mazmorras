@@ -153,6 +153,15 @@ var _mis_huecos: Dictionary = {}   # hueco en la fila de aliados -> mi Personaje
 # _devolver_desgaste ASIGNA sobre la ficha, asi que el lote que viene de camino le pisaria a la
 # ficha lo que hubiera hecho en la pelea nueva.
 var _desgaste_pendiente: bool = false
+# CUANDO CADUCA esa espera (ms de reloj del motor). Es la red de seguridad del bug de "no me entra
+# en combate": mientras _desgaste_pendiente este en pie no se puede pelear, y si el lote NO llega
+# nunca (un anfitrion que se cae justo despues, un RPC que se pierde en un corte, un camino nuevo que
+# se olvide de contestar) el jugador se queda sin poder entrar en combate el resto de la sesion sin
+# ningun aviso. El lote llega en un viaje de ida y vuelta -milisegundos en LAN-, asi que cinco
+# segundos son de sobra para lo legitimo y cortos para lo roto: pasados, se da por perdido y se
+# sigue jugando. Perder un desgaste es un mal rato; no volver a pelear es la partida.
+const DESGASTE_ESPERA_MAX_MS := 5000
+var _desgaste_limite_ms: int = 0
 # FOTO de los pisos sin nadie dentro: el piso se congela tal cual (bichos y cadaveres) y se
 # restaura al volver, como en solitario. Vive en la SESION (host), no en el save de nadie: asi las
 # dos maquinas no divergen y el save del cliente sigue sin tocarse.
@@ -4331,7 +4340,19 @@ func _cambio_de_anfitrion(id: int, roster: Dictionary) -> void:
 # sus dobles y se le cierra su espejo, y deja de recibir instantaneas. Es cerrar_pelea, pero para
 # un participante en vez de para todos.
 func sacar_de_la_pelea(peer: int) -> void:
-	if not activo or _pelea_id == 0 or peer == 0:
+	if not activo or peer == 0:
+		return
+	# LA PELEA YA NO ESTA, pero hay que CONTESTAR IGUAL. Este era el bug de "no me entra en combate":
+	# el que se sale del espejo por su cuenta se pone _desgaste_pendiente y espera respuesta
+	# (ver salir_del_espejo), y si pulsaba Continuar en el mismo suspiro en que el anfitrion cerraba
+	# la pelea, aqui se salia de vacio por _pelea_id == 0 y no le llegaba NADA. Ese flag solo lo
+	# apagan _devolver_desgaste, _fin_espejo y _moriste, asi que se quedaba encendido PARA SIEMPRE:
+	# ocupado_en_pelea() daba true el resto de la sesion y enemy._start_combat se salia por su return
+	# seco en todos los contactos. Un _fin_espejo suelto (sin desgaste, que ya no hay dobles de donde
+	# sacarlo) es exactamente el "ya no viene nada mas" que estaba esperando.
+	if _pelea_id == 0:
+		_fin_espejo.rpc_id(peer)
+		_pelea_participantes.erase(peer)
 		return
 	if _dobles.has(peer):
 		var lote: Array = []
@@ -4366,6 +4387,7 @@ func salir_del_espejo() -> void:
 	if _pelea_anfitrion != 0:
 		_salgo_de_la_pelea.rpc_id(_pelea_anfitrion)
 		_desgaste_pendiente = true
+		_desgaste_limite_ms = Time.get_ticks_msec() + DESGASTE_ESPERA_MAX_MS
 	_pelea_sigo = 0
 	_pelea_anfitrion = 0
 	_mis_huecos.clear()
@@ -4470,7 +4492,24 @@ func espejando() -> bool:
 # que no pueden correr en ese hueco; espejando() a secas sigue valiendo para lo demas (redirigir un
 # refuerzo, por ejemplo, que ahi si quiero haber dejado de espejar).
 func ocupado_en_pelea() -> bool:
-	return _pelea_sigo != 0 or _desgaste_pendiente
+	if _pelea_sigo != 0:
+		return true
+	if not _desgaste_pendiente:
+		return false
+	# Ha caducado: el lote no viene. Se suelta AQUI (y no en un _process) porque este es el unico
+	# sitio que pregunta, asi que no hace falta un reloj propio para algo que casi nunca pasa.
+	if Time.get_ticks_msec() >= _desgaste_limite_ms:
+		push_warning("[multi] el desgaste de mi ultima pelea no ha llegado en %d ms: se da por perdido"
+			% DESGASTE_ESPERA_MAX_MS)
+		_desgaste_pendiente = false
+		_mis_en_pelea.clear()
+		_mis_huecos.clear()
+		# Y SE DICE. El sintoma de este atasco es "no me entra en combate", que desde el mando no se
+		# distingue de un juego roto: sin una linea que lo explique se pierde la tarde buscando el bug
+		# en el sitio equivocado (que es justo lo que paso).
+		_toast("Se perdio lo de tu ultima pelea, pero ya puedes volver a pelear.")
+		return false
+	return true
 
 
 # Le he pegado a un bicho que YA esta en una pelea: quiero entrar a ayudar. Quien sabe de quien es
