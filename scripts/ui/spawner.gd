@@ -50,8 +50,10 @@ func _ready() -> void:
 
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	panel.offset_right = -8
-	panel.offset_top = 8
+	# DEBAJO DE LA BOTONERA del HUD, no encima: a 8 px del borde tapaba los cinco iconos y con el
+	# panel abierto no se podia ni abrir la bolsa. Ver MenuScaffold.techo_dev.
+	panel.offset_right = -Hud.ICONO_MARGEN - Tactil.borde.x
+	panel.offset_top = MenuScaffold.techo_dev()
 	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	# Tocarlo lo pone delante de los otros paneles de dev.
 	panel.gui_input.connect(func(ev): if ev is InputEventMouseButton and ev.pressed: MenuScaffold.al_frente(self))
@@ -61,12 +63,8 @@ func _ready() -> void:
 	panel.add_to_group("panel_dev_spawner")
 	add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_top", 6)
-	margin.add_theme_constant_override("margin_bottom", 6)
-	panel.add_child(margin)
+	# El cuerpo va con scroll y acotado para no llegar a los mandos tactiles de abajo.
+	var margin: MarginContainer = MenuScaffold.cuerpo_dev(panel)
 
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 4)

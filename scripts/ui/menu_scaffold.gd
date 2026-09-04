@@ -112,6 +112,59 @@ static func al_frente(capa: CanvasLayer) -> void:
 	capa.layer = CAPA_DEV_FRENTE
 
 
+# ============================================================
+#  LOS PANELES DE DEV, EN SU SITIO
+#  Flotan sobre el mundo en la esquina de arriba a la derecha... que es justo donde vive la
+#  botonera del HUD (consola, ficha, bolsa, mapa, pausa). Se colocaban a 8 px del borde y la
+#  tapaban entera: con el panel abierto no se podia ni abrir el inventario.
+#
+#  Y al bajarlos aparece el problema de enfrente: en MOVIL, abajo a la derecha estan los mandos
+#  (interactuar, atacar, curar, correr, sigilo), asi que un panel largo pasaba de taparte los
+#  botones de arriba a taparte los de abajo. Por eso esto hace las DOS cosas: los baja hasta debajo
+#  de la botonera y les pone un techo de alto para que no lleguen al mando.
+#
+#  Las dos medidas se piden a quien las sabe (Hud y TouchControls) en vez de escribirlas aqui: son
+#  numeros que cambian solos con el tamaño de los botones y con el borde seguro del aparato.
+# ============================================================
+
+# Donde empieza el primer panel de dev: justo por debajo de la fila de iconos del HUD.
+static func techo_dev() -> float:
+	return Hud.ICONO_MARGEN + Tactil.borde.y + Hud.icono_lado() + 8.0
+
+
+# EL CUERPO de un panel de dev: un scroll con su margen dentro, ya acotado para que el panel no
+# invada el mando tactil. Devuelve el contenedor donde va el contenido, asi que quien lo use solo
+# cambia a quien le cuelga su VBox.
+#
+# Con scroll y no recortando: un panel de dev que se sale es una herramienta que no se puede usar,
+# y en un movil en vertical se sale seguro.
+static func cuerpo_dev(panel: PanelContainer) -> MarginContainer:
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	scroll.add_child(margin)
+
+	# EL TECHO se recalcula con el layout y no una sola vez: el panel cambia de alto en vivo (el
+	# spawner tiene secciones que aparecen) y la ventana cambia de tamaño. Se mide contra el alto
+	# del viewport, que es lo unico que conoce de verdad el sitio disponible.
+	var ajustar := func() -> void:
+		if not is_instance_valid(panel) or not is_instance_valid(scroll):
+			return
+		var alto_pantalla: float = panel.get_viewport_rect().size.y
+		var libre: float = alto_pantalla - panel.offset_top - TouchControls.alto_ocupado() - 8.0
+		var pide: float = margin.get_combined_minimum_size().y
+		scroll.custom_minimum_size.y = maxf(minf(pide, libre), 0.0)
+	margin.resized.connect(ajustar)
+	panel.get_viewport().size_changed.connect(ajustar)
+	ajustar.call()
+	return margin
+
+
 static func _caja(fondo: Color, borde_alpha: float) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = fondo

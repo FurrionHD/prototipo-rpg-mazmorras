@@ -60,19 +60,15 @@ func _ready() -> void:
 
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	panel.offset_right = -8
-	panel.offset_top = 150      # provisional: lo ajusta _colgar_del_spawner con el alto de verdad
+	panel.offset_right = -Hud.ICONO_MARGEN - Tactil.borde.x
+	# Provisional: lo ajusta _colgar_del_spawner con el alto de verdad del de arriba.
+	panel.offset_top = MenuScaffold.techo_dev()
 	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	# Tocarlo lo pone delante de los otros paneles de dev.
 	panel.gui_input.connect(func(ev): if ev is InputEventMouseButton and ev.pressed: MenuScaffold.al_frente(self))
 	add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_top", 6)
-	margin.add_theme_constant_override("margin_bottom", 6)
-	panel.add_child(margin)
+	var margin: MarginContainer = MenuScaffold.cuerpo_dev(panel)
 
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 4)

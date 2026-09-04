@@ -21,6 +21,7 @@
 # ============================================================
 
 extends CanvasLayer
+class_name TouchControls
 
 # El joystick era claramente pequeño en el aparato: se vio jugando. Todo sube en proporcion para
 # que la zona muerta siga siendo la misma parte del recorrido y no cambie el tacto.
@@ -32,6 +33,31 @@ const R_ACTUAR := 52.0
 const R_ATACAR := 44.0
 const R_PEQUENO := 30.0
 const MARGEN := 28.0
+
+
+# ============================================================
+#  EL SITIO QUE OCUPA EL MANDO, para quien tenga que apartarse
+#  Lo preguntan los paneles que flotan sobre el mundo (los de dev, el cuadro de recitar). Son
+#  funciones y no numeros escritos a mano en cada sitio, y ese es justo el motivo de que existan:
+#  casteo_mapa llevaba un "340.0" copiado con un comentario de "ver touch_controls._colocar", o sea
+#  una cuenta paralela que el dia que se mueva un boton nadie va a acordarse de actualizar.
+#
+#  Con RATON devuelven 0: alli no hay mando que esquivar y el panel puede usar la pantalla entera.
+# ============================================================
+
+# Lo que ocupan los botones por la DERECHA: interactuar + atacar + curar, con sus huecos.
+static func ancho_ocupado() -> float:
+	if not Tactil.activo:
+		return 0.0
+	return MARGEN + R_ACTUAR * 2.0 + 14.0 + R_ATACAR * 2.0 + 14.0 + R_PEQUENO * 2.0 + Tactil.borde.x
+
+
+# Y lo que ocupan por ABAJO. El mas alto es la fila de correr/sigilo, que va montada encima del
+# boton de interactuar: por eso la cuenta sube por 'actuar' y remata con el diametro de un pequeño.
+static func alto_ocupado() -> float:
+	if not Tactil.activo:
+		return 0.0
+	return MARGEN + R_ACTUAR * 2.0 + 16.0 + R_PEQUENO * 2.0 + Tactil.borde.y
 
 var _joystick: Control = null
 var _centro: Vector2 = Vector2.ZERO
