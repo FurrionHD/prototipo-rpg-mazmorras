@@ -757,8 +757,12 @@ func _cola_log() -> String:
 func _valores(lista: Array) -> Array:
 	var out: Array = []
 	for c in lista:
+		# El 8º campo son las CARGAS DE FOCO. Van aqui y no en el roster porque cambian turno a turno
+		# (se gastan al pegar), igual que la vida. Sin ellas el espejo pintaba habilitada una segunda
+		# habilidad de Foco, el anfitrion la rechazaba al ejecutarla y salia un BASICO: era el "uso
+		# una habilidad y se tira un basico" del playtest.
 		out.append([c.current_hp, c.current_mp, c.current_energy, _chips_de(c),
-			c.max_hp, c.max_mp, c.max_energy])
+			c.max_hp, c.max_mp, c.max_energy, c.foco_cargas])
 	return out
 
 
@@ -1021,6 +1025,12 @@ func _vestir_maniqui(m: Combatant, real: Combatant) -> void:
 	m.set_hands(real.hands)
 	m.ability_hands = real.ability_hands
 	m.motion_value = real.motion_value
+	# LAS CARGAS DE FOCO NO SE COPIAN DE AQUI, y es a proposito: 'real' es un Combatant recien
+	# creado con la ficha, asi que su foco vale 0 igual que el del maniqui. El foco se gana y se
+	# gasta DENTRO de la pelea, o sea que es un numero que cambia turno a turno: viaja en la
+	# INSTANTANEA, como la vida (ver _valores, campo 8). Ese era el agujero por el que salia un
+	# BASICO al pulsar una habilidad -- el mismo error que el dual, pero en un campo que ademas no
+	# se puede arreglar aqui.
 
 
 # LE PIDO ALGO A UN REMOTO (su turno, una frase, el disparo) y me quedo esperando. Se recuerda QUE
@@ -1209,6 +1219,11 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 			else:
 				_accion_atacar()
 		_:
+			# Un tipo de accion que esta maquina no conoce. Atacar de basico es lo correcto (no se
+			# puede colgar la pelea por eso), pero en silencio era otro "se tira un basico solo" sin
+			# rastro: si las dos puntas van con versiones distintas, esto es lo unico que lo delata.
+			push_warning("[multi] accion remota de tipo desconocido '%s': ataca de basico"
+				% String(accion.get("tipo", "")))
 			_accion_atacar()
 
 
@@ -1451,6 +1466,9 @@ func _volcar(lista: Array, valores: Array) -> void:
 			lista[i].max_hp = float(v[4])
 			lista[i].max_mp = float(v[5])
 			lista[i].max_energy = float(v[6])
+		# Las cargas de FOCO: es lo que decide si el boton de otra habilidad de Foco sale apagado.
+		if v.size() > 7:
+			lista[i].foco_cargas = int(v[7])
 
 
 # ESPEJO: los que han caido en la instantanea se apagan aqui igual que en la pantalla que ejecuta.
@@ -6085,13 +6103,25 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		# pelea COLGADA PARA TODOS: _aplicar_accion_remota ya hizo _fin_de_espera, asi que nadie
 		# vuelve a pedirle el turno y el estado se queda en WAITING_PLAYER para siempre.
 		# Se cae a basico, igual que cuando la habilidad ya no esta en su loadout: no se pierde el turno.
-		var puede: bool = _player.ability_ready(ab) \
-			and not (ab.foco_cargas > 0 and _player.foco_cargas > 0)
-		if puede:
-			puede = _player.current_energy >= ab.energia_a_mana if es_conversion \
-				else _player.has_energy(coste)
-		if not puede:
-			print("[habilidad] %s no puede lanzar %s ahora: ataca de basico" % [_player.nombre, ab.nombre])
+		#
+		# Y DICE POR QUE. Antes solo imprimia "no puede lanzarla": desde el mando eso es un basico que
+		# sale de la nada, indistinguible de un bug de la interfaz, y asi se pierde una tarde buscando
+		# el fallo donde no esta. El motivo es lo que delata cual de las tres puertas se cerro y, si es
+		# una pantalla que miente, en que campo.
+		var motivo: String = ""
+		if not _player.ability_ready(ab):
+			motivo = "le quedan %d turno(s) de cooldown" % _player.ability_cd_left(ab)
+		elif ab.foco_cargas > 0 and _player.foco_cargas > 0:
+			motivo = "aún le quedan %d cargas de Foco por gastar" % _player.foco_cargas
+		elif es_conversion:
+			if _player.current_energy < ab.energia_a_mana:
+				motivo = "necesita %.0f EN y tiene %.0f" % [ab.energia_a_mana, _player.current_energy]
+		elif not _player.has_energy(coste):
+			motivo = "cuesta %.0f EN a %d mano(s) y tiene %.0f" % [coste, manos, _player.current_energy]
+		if motivo != "":
+			print("[habilidad] %s no puede lanzar %s (%s): ataca de basico" % [
+				_player.nombre, ab.nombre, motivo])
+			_set_log("%s no puede usar %s: %s. Ataca normal." % [_player.nombre, ab.nombre, motivo])
 			_accion_atacar()
 			return
 		# ATAQUE DE CARGA: si la habilidad tarda turnos en soltarse, este turno se va en ANUNCIARLA.
