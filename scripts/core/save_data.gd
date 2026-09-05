@@ -217,6 +217,13 @@ const VERSION_MUNDO := 1
 # LA CARBONERA: el combustible del farolillo. Va aparte de materiales a proposito (ver Game.carbon):
 # no pesa y no se mezcla con el material de oficio al guardar en el hogar.
 @export var carbon: Array = []
+# EL TROZO QUE ESTABA ARDIENDO al guardar: segundos que le quedaban y lo que duraba entero (para la
+# fraccion del farol del HUD). Solo dos floats: NO se guarda de que material era, que es justo lo
+# que hacia caro guardarlo. Sin esto, salir y volver dentro de la mazmorra tiraba el trozo empezado
+# y prendia otro de la carbonera nada mas cargar: el carbon se gastaba con el juego cerrado.
+# Saves viejos entran con 0.0 y se comportan como antes (prenden uno al entrar).
+@export var lampara_llama: float = 0.0
+@export var lampara_llama_total: float = 0.0
 @export var almacen_materiales: Array = []  # MaterialItem guardados en el Hogar
 # ALMACEN del hogar (baul de equipo + hucha de dinero). Persisten SIEMPRE (solo y multi). Campos
 # nuevos con default vacio: los saves viejos cargan solos sin migracion ni subir la version.

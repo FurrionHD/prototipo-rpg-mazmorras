@@ -38,6 +38,10 @@ class_name JugadorData
 @export var materiales: Array = []
 # La carbonera es SUYA, como las herramientas: el carbon que picaste lo picaste tu.
 @export var carbon: Array = []
+# Y el trozo que lleva ENCENDIDO, que tambien es suyo: si viaja al mundo compartido a media llama,
+# llega a media llama. Ver SaveData.lampara_llama.
+@export var lampara_llama: float = 0.0
+@export var lampara_llama_total: float = 0.0
 @export var consumibles: Dictionary = {}      # ruta del .tres de la pocion -> cuantas
 @export var cebo: String = ""                 # el cebo puesto en el anzuelo ("" = a pelo)
 @export var owned_mochilas: Array = []

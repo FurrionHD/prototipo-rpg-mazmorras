@@ -1774,6 +1774,10 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	crystals.clear()
 	materiales.clear()
 	carbon.clear()
+	# Y la llama, que ahora persiste: sin esto una partida nueva heredaria el trozo encendido de la
+	# anterior (el farol del HUD arrancaria a medias sin un solo carbon en la carbonera).
+	lampara_llama = 0.0
+	lampara_llama_total = 0.0
 	almacen_materiales.clear()
 	bote_dinero = 0
 	cofre_equipo.clear()
@@ -1922,6 +1926,8 @@ func exportar_partida() -> SaveData:
 	d.crystals = crystals.duplicate()
 	d.materiales = materiales.duplicate()
 	d.carbon = carbon.duplicate()
+	d.lampara_llama = lampara_llama
+	d.lampara_llama_total = lampara_llama_total
 	d.almacen_materiales = almacen_materiales.duplicate()
 	d.bote_dinero = bote_dinero
 	d.cofre_equipo = cofre_equipo.duplicate(true)
@@ -2062,6 +2068,8 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.crystals = crystals.duplicate()
 	jd.materiales = materiales.duplicate()
 	jd.carbon = carbon.duplicate()
+	jd.lampara_llama = lampara_llama
+	jd.lampara_llama_total = lampara_llama_total
 	jd.consumibles = {}
 	for c in consumables:
 		if c != null and c.resource_path != "":
@@ -2298,6 +2306,7 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	materiales.assign(jd.materiales)
 	carbon.assign(jd.carbon)
 	_migrar_carbon()
+	_restaurar_llama(jd.lampara_llama, jd.lampara_llama_total)
 	consumables.clear()
 	for ruta in jd.consumibles:
 		var c: Resource = load(ruta)
@@ -2506,6 +2515,7 @@ func importar_partida(d: SaveData) -> void:
 	materiales.assign(d.materiales)
 	carbon.assign(d.carbon)
 	_migrar_carbon()
+	_restaurar_llama(d.lampara_llama, d.lampara_llama_total)
 	almacen_materiales.assign(d.almacen_materiales)
 	bote_dinero = d.bote_dinero
 	cofre_equipo = d.cofre_equipo.duplicate(true)
@@ -4122,16 +4132,32 @@ func desequipar_herramienta(tipo: int) -> void:
 # ============================================================
 #  EL FAROLILLO: LA LLAMA Y EL CARBON
 # ============================================================
-# Segundos que le quedan de arder al trozo que hay puesto AHORA. No se guarda que trozo es: cuando
-# se acaba, se coge el siguiente de la bolsa. Un trozo empezado se pierde al cerrar el juego, y es
-# deliberado -- guardar "medio carbon" obligaria a serializar de que material era y con que
-# calidad, para una diferencia de minutos.
+# Segundos que le quedan de arder al trozo que hay puesto AHORA. No se guarda QUE trozo es (ni el
+# material ni la calidad): solo los segundos, que es lo unico que le importa ya a nadie una vez
+# encendido. Eso SI se guarda -- ver _restaurar_llama.
 var lampara_llama: float = 0.0
 # Lo que duraba ENTERO ese mismo trozo. Solo sirve para pintar: el farol del HUD necesita una
 # FRACCION (cuanto le queda de lo que tenia) y con los segundos sueltos no se puede saber -- un
-# carbon vegetal a 60 s va por la mitad y una antracita a 60 s esta agonizando. Se pierde al salir,
-# igual que lampara_llama.
+# carbon vegetal a 60 s va por la mitad y una antracita a 60 s esta agonizando. Se guarda con
+# lampara_llama, por eso mismo.
 var lampara_llama_total: float = 0.0
+
+
+# Devuelve la llama a como estaba al guardar. Lo llaman las DOS cargas (partida y JugadorData),
+# SIEMPRE despues de rellenar la carbonera.
+#
+# EL BUG QUE ARREGLA: la llama no se guardaba. Si salias del juego dentro de la mazmorra, al volver
+# lampara_llama valia 0, y lo primero que preguntaba cualquiera (el HUD, la vision) era
+# lampara_encendida(), que sin llama PRENDE UN TROZO NUEVO de la carbonera. Resultado: el trozo a
+# medias desaparecia y ademas te encontrabas un carbon menos, o sea que el farolillo parecia gastar
+# con el juego cerrado. Y el guardado dentro de la mazmorra es normal (la mazmorra persiste), asi
+# que se pagaba el peaje en cada sesion.
+func _restaurar_llama(seg: float, total: float) -> void:
+	lampara_llama = maxf(0.0, seg)
+	# Un save viejo no trae total (0.0) pero si puede traer llama, y con total a 0 el farol del HUD
+	# se pinta vacio con el carbon ardiendo. Se toma la propia llama como trozo entero: no es el
+	# numero exacto, pero la fraccion queda coherente (llena y bajando) en vez de mentir a cero.
+	lampara_llama_total = maxf(total, lampara_llama)
 
 # El carbon SOLO arde en la mazmorra. En el pueblo apagas y punto: si consumiera ahi, cada rato
 # muerto en la tienda o en la forja te costaria luz, que es cobrar por no jugar.
