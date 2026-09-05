@@ -382,14 +382,19 @@ func _process(delta: float) -> void:
 # quita al cerrarse, celda a celda y EN EL MISMO ORDEN en que se repara: las de fuera vuelven a ser
 # suelo antes que la del centro, igual que se ve.
 #
-# SOLO ESTORBA A LOS JUGADORES, y esa es la clave de que esto se pueda hacer sin romper nada. Va en
-# su propia capa (CAPA_BOQUETE), que miran el jugador y sus companeros y NO los enemigos: asi el
-# jefe puede salir del hoyo por el que acaba de reventar -- que era el problema gordo -- y los bichos
-# de un brote no se quedan atascados en su propio agujero.
+# EL BORDE DEL AGUJERO ES PARED, sin mas. Va en la MISMA capa que la roca de la mazmorra (la 1), no
+# en una suya, y eso no es un detalle: las antenas con las que los bichos esquivan muros lanzan sus
+# rayos contra esa capa (Enemy.CAPA_ROCA). En una capa aparte el obstaculo existia para la fisica
+# pero NO PARA LA IA -- el jefe chocaba contra algo que no sabia que estaba ahi y se quedaba
+# empujando el borde sin entender por que no avanzaba. Siendo pared, lo rodea como rodea cualquier
+# muro, y todo lo demas (jugador, companeros, bichos) lo trata igual sin una sola excepcion.
 #
-# Solo en el SUELO: en una pared el boquete cae sobre roca, que ya es intransitable de por si, y
-# ponerle colision encima no cambiaria nada.
-const CAPA_BOQUETE := 8
+# ¿Y como sale el jefe, si nace dentro? Su salida es una ANIMACION con el proceso congelado (ver
+# DungeonFloor._emerger): mueve la posicion directamente, asi que la colision no le frena. Sale
+# trepando y, cuando recupera el control, ya esta fuera.
+#
+# Solo en el SUELO: en una pared el boquete cae sobre roca, que ya no se cruza.
+const CAPA_BOQUETE := 1
 
 var _tapias: Array = []   # [{cuerpo: StaticBody2D, r: float}] -- 'r' es cuando le toca cerrarse
 
@@ -439,12 +444,15 @@ func _tapiar() -> void:
 	_apartar_a_quien_este_dentro()
 
 
-# A QUIEN LE REVIENTE BAJO LOS PIES. Si el jugador esta encima cuando se abre el hoyo, se queda
-# dentro de una caja de colision y no puede salir: te deja clavado hasta que se repare. Se le empuja
-# al borde mas cercano en el momento de abrirse.
+# A QUIEN LE REVIENTE BAJO LOS PIES. Si alguien esta encima cuando se abre el hoyo, se queda dentro
+# de una caja de colision y no puede salir: clavado ahi hasta que se repare. Se le empuja al borde
+# mas cercano en el mismo momento de abrirse.
 #
-# Es el motivo por el que esto no se hizo de entrada, y la razon de que ahora si se pueda: como la
-# tapia solo mira a los jugadores, basta con sacarlos a ellos.
+# JUGADORES Y BICHOS, los dos. Cuando la tapia solo estorbaba a los jugadores bastaba con sacarlos a
+# ellos; ahora el boquete es PARED DE VERDAD (misma capa que la roca) y encierra a cualquiera, asi
+# que un slime que estuviera merodeando por esa celda se quedaria emparedado en el agujero.
+#
+# El jefe no entra en esta cuenta porque todavia no ha nacido: sale despues, y sale por animacion.
 func _apartar_a_quien_este_dentro() -> void:
 	if _tapias.is_empty():
 		return
@@ -452,8 +460,12 @@ func _apartar_a_quien_este_dentro() -> void:
 	var dentro: Dictionary = {}
 	for c in _celdas:
 		dentro[c] = true
-	for quien in get_tree().get_nodes_in_group("player"):
-		if not (quien is Node2D):
+	var atrapables: Array = []
+	atrapables.append_array(get_tree().get_nodes_in_group("player"))
+	atrapables.append_array(get_tree().get_nodes_in_group("aliado"))
+	atrapables.append_array(get_tree().get_nodes_in_group("enemy"))
+	for quien in atrapables:
+		if not (quien is Node2D) or not is_instance_valid(quien):
 			continue
 		var n: Node2D = quien
 		var suya: Vector2i = Vector2i(

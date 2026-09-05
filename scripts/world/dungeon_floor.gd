@@ -1069,27 +1069,44 @@ func _mandarlo_al_hueco(e: Node2D, centro: Vector2) -> Vector2:
 
 	var mejor := centro
 	var mejor_libre: int = -1
-	var puntos: Array = []
+	var mejor_dir := Vector2.ZERO
+	# Los puntos de merodeo, apuntados POR SONDA: hay que poder quedarse solo con los del lado por el
+	# que sale (ver mas abajo).
+	var por_dir: Array = []
 	for i in BOSS_SONDAS:
 		var ang: float = TAU * float(i) / float(BOSS_SONDAS)
 		var dir := Vector2(cos(ang), sin(ang))
 		# Cuanto se puede avanzar por ahi sin salirse del suelo. Se para en la primera celda que no
 		# sea pisable: lo que se busca es hueco de verdad, no un pasillo con un recodo.
 		var libre: int = 0
+		var suyos: Array = []
 		for paso in range(1, BOSS_ALCANCE_SONDA + 1):
 			var p: Vector2 = centro + dir * float(paso) * lado
 			if not _pisable_px(p):
 				break
 			libre = paso
 			if not boquete.has(celda_de_px(p)):
-				puntos.append(p)
+				suyos.append(p)
+		por_dir.append({"dir": dir, "puntos": suyos})
 		# Solo vale la direccion que llega MAS ALLA del boquete: si no sale de el, por ahi no hay
 		# adonde ir. El hogar se pone pasado el borde y a medio camino de lo que quede -- en la punta
 		# se pegaria al muro del otro lado y volveriamos a lo mismo por el lado contrario.
 		if libre > BOSS_AVISO_RADIO and libre > mejor_libre:
 			mejor_libre = libre
+			mejor_dir = dir
 			var fuera: float = float(BOSS_AVISO_RADIO + 1)
 			mejor = centro + dir * ((fuera + (float(libre) - fuera) * 0.5) * lado)
+
+	# SOLO LOS PUNTOS DE SU LADO. Se le estaban dando los de alrededor de TODO el agujero, asi que
+	# tarde o temprano elegia uno del otro lado, tiraba en linea recta hacia el -- porque va derecho,
+	# no rodea -- y se quedaba EMPUJANDO CONTRA LA TAPIA: se le veia dar temblores pegado al borde.
+	#
+	# Quedandose con el arco por el que ha salido, todo lo que puede querer esta en su mismo lado y no
+	# tiene motivo para cruzarlo. Ciento veinte grados: bastante sitio para deambular sin rodear nada.
+	var puntos: Array = []
+	for d in por_dir:
+		if mejor_dir == Vector2.ZERO or (d["dir"] as Vector2).dot(mejor_dir) >= 0.5:
+			puntos.append_array(d["puntos"])
 	if puntos.is_empty():
 		puntos.append(centro)
 	if e.has_method("asignar_zona"):
@@ -1160,14 +1177,6 @@ func _emerger(e: Node2D, centro: Vector2, hogar: Vector2) -> void:
 		e.set_physics_process(fis)
 		e.scale = suyo
 		e.modulate = Color.WHITE
-		# Y UNA VEZ FUERA, EL AGUJERO TAMBIEN LE ESTORBA A EL. Los enemigos no miran la capa del
-		# boquete -- si la miraran, el jefe naceria atrapado dentro del hoyo por el que tiene que
-		# salir --, pero eso deja que luego se meta otra vez: se le veia deambulando por encima del
-		# negro, flotando sobre el vacio, e incluso entrando de vuelta.
-		#
-		# Asi que se le añade AL TERMINAR de salir, que es cuando ya esta a salvo en el borde. Un hoyo
-		# es un hoyo: se sale de el, y despues no se vuelve a entrar.
-		e.collision_mask |= _FX_PARTO.CAPA_BOQUETE
 
 
 # La sala mas CENTRADA del mapa. El boss no se esconde en un rincon: se planta en medio y hay

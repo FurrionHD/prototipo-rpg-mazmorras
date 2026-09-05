@@ -207,11 +207,6 @@ func _ready() -> void:
 	# companeros (companion.gd), asi que el bicho no tiene que distinguir quien lleva la corona:
 	# va a por el que tenga mas a mano.
 	add_to_group("aliado")
-	# LOS BOQUETES ESTORBAN. La capa 8 son los agujeros que deja un parto mientras se reparan: los
-	# miran los jugadores y NO los enemigos, para que el bicho pueda salir del hoyo por el que acaba
-	# de reventar. La escena no declara mascara, asi que trae la 1 por defecto (el mundo) y aqui se le
-	# suma la otra. Ver WallBirthFx.CAPA_BOQUETE.
-	collision_mask |= 8
 	# EL FUEGO DEL FAROLILLO. No hay antorchas puestas por la mazmorra: la luz la llevas TU, asi que
 	# el chisporroteo va colgado de ti. Muy flojo, que es un fondo constante y no un efecto.
 	Ambiente.pegar(self, "antorcha", -14.0, 220.0)
