@@ -170,6 +170,11 @@ func _perfilar(vistos: Dictionary) -> void:
 			var v: Vector2i = (k as Vector2i) + d
 			if por_px.has(v):
 				continue   # ahi sigue habiendo grieta: no es borde
+			# El filo va SIEMPRE un pixel fuera de la grieta, asi que puede caer al otro lado del
+			# borde de la zona: el pixel claro asomando dentro del agua canta mas que la propia
+			# grieta, porque es lo unico que contrasta ahi.
+			if not _dentro(Vector2(v) * PIXEL):
+				continue
 			# El mas TEMPRANO de los vecinos: si dos grietas comparten filo, sale con la primera.
 			var t: float = float(gordos[k])
 			if filo.has(v):
@@ -264,6 +269,13 @@ func _trazar(a: Vector2, b: Vector2, w: int, t: float, vistos: Dictionary) -> vo
 				if vistos.has(k):
 					continue
 				vistos[k] = true
+				# LA ZONA SE MIRA PIXEL A PIXEL, no solo en los extremos del segmento. El pincel es
+				# cuadrado y de hasta 3 px: un trazo que pasa rozando el borde de la zona derrama
+				# hasta un pixel de grieta al otro lado. Con la zona a "todo lo pintado" no se notaba;
+				# desde que el AGUA esta prohibida, esos pocos pixeles son justo lo que se ve raro --
+				# grieta salpicada dentro del cauce.
+				if not _dentro(Vector2(k) * PIXEL):
+					continue
 				# Su momento: lo lejos que esta del foco. El 't' que llega por parametro ya no decide,
 				# solo empuja un poco para que una rama honda no salga antes que su madre.
 				var dist: float = (Vector2(k) * PIXEL).distance_to(_foco) / _alcance

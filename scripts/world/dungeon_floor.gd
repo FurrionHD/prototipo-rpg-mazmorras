@@ -2674,6 +2674,17 @@ func celda_pintada(c: Vector2i) -> bool:
 	return false
 
 
+# ¿Por esta celda corre AGUA? Riachuelo, sumidero o el charco de pescar. Lo pregunta la GRIETA, que
+# es lo unico que se dibuja por encima de todo lo que hay pintado: la piedra se raja, el agua no, y
+# ver una grieta cruzando la corriente rompe la escena entera.
+#
+# El charco va con margen 0: la ORILLA es tierra y ahi la grieta si tiene sentido.
+func celda_con_agua(c: Vector2i) -> bool:
+	if _celdas_agua.has(c) or _celdas_sumidero.has(c):
+		return true
+	return celda_en_estanque(c, 0)
+
+
 func soltar_celdas_rotas(celdas: Array) -> void:
 	for c in celdas:
 		_celdas_rotas.erase(c)

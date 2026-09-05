@@ -188,6 +188,12 @@ func _zona_de_grietas() -> Array:
 					continue
 				if _piso != null and _piso.has_method("celda_pintada") and not _piso.celda_pintada(v):
 					continue
+				# NI SOBRE EL AGUA. El riachuelo y el charco estan PINTADOS, asi que pasaban el filtro
+				# de arriba y la grieta los cruzaba tan tranquila: una raja de piedra dibujada encima
+				# de la corriente, que ademas se ve por encima del agua animada porque las grietas van
+				# las ultimas de todo. Lo que se raja es la roca; el agua ni se raja ni se tapa.
+				if _piso != null and _piso.has_method("celda_con_agua") and _piso.celda_con_agua(v):
+					continue
 				out[v] = true
 	return out.keys()
 
@@ -309,6 +315,13 @@ func romper() -> void:
 func _caras_de(celdas: Array[Vector2i]) -> Array:
 	var out: Array = []
 	for c in celdas:
+		# NI CARA NI BOQUETE SOBRE EL AGUA, por lo mismo que la grieta no corre por ahi: el hueco de
+		# piedra pintado sobre la corriente se lee como un borron, no como un agujero. Un parto del
+		# jefe en el suelo si puede caer sobre el cauce, asi que la comprobacion va ANTES del atajo
+		# del suelo, que devuelve true a ciegas.
+		if _piso != null and _piso.has_method("celda_con_agua") and _piso.celda_con_agua(c):
+			out.append(false)
+			continue
 		# EL SUELO SIEMPRE LLEVA AGUJERO. Se mira cenital, asi que un boquete en el suelo se ve entero
 		# y no hay "cara" que valga. La comprobacion de abajo es SOLO para el muro -- y preguntandosela
 		# al suelo salia que NO para todas (debajo de una celda de suelo hay otra celda de suelo), asi
