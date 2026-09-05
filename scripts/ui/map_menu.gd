@@ -321,7 +321,7 @@ func _dibujar() -> void:
 	# mandan al orientarse) pero despues de los nodos, para que ninguna marca de veta se le pierda
 	# encima del azul. Con .get(): los mapas cartografiados antes de esto no traen la clave.
 	for est in (snap.get("estanques", []) as Array):
-		_estanque(offset, celda_px, font, est["cell"], est["tam"])
+		_estanque(offset, celda_px, font, est["cell"], est["tam"], est.get("celdas", []))
 
 	# 5) ESCALERAS y SALIDAS: los puntos por los que de verdad te orientas. Van los ULTIMOS para que
 	# no los tape ningun nodo ni su cuenta atras. Con .get(): los mapas de saves viejos no tienen
@@ -334,13 +334,27 @@ func _dibujar() -> void:
 		_hito(offset, celda_px, font, celda_salida, COLOR_PUEBLO, "PUEBLO")
 
 
-# EL CHARCO. A diferencia de un hito de una celda, este se pinta a su TAMAÑO REAL (4x3 celdas): en
-# el plano hay que reconocer la balsa por su mancha, igual que en el suelo. La celda que se guarda es
-# su CENTRO (ver FishingSpot.celda), asi que hay que restarle la mitad para dar con la esquina.
-func _estanque(offset: Vector2, celda_px: float, font: Font, centro: Vector2i, tam: Vector2i) -> void:
+# EL CHARCO. A diferencia de un hito de una celda, este se pinta CON SU FORMA: en el plano hay que
+# reconocer la balsa por su mancha, igual que en el suelo. La celda que se guarda es su CENTRO (ver
+# FishingSpot.celda), asi que hay que restarle la mitad para dar con la esquina.
+#
+# Los mapas cartografiados ANTES de que el charco tuviera forma no traen `celdas`: esos se siguen
+# pintando como el rectangulo de entonces, y se arreglan solos la proxima vez que se cartografie.
+func _estanque(offset: Vector2, celda_px: float, font: Font, centro: Vector2i, tam: Vector2i,
+		celdas: Variant) -> void:
 	var esquina: Vector2i = centro - Vector2i(tam.x / 2, tam.y / 2)
 	var p: Vector2 = offset + Vector2(esquina) * celda_px
-	_lienzo.draw_rect(Rect2(p, Vector2(tam) * celda_px), COLOR_AGUA)
+	var lista := celdas as PackedVector2Array if celdas is PackedVector2Array else PackedVector2Array()
+	if lista.is_empty():
+		_lienzo.draw_rect(Rect2(p, Vector2(tam) * celda_px), COLOR_AGUA)
+	else:
+		# El rotulo se ancla a la esquina de lo que OCUPA el agua, no a la primera celda de la lista:
+		# el diccionario no viene ordenado y "PESCA" saldria en un sitio distinto cada vez.
+		var arriba: Vector2 = lista[0]
+		for c in lista:
+			_lienzo.draw_rect(Rect2(offset + c * celda_px, Vector2(celda_px, celda_px)), COLOR_AGUA)
+			arriba = arriba.min(c)
+		p = offset + arriba * celda_px
 	_lienzo.draw_string(font, p + Vector2(0.0, -celda_px * 0.3), "PESCA",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, COLOR_AGUA)
 

@@ -62,8 +62,13 @@
 #
 #  En SOLITARIO no cambia nada: Net.simulo_mi_piso() devuelve true y todo corre como siempre.
 #
-#  Aspecto placeholder por codigo (el arte va al final): el agua es un ColorRect y cada pez es un
-#  rectangulo alargado mas oscuro que el agua, con el largo sacado de sus centimetros.
+#  EL AGUA NO SE PINTA AQUI. La pinta el TileMapLayer del piso, con la MISMA capa "agua" que el
+#  riachuelo (ver Decorado._trazar_lago): por eso el charco tiene forma, ondas y orilla, y por eso
+#  la junta con el riachuelo no existe en vez de disimularse. Lo que queda aqui es la FORMA como
+#  dato (`celdas`, y hay_agua() para preguntarle), la colision, los peces, el hilo y el corcho.
+#
+#  Los peces siguen siendo un rectangulo alargado mas oscuro que el agua, con el largo sacado de sus
+#  centimetros. Eso si es placeholder todavia.
 # ============================================================
 
 extends Node2D
@@ -73,6 +78,13 @@ enum { LIBRE, APUNTANDO, LANZANDO, ESPERA, PICANDO, TIRON, LUCHA, COBRO }
 # --- Lo que le pone DungeonFloor al crearlo ---
 var celda: Vector2i = Vector2i.ZERO
 var tam_celdas: Vector2i = Vector2i(4, 3)
+# LA FORMA DEL AGUA, en celdas absolutas del mapa (la calcula Decorado.forma_lago). El charco dejo
+# de ser un rectangulo, asi que esta es la unica fuente de verdad de "¿aqui hay agua?": la MISMA
+# rejilla que dibuja las baldosas, y por eso nunca puede haber desacuerdo entre lo que se ve y
+# donde se puede pescar.
+var celdas: Dictionary = {}
+# El corazon del lago: donde el agua es honda y donde un pez cabe seguro. Ahi nacen.
+var celdas_hondas: Dictionary = {}
 var tabla: MaterialTable = null
 
 # --- Peces nadando: [{rect: ColorRect, data, cm, vel: Vector2, largo, alto}] ---
@@ -308,6 +320,105 @@ func tam_px() -> Vector2:
 	return Vector2(tam_celdas) * float(DungeonGenerator.CELDA)
 
 
+# ============================================================
+#  LA FORMA DEL AGUA
+# ============================================================
+# El charco tiene forma, asi que "¿esto esta dentro del agua?" ya no se contesta con un Rect2. Se
+# contesta MIRANDO LA CELDA, que es la misma rejilla con la que se pintan las baldosas: lo que se
+# ve y lo que se puede pescar no pueden discrepar porque son el mismo dato.
+#
+# Todo lo de aqui trabaja en PIXELES LOCALES (el origen es el centro del charco). El +0.5 del
+# redondeo no es cosmetico: `position = gen.centro_px(celda)`, o sea que el origen local cae en el
+# CENTRO de su celda y no en su esquina. Sin ese medio pixel, la rejilla logica sale corrida media
+# celda de la que se dibuja.
+var _centro_agua: Vector2 = Vector2.ZERO    # centroide del agua, pegado a una celda mojada
+var _aabb: Rect2 = Rect2()                  # lo que ocupa el agua, en px locales
+var _hondas_px: Array[Vector2] = []         # centros de las celdas hondas, para ahi nacer los peces
+
+
+func _celda_de(p: Vector2) -> Vector2i:
+	var cl: float = float(DungeonGenerator.CELDA)
+	return celda + Vector2i(floori(p.x / cl + 0.5), floori(p.y / cl + 0.5))
+
+
+func _px_de(c: Vector2i) -> Vector2:
+	return Vector2(c - celda) * float(DungeonGenerator.CELDA)
+
+
+func hay_agua(p: Vector2) -> bool:
+	return celdas.has(_celda_de(p))
+
+
+func hay_hondo(p: Vector2) -> bool:
+	return celdas_hondas.has(_celda_de(p))
+
+
+# El rectangulo de siempre, para cuando nadie ha dado la forma (ver _crear_aspecto).
+func _rellenar_forma_rectangular() -> void:
+	var mitad := Vector2i(tam_celdas.x / 2, tam_celdas.y / 2)
+	for dx in tam_celdas.x:
+		for dy in tam_celdas.y:
+			celdas[celda - mitad + Vector2i(dx, dy)] = true
+	if celdas_hondas.is_empty():
+		celdas_hondas[celda] = true
+
+
+# El centroide, el bounding box y la lista de celdas hondas. Se calcula UNA vez: la forma no cambia.
+func _medir_agua() -> void:
+	var cl: float = float(DungeonGenerator.CELDA)
+	var suma := Vector2.ZERO
+	var min_c := Vector2(INF, INF)
+	var max_c := Vector2(-INF, -INF)
+	for c in celdas:
+		var p: Vector2 = _px_de(c)
+		suma += p
+		min_c = min_c.min(p - Vector2(cl, cl) * 0.5)
+		max_c = max_c.max(p + Vector2(cl, cl) * 0.5)
+	_aabb = Rect2(min_c, max_c - min_c)
+	var centroide: Vector2 = suma / float(celdas.size())
+	# PEGADO A UNA CELDA MOJADA, no el centroide a secas: en un lago con una cala en medio el
+	# centroide puede caer en tierra, y este punto es el "sitio del agua que siempre vale" que usan
+	# la mira y el lanzamiento por defecto.
+	_centro_agua = centroide
+	var mejor: float = INF
+	for c in celdas:
+		var p: Vector2 = _px_de(c)
+		var d: float = p.distance_squared_to(centroide)
+		if d < mejor:
+			mejor = d
+			_centro_agua = p
+	_hondas_px.clear()
+	for c in celdas_hondas:
+		_hondas_px.append(_px_de(c))
+	if _hondas_px.is_empty():
+		_hondas_px.append(_centro_agua)
+
+
+# El agua troceada en tiras horizontales de celdas contiguas, en px locales. Es como se monta la
+# colision: menos formas que una por celda, y describe el mismo borde.
+func _tiras_de_agua() -> Array[Rect2]:
+	var cl: float = float(DungeonGenerator.CELDA)
+	var filas: Dictionary = {}
+	for c in celdas:
+		var f: int = c.y
+		if not filas.has(f):
+			filas[f] = []
+		(filas[f] as Array).append(c.x)
+	var tiras: Array[Rect2] = []
+	for f in filas:
+		var xs: Array = filas[f]
+		xs.sort()
+		var i: int = 0
+		while i < xs.size():
+			var j: int = i
+			while j + 1 < xs.size() and int(xs[j + 1]) == int(xs[j]) + 1:
+				j += 1
+			var izq: Vector2 = _px_de(Vector2i(int(xs[i]), int(f))) - Vector2(cl, cl) * 0.5
+			tiras.append(Rect2(izq, Vector2(cl * float(j - i + 1), cl)))
+			i = j + 1
+	return tiras
+
+
 # Cuanto SOBRESALE el charco de su centro. Lo lee player._mas_cercano_en_grupo para medir la
 # distancia contra el BORDE del agua y no contra su centro: si no, un charco de 4x3 celdas te
 # obligaria a meterte dentro para que la F llegase.
@@ -317,23 +428,41 @@ var radio_extra: float:
 
 func _crear_aspecto() -> void:
 	var tam: Vector2 = tam_px()
-	_agua = ColorRect.new()
-	_agua.size = tam
-	_agua.position = -tam * 0.5
-	_agua.color = Color(0.11, 0.19, 0.30, 0.85)
-	add_child(_agua)
+	# EL AGUA YA NO SE PINTA AQUI: la pinta el TileMapLayer del piso, con la misma capa "agua" que
+	# el riachuelo (ver Decorado._trazar_lago y TerrenoSprites._pintar_agua). Lo que habia era un
+	# ColorRect de un color plano, y se veia como lo que era.
+	#
+	# EL CHARCO DE EMERGENCIA. Si nadie le ha dado la forma (un piso construido por un camino que no
+	# pasa por Decorado, un save raro), se cae al rectangulo de siempre CON su ColorRect. Degradar
+	# al charco viejo es feo pero se juega; degradar a un charco INVISIBLE con colision es un bug de
+	# campo imposible de diagnosticar -- el jugador ve suelo y choca contra la nada.
+	if celdas.is_empty():
+		push_warning("[pesca] el charco no ha recibido su forma: se cae al rectangulo")
+		_rellenar_forma_rectangular()
+		_agua = ColorRect.new()
+		_agua.size = tam
+		_agua.position = -tam * 0.5
+		_agua.color = Color(0.11, 0.19, 0.30, 0.85)
+		add_child(_agua)
+	_medir_agua()
 
 	# MURO INVISIBLE. El charco es agua, no suelo: se pesca DESDE LA ORILLA y no metido dentro. Es
 	# la excepcion a la regla de resource_node.gd ("los recolectables no tienen colision, estorbar no
 	# es interesante"): aqui la colision no estorba, DEFINE el sitio -- sin ella el jugador se planta
 	# encima de los peces y el hilo, y toda la puesta en escena deja de tener sentido.
 	# Capa por defecto, la misma que los muros del piso (ver DungeonFloor._construir_geometria).
+	#
+	# UNA CAJA POR TIRA HORIZONTAL de celdas y no una por celda: un lago de veinte celdas se cubre
+	# con cuatro o cinco cajas en vez de veinte. Y no un CollisionPolygon2D, que seria concavo (hay
+	# calas) y habria que descomponerlo, para acabar describiendo el mismo borde de rejilla.
 	var cuerpo := StaticBody2D.new()
-	var forma := RectangleShape2D.new()
-	forma.size = tam
-	var col := CollisionShape2D.new()
-	col.shape = forma
-	cuerpo.add_child(col)
+	for tira in _tiras_de_agua():
+		var forma := RectangleShape2D.new()
+		forma.size = tira.size
+		var col := CollisionShape2D.new()
+		col.shape = forma
+		col.position = tira.get_center()
+		cuerpo.add_child(col)
 	add_child(cuerpo)
 
 	_lbl = Label.new()
@@ -583,11 +712,21 @@ func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
 	rect.color = Color(0.04, 0.07, 0.12, 0.45)
 	add_child(rect)
 
-	var margen: float = largo * 0.5 + 1.0
-	var pos := Vector2(
-		r.randf_range(-tam_agua.x * 0.5 + margen, tam_agua.x * 0.5 - margen),
-		r.randf_range(-tam_agua.y * 0.5 + margen, tam_agua.y * 0.5 - margen))
+	# DONDE NACE: en una celda del CORAZON del lago (las que no tocan tierra), que es donde un pez
+	# cabe seguro. Se comprueban sus dos puntas y, si no cabe, se prueba otra celda.
+	#
+	# OJO AL ORDEN DE LAS TIRADAS: todo esto va DESPUES de `tabla.elegir` y de `tirada_talla`, que
+	# son las dos que _nacer_pez_espejo repite letra por letra del stream sembrado. Una tirada nueva
+	# metida ANTES le cambiaria al invitado la especie y la talla, y sin dar ningun error.
 	var ang: float = r.randf() * TAU
+	var pos: Vector2 = _centro_agua
+	for _intento in 8:
+		var base: Vector2 = _hondas_px[r.randi_range(0, _hondas_px.size() - 1)]
+		var cl: float = float(DungeonGenerator.CELDA) * 0.5 - 2.0
+		var tanteo: Vector2 = base + Vector2(r.randf_range(-cl, cl), r.randf_range(-cl, cl))
+		if _cabe(tanteo, Vector2.from_angle(ang), largo):
+			pos = tanteo
+			break
 	var vel: float = VEL_PEZ + r.randf_range(-VEL_PEZ_VAR, VEL_PEZ_VAR)
 	_peces.append({
 		"rect": rect, "data": d, "cm": cm, "largo": largo, "alto": alto,
@@ -604,13 +743,21 @@ func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
 	_colocar(_peces.back())
 
 
+# ¿Cabe el pez ahi, con ese rumbo? Se miran el centro y las dos puntas: un pez es un segmento, no
+# un punto, y el morro es justo lo que se salia del agua cuando esto se medía por ejes.
+func _cabe(pos: Vector2, vel: Vector2, largo: float) -> bool:
+	if not hay_agua(pos):
+		return false
+	var dir: Vector2 = vel.normalized() * (largo * 0.5)
+	return hay_agua(pos + dir) and hay_agua(pos - dir)
+
+
 func _colocar(p: Dictionary) -> void:
 	var rect: ColorRect = p["rect"]
 	rect.position = (p["pos"] as Vector2) - rect.size * 0.5
 
 
 func _nadar(delta: float) -> void:
-	var tam: Vector2 = tam_px()
 	for p in _peces:
 		# El pez ENGANCHADO no deambula: se queda forcejeando junto al corcho. Vale tanto para el mio
 		# como para el que este peleando un compañero (p["de"] != 0): mientras alguien lo tiene en el
@@ -641,18 +788,31 @@ func _nadar(delta: float) -> void:
 				p["vel"] = v.rotated(randf_range(-1.1, 1.1))
 				p["t_giro"] = randf_range(GIRO_MIN, GIRO_MAX)
 		var pos: Vector2 = (p["pos"] as Vector2) + (p["vel"] as Vector2) * delta
-		# Rebote en las paredes del charco. El margen es MEDIO LARGO EN LOS DOS EJES, no largo en x
-		# y alto en y: el pez esta GIRADO, asi que nadando en diagonal su morro ocupa en vertical
-		# casi tanto como su largo. Midiendolo por ejes, una anguila cruzando en diagonal se salia
-		# del agua por la punta.
-		var margen: float = float(p["largo"]) * 0.5 + 1.0
-		var lim: Vector2 = (tam * 0.5 - Vector2(margen, margen)).maxf(2.0)
-		if absf(pos.x) > lim.x:
-			pos.x = clampf(pos.x, -lim.x, lim.x)
-			p["vel"] = Vector2(-(p["vel"] as Vector2).x, (p["vel"] as Vector2).y)
-		if absf(pos.y) > lim.y:
-			pos.y = clampf(pos.y, -lim.y, lim.y)
-			p["vel"] = Vector2((p["vel"] as Vector2).x, -(p["vel"] as Vector2).y)
+		# REBOTE contra la orilla de verdad. Antes era un clamp a los lados del rectangulo con un
+		# margen de MEDIO LARGO en los dos ejes -- isotropo porque el pez esta GIRADO y en diagonal
+		# su morro ocupa en vertical casi tanto como su largo.
+		#
+		# Ahora se prueban las DOS PUNTAS del pez contra el agua, que es la pregunta que aquel margen
+		# aproximaba. Sale mejor y no solo compatible: la anguila puede acercarse de verdad a la
+		# orilla en vez de nadar dentro de un rectangulo encogido medio metro por su propio largo.
+		if not _cabe(pos, p["vel"], float(p["largo"])):
+			# El paso se CANCELA en vez de recortarse: recortando, un pez podia quedarse con el morro
+			# metido en tierra hasta que el rumbo nuevo lo sacara.
+			var v: Vector2 = p["vel"]
+			var paso: float = float(p["largo"]) * 0.5 + 2.0
+			var seco_x: bool = not hay_agua((p["pos"] as Vector2) + Vector2(signf(v.x) * paso, 0.0))
+			var seco_y: bool = not hay_agua((p["pos"] as Vector2) + Vector2(0.0, signf(v.y) * paso))
+			# Si no da seco por ninguno de los dos (una cala en diagonal), se invierten los dos: dar
+			# media vuelta siempre saca de donde se ha entrado.
+			if not seco_x and not seco_y:
+				seco_x = true
+				seco_y = true
+			p["vel"] = Vector2(-v.x if seco_x else v.x, -v.y if seco_y else v.y)
+			pos = p["pos"]
+			# Ultimo recurso: si ya estaba en seco (una celda que se ha quedado aislada), se le
+			# empuja al corazon del lago en vez de dejarlo temblando contra la pared.
+			if not hay_agua(pos):
+				pos = pos.move_toward(_centro_agua, maxf(1.0, (p["vel"] as Vector2).length() * delta))
 		p["pos"] = pos
 		# El cuerpo se orienta con el rumbo: asi la anguila se lee como anguila al cruzar el charco.
 		(p["rect"] as ColorRect).rotation = (p["vel"] as Vector2).angle()
@@ -737,7 +897,9 @@ func empezar_apuntado() -> void:
 
 	# La mira nace mirando de TI al centro del agua, que es el tiro que siempre vale. A/D la abren
 	# desde ahi hasta ANGULO_MAX a cada lado.
-	_ang_base = (-_origen_hilo()).angle()
+	# Al CENTRO DEL AGUA y no al origen local (que es el centro del rectangulo): con forma organica
+	# ese punto puede caer en una cala seca, y la apertura de la mira se abriria centrada en tierra.
+	_ang_base = (_centro_agua - _origen_hilo()).angle()
 	_ang = _ang_base
 	_fuerza = 0.0
 	_estado = APUNTANDO
@@ -1127,7 +1289,9 @@ func _volver_a_apuntar() -> void:
 
 	# Se conserva el ANGULO (estas trabajando el mismo sitio del agua: re-apuntar a mano despues de
 	# cada pez seria el mismo peaje por otro camino) y se tira la FUERZA, que es la decision del tiro.
-	_ang_base = (-_origen_hilo()).angle()
+	# Al CENTRO DEL AGUA y no al origen local (que es el centro del rectangulo): con forma organica
+	# ese punto puede caer en una cala seca, y la apertura de la mira se abriria centrada en tierra.
+	_ang_base = (_centro_agua - _origen_hilo()).angle()
 	_ang = _ang_base + clampf(angle_difference(_ang_base, _ang), -ANGULO_MAX, ANGULO_MAX)
 	if _tramo_de_agua(_ang).x < 0.0:
 		_ang = _ang_base   # por si el angulo de antes ya no corta el agua
@@ -1282,34 +1446,39 @@ func _origen_hilo() -> Vector2:
 # EL TRAMO DE AGUA que atraviesa un tiro en ese angulo: (t de entrada, t de salida) en px desde la
 # punta de la caña. Devuelve (-1, -1) si ese angulo NO corta la balsa.
 #
-# Es la interseccion clasica rayo-rectangulo por "slabs", contra el agua encogida MIRA_MARGEN por
-# cada lado. Todo el lanzamiento cuelga de esto: como el punto se elige DENTRO del tramo, el corcho
-# no puede caer fuera del agua por construccion y no hace falta ningun clamp que falsee la mira.
+# Era la interseccion rayo-RECTANGULO por slabs. Ahora el agua tiene forma, asi que se recorre el
+# rayo a pasos cortos preguntandole a hay_agua(). Sigue siendo la pieza de la que cuelga todo el
+# lanzamiento: como el punto se elige DENTRO del tramo, el corcho no puede caer fuera del agua por
+# construccion, sin ningun clamp que falsee la mira.
+#
+# SE DEVUELVE EL PRIMER TRAMO CONTIGUO, no de la primera a la ultima gota de agua del rayo. Es lo
+# que hace falta ahora que hay calas: si un tiro roza una lengua de tierra y vuelve a entrar al agua
+# por detras, con el tramo entero la barra llena mandaria el corcho al otro lado de la tierra.
+const MARCHA_PASO := 3.0
+const MARCHA_MAX := 900.0
+
 func _tramo_de_agua(ang: float) -> Vector2:
-	var lim: Vector2 = tam_px() * 0.5 - Vector2(MIRA_MARGEN, MIRA_MARGEN)
-	if lim.x <= 0.0 or lim.y <= 0.0:
-		return Vector2(-1.0, -1.0)
 	var ini: Vector2 = _origen_hilo()
 	var dir: Vector2 = Vector2.from_angle(ang)
-	var t0: float = -INF
-	var t1: float = INF
-	for eje in 2:
-		var d: float = dir.x if eje == 0 else dir.y
-		var o: float = ini.x if eje == 0 else ini.y
-		var l: float = lim.x if eje == 0 else lim.y
-		if absf(d) < 0.0001:
-			# Paralelo a este eje: o ya estas dentro de la franja, o no entras nunca.
-			if absf(o) > l:
-				return Vector2(-1.0, -1.0)
-			continue
-		var ta: float = (-l - o) / d
-		var tb: float = (l - o) / d
-		t0 = maxf(t0, minf(ta, tb))
-		t1 = minf(t1, maxf(ta, tb))
-	t0 = maxf(t0, 0.0)
-	if t1 <= t0:
+	var t: float = 0.0
+	var entra: float = -1.0
+	while t <= MARCHA_MAX:
+		if hay_agua(ini + dir * t):
+			if entra < 0.0:
+				entra = t
+		elif entra >= 0.0:
+			break         # se acabo el primer tramo: lo de mas alla ya no es este charco
+		t += MARCHA_PASO
+	if entra < 0.0:
 		return Vector2(-1.0, -1.0)
-	return Vector2(t0, t1)
+	var sale: float = minf(t, MARCHA_MAX)
+	# Encogido por los dos extremos para que el corcho no quede pegado al canto de la baldosa, que es
+	# lo que hacia MIRA_MARGEN cuando esto era un rectangulo.
+	entra += MIRA_MARGEN
+	sale -= MIRA_MARGEN
+	if sale <= entra:
+		return Vector2(-1.0, -1.0)
+	return Vector2(entra, sale)
 
 
 # DONDE CAE EL CORCHO con la fuerza cargada ahora mismo. Fuerza 0 cae justo pasada la orilla (ver
@@ -1317,7 +1486,10 @@ func _tramo_de_agua(ang: float) -> Vector2:
 func _punto_de_tiro(ang: float) -> Vector2:
 	var tramo: Vector2 = _tramo_de_agua(ang)
 	if tramo.x < 0.0:
-		return Vector2.ZERO   # angulo imposible: al centro del agua, que siempre vale
+		# Angulo imposible: al centro del agua. Y `_centro_agua` y no Vector2.ZERO, porque el origen
+		# local es el centro del RECTANGULO y con forma organica ese punto puede caer en una cala
+		# seca -- el corcho aterrizaria en tierra sin que nadie se quejara.
+		return _centro_agua
 	var cerca: float = tramo.x + (tramo.y - tramo.x) * TIRO_MIN
 	return _origen_hilo() + Vector2.from_angle(ang) * lerpf(cerca, tramo.y, clampf(_fuerza, 0.0, 1.0))
 

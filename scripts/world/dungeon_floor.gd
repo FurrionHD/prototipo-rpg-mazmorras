@@ -558,6 +558,11 @@ var _trans := Transicion.new()
 # Si en este piso hay roca de estilo CUEVA (su borde ondula y no llena la celda).
 var _estilo_cueva: bool = false
 var _celdas_agua: Dictionary = {}
+# EL LAGO, aparte de _celdas_agua aunque este dentro de ella: `agua` es lo que se PINTA (y ahi el
+# lago y el riachuelo son lo mismo), `lago` es donde se PESCA. Ver Decorado.
+var _celdas_lago: Dictionary = {}
+var _celdas_hondo: Dictionary = {}
+var _lago_d1: Dictionary = {}
 var _celdas_sumidero: Dictionary = {}
 
 
@@ -697,10 +702,20 @@ func _decorar() -> void:
 	# Las FLORES que alumbran son cosa de la cueva: en la mazmorra picada de arriba no hay.
 	d.generar(gen, _celda_estanque, ESTANQUE_CELDAS, sem, _estilo_cueva)
 	_celdas_musgo = d.musgo
+	# `agua` YA TRAE EL LAGO dentro: el charco y el riachuelo son la misma capa a proposito, que es
+	# lo que hace que la junta entre los dos no exista (ver Decorado._trazar_lago).
 	_celdas_agua = d.agua
+	_celdas_lago = d.lago
+	_celdas_hondo = d.lago_hondo
+	# El lago engordado una celda, para el merodeo de los enemigos (ver celda_en_estanque). Se
+	# precalcula porque lo pregunta CADA bicho del piso cada vez que elige a donde ir.
+	_lago_d1 = Decorado._dilatar(_celdas_lago, 1)
 	_celdas_sumidero = d.sumidero
 	_celdas_flor = d.flor
 	_pintar_capa("agua", _celdas_agua, sem)
+	# El fondo del lago va JUSTO DETRAS del agua: es un velo que la ahonda, y tiene que quedar
+	# debajo de todo lo demas que se pinte encima.
+	_pintar_capa("hondo", _celdas_hondo, sem)
 	_pintar_capa("sumidero", _celdas_sumidero, sem)
 	_pintar_capa("musgo", _celdas_musgo, sem)
 	# La flor va DESPUES del musgo: crece en el.
@@ -1293,6 +1308,12 @@ func _crear_estanque() -> void:
 	var n: Node2D = _fishing_script.new()
 	n.celda = _celda_estanque
 	n.tam_celdas = ESTANQUE_CELDAS
+	# LA FORMA DEL AGUA, que ya no es el rectangulo: el charco la necesita para saber donde puede
+	# caer el corcho y por donde nadan los peces. La reserva de _ocupada de arriba SI se queda con
+	# el rectangulo entero -- reservar de mas no rompe nada y evita que una veta caiga en una cala
+	# seca de dos celdas donde luego no cabe.
+	n.celdas = _celdas_lago
+	n.celdas_hondas = _celdas_hondo
 	n.tabla = tabla_peces
 	n.position = gen.centro_px(_celda_estanque)
 	# Cuelga del PADRE (Main) y no del piso: el piso va a z_index -1 y el agua tiene que verse por
@@ -1310,13 +1331,18 @@ func _crear_estanque() -> void:
 #
 # El MARGEN de 1 celda es a proposito: sin el, el destino cae justo pegado al agua y el bicho acaba
 # igualmente rozandola. Y esto NO lo mira _chase(): el que te persigue entra detras de ti.
+#
+# Ya NO es un rectangulo: el lago tiene forma, asi que la pregunta se le hace a sus celdas de
+# verdad. El margen de 1 va por _lago_d1, precalculado en _decorar, porque esto lo consulta cada
+# bicho del piso cada vez que elige a donde ir.
 func celda_en_estanque(celda: Vector2i, margen: int = 1) -> bool:
-	if _celda_estanque == Vector2i.MAX:
+	if _celdas_lago.is_empty():
 		return false
-	var mitad := Vector2i(ESTANQUE_CELDAS.x / 2, ESTANQUE_CELDAS.y / 2)
-	var esquina: Vector2i = _celda_estanque - mitad - Vector2i(margen, margen)
-	var tam: Vector2i = ESTANQUE_CELDAS + Vector2i(margen, margen) * 2
-	return Rect2i(esquina, tam).has_point(celda)
+	if margen <= 0:
+		return _celdas_lago.has(celda)
+	if margen == 1:
+		return _lago_d1.has(celda)
+	return Decorado._dilatar(_celdas_lago, margen).has(celda)
 
 
 # ------------------------------------------------------------

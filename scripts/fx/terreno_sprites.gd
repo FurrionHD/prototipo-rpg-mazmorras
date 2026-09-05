@@ -64,7 +64,7 @@ enum Clase { BASE, MASCARA }
 # ============================================================
 # El orden de CAPAS_ORDEN fija el reparto del atlas. Añadir una capa AL FINAL no mueve a las de
 # arriba, o sea que un horneado viejo de otra capa sigue valiendo mientras se desarrolla.
-const CAPAS_ORDEN := ["suelo", "muro", "musgo", "agua", "sumidero", "columna", "flor"]
+const CAPAS_ORDEN := ["suelo", "muro", "musgo", "agua", "sumidero", "columna", "flor", "hondo"]
 
 # ------------------------------------------------------------
 #  'bloque': POR QUE LA TEXTURA NO SE VE A CUADROS
@@ -96,6 +96,18 @@ const CAPAS := {
 	# El agua va a bloque 2 y no 4: son CUATRO frames por baldosa, asi que subirla a 16 trozos
 	# multiplicaria el atlas por cuatro. Y se le nota menos: la corriente ya esta moviendose.
 	"agua": {"clase": Clase.MASCARA, "bloque": 2, "frames": 4, "overlay": true},
+	# EL FONDO DEL LAGO. Un rio corre y se ve entero; un lago tiene HONDO, y sin eso una lamina de
+	# agua quieta se lee como una alfombra azul. Esto es el velo que la ahonda por el centro.
+	#
+	# Va en su propia capa y no dentro de "agua" porque la mascara del autotile son CUATRO BITS que
+	# dicen "por donde tengo borde", no "cuanto de dentro estoy": la profundidad no cabe ahi. Y va
+	# ENCIMA del agua, no debajo, porque lo que oscurece es la lamina entera vista desde arriba.
+	#
+	# Y va a UN frame, no a cuatro, aunque el agua de debajo se mueva: es un velo translucido y la
+	# corriente se ve a traves de el. Eso mismo es lo que hace que el lago parezca QUIETO mientras
+	# el riachuelo corre, siendo los dos la misma capa de agua. De propina cuesta 8 filas de atlas
+	# en vez de 32, que importa porque el atlas se hornea cinco veces.
+	"hondo": {"clase": Clase.MASCARA, "bloque": 2, "frames": 1, "overlay": true},
 	# EL DESAGUE. Existe por una regla de diseño: el agua NUNCA puede terminar en seco. Un
 	# riachuelo sale de una pared y tiene que acabar en el lago, meterse en otra pared o colarse
 	# por un sumidero. Sin esta pieza, la tercera salida no existe y el trazado se queda sin
@@ -226,6 +238,15 @@ const PALETAS := {
 			Color(0.100, 0.225, 0.340), Color(0.145, 0.300, 0.420),
 			Color(0.230, 0.420, 0.530),
 		],
+		# EL FONDO DEL LAGO. Va POR DEBAJO del agua en tono aunque se pinte por ENCIMA: es un velo
+		# que se traga la luz, no otro color de agua. Por eso arranca casi en negro y ni su escalon
+		# mas claro llega al mas oscuro de "agua" -- si se cruzaran, el centro del lago se leeria
+		# como otra cosa flotando dentro y no como el mismo agua, mas honda.
+		"hondo": [
+			Color(0.010, 0.022, 0.040), Color(0.016, 0.034, 0.058),
+			Color(0.022, 0.046, 0.076), Color(0.028, 0.058, 0.094),
+			Color(0.036, 0.072, 0.114),
+		],
 	},
 	# CUEVA VIVA (pisos 7+). La de arriba es una mazmorra de piedra picada, gris y seca; esta es
 	# roca natural, humeda y FRIA. Tres decisiones deliberadas:
@@ -281,6 +302,14 @@ const PALETAS := {
 			Color(0.042, 0.102, 0.148), Color(0.058, 0.145, 0.205),
 			Color(0.080, 0.196, 0.268), Color(0.115, 0.258, 0.342),
 			Color(0.180, 0.360, 0.455),
+		],
+		# El fondo de la cueva tira al turquesa como todo lo de aqui abajo, pero MENOS oscuro que el
+		# de la roca: en una gruta el agua es lo unico que refleja algo, y un pozo negro en medio
+		# romperia eso justo donde mas se mira.
+		"hondo": [
+			Color(0.008, 0.026, 0.038), Color(0.013, 0.040, 0.056),
+			Color(0.019, 0.056, 0.076), Color(0.025, 0.072, 0.096),
+			Color(0.033, 0.090, 0.118),
 		],
 	},
 }
@@ -662,6 +691,42 @@ static func _pintar_agua(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, 
 			_poner(d, W, o.x + x, o.y + y, col)
 
 
+# HONDO: el fondo del lago. Un velo oscuro y translucido sobre el CORAZON del agua (las celdas que
+# no tocan tierra por ningun lado), con el agua animada viendose por debajo.
+#
+# TRES numeros y los tres dicen lo mismo: QUE NO SE VEA EL BORDE DEL VELO.
+#   HONDO_ORILLA es media baldosa (16 px) y no siete como la del agua. Con la orilla corta del agua
+#   el velo moria en dos pixeles y dibujaba un SEGUNDO CONTORNO por dentro del lago: se veia un
+#   rectangulo oscuro flotando, que es exactamente el problema que esto viene a arreglar.
+#   HONDO_ALFA se queda en 0.5: por encima el agua de debajo deja de correr y el centro del lago se
+#   apaga del todo, o sea que la profundidad se come la superficie viva.
+#   Y el borde va ROTO por su propio ruido, porque el desvanecido de _dentro es geometrico: sin
+#   romperlo, el velo termina en una elipse de compas perfectamente legible.
+const HONDO_ORILLA := 16.0
+const HONDO_ALFA := 0.50
+const HONDO_ROTURA := 5.0     # px que el ruido mueve el borde adentro y afuera
+
+static func _pintar_hondo(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, mask: int,
+		sem: int, ox: float, oy: float, bl: int) -> void:
+	# Ruido GORDO (periodo 3) y lento: son manchas de fondo, no la textura de la superficie. Con un
+	# periodo fino el velo se veia granulado y competia con las ondas del agua.
+	var f: PackedFloat32Array = _campo(3, sem + 77, ox, oy, 1.0, bl)
+	var g: PackedFloat32Array = _campo(7, sem + 149, ox, oy, 1.0, bl)
+	for y in LADO:
+		for x in LADO:
+			var i: int = y * LADO + x
+			var dist: float = _dentro(x, y, mask) + (f[i] - 0.5) * 2.0 * HONDO_ROTURA
+			var borde: float = clampf(dist / HONDO_ORILLA, 0.0, 1.0)
+			if borde <= 0.0:
+				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
+				continue
+			var col: Color = _escalon(clampf(g[i] * 0.7 + 0.15, 0.0, 0.999), rampa)
+			# Al cuadrado: el velo entra MUY despacio por la orilla y solo se hace notar en el
+			# corazon. Lineal dejaba ver donde empieza.
+			col.a = HONDO_ALFA * borde * borde
+			_poner(d, W, o.x + x, o.y + y, col)
+
+
 # SUMIDERO: el agujero por donde se cuela el agua cuando no hay lago al que llevarla. Existe por
 # una regla de diseño -- el agua NUNCA termina en seco -- y es la tercera salida, junto al lago y
 # a meterse por otra pared. Ver dungeon_floor._trazar_agua.
@@ -871,6 +936,8 @@ static func _pintar(d: PackedByteArray, W: int, capa: String, o: Vector2i, rampa
 			_pintar_musgo(d, W, o, rampa, mask, sem, ox, oy, bl)
 		"agua":
 			_pintar_agua(d, W, o, rampa, mask, sem, fase, ox, oy, bl)
+		"hondo":
+			_pintar_hondo(d, W, o, rampa, mask, sem, ox, oy, bl)
 		"sumidero":
 			_pintar_sumidero(d, W, o, rampa, sem)
 		"columna":

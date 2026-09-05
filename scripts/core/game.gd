@@ -1419,7 +1419,11 @@ func capturar_mapa() -> void:
 			continue
 		if not vistas.has(gen.zona_en(nodo.celda)):
 			continue
-		estanques.append({"cell": nodo.celda, "tam": nodo.tam_celdas})
+		# LAS CELDAS y no solo el rectangulo: el charco tiene forma, y en el plano hay que reconocer
+		# la balsa por su mancha. El "tam" se sigue guardando porque es de lo que tiran los mapas ya
+		# cartografiados antes de esto (ver MapMenu._estanque).
+		estanques.append({"cell": nodo.celda, "tam": nodo.tam_celdas,
+			"celdas": PackedVector2Array(nodo.celdas.keys())})
 	mapa_trabajo[current_floor] = {
 		"ancho": gen.ancho, "alto": gen.alto,
 		"suelo": suelo,

@@ -23,6 +23,14 @@ class_name Decorado
 var musgo: Dictionary = {}
 var agua: Dictionary = {}
 var sumidero: Dictionary = {}
+# EL LAGO, aparte de `agua` aunque tambien este dentro de ella. Dos diccionarios y no uno porque
+# responden a dos preguntas distintas: `agua` es "¿que baldosa pinto?" (y ahi el lago y el
+# riachuelo TIENEN que ser lo mismo, o la junta entre los dos dibuja una orilla); `lago` es "¿donde
+# se pesca?", que es lo que necesitan la colision del charco, el lanzamiento y el nado de los peces.
+var lago: Dictionary = {}
+# Las celdas del lago que no tocan tierra por ninguno de sus cuatro lados: el CORAZON. De ahi sale
+# la capa "hondo" (el velo de profundidad) y ahi nacen los peces, que es donde caben seguro.
+var lago_hondo: Dictionary = {}
 # Los musgos que han FLORECIDO: los unicos que dan luz. Es un subconjunto pequeño de `musgo`, no
 # otra capa aparte (ver _sembrar_flores).
 var flor: Dictionary = {}
@@ -30,6 +38,8 @@ var flor: Dictionary = {}
 var _gen: DungeonGenerator = null
 var _estanque: Vector2i = Vector2i.MAX
 var _estanque_tam: Vector2i = Vector2i.ZERO
+# El lago engordado 3 celdas, para el barrido de manantiales de _trazar_agua (ver _en_estanque).
+var _lago_d3: Dictionary = {}
 
 
 func generar(gen: DungeonGenerator, celda_estanque: Vector2i, tam_estanque: Vector2i,
@@ -41,7 +51,13 @@ func generar(gen: DungeonGenerator, celda_estanque: Vector2i, tam_estanque: Vect
 	agua.clear()
 	sumidero.clear()
 	flor.clear()
-	# EL AGUA PRIMERO: el musgo mira donde ha quedado el reguero para criar en sus orillas.
+	lago.clear()
+	lago_hondo.clear()
+	# EL LAGO ANTES QUE EL RIACHUELO, y por la misma razon por la que el agua va antes que el musgo:
+	# el riachuelo tiene que saber a que celdas puede desembocar, y ahora esas celdas son las de
+	# verdad y no un rectangulo teorico.
+	_trazar_lago(sem)
+	# EL AGUA DESPUES: el musgo mira donde ha quedado el reguero para criar en sus orillas.
 	_trazar_agua(sem)
 	_sembrar_musgo(sem)
 	if con_flores:
@@ -81,12 +97,31 @@ func _pega_a_roca(c: Vector2i) -> bool:
 		or es_roca(_gen, c + Vector2i(0, 1)) or es_roca(_gen, c + Vector2i(0, -1))
 
 
+# ¿Esta celda es lago, o esta a `margen` celdas de serlo? Ya NO es un Rect2i: el lago tiene forma,
+# asi que la unica respuesta valida es la de sus celdas de verdad.
+#
+# Va por diccionarios DILATADOS precalculados y no dilatando en la consulta porque _trazar_agua la
+# llama UNA VEZ POR CELDA DEL MAPA en su barrido de manantiales: con un margen de 3 eso serian 49
+# lookups por celda de un mapa entero.
 func _en_estanque(c: Vector2i, margen: int) -> bool:
-	if _estanque == Vector2i.MAX:
+	if lago.is_empty():
 		return false
-	var mitad := Vector2i(_estanque_tam.x / 2, _estanque_tam.y / 2)
-	var r := Rect2i(_estanque - mitad, _estanque_tam).grow(margen)
-	return r.has_point(c)
+	if margen <= 0:
+		return lago.has(c)
+	if margen <= 3:
+		return _lago_d3.has(c)
+	return _dilatar(lago, margen).has(c)
+
+
+# El lago engordado `margen` celdas en las 8 direcciones. Es la forma de preguntar "¿esto esta
+# cerca del agua?" sin medir distancias: se engorda una vez y luego se consulta.
+static func _dilatar(celdas: Dictionary, margen: int) -> Dictionary:
+	var d: Dictionary = {}
+	for c in celdas:
+		for dy in range(-margen, margen + 1):
+			for dx in range(-margen, margen + 1):
+				d[c + Vector2i(dx, dy)] = true
+	return d
 
 
 # ============================================================
@@ -171,6 +206,173 @@ func _cerca_de_agua(c: Vector2i, radio: int) -> bool:
 			if agua.has(c + Vector2i(dx, dy)):
 				return true
 	return false
+
+
+# ============================================================
+#  EL LAGO: UN CHARCO CON FORMA, NO UN RECTANGULO
+# ============================================================
+# Antes el charco era un rectangulo de 5x4 celdas, y se veia como lo que era. La forma sale de
+# sumarle RUIDO A UNA ELIPSE: la elipse manda el contorno general (redondeado, centrado, sin
+# esquinas) y el ruido de escala 3 -- el mismo `mancha()` que reparte el musgo -- le muerde lobulos
+# y calas de dos o tres celdas, que es el tamaño al que una orilla se lee como orilla.
+#
+# EL AREA SE CONSERVA, y no es un detalle de estilo. `ESTANQUE_CELDAS` esta fijo a proposito: el
+# minijuego de pesca se juega CONTRA el charco, y un charco de tamaño variable cambiaria el tiempo
+# que tardan los peces en cruzarlo. Asi que el umbral del ruido no es un numero elegido a mano
+# (que daria un lago distinto de tamaño con cada semilla, a veces el doble): se BUSCA POR
+# BISECCION hasta que el area cae en la diana. La forma varia, el tamaño no.
+#
+# ES UNA FUNCION PURA Y ESTATICA (`forma_lago`) para que la herramienta tools/ver_terreno.gd pueda
+# dibujar dieciseis lagos de dieciseis semillas sin montar una mazmorra. Y para que dibuje LOS
+# MISMOS: un visor que calcula la forma por su cuenta no verifica nada.
+const LAGO_HOLGURA := 1        # celdas que el lago puede salirse de la caja del estanque
+const LAGO_RUIDO := 0.95       # cuanto muerde el ruido a la elipse. Mas alto = mas roto
+const LAGO_ESCALA := 3         # celdas por lobulo del ruido
+const LAGO_TOLERANCIA := 2     # celdas de mas o de menos que se aceptan sobre la diana
+
+# `es_suelo` es un Callable y no un DungeonGenerator por lo mismo que TerrenoSprites.mascara toma
+# un `soy`: asi el visor le pasa su mapa de juguete y esta funcion no depende de la mazmorra.
+static func forma_lago(centro: Vector2i, tam: Vector2i, sem: int, es_suelo: Callable) -> Dictionary:
+	if centro == Vector2i.MAX or tam == Vector2i.ZERO:
+		return {}
+	var mitad := Vector2i(tam.x / 2, tam.y / 2)
+	var caja := Rect2i(centro - mitad, tam).grow(LAGO_HOLGURA)
+	var diana: int = tam.x * tam.y
+	# LOS SEMIEJES SON LOS DEL ESTANQUE, NO LOS DE LA CAJA, y esto costo una vuelta: con los de la
+	# caja (que trae holgura) la elipse tenia area de sobra para la diana, asi que la biseccion
+	# subia el umbral hasta cortar muy ADENTRO -- y adentro el gradiente de la elipse es fuerte, o
+	# sea que el ruido no llegaba a moverlo. Salian dieciseis rectangulos redondeados.
+	# Con la elipse del tamaño de la diana el corte cae cerca de su borde, donde la elipse es casi
+	# plana y el ruido MANDA. La holgura deja de ser parte de la forma y pasa a ser lo que es: el
+	# sitio por el que el lago puede desbordarse.
+	var rx: float = float(tam.x) * 0.5
+	var ry: float = float(tam.y) * 0.5
+	var cx: float = float(centro.x)
+	var cy: float = float(centro.y)
+
+	# --- El campo: elipse + ruido. Se calcula UNA vez; la biseccion solo mueve el umbral ---
+	var campo: Dictionary = {}
+	for y in range(caja.position.y, caja.end.y):
+		for x in range(caja.position.x, caja.end.x):
+			var c := Vector2i(x, y)
+			if not es_suelo.call(c):
+				continue      # el lago no se mete en la roca
+			var dx: float = (float(x) - cx) / rx
+			var dy: float = (float(y) - cy) / ry
+			var elipse: float = 1.0 - (dx * dx + dy * dy)
+			campo[c] = elipse + (mancha(c, sem + 3301, LAGO_ESCALA) - 0.5) * LAGO_RUIDO
+
+	# --- BISECCION sobre el umbral hasta clavar el area ---
+	# Umbral ALTO = lago pequeño, asi que el area baja cuando el umbral sube: la biseccion va al
+	# reves de lo habitual y por eso el `if` compara como compara.
+	var bajo: float = -1.5
+	var alto: float = 1.5
+	var mejor: Dictionary = {}
+	for _i in 14:
+		var u: float = (bajo + alto) * 0.5
+		var conjunto: Dictionary = _sanear_lago(campo, u, centro, caja, es_suelo)
+		mejor = conjunto
+		var area: int = conjunto.size()
+		if absi(area - diana) <= LAGO_TOLERANCIA:
+			break
+		if area > diana:
+			bajo = u      # sobra agua: hay que subir el umbral
+		else:
+			alto = u
+	return mejor
+
+
+# El conjunto de celdas por encima del umbral, ya CONEXO y ya limpio. Va dentro de la biseccion (y
+# no despues) a proposito: el saneado quita y pone celdas, asi que el area que hay que medir es la
+# de DESPUES de sanear. Saneando fuera del bucle, la biseccion clavaria un area que luego cambia.
+static func _sanear_lago(campo: Dictionary, umbral: float, centro: Vector2i, caja: Rect2i,
+		es_suelo: Callable) -> Dictionary:
+	var crudo: Dictionary = {}
+	for c in campo:
+		if float(campo[c]) > umbral:
+			crudo[c] = true
+	# El centro SIEMPRE es agua: es donde se planta el charco, y ademas garantiza que el BFS de
+	# abajo tenga de donde salir aunque el umbral se haya ido de las manos.
+	if es_suelo.call(centro):
+		crudo[centro] = true
+
+	# --- CONEXO: solo la componente que toca el centro. Un lago en dos trozos son dos charcos ---
+	var lag: Dictionary = {}
+	var cola: Array[Vector2i] = [centro]
+	lag[centro] = true
+	var cabeza: int = 0
+	while cabeza < cola.size():
+		var c: Vector2i = cola[cabeza]
+		cabeza += 1
+		for l in _LADOS:
+			var v: Vector2i = c + l
+			if lag.has(v) or not crudo.has(v):
+				continue
+			lag[v] = true
+			cola.append(v)
+
+	# --- SANEADO hasta punto fijo. Dos reglas, y las dos son de LEGIBILIDAD, no de correccion ---
+	#   1. Fuera los PELLIZCOS: una celda de agua con una sola vecina de agua es un dedo de 32 px
+	#      que no se lee como lago, se lee como un fallo de tile.
+	#   2. Dentro los AGUJEROS: una celda seca rodeada por LOS CUATRO lados es una isla de una celda
+	#      en medio del charco. Ademas de imposible, es donde se atasca un pez al nadar.
+	#      Con el umbral en TRES vecinas en vez de cuatro, esta regla se comia todas las CALAS: una
+	#      entrada de tierra de una celda tiene tres lados mojados por definicion, asi que se
+	#      rellenaba, y el lago volvia a salir redondeado. Justo lo que hay que conservar.
+	for _pasada in 4:
+		var cambio: bool = false
+		for c in lag.keys():
+			if _vecinas(lag, c) <= 1 and c != centro:
+				lag.erase(c)
+				cambio = true
+		for c in lag.keys():
+			for l in _LADOS:
+				var v: Vector2i = c + l
+				if lag.has(v) or not caja.has_point(v) or not es_suelo.call(v):
+					continue
+				if _vecinas(lag, v) == 4:
+					lag[v] = true
+					cambio = true
+		if not cambio:
+			break
+	return lag
+
+
+static func _vecinas(celdas: Dictionary, c: Vector2i) -> int:
+	var n: int = 0
+	for l in _LADOS:
+		if celdas.has(c + l):
+			n += 1
+	return n
+
+
+# El CORAZON del lago: las celdas con las cuatro vecinas mojadas. Es donde el agua es honda (de ahi
+# sale la capa "hondo") y donde un pez cabe seguro sin asomar el morro por la orilla.
+static func nucleo_lago(lag: Dictionary) -> Dictionary:
+	var n: Dictionary = {}
+	for c in lag:
+		if _vecinas(lag, c) == 4:
+			n[c] = true
+	return n
+
+
+func _trazar_lago(sem: int) -> void:
+	if _estanque == Vector2i.MAX:
+		return
+	lago = forma_lago(_estanque, _estanque_tam, sem,
+		func(c: Vector2i) -> bool: return _gen.es_suelo(c))
+	if lago.is_empty():
+		return
+	lago_hondo = nucleo_lago(lago)
+	# Un lago tan fino que no tiene corazon: se le da el centro, que es donde se planta el charco.
+	# Sin esto, _nacer_pez se quedaria sin sitios de donde elegir.
+	if lago_hondo.is_empty():
+		lago_hondo[_estanque] = true
+	_lago_d3 = _dilatar(lago, 3)
+	# Y AHORA se vuelca a `agua`: a partir de aqui el lago y el riachuelo son la MISMA capa, que es
+	# lo que hace que la junta entre los dos no exista (ver TerrenoSprites._pintar_agua).
+	for c in lago:
+		agua[c] = true
 
 
 # ============================================================

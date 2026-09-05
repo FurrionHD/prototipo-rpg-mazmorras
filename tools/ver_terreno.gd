@@ -13,6 +13,12 @@ const SALIDA := "res://tools/salida/"
 const ZOOM := 3           # el pixel-art a tamaño real no se puede juzgar en un PNG
 const ANCHO := 30         # celdas del trozo de prueba
 const ALTO := 18
+# El lago va a MAS zoom que el resto, y no es capricho: a ZOOM 3 la junta del riachuelo con el lago
+# son 96 px de una imagen de 2880 y no se puede juzgar si hay costura o no. Lo que se aprueba ahi
+# es un puñado de pixeles, asi que hay que verlos.
+const ZOOM_LAGO := 6
+const LAGO_TAM := Vector2i(5, 4)     # = DungeonFloor.ESTANQUE_CELDAS
+const SEM_LAGO := 20260905
 
 
 # Dibujar un atlas cuesta lo suyo (cientos de miles de pixeles con tres octavas de ruido cada
@@ -51,6 +57,13 @@ func _initialize() -> void:
 		_guardar(_escena(atlas_por_tramo[clave], TerrenoSprites.estilo_de(String(clave))),
 			"escena_%s" % clave)
 
+	# --- 2b. EL LAGO: la union con el riachuelo, y la forma con dieciseis semillas ---
+	var atlas_roca: Image = atlas_por_tramo["roca"]
+	_guardar(_lago_zoom(atlas_roca), "lago_zoom", ZOOM_LAGO)
+	_guardar(_lago_formas(atlas_roca), "lago_formas")
+	_guardar(_lago_real(atlas_roca), "lago_real", ZOOM_LAGO)
+	_barrer_lagos()
+
 	# --- 3. LA TRANSICION: el mismo trozo, con la frontera entre dos tramos ---
 	# Es lo que hay que MIRAR de un piso de corte: si el borde se lee como un cambio de terreno o
 	# como un circulo de compas, y si el musgo y el agua lo cruzan sin cortarse en seco.
@@ -61,9 +74,9 @@ func _initialize() -> void:
 	quit()
 
 
-func _guardar(img: Image, nombre: String) -> void:
+func _guardar(img: Image, nombre: String, zoom: int = ZOOM) -> void:
 	var g := img.duplicate() as Image
-	g.resize(g.get_width() * ZOOM, g.get_height() * ZOOM, Image.INTERPOLATE_NEAREST)
+	g.resize(g.get_width() * zoom, g.get_height() * zoom, Image.INTERPOLATE_NEAREST)
 	var ruta: String = SALIDA + nombre + ".png"
 	g.save_png(ProjectSettings.globalize_path(ruta))
 	print("  %-28s %dx%d" % [nombre + ".png", img.get_width(), img.get_height()])
@@ -190,6 +203,182 @@ func _nodo(img: Image, familia: String, forma: int, modelo: int, celda: Vector2i
 				continue
 			capa.set_pixel(x, y, Color(c.r * tint.r, c.g * tint.g, c.b * tint.b, c.a))
 	img.blend_rect(capa, Rect2i(Vector2i.ZERO, t), en)
+
+
+# ============================================================
+#  EL LAGO
+# ============================================================
+# Las dos preguntas del lago son distintas y por eso son dos PNG:
+#   lago_zoom    -> ¿se ve la junta con el riachuelo? Se contesta con UN lago muy de cerca.
+#   lago_formas  -> ¿la forma es organica o siempre la misma elipse? Se contesta con DIECISEIS.
+#
+# Los dos llaman a Decorado.forma_lago, o sea al generador DE VERDAD. Un visor que dibujara la
+# forma por su cuenta no verificaria nada: enseñaria un lago bonito calculado por el visor mientras
+# el juego pinta otro.
+
+# Un lago con su riachuelo cayendo dentro, recortado justo alrededor de la junta.
+func _lago_zoom(atlas: Image) -> Image:
+	var w: int = 13
+	var h: int = 11
+	var centro := Vector2i(6, 7)
+	var suelo := func(_c: Vector2i) -> bool: return true
+	var lago: Dictionary = Decorado.forma_lago(centro, LAGO_TAM, SEM_LAGO, suelo)
+	# El riachuelo: baja recto desde arriba hasta que se mete en el lago. La junta queda en medio
+	# del encuadre, que es lo unico que este PNG viene a enseñar.
+	var agua: Dictionary = lago.duplicate()
+	for y in range(0, h):
+		var c := Vector2i(centro.x, y)
+		if lago.has(c):
+			break
+		agua[c] = true
+	return _pintar_agua_suelta(atlas, w, h, agua, Decorado.nucleo_lago(lago))
+
+
+# Dieciseis semillas seguidas, en rejilla de 4x4. Un lago bonito no demuestra nada.
+func _lago_formas(atlas: Image) -> Image:
+	var celda_w: int = LAGO_TAM.x + 4
+	var celda_h: int = LAGO_TAM.y + 4
+	var L: int = TerrenoSprites.LADO
+	var img := Image.create(celda_w * 4 * L, celda_h * 4 * L, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.03, 0.03, 0.04))
+	var suelo := func(_c: Vector2i) -> bool: return true
+	for i in 16:
+		var centro := Vector2i(celda_w / 2, celda_h / 2)
+		var lago: Dictionary = Decorado.forma_lago(centro, LAGO_TAM, SEM_LAGO + i, suelo)
+		var trozo: Image = _pintar_agua_suelta(atlas, celda_w, celda_h, lago,
+			Decorado.nucleo_lago(lago))
+		img.blend_rect(trozo, Rect2i(Vector2i.ZERO, trozo.get_size()),
+			Vector2i((i % 4) * celda_w * L, (i / 4) * celda_h * L))
+	return img
+
+
+# Suelo + agua + hondo, sin muros: aqui lo que se juzga es la lamina de agua, y un marco de roca
+# alrededor solo robaria sitio.
+func _pintar_agua_suelta(atlas: Image, w: int, h: int, agua: Dictionary,
+		hondo: Dictionary) -> Image:
+	var L: int = TerrenoSprites.LADO
+	var img := Image.create(w * L, h * L, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.03, 0.03, 0.04))
+	for y in h:
+		for x in w:
+			_baldosa(img, atlas, TerrenoSprites.celda_para("suelo", Vector2i(x, y), 0, SEM_LAGO),
+				Vector2i(x, y))
+	# La MASCARA del agua se calcula contra TODA el agua (lago + riachuelo), que es como lo hace el
+	# juego. Es justo lo que borra la junta: en la celda donde el rio toca el lago no hay bit puesto,
+	# asi que no se dibuja ni orilla ni espuma.
+	for c in agua:
+		var m: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return agua.has(v))
+		_baldosa(img, atlas, TerrenoSprites.celda_para("agua", c, m, SEM_LAGO), c)
+	for c in hondo:
+		var m2: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return hondo.has(v))
+		_baldosa(img, atlas, TerrenoSprites.celda_para("hondo", c, m2, SEM_LAGO), c)
+	return img
+
+
+# UN PISO DE VERDAD. Los dos PNG de arriba dibujan el lago sobre un mapa de juguete: contestan como
+# es la forma, pero no si el generador y el decorado se entienden. Este monta un DungeonGenerator
+# real, le pasa el Decorado entero (lago + riachuelo + musgo) y recorta la sala del charco.
+#
+# Es lo que caza los fallos de INTEGRACION, que son de otra familia que los de dibujo: un lago
+# metido en la roca, un riachuelo que no llega, una orilla comida por la pared. Ninguno de esos se
+# ve en un mapa de juguete donde todo es suelo.
+func _lago_real(atlas: Image) -> Image:
+	var gen := DungeonGenerator.new()
+	# Un piso del tamaño del 1, con su semilla. Si algun dia cambian los parametros del piso 1, este
+	# visor seguira siendo representativo mientras sean del mismo orden.
+	gen.generar(72, 52, SEM_LAGO, 14, Vector2i(8, 6), Vector2i(18, 12), 3)
+	# La sala del charco: la primera que admita el estanque con su anillo de orilla, que es la misma
+	# regla que usa DungeonFloor._elegir_estanque.
+	var centro := Vector2i.MAX
+	for sala in gen.salas:
+		if sala.size.x >= LAGO_TAM.x + 4 and sala.size.y >= LAGO_TAM.y + 4:
+			centro = sala.get_center()
+			break
+	if centro == Vector2i.MAX:
+		print("  AVISO: el piso de prueba no tiene ninguna sala donde quepa el charco")
+		return Image.create(8, 8, false, Image.FORMAT_RGBA8)
+
+	var d := Decorado.new()
+	d.generar(gen, centro, LAGO_TAM, SEM_LAGO, false)
+	if d.lago.is_empty():
+		print("  AVISO: el piso de prueba no ha generado lago")
+	# Recorte alrededor del charco, con sitio para ver por donde le entra el riachuelo.
+	var caja := Rect2i(centro - Vector2i(9, 8), Vector2i(19, 17))
+	var L: int = TerrenoSprites.LADO
+	var img := Image.create(caja.size.x * L, caja.size.y * L, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.03, 0.03, 0.04))
+	for y in range(caja.position.y, caja.end.y):
+		for x in range(caja.position.x, caja.end.x):
+			var c := Vector2i(x, y)
+			var en: Vector2i = c - caja.position
+			if gen.es_suelo(c):
+				_baldosa(img, atlas, TerrenoSprites.celda_para("suelo", c, 0, SEM_LAGO), en)
+			elif Decorado.muro_visible(gen, c):
+				var mm: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool:
+					return Decorado.es_roca(gen, v))
+				_baldosa(img, atlas, TerrenoSprites.celda_para("muro", c, mm, SEM_LAGO), en)
+	# Musgo, agua y hondo, en el orden de los TileMapLayer del juego.
+	for capa in [["musgo", d.musgo], ["agua", d.agua], ["hondo", d.lago_hondo]]:
+		var celdas: Dictionary = capa[1]
+		for c in celdas:
+			if not caja.has_point(c):
+				continue
+			var m: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return celdas.has(v))
+			_baldosa(img, atlas, TerrenoSprites.celda_para(String(capa[0]), c, m, SEM_LAGO),
+				c - caja.position)
+	return img
+
+
+# EL BARRIDO. Va ADEMAS del PNG y no en su lugar: el ojo aprueba como se ve, esto comprueba que no
+# haya una semilla entre quinientas que saque un lago partido en dos o del doble de tamaño. Las dos
+# cosas hacen falta -- un numero verde no dice si el lago es feo, y un PNG bonito no dice si la
+# semilla 337 revienta.
+func _barrer_lagos() -> void:
+	var diana: int = LAGO_TAM.x * LAGO_TAM.y
+	var fallos: int = 0
+	var area_min: int = 9999
+	var area_max: int = 0
+	var suelo := func(_c: Vector2i) -> bool: return true
+	for i in 500:
+		var centro := Vector2i(20, 20)
+		var lago: Dictionary = Decorado.forma_lago(centro, LAGO_TAM, SEM_LAGO + i, suelo)
+		var area: int = lago.size()
+		area_min = mini(area_min, area)
+		area_max = maxi(area_max, area)
+		if absi(area - diana) > Decorado.LAGO_TOLERANCIA:
+			print("  FALLO semilla %d: area %d (diana %d)" % [SEM_LAGO + i, area, diana])
+			fallos += 1
+		if _componentes(lago) != 1:
+			print("  FALLO semilla %d: el lago sale en %d trozos" % [SEM_LAGO + i,
+				_componentes(lago)])
+			fallos += 1
+		if Decorado.nucleo_lago(lago).is_empty():
+			print("  FALLO semilla %d: lago sin corazon (ni una celda rodeada de agua)" %
+				[SEM_LAGO + i])
+			fallos += 1
+	print("  lagos: 500 semillas, area %d-%d (diana %d), %d fallos" %
+		[area_min, area_max, diana, fallos])
+
+
+func _componentes(celdas: Dictionary) -> int:
+	var visto: Dictionary = {}
+	var n: int = 0
+	for inicio in celdas:
+		if visto.has(inicio):
+			continue
+		n += 1
+		var cola: Array[Vector2i] = [inicio]
+		visto[inicio] = true
+		var cabeza: int = 0
+		while cabeza < cola.size():
+			var c: Vector2i = cola[cabeza]
+			cabeza += 1
+			for l in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var v: Vector2i = c + l
+				if celdas.has(v) and not visto.has(v):
+					visto[v] = true
+					cola.append(v)
+	return n
 
 
 # ============================================================
