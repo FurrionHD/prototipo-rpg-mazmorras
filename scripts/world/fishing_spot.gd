@@ -67,8 +67,11 @@
 #  la junta con el riachuelo no existe en vez de disimularse. Lo que queda aqui es la FORMA como
 #  dato (`celdas`, y hay_agua() para preguntarle), la colision, los peces, el hilo y el corcho.
 #
-#  Los peces siguen siendo un rectangulo alargado mas oscuro que el agua, con el largo sacado de sus
-#  centimetros. Eso si es placeholder todavia.
+#  Y LOS PECES tienen silueta propia por especie (PezSprites): se hornean a todo color y aqui se les
+#  pone el tinte del agua con un modulate, asi que la misma hoja vale para el charco y para el libro
+#  de pesca. La talla se redondea a un escalon horneado -- nada de `scale`, que rompe la rejilla de
+#  pixeles. Todo eso pasa por _crear_sprite_pez, que es el UNICO sitio donde se decide como se ve
+#  un pez: el dueño y el espejo de red llaman los dos ahi.
 # ============================================================
 
 extends Node2D
@@ -150,12 +153,19 @@ const GIRO_MAX := 3.5
 # Escala de la silueta: px de largo por centimetro de pez. Un gobio de 12 cm son ~7 px y un espejo
 # abisal de 150 cm son ~90: se distinguen desde la otra punta de la sala, que es el objetivo.
 const PX_POR_CM := 0.6
-const LARGO_MIN := 6.0
+# SUELO del largo. Subio de 6 a 10 al llegar las siluetas: en 7x3 px no hay pez que dibujar --
+# cabeza, cola y aleta caen en el mismo pixel y vuelve a salir la mancha que esto venia a quitar.
+# Los peces mas chicos se ven un pelin mas grandes de lo que les tocaria por sus centimetros; a
+# cambio TODOS tienen forma.
+const LARGO_MIN := 10.0
 # TECHO del largo, en fraccion del lado corto del charco. Sin el, un espejo abisal de 165 cm sale de
 # 99 px y no CABE en un charco de 128x96: se quedaba clavado contra los bordes o asomando fuera.
 # Los tamaños siguen distinguiendose (un gobio son 7 px y el trofeo llena media balsa), pero el
 # charco manda: nada nada mas grande que el agua en la que nada.
 const LARGO_MAX_FRAC := 0.42
+# Frames de coleteo por pixel recorrido. A la velocidad de crucero (18 px/s) sale un ciclo completo
+# cada 1.4 s, que es un bateo tranquilo; el que se tira a por el cebo bate al doble.
+const ALETEO_POR_PX := 0.155
 
 # El vuelo del hilo al lanzar, y lo alto que sube el arco por encima del jugador.
 const VUELO := 0.4
@@ -701,16 +711,7 @@ func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
 		minf(tam_agua.x, tam_agua.y) * LARGO_MAX_FRAC)
 	var alto: float = maxf(2.0, largo / maxf(1.2, d.esbeltez))
 
-	var rect := ColorRect.new()
-	rect.size = Vector2(largo, alto)
-	# GIRA SOBRE SU CENTRO. Un Control pivota por defecto en su esquina superior izquierda: sin
-	# esto, orientar al pez con su rumbo lo hacia describir un arco alrededor de esa esquina y se
-	# le veia asomar FUERA del agua mientras su posicion logica seguia dentro.
-	rect.pivot_offset = rect.size * 0.5
-	# La SOMBRA no es el color del pez: es el agua oscurecida. Todos los peces se ven igual de
-	# oscuros bajo el agua; lo que los distingue de un vistazo es el TAMAÑO, no el tono.
-	rect.color = Color(0.04, 0.07, 0.12, 0.45)
-	add_child(rect)
+	var spr: Sprite2D = _crear_sprite_pez(d, largo)
 
 	# DONDE NACE: en una celda del CORAZON del lago (las que no tocan tierra), que es donde un pez
 	# cabe seguro. Se comprueban sus dos puntas y, si no cabe, se prueba otra celda.
@@ -729,7 +730,11 @@ func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
 			break
 	var vel: float = VEL_PEZ + r.randf_range(-VEL_PEZ_VAR, VEL_PEZ_VAR)
 	_peces.append({
-		"rect": rect, "data": d, "cm": cm, "largo": largo, "alto": alto,
+		"spr": spr, "data": d, "cm": cm, "largo": largo, "alto": alto,
+		"talla": PezSprites.talla_de(largo),
+		# El reloj del coleteo. Es SUYO y no global: si todos batieran a la vez, un banco de peces
+		# se leeria como un mecanismo y no como cinco bichos.
+		"aleteo": r.randf() * float(PezSprites.FRAMES),
 		"pos": pos, "vel": Vector2(cos(ang), sin(ang)) * vel,
 		"t_giro": r.randf_range(GIRO_MIN, GIRO_MAX),
 		# ¿Ha olido ya el cebo? Ver _atrae_el_cebo: una vez dentro del radio, viene aunque salga.
@@ -743,6 +748,65 @@ func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
 	_colocar(_peces.back())
 
 
+# ============================================================
+#  EL ASPECTO DE UN PEZ
+# ============================================================
+# EL UNICO SITIO donde se decide como se ve un pez. Lo llaman _nacer_pez (el dueño, que lo simula) y
+# _nacer_pez_espejo (el invitado, que lo recrea desde el nonce). Antes eran dos ColorRect escritos
+# por separado, y mientras un pez era un rectangulo liso eso se podia mantener a mano; con una
+# silueta, una talla y un coleteo, dos copias es cuestion de tiempo que enseñen bichos distintos en
+# cada maquina.
+#
+# LA TALLA sale de PezSprites.talla_de, que es pura: las dos maquinas parten del mismo `largo` y
+# llegan al mismo escalon sin que viaje nada por el cable.
+func _crear_sprite_pez(d: MaterialData, largo: float) -> Sprite2D:
+	var spr := Sprite2D.new()
+	spr.texture = PezSprites.textura(d, PX_POR_CM, LARGO_MIN,
+		minf(tam_px().x, tam_px().y) * LARGO_MAX_FRAC)
+	spr.region_enabled = true
+	spr.region_rect = _region_pez(d, PezSprites.talla_de(largo), 0)
+	# POR NODO, que el proyecto no lo pone globalmente (misma nota que en enemy.gd y en
+	# dungeon_floor). Sin esto el pez sale emborronado justo donde se le mira de cerca.
+	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_child(spr)
+	return spr
+
+
+# La ventana de la hoja que le toca a (especie, talla, frame del coleteo).
+func _region_pez(d: MaterialData, talla: int, frame: int) -> Rect2:
+	var techo: float = minf(tam_px().x, tam_px().y) * LARGO_MAX_FRAC
+	var tallas: Array[int] = PezSprites.tallas_de(d, PX_POR_CM, LARGO_MIN, techo)
+	var celda: Vector2i = PezSprites.lienzo(tallas.back())
+	var fila: int = PezSprites.fila_de(d, talla, PX_POR_CM, LARGO_MIN, techo)
+	return Rect2(Vector2(float(frame * celda.x), float(fila * celda.y)), Vector2(celda))
+
+
+# EL TINTE DEL AGUA. La hoja se hornea a todo color y es esto lo que lo apaga: multiplicar conserva
+# la silueta entera -- contorno, cola, barbillones -- y a la vez lo vira al azul, asi que sigue
+# leyendose "esta sumergido" pero ya tiene forma. Antes el pez ERA el color oscuro, y por eso todos
+# se veian igual.
+#
+# La PROFUNDIDAD sale del nonce y no de una tirada: el espejo la reproduce sin gastar numero del
+# stream sembrado, que es lo unico que no se puede tocar sin descuadrarle la especie al invitado.
+const TONO_SUMERGIDO := Color(0.42, 0.55, 0.72, 0.88)
+# El que esta peleando un compañero se pinta MAS CLARO: se ve que alguien lo tiene en el anzuelo.
+const TONO_OCUPADO := Color(0.72, 0.82, 0.95, 0.95)
+# Cuanto puede llegar a apagarse un pez por nadar hondo.
+const HONDURA_MIN := 0.74
+
+func _tono_pez(p: Dictionary) -> Color:
+	if int(p.get("de", 0)) != 0:
+		return TONO_OCUPADO
+	var h: float = float(int(hash([p.get("nonce", 0), "hondura"])) % 1000) / 1000.0
+	var f: float = lerpf(HONDURA_MIN, 1.0, h)
+	# Y ademas se apaga si esta sobre el corazon del lago: es lo que lo ata al agua en vez de
+	# dejarlo flotando por encima de ella.
+	if hay_hondo(p.get("pos", Vector2.ZERO)):
+		f *= 0.88
+	return Color(TONO_SUMERGIDO.r * f, TONO_SUMERGIDO.g * f, TONO_SUMERGIDO.b * f,
+		TONO_SUMERGIDO.a)
+
+
 # ¿Cabe el pez ahi, con ese rumbo? Se miran el centro y las dos puntas: un pez es un segmento, no
 # un punto, y el morro es justo lo que se salia del agua cuando esto se medía por ejes.
 func _cabe(pos: Vector2, vel: Vector2, largo: float) -> bool:
@@ -753,8 +817,9 @@ func _cabe(pos: Vector2, vel: Vector2, largo: float) -> bool:
 
 
 func _colocar(p: Dictionary) -> void:
-	var rect: ColorRect = p["rect"]
-	rect.position = (p["pos"] as Vector2) - rect.size * 0.5
+	# Un Sprite2D es `centered`: su posicion YA es su centro. Con el ColorRect habia que restarle
+	# media caja a mano y ademas fijarle el pivote para que girara sobre si mismo.
+	(p["spr"] as Sprite2D).position = p["pos"]
 
 
 func _nadar(delta: float) -> void:
@@ -815,7 +880,15 @@ func _nadar(delta: float) -> void:
 				pos = pos.move_toward(_centro_agua, maxf(1.0, (p["vel"] as Vector2).length() * delta))
 		p["pos"] = pos
 		# El cuerpo se orienta con el rumbo: asi la anguila se lee como anguila al cruzar el charco.
-		(p["rect"] as ColorRect).rotation = (p["vel"] as Vector2).angle()
+		var spr: Sprite2D = p["spr"]
+		spr.rotation = (p["vel"] as Vector2).angle()
+		# EL COLETEO VA CON LA VELOCIDAD. Es una linea y es la mitad de la sensacion de vida: el pez
+		# que huye del corcho bate deprisa y el que deambula va suave. A cadencia fija los cinco
+		# baten igual y se nota que es un bucle.
+		p["aleteo"] = fmod(float(p["aleteo"]) + delta * (p["vel"] as Vector2).length() * ALETEO_POR_PX,
+			float(PezSprites.FRAMES))
+		spr.region_rect = _region_pez(p["data"], int(p["talla"]), int(p["aleteo"]))
+		spr.modulate = _tono_pez(p)
 		_colocar(p)
 
 
@@ -841,7 +914,7 @@ func _atrae_el_cebo(p: Dictionary) -> bool:
 
 
 func _pez_es(p: Dictionary) -> bool:
-	return not _pez.is_empty() and p["rect"] == _pez["rect"]
+	return not _pez.is_empty() and p["spr"] == _pez["spr"]
 
 
 # ------------------------------------------------------------
@@ -1243,7 +1316,7 @@ func _quitar_pez(pescado: bool) -> void:
 		_espero_mordida = false
 		return
 	if i >= 0:
-		(_peces[i]["rect"] as ColorRect).queue_free()
+		(_peces[i]["spr"] as Sprite2D).queue_free()
 		_peces.remove_at(i)
 	_pez = {}
 	_idx_enganchado = -1
@@ -1397,8 +1470,8 @@ func _paso_cobro(_delta: float) -> void:
 	var aqui: Vector2 = _corcho_base.lerp(destino, ease(t, 0.4))
 	_pintar_corcho_en(aqui)
 	if not _pez.is_empty():
-		var rect: ColorRect = _pez["rect"]
-		rect.position = aqui - rect.size * 0.5
+		_pez["pos"] = aqui
+		_colocar(_pez)
 	if t >= 1.0:
 		_cobrar()
 
@@ -1552,7 +1625,6 @@ func _pintar_corcho_en(pos: Vector2) -> void:
 
 # Color del pez que esta peleando OTRO. Mas claro que el resto: es la señal de "eso ya lo tiene tu
 # compañero". No hace falta mas: el charco es pequeño y el contraste con el agua ya canta.
-const COLOR_PEZ_OCUPADO := Color(0.35, 0.55, 0.70, 0.55)
 # El sedal de OTRO: mas apagado que el tuyo, para que de un vistazo sepas cual es el tuyo.
 const COLOR_HILO_AJENO := Color(0.75, 0.72, 0.60, 0.55)
 const CABECEO_VEL := 14.0    # rad/s del corcho ajeno cuando a ese le ha picado
@@ -1782,7 +1854,7 @@ func resolver_pez_remoto(peer: int, nonce: int, cobrado: bool) -> void:
 	if not cobrado:
 		return
 	# Se lo lleva: fuera del agua y fuera del banco, con su sello de diez minutos.
-	(p["rect"] as ColorRect).queue_free()
+	(p["spr"] as Sprite2D).queue_free()
 	_peces.remove_at(idx)
 	_cobrar_del_banco()
 	_armar_reposicion()
@@ -1844,8 +1916,8 @@ func aplicar_red(snap: Dictionary) -> void:
 		p["de"] = int(f[3])
 		# El enganchado por OTRO se pinta mas claro: es la señal de "eso lo esta peleando tu
 		# compañero, no le tires encima". El que engancho YO se queda como esta.
-		(p["rect"] as ColorRect).color = COLOR_PEZ_OCUPADO if int(f[3]) != 0 \
-			else Color(0.04, 0.07, 0.12, 0.45)
+		p["pos"] = f[1]
+		(p["spr"] as Sprite2D).modulate = _tono_pez(p)
 		nuevos.append(p)
 		destinos.append([f[1], f[2]])
 
@@ -1853,7 +1925,7 @@ func aplicar_red(snap: Dictionary) -> void:
 	for sobra in mios.values():
 		if _pez_es(sobra):
 			_pez = {}   # me lo han quitado de debajo: suelto la referencia antes de liberarlo
-		(sobra["rect"] as ColorRect).queue_free()
+		(sobra["spr"] as Sprite2D).queue_free()
 	_peces = nuevos
 	_destinos = destinos
 	_idx_enganchado = _peces.find(_pez) if not _pez.is_empty() else -1
@@ -1878,13 +1950,11 @@ func _nacer_pez_espejo(nonce: int, pos: Vector2) -> Dictionary:
 	var largo: float = clampf(cm * PX_POR_CM, LARGO_MIN,
 		minf(tam_agua.x, tam_agua.y) * LARGO_MAX_FRAC)
 	var alto: float = maxf(2.0, largo / maxf(1.2, d.esbeltez))
-	var rect := ColorRect.new()
-	rect.size = Vector2(largo, alto)
-	rect.pivot_offset = rect.size * 0.5
-	rect.color = Color(0.04, 0.07, 0.12, 0.45)
-	add_child(rect)
+	# EL MISMO constructor que usa el dueño: es lo que garantiza que el invitado vea el mismo bicho.
+	var spr: Sprite2D = _crear_sprite_pez(d, largo)
 	var p: Dictionary = {
-		"rect": rect, "data": d, "cm": cm, "largo": largo, "alto": alto,
+		"spr": spr, "data": d, "cm": cm, "largo": largo, "alto": alto,
+		"talla": PezSprites.talla_de(largo), "aleteo": 0.0,
 		"pos": pos, "vel": Vector2.RIGHT, "t_giro": 0.0, "cebo": false, "de": 0, "nonce": nonce,
 	}
 	_colocar(p)
@@ -1905,6 +1975,11 @@ func _interpolar_peces(delta: float) -> void:
 			continue
 		var destino: Vector2 = _destinos[i][0]
 		p["pos"] = (p["pos"] as Vector2).lerp(destino, t)
-		var rect: ColorRect = p["rect"]
-		rect.rotation = lerp_angle(rect.rotation, float(_destinos[i][1]), t)
+		var spr: Sprite2D = p["spr"]
+		spr.rotation = lerp_angle(spr.rotation, float(_destinos[i][1]), t)
+		# El espejo NO simula, pero el coleteo si es suyo: bate por su cuenta a la velocidad a la
+		# que le ve moverse. Sin esto los peces del invitado se deslizarian tiesos.
+		p["aleteo"] = fmod(float(p["aleteo"]) + delta * (destino - (p["pos"] as Vector2)).length()
+			* SUAVIZADO_RED * ALETEO_POR_PX, float(PezSprites.FRAMES))
+		spr.region_rect = _region_pez(p["data"], int(p["talla"]), int(p["aleteo"]))
 		_colocar(p)

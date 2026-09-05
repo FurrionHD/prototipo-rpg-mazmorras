@@ -155,8 +155,15 @@ static func largo_de(talla: int) -> int:
 # El lienzo de una talla. Cuadrado y no ajustado al pez: el sprite GIRA, y aunque Godot no recorte
 # al rotar, un lienzo cuadrado deja el centro de giro donde tiene que estar (el centro del pez) sin
 # tener que andar corrigiendo offsets por especie.
+#
+# EL 1.5 ES POR EL COLETEO, y sale de una cuenta, no de probar hasta que el validador callara. Lo
+# que mas se aleja del eje es LA PUNTA DE LA COLA en el frame de coleteo maximo, y son tres cosas
+# que se suman: el semiancho del pez, el desvio del coleteo y lo que la cola abre por su cuenta.
+# Para el espejo abisal (esbeltez 1.7, el mas ancho) eso es 0.29 + 0.25 + 0.19 = 0.73 del largo por
+# cada lado, o sea 1.46 de lado. Con el lienzo justo (largo + 2) se salia, y el validador de
+# recortes lo canto en el bagre y en el espejo.
 static func lienzo(talla: int) -> Vector2i:
-	var l: int = largo_de(talla) + 2      # +2: el contorno necesita un pixel por banda
+	var l: int = int(float(largo_de(talla)) * 1.5) + 4
 	return Vector2i(l, l)
 
 
@@ -187,7 +194,12 @@ static func paleta(base: Color) -> PackedByteArray:
 		c.lightened(0.30),                     # LOMO
 		# Las aletas son de piel fina: mas palidas, algo desaturadas y translucidas. El alfa las
 		# separa del cuerpo sin necesidad de un contorno propio, que a este tamaño las taparia.
-		c.lightened(0.16).lerp(Color(0.80, 0.86, 0.90), 0.35) * Color(1, 1, 1, 0.82),
+		#
+		# POCO mas palidas. Con el primer valor (un 35% hacia el blanco azulado) las aletas ganaban
+		# al cuerpo y el bagre -- que tiene la cola mas grande de las cinco -- se leia como un pez
+		# gris claro en vez de como el bicho pardo de fondo que es. Una aleta es de su mismo color,
+		# solo que fina y translucida.
+		c.lightened(0.10).lerp(Color(0.80, 0.86, 0.90), 0.18) * Color(1, 1, 1, 0.80),
 		Color(0.06, 0.05, 0.07),               # OJO
 	])
 
@@ -210,7 +222,10 @@ static func _plantilla(d: MaterialData, talla: int, frame: int) -> PackedByteArr
 	var semi: float = maxf(1.0, ancho * 0.5)
 	var cola_frac: float = float(COLA_LARGO.get(String(r["cola"]), 0.22))
 	var cuerpo_largo: float = largo * (1.0 - cola_frac)
-	var x0: float = 1.0                                  # morro
+	# El morro. CENTRADO en el lienzo, que ahora es mas ancho que el pez para dejarle sitio al
+	# coleteo: pegado al borde izquierdo, el centro de giro del sprite no seria el centro del pez y
+	# al rotar describiria un arco en vez de girar sobre si mismo.
+	var x0: float = (float(t.x) - largo) * 0.5
 	var eje: float = float(t.y) * 0.5                    # el espinazo, en y
 
 	# DEGRADADO POR TAMAÑO. Por debajo de cierto tamaño no hay sitio y hay que dejar de dibujar
@@ -230,22 +245,37 @@ static func _plantilla(d: MaterialData, talla: int, frame: int) -> PackedByteArr
 	for ix in range(int(x0), int(x0 + cuerpo_largo) + 1):
 		var u: float = clampf((float(ix) - x0) / maxf(1.0, cuerpo_largo), 0.0, 1.0)
 		var h: float = SpriteLienzo.tramos(u, perfil) * semi
-		if h < 0.5:
+		# El umbral estaba en 0.5 y ABRIA UN HUECO ENTRE EL CUERPO Y LA COLA en los peces chicos: el
+		# perfil fusiforme acaba en 0.22 del semiancho, y en un gobio (semi 2.3) eso son 0.5 justos,
+		# asi que la ultima columna del cuerpo no se pintaba y la cola quedaba suelta. Lo cazo el
+		# validador de trozos sueltos. Donde el perfil dice que hay pez, hay al menos un pixel.
+		if h < 0.15:
 			continue
 		var cy: float = eje + _desvio(u, fase, semi)
-		_columna(plant, t, ix, cy, h)
+		_columna(plant, t, ix, cy, maxf(h, 0.5))
 
 	# --- COLA ---
-	_cola(plant, t, String(r["cola"]), x0 + cuerpo_largo, eje + _desvio(1.0, fase, semi),
-		largo * cola_frac, semi, fase)
+	# ARRANCA DENTRO DEL CUERPO, no a continuacion. Al final del cuerpo el perfil deja una columna de
+	# un pixel de alto, y ahi el coleteo mueve el eje mas de lo que ese pixel mide: la cola se
+	# despegaba y el pez salia en dos trozos (lo canto el validador en el gobio, que es el mas
+	# pequeño y por tanto donde un pixel es proporcionalmente mas). Metiendola un poco, cuerpo y cola
+	# comparten columnas y no pueden separarse por mucho que batan.
+	var solape: float = maxf(1.0, semi * 0.6)
+	_cola(plant, t, String(r["cola"]), x0 + cuerpo_largo - solape,
+		eje + _desvio(1.0 - solape / maxf(1.0, cuerpo_largo), fase, semi),
+		largo * cola_frac + solape, semi, fase)
 
 	# --- ALETAS ---
 	if hay_aletas:
 		# PECTORALES al 30% y abiertos hacia atras; PELVICAS al 55% y mas cortas. Desde arriba son
 		# dos parejas de alerones asimetricos respecto al eje, y son lo que impide que la silueta se
 		# lea como una hoja.
-		_par_aletas(plant, t, x0 + cuerpo_largo * 0.30, eje, semi, semi * 1.15, 0.55)
-		_par_aletas(plant, t, x0 + cuerpo_largo * 0.55, eje, semi, semi * 0.70, 0.40)
+		# PEQUEÑAS y pegadas al cuerpo. Con las aletas grandes (1.3 y 0.85 del semiancho) el bagre
+		# salia con dos pares de palas asomando a los lados y se leia como un ESQUELETO de pez, con
+		# las aletas haciendo de costillas. Una aleta pectoral vista desde arriba asoma poco: es un
+		# remo corto pegado al costado, no un ala.
+		_par_aletas(plant, t, x0 + cuerpo_largo * 0.30, eje, semi, semi * 0.80, 0.70)
+		_par_aletas(plant, t, x0 + cuerpo_largo * 0.60, eje, semi, semi * 0.52, 0.55)
 	if hay_dorsal:
 		# LA DORSAL ES UNA LINEA. Desde arriba se ve el CANTO de la aleta, no su cara: dibujarla
 		# como un triangulo la convertiria en un ala.
@@ -350,19 +380,21 @@ static func _cola(plant: PackedByteArray, t: Vector2i, tipo: String, x: float, c
 			_poner(plant, t, int(round(x)) + k, iy, Tono.ALETA, [])
 
 
-# Un par de aletas, una a cada lado, ABIERTAS HACIA ATRAS (`inclina`): un pez nada con los
-# pectorales echados hacia la cola, y puestas perpendiculares parecian alas de avion.
+# Un par de aletas, una a cada lado, ABIERTAS HACIA ATRAS: un pez nada con los pectorales echados
+# hacia la cola, y puestas perpendiculares parecian alas de avion.
+#
+# Como ELIPSE GIRADA y no como una fila de pixeles avanzando en diagonal. El primer intento era lo
+# segundo y salian ARAÑAZOS: hilos de un pixel que a este tamaño no se leen como aleta sino como
+# suciedad en el sprite. Una aleta tiene cuerpo, aunque sea de tres pixeles de ancho.
 static func _par_aletas(plant: PackedByteArray, t: Vector2i, x: float, eje: float, semi: float,
-		largo: float, inclina: float) -> void:
+		largo: float, abre: float) -> void:
 	for lado in [-1.0, 1.0]:
-		for k in range(0, int(largo) + 1):
-			var u: float = float(k) / maxf(1.0, largo)
-			var ax: float = x + u * largo * inclina
-			var ay: float = eje + lado * (semi * 0.72 + u * largo * 0.55)
-			# Se afina hacia la punta: una aleta es un triangulo, no una barra.
-			var g: int = maxi(1, int(round(lerpf(1.6, 0.6, u))))
-			for j in g:
-				_poner(plant, t, int(round(ax)), int(round(ay)) + j * int(lado), Tono.ALETA, [])
+		# El centro de la aleta, a medio camino entre el costado y su punta.
+		var ang: float = lado * abre
+		var cx: float = x + cos(ang) * largo * 0.5
+		var cy: float = eje + lado * semi * 0.55 + sin(ang) * largo * 0.5
+		SpriteLienzo.elipse(plant, t.x, t.y, cx, cy, maxf(1.2, largo * 0.5),
+			maxf(0.9, largo * 0.26), Tono.ALETA, ang)
 
 
 # Los bigotes del bagre: salen del morro y se curvan hacia atras. Van en BORDE y no en ALETA porque

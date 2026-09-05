@@ -83,6 +83,7 @@ func _ready() -> void:
 	_hornear_terreno()
 	_hornear_recolectables()
 	_hornear_props()
+	_hornear_peces()
 	_hornear_jugador()
 
 	# Y LO ULTIMO, TIRAR LO QUE YA NO SE GENERA. La clave de un horneado lleva dentro el color y la
@@ -91,7 +92,7 @@ func _ready() -> void:
 	# SpriteLienzo.limpiar_huerfanos).
 	var fuera: int = SpriteLienzo.limpiar_huerfanos([
 		SpriteLienzo.CARPETA_HORNO, CapaJugador.CARPETA, TerrenoSprites.CARPETA,
-		RecolectableSprites.CARPETA, PropSprites.CARPETA])
+		RecolectableSprites.CARPETA, PropSprites.CARPETA, PezSprites.CARPETA])
 	if fuera > 0:
 		print("")
 		print("  Se han borrado %d ficheros que ya no genera nadie." % fuera)
@@ -215,6 +216,43 @@ func _hornear_recolectables() -> void:
 		bytes += n
 		print("  %-20s %.1f KB" % [fam, n / 1024.0])
 	print("%.2f MB en %s" % [bytes / 1048576.0, RecolectableSprites.CARPETA])
+
+
+# LOS PECES del charco. Las especies salen de la TABLA (resources/world/peces.tres) y no de una
+# lista aqui, por lo mismo que los bichos salen de sus .tres: una especie nueva entra sola en cuanto
+# este en la tabla, sin que haya que acordarse de tocar el horno.
+#
+# Los tres numeros son los que usa FishingSpot para calcular el largo de un pez. Tienen que ser los
+# mismos o se hornearian unas tallas y el juego pediria otras -- y como PezSprites.textura cae a
+# generar al vuelo cuando falta, el fallo no daria error: solo iria mas lento y en silencio.
+const PECES := "res://resources/world/peces.tres"
+const PECES_PX_POR_CM := 0.6
+const PECES_LARGO_MIN := 10.0
+const PECES_LARGO_MAX := 53.0     # minf(tam del charco) * LARGO_MAX_FRAC, con el charco de 5x4
+
+func _hornear_peces() -> void:
+	print("")
+	print("=== PECES ===")
+	var tabla := load(PECES) as MaterialTable
+	if tabla == null:
+		push_error("[horno] no encuentro la tabla de peces en %s" % PECES)
+		return
+	var bytes: int = 0
+	var vistos: Array[String] = []
+	for e in tabla.entradas:
+		if e == null or e.material == null or vistos.has(e.material.id):
+			continue
+		vistos.append(e.material.id)
+		var n: int = PezSprites.hornear(e.material, PECES_PX_POR_CM, PECES_LARGO_MIN,
+			PECES_LARGO_MAX)
+		if n <= 0:
+			push_error("[horno] no pude escribir el pez %s" % e.material.id)
+			continue
+		bytes += n
+		print("  %-20s %.1f KB · tallas %s" % [e.material.id, n / 1024.0,
+			str(PezSprites.tallas_de(e.material, PECES_PX_POR_CM, PECES_LARGO_MIN,
+				PECES_LARGO_MAX))])
+	print("%.2f MB en %s" % [bytes / 1048576.0, PezSprites.CARPETA])
 
 
 # ¿SE LE SALE EL DIBUJO DEL LIENZO? Devuelve cuantos fotogramas tocan el borde, y dice cuales.

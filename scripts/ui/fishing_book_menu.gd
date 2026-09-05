@@ -242,21 +242,32 @@ func _coronas(d: MaterialData) -> void:
 			200, MaterialData.corona_color(c) if tengo else GRIS)
 
 
-# La "foto": la MISMA silueta que nada en el charco (un rectangulo alargado con la esbeltez de su
-# especie), a lo grande y quieta. Placeholder honesto hasta que llegue el arte, y coherente con lo
-# que ves bajo el agua: si en el libro es largo y fino, en el charco tambien.
+# La "foto": LA MISMA HOJA que nada en el charco, a su talla mayor y quieta. Es la regla que hace
+# que el libro sirva de algo -- si aqui es un bagre con bigotes, bajo el agua es esa misma silueta
+# mas oscura -- y sale gratis: en el agua la textura va con un modulate azulado y aqui sin el.
+#
+# Sin pescar, en silueta: el mismo dibujo multiplicado hasta casi negro. Multiplicar conserva la
+# forma entera, asi que la silueta que ves antes de pescarlo es EXACTA, no una aproximacion.
 func _foto(d: MaterialData, conocido: bool) -> Control:
 	var marco := ColorRect.new()
 	marco.custom_minimum_size = FOTO
 	marco.color = Color(0.09, 0.14, 0.21)
 
-	var largo: float = FOTO.x * 0.72
-	var alto: float = maxf(6.0, largo / maxf(1.2, d.esbeltez))
-	var pez := ColorRect.new()
-	pez.size = Vector2(largo, alto)
-	pez.position = (FOTO - pez.size) * 0.5
-	# Sin pescar: silueta en negro. Pescado: el color del material.
-	pez.color = d.color if conocido else Color(0.03, 0.05, 0.08)
+	# Los mismos numeros con los que el charco calcula el largo (ver FishingSpot), para que las
+	# tallas horneadas sean las mismas y no haya que hornear una hoja mas solo para el libro.
+	var techo: float = 128.0 * 0.42
+	var tallas: Array[int] = PezSprites.tallas_de(d, 0.6, 10.0, techo)
+	var celda: Vector2i = PezSprites.lienzo(tallas.back())
+	var pez := TextureRect.new()
+	pez.texture = AtlasTexture.new()
+	(pez.texture as AtlasTexture).atlas = PezSprites.textura(d, 0.6, 10.0, techo)
+	(pez.texture as AtlasTexture).region = Rect2(
+		Vector2(0.0, float(PezSprites.fila_de(d, tallas.back(), 0.6, 10.0, techo) * celda.y)),
+		Vector2(celda))
+	pez.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	pez.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	pez.size = FOTO
+	pez.modulate = Color.WHITE if conocido else Color(0.06, 0.09, 0.14)
 	marco.add_child(pez)
 	return marco
 

@@ -1091,6 +1091,14 @@ static func atlas_de(tramo: String) -> Texture2D:
 # Es UNO para todas las capas (fuente 0). Asi el suelo, el muro, el musgo y el agua comparten
 # TileSet y lo unico que cambia entre TileMapLayers es QUE celdas pintan.
 const VELOCIDAD_ANIM := 6.0    # frames por segundo de las capas animadas
+# ...salvo el LAGO, que va a la cuarta parte. No basta con quitarle la direccion a la corriente:
+# aunque el cabrilleo no vaya a ninguna parte, a seis frames por segundo se lee como agitacion, y
+# una balsa quieta se mueve DESPACIO. Es la segunda mitad de "esto es un lago y no un rio", y va
+# aparte porque a la corriente del riachuelo esta velocidad le sienta bien.
+const VELOCIDAD_ANIM_LAGO := 1.5
+
+static func velocidad_de(capa: String) -> float:
+	return VELOCIDAD_ANIM_LAGO if capa == "lago" else VELOCIDAD_ANIM
 
 static func tileset_de(tramo: String) -> TileSet:
 	return tileset_de_tramos(PackedStringArray([tramo]))
@@ -1122,7 +1130,7 @@ static func tileset_de_tramos(tramos: PackedStringArray) -> TileSet:
 				src.set_tile_animation_columns(c, 0)
 				src.set_tile_animation_frames_count(c, f)
 				for k in f:
-					src.set_tile_animation_frame_duration(c, k, 1.0 / VELOCIDAD_ANIM)
+					src.set_tile_animation_frame_duration(c, k, 1.0 / velocidad_de(capa))
 		ts.add_source(src, id)
 	return ts
 
