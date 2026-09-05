@@ -313,6 +313,8 @@ var _sala_boss: int = -1
 # Donde se planta el jefe de este piso (INF = este piso no tiene). Se guarda porque tambien se usa
 # EN CALIENTE: si su reloj cumple mientras estas dentro, renace ahi mismo (ver _repoblar_boss).
 var _boss_pos: Vector2 = Vector2.INF
+# La sala del jefe, entera. Hace falta para darle puntos de merodeo DE VERDAD (ver _mandarlo_al_hueco).
+var _boss_sala: Rect2i = Rect2i()
 # Cuanto se aleja el jefe de su sitio al MERODEAR. Se guarda junto a la posicion porque los dos
 # caminos que lo paren lo necesitan: el parto inicial y el respawn por reloj (_repoblar_boss), que
 # ya no tiene la sala a mano. 0 = jefe clavado, que es justo lo que habia y lo que se arregla.
@@ -852,6 +854,7 @@ func _colocar_boss() -> void:
 	# Antes esto colgaba del caso "piso nuevo", asi que un piso ya pisado le llenaba la sala de
 	# escolta; con la mazmorra persistente eso pasaria casi siempre.
 	_sala_boss = gen.zona_en(sala.get_center())   # su zona NO parira bichos (ver _crear_zonas)
+	_boss_sala = sala
 	_boss_pos = gen.centro_px(sala.get_center())  # donde renace si su reloj cumple (ver _repoblar_boss)
 	_boss_radio = _radio_merodeo_boss(sala)
 
@@ -1095,63 +1098,57 @@ const BOSS_ALCANCE_SONDA := 6    # hasta cuantas celdas se mira en cada una
 func _mandarlo_al_hueco(e: Node2D, centro: Vector2) -> Vector2:
 	if e == null or not is_instance_valid(e) or gen == null:
 		return centro
-	var lado: float = float(DungeonGenerator.CELDA)
-	# FUERA DEL BOQUETE. El jefe sale por el agujero, pero no puede QUEDARSE dentro: se le veia
-	# merodeando encima del negro, como flotando sobre el vacio por el que acababa de salir. Su sitio
-	# es el suelo de alrededor, asi que el corro que ha reventado se descarta entero -- ni para el
-	# hogar ni para los puntos por los que deambula.
+	var data: EnemyData = Game.boss_del_piso(_piso_construido)
 	var cel_centro: Vector2i = celda_de_px(centro)
-	var radio_b: int = _radio_aviso_de(Game.boss_del_piso(_piso_construido))
-	var boquete: Dictionary = {}
-	for dy in range(-radio_b, radio_b + 1):
-		for dx in range(-radio_b, radio_b + 1):
-			boquete[cel_centro + Vector2i(dx, dy)] = true
+	var radio_b: int = _radio_aviso_de(data)
+	var anchas: int = maxi(1, _celdas_de_ancho(data))
+	# Celdas libres que tiene que haber a su alrededor para que QUEPA: medio cuerpo a cada lado.
+	var holgura: int = int(ceil(float(anchas) * 0.5))
 
-	var mejor := centro
-	var mejor_libre: int = -1
-	var mejor_dir := Vector2.ZERO
-	# Los puntos de merodeo, apuntados POR SONDA: hay que poder quedarse solo con los del lado por el
-	# que sale (ver mas abajo).
-	var por_dir: Array = []
-	for i in BOSS_SONDAS:
-		var ang: float = TAU * float(i) / float(BOSS_SONDAS)
-		var dir := Vector2(cos(ang), sin(ang))
-		# Cuanto se puede avanzar por ahi sin salirse del suelo. Se para en la primera celda que no
-		# sea pisable: lo que se busca es hueco de verdad, no un pasillo con un recodo.
-		var libre: int = 0
-		var suyos: Array = []
-		for paso in range(1, BOSS_ALCANCE_SONDA + 1):
-			var p: Vector2 = centro + dir * float(paso) * lado
-			if not _pisable_px(p):
-				break
-			libre = paso
-			if not boquete.has(celda_de_px(p)):
-				suyos.append(p)
-		por_dir.append({"dir": dir, "puntos": suyos})
-		# Solo vale la direccion que llega MAS ALLA del boquete: si no sale de el, por ahi no hay
-		# adonde ir. El hogar se pone pasado el borde y a medio camino de lo que quede -- en la punta
-		# se pegaria al muro del otro lado y volveriamos a lo mismo por el lado contrario.
-		if libre > radio_b and libre > mejor_libre:
-			mejor_libre = libre
-			mejor_dir = dir
-			var fuera: float = float(radio_b + 1)
-			mejor = centro + dir * ((fuera + (float(libre) - fuera) * 0.5) * lado)
-
-	# SOLO LOS PUNTOS DE SU LADO. Se le estaban dando los de alrededor de TODO el agujero, asi que
-	# tarde o temprano elegia uno del otro lado, tiraba en linea recta hacia el -- porque va derecho,
-	# no rodea -- y se quedaba EMPUJANDO CONTRA LA TAPIA: se le veia dar temblores pegado al borde.
-	#
-	# Quedandose con el arco por el que ha salido, todo lo que puede querer esta en su mismo lado y no
-	# tiene motivo para cruzarlo. Ciento veinte grados: bastante sitio para deambular sin rodear nada.
+	# LAS CELDAS DE SU SALA, como cualquier otro bicho. Antes los puntos salian de sondas radiales --
+	# puntos sueltos sobre unos rayos, sin mirar si el bicho cabia ahi --, y por eso el jefe se pasaba
+	# la vida andando contra las paredes mientras el resto de enemigos no: ellos deambulan por las
+	# celdas de su zona (SpawnZone.puntos), que son suelo de verdad y con sitio. Ahora hace lo mismo.
 	var puntos: Array = []
-	for d in por_dir:
-		if mejor_dir == Vector2.ZERO or (d["dir"] as Vector2).dot(mejor_dir) >= 0.5:
-			puntos.append_array(d["puntos"])
+	var sala: Rect2i = _boss_sala
+	if sala.size == Vector2i.ZERO:
+		sala = Rect2i(cel_centro - Vector2i(3, 3), Vector2i(7, 7))
+	for y in range(sala.position.y, sala.position.y + sala.size.y):
+		for x in range(sala.position.x, sala.position.x + sala.size.x):
+			var c := Vector2i(x, y)
+			# Ni el agujero por el que acaba de salir, ni nada pegado a un muro.
+			if maxi(absi(c.x - cel_centro.x), absi(c.y - cel_centro.y)) <= radio_b:
+				continue
+			if not _hueco_libre(c, holgura):
+				continue
+			puntos.append(gen.centro_px(c))
+
+	# El hogar: el punto valido MAS LEJANO del agujero, que es el que mas despejado tiene alrededor.
+	var mejor := centro
+	var mejor_d: float = -1.0
+	for p in puntos:
+		var d: float = (p as Vector2).distance_to(centro)
+		if d > mejor_d:
+			mejor_d = d
+			mejor = p
 	if puntos.is_empty():
 		puntos.append(centro)
 	if e.has_method("asignar_zona"):
 		e.call("asignar_zona", puntos, mejor)
 	return mejor
+
+
+# ¿Le caben 'holgura' celdas de suelo alrededor a esa celda? Es lo que separa un sitio por el que un
+# bicho GRANDE puede pasar de uno donde solo cabe una rata.
+func _hueco_libre(c: Vector2i, holgura: int) -> bool:
+	var suelo: TileMapLayer = _tm.get("suelo", null)
+	if suelo == null:
+		return true
+	for dy in range(-holgura, holgura + 1):
+		for dx in range(-holgura, holgura + 1):
+			if suelo.get_cell_source_id(c + Vector2i(dx, dy)) < 0:
+				return false
+	return true
 
 
 # ¿Se puede pisar ese punto? Se le pregunta a la CAPA DEL SUELO, que es lo que se ve: si ahi hay
