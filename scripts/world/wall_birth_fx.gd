@@ -43,6 +43,14 @@ var _halo: TileMapLayer = null
 var _celdas_halo: Array[Vector2i] = []
 var _guardadas_halo: Array = []
 
+# LAS GRIETAS. Desde que el aviso dejo de teñir la roca de rojo, son -con el temblor- lo que avisa
+# de que ahi va a salir algo: van rajando la pared segun se acerca el parto.
+const _CRACK := preload("res://scripts/world/wall_crack_fx.gd")
+var _grietas: Node2D = null
+# A partir de que punto del aviso empiezan a verse. Antes no: el primer tercio es solo temblor, y
+# que la piedra se raje DESPUES de empezar a moverse es lo que cuenta la historia en el orden bueno.
+const GRIETAS_DESDE := 0.3
+
 
 # UN parto normal: una sola celda. lado = tamaño de celda; dur = aviso; amp = temblor.
 func iniciar(lado: float, dur: float, amp: float, color: Color) -> void:
@@ -92,7 +100,11 @@ func iniciar_capa(piso: Node, capa: TileMapLayer, celdas: Array, lado: float, du
 	for i in _celdas.size():
 		var d: Dictionary = _guardadas[i]
 		_mio.set_cell(_celdas[i], int(d["src"]), d["atlas"], int(d["alt"]))
-		_capa.erase_cell(_celdas[i])   # del piso desaparece: la tengo yo
+		# LA ORIGINAL SE QUEDA DEBAJO, QUIETA. Se probo a borrarla -- la copia era la unica piedra -- y
+		# al temblar dejaba JUNTAS NEGRAS por donde se veia el fondo: se leia como bloques sueltos
+		# deslizandose, no como una pared vibrando. Dejandola, la copia se sacude ENCIMA de su propia
+		# textura y no hay ni un hueco. Ademas hace todo esto mucho mas seguro: si el nodo muere de
+		# mala manera, la pared ya estaba entera y no hay nada que restaurar.
 
 	# Y EL HALO: las de al lado, en su propia copia para poder moverlas con menos fuerza.
 	_halo = TileMapLayer.new()
@@ -108,14 +120,41 @@ func iniciar_capa(piso: Node, capa: TileMapLayer, celdas: Array, lado: float, du
 			"alt": _capa.get_cell_alternative_tile(cel)})
 		_halo.set_cell(cel, src2, _capa.get_cell_atlas_coords(cel),
 			_capa.get_cell_alternative_tile(cel))
-		_capa.erase_cell(cel)
+		# Su original tambien se queda debajo, por lo mismo (ver arriba).
 	# El halo tambien queda EN OBRAS mientras dura: si otro parto cogiera una de estas celdas, al
 	# devolverla el primero se quedaria un agujero. Lo registra el aviso y no montar_aviso porque es
 	# aqui donde se decide cuales son.
 	if _piso != null and _piso.has_method("marcar_celdas_rotas"):
 		_piso.marcar_celdas_rotas(_celdas_halo)
+
+	# LAS GRIETAS, que son lo que avisa junto con el temblor desde que se quito el brillo rojo. Salen
+	# del centro de cada celda que va a reventar y van creciendo segun se acerca el parto.
+	#
+	# Cuelgan de MI NODO, asi que tiemblan con la piedra: una grieta quieta sobre una pared que se
+	# sacude se despega y canta. Y van DESPUES de _mio en el orden de hijos, o sea por encima.
+	_grietas = Node2D.new()
+	_grietas.set_script(_CRACK)
+	add_child(_grietas)
+	var focos: Array = []
+	for cel in _celdas:
+		focos.append(Vector2(cel) * lado + Vector2(lado, lado) * 0.5)
+	# Por donde puede correr la grieta: la piedra que revienta MAS su halo. Fuera de ahi se corta,
+	# que si no las ramas se metian por el suelo y por el musgo (ver WallCrackFx.preparar).
+	var zona: Array = []
+	zona.append_array(_celdas)
+	zona.append_array(_celdas_halo)
+	_grietas.preparar(focos, zona, lado, _semilla_grietas())
 	_recolocar()
 	return true
+
+
+# La semilla de las grietas. Sale de la PRIMERA CELDA del destrozo, que es un dato que las dos
+# maquinas de una sesion tienen igual: asi el compañero ve exactamente la misma rotura sin que nadie
+# mande un dibujo por red.
+func _semilla_grietas() -> int:
+	if _celdas.is_empty():
+		return 0
+	return hash(Vector2i(_celdas[0].x, _celdas[0].y))
 
 
 # Las celdas pegadas a las que revientan y que TAMBIEN estan pintadas en esta capa. Se sacan de la
@@ -154,6 +193,10 @@ func _recolocar() -> void:
 	# desplazamiento es (position - _origen), asi que restandole lo que sobra queda con su fraccion.
 	if _halo != null and is_instance_valid(_halo):
 		_halo.position = -_origen - (position - _origen) * (1.0 - HALO_FUERZA)
+	# Las grietas van pegadas a la piedra que se raja, asi que tiemblan LO MISMO que _mio: una grieta
+	# quieta sobre una pared que se sacude se despega del muro y canta.
+	if _grietas != null and is_instance_valid(_grietas):
+		_grietas.position = -_origen
 
 
 # UN BROTE: un TRAMO de pared (varias celdas) que late y tiembla EN BLOQUE. 'paredes' son los
@@ -198,13 +241,17 @@ func _process(delta: float) -> void:
 	var freq: float = lerpf(2.0, 9.0, p)
 	var latido: float = 0.5 + 0.5 * sin(_t * freq * TAU)
 	if _capa != null:
-		# LA PIEDRA NO SE TIÑE. El aviso es que la pared TIEMBLA, y punto: un brillo rojo encima es
-		# otra vez pintarle un color a la roca, que es de lo que se venia huyendo. Lo que va a avisar
-		# ademas del temblor son las grietas, que apareceran poco a poco hasta que revienta.
+		# LA PIEDRA NO SE TIÑE. El aviso es que la pared TIEMBLA y SE RAJA: un brillo rojo encima es
+		# otra vez pintarle un color a la roca, que es de lo que se venia huyendo.
 		#
 		# El latido se queda, pero movido al TEMBLOR (ver abajo): la pared se sacude a tirones cada vez
 		# mas seguidos en vez de parpadear de color.
-		pass
+		#
+		# Y LA GRIETA CRECE, de nada a entera en lo que queda de aviso. Empieza pasado GRIETAS_DESDE
+		# para que el orden sea el que cuenta la historia: primero se mueve, luego se raja, luego
+		# revienta.
+		if _grietas != null and is_instance_valid(_grietas):
+			_grietas.avance(clampf((p - GRIETAS_DESDE) / (1.0 - GRIETAS_DESDE), 0.0, 1.0))
 	else:
 		# El camino de respaldo (sin piedra prestada) sigue con su rectangulo de color: ahi no hay
 		# piedra que sacudir, y algo tiene que avisar.
@@ -233,14 +280,8 @@ func _process(delta: float) -> void:
 func _exit_tree() -> void:
 	if _capa == null:
 		return
-	if is_instance_valid(_capa):
-		for i in _celdas.size():
-			var d: Dictionary = _guardadas[i]
-			_capa.set_cell(_celdas[i], int(d["src"]), d["atlas"], int(d["alt"]))
-		# Y el halo, que tambien esta prestado.
-		for i in _celdas_halo.size():
-			var dh: Dictionary = _guardadas_halo[i]
-			_capa.set_cell(_celdas_halo[i], int(dh["src"]), dh["atlas"], int(dh["alt"]))
+	# NO HAY NADA QUE RESTAURAR: la piedra original nunca se llego a borrar, la copia solo se pinta
+	# encima (ver iniciar_capa). Lo unico que hay que soltar es el registro de "en obras".
 	# Y se sueltan del registro de "en obras" AUNQUE la capa ya no valga: si no, un piso regenerado
 	# heredaria celdas marcadas para siempre y esa pared no volveria a parir nunca.
 	if _piso != null and is_instance_valid(_piso) and _piso.has_method("soltar_celdas_rotas"):
