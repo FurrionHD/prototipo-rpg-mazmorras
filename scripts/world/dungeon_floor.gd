@@ -2614,6 +2614,35 @@ func dev_brote_cercano() -> void:
 	provocar_brote()
 
 
+# DEV: planta al jefe de este piso AHORA, sin esperar sus diez minutos de reloj.
+#
+# Pasa por el mismo camino que el respawn normal (_hacer_sitio_al_jefe + _anunciar_boss), no por un
+# atajo propio: asi se prueba lo que de verdad ocurre en la partida -- el temblor del suelo, el
+# boquete, la salida del agujero -- y no una version de laboratorio. Lo UNICO que se salta es el
+# reloj, que es justo lo que estorba para probar.
+#
+# Devuelve el motivo cuando no se puede, para que el boton lo cante en pantalla: sin esto, pulsar y
+# que no pase nada era indistinguible de un bug.
+func dev_forzar_jefe() -> String:
+	if not Net.simulo_mi_piso():
+		return "este piso lo simula el otro: que lo fuerce quien lo lleve"
+	if _boss_pos == Vector2.INF:
+		return "el piso %d no tiene jefe" % _piso_construido
+	if _boss_naciendo:
+		return "el jefe ya viene de camino"
+	# El mismo criterio que _repoblar_boss: los cadaveres estan en "corpse", asi que un boss en
+	# "enemy" es un boss DE PIE.
+	for n in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(n) and n.es_boss:
+			return "el jefe ya está de pie"
+	var data: EnemyData = Game.boss_del_piso(_piso_construido)
+	if data == null:
+		return "el piso %d no tiene jefe" % _piso_construido
+	_hacer_sitio_al_jefe()
+	_anunciar_boss(data)
+	return ""
+
+
 # MULTIJUGADOR: pinta el AVISO de un parto/brote que esta pariendo OTRA maquina. El que solo espeja el
 # piso no tiene zonas activas (SpawnZone muere en piso.hay_sitio, que corta si no eres el dueño), asi
 # que veia salir los bichos de la pared SIN el temblor de aviso: un susto gratis en vez de la decision

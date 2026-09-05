@@ -194,6 +194,24 @@ func _build_atajos(vb: VBoxContainer) -> void:
 	_atajo(fila3, "+10 min (N)", "Salta el reloj de mazmorra: para probar el respawn de recursos.",
 		Game.dev_saltar_reloj)
 
+	# EL JEFE, YA. Un jefe caido tarda diez minutos de RELOJ DE PARED en volver (Game.BOSS_RESPAWN):
+	# probar dos veces seguidas su pelea costaba mas espera que juego. El boton lo planta por el camino
+	# normal (temblor, boquete, salida del agujero), asi que lo que se prueba es la escena de verdad.
+	var jefe := Button.new()
+	jefe.text = "Traer al jefe ahora (pisos %s)" % ", ".join(
+		Game.BOSSES.keys().map(func(p): return str(p)))
+	jefe.tooltip_text = "Planta el jefe de ESTE piso sin esperar sus 10 minutos, y le levanta el " \
+		+ "sello (el cartel de la sala deja de contar).\n\nSolo en un piso de jefe, y solo si no " \
+		+ "hay uno de pie ya."
+	jefe.pressed.connect(func():
+		var motivo: String = Game.dev_forzar_jefe()
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud != null and hud.has_method("mostrar_toast"):
+			hud.mostrar_toast("[dev] " + ("el jefe está saliendo" if motivo.is_empty() else motivo))
+		if motivo.is_empty():
+			_toggle())   # el panel tapa la sala: se cierra para ver salir al bicho
+	vb.add_child(jefe)
+
 	var inf := Button.new()
 	inf.text = "Informe de la partida (sigue en la tecla Ñ)"
 	inf.tooltip_text = "Vuelca al log y a un fichero el estado de todos los personajes. Solo LEE."

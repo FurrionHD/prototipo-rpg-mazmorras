@@ -11083,6 +11083,29 @@ func dev_brote() -> void:
 		piso.dev_brote_cercano()
 
 
+# DEV: el jefe de este piso, YA. Sin esto, reprobar una pelea de jefe costaba diez minutos de reloj
+# de pared por intento (ver BOSS_RESPAWN), y ese es justo el rato en el que no se puede probar nada.
+#
+# Le LEVANTA EL SELLO ademas de plantarlo: si no, el cartel de su sala seguiria contando hacia atras
+# con el jefe delante ("vuelve en 7:31" mientras te pega), y el respawn normal intentaria plantar un
+# segundo cuando cumpliera el reloj del primero.
+#
+# Devuelve "" si se ha plantado, o el motivo por el que no. En sesion NO toca la tabla del host: el
+# jefe sale en la maquina que simula el piso -- que es la unica que puede parirlo -- y los demas lo
+# ven por red como cualquier otro.
+func dev_forzar_jefe() -> String:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null or not piso.has_method("dev_forzar_jefe"):
+		return "no estás en la mazmorra"
+	bosses_sello.erase(current_floor)
+	var motivo: String = piso.dev_forzar_jefe()
+	if motivo.is_empty():
+		print("[dev] jefe del piso %d plantado a mano" % current_floor)
+	else:
+		print("[dev] no se planta el jefe: %s" % motivo)
+	return motivo
+
+
 # --- PRUEBAS: ciclar el loadout con el teclado ---
 # El ciclo pasa por SIN ARMA (indice -1, manos vacias) antes de volver a la primera: asi se
 # pueden probar los puños sin que sean un objeto del baul.
