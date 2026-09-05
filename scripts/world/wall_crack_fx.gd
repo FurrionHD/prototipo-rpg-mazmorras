@@ -102,6 +102,19 @@ var _lado: float = 32.0
 var _foco := Vector2.ZERO
 var _alcance: float = 1.0
 
+# ============================================================
+#  EL DIBUJO, EN UNA TEXTURA
+# ============================================================
+# Todo el destrozo se vuelca a una imagen y se pinta de una sola llamada. El coste de dibujarlo no
+# depende ya de lo grande que sea, y la imagen solo se rehace cuando el estado se mueve de verdad
+# (CACHE_PASO), no en cada frame: la reparacion dura medio minuto, o sea unos dos mil frames para un
+# puñado de pasos que de verdad cambian algun pixel.
+const CACHE_PASO := 0.006
+var _tex: ImageTexture = null
+var _tex_origen := Vector2.ZERO
+var _cache_avance: float = -1.0
+var _cache_cierre: float = -1.0
+
 
 # ------------------------------------------------------------
 #  LAS GRIETAS
@@ -128,7 +141,8 @@ func preparar(focos: Array, permitidas: Array, lado: float, sem: int) -> void:
 	# Por MOMENTO DE APARICION, para que _draw pueda cortar por el primero que aun no toca en vez de
 	# recorrerlos todos comparando.
 	_px_grieta.sort_custom(func(a, b): return float(a["t"]) < float(b["t"]))
-	queue_redraw()
+	_cache_avance = -1.0
+	_refrescar()
 
 
 # EL FILO DE LUZ: un pixel claro pegado por abajo y por la derecha de cada grieta, como si la luz
@@ -273,7 +287,7 @@ func avance(v: float) -> void:
 	if is_equal_approx(nuevo, _avance):
 		return
 	_avance = nuevo
-	queue_redraw()
+	_refrescar()
 
 
 # ------------------------------------------------------------
@@ -305,7 +319,8 @@ func romper(rotas: Array, con_cara: Array, sem: int) -> void:
 		var cel: Vector2i = rotas[i] as Vector2i
 		var d: float = 0.0 if radio_max <= 0.001 else Vector2(cel).distance_to(centro) / radio_max
 		_mancha(cel, celdas, sem, RETARDO_CELDA * (1.0 - d))
-	queue_redraw()
+	_cache_cierre = -1.0
+	_refrescar()
 
 
 # LA MANCHA DE UNA CELDA, rasterizada pixel a pixel. Para cada pixel de su caja se mira si cae dentro
@@ -412,15 +427,6 @@ func _mancha(celda: Vector2i, rotas: Dictionary, sem: int, retardo: float) -> vo
 			_px_hueco.append({"p": p, "r": clampf(ret, 0.0, 0.98), "t": tipo})
 
 
-func _tono(t: int) -> Color:
-	match t:
-		HUECO_HONDO: return COL_HUECO_HONDO
-		HUECO_LUZ: return COL_HUECO_LUZ
-		HUECO_SOMBRA: return COL_HUECO_SOMBRA
-		HUECO_DIENTE: return COL_DIENTE
-	return COL_HUECO_FONDO
-
-
 # LOS DIENTES, por angulo: cuanto entra la piedra hacia el centro en esa direccion. Sale de una suma
 # de senos con la semilla de la celda, asi que es irregular pero SIEMPRE EL MISMO -- y no hace falta
 # guardar una lista de puntas: basta preguntarle por el angulo de cada pixel.
@@ -439,25 +445,91 @@ func cerrar(v: float) -> void:
 	if is_equal_approx(nuevo, _cierre):
 		return
 	_cierre = nuevo
+	_refrescar()
+
+
+# Rehace las tiras SOLO si el estado se ha movido lo bastante como para que cambie algun pixel. Sin
+# esto se recalculaba en cada frame y no habia agrupacion que salvara el rendimiento: la reparacion
+# dura medio minuto, o sea unos dos mil frames para un puñado de pasos visibles.
+#
+# Los extremos (0 y 1) se dejan pasar siempre: son el "ya no queda nada" y el "esta entero", y
+# saltarselos deja el dibujo pegado en el ultimo paso.
+func _refrescar() -> void:
+	var toca: bool = absf(_avance - _cache_avance) >= CACHE_PASO 		or absf(_cierre - _cache_cierre) >= CACHE_PASO 		or _avance <= 0.0 or _cierre <= 0.0 or _cierre >= 1.0
+	if not toca:
+		return
+	_cache_avance = _avance
+	_cache_cierre = _cierre
+	_rehacer_textura()
 	queue_redraw()
 
 
 func _draw() -> void:
-	# LAS GRIETAS PRIMERO, EL HUECO ENCIMA. Iba al reves y estaba mal: el boquete es un VACIO, y una
-	# grieta pintada por encima del agujero es una raya flotando en el aire. Las que caen dentro tienen
-	# que quedar tapadas; solo se ven las que salen de su borde hacia fuera, que es de donde salen.
+	# UNA SOLA LLAMADA. Todo el destrozo va en una textura, asi que da igual que sean cuarenta mil
+	# pixeles o cuatrocientos mil: el coste de pintarlo es el mismo.
+	if _tex != null:
+		draw_texture(_tex, _tex_origen)
+
+
+# Vuelca lo que se ve AHORA a una imagen y la sube a la textura. Se llama solo cuando el estado se ha
+# movido de verdad (ver _refrescar), no en cada frame.
+#
+# COMO SE LLEGO AQUI, que importa: primero era un draw_rect de 1x1 por pixel y por frame -- cuarenta
+# mil llamadas de dibujo con el corro del jefe, y el juego se arrastraba. Luego se agruparon en tiras
+# horizontales: 26 veces menos llamadas, pero seguian siendo cinco mil por frame Y habia que ORDENAR
+# ciento treinta mil claves en cada recalculo, que salio peor que el problema. Con una textura no hay
+# ni ordenacion ni llamadas: se escriben los pixeles y se sube una vez.
+func _rehacer_textura() -> void:
+	if _px_grieta.is_empty() and _px_hueco.is_empty():
+		_tex = null
+		return
+	# La caja que lo abarca todo, para no crear una imagen del tamaño del mapa.
+	var min_x := INF
+	var min_y := INF
+	var max_x := -INF
+	var max_y := -INF
+	for g in _px_grieta:
+		var p: Vector2 = g["p"]
+		min_x = minf(min_x, p.x); max_x = maxf(max_x, p.x)
+		min_y = minf(min_y, p.y); max_y = maxf(max_y, p.y)
+	for h in _px_hueco:
+		var p2: Vector2 = h["p"]
+		min_x = minf(min_x, p2.x); max_x = maxf(max_x, p2.x)
+		min_y = minf(min_y, p2.y); max_y = maxf(max_y, p2.y)
+	var ancho: int = int((max_x - min_x) / PIXEL) + 1
+	var alto: int = int((max_y - min_y) / PIXEL) + 1
+	if ancho <= 0 or alto <= 0:
+		_tex = null
+		return
+	_tex_origen = Vector2(min_x, min_y)
+
+	var img := Image.create(ancho, alto, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	# LAS GRIETAS DEBAJO, EL HUECO ENCIMA: el boquete es un vacio, y una grieta pintada por encima del
+	# agujero es una raya flotando en el aire. Como se escribe en orden, el hueco pisa a la grieta.
 	if _avance > 0.0:
 		for g in _px_grieta:
 			if float(g["t"]) > _avance:
 				break   # vienen ordenados: a partir de aqui no ha salido ninguno
-			draw_rect(Rect2(g["p"], Vector2(PIXEL, PIXEL)),
-				COL_FILO if g.get("filo", false) else COL_GRIETA, true)
+			var q: Vector2 = (g["p"] as Vector2 - _tex_origen) / PIXEL
+			img.set_pixel(int(q.x), int(q.y),
+				COL_FILO if g.get("filo", false) else COL_GRIETA)
 	if _roto and _cierre > 0.001:
-		var avance_cierre: float = 1.0 - _cierre   # _cierre va de 1 a 0; lo reparado es lo contrario
+		var avance_cierre: float = 1.0 - _cierre
 		for h in _px_hueco:
 			# Un pixel esta ABIERTO mientras la reparacion no le haya llegado. Sin desvanecidos: un
-			# pixel esta o no esta, que es como funciona el pixel art -- un alpha a medias delata el
-			# dibujo vectorial que hay debajo.
+			# pixel esta o no esta, que es como funciona el pixel art.
 			if float(h["r"]) < avance_cierre:
 				continue
-			draw_rect(Rect2(h["p"], Vector2(PIXEL, PIXEL)), _tono(int(h["t"])), true)
+			var q2: Vector2 = (h["p"] as Vector2 - _tex_origen) / PIXEL
+			img.set_pixel(int(q2.x), int(q2.y), _tono(int(h["t"])))
+	_tex = ImageTexture.create_from_image(img)
+
+
+func _tono(t: int) -> Color:
+	match t:
+		HUECO_HONDO: return COL_HUECO_HONDO
+		HUECO_LUZ: return COL_HUECO_LUZ
+		HUECO_SOMBRA: return COL_HUECO_SOMBRA
+		HUECO_DIENTE: return COL_DIENTE
+	return COL_HUECO_FONDO

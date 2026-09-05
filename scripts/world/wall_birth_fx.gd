@@ -397,6 +397,12 @@ func _process(delta: float) -> void:
 const CAPA_BOQUETE := 1
 
 var _tapias: Array = []   # [{cuerpo: StaticBody2D, r: float}] -- 'r' es cuando le toca cerrarse
+# CUANTO del boquete corta el paso, en celdas desde su centro. Lo pone quien lo lanza a partir del
+# TAMAÑO DEL JEFE (ver DungeonFloor._radio_solido_de): tapiarlo entero deja al bicho encajonado entre
+# su propio agujero y la pared. -1 = no se tapia nada, que es lo que toca cuando el jefe es tan
+# grande respecto a su corro que cualquier parte solida lo encerraria.
+var solido_radio: int = 9999
+var solido_centro := Vector2i.MAX
 
 func _tapiar() -> void:
 	if _es_muro or _capa == null:
@@ -413,10 +419,18 @@ func _tapiar() -> void:
 	for c in _celdas:
 		radio_max = maxf(radio_max, Vector2(c).distance_to(centro))
 
+	if solido_radio < 0:
+		return   # este jefe no cabe rodeando: su agujero se queda en dibujo
 	for i in _celdas.size():
 		if i < caras.size() and not bool(caras[i]):
 			continue   # sin agujero pintado, sin tapia
 		var cel: Vector2i = _celdas[i]
+		# SOLO EL CENTRO. Fuera de ese radio se pinta el agujero pero se puede pisar: es el anillo por
+		# el que el jefe rodea su propio hoyo para llegar hasta ti.
+		if solido_centro != Vector2i.MAX:
+			var d2: Vector2i = cel - solido_centro
+			if maxi(absi(d2.x), absi(d2.y)) > solido_radio:
+				continue
 		var cuerpo := StaticBody2D.new()
 		cuerpo.collision_layer = CAPA_BOQUETE
 		cuerpo.collision_mask = 0     # no vigila a nadie: solo esta para que choquen con el

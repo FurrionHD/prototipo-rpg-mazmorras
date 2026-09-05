@@ -1013,6 +1013,45 @@ func _sitio_para_formacion(sala: Rect2i, puestas: Array[Vector2i],
 # encajona contra la pared, que es lo que se venia a arreglar.
 const BOSS_BULTO := 52.0
 
+
+# ============================================================
+#  EL AGUJERO DE UN JEFE SE MIDE POR EL JEFE
+# ============================================================
+# Nada de esto puede ser una constante. El Rey Slime ocupa 2,8 celdas; el dia que haya un jefe que
+# ocupe once, un corro fijo de 5x5 le quedaria pequeño para nacer y su parte solida lo dejaria
+# emparedado. Todo sale de su cuerpo, asi que un jefe nuevo funciona sin tocar una linea.
+
+# Lo que mide de ancho, en celdas. Cero si no se puede saber (sprite de fichero en vez de generado).
+func _celdas_de_ancho(data: EnemyData) -> int:
+	if data == null:
+		return 0
+	var t: Vector2 = SpritesEnemigo.tam_cuerpo(data)
+	if t == Vector2.ZERO:
+		return 0
+	return int(ceil(maxf(t.x, t.y) / float(DungeonGenerator.CELDA)))
+
+
+# EL CORRO QUE REVIENTA: EL DEL BICHO, ni mas ni menos. Su medio cuerpo, o sea un agujero del ancho
+# justo por el que sale.
+#
+# Estuvo con una celda de holgura de mas y salia demasiado grande -- el Rey Slime, que ocupa tres
+# celdas, reventaba un corro de 7x7 en una sala que a veces no da ni para eso. Un agujero del tamaño
+# del bicho es lo que se lee bien: por ahi ha salido ESO. Y crece solo con el que venga: uno que
+# ocupe once celdas se lleva por delante once.
+func _radio_aviso_de(data: EnemyData) -> int:
+	var anchas: int = _celdas_de_ancho(data)
+	if anchas <= 0:
+		return BOSS_AVISO_RADIO
+	return maxi(1, int(float(anchas) * 0.5))
+
+
+# Y LO QUE DE ESE CORRO CORTA EL PASO: TODO EL AGUJERO. Ahora que el corro es del tamaño del bicho y
+# no mas, cabe entero dentro de su sala y le queda sitio de sobra para rodearlo -- que era el
+# problema de verdad, no el hecho de que fuera solido: un hoyo de 5x5 (o 7x7) en una sala de siete
+# celdas no deja por donde pasar a un bicho de tres.
+func _radio_solido_de(data: EnemyData) -> int:
+	return _radio_aviso_de(data)
+
 func _radio_merodeo_boss(sala: Rect2i) -> float:
 	var lado: float = float(mini(sala.size.x, sala.size.y)) * float(DungeonGenerator.CELDA)
 	# LA MITAD DEL LADO CORTO ES DEMASIADO para un bicho del tamaño del jefe: el radio se mide desde
@@ -1062,9 +1101,10 @@ func _mandarlo_al_hueco(e: Node2D, centro: Vector2) -> Vector2:
 	# es el suelo de alrededor, asi que el corro que ha reventado se descarta entero -- ni para el
 	# hogar ni para los puntos por los que deambula.
 	var cel_centro: Vector2i = celda_de_px(centro)
+	var radio_b: int = _radio_aviso_de(Game.boss_del_piso(_piso_construido))
 	var boquete: Dictionary = {}
-	for dy in range(-BOSS_AVISO_RADIO, BOSS_AVISO_RADIO + 1):
-		for dx in range(-BOSS_AVISO_RADIO, BOSS_AVISO_RADIO + 1):
+	for dy in range(-radio_b, radio_b + 1):
+		for dx in range(-radio_b, radio_b + 1):
 			boquete[cel_centro + Vector2i(dx, dy)] = true
 
 	var mejor := centro
@@ -1091,10 +1131,10 @@ func _mandarlo_al_hueco(e: Node2D, centro: Vector2) -> Vector2:
 		# Solo vale la direccion que llega MAS ALLA del boquete: si no sale de el, por ahi no hay
 		# adonde ir. El hogar se pone pasado el borde y a medio camino de lo que quede -- en la punta
 		# se pegaria al muro del otro lado y volveriamos a lo mismo por el lado contrario.
-		if libre > BOSS_AVISO_RADIO and libre > mejor_libre:
+		if libre > radio_b and libre > mejor_libre:
 			mejor_libre = libre
 			mejor_dir = dir
-			var fuera: float = float(BOSS_AVISO_RADIO + 1)
+			var fuera: float = float(radio_b + 1)
 			mejor = centro + dir * ((fuera + (float(libre) - fuera) * 0.5) * lado)
 
 	# SOLO LOS PUNTOS DE SU LADO. Se le estaban dando los de alrededor de TODO el agujero, asi que
@@ -1164,7 +1204,8 @@ func _emerger(e: Node2D, centro: Vector2, hogar: Vector2) -> void:
 	var salida: Vector2 = centro
 	if hogar != centro:
 		var d: Vector2 = (hogar - centro).normalized()
-		salida = centro + d * float(BOSS_AVISO_RADIO + 1) * float(DungeonGenerator.CELDA)
+		var r_sal: int = _radio_aviso_de(Game.boss_del_piso(_piso_construido))
+		salida = centro + d * float(r_sal + 1) * float(DungeonGenerator.CELDA)
 	t.tween_property(e, "global_position", salida, EMERGER_DUR).from(centro).set_trans(
 		Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	# Del negro del hueco a su color: viene de dentro, donde no da la luz. Mas rapido que el
@@ -1700,7 +1741,10 @@ func _jugador_en_la_sala_del_jefe() -> bool:
 # corriendo hacia el jugador fuese solo un susto barato.)
 const BOSS_AVISO_DUR := 2.6    # el brote gordo anda por 2.6 s (1.2 x 2.2); el jefe iguala y se queda
 const BOSS_AVISO_AMP := 9.0    # y tiembla mas: 3 x el brote normal (2.5 x 3.0 = 7.5)
-const BOSS_AVISO_RADIO := 2    # celdas a cada lado del centro: un corro de 5x5 alrededor del jefe
+# El corro por defecto, para un jefe del que no se sepa el tamaño: 5x5. Los que si tienen sprite
+# generado se miden (ver _celdas_de_ancho), porque el corro TIENE QUE CRECER CON EL BICHO -- un jefe
+# que ocupa once celdas no puede salir por un agujero de cinco.
+const BOSS_AVISO_RADIO := 2
 const BOSS_AVISO_COLOR := Color(0.85, 0.15, 0.10)   # mas oscuro y mas rojo que el naranja del brote
 const _FX_PARTO := preload("res://scripts/world/wall_birth_fx.gd")
 
@@ -1712,10 +1756,13 @@ func _anunciar_boss(data: EnemyData) -> void:
 	var centro := Vector2i(
 		int(floor(_boss_pos.x / float(DungeonGenerator.CELDA))),
 		int(floor(_boss_pos.y / float(DungeonGenerator.CELDA))))
+	# EL CORRO, A LA MEDIDA DE ESTE JEFE (ver _radio_aviso_de): uno que ocupe once celdas no sale por
+	# un agujero de cinco.
+	var radio: int = _radio_aviso_de(data)
 	var celdas: Array = []
 	var rejilla: Array = []
-	for dy in range(-BOSS_AVISO_RADIO, BOSS_AVISO_RADIO + 1):
-		for dx in range(-BOSS_AVISO_RADIO, BOSS_AVISO_RADIO + 1):
+	for dy in range(-radio, radio + 1):
+		for dx in range(-radio, radio + 1):
 			rejilla.append(centro + Vector2i(dx, dy))
 			celdas.append(gen.centro_px(centro + Vector2i(dx, dy)))
 	if celdas.is_empty():
@@ -1731,6 +1778,9 @@ func _anunciar_boss(data: EnemyData) -> void:
 	#
 	# Su corro son veinticinco celdas, asi que la reparacion tarda casi el doble que la de un brote
 	# (ver WallBirthFx.romper) y se cierra de fuera hacia dentro, por las esquinas.
+	# Y SOLO EL CENTRO CORTA EL PASO, para que le quede anillo por donde rodear (ver _radio_solido_de).
+	fx.set("solido_radio", _radio_solido_de(data))
+	fx.set("solido_centro", centro)
 	if not montar_aviso(fx, rejilla, BOSS_AVISO_DUR, BOSS_AVISO_AMP, BOSS_AVISO_COLOR):
 		fx.iniciar_tramo(float(DungeonGenerator.CELDA), BOSS_AVISO_DUR, BOSS_AVISO_AMP,
 			BOSS_AVISO_COLOR, celdas)
