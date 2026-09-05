@@ -245,7 +245,10 @@ func _tramo_de_pared(inicio: Dictionary, n: int) -> Array:
 # Se acabo el aviso: la pared se abre y salen los bichos, uno por celda del tramo.
 func _abrir_pared() -> void:
 	if _fx != null:
-		_fx.queue_free()
+		# ROMPER, no borrar. El aviso no desaparece al salir el bicho: deja el boquete por donde ha
+		# reventado y se encarga el solo de irlo cerrando (ver WallBirthFx.romper). Si iba por el
+		# camino de respaldo -- el rectangulo de color --, romper() se borra igual que antes.
+		_fx.romper()
 		_fx = null
 
 	var nacidos: int = 0

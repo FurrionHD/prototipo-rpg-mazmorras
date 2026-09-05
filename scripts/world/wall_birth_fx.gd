@@ -51,6 +51,25 @@ var _grietas: Node2D = null
 # que la piedra se raje DESPUES de empezar a moverse es lo que cuenta la historia en el orden bueno.
 const GRIETAS_DESDE := 0.3
 
+# --- LO QUE TARDA LA PIEDRA EN REHACERSE ---
+# Pedido asi: "30 segundos o asi", y que lo gordo tarde mas. Un corro de veinticinco celdas no se
+# puede cerrar en lo mismo que una piedra suelta. Hay tope para que un brote enorme no deje la sala
+# en obras media partida.
+const REPARAR_BASE := 30.0        # una celda suelta: medio minuto
+const REPARAR_POR_CELDA := 1.2    # cada celda de mas
+const REPARAR_TOPE := 75.0
+# En que parte de la reparacion se han cerrado ya todas las grietas. Poco mas de la mitad: para
+# entonces solo queda el boquete, que es la herida gorda.
+const GRIETAS_CURAN := 0.55
+# Lo que tarda el boquete en ABRIRSE del todo, en segundos. Corto: es una rotura, no una animacion.
+const ABRIR_DUR := 0.22
+
+enum Fase { AVISO, ROTA }
+var _fase: int = Fase.AVISO
+var _t_rota: float = 0.0
+var _t_abre: float = 0.0
+var _dur_rota: float = REPARAR_BASE
+
 
 # UN parto normal: una sola celda. lado = tamaño de celda; dur = aviso; amp = temblor.
 func iniciar(lado: float, dur: float, amp: float, color: Color) -> void:
@@ -210,7 +229,10 @@ func _recolocar() -> void:
 	# EL HALO se mueve MENOS: se le devuelve parte del tembleque para dejarlo a HALO_FUERZA. Mi
 	# desplazamiento es (position - _origen), asi que restandole lo que sobra queda con su fraccion.
 	if _halo != null and is_instance_valid(_halo):
-		_halo.position = -_origen - (position - _origen) * (1.0 - HALO_FUERZA)
+		# Tambien a pixel entero, por lo mismo que el temblor de arriba: una fraccion aqui deja el
+		# halo desalineado del muro que tiene al lado y se ve la costura.
+		var suyo: Vector2 = (position - _origen) * HALO_FUERZA
+		_halo.position = -position + Vector2(roundf(suyo.x), roundf(suyo.y))
 	# Las grietas van pegadas a la piedra que se raja, asi que tiemblan LO MISMO que _mio: una grieta
 	# quieta sobre una pared que se sacude se despega del muro y canta.
 	if _grietas != null and is_instance_valid(_grietas):
@@ -246,12 +268,55 @@ func borrarse_al_acabar(dur: float) -> void:
 	_auto_borrar = maxf(0.05, dur)
 
 
+# YA HAN SALIDO: la piedra se queda ROTA y empieza a cerrarse sola. Lo llama SpawnZone en vez del
+# queue_free de antes, y DungeonFloor tras el parto del jefe.
+#
+# Si este aviso iba por el camino de respaldo (sin piedra prestada) no hay nada que agrietar y se
+# borra, que es exactamente lo que hacia siempre hasta ahora.
+func romper() -> void:
+	if _capa == null or _fase == Fase.ROTA:
+		queue_free()
+		return
+	_fase = Fase.ROTA
+	_t_rota = 0.0
+	_t_abre = 0.0
+	_dur_rota = minf(REPARAR_TOPE,
+		REPARAR_BASE + REPARAR_POR_CELDA * float(maxi(0, _celdas.size() - 1)))
+	position = _origen        # deja de temblar: la piedra ya esta donde va a quedarse
+	_recolocar()
+	if _grietas != null and is_instance_valid(_grietas):
+		_grietas.avance(1.0)   # la grieta, entera: por ahi es por donde ha reventado
+		_grietas.romper(_celdas, _caras_de(_celdas), _semilla_grietas())
+		_grietas.cerrar(0.0)   # y el hueco arranca CERRADO: lo abre _process_rota
+
+
+# QUE CELDAS ENSEÑAN SU CARA A LA CAMARA. El juego se mira desde 45 grados: de una pared se ve la
+# cara solo cuando tiene suelo POR DEBAJO (esa es la que te mira de frente). La de abajo de una sala
+# se ve de canto, no tiene cara que agujerear, y un boquete pintado ahi se lee como una mancha tirada
+# en el suelo -- por eso a esas solo les quedan las grietas.
+#
+# Se pregunta a la CAPA y no al generador: lo que se pinta tiene que casar con lo que se ve. Y si la
+# capa es la del suelo (el parto del jefe), debajo tampoco hay muro, asi que sale cara para todas --
+# que es lo correcto: un agujero en el suelo se ve entero desde arriba.
+func _caras_de(celdas: Array[Vector2i]) -> Array:
+	var out: Array = []
+	for c in celdas:
+		out.append(_capa == null or _capa.get_cell_source_id(c + Vector2i.DOWN) < 0)
+	return out
+
+
 func _process(delta: float) -> void:
+	if _fase == Fase.ROTA:
+		_process_rota(delta)
+		return
 	if _capa == null and _rects.is_empty():
 		return
 	_t += delta
 	if _auto_borrar > 0.0 and _t >= _auto_borrar:
-		queue_free()
+		# El aviso REPLICADO se apaga solo. Si tiene piedra prestada pasa por la rotura como el propio
+		# (romper() se encarga): el compañero tiene que ver el MISMO boquete que el que simula el piso,
+		# y cerrarse igual. Sin piedra, romper() se limita a borrarse, como siempre.
+		romper()
 		return
 	var p: float = clampf(_t / _dur, 0.0, 1.0)
 
@@ -287,8 +352,43 @@ func _process(delta: float) -> void:
 	# factor aparte y no tocando aviso_amp para no cambiarle la amplitud al camino de respaldo.
 	if _capa != null:
 		amp *= AMP_PIEDRA
-	position = _origen + Vector2(randf_range(-amp, amp), randf_range(-amp, amp))
+	# A PIXELES ENTEROS. El juego es pixel art con filtro nearest: un desplazamiento de 3,7 px deja la
+	# piedra a medio pixel de la rejilla, y entonces el tile se remuestrea y se ve borroso y bailando
+	# -- justo el defecto que delata que algo no esta dibujado con el resto del arte. Redondeando, la
+	# pared salta de pixel en pixel, que ademas es como tiembla el pixel art de verdad.
+	position = _origen + Vector2(roundf(randf_range(-amp, amp)), roundf(randf_range(-amp, amp)))
 	_recolocar()
+
+
+# LA PIEDRA SE CIERRA SOLA. El boquete se come hacia dentro y las grietas se apagan con el, hasta
+# que la pared vuelve a estar entera y este nodo sobra.
+func _process_rota(delta: float) -> void:
+	# PRIMERO SE ABRE. El boquete aparecia ya a tamaño completo en el frame en que salia el bicho, y
+	# se leia como una pegatina puesta encima de la pared: el agujero tiene que REVENTAR, no aparecer.
+	# En ABRIR_DUR el hueco crece de nada a entero, que a ese ritmo son un par de frames largos -- lo
+	# justo para que el ojo vea que algo se ha partido ahi.
+	if _t_abre < ABRIR_DUR:
+		_t_abre += delta
+		if _grietas != null and is_instance_valid(_grietas):
+			# Con raiz: el area es lo que se ve y va con el radio al cuadrado, asi que el agujero se
+			# abre de golpe y frena al final, como una rotura de verdad.
+			_grietas.cerrar(sqrt(clampf(_t_abre / ABRIR_DUR, 0.0, 1.0)))
+		return
+	_t_rota += delta
+	var p: float = clampf(_t_rota / _dur_rota, 0.0, 1.0)
+	if _grietas != null and is_instance_valid(_grietas):
+		# LO PEQUEÑO CURA ANTES QUE LO GRANDE, como una herida. Las GRIETAS son fisuras: se sellan
+		# primero, en el primer tramo de la reparacion. El BOQUETE es el destrozo gordo y tarda todo
+		# el rato -- es lo ultimo que queda abierto.
+		#
+		# Y bajando el avance, las grietas se van EN ORDEN INVERSO al que salieron: los hilos finos de
+		# las puntas desaparecen antes que los troncos, que es exactamente como cerraria una piedra.
+		_grietas.avance(1.0 - clampf(p / GRIETAS_CURAN, 0.0, 1.0))
+		# 1 -> 0. No es lineal a proposito: al principio apenas se mueve (la piedra "aguanta rota" un
+		# buen rato, que es lo que se lee como un destrozo de verdad) y se cierra deprisa al final.
+		_grietas.cerrar(1.0 - p * p)
+	if p >= 1.0:
+		queue_free()
 
 
 # La piedra vuelve a su sitio, EXACTAMENTE como estaba (misma fuente, mismo atlas, misma variante).

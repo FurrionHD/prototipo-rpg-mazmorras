@@ -1578,8 +1578,11 @@ func _anunciar_boss(data: EnemyData) -> void:
 	_boss_naciendo = false
 	if piso != _piso_construido:
 		return
+	# ROMPER, no borrar: el suelo se queda con su boquete y se cierra solo (ver WallBirthFx.romper).
+	# El jefe no sale de una pared, sale del SUELO de su sala, asi que lo que se agrieta es el suelo --
+	# y como su corro son veinticinco celdas, la reparacion tarda casi el doble que la de un brote.
 	if is_instance_valid(fx):
-		fx.queue_free()
+		fx.romper()
 	# Alguien pudo plantarlo mientras temblaba (otro jugador entrando al piso, una carga de memoria):
 	# se comprueba otra vez, que dos jefes en la misma sala no los quita nadie.
 	for n in get_tree().get_nodes_in_group("enemy"):
