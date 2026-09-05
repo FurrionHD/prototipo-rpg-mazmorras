@@ -1081,8 +1081,10 @@ func _parir_boss(data: EnemyData, pos: Vector2, piso: int) -> void:
 	var e = crear_enemigo(data, pos, _boss_radio, 1.0, -1, true)
 	# Sale TREPANDO hacia fuera: _mandarlo_al_hueco decide por donde hay sitio y devuelve el hogar, y
 	# _emerger lo lleva del centro del agujero hasta el borde mientras se estira.
-	var hogar: Vector2 = _mandarlo_al_hueco(e, pos)
-	_emerger(e, pos, hogar)
+	# La SALIDA sale de _mandarlo_al_hueco: un punto de su sala que YA se ha comprobado que es suelo
+	# y que le cabe el cuerpo. No una cuenta.
+	var salida: Vector2 = _mandarlo_al_hueco(e, pos)
+	_emerger(e, pos, salida)
 
 
 # HACIA DONDE TIENE SITIO. El jefe nace en el centro de su sala y de ahi merodea a ciegas: si la
@@ -1124,18 +1126,24 @@ func _mandarlo_al_hueco(e: Node2D, centro: Vector2) -> Vector2:
 			puntos.append(gen.centro_px(c))
 
 	# El hogar: el punto valido MAS LEJANO del agujero, que es el que mas despejado tiene alrededor.
+	# Y LA SALIDA: el MAS CERCANO, que es adonde se le lleva al terminar de trepar.
 	var mejor := centro
 	var mejor_d: float = -1.0
+	var salida := centro
+	var salida_d: float = INF
 	for p in puntos:
 		var d: float = (p as Vector2).distance_to(centro)
 		if d > mejor_d:
 			mejor_d = d
 			mejor = p
+		if d < salida_d:
+			salida_d = d
+			salida = p
 	if puntos.is_empty():
 		puntos.append(centro)
 	if e.has_method("asignar_zona"):
 		e.call("asignar_zona", puntos, mejor)
-	return mejor
+	return salida
 
 
 # ¿Le caben 'holgura' celdas de suelo alrededor a esa celda? Es lo que separa un sitio por el que un
@@ -1175,6 +1183,8 @@ func _pisable_px(p: Vector2) -> bool:
 const EMERGER_DUR := 0.75
 const EMERGER_APLASTADO := 0.12   # el alto con el que arranca, en fraccion del suyo
 
+# 'hogar' aqui es LA SALIDA: un punto ya validado (suelo y con holgura para su cuerpo) al que se le
+# lleva mientras trepa. Ver _mandarlo_al_hueco.
 func _emerger(e: Node2D, centro: Vector2, hogar: Vector2) -> void:
 	if e == null or not is_instance_valid(e):
 		return
@@ -1198,12 +1208,11 @@ func _emerger(e: Node2D, centro: Vector2, hogar: Vector2) -> void:
 	#
 	# La posicion SI se puede animar ahora: durante esto tiene el proceso congelado, asi que su IA no
 	# esta escribiendola en paralelo (que fue lo que hizo que el primer intento saliera desplazado).
-	var salida: Vector2 = centro
-	if hogar != centro:
-		var d: Vector2 = (hogar - centro).normalized()
-		var r_sal: int = _radio_aviso_de(Game.boss_del_piso(_piso_construido))
-		salida = centro + d * float(r_sal + 1) * float(DungeonGenerator.CELDA)
-	t.tween_property(e, "global_position", salida, EMERGER_DUR).from(centro).set_trans(
+	# EL DESTINO VIENE YA COMPROBADO. Antes se calculaba aqui a ojo -- "tantas celdas del centro en la
+	# direccion del hogar" --, y como el tween mueve la posicion IGNORANDO LA COLISION, esa cuenta
+	# podia dejar al jefe DENTRO DE UN MURO. Y ahi no lo saca nadie: se quedaba enganchado en el borde
+	# para siempre, incluso despues de que el agujero se cerrara.
+	t.tween_property(e, "global_position", hogar, EMERGER_DUR).from(centro).set_trans(
 		Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	# Del negro del hueco a su color: viene de dentro, donde no da la luz. Mas rapido que el
 	# estiramiento, asi que lo ultimo que se ve es la forma asentandose.
