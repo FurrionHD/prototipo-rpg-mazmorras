@@ -2408,6 +2408,13 @@ func soltar_celdas_rotas(celdas: Array) -> void:
 		_celdas_rotas.erase(c)
 
 
+# Lo mismo al reves. Lo usa el aviso para apuntar su HALO (las celdas de al lado, que tiemblan un
+# poco): tambien estan prestadas mientras dura, asi que otro parto no puede cogerlas.
+func marcar_celdas_rotas(celdas: Array) -> void:
+	for c in celdas:
+		_celdas_rotas[c] = true
+
+
 # De pixeles del mundo a celda. floor() y no int(): con coordenadas negativas int() trunca hacia
 # cero y la celda sale corrida (misma nota que en _anunciar_boss).
 func celda_de_px(px: Vector2) -> Vector2i:
