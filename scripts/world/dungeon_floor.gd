@@ -2403,6 +2403,18 @@ func celda_rota(c: Vector2i) -> bool:
 	return _celdas_rotas.has(c)
 
 
+# ¿Hay algo pintado en esa celda, sea muro o suelo? Lo pregunta la GRIETA para saber por donde puede
+# correr: una pared que revienta se raja tambien hacia el SUELO de delante y hacia las paredes de al
+# lado, asi que no se le puede atar a las celdas que estallan. Lo unico que no puede es dibujarse
+# sobre el vacio, que ahi no hay nada que partir.
+func celda_pintada(c: Vector2i) -> bool:
+	for capa in ["muro", "suelo"]:
+		var tml: TileMapLayer = _tm.get(capa, null)
+		if tml != null and tml.get_cell_source_id(c) >= 0:
+			return true
+	return false
+
+
 func soltar_celdas_rotas(celdas: Array) -> void:
 	for c in celdas:
 		_celdas_rotas.erase(c)

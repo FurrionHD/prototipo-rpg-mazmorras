@@ -37,7 +37,7 @@ const GIRO := 0.5            # cuanto se tuerce en cada trozo (rad)
 const GROSOR := 2.0          # el de un tronco recien nacido
 const GROSOR_HIJA := 0.5     # lo que mide una hija respecto a su madre
 const GROSOR_MIN := 0.45     # las puntas son hilos, pero se tienen que ver
-const LARGO := 0.85          # largo del tronco, en celdas
+const LARGO := 1.7           # largo del tronco, en celdas: tiene que salirse de la celda que revienta
 const LARGO_HIJA := 0.55     # lo que mide una hija respecto a su madre
 const RAMAS_POR_NIVEL := 2   # en cuantas se abre cada rama
 

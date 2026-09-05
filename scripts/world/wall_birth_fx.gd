@@ -138,14 +138,32 @@ func iniciar_capa(piso: Node, capa: TileMapLayer, celdas: Array, lado: float, du
 	var focos: Array = []
 	for cel in _celdas:
 		focos.append(Vector2(cel) * lado + Vector2(lado, lado) * 0.5)
-	# Por donde puede correr la grieta: la piedra que revienta MAS su halo. Fuera de ahi se corta,
-	# que si no las ramas se metian por el suelo y por el musgo (ver WallCrackFx.preparar).
-	var zona: Array = []
-	zona.append_array(_celdas)
-	zona.append_array(_celdas_halo)
-	_grietas.preparar(focos, zona, lado, _semilla_grietas())
+	_grietas.preparar(focos, _zona_de_grietas(), lado, _semilla_grietas())
 	_recolocar()
 	return true
+
+
+# POR DONDE PUEDE CORRER LA GRIETA. Todo lo que este PINTADO -- muro o suelo -- a GRIETA_ALCANCE
+# celdas de las que revientan.
+#
+# Estuvo atada a las celdas que estallan y su halo, y era demasiado poco: una pared que revienta se
+# raja tambien hacia el SUELO que tiene delante y hacia las paredes de al lado, que es justamente lo
+# que se ve en las referencias. Lo unico que sigue estando prohibido es dibujar sobre el vacio, que
+# ahi no hay nada que partir -- y el alcance evita que una grieta cruce media mazmorra.
+const GRIETA_ALCANCE := 3
+
+func _zona_de_grietas() -> Array:
+	var out: Dictionary = {}
+	for c in _celdas:
+		for dy in range(-GRIETA_ALCANCE, GRIETA_ALCANCE + 1):
+			for dx in range(-GRIETA_ALCANCE, GRIETA_ALCANCE + 1):
+				var v: Vector2i = c + Vector2i(dx, dy)
+				if out.has(v):
+					continue
+				if _piso != null and _piso.has_method("celda_pintada") and not _piso.celda_pintada(v):
+					continue
+				out[v] = true
+	return out.keys()
 
 
 # La semilla de las grietas. Sale de la PRIMERA CELDA del destrozo, que es un dato que las dos
