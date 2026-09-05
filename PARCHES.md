@@ -2,6 +2,46 @@
 
 ---
 
+# v0.11.4 — «El charco»
+
+Los lagos de pescar eran un rectángulo azul liso, justo al lado de un riachuelo que sí tenía
+corriente, orillas y espuma. Y dentro nadaban cinco manchas oscuras iguales.
+
+## 🌊 El agua
+
+**El charco tiene forma.** Se acabó el rectángulo: ahora cada lago tiene su contorno, con sus calas
+y sus salientes, y no hay dos iguales. El tamaño no cambia —el pique se juega contra el charco y
+tiene que seguir siendo el mismo—, lo que cambia es la silueta.
+
+**Y tiene fondo.** El centro se lee más hondo que la orilla, así que el agua deja de ser una lámina
+plana. Los peces que nadan por lo hondo se ven más apagados que los que pasan cerca de la arena.
+
+**El riachuelo desemboca de verdad.** Donde el agua corriente entra en el lago no hay una costura,
+ni una orilla, ni una raya de espuma: es la misma agua, que a partir de ahí se queda quieta.
+
+**El lago está en calma y el río corre.** La balsa cabrillea muy despacio, sin ir a ninguna parte;
+la corriente del riachuelo sigue bajando como siempre.
+
+## 🐟 Los peces
+
+**Cada especie tiene su forma.** Se acabaron las manchas oscuras que solo se distinguían por el
+tamaño:
+
+- El **bagre de légamo** es una cabezota parda con cuatro bigotes y una cola de abanico.
+- La **anguila de pozo** es una cinta larga que acaba en punta.
+- El **espejo abisal** es un plato ancho y pálido —se ve venir desde la otra orilla.
+- La **lubina** y el **gobio** son husos, uno grande y otro chico.
+
+**Se les ve a través del agua.** Están sumergidos, con el azul del charco encima, pero la silueta se
+reconoce igual. Y nadan de verdad: **colean**, y baten más deprisa cuanto más rápido van, así que el
+que se tira a por tu cebo se nota.
+
+**El libro de pesca enseña al pez de verdad.** El mismo dibujo que ves bajo el agua, a todo color si
+ya lo has sacado, y en silueta exacta si todavía no. Si en el libro tiene bigotes, en el charco
+también.
+
+---
+
 # v0.11.3 — «Se ve de un vistazo»
 
 Dos pantallas rehechas de arriba abajo —la bolsa y la ficha— y el reloj de pared, que salió del
