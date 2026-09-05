@@ -23,10 +23,14 @@ class_name Decorado
 var musgo: Dictionary = {}
 var agua: Dictionary = {}
 var sumidero: Dictionary = {}
-# EL LAGO, aparte de `agua` aunque tambien este dentro de ella. Dos diccionarios y no uno porque
-# responden a dos preguntas distintas: `agua` es "¿que baldosa pinto?" (y ahi el lago y el
-# riachuelo TIENEN que ser lo mismo, o la junta entre los dos dibuja una orilla); `lago` es "¿donde
-# se pesca?", que es lo que necesitan la colision del charco, el lanzamiento y el nado de los peces.
+# EL LAGO. DISJUNTO de `agua`: son dos capas distintas porque el riachuelo CORRE y el lago esta en
+# calma (ver TerrenoSprites._pintar_agua), y como se mueve una baldosa es cosa del TileSet, no del
+# dibujo. La junta entre los dos no se ve igualmente, pero por otro motivo: la MASCARA de cada capa
+# se calcula contra la UNION de las dos, asi que en la celda donde se tocan ninguna pone bit y
+# ninguna dibuja orilla ni espuma. Ver DungeonFloor._pintar_capa.
+#
+# Y ademas responde otra pregunta: `agua` es "¿que baldosa pinto?", `lago` es "¿donde se pesca?",
+# que es lo que necesitan la colision del charco, el lanzamiento y el nado de los peces.
 var lago: Dictionary = {}
 # Las celdas del lago que no tocan tierra por ninguno de sus cuatro lados: el CORAZON. De ahi sale
 # la capa "hondo" (el velo de profundidad) y ahi nacen los peces, que es donde caben seguro.
@@ -369,10 +373,6 @@ func _trazar_lago(sem: int) -> void:
 	if lago_hondo.is_empty():
 		lago_hondo[_estanque] = true
 	_lago_d3 = _dilatar(lago, 3)
-	# Y AHORA se vuelca a `agua`: a partir de aqui el lago y el riachuelo son la MISMA capa, que es
-	# lo que hace que la junta entre los dos no exista (ver TerrenoSprites._pintar_agua).
-	for c in lago:
-		agua[c] = true
 
 
 # ============================================================

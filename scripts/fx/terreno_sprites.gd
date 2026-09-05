@@ -64,7 +64,8 @@ enum Clase { BASE, MASCARA }
 # ============================================================
 # El orden de CAPAS_ORDEN fija el reparto del atlas. Añadir una capa AL FINAL no mueve a las de
 # arriba, o sea que un horneado viejo de otra capa sigue valiendo mientras se desarrolla.
-const CAPAS_ORDEN := ["suelo", "muro", "musgo", "agua", "sumidero", "columna", "flor", "hondo"]
+const CAPAS_ORDEN := ["suelo", "muro", "musgo", "agua", "sumidero", "columna", "flor", "hondo",
+	"lago"]
 
 # ------------------------------------------------------------
 #  'bloque': POR QUE LA TEXTURA NO SE VE A CUADROS
@@ -108,6 +109,13 @@ const CAPAS := {
 	# el riachuelo corre, siendo los dos la misma capa de agua. De propina cuesta 8 filas de atlas
 	# en vez de 32, que importa porque el atlas se hornea cinco veces.
 	"hondo": {"clase": Clase.MASCARA, "bloque": 2, "frames": 1, "overlay": true},
+	# EL LAGO. Es la capa "agua" con una sola diferencia, y esa diferencia es todo el asunto: aqui
+	# el ruido no se DESPLAZA, da una vuelta pequeña y vuelve. Ver _pintar_agua.
+	#
+	# Va en una capa aparte y no como variante de "agua" porque lo que cambia no es el dibujo sino
+	# COMO SE MUEVE, y eso en un TileSet es la baldosa entera. Comparten tapiz, paleta y ruido base,
+	# asi que en la fase 0 dibujan exactamente lo mismo: por eso pueden tocarse sin costura.
+	"lago": {"clase": Clase.MASCARA, "bloque": 2, "frames": 4, "overlay": true},
 	# EL DESAGUE. Existe por una regla de diseño: el agua NUNCA puede terminar en seco. Un
 	# riachuelo sale de una pared y tiene que acabar en el lago, meterse en otra pared o colarse
 	# por un sumidero. Sin esta pieza, la tercera salida no existe y el trazado se queda sin
@@ -371,6 +379,12 @@ static func _rampa_pura(tramo: String, capa: String) -> Array:
 		return p.get("muro", p["suelo"]) as Array
 	if capa == "flor" and not p.has("flor"):
 		return p.get("musgo", p["suelo"]) as Array
+	# EL LAGO ES LA MISMA AGUA. No tiene rampa propia y no debe tenerla: si el charco y el riachuelo
+	# tuvieran colores distintos, por muy parecidos que fueran, la junta entre los dos se veria --
+	# que es justo lo unico que esta separacion en dos capas tiene que evitar. Lo unico que cambia
+	# entre ellos es que uno corre y el otro no (ver _pintar_agua).
+	if capa == "lago":
+		return p.get("agua", p["suelo"]) as Array
 	return p.get(capa, p["suelo"]) as Array
 
 
@@ -668,15 +682,51 @@ static func _pintar_musgo(d: PackedByteArray, W: int, o: Vector2i, rampa: Array,
 # La orilla es lo que la conecta con lo que tenga debajo: los ultimos px se van a alfa y ademas
 # llevan espuma, asi que el riachuelo desemboca en el estanque sin que exista ninguna pieza
 # "riachuelo-que-toca-lago" -- por debajo se ve el agua del charco y ya esta.
+#
+# ------------------------------------------------------------
+#  UN LAGO NO CORRE
+# ------------------------------------------------------------
+# La misma funcion pinta el riachuelo y el lago, y la diferencia es UNA cosa: a donde va el ruido
+# con la fase.
+#
+#   CORRIENTE (el riachuelo) -> el ruido se DESPLAZA una baldosa entera a lo largo del ciclo. Por
+#     eso el ultimo frame encaja con el primero y el agua avanza de verdad.
+#   CALMA (el lago) -> el ruido da una VUELTA PEQUEÑA y vuelve a su sitio. El dibujo cabrillea sin
+#     ir a ninguna parte, que es lo que hace una balsa quieta.
+#
+# El primer intento tenia el lago en la misma capa que el riachuelo (la junta salia gratis) y se
+# veia la corriente atravesando el charco de lado a lado. Un lago en calma no es un rio lento: es
+# agua que no va a ningun sitio, y eso no se consigue bajando la velocidad, hay que quitarle la
+# DIRECCION.
+#
+# Los dos comparten tapiz, paleta y ruido base, y en la FASE 0 dibujan exactamente lo mismo. Es lo
+# que deja que se toquen sin costura aunque sean dos capas: donde el riachuelo desemboca no hay un
+# cambio de textura, hay la misma textura que a partir de ahi deja de avanzar.
 const AGUA_ORILLA := 7.0
+const CALMA_VAIVEN := 2.2     # px que se mueve el cabrilleo del lago. Mas y empieza a derivar
 
 static func _pintar_agua(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, mask: int,
-		sem: int, fase: float, ox: float, oy: float, bl: int) -> void:
+		sem: int, fase: float, ox: float, oy: float, bl: int, calma: bool = false) -> void:
 	var corre: float = fase * float(LADO)
 	# Dos capas a distinta velocidad: es lo que da sensacion de profundidad y no de textura que se
 	# arrastra en bloque.
-	var a: PackedFloat32Array = _campo(6, sem, ox, oy - corre, 1.0, bl)
-	var b: PackedFloat32Array = _campo(10, sem + 21, ox, oy - corre * 0.55, 1.3, bl)
+	var ax: float = ox
+	var ay: float = oy - corre
+	var bx: float = ox
+	var by: float = oy - corre * 0.55
+	if calma:
+		# Vuelta pequeña que CIERRA: el -1 dentro del coseno es lo que la hace arrancar y terminar
+		# en el sitio, o sea que la fase 0 del lago es identica a la del riachuelo.
+		var t: float = fase * TAU
+		ax = ox + sin(t) * CALMA_VAIVEN
+		ay = oy + (cos(t) - 1.0) * CALMA_VAIVEN
+		# La segunda capa gira al REVES. Girando las dos igual, el conjunto se traslada y vuelve a
+		# leerse como una corriente que va y viene; en contrafase se cruzan y lo que se ve es el
+		# reflejo cambiando, que es lo que hace una superficie quieta.
+		bx = ox - sin(t) * CALMA_VAIVEN * 0.7
+		by = oy + (cos(t) - 1.0) * CALMA_VAIVEN * 0.7
+	var a: PackedFloat32Array = _campo(6, sem, ax, ay, 1.0, bl)
+	var b: PackedFloat32Array = _campo(10, sem + 21, bx, by, 1.3, bl)
 	var espuma := Color(0.78, 0.88, 0.95)
 	for y in LADO:
 		for x in LADO:
@@ -936,6 +986,8 @@ static func _pintar(d: PackedByteArray, W: int, capa: String, o: Vector2i, rampa
 			_pintar_musgo(d, W, o, rampa, mask, sem, ox, oy, bl)
 		"agua":
 			_pintar_agua(d, W, o, rampa, mask, sem, fase, ox, oy, bl)
+		"lago":
+			_pintar_agua(d, W, o, rampa, mask, sem, fase, ox, oy, bl, true)
 		"hondo":
 			_pintar_hondo(d, W, o, rampa, mask, sem, ox, oy, bl)
 		"sumidero":

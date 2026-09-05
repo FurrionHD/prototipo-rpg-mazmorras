@@ -702,18 +702,23 @@ func _decorar() -> void:
 	# Las FLORES que alumbran son cosa de la cueva: en la mazmorra picada de arriba no hay.
 	d.generar(gen, _celda_estanque, ESTANQUE_CELDAS, sem, _estilo_cueva)
 	_celdas_musgo = d.musgo
-	# `agua` YA TRAE EL LAGO dentro: el charco y el riachuelo son la misma capa a proposito, que es
-	# lo que hace que la junta entre los dos no exista (ver Decorado._trazar_lago).
+	# El riachuelo y el lago van en capas SEPARADAS (uno corre, el otro esta en calma) pero son una
+	# sola lamina: `_lamina` es la union, y es contra ella contra la que se calculan las dos
+	# mascaras para que en la desembocadura no haya orilla. Ver _pintar_capa.
 	_celdas_agua = d.agua
 	_celdas_lago = d.lago
 	_celdas_hondo = d.lago_hondo
+	var lamina: Dictionary = d.agua.duplicate()
+	for c in d.lago:
+		lamina[c] = true
 	# El lago engordado una celda, para el merodeo de los enemigos (ver celda_en_estanque). Se
 	# precalcula porque lo pregunta CADA bicho del piso cada vez que elige a donde ir.
 	_lago_d1 = Decorado._dilatar(_celdas_lago, 1)
 	_celdas_sumidero = d.sumidero
 	_celdas_flor = d.flor
-	_pintar_capa("agua", _celdas_agua, sem)
-	# El fondo del lago va JUSTO DETRAS del agua: es un velo que la ahonda, y tiene que quedar
+	_pintar_capa("agua", _celdas_agua, sem, lamina)
+	_pintar_capa("lago", _celdas_lago, sem, lamina)
+	# El fondo del lago va DETRAS de las dos: es un velo que ahonda el agua, y tiene que quedar
 	# debajo de todo lo demas que se pinte encima.
 	_pintar_capa("hondo", _celdas_hondo, sem)
 	_pintar_capa("sumidero", _celdas_sumidero, sem)
@@ -725,11 +730,17 @@ func _decorar() -> void:
 
 # Vuelca un conjunto de celdas en su TileMapLayer, calculando la mascara de cada una contra las
 # OTRAS DE SU MISMA CAPA (que es lo que hace que la mancha tenga orilla y el riachuelo, cauce).
-func _pintar_capa(capa: String, celdas: Dictionary, sem: int) -> void:
+#
+# `contra` deja calcular la mascara contra OTRO conjunto que el que se pinta, y existe por el
+# riachuelo y el lago: son dos capas (una corre y la otra no) pero una sola lamina de agua, asi que
+# cada una mira a la UNION. Sin esto, en la celda donde el riachuelo desemboca las dos se verian
+# borde la una a la otra y dibujarian una orilla con espuma en medio del agua.
+func _pintar_capa(capa: String, celdas: Dictionary, sem: int, contra: Dictionary = {}) -> void:
 	var tml: TileMapLayer = _tm.get(capa, null)
 	if tml == null or celdas.is_empty():
 		return
-	var soy := func(v: Vector2i) -> bool: return celdas.has(v)
+	var vecinas: Dictionary = contra if not contra.is_empty() else celdas
+	var soy := func(v: Vector2i) -> bool: return vecinas.has(v)
 	for c in celdas:
 		var m: int = TerrenoSprites.mascara(c, soy)
 		# Con la fuente de SU celda: en un piso de corte, el musgo y el agua que caen dentro de la

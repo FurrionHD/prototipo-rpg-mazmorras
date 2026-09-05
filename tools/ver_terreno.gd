@@ -62,6 +62,7 @@ func _initialize() -> void:
 	_guardar(_lago_zoom(atlas_roca), "lago_zoom", ZOOM_LAGO)
 	_guardar(_lago_formas(atlas_roca), "lago_formas")
 	_guardar(_lago_real(atlas_roca), "lago_real", ZOOM_LAGO)
+	_guardar(_frames_agua(atlas_roca), "lago_frames", 4)
 	_barrer_lagos()
 
 	# --- 3. LA TRANSICION: el mismo trozo, con la frontera entre dos tramos ---
@@ -225,13 +226,13 @@ func _lago_zoom(atlas: Image) -> Image:
 	var lago: Dictionary = Decorado.forma_lago(centro, LAGO_TAM, SEM_LAGO, suelo)
 	# El riachuelo: baja recto desde arriba hasta que se mete en el lago. La junta queda en medio
 	# del encuadre, que es lo unico que este PNG viene a enseñar.
-	var agua: Dictionary = lago.duplicate()
+	var rio: Dictionary = {}
 	for y in range(0, h):
 		var c := Vector2i(centro.x, y)
 		if lago.has(c):
 			break
-		agua[c] = true
-	return _pintar_agua_suelta(atlas, w, h, agua, Decorado.nucleo_lago(lago))
+		rio[c] = true
+	return _pintar_agua_suelta(atlas, w, h, lago, Decorado.nucleo_lago(lago), rio)
 
 
 # Dieciseis semillas seguidas, en rejilla de 4x4. Un lago bonito no demuestra nada.
@@ -254,8 +255,8 @@ func _lago_formas(atlas: Image) -> Image:
 
 # Suelo + agua + hondo, sin muros: aqui lo que se juzga es la lamina de agua, y un marco de roca
 # alrededor solo robaria sitio.
-func _pintar_agua_suelta(atlas: Image, w: int, h: int, agua: Dictionary,
-		hondo: Dictionary) -> Image:
+func _pintar_agua_suelta(atlas: Image, w: int, h: int, lago: Dictionary,
+		hondo: Dictionary, rio: Dictionary = {}) -> Image:
 	var L: int = TerrenoSprites.LADO
 	var img := Image.create(w * L, h * L, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0.03, 0.03, 0.04))
@@ -263,16 +264,81 @@ func _pintar_agua_suelta(atlas: Image, w: int, h: int, agua: Dictionary,
 		for x in w:
 			_baldosa(img, atlas, TerrenoSprites.celda_para("suelo", Vector2i(x, y), 0, SEM_LAGO),
 				Vector2i(x, y))
-	# La MASCARA del agua se calcula contra TODA el agua (lago + riachuelo), que es como lo hace el
-	# juego. Es justo lo que borra la junta: en la celda donde el rio toca el lago no hay bit puesto,
-	# asi que no se dibuja ni orilla ni espuma.
-	for c in agua:
-		var m: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return agua.has(v))
-		_baldosa(img, atlas, TerrenoSprites.celda_para("agua", c, m, SEM_LAGO), c)
+	# El riachuelo va en la capa "agua" (corre) y el lago en la capa "lago" (esta en calma), pero
+	# LAS DOS MASCARAS SE CALCULAN CONTRA LA UNION, que es como lo hace el juego. Eso es lo que
+	# borra la junta: en la celda donde el rio toca el lago ninguna de las dos pone bit, asi que no
+	# se dibuja ni orilla ni espuma en medio del agua.
+	var lamina: Dictionary = lago.duplicate()
+	for c in rio:
+		lamina[c] = true
+	var union := func(v: Vector2i) -> bool: return lamina.has(v)
+	for c in rio:
+		_baldosa(img, atlas, TerrenoSprites.celda_para("agua", c,
+			TerrenoSprites.mascara(c, union), SEM_LAGO), c)
+	for c in lago:
+		_baldosa(img, atlas, TerrenoSprites.celda_para("lago", c,
+			TerrenoSprites.mascara(c, union), SEM_LAGO), c)
 	for c in hondo:
 		var m2: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return hondo.has(v))
 		_baldosa(img, atlas, TerrenoSprites.celda_para("hondo", c, m2, SEM_LAGO), c)
 	return img
+
+
+# ¿ESTA EL LAGO EN CALMA? Un PNG es una foto, y el movimiento no sale en una foto: hay que poner
+# los CUATRO FRAMES uno al lado del otro y mirarlos como una tira.
+#
+# Arriba el riachuelo, abajo el lago, un parche de 3x3 celdas de agua sin orilla para que solo se
+# vea la textura. Lo que hay que leer:
+#   RIACHUELO -> el dibujo BAJA. Del primer frame al ultimo ha recorrido una baldosa entera, y por
+#                eso el ciclo cierra sin tiron.
+#   LAGO      -> el dibujo se queda DONDE ESTA. Cambia (cabrillea), pero no va a ninguna parte, y
+#                el cuarto frame vuelve a parecerse al primero.
+# Ademas imprime cuanto se mueve cada uno en pixeles: si el numero del lago no es mucho menor que
+# el del riachuelo, la calma no esta funcionando por mucho que la foto parezca bien.
+func _frames_agua(atlas: Image) -> Image:
+	var L: int = TerrenoSprites.LADO
+	var n: int = 3
+	var img := Image.create(L * n * TerrenoSprites.frames_de("agua"), L * n * 2, false,
+		Image.FORMAT_RGBA8)
+	img.fill(Color(0.03, 0.03, 0.04))
+	var capas := ["agua", "lago"]
+	for fila in capas.size():
+		var capa: String = capas[fila]
+		for f in TerrenoSprites.frames_de(capa):
+			for y in n:
+				for x in n:
+					var c := Vector2i(x, y)
+					# Mascara 0 = agua rodeada de agua, o sea sin orilla: aqui se juzga la TEXTURA,
+					# y una espuma en el borde solo distraeria.
+					var base: Vector2i = TerrenoSprites.celda_para(capa, c, 0, SEM_LAGO)
+					img.blend_rect(atlas, Rect2i((base + Vector2i(f, 0)) * L, Vector2i(L, L)),
+						Vector2i((f * n + x) * L, (fila * n + y) * L))
+		print("  %-5s se mueve %.1f px entre el primer frame y el ultimo" %
+			[capa, _recorrido(atlas, capa)])
+	return img
+
+
+# Cuanto se ha desplazado la textura del primer al ultimo frame, medido de verdad: se prueban todos
+# los corrimientos verticales y se dice cual es el que mejor casa. Es el numero que separa "corre"
+# de "esta quieta", y no la impresion de mirar dos PNG parecidos.
+func _recorrido(atlas: Image, capa: String) -> float:
+	var L: int = TerrenoSprites.LADO
+	var base: Vector2i = TerrenoSprites.celda_para(capa, Vector2i.ZERO, 0, SEM_LAGO)
+	var f0: Image = atlas.get_region(Rect2i(base * L, Vector2i(L, L)))
+	var ult: int = TerrenoSprites.frames_de(capa) - 1
+	var fn: Image = atlas.get_region(Rect2i((base + Vector2i(ult, 0)) * L, Vector2i(L, L)))
+	var mejor: float = 0.0
+	var mejor_d: float = INF
+	for dy in range(0, L):
+		var e: float = 0.0
+		for y in L:
+			for x in L:
+				e += absf(f0.get_pixel(x, (y + dy) % L).r - fn.get_pixel(x, y).r)
+		if e < mejor_d:
+			mejor_d = e
+			mejor = float(dy)
+	# El desplazamiento es circular: 30 px hacia abajo son 2 hacia arriba.
+	return minf(mejor, float(L) - mejor)
 
 
 # UN PISO DE VERDAD. Los dos PNG de arriba dibujan el lago sobre un mapa de juguete: contestan como
@@ -318,12 +384,17 @@ func _lago_real(atlas: Image) -> Image:
 					return Decorado.es_roca(gen, v))
 				_baldosa(img, atlas, TerrenoSprites.celda_para("muro", c, mm, SEM_LAGO), en)
 	# Musgo, agua y hondo, en el orden de los TileMapLayer del juego.
-	for capa in [["musgo", d.musgo], ["agua", d.agua], ["hondo", d.lago_hondo]]:
+	var lamina: Dictionary = d.agua.duplicate()
+	for c in d.lago:
+		lamina[c] = true
+	for capa in [["musgo", d.musgo, d.musgo], ["agua", d.agua, lamina],
+			["lago", d.lago, lamina], ["hondo", d.lago_hondo, d.lago_hondo]]:
 		var celdas: Dictionary = capa[1]
+		var vecinas: Dictionary = capa[2]
 		for c in celdas:
 			if not caja.has_point(c):
 				continue
-			var m: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return celdas.has(v))
+			var m: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return vecinas.has(v))
 			_baldosa(img, atlas, TerrenoSprites.celda_para(String(capa[0]), c, m, SEM_LAGO),
 				c - caja.position)
 	return img
