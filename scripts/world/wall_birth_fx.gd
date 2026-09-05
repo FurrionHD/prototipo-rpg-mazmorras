@@ -140,11 +140,14 @@ func iniciar_capa(piso: Node, capa: TileMapLayer, celdas: Array, lado: float, du
 		_halo.set_cell(cel, src2, _capa.get_cell_atlas_coords(cel),
 			_capa.get_cell_alternative_tile(cel))
 		# Su original tambien se queda debajo, por lo mismo (ver arriba).
-	# El halo tambien queda EN OBRAS mientras dura: si otro parto cogiera una de estas celdas, al
-	# devolverla el primero se quedaria un agujero. Lo registra el aviso y no montar_aviso porque es
-	# aqui donde se decide cuales son.
-	if _piso != null and _piso.has_method("marcar_celdas_rotas"):
-		_piso.marcar_celdas_rotas(_celdas_halo)
+	# EL HALO NO SE REGISTRA COMO "EN OBRAS", y esto costo un rato de entender. Se registraba, y con
+	# la reparacion durando medio minuto eso dejaba bloqueadas TODAS las celdas de alrededor: el
+	# siguiente brote no podia extenderse por ellas y se quedaba en una sola celda -- "el brote parece
+	# un parto de uno", que es exactamente lo que se veia.
+	#
+	# Y no hace falta: el registro existe para que dos efectos no se peleen por la misma celda, y el
+	# halo ni siquiera la toma prestada de verdad (la original se queda debajo, quieta). Que una
+	# vecina tiemble un poco no es motivo para vetarle un parto durante medio minuto.
 
 	# LAS GRIETAS, que son lo que avisa junto con el temblor desde que se quito el brillo rojo. Salen
 	# del centro de cada celda que va a reventar y van creciendo segun se acerca el parto.

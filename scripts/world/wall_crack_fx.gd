@@ -39,9 +39,18 @@ const PIXEL := 1.0
 # por el que se ve el fondo, que es lo que tiene que parecer.
 const COL_GRIETA := Color(0.05, 0.05, 0.07)
 const COL_HUECO := Color(0.05, 0.05, 0.07)
-# El LABIO de piedra recien partida, un tono mas claro que la cara del muro: es lo que le da volumen
-# al agujero. Sin el, el boquete es una silueta plana recortada.
-const COL_LABIO := Color(0.42, 0.40, 0.50)
+# LOS CUATRO TONOS DEL AGUJERO. El fondo NO es plano: un relleno de un solo color se lee como una
+# silueta pegada encima, y lo que dice "esto es un hueco" es que tenga dentro, fuera y un lado por
+# donde le entra la luz.
+const COL_HUECO_FONDO := Color(0.07, 0.07, 0.10)   # la boca
+const COL_HUECO_HONDO := Color(0.02, 0.02, 0.03)   # el centro, lo mas profundo
+const COL_HUECO_LUZ := Color(0.44, 0.42, 0.52)     # la pared interior de abajo: le entra la luz
+const COL_HUECO_SOMBRA := Color(0.03, 0.03, 0.05)  # la de arriba, hundida
+const COL_DIENTE := Color(0.34, 0.32, 0.40)        # piedra que asoma hacia dentro
+enum { HUECO_FONDO, HUECO_HONDO, HUECO_LUZ, HUECO_SOMBRA, HUECO_DIENTE }
+# Los dientes: cuantos por celda y cuanto entran (px).
+const DIENTES := 7
+const DIENTE_LARGO := 5.0
 # El FILO de luz que perfila la grieta por abajo y por la derecha (ver _perfilar). Mas claro que la
 # cara del muro, para que se lea igual sobre la pared que sobre el suelo oscuro.
 const COL_FILO := Color(0.38, 0.36, 0.45)
@@ -108,8 +117,13 @@ func preparar(focos: Array, permitidas: Array, lado: float, sem: int) -> void:
 	for c in permitidas:
 		_zona[c as Vector2i] = true
 	var vistos: Dictionary = {}   # un pixel pintado dos veces no se nota, pero se paga
+	# LA DENSIDAD SE REPARTE ENTRE LOS FOCOS. Con los troncos fijos por celda, un brote de tres salia
+	# con quince arboles ramificados encima y era una maraña que se comia hasta el boquete: mas grieta
+	# no es mas roto, es menos legible. Repartiendo, un destrozo grande se lee como uno grande y no
+	# como un borron.
+	var por_foco: int = maxi(2, TRONCOS - focos.size() + 1)
 	for f in focos:
-		_arbol(f as Vector2, lado, sem, vistos)
+		_arbol(f as Vector2, lado, sem, vistos, por_foco)
 	_perfilar(vistos)
 	# Por MOMENTO DE APARICION, para que _draw pueda cortar por el primero que aun no toca en vez de
 	# recorrerlos todos comparando.
@@ -157,7 +171,7 @@ func _dentro(p: Vector2) -> bool:
 	return _zona.has(Vector2i(int(floor(p.x / _lado)), int(floor(p.y / _lado))))
 
 
-func _arbol(foco: Vector2, lado: float, sem: int, vistos: Dictionary) -> void:
+func _arbol(foco: Vector2, lado: float, sem: int, vistos: Dictionary, troncos: int) -> void:
 	var rng := RandomNumberGenerator.new()
 	# La semilla sale del PUNTO, no de un contador: el mismo sitio da la misma grieta en cualquier
 	# maquina y en cualquier momento.
@@ -167,10 +181,10 @@ func _arbol(foco: Vector2, lado: float, sem: int, vistos: Dictionary) -> void:
 	# hijas, cada una al 55% de su madre. Es la vara con la que se normaliza la distancia.
 	_alcance = maxf(1.0, LARGO * lado * (1.0 + 0.55 + 0.3 + 0.17))
 	var giro: float = rng.randf() * TAU
-	for i in TRONCOS:
+	for i in troncos:
 		# En abanico, con un bandazo por tronco: a intervalos iguales se ve una estrella de dibujo
 		# animado, no una piedra partida.
-		var ang: float = giro + TAU * float(i) / float(TRONCOS) + rng.randf_range(-0.45, 0.45)
+		var ang: float = giro + TAU * float(i) / float(troncos) + rng.randf_range(-0.45, 0.45)
 		_rama(rng, foco, ang, GROSOR, LARGO * lado, HONDURA, 0.0, vistos)
 
 
@@ -336,7 +350,7 @@ func _mancha(celda: Vector2i, rotas: Dictionary, sem: int, retardo: float) -> vo
 			var v: Vector2 = p - centro
 			var dist: float = v.length()
 			if dist < 0.001:
-				_px_hueco.append({"p": p, "r": retardo, "labio": false})
+				_px_hueco.append({"p": p, "r": retardo, "t": HUECO_HONDO})
 				continue
 			# Radio y retardo del contorno EN ESE ANGULO, interpolando entre las dos muestras vecinas.
 			var a: float = fposmod(v.angle(), TAU) / TAU * float(HUECO_VERTICES)
@@ -346,8 +360,28 @@ func _mancha(celda: Vector2i, rotas: Dictionary, sem: int, retardo: float) -> vo
 			var borde: float = lerpf(radios[i0], radios[i1], f)
 			if dist > borde:
 				continue
-			# EL LABIO es el anillo de fuera: dos pixeles de piedra recien partida que le dan volumen.
-			var es_labio: bool = dist > borde - 2.0
+			# QUE PINTA TIENE ESTE PIXEL. Aqui esta casi todo lo que separa un boquete de una pegatina:
+			#
+			#  - DIENTES. Cuñas de piedra que entran desde el borde hacia el centro, como en las
+			#    referencias. Son lo que mas cambia la lectura: un contorno limpio -- por muy ondulado
+			#    que sea -- se ve recortado con tijeras, y los dientes lo rompen.
+			#  - LUZ DE UN SOLO LADO. El labio iba de anillo alrededor de TODA la silueta, y un contorno
+			#    uniforme rodeando una forma es literalmente como se dibuja una pegatina. Ahora solo se
+			#    ilumina la pared interior de ABAJO (la que coge luz al entrar) y la de arriba se hunde
+			#    en sombra: eso es lo que lo vuelve concavo.
+			#  - FONDO CON PROFUNDIDAD. El relleno no es un negro plano: se oscurece hacia el centro,
+			#    que es la parte mas honda.
+			var adentro: float = borde - dist             # lo dentro que esta del borde
+			var arriba: float = -v.y / maxf(1.0, dist)    # 1 = borde de arriba, -1 = el de abajo
+			var tipo: int = HUECO_FONDO
+			if adentro < _diente(v.angle(), celda, sem):
+				tipo = HUECO_DIENTE
+			elif adentro < 2.0 and arriba < -0.25:
+				tipo = HUECO_LUZ
+			elif adentro < 3.0 and arriba > 0.35:
+				tipo = HUECO_SOMBRA
+			elif adentro > borde * 0.55:
+				tipo = HUECO_HONDO
 			# EL RETARDO DE UN PIXEL. Un pixel sigue abierto mientras su 'r' aguante por encima de lo
 			# reparado, asi que el que tiene 'r' PEQUEÑO se cierra ANTES.
 			#
@@ -357,7 +391,28 @@ func _mancha(celda: Vector2i, rotas: Dictionary, sem: int, retardo: float) -> vo
 			# casi cero (la piedra entra por donde tiene de que agarrarse) y en el centro, lo maximo.
 			var hacia_dentro: float = 1.0 - dist / maxf(1.0, borde)
 			var ret: float = retardo + lerpf(rets[i0], rets[i1], f) * hacia_dentro
-			_px_hueco.append({"p": p, "r": clampf(ret, 0.0, 0.98), "labio": es_labio})
+			_px_hueco.append({"p": p, "r": clampf(ret, 0.0, 0.98), "t": tipo})
+
+
+func _tono(t: int) -> Color:
+	match t:
+		HUECO_HONDO: return COL_HUECO_HONDO
+		HUECO_LUZ: return COL_HUECO_LUZ
+		HUECO_SOMBRA: return COL_HUECO_SOMBRA
+		HUECO_DIENTE: return COL_DIENTE
+	return COL_HUECO_FONDO
+
+
+# LOS DIENTES, por angulo: cuanto entra la piedra hacia el centro en esa direccion. Sale de una suma
+# de senos con la semilla de la celda, asi que es irregular pero SIEMPRE EL MISMO -- y no hace falta
+# guardar una lista de puntas: basta preguntarle por el angulo de cada pixel.
+#
+# Solo la mitad de las puntas entran de verdad (el maxf con cero): si entraran todas, el borde seria
+# una corona de sierra regular, que es otra forma de verse dibujado a maquina.
+func _diente(ang: float, celda: Vector2i, sem: int) -> float:
+	var semilla: float = float(absi(hash(Vector3i(celda.x, celda.y, sem))) % 1000) * 0.00628
+	var d: float = sin(ang * float(DIENTES) + semilla) * 0.6 + sin(ang * 3.0 - semilla * 1.7) * 0.4
+	return maxf(0.0, d) * DIENTE_LARGO
 
 
 # CUANTO QUEDA DEL BOQUETE, de 1 (recien reventado) a 0 (pared entera).
@@ -387,5 +442,4 @@ func _draw() -> void:
 			# dibujo vectorial que hay debajo.
 			if float(h["r"]) < avance_cierre:
 				continue
-			draw_rect(Rect2(h["p"], Vector2(PIXEL, PIXEL)),
-				COL_LABIO if bool(h["labio"]) else COL_HUECO, true)
+			draw_rect(Rect2(h["p"], Vector2(PIXEL, PIXEL)), _tono(int(h["t"])), true)
